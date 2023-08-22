@@ -6,11 +6,16 @@
 #include <string>
 #include <vector>
 
-tt_VersimDevice::tt_VersimDevice(std::unordered_map<chip_id_t, tt_SocDescriptor> soc_descriptor_per_chip_, std::string ndesc_path) : tt_device(soc_descriptor_per_chip_) {
+tt_VersimDevice::tt_VersimDevice(const std::string &sdesc_path, const std::string &ndesc_path) : tt_device(sdesc_path) {
   throw std::runtime_error("tt_VersimDevice() -- VERSIM is not supported in this build\n");
 }
 
 tt_VersimDevice::~tt_VersimDevice () {}
+
+std::unordered_map<chip_id_t, tt_SocDescriptor>& tt_VersimDevice::get_virtual_soc_descriptors() {
+    throw std::runtime_error("tt_VersimDevice() -- VERSIM is not supported in this build\n");
+    return soc_descriptor_per_chip;
+}
 
 int tt_VersimDevice::get_number_of_chips_in_cluster() { return detect_number_of_chips(); }
 std::unordered_set<int> tt_VersimDevice::get_all_chips_in_cluster() { return {}; }
@@ -43,6 +48,10 @@ bool versim_check_dram_core_exists(
     const std::vector<std::vector<tt_xy_pair>> &dram_core_channels, tt_xy_pair target_core) {
   return false;
 }
+
+bool tt_VersimDevice::using_harvested_soc_descriptors() { return false; }
+bool tt_VersimDevice::noc_translation_en() { return false; }
+std::unordered_map<chip_id_t, uint32_t> tt_VersimDevice::get_harvesting_masks_for_soc_descriptors() { return std::unordered_map<chip_id_t, uint32_t>();}
 
 bool tt_VersimDevice::stop() { return true; }
 

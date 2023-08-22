@@ -17,8 +17,7 @@
 ////////
 // Device base
 ////////
-
-tt_device::tt_device(std::unordered_map<chip_id_t, tt_SocDescriptor> soc_descriptor_per_chip_) : soc_descriptor_per_chip(soc_descriptor_per_chip_) {
+tt_device::tt_device(const std::string& sdesc_path) : soc_descriptor_per_chip({}) {
 }
 
 tt_device::~tt_device() {

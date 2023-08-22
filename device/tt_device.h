@@ -160,7 +160,7 @@ struct tt_device_params {
 class tt_device
 {
     public:
-    tt_device(std::unordered_map<chip_id_t, tt_SocDescriptor> soc_descriptor_per_chip);
+    tt_device(const std::string& sdesc_path);
     virtual ~tt_device();
 
     // Setup/Teardown Functions
@@ -174,10 +174,6 @@ class tt_device
 
     virtual void set_driver_eth_interface_params(const tt_driver_eth_interface_params& eth_interface_params_) {
         throw std::runtime_error("---- tt_device::set_driver_eth_interface_params is not implemented\n");
-    }
-
-    virtual void update_soc_descriptors(std::unordered_map<chip_id_t, tt_SocDescriptor> sdesc_per_chip) {
-        throw std::runtime_error("---- tt_device::update_soc_descriptors is not implemented\n");
     }
 
     virtual void configure_tlb(chip_id_t logical_device_id, tt_xy_pair core, std::int32_t tlb_index, std::int32_t address, bool posted = true) {
@@ -248,11 +244,26 @@ class tt_device
     }
 
     // Misc. Functions to Query/Set Device State
+    virtual std::unordered_map<chip_id_t, tt_SocDescriptor>& get_virtual_soc_descriptors() {
+        throw std::runtime_error("---- tt_device:get_virtual_soc_descriptors is not implemented\n");
+    }
     virtual uint32_t get_harvested_noc_rows_for_chip(int logical_device_id){
-        std::runtime_error("---- tt_device:get_harvested_noc_rows_for_chip is not implemented\n");
+        throw std::runtime_error("---- tt_device:get_harvested_noc_rows_for_chip is not implemented\n");
         return 0;
     }
 
+    virtual bool using_harvested_soc_descriptors() {
+        throw std::runtime_error("---- tt_device:using_harvested_soc_descriptors is not implemented\n");
+        return 0;
+    }
+    
+    virtual std::unordered_map<chip_id_t, uint32_t> get_harvesting_masks_for_soc_descriptors() {
+        throw std::runtime_error("---- tt_device:get_harvesting_masks_for_soc_descriptors is not implemented\n");
+    }
+
+    virtual bool noc_translation_en() {
+        throw std::runtime_error("---- tt_device:noc_translation_en is not implemented\n");
+    }
     virtual int arc_msg(int logical_device_id, uint32_t msg_code, bool wait_for_done = true, uint32_t arg0 = 0, uint32_t arg1 = 0, int timeout=1, uint32_t *return_3 = nullptr, uint32_t *return_4 = nullptr) {
         throw std::runtime_error("---- tt_device::arc_msg is not implemented\n");
     }
@@ -331,7 +342,8 @@ class tt_VersimDevice: public tt_device
 {
     public:
     virtual void set_device_l1_address_params(const tt_device_l1_address_params& l1_address_params_);
-     tt_VersimDevice(std::unordered_map<chip_id_t, tt_SocDescriptor> soc_descriptor_per_chip_, std::string ndesc_path);
+     tt_VersimDevice(const std::string &sdesc_path, const std::string &ndesc_path);
+     virtual std::unordered_map<chip_id_t, tt_SocDescriptor>& get_virtual_soc_descriptors();
      virtual void start(std::vector<std::string> plusargs, std::vector<std::string> dump_cores, bool no_checkers, bool init_device, bool skip_driver_allocs);
      virtual void start_device(const tt_device_params &device_params);
      virtual void close_device();
@@ -342,6 +354,9 @@ class tt_VersimDevice: public tt_device
      virtual void read_from_device(std::vector<uint32_t> &vec, tt_cxy_pair core, uint64_t addr, uint32_t size, const std::string& tlb_to_use);
 
      virtual void translate_to_noc_table_coords(chip_id_t device_id, std::size_t &r, std::size_t &c);
+     virtual bool using_harvested_soc_descriptors();
+     virtual std::unordered_map<chip_id_t, uint32_t> get_harvesting_masks_for_soc_descriptors();
+     virtual bool noc_translation_en();
      virtual std::set<chip_id_t> get_target_mmio_device_ids();
      virtual std::set<chip_id_t> get_target_remote_device_ids();
      virtual ~tt_VersimDevice();
@@ -362,13 +377,13 @@ class tt_SiliconDevice: public tt_device
 {
     public:
     // Constructor
-    tt_SiliconDevice(const std::unordered_map<chip_id_t, tt_SocDescriptor>& soc_descriptor_per_chip_, const std::string &ndesc_path = "", const std::set<chip_id_t> &target_devices = {}, const uint32_t &num_host_mem_ch_per_mmio_device = 1, const std::unordered_map<std::string, std::int32_t>& dynamic_tlb_config_ = {}, const bool skip_driver_allocs = false);
-
+    tt_SiliconDevice(const std::string &sdesc_path, const std::string &ndesc_path = "", const std::set<chip_id_t> &target_devices = {}, const uint32_t &num_host_mem_ch_per_mmio_device = 1, const std::unordered_map<std::string, std::int32_t>& dynamic_tlb_config_ = {}, const bool skip_driver_allocs = false, bool perform_harvesting = true);
+    
     //Setup/Teardown Functions
+    virtual std::unordered_map<chip_id_t, tt_SocDescriptor>& get_virtual_soc_descriptors();
     virtual void set_device_l1_address_params(const tt_device_l1_address_params& l1_address_params_);
     virtual void set_driver_host_address_params(const tt_driver_host_address_params& host_address_params_);
     virtual void set_driver_eth_interface_params(const tt_driver_eth_interface_params& eth_interface_params_);
-    virtual void update_soc_descriptors(std::unordered_map<chip_id_t, tt_SocDescriptor> sdesc_per_chip);
     virtual void configure_tlb(chip_id_t logical_device_id, tt_xy_pair core, std::int32_t tlb_index, std::int32_t address, bool posted = true);
     virtual void setup_core_to_tlb_map(std::function<std::int32_t(tt_xy_pair)> mapping_function);
     virtual void start_device(const tt_device_params &device_params);
@@ -396,6 +411,9 @@ class tt_SiliconDevice: public tt_device
     // Misc. Functions to Query/Set Device State
     virtual uint32_t get_harvested_noc_rows_for_chip(int logical_device_id); // Returns one-hot encoded harvesting mask for PCIe mapped chips
     virtual int arc_msg(int logical_device_id, uint32_t msg_code, bool wait_for_done = true, uint32_t arg0 = 0, uint32_t arg1 = 0, int timeout=1, uint32_t *return_3 = nullptr, uint32_t *return_4 = nullptr);
+    virtual bool using_harvested_soc_descriptors();
+    virtual std::unordered_map<chip_id_t, uint32_t> get_harvesting_masks_for_soc_descriptors();
+    virtual bool noc_translation_en();
     virtual void translate_to_noc_table_coords(chip_id_t device_id, std::size_t &r, std::size_t &c);
     virtual int get_number_of_chips_in_cluster();
     virtual std::unordered_set<chip_id_t> get_all_chips_in_cluster();
@@ -412,6 +430,10 @@ class tt_SiliconDevice: public tt_device
     virtual void *host_dma_address(std::uint64_t offset, chip_id_t src_device_id, uint16_t channel) const;
     virtual std::optional<std::tuple<std::uint32_t, std::uint32_t>> describe_tlb(std::int32_t tlb_index);
     std::optional<std::tuple<std::uint32_t, std::uint32_t>> describe_tlb(tt_xy_pair coord);
+    static std::vector<int> extract_harvest_info_for_simulation(std::string harvest_info);
+    static std::vector<int> extract_rows_to_remove(const tt::ARCH &arch, const int worker_grid_rows, const int harvested_rows);
+    static void remove_worker_row_from_descriptor(tt_SocDescriptor& full_soc_descriptor, const std::vector<int>& row_coordinates_to_remove);
+    static void harvest_rows_in_soc_descriptor(tt::ARCH arch, tt_SocDescriptor& sdesc, uint32_t harvested_rows);
 
     // Destructor
     virtual ~tt_SiliconDevice ();
@@ -425,6 +447,7 @@ class tt_SiliconDevice: public tt_device
     void broadcast_tensix_risc_reset(struct PCIdevice *device, const TensixSoftResetOptions &cores);
     void broadcast_remote_tensix_risc_reset(const chip_id_t &chip, const TensixSoftResetOptions &soft_resets);
     void set_remote_tensix_risc_reset(const tt_cxy_pair &core, const TensixSoftResetOptions &soft_resets);
+    void perform_harvesting_and_populate_soc_descriptors(const std::string& sdesc_path, const bool perform_harvesting);
     void init_pcie_iatus();
     void init_pcie_iatus_no_p2p();
     bool init_hugepage(chip_id_t device_id);
@@ -520,7 +543,8 @@ class tt_SiliconDevice: public tt_device
     std::unordered_map<std::string, std::int32_t> dynamic_tlb_config = {};
     std::uint64_t buf_physical_addr = 0;
     void * buf_mapping = nullptr;
-    int driver_id;
+    int driver_id;  
+    bool perform_harvesting_on_sdesc = false;
 };
 
 tt::ARCH detect_arch(uint16_t device_id = 0);

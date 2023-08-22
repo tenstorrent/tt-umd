@@ -1238,15 +1238,15 @@ bool tt_SiliconDevice::address_in_tlb_space(uint32_t address, uint32_t size_in_b
 tt_SocDescriptor& tt_SiliconDevice::get_soc_descriptor(chip_id_t chip_id){
     return soc_descriptor_per_chip.at(chip_id);
 }
-void tt_SiliconDevice::update_soc_descriptors(std::unordered_map<chip_id_t, tt_SocDescriptor> sdesc_per_chip) {
-    soc_descriptor_per_chip = sdesc_per_chip;
+
+std::unordered_map<chip_id_t, tt_SocDescriptor>& tt_SiliconDevice::get_virtual_soc_descriptors() {
+    return soc_descriptor_per_chip;
 }
 
 void tt_SiliconDevice::create_device(const std::unordered_set<chip_id_t> &target_mmio_device_ids, const uint32_t &num_host_mem_ch_per_mmio_device, const bool skip_driver_allocs){
     m_pci_log_level = 0;
     m_dma_buf_size = 0;
     LOG1("---- tt_SiliconDevice::tt_SiliconDevice\n");
-    arch_name = soc_descriptor_per_chip.begin() -> second.arch;
     static int unique_driver_id = 0;
     driver_id = unique_driver_id++;
 
@@ -1347,15 +1347,34 @@ void tt_SiliconDevice::create_device(const std::unordered_set<chip_id_t> &target
     }
 }
 
-tt_SiliconDevice::tt_SiliconDevice(const std::unordered_map<chip_id_t, tt_SocDescriptor>& soc_descriptor_per_chip_, const std::string &ndesc_path, const std::set<chip_id_t> &target_devices, const uint32_t &num_host_mem_ch_per_mmio_device, const std::unordered_map<std::string, std::int32_t>& dynamic_tlb_config_, const bool skip_driver_allocs) : tt_device(soc_descriptor_per_chip_) {
+bool tt_SiliconDevice::noc_translation_en() {
+    return translation_tables_en;
+}
+bool tt_SiliconDevice::using_harvested_soc_descriptors() {
+    return perform_harvesting_on_sdesc && performed_harvesting;
+}
+
+std::unordered_map<chip_id_t, uint32_t> tt_SiliconDevice::get_harvesting_masks_for_soc_descriptors() {
+    if(using_harvested_soc_descriptors()) {
+        return harvested_rows_per_target;
+    }
+    std::unordered_map<chip_id_t, uint32_t> default_harvesting_masks = {};
+    for(const auto chip : target_devices_in_cluster) default_harvesting_masks.insert({chip, 0});
+    return default_harvesting_masks;
+}
+
+tt_SiliconDevice::tt_SiliconDevice(const std::string &sdesc_path, const std::string &ndesc_path, const std::set<chip_id_t> &target_devices, const uint32_t &num_host_mem_ch_per_mmio_device, const std::unordered_map<std::string, std::int32_t>& dynamic_tlb_config_, const bool skip_driver_allocs, bool perform_harvesting) : tt_device(sdesc_path) {
     std::unordered_set<chip_id_t> target_mmio_device_ids;
     target_devices_in_cluster = target_devices;
+    arch_name = tt_SocDescriptor(sdesc_path).arch;
+    perform_harvesting_on_sdesc = perform_harvesting;
     if (ndesc_path == "") {
         ndesc = tt_ClusterDescriptor::create_for_grayskull_cluster(target_devices);
     }
     else {
         ndesc = tt_ClusterDescriptor::create_from_yaml(ndesc_path);
     }
+
     for (auto &d: target_devices){
         if (ndesc->is_chip_mmio_capable(d)){
             target_mmio_device_ids.insert(d);
@@ -1398,6 +1417,7 @@ tt_SiliconDevice::tt_SiliconDevice(const std::unordered_map<chip_id_t, tt_SocDes
                 create_harvested_coord_translation(chip, false);
             }
         }
+        tt_device_logger::log_assert(performed_harvesting ? translation_tables_en : true, "Using a harvested WH cluster with NOC translation disabled.");
     }
      else if(arch_name == tt::ARCH::GRAYSKULL) {
         // Multichip harvesting is supported for GS.
@@ -1410,6 +1430,35 @@ tt_SiliconDevice::tt_SiliconDevice(const std::unordered_map<chip_id_t, tt_SocDes
         }
     }
 
+    if(std::getenv("TT_BACKEND_HARVESTED_ROWS")) {
+        performed_harvesting = true;
+        std::vector<int> harvesting_info = extract_harvest_info_for_simulation(std::getenv("TT_BACKEND_HARVESTED_ROWS"));
+        tt_device_logger::log_assert(harvesting_info.size() == target_devices.size(), 
+                    "Number of entries in the comma seperated harvesting config should match the number of devices in the netlist. Num Devices: {} Num Entries: {}", 
+                    target_devices.size(), harvesting_info.size());
+        int idx = 0;
+        for (auto device_id = target_devices.begin(); device_id != target_devices.end(); device_id++) {
+            if(arch_name == tt::ARCH::GRAYSKULL) {
+                tt_device_logger::log_assert((harvesting_info[idx] & harvested_rows_per_target[*device_id]) == harvested_rows_per_target[*device_id],
+                            "Simulated harvesting config for device {} does not include the actual harvesting config (real config must be contained in simulated config when running on device). Actual Harvested Rows : {}    Simulated Harvested Rows : {}", 
+                            *device_id,  harvested_rows_per_target[*device_id], harvesting_info[idx]);
+                
+            }
+            else if(arch_name == tt::ARCH::WORMHOLE_B0 || arch_name == tt::ARCH::WORMHOLE) {
+                tt_device_logger::log_assert(std::bitset<32>(harvesting_info[idx]).count() >= std::bitset<32>(*device_id).count(), 
+                "Simulated Harvesting for WH must contain at least as many rows as the actual harvesting config. Actual Harvested Rows : {}  Simulated Harvested Rows : {}", 
+                harvested_rows_per_target[*device_id], harvesting_info[idx]); 
+                num_rows_harvested.at(*device_id) = std::bitset<32>(harvesting_info[idx]).count();
+            }
+            harvested_rows_per_target[*device_id] = harvesting_info[idx];
+            if(arch_name == tt::ARCH::WORMHOLE or arch_name == tt::ARCH::WORMHOLE_B0) {
+                tt_device_logger::log_assert(performed_harvesting ? translation_tables_en : true, "Using a harvested WH cluster with NOC translation disabled.");
+            }
+            idx++;
+        }
+    }
+
+    perform_harvesting_and_populate_soc_descriptors(sdesc_path, perform_harvesting);
     if(arch_name == tt::ARCH::WORMHOLE or arch_name == tt::ARCH::WORMHOLE_B0) {
         const chip_id_t mmio_capable_chip = 0;
         tt_device_logger::log_assert(ndesc->is_chip_mmio_capable(mmio_capable_chip), "Device 0 is not a MMIO device");
@@ -1417,6 +1466,87 @@ tt_SiliconDevice::tt_SiliconDevice(const std::unordered_map<chip_id_t, tt_SocDes
         for (std::uint32_t i = 0; i < NUM_ETH_CORES_FOR_NON_MMIO_TRANSFERS; i++) {
             remote_transfer_ethernet_cores[i] = tt_cxy_pair(mmio_capable_chip, get_soc_descriptor(mmio_capable_chip).ethernet_cores.at(i).x, get_soc_descriptor(mmio_capable_chip).ethernet_cores.at(i).y);
         }
+    }
+}
+
+std::vector<int> tt_SiliconDevice::extract_harvest_info_for_simulation(std::string harvest_info){
+    size_t start;
+    size_t end = 0;
+    std::vector<int> out;
+    if(!harvest_info.size()) return out;
+
+    while((start = harvest_info.find_first_not_of(",", end)) != std::string::npos){
+        end = harvest_info.find(",", start);
+        out.push_back(stoi(harvest_info.substr(start, end - start)));
+    }
+    return out;
+}
+
+std::vector<int> tt_SiliconDevice::extract_rows_to_remove(const tt::ARCH &arch, const int worker_grid_rows, const int harvested_rows) {
+    // Check if harvesting config is legal for GS and WH
+    tt_device_logger::log_assert(!((harvested_rows & 1) || (harvested_rows & 64) || (harvested_rows & 0xFFFFF000)), "For grayskull and wormhole, only rows 1-5 and 7-11 can be harvested");
+    std::vector<int> row_coordinates_to_remove;
+    int row_coordinate = 0;
+    int tmp = harvested_rows;
+    while (tmp) {
+        if (tmp & 1)
+            row_coordinates_to_remove.push_back(row_coordinate);
+
+        tmp = tmp >> 1;
+        row_coordinate++;
+    }
+    if (arch == tt::ARCH::WORMHOLE || arch == tt::ARCH::WORMHOLE_B0) {
+        // For Wormhole, we always remove the last few rows in the SOC descriptor in case of harvesting
+        for (int i = 0; i < row_coordinates_to_remove.size(); i++) {
+            row_coordinates_to_remove[i] = worker_grid_rows - i;
+        }
+    }
+    return row_coordinates_to_remove;
+}
+
+void tt_SiliconDevice::remove_worker_row_from_descriptor(tt_SocDescriptor& full_soc_descriptor, const std::vector<int>& row_coordinates_to_remove) {
+    std::vector<tt_xy_pair> workers_to_keep;
+    for(auto worker = (full_soc_descriptor.workers).begin(); worker != (full_soc_descriptor.workers).end(); worker++){
+        if(find(row_coordinates_to_remove.begin(), row_coordinates_to_remove.end(), (*worker).y) == row_coordinates_to_remove.end()){
+            workers_to_keep.push_back(*worker);
+        }
+        else{
+            (full_soc_descriptor.harvested_workers).push_back(*worker);
+            full_soc_descriptor.cores.at(*worker).type = CoreType::HARVESTED;
+        }
+    }
+    full_soc_descriptor.workers = workers_to_keep;
+    (full_soc_descriptor.worker_grid_size).y -= row_coordinates_to_remove.size();
+    full_soc_descriptor.routing_y_to_worker_y = {};
+    full_soc_descriptor.worker_log_to_routing_y = {};
+
+    std::set<int> modified_y_coords = {};
+    
+    for(const auto& core : full_soc_descriptor.workers) {
+        modified_y_coords.insert(core.y);
+    }
+    int logical_y_coord = 0;
+    for(const auto& y_coord : modified_y_coords) {
+        full_soc_descriptor.routing_y_to_worker_y.insert({y_coord, logical_y_coord});
+        full_soc_descriptor.worker_log_to_routing_y.insert({logical_y_coord,  y_coord});
+        logical_y_coord++;
+    }
+}
+
+void tt_SiliconDevice::harvest_rows_in_soc_descriptor(tt::ARCH arch, tt_SocDescriptor& sdesc, uint32_t harvested_rows) {
+    std::uint32_t max_row_to_remove = (*std::max_element((sdesc.workers).begin(), (sdesc.workers).end(), [] (const auto& a, const auto& b) { return a.y < b.y; })).y;
+    std::vector<int> row_coordinates_to_remove = extract_rows_to_remove(arch, max_row_to_remove, harvested_rows);
+    remove_worker_row_from_descriptor(sdesc, row_coordinates_to_remove);
+}
+
+void tt_SiliconDevice::perform_harvesting_and_populate_soc_descriptors(const std::string& sdesc_path, const bool perform_harvesting) {
+    const auto default_sdesc = tt_SocDescriptor(sdesc_path);
+    for(const auto& chip : harvested_rows_per_target) {
+        auto temp_sdesc = default_sdesc;
+        if(perform_harvesting) {
+            harvest_rows_in_soc_descriptor(arch_name, temp_sdesc, chip.second);
+        }
+        soc_descriptor_per_chip.insert({chip.first, temp_sdesc});
     }
 }
 

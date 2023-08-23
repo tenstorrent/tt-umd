@@ -9,7 +9,7 @@ DEVICE_SRCS = \
   device/tt_soc_descriptor.cpp \
   device/tt_cluster_descriptor.cpp \
   device/cpuset_lib.cpp \
-  device/util.cpp
+  device/util.cpp \
 
 DEVICE_INCLUDES=      	\
   -DFMT_HEADER_ONLY     \

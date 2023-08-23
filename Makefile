@@ -13,6 +13,11 @@ UMD_VERSIM_STUB ?= 1
 SHARED_LIB_FLAGS ?= -shared -fPIC
 STATIC_LIB_FLAGS ?= -fPIC
 
+TEST_TARGETS ?= device/tests
+ifeq ($(ARCH_NAME), wormhole_b0)
+  TEST_TARGETS += device/tests/galaxy
+endif
+
 #MAKEFLAGS := --jobs=$(shell nproc)
 
 DEVICE_CXX = /usr/bin/g++
@@ -33,8 +38,8 @@ else
 $(error Unknown value for CONFIG "$(CONFIG)")
 endif
 UMDHEADERS := device/device_api.h
-	
-	
+
+
 include device/module.mk
 include tests/module.mk
 
@@ -45,9 +50,11 @@ init:
 	cp $(UMDHEADERS) $(INCDIR)
 build: init umd_device
 
-test: build device/tests
+test: build $(TEST_TARGETS)
 run: test
 	LD_LIBRARY_PATH=$(LIBDIR) ./$(OUT)/tests/device_unit_tests
+run-galaxy: test
+	LD_LIBRARY_PATH=$(LIBDIR) ./$(OUT)/tests/galaxy_unit_tests
 
 clean:
 	rm -rf $(OUT)

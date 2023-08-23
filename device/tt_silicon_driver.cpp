@@ -1394,11 +1394,13 @@ tt_SiliconDevice::tt_SiliconDevice(const std::string &sdesc_path, const std::str
 
         translation_tables_en = false;
         for(auto& masks : harvesting_masks) {
-            harvested_rows_per_target[masks.first] = get_harvested_noc_rows(masks.second);
-            noc_translation_enabled_for_chip[masks.first] = noc_translation_enabled.at(masks.first);
-            num_rows_harvested.insert({masks.first, std::bitset<32>(masks.second).count()});
-            if(harvested_rows_per_target[masks.first]) {
-                performed_harvesting = true;
+            if(target_devices.find(masks.first) != target_devices.end()) {
+                harvested_rows_per_target[masks.first] = get_harvested_noc_rows(masks.second);
+                noc_translation_enabled_for_chip[masks.first] = noc_translation_enabled.at(masks.first);
+                num_rows_harvested.insert({masks.first, std::bitset<32>(masks.second).count()});
+                if(harvested_rows_per_target[masks.first]) {
+                    performed_harvesting = true;
+                }
             }
         }
         if(noc_translation_enabled_for_chip.size() > 0) {

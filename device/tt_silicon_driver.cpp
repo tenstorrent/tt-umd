@@ -1764,6 +1764,34 @@ void tt_SiliconDevice::deassert_risc_reset(int target_device) {
     }
 }
 
+void tt_SiliconDevice::deassert_risc_reset_at_core(tt_cxy_pair core) {
+    std::uint32_t target_device = core.chip; // Get Target Device to query soc descriptor and determine location in cluster
+    tt_device_logger::log_assert(std::find(get_soc_descriptor(target_device).workers.begin(), get_soc_descriptor(target_device).workers.end(), core) != get_soc_descriptor(target_device).workers.end(), 
+                                "Cannot deassert reset on a non-tensix or harvested core");
+    bool target_is_mmio_capable = ndesc -> is_chip_mmio_capable(target_device);
+    if(target_is_mmio_capable) {
+        assert(m_pci_device_map.find(target_device) != m_pci_device_map.end());
+        send_tensix_risc_reset_to_core(core, TENSIX_DEASSERT_SOFT_RESET);
+    }
+    else {
+        set_remote_tensix_risc_reset(core, TENSIX_DEASSERT_SOFT_RESET);
+    }
+}
+
+void tt_SiliconDevice::assert_risc_reset_at_core(tt_cxy_pair core) {
+    std::uint32_t target_device = core.chip; // Get Target Device to query soc descriptor and determine location in cluster
+    tt_device_logger::log_assert(std::find(get_soc_descriptor(target_device).workers.begin(), get_soc_descriptor(target_device).workers.end(), core) != get_soc_descriptor(target_device).workers.end(), 
+                                "Cannot assert reset on a non-tensix or harvested core");
+    bool target_is_mmio_capable = ndesc -> is_chip_mmio_capable(target_device);
+    if(target_is_mmio_capable) {
+        assert(m_pci_device_map.find(target_device) != m_pci_device_map.end());
+        send_tensix_risc_reset_to_core(core, TENSIX_ASSERT_SOFT_RESET);
+    }
+    else {
+        set_remote_tensix_risc_reset(core, TENSIX_ASSERT_SOFT_RESET);
+    }
+}
+
 // Free memory during teardown, and remove (clean/unlock) from any leftover mutexes from non-gracefully
 // terminated processes, if any. Just do it always even for current teardown to keep it simple.
 void tt_SiliconDevice::clean_system_resources() {
@@ -3549,6 +3577,12 @@ int tt_SiliconDevice::arc_msg(int logical_device_id, uint32_t msg_code, bool wai
     }
 }
 
+void tt_SiliconDevice::send_tensix_risc_reset_to_core(const tt_cxy_pair &core, const TensixSoftResetOptions &soft_resets) {
+    auto valid = soft_resets & ALL_TENSIX_SOFT_RESET;
+    std::vector<uint32_t> vec = {(std::underlying_type<TensixSoftResetOptions>::type) valid};
+    write_to_device(vec.data(), vec.size(), core, 0xFFB121B0, "LARGE_WRITE_TLB");
+    _mm_sfence();
+}
 
 void tt_SiliconDevice::set_remote_tensix_risc_reset(const tt_cxy_pair &core, const TensixSoftResetOptions &soft_resets) {
     auto valid = soft_resets & ALL_TENSIX_SOFT_RESET;

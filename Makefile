@@ -9,7 +9,7 @@ BINDIR ?= $(OUT)/bin
 INCDIR ?= $(OUT)/include
 TESTDIR ?= $(OUT)/test
 DOCSDIR ?= $(OUT)/docs
-BACKEND_VERSIM_STUB ?= 1
+UMD_VERSIM_STUB ?= 1
 SHARED_LIB_FLAGS ?= -shared -fPIC
 STATIC_LIB_FLAGS ?= -fPIC
 

@@ -2,6 +2,7 @@
 
 #include <stdint.h>
 #include <optional>
+#include <string>
 
 struct TLB_OFFSETS {
     uint32_t local_offset;
@@ -61,23 +62,42 @@ enum class TensixSoftResetOptions: std::uint32_t {
 };
 
 std::string TensixSoftResetOptionsToString(TensixSoftResetOptions value);
-TensixSoftResetOptions operator|(TensixSoftResetOptions lhs, TensixSoftResetOptions rhs);
-TensixSoftResetOptions operator&(TensixSoftResetOptions lhs, TensixSoftResetOptions rhs);
-bool operator!=(TensixSoftResetOptions lhs, TensixSoftResetOptions rhs);
+constexpr TensixSoftResetOptions operator|(TensixSoftResetOptions lhs, TensixSoftResetOptions rhs) {
+    return static_cast<TensixSoftResetOptions>(
+        static_cast<uint32_t>(lhs) |
+        static_cast<uint32_t>(rhs)
+    );
+}
 
-static const TensixSoftResetOptions ALL_TRISC_SOFT_RESET = TensixSoftResetOptions::TRISC0 |
+constexpr TensixSoftResetOptions operator&(TensixSoftResetOptions lhs, TensixSoftResetOptions rhs) {
+    return static_cast<TensixSoftResetOptions>(
+        static_cast<uint32_t>(lhs) &
+        static_cast<uint32_t>(rhs)
+    );
+}
+
+constexpr bool operator!=(TensixSoftResetOptions lhs, TensixSoftResetOptions rhs) {
+    return
+        static_cast<uint32_t>(lhs) !=
+        static_cast<uint32_t>(rhs);
+}
+
+static constexpr TensixSoftResetOptions ALL_TRISC_SOFT_RESET = TensixSoftResetOptions::TRISC0 |
                                                            TensixSoftResetOptions::TRISC1 |
                                                            TensixSoftResetOptions::TRISC2;
 
-static const TensixSoftResetOptions ALL_TENSIX_SOFT_RESET = TensixSoftResetOptions::BRISC |
+static constexpr TensixSoftResetOptions ALL_TENSIX_SOFT_RESET = TensixSoftResetOptions::BRISC |
                                                             TensixSoftResetOptions::NCRISC |
                                                             TensixSoftResetOptions::STAGGERED_START |
                                                             ALL_TRISC_SOFT_RESET;
 
-static const TensixSoftResetOptions TENSIX_ASSERT_SOFT_RESET = TensixSoftResetOptions::BRISC |
+static constexpr TensixSoftResetOptions TENSIX_ASSERT_SOFT_RESET = TensixSoftResetOptions::BRISC |
                                                                TensixSoftResetOptions::NCRISC |
                                                                ALL_TRISC_SOFT_RESET;
 
-static const TensixSoftResetOptions TENSIX_DEASSERT_SOFT_RESET = TensixSoftResetOptions::NCRISC |
+static constexpr TensixSoftResetOptions TENSIX_DEASSERT_SOFT_RESET = TensixSoftResetOptions::NCRISC |
                                                                  ALL_TRISC_SOFT_RESET |
                                                                  TensixSoftResetOptions::STAGGERED_START;
+
+static constexpr TensixSoftResetOptions TENSIX_DEASSERT_SOFT_RESET_NO_STAGGER = TensixSoftResetOptions::NCRISC |
+                                                                                 ALL_TRISC_SOFT_RESET;

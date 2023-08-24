@@ -50,4 +50,4 @@ run: test
 	LD_LIBRARY_PATH=$(LIBDIR) ./$(OUT)/tests/device_unit_tests
 
 clean:
-	rm -rf $(OUT)	
+	rm -rf $(OUT)

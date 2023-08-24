@@ -29,7 +29,7 @@ build-WH:
     - 8-core
   script:
     - echo "Compiling the code..."
-    - make build -j$(nproc)
+    - make build ARCH_NAME=wormhole_b0 -j$(nproc)
     - echo "Compile complete."
 
 build-GS:      
@@ -49,7 +49,7 @@ build-test-WH:
     - 8-core
   script:
     - echo "Compiling tests ..."
-    - make test -j$(nproc)
+    - make test ARCH_NAME=wormhole_b0 -j$(nproc)
     - echo "Compile tests complete."    
 
 build-test-GS:
@@ -62,5 +62,4 @@ build-test-GS:
     - echo "Compiling tests ..."
     - make test ARCH_NAME=grayskull -j$(nproc)
     - echo "Compile tests complete."        
-    
-       
+

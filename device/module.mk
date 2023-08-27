@@ -1,7 +1,7 @@
 # Every variable in subdir must be prefixed with subdir (emulating a namespace)
+DEVICE_BUILDDIR = $(OUT)
 UMD_DEVICE_LIB = $(LIBDIR)/libdevice.so
-DEVICE_BUILDDIR = $(UMD_HOME)/build
-DEVICE_OBJDIR = $(DEVICE_BUILDDIR)/obj
+DEVICE_OBJDIR = $(OBJDIR)
 DEVICE_SRCS = \
 	device/tt_device.cpp \
 	device/tt_silicon_driver.cpp \

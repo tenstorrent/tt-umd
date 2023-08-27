@@ -23,6 +23,10 @@ image:
 variables:
   GIT_SUBMODULE_STRATEGY: recursive
 
+workflow:
+  rules:
+    - if: $CI_PIPELINE_SOURCE == 'merge_request_event'
+
 build-WH:     
   stage: build
   tags:

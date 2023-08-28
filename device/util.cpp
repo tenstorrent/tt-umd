@@ -3,17 +3,18 @@
 
 namespace {
 fs::path generate_cluster_desc_yaml() { 
-    fs::path fpath = fs::canonical("/proc/self/exe").parent_path();
-    fpath /= "cluster_desc.yaml";
-    if (!fs::exists(fpath)){
-        auto val = system ( ("touch " + fpath.string()).c_str());
+    fs::path umd_path = fs::path ( fs::temp_directory_path() ) / "umd";
+    fs::create_directory( umd_path );
+    umd_path /= "cluster_desc.yaml";
+    if (!fs::exists(umd_path)){
+        auto val = system ( ("touch " + umd_path.string()).c_str());
         if(val != 0) throw std::runtime_error("Cluster Generation Failed!");
     }
     // Generates the cluster descriptor in the CWD
 
     fs::path eth_fpath = fs::path ( __FILE__ ).parent_path();
     eth_fpath /= "bin/silicon/wormhole/create-ethernet-map";
-    std::string cmd = eth_fpath.string() + " " + fpath.string();
+    std::string cmd = eth_fpath.string() + " " + umd_path.string();
 
     auto num_devices_total = tt_SiliconDevice::detect_number_of_chips(false); // Get all chips without reservations.
     std::vector<chip_id_t> available_device_ids = tt_SiliconDevice::detect_available_device_ids(true, false);
@@ -29,7 +30,7 @@ fs::path generate_cluster_desc_yaml() {
     int val = system(cmd.c_str());
     if(val != 0) throw std::runtime_error("Cluster Generation Failed!");
 
-    return fs::absolute(fpath);
+    return fs::absolute(umd_path);
 }
 
 }

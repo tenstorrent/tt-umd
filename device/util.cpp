@@ -3,7 +3,7 @@
 
 namespace {
 fs::path generate_cluster_desc_yaml() { 
-    fs::path umd_path = fs::path ( fs::temp_directory_path() ) / "umd";
+    fs::path umd_path = fs::path ( __FILE__ ).parent_path() / "../.umd";
     fs::create_directory( umd_path );
     umd_path /= "cluster_desc.yaml";
     if (!fs::exists(umd_path)){

@@ -759,8 +759,8 @@ void detect_ffffffff_read(TTDevice *dev, std::uint32_t data_read = 0xffffffffu) 
     }
 }
 
-inline void record_access (uint32_t addr, uint32_t size, bool turbo, bool write, bool block, bool endline) {
-    LOG2 ("PCI %s 0x%8x  %8d bytes %s %s%s", write ? "WR" : "RD", addr, size, turbo ? "TU" : "  ", block ? "BLK" : "   ", endline ? "\n" : "" );
+inline void record_access (const char* where, uint32_t addr, uint32_t size, bool turbo, bool write, bool block, bool endline) {
+    LOG2 ("%s PCI_ACCESS %s 0x%8x  %8d bytes %s %s%s", where, write ? "WR" : "RD", addr, size, turbo ? "TU" : "  ", block ? "BLK" : "   ", endline ? "\n" : "" );
 }
 
 inline void print_buffer (uint64_t buffer_addr, uint32_t len_bytes = 16, bool endline = true) {
@@ -869,7 +869,7 @@ void memcpy_from_device(void *dest, const void *src, std::size_t num_bytes) {
 
 void read_block(TTDevice *dev, uint32_t byte_addr, uint32_t num_bytes, uint64_t buffer_addr, uint32_t dma_buf_size) {
     if (num_bytes >= g_DMA_BLOCK_SIZE_READ_THRESHOLD_BYTES && g_DMA_BLOCK_SIZE_READ_THRESHOLD_BYTES > 0) {
-        record_access (byte_addr, num_bytes, true, false, true, true); // addr, size, turbo, write, block, endline
+        record_access ("read_block_a", byte_addr, num_bytes, true, false, true, true); // addr, size, turbo, write, block, endline
 
         DMAbuffer &transfer_buffer = dev->dma_transfer_buffer;
 
@@ -886,7 +886,7 @@ void read_block(TTDevice *dev, uint32_t byte_addr, uint32_t num_bytes, uint64_t 
         return;
     }
 
-    record_access(byte_addr, num_bytes, false, false, true, false); // addr, size, turbo, write, block, endline
+    record_access("read_block_b", byte_addr, num_bytes, false, false, true, false); // addr, size, turbo, write, block, endline
 
     void *reg_mapping;
     if (dev->system_reg_mapping != nullptr && byte_addr >= dev->system_reg_start_offset) {
@@ -925,7 +925,7 @@ void read_block(TTDevice *dev, uint32_t byte_addr, uint32_t num_bytes, uint64_t 
 
 void write_block(TTDevice *dev, uint32_t byte_addr, uint32_t num_bytes, uint64_t buffer_addr, uint32_t dma_buf_size) {
     if (num_bytes >= g_DMA_BLOCK_SIZE_WRITE_THRESHOLD_BYTES && g_DMA_BLOCK_SIZE_WRITE_THRESHOLD_BYTES > 0) {
-        record_access (byte_addr, num_bytes, true, true, true, true); // addr, size, turbo, write, block, endline
+        record_access ("write_block_a", byte_addr, num_bytes, true, true, true, true); // addr, size, turbo, write, block, endline
 
         DMAbuffer &transfer_buffer = dev->dma_transfer_buffer;
 
@@ -942,7 +942,7 @@ void write_block(TTDevice *dev, uint32_t byte_addr, uint32_t num_bytes, uint64_t
         return;
     }
 
-    record_access(byte_addr, num_bytes, false, true, true, false); // addr, size, turbo, write, block, endline
+    record_access("write_block_b", byte_addr, num_bytes, false, true, true, false); // addr, size, turbo, write, block, endline
 
     void *reg_mapping;
     if (dev->system_reg_mapping != nullptr && byte_addr >= dev->system_reg_start_offset) {
@@ -1022,7 +1022,7 @@ void set_use_dma(bool msi, uint32_t dma_block_size_read_threshold_bytes, uint32_
 }
 
 void write_regs(TTDevice *dev, uint32_t byte_addr, uint32_t word_len, const void *data) {
-    record_access(byte_addr, word_len * sizeof(uint32_t), false, true, false, false);
+    record_access("write_regs", byte_addr, word_len * sizeof(uint32_t), false, true, false, false);
 
     volatile uint32_t *dest = register_address<std::uint32_t>(dev, byte_addr);
     const uint32_t *src = reinterpret_cast<const uint32_t*>(data);
@@ -1037,7 +1037,7 @@ void write_regs(TTDevice *dev, uint32_t byte_addr, uint32_t word_len, const void
 }
 
 void write_tlb_reg(TTDevice *dev, uint32_t byte_addr, std::uint64_t value) {
-    record_access(byte_addr, sizeof(value), false, true, false, false);
+    record_access("write_tlb_reg", byte_addr, sizeof(value), false, true, false, false);
 
     volatile uint64_t *dest = register_address<std::uint64_t>(dev, byte_addr);
     *dest = value;
@@ -1048,7 +1048,7 @@ void write_tlb_reg(TTDevice *dev, uint32_t byte_addr, std::uint64_t value) {
 }
 
 void read_regs(TTDevice *dev, uint32_t byte_addr, uint32_t word_len, void *data) {
-    record_access(byte_addr, word_len * sizeof(uint32_t), false, false, false, false);
+    record_access("read_regs", byte_addr, word_len * sizeof(uint32_t), false, false, false, false);
 
     const volatile uint32_t *src = register_address<std::uint32_t>(dev, byte_addr);
     uint32_t *dest = reinterpret_cast<uint32_t*>(data);
@@ -1166,6 +1166,9 @@ struct remote_update_ptr_t{
 // Get TLB index (from zero), check if it's in 16MB, 2MB or 1MB TLB range, and dynamically program it.
 dynamic_tlb set_dynamic_tlb(PCIdevice* dev, unsigned int tlb_index, tt_xy_pair start, tt_xy_pair end,
                             std::uint32_t address, bool multicast, std::unordered_map<chip_id_t, std::unordered_map<tt_xy_pair, tt_xy_pair>>& harvested_coord_translation, bool posted) {
+
+    LOG2("set_dynamic_tlb with arguments: tlb_index = %d, start = (%d, %d), end = (%d, %d), address = 0x%x, multicast = %d, posted = %d\n",
+         tlb_index, start.x, start.y, end.x, end.y, address, multicast, posted);
 
     uint32_t dynamic_tlb_size, dynamic_tlb_base, dynamic_tlb_cfg_addr, tlb_index_offset;
     TLB_OFFSETS tlb_offset;
@@ -1352,6 +1355,10 @@ bool tt_SiliconDevice::noc_translation_en() {
 }
 bool tt_SiliconDevice::using_harvested_soc_descriptors() {
     return perform_harvesting_on_sdesc && performed_harvesting;
+}
+
+std::unordered_map<tt_xy_pair, tt_xy_pair> tt_SiliconDevice::get_harvested_coord_translation_map(chip_id_t logical_device_id) {
+    return harvested_coord_translation.at(logical_device_id);
 }
 
 std::unordered_map<chip_id_t, uint32_t> tt_SiliconDevice::get_harvesting_masks_for_soc_descriptors() {
@@ -1862,6 +1869,7 @@ void tt_SiliconDevice::write_device_memory(const uint32_t *mem_ptr, uint32_t len
 
 void tt_SiliconDevice::read_device_memory(uint32_t *mem_ptr, tt_cxy_pair target, std::uint32_t address, std::uint32_t size_in_bytes, const std::string& fallback_tlb) {
     // Assume that mem_ptr has been allocated adequate memory on host when this function is called. Otherwise, this function will cause a segfault.
+    LOG1("---- tt_SiliconDevice::read_device_memory to chip:%lu %lu-%lu at 0x%x size_in_bytes: %d\n", target.chip, target.x, target.y, address, size_in_bytes);
     struct PCIdevice* pci_device = get_pci_device(target.chip);
     TTDevice *dev = pci_device->hdev;
 
@@ -1873,15 +1881,16 @@ void tt_SiliconDevice::read_device_memory(uint32_t *mem_ptr, tt_cxy_pair target,
         tlb_index = map_core_to_tlb(tt_xy_pair(target.x, target.y));
         tlb_data = describe_tlb(tlb_index);
     }
+    LOG1("  tlb_index: %d, tlb_data.has_value(): %d\n", tlb_index, tlb_data.has_value());
 
     if (tlb_data.has_value()  && address_in_tlb_space(address, size_in_bytes, tlb_index, std::get<1>(tlb_data.value()), target.chip)) {
         auto [tlb_offset, tlb_size] = tlb_data.value();
         read_block(dev, tlb_offset + address % tlb_size, size_in_bytes, buffer_addr, m_dma_buf_size);
+        LOG1 ("  read_block called with tlb_offset: %d, tlb_size: %d\n", tlb_offset, tlb_size);
     } else {
         const auto tlb_index = dynamic_tlb_config.at(fallback_tlb);
         const scoped_lock<named_mutex> lock(*get_mutex(fallback_tlb, pci_device -> id));
-
-        //LOG1 ("Read using Dynamic TLB with pid=%ld mutex_type: %d tlb_index: %d\n", (long)getpid(), mutex_type, tlb_index);
+        LOG1 ("  dynamic tlb_index: %d\n", tlb_index);
         while(size_in_bytes > 0) {
 
             auto [mapped_address, tlb_size] = set_dynamic_tlb(pci_device, tlb_index, target, address, harvested_coord_translation, true);

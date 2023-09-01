@@ -115,7 +115,6 @@ class tt_SocDescriptor {
     int eth_l1_size;
     bool noc_translation_id_enabled;
     uint32_t dram_bank_size;
-    std::unordered_map<tt_xy_pair, std::vector<tt_xy_pair>> perf_dram_bank_to_workers; 
 
     int get_num_dram_channels() const;
     std::vector<int> get_dram_chan_map();
@@ -159,8 +158,7 @@ class tt_SocDescriptor {
         worker_l1_size(other.worker_l1_size),
         eth_l1_size(other.eth_l1_size),
         noc_translation_id_enabled(other.noc_translation_id_enabled),
-        dram_bank_size(other.dram_bank_size),
-        perf_dram_bank_to_workers(other.perf_dram_bank_to_workers) {
+        dram_bank_size(other.dram_bank_size) {
     }
     private:
     void load_core_descriptors_from_device_descriptor(YAML::Node &device_descriptor_yaml);

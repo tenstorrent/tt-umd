@@ -34,8 +34,6 @@
 #include <spawn.h>
 #include <wait.h>
 #include <errno.h>
-#include <immintrin.h>
-
 #include <linux/pci.h>
 
 #include "tt_device.h"
@@ -54,6 +52,7 @@
 #include <stdarg.h>
 #include "device/cpuset_lib.hpp"
 #include "common/logger.hpp"
+#include "device/driver_atomics.h"
 
 #define WHT "\e[0;37m"
 #define BLK "\e[0;30m"
@@ -151,7 +150,7 @@ struct TTDeviceBase
     std::uint32_t system_reg_offset_adjust; // This is the offset of the first reg in the system reg mapping.
 
     int sysfs_config_fd = -1;
-
+    std::uint16_t pci_domain;
     std::uint8_t pci_bus;
     std::uint8_t pci_device;
     std::uint8_t pci_function;
@@ -481,7 +480,7 @@ void TTDevice::do_open() {
         this->system_reg_start_offset = (512 - 16) * 1024*1024;
         this->system_reg_offset_adjust = (512 - 32) * 1024*1024;
     }
-
+    pci_domain = device_info.out.pci_domain;
     pci_bus = device_info.out.bus_dev_fn >> 8;
     pci_device = PCI_SLOT(device_info.out.bus_dev_fn);
     pci_function = PCI_FUNC(device_info.out.bus_dev_fn);
@@ -583,10 +582,10 @@ int get_config_space_fd(TTDevice *dev) {
 
 int get_revision_id(TTDevice *dev) {
 
-    static const char pattern[] = "/sys/bus/pci/devices/0000:%02x:%02x.%u/revision";
+    static const char pattern[] = "/sys/bus/pci/devices/%04x:%02x:%02x.%u/revision";
     char buf[sizeof(pattern)];
     std::snprintf(buf, sizeof(buf), pattern,
-    (unsigned int)dev->pci_bus, (unsigned int)dev->pci_device, (unsigned int)dev->pci_function);
+    (unsigned int)dev->pci_domain, (unsigned int)dev->pci_bus, (unsigned int)dev->pci_device, (unsigned int)dev->pci_function);
 
     std::ifstream revision_file(buf);
     std::string revision_string;
@@ -1040,8 +1039,14 @@ void write_tlb_reg(TTDevice *dev, uint32_t byte_addr, std::uint64_t value) {
     record_access("write_tlb_reg", byte_addr, sizeof(value), false, true, false, false);
 
     volatile uint64_t *dest = register_address<std::uint64_t>(dev, byte_addr);
+    #ifdef __ARM_ARCH
+    // The store below goes through UC memory on x86, which has implicit ordering constraints with WC accesses.
+    // ARM has no concept of UC memory. This will not allow for implicit ordering of this store wrt other memory accesses.
+    // Insert an explicit full memory barrier for ARM.
+    tt_driver_atomics::mfence();
+    #endif
     *dest = value;
-    _mm_mfence(); // Otherwise subsequent WC loads move earlier than the above UC store to the TLB register.
+    tt_driver_atomics::mfence(); // Otherwise subsequent WC loads move earlier than the above UC store to the TLB register.
 
     LOG2(" TLB ");
     print_buffer (reinterpret_cast<uint64_t>(&value), sizeof(value), true);
@@ -1731,7 +1736,7 @@ void tt_SiliconDevice::broadcast_tensix_risc_reset(struct PCIdevice *device, con
     LOG1("== For all tensix set soft-reset for %s risc cores.\n", TensixSoftResetOptionsToString(valid).c_str());
     auto [soft_reset_reg, _] = set_dynamic_tlb_broadcast(device, DEVICE_DATA.REG_TLB, DEVICE_DATA.TENSIX_SOFT_RESET_ADDR, harvested_coord_translation, num_rows_harvested.at(device -> logical_id));
     write_regs(device->hdev, soft_reset_reg, 1, &valid);
-    _mm_sfence();
+    tt_driver_atomics::sfence();
 }
 
 std::set<chip_id_t> tt_SiliconDevice::get_target_mmio_device_ids() {
@@ -2990,7 +2995,7 @@ void tt_SiliconDevice::write_to_non_mmio_device(const uint32_t *mem_ptr, uint32_
                 memcpy(&data_block[0], mem_ptr + offset/DATA_WORD_SIZE, block_size);
                 write_device_memory(data_block.data(), data_block.size(), remote_transfer_ethernet_core, buf_address, write_tlb);
             }
-            _mm_sfence();
+            tt_driver_atomics::sfence();
         }
 
         // Send the read request
@@ -3004,14 +3009,14 @@ void tt_SiliconDevice::write_to_non_mmio_device(const uint32_t *mem_ptr, uint32_
             new_cmd->src_addr_tag = host_dram_block_addr;
         }
         write_device_memory(erisc_command.data(), erisc_command.size(), remote_transfer_ethernet_core, eth_interface_params.REQUEST_ROUTING_CMD_QUEUE_BASE + (sizeof(routing_cmd_t) * req_wr_ptr), write_tlb);
-        _mm_sfence();
+        tt_driver_atomics::sfence();
 
         erisc_q_ptrs[0] = (erisc_q_ptrs[0] + 1) & eth_interface_params.CMD_BUF_PTR_MASK;
         std::vector<std::uint32_t> erisc_q_wptr;
         erisc_q_wptr.resize(1);
         erisc_q_wptr[0] = erisc_q_ptrs[0];
         write_device_memory(erisc_q_wptr.data(), erisc_q_wptr.size(), remote_transfer_ethernet_core, eth_interface_params.REQUEST_CMD_QUEUE_BASE + eth_interface_params.CMD_COUNTERS_SIZE_BYTES, write_tlb);
-        _mm_sfence();
+        tt_driver_atomics::sfence();
 
         offset += block_size;
 
@@ -3098,7 +3103,7 @@ void tt_SiliconDevice::write_to_non_mmio_device_send_epoch_cmd(const uint32_t *m
         data_block.resize(block_size/DATA_WORD_SIZE);
         memcpy(&data_block[0], mem_ptr, block_size);
         write_device_memory(data_block.data(), data_block.size(), remote_transfer_ethernet_core, buf_address, write_tlb);
-        _mm_sfence();
+        tt_driver_atomics::sfence();
     }
 
     // send the write request
@@ -3110,14 +3115,14 @@ void tt_SiliconDevice::write_to_non_mmio_device_send_epoch_cmd(const uint32_t *m
     new_cmd->flags = req_flags;
 
     write_device_memory(erisc_command.data(), erisc_command.size(), remote_transfer_ethernet_core, eth_interface_params.REQUEST_ROUTING_CMD_QUEUE_BASE + (sizeof(routing_cmd_t) * req_wr_ptr), write_tlb);
-    _mm_sfence();
+    tt_driver_atomics::sfence();
 
     // update the wptr only if the eth queue is full or for the last command
     erisc_q_ptrs_epoch[0] = (erisc_q_ptrs_epoch[0] + 1) & eth_interface_params.CMD_BUF_PTR_MASK;
     if (last_send_epoch_cmd || is_non_mmio_cmd_q_full(erisc_q_ptrs_epoch[0], erisc_q_ptrs_epoch[4])) {
         std::vector<std::uint32_t> erisc_q_wptr = { erisc_q_ptrs_epoch[0] };
         write_device_memory(erisc_q_wptr.data(), erisc_q_wptr.size(), remote_transfer_ethernet_core, eth_interface_params.REQUEST_CMD_QUEUE_BASE + eth_interface_params.CMD_COUNTERS_SIZE_BYTES, write_tlb);
-        _mm_sfence();
+        tt_driver_atomics::sfence();
     }
 }
 
@@ -3195,7 +3200,7 @@ void tt_SiliconDevice::rolled_write_to_non_mmio_device(const uint32_t *mem_ptr, 
             host_mem_offset += byte_increment;
         }
         unroll_offset += i;
-        _mm_sfence();
+        tt_driver_atomics::sfence();
         new_cmd->sys_addr = get_sys_addr(std::get<0>(target_chip), std::get<1>(target_chip), core.x, core.y, address + offset);
         new_cmd->rack = get_sys_rack(std::get<2>(target_chip), std::get<3>(target_chip));
         new_cmd->data = host_mem_offset;
@@ -3203,13 +3208,13 @@ void tt_SiliconDevice::rolled_write_to_non_mmio_device(const uint32_t *mem_ptr, 
         new_cmd->src_addr_tag = host_dram_block_addr;
 
         write_device_memory(erisc_command.data(), erisc_command.size(),  remote_transfer_ethernet_cores[active_core], eth_interface_params.REQUEST_ROUTING_CMD_QUEUE_BASE + (sizeof(routing_cmd_t) * req_wr_ptr), write_tlb);
-        _mm_sfence();
+        tt_driver_atomics::sfence();
         erisc_q_ptrs[0] = (erisc_q_ptrs[0] + 1) & eth_interface_params.CMD_BUF_PTR_MASK;
         std::vector<std::uint32_t> erisc_q_wptr;
         erisc_q_wptr.resize(1);
         erisc_q_wptr[0] = erisc_q_ptrs[0];
         write_device_memory(erisc_q_wptr.data(), erisc_q_wptr.size(), remote_transfer_ethernet_cores[active_core], eth_interface_params.REQUEST_CMD_QUEUE_BASE + eth_interface_params.CMD_COUNTERS_SIZE_BYTES, write_tlb);
-        _mm_sfence();
+        tt_driver_atomics::sfence();
         offset += host_mem_offset;
 
         // If there is more data to send and this command will make the q full, switch to next Q.
@@ -3306,14 +3311,14 @@ void tt_SiliconDevice::read_from_non_mmio_device(uint32_t* mem_ptr, tt_cxy_pair 
             new_cmd->src_addr_tag = host_dram_block_addr;
         }
         write_device_memory(erisc_command.data(), erisc_command.size(), remote_transfer_ethernet_core, eth_interface_params.REQUEST_ROUTING_CMD_QUEUE_BASE + (sizeof(routing_cmd_t) * req_wr_ptr), write_tlb);;
-        _mm_sfence();
+        tt_driver_atomics::sfence();
 
         erisc_q_ptrs[0] = (erisc_q_ptrs[0] + 1) & eth_interface_params.CMD_BUF_PTR_MASK;
         std::vector<std::uint32_t> erisc_q_wptr;
         erisc_q_wptr.resize(1);
         erisc_q_wptr[0] = erisc_q_ptrs[0];
         write_device_memory(erisc_q_wptr.data(), erisc_q_wptr.size(), remote_transfer_ethernet_core, eth_interface_params.REQUEST_CMD_QUEUE_BASE + eth_interface_params.CMD_COUNTERS_SIZE_BYTES, write_tlb);
-        _mm_sfence();
+        tt_driver_atomics::sfence();
         // If there is more data to read and this command will make the q full, set full to 1.
         // otherwise full stays false so that we do not poll the rd pointer in next iteration.
         // As long as current command push does not fill up the queue completely, we do not want
@@ -3338,14 +3343,14 @@ void tt_SiliconDevice::read_from_non_mmio_device(uint32_t* mem_ptr, tt_cxy_pair 
         do {
             read_device_memory(erisc_resp_q_wptr.data(), remote_transfer_ethernet_core, eth_interface_params.RESPONSE_CMD_QUEUE_BASE + eth_interface_params.CMD_COUNTERS_SIZE_BYTES, DATA_WORD_SIZE, read_tlb);
         } while (erisc_resp_q_rptr[0] == erisc_resp_q_wptr[0]);
-        _mm_lfence();
+        tt_driver_atomics::lfence();
         uint32_t flags_offset = 12 + sizeof(routing_cmd_t) * resp_rd_ptr;
         std::vector<std::uint32_t> erisc_resp_flags = std::vector<uint32_t>(1);
         do {
             read_device_memory(erisc_resp_flags.data(), remote_transfer_ethernet_core, eth_interface_params.RESPONSE_ROUTING_CMD_QUEUE_BASE + flags_offset, DATA_WORD_SIZE, read_tlb);
         } while (erisc_resp_flags[0] == 0);
         tt_device_logger::log_assert(erisc_resp_flags[0] == resp_flags, "Unexpected ERISC Response Flags.");
-        _mm_lfence();
+        tt_driver_atomics::lfence();
         uint32_t data_offset = 8 + sizeof(routing_cmd_t) * resp_rd_ptr;
         if (block_size == DATA_WORD_SIZE) {
             std::vector<std::uint32_t> erisc_resp_data = std::vector<uint32_t>(1);
@@ -3365,7 +3370,7 @@ void tt_SiliconDevice::read_from_non_mmio_device(uint32_t* mem_ptr, tt_cxy_pair 
         // Finally increment the rdptr for the response command q
         erisc_resp_q_rptr[0] = (erisc_resp_q_rptr[0] + 1) & eth_interface_params.CMD_BUF_PTR_MASK;
         write_device_memory(erisc_resp_q_rptr.data(), erisc_resp_q_rptr.size(), remote_transfer_ethernet_core, eth_interface_params.RESPONSE_CMD_QUEUE_BASE + sizeof(remote_update_ptr_t) + eth_interface_params.CMD_COUNTERS_SIZE_BYTES, write_tlb);
-        _mm_sfence();
+        tt_driver_atomics::sfence();
 
         offset += block_size;
     }
@@ -3581,14 +3586,14 @@ void tt_SiliconDevice::send_tensix_risc_reset_to_core(const tt_cxy_pair &core, c
     auto valid = soft_resets & ALL_TENSIX_SOFT_RESET;
     std::vector<uint32_t> vec = {(std::underlying_type<TensixSoftResetOptions>::type) valid};
     write_to_device(vec.data(), vec.size(), core, 0xFFB121B0, "LARGE_WRITE_TLB");
-    _mm_sfence();
+    tt_driver_atomics::sfence();
 }
 
 void tt_SiliconDevice::set_remote_tensix_risc_reset(const tt_cxy_pair &core, const TensixSoftResetOptions &soft_resets) {
     auto valid = soft_resets & ALL_TENSIX_SOFT_RESET;
     std::vector<uint32_t> vec = {(std::underlying_type<TensixSoftResetOptions>::type) valid};
     write_to_non_mmio_device(vec.data(), vec.size(), core, 0xFFB121B0);
-    _mm_sfence();
+    tt_driver_atomics::sfence();
 }
 
 int tt_SiliconDevice::set_remote_power_state(const chip_id_t &chip, tt_DevicePowerState device_state) {

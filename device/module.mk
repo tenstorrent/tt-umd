@@ -51,9 +51,7 @@ else
 VERSIM_LIB = lib
 endif
 
-DEVICE_LDFLAGS = \
-    -lyaml-cpp \
-    -lhwloc
+DEVICE_LDFLAGS = -lhwloc
 
 ifneq ($(UMD_VERSIM_STUB),1)
 # Build Versim  based on configs specified in Buda or Metal build flow
@@ -89,7 +87,8 @@ DEVICE_INCLUDES+=      	\
   
   DEVICE_LDFLAGS += \
     -lpthread \
-    -latomic
+    -latomic \
+    -lyaml-cpp
   # Buda links boost .so files stored in $(BUDA_HOME)/common_lib. Metal uses $(UMD_VERSIM_HEADERS)/required_libraries for linking these files. Different handling...
   ifdef BUDA_HOME
     # Specify location of VERSIM shared libraries before linking them with DEVICE_LDFLAGS
@@ -121,7 +120,12 @@ else
 endif
 # Compiling VERSIM with /usr/bin/g++ causes build issues (not compatible with boost version)
 # Can set the compiler in the top level makefile. Budabackend uses default clang
+ifeq ("$(HOST_ARCH)", "aarch64")
+DEVICE_CXX ?= /usr/bin/clang++
+else
 DEVICE_CXX ?= /usr/bin/clang++-6.0
+endif
+
 
 -include $(DEVICE_DEPS)
 

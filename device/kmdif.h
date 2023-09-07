@@ -25,6 +25,7 @@ struct PCIdevice  {
     std::uint16_t revision_id;
 
     // PCI bus identifiers
+    DWORD dwDomain;
 	DWORD dwBus;
     DWORD dwSlot;
     DWORD dwFunction;

@@ -5,6 +5,42 @@
 #include "l1_address_map.h"
 #include <thread>
 
+TEST(SiliconDriverGS, CreateDestroySequential) {
+    std::set<chip_id_t> target_devices = {0, 1, 2, 3};
+    uint32_t num_host_mem_ch_per_mmio_device = 1;
+    std::unordered_map<std::string, std::int32_t> dynamic_tlb_config = {}; // Don't set any dynamic TLBs in this test
+    tt_device_params default_params;
+    for(int i = 0; i < 100; i++) {
+        tt_SiliconDevice device = tt_SiliconDevice("./tests/soc_descs/grayskull_10x12.yaml", "", target_devices, num_host_mem_ch_per_mmio_device, dynamic_tlb_config);
+        device.start_device(default_params);
+        device.clean_system_resources();
+        
+        for(int i = 0; i < target_devices.size(); i++) {
+            device.deassert_risc_reset(i);
+        }
+        device.close_device();
+    }
+}
+
+TEST(SiliconDriverGS, CreateMultipleInstance) {
+    std::set<chip_id_t> target_devices = {0, 1, 2, 3};
+    uint32_t num_host_mem_ch_per_mmio_device = 1;
+    std::unordered_map<std::string, std::int32_t> dynamic_tlb_config = {}; // Don't set any dynamic TLBs in this test
+    tt_device_params default_params;
+    default_params.init_device = false;
+    std::unordered_map<int, tt_SiliconDevice*> concurrent_devices = {};
+    for(int i = 0; i < 100; i++) {
+        concurrent_devices.insert({i, new tt_SiliconDevice("./tests/soc_descs/grayskull_10x12.yaml", "", target_devices, num_host_mem_ch_per_mmio_device, dynamic_tlb_config)});
+        concurrent_devices.at(i) -> clean_system_resources();
+        concurrent_devices.at(i) -> start_device(default_params);
+    }
+
+    for(auto& device : concurrent_devices) {
+        device.second -> close_device();
+        delete device.second;
+    }
+}
+
 TEST(SiliconDriverGS, Harvesting) {
     setenv("TT_BACKEND_HARVESTED_ROWS", "6,12", 1);
     std::set<chip_id_t> target_devices = {0, 1};

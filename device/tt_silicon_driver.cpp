@@ -34,8 +34,6 @@
 #include <spawn.h>
 #include <wait.h>
 #include <errno.h>
-#include <immintrin.h>
-
 #include <linux/pci.h>
 
 #include "tt_device.h"

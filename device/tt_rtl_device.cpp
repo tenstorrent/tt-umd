@@ -1,4 +1,4 @@
-#include "tt_rtl_device.hpp"
+#include "tt_device.h"
 #include <stdexcept>
 #include <cstring>
 
@@ -37,12 +37,12 @@ void tt_rtl_device::start(std::vector<std::string> plusargs, std::vector<std::st
 
 void tt_rtl_device::deassert_risc_reset(int target_device) {
   reset_mask |= 1 << target_device;
-  set_risc_reset(reset_mask)
+  set_risc_reset(reset_mask);
 }
 
 void tt_rtl_device::assert_risc_reset(int target_device) {
   reset_mask &= ~(1 << target_device);
-  set_risc_reset(reset_mask)
+  set_risc_reset(reset_mask);
 }
 
 void tt_rtl_device::rolled_write_to_device(const std::vector<uint32_t>& base_vec, uint32_t unroll_count, tt_cxy_pair core, uint64_t base_addr, const std::string& tlb_to_use) {
@@ -57,17 +57,19 @@ void tt_rtl_device::rolled_write_to_device(const std::vector<uint32_t>& base_vec
 
 
 void tt_rtl_device::write_to_device(std::vector<uint32_t>& vec, tt_cxy_pair core, uint64_t addr, const std::string& /*tlb_to_use*/, bool /*send_epoch_cmd*/, bool /*last_send_epoch_cmd*/) {
-  DEBUG_LOG("Simulation Device (" << get_sim_time(*versim) << "): Write vector at target core " << target.str() << ", address: " << std::hex << address << std::dec);
+  // comment out to resolve build failure
+  // DEBUG_LOG("Simulation Device (" << get_sim_time(*versim) << "): Write vector at target core " << target.str() << ", address: " << std::hex << address << std::dec);
 
   std::vector<uint8_t> byte_data(vec.size() * sizeof(uint32_t));
   std::memcpy(byte_data.data(), vec.data(), byte_data.size());
 
-  write(core, addr, byte_data.size(), byte_data);
+  write(core, addr, byte_data);
 }
 
 
 void tt_rtl_device::read_from_device(std::vector<uint32_t>& vec, tt_cxy_pair core, uint64_t addr, uint32_t size, const std::string& /*tlb_to_use*/) {
-  DEBUG_LOG("Versim Device (" << get_sim_time(*versim) << "): Read vector from target address: 0x" << std::hex << addr << std::dec << ", with size: " << size << " Bytes");
+  // comment out to resolve build failure
+  // DEBUG_LOG("Versim Device (" << get_sim_time(*versim) << "): Read vector from target address: 0x" << std::hex << addr << std::dec << ", with size: " << size << " Bytes");
   std::vector<uint8_t> byte_data = read(core, addr, size);
 
   // Verify that the received byte data can be converted to uint32_t
@@ -127,9 +129,7 @@ void tt_rtl_device::set_device_l1_address_params(const tt_device_l1_address_para
   l1_address_params = l1_address_params_;
 }
 
-tt_rtl_device::tt_rtl_device(const std::string& request_path, const std::string& response_path)
-  : request_fifo(request_path, std::ios::binary | std::ios::out),
-  response_fifo(response_path, std::ios::binary | std::ios::in) {
+tt_rtl_device::tt_rtl_device(const std::string& request_path, const std::string& response_path) : tt_device(request_path), request_fifo(request_path, std::ios::binary | std::ios::out), response_fifo(response_path, std::ios::binary | std::ios::in) {
   if (!request_fifo.is_open() || !response_fifo.is_open()) {
     throw std::runtime_error("Failed to open FIFOs.");
   }
@@ -196,7 +196,7 @@ void tt_rtl_device::send_command(char command, tt_cxy_pair core, uint64_t addr, 
   // We extract the x and y coordinates from the tt_cxy_pair and send them as a coord_t
   const coord_t xy_coord = coord_t(core);
   request_fifo.write(&command, 1);
-  request_fifo.write(reinterpret_cast<char*>(&xy_coord), sizeof(xy_coord));
+  request_fifo.write(reinterpret_cast<const char*>(&xy_coord), sizeof(xy_coord));
   request_fifo.write(reinterpret_cast<char*>(&addr), sizeof(addr));
   request_fifo.write(reinterpret_cast<char*>(&size), sizeof(size));
   request_fifo.write(reinterpret_cast<char*>(&id), sizeof(id));

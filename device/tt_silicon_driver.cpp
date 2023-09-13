@@ -1170,10 +1170,10 @@ struct remote_update_ptr_t{
 
 // Get TLB index (from zero), check if it's in 16MB, 2MB or 1MB TLB range, and dynamically program it.
 dynamic_tlb set_dynamic_tlb(PCIdevice* dev, unsigned int tlb_index, tt_xy_pair start, tt_xy_pair end,
-                            std::uint32_t address, bool multicast, std::unordered_map<chip_id_t, std::unordered_map<tt_xy_pair, tt_xy_pair>>& harvested_coord_translation, bool posted) {
+                            std::uint32_t address, bool multicast, std::unordered_map<chip_id_t, std::unordered_map<tt_xy_pair, tt_xy_pair>>& harvested_coord_translation, std::uint64_t ordering) {
 
-    LOG2("set_dynamic_tlb with arguments: tlb_index = %d, start = (%d, %d), end = (%d, %d), address = 0x%x, multicast = %d, posted = %d\n",
-         tlb_index, start.x, start.y, end.x, end.y, address, multicast, posted);
+    LOG2("set_dynamic_tlb with arguments: tlb_index = %d, start = (%d, %d), end = (%d, %d), address = 0x%x, multicast = %d, ordering = %d\n",
+         tlb_index, start.x, start.y, end.x, end.y, address, multicast, (int)ordering);
 
     uint32_t dynamic_tlb_size, dynamic_tlb_base, dynamic_tlb_cfg_addr, tlb_index_offset;
     TLB_OFFSETS tlb_offset;
@@ -1217,7 +1217,7 @@ dynamic_tlb set_dynamic_tlb(PCIdevice* dev, unsigned int tlb_index, tt_xy_pair s
         .x_start = static_cast<uint64_t>(translated_start_coords.x),
         .y_start = static_cast<uint64_t>(translated_start_coords.y),
         .mcast = multicast,
-        .ordering = posted ? TLB_DATA::Posted : TLB_DATA::Relaxed,
+        .ordering = ordering,
         .static_vc = true,
     }.apply_offset(tlb_offset);
 
@@ -1229,14 +1229,14 @@ dynamic_tlb set_dynamic_tlb(PCIdevice* dev, unsigned int tlb_index, tt_xy_pair s
 }
 
 
-dynamic_tlb set_dynamic_tlb(PCIdevice *dev, unsigned int tlb_index, tt_xy_pair target, std::uint32_t address, std::unordered_map<chip_id_t, std::unordered_map<tt_xy_pair, tt_xy_pair>>& harvested_coord_translation, bool posted = false) {
-    return set_dynamic_tlb(dev, tlb_index, tt_xy_pair(0, 0), target, address, false, harvested_coord_translation, posted);
+dynamic_tlb set_dynamic_tlb(PCIdevice *dev, unsigned int tlb_index, tt_xy_pair target, std::uint32_t address, std::unordered_map<chip_id_t, std::unordered_map<tt_xy_pair, tt_xy_pair>>& harvested_coord_translation, std::uint64_t ordering = TLB_DATA::Relaxed) {
+    return set_dynamic_tlb(dev, tlb_index, tt_xy_pair(0, 0), target, address, false, harvested_coord_translation, ordering);
 }
 
-dynamic_tlb set_dynamic_tlb_broadcast(PCIdevice *dev, unsigned int tlb_index, std::uint32_t address, std::unordered_map<chip_id_t, std::unordered_map<tt_xy_pair, tt_xy_pair>>& harvested_coord_translation, uint32_t num_rows_harvested, bool posted = false) {
+dynamic_tlb set_dynamic_tlb_broadcast(PCIdevice *dev, unsigned int tlb_index, std::uint32_t address, std::unordered_map<chip_id_t, std::unordered_map<tt_xy_pair, tt_xy_pair>>& harvested_coord_translation, uint32_t num_rows_harvested, std::uint64_t ordering = TLB_DATA::Relaxed) {
     // When we have HW harvesting performed on WH, do not broadcast write to lower logical rows (or the physically harvested rows), as this hangs device during boot
     return set_dynamic_tlb (dev, tlb_index, tt_xy_pair(0, 0), tt_xy_pair(DEVICE_DATA.GRID_SIZE_X - 1, DEVICE_DATA.GRID_SIZE_Y - 1 - num_rows_harvested),
-                            address, true, harvested_coord_translation, posted);
+                            address, true, harvested_coord_translation, ordering);
 }
 
 bool tt_SiliconDevice::address_in_tlb_space(uint32_t address, uint32_t size_in_bytes, int32_t tlb_index, uint32_t tlb_size, std::uint32_t chip) {
@@ -1888,7 +1888,7 @@ void tt_SiliconDevice::write_device_memory(const uint32_t *mem_ptr, uint32_t len
 
         while(size_in_bytes > 0) {
 
-            auto [mapped_address, tlb_size] = set_dynamic_tlb(pci_device, tlb_index, target, address, harvested_coord_translation, true);
+            auto [mapped_address, tlb_size] = set_dynamic_tlb(pci_device, tlb_index, target, address, harvested_coord_translation, TLB_DATA::Posted);
             uint32_t transfer_size = std::min(size_in_bytes, tlb_size);
             write_block(dev, mapped_address, transfer_size, buffer_addr, m_dma_buf_size);
 
@@ -1926,7 +1926,7 @@ void tt_SiliconDevice::read_device_memory(uint32_t *mem_ptr, tt_cxy_pair target,
         LOG1 ("  dynamic tlb_index: %d\n", tlb_index);
         while(size_in_bytes > 0) {
 
-            auto [mapped_address, tlb_size] = set_dynamic_tlb(pci_device, tlb_index, target, address, harvested_coord_translation, true);
+            auto [mapped_address, tlb_size] = set_dynamic_tlb(pci_device, tlb_index, target, address, harvested_coord_translation, TLB_DATA::Posted);
             uint32_t transfer_size = std::min(size_in_bytes, tlb_size);
             read_block(dev, mapped_address, transfer_size, buffer_addr, m_dma_buf_size);
 
@@ -2118,7 +2118,7 @@ tt_SiliconDevice::~tt_SiliconDevice () {
 }
 
 void tt_SiliconDevice::configure_tlb(chip_id_t logical_device_id, tt_xy_pair core, std::int32_t tlb_index, std::int32_t address, bool posted) {
-    set_dynamic_tlb(m_pci_device_map.at(logical_device_id), tlb_index, core, address, harvested_coord_translation, posted); // make ordering configurable
+    set_dynamic_tlb(m_pci_device_map.at(logical_device_id), tlb_index, core, address, harvested_coord_translation, posted ? TLB_DATA::Posted : TLB_DATA::Relaxed);
     auto tlb_size = std::get<1>(describe_tlb(tlb_index).value());
     if(tlb_config_map.find(logical_device_id) == tlb_config_map.end()) tlb_config_map.insert({logical_device_id, {}});
     tlb_config_map[logical_device_id].insert({tlb_index, (address / tlb_size) * tlb_size});

@@ -2245,7 +2245,9 @@ void tt_SiliconDevice::init_pcie_iatus_no_p2p() {
         for (int channel_id = 0; channel_id < m_num_host_mem_channels; channel_id++) {
             // TODO - Try to remove DMA buffer support.
             if (hugepage_mapping.at(src_pci_id).at(channel_id)) {
-                iatu_configure_peer_region(src_pci_id, channel_id, hugepage_physical_address.at(src_pci_id).at(channel_id), HUGEPAGE_REGION_SIZE);
+                std::uint32_t region_size = HUGEPAGE_REGION_SIZE;
+                if(channel_id == 3) region_size = 805306368; // Remove 256MB from full 1GB for channel 3 (iATU limitation)
+                iatu_configure_peer_region(src_pci_id, channel_id, hugepage_physical_address.at(src_pci_id).at(channel_id), region_size);
             } else if(buf_mapping) {
                 // we failed when initializing huge pages, we are using a 1MB DMA buffer as a stand-in
                 iatu_configure_peer_region(src_pci_id, channel_id, buf_physical_addr, DMA_BUF_REGION_SIZE);
@@ -2668,15 +2670,17 @@ int tt_SiliconDevice::iatu_configure_peer_region (int logical_device_id, uint32_
     // utility.INFO (f"    Setting peer_region_id {peer_region_id} to BAR addr 0x%x" % bar_addr_64)
     uint32_t dest_bar_lo = bar_addr_64 & 0xffffffff;
     uint32_t dest_bar_hi = (bar_addr_64 >> 32) & 0xffffffff;
-    bar_write32(logical_device_id, DEVICE_DATA.ARC_CSM_MAILBOX_OFFSET + 0 * 4, peer_region_id);
+    std::uint32_t region_id_to_use = peer_region_id;
+    if(peer_region_id == 3) region_id_to_use = 4; // Hack use region 4 for channel 3..this ensures that we have a smaller chan 3 address space with the correct start offset
+    bar_write32(logical_device_id, DEVICE_DATA.ARC_CSM_MAILBOX_OFFSET + 0 * 4, region_id_to_use);
     bar_write32(logical_device_id, DEVICE_DATA.ARC_CSM_MAILBOX_OFFSET + 1 * 4, dest_bar_lo);
     bar_write32(logical_device_id, DEVICE_DATA.ARC_CSM_MAILBOX_OFFSET + 2 * 4, dest_bar_hi);
     bar_write32(logical_device_id, DEVICE_DATA.ARC_CSM_MAILBOX_OFFSET + 3 * 4, region_size);
     arc_msg(logical_device_id, 0xaa00 | MSG_TYPE::SETUP_IATU_FOR_PEER_TO_PEER, true, 0, 0);
 
     // Print what just happened
-    uint32_t peer_region_start = peer_region_id*region_size;
-    uint32_t peer_region_end = (peer_region_id+1)*region_size - 1;
+    uint32_t peer_region_start = region_id_to_use*region_size;
+    uint32_t peer_region_end = (region_id_to_use+1)*region_size - 1;
     LOG1 ("    [region id %d] NOC to PCI address range 0x%x-0x%x mapped to addr 0x%llx\n", peer_region_id, peer_region_start, peer_region_end, bar_addr_64);
     return 0;
 }
@@ -2980,7 +2984,7 @@ void tt_SiliconDevice::write_to_non_mmio_device(const uint32_t *mem_ptr, uint32_
         timestamp = 0;
 
         uint32_t host_dram_block_addr = host_address_params.ETH_ROUTING_BUFFERS_START + (active_core * eth_interface_params.CMD_BUF_SIZE + req_wr_ptr) * max_block_size;
-        uint16_t host_dram_channel = 0; // Could be changed in the future, seems not necessary now.
+        uint16_t host_dram_channel = 0; // This needs to be 0, since WH can only map ETH buffers to chan 0.
 
         if (req_flags & eth_interface_params.CMD_DATA_BLOCK) {
             if (use_dram) {
@@ -3185,7 +3189,7 @@ void tt_SiliconDevice::rolled_write_to_non_mmio_device(const uint32_t *mem_ptr, 
         timestamp = 0;
 
         uint32_t host_dram_block_addr = host_address_params.ETH_ROUTING_BUFFERS_START + (active_core * eth_interface_params.CMD_BUF_SIZE + req_wr_ptr) * host_address_params.ETH_ROUTING_BLOCK_SIZE;
-        uint16_t host_dram_channel = 0;
+        uint16_t host_dram_channel = 0; // This needs to be 0, since WH can only map ETH buffers to chan 0.
 
         memcpy(data_block.data(), mem_ptr, len * 4);
         uint32_t byte_increment = data_block.size() * DATA_WORD_SIZE;
@@ -3294,7 +3298,7 @@ void tt_SiliconDevice::read_from_non_mmio_device(uint32_t* mem_ptr, tt_cxy_pair 
         uint32_t resp_flags = block_size > DATA_WORD_SIZE ? (eth_interface_params.CMD_DATA_BLOCK | eth_interface_params.CMD_RD_DATA) : eth_interface_params.CMD_RD_DATA;
         uint32_t resp_rd_ptr = erisc_resp_q_rptr[0] & eth_interface_params.CMD_BUF_SIZE_MASK;
         uint32_t host_dram_block_addr = host_address_params.ETH_ROUTING_BUFFERS_START + resp_rd_ptr * max_block_size;
-        uint16_t host_dram_channel = 0;
+        uint16_t host_dram_channel = 0; // This needs to be 0, since WH can only map ETH buffers to chan 0.
 
         if (use_dram) {
             req_flags |= eth_interface_params.CMD_DATA_BLOCK_DRAM;

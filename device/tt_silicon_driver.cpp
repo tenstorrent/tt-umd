@@ -1332,6 +1332,13 @@ void tt_SiliconDevice::create_device(const std::unordered_set<chip_id_t> &target
         }
         m_per_device_mutexes_map["ARC_MSG"].insert({pci_interface_id, {"ARC_MSG" + std::to_string((int) pci_interface_id), nullptr}});
 
+        // Can't query soc desc as it's not present 
+        bool may_have_non_mmio_chips = ndesc->chips_have_ethernet_connectivity();
+        if (may_have_non_mmio_chips) {
+            m_per_device_mutexes_map[NON_MMIO_MUTEX_NAME].insert(
+                {pci_interface_id, {NON_MMIO_MUTEX_NAME + std::to_string((int)pci_interface_id), nullptr}});
+        }
+
         if (!skip_driver_allocs)
             print_device_info (*pci_device);
 
@@ -1809,7 +1816,6 @@ void tt_SiliconDevice::clean_system_resources() {
             LOG1 ("Interprocess mutex '%s' removed by pid=%ld\n", mutex_name.c_str(), (long)getpid());
         }
     }
-    boost::interprocess::named_mutex::remove("non_mmio_mutex");
 }
 
 // System level init sequence
@@ -2914,21 +2920,69 @@ bool tt_SiliconDevice::is_non_mmio_cmd_q_full(uint32_t curr_wptr, uint32_t curr_
   return (curr_wptr != curr_rptr) && ((curr_wptr & eth_interface_params.CMD_BUF_SIZE_MASK) == (curr_rptr & eth_interface_params.CMD_BUF_SIZE_MASK));
 }
 
+/*
+ *
+ *                                       NON_MMIO_MUTEX Usage
+ *
+ * Relevant functions:
+ *  - write_to_non_mmio_device
+ *  - rolled_write_to_non_mmio_device
+ *  - read_from_non_mmio_device
+ *
+ * The non-MMIO read/write functions (excluding the `*_epoch_cmd` variants) are responsible for the
+ * writes/reads to/from those wormhole chips that aren't memory mapped or directly host connected.
+ * To get the data to or from those other chips, there is a memory transfer protocol - initiated on
+ * the host side but carried out by any number of the ethernet cores (the ethernet core pool is dictated
+ * by `this->NUM_ETH_CORES_FOR_NON_MMIO_TRANSFERS`) on the MMIO chips (e.g. typically just the one chip in a galaxy).
+ *
+ * There is a command queue structure in ethernet core FW to accept these read/write commands. However, there is no
+ * atomic increment (from host side) for the write pointers of these queues, nor is there any sort of other hardware
+ * mutual exclusion (as of WH) from host side when populating commands into the queue (as in when the host pushes a
+ * write command into the ethernet core's queue).
+ *
+ * Therefore, any of these non_mmio commands from host side need to be synchronized so they don't accidentally corrupt
+ * each other. The finest granularity possible to synchronize on would be the command slot and wrptr (per core),
+ * but wrptr updates also need to be coordinated:
+ *  - you can't increment wrptr unless you are writing to the next index and your write is complete
+ *  - if two threads could guarantee separate command slots, they'd need to order their wrptr updates from lowest to
+ *    highest and based on completion of command writes.
+ *
+ * Stepping back a little bit, a sort of interprocess synchronization is required because the driver may be invoked
+ * from several processes. Indeed from pybuda (python), we'd typically needs to spin up multiple processes:
+ *   - 1 for pushing inputs
+ *   - 1 for popping outputs
+ *   - 1 for managing execution state
+ *  (or some variation along those lines).
+ *
+ * The interprocess mutex from measurements takes a while. While not seconds, it's non-trivial such that locking and
+ * unlocking at fine granularity would be more detrimental to performance than acquiring it for a large block.
+ *
+ * Considering the above, the current chosen approach is to make each of these calls acquired a shared mutex:
+ * `NON_MMIO_MUTEX_NAME`
+ *  - They acquire at a relatively large granularity -> for the entire duration of the function where we interact
+ *    with the ethernet core (read/write) and where we use `active_core` to choose a core.
+ *    - Simplifies synchronization while we reach stability
+ *  - We need to include any usage (read/modify) of `active_core` in the mutex acquisition scope.
+ *
+ * Other schemes may be more performant.
+ */
+
+/*
+ * Note that this function is required to acquire the `NON_MMIO_MUTEX_NAME` mutex for interacting with the
+ * ethernet core (host) command queue DO NOT issue any pcie reads/writes to the ethernet core prior to acquiring the
+ * mutex. For extra information, see the "NON_MMIO_MUTEX Usage" above
+ */
 void tt_SiliconDevice::write_to_non_mmio_device(const uint32_t *mem_ptr, uint32_t len, tt_cxy_pair core, uint64_t address){
     using data_word_t = uint32_t;
     constexpr int DATA_WORD_SIZE = sizeof(data_word_t);
 
-    const auto &mmio_capable_chip = ndesc->get_closest_mmio_capable_chip(core.chip);
     const auto target_chip = ndesc->get_chip_locations().at(core.chip);
 
     std::string write_tlb = "LARGE_WRITE_TLB";
     std::string read_tlb = "LARGE_READ_TLB";
     std::string empty_tlb = "";
     translate_to_noc_table_coords(0, core.y, core.x);
-
-    tt_cxy_pair remote_transfer_ethernet_core = remote_transfer_ethernet_cores[active_core];
-
-
+    
     // tt_device_logger::log_debug(tt_device_logger::LogDevice, "Writing to non-mmio device {}: tt_cxy_pair {}, addr {}", target_chip.str(), core.str(), address);
 
     std::vector<std::uint32_t> erisc_command;
@@ -2948,6 +3002,15 @@ void tt_SiliconDevice::write_to_non_mmio_device(const uint32_t *mem_ptr, uint32_
     flush_non_mmio = true;
     use_dram = len > 256 ? true : false;
     max_block_size = use_dram ? host_address_params.ETH_ROUTING_BLOCK_SIZE : eth_interface_params.MAX_BLOCK_SIZE;
+
+    //
+    //                    MUTEX ACQUIRE (NON-MMIO)
+    //  do not locate any ethernet core reads/writes before this acquire
+    //
+    const auto &mmio_capable_chip_logical = ndesc->get_closest_mmio_capable_chip(core.chip);
+    const scoped_lock<named_mutex> lock(
+        *get_mutex(NON_MMIO_MUTEX_NAME, this->get_pci_device(mmio_capable_chip_logical)->id));
+    tt_cxy_pair remote_transfer_ethernet_core = remote_transfer_ethernet_cores[active_core];
 
     erisc_command.resize(sizeof(routing_cmd_t)/DATA_WORD_SIZE);
     new_cmd = (routing_cmd_t *)&erisc_command[0];
@@ -2992,7 +3055,7 @@ void tt_SiliconDevice::write_to_non_mmio_device(const uint32_t *mem_ptr, uint32_
                 resp_flags |= eth_interface_params.CMD_DATA_BLOCK_DRAM;
                 data_block.resize(block_size/DATA_WORD_SIZE);
                 memcpy(&data_block[0], mem_ptr + offset/DATA_WORD_SIZE, block_size);
-                write_to_sysmem(data_block, host_dram_block_addr, host_dram_channel, mmio_capable_chip);
+                write_to_sysmem(data_block, host_dram_block_addr, host_dram_channel, mmio_capable_chip_logical);
             } else {
                 uint32_t buf_address = eth_interface_params.ETH_ROUTING_DATA_BUFFER_ADDR + req_wr_ptr * max_block_size;
                 data_block.resize(block_size/DATA_WORD_SIZE);
@@ -3004,7 +3067,7 @@ void tt_SiliconDevice::write_to_non_mmio_device(const uint32_t *mem_ptr, uint32_
 
         // Send the read request
         tt_device_logger::log_assert((req_flags == eth_interface_params.CMD_WR_REQ) || (((address + offset) & 0x1F) == 0), "Block mode address must be 32-byte aligned."); // Block mode address must be 32-byte aligned.
-
+        
         new_cmd->sys_addr = get_sys_addr(std::get<0>(target_chip), std::get<1>(target_chip), core.x, core.y, address + offset);
         new_cmd->rack = get_sys_rack(std::get<2>(target_chip), std::get<3>(target_chip));
         new_cmd->data = req_flags & eth_interface_params.CMD_DATA_BLOCK ? block_size : *(mem_ptr + offset/DATA_WORD_SIZE);
@@ -3131,6 +3194,10 @@ void tt_SiliconDevice::write_to_non_mmio_device_send_epoch_cmd(const uint32_t *m
     }
 }
 
+/*
+ * Note that this function is required to acquire the `NON_MMIO_MUTEX_NAME` mutex for interacting with the ethernet core (host) command queue
+ * DO NOT issue any pcie reads/writes to the ethernet core prior to acquiring the mutex. For extra information, see the "NON_MMIO_MUTEX Usage" above
+ */
 void tt_SiliconDevice::rolled_write_to_non_mmio_device(const uint32_t *mem_ptr, uint32_t len, tt_cxy_pair core, uint64_t address, uint32_t unroll_count) {
     using data_word_t = uint32_t;
     constexpr int DATA_WORD_SIZE = sizeof(data_word_t);
@@ -3140,8 +3207,6 @@ void tt_SiliconDevice::rolled_write_to_non_mmio_device(const uint32_t *mem_ptr, 
     std::string empty_tlb = "";
     translate_to_noc_table_coords(0, core.y, core.x);
 
-
-    const chip_id_t &mmio_capable_chip = ndesc->get_closest_mmio_capable_chip(core.chip);
     const eth_coord_t target_chip = ndesc->get_chip_locations().at(core.chip);
 
     // tt_device_logger::log_debug(tt_device_logger::LogDevice, "Writing to non-mmio device {}: tt_cxy_pair {}, addr {}", target_chip.str(), core.str(), address);
@@ -3157,6 +3222,14 @@ void tt_SiliconDevice::rolled_write_to_non_mmio_device(const uint32_t *mem_ptr, 
     uint32_t size_in_bytes = len * DATA_WORD_SIZE * unroll_count;
     uint32_t buffer_id = 0;
     uint32_t timestamp = 0; //CMD_TIMESTAMP;
+
+    //
+    //                    MUTEX ACQUIRE (NON-MMIO)
+    //  do not locate any ethernet core reads/writes before this acquire
+    //
+    const auto &mmio_capable_chip_logical = ndesc->get_closest_mmio_capable_chip(core.chip);
+    const scoped_lock<named_mutex> lock(
+        *get_mutex(NON_MMIO_MUTEX_NAME, this->get_pci_device(mmio_capable_chip_logical)->id));
 
     erisc_command.resize(sizeof(routing_cmd_t)/DATA_WORD_SIZE);
     new_cmd = (routing_cmd_t *)&erisc_command[0];
@@ -3201,7 +3274,7 @@ void tt_SiliconDevice::rolled_write_to_non_mmio_device(const uint32_t *mem_ptr, 
                 break;
             }
             data_block[0] = i + unroll_offset;
-            write_to_sysmem(data_block, host_dram_block_addr + host_mem_offset, host_dram_channel, mmio_capable_chip);
+            write_to_sysmem(data_block, host_dram_block_addr + host_mem_offset, host_dram_channel, mmio_capable_chip_logical);
             host_mem_offset += byte_increment;
         }
         unroll_offset += i;
@@ -3238,7 +3311,12 @@ void tt_SiliconDevice::rolled_write_to_non_mmio_device(const uint32_t *mem_ptr, 
     }
 }
 
+/*
+ * Note that this function is required to acquire the `NON_MMIO_MUTEX_NAME` mutex for interacting with the ethernet core (host) command queue
+ * DO NOT use `active_core` or issue any pcie reads/writes to the ethernet core prior to acquiring the mutex. For extra information, see the "NON_MMIO_MUTEX Usage" above
+ */
 void tt_SiliconDevice::read_from_non_mmio_device(uint32_t* mem_ptr, tt_cxy_pair core, uint64_t address, uint32_t size_in_bytes) {
+
     using data_word_t = uint32_t;
     constexpr int DATA_WORD_SIZE = sizeof(data_word_t);
     std::string write_tlb = "LARGE_WRITE_TLB";
@@ -3246,10 +3324,8 @@ void tt_SiliconDevice::read_from_non_mmio_device(uint32_t* mem_ptr, tt_cxy_pair 
     std::string empty_tlb = "";
     translate_to_noc_table_coords(0, core.y, core.x);
 
-    const chip_id_t &mmio_capable_chip = ndesc->get_closest_mmio_capable_chip(core.chip); //Use this
+    const auto &mmio_capable_chip_logical = ndesc->get_closest_mmio_capable_chip(core.chip);
     const eth_coord_t target_chip = ndesc->get_chip_locations().at(core.chip);
-
-    const tt_cxy_pair remote_transfer_ethernet_core = tt_cxy_pair(mmio_capable_chip, get_soc_descriptor(mmio_capable_chip).ethernet_cores.at(0).x, get_soc_descriptor(mmio_capable_chip).ethernet_cores.at(0).y);
 
     std::vector<std::uint32_t> erisc_command;
     std::vector<std::uint32_t> erisc_q_rptr;
@@ -3264,6 +3340,14 @@ void tt_SiliconDevice::read_from_non_mmio_device(uint32_t* mem_ptr, tt_cxy_pair 
 
     erisc_command.resize(sizeof(routing_cmd_t)/DATA_WORD_SIZE);
     new_cmd = (routing_cmd_t *)&erisc_command[0];
+
+    //
+    //                    MUTEX ACQUIRE (NON-MMIO)
+    //  do not locate any ethernet core reads/writes before this acquire
+    //
+    const scoped_lock<named_mutex> lock(
+        *get_mutex(NON_MMIO_MUTEX_NAME, this->get_pci_device(mmio_capable_chip_logical)->id));
+    const tt_cxy_pair remote_transfer_ethernet_core = tt_cxy_pair(mmio_capable_chip_logical, get_soc_descriptor(mmio_capable_chip_logical).ethernet_cores.at(0).x, get_soc_descriptor(mmio_capable_chip_logical).ethernet_cores.at(0).y);
 
     read_device_memory(erisc_q_ptrs.data(), remote_transfer_ethernet_core, eth_interface_params.REQUEST_CMD_QUEUE_BASE + eth_interface_params.CMD_COUNTERS_SIZE_BYTES, eth_interface_params.REMOTE_UPDATE_PTR_SIZE_BYTES*2, read_tlb);
     read_device_memory(erisc_resp_q_wptr.data(), remote_transfer_ethernet_core, eth_interface_params.RESPONSE_CMD_QUEUE_BASE + eth_interface_params.CMD_COUNTERS_SIZE_BYTES, DATA_WORD_SIZE, read_tlb);
@@ -3364,7 +3448,7 @@ void tt_SiliconDevice::read_from_non_mmio_device(uint32_t* mem_ptr, tt_cxy_pair 
             mem_ptr[offset/DATA_WORD_SIZE] = erisc_resp_data[0];
         } else {
             if (use_dram) {
-                read_from_sysmem(data_block, host_dram_block_addr, host_dram_channel, block_size, mmio_capable_chip);
+                read_from_sysmem(data_block, host_dram_block_addr, host_dram_channel, block_size, mmio_capable_chip_logical);
             } else {
                 uint32_t buf_address = eth_interface_params.ETH_ROUTING_DATA_BUFFER_ADDR + resp_rd_ptr * max_block_size;
                 data_block.resize(block_size / DATA_WORD_SIZE);
@@ -3380,6 +3464,7 @@ void tt_SiliconDevice::read_from_non_mmio_device(uint32_t* mem_ptr, tt_cxy_pair 
 
         offset += block_size;
     }
+
 }
 
 void tt_SiliconDevice::wait_for_non_mmio_flush() {
@@ -3510,10 +3595,7 @@ void tt_SiliconDevice::write_to_device(const uint32_t *mem_ptr, uint32_t len, tt
     }
     else if (!send_epoch_cmd) {
         tt_device_logger::log_assert((get_soc_descriptor(core.chip).ethernet_cores).size() > 0 && get_number_of_chips_in_cluster() > 1, "Cannot issue ethernet writes to a single chip cluster!");
-        boost::interprocess::named_mutex named_mtx(boost::interprocess::open_or_create, "non_mmio_mutex");
-        named_mtx.lock();
         write_to_non_mmio_device(mem_ptr, len, core, addr);
-        named_mtx.unlock();
     } else {
         // as long as epoch commands are sent single-threaded, no need to acquire mutex
         write_to_non_mmio_device_send_epoch_cmd(mem_ptr, len, core, addr, last_send_epoch_cmd);
@@ -3552,10 +3634,7 @@ void tt_SiliconDevice::rolled_write_to_device(uint32_t* mem_ptr, uint32_t len, u
     }
     else {
         tt_device_logger::log_assert((get_soc_descriptor(core.chip).ethernet_cores).size() > 0 && get_number_of_chips_in_cluster() > 1, "Cannot issue ethernet writes to a single chip cluster!");
-        boost::interprocess::named_mutex named_mtx(boost::interprocess::open_or_create, "non_mmio_mutex");
-        named_mtx.lock();
         rolled_write_to_non_mmio_device(mem_ptr, len, core, addr, unroll_count);
-        named_mtx.unlock();
     }
 }
 
@@ -3600,10 +3679,7 @@ void tt_SiliconDevice::read_from_device(uint32_t* mem_ptr, tt_cxy_pair core, uin
     }
     else {
         tt_device_logger::log_assert((get_soc_descriptor(core.chip).ethernet_cores).size() > 0 &&  get_number_of_chips_in_cluster() > 1, "Cannot issue ethernet reads from a single chip cluster!");
-        boost::interprocess::named_mutex named_mtx(boost::interprocess::open_or_create, "non_mmio_mutex");
-        named_mtx.lock();
         read_from_non_mmio_device(mem_ptr, core, addr, size);
-        named_mtx.unlock();
     }
 }
 

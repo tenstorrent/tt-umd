@@ -561,6 +561,10 @@ class tt_SiliconDevice: public tt_device
     void * buf_mapping = nullptr;
     int driver_id;  
     bool perform_harvesting_on_sdesc = false;
+
+    // Named Mutexes
+    static constexpr char NON_MMIO_MUTEX_NAME[] = "NON_MMIO";
+    static constexpr char ARC_MSG_MUTEX_NAME[] = "ARC_MSG";
 };
 
 tt::ARCH detect_arch(uint16_t device_id = 0);

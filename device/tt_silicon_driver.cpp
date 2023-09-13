@@ -3496,7 +3496,11 @@ void tt_SiliconDevice::read_from_sysmem(std::vector<uint32_t> &vec, uint64_t add
 void tt_SiliconDevice::write_to_device(const uint32_t *mem_ptr, uint32_t len, tt_cxy_pair core, uint64_t addr, const std::string& fallback_tlb, bool send_epoch_cmd, bool last_send_epoch_cmd) {
     bool target_is_mmio_capable = ndesc -> is_chip_mmio_capable(core.chip);
     if(target_is_mmio_capable) {
-        write_device_memory(mem_ptr, len, core, addr, fallback_tlb);
+        if (fallback_tlb == "REG_TLB") {
+            write_mmio_device_register(mem_ptr, core, addr, len, fallback_tlb);
+        } else {
+            write_device_memory(mem_ptr, len, core, addr, fallback_tlb);
+        }
     }
     else if (!send_epoch_cmd) {
         tt_device_logger::log_assert((get_soc_descriptor(core.chip).ethernet_cores).size() > 0 && get_number_of_chips_in_cluster() > 1, "Cannot issue ethernet writes to a single chip cluster!");
@@ -3553,10 +3557,40 @@ void tt_SiliconDevice::rolled_write_to_device(std::vector<uint32_t> &vec, uint32
     rolled_write_to_device(vec.data(), vec.size(), unroll_count, core, addr, fallback_tlb);
 }
 
+void tt_SiliconDevice::read_mmio_device_register(uint32_t* mem_ptr, tt_cxy_pair core, uint64_t addr, uint32_t size, const std::string& fallback_tlb) {
+    struct PCIdevice* pci_device = get_pci_device(core.chip);
+    TTDevice *dev = pci_device->hdev;
+
+    const auto tlb_index = dynamic_tlb_config.at(fallback_tlb);
+    const scoped_lock<named_mutex> lock(*get_mutex(fallback_tlb, pci_device -> id));
+    LOG1 ("  dynamic tlb_index: %d\n", tlb_index);
+
+    auto [mapped_address, tlb_size] = set_dynamic_tlb(pci_device, tlb_index, core, addr, harvested_coord_translation, TLB_DATA::Strict);
+
+    read_regs(dev, mapped_address, size / sizeof(std::uint32_t), mem_ptr);
+}
+
+void tt_SiliconDevice::write_mmio_device_register(const uint32_t* mem_ptr, tt_cxy_pair core, uint64_t addr, uint32_t size, const std::string& fallback_tlb) {
+    struct PCIdevice* pci_device = get_pci_device(core.chip);
+    TTDevice *dev = pci_device->hdev;
+
+    const auto tlb_index = dynamic_tlb_config.at(fallback_tlb);
+    const scoped_lock<named_mutex> lock(*get_mutex(fallback_tlb, pci_device -> id));
+    LOG1 ("  dynamic tlb_index: %d\n", tlb_index);
+
+    auto [mapped_address, tlb_size] = set_dynamic_tlb(pci_device, tlb_index, core, addr, harvested_coord_translation, TLB_DATA::Strict);
+
+    write_regs(dev, mapped_address, size / sizeof(std::uint32_t), mem_ptr);
+}
+
 void tt_SiliconDevice::read_from_device(uint32_t* mem_ptr, tt_cxy_pair core, uint64_t addr, uint32_t size, const std::string& fallback_tlb) {
     bool target_is_mmio_capable = ndesc -> is_chip_mmio_capable(core.chip);
-    if(target_is_mmio_capable) {
-        read_device_memory(mem_ptr, core, addr, size, fallback_tlb);
+    if (target_is_mmio_capable) {
+        if (fallback_tlb == "REG_TLB") {
+            read_mmio_device_register(mem_ptr, core, addr, size, fallback_tlb);
+        } else {
+            read_device_memory(mem_ptr, core, addr, size, fallback_tlb);
+        }
     }
     else {
         tt_device_logger::log_assert((get_soc_descriptor(core.chip).ethernet_cores).size() > 0 &&  get_number_of_chips_in_cluster() > 1, "Cannot issue ethernet reads from a single chip cluster!");

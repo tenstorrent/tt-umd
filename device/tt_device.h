@@ -494,6 +494,9 @@ class tt_SiliconDevice: public tt_device
     void write_to_non_mmio_device_send_epoch_cmd(const uint32_t *mem_ptr, uint32_t len, tt_cxy_pair core, uint64_t address, bool last_send_epoch_cmd);
     void rolled_write_to_non_mmio_device(const uint32_t *mem_ptr, uint32_t len, tt_cxy_pair core, uint64_t address, uint32_t unroll_count);
     void read_from_non_mmio_device(uint32_t* mem_ptr, tt_cxy_pair core, uint64_t address, uint32_t size_in_bytes);
+    void read_mmio_device_register(uint32_t* mem_ptr, tt_cxy_pair core, uint64_t addr, uint32_t size, const std::string& fallback_tlb);
+    void write_mmio_device_register(const uint32_t* mem_ptr, tt_cxy_pair core, uint64_t addr, uint32_t size, const std::string& fallback_tlb);
+
     uint64_t get_sys_addr(uint32_t chip_x, uint32_t chip_y, uint32_t noc_x, uint32_t noc_y, uint64_t offset);
     uint16_t get_sys_rack(uint32_t rack_x, uint32_t rack_y);
     bool is_non_mmio_cmd_q_full(uint32_t curr_wptr, uint32_t curr_rptr);

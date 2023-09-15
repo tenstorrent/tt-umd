@@ -9,7 +9,7 @@ sudo apt install -y libyaml-cpp-dev libhwloc-dev libgtest-dev libboost-dev
 ```
 ## Build
 
-This target builds `libdevice.so`:
+This target builds `libdevice.so`. Specify the `ARCH_NAME` environment variable when building (`wormhole_b0` or `grayskull`):
 
 ```
 make build
@@ -17,7 +17,7 @@ make build
 
 ## Test
 
-Run this target to build library, and gtest suite:
+Run this target to build library, and gtest suite.
 
 ```
 make test

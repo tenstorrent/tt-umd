@@ -12,10 +12,8 @@ namespace cpuset {
 
 // Unrelated to hwloc binding of threads, instead to query cpu affinity to find reasonable number of threads to parallelize over.
 int get_allowed_num_threads(){
-
-
     unsigned int num_pus_in_system = sysconf(_SC_NPROCESSORS_ONLN);
-    unsigned int num_threads = num_pus_in_system / 4;
+    unsigned int num_threads = num_pus_in_system;
 
     cpu_set_t mask;
     if (sched_getaffinity(0, sizeof(cpu_set_t), &mask) == -1) {

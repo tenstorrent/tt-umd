@@ -118,14 +118,31 @@ ifneq ($(filter "$(ARCH_NAME)","wormhole" "wormhole_b0"),)
 else
   DEVICE_CXXFLAGS += -DDISABLE_ISSUE_3487_FIX
 endif
-# Compiling VERSIM with /usr/bin/g++ causes build issues (not compatible with boost version)
-# Can set the compiler in the top level makefile. Budabackend uses default clang
+
+# Can set the compiler in the top level Makefile based on build config. Use clang by default.
 ifeq ("$(HOST_ARCH)", "aarch64")
-DEVICE_CXX ?= /usr/bin/clang++
+  DEVICE_CXX ?= /usr/bin/clang++
+  # Cannot build Versim on ARM.
+  ifneq ($(UMD_VERSIM_STUB),1)
+    $(error VERSIM build is not enabled for non x86 hosts)
+  endif
 else
-DEVICE_CXX ?= /usr/bin/clang++-6.0
+  DEVICE_CXX ?= /usr/bin/clang++-6.0
+  # Compiling VERSIM with /usr/bin/g++ causes build issues (not compatible with boost version)
+  # Force clang usage.
+  ifneq ($(UMD_VERSIM_STUB),1)
+    DEVICE_CXX = /usr/bin/clang++-6.0
+  endif
 endif
 
+
+# If compile warnings were specified in top level Makefile, use them here
+ifeq ($(findstring clang,$(DEVICE_CXX)),clang)
+DEVICE_WARNINGS := $(filter-out -Wmaybe-uninitialized,$(WARNINGS))
+DEVICE_WARNINGS += -Wsometimes-uninitialized
+else
+DEVICE_WARNINGS = $(WARNINGS)
+endif
 
 -include $(DEVICE_DEPS)
 
@@ -136,8 +153,8 @@ clean_umd_device:
 
 $(UMD_DEVICE_LIB): $(DEVICE_OBJS)
 	mkdir -p $(LIBDIR)
-	$(DEVICE_CXX) $(CXXFLAGS) $(DEVICE_CXXFLAGS) $(SHARED_LIB_FLAGS) -o $(UMD_DEVICE_LIB) $^ $(LDFLAGS) $(DEVICE_LDFLAGS)
+	$(DEVICE_CXX) $(CXXFLAGS) $(DEVICE_WARNINGS) $(DEVICE_CXXFLAGS) $(SHARED_LIB_FLAGS) -o $(UMD_DEVICE_LIB) $^ $(LDFLAGS) $(DEVICE_LDFLAGS)
 
 $(DEVICE_OBJDIR)/device/%.o: $(UMD_HOME)/device/%.cpp
 	@mkdir -p $(@D)
-	$(DEVICE_CXX) $(CXXFLAGS) $(DEVICE_CXXFLAGS) $(STATIC_LIB_FLAGS) $(DEVICE_INCLUDES) -c -o $@ $<
+	$(DEVICE_CXX) $(CXXFLAGS) $(DEVICE_WARNINGS) $(DEVICE_CXXFLAGS) $(STATIC_LIB_FLAGS) $(DEVICE_INCLUDES) -c -o $@ $<

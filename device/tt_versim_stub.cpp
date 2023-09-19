@@ -58,6 +58,11 @@ bool tt_VersimDevice::stop() { return true; }
 
 void tt_VersimDevice::set_device_l1_address_params(const tt_device_l1_address_params& l1_address_params_) {}
 
+std::uint32_t tt_VersimDevice::get_num_dram_channels(std::uint32_t device_id) {return 0;}
+std::uint32_t tt_VersimDevice::get_dram_channel_size(std::uint32_t device_id, std::uint32_t channel) {return 0;}
+std::uint32_t tt_VersimDevice::get_num_host_channels(std::uint32_t device_id) {return 0;}
+std::uint32_t tt_VersimDevice::get_host_channel_size(std::uint32_t device_id, std::uint32_t channel) {return 0;}
+
 std::map<int,int> tt_VersimDevice::get_clocks() {return std::map<int,int>();}
 
 tt_ClusterDescriptor* tt_VersimDevice::get_cluster_description() {return ndesc.get();}

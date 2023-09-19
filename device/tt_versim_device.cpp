@@ -252,3 +252,21 @@ std::map<int,int> tt_VersimDevice::get_clocks() {
 void tt_VersimDevice::set_device_l1_address_params(const tt_device_l1_address_params& l1_address_params_) {
     l1_address_params = l1_address_params_;
 }
+
+std::uint32_t tt_VersimDevice::get_num_dram_channels(std::uint32_t device_id) {
+    return get_soc_descriptor(device_id) -> get_num_dram_channels();
+}
+
+std::uint32_t tt_VersimDevice::get_dram_channel_size(std::uint32_t device_id, std::uint32_t channel) {
+    get_soc_descriptor(device_id) -> dram_bank_size; // Space per channel is identical for now
+}
+
+std::uint32_t tt_VersimDevice::get_num_host_channels(std::uint32_t device_id) {
+    // Host buffers not allocated for Versim Devices
+    return 0;
+}
+
+std::uint32_t tt_VersimDevice::get_host_channel_size(std::uint32_t device_id, std::uint32_t channel) {
+    // Host buffers not allocated for Versim Devices
+    return 0;
+}

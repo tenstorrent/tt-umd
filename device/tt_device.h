@@ -315,6 +315,26 @@ class tt_device
         return nullptr;
     }
 
+    virtual std::uint32_t get_num_dram_channels(std::uint32_t device_id) {
+        throw std::runtime_error("---- tt_device::get_num_dram_channels is not implemented\n");
+        return 0;
+    }
+
+    virtual std::uint32_t get_dram_channel_size(std::uint32_t device_id, std::uint32_t channel) {
+        throw std::runtime_error("---- tt_device::get_dram_channel_size is not implemented\n");
+        return 0;
+    }
+
+    virtual std::uint32_t get_num_host_channels(std::uint32_t device_id) {
+        throw std::runtime_error("---- tt_device::get_num_host_channels is not implemented\n");
+        return 0;
+    }
+
+    virtual std::uint32_t get_host_channel_size(std::uint32_t device_id, std::uint32_t channel) {
+        throw std::runtime_error("---- tt_device::get_host_channel_size is not implemented\n");
+        return 0;
+    }
+
     virtual void *host_dma_address(std::uint64_t offset, chip_id_t src_device_id, uint16_t channel) const {
         throw std::runtime_error("---- tt_device::host_dma_address is not implemented\n");
         return nullptr;
@@ -350,31 +370,35 @@ class tt_VersimDevice: public tt_device
 {
     public:
     virtual void set_device_l1_address_params(const tt_device_l1_address_params& l1_address_params_);
-     tt_VersimDevice(const std::string &sdesc_path, const std::string &ndesc_path);
-     virtual std::unordered_map<chip_id_t, tt_SocDescriptor>& get_virtual_soc_descriptors();
-     virtual void start(std::vector<std::string> plusargs, std::vector<std::string> dump_cores, bool no_checkers, bool init_device, bool skip_driver_allocs);
-     virtual void start_device(const tt_device_params &device_params);
-     virtual void close_device();
-     virtual void deassert_risc_reset(int target_device);
-     virtual void deassert_risc_reset_at_core(tt_cxy_pair core);
-     virtual void assert_risc_reset(int target_device);
-     virtual void assert_risc_reset_at_core(tt_cxy_pair core);
-     virtual void write_to_device(std::vector<uint32_t> &vec, tt_cxy_pair core, uint64_t addr, const std::string& tlb_to_use, bool send_epoch_cmd = false, bool last_send_epoch_cmd = true);
-     virtual void rolled_write_to_device(std::vector<uint32_t> &vec, uint32_t unroll_count, tt_cxy_pair core, uint64_t addr, const std::string& tlb_to_use);
-     virtual void read_from_device(std::vector<uint32_t> &vec, tt_cxy_pair core, uint64_t addr, uint32_t size, const std::string& tlb_to_use);
+    tt_VersimDevice(const std::string &sdesc_path, const std::string &ndesc_path);
+    virtual std::unordered_map<chip_id_t, tt_SocDescriptor>& get_virtual_soc_descriptors();
+    virtual void start(std::vector<std::string> plusargs, std::vector<std::string> dump_cores, bool no_checkers, bool init_device, bool skip_driver_allocs);
+    virtual void start_device(const tt_device_params &device_params);
+    virtual void close_device();
+    virtual void deassert_risc_reset(int target_device);
+    virtual void deassert_risc_reset_at_core(tt_cxy_pair core);
+    virtual void assert_risc_reset(int target_device);
+    virtual void assert_risc_reset_at_core(tt_cxy_pair core);
+    virtual void write_to_device(std::vector<uint32_t> &vec, tt_cxy_pair core, uint64_t addr, const std::string& tlb_to_use, bool send_epoch_cmd = false, bool last_send_epoch_cmd = true);
+    virtual void rolled_write_to_device(std::vector<uint32_t> &vec, uint32_t unroll_count, tt_cxy_pair core, uint64_t addr, const std::string& tlb_to_use);
+    virtual void read_from_device(std::vector<uint32_t> &vec, tt_cxy_pair core, uint64_t addr, uint32_t size, const std::string& tlb_to_use);
 
-     virtual void translate_to_noc_table_coords(chip_id_t device_id, std::size_t &r, std::size_t &c);
-     virtual bool using_harvested_soc_descriptors();
-     virtual std::unordered_map<chip_id_t, uint32_t> get_harvesting_masks_for_soc_descriptors();
-     virtual bool noc_translation_en();
-     virtual std::set<chip_id_t> get_target_mmio_device_ids();
-     virtual std::set<chip_id_t> get_target_remote_device_ids();
-     virtual ~tt_VersimDevice();
-     virtual tt_ClusterDescriptor* get_cluster_description();
-     virtual int get_number_of_chips_in_cluster();
-     virtual std::unordered_set<chip_id_t> get_all_chips_in_cluster();
-     static int detect_number_of_chips();
-     virtual std::map<int,int> get_clocks();
+    virtual void translate_to_noc_table_coords(chip_id_t device_id, std::size_t &r, std::size_t &c);
+    virtual bool using_harvested_soc_descriptors();
+    virtual std::unordered_map<chip_id_t, uint32_t> get_harvesting_masks_for_soc_descriptors();
+    virtual bool noc_translation_en();
+    virtual std::set<chip_id_t> get_target_mmio_device_ids();
+    virtual std::set<chip_id_t> get_target_remote_device_ids();
+    virtual ~tt_VersimDevice();
+    virtual tt_ClusterDescriptor* get_cluster_description();
+    virtual int get_number_of_chips_in_cluster();
+    virtual std::unordered_set<chip_id_t> get_all_chips_in_cluster();
+    static int detect_number_of_chips();
+    virtual std::map<int,int> get_clocks();
+    virtual std::uint32_t get_num_dram_channels(std::uint32_t device_id);
+    virtual std::uint32_t get_dram_channel_size(std::uint32_t device_id, std::uint32_t channel);
+    virtual std::uint32_t get_num_host_channels(std::uint32_t device_id);
+    virtual std::uint32_t get_host_channel_size(std::uint32_t device_id, std::uint32_t channel);
     private:
     bool stop();
     tt_device_l1_address_params l1_address_params;
@@ -447,6 +471,10 @@ class tt_SiliconDevice: public tt_device
     static void remove_worker_row_from_descriptor(tt_SocDescriptor& full_soc_descriptor, const std::vector<int>& row_coordinates_to_remove);
     static void harvest_rows_in_soc_descriptor(tt::ARCH arch, tt_SocDescriptor& sdesc, uint32_t harvested_rows);
     std::unordered_map<tt_xy_pair, tt_xy_pair> get_harvested_coord_translation_map(chip_id_t logical_device_id);
+    virtual std::uint32_t get_num_dram_channels(std::uint32_t device_id);
+    virtual std::uint32_t get_dram_channel_size(std::uint32_t device_id, std::uint32_t channel);
+    virtual std::uint32_t get_num_host_channels(std::uint32_t device_id);
+    virtual std::uint32_t get_host_channel_size(std::uint32_t device_id, std::uint32_t channel);
     // Destructor
     virtual ~tt_SiliconDevice ();
 
@@ -555,6 +583,8 @@ class tt_SiliconDevice: public tt_device
     std::unordered_map<chip_id_t, std::unordered_map<int, std::size_t>> hugepage_mapping_size;
     std::unordered_map<chip_id_t, std::unordered_map<int, std::uint64_t>> hugepage_physical_address;
     std::map<chip_id_t, std::unordered_map<std::int32_t, std::int32_t>> tlb_config_map = {};
+    std::set<chip_id_t> all_target_mmio_devices;
+    std::unordered_map<chip_id_t, std::vector<uint32_t>> host_channel_size;
     std::function<std::int32_t(tt_xy_pair)> map_core_to_tlb;
     std::unordered_map<std::string, std::int32_t> dynamic_tlb_config = {};
     std::uint64_t buf_physical_addr = 0;

@@ -1747,9 +1747,10 @@ void tt_SiliconDevice::broadcast_tensix_risc_reset(struct PCIdevice *device, con
 }
 
 std::set<chip_id_t> tt_SiliconDevice::get_target_mmio_device_ids() {
-    std::set<chip_id_t> all_target_mmio_devices;
-    for (const auto &it: m_pci_device_map) {
-        all_target_mmio_devices.insert(it.first);
+    if(!all_target_mmio_devices.size()) {
+        for (const auto &it: m_pci_device_map) {
+            all_target_mmio_devices.insert(it.first);
+        }
     }
     return all_target_mmio_devices;
 }
@@ -2207,6 +2208,7 @@ void tt_SiliconDevice::init_pcie_iatus() {
                 const uint16_t host_memory_channel = 0; // Only single channel supported.
                 if (hugepage_mapping.at(src_pci_id).at(host_memory_channel)) {
                     iatu_configure_peer_region(src_pci_id, current_peer_region, hugepage_physical_address.at(src_pci_id).at(host_memory_channel), HUGEPAGE_REGION_SIZE);
+                    host_channel_size.insert({src_pci_device -> logical_id, {HUGEPAGE_REGION_SIZE}});
                 } else if(buf_mapping) {
                     // we failed when initializing huge pages, we are using a 1MB DMA buffer as a stand-in
                     iatu_configure_peer_region(src_pci_id, current_peer_region, buf_physical_addr, DMA_BUF_REGION_SIZE);
@@ -2254,6 +2256,10 @@ void tt_SiliconDevice::init_pcie_iatus_no_p2p() {
                 std::uint32_t region_size = HUGEPAGE_REGION_SIZE;
                 if(channel_id == 3) region_size = 805306368; // Remove 256MB from full 1GB for channel 3 (iATU limitation)
                 iatu_configure_peer_region(src_pci_id, channel_id, hugepage_physical_address.at(src_pci_id).at(channel_id), region_size);
+                if(host_channel_size.find(src_pci_device -> logical_id) == host_channel_size.end()) {
+                     host_channel_size.insert({src_pci_device -> logical_id, {}});
+                }
+                host_channel_size.at(src_pci_device -> logical_id).push_back(region_size);
             } else if(buf_mapping) {
                 // we failed when initializing huge pages, we are using a 1MB DMA buffer as a stand-in
                 iatu_configure_peer_region(src_pci_id, channel_id, buf_physical_addr, DMA_BUF_REGION_SIZE);
@@ -3840,4 +3846,25 @@ void tt_SiliconDevice::set_driver_eth_interface_params(const tt_driver_eth_inter
 void tt_SiliconDevice::setup_core_to_tlb_map(std::function<std::int32_t(tt_xy_pair)> mapping_function) {
     map_core_to_tlb = mapping_function;
     tlbs_init = true;
+}
+
+std::uint32_t tt_SiliconDevice::get_num_dram_channels(std::uint32_t device_id) {
+    tt_device_logger::log_assert(target_devices_in_cluster.find(device_id) != target_devices_in_cluster.end(), "Querying DRAM parameters for a device that does not exist.");
+    return get_soc_descriptor(device_id).get_num_dram_channels();
+}
+
+std::uint32_t tt_SiliconDevice::get_dram_channel_size(std::uint32_t device_id, std::uint32_t channel) {
+    tt_device_logger::log_assert(channel < get_num_dram_channels(device_id), "Querying size for a device channel that does not exist.");
+    return  get_soc_descriptor(device_id).dram_bank_size; // Space per channel is identical for now
+}
+
+std::uint32_t tt_SiliconDevice::get_num_host_channels(std::uint32_t device_id) {
+    tt_device_logger::log_assert(all_target_mmio_devices.find(device_id) != all_target_mmio_devices.end(), "Querying Host Address parameters for a non-mmio device or a device does not exist.");
+    return m_num_host_mem_channels; // Same number of host channels per device for now
+}
+
+std::uint32_t tt_SiliconDevice::get_host_channel_size(std::uint32_t device_id, std::uint32_t channel) {
+    tt_device_logger::log_assert(host_channel_size.size(), "Host channel size can only be queried after the device has been started.");
+    tt_device_logger::log_assert(channel < get_num_host_channels(device_id), "Querying size for a host channel that does not exist.");
+    return host_channel_size.at(device_id).at(channel);
 }

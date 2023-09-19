@@ -32,10 +32,10 @@ endif
 
 ifeq ("$(ARCH_NAME)", "wormhole_b0")
   DEVICE_SRCS += device/wormhole/impl_device.cpp
-  DEVICE_INCLUDES += -I$(UMD_HOME)/device/wormhole/ -Isrc/firmware/riscv/wormhole
+  DEVICE_INCLUDES += -I$(UMD_HOME)/device/wormhole/
 else
   DEVICE_SRCS += device/$(ARCH_NAME)/impl_device.cpp
-  DEVICE_INCLUDES += -I$(UMD_HOME)/device/$(ARCH_NAME)/ -Isrc/firmware/riscv/$(ARCH_NAME)
+  DEVICE_INCLUDES += -I$(UMD_HOME)/device/$(ARCH_NAME)/
 endif
 
 DEVICE_OBJS = $(addprefix $(DEVICE_OBJDIR)/, $(DEVICE_SRCS:.cpp=.o))

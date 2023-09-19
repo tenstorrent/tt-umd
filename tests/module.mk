@@ -5,7 +5,7 @@ DEVICE_UNIT_TESTS_INCLUDES = -I$(UMD_HOME) -I$(UMD_HOME)/device $(DEVICE_INCLUDE
 
 ifeq ("$(ARCH_NAME)", "wormhole_b0")
   DEVICE_UNIT_TESTS = $(basename $(wildcard $(UMD_HOME)/tests/wormhole/*.c*))
-  DEVICE_UNIT_TESTS_INCLUDES += -I$(UMD_HOME)/device/wormhole/ -I$(UMD_HOME)/src/firmware/riscv/wormhole -I$(UMD_HOME)/src/firmware/riscv/wormhole/wormhole_b0_defines
+  DEVICE_UNIT_TESTS_INCLUDES += -I$(UMD_HOME)/device/wormhole/ -I$(UMD_HOME)/src/firmware/riscv/wormhole 
 else
   DEVICE_UNIT_TESTS = $(basename $(wildcard $(UMD_HOME)/tests/$(ARCH_NAME)/*.c*))
   DEVICE_UNIT_TESTS_INCLUDES += -I$(UMD_HOME)/device/$(ARCH_NAME)/ -I$(UMD_HOME)/src/firmware/riscv/$(ARCH_NAME)

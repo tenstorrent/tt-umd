@@ -168,7 +168,7 @@ TEST(SiliconDriverGS, StaticTLB_RW) {
         auto& sdesc = device.get_virtual_soc_descriptors().at(i);
         for(auto& core : sdesc.workers) {
             // Statically mapping a 1MB TLB to this core, starting from address DATA_BUFFER_SPACE_BASE. 
-            device.configure_tlb(i, core, get_static_tlb_index(core), l1_mem::address_map::DATA_BUFFER_SPACE_BASE);
+            device.configure_tlb(i, core, get_static_tlb_index(core), l1_mem::address_map::DATA_BUFFER_SPACE_BASE, TLB_DATA::Posted);
         }
     }
 
@@ -218,7 +218,7 @@ TEST(SiliconDriverGS, DynamicTLB_RW) {
     uint32_t num_host_mem_ch_per_mmio_device = 1;
     dynamic_tlb_config.insert({"SMALL_READ_WRITE_TLB", 157}); // Use this for all reads and writes to worker cores
     tt_SiliconDevice device = tt_SiliconDevice("./tests/soc_descs/grayskull_10x12.yaml", "", target_devices, num_host_mem_ch_per_mmio_device, dynamic_tlb_config);
-
+    device.set_fallback_tlb_ordering_mode("SMALL_READ_WRITE_TLB", TLB_DATA::Posted); // Explicitly test API to set fallback tlb ordering mode
     tt_device_params default_params;
     device.start_device(default_params);
     device.clean_system_resources();

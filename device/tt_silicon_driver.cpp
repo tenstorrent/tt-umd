@@ -1405,6 +1405,9 @@ tt_SiliconDevice::tt_SiliconDevice(const std::string &sdesc_path, const std::str
     dynamic_tlb_config["LARGE_READ_TLB"] =  DEVICE_DATA.MEM_LARGE_READ_TLB;
     dynamic_tlb_config["LARGE_WRITE_TLB"] = DEVICE_DATA.MEM_LARGE_WRITE_TLB;
 
+    for(const auto& tlb : dynamic_tlb_config) {
+        dynamic_tlb_ordering_modes.insert({tlb.first, TLB_DATA::Posted}); // All dynamic TLBs use Posted Ordering by default
+    }
     create_device(target_mmio_device_ids, num_host_mem_ch_per_mmio_device, skip_driver_allocs);
 
     if(arch_name == tt::ARCH::WORMHOLE or arch_name == tt::ARCH::WORMHOLE_B0) {
@@ -1895,7 +1898,7 @@ void tt_SiliconDevice::write_device_memory(const uint32_t *mem_ptr, uint32_t len
 
         while(size_in_bytes > 0) {
 
-            auto [mapped_address, tlb_size] = set_dynamic_tlb(pci_device, tlb_index, target, address, harvested_coord_translation, TLB_DATA::Posted);
+            auto [mapped_address, tlb_size] = set_dynamic_tlb(pci_device, tlb_index, target, address, harvested_coord_translation, dynamic_tlb_ordering_modes.at(fallback_tlb));
             uint32_t transfer_size = std::min(size_in_bytes, tlb_size);
             write_block(dev, mapped_address, transfer_size, buffer_addr, m_dma_buf_size);
 
@@ -1933,7 +1936,7 @@ void tt_SiliconDevice::read_device_memory(uint32_t *mem_ptr, tt_cxy_pair target,
         LOG1 ("  dynamic tlb_index: %d\n", tlb_index);
         while(size_in_bytes > 0) {
 
-            auto [mapped_address, tlb_size] = set_dynamic_tlb(pci_device, tlb_index, target, address, harvested_coord_translation, TLB_DATA::Posted);
+            auto [mapped_address, tlb_size] = set_dynamic_tlb(pci_device, tlb_index, target, address, harvested_coord_translation, dynamic_tlb_ordering_modes.at(fallback_tlb));
             uint32_t transfer_size = std::min(size_in_bytes, tlb_size);
             read_block(dev, mapped_address, transfer_size, buffer_addr, m_dma_buf_size);
 
@@ -2122,15 +2125,23 @@ tt_SiliconDevice::~tt_SiliconDevice () {
     soc_descriptor_per_chip.clear();
     dynamic_tlb_config.clear();
     tlb_config_map.clear();
+    dynamic_tlb_ordering_modes.clear();
 }
 
-void tt_SiliconDevice::configure_tlb(chip_id_t logical_device_id, tt_xy_pair core, std::int32_t tlb_index, std::int32_t address, bool posted) {
-    set_dynamic_tlb(m_pci_device_map.at(logical_device_id), tlb_index, core, address, harvested_coord_translation, posted ? TLB_DATA::Posted : TLB_DATA::Relaxed);
+void tt_SiliconDevice::configure_tlb(chip_id_t logical_device_id, tt_xy_pair core, std::int32_t tlb_index, std::int32_t address, uint64_t ordering) {
+    tt_device_logger::log_assert(ordering == TLB_DATA::Strict || ordering == TLB_DATA::Posted || ordering == TLB_DATA::Relaxed, "Invalid ordering specified in tt_SiliconDevice::configure_tlb");
+    set_dynamic_tlb(m_pci_device_map.at(logical_device_id), tlb_index, core, address, harvested_coord_translation, ordering);
     auto tlb_size = std::get<1>(describe_tlb(tlb_index).value());
     if(tlb_config_map.find(logical_device_id) == tlb_config_map.end()) tlb_config_map.insert({logical_device_id, {}});
     tlb_config_map[logical_device_id].insert({tlb_index, (address / tlb_size) * tlb_size});
 }
 
+void tt_SiliconDevice::set_fallback_tlb_ordering_mode(const std::string& fallback_tlb, uint64_t ordering) {
+    tt_device_logger::log_assert(ordering == TLB_DATA::Strict || ordering == TLB_DATA::Posted || ordering == TLB_DATA::Relaxed, "Invalid ordering specified in tt_SiliconDevice::configure_tlb.");
+    tt_device_logger::log_assert(dynamic_tlb_ordering_modes.find(fallback_tlb) != dynamic_tlb_ordering_modes.end(), "Invalid TLB specified in tt_SiliconDevice::set_fallback_tlb_ordering_mode.");
+    tt_device_logger::log_assert(fallback_tlb != "LARGE_READ_TLB" &&  fallback_tlb != "LARGE_WRITE_TLB", "Ordering modes for LARGE_READ_TLB and LARGE_WRITE_TLB cannot be modified.");
+    dynamic_tlb_ordering_modes.at(fallback_tlb) = ordering;
+}
 // This function checks that all TLBs are properly setup. It should return 0 if all is good (i.e. if init_pcie_tlb is called prior)
 // int tt_SiliconDevice::test_pcie_tlb_setup (struct PCIdevice* pci_device) {
     // LOG1("---- tt_SiliconDevice::test_pcie_tlb_setup\n");

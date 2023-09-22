@@ -176,8 +176,12 @@ class tt_device
         throw std::runtime_error("---- tt_device::set_driver_eth_interface_params is not implemented\n");
     }
 
-    virtual void configure_tlb(chip_id_t logical_device_id, tt_xy_pair core, std::int32_t tlb_index, std::int32_t address, bool posted = true) {
+    virtual void configure_tlb(chip_id_t logical_device_id, tt_xy_pair core, std::int32_t tlb_index, std::int32_t address, uint64_t ordering = TLB_DATA::Posted) {
         throw std::runtime_error("---- tt_device::configure_tlb is not implemented\n");
+    }
+
+    virtual void set_fallback_tlb_ordering_mode(const std::string& fallback_tlb, uint64_t ordering = TLB_DATA::Posted) {
+        throw std::runtime_error("---- tt_device::set_fallback_tlb_ordering_mode is not implemented\n");
     }
 
     virtual void setup_core_to_tlb_map(std::function<std::int32_t(tt_xy_pair)> mapping_function) {
@@ -418,7 +422,8 @@ class tt_SiliconDevice: public tt_device
     virtual void set_device_l1_address_params(const tt_device_l1_address_params& l1_address_params_);
     virtual void set_driver_host_address_params(const tt_driver_host_address_params& host_address_params_);
     virtual void set_driver_eth_interface_params(const tt_driver_eth_interface_params& eth_interface_params_);
-    virtual void configure_tlb(chip_id_t logical_device_id, tt_xy_pair core, std::int32_t tlb_index, std::int32_t address, bool posted = true);
+    virtual void configure_tlb(chip_id_t logical_device_id, tt_xy_pair core, std::int32_t tlb_index, std::int32_t address, uint64_t ordering = TLB_DATA::Posted);
+    virtual void set_fallback_tlb_ordering_mode(const std::string& fallback_tlb, uint64_t ordering = TLB_DATA::Posted);
     virtual void setup_core_to_tlb_map(std::function<std::int32_t(tt_xy_pair)> mapping_function);
     virtual void start_device(const tt_device_params &device_params);
     virtual void assert_risc_reset(int target_device);
@@ -587,6 +592,7 @@ class tt_SiliconDevice: public tt_device
     std::unordered_map<chip_id_t, std::vector<uint32_t>> host_channel_size;
     std::function<std::int32_t(tt_xy_pair)> map_core_to_tlb;
     std::unordered_map<std::string, std::int32_t> dynamic_tlb_config = {};
+    std::unordered_map<std::string, uint64_t> dynamic_tlb_ordering_modes = {};
     std::uint64_t buf_physical_addr = 0;
     void * buf_mapping = nullptr;
     int driver_id;  

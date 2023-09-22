@@ -1039,12 +1039,13 @@ void write_tlb_reg(TTDevice *dev, uint32_t byte_addr, std::uint64_t value) {
     record_access("write_tlb_reg", byte_addr, sizeof(value), false, true, false, false);
 
     volatile uint64_t *dest = register_address<std::uint64_t>(dev, byte_addr);
-    #ifdef __ARM_ARCH
+#if defined(__ARM_ARCH) || defined(__riscv)
     // The store below goes through UC memory on x86, which has implicit ordering constraints with WC accesses.
     // ARM has no concept of UC memory. This will not allow for implicit ordering of this store wrt other memory accesses.
     // Insert an explicit full memory barrier for ARM.
+    // Do the same for RISC-V.
     tt_driver_atomics::mfence();
-    #endif
+#endif
     *dest = value;
     tt_driver_atomics::mfence(); // Otherwise subsequent WC loads move earlier than the above UC store to the TLB register.
 

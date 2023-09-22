@@ -5,15 +5,15 @@
 namespace tt_driver_atomics {
 
 #if defined(__x86_64__) || defined(__i386__)
-
+// Store-Any barrier.
 static inline __attribute__((always_inline)) void sfence() {
     _mm_sfence();
 }
-
+// Load-Any barrier.
 static inline __attribute__((always_inline)) void lfence() {
     _mm_lfence();
 }
-
+// Any-Any barrier.
 static inline __attribute__((always_inline)) void mfence() {
     _mm_mfence();
 }

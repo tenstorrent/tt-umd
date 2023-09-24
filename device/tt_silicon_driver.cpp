@@ -1607,7 +1607,8 @@ struct PCIdevice* pci_device = get_pci_device(device_id);
     }
 
     broadcast_tensix_risc_reset(pci_device, TENSIX_ASSERT_SOFT_RESET);
-
+    // Try an experiment for hang debug.
+    std::this_thread::sleep_for(std::chrono::milliseconds(100));
     arc_msg(device_id, 0xaa00 | MSG_TYPE::DEASSERT_RISCV_RESET, true, 0, 0);
 
     // Now that everything is in reset, we can test some stuff

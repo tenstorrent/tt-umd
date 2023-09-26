@@ -56,6 +56,15 @@ DEVICE_LDFLAGS = -lhwloc
 ifneq ($(UMD_VERSIM_STUB),1)
 # Build Versim  based on configs specified in Buda or Metal build flow
 # For this UMD_VERSIM_HEADERS and UMD_USER_ROOT must be specified 
+
+ifndef BUDA_HOME
+  # Metal gets headers like tensix_types.h from these folders
+  ifeq ("$(ARCH_NAME)", "grayskull")
+    DEVICE_INCLUDES += -I$(UMD_VERSIM_HEADERS)$(ARCH_NAME)/headers/src/firmware/riscv/grayskull/
+  else
+    DEVICE_INCLUDES += -I$(UMD_VERSIM_HEADERS)$(ARCH_NAME)/headers/src/firmware/riscv/common/
+  endif
+endif
 DEVICE_INCLUDES+=      	\
   -I$(UMD_VERSIM_HEADERS)$(ARCH_NAME)/headers/vendor/tenstorrent-repositories/verilator/include         \
   -I$(UMD_VERSIM_HEADERS)$(ARCH_NAME)/headers/vendor/tenstorrent-repositories/verilator/include/vltstd  \
@@ -143,7 +152,7 @@ DEVICE_WARNINGS += -Wsometimes-uninitialized
 else
 DEVICE_WARNINGS = $(WARNINGS)
 endif
-
+DEVICE_WARNING += -Werror
 -include $(DEVICE_DEPS)
 
 # Each module has a top level target as the entrypoint which must match the subdir name

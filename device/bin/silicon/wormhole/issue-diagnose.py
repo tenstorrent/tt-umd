@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: (c) 2023 Tenstorrent Inc.
+
+# SPDX-License-Identifier: Apache-2.0
+
 from tenstorrent.scripts.eth.utils.snps_utils import pcs_errors_report
 from tenstorrent.scripts.dram import calc_gddr_margin, constants
 import time

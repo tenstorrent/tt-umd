@@ -1,3 +1,9 @@
+/*
+ * SPDX-FileCopyrightText: (c) 2023 Tenstorrent Inc.
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
 #if defined(__x86_64__) || defined(__i386__)
 #include <immintrin.h>
 #endif

@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: (c) 2023 Tenstorrent Inc.
+//
+// SPDX-License-Identifier: Apache-2.0
+
 #include "test_galaxy_common.h"
 void move_data(
     tt_SiliconDevice& device, tt_multichip_core_addr sender_core, tt_multichip_core_addr receiver_core, uint32_t size) {

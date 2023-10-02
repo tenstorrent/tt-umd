@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: (c) 2023 Tenstorrent Inc.
+//
+// SPDX-License-Identifier: Apache-2.0
+
 #include "impl_device.hpp"
 #include "device/tt_xy_pair.h"
 #include "device/tt_device.h"

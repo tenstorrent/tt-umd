@@ -1,5 +1,9 @@
 #!/usr/bin/env python3
 
+# SPDX-FileCopyrightText: (c) 2023 Tenstorrent Inc.
+
+# SPDX-License-Identifier: Apache-2.0
+
 import time
 import sys
 from enum import Enum

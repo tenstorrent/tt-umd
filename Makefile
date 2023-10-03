@@ -10,6 +10,8 @@ INCDIR ?= $(OUT)/include
 TESTDIR ?= $(OUT)/test
 DOCSDIR ?= $(OUT)/docs
 UMD_VERSIM_STUB ?= 1
+UMD_SILICON_DEVICE ?= 1
+UMD_VCS_DEVICE ?= 0
 SHARED_LIB_FLAGS ?= -shared -fPIC
 STATIC_LIB_FLAGS ?= -fPIC
 
@@ -20,7 +22,7 @@ endif
 
 #MAKEFLAGS := --jobs=$(shell nproc)
 
-DEVICE_CXX = /usr/bin/g++
+DEVICE_CXX ?= /usr/bin/g++
 CXXFLAGS = -MMD -I$(UMD_HOME)/. --std=c++17
 ifeq ($(CONFIG), release)
 CXXFLAGS += -O3

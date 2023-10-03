@@ -55,7 +55,7 @@ void tt_vcs_device::write_to_device(std::vector<uint32_t>& vec, tt_cxy_pair core
 
 void tt_vcs_device::read_from_device(std::vector<uint32_t>& vec, tt_cxy_pair core, uint64_t addr, uint32_t size, const std::string& /*tlb_to_use*/) {
 //   DEBUG_LOG("Versim Device (" << get_sim_time(*versim) << "): Read vector from target address: 0x" << std::hex << addr << std::dec << ", with size: " << size << " Bytes");
-  std::vector<uint8_t> byte_data = read(core, addr, size);
+  std::vector<uint8_t> byte_data = read(core, addr, size * sizeof(uint32_t));
 
   // Verify that the received byte data can be converted to uint32_t
   // if (byte_data.size() % sizeof(uint32_t) != 0) {

@@ -4,13 +4,24 @@ UMD_DEVICE_LIB = $(LIBDIR)/libdevice.so
 DEVICE_OBJDIR = $(OBJDIR)
 DEVICE_SRCS = \
 	device/tt_device.cpp \
-	device/tt_silicon_driver.cpp \
-	device/tt_silicon_driver_common.cpp \
   device/tt_soc_descriptor.cpp \
-  device/tt_cluster_descriptor.cpp \
-  device/cpuset_lib.cpp \
-  device/util.cpp \
-  device/tt_vcs_device.cpp \
+  device/tt_silicon_driver_common.cpp \
+
+ifeq ($(UMD_SILICON_DEVICE),1)
+  DEVICE_SRCS += \
+    device/tt_silicon_driver.cpp \
+    device/tt_cluster_descriptor.cpp \
+    device/cpuset_lib.cpp \
+    device/util.cpp \
+
+endif
+
+ifeq ($(UMD_VCS_DEVICE),1)
+  DEVICE_SRCS += \
+    device/tt_vcs_device.cpp \
+    tests/vcs_cosim/axi_rw_test.cpp \
+
+endif
 
 DEVICE_INCLUDES=      	\
   -DFMT_HEADER_ONLY     \
@@ -18,6 +29,12 @@ DEVICE_INCLUDES=      	\
   -I$(UMD_HOME)/common \
   -I$(UMD_HOME)/utils \
   -I$(UMD_HOME)/ \
+
+ifeq ($(UMD_VCS_DEVICE),1)
+  DEVICE_INCLUDES += \
+    -I$(UMD_HOME)/device/vcs_cosim 
+
+endif
 
 ifeq ($(UMD_VERSIM_STUB),1)
   DEVICE_SRCS += device/tt_versim_stub.cpp
@@ -157,5 +174,9 @@ $(UMD_DEVICE_LIB): $(DEVICE_OBJS)
 	$(DEVICE_CXX) $(CXXFLAGS) $(DEVICE_WARNINGS) $(DEVICE_CXXFLAGS) $(SHARED_LIB_FLAGS) -o $(UMD_DEVICE_LIB) $^ $(LDFLAGS) $(DEVICE_LDFLAGS)
 
 $(DEVICE_OBJDIR)/device/%.o: $(UMD_HOME)/device/%.cpp
+	@mkdir -p $(@D)
+	$(DEVICE_CXX) $(CXXFLAGS) $(DEVICE_WARNINGS) $(DEVICE_CXXFLAGS) $(STATIC_LIB_FLAGS) $(DEVICE_INCLUDES) -c -o $@ $<
+
+$(DEVICE_OBJDIR)/tests/%.o: $(UMD_HOME)/tests/%.cpp
 	@mkdir -p $(@D)
 	$(DEVICE_CXX) $(CXXFLAGS) $(DEVICE_WARNINGS) $(DEVICE_CXXFLAGS) $(STATIC_LIB_FLAGS) $(DEVICE_INCLUDES) -c -o $@ $<

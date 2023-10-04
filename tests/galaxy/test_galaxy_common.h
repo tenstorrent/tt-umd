@@ -15,6 +15,8 @@
 #include "device/tt_device.h"
 #include "device/tt_xy_pair.h"
 
+// static const std::string SOC_DESC_PATH = "./tests/soc_descs/wormhole_b0_8x10.yaml";
+
 using chip_id_t = int;
 using ethernet_channel_t = int;
 using eth_coord_t = std::tuple<int, int, int, int>;  // x, y, rack, shelf

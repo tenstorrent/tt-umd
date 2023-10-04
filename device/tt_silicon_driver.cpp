@@ -267,6 +267,11 @@ bool is_wormhole_b0(const uint16_t device_id, const uint16_t revision_id) {
 }
 
 
+template <typename T>
+void size_buffer_to_capacity(std::vector<T> &data_buf, std::size_t size_in_bytes) {
+    data_buf.resize(((size_in_bytes - 1)/ sizeof(T)) + 1);
+}
+
 // Get number of 1GB host hugepages installed. They are used for host queues.
 uint32_t get_num_hugepages(){
 
@@ -1963,7 +1968,7 @@ void tt_SiliconDevice::read_dma_buffer(
     tt_device_logger::log_assert(src_device_id != -1, "Must provide src_device_id for host_resident read/write");
     tt_device_logger::log_assert(channel >= 0 && channel <= g_MAX_HOST_MEM_CHANNELS, "{} - Invalid channel {} for host_resident read/write.", __FUNCTION__, channel);
     void * user_scratchspace = nullptr;
-    mem_vector.resize (size_in_bytes / 4);
+    size_buffer_to_capacity(mem_vector, size_in_bytes);
 
     if(hugepage_mapping.at(src_device_id).at(channel)) {
       user_scratchspace = static_cast<char*>(hugepage_mapping.at(src_device_id).at(channel)) + (address & HUGEPAGE_MAP_MASK);
@@ -1976,6 +1981,7 @@ void tt_SiliconDevice::read_dma_buffer(
     }
 
     LOG1("---- tt_SiliconDevice::read_dma_buffer (src_device_id: %d, ch: %d) from 0x%lx\n",  src_device_id, channel, user_scratchspace);
+    assert(mem_vector.size() * sizeof(std::uint32_t) >= size_in_bytes);
     memcpy(mem_vector.data(), user_scratchspace, size_in_bytes);
 }
 
@@ -3075,12 +3081,12 @@ void tt_SiliconDevice::write_to_non_mmio_device(const uint32_t *mem_ptr, uint32_
             if (use_dram) {
                 req_flags |= eth_interface_params.CMD_DATA_BLOCK_DRAM;
                 resp_flags |= eth_interface_params.CMD_DATA_BLOCK_DRAM;
-                data_block.resize(block_size/DATA_WORD_SIZE);
+                size_buffer_to_capacity(data_block, block_size);
                 memcpy(&data_block[0], mem_ptr + offset/DATA_WORD_SIZE, block_size);
                 write_to_sysmem(data_block, host_dram_block_addr, host_dram_channel, mmio_capable_chip_logical);
             } else {
                 uint32_t buf_address = eth_interface_params.ETH_ROUTING_DATA_BUFFER_ADDR + req_wr_ptr * max_block_size;
-                data_block.resize(block_size/DATA_WORD_SIZE);
+                size_buffer_to_capacity(data_block, block_size);
                 memcpy(&data_block[0], mem_ptr + offset/DATA_WORD_SIZE, block_size);
                 write_device_memory(data_block.data(), data_block.size(), remote_transfer_ethernet_core, buf_address, write_tlb);
             }
@@ -3190,7 +3196,7 @@ void tt_SiliconDevice::write_to_non_mmio_device_send_epoch_cmd(const uint32_t *m
     // send the data
     if (req_flags & eth_interface_params.CMD_DATA_BLOCK) {
         uint32_t buf_address = eth_interface_params.ETH_ROUTING_DATA_BUFFER_ADDR + req_wr_ptr * eth_interface_params.MAX_BLOCK_SIZE;
-        data_block.resize(block_size/DATA_WORD_SIZE);
+        size_buffer_to_capacity(data_block, block_size);
         memcpy(&data_block[0], mem_ptr, block_size);
         write_device_memory(data_block.data(), data_block.size(), remote_transfer_ethernet_core, buf_address, write_tlb);
         tt_driver_atomics::sfence();
@@ -3341,6 +3347,7 @@ void tt_SiliconDevice::read_from_non_mmio_device(uint32_t* mem_ptr, tt_cxy_pair 
 
     using data_word_t = uint32_t;
     constexpr int DATA_WORD_SIZE = sizeof(data_word_t);
+    assert(size_in_bytes % DATA_WORD_SIZE == 0);
     std::string write_tlb = "LARGE_WRITE_TLB";
     std::string read_tlb = "LARGE_READ_TLB";
     std::string empty_tlb = "";
@@ -3473,9 +3480,11 @@ void tt_SiliconDevice::read_from_non_mmio_device(uint32_t* mem_ptr, tt_cxy_pair 
                 read_from_sysmem(data_block, host_dram_block_addr, host_dram_channel, block_size, mmio_capable_chip_logical);
             } else {
                 uint32_t buf_address = eth_interface_params.ETH_ROUTING_DATA_BUFFER_ADDR + resp_rd_ptr * max_block_size;
-                data_block.resize(block_size / DATA_WORD_SIZE);
+                size_buffer_to_capacity(data_block, block_size);
                 read_device_memory(data_block.data(), remote_transfer_ethernet_core, buf_address, block_size, read_tlb);
             }
+            // assert(mem_ptr.size() - (offset/DATA_WORD_SIZE) >= (block_size * DATA_WORD_SIZE));
+            assert((data_block.size() * DATA_WORD_SIZE) >= block_size);
             memcpy(&mem_ptr[offset/DATA_WORD_SIZE], data_block.data(), block_size);
         }
 
@@ -3706,7 +3715,7 @@ void tt_SiliconDevice::read_from_device(uint32_t* mem_ptr, tt_cxy_pair core, uin
 }
 
 void tt_SiliconDevice::read_from_device(std::vector<uint32_t> &vec, tt_cxy_pair core, uint64_t addr, uint32_t size, const std::string& fallback_tlb) {
-    vec.resize(size / 4);
+    size_buffer_to_capacity(vec, size);
     read_from_device(vec.data(), core, addr, size, fallback_tlb);
 }
 

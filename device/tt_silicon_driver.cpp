@@ -360,23 +360,32 @@ void TTDevice::open_hugepage_per_host_mem_ch(uint32_t num_host_mem_channels) {
     }
 }
 
-tt::ARCH detect_arch(uint16_t device_id) {
+tt::ARCH detect_arch(PCIdevice *pci_device) {
+    tt::ARCH arch_name = tt::ARCH::Invalid;
 
+    if (is_grayskull(pci_device->device_id)) {
+        arch_name = tt::ARCH::GRAYSKULL;
+    } else if (is_wormhole_b0(pci_device->device_id, pci_device->revision_id)) {
+        arch_name = tt::ARCH::WORMHOLE_B0;
+    } else if (is_wormhole(pci_device->device_id)) {
+        arch_name = tt::ARCH::WORMHOLE;
+    } else {
+        throw std::runtime_error(std::string("Unknown device id."));
+    }
+
+    return arch_name;
+}
+
+tt::ARCH detect_arch(uint16_t device_id) {
     tt::ARCH arch_name = tt::ARCH::Invalid;
     if (find_device(device_id) == -1) {
         WARN("---- tt_SiliconDevice::detect_arch did not find silcon device_id: %d\n", device_id);
         return arch_name;
     }
     struct PCIdevice pci_device = ttkmd_open((DWORD)device_id, false);
-    if (is_grayskull(pci_device.device_id)) {
-        arch_name =  tt::ARCH::GRAYSKULL;
-    } else if (is_wormhole_b0(pci_device.device_id, pci_device.revision_id)) {
-        arch_name =  tt::ARCH::WORMHOLE_B0;
-    } else if (is_wormhole(pci_device.device_id)) {
-        arch_name =  tt::ARCH::WORMHOLE;
-    } else {
-        throw std::runtime_error(std::string("Unknown device id."));
-    }
+
+    arch_name = detect_arch(&pci_device);
+
     ttkmd_close(pci_device);
     return arch_name;
 }
@@ -1181,6 +1190,27 @@ struct remote_update_ptr_t{
 // Get TLB index (from zero), check if it's in 16MB, 2MB or 1MB TLB range, and dynamically program it.
 dynamic_tlb set_dynamic_tlb(PCIdevice* dev, unsigned int tlb_index, tt_xy_pair start, tt_xy_pair end,
                             std::uint32_t address, bool multicast, std::unordered_map<chip_id_t, std::unordered_map<tt_xy_pair, tt_xy_pair>>& harvested_coord_translation, std::uint64_t ordering) {
+    if (multicast) {
+        auto arch = detect_arch(dev);
+
+        switch (arch) {
+            case (tt::ARCH::JAWBRIDGE):
+            case (tt::ARCH::GRAYSKULL): {
+                break;
+            }
+            case (tt::ARCH::WORMHOLE):
+            case (tt::ARCH::WORMHOLE_B0): {
+                // When multicasting there is a rare case where including the multicasting node in the box can result in a backup and the multicasted
+                // data not reaching all endpoints specified. As a workaround we exclude the pci endpoint from the multicast. This doesn't cause
+                // any problems with making some tensix cores inaccessible because column 0 (which we are excluding) doesn't have tensix.
+                start.x = start.x == 0 ? 1 : start.x;
+                break;
+            }
+            default: {
+                throw std::runtime_error(std::string("Do not know how to handle multicast workaround for ") + get_arch_str(arch));
+            }
+        }
+    }
 
     LOG2("set_dynamic_tlb with arguments: tlb_index = %d, start = (%d, %d), end = (%d, %d), address = 0x%x, multicast = %d, ordering = %d\n",
          tlb_index, start.x, start.y, end.x, end.y, address, multicast, (int)ordering);
@@ -1342,7 +1372,7 @@ void tt_SiliconDevice::create_device(const std::unordered_set<chip_id_t> &target
         }
         m_per_device_mutexes_map["ARC_MSG"].insert({pci_interface_id, {"ARC_MSG" + std::to_string((int) pci_interface_id), nullptr}});
 
-        // Can't query soc desc as it's not present 
+        // Can't query soc desc as it's not present
         bool may_have_non_mmio_chips = ndesc->chips_have_ethernet_connectivity();
         if (may_have_non_mmio_chips) {
             m_per_device_mutexes_map[NON_MMIO_MUTEX_NAME].insert(
@@ -1467,21 +1497,21 @@ tt_SiliconDevice::tt_SiliconDevice(const std::string &sdesc_path, const std::str
     if(std::getenv("TT_BACKEND_HARVESTED_ROWS")) {
         performed_harvesting = true;
         std::vector<int> harvesting_info = extract_harvest_info_for_simulation(std::getenv("TT_BACKEND_HARVESTED_ROWS"));
-        tt_device_logger::log_assert(harvesting_info.size() == target_devices.size(), 
-                    "Number of entries in the comma seperated harvesting config should match the number of devices in the netlist. Num Devices: {} Num Entries: {}", 
+        tt_device_logger::log_assert(harvesting_info.size() == target_devices.size(),
+                    "Number of entries in the comma seperated harvesting config should match the number of devices in the netlist. Num Devices: {} Num Entries: {}",
                     target_devices.size(), harvesting_info.size());
         int idx = 0;
         for (auto device_id = target_devices.begin(); device_id != target_devices.end(); device_id++) {
             if(arch_name == tt::ARCH::GRAYSKULL) {
                 tt_device_logger::log_assert((harvesting_info[idx] & harvested_rows_per_target[*device_id]) == harvested_rows_per_target[*device_id],
-                            "Simulated harvesting config for device {} does not include the actual harvesting config (real config must be contained in simulated config when running on device). Actual Harvested Rows : {}    Simulated Harvested Rows : {}", 
+                            "Simulated harvesting config for device {} does not include the actual harvesting config (real config must be contained in simulated config when running on device). Actual Harvested Rows : {}    Simulated Harvested Rows : {}",
                             *device_id,  harvested_rows_per_target[*device_id], harvesting_info[idx]);
-                
+
             }
             else if(arch_name == tt::ARCH::WORMHOLE_B0 || arch_name == tt::ARCH::WORMHOLE) {
-                tt_device_logger::log_assert(std::bitset<32>(harvesting_info[idx]).count() >= std::bitset<32>(*device_id).count(), 
-                "Simulated Harvesting for WH must contain at least as many rows as the actual harvesting config. Actual Harvested Rows : {}  Simulated Harvested Rows : {}", 
-                harvested_rows_per_target[*device_id], harvesting_info[idx]); 
+                tt_device_logger::log_assert(std::bitset<32>(harvesting_info[idx]).count() >= std::bitset<32>(*device_id).count(),
+                "Simulated Harvesting for WH must contain at least as many rows as the actual harvesting config. Actual Harvested Rows : {}  Simulated Harvested Rows : {}",
+                harvested_rows_per_target[*device_id], harvesting_info[idx]);
                 num_rows_harvested.at(*device_id) = std::bitset<32>(harvesting_info[idx]).count();
             }
             harvested_rows_per_target[*device_id] = harvesting_info[idx];
@@ -1555,7 +1585,7 @@ void tt_SiliconDevice::remove_worker_row_from_descriptor(tt_SocDescriptor& full_
     full_soc_descriptor.worker_log_to_routing_y = {};
 
     std::set<int> modified_y_coords = {};
-    
+
     for(const auto& core : full_soc_descriptor.workers) {
         modified_y_coords.insert(core.y);
     }
@@ -1792,7 +1822,7 @@ void tt_SiliconDevice::deassert_risc_reset(int target_device) {
 
 void tt_SiliconDevice::deassert_risc_reset_at_core(tt_cxy_pair core) {
     std::uint32_t target_device = core.chip; // Get Target Device to query soc descriptor and determine location in cluster
-    tt_device_logger::log_assert(std::find(get_soc_descriptor(target_device).workers.begin(), get_soc_descriptor(target_device).workers.end(), core) != get_soc_descriptor(target_device).workers.end(), 
+    tt_device_logger::log_assert(std::find(get_soc_descriptor(target_device).workers.begin(), get_soc_descriptor(target_device).workers.end(), core) != get_soc_descriptor(target_device).workers.end(),
                                 "Cannot deassert reset on a non-tensix or harvested core");
     bool target_is_mmio_capable = ndesc -> is_chip_mmio_capable(target_device);
     if(target_is_mmio_capable) {
@@ -1806,7 +1836,7 @@ void tt_SiliconDevice::deassert_risc_reset_at_core(tt_cxy_pair core) {
 
 void tt_SiliconDevice::assert_risc_reset_at_core(tt_cxy_pair core) {
     std::uint32_t target_device = core.chip; // Get Target Device to query soc descriptor and determine location in cluster
-    tt_device_logger::log_assert(std::find(get_soc_descriptor(target_device).workers.begin(), get_soc_descriptor(target_device).workers.end(), core) != get_soc_descriptor(target_device).workers.end(), 
+    tt_device_logger::log_assert(std::find(get_soc_descriptor(target_device).workers.begin(), get_soc_descriptor(target_device).workers.end(), core) != get_soc_descriptor(target_device).workers.end(),
                                 "Cannot assert reset on a non-tensix or harvested core");
     bool target_is_mmio_capable = ndesc -> is_chip_mmio_capable(target_device);
     if(target_is_mmio_capable) {
@@ -3010,7 +3040,7 @@ void tt_SiliconDevice::write_to_non_mmio_device(const uint32_t *mem_ptr, uint32_
     std::string read_tlb = "LARGE_READ_TLB";
     std::string empty_tlb = "";
     translate_to_noc_table_coords(0, core.y, core.x);
-    
+
     // tt_device_logger::log_debug(tt_device_logger::LogDevice, "Writing to non-mmio device {}: tt_cxy_pair {}, addr {}", target_chip.str(), core.str(), address);
 
     std::vector<std::uint32_t> erisc_command;
@@ -3095,7 +3125,7 @@ void tt_SiliconDevice::write_to_non_mmio_device(const uint32_t *mem_ptr, uint32_
 
         // Send the read request
         tt_device_logger::log_assert((req_flags == eth_interface_params.CMD_WR_REQ) || (((address + offset) & 0x1F) == 0), "Block mode address must be 32-byte aligned."); // Block mode address must be 32-byte aligned.
-        
+
         new_cmd->sys_addr = get_sys_addr(std::get<0>(target_chip), std::get<1>(target_chip), core.x, core.y, address + offset);
         new_cmd->rack = get_sys_rack(std::get<2>(target_chip), std::get<3>(target_chip));
         new_cmd->data = req_flags & eth_interface_params.CMD_DATA_BLOCK ? block_size : *(mem_ptr + offset/DATA_WORD_SIZE);

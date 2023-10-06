@@ -1749,6 +1749,8 @@ void tt_SiliconDevice::start(
         } else {
             init_pcie_iatus();
         }
+        init_membars();
+        // exit(0);
     }
 
     // if (1){
@@ -3649,6 +3651,119 @@ void tt_SiliconDevice::read_from_sysmem(std::vector<uint32_t> &vec, uint64_t add
     read_dma_buffer(vec, addr, channel, size, src_device_id);
 }
 
+void tt_SiliconDevice::set_membar_flag(const chip_id_t chip, const std::vector<tt_xy_pair>& cores, const uint32_t barrier_value, const uint32_t barrier_addr, const std::string& fallback_tlb) {
+    for(const auto& core : cores) std::cout << core.str() << " ";
+    std::cout << std::endl;
+    tt_driver_atomics::sfence();
+    std::unordered_set<tt_xy_pair> cores_synced = {};
+    std::vector<uint32_t> barrier_val_vec = {barrier_value};
+    for(const auto& core : cores) {
+        write_to_device(barrier_val_vec, tt_cxy_pair(chip, core), barrier_addr, fallback_tlb);
+    }
+    tt_driver_atomics::sfence();
+    while(cores_synced.size() != cores.size()) {
+        for(const auto& core : cores) {
+            if(cores_synced.find(core) == cores_synced.end()) {
+                std::vector<uint32_t> readback_vec = {};
+                read_from_device(readback_vec, tt_cxy_pair(chip, core), barrier_addr, sizeof(std::uint32_t), fallback_tlb);
+                if(readback_vec.at(0) == barrier_value) {
+                    cores_synced.insert(core);
+                }
+            }
+        }
+    }
+}
+
+void tt_SiliconDevice::insert_host_to_device_barrier(const chip_id_t chip, const std::vector<tt_xy_pair>& cores, const uint32_t barrier_addr, const std::string& fallback_tlb) {
+    if(ndesc -> is_chip_mmio_capable(chip)) {
+        set_membar_flag(chip, cores, tt_MemBarFlag::SET, barrier_addr, fallback_tlb);
+        set_membar_flag(chip, cores, tt_MemBarFlag::RESET, barrier_addr, fallback_tlb);
+    }
+    else {
+        wait_for_non_mmio_flush();
+    }
+}
+
+void tt_SiliconDevice::init_membars() {
+    std::vector<tt_xy_pair> dram_cores = {};
+    for(int i = 0; i < get_soc_descriptor(0).get_num_dram_channels(); i++) dram_cores.push_back(get_soc_descriptor(0).get_core_for_dram_channel(i, 0));
+    for(const auto& chip :  target_devices_in_cluster) {
+        if(ndesc -> is_chip_mmio_capable(chip)) {
+            set_membar_flag(chip, get_soc_descriptor(chip).workers, tt_MemBarFlag::RESET, l1_address_params.TENSIX_L1_BARRIER_BASE, "LARGE_WRITE_TLB");
+            set_membar_flag(chip, get_soc_descriptor(chip).ethernet_cores, tt_MemBarFlag::RESET, l1_address_params.ETH_L1_BARRIER_BASE, "LARGE_WRITE_TLB");
+            set_membar_flag(chip, dram_cores, tt_MemBarFlag::RESET, dram_address_params.DRAM_BARRIER_BASE, "LARGE_WRITE_TLB");
+        }
+    }
+}
+void tt_SiliconDevice::l1_membar(const chip_id_t chip, const std::string& fallback_tlb, const std::vector<tt_xy_pair>& cores) {
+    const auto& all_workers = get_soc_descriptor(chip).workers;
+    const auto& all_eth = get_soc_descriptor(chip).ethernet_cores;
+    if(cores.size()) {
+        // Insert barrier on specific cores with L1
+        std::vector<tt_xy_pair> workers_to_sync = {};
+        std::vector<tt_xy_pair> eth_to_sync = {};
+        
+        for(const auto& core : cores) {
+            if(std::find(all_workers.begin(), all_workers.end(), core) != all_workers.end()) {
+                workers_to_sync.push_back(core);
+            } else if (std::find(all_eth.begin(), all_eth.end(), core) != all_eth.end()) {
+                eth_to_sync.push_back(core);
+            } else {
+                tt_device_logger::log_fatal("Can only insert an L1 Memory barrier on Tensix or Ethernet cores.");
+            }
+        }
+        insert_host_to_device_barrier(chip, workers_to_sync, l1_address_params.TENSIX_L1_BARRIER_BASE, fallback_tlb);
+        insert_host_to_device_barrier(chip, eth_to_sync, l1_address_params.ETH_L1_BARRIER_BASE, fallback_tlb);
+    } else {
+        // Insert barrier on all cores with L1
+        insert_host_to_device_barrier(chip, all_workers, l1_address_params.TENSIX_L1_BARRIER_BASE, fallback_tlb);
+        insert_host_to_device_barrier(chip, all_eth, l1_address_params.ETH_L1_BARRIER_BASE, fallback_tlb);
+    }
+}
+
+void tt_SiliconDevice::dram_membar(const chip_id_t chip, const std::string& fallback_tlb, const std::vector<tt_xy_pair>& dram_cores) {
+    std::vector<tt_xy_pair> dram_cores_to_sync = {};
+    if(dram_cores.size()) {
+        const auto& all_dram_cores = get_soc_descriptor(chip).dram_cores;
+        for(const auto& core : dram_cores) {
+            bool is_dram = false;
+            for(const auto& chan : all_dram_cores) {
+                if(std::find(chan.begin(), chan.end(), core) != chan.end()) {
+                    is_dram = true;
+                    dram_cores_to_sync.push_back(core);
+                    break;
+                }
+            }
+            tt_device_logger::log_assert(is_dram, "Can only insert a DRAM Memory barrier on DRA< cores.");
+        }
+    }
+    else {
+        // Insert Barrier on all DRAM Cores
+        uint32_t num_chans = get_soc_descriptor(chip).get_num_dram_channels();
+        for(uint32_t chan = 0; chan < num_chans; chan++) {
+            dram_cores_to_sync.push_back(get_soc_descriptor(chip).get_core_for_dram_channel(chan, 0));
+        }
+    }
+    insert_host_to_device_barrier(chip, dram_cores_to_sync, dram_address_params.DRAM_BARRIER_BASE, fallback_tlb);
+}
+
+void tt_SiliconDevice::dram_membar(const chip_id_t chip, const std::string& fallback_tlb, const std::vector<uint32_t>& channels) {
+    std::vector<tt_xy_pair> dram_cores_to_sync = {};
+    if(channels.size()) {
+        for(const auto& chan : channels) {
+            dram_cores_to_sync.push_back(get_soc_descriptor(chip).get_core_for_dram_channel(chan, 0));
+        }
+    }
+    else {
+        // Insert Barrier on all DRAM Cores
+        uint32_t num_chans = get_soc_descriptor(chip).get_num_dram_channels();
+        for(uint32_t chan = 0; chan < num_chans; chan++) {
+            dram_cores_to_sync.push_back(get_soc_descriptor(chip).get_core_for_dram_channel(chan, 0));
+        }
+    }
+    insert_host_to_device_barrier(chip, dram_cores_to_sync, dram_address_params.DRAM_BARRIER_BASE, fallback_tlb);
+}
+
 void tt_SiliconDevice::write_to_device(const uint32_t *mem_ptr, uint32_t len, tt_cxy_pair core, uint64_t addr, const std::string& fallback_tlb, bool send_epoch_cmd, bool last_send_epoch_cmd) {
     bool target_is_mmio_capable = ndesc -> is_chip_mmio_capable(core.chip);
     if(target_is_mmio_capable) {
@@ -3892,6 +4007,10 @@ void tt_SiliconDevice::close_device() {
 
 void tt_SiliconDevice::set_device_l1_address_params(const tt_device_l1_address_params& l1_address_params_) {
     l1_address_params = l1_address_params_;
+}
+
+void tt_SiliconDevice::set_device_dram_address_params(const tt_device_dram_address_params& dram_address_params_) {
+    dram_address_params = dram_address_params_;
 }
 
 void tt_SiliconDevice::set_driver_host_address_params(const tt_driver_host_address_params& host_address_params_) {

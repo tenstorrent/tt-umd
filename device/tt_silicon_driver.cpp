@@ -269,7 +269,11 @@ bool is_wormhole_b0(const uint16_t device_id, const uint16_t revision_id) {
 
 template <typename T>
 void size_buffer_to_capacity(std::vector<T> &data_buf, std::size_t size_in_bytes) {
-    data_buf.resize((((size_in_bytes > 0 ? size_in_bytes : 1) - 1)/ sizeof(T)) + 1);
+    std::size_t target_size = 0;
+    if (size_in_bytes > 0) {
+        target_size = ((size_in_bytes - 1) / sizeof(T)) + 1;
+    }
+    data_buf.resize(target_size);
 }
 
 // Get number of 1GB host hugepages installed. They are used for host queues.

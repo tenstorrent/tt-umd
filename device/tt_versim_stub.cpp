@@ -34,6 +34,11 @@ void tt_VersimDevice::write_to_device(const std::uint32_t *mem_ptr, uint32_t len
 void tt_VersimDevice::read_from_device(std::uint32_t *mem_ptr, tt_cxy_pair core, uint64_t addr, uint32_t size, const std::string& tlb_to_use) {}
 void tt_VersimDevice::rolled_write_to_device(uint32_t* mem_ptr, uint32_t len, uint32_t unroll_count, tt_cxy_pair core, uint64_t addr, const std::string& fallback_tlb) {}
 void tt_VersimDevice::wait_for_non_mmio_flush() {}
+
+void tt_VersimDevice::l1_membar(const chip_id_t chip, const std::string& fallback_tlb, const std::unordered_set<tt_xy_pair>& cores) {}
+void tt_VersimDevice::dram_membar(const chip_id_t chip, const std::string& fallback_tlb, const std::unordered_set<uint32_t>& channels) {}
+void tt_VersimDevice::dram_membar(const chip_id_t chip, const std::string& fallback_tlb, const std::unordered_set<tt_xy_pair>& dram_cores) {}
+
 void tt_VersimDevice::start(
     std::vector<std::string> plusargs,
     std::vector<std::string> dump_cores,
@@ -65,6 +70,7 @@ std::unordered_map<chip_id_t, uint32_t> tt_VersimDevice::get_harvesting_masks_fo
 bool tt_VersimDevice::stop() { return true; }
 
 void tt_VersimDevice::set_device_l1_address_params(const tt_device_l1_address_params& l1_address_params_) {}
+void tt_VersimDevice::set_device_dram_address_params(const tt_device_dram_address_params& dram_address_params_) {}
 
 std::uint32_t tt_VersimDevice::get_num_dram_channels(std::uint32_t device_id) {return 0;}
 std::uint32_t tt_VersimDevice::get_dram_channel_size(std::uint32_t device_id, std::uint32_t channel) {return 0;}

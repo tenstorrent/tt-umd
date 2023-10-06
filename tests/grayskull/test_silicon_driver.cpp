@@ -331,3 +331,118 @@ TEST(SiliconDriverGS, MultiThreadedDevice) {
     th2.join();
     device.close_device();
 }
+
+TEST(SiliconDriverGS, MultiThreadedMemBar) {
+    // Have 2 threads read and write from a single device concurrently
+    // All (fairly large) transactions go through a static TLB. 
+    // We want to make sure the memory barrier is thread/process safe.
+
+    // Memory barrier flags get sent to address 0 for all channels in this test
+
+     auto get_static_tlb_index = [] (tt_xy_pair target) {
+        int flat_index = target.y * DEVICE_DATA.GRID_SIZE_X + target.x;
+        if (flat_index == 0) {
+            return -1;
+        }
+        return flat_index;
+    };
+
+    std::set<chip_id_t> target_devices = {0};
+    uint32_t base_addr = l1_mem::address_map::DATA_BUFFER_SPACE_BASE;
+    std::unordered_map<std::string, std::int32_t> dynamic_tlb_config = {};
+    dynamic_tlb_config.insert({"SMALL_READ_WRITE_TLB", 157}); // Use this for reading back membar values
+    uint32_t num_host_mem_ch_per_mmio_device = 1;
+
+    tt_SiliconDevice device = tt_SiliconDevice("./tests/soc_descs/grayskull_10x12.yaml", "", target_devices, num_host_mem_ch_per_mmio_device, dynamic_tlb_config);
+    
+    for(int i = 0; i < target_devices.size(); i++) {
+        // Iterate over devices and only setup static TLBs for functional worker cores
+        auto& sdesc = device.get_virtual_soc_descriptors().at(i);
+        for(auto& core : sdesc.workers) {
+            // Statically mapping a 1MB TLB to this core, starting from address DATA_BUFFER_SPACE_BASE. 
+            device.configure_tlb(i, core, get_static_tlb_index(core), base_addr);
+        }
+    }
+
+    device.setup_core_to_tlb_map(get_static_tlb_index);
+
+    tt_device_params default_params;
+    device.start_device(default_params);
+    device.clean_system_resources();
+
+    for(int i = 0; i < target_devices.size(); i++) {
+        device.deassert_risc_reset(i);
+    }
+    std::vector<uint32_t> readback_membar_vec = {};
+    for(auto& core : device.get_virtual_soc_descriptors().at(0).workers) {
+        device.read_from_device(readback_membar_vec, tt_cxy_pair(0, core), 0, 4, "SMALL_READ_WRITE_TLB");
+        ASSERT_EQ(readback_membar_vec.at(0), 187); // Ensure that memory barriers were correctly initialized on all workers
+        readback_membar_vec = {};
+    }
+
+    for(auto& core : device.get_virtual_soc_descriptors().at(0).workers) {
+        device.read_from_device(readback_membar_vec, tt_cxy_pair(0, core), 0, 4, "SMALL_READ_WRITE_TLB");
+        ASSERT_EQ(readback_membar_vec.at(0), 187); // Ensure that memory barriers were correctly initialized on all workers
+        readback_membar_vec = {};
+    }
+
+    for(int chan = 0; chan <  device.get_virtual_soc_descriptors().at(0).get_num_dram_channels(); chan++) {
+        auto core = device.get_virtual_soc_descriptors().at(0).get_core_for_dram_channel(chan, 0);
+        device.read_from_device(readback_membar_vec, tt_cxy_pair(0, core), 0, 4, "SMALL_READ_WRITE_TLB");
+        ASSERT_EQ(readback_membar_vec.at(0), 187); // Ensure that memory barriers were correctly initialized on all DRAM
+        readback_membar_vec = {};
+    }
+    // Launch 2 thread accessing different locations of L1 and using memory barrier between write and read
+    // Ensure now RAW race and membars are thread safe
+    std::vector<uint32_t> vec1(25600);
+    std::vector<uint32_t> vec2(25600);
+    std::vector<uint32_t> zeros(25600, 0);
+
+    for(int i = 0; i < vec1.size(); i++) {
+        vec1.at(i) = i;
+    }
+    for(int i = 0; i < vec2.size(); i++) {
+        vec2.at(i) = vec1.size() + i;
+    }
+
+    std::thread th1 = std::thread([&] {
+        std::uint32_t address = base_addr;
+        for(int loop = 0; loop < 100; loop++) {
+            for(auto& core : device.get_virtual_soc_descriptors().at(0).workers) {
+                std::vector<uint32_t> readback_vec = {};
+                device.write_to_device(vec1, tt_cxy_pair(0, core), address, "");
+                device.l1_membar(0, "", {core});
+                device.read_from_device(readback_vec, tt_cxy_pair(0, core), address, 4*vec1.size(), "");
+                ASSERT_EQ(readback_vec, vec1);
+                device.write_to_device(zeros, tt_cxy_pair(0, core), address, "");
+                readback_vec = {};
+            }
+        }
+    });
+
+    std::thread th2 = std::thread([&] {
+        std::uint32_t address = base_addr + vec1.size() * 4;
+        for(int loop = 0; loop < 100; loop++) {
+            for(auto& core : device.get_virtual_soc_descriptors().at(0).workers) {
+                std::vector<uint32_t> readback_vec = {};
+                device.write_to_device(vec2, tt_cxy_pair(0, core), address, "");
+                device.l1_membar(0, "", {core});
+                device.read_from_device(readback_vec, tt_cxy_pair(0, core), address, 4*vec2.size(), "");
+                ASSERT_EQ(readback_vec, vec2);
+                device.write_to_device(zeros, tt_cxy_pair(0, core), address, "") ;
+                readback_vec = {};
+            }
+        }
+    });
+
+    th1.join();
+    th2.join();
+
+    for(auto& core : device.get_virtual_soc_descriptors().at(0).workers) {
+        device.read_from_device(readback_membar_vec, tt_cxy_pair(0, core), 0, 4, "SMALL_READ_WRITE_TLB");
+        ASSERT_EQ(readback_membar_vec.at(0), 187); // Ensure that memory barriers end up in correct sate workers
+        readback_membar_vec = {};
+    }
+
+    device.close_device();
+}

@@ -3191,6 +3191,7 @@ void tt_SiliconDevice::write_to_non_mmio_device_send_epoch_cmd(const uint32_t *m
 
     std::vector<std::uint32_t> data_block;
 
+    flush_non_mmio = true;
     uint32_t size_in_bytes = len * DATA_WORD_SIZE;
     uint32_t timestamp = 0; //CMD_TIMESTAMP;
 
@@ -3281,6 +3282,7 @@ void tt_SiliconDevice::rolled_write_to_non_mmio_device(const uint32_t *mem_ptr, 
 
     routing_cmd_t *new_cmd;
 
+    flush_non_mmio = true;
     uint32_t size_in_bytes = len * DATA_WORD_SIZE * unroll_count;
     uint32_t buffer_id = 0;
     uint32_t timestamp = 0; //CMD_TIMESTAMP;

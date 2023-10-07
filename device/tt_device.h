@@ -37,11 +37,6 @@ enum tt_MutexType {
     ARC_MSG
 };
 
-enum tt_MemBarFlag {
-    SET = 0xaa,
-    RESET = 0xbb,
-};
-
 inline std::ostream &operator <<(std::ostream &os, const tt_DevicePowerState power_state) {
     switch (power_state) {
         case tt_DevicePowerState::BUSY: os << "Busy"; break;
@@ -51,10 +46,6 @@ inline std::ostream &operator <<(std::ostream &os, const tt_DevicePowerState pow
     }
     return os;
 }
-
-struct tt_device_dram_address_params {
-    std::int32_t DRAM_BARRIER_BASE = 0;
-};
 /**
  * @brief Struct encapsulating all L1 Address Map parameters required by UMD.
  * These parameters are passed to the constructor.
@@ -66,8 +57,6 @@ struct tt_device_l1_address_params {
     std::int32_t TRISC1_SIZE = 0;
     std::int32_t TRISC2_SIZE = 0;
     std::int32_t TRISC_BASE = 0;
-    std::int32_t TENSIX_L1_BARRIER_BASE = 0;
-    std::int32_t ETH_L1_BARRIER_BASE = 0;
 };
 
 /**
@@ -205,10 +194,6 @@ class tt_device
     */ 
     virtual void set_device_l1_address_params(const tt_device_l1_address_params& l1_address_params_) {
         throw std::runtime_error("---- tt_device::set_device_l1_address_params is not implemented\n");
-    }
-
-    virtual void set_device_dram_address_params(const tt_device_dram_address_params& dram_address_params_) {
-        throw std::runtime_error("---- tt_device::set_device_dram_address_params is not implemented\n");
     }
 
     /**
@@ -414,16 +399,6 @@ class tt_device
     */
     virtual void read_from_sysmem(std::vector<uint32_t> &vec, uint64_t addr, uint16_t channel, uint32_t size, chip_id_t src_device_id) {
         throw std::runtime_error("---- tt_device::read_from_sysmem is not implemented\n");
-    }
-
-    virtual void l1_membar(const chip_id_t chip, const std::string& fallback_tlb, const std::vector<tt_xy_pair>& cores = {}) {
-        throw std::runtime_error("---- tt_device::l1_membar is not implemented\n");
-    }
-    virtual void dram_membar(const chip_id_t chip, const std::string& fallback_tlb, const std::vector<uint32_t>& channels = {}) {
-        throw std::runtime_error("---- tt_device::dram_membar is not implemented\n");
-    }
-    virtual void dram_membar(const chip_id_t chip, const std::string& fallback_tlb, const std::vector<tt_xy_pair>& dram_cores = {}) {
-        throw std::runtime_error("---- tt_device::dram_membar is not implemented\n");
     }
 
     // Misc. Functions to Query/Set Device State
@@ -692,7 +667,6 @@ class tt_SiliconDevice: public tt_device
     //Setup/Teardown Functions
     virtual std::unordered_map<chip_id_t, tt_SocDescriptor>& get_virtual_soc_descriptors();
     virtual void set_device_l1_address_params(const tt_device_l1_address_params& l1_address_params_);
-    virtual void set_device_dram_address_params(const tt_device_dram_address_params& dram_address_params_);
     virtual void set_driver_host_address_params(const tt_driver_host_address_params& host_address_params_);
     virtual void set_driver_eth_interface_params(const tt_driver_eth_interface_params& eth_interface_params_);
     virtual void configure_tlb(chip_id_t logical_device_id, tt_xy_pair core, std::int32_t tlb_index, std::int32_t address, uint64_t ordering = TLB_DATA::Posted);
@@ -799,12 +773,7 @@ class tt_SiliconDevice: public tt_device
     void read_from_non_mmio_device(uint32_t* mem_ptr, tt_cxy_pair core, uint64_t address, uint32_t size_in_bytes);
     void read_mmio_device_register(uint32_t* mem_ptr, tt_cxy_pair core, uint64_t addr, uint32_t size, const std::string& fallback_tlb);
     void write_mmio_device_register(const uint32_t* mem_ptr, tt_cxy_pair core, uint64_t addr, uint32_t size, const std::string& fallback_tlb);
-    void set_membar_flag(const chip_id_t chip, const std::vector<tt_xy_pair>& cores, const uint32_t barrier_value, const uint32_t barrier_addr, const std::string& fallback_tlb);
-    void insert_host_to_device_barrier(const chip_id_t chip, const std::vector<tt_xy_pair>& cores, const uint32_t barrier_addr, const std::string& fallback_tlb);
-    void l1_membar(const chip_id_t chip, const std::string& fallback_tlb, const std::vector<tt_xy_pair>& cores = {});
-    void dram_membar(const chip_id_t chip, const std::string& fallback_tlb, const std::vector<uint32_t>& channels = {});
-    void dram_membar(const chip_id_t chip, const std::string& fallback_tlb, const std::vector<tt_xy_pair>& dram_cores = {});
-    void init_membars();
+
     uint64_t get_sys_addr(uint32_t chip_x, uint32_t chip_y, uint32_t noc_x, uint32_t noc_y, uint64_t offset);
     uint16_t get_sys_rack(uint32_t rack_x, uint32_t rack_y);
     bool is_non_mmio_cmd_q_full(uint32_t curr_wptr, uint32_t curr_rptr);
@@ -824,7 +793,6 @@ class tt_SiliconDevice: public tt_device
     int test_broadcast (int logical_device_id);
 
     // State variables
-    tt_device_dram_address_params dram_address_params;
     tt_device_l1_address_params l1_address_params;
     tt_driver_host_address_params host_address_params;
     tt_driver_eth_interface_params eth_interface_params;

@@ -888,14 +888,16 @@ void memcpy_from_device(void *dest, const void *src, std::size_t num_bytes) {
     }
 }
 
-void read_block(TTDevice *dev, uint32_t byte_addr, uint32_t num_bytes, uint64_t buffer_addr, uint32_t dma_buf_size) {
+void read_block(TTDevice *dev, uint32_t byte_addr, uint32_t num_bytes, uint64_t buffer_addr, uint32_t dma_buf_size, boost::interprocess::named_mutex* dma_mutex) {
     if (num_bytes >= g_DMA_BLOCK_SIZE_READ_THRESHOLD_BYTES && g_DMA_BLOCK_SIZE_READ_THRESHOLD_BYTES > 0) {
+        const scoped_lock<named_mutex> dma_lock(*dma_mutex);
         record_access ("read_block_a", byte_addr, num_bytes, true, false, true, true); // addr, size, turbo, write, block, endline
 
         DMAbuffer &transfer_buffer = dev->dma_transfer_buffer;
 
         uint64_t host_phys_addr = pci_dma_buffer_get_physical_addr (transfer_buffer);
         uint64_t host_user_addr = pci_dma_buffer_get_user_addr (transfer_buffer);
+
         while (num_bytes > 0) {
             uint32_t transfered_bytes = std::min<uint32_t>(num_bytes, dma_buf_size);
             pcie_dma_transfer_turbo (dev, byte_addr, host_phys_addr, transfered_bytes, false);
@@ -944,8 +946,9 @@ void read_block(TTDevice *dev, uint32_t byte_addr, uint32_t num_bytes, uint64_t 
     print_buffer (buffer_addr, std::min(g_NUM_BYTES_TO_PRINT, num_bytes), true);
 }
 
-void write_block(TTDevice *dev, uint32_t byte_addr, uint32_t num_bytes, uint64_t buffer_addr, uint32_t dma_buf_size) {
+void write_block(TTDevice *dev, uint32_t byte_addr, uint32_t num_bytes, uint64_t buffer_addr, uint32_t dma_buf_size, boost::interprocess::named_mutex* dma_mutex) {
     if (num_bytes >= g_DMA_BLOCK_SIZE_WRITE_THRESHOLD_BYTES && g_DMA_BLOCK_SIZE_WRITE_THRESHOLD_BYTES > 0) {
+        const scoped_lock<named_mutex> dma_lock(*dma_mutex);
         record_access ("write_block_a", byte_addr, num_bytes, true, true, true, true); // addr, size, turbo, write, block, endline
 
         DMAbuffer &transfer_buffer = dev->dma_transfer_buffer;
@@ -1099,7 +1102,6 @@ uint32_t pcie_dma_transfer_turbo (TTDevice *dev, uint32_t chip_addr, uint32_t ho
     // c_timer t ("");
 
     // t.now_in ("1. DMA setup");
-
     if (c_CSM_PCIE_CTRL_DMA_REQUEST_OFFSET == 0) {
         throw std::runtime_error ("pcie_init_dma_transfer_turbo must be called before pcie_dma_transfer_turbo");
     }
@@ -1375,7 +1377,7 @@ void tt_SiliconDevice::create_device(const std::unordered_set<chip_id_t> &target
             m_per_device_mutexes_map[tlb.first].insert({pci_interface_id, {tlb.first + std::to_string((int) pci_interface_id), nullptr}});
         }
         m_per_device_mutexes_map["ARC_MSG"].insert({pci_interface_id, {"ARC_MSG" + std::to_string((int) pci_interface_id), nullptr}});
-
+        m_per_device_mutexes_map["DMA_TURBO"].insert({pci_interface_id, {"DMA_TURBO" + std::to_string((int) pci_interface_id), nullptr}});
         // Can't query soc desc as it's not present
         bool may_have_non_mmio_chips = ndesc->chips_have_ethernet_connectivity();
         if (may_have_non_mmio_chips) {
@@ -1762,7 +1764,7 @@ void tt_SiliconDevice::start(
             struct PCIdevice* pci_device = device_it.second;
             auto device_id = pci_device->device_id;
             bool supports_pcie_dma = is_grayskull(device_id);
-            bool enable_pcie_dma = supports_pcie_dma && m_dma_buf_size>0;
+            enable_pcie_dma = supports_pcie_dma && m_dma_buf_size>0;
             // Use DMA only for transfers that cross the size thresholds (empirically determined)
             if (enable_pcie_dma) {
                 try {
@@ -1775,6 +1777,7 @@ void tt_SiliconDevice::start(
                     uninit_dma_turbo_buf(pci_device);
                 }
             } else {
+                set_use_dma(false, 0, 0); // Explicitly disable PCIe DMA
                 tt_device_logger::log_info(tt_device_logger::LogSiliconDriver, "Disable PCIE DMA");
             }
         }
@@ -1932,10 +1935,10 @@ void tt_SiliconDevice::write_device_memory(const uint32_t *mem_ptr, uint32_t len
         tlb_index = map_core_to_tlb(tt_xy_pair(target.x, target.y));
         tlb_data = describe_tlb(tlb_index);
     }
-
+    boost::interprocess::named_mutex* dma_mutex = get_dma_turbo_mutex(pci_device -> id);
     if (tlb_data.has_value() && address_in_tlb_space(address, size_in_bytes, tlb_index, std::get<1>(tlb_data.value()), target.chip)) {
         auto [tlb_offset, tlb_size] = tlb_data.value();
-        write_block(dev, tlb_offset + address % tlb_size, size_in_bytes, buffer_addr, m_dma_buf_size);
+        write_block(dev, tlb_offset + address % tlb_size, size_in_bytes, buffer_addr, m_dma_buf_size, dma_mutex);
     } else {
         const auto tlb_index = dynamic_tlb_config.at(fallback_tlb);
         const scoped_lock<named_mutex> lock(*get_mutex(fallback_tlb, pci_device -> id));
@@ -1944,7 +1947,7 @@ void tt_SiliconDevice::write_device_memory(const uint32_t *mem_ptr, uint32_t len
 
             auto [mapped_address, tlb_size] = set_dynamic_tlb(pci_device, tlb_index, target, address, harvested_coord_translation, dynamic_tlb_ordering_modes.at(fallback_tlb));
             uint32_t transfer_size = std::min(size_in_bytes, tlb_size);
-            write_block(dev, mapped_address, transfer_size, buffer_addr, m_dma_buf_size);
+            write_block(dev, mapped_address, transfer_size, buffer_addr, m_dma_buf_size, dma_mutex);
 
             size_in_bytes -= transfer_size;
             address += transfer_size;
@@ -1969,10 +1972,10 @@ void tt_SiliconDevice::read_device_memory(uint32_t *mem_ptr, tt_cxy_pair target,
         tlb_data = describe_tlb(tlb_index);
     }
     LOG1("  tlb_index: %d, tlb_data.has_value(): %d\n", tlb_index, tlb_data.has_value());
-
+    boost::interprocess::named_mutex* dma_mutex = get_dma_turbo_mutex(pci_device -> id);
     if (tlb_data.has_value()  && address_in_tlb_space(address, size_in_bytes, tlb_index, std::get<1>(tlb_data.value()), target.chip)) {
         auto [tlb_offset, tlb_size] = tlb_data.value();
-        read_block(dev, tlb_offset + address % tlb_size, size_in_bytes, buffer_addr, m_dma_buf_size);
+        read_block(dev, tlb_offset + address % tlb_size, size_in_bytes, buffer_addr, m_dma_buf_size, dma_mutex);
         LOG1 ("  read_block called with tlb_offset: %d, tlb_size: %d\n", tlb_offset, tlb_size);
     } else {
         const auto tlb_index = dynamic_tlb_config.at(fallback_tlb);
@@ -1982,7 +1985,7 @@ void tt_SiliconDevice::read_device_memory(uint32_t *mem_ptr, tt_cxy_pair target,
 
             auto [mapped_address, tlb_size] = set_dynamic_tlb(pci_device, tlb_index, target, address, harvested_coord_translation, dynamic_tlb_ordering_modes.at(fallback_tlb));
             uint32_t transfer_size = std::min(size_in_bytes, tlb_size);
-            read_block(dev, mapped_address, transfer_size, buffer_addr, m_dma_buf_size);
+            read_block(dev, mapped_address, transfer_size, buffer_addr, m_dma_buf_size, dma_mutex);
 
             size_in_bytes -= transfer_size;
             address += transfer_size;
@@ -2653,7 +2656,8 @@ void tt_SiliconDevice::bar_write32 (int logical_device_id, uint32_t addr, uint32
     TTDevice* dev = get_pci_device(logical_device_id)->hdev;
 
     if (addr < dev->bar0_uc_offset) {
-        write_block (dev, addr, sizeof(data), reinterpret_cast<uint64_t>(&data), m_dma_buf_size);
+        boost::interprocess::named_mutex* dma_mutex = get_dma_turbo_mutex(get_pci_device(logical_device_id) -> id);
+        write_block (dev, addr, sizeof(data), reinterpret_cast<uint64_t>(&data), m_dma_buf_size, dma_mutex);
     } else {
         write_regs (dev, addr, 1, &data);
     }
@@ -2664,7 +2668,8 @@ uint32_t tt_SiliconDevice::bar_read32 (int logical_device_id, uint32_t addr) {
 
     uint32_t data;
     if (addr < dev->bar0_uc_offset) {
-        read_block (dev, addr, sizeof(data), reinterpret_cast<uint64_t>(&data), m_dma_buf_size);
+        boost::interprocess::named_mutex* dma_mutex = get_dma_turbo_mutex(get_pci_device(logical_device_id) -> id);
+        read_block (dev, addr, sizeof(data), reinterpret_cast<uint64_t>(&data), m_dma_buf_size, dma_mutex);
     } else {
         read_regs (dev, addr, 1, &data);
     }
@@ -2856,6 +2861,15 @@ boost::interprocess::named_mutex* tt_SiliconDevice::get_mutex(const std::string&
         umask(old_umask);
     }
     return m_per_device_mutexes_map.at(tlb_name).at(pci_interface_id).second;
+}
+
+inline boost::interprocess::named_mutex* tt_SiliconDevice::get_dma_turbo_mutex(int pci_interface_id) {
+    // Returns an interprocess mutex to guard the DMA controller, if enabled
+    boost::interprocess::named_mutex* dma_mutex = nullptr;
+    if(enable_pcie_dma) {
+        dma_mutex = get_mutex("DMA_TURBO", pci_interface_id);
+    }
+    return dma_mutex;
 }
 
 // Go through system devices, and check which devices are reserved by user or unreserved (available) and return the list.

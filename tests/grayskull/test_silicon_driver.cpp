@@ -260,6 +260,89 @@ TEST(SiliconDriverGS, DynamicTLB_RW) {
     device.close_device();
 }
 
+TEST(SiliconDriverGS, MultiThreadedDMAReads) {
+    // Have 2 threads read and write from a single device concurrently.
+    // L1 Transactions go through Static TLB + DMA. DRAM traffic goes through dynamic TLB + DMA
+    // Verify that DMA Controller usage is thread/process safe
+    setenv("TT_PCI_DMA_BUF_SIZE", "1048576", 1);
+    auto get_static_tlb_index = [] (tt_xy_pair target) {
+        int flat_index = target.y * DEVICE_DATA.GRID_SIZE_X + target.x;
+        if (flat_index == 0) {
+            return -1;
+        }
+        return flat_index;
+    };
+    std::set<chip_id_t> target_devices = {0};
+
+    std::unordered_map<std::string, std::int32_t> dynamic_tlb_config = {};
+    uint32_t num_host_mem_ch_per_mmio_device = 1;
+    dynamic_tlb_config.insert({"SMALL_READ_WRITE_TLB", 157}); // Use this for all reads and writes to worker cores
+    tt_SiliconDevice device = tt_SiliconDevice("./tests/soc_descs/grayskull_10x12.yaml", "", target_devices, num_host_mem_ch_per_mmio_device, dynamic_tlb_config);
+    
+    for(int i = 0; i < target_devices.size(); i++) {
+        auto& sdesc = device.get_virtual_soc_descriptors().at(i);
+        for(auto& core : sdesc.workers) {
+            // Statically mapping a 1MB TLB to this core, starting from address NCRISC_FIRMWARE_BASE.  
+            device.configure_tlb(i, core, get_static_tlb_index(core), l1_mem::address_map::NCRISC_FIRMWARE_BASE);
+        }
+    }
+    device.setup_core_to_tlb_map(get_static_tlb_index);
+    tt_device_params default_params;
+    device.start_device(default_params);
+    device.clean_system_resources();
+
+    for(int i = 0; i < target_devices.size(); i++) {
+        device.deassert_risc_reset(i);
+    }
+
+    std::vector<uint32_t> l1_vector(8000);
+    std::vector<uint32_t> dram_vector(8000);
+    for(int i = 0; i < 8000; i++) {
+        l1_vector.at(i) = i;
+    }
+    for(int i = 0; i < 8000; i++) {
+        dram_vector.at(i) = i + 8000;
+    }
+
+    std::thread th1 = std::thread([&] {
+        std::vector<uint32_t> readback_vec = {};
+        std::uint32_t address = l1_mem::address_map::DATA_BUFFER_SPACE_BASE;
+        for(int loop = 0; loop < 1000; loop++) {
+            for(auto& core : device.get_virtual_soc_descriptors().at(0).workers) {
+                device.write_to_device(l1_vector, tt_cxy_pair(0, core), address, "");
+                device.read_from_device(readback_vec, tt_cxy_pair(0, core), address, 32000, "");
+                
+                ASSERT_EQ(l1_vector, readback_vec) << "Vector read back from core " << core.x << "-" << core.y << "does not match what was written";
+                readback_vec = {};
+            }
+            address += 0x20;
+        }
+    });
+
+    std::thread th2 = std::thread([&] {
+        std::vector<uint32_t> readback_vec = {};
+        std::uint32_t address = 0x30000000;
+        for(auto& core_ls : device.get_virtual_soc_descriptors().at(0).dram_cores) {
+            
+            for(int loop = 0; loop < 10000; loop++) {
+                for(auto& core : core_ls) {
+                    device.write_to_device(dram_vector, tt_cxy_pair(0, core), address, "SMALL_READ_WRITE_TLB");
+                    device.read_from_device(readback_vec, tt_cxy_pair(0, core), address, 32000, "SMALL_READ_WRITE_TLB");
+                    
+                    ASSERT_EQ(dram_vector, readback_vec) << "Vector read back from core " << core.x << "-" << core.y << "does not match what was written";
+                    readback_vec = {};
+                }
+                address += 0x20;
+            }
+        }
+    });
+
+    th1.join();
+    th2.join();
+    device.close_device();
+    unsetenv("TT_PCI_DMA_BUF_SIZE");
+}
+
 TEST(SiliconDriverGS, MultiThreadedDevice) {
     // Have 2 threads read and write from a single device concurrently
     // All transactions go through a single Dynamic TLB. We want to make sure this is thread/process safe

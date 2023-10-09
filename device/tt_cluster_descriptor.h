@@ -54,7 +54,7 @@ class tt_ClusterDescriptor {
   static std::unique_ptr<tt_ClusterDescriptor> create_from_yaml(const std::string &cluster_descriptor_file_path);
   static std::unique_ptr<tt_ClusterDescriptor> create_for_grayskull_cluster(
       const std::set<chip_id_t> &target_device_ids);
-  // const eth_coord_t get_chip_xy(const chip_id_t &chip_id) const;
+  eth_coord_t get_chip_coordinates(chip_id_t chip_id) const;
   // const chip_id_t get_chip_id_at_location(const eth_coord_t &chip_location) const;
 
   bool chips_have_ethernet_connectivity() const;

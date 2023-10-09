@@ -129,6 +129,11 @@ std::unique_ptr<tt_ClusterDescriptor> tt_ClusterDescriptor::create_for_grayskull
     return desc;
 }
 
+
+eth_coord_t tt_ClusterDescriptor::get_chip_coordinates(chip_id_t chip_id) const {
+    return chip_locations.at(chip_id);
+}
+
 std::set<chip_id_t> get_sequential_chip_id_set(int num_chips) {
     std::set<chip_id_t> chip_ids;
     for (int i = 0; i < num_chips; ++i) {

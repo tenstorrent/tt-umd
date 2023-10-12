@@ -390,6 +390,9 @@ class tt_device
         throw std::runtime_error("---- tt_device::write_to_sysmem is not implemented\n");
     }
 
+    virtual void write_to_sysmem(const uint32_t* mem_ptr, std::uint32_t size,  uint64_t addr, uint16_t channel, chip_id_t src_device_id) {
+        throw std::runtime_error("---- tt_device::write_to_sysmem is not implemented\n");
+    }
     /**
     * @brief Read uint32_t vector from specified address and channel on host (defined for Silicon).
     * \param vec Vector to read (does not need to be preallocated)
@@ -690,6 +693,7 @@ class tt_SiliconDevice: public tt_device
     virtual void read_from_device(uint32_t* mem_ptr, tt_cxy_pair core, uint64_t addr, uint32_t size, const std::string& fallback_tlb);
     virtual void read_from_device(std::vector<uint32_t> &vec, tt_cxy_pair core, uint64_t addr, uint32_t size, const std::string& tlb_to_use);
     virtual void write_to_sysmem(std::vector<uint32_t>& vec, uint64_t addr, uint16_t channel, chip_id_t src_device_id);
+    virtual void write_to_sysmem(const uint32_t* mem_ptr, std::uint32_t size,  uint64_t addr, uint16_t channel, chip_id_t src_device_id);
     virtual void read_from_sysmem(std::vector<uint32_t> &vec, uint64_t addr, uint16_t channel, uint32_t size, chip_id_t src_device_id);
     virtual void wait_for_non_mmio_flush();
     // These functions are used by Debuda, so make them public
@@ -764,7 +768,7 @@ class tt_SiliconDevice: public tt_device
 
     // Communication Functions
     void read_dma_buffer(std::vector<std::uint32_t> &mem_vector, std::uint32_t address, std::uint16_t channel, std::uint32_t size_in_bytes, chip_id_t src_device_id);
-    void write_dma_buffer(std::vector<std::uint32_t> &mem_vector, std::uint32_t address, std::uint16_t channel, chip_id_t src_device_id);
+    void write_dma_buffer(const uint32_t *mem_ptr, std::uint32_t size, std::uint32_t address, std::uint16_t channel, chip_id_t src_device_id);
     void write_device_memory(const uint32_t *mem_ptr, uint32_t len, tt_cxy_pair target, std::uint32_t address, const std::string& fallback_tlb);
     void read_device_memory(uint32_t *mem_ptr, tt_cxy_pair target, std::uint32_t address, std::uint32_t size_in_bytes, const std::string& fallback_tlb);
     void write_to_non_mmio_device(const uint32_t *mem_ptr, uint32_t len, tt_cxy_pair core, uint64_t address);

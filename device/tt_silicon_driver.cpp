@@ -2020,7 +2020,8 @@ void tt_SiliconDevice::read_dma_buffer(
 }
 
 void tt_SiliconDevice::write_dma_buffer(
-    std::vector<std::uint32_t> &mem_vector,
+    const uint32_t *mem_ptr,
+    std::uint32_t size,
     std::uint32_t address,
     std::uint16_t channel,
     chip_id_t src_device_id) {
@@ -2040,7 +2041,7 @@ void tt_SiliconDevice::write_dma_buffer(
     }
 
     LOG1("---- tt_SiliconDevice::write_dma_buffer (src_device_id: %d ch: %d) to 0x%lx\n",  src_device_id, channel, user_scratchspace);
-    memcpy(user_scratchspace, mem_vector.data(), mem_vector.size() * 4);
+    memcpy(user_scratchspace, mem_ptr, size);
 }
 
 
@@ -3643,8 +3644,11 @@ int tt_SiliconDevice::remote_arc_msg(int chip, uint32_t msg_code, bool wait_for_
     return exit_code;
 }
 
+void tt_SiliconDevice::write_to_sysmem(const uint32_t* mem_ptr, std::uint32_t size,  uint64_t addr, uint16_t channel, chip_id_t src_device_id) {
+    write_dma_buffer(mem_ptr, size * sizeof(uint32_t), addr, channel, src_device_id);
+}
 void tt_SiliconDevice::write_to_sysmem(std::vector<uint32_t>& vec, uint64_t addr, uint16_t channel, chip_id_t src_device_id) {
-    write_dma_buffer(vec, addr, channel, src_device_id);
+    write_dma_buffer(vec.data(), vec.size() * sizeof(uint32_t), addr, channel, src_device_id);
 }
 
 void tt_SiliconDevice::read_from_sysmem(std::vector<uint32_t> &vec, uint64_t addr, uint16_t channel, uint32_t size, chip_id_t src_device_id) {

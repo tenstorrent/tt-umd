@@ -1397,14 +1397,14 @@ void tt_SiliconDevice::create_device(const std::unordered_set<chip_id_t> &target
                 init_dmabuf(logical_device_id);
             }
         }
-        create_harvested_coord_translation(logical_device_id, true); //translation layer for harvested coords. Default is identity map
+        harvested_coord_translation.insert({logical_device_id, create_harvested_coord_translation(arch_name, true)}); //translation layer for harvested coords. Default is identity map
         archs_in_cluster.push_back(detect_arch(logical_to_physical_device_id_map.at(logical_device_id)));
     }
 
     for(const chip_id_t& chip : target_devices_in_cluster) {
         // Initialize identity mapping for Non-MMIO chips as well
         if(!ndesc -> is_chip_mmio_capable(chip)) {
-            create_harvested_coord_translation(chip, true);
+            harvested_coord_translation.insert({chip, create_harvested_coord_translation(arch_name, true)});
         }
     }
 }
@@ -1485,7 +1485,7 @@ tt_SiliconDevice::tt_SiliconDevice(const std::string &sdesc_path, const std::str
         if(translation_tables_en) {
             harvested_coord_translation.clear();
             for(const chip_id_t& chip : target_devices_in_cluster) {
-                create_harvested_coord_translation(chip, false);
+                harvested_coord_translation.insert({chip, create_harvested_coord_translation(arch_name, false)});
             }
         }
         tt_device_logger::log_assert(performed_harvesting ? translation_tables_en : true, "Using a harvested WH cluster with NOC translation disabled.");
@@ -1681,66 +1681,81 @@ struct PCIdevice* pci_device = get_pci_device(device_id);
     // test_write_speed(pci_device);
 }
 
-void tt_SiliconDevice::create_harvested_coord_translation(chip_id_t device_id, bool identity_map) {
+std::unordered_map<tt_xy_pair, tt_xy_pair> tt_SiliconDevice::create_harvested_coord_translation(const tt::ARCH arch, bool identity_map) {
+    tt_device_logger::log_assert(identity_map ? true : (arch != tt::ARCH::GRAYSKULL), "NOC Translation can only be performed for WH devices");
+    std::unordered_map<tt_xy_pair, tt_xy_pair> translation_table = {};
 
-    harvested_coord_translation.insert({device_id, {}});
+    tt_xy_pair grid_size;
+    std::vector<uint32_t> T6_x = {};
+    std::vector<uint32_t> T6_y = {};
+    std::vector<tt_xy_pair> ethernet = {};
+    // Store device specific data for GS and WH depending on arch
+    if(arch == tt::ARCH::GRAYSKULL) {
+        grid_size = tt_xy_pair(13, 12);
+        T6_x = {12, 1, 11, 2, 10, 3, 9, 4, 8, 5, 7, 6};
+        T6_y = {11, 1, 10, 2, 9, 3, 8, 4, 7, 5};
+    }
+    else {
+        grid_size = tt_xy_pair(10, 12);
+        T6_x = {1, 2, 3, 4, 6, 7, 8, 9};
+        T6_y = {1, 2, 3, 4, 5, 7, 8, 9, 10, 11};
+        ethernet = {{1, 0}, {2, 0}, {3, 0}, {4, 0}, {6, 0}, {7, 0}, {8, 0}, {9, 0}, {1, 6}, {2, 6}, {3, 6}, {4, 6}, {6, 6}, {7, 6}, {8, 6}, {9, 6}};
+    }
 
+    
     if(identity_map) {
         // When device is initialized, assume no harvesting and create an identity map for cores
         // This flow is always used for GS, since there is no hardware harvesting
-        for(int x = 0; x < DEVICE_DATA.GRID_SIZE_X; x++) {
-            for(int y = 0; y < DEVICE_DATA.GRID_SIZE_Y; y++) {
+        for(int x = 0; x < grid_size.x; x++) {
+            for(int y = 0; y < grid_size.y; y++) {
                 tt_xy_pair curr_core = tt_xy_pair(x, y);
-                harvested_coord_translation[device_id].insert({curr_core, curr_core});
+                translation_table.insert({curr_core, curr_core});
             }
         }
-        return;
+        return translation_table;
     }
 
-    // If this function is called again with identity_map = false, we have a harvested device
-    // Verify if device is actually harvested. Assert if not.
-    tt_device_logger::log_assert(translation_tables_en, "NOC translation tables are not enabled on device. Should not be creating a coordinate translation map.");
-    tt_device_logger::log_assert(arch_name == tt::ARCH::WORMHOLE || arch_name == tt::ARCH::WORMHOLE_B0, "Non Identity coordinate translation layer should be created only for WH/WH_B0 devices!");
-    harvested_coord_translation.at(device_id) = {}; // Clear the map
-
+    // If this function is called with identity_map = false, we have perform NOC translation
+    // This can only happen for WH devices
     // Setup coord translation for workers. Map all worker cores
-    for(int x = 0; x < DEVICE_DATA.GRID_SIZE_X; x++) {
-        for(int y = 0; y < DEVICE_DATA.GRID_SIZE_Y; y++) {
+    for(int x = 0; x < grid_size.x; x++) {
+        for(int y = 0; y < grid_size.y; y++) {
             tt_xy_pair curr_core = tt_xy_pair(x, y);
 
-            if(std::find(DEVICE_DATA.T6_X_LOCATIONS.begin(), DEVICE_DATA.T6_X_LOCATIONS.end(), x) != DEVICE_DATA.T6_X_LOCATIONS.end() &&
-            std::find(DEVICE_DATA.T6_Y_LOCATIONS.begin(), DEVICE_DATA.T6_Y_LOCATIONS.end(), y) != DEVICE_DATA.T6_Y_LOCATIONS.end()) {
+            if(std::find(T6_x.begin(), T6_x.end(), x) != T6_x.end() &&
+            std::find(T6_y.begin(), T6_y.end(), y) != T6_y.end()) {
                 // This is a worker core. Apply translation for WH.
                 tt_xy_pair harvested_worker;
                 if(x >= 1 && x <= 4) harvested_worker.x = x + 17;
                 else if(x <= 9 && x > 5) harvested_worker.x = x + 16;
-                else tt_device_logger::log_assert(false, "Invalid worker x coord {} for device {}. Please try make clean: it is possible that object files for GS are being used.", x, device_id);
+                else tt_device_logger::log_assert(false, "Invalid WH worker x coord {} when creating translation tables.", x);
 
                 if(y >= 1 && y <= 5) harvested_worker.y = y + 17;
                 else if(y <= 11 && y > 6) harvested_worker.y = y + 16;
-                else tt_device_logger::log_assert(false, "Invalid worker y coord {} for device {}. Please try make clean: it is possible that object files for GS are being used.", y, device_id);
-                harvested_coord_translation[device_id].insert({curr_core, harvested_worker});
+                else tt_device_logger::log_assert(false, "Invalid WH worker y coord {} when creating translation tables.", y);
+                translation_table.insert({curr_core, harvested_worker});
             }
 
-            else if(std::find(DEVICE_DATA.ETH_LOCATIONS.begin(), DEVICE_DATA.ETH_LOCATIONS.end(), curr_core) != DEVICE_DATA.ETH_LOCATIONS.end()){
+            else if(std::find(ethernet.begin(), ethernet.end(), curr_core) != ethernet.end()){
                 // This is an eth core. Apply translation for WH.
                 tt_xy_pair harvested_eth_core;
                 if(x >= 1 && x <= 4) harvested_eth_core.x = x + 17;
                 else if(x <= 9 && x > 5) harvested_eth_core.x = x + 16;
-                else tt_device_logger::log_assert(false, "Invalid eth_core x coord {} for device {}. Please try make clean: it is possible that object files for GS are being used.", x, device_id);
+                else tt_device_logger::log_assert(false, "Invalid WH eth_core x coord {} when creating translation tables.", x);
 
                 if(y == 0) harvested_eth_core.y = y + 16;
                 else if(y == 6) harvested_eth_core.y = y + 11;
-                else tt_device_logger::log_assert(false, "Invalid eth_core y coord {} for device {}. Please try make clean: it is possible that object files for GS are being used.", y, device_id);
-                harvested_coord_translation[device_id].insert({curr_core, harvested_eth_core});
+                else tt_device_logger::log_assert(false, "Invalid WH eth_core y coord {} when creating translation tables.", y);
+                translation_table.insert({curr_core, harvested_eth_core});
             }
 
             else {
                 // All other cores for WH are not translated in case of harvesting.
-                harvested_coord_translation[device_id].insert({curr_core, curr_core});
+                translation_table.insert({curr_core, curr_core});
             }
         }
     }
+    return translation_table;
 }
 
 void tt_SiliconDevice::translate_to_noc_table_coords(chip_id_t device_id, std::size_t &r, std::size_t &c) {

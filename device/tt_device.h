@@ -757,6 +757,7 @@ class tt_SiliconDevice: public tt_device
     static std::vector<int> extract_rows_to_remove(const tt::ARCH &arch, const int worker_grid_rows, const int harvested_rows);
     static void remove_worker_row_from_descriptor(tt_SocDescriptor& full_soc_descriptor, const std::vector<int>& row_coordinates_to_remove);
     static void harvest_rows_in_soc_descriptor(tt::ARCH arch, tt_SocDescriptor& sdesc, uint32_t harvested_rows);
+    static std::unordered_map<tt_xy_pair, tt_xy_pair> create_harvested_coord_translation(const tt::ARCH arch, bool identity_map);
     std::unordered_map<tt_xy_pair, tt_xy_pair> get_harvested_coord_translation_map(chip_id_t logical_device_id);
     virtual std::uint32_t get_num_dram_channels(std::uint32_t device_id);
     virtual std::uint32_t get_dram_channel_size(std::uint32_t device_id, std::uint32_t channel);
@@ -782,7 +783,6 @@ class tt_SiliconDevice: public tt_device
     bool init_hugepage(chip_id_t device_id);
     bool init_dmabuf(chip_id_t device_id);
     void init_device(int device_id);
-    void create_harvested_coord_translation(chip_id_t device_id, bool identity_map);
     bool init_dma_turbo_buf(struct PCIdevice* pci_device);
     bool uninit_dma_turbo_buf(struct PCIdevice* pci_device);
     static std::map<chip_id_t, std::string> get_physical_device_id_to_bus_id_map(std::vector<chip_id_t> physical_device_ids);

@@ -10,7 +10,7 @@
 #endif
 
 #include "tt_device.h"
-
+#include "device/driver_atomics.h"
 #include <iostream>
 #include <fstream>
 #include <string>
@@ -200,6 +200,18 @@ void tt_VersimDevice::wait_for_non_mmio_flush() {
   // Do nothing, since Versim does not simulate non-mmio mapped chips
 }
 
+void tt_VersimDevice::l1_membar(const chip_id_t chip, const std::string& fallback_tlb, const std::unordered_set<tt_xy_pair>& cores) {
+  tt_driver_atomics::mfence(); // Ensure no reordering of loads/stores around this
+}
+
+void tt_VersimDevice::dram_membar(const chip_id_t chip, const std::string& fallback_tlb, const std::unordered_set<uint32_t>& channels) {
+  tt_driver_atomics::mfence(); // Ensure no reordering of loads/stores around this
+}
+
+void tt_VersimDevice::dram_membar(const chip_id_t chip, const std::string& fallback_tlb, const std::unordered_set<tt_xy_pair>& dram_cores) {
+  tt_driver_atomics::mfence(); // Ensure no reordering of loads/stores around this
+}
+
 void tt_VersimDevice::read_from_device(std::vector<uint32_t> &vec, tt_cxy_pair core, uint64_t addr, uint32_t size, const std::string& tlb_to_use) {
   // std::cout << "Versim Device: Read vector from target address: 0x" << std::hex << address << std::dec << ", with size: " << size_in_bytes << " Bytes" << std::endl;
   DEBUG_LOG("Versim Device (" << get_sim_time(*versim) << "): Read vector from target address: 0x" << std::hex << addr << std::dec << ", with size: " << size << " Bytes");
@@ -281,6 +293,10 @@ std::map<int,int> tt_VersimDevice::get_clocks() {
 
 void tt_VersimDevice::set_device_l1_address_params(const tt_device_l1_address_params& l1_address_params_) {
     l1_address_params = l1_address_params_;
+}
+
+void tt_VersimDevice::set_device_dram_address_params(const tt_device_dram_address_params& dram_address_params_) {
+    dram_address_params = dram_address_params_;
 }
 
 std::uint32_t tt_VersimDevice::get_num_dram_channels(std::uint32_t device_id) {

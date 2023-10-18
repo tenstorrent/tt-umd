@@ -1391,7 +1391,12 @@ void tt_SiliconDevice::create_device(const std::unordered_set<chip_id_t> &target
 
         // For using silicon driver without workload to query mission mode params, no need for hugepage/dmabuf.
         if (!skip_driver_allocs){
-            init_hugepage(logical_device_id);
+            bool hugepages_initialized = init_hugepage(logical_device_id);
+            // Large writes to remote chips require hugepages to be initialized.
+            // Conservative assert - end workload if remote chips present but hugepages not initialized (failures caused if using remote only for small transactions)
+            if(target_remote_chips.size()) {
+                tt_device_logger::log_assert(hugepages_initialized, "Hugepages must be successfully initialized if workload contains remote chips!");
+            }
             uint16_t channel = 0; // Single channel sufficient for this?
             if (not hugepage_mapping.at(logical_device_id).at(channel)) {
                 init_dmabuf(logical_device_id);
@@ -1444,6 +1449,9 @@ tt_SiliconDevice::tt_SiliconDevice(const std::string &sdesc_path, const std::str
     for (auto &d: target_devices){
         if (ndesc->is_chip_mmio_capable(d)){
             target_mmio_device_ids.insert(d);
+        }
+        else {
+            target_remote_chips.insert(d);
         }
     }
     dynamic_tlb_config = dynamic_tlb_config_;
@@ -4019,7 +4027,6 @@ void tt_SiliconDevice::start_device(const tt_device_params &device_params) {
                 if (!ndesc->is_chip_mmio_capable(chip)) {
                     broadcast_remote_tensix_risc_reset(chip, TENSIX_ASSERT_SOFT_RESET);
                     remote_arc_msg(chip, 0xaa00 | MSG_TYPE::DEASSERT_RISCV_RESET, true, 0x0, 0x0, 1, NULL, NULL);
-                    target_remote_chips.insert(chip);
                 }
             }
             enable_ethernet_queue(30);

@@ -331,6 +331,10 @@ class tt_device
         // Only implement this for Silicon Backend
         throw std::runtime_error("---- tt_device::write_to_device is not implemented\n");
     }
+    virtual void pcie_broadcast_write(chip_id_t chip, const std::vector<uint32_t>& vec, std::uint32_t addr) {
+        // Only implement this for Silicon Backend
+        throw std::runtime_error("---- tt_device::pcie_broadcast_write is not implemented\n");
+    }
     /**
     * @brief Write uint32_t vector to specified device, core and address (defined for Silicon and Versim).
     * \param vec Vector to write
@@ -715,6 +719,7 @@ class tt_SiliconDevice: public tt_device
     virtual void close_device();
 
     // Runtime Functions
+    virtual void pcie_broadcast_write(chip_id_t chip, const std::vector<uint32_t>& vec, std::uint32_t addr);
     virtual void write_to_device(const uint32_t *mem_ptr, uint32_t len, tt_cxy_pair core, uint64_t addr, const std::string& tlb_to_use, bool send_epoch_cmd = false, bool last_send_epoch_cmd = true);
     virtual void write_to_device(std::vector<uint32_t> &vec, tt_cxy_pair core, uint64_t addr, const std::string& tlb_to_use, bool send_epoch_cmd = false, bool last_send_epoch_cmd = true);
     virtual void write_epoch_cmd_to_device(const uint32_t *mem_ptr, uint32_t len, tt_cxy_pair core, uint64_t addr, const std::string& tlb_to_use, bool last_send_epoch_cmd);

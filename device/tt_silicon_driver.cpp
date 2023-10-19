@@ -1816,13 +1816,29 @@ void tt_SiliconDevice::start(
     }
 }
 
+void tt_SiliconDevice::pcie_broadcast_write(chip_id_t chip, const std::vector<uint32_t>& vec, std::uint32_t addr){
+    struct PCIdevice* pci_device = get_pci_device(chip);
+    TTDevice *dev = pci_device->hdev;
+
+    std::uint32_t size_in_bytes = vec.size() * sizeof(std::uint32_t);
+    uint64_t buffer_addr = (uint64_t)vec.data();
+    while(size_in_bytes > 0) {
+        auto [mapped_address, tlb_size] = set_dynamic_tlb_broadcast(pci_device, 156, addr, harvested_coord_translation, num_rows_harvested.at(chip), TLB_DATA::Posted);
+        uint32_t transfer_size = std::min(size_in_bytes, tlb_size);
+        write_block(dev, mapped_address, transfer_size, buffer_addr, m_dma_buf_size);
+
+        size_in_bytes -= transfer_size;
+        addr += transfer_size;
+        buffer_addr += transfer_size;
+    }
+}
 void tt_SiliconDevice::broadcast_tensix_risc_reset(struct PCIdevice *device, const TensixSoftResetOptions &soft_resets) {
     LOG1("---- tt_SiliconDevice::broadcast_tensix_risc_reset\n");
 
     auto valid = soft_resets & ALL_TENSIX_SOFT_RESET;
 
     LOG1("== For all tensix set soft-reset for %s risc cores.\n", TensixSoftResetOptionsToString(valid).c_str());
-    auto [soft_reset_reg, _] = set_dynamic_tlb_broadcast(device, DEVICE_DATA.REG_TLB, DEVICE_DATA.TENSIX_SOFT_RESET_ADDR, harvested_coord_translation, num_rows_harvested.at(device -> logical_id));
+    auto [soft_reset_reg, _] = set_dynamic_tlb_broadcast(device, DEVICE_DATA.REG_TLB, DEVICE_DATA.TENSIX_SOFT_RESET_ADDR, harvested_coord_translation, num_rows_harvested.at(device -> logical_id), TLB_DATA::Posted);
     write_regs(device->hdev, soft_reset_reg, 1, &valid);
     tt_driver_atomics::sfence();
 }

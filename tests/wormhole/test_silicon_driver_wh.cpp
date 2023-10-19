@@ -28,6 +28,25 @@ void set_params_for_remote_txn(tt_SiliconDevice& device) {
                                   l1_mem::address_map::TRISC_BASE});
 }
 
+TEST(SiliconDriverWH, CreateDestroy) {
+    std::set<chip_id_t> target_devices = {0, 1};
+    uint32_t num_host_mem_ch_per_mmio_device = 1;
+    std::unordered_map<std::string, std::int32_t> dynamic_tlb_config = {}; // Don't set any dynamic TLBs in this test
+    tt_device_params default_params;
+    // Initialize the driver with a 1x1 descriptor and explictly do not perform harvesting
+    for(int i = 0; i < 1000; i++) {
+        tt_SiliconDevice device = tt_SiliconDevice("./tests/soc_descs/wormhole_b0_1x1.yaml", GetClusterDescYAML().string(), target_devices, num_host_mem_ch_per_mmio_device, dynamic_tlb_config, false, false);
+        set_params_for_remote_txn(device);
+        device.start_device(default_params);
+        device.clean_system_resources();
+        for(int i = 0; i < target_devices.size(); i++) {
+            device.deassert_risc_reset(i);
+        }
+        device.close_device();
+    }
+
+}
+
 TEST(SiliconDriverWH, Harvesting) {
     setenv("TT_BACKEND_HARVESTED_ROWS", "30,60", 1);
     std::set<chip_id_t> target_devices = {0, 1};
@@ -166,6 +185,81 @@ TEST(SiliconDriverWH, HarvestingRuntime) {
     device.close_device(); 
     unsetenv("TT_BACKEND_HARVESTED_ROWS");  
 }
+
+TEST(SiliconDriverWH, UnalignedStaticTLB_RW) {
+    auto get_static_tlb_index = [] (tt_xy_pair target) {
+        if (target.x >= 5) {
+            target.x -= 1;
+        }
+        target.x -= 1;
+
+        if (target.y >= 6) {
+            target.y -= 1;
+        }
+        target.y -= 1;
+
+        return target.y * 8 + target.x;
+    };
+
+    std::set<chip_id_t> target_devices = {0, 1};
+
+    std::unordered_map<std::string, std::int32_t> dynamic_tlb_config = {}; // Don't set any dynamic TLBs in this test
+    dynamic_tlb_config["REG_TLB"] = 184;
+    uint32_t num_host_mem_ch_per_mmio_device = 1;
+    
+    tt_SiliconDevice device = tt_SiliconDevice("./tests/soc_descs/wormhole_b0_8x10.yaml", GetClusterDescYAML().string(), target_devices, num_host_mem_ch_per_mmio_device, dynamic_tlb_config);
+    set_params_for_remote_txn(device);
+    auto mmio_devices = device.get_target_mmio_device_ids();
+
+    for(int i = 0; i < target_devices.size(); i++) {
+        // Iterate over MMIO devices and only setup static TLBs for worker cores
+        if(std::find(mmio_devices.begin(), mmio_devices.end(), i) != mmio_devices.end()) {
+            auto& sdesc = device.get_virtual_soc_descriptors().at(i);
+            for(auto& core : sdesc.workers) {
+                // Statically mapping a 1MB TLB to this core, starting from address NCRISC_FIRMWARE_BASE.  
+                device.configure_tlb(i, core, get_static_tlb_index(core), l1_mem::address_map::NCRISC_FIRMWARE_BASE);
+            }
+        } 
+    }
+
+    device.setup_core_to_tlb_map(get_static_tlb_index);
+    
+    tt_device_params default_params;
+    device.start_device(default_params);
+    device.clean_system_resources();
+
+    for(int i = 0; i < target_devices.size(); i++) {
+        device.deassert_risc_reset(i);
+    }
+
+    std::vector<uint32_t> unaligned_sizes = {3, 14, 21, 255, 362, 430, 1022, 1023, 1025};
+    for(int i = 0; i < 2; i++) {
+        for(const auto& size : unaligned_sizes) {
+            std::vector<uint8_t> write_vec(size, 0);
+            for(int i = 0; i < size; i++){
+                write_vec[i] = size + i;
+            }
+            std::vector<uint8_t> readback_vec(size, 0);
+            std::uint32_t address = l1_mem::address_map::NCRISC_FIRMWARE_BASE;
+            for(int loop = 0; loop < 50; loop++){
+                for(auto& core : device.get_virtual_soc_descriptors().at(i).workers) {
+                    device.write_to_device(write_vec.data(), size, tt_cxy_pair(i, core), address, "");
+                    device.read_from_device(readback_vec.data(), tt_cxy_pair(i, core), address, size, "");
+                    ASSERT_EQ(readback_vec, write_vec);
+                    readback_vec = std::vector<uint8_t>(size, 0);
+                    device.write_to_sysmem(write_vec.data(), size, 0, 0, 0);
+                    device.read_from_sysmem(readback_vec.data(), 0, 0, size, 0);
+                    ASSERT_EQ(readback_vec, write_vec);
+                    readback_vec = std::vector<uint8_t>(size, 0);
+                }
+                address += 0x20;
+            }
+
+        }
+    }
+    device.close_device();
+}
+
 
 TEST(SiliconDriverWH, StaticTLB_RW) {
     auto get_static_tlb_index = [] (tt_xy_pair target) {

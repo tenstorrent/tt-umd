@@ -823,7 +823,7 @@ class tt_SiliconDevice: public tt_device
     std::optional<std::uint64_t> get_tlb_data(std::uint32_t tlb_index, const TLB_DATA & data) const ;
     bool address_in_tlb_space(uint32_t address, uint32_t size_in_bytes, int32_t tlb_index, uint32_t tlb_size, uint32_t chip);
     struct PCIdevice* get_pci_device(int pci_intf_id) const;
-    boost::interprocess::named_mutex* get_mutex(const std::string& tlb_name, int pci_interface_id);
+    std::shared_ptr<boost::interprocess::named_mutex> get_mutex(const std::string& tlb_name, int pci_interface_id);
     virtual uint32_t get_harvested_noc_rows_for_chip(int logical_device_id); // Returns one-hot encoded harvesting mask for PCIe mapped chips
     virtual std::optional<std::tuple<std::uint32_t, std::uint32_t>> describe_tlb(std::int32_t tlb_index);
     std::optional<std::tuple<std::uint32_t, std::uint32_t>> describe_tlb(tt_xy_pair coord);
@@ -869,7 +869,7 @@ class tt_SiliconDevice: public tt_device
     // The setting should not exceed MAX_DMA_BYTES
     std::uint32_t m_dma_buf_size;
     std::unordered_map<chip_id_t, bool> noc_translation_enabled_for_chip = {};
-    std::map<std::string, std::map<int, std::pair<std::string, boost::interprocess::named_mutex*>>> m_per_device_mutexes_map;
+    std::map<std::string, std::map<int, std::pair<std::string, std::shared_ptr<boost::interprocess::named_mutex>>>> m_per_device_mutexes_map;
     std::unordered_map<chip_id_t, std::unordered_map<tt_xy_pair, tt_xy_pair>> harvested_coord_translation = {};
     std::unordered_map<chip_id_t, std::uint32_t> num_rows_harvested = {};
     std::unordered_map<chip_id_t, std::unordered_set<tt_xy_pair>> workers_per_chip = {};

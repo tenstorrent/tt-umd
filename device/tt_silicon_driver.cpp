@@ -1899,7 +1899,7 @@ void tt_SiliconDevice::assert_risc_reset_at_core(tt_cxy_pair core) {
 void tt_SiliconDevice::clean_system_resources() {
     for (auto &map_it : m_per_device_mutexes_map){
         for (auto &mutex_it : map_it.second){
-            delete mutex_it.second.second;
+            mutex_it.second.second.reset();
             mutex_it.second.second = nullptr;
             auto mutex_name = mutex_it.second.first;
             named_mutex::remove(mutex_name.c_str());
@@ -2885,7 +2885,7 @@ inline struct PCIdevice* tt_SiliconDevice::get_pci_device(int device_id) const {
     return m_pci_device_map.at(device_id);
 }
 
-boost::interprocess::named_mutex* tt_SiliconDevice::get_mutex(const std::string& tlb_name, int pci_interface_id) {
+std::shared_ptr<boost::interprocess::named_mutex> tt_SiliconDevice::get_mutex(const std::string& tlb_name, int pci_interface_id) {
     if (m_per_device_mutexes_map.at(tlb_name).at(pci_interface_id).second == nullptr) {
         std::string mutex_name =  m_per_device_mutexes_map.at(tlb_name).at(pci_interface_id).first;
         // Store old mask and clear processes umask
@@ -2893,7 +2893,7 @@ boost::interprocess::named_mutex* tt_SiliconDevice::get_mutex(const std::string&
         // Open or create the named mutex
         permissions unrestricted_permissions;
         unrestricted_permissions.set_unrestricted();
-        m_per_device_mutexes_map.at(tlb_name).at(pci_interface_id).second = new named_mutex(open_or_create, mutex_name.c_str(), unrestricted_permissions);
+        m_per_device_mutexes_map.at(tlb_name).at(pci_interface_id).second = std::make_shared<named_mutex>(open_or_create, mutex_name.c_str(), unrestricted_permissions);
         LOG1 ("Interprocess mutex '%s' opened by pid=%ld\n", mutex_name.c_str(), (long)getpid());
         // Restore old mask
         umask(old_umask);

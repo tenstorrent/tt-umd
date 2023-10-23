@@ -128,7 +128,7 @@ int ttkmd_close(struct PCIdevice &device);
 
 uint32_t pcie_dma_transfer_turbo (TTDevice *dev, uint32_t chip_addr, uint32_t host_phys_addr, uint32_t size_bytes, bool write);
 DMAbuffer pci_allocate_dma_buffer(TTDevice *dev, uint32_t size);
-void pcie_init_dma_transfer_turbo ();
+void pcie_init_dma_transfer_turbo (PCIdevice* dev);
 
 // Stash all the fields of TTDevice in TTDeviceBase to make moving simpler.
 struct TTDeviceBase
@@ -1029,9 +1029,13 @@ DMAbuffer pci_allocate_dma_buffer(TTDevice *dev, uint32_t size) {
     return ret_val;
 }
 
-void pcie_init_dma_transfer_turbo () {
-                                                     // From SHA 8cf7ff1bc7b3886a:
-    c_CSM_PCIE_CTRL_DMA_REQUEST_OFFSET = 0x1fef84c0; // chip.AXI.get_path_info("ARC_CSM.ARC_PCIE_DMA_REQUEST")
+void pcie_init_dma_transfer_turbo (PCIdevice* dev) {
+    // From SHA 8cf7ff1bc7b3886a:
+    if (detect_arch(dev) == tt::ARCH::WORMHOLE_B0) {
+        c_CSM_PCIE_CTRL_DMA_REQUEST_OFFSET = 0x1fef84c8; // chip.AXI.get_path_info("ARC_CSM.ARC_PCIE_DMA_REQUEST")
+    } else {
+        c_CSM_PCIE_CTRL_DMA_REQUEST_OFFSET = 0x1fef84c0; // chip.AXI.get_path_info("ARC_CSM.ARC_PCIE_DMA_REQUEST")
+    }
     c_DMA_TRIGGER_ADDRESS = 0x1ff30074;              // chip.AXI.get_path_info("ARC_RESET.SCRATCH[5]")
     c_ARC_MISC_CNTL_ADDRESS = 0x1ff30100;            // chip.AXI.get_path_info("ARC_RESET.ARC_MISC_CNTL")
 }
@@ -1803,8 +1807,7 @@ void tt_SiliconDevice::start(
         for (auto &device_it : m_pci_device_map){
             struct PCIdevice* pci_device = device_it.second;
             auto device_id = pci_device->device_id;
-            bool supports_pcie_dma = is_grayskull(device_id);
-            bool enable_pcie_dma = supports_pcie_dma && m_dma_buf_size>0;
+            bool enable_pcie_dma = m_dma_buf_size>0;
             // Use DMA only for transfers that cross the size thresholds (empirically determined)
             if (enable_pcie_dma) {
                 try {
@@ -2489,7 +2492,7 @@ bool tt_SiliconDevice::init_dma_turbo_buf (struct PCIdevice* pci_device) {
     // Allocate buffers for DMA transfer data and flag
     pci_device->hdev->dma_completion_flag_buffer = pci_allocate_dma_buffer(pci_device->hdev, sizeof(uint64_t));
     pci_device->hdev->dma_transfer_buffer = pci_allocate_dma_buffer(pci_device->hdev, m_dma_buf_size);
-    pcie_init_dma_transfer_turbo();
+    pcie_init_dma_transfer_turbo(pci_device);
     return true;
 }
 

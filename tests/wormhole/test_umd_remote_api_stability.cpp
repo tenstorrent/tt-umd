@@ -160,7 +160,7 @@ TEST_F(WormholeNebulaX2TestFixture, MultithreadedMixedRemoteTransfersMediumSmall
             100000,
             99,
 
-            transfer_type_weights_t{.write = 1.0, .rolled_write = 0, .read = 0.0, .epoch_cmd_write = 0.0},
+            transfer_type_weights_t{.write = 0.0, .rolled_write = 0, .read = 0.0, .epoch_cmd_write = 1.0},
 
             std::uniform_int_distribution<address_t>(0x100000, 0x200000), // address generator distribution
             std::uniform_int_distribution<transfer_size_t>(0x4, 3000), //WRITE_SIZE_GENERATOR_T const& write_size_distribution,

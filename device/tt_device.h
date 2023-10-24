@@ -801,6 +801,10 @@ class tt_SiliconDevice: public tt_device
     int get_clock(int logical_device_id);
     bool stop();
 
+    // helpers for wait_for_non_mmio_flush
+    void wait_for_erisc_queue_empty(tt_cxy_pair const& ethernet_core_location, std::string const& read_tlb);
+    void wait_for_erisc_write_responses_received(tt_cxy_pair const& ethernet_core_location, std::string const& read_tlb);
+
     // Communication Functions
     void read_dma_buffer(std::vector<std::uint32_t> &mem_vector, std::uint32_t address, std::uint16_t channel, std::uint32_t size_in_bytes, chip_id_t src_device_id);
     void write_dma_buffer(const uint32_t *mem_ptr, std::uint32_t size, std::uint32_t address, std::uint16_t channel, chip_id_t src_device_id);
@@ -850,20 +854,20 @@ class tt_SiliconDevice: public tt_device
     // 0: no debugging messages, 1: less verbose, 2: more verbose
     int m_pci_log_level;
 
-    // remote eth transfer setup
+    // remote eth transfer setup. For now we are constrained to the same core usage scheme
+    // for all MMIO chips.
     static constexpr std::uint32_t NUM_ETH_CORES_FOR_NON_MMIO_TRANSFERS = 2;
     static constexpr std::uint32_t NON_EPOCH_ETH_CORES_FOR_NON_MMIO_TRANSFERS = 4;
 
-    static constexpr std::uint32_t EPOCH_CMD_ETH_CORES_START_ID = 6;
-    static constexpr std::uint32_t EPOCH_CMD_ETH_CORES_END_ID_INCLUSIVE = 7;
+    static constexpr std::uint32_t EPOCH_CMD_ETH_CORES_START_ID = 12;
+    static constexpr std::uint32_t EPOCH_CMD_ETH_CORES_END_ID_INCLUSIVE = 12;
 
-    static constexpr std::uint32_t NON_EPOCH_CMD_ETH_CORES_START_ID = 12;
+    static constexpr std::uint32_t NON_EPOCH_CMD_ETH_CORES_START_ID = 13;
     static constexpr std::uint32_t NON_EPOCH_CMD_ETH_CORES_END_ID_INCLUSIVE = 15;
 
     int active_core = NON_EPOCH_CMD_ETH_CORES_START_ID;
     int active_core_epoch = EPOCH_CMD_ETH_CORES_START_ID;
     std::vector<std::uint32_t> erisc_q_ptrs_epoch;
-    tt_cxy_pair remote_transfer_ethernet_cores[16]; // fix hardcoded value later
     bool flush_non_mmio = false;
     // Size of the PCIE DMA buffer
     // The setting should not exceed MAX_DMA_BYTES

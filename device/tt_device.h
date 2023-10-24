@@ -851,19 +851,19 @@ class tt_SiliconDevice: public tt_device
     int m_pci_log_level;
 
     // remote eth transfer setup
-    static constexpr std::uint32_t NUM_ETH_CORES_FOR_NON_MMIO_TRANSFERS = 6;
+    static constexpr std::uint32_t NUM_ETH_CORES_FOR_NON_MMIO_TRANSFERS = 2;
     static constexpr std::uint32_t NON_EPOCH_ETH_CORES_FOR_NON_MMIO_TRANSFERS = 4;
-    static constexpr std::uint32_t NON_EPOCH_ETH_CORES_START_ID = 0;
-    static constexpr std::uint32_t NON_EPOCH_ETH_CORES_MASK = (NON_EPOCH_ETH_CORES_FOR_NON_MMIO_TRANSFERS-1);
 
-    static constexpr std::uint32_t EPOCH_ETH_CORES_FOR_NON_MMIO_TRANSFERS = NUM_ETH_CORES_FOR_NON_MMIO_TRANSFERS - NON_EPOCH_ETH_CORES_FOR_NON_MMIO_TRANSFERS;
-    static constexpr std::uint32_t EPOCH_ETH_CORES_START_ID = NON_EPOCH_ETH_CORES_START_ID + NON_EPOCH_ETH_CORES_FOR_NON_MMIO_TRANSFERS;
-    static constexpr std::uint32_t EPOCH_ETH_CORES_MASK = (EPOCH_ETH_CORES_FOR_NON_MMIO_TRANSFERS-1);
+    static constexpr std::uint32_t EPOCH_CMD_ETH_CORES_START_ID = 6;
+    static constexpr std::uint32_t EPOCH_CMD_ETH_CORES_END_ID_INCLUSIVE = 7;
 
-    int active_core = NON_EPOCH_ETH_CORES_START_ID;
-    int active_core_epoch = EPOCH_ETH_CORES_START_ID;
+    static constexpr std::uint32_t NON_EPOCH_CMD_ETH_CORES_START_ID = 12;
+    static constexpr std::uint32_t NON_EPOCH_CMD_ETH_CORES_END_ID_INCLUSIVE = 15;
+
+    int active_core = NON_EPOCH_CMD_ETH_CORES_START_ID;
+    int active_core_epoch = EPOCH_CMD_ETH_CORES_START_ID;
     std::vector<std::uint32_t> erisc_q_ptrs_epoch;
-    tt_cxy_pair remote_transfer_ethernet_cores[NUM_ETH_CORES_FOR_NON_MMIO_TRANSFERS];
+    tt_cxy_pair remote_transfer_ethernet_cores[16]; // fix hardcoded value later
     bool flush_non_mmio = false;
     // Size of the PCIE DMA buffer
     // The setting should not exceed MAX_DMA_BYTES

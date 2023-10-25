@@ -5,7 +5,8 @@
 #include <boost/interprocess/permissions.hpp>
 #include <boost/interprocess/sync/scoped_lock.hpp>
 #include <boost/interprocess/sync/named_mutex.hpp>
-
+#include <boost/interprocess/shared_memory_object.hpp>
+#include <boost/interprocess/mapped_region.hpp>
 #include <fstream>
 #include <iterator>
 #include <limits>
@@ -1405,6 +1406,8 @@ void tt_SiliconDevice::create_device(const std::unordered_set<chip_id_t> &target
         harvested_coord_translation.insert({logical_device_id, create_harvested_coord_translation(arch_name, true)}); //translation layer for harvested coords. Default is identity map
         archs_in_cluster.push_back(detect_arch(logical_to_physical_device_id_map.at(logical_device_id)));
     }
+    m_per_device_mutexes_map[NON_MMIO_WRITE_SPEED_MUTEX_NAME].insert(
+        {0, {NON_MMIO_WRITE_SPEED_MUTEX_NAME, nullptr}});
 
     for(const chip_id_t& chip : target_devices_in_cluster) {
         // Initialize identity mapping for Non-MMIO chips as well
@@ -1412,6 +1415,9 @@ void tt_SiliconDevice::create_device(const std::unordered_set<chip_id_t> &target
             harvested_coord_translation.insert({chip, create_harvested_coord_translation(arch_name, true)});
         }
     }
+    fast_remote_writes_enabled = std::make_shared<shared_memory_object>(open_or_create, "fast_remote_writes_enabled", read_write);
+    fast_remote_writes_enabled -> truncate(32);
+
 }
 
 bool tt_SiliconDevice::noc_translation_en() {
@@ -1906,6 +1912,7 @@ void tt_SiliconDevice::clean_system_resources() {
             LOG1 ("Interprocess mutex '%s' removed by pid=%ld\n", mutex_name.c_str(), (long)getpid());
         }
     }
+    shared_memory_object::remove("fast_remote_writes_enabled");
 }
 
 // System level init sequence
@@ -3025,6 +3032,16 @@ bool tt_SiliconDevice::is_non_mmio_cmd_q_full(uint32_t curr_wptr, uint32_t curr_
   return (curr_wptr != curr_rptr) && ((curr_wptr & eth_interface_params.CMD_BUF_SIZE_MASK) == (curr_rptr & eth_interface_params.CMD_BUF_SIZE_MASK));
 }
 
+void tt_SiliconDevice::set_fast_remote_writes(bool status) {
+    const scoped_lock<named_mutex> lock(
+        *get_mutex(NON_MMIO_WRITE_SPEED_MUTEX_NAME, 0));
+    mapped_region fast_remote_writes_status(*fast_remote_writes_enabled, read_write);
+
+    bool* en_status = static_cast<bool*>(fast_remote_writes_status.get_address());
+    std::cout << "Setting shared memory flag to: " << status << std::endl;
+    *en_status = status; 
+    std::cout << "shared memory flag set to :" << *static_cast<bool*>(fast_remote_writes_status.get_address()) << std::endl;
+}
 /*
  *
  *                                       NON_MMIO_MUTEX Usage
@@ -3078,6 +3095,7 @@ bool tt_SiliconDevice::is_non_mmio_cmd_q_full(uint32_t curr_wptr, uint32_t curr_
  * mutex. For extra information, see the "NON_MMIO_MUTEX Usage" above
  */
 void tt_SiliconDevice::write_to_non_mmio_device(const uint32_t *mem_ptr, uint32_t len, tt_cxy_pair core, uint64_t address){
+    bool remote_write_in_progress = true;
     using data_word_t = uint32_t;
     constexpr int DATA_WORD_SIZE = sizeof(data_word_t);
 
@@ -3113,8 +3131,12 @@ void tt_SiliconDevice::write_to_non_mmio_device(const uint32_t *mem_ptr, uint32_
     //  do not locate any ethernet core reads/writes before this acquire
     //
     const auto &mmio_capable_chip_logical = ndesc->get_closest_mmio_capable_chip(core.chip);
+    // System level lock making usage of fast_remote_writes_enabled atomic
+    const scoped_lock<named_mutex> non_mmio_write_status_lock(
+        *get_mutex(NON_MMIO_WRITE_SPEED_MUTEX_NAME, 0));
     const scoped_lock<named_mutex> lock(
         *get_mutex(NON_MMIO_MUTEX_NAME, this->get_pci_device(mmio_capable_chip_logical)->id));
+    remote_write_in_progress = true;
     tt_cxy_pair remote_transfer_ethernet_core = remote_transfer_ethernet_cores[active_core];
 
     erisc_command.resize(sizeof(routing_cmd_t)/DATA_WORD_SIZE);
@@ -3206,6 +3228,7 @@ void tt_SiliconDevice::write_to_non_mmio_device(const uint32_t *mem_ptr, uint32_
             erisc_q_rptr[0] = erisc_q_ptrs[4];
         }
     }
+    remote_write_in_progress = false;
 }
 
 // Specialized function for small epoch commands:
@@ -4031,6 +4054,7 @@ void tt_SiliconDevice::start_device(const tt_device_params &device_params) {
             }
             enable_ethernet_queue(30);
         }
+        set_fast_remote_writes(false); // Disable these by default
     }
     else {
         start(device_params.expand_plusargs(), {}, false, false, device_params.skip_driver_allocs);

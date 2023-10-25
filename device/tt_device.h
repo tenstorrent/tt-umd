@@ -19,6 +19,7 @@
 
 namespace boost::interprocess{
     class named_mutex;
+    class shared_memory_object;
 }
 
 class PCIDevice;
@@ -428,7 +429,9 @@ class tt_device
     virtual void dram_membar(const chip_id_t chip, const std::string& fallback_tlb, const std::unordered_set<tt_xy_pair>& cores = {}) {
         throw std::runtime_error("---- tt_device::dram_membar is not implemented\n");
     }
-
+    virtual void set_fast_remote_writes(bool status) {
+        throw std::runtime_error("---- tt_device::set_fast_remote_writes is not implemented\n");
+    }
     // Misc. Functions to Query/Set Device State
     /**
     * @brief Query post harvesting SOC descriptors from UMD in virtual coordinates. 
@@ -733,6 +736,7 @@ class tt_SiliconDevice: public tt_device
     // These functions are used by Debuda, so make them public
     void bar_write32 (int logical_device_id, uint32_t addr, uint32_t data);
     uint32_t bar_read32 (int logical_device_id, uint32_t addr);
+    virtual void set_fast_remote_writes(bool status);
 
     // Misc. Functions to Query/Set Device State
     virtual int arc_msg(int logical_device_id, uint32_t msg_code, bool wait_for_done = true, uint32_t arg0 = 0, uint32_t arg1 = 0, int timeout=1, uint32_t *return_3 = nullptr, uint32_t *return_4 = nullptr);
@@ -846,6 +850,7 @@ class tt_SiliconDevice: public tt_device
     std::map<chip_id_t, struct PCIdevice*> m_pci_device_map;    // Map of enabled pci devices
     int m_num_pci_devices;                                      // Number of pci devices in system (enabled or disabled)
     std::shared_ptr<tt_ClusterDescriptor> ndesc;
+    std::shared_ptr<boost::interprocess::shared_memory_object> fast_remote_writes_enabled;
     // Level of printouts. Controlled by env var TT_PCI_LOG_LEVEL
     // 0: no debugging messages, 1: less verbose, 2: more verbose
     int m_pci_log_level;
@@ -894,6 +899,7 @@ class tt_SiliconDevice: public tt_device
     static constexpr char NON_MMIO_MUTEX_NAME[] = "NON_MMIO";
     static constexpr char ARC_MSG_MUTEX_NAME[] = "ARC_MSG";
     static constexpr char MEM_BARRIER_MUTEX_NAME[] = "MEM_BAR";
+    static constexpr char NON_MMIO_WRITE_SPEED_MUTEX_NAME[] = "NON_MMIO_WRITE_SPEED";
 };
 
 tt::ARCH detect_arch(uint16_t device_id = 0);

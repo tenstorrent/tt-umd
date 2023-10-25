@@ -51,7 +51,7 @@ else
 VERSIM_LIB = lib
 endif
 
-DEVICE_LDFLAGS = -lhwloc
+DEVICE_LDFLAGS = -lhwloc -lrt
 
 ifneq ($(UMD_VERSIM_STUB),1)
 # Build Versim  based on configs specified in Buda or Metal build flow

@@ -4155,3 +4155,12 @@ std::uint32_t tt_SiliconDevice::get_host_channel_size(std::uint32_t device_id, s
     tt_device_logger::log_assert(channel < get_num_host_channels(device_id), "Querying size for a host channel that does not exist.");
     return host_channel_size.at(device_id).at(channel);
 }
+
+std::uint64_t tt_SiliconDevice::get_pcie_base_addr_from_device() const {
+    if(arch_name == tt::ARCH::WORMHOLE or arch_name == tt::ARCH::WORMHOLE_B0) {
+        return 0x800000000;
+    }
+    else {
+        return 0;
+    }
+}

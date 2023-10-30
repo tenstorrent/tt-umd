@@ -607,6 +607,10 @@ class tt_device
         return nullptr;
     }
 
+    virtual std::uint64_t get_pcie_base_addr_from_device() const {
+        throw std::runtime_error("---- tt_device::get_pcie_base_addr_from_device is not implemented\n");
+        return 0;
+    }
     const tt_SocDescriptor *get_soc_descriptor(chip_id_t chip) const;
 
     bool performed_harvesting = false;
@@ -755,6 +759,7 @@ class tt_SiliconDevice: public tt_device
     virtual uint32_t dma_allocation_size(chip_id_t src_device_id = -1);
     virtual void *channel_0_address(std::uint32_t offset, std::uint32_t device_id) const;
     virtual void *host_dma_address(std::uint64_t offset, chip_id_t src_device_id, uint16_t channel) const;
+    virtual std::uint64_t get_pcie_base_addr_from_device() const;
     static std::vector<int> extract_harvest_info_for_simulation(std::string harvest_info);
     static std::vector<int> extract_rows_to_remove(const tt::ARCH &arch, const int worker_grid_rows, const int harvested_rows);
     static void remove_worker_row_from_descriptor(tt_SocDescriptor& full_soc_descriptor, const std::vector<int>& row_coordinates_to_remove);

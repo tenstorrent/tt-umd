@@ -1840,7 +1840,7 @@ void tt_SiliconDevice::start(
             if (enable_pcie_dma) {
                 try {
                     tt_device_logger::log_info(tt_device_logger::LogSiliconDriver, "Enable PCIE DMA with bufsize {}", m_dma_buf_size);
-                    set_use_dma (false, 32, 0); // use dma for reads only
+                    set_use_dma (false, 128, 0); // use dma for reads only
                     init_dma_turbo_buf(pci_device);
                 } catch (const std::exception &e) {
                     tt_device_logger::log_info(tt_device_logger::LogSiliconDriver, "Disable PCIE DMA, fallback to MMIO transfers due to exepction {}", e.what());

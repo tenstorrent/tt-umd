@@ -3260,7 +3260,7 @@ void tt_SiliconDevice::write_to_non_mmio_device(const void *mem_ptr, uint32_t si
 
 // Specialized function for small epoch commands:
 // 1) uses separate eth cores than other non-mmio transfers hence does not require mutex
-// 2) does not have the code paths for transfers larger than 256 bytes
+// 2) does not have the code paths for transfers larger than 32kB (1024 cmds)
 // 3) only reads erisc_q_ptrs_epoch once, or when the queues are full
 // 4) only updates wptr on eth command queues for the last epoch command or when the queue is full
 void tt_SiliconDevice::write_to_non_mmio_device_send_epoch_cmd(const uint32_t *mem_ptr, uint32_t size_in_bytes, tt_cxy_pair core, uint64_t address, bool last_send_epoch_cmd) {
@@ -3287,8 +3287,9 @@ void tt_SiliconDevice::write_to_non_mmio_device_send_epoch_cmd(const uint32_t *m
     flush_non_mmio = true;
     uint32_t timestamp = 0; //CMD_TIMESTAMP;
 
-    // with this assert, we can assume use_dram=false and eliminate code paths
-    tt_device_logger::log_assert((size_in_bytes / DATA_WORD_SIZE) <= 256, "queue command size exceeds threshold");
+    bool use_dram = size_in_bytes > 256 * DATA_WORD_SIZE ? true : false;
+    uint32_t max_block_size = use_dram ? host_address_params.ETH_ROUTING_BLOCK_SIZE : eth_interface_params.MAX_BLOCK_SIZE;
+    const auto &mmio_capable_chip_logical = ndesc->get_closest_mmio_capable_chip(core.chip);
 
     // read queue ptrs for the first time
     if(erisc_q_ptrs_epoch.capacity() == 0) {
@@ -3313,19 +3314,31 @@ void tt_SiliconDevice::write_to_non_mmio_device_send_epoch_cmd(const uint32_t *m
         block_size = DATA_WORD_SIZE;
     } else {
         // can send it in one transfer, no need to break it up
-        tt_device_logger::log_assert(size_in_bytes <= eth_interface_params.MAX_BLOCK_SIZE, "Non-mmio cmd queue update is too big");
+        tt_device_logger::log_assert(size_in_bytes <= max_block_size, "Non-mmio cmd queue update is too big. size_in_bytes: {} exceeds max_block_size: {}", size_in_bytes, max_block_size);
         block_size = size_in_bytes;
     }
     uint32_t req_flags = block_size > DATA_WORD_SIZE ? (eth_interface_params.CMD_DATA_BLOCK | eth_interface_params.CMD_WR_REQ | timestamp) : eth_interface_params.CMD_WR_REQ;
     uint32_t resp_flags = block_size > DATA_WORD_SIZE ? (eth_interface_params.CMD_DATA_BLOCK | eth_interface_params.CMD_WR_ACK) : eth_interface_params.CMD_WR_ACK;
     timestamp = 0;
 
+    uint32_t host_dram_block_addr = host_address_params.ETH_ROUTING_BUFFERS_START + (active_core_epoch * eth_interface_params.CMD_BUF_SIZE + req_wr_ptr) * max_block_size;
+    uint16_t host_dram_channel = 0; // This needs to be 0, since WH can only map ETH buffers to chan 0.
+
     // send the data
     if (req_flags & eth_interface_params.CMD_DATA_BLOCK) {
-        uint32_t buf_address = eth_interface_params.ETH_ROUTING_DATA_BUFFER_ADDR + req_wr_ptr * eth_interface_params.MAX_BLOCK_SIZE;
-        size_buffer_to_capacity(data_block, block_size);
-        memcpy(&data_block[0], mem_ptr, block_size);
-        write_device_memory(data_block.data(), data_block.size() * DATA_WORD_SIZE, remote_transfer_ethernet_core, buf_address, write_tlb);
+        // Copy data to sysmem or device DRAM for Block mode
+        if (use_dram) {
+            req_flags |= eth_interface_params.CMD_DATA_BLOCK_DRAM;
+            resp_flags |= eth_interface_params.CMD_DATA_BLOCK_DRAM;
+            size_buffer_to_capacity(data_block, block_size);
+            memcpy(&data_block[0], mem_ptr, block_size);
+            write_to_sysmem(data_block, host_dram_block_addr, host_dram_channel, mmio_capable_chip_logical);
+        } else {
+            uint32_t buf_address = eth_interface_params.ETH_ROUTING_DATA_BUFFER_ADDR + req_wr_ptr * max_block_size;
+            size_buffer_to_capacity(data_block, block_size);
+            memcpy(&data_block[0], mem_ptr, block_size);
+            write_device_memory(data_block.data(), data_block.size() * DATA_WORD_SIZE, remote_transfer_ethernet_core, buf_address, write_tlb);
+        }
         tt_driver_atomics::sfence();
     }
 
@@ -3336,6 +3349,9 @@ void tt_SiliconDevice::write_to_non_mmio_device_send_epoch_cmd(const uint32_t *m
     new_cmd->rack = get_sys_rack(std::get<2>(target_chip), std::get<3>(target_chip));
     new_cmd->data = req_flags & eth_interface_params.CMD_DATA_BLOCK ? block_size : *mem_ptr;
     new_cmd->flags = req_flags;
+    if (use_dram) {
+        new_cmd->src_addr_tag = host_dram_block_addr;
+    }
 
     write_device_memory(erisc_command.data(), erisc_command.size() * DATA_WORD_SIZE, remote_transfer_ethernet_core, eth_interface_params.REQUEST_ROUTING_CMD_QUEUE_BASE + (sizeof(routing_cmd_t) * req_wr_ptr), write_tlb);
     tt_driver_atomics::sfence();

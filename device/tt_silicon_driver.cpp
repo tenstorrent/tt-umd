@@ -3247,8 +3247,7 @@ void tt_SiliconDevice::write_to_non_mmio_device(const void *mem_ptr, uint32_t si
         // to poll rd pointer in every iteration.
 
         if (is_non_mmio_cmd_q_full((erisc_q_ptrs[0]) & eth_interface_params.CMD_BUF_PTR_MASK, erisc_q_rptr[0])) {
-            active_core++;
-            active_core = (active_core & NON_EPOCH_ETH_CORES_MASK) + NON_EPOCH_ETH_CORES_START_ID;
+            active_core = (active_core == NON_EPOCH_CMD_ETH_CORES_END_ID_INCLUSIVE) ? NON_EPOCH_CMD_ETH_CORES_START_ID : active_core + 1;
             remote_transfer_ethernet_core = remote_transfer_ethernet_cores[active_core];
             read_device_memory(erisc_q_ptrs.data(), remote_transfer_ethernet_core, eth_interface_params.REQUEST_CMD_QUEUE_BASE + eth_interface_params.CMD_COUNTERS_SIZE_BYTES, eth_interface_params.REMOTE_UPDATE_PTR_SIZE_BYTES*2, read_tlb);
             full = is_non_mmio_cmd_q_full(erisc_q_ptrs[0], erisc_q_ptrs[4]);
@@ -3299,9 +3298,7 @@ void tt_SiliconDevice::write_to_non_mmio_device_send_epoch_cmd(const uint32_t *m
     uint32_t block_size;
 
     while (is_non_mmio_cmd_q_full(erisc_q_ptrs_epoch[0], erisc_q_ptrs_epoch[4])) {
-        active_core_epoch++;
-        assert(active_core_epoch - EPOCH_ETH_CORES_START_ID >= 0);
-        active_core_epoch = ((active_core_epoch - EPOCH_ETH_CORES_START_ID) % EPOCH_ETH_CORES_FOR_NON_MMIO_TRANSFERS) + EPOCH_ETH_CORES_START_ID;
+        active_core_epoch = (active_core_epoch == EPOCH_CMD_ETH_CORES_END_ID_INCLUSIVE) ? EPOCH_CMD_ETH_CORES_START_ID : active_core_epoch + 1;
         remote_transfer_ethernet_core = remote_transfer_ethernet_cores[active_core_epoch];
         read_device_memory(erisc_q_ptrs_epoch.data(), remote_transfer_ethernet_core, eth_interface_params.REQUEST_CMD_QUEUE_BASE + eth_interface_params.CMD_COUNTERS_SIZE_BYTES, eth_interface_params.REMOTE_UPDATE_PTR_SIZE_BYTES*2, read_tlb);
     }
@@ -3457,9 +3454,7 @@ void tt_SiliconDevice::rolled_write_to_non_mmio_device(const uint32_t *mem_ptr, 
         // to poll rd pointer in every iteration.
 
         if (is_non_mmio_cmd_q_full((erisc_q_ptrs[0]) & eth_interface_params.CMD_BUF_PTR_MASK, erisc_q_rptr[0])) {
-            active_core++;
-            assert(active_core - NON_EPOCH_ETH_CORES_START_ID >= 0);
-            active_core = ((active_core - NON_EPOCH_ETH_CORES_START_ID) % NON_EPOCH_ETH_CORES_FOR_NON_MMIO_TRANSFERS) + NON_EPOCH_ETH_CORES_START_ID;
+            active_core = (active_core == NON_EPOCH_CMD_ETH_CORES_END_ID_INCLUSIVE) ? NON_EPOCH_CMD_ETH_CORES_START_ID : active_core + 1;
             read_device_memory(erisc_q_ptrs.data(), remote_transfer_ethernet_cores[active_core], eth_interface_params.REQUEST_CMD_QUEUE_BASE + eth_interface_params.CMD_COUNTERS_SIZE_BYTES, eth_interface_params.REMOTE_UPDATE_PTR_SIZE_BYTES*2, read_tlb);
             full = is_non_mmio_cmd_q_full(erisc_q_ptrs[0], erisc_q_ptrs[4]);
             erisc_q_rptr[0] = erisc_q_ptrs[4];
@@ -3503,7 +3498,10 @@ void tt_SiliconDevice::read_from_non_mmio_device(void* mem_ptr, tt_cxy_pair core
     //
     const scoped_lock<named_mutex> lock(
         *get_mutex(NON_MMIO_MUTEX_NAME, this->get_pci_device(mmio_capable_chip_logical)->id));
-    const tt_cxy_pair remote_transfer_ethernet_core = tt_cxy_pair(mmio_capable_chip_logical, get_soc_descriptor(mmio_capable_chip_logical).ethernet_cores.at(0).x, get_soc_descriptor(mmio_capable_chip_logical).ethernet_cores.at(0).y);
+    const tt_cxy_pair remote_transfer_ethernet_core = tt_cxy_pair(
+        mmio_capable_chip_logical, 
+        get_soc_descriptor(mmio_capable_chip_logical).ethernet_cores.at(active_core).x, 
+        get_soc_descriptor(mmio_capable_chip_logical).ethernet_cores.at(active_core).y);
 
     read_device_memory(erisc_q_ptrs.data(), remote_transfer_ethernet_core, eth_interface_params.REQUEST_CMD_QUEUE_BASE + eth_interface_params.CMD_COUNTERS_SIZE_BYTES, eth_interface_params.REMOTE_UPDATE_PTR_SIZE_BYTES*2, read_tlb);
     read_device_memory(erisc_resp_q_wptr.data(), remote_transfer_ethernet_core, eth_interface_params.RESPONSE_CMD_QUEUE_BASE + eth_interface_params.CMD_COUNTERS_SIZE_BYTES, DATA_WORD_SIZE, read_tlb);
@@ -3574,6 +3572,7 @@ void tt_SiliconDevice::read_from_non_mmio_device(void* mem_ptr, tt_cxy_pair core
         // to poll rd pointer in every iteration.
 
         if (is_non_mmio_cmd_q_full((erisc_q_ptrs[0]), erisc_q_rptr[0])) {
+            active_core = (active_core == NON_EPOCH_CMD_ETH_CORES_END_ID_INCLUSIVE) ? NON_EPOCH_CMD_ETH_CORES_START_ID : active_core + 1;
             read_device_memory(erisc_q_ptrs.data(), remote_transfer_ethernet_core, eth_interface_params.REQUEST_CMD_QUEUE_BASE + eth_interface_params.CMD_COUNTERS_SIZE_BYTES, eth_interface_params.REMOTE_UPDATE_PTR_SIZE_BYTES*2, read_tlb);
             full = is_non_mmio_cmd_q_full(erisc_q_ptrs[0], erisc_q_ptrs[4]);
             erisc_q_rptr[0] = erisc_q_ptrs[4];

@@ -140,7 +140,7 @@ tt_VersimDevice::~tt_VersimDevice () {
 //   return true;
 // }
 
-void tt_VersimDevice::deassert_risc_reset(int target_device) {
+void tt_VersimDevice::deassert_risc_reset() {
   std::cout << "Versim Device: Deassert risc resets start" << std::endl;
   versim::handle_resetting_triscs(*versim);
   std::cout << "Versim Device: Start main loop " << std::endl;
@@ -149,10 +149,10 @@ void tt_VersimDevice::deassert_risc_reset(int target_device) {
 
 void tt_VersimDevice::deassert_risc_reset_at_core(tt_cxy_pair core) {
   // This function deasserts reset on the full versim device (don't need core level granularity for versim)
- deassert_risc_reset(core.chip);
+ deassert_risc_reset();
 }
 
-void tt_VersimDevice::assert_risc_reset(int target_device) {
+void tt_VersimDevice::assert_risc_reset() {
   std::cout << "Pause all the cores" << std::endl;
   versim::pause(*versim);
 
@@ -165,7 +165,7 @@ void tt_VersimDevice::assert_risc_reset(int target_device) {
 
 void tt_VersimDevice::assert_risc_reset_at_core(tt_cxy_pair core) {
   // This function asserts reset on the full versim device (don't need core level granularity for versim)
- assert_risc_reset(core.chip);
+ assert_risc_reset();
 }
 
 void tt_VersimDevice::rolled_write_to_device(std::vector<uint32_t> &vec, uint32_t unroll_count, tt_cxy_pair core, uint64_t addr, const std::string& tlb_to_use) {

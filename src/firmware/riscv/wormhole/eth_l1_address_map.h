@@ -12,7 +12,6 @@ namespace eth_l1_mem {
 
 
 struct address_map {
-
   // Sizes
   static constexpr std::int32_t FIRMWARE_SIZE = 32 * 1024;
   static constexpr std::int32_t ERISC_BARRIER_SIZE = 0x20; // 32 bytes reserved for Barrier

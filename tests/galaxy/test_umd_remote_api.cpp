@@ -41,10 +41,7 @@ void run_remote_read_write_test(uint32_t vector_size, bool dram_write) {
 
     tt_device_params default_params;
     device.start_device(default_params);
-
-    for (const auto& chip : target_devices) {
-        device.deassert_risc_reset(chip);
-    }
+    device.deassert_risc_reset();
 
     // Test
     std::vector<uint32_t> vector_to_write(vector_size);
@@ -158,10 +155,7 @@ void run_data_mover_test(
 
     tt_device_params default_params;
     device.start_device(default_params);
-
-    for (const auto& chip : target_devices) {
-        device.deassert_risc_reset(chip);
-    }
+    device.deassert_risc_reset();
 
     // Test
     std::vector<uint32_t> vector_to_write(vector_size);
@@ -278,10 +272,7 @@ void run_data_broadcast_test(
 
     tt_device_params default_params;
     device.start_device(default_params);
-
-    for (const auto& chip : target_devices) {
-        device.deassert_risc_reset(chip);
-    }
+    device.deassert_risc_reset();
 
     // Test
     std::vector<uint32_t> vector_to_write(vector_size);

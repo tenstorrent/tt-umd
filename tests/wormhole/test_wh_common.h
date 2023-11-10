@@ -1,6 +1,5 @@
 #pragma once
 #include "../test_utils/stimulus_generators.hpp"
-
 #include "eth_l1_address_map.h"
 #include "tt_xy_pair.h"
 #include <tt_cluster_descriptor.h>
@@ -15,12 +14,11 @@ static void set_params_for_remote_txn(tt_SiliconDevice& device) {
     device.set_driver_eth_interface_params({NOC_ADDR_LOCAL_BITS, NOC_ADDR_NODE_ID_BITS, ETH_RACK_COORD_WIDTH, CMD_BUF_SIZE_MASK, MAX_BLOCK_SIZE,
                                             REQUEST_CMD_QUEUE_BASE, RESPONSE_CMD_QUEUE_BASE, CMD_COUNTERS_SIZE_BYTES, REMOTE_UPDATE_PTR_SIZE_BYTES,
                                             CMD_DATA_BLOCK, CMD_WR_REQ, CMD_WR_ACK, CMD_RD_REQ, CMD_RD_DATA, CMD_BUF_SIZE, CMD_DATA_BLOCK_DRAM, ETH_ROUTING_DATA_BUFFER_ADDR,
-                                            REQUEST_ROUTING_CMD_QUEUE_BASE, RESPONSE_ROUTING_CMD_QUEUE_BASE, CMD_BUF_PTR_MASK, CMD_ORDERED});
+                                            REQUEST_ROUTING_CMD_QUEUE_BASE, RESPONSE_ROUTING_CMD_QUEUE_BASE, CMD_BUF_PTR_MASK, CMD_ORDERED, CMD_BROADCAST});
     
     device.set_device_l1_address_params({l1_mem::address_map::NCRISC_FIRMWARE_BASE, l1_mem::address_map::FIRMWARE_BASE,
                                   l1_mem::address_map::TRISC0_SIZE, l1_mem::address_map::TRISC1_SIZE, l1_mem::address_map::TRISC2_SIZE,
-                                  l1_mem::address_map::TRISC_BASE, l1_mem::address_map::L1_BARRIER_BASE, eth_l1_mem::address_map::ERISC_BARRIER_BASE,
-                                  eth_l1_mem::address_map::FW_VERSION_ADDR});
+                                  l1_mem::address_map::TRISC_BASE, l1_mem::address_map::L1_BARRIER_BASE, eth_l1_mem::address_map::ERISC_BARRIER_BASE, eth_l1_mem::address_map::FW_VERSION_ADDR});
 }
 
 class WormholeTestFixture : public ::testing::Test {
@@ -69,9 +67,7 @@ class WormholeTestFixture : public ::testing::Test {
     tt_device_params default_params;
     device->start_device(default_params);
 
-    for(int i = 0; i < target_devices.size(); i++) {
-        device->deassert_risc_reset(i);
-    }
+    device->deassert_risc_reset();
 
     device->wait_for_non_mmio_flush();
   }

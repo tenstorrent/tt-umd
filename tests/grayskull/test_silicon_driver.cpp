@@ -18,10 +18,7 @@ TEST(SiliconDriverGS, CreateDestroySequential) {
         tt_SiliconDevice device = tt_SiliconDevice("./tests/soc_descs/grayskull_10x12.yaml", "", target_devices, num_host_mem_ch_per_mmio_device, dynamic_tlb_config);
         device.start_device(default_params);
         device.clean_system_resources();
-        
-        for(int i = 0; i < target_devices.size(); i++) {
-            device.deassert_risc_reset(i);
-        }
+        device.deassert_risc_reset();
         device.close_device();
     }
 }
@@ -111,11 +108,7 @@ TEST(SiliconDriverGS, HarvestingRuntime) {
     tt_device_params default_params;
     device.start_device(default_params);
     device.clean_system_resources();
-
-    for(int i = 0; i < target_devices.size(); i++) {
-        device.deassert_risc_reset(i);
-    }
-
+    device.deassert_risc_reset();
 
     std::vector<uint32_t> vector_to_write = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9};
     std::vector<uint32_t> dynamic_tlb_vector_to_write = {10, 11, 12, 13, 14, 15, 16, 17, 18, 19};
@@ -181,10 +174,7 @@ TEST(SiliconDriverGS, StaticTLB_RW) {
     tt_device_params default_params;
     device.start_device(default_params);
     device.clean_system_resources();
-
-    for(int i = 0; i < target_devices.size(); i++) {
-        device.deassert_risc_reset(i);
-    }
+    device.deassert_risc_reset();
 
     std::vector<uint32_t> vector_to_write = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9};
     std::vector<uint32_t> readback_vec = {};
@@ -226,10 +216,7 @@ TEST(SiliconDriverGS, DynamicTLB_RW) {
     tt_device_params default_params;
     device.start_device(default_params);
     device.clean_system_resources();
-
-    for(int i = 0; i < target_devices.size(); i++) {
-        device.deassert_risc_reset(i);
-    }
+    device.deassert_risc_reset();
 
     std::vector<uint32_t> vector_to_write = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9};
     std::vector<uint32_t> zeros = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
@@ -274,10 +261,7 @@ TEST(SiliconDriverGS, MultiThreadedDevice) {
     tt_device_params default_params;
     device.start_device(default_params);
     device.clean_system_resources();
-
-    for(int i = 0; i < target_devices.size(); i++) {
-        device.deassert_risc_reset(i);
-    }
+    device.deassert_risc_reset();
 
     std::thread th1 = std::thread([&] {
         std::vector<uint32_t> vector_to_write = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9};
@@ -369,10 +353,7 @@ TEST(SiliconDriverGS, MultiThreadedMemBar) {
     tt_device_params default_params;
     device.start_device(default_params);
     device.clean_system_resources();
-
-    for(int i = 0; i < target_devices.size(); i++) {
-        device.deassert_risc_reset(i);
-    }
+    device.deassert_risc_reset();
     std::vector<uint32_t> readback_membar_vec = {};
     for(auto& core : device.get_virtual_soc_descriptors().at(0).workers) {
         device.read_from_device(readback_membar_vec, tt_cxy_pair(0, core), 0, 4, "SMALL_READ_WRITE_TLB");

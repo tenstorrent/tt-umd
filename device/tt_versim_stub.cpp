@@ -28,6 +28,7 @@ int tt_VersimDevice::detect_number_of_chips() { return 0; }
 void tt_VersimDevice::start_device(const tt_device_params &device_params) {}
 void tt_VersimDevice::close_device() {}
 void tt_VersimDevice::write_to_device(std::vector<uint32_t> &vec, tt_cxy_pair core, uint64_t addr, const std::string& tlb_to_use, bool send_epoch_cmd, bool last_send_epoch_cmd, bool ordered_with_prev_remote_write) {}
+void tt_VersimDevice::broadcast_write_to_cluster(const void *mem_ptr, uint32_t size_in_bytes, uint64_t address, const std::set<chip_id_t>& chips_to_exclude, std::set<uint32_t>& rows_to_exclude, std::set<uint32_t>& cols_to_exclude, const std::string& fallback_tlb) {}
 void tt_VersimDevice::read_from_device(std::vector<uint32_t> &vec, tt_cxy_pair core, uint64_t addr, uint32_t size, const std::string& tlb_to_use) {}
 void tt_VersimDevice::rolled_write_to_device(std::vector<uint32_t> &vec, uint32_t unroll_count, tt_cxy_pair core, uint64_t addr, const std::string& tlb_to_use) {}
 void tt_VersimDevice::write_to_device(const void *mem_ptr, uint32_t len, tt_cxy_pair core, uint64_t addr, const std::string& tlb_to_use, bool send_epoch_cmd, bool last_send_epoch_cmd, bool ordered_with_prev_remote_write) {}
@@ -47,9 +48,9 @@ void tt_VersimDevice::start(
     bool /*skip_driver_allocs*/
 ) {}
 
-void tt_VersimDevice::deassert_risc_reset(int target_device) {}
+void tt_VersimDevice::deassert_risc_reset() {}
 void tt_VersimDevice::deassert_risc_reset_at_core(tt_cxy_pair core) {}
-void tt_VersimDevice::assert_risc_reset(int target_device) {}
+void tt_VersimDevice::assert_risc_reset() {}
 void tt_VersimDevice::assert_risc_reset_at_core(tt_cxy_pair core) {}
 
 void tt_VersimDevice::translate_to_noc_table_coords(chip_id_t device_id, std::size_t &r, std::size_t &c) {};

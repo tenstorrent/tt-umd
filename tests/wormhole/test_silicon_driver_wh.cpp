@@ -69,22 +69,26 @@ TEST(SiliconDriverWH, StaticTLB_RW) {
     device.start_device(default_params);
     device.clean_system_resources();
 
+    std::cout << "deasserting tensix risc reset" << std::endl;
     for(int i = 0; i < target_devices.size(); i++) {
         device.deassert_risc_reset(i);
     }
-
-    std::vector<uint32_t> vector_to_write = {1, 2, 3, 4, 5, 6, 7, 8, 9, 10};
+    std::cout << "done" << std::endl;
+    std::vector<uint32_t> vector_to_write(10);
+    for(int i = 0; i < vector_to_write.size(); i++) vector_to_write.at(i) = i + 1;
     std::vector<uint32_t> readback_vec = {};
     std::vector<uint32_t> zeros = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
 
-    uint32_t address = 0;
+    uint32_t address = l1_mem::address_map::DATA_BUFFER_SPACE_BASE + 1;
+    std::cout << "Address: " <<  std::hex << address << std::endl;
     auto start_time = std::chrono::high_resolution_clock::now();
     std::unordered_map<std::uint32_t, std::vector<uint32_t>> racks_to_exclude_per_shelf = {};
     std::vector<uint32_t> chips_to_exclude = {};
-    std::vector<uint32_t> rows_to_exclude = {};
-    std::vector<uint32_t> columns_to_exlude = {};
-    device.broadcast_write_to_non_mmio_device(vector_to_write, address, racks_to_exclude_per_shelf, chips_to_exclude, rows_to_exclude, columns_to_exlude);
-
+    std::vector<uint32_t> rows_to_exclude = {0, 6};
+    std::vector<uint32_t> columns_to_exlude = {0};
+    
+    device.write_to_non_mmio_device(vector_to_write.data(), vector_to_write.size() * 4, tt_cxy_pair(0, 1, 1), address, true, racks_to_exclude_per_shelf, chips_to_exclude, rows_to_exclude, columns_to_exlude);
+    // device.write_to_non_mmio_device(vector_to_write.data(), vector_to_write.size() * 4, tt_cxy_pair(1, 1, 1), address, false, racks_to_exclude_per_shelf, chips_to_exclude, rows_to_exclude, columns_to_exlude);
     float duration = std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::high_resolution_clock::now() - start_time).count();
     std::cout << "Write time: " << duration << std::endl;
     

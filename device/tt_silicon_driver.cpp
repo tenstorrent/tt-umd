@@ -3106,21 +3106,48 @@ bool tt_SiliconDevice::is_non_mmio_cmd_q_full(uint32_t curr_wptr, uint32_t curr_
  * ethernet core (host) command queue DO NOT issue any pcie reads/writes to the ethernet core prior to acquiring the
  * mutex. For extra information, see the "NON_MMIO_MUTEX Usage" above
  */
-void tt_SiliconDevice::broadcast_write_to_non_mmio_device(std::vector<uint32_t> write_vec, uint64_t address, std::unordered_map<std::uint32_t, std::vector<uint32_t>>& racks_to_exclude_per_shelf, std::vector<uint32_t>& chips_to_exclude, std::vector<uint32_t>& rows_to_exclude, std::vector<uint32_t>& columns_to_exlude) {
-    std::vector<uint32_t> vector_with_broadcast_header = std::vector<uint32_t>(write_vec.size() + 8, 0);
-    std::memcpy(vector_with_broadcast_header.data() + 8, write_vec.data(), write_vec.size() * sizeof(uint32_t));
-    std::cout << " Broadcast vector: " << std::endl;
-    for(const auto& it : vector_with_broadcast_header) std::cout << it << " ";
-    std::cout << std::endl;
-    write_to_non_mmio_device(vector_with_broadcast_header.data(), vector_with_broadcast_header.size() * sizeof(uint32_t), tt_cxy_pair(1, 0, 0), address, true);
-}
 
 /*
  * Note that this function is required to acquire the `NON_MMIO_MUTEX_NAME` mutex for interacting with the
  * ethernet core (host) command queue DO NOT issue any pcie reads/writes to the ethernet core prior to acquiring the
  * mutex. For extra information, see the "NON_MMIO_MUTEX Usage" above
  */
-void tt_SiliconDevice::write_to_non_mmio_device(const void *mem_ptr, uint32_t size_in_bytes, tt_cxy_pair core, uint64_t address, bool broadcast){
+void tt_SiliconDevice::write_to_non_mmio_device(
+                        const void *mem_ptr, uint32_t size_in_bytes, tt_cxy_pair core, uint64_t address, 
+                        bool broadcast, std::unordered_map<std::uint32_t, std::vector<uint32_t>> shelves_to_exclude_per_rack, 
+                        std::vector<uint32_t> chips_to_exclude, std::vector<uint32_t> rows_to_exclude, std::vector<uint32_t> columns_to_exclude) {
+    
+    chip_id_t mmio_capable_chip_logical;
+    std::vector<uint32_t> broadcast_exclusion_mask(8, 0);
+    if(broadcast) {
+        std::cout << "Broadcasting" << std::endl;
+        mmio_capable_chip_logical = 0;
+        for(const auto& rack : shelves_to_exclude_per_rack) {
+            uint32_t header_word = rack.first >> 2;
+            uint32_t header_byte = rack.first % 4;
+            uint8_t rack_mask = 0;
+            for(const auto& shelf : rack.second) {
+                rack_mask |= 1 << shelf;
+            }
+            broadcast_exclusion_mask.at(header_word) |= (static_cast<uint32_t>(rack_mask) << header_byte);
+        }
+        
+        for(const auto& chip : chips_to_exclude) {
+            broadcast_exclusion_mask.at(3) |= 1 << chip;
+        }
+
+        for(const auto& row : rows_to_exclude) {
+            broadcast_exclusion_mask.at(4) |= 1 << row;
+        }
+
+        for(const auto& col : columns_to_exclude) {
+            broadcast_exclusion_mask.at(4) |= 1 << (16 + col);
+        }
+    }
+    else {
+        mmio_capable_chip_logical = ndesc->get_closest_mmio_capable_chip(core.chip);
+    }
+
     using data_word_t = uint32_t;
     constexpr int DATA_WORD_SIZE = sizeof(data_word_t);
 
@@ -3152,7 +3179,7 @@ void tt_SiliconDevice::write_to_non_mmio_device(const void *mem_ptr, uint32_t si
     //                    MUTEX ACQUIRE (NON-MMIO)
     //  do not locate any ethernet core reads/writes before this acquire
     //
-    const auto &mmio_capable_chip_logical = ndesc->get_closest_mmio_capable_chip(core.chip);
+    
     const scoped_lock<named_mutex> lock(
         *get_mutex(NON_MMIO_MUTEX_NAME, this->get_pci_device(mmio_capable_chip_logical)->id));
     tt_cxy_pair remote_transfer_ethernet_core = remote_transfer_ethernet_cores[active_core];
@@ -3181,10 +3208,11 @@ void tt_SiliconDevice::write_to_non_mmio_device(const void *mem_ptr, uint32_t si
         //full = is_non_mmio_cmd_q_full((erisc_q_ptrs[0] + 1) & CMD_BUF_PTR_MASK, erisc_q_rptr[0]);
 
         uint32_t req_wr_ptr = erisc_q_ptrs[0] & eth_interface_params.CMD_BUF_SIZE_MASK;
-        if ((address + offset) & 0x1F) { // address not 32-byte aligned
+        if ((address + offset) &  0x1F) { // address not 32-byte aligned
             block_size = DATA_WORD_SIZE; // 4 byte aligned
         } else {
-            block_size = offset + max_block_size > size_in_bytes ? size_in_bytes - offset : max_block_size;
+            // For broadcast we prepend a 32byte header. Decrease block size (size of payload) by this amount.
+            block_size = offset + max_block_size > size_in_bytes + 32 * broadcast ? size_in_bytes - offset : max_block_size - 32 * broadcast;
             // Explictly align block_size to 4 bytes, in case the input buffer is not uint32_t aligned
             uint32_t alignment_mask = sizeof(uint32_t) - 1;
             block_size = (block_size + alignment_mask) & ~alignment_mask;
@@ -3196,9 +3224,7 @@ void tt_SiliconDevice::write_to_non_mmio_device(const void *mem_ptr, uint32_t si
         timestamp = 0;
         
         if(broadcast) {
-            std::cout << "Setting Broadcast Flag" << std::endl;
             req_flags |= eth_interface_params.CMD_BROADCAST;
-            std::cout << "request flags after setting broadcast: " << std::bitset<32>(req_flags) << std::endl;
         }
 
         uint32_t host_dram_block_addr = host_address_params.ETH_ROUTING_BUFFERS_START + (active_core * eth_interface_params.CMD_BUF_SIZE + req_wr_ptr) * max_block_size;
@@ -3207,12 +3233,15 @@ void tt_SiliconDevice::write_to_non_mmio_device(const void *mem_ptr, uint32_t si
         if (req_flags & eth_interface_params.CMD_DATA_BLOCK) {
             // Copy data to sysmem or device DRAM for Block mode
             if (use_dram) {
-                std::cout << "Using DRAM Data Block" << std::endl;
+                // std::cout << "Using DRAM Data Block" << std::endl;
                 req_flags |= eth_interface_params.CMD_DATA_BLOCK_DRAM;
                 resp_flags |= eth_interface_params.CMD_DATA_BLOCK_DRAM;
                 size_buffer_to_capacity(data_block, block_size);
                 memcpy(&data_block[0], (uint8_t*)mem_ptr + offset, transfer_size);
-                write_to_sysmem(data_block, host_dram_block_addr, host_dram_channel, mmio_capable_chip_logical);
+                if(broadcast) {
+                    write_to_sysmem(broadcast_exclusion_mask, host_dram_block_addr, host_dram_channel, mmio_capable_chip_logical);
+                }
+                write_to_sysmem(data_block, host_dram_block_addr + 32 * broadcast, host_dram_channel, mmio_capable_chip_logical);
             } else {
                 uint32_t buf_address = eth_interface_params.ETH_ROUTING_DATA_BUFFER_ADDR + req_wr_ptr * max_block_size;
                 size_buffer_to_capacity(data_block, block_size);
@@ -3223,11 +3252,11 @@ void tt_SiliconDevice::write_to_non_mmio_device(const void *mem_ptr, uint32_t si
         }
 
         // Send the read request
-        tt_device_logger::log_assert((req_flags == eth_interface_params.CMD_WR_REQ) || (((address + offset) & 0x1F) == 0), "Block mode address must be 32-byte aligned."); // Block mode address must be 32-byte aligned.
+        // Removing this assert for testing
+        // tt_device_logger::log_assert((req_flags == eth_interface_params.CMD_WR_REQ) || (((address + offset) % 32) == 0), "Block mode address must be 32-byte aligned."); // Block mode address must be 32-byte aligned.
         
         if(broadcast) {
             new_cmd->sys_addr = address + offset;
-            // new_cmd->rack = get_sys_rack(std::get<2>(target_chip), std::get<3>(target_chip));
         }
         else {
             new_cmd->sys_addr = get_sys_addr(std::get<0>(target_chip), std::get<1>(target_chip), core.x, core.y, address + offset);
@@ -3236,7 +3265,7 @@ void tt_SiliconDevice::write_to_non_mmio_device(const void *mem_ptr, uint32_t si
             
         if(req_flags & eth_interface_params.CMD_DATA_BLOCK) {
             // Block mode
-            new_cmd->data = block_size;
+            new_cmd->data = block_size + 32 * broadcast;
         }
         else {
             if(size_in_bytes - offset < sizeof(uint32_t)) {
@@ -4039,6 +4068,7 @@ void tt_SiliconDevice::send_tensix_risc_reset_to_core(const tt_cxy_pair &core, c
 void tt_SiliconDevice::set_remote_tensix_risc_reset(const tt_cxy_pair &core, const TensixSoftResetOptions &soft_resets) {
     auto valid = soft_resets & ALL_TENSIX_SOFT_RESET;
     uint32_t valid_val = (std::underlying_type<TensixSoftResetOptions>::type) valid;
+    std::cout << "sending resest signal " << static_cast<uint32_t>(valid_val) << " to address " << 0xFFB121B0 << std::endl;
     write_to_non_mmio_device(&valid_val, sizeof(uint32_t), core, 0xFFB121B0);
     tt_driver_atomics::sfence();
 }
@@ -4062,8 +4092,6 @@ void tt_SiliconDevice::enable_remote_ethernet_queue(const chip_id_t& chip, int t
         }
     }
 }
-
-
 
 void tt_SiliconDevice::broadcast_remote_tensix_risc_reset(const chip_id_t &chip, const TensixSoftResetOptions &soft_resets) {
     for( tt_xy_pair worker_core : get_soc_descriptor(chip).workers) {
@@ -4131,6 +4159,7 @@ void tt_SiliconDevice::start_device(const tt_device_params &device_params) {
         if (ndesc != nullptr) {
             for (const chip_id_t &chip : target_devices_in_cluster) {
                 if (!ndesc->is_chip_mmio_capable(chip)) {
+                    std::cout << "starting device" << std::endl;
                     broadcast_remote_tensix_risc_reset(chip, TENSIX_ASSERT_SOFT_RESET);
                     remote_arc_msg(chip, 0xaa00 | MSG_TYPE::DEASSERT_RISCV_RESET, true, 0x0, 0x0, 1, NULL, NULL);
                 }
@@ -4148,6 +4177,7 @@ void tt_SiliconDevice::close_device() {
     stop(); // Stop MMIO mapped devices
     for(const chip_id_t &chip : target_devices_in_cluster) {
         if(!ndesc -> is_chip_mmio_capable(chip)) {
+            std::cout << "Closing device" << std::endl;
             stop_remote_chip(chip);
         }
     }

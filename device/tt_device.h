@@ -331,6 +331,9 @@ class tt_device
         // Only implement this for Silicon Backend
         throw std::runtime_error("---- tt_device::write_to_device is not implemented\n");
     }
+    virtual void write_to_non_mmio_device(const void *mem_ptr, uint32_t size_in_bytes, tt_cxy_pair core, uint64_t address, bool broadcast = false, std::unordered_map<std::uint32_t, std::vector<uint32_t>> shelves_to_exclude_per_rack = {}, std::vector<uint32_t> chips_to_exclude = {}, std::vector<uint32_t> rows_to_exclude = {}, std::vector<uint32_t> columns_to_exlude = {}) {
+        throw std::runtime_error("---- tt_device::write_to_device is not implemented\n");
+    }
     /**
     * @brief Write uint32_t vector to specified device, core and address (defined for Silicon and Versim).
     * \param vec Vector to write
@@ -773,7 +776,8 @@ class tt_SiliconDevice: public tt_device
     virtual std::uint32_t get_host_channel_size(std::uint32_t device_id, std::uint32_t channel);
     // Destructor
     virtual ~tt_SiliconDevice ();
-    void broadcast_write_to_non_mmio_device(std::vector<uint32_t> write_vec, uint64_t address, std::unordered_map<std::uint32_t, std::vector<uint32_t>>& racks_to_exclude_per_shelf, std::vector<uint32_t>& chips_to_exclude, std::vector<uint32_t>& rows_to_exclude, std::vector<uint32_t>& columns_to_exlude);
+    void write_to_non_mmio_device(const void *mem_ptr, uint32_t size_in_bytes, tt_cxy_pair core, uint64_t address, bool broadcast = false, std::unordered_map<std::uint32_t, std::vector<uint32_t>> shelves_to_exclude_per_rack = {}, std::vector<uint32_t> chips_to_exclude = {}, std::vector<uint32_t> rows_to_exclude = {}, std::vector<uint32_t> columns_to_exlude = {});
+    // void broadcast_write_to_non_mmio_device(std::vector<uint32_t> write_vec, uint64_t address, std::unordered_map<std::uint32_t, std::vector<uint32_t>>& racks_to_exclude_per_shelf, std::vector<uint32_t>& chips_to_exclude, std::vector<uint32_t>& rows_to_exclude, std::vector<uint32_t>& columns_to_exlude);
     private:
     // Helper functions
     // Startup + teardown
@@ -814,7 +818,6 @@ class tt_SiliconDevice: public tt_device
     void write_dma_buffer(const void *mem_ptr, std::uint32_t size, std::uint32_t address, std::uint16_t channel, chip_id_t src_device_id);
     void write_device_memory(const void *mem_ptr, uint32_t size_in_bytes, tt_cxy_pair target, std::uint32_t address, const std::string& fallback_tlb);
     void read_device_memory(void *mem_ptr, tt_cxy_pair target, std::uint32_t address, std::uint32_t size_in_bytes, const std::string& fallback_tlb);
-    void write_to_non_mmio_device(const void *mem_ptr, uint32_t size_in_bytes, tt_cxy_pair core, uint64_t address, bool broadcast = false);
     void write_to_non_mmio_device_send_epoch_cmd(const uint32_t *mem_ptr, uint32_t size_in_bytes, tt_cxy_pair core, uint64_t address, bool last_send_epoch_cmd);
     void rolled_write_to_non_mmio_device(const uint32_t *mem_ptr, uint32_t len, tt_cxy_pair core, uint64_t address, uint32_t unroll_count);
     void read_from_non_mmio_device(void* mem_ptr, tt_cxy_pair core, uint64_t address, uint32_t size_in_bytes);

@@ -140,7 +140,7 @@ tt_VersimDevice::~tt_VersimDevice () {
 //   return true;
 // }
 
-void tt_VersimDevice::deassert_risc_reset(int target_device) {
+void tt_VersimDevice::deassert_risc_reset() {
   std::cout << "Versim Device: Deassert risc resets start" << std::endl;
   versim::handle_resetting_triscs(*versim);
   std::cout << "Versim Device: Start main loop " << std::endl;
@@ -149,10 +149,10 @@ void tt_VersimDevice::deassert_risc_reset(int target_device) {
 
 void tt_VersimDevice::deassert_risc_reset_at_core(tt_cxy_pair core) {
   // This function deasserts reset on the full versim device (don't need core level granularity for versim)
- deassert_risc_reset(core.chip);
+ deassert_risc_reset();
 }
 
-void tt_VersimDevice::assert_risc_reset(int target_device) {
+void tt_VersimDevice::assert_risc_reset() {
   std::cout << "Pause all the cores" << std::endl;
   versim::pause(*versim);
 
@@ -165,7 +165,7 @@ void tt_VersimDevice::assert_risc_reset(int target_device) {
 
 void tt_VersimDevice::assert_risc_reset_at_core(tt_cxy_pair core) {
   // This function asserts reset on the full versim device (don't need core level granularity for versim)
- assert_risc_reset(core.chip);
+ assert_risc_reset();
 }
 
 void tt_VersimDevice::rolled_write_to_device(std::vector<uint32_t> &vec, uint32_t unroll_count, tt_cxy_pair core, uint64_t addr, const std::string& tlb_to_use) {
@@ -198,6 +198,13 @@ void tt_VersimDevice::write_to_device(const void *mem_ptr, uint32_t size, tt_cxy
   write_to_device(mem_vector, core, addr, tlb_to_use, send_epoch_cmd, last_send_epoch_cmd);
 }
 
+void tt_VersimDevice::broadcast_write_to_cluster(const void *mem_ptr, uint32_t size_in_bytes, uint64_t address, const std::set<chip_id_t>& chips_to_exclude, std::set<uint32_t> rows_to_exclude, std::set<uint32_t> cols_to_exclude, const std::string& fallback_tlb) {
+  for(const auto& core : get_soc_descriptor(0) -> cores) {
+    if(cols_to_exclude.find(core.first.x) == cols_to_exclude.end() and rows_to_exclude.find(core.first.y) == rows_to_exclude.end() and core.second.type != CoreType::HARVESTED) {
+        write_to_device(mem_ptr, size_in_bytes, tt_cxy_pair(0, core.first.x, core.first.y), address, "");
+      }
+  }
+}
 void tt_VersimDevice::wait_for_non_mmio_flush() {
   // Do nothing, since Versim does not simulate non-mmio mapped chips
 }

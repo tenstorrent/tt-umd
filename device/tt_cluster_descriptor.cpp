@@ -182,6 +182,7 @@ void tt_ClusterDescriptor::load_chips_from_connectivity_descriptor(YAML::Node &y
         TT_ASSERT(chip_rack_coords.size() == 4, "Galaxy (x, y, rack, shelf) coords must be size 4");
         eth_coord_t chip_location{
             chip_rack_coords.at(0), chip_rack_coords.at(1), chip_rack_coords.at(2), chip_rack_coords.at(3)};
+        
         desc.chip_locations.insert({chip_id, chip_location});
         desc.all_chips.insert(chip_id);
     }
@@ -259,6 +260,14 @@ std::unordered_map<chip_id_t, eth_coord_t> tt_ClusterDescriptor::get_chip_locati
     }
 
     return locations;
+}
+
+chip_id_t tt_ClusterDescriptor::get_shelf_local_physical_chip_coords(chip_id_t virtual_coord) {
+    // Physical cooridnates of chip inside a single rack. Calculated based on Galaxy topology.
+    // See: https://yyz-gitlab.local.tenstorrent.com/tenstorrent/budabackend/-/wikis/uploads/23e7a5168f38dfb706f9887fde78cb03/image.png
+    int x = std::get<0>(get_chip_locations().at(virtual_coord));
+    int y = std::get<1>(get_chip_locations().at(virtual_coord));
+    return 8 * x + y;
 }
 
 std::unordered_set<chip_id_t> tt_ClusterDescriptor::get_chips_with_mmio() const {

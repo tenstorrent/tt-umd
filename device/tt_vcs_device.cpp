@@ -25,14 +25,14 @@ void tt_vcs_device::start(std::vector<std::string> plusargs, std::vector<std::st
 }
 
 void tt_vcs_device::deassert_risc_reset(int target_device) {
-  tensix_reset_deassert(target_device);
+  all_tensix_reset_deassert();
 }
 
 void tt_vcs_device::assert_risc_reset(int target_device) {
-  tensix_reset_assert(target_device);
+  all_tensix_reset_assert();
 }
-
-void tt_vcs_device::rolled_write_to_device(const std::vector<uint32_t>& base_vec, uint32_t unroll_count, tt_cxy_pair core, uint64_t base_addr, const std::string& tlb_to_use) {
+ 
+void tt_vcs_device::rolled_write_to_device(std::vector<uint32_t>& base_vec, uint32_t unroll_count, tt_cxy_pair core, uint64_t base_addr, const std::string& tlb_to_use) {
   std::vector<uint32_t> vec = base_vec;
   uint32_t byte_increment = 4 * vec.size();
   for (uint32_t i = 0; i < unroll_count; ++i) {
@@ -68,7 +68,7 @@ void tt_vcs_device::read_from_device(std::vector<uint32_t>& vec, tt_cxy_pair cor
 }
 
 void tt_vcs_device::translate_to_noc_table_coords(chip_id_t device_id, std::size_t& r, std::size_t& c) {
-  std::cerr << "translate_to_noc_table_coords not implemented" << std::endl;
+  // No translation is performed
   return;
 }
 
@@ -87,6 +87,12 @@ int tt_vcs_device::get_number_of_chips_in_cluster() { return detect_number_of_ch
 std::unordered_set<int> tt_vcs_device::get_all_chips_in_cluster() { return { 0 }; }
 int tt_vcs_device::detect_number_of_chips() { return 1; }
 
+bool tt_vcs_device::using_harvested_soc_descriptors() { return false; }
+bool tt_vcs_device::noc_translation_en() { return false; }
+std::unordered_map<chip_id_t, uint32_t> tt_vcs_device::get_harvesting_masks_for_soc_descriptors() { return {{0, 0}};}
+
+std::unordered_map<chip_id_t, tt_SocDescriptor>& tt_vcs_device::get_virtual_soc_descriptors() {return soc_descriptor_per_chip;}
+
 std::map<int, int> tt_vcs_device::get_clocks() {
   return std::map<int, int>();
 }
@@ -96,7 +102,7 @@ void tt_vcs_device::set_device_l1_address_params(const tt_device_l1_address_para
 }
 
 tt_vcs_device::tt_vcs_device(const std::string& sdesc_path) : tt_device(sdesc_path) {
-
+  soc_descriptor_per_chip.emplace(0, tt_SocDescriptor(sdesc_path));
 }
 
 tt_vcs_device::~tt_vcs_device() {
@@ -113,3 +119,7 @@ std::vector<uint8_t> tt_vcs_device::read(tt_cxy_pair core, uint64_t addr, uint32
   axi_read(0, core.x, core.y, addr, size, data.data());
   return data;
 }
+
+
+
+

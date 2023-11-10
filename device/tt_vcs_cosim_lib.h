@@ -15,8 +15,6 @@ void all_tensix_reset_deassert();
 void tensix_reset_assert(uint32_t tensix_id);
 void tensix_reset_deassert(uint32_t tensix_id);
 
-void print_with_path(const char *fmt, ...);
-
 #ifdef __cplusplus
    }
 #endif

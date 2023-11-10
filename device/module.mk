@@ -20,6 +20,10 @@ DEVICE_INCLUDES=      	\
   -I$(UMD_HOME)/utils \
   -I$(UMD_HOME)/ \
 
+ifneq ($(VCS_DEVICE_EN),1)
+  DEVICE_SRCS +=  device/tt_vcs_cosim_lib_stub.cpp
+endif
+
 ifeq ($(UMD_VERSIM_STUB),1)
   DEVICE_SRCS += device/tt_versim_stub.cpp
 else

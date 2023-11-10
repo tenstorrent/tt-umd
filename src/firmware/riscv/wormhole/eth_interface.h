@@ -37,6 +37,7 @@ const uint32_t CMD_RD_DATA = (0x1 << 3);
 const uint32_t CMD_DATA_BLOCK_DRAM = (0x1 << 4);
 const uint32_t CMD_LAST_DATA_BLOCK_DRAM = (0x1 << 5);
 const uint32_t CMD_DATA_BLOCK = (0x1 << 6);
+const uint32_t CMD_BROADCAST = (0x1 << 7);
 const uint32_t CMD_NOC_ID_SHIFT = 9;
 const uint32_t CMD_NOC_ID = (0x1 << CMD_NOC_ID_SHIFT);
 const uint32_t CMD_TIMESTAMP_SHIFT = 10;

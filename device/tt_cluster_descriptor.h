@@ -30,7 +30,6 @@ class tt_ClusterDescriptor {
   std::unordered_set<chip_id_t> all_chips;
   std::unordered_map<chip_id_t, bool> noc_translation_enabled = {};
   std::unordered_map<chip_id_t, std::uint32_t> harvesting_masks = {};
-
   std::unordered_set<chip_id_t> enabled_active_chips;
 
   static void load_ethernet_connections_from_connectivity_descriptor(YAML::Node &yaml, tt_ClusterDescriptor &desc);
@@ -39,7 +38,7 @@ class tt_ClusterDescriptor {
 
  public:
   tt_ClusterDescriptor() = default;
-  tt_ClusterDescriptor(const tt_ClusterDescriptor&)=default;
+  tt_ClusterDescriptor(const tt_ClusterDescriptor&) = default;
 
   /*
    * Returns the pairs of channels that are connected where the first entry in the pair corresponds to the argument ordering when calling the function
@@ -50,7 +49,7 @@ class tt_ClusterDescriptor {
   bool channels_are_directly_connected(const chip_id_t &first, const ethernet_channel_t &first_channel, const chip_id_t &second, const ethernet_channel_t &second_channel) const;
   bool is_chip_mmio_capable(const chip_id_t &chip_id) const;
   chip_id_t get_closest_mmio_capable_chip(const chip_id_t &chip) const;
-
+  chip_id_t get_shelf_local_physical_chip_coords(chip_id_t virtual_coord);
   static std::unique_ptr<tt_ClusterDescriptor> create_from_yaml(const std::string &cluster_descriptor_file_path);
   static std::unique_ptr<tt_ClusterDescriptor> create_for_grayskull_cluster(
       const std::set<chip_id_t> &target_device_ids);

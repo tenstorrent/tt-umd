@@ -65,14 +65,10 @@ TEST(GalaxyConcurrentThreads, WriteToAllChipsL1) {
     // Test
     std::vector<uint32_t> vector_to_write_th1 = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9};
     std::vector<uint32_t> vector_to_write_th2 = {100, 101, 102, 103, 104, 105};
-
+    device.deassert_risc_reset();
     std::thread th1 = std::thread([&] {
         std::vector<uint32_t> readback_vec = {};
         std::uint32_t write_size = vector_to_write_th1.size() * 4;
-        // Each thread is reponsible for deasserting its target chips
-        for (auto& chip : target_devices_th1) {
-            device.deassert_risc_reset(chip);
-        }
         std::uint32_t address = l1_mem::address_map::NCRISC_FIRMWARE_BASE;
         for (const auto& chip : target_devices_th1) {
             for (auto& core : sdesc_per_chip.at(chip).workers) {
@@ -94,10 +90,6 @@ TEST(GalaxyConcurrentThreads, WriteToAllChipsL1) {
     std::thread th2 = std::thread([&] {
         std::vector<uint32_t> readback_vec = {};
         std::uint32_t write_size = vector_to_write_th2.size() * 4;
-        // Each thread is reponsible for deasserting its target chips
-        for (auto& chip : target_devices_th2) {
-            device.deassert_risc_reset(chip);
-        }
         std::uint32_t address = l1_mem::address_map::NCRISC_FIRMWARE_BASE;
         for (const auto& chip : target_devices_th2) {
             for (auto& core : sdesc_per_chip.at(chip).workers) {
@@ -168,13 +160,9 @@ TEST(GalaxyConcurrentThreads, WriteToAllChipsDram) {
     for (const auto& subchan_cores : sdesc_per_chip.at(0).dram_cores) {
         dram_cores.insert(dram_cores.end(), subchan_cores.begin(), subchan_cores.end());
     }
-
+    device.deassert_risc_reset();
     std::thread th1 = std::thread([&] {
         std::vector<uint32_t> readback_vec = {};
-        // Each thread is reponsible for deasserting its target chips
-        for (auto& chip : target_devices_th1) {
-            device.deassert_risc_reset(chip);
-        }
         std::uint32_t address = 0x4000000;
         for (const auto& chip : target_devices_th1) {
             for (auto& core : dram_cores) {
@@ -195,10 +183,6 @@ TEST(GalaxyConcurrentThreads, WriteToAllChipsDram) {
 
     std::thread th2 = std::thread([&] {
         std::vector<uint32_t> readback_vec = {};
-        // Each thread is reponsible for deasserting its target chips
-        for (auto& chip : target_devices_th2) {
-            device.deassert_risc_reset(chip);
-        }
         std::uint32_t address = 0x5000000;
         for (const auto& chip : target_devices_th2) {
             for (auto& core : sdesc_per_chip.at(chip).workers) {
@@ -246,10 +230,7 @@ TEST(GalaxyConcurrentThreads, PushInputsWhileSignalingCluster) {
 
     tt_device_params default_params;
     device.start_device(default_params);
-
-    for (auto& chip : target_devices) {
-        device.deassert_risc_reset(chip);
-    }
+    device.deassert_risc_reset();
 
     // Test
     std::vector<uint32_t> small_vector = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9};

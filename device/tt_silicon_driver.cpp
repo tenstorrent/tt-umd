@@ -1893,6 +1893,8 @@ void tt_SiliconDevice::deassert_risc_reset(int target_device) {
         broadcast_tensix_risc_reset(m_pci_device_map.at(target_device), TENSIX_DEASSERT_SOFT_RESET);
     }
     else {
+        wait_for_non_mmio_flush();
+        std::cout << "Deasserting RISC reset" << std::endl;
         broadcast_remote_tensix_risc_reset(target_device, TENSIX_DEASSERT_SOFT_RESET);
     }
 }
@@ -3120,7 +3122,6 @@ void tt_SiliconDevice::write_to_non_mmio_device(
     chip_id_t mmio_capable_chip_logical;
     std::vector<uint32_t> broadcast_exclusion_mask(8, 0);
     if(broadcast) {
-        std::cout << "Broadcasting" << std::endl;
         mmio_capable_chip_logical = 0;
         for(const auto& rack : shelves_to_exclude_per_rack) {
             uint32_t header_word = rack.first >> 2;
@@ -3143,6 +3144,8 @@ void tt_SiliconDevice::write_to_non_mmio_device(
         for(const auto& col : columns_to_exclude) {
             broadcast_exclusion_mask.at(4) |= 1 << (16 + col);
         }
+        // for(const auto header : broadcast_exclusion_mask) std::cout << std::hex << header << " ";
+        // std::cout << std::endl;
     }
     else {
         mmio_capable_chip_logical = ndesc->get_closest_mmio_capable_chip(core.chip);
@@ -3208,7 +3211,7 @@ void tt_SiliconDevice::write_to_non_mmio_device(
         //full = is_non_mmio_cmd_q_full((erisc_q_ptrs[0] + 1) & CMD_BUF_PTR_MASK, erisc_q_rptr[0]);
 
         uint32_t req_wr_ptr = erisc_q_ptrs[0] & eth_interface_params.CMD_BUF_SIZE_MASK;
-        if ((address + offset) &  0x1F) { // address not 32-byte aligned
+        if ((address + offset) & 0x1F) { // address not 32-byte aligned
             block_size = DATA_WORD_SIZE; // 4 byte aligned
         } else {
             // For broadcast we prepend a 32byte header. Decrease block size (size of payload) by this amount.
@@ -3240,8 +3243,11 @@ void tt_SiliconDevice::write_to_non_mmio_device(
                 memcpy(&data_block[0], (uint8_t*)mem_ptr + offset, transfer_size);
                 if(broadcast) {
                     write_to_sysmem(broadcast_exclusion_mask, host_dram_block_addr, host_dram_channel, mmio_capable_chip_logical);
+                    _mm_sfence();
                 }
+                
                 write_to_sysmem(data_block, host_dram_block_addr + 32 * broadcast, host_dram_channel, mmio_capable_chip_logical);
+
             } else {
                 uint32_t buf_address = eth_interface_params.ETH_ROUTING_DATA_BUFFER_ADDR + req_wr_ptr * max_block_size;
                 size_buffer_to_capacity(data_block, block_size);
@@ -4068,7 +4074,6 @@ void tt_SiliconDevice::send_tensix_risc_reset_to_core(const tt_cxy_pair &core, c
 void tt_SiliconDevice::set_remote_tensix_risc_reset(const tt_cxy_pair &core, const TensixSoftResetOptions &soft_resets) {
     auto valid = soft_resets & ALL_TENSIX_SOFT_RESET;
     uint32_t valid_val = (std::underlying_type<TensixSoftResetOptions>::type) valid;
-    std::cout << "sending resest signal " << static_cast<uint32_t>(valid_val) << " to address " << 0xFFB121B0 << std::endl;
     write_to_non_mmio_device(&valid_val, sizeof(uint32_t), core, 0xFFB121B0);
     tt_driver_atomics::sfence();
 }
@@ -4093,10 +4098,21 @@ void tt_SiliconDevice::enable_remote_ethernet_queue(const chip_id_t& chip, int t
     }
 }
 
+
 void tt_SiliconDevice::broadcast_remote_tensix_risc_reset(const chip_id_t &chip, const TensixSoftResetOptions &soft_resets) {
-    for( tt_xy_pair worker_core : get_soc_descriptor(chip).workers) {
-        set_remote_tensix_risc_reset(tt_cxy_pair(chip, worker_core), soft_resets);
-    }
+    // for( tt_xy_pair worker_core : get_soc_descriptor(chip).workers) {
+    //     set_remote_tensix_risc_reset(tt_cxy_pair(chip, worker_core), soft_resets);
+    // }
+
+    auto valid = soft_resets & ALL_TENSIX_SOFT_RESET;
+    uint32_t valid_val = (std::underlying_type<TensixSoftResetOptions>::type) valid;
+    std::unordered_map<std::uint32_t, std::vector<uint32_t>> racks_to_exclude_per_shelf = {};
+    std::vector<uint32_t> chips_to_exclude = {};
+    std::vector<uint32_t> rows_to_exclude = {0, 6};
+    std::vector<uint32_t> columns_to_exclude = {0, 5};
+    
+    write_to_non_mmio_device(&valid_val, sizeof(uint32_t), tt_cxy_pair(0, 1, 1), 0xFFB121B0, true, racks_to_exclude_per_shelf, chips_to_exclude, rows_to_exclude, columns_to_exclude);
+    wait_for_non_mmio_flush();
 }
 
 void tt_SiliconDevice::set_power_state(tt_DevicePowerState device_state) {

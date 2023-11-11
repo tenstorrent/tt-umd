@@ -79,7 +79,7 @@ TEST(SiliconDriverWH, StaticTLB_RW) {
     std::vector<uint32_t> readback_vec = {};
     std::vector<uint32_t> zeros = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
 
-    uint32_t address = l1_mem::address_map::DATA_BUFFER_SPACE_BASE + 1;
+    uint32_t address = l1_mem::address_map::DATA_BUFFER_SPACE_BASE;
     std::cout << "Address: " <<  std::hex << address << std::endl;
     auto start_time = std::chrono::high_resolution_clock::now();
     std::unordered_map<std::uint32_t, std::vector<uint32_t>> racks_to_exclude_per_shelf = {};

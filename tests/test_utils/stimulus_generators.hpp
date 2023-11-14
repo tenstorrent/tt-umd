@@ -335,7 +335,7 @@ class TestGenerator {
                     .destination = destination,
                     .address = address,
                     .size_in_bytes = size_in_bytes,
-                    .tlb_to_use = "LARGE_READ_TLB"}};
+                    .tlb_to_use = "LARGE_WRITE_TLB"}};
             } break;
 
             case RemoteTransferType::ROLLED_WRITE: {
@@ -348,7 +348,7 @@ class TestGenerator {
                     .address = address,
                     .size_in_bytes = size_in_bytes,
                     .unroll_count = unroll_count,
-                    .tlb_to_use = "LARGE_READ_TLB"}};
+                    .tlb_to_use = "LARGE_WRITE_TLB"}};
             } break;
 
             case RemoteTransferType::EPOCH_CMD_WRITE: {
@@ -361,7 +361,7 @@ class TestGenerator {
                     .destination = destination,
                     .address = address,
                     .size_in_bytes = size_in_bytes,
-                    .tlb_to_use = "LARGE_READ_TLB",
+                    .tlb_to_use = "LARGE_WRITE_TLB",
                     .last_epoch_command = last_epoch_cmd,
                     .ordered_with_prev_remote_write = ordered_with_prev_remote_write}};
             } break;

@@ -234,9 +234,9 @@ class tt_device
     * \param core The TLB will be programmed to point to this core
     * \param tlb_index TLB id that will be programmed
     * \param address All incoming transactions to the TLB will be routed to an address space starting at this parameter (after its aligned to the TLB size)
-    * \param ordering Ordering mode for the TLB. Can be Strict (ordered and blocking, since this waits for ack -> slow), Posted (ordered, but non blocking -> fast) or Relaxed (no ordering, non blocking -> fastest).
+    * \param ordering Ordering mode for the TLB. Can be Strict (ordered and blocking, since this waits for ack -> slow), Relaxed (ordered, but non blocking -> fast) or Posted (no ordering, non blocking -> fastest).
     */ 
-    virtual void configure_tlb(chip_id_t logical_device_id, tt_xy_pair core, std::int32_t tlb_index, std::int32_t address, uint64_t ordering = TLB_DATA::Posted) {
+    virtual void configure_tlb(chip_id_t logical_device_id, tt_xy_pair core, std::int32_t tlb_index, std::int32_t address, uint64_t ordering = TLB_DATA::Relaxed) {
         throw std::runtime_error("---- tt_device::configure_tlb is not implemented\n");
     }
 

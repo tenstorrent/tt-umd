@@ -182,8 +182,19 @@ void tt_ClusterDescriptor::load_chips_from_connectivity_descriptor(YAML::Node &y
         TT_ASSERT(chip_rack_coords.size() == 4, "Galaxy (x, y, rack, shelf) coords must be size 4");
         eth_coord_t chip_location{
             chip_rack_coords.at(0), chip_rack_coords.at(1), chip_rack_coords.at(2), chip_rack_coords.at(3)};
+        
         desc.chip_locations.insert({chip_id, chip_location});
         desc.all_chips.insert(chip_id);
+        std::string shelf_coord = std::to_string(chip_rack_coords.at(2)) + "_" + std::to_string(chip_rack_coords.at(3));
+        
+        if(desc.shelf_dims.find(shelf_coord) == desc.shelf_dims.end()) {
+            desc.shelf_dims.insert({shelf_coord, tt_xy_pair(chip_rack_coords.at(0) + 1, chip_rack_coords.at(1) + 1)});
+        }
+        else {
+            int update_x = std::max(chip_rack_coords.at(0) + 1, static_cast<int>(desc.shelf_dims.at(shelf_coord).x));
+            int update_y = std::max(chip_rack_coords.at(1) + 1, static_cast<int>(desc.shelf_dims.at(shelf_coord).y));
+            desc.shelf_dims.at(shelf_coord) = tt_xy_pair(update_x, update_y);
+        }
     }
     
     for(const auto& chip : yaml["chips_with_mmio"]) {
@@ -259,6 +270,15 @@ std::unordered_map<chip_id_t, eth_coord_t> tt_ClusterDescriptor::get_chip_locati
     }
 
     return locations;
+}
+
+chip_id_t tt_ClusterDescriptor::get_shelf_local_physical_chip_coords(chip_id_t virtual_coord) {
+    int rack = std::get<2>(get_chip_locations().at(virtual_coord));
+    int shelf = std::get<3>(get_chip_locations().at(virtual_coord));
+    int x = std::get<0>(get_chip_locations().at(virtual_coord));
+    int y = std::get<1>(get_chip_locations().at(virtual_coord));
+    std::string shelf_coord = std::to_string(rack) + "_" + std::to_string(shelf);
+    return 8 * x + y;
 }
 
 std::unordered_set<chip_id_t> tt_ClusterDescriptor::get_chips_with_mmio() const {

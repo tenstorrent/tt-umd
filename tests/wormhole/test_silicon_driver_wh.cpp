@@ -43,12 +43,12 @@ TEST(SiliconDriverWH, StaticTLB_RW) {
         return target.y * 8 + target.x;
     };
 
-    std::set<chip_id_t> target_devices = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 13};
+    std::set<chip_id_t> target_devices = {0, 1}; // 2, 3, 4, 5, 6, 7, 8, 9, 10};
 
     std::unordered_map<std::string, std::int32_t> dynamic_tlb_config = {}; // Don't set any dynamic TLBs in this test
     uint32_t num_host_mem_ch_per_mmio_device = 1;
     
-    tt_SiliconDevice device = tt_SiliconDevice("./tests/soc_descs/wormhole_b0_8x10.yaml", "galaxy_cluster_desc.yaml", target_devices, num_host_mem_ch_per_mmio_device, dynamic_tlb_config);
+    tt_SiliconDevice device = tt_SiliconDevice("./tests/soc_descs/wormhole_b0_8x10.yaml", GetClusterDescYAML().string(), target_devices, num_host_mem_ch_per_mmio_device, dynamic_tlb_config);
     set_params_for_remote_txn(device);
     auto mmio_devices = device.get_target_mmio_device_ids();
 
@@ -70,12 +70,12 @@ TEST(SiliconDriverWH, StaticTLB_RW) {
     device.clean_system_resources();
 
     std::cout << "deasserting tensix risc reset" << std::endl;
-    for(int i = 0; i < target_devices.size(); i++) {
-        device.deassert_risc_reset(i);
-    }
+    // for(int i = 0; i < target_devices.size(); i++) {
+    device.deassert_risc_reset();
+    // }
     std::cout << "done" << std::endl;
     std::vector<uint32_t> vector_to_write(1000);
-    for(int i = 0; i < vector_to_write.size(); i++) vector_to_write.at(i) = i + 6;
+    for(int i = 0; i < vector_to_write.size(); i++) vector_to_write.at(i) = i + 15;
     std::vector<uint32_t> readback_vec = {};
     std::vector<uint32_t> zeros = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
 
@@ -84,7 +84,7 @@ TEST(SiliconDriverWH, StaticTLB_RW) {
     auto start_time = std::chrono::high_resolution_clock::now();
     std::vector<uint32_t> rows_to_exclude = {0, 6};
     std::vector<uint32_t> cols_to_exclude = {0, 5};
-    device.broadcast_write_to_non_mmio_device(vector_to_write.data(), vector_to_write.size() * 4, address, {}, rows_to_exclude, cols_to_exclude);
+    device.broadcast_write_to_cluster(vector_to_write.data(), vector_to_write.size() * 4, address, {}, rows_to_exclude, cols_to_exclude);
     // device.write_to_non_mmio_device(vector_to_write.data(), vector_to_write.size() * 4, tt_cxy_pair(1, 1, 1), address, false, racks_to_exclude_per_shelf, chips_to_exclude, rows_to_exclude, columns_to_exlude);
     float duration = std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::high_resolution_clock::now() - start_time).count();
     std::cout << "Write time: " << duration << std::endl;

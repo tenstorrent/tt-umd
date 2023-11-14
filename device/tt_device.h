@@ -268,7 +268,7 @@ class tt_device
      * @brief Broadcast deassert soft Tensix Reset to the entire device (to be done after start_device is called)
      * \param target_device Logical device id being targeted
     */  
-    virtual void deassert_risc_reset(int target_device) {
+    virtual void deassert_risc_reset() {
         throw std::runtime_error("---- tt_device::deassert_risc_reset is not implemented\n");
     }
     /** 
@@ -283,7 +283,7 @@ class tt_device
      * @brief Broadcast assert soft Tensix Reset to the entire device
      * \param target_device Logical device id being targeted
     */  
-    virtual void assert_risc_reset(int target_device) {
+    virtual void assert_risc_reset() {
         throw std::runtime_error("---- tt_device::assert_risc_reset is not implemented\n");
     }
     /** 
@@ -331,7 +331,7 @@ class tt_device
         // Only implement this for Silicon Backend
         throw std::runtime_error("---- tt_device::write_to_device is not implemented\n");
     }
-    virtual void broadcast_write_to_non_mmio_device(const void *mem_ptr, uint32_t size_in_bytes, uint64_t address, std::set<chip_id_t> chips_to_exclude = {}, std::vector<uint32_t> rows_to_exclude = {}, std::vector<uint32_t> columns_to_exclude = {}) {
+    virtual void broadcast_write_to_cluster(const void *mem_ptr, uint32_t size_in_bytes, uint64_t address, std::set<chip_id_t> chips_to_exclude = {}, std::vector<uint32_t> rows_to_exclude = {}, std::vector<uint32_t> columns_to_exclude = {}) {
         throw std::runtime_error("---- tt_device::write_to_device is not implemented\n");
     }
     /**
@@ -647,9 +647,9 @@ class tt_VersimDevice: public tt_device
     virtual void start(std::vector<std::string> plusargs, std::vector<std::string> dump_cores, bool no_checkers, bool init_device, bool skip_driver_allocs);
     virtual void start_device(const tt_device_params &device_params);
     virtual void close_device();
-    virtual void deassert_risc_reset(int target_device);
+    virtual void deassert_risc_reset();
     virtual void deassert_risc_reset_at_core(tt_cxy_pair core);
-    virtual void assert_risc_reset(int target_device);
+    virtual void assert_risc_reset();
     virtual void assert_risc_reset_at_core(tt_cxy_pair core);
     virtual void write_to_device(std::vector<uint32_t> &vec, tt_cxy_pair core, uint64_t addr, const std::string& tlb_to_use, bool send_epoch_cmd = false, bool last_send_epoch_cmd = true);
     virtual void rolled_write_to_device(std::vector<uint32_t> &vec, uint32_t unroll_count, tt_cxy_pair core, uint64_t addr, const std::string& tlb_to_use);
@@ -716,8 +716,8 @@ class tt_SiliconDevice: public tt_device
     virtual void set_fallback_tlb_ordering_mode(const std::string& fallback_tlb, uint64_t ordering = TLB_DATA::Posted);
     virtual void setup_core_to_tlb_map(std::function<std::int32_t(tt_xy_pair)> mapping_function);
     virtual void start_device(const tt_device_params &device_params);
-    virtual void assert_risc_reset(int target_device);
-    virtual void deassert_risc_reset(int target_device);
+    virtual void assert_risc_reset();
+    virtual void deassert_risc_reset();
     virtual void deassert_risc_reset_at_core(tt_cxy_pair core);
     virtual void assert_risc_reset_at_core(tt_cxy_pair core);
     virtual void clean_system_resources();
@@ -777,7 +777,7 @@ class tt_SiliconDevice: public tt_device
     // Destructor
     virtual ~tt_SiliconDevice ();
     std::unordered_map<chip_id_t, std::vector<std::vector<uint32_t>>> get_broadcast_headers(std::set<chip_id_t> chips_to_exclude = {});
-    void broadcast_write_to_non_mmio_device(const void *mem_ptr, uint32_t size_in_bytes, uint64_t address, std::set<chip_id_t> chips_to_exclude = {}, std::vector<uint32_t> rows_to_exclude = {}, std::vector<uint32_t> columns_to_exclude = {});
+    void broadcast_write_to_cluster(const void *mem_ptr, uint32_t size_in_bytes, uint64_t address, std::set<chip_id_t> chips_to_exclude = {}, std::vector<uint32_t> rows_to_exclude = {}, std::vector<uint32_t> columns_to_exclude = {});
     private:
     // Helper functions
     // Startup + teardown
@@ -785,7 +785,7 @@ class tt_SiliconDevice: public tt_device
     void init_system(const tt_device_params &device_params, const tt_xy_pair &grid_size);
     void start(std::vector<std::string> plusargs, std::vector<std::string> dump_cores, bool no_checkers, bool init_device, bool skip_driver_allocs);
     void broadcast_tensix_risc_reset(struct PCIdevice *device, const TensixSoftResetOptions &cores);
-    void broadcast_remote_tensix_risc_reset(const chip_id_t &chip, const TensixSoftResetOptions &soft_resets);
+    void broadcast_tensix_risc_reset_to_cluster(const TensixSoftResetOptions &soft_resets);
     void set_remote_tensix_risc_reset(const tt_cxy_pair &core, const TensixSoftResetOptions &soft_resets);
     void send_tensix_risc_reset_to_core(const tt_cxy_pair &core, const TensixSoftResetOptions &soft_resets);
     void perform_harvesting_and_populate_soc_descriptors(const std::string& sdesc_path, const bool perform_harvesting);
@@ -805,6 +805,7 @@ class tt_SiliconDevice: public tt_device
     void enable_local_ethernet_queue(const chip_id_t& chip, int timeout);
     void enable_ethernet_queue(int timeout);
     void enable_remote_ethernet_queue(const chip_id_t& chip, int timeout);
+    void deassert_resets_and_set_power_state();
     void stop_remote_chip(const chip_id_t &chip);
     int open_hugepage_file(const std::string &dir, chip_id_t device_id, uint16_t channel);
     int iatu_configure_peer_region (int logical_device_id, uint32_t peer_region_id, uint64_t bar_addr_64, uint32_t region_size);
@@ -818,6 +819,7 @@ class tt_SiliconDevice: public tt_device
     void write_dma_buffer(const void *mem_ptr, std::uint32_t size, std::uint32_t address, std::uint16_t channel, chip_id_t src_device_id);
     void write_device_memory(const void *mem_ptr, uint32_t size_in_bytes, tt_cxy_pair target, std::uint32_t address, const std::string& fallback_tlb);
     void write_to_non_mmio_device(const void *mem_ptr, uint32_t size_in_bytes, tt_cxy_pair core, uint64_t address, bool broadcast = false, std::vector<uint32_t> broadcast_header = {});
+    void pcie_broadcast_write(const void* mem_ptr, uint32_t size_in_bytes, chip_id_t chip, std::uint32_t addr);
     void read_device_memory(void *mem_ptr, tt_cxy_pair target, std::uint32_t address, std::uint32_t size_in_bytes, const std::string& fallback_tlb);
     void write_to_non_mmio_device_send_epoch_cmd(const uint32_t *mem_ptr, uint32_t size_in_bytes, tt_cxy_pair core, uint64_t address, bool last_send_epoch_cmd);
     void rolled_write_to_non_mmio_device(const uint32_t *mem_ptr, uint32_t len, tt_cxy_pair core, uint64_t address, uint32_t unroll_count);

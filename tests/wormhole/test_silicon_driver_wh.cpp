@@ -43,7 +43,7 @@ TEST(SiliconDriverWH, StaticTLB_RW) {
         return target.y * 8 + target.x;
     };
 
-    std::set<chip_id_t> target_devices = {0, 1}; // 2, 3, 4, 5, 6, 7, 8, 9, 10};
+    std::set<chip_id_t> target_devices = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10};
 
     std::unordered_map<std::string, std::int32_t> dynamic_tlb_config = {}; // Don't set any dynamic TLBs in this test
     uint32_t num_host_mem_ch_per_mmio_device = 1;

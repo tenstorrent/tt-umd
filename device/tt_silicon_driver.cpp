@@ -3124,23 +3124,6 @@ uint16_t tt_SiliconDevice::get_sys_rack(uint32_t rack_x, uint32_t rack_y) {
 bool tt_SiliconDevice::is_non_mmio_cmd_q_full(uint32_t curr_wptr, uint32_t curr_rptr) {
   return (curr_wptr != curr_rptr) && ((curr_wptr & eth_interface_params.CMD_BUF_SIZE_MASK) == (curr_rptr & eth_interface_params.CMD_BUF_SIZE_MASK));
 }
-
-void tt_SiliconDevice::pcie_broadcast_write(const void* mem_ptr, uint32_t size_in_bytes, chip_id_t chip, std::uint32_t addr){
-    struct PCIdevice* pci_device = get_pci_device(chip);
-    TTDevice *dev = pci_device->hdev;
-    const uint8_t* buffer_addr = static_cast<const uint8_t*>(mem_ptr);
-
-    while(size_in_bytes > 0) {
-        auto [mapped_address, tlb_size] = set_dynamic_tlb_broadcast(pci_device, 156, addr, harvested_coord_translation, num_rows_harvested.at(chip), tt_xy_pair(1, 1), tt_xy_pair(2, 2), TLB_DATA::Posted);
-        uint32_t transfer_size = std::min(size_in_bytes, tlb_size);
-        write_block(dev, mapped_address, transfer_size, buffer_addr, m_dma_buf_size);
-
-        size_in_bytes -= transfer_size;
-        addr += transfer_size;
-        buffer_addr += transfer_size;
-    }
-}
-
 /*
  *
  *                                       NON_MMIO_MUTEX Usage
@@ -3201,46 +3184,48 @@ void tt_SiliconDevice::pcie_broadcast_write(const void* mem_ptr, uint32_t size_i
  */
 
 void tt_SiliconDevice::broadcast_write_to_cluster(const void *mem_ptr, uint32_t size_in_bytes, uint64_t address,
-                        std::set<chip_id_t> chips_to_exclude, std::vector<uint32_t> rows_to_exclude, std::vector<uint32_t> columns_to_exclude) {
-    tt_xy_pair start_coord = tt_xy_pair(0, 0);
-    std::vector<tt_xy_pair> broadcast_grids = {};
-    for (const auto& row : rows_to_exclude) {
-        for (const auto& col : cols_to_exclude) {
-            broadcast_grids.push_back(tt_xy_pair(col - 1, row - 1));
+                        std::set<chip_id_t> chips_to_exclude, std::vector<uint32_t> rows_to_exclude, std::vector<uint32_t> cols_to_exclude, const std::string fallback_tlb) {
+   
+    if (arch_name == tt::ARCH::GRAYSKULL) {
+        // "Broadcast" implemented as a for loop of unicasts
+        std::vector<tt_cxy_pair> cores_to_write = {};
+        for(const auto& device : target_devices_in_cluster) {
+            if(chips_to_exclude.find(device) == chips_to_exclude.end()) {
+                continue;
+            }
+            for(const auto& core_it : get_soc_descriptor(device).cores) {
+                const tt_xy_pair& core = core_it.second.coord;
+                if(std::find(rows_to_exclude.begin(), rows_to_exclude.end(), core.y) == rows_to_exclude.end() 
+                    and std::find(cols_to_exclude.begin(), cols_to_exclude.end(), core.x) == cols_to_exclude.end()) {
+                    cores_to_write.push_back(tt_cxy_pair(device, core));
+                }
+            }
+        }
+        for(const auto& core : cores_to_write) {
+            write_device_memory(mem_ptr, size_in_bytes, core, address, fallback_tlb);
         }
     }
-    pcie_broadcast_write(mem_ptr, size_in_bytes, 0, address);
-    // if(arch_name == tt::ARCH::Grayskull) {
-    //     for(const auto& device : target_devices_in_cluster) {
-    //         if(chips_to_exclude.find(device)) {
-    //             continue;
-    //         }
-    //         for(const auto& worker : get_soc_descriptor(target_device).workers) {
-    //             if(worker.x == )
-    //         }
-    //     }
-    // }
-    // else {
-    //     auto bcast_headers = get_broadcast_headers(chips_to_exclude);
-    //     std::uint32_t row_exclusion_mask = 0;
-    //     std::uint32_t col_exclusion_mask = 0;
+    else {
+        // True broadcast through ERISC core
+        auto bcast_headers = get_broadcast_headers(chips_to_exclude);
+        std::uint32_t row_exclusion_mask = 0;
+        std::uint32_t col_exclusion_mask = 0;
 
-    //     for(const auto& row : rows_to_exclude) {
-    //         row_exclusion_mask |= 1 << row;
-    //     }
+        for(const auto& row : rows_to_exclude) {
+            row_exclusion_mask |= 1 << row;
+        }
 
-    //     for(const auto& col : columns_to_exclude) {
-    //         col_exclusion_mask |= 1 << (16 + col);
-    //     }
-    //     for(auto& mmio_group : bcast_headers) {
-    //         for(auto& header : mmio_group.second) {
-    //             header.at(4) |= row_exclusion_mask;
-    //             header.at(4) |= col_exclusion_mask;
-    //             write_to_non_mmio_device(mem_ptr, size_in_bytes, tt_cxy_pair(mmio_group.first, tt_xy_pair(1, 1)), address, true, header);
-    //         }
-    //     }
-    // }
-    
+        for(const auto& col : cols_to_exclude) {
+            col_exclusion_mask |= 1 << (16 + col);
+        }
+        for(auto& mmio_group : bcast_headers) {
+            for(auto& header : mmio_group.second) {
+                header.at(4) |= row_exclusion_mask;
+                header.at(4) |= col_exclusion_mask;
+                write_to_non_mmio_device(mem_ptr, size_in_bytes, tt_cxy_pair(mmio_group.first, tt_xy_pair(1, 1)), address, true, header);
+            }
+        }
+    }
 }
 
 void tt_SiliconDevice::write_to_non_mmio_device(
@@ -4205,13 +4190,19 @@ void tt_SiliconDevice::enable_remote_ethernet_queue(const chip_id_t& chip, int t
 
 
 void tt_SiliconDevice::broadcast_tensix_risc_reset_to_cluster(const TensixSoftResetOptions &soft_resets) {
-    auto valid = soft_resets & ALL_TENSIX_SOFT_RESET;
-    uint32_t valid_val = (std::underlying_type<TensixSoftResetOptions>::type) valid;
-    std::set<chip_id_t> chips_to_exclude = {};
-    std::vector<uint32_t> rows_to_exclude = {0, 6};
-    std::vector<uint32_t> columns_to_exclude = {0, 5};
-    broadcast_write_to_cluster(&valid_val, sizeof(uint32_t), 0xFFB121B0, chips_to_exclude, rows_to_exclude, columns_to_exclude);
-    wait_for_non_mmio_flush();
+    if(arch_name == tt::ARCH::GRAYSKULL) {
+        for (auto &device_it : m_pci_device_map) {
+            broadcast_tensix_risc_reset(device_it.second, TENSIX_ASSERT_SOFT_RESET);
+        }
+    }
+    else {
+        auto valid = soft_resets & ALL_TENSIX_SOFT_RESET;
+        uint32_t valid_val = (std::underlying_type<TensixSoftResetOptions>::type) valid;
+        std::set<chip_id_t> chips_to_exclude = {};
+        std::vector<uint32_t> rows_to_exclude = {0, 6};
+        std::vector<uint32_t> columns_to_exclude = {0, 5};
+        broadcast_write_to_cluster(&valid_val, sizeof(uint32_t), 0xFFB121B0, chips_to_exclude, rows_to_exclude, columns_to_exclude);
+    }
 }
 
 void tt_SiliconDevice::set_power_state(tt_DevicePowerState device_state) {

@@ -1989,6 +1989,17 @@ static bool check_dram_core_exists(const std::vector<std::vector<tt_xy_pair>> &a
     return false;
 }
 
+std::function<void(uint32_t, uint32_t, const uint8_t*, uint32_t)> tt_SiliconDevice::get_fast_pcie_static_tlb_write_callable(int device_id) {
+    struct PCIdevice* pci_device = get_pci_device(device_id);
+    TTDevice* dev = pci_device->hdev;
+
+    const auto callable = [dev](uint32_t byte_addr, uint32_t num_bytes, const uint8_t* buffer_addr, uint32_t dma_buf_size) {
+        write_block(dev, byte_addr, num_bytes, buffer_addr, dma_buf_size);
+    };
+
+    return callable;
+}
+
 void tt_SiliconDevice::write_device_memory(const void *mem_ptr, uint32_t size_in_bytes, tt_cxy_pair target, std::uint32_t address, const std::string& fallback_tlb) {
     struct PCIdevice* pci_device = get_pci_device(target.chip);
     TTDevice *dev = pci_device->hdev;
@@ -2243,6 +2254,21 @@ tt_SiliconDevice::~tt_SiliconDevice () {
     dynamic_tlb_config.clear();
     tlb_config_map.clear();
     dynamic_tlb_ordering_modes.clear();
+}
+
+std::optional<std::tuple<uint32_t, uint32_t>> tt_SiliconDevice::get_tlb_data_from_target(const tt_xy_pair& target) {
+    std::int32_t tlb_index = 0;
+    std::optional<std::tuple<std::uint32_t, std::uint32_t>> tlb_data;
+
+    if (tlbs_init) {
+        tlb_index = map_core_to_tlb(target);
+        tlb_data = describe_tlb(tlb_index);
+    } 
+    return tlb_data;
+}
+
+uint32_t tt_SiliconDevice::get_m_dma_buf_size() const {
+    return m_dma_buf_size;
 }
 
 void tt_SiliconDevice::configure_tlb(chip_id_t logical_device_id, tt_xy_pair core, std::int32_t tlb_index, std::int32_t address, uint64_t ordering) {

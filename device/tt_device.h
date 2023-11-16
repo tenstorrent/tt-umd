@@ -68,6 +68,7 @@ struct tt_device_l1_address_params {
     std::int32_t TRISC_BASE = 0;
     std::int32_t TENSIX_L1_BARRIER_BASE = 0;
     std::int32_t ETH_L1_BARRIER_BASE = 0;
+    std::int32_t FW_VERSION_ADDR = 0;
 };
 
 /**
@@ -331,7 +332,7 @@ class tt_device
         // Only implement this for Silicon Backend
         throw std::runtime_error("---- tt_device::write_to_device is not implemented\n");
     }
-    virtual void broadcast_write_to_cluster(const void *mem_ptr, uint32_t size_in_bytes, uint64_t address, std::set<chip_id_t> chips_to_exclude = {}, std::vector<uint32_t> rows_to_exclude = {}, std::vector<uint32_t> columns_to_exclude = {}, const std::string fallback_tlb = {}) {
+    virtual void broadcast_write_to_cluster(const void *mem_ptr, uint32_t size_in_bytes, uint64_t address, const std::set<chip_id_t>& chips_to_exclude,  std::set<uint32_t>& rows_to_exclude,  std::set<uint32_t>& columns_to_exclude, const std::string& fallback_tlb) {
         throw std::runtime_error("---- tt_device::write_to_device is not implemented\n");
     }
     /**
@@ -777,7 +778,7 @@ class tt_SiliconDevice: public tt_device
     // Destructor
     virtual ~tt_SiliconDevice ();
     std::unordered_map<chip_id_t, std::vector<std::vector<uint32_t>>> get_broadcast_headers(std::set<chip_id_t> chips_to_exclude = {});
-    void broadcast_write_to_cluster(const void *mem_ptr, uint32_t size_in_bytes, uint64_t address, std::set<chip_id_t> chips_to_exclude = {}, std::vector<uint32_t> rows_to_exclude = {}, std::vector<uint32_t> columns_to_exclude = {}, const std::string fallback_tlb = "");
+    void broadcast_write_to_cluster(const void *mem_ptr, uint32_t size_in_bytes, uint64_t address, const std::set<chip_id_t>& chips_to_exclude,  std::set<uint32_t>& rows_to_exclude,  std::set<uint32_t>& columns_to_exclude, const std::string& fallback_tlb);
     private:
     // Helper functions
     // Startup + teardown
@@ -823,6 +824,7 @@ class tt_SiliconDevice: public tt_device
     void read_from_non_mmio_device(void* mem_ptr, tt_cxy_pair core, uint64_t address, uint32_t size_in_bytes);
     void read_mmio_device_register(void* mem_ptr, tt_cxy_pair core, uint64_t addr, uint32_t size, const std::string& fallback_tlb);
     void write_mmio_device_register(const void* mem_ptr, tt_cxy_pair core, uint64_t addr, uint32_t size, const std::string& fallback_tlb);
+    void pcie_broadcast_write(chip_id_t chip, const void* mem_ptr, uint32_t size_in_bytes, std::uint32_t addr, tt_xy_pair start, tt_xy_pair end, int32_t tlb_index);
     void set_membar_flag(const chip_id_t chip, const std::unordered_set<tt_xy_pair>& cores, const uint32_t barrier_value, const uint32_t barrier_addr, const std::string& fallback_tlb);
     void insert_host_to_device_barrier(const chip_id_t chip, const std::unordered_set<tt_xy_pair>& cores, const uint32_t barrier_addr, const std::string& fallback_tlb);
     void init_membars();
@@ -838,8 +840,10 @@ class tt_SiliconDevice: public tt_device
     virtual uint32_t get_harvested_noc_rows_for_chip(int logical_device_id); // Returns one-hot encoded harvesting mask for PCIe mapped chips
     virtual std::optional<std::tuple<std::uint32_t, std::uint32_t>> describe_tlb(std::int32_t tlb_index);
     std::optional<std::tuple<std::uint32_t, std::uint32_t>> describe_tlb(tt_xy_pair coord);
-
+    void generate_tensix_broadcast_grids_for_grayskull( std::set<std::pair<tt_xy_pair, tt_xy_pair>>& broadcast_grids, std::set<uint32_t>& rows_to_exclude, std::set<uint32_t>& cols_to_exclude);
     // Test functions
+    void verify_eth_fw();
+    void verify_sw_fw_versions(int device_id, std::uint32_t sw_version, std::vector<std::uint32_t> &fw_versions);
     int test_pcie_tlb_setup (struct PCIdevice* pci_device);
     int test_setup_interface ();
     int test_broadcast (int logical_device_id);
@@ -900,11 +904,14 @@ class tt_SiliconDevice: public tt_device
     void * buf_mapping = nullptr;
     int driver_id;  
     bool perform_harvesting_on_sdesc = false;
-
+    bool use_ethernet_broadcast = true;
     // Named Mutexes
     static constexpr char NON_MMIO_MUTEX_NAME[] = "NON_MMIO";
     static constexpr char ARC_MSG_MUTEX_NAME[] = "ARC_MSG";
     static constexpr char MEM_BARRIER_MUTEX_NAME[] = "MEM_BAR";
+    
+    // ERISC FW Version Required by UMD
+    static constexpr std::uint32_t SW_VERSION = 0x06060000;
 };
 
 tt::ARCH detect_arch(uint16_t device_id = 0);
@@ -928,3 +935,6 @@ constexpr inline bool operator==(const tt_version &a, const tt_version &b) {
     return a.major == b.major && a.minor == b.minor && a.patch == b.patch;
 }
 
+constexpr inline bool operator>=(const tt_version &a, const tt_version &b) {
+    return a.major >= b.major && a.minor >= b.minor && a.patch >= b.patch;
+}

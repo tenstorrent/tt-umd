@@ -1309,9 +1309,9 @@ dynamic_tlb set_dynamic_tlb(PCIdevice *dev, unsigned int tlb_index, tt_xy_pair t
     return set_dynamic_tlb(dev, tlb_index, tt_xy_pair(0, 0), target, address, false, harvested_coord_translation, ordering);
 }
 
-dynamic_tlb set_dynamic_tlb_broadcast(PCIdevice *dev, unsigned int tlb_index, std::uint32_t address, std::unordered_map<chip_id_t, std::unordered_map<tt_xy_pair, tt_xy_pair>>& harvested_coord_translation, uint32_t num_rows_harvested, std::uint64_t ordering = TLB_DATA::Relaxed) {
+dynamic_tlb set_dynamic_tlb_broadcast(PCIdevice *dev, unsigned int tlb_index, std::uint32_t address, std::unordered_map<chip_id_t, std::unordered_map<tt_xy_pair, tt_xy_pair>>& harvested_coord_translation, tt_xy_pair start, tt_xy_pair end, std::uint64_t ordering = TLB_DATA::Relaxed) {
     // When we have HW harvesting performed on WH, do not broadcast write to lower logical rows (or the physically harvested rows), as this hangs device during boot
-    return set_dynamic_tlb (dev, tlb_index, tt_xy_pair(0, 0), tt_xy_pair(DEVICE_DATA.GRID_SIZE_X - 1, DEVICE_DATA.GRID_SIZE_Y - 1 - num_rows_harvested),
+    return set_dynamic_tlb (dev, tlb_index, start, end,
                             address, true, harvested_coord_translation, ordering);
 }
 
@@ -1916,7 +1916,9 @@ void tt_SiliconDevice::broadcast_pcie_tensix_risc_reset(struct PCIdevice *device
     auto valid = soft_resets & ALL_TENSIX_SOFT_RESET;
 
     LOG1("== For all tensix set soft-reset for %s risc cores.\n", TensixSoftResetOptionsToString(valid).c_str());
-    auto [soft_reset_reg, _] = set_dynamic_tlb_broadcast(device, DEVICE_DATA.REG_TLB, DEVICE_DATA.TENSIX_SOFT_RESET_ADDR, harvested_coord_translation, num_rows_harvested.at(device -> logical_id));
+
+    auto [soft_reset_reg, _] = set_dynamic_tlb_broadcast(device, DEVICE_DATA.REG_TLB, DEVICE_DATA.TENSIX_SOFT_RESET_ADDR, harvested_coord_translation, tt_xy_pair(0, 0), 
+                                tt_xy_pair(DEVICE_DATA.GRID_SIZE_X - 1, DEVICE_DATA.GRID_SIZE_Y - 1 - num_rows_harvested.at(device -> logical_id)), TLB_DATA::Posted);
     write_regs(device->hdev, soft_reset_reg, 1, &valid);
     tt_driver_atomics::sfence();
 }
@@ -3086,6 +3088,22 @@ uint16_t tt_SiliconDevice::get_sys_rack(uint32_t rack_x, uint32_t rack_y) {
 bool tt_SiliconDevice::is_non_mmio_cmd_q_full(uint32_t curr_wptr, uint32_t curr_rptr) {
   return (curr_wptr != curr_rptr) && ((curr_wptr & eth_interface_params.CMD_BUF_SIZE_MASK) == (curr_rptr & eth_interface_params.CMD_BUF_SIZE_MASK));
 }
+
+void tt_SiliconDevice::pcie_broadcast_write(chip_id_t chip, const void* mem_ptr, uint32_t size_in_bytes, std::uint32_t addr, tt_xy_pair start, tt_xy_pair end, int32_t tlb_index){
+    struct PCIdevice* pci_device = get_pci_device(chip);
+    TTDevice *dev = pci_device->hdev;
+    const uint8_t* buffer_addr = static_cast<const uint8_t*>(mem_ptr);
+    while(size_in_bytes > 0) {
+        auto [mapped_address, tlb_size] = set_dynamic_tlb_broadcast(pci_device, tlb_index, addr, harvested_coord_translation, start, end, TLB_DATA::Posted);
+        uint32_t transfer_size = std::min(size_in_bytes, tlb_size);
+        write_block(dev, mapped_address, transfer_size, buffer_addr, m_dma_buf_size);
+
+        size_in_bytes -= transfer_size;
+        addr += transfer_size;
+        buffer_addr += transfer_size;
+    }
+}
+
 /*
  *
  *                                       NON_MMIO_MUTEX Usage
@@ -3145,46 +3163,106 @@ bool tt_SiliconDevice::is_non_mmio_cmd_q_full(uint32_t curr_wptr, uint32_t curr_
  * mutex. For extra information, see the "NON_MMIO_MUTEX Usage" above
  */
 
+void tt_SiliconDevice::generate_tensix_broadcast_grids_for_grayskull(std::set<std::pair<tt_xy_pair, tt_xy_pair>>& broadcast_grids,  std::set<uint32_t>& rows_to_exclude, std::set<uint32_t>& cols_to_exclude) {
+    // If row 0 is not explicitly excluded, exclude it here since its non-tensix
+    rows_to_exclude.insert(0);
+    // If row 11 is excluded, we can close the SOC grid. If not, exclude row 12 to close grid.
+    if(rows_to_exclude.find(11) == rows_to_exclude.end()) {
+        rows_to_exclude.insert(12);
+    }
+    // If col 0 is not explicitly excluded, exclude it here since its non-tensix
+    cols_to_exclude.insert(0);
+    // If col 12 is excluded, we can close the SOC grid. If not, exclude col 13 to close grid.
+    if(cols_to_exclude.find(12) == cols_to_exclude.end()) {
+        cols_to_exclude.insert(13);
+    }
+    std::vector<std::pair<int, int>> bb_x_coords = {};
+    std::vector<std::pair<int, int>> bb_y_coords = {};
+
+    // Generate starting and ending x coordinates of each bounding box/grid
+    for(auto x_it = cols_to_exclude.begin(); x_it != cols_to_exclude.end(); x_it++) {
+        if(x_it == std::prev(cols_to_exclude.end(), 1)) continue;
+        if(cols_to_exclude.find(*(x_it) + 1) == cols_to_exclude.end() and cols_to_exclude.find(*(std::next(x_it, 1)) - 1) == cols_to_exclude.end()) {
+            bb_x_coords.push_back({*(x_it) + 1, *(std::next(x_it, 1)) - 1});
+        }
+    }
+
+    for(auto y_it = rows_to_exclude.begin(); y_it != rows_to_exclude.end(); y_it++) {
+        if(y_it == std::prev(rows_to_exclude.end(), 1)) continue;
+        if(rows_to_exclude.find((*y_it) + 1) == rows_to_exclude.end() and rows_to_exclude.find(*std::next(y_it, 1) - 1) == rows_to_exclude.end()) {
+            bb_y_coords.push_back({*(y_it) + 1, *(std::next(y_it, 1)) - 1});
+        }
+    }
+    // Assemble x and y coordinates into bounding box vertices
+    for(const auto& x_pair : bb_x_coords) {
+        for(const auto& y_pair : bb_y_coords) {
+            tt_xy_pair top_left = tt_xy_pair(x_pair.first, y_pair.first);
+            tt_xy_pair bot_right = tt_xy_pair(x_pair.second, y_pair.second);
+            broadcast_grids.insert({top_left, bot_right});
+        }
+    }
+}
 void tt_SiliconDevice::broadcast_write_to_cluster(const void *mem_ptr, uint32_t size_in_bytes, uint64_t address,
-                        std::set<chip_id_t> chips_to_exclude, std::vector<uint32_t> rows_to_exclude, std::vector<uint32_t> cols_to_exclude, const std::string fallback_tlb) {
+                       const std::set<chip_id_t>& chips_to_exclude, std::set<uint32_t>& rows_to_exclude, std::set<uint32_t>& cols_to_exclude, const std::string& fallback_tlb) {
    
     if (arch_name == tt::ARCH::GRAYSKULL) {
-        // "Broadcast" implemented as a for loop of unicasts
-        std::vector<tt_cxy_pair> cores_to_write = {};
-        for(const auto& device : target_devices_in_cluster) {
-            if(chips_to_exclude.find(device) != chips_to_exclude.end()) {
-                continue;
-            }
-            for(const auto& core_it : get_soc_descriptor(device).cores) {
-                const tt_xy_pair& core = core_it.second.coord;
-                if(std::find(rows_to_exclude.begin(), rows_to_exclude.end(), core.y) == rows_to_exclude.end() 
-                    and std::find(cols_to_exclude.begin(), cols_to_exclude.end(), core.x) == cols_to_exclude.end()) {
-                    cores_to_write.push_back(tt_cxy_pair(device, core));
+        std::vector<tt_xy_pair> dram_cores_to_write = {};
+        std::vector<uint32_t> dram_rows = {0, 6};
+        std::vector<uint32_t> dram_cols = {1, 4, 7, 10};
+
+        for(const auto& row : dram_rows) {
+            for(const auto& col : dram_cols) {
+                if(rows_to_exclude.find(row) == rows_to_exclude.end() and cols_to_exclude.find(col) == cols_to_exclude.end()) {
+                    dram_cores_to_write.push_back(tt_xy_pair(col, row));
                 }
             }
         }
-        for(const auto& core : cores_to_write) {
-            write_device_memory(mem_ptr, size_in_bytes, core, address, fallback_tlb);
-        }
+        
+        std::set<std::pair<tt_xy_pair, tt_xy_pair>> broadcast_grids = {};
+        generate_tensix_broadcast_grids_for_grayskull(broadcast_grids, rows_to_exclude, cols_to_exclude);
+        const auto tlb_index = dynamic_tlb_config.at(fallback_tlb);
+        for(const auto& chip : target_devices_in_cluster) {
+            if(chips_to_exclude.find(chip) != chips_to_exclude.end()) continue;
+            for(const auto& dram : dram_cores_to_write) {
+                write_device_memory(mem_ptr, size_in_bytes, tt_cxy_pair(chip, dram), address, fallback_tlb);
+            }
+            for(const auto& grid : broadcast_grids) {
+                pcie_broadcast_write(chip, mem_ptr, size_in_bytes, address, grid.first, grid.second, tlb_index);
+            }
+        } 
     }
     else {
-        // True broadcast through ERISC core
-        auto bcast_headers = get_broadcast_headers(chips_to_exclude);
-        std::uint32_t row_exclusion_mask = 0;
-        std::uint32_t col_exclusion_mask = 0;
+        if(use_ethernet_broadcast) {
+            // Broadcast through ERISC core supported
+            auto bcast_headers = get_broadcast_headers(chips_to_exclude);
+            std::uint32_t row_exclusion_mask = 0;
+            std::uint32_t col_exclusion_mask = 0;
 
-        for(const auto& row : rows_to_exclude) {
-            row_exclusion_mask |= 1 << row;
-        }
+            for(const auto& row : rows_to_exclude) {
+                row_exclusion_mask |= 1 << row;
+            }
 
-        for(const auto& col : cols_to_exclude) {
-            col_exclusion_mask |= 1 << (16 + col);
+            for(const auto& col : cols_to_exclude) {
+                col_exclusion_mask |= 1 << (16 + col);
+            }
+            for(auto& mmio_group : bcast_headers) {
+                for(auto& header : mmio_group.second) {
+                    header.at(4) |= row_exclusion_mask;
+                    header.at(4) |= col_exclusion_mask;
+                    write_to_non_mmio_device(mem_ptr, size_in_bytes, tt_cxy_pair(mmio_group.first, tt_xy_pair(1, 1)), address, true, header);
+                }
+            }
         }
-        for(auto& mmio_group : bcast_headers) {
-            for(auto& header : mmio_group.second) {
-                header.at(4) |= row_exclusion_mask;
-                header.at(4) |= col_exclusion_mask;
-                write_to_non_mmio_device(mem_ptr, size_in_bytes, tt_cxy_pair(mmio_group.first, tt_xy_pair(1, 1)), address, true, header);
+        else {
+            // Broadcast not supported. Implement this at the software level as a for loop
+            std::vector<tt_cxy_pair> cores_to_write = {};
+            for(const auto& chip : target_devices_in_cluster) {
+                if(chips_to_exclude.find(chip) != chips_to_exclude.end()) continue;
+                for(const auto& core : get_soc_descriptor(chip).cores) {
+                    if(cols_to_exclude.find(core.first.x) != cols_to_exclude.end() and rows_to_exclude.find(core.first.y) != rows_to_exclude.end()) {
+                        write_to_non_mmio_device(mem_ptr, size_in_bytes, tt_cxy_pair(chip, core.first.x, core.first.y), address);
+                    }
+                }
             }
         }
     }
@@ -4161,9 +4239,10 @@ void tt_SiliconDevice::broadcast_tensix_risc_reset_to_cluster(const TensixSoftRe
         auto valid = soft_resets & ALL_TENSIX_SOFT_RESET;
         uint32_t valid_val = (std::underlying_type<TensixSoftResetOptions>::type) valid;
         std::set<chip_id_t> chips_to_exclude = {};
-        std::vector<uint32_t> rows_to_exclude = {0, 6};
-        std::vector<uint32_t> columns_to_exclude = {0, 5};
-        broadcast_write_to_cluster(&valid_val, sizeof(uint32_t), 0xFFB121B0, chips_to_exclude, rows_to_exclude, columns_to_exclude);
+        std::set<uint32_t> rows_to_exclude = {0, 6};
+        std::set<uint32_t> columns_to_exclude = {0, 5};
+        std::string fallback_tlb = "";
+        broadcast_write_to_cluster(&valid_val, sizeof(uint32_t), 0xFFB121B0, chips_to_exclude, rows_to_exclude, columns_to_exclude, fallback_tlb);
     }
 }
 
@@ -4225,11 +4304,42 @@ void tt_SiliconDevice::deassert_resets_and_set_power_state() {
     set_power_state(tt_DevicePowerState::BUSY);
 }
 
+void tt_SiliconDevice::verify_sw_fw_versions(int device_id, std::uint32_t sw_version, std::vector<std::uint32_t> &fw_versions) {
+    tt_version sw(sw_version), fw_first_eth_core(fw_versions.at(0));
+    tt_device_logger::log_info(
+        tt_device_logger::LogSiliconDriver,
+        "Software version {}, Ethernet FW version {} (Device {})",
+        sw.str(),
+        fw_first_eth_core.str(),
+        device_id);
+    for (std::uint32_t &fw_version : fw_versions) {
+        tt_version fw(fw_version);
+        tt_device_logger::log_assert(fw == fw_first_eth_core, "FW versions are not the same across different ethernet cores");
+        tt_device_logger::log_assert(sw.major == fw.major, "SW/FW major version number out of sync");
+        tt_device_logger::log_assert(sw.minor <= fw.minor, "SW version is newer than FW version");
+    }
+    use_ethernet_broadcast &= (fw_first_eth_core.major >= 6 && fw_first_eth_core.minor >= 6);
+}
+
+void tt_SiliconDevice::verify_eth_fw() {
+    for(const auto& chip : target_devices_in_cluster) {
+        std::vector<uint32_t> mem_vector;
+        std::vector<uint32_t> fw_versions;
+        for (tt_xy_pair &eth_core : get_soc_descriptor(chip).ethernet_cores) {
+            read_from_device(mem_vector, tt_cxy_pair(chip, eth_core), l1_address_params.FW_VERSION_ADDR, sizeof(uint32_t), "LARGE_READ_TLB");
+            fw_versions.push_back(mem_vector.at(0));
+        }
+        verify_sw_fw_versions(chip, SW_VERSION, fw_versions);
+    }
+}
 
 void tt_SiliconDevice::start_device(const tt_device_params &device_params) {
     if(device_params.init_device) {
         initialize_pcie_devices();
         deassert_resets_and_set_power_state();
+    }
+    if(arch_name == tt::ARCH::WORMHOLE || arch_name == tt::ARCH::WORMHOLE_B0) {
+        verify_eth_fw();
     }
 }
 

@@ -282,3 +282,12 @@ std::unordered_map<chip_id_t, bool> tt_ClusterDescriptor::get_noc_translation_ta
 }
 
 std::size_t tt_ClusterDescriptor::get_number_of_chips() const { return this->enabled_active_chips.size(); }
+
+chip_id_t tt_ClusterDescriptor::get_shelf_local_physical_chip_coords(chip_id_t virtual_coord) {
+    int rack = std::get<2>(get_chip_locations().at(virtual_coord));
+    int shelf = std::get<3>(get_chip_locations().at(virtual_coord));
+    int x = std::get<0>(get_chip_locations().at(virtual_coord));
+    int y = std::get<1>(get_chip_locations().at(virtual_coord));
+    std::string shelf_coord = std::to_string(rack) + "_" + std::to_string(shelf);
+    return 8 * x + y;
+}

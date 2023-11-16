@@ -34,7 +34,7 @@ class tt_ClusterDescriptor {
  public:
   tt_ClusterDescriptor() = default;
   tt_ClusterDescriptor(const tt_ClusterDescriptor&)=default;
-
+  chip_id_t get_shelf_local_physical_chip_coords(chip_id_t virtual_coord);
   /*
    * Returns the pairs of channels that are connected where the first entry in the pair corresponds to the argument ordering when calling the function
    * An empty result implies that the two chips do not share any direct connection

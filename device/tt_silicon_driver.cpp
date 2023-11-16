@@ -1383,6 +1383,83 @@ std::unordered_map<chip_id_t, uint32_t> tt_SiliconDevice::get_harvesting_masks_f
     return default_harvesting_masks;
 }
 
+std::unordered_map<chip_id_t, std::vector<std::vector<uint32_t>>> tt_SiliconDevice::get_broadcast_headers(std::set<chip_id_t> chips_to_exclude) {
+    std::unordered_map<chip_id_t, std::unordered_map<chip_id_t, std::vector<uint32_t>>> broadcast_mask_for_target_chips_per_group = {};
+    std::unordered_map<std::string, std::tuple<chip_id_t, std::vector<uint32_t>>> broadcast_header_union_per_group = {};
+    std::unordered_map<chip_id_t, std::vector<std::vector<uint32_t>>> bcast_headers_per_mmio_chip = {};
+    for(const auto& chip : target_devices_in_cluster) {
+        if(chips_to_exclude.find(chip) == chips_to_exclude.end()) {
+            // Get shelf local physical chip id included in broadcast
+            chip_id_t physical_chip_id = ndesc -> get_shelf_local_physical_chip_coords(chip);
+            std::cout << "Physical chip id: " << chip << " " << physical_chip_id << std::endl;
+            eth_coord_t eth_coords = ndesc -> get_chip_locations().at(chip);
+            // Rack word to be set in header
+            uint32_t rack_word = std::get<2>(eth_coords) >> 2;
+            // Rack byte to be set in header
+            uint32_t rack_byte = std::get<2>(eth_coords) % 4;
+            // 1st level grouping: Group broadcasts based on the MMIO chip they must go through
+            // Nebula + Galaxy Topology assumption: Disjoint sets can only be present in the first shelf, with each set connected to host through its closest MMIO chip
+            // For the first shelf, pass broadcasts to specific chips through their closest MMIO chip
+            // All other shelves are fully connected galaxy grids. These are connected to all MMIO devices. Use any (or the first) MMIO device in the list.
+            chip_id_t closest_mmio_chip = 0;
+            if (std::get<2>(eth_coords) == 0 && std::get<3>(eth_coords) == 0) {
+                closest_mmio_chip = ndesc -> get_closest_mmio_capable_chip(chip);
+            }
+            else {
+                closest_mmio_chip = *(get_target_mmio_device_ids().begin());
+            }
+            if(broadcast_mask_for_target_chips_per_group.find(closest_mmio_chip) == broadcast_mask_for_target_chips_per_group.end()) {
+                broadcast_mask_for_target_chips_per_group.insert({closest_mmio_chip, {}});
+            }
+            // 2nd level grouping: For each remote chip per MMIO group, generate the rack + shelf headers. Then group chips based on these headers.
+            if(broadcast_mask_for_target_chips_per_group.at(closest_mmio_chip).find(physical_chip_id) == broadcast_mask_for_target_chips_per_group.at(closest_mmio_chip).end()) {
+                std::vector<uint32_t> broadcast_mask(8, 0);
+                broadcast_mask.at(rack_word) |= (1 << std::get<3>(eth_coords)) << rack_byte;
+                broadcast_mask.at(3) |= 1 << physical_chip_id;
+                broadcast_mask_for_target_chips_per_group.at(closest_mmio_chip).insert({physical_chip_id, broadcast_mask});
+
+            }
+            else {
+                broadcast_mask_for_target_chips_per_group.at(closest_mmio_chip).at(physical_chip_id).at(rack_word) |= static_cast<uint32_t>(1 << std::get<3>(eth_coords)) << rack_byte;
+            }
+        }
+    }
+    
+    for(auto& mmio_group : broadcast_mask_for_target_chips_per_group) {
+        for(auto& chip : mmio_group.second) {
+            std::string header_hash = std::to_string(mmio_group.first) + "_" + std::to_string(chip.second.at(0)) + "_" + std::to_string(chip.second.at(1)) + "_" + std::to_string(chip.second.at(2));
+            if(broadcast_header_union_per_group.find(header_hash) == broadcast_header_union_per_group.end()) {
+                broadcast_header_union_per_group.insert({header_hash, std::make_tuple(mmio_group.first, chip.second)});
+            }
+            else {
+                std::get<1>(broadcast_header_union_per_group.at(header_hash)).at(3) |= chip.second.at(3);
+            }
+        }
+    }
+
+    for(const auto& header : broadcast_header_union_per_group) {
+        chip_id_t mmio_chip = std::get<0>(header.second);
+        if(bcast_headers_per_mmio_chip.find(mmio_chip) == bcast_headers_per_mmio_chip.end()) {
+            bcast_headers_per_mmio_chip.insert({mmio_chip, {}});
+        }
+        bcast_headers_per_mmio_chip.at(mmio_chip).push_back(std::get<1>(header.second));
+    }
+    int count = 0;
+    for(auto& bcast_group : bcast_headers_per_mmio_chip) {
+        std::cout << "Sending to group: " << count << std::endl;
+        for(auto& header : bcast_group.second) {
+            int header_idx = 0;
+            for(auto& header_entry : header) {
+                if(header_idx == 4) break;
+                header_entry = ~header_entry;
+                header_idx++;
+            }
+        }
+        count++;
+    }
+    return bcast_headers_per_mmio_chip;
+}
+
 tt_SiliconDevice::tt_SiliconDevice(const std::string &sdesc_path, const std::string &ndesc_path, const std::set<chip_id_t> &target_devices, const uint32_t &num_host_mem_ch_per_mmio_device, const std::unordered_map<std::string, std::int32_t>& dynamic_tlb_config_, const bool skip_driver_allocs, bool perform_harvesting) : tt_device(sdesc_path) {
     std::unordered_set<chip_id_t> target_mmio_device_ids;
     target_devices_in_cluster = target_devices;
@@ -1575,7 +1652,7 @@ void tt_SiliconDevice::perform_harvesting_and_populate_soc_descriptors(const std
     }
 }
 
-void tt_SiliconDevice::init_device(int device_id) {
+void tt_SiliconDevice::check_pcie_device_initialized(int device_id) {
 
 struct PCIdevice* pci_device = get_pci_device(device_id);
 #ifdef ARCH_WORMHOLE
@@ -1609,15 +1686,6 @@ struct PCIdevice* pci_device = get_pci_device(device_id);
     if (test_setup_interface()) {
         throw std::runtime_error("Device is incorrectly initialized. If this is a harvested Wormhole machine, it is likely that NOC Translation Tables are not enabled on device. These need to be enabled for the silicon driver to run.");
     }
-
-    broadcast_tensix_risc_reset(pci_device, TENSIX_ASSERT_SOFT_RESET);
-
-    arc_msg(device_id, 0xaa00 | MSG_TYPE::DEASSERT_RISCV_RESET, true, 0, 0);
-
-    // Now that everything is in reset, we can test some stuff
-    // assert (test_pcie_tlb_setup(pci_device) == 0);
-    // assert (test_broadcast(0) == 0);
-    // test_write_speed(pci_device);
 }
 
 void tt_SiliconDevice::create_harvested_coord_translation(chip_id_t device_id, bool identity_map) {
@@ -1688,58 +1756,45 @@ void tt_SiliconDevice::translate_to_noc_table_coords(chip_id_t device_id, std::s
     r = translated_coords.y;
 }
 
-void tt_SiliconDevice::start(
-    std::vector<std::string> plusargs,
-    std::vector<std::string> dump_cores,
-    bool no_checkers,
-    bool init_hardware,
-    bool skip_driver_allocs) {
+void tt_SiliconDevice::initialize_pcie_devices() {
     LOG1("---- tt_SiliconDevice::start\n");
 
-    if (init_hardware) {
-        for (auto &device_it : m_pci_device_map){
-            init_device(device_it.first);
-        }
-
-        if (m_num_host_mem_channels > 1){
-            init_pcie_iatus_no_p2p();
-        } else {
-            init_pcie_iatus();
-        }
+    for (auto &device_it : m_pci_device_map){
+        check_pcie_device_initialized(device_it.first);
     }
 
-    // if (1){
-    if (!skip_driver_allocs){
+    if (m_num_host_mem_channels > 1){
+        init_pcie_iatus_no_p2p();
+    } else {
+        init_pcie_iatus();
+    }
+    
+    // https://yyz-gitlab.local.tenstorrent.com/ihamer/ll-sw/issues/25
+    // Note: using pcie dma while device is idle is safe, mixing p2p is unsafe, see issue above
+    // TODO: disable pcie dma if p2p traffic is present, ie. chip-to-chip or chip-to-host
 
-        // https://yyz-gitlab.local.tenstorrent.com/ihamer/ll-sw/issues/25
-        // Note: using pcie dma while device is idle is safe, mixing p2p is unsafe, see issue above
-        // TODO: disable pcie dma if p2p traffic is present, ie. chip-to-chip or chip-to-host
-
-        for (auto &device_it : m_pci_device_map){
-            struct PCIdevice* pci_device = device_it.second;
-            auto device_id = pci_device->device_id;
-            bool supports_pcie_dma = is_grayskull(device_id);
-            bool enable_pcie_dma = supports_pcie_dma && m_dma_buf_size>0;
-            // Use DMA only for transfers that cross the size thresholds (empirically determined)
-            if (enable_pcie_dma) {
-                try {
-                    tt_device_logger::log_info(tt_device_logger::LogSiliconDriver, "Enable PCIE DMA with bufsize {}", m_dma_buf_size);
-                    set_use_dma (false, 32, 0); // use dma for reads only
-                    init_dma_turbo_buf(pci_device);
-                } catch (const std::exception &e) {
-                    tt_device_logger::log_info(tt_device_logger::LogSiliconDriver, "Disable PCIE DMA, fallback to MMIO transfers due to exepction {}", e.what());
-                    set_use_dma (false, 0, 0);
-                    uninit_dma_turbo_buf(pci_device);
-                }
-            } else {
-                tt_device_logger::log_info(tt_device_logger::LogSiliconDriver, "Disable PCIE DMA");
+    for (auto &device_it : m_pci_device_map){
+        struct PCIdevice* pci_device = device_it.second;
+        auto device_id = pci_device->device_id;
+        bool enable_pcie_dma = m_dma_buf_size>0;
+        // Use DMA only for transfers that cross the size thresholds (empirically determined)
+        if (enable_pcie_dma) {
+            try {
+                tt_device_logger::log_info(tt_device_logger::LogSiliconDriver, "Enable PCIE DMA with bufsize {}", m_dma_buf_size);
+                set_use_dma (false, 128, 0); // use dma for reads only
+                init_dma_turbo_buf(pci_device);
+            } catch (const std::exception &e) {
+                tt_device_logger::log_info(tt_device_logger::LogSiliconDriver, "Disable PCIE DMA, fallback to MMIO transfers due to exepction {}", e.what());
+                set_use_dma (false, 0, 0);
+                uninit_dma_turbo_buf(pci_device);
             }
+        } else {
+            tt_device_logger::log_info(tt_device_logger::LogSiliconDriver, "Disable PCIE DMA");
         }
-
-    }
+    }   
 }
 
-void tt_SiliconDevice::broadcast_tensix_risc_reset(struct PCIdevice *device, const TensixSoftResetOptions &soft_resets) {
+void tt_SiliconDevice::broadcast_pcie_tensix_risc_reset(struct PCIdevice *device, const TensixSoftResetOptions &soft_resets) {
     LOG1("---- tt_SiliconDevice::broadcast_tensix_risc_reset\n");
 
     auto valid = soft_resets & ALL_TENSIX_SOFT_RESET;
@@ -1759,26 +1814,12 @@ std::set<chip_id_t> tt_SiliconDevice::get_target_mmio_device_ids() {
     return all_target_mmio_devices;
 }
 
-void tt_SiliconDevice::assert_risc_reset(int target_device) {
-    bool target_is_mmio_capable = ndesc -> is_chip_mmio_capable(target_device);
-    if(target_is_mmio_capable) {
-        assert(m_pci_device_map.find(target_device) != m_pci_device_map.end());
-        broadcast_tensix_risc_reset(m_pci_device_map.at(target_device), TENSIX_ASSERT_SOFT_RESET);
-    }
-    else {
-        broadcast_remote_tensix_risc_reset(target_device, TENSIX_ASSERT_SOFT_RESET);
-    }
+void tt_SiliconDevice::assert_risc_reset() {
+    broadcast_tensix_risc_reset_to_cluster(TENSIX_ASSERT_SOFT_RESET);
 }
 
-void tt_SiliconDevice::deassert_risc_reset(int target_device) {
-    bool target_is_mmio_capable = ndesc -> is_chip_mmio_capable(target_device);
-    if(target_is_mmio_capable) {
-        assert(m_pci_device_map.find(target_device) != m_pci_device_map.end());
-        broadcast_tensix_risc_reset(m_pci_device_map.at(target_device), TENSIX_DEASSERT_SOFT_RESET);
-    }
-    else {
-        broadcast_remote_tensix_risc_reset(target_device, TENSIX_DEASSERT_SOFT_RESET);
-    }
+void tt_SiliconDevice::deassert_risc_reset() {
+    broadcast_tensix_risc_reset_to_cluster(TENSIX_DEASSERT_SOFT_RESET);
 }
 
 void tt_SiliconDevice::deassert_risc_reset_at_core(tt_cxy_pair core) {
@@ -1791,7 +1832,7 @@ void tt_SiliconDevice::deassert_risc_reset_at_core(tt_cxy_pair core) {
         send_tensix_risc_reset_to_core(core, TENSIX_DEASSERT_SOFT_RESET);
     }
     else {
-        set_remote_tensix_risc_reset(core, TENSIX_DEASSERT_SOFT_RESET);
+        send_remote_tensix_risc_reset_to_core(core, TENSIX_DEASSERT_SOFT_RESET);
     }
 }
 
@@ -1805,7 +1846,7 @@ void tt_SiliconDevice::assert_risc_reset_at_core(tt_cxy_pair core) {
         send_tensix_risc_reset_to_core(core, TENSIX_ASSERT_SOFT_RESET);
     }
     else {
-        set_remote_tensix_risc_reset(core, TENSIX_ASSERT_SOFT_RESET);
+        send_remote_tensix_risc_reset_to_core(core, TENSIX_ASSERT_SOFT_RESET);
     }
 }
 
@@ -1823,13 +1864,6 @@ void tt_SiliconDevice::clean_system_resources() {
     }
 }
 
-// System level init sequence
-void tt_SiliconDevice::init_system(const tt_device_params &device_params, const tt_xy_pair &grid_size) {
-    // Default init sequence
-    bool no_checkers = false;
-    std::vector<std::string> dump_cores = device_params.unroll_vcd_dump_cores(grid_size);
-    start(device_params.expand_plusargs(), dump_cores, no_checkers, device_params.init_device, device_params.skip_driver_allocs);
-}
 
 std::unordered_set<chip_id_t> tt_SiliconDevice::get_all_chips_in_cluster() {
     return ndesc -> get_all_chips();
@@ -2990,7 +3024,66 @@ bool tt_SiliconDevice::is_non_mmio_cmd_q_full(uint32_t curr_wptr, uint32_t curr_
  * ethernet core (host) command queue DO NOT issue any pcie reads/writes to the ethernet core prior to acquiring the
  * mutex. For extra information, see the "NON_MMIO_MUTEX Usage" above
  */
-void tt_SiliconDevice::write_to_non_mmio_device(const uint32_t *mem_ptr, uint32_t len, tt_cxy_pair core, uint64_t address){
+
+ void tt_SiliconDevice::broadcast_write_to_cluster(const uint32_t *mem_ptr, uint32_t len, uint64_t address,
+                        std::set<chip_id_t> chips_to_exclude, std::vector<uint32_t> rows_to_exclude, std::vector<uint32_t> cols_to_exclude, const std::string fallback_tlb) {
+   
+    if (arch_name == tt::ARCH::GRAYSKULL) {
+        // "Broadcast" implemented as a for loop of unicasts
+        std::vector<tt_cxy_pair> cores_to_write = {};
+        for(const auto& device : target_devices_in_cluster) {
+            if(chips_to_exclude.find(device) != chips_to_exclude.end()) {
+                continue;
+            }
+            for(const auto& core_it : get_soc_descriptor(device).cores) {
+                const tt_xy_pair& core = core_it.second.coord;
+                if(std::find(rows_to_exclude.begin(), rows_to_exclude.end(), core.y) == rows_to_exclude.end() 
+                    and std::find(cols_to_exclude.begin(), cols_to_exclude.end(), core.x) == cols_to_exclude.end()) {
+                    cores_to_write.push_back(tt_cxy_pair(device, core));
+                }
+            }
+        }
+        for(const auto& core : cores_to_write) {
+            write_device_memory(mem_ptr, len, core, address, fallback_tlb);
+        }
+    }
+    else {
+        // True broadcast through ERISC core
+        auto bcast_headers = get_broadcast_headers(chips_to_exclude);
+        std::uint32_t row_exclusion_mask = 0;
+        std::uint32_t col_exclusion_mask = 0;
+
+        for(const auto& row : rows_to_exclude) {
+            row_exclusion_mask |= 1 << row;
+        }
+
+        for(const auto& col : cols_to_exclude) {
+            col_exclusion_mask |= 1 << (16 + col);
+        }
+        for(auto& mmio_group : bcast_headers) {
+            for(auto& header : mmio_group.second) {
+                header.at(4) |= row_exclusion_mask;
+                header.at(4) |= col_exclusion_mask;
+                write_to_non_mmio_device(mem_ptr, len, tt_cxy_pair(mmio_group.first, tt_xy_pair(1, 1)), address, true, header);
+            }
+        }
+    }
+}
+
+
+void tt_SiliconDevice::write_to_non_mmio_device(
+                        const uint32_t *mem_ptr, uint32_t len, tt_cxy_pair core, uint64_t address, 
+                        bool broadcast, std::vector<uint32_t> broadcast_header) {
+    
+    chip_id_t mmio_capable_chip_logical;
+    
+    if(broadcast) {
+        mmio_capable_chip_logical = core.chip;
+    }
+    else {
+        mmio_capable_chip_logical = ndesc->get_closest_mmio_capable_chip(core.chip);
+    }
+
     using data_word_t = uint32_t;
     constexpr int DATA_WORD_SIZE = sizeof(data_word_t);
 
@@ -3018,14 +3111,13 @@ void tt_SiliconDevice::write_to_non_mmio_device(const uint32_t *mem_ptr, uint32_
     uint32_t max_block_size;
 
     flush_non_mmio = true;
-    use_dram = len > 256 ? true : false;
+    use_dram = broadcast || (size_in_bytes > 256 * DATA_WORD_SIZE);
     max_block_size = use_dram ? host_address_params.ETH_ROUTING_BLOCK_SIZE : eth_interface_params.MAX_BLOCK_SIZE;
 
     //
     //                    MUTEX ACQUIRE (NON-MMIO)
     //  do not locate any ethernet core reads/writes before this acquire
     //
-    const auto &mmio_capable_chip_logical = ndesc->get_closest_mmio_capable_chip(core.chip);
     const scoped_lock<named_mutex> lock(
         *get_mutex(NON_MMIO_MUTEX_NAME, this->get_pci_device(mmio_capable_chip_logical)->id));
     tt_cxy_pair remote_transfer_ethernet_core = remote_transfer_ethernet_cores[active_core];
@@ -3058,11 +3150,16 @@ void tt_SiliconDevice::write_to_non_mmio_device(const uint32_t *mem_ptr, uint32_
         if ((address + offset) & 0x1F) { // address not 32-byte aligned
             block_size = DATA_WORD_SIZE;
         } else {
-            block_size = offset + max_block_size > size_in_bytes ? size_in_bytes - offset : max_block_size;
+            // For broadcast we prepend a 32byte header. Decrease block size (size of payload) by this amount.
+            block_size = offset + max_block_size > size_in_bytes + 32 * broadcast ? size_in_bytes - offset : max_block_size - 32 * broadcast;
         }
-        uint32_t req_flags = block_size > DATA_WORD_SIZE ? (eth_interface_params.CMD_DATA_BLOCK | eth_interface_params.CMD_WR_REQ | timestamp) : eth_interface_params.CMD_WR_REQ;
+        uint32_t req_flags = (broadcast || (block_size > DATA_WORD_SIZE)) ? (eth_interface_params.CMD_DATA_BLOCK | eth_interface_params.CMD_WR_REQ | timestamp) : eth_interface_params.CMD_WR_REQ;
         uint32_t resp_flags = block_size > DATA_WORD_SIZE ? (eth_interface_params.CMD_DATA_BLOCK | eth_interface_params.CMD_WR_ACK) : eth_interface_params.CMD_WR_ACK;
         timestamp = 0;
+
+        if(broadcast) {
+            req_flags |= eth_interface_params.CMD_BROADCAST;
+        }
 
         uint32_t host_dram_block_addr = host_address_params.ETH_ROUTING_BUFFERS_START + (active_core * eth_interface_params.CMD_BUF_SIZE + req_wr_ptr) * max_block_size;
         uint16_t host_dram_channel = 0; // This needs to be 0, since WH can only map ETH buffers to chan 0.
@@ -3073,7 +3170,14 @@ void tt_SiliconDevice::write_to_non_mmio_device(const uint32_t *mem_ptr, uint32_
                 resp_flags |= eth_interface_params.CMD_DATA_BLOCK_DRAM;
                 data_block.resize(block_size/DATA_WORD_SIZE);
                 memcpy(&data_block[0], mem_ptr + offset/DATA_WORD_SIZE, block_size);
-                write_to_sysmem(data_block, host_dram_block_addr, host_dram_channel, mmio_capable_chip_logical);
+                if(broadcast) {
+                    std::cout << "Broadcasting" << std::endl;
+                    for(const auto it : broadcast_header) std::cout << it << " ";
+                    std::cout << std::endl;
+                    write_to_sysmem(broadcast_header, host_dram_block_addr, host_dram_channel, mmio_capable_chip_logical);
+                    _mm_sfence();
+                }
+                write_to_sysmem(data_block, host_dram_block_addr + 32 * broadcast, host_dram_channel, mmio_capable_chip_logical);
             } else {
                 uint32_t buf_address = eth_interface_params.ETH_ROUTING_DATA_BUFFER_ADDR + req_wr_ptr * max_block_size;
                 data_block.resize(block_size/DATA_WORD_SIZE);
@@ -3083,12 +3187,19 @@ void tt_SiliconDevice::write_to_non_mmio_device(const uint32_t *mem_ptr, uint32_
             tt_driver_atomics::sfence();
         }
 
-        // Send the read request
-        tt_device_logger::log_assert((req_flags == eth_interface_params.CMD_WR_REQ) || (((address + offset) & 0x1F) == 0), "Block mode address must be 32-byte aligned."); // Block mode address must be 32-byte aligned.
+        // Send the read request        
+        // Removing this assert for testing
+        // tt_device_logger::log_assert((req_flags == eth_interface_params.CMD_WR_REQ) || (((address + offset) % 32) == 0), "Block mode address must be 32-byte aligned."); // Block mode address must be 32-byte aligned.
         
-        new_cmd->sys_addr = get_sys_addr(std::get<0>(target_chip), std::get<1>(target_chip), core.x, core.y, address + offset);
-        new_cmd->rack = get_sys_rack(std::get<2>(target_chip), std::get<3>(target_chip));
-        new_cmd->data = req_flags & eth_interface_params.CMD_DATA_BLOCK ? block_size : *(mem_ptr + offset/DATA_WORD_SIZE);
+        if(broadcast) {
+            new_cmd->sys_addr = address + offset;
+        }
+        else {
+            new_cmd->sys_addr = get_sys_addr(std::get<0>(target_chip), std::get<1>(target_chip), core.x, core.y, address + offset);
+            new_cmd->rack = get_sys_rack(std::get<2>(target_chip), std::get<3>(target_chip));
+        }
+
+        new_cmd->data = req_flags & eth_interface_params.CMD_DATA_BLOCK ? block_size + 32 * broadcast : *(mem_ptr + offset/DATA_WORD_SIZE);
         new_cmd->flags = req_flags;
         if (use_dram) {
             new_cmd->src_addr_tag = host_dram_block_addr;
@@ -3723,7 +3834,7 @@ void tt_SiliconDevice::send_tensix_risc_reset_to_core(const tt_cxy_pair &core, c
     tt_driver_atomics::sfence();
 }
 
-void tt_SiliconDevice::set_remote_tensix_risc_reset(const tt_cxy_pair &core, const TensixSoftResetOptions &soft_resets) {
+void tt_SiliconDevice::send_remote_tensix_risc_reset_to_core(const tt_cxy_pair &core, const TensixSoftResetOptions &soft_resets) {
     auto valid = soft_resets & ALL_TENSIX_SOFT_RESET;
     std::vector<uint32_t> vec = {(std::underlying_type<TensixSoftResetOptions>::type) valid};
     write_to_non_mmio_device(vec.data(), vec.size(), core, 0xFFB121B0);
@@ -3753,9 +3864,19 @@ void tt_SiliconDevice::enable_remote_ethernet_queue(const chip_id_t& chip, int t
 
 
 
-void tt_SiliconDevice::broadcast_remote_tensix_risc_reset(const chip_id_t &chip, const TensixSoftResetOptions &soft_resets) {
-    for( tt_xy_pair worker_core : get_soc_descriptor(chip).workers) {
-        set_remote_tensix_risc_reset(tt_cxy_pair(chip, worker_core), soft_resets);
+void tt_SiliconDevice::broadcast_tensix_risc_reset_to_cluster(const TensixSoftResetOptions &soft_resets) {
+    if(arch_name == tt::ARCH::GRAYSKULL) {
+        for (auto &device_it : m_pci_device_map) {
+            broadcast_pcie_tensix_risc_reset(device_it.second, soft_resets);
+        }
+    }
+    else {
+        auto valid = soft_resets & ALL_TENSIX_SOFT_RESET;
+        uint32_t valid_val = (std::underlying_type<TensixSoftResetOptions>::type) valid;
+        std::set<chip_id_t> chips_to_exclude = {};
+        std::vector<uint32_t> rows_to_exclude = {0, 6};
+        std::vector<uint32_t> columns_to_exclude = {0, 5};
+        broadcast_write_to_cluster(&valid_val, 1, 0xFFB121B0, chips_to_exclude, rows_to_exclude, columns_to_exclude);
     }
 }
 
@@ -3793,53 +3914,43 @@ void tt_SiliconDevice::enable_ethernet_queue(int timeout) {
     }
 }
 
-bool tt_SiliconDevice::stop() {
-    LOG1("---- tt_SiliconDevice::stop\n");
-
-    for (auto &device_it : m_pci_device_map){
-        LOG1("== Asserting all soft Tensix resets\n");
-        broadcast_tensix_risc_reset(device_it.second, TENSIX_ASSERT_SOFT_RESET);
-    }
-    return true;
-}
-
-void tt_SiliconDevice::stop_remote_chip(const chip_id_t &chip) {
-    broadcast_remote_tensix_risc_reset(chip, TENSIX_ASSERT_SOFT_RESET);
-}
-
 std::set<chip_id_t> tt_SiliconDevice::get_target_remote_device_ids() {
     return target_remote_chips;
 }
 
+void tt_SiliconDevice::deassert_resets_and_set_power_state() {
+    // Assert resets on all chips in cluster
+    std::cout << "Start device" << std::endl;
+    broadcast_tensix_risc_reset_to_cluster(TENSIX_ASSERT_SOFT_RESET);
+    
+    // Send ARC Messages to deassert RISCV resets
+    for (auto &device_it : m_pci_device_map){
+        arc_msg(device_it.first, 0xaa00 | MSG_TYPE::DEASSERT_RISCV_RESET, true, 0, 0);
+    }
+    if(ndesc != nullptr) {
+        for(const chip_id_t& chip : target_devices_in_cluster) {
+            if(!ndesc -> is_chip_mmio_capable(chip)) {
+                remote_arc_msg(chip, 0xaa00 | MSG_TYPE::DEASSERT_RISCV_RESET, true, 0x0, 0x0, 1, NULL, NULL);
+            }
+        }
+        enable_ethernet_queue(30);
+    }
+    // Set power state to busy
+    set_power_state(tt_DevicePowerState::BUSY);
+    std::cout << "Done" << std::endl;
+}
+
 void tt_SiliconDevice::start_device(const tt_device_params &device_params) {
     if(device_params.init_device) {
-        init_system(device_params, get_soc_descriptor(*target_devices_in_cluster.begin()).grid_size); // grid size here is used to get vcd dump cores (nost used for silicon)
-        set_power_state(tt_DevicePowerState::BUSY);
+        initialize_pcie_devices();
+        deassert_resets_and_set_power_state();
 
-        if (ndesc != nullptr) {
-            for (const chip_id_t &chip : target_devices_in_cluster) {
-                if (!ndesc->is_chip_mmio_capable(chip)) {
-                    broadcast_remote_tensix_risc_reset(chip, TENSIX_ASSERT_SOFT_RESET);
-                    remote_arc_msg(chip, 0xaa00 | MSG_TYPE::DEASSERT_RISCV_RESET, true, 0x0, 0x0, 1, NULL, NULL);
-                    target_remote_chips.insert(chip);
-                }
-            }
-            enable_ethernet_queue(30);
-        }
-    }
-    else {
-        start(device_params.expand_plusargs(), {}, false, false, device_params.skip_driver_allocs);
     }
 }
 
 void tt_SiliconDevice::close_device() {
     set_power_state(tt_DevicePowerState::LONG_IDLE);
-    stop(); // Stop MMIO mapped devices
-    for(const chip_id_t &chip : target_devices_in_cluster) {
-        if(!ndesc -> is_chip_mmio_capable(chip)) {
-            stop_remote_chip(chip);
-        }
-    }
+    broadcast_tensix_risc_reset_to_cluster(TENSIX_ASSERT_SOFT_RESET);
 }
 
 

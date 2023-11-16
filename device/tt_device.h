@@ -739,6 +739,18 @@ class tt_SiliconDevice: public tt_device
     // These functions are used by Debuda, so make them public
     void bar_write32 (int logical_device_id, uint32_t addr, uint32_t data);
     uint32_t bar_read32 (int logical_device_id, uint32_t addr);
+    /**
+     * @brief If the tlbs are initialized, returns a tuple with the TLB base address and its size
+    */
+    std::optional<std::tuple<uint32_t, uint32_t>> get_tlb_data_from_target(const tt_xy_pair& target);
+    /**
+     * @brief This API allows you to write directly to device memory that is addressable by a static TLB
+    */
+    std::function<void(uint32_t, uint32_t, const uint8_t*, uint32_t)> get_fast_pcie_static_tlb_write_callable(int device_id);
+    /**
+     * @brief Returns the DMA buf size 
+    */
+    uint32_t get_m_dma_buf_size() const;
 
     // Misc. Functions to Query/Set Device State
     virtual int arc_msg(int logical_device_id, uint32_t msg_code, bool wait_for_done = true, uint32_t arg0 = 0, uint32_t arg1 = 0, int timeout=1, uint32_t *return_3 = nullptr, uint32_t *return_4 = nullptr);

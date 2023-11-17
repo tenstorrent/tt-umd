@@ -3259,8 +3259,8 @@ void tt_SiliconDevice::broadcast_write_to_cluster(const void *mem_ptr, uint32_t 
             for(const auto& chip : target_devices_in_cluster) {
                 if(chips_to_exclude.find(chip) != chips_to_exclude.end()) continue;
                 for(const auto& core : get_soc_descriptor(chip).cores) {
-                    if(cols_to_exclude.find(core.first.x) != cols_to_exclude.end() and rows_to_exclude.find(core.first.y) != rows_to_exclude.end()) {
-                        write_to_non_mmio_device(mem_ptr, size_in_bytes, tt_cxy_pair(chip, core.first.x, core.first.y), address);
+                    if(cols_to_exclude.find(core.first.x) == cols_to_exclude.end() and rows_to_exclude.find(core.first.y) == rows_to_exclude.end() and core.second.type != CoreType::HARVESTED) {
+                        write_to_device(mem_ptr, size_in_bytes, tt_cxy_pair(chip, core.first.x, core.first.y), address, "LARGE_WRITE_TLB");
                     }
                 }
             }

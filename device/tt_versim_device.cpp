@@ -198,6 +198,13 @@ void tt_VersimDevice::write_to_device(const void *mem_ptr, uint32_t size, tt_cxy
   write_to_device(mem_vector, core, addr, tlb_to_use, send_epoch_cmd, last_send_epoch_cmd);
 }
 
+void tt_VersimDevice::broadcast_write_to_cluster(const void *mem_ptr, uint32_t size_in_bytes, uint64_t address, const std::set<chip_id_t>& chips_to_exclude, std::set<uint32_t>& rows_to_exclude, std::set<uint32_t>& cols_to_exclude, const std::string& fallback_tlb) {
+  for(const auto& core : get_soc_descriptor(0) -> cores) {
+    if(cols_to_exclude.find(core.first.x) == cols_to_exclude.end() and rows_to_exclude.find(core.first.y) == rows_to_exclude.end() and core.second.type != CoreType::HARVESTED) {
+        write_to_device(mem_ptr, size_in_bytes, tt_cxy_pair(0, core.first.x, core.first.y), address, "");
+      }
+  }
+}
 void tt_VersimDevice::wait_for_non_mmio_flush() {
   // Do nothing, since Versim does not simulate non-mmio mapped chips
 }

@@ -3260,7 +3260,7 @@ void tt_SiliconDevice::broadcast_write_to_cluster(const void *mem_ptr, uint32_t 
                 if(chips_to_exclude.find(chip) != chips_to_exclude.end()) continue;
                 for(const auto& core : get_soc_descriptor(chip).cores) {
                     if(cols_to_exclude.find(core.first.x) == cols_to_exclude.end() and rows_to_exclude.find(core.first.y) == rows_to_exclude.end() and core.second.type != CoreType::HARVESTED) {
-                        write_to_device(mem_ptr, size_in_bytes, tt_cxy_pair(chip, core.first.x, core.first.y), address, "LARGE_WRITE_TLB");
+                        write_to_device(mem_ptr, size_in_bytes, tt_cxy_pair(chip, core.first.x, core.first.y), address, fallback_tlb);
                     }
                 }
             }
@@ -4241,7 +4241,7 @@ void tt_SiliconDevice::broadcast_tensix_risc_reset_to_cluster(const TensixSoftRe
         std::set<chip_id_t> chips_to_exclude = {};
         std::set<uint32_t> rows_to_exclude = {0, 6};
         std::set<uint32_t> columns_to_exclude = {0, 5};
-        std::string fallback_tlb = "";
+        std::string fallback_tlb = "LARGE_WRITE_TLB";
         broadcast_write_to_cluster(&valid_val, sizeof(uint32_t), 0xFFB121B0, chips_to_exclude, rows_to_exclude, columns_to_exclude, fallback_tlb);
     }
 }
@@ -4287,7 +4287,7 @@ std::set<chip_id_t> tt_SiliconDevice::get_target_remote_device_ids() {
 void tt_SiliconDevice::deassert_resets_and_set_power_state() {
     // Assert resets on all chips in cluster
     broadcast_tensix_risc_reset_to_cluster(TENSIX_ASSERT_SOFT_RESET);
-    
+
     // Send ARC Messages to deassert RISCV resets
     for (auto &device_it : m_pci_device_map){
         arc_msg(device_it.first, 0xaa00 | MSG_TYPE::DEASSERT_RISCV_RESET, true, 0, 0);
@@ -4336,10 +4336,10 @@ void tt_SiliconDevice::verify_eth_fw() {
 void tt_SiliconDevice::start_device(const tt_device_params &device_params) {
     if(device_params.init_device) {
         initialize_pcie_devices();
+        if(arch_name == tt::ARCH::WORMHOLE || arch_name == tt::ARCH::WORMHOLE_B0) {
+            verify_eth_fw();
+        }
         deassert_resets_and_set_power_state();
-    }
-    if(arch_name == tt::ARCH::WORMHOLE || arch_name == tt::ARCH::WORMHOLE_B0) {
-        verify_eth_fw();
     }
 }
 

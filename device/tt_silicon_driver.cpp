@@ -1408,13 +1408,13 @@ void tt_SiliconDevice::create_device(const std::unordered_set<chip_id_t> &target
             m_per_device_mutexes_map[tlb.first].insert({pci_interface_id, {tlb.first + std::to_string((int) pci_interface_id), nullptr}});
         }
         m_per_device_mutexes_map["ARC_MSG"].insert({pci_interface_id, {"ARC_MSG" + std::to_string((int) pci_interface_id), nullptr}});
-
-        // Can't query soc desc as it's not present
-        bool may_have_non_mmio_chips = ndesc->chips_have_ethernet_connectivity();
-        if (may_have_non_mmio_chips) {
+        if(arch_name == tt::ARCH::WORMHOLE or arch_name == tt::ARCH::WORMHOLE_B0) {
+            // Initialize non-MMIO mutexes for WH devices regardless of number of chips, since these may be used for ethernet broadcast
             m_per_device_mutexes_map[NON_MMIO_MUTEX_NAME].insert(
                 {pci_interface_id, {NON_MMIO_MUTEX_NAME + std::to_string((int)pci_interface_id), nullptr}});
         }
+        
+        
         // Interprocess mutexes to make host -> device memory barriers atomic
         m_per_device_mutexes_map[MEM_BARRIER_MUTEX_NAME].insert(
             {pci_interface_id, {MEM_BARRIER_MUTEX_NAME + std::to_string((int)pci_interface_id), nullptr}});
@@ -3237,7 +3237,6 @@ void tt_SiliconDevice::broadcast_write_to_cluster(const void *mem_ptr, uint32_t 
             auto bcast_headers = get_broadcast_headers(chips_to_exclude);
             std::uint32_t row_exclusion_mask = 0;
             std::uint32_t col_exclusion_mask = 0;
-
             for(const auto& row : rows_to_exclude) {
                 row_exclusion_mask |= 1 << row;
             }
@@ -3312,11 +3311,9 @@ void tt_SiliconDevice::write_to_non_mmio_device(
     //                    MUTEX ACQUIRE (NON-MMIO)
     //  do not locate any ethernet core reads/writes before this acquire
     //
-    
     const scoped_lock<named_mutex> lock(
         *get_mutex(NON_MMIO_MUTEX_NAME, this->get_pci_device(mmio_capable_chip_logical)->id));
     tt_cxy_pair remote_transfer_ethernet_core = remote_transfer_ethernet_cores[active_core];
-
     erisc_command.resize(sizeof(routing_cmd_t)/DATA_WORD_SIZE);
     new_cmd = (routing_cmd_t *)&erisc_command[0];
     read_device_memory(erisc_q_ptrs.data(), remote_transfer_ethernet_core, eth_interface_params.REQUEST_CMD_QUEUE_BASE + eth_interface_params.CMD_COUNTERS_SIZE_BYTES, eth_interface_params.REMOTE_UPDATE_PTR_SIZE_BYTES*2, read_tlb);

@@ -13,6 +13,8 @@
 #include <fstream>
 #include <iomanip>
 #include <iostream>
+#include <mutex>
+#include <thread>
 #include <type_traits>
 #if defined(UTILS_LOGGER_PYTHON_OSTREAM_REDIRECT) && (UTILS_LOGGER_PYTHON_OSTREAM_REDIRECT == 1)
 #include <pybind11/iostream.h>
@@ -22,13 +24,38 @@
 #include "fmt/core.h"
 #include "fmt/ostream.h"
 
-namespace tt_device_logger {
+namespace tt {
 
 #define LOGGER_TYPES   \
     X(Always)          \
+    X(Analyzer)        \
+    X(API)             \
+    X(Backend)         \
     X(Test)            \
-    X(Device)          \
-    X(SiliconDriver)
+    X(Model)           \
+    X(Net2Pipe)        \
+    X(Pipegen2)        \
+    X(Netlist)         \
+    X(Runtime)         \
+    X(Loader)          \
+    X(IO)              \
+    X(CompileTrisc)    \
+    X(Verif)           \
+    X(Golden)          \
+    X(Op)              \
+    X(HLK)             \
+    X(Profile)         \
+    X(PerfPostProcess) \
+    X(PerfCheck)       \
+    X(PerfInfra)       \
+    X(Debuda)          \
+    X(Firmware)        \
+    X(SiliconDriver)   \
+    X(Trisc0)          \
+    X(Trisc1)          \
+    X(Trisc2)          \
+    X(Net2Hlks)        \
+    X(Router)        \
 
 enum LogType : uint32_t {
 // clang-format off
@@ -55,9 +82,11 @@ class Logger {
         Trace = 0,
         Debug = 1,
         Info = 2,
-        Warning = 3,
-        Error = 4,
-        Fatal = 5,
+        Profile = 3,
+        Warning = 4,
+        Error = 5,
+        Fatal = 6,
+        Disabled = 7,
 
         Count,
     };
@@ -66,11 +95,14 @@ class Logger {
         "TRACE",
         "DEBUG",
         "INFO",
+        "PROFILE",
         "WARNING",
         "ERROR",
         "FATAL",
+        "DISABLED",
     };
-
+    Level min_level = Level::Info;
+    std::mutex fd_mutex;
     static_assert(
         (sizeof(level_names) / sizeof(level_names[0])) == static_cast<std::underlying_type_t<Level>>(Level::Count));
 
@@ -78,7 +110,9 @@ class Logger {
         fmt::color::gray,
         fmt::color::gray,
         fmt::color::cornflower_blue,
+        fmt::color::orange_red,
         fmt::color::orange,
+        fmt::color::red,
         fmt::color::red,
         fmt::color::red,
     };
@@ -93,10 +127,7 @@ class Logger {
     }
 
     template <typename... Args>
-    void log_level_type(Level level, LogType type, char const* fmt, Args&&... args) {
-        if (static_cast<std::underlying_type_t<Level>>(level) < static_cast<std::underlying_type_t<Level>>(min_level))
-            return;
-
+    inline void log_level_type(Level level, LogType type, char const* fmt, Args&&... args) {
         if ((1 << type) & mask) {
 #if defined(UTILS_LOGGER_PYTHON_OSTREAM_REDIRECT) && (UTILS_LOGGER_PYTHON_OSTREAM_REDIRECT == 1)
             pybind11::scoped_ostream_redirect stream(*fd);
@@ -111,11 +142,22 @@ class Logger {
                 level_names[static_cast<std::underlying_type_t<Level>>(level)]);
 
             fmt::terminal_color type_color = fmt::terminal_color::cyan;
+
+            if (type == LogType::LogFirmware ||
+                type == LogType::LogTrisc0 ||
+                type == LogType::LogTrisc1 ||
+                type == LogType::LogTrisc2) {
+                type_color = fmt::terminal_color::magenta;
+            }
+
             std::string type_str = fmt::format(fmt::fg(type_color), "{:15}", type_names[type]);
 
-            fmt::print(*fd, "{} | {} | {} - ", timestamp_str, level_str, type_str);
-            fmt::print(*fd, fmt, std::forward<Args>(args)...);
-            *fd << std::endl;
+            std::string str;
+            fmt::format_to(std::back_inserter(str), "{} | {} | {} - ", timestamp_str, level_str, type_str);
+            fmt::format_to(std::back_inserter(str), fmt, std::forward<Args>(args)...);
+
+            std::lock_guard<std::mutex> lock(fd_mutex);
+            *fd << str << std::endl;
         }
     }
 
@@ -134,8 +176,8 @@ class Logger {
                     mask_index++;
                 }
             }
-        } else {
-            // For now default to all
+        }
+        else {
             mask = 0xFFFFFFFFFFFFFFFF;
         }
 
@@ -184,107 +226,86 @@ class Logger {
     std::ofstream log_file;
     std::ostream* fd = &std::cout;
     std::uint64_t mask = (1 << LogAlways);
-    Level min_level = Level::Info;
+    
 };
+
 #pragma GCC visibility pop
 
-#ifdef DEBUG
-template <typename... Args>
-static void log_debug(LogType type, char const* fmt, Args&&... args) {
-    Logger::get().log_level_type(Logger::Level::Debug, type, fmt, std::forward<Args>(args)...);
-}
-
-template <typename... Args>
-static void log_debug(char const* fmt, Args&&... args) {
-    log_debug(LogAlways, fmt, std::forward<Args>(args)...);
-}
+#undef LOGGER_TYPES
 
 template <typename... Args>
 static void log_trace_(LogType type, std::string const& src_info, char const* fmt, Args&&... args) {
     Logger::get().log_level_type(Logger::Level::Trace, type, fmt, src_info, std::forward<Args>(args)...);
 }
+} // namespace tt
 
-#define log_trace(log_type, ...) \
-    log_trace_(log_type, fmt::format(fmt::fg(fmt::color::green), "{}:{}", __FILE__, __LINE__), "{} - " __VA_ARGS__)
-#else
-template <typename... Args>
-static void log_debug(LogType type, char const* fmt, Args&&... args) {}
-template <typename... Args>
-static void log_debug(char const* fmt, Args&&... args) {}
+#define log_custom(level, type, str, ...) \
+    { \
+        if (static_cast<std::underlying_type_t<tt::Logger::Level>>(level) >= static_cast<std::underlying_type_t<tt::Logger::Level>>(tt::Logger::get().min_level)) { \
+            tt::Logger::get().log_level_type(level, type, str, ## __VA_ARGS__); \
+        } \
+    }
 
-#define log_trace(log_type, ...) \
-    log_trace_(log_type, fmt::format(fmt::fg(fmt::color::green), "{}:{}", __FILE__, __LINE__), "{} - " __VA_ARGS__)
+#define log_info(type, str, ...) \
+    { \
+        if (static_cast<std::underlying_type_t<tt::Logger::Level>>(tt::Logger::Level::Info) >= static_cast<std::underlying_type_t<tt::Logger::Level>>(tt::Logger::get().min_level)) { \
+            tt::Logger::get().log_level_type(tt::Logger::Level::Info, type, str, ## __VA_ARGS__); \
+        } \
+    }
+
+#define log_warning(type, str, ...) \
+    { \
+        if (static_cast<std::underlying_type_t<tt::Logger::Level>>(tt::Logger::Level::Warning) >= static_cast<std::underlying_type_t<tt::Logger::Level>>(tt::Logger::get().min_level)) { \
+            tt::Logger::get().log_level_type(tt::Logger::Level::Warning, type, str, ## __VA_ARGS__); \
+        } \
+    }
+    
+#define log_error(type, str, ...) \
+    { \
+        if (static_cast<std::underlying_type_t<tt::Logger::Level>>(tt::Logger::Level::Error) >= static_cast<std::underlying_type_t<tt::Logger::Level>>(tt::Logger::get().min_level)) { \
+            tt::Logger::get().log_level_type(tt::Logger::Level::Error, type, str, ## __VA_ARGS__); \
+        } \
+    }
+
+#define log_fatal(type, str, ...) \
+    { \
+        if (static_cast<std::underlying_type_t<tt::Logger::Level>>(tt::Logger::Level::Fatal) >= static_cast<std::underlying_type_t<tt::Logger::Level>>(tt::Logger::get().min_level)) { \
+            tt::Logger::get().log_level_type(tt::Logger::Level::Fatal, type, str, ## __VA_ARGS__); \
+            tt::Logger::get().flush(); \
+        } \
+        throw std::runtime_error(fmt::format(str,  ## __VA_ARGS__)); \
+    }
+
 template <typename... Args>
-static void log_trace_(LogType type, std::string const& src_info, char const* fmt, Args&&... args) {}
+static void log_assert(bool cond, tt::LogType type, char const* fmt, Args&&... args) {
+    if (not cond) { \
+        if (static_cast<std::underlying_type_t<tt::Logger::Level>>(tt::Logger::Level::Fatal) >= static_cast<std::underlying_type_t<tt::Logger::Level>>(tt::Logger::get().min_level)) { \
+            tt::Logger::get().log_level_type(tt::Logger::Level::Fatal, type, fmt, std::forward<Args>(args)...); \
+            tt::Logger::get().flush(); \
+        } \
+        throw std::runtime_error(fmt::format(fmt, std::forward<Args>(args)...)); \
+    } \
+}
+
+#ifdef TT_DEBUG_LOGGING
+
+#define log_debug(type, str, ...) \
+    { \
+        if (static_cast<std::underlying_type_t<tt::Logger::Level>>(tt::Logger::Level::Debug) >= static_cast<std::underlying_type_t<tt::Logger::Level>>(tt::Logger::get().min_level)) { \
+            tt::Logger::get().log_level_type(tt::Logger::Level::Debug, type, str, ## __VA_ARGS__); \
+        } \
+    }
+
+#define log_trace(type, ...) \
+    { \
+        if (static_cast<std::underlying_type_t<tt::Logger::Level>>(tt::Logger::Level::Trace) >= static_cast<std::underlying_type_t<tt::Logger::Level>>(Logger::get().min_level)) { \
+            tt::log_trace_(type, fmt::format(fmt::fg(fmt::color::green), "{}:{}", __FILE__, __LINE__), "{} - " __VA_ARGS__); \
+        } \
+    }
+
+#else 
+
+#define log_trace(...) ((void)0)
+#define log_debug(...) ((void)0)
 
 #endif
-
-template <typename... Args>
-static void log(Logger::Level log_level, LogType type, char const* fmt, Args&&... args) {
-    Logger::get().log_level_type(log_level, type, fmt, std::forward<Args>(args)...);
-}
-
-template <typename... Args>
-static void log(Logger::Level log_level, char const* fmt, Args&&... args) {
-    Logger::get().log_level_type(log_level, LogAlways, fmt, std::forward<Args>(args)...);
-}
-
-template <typename... Args>
-static void log_info(LogType type, char const* fmt, Args&&... args) {
-    Logger::get().log_level_type(Logger::Level::Info, type, fmt, std::forward<Args>(args)...);
-}
-
-template <typename... Args>
-static void log_info(char const* fmt, Args&&... args) {
-    log_info(LogAlways, fmt, std::forward<Args>(args)...);
-}
-
-template <typename... Args>
-static void log_warning(LogType type, char const* fmt, Args&&... args) {
-    Logger::get().log_level_type(Logger::Level::Warning, type, fmt, std::forward<Args>(args)...);
-}
-
-template <typename... Args>
-static void log_warning(char const* fmt, Args&&... args) {
-    log_warning(LogAlways, fmt, std::forward<Args>(args)...);
-}
-
-template <typename... Args>
-static void log_error(LogType type, char const* fmt, Args&&... args) {
-    Logger::get().log_level_type(Logger::Level::Error, type, fmt, std::forward<Args>(args)...);
-}
-
-template <typename... Args>
-static void log_error(char const* fmt, Args&&... args) {
-    log_error(LogAlways, fmt, std::forward<Args>(args)...);
-}
-
-template <typename... Args>
-static void log_fatal(LogType type, char const* fmt, Args&&... args) {
-    Logger::get().log_level_type(Logger::Level::Fatal, type, fmt, std::forward<Args>(args)...);
-    Logger::get().flush();
-    throw std::runtime_error(fmt::format(fmt, std::forward<Args>(args)...));
-}
-
-template <typename... Args>
-static void log_fatal(char const* fmt, Args&&... args) {
-    log_fatal(LogAlways, fmt, std::forward<Args>(args)...);
-}
-
-template <typename... Args>
-static void log_assert(bool cond, LogType type, char const* fmt, Args&&... args) {
-    if (not cond) {
-        Logger::get().log_level_type(Logger::Level::Fatal, type, fmt, std::forward<Args>(args)...);
-        Logger::get().flush();
-        throw std::runtime_error(fmt::format(fmt, std::forward<Args>(args)...));
-    }
-}
-
-template <typename... Args>
-static void log_assert(bool cond, char const* fmt, Args&&... args) {
-    log_assert(cond, LogAlways, fmt, std::forward<Args>(args)...);
-}
-
-#undef LOGGER_TYPES
-
-}  // namespace tt_device_logger

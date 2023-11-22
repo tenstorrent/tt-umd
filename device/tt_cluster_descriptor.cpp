@@ -12,7 +12,7 @@
 #include "common/assert.hpp"
 #include "yaml-cpp/yaml.h"
 
-
+using namespace tt;
 bool tt_ClusterDescriptor::ethernet_core_has_active_ethernet_link(chip_id_t local_chip, ethernet_channel_t local_ethernet_channel) const {
     return this->ethernet_connections.find(local_chip) != this->ethernet_connections.end() &&
            this->ethernet_connections.at(local_chip).find(local_ethernet_channel) != this->ethernet_connections.at(local_chip).end();
@@ -167,10 +167,10 @@ void tt_ClusterDescriptor::load_ethernet_connections_from_connectivity_descripto
         }
     }
 
-    tt_device_logger::log_debug(tt_device_logger::LogSiliconDriver, "Ethernet Connectivity Descriptor:");
+    log_debug(LogSiliconDriver, "Ethernet Connectivity Descriptor:");
     for (const auto &[chip, chan_to_chip_chan_map] : desc.ethernet_connections) {
         for (const auto &[chan, chip_and_chan] : chan_to_chip_chan_map) {
-            tt_device_logger::log_debug(tt_device_logger::LogSiliconDriver, "\tchip: {}, chan: {}  <-->  chip: {}, chan: {}", chip, chan, std::get<0>(chip_and_chan), std::get<1>(chip_and_chan));
+            log_debug(LogSiliconDriver, "\tchip: {}, chan: {}  <-->  chip: {}, chan: {}", chip, chan, std::get<0>(chip_and_chan), std::get<1>(chip_and_chan));
         }
     }
 }
@@ -194,10 +194,10 @@ void tt_ClusterDescriptor::load_chips_from_connectivity_descriptor(YAML::Node &y
             desc.chips_with_mmio.insert(chip.as<int>());
         }
     }
-    tt_device_logger::log_debug(tt_device_logger::LogSiliconDriver, "Device IDs and Locations:");
+    log_debug(LogSiliconDriver, "Device IDs and Locations:");
     for (const auto &[chip_id, chip_location] : desc.chip_locations) {
-        tt_device_logger::log_debug(
-            tt_device_logger::LogSiliconDriver,
+        log_debug(
+            LogSiliconDriver,
             "\tchip: {},  EthCoord(x={}, y={}, rack={}, shelf={})",
             chip_id,
             std::get<0>(chip_location),

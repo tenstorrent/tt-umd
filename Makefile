@@ -22,18 +22,20 @@ endif
 
 DEVICE_CXX = /usr/bin/g++
 CXXFLAGS = -MMD -I$(UMD_HOME)/. --std=c++17
-ifeq ($(CONFIG), release)
-CXXFLAGS += -O3
+ifeq ($(CONFIG), deploy)
+CXXFLAGS += -O3 -fno-lto
+else ifeq ($(CONFIG), release)
+CXXFLAGS += -O3 -fno-lto -DTT_DEBUG_LOGGING
 else ifeq ($(CONFIG), ci)
-CXXFLAGS += -O3  # significantly smaller artifacts
+CXXFLAGS += -O3 -DTT_DEBUG_LOGGING
 else ifeq ($(CONFIG), assert)
-CXXFLAGS += -O3 -g
+CXXFLAGS += -O3 -g -DTT_DEBUG_LOGGING
 else ifeq ($(CONFIG), asan)
-CXXFLAGS += -O3 -g -fsanitize=address
+CXXFLAGS += -O3 -g -fsanitize=address -DTT_DEBUG_LOGGING
 else ifeq ($(CONFIG), ubsan)
-CXXFLAGS += -O3 -g -fsanitize=undefined
+CXXFLAGS += -O3 -g -fsanitize=undefined -DTT_DEBUG_LOGGING
 else ifeq ($(CONFIG), debug)
-CXXFLAGS += -O0 -g -DDEBUG
+CXXFLAGS += -O0 -g -DTT_DEBUG_LOGGING
 else
 $(error Unknown value for CONFIG "$(CONFIG)")
 endif

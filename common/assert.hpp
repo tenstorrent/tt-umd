@@ -117,7 +117,7 @@ template <typename... Ts>
     trace_message_ss << "backtrace:\n";
     trace_message_ss << tt::assert::backtrace_to_string(100, 3, " --- ");
     trace_message_ss << std::flush;
-    tt_device_logger::Logger::get().flush();
+    Logger::get().flush();
     throw std::runtime_error(trace_message_ss.str());
 
 }

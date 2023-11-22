@@ -1828,7 +1828,7 @@ void tt_SiliconDevice::initialize_pcie_devices() {
                 uninit_dma_turbo_buf(pci_device);
             }
         } else {
-            log_info(LogSiliconDriver, "Disable PCIE DMA, fallback to MMIO transfers due to exepction {}", e.what());
+            log_info(LogSiliconDriver, "Disable PCIE DMA.");
         }
     }   
 }
@@ -4345,17 +4345,17 @@ void tt_SiliconDevice::deassert_resets_and_set_power_state() {
 
 void tt_SiliconDevice::verify_sw_fw_versions(int device_id, std::uint32_t sw_version, std::vector<std::uint32_t> &fw_versions) {
     tt_version sw(sw_version), fw_first_eth_core(fw_versions.at(0));
-    tt_device_logger::log_info(
-        tt_device_logger::LogSiliconDriver,
+    log_info(
+        LogSiliconDriver,
         "Software version {}, Ethernet FW version {} (Device {})",
         sw.str(),
         fw_first_eth_core.str(),
         device_id);
     for (std::uint32_t &fw_version : fw_versions) {
         tt_version fw(fw_version);
-        tt_device_logger::log_assert(fw == fw_first_eth_core, "FW versions are not the same across different ethernet cores");
-        tt_device_logger::log_assert(sw.major == fw.major, "SW/FW major version number out of sync");
-        tt_device_logger::log_assert(sw.minor <= fw.minor, "SW version is newer than FW version");
+        log_assert(fw == fw_first_eth_core, tt::LogSiliconDriver, "FW versions are not the same across different ethernet cores");
+        log_assert(sw.major == fw.major, tt::LogSiliconDriver, "SW/FW major version number out of sync");
+        log_assert(sw.minor <= fw.minor, tt::LogSiliconDriver, "SW version is newer than FW version");
     }
     // Min ERISC FW version required to support ethernet broadcast is 6.5.0.
     use_ethernet_broadcast &= (fw_first_eth_core.major >= 6 && fw_first_eth_core.minor >= 5);

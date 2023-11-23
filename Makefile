@@ -22,9 +22,9 @@ endif
 
 DEVICE_CXX = /usr/bin/g++
 CXXFLAGS = -MMD -I$(UMD_HOME)/. --std=c++17
-ifeq ($(CONFIG), external_release)
+ifeq ($(CONFIG), deploy)
 CXXFLAGS += -O3 -fno-lto
-else ifeq ($(CONFIG), internal_release)
+else ifeq ($(CONFIG), release)
 CXXFLAGS += -O3 -fno-lto -DTT_DEBUG_LOGGING
 else ifeq ($(CONFIG), ci)
 CXXFLAGS += -O3 -DTT_DEBUG_LOGGING

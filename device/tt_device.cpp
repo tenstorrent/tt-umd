@@ -3,10 +3,10 @@
 // SPDX-License-Identifier: Apache-2.0
 
 
-#ifdef DEBUG
+#ifdef TT_DEBUG_LOGGING
 #define DEBUG_LOG(str) do { std::cout << str << std::endl; } while( false )
 #else
-#define DEBUG_LOG(str) do { } while ( false )
+#define DEBUG_LOG(str) ((void)0)
 #endif
 
 #include "tt_device.h"

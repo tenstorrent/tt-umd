@@ -2067,7 +2067,7 @@ void tt_SiliconDevice::write_dma_buffer(
     chip_id_t src_device_id) {
 
     log_trace(LogSiliconDriver, "Issuing write to host side DMA Buffer inside Silicon Driver. DMA Buffer chan {} address {} size {}", channel, address, size);
-    log_debug(LogSiliconDriver, "Issuing write to host side DMA Buffer inside Silicon Driver. DMA Buffer chan {} address {} size {}", channel, address, size);
+    // log_debug(LogSiliconDriver, "Issuing write to host side DMA Buffer inside Silicon Driver. DMA Buffer chan {} address {} size {}", channel, address, size);
 
     void * user_scratchspace = nullptr;
     if(hugepage_mapping.at(src_device_id).at(channel)) {

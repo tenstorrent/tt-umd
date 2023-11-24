@@ -5,6 +5,7 @@
 #include "gtest/gtest.h"
 #include <tt_device.h>
 #include "device_data.hpp"
+#include "eth_l1_address_map.h"
 #include "l1_address_map.h"
 #include "eth_interface.h"
 #include "host_mem_address_map.h"
@@ -25,7 +26,48 @@ void set_params_for_remote_txn(tt_SiliconDevice& device) {
     
     device.set_device_l1_address_params({l1_mem::address_map::NCRISC_FIRMWARE_BASE, l1_mem::address_map::FIRMWARE_BASE,
                                   l1_mem::address_map::TRISC0_SIZE, l1_mem::address_map::TRISC1_SIZE, l1_mem::address_map::TRISC2_SIZE,
-                                  l1_mem::address_map::TRISC_BASE});
+                                  l1_mem::address_map::TRISC_BASE, l1_mem::address_map::L1_BARRIER_BASE, eth_l1_mem::address_map::ERISC_BARRIER_BASE,
+                                  eth_l1_mem::address_map::FW_VERSION_ADDR});
+}
+
+std::int32_t get_static_tlb_index(tt_xy_pair target) {
+    bool is_eth_location = std::find(std::cbegin(DEVICE_DATA.ETH_LOCATIONS), std::cend(DEVICE_DATA.ETH_LOCATIONS), target) != std::cend(DEVICE_DATA.ETH_LOCATIONS);
+    bool is_tensix_location = std::find(std::cbegin(DEVICE_DATA.T6_X_LOCATIONS), std::cend(DEVICE_DATA.T6_X_LOCATIONS), target.x) != std::cend(DEVICE_DATA.T6_X_LOCATIONS) &&
+                            std::find(std::cbegin(DEVICE_DATA.T6_Y_LOCATIONS), std::cend(DEVICE_DATA.T6_Y_LOCATIONS), target.y) != std::cend(DEVICE_DATA.T6_Y_LOCATIONS);
+    if (is_eth_location) {
+        if (target.y == 6) {
+            target.y = 1;
+        }
+
+        if (target.x >= 5) {
+            target.x -= 1;
+        }
+        target.x -= 1;
+
+        int flat_index = target.y * 8 + target.x;
+        int tlb_index = flat_index;
+        return tlb_index;
+
+    } else if (is_tensix_location) {
+        if (target.x >= 5) {
+            target.x -= 1;
+        }
+        target.x -= 1;
+
+        if (target.y >= 6) {
+            target.y -= 1;
+        }
+        target.y -= 1;
+
+        int flat_index = target.y * 8 + target.x;
+
+        // All 80 get single 1MB TLB.
+        int tlb_index = DEVICE_DATA.ETH_LOCATIONS.size() + flat_index;
+
+        return tlb_index;
+    } else {
+        return -1;
+    }
 }
 
 TEST(SiliconDriverWH, CreateDestroy) {
@@ -104,18 +146,8 @@ TEST(SiliconDriverWH, CustomSocDesc) {
 TEST(SiliconDriverWH, HarvestingRuntime) {
     setenv("TT_BACKEND_HARVESTED_ROWS", "30,60", 1);
 
-    auto get_static_tlb_index = [] (tt_xy_pair target) {
-        if (target.x >= 5) {
-            target.x -= 1;
-        }
-        target.x -= 1;
-
-        if (target.y >= 6) {
-            target.y -= 1;
-        }
-        target.y -= 1;
-
-        return target.y * 8 + target.x;
+    auto get_static_tlb_index_callback = [] (tt_xy_pair target) {
+        return get_static_tlb_index(target);
     };
 
     std::set<chip_id_t> target_devices = {0, 1};
@@ -141,11 +173,11 @@ TEST(SiliconDriverWH, HarvestingRuntime) {
             auto& sdesc = device.get_virtual_soc_descriptors().at(i);
             for(auto& core : sdesc.workers) {
                 // Statically mapping a 1MB TLB to this core, starting from address NCRISC_FIRMWARE_BASE.  
-                device.configure_tlb(i, core, get_static_tlb_index(core), l1_mem::address_map::NCRISC_FIRMWARE_BASE);
+                device.configure_tlb(i, core, get_static_tlb_index_callback(core), l1_mem::address_map::NCRISC_FIRMWARE_BASE);
             }
         } 
     }
-    device.setup_core_to_tlb_map(get_static_tlb_index);
+    device.setup_core_to_tlb_map(get_static_tlb_index_callback);
     
     tt_device_params default_params;
     device.start_device(default_params);
@@ -187,18 +219,8 @@ TEST(SiliconDriverWH, HarvestingRuntime) {
 }
 
 TEST(SiliconDriverWH, UnalignedStaticTLB_RW) {
-    auto get_static_tlb_index = [] (tt_xy_pair target) {
-        if (target.x >= 5) {
-            target.x -= 1;
-        }
-        target.x -= 1;
-
-        if (target.y >= 6) {
-            target.y -= 1;
-        }
-        target.y -= 1;
-
-        return target.y * 8 + target.x;
+    auto get_static_tlb_index_callback = [] (tt_xy_pair target) {
+        return get_static_tlb_index(target);
     };
 
     std::set<chip_id_t> target_devices = {0, 1};
@@ -217,12 +239,12 @@ TEST(SiliconDriverWH, UnalignedStaticTLB_RW) {
             auto& sdesc = device.get_virtual_soc_descriptors().at(i);
             for(auto& core : sdesc.workers) {
                 // Statically mapping a 1MB TLB to this core, starting from address NCRISC_FIRMWARE_BASE.  
-                device.configure_tlb(i, core, get_static_tlb_index(core), l1_mem::address_map::NCRISC_FIRMWARE_BASE);
+                device.configure_tlb(i, core, get_static_tlb_index_callback(core), l1_mem::address_map::NCRISC_FIRMWARE_BASE);
             }
         } 
     }
 
-    device.setup_core_to_tlb_map(get_static_tlb_index);
+    device.setup_core_to_tlb_map(get_static_tlb_index_callback);
     
     tt_device_params default_params;
     device.start_device(default_params);
@@ -262,18 +284,8 @@ TEST(SiliconDriverWH, UnalignedStaticTLB_RW) {
 
 
 TEST(SiliconDriverWH, StaticTLB_RW) {
-    auto get_static_tlb_index = [] (tt_xy_pair target) {
-        if (target.x >= 5) {
-            target.x -= 1;
-        }
-        target.x -= 1;
-
-        if (target.y >= 6) {
-            target.y -= 1;
-        }
-        target.y -= 1;
-
-        return target.y * 8 + target.x;
+    auto get_static_tlb_index_callback = [] (tt_xy_pair target) {
+        return get_static_tlb_index(target);
     };
 
     std::set<chip_id_t> target_devices = {0, 1};
@@ -299,12 +311,12 @@ TEST(SiliconDriverWH, StaticTLB_RW) {
             auto& sdesc = device.get_virtual_soc_descriptors().at(i);
             for(auto& core : sdesc.workers) {
                 // Statically mapping a 1MB TLB to this core, starting from address NCRISC_FIRMWARE_BASE.  
-                device.configure_tlb(i, core, get_static_tlb_index(core), l1_mem::address_map::NCRISC_FIRMWARE_BASE);
+                device.configure_tlb(i, core, get_static_tlb_index_callback(core), l1_mem::address_map::NCRISC_FIRMWARE_BASE);
             }
         } 
     }
 
-    device.setup_core_to_tlb_map(get_static_tlb_index);
+    device.setup_core_to_tlb_map(get_static_tlb_index_callback);
     
     tt_device_params default_params;
     device.start_device(default_params);
@@ -458,18 +470,8 @@ TEST(SiliconDriverWH, MultiThreadedMemBar) {
 
     // Memory barrier flags get sent to address 0 for all channels in this test
 
-    auto get_static_tlb_index = [] (tt_xy_pair target) {
-        if (target.x >= 5) {
-            target.x -= 1;
-        }
-        target.x -= 1;
-
-        if (target.y >= 6) {
-            target.y -= 1;
-        }
-        target.y -= 1;
-
-        return target.y * 8 + target.x;
+    auto get_static_tlb_index_callback = [] (tt_xy_pair target) {
+        return get_static_tlb_index(target);
     };
 
     std::set<chip_id_t> target_devices = {0};
@@ -479,15 +481,16 @@ TEST(SiliconDriverWH, MultiThreadedMemBar) {
     uint32_t num_host_mem_ch_per_mmio_device = 1;
 
     tt_SiliconDevice device = tt_SiliconDevice("./tests/soc_descs/wormhole_b0_8x10.yaml", GetClusterDescYAML().string(), target_devices, num_host_mem_ch_per_mmio_device, dynamic_tlb_config);
+    set_params_for_remote_txn(device);
     for(int i = 0; i < target_devices.size(); i++) {
         // Iterate over devices and only setup static TLBs for functional worker cores
         auto& sdesc = device.get_virtual_soc_descriptors().at(i);
         for(auto& core : sdesc.workers) {
             // Statically mapping a 1MB TLB to this core, starting from address DATA_BUFFER_SPACE_BASE. 
-            device.configure_tlb(i, core, get_static_tlb_index(core), base_addr);
+            device.configure_tlb(i, core, get_static_tlb_index_callback(core), base_addr);
         }
     }
-    device.setup_core_to_tlb_map(get_static_tlb_index);
+    device.setup_core_to_tlb_map(get_static_tlb_index_callback);
 
     tt_device_params default_params;
     device.start_device(default_params);
@@ -498,13 +501,7 @@ TEST(SiliconDriverWH, MultiThreadedMemBar) {
     }
     std::vector<uint32_t> readback_membar_vec = {};
     for(auto& core : device.get_virtual_soc_descriptors().at(0).workers) {
-        device.read_from_device(readback_membar_vec, tt_cxy_pair(0, core), 0, 4, "SMALL_READ_WRITE_TLB");
-        ASSERT_EQ(readback_membar_vec.at(0), 187); // Ensure that memory barriers were correctly initialized on all workers
-        readback_membar_vec = {};
-    }
-
-    for(auto& core : device.get_virtual_soc_descriptors().at(0).workers) {
-        device.read_from_device(readback_membar_vec, tt_cxy_pair(0, core), 0, 4, "SMALL_READ_WRITE_TLB");
+        device.read_from_device(readback_membar_vec, tt_cxy_pair(0, core), l1_mem::address_map::L1_BARRIER_BASE, 4, "SMALL_READ_WRITE_TLB");
         ASSERT_EQ(readback_membar_vec.at(0), 187); // Ensure that memory barriers were correctly initialized on all workers
         readback_membar_vec = {};
     }
@@ -517,16 +514,16 @@ TEST(SiliconDriverWH, MultiThreadedMemBar) {
     }
     
     for(auto& core : device.get_virtual_soc_descriptors().at(0).ethernet_cores) {
-        device.read_from_device(readback_membar_vec, tt_cxy_pair(0, core), 0, 4, "SMALL_READ_WRITE_TLB");
+        device.read_from_device(readback_membar_vec, tt_cxy_pair(0, core), eth_l1_mem::address_map::ERISC_BARRIER_BASE, 4, "SMALL_READ_WRITE_TLB");
         ASSERT_EQ(readback_membar_vec.at(0), 187); // Ensure that memory barriers were correctly initialized on all ethernet cores
         readback_membar_vec = {};
     }
-    
+
     // Launch 2 thread accessing different locations of L1 and using memory barrier between write and read
     // Ensure now RAW race and membars are thread safe
-    std::vector<uint32_t> vec1(25600);
-    std::vector<uint32_t> vec2(25600);
-    std::vector<uint32_t> zeros(25600, 0);
+    std::vector<uint32_t> vec1(2560);
+    std::vector<uint32_t> vec2(2560);
+    std::vector<uint32_t> zeros(2560, 0);
 
     for(int i = 0; i < vec1.size(); i++) {
         vec1.at(i) = i;
@@ -540,7 +537,7 @@ TEST(SiliconDriverWH, MultiThreadedMemBar) {
             for(auto& core : device.get_virtual_soc_descriptors().at(0).workers) {
                 std::vector<uint32_t> readback_vec = {};
                 device.write_to_device(vec1, tt_cxy_pair(0, core), address, "");
-                device.l1_membar(0, "", {core});
+                device.l1_membar(0, "SMALL_READ_WRITE_TLB", {core});
                 device.read_from_device(readback_vec, tt_cxy_pair(0, core), address, 4*vec1.size(), "");
                 ASSERT_EQ(readback_vec, vec1);
                 device.write_to_device(zeros, tt_cxy_pair(0, core), address, "");
@@ -556,7 +553,7 @@ TEST(SiliconDriverWH, MultiThreadedMemBar) {
             for(auto& core : device.get_virtual_soc_descriptors().at(0).workers) {
                 std::vector<uint32_t> readback_vec = {};
                 device.write_to_device(vec2, tt_cxy_pair(0, core), address, "");
-                device.l1_membar(0, "", {core});
+                device.l1_membar(0, "SMALL_READ_WRITE_TLB", {core});
                 device.read_from_device(readback_vec, tt_cxy_pair(0, core), address, 4*vec2.size(), "");
                 ASSERT_EQ(readback_vec, vec2);
                 device.write_to_device(zeros, tt_cxy_pair(0, core), address, "") ;
@@ -569,13 +566,13 @@ TEST(SiliconDriverWH, MultiThreadedMemBar) {
     th2.join();
 
     for(auto& core : device.get_virtual_soc_descriptors().at(0).workers) {
-        device.read_from_device(readback_membar_vec, tt_cxy_pair(0, core), 0, 4, "SMALL_READ_WRITE_TLB");
+        device.read_from_device(readback_membar_vec, tt_cxy_pair(0, core), l1_mem::address_map::L1_BARRIER_BASE, 4, "SMALL_READ_WRITE_TLB");
         ASSERT_EQ(readback_membar_vec.at(0), 187); // Ensure that memory barriers end up in the correct sate for workers
         readback_membar_vec = {};
     }
 
     for(auto& core : device.get_virtual_soc_descriptors().at(0).ethernet_cores) {
-        device.read_from_device(readback_membar_vec, tt_cxy_pair(0, core), 0, 4, "SMALL_READ_WRITE_TLB");
+        device.read_from_device(readback_membar_vec, tt_cxy_pair(0, core), eth_l1_mem::address_map::ERISC_BARRIER_BASE, 4, "SMALL_READ_WRITE_TLB");
         ASSERT_EQ(readback_membar_vec.at(0), 187); // Ensure that memory barriers end up in the correct sate for ethernet cores
         readback_membar_vec = {};
     }

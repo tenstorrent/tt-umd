@@ -68,6 +68,7 @@ struct tt_device_l1_address_params {
     std::int32_t TRISC_BASE = 0;
     std::int32_t TENSIX_L1_BARRIER_BASE = 0;
     std::int32_t ETH_L1_BARRIER_BASE = 0;
+    std::int32_t FW_VERSION_ADDR = 0;
 };
 
 /**
@@ -848,6 +849,8 @@ class tt_SiliconDevice: public tt_device
     std::optional<std::tuple<std::uint32_t, std::uint32_t>> describe_tlb(tt_xy_pair coord);
 
     // Test functions
+    void verify_eth_fw();
+    void verify_sw_fw_versions(int device_id, std::uint32_t sw_version, std::vector<std::uint32_t> &fw_versions);
     int test_pcie_tlb_setup (struct PCIdevice* pci_device);
     int test_setup_interface ();
     int test_broadcast (int logical_device_id);
@@ -913,6 +916,10 @@ class tt_SiliconDevice: public tt_device
     static constexpr char NON_MMIO_MUTEX_NAME[] = "NON_MMIO";
     static constexpr char ARC_MSG_MUTEX_NAME[] = "ARC_MSG";
     static constexpr char MEM_BARRIER_MUTEX_NAME[] = "MEM_BAR";
+
+    // ERISC FW Version Required by UMD
+    static constexpr std::uint32_t SW_VERSION = 0x06060000;
+
 };
 
 tt::ARCH detect_arch(uint16_t device_id = 0);
@@ -936,3 +943,6 @@ constexpr inline bool operator==(const tt_version &a, const tt_version &b) {
     return a.major == b.major && a.minor == b.minor && a.patch == b.patch;
 }
 
+constexpr inline bool operator>=(const tt_version &a, const tt_version &b) {
+    return a.major >= b.major && a.minor >= b.minor && a.patch >= b.patch;
+}

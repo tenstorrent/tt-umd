@@ -4114,8 +4114,41 @@ std::set<chip_id_t> tt_SiliconDevice::get_target_remote_device_ids() {
     return target_remote_chips;
 }
 
+
+void tt_SiliconDevice::verify_sw_fw_versions(int device_id, std::uint32_t sw_version, std::vector<std::uint32_t> &fw_versions) {
+    tt_version sw(sw_version), fw_first_eth_core(fw_versions.at(0));
+    log_info(
+        LogSiliconDriver,
+        "Software version {}, Ethernet FW version {} (Device {})",
+        sw.str(),
+        fw_first_eth_core.str(),
+        device_id);
+    for (std::uint32_t &fw_version : fw_versions) {
+        tt_version fw(fw_version);
+        log_assert(fw == fw_first_eth_core, LogSiliconDriver, "FW versions are not the same across different ethernet cores");
+        log_assert(sw.major == fw.major, LogSiliconDriver, "SW/FW major version number out of sync");
+        log_assert(sw.minor <= fw.minor, LogSiliconDriver, "SW version is newer than FW version");
+    }
+}
+
+void tt_SiliconDevice::verify_eth_fw() {
+    for(const auto& chip : target_devices_in_cluster) {
+        std::vector<uint32_t> mem_vector;
+        std::vector<uint32_t> fw_versions;
+        for (tt_xy_pair &eth_core : get_soc_descriptor(chip).ethernet_cores) {
+            read_from_device(mem_vector, tt_cxy_pair(chip, eth_core), l1_address_params.FW_VERSION_ADDR, sizeof(uint32_t), "LARGE_READ_TLB");
+            fw_versions.push_back(mem_vector.at(0));
+        }
+        verify_sw_fw_versions(chip, SW_VERSION, fw_versions);
+    }
+}
+
+
 void tt_SiliconDevice::start_device(const tt_device_params &device_params) {
     if(device_params.init_device) {
+        if(arch_name == tt::ARCH::WORMHOLE || arch_name == tt::ARCH::WORMHOLE_B0) {
+            verify_eth_fw();
+        }
         init_system(device_params, get_soc_descriptor(*target_devices_in_cluster.begin()).grid_size); // grid size here is used to get vcd dump cores (nost used for silicon)
         set_power_state(tt_DevicePowerState::BUSY);
 

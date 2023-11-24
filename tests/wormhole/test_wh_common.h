@@ -1,6 +1,7 @@
 #pragma once
 #include "../test_utils/stimulus_generators.hpp"
 
+#include "eth_l1_address_map.h"
 #include "tt_xy_pair.h"
 #include <tt_cluster_descriptor.h>
 #include <tt_device.h>
@@ -18,7 +19,8 @@ static void set_params_for_remote_txn(tt_SiliconDevice& device) {
     
     device.set_device_l1_address_params({l1_mem::address_map::NCRISC_FIRMWARE_BASE, l1_mem::address_map::FIRMWARE_BASE,
                                   l1_mem::address_map::TRISC0_SIZE, l1_mem::address_map::TRISC1_SIZE, l1_mem::address_map::TRISC2_SIZE,
-                                  l1_mem::address_map::TRISC_BASE});
+                                  l1_mem::address_map::TRISC_BASE, l1_mem::address_map::L1_BARRIER_BASE, eth_l1_mem::address_map::ERISC_BARRIER_BASE,
+                                  eth_l1_mem::address_map::FW_VERSION_ADDR});
 }
 
 class WormholeTestFixture : public ::testing::Test {

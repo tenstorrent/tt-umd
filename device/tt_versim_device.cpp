@@ -181,7 +181,7 @@ void tt_VersimDevice::rolled_write_to_device(uint32_t* mem_ptr, uint32_t len, ui
   rolled_write_to_device(mem_vector, unroll_count, core, addr, fallback_tlb);
 }
 
-void tt_VersimDevice::write_to_device(std::vector<uint32_t> &vec, tt_cxy_pair core, uint64_t addr, const std::string& tlb_to_use, bool send_epoch_cmd, bool last_send_epoch_cmd) {
+void tt_VersimDevice::write_to_device(std::vector<uint32_t> &vec, tt_cxy_pair core, uint64_t addr, const std::string& tlb_to_use, bool send_epoch_cmd, bool last_send_epoch_cmd, bool ordered_with_prev_remote_write) {
   DEBUG_LOG("Versim Device (" << get_sim_time(*versim) << "): Write vector at target core " << core.str() << ", address: " << std::hex << addr << std::dec);
 
   bool aligned_32B = (soc_descriptor_per_chip.begin() -> second).cores.at(core).type == CoreType::DRAM;
@@ -192,10 +192,10 @@ void tt_VersimDevice::write_to_device(std::vector<uint32_t> &vec, tt_cxy_pair co
   nuapi::device::write_memory_to_core(*versim, CA_target, CA_tensor_memory);
 }
 
-void tt_VersimDevice::write_to_device(const void *mem_ptr, uint32_t size, tt_cxy_pair core, uint64_t addr, const std::string& tlb_to_use, bool send_epoch_cmd, bool last_send_epoch_cmd) {
+void tt_VersimDevice::write_to_device(const void *mem_ptr, uint32_t size, tt_cxy_pair core, uint64_t addr, const std::string& tlb_to_use, bool send_epoch_cmd, bool last_send_epoch_cmd, bool ordered_with_prev_remote_write) {
   log_assert(!(size % 4), tt::LogSiliconDriver, "Writes to Versim Backend should be 4 byte aligned!");
   std::vector<std::uint32_t> mem_vector((uint32_t*)mem_ptr, (uint32_t*)mem_ptr + size / sizeof(uint32_t));
-  write_to_device(mem_vector, core, addr, tlb_to_use, send_epoch_cmd, last_send_epoch_cmd);
+  write_to_device(mem_vector, core, addr, tlb_to_use, send_epoch_cmd, last_send_epoch_cmd, ordered_with_prev_remote_write);
 }
 
 void tt_VersimDevice::wait_for_non_mmio_flush() {

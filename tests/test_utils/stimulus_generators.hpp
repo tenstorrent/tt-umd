@@ -123,7 +123,8 @@ struct write_epoch_cmd_sample_t {
     transfer_size_t size_in_bytes;
     std::string tlb_to_use;
     bool last_epoch_command;
-    // (payload.data(), size, destination, address, tlb_to_use, last_epoch_command);
+    bool ordered_with_prev_remote_write;
+    // (payload.data(), size, destination, address, tlb_to_use, last_epoch_command, ordered_with_prev_remote_write);
 };
 
 using remote_transfer_sample_t = std::tuple<RemoteTransferType, std::variant<write_transfer_sample_t, rolled_write_transfer_sample_t, read_transfer_sample_t, write_epoch_cmd_sample_t>>;
@@ -164,6 +165,7 @@ template <
     template <typename>
     class SIZE_DISTR_T,
     class LAST_CMD_DISTR_T,
+    class ORDERED_DISTR_T,
 
     typename GENERATOR_T = std::mt19937>
 struct WriteEpochCmdCommandGenerator {
@@ -171,21 +173,25 @@ struct WriteEpochCmdCommandGenerator {
     using address_generator_t = ConstrainedTemplateTemplateGenerator<address_t, address_t, ADDR_DISTR_T, GENERATOR_T>;
     using size_generator_t = ConstrainedTemplateTemplateGenerator<transfer_size_t, transfer_size_t, SIZE_DISTR_T, GENERATOR_T>;
     using last_cmd_generator_t = ConstrainedTemplateGenerator<bool, bool, LAST_CMD_DISTR_T, GENERATOR_T>;
+    using ordered_generator_t = ConstrainedTemplateGenerator<bool, bool, ORDERED_DISTR_T, GENERATOR_T>;
 
     WriteEpochCmdCommandGenerator(
         destination_generator_t const& destination_generator,
         address_generator_t const& address_generator,
         size_generator_t const& size_generator,
-        last_cmd_generator_t const& last_cmd_generator) :
+        last_cmd_generator_t const& last_cmd_generator,
+        ordered_generator_t const& ordered_generator) :
         destination_generator(destination_generator),
         address_generator(address_generator),
         size_generator(size_generator),
-        last_cmd_generator(last_cmd_generator) {}
+        last_cmd_generator(last_cmd_generator),
+        ordered_generator(ordered_generator) {}
 
     destination_generator_t destination_generator;
     address_generator_t address_generator;
     size_generator_t size_generator;
     last_cmd_generator_t last_cmd_generator;
+    ordered_generator_t ordered_generator;
 };
 
 template <
@@ -268,6 +274,7 @@ template <
     template <typename>
     class WRITE_EPOCH_CMD_SIZE_DISTR_T,
     class WRITE_EPOCH_CMD_LAST_CMD_DISTR_T,
+    class WRITE_EPOCH_CMD_ORDERED_DISTR_T,
 
     template <typename>
     class ROLLED_WRITE_DEST_DISTR_T,
@@ -292,7 +299,7 @@ class TestGenerator {
     using transfer_type_generator_t = DefaultTransferTypeGenerator;  // ConstrainedTemplateTemplateGenerator<RemoteTransferType, int,
                                                                      // TRANS_TYPE_DISTRIBUTION_T, GENERATOR_T>;
     using write_command_generator_t = WriteCommandGenerator<WRITE_DEST_DISTR_T, WRITE_ADDR_DISTR_T, WRITE_SIZE_DISTR_OUT_T, WRITE_SIZE_DISTR_T>;
-    using write_epoch_cmd_command_generator_t = WriteEpochCmdCommandGenerator<WRITE_EPOCH_CMD_DEST_DISTR_T, WRITE_EPOCH_CMD_ADDR_DISTR_T, WRITE_EPOCH_CMD_SIZE_DISTR_T, WRITE_EPOCH_CMD_LAST_CMD_DISTR_T>;
+    using write_epoch_cmd_command_generator_t = WriteEpochCmdCommandGenerator<WRITE_EPOCH_CMD_DEST_DISTR_T, WRITE_EPOCH_CMD_ADDR_DISTR_T, WRITE_EPOCH_CMD_SIZE_DISTR_T, WRITE_EPOCH_CMD_LAST_CMD_DISTR_T, WRITE_EPOCH_CMD_ORDERED_DISTR_T>;
     using rolled_write_command_generator_t = RolledWriteCommandGenerator<ROLLED_WRITE_DEST_DISTR_T, ROLLED_WRITE_ADDR_DISTR_T, ROLLED_WRITE_SIZE_DISTR_OUT_T, ROLLED_WRITE_SIZE_DISTR_T, ROLLED_WRITE_UNROLL_DISTR_T>;
     using read_command_generator_t = ReadCommandGenerator<READ_DEST_DISTR_T,READ_ADDR_DISTR_T, READ_SIZE_DISTR_OUT_T, READ_SIZE_DISTR_T>;
 
@@ -349,12 +356,14 @@ class TestGenerator {
                 address_t const& address = write_epoch_cmd_command_generator.address_generator.generate();
                 transfer_size_t const& size_in_bytes = write_epoch_cmd_command_generator.size_generator.generate();
                 bool last_epoch_cmd = write_epoch_cmd_command_generator.last_cmd_generator.generate();
+                bool ordered_with_prev_remote_write = write_epoch_cmd_command_generator.ordered_generator.generate();
                 return {transfer_type, write_epoch_cmd_sample_t{
                     .destination = destination,
                     .address = address,
                     .size_in_bytes = size_in_bytes,
                     .tlb_to_use = "LARGE_READ_TLB",
-                    .last_epoch_command = last_epoch_cmd}};
+                    .last_epoch_command = last_epoch_cmd,
+                    .ordered_with_prev_remote_write = ordered_with_prev_remote_write}};
             } break;
 
             case RemoteTransferType::READ: {
@@ -443,7 +452,8 @@ static void print_command(remote_transfer_sample_t const& command) {
             std::cout << "Transfer type: EPOCH_CMD_WRITE, destination: (c=" << command_args.destination.chip
                         << ", y=" << command_args.destination.y << ", x=" << command_args.destination.x
                         << "), address: " << command_args.address << ", size_in_bytes: " << command_args.size_in_bytes
-                        << ", last_cmd: " << (command_args.last_epoch_command ? " True" : "False") << std::endl;
+                        << ", last_cmd: " << (command_args.last_epoch_command ? " True" : "False")
+                        << ", ordered_w_prev_remote_write: " <<  (command_args.ordered_with_prev_remote_write ? " True" : "False") << std::endl;
         } break;
         default: throw std::runtime_error("Invalid transfer type");
     };
@@ -488,7 +498,7 @@ static inline void dispatch_remote_transfer_command(
             write_epoch_cmd_sample_t const& command_args = std::get<write_epoch_cmd_sample_t>(std::get<1>(command));
             assert(command_args.size_in_bytes >= sizeof(uint32_t));
             resize_payload(payload,command_args.size_in_bytes);
-            driver.write_epoch_cmd_to_device(payload.data(), bytes_to_words<uint32_t>(command_args.size_in_bytes), command_args.destination, command_args.address, command_args.tlb_to_use, command_args.last_epoch_command);
+            driver.write_epoch_cmd_to_device(payload.data(), bytes_to_words<uint32_t>(command_args.size_in_bytes), command_args.destination, command_args.address, command_args.tlb_to_use, command_args.last_epoch_command, command_args.ordered_with_prev_remote_write);
         } break;
         default:
             throw std::runtime_error("Invalid transfer type");
@@ -536,8 +546,9 @@ static void print_command_executable_code(remote_transfer_sample_t const& comman
             std::cout << "tt_cxy_pair const& destination = tt_cxy_pair(" << command_args.destination.chip << ", " << command_args.destination.x << ", " << command_args.destination.y << ");"  << std::endl;
             emit_payload_resize_string(command_args.size_in_bytes, sizeof(uint32_t));
             emit_bytes_to_words_len_string("len", command_args.size_in_bytes, sizeof(uint32_t));
-            std::cout << "device->write_epoch_cmd_to_device(payload.data(), len, destination, " << command_args.address << ", \""  << command_args.tlb_to_use << "\", " << (command_args.last_epoch_command ? "true":"false") << ");" << std::endl;
-            // driver.write_epoch_cmd_to_device(payload.data(), command_args.size, command_args.destination, command_args.address, command_args.tlb_to_use, command_args.last_epoch_command);
+            std::cout << "device->write_epoch_cmd_to_device(payload.data(), len, destination, " << command_args.address << ", \""  << command_args.tlb_to_use << "\", " << (command_args.last_epoch_command ? "true":"false")
+            << "\", " << (command_args.ordered_with_prev_remote_write ? "true":"false") << ");" << std::endl;
+            // driver.write_epoch_cmd_to_device(payload.data(), command_args.size, command_args.destination, command_args.address, command_args.tlb_to_use, command_args.last_epoch_command, command_args.ordered_with_prev_remote_write);
         } break;
         default:
             throw std::runtime_error("Invalid transfer type");
@@ -572,6 +583,7 @@ template<
     template <typename> class WRITE_EPOCH_CMD_ADDR_DISTR_T, 
     template <typename> class WRITE_EPOCH_CMD_SIZE_DISTR_T,
     class WRITE_EPOCH_CMD_LAST_CMD_DISTR_T,
+    class WRITE_EPOCH_CMD_ORDERED_DISTR_T,
 
     template <typename> class READ_DEST_DISTR_T, 
     template <typename> class READ_ADDR_DISTR_T, 
@@ -587,7 +599,7 @@ void RunMixedTransfers(
 
     WriteCommandGenerator<WRITE_DEST_DISTR_T, WRITE_ADDR_DISTR_T, WRITE_SIZE_DISTR_OUT_T, WRITE_SIZE_DISTR_T> const& write_command_generator,
     RolledWriteCommandGenerator<ROLLED_WRITE_DEST_DISTR_T, ROLLED_WRITE_ADDR_DISTR_T, ROLLED_WRITE_SIZE_DISTR_OUT_T, ROLLED_WRITE_SIZE_DISTR_T, ROLLED_WRITE_UNROLL_COUNT_DISTR_T> const& rolled_write_command_generator,
-    WriteEpochCmdCommandGenerator<WRITE_EPOCH_CMD_DEST_DISTR_T, WRITE_EPOCH_CMD_ADDR_DISTR_T, WRITE_EPOCH_CMD_SIZE_DISTR_T, WRITE_EPOCH_CMD_LAST_CMD_DISTR_T> const& write_epoch_cmd_command_generator,
+    WriteEpochCmdCommandGenerator<WRITE_EPOCH_CMD_DEST_DISTR_T, WRITE_EPOCH_CMD_ADDR_DISTR_T, WRITE_EPOCH_CMD_SIZE_DISTR_T, WRITE_EPOCH_CMD_LAST_CMD_DISTR_T, WRITE_EPOCH_CMD_ORDERED_DISTR_T> const& write_epoch_cmd_command_generator,
     ReadCommandGenerator<READ_DEST_DISTR_T, READ_ADDR_DISTR_T, READ_SIZE_DISTR_OUT_T, READ_SIZE_DISTR_T> const& read_command_generator,
     
     bool record_command_history = false,
@@ -681,6 +693,7 @@ static WriteEpochCmdCommandGenerator <
     std::uniform_int_distribution,
     std::uniform_int_distribution,
     std::uniform_int_distribution,
+    std::bernoulli_distribution,
     std::bernoulli_distribution
 > build_dummy_write_epoch_cmd_command_generator(tt_SiliconDevice &device) {
     tt_ClusterDescriptor *cluster_desc = device.get_cluster_description();
@@ -695,9 +708,11 @@ static WriteEpochCmdCommandGenerator <
         0, std::uniform_int_distribution<transfer_size_t>(0,0), transfer_size_aligner);
     auto last_epoch_cmd_generator = ConstrainedTemplateGenerator<bool, bool, std::bernoulli_distribution>(
         0, std::bernoulli_distribution(1), [](bool last_epoch_cmd) -> bool { return last_epoch_cmd; });
+    auto ordered_generator = ConstrainedTemplateGenerator<bool, bool, std::bernoulli_distribution>(
+        0, std::bernoulli_distribution(1), [](bool ordered_with_prev_remote_write) -> bool { return ordered_with_prev_remote_write; });
 
     return WriteEpochCmdCommandGenerator(
-        dest_generator, addr_generator_32B_aligned, write_epoch_cmd_generator, last_epoch_cmd_generator);
+        dest_generator, addr_generator_32B_aligned, write_epoch_cmd_generator, last_epoch_cmd_generator, ordered_generator);
 }
 
 static WriteCommandGenerator<
@@ -769,6 +784,7 @@ void RunMixedTransfersUniformDistributions(
     UNROLL_COUNT_GENERATOR_T<int> const& unroll_count_distribution,
     WRITE_EPOCH_CMD_SIZE_GENERATOR_T<transfer_size_t> const& write_epoch_cmd_size_distribution,
     float percent_not_last_epoch_cmd,
+    float percent_not_remote_ordered,
     READ_SIZE_GENERATOR_T<transfer_size_t> const& read_size_distribution,
     
     bool record_command_history = false,
@@ -794,6 +810,8 @@ void RunMixedTransfersUniformDistributions(
         seed + 2, write_epoch_cmd_size_distribution, transfer_size_aligner);
     auto last_epoch_cmd_generator = ConstrainedTemplateGenerator<bool, bool, std::bernoulli_distribution>(
         seed + 3, std::bernoulli_distribution(percent_not_last_epoch_cmd), [](bool last_epoch_cmd) -> bool { return last_epoch_cmd; });
+    auto ordered_generator = ConstrainedTemplateGenerator<bool, bool, std::bernoulli_distribution>(
+        seed + 3, std::bernoulli_distribution(percent_not_remote_ordered), [](bool ordered_with_prev_remote_write) -> bool { return ordered_with_prev_remote_write; });
     auto unroll_count_generator = ConstrainedTemplateTemplateGenerator<int, int, std::uniform_int_distribution>(
         seed + 4, unroll_count_distribution, [](int unroll_count) -> int { return unroll_count; });
 
@@ -807,7 +825,7 @@ void RunMixedTransfersUniformDistributions(
         WriteCommandGenerator(dest_generator, addr_generator, write_size_generator),
         RolledWriteCommandGenerator(dest_generator, addr_generator_32B_aligned, rolled_write_size_generator, unroll_count_generator),
         WriteEpochCmdCommandGenerator(
-            dest_generator, addr_generator_32B_aligned, write_epoch_cmd_generator, last_epoch_cmd_generator),
+            dest_generator, addr_generator_32B_aligned, write_epoch_cmd_generator, last_epoch_cmd_generator, ordered_generator),
         ReadCommandGenerator(dest_generator, addr_generator, read_size_generator),
         
         record_command_history,

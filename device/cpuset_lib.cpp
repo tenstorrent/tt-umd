@@ -21,19 +21,19 @@ int get_allowed_num_threads(){
 
     cpu_set_t mask;
     if (sched_getaffinity(0, sizeof(cpu_set_t), &mask) == -1) {
-        log_warning(tt_device_logger::LogSiliconDriver, "Could not detect current process cpu id affinity for calculating num_threads, will use default num_threads: {}.", num_threads);
+        log_warning(LogSiliconDriver, "Could not detect current process cpu id affinity for calculating num_threads, will use default num_threads: {}.", num_threads);
     }else{
         unsigned int visible_pu_count = CPU_COUNT(&mask);
         if (visible_pu_count < num_pus_in_system){
             num_threads = visible_pu_count;
         }
-        log_debug(tt_device_logger::LogSiliconDriver, "Detected (allowed) visible_pu_count: {}, setting num_threads: {}", visible_pu_count, num_threads);
+        log_debug(LogSiliconDriver, "Detected (allowed) visible_pu_count: {}, setting num_threads: {}", visible_pu_count, num_threads);
     }
 
     char const* override_thread_count = std::getenv("TT_BACKEND_COMPILE_THREADS");
     if (override_thread_count != nullptr && std::atoi(override_thread_count) > 0){
         num_threads = std::atoi(override_thread_count);
-        log_debug(tt_device_logger::LogSiliconDriver, "Overriding via env-var to num_threads: {}", num_threads);
+        log_debug(LogSiliconDriver, "Overriding via env-var to num_threads: {}", num_threads);
     }
 
     return num_threads;
@@ -55,7 +55,7 @@ tt_cpuset_allocator::tt_cpuset_allocator() {
     bool cpuset_allocator_enable_env = std::getenv("TT_BACKEND_CPUSET_ALLOCATOR_ENABLE") ? true : false;
 
     auto system_tid = std::this_thread::get_id();
-    log_debug(tt_device_logger::LogSiliconDriver,"Starting tt_cpuset_allocator constructor now for process_id: {} thread_id: {}", m_pid, system_tid);
+    log_debug(LogSiliconDriver,"Starting tt_cpuset_allocator constructor now for process_id: {} thread_id: {}", m_pid, system_tid);
 
     m_enable_cpuset_allocator = true;
 
@@ -77,27 +77,27 @@ tt_cpuset_allocator::tt_cpuset_allocator() {
             m_enable_cpuset_allocator = false;
         }
 
-        log_debug(tt_device_logger::LogSiliconDriver,"Finished tt_cpuset_allocator constructor now with m_enable_cpuset_allocator: {} for process_id: {} thread_id: {} ", m_enable_cpuset_allocator, m_pid, system_tid);
+        log_debug(LogSiliconDriver,"Finished tt_cpuset_allocator constructor now with m_enable_cpuset_allocator: {} for process_id: {} thread_id: {} ", m_enable_cpuset_allocator, m_pid, system_tid);
     }
 }
 
 // Step 1 : Initialize and perform m_topology detection
 bool tt_cpuset_allocator::init_topology_init_and_load(){
-    log_debug(tt_device_logger::LogSiliconDriver,"Inside tt_cpuset_allocator::topology_init_and_load()");
+    log_debug(LogSiliconDriver,"Inside tt_cpuset_allocator::topology_init_and_load()");
 
     if (!m_enable_cpuset_allocator){
         return false;
     }
 
     if (hwloc_topology_init(&m_topology)){
-        log_warning(tt_device_logger::LogSiliconDriver, "Problem initializing topology");
+        log_warning(LogSiliconDriver, "Problem initializing topology");
         return false;
     }
 
     hwloc_topology_set_type_filter(m_topology, HWLOC_OBJ_PCI_DEVICE, HWLOC_TYPE_FILTER_KEEP_ALL); // Need to find PCI devices.
 
     if (hwloc_topology_load(m_topology)){
-        log_warning(tt_device_logger::LogSiliconDriver, "Problem loading topology");
+        log_warning(LogSiliconDriver, "Problem loading topology");
         return false;
     }
 
@@ -111,7 +111,7 @@ bool tt_cpuset_allocator::init_find_tt_pci_devices_packages_numanodes(){
         return false;
     }
 
-    log_debug(tt_device_logger::LogSiliconDriver,"Starting tt_cpuset_allocator::init_find_tt_pci_devices_packages_numanodes()");
+    log_debug(LogSiliconDriver,"Starting tt_cpuset_allocator::init_find_tt_pci_devices_packages_numanodes()");
     m_num_tt_device_by_pci_device_id_map.clear();
 
     hwloc_obj_t pci_device_obj = NULL;
@@ -128,7 +128,7 @@ bool tt_cpuset_allocator::init_find_tt_pci_devices_packages_numanodes(){
             std::string pci_device_dir  = "/sys/bus/pci/devices/" + pci_bus_id_str + "/tenstorrent/";
             int physical_device_id = -1;
 
-            log_trace(tt_device_logger::LogSiliconDriver, "Found TT device with pci_bus_id_str: {} num_devices_by_pci_device_id: {}", pci_bus_id_str, m_num_tt_device_by_pci_device_id_map[device_id_revision]);
+            log_trace(LogSiliconDriver, "Found TT device with pci_bus_id_str: {} num_devices_by_pci_device_id: {}", pci_bus_id_str, m_num_tt_device_by_pci_device_id_map[device_id_revision]);
 
             // First, get the physical_device_id of the device.
             if (fs::exists(pci_device_dir)){
@@ -138,13 +138,13 @@ bool tt_cpuset_allocator::init_find_tt_pci_devices_packages_numanodes(){
                     if (std::smatch device_match; std::regex_search(entry_str, device_match, tt_device_re) and (stoi(device_match[1]) >= 0)){
                         physical_device_id = stoi(device_match[1]);
                         m_all_tt_devices.push_back(physical_device_id);
-                        log_debug(tt_device_logger::LogSiliconDriver, "Found physical_device_id: {} from file: {}", physical_device_id, entry_str);
+                        log_debug(LogSiliconDriver, "Found physical_device_id: {} from file: {}", physical_device_id, entry_str);
                         break;
                     }
                 }
 
                 if (physical_device_id == -1){
-                    log_warning(tt_device_logger::LogSiliconDriver, "Did not find file containing physical_device_id in {}", pci_device_dir);
+                    log_warning(LogSiliconDriver, "Did not find file containing physical_device_id in {}", pci_device_dir);
                     return false;
                 }
 
@@ -157,7 +157,7 @@ bool tt_cpuset_allocator::init_find_tt_pci_devices_packages_numanodes(){
                     m_package_id_to_devices_map.at(package_id).push_back(physical_device_id);
                     m_physical_device_id_to_package_id_map.insert({physical_device_id, package_id});
                 }else{
-                    log_warning(tt_device_logger::LogSiliconDriver, "Could not find package_id for TT Device (physical_device_id: {} pci_bus_id: {})", physical_device_id, pci_bus_id_str);
+                    log_warning(LogSiliconDriver, "Could not find package_id for TT Device (physical_device_id: {} pci_bus_id: {})", physical_device_id, pci_bus_id_str);
                     return false;
                 }
 
@@ -166,7 +166,7 @@ bool tt_cpuset_allocator::init_find_tt_pci_devices_packages_numanodes(){
                 m_physical_device_id_to_numa_nodeset_map.insert({physical_device_id, numa_nodeset});
 
                 if (numa_nodeset == 0x0){
-                    log_warning(tt_device_logger::LogSiliconDriver, "Could not find NumaNodeSet for TT Device (physical_device_id: {} pci_bus_id: {})", physical_device_id, pci_bus_id_str);
+                    log_warning(LogSiliconDriver, "Could not find NumaNodeSet for TT Device (physical_device_id: {} pci_bus_id: {})", physical_device_id, pci_bus_id_str);
                     return false;
                 }
 
@@ -174,18 +174,18 @@ bool tt_cpuset_allocator::init_find_tt_pci_devices_packages_numanodes(){
                 m_num_cpu_cores_allocated_per_tt_device.insert({physical_device_id, 0});
 
             }else{
-                log_fatal(tt_device_logger::LogSiliconDriver, "Could not find {} directory - this is unexpected", pci_device_dir);
+                log_fatal(LogSiliconDriver, "Could not find {} directory - this is unexpected", pci_device_dir);
                 return false;
             }
         }
     }
 
     if (m_all_tt_devices.size() == 0){
-        log_warning(tt_device_logger::LogSiliconDriver, "Did not find any PCI devices matching Tenstorrent vendor_id 0x{:x}", TENSTORRENT_VENDOR_ID);
+        log_warning(LogSiliconDriver, "Did not find any PCI devices matching Tenstorrent vendor_id 0x{:x}", TENSTORRENT_VENDOR_ID);
         return false;
     }
 
-    log_debug(tt_device_logger::LogSiliconDriver,"Finshed tt_cpuset_allocator::init_find_tt_pci_devices_packages_numanodes() found {} devices", m_all_tt_devices.size());
+    log_debug(LogSiliconDriver,"Finshed tt_cpuset_allocator::init_find_tt_pci_devices_packages_numanodes() found {} devices", m_all_tt_devices.size());
 
 
     // Sort these 2 vectors of device_ids before we are done, since discovery can be in any order.
@@ -207,7 +207,7 @@ bool tt_cpuset_allocator::init_get_number_of_packages(){
     }
 
     m_num_packages = hwloc_get_nbobjs_by_type(m_topology, HWLOC_OBJ_PACKAGE);
-    log_debug(tt_device_logger::LogSiliconDriver,"Found {} CPU packages", m_num_packages);
+    log_debug(LogSiliconDriver,"Found {} CPU packages", m_num_packages);
 
     for (int package_id=0; package_id < m_num_packages; package_id++){
         m_package_id_to_devices_map.insert({package_id, {}}); // Empty vector.
@@ -226,13 +226,13 @@ bool tt_cpuset_allocator::init_is_cpu_model_supported(){
     }
 
     if (m_num_packages == 0){
-        log_debug(tt_device_logger::LogSiliconDriver,"init_is_cpu_model_supported(): Found 0 packages, functions run out of order?");
+        log_debug(LogSiliconDriver,"init_is_cpu_model_supported(): Found 0 packages, functions run out of order?");
         return false;
     }
 
     bool use_any_cpu = std::getenv("TT_BACKEND_CPUSET_ALLOCATOR_SUPPORT_ANY_CPU") ? true : false;
 
-    log_debug(tt_device_logger::LogSiliconDriver,"Inside tt_cpuset_allocator::check_if_cpu_model_supported()");
+    log_debug(LogSiliconDriver,"Inside tt_cpuset_allocator::check_if_cpu_model_supported()");
 
     // Supported CPU Models for enabling CPUSET Allocator.  Keep the list small to production machines to start.
     std::vector<std::string> supported_cpu_models = {   "AMD EPYC 7352 24-Core Processor",
@@ -256,7 +256,7 @@ bool tt_cpuset_allocator::init_is_cpu_model_supported(){
             has_supported_cpu |= (pkg_cpu_model.find(supported_cpu_model) != std::string::npos);
         }
 
-        log_debug(tt_device_logger::LogSiliconDriver,"Detected package-id: {} has_supported_cpu: {} for CpuModel: {}", package_id, has_supported_cpu, pkg_cpu_model);
+        log_debug(LogSiliconDriver,"Detected package-id: {} has_supported_cpu: {} for CpuModel: {}", package_id, has_supported_cpu, pkg_cpu_model);
 
         if (!has_supported_cpu){
             return false;
@@ -282,31 +282,31 @@ bool tt_cpuset_allocator::init_determine_cpuset_allocations(){
         return false;
     }
 
-    log_debug(tt_device_logger::LogSiliconDriver,"Inside tt_cpuset_allocator::init_determine_cpuset_allocations()");
+    log_debug(LogSiliconDriver,"Inside tt_cpuset_allocator::init_determine_cpuset_allocations()");
 
     for (int package_id=0; package_id < m_num_packages; package_id++){
 
         auto num_tt_devices_for_cpu_package = m_package_id_to_devices_map.at(package_id).size();
 
         if (num_tt_devices_for_cpu_package == 0){
-            log_debug(tt_device_logger::LogSiliconDriver, "init_determine_cpuset_allocations() -- no TT devices for package_id: {}, skipping.", package_id);
+            log_debug(LogSiliconDriver, "init_determine_cpuset_allocations() -- no TT devices for package_id: {}, skipping.", package_id);
             continue;
         }
 
-        log_debug(tt_device_logger::LogSiliconDriver, "init_determine_cpuset_allocations(). starting to detect allocation slots for package_id: {} ", package_id);
+        log_debug(LogSiliconDriver, "init_determine_cpuset_allocations(). starting to detect allocation slots for package_id: {} ", package_id);
 
         auto package_obj = hwloc_get_obj_by_type(m_topology, HWLOC_OBJ_PACKAGE, package_id);
         if (m_debug) print_hwloc_object(package_obj, 0, true, true);
 
         auto num_alloc_slots_in_package = hwloc_get_nbobjs_inside_cpuset_by_type(m_topology, package_obj->cpuset, m_object_per_alloc_slot);
         if (num_alloc_slots_in_package == 0){
-            log_warning(tt_device_logger::LogSiliconDriver, "Could not find any of the alloc objects in package_id: {} for this cpu arc", package_id);
+            log_warning(LogSiliconDriver, "Could not find any of the alloc objects in package_id: {} for this cpu arc", package_id);
             return false;
         }
         auto num_alloc_slots_per_tt_device = num_alloc_slots_in_package / num_tt_devices_for_cpu_package;
 
         // Above splits evenly by devices, leaves remainder unused in the example case of 3 devices but 8 slots.
-        log_debug(tt_device_logger::LogSiliconDriver, "init_determine_cpuset_allocations(). package_id: {} num_alloc_slots_in_package: {} num_tt_devices_for_cpu_package: {} num_alloc_slots_per_tt_device: {}",
+        log_debug(LogSiliconDriver, "init_determine_cpuset_allocations(). package_id: {} num_alloc_slots_in_package: {} num_tt_devices_for_cpu_package: {} num_alloc_slots_per_tt_device: {}",
             package_id, num_alloc_slots_in_package, num_tt_devices_for_cpu_package, num_alloc_slots_per_tt_device);
 
         int device_idx = 0;
@@ -333,12 +333,12 @@ bool tt_cpuset_allocator::init_determine_cpuset_allocations(){
                 }
 
             }else{
-                log_warning(tt_device_logger::LogSiliconDriver, "init_determine_cpuset_allocations(). Something went wrong looking for cpuset alloc object under package");
+                log_warning(LogSiliconDriver, "init_determine_cpuset_allocations(). Something went wrong looking for cpuset alloc object under package");
                 return false;
             }
         }
 
-        log_debug(tt_device_logger::LogSiliconDriver, "init_determine_cpuset_allocations(). Done detecting allocation slots for package_id: {} ", package_id);
+        log_debug(LogSiliconDriver, "init_determine_cpuset_allocations(). Done detecting allocation slots for package_id: {} ", package_id);
     }
 
 
@@ -349,7 +349,7 @@ bool tt_cpuset_allocator::init_determine_cpuset_allocations(){
             auto pu_ids_vector = get_hwloc_bitmap_vector(cpuset);
             auto num_pu_ids = pu_ids_vector.size();
             auto package_id = m_physical_device_id_to_package_id_map.at(physical_device_id);
-            log_debug(tt_device_logger::LogSiliconDriver, "Done init_determine_cpuset_allocations(). Summary => for mmio physical_device_id: {} package_id: {} device_alloc_idx: {} picked {} PU's {}", physical_device_id, package_id, device_alloc_idx, num_pu_ids, pu_ids_vector);
+            log_debug(LogSiliconDriver, "Done init_determine_cpuset_allocations(). Summary => for mmio physical_device_id: {} package_id: {} device_alloc_idx: {} picked {} PU's {}", physical_device_id, package_id, device_alloc_idx, num_pu_ids, pu_ids_vector);
         }
     }
 
@@ -364,7 +364,7 @@ bool tt_cpuset_allocator::init_populate_physical_mmio_device_id_map(){
         return false;
     }
 
-    log_debug(tt_device_logger::LogSiliconDriver,"Starting tt_cpuset_allocator::populate_physical_mmio_device_id_map()");
+    log_debug(LogSiliconDriver,"Starting tt_cpuset_allocator::populate_physical_mmio_device_id_map()");
 
     // Respect reservations and get map of logical to physical device ids.
     std::vector<chip_id_t> available_device_ids = tt_SiliconDevice::detect_available_device_ids(true, false);
@@ -373,7 +373,7 @@ bool tt_cpuset_allocator::init_populate_physical_mmio_device_id_map(){
     for (auto &d: m_logical_to_physical_mmio_device_id_map){
         auto logical_device_id = d.first;
         auto physical_device_id = d.second;
-        log_debug(tt_device_logger::LogSiliconDriver, "populate_physical_mmio_device_id_map() -- available_devices: {} logical_device_id: {} => physical_device_id: {}", available_device_ids.size(), (int) logical_device_id, (int) physical_device_id);
+        log_debug(LogSiliconDriver, "populate_physical_mmio_device_id_map() -- available_devices: {} logical_device_id: {} => physical_device_id: {}", available_device_ids.size(), (int) logical_device_id, (int) physical_device_id);
         m_num_threads_pinned_per_tt_device.insert({physical_device_id, 0});
     }
 
@@ -405,7 +405,7 @@ hwloc_cpuset_t tt_cpuset_allocator::allocate_cpu_set_for_thread(chip_id_t physic
             int alloc_idx_for_device    = m_num_threads_pinned_per_tt_device.at(physical_device_id);
             int ccx_in_ccd              = (alloc_idx_for_device % num_alloc_slots_for_tt_device) < num_alloc_slots_for_tt_device/num_ccx_per_ccd ? 0 : 1;
             tt_device_alloc_idx         = (ccx_in_ccd + (alloc_idx_for_device * num_ccx_per_ccd)) % num_alloc_slots_for_tt_device;
-            log_debug(tt_device_logger::LogSiliconDriver,"Special L3Cache case physical_device_id: {} alloc_idx_for_device: {} ccx_in_ccd: {} tt_device_alloc_idx: {}", physical_device_id, alloc_idx_for_device, ccx_in_ccd, tt_device_alloc_idx);
+            log_debug(LogSiliconDriver,"Special L3Cache case physical_device_id: {} alloc_idx_for_device: {} ccx_in_ccd: {} tt_device_alloc_idx: {}", physical_device_id, alloc_idx_for_device, ccx_in_ccd, tt_device_alloc_idx);
         }
 
 
@@ -417,7 +417,7 @@ hwloc_cpuset_t tt_cpuset_allocator::allocate_cpu_set_for_thread(chip_id_t physic
 
         // Debug
         auto tid = std::this_thread::get_id();
-        log_debug(tt_device_logger::LogSiliconDriver,"Allocating for physical_device_id: {} num_alloc_slots: {} num_threads_pinned: {} alloc_idx: {} skip_singlify: {} (pid: {} tid: {}) => {} PU's {}", 
+        log_debug(LogSiliconDriver,"Allocating for physical_device_id: {} num_alloc_slots: {} num_threads_pinned: {} alloc_idx: {} skip_singlify: {} (pid: {} tid: {}) => {} PU's {}", 
             physical_device_id, num_alloc_slots_for_tt_device, m_num_threads_pinned_per_tt_device.at(physical_device_id), tt_device_alloc_idx, skip_singlify,
             m_pid, tid, hwloc_bitmap_weight(cpuset), get_hwloc_bitmap_vector(cpuset));
 
@@ -433,10 +433,10 @@ void tt_cpuset_allocator::store_thread_original_cpuset(){
     hwloc_cpuset_t orig_cpuset = hwloc_bitmap_alloc();
 
     if (hwloc_get_cpubind(m_topology, orig_cpuset, HWLOC_CPUBIND_THREAD)){
-        log_warning(tt_device_logger::LogSiliconDriver,"store_thread_original_cpuset() calling hwloc_get_cpubind() failed with errno: {} (pid: {} tid:{})", strerror(errno), m_pid, tid);
+        log_warning(LogSiliconDriver,"store_thread_original_cpuset() calling hwloc_get_cpubind() failed with errno: {} (pid: {} tid:{})", strerror(errno), m_pid, tid);
     }else{
         auto orig_cpuset_vector = get_hwloc_bitmap_vector(orig_cpuset);
-        log_debug(tt_device_logger::LogSiliconDriver, "store_thread_original_cpuset() success - got orig cpuset: {} PU's: {} (pid: {} tid: {})", orig_cpuset_vector.size(), orig_cpuset_vector, m_pid, tid);
+        log_debug(LogSiliconDriver, "store_thread_original_cpuset() success - got orig cpuset: {} PU's: {} (pid: {} tid: {})", orig_cpuset_vector.size(), orig_cpuset_vector, m_pid, tid);
         m_global_thread_id_to_original_cpuset_map.insert({tid, hwloc_bitmap_dup(orig_cpuset)});
     }
     hwloc_bitmap_free(orig_cpuset);
@@ -458,11 +458,11 @@ void tt_cpuset_allocator::bind_thread_cpuset(tt_cluster_description *ndesc, chip
             logical_device_id = ndesc->get_closest_mmio_capable_chip(logical_device_id);
         }
 
-        log_debug(tt_device_logger::LogSiliconDriver,"bind_thread_cpuset_cpuset() for logical_device_id: {} m_logical_to_physical_mmio_device_id_map.size(): {}", logical_device_id, m_logical_to_physical_mmio_device_id_map.size());
+        log_debug(LogSiliconDriver,"bind_thread_cpuset_cpuset() for logical_device_id: {} m_logical_to_physical_mmio_device_id_map.size(): {}", logical_device_id, m_logical_to_physical_mmio_device_id_map.size());
 
         // If a main thread ID was captured, make sure it is not attempted to be pinned. Only IO API sub threads are expected to be pinned today.
         if (m_stored_main_thread_id && tid == m_main_thread_id){
-            log_warning(tt_device_logger::LogSiliconDriver, "bind_thread_cpuset() - Skipping cpubind for runtime main thread_id: {} to prevent undesired inheritence. Consider moving device IO (ie. push/pop/get) to sub-threads for binding to be supported.", m_main_thread_id);
+            log_warning(LogSiliconDriver, "bind_thread_cpuset() - Skipping cpubind for runtime main thread_id: {} to prevent undesired inheritence. Consider moving device IO (ie. push/pop/get) to sub-threads for binding to be supported.", m_main_thread_id);
             return;
         }
 
@@ -478,10 +478,10 @@ void tt_cpuset_allocator::bind_thread_cpuset(tt_cluster_description *ndesc, chip
             auto cpuset_vector      = get_hwloc_bitmap_vector(cpuset);
 
             if (hwloc_set_cpubind(m_topology, cpuset, HWLOC_CPUBIND_THREAD | HWLOC_CPUBIND_STRICT )){; // HWLOC_CPUBIND_NOMEMBIND
-                log_warning(tt_device_logger::LogSiliconDriver,"bind_thread_cpuset() binding failed (errno: {}) for physical_device_id: {} on package_id: {} to {} PU's: {} (pid: {} tid: {})",
+                log_warning(LogSiliconDriver,"bind_thread_cpuset() binding failed (errno: {}) for physical_device_id: {} on package_id: {} to {} PU's: {} (pid: {} tid: {})",
                     strerror(errno), physical_device_id, package_id, cpuset_vector.size(), cpuset_vector, m_pid, tid);
             }else{
-                log_debug(tt_device_logger::LogSiliconDriver,"bind_thread_cpuset() binding success skip: {} for physical_device_id: {} on package_id: {} to {} PU's: {} (pid: {} tid: {})",
+                log_debug(LogSiliconDriver,"bind_thread_cpuset() binding success skip: {} for physical_device_id: {} on package_id: {} to {} PU's: {} (pid: {} tid: {})",
                     skip_singlify, physical_device_id, package_id, cpuset_vector.size(), cpuset_vector, m_pid, tid);
                 // Record that this thread is pinned, no need to repeat on subsequent IO API calls.
                 m_global_thread_ids_pinned.insert(tid);
@@ -489,7 +489,7 @@ void tt_cpuset_allocator::bind_thread_cpuset(tt_cluster_description *ndesc, chip
             }
 
         }else{
-            log_warning(tt_device_logger::LogSiliconDriver,"Could not find logical_device_id: {} in m_logical_to_physical_mmio_device_id_map. This shouldn't happen.", logical_device_id);
+            log_warning(LogSiliconDriver,"Could not find logical_device_id: {} in m_logical_to_physical_mmio_device_id_map. This shouldn't happen.", logical_device_id);
         }
     }
 }
@@ -503,12 +503,12 @@ void tt_cpuset_allocator::unbind_thread_cpuset(){
 
         // Make sure this thread was successfully and previously binded to a cpuset.
         if (!m_global_thread_id_to_original_cpuset_map.count(tid)){
-            log_warning(tt_device_logger::LogSiliconDriver,"unbind_thread_cpuset() called for tid: {} but no original cpuset for this thread found. Previous cpu binding skipped or failed?", tid);
+            log_warning(LogSiliconDriver,"unbind_thread_cpuset() called for tid: {} but no original cpuset for this thread found. Previous cpu binding skipped or failed?", tid);
             return;
         }
 
         if (!m_global_thread_id_to_physical_device_id_map.count(tid)){
-            log_warning(tt_device_logger::LogSiliconDriver,"unbind_thread_cpuset() called for tid: {} but no physical_device_id this thread found. Previous cpu binding skipped or failed?", tid);
+            log_warning(LogSiliconDriver,"unbind_thread_cpuset() called for tid: {} but no physical_device_id this thread found. Previous cpu binding skipped or failed?", tid);
             return;
         }
 
@@ -518,10 +518,10 @@ void tt_cpuset_allocator::unbind_thread_cpuset(){
         auto cpuset_vector      = get_hwloc_bitmap_vector(cpuset); // Can tighten this up and remove, it's purely for debug anyways.
 
         if (hwloc_set_cpubind(m_topology, cpuset, HWLOC_CPUBIND_THREAD)){
-            log_warning(tt_device_logger::LogSiliconDriver,"unbind_thread_cpuset() binding failed (errno: {}) for physical_device_id: {} to original {} PU's: {} (pid: {} tid: {})",
+            log_warning(LogSiliconDriver,"unbind_thread_cpuset() binding failed (errno: {}) for physical_device_id: {} to original {} PU's: {} (pid: {} tid: {})",
                 strerror(errno), physical_device_id, cpuset_vector.size(), cpuset_vector, m_pid, tid);
         }else{
-            log_debug(tt_device_logger::LogSiliconDriver,"unbind_thread_cpuset() binding success for physical_device_id: {} to original {} PU's: {} (pid: {} tid: {})",
+            log_debug(LogSiliconDriver,"unbind_thread_cpuset() binding success for physical_device_id: {} to original {} PU's: {} (pid: {} tid: {})",
                 physical_device_id, cpuset_vector.size(), cpuset_vector, m_pid, tid);
 
             // To prevent races on read/modify/write to m_num_threads_pinned_per_tt_device across threads to same device.
@@ -540,7 +540,7 @@ void tt_cpuset_allocator::clear_state(){
     if (m_enable_cpuset_allocator){
 
         auto tid = std::this_thread::get_id();
-        log_debug(tt_device_logger::LogSiliconDriver,"Clearing state and unbinding entire process' cpuset (pid: {} tid: {}).", m_pid, tid);
+        log_debug(LogSiliconDriver,"Clearing state and unbinding entire process' cpuset (pid: {} tid: {}).", m_pid, tid);
 
         // Reset state variables so that next time the thread can be freshly pinned
         m_global_thread_ids_pinned.clear();
@@ -551,7 +551,7 @@ void tt_cpuset_allocator::clear_state(){
         // Undo previous pinning, by binding to full machine cpuset. Alternatively could have saved and restored orig cpuset per thread.
         auto machine_obj = hwloc_get_obj_by_type(m_topology, HWLOC_OBJ_MACHINE, 0);
         if (hwloc_set_cpubind(m_topology, machine_obj->cpuset, HWLOC_CPUBIND_PROCESS)){
-            log_warning(tt_device_logger::LogSiliconDriver,"clear_state() binding failed (errno: {}) to Machine cpuset (pid: {} tid: {})", strerror(errno), m_pid, tid);
+            log_warning(LogSiliconDriver,"clear_state() binding failed (errno: {}) to Machine cpuset (pid: {} tid: {})", strerror(errno), m_pid, tid);
         }
     }
 }
@@ -561,10 +561,10 @@ void tt_cpuset_allocator::clear_state(){
 bool tt_cpuset_allocator::bind_area_memory_nodeset(chip_id_t physical_device_id, const void * addr, size_t len){
 
     auto tid = std::this_thread::get_id();
-    log_debug(tt_device_logger::LogSiliconDriver,"bind_area_memory_nodeset(): Going to attempt memory binding of addr/len to NumaNode for physical_device_id: {} (pid: {} tid: {})", physical_device_id, m_pid, tid);
+    log_debug(LogSiliconDriver,"bind_area_memory_nodeset(): Going to attempt memory binding of addr/len to NumaNode for physical_device_id: {} (pid: {} tid: {})", physical_device_id, m_pid, tid);
 
     if (m_physical_device_id_to_numa_nodeset_map.count(physical_device_id) == 0){
-        log_fatal(tt_device_logger::LogSiliconDriver,"bind_area_memory_nodeset(): Did not find physical_device_id: {} in numanode_mask map, this is not expected.", physical_device_id);
+        log_fatal(LogSiliconDriver,"bind_area_memory_nodeset(): Did not find physical_device_id: {} in numanode_mask map, this is not expected.", physical_device_id);
         return false;
     }
 
@@ -572,14 +572,14 @@ bool tt_cpuset_allocator::bind_area_memory_nodeset(chip_id_t physical_device_id,
 
     if (target_nodeset != 0){
         if (hwloc_set_area_membind(m_topology, addr, len, target_nodeset, HWLOC_MEMBIND_BIND, HWLOC_MEMBIND_BYNODESET | HWLOC_MEMBIND_STRICT | HWLOC_MEMBIND_MIGRATE) ){
-            log_warning(tt_device_logger::LogSiliconDriver,"hwloc_set_area_membind(): failed for physical_device_id: {} on NodeSet: {} with errno: {} (pid: {} tid: {})", 
+            log_warning(LogSiliconDriver,"hwloc_set_area_membind(): failed for physical_device_id: {} on NodeSet: {} with errno: {} (pid: {} tid: {})", 
                 physical_device_id, get_hwloc_bitmap_vector(target_nodeset), strerror(errno), m_pid, tid);
             return false;
         }else{
-            log_debug(tt_device_logger::LogSiliconDriver,"hwloc_set_area_membind(): success for physical_device_id: {} on NodeSet: {} (pid: {} tid: {})", physical_device_id, get_hwloc_bitmap_vector(target_nodeset), m_pid, tid);
+            log_debug(LogSiliconDriver,"hwloc_set_area_membind(): success for physical_device_id: {} on NodeSet: {} (pid: {} tid: {})", physical_device_id, get_hwloc_bitmap_vector(target_nodeset), m_pid, tid);
         }
     }else{
-        log_warning(tt_device_logger::LogSiliconDriver,"bind_area_memory_nodeset(): Unable to determine TT Device to NumaNode mapping for physical_device_id: {}. Skipping membind.", physical_device_id);
+        log_warning(LogSiliconDriver,"bind_area_memory_nodeset(): Unable to determine TT Device to NumaNode mapping for physical_device_id: {}. Skipping membind.", physical_device_id);
         return false;
     }
 
@@ -591,13 +591,13 @@ bool tt_cpuset_allocator::bind_area_memory_nodeset(chip_id_t physical_device_id,
 void tt_cpuset_allocator::_set_main_thread_id(){
     m_main_thread_id = std::this_thread::get_id();
     m_stored_main_thread_id = true;
-    log_debug(tt_device_logger::LogSiliconDriver,"Captured main_thread_id: {}", m_main_thread_id);
+    log_debug(LogSiliconDriver,"Captured main_thread_id: {}", m_main_thread_id);
 }
 
 int tt_cpuset_allocator::_get_num_tt_pci_devices() {
 
     for (auto &d : m_physical_device_id_to_package_id_map) {
-        log_trace(tt_device_logger::LogSiliconDriver, "Found physical_device_id: {} ", d.first);
+        log_trace(LogSiliconDriver, "Found physical_device_id: {} ", d.first);
     }
     return m_physical_device_id_to_package_id_map.size();
 }
@@ -629,7 +629,7 @@ int tt_cpuset_allocator::get_package_id_from_device(hwloc_obj_t pci_device_obj, 
 
     auto pci_bus_id_str = m_physical_device_id_to_pci_bus_id_map.at(physical_device_id);
 
-    log_debug(tt_device_logger::LogSiliconDriver, "Checking TT device (physical_device_id: {} pci_bus_id: {}) to find it's corresponding CPU package", physical_device_id, pci_bus_id_str);
+    log_debug(LogSiliconDriver, "Checking TT device (physical_device_id: {} pci_bus_id: {}) to find it's corresponding CPU package", physical_device_id, pci_bus_id_str);
 
     hwloc_obj_t tmp_obj = hwloc_get_non_io_ancestor_obj(m_topology, pci_device_obj);
     int package_id = -1;
@@ -641,7 +641,7 @@ int tt_cpuset_allocator::get_package_id_from_device(hwloc_obj_t pci_device_obj, 
             if (tmp_obj->os_index != (unsigned) -1){
                 package_id = tmp_obj->os_index;
             }else{
-                log_warning(tt_device_logger::LogSiliconDriver, "Could not find os_index of package or machine object for TT device (physical_device_id: {} pci_bus_id: {})", physical_device_id, pci_bus_id_str);
+                log_warning(LogSiliconDriver, "Could not find os_index of package or machine object for TT device (physical_device_id: {} pci_bus_id: {})", physical_device_id, pci_bus_id_str);
                 break;
             }
         }else{
@@ -672,7 +672,7 @@ hwloc_nodeset_t tt_cpuset_allocator::get_numa_nodeset_from_device(hwloc_obj_t pc
 
     auto pci_bus_id_str = m_physical_device_id_to_pci_bus_id_map.at(physical_device_id);
 
-    log_debug(tt_device_logger::LogSiliconDriver, "init_detect_tt_device_numanodes(): Checking TT device (physical_device_id: {} pci_bus_id: {}) to find it's corresponding NumaNode.", physical_device_id, pci_bus_id_str);
+    log_debug(LogSiliconDriver, "init_detect_tt_device_numanodes(): Checking TT device (physical_device_id: {} pci_bus_id: {}) to find it's corresponding NumaNode.", physical_device_id, pci_bus_id_str);
 
     hwloc_obj_t tmp_obj = pci_device_obj->parent;
     while (tmp_obj && !tmp_obj->memory_arity){
@@ -680,10 +680,10 @@ hwloc_nodeset_t tt_cpuset_allocator::get_numa_nodeset_from_device(hwloc_obj_t pc
     }
 
     if (tmp_obj && tmp_obj->nodeset){
-        log_debug(tt_device_logger::LogSiliconDriver, "init_detect_tt_device_numanodes(): For TT device (physical_device_id: {} pci_bus_id: {}) found NumaNodeSet: {}", physical_device_id, pci_bus_id_str, get_hwloc_bitmap_vector(tmp_obj->nodeset));
+        log_debug(LogSiliconDriver, "init_detect_tt_device_numanodes(): For TT device (physical_device_id: {} pci_bus_id: {}) found NumaNodeSet: {}", physical_device_id, pci_bus_id_str, get_hwloc_bitmap_vector(tmp_obj->nodeset));
         nodeset = tmp_obj->nodeset;
     }else{
-        log_warning(tt_device_logger::LogSiliconDriver, "init_detect_tt_device_numanodes(): Could not determine NumaNodeSet for TT device (physical_device_id: {} pci_bus_id: {})", physical_device_id, pci_bus_id_str);
+        log_warning(LogSiliconDriver, "init_detect_tt_device_numanodes(): Could not determine NumaNodeSet for TT device (physical_device_id: {} pci_bus_id: {})", physical_device_id, pci_bus_id_str);
     }
 
     return nodeset;
@@ -697,7 +697,7 @@ int tt_cpuset_allocator::_get_num_tt_pci_devices_by_pci_device_id(uint16_t devic
     if (m_num_tt_device_by_pci_device_id_map.find(device_id_revision) != m_num_tt_device_by_pci_device_id_map.end()) {
         return m_num_tt_device_by_pci_device_id_map.at(device_id_revision);
     } else {
-        tt_device_logger::log_fatal("Cannot find any TT device with PCI device_id: 0x{:x} and revision: {} in topology.", device_id, revision);
+        log_fatal(LogSiliconDriver, "Cannot find any TT device with PCI device_id: 0x{:x} and revision: {} in topology.", device_id, revision);
         return 0;
     }
 }

@@ -38,11 +38,11 @@ struct tt_multichip_core_addr {
 // SIMPLE DATAMOVEMENT API BASED ON UMD
 // send one contiguous chunk of data from one sender core to a receiver core
 void move_data(
-    tt_SiliconDevice& device, tt_multichip_core_addr sender_core, tt_multichip_core_addr receiver_core, uint32_t size);
+    tt_SiliconDevice& device, tt_multichip_core_addr sender_core, tt_multichip_core_addr receiver_core, SizeInBytes size);
 
 // send one contiguous chunk of data to a vector of receiver cores
 void broadcast_data(
     tt_SiliconDevice& device,
     tt_multichip_core_addr sender_core,
     std::vector<tt_multichip_core_addr> receiver_cores,
-    uint32_t size);
+    SizeInBytes size);

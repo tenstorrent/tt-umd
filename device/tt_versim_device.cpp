@@ -214,7 +214,7 @@ void tt_VersimDevice::dram_membar(const chip_id_t chip, const std::string& fallb
   tt_driver_atomics::mfence(); // Ensure no reordering of loads/stores around this
 }
 
-void tt_VersimDevice::read_from_device(std::vector<uint32_t> &vec, tt_cxy_pair core, uint64_t addr, uint32_t size, const std::string& tlb_to_use) {
+void tt_VersimDevice::read_from_device(std::vector<uint32_t> &vec, tt_cxy_pair core, uint64_t addr, SizeInBytes size, const std::string& tlb_to_use) {
   // std::cout << "Versim Device: Read vector from target address: 0x" << std::hex << address << std::dec << ", with size: " << size_in_bytes << " Bytes" << std::endl;
   DEBUG_LOG("Versim Device (" << get_sim_time(*versim) << "): Read vector from target address: 0x" << std::hex << addr << std::dec << ", with size: " << size << " Bytes");
 
@@ -225,7 +225,7 @@ void tt_VersimDevice::read_from_device(std::vector<uint32_t> &vec, tt_cxy_pair c
   vec = result;
 }
 
-void tt_VersimDevice::read_from_device(void *mem_ptr, tt_cxy_pair core, uint64_t addr, uint32_t size, const std::string& tlb_to_use) {
+void tt_VersimDevice::read_from_device(void *mem_ptr, tt_cxy_pair core, uint64_t addr, SizeInBytes size, const std::string& tlb_to_use) {
   // std::cout << "Versim Device: Read vector from target address: 0x" << std::hex << address << std::dec << ", with size: " << size_in_bytes << " Bytes" << std::endl;
   DEBUG_LOG("Versim Device (" << get_sim_time(*versim) << "): Read vector from target address: 0x" << std::hex << addr << std::dec << ", with size: " << size << " Bytes");
   tt_device_logger::log_assert(!(size % 4), "Reads from Versim backend should be 4 byte aligned!");

@@ -16,6 +16,7 @@
 #include "tt_xy_pair.h"
 #include "tt_silicon_driver_common.hpp"
 #include "device/tt_cluster_descriptor_types.h"
+#include "strong_type.hpp"
 
 namespace boost::interprocess{
     class named_mutex;
@@ -23,6 +24,15 @@ namespace boost::interprocess{
 
 class PCIDevice;
 class tt_ClusterDescriptor;
+
+/* Strongly typed device driver types for clearer APIs */
+struct SizeInWordsParameter {};
+using SizeInWords = StrongType<std::size_t, struct SizeInWordsParameter>;
+struct SizeInBytesParameter {};
+using SizeInBytes = StrongType<std::size_t, struct SizeInBytesParameter>;
+// If you want to make it type parametrizable
+// template <typename T>
+// using SizeInBytes = StrongType<T, struct SizeInBytesParameter>;
 
 enum tt_DevicePowerState {
     BUSY,
@@ -373,10 +383,10 @@ class tt_device
     * \param mem_ptr dest data address on host (expected to be preallocated, depending on transfer size)
     * \param core chip-x-y struct specifying device and core
     * \param addr Address to read from
-    * \param size Read Size
+    * \param size Read Size (in bytes)
     * \param fallback_tlb Specifies fallback/dynamic TLB to use for transaction, if this core does not have static TLBs mapped to this address (dynamic TLBs were initialized in driver constructor)
     */
-    virtual void read_from_device(void* mem_ptr, tt_cxy_pair core, uint64_t addr, uint32_t size, const std::string& fallback_tlb) {
+    virtual void read_from_device(void* mem_ptr, tt_cxy_pair core, uint64_t addr, SizeInBytes size_in_bytes, const std::string& fallback_tlb) {
         // Only implement this for Silicon Backend
         throw std::runtime_error("---- tt_device::read_from_device is not implemented\n");
     }
@@ -386,10 +396,10 @@ class tt_device
     * \param vec host side vector to populate with data read from device (does not need to be preallocated)
     * \param core chip-x-y struct specifying device and core
     * \param addr Address to read from
-    * \param size Read Size
+    * \param size Read Size (in bytes)
     * \param fallback_tlb Specifies fallback/dynamic TLB to use for transaction, if this core does not have static TLBs mapped to this address (dynamic TLBs were initialized in driver constructor)
     */
-    virtual void read_from_device(std::vector<uint32_t> &vec, tt_cxy_pair core, uint64_t addr, uint32_t size, const std::string& tlb_to_use) {
+    virtual void read_from_device(std::vector<uint32_t> &vec, tt_cxy_pair core, uint64_t addr, SizeInBytes size_in_bytes, const std::string& tlb_to_use) {
         throw std::runtime_error("---- tt_device::read_from_device is not implemented\n");
     }
 
@@ -649,10 +659,10 @@ class tt_VersimDevice: public tt_device
     virtual void assert_risc_reset_at_core(tt_cxy_pair core);
     virtual void write_to_device(std::vector<uint32_t> &vec, tt_cxy_pair core, uint64_t addr, const std::string& tlb_to_use, bool send_epoch_cmd = false, bool last_send_epoch_cmd = true);
     virtual void rolled_write_to_device(std::vector<uint32_t> &vec, uint32_t unroll_count, tt_cxy_pair core, uint64_t addr, const std::string& tlb_to_use);
-    virtual void read_from_device(std::vector<uint32_t> &vec, tt_cxy_pair core, uint64_t addr, uint32_t size, const std::string& tlb_to_use);
+    virtual void read_from_device(std::vector<uint32_t> &vec, tt_cxy_pair core, uint64_t addr, SizeInBytes size, const std::string& tlb_to_use);
     virtual void rolled_write_to_device(uint32_t* mem_ptr, uint32_t size_in_bytes, uint32_t unroll_count, tt_cxy_pair core, uint64_t addr, const std::string& fallback_tlb);
     virtual void write_to_device(const void *mem_ptr, uint32_t size_in_bytes, tt_cxy_pair core, uint64_t addr, const std::string& tlb_to_use, bool send_epoch_cmd = false, bool last_send_epoch_cmd = true);
-    virtual void read_from_device(void *mem_ptr, tt_cxy_pair core, uint64_t addr, uint32_t size, const std::string& tlb_to_use); 
+    virtual void read_from_device(void *mem_ptr, tt_cxy_pair core, uint64_t addr, SizeInBytes size, const std::string& tlb_to_use); 
     virtual void wait_for_non_mmio_flush();
     void l1_membar(const chip_id_t chip, const std::string& fallback_tlb, const std::unordered_set<tt_xy_pair>& cores = {});
     void dram_membar(const chip_id_t chip, const std::string& fallback_tlb, const std::unordered_set<uint32_t>& channels);
@@ -726,8 +736,8 @@ class tt_SiliconDevice: public tt_device
     virtual void write_epoch_cmd_to_device(std::vector<uint32_t> &vec, tt_cxy_pair core, uint64_t addr, const std::string& tlb_to_use, bool last_send_epoch_cmd);
     virtual void rolled_write_to_device(uint32_t* mem_ptr, uint32_t size_in_bytes, uint32_t unroll_count, tt_cxy_pair core, uint64_t addr, const std::string& fallback_tlb);
     virtual void rolled_write_to_device(std::vector<uint32_t> &vec, uint32_t unroll_count, tt_cxy_pair core, uint64_t addr, const std::string& tlb_to_use);
-    virtual void read_from_device(void* mem_ptr, tt_cxy_pair core, uint64_t addr, uint32_t size, const std::string& fallback_tlb);
-    virtual void read_from_device(std::vector<uint32_t> &vec, tt_cxy_pair core, uint64_t addr, uint32_t size, const std::string& tlb_to_use);
+    virtual void read_from_device(void* mem_ptr, tt_cxy_pair core, uint64_t addr, SizeInBytes size, const std::string& fallback_tlb);
+    virtual void read_from_device(std::vector<uint32_t> &vec, tt_cxy_pair core, uint64_t addr, SizeInBytes size, const std::string& tlb_to_use);
     virtual void write_to_sysmem(std::vector<uint32_t>& vec, uint64_t addr, uint16_t channel, chip_id_t src_device_id);
     virtual void write_to_sysmem(const void* mem_ptr, std::uint32_t size,  uint64_t addr, uint16_t channel, chip_id_t src_device_id);
     virtual void read_from_sysmem(std::vector<uint32_t> &vec, uint64_t addr, uint16_t channel, uint32_t size, chip_id_t src_device_id);
@@ -824,11 +834,11 @@ class tt_SiliconDevice: public tt_device
     void read_dma_buffer(void* mem_ptr, std::uint32_t address, std::uint16_t channel, std::uint32_t size_in_bytes, chip_id_t src_device_id);
     void write_dma_buffer(const void *mem_ptr, std::uint32_t size, std::uint32_t address, std::uint16_t channel, chip_id_t src_device_id);
     void write_device_memory(const void *mem_ptr, uint32_t size_in_bytes, tt_cxy_pair target, std::uint32_t address, const std::string& fallback_tlb);
-    void read_device_memory(void *mem_ptr, tt_cxy_pair target, std::uint32_t address, std::uint32_t size_in_bytes, const std::string& fallback_tlb);
+    void read_device_memory(void *mem_ptr, tt_cxy_pair target, std::uint32_t address, SizeInBytes size_in_bytes, const std::string& fallback_tlb);
     void write_to_non_mmio_device(const void *mem_ptr, uint32_t size_in_bytes, tt_cxy_pair core, uint64_t address);
     void write_to_non_mmio_device_send_epoch_cmd(const uint32_t *mem_ptr, uint32_t size_in_bytes, tt_cxy_pair core, uint64_t address, bool last_send_epoch_cmd);
     void rolled_write_to_non_mmio_device(const uint32_t *mem_ptr, uint32_t len, tt_cxy_pair core, uint64_t address, uint32_t unroll_count);
-    void read_from_non_mmio_device(void* mem_ptr, tt_cxy_pair core, uint64_t address, uint32_t size_in_bytes);
+    void read_from_non_mmio_device(void* mem_ptr, tt_cxy_pair core, uint64_t address, SizeInBytes size_in_bytes);
     void read_mmio_device_register(void* mem_ptr, tt_cxy_pair core, uint64_t addr, uint32_t size, const std::string& fallback_tlb);
     void write_mmio_device_register(const void* mem_ptr, tt_cxy_pair core, uint64_t addr, uint32_t size, const std::string& fallback_tlb);
     void set_membar_flag(const chip_id_t chip, const std::unordered_set<tt_xy_pair>& cores, const uint32_t barrier_value, const uint32_t barrier_addr, const std::string& fallback_tlb);

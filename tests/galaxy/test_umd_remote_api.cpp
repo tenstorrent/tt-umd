@@ -77,7 +77,7 @@ void run_remote_read_write_test(uint32_t vector_size, bool dram_write) {
                 // std::cout << "  chip " << chip << " core " << target_core.str() << " " << duration << std::endl;
 
                 start = std::chrono::high_resolution_clock::now();
-                device.read_from_device(readback_vec, target_core, address, write_size, "SMALL_READ_WRITE_TLB");
+                device.read_from_device(readback_vec, target_core, address, SizeInBytes(write_size), "SMALL_READ_WRITE_TLB");
                 end = std::chrono::high_resolution_clock::now();
                 duration = double(std::chrono::duration_cast<std::chrono::microseconds>(end - start).count());
                 // std::cout << " read chip " << chip << " core " << target_core.str()<< " " << duration << std::endl;
@@ -177,7 +177,7 @@ void run_data_mover_test(
 
     // Send data from sender core to receiver core
     auto start = std::chrono::high_resolution_clock::now();
-    move_data(device, sender_core, receiver_core, write_size);
+    move_data(device, sender_core, receiver_core, SizeInBytes(write_size));
     auto end = std::chrono::high_resolution_clock::now();
     auto duration = double(std::chrono::duration_cast<std::chrono::microseconds>(end - start).count());
     send_bw.push_back(float((write_size / (1024 * 1024 * 1024)) / (duration / 1e6)));
@@ -188,7 +188,7 @@ void run_data_mover_test(
         readback_vec,
         tt_cxy_pair(receiver_core.chip, receiver_core.core),
         receiver_core.addr,
-        write_size,
+        SizeInBytes(write_size),
         "SMALL_READ_WRITE_TLB");
     EXPECT_EQ(vector_to_write, readback_vec)
         << "Vector read back from core " << receiver_core.str() << " does not match what was written";
@@ -297,7 +297,7 @@ void run_data_broadcast_test(
 
     // Send data from sender core to receiver core
     auto start = std::chrono::high_resolution_clock::now();
-    broadcast_data(device, sender_core, receiver_cores, write_size);
+    broadcast_data(device, sender_core, receiver_cores, SizeInBytes(write_size));
     auto end = std::chrono::high_resolution_clock::now();
     auto duration = double(std::chrono::duration_cast<std::chrono::microseconds>(end - start).count());
     send_bw.push_back(float((write_size / (1024 * 1024 * 1024)) / (duration / 1e6)));
@@ -309,7 +309,7 @@ void run_data_broadcast_test(
             readback_vec,
             tt_cxy_pair(receiver_core.chip, receiver_core.core),
             receiver_core.addr,
-            write_size,
+            SizeInBytes(write_size),
             "SMALL_READ_WRITE_TLB");
         EXPECT_EQ(vector_to_write, readback_vec)
             << "Vector read back from core " << receiver_core.str() << " does not match what was written";

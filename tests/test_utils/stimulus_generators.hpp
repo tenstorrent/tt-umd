@@ -482,7 +482,7 @@ static inline void dispatch_remote_transfer_command(
             read_transfer_sample_t const& command_args = std::get<read_transfer_sample_t>(std::get<1>(command));
             assert(command_args.size_in_bytes >= sizeof(uint32_t));
             resize_payload(payload,command_args.size_in_bytes);
-            driver.read_from_device(payload.data(), command_args.destination, command_args.address, command_args.size_in_bytes, command_args.tlb_to_use);
+            driver.read_from_device(payload.data(), command_args.destination, command_args.address, SizeInBytes(command_args.size_in_bytes), command_args.tlb_to_use);
         } break;
         case RemoteTransferType::EPOCH_CMD_WRITE: {
             write_epoch_cmd_sample_t const& command_args = std::get<write_epoch_cmd_sample_t>(std::get<1>(command));

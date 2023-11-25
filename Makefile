@@ -1,5 +1,5 @@
 
-CONFIG ?= release
+CONFIG ?= develop
 UMD_HOME ?= .
 OUT ?= $(UMD_HOME)/build
 LIBDIR ?= $(OUT)/lib
@@ -22,9 +22,9 @@ endif
 
 DEVICE_CXX = /usr/bin/g++
 CXXFLAGS = -MMD -I$(UMD_HOME)/. --std=c++17
-ifeq ($(CONFIG), deploy)
+ifeq ($(CONFIG), release)
 CXXFLAGS += -O3 -fno-lto
-else ifeq ($(CONFIG), release)
+else ifeq ($(CONFIG), develop)
 CXXFLAGS += -O3 -fno-lto -DTT_DEBUG_LOGGING
 else ifeq ($(CONFIG), ci)
 CXXFLAGS += -O3 -DTT_DEBUG_LOGGING

@@ -189,7 +189,8 @@ void tt_VersimDevice::write_to_device(std::vector<uint32_t> &vec, tt_cxy_pair co
 }
 
 void tt_VersimDevice::write_to_device(const void *mem_ptr, uint32_t size, tt_cxy_pair core, uint64_t addr, const std::string& tlb_to_use, bool send_epoch_cmd, bool last_send_epoch_cmd, bool ordered_with_prev_remote_write) {
-  log_assert(!(size % 4), tt::LogSiliconDriver, "Writes to Versim Backend should be 4 byte aligned!");
+  log_assert(!(size % 4), "Writes to Versim Backend should be 4 byte aligned!");
+
   std::vector<std::uint32_t> mem_vector((uint32_t*)mem_ptr, (uint32_t*)mem_ptr + size / sizeof(uint32_t));
   write_to_device(mem_vector, core, addr, tlb_to_use, send_epoch_cmd, last_send_epoch_cmd, ordered_with_prev_remote_write);
 }
@@ -229,7 +230,8 @@ void tt_VersimDevice::read_from_device(std::vector<uint32_t> &vec, tt_cxy_pair c
 
 void tt_VersimDevice::read_from_device(void *mem_ptr, tt_cxy_pair core, uint64_t addr, uint32_t size, const std::string& tlb_to_use) {
   log_debug(tt::LogSiliconDriver, "Versim Device ({}): Read vector from address: {}, with size: {} Bytes", get_sim_time(*versim), addr, size);
-  log_assert(!(size % 4), tt::LogSiliconDriver, "Reads from Versim backend should be 4 byte aligned!");
+  log_assert(!(size % 4), "Reads from Versim backend should be 4 byte aligned!");
+
   CommandAssembler::xy_pair CA_target(core.x, core.y);
 
   size_t size_in_words = size / 4;

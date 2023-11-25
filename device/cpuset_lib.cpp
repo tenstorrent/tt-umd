@@ -174,7 +174,7 @@ bool tt_cpuset_allocator::init_find_tt_pci_devices_packages_numanodes(){
                 m_num_cpu_cores_allocated_per_tt_device.insert({physical_device_id, 0});
 
             }else{
-                log_fatal(LogSiliconDriver, "Could not find {} directory - this is unexpected", pci_device_dir);
+                log_fatal("Could not find {} directory - this is unexpected", pci_device_dir);
                 return false;
             }
         }
@@ -564,7 +564,7 @@ bool tt_cpuset_allocator::bind_area_memory_nodeset(chip_id_t physical_device_id,
     log_debug(LogSiliconDriver,"bind_area_memory_nodeset(): Going to attempt memory binding of addr/len to NumaNode for physical_device_id: {} (pid: {} tid: {})", physical_device_id, m_pid, tid);
 
     if (m_physical_device_id_to_numa_nodeset_map.count(physical_device_id) == 0){
-        log_fatal(LogSiliconDriver,"bind_area_memory_nodeset(): Did not find physical_device_id: {} in numanode_mask map, this is not expected.", physical_device_id);
+        log_fatal("bind_area_memory_nodeset(): Did not find physical_device_id: {} in numanode_mask map, this is not expected.", physical_device_id);
         return false;
     }
 
@@ -697,7 +697,7 @@ int tt_cpuset_allocator::_get_num_tt_pci_devices_by_pci_device_id(uint16_t devic
     if (m_num_tt_device_by_pci_device_id_map.find(device_id_revision) != m_num_tt_device_by_pci_device_id_map.end()) {
         return m_num_tt_device_by_pci_device_id_map.at(device_id_revision);
     } else {
-        log_fatal(LogSiliconDriver, "Cannot find any TT device with PCI device_id: 0x{:x} and revision: {} in topology.", device_id, revision);
+        log_fatal("Cannot find any TT device with PCI device_id: 0x{:x} and revision: {} in topology.", device_id, revision);
         return 0;
     }
 }

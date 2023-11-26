@@ -225,7 +225,7 @@ class tt_device
         // Only implement this for Silicon Backend
         throw std::runtime_error("---- tt_device::write_to_device is not implemented\n");
     }
-    virtual void broadcast_write_to_cluster(const uint32_t *mem_ptr, uint32_t len, uint64_t address, std::set<chip_id_t> chips_to_exclude = {}, std::vector<uint32_t> rows_to_exclude = {}, std::vector<uint32_t> columns_to_exclude = {}, const std::string fallback_tlb = "") {
+    virtual void broadcast_write_to_cluster(const uint32_t *mem_ptr, uint32_t len, uint64_t address, const std::set<chip_id_t>& chips_to_exclude, std::set<uint32_t>& rows_to_exclude, std::set<uint32_t>& columns_to_exclude, const std::string& fallback_tlb) {
         throw std::runtime_error("---- tt_device::broadcast_write_to_cluster is not implemented\n");
     }
 
@@ -486,8 +486,8 @@ class tt_SiliconDevice: public tt_device
     virtual std::uint32_t get_host_channel_size(std::uint32_t device_id, std::uint32_t channel);
     // Destructor
     virtual ~tt_SiliconDevice ();
-    std::unordered_map<chip_id_t, std::vector<std::vector<uint32_t>>> get_broadcast_headers(std::set<chip_id_t> chips_to_exclude = {});
-    void broadcast_write_to_cluster(const uint32_t *mem_ptr, uint32_t len, uint64_t address, std::set<chip_id_t> chips_to_exclude = {}, std::vector<uint32_t> rows_to_exclude = {}, std::vector<uint32_t> columns_to_exclude = {}, const std::string fallback_tlb = "");
+    std::unordered_map<chip_id_t, std::vector<std::vector<uint32_t>>>& get_broadcast_headers(const std::set<chip_id_t>& chips_to_exclude);
+    void broadcast_write_to_cluster(const uint32_t *mem_ptr, uint32_t len, uint64_t address, const std::set<chip_id_t>& chips_to_exclude, std::set<uint32_t>& rows_to_exclude, std::set<uint32_t>& columns_to_exclude, const std::string& fallback_tlb);
 
     private:
     // Helper functions
@@ -598,6 +598,7 @@ class tt_SiliconDevice: public tt_device
     std::function<std::int32_t(tt_xy_pair)> map_core_to_tlb;
     std::unordered_map<std::string, std::int32_t> dynamic_tlb_config = {};
     std::unordered_map<std::string, uint64_t> dynamic_tlb_ordering_modes = {};
+    std::map<std::set<chip_id_t>, std::unordered_map<chip_id_t, std::vector<std::vector<uint32_t>>>> bcast_header_cache = {};
     std::uint64_t buf_physical_addr = 0;
     void * buf_mapping = nullptr;
     int driver_id;  

@@ -1383,81 +1383,81 @@ std::unordered_map<chip_id_t, uint32_t> tt_SiliconDevice::get_harvesting_masks_f
     return default_harvesting_masks;
 }
 
-std::unordered_map<chip_id_t, std::vector<std::vector<uint32_t>>> tt_SiliconDevice::get_broadcast_headers(std::set<chip_id_t> chips_to_exclude) {
-    std::unordered_map<chip_id_t, std::unordered_map<chip_id_t, std::vector<uint32_t>>> broadcast_mask_for_target_chips_per_group = {};
-    std::unordered_map<std::string, std::tuple<chip_id_t, std::vector<uint32_t>>> broadcast_header_union_per_group = {};
-    std::unordered_map<chip_id_t, std::vector<std::vector<uint32_t>>> bcast_headers_per_mmio_chip = {};
-    for(const auto& chip : target_devices_in_cluster) {
-        if(chips_to_exclude.find(chip) == chips_to_exclude.end()) {
-            // Get shelf local physical chip id included in broadcast
-            chip_id_t physical_chip_id = ndesc -> get_shelf_local_physical_chip_coords(chip);
-            std::cout << "Physical chip id: " << chip << " " << physical_chip_id << std::endl;
-            eth_coord_t eth_coords = ndesc -> get_chip_locations().at(chip);
-            // Rack word to be set in header
-            uint32_t rack_word = std::get<2>(eth_coords) >> 2;
-            // Rack byte to be set in header
-            uint32_t rack_byte = std::get<2>(eth_coords) % 4;
-            // 1st level grouping: Group broadcasts based on the MMIO chip they must go through
-            // Nebula + Galaxy Topology assumption: Disjoint sets can only be present in the first shelf, with each set connected to host through its closest MMIO chip
-            // For the first shelf, pass broadcasts to specific chips through their closest MMIO chip
-            // All other shelves are fully connected galaxy grids. These are connected to all MMIO devices. Use any (or the first) MMIO device in the list.
-            chip_id_t closest_mmio_chip = 0;
-            if (std::get<2>(eth_coords) == 0 && std::get<3>(eth_coords) == 0) {
-                closest_mmio_chip = ndesc -> get_closest_mmio_capable_chip(chip);
-            }
-            else {
-                closest_mmio_chip = *(get_target_mmio_device_ids().begin());
-            }
-            if(broadcast_mask_for_target_chips_per_group.find(closest_mmio_chip) == broadcast_mask_for_target_chips_per_group.end()) {
-                broadcast_mask_for_target_chips_per_group.insert({closest_mmio_chip, {}});
-            }
-            // 2nd level grouping: For each remote chip per MMIO group, generate the rack + shelf headers. Then group chips based on these headers.
-            if(broadcast_mask_for_target_chips_per_group.at(closest_mmio_chip).find(physical_chip_id) == broadcast_mask_for_target_chips_per_group.at(closest_mmio_chip).end()) {
-                std::vector<uint32_t> broadcast_mask(8, 0);
-                broadcast_mask.at(rack_word) |= (1 << std::get<3>(eth_coords)) << rack_byte;
-                broadcast_mask.at(3) |= 1 << physical_chip_id;
-                broadcast_mask_for_target_chips_per_group.at(closest_mmio_chip).insert({physical_chip_id, broadcast_mask});
+std::unordered_map<chip_id_t, std::vector<std::vector<uint32_t>>>& tt_SiliconDevice::get_broadcast_headers(const std::set<chip_id_t>& chips_to_exclude) {
+    if(bcast_header_cache.find(chips_to_exclude) == bcast_header_cache.end()) {
+        bcast_header_cache[chips_to_exclude] = {};
+        std::unordered_map<chip_id_t, std::unordered_map<chip_id_t, std::vector<uint32_t>>> broadcast_mask_for_target_chips_per_group = {};
+        std::unordered_map<std::string, std::tuple<chip_id_t, std::vector<uint32_t>>> broadcast_header_union_per_group = {};
+        for(const auto& chip : target_devices_in_cluster) {
+            if(chips_to_exclude.find(chip) == chips_to_exclude.end()) {
+                // Get shelf local physical chip id included in broadcast
+                chip_id_t physical_chip_id = ndesc -> get_shelf_local_physical_chip_coords(chip);
+                eth_coord_t eth_coords = ndesc -> get_chip_locations().at(chip);
+                // Rack word to be set in header
+                uint32_t rack_word = std::get<2>(eth_coords) >> 2;
+                // Rack byte to be set in header
+                uint32_t rack_byte = std::get<2>(eth_coords) % 4;
+                // 1st level grouping: Group broadcasts based on the MMIO chip they must go through
+                // Nebula + Galaxy Topology assumption: Disjoint sets can only be present in the first shelf, with each set connected to host through its closest MMIO chip
+                // For the first shelf, pass broadcasts to specific chips through their closest MMIO chip
+                // All other shelves are fully connected galaxy grids. These are connected to all MMIO devices. Use any (or the first) MMIO device in the list.
+                chip_id_t closest_mmio_chip = 0;
+                if (std::get<2>(eth_coords) == 0 && std::get<3>(eth_coords) == 0) {
+                    closest_mmio_chip = ndesc -> get_closest_mmio_capable_chip(chip);
+                }
+                else {
+                    closest_mmio_chip = *(get_target_mmio_device_ids().begin());
+                }
+                if(broadcast_mask_for_target_chips_per_group.find(closest_mmio_chip) == broadcast_mask_for_target_chips_per_group.end()) {
+                    broadcast_mask_for_target_chips_per_group.insert({closest_mmio_chip, {}});
+                }
+                // 2nd level grouping: For each remote chip per MMIO group, generate the rack + shelf headers. Then group chips based on these headers.
+                if(broadcast_mask_for_target_chips_per_group.at(closest_mmio_chip).find(physical_chip_id) == broadcast_mask_for_target_chips_per_group.at(closest_mmio_chip).end()) {
+                    std::vector<uint32_t> broadcast_mask(8, 0);
+                    broadcast_mask.at(rack_word) |= (1 << std::get<3>(eth_coords)) << rack_byte;
+                    broadcast_mask.at(3) |= 1 << physical_chip_id;
+                    broadcast_mask_for_target_chips_per_group.at(closest_mmio_chip).insert({physical_chip_id, broadcast_mask});
 
-            }
-            else {
-                broadcast_mask_for_target_chips_per_group.at(closest_mmio_chip).at(physical_chip_id).at(rack_word) |= static_cast<uint32_t>(1 << std::get<3>(eth_coords)) << rack_byte;
-            }
-        }
-    }
-    
-    for(auto& mmio_group : broadcast_mask_for_target_chips_per_group) {
-        for(auto& chip : mmio_group.second) {
-            std::string header_hash = std::to_string(mmio_group.first) + "_" + std::to_string(chip.second.at(0)) + "_" + std::to_string(chip.second.at(1)) + "_" + std::to_string(chip.second.at(2));
-            if(broadcast_header_union_per_group.find(header_hash) == broadcast_header_union_per_group.end()) {
-                broadcast_header_union_per_group.insert({header_hash, std::make_tuple(mmio_group.first, chip.second)});
-            }
-            else {
-                std::get<1>(broadcast_header_union_per_group.at(header_hash)).at(3) |= chip.second.at(3);
+                }
+                else {
+                    broadcast_mask_for_target_chips_per_group.at(closest_mmio_chip).at(physical_chip_id).at(rack_word) |= static_cast<uint32_t>(1 << std::get<3>(eth_coords)) << rack_byte;
+                }
             }
         }
-    }
+        
+        for(auto& mmio_group : broadcast_mask_for_target_chips_per_group) {
+            for(auto& chip : mmio_group.second) {
+                std::string header_hash = std::to_string(mmio_group.first) + "_" + std::to_string(chip.second.at(0)) + "_" + std::to_string(chip.second.at(1)) + "_" + std::to_string(chip.second.at(2));
+                if(broadcast_header_union_per_group.find(header_hash) == broadcast_header_union_per_group.end()) {
+                    broadcast_header_union_per_group.insert({header_hash, std::make_tuple(mmio_group.first, chip.second)});
+                }
+                else {
+                    std::get<1>(broadcast_header_union_per_group.at(header_hash)).at(3) |= chip.second.at(3);
+                }
+            }
+        }
 
-    for(const auto& header : broadcast_header_union_per_group) {
-        chip_id_t mmio_chip = std::get<0>(header.second);
-        if(bcast_headers_per_mmio_chip.find(mmio_chip) == bcast_headers_per_mmio_chip.end()) {
-            bcast_headers_per_mmio_chip.insert({mmio_chip, {}});
-        }
-        bcast_headers_per_mmio_chip.at(mmio_chip).push_back(std::get<1>(header.second));
-    }
-    int count = 0;
-    for(auto& bcast_group : bcast_headers_per_mmio_chip) {
-        std::cout << "Sending to group: " << count << std::endl;
-        for(auto& header : bcast_group.second) {
-            int header_idx = 0;
-            for(auto& header_entry : header) {
-                if(header_idx == 4) break;
-                header_entry = ~header_entry;
-                header_idx++;
+        for(const auto& header : broadcast_header_union_per_group) {
+            chip_id_t mmio_chip = std::get<0>(header.second);
+            if(bcast_header_cache[chips_to_exclude].find(mmio_chip) == bcast_header_cache[chips_to_exclude].end()) {
+                bcast_header_cache[chips_to_exclude].insert({mmio_chip, {}});
             }
+            bcast_header_cache[chips_to_exclude].at(mmio_chip).push_back(std::get<1>(header.second));
         }
-        count++;
+        int count = 0;
+        for(auto& bcast_group : bcast_header_cache[chips_to_exclude]) {
+            for(auto& header : bcast_group.second) {
+                int header_idx = 0;
+                for(auto& header_entry : header) {
+                    if(header_idx == 4) break;
+                    header_entry = ~header_entry;
+                    header_idx++;
+                }
+            }
+            count++;
+        }
     }
-    return bcast_headers_per_mmio_chip;
+    return bcast_header_cache[chips_to_exclude];
 }
 
 tt_SiliconDevice::tt_SiliconDevice(const std::string &sdesc_path, const std::string &ndesc_path, const std::set<chip_id_t> &target_devices, const uint32_t &num_host_mem_ch_per_mmio_device, const std::unordered_map<std::string, std::int32_t>& dynamic_tlb_config_, const bool skip_driver_allocs, bool perform_harvesting) : tt_device(sdesc_path) {
@@ -3026,7 +3026,7 @@ bool tt_SiliconDevice::is_non_mmio_cmd_q_full(uint32_t curr_wptr, uint32_t curr_
  */
 
  void tt_SiliconDevice::broadcast_write_to_cluster(const uint32_t *mem_ptr, uint32_t len, uint64_t address,
-                        std::set<chip_id_t> chips_to_exclude, std::vector<uint32_t> rows_to_exclude, std::vector<uint32_t> cols_to_exclude, const std::string fallback_tlb) {
+                        const std::set<chip_id_t>& chips_to_exclude, std::set<uint32_t>& rows_to_exclude, std::set<uint32_t>& cols_to_exclude, const std::string& fallback_tlb) {
    
     if (arch_name == tt::ARCH::GRAYSKULL) {
         // "Broadcast" implemented as a for loop of unicasts
@@ -3049,7 +3049,7 @@ bool tt_SiliconDevice::is_non_mmio_cmd_q_full(uint32_t curr_wptr, uint32_t curr_
     }
     else {
         // True broadcast through ERISC core
-        auto bcast_headers = get_broadcast_headers(chips_to_exclude);
+        std::unordered_map<chip_id_t, std::vector<std::vector<uint32_t>>>& broadcast_headers = get_broadcast_headers(chips_to_exclude);
         std::uint32_t row_exclusion_mask = 0;
         std::uint32_t col_exclusion_mask = 0;
 
@@ -3060,8 +3060,9 @@ bool tt_SiliconDevice::is_non_mmio_cmd_q_full(uint32_t curr_wptr, uint32_t curr_
         for(const auto& col : cols_to_exclude) {
             col_exclusion_mask |= 1 << (16 + col);
         }
-        for(auto& mmio_group : bcast_headers) {
+        for(auto& mmio_group : broadcast_headers) {
             for(auto& header : mmio_group.second) {
+                header.at(4) = 0; // Reset row/col exclusion masks
                 header.at(4) |= row_exclusion_mask;
                 header.at(4) |= col_exclusion_mask;
                 write_to_non_mmio_device(mem_ptr, len, tt_cxy_pair(mmio_group.first, tt_xy_pair(1, 1)), address, true, header);
@@ -3171,11 +3172,7 @@ void tt_SiliconDevice::write_to_non_mmio_device(
                 data_block.resize(block_size/DATA_WORD_SIZE);
                 memcpy(&data_block[0], mem_ptr + offset/DATA_WORD_SIZE, block_size);
                 if(broadcast) {
-                    std::cout << "Broadcasting" << std::endl;
-                    for(const auto it : broadcast_header) std::cout << it << " ";
-                    std::cout << std::endl;
                     write_to_sysmem(broadcast_header, host_dram_block_addr, host_dram_channel, mmio_capable_chip_logical);
-                    _mm_sfence();
                 }
                 write_to_sysmem(data_block, host_dram_block_addr + 32 * broadcast, host_dram_channel, mmio_capable_chip_logical);
             } else {
@@ -3874,9 +3871,10 @@ void tt_SiliconDevice::broadcast_tensix_risc_reset_to_cluster(const TensixSoftRe
         auto valid = soft_resets & ALL_TENSIX_SOFT_RESET;
         uint32_t valid_val = (std::underlying_type<TensixSoftResetOptions>::type) valid;
         std::set<chip_id_t> chips_to_exclude = {};
-        std::vector<uint32_t> rows_to_exclude = {0, 6};
-        std::vector<uint32_t> columns_to_exclude = {0, 5};
-        broadcast_write_to_cluster(&valid_val, 1, 0xFFB121B0, chips_to_exclude, rows_to_exclude, columns_to_exclude);
+        std::set<uint32_t> rows_to_exclude = {0, 6};
+        std::set<uint32_t> columns_to_exclude = {0, 5};
+        std::string fallback_tlb = "LARGE_WRITE_TLB";
+        broadcast_write_to_cluster(&valid_val, 1, 0xFFB121B0, chips_to_exclude, rows_to_exclude, columns_to_exclude, fallback_tlb);
     }
 }
 
@@ -3920,7 +3918,6 @@ std::set<chip_id_t> tt_SiliconDevice::get_target_remote_device_ids() {
 
 void tt_SiliconDevice::deassert_resets_and_set_power_state() {
     // Assert resets on all chips in cluster
-    std::cout << "Start device" << std::endl;
     broadcast_tensix_risc_reset_to_cluster(TENSIX_ASSERT_SOFT_RESET);
     
     // Send ARC Messages to deassert RISCV resets
@@ -3937,7 +3934,6 @@ void tt_SiliconDevice::deassert_resets_and_set_power_state() {
     }
     // Set power state to busy
     set_power_state(tt_DevicePowerState::BUSY);
-    std::cout << "Done" << std::endl;
 }
 
 void tt_SiliconDevice::start_device(const tt_device_params &device_params) {

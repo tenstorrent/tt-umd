@@ -3099,7 +3099,7 @@ bool tt_SiliconDevice::is_non_mmio_cmd_q_full(uint32_t curr_wptr, uint32_t curr_
 
 void tt_SiliconDevice::write_to_non_mmio_device(
                         const void *mem_ptr, uint32_t size_in_bytes, tt_cxy_pair core, uint64_t address, 
-                        bool broadcast, std::vector<uint32_t> broadcast_header) {
+                        bool broadcast, std::vector<int> broadcast_header) {
     
     chip_id_t mmio_capable_chip_logical;
     
@@ -3201,7 +3201,7 @@ void tt_SiliconDevice::write_to_non_mmio_device(
                 memcpy(&data_block[0], (uint8_t*)mem_ptr + offset, transfer_size);
                 if(broadcast) {
                     // Write broadcast header to sysmem
-                    write_to_sysmem(broadcast_header, host_dram_block_addr, host_dram_channel, mmio_capable_chip_logical);
+                    write_to_sysmem(broadcast_header.data(), broadcast_header.size() * sizeof(uint32_t), host_dram_block_addr, host_dram_channel, mmio_capable_chip_logical);
                 }
                 // Write payload to sysmem
                 write_to_sysmem(data_block, host_dram_block_addr + BROADCAST_HEADER_SIZE * broadcast, host_dram_channel, mmio_capable_chip_logical);
@@ -3741,84 +3741,88 @@ void tt_SiliconDevice::generate_tensix_broadcast_grids_for_grayskull(std::set<st
     }
 }
 
-void tt_SiliconDevice::get_ethernet_broadcast_headers(std::unordered_map<chip_id_t, std::vector<std::vector<uint32_t>>>& broadcast_headers, std::set<chip_id_t> chips_to_exclude) {
+std::unordered_map<chip_id_t, std::vector<std::vector<int>>>& tt_SiliconDevice::get_ethernet_broadcast_headers(const std::set<chip_id_t>& chips_to_exclude) {
     // Generate headers for Ethernet Broadcast (WH) only. Each header corresponds to a unique broadcast "grid".
-    std::unordered_map<chip_id_t, std::unordered_map<chip_id_t, std::vector<uint32_t>>> broadcast_mask_for_target_chips_per_group = {};
-    std::unordered_map<std::string, std::tuple<chip_id_t, std::vector<uint32_t>>> broadcast_header_union_per_group = {};
+    if(bcast_header_cache.find(chips_to_exclude) == bcast_header_cache.end()) {
+        bcast_header_cache[chips_to_exclude] = {};
+        std::unordered_map<chip_id_t, std::unordered_map<chip_id_t, std::vector<int>>> broadcast_mask_for_target_chips_per_group = {};
+        std::map<std::vector<int>, std::tuple<chip_id_t, std::vector<int>>> broadcast_header_union_per_group = {};
+        chip_id_t first_mmio_chip = *(get_target_mmio_device_ids().begin());
+        for(const auto& chip : target_devices_in_cluster) {
+            if(chips_to_exclude.find(chip) == chips_to_exclude.end()) {
+                // Get shelf local physical chip id included in broadcast
+                chip_id_t physical_chip_id = ndesc -> get_shelf_local_physical_chip_coords(chip);
+                eth_coord_t eth_coords = ndesc -> get_chip_locations().at(chip);
+                // Rack word to be set in header
+                uint32_t rack_word = std::get<2>(eth_coords) >> 2;
+                // Rack byte to be set in header
+                uint32_t rack_byte = std::get<2>(eth_coords) % 4;
+                // 1st level grouping: Group broadcasts based on the MMIO chip they must go through
+                // Nebula + Galaxy Topology assumption: Disjoint sets can only be present in the first shelf, with each set connected to host through its closest MMIO chip
+                // For the first shelf, pass broadcasts to specific chips through their closest MMIO chip
+                // All other shelves are fully connected galaxy grids. These are connected to all MMIO devices. Use any (or the first) MMIO device in the list.
+                chip_id_t closest_mmio_chip = 0;
+                if (std::get<2>(eth_coords) == 0 && std::get<3>(eth_coords) == 0) {
+                    // Shelf 0 + Rack 0: Either an MMIO chip or a remote chip potentially connected to host through its own MMIO counterpart.
+                    closest_mmio_chip = ndesc -> get_closest_mmio_capable_chip(chip);
+                }
+                else {
+                    // All other shelves: Group these under the same/first MMIO chip, since all MMIO chips are connected.
+                    closest_mmio_chip = first_mmio_chip;
+                }
+                if(broadcast_mask_for_target_chips_per_group.find(closest_mmio_chip) == broadcast_mask_for_target_chips_per_group.end()) {
+                    broadcast_mask_for_target_chips_per_group.insert({closest_mmio_chip, {}});
+                }
+                // For each target physical chip id (local to a shelf), generate headers based on all racks and shelves that contain this physical id.
+                if(broadcast_mask_for_target_chips_per_group.at(closest_mmio_chip).find(physical_chip_id) == broadcast_mask_for_target_chips_per_group.at(closest_mmio_chip).end()) {
+                    // Target seen for the first time.
+                    std::vector<int> broadcast_mask(8, 0);
+                    broadcast_mask.at(rack_word) |= (1 << std::get<3>(eth_coords)) << rack_byte;
+                    broadcast_mask.at(3) |= 1 << physical_chip_id;
+                    broadcast_mask_for_target_chips_per_group.at(closest_mmio_chip).insert({physical_chip_id, broadcast_mask});
 
-    for(const auto& chip : target_devices_in_cluster) {
-        if(chips_to_exclude.find(chip) == chips_to_exclude.end()) {
-            // Get shelf local physical chip id included in broadcast
-            chip_id_t physical_chip_id = ndesc -> get_shelf_local_physical_chip_coords(chip);
-            eth_coord_t eth_coords = ndesc -> get_chip_locations().at(chip);
-            // Rack word to be set in header
-            uint32_t rack_word = std::get<2>(eth_coords) >> 2;
-            // Rack byte to be set in header
-            uint32_t rack_byte = std::get<2>(eth_coords) % 4;
-            // 1st level grouping: Group broadcasts based on the MMIO chip they must go through
-            // Nebula + Galaxy Topology assumption: Disjoint sets can only be present in the first shelf, with each set connected to host through its closest MMIO chip
-            // For the first shelf, pass broadcasts to specific chips through their closest MMIO chip
-            // All other shelves are fully connected galaxy grids. These are connected to all MMIO devices. Use any (or the first) MMIO device in the list.
-            chip_id_t closest_mmio_chip = 0;
-            if (std::get<2>(eth_coords) == 0 && std::get<3>(eth_coords) == 0) {
-                // Shelf 0 + Rack 0: Either an MMIO chip or a remote chip potentially connected to host through its own MMIO counterpart.
-                closest_mmio_chip = ndesc -> get_closest_mmio_capable_chip(chip);
+                }
+                else {
+                    // Target was seen before -> include curr rack and shelf in header
+                    broadcast_mask_for_target_chips_per_group.at(closest_mmio_chip).at(physical_chip_id).at(rack_word) |= static_cast<uint32_t>(1 << std::get<3>(eth_coords)) << rack_byte;
+                }
             }
-            else {
-                // All other shelves: Group these under the same/first MMIO chip, since all MMIO chips are connected.
-                closest_mmio_chip = *(get_target_mmio_device_ids().begin());
+        }
+        // 2nd level grouping: For each MMIO group, further group the chips based on their rack and shelf headers. The number of groups after this step represent the final set of broadcast grids.
+        for(auto& mmio_group : broadcast_mask_for_target_chips_per_group) {
+            for(auto& chip : mmio_group.second) {
+                // Generate a hash for this MMIO Chip + Rack + Shelf group
+                std::vector<int> header_hash = {mmio_group.first, chip.second.at(0), chip.second.at(1), chip.second.at(2)};
+                if(broadcast_header_union_per_group.find(header_hash) == broadcast_header_union_per_group.end()) {
+                    broadcast_header_union_per_group.insert({header_hash, std::make_tuple(mmio_group.first, chip.second)});
+                }
+                else {
+                    // If group found, update chip header entry
+                    std::get<1>(broadcast_header_union_per_group.at(header_hash)).at(3) |= chip.second.at(3);
+                }
             }
-            if(broadcast_mask_for_target_chips_per_group.find(closest_mmio_chip) == broadcast_mask_for_target_chips_per_group.end()) {
-                broadcast_mask_for_target_chips_per_group.insert({closest_mmio_chip, {}});
+        }
+        // Get all broadcast headers per MMIO group
+        for(const auto& header : broadcast_header_union_per_group) {
+            chip_id_t mmio_chip = std::get<0>(header.second);
+            if(bcast_header_cache[chips_to_exclude].find(mmio_chip) == bcast_header_cache[chips_to_exclude].end()) {
+                bcast_header_cache[chips_to_exclude].insert({mmio_chip, {}});
             }
-            // For each target physical chip id (local to a shelf), generate headers based on all racks and shelves that contain this physical id.
-            if(broadcast_mask_for_target_chips_per_group.at(closest_mmio_chip).find(physical_chip_id) == broadcast_mask_for_target_chips_per_group.at(closest_mmio_chip).end()) {
-                // Target seen for the first time.
-                std::vector<uint32_t> broadcast_mask(8, 0);
-                broadcast_mask.at(rack_word) |= (1 << std::get<3>(eth_coords)) << rack_byte;
-                broadcast_mask.at(3) |= 1 << physical_chip_id;
-                broadcast_mask_for_target_chips_per_group.at(closest_mmio_chip).insert({physical_chip_id, broadcast_mask});
-
-            }
-            else {
-                // Target was seen before -> include curr rack and shelf in header
-                broadcast_mask_for_target_chips_per_group.at(closest_mmio_chip).at(physical_chip_id).at(rack_word) |= static_cast<uint32_t>(1 << std::get<3>(eth_coords)) << rack_byte;
+            bcast_header_cache[chips_to_exclude].at(mmio_chip).push_back(std::get<1>(header.second));
+        }
+        // Invert headers (FW convention)
+        for(auto& bcast_group : bcast_header_cache[chips_to_exclude]) {
+            for(auto& header : bcast_group.second) {
+                int header_idx = 0;
+                for(auto& header_entry : header) {
+                    if(header_idx == 4) break;
+                    header_entry = ~header_entry;
+                    header_idx++;
+                }
             }
         }
     }
-    // 2nd level grouping: For each MMIO group, further group the chips based on their rack and shelf headers. The number of groups after this step represent the final set of broadcast grids.
-    for(auto& mmio_group : broadcast_mask_for_target_chips_per_group) {
-        for(auto& chip : mmio_group.second) {
-            // Generate a hash for this MMIO Chip + Rack + Shelf group
-            std::string header_hash = std::to_string(mmio_group.first) + "_" + std::to_string(chip.second.at(0)) + "_" + std::to_string(chip.second.at(1)) + "_" + std::to_string(chip.second.at(2));
-            if(broadcast_header_union_per_group.find(header_hash) == broadcast_header_union_per_group.end()) {
-                broadcast_header_union_per_group.insert({header_hash, std::make_tuple(mmio_group.first, chip.second)});
-            }
-            else {
-                // If group found, update chip header entry
-                std::get<1>(broadcast_header_union_per_group.at(header_hash)).at(3) |= chip.second.at(3);
-            }
-        }
-    }
-    // Get all broadcast headers per MMIO group
-    for(const auto& header : broadcast_header_union_per_group) {
-        chip_id_t mmio_chip = std::get<0>(header.second);
-        if(broadcast_headers.find(mmio_chip) == broadcast_headers.end()) {
-            broadcast_headers.insert({mmio_chip, {}});
-        }
-        broadcast_headers.at(mmio_chip).push_back(std::get<1>(header.second));
-    }
-    // Invert headers (FW convention)
-    for(auto& bcast_group : broadcast_headers) {
-        for(auto& header : bcast_group.second) {
-            int header_idx = 0;
-            for(auto& header_entry : header) {
-                if(header_idx == 4) break;
-                header_entry = ~header_entry;
-                header_idx++;
-            }
-        }
-    }
+    return bcast_header_cache[chips_to_exclude];
 }
 
 void tt_SiliconDevice::pcie_broadcast_write(chip_id_t chip, const void* mem_ptr, uint32_t size_in_bytes, std::uint32_t addr, const tt_xy_pair& start, const tt_xy_pair& end, const std::string& fallback_tlb) {
@@ -3840,8 +3844,7 @@ void tt_SiliconDevice::pcie_broadcast_write(chip_id_t chip, const void* mem_ptr,
 }
 
 void tt_SiliconDevice::broadcast_write_to_cluster(const void *mem_ptr, uint32_t size_in_bytes, uint64_t address,
-                       const std::set<chip_id_t>& chips_to_exclude, std::set<uint32_t> rows_to_exclude, std::set<uint32_t> cols_to_exclude, const std::string& fallback_tlb) {
-   
+                       const std::set<chip_id_t>& chips_to_exclude, std::set<uint32_t>& rows_to_exclude, std::set<uint32_t>& cols_to_exclude, const std::string& fallback_tlb) {
     if (arch_name == tt::ARCH::GRAYSKULL) {
         // Device FW disables broadcasts to all non tensix cores.
         std::vector<tt_xy_pair> dram_cores_to_write = {};
@@ -3878,8 +3881,7 @@ void tt_SiliconDevice::broadcast_write_to_cluster(const void *mem_ptr, uint32_t 
         }
         if(use_ethernet_broadcast) {
             // Broadcast through ERISC core supported
-            std::unordered_map<chip_id_t, std::vector<std::vector<uint32_t>>> broadcast_headers = {};
-            get_ethernet_broadcast_headers(broadcast_headers, chips_to_exclude);
+            std::unordered_map<chip_id_t, std::vector<std::vector<int>>>& broadcast_headers = get_ethernet_broadcast_headers(chips_to_exclude);
             // Apply row and column exclusion mask explictly. Placing this here if we want to cache the higher level broadcast headers on future/
             std::uint32_t row_exclusion_mask = 0;
             std::uint32_t col_exclusion_mask = 0;
@@ -3893,6 +3895,7 @@ void tt_SiliconDevice::broadcast_write_to_cluster(const void *mem_ptr, uint32_t 
             // Write broadcast block to device.
             for(auto& mmio_group : broadcast_headers) {
                 for(auto& header : mmio_group.second) {
+                    header.at(4) = 0; // Reset row/col exclusion masks
                     header.at(4) |= row_exclusion_mask;
                     header.at(4) |= col_exclusion_mask;
                     // Write Target: x-y endpoint is a don't care. Initialize to tt_xy_pair(1, 1)

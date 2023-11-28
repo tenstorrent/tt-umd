@@ -4385,7 +4385,8 @@ void tt_SiliconDevice::verify_sw_fw_versions(int device_id, std::uint32_t sw_ver
 
     // Min ERISC FW version required to support ordered writes is 6.4.0
     use_ethernet_ordered_writes &= (fw_first_eth_core.major >= 6 && fw_first_eth_core.minor >= 4);
-
+    // Min ERISC FW version required to support ethernet broadcast is 6.5.0.
+    use_ethernet_broadcast &= (fw_first_eth_core.major >= 6 && fw_first_eth_core.minor >= 5);
 }
 
 void tt_SiliconDevice::start_device(const tt_device_params &device_params) {

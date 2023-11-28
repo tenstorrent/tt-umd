@@ -41,6 +41,7 @@ struct address_map {
 
   // Base addresses
   static constexpr std::int32_t FIRMWARE_BASE = 0;
+  static constexpr std::int32_t L1_BARRIER_BASE = 0xfffc0;
   static constexpr std::int32_t ZEROS_BASE = FIRMWARE_BASE + BRISC_FIRMWARE_SIZE;
   static constexpr std::int32_t NCRISC_FIRMWARE_BASE = FIRMWARE_BASE + FIRMWARE_SIZE;
   static constexpr std::int32_t NCRISC_L1_CODE_BASE =  NCRISC_FIRMWARE_BASE + NCRISC_IRAM_CODE_SIZE;

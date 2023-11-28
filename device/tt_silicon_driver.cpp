@@ -3280,7 +3280,8 @@ void tt_SiliconDevice::write_to_non_mmio_device(const void *mem_ptr, uint32_t si
 // 2) does not have the code paths for transfers larger than 32kB (1024 cmds)
 // 3) only reads erisc_q_ptrs_epoch once, or when the queues are full
 // 4) only updates wptr on eth command queues for the last epoch command or when the queue is full
-void tt_SiliconDevice::write_to_non_mmio_device_send_epoch_cmd(const uint32_t *mem_ptr, uint32_t size_in_bytes, tt_cxy_pair core, uint64_t address, bool last_send_epoch_cmd) {
+// 5) ability to use write-ordering eth fw feature for remote cmds (useful to order epoch cmd, wrptr) if FW supports it, otherwise use flush.
+void tt_SiliconDevice::write_to_non_mmio_device_send_epoch_cmd(const uint32_t *mem_ptr, uint32_t size_in_bytes, tt_cxy_pair core, uint64_t address, bool last_send_epoch_cmd, bool ordered_with_prev_remote_write) {
     using data_word_t = uint32_t;
     constexpr int DATA_WORD_SIZE = sizeof(data_word_t);
 
@@ -3300,6 +3301,12 @@ void tt_SiliconDevice::write_to_non_mmio_device_send_epoch_cmd(const uint32_t *m
 
     std::vector<std::uint32_t> data_block;
 
+    // Flush used as ordering mechanism when eth ordered writes are unsupported. If previous write requires flush,
+    // handle it here before setting flush_non_mmio for the current write.
+    if (ordered_with_prev_remote_write && !use_ethernet_ordered_writes) {
+        wait_for_non_mmio_flush();
+    }
+
     flush_non_mmio = true;
     uint32_t timestamp = 0; //CMD_TIMESTAMP;
 
@@ -3315,11 +3322,14 @@ void tt_SiliconDevice::write_to_non_mmio_device_send_epoch_cmd(const uint32_t *m
 
     uint32_t block_size;
 
+    // Ethernet ordered writes must originate from same erisc core, so prevent updating active core here.
     while (is_non_mmio_cmd_q_full(erisc_q_ptrs_epoch[0], erisc_q_ptrs_epoch[4])) {
-        active_core_epoch++;
-        assert(active_core_epoch - EPOCH_ETH_CORES_START_ID >= 0);
-        active_core_epoch = ((active_core_epoch - EPOCH_ETH_CORES_START_ID) % EPOCH_ETH_CORES_FOR_NON_MMIO_TRANSFERS) + EPOCH_ETH_CORES_START_ID;
-        remote_transfer_ethernet_core = remote_transfer_ethernet_cores[active_core_epoch];
+        if (!ordered_with_prev_remote_write){
+            active_core_epoch++;
+            assert(active_core_epoch - EPOCH_ETH_CORES_START_ID >= 0);
+            active_core_epoch = ((active_core_epoch - EPOCH_ETH_CORES_START_ID) % EPOCH_ETH_CORES_FOR_NON_MMIO_TRANSFERS) + EPOCH_ETH_CORES_START_ID;
+            remote_transfer_ethernet_core = remote_transfer_ethernet_cores[active_core_epoch];
+        }
         read_device_memory(erisc_q_ptrs_epoch.data(), remote_transfer_ethernet_core, eth_interface_params.REQUEST_CMD_QUEUE_BASE + eth_interface_params.CMD_COUNTERS_SIZE_BYTES, eth_interface_params.REMOTE_UPDATE_PTR_SIZE_BYTES*2, read_tlb);
     }
 
@@ -3334,6 +3344,10 @@ void tt_SiliconDevice::write_to_non_mmio_device_send_epoch_cmd(const uint32_t *m
         block_size = size_in_bytes;
     }
     uint32_t req_flags = block_size > DATA_WORD_SIZE ? (eth_interface_params.CMD_DATA_BLOCK | eth_interface_params.CMD_WR_REQ | timestamp) : eth_interface_params.CMD_WR_REQ;
+    if (use_ethernet_ordered_writes) {
+        req_flags |= eth_interface_params.CMD_ORDERED;
+    }
+
     uint32_t resp_flags = block_size > DATA_WORD_SIZE ? (eth_interface_params.CMD_DATA_BLOCK | eth_interface_params.CMD_WR_ACK) : eth_interface_params.CMD_WR_ACK;
     timestamp = 0;
 
@@ -3359,7 +3373,7 @@ void tt_SiliconDevice::write_to_non_mmio_device_send_epoch_cmd(const uint32_t *m
     }
 
     // send the write request
-    log_assert((req_flags == eth_interface_params.CMD_WR_REQ) || ((address & 0x1F) == 0), LogSiliconDriver, "Block mode address must be 32-byte aligned.");
+    log_assert((req_flags & eth_interface_params.CMD_DATA_BLOCK) ? (address & 0x1F) == 0 : true, LogSiliconDriver, "Block mode address must be 32-byte aligned.");
 
     new_cmd->sys_addr = get_sys_addr(std::get<0>(target_chip), std::get<1>(target_chip), core.x, core.y, address);
     new_cmd->rack = get_sys_rack(std::get<2>(target_chip), std::get<3>(target_chip));
@@ -3892,7 +3906,7 @@ void tt_SiliconDevice::dram_membar(const chip_id_t chip, const std::string& fall
     }
 }
 
-void tt_SiliconDevice::write_to_device(const void *mem_ptr, uint32_t size, tt_cxy_pair core, uint64_t addr, const std::string& fallback_tlb, bool send_epoch_cmd, bool last_send_epoch_cmd) {
+void tt_SiliconDevice::write_to_device(const void *mem_ptr, uint32_t size, tt_cxy_pair core, uint64_t addr, const std::string& fallback_tlb, bool send_epoch_cmd, bool last_send_epoch_cmd, bool ordered_with_prev_remote_write) {
     bool target_is_mmio_capable = ndesc -> is_chip_mmio_capable(core.chip);
     if(target_is_mmio_capable) {
         if (fallback_tlb == "REG_TLB") {
@@ -3907,29 +3921,29 @@ void tt_SiliconDevice::write_to_device(const void *mem_ptr, uint32_t size, tt_cx
     } else {
         // as long as epoch commands are sent single-threaded, no need to acquire mutex
         log_assert(!(size % 4), LogSiliconDriver, "Epoch commands must be 4 byte aligned!");
-        write_to_non_mmio_device_send_epoch_cmd((uint32_t*)mem_ptr, size, core, addr, last_send_epoch_cmd);
+        write_to_non_mmio_device_send_epoch_cmd((uint32_t*)mem_ptr, size, core, addr, last_send_epoch_cmd, ordered_with_prev_remote_write);
     }
 }
 
 
-void tt_SiliconDevice::write_to_device(std::vector<uint32_t> &vec, tt_cxy_pair core, uint64_t addr, const std::string& fallback_tlb, bool send_epoch_cmd, bool last_send_epoch_cmd) {
+void tt_SiliconDevice::write_to_device(std::vector<uint32_t> &vec, tt_cxy_pair core, uint64_t addr, const std::string& fallback_tlb, bool send_epoch_cmd, bool last_send_epoch_cmd, bool ordered_with_prev_remote_write) {
     // Overloaded device writer that accepts a vector
-    write_to_device(vec.data(), vec.size() * sizeof(uint32_t), core, addr, fallback_tlb, send_epoch_cmd, last_send_epoch_cmd);
+    write_to_device(vec.data(), vec.size() * sizeof(uint32_t), core, addr, fallback_tlb, send_epoch_cmd, last_send_epoch_cmd, ordered_with_prev_remote_write);
 }
 
 
-void tt_SiliconDevice::write_epoch_cmd_to_device(const uint32_t *mem_ptr, uint32_t size_in_bytes, tt_cxy_pair core, uint64_t addr, const std::string& fallback_tlb, bool last_send_epoch_cmd) {
+void tt_SiliconDevice::write_epoch_cmd_to_device(const uint32_t *mem_ptr, uint32_t size_in_bytes, tt_cxy_pair core, uint64_t addr, const std::string& fallback_tlb, bool last_send_epoch_cmd, bool ordered_with_prev_remote_write) {
     bool target_is_mmio_capable = ndesc -> is_chip_mmio_capable(core.chip);
     if(target_is_mmio_capable) {
         write_device_memory(mem_ptr, size_in_bytes, core, addr, fallback_tlb);
     } else {
-        write_to_non_mmio_device_send_epoch_cmd(mem_ptr, size_in_bytes, core, addr, last_send_epoch_cmd);
+        write_to_non_mmio_device_send_epoch_cmd(mem_ptr, size_in_bytes, core, addr, last_send_epoch_cmd, ordered_with_prev_remote_write);
      }
 }
 
-void tt_SiliconDevice::write_epoch_cmd_to_device(std::vector<uint32_t> &vec, tt_cxy_pair core, uint64_t addr, const std::string& fallback_tlb, bool last_send_epoch_cmd) {
+void tt_SiliconDevice::write_epoch_cmd_to_device(std::vector<uint32_t> &vec, tt_cxy_pair core, uint64_t addr, const std::string& fallback_tlb, bool last_send_epoch_cmd, bool ordered_with_prev_remote_write) {
     // Overloaded device writer that accepts a vector
-    write_epoch_cmd_to_device(vec.data(), vec.size() * sizeof(uint32_t), core, addr, fallback_tlb, last_send_epoch_cmd);
+    write_epoch_cmd_to_device(vec.data(), vec.size() * sizeof(uint32_t), core, addr, fallback_tlb, last_send_epoch_cmd, ordered_with_prev_remote_write);
 }
 
 void tt_SiliconDevice::rolled_write_to_device(uint32_t* mem_ptr, uint32_t size_in_bytes, uint32_t unroll_count, tt_cxy_pair core, uint64_t addr, const std::string& fallback_tlb) {
@@ -4114,8 +4128,45 @@ std::set<chip_id_t> tt_SiliconDevice::get_target_remote_device_ids() {
     return target_remote_chips;
 }
 
+
+void tt_SiliconDevice::verify_sw_fw_versions(int device_id, std::uint32_t sw_version, std::vector<std::uint32_t> &fw_versions) {
+    tt_version sw(sw_version), fw_first_eth_core(fw_versions.at(0));
+    log_info(
+        LogSiliconDriver,
+        "Software version {}, Ethernet FW version {} (Device {})",
+        sw.str(),
+        fw_first_eth_core.str(),
+        device_id);
+    for (std::uint32_t &fw_version : fw_versions) {
+        tt_version fw(fw_version);
+        log_assert(fw == fw_first_eth_core, LogSiliconDriver, "FW versions are not the same across different ethernet cores");
+        log_assert(sw.major == fw.major, LogSiliconDriver, "SW/FW major version number out of sync");
+        log_assert(sw.minor <= fw.minor, LogSiliconDriver, "SW version is newer than FW version");
+    }
+
+    // Min ERISC FW version required to support ordered writes is 6.4.0
+    use_ethernet_ordered_writes &= (fw_first_eth_core.major >= 6 && fw_first_eth_core.minor >= 4);
+
+}
+
+void tt_SiliconDevice::verify_eth_fw() {
+    for(const auto& chip : target_devices_in_cluster) {
+        std::vector<uint32_t> mem_vector;
+        std::vector<uint32_t> fw_versions;
+        for (tt_xy_pair &eth_core : get_soc_descriptor(chip).ethernet_cores) {
+            read_from_device(mem_vector, tt_cxy_pair(chip, eth_core), l1_address_params.FW_VERSION_ADDR, sizeof(uint32_t), "LARGE_READ_TLB");
+            fw_versions.push_back(mem_vector.at(0));
+        }
+        verify_sw_fw_versions(chip, SW_VERSION, fw_versions);
+    }
+}
+
+
 void tt_SiliconDevice::start_device(const tt_device_params &device_params) {
     if(device_params.init_device) {
+        if(arch_name == tt::ARCH::WORMHOLE || arch_name == tt::ARCH::WORMHOLE_B0) {
+            verify_eth_fw();
+        }
         init_system(device_params, get_soc_descriptor(*target_devices_in_cluster.begin()).grid_size); // grid size here is used to get vcd dump cores (nost used for silicon)
         set_power_state(tt_DevicePowerState::BUSY);
 

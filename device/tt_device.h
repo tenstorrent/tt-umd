@@ -68,6 +68,7 @@ struct tt_device_l1_address_params {
     std::int32_t TRISC_BASE = 0;
     std::int32_t TENSIX_L1_BARRIER_BASE = 0;
     std::int32_t ETH_L1_BARRIER_BASE = 0;
+    std::int32_t FW_VERSION_ADDR = 0;
 };
 
 /**
@@ -104,6 +105,7 @@ struct tt_driver_eth_interface_params {
     std::int32_t REQUEST_ROUTING_CMD_QUEUE_BASE = 0;
     std::int32_t RESPONSE_ROUTING_CMD_QUEUE_BASE = 0;
     std::int32_t CMD_BUF_PTR_MASK = 0;
+    std::int32_t CMD_ORDERED = 0;
 };
 
 struct tt_device_params {
@@ -326,7 +328,7 @@ class tt_device
     * \param send_epoch_cmd Specifies that this is an epoch_cmd write, forcing runtime to take a faster write path (Buda only)
     * \param last_send_epoch_cmd Specifies that this is the last epoch command being written, which requires metadata to be updated (Buda only)
     */
-    virtual void write_to_device(const void *mem_ptr, uint32_t size_in_bytes, tt_cxy_pair core, uint64_t addr, const std::string& tlb_to_use, bool send_epoch_cmd = false, bool last_send_epoch_cmd = true) {
+    virtual void write_to_device(const void *mem_ptr, uint32_t size_in_bytes, tt_cxy_pair core, uint64_t addr, const std::string& tlb_to_use, bool send_epoch_cmd = false, bool last_send_epoch_cmd = true, bool ordered_with_prev_remote_write = false) {
         // Only implement this for Silicon Backend
         throw std::runtime_error("---- tt_device::write_to_device is not implemented\n");
     }
@@ -339,7 +341,7 @@ class tt_device
     * \param send_epoch_cmd Specifies that this is an epoch_cmd write, forcing runtime to take a faster write path (Buda only)
     * \param last_send_epoch_cmd Specifies that this is the last epoch command being written, which requires metadata to be updated (Buda only)
     */
-    virtual void write_to_device(std::vector<uint32_t> &vec, tt_cxy_pair core, uint64_t addr, const std::string& tlb_to_use, bool send_epoch_cmd = false, bool last_send_epoch_cmd = true) {
+    virtual void write_to_device(std::vector<uint32_t> &vec, tt_cxy_pair core, uint64_t addr, const std::string& tlb_to_use, bool send_epoch_cmd = false, bool last_send_epoch_cmd = true, bool ordered_with_prev_remote_write = false) {
         throw std::runtime_error("---- tt_device::write_to_device is not implemented\n");
     }
 
@@ -647,11 +649,11 @@ class tt_VersimDevice: public tt_device
     virtual void deassert_risc_reset_at_core(tt_cxy_pair core);
     virtual void assert_risc_reset(int target_device);
     virtual void assert_risc_reset_at_core(tt_cxy_pair core);
-    virtual void write_to_device(std::vector<uint32_t> &vec, tt_cxy_pair core, uint64_t addr, const std::string& tlb_to_use, bool send_epoch_cmd = false, bool last_send_epoch_cmd = true);
+    virtual void write_to_device(std::vector<uint32_t> &vec, tt_cxy_pair core, uint64_t addr, const std::string& tlb_to_use, bool send_epoch_cmd = false, bool last_send_epoch_cmd = true, bool ordered_with_prev_remote_write = false);
     virtual void rolled_write_to_device(std::vector<uint32_t> &vec, uint32_t unroll_count, tt_cxy_pair core, uint64_t addr, const std::string& tlb_to_use);
     virtual void read_from_device(std::vector<uint32_t> &vec, tt_cxy_pair core, uint64_t addr, uint32_t size, const std::string& tlb_to_use);
     virtual void rolled_write_to_device(uint32_t* mem_ptr, uint32_t size_in_bytes, uint32_t unroll_count, tt_cxy_pair core, uint64_t addr, const std::string& fallback_tlb);
-    virtual void write_to_device(const void *mem_ptr, uint32_t size_in_bytes, tt_cxy_pair core, uint64_t addr, const std::string& tlb_to_use, bool send_epoch_cmd = false, bool last_send_epoch_cmd = true);
+    virtual void write_to_device(const void *mem_ptr, uint32_t size_in_bytes, tt_cxy_pair core, uint64_t addr, const std::string& tlb_to_use, bool send_epoch_cmd = false, bool last_send_epoch_cmd = true, bool ordered_with_prev_remote_write = false);
     virtual void read_from_device(void *mem_ptr, tt_cxy_pair core, uint64_t addr, uint32_t size, const std::string& tlb_to_use); 
     virtual void wait_for_non_mmio_flush();
     void l1_membar(const chip_id_t chip, const std::string& fallback_tlb, const std::unordered_set<tt_xy_pair>& cores = {});
@@ -720,10 +722,10 @@ class tt_SiliconDevice: public tt_device
     virtual void close_device();
 
     // Runtime Functions
-    virtual void write_to_device(const void *mem_ptr, uint32_t size_in_bytes, tt_cxy_pair core, uint64_t addr, const std::string& tlb_to_use, bool send_epoch_cmd = false, bool last_send_epoch_cmd = true);
-    virtual void write_to_device(std::vector<uint32_t> &vec, tt_cxy_pair core, uint64_t addr, const std::string& tlb_to_use, bool send_epoch_cmd = false, bool last_send_epoch_cmd = true);
-    virtual void write_epoch_cmd_to_device(const uint32_t *mem_ptr, uint32_t size_in_bytes, tt_cxy_pair core, uint64_t addr, const std::string& tlb_to_use, bool last_send_epoch_cmd);
-    virtual void write_epoch_cmd_to_device(std::vector<uint32_t> &vec, tt_cxy_pair core, uint64_t addr, const std::string& tlb_to_use, bool last_send_epoch_cmd);
+    virtual void write_to_device(const void *mem_ptr, uint32_t size_in_bytes, tt_cxy_pair core, uint64_t addr, const std::string& tlb_to_use, bool send_epoch_cmd = false, bool last_send_epoch_cmd = true, bool ordered_with_prev_remote_write = false);
+    virtual void write_to_device(std::vector<uint32_t> &vec, tt_cxy_pair core, uint64_t addr, const std::string& tlb_to_use, bool send_epoch_cmd = false, bool last_send_epoch_cmd = true, bool ordered_with_prev_remote_write = false);
+    virtual void write_epoch_cmd_to_device(const uint32_t *mem_ptr, uint32_t size_in_bytes, tt_cxy_pair core, uint64_t addr, const std::string& tlb_to_use, bool last_send_epoch_cmd, bool ordered_with_prev_remote_write);
+    virtual void write_epoch_cmd_to_device(std::vector<uint32_t> &vec, tt_cxy_pair core, uint64_t addr, const std::string& tlb_to_use, bool last_send_epoch_cmd, bool ordered_with_prev_remote_write);
     virtual void rolled_write_to_device(uint32_t* mem_ptr, uint32_t size_in_bytes, uint32_t unroll_count, tt_cxy_pair core, uint64_t addr, const std::string& fallback_tlb);
     virtual void rolled_write_to_device(std::vector<uint32_t> &vec, uint32_t unroll_count, tt_cxy_pair core, uint64_t addr, const std::string& tlb_to_use);
     virtual void read_from_device(void* mem_ptr, tt_cxy_pair core, uint64_t addr, uint32_t size, const std::string& fallback_tlb);
@@ -826,7 +828,7 @@ class tt_SiliconDevice: public tt_device
     void write_device_memory(const void *mem_ptr, uint32_t size_in_bytes, tt_cxy_pair target, std::uint32_t address, const std::string& fallback_tlb);
     void read_device_memory(void *mem_ptr, tt_cxy_pair target, std::uint32_t address, std::uint32_t size_in_bytes, const std::string& fallback_tlb);
     void write_to_non_mmio_device(const void *mem_ptr, uint32_t size_in_bytes, tt_cxy_pair core, uint64_t address);
-    void write_to_non_mmio_device_send_epoch_cmd(const uint32_t *mem_ptr, uint32_t size_in_bytes, tt_cxy_pair core, uint64_t address, bool last_send_epoch_cmd);
+    void write_to_non_mmio_device_send_epoch_cmd(const uint32_t *mem_ptr, uint32_t size_in_bytes, tt_cxy_pair core, uint64_t address, bool last_send_epoch_cmd, bool ordered_with_prev_remote_write);
     void rolled_write_to_non_mmio_device(const uint32_t *mem_ptr, uint32_t len, tt_cxy_pair core, uint64_t address, uint32_t unroll_count);
     void read_from_non_mmio_device(void* mem_ptr, tt_cxy_pair core, uint64_t address, uint32_t size_in_bytes);
     void read_mmio_device_register(void* mem_ptr, tt_cxy_pair core, uint64_t addr, uint32_t size, const std::string& fallback_tlb);
@@ -848,6 +850,8 @@ class tt_SiliconDevice: public tt_device
     std::optional<std::tuple<std::uint32_t, std::uint32_t>> describe_tlb(tt_xy_pair coord);
 
     // Test functions
+    void verify_eth_fw();
+    void verify_sw_fw_versions(int device_id, std::uint32_t sw_version, std::vector<std::uint32_t> &fw_versions);
     int test_pcie_tlb_setup (struct PCIdevice* pci_device);
     int test_setup_interface ();
     int test_broadcast (int logical_device_id);
@@ -908,11 +912,16 @@ class tt_SiliconDevice: public tt_device
     void * buf_mapping = nullptr;
     int driver_id;  
     bool perform_harvesting_on_sdesc = false;
+    bool use_ethernet_ordered_writes = true;
 
     // Named Mutexes
     static constexpr char NON_MMIO_MUTEX_NAME[] = "NON_MMIO";
     static constexpr char ARC_MSG_MUTEX_NAME[] = "ARC_MSG";
     static constexpr char MEM_BARRIER_MUTEX_NAME[] = "MEM_BAR";
+
+    // ERISC FW Version Required by UMD
+    static constexpr std::uint32_t SW_VERSION = 0x06060000;
+
 };
 
 tt::ARCH detect_arch(uint16_t device_id = 0);
@@ -936,3 +945,6 @@ constexpr inline bool operator==(const tt_version &a, const tt_version &b) {
     return a.major == b.major && a.minor == b.minor && a.patch == b.patch;
 }
 
+constexpr inline bool operator>=(const tt_version &a, const tt_version &b) {
+    return a.major >= b.major && a.minor >= b.minor && a.patch >= b.patch;
+}

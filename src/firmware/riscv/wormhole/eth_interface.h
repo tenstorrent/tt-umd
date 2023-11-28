@@ -41,6 +41,7 @@ const uint32_t CMD_NOC_ID_SHIFT = 9;
 const uint32_t CMD_NOC_ID = (0x1 << CMD_NOC_ID_SHIFT);
 const uint32_t CMD_TIMESTAMP_SHIFT = 10;
 const uint32_t CMD_TIMESTAMP = (0x1 << CMD_TIMESTAMP_SHIFT);
+const uint32_t CMD_ORDERED = (0x1 << 12);
 
 const uint32_t CMD_DATA_BLOCK_UNAVAILABLE = (0x1 << 30);
 const uint32_t CMD_DEST_UNREACHABLE = (0x1 << 31);

@@ -4139,9 +4139,9 @@ void tt_SiliconDevice::verify_sw_fw_versions(int device_id, std::uint32_t sw_ver
         device_id);
     for (std::uint32_t &fw_version : fw_versions) {
         tt_version fw(fw_version);
-        log_assert(fw == fw_first_eth_core, LogSiliconDriver, "FW versions are not the same across different ethernet cores");
-        log_assert(sw.major == fw.major, LogSiliconDriver, "SW/FW major version number out of sync");
-        log_assert(sw.minor <= fw.minor, LogSiliconDriver, "SW version is newer than FW version");
+        log_assert(fw == fw_first_eth_core, "FW versions are not the same across different ethernet cores");
+        log_assert(sw.major == fw.major, "SW/FW major version number out of sync");
+        log_assert(sw.minor <= fw.minor, "SW version is newer than FW version");
     }
 
     // Min ERISC FW version required to support ordered writes is 6.4.0

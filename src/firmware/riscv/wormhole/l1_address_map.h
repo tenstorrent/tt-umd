@@ -6,8 +6,7 @@
 
 #pragma once
 
-#include <stdint.h>
-
+#include <cstdint>
 namespace l1_mem {
 
 struct mailbox_type {
@@ -22,16 +21,17 @@ struct address_map {
   
   // Sizes
   static constexpr std::int32_t FIRMWARE_SIZE = 20 * 1024;          // 20KB = 7KB + 1KB zeros + 12KB perf buffers
+  static constexpr std::int32_t L1_BARRIER_SIZE = 0x20; // 32 bytes reserved for L1 Barrier
   static constexpr std::int32_t BRISC_FIRMWARE_SIZE = 7*1024 + 512 + 768; // Taking an extra 768B from perf buffer space
   static constexpr std::int32_t ZEROS_SIZE = 512;
-  static constexpr std::int32_t NCRISC_FIRMWARE_SIZE = 32 * 1024;        // 16KB in L0, 16KB in L1
+  static constexpr std::int32_t NCRISC_FIRMWARE_SIZE = 32 * 1024; // 16KB in L0, 16KB in L1
   static constexpr std::int32_t TRISC0_SIZE = 20 * 1024;        // 20KB = 16KB + 4KB local memory
   static constexpr std::int32_t TRISC1_SIZE = 16 * 1024;        // 16KB = 12KB + 4KB local memory
   static constexpr std::int32_t TRISC2_SIZE = 20 * 1024;        // 20KB = 16KB + 4KB local memory
   static constexpr std::int32_t TRISC_LOCAL_MEM_SIZE = 4 * 1024;      // 
   static constexpr std::int32_t NCRISC_LOCAL_MEM_SIZE = 4 * 1024;     // 
   static constexpr std::int32_t NCRISC_L1_SCRATCH_SIZE = 4 * 1024;     //
-  static constexpr std::int32_t NCRISC_L1_CODE_SIZE = 16*1024;      // Size of code block that is L1 resident
+  static constexpr std::int32_t NCRISC_L1_CODE_SIZE = 16 * 1024;     // Size of code block that is L1 resident
   static constexpr std::int32_t NCRISC_IRAM_CODE_SIZE = 16*1024;    // Size of code block that is IRAM resident
   static constexpr std::int32_t NCRISC_DATA_SIZE = 4 * 1024;        // 4KB
   static constexpr std::int32_t EPOCH_RUNTIME_CONFIG_SIZE = 128;      //
@@ -76,7 +76,7 @@ struct address_map {
   static constexpr std::int32_t TRISC0_MAILBOX_BASE = TRISC0_BASE + TRISC_L1_MAILBOX_OFFSET;
   static constexpr std::int32_t TRISC1_MAILBOX_BASE = TRISC1_BASE + TRISC_L1_MAILBOX_OFFSET;
   static constexpr std::int32_t TRISC2_MAILBOX_BASE = TRISC2_BASE + TRISC_L1_MAILBOX_OFFSET;
-  
+
   static constexpr std::int32_t FW_MAILBOX_BASE         = 32;
   static constexpr std::int32_t DEBUG_MAILBOX_BUF_BASE  = 112;
 
@@ -96,9 +96,9 @@ struct address_map {
   static constexpr std::int32_t TRISC1_DEBUG_BUFFER_BASE  = TRISC1_LOCAL_MEM_BASE + DEBUG_BUFFER_SIZE;
   static constexpr std::int32_t TRISC2_DEBUG_BUFFER_BASE  = TRISC2_LOCAL_MEM_BASE + DEBUG_BUFFER_SIZE;
 
-  static constexpr std::int32_t MAX_SIZE = 1499136;
-  static constexpr std::int32_t MAX_L1_LOADING_SIZE = 1 * 1024 * 1024;  
-  
+  static constexpr std::int32_t MAX_SIZE = 1 * 1024 * 1024;  // 1MB
+  static constexpr std::int32_t MAX_L1_LOADING_SIZE = MAX_SIZE;
+
   static constexpr std::int32_t RISC_LOCAL_MEM_BASE = 0xffb00000; // Actaul local memory address as seen from risc firmware
                                                                    // As part of the init risc firmware will copy local memory data from
                                                                    // l1 locations listed above into internal local memory that starts 
@@ -134,5 +134,5 @@ struct address_map {
   static constexpr std::int32_t WALL_CLOCK_H = 0xFFB121F8;
 
 };
-}  // namespace llk
 
+}  // namespace l1_mem

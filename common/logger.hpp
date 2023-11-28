@@ -291,9 +291,14 @@ static void log_trace_(LogType type, std::string const& src_info, char const* fm
         } \
     }
 
+#define log_profile(str, ...) \
+    { \
+        log_custom(tt::Logger::Level::Profile, tt::LogProfile, str, ## __VA_ARGS__); \
+    }
+
 #else 
 
 #define log_trace(...) ((void)0)
 #define log_debug(...) ((void)0)
-
+#define log_profile(...) ((void)0)
 #endif

@@ -3,11 +3,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 
-#ifdef TT_DEBUG_LOGGING
-#define DEBUG_LOG(str) do { std::cout << str << std::endl; } while( false )
-#else
-#define DEBUG_LOG(str) do { } while ( false )
-#endif
 
 #include "tt_device.h"
 #include "device/driver_atomics.h"
@@ -182,7 +177,8 @@ void tt_VersimDevice::rolled_write_to_device(uint32_t* mem_ptr, uint32_t len, ui
 }
 
 void tt_VersimDevice::write_to_device(std::vector<uint32_t> &vec, tt_cxy_pair core, uint64_t addr, const std::string& tlb_to_use, bool send_epoch_cmd, bool last_send_epoch_cmd, bool ordered_with_prev_remote_write) {
-  DEBUG_LOG("Versim Device (" << get_sim_time(*versim) << "): Write vector at target core " << core.str() << ", address: " << std::hex << addr << std::dec);
+  
+  log_debug(tt::LogSiliconDriver, "Versim Device ({}): Write vector at target core {}, address: {}", get_sim_time(*versim), core.str(), addr);
 
   bool aligned_32B = (soc_descriptor_per_chip.begin() -> second).cores.at(core).type == CoreType::DRAM;
   // MT: Remove these completely
@@ -215,8 +211,7 @@ void tt_VersimDevice::dram_membar(const chip_id_t chip, const std::string& fallb
 }
 
 void tt_VersimDevice::read_from_device(std::vector<uint32_t> &vec, tt_cxy_pair core, uint64_t addr, uint32_t size, const std::string& tlb_to_use) {
-  // std::cout << "Versim Device: Read vector from target address: 0x" << std::hex << address << std::dec << ", with size: " << size_in_bytes << " Bytes" << std::endl;
-  DEBUG_LOG("Versim Device (" << get_sim_time(*versim) << "): Read vector from target address: 0x" << std::hex << addr << std::dec << ", with size: " << size << " Bytes");
+  log_debug(tt::LogSiliconDriver, "Versim Device ({}): Read vector from address: {}, with size: {} Bytes", get_sim_time(*versim), addr, size);
 
   CommandAssembler::xy_pair CA_target(core.x, core.y);
 
@@ -226,8 +221,7 @@ void tt_VersimDevice::read_from_device(std::vector<uint32_t> &vec, tt_cxy_pair c
 }
 
 void tt_VersimDevice::read_from_device(void *mem_ptr, tt_cxy_pair core, uint64_t addr, uint32_t size, const std::string& tlb_to_use) {
-  // std::cout << "Versim Device: Read vector from target address: 0x" << std::hex << address << std::dec << ", with size: " << size_in_bytes << " Bytes" << std::endl;
-  DEBUG_LOG("Versim Device (" << get_sim_time(*versim) << "): Read vector from target address: 0x" << std::hex << addr << std::dec << ", with size: " << size << " Bytes");
+  log_debug(tt::LogSiliconDriver, "Versim Device ({}): Read vector from address: {}, with size: {} Bytes", get_sim_time(*versim), addr, size);
   log_assert(!(size % 4), tt::LogSiliconDriver, "Reads from Versim backend should be 4 byte aligned!");
   CommandAssembler::xy_pair CA_target(core.x, core.y);
 

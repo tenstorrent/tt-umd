@@ -1544,9 +1544,10 @@ tt_SiliconDevice::tt_SiliconDevice(const std::string &sdesc_path, const std::str
     if(std::getenv("TT_BACKEND_HARVESTED_ROWS")) {
         performed_harvesting = true;
         std::vector<int> harvesting_info = extract_harvest_info_for_simulation(std::getenv("TT_BACKEND_HARVESTED_ROWS"));
-        tt_device_logger::log_assert(harvesting_info.size() == target_devices.size(),
-                    "Number of entries in the comma seperated harvesting config should match the number of devices in the netlist. Num Devices: {} Num Entries: {}",
-                    target_devices.size(), harvesting_info.size());
+        // If harvesting mask does not correpond to all devices, replicate mask across missing devices.
+        while(harvesting_info.size() != target_devices.size()) {
+            harvesting_info.push_back(harvesting_info.at(harvesting_info.size() - 1));
+        }
         int idx = 0;
         for (auto device_id = target_devices.begin(); device_id != target_devices.end(); device_id++) {
             if(arch_name == tt::ARCH::GRAYSKULL) {

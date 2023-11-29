@@ -2828,10 +2828,9 @@ uint32_t tt_SiliconDevice::get_harvested_rows (int logical_device_id) {
         harv = std::stoul(harv_override, nullptr, 16);
     } else {
         int harvesting_msg_code = arc_msg(logical_device_id, 0xaa00 | MSG_TYPE::ARC_GET_HARVESTING, true, 0, 0, 1, &harv);
-        log_assert(harvesting_msg_code != MSG_ERROR_REPLY,
-                    LogSiliconDriver, "Failed to read harvested rows from device {}", logical_device_id);
+        log_assert(harvesting_msg_code != MSG_ERROR_REPLY, "Failed to read harvested rows from device {}", logical_device_id);
     }
-    log_assert(harv != 0xffffffff, LogSiliconDriver, "Readback 0xffffffff for harvesting info. Chip is fused incorrectly!");
+    log_assert(harv != 0xffffffff, "Readback 0xffffffff for harvesting info. Chip is fused incorrectly!");
     LOG1("HARVESTING {} = {:#x}", (harv==0) ? "DISABLED":"ENABLED", harv);
     
     uint32_t memory = harv & 0x3ff;

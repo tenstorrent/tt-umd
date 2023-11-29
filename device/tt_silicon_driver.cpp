@@ -279,7 +279,7 @@ void size_buffer_to_capacity(std::vector<T> &data_buf, std::size_t size_in_bytes
 // Get number of 1GB host hugepages installed. They are used for host queues.
 uint32_t get_num_hugepages(){
 
-    log_assert(HUGEPAGE_REGION_SIZE == 1 << 30, LogSiliconDriver, "Hugepages must be 1GB in size");
+    log_assert(HUGEPAGE_REGION_SIZE == 1 << 30, "Hugepages must be 1GB in size");
     std::string nr_hugepages_path = "/sys/kernel/mm/hugepages/hugepages-1048576kB/nr_hugepages";
     std::ifstream hugepages_file(nr_hugepages_path);
     uint32_t num_hugepages = 0;
@@ -290,7 +290,7 @@ uint32_t get_num_hugepages(){
         num_hugepages = std::stoi(value);
         log_debug(LogSiliconDriver, "Parsed num_hugepages: {} from {}", num_hugepages, nr_hugepages_path);
     } else {
-        log_fatal(LogSiliconDriver, "{} - Cannot open {}. errno: {}", __FUNCTION__, nr_hugepages_path, std::strerror(errno));
+        log_fatal("{} - Cannot open {}. errno: {}", __FUNCTION__, nr_hugepages_path, std::strerror(errno));
     }
 
     return num_hugepages;
@@ -335,7 +335,7 @@ uint32_t get_available_num_host_mem_channels(const uint32_t num_channels_per_dev
             num_channels_per_device_available, device_id, num_channels_per_device_target);
     }
 
-    log_assert(num_channels_per_device_available <= g_MAX_HOST_MEM_CHANNELS, LogSiliconDriver,
+    log_assert(num_channels_per_device_available <= g_MAX_HOST_MEM_CHANNELS,
         "NumHostMemChannels: {} exceeds supported maximum: {}, this is unexpected.",
         num_channels_per_device_available, g_MAX_HOST_MEM_CHANNELS);
 
@@ -1425,7 +1425,7 @@ void tt_SiliconDevice::create_device(const std::unordered_set<chip_id_t> &target
             // Large writes to remote chips require hugepages to be initialized.
             // Conservative assert - end workload if remote chips present but hugepages not initialized (failures caused if using remote only for small transactions)
             if(target_remote_chips.size()) {
-                log_assert(hugepages_initialized, LogSiliconDriver, "Hugepages must be successfully initialized if workload contains remote chips!");
+                log_assert(hugepages_initialized, "Hugepages must be successfully initialized if workload contains remote chips!");
             }
             uint16_t channel = 0; // Single channel sufficient for this?
             if (not hugepage_mapping.at(logical_device_id).at(channel)) {
@@ -1516,7 +1516,7 @@ tt_SiliconDevice::tt_SiliconDevice(const std::string &sdesc_path, const std::str
             };
 
             bool translation_tables_match_on_all_chips = std::all_of(noc_translation_enabled_for_chip.begin(), noc_translation_enabled_for_chip.end(), consistent_translation_table_state);
-            log_assert(translation_tables_match_on_all_chips, LogSiliconDriver, "Cluster uses NOC translation tables inconsistently across chips.");
+            log_assert(translation_tables_match_on_all_chips, "Cluster uses NOC translation tables inconsistently across chips.");
             translation_tables_en = noc_translation_enabled_for_chip.begin() -> second;
         }
 
@@ -1526,7 +1526,7 @@ tt_SiliconDevice::tt_SiliconDevice(const std::string &sdesc_path, const std::str
                 harvested_coord_translation.insert({chip, create_harvested_coord_translation(arch_name, false)});
             }
         }
-        log_assert(performed_harvesting ? translation_tables_en : true, LogSiliconDriver, "Using a harvested WH cluster with NOC translation disabled.");
+        log_assert(performed_harvesting ? translation_tables_en : true, "Using a harvested WH cluster with NOC translation disabled.");
     }
      else if(arch_name == tt::ARCH::GRAYSKULL) {
         // Multichip harvesting is supported for GS.
@@ -1542,26 +1542,26 @@ tt_SiliconDevice::tt_SiliconDevice(const std::string &sdesc_path, const std::str
     if(std::getenv("TT_BACKEND_HARVESTED_ROWS")) {
         performed_harvesting = true;
         std::vector<int> harvesting_info = extract_harvest_info_for_simulation(std::getenv("TT_BACKEND_HARVESTED_ROWS"));
-        log_assert(harvesting_info.size() == target_devices.size(), LogSiliconDriver,
+        log_assert(harvesting_info.size() == target_devices.size(),
                     "Number of entries in the comma seperated harvesting config should match the number of devices in the netlist. Num Devices: {} Num Entries: {}",
                     target_devices.size(), harvesting_info.size());
         int idx = 0;
         for (auto device_id = target_devices.begin(); device_id != target_devices.end(); device_id++) {
             if(arch_name == tt::ARCH::GRAYSKULL) {
-                log_assert((harvesting_info[idx] & harvested_rows_per_target[*device_id]) == harvested_rows_per_target[*device_id], LogSiliconDriver,
+                log_assert((harvesting_info[idx] & harvested_rows_per_target[*device_id]) == harvested_rows_per_target[*device_id],
                             "Simulated harvesting config for device {} does not include the actual harvesting config (real config must be contained in simulated config when running on device). Actual Harvested Rows : {}    Simulated Harvested Rows : {}",
                             *device_id,  harvested_rows_per_target[*device_id], harvesting_info[idx]);
 
             }
             else if(arch_name == tt::ARCH::WORMHOLE_B0 || arch_name == tt::ARCH::WORMHOLE) {
-                log_assert(std::bitset<32>(harvesting_info[idx]).count() >= std::bitset<32>(*device_id).count(), LogSiliconDriver,
+                log_assert(std::bitset<32>(harvesting_info[idx]).count() >= std::bitset<32>(*device_id).count(),
                 "Simulated Harvesting for WH must contain at least as many rows as the actual harvesting config. Actual Harvested Rows : {}  Simulated Harvested Rows : {}",
                 harvested_rows_per_target[*device_id], harvesting_info[idx]);
                 num_rows_harvested.at(*device_id) = std::bitset<32>(harvesting_info[idx]).count();
             }
             harvested_rows_per_target[*device_id] = harvesting_info[idx];
             if(arch_name == tt::ARCH::WORMHOLE or arch_name == tt::ARCH::WORMHOLE_B0) {
-                log_assert(performed_harvesting ? translation_tables_en : true, LogSiliconDriver, "Using a harvested WH cluster with NOC translation disabled.");
+                log_assert(performed_harvesting ? translation_tables_en : true, "Using a harvested WH cluster with NOC translation disabled.");
             }
             idx++;
         }
@@ -1571,7 +1571,7 @@ tt_SiliconDevice::tt_SiliconDevice(const std::string &sdesc_path, const std::str
     populate_cores();
     if(arch_name == tt::ARCH::WORMHOLE or arch_name == tt::ARCH::WORMHOLE_B0) {
         const chip_id_t mmio_capable_chip = 0;
-        log_assert(ndesc->is_chip_mmio_capable(mmio_capable_chip), LogSiliconDriver, "Device 0 is not a MMIO device");
+        log_assert(ndesc->is_chip_mmio_capable(mmio_capable_chip), "Device 0 is not a MMIO device");
         // 4-5 is for send_epoch_commands, 0-3 are for everything else
         for (std::uint32_t i = 0; i < NUM_ETH_CORES_FOR_NON_MMIO_TRANSFERS; i++) {
             remote_transfer_ethernet_cores[i] = tt_cxy_pair(mmio_capable_chip, get_soc_descriptor(mmio_capable_chip).ethernet_cores.at(i).x, get_soc_descriptor(mmio_capable_chip).ethernet_cores.at(i).y);
@@ -1608,7 +1608,7 @@ std::vector<int> tt_SiliconDevice::extract_harvest_info_for_simulation(std::stri
 
 std::vector<int> tt_SiliconDevice::extract_rows_to_remove(const tt::ARCH &arch, const int worker_grid_rows, const int harvested_rows) {
     // Check if harvesting config is legal for GS and WH
-    log_assert(!((harvested_rows & 1) || (harvested_rows & 64) || (harvested_rows & 0xFFFFF000)), LogSiliconDriver, "For grayskull and wormhole, only rows 1-5 and 7-11 can be harvested");
+    log_assert(!((harvested_rows & 1) || (harvested_rows & 64) || (harvested_rows & 0xFFFFF000)), "For grayskull and wormhole, only rows 1-5 and 7-11 can be harvested");
     std::vector<int> row_coordinates_to_remove;
     int row_coordinate = 0;
     int tmp = harvested_rows;
@@ -1711,7 +1711,7 @@ struct PCIdevice* pci_device = get_pci_device(device_id);
 }
 
 std::unordered_map<tt_xy_pair, tt_xy_pair> tt_SiliconDevice::create_harvested_coord_translation(const tt::ARCH arch, bool identity_map) {
-    log_assert(identity_map ? true : (arch != tt::ARCH::GRAYSKULL),  LogSiliconDriver, "NOC Translation can only be performed for WH devices");
+    log_assert(identity_map ? true : (arch != tt::ARCH::GRAYSKULL), "NOC Translation can only be performed for WH devices");
     std::unordered_map<tt_xy_pair, tt_xy_pair> translation_table = {};
 
     tt_xy_pair grid_size;
@@ -1757,11 +1757,11 @@ std::unordered_map<tt_xy_pair, tt_xy_pair> tt_SiliconDevice::create_harvested_co
                 tt_xy_pair harvested_worker;
                 if(x >= 1 && x <= 4) harvested_worker.x = x + 17;
                 else if(x <= 9 && x > 5) harvested_worker.x = x + 16;
-                else log_assert(false, LogSiliconDriver, "Invalid WH worker x coord {} when creating translation tables.", x);
+                else log_assert(false, "Invalid WH worker x coord {} when creating translation tables.", x);
 
                 if(y >= 1 && y <= 5) harvested_worker.y = y + 17;
                 else if(y <= 11 && y > 6) harvested_worker.y = y + 16;
-                else log_assert(false, LogSiliconDriver, "Invalid WH worker y coord {} when creating translation tables.", y);
+                else log_assert(false, "Invalid WH worker y coord {} when creating translation tables.", y);
                 translation_table.insert({curr_core, harvested_worker});
             }
 
@@ -1770,11 +1770,11 @@ std::unordered_map<tt_xy_pair, tt_xy_pair> tt_SiliconDevice::create_harvested_co
                 tt_xy_pair harvested_eth_core;
                 if(x >= 1 && x <= 4) harvested_eth_core.x = x + 17;
                 else if(x <= 9 && x > 5) harvested_eth_core.x = x + 16;
-                else log_assert(false, LogSiliconDriver, "Invalid WH eth_core x coord {} when creating translation tables.", x);
+                else log_assert(false, "Invalid WH eth_core x coord {} when creating translation tables.", x);
 
                 if(y == 0) harvested_eth_core.y = y + 16;
                 else if(y == 6) harvested_eth_core.y = y + 11;
-                else log_assert(false, LogSiliconDriver, "Invalid WH eth_core y coord {} when creating translation tables.", y);
+                else log_assert(false, "Invalid WH eth_core y coord {} when creating translation tables.", y);
                 translation_table.insert({curr_core, harvested_eth_core});
             }
 
@@ -1864,7 +1864,7 @@ void tt_SiliconDevice::deassert_risc_reset() {
 
 void tt_SiliconDevice::deassert_risc_reset_at_core(tt_cxy_pair core) {
     std::uint32_t target_device = core.chip; // Get Target Device to query soc descriptor and determine location in cluster
-    log_assert(std::find(get_soc_descriptor(target_device).workers.begin(), get_soc_descriptor(target_device).workers.end(), core) != get_soc_descriptor(target_device).workers.end(), LogSiliconDriver,
+    log_assert(std::find(get_soc_descriptor(target_device).workers.begin(), get_soc_descriptor(target_device).workers.end(), core) != get_soc_descriptor(target_device).workers.end(),
                                 "Cannot deassert reset on a non-tensix or harvested core");
     bool target_is_mmio_capable = ndesc -> is_chip_mmio_capable(target_device);
     if(target_is_mmio_capable) {
@@ -1878,7 +1878,7 @@ void tt_SiliconDevice::deassert_risc_reset_at_core(tt_cxy_pair core) {
 
 void tt_SiliconDevice::assert_risc_reset_at_core(tt_cxy_pair core) {
     std::uint32_t target_device = core.chip; // Get Target Device to query soc descriptor and determine location in cluster
-    log_assert(std::find(get_soc_descriptor(target_device).workers.begin(), get_soc_descriptor(target_device).workers.end(), core) != get_soc_descriptor(target_device).workers.end(), LogSiliconDriver,
+    log_assert(std::find(get_soc_descriptor(target_device).workers.begin(), get_soc_descriptor(target_device).workers.end(), core) != get_soc_descriptor(target_device).workers.end(),
                                 "Cannot assert reset on a non-tensix or harvested core");
     bool target_is_mmio_capable = ndesc -> is_chip_mmio_capable(target_device);
     if(target_is_mmio_capable) {
@@ -2039,8 +2039,8 @@ void tt_SiliconDevice::read_dma_buffer(
     std::uint32_t size_in_bytes,
     chip_id_t src_device_id) {
 
-    log_assert(src_device_id != -1, LogSiliconDriver, "Must provide src_device_id for host_resident read/write");
-    log_assert(channel >= 0 && channel <= g_MAX_HOST_MEM_CHANNELS, LogSiliconDriver, "{} - Invalid channel {} for host_resident read/write.", __FUNCTION__, channel);
+    log_assert(src_device_id != -1, "Must provide src_device_id for host_resident read/write");
+    log_assert(channel >= 0 && channel <= g_MAX_HOST_MEM_CHANNELS, "{} - Invalid channel {} for host_resident read/write.", __FUNCTION__, channel);
     void * user_scratchspace = nullptr;
 
     if(hugepage_mapping.at(src_device_id).at(channel)) {
@@ -2221,7 +2221,7 @@ uint32_t tt_SiliconDevice::get_m_dma_buf_size() const {
 }
 
 void tt_SiliconDevice::configure_tlb(chip_id_t logical_device_id, tt_xy_pair core, std::int32_t tlb_index, std::int32_t address, uint64_t ordering) {
-    log_assert(ordering == TLB_DATA::Strict || ordering == TLB_DATA::Posted || ordering == TLB_DATA::Relaxed, LogSiliconDriver, "Invalid ordering specified in tt_SiliconDevice::configure_tlb");
+    log_assert(ordering == TLB_DATA::Strict || ordering == TLB_DATA::Posted || ordering == TLB_DATA::Relaxed, "Invalid ordering specified in tt_SiliconDevice::configure_tlb");
     set_dynamic_tlb(m_pci_device_map.at(logical_device_id), tlb_index, core, address, harvested_coord_translation, ordering);
     auto tlb_size = std::get<1>(describe_tlb(tlb_index).value());
     if(tlb_config_map.find(logical_device_id) == tlb_config_map.end()) tlb_config_map.insert({logical_device_id, {}});
@@ -2229,9 +2229,9 @@ void tt_SiliconDevice::configure_tlb(chip_id_t logical_device_id, tt_xy_pair cor
 }
 
 void tt_SiliconDevice::set_fallback_tlb_ordering_mode(const std::string& fallback_tlb, uint64_t ordering) {
-    log_assert(ordering == TLB_DATA::Strict || ordering == TLB_DATA::Posted || ordering == TLB_DATA::Relaxed, LogSiliconDriver, "Invalid ordering specified in tt_SiliconDevice::configure_tlb.");
-    log_assert(dynamic_tlb_ordering_modes.find(fallback_tlb) != dynamic_tlb_ordering_modes.end(), LogSiliconDriver, "Invalid TLB specified in tt_SiliconDevice::set_fallback_tlb_ordering_mode.");
-    log_assert(fallback_tlb != "LARGE_READ_TLB" &&  fallback_tlb != "LARGE_WRITE_TLB",  LogSiliconDriver, "Ordering modes for LARGE_READ_TLB and LARGE_WRITE_TLB cannot be modified.");
+    log_assert(ordering == TLB_DATA::Strict || ordering == TLB_DATA::Posted || ordering == TLB_DATA::Relaxed, "Invalid ordering specified in tt_SiliconDevice::configure_tlb.");
+    log_assert(dynamic_tlb_ordering_modes.find(fallback_tlb) != dynamic_tlb_ordering_modes.end(), "Invalid TLB specified in tt_SiliconDevice::set_fallback_tlb_ordering_mode.");
+    log_assert(fallback_tlb != "LARGE_READ_TLB" &&  fallback_tlb != "LARGE_WRITE_TLB", "Ordering modes for LARGE_READ_TLB and LARGE_WRITE_TLB cannot be modified.");
     dynamic_tlb_ordering_modes.at(fallback_tlb) = ordering;
 }
 // This function checks that all TLBs are properly setup. It should return 0 if all is good (i.e. if init_pcie_tlb is called prior)
@@ -2346,7 +2346,7 @@ void tt_SiliconDevice::init_pcie_iatus_no_p2p() {
 
     int num_enabled_devices = m_pci_device_map.size();
     LOG1("---- tt_SiliconDevice::init_pcie_iatus_no_p2p() num_enabled_devices: %d\n", num_enabled_devices);
-    log_assert(m_num_host_mem_channels <= g_MAX_HOST_MEM_CHANNELS, LogSiliconDriver, "Maximum of {} 1GB Host memory channels supported.",  g_MAX_HOST_MEM_CHANNELS);
+    log_assert(m_num_host_mem_channels <= g_MAX_HOST_MEM_CHANNELS, "Maximum of {} 1GB Host memory channels supported.",  g_MAX_HOST_MEM_CHANNELS);
 
     for (auto &src_device_it : m_pci_device_map){
         int src_pci_id = src_device_it.first;
@@ -2741,7 +2741,7 @@ int tt_SiliconDevice::pcie_arc_msg(int logical_device_id, uint32_t msg_code, boo
 
     uint32_t misc = bar_read32 (logical_device_id, DEVICE_DATA.ARC_RESET_ARC_MISC_CNTL_OFFSET);
     if (misc & (1 << 16)) {
-        log_error(LogSiliconDriver, "trigger_fw_int failed on device {}", logical_device_id);
+        log_error("trigger_fw_int failed on device {}", logical_device_id);
         return 1;
     } else {
         bar_write32(logical_device_id, DEVICE_DATA.ARC_RESET_ARC_MISC_CNTL_OFFSET, misc | (1 << 16));
@@ -2865,7 +2865,7 @@ void tt_SiliconDevice::enable_local_ethernet_queue(const chip_id_t &device_id, i
 
 void *tt_SiliconDevice::channel_0_address(std::uint32_t offset, std::uint32_t device_id) const {
     // This hard-codes that we use 16MB TLB #1 onwards for the mapping. See tt_SiliconDevice::init_pcie_tlb.
-    log_assert(ndesc->is_chip_mmio_capable(device_id), LogSiliconDriver, "Cannot call channel_0_address for non-MMIO device");
+    log_assert(ndesc->is_chip_mmio_capable(device_id), "Cannot call channel_0_address for non-MMIO device");
     std::uint64_t bar0_offset = offset - DEVICE_DATA.DRAM_CHANNEL_0_PEER2PEER_REGION_START
                                 + DEVICE_DATA.DYNAMIC_TLB_16M_BASE + DEVICE_DATA.DYNAMIC_TLB_16M_SIZE;
 
@@ -3202,7 +3202,7 @@ void tt_SiliconDevice::write_to_non_mmio_device(
         }
 
         // Send the read request
-        log_assert(broadcast || (req_flags == eth_interface_params.CMD_WR_REQ) || (((address + offset) % 32) == 0), LogSiliconDriver, "Block mode address must be 32-byte aligned."); // Block mode address must be 32-byte aligned.
+        log_assert(broadcast || (req_flags == eth_interface_params.CMD_WR_REQ) || (((address + offset) % 32) == 0), "Block mode address must be 32-byte aligned."); // Block mode address must be 32-byte aligned.
         
         if(broadcast) {
             // Only specify endpoint local address for broadcast
@@ -3322,11 +3322,11 @@ void tt_SiliconDevice::write_to_non_mmio_device_send_epoch_cmd(const uint32_t *m
     uint32_t req_wr_ptr = erisc_q_ptrs_epoch[0] & eth_interface_params.CMD_BUF_SIZE_MASK;
     if (address & 0x1F) { // address not 32-byte aligned
         // can send it in one transfer, no need to break it up
-        log_assert(size_in_bytes == DATA_WORD_SIZE, LogSiliconDriver, "Non-mmio cmd queue update is too big");
+        log_assert(size_in_bytes == DATA_WORD_SIZE, "Non-mmio cmd queue update is too big");
         block_size = DATA_WORD_SIZE;
     } else {
         // can send it in one transfer, no need to break it up
-        log_assert(size_in_bytes <= max_block_size, LogSiliconDriver, "Non-mmio cmd queue update is too big. size_in_bytes: {} exceeds max_block_size: {}", size_in_bytes, max_block_size);
+        log_assert(size_in_bytes <= max_block_size, "Non-mmio cmd queue update is too big. size_in_bytes: {} exceeds max_block_size: {}", size_in_bytes, max_block_size);
         block_size = size_in_bytes;
     }
     uint32_t req_flags = block_size > DATA_WORD_SIZE ? (eth_interface_params.CMD_DATA_BLOCK | eth_interface_params.CMD_WR_REQ | timestamp) : eth_interface_params.CMD_WR_REQ;
@@ -3359,7 +3359,7 @@ void tt_SiliconDevice::write_to_non_mmio_device_send_epoch_cmd(const uint32_t *m
     }
 
     // send the write request
-    log_assert((req_flags & eth_interface_params.CMD_DATA_BLOCK) ? (address & 0x1F) == 0 : true, LogSiliconDriver, "Block mode address must be 32-byte aligned.");
+    log_assert((req_flags & eth_interface_params.CMD_DATA_BLOCK) ? (address & 0x1F) == 0 : true, "Block mode address must be 32-byte aligned.");
 
     new_cmd->sys_addr = get_sys_addr(std::get<0>(target_chip), std::get<1>(target_chip), core.x, core.y, address);
     new_cmd->rack = get_sys_rack(std::get<2>(target_chip), std::get<3>(target_chip));
@@ -3442,7 +3442,7 @@ void tt_SiliconDevice::rolled_write_to_non_mmio_device(const uint32_t *mem_ptr, 
         // to poll rd pointer in every iteration.
         //full = is_non_mmio_cmd_q_full((erisc_q_ptrs[0] + 1) & CMD_BUF_PTR_MASK, erisc_q_rptr[0]);
 
-        log_assert(((address + offset) & 0x1F) == 0, LogSiliconDriver, "Base address + offset in incorrect range!");
+        log_assert(((address + offset) & 0x1F) == 0, "Base address + offset in incorrect range!");
 
         uint32_t req_wr_ptr = erisc_q_ptrs[0] & eth_interface_params.CMD_BUF_SIZE_MASK;
 
@@ -3582,7 +3582,7 @@ void tt_SiliconDevice::read_from_non_mmio_device(void* mem_ptr, tt_cxy_pair core
         }
 
         // Send the read request
-        log_assert((req_flags == eth_interface_params.CMD_RD_REQ) || (((address + offset) & 0x1F) == 0), LogSiliconDriver, "Block mode offset must be 32-byte aligned."); // Block mode offset must be 32-byte aligned.
+        log_assert((req_flags == eth_interface_params.CMD_RD_REQ) || (((address + offset) & 0x1F) == 0), "Block mode offset must be 32-byte aligned."); // Block mode offset must be 32-byte aligned.
         new_cmd->sys_addr = get_sys_addr(std::get<0>(target_chip), std::get<1>(target_chip), core.x, core.y, address + offset);
         new_cmd->rack = get_sys_rack(std::get<2>(target_chip), std::get<3>(target_chip));
         new_cmd->data = block_size;
@@ -3629,7 +3629,7 @@ void tt_SiliconDevice::read_from_non_mmio_device(void* mem_ptr, tt_cxy_pair core
         do {
             read_device_memory(erisc_resp_flags.data(), remote_transfer_ethernet_core, eth_interface_params.RESPONSE_ROUTING_CMD_QUEUE_BASE + flags_offset, DATA_WORD_SIZE, read_tlb);
         } while (erisc_resp_flags[0] == 0);
-        log_assert(erisc_resp_flags[0] == resp_flags, LogSiliconDriver, "Unexpected ERISC Response Flags.");
+        log_assert(erisc_resp_flags[0] == resp_flags, "Unexpected ERISC Response Flags.");
         tt_driver_atomics::lfence();
         uint32_t data_offset = 8 + sizeof(routing_cmd_t) * resp_rd_ptr;
         if (block_size == DATA_WORD_SIZE) {
@@ -3923,7 +3923,7 @@ int tt_SiliconDevice::remote_arc_msg(int chip, uint32_t msg_code, bool wait_for_
     auto core = tt_cxy_pair(chip, get_soc_descriptor(chip).arc_cores.at(0));
 
     if ((msg_code & 0xff00) != 0xaa00) {
-        log_error(LogSiliconDriver, "Malformed message. msg_code is 0x{:x} but should be 0xaa..\n", msg_code);
+        log_error("Malformed message. msg_code is 0x{:x} but should be 0xaa..\n", msg_code);
     }
     assert (arg0 <= 0xffff and arg1 <= 0xffff); // Only 16 bits are allowed
 
@@ -3943,7 +3943,7 @@ int tt_SiliconDevice::remote_arc_msg(int chip, uint32_t msg_code, bool wait_for_
     read_from_non_mmio_device(&misc, core, ARC_RESET_MISC_CNTL_ADDR, 4);
 
     if (misc & (1 << 16)) {
-        log_error(LogSiliconDriver, "trigger_fw_int failed on device {}", chip);
+        log_error("trigger_fw_int failed on device {}", chip);
         return 1;
     } else {
         misc |= (1 << 16);
@@ -4057,7 +4057,7 @@ void tt_SiliconDevice::l1_membar(const chip_id_t chip, const std::string& fallba
                 } else if (all_eth.find(core) != all_eth.end()) {
                     eth_to_sync.insert(core);
                 } else {
-                    log_fatal(LogSiliconDriver, "Can only insert an L1 Memory barrier on Tensix or Ethernet cores.");
+                    log_fatal("Can only insert an L1 Memory barrier on Tensix or Ethernet cores.");
                 }
             }
             insert_host_to_device_barrier(chip, workers_to_sync, l1_address_params.TENSIX_L1_BARRIER_BASE, fallback_tlb);
@@ -4077,7 +4077,7 @@ void tt_SiliconDevice::dram_membar(const chip_id_t chip, const std::string& fall
     if (ndesc -> is_chip_mmio_capable(chip)) {
         if (cores.size()) {
             for(const auto& core : cores) {
-                log_assert(dram_cores.find(core) != dram_cores.end(), LogSiliconDriver, "Can only insert a DRAM Memory barrier on DRAM cores.");
+                log_assert(dram_cores.find(core) != dram_cores.end(), "Can only insert a DRAM Memory barrier on DRAM cores.");
             }
             insert_host_to_device_barrier(chip, cores, dram_address_params.DRAM_BARRIER_BASE, fallback_tlb);
         }
@@ -4120,11 +4120,11 @@ void tt_SiliconDevice::write_to_device(const void *mem_ptr, uint32_t size, tt_cx
         }
     }
     else if (!send_epoch_cmd) {
-        log_assert((get_soc_descriptor(core.chip).ethernet_cores).size() > 0 && get_number_of_chips_in_cluster() > 1, LogSiliconDriver, "Cannot issue ethernet writes to a single chip cluster!");
+        log_assert((get_soc_descriptor(core.chip).ethernet_cores).size() > 0 && get_number_of_chips_in_cluster() > 1, "Cannot issue ethernet writes to a single chip cluster!");
         write_to_non_mmio_device(mem_ptr, size, core, addr);
     } else {
         // as long as epoch commands are sent single-threaded, no need to acquire mutex
-        log_assert(!(size % 4), LogSiliconDriver, "Epoch commands must be 4 byte aligned!");
+        log_assert(!(size % 4), "Epoch commands must be 4 byte aligned!");
         write_to_non_mmio_device_send_epoch_cmd((uint32_t*)mem_ptr, size, core, addr, last_send_epoch_cmd, ordered_with_prev_remote_write);
     }
 }
@@ -4151,7 +4151,7 @@ void tt_SiliconDevice::write_epoch_cmd_to_device(std::vector<uint32_t> &vec, tt_
 }
 
 void tt_SiliconDevice::rolled_write_to_device(uint32_t* mem_ptr, uint32_t size_in_bytes, uint32_t unroll_count, tt_cxy_pair core, uint64_t addr, const std::string& fallback_tlb) {
-    log_assert(!(size_in_bytes % 4), LogSiliconDriver, "{} only supports 4-byte aligned data", __FUNCTION__);
+    log_assert(!(size_in_bytes % 4), "{} only supports 4-byte aligned data", __FUNCTION__);
     bool target_is_mmio_capable = ndesc->is_chip_mmio_capable(core.chip);
 
     if (target_is_mmio_capable) {
@@ -4161,7 +4161,7 @@ void tt_SiliconDevice::rolled_write_to_device(uint32_t* mem_ptr, uint32_t size_i
         }
     }
     else {
-        log_assert((get_soc_descriptor(core.chip).ethernet_cores).size() > 0 && get_number_of_chips_in_cluster() > 1, LogSiliconDriver, "Cannot issue ethernet writes to a single chip cluster!");
+        log_assert((get_soc_descriptor(core.chip).ethernet_cores).size() > 0 && get_number_of_chips_in_cluster() > 1, "Cannot issue ethernet writes to a single chip cluster!");
         rolled_write_to_non_mmio_device(mem_ptr, size_in_bytes, core, addr, unroll_count);
     }
 }
@@ -4218,7 +4218,7 @@ void tt_SiliconDevice::read_from_device(void* mem_ptr, tt_cxy_pair core, uint64_
         }
     }
     else {
-        log_assert((get_soc_descriptor(core.chip).ethernet_cores).size() > 0 &&  get_number_of_chips_in_cluster() > 1, LogSiliconDriver, "Cannot issue ethernet reads from a single chip cluster!");
+        log_assert((get_soc_descriptor(core.chip).ethernet_cores).size() > 0 &&  get_number_of_chips_in_cluster() > 1, "Cannot issue ethernet reads from a single chip cluster!");
         read_from_non_mmio_device(mem_ptr, core, addr, size);
     }
 }
@@ -4298,7 +4298,7 @@ void tt_SiliconDevice::set_power_state(tt_DevicePowerState device_state) {
             set_pcie_power_state(device_state);
         } else {
             int exit_code = set_remote_power_state(chip, device_state);
-            log_assert(exit_code == 0, LogSiliconDriver, "Failed to set power state to {} with exit code: {}", device_state, exit_code);
+            log_assert(exit_code == 0, "Failed to set power state to {} with exit code: {}", device_state, exit_code);
         }
     }
 }
@@ -4373,9 +4373,9 @@ void tt_SiliconDevice::verify_sw_fw_versions(int device_id, std::uint32_t sw_ver
         device_id);
     for (std::uint32_t &fw_version : fw_versions) {
         tt_version fw(fw_version);
-        log_assert(fw == fw_first_eth_core, LogSiliconDriver, "FW versions are not the same across different ethernet cores");
-        log_assert(sw.major == fw.major, LogSiliconDriver, "SW/FW major version number out of sync");
-        log_assert(sw.minor <= fw.minor, LogSiliconDriver, "SW version is newer than FW version");
+        log_assert(fw == fw_first_eth_core, "FW versions are not the same across different ethernet cores");
+        log_assert(sw.major == fw.major, "SW/FW major version number out of sync");
+        log_assert(sw.minor <= fw.minor, "SW version is newer than FW version");
     }
 
     // Min ERISC FW version required to support ordered writes is 6.4.0
@@ -4422,23 +4422,23 @@ void tt_SiliconDevice::setup_core_to_tlb_map(std::function<std::int32_t(tt_xy_pa
 }
 
 std::uint32_t tt_SiliconDevice::get_num_dram_channels(std::uint32_t device_id) {
-    log_assert(target_devices_in_cluster.find(device_id) != target_devices_in_cluster.end(), LogSiliconDriver, "Querying DRAM parameters for a device that does not exist.");
+    log_assert(target_devices_in_cluster.find(device_id) != target_devices_in_cluster.end(), "Querying DRAM parameters for a device that does not exist.");
     return get_soc_descriptor(device_id).get_num_dram_channels();
 }
 
 std::uint32_t tt_SiliconDevice::get_dram_channel_size(std::uint32_t device_id, std::uint32_t channel) {
-    log_assert(channel < get_num_dram_channels(device_id), LogSiliconDriver, "Querying size for a device channel that does not exist.");
+    log_assert(channel < get_num_dram_channels(device_id), "Querying size for a device channel that does not exist.");
     return  get_soc_descriptor(device_id).dram_bank_size; // Space per channel is identical for now
 }
 
 std::uint32_t tt_SiliconDevice::get_num_host_channels(std::uint32_t device_id) {
-    log_assert(all_target_mmio_devices.find(device_id) != all_target_mmio_devices.end(), LogSiliconDriver, "Querying Host Address parameters for a non-mmio device or a device does not exist.");
+    log_assert(all_target_mmio_devices.find(device_id) != all_target_mmio_devices.end(), "Querying Host Address parameters for a non-mmio device or a device does not exist.");
     return m_num_host_mem_channels; // Same number of host channels per device for now
 }
 
 std::uint32_t tt_SiliconDevice::get_host_channel_size(std::uint32_t device_id, std::uint32_t channel) {
-    log_assert(host_channel_size.size(), LogSiliconDriver, "Host channel size can only be queried after the device has been started.");
-    log_assert(channel < get_num_host_channels(device_id), LogSiliconDriver, "Querying size for a host channel that does not exist.");
+    log_assert(host_channel_size.size(), "Host channel size can only be queried after the device has been started.");
+    log_assert(channel < get_num_host_channels(device_id), "Querying size for a host channel that does not exist.");
     return host_channel_size.at(device_id).at(channel);
 }
 

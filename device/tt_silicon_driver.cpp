@@ -513,12 +513,12 @@ void set_debug_level(int dl) {
 }
 
 std::uint64_t pci_dma_buffer_get_physical_addr(DMAbuffer &dma_buffer) {
-    assert (dma_buffer.pDma);
+    log_assert (dma_buffer.pDma, "DMA Buffer not initialized");
     return reinterpret_cast<std::uint64_t>(dma_buffer.pDma);
 }
 
 std::uint64_t pci_dma_buffer_get_user_addr(DMAbuffer &dma_buffer) {
-    assert (dma_buffer.pBuf);
+    log_assert (dma_buffer.pBuf, "DMA Buffer not initialized");
     return reinterpret_cast<std::uint64_t>(dma_buffer.pBuf);
 }
 
@@ -1362,7 +1362,7 @@ void tt_SiliconDevice::create_device(const std::unordered_set<chip_id_t> &target
 
     bool enable_device_id_virtualization = true; // Chicken bit.
 
-    assert(target_mmio_device_ids.size() > 0 && "Must provide set of target_mmio_device_ids to tt_SiliconDevice constructor now.");
+    log_assert(target_mmio_device_ids.size() > 0, "Must provide set of target_mmio_device_ids to tt_SiliconDevice constructor now.");
 
     for (const chip_id_t &logical_device_id : target_mmio_device_ids) {
         m_pci_device_map.insert({logical_device_id, new struct PCIdevice});
@@ -1868,7 +1868,7 @@ void tt_SiliconDevice::deassert_risc_reset_at_core(tt_cxy_pair core) {
                                 "Cannot deassert reset on a non-tensix or harvested core");
     bool target_is_mmio_capable = ndesc -> is_chip_mmio_capable(target_device);
     if(target_is_mmio_capable) {
-        assert(m_pci_device_map.find(target_device) != m_pci_device_map.end());
+        log_assert(m_pci_device_map.find(target_device) != m_pci_device_map.end(), "Could not find MMIO mapped device in devices connected over PCIe");
         send_tensix_risc_reset_to_core(core, TENSIX_DEASSERT_SOFT_RESET);
     }
     else {
@@ -1882,7 +1882,7 @@ void tt_SiliconDevice::assert_risc_reset_at_core(tt_cxy_pair core) {
                                 "Cannot assert reset on a non-tensix or harvested core");
     bool target_is_mmio_capable = ndesc -> is_chip_mmio_capable(target_device);
     if(target_is_mmio_capable) {
-        assert(m_pci_device_map.find(target_device) != m_pci_device_map.end());
+        log_assert(m_pci_device_map.find(target_device) != m_pci_device_map.end(), "Could not find MMIO mapped device in devices connected over PCIe");
         send_tensix_risc_reset_to_core(core, TENSIX_ASSERT_SOFT_RESET);
     }
     else {
@@ -2290,11 +2290,11 @@ void tt_SiliconDevice::init_pcie_iatus() {
     int num_enabled_devices = m_pci_device_map.size();
 
     LOG1("---- tt_SiliconDevice::init_pcie_iatus() num_enabled_devices: %d starting_device_id: %d ending_device_id: %d\n", num_enabled_devices, starting_device_id, ending_device_id);
-    assert(m_num_host_mem_channels <= 1 && "Maximum of 1x 1GB Host memory channels supported.");
+    log_assert(m_num_host_mem_channels <= 1, "Maximum of 1x 1GB Host memory channels supported.");
 
     // Requirement for ring topology in GS, but since WH can share below code, check it again here for mmio mapped devices,
     // otherwise us/ds device calculations will not be correct. Don't expect to see this for Wormhole today.
-    assert((starting_device_id + num_enabled_devices - 1) == ending_device_id && "The set of workload mmio-mapped target_device_id's must be sequential, without gaps.");
+    log_assert((starting_device_id + num_enabled_devices - 1) == ending_device_id, "The set of workload mmio-mapped target_device_id's must be sequential, without gaps.");
 
     for (auto &src_device_it : m_pci_device_map){
         int src_pci_id = src_device_it.first;
@@ -2382,7 +2382,7 @@ uint32_t tt_SiliconDevice::dma_allocation_size(chip_id_t src_device_id)
   } else if (buf_mapping) {
     return DMA_BUF_REGION_SIZE;
   } else {
-    assert(false && "Nothing has been allocated yet");
+    log_fatal("Nothing has been allocated yet");
     return 0;
   }
 }
@@ -2725,7 +2725,7 @@ int tt_SiliconDevice::pcie_arc_msg(int logical_device_id, uint32_t msg_code, boo
     if ((msg_code & 0xff00) != 0xaa00) {
         ERROR ("Malformed message. msg_code is 0x%x but should be 0xaa..\n", msg_code);
     }
-    assert (arg0 <= 0xffff and arg1 <= 0xffff); // Only 16 bits are allowed
+    log_assert(arg0 <= 0xffff and arg1 <= 0xffff, "Only 16 bits allowed in arc_msg args"); // Only 16 bits are allowed
 
     struct PCIdevice* pci_device = get_pci_device(logical_device_id);
 
@@ -3307,7 +3307,7 @@ void tt_SiliconDevice::write_to_non_mmio_device_send_epoch_cmd(const uint32_t *m
     while (is_non_mmio_cmd_q_full(erisc_q_ptrs_epoch[0], erisc_q_ptrs_epoch[4])) {
         if (!ordered_with_prev_remote_write){
             active_core_epoch++;
-            assert(active_core_epoch - EPOCH_ETH_CORES_START_ID >= 0);
+            log_assert(active_core_epoch - EPOCH_ETH_CORES_START_ID >= 0, "Invalid ERISC core for sending epoch commands");
             active_core_epoch = ((active_core_epoch - EPOCH_ETH_CORES_START_ID) % EPOCH_ETH_CORES_FOR_NON_MMIO_TRANSFERS) + EPOCH_ETH_CORES_START_ID;
             remote_transfer_ethernet_core = remote_transfer_ethernet_cores[active_core_epoch];
         }
@@ -3484,7 +3484,7 @@ void tt_SiliconDevice::rolled_write_to_non_mmio_device(const uint32_t *mem_ptr, 
 
         if (is_non_mmio_cmd_q_full((erisc_q_ptrs[0]) & eth_interface_params.CMD_BUF_PTR_MASK, erisc_q_rptr[0])) {
             active_core++;
-            assert(active_core - NON_EPOCH_ETH_CORES_START_ID >= 0);
+            log_assert(active_core - NON_EPOCH_ETH_CORES_START_ID >= 0, "Invalid ERISC core being used to issue writes");
             active_core = ((active_core - NON_EPOCH_ETH_CORES_START_ID) % NON_EPOCH_ETH_CORES_FOR_NON_MMIO_TRANSFERS) + NON_EPOCH_ETH_CORES_START_ID;
             read_device_memory(erisc_q_ptrs.data(), remote_transfer_ethernet_cores[active_core], eth_interface_params.REQUEST_CMD_QUEUE_BASE + eth_interface_params.CMD_COUNTERS_SIZE_BYTES, eth_interface_params.REMOTE_UPDATE_PTR_SIZE_BYTES*2, read_tlb);
             full = is_non_mmio_cmd_q_full(erisc_q_ptrs[0], erisc_q_ptrs[4]);
@@ -3648,7 +3648,7 @@ void tt_SiliconDevice::read_from_non_mmio_device(void* mem_ptr, tt_cxy_pair core
                 read_device_memory(data_block.data(), remote_transfer_ethernet_core, buf_address, block_size, read_tlb);
             }
             // assert(mem_ptr.size() - (offset/DATA_WORD_SIZE) >= (block_size * DATA_WORD_SIZE));
-            assert((data_block.size() * DATA_WORD_SIZE) >= block_size);
+            log_assert((data_block.size() * DATA_WORD_SIZE) >= block_size, "Incorrect data size read back from sysmem/device");
             // Account for misalignment by skipping any padding bytes in the copied data_block
             memcpy((uint8_t*)mem_ptr + offset, data_block.data(), std::min(block_size, size_in_bytes - offset));
         }
@@ -3920,7 +3920,7 @@ int tt_SiliconDevice::remote_arc_msg(int chip, uint32_t msg_code, bool wait_for_
     if ((msg_code & 0xff00) != 0xaa00) {
         log_error("Malformed message. msg_code is 0x{:x} but should be 0xaa..\n", msg_code);
     }
-    assert (arg0 <= 0xffff and arg1 <= 0xffff); // Only 16 bits are allowed
+    log_assert (arg0 <= 0xffff and arg1 <= 0xffff, "Only 16 bits allowed in arc_msg args"); // Only 16 bits are allowed
 
     uint32_t fw_arg = arg0 | (arg1<<16);
     int exit_code = 0;

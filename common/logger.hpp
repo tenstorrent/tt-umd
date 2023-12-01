@@ -24,6 +24,8 @@
 #include "fmt/core.h"
 #include "fmt/ostream.h"
 
+#include "common/backtrace.hpp"
+
 namespace tt {
 
 #define LOGGER_TYPES   \
@@ -261,11 +263,11 @@ static void log_trace_(LogType type, std::string const& src_info, char const* fm
         log_custom(tt::Logger::Level::Error, tt::LogAlways, str, ## __VA_ARGS__); \
     }
 
-#define log_fatal(str, ...) \
-    { \
-        log_custom(tt::Logger::Level::Fatal, tt::LogAlways, str, ## __VA_ARGS__); \
-        tt::Logger::get().flush(); \
-        throw std::runtime_error(fmt::format(str,  ## __VA_ARGS__)); \
+#define log_fatal(str, ...)                                                      \
+    {                                                                            \
+        log_custom(tt::Logger::Level::Fatal, tt::LogAlways, str, ##__VA_ARGS__); \
+        tt::Logger::get().flush();                                               \
+        throw std::runtime_error(fmt::format(str,  ## __VA_ARGS__) + "\nbacktrace:\n" + tt::assert::backtrace_to_string(100, 1, " --- ")); \
     }
 
 #define log_assert(cond, str, ...) \
@@ -273,7 +275,7 @@ static void log_trace_(LogType type, std::string const& src_info, char const* fm
         if (!(cond)) { \
             log_custom(tt::Logger::Level::Fatal, tt::LogAlways, str, ## __VA_ARGS__); \
             tt::Logger::get().flush(); \
-            throw std::runtime_error(fmt::format(str, ## __VA_ARGS__)); \
+            throw std::runtime_error(fmt::format(str, ## __VA_ARGS__) + "\nbacktrace:\n" + tt::assert::backtrace_to_string(100, 1, " --- ")); \
         } \
     }
 

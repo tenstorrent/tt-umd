@@ -9,7 +9,7 @@
 #include <memory>
 #include <sstream> 
 
-#include "common/assert.hpp"
+#include "common/logger.hpp"
 #include "yaml-cpp/yaml.h"
 
 using namespace tt;
@@ -91,7 +91,7 @@ chip_id_t tt_ClusterDescriptor::get_closest_mmio_capable_chip(const chip_id_t &c
             closest_chip = c;
         }
     }
-    TT_ASSERT(is_chip_mmio_capable(closest_chip), "Closest MMIO chip must be MMIO capable");
+    log_assert(is_chip_mmio_capable(closest_chip), "Closest MMIO chip must be MMIO capable");
 
     return closest_chip;
 
@@ -138,19 +138,19 @@ std::set<chip_id_t> get_sequential_chip_id_set(int num_chips) {
 }
 
 void tt_ClusterDescriptor::load_ethernet_connections_from_connectivity_descriptor(YAML::Node &yaml, tt_ClusterDescriptor &desc) {
-    TT_ASSERT(yaml["ethernet_connections"].IsSequence(), "Invalid YAML");
+    log_assert(yaml["ethernet_connections"].IsSequence(), "Invalid YAML");
     for (YAML::Node &connected_endpoints : yaml["ethernet_connections"].as<std::vector<YAML::Node>>()) {
-        TT_ASSERT(connected_endpoints.IsSequence(), "Invalid YAML");
+        log_assert(connected_endpoints.IsSequence(), "Invalid YAML");
 
         std::vector<YAML::Node> endpoints = connected_endpoints.as<std::vector<YAML::Node>>();
-        TT_ASSERT(endpoints.size() == 2, "Currently ethernet cores can only connect to one other ethernet endpoint");
+        log_assert(endpoints.size() == 2, "Currently ethernet cores can only connect to one other ethernet endpoint");
 
         int chip_0 = endpoints.at(0)["chip"].as<int>();
         int channel_0 = endpoints.at(0)["chan"].as<int>();
         int chip_1 = endpoints.at(1)["chip"].as<int>();
         int channel_1 = endpoints.at(1)["chan"].as<int>();
         if (desc.ethernet_connections[chip_0].find(channel_0) != desc.ethernet_connections[chip_0].end()) {
-            TT_ASSERT(
+            log_assert(
                 (std::get<0>(desc.ethernet_connections[chip_0][channel_0]) == chip_1) &&
                     (std::get<1>(desc.ethernet_connections[chip_0][channel_0]) == channel_1),
                 "Duplicate eth connection found in cluster desc yaml");
@@ -158,7 +158,7 @@ void tt_ClusterDescriptor::load_ethernet_connections_from_connectivity_descripto
             desc.ethernet_connections[chip_0][channel_0] = {chip_1, channel_1};
         }
         if (desc.ethernet_connections[chip_1].find(channel_1) != desc.ethernet_connections[chip_0].end()) {
-            TT_ASSERT(
+            log_assert(
                 (std::get<0>(desc.ethernet_connections[chip_1][channel_1]) == chip_0) &&
                     (std::get<1>(desc.ethernet_connections[chip_1][channel_1]) == channel_0),
                 "Duplicate eth connection found in cluster desc yaml");
@@ -179,7 +179,7 @@ void tt_ClusterDescriptor::load_chips_from_connectivity_descriptor(YAML::Node &y
     for (YAML::const_iterator node = yaml["chips"].begin(); node != yaml["chips"].end(); ++node) {
         chip_id_t chip_id = node->first.as<int>();
         std::vector<int> chip_rack_coords = node->second.as<std::vector<int>>();
-        TT_ASSERT(chip_rack_coords.size() == 4, "Galaxy (x, y, rack, shelf) coords must be size 4");
+        log_assert(chip_rack_coords.size() == 4, "Galaxy (x, y, rack, shelf) coords must be size 4");
         eth_coord_t chip_location{
             chip_rack_coords.at(0), chip_rack_coords.at(1), chip_rack_coords.at(2), chip_rack_coords.at(3)};
         

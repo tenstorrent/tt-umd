@@ -5,7 +5,7 @@
 #include <algorithm>
 
 #include "cpuset_lib.hpp"
-#include "common/assert.hpp"
+#include "common/logger.hpp"
 #include <thread>
 #include "device/device_api.h"
 #include <filesystem>

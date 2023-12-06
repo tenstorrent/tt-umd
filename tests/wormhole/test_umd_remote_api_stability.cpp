@@ -20,6 +20,7 @@
 #include "../test_utils/stimulus_generators.hpp"
 #include "test_wh_common.h"
 
+#include <memory>
 
 
 
@@ -354,6 +355,463 @@ TEST_F(WormholeNebulaX2TestFixture, MultithreadedMixedRemoteTransfersLMS) {
     t2.join();
     t3.join();
     t4.join();
+}
+
+
+TEST_F(WormholeNebulaX2TestFixture, MultithreadedMixedRemoteTransfersLargeWritesSmallReads) {
+    int seed = 0;
+
+    // std::cout << "Running commands in multithreaded mode." << std::endl;
+
+    assert(device != nullptr);
+    std::vector<remote_transfer_sample_t> command_history0;
+    std::vector<remote_transfer_sample_t> command_history1;
+
+    auto write_size_generator = ConstrainedTemplateTemplateGenerator<transfer_size_t, transfer_size_t, std::uniform_int_distribution>(
+        seed, std::uniform_int_distribution<transfer_size_t>(1000000, 30000000), [](transfer_size_t x) -> transfer_size_t { return size_aligner_32B(static_cast<transfer_size_t>((x >= 4) ? x : 4)); });
+    auto read_size_generator = ConstrainedTemplateTemplateGenerator<transfer_size_t, transfer_size_t, std::uniform_int_distribution>(
+        seed, std::uniform_int_distribution<transfer_size_t>(16, 4096), [](transfer_size_t x) -> transfer_size_t { return size_aligner_32B(static_cast<transfer_size_t>((x >= 4) ? x : 4)); });
+
+    auto dest_generator = get_default_full_dram_dest_generator(seed, device.get());
+    auto address_generator = get_default_address_generator(seed, 0x100000, 0x5000000);
+
+    std::thread write_cmds_thread([&](){
+        RunMixedTransfers(
+            *device, 
+            10000,
+            0,
+
+            transfer_type_weights_t{.write = 1., .rolled_write = 0., .read = 0., .epoch_cmd_write = 0.},
+
+            WriteCommandGenerator(dest_generator, address_generator, write_size_generator),
+            build_dummy_rolled_write_command_generator(*device),
+            build_dummy_write_epoch_cmd_command_generator(*device),
+            build_dummy_read_command_generator(*device),
+
+            false, // Set to true if you want to emit the command history code to command line
+            &command_history0
+        );
+    });
+    std::thread read_cmd_threads([&](){
+        RunMixedTransfers(
+            *device, 
+            10000,
+            0,
+
+            transfer_type_weights_t{.write = 1., .rolled_write = 0., .read = 0., .epoch_cmd_write = 0.},
+
+            build_dummy_write_command_generator(*device),
+            build_dummy_rolled_write_command_generator(*device),
+            build_dummy_write_epoch_cmd_command_generator(*device),
+            ReadCommandGenerator(dest_generator, address_generator, read_size_generator),\
+
+            false, // Set to true if you want to emit the command history code to command line
+            &command_history0
+        ); 
+    });
+
+    write_cmds_thread.join();
+    read_cmd_threads.join();
+}
+
+
+TEST_F(WormholeNebulaX2TestFixture, MultithreadedMixedRemoteTransfersSmallWritesWithReadback) {
+    int seed = 0;
+
+    // std::cout << "Running commands in multithreaded mode." << std::endl;
+
+    assert(device != nullptr);
+    std::vector<remote_transfer_sample_t> command_history0;
+    std::vector<remote_transfer_sample_t> command_history1;
+
+    auto write_size_generator = ConstrainedTemplateTemplateGenerator<transfer_size_t, transfer_size_t, std::uniform_int_distribution>(
+        seed, std::uniform_int_distribution<transfer_size_t>(4, 1024), [](transfer_size_t x) -> transfer_size_t { return size_aligner_32B(static_cast<transfer_size_t>((x >= 4) ? x : 4)); });
+
+    auto dest_generator = get_default_full_dram_dest_generator(seed, device.get());
+    auto address_generator = get_default_address_generator(seed, 0x100000, 0x5000000);
+
+    tt_SocDescriptor const& soc_desc = device->get_virtual_soc_descriptors().at(0);
+    int num_chips = device->get_number_of_chips_in_cluster();
+
+    auto readback_write_generator = ThreadSafeNonOverlappingWriteAddressGenerator::build_default(soc_desc, num_chips);
+
+    counting_barrier_t writer_sync_barrier = counting_barrier_t(1);
+
+    std::thread write_cmds_thread([&](){
+        RunWriteTransfers(
+            *device, 
+            10000,
+            0,
+
+            std::unique_ptr<CommandSampler>(new WriteCommandSampler(dest_generator, /*address_generator,*/ write_size_generator)),
+            readback_write_generator,
+            writer_sync_barrier
+
+            // std::vector<std::unique_ptr<CommandGenerator>>{
+            //     std::unique_ptr<CommandGenerator>(
+            //         new WriteGenerator(
+            //             seed, 
+            //             std::unique_ptr<CommandSampler>(new WriteCommandSampler(dest_generator, /*address_generator,*/ write_size_generator)), 
+            //             readback_write_generator, 
+            //             device->get_virtual_soc_descriptors().at(0))
+            //     )
+            // },
+
+            // false, // Set to true if you want to emit the command history code to command line
+            // &command_history0
+        );
+    });
+    std::thread read_cmd_threads([&](){
+        RunReadbackChecker(*device, 0, readback_write_generator); 
+    });
+
+    write_cmds_thread.join();
+    read_cmd_threads.join();
+}
+
+
+TEST_F(WormholeNebulaX2TestFixture, MultithreadedMixedRemoteTransfersLargeWritesWithReadback) {
+    int seed = 0;
+
+    // std::cout << "Running commands in multithreaded mode." << std::endl;
+
+    assert(device != nullptr);
+    std::vector<remote_transfer_sample_t> command_history0;
+    std::vector<remote_transfer_sample_t> command_history1;
+
+    auto write_size_generator = ConstrainedTemplateTemplateGenerator<transfer_size_t, transfer_size_t, std::uniform_int_distribution>(
+        seed, std::uniform_int_distribution<transfer_size_t>(1000000, 30000000), [](transfer_size_t x) -> transfer_size_t { return size_aligner_32B(static_cast<transfer_size_t>((x >= 4) ? x : 4)); });
+    auto read_size_generator = ConstrainedTemplateTemplateGenerator<transfer_size_t, transfer_size_t, std::uniform_int_distribution>(
+        seed, std::uniform_int_distribution<transfer_size_t>(16, 4096), [](transfer_size_t x) -> transfer_size_t { return size_aligner_32B(static_cast<transfer_size_t>((x >= 4) ? x : 4)); });
+
+    auto dest_generator = get_default_full_dram_dest_generator(seed, device.get());
+    auto address_generator = get_default_address_generator(seed, 0x100000, 0x5000000);
+
+    tt_SocDescriptor const& soc_desc = device->get_virtual_soc_descriptors().at(0);
+    int num_chips = device->get_number_of_chips_in_cluster();
+
+    auto readback_write_generator = ThreadSafeNonOverlappingWriteAddressGenerator::build_default(soc_desc, num_chips);
+
+    counting_barrier_t writer_sync_barrier = counting_barrier_t(1);
+
+    std::thread write_cmds_thread([&](){
+        RunWriteTransfers(
+            *device, 
+            1000,
+            0,
+
+            std::unique_ptr<CommandSampler>(new WriteCommandSampler(dest_generator, /*address_generator,*/ write_size_generator)),
+            readback_write_generator,
+            writer_sync_barrier
+
+            // std::vector<std::unique_ptr<CommandGenerator>>{
+            //     std::unique_ptr<CommandGenerator>(
+            //         new WriteGenerator(
+            //             seed, 
+            //             std::unique_ptr<CommandSampler>(new WriteCommandSampler(dest_generator, /*address_generator,*/ write_size_generator)), 
+            //             readback_write_generator, 
+            //             device->get_virtual_soc_descriptors().at(0))
+            //     )
+            // },
+
+            // false, // Set to true if you want to emit the command history code to command line
+            // &command_history0
+        );
+    });
+    std::thread read_cmd_threads([&](){
+        RunReadbackChecker(*device, 0, readback_write_generator); 
+    });
+
+    write_cmds_thread.join();
+    read_cmd_threads.join();
+}
+
+TEST_F(WormholeNebulaX2TestFixture, MultithreadedSmallWritesWithReadback2Writers2Readers) {
+    static constexpr int NUM_WRITERS = 2;
+    static constexpr int NUM_READERS = 2;
+    assert(device != nullptr);
+    
+    using size_generator_t = ConstrainedTemplateTemplateGenerator<transfer_size_t, transfer_size_t, std::uniform_int_distribution>;
+    auto size_aligner = [](transfer_size_t x) -> transfer_size_t { return size_aligner_32B(static_cast<transfer_size_t>((x >= 4) ? x : 4)); };
+    auto write_size_distribution = std::uniform_int_distribution<transfer_size_t>(4, 1024);
+
+    tt_SocDescriptor const& soc_desc = device->get_virtual_soc_descriptors().at(0);
+    int num_chips = device->get_number_of_chips_in_cluster();
+    auto readback_write_generator = ThreadSafeNonOverlappingWriteAddressGenerator::build_default(soc_desc, num_chips);
+
+    counting_barrier_t writer_sync_barrier = counting_barrier_t(NUM_WRITERS);
+    std::vector<std::thread> write_cmd_threads;
+    for (int i = 0; i < NUM_WRITERS; i++) {
+        write_cmd_threads.emplace_back([&](){
+            RunWriteTransfers(
+                *device, 10000, i,
+
+                std::unique_ptr<CommandSampler>(new WriteCommandSampler(
+                    get_default_full_dram_dest_generator(i, device.get()),  // dest_generator
+                    size_generator_t(i, write_size_distribution, size_aligner) // size generator
+                )),
+                readback_write_generator,
+                writer_sync_barrier
+            );
+        });
+    }
+
+
+    std::vector<std::thread> readback_threads;
+    for (int i = 0; i < NUM_READERS; i++) {
+        readback_threads.emplace_back([&](){
+            RunReadbackChecker(*device, 0, readback_write_generator); 
+        });
+    }
+
+    for (int i = 0; i < NUM_WRITERS; i++) {
+        write_cmd_threads.at(i).join();
+    }
+    for (int i = 0; i < NUM_READERS; i++) {
+        readback_threads.at(i).join();
+    }
+}
+
+TEST_F(WormholeNebulaX2TestFixture, MultithreadedMixedSmallMediumLargeWritesWithReadback3Writers4Readers) {
+    
+    static constexpr int NUM_WRITERS = 3;
+    static constexpr int NUM_READERS = 4;
+    assert(device != nullptr);
+    
+    using size_generator_t = ConstrainedTemplateTemplateGenerator<transfer_size_t, transfer_size_t, std::uniform_int_distribution>;
+    auto size_aligner = [](transfer_size_t x) -> transfer_size_t { return size_aligner_32B(static_cast<transfer_size_t>((x >= 4) ? x : 4)); };
+    auto small_write_size_distribution = std::uniform_int_distribution<transfer_size_t>(4, 1024);
+    auto medium_write_size_distribution = std::uniform_int_distribution<transfer_size_t>(1024, 1 * 1024 * 1024);
+    auto large_write_size_distribution = std::uniform_int_distribution<transfer_size_t>(16 * 1024 * 1024, 128 * 1024 * 1024);
+
+    std::vector<std::uniform_int_distribution<transfer_size_t>> size_distributions = {
+        small_write_size_distribution,
+        medium_write_size_distribution,
+        large_write_size_distribution
+    };
+
+    tt_SocDescriptor const& soc_desc = device->get_virtual_soc_descriptors().at(0);
+    int num_chips = device->get_number_of_chips_in_cluster();
+    auto readback_write_generator = ThreadSafeNonOverlappingWriteAddressGenerator::build_default(soc_desc, num_chips);
+
+    counting_barrier_t writer_sync_barrier = counting_barrier_t(NUM_WRITERS);
+    std::vector<std::thread> write_cmd_threads;
+    for (int i = 0; i < NUM_WRITERS; i++) {
+        auto &size_distribution = size_distributions.at(i);
+        write_cmd_threads.emplace_back([&](){
+            RunWriteTransfers(
+                *device, 10000, i,
+
+                std::unique_ptr<CommandSampler>(new WriteCommandSampler(
+                    get_default_full_dram_dest_generator(i, device.get()),  // dest_generator
+                    size_generator_t(i, size_distribution, size_aligner) // size generator
+                )),
+                readback_write_generator,
+                writer_sync_barrier
+            );
+        });
+    }
+
+
+    std::vector<std::thread> readback_threads;
+    for (int i = 0; i < NUM_READERS; i++) {
+        readback_threads.emplace_back([&](){
+            RunReadbackChecker(*device, 0, readback_write_generator); 
+        });
+    }
+
+    for (auto &t : write_cmd_threads) {
+        t.join();
+    }
+    for (auto &t : readback_threads) {
+        t.join();
+    }
+}
+
+
+TEST_F(WormholeNebulaX2TestFixture, MultithreadedSmallWritesWithReadback16Writers1Readers) {
+    static constexpr int NUM_WRITERS = 16;
+    static constexpr int NUM_READERS = 1;
+    assert(device != nullptr);
+    
+    using size_generator_t = ConstrainedTemplateTemplateGenerator<transfer_size_t, transfer_size_t, std::uniform_int_distribution>;
+    auto size_aligner = [](transfer_size_t x) -> transfer_size_t { return size_aligner_32B(static_cast<transfer_size_t>((x >= 4) ? x : 4)); };
+    auto write_size_distribution = std::uniform_int_distribution<transfer_size_t>(4, 1024);
+
+    tt_SocDescriptor const& soc_desc = device->get_virtual_soc_descriptors().at(0);
+    int num_chips = device->get_number_of_chips_in_cluster();
+    auto readback_write_generator = ThreadSafeNonOverlappingWriteAddressGenerator::build_default(soc_desc, num_chips);
+
+    counting_barrier_t writer_sync_barrier = counting_barrier_t(NUM_WRITERS);
+    std::vector<std::thread> write_cmd_threads;
+    for (int i = 0; i < NUM_WRITERS; i++) {
+        write_cmd_threads.emplace_back([&](){
+            RunWriteTransfers(
+                *device, 2000, i,
+
+                std::unique_ptr<CommandSampler>(new WriteCommandSampler(
+                    get_default_full_dram_dest_generator(i, device.get()),  // dest_generator
+                    size_generator_t(i, write_size_distribution, size_aligner) // size generator
+                )),
+                readback_write_generator,
+                writer_sync_barrier
+            );
+        });
+    }
+
+
+    std::vector<std::thread> readback_threads;
+    for (int i = 0; i < NUM_READERS; i++) {
+        readback_threads.emplace_back([&](){
+            RunReadbackChecker(*device, 0, readback_write_generator); 
+        });
+    }
+
+    for (int i = 0; i < NUM_WRITERS; i++) {
+        write_cmd_threads.at(i).join();
+    }
+    for (int i = 0; i < NUM_READERS; i++) {
+        readback_threads.at(i).join();
+    }
+}
+
+
+TEST_F(WormholeNebulaX2TestFixture, MultithreadedSmallWritesWithReadback1Writers16Readers) {
+    static constexpr int NUM_WRITERS = 1;
+    static constexpr int NUM_READERS = 16;
+    assert(device != nullptr);
+    
+    using size_generator_t = ConstrainedTemplateTemplateGenerator<transfer_size_t, transfer_size_t, std::uniform_int_distribution>;
+    auto size_aligner = [](transfer_size_t x) -> transfer_size_t { return size_aligner_32B(static_cast<transfer_size_t>((x >= 4) ? x : 4)); };
+    auto write_size_distribution = std::uniform_int_distribution<transfer_size_t>(4, 1024);
+
+    tt_SocDescriptor const& soc_desc = device->get_virtual_soc_descriptors().at(0);
+    int num_chips = device->get_number_of_chips_in_cluster();
+    auto readback_write_generator = ThreadSafeNonOverlappingWriteAddressGenerator::build_default(soc_desc, num_chips);
+
+    counting_barrier_t writer_sync_barrier = counting_barrier_t(NUM_WRITERS);
+    std::vector<std::thread> write_cmd_threads;
+    for (int i = 0; i < NUM_WRITERS; i++) {
+        write_cmd_threads.emplace_back([&](){
+            RunWriteTransfers(
+                *device, 10000, i,
+
+                std::unique_ptr<CommandSampler>(new WriteCommandSampler(
+                    get_default_full_dram_dest_generator(i, device.get()),  // dest_generator
+                    size_generator_t(i, write_size_distribution, size_aligner) // size generator
+                )),
+                readback_write_generator,
+                writer_sync_barrier
+            );
+        });
+    }
+
+
+    std::vector<std::thread> readback_threads;
+    for (int i = 0; i < NUM_READERS; i++) {
+        readback_threads.emplace_back([&](){
+            RunReadbackChecker(*device, 0, readback_write_generator); 
+        });
+    }
+
+    for (int i = 0; i < NUM_WRITERS; i++) {
+        write_cmd_threads.at(i).join();
+    }
+    for (int i = 0; i < NUM_READERS; i++) {
+        readback_threads.at(i).join();
+    }
+}
+
+
+TEST_F(WormholeNebulaX2TestFixture, MultithreadedSmallWritesWithReadback16Writers16Readers) {
+    static constexpr int NUM_WRITERS = 16;
+    static constexpr int NUM_READERS = 16;
+    assert(device != nullptr);
+
+    using size_generator_t = ConstrainedTemplateTemplateGenerator<transfer_size_t, transfer_size_t, std::uniform_int_distribution>;
+    auto size_aligner = [](transfer_size_t x) -> transfer_size_t { return size_aligner_32B(static_cast<transfer_size_t>((x >= 4) ? x : 4)); };
+    auto write_size_distribution = std::uniform_int_distribution<transfer_size_t>(4, 1024);
+
+    tt_SocDescriptor const& soc_desc = device->get_virtual_soc_descriptors().at(0);
+    int num_chips = device->get_number_of_chips_in_cluster();
+    auto readback_write_generator = ThreadSafeNonOverlappingWriteAddressGenerator::build_default(soc_desc, num_chips);
+
+    counting_barrier_t writer_sync_barrier = counting_barrier_t(NUM_WRITERS);
+    std::vector<std::thread> write_cmd_threads;
+    for (int i = 0; i < NUM_WRITERS; i++) {
+        write_cmd_threads.emplace_back([&](){
+            RunWriteTransfers(
+                *device, 2000, i,
+
+                std::unique_ptr<CommandSampler>(new WriteCommandSampler(
+                    get_default_full_dram_dest_generator(i, device.get()),  // dest_generator
+                    size_generator_t(i, write_size_distribution, size_aligner) // size generator
+                )),
+                readback_write_generator,
+                writer_sync_barrier
+            );
+        });
+    }
+
+    std::vector<std::thread> readback_threads;
+    for (int i = 0; i < NUM_READERS; i++) {
+        readback_threads.emplace_back([&](){
+            RunReadbackChecker(*device, 0, readback_write_generator); 
+        });
+    }
+
+    for (int i = 0; i < NUM_WRITERS; i++) {
+        write_cmd_threads.at(i).join();
+    }
+    for (int i = 0; i < NUM_READERS; i++) {
+        readback_threads.at(i).join();
+    }
+}
+
+// This was an overkill test, mainly for exercising the test infra itself
+TEST_F(WormholeNebulaX2TestFixture, DISABLED_MultithreadedSmallWritesWithReadback128Writers16Readers) {
+    static constexpr int NUM_WRITERS = 128;
+    static constexpr int NUM_READERS = 16;
+    assert(device != nullptr);
+    
+    using size_generator_t = ConstrainedTemplateTemplateGenerator<transfer_size_t, transfer_size_t, std::uniform_int_distribution>;
+    auto size_aligner = [](transfer_size_t x) -> transfer_size_t { return size_aligner_32B(static_cast<transfer_size_t>((x >= 4) ? x : 4)); };
+    auto write_size_distribution = std::uniform_int_distribution<transfer_size_t>(4, 1024);
+
+    tt_SocDescriptor const& soc_desc = device->get_virtual_soc_descriptors().at(0);
+    int num_chips = device->get_number_of_chips_in_cluster();
+    auto readback_write_generator = ThreadSafeNonOverlappingWriteAddressGenerator::build_default(soc_desc, num_chips);
+
+    counting_barrier_t writer_sync_barrier = counting_barrier_t(NUM_WRITERS);
+    std::vector<std::thread> write_cmd_threads;
+    for (int i = 0; i < NUM_WRITERS; i++) {
+        write_cmd_threads.emplace_back([&](){
+            RunWriteTransfers(
+                *device, 100, i,
+
+                std::unique_ptr<CommandSampler>(new WriteCommandSampler(
+                    get_default_full_dram_dest_generator(i, device.get()),  // dest_generator
+                    size_generator_t(i, write_size_distribution, size_aligner) // size generator
+                )),
+                readback_write_generator,
+                writer_sync_barrier
+            );
+        });
+    }
+
+    std::vector<std::thread> readback_threads;
+    for (int i = 0; i < NUM_READERS; i++) {
+        readback_threads.emplace_back([&](){
+            RunReadbackChecker(*device, 0, readback_write_generator); 
+        });
+    }
+
+    for (int i = 0; i < NUM_WRITERS; i++) {
+        write_cmd_threads.at(i).join();
+    }
+    for (int i = 0; i < NUM_READERS; i++) {
+        readback_threads.at(i).join();
+    }
 }
 
 } // namespace tt::umd::test::utils

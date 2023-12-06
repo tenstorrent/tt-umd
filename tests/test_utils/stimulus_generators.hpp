@@ -1,9 +1,14 @@
 #pragma once
+#include "tt_soc_descriptor.h"
 #include "tt_xy_pair.h"
 #include <tt_cluster_descriptor.h>
 #include <tt_device.h>
+#include "comparison.hpp"
+#include "types.hpp"
 
+#include "gtest/gtest.h"
 
+#include <algorithm>
 #include <functional>
 #include <iostream>
 #include <map>
@@ -11,6 +16,10 @@
 #include <vector>
 #include <variant>
 #include <cassert>
+
+#include <memory>
+#include <atomic>
+#include <mutex>
 
 /* Sizes:
  * Distribution (including min/max)
@@ -37,6 +46,12 @@ static const std::string SOC_DESC_PATH = "./tests/soc_descs/wormhole_b0_8x10.yam
 
 
 enum RemoteTransferType : uint8_t { WRITE = 0, ROLLED_WRITE, READ, EPOCH_CMD_WRITE };
+
+template <typename T>
+int bytes_to_words(int num_bytes) {
+    return ((num_bytes - 1) / sizeof(T)) + 1;
+}
+
 
 template <
     typename SAMPLE_T,
@@ -91,9 +106,6 @@ class ConstrainedTemplateGenerator {
 
 using DefaultTransferTypeGenerator = ConstrainedTemplateTemplateGenerator<RemoteTransferType, int, std::discrete_distribution>;
 
-using address_t = uint32_t;
-using destination_t = tt_cxy_pair;
-using transfer_size_t = uint32_t;
 
 struct write_transfer_sample_t {
     destination_t destination;
@@ -393,32 +405,22 @@ class TestGenerator {
     read_command_generator_t read_command_generator;
 };
 
-struct transfer_type_weights_t {
-    double write;
-    double rolled_write;
-    double read;
-    double epoch_cmd_write;
-};
 
-
-static auto address_aligner = [](address_t addr) -> address_t { addr = (((addr - 1) / 32) + 1) * 32; assert(addr % 32 == 0); return addr;};
-static auto transfer_size_aligner = [](transfer_size_t size) -> transfer_size_t { size = (((size - 1) / 4) + 1) * 4; assert(size > 0); assert(size % 4 == 0); return size; };
-static auto rolled_write_transfer_size_aligner = [](transfer_size_t size) -> transfer_size_t { size = (((size - 1) / 32) + 1) * 32; assert(size > 0); return size;};
-static auto address_aligner_32B = [](transfer_size_t size) -> transfer_size_t { size = (((size - 1) / 32) + 1) * 32; assert(size > 0); return size;};
-static auto size_aligner_32B = [](transfer_size_t size) -> transfer_size_t { size = (((size - 1) / 32) + 1) * 32; assert(size > 0); return size;};
-template<typename T>
-static auto passthrough_constrainer = [](T const& t) -> T { return t; };
 
 static inline std::vector<destination_t> generate_core_index_locations(tt_ClusterDescriptor const& cluster_desc, tt_SocDescriptor const& soc_desc) {
     std::vector<destination_t> core_index_to_location = {};
 
-    for (chip_id_t chip : cluster_desc.get_all_chips()) {
-        for (auto const& dram_channel_cores : soc_desc.dram_cores) {
-            for (tt_xy_pair const& dram_core : dram_channel_cores) {
+    for (auto const& dram_channel_cores : soc_desc.dram_cores) {
+        for (tt_xy_pair const& dram_core : dram_channel_cores) {
+            for (chip_id_t chip : cluster_desc.get_all_chips()) {
                 core_index_to_location.push_back({static_cast<std::size_t>(chip), dram_core.x, dram_core.y});
             }
         }
     }
+    // std::cout << "core_index_to_location:" << std::endl;
+    // for (int i = 0; i < core_index_to_location.size(); i++) {
+    //     std::cout << "\t" << i << ": (chip=" << core_index_to_location.at(i).chip << ", y=" << core_index_to_location.at(i).y << ", x=" << core_index_to_location.at(i).x << ")" << std::endl;
+    // }
 
     return core_index_to_location;
 }
@@ -459,10 +461,6 @@ static void print_command(remote_transfer_sample_t const& command) {
     };
 }
 
-template <typename T>
-int bytes_to_words(int num_bytes) {
-    return ((num_bytes - 1) / sizeof(T)) + 1;
-}
 
 static inline void dispatch_remote_transfer_command(
     tt_SiliconDevice &driver, 
@@ -833,6 +831,273 @@ void RunMixedTransfersUniformDistributions(
     );
 
 }
+
+///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+////////////////           NEW STUFF           NEW STUFF            NEW STUFF            NEW STUFF         ////////////////
+////////////////           NEW STUFF           NEW STUFF            NEW STUFF            NEW STUFF         ////////////////
+////////////////           NEW STUFF           NEW STUFF            NEW STUFF            NEW STUFF         ////////////////
+///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+
+struct CommandSampler {
+    virtual destination_t generate_destination_sample() = 0;
+    virtual transfer_size_t generate_transfer_size_sample() = 0;
+};
+
+
+struct CommandGenerator {
+    CommandGenerator(std::unique_ptr<CommandSampler> sampler, tt_SocDescriptor const &soc_desc) : 
+        sampler(std::move(sampler)),
+        soc_desc(soc_desc) {}
+
+    virtual void generate_sample(tt_SiliconDevice &driver) = 0;
+
+    std::unique_ptr<CommandSampler> sampler;
+    tt_SocDescriptor const &soc_desc;
+};
+
+
+template <
+    template <typename>
+    class DEST_DISTR_T,
+    // template <typename>
+    // class ADDR_GENERATOR_T,
+    class DISTR_OUT_T,
+    template <typename>
+    class SIZE_DISTR_T,
+
+    typename GENERATOR_T = std::mt19937>
+struct WriteCommandSampler : public CommandSampler {
+    using destination_generator_t = ConstrainedTemplateTemplateGenerator<destination_t, int, DEST_DISTR_T, GENERATOR_T>;
+    // using address_generator_t = ConstrainedTemplateTemplateGenerator<address_t, address_t, ADDR_DISTR_T, GENERATOR_T>;
+    using size_generator_t = ConstrainedTemplateTemplateGenerator<transfer_size_t, DISTR_OUT_T, SIZE_DISTR_T, GENERATOR_T>;
+
+    WriteCommandSampler(
+        destination_generator_t const& destination_generator,
+        // ADDR_GENERATOR_T const& address_generator,
+        size_generator_t const& size_generator) :
+        destination_generator(destination_generator),
+        // address_generator(address_generator),
+        size_generator(size_generator) {}
+
+    virtual destination_t generate_destination_sample() override {
+        return destination_generator.generate();
+    }
+    virtual transfer_size_t generate_transfer_size_sample() override {
+        return size_generator.generate();
+    }
+
+    destination_generator_t destination_generator;
+    // ADDR_GENERATOR_T address_generator;
+    size_generator_t size_generator;
+};
+
+template <
+    template <typename>
+    class DEST_DISTR_T,
+    template <typename>
+    class ADDR_DISTR_T,
+    template <typename>
+    class SIZE_DISTR_T,
+    class LAST_CMD_DISTR_T,
+
+    typename GENERATOR_T = std::mt19937>
+struct WriteEpochCmdCommandSampler : public CommandSampler {
+    using destination_generator_t = ConstrainedTemplateTemplateGenerator<destination_t, int, DEST_DISTR_T, GENERATOR_T>;
+    using address_generator_t = ConstrainedTemplateTemplateGenerator<address_t, address_t, ADDR_DISTR_T, GENERATOR_T>;
+    using size_generator_t = ConstrainedTemplateTemplateGenerator<transfer_size_t, transfer_size_t, SIZE_DISTR_T, GENERATOR_T>;
+    using last_cmd_generator_t = ConstrainedTemplateGenerator<bool, bool, LAST_CMD_DISTR_T, GENERATOR_T>;
+
+    WriteEpochCmdCommandSampler(
+        destination_generator_t const& destination_generator,
+        address_generator_t const& address_generator,
+        size_generator_t const& size_generator,
+        last_cmd_generator_t const& last_cmd_generator) :
+        destination_generator(destination_generator),
+        address_generator(address_generator),
+        size_generator(size_generator),
+        last_cmd_generator(last_cmd_generator) {}
+
+    destination_generator_t destination_generator;
+    address_generator_t address_generator;
+    size_generator_t size_generator;
+    last_cmd_generator_t last_cmd_generator;
+};
+
+template <
+    template <typename>
+    class DEST_DISTR_T,
+    template <typename>
+    class SIZE_DISTR_OUT_T,
+    class DISTR_SIZE_OUT_T,
+    template <typename>
+    class SIZE_DISTR_T,
+    template <typename>
+    class UNROLL_COUNT_DISTR_T,
+
+    typename GENERATOR_T = std::mt19937>
+struct RolledWriteCommandSampler : public CommandSampler {
+    using destination_generator_t = ConstrainedTemplateTemplateGenerator<destination_t, int, DEST_DISTR_T, GENERATOR_T>;
+    using address_generator_t = ConstrainedTemplateTemplateGenerator<address_t, address_t, SIZE_DISTR_OUT_T, GENERATOR_T>;
+    using size_generator_t = ConstrainedTemplateTemplateGenerator<transfer_size_t, DISTR_SIZE_OUT_T, SIZE_DISTR_T, GENERATOR_T>;
+    using unroll_count_generator_t = ConstrainedTemplateTemplateGenerator<int, int, UNROLL_COUNT_DISTR_T, GENERATOR_T>;
+
+    RolledWriteCommandSampler(
+        destination_generator_t const& destination_generator,
+        address_generator_t const& address_generator,
+        size_generator_t const& size_generator,
+        unroll_count_generator_t const& unroll_generator) :
+        destination_generator(destination_generator),
+        address_generator(address_generator),
+        size_generator(size_generator),
+        unroll_generator(unroll_generator) {}
+
+    destination_generator_t destination_generator;
+    address_generator_t address_generator;
+    size_generator_t size_generator;
+    unroll_count_generator_t unroll_generator;
+};
+
+template <
+    template <typename>
+    class DEST_DISTR_T,
+    template <typename>
+    class ADDR_DISTR_T,
+    class DISTR_OUT_T,
+    template <typename>
+    class SIZE_DISTR_T,
+
+    typename GENERATOR_T = std::mt19937>
+struct ReadCommandSampler : public CommandSampler {
+    using destination_generator_t = ConstrainedTemplateTemplateGenerator<destination_t, int, DEST_DISTR_T, GENERATOR_T>;
+    using address_generator_t = ConstrainedTemplateTemplateGenerator<address_t, address_t, ADDR_DISTR_T, GENERATOR_T>;
+    using size_generator_t = ConstrainedTemplateTemplateGenerator<transfer_size_t, DISTR_OUT_T, SIZE_DISTR_T, GENERATOR_T>;
+
+    ReadCommandSampler(
+        destination_generator_t const& destination_generator,
+        address_generator_t const& address_generator,
+        size_generator_t const& size_generator) :
+        destination_generator(destination_generator),
+        address_generator(address_generator),
+        size_generator(size_generator) {}
+
+    destination_generator_t destination_generator;
+    address_generator_t address_generator;
+    size_generator_t size_generator;
+};
+
+
+
+
+class ReadbackWriteGenerator : public CommandGenerator {
+
+   public:
+    ReadbackWriteGenerator(
+        int seed,
+        std::unique_ptr<CommandSampler> sampler,
+        tt_SocDescriptor const& soc_desc,
+        ThreadSafeNonOverlappingWriteAddressGenerator &readback_write_generator //,
+        // write_command_generator_t const& write_command_generator
+        ) :
+        CommandGenerator(std::move(sampler), soc_desc),
+        generator(seed),
+        readback_write_generator(readback_write_generator),
+        custom_payload_spec({.start=(uint32_t)seed * 100000, .increment=1, .run_length=32})
+    {
+    }
+
+    // Generate a sample (transfer type, size, destination, address) based on custom distributions
+    virtual void generate_sample(tt_SiliconDevice &driver) override {
+        destination_t const& destination = this->sampler->generate_destination_sample();
+        transfer_size_t const& size_in_bytes = this->sampler->generate_transfer_size_sample();
+        auto dram_location = dram_location_t{.chip_id=(int)destination.chip, .channel=std::get<0>(this->soc_desc.dram_core_channel_map.at(destination))};
+        this->readback_write_generator.write_to_next_address_blocking_custom(driver, dram_location, this->payload, size_in_bytes, reference_custom_payload, custom_payload_spec);
+        // this->readback_write_generator.write_to_next_address_blocking(driver, dram_location, this->payload, size_in_bytes);
+    }
+
+   private:
+    std::mt19937 generator;
+    std::vector<uint32_t> payload;
+
+    ThreadSafeNonOverlappingWriteAddressGenerator &readback_write_generator;
+
+    const payload_spec_t<uint32_t> custom_payload_spec;
+    std::vector<uint32_t> reference_custom_payload;
+};
+
+struct counting_barrier_t {
+    counting_barrier_t(int count) : count_max(count), waiting_count(0), waiting_count2(0) {}
+
+    int arrive_and_wait() {
+        {
+            auto waiting = std::atomic_fetch_add(&waiting_count, 1);
+            while (waiting != count_max) {
+                for (int i = 0; i < 1000; i++);
+                waiting = std::atomic_load(&waiting_count);
+            }
+        }
+        {
+            auto waiting2 = std::atomic_fetch_add(&waiting_count2, 1);
+            while (waiting2 != count_max) {
+                for (int i = 0; i < 1000; i++);
+                waiting2 = std::atomic_load(&waiting_count2);
+            }
+        }
+
+        {
+            auto waiting = std::atomic_fetch_sub(&waiting_count, 1);
+            while (waiting != 0) {
+                for (int i = 0; i < 1000; i++);
+                waiting = std::atomic_load(&waiting_count);
+            }
+        }
+        {
+            int my_index = std::atomic_fetch_sub(&waiting_count2, 1);
+            int waiting2 = my_index;
+            while (waiting2 != 0) {
+                for (int i = 0; i < 1000; i++);
+                waiting2 = std::atomic_load(&waiting_count2);
+            }
+            return my_index;
+        }
+    }
+
+    int count_max;
+    std::atomic<int> waiting_count;
+    std::atomic<int> waiting_count2;
+};
+
+void RunWriteTransfers(
+    tt_SiliconDevice& device, 
+    int num_samples,
+    int seed,
+
+    // WriteCommandSampler<WRITE_DEST_DISTR_T, /*ThreadSafeNonOverlappingWriteAddressGenerator,*/ WRITE_SIZE_DISTR_OUT_T, WRITE_SIZE_DISTR_T> const& 
+    std::unique_ptr<CommandSampler> write_command_generator,
+    
+    ThreadSafeNonOverlappingWriteAddressGenerator &write_history_address_generator,
+
+    counting_barrier_t &barrier
+);
+
+void RunReadbackChecker(
+    tt_SiliconDevice& device,
+    int seed,
+    ThreadSafeNonOverlappingWriteAddressGenerator &write_history_address_generator
+);
+
+void RunMixedTransfers(
+    tt_SiliconDevice& device, 
+    int num_samples,
+    int seed,
+
+    std::vector<float> const& generator_weights,
+    
+    std::vector<std::unique_ptr<CommandGenerator>> sample_generators,
+    
+    bool record_command_history = false,
+    std::vector<remote_transfer_sample_t> *command_history = nullptr
+);
 
 
 }  // namespace tt::umd::test::utils

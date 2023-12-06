@@ -12,6 +12,7 @@ else
 endif
 
 DEVICE_UNIT_TESTS += $(basename $(wildcard $(UMD_HOME)/tests/*.c*))
+DEVICE_UNIT_TESTS += $(basename $(wildcard $(UMD_HOME)/tests/test_utils/*.c*))
 
 DEVICE_UNIT_TESTS_SRCS = $(addsuffix .cpp, $(DEVICE_UNIT_TESTS))
 

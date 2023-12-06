@@ -125,7 +125,8 @@ class ThreadSafeWriteHistoryCircularBuffer {
         int dram_channel, 
         std::size_t write_region_start, 
         std::size_t write_region_end,
-        std::size_t max_writes_per_buffer) :
+        std::size_t max_writes_per_buffer,
+        std::size_t num_history_buffers = 2) :
         chip(chip),
         dram_channel(dram_channel),
         channel_core(tt_cxy_pair(chip, soc_desc.dram_cores.at(dram_channel).at(0))),
@@ -133,16 +134,18 @@ class ThreadSafeWriteHistoryCircularBuffer {
         _write_queue_index(0),
         writer_lock(writer_mutex,std::defer_lock),
         reader_lock(reader_mutex,std::defer_lock),
-        max_writes_per_buffer(max_writes_per_buffer)
+        max_writes_per_buffer(max_writes_per_buffer),
+        num_history_buffers(num_history_buffers),
+        write_history_buffers(2)
     {
         assert(write_region_start < write_region_end);
         assert(write_region_start == address_aligner(write_region_start));//, "write_region_start must be aligned to 32B");
         assert(write_region_end == address_aligner(write_region_end));//, "write_region_end must be aligned to 32B");
         std::size_t total_available_write_size = write_region_end - write_region_start;
 
-        std::size_t buffer_region_size = address_aligner(total_available_write_size / NUM_HISTORY_BUFFERS);
+        std::size_t buffer_region_size = address_aligner(total_available_write_size / this->num_history_buffers);
         this->max_allowed_write_size = buffer_region_size;
-        for (std::size_t i = 0; i < NUM_HISTORY_BUFFERS; i++) {
+        for (std::size_t i = 0; i < this->num_history_buffers; i++) {
             auto start = write_region_start + i * buffer_region_size;
             auto end = std::min(write_region_start + (i + 1) * buffer_region_size, write_region_end);
             this->write_region_starts.push_back(start);
@@ -322,8 +325,6 @@ class ThreadSafeWriteHistoryCircularBuffer {
         assert(payload.size() < 192 or payload[191] == write_entry.payload_spec.start + 5);// debug while we are only using default payload
     }
 
-    static constexpr std::size_t NUM_HISTORY_BUFFERS = 2;
-
     const chip_id_t chip;
     const int dram_channel;
     const tt_cxy_pair channel_core;
@@ -331,6 +332,7 @@ class ThreadSafeWriteHistoryCircularBuffer {
     std::vector<std::size_t> write_region_starts;
     std::vector<std::size_t> write_region_ends;
     const int max_writes_per_buffer;
+    const std::size_t num_history_buffers;
 
     std::mutex reader_mutex;
     std::mutex writer_mutex;
@@ -341,17 +343,17 @@ class ThreadSafeWriteHistoryCircularBuffer {
         assert(this->_write_queue_index >= 0);
         assert(this->_read_queue_index >= 0);
         return (this->_write_queue_index < this->_read_queue_index) ? 
-            ((2 * NUM_HISTORY_BUFFERS - this->_read_queue_index) + this->_write_queue_index) : 
+            ((2 * this->num_history_buffers - this->_read_queue_index) + this->_write_queue_index) : 
             (this->_write_queue_index - this->_read_queue_index);
     }
 
-    bool can_write_to_current_buffer() const { return this->write_read_distance() < NUM_HISTORY_BUFFERS; }
+    bool can_write_to_current_buffer() const { return this->write_read_distance() < this->num_history_buffers; }
 
-    void increment_reader_index() { this->_read_queue_index = ((this->_read_queue_index + 1) % (2 * NUM_HISTORY_BUFFERS)); }
-    void increment_writer_index() { this->_write_queue_index = ((this->_write_queue_index + 1) % (2 * NUM_HISTORY_BUFFERS)); }
+    void increment_reader_index() { this->_read_queue_index = ((this->_read_queue_index + 1) % (2 * this->num_history_buffers)); }
+    void increment_writer_index() { this->_write_queue_index = ((this->_write_queue_index + 1) % (2 * this->num_history_buffers)); }
 
-    int get_read_queue_index() const {  int result = this->_read_queue_index % NUM_HISTORY_BUFFERS; assert (result >= 0 and result < NUM_HISTORY_BUFFERS); return result;}
-    int get_write_queue_index() const { int result = this->_write_queue_index % NUM_HISTORY_BUFFERS; assert (result >= 0 and result < NUM_HISTORY_BUFFERS); return result;}
+    int get_read_queue_index() const {  int result = this->_read_queue_index % this->num_history_buffers; assert (result >= 0 and result < this->num_history_buffers); return result;}
+    int get_write_queue_index() const { int result = this->_write_queue_index % this->num_history_buffers; assert (result >= 0 and result < this->num_history_buffers); return result;}
 
     int _read_queue_index;
     int _write_queue_index;
@@ -360,7 +362,7 @@ class ThreadSafeWriteHistoryCircularBuffer {
 
     std::size_t max_allowed_write_size;
     // Have two separate write histories so we can double buffer (one can write while the other is read back)
-    std::array<write_history_t,NUM_HISTORY_BUFFERS> write_history_buffers;
+    std::vector<write_history_t> write_history_buffers;
 };
 
 class ThreadSafeNonOverlappingWriteAddressGenerator {
@@ -371,7 +373,8 @@ class ThreadSafeNonOverlappingWriteAddressGenerator {
         int num_chips, 
         std::vector<std::size_t> const& per_channel_write_region_start, 
         std::vector<std::size_t> const& per_channel_write_region_end,
-        std::size_t max_writes_per_buffer) :
+        std::size_t max_writes_per_buffer,
+        std::size_t num_history_buffers = 2) :
         num_chips(num_chips),
         channels_per_chip(per_channel_write_region_start.size()),
         is_done(false),
@@ -390,7 +393,8 @@ class ThreadSafeNonOverlappingWriteAddressGenerator {
                         ch, 
                         per_channel_write_region_start.at(ch), 
                         per_channel_write_region_end.at(ch),
-                        max_writes_per_buffer
+                        max_writes_per_buffer,
+                        num_history_buffers
                     )
                 );
             }
@@ -506,6 +510,7 @@ class ThreadSafeNonOverlappingWriteAddressGenerator {
         }
     }
 
+    // uncomment for blocking call
     // void pop_write_address(dram_location_t const& dram_location) {
     //     assert(dram_location.chip_id < num_chips);
     //     assert(dram_location.channel < channels_per_chip);

@@ -1464,7 +1464,9 @@ std::unordered_map<chip_id_t, uint32_t> tt_SiliconDevice::get_harvesting_masks_f
     return default_harvesting_masks;
 }
 
-tt_SiliconDevice::tt_SiliconDevice(const std::string &sdesc_path, const std::string &ndesc_path, const std::set<chip_id_t> &target_devices, const uint32_t &num_host_mem_ch_per_mmio_device, const std::unordered_map<std::string, std::int32_t>& dynamic_tlb_config_, const bool skip_driver_allocs, bool perform_harvesting) : tt_device(sdesc_path) {
+tt_SiliconDevice::tt_SiliconDevice(const std::string &sdesc_path, const std::string &ndesc_path, const std::set<chip_id_t> &target_devices, 
+                                   const uint32_t &num_host_mem_ch_per_mmio_device, const std::unordered_map<std::string, std::int32_t>& dynamic_tlb_config_, 
+                                   const bool skip_driver_allocs, bool perform_harvesting, std::unordered_map<chip_id_t, uint32_t> simulated_harvesting_masks) : tt_device(sdesc_path) {
     std::unordered_set<chip_id_t> target_mmio_device_ids;
     target_devices_in_cluster = target_devices;
     arch_name = tt_SocDescriptor(sdesc_path).arch;
@@ -1539,31 +1541,26 @@ tt_SiliconDevice::tt_SiliconDevice(const std::string &sdesc_path, const std::str
         }
     }
 
-    if(std::getenv("TT_BACKEND_HARVESTED_ROWS")) {
+    if(simulated_harvesting_masks.size()) {
         performed_harvesting = true;
-        std::vector<int> harvesting_info = extract_harvest_info_for_simulation(std::getenv("TT_BACKEND_HARVESTED_ROWS"));
-        log_assert(harvesting_info.size() == target_devices.size(),
-                    "Number of entries in the comma seperated harvesting config should match the number of devices in the netlist. Num Devices: {} Num Entries: {}",
-                    target_devices.size(), harvesting_info.size());
-        int idx = 0;
         for (auto device_id = target_devices.begin(); device_id != target_devices.end(); device_id++) {
+            log_assert(simulated_harvesting_masks.find(*device_id) != simulated_harvesting_masks.end(), "Could not find harvesting mask for device_id {}", *device_id);
             if(arch_name == tt::ARCH::GRAYSKULL) {
-                log_assert((harvesting_info[idx] & harvested_rows_per_target[*device_id]) == harvested_rows_per_target[*device_id],
+                log_assert((simulated_harvesting_masks.at(*device_id) & harvested_rows_per_target[*device_id]) == harvested_rows_per_target[*device_id],
                             "Simulated harvesting config for device {} does not include the actual harvesting config (real config must be contained in simulated config when running on device). Actual Harvested Rows : {}    Simulated Harvested Rows : {}",
-                            *device_id,  harvested_rows_per_target[*device_id], harvesting_info[idx]);
+                            *device_id,  harvested_rows_per_target[*device_id], simulated_harvesting_masks.at(*device_id));
 
             }
             else if(arch_name == tt::ARCH::WORMHOLE_B0 || arch_name == tt::ARCH::WORMHOLE) {
-                log_assert(std::bitset<32>(harvesting_info[idx]).count() >= std::bitset<32>(*device_id).count(),
-                "Simulated Harvesting for WH must contain at least as many rows as the actual harvesting config. Actual Harvested Rows : {}  Simulated Harvested Rows : {}",
-                harvested_rows_per_target[*device_id], harvesting_info[idx]);
-                num_rows_harvested.at(*device_id) = std::bitset<32>(harvesting_info[idx]).count();
+                log_assert(std::bitset<32>(simulated_harvesting_masks.at(*device_id)).count() >= std::bitset<32>(harvested_rows_per_target[*device_id]).count(),
+                            "Simulated Harvesting for WH must contain at least as many rows as the actual harvesting config. Actual Harvested Rows : {}  Simulated Harvested Rows : {}",
+                            harvested_rows_per_target[*device_id], simulated_harvesting_masks.at(*device_id));
+                            num_rows_harvested.at(*device_id) = std::bitset<32>(simulated_harvesting_masks.at(*device_id)).count();
             }
-            harvested_rows_per_target[*device_id] = harvesting_info[idx];
+            harvested_rows_per_target[*device_id] = simulated_harvesting_masks.at(*device_id);
             if(arch_name == tt::ARCH::WORMHOLE or arch_name == tt::ARCH::WORMHOLE_B0) {
                 log_assert(performed_harvesting ? translation_tables_en : true, "Using a harvested WH cluster with NOC translation disabled.");
             }
-            idx++;
         }
     }
 
@@ -1593,19 +1590,17 @@ void tt_SiliconDevice::populate_cores() {
     }
 }
 
-std::vector<int> tt_SiliconDevice::extract_harvest_info_for_simulation(std::string harvest_info){
-    size_t start;
-    size_t end = 0;
-    std::vector<int> out;
-    if(!harvest_info.size()) return out;
-
-    while((start = harvest_info.find_first_not_of(",", end)) != std::string::npos){
-        end = harvest_info.find(",", start);
-        out.push_back(stoi(harvest_info.substr(start, end - start)));
+std::unordered_map<chip_id_t, uint32_t> tt_SiliconDevice::get_harvesting_masks_from_harvested_rows(std::unordered_map<chip_id_t, std::vector<uint32_t>> harvested_rows) {
+    std::unordered_map<chip_id_t, uint32_t> harvesting_masks = {};
+    for(const auto& chip : harvested_rows) {
+        uint32_t harvesting_mask_per_chip = 0;
+        harvesting_masks.insert({chip.first, 0});
+        for(const auto& row : chip.second) {
+            harvesting_masks.at(chip.first) |= (1 << row);
+        }
     }
-    return out;
+    return harvesting_masks;
 }
-
 std::vector<int> tt_SiliconDevice::extract_rows_to_remove(const tt::ARCH &arch, const int worker_grid_rows, const int harvested_rows) {
     // Check if harvesting config is legal for GS and WH
     log_assert(!((harvested_rows & 1) || (harvested_rows & 64) || (harvested_rows & 0xFFFFF000)), "For grayskull and wormhole, only rows 1-5 and 7-11 can be harvested");

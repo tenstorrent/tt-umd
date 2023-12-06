@@ -705,7 +705,9 @@ class tt_SiliconDevice: public tt_device
      * \param skip_driver_allocs Specifies if the Silicon Driver object should be initialized + started without modifying device state (ex: bringing device out of reset or shared host state (ex: initializing hugepages)
      * \param perform_harvesting Allow the driver to modify the SOC descriptors per chip by considering the harvesting configuration of the cluster.
     */ 
-    tt_SiliconDevice(const std::string &sdesc_path, const std::string &ndesc_path = "", const std::set<chip_id_t> &target_devices = {}, const uint32_t &num_host_mem_ch_per_mmio_device = 1, const std::unordered_map<std::string, std::int32_t>& dynamic_tlb_config_ = {}, const bool skip_driver_allocs = false, bool perform_harvesting = true);
+    tt_SiliconDevice(const std::string &sdesc_path, const std::string &ndesc_path = "", const std::set<chip_id_t> &target_devices = {}, 
+                    const uint32_t &num_host_mem_ch_per_mmio_device = 1, const std::unordered_map<std::string, std::int32_t>& dynamic_tlb_config_ = {}, 
+                    const bool skip_driver_allocs = false, bool perform_harvesting = true, std::unordered_map<chip_id_t, uint32_t> simulated_harvesting_masks = {});
     
     //Setup/Teardown Functions
     virtual std::unordered_map<chip_id_t, tt_SocDescriptor>& get_virtual_soc_descriptors();
@@ -779,11 +781,11 @@ class tt_SiliconDevice: public tt_device
     virtual void *channel_0_address(std::uint32_t offset, std::uint32_t device_id) const;
     virtual void *host_dma_address(std::uint64_t offset, chip_id_t src_device_id, uint16_t channel) const;
     virtual std::uint64_t get_pcie_base_addr_from_device() const;
-    static std::vector<int> extract_harvest_info_for_simulation(std::string harvest_info);
     static std::vector<int> extract_rows_to_remove(const tt::ARCH &arch, const int worker_grid_rows, const int harvested_rows);
     static void remove_worker_row_from_descriptor(tt_SocDescriptor& full_soc_descriptor, const std::vector<int>& row_coordinates_to_remove);
     static void harvest_rows_in_soc_descriptor(tt::ARCH arch, tt_SocDescriptor& sdesc, uint32_t harvested_rows);
     static std::unordered_map<tt_xy_pair, tt_xy_pair> create_harvested_coord_translation(const tt::ARCH arch, bool identity_map);
+    static std::unordered_map<chip_id_t, uint32_t> get_harvesting_masks_from_harvested_rows(std::unordered_map<chip_id_t, std::vector<uint32_t>> harvested_rows); 
     std::unordered_map<tt_xy_pair, tt_xy_pair> get_harvested_coord_translation_map(chip_id_t logical_device_id);
     virtual std::uint32_t get_num_dram_channels(std::uint32_t device_id);
     virtual std::uint32_t get_dram_channel_size(std::uint32_t device_id, std::uint32_t channel);

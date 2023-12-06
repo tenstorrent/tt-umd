@@ -1567,8 +1567,7 @@ tt_SiliconDevice::tt_SiliconDevice(const std::string &sdesc_path, const std::str
     perform_harvesting_and_populate_soc_descriptors(sdesc_path, perform_harvesting);
     populate_cores();
     if(arch_name == tt::ARCH::WORMHOLE or arch_name == tt::ARCH::WORMHOLE_B0) {
-        const chip_id_t mmio_capable_chip = 0;
-        log_assert(ndesc->is_chip_mmio_capable(mmio_capable_chip), "Device 0 is not a MMIO device");
+        const chip_id_t mmio_capable_chip = *(target_mmio_device_ids.begin());
         // 4-5 is for send_epoch_commands, 0-3 are for everything else
         for (std::uint32_t i = 0; i < NUM_ETH_CORES_FOR_NON_MMIO_TRANSFERS; i++) {
             remote_transfer_ethernet_cores[i] = tt_cxy_pair(mmio_capable_chip, get_soc_descriptor(mmio_capable_chip).ethernet_cores.at(i).x, get_soc_descriptor(mmio_capable_chip).ethernet_cores.at(i).y);

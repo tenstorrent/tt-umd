@@ -16,6 +16,7 @@
 #include "tt_xy_pair.h"
 #include "tt_silicon_driver_common.hpp"
 #include "device/tt_cluster_descriptor_types.h"
+
 namespace boost::interprocess{
     class named_mutex;
 }
@@ -106,6 +107,26 @@ struct tt_driver_eth_interface_params {
     std::int32_t CMD_BUF_PTR_MASK = 0;
     std::int32_t CMD_ORDERED = 0;
     std::int32_t CMD_BROADCAST = 0;
+};
+
+struct tt_version {
+    std::uint16_t major = 0xffff;
+    std::uint8_t minor = 0xff;
+    std::uint8_t patch = 0xff;
+    tt_version() {}
+    tt_version(std::uint16_t major_, std::uint8_t minor_, std::uint8_t patch_) {
+        major = major_;
+        minor = minor_;
+        patch = patch_;
+    }
+    tt_version(std::uint32_t version) {
+        major = (version >> 16) & 0xff;
+        minor = (version >> 12) & 0xf;
+        patch = version & 0xfff;
+    }
+    std::string str() const {
+        return std::to_string(major) + "." + std::to_string(minor) + "." + std::to_string(patch);
+    }
 };
 
 struct tt_device_params {
@@ -752,7 +773,7 @@ class tt_SiliconDevice: public tt_device
      * @brief Returns the DMA buf size 
     */
     uint32_t get_m_dma_buf_size() const;
-
+    tt_version get_ethernet_fw_version() const;
     // Misc. Functions to Query/Set Device State
     virtual int arc_msg(int logical_device_id, uint32_t msg_code, bool wait_for_done = true, uint32_t arg0 = 0, uint32_t arg1 = 0, int timeout=1, uint32_t *return_3 = nullptr, uint32_t *return_4 = nullptr);
     virtual bool using_harvested_soc_descriptors();
@@ -832,6 +853,8 @@ class tt_SiliconDevice: public tt_device
     void read_mmio_device_register(void* mem_ptr, tt_cxy_pair core, uint64_t addr, uint32_t size, const std::string& fallback_tlb);
     void write_mmio_device_register(const void* mem_ptr, tt_cxy_pair core, uint64_t addr, uint32_t size, const std::string& fallback_tlb);
     void pcie_broadcast_write(chip_id_t chip, const void* mem_ptr, uint32_t size_in_bytes, std::uint32_t addr, const tt_xy_pair& start, const tt_xy_pair& end, const std::string& fallback_tlb);
+    void ethernet_broadcast_write(const void *mem_ptr, uint32_t size_in_bytes, uint64_t address, const std::set<chip_id_t>& chips_to_exclude, const std::set<uint32_t>& rows_to_exclude, 
+                                  std::set<uint32_t>& cols_to_exclude, const std::string& fallback_tlb, bool use_virtual_coords);
     void set_membar_flag(const chip_id_t chip, const std::unordered_set<tt_xy_pair>& cores, const uint32_t barrier_value, const uint32_t barrier_addr, const std::string& fallback_tlb);
     void insert_host_to_device_barrier(const chip_id_t chip, const std::unordered_set<tt_xy_pair>& cores, const uint32_t barrier_addr, const std::string& fallback_tlb);
     void init_membars();
@@ -915,6 +938,8 @@ class tt_SiliconDevice: public tt_device
     bool perform_harvesting_on_sdesc = false;
     bool use_ethernet_ordered_writes = true;
     bool use_ethernet_broadcast = true;
+    bool use_virtual_coords_for_eth_broadcast = true;
+    tt_version eth_fw_version; // Ethernet FW the driver is interfacing with
     // Named Mutexes
     static constexpr char NON_MMIO_MUTEX_NAME[] = "NON_MMIO";
     static constexpr char ARC_MSG_MUTEX_NAME[] = "ARC_MSG";
@@ -925,25 +950,13 @@ class tt_SiliconDevice: public tt_device
 
 tt::ARCH detect_arch(uint16_t device_id = 0);
 
-struct tt_version {
-    std::uint16_t major;
-    std::uint8_t minor;
-    std::uint8_t patch;
-
-    tt_version(std::uint32_t version) {
-        major = (version >> 16) & 0xff;
-        minor = (version >> 12) & 0xf;
-        patch = version & 0xfff;
-    }
-    std::string str() const {
-        return std::to_string(major) + "." + std::to_string(minor) + "." + std::to_string(patch);
-    }
-};
-
 constexpr inline bool operator==(const tt_version &a, const tt_version &b) {
     return a.major == b.major && a.minor == b.minor && a.patch == b.patch;
 }
 
 constexpr inline bool operator>=(const tt_version &a, const tt_version &b) {
-    return a.major >= b.major && a.minor >= b.minor && a.patch >= b.patch;
+    bool fw_major_greater = a.major > b.major;
+    bool fw_minor_greater = (a.major == b.major) && (a.minor > b.minor);
+    bool patch_greater_or_equal = (a.major == b.major) && (a.minor == b.minor) && (a.patch >= b.patch);
+    return fw_major_greater || fw_minor_greater || patch_greater_or_equal;
 }

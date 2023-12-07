@@ -14,6 +14,7 @@
 #include <util.hpp>
 #include <memory>
 
+
 #include "device/tt_cluster_descriptor.h"
 
 void set_params_for_remote_txn(tt_SiliconDevice& device) {
@@ -172,7 +173,6 @@ TEST(SiliconDriverWH, HarvestingRuntime) {
     device.deassert_risc_reset();
 
     std::vector<uint32_t> vector_to_write = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9};
-    std::vector<uint32_t> dynamic_tlb_vector_to_write = {10, 11, 12, 13, 14, 15, 16, 17, 18, 19};
     std::vector<uint32_t> dynamic_readback_vec = {};
     std::vector<uint32_t> readback_vec = {};
     std::vector<uint32_t> zeros = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
@@ -186,11 +186,16 @@ TEST(SiliconDriverWH, HarvestingRuntime) {
                 device.write_to_device(vector_to_write, tt_cxy_pair(i, core), address, "");
                 device.write_to_device(vector_to_write, tt_cxy_pair(i, core), dynamic_write_address, "SMALL_READ_WRITE_TLB");
                 device.wait_for_non_mmio_flush(); // Barrier to ensure that all writes over ethernet were commited
+                
                 device.read_from_device(readback_vec, tt_cxy_pair(i, core), address, 40, "");
-                ASSERT_EQ(vector_to_write, readback_vec) << "Vector read back from core " << core.x << "-" << core.y << "does not match what was written";
-                device.wait_for_non_mmio_flush();
-                device.write_to_device(zeros, tt_cxy_pair(i, core), address, "SMALL_READ_WRITE_TLB"); // Clear any written data
                 device.read_from_device(dynamic_readback_vec, tt_cxy_pair(i, core), dynamic_write_address, 40, "SMALL_READ_WRITE_TLB");
+                ASSERT_EQ(vector_to_write, readback_vec) << "Vector read back from core " << core.x << "-" << core.y << "does not match what was written";
+                ASSERT_EQ(vector_to_write, dynamic_readback_vec) << "Vector read back from core " << core.x << "-" << core.y << "does not match what was written";
+                device.wait_for_non_mmio_flush();
+                
+                device.write_to_device(zeros, tt_cxy_pair(i, core), dynamic_write_address, "SMALL_READ_WRITE_TLB"); // Clear any written data
+                device.write_to_device(zeros, tt_cxy_pair(i, core), address, ""); // Clear any written data
+                device.wait_for_non_mmio_flush();
                 readback_vec = {};
                 dynamic_readback_vec = {};
             }
@@ -245,6 +250,7 @@ TEST(SiliconDriverWH, UnalignedStaticTLB_RW) {
             for(int loop = 0; loop < 50; loop++){
                 for(auto& core : device.get_virtual_soc_descriptors().at(i).workers) {
                     device.write_to_device(write_vec.data(), size, tt_cxy_pair(i, core), address, "");
+                    device.wait_for_non_mmio_flush();
                     device.read_from_device(readback_vec.data(), tt_cxy_pair(i, core), address, size, "");
                     ASSERT_EQ(readback_vec, write_vec);
                     readback_vec = std::vector<uint8_t>(size, 0);
@@ -252,6 +258,7 @@ TEST(SiliconDriverWH, UnalignedStaticTLB_RW) {
                     device.read_from_sysmem(readback_vec.data(), 0, 0, size, 0);
                     ASSERT_EQ(readback_vec, write_vec);
                     readback_vec = std::vector<uint8_t>(size, 0);
+                    device.wait_for_non_mmio_flush();
                 }
                 address += 0x20;
             }
@@ -314,6 +321,7 @@ TEST(SiliconDriverWH, StaticTLB_RW) {
                 ASSERT_EQ(vector_to_write, readback_vec) << "Vector read back from core " << core.x << "-" << core.y << "does not match what was written";
                 device.wait_for_non_mmio_flush();
                 device.write_to_device(zeros, tt_cxy_pair(i, core), address, "SMALL_READ_WRITE_TLB"); // Clear any written data
+                device.wait_for_non_mmio_flush();
                 readback_vec = {};
             }
             address += 0x20; // Increment by uint32_t size for each write
@@ -358,6 +366,7 @@ TEST(SiliconDriverWH, DynamicTLB_RW) {
                 ASSERT_EQ(vector_to_write, readback_vec) << "Vector read back from core " << core.x << "-" << core.y << "does not match what was written";
                 device.wait_for_non_mmio_flush();
                 device.write_to_device(zeros, tt_cxy_pair(i, core), address, "SMALL_READ_WRITE_TLB");
+                device.wait_for_non_mmio_flush();
                 readback_vec = {};
             }
             address += 0x20; // Increment by uint32_t size for each write
@@ -565,11 +574,8 @@ TEST(SiliconDriverWH, BroadcastWrite) {
     uint32_t address = l1_mem::address_map::DATA_BUFFER_SPACE_BASE;
     std::set<uint32_t> rows_to_exclude = {0, 6};
     std::set<uint32_t> cols_to_exclude = {0, 5};
-    
-    std::set<uint32_t> rows_to_exclude_for_dram_broadcast_group_1 = {};
-    std::set<uint32_t> cols_to_exclude_for_dram_broadcast_group_1 = {0, 1, 2, 3, 4, 6, 7, 8, 9};
-    std::set<uint32_t> rows_to_exclude_for_dram_broadcast_group_2 = {2, 3, 4, 8, 9, 10};
-    std::set<uint32_t> cols_to_exclude_for_dram_broadcast_group_2 = {1, 2, 3, 4, 5, 6, 7, 8, 9};
+    std::set<uint32_t> rows_to_exclude_for_dram_broadcast = {};
+    std::set<uint32_t> cols_to_exclude_for_dram_broadcast = {1, 2, 3, 4, 6, 7, 8, 9};
 
     for(const auto& size : broadcast_sizes) {
         std::vector<uint32_t> vector_to_write(size);
@@ -582,11 +588,12 @@ TEST(SiliconDriverWH, BroadcastWrite) {
         // Broadcast to Tensix
         device.broadcast_write_to_cluster(vector_to_write.data(), vector_to_write.size() * 4, address, {}, rows_to_exclude, cols_to_exclude, "LARGE_WRITE_TLB");
         // Broadcast to DRAM
-        device.broadcast_write_to_cluster(vector_to_write.data(), vector_to_write.size() * 4, address, {}, rows_to_exclude_for_dram_broadcast_group_1, cols_to_exclude_for_dram_broadcast_group_1, "LARGE_WRITE_TLB");
-        device.broadcast_write_to_cluster(vector_to_write.data(), vector_to_write.size() * 4, address, {}, rows_to_exclude_for_dram_broadcast_group_2, cols_to_exclude_for_dram_broadcast_group_2, "LARGE_WRITE_TLB");
+        device.broadcast_write_to_cluster(vector_to_write.data(), vector_to_write.size() * 4, address, {}, rows_to_exclude_for_dram_broadcast, cols_to_exclude_for_dram_broadcast, "LARGE_WRITE_TLB");        
         device.wait_for_non_mmio_flush();
+
         for(const auto i : target_devices) {
             for(const auto& core : device.get_virtual_soc_descriptors().at(i).workers) {
+                if(rows_to_exclude.find(core.y) != rows_to_exclude.end()) continue;
                 device.read_from_device(readback_vec, tt_cxy_pair(i, core), address, vector_to_write.size() * 4, "LARGE_READ_TLB");
                 ASSERT_EQ(vector_to_write, readback_vec) << "Vector read back from core " << core.x << "-" << core.y << "does not match what was broadcasted";
                 device.write_to_device(zeros, tt_cxy_pair(i, core), address, "LARGE_WRITE_TLB"); // Clear any written data
@@ -595,12 +602,84 @@ TEST(SiliconDriverWH, BroadcastWrite) {
             for(int chan = 0; chan < device.get_virtual_soc_descriptors().at(i).get_num_dram_channels(); chan++) {
                 const auto& core = device.get_virtual_soc_descriptors().at(i).get_core_for_dram_channel(chan, 0);
                 device.read_from_device(readback_vec, tt_cxy_pair(i, core), address, vector_to_write.size() * 4, "LARGE_READ_TLB");
-                ASSERT_EQ(vector_to_write, readback_vec) << "Vector read back from core " << core.x << "-" << core.y << "does not match what was broadcasted";
+                ASSERT_EQ(vector_to_write, readback_vec) << "Vector read back from DRAM core " << i << " " << core.x << "-" << core.y << " does not match what was broadcasted " << size;
                 device.write_to_device(zeros, tt_cxy_pair(i, core), address, "LARGE_WRITE_TLB"); // Clear any written data
                 readback_vec = {};
             }
         }
+        // Wait for data to be cleared before writing next block
+        device.wait_for_non_mmio_flush();
     }
     device.close_device();    
 }
 
+TEST(SiliconDriverWH, VirtualCoordinateBroadcast) {
+    // Broadcast multiple vectors to tensix and dram grid. Verify broadcasted data is read back correctly
+    std::set<chip_id_t> target_devices = {0, 1};
+
+    {
+        std::unique_ptr<tt_ClusterDescriptor> cluster_desc_uniq = tt_ClusterDescriptor::create_from_yaml(GetClusterDescYAML().string());
+        if (cluster_desc_uniq->get_number_of_chips() != target_devices.size()) {
+            GTEST_SKIP() << "SiliconDriverWH.Harvesting skipped because it can only be run on a two chip nebula system";
+        }
+    }
+
+    std::unordered_map<std::string, std::int32_t> dynamic_tlb_config = {}; // Don't set any dynamic TLBs in this test
+    uint32_t num_host_mem_ch_per_mmio_device = 1;
+    
+    tt_SiliconDevice device = tt_SiliconDevice("./tests/soc_descs/wormhole_b0_8x10.yaml", GetClusterDescYAML().string(), target_devices, num_host_mem_ch_per_mmio_device, dynamic_tlb_config, false, true, true);
+    set_params_for_remote_txn(device);
+    auto mmio_devices = device.get_target_mmio_device_ids();
+
+    tt_device_params default_params;
+    device.start_device(default_params);
+    auto eth_version = device.get_ethernet_fw_version();
+    bool virtual_bcast_supported = (eth_version >= tt_version(6, 8, 0) || eth_version == tt_version(6, 7, 241)) && device.translation_tables_en;
+    if (!virtual_bcast_supported) {
+        device.close_device();
+        GTEST_SKIP() << "SiliconDriverWH.VirtualCoordinateBroadcast skipped since ethernet version does not support Virtual Coordinate Broadcast or NOC translation is not enabled";
+    }
+    
+    device.deassert_risc_reset();
+    std::vector<uint32_t> broadcast_sizes = {1, 2, 4, 8, 16, 32, 64, 128, 256, 512, 1024, 2048, 4096, 8192, 16384};
+    uint32_t address = l1_mem::address_map::DATA_BUFFER_SPACE_BASE;
+    std::set<uint32_t> rows_to_exclude = {0, 3, 5, 6, 8, 9};
+    std::set<uint32_t> cols_to_exclude = {0, 5};
+    std::set<uint32_t> rows_to_exclude_for_dram_broadcast = {};
+    std::set<uint32_t> cols_to_exclude_for_dram_broadcast = {1, 2, 3, 4, 6, 7, 8, 9};
+
+    for(const auto& size : broadcast_sizes) {
+        std::vector<uint32_t> vector_to_write(size);
+        std::vector<uint32_t> zeros(size);
+        std::vector<uint32_t> readback_vec = {};
+        for(int i = 0; i < size; i++) {
+            vector_to_write[i] = i;
+            zeros[i] = 0;
+        }
+        // Broadcast to Tensix
+        device.broadcast_write_to_cluster(vector_to_write.data(), vector_to_write.size() * 4, address, {}, rows_to_exclude, cols_to_exclude, "LARGE_WRITE_TLB");
+        // Broadcast to DRAM
+        device.broadcast_write_to_cluster(vector_to_write.data(), vector_to_write.size() * 4, address, {}, rows_to_exclude_for_dram_broadcast, cols_to_exclude_for_dram_broadcast, "LARGE_WRITE_TLB");        
+        device.wait_for_non_mmio_flush();
+
+        for(const auto i : target_devices) {
+            for(const auto& core : device.get_virtual_soc_descriptors().at(i).workers) {
+                if(rows_to_exclude.find(core.y) != rows_to_exclude.end()) continue;
+                device.read_from_device(readback_vec, tt_cxy_pair(i, core), address, vector_to_write.size() * 4, "LARGE_READ_TLB");
+                ASSERT_EQ(vector_to_write, readback_vec) << "Vector read back from core " << core.x << "-" << core.y << "does not match what was broadcasted";
+                device.write_to_device(zeros, tt_cxy_pair(i, core), address, "LARGE_WRITE_TLB"); // Clear any written data
+                readback_vec = {};
+            }
+            for(int chan = 0; chan < device.get_virtual_soc_descriptors().at(i).get_num_dram_channels(); chan++) {
+                const auto& core = device.get_virtual_soc_descriptors().at(i).get_core_for_dram_channel(chan, 0);
+                device.read_from_device(readback_vec, tt_cxy_pair(i, core), address, vector_to_write.size() * 4, "LARGE_READ_TLB");
+                ASSERT_EQ(vector_to_write, readback_vec) << "Vector read back from DRAM core " << i << " " << core.x << "-" << core.y << " does not match what was broadcasted " << size;
+                device.write_to_device(zeros, tt_cxy_pair(i, core), address, "LARGE_WRITE_TLB"); // Clear any written data
+                readback_vec = {};
+            }
+        }
+        // Wait for data to be cleared before writing next block
+        device.wait_for_non_mmio_flush();
+    }
+    device.close_device();    
+}

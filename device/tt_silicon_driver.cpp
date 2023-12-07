@@ -1391,16 +1391,8 @@ void tt_SiliconDevice::create_device(const std::unordered_set<chip_id_t> &target
     // Don't buffer stdout.
     setbuf(stdout, NULL);
 
-    // Read number of available devices. Only a subset may be enabled.
-    auto available_device_ids = detect_available_device_ids(true, true);
-    m_num_pci_devices = available_device_ids.size();
-
-    if (!skip_driver_allocs)
-        log_info(LogSiliconDriver, "Detected {} PCI device{}", m_num_pci_devices, (m_num_pci_devices > 1) ? "s":"");
-
-    std::map<chip_id_t, chip_id_t> logical_to_physical_device_id_map = get_logical_to_physical_mmio_device_id_map(available_device_ids);
-
-    bool enable_device_id_virtualization = true; // Chicken bit.
+    // Just use PCI interface id from physical_device_id given by cluster desc mmio map. For GS, already virtualized to use available devices.
+    auto logical_to_physical_device_id_map = ndesc->get_chips_with_mmio();
 
     log_assert(target_mmio_device_ids.size() > 0, "Must provide set of target_mmio_device_ids to tt_SiliconDevice constructor now.");
 
@@ -1408,26 +1400,16 @@ void tt_SiliconDevice::create_device(const std::unordered_set<chip_id_t> &target
         m_pci_device_map.insert({logical_device_id, new struct PCIdevice});
         struct PCIdevice* pci_device = m_pci_device_map.at(logical_device_id);
 
-        // By default use pci interface id matching netlist logical device_id unless reservation/virtualization flow is used.
-        int pci_interface_id = logical_device_id;
-
-        if (enable_device_id_virtualization){
-            if (logical_to_physical_device_id_map.count(logical_device_id) == 0){
-                std::string msg = "Netlist requires device_id: " + std::to_string(logical_device_id)
-                + " but insufficient number of devices reserved by user or unreserved: " + std::to_string(logical_to_physical_device_id_map.size())
-                + " on machine. Needed " + std::to_string(1+logical_device_id-logical_to_physical_device_id_map.size()) + " more.";
-                throw std::runtime_error(msg);
-            }
-            pci_interface_id = logical_to_physical_device_id_map.at(logical_device_id); // Virtualize. Use available pci interface id for netlist logical_device_id
-        }
+        log_assert(logical_to_physical_device_id_map.count(logical_device_id) != 0, "Cannot find logical mmio device_id: {} in cluster desc / logical-to-physical-map", logical_device_id);
+        int pci_interface_id = logical_to_physical_device_id_map.at(logical_device_id);
 
         log_debug(LogSiliconDriver, "Opening TT_PCI_INTERFACE_ID {} for netlist target_device_id: {}", pci_interface_id, logical_device_id);
         *pci_device = ttkmd_open ((DWORD) pci_interface_id, false);
         pci_device->logical_id = logical_device_id;
 
         m_num_host_mem_channels = get_available_num_host_mem_channels(num_host_mem_ch_per_mmio_device, pci_device->device_id, pci_device->revision_id);
-        log_info(LogSiliconDriver, "Using {} Hugepages/NumHostMemChannels for TTDevice (pci_interface_id: {} device_id: 0x{:x} revision: {})",
-            m_num_host_mem_channels, pci_interface_id, pci_device->device_id, pci_device->revision_id);
+        log_info(LogSiliconDriver, "Using {} Hugepages/NumHostMemChannels for TTDevice (logical_device_id: {} pci_interface_id: {} device_id: 0x{:x} revision: {})",
+            m_num_host_mem_channels, logical_device_id, pci_interface_id, pci_device->device_id, pci_device->revision_id);
 
         if (g_SINGLE_PIN_PAGE_PER_FD_WORKAROND) {
             pci_device->hdev->open_hugepage_per_host_mem_ch(m_num_host_mem_channels);
@@ -1497,8 +1479,15 @@ tt_SiliconDevice::tt_SiliconDevice(const std::string &sdesc_path, const std::str
     target_devices_in_cluster = target_devices;
     arch_name = tt_SocDescriptor(sdesc_path).arch;
     perform_harvesting_on_sdesc = perform_harvesting;
+
+    auto available_device_ids = detect_available_device_ids();
+    m_num_pci_devices = available_device_ids.size();
+
+    if (!skip_driver_allocs)
+        log_info(LogSiliconDriver, "Detected {} PCI device{} : {}", m_num_pci_devices, (m_num_pci_devices > 1) ? "s":"", available_device_ids);
+
     if (ndesc_path == "") {
-        ndesc = tt_ClusterDescriptor::create_for_grayskull_cluster(target_devices);
+        ndesc = tt_ClusterDescriptor::create_for_grayskull_cluster(target_devices, available_device_ids);
     }
     else {
         ndesc = tt_ClusterDescriptor::create_from_yaml(ndesc_path);
@@ -1820,7 +1809,8 @@ void tt_SiliconDevice::initialize_pcie_devices() {
         check_pcie_device_initialized(device_it.first);
     }
 
-    if (m_num_host_mem_channels > 1){
+    // If requires multi-channel or doesn't support mmio-p2p, init iatus without p2p.
+    if (m_num_host_mem_channels > 1 || arch_name != tt::ARCH::GRAYSKULL) {
         init_pcie_iatus_no_p2p();
     } else {
         init_pcie_iatus();
@@ -1929,24 +1919,18 @@ int tt_SiliconDevice::get_number_of_chips_in_cluster() {
 
 tt_ClusterDescriptor* tt_SiliconDevice::get_cluster_description() {return ndesc.get();}
 // Can be used before instantiating a silicon device
-int tt_SiliconDevice::detect_number_of_chips(bool respect_reservations) {
+int tt_SiliconDevice::detect_number_of_chips() {
 
-    auto available_device_ids = detect_available_device_ids(respect_reservations, true);
+    auto available_device_ids = detect_available_device_ids();
     return available_device_ids.size();
 
 }
 
 // Can be used before instantiating a silicon device
-std::vector<chip_id_t> tt_SiliconDevice::detect_available_device_ids(bool respect_reservations, bool verbose) {
+std::vector<chip_id_t> tt_SiliconDevice::detect_available_device_ids() {
 
-    std::vector<chip_id_t> available_device_ids;
     std::vector<chip_id_t> detected_device_ids = ttkmd_scan();
-
-    if (detected_device_ids.size() > 0){
-        available_device_ids = respect_reservations ? get_available_devices_from_reservations(detected_device_ids, verbose) : detected_device_ids;
-    }
-
-    return available_device_ids;
+    return detected_device_ids;
 }
 
 static bool check_dram_core_exists(const std::vector<std::vector<tt_xy_pair>> &all_dram_cores, tt_xy_pair target_core) {
@@ -2903,68 +2887,10 @@ std::shared_ptr<boost::interprocess::named_mutex> tt_SiliconDevice::get_mutex(co
     return hardware_resource_mutex_map.at(mutex_name);
 }
 
-// Go through system devices, and check which devices are reserved by user or unreserved (available) and return the list.
-std::vector<chip_id_t> tt_SiliconDevice::get_available_devices_from_reservations(std::vector<chip_id_t> device_ids, bool verbose){
 
-    std::string device_reservation_file_path = "/tmp/tenstorrent/tt_device_reservations.yaml";
-    std::vector<chip_id_t> available_device_ids;
+std::unordered_map<chip_id_t, chip_id_t> tt_SiliconDevice::get_logical_to_physical_mmio_device_id_map(std::vector<chip_id_t> physical_device_ids){
 
-    if (std::filesystem::exists(device_reservation_file_path)){
-        if (verbose){
-            LOG1("Parsing device reservations file at %s - manage with ci/reserve_device.py\n", device_reservation_file_path.c_str());
-        }
-
-        YAML::Node device_reservations          = YAML::LoadFile(device_reservation_file_path);
-        const char* current_username_char       = std::getenv("USER");                          // By default, use USER env-var for matching reservations.
-        const char* reservation_username_char   = std::getenv("TT_BACKEND_RESERVATION_USER");   // Optional override for CI etc to use a different username per job.
-        const char* reservation_ignore          = std::getenv("TT_BACKEND_RESERVATION_IGNORE"); // Ignore reservations and use any and all devices.
-        std::string username                    = reservation_username_char ? reservation_username_char : current_username_char ? current_username_char : "";
-
-
-        // If a user has any reservations, then use them only (do not use unreserved devices).
-        bool user_has_reservations = false;
-
-        for (YAML::const_iterator it = device_reservations.begin(); it != device_reservations.end(); ++it) {
-            if (it->second.as<std::string>() == username) {
-                user_has_reservations = true;
-                break;
-            }
-        }
-
-        for (auto &device_id: device_ids){
-
-            bool device_is_available = true; // True by default in case new cards not yet appearing in reservation file.
-
-            if (device_reservations[device_id]){
-                std::string reservation_username = device_reservations[device_id].as<std::string>();
-                device_is_available = reservation_ignore || reservation_username == username || (!user_has_reservations && reservation_username == "unreserved");
-                if (verbose){
-                    LOG1("device_is_available: %d for device_id: %d (current_username: %s reservation_username: %s)\n",device_is_available, device_id, username.c_str(), reservation_username.c_str());
-                }
-            }
-
-            if (device_is_available){
-                available_device_ids.push_back(device_id);
-            }
-        }
-
-        return available_device_ids;
-
-    }else{
-        if (verbose){
-            LOG1("Device reservations file does not exist at %s, using %d detected devices set \n", device_reservation_file_path.c_str(), device_ids.size());
-        }
-
-        available_device_ids = device_ids;
-    }
-
-    return available_device_ids;
-}
-
-
-std::map<chip_id_t, chip_id_t> tt_SiliconDevice::get_logical_to_physical_mmio_device_id_map(std::vector<chip_id_t> physical_device_ids){
-
-    std::map<chip_id_t, chip_id_t> logical_to_physical_mmio_device_id_map;
+    std::unordered_map<chip_id_t, chip_id_t> logical_to_physical_mmio_device_id_map;
 
     LOG1("get_logical_to_physical_mmio_device_id_map() -- num_physical_devices: %d\n", physical_device_ids.size());
 
@@ -3670,7 +3596,8 @@ void tt_SiliconDevice::wait_for_non_mmio_flush() {
     if(flush_non_mmio) {
         std::string read_tlb = "LARGE_READ_TLB";
         auto chips_with_mmio = ndesc->get_chips_with_mmio();
-        for(auto chip_id : chips_with_mmio) {
+        for (const auto &pair : chips_with_mmio) {
+            auto &chip_id = pair.first;
             auto arch = get_soc_descriptor(chip_id).arch;
             if (arch == tt::ARCH::WORMHOLE || arch == tt::ARCH::WORMHOLE_B0) {
                 std::vector<std::uint32_t> erisc_txn_counters = std::vector<uint32_t>(2);

@@ -242,7 +242,7 @@ TEST(GalaxyConcurrentThreads, PushInputsWhileSignalingCluster) {
     }
 
     std::thread th1 = std::thread([&] {
-        chip_id_t mmio_chip = *(cluster_desc->get_chips_with_mmio().begin());
+        chip_id_t mmio_chip = cluster_desc->get_chips_with_mmio().begin()->first;
         std::vector<uint32_t> readback_vec = {};
         std::uint32_t address = 0x0;
         device.write_to_device(large_vector, tt_cxy_pair(mmio_chip, tt_xy_pair(0, 0)), address, "SMALL_READ_WRITE_TLB");

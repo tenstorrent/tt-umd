@@ -57,7 +57,7 @@ tt_VersimDevice::tt_VersimDevice(const std::string &sdesc_path, const std::strin
   soc_descriptor_per_chip.emplace(0, tt_SocDescriptor(sdesc_path));
   std::set<chip_id_t> target_devices = {0};
   if (ndesc_path == "") {
-    ndesc = tt_ClusterDescriptor::create_for_grayskull_cluster(target_devices);
+    ndesc = tt_ClusterDescriptor::create_for_grayskull_cluster(target_devices, {});
   } 
   else {
     ndesc = tt_ClusterDescriptor::create_from_yaml(ndesc_path);

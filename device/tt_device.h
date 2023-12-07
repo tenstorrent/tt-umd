@@ -16,7 +16,6 @@
 #include "tt_xy_pair.h"
 #include "tt_silicon_driver_common.hpp"
 #include "device/tt_cluster_descriptor_types.h"
-
 namespace boost::interprocess{
     class named_mutex;
 }
@@ -292,14 +291,6 @@ class tt_device
     */  
     virtual void assert_risc_reset_at_core(tt_cxy_pair core) {
         throw std::runtime_error("---- tt_device::assert_risc_reset_at_core is not implemented\n");
-    }
-    /** 
-     * @brief Delete any persistent host side data structures used in the driver
-     * Is called in the driver destructor, but its a good practice to call this after instantiating
-     * the driver to clear any state from previous processes that may not have ended gracefully.
-    */  
-    virtual void clean_system_resources(){
-        std::runtime_error("---- tt_device::clean_system_resources is not implemented\n");
     }
     /** 
      * @brief To be called at the end of a run.
@@ -703,11 +694,13 @@ class tt_SiliconDevice: public tt_device
      * \param num_host_mem_ch_per_mmio_device Requested number of host channels (hugepages) per MMIO mapped device. The driver may allocated less per device, depending on availability.
      * \param dynamic_tlb_config_ Map specifying dynamic tlb names and the indices they correspond to
      * \param skip_driver_allocs Specifies if the Silicon Driver object should be initialized + started without modifying device state (ex: bringing device out of reset or shared host state (ex: initializing hugepages)
-     * \param perform_harvesting Allow the driver to modify the SOC descriptors per chip by considering the harvesting configuration of the cluster.
+     * \param clean_system_resource Specifies if potentially corrupted shared host state from previous runs needs to be cleaned up. Should only be set by the main thread/process running
+     * on a device. Setting this across multiple processes per device will cause issues since objects required by the driver will be cleared.
+    * \param perform_harvesting Allow the driver to modify the SOC descriptors per chip by considering the harvesting configuration of the cluster.
     */ 
     tt_SiliconDevice(const std::string &sdesc_path, const std::string &ndesc_path = "", const std::set<chip_id_t> &target_devices = {}, 
                     const uint32_t &num_host_mem_ch_per_mmio_device = 1, const std::unordered_map<std::string, std::int32_t>& dynamic_tlb_config_ = {}, 
-                    const bool skip_driver_allocs = false, bool perform_harvesting = true, std::unordered_map<chip_id_t, uint32_t> simulated_harvesting_masks = {});
+                    const bool skip_driver_allocs = false, const bool clean_system_resources = false, bool perform_harvesting = true, std::unordered_map<chip_id_t, uint32_t> simulated_harvesting_masks = {});
     
     //Setup/Teardown Functions
     virtual std::unordered_map<chip_id_t, tt_SocDescriptor>& get_virtual_soc_descriptors();
@@ -723,7 +716,6 @@ class tt_SiliconDevice: public tt_device
     virtual void deassert_risc_reset();
     virtual void deassert_risc_reset_at_core(tt_cxy_pair core);
     virtual void assert_risc_reset_at_core(tt_cxy_pair core);
-    virtual void clean_system_resources();
     virtual void close_device();
 
     // Runtime Functions
@@ -797,7 +789,9 @@ class tt_SiliconDevice: public tt_device
     private:
     // Helper functions
     // Startup + teardown
-    void create_device(const std::unordered_set<chip_id_t> &target_mmio_device_ids, const uint32_t &num_host_mem_ch_per_mmio_device, const bool skip_driver_allocs);
+    void create_device(const std::unordered_set<chip_id_t> &target_mmio_device_ids, const uint32_t &num_host_mem_ch_per_mmio_device, const bool skip_driver_allocs, const bool clean_system_resources);
+    void initialize_interprocess_mutexes(int pci_interface_id, bool cleanup_mutexes_in_shm);
+    void cleanup_shared_host_state();
     void initialize_pcie_devices();
     void broadcast_pcie_tensix_risc_reset(struct PCIdevice *device, const TensixSoftResetOptions &cores);
     void broadcast_tensix_risc_reset_to_cluster(const TensixSoftResetOptions &soft_resets);
@@ -899,7 +893,7 @@ class tt_SiliconDevice: public tt_device
     // The setting should not exceed MAX_DMA_BYTES
     std::uint32_t m_dma_buf_size;
     std::unordered_map<chip_id_t, bool> noc_translation_enabled_for_chip = {};
-    std::map<std::string, std::map<int, std::pair<std::string, std::shared_ptr<boost::interprocess::named_mutex>>>> m_per_device_mutexes_map;
+    std::map<std::string, std::shared_ptr<boost::interprocess::named_mutex>> hardware_resource_mutex_map = {};
     std::unordered_map<chip_id_t, std::unordered_map<tt_xy_pair, tt_xy_pair>> harvested_coord_translation = {};
     std::unordered_map<chip_id_t, std::uint32_t> num_rows_harvested = {};
     std::unordered_map<chip_id_t, std::unordered_set<tt_xy_pair>> workers_per_chip = {};
@@ -926,7 +920,6 @@ class tt_SiliconDevice: public tt_device
     static constexpr char NON_MMIO_MUTEX_NAME[] = "NON_MMIO";
     static constexpr char ARC_MSG_MUTEX_NAME[] = "ARC_MSG";
     static constexpr char MEM_BARRIER_MUTEX_NAME[] = "MEM_BAR";
-    
     // ERISC FW Version Required by UMD
     static constexpr std::uint32_t SW_VERSION = 0x06060000;
 };

@@ -1783,7 +1783,8 @@ void tt_SiliconDevice::initialize_pcie_devices() {
         check_pcie_device_initialized(device_it.first);
     }
 
-    if (m_num_host_mem_channels > 1){
+    // If requires multi-channel or doesn't support mmio-p2p, init iatus without p2p.
+    if (m_num_host_mem_channels > 1 || arch_name != tt::ARCH::GRAYSKULL) {
         init_pcie_iatus_no_p2p();
     } else {
         init_pcie_iatus();

@@ -84,7 +84,8 @@ chip_id_t tt_ClusterDescriptor::get_closest_mmio_capable_chip(const chip_id_t &c
     // we may wish to use the ethernet channel connectivity to support more generic cluster topologies.
     int min_distance = std::numeric_limits<int>::max();
     chip_id_t closest_chip = chip;
-    for (const chip_id_t &c : this->chips_with_mmio) {
+    for (const auto &pair : this->chips_with_mmio) {
+        const chip_id_t &c = pair.first;
         int distance = std::abs(c - chip);
         if (distance < min_distance) {
             min_distance = distance;
@@ -116,12 +117,15 @@ std::unique_ptr<tt_ClusterDescriptor> tt_ClusterDescriptor::create_from_yaml(con
 }
 
 std::unique_ptr<tt_ClusterDescriptor> tt_ClusterDescriptor::create_for_grayskull_cluster(
-    const std::set<chip_id_t> &target_device_ids) {
+    const std::vector<chip_id_t> &physical_mmio_device_ids) {
     std::unique_ptr<tt_ClusterDescriptor> desc = std::unique_ptr<tt_ClusterDescriptor>(new tt_ClusterDescriptor());
 
-    for (const chip_id_t &chip : target_device_ids) {
-        desc->chips_with_mmio.insert(chip);
-        desc->all_chips.insert(chip);
+    // All Grayskull devices are MMIO mapped so physical_mmio_device_ids correspond to all available devices
+    for (chip_id_t logical_mmio_device_id = 0; logical_mmio_device_id < physical_mmio_device_ids.size(); logical_mmio_device_id++) {
+        chip_id_t physical_mmio_device_id = physical_mmio_device_ids.at(logical_mmio_device_id);
+        desc->chips_with_mmio.insert({logical_mmio_device_id, physical_mmio_device_id});
+        desc->all_chips.insert(logical_mmio_device_id);
+        log_debug(tt::LogRuntime, "{} adding logical: {} => physical: {}", __FUNCTION__, logical_mmio_device_id, physical_mmio_device_id);
     }
 
     desc->enable_all_devices();
@@ -189,10 +193,12 @@ void tt_ClusterDescriptor::load_chips_from_connectivity_descriptor(YAML::Node &y
     
     for(const auto& chip : yaml["chips_with_mmio"]) {
         if(chip.IsMap()) {
-            desc.chips_with_mmio.insert(chip.as<std::map<int, int>>().begin() -> first);
+            const auto &chip_map = chip.as<std::map<chip_id_t, chip_id_t>>().begin();
+            desc.chips_with_mmio.insert({chip_map->first, chip_map->second});
         }
         else {
-            desc.chips_with_mmio.insert(chip.as<int>());
+            const auto &chip_val = chip.as<int>();
+            desc.chips_with_mmio.insert({chip_val, chip_val});
         }
     }
     log_debug(LogSiliconDriver, "Device IDs and Locations:");
@@ -270,17 +276,18 @@ chip_id_t tt_ClusterDescriptor::get_shelf_local_physical_chip_coords(chip_id_t v
     return 8 * x + y;
 }
 
-std::unordered_set<chip_id_t> tt_ClusterDescriptor::get_chips_with_mmio() const {
-    auto chips = std::unordered_set<chip_id_t>();
-    for (auto chip_id : chips_with_mmio) {
+// Return map, but filter by enabled active chips.
+std::unordered_map<chip_id_t, chip_id_t> tt_ClusterDescriptor::get_chips_with_mmio() const {
+    auto chips_map = std::unordered_map<chip_id_t, chip_id_t>();
+    for (const auto &pair : chips_with_mmio) {
+        auto &chip_id = pair.first;
         if (this->enabled_active_chips.find(chip_id) != this->enabled_active_chips.end()) {
-            chips.insert(chip_id);
+            chips_map.insert(pair);
         }
     }
 
-    return chips;
+    return chips_map;
 }
-
 
 std::unordered_set<chip_id_t> tt_ClusterDescriptor::get_all_chips() const {
     return this->enabled_active_chips;

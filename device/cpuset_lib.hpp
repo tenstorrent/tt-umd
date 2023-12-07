@@ -126,7 +126,7 @@ struct tt_cpuset_allocator {
         bool m_skip_singlify;
         pid_t m_pid;
 
-        std::map<chip_id_t, chip_id_t> m_logical_to_physical_mmio_device_id_map;
+        std::unordered_map<chip_id_t, chip_id_t> m_logical_to_physical_mmio_device_id_map;
 
         // Items calculated by parsing system info, used by allocation algorithm:
         std::map<int, std::vector<int>> m_package_id_to_devices_map;

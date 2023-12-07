@@ -366,8 +366,8 @@ bool tt_cpuset_allocator::init_populate_physical_mmio_device_id_map(){
 
     log_debug(LogSiliconDriver,"Starting tt_cpuset_allocator::populate_physical_mmio_device_id_map()");
 
-    // Respect reservations and get map of logical to physical device ids.
-    std::vector<chip_id_t> available_device_ids = tt_SiliconDevice::detect_available_device_ids(true, false);
+    // Get map of logical to physical device ids - FIXME: This is not accurate for some WHB0 clusters.
+    std::vector<chip_id_t> available_device_ids = tt_SiliconDevice::detect_available_device_ids();
     m_logical_to_physical_mmio_device_id_map    = tt_SiliconDevice::get_logical_to_physical_mmio_device_id_map(available_device_ids);
 
     for (auto &d: m_logical_to_physical_mmio_device_id_map){

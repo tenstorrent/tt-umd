@@ -189,10 +189,14 @@ void tt_ClusterDescriptor::load_chips_from_connectivity_descriptor(YAML::Node &y
     
     for(const auto& chip : yaml["chips_with_mmio"]) {
         if(chip.IsMap()) {
-            desc.chips_with_mmio.insert(chip.as<std::map<int, int>>().begin() -> first);
+            const auto &chip_map = chip.as<std::map<chip_id_t, chip_id_t>>().begin();
+            desc.chips_with_mmio.insert(chip_map->first);
+            desc.chips_with_mmio_map.insert({chip_map->first, chip_map->second});
         }
         else {
-            desc.chips_with_mmio.insert(chip.as<int>());
+            const auto &chip_val = chip.as<int>();
+            desc.chips_with_mmio.insert(chip_val);
+            desc.chips_with_mmio.insert({chip_val, chip_val});
         }
     }
     log_debug(LogSiliconDriver, "Device IDs and Locations:");
@@ -270,6 +274,7 @@ chip_id_t tt_ClusterDescriptor::get_shelf_local_physical_chip_coords(chip_id_t v
     return 8 * x + y;
 }
 
+// Return set, but filter by enabled active chips.
 std::unordered_set<chip_id_t> tt_ClusterDescriptor::get_chips_with_mmio() const {
     auto chips = std::unordered_set<chip_id_t>();
     for (auto chip_id : chips_with_mmio) {
@@ -281,6 +286,18 @@ std::unordered_set<chip_id_t> tt_ClusterDescriptor::get_chips_with_mmio() const 
     return chips;
 }
 
+// Return map, but filter by enabled active chips.
+std::unordered_map<chip_id_t, chip_id_t> tt_ClusterDescriptor::get_chips_with_mmio_map() const {
+    auto chips_map = std::unordered_map<chip_id_t, chip_id_t>();
+    for (const auto &pair : chips_with_mmio_map) {
+        auto &chip_id = pair.first;
+        if (this->enabled_active_chips.find(chip_id) != this->enabled_active_chips.end()) {
+            chips_map.insert(pair);
+        }
+    }
+
+    return chips_map;
+}
 
 std::unordered_set<chip_id_t> tt_ClusterDescriptor::get_all_chips() const {
     return this->enabled_active_chips;

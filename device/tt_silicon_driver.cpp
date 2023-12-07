@@ -1356,11 +1356,9 @@ void tt_SiliconDevice::create_device(const std::unordered_set<chip_id_t> &target
     m_num_pci_devices = available_device_ids.size();
 
     if (!skip_driver_allocs)
-        log_info(LogSiliconDriver, "Detected {} PCI device{}", m_num_pci_devices, (m_num_pci_devices > 1) ? "s":"");
+        log_info(LogSiliconDriver, "Detected {} PCI device{} : {}", m_num_pci_devices, (m_num_pci_devices > 1) ? "s":"", available_device_ids);
 
-    std::map<chip_id_t, chip_id_t> logical_to_physical_device_id_map = get_logical_to_physical_mmio_device_id_map(available_device_ids);
-
-    bool enable_device_id_virtualization = true; // Chicken bit.
+    std::unordered_map<chip_id_t, chip_id_t> logical_to_physical_device_id_map = ndesc->get_chips_with_mmio_map();
 
     log_assert(target_mmio_device_ids.size() > 0, "Must provide set of target_mmio_device_ids to tt_SiliconDevice constructor now.");
 
@@ -1368,18 +1366,9 @@ void tt_SiliconDevice::create_device(const std::unordered_set<chip_id_t> &target
         m_pci_device_map.insert({logical_device_id, new struct PCIdevice});
         struct PCIdevice* pci_device = m_pci_device_map.at(logical_device_id);
 
-        // By default use pci interface id matching netlist logical device_id unless reservation/virtualization flow is used.
-        int pci_interface_id = logical_device_id;
-
-        if (enable_device_id_virtualization){
-            if (logical_to_physical_device_id_map.count(logical_device_id) == 0){
-                std::string msg = "Netlist requires device_id: " + std::to_string(logical_device_id)
-                + " but insufficient number of devices reserved by user or unreserved: " + std::to_string(logical_to_physical_device_id_map.size())
-                + " on machine. Needed " + std::to_string(1+logical_device_id-logical_to_physical_device_id_map.size()) + " more.";
-                throw std::runtime_error(msg);
-            }
-            pci_interface_id = logical_to_physical_device_id_map.at(logical_device_id); // Virtualize. Use available pci interface id for netlist logical_device_id
-        }
+        // No virtualization - just use pci interface id from physical devce_id given by cluster descriptor.
+        log_assert(logical_to_physical_device_id_map.count(logical_device_id) != 0, "Cannot find logical mmio device_id: {} in cluster descriptor", logical_device_id);
+        int pci_interface_id = logical_to_physical_device_id_map.at(logical_device_id);
 
         log_debug(LogSiliconDriver, "Opening TT_PCI_INTERFACE_ID {} for netlist target_device_id: {}", pci_interface_id, logical_device_id);
         *pci_device = ttkmd_open ((DWORD) pci_interface_id, false);

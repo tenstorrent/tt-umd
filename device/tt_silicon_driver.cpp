@@ -2879,6 +2879,7 @@ inline struct PCIdevice* tt_SiliconDevice::get_pci_device(int device_id) const {
 }
 
 std::shared_ptr<boost::interprocess::named_mutex> tt_SiliconDevice::get_mutex(const std::string& tlb_name, int pci_interface_id) {
+    std::lock_guard<std::mutex> lock(boost_mutex);
     if (m_per_device_mutexes_map.at(tlb_name).at(pci_interface_id).second == nullptr) {
         std::string mutex_name =  m_per_device_mutexes_map.at(tlb_name).at(pci_interface_id).first;
         // Store old mask and clear processes umask

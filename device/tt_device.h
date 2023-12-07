@@ -16,7 +16,8 @@
 #include "tt_xy_pair.h"
 #include "tt_silicon_driver_common.hpp"
 #include "device/tt_cluster_descriptor_types.h"
-
+#include <mutex>
+#include <thread>
 namespace boost::interprocess{
     class named_mutex;
 }
@@ -926,6 +927,7 @@ class tt_SiliconDevice: public tt_device
     static constexpr char NON_MMIO_MUTEX_NAME[] = "NON_MMIO";
     static constexpr char ARC_MSG_MUTEX_NAME[] = "ARC_MSG";
     static constexpr char MEM_BARRIER_MUTEX_NAME[] = "MEM_BAR";
+    std::mutex boost_mutex;
     
     // ERISC FW Version Required by UMD
     static constexpr std::uint32_t SW_VERSION = 0x06060000;

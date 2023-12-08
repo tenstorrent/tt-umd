@@ -34,7 +34,7 @@ void run_remote_read_write_test(uint32_t vector_size, bool dram_write) {
     dynamic_tlb_config.insert({"SMALL_READ_WRITE_TLB", 157});  // Use this for all reads and writes to worker cores
 
     tt_SiliconDevice device = tt_SiliconDevice(
-        SOC_DESC_PATH, cluster_desc_path, target_devices, num_host_mem_ch_per_mmio_device, dynamic_tlb_config);
+        SOC_DESC_PATH, cluster_desc_path, target_devices, num_host_mem_ch_per_mmio_device, dynamic_tlb_config, false, true);
     const auto sdesc_per_chip = device.get_virtual_soc_descriptors();
 
     set_params_for_remote_txn(device);
@@ -149,7 +149,7 @@ void run_data_mover_test(
     dynamic_tlb_config.insert({"SMALL_READ_WRITE_TLB", 157});  // Use this for all reads and writes to worker cores
 
     tt_SiliconDevice device = tt_SiliconDevice(
-        SOC_DESC_PATH, cluster_desc_path, target_devices, num_host_mem_ch_per_mmio_device, dynamic_tlb_config);
+        SOC_DESC_PATH, cluster_desc_path, target_devices, num_host_mem_ch_per_mmio_device, dynamic_tlb_config, false, true);
 
     set_params_for_remote_txn(device);
 
@@ -266,7 +266,7 @@ void run_data_broadcast_test(
     dynamic_tlb_config.insert({"SMALL_READ_WRITE_TLB", 157});  // Use this for all reads and writes to worker cores
 
     tt_SiliconDevice device = tt_SiliconDevice(
-        SOC_DESC_PATH, cluster_desc_path, target_devices, num_host_mem_ch_per_mmio_device, dynamic_tlb_config);
+        SOC_DESC_PATH, cluster_desc_path, target_devices, num_host_mem_ch_per_mmio_device, dynamic_tlb_config, false, true);
 
     set_params_for_remote_txn(device);
 

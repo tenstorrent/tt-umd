@@ -1327,7 +1327,47 @@ std::unordered_map<chip_id_t, tt_SocDescriptor>& tt_SiliconDevice::get_virtual_s
     return soc_descriptor_per_chip;
 }
 
-void tt_SiliconDevice::create_device(const std::unordered_set<chip_id_t> &target_mmio_device_ids, const uint32_t &num_host_mem_ch_per_mmio_device, const bool skip_driver_allocs){
+void tt_SiliconDevice::initialize_interprocess_mutexes(int pci_interface_id, bool cleanup_mutexes_in_shm) {
+    // These mutexes are intended to be based on physical devices/pci-intf not logical. Set these up ahead of time here (during device init)
+    // since its unsafe to modify shared state during multithreaded runtime.
+    // cleanup_mutexes_in_shm is tied to clean_system_resources from the constructor. The main process is responsible for initializing the driver with this
+    // field set to cleanup after an aborted process.
+
+    // Store old mask and clear processes umask
+    auto old_umask = umask(0);
+    permissions unrestricted_permissions;
+    unrestricted_permissions.set_unrestricted();
+    std::string mutex_name = "";
+
+    // Initialize Dynamic TLB mutexes
+    for(auto &tlb : dynamic_tlb_config) {
+        mutex_name = tlb.first + std::to_string(pci_interface_id);
+        if (cleanup_mutexes_in_shm) named_mutex::remove(mutex_name.c_str());
+        hardware_resource_mutex_map[mutex_name] = std::make_shared<named_mutex>(open_or_create, mutex_name.c_str(), unrestricted_permissions);
+    }
+
+    // Initialize ARC core mutex
+    mutex_name = "ARC_MSG" + std::to_string(pci_interface_id);
+    if (cleanup_mutexes_in_shm) named_mutex::remove(mutex_name.c_str());
+    hardware_resource_mutex_map[mutex_name] = std::make_shared<named_mutex>(open_or_create, mutex_name.c_str(), unrestricted_permissions);
+
+    if (arch_name == tt::ARCH::WORMHOLE or arch_name == tt::ARCH::WORMHOLE_B0) {
+        mutex_name = NON_MMIO_MUTEX_NAME + std::to_string(pci_interface_id);
+        // Initialize non-MMIO mutexes for WH devices regardless of number of chips, since these may be used for ethernet broadcast
+        if (cleanup_mutexes_in_shm) named_mutex::remove(mutex_name.c_str());
+        hardware_resource_mutex_map[mutex_name] = std::make_shared<named_mutex>(open_or_create, mutex_name.c_str(), unrestricted_permissions);
+    }
+
+    // Initialize interprocess mutexes to make host -> device memory barriers atomic
+    mutex_name = MEM_BARRIER_MUTEX_NAME + std::to_string(pci_interface_id);
+    if (cleanup_mutexes_in_shm) named_mutex::remove(mutex_name.c_str());
+    hardware_resource_mutex_map[mutex_name] = std::make_shared<named_mutex>(open_or_create, mutex_name.c_str(), unrestricted_permissions);
+    
+    // Restore old mask
+    umask(old_umask);
+}
+
+void tt_SiliconDevice::create_device(const std::unordered_set<chip_id_t> &target_mmio_device_ids, const uint32_t &num_host_mem_ch_per_mmio_device, const bool skip_driver_allocs, const bool clean_system_resources) {
     m_pci_log_level = 0;
     m_dma_buf_size = 0;
     LOG1("---- tt_SiliconDevice::tt_SiliconDevice\n");
@@ -1400,21 +1440,7 @@ void tt_SiliconDevice::create_device(const std::unordered_set<chip_id_t> &target
             hugepage_physical_address[logical_device_id][ch] = 0;
         }
 
-        // These mutexes are intended to be based on physical devices/pci-intf not logical. Set up the types and filenames needed here
-        // ahead of time here so that they can be cleaned for any previous aborted processes.
-
-        for(auto &tlb : dynamic_tlb_config) {
-            m_per_device_mutexes_map[tlb.first].insert({pci_interface_id, {tlb.first + std::to_string((int) pci_interface_id), nullptr}});
-        }
-        m_per_device_mutexes_map["ARC_MSG"].insert({pci_interface_id, {"ARC_MSG" + std::to_string((int) pci_interface_id), nullptr}});
-        if(arch_name == tt::ARCH::WORMHOLE or arch_name == tt::ARCH::WORMHOLE_B0) {
-            // Initialize non-MMIO mutexes for WH devices regardless of number of chips, since these may be used for ethernet broadcast
-            m_per_device_mutexes_map[NON_MMIO_MUTEX_NAME].insert(
-                {pci_interface_id, {NON_MMIO_MUTEX_NAME + std::to_string((int)pci_interface_id), nullptr}});
-        }
-        // Interprocess mutexes to make host -> device memory barriers atomic
-        m_per_device_mutexes_map[MEM_BARRIER_MUTEX_NAME].insert(
-            {pci_interface_id, {MEM_BARRIER_MUTEX_NAME + std::to_string((int)pci_interface_id), nullptr}});
+        initialize_interprocess_mutexes(pci_interface_id, clean_system_resources);
 
         if (!skip_driver_allocs)
             print_device_info (*pci_device);
@@ -1466,7 +1492,7 @@ std::unordered_map<chip_id_t, uint32_t> tt_SiliconDevice::get_harvesting_masks_f
 
 tt_SiliconDevice::tt_SiliconDevice(const std::string &sdesc_path, const std::string &ndesc_path, const std::set<chip_id_t> &target_devices, 
                                    const uint32_t &num_host_mem_ch_per_mmio_device, const std::unordered_map<std::string, std::int32_t>& dynamic_tlb_config_, 
-                                   const bool skip_driver_allocs, bool perform_harvesting, std::unordered_map<chip_id_t, uint32_t> simulated_harvesting_masks) : tt_device(sdesc_path) {
+                                   const bool skip_driver_allocs, const bool clean_system_resources, bool perform_harvesting, std::unordered_map<chip_id_t, uint32_t> simulated_harvesting_masks) : tt_device(sdesc_path) {
     std::unordered_set<chip_id_t> target_mmio_device_ids;
     target_devices_in_cluster = target_devices;
     arch_name = tt_SocDescriptor(sdesc_path).arch;
@@ -1495,7 +1521,7 @@ tt_SiliconDevice::tt_SiliconDevice(const std::string &sdesc_path, const std::str
     for(const auto& tlb : dynamic_tlb_config) {
         dynamic_tlb_ordering_modes.insert({tlb.first, TLB_DATA::Posted}); // All dynamic TLBs use Posted Ordering by default
     }
-    create_device(target_mmio_device_ids, num_host_mem_ch_per_mmio_device, skip_driver_allocs);
+    create_device(target_mmio_device_ids, num_host_mem_ch_per_mmio_device, skip_driver_allocs, clean_system_resources);
 
     if(arch_name == tt::ARCH::WORMHOLE or arch_name == tt::ARCH::WORMHOLE_B0) {
         const auto& harvesting_masks = ndesc -> get_harvesting_info();
@@ -1884,17 +1910,12 @@ void tt_SiliconDevice::assert_risc_reset_at_core(tt_cxy_pair core) {
     }
 }
 
-// Free memory during teardown, and remove (clean/unlock) from any leftover mutexes from non-gracefully
-// terminated processes, if any. Just do it always even for current teardown to keep it simple.
-void tt_SiliconDevice::clean_system_resources() {
-    for (auto &map_it : m_per_device_mutexes_map){
-        for (auto &mutex_it : map_it.second){
-            mutex_it.second.second.reset();
-            mutex_it.second.second = nullptr;
-            auto mutex_name = mutex_it.second.first;
-            named_mutex::remove(mutex_name.c_str());
-            LOG1 ("Interprocess mutex '%s' removed by pid=%ld\n", mutex_name.c_str(), (long)getpid());
-        }
+// Free memory during teardown, and remove (clean/unlock) from any leftover mutexes.
+void tt_SiliconDevice::cleanup_shared_host_state() {
+    for(auto &mutex : hardware_resource_mutex_map) {
+        mutex.second.reset();
+        mutex.second = nullptr;
+        named_mutex::remove(mutex.first.c_str());
     }
 }
 
@@ -2173,7 +2194,7 @@ tt_SiliconDevice::~tt_SiliconDevice () {
             log_warning(LogSiliconDriver, "Virtual device {} for this run is Wormhole A0. This architecture is now deprecated. Please use Wormhole B0 for testing.", i);
         }
     }
-    clean_system_resources();
+    cleanup_shared_host_state();
 
     for (auto &device_it : m_pci_device_map){
 
@@ -2726,7 +2747,6 @@ int tt_SiliconDevice::pcie_arc_msg(int logical_device_id, uint32_t msg_code, boo
     // Exclusive access for a single process at a time. Based on physical pci interface id.
     std::string msg_type = "ARC_MSG";
     const scoped_lock<named_mutex> lock(*get_mutex(msg_type, pci_device->id));
-
     uint32_t fw_arg = arg0 | (arg1<<16);
     int exit_code = 0;
 
@@ -2879,19 +2899,8 @@ inline struct PCIdevice* tt_SiliconDevice::get_pci_device(int device_id) const {
 }
 
 std::shared_ptr<boost::interprocess::named_mutex> tt_SiliconDevice::get_mutex(const std::string& tlb_name, int pci_interface_id) {
-    if (m_per_device_mutexes_map.at(tlb_name).at(pci_interface_id).second == nullptr) {
-        std::string mutex_name =  m_per_device_mutexes_map.at(tlb_name).at(pci_interface_id).first;
-        // Store old mask and clear processes umask
-        auto old_umask = umask(0);
-        // Open or create the named mutex
-        permissions unrestricted_permissions;
-        unrestricted_permissions.set_unrestricted();
-        m_per_device_mutexes_map.at(tlb_name).at(pci_interface_id).second = std::make_shared<named_mutex>(open_or_create, mutex_name.c_str(), unrestricted_permissions);
-        LOG1 ("Interprocess mutex '%s' opened by pid=%ld\n", mutex_name.c_str(), (long)getpid());
-        // Restore old mask
-        umask(old_umask);
-    }
-    return m_per_device_mutexes_map.at(tlb_name).at(pci_interface_id).second;
+    std::string mutex_name = tlb_name + std::to_string(pci_interface_id);
+    return hardware_resource_mutex_map.at(mutex_name);
 }
 
 // Go through system devices, and check which devices are reserved by user or unreserved (available) and return the list.

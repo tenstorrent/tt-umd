@@ -54,7 +54,7 @@ TEST(GalaxyConcurrentThreads, WriteToAllChipsL1) {
     dynamic_tlb_config.insert({"SMALL_READ_WRITE_TLB", 157});  // Use this for all reads and writes to worker cores
 
     tt_SiliconDevice device = tt_SiliconDevice(
-        SOC_DESC_PATH, cluster_desc_path, all_devices, num_host_mem_ch_per_mmio_device, dynamic_tlb_config);
+        SOC_DESC_PATH, cluster_desc_path, all_devices, num_host_mem_ch_per_mmio_device, dynamic_tlb_config, false, true);
     const auto sdesc_per_chip = device.get_virtual_soc_descriptors();
 
     set_params_for_remote_txn(device);
@@ -144,7 +144,7 @@ TEST(GalaxyConcurrentThreads, WriteToAllChipsDram) {
     dynamic_tlb_config.insert({"SMALL_READ_WRITE_TLB", 157});  // Use this for all reads and writes to worker cores
 
     tt_SiliconDevice device = tt_SiliconDevice(
-        SOC_DESC_PATH, cluster_desc_path, all_devices, num_host_mem_ch_per_mmio_device, dynamic_tlb_config);
+        SOC_DESC_PATH, cluster_desc_path, all_devices, num_host_mem_ch_per_mmio_device, dynamic_tlb_config, false, true);
     const auto sdesc_per_chip = device.get_virtual_soc_descriptors();
 
     set_params_for_remote_txn(device);
@@ -223,7 +223,7 @@ TEST(GalaxyConcurrentThreads, PushInputsWhileSignalingCluster) {
     dynamic_tlb_config.insert({"SMALL_READ_WRITE_TLB", 157});  // Use this for all reads and writes to worker cores
 
     tt_SiliconDevice device = tt_SiliconDevice(
-        SOC_DESC_PATH, cluster_desc_path, target_devices, num_host_mem_ch_per_mmio_device, dynamic_tlb_config);
+        SOC_DESC_PATH, cluster_desc_path, target_devices, num_host_mem_ch_per_mmio_device, dynamic_tlb_config, false, true);
     const auto sdesc_per_chip = device.get_virtual_soc_descriptors();
 
     set_params_for_remote_txn(device);

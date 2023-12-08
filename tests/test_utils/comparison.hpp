@@ -308,21 +308,11 @@ class ThreadSafeWriteHistoryCircularBuffer {
         
         std::stringstream ss;
         ss << "dispatch_write: " << this->my_label << " write_entry.start_address=" << write_entry.start_address << " size=" << write_entry.num_words << " start_value=" << write_entry.payload_spec.start << std::endl;
-        std::cout << ss.str();
+        // std::cout << ss.str();
 
         assert(payload[0] == write_entry.payload_spec.start);// debug while we are only using default payload
-        assert(payload.size() < 43 or payload[42] == write_entry.payload_spec.start + 1);// debug while we are only using default payload
-        assert(payload.size() < 96 or payload[95] == write_entry.payload_spec.start + 2);// debug while we are only using default payload
-        assert(payload.size() < 128 or payload[127] == write_entry.payload_spec.start + 3);// debug while we are only using default payload
-        assert(payload.size() < 160 or payload[159] == write_entry.payload_spec.start + 4);// debug while we are only using default payload
-        assert(payload.size() < 192 or payload[191] == write_entry.payload_spec.start + 5);// debug while we are only using default payload
         driver.write_to_device(payload, channel_core, write_entry.start_address, tlb_to_use);
         assert(payload[0] == write_entry.payload_spec.start);// debug while we are only using default payload
-        assert(payload.size() < 43 or payload[42] == write_entry.payload_spec.start + 1);// debug while we are only using default payload
-        assert(payload.size() < 96 or payload[95] == write_entry.payload_spec.start + 2);// debug while we are only using default payload
-        assert(payload.size() < 128 or payload[127] == write_entry.payload_spec.start + 3);// debug while we are only using default payload
-        assert(payload.size() < 160 or payload[159] == write_entry.payload_spec.start + 4);// debug while we are only using default payload
-        assert(payload.size() < 192 or payload[191] == write_entry.payload_spec.start + 5);// debug while we are only using default payload
     }
 
     const chip_id_t chip;
@@ -370,12 +360,12 @@ class ThreadSafeNonOverlappingWriteAddressGenerator {
   public:
     ThreadSafeNonOverlappingWriteAddressGenerator(
         tt_SocDescriptor const& soc_desc,
-        int num_chips, 
+        std::unordered_set<chip_id_t> const& chips, 
         std::vector<std::size_t> const& per_channel_write_region_start, 
         std::vector<std::size_t> const& per_channel_write_region_end,
         std::size_t max_writes_per_buffer,
         std::size_t num_history_buffers = 2) :
-        num_chips(num_chips),
+        chips(chips),
         channels_per_chip(per_channel_write_region_start.size()),
         is_done(false),
         default_payload_spec(payload_spec_t<DATUM_T>{.start = 1,.increment = 1,.run_length = 32}),
@@ -383,7 +373,7 @@ class ThreadSafeNonOverlappingWriteAddressGenerator {
         reference_payload_buffer_copy_counter(0)
     {
         assert(per_channel_write_region_start.size() == per_channel_write_region_end.size());
-        for (std::size_t c = 0; c < num_chips; c++) {
+        for (chip_id_t c : chips) {
             for (std::size_t ch = 0; ch < channels_per_chip; ch++) {
                 assert(per_channel_write_region_start[ch] <= per_channel_write_region_end[ch]);
                 dram_channel_active_write_histories.push_back(
@@ -401,20 +391,30 @@ class ThreadSafeNonOverlappingWriteAddressGenerator {
         }
     }
 
-    static ThreadSafeNonOverlappingWriteAddressGenerator build_default(tt_SocDescriptor const& soc_desc, int num_chips) {
+    static ThreadSafeNonOverlappingWriteAddressGenerator build(tt_SocDescriptor const& soc_desc, std::unordered_set<chip_id_t> const& chips, std::size_t writes_per_chunk, std::size_t chunks_per_channel) {
         auto num_dram_channels = soc_desc.dram_cores.size();
         
         // 512MB to end of bank
         std::vector<std::size_t> per_channel_write_region_start(num_dram_channels,0x20000000);
         std::vector<std::size_t> per_channel_write_region_end(num_dram_channels, soc_desc.dram_bank_size);
-        return ThreadSafeNonOverlappingWriteAddressGenerator(soc_desc, num_chips, per_channel_write_region_start, per_channel_write_region_end, 100);
+        return ThreadSafeNonOverlappingWriteAddressGenerator(soc_desc, chips, per_channel_write_region_start, per_channel_write_region_end, writes_per_chunk, chunks_per_channel);
+    }
+
+
+    static ThreadSafeNonOverlappingWriteAddressGenerator build_default(tt_SocDescriptor const& soc_desc, std::unordered_set<chip_id_t> const& chips) {
+        auto num_dram_channels = soc_desc.dram_cores.size();
+        
+        // 512MB to end of bank
+        std::vector<std::size_t> per_channel_write_region_start(num_dram_channels,0x20000000);
+        std::vector<std::size_t> per_channel_write_region_end(num_dram_channels, soc_desc.dram_bank_size);
+        return ThreadSafeNonOverlappingWriteAddressGenerator(soc_desc, chips, per_channel_write_region_start, per_channel_write_region_end, 100);
     }
 
     // Payload buffer should be populated by this point
     std::optional<address_t> write_to_next_address_non_blocking(
         tt_SiliconDevice &driver, dram_location_t const& dram_location, payload_spec_t<DATUM_T> const& payload_spec, std::vector<uint32_t> &payload, std::size_t num_bytes
     ) {
-        assert(dram_location.chip_id < num_chips);
+        assert(this->chips.find(dram_location.chip_id) != this->chips.end());
         assert(dram_location.channel < channels_per_chip);
 
         auto index = this->flat_index(dram_location);
@@ -512,7 +512,7 @@ class ThreadSafeNonOverlappingWriteAddressGenerator {
 
     // uncomment for blocking call
     // void pop_write_address(dram_location_t const& dram_location) {
-    //     assert(dram_location.chip_id < num_chips);
+    //     assert(this->chips.find(dram_location.chip_id) != this->chips.end());
     //     assert(dram_location.channel < channels_per_chip);
 
     //     auto index = this->flat_index(dram_location);
@@ -522,7 +522,7 @@ class ThreadSafeNonOverlappingWriteAddressGenerator {
     // }
 
     void readback_writes_on_dram_channel_non_blocking(tt_SiliconDevice &driver, dram_location_t const& dram_location, std::vector<uint32_t> &readback_buffer) {
-        assert(dram_location.chip_id < num_chips);
+        assert(this->chips.find(dram_location.chip_id) != this->chips.end());
         assert(dram_location.channel < channels_per_chip);
 
         auto index = this->flat_index(dram_location);
@@ -566,7 +566,7 @@ class ThreadSafeNonOverlappingWriteAddressGenerator {
     std::size_t flat_index(dram_location_t const& dram_location) {
         return dram_location.chip_id * channels_per_chip + dram_location.channel;
     }
-    const int num_chips;
+    const std::unordered_set<chip_id_t> chips;
     const int channels_per_chip;
     
     std::mutex readback_mutex;

@@ -68,15 +68,21 @@ void RunReadbackChecker(
     std::vector<uint32_t> readback_buffer = {};
     int num_chips = device.get_number_of_chips_in_cluster();
     int num_channels = device.get_num_dram_channels(0);
-    int chip = 0;
+    auto chips = write_history_address_generator.get_chips();
+    auto chip_iter = chips.begin();
+    assert (chip_iter != chips.end());
     int channel = 0;
     while (write_history_address_generator.is_active()) {
-        auto dram_location = dram_location_t{.chip_id=chip,.channel=channel};
+        assert (chip_iter != chips.end());
+        auto dram_location = dram_location_t{.chip_id=*chip_iter,.channel=channel};
         write_history_address_generator.readback_writes_on_dram_channel_non_blocking(device, dram_location, readback_buffer);
 
         if (channel == num_channels - 1) {
             channel = 0;
-            chip = (chip + 1) % num_chips;
+            ++chip_iter;
+            if (chip_iter == chips.end()) {
+                chip_iter = chips.begin();
+            }
         } else {
             channel++;
         }

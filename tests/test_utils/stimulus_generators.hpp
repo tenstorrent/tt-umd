@@ -16,6 +16,7 @@
 #include <vector>
 #include <variant>
 #include <cassert>
+#include <unordered_set>
 
 #include <memory>
 #include <atomic>
@@ -407,22 +408,21 @@ class TestGenerator {
 
 
 
-static inline std::vector<destination_t> generate_core_index_locations(tt_ClusterDescriptor const& cluster_desc, tt_SocDescriptor const& soc_desc) {
+static inline std::vector<destination_t> generate_core_index_locations(std::unordered_set<chip_id_t> const& chips_to_use, tt_SocDescriptor const& soc_desc) {
     std::vector<destination_t> core_index_to_location = {};
 
     for (auto const& dram_channel_cores : soc_desc.dram_cores) {
         for (tt_xy_pair const& dram_core : dram_channel_cores) {
-            for (chip_id_t chip : cluster_desc.get_all_chips()) {
+            for (chip_id_t chip : chips_to_use) {
                 core_index_to_location.push_back({static_cast<std::size_t>(chip), dram_core.x, dram_core.y});
             }
         }
     }
-    // std::cout << "core_index_to_location:" << std::endl;
-    // for (int i = 0; i < core_index_to_location.size(); i++) {
-    //     std::cout << "\t" << i << ": (chip=" << core_index_to_location.at(i).chip << ", y=" << core_index_to_location.at(i).y << ", x=" << core_index_to_location.at(i).x << ")" << std::endl;
-    // }
-
     return core_index_to_location;
+}
+
+static inline std::vector<destination_t> generate_core_index_locations(tt_ClusterDescriptor const& cluster_desc, tt_SocDescriptor const& soc_desc) {
+    return generate_core_index_locations(cluster_desc.get_all_chips(), soc_desc);
 }
 
 // Add a default test harness that can be invoked with custom distributions only.
@@ -648,6 +648,16 @@ static ConstrainedTemplateTemplateGenerator<address_t, address_t, std::uniform_i
     return ConstrainedTemplateTemplateGenerator<address_t, address_t, std::uniform_int_distribution>(seed + 1, address_distribution, address_aligner);
 }
 
+static ConstrainedTemplateTemplateGenerator<destination_t, int, std::uniform_int_distribution> get_full_dram_dest_generator(int seed, tt_SiliconDevice *device, std::unordered_set<chip_id_t> const& chips_to_use) {
+    assert(device != nullptr);
+    tt_SocDescriptor const& soc_desc = device->get_virtual_soc_descriptors().at(0);
+    std::vector<destination_t> core_index_to_location = generate_core_index_locations(chips_to_use, soc_desc);
+
+    return ConstrainedTemplateTemplateGenerator<destination_t, int, std::uniform_int_distribution>(
+        seed,
+        std::uniform_int_distribution<int>(0, core_index_to_location.size() - 1),
+        [core_index_to_location](int dest) -> destination_t { return core_index_to_location.at(dest); });
+}
 
 static ConstrainedTemplateTemplateGenerator<destination_t, int, std::uniform_int_distribution> get_default_full_dram_dest_generator(int seed, tt_SiliconDevice *device) {
     assert(device != nullptr);

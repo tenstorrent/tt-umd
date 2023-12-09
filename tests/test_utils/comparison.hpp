@@ -373,7 +373,9 @@ class ThreadSafeNonOverlappingWriteAddressGenerator {
         reference_payload_buffer_copy_counter(0)
     {
         assert(per_channel_write_region_start.size() == per_channel_write_region_end.size());
+        int chip_index = 0;
         for (chip_id_t c : chips) {
+            chip_indices.insert({c, chip_index});
             for (std::size_t ch = 0; ch < channels_per_chip; ch++) {
                 assert(per_channel_write_region_start[ch] <= per_channel_write_region_end[ch]);
                 dram_channel_active_write_histories.push_back(
@@ -388,6 +390,8 @@ class ThreadSafeNonOverlappingWriteAddressGenerator {
                     )
                 );
             }
+            
+            chip_index++;
         }
     }
 
@@ -471,9 +475,9 @@ class ThreadSafeNonOverlappingWriteAddressGenerator {
         int retry_count = 0;
         while (write_to_next_address_non_blocking(driver, dram_location, default_payload_spec, payload, num_words) == std::nullopt) {
             retry_count++;
-            if (retry_count % 10000) {
+            if (retry_count % 100000 == 0)   {
                 std::stringstream ss;
-                ss << "NOTE: blocking at write_to_next_address_blocking @chip=" << dram_location.chip_id << ", channel=" << dram_location.channel << std::endl;
+                ss << "NOTE: (" << (retry_count / 50000) << "x) blocking at write_to_next_address_blocking @chip=" << dram_location.chip_id << ", channel=" << dram_location.channel << std::endl;
                 // std::cout << ss.str();
             }
         }
@@ -499,13 +503,13 @@ class ThreadSafeNonOverlappingWriteAddressGenerator {
 
         assert (payload.at(0) == custom_payload_spec.start);
 
-        int retry_count = 0;
+        std::size_t retry_count = 0;
         while (write_to_next_address_non_blocking(driver, dram_location, custom_payload_spec, payload, num_words) == std::nullopt) {
             retry_count++;
-            if (retry_count % 10000) {
+            if (retry_count % 100000 == 0) {
                 std::stringstream ss;
-                ss << "NOTE: blocking at write_to_next_address_blocking @chip=" << dram_location.chip_id << ", channel=" << dram_location.channel << std::endl;
-                // std::cout << ss.str();
+                ss << "NOTE: (" << (retry_count / 50000) << "x) blocking at write_to_next_address_blocking @chip=" << dram_location.chip_id << ", channel=" << dram_location.channel << std::endl;
+                std::cout << ss.str();
             }
         }
     }
@@ -554,7 +558,7 @@ class ThreadSafeNonOverlappingWriteAddressGenerator {
         }
     }
 
-    bool is_active() const {
+    volatile bool is_active() const {
         return !this->is_done;
     }
 
@@ -562,11 +566,17 @@ class ThreadSafeNonOverlappingWriteAddressGenerator {
         this->is_done = true;
     }
 
+    std::unordered_set<chip_id_t> get_chips() const {
+        return this->chips;
+    }
+
   private:
     std::size_t flat_index(dram_location_t const& dram_location) {
-        return dram_location.chip_id * channels_per_chip + dram_location.channel;
+        return chip_indices.at(dram_location.chip_id) * channels_per_chip + dram_location.channel;
     }
     const std::unordered_set<chip_id_t> chips;
+    std::unordered_map<chip_id_t,std::size_t> chip_indices;
+
     const int channels_per_chip;
     
     std::mutex readback_mutex;

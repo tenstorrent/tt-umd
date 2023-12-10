@@ -26,7 +26,7 @@ class tt_ClusterDescriptor {
 
   std::unordered_map<chip_id_t, std::unordered_map<ethernet_channel_t, std::tuple<chip_id_t, ethernet_channel_t> > > ethernet_connections;
   std::unordered_map<chip_id_t, eth_coord_t> chip_locations;
-  std::unordered_set<chip_id_t> chips_with_mmio;
+  std::unordered_map<chip_id_t, chip_id_t> chips_with_mmio;
   std::unordered_set<chip_id_t> all_chips;
   std::unordered_map<chip_id_t, bool> noc_translation_enabled = {};
   std::unordered_map<chip_id_t, std::uint32_t> harvesting_masks = {};
@@ -52,7 +52,8 @@ class tt_ClusterDescriptor {
   chip_id_t get_shelf_local_physical_chip_coords(chip_id_t virtual_coord);
   static std::unique_ptr<tt_ClusterDescriptor> create_from_yaml(const std::string &cluster_descriptor_file_path);
   static std::unique_ptr<tt_ClusterDescriptor> create_for_grayskull_cluster(
-      const std::set<chip_id_t> &target_device_ids);
+      const std::set<chip_id_t> &logical_mmio_device_ids,
+      const std::vector<chip_id_t> &physical_mmio_device_ids);
   // const eth_coord_t get_chip_xy(const chip_id_t &chip_id) const;
   // const chip_id_t get_chip_id_at_location(const eth_coord_t &chip_location) const;
 
@@ -61,7 +62,7 @@ class tt_ClusterDescriptor {
   std::unordered_map<chip_id_t, bool> get_noc_translation_table_en() const;
   std::unordered_map<chip_id_t, eth_coord_t> get_chip_locations() const;
   std::unordered_map<chip_id_t, std::unordered_map<ethernet_channel_t, std::tuple<chip_id_t, ethernet_channel_t> > > get_ethernet_connections() const;
-  std::unordered_set<chip_id_t> get_chips_with_mmio() const;
+  std::unordered_map<chip_id_t, chip_id_t> get_chips_with_mmio() const;
   std::unordered_set<chip_id_t> get_all_chips() const;
   std::size_t get_number_of_chips() const;
 

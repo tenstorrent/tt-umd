@@ -3029,7 +3029,7 @@ void tt_SiliconDevice::write_to_non_mmio_device(
     std::string write_tlb = "LARGE_WRITE_TLB";
     std::string read_tlb = "LARGE_READ_TLB";
     std::string empty_tlb = "";
-    translate_to_noc_table_coords(0, core.y, core.x);
+    translate_to_noc_table_coords(*this->get_target_mmio_device_ids().begin(), core.y, core.x);
     std::vector<std::uint32_t> erisc_command;
     std::vector<std::uint32_t> erisc_q_rptr = std::vector<uint32_t>(1);
     std::vector<std::uint32_t> erisc_q_ptrs = std::vector<uint32_t>(eth_interface_params.REMOTE_UPDATE_PTR_SIZE_BYTES*2 / sizeof(uint32_t));
@@ -3433,7 +3433,7 @@ void tt_SiliconDevice::read_from_non_mmio_device(void* mem_ptr, tt_cxy_pair core
     std::string write_tlb = "LARGE_WRITE_TLB";
     std::string read_tlb = "LARGE_READ_TLB";
     std::string empty_tlb = "";
-    translate_to_noc_table_coords(0, core.y, core.x);
+    translate_to_noc_table_coords(*this->get_target_mmio_device_ids().begin(), core.y, core.x);
 
     const auto &mmio_capable_chip_logical = ndesc->get_closest_mmio_capable_chip(core.chip);
     const eth_coord_t target_chip = ndesc->get_chip_locations().at(core.chip);
@@ -3595,9 +3595,8 @@ void tt_SiliconDevice::read_from_non_mmio_device(void* mem_ptr, tt_cxy_pair core
 void tt_SiliconDevice::wait_for_non_mmio_flush() {
     if(flush_non_mmio) {
         std::string read_tlb = "LARGE_READ_TLB";
-        auto chips_with_mmio = ndesc->get_chips_with_mmio();
-        for (const auto &pair : chips_with_mmio) {
-            auto &chip_id = pair.first;
+        auto chips_with_mmio = this->get_target_mmio_device_ids();
+        for(auto chip_id : chips_with_mmio) {
             auto arch = get_soc_descriptor(chip_id).arch;
             if (arch == tt::ARCH::WORMHOLE || arch == tt::ARCH::WORMHOLE_B0) {
                 std::vector<std::uint32_t> erisc_txn_counters = std::vector<uint32_t>(2);

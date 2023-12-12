@@ -22,7 +22,7 @@
 namespace YAML { class Node; }
 
 class tt_ClusterDescriptor {
-  private:
+  protected:
 
   std::unordered_map<chip_id_t, std::unordered_map<ethernet_channel_t, std::tuple<chip_id_t, ethernet_channel_t> > > ethernet_connections;
   std::unordered_map<chip_id_t, eth_coord_t> chip_locations;

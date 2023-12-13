@@ -28,54 +28,27 @@
 
 namespace tt {
 
-#define LOGGER_TYPES   \
-    X(Always)          \
-    X(Analyzer)        \
-    X(API)             \
-    X(Backend)         \
-    X(Test)            \
-    X(Model)           \
-    X(Net2Pipe)        \
-    X(Pipegen2)        \
-    X(Netlist)         \
-    X(Runtime)         \
-    X(Loader)          \
-    X(IO)              \
-    X(CompileTrisc)    \
-    X(Verif)           \
-    X(Golden)          \
-    X(Op)              \
-    X(HLK)             \
-    X(Profile)         \
-    X(PerfPostProcess) \
-    X(PerfCheck)       \
-    X(PerfInfra)       \
-    X(Debuda)          \
-    X(Firmware)        \
+#define LOGGER_TYPES_DEVICE   \
+    X(Always) \
     X(SiliconDriver)   \
-    X(Trisc0)          \
-    X(Trisc1)          \
-    X(Trisc2)          \
-    X(Net2Hlks)        \
-    X(Router)        \
 
-enum LogType : uint32_t {
+enum LogTypeDevice : uint32_t {
 // clang-format off
 #define X(a) Log ## a,
-    LOGGER_TYPES
+    LOGGER_TYPES_DEVICE
 #undef X
-    LogType_Count,
+    LogTypeDevice_Count,
     // clang-format on
 };
-static_assert(LogType_Count < 64, "Exceeded number of log types");
+static_assert(LogTypeDevice_Count < 64, "Exceeded number of log types");
 
 #pragma GCC visibility push(hidden)
-class Logger {
+class LoggerDevice {
    public:
-    static constexpr char const* type_names[LogType_Count] = {
+    static constexpr char const* type_names[LogTypeDevice_Count] = {
     // clang-format off
 #define X(a) #a,
-      LOGGER_TYPES
+      LOGGER_TYPES_DEVICE
 #undef X
         // clang-format on
     };
@@ -123,13 +96,13 @@ class Logger {
         (sizeof(level_color) / sizeof(level_color[0])) == static_cast<std::underlying_type_t<Level>>(Level::Count));
 
     // TODO: we should sink this into some common cpp file, marking inline so maybe it's per lib instead of per TU
-    static inline Logger& get() {
-        static Logger logger;
+    static inline LoggerDevice& get() {
+        static LoggerDevice logger;
         return logger;
     }
 
     template <typename... Args>
-    inline void log_level_type(Level level, LogType type, char const* fmt, Args&&... args) {
+    inline void log_level_type(Level level, LogTypeDevice type, char const* fmt, Args&&... args) {
         if ((1 << type) & mask) {
 #if defined(UTILS_LOGGER_PYTHON_OSTREAM_REDIRECT) && (UTILS_LOGGER_PYTHON_OSTREAM_REDIRECT == 1)
             pybind11::scoped_ostream_redirect stream(*fd);
@@ -144,14 +117,6 @@ class Logger {
                 level_names[static_cast<std::underlying_type_t<Level>>(level)]);
 
             fmt::terminal_color type_color = fmt::terminal_color::cyan;
-
-            if (type == LogType::LogFirmware ||
-                type == LogType::LogTrisc0 ||
-                type == LogType::LogTrisc1 ||
-                type == LogType::LogTrisc2) {
-                type_color = fmt::terminal_color::magenta;
-            }
-
             std::string type_str = fmt::format(fmt::fg(type_color), "{:15}", type_names[type]);
 
             std::string str;
@@ -166,7 +131,7 @@ class Logger {
     void flush() { *fd << std::flush; }
 
    private:
-    Logger() {
+    LoggerDevice() {
         static char const* env = std::getenv("LOGGER_TYPES");
         if (env) {
             if (strstr(env, "All")) {
@@ -233,48 +198,48 @@ class Logger {
 
 #pragma GCC visibility pop
 
-#undef LOGGER_TYPES
+#undef LOGGER_TYPES_DEVICE
 
 template <typename... Args>
-static void log_trace_(LogType type, std::string const& src_info, char const* fmt, Args&&... args) {
-    Logger::get().log_level_type(Logger::Level::Trace, type, fmt, src_info, std::forward<Args>(args)...);
+static void log_trace_(LogTypeDevice type, std::string const& src_info, char const* fmt, Args&&... args) {
+    LoggerDevice::get().log_level_type(LoggerDevice::Level::Trace, type, fmt, src_info, std::forward<Args>(args)...);
 }
 } // namespace tt
 
 #define log_custom(level, type, str, ...) \
     { \
-        if (static_cast<std::underlying_type_t<tt::Logger::Level>>(level) >= static_cast<std::underlying_type_t<tt::Logger::Level>>(tt::Logger::get().min_level)) { \
-            tt::Logger::get().log_level_type(level, type, str, ## __VA_ARGS__); \
+        if (static_cast<std::underlying_type_t<tt::LoggerDevice::Level>>(level) >= static_cast<std::underlying_type_t<tt::LoggerDevice::Level>>(tt::LoggerDevice::get().min_level)) { \
+            tt::LoggerDevice::get().log_level_type(level, type, str, ## __VA_ARGS__); \
         } \
     }
 
 #define log_info(type, str, ...) \
     { \
-        log_custom(tt::Logger::Level::Info, type, str, ## __VA_ARGS__); \
+        log_custom(tt::LoggerDevice::Level::Info, type, str, ## __VA_ARGS__); \
     }
 
 #define log_warning(type, str, ...) \
     { \
-        log_custom(tt::Logger::Level::Warning, type, str, ## __VA_ARGS__); \
+        log_custom(tt::LoggerDevice::Level::Warning, type, str, ## __VA_ARGS__); \
     }
     
 #define log_error(str, ...) \
     { \
-        log_custom(tt::Logger::Level::Error, tt::LogAlways, str, ## __VA_ARGS__); \
+        log_custom(tt::LoggerDevice::Level::Error, tt::LogAlways, str, ## __VA_ARGS__); \
     }
 
 #define log_fatal(str, ...)                                                      \
     {                                                                            \
-        log_custom(tt::Logger::Level::Fatal, tt::LogAlways, str, ##__VA_ARGS__); \
-        tt::Logger::get().flush();                                               \
+        log_custom(tt::LoggerDevice::Level::Fatal, tt::LogAlways, str, ##__VA_ARGS__); \
+        tt::LoggerDevice::get().flush();                                               \
         throw std::runtime_error(fmt::format(str,  ## __VA_ARGS__) + "\nbacktrace:\n" + tt::assert::backtrace_to_string(100, 1, " --- ")); \
     }
 
 #define log_assert(cond, str, ...) \
     { \
         if (!(cond)) { \
-            log_custom(tt::Logger::Level::Fatal, tt::LogAlways, str, ## __VA_ARGS__); \
-            tt::Logger::get().flush(); \
+            log_custom(tt::LoggerDevice::Level::Fatal, tt::LogAlways, str, ## __VA_ARGS__); \
+            tt::LoggerDevice::get().flush(); \
             throw std::runtime_error(fmt::format(str, ## __VA_ARGS__) + "\nbacktrace:\n" + tt::assert::backtrace_to_string(100, 1, " --- ")); \
         } \
     }
@@ -283,19 +248,19 @@ static void log_trace_(LogType type, std::string const& src_info, char const* fm
 
 #define log_debug(type, str, ...) \
     { \
-        log_custom(tt::Logger::Level::Debug, type, str, ## __VA_ARGS__); \
+        log_custom(tt::LoggerDevice::Level::Debug, type, str, ## __VA_ARGS__); \
     }
 
 #define log_trace(type, ...) \
     { \
-        if (static_cast<std::underlying_type_t<tt::Logger::Level>>(tt::Logger::Level::Trace) >= static_cast<std::underlying_type_t<tt::Logger::Level>>(Logger::get().min_level)) { \
+        if (static_cast<std::underlying_type_t<tt::LoggerDevice::Level>>(tt::LoggerDevice::Level::Trace) >= static_cast<std::underlying_type_t<tt::LoggerDevice::Level>>(LoggerDevice::get().min_level)) { \
             tt::log_trace_(type, fmt::format(fmt::fg(fmt::color::green), "{}:{}", __FILE__, __LINE__), "{} - " __VA_ARGS__); \
         } \
     }
 
 #define log_profile(str, ...) \
     { \
-        log_custom(tt::Logger::Level::Profile, tt::LogProfile, str, ## __VA_ARGS__); \
+        log_custom(tt::LoggerDevice::Level::Profile, tt::LogProfile, str, ## __VA_ARGS__); \
     }
 
 #else 

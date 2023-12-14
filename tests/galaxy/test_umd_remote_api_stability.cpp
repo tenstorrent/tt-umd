@@ -32,12 +32,16 @@ class WormholeGalaxyStabilityTestFixture : public WormholeTestFixture {
  protected:
 
   static constexpr int EXPECTED_MIN_CHIPS = 32;
+  static uint32_t scale_number_of_tests;
 
   static void SetUpTestSuite() {
     std::unique_ptr<tt_ClusterDescriptor> cluster_desc = tt_ClusterDescriptor::create_from_yaml(GetClusterDescYAML().string());
     detected_num_chips = cluster_desc->get_number_of_chips();
     if (detected_num_chips < EXPECTED_MIN_CHIPS) {
         skip_tests = true;
+    }
+    if(char const* scale_number_of_tests_env = std::getenv("SCALE_NUMBER_OF_TESTS")) {
+        scale_number_of_tests = std::atoi(scale_number_of_tests_env);
     }
   }
 
@@ -54,18 +58,19 @@ class WormholeGalaxyStabilityTestFixture : public WormholeTestFixture {
 
 int WormholeGalaxyStabilityTestFixture::detected_num_chips = -1;
 bool WormholeGalaxyStabilityTestFixture::skip_tests = false;
+uint32_t WormholeGalaxyStabilityTestFixture::scale_number_of_tests = 1;
 
 
 TEST_F(WormholeGalaxyStabilityTestFixture, MixedRemoteTransfers) {
     int seed = 0;
     
     assert(device != nullptr);
-    std::cout << "Running Test." << std::endl;
+    log_info(LogSiliconDriver,"Started MixedRemoteTransfers");
     std::vector<remote_transfer_sample_t> command_history;
     try {
         RunMixedTransfersUniformDistributions(
             *this->device, 
-            100000,
+            100000 * scale_number_of_tests,
             seed,
 
             transfer_type_weights_t{.write = 0.40, .rolled_write = 0.2, .read = 0.4, .epoch_cmd_write = 0.0},
@@ -91,12 +96,13 @@ TEST_F(WormholeGalaxyStabilityTestFixture, MixedRemoteTransfers) {
 TEST_F(WormholeGalaxyStabilityTestFixture, DISABLED_MultithreadedMixedRemoteTransfersMediumSmall) {
     int seed = 0;
 
-    std::cout << "Running commands in multithreaded mode." << std::endl;
+    log_info(LogSiliconDriver,"Started MultithreadedMixedRemoteTransfersMediumSmall");
+
     assert(device != nullptr);
     std::thread t1([&](){
         RunMixedTransfersUniformDistributions(
             *device, 
-            50000,
+            50000 * scale_number_of_tests,
             0,
 
             transfer_type_weights_t{.write = 0.50, .rolled_write = 0., .read = 0.50, .epoch_cmd_write = 0.},
@@ -117,7 +123,7 @@ TEST_F(WormholeGalaxyStabilityTestFixture, DISABLED_MultithreadedMixedRemoteTran
     std::thread t2([&](){
         RunMixedTransfersUniformDistributions(
             *device, 
-            50000,
+            50000 * scale_number_of_tests,
             100,
 
             transfer_type_weights_t{.write = 0.25, .rolled_write = 0.25, .read = 0.50, .epoch_cmd_write = 0.},
@@ -138,7 +144,7 @@ TEST_F(WormholeGalaxyStabilityTestFixture, DISABLED_MultithreadedMixedRemoteTran
     std::thread t3([&](){
         RunMixedTransfersUniformDistributions(
             *device, 
-            50000,
+            50000 * scale_number_of_tests,
             23,
 
             transfer_type_weights_t{.write = 0.5, .rolled_write = 0.25, .read = 0.25, .epoch_cmd_write = 0.},
@@ -159,7 +165,7 @@ TEST_F(WormholeGalaxyStabilityTestFixture, DISABLED_MultithreadedMixedRemoteTran
     std::thread t4([&](){
         RunMixedTransfersUniformDistributions(
             *device, 
-            100000,
+            100000 * scale_number_of_tests,
             99,
 
             transfer_type_weights_t{.write = 0.1, .rolled_write = 0, .read = 0.1, .epoch_cmd_write = 0.8},

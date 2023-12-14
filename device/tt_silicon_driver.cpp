@@ -1508,7 +1508,7 @@ tt_SiliconDevice::tt_SiliconDevice(const std::string &sdesc_path, const std::str
     dynamic_tlb_config["LARGE_WRITE_TLB"] = DEVICE_DATA.MEM_LARGE_WRITE_TLB;
 
     for(const auto& tlb : dynamic_tlb_config) {
-        dynamic_tlb_ordering_modes.insert({tlb.first, TLB_DATA::Posted}); // All dynamic TLBs use Posted Ordering by default
+        dynamic_tlb_ordering_modes.insert({tlb.first, TLB_DATA::Relaxed}); // All dynamic TLBs use Relaxed Ordering by default
     }
     create_device(target_mmio_device_ids, num_host_mem_ch_per_mmio_device, skip_driver_allocs, clean_system_resources);
 
@@ -3500,7 +3500,7 @@ void tt_SiliconDevice::read_from_non_mmio_device(void* mem_ptr, tt_cxy_pair core
         uint32_t host_dram_block_addr = host_address_params.ETH_ROUTING_BUFFERS_START + resp_rd_ptr * max_block_size;
         uint16_t host_dram_channel = 0; // This needs to be 0, since WH can only map ETH buffers to chan 0.
 
-        if (use_dram) {
+        if (use_dram && block_size > DATA_WORD_SIZE) {
             req_flags |= eth_interface_params.CMD_DATA_BLOCK_DRAM;
             resp_flags |= eth_interface_params.CMD_DATA_BLOCK_DRAM;
         }
@@ -3553,39 +3553,42 @@ void tt_SiliconDevice::read_from_non_mmio_device(void* mem_ptr, tt_cxy_pair core
         do {
             read_device_memory(erisc_resp_flags.data(), remote_transfer_ethernet_core, eth_interface_params.RESPONSE_ROUTING_CMD_QUEUE_BASE + flags_offset, DATA_WORD_SIZE, read_tlb);
         } while (erisc_resp_flags[0] == 0);
-        log_assert(erisc_resp_flags[0] == resp_flags, "Unexpected ERISC Response Flags.");
-        tt_driver_atomics::lfence();
-        uint32_t data_offset = 8 + sizeof(routing_cmd_t) * resp_rd_ptr;
-        if (block_size == DATA_WORD_SIZE) {
-            std::vector<std::uint32_t> erisc_resp_data = std::vector<uint32_t>(1);
-            read_device_memory(erisc_resp_data.data(), remote_transfer_ethernet_core, eth_interface_params.RESPONSE_ROUTING_CMD_QUEUE_BASE + data_offset, DATA_WORD_SIZE, read_tlb);
-            if(size_in_bytes - offset < 4)  {
-                // Handle misaligned (4 bytes) data at the end of the block.
-                // Only read remaining bytes into the host buffer, instead of reading the full uint32_t
-                std::memcpy((uint8_t*)mem_ptr + offset, erisc_resp_data.data(), size_in_bytes - offset);
-            }
-            else {
-                *((uint32_t*)mem_ptr + offset/DATA_WORD_SIZE) = erisc_resp_data[0];
-            }
-        } else {
-            // Read 4 byte aligned block from device/sysmem
-            if (use_dram) {
-                read_from_sysmem(data_block, host_dram_block_addr, host_dram_channel, block_size, mmio_capable_chip_logical);
+
+        if (erisc_resp_flags[0] == resp_flags) {
+            tt_driver_atomics::lfence();
+            uint32_t data_offset = 8 + sizeof(routing_cmd_t) * resp_rd_ptr;
+            if (block_size == DATA_WORD_SIZE) {
+                std::vector<std::uint32_t> erisc_resp_data = std::vector<uint32_t>(1);
+                read_device_memory(erisc_resp_data.data(), remote_transfer_ethernet_core, eth_interface_params.RESPONSE_ROUTING_CMD_QUEUE_BASE + data_offset, DATA_WORD_SIZE, read_tlb);
+                if(size_in_bytes - offset < 4)  {
+                    // Handle misaligned (4 bytes) data at the end of the block.
+                    // Only read remaining bytes into the host buffer, instead of reading the full uint32_t
+                    std::memcpy((uint8_t*)mem_ptr + offset, erisc_resp_data.data(), size_in_bytes - offset);
+                }
+                else {
+                    *((uint32_t*)mem_ptr + offset/DATA_WORD_SIZE) = erisc_resp_data[0];
+                }
             } else {
-                uint32_t buf_address = eth_interface_params.ETH_ROUTING_DATA_BUFFER_ADDR + resp_rd_ptr * max_block_size;
-                size_buffer_to_capacity(data_block, block_size);
-                read_device_memory(data_block.data(), remote_transfer_ethernet_core, buf_address, block_size, read_tlb);
+                // Read 4 byte aligned block from device/sysmem
+                if (use_dram) {
+                    read_from_sysmem(data_block, host_dram_block_addr, host_dram_channel, block_size, mmio_capable_chip_logical);
+                } else {
+                    uint32_t buf_address = eth_interface_params.ETH_ROUTING_DATA_BUFFER_ADDR + resp_rd_ptr * max_block_size;
+                    size_buffer_to_capacity(data_block, block_size);
+                    read_device_memory(data_block.data(), remote_transfer_ethernet_core, buf_address, block_size, read_tlb);
+                }
+                // assert(mem_ptr.size() - (offset/DATA_WORD_SIZE) >= (block_size * DATA_WORD_SIZE));
+                log_assert((data_block.size() * DATA_WORD_SIZE) >= block_size, "Incorrect data size read back from sysmem/device");
+                // Account for misalignment by skipping any padding bytes in the copied data_block
+                memcpy((uint8_t*)mem_ptr + offset, data_block.data(), std::min(block_size, size_in_bytes - offset));
             }
-            // assert(mem_ptr.size() - (offset/DATA_WORD_SIZE) >= (block_size * DATA_WORD_SIZE));
-            log_assert((data_block.size() * DATA_WORD_SIZE) >= block_size, "Incorrect data size read back from sysmem/device");
-            // Account for misalignment by skipping any padding bytes in the copied data_block
-            memcpy((uint8_t*)mem_ptr + offset, data_block.data(), std::min(block_size, size_in_bytes - offset));
         }
 
         // Finally increment the rdptr for the response command q
         erisc_resp_q_rptr[0] = (erisc_resp_q_rptr[0] + 1) & eth_interface_params.CMD_BUF_PTR_MASK;
         write_device_memory(erisc_resp_q_rptr.data(), erisc_resp_q_rptr.size() * DATA_WORD_SIZE, remote_transfer_ethernet_core, eth_interface_params.RESPONSE_CMD_QUEUE_BASE + sizeof(remote_update_ptr_t) + eth_interface_params.CMD_COUNTERS_SIZE_BYTES, write_tlb);
         tt_driver_atomics::sfence();
+        log_assert(erisc_resp_flags[0] == resp_flags, "Unexpected ERISC Response Flags.");
 
         offset += block_size;
     }

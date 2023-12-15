@@ -3768,6 +3768,67 @@ void tt_SiliconDevice::pcie_broadcast_write(chip_id_t chip, const void* mem_ptr,
     }
 }
 
+inline bool tensix_or_eth_in_broadcast(const std::set<uint32_t>& cols_to_exclude) {
+    bool found_tensix_or_eth = false;
+    for(const auto& col : DEVICE_DATA.T6_X_LOCATIONS) {
+        found_tensix_or_eth |= (cols_to_exclude.find(col) == cols_to_exclude.end());
+    }
+    return found_tensix_or_eth;
+}
+
+inline bool valid_tensix_broadcast_grid(const std::set<uint32_t>& rows_to_exclude, const std::set<uint32_t>& cols_to_exclude) {
+    bool t6_bcast_rows_complete = true;
+    bool t6_bcast_rows_empty = true;
+    
+    for(const auto& row : DEVICE_DATA.T6_Y_LOCATIONS) {
+        t6_bcast_rows_complete &= (rows_to_exclude.find(row) == rows_to_exclude.end());
+        t6_bcast_rows_empty &= (rows_to_exclude.find(row) != rows_to_exclude.end());
+    }
+    return t6_bcast_rows_complete || t6_bcast_rows_empty;
+}
+
+
+void tt_SiliconDevice::ethernet_broadcast_write(const void *mem_ptr, uint32_t size_in_bytes, uint64_t address,
+                                                const std::set<chip_id_t>& chips_to_exclude, const std::set<uint32_t>& rows_to_exclude, 
+                                                std::set<uint32_t>& cols_to_exclude, const std::string& fallback_tlb, bool use_virtual_coords) {
+    if(use_ethernet_broadcast) {
+        // Broadcast through ERISC core supported
+        std::unordered_map<chip_id_t, std::vector<std::vector<int>>>& broadcast_headers = get_ethernet_broadcast_headers(chips_to_exclude);
+        // Apply row and column exclusion mask explictly. Placing this here if we want to cache the higher level broadcast headers on future/
+        std::uint32_t row_exclusion_mask = 0;
+        std::uint32_t col_exclusion_mask = 0;
+        for(const auto& row : rows_to_exclude) {
+            row_exclusion_mask |= 1 << row;
+        }
+
+        for(const auto& col : cols_to_exclude) {
+            col_exclusion_mask |= 1 << (16 + col);
+        }
+        // Write broadcast block to device.
+        for(auto& mmio_group : broadcast_headers) {
+            for(auto& header : mmio_group.second) {
+                header.at(4) = use_virtual_coords * 0x8000; // Reset row/col exclusion masks
+                header.at(4) |= row_exclusion_mask;
+                header.at(4) |= col_exclusion_mask;
+                // Write Target: x-y endpoint is a don't care. Initialize to tt_xy_pair(1, 1)
+                write_to_non_mmio_device(mem_ptr, size_in_bytes, tt_cxy_pair(mmio_group.first, tt_xy_pair(1, 1)), address, true, header);
+            }
+        }
+    }
+    else {
+        // Broadcast not supported. Implement this at the software level as a for loop
+        std::vector<tt_cxy_pair> cores_to_write = {};
+        for(const auto& chip : target_devices_in_cluster) {
+            if(chips_to_exclude.find(chip) != chips_to_exclude.end()) continue;
+            for(const auto& core : get_soc_descriptor(chip).cores) {
+                if(cols_to_exclude.find(core.first.x) == cols_to_exclude.end() and rows_to_exclude.find(core.first.y) == rows_to_exclude.end() and core.second.type != CoreType::HARVESTED) {
+                    write_to_device(mem_ptr, size_in_bytes, tt_cxy_pair(chip, core.first.x, core.first.y), address, fallback_tlb);
+                }
+            }
+        }
+    }
+}
+
 void tt_SiliconDevice::broadcast_write_to_cluster(const void *mem_ptr, uint32_t size_in_bytes, uint64_t address,
                        const std::set<chip_id_t>& chips_to_exclude, std::set<uint32_t>& rows_to_exclude, std::set<uint32_t>& cols_to_exclude, const std::string& fallback_tlb) {
     if (arch_name == tt::ARCH::GRAYSKULL) {
@@ -3797,48 +3858,31 @@ void tt_SiliconDevice::broadcast_write_to_cluster(const void *mem_ptr, uint32_t 
         } 
     }
     else {
-         if(cols_to_exclude.find(0) == cols_to_exclude.end()) {
-            // When broadcast includes column zero Exclude PCIe, ARC and router cores from broadcast explictly, since writing to these is unsafe
-            // ERISC FW does not exclude these.
-            // This means that users are responsible for seperating broadcasts into individual groups, if they want to include column zero and the unsafe rows.
-            std::set<uint32_t> unsafe_rows = {2, 3, 4, 8, 9, 10};
-            rows_to_exclude.insert(unsafe_rows.begin(), unsafe_rows.end());
-        }
-        if(use_ethernet_broadcast) {
-            // Broadcast through ERISC core supported
-            std::unordered_map<chip_id_t, std::vector<std::vector<int>>>& broadcast_headers = get_ethernet_broadcast_headers(chips_to_exclude);
-            // Apply row and column exclusion mask explictly. Placing this here if we want to cache the higher level broadcast headers on future/
-            std::uint32_t row_exclusion_mask = 0;
-            std::uint32_t col_exclusion_mask = 0;
-            for(const auto& row : rows_to_exclude) {
-                row_exclusion_mask |= 1 << row;
+        if(cols_to_exclude.find(0) == cols_to_exclude.end() or cols_to_exclude.find(5) == cols_to_exclude.end()) {
+            log_assert(!tensix_or_eth_in_broadcast(cols_to_exclude), "Cannot broadcast to tensix/ethernet and DRAM simultaneously on Wormhole.");
+            if(cols_to_exclude.find(0) == cols_to_exclude.end()) {
+                // When broadcast includes column zero Exclude PCIe, ARC and router cores from broadcast explictly, since writing to these is unsafe
+                // ERISC FW does not exclude these.
+                std::set<uint32_t> unsafe_rows = {2, 3, 4, 8, 9, 10};
+                std::set<uint32_t> cols_to_exclude_for_col_0_bcast = cols_to_exclude;
+                std::set<uint32_t> rows_to_exclude_for_col_0_bcast = rows_to_exclude;
+                cols_to_exclude_for_col_0_bcast.insert(5);
+                rows_to_exclude_for_col_0_bcast.insert(unsafe_rows.begin(), unsafe_rows.end());
+                ethernet_broadcast_write(mem_ptr, size_in_bytes, address, chips_to_exclude,
+                                        rows_to_exclude_for_col_0_bcast, cols_to_exclude_for_col_0_bcast, fallback_tlb, false);
             }
-
-            for(const auto& col : cols_to_exclude) {
-                col_exclusion_mask |= 1 << (16 + col);
-            }
-            // Write broadcast block to device.
-            for(auto& mmio_group : broadcast_headers) {
-                for(auto& header : mmio_group.second) {
-                    header.at(4) = 0; // Reset row/col exclusion masks
-                    header.at(4) |= row_exclusion_mask;
-                    header.at(4) |= col_exclusion_mask;
-                    // Write Target: x-y endpoint is a don't care. Initialize to tt_xy_pair(1, 1)
-                    write_to_non_mmio_device(mem_ptr, size_in_bytes, tt_cxy_pair(mmio_group.first, tt_xy_pair(1, 1)), address, true, header);
-                }
+            if(cols_to_exclude.find(5) == cols_to_exclude.end()) {
+                std::set<uint32_t> cols_to_exclude_for_col_5_bcast = cols_to_exclude;
+                cols_to_exclude_for_col_5_bcast.insert(0);
+                ethernet_broadcast_write(mem_ptr, size_in_bytes, address, chips_to_exclude,
+                                        rows_to_exclude, cols_to_exclude_for_col_5_bcast, fallback_tlb, false);
             }
         }
         else {
-            // Broadcast not supported. Implement this at the software level as a for loop
-            std::vector<tt_cxy_pair> cores_to_write = {};
-            for(const auto& chip : target_devices_in_cluster) {
-                if(chips_to_exclude.find(chip) != chips_to_exclude.end()) continue;
-                for(const auto& core : get_soc_descriptor(chip).cores) {
-                    if(cols_to_exclude.find(core.first.x) == cols_to_exclude.end() and rows_to_exclude.find(core.first.y) == rows_to_exclude.end() and core.second.type != CoreType::HARVESTED) {
-                        write_to_device(mem_ptr, size_in_bytes, tt_cxy_pair(chip, core.first.x, core.first.y), address, fallback_tlb);
-                    }
-                }
-            }
+            log_assert(use_virtual_coords_for_eth_broadcast or valid_tensix_broadcast_grid(rows_to_exclude, cols_to_exclude), 
+                        "Must broadcast to all tensix rows when ERISC FW is < 6.8.0.");
+            ethernet_broadcast_write(mem_ptr, size_in_bytes, address, chips_to_exclude,
+                                    rows_to_exclude, cols_to_exclude, fallback_tlb, use_virtual_coords_for_eth_broadcast);
         }
     }
 }
@@ -4286,9 +4330,9 @@ void tt_SiliconDevice::verify_eth_fw() {
             fw_versions.push_back(mem_vector.at(0));
         }
         verify_sw_fw_versions(chip, SW_VERSION, fw_versions);
+        eth_fw_version = tt_version(fw_versions.at(0));
     }
 }
-
 
 void tt_SiliconDevice::verify_sw_fw_versions(int device_id, std::uint32_t sw_version, std::vector<std::uint32_t> &fw_versions) {
     tt_version sw(sw_version), fw_first_eth_core(fw_versions.at(0));
@@ -4306,9 +4350,12 @@ void tt_SiliconDevice::verify_sw_fw_versions(int device_id, std::uint32_t sw_ver
     }
 
     // Min ERISC FW version required to support ordered writes is 6.4.0
-    use_ethernet_ordered_writes &= (fw_first_eth_core.major >= 6 && fw_first_eth_core.minor >= 4);
+    use_ethernet_ordered_writes &= fw_first_eth_core >= tt_version(6, 4, 0);
     // Min ERISC FW version required to support ethernet broadcast is 6.5.0.
-    use_ethernet_broadcast &= (fw_first_eth_core.major >= 6 && fw_first_eth_core.minor >= 5);
+    use_ethernet_broadcast &= fw_first_eth_core >= tt_version(6, 5, 0);
+    // Virtual coordinates can be used for broadcast headers if ERISC FW >= 6.8.0 and NOC translation is enabled
+    // Temporarily enable this feature for 6.7.241 as well for testing.
+    use_virtual_coords_for_eth_broadcast &= (fw_first_eth_core >= tt_version(6, 8, 0) || fw_first_eth_core == tt_version(6, 7, 241)) && translation_tables_en;
 }
 
 void tt_SiliconDevice::start_device(const tt_device_params &device_params) {
@@ -4376,4 +4423,10 @@ std::uint64_t tt_SiliconDevice::get_pcie_base_addr_from_device() const {
     else {
         return 0;
     }
+}
+
+tt_version tt_SiliconDevice::get_ethernet_fw_version() const {
+    log_assert(arch_name == tt::ARCH::WORMHOLE or arch_name == tt::ARCH::WORMHOLE_B0, "Can only get Ethernet FW version for Wormhole architectures.");
+    log_assert(eth_fw_version.major != 0xffff and eth_fw_version.minor != 0xff and eth_fw_version.patch != 0xff, "Device must be started before querying Ethernet FW version.");
+    return eth_fw_version;
 }

@@ -4168,7 +4168,7 @@ int tt_SiliconDevice::arc_msg(int logical_device_id, uint32_t msg_code, bool wai
 void tt_SiliconDevice::send_tensix_risc_reset_to_core(const tt_cxy_pair &core, const TensixSoftResetOptions &soft_resets) {
     auto valid = soft_resets & ALL_TENSIX_SOFT_RESET;
     uint32_t valid_val = (std::underlying_type<TensixSoftResetOptions>::type) valid;
-    write_to_device(&valid_val, sizeof(uint32_t), core, 0xFFB121B0, "LARGE_WRITE_TLB");
+    write_to_device(&valid_val, sizeof(uint32_t), core, 0xFFB121B0, "REG_TLB");
     tt_driver_atomics::sfence();
 }
 

@@ -92,7 +92,7 @@ struct CoreDescriptor {
     Should only contain relevant configuration for SOC
 */
 class tt_SocDescriptor {
-    public: 
+    public:
     tt::ARCH arch;
     tt_xy_pair grid_size;
     tt_xy_pair physical_grid_size;
@@ -136,6 +136,9 @@ class tt_SocDescriptor {
     int get_num_dram_blocks_per_channel() const;
     uint64_t get_noc2host_offset(uint16_t host_channel) const;
 
+    // Default constructor. Creates uninitialized object with public access to all of its attributes.
+    tt_SocDescriptor() = default;
+    // Constructor used to build object from device descriptor file.
     tt_SocDescriptor(std::string device_descriptor_path);
     // Copy constructor
     tt_SocDescriptor(const tt_SocDescriptor& other) :

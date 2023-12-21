@@ -79,14 +79,27 @@ bool tt_ClusterDescriptor::is_chip_mmio_capable(const chip_id_t &chip_id) const 
     return this->chips_with_mmio.find(chip_id) != this->chips_with_mmio.end();
 }
 
+int get_ethernet_link_distance(const eth_coord_t &location_a, const eth_coord_t &location_b) {
+    // eth_coord_t: x, y, rack, shelf
+    int x_distance = std::abs(std::get<0>(location_a) - std::get<0>(location_b));
+    int y_distance = std::abs(std::get<1>(location_a) - std::get<1>(location_b));
+    
+    int chips_per_shelf = 32;
+    int shelves_per_rack = 8;
+    // chips on separate shelves are much further apart then two chips on same shelf
+    int shelf_distance = (std::abs(std::get<3>(location_a) - std::get<3>(location_b))) * chips_per_shelf;
+    int rack_distance = (std::abs(std::get<2>(location_a) - std::get<2>(location_b))) * (shelves_per_rack * chips_per_shelf);
+    return x_distance + y_distance + rack_distance + shelf_distance;
+}
+
 chip_id_t tt_ClusterDescriptor::get_closest_mmio_capable_chip(const chip_id_t &chip) const {
-    // For now we will assume a logically connected grid (chips only connect to those with IDs +/- 1 in any given coordinate direction, although later)
-    // we may wish to use the ethernet channel connectivity to support more generic cluster topologies.
     int min_distance = std::numeric_limits<int>::max();
     chip_id_t closest_chip = chip;
     for (const auto &pair : this->chips_with_mmio) {
         const chip_id_t &c = pair.first;
-        int distance = std::abs(c - chip);
+        eth_coord_t c_eth_coord = this->chip_locations.at(c);
+        eth_coord_t chip_eth_coord = this->chip_locations.at(chip);
+        int distance = get_ethernet_link_distance(c_eth_coord, chip_eth_coord);
         if (distance < min_distance) {
             min_distance = distance;
             closest_chip = c;
@@ -139,6 +152,8 @@ std::unique_ptr<tt_ClusterDescriptor> tt_ClusterDescriptor::create_for_grayskull
         auto physical_id = use_physical_ids ? physical_mmio_device_ids.at(logical_id) : -1;
         desc->chips_with_mmio.insert({logical_id, physical_id});
         desc->all_chips.insert(logical_id);
+        eth_coord_t chip_location{logical_id, 0, 0, 0};
+        desc->chip_locations.insert({logical_id, chip_location});
         log_debug(tt::LogSiliconDriver, "{} - adding logical: {} => physical: {}", __FUNCTION__, logical_id, physical_id);
     }
 
@@ -274,9 +289,11 @@ std::unordered_map<chip_id_t, std::unordered_map<ethernet_channel_t, std::tuple<
 }
 
 std::unordered_map<chip_id_t, eth_coord_t> tt_ClusterDescriptor::get_chip_locations() const {
-    auto locations = std::unordered_map<chip_id_t, eth_coord_t>();
-    for (auto chip_id : this->enabled_active_chips) {
-        locations[chip_id] = chip_locations.at(chip_id);
+    static auto locations = std::unordered_map<chip_id_t, eth_coord_t>();
+    if (locations.empty()) {
+        for (auto chip_id : this->enabled_active_chips) {
+            locations[chip_id] = chip_locations.at(chip_id);
+        }
     }
 
     return locations;

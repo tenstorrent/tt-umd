@@ -18,6 +18,17 @@ DEVICE_INCLUDES=      	\
   -I$(UMD_HOME)/utils \
   -I$(UMD_HOME)/ \
 
+
+ifeq ($(EMULATION_DEVICE_EN),1)
+  DEVICE_SRCS +=  device/tt_emulation_device.cpp
+  DEVICE_INCLUDES +=      	\
+    -I$(TENSIX_EMULATION_ROOT)/zebu/include \
+    -I$(ZEBU_IP_ROOT)/include \
+    -I$(ZEBU_ROOT)/include
+# else 
+#   DEVICE_SRCS +=  device/tt_zebu_wrapper_stub.cpp
+endif
+
 ifeq ($(UMD_VERSIM_STUB),1)
   DEVICE_SRCS += device/tt_versim_stub.cpp
 else

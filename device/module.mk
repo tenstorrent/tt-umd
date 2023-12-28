@@ -1,7 +1,8 @@
 # Every variable in subdir must be prefixed with subdir (emulating a namespace)
 DEVICE_BUILDDIR = $(OUT)
 UMD_DEVICE_LIB = $(LIBDIR)/libdevice.so
-DEVICE_OBJDIR = $(OBJDIR)
+ # TODO when compiled in BudaBackEnd root, it places objdir under build/umd/device
+DEVICE_OBJDIR = $(OBJDIR)/umd
 DEVICE_SRCS = \
 	device/tt_device.cpp \
 	device/tt_silicon_driver.cpp \

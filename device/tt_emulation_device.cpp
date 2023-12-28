@@ -1,65 +1,92 @@
 #include <stdexcept>
 #include <cstring>
 
+#include "common/logger.hpp"
+#include "device/tt_cluster_descriptor.h"
 #include "tt_emulation_device.h"
 #include "tt_emu_zemi3_wrapper.h"
 
 
 tt_emulation_device::tt_emulation_device(const std::string& sdesc_path) : tt_device(sdesc_path) {
   soc_descriptor_per_chip.emplace(0, tt_SocDescriptor(sdesc_path));
-  
+  std::set<chip_id_t> target_devices = {0};
+  // create just a default one, we do not have cluster anyway
+  ndesc = tt_ClusterDescriptor::create_for_grayskull_cluster(target_devices, {});
   tt_zebu_wrapper_inst = new tt_emu_zemi3_wrapper();
 
-  std::cout << "Created Emulation Device " << std::endl;
+  log_info(tt::LogEmulationDriver, "Created Emulation Device ");
 }
 
 tt_emulation_device::~tt_emulation_device() {
   ndesc.reset();
   delete tt_zebu_wrapper_inst;
-  std::cout << "Destroyed Emulation Device " << std::endl;
+  log_info(tt::LogEmulationDriver, "Destroyed Emulation Device ");
 }
   
 void tt_emulation_device::write(tt_cxy_pair core, uint64_t addr, const std::vector<uint8_t>& data) {
   const uint32_t size = static_cast<uint32_t>(data.size());
-  tt_zebu_wrapper_inst->axi_write(0, core.x, core.y, addr, size, data);
-  std::cout << "Wrote " << size << " bytes to address " << std::hex << addr << std::dec << std::endl;  
+  // TODO are X/Y physical or logical? axi read expects physical
+  tt_zebu_wrapper_inst->axi_write(0, core.x, core.y, addr, size, data); 
+  log_info(tt::LogEmulationDriver, "Wrote {} bytes to address {:#016x}", size, addr);
 }
 
 std::vector<uint8_t> tt_emulation_device::read(tt_cxy_pair core, uint64_t addr, uint32_t size) {
   std::vector<uint8_t> data(size);
+  // TODO are X/Y physical or logical? axi read expects physical
   tt_zebu_wrapper_inst->axi_read(0, core.x, core.y, addr, size, data);
-  std::cout << "Read " << size << " bytes from address " << std::hex << addr << std::dec << std::endl;
+  log_info(tt::LogEmulationDriver, "Read {} bytes from address {:#016x}", size, addr);
+
   return data;
 }
 
 
 void tt_emulation_device::start_device(const tt_device_params& device_params) {
   tt_zebu_wrapper_inst->zebu_start();
-  std::cout << "Started Emulation Device " << std::endl;
+  log_info(tt::LogEmulationDriver, "Started Emulation Device ");
 }
 
-void tt_emulation_device::deassert_risc_reset(int target_device) {
+void tt_emulation_device::deassert_risc_reset() {
   tt_zebu_wrapper_inst->all_tensix_reset_deassert();
-  std::cout << "Deasserted RISC reset for target device " << target_device << std::endl;
+  log_info(tt::LogEmulationDriver, "Deasserted all tensix RISC Reset ");
 }
 
-void tt_emulation_device::assert_risc_reset(int target_device) {
+void tt_emulation_device::assert_risc_reset() {
   tt_zebu_wrapper_inst->all_tensix_reset_assert();
-  std::cout << "Asserted RISC reset for target device " << target_device << std::endl;
+  log_info(tt::LogEmulationDriver, "Asserted all tensix RISC Reset ");
 }
+
+void tt_emulation_device::deassert_risc_reset_at_core(tt_cxy_pair core) {
+  // TODO X/Y physical or logical? assuming physical
+  // TODO tensix_id calculation move to tt_zebu_wrapper
+  uint32_t tensix_id = core.x + core.y*2; 
+  tt_zebu_wrapper_inst->tensix_reset_deassert(tensix_id);
+}
+
+void tt_emulation_device::assert_risc_reset_at_core(tt_cxy_pair core) {
+  uint32_t tensix_id = core.x + core.y*2;
+  tt_zebu_wrapper_inst->tensix_reset_assert(tensix_id);
+}
+
+
 
 void tt_emulation_device::close_device() {
-    std::cout << "Closing Emulation Device " << std::endl;
+    log_info(tt::LogEmulationDriver, "Closing Emulation Device ");
     tt_zebu_wrapper_inst->zebu_finish();
 }
 
 void tt_emulation_device::start(std::vector<std::string> plusargs, std::vector<std::string> dump_cores, bool no_checkers, bool /*init_device*/, bool /*skip_driver_allocs*/
 ) {
-  std::cout << "Starting Emulation Device " << std::endl;
+  log_info(tt::LogEmulationDriver, "Starting Emulation Device ");
 }
 
 
- 
+void tt_emulation_device::broadcast_write_to_cluster(const void *mem_ptr, uint32_t size_in_bytes, uint64_t address, const std::set<chip_id_t>& chips_to_exclude, std::set<uint32_t>& rows_to_exclude, std::set<uint32_t>& cols_to_exclude, const std::string& fallback_tlb) {
+  for(const auto& core : get_soc_descriptor(0) -> cores) {
+    if(cols_to_exclude.find(core.first.x) == cols_to_exclude.end() and rows_to_exclude.find(core.first.y) == rows_to_exclude.end() and core.second.type != CoreType::HARVESTED) {
+        write_to_device(mem_ptr, size_in_bytes, tt_cxy_pair(0, core.first.x, core.first.y), address, "");
+      }
+  }
+} 
 void tt_emulation_device::rolled_write_to_device(std::vector<uint32_t>& base_vec, uint32_t unroll_count, tt_cxy_pair core, uint64_t base_addr, const std::string& tlb_to_use) {
   std::vector<uint32_t> vec = base_vec;
   uint32_t byte_increment = 4 * vec.size();
@@ -69,9 +96,14 @@ void tt_emulation_device::rolled_write_to_device(std::vector<uint32_t>& base_vec
     write_to_device(vec, core, offset_addr, tlb_to_use);
   }
 }
+void tt_emulation_device::write_to_device(const void *mem_ptr, uint32_t size, tt_cxy_pair core, uint64_t addr, const std::string& tlb_to_use, bool send_epoch_cmd, bool last_send_epoch_cmd, bool ordered_with_prev_remote_write) {
+  log_assert(!(size % 4), "Writes to Emulation Backend should be 4 byte aligned!");
 
+  std::vector<std::uint32_t> mem_vector((uint32_t*)mem_ptr, (uint32_t*)mem_ptr + size / sizeof(uint32_t));
+  write_to_device(mem_vector, core, addr, tlb_to_use, send_epoch_cmd, last_send_epoch_cmd, ordered_with_prev_remote_write);
+}
 
-void tt_emulation_device::write_to_device(std::vector<uint32_t>& vec, tt_cxy_pair core, uint64_t addr, const std::string& tlb_to_use, bool send_epoch_cmd, bool last_send_epoch_cmd) {
+void tt_emulation_device::write_to_device(std::vector<uint32_t>& vec, tt_cxy_pair core, uint64_t addr, const std::string& tlb_to_use, bool send_epoch_cmd, bool last_send_epoch_cmd, bool ordered_with_prev_remote_write) {
 //   DEBUG_LOG("Emulation Device (" << get_sim_time(*versim) << "): Write vector at target core " << target.str() << ", address: " << std::hex << address << std::dec);
 
   std::vector<uint8_t> byte_data(vec.size() * sizeof(uint32_t));
@@ -105,16 +137,18 @@ void tt_emulation_device::translate_to_noc_table_coords(chip_id_t device_id, std
 tt_ClusterDescriptor* tt_emulation_device::get_cluster_description() { return ndesc.get(); }
 
 std::set<chip_id_t> tt_emulation_device::get_target_mmio_device_ids() {
-  std::cerr << "get_target_mmio_device_ids not implemented" << std::endl;
+  log_error("LogEmulationDriver: get_target_mmio_device_ids not implemented");
   return {};
 }
 
 std::set<chip_id_t> tt_emulation_device::get_target_remote_device_ids() {
-  std::cerr << "get_target_remote_device_ids not implemented" << std::endl;
+  log_error("LogEmulationDriver: get_target_remote_device_ids not implemented");
   return {};
 }
 
-
+void tt_emulation_device::set_device_dram_address_params(const tt_device_dram_address_params& dram_address_params_) {
+    dram_address_params = dram_address_params_;
+}
 int tt_emulation_device::get_number_of_chips_in_cluster() { return detect_number_of_chips(); }
 std::unordered_set<int> tt_emulation_device::get_all_chips_in_cluster() { return { 0 }; }
 int tt_emulation_device::detect_number_of_chips() { return 1; }

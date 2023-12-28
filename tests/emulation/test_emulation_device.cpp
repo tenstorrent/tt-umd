@@ -26,14 +26,14 @@ TEST(EmulationDeviceGS, BasicEmuTest) {
         device.read_from_device(rdata, tt_cxy_pair(0, core), l1_addr, size, "l1");
         ASSERT_EQ(wdata, rdata) << "Vector read back from core " << core.x << "-" << core.y << "does not match what was written";
 
-        device.deassert_risc_reset(0);
+        device.deassert_risc_reset();
         device.write_to_device(wdata, tt_cxy_pair(0, tt_xy_pair(phys_x, phys_y)), l1_addr, "l1");
-        device.assert_risc_reset(0);
+        device.assert_risc_reset();
         device.write_to_device(wdata, tt_cxy_pair(0, tt_xy_pair(phys_x, phys_y)), l1_addr, "l1");
 
 
     } catch (const std::exception &e) {
-        cout << "Error: " << e.what() << endl;
+        std::cout << "Error: " << e.what() << std::endl;
     }
     device.close_device();
 }

@@ -17,6 +17,7 @@ enum class ARCH {
     GRAYSKULL = 1,
     WORMHOLE = 2,
     WORMHOLE_B0 = 3,
+    BLACKHOLE = 4,
     Invalid = 0xFF,
 };
 }

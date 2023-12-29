@@ -268,6 +268,8 @@ int tt_SocDescriptor::get_num_dram_blocks_per_channel() const {
         num_blocks = 2;
     } else if (arch == tt::ARCH::WORMHOLE_B0) {
         num_blocks = 2;
+    } else if (arch == tt::ARCH::BLACKHOLE) {
+        num_blocks = 2;
     }
     return num_blocks;
 }
@@ -278,7 +280,7 @@ uint64_t tt_SocDescriptor::get_noc2host_offset(uint16_t host_channel) const {
 
     if (arch == tt::ARCH::GRAYSKULL) {
         return (host_channel * PEER_REGION_SIZE);
-    }else if (arch == tt::ARCH::WORMHOLE || arch == tt::ARCH::WORMHOLE_B0) {
+    }else if (arch == tt::ARCH::WORMHOLE || arch == tt::ARCH::WORMHOLE_B0 || arch == tt::ARCH::BLACKHOLE) {
         return (host_channel * PEER_REGION_SIZE) + 0x800000000;
     } else {
         throw std::runtime_error("Unsupported architecture");
@@ -296,6 +298,8 @@ std::ostream &operator<<(std::ostream &out, const tt::ARCH &arch_name) {
         out << "wormhole";
     } else if (arch_name == tt::ARCH::WORMHOLE_B0) {
         out << "wormhole_b0";
+    } else if (arch_name == tt::ARCH::BLACKHOLE) {
+        out << "blackhole"; //Just how many ARCH-to-string functions do we plan to have, anyway?
     } else {
         out << "ArchNameSerializationNotImplemented";
     }

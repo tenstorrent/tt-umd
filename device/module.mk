@@ -54,8 +54,10 @@ DEVICE_OBJS = $(addprefix $(DEVICE_OBJDIR)/, $(DEVICE_SRCS:.cpp=.o))
 DEVICE_DEPS = $(addprefix $(DEVICE_OBJDIR)/, $(DEVICE_SRCS:.cpp=.d))
 
 ifeq ($(BACKEND_VERSIM_FULL_DUMP), 1)
-ifneq ("$(ARCH_NAME)", "wormhole_b0")
-  $(error "FPU wave dump only available for wormhole_b0")
+ifeq ("$(ARCH_NAME)", "grayskull")
+  $(error "FPU wave dump versim image not available for grayskull")
+else ifeq ("$(ARCH_NAME)", "wormhole")
+  $(error "FPU wave dump versim image not available for wormhole")
 endif
 
 VERSIM_LIB = fpu_waves_lib

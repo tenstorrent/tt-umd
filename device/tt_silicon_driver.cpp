@@ -1582,8 +1582,8 @@ tt_SiliconDevice::tt_SiliconDevice(const std::string &sdesc_path, const std::str
     perform_harvesting_and_populate_soc_descriptors(sdesc_path, perform_harvesting);
     populate_cores();
     if(arch_name == tt::ARCH::WORMHOLE or arch_name == tt::ARCH::WORMHOLE_B0) {
-        remote_transfer_ethernet_cores.resize(ndesc->get_chips_with_mmio().size());
-        for (const auto &[logical_mmio_chip_id, physical_mmio_chip_id] : ndesc->get_chips_with_mmio()) {
+        remote_transfer_ethernet_cores.resize(target_mmio_device_ids.size());
+        for (const auto &logical_mmio_chip_id : target_mmio_device_ids) {
             tt_SocDescriptor& soc_desc = get_soc_descriptor(logical_mmio_chip_id);
             // 4-5 is for send_epoch_commands, 0-3 are for everything else
             for (std::uint32_t i = 0; i < NUM_ETH_CORES_FOR_NON_MMIO_TRANSFERS; i++) {

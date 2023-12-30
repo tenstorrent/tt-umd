@@ -33,6 +33,8 @@ static inline std::string get_arch_str(const tt::ARCH arch_name){
         arch_name_str = "wormhole";
     } else if (arch_name == tt::ARCH::WORMHOLE_B0) {
         arch_name_str = "wormhole_b0";
+    } else if (arch_name == tt::ARCH::BLACKHOLE) {
+        arch_name_str = "blackhole";
     } else {
         throw std::runtime_error("Invalid arch_name");
     }
@@ -51,6 +53,8 @@ static inline tt::ARCH get_arch_name(const std::string &arch_str){
         arch = tt::ARCH::WORMHOLE;
     } else if ((arch_str == "wormhole_b0") || (arch_str == "WORMHOLE_B0")){
         arch = tt::ARCH::WORMHOLE_B0;
+    } else if ((arch_str == "blackhole") || (arch_str == "BLACKHOLE")){
+        arch = tt::ARCH::BLACKHOLE;
     }else {
         throw std::runtime_error(
             "At LoadSocDescriptorFromYaml: \"" + arch_str + "\" is not recognized as tt::ARCH.");

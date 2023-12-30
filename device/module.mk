@@ -133,7 +133,7 @@ DEVICE_INCLUDES+=      	\
 
 endif
 
-ifneq ($(filter "$(ARCH_NAME)","wormhole" "wormhole_b0"),)
+ifneq ($(filter "$(ARCH_NAME)","wormhole" "wormhole_b0" "blackhole"),)
   DEVICE_CXXFLAGS += -DEN_DRAM_ALIAS
   ifeq ($(DISABLE_ISSUE_3487_FIX), 1)
     DEVICE_CXXFLAGS += -DDISABLE_ISSUE_3487_FIX

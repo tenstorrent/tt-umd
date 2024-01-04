@@ -103,6 +103,12 @@ chip_id_t tt_ClusterDescriptor::get_closest_mmio_capable_chip(const chip_id_t &c
         eth_coord_t mmio_eth_coord = this->chip_locations.at(mmio_chip);
         eth_coord_t chip_eth_coord = this->chip_locations.at(chip);
 
+        std::cout << "mmio_eth_coord: ["
+            << std::get<3>(mmio_eth_coord) << " "
+            << std::get<2>(mmio_eth_coord) << " "
+            << std::get<1>(mmio_eth_coord) << " "
+            << std::get<0>(mmio_eth_coord) << "]" << std::endl;
+
         // this function only supports if all mmio chips are on the same shelf and rack
         log_assert(mmio_chip_shelf == -1 || mmio_chip_shelf == std::get<3>(mmio_eth_coord), "mmio chips are on different shelves");
         mmio_chip_shelf = std::get<3>(mmio_eth_coord);
@@ -116,17 +122,24 @@ chip_id_t tt_ClusterDescriptor::get_closest_mmio_capable_chip(const chip_id_t &c
         // but we can rely on the coordinates once we jump to a galaxy chip
         // we do not support nebula (shelf0)->nebula (shelf0)->galaxy(shelf1) systems, we assert below for that
         if(std::get<2>(mmio_eth_coord) != std::get<2>(chip_eth_coord) || std::get<3>(mmio_eth_coord) != std::get<3>(chip_eth_coord)) {
-            for (const auto &[chip, chan_to_chip_chan_map] : this->ethernet_connections) {
-                for (const auto &[chan, chip_and_chan] : chan_to_chip_chan_map) {
-                    eth_coord_t neighbor_eth_coord = this->chip_locations.at(std::get<0>(chip_and_chan));
-                    // nebula->nebula->galaxy not supported
-                    log_assert(std::get<3>(mmio_eth_coord) != std::get<3>(neighbor_eth_coord),
-                        "On multi-shelf systems mmio chip is expected to be connected to another shelf");
-                    int distance = get_ethernet_link_coord_distance(neighbor_eth_coord, chip_eth_coord) + 1;
-                    if (distance < min_distance) {
-                        min_distance = distance;
-                        closest_chip = mmio_chip;
-                    }
+            for (const auto &[chan, chip_and_chan] : this->ethernet_connections.at(mmio_chip)) {
+                eth_coord_t neighbor_eth_coord = this->chip_locations.at(std::get<0>(chip_and_chan));
+
+                std::cout << "\tneighbor:" << std::get<0>(chip_and_chan) <<
+                    " neighbor_eth_coord: ["
+                    << std::get<3>(neighbor_eth_coord) << " "
+                    << std::get<2>(neighbor_eth_coord) << " "
+                    << std::get<1>(neighbor_eth_coord) << " "
+                    << std::get<0>(neighbor_eth_coord) << "]" << std::endl;
+
+                // nebula->nebula->galaxy not supported
+                log_assert(std::get<3>(mmio_eth_coord) != std::get<3>(neighbor_eth_coord),
+                    "On multi-shelf systems mmio chip is expected to be connected to another shelf");
+                int distance = get_ethernet_link_coord_distance(neighbor_eth_coord, chip_eth_coord) + 1;
+                std::cout << "\t\tdistance:" << distance << std::endl;
+                if (distance < min_distance) {
+                    min_distance = distance;
+                    closest_chip = mmio_chip;
                 }
             }
         }
@@ -140,7 +153,7 @@ chip_id_t tt_ClusterDescriptor::get_closest_mmio_capable_chip(const chip_id_t &c
     }
     log_assert(is_chip_mmio_capable(closest_chip), "Closest MMIO chip must be MMIO capable");
 
-    std::cout << "closest_mmio_chip to chip" << chip << " is " << closest_chip << " distance:" << min_distance << std::endl;
+    std::cout << "closest_mmio_chip to chip" << chip << " is chip" << closest_chip << " distance:" << min_distance << std::endl;
 
     return closest_chip;
 

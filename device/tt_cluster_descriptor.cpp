@@ -93,11 +93,17 @@ int get_ethernet_link_coord_distance(const eth_coord_t &location_a, const eth_co
     return x_distance + y_distance + rack_distance + shelf_distance;
 }
 
-chip_id_t tt_ClusterDescriptor::get_closest_mmio_capable_chip(const chip_id_t &chip) const {
+chip_id_t tt_ClusterDescriptor::get_closest_mmio_capable_chip(const chip_id_t &chip) {
     int min_distance = std::numeric_limits<int>::max();
     chip_id_t closest_chip = chip;
     int mmio_chip_shelf = -1;
     int mmio_chip_rack = -1;
+
+    if(closest_mmio_chip_cache.find(chip) != closest_mmio_chip_cache.end()) {
+        std::cout << "[cached]closest_mmio_chip to chip" << chip << " is chip" << closest_chip << std::endl;
+        return closest_mmio_chip_cache[chip];
+    }
+
     for (const auto &pair : this->chips_with_mmio) {
         const chip_id_t &mmio_chip = pair.first;
         eth_coord_t mmio_eth_coord = this->chip_locations.at(mmio_chip);
@@ -155,8 +161,9 @@ chip_id_t tt_ClusterDescriptor::get_closest_mmio_capable_chip(const chip_id_t &c
 
     std::cout << "closest_mmio_chip to chip" << chip << " is chip" << closest_chip << " distance:" << min_distance << std::endl;
 
-    return closest_chip;
+    closest_mmio_chip_cache[chip] = closest_chip;
 
+    return closest_chip;
 }
 
 std::unique_ptr<tt_ClusterDescriptor> tt_ClusterDescriptor::create_from_yaml(const std::string &cluster_descriptor_file_path) {

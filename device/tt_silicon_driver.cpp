@@ -618,6 +618,39 @@ int get_revision_id(TTDevice *dev) {
     }
 }
 
+int get_link_width(TTDevice *dev) {
+
+    static const char pattern[] = "/sys/bus/pci/devices/%04x:%02x:%02x.%u/current_link_width";
+    char buf[sizeof(pattern)];
+    std::snprintf(buf, sizeof(buf), pattern,
+    (unsigned int)dev->pci_domain, (unsigned int)dev->pci_bus, (unsigned int)dev->pci_device, (unsigned int)dev->pci_function);
+
+    std::ifstream linkwidth_file(buf);
+    std::string linkwidth_string;
+    if (std::getline(linkwidth_file, linkwidth_string)) {
+        return std::stoi(linkwidth_string, nullptr, 0);
+    } else {
+        throw std::runtime_error("Link width read failed for device");
+    }
+}
+
+int get_link_speed(TTDevice *dev) {
+
+    static const char pattern[] = "/sys/bus/pci/devices/%04x:%02x:%02x.%u/current_link_speed";
+    char buf[sizeof(pattern)];
+    std::snprintf(buf, sizeof(buf), pattern,
+    (unsigned int)dev->pci_domain, (unsigned int)dev->pci_bus, (unsigned int)dev->pci_device, (unsigned int)dev->pci_function);
+
+    std::ifstream linkspeed_file(buf);
+    std::string linkspeed_string;
+    int linkspeed;
+    if (std::getline(linkspeed_file, linkspeed_string) && sscanf(linkspeed_string.c_str(), "%d", &linkspeed) == 1) {
+        return linkspeed;
+    } else {
+        throw std::runtime_error("Link speed read failed for device");
+    }
+}
+
 std::uint64_t read_bar0_base(TTDevice *dev) {
     const std::uint64_t bar_address_mask = ~(std::uint64_t)0xF;
     unsigned int bar0_config_offset = 0x10;
@@ -4422,6 +4455,14 @@ std::uint32_t tt_SiliconDevice::get_host_channel_size(std::uint32_t device_id, s
     log_assert(host_channel_size.size(), "Host channel size can only be queried after the device has been started.");
     log_assert(channel < get_num_host_channels(device_id), "Querying size for a host channel that does not exist.");
     return host_channel_size.at(device_id).at(channel);
+}
+
+std::uint32_t tt_SiliconDevice::get_pcie_speed(std::uint32_t device_id) {
+    PCIdevice *pci_device = get_pci_device(device_id);
+    int link_width = get_link_width(pci_device->hdev);
+    int link_speed = get_link_speed(pci_device->hdev);
+    log_debug(LogSiliconDriver, "Device {} PCIe link width: x{}, speed: {} Gb/s", device_id, link_width, link_speed);
+    return (link_width * link_speed);
 }
 
 std::uint64_t tt_SiliconDevice::get_pcie_base_addr_from_device() const {

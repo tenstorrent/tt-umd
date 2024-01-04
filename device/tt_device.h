@@ -548,6 +548,15 @@ class tt_device
         throw std::runtime_error("---- tt_device::get_clocks is not implemented\n");
         return std::map<int,int>();
     }
+
+    /**
+     * @brief Get the PCIe speed for a specific device based on link width and link speed
+     * \returns Bandwidth in Gbps
+     */
+    virtual std::uint32_t get_pcie_speed(std::uint32_t device_id) {
+        return 8 * 16;  // default to x8 at 16 GT/s
+    }
+
     /** 
      * @brief Get the total hugepage (host memory) size allocated for a device. 
      * This memory is not entirely accessible by device. To query the number of channels
@@ -803,6 +812,8 @@ class tt_SiliconDevice: public tt_device
     virtual std::uint32_t get_dram_channel_size(std::uint32_t device_id, std::uint32_t channel);
     virtual std::uint32_t get_num_host_channels(std::uint32_t device_id);
     virtual std::uint32_t get_host_channel_size(std::uint32_t device_id, std::uint32_t channel);
+    virtual std::uint32_t get_pcie_speed(std::uint32_t device_id);
+
     // Destructor
     virtual ~tt_SiliconDevice ();
 

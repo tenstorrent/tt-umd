@@ -638,7 +638,7 @@ void RunMixedTransfers(
             // print_command(sample);
         }
         if (i != 0 && num_samples > 100 && i % (num_samples / 100) == 0) {
-            // std::cout << "Completed " << i / (num_samples / 100) << "% of samples" << std::endl;
+            std::cout << "Completed " << i / (num_samples / 100) << "% of samples" << std::endl;
         }
         dispatch_remote_transfer_command(device, sample, payload);
     }

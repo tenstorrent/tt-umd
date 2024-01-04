@@ -93,7 +93,7 @@ TEST_F(WormholeGalaxyStabilityTestFixture, MixedRemoteTransfers) {
 
 }
 
-TEST_F(WormholeGalaxyStabilityTestFixture, DISABLED_MultithreadedMixedRemoteTransfersMediumSmall) {
+TEST_F(WormholeGalaxyStabilityTestFixture, MultithreadedMixedRemoteTransfersMediumSmall) {
     int seed = 0;
 
     log_info(LogSiliconDriver,"Started MultithreadedMixedRemoteTransfersMediumSmall");

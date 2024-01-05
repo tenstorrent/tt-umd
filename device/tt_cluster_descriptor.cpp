@@ -99,10 +99,9 @@ int get_ethernet_link_coord_distance(const eth_coord_t &location_a, const eth_co
 //    nebula0/chip1 <-> nebula0/chip0/mmio <-> nebula1/chip0/mmio <-> nebula1/chip1
 //           |                   |                      |                   |
 //    nebula2/chip1 <-> nebula2/chip0/mmio <-> nebula3/chip0/mmio <-> nebula3/chip1
-// 2. other combinations of Nebula's as long as they are on the same shelf
-// 3. Nebula -> Galaxy
-// 4. Nebula -> Galaxy -> Galaxy
-// 5. Plink -> Galaxy
+// 2. Other combinations of Nebula's as long as they are on the same shelf
+// 3. Nebula(x1 or x2) -> Galaxy -> ... -> Galaxy
+// 4. Plink -> Galaxy -> ... -> Galaxy
 chip_id_t tt_ClusterDescriptor::get_closest_mmio_capable_chip(const chip_id_t &chip) {
     int min_distance = std::numeric_limits<int>::max();
     chip_id_t closest_chip = chip;
@@ -141,7 +140,8 @@ chip_id_t tt_ClusterDescriptor::get_closest_mmio_capable_chip(const chip_id_t &c
         // this assumes that we do not have nebula (shelf0)->nebula (shelf0)->galaxy(shelf1) system, we assert below for that
         if(std::get<2>(mmio_eth_coord) != std::get<2>(chip_eth_coord) || std::get<3>(mmio_eth_coord) != std::get<3>(chip_eth_coord)) {
             for (const auto &[chan, chip_and_chan] : this->ethernet_connections.at(mmio_chip)) {
-                eth_coord_t neighbor_eth_coord = this->chip_locations.at(std::get<0>(chip_and_chan));
+                const chip_id_t &neighbor_chip = std::get<0>(chip_and_chan);
+                eth_coord_t neighbor_eth_coord = this->chip_locations.at(neighbor_chip);
 
                 std::cout << "\t\tneighbor:" << std::get<0>(chip_and_chan) <<
                     " neighbor_eth_coord: ["
@@ -151,8 +151,16 @@ chip_id_t tt_ClusterDescriptor::get_closest_mmio_capable_chip(const chip_id_t &c
                     << std::get<3>(neighbor_eth_coord) << "]" << std::endl;
 
                 // nebula->nebula->galaxy is not supported in this function
-                log_assert(std::get<3>(mmio_eth_coord) != std::get<3>(neighbor_eth_coord),
-                    "On multi-shelf systems mmio chip (nebula) is expected to be connected to another shelf");
+                // but nebulax2->galaxy is supported
+                // if neighbor is on the shelf, we must have nebulax2, make sure the neighbor of the neighbor is the mmio chip
+                if(std::get<3>(mmio_eth_coord) == std::get<3>(neighbor_eth_coord)) {
+                    for (const auto &[n2_chan, n2_chip_and_chan] : this->ethernet_connections.at(neighbor_chip)) {
+                        const chip_id_t &neighbor2_chip = std::get<0>(n2_chip_and_chan);
+                        log_assert(mmio_chip == neighbor2_chip,
+                            "On multi-shelf systems mmio chip (nebula) is expected to be connected to another shelf");
+                    }
+                    continue;
+                }
                 int distance = get_ethernet_link_coord_distance(neighbor_eth_coord, chip_eth_coord) + 1;
                 std::cout << "\t\t\tdistance:" << distance << std::endl;
                 if (distance < min_distance) {

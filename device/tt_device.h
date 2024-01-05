@@ -911,6 +911,7 @@ class tt_SiliconDevice: public tt_device
     std::vector<std::uint32_t> erisc_q_ptrs_epoch;
     tt_cxy_pair remote_transfer_ethernet_cores[NUM_ETH_CORES_FOR_NON_MMIO_TRANSFERS];
     bool flush_non_mmio = false;
+    tt_cxy_pair prev_xfer_core = {0, 0, 0};
     // Size of the PCIE DMA buffer
     // The setting should not exceed MAX_DMA_BYTES
     std::uint32_t m_dma_buf_size;

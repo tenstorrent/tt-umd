@@ -3243,10 +3243,24 @@ void tt_SiliconDevice::write_to_non_mmio_device_send_epoch_cmd(const uint32_t *m
         read_device_memory(erisc_q_ptrs_epoch.data(), remote_transfer_ethernet_core, eth_interface_params.REQUEST_CMD_QUEUE_BASE + eth_interface_params.CMD_COUNTERS_SIZE_BYTES, eth_interface_params.REMOTE_UPDATE_PTR_SIZE_BYTES*2, read_tlb);
     }
 
+    // Add this book-keeping and assert somehow bypasses the race. Not true, still hit race with it on 21st run (harder to hit)
+    // if (ordered_with_prev_remote_write) {
+
+        // Limit it to DRAM 0-1 for now which is where epoch cmd queue for core-1-1 tensix resides that shows #2388 race.
+        if (core.x == 0 && core.y == 1) {
+            log_assert(!ordered_with_prev_remote_write || remote_transfer_ethernet_core == prev_xfer_core, "Not matching xfer core. remote_transfer_ethernet_core: {} prev_xfer_core: {}", remote_transfer_ethernet_core.str(), prev_xfer_core.str());
+
+            log_info(LogSiliconDriver, "KCM {} core: {} active_core_epoch: {} remote_transfer_ethernet_core: {} use_ethernet_ordered_writes: {} cmd_ordered: {} last_send_epoch_cmd: {} ordered: {}",
+                __FUNCTION__, core.str(), active_core_epoch, remote_transfer_ethernet_core.str(), use_ethernet_ordered_writes, eth_interface_params.CMD_ORDERED, last_send_epoch_cmd, ordered_with_prev_remote_write);
+        }
+
+    // }
+    prev_xfer_core = remote_transfer_ethernet_core;
+
     uint32_t req_wr_ptr = erisc_q_ptrs_epoch[0] & eth_interface_params.CMD_BUF_SIZE_MASK;
     if (address & 0x1F) { // address not 32-byte aligned
         // can send it in one transfer, no need to break it up
-        log_assert(size_in_bytes == DATA_WORD_SIZE, "Non-mmio cmd queue update is too big");
+        log_assert(size_in_bytes <= max_block_size, "Non-mmio cmd queue update is too big. size_in_bytes: {} exceeds DATA_WORD_SIZE: {}", size_in_bytes, DATA_WORD_SIZE);
         block_size = DATA_WORD_SIZE;
     } else {
         // can send it in one transfer, no need to break it up

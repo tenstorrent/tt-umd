@@ -22,16 +22,26 @@
 namespace YAML { class Node; }
 
 class tt_ClusterDescriptor {
+
+  private:
+    int get_ethernet_link_coord_distance(const eth_coord_t &location_a, const eth_coord_t &location_b);
+
   protected:
 
   std::unordered_map<chip_id_t, std::unordered_map<ethernet_channel_t, std::tuple<chip_id_t, ethernet_channel_t> > > ethernet_connections;
   std::unordered_map<chip_id_t, eth_coord_t> chip_locations;
+  // reverse map: rack/shelf/y/x -> chip_id
+  std::map<int, std::map<int, std::map<int, std::map<int, chip_id_t > > > > coords_to_chip_ids;
   std::unordered_map<chip_id_t, chip_id_t> chips_with_mmio;
   std::unordered_set<chip_id_t> all_chips;
   std::unordered_map<chip_id_t, bool> noc_translation_enabled = {};
   std::unordered_map<chip_id_t, std::uint32_t> harvesting_masks = {};
   std::unordered_set<chip_id_t> enabled_active_chips;
   std::unordered_map<chip_id_t, chip_id_t> closest_mmio_chip_cache = {};
+  std::unordered_map<int, int> galaxy_shelf_entry_x = {};
+  std::unordered_map<int, int> galaxy_shelf_exit_x = {};
+  std::unordered_map<int, int> galaxy_rack_entry_y = {};
+  std::unordered_map<int, int> galaxy_rack_exit_y = {};
 
   static void load_ethernet_connections_from_connectivity_descriptor(YAML::Node &yaml, tt_ClusterDescriptor &desc);
   static void load_chips_from_connectivity_descriptor(YAML::Node &yaml, tt_ClusterDescriptor &desc);

@@ -4458,10 +4458,16 @@ std::uint32_t tt_SiliconDevice::get_host_channel_size(std::uint32_t device_id, s
 }
 
 std::uint32_t tt_SiliconDevice::get_pcie_speed(std::uint32_t device_id) {
-    PCIdevice *pci_device = get_pci_device(device_id);
-    int link_width = get_link_width(pci_device->hdev);
-    int link_speed = get_link_speed(pci_device->hdev);
-    log_debug(LogSiliconDriver, "Device {} PCIe link width: x{}, speed: {} Gb/s", device_id, link_width, link_speed);
+    int link_width = 0;
+    int link_speed = 0;
+    if (ndesc->is_chip_mmio_capable(device_id)) {
+        PCIdevice *pci_device = get_pci_device(device_id);
+        link_width = get_link_width(pci_device->hdev);
+        link_speed = get_link_speed(pci_device->hdev);
+        log_debug(LogSiliconDriver, "Device {} PCIe link width: x{}, speed: {} Gb/s", device_id, link_width, link_speed);
+    } else {
+        log_debug(LogSiliconDriver, "Device {} is NOT a PCIe device, width: x{}, speed: {} Gb/s", device_id, link_width, link_speed);
+    }
     return (link_width * link_speed);
 }
 

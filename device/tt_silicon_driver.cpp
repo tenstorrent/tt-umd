@@ -3246,12 +3246,12 @@ void tt_SiliconDevice::write_to_non_mmio_device_send_epoch_cmd(const uint32_t *m
     // Add this book-keeping and assert somehow bypasses the race. Not true, still hit race with it on 21st run (harder to hit)
     // if (ordered_with_prev_remote_write) {
 
+            // log_info(LogSiliconDriver, "KCM {} core: {} active_core_epoch: {} remote_transfer_ethernet_core: {} use_ethernet_ordered_writes: {} cmd_ordered: {} last_send_epoch_cmd: {} ordered: {} size_in_bytes: {} addr: 0x{:x}",
+            //     __FUNCTION__, core.str(), active_core_epoch, remote_transfer_ethernet_core.str(), use_ethernet_ordered_writes, eth_interface_params.CMD_ORDERED, last_send_epoch_cmd, ordered_with_prev_remote_write, size_in_bytes, address);
+
         // Limit it to DRAM 0-1 for now which is where epoch cmd queue for core-1-1 tensix resides that shows #2388 race.
         if (core.x == 0 && core.y == 1) {
             log_assert(!ordered_with_prev_remote_write || remote_transfer_ethernet_core == prev_xfer_core, "Not matching xfer core. remote_transfer_ethernet_core: {} prev_xfer_core: {}", remote_transfer_ethernet_core.str(), prev_xfer_core.str());
-
-            log_info(LogSiliconDriver, "KCM {} core: {} active_core_epoch: {} remote_transfer_ethernet_core: {} use_ethernet_ordered_writes: {} cmd_ordered: {} last_send_epoch_cmd: {} ordered: {}",
-                __FUNCTION__, core.str(), active_core_epoch, remote_transfer_ethernet_core.str(), use_ethernet_ordered_writes, eth_interface_params.CMD_ORDERED, last_send_epoch_cmd, ordered_with_prev_remote_write);
         }
 
     // }

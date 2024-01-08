@@ -3231,8 +3231,10 @@ void tt_SiliconDevice::write_to_non_mmio_device(
 // 1) uses separate eth cores than other non-mmio transfers hence does not require mutex
 // 2) does not have the code paths for transfers larger than 32kB (1024 cmds)
 // 3) only reads erisc_q_ptrs_epoch once, or when the queues are full
-// 4) only updates wptr on eth command queues for the last epoch command or when the queue is full
-// 5) ability to use write-ordering eth fw feature for remote cmds (useful to order epoch cmd, wrptr) if FW supports it, otherwise use flush.
+// 4) only updates wptr on eth command queues for the last epoch command or when the queue is full or when switching eth cores based on eth-ordered-writes policy.
+// 5) When eth-ordered-write not supported, allow flush to be used as ordering mechanism when ordering is requested via arg. When eth-ordered-write is supported, always use it
+//    and ensure ordering to same remote chip destinations by always using same remote xfer eth core for a given destination based on noc xy. Must ensure wrptr is flushed on
+//    switch of eth cores, and copy of rdptr/wrptr maintained on host for each eth xfer core.
 void tt_SiliconDevice::write_to_non_mmio_device_send_epoch_cmd(const uint32_t *mem_ptr, uint32_t size_in_bytes, tt_cxy_pair core, uint64_t address, bool last_send_epoch_cmd, bool ordered_with_prev_remote_write) {
     using data_word_t = uint32_t;
     constexpr int DATA_WORD_SIZE = sizeof(data_word_t);
@@ -3244,6 +3246,40 @@ void tt_SiliconDevice::write_to_non_mmio_device_send_epoch_cmd(const uint32_t *m
     std::string read_tlb = "LARGE_READ_TLB";
     std::string empty_tlb = "";
     translate_to_noc_table_coords(0, core.y, core.x);
+
+    const auto &mmio_capable_chip_logical = ndesc->get_closest_mmio_capable_chip(core.chip);
+    tt_cxy_pair remote_transfer_ethernet_core = remote_transfer_ethernet_cores.at(mmio_capable_chip_logical)[active_core_epoch];
+
+    // read all eth queue ptrs for the first time, and initialize wrptr_updated bool for strict ordering.
+    if (!erisc_q_ptrs_initialized) {
+        for (int core_epoch = EPOCH_ETH_CORES_START_ID; core_epoch < EPOCH_ETH_CORES_FOR_NON_MMIO_TRANSFERS + EPOCH_ETH_CORES_START_ID; core_epoch++) {
+            erisc_q_ptrs_epoch[core_epoch].reserve(eth_interface_params.REMOTE_UPDATE_PTR_SIZE_BYTES*2/sizeof(uint32_t));
+            read_device_memory(erisc_q_ptrs_epoch[core_epoch].data(), remote_transfer_ethernet_core, eth_interface_params.REQUEST_CMD_QUEUE_BASE + eth_interface_params.CMD_COUNTERS_SIZE_BYTES, eth_interface_params.REMOTE_UPDATE_PTR_SIZE_BYTES*2, read_tlb);
+            erisc_q_wrptr_updated[core_epoch] = false;
+            erisc_q_ptrs_initialized = true;
+        }
+    }
+
+    // Feature in this function to ensure ordering via eth-ordered-writes by using same eth core for all epoch writes to same dest noc xy.
+    bool eth_ordered_writes_single_eth_core = use_ethernet_ordered_writes;
+
+    if (eth_ordered_writes_single_eth_core) {
+        auto &soc_desc  = get_soc_descriptor(mmio_capable_chip);
+        int core_id = core.x * soc_desc.grid_size.y + core.y;
+        int new_active_core_epoch = (core_id % EPOCH_ETH_CORES_FOR_NON_MMIO_TRANSFERS) + EPOCH_ETH_CORES_START_ID;
+
+        // Switch eth cores, and if wrptr was not flushed to device for previous eth core, do it now.
+        if (new_active_core_epoch != active_core_epoch) {
+            if (!erisc_q_wrptr_updated[active_core_epoch]) {
+                std::vector<std::uint32_t> erisc_q_wptr = { erisc_q_ptrs_epoch[active_core_epoch][0] };
+                write_device_memory(erisc_q_wptr.data(), erisc_q_wptr.size() * DATA_WORD_SIZE, remote_transfer_ethernet_core, eth_interface_params.REQUEST_CMD_QUEUE_BASE + eth_interface_params.CMD_COUNTERS_SIZE_BYTES, write_tlb);
+                tt_driver_atomics::sfence();
+                erisc_q_wrptr_updated[active_core_epoch] = true;
+            }
+            active_core_epoch = new_active_core_epoch;
+            remote_transfer_ethernet_core = remote_transfer_ethernet_cores.at(mmio_capable_chip_logical)[active_core_epoch];
+        }
+    }
 
     std::vector<std::uint32_t> erisc_command(sizeof(routing_cmd_t)/DATA_WORD_SIZE);
     routing_cmd_t *new_cmd = (routing_cmd_t *)&erisc_command[0];
@@ -3261,30 +3297,20 @@ void tt_SiliconDevice::write_to_non_mmio_device_send_epoch_cmd(const uint32_t *m
 
     bool use_dram = size_in_bytes > 256 * DATA_WORD_SIZE ? true : false;
     uint32_t max_block_size = use_dram ? host_address_params.ETH_ROUTING_BLOCK_SIZE : eth_interface_params.MAX_BLOCK_SIZE;
-    const auto &mmio_capable_chip_logical = ndesc->get_closest_mmio_capable_chip(core.chip);
-
-    tt_cxy_pair remote_transfer_ethernet_core = remote_transfer_ethernet_cores.at(mmio_capable_chip_logical)[active_core_epoch];
-
-    // read queue ptrs for the first time
-    if(erisc_q_ptrs_epoch.capacity() == 0) {
-        erisc_q_ptrs_epoch.reserve(eth_interface_params.REMOTE_UPDATE_PTR_SIZE_BYTES*2/sizeof(uint32_t));
-        read_device_memory(erisc_q_ptrs_epoch.data(), remote_transfer_ethernet_core, eth_interface_params.REQUEST_CMD_QUEUE_BASE + eth_interface_params.CMD_COUNTERS_SIZE_BYTES, eth_interface_params.REMOTE_UPDATE_PTR_SIZE_BYTES*2, read_tlb);
-    }
-
     uint32_t block_size;
 
     // Ethernet ordered writes must originate from same erisc core, so prevent updating active core here.
-    while (is_non_mmio_cmd_q_full(erisc_q_ptrs_epoch[0], erisc_q_ptrs_epoch[4])) {
-        if (!ordered_with_prev_remote_write){
+    while (is_non_mmio_cmd_q_full(erisc_q_ptrs_epoch[active_core_epoch][0], erisc_q_ptrs_epoch[active_core_epoch][4])) {
+        if (!eth_ordered_writes_single_eth_core){
             active_core_epoch++;
             log_assert(active_core_epoch - EPOCH_ETH_CORES_START_ID >= 0, "Invalid ERISC core for sending epoch commands");
             active_core_epoch = ((active_core_epoch - EPOCH_ETH_CORES_START_ID) % EPOCH_ETH_CORES_FOR_NON_MMIO_TRANSFERS) + EPOCH_ETH_CORES_START_ID;
             remote_transfer_ethernet_core = remote_transfer_ethernet_cores.at(mmio_capable_chip_logical)[active_core_epoch];
         }
-        read_device_memory(erisc_q_ptrs_epoch.data(), remote_transfer_ethernet_core, eth_interface_params.REQUEST_CMD_QUEUE_BASE + eth_interface_params.CMD_COUNTERS_SIZE_BYTES, eth_interface_params.REMOTE_UPDATE_PTR_SIZE_BYTES*2, read_tlb);
+        read_device_memory(erisc_q_ptrs_epoch[active_core_epoch].data(), remote_transfer_ethernet_core, eth_interface_params.REQUEST_CMD_QUEUE_BASE + eth_interface_params.CMD_COUNTERS_SIZE_BYTES, eth_interface_params.REMOTE_UPDATE_PTR_SIZE_BYTES*2, read_tlb);
     }
 
-    uint32_t req_wr_ptr = erisc_q_ptrs_epoch[0] & eth_interface_params.CMD_BUF_SIZE_MASK;
+    uint32_t req_wr_ptr = erisc_q_ptrs_epoch[active_core_epoch][0] & eth_interface_params.CMD_BUF_SIZE_MASK;
     if (address & 0x1F) { // address not 32-byte aligned
         // can send it in one transfer, no need to break it up
         log_assert(size_in_bytes == DATA_WORD_SIZE, "Non-mmio cmd queue update is too big");
@@ -3338,11 +3364,14 @@ void tt_SiliconDevice::write_to_non_mmio_device_send_epoch_cmd(const uint32_t *m
     tt_driver_atomics::sfence();
 
     // update the wptr only if the eth queue is full or for the last command
-    erisc_q_ptrs_epoch[0] = (erisc_q_ptrs_epoch[0] + 1) & eth_interface_params.CMD_BUF_PTR_MASK;
-    if (last_send_epoch_cmd || is_non_mmio_cmd_q_full(erisc_q_ptrs_epoch[0], erisc_q_ptrs_epoch[4])) {
-        std::vector<std::uint32_t> erisc_q_wptr = { erisc_q_ptrs_epoch[0] };
+    erisc_q_ptrs_epoch[active_core_epoch][0] = (erisc_q_ptrs_epoch[active_core_epoch][0] + 1) & eth_interface_params.CMD_BUF_PTR_MASK;
+    if (last_send_epoch_cmd || is_non_mmio_cmd_q_full(erisc_q_ptrs_epoch[active_core_epoch][0], erisc_q_ptrs_epoch[active_core_epoch][4])) {
+        std::vector<std::uint32_t> erisc_q_wptr = { erisc_q_ptrs_epoch[active_core_epoch][0] };
         write_device_memory(erisc_q_wptr.data(), erisc_q_wptr.size() * DATA_WORD_SIZE, remote_transfer_ethernet_core, eth_interface_params.REQUEST_CMD_QUEUE_BASE + eth_interface_params.CMD_COUNTERS_SIZE_BYTES, write_tlb);
         tt_driver_atomics::sfence();
+        erisc_q_wrptr_updated[active_core_epoch] = true;
+    } else {
+        erisc_q_wrptr_updated[active_core_epoch] = false;
     }
 }
 

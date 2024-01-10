@@ -38,8 +38,19 @@ From: rockylinux/rockylinux:8
     # these are needed for brisc compile
     yum install mpfr-devel -y
 
-    # need newer version of mpfr than what is provided, install manually
+    # needed for manual installs
     yum install wget -y
+
+    # BBE is using this version of boost library
+    wget https://boostorg.jfrog.io/artifactory/main/release/1.71.0/source/boost_1_71_0.tar.gz
+    tar -xzvf boost_1_71_0.tar.gz
+    cd boost_1_71_0
+    ./bootstrap.sh --prefix=/usr/local
+    ./b2 install --with=all
+    cd ..
+    rm -rf boost_1_71_0.tar.gz boost_1_71_0
+
+    # need newer version of mpfr than what is provided, install manually
     wget https://www.mpfr.org/mpfr-current/mpfr-4.2.1.tar.gz
     tar -xvzf mpfr-4.2.1.tar.gz
     cd mpfr-4.2.1/

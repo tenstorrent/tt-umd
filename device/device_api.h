@@ -7,3 +7,4 @@
 #pragma once
 #include "device/tt_device.h"
 #include "device/driver_atomics.h"
+#include "device/tt_emulation_device.h"

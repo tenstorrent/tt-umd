@@ -34,6 +34,7 @@ ifeq ($(EMULATION_DEVICE_EN),1)
 
   EMULATION_LDFLAGS += -L$(ZEBU_IP_ROOT)/lib -L$(ZEBU_ROOT)/lib -LDFLAGS "-g"
   EMULATION_LIBS += -lxtor_amba_master_svs -lZebuXtor -lZebu -lZebuZEMI3 -lZebuVpi \
+                    -Wl,-rpath,$(ZEBU_IP_ROOT)/lib\
                     $(OUT)/zcui.work/zebu.work/xtor_amba_master_axi4_svs.so\
                     $(OUT)/zcui.work/zebu.work/tt_emu_cmd_xtor.so\
                     $(TENSIX_EMULATION_ZEBU)/lib/libtt_zebu_wrapper.so

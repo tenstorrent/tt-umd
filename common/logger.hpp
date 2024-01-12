@@ -31,6 +31,7 @@ namespace tt {
 #define LOGGER_TYPES_DEVICE   \
     X(Always) \
     X(SiliconDriver)   \
+    X(EmulationDriver) \
 
 enum LogTypeDevice : uint32_t {
 // clang-format off

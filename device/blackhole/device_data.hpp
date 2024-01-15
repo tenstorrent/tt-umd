@@ -11,6 +11,19 @@
 #endif
 #define ARCH_WORMHOLE
 
+typedef enum {
+    NOP                             = 0x11,   // Do nothing
+    GET_AICLK                       = 0x34,
+    ARC_GO_BUSY                     = 0x52,
+    ARC_GO_SHORT_IDLE               = 0x53,
+    ARC_GO_LONG_IDLE                = 0x54,
+    ARC_GET_HARVESTING              = 0x57,
+    SET_ETH_DRAM_TRAINED_STATUS     = 0x58,
+    TEST                            = 0x90,
+    SETUP_IATU_FOR_PEER_TO_PEER     = 0x97,
+    DEASSERT_RISCV_RESET            = 0xba
+} MSG_TYPE;
+
 struct WORMHOLE_DEVICE_DATA {
     const std::vector<tt_xy_pair> DRAM_LOCATIONS = {
         {0, 0},  {5, 0}, {0, 1},{5, 1}, {5, 2}, {5, 3}, {5, 4}, {0, 5},  {5, 5}, {0, 6},  {5, 6}, {0, 7},  {5, 7}, {5, 8}, {5, 9}, {5, 10},{0, 11}, {5, 11}
@@ -53,7 +66,7 @@ struct WORMHOLE_DEVICE_DATA {
 
     // REG_TLB for dynamic writes to registers. They are aligned with the kernel driver's WC/UC split.  But kernel driver uses different TLB's for these.
     static constexpr unsigned int REG_TLB                   = TLB_BASE_INDEX_16M + 18;
-    
+
     static constexpr unsigned int MEM_LARGE_WRITE_TLB       = TLB_BASE_INDEX_16M + 17;
     static constexpr unsigned int MEM_LARGE_READ_TLB        = TLB_BASE_INDEX_16M + 0;
 

@@ -32,7 +32,7 @@ std::optional<std::tuple<std::uint32_t, std::uint32_t>> tt_SiliconDevice::descri
     return std::nullopt;
 }
 
-std::optional<std::uint64_t> tt_SiliconDevice::get_tlb_data(std::uint32_t tlb_index, TLB_DATA data) {
+std::optional<std::uint64_t> tt_SiliconDevice::get_tlb_data(std::uint32_t tlb_index, const TLB_DATA& data) const {
     std::uint32_t TLB_COUNT_1M = 156;
     std::uint32_t TLB_COUNT_2M = 10;
     std::uint32_t TLB_COUNT_16M = 20;

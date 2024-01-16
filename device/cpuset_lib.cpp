@@ -22,18 +22,18 @@ int get_allowed_num_threads(){
     cpu_set_t mask;
     if (sched_getaffinity(0, sizeof(cpu_set_t), &mask) == -1) {
         log_warning(LogSiliconDriver, "Could not detect current process cpu id affinity for calculating num_threads, will use default num_threads: {}.", num_threads);
-    }else{
+    } else{
         unsigned int visible_pu_count = CPU_COUNT(&mask);
         if (visible_pu_count < num_pus_in_system){
             num_threads = visible_pu_count;
         }
-        log_debug(LogSiliconDriver, "Detected (allowed) visible_pu_count: {}, setting num_threads: {}", visible_pu_count, num_threads);
+        log_trace(LogSiliconDriver, "Detected (allowed) visible_pu_count: {}, setting num_threads: {}", visible_pu_count, num_threads);
     }
 
     char const* override_thread_count = std::getenv("TT_BACKEND_COMPILE_THREADS");
     if (override_thread_count != nullptr && std::atoi(override_thread_count) > 0){
         num_threads = std::atoi(override_thread_count);
-        log_debug(LogSiliconDriver, "Overriding via env-var to num_threads: {}", num_threads);
+        log_trace(LogSiliconDriver, "Overriding via env-var to num_threads: {}", num_threads);
     }
 
     return num_threads;
@@ -55,7 +55,7 @@ tt_cpuset_allocator::tt_cpuset_allocator() {
     bool cpuset_allocator_enable_env = std::getenv("TT_BACKEND_CPUSET_ALLOCATOR_ENABLE") ? true : false;
 
     auto system_tid = std::this_thread::get_id();
-    log_debug(LogSiliconDriver,"Starting tt_cpuset_allocator constructor now for process_id: {} thread_id: {}", m_pid, system_tid);
+    log_debug(LogSiliconDriver, "Starting tt_cpuset_allocator constructor now for process_id: {} thread_id: {}", m_pid, system_tid);
 
     m_enable_cpuset_allocator = true;
 

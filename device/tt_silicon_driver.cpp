@@ -682,7 +682,7 @@ DMAbuffer allocate_dma_buffer(TTDevice *ttdev, unsigned int buffer_index, std::s
 
     void *mapping = mmap(NULL, allocate_dma_buf.out.size, PROT_READ | PROT_WRITE, MAP_SHARED, ttdev->device_fd, allocate_dma_buf.out.mapping_offset);
 
-    std::cout << "DMA buffer succeeded with size " << allocate_dma_buf.out.size << " offset " << allocate_dma_buf.out.mapping_offset << " phy_addr " << allocate_dma_buf.out.physical_address << std::endl;
+    log_trace(tt::LogSiliconDriver, "DMA buffer succeeded with size {} offset {} phy_addr {}", allocate_dma_buf.out.size, allocate_dma_buf.out.mapping_offset, allocate_dma_buf.out.physical_address);
 
     if (mapping == MAP_FAILED) {
         throw std::runtime_error(std::string("DMA buffer memory mapping failed for device ") + std::to_string(ttdev->index) + ".");
@@ -1441,7 +1441,7 @@ void tt_SiliconDevice::create_device(const std::unordered_set<chip_id_t> &target
         pci_device->logical_id = logical_device_id;
 
         m_num_host_mem_channels = get_available_num_host_mem_channels(num_host_mem_ch_per_mmio_device, pci_device->device_id, pci_device->revision_id);
-        log_info(LogSiliconDriver, "Using {} Hugepages/NumHostMemChannels for TTDevice (logical_device_id: {} pci_interface_id: {} device_id: 0x{:x} revision: {})",
+        log_debug(LogSiliconDriver, "Using {} Hugepages/NumHostMemChannels for TTDevice (logical_device_id: {} pci_interface_id: {} device_id: 0x{:x} revision: {})",
             m_num_host_mem_channels, logical_device_id, pci_interface_id, pci_device->device_id, pci_device->revision_id);
 
         if (g_SINGLE_PIN_PAGE_PER_FD_WORKAROND) {
@@ -1869,16 +1869,16 @@ void tt_SiliconDevice::initialize_pcie_devices() {
         // Use DMA only for transfers that cross the size thresholds (empirically determined)
         if (enable_pcie_dma) {
             try {
-                log_info(LogSiliconDriver, "Enable PCIE DMA with bufsize {}", m_dma_buf_size);
+                log_trace(LogSiliconDriver, "Enable PCIE DMA with bufsize {}", m_dma_buf_size);
                 set_use_dma (false, 128, 0); // use dma for reads only
                 init_dma_turbo_buf(pci_device);
             } catch (const std::exception &e) {
-                log_info(LogSiliconDriver, "Disable PCIE DMA, fallback to MMIO transfers due to exepction {}", e.what());
+                log_trace(LogSiliconDriver, "Disable PCIE DMA, fallback to MMIO transfers due to exepction {}", e.what());
                 set_use_dma (false, 0, 0);
                 uninit_dma_turbo_buf(pci_device);
             }
         } else {
-            log_info(LogSiliconDriver, "Disable PCIE DMA");
+            log_trace(LogSiliconDriver, "Disable PCIE DMA");
         }
     }   
 }

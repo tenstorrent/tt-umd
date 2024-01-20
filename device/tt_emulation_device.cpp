@@ -107,7 +107,7 @@ void tt_emulation_device::write_to_device(std::vector<uint32_t>& vec, tt_cxy_pai
 
 
 void tt_emulation_device::read_from_device(std::vector<uint32_t>& vec, tt_cxy_pair core, uint64_t addr, uint32_t size, const std::string& /*tlb_to_use*/) {
-  std::vector<uint8_t> byte_data = read(core, addr, size * sizeof(uint32_t));
+  std::vector<uint8_t> byte_data = read(core, addr, size);
 
   // Verify that the received byte data can be converted to uint32_t
   // if (byte_data.size() % sizeof(uint32_t) != 0) {

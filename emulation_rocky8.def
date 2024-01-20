@@ -18,6 +18,9 @@ From: rockylinux/rockylinux:8
     dnf config-manager --set-enabled devel -y
     dnf update -y
 
+    # needed for manual installs
+    yum install wget -y
+
     # neede to connect to the zebu board
     yum install pciutils -y
 
@@ -27,7 +30,6 @@ From: rockylinux/rockylinux:8
     # this is basic development staff, needed at least for make
     yum groupinstall 'Development Tools' -y
 
-    # these are needed for .bashrc sourcing and module load project
     # git lfs is needed for riscv g++ compiler
     # need to do `git lfs pull src/ckernels/sfpi/compiler/bin/` after git clone
     yum install tcl git git-lfs -y
@@ -38,8 +40,18 @@ From: rockylinux/rockylinux:8
     # these are needed for brisc compile
     yum install mpfr-devel -y
 
-    # needed for manual installs
-    yum install wget -y
+    # needed by debuda
+    yum install cppzmq-devel -y
+    # need cppzmq 4.7.0 to match BBE version
+    wget https://github.com/zeromq/cppzmq/archive/refs/tags/v4.7.0.tar.gz
+    tar -xvzf v4.7.0.tar.gz
+    cd cppzmq-4.7.0/
+    mkdir build
+    cd build
+    cmake -DCPPZMQ_BUILD_TESTS=OFF  ..
+    make -j4 install  
+    cd ../..
+    rm -rf v4.7.0.tar.gz cppzmq-4.7.0
 
     # BBE is using this version of boost library
     wget https://boostorg.jfrog.io/artifactory/main/release/1.71.0/source/boost_1_71_0.tar.gz
@@ -82,3 +94,5 @@ From: rockylinux/rockylinux:8
 %environment
     # export VCS_HOME=/container/synopsys/vcs/T-2022.06-SP2-4
     # export VERDI_HOME=/container/synopsys/verdi/T-2022.06-SP2-4
+
+

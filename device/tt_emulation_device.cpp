@@ -25,6 +25,10 @@ tt_emulation_device::~tt_emulation_device() {
   
 void tt_emulation_device::write(tt_cxy_pair core, uint64_t addr, const std::vector<uint8_t>& data) {
   const uint32_t size = static_cast<uint32_t>(data.size());
+  std::cout << "Issuing AXI write to: " << core.x << " " << core.y << " " << " " << addr << size << std::endl;
+  // for (int i = 0; i < data.size(); i++) {
+  //   std::cout << data[i] << std::endl;
+  // }
   tt_zebu_wrapper_inst->axi_write(0, core.x, core.y, addr, size, data); 
   log_info(tt::LogEmulationDriver, "Wrote {} bytes to address {:#016x}", size, addr);
 }
@@ -101,13 +105,18 @@ void tt_emulation_device::write_to_device(std::vector<uint32_t>& vec, tt_cxy_pai
 
   std::vector<uint8_t> byte_data(vec.size() * sizeof(uint32_t));
   std::memcpy(byte_data.data(), vec.data(), byte_data.size());
-
+  std::cout << "Write" << std::endl;
+  std::cout << "Write to core " << core.str() << std::endl; 
+  // for (int i = 0; i < byte_data.size(); i += 4) {
+  //   std::cout << *(reinterpret_cast<uint32_t*>(byte_data.data() + i)) << std::endl;
+  // }
+  // std::cout << "Writing: " << byte_data.size() << " bytes" << std::endl;
   write(core, addr, byte_data);
 }
 
 
 void tt_emulation_device::read_from_device(std::vector<uint32_t>& vec, tt_cxy_pair core, uint64_t addr, uint32_t size, const std::string& /*tlb_to_use*/) {
-  std::vector<uint8_t> byte_data = read(core, addr, size * sizeof(uint32_t));
+  std::vector<uint8_t> byte_data = read(core, addr, size);
 
   // Verify that the received byte data can be converted to uint32_t
   // if (byte_data.size() % sizeof(uint32_t) != 0) {
@@ -117,6 +126,11 @@ void tt_emulation_device::read_from_device(std::vector<uint32_t>& vec, tt_cxy_pa
   vec.clear();
   vec.resize(byte_data.size() / sizeof(uint32_t));
   std::memcpy(vec.data(), byte_data.data(), byte_data.size());
+  std::cout << "Read" << std::endl;
+  std::cout << "Read from core " << core.str() << std::endl; 
+  // for (int i = 0; i < vec.size(); i++) {
+  //   std::cout << vec[i] << std::endl;
+  // }
 }
 
 void tt_emulation_device::translate_to_noc_table_coords(chip_id_t device_id, std::size_t& r, std::size_t& c) {

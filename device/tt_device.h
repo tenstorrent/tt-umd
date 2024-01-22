@@ -961,6 +961,8 @@ class tt_SiliconDevice: public tt_device
 
 tt::ARCH detect_arch(uint16_t device_id = 0);
 
+uint32_t get_num_hugepages();
+
 constexpr inline bool operator==(const tt_version &a, const tt_version &b) {
     return a.major == b.major && a.minor == b.minor && a.patch == b.patch;
 }

@@ -93,6 +93,9 @@ int get_ethernet_link_distance(const eth_coord_t &location_a, const eth_coord_t 
 }
 
 chip_id_t tt_ClusterDescriptor::get_closest_mmio_capable_chip(const chip_id_t &chip) const {
+    if (this->is_chip_mmio_capable(chip)) {
+        return chip;
+    }
     int min_distance = std::numeric_limits<int>::max();
     chip_id_t closest_chip = chip;
     for (const auto &pair : this->chips_with_mmio) {

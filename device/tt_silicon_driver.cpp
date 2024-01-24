@@ -3208,11 +3208,12 @@ void tt_SiliconDevice::write_to_non_mmio_device_send_epoch_cmd(const uint32_t *m
 
     tt_cxy_pair remote_transfer_ethernet_core = remote_transfer_ethernet_cores[active_core_epoch];
 
-    // read queue ptrs for the first time
-    if(erisc_q_ptrs_epoch.capacity() == 0) {
-        erisc_q_ptrs_epoch.reserve(eth_interface_params.REMOTE_UPDATE_PTR_SIZE_BYTES*2/sizeof(uint32_t));
-        read_device_memory(erisc_q_ptrs_epoch.data(), remote_transfer_ethernet_core, eth_interface_params.REQUEST_CMD_QUEUE_BASE + eth_interface_params.CMD_COUNTERS_SIZE_BYTES, eth_interface_params.REMOTE_UPDATE_PTR_SIZE_BYTES*2, read_tlb);
-    }
+    // // could maybe put this back lower.
+    // // read queue ptrs for the first time
+    // if(erisc_q_ptrs_epoch[active_core_epoch].capacity() == 0) {
+    //     erisc_q_ptrs_epoch[active_core_epoch].reserve(eth_interface_params.REMOTE_UPDATE_PTR_SIZE_BYTES*2/sizeof(uint32_t));
+    //     read_device_memory(erisc_q_ptrs_epoch[active_core_epoch].data(), remote_transfer_ethernet_core, eth_interface_params.REQUEST_CMD_QUEUE_BASE + eth_interface_params.CMD_COUNTERS_SIZE_BYTES, eth_interface_params.REMOTE_UPDATE_PTR_SIZE_BYTES*2, read_tlb);
+    // }
 
 
     if (eth_ordered_writes_single_eth_core) {
@@ -3223,10 +3224,26 @@ void tt_SiliconDevice::write_to_non_mmio_device_send_epoch_cmd(const uint32_t *m
         //     __FUNCTION__, core.str(), core_id, size_in_bytes, address, active_core_epoch, new_active_core_epoch, new_active_core_epoch != active_core_epoch ? "SWITCHED!" : "");
 
         if (new_active_core_epoch != active_core_epoch) {
+
+            // If wrptr was not flushed to device for previous eth core, must send it now.
+            // if (!erisc_q_wrptr_updated[active_core_epoch]) {
+                std::vector<std::uint32_t> erisc_q_wptr = { erisc_q_ptrs_epoch[active_core_epoch][0] };
+                write_device_memory(erisc_q_wptr.data(), erisc_q_wptr.size() * DATA_WORD_SIZE, remote_transfer_ethernet_core, eth_interface_params.REQUEST_CMD_QUEUE_BASE + eth_interface_params.CMD_COUNTERS_SIZE_BYTES, write_tlb);
+                tt_driver_atomics::sfence();
+            //     erisc_q_wrptr_updated[active_core_epoch] = true;
+            // }
+            // TODO - Flush previous wrptrs for active_core_epoch
             active_core_epoch = new_active_core_epoch;
             remote_transfer_ethernet_core = remote_transfer_ethernet_cores[active_core_epoch];
-            read_device_memory(erisc_q_ptrs_epoch.data(), remote_transfer_ethernet_core, eth_interface_params.REQUEST_CMD_QUEUE_BASE + eth_interface_params.CMD_COUNTERS_SIZE_BYTES, eth_interface_params.REMOTE_UPDATE_PTR_SIZE_BYTES*2, read_tlb);
+            // read_device_memory(erisc_q_ptrs_epoch.data(), remote_transfer_ethernet_core, eth_interface_params.REQUEST_CMD_QUEUE_BASE + eth_interface_params.CMD_COUNTERS_SIZE_BYTES, eth_interface_params.REMOTE_UPDATE_PTR_SIZE_BYTES*2, read_tlb);
         }
+    }
+
+
+    // read queue ptrs for the first time
+    if(erisc_q_ptrs_epoch[active_core_epoch].capacity() == 0) {
+        erisc_q_ptrs_epoch[active_core_epoch].reserve(eth_interface_params.REMOTE_UPDATE_PTR_SIZE_BYTES*2/sizeof(uint32_t));
+        read_device_memory(erisc_q_ptrs_epoch[active_core_epoch].data(), remote_transfer_ethernet_core, eth_interface_params.REQUEST_CMD_QUEUE_BASE + eth_interface_params.CMD_COUNTERS_SIZE_BYTES, eth_interface_params.REMOTE_UPDATE_PTR_SIZE_BYTES*2, read_tlb);
     }
 
     std::vector<std::uint32_t> erisc_command(sizeof(routing_cmd_t)/DATA_WORD_SIZE);
@@ -3250,17 +3267,17 @@ void tt_SiliconDevice::write_to_non_mmio_device_send_epoch_cmd(const uint32_t *m
     uint32_t block_size;
 
     // Ethernet ordered writes must originate from same erisc core, so prevent updating active core here.
-    while (is_non_mmio_cmd_q_full(erisc_q_ptrs_epoch[0], erisc_q_ptrs_epoch[4])) {
+    while (is_non_mmio_cmd_q_full(erisc_q_ptrs_epoch[active_core_epoch][0], erisc_q_ptrs_epoch[active_core_epoch][4])) {
         if (!eth_ordered_writes_single_eth_core){
             active_core_epoch++;
             log_assert(active_core_epoch - EPOCH_ETH_CORES_START_ID >= 0, "Invalid ERISC core for sending epoch commands");
             active_core_epoch = ((active_core_epoch - EPOCH_ETH_CORES_START_ID) % EPOCH_ETH_CORES_FOR_NON_MMIO_TRANSFERS) + EPOCH_ETH_CORES_START_ID;
             remote_transfer_ethernet_core = remote_transfer_ethernet_cores[active_core_epoch];
         }
-        read_device_memory(erisc_q_ptrs_epoch.data(), remote_transfer_ethernet_core, eth_interface_params.REQUEST_CMD_QUEUE_BASE + eth_interface_params.CMD_COUNTERS_SIZE_BYTES, eth_interface_params.REMOTE_UPDATE_PTR_SIZE_BYTES*2, read_tlb);
+        read_device_memory(erisc_q_ptrs_epoch[active_core_epoch].data(), remote_transfer_ethernet_core, eth_interface_params.REQUEST_CMD_QUEUE_BASE + eth_interface_params.CMD_COUNTERS_SIZE_BYTES, eth_interface_params.REMOTE_UPDATE_PTR_SIZE_BYTES*2, read_tlb);
     }
 
-    uint32_t req_wr_ptr = erisc_q_ptrs_epoch[0] & eth_interface_params.CMD_BUF_SIZE_MASK;
+    uint32_t req_wr_ptr = erisc_q_ptrs_epoch[active_core_epoch][0] & eth_interface_params.CMD_BUF_SIZE_MASK;
     if (address & 0x1F) { // address not 32-byte aligned
         // can send it in one transfer, no need to break it up
         log_assert(size_in_bytes == DATA_WORD_SIZE, "Non-mmio cmd queue update is too big");
@@ -3314,11 +3331,14 @@ void tt_SiliconDevice::write_to_non_mmio_device_send_epoch_cmd(const uint32_t *m
     tt_driver_atomics::sfence();
 
     // update the wptr only if the eth queue is full or for the last command
-    erisc_q_ptrs_epoch[0] = (erisc_q_ptrs_epoch[0] + 1) & eth_interface_params.CMD_BUF_PTR_MASK;
-    if (last_send_epoch_cmd || is_non_mmio_cmd_q_full(erisc_q_ptrs_epoch[0], erisc_q_ptrs_epoch[4])) {
-        std::vector<std::uint32_t> erisc_q_wptr = { erisc_q_ptrs_epoch[0] };
+    erisc_q_ptrs_epoch[active_core_epoch][0] = (erisc_q_ptrs_epoch[active_core_epoch][0] + 1) & eth_interface_params.CMD_BUF_PTR_MASK;
+    if (last_send_epoch_cmd || is_non_mmio_cmd_q_full(erisc_q_ptrs_epoch[active_core_epoch][0], erisc_q_ptrs_epoch[active_core_epoch][4])) {
+        std::vector<std::uint32_t> erisc_q_wptr = { erisc_q_ptrs_epoch[active_core_epoch][0] };
         write_device_memory(erisc_q_wptr.data(), erisc_q_wptr.size() * DATA_WORD_SIZE, remote_transfer_ethernet_core, eth_interface_params.REQUEST_CMD_QUEUE_BASE + eth_interface_params.CMD_COUNTERS_SIZE_BYTES, write_tlb);
         tt_driver_atomics::sfence();
+        // erisc_q_wrptr_updated[active_core_epoch] = true;
+    // } else {
+    //     erisc_q_wrptr_updated[active_core_epoch] = false;
     }
 }
 

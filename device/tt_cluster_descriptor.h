@@ -22,15 +22,36 @@
 namespace YAML { class Node; }
 
 class tt_ClusterDescriptor {
+
+  private:
+    int get_ethernet_link_coord_distance(const eth_coord_t &location_a, const eth_coord_t &location_b);
+
   protected:
 
   std::unordered_map<chip_id_t, std::unordered_map<ethernet_channel_t, std::tuple<chip_id_t, ethernet_channel_t> > > ethernet_connections;
   std::unordered_map<chip_id_t, eth_coord_t> chip_locations;
+  // reverse map: rack/shelf/y/x -> chip_id
+  std::map<int, std::map<int, std::map<int, std::map<int, chip_id_t > > > > coords_to_chip_ids;
   std::unordered_map<chip_id_t, chip_id_t> chips_with_mmio;
   std::unordered_set<chip_id_t> all_chips;
   std::unordered_map<chip_id_t, bool> noc_translation_enabled = {};
   std::unordered_map<chip_id_t, std::uint32_t> harvesting_masks = {};
   std::unordered_set<chip_id_t> enabled_active_chips;
+  std::unordered_map<chip_id_t, chip_id_t> closest_mmio_chip_cache = {};
+
+  // one-to-many chip connections
+  struct Chip2ChipConnection {
+    eth_coord_t source_chip_coord;
+    std::unordered_set<eth_coord_t> destination_chip_coords;
+  };
+
+  // shelf_id -> y dim -> list of chip2chip connections between different shelves
+  // assumption is that on every row of the shelf there is a chip that is connected to the other shelf
+  // there could be one-to-many connections between shelves, i.e. one chip is connected to multiple chips on the other shelf (in case of nebula->galaxy)
+  std::unordered_map<int, std::unordered_map<int, Chip2ChipConnection > > galaxy_shelves_exit_chip_coords_per_y_dim = {};
+  // rack_id -> x dim -> list of chip2chip connections between different racks
+  // assumption is that on every row of the rack there is a chip that is connected to the other rack
+  std::unordered_map<int, std::unordered_map<int, Chip2ChipConnection > > galaxy_racks_exit_chip_coords_per_x_dim = {};
 
   static void load_ethernet_connections_from_connectivity_descriptor(YAML::Node &yaml, tt_ClusterDescriptor &desc);
   static void load_chips_from_connectivity_descriptor(YAML::Node &yaml, tt_ClusterDescriptor &desc);
@@ -48,7 +69,7 @@ class tt_ClusterDescriptor {
   
   bool channels_are_directly_connected(const chip_id_t &first, const ethernet_channel_t &first_channel, const chip_id_t &second, const ethernet_channel_t &second_channel) const;
   bool is_chip_mmio_capable(const chip_id_t &chip_id) const;
-  chip_id_t get_closest_mmio_capable_chip(const chip_id_t &chip) const;
+  chip_id_t get_closest_mmio_capable_chip(const chip_id_t &chip);
   chip_id_t get_shelf_local_physical_chip_coords(chip_id_t virtual_coord);
   static std::unique_ptr<tt_ClusterDescriptor> create_from_yaml(const std::string &cluster_descriptor_file_path);
   static std::unique_ptr<tt_ClusterDescriptor> create_for_grayskull_cluster(

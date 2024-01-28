@@ -3231,7 +3231,8 @@ void tt_SiliconDevice::write_to_non_mmio_device(
 // 1) uses separate eth cores than other non-mmio transfers hence does not require mutex
 // 2) does not have the code paths for transfers larger than 32kB (1024 cmds)
 // 3) only reads erisc_q_ptrs_epoch once, or when the queues are full
-// 4) only updates wptr on eth command queues for the last epoch command or when the queue is full or when switching eth cores based on eth-ordered-writes policy.
+// 4) only updates wptr on eth command queues for the last epoch command or when the queue is full or when switching eth cores based on eth-ordered-writes policy, or when
+//    eth-ordered-writes are not supported but current write must be ordered (flush prev wrptr).
 // 5) When eth-ordered-write not supported, allow flush to be used as ordering mechanism when ordering is requested via arg. When eth-ordered-write is supported, always use it
 //    and ensure ordering to same remote chip destinations by always using same remote xfer eth core for a given destination based on noc xy. Must ensure wrptr is flushed on
 //    switch of eth cores, and copy of rdptr/wrptr maintained on host for each eth xfer core.
@@ -3287,8 +3288,15 @@ void tt_SiliconDevice::write_to_non_mmio_device_send_epoch_cmd(const uint32_t *m
     std::vector<std::uint32_t> data_block;
 
     // Flush used as ordering mechanism when eth ordered writes are unsupported. If previous write requires flush,
-    // handle it here before setting flush_non_mmio for the current write.
+    // handle it here before setting flush_non_mmio for the current write. Must also flush wrptr for previous writes
+    // in case they were not flushed (full/last=true) already.
     if (ordered_with_prev_remote_write && !use_ethernet_ordered_writes) {
+
+        std::vector<std::uint32_t> erisc_q_wptr = { erisc_q_ptrs_epoch[active_core_epoch][0] };
+        write_device_memory(erisc_q_wptr.data(), erisc_q_wptr.size() * DATA_WORD_SIZE, remote_transfer_ethernet_core, eth_interface_params.REQUEST_CMD_QUEUE_BASE + eth_interface_params.CMD_COUNTERS_SIZE_BYTES, write_tlb);
+        tt_driver_atomics::sfence();
+        erisc_q_wrptr_updated[active_core_epoch] = true;
+
         wait_for_non_mmio_flush();
     }
 

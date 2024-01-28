@@ -200,6 +200,8 @@ int tt_ClusterDescriptor::get_ethernet_link_coord_distance(const eth_coord_t &lo
 // Returns the closest mmio chip to the given chip
 chip_id_t tt_ClusterDescriptor::get_closest_mmio_capable_chip(const chip_id_t &chip) {
 
+    log_info(tt::LogSiliconDriver, "Starting {}", __FUNCTION__);
+
     if (this->is_chip_mmio_capable(chip)) {
         return chip;
     }
@@ -209,14 +211,19 @@ chip_id_t tt_ClusterDescriptor::get_closest_mmio_capable_chip(const chip_id_t &c
     }
 
     int min_distance = std::numeric_limits<int>::max();
+    log_info(tt::LogSiliconDriver, "Checkpoint1 {}", __FUNCTION__);
     chip_id_t closest_chip = chip;
     eth_coord_t chip_eth_coord = this->chip_locations.at(chip);
+    log_info(tt::LogSiliconDriver, "Checkpoint2 {}", __FUNCTION__);
 
     for (const auto &pair : this->chips_with_mmio) {
         const chip_id_t &mmio_chip = pair.first;
+        log_info(tt::LogSiliconDriver, "Checkpoint3 {}", __FUNCTION__);
         eth_coord_t mmio_eth_coord = this->chip_locations.at(mmio_chip);
+        log_info(tt::LogSiliconDriver, "Checkpoint4 {}", __FUNCTION__);
 
         int distance = get_ethernet_link_coord_distance(mmio_eth_coord, chip_eth_coord);
+        log_info(tt::LogSiliconDriver, "Checkpoint5 {}", __FUNCTION__);
         if (distance < min_distance) {
             min_distance = distance;
             closest_chip = mmio_chip;
@@ -224,7 +231,7 @@ chip_id_t tt_ClusterDescriptor::get_closest_mmio_capable_chip(const chip_id_t &c
     }
     log_assert(is_chip_mmio_capable(closest_chip), "Closest MMIO chip must be MMIO capable");
 
-    log_debug(LogSiliconDriver, "closest_mmio_chip to chip{} is chip{} distance:{}", chip, closest_chip, min_distance);
+    log_info(LogSiliconDriver, "closest_mmio_chip to chip{} is chip{} distance:{}", chip, closest_chip, min_distance);
 
     closest_mmio_chip_cache[chip] = closest_chip;
 

@@ -3231,7 +3231,8 @@ void tt_SiliconDevice::write_to_non_mmio_device(
 // 1) uses separate eth cores than other non-mmio transfers hence does not require mutex
 // 2) does not have the code paths for transfers larger than 32kB (1024 cmds)
 // 3) only reads erisc_q_ptrs_epoch once, or when the queues are full
-// 4) only updates wptr on eth command queues for the last epoch command or when the queue is full or when switching eth cores based on eth-ordered-writes policy.
+// 4) only updates wptr on eth command queues for the last epoch command or when the queue is full or when switching eth cores based on eth-ordered-writes policy, or when
+//    eth-ordered-writes are not supported but current write must be ordered (flush prev wrptr).
 // 5) When eth-ordered-write not supported, allow flush to be used as ordering mechanism when ordering is requested via arg. When eth-ordered-write is supported, always use it
 //    and ensure ordering to same remote chip destinations by always using same remote xfer eth core for a given destination based on noc xy. Must ensure wrptr is flushed on
 //    switch of eth cores, and copy of rdptr/wrptr maintained on host for each eth xfer core.
@@ -3260,10 +3261,13 @@ void tt_SiliconDevice::write_to_non_mmio_device_send_epoch_cmd(const uint32_t *m
         }
     }
 
-    // Feature in this function to ensure ordering via eth-ordered-writes by using same eth core for all epoch writes to same dest noc xy.
-    bool eth_ordered_writes_single_eth_core = use_ethernet_ordered_writes;
+    std::vector<std::uint32_t> erisc_command(sizeof(routing_cmd_t)/DATA_WORD_SIZE);
+    routing_cmd_t *new_cmd = (routing_cmd_t *)&erisc_command[0];
+    std::vector<std::uint32_t> data_block;
 
-    if (eth_ordered_writes_single_eth_core) {
+    // Two mechanisms for ordering depending on eth fw version.
+    if (use_ethernet_ordered_writes) {
+        // Feature in this function to ensure ordering via eth-ordered-writes by using same eth core for all epoch writes to same dest noc xy.
         auto &soc_desc  = get_soc_descriptor(mmio_capable_chip);
         int core_id = core.x * soc_desc.grid_size.y + core.y;
         int new_active_core_epoch = (core_id % EPOCH_ETH_CORES_FOR_NON_MMIO_TRANSFERS) + EPOCH_ETH_CORES_START_ID;
@@ -3279,16 +3283,15 @@ void tt_SiliconDevice::write_to_non_mmio_device_send_epoch_cmd(const uint32_t *m
             active_core_epoch = new_active_core_epoch;
             remote_transfer_ethernet_core = remote_transfer_ethernet_cores.at(mmio_capable_chip_logical)[active_core_epoch];
         }
-    }
-
-    std::vector<std::uint32_t> erisc_command(sizeof(routing_cmd_t)/DATA_WORD_SIZE);
-    routing_cmd_t *new_cmd = (routing_cmd_t *)&erisc_command[0];
-
-    std::vector<std::uint32_t> data_block;
-
-    // Flush used as ordering mechanism when eth ordered writes are unsupported. If previous write requires flush,
-    // handle it here before setting flush_non_mmio for the current write.
-    if (ordered_with_prev_remote_write && !use_ethernet_ordered_writes) {
+    } else if (ordered_with_prev_remote_write) {
+        // Flush used as ordering mechanism when eth ordered writes are unsupported. If previous write requires flush,
+        // handle it here before setting flush_non_mmio for the current write.
+        if (!erisc_q_wrptr_updated[active_core_epoch]) {
+            std::vector<std::uint32_t> erisc_q_wptr = { erisc_q_ptrs_epoch[active_core_epoch][0] };
+            write_device_memory(erisc_q_wptr.data(), erisc_q_wptr.size() * DATA_WORD_SIZE, remote_transfer_ethernet_core, eth_interface_params.REQUEST_CMD_QUEUE_BASE + eth_interface_params.CMD_COUNTERS_SIZE_BYTES, write_tlb);
+            tt_driver_atomics::sfence();
+            erisc_q_wrptr_updated[active_core_epoch] = true;
+        }
         wait_for_non_mmio_flush();
     }
 
@@ -3301,7 +3304,7 @@ void tt_SiliconDevice::write_to_non_mmio_device_send_epoch_cmd(const uint32_t *m
 
     // Ethernet ordered writes must originate from same erisc core, so prevent updating active core here.
     while (is_non_mmio_cmd_q_full(erisc_q_ptrs_epoch[active_core_epoch][0], erisc_q_ptrs_epoch[active_core_epoch][4])) {
-        if (!eth_ordered_writes_single_eth_core){
+        if (!use_ethernet_ordered_writes){
             active_core_epoch++;
             log_assert(active_core_epoch - EPOCH_ETH_CORES_START_ID >= 0, "Invalid ERISC core for sending epoch commands");
             active_core_epoch = ((active_core_epoch - EPOCH_ETH_CORES_START_ID) % EPOCH_ETH_CORES_FOR_NON_MMIO_TRANSFERS) + EPOCH_ETH_CORES_START_ID;

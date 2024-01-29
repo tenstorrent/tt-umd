@@ -919,7 +919,9 @@ class tt_SiliconDevice: public tt_device
 
     int active_core = NON_EPOCH_ETH_CORES_START_ID;
     int active_core_epoch = EPOCH_ETH_CORES_START_ID;
-    std::vector<std::uint32_t> erisc_q_ptrs_epoch;
+    bool erisc_q_ptrs_initialized = false;
+    std::vector<std::uint32_t> erisc_q_ptrs_epoch[NUM_ETH_CORES_FOR_NON_MMIO_TRANSFERS];
+    bool erisc_q_wrptr_updated[NUM_ETH_CORES_FOR_NON_MMIO_TRANSFERS];
     std::vector< std::vector<tt_cxy_pair> > remote_transfer_ethernet_cores;
     bool flush_non_mmio = false;
     // Size of the PCIE DMA buffer

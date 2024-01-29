@@ -347,6 +347,9 @@ void tt_ClusterDescriptor::load_ethernet_connections_from_connectivity_descripto
     // this is used in get_ethernet_link_coord_distance to find the distance between two chips
     for (const auto &[chip_id, chip_eth_coord] : desc.chip_locations) {
         // iterate over all neighbors
+        if(desc.ethernet_connections.find(chip_id) == desc.ethernet_connections.end()) {
+            continue; // chip has no eth connections
+        }
         for (const auto &[chan, chip_and_chan] : desc.ethernet_connections.at(chip_id)) {
             const chip_id_t &neighbor_chip = std::get<0>(chip_and_chan);
             eth_coord_t neighbor_eth_coord = desc.chip_locations.at(neighbor_chip);

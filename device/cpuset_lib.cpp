@@ -152,11 +152,18 @@ bool tt_cpuset_allocator::init_find_tt_pci_devices_packages_numanodes(){
 
                 // Next, get the PackageID of the device and update maps.
                 auto package_id = get_package_id_from_device(pci_device_obj, physical_device_id);
-
+                
+                // This package was not previously seen. Initialize structures tracking the TT Devices mapped to this 
+                // package and structures storing the CPU characteristics per package.
+                if (m_package_id_to_devices_map.find(package_id) == m_package_id_to_devices_map.end()) {
+                    m_package_id_to_devices_map.insert({package_id, {}});
+                    m_package_id_to_num_l3_per_ccx_map.insert({package_id, 0});
+                    m_package_id_to_num_ccx_per_ccd_map.insert({package_id, 0});
+                }
                 if (package_id != -1){
                     m_package_id_to_devices_map.at(package_id).push_back(physical_device_id);
                     m_physical_device_id_to_package_id_map.insert({physical_device_id, package_id});
-                }else{
+                } else {
                     log_warning(LogSiliconDriver, "Could not find package_id for TT Device (physical_device_id: {} pci_bus_id: {})", physical_device_id, pci_bus_id_str);
                     return false;
                 }
@@ -208,13 +215,6 @@ bool tt_cpuset_allocator::init_get_number_of_packages(){
 
     m_num_packages = hwloc_get_nbobjs_by_type(m_topology, HWLOC_OBJ_PACKAGE);
     log_debug(LogSiliconDriver,"Found {} CPU packages", m_num_packages);
-
-    for (int package_id=0; package_id < m_num_packages; package_id++){
-        m_package_id_to_devices_map.insert({package_id, {}}); // Empty vector.
-        m_package_id_to_num_l3_per_ccx_map.insert({package_id, 0}); // Initialize to zero.
-        m_package_id_to_num_ccx_per_ccd_map.insert({package_id, 0}); // Initialize to zero.
-    }
-
     return m_num_packages > 0; // Success
 }
 
@@ -241,9 +241,8 @@ bool tt_cpuset_allocator::init_is_cpu_model_supported(){
     // CPU Models that have L3 per CCX and 2 CCX per CCD
     std::vector<std::string> opt_2ccx_per_ccd_cpu_models = {    "AMD EPYC 7352 24-Core Processor",
                                                                 "AMD EPYC 7532 32-Core Processor"};
-
-    for (int package_id=0; package_id < m_num_packages; package_id++){
-
+    for(const auto& package: m_package_id_to_devices_map) {
+        int package_id = package.first;
         auto package_obj = hwloc_get_obj_by_type(m_topology, HWLOC_OBJ_PACKAGE, package_id);
         if (m_debug) print_hwloc_object(package_obj, 0, true, true);
 
@@ -283,10 +282,9 @@ bool tt_cpuset_allocator::init_determine_cpuset_allocations(){
     }
 
     log_debug(LogSiliconDriver,"Inside tt_cpuset_allocator::init_determine_cpuset_allocations()");
-
-    for (int package_id=0; package_id < m_num_packages; package_id++){
-
-        auto num_tt_devices_for_cpu_package = m_package_id_to_devices_map.at(package_id).size();
+    for (const auto& package : m_package_id_to_devices_map) {
+        int package_id = package.first;
+        auto num_tt_devices_for_cpu_package = package.second.size();
 
         if (num_tt_devices_for_cpu_package == 0){
             log_debug(LogSiliconDriver, "init_determine_cpuset_allocations() -- no TT devices for package_id: {}, skipping.", package_id);

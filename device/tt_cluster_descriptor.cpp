@@ -435,8 +435,9 @@ void tt_ClusterDescriptor::load_chips_from_connectivity_descriptor(YAML::Node &y
     
     for(const auto& chip : yaml["chips_with_mmio"]) {
         if(chip.IsMap()) {
-            const auto &chip_map = chip.as<std::map<chip_id_t, chip_id_t>>().begin();
-            desc.chips_with_mmio.insert({chip_map->first, chip_map->second});
+            const auto &chip_map = chip.as<std::map<chip_id_t, chip_id_t>>();
+            const auto &chips = chip_map.begin();
+            desc.chips_with_mmio.insert({chips->first, chips->second});
         }
         else {
             const auto &chip_val = chip.as<int>();

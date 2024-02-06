@@ -6,11 +6,15 @@
 #include <cassert>
 #include <algorithm>
 
-#ifdef ARCH_GRAYSKULL
-#error "CANNOT INCLUDE GRAYSKULL AND WORMHOLE."
+#ifdef ARCH_WORMHOLE
+#error "CANNOT INCLUDE BLACKHOLE AND WORMHOLE."
 #endif
-#define ARCH_WORMHOLE
-
+#ifdef ARCH_GRAYSKULL
+#error "CANNOT INCLUDE BLACKHOLE AND GRAYSKULL."
+#endif
+#ifndef ARCH_BLACKHOLE
+#define ARCH_BLACKHOLE
+#endif
 typedef enum {
     NOP                             = 0x11,   // Do nothing
     GET_AICLK                       = 0x34,

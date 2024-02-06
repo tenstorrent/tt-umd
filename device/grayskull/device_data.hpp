@@ -13,8 +13,12 @@
 #ifdef ARCH_WORMHOLE
 #error "CANNOT INCLUDE GRAYSKULL AND WORMHOLE."
 #endif
+#ifdef ARCH_BLACKHOLE
+#error "CANNOT INCLUDE GRAYSKULL AND BLACKHOLE."
+#endif
+#ifndef ARCH_GRAYSKULL
 #define ARCH_GRAYSKULL
-
+#endif
 typedef enum {
     NOP                             = 0x11,   // Do nothing
     GET_AICLK                       = 0x34,

@@ -557,6 +557,14 @@ class tt_device
         return 8 * 16;  // default to x8 at 16 GT/s
     }
 
+    /**
+     * @brief Get the ethernet firmware version used by the physical cluster (only implemented for Silicon Backend)
+     * \returns Firmware version {major, minor, patch}
+    */
+    virtual tt_version get_ethernet_fw_version() const {
+        throw std::runtime_error("---- tt_device::get_ethernet_fw_version is not implemented \n");
+    }
+
     /** 
      * @brief Get the total hugepage (host memory) size allocated for a device. 
      * This memory is not entirely accessible by device. To query the number of channels
@@ -782,7 +790,6 @@ class tt_SiliconDevice: public tt_device
      * @brief Returns the DMA buf size 
     */
     uint32_t get_m_dma_buf_size() const;
-    tt_version get_ethernet_fw_version() const;
     // Misc. Functions to Query/Set Device State
     virtual int arc_msg(int logical_device_id, uint32_t msg_code, bool wait_for_done = true, uint32_t arg0 = 0, uint32_t arg1 = 0, int timeout=1, uint32_t *return_3 = nullptr, uint32_t *return_4 = nullptr);
     virtual bool using_harvested_soc_descriptors();
@@ -813,6 +820,7 @@ class tt_SiliconDevice: public tt_device
     virtual std::uint32_t get_num_host_channels(std::uint32_t device_id);
     virtual std::uint32_t get_host_channel_size(std::uint32_t device_id, std::uint32_t channel);
     virtual std::uint32_t get_pcie_speed(std::uint32_t device_id);
+    virtual tt_version get_ethernet_fw_version() const;
 
     // Destructor
     virtual ~tt_SiliconDevice ();

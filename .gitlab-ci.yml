@@ -16,6 +16,10 @@
 # This specific template is located at:
 # https://gitlab.com/gitlab-org/gitlab/-/blob/master/lib/gitlab/ci/templates/Getting-Started.gitlab-ci.yml
 
+stages:
+  - build
+  - test
+
 image:
   name: yyz-gitlab.local.tenstorrent.com:5005/tenstorrent/infra/devel-special-pipeline
   entrypoint: [""]
@@ -55,6 +59,9 @@ build-test-WH:
     - echo "Compiling tests ..."
     - make test ARCH_NAME=wormhole_b0 -j$(nproc)
     - echo "Compile tests complete."    
+  artifacts:
+    paths:
+      - build/*
 
 build-test-GS:
   stage: build
@@ -66,4 +73,28 @@ build-test-GS:
     - echo "Compiling tests ..."
     - make test ARCH_NAME=grayskull -j$(nproc)
     - echo "Compile tests complete."        
+
+silicon-test-driver-WH:
+  stage: test
+  dependencies:
+    - build-test-WH
+  tags:
+    - n300
+  variables:
+    GTEST_VERBOSE: 1
+  script:
+    - echo "Running silicon driver tests ..."
+    - ./build/tests/device_unit_tests --gtest_filter=SiliconDriverWH.*
+
+silicon-test-nebula-x2:
+  stage: test
+  dependencies:
+    - build-test-WH
+  tags:
+    - n300
+  variables:
+    GTEST_VERBOSE: 1
+  script:
+    - echo "Running silicon tests on nebula x2 ..."
+    - ./build/tests/device_unit_tests --gtest_filter=WormholeNebulaX2TestFixture.*
 

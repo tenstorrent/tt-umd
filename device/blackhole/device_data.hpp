@@ -7,9 +7,16 @@
 #include <algorithm>
 
 #ifdef ARCH_GRAYSKULL
-#error "CANNOT INCLUDE GRAYSKULL AND WORMHOLE."
+#error "CANNOT INCLUDE BLACKHOLE AND GRAYSKULL."
 #endif
-#define ARCH_WORMHOLE
+
+#ifdef ARCH_WORMHOLE
+#error "CANNOT INCLUDE BLACKHOLE AND WORMHOLE."
+#endif
+
+#ifdef ARCH_BLACKHOLE
+#define ARCH_BLACKHOLE
+#endif
 
 typedef enum {
     NOP                             = 0x11,   // Do nothing

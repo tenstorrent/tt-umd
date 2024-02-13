@@ -11,9 +11,16 @@
 #include <vector>
 
 #ifdef ARCH_GRAYSKULL
-#error "CANNOT INCLUDE GRAYSKULL AND WORMHOLE."
+#error "CANNOT INCLUDE WORMHOLE AND GRAYSKULL."
 #endif
+
+#ifdef ARCH_BLACKHOLE
+#error "CANNOT INCLUDE WORMHOLE AND BLACKHOLE."
+#endif
+
+#ifndef ARCH_WORMHOLE
 #define ARCH_WORMHOLE
+#endif
 
 typedef enum {
     NOP                             = 0x11,   // Do nothing

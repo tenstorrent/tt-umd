@@ -1,4 +1,1 @@
-device/bin/silicon/grayskull/tt-script filter=lfs diff=lfs merge=lfs -text
 device/bin/silicon/reset-chip filter=lfs diff=lfs merge=lfs -text
-device/bin/silicon/wormhole/create-ethernet-map filter=lfs diff=lfs merge=lfs -text
-device/bin/silicon/wormhole/tt-script filter=lfs diff=lfs merge=lfs -text

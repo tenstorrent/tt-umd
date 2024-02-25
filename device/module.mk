@@ -11,6 +11,11 @@ DEVICE_SRCS = \
   device/tt_cluster_descriptor.cpp \
   device/cpuset_lib.cpp \
   device/util.cpp \
+  device/architecture_implementation.cpp \
+  device/blackhole_implementation.cpp \
+  device/grayskull_implementation.cpp \
+  device/tlb.cpp \
+  device/wormhole_implementation.cpp \
 
 DEVICE_INCLUDES=      	\
   -DFMT_HEADER_ONLY     \
@@ -40,14 +45,6 @@ else
   ifndef UMD_USER_ROOT
     $(error VERSIM build is enabled but UMD_USER_ROOT is not defined. This should point to firmware header files)
   endif
-endif
-
-ifeq ("$(ARCH_NAME)", "wormhole_b0")
-  DEVICE_SRCS += device/wormhole/impl_device.cpp
-  DEVICE_INCLUDES += -I$(UMD_HOME)/device/wormhole/
-else
-  DEVICE_SRCS += device/$(ARCH_NAME)/impl_device.cpp
-  DEVICE_INCLUDES += -I$(UMD_HOME)/device/$(ARCH_NAME)/
 endif
 
 DEVICE_OBJS = $(addprefix $(DEVICE_OBJDIR)/, $(DEVICE_SRCS:.cpp=.o))

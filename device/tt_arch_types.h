@@ -6,18 +6,19 @@
 
 #pragma once
 
-#include <string>
+// defines of tt_arch_types
+#include "device/architecture.h"
 
 namespace tt {
 /**
  * @brief ARCH Enums
  */
 enum class ARCH {
-    JAWBRIDGE = 0,
-    GRAYSKULL = 1,
-    WORMHOLE = 2,
-    WORMHOLE_B0 = 3,
-    BLACKHOLE = 4,
-    Invalid = 0xFF,
+    JAWBRIDGE = static_cast<int>(tt::umd::architecture::jawbridge),
+    GRAYSKULL = static_cast<int>(tt::umd::architecture::grayskull),
+    WORMHOLE = static_cast<int>(tt::umd::architecture::wormhole),
+    WORMHOLE_B0 = static_cast<int>(tt::umd::architecture::wormhole_b0),
+    BLACKHOLE = static_cast<int>(tt::umd::architecture::blackhole),
+    Invalid = static_cast<int>(tt::umd::architecture::invalid),
 };
 }

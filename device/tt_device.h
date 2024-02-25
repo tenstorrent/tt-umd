@@ -7,6 +7,7 @@
 #pragma once
 #include <cassert>
 #include <cstdint>
+#include <memory>
 #include <string>
 #include <unordered_set>
 #include <vector>
@@ -716,6 +717,8 @@ class tt_VersimDevice: public tt_device
     void* p_ca_soc_manager;
 };
 
+#include "device/architecture_implementation.h"
+
 /**
  * @brief Silicon Driver Class, derived from the tt_device class
  * Implements APIs to communicate with a physical Tenstorrent Device.
@@ -882,12 +885,10 @@ class tt_SiliconDevice: public tt_device
     bool is_non_mmio_cmd_q_full(uint32_t curr_wptr, uint32_t curr_rptr);
     int pcie_arc_msg(int logical_device_id, uint32_t msg_code, bool wait_for_done = true, uint32_t arg0 = 0, uint32_t arg1 = 0, int timeout=1, uint32_t *return_3 = nullptr, uint32_t *return_4 = nullptr);
     int remote_arc_msg(int logical_device_id, uint32_t msg_code, bool wait_for_done = true, uint32_t arg0 = 0, uint32_t arg1 = 0, int timeout=1, uint32_t *return_3 = nullptr, uint32_t *return_4 = nullptr);
-    std::optional<std::uint64_t> get_tlb_data(std::uint32_t tlb_index, const TLB_DATA & data) const ;
     bool address_in_tlb_space(uint32_t address, uint32_t size_in_bytes, int32_t tlb_index, uint32_t tlb_size, uint32_t chip);
     struct PCIdevice* get_pci_device(int pci_intf_id) const;
     std::shared_ptr<boost::interprocess::named_mutex> get_mutex(const std::string& tlb_name, int pci_interface_id);
     virtual uint32_t get_harvested_noc_rows_for_chip(int logical_device_id); // Returns one-hot encoded harvesting mask for PCIe mapped chips
-    virtual std::optional<std::tuple<std::uint32_t, std::uint32_t>> describe_tlb(std::int32_t tlb_index);
     std::optional<std::tuple<std::uint32_t, std::uint32_t>> describe_tlb(tt_xy_pair coord);
     void generate_tensix_broadcast_grids_for_grayskull( std::set<std::pair<tt_xy_pair, tt_xy_pair>>& broadcast_grids, std::set<uint32_t>& rows_to_exclude, std::set<uint32_t>& cols_to_exclude);
     std::unordered_map<chip_id_t, std::vector<std::vector<int>>>&  get_ethernet_broadcast_headers(const std::set<chip_id_t>& chips_to_exclude);
@@ -967,6 +968,9 @@ class tt_SiliconDevice: public tt_device
     static constexpr char MEM_BARRIER_MUTEX_NAME[] = "MEM_BAR";
     // ERISC FW Version Required by UMD
     static constexpr std::uint32_t SW_VERSION = 0x06060000;
+
+    // New API
+    std::unique_ptr<tt::umd::architecture_implementation> architecture_implementation;
 };
 
 tt::ARCH detect_arch(uint16_t device_id = 0);

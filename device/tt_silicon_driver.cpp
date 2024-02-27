@@ -2130,7 +2130,8 @@ void tt_SiliconDevice::set_pcie_power_state(tt_DevicePowerState state) {
 
 int tt_SiliconDevice::get_clock(int logical_device_id) {
     uint32_t clock;
-    struct PCIdevice* pci_device = get_pci_device(logical_device_id);
+    auto mmio_capable_chip_logical = ndesc->get_closest_mmio_capable_chip(logical_device_id);
+    struct PCIdevice* pci_device = get_pci_device(mmio_capable_chip_logical);
     auto exit_code = arc_msg(logical_device_id, 0xaa00 | pci_device->hdev->get_architecture_implementation()->get_arc_message_get_aiclk(), true, 0xFFFF, 0xFFFF, 1, &clock);
     if (exit_code != 0) {
         throw std::runtime_error("Failed to get aiclk value with exit code " + std::to_string(exit_code));
@@ -2850,7 +2851,8 @@ uint32_t tt_SiliconDevice::get_harvested_rows (int logical_device_id) {
     if (harv_override) {
         harv = std::stoul(harv_override, nullptr, 16);
     } else {
-        struct PCIdevice* pci_device = get_pci_device(logical_device_id);
+        auto mmio_capable_chip_logical = ndesc->get_closest_mmio_capable_chip(logical_device_id);
+        struct PCIdevice* pci_device = get_pci_device(mmio_capable_chip_logical);
         int harvesting_msg_code = arc_msg(logical_device_id, 0xaa00 | pci_device->hdev->get_architecture_implementation()->get_arc_message_arc_get_harvesting(), true, 0, 0, 1, &harv);
         log_assert(harvesting_msg_code != MSG_ERROR_REPLY, "Failed to read harvested rows from device {}", logical_device_id);
     }
@@ -4285,7 +4287,8 @@ void tt_SiliconDevice::send_remote_tensix_risc_reset_to_core(const tt_cxy_pair &
 }
 
 int tt_SiliconDevice::set_remote_power_state(const chip_id_t &chip, tt_DevicePowerState device_state) {
-    struct PCIdevice* pci_device = get_pci_device(chip);
+    auto mmio_capable_chip_logical = ndesc->get_closest_mmio_capable_chip(chip);
+    struct PCIdevice* pci_device = get_pci_device(mmio_capable_chip_logical);
     return remote_arc_msg(chip, get_power_state_arc_msg(pci_device, device_state), true, 0, 0, 1, NULL, NULL);
 }
 
@@ -4374,7 +4377,8 @@ void tt_SiliconDevice::deassert_resets_and_set_power_state() {
     if(ndesc != nullptr) {
         for(const chip_id_t& chip : target_devices_in_cluster) {
             if(!ndesc -> is_chip_mmio_capable(chip)) {
-                struct PCIdevice* pci_device = get_pci_device(chip);
+                auto mmio_capable_chip_logical = ndesc->get_closest_mmio_capable_chip(chip);
+                struct PCIdevice* pci_device = get_pci_device(mmio_capable_chip_logical);
                 remote_arc_msg(chip, 0xaa00 | pci_device->hdev->get_architecture_implementation()->get_arc_message_deassert_riscv_reset(), true, 0x0, 0x0, 1, NULL, NULL);
             }
         }

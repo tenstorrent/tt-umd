@@ -6,15 +6,6 @@
 #include "tt_xy_pair.h"
 #include "tt_device.h"
 
-std::optional<std::tuple<std::uint32_t, std::uint32_t>> tt_SiliconDevice::describe_tlb(tt_xy_pair coord) {
-    auto tlb_index = map_core_to_tlb(tt_xy_pair(coord.x, coord.y));
-    if (tlb_index < 0) {
-        return std::nullopt;
-    }
-
-    return architecture_implementation->describe_tlb(tlb_index);
-}
-
 std::string TensixSoftResetOptionsToString(TensixSoftResetOptions value) {
     std::string output;
 

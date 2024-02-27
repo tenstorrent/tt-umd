@@ -852,7 +852,7 @@ class tt_SiliconDevice: public tt_device
     void set_pcie_power_state(tt_DevicePowerState state);
     int set_remote_power_state(const chip_id_t &chip, tt_DevicePowerState device_state);
     void set_power_state(tt_DevicePowerState state);
-    uint32_t get_power_state_arc_msg(tt_DevicePowerState state);
+    uint32_t get_power_state_arc_msg(struct PCIdevice* pci_device, tt_DevicePowerState state);
     void enable_local_ethernet_queue(const chip_id_t& chip, int timeout);
     void enable_ethernet_queue(int timeout);
     void enable_remote_ethernet_queue(const chip_id_t& chip, int timeout);
@@ -889,7 +889,6 @@ class tt_SiliconDevice: public tt_device
     struct PCIdevice* get_pci_device(int pci_intf_id) const;
     std::shared_ptr<boost::interprocess::named_mutex> get_mutex(const std::string& tlb_name, int pci_interface_id);
     virtual uint32_t get_harvested_noc_rows_for_chip(int logical_device_id); // Returns one-hot encoded harvesting mask for PCIe mapped chips
-    std::optional<std::tuple<std::uint32_t, std::uint32_t>> describe_tlb(tt_xy_pair coord);
     void generate_tensix_broadcast_grids_for_grayskull( std::set<std::pair<tt_xy_pair, tt_xy_pair>>& broadcast_grids, std::set<uint32_t>& rows_to_exclude, std::set<uint32_t>& cols_to_exclude);
     std::unordered_map<chip_id_t, std::vector<std::vector<int>>>&  get_ethernet_broadcast_headers(const std::set<chip_id_t>& chips_to_exclude);
     // Test functions
@@ -968,9 +967,6 @@ class tt_SiliconDevice: public tt_device
     static constexpr char MEM_BARRIER_MUTEX_NAME[] = "MEM_BAR";
     // ERISC FW Version Required by UMD
     static constexpr std::uint32_t SW_VERSION = 0x06060000;
-
-    // New API
-    std::unique_ptr<tt::umd::architecture_implementation> architecture_implementation;
 };
 
 tt::ARCH detect_arch(uint16_t device_id = 0);

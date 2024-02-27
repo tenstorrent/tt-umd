@@ -182,11 +182,13 @@ struct TTDevice : TTDeviceBase
     TTDevice(const TTDevice&) = delete;
     void operator = (const TTDevice&) = delete;
 
-    TTDevice(TTDevice &&that) : TTDeviceBase(std::move(that)) { that.drop(); }
+    TTDevice(TTDevice &&that) : TTDeviceBase(std::move(that)), arch(that.arch), architecture_implementation(std::move(that.architecture_implementation)) { that.drop(); }
     TTDevice &operator = (TTDevice &&that) {
         reset();
 
         *static_cast<TTDeviceBase*>(this) = std::move(that);
+        arch = that.arch;
+        architecture_implementation = std::move(that.architecture_implementation);
         that.drop();
 
         return *this;
@@ -199,6 +201,9 @@ struct TTDevice : TTDeviceBase
     void resume_after_device_reset() {
         do_open();
     }
+
+    tt::ARCH get_arch() const { return arch; }
+    tt::umd::architecture_implementation* get_architecture_implementation() const { return architecture_implementation.get(); }
 
 private:
     TTDevice() = default;
@@ -241,6 +246,9 @@ private:
     }
 
     void do_open();
+
+    tt::ARCH arch;
+    std::unique_ptr<tt::umd::architecture_implementation> architecture_implementation;
 };
 
 TTDevice TTDevice::open(unsigned int device_id) {
@@ -366,20 +374,22 @@ void TTDevice::open_hugepage_per_host_mem_ch(uint32_t num_host_mem_channels) {
     }
 }
 
-tt::ARCH detect_arch(PCIdevice *pci_device) {
-    tt::ARCH arch_name = tt::ARCH::Invalid;
+int get_revision_id(TTDevice *dev);
 
-    if (is_grayskull(pci_device->device_id)) {
-        arch_name = tt::ARCH::GRAYSKULL;
-    } else if (is_wormhole_b0(pci_device->device_id, pci_device->revision_id)) {
-        arch_name = tt::ARCH::WORMHOLE_B0;
-    } else if (is_wormhole(pci_device->device_id)) {
-        arch_name = tt::ARCH::WORMHOLE;
+tt::ARCH detect_arch(TTDevice *dev) {
+    if (is_grayskull(dev->device_info.device_id)) {
+        return tt::ARCH::GRAYSKULL;
+    } else if (is_wormhole_b0(dev->device_info.device_id, get_revision_id(dev))) {
+        return tt::ARCH::WORMHOLE_B0;
+    } else if (is_wormhole(dev->device_info.device_id)) {
+        return tt::ARCH::WORMHOLE;
     } else {
         throw std::runtime_error(std::string("Unknown device id."));
     }
+}
 
-    return arch_name;
+tt::ARCH detect_arch(PCIdevice *pci_device) {
+    return pci_device->hdev->get_arch();
 }
 
 tt::ARCH detect_arch(uint16_t device_id) {
@@ -508,6 +518,9 @@ void TTDevice::do_open() {
     pci_bus = device_info.out.bus_dev_fn >> 8;
     pci_device = PCI_SLOT(device_info.out.bus_dev_fn);
     pci_function = PCI_FUNC(device_info.out.bus_dev_fn);
+
+    arch = detect_arch(this);
+    architecture_implementation = tt::umd::architecture_implementation::create(static_cast<tt::umd::architecture>(arch));
 }
 
 void set_debug_level(int dl) {
@@ -746,8 +759,8 @@ volatile T* register_address(const TTDevice *dev, std::uint32_t register_offset)
     return reinterpret_cast<T*>(static_cast<uint8_t*>(reg_mapping) + register_offset);
 }
 
-bool is_hardware_hung(const TTDevice *dev, const tt::umd::architecture_implementation* architecture_implementation) {
-    volatile const void *addr = reinterpret_cast<const char *>(dev->bar0_uc) + (architecture_implementation->get_arc_reset_scratch_offset() + 6 * 4) - dev->bar0_uc_offset;
+bool is_hardware_hung(const TTDevice *dev) {
+    volatile const void *addr = reinterpret_cast<const char *>(dev->bar0_uc) + (dev->get_architecture_implementation()->get_arc_reset_scratch_offset() + 6 * 4) - dev->bar0_uc_offset;
     std::uint32_t scratch_data = *reinterpret_cast<const volatile std::uint32_t*>(addr);
 
     return (scratch_data == 0xffffffffu);
@@ -801,13 +814,13 @@ bool reset_by_ioctl(TTDevice *dev) {
     return (reset_device.out.result == 0);
 }
 
-bool auto_reset_board(TTDevice *dev, const tt::umd::architecture_implementation* architecture_implementation) {
-    return ((reset_by_ioctl(dev) || reset_by_sysfs(dev)) && !is_hardware_hung(dev, architecture_implementation));
+bool auto_reset_board(TTDevice *dev) {
+    return ((reset_by_ioctl(dev) || reset_by_sysfs(dev)) && !is_hardware_hung(dev));
 }
 
-void detect_ffffffff_read(TTDevice *dev, const tt::umd::architecture_implementation* architecture_implementation, std::uint32_t data_read = 0xffffffffu) {
-    if (g_READ_CHECKING_ENABLED && data_read == 0xffffffffu && is_hardware_hung(dev, architecture_implementation)) {
-        if (auto_reset_board(dev, architecture_implementation)) {
+void detect_ffffffff_read(TTDevice *dev, std::uint32_t data_read = 0xffffffffu) {
+    if (g_READ_CHECKING_ENABLED && data_read == 0xffffffffu && is_hardware_hung(dev)) {
+        if (auto_reset_board(dev)) {
             throw std::runtime_error("Read 0xffffffff from ARC scratch[6]: auto-reset succeeded.");
         } else {
             throw std::runtime_error("Read 0xffffffff from ARC scratch[6]: you should reset the board.");
@@ -924,7 +937,7 @@ void memcpy_from_device(void *dest, const void *src, std::size_t num_bytes) {
     }
 }
 
-void read_block(TTDevice *dev, const tt::umd::architecture_implementation* architecture_implementation, uint32_t byte_addr, uint32_t num_bytes, uint8_t* buffer_addr, uint32_t dma_buf_size) {
+void read_block(TTDevice *dev, uint32_t byte_addr, uint32_t num_bytes, uint8_t* buffer_addr, uint32_t dma_buf_size) {
     if (num_bytes >= g_DMA_BLOCK_SIZE_READ_THRESHOLD_BYTES && g_DMA_BLOCK_SIZE_READ_THRESHOLD_BYTES > 0) {
         record_access ("read_block_a", byte_addr, num_bytes, true, false, true, true); // addr, size, turbo, write, block, endline
 
@@ -975,7 +988,7 @@ void read_block(TTDevice *dev, const tt::umd::architecture_implementation* archi
 #endif
 
     if (num_bytes >= sizeof(std::uint32_t)) {
-        detect_ffffffff_read(dev, architecture_implementation, *reinterpret_cast<std::uint32_t*>(dest));
+        detect_ffffffff_read(dev, *reinterpret_cast<std::uint32_t*>(dest));
     }
     print_buffer (buffer_addr, std::min(g_NUM_BYTES_TO_PRINT, num_bytes), true);
 }
@@ -1129,8 +1142,8 @@ void read_regs(TTDevice *dev, uint32_t byte_addr, uint32_t word_len, void *data)
     print_buffer (data, std::min(g_NUM_BYTES_TO_PRINT, word_len * 4), true);
 }
 
-void handle_dma_timeout(TTDevice *dev, const tt::umd::architecture_implementation* architecture_implementation, uint32_t size_bytes, bool write) {
-    detect_ffffffff_read(dev, architecture_implementation);
+void handle_dma_timeout(TTDevice *dev, uint32_t size_bytes, bool write) {
+    detect_ffffffff_read(dev);
     throw std::runtime_error(std::string("DMA transfer timeout: ")
                              + std::to_string(size_bytes)
                              + (write ? " byte write." : " byte read."));
@@ -1258,8 +1271,9 @@ namespace {
     };
 }
 // Get TLB index (from zero), check if it's in 16MB, 2MB or 1MB TLB range, and dynamically program it.
-dynamic_tlb set_dynamic_tlb(PCIdevice* dev, const tt::umd::architecture_implementation* architecture_implementation, unsigned int tlb_index, tt_xy_pair start, tt_xy_pair end,
+dynamic_tlb set_dynamic_tlb(PCIdevice* dev, unsigned int tlb_index, tt_xy_pair start, tt_xy_pair end,
                             std::uint32_t address, bool multicast, std::unordered_map<chip_id_t, std::unordered_map<tt_xy_pair, tt_xy_pair>>& harvested_coord_translation, std::uint64_t ordering) {
+    auto architecture_implementation = dev->hdev->get_architecture_implementation();
     if (multicast) {
         std::tie(start, end) = architecture_implementation->multicast_workaround(start, end);
     }
@@ -1294,13 +1308,13 @@ dynamic_tlb set_dynamic_tlb(PCIdevice* dev, const tt::umd::architecture_implemen
 }
 
 
-dynamic_tlb set_dynamic_tlb(PCIdevice *dev, const tt::umd::architecture_implementation* architecture_implementation, unsigned int tlb_index, tt_xy_pair target, std::uint32_t address, std::unordered_map<chip_id_t, std::unordered_map<tt_xy_pair, tt_xy_pair>>& harvested_coord_translation, std::uint64_t ordering = TLB_DATA::Relaxed) {
-    return set_dynamic_tlb(dev, architecture_implementation, tlb_index, tt_xy_pair(0, 0), target, address, false, harvested_coord_translation, ordering);
+dynamic_tlb set_dynamic_tlb(PCIdevice *dev, unsigned int tlb_index, tt_xy_pair target, std::uint32_t address, std::unordered_map<chip_id_t, std::unordered_map<tt_xy_pair, tt_xy_pair>>& harvested_coord_translation, std::uint64_t ordering = TLB_DATA::Relaxed) {
+    return set_dynamic_tlb(dev, tlb_index, tt_xy_pair(0, 0), target, address, false, harvested_coord_translation, ordering);
 }
 
-dynamic_tlb set_dynamic_tlb_broadcast(PCIdevice *dev, const tt::umd::architecture_implementation* architecture_implementation, unsigned int tlb_index, std::uint32_t address, std::unordered_map<chip_id_t, std::unordered_map<tt_xy_pair, tt_xy_pair>>& harvested_coord_translation, tt_xy_pair start, tt_xy_pair end, std::uint64_t ordering = TLB_DATA::Relaxed) {
+dynamic_tlb set_dynamic_tlb_broadcast(PCIdevice *dev, unsigned int tlb_index, std::uint32_t address, std::unordered_map<chip_id_t, std::unordered_map<tt_xy_pair, tt_xy_pair>>& harvested_coord_translation, tt_xy_pair start, tt_xy_pair end, std::uint64_t ordering = TLB_DATA::Relaxed) {
     // Issue a broadcast to cores included in the start (top left) and end (bottom right) grid
-    return set_dynamic_tlb (dev, architecture_implementation, tlb_index, start, end,
+    return set_dynamic_tlb (dev, tlb_index, start, end,
                             address, true, harvested_coord_translation, ordering);
 }
 
@@ -1469,9 +1483,6 @@ tt_SiliconDevice::tt_SiliconDevice(const std::string &sdesc_path, const std::str
     arch_name = tt_SocDescriptor(sdesc_path).arch;
     perform_harvesting_on_sdesc = perform_harvesting;
 
-    // TODO: This should be per device, not the same for all devices
-    architecture_implementation = tt::umd::architecture_implementation::create(static_cast<tt::umd::architecture>(arch_name));
-
     auto available_device_ids = detect_available_device_ids();
     m_num_pci_devices = available_device_ids.size();
 
@@ -1496,6 +1507,7 @@ tt_SiliconDevice::tt_SiliconDevice(const std::string &sdesc_path, const std::str
     dynamic_tlb_config = dynamic_tlb_config_;
 
     // It is mandatory for all devices to have these TLBs set aside, as the driver needs them to issue remote reads and writes.
+    auto architecture_implementation = tt::umd::architecture_implementation::create(static_cast<tt::umd::architecture>(arch_name));
     dynamic_tlb_config["LARGE_READ_TLB"] =  architecture_implementation->get_mem_large_read_tlb();
     dynamic_tlb_config["LARGE_WRITE_TLB"] = architecture_implementation->get_mem_large_write_tlb();
 
@@ -1699,6 +1711,7 @@ void tt_SiliconDevice::check_pcie_device_initialized(int device_id) {
     else {
         throw std::runtime_error("Unsupported architecture: " + get_arch_str(arch_name));
     }
+    auto architecture_implementation = pci_device->hdev->get_architecture_implementation();
 
     LOG1 ("== Check if device_id: %d is initialized\n", device_id);
     uint32_t bar_read_initial = bar_read32(device_id, architecture_implementation->get_arc_reset_scratch_offset() + 3 * 4);
@@ -1850,7 +1863,8 @@ void tt_SiliconDevice::broadcast_pcie_tensix_risc_reset(struct PCIdevice *device
 
     LOG1("== For all tensix set soft-reset for %s risc cores.\n", TensixSoftResetOptionsToString(valid).c_str());
 
-    auto [soft_reset_reg, _] = set_dynamic_tlb_broadcast(device, architecture_implementation.get(), architecture_implementation->get_reg_tlb(), architecture_implementation->get_tensix_soft_reset_addr(), harvested_coord_translation, tt_xy_pair(0, 0), 
+    auto architecture_implementation = device->hdev->get_architecture_implementation();
+    auto [soft_reset_reg, _] = set_dynamic_tlb_broadcast(device, architecture_implementation->get_reg_tlb(), architecture_implementation->get_tensix_soft_reset_addr(), harvested_coord_translation, tt_xy_pair(0, 0), 
                                 tt_xy_pair(architecture_implementation->get_grid_size_x() - 1, architecture_implementation->get_grid_size_y() - 1 - num_rows_harvested.at(device -> logical_id)), TLB_DATA::Posted);
     write_regs(device->hdev, soft_reset_reg, 1, &valid);
     tt_driver_atomics::sfence();
@@ -1972,7 +1986,7 @@ void tt_SiliconDevice::write_device_memory(const void *mem_ptr, uint32_t size_in
     std::optional<std::tuple<std::uint32_t, std::uint32_t>> tlb_data = std::nullopt;
     if(tlbs_init) {
         tlb_index = map_core_to_tlb(tt_xy_pair(target.x, target.y));
-        tlb_data = architecture_implementation->describe_tlb(tlb_index);
+        tlb_data = dev->get_architecture_implementation()->describe_tlb(tlb_index);
     }
 
     if (tlb_data.has_value() && address_in_tlb_space(address, size_in_bytes, tlb_index, std::get<1>(tlb_data.value()), target.chip)) {
@@ -1984,7 +1998,7 @@ void tt_SiliconDevice::write_device_memory(const void *mem_ptr, uint32_t size_in
 
         while(size_in_bytes > 0) {
 
-            auto [mapped_address, tlb_size] = set_dynamic_tlb(pci_device, architecture_implementation.get(), tlb_index, target, address, harvested_coord_translation, dynamic_tlb_ordering_modes.at(fallback_tlb));
+            auto [mapped_address, tlb_size] = set_dynamic_tlb(pci_device, tlb_index, target, address, harvested_coord_translation, dynamic_tlb_ordering_modes.at(fallback_tlb));
             uint32_t transfer_size = std::min(size_in_bytes, tlb_size);
             write_block(dev, mapped_address, transfer_size, buffer_addr, m_dma_buf_size);
 
@@ -2008,13 +2022,13 @@ void tt_SiliconDevice::read_device_memory(void *mem_ptr, tt_cxy_pair target, std
     std::optional<std::tuple<std::uint32_t, std::uint32_t>> tlb_data = std::nullopt;
     if(tlbs_init) {
         tlb_index = map_core_to_tlb(tt_xy_pair(target.x, target.y));
-        tlb_data = architecture_implementation->describe_tlb(tlb_index);
+        tlb_data = dev->get_architecture_implementation()->describe_tlb(tlb_index);
     }
     LOG1("  tlb_index: %d, tlb_data.has_value(): %d\n", tlb_index, tlb_data.has_value());
 
     if (tlb_data.has_value()  && address_in_tlb_space(address, size_in_bytes, tlb_index, std::get<1>(tlb_data.value()), target.chip)) {
         auto [tlb_offset, tlb_size] = tlb_data.value();
-        read_block(dev, architecture_implementation.get(), tlb_offset + address % tlb_size, size_in_bytes, buffer_addr, m_dma_buf_size);
+        read_block(dev, tlb_offset + address % tlb_size, size_in_bytes, buffer_addr, m_dma_buf_size);
         LOG1 ("  read_block called with tlb_offset: %d, tlb_size: %d\n", tlb_offset, tlb_size);
     } else {
         const auto tlb_index = dynamic_tlb_config.at(fallback_tlb);
@@ -2022,9 +2036,9 @@ void tt_SiliconDevice::read_device_memory(void *mem_ptr, tt_cxy_pair target, std
         LOG1 ("  dynamic tlb_index: %d\n", tlb_index);
         while(size_in_bytes > 0) {
 
-            auto [mapped_address, tlb_size] = set_dynamic_tlb(pci_device, architecture_implementation.get(), tlb_index, target, address, harvested_coord_translation, dynamic_tlb_ordering_modes.at(fallback_tlb));
+            auto [mapped_address, tlb_size] = set_dynamic_tlb(pci_device, tlb_index, target, address, harvested_coord_translation, dynamic_tlb_ordering_modes.at(fallback_tlb));
             uint32_t transfer_size = std::min(size_in_bytes, tlb_size);
-            read_block(dev, architecture_implementation.get(), mapped_address, transfer_size, buffer_addr, m_dma_buf_size);
+            read_block(dev, mapped_address, transfer_size, buffer_addr, m_dma_buf_size);
 
             size_in_bytes -= transfer_size;
             address += transfer_size;
@@ -2078,19 +2092,19 @@ void tt_SiliconDevice::write_dma_buffer(
 }
 
 
-uint32_t tt_SiliconDevice::get_power_state_arc_msg(tt_DevicePowerState state) {
+uint32_t tt_SiliconDevice::get_power_state_arc_msg(struct PCIdevice* pci_device, tt_DevicePowerState state) {
     uint32_t msg = 0xaa00;
     switch (state) {
         case BUSY: {
-            msg |= architecture_implementation->get_arc_message_arc_go_busy();
+            msg |= pci_device->hdev->get_architecture_implementation()->get_arc_message_arc_go_busy();
             break;
         }
         case LONG_IDLE: {
-            msg |= architecture_implementation->get_arc_message_arc_go_long_idle();
+            msg |= pci_device->hdev->get_architecture_implementation()->get_arc_message_arc_go_long_idle();
             break;
         }
         case SHORT_IDLE: {
-            msg |= architecture_implementation->get_arc_message_arc_go_short_idle();
+            msg |= pci_device->hdev->get_architecture_implementation()->get_arc_message_arc_go_short_idle();
             break;
         }
         default: throw std::runtime_error("Unrecognized power state.");
@@ -2103,7 +2117,7 @@ void tt_SiliconDevice::set_pcie_power_state(tt_DevicePowerState state) {
     for (auto &device_it : m_pci_device_map){
         int d = device_it.first;
         struct PCIdevice* pci_device = device_it.second;
-        uint32_t msg = get_power_state_arc_msg(state);
+        uint32_t msg = get_power_state_arc_msg(pci_device, state);
         std::stringstream ss;
         ss << state;
         auto exit_code = arc_msg(d, 0xaa00 | msg, true, 0, 0);
@@ -2116,7 +2130,8 @@ void tt_SiliconDevice::set_pcie_power_state(tt_DevicePowerState state) {
 
 int tt_SiliconDevice::get_clock(int logical_device_id) {
     uint32_t clock;
-    auto exit_code = arc_msg(logical_device_id, 0xaa00 | architecture_implementation->get_arc_message_get_aiclk(), true, 0xFFFF, 0xFFFF, 1, &clock);
+    struct PCIdevice* pci_device = get_pci_device(logical_device_id);
+    auto exit_code = arc_msg(logical_device_id, 0xaa00 | pci_device->hdev->get_architecture_implementation()->get_arc_message_get_aiclk(), true, 0xFFFF, 0xFFFF, 1, &clock);
     if (exit_code != 0) {
         throw std::runtime_error("Failed to get aiclk value with exit code " + std::to_string(exit_code));
     }
@@ -2213,6 +2228,7 @@ std::optional<std::tuple<uint32_t, uint32_t>> tt_SiliconDevice::get_tlb_data_fro
 
     if (tlbs_init) {
         tlb_index = map_core_to_tlb(target);
+        auto architecture_implementation = tt::umd::architecture_implementation::create(static_cast<tt::umd::architecture>(arch_name));
         tlb_data = architecture_implementation->describe_tlb(tlb_index);
     } 
     return tlb_data;
@@ -2224,8 +2240,9 @@ uint32_t tt_SiliconDevice::get_m_dma_buf_size() const {
 
 void tt_SiliconDevice::configure_tlb(chip_id_t logical_device_id, tt_xy_pair core, std::int32_t tlb_index, std::int32_t address, uint64_t ordering) {
     log_assert(ordering == TLB_DATA::Strict || ordering == TLB_DATA::Posted || ordering == TLB_DATA::Relaxed, "Invalid ordering specified in tt_SiliconDevice::configure_tlb");
-    set_dynamic_tlb(m_pci_device_map.at(logical_device_id), architecture_implementation.get(), tlb_index, core, address, harvested_coord_translation, ordering);
-    auto tlb_size = std::get<1>(architecture_implementation->describe_tlb(tlb_index).value());
+    struct PCIdevice* pci_device = get_pci_device(logical_device_id);
+    set_dynamic_tlb(pci_device, tlb_index, core, address, harvested_coord_translation, ordering);
+    auto tlb_size = std::get<1>(pci_device->hdev->get_architecture_implementation()->describe_tlb(tlb_index).value());
     if(tlb_config_map.find(logical_device_id) == tlb_config_map.end()) tlb_config_map.insert({logical_device_id, {}});
     tlb_config_map[logical_device_id].insert({tlb_index, (address / tlb_size) * tlb_size});
 }
@@ -2619,7 +2636,7 @@ int tt_SiliconDevice::test_setup_interface () {
         int ret_val = 0;
         TTDevice *dev = m_pci_device_map.begin()->second->hdev;
 
-        uint32_t mapped_reg = set_dynamic_tlb(m_pci_device_map.begin()->second, architecture_implementation.get(), architecture_implementation->get_reg_tlb(), tt_xy_pair(0, 0), 0xffb20108, harvested_coord_translation).bar_offset;
+        uint32_t mapped_reg = set_dynamic_tlb(m_pci_device_map.begin()->second, dev->get_architecture_implementation()->get_reg_tlb(), tt_xy_pair(0, 0), 0xffb20108, harvested_coord_translation).bar_offset;
 
         uint32_t regval = 0;
         read_regs(dev, mapped_reg, 1, &regval);
@@ -2630,7 +2647,7 @@ int tt_SiliconDevice::test_setup_interface () {
         int ret_val = 0;
         TTDevice *dev = m_pci_device_map.begin()->second->hdev;
 
-        uint32_t mapped_reg = set_dynamic_tlb(m_pci_device_map.begin()->second, architecture_implementation.get(), architecture_implementation->get_reg_tlb(), tt_xy_pair(1, 0), 0xffb20108, harvested_coord_translation).bar_offset;
+        uint32_t mapped_reg = set_dynamic_tlb(m_pci_device_map.begin()->second, dev->get_architecture_implementation()->get_reg_tlb(), tt_xy_pair(1, 0), 0xffb20108, harvested_coord_translation).bar_offset;
 
         uint32_t regval = 0;
         read_regs(dev, mapped_reg, 1, &regval);
@@ -2713,7 +2730,7 @@ uint32_t tt_SiliconDevice::bar_read32 (int logical_device_id, uint32_t addr) {
 
     uint32_t data;
     if (addr < dev->bar0_uc_offset) {
-        read_block (dev, architecture_implementation.get(), addr, sizeof(data), reinterpret_cast<uint8_t*>(&data), m_dma_buf_size);
+        read_block (dev, addr, sizeof(data), reinterpret_cast<uint8_t*>(&data), m_dma_buf_size);
     } else {
         read_regs (dev, addr, 1, &data);
     }
@@ -2730,6 +2747,7 @@ int tt_SiliconDevice::pcie_arc_msg(int logical_device_id, uint32_t msg_code, boo
     log_assert(arg0 <= 0xffff and arg1 <= 0xffff, "Only 16 bits allowed in arc_msg args"); // Only 16 bits are allowed
 
     struct PCIdevice* pci_device = get_pci_device(logical_device_id);
+    auto architecture_implementation = pci_device->hdev->get_architecture_implementation();
 
     // Exclusive access for a single process at a time. Based on physical pci interface id.
     std::string msg_type = "ARC_MSG";
@@ -2778,7 +2796,7 @@ int tt_SiliconDevice::pcie_arc_msg(int logical_device_id, uint32_t msg_code, boo
         }
     }
 
-    detect_ffffffff_read(pci_device->hdev, architecture_implementation.get());
+    detect_ffffffff_read(pci_device->hdev);
     return exit_code;
 }
 
@@ -2788,6 +2806,9 @@ int tt_SiliconDevice::iatu_configure_peer_region (int logical_device_id, uint32_
     uint32_t dest_bar_hi = (bar_addr_64 >> 32) & 0xffffffff;
     std::uint32_t region_id_to_use = peer_region_id;
     if(peer_region_id == 3) region_id_to_use = 4; // Hack use region 4 for channel 3..this ensures that we have a smaller chan 3 address space with the correct start offset
+    struct PCIdevice* pci_device = get_pci_device(logical_device_id);
+    auto architecture_implementation = pci_device->hdev->get_architecture_implementation();
+
     bar_write32(logical_device_id, architecture_implementation->get_arc_csm_mailbox_offset() + 0 * 4, region_id_to_use);
     bar_write32(logical_device_id, architecture_implementation->get_arc_csm_mailbox_offset() + 1 * 4, dest_bar_lo);
     bar_write32(logical_device_id, architecture_implementation->get_arc_csm_mailbox_offset() + 2 * 4, dest_bar_hi);
@@ -2803,6 +2824,7 @@ int tt_SiliconDevice::iatu_configure_peer_region (int logical_device_id, uint32_
 
 // Returns broken rows as bits set to 1 in 'memory' and 'logic'
 uint32_t tt_SiliconDevice::get_harvested_noc_rows(uint32_t harvesting_mask) {
+    auto architecture_implementation = tt::umd::architecture_implementation::create(static_cast<tt::umd::architecture>(arch_name));
     const std::vector<uint32_t> &harv_to_noc_loc = architecture_implementation->get_harvesting_noc_locations();
     uint32_t harv_noc_rows = 0;
     std::string harv_noc_rows_str = "";
@@ -2828,7 +2850,8 @@ uint32_t tt_SiliconDevice::get_harvested_rows (int logical_device_id) {
     if (harv_override) {
         harv = std::stoul(harv_override, nullptr, 16);
     } else {
-        int harvesting_msg_code = arc_msg(logical_device_id, 0xaa00 | architecture_implementation->get_arc_message_arc_get_harvesting(), true, 0, 0, 1, &harv);
+        struct PCIdevice* pci_device = get_pci_device(logical_device_id);
+        int harvesting_msg_code = arc_msg(logical_device_id, 0xaa00 | pci_device->hdev->get_architecture_implementation()->get_arc_message_arc_get_harvesting(), true, 0, 0, 1, &harv);
         log_assert(harvesting_msg_code != MSG_ERROR_REPLY, "Failed to read harvested rows from device {}", logical_device_id);
     }
     log_assert(harv != 0xffffffff, "Readback 0xffffffff for harvesting info. Chip is fused incorrectly!");
@@ -2862,10 +2885,12 @@ void tt_SiliconDevice::enable_local_ethernet_queue(const chip_id_t &device_id, i
 void *tt_SiliconDevice::channel_0_address(std::uint32_t offset, std::uint32_t device_id) const {
     // This hard-codes that we use 16MB TLB #1 onwards for the mapping. See tt_SiliconDevice::init_pcie_tlb.
     log_assert(ndesc->is_chip_mmio_capable(device_id), "Cannot call channel_0_address for non-MMIO device");
+    struct PCIdevice* pci_device = get_pci_device(device_id);
+    auto architecture_implementation = pci_device->hdev->get_architecture_implementation();
     std::uint64_t bar0_offset = offset - architecture_implementation->get_dram_channel_0_peer2peer_region_start()
                                 + architecture_implementation->get_dynamic_tlb_16m_base() + architecture_implementation->get_dynamic_tlb_16m_size();
 
-    return static_cast<std::byte*>(get_pci_device(device_id)->hdev->bar0_wc) + bar0_offset;
+    return static_cast<std::byte*>(pci_device->hdev->bar0_wc) + bar0_offset;
 }
 
 void *tt_SiliconDevice::host_dma_address(std::uint64_t offset, chip_id_t src_device_id, uint16_t channel) const {
@@ -3793,7 +3818,7 @@ void tt_SiliconDevice::pcie_broadcast_write(chip_id_t chip, const void* mem_ptr,
     const uint8_t* buffer_addr = static_cast<const uint8_t*>(mem_ptr);
     const scoped_lock<named_mutex> lock(*get_mutex(fallback_tlb, pci_device -> id));
     while(size_in_bytes > 0) {
-        auto [mapped_address, tlb_size] = set_dynamic_tlb_broadcast(pci_device, architecture_implementation.get(), tlb_index, addr, harvested_coord_translation, start, end, dynamic_tlb_ordering_modes.at(fallback_tlb));
+        auto [mapped_address, tlb_size] = set_dynamic_tlb_broadcast(pci_device, tlb_index, addr, harvested_coord_translation, start, end, dynamic_tlb_ordering_modes.at(fallback_tlb));
         uint32_t transfer_size = std::min(size_in_bytes, tlb_size);
         write_block(dev, mapped_address, transfer_size, buffer_addr, m_dma_buf_size);
 
@@ -3893,6 +3918,7 @@ void tt_SiliconDevice::broadcast_write_to_cluster(const void *mem_ptr, uint32_t 
         } 
     }
     else {
+        auto architecture_implementation = tt::umd::architecture_implementation::create(static_cast<tt::umd::architecture>(arch_name));
         if(cols_to_exclude.find(0) == cols_to_exclude.end() or cols_to_exclude.find(5) == cols_to_exclude.end()) {
             log_assert(!tensix_or_eth_in_broadcast(cols_to_exclude, architecture_implementation.get()), "Cannot broadcast to tensix/ethernet and DRAM simultaneously on Wormhole.");
             if(cols_to_exclude.find(0) == cols_to_exclude.end()) {
@@ -4184,7 +4210,7 @@ void tt_SiliconDevice::read_mmio_device_register(void* mem_ptr, tt_cxy_pair core
     const scoped_lock<named_mutex> lock(*get_mutex(fallback_tlb, pci_device -> id));
     LOG1 ("  dynamic tlb_index: %d\n", tlb_index);
 
-    auto [mapped_address, tlb_size] = set_dynamic_tlb(pci_device, architecture_implementation.get(), tlb_index, core, addr, harvested_coord_translation, TLB_DATA::Strict);
+    auto [mapped_address, tlb_size] = set_dynamic_tlb(pci_device, tlb_index, core, addr, harvested_coord_translation, TLB_DATA::Strict);
     // Align block to 4bytes if needed. 
     auto aligned_buf = tt_4_byte_aligned_buffer(mem_ptr, size);
     read_regs(dev, mapped_address, aligned_buf.block_size / sizeof(std::uint32_t), aligned_buf.local_storage);
@@ -4204,7 +4230,7 @@ void tt_SiliconDevice::write_mmio_device_register(const void* mem_ptr, tt_cxy_pa
     const scoped_lock<named_mutex> lock(*get_mutex(fallback_tlb, pci_device -> id));
     LOG1 ("  dynamic tlb_index: %d\n", tlb_index);
 
-    auto [mapped_address, tlb_size] = set_dynamic_tlb(pci_device, architecture_implementation.get(), tlb_index, core, addr, harvested_coord_translation, TLB_DATA::Strict);
+    auto [mapped_address, tlb_size] = set_dynamic_tlb(pci_device, tlb_index, core, addr, harvested_coord_translation, TLB_DATA::Strict);
     // Align block to 4bytes if needed. 
     auto aligned_buf = tt_4_byte_aligned_buffer(mem_ptr, size);
     if(aligned_buf.input_size != aligned_buf.block_size) {
@@ -4259,7 +4285,8 @@ void tt_SiliconDevice::send_remote_tensix_risc_reset_to_core(const tt_cxy_pair &
 }
 
 int tt_SiliconDevice::set_remote_power_state(const chip_id_t &chip, tt_DevicePowerState device_state) {
-    return remote_arc_msg(chip, get_power_state_arc_msg(device_state), true, 0, 0, 1, NULL, NULL);
+    struct PCIdevice* pci_device = get_pci_device(chip);
+    return remote_arc_msg(chip, get_power_state_arc_msg(pci_device, device_state), true, 0, 0, 1, NULL, NULL);
 }
 
 
@@ -4342,12 +4369,13 @@ void tt_SiliconDevice::deassert_resets_and_set_power_state() {
 
     // Send ARC Messages to deassert RISCV resets
     for (auto &device_it : m_pci_device_map){
-        arc_msg(device_it.first, 0xaa00 | architecture_implementation->get_arc_message_deassert_riscv_reset(), true, 0, 0);
+        arc_msg(device_it.first, 0xaa00 | device_it.second->hdev->get_architecture_implementation()->get_arc_message_deassert_riscv_reset(), true, 0, 0);
     }
     if(ndesc != nullptr) {
         for(const chip_id_t& chip : target_devices_in_cluster) {
             if(!ndesc -> is_chip_mmio_capable(chip)) {
-                remote_arc_msg(chip, 0xaa00 | architecture_implementation->get_arc_message_deassert_riscv_reset(), true, 0x0, 0x0, 1, NULL, NULL);
+                struct PCIdevice* pci_device = get_pci_device(chip);
+                remote_arc_msg(chip, 0xaa00 | pci_device->hdev->get_architecture_implementation()->get_arc_message_deassert_riscv_reset(), true, 0x0, 0x0, 1, NULL, NULL);
             }
         }
         enable_ethernet_queue(30);

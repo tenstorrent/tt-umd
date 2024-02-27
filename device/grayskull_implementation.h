@@ -105,13 +105,14 @@ enum class arc_message_type {
 };
 
 // DEVICE_DATA
-const std::array<xy_pair, 8> DRAM_LOCATIONS = {{{1, 6}, {4, 6}, {7, 6}, {10, 6}, {1, 0}, {4, 0}, {7, 0}, {10, 0}}};
-const std::array<xy_pair, 1> ARC_LOCATIONS = {{{0, 2}}};
-const std::array<xy_pair, 1> PCI_LOCATIONS = {{{0, 4}}};
-const std::array<xy_pair, 0> ETH_LOCATIONS = {};
-const std::array<uint32_t, 12> T6_X_LOCATIONS = {12, 1, 11, 2, 10, 3, 9, 4, 8, 5, 7, 6};
-const std::array<uint32_t, 10> T6_Y_LOCATIONS = {11, 1, 10, 2, 9, 3, 8, 4, 7, 5};
-const std::array<uint32_t, 10> HARVESTING_NOC_LOCATIONS = {5, 7, 4, 8, 3, 9, 2, 10, 1, 11};
+static const std::array<xy_pair, 8> DRAM_LOCATIONS = {{{1, 6}, {4, 6}, {7, 6}, {10, 6}, {1, 0}, {4, 0}, {7, 0}, {10, 0}}};
+static const std::array<xy_pair, 1> ARC_LOCATIONS = {{{0, 2}}};
+static const std::array<xy_pair, 1> PCI_LOCATIONS = {{{0, 4}}};
+static const std::array<xy_pair, 0> ETH_LOCATIONS = {};
+// Return to std::array instead of std::vector once we get std::span support in C++20
+static const std::vector<uint32_t> T6_X_LOCATIONS = {12, 1, 11, 2, 10, 3, 9, 4, 8, 5, 7, 6};
+static const std::vector<uint32_t> T6_Y_LOCATIONS = {11, 1, 10, 2, 9, 3, 8, 4, 7, 5};
+static const std::vector<uint32_t> HARVESTING_NOC_LOCATIONS = {5, 7, 4, 8, 3, 9, 2, 10, 1, 11};
 
 static constexpr uint32_t STATIC_TLB_SIZE = 1024 * 1024;
 
@@ -171,8 +172,6 @@ static constexpr uint32_t TENSIX_SOFT_RESET_ADDR = 0xFFB121B0;
 
 class grayskull_implementation : public architecture_implementation {
    public:
-    grayskull_implementation();
-
     architecture get_architecture() const override { return architecture::grayskull; }
     uint32_t get_arc_message_arc_get_harvesting() const override {
         return static_cast<uint32_t>(grayskull::arc_message_type::ARC_GET_HARVESTING);
@@ -217,6 +216,11 @@ class grayskull_implementation : public architecture_implementation {
     uint32_t get_tensix_soft_reset_addr() const override { return grayskull::TENSIX_SOFT_RESET_ADDR; }
     uint32_t get_grid_size_x() const override { return grayskull::GRID_SIZE_X; }
     uint32_t get_grid_size_y() const override { return grayskull::GRID_SIZE_Y; }
+    const std::vector<uint32_t>& get_harvesting_noc_locations() const override {
+        return grayskull::HARVESTING_NOC_LOCATIONS;
+    }
+    const std::vector<uint32_t>& get_t6_x_locations() const override { return grayskull::T6_X_LOCATIONS; }
+    const std::vector<uint32_t>& get_t6_y_locations() const override { return grayskull::T6_Y_LOCATIONS; }
 
     std::tuple<xy_pair, xy_pair> multicast_workaround(xy_pair start, xy_pair end) const override;
     tlb_configuration get_tlb_configuration(uint32_t tlb_index) const override;

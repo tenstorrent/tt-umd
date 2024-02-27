@@ -6,13 +6,6 @@
 
 namespace tt::umd {
 
-blackhole_implementation::blackhole_implementation() {
-    set_harvesting_noc_locations(
-        {blackhole::HARVESTING_NOC_LOCATIONS.begin(), blackhole::HARVESTING_NOC_LOCATIONS.end()});
-    set_t6_x_locations({blackhole::T6_X_LOCATIONS.begin(), blackhole::T6_X_LOCATIONS.end()});
-    set_t6_y_locations({blackhole::T6_Y_LOCATIONS.begin(), blackhole::T6_Y_LOCATIONS.end()});
-}
-
 std::tuple<xy_pair, xy_pair> blackhole_implementation::multicast_workaround(xy_pair start, xy_pair end) const {
     // TODO: This is copied from wormhole_implementation. It should be implemented properly.
 

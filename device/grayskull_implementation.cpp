@@ -6,13 +6,6 @@
 
 namespace tt::umd {
 
-grayskull_implementation::grayskull_implementation() {
-    set_harvesting_noc_locations(
-        {grayskull::HARVESTING_NOC_LOCATIONS.begin(), grayskull::HARVESTING_NOC_LOCATIONS.end()});
-    set_t6_x_locations({grayskull::T6_X_LOCATIONS.begin(), grayskull::T6_X_LOCATIONS.end()});
-    set_t6_y_locations({grayskull::T6_Y_LOCATIONS.begin(), grayskull::T6_Y_LOCATIONS.end()});
-}
-
 std::tuple<xy_pair, xy_pair> grayskull_implementation::multicast_workaround(xy_pair start, xy_pair end) const {
     return std::make_tuple(start, end);
 }

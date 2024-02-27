@@ -6,13 +6,6 @@
 
 namespace tt::umd {
 
-wormhole_implementation::wormhole_implementation() {
-    set_harvesting_noc_locations(
-        {wormhole::HARVESTING_NOC_LOCATIONS.begin(), wormhole::HARVESTING_NOC_LOCATIONS.end()});
-    set_t6_x_locations({wormhole::T6_X_LOCATIONS.begin(), wormhole::T6_X_LOCATIONS.end()});
-    set_t6_y_locations({wormhole::T6_Y_LOCATIONS.begin(), wormhole::T6_Y_LOCATIONS.end()});
-}
-
 std::tuple<xy_pair, xy_pair> wormhole_implementation::multicast_workaround(xy_pair start, xy_pair end) const {
     // When multicasting there is a rare case where including the multicasting node in the box can result in a backup
     // and the multicasted data not reaching all endpoints specified. As a workaround we exclude the pci endpoint from

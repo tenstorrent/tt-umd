@@ -140,9 +140,10 @@ static constexpr std::array<xy_pair, 16> ETH_LOCATIONS = {
      {7, 6},
      {8, 6},
      {9, 6}}};
-static constexpr std::array<uint32_t, 8> T6_X_LOCATIONS = {1, 2, 3, 4, 6, 7, 8, 9};
-static constexpr std::array<uint32_t, 10> T6_Y_LOCATIONS = {1, 2, 3, 4, 5, 7, 8, 9, 10, 11};
-static constexpr std::array<uint32_t, 10> HARVESTING_NOC_LOCATIONS = {11, 1, 10, 2, 9, 3, 8, 4, 7, 5};
+// Return to std::array instead of std::vector once we get std::span support in C++20
+static const std::vector<uint32_t> T6_X_LOCATIONS = {1, 2, 3, 4, 6, 7, 8, 9};
+static const std::vector<uint32_t> T6_Y_LOCATIONS = {1, 2, 3, 4, 5, 7, 8, 9, 10, 11};
+static const std::vector<uint32_t> HARVESTING_NOC_LOCATIONS = {11, 1, 10, 2, 9, 3, 8, 4, 7, 5};
 
 static constexpr uint32_t STATIC_TLB_SIZE = 1024 * 1024;
 
@@ -204,8 +205,6 @@ static constexpr uint32_t TENSIX_SOFT_RESET_ADDR = 0xFFB121B0;
 
 class wormhole_implementation : public architecture_implementation {
    public:
-    wormhole_implementation();
-
     architecture get_architecture() const override { return architecture::wormhole; }
     uint32_t get_arc_message_arc_get_harvesting() const override {
         return static_cast<uint32_t>(wormhole::arc_message_type::ARC_GET_HARVESTING);
@@ -250,6 +249,11 @@ class wormhole_implementation : public architecture_implementation {
     uint32_t get_tensix_soft_reset_addr() const override { return wormhole::TENSIX_SOFT_RESET_ADDR; }
     uint32_t get_grid_size_x() const override { return wormhole::GRID_SIZE_X; }
     uint32_t get_grid_size_y() const override { return wormhole::GRID_SIZE_Y; }
+    const std::vector<uint32_t>& get_harvesting_noc_locations() const override {
+        return wormhole::HARVESTING_NOC_LOCATIONS;
+    }
+    const std::vector<uint32_t>& get_t6_x_locations() const override { return wormhole::T6_X_LOCATIONS; }
+    const std::vector<uint32_t>& get_t6_y_locations() const override { return wormhole::T6_Y_LOCATIONS; }
 
     std::tuple<xy_pair, xy_pair> multicast_workaround(xy_pair start, xy_pair end) const override;
     tlb_configuration get_tlb_configuration(uint32_t tlb_index) const override;

@@ -49,9 +49,10 @@ class architecture_implementation {
     virtual uint32_t get_tensix_soft_reset_addr() const = 0;
     virtual uint32_t get_grid_size_x() const = 0;
     virtual uint32_t get_grid_size_y() const = 0;
-    std::vector<uint32_t> get_harvesting_noc_locations() const { return harvesting_noc_locations; }
-    std::vector<uint32_t> get_t6_x_locations() const { return t6_x_locations; }
-    std::vector<uint32_t> get_t6_y_locations() const { return t6_y_locations; }
+    // Replace with std::span once we enable C++20
+    virtual const std::vector<uint32_t>& get_harvesting_noc_locations() const = 0;
+    virtual const std::vector<uint32_t>& get_t6_x_locations() const = 0;
+    virtual const std::vector<uint32_t>& get_t6_y_locations() const = 0;
 
     virtual std::tuple<xy_pair, xy_pair> multicast_workaround(xy_pair start, xy_pair end) const = 0;
     virtual tlb_configuration get_tlb_configuration(uint32_t tlb_index) const = 0;
@@ -59,16 +60,6 @@ class architecture_implementation {
     virtual std::optional<std::uint64_t> get_tlb_data(std::uint32_t tlb_index, const tlb_data& data) const = 0;
 
     static std::unique_ptr<architecture_implementation> create(architecture architecture);
-
-   protected:
-    void set_harvesting_noc_locations(std::vector<uint32_t> value) { harvesting_noc_locations = std::move(value); }
-    void set_t6_x_locations(std::vector<uint32_t> value) { t6_x_locations = std::move(value); }
-    void set_t6_y_locations(std::vector<uint32_t> value) { t6_y_locations = std::move(value); }
-
-   private:
-    std::vector<uint32_t> harvesting_noc_locations;
-    std::vector<uint32_t> t6_x_locations;
-    std::vector<uint32_t> t6_y_locations;
 };
 
 }  // namespace tt::umd

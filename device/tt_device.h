@@ -958,8 +958,8 @@ class tt_SiliconDevice: public tt_device
     int driver_id;  
     bool perform_harvesting_on_sdesc = false;
     bool use_ethernet_ordered_writes = true;
-    bool use_ethernet_broadcast = true;
-    bool use_virtual_coords_for_eth_broadcast = true;
+    bool use_ethernet_broadcast = false;
+    bool use_virtual_coords_for_eth_broadcast = false;
     tt_version eth_fw_version; // Ethernet FW the driver is interfacing with
     // Named Mutexes
     static constexpr char NON_MMIO_MUTEX_NAME[] = "NON_MMIO";

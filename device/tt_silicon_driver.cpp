@@ -1915,7 +1915,8 @@ void tt_SiliconDevice::deassert_risc_reset() {
 
 void tt_SiliconDevice::deassert_risc_reset_at_core(tt_cxy_pair core) {
     std::uint32_t target_device = core.chip; // Get Target Device to query soc descriptor and determine location in cluster
-    log_assert(std::find(get_soc_descriptor(target_device).workers.begin(), get_soc_descriptor(target_device).workers.end(), core) != get_soc_descriptor(target_device).workers.end(),
+    log_assert(std::find(get_soc_descriptor(target_device).workers.begin(), get_soc_descriptor(target_device).workers.end(), core) != get_soc_descriptor(target_device).workers.end() ||
+               std::find(get_soc_descriptor(target_device).ethernet_cores.begin(), get_soc_descriptor(target_device).ethernet_cores.end(), core) != get_soc_descriptor(target_device).ethernet_cores.end(),
                                 "Cannot deassert reset on a non-tensix or harvested core");
     bool target_is_mmio_capable = ndesc -> is_chip_mmio_capable(target_device);
     if(target_is_mmio_capable) {
@@ -1929,7 +1930,8 @@ void tt_SiliconDevice::deassert_risc_reset_at_core(tt_cxy_pair core) {
 
 void tt_SiliconDevice::assert_risc_reset_at_core(tt_cxy_pair core) {
     std::uint32_t target_device = core.chip; // Get Target Device to query soc descriptor and determine location in cluster
-    log_assert(std::find(get_soc_descriptor(target_device).workers.begin(), get_soc_descriptor(target_device).workers.end(), core) != get_soc_descriptor(target_device).workers.end(),
+    log_assert(std::find(get_soc_descriptor(target_device).workers.begin(), get_soc_descriptor(target_device).workers.end(), core) != get_soc_descriptor(target_device).workers.end() ||
+               std::find(get_soc_descriptor(target_device).ethernet_cores.begin(), get_soc_descriptor(target_device).ethernet_cores.end(), core) != get_soc_descriptor(target_device).ethernet_cores.end(),
                                 "Cannot assert reset on a non-tensix or harvested core");
     bool target_is_mmio_capable = ndesc -> is_chip_mmio_capable(target_device);
     if(target_is_mmio_capable) {

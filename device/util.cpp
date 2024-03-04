@@ -6,7 +6,7 @@
 #include "device/tt_device.h"
 
 namespace {
-fs::path generate_cluster_desc_yaml() { 
+fs::path generate_cluster_desc_yaml() {
     fs::path umd_path = fs::path ( __FILE__ ).parent_path() / "../.umd";
     fs::create_directory( umd_path );
     umd_path /= "cluster_desc.yaml";
@@ -17,7 +17,7 @@ fs::path generate_cluster_desc_yaml() {
     // Generates the cluster descriptor in the CWD
 
     fs::path eth_fpath = fs::path ( __FILE__ ).parent_path();
-    eth_fpath /= "bin/silicon/wormhole/create-ethernet-map";
+    eth_fpath /= "bin/silicon/x86/create-ethernet-map";
     std::string cmd = eth_fpath.string() + " " + umd_path.string();
     int val = system(cmd.c_str());
     if(val != 0) throw std::runtime_error("Cluster Generation Failed!");

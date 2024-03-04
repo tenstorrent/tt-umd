@@ -1,0 +1,7 @@
+# Changelog
+
+## [0.1.0] - 2024-03-04
+
+### Changed
+
+- To add support for ARM moved create-ethernet-map script from `device/bin/silicon/wormhole` to `device/bin/silicon/{x86,aarch64}`

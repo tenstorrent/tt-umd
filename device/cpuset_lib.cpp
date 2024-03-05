@@ -181,8 +181,12 @@ bool tt_cpuset_allocator::init_find_tt_pci_devices_packages_numanodes(){
                 m_num_cpu_cores_allocated_per_tt_device.insert({physical_device_id, 0});
 
             }else{
+                // Disabled: don't assume that a TT device is bound to the tenstorrent driver.
+                // It may be bound to vfio-pci.
+                #if 0
                 log_fatal("Could not find {} directory - this is unexpected", pci_device_dir);
                 return false;
+                #endif
             }
         }
     }

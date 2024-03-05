@@ -35,7 +35,6 @@
 #include <spawn.h>
 #include <wait.h>
 #include <errno.h>
-#include <linux/pci.h>
 
 #include "device/architecture.h"
 #include "device/architecture_implementation.h"
@@ -53,6 +52,7 @@
 #include "device/cpuset_lib.hpp"
 #include "common/logger.hpp"
 #include "device/driver_atomics.h"
+#include "device/tt_pci_device.h"
 
 #define WHT "\e[0;37m"
 #define BLK "\e[0;30m"
@@ -84,8 +84,6 @@ uint32_t c_ARC_MISC_CNTL_ADDRESS = 0;
 // Print all buffers smaller than this number of bytes
 uint32_t g_NUM_BYTES_TO_PRINT = 8;
 
-// Workaround for tkmd < 1.21 use device_fd_per_host_ch[ch] instead of device_fd once per channel.
-const bool g_SINGLE_PIN_PAGE_PER_FD_WORKAROND = true;
 const uint32_t g_MAX_HOST_MEM_CHANNELS = 4;
 
 const char device_name_pattern[] = "/dev/tenstorrent/%u";
@@ -104,141 +102,8 @@ const char* hugepage_dir_env = std::getenv("TT_BACKEND_HUGEPAGE_DIR");
 std::string hugepage_dir = hugepage_dir_env ? hugepage_dir_env : "/dev/hugepages-1G";
 
 // Foward declarations
-PCIdevice ttkmd_open(DWORD device_id, bool sharable /* = false */);
+PCIdevice ttkmd_open(uint32_t device_id);
 int ttkmd_close(struct PCIdevice &device);
-
-// Stash all the fields of TTDevice in TTDeviceBase to make moving simpler.
-struct TTDeviceBase
-{
-    unsigned int index;
-
-    int device_fd = -1;
-    std::vector<int> device_fd_per_host_ch;
-    void *bar0_uc = nullptr;
-    std::size_t bar0_uc_size = 0;
-    std::size_t bar0_uc_offset = 0;
-
-    void *bar0_wc = nullptr;
-    std::size_t bar0_wc_size = 0;
-
-    void *system_reg_mapping = nullptr;
-    std::size_t system_reg_mapping_size;
-
-    void *system_reg_wc_mapping = nullptr;
-    std::size_t system_reg_wc_mapping_size;
-
-    std::uint32_t system_reg_start_offset;  // Registers >= this are system regs, use the mapping.
-    std::uint32_t system_reg_offset_adjust; // This is the offset of the first reg in the system reg mapping.
-
-    int sysfs_config_fd = -1;
-    std::uint16_t pci_domain;
-    std::uint8_t pci_bus;
-    std::uint8_t pci_device;
-    std::uint8_t pci_function;
-
-    std::uint32_t max_dma_buf_size_log2;
-
-    tenstorrent_get_device_info_out device_info;
-};
-
-struct TTDevice : TTDeviceBase
-{
-    static TTDevice open(unsigned int device_id);
-    void open_hugepage_per_host_mem_ch(uint32_t num_host_mem_channels);
-    ~TTDevice() { reset(); }
-
-    TTDevice(const TTDevice&) = delete;
-    void operator = (const TTDevice&) = delete;
-
-    TTDevice(TTDevice &&that) : TTDeviceBase(std::move(that)), arch(that.arch), architecture_implementation(std::move(that.architecture_implementation)) { that.drop(); }
-    TTDevice &operator = (TTDevice &&that) {
-        reset();
-
-        *static_cast<TTDeviceBase*>(this) = std::move(that);
-        arch = that.arch;
-        architecture_implementation = std::move(that.architecture_implementation);
-        that.drop();
-
-        return *this;
-    }
-
-    void suspend_before_device_reset() {
-        reset();
-    }
-
-    void resume_after_device_reset() {
-        do_open();
-    }
-
-    tt::ARCH get_arch() const { return arch; }
-    tt::umd::architecture_implementation* get_architecture_implementation() const { return architecture_implementation.get(); }
-
-private:
-    TTDevice() = default;
-
-    void reset() {
-        if (device_fd != -1) {
-            close(device_fd);
-        }
-
-        if (bar0_wc != nullptr && bar0_wc != MAP_FAILED && bar0_wc != bar0_uc) {
-            munmap(bar0_wc, bar0_wc_size);
-        }
-
-        if (bar0_uc != nullptr && bar0_uc != MAP_FAILED) {
-            munmap(bar0_uc, bar0_uc_size);
-        }
-
-        if (system_reg_mapping != nullptr && system_reg_mapping != MAP_FAILED) {
-            munmap(system_reg_mapping, system_reg_mapping_size);
-        }
-
-        if (sysfs_config_fd != -1) {
-            close(sysfs_config_fd);
-        }
-
-        drop();
-    }
-
-    void drop() {
-        device_fd = -1;
-        bar0_uc = nullptr;
-        bar0_wc = nullptr;
-        system_reg_mapping = nullptr;
-        sysfs_config_fd = -1;
-    }
-
-    void do_open();
-
-    tt::ARCH arch;
-    std::unique_ptr<tt::umd::architecture_implementation> architecture_implementation;
-};
-
-TTDevice TTDevice::open(unsigned int device_id) {
-    TTDevice ttdev;
-    static int unique_id = 0;
-    ttdev.index = device_id;
-    ttdev.do_open();
-
-    return ttdev;
-}
-
-bool is_grayskull(const uint16_t device_id) {
-    return device_id == 0xfaca;
-}
-
-bool is_wormhole(const uint16_t device_id) {
-    return device_id == 0x401e;
-}
-
-bool is_wormhole(const tenstorrent_get_device_info_out &device_info) {
-    return is_wormhole(device_info.device_id);
-}
-
-bool is_wormhole_b0(const uint16_t device_id, const uint16_t revision_id) {
-    return (is_wormhole(device_id) && (revision_id == 0x01));
-}
-
 
 template <typename T>
 void size_buffer_to_capacity(std::vector<T> &data_buf, std::size_t size_in_bytes) {
@@ -316,182 +181,22 @@ uint32_t get_available_num_host_mem_channels(const uint32_t num_channels_per_dev
 
 }
 
-int find_device(const uint16_t device_id) {
-    // returns device id if found, otherwise -1
-    char device_name[sizeof(device_name_pattern) + std::numeric_limits<unsigned int>::digits10];
-    std::snprintf(device_name, sizeof(device_name), device_name_pattern, (unsigned int)device_id);
-    int device_fd = ::open(device_name, O_RDWR | O_CLOEXEC);
-    LOG2 ("find_device() open call returns device_fd: %d for device_name: %s (device_id: %d)\n", device_fd, device_name, device_id);
-    return device_fd;
-}
-
-// Open a unique device_id per host memory channel (workaround for ttkmd < 1.21 support for more than 1 pin per fd)
-void TTDevice::open_hugepage_per_host_mem_ch(uint32_t num_host_mem_channels) {
-    for (int ch = 0; ch < num_host_mem_channels; ch++) {
-        log_debug(LogSiliconDriver, "Opening device_fd_per_host_ch device index: {} ch: {} (num_host_mem_channels: {})", index, ch, num_host_mem_channels);
-        int device_fd_for_host_mem = find_device(index);
-        if (device_fd_for_host_mem == -1) {
-            throw std::runtime_error(std::string("Failed opening a host memory device handle for device ") + std::to_string(index));
-        }
-        device_fd_per_host_ch.push_back(device_fd_for_host_mem);
-    }
-}
-
-int get_revision_id(TTDevice *dev);
-
-tt::ARCH detect_arch(TTDevice *dev) {
-    if (is_grayskull(dev->device_info.device_id)) {
-        return tt::ARCH::GRAYSKULL;
-    } else if (is_wormhole_b0(dev->device_info.device_id, get_revision_id(dev))) {
-        return tt::ARCH::WORMHOLE_B0;
-    } else if (is_wormhole(dev->device_info.device_id)) {
-        return tt::ARCH::WORMHOLE;
-    } else {
-        throw std::runtime_error(std::string("Unknown device id."));
-    }
-}
-
 tt::ARCH detect_arch(PCIdevice *pci_device) {
     return pci_device->hdev->get_arch();
 }
 
 tt::ARCH detect_arch(uint16_t device_id) {
-    tt::ARCH arch_name = tt::ARCH::Invalid;
-    if (find_device(device_id) == -1) {
-        WARN("---- tt_SiliconDevice::detect_arch did not find silcon device_id: %d\n", device_id);
-        return arch_name;
+    try {
+        TTDevice device(device_id);
+        return device.get_arch();
+    } catch (...) {
+        return tt::ARCH::Invalid;
     }
-    struct PCIdevice pci_device = ttkmd_open((DWORD)device_id, false);
-
-    arch_name = detect_arch(&pci_device);
-
-    ttkmd_close(pci_device);
-    return arch_name;
-}
-
-void TTDevice::do_open() {
-    device_fd = find_device(index);
-    if (device_fd == -1) {
-        throw std::runtime_error(std::string("Failed opening a handle for device ") + std::to_string(index));
-    }
-
-    tenstorrent_get_device_info device_info;
-    memset(&device_info, 0, sizeof(device_info));
-    device_info.in.output_size_bytes = sizeof(device_info.out);
-
-    if (ioctl(device_fd, TENSTORRENT_IOCTL_GET_DEVICE_INFO, &device_info) == -1) {
-        throw std::runtime_error(std::string("Get device info failed on device ") + std::to_string(index) + ".");
-    }
-
-    this->device_info = device_info.out;
-
-    max_dma_buf_size_log2 = device_info.out.max_dma_buf_size_log2;
-
-    struct {
-        tenstorrent_query_mappings query_mappings;
-        tenstorrent_mapping mapping_array[8];
-    } mappings;
-
-    memset(&mappings, 0, sizeof(mappings));
-    mappings.query_mappings.in.output_mapping_count = 8;
-
-    if (ioctl(device_fd, TENSTORRENT_IOCTL_QUERY_MAPPINGS, &mappings.query_mappings) == -1) {
-        throw std::runtime_error(std::string("Query mappings failed on device ") + std::to_string(index) + ".");
-    }
-
-    tenstorrent_mapping bar0_uc_mapping;
-    tenstorrent_mapping bar0_wc_mapping;
-    tenstorrent_mapping bar2_uc_mapping;
-    tenstorrent_mapping bar2_wc_mapping;
-
-    memset(&bar0_uc_mapping, 0, sizeof(bar0_uc_mapping));
-    memset(&bar0_wc_mapping, 0, sizeof(bar0_wc_mapping));
-    memset(&bar2_uc_mapping, 0, sizeof(bar2_uc_mapping));
-    memset(&bar2_wc_mapping, 0, sizeof(bar2_wc_mapping));
-
-    for (unsigned int i = 0; i < mappings.query_mappings.in.output_mapping_count; i++) {
-        if (mappings.mapping_array[i].mapping_id == TENSTORRENT_MAPPING_RESOURCE0_UC) {
-            bar0_uc_mapping = mappings.mapping_array[i];
-        }
-
-        if (mappings.mapping_array[i].mapping_id == TENSTORRENT_MAPPING_RESOURCE0_WC) {
-            bar0_wc_mapping = mappings.mapping_array[i];
-        }
-
-        if (mappings.mapping_array[i].mapping_id == TENSTORRENT_MAPPING_RESOURCE2_UC) {
-            bar2_uc_mapping = mappings.mapping_array[i];
-        }
-
-        if (mappings.mapping_array[i].mapping_id == TENSTORRENT_MAPPING_RESOURCE2_WC) {
-            bar2_wc_mapping = mappings.mapping_array[i];
-        }
-    }
-
-    if (bar0_uc_mapping.mapping_id != TENSTORRENT_MAPPING_RESOURCE0_UC) {
-        throw std::runtime_error(std::string("Device ") + std::to_string(index) + " has no BAR0 UC mapping.");
-    }
-
-    // Attempt WC mapping first so we can fall back to all-UC if it fails.
-    if (bar0_wc_mapping.mapping_id == TENSTORRENT_MAPPING_RESOURCE0_WC) {
-        bar0_wc_size = std::min<size_t>(bar0_wc_mapping.mapping_size, GS_BAR0_WC_MAPPING_SIZE);
-        bar0_wc = mmap(NULL, bar0_wc_size, PROT_READ | PROT_WRITE, MAP_SHARED, device_fd, bar0_wc_mapping.mapping_base);
-        if (bar0_wc == MAP_FAILED) {
-            bar0_wc_size = 0;
-            bar0_wc = nullptr;
-        }
-    }
-
-    if (bar0_wc) {
-        // The bottom part of the BAR is mapped WC. Map the top UC.
-        bar0_uc_size = bar0_uc_mapping.mapping_size - GS_BAR0_WC_MAPPING_SIZE;
-        bar0_uc_offset = GS_BAR0_WC_MAPPING_SIZE;
-    } else {
-        // No WC mapping, map the entire BAR UC.
-        bar0_uc_size = bar0_uc_mapping.mapping_size;
-        bar0_uc_offset = 0;
-    }
-
-    bar0_uc = mmap(NULL, bar0_uc_size, PROT_READ | PROT_WRITE, MAP_SHARED, device_fd, bar0_uc_mapping.mapping_base + bar0_uc_offset);
-
-    if (bar0_uc == MAP_FAILED) {
-        throw std::runtime_error(std::string("BAR0 UC memory mapping failed for device ") + std::to_string(index) + ".");
-    }
-
-    if (!bar0_wc) {
-        bar0_wc = bar0_uc;
-    }
-
-    if (is_wormhole(device_info.out)) {
-        if (bar2_uc_mapping.mapping_id != TENSTORRENT_MAPPING_RESOURCE2_UC) {
-            throw std::runtime_error(std::string("Device ") + std::to_string(index) + " has no BAR4 UC mapping.");
-        }
-
-        this->system_reg_mapping_size = bar2_uc_mapping.mapping_size;
-
-        this->system_reg_mapping = mmap(NULL, bar2_uc_mapping.mapping_size, PROT_READ | PROT_WRITE, MAP_SHARED, device_fd, bar2_uc_mapping.mapping_base);
-
-        if (this->system_reg_mapping == MAP_FAILED) {
-            throw std::runtime_error(std::string("BAR4 UC memory mapping failed for device ") + std::to_string(index) + ".");
-        }
-
-        this->system_reg_start_offset = (512 - 16) * 1024*1024;
-        this->system_reg_offset_adjust = (512 - 32) * 1024*1024;
-    }
-    pci_domain = device_info.out.pci_domain;
-    pci_bus = device_info.out.bus_dev_fn >> 8;
-    pci_device = PCI_SLOT(device_info.out.bus_dev_fn);
-    pci_function = PCI_FUNC(device_info.out.bus_dev_fn);
-
-    arch = detect_arch(this);
-    architecture_implementation = tt::umd::architecture_implementation::create(static_cast<tt::umd::architecture>(arch));
 }
 
 void set_debug_level(int dl) {
     g_DEBUG_LEVEL = dl;
 }
-
-DWORD ttkmd_init() { return 0; }    // 0 on success
-DWORD ttkmd_uninit() { return 0; }  // 0 on success
 
 bool is_char_dev(const dirent *ent, const char *parent_dir) {
     if (ent->d_type == DT_UNKNOWN || ent->d_type == DT_LNK) {
@@ -570,76 +275,15 @@ int get_config_space_fd(TTDevice *dev) {
     return dev->sysfs_config_fd;
 }
 
-int get_revision_id(TTDevice *dev) {
 
-    static const char pattern[] = "/sys/bus/pci/devices/%04x:%02x:%02x.%u/revision";
-    char buf[sizeof(pattern)];
-    std::snprintf(buf, sizeof(buf), pattern,
-    (unsigned int)dev->pci_domain, (unsigned int)dev->pci_bus, (unsigned int)dev->pci_device, (unsigned int)dev->pci_function);
-
-    std::ifstream revision_file(buf);
-    std::string revision_string;
-    if (std::getline(revision_file, revision_string)) {
-        return std::stoi(revision_string, nullptr, 0);
-    } else {
-        throw std::runtime_error("Revision ID read failed for device");
-    }
-}
-
-int get_link_width(TTDevice *dev) {
-
-    static const char pattern[] = "/sys/bus/pci/devices/%04x:%02x:%02x.%u/current_link_width";
-    char buf[sizeof(pattern)];
-    std::snprintf(buf, sizeof(buf), pattern,
-    (unsigned int)dev->pci_domain, (unsigned int)dev->pci_bus, (unsigned int)dev->pci_device, (unsigned int)dev->pci_function);
-
-    std::ifstream linkwidth_file(buf);
-    std::string linkwidth_string;
-    if (std::getline(linkwidth_file, linkwidth_string)) {
-        return std::stoi(linkwidth_string, nullptr, 0);
-    } else {
-        throw std::runtime_error("Link width read failed for device");
-    }
-}
-
-int get_link_speed(TTDevice *dev) {
-
-    static const char pattern[] = "/sys/bus/pci/devices/%04x:%02x:%02x.%u/current_link_speed";
-    char buf[sizeof(pattern)];
-    std::snprintf(buf, sizeof(buf), pattern,
-    (unsigned int)dev->pci_domain, (unsigned int)dev->pci_bus, (unsigned int)dev->pci_device, (unsigned int)dev->pci_function);
-
-    std::ifstream linkspeed_file(buf);
-    std::string linkspeed_string;
-    int linkspeed;
-    if (std::getline(linkspeed_file, linkspeed_string) && sscanf(linkspeed_string.c_str(), "%d", &linkspeed) == 1) {
-        return linkspeed;
-    } else {
-        throw std::runtime_error("Link speed read failed for device");
-    }
-}
-
-std::uint64_t read_bar0_base(TTDevice *dev) {
-    const std::uint64_t bar_address_mask = ~(std::uint64_t)0xF;
-    unsigned int bar0_config_offset = 0x10;
-
-    std::uint64_t bar01;
-    if (pread(get_config_space_fd(dev), &bar01, sizeof(bar01), bar0_config_offset) != sizeof(bar01)) {
-        return 0;
-    }
-
-    return bar01 & bar_address_mask;
-}
-
-PCIdevice ttkmd_open(DWORD device_id, bool sharable /* = false */)
+PCIdevice ttkmd_open(uint32_t device_index)
 {
-    (void)sharable; // presently ignored
-
-    auto ttdev = std::make_unique<TTDevice>(TTDevice::open(device_id));
+    // TODO(jms): Consolidate TTDevice and PCIDevice.
+    auto ttdev = new TTDevice(device_index);
 
     PCIdevice device;
-    device.id = device_id;
-    device.hdev = ttdev.get();
+    device.id = device_index;   // TODO(jms): device.id is not PCI device ID, but the index of the device in the system
+    device.hdev = ttdev;
     device.vendor_id = ttdev->device_info.vendor_id;
     device.device_id = ttdev->device_info.device_id;
     device.subsystem_vendor_id = ttdev->device_info.subsystem_vendor_id;
@@ -647,17 +291,15 @@ PCIdevice ttkmd_open(DWORD device_id, bool sharable /* = false */)
     device.dwBus = ttdev->pci_bus;
     device.dwSlot = ttdev->pci_device;
     device.dwFunction = ttdev->pci_function;
-    device.BAR_addr = read_bar0_base(ttdev.get());
+    device.BAR_addr = ttdev->bar0_base;
     device.BAR_size_bytes = ttdev->bar0_uc_size;
-    device.revision_id = get_revision_id(ttdev.get());
-    ttdev.release();
+    device.revision_id = ttdev->get_revision_id();
 
     return device;
 }
 
 int ttkmd_close(struct PCIdevice &device) {
-    delete static_cast<TTDevice*>(device.hdev);
-
+    delete device.hdev;
     return 0;
 }
 
@@ -1161,16 +803,13 @@ void tt_SiliconDevice::create_device(const std::unordered_set<chip_id_t> &target
         int pci_interface_id = logical_to_physical_device_id_map.at(logical_device_id);
 
         log_debug(LogSiliconDriver, "Opening TT_PCI_INTERFACE_ID {} for netlist target_device_id: {}", pci_interface_id, logical_device_id);
-        *pci_device = ttkmd_open ((DWORD) pci_interface_id, false);
+        *pci_device = ttkmd_open(pci_interface_id);
         pci_device->logical_id = logical_device_id;
 
         m_num_host_mem_channels = get_available_num_host_mem_channels(num_host_mem_ch_per_mmio_device, pci_device->device_id, pci_device->revision_id);
         log_debug(LogSiliconDriver, "Using {} Hugepages/NumHostMemChannels for TTDevice (logical_device_id: {} pci_interface_id: {} device_id: 0x{:x} revision: {})",
             m_num_host_mem_channels, logical_device_id, pci_interface_id, pci_device->device_id, pci_device->revision_id);
 
-        if (g_SINGLE_PIN_PAGE_PER_FD_WORKAROND) {
-            pci_device->hdev->open_hugepage_per_host_mem_ch(m_num_host_mem_channels);
-        }
 
         // Initialize these. Used to be in header file.
         for (int ch = 0; ch < g_MAX_HOST_MEM_CHANNELS; ch ++) {
@@ -1446,21 +1085,29 @@ void tt_SiliconDevice::perform_harvesting_and_populate_soc_descriptors(const std
 }
 
 void tt_SiliconDevice::check_pcie_device_initialized(int device_id) {
+    // The following check can be removed if/when tt_SiliconDevice ever grows
+    // the ability to support multiple architectures simultaneously (e.g.
+    // support a cluster with both Grayskull and Wormhole devices).
 
-    struct PCIdevice* pci_device = get_pci_device(device_id);
+    PCIdevice* pci_device = get_pci_device(device_id);
+    TTDevice* tt_device = pci_device->hdev;
+    const auto device_arch = tt_device->get_arch();
+    const auto device_arch_name = get_arch_str(device_arch);
+
     if (arch_name == tt::ARCH::GRAYSKULL) {
-        if (!is_grayskull(pci_device->device_id)) {
-            throw std::runtime_error("Attempted to run grayskull configured tt_device on " + get_arch_str(detect_arch(pci_device)));
+        if (!tt_device->is_grayskull()) {
+            throw std::runtime_error("Attempted to run Grayskull-configured driver with a " + device_arch_name);
         }
     }
     else if (arch_name == tt::ARCH::WORMHOLE || arch_name == tt::ARCH::WORMHOLE_B0) {
-        if (!is_wormhole(pci_device->device_id)) {
-            throw std::runtime_error("Attempted to run wormhole configured tt_device on " + get_arch_str(detect_arch(pci_device)));
+        if (!tt_device->is_wormhole()) {
+            throw std::runtime_error("Attempted to run Wormhole-configured driver with a " + device_arch_name);
         }
     }
     else {
-        throw std::runtime_error("Unsupported architecture: " + get_arch_str(arch_name));
+        throw std::runtime_error("Unsupported architecture: " + device_arch_name);
     }
+
     auto architecture_implementation = pci_device->hdev->get_architecture_implementation();
 
     LOG1 ("== Check if device_id: %d is initialized\n", device_id);
@@ -1476,7 +1123,6 @@ void tt_SiliconDevice::check_pcie_device_initialized(int device_id) {
         + " bar_read_initial: " + std::to_string(bar_read_initial)
         + " bar_read_again: " + std::to_string(bar_read_again));
     }
-
 
     if (test_setup_interface()) {
         throw std::runtime_error("Device is incorrectly initialized. If this is a harvested Wormhole machine, it is likely that NOC Translation Tables are not enabled on device. These need to be enabled for the silicon driver to run.");
@@ -1935,7 +1581,7 @@ tt_SiliconDevice::~tt_SiliconDevice () {
 
         struct PCIdevice* pci_device = device_it.second;
 
-        ttkmd_close (*pci_device);
+        ttkmd_close(*pci_device);
         delete pci_device;
         pci_device = NULL;
     }
@@ -2274,7 +1920,7 @@ bool tt_SiliconDevice::init_hugepage(chip_id_t device_id) {
         pin_pages.in.virtual_address = reinterpret_cast<std::uintptr_t>(mapping);
         pin_pages.in.size = mapping_size;
 
-        auto &fd = g_SINGLE_PIN_PAGE_PER_FD_WORKAROND ? m_pci_device_map.at(device_id)->hdev->device_fd_per_host_ch[ch] : m_pci_device_map.at(device_id)->hdev->device_fd;
+        auto &fd = m_pci_device_map.at(device_id)->hdev->device_fd;
 
         if (ioctl(fd, TENSTORRENT_IOCTL_PIN_PAGES, &pin_pages) == -1) {
             WARN("---- ttSiliconDevice::init_hugepage: physical_device_id: %d ch: %d TENSTORRENT_IOCTL_PIN_PAGES failed (errno: %s). Common Issue: Requires TTMKD >= 1.11, see following file contents...\n", physical_device_id, ch, strerror(errno));
@@ -4128,8 +3774,8 @@ std::uint32_t tt_SiliconDevice::get_pcie_speed(std::uint32_t device_id) {
     int link_speed = 0;
     if (ndesc->is_chip_mmio_capable(device_id)) {
         PCIdevice *pci_device = get_pci_device(device_id);
-        link_width = get_link_width(pci_device->hdev);
-        link_speed = get_link_speed(pci_device->hdev);
+        link_width = pci_device->hdev->get_link_width();
+        link_speed = pci_device->hdev->get_link_speed();
         log_debug(LogSiliconDriver, "Device {} PCIe link width: x{}, speed: {} Gb/s", device_id, link_width, link_speed);
     } else {
         log_debug(LogSiliconDriver, "Device {} is NOT a PCIe device, width: x{}, speed: {} Gb/s", device_id, link_width, link_speed);

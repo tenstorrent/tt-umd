@@ -4,6 +4,7 @@ UMD_DEVICE_LIB = $(LIBDIR)/libdevice.so
 
 DEVICE_OBJDIR = $(OBJDIR)/umd
 DEVICE_SRCS = \
+  device/tt_pci_device.cpp \
   device/tt_device.cpp \
   device/tt_silicon_driver.cpp \
   device/tt_silicon_driver_common.cpp \

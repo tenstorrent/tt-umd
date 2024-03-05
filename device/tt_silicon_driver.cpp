@@ -1700,7 +1700,7 @@ void tt_SiliconDevice::check_pcie_device_initialized(int device_id) {
     struct PCIdevice* pci_device = get_pci_device(device_id);
     if (arch_name == tt::ARCH::GRAYSKULL) {
         if (!is_grayskull(pci_device->device_id)) {
-            throw std::runtime_error("Attempted to run grayscull configured tt_device on " + get_arch_str(detect_arch(pci_device)));
+            throw std::runtime_error("Attempted to run grayskull configured tt_device on " + get_arch_str(detect_arch(pci_device)));
         }
     }
     else if (arch_name == tt::ARCH::WORMHOLE || arch_name == tt::ARCH::WORMHOLE_B0) {

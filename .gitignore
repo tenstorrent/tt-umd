@@ -2,3 +2,5 @@ build
 *.o
 *.d/
 .umd/
+compile_commands.json
+.cache/**

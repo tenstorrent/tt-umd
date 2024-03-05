@@ -22,20 +22,12 @@ namespace boost::interprocess{
     class named_mutex;
 }
 
-class PCIDevice;
 class tt_ClusterDescriptor;
 
 enum tt_DevicePowerState {
     BUSY,
     SHORT_IDLE,
     LONG_IDLE
-};
-
-enum tt_MutexType {
-    LARGE_READ_TLB,
-    LARGE_WRITE_TLB,
-    SMALL_READ_WRITE_TLB,
-    ARC_MSG
 };
 
 enum tt_MemBarFlag {

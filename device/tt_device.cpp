@@ -2,21 +2,10 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-
-#ifdef TT_DEBUG_LOGGING
-#define DEBUG_LOG(str) do { std::cout << str << std::endl; } while( false )
-#else
-#define DEBUG_LOG(str) ((void)0)
-#endif
-
 #include "tt_device.h"
 #include "device/tt_cluster_descriptor_types.h"
-#include <iostream>
-#include <fstream>
 #include <string>
-#include <vector>
 #include <unordered_map>
-#include "yaml-cpp/yaml.h"
 
 ////////
 // Device base

@@ -697,40 +697,6 @@ bool is_hardware_hung(const TTDevice *dev) {
     return (scratch_data == 0xffffffffu);
 }
 
-bool reset_by_sysfs(TTDevice *dev) {
-
-    const char *virtual_env = getenv("VIRTUAL_ENV");
-    if (virtual_env == nullptr)
-        return false;
-
-    std::string reset_helper_path = virtual_env;
-    reset_helper_path += "/bin/reset-helper";
-
-    std::string busid = std::to_string(dev->pci_bus);
-
-    dev->suspend_before_device_reset();
-
-    char *argv[3];
-    argv[0] = const_cast<char*>(reset_helper_path.c_str());
-    argv[1] = const_cast<char*>(busid.c_str());
-    argv[2] = nullptr;
-
-    pid_t reset_helper_pid;
-    if (posix_spawn(&reset_helper_pid, reset_helper_path.c_str(), nullptr, nullptr, argv, environ) != 0)
-        return false;
-
-    siginfo_t reset_helper_status;
-    if (waitid(P_PID, reset_helper_pid, &reset_helper_status, WEXITED) != 0)
-        return false;
-
-    if (reset_helper_status.si_status != 0)
-        return false;
-
-    dev->resume_after_device_reset();
-
-    return true;
-}
-
 bool reset_by_ioctl(TTDevice *dev) {
     struct tenstorrent_reset_device reset_device;
     memset(&reset_device, 0, sizeof(reset_device));
@@ -746,7 +712,7 @@ bool reset_by_ioctl(TTDevice *dev) {
 }
 
 bool auto_reset_board(TTDevice *dev) {
-    return ((reset_by_ioctl(dev) || reset_by_sysfs(dev)) && !is_hardware_hung(dev));
+    return (reset_by_ioctl(dev) && !is_hardware_hung(dev));
 }
 
 void detect_ffffffff_read(TTDevice *dev, std::uint32_t data_read = 0xffffffffu) {

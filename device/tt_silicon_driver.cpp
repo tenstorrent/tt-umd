@@ -2857,7 +2857,7 @@ uint32_t tt_SiliconDevice::get_harvested_rows (int logical_device_id) {
         log_assert(harvesting_msg_code != MSG_ERROR_REPLY, "Failed to read harvested rows from device {}", logical_device_id);
     }
     log_assert(harv != 0xffffffff, "Readback 0xffffffff for harvesting info. Chip is fused incorrectly!");
-    LOG1("HARVESTING {} = {:#x}", (harv==0) ? "DISABLED":"ENABLED", harv);
+    LOG1("HARVESTING %s, 0x%x\n", (harv==0) ? "DISABLED":"ENABLED", harv);
     
     uint32_t memory = harv & 0x3ff;
     uint32_t logic = (harv >> 10) & 0x3ff;

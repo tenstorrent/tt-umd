@@ -12,7 +12,6 @@
 #include <map>
 #include <vector>
 #include <memory>
-#include <mutex>
 #include <regex>
 #include <stdexcept>
 #include <string>
@@ -22,11 +21,9 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <assert.h>
 #include <cstdlib>
 #include <cerrno>
 #include <chrono>
-#include <ratio>
 
 #include <sys/ioctl.h>
 #include <sys/mman.h>
@@ -48,10 +45,7 @@
 #include "kmdif.h"
 #include "ioctl.h"
 
-//#include "epoch_q.h"
-
 #include <algorithm>
-#include "yaml-cpp/yaml.h"
 #include <filesystem>
 #include <string.h>
 
@@ -94,14 +88,7 @@ uint32_t g_NUM_BYTES_TO_PRINT = 8;
 const bool g_SINGLE_PIN_PAGE_PER_FD_WORKAROND = true;
 const uint32_t g_MAX_HOST_MEM_CHANNELS = 4;
 
-volatile bool msi_interrupt_received = false;
-
 const char device_name_pattern[] = "/dev/tenstorrent/%u";
-
-const std::string tlb_large_read_mutex_name_prefix = "mem_tlb_large_read_mutex_pci_interface_id_";
-const std::string tlb_large_write_mutex_name_prefix = "mem_tlb_large_write_mutex_pci_interface_id_";
-const std::string tlb_small_read_write_mutex_name_prefix = "mem_tlb_small_read_write_mutex_pci_interface_id_";
-const std::string arc_msg_mutex_name_prefix = "arc_msg_mutex_pci_interface_id_";
 
 static uint32_t GS_BAR0_WC_MAPPING_SIZE = (156<<20) + (10<<21) + (18<<24);
 

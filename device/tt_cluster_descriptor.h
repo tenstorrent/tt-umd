@@ -7,8 +7,6 @@
 
 #pragma once
 
-#include "device/tt_xy_pair.h"
-
 #include <unordered_map>
 #include <unordered_set>
 #include <set>

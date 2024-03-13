@@ -4,14 +4,11 @@
 
 #include "tt_soc_descriptor.h"
 
-#include <assert.h>
 #include <fstream>
 #include <iostream>
 #include <regex>
 #include <string>
 #include <unordered_set>
-
-// #include "l1_address_map.h"
 
 std::string format_node(tt_xy_pair xy) { return std::to_string(xy.x) + "-" + std::to_string(xy.y); }
 

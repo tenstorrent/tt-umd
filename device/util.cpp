@@ -3,7 +3,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 #include "device/util.hpp"
-#include "device/tt_device.h"
 
 namespace {
 fs::path generate_cluster_desc_yaml() {

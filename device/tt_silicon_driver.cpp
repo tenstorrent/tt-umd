@@ -842,6 +842,7 @@ void tt_SiliconDevice::create_device(const std::unordered_set<chip_id_t> &target
             harvested_coord_translation.insert({chip, create_harvested_coord_translation(arch_name, true)});
         }
     }
+    std::terminate();
 }
 
 bool tt_SiliconDevice::noc_translation_en() {

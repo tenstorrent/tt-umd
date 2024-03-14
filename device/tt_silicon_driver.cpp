@@ -1602,6 +1602,28 @@ tt_SiliconDevice::tt_SiliconDevice(const std::string &sdesc_path, const std::str
     }
 }
 
+void tt_SiliconDevice::configure_active_ethernet_cores_for_mmio_device(chip_id_t mmio_chip, const std::unordered_set<tt_xy_pair>& active_eth_cores_per_chip) {
+    // Makes UMD aware of which ethernet cores have active links.
+    // Based on this information, UMD determines which ethernet cores can be used for host->cluster non-MMIO transfers.
+    // This overrides the default ethernet cores tagged for host to cluster routing in the constructor and must be called for all MMIO devices, if default behaviour
+    // is not desired.
+    log_assert(get_soc_descriptor(mmio_chip).arch == tt::ARCH::WORMHOLE_B0, "{} can only be called for Wormhole arch", __FUNCTION__);
+    auto& eth_cores = get_soc_descriptor(mmio_chip).ethernet_cores;
+    // Cores 0, 1, 6, 7 are only available if in the active set
+    static std::unordered_set<tt_xy_pair> eth_cores_available_if_active = {eth_cores.at(0), eth_cores.at(1), eth_cores.at(6), eth_cores.at(7)};
+    // Eth cores 8 and 9 are always available
+    std::vector<tt_cxy_pair> non_mmio_access_cores_for_chip = {tt_cxy_pair(mmio_chip, eth_cores.at(8)), tt_cxy_pair(mmio_chip, eth_cores.at(9))};
+    for (const auto& active_eth_core : active_eth_cores_per_chip) {
+        if (eth_cores_available_if_active.find(active_eth_core) != eth_cores_available_if_active.end()) {
+            non_mmio_access_cores_for_chip.push_back(tt_cxy_pair(mmio_chip, active_eth_core));
+        }
+    }
+
+    remote_transfer_ethernet_cores[mmio_chip] = non_mmio_access_cores_for_chip;
+    active_eth_core_idx_per_chip.insert({mmio_chip, 0});
+    non_mmio_transfer_cores_customized = true;
+}
+
 void tt_SiliconDevice::populate_cores() {
     std::uint32_t count = 0;
     for(const auto chip : soc_descriptor_per_chip) {
@@ -3051,6 +3073,10 @@ void tt_SiliconDevice::write_to_non_mmio_device(
         mmio_capable_chip_logical = ndesc->get_closest_mmio_capable_chip(core.chip);
     }
 
+    if (non_mmio_transfer_cores_customized) {
+        log_assert(active_eth_core_idx_per_chip.find(mmio_capable_chip_logical) != active_eth_core_idx_per_chip.end(), "Ethernet Cores for Host to Cluster communication were not initialized for all MMIO devices.");
+    }
+
     using data_word_t = uint32_t;
     constexpr int DATA_WORD_SIZE = sizeof(data_word_t);
     constexpr int BROADCAST_HEADER_SIZE = sizeof(data_word_t) * 8; // Broadcast header is 8 words
@@ -3084,7 +3110,9 @@ void tt_SiliconDevice::write_to_non_mmio_device(
     //
     const scoped_lock<named_mutex> lock(
         *get_mutex(NON_MMIO_MUTEX_NAME, this->get_pci_device(mmio_capable_chip_logical)->id));
-    tt_cxy_pair remote_transfer_ethernet_core = remote_transfer_ethernet_cores.at(mmio_capable_chip_logical)[active_core];
+
+    int& active_core_for_txn = non_mmio_transfer_cores_customized ? active_eth_core_idx_per_chip.at(mmio_capable_chip_logical) : active_core;
+    tt_cxy_pair remote_transfer_ethernet_core = remote_transfer_ethernet_cores.at(mmio_capable_chip_logical)[active_core_for_txn];
 
     erisc_command.resize(sizeof(routing_cmd_t)/DATA_WORD_SIZE);
     new_cmd = (routing_cmd_t *)&erisc_command[0];
@@ -3130,7 +3158,7 @@ void tt_SiliconDevice::write_to_non_mmio_device(
             req_flags |= eth_interface_params.CMD_BROADCAST;
         }
 
-        uint32_t host_dram_block_addr = host_address_params.ETH_ROUTING_BUFFERS_START + (active_core * eth_interface_params.CMD_BUF_SIZE + req_wr_ptr) * max_block_size;
+        uint32_t host_dram_block_addr = host_address_params.ETH_ROUTING_BUFFERS_START + (active_core_for_txn * eth_interface_params.CMD_BUF_SIZE + req_wr_ptr) * max_block_size;
         uint16_t host_dram_channel = 0; // This needs to be 0, since WH can only map ETH buffers to chan 0.
 
         if (req_flags & eth_interface_params.CMD_DATA_BLOCK) {
@@ -3205,9 +3233,11 @@ void tt_SiliconDevice::write_to_non_mmio_device(
         // to poll rd pointer in every iteration.
 
         if (is_non_mmio_cmd_q_full((erisc_q_ptrs[0]) & eth_interface_params.CMD_BUF_PTR_MASK, erisc_q_rptr[0])) {
-            active_core++;
-            active_core = (active_core & NON_EPOCH_ETH_CORES_MASK) + NON_EPOCH_ETH_CORES_START_ID;
-            remote_transfer_ethernet_core = remote_transfer_ethernet_cores.at(mmio_capable_chip_logical)[active_core];
+            active_core_for_txn++;
+            uint32_t update_mask_for_chip = remote_transfer_ethernet_cores[mmio_capable_chip_logical].size() - 1;
+            active_core_for_txn = non_mmio_transfer_cores_customized ? (active_core_for_txn & update_mask_for_chip) : ((active_core_for_txn & NON_EPOCH_ETH_CORES_MASK) + NON_EPOCH_ETH_CORES_START_ID);
+            // active_core = (active_core & NON_EPOCH_ETH_CORES_MASK) + NON_EPOCH_ETH_CORES_START_ID;
+            remote_transfer_ethernet_core = remote_transfer_ethernet_cores.at(mmio_capable_chip_logical)[active_core_for_txn];
             read_device_memory(erisc_q_ptrs.data(), remote_transfer_ethernet_core, eth_interface_params.REQUEST_CMD_QUEUE_BASE + eth_interface_params.CMD_COUNTERS_SIZE_BYTES, eth_interface_params.REMOTE_UPDATE_PTR_SIZE_BYTES*2, read_tlb);
             full = is_non_mmio_cmd_q_full(erisc_q_ptrs[0], erisc_q_ptrs[4]);
             erisc_q_rptr[0] = erisc_q_ptrs[4];
@@ -3226,6 +3256,7 @@ void tt_SiliconDevice::write_to_non_mmio_device(
 //    and ensure ordering to same remote chip destinations by always using same remote xfer eth core for a given destination based on noc xy. Must ensure wrptr is flushed on
 //    switch of eth cores, and copy of rdptr/wrptr maintained on host for each eth xfer core.
 void tt_SiliconDevice::write_to_non_mmio_device_send_epoch_cmd(const uint32_t *mem_ptr, uint32_t size_in_bytes, tt_cxy_pair core, uint64_t address, bool last_send_epoch_cmd, bool ordered_with_prev_remote_write) {
+    log_assert(!non_mmio_transfer_cores_customized, "{} cannot be used if ethernet cores for host->cluster transfers are customized. The default Ethernet Core configuration must be used.", __FUNCTION__);
     using data_word_t = uint32_t;
     constexpr int DATA_WORD_SIZE = sizeof(data_word_t);
 
@@ -3401,12 +3432,18 @@ void tt_SiliconDevice::rolled_write_to_non_mmio_device(const uint32_t *mem_ptr, 
     //  do not locate any ethernet core reads/writes before this acquire
     //
     const auto &mmio_capable_chip_logical = ndesc->get_closest_mmio_capable_chip(core.chip);
+
+    if (non_mmio_transfer_cores_customized) {
+        log_assert(active_eth_core_idx_per_chip.find(mmio_capable_chip_logical) != active_eth_core_idx_per_chip.end(), "Ethernet Cores for Host to Cluster communication were not initialized for all MMIO devices.");
+    }
+
     const scoped_lock<named_mutex> lock(
         *get_mutex(NON_MMIO_MUTEX_NAME, this->get_pci_device(mmio_capable_chip_logical)->id));
 
     erisc_command.resize(sizeof(routing_cmd_t)/DATA_WORD_SIZE);
     new_cmd = (routing_cmd_t *)&erisc_command[0];
-    read_device_memory(erisc_q_ptrs.data(), remote_transfer_ethernet_cores.at(mmio_capable_chip_logical)[active_core], eth_interface_params.REQUEST_CMD_QUEUE_BASE + eth_interface_params.CMD_COUNTERS_SIZE_BYTES, eth_interface_params.REMOTE_UPDATE_PTR_SIZE_BYTES*2, read_tlb);
+    int& active_core_for_txn = non_mmio_transfer_cores_customized ? active_eth_core_idx_per_chip.at(mmio_capable_chip_logical) : active_core;
+    read_device_memory(erisc_q_ptrs.data(), remote_transfer_ethernet_cores.at(mmio_capable_chip_logical)[active_core_for_txn], eth_interface_params.REQUEST_CMD_QUEUE_BASE + eth_interface_params.CMD_COUNTERS_SIZE_BYTES, eth_interface_params.REMOTE_UPDATE_PTR_SIZE_BYTES*2, read_tlb);
 
     uint32_t offset = 0;
 
@@ -3418,7 +3455,7 @@ void tt_SiliconDevice::rolled_write_to_non_mmio_device(const uint32_t *mem_ptr, 
 
     while (offset < transfer_size) {
         while (full) {
-            read_device_memory(erisc_q_rptr.data(), remote_transfer_ethernet_cores.at(mmio_capable_chip_logical)[active_core], eth_interface_params.REQUEST_CMD_QUEUE_BASE + eth_interface_params.CMD_COUNTERS_SIZE_BYTES + eth_interface_params.REMOTE_UPDATE_PTR_SIZE_BYTES, DATA_WORD_SIZE, read_tlb);
+            read_device_memory(erisc_q_rptr.data(), remote_transfer_ethernet_cores.at(mmio_capable_chip_logical)[active_core_for_txn], eth_interface_params.REQUEST_CMD_QUEUE_BASE + eth_interface_params.CMD_COUNTERS_SIZE_BYTES + eth_interface_params.REMOTE_UPDATE_PTR_SIZE_BYTES, DATA_WORD_SIZE, read_tlb);
             full = is_non_mmio_cmd_q_full(erisc_q_ptrs[0],erisc_q_rptr[0]);
         }
         //full = true;
@@ -3435,7 +3472,7 @@ void tt_SiliconDevice::rolled_write_to_non_mmio_device(const uint32_t *mem_ptr, 
         uint32_t req_flags = eth_interface_params.CMD_DATA_BLOCK_DRAM | eth_interface_params.CMD_DATA_BLOCK | eth_interface_params.CMD_WR_REQ;
         timestamp = 0;
 
-        uint32_t host_dram_block_addr = host_address_params.ETH_ROUTING_BUFFERS_START + (active_core * eth_interface_params.CMD_BUF_SIZE + req_wr_ptr) * host_address_params.ETH_ROUTING_BLOCK_SIZE;
+        uint32_t host_dram_block_addr = host_address_params.ETH_ROUTING_BUFFERS_START + (active_core_for_txn * eth_interface_params.CMD_BUF_SIZE + req_wr_ptr) * host_address_params.ETH_ROUTING_BLOCK_SIZE;
         uint16_t host_dram_channel = 0; // This needs to be 0, since WH can only map ETH buffers to chan 0.
 
         memcpy(data_block.data(), mem_ptr, size_in_bytes);
@@ -3458,13 +3495,13 @@ void tt_SiliconDevice::rolled_write_to_non_mmio_device(const uint32_t *mem_ptr, 
         new_cmd->flags = req_flags;
         new_cmd->src_addr_tag = host_dram_block_addr;
 
-        write_device_memory(erisc_command.data(), erisc_command.size() * DATA_WORD_SIZE, remote_transfer_ethernet_cores.at(mmio_capable_chip_logical)[active_core], eth_interface_params.REQUEST_ROUTING_CMD_QUEUE_BASE + (sizeof(routing_cmd_t) * req_wr_ptr), write_tlb);
+        write_device_memory(erisc_command.data(), erisc_command.size() * DATA_WORD_SIZE, remote_transfer_ethernet_cores.at(mmio_capable_chip_logical)[active_core_for_txn], eth_interface_params.REQUEST_ROUTING_CMD_QUEUE_BASE + (sizeof(routing_cmd_t) * req_wr_ptr), write_tlb);
         tt_driver_atomics::sfence();
         erisc_q_ptrs[0] = (erisc_q_ptrs[0] + 1) & eth_interface_params.CMD_BUF_PTR_MASK;
         std::vector<std::uint32_t> erisc_q_wptr;
         erisc_q_wptr.resize(1);
         erisc_q_wptr[0] = erisc_q_ptrs[0];
-        write_device_memory(erisc_q_wptr.data(), erisc_q_wptr.size() * DATA_WORD_SIZE, remote_transfer_ethernet_cores.at(mmio_capable_chip_logical)[active_core], eth_interface_params.REQUEST_CMD_QUEUE_BASE + eth_interface_params.CMD_COUNTERS_SIZE_BYTES, write_tlb);
+        write_device_memory(erisc_q_wptr.data(), erisc_q_wptr.size() * DATA_WORD_SIZE, remote_transfer_ethernet_cores.at(mmio_capable_chip_logical)[active_core_for_txn], eth_interface_params.REQUEST_CMD_QUEUE_BASE + eth_interface_params.CMD_COUNTERS_SIZE_BYTES, write_tlb);
         tt_driver_atomics::sfence();
         offset += host_mem_offset;
 
@@ -3474,10 +3511,10 @@ void tt_SiliconDevice::rolled_write_to_non_mmio_device(const uint32_t *mem_ptr, 
         // to poll rd pointer in every iteration.
 
         if (is_non_mmio_cmd_q_full((erisc_q_ptrs[0]) & eth_interface_params.CMD_BUF_PTR_MASK, erisc_q_rptr[0])) {
-            active_core++;
-            log_assert(active_core - NON_EPOCH_ETH_CORES_START_ID >= 0, "Invalid ERISC core being used to issue writes");
-            active_core = ((active_core - NON_EPOCH_ETH_CORES_START_ID) % NON_EPOCH_ETH_CORES_FOR_NON_MMIO_TRANSFERS) + NON_EPOCH_ETH_CORES_START_ID;
-            read_device_memory(erisc_q_ptrs.data(), remote_transfer_ethernet_cores.at(mmio_capable_chip_logical)[active_core], eth_interface_params.REQUEST_CMD_QUEUE_BASE + eth_interface_params.CMD_COUNTERS_SIZE_BYTES, eth_interface_params.REMOTE_UPDATE_PTR_SIZE_BYTES*2, read_tlb);
+            active_core_for_txn++;
+            uint32_t update_mask_for_chip = (remote_transfer_ethernet_cores[mmio_capable_chip_logical].size() - 1);
+            active_core_for_txn = non_mmio_transfer_cores_customized ? (active_core_for_txn & update_mask_for_chip) : ((active_core_for_txn & NON_EPOCH_ETH_CORES_MASK) + NON_EPOCH_ETH_CORES_START_ID);
+            read_device_memory(erisc_q_ptrs.data(), remote_transfer_ethernet_cores.at(mmio_capable_chip_logical)[active_core_for_txn], eth_interface_params.REQUEST_CMD_QUEUE_BASE + eth_interface_params.CMD_COUNTERS_SIZE_BYTES, eth_interface_params.REMOTE_UPDATE_PTR_SIZE_BYTES*2, read_tlb);
             full = is_non_mmio_cmd_q_full(erisc_q_ptrs[0], erisc_q_ptrs[4]);
             erisc_q_rptr[0] = erisc_q_ptrs[4];
         }
@@ -3520,7 +3557,7 @@ void tt_SiliconDevice::read_from_non_mmio_device(void* mem_ptr, tt_cxy_pair core
     //
     const scoped_lock<named_mutex> lock(
         *get_mutex(NON_MMIO_MUTEX_NAME, this->get_pci_device(mmio_capable_chip_logical)->id));
-    const tt_cxy_pair remote_transfer_ethernet_core = tt_cxy_pair(mmio_capable_chip_logical, get_soc_descriptor(mmio_capable_chip_logical).ethernet_cores.at(0).x, get_soc_descriptor(mmio_capable_chip_logical).ethernet_cores.at(0).y);
+    const tt_cxy_pair remote_transfer_ethernet_core = remote_transfer_ethernet_cores[mmio_capable_chip_logical].at(0);
 
     read_device_memory(erisc_q_ptrs.data(), remote_transfer_ethernet_core, eth_interface_params.REQUEST_CMD_QUEUE_BASE + eth_interface_params.CMD_COUNTERS_SIZE_BYTES, eth_interface_params.REMOTE_UPDATE_PTR_SIZE_BYTES*2, read_tlb);
     read_device_memory(erisc_resp_q_wptr.data(), remote_transfer_ethernet_core, eth_interface_params.RESPONSE_CMD_QUEUE_BASE + eth_interface_params.CMD_COUNTERS_SIZE_BYTES, DATA_WORD_SIZE, read_tlb);

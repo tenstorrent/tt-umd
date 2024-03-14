@@ -277,6 +277,16 @@ class tt_device
     virtual void setup_core_to_tlb_map(std::function<std::int32_t(tt_xy_pair)> mapping_function) {
         throw std::runtime_error("---- tt_device::setup_core_to_tlb_map is not implemented\n");
     }
+    /**
+    * @brief Pass in ethernet cores with active links for a specific MMIO chip. When called, this function will force UMD to use a subset of cores from the active_eth_cores_per_chip set for all host->cluster
+    * non-MMIO transfers. If this function is not called, UMD will use a default set of ethernet core indices for these transfers (0 through 5).
+    * If default behaviour is not desired, this function must be called for all MMIO devices.
+    * \param mmio_chip MMIO device for which the active ethernet cores are being set
+    * \param active_eth_cores_per_chip The active ethernet cores for this chip
+    */
+    virtual void configure_active_ethernet_cores_for_mmio_device(chip_id_t mmio_chip, const std::unordered_set<tt_xy_pair>& active_eth_cores_per_chip) {
+        throw std::runtime_error("---- tt_device::configure_active_ethernet_cores_for_mmio_device is not implemented\n");
+    }
     /** 
      * @brief Start the Silicon on Versim Device
      * On Silicon: Assert soft Tensix reset, deassert RiscV reset, set power state to busy (ramp up AICLK), initialize iATUs for PCIe devices and ethernet queues for remote chips.
@@ -752,6 +762,7 @@ class tt_SiliconDevice: public tt_device
     virtual void configure_tlb(chip_id_t logical_device_id, tt_xy_pair core, std::int32_t tlb_index, std::int32_t address, uint64_t ordering = TLB_DATA::Posted);
     virtual void set_fallback_tlb_ordering_mode(const std::string& fallback_tlb, uint64_t ordering = TLB_DATA::Posted);
     virtual void setup_core_to_tlb_map(std::function<std::int32_t(tt_xy_pair)> mapping_function);
+    virtual void configure_active_ethernet_cores_for_mmio_device(chip_id_t mmio_chip, const std::unordered_set<tt_xy_pair>& active_eth_cores_per_chip);
     virtual void start_device(const tt_device_params &device_params);
     virtual void assert_risc_reset();
     virtual void deassert_risc_reset();
@@ -932,6 +943,8 @@ class tt_SiliconDevice: public tt_device
     bool erisc_q_wrptr_updated[NUM_ETH_CORES_FOR_NON_MMIO_TRANSFERS];
     std::vector< std::vector<tt_cxy_pair> > remote_transfer_ethernet_cores;
     bool flush_non_mmio = false;
+    bool non_mmio_transfer_cores_customized = false;
+    std::unordered_map<chip_id_t, int> active_eth_core_idx_per_chip = {};
     // Size of the PCIE DMA buffer
     // The setting should not exceed MAX_DMA_BYTES
     std::uint32_t m_dma_buf_size;

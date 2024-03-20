@@ -459,10 +459,9 @@ void tt_ClusterDescriptor::load_chips_from_connectivity_descriptor(YAML::Node &y
 
 void tt_ClusterDescriptor::load_harvesting_information(YAML::Node &yaml, tt_ClusterDescriptor &desc) {
     if(yaml["harvesting"]) {
-        for (const auto& node : yaml["harvesting"].as<std::vector<YAML::Node>>()) {
-            const auto& chip_node = node.as<std::map<int, YAML::Node>>();
-            chip_id_t chip = chip_node.begin() -> first;
-            auto harvesting_info = node.begin() -> second;
+        for (const auto& chip_node : yaml["harvesting"].as<std::map<int, YAML::Node>>()) {
+            chip_id_t chip = chip_node.first;
+            auto harvesting_info = chip_node.second;
             desc.noc_translation_enabled.insert({chip, harvesting_info["noc_translation"].as<bool>()});
             desc.harvesting_masks.insert({chip, harvesting_info["harvest_mask"].as<std::uint32_t>()});
         }

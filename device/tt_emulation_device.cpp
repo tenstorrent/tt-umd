@@ -40,6 +40,7 @@ std::vector<uint8_t> tt_emulation_device::read(tt_cxy_pair core, uint64_t addr, 
 
 void tt_emulation_device::start_device(const tt_device_params& device_params) {
   tt_zebu_wrapper_inst->zebu_start();
+  tt_zebu_wrapper_inst->zebu_enable_waveform_dump(tt_zebu_wrapper::WAVEFORM_DUMP_QIWC);
   log_info(tt::LogEmulationDriver, "Started Emulation Device ");
 }
 
@@ -104,6 +105,19 @@ void tt_emulation_device::write_to_device(std::vector<uint32_t>& vec, tt_cxy_pai
 
   write(core, addr, byte_data);
 }
+
+void tt_emulation_device::l1_membar(const chip_id_t chip, const std::string& fallback_tlb, const std::unordered_set<tt_xy_pair>& cores) {
+    // Placeholder - implement later - https://yyz-gitlab.local.tenstorrent.com/tenstorrent/open-umd/-/issues/26
+}
+
+void tt_emulation_device::dram_membar(const chip_id_t chip, const std::string& fallback_tlb, const std::unordered_set<tt_xy_pair>& cores) {
+    // Placeholder - implement later - https://yyz-gitlab.local.tenstorrent.com/tenstorrent/open-umd/-/issues/26
+}
+
+void tt_emulation_device::dram_membar(const chip_id_t chip, const std::string& fallback_tlb, const std::unordered_set<uint32_t>& channels) {
+    // Placeholder - implement later - https://yyz-gitlab.local.tenstorrent.com/tenstorrent/open-umd/-/issues/26
+}
+
 
 
 void tt_emulation_device::read_from_device(std::vector<uint32_t>& vec, tt_cxy_pair core, uint64_t addr, uint32_t size, const std::string& /*tlb_to_use*/) {

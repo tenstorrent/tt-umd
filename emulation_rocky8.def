@@ -54,6 +54,9 @@ From: rockylinux/rockylinux:8
     cd ../..
     rm -rf v4.7.0.tar.gz cppzmq-4.7.0
 
+    yum install vim -y
+    yum install vim-common -y
+
     # BBE is using this version of boost library
     wget https://boostorg.jfrog.io/artifactory/main/release/1.71.0/source/boost_1_71_0.tar.gz
     tar -xzvf boost_1_71_0.tar.gz

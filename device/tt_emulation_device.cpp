@@ -26,7 +26,7 @@ tt_emulation_device::~tt_emulation_device() {
 void tt_emulation_device::write(tt_cxy_pair core, uint64_t addr, const std::vector<uint8_t>& data) {
   const uint32_t size = static_cast<uint32_t>(data.size());
   tt_zebu_wrapper_inst->axi_write(0, core.x, core.y, addr, size, data); 
-  log_info(tt::LogEmulationDriver, "Wrote {} bytes to address {:#016x}", size, addr);
+  log_info(tt::LogEmulationDriver, "Wrote {} bytes to address {:#016x}, core {},{}", size, addr, core.x, core.y);
 }
 
 std::vector<uint8_t> tt_emulation_device::read(tt_cxy_pair core, uint64_t addr, uint32_t size) {
@@ -77,9 +77,25 @@ void tt_emulation_device::start(std::vector<std::string> plusargs, std::vector<s
 
 void tt_emulation_device::broadcast_write_to_cluster(const void *mem_ptr, uint32_t size_in_bytes, uint64_t address, const std::set<chip_id_t>& chips_to_exclude, std::set<uint32_t>& rows_to_exclude, std::set<uint32_t>& cols_to_exclude, const std::string& fallback_tlb) {
   for(const auto& core : get_soc_descriptor(0) -> cores) {
-    if(cols_to_exclude.find(core.first.x) == cols_to_exclude.end() and rows_to_exclude.find(core.first.y) == rows_to_exclude.end() and core.second.type != CoreType::HARVESTED) {
+    // if(cols_to_exclude.find(core.first.x) == cols_to_exclude.end() and rows_to_exclude.find(core.first.y) == rows_to_exclude.end() and core.second.type != CoreType::HARVESTED) {
+    //     write_to_device(mem_ptr, size_in_bytes, tt_cxy_pair(0, core.first.x, core.first.y), address, "");
+    //   }
+    // MT: Iterate through all the worker cores for bcast:
+    // if (get_soc_descriptor(0)->is_worker_core(core.first)) {
+    //   write_to_device(mem_ptr, size_in_bytes, tt_cxy_pair(0, core.first.x, core.first.y), address, "");
+    // }
+    // Emulation only broadcasts to all Tensix cores or all DRAM cores.
+    // differentiate which bcast pattern to use based on exclude columns
+    if (cols_to_exclude.find(0) == cols_to_exclude.end()) {
+      // Detect DRAM bcast
+      if (get_soc_descriptor(0)->is_dram_core(core.first)) {
         write_to_device(mem_ptr, size_in_bytes, tt_cxy_pair(0, core.first.x, core.first.y), address, "");
       }
+    } else {
+      if (get_soc_descriptor(0)->is_worker_core(core.first)) {
+        write_to_device(mem_ptr, size_in_bytes, tt_cxy_pair(0, core.first.x, core.first.y), address, "");
+      }
+    }
   }
 } 
 void tt_emulation_device::rolled_write_to_device(std::vector<uint32_t>& base_vec, uint32_t unroll_count, tt_cxy_pair core, uint64_t base_addr, const std::string& tlb_to_use) {

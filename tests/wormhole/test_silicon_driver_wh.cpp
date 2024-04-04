@@ -11,11 +11,10 @@
 #include "eth_interface.h"
 #include "host_mem_address_map.h"
 #include <thread>
-#include <util.hpp>
 #include <memory>
 
-
 #include "device/tt_cluster_descriptor.h"
+#include "tests/test_utils/generate_cluster_desc.hpp"
 
 void set_params_for_remote_txn(tt_SiliconDevice& device) {
     // Populate address map and NOC parameters that the driver needs for remote transactions

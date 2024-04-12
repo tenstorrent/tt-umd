@@ -88,6 +88,10 @@ bool tt_ClusterDescriptor::is_chip_mmio_capable(const chip_id_t &chip_id) const 
 // the function returns the total distance of travelled between shelves and racks, plust the x&y dim difference
 int tt_ClusterDescriptor::get_ethernet_link_coord_distance(const eth_coord_t &location_a, const eth_coord_t &location_b) {
 
+    log_trace(LogSiliconDriver, "get_ethernet_link_coord_distance from ({}, {}, {}, {}) to ({}, {}, {}, {})",
+        std::get<0>(location_a), std::get<1>(location_a), std::get<2>(location_a), std::get<3>(location_a),
+        std::get<0>(location_b), std::get<1>(location_b), std::get<2>(location_b), std::get<3>(location_b));
+
     // eth_coord_t: x, y, rack, shelf
 
     int x_a = std::get<0>(location_a);
@@ -107,6 +111,14 @@ int tt_ClusterDescriptor::get_ethernet_link_coord_distance(const eth_coord_t &lo
 
     // move along y-dim to exit from the shelf to go to a higher shelf
     if(shelf_b > shelf_a) {
+        // this is already verified where galaxy_shelves_exit_chip_coords_per_y_dim is populated, but just to be safe
+        log_assert(galaxy_shelves_exit_chip_coords_per_y_dim.find(shelf_a) != galaxy_shelves_exit_chip_coords_per_y_dim.end(),
+            "Expected shelf-to-shelf connection");
+        // this row does not have a shelf-to-shelf connection
+        if(galaxy_shelves_exit_chip_coords_per_y_dim.at(shelf_a).find(y_a) == galaxy_shelves_exit_chip_coords_per_y_dim.at(shelf_a).end()) {
+            return std::numeric_limits<int>::max();
+        }
+
         const Chip2ChipConnection& shelf_to_shelf_connection = galaxy_shelves_exit_chip_coords_per_y_dim.at(shelf_a).at(y_a);
         log_assert(shelf_to_shelf_connection.destination_chip_coords.size(), "Expecting at least one shelf-to-shelf connection, possibly one-to-many");
 
@@ -123,12 +135,29 @@ int tt_ClusterDescriptor::get_ethernet_link_coord_distance(const eth_coord_t &lo
                 "Invalid shelf entry coordinates");
 
             // hop onto the next shelf and find distance from there
-            distance = std::min(distance,
-                get_ethernet_link_coord_distance(location_a, exit_shelf) + get_ethernet_link_coord_distance(next_shelf, location_b) + 1);
+            int distance_to_exit = get_ethernet_link_coord_distance(location_a, exit_shelf);
+            int distance_in_next_shelf = get_ethernet_link_coord_distance(next_shelf, location_b);
+            // no path found
+            if(distance_to_exit == std::numeric_limits<int>::max() || distance_in_next_shelf == std::numeric_limits<int>::max()) {
+                continue;
+            }
+            distance = std::min(distance, distance_to_exit + distance_in_next_shelf + 1);
         }
+        log_trace(LogSiliconDriver, "\tdistance from ({}, {}, {}, {}) to ({}, {}, {}, {}) is {}",
+            std::get<0>(location_a), std::get<1>(location_a), std::get<2>(location_a), std::get<3>(location_a),
+            std::get<0>(location_b), std::get<1>(location_b), std::get<2>(location_b), std::get<3>(location_b), distance);
         return distance;
     }
     else if(shelf_a > shelf_b) {
+
+        // this is already verified where galaxy_shelves_exit_chip_coords_per_y_dim is populated, but just to be safe
+        log_assert(galaxy_shelves_exit_chip_coords_per_y_dim.find(shelf_b) != galaxy_shelves_exit_chip_coords_per_y_dim.end(),
+            "Expected shelf-to-shelf connection");
+        // this row does not have a shelf-to-shelf connection
+        if(galaxy_shelves_exit_chip_coords_per_y_dim.at(shelf_b).find(y_b) == galaxy_shelves_exit_chip_coords_per_y_dim.at(shelf_b).end()) {
+            return std::numeric_limits<int>::max();
+        }
+
         const Chip2ChipConnection& shelf_to_shelf_connection = galaxy_shelves_exit_chip_coords_per_y_dim.at(shelf_b).at(y_b);
         log_assert(shelf_to_shelf_connection.destination_chip_coords.size(), "Expecting at least one shelf-to-shelf connection, possibly one-to-many")
 
@@ -144,14 +173,31 @@ int tt_ClusterDescriptor::get_ethernet_link_coord_distance(const eth_coord_t &lo
                 "Invalid shelf entry coordinates");
 
             // hop onto the next shelf and find distance from there
-            distance = std::min(distance,
-                get_ethernet_link_coord_distance(location_b, exit_shelf) + get_ethernet_link_coord_distance(next_shelf, location_a) + 1);
+            int distance_to_exit = get_ethernet_link_coord_distance(location_b, exit_shelf);
+            int distance_in_next_shelf = get_ethernet_link_coord_distance(next_shelf, location_a);
+            // no path found
+            if(distance_to_exit == std::numeric_limits<int>::max() || distance_in_next_shelf == std::numeric_limits<int>::max()) {
+                continue;
+            }
+            distance = std::min(distance, distance_to_exit + distance_in_next_shelf + 1);
         }
+        log_trace(LogSiliconDriver, "\tdistance from ({}, {}, {}, {}) to ({}, {}, {}, {}) is {}",
+            std::get<0>(location_a), std::get<1>(location_a), std::get<2>(location_a), std::get<3>(location_a),
+            std::get<0>(location_b), std::get<1>(location_b), std::get<2>(location_b), std::get<3>(location_b), distance);
         return distance;
     }
 
     // move along y-dim to exit from the shelf to go to a higher shelf
     if(rack_b > rack_a) {
+
+        // this is already verified where galaxy_racks_exit_chip_coords_per_x_dim is populated, but just to be safe
+        log_assert(galaxy_racks_exit_chip_coords_per_x_dim.find(rack_a) != galaxy_racks_exit_chip_coords_per_x_dim.end(),
+            "Expected rack-to-rack connection");
+
+        // this row does not have a rack-to-rack connection
+        if(galaxy_racks_exit_chip_coords_per_x_dim.at(rack_a).find(x_a) == galaxy_racks_exit_chip_coords_per_x_dim.at(rack_a).end()) {
+            return std::numeric_limits<int>::max();
+        }
 
         const Chip2ChipConnection& rack_to_rack_connection = galaxy_racks_exit_chip_coords_per_x_dim.at(rack_a).at(x_a);
         log_assert(rack_to_rack_connection.destination_chip_coords.size(), "Expecting at least one rack-to-rack connection, possibly one-to-many");
@@ -167,12 +213,31 @@ int tt_ClusterDescriptor::get_ethernet_link_coord_distance(const eth_coord_t &lo
                 "Invalid rack entry coordinates");
 
             // hop onto the next rack and find distance from there
-            distance = std::min(distance,
-                get_ethernet_link_coord_distance(location_a, exit_rack) + get_ethernet_link_coord_distance(next_rack, location_b) + 1);
+            int distance_to_exit = get_ethernet_link_coord_distance(location_a, exit_rack);
+            int distance_in_next_rack = get_ethernet_link_coord_distance(next_rack, location_b);
+            // no path found
+            if (distance_to_exit == std::numeric_limits<int>::max() || distance_in_next_rack == std::numeric_limits<int>::max()) {
+                continue;
+            }
+            distance = std::min(distance, distance_to_exit + distance_in_next_rack + 1);
         }
+        log_trace(LogSiliconDriver, "\tdistance from ({}, {}, {}, {}) to ({}, {}, {}, {}) is {}",
+            std::get<0>(location_a), std::get<1>(location_a), std::get<2>(location_a), std::get<3>(location_a),
+            std::get<0>(location_b), std::get<1>(location_b), std::get<2>(location_b), std::get<3>(location_b), distance);
+
         return distance;
     }
     else if(rack_a > rack_b) {
+
+        // this is already verified where galaxy_racks_exit_chip_coords_per_x_dim is populated, but just to be safe
+        log_assert(galaxy_racks_exit_chip_coords_per_x_dim.find(rack_b) != galaxy_racks_exit_chip_coords_per_x_dim.end(),
+            "Expected rack-to-rack connection");
+
+        // this row does not have a rack-to-rack connection
+        if(galaxy_racks_exit_chip_coords_per_x_dim.at(rack_b).find(x_b) == galaxy_racks_exit_chip_coords_per_x_dim.at(rack_b).end()) {
+            return std::numeric_limits<int>::max();
+        }
+
         const Chip2ChipConnection& rack_to_rack_connection = galaxy_racks_exit_chip_coords_per_x_dim.at(rack_b).at(x_b);
         log_assert(rack_to_rack_connection.destination_chip_coords.size(), "Expecting at least one rack-to-rack connection, possibly one-to-many");
 
@@ -187,11 +252,24 @@ int tt_ClusterDescriptor::get_ethernet_link_coord_distance(const eth_coord_t &lo
                 "Invalid rack entry coordinates");
 
             // hop onto the next rack and find distance from there
-            distance = std::min(distance,
-                get_ethernet_link_coord_distance(location_b, exit_rack) + get_ethernet_link_coord_distance(next_rack, location_a) + 1);
+            int distance_to_exit = get_ethernet_link_coord_distance(location_b, exit_rack);
+            int distance_in_next_rack = get_ethernet_link_coord_distance(next_rack, location_a);
+            // no path found
+            if (distance_to_exit == std::numeric_limits<int>::max() || distance_in_next_rack == std::numeric_limits<int>::max()) {
+                continue;
+            }
+            distance = std::min(distance, distance_to_exit + distance_in_next_rack + 1);
         }
+        log_trace(LogSiliconDriver, "\tdistance from ({}, {}, {}, {}) to ({}, {}, {}, {}) is {}",
+            std::get<0>(location_a), std::get<1>(location_a), std::get<2>(location_a), std::get<3>(location_a),
+            std::get<0>(location_b), std::get<1>(location_b), std::get<2>(location_b), std::get<3>(location_b), distance);
+
         return distance;
     }
+
+    log_trace(LogSiliconDriver, "\tdistance from ({}, {}, {}, {}) to ({}, {}, {}, {}) is {}",
+        std::get<0>(location_a), std::get<1>(location_a), std::get<2>(location_a), std::get<3>(location_a),
+        std::get<0>(location_b), std::get<1>(location_b), std::get<2>(location_b), std::get<3>(location_b), x_distance + y_distance);
 
     // on same shelf/rack, the distance is just x+y difference
     return x_distance + y_distance;
@@ -199,6 +277,8 @@ int tt_ClusterDescriptor::get_ethernet_link_coord_distance(const eth_coord_t &lo
 
 // Returns the closest mmio chip to the given chip
 chip_id_t tt_ClusterDescriptor::get_closest_mmio_capable_chip(const chip_id_t &chip) {
+
+    log_debug(LogSiliconDriver, "get_closest_mmio_chip to chip{}", chip);
 
     if (this->is_chip_mmio_capable(chip)) {
         return chip;
@@ -216,12 +296,16 @@ chip_id_t tt_ClusterDescriptor::get_closest_mmio_capable_chip(const chip_id_t &c
         const chip_id_t &mmio_chip = pair.first;
         eth_coord_t mmio_eth_coord = this->chip_locations.at(mmio_chip);
 
+        log_debug(LogSiliconDriver, "Checking chip{} at ({}, {}, {}, {})", mmio_chip, std::get<0>(mmio_eth_coord), std::get<1>(mmio_eth_coord), std::get<2>(mmio_eth_coord), std::get<3>(mmio_eth_coord));
+
         int distance = get_ethernet_link_coord_distance(mmio_eth_coord, chip_eth_coord);
         if (distance < min_distance) {
             min_distance = distance;
             closest_chip = mmio_chip;
         }
     }
+    log_assert(min_distance != std::numeric_limits<int>::max(), "Chip{} is not connected to any MMIO capable chip", chip);
+
     log_assert(is_chip_mmio_capable(closest_chip), "Closest MMIO chip must be MMIO capable");
 
     log_debug(LogSiliconDriver, "closest_mmio_chip to chip{} is chip{} distance:{}", chip, closest_chip, min_distance);
@@ -342,10 +426,15 @@ void tt_ClusterDescriptor::load_ethernet_connections_from_connectivity_descripto
         }
     }
 
+    int highest_shelf_id = 0;
+    int highest_rack_id = 0;
+
     // shelves and racks can be connected at different chip coordinates
     // determine which chips are connected to the next (i.e. higher id) shelf/rack and what the coordinate of the chip on the other shelf/rack is
     // this is used in get_ethernet_link_coord_distance to find the distance between two chips
     for (const auto &[chip_id, chip_eth_coord] : desc.chip_locations) {
+        highest_shelf_id = std::max(highest_shelf_id, std::get<3>(chip_eth_coord));
+        highest_rack_id = std::max(highest_rack_id, std::get<2>(chip_eth_coord));
         // iterate over all neighbors
         if(desc.ethernet_connections.find(chip_id) == desc.ethernet_connections.end()) {
             continue; // chip has no eth connections
@@ -389,6 +478,14 @@ void tt_ClusterDescriptor::load_ethernet_connections_from_connectivity_descripto
         }
     }
 
+    // verify that every shelf (except the highest in id) is found in galaxy_shelves_exit_chip_coords_per_y_dim
+    // this means that we expect the shelves to be connected linearly in a daisy-chain fashion.
+    // shelf0->shelf1->shelf2->...->shelfN
+    for(int shelf_id = 0; shelf_id < highest_shelf_id; shelf_id++) {
+        log_assert(desc.galaxy_shelves_exit_chip_coords_per_y_dim.find(shelf_id) != desc.galaxy_shelves_exit_chip_coords_per_y_dim.end(),
+            "Expected shelf {} to be connected to the next shelf", shelf_id);
+    }
+
     // this prints the exit chip coordinates for each shelf
     // this is used in get_ethernet_link_coord_distance to find the distance between two chips
     for (const auto &[shelf, shelf_exit_chip_coords_per_y_dim] : desc.galaxy_shelves_exit_chip_coords_per_y_dim) {
@@ -397,12 +494,20 @@ void tt_ClusterDescriptor::load_ethernet_connections_from_connectivity_descripto
                 shelf, y_dim,
                 std::get<0>(shelf_exit_chip_coords.source_chip_coord), std::get<1>(shelf_exit_chip_coords.source_chip_coord),
                 std::get<2>(shelf_exit_chip_coords.source_chip_coord), std::get<3>(shelf_exit_chip_coords.source_chip_coord));
-            for (const auto &shelf_exit_chip_coord : shelf_exit_chip_coords.destination_chip_coords) {
+            for (const auto &destination_chip_coord : shelf_exit_chip_coords.destination_chip_coords) {
                 // print shelf_exit_chip_coord in the format: (x, y, rack, shelf)
-                log_debug(LogSiliconDriver, "\tshelf_exit_chip_coord: ({}, {}, {}, {})",
-                    std::get<0>(shelf_exit_chip_coord), std::get<1>(shelf_exit_chip_coord), std::get<2>(shelf_exit_chip_coord), std::get<3>(shelf_exit_chip_coord));
+                log_debug(LogSiliconDriver, "\tdestination_chip_coord: ({}, {}, {}, {})",
+                    std::get<0>(destination_chip_coord), std::get<1>(destination_chip_coord), std::get<2>(destination_chip_coord), std::get<3>(destination_chip_coord));
             }
         }
+    }
+
+    // verify that every rack (except the highest in id) is found in galaxy_racks_exit_chip_coords_per_x_dim
+    // this means that we expect the racks to be connected linearly in a daisy-chain fashion.
+    // rack0->rack1->rack2->...->rackN
+    for(int rack_id = 0; rack_id < highest_rack_id; rack_id++) {
+        log_assert(desc.galaxy_racks_exit_chip_coords_per_x_dim.find(rack_id) != desc.galaxy_racks_exit_chip_coords_per_x_dim.end(),
+            "Expected rack {} to be connected to the next rack", rack_id);
     }
 
     // this prints the exit chip coordinates for each rack
@@ -412,9 +517,9 @@ void tt_ClusterDescriptor::load_ethernet_connections_from_connectivity_descripto
             log_debug(LogSiliconDriver, "rack: {} x_dim: {} exit_coord:({}, {}, {}, {})", rack, x_dim,
                 std::get<0>(rack_exit_chip_coords.source_chip_coord), std::get<1>(rack_exit_chip_coords.source_chip_coord),
                 std::get<2>(rack_exit_chip_coords.source_chip_coord), std::get<3>(rack_exit_chip_coords.source_chip_coord));
-            for (const auto &rack_exit_chip_coord : rack_exit_chip_coords.destination_chip_coords) {
-                log_debug(LogSiliconDriver, "\track_exit_chip_coord: ({}, {}, {}, {})",
-                    std::get<0>(rack_exit_chip_coord), std::get<1>(rack_exit_chip_coord), std::get<2>(rack_exit_chip_coord), std::get<3>(rack_exit_chip_coord));
+            for (const auto &destination_chip_coord : rack_exit_chip_coords.destination_chip_coords) {
+                log_debug(LogSiliconDriver, "\tdestination_chip_coord: ({}, {}, {}, {})",
+                    std::get<0>(destination_chip_coord), std::get<1>(destination_chip_coord), std::get<2>(destination_chip_coord), std::get<3>(destination_chip_coord));
             }
         }
     }

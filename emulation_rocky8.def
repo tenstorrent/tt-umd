@@ -77,23 +77,31 @@ From: rockylinux/rockylinux:8
     rm -rf mpfr-4.2.1.tar.gz mpfr-4.2.1
 
     # need newer version of googletest
-    git clone https://github.com/google/googletest.git -b v1.10.x
-    cd googletest        
-    mkdir build          
+    git clone https://github.com/google/googletest.git -b v1.14.0
+    cd googletest        # Main directory of the cloned repository.
+    mkdir build          # Create a directory to hold the build output.
     cd build
-    cmake .. -DBUILD_GMOCK=OFF
+    cmake ..
     make
     make install
     cd ../..
-    rm -rf googletest   
+    rm -rf googletest
 
     # needed by Runtime for running blob command
     yum install ruby -y
 
-    # some scripts are expecting python3 to be in /usr/bin/python3
-    # and this python version is loaded with module load python and has needed python modules
+    # PyBuda environment requires python 3.8
+    yum install python38 python38-devel -y
+    ln -s $(which python3.8-config) /usr/bin/python3-config
     rm /usr/bin/python3
-    ln -s /tools_soc/opensrc/python/python-3.9/bin/python3 /usr/bin/python3
+    ln -s $(which python3.8) /usr/bin/python3
+    ln -s $(which pip3.8) /usr/bin/pip3
+
+    # PyYaml is required for sucesfull PyBuda build
+    pip3 install PyYAML
+
+    yum install ncurses-libs
+    ln -s /usr/lib64/libtinfo.so.6 /usr/lib64/libtinfo.so
 
 %environment
     # export VCS_HOME=/container/synopsys/vcs/T-2022.06-SP2-4

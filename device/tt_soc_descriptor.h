@@ -14,6 +14,7 @@
 
 #include <iostream>
 #include <string>
+#include <cstdint>
 
 #include "tt_xy_pair.h"
 #include "device/tt_arch_types.h"

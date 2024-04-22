@@ -7,7 +7,6 @@
 
 #include <numeric>
 #include <thread>
-#include <util.hpp>
 
 #include "common/logger.hpp"
 #include "device_data.hpp"
@@ -17,6 +16,7 @@
 #include "host_mem_address_map.h"
 #include "l1_address_map.h"
 #include "test_galaxy_common.h"
+#include "tests/test_utils/generate_cluster_desc.hpp"
 
 static const std::string SOC_DESC_PATH = "./tests/soc_descs/wormhole_b0_8x10.yaml";
 void set_params_for_remote_txn(tt_SiliconDevice& device);

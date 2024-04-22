@@ -4,7 +4,6 @@
 #include <cstdint>
 #include <numeric>
 #include <random>
-#include <util.hpp>
 #include <thread>
 
 #include "common/logger.hpp"
@@ -18,6 +17,7 @@
 #include "tt_soc_descriptor.h"
 
 #include "../test_utils/stimulus_generators.hpp"
+#include "../test_utils/generate_cluster_desc.hpp"
 #include "../wormhole/test_wh_common.h"
 
 

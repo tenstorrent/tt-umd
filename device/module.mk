@@ -10,7 +10,6 @@ DEVICE_SRCS = \
   device/tt_soc_descriptor.cpp \
   device/tt_cluster_descriptor.cpp \
   device/cpuset_lib.cpp \
-  device/util.cpp \
   device/architecture_implementation.cpp \
   device/blackhole_implementation.cpp \
   device/grayskull_implementation.cpp \

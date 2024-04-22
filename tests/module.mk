@@ -11,15 +11,19 @@ else
   DEVICE_UNIT_TESTS_INCLUDES += -I$(UMD_HOME)/device/$(ARCH_NAME)/ -I$(UMD_HOME)/src/firmware/riscv/$(ARCH_NAME)
 endif
 
+COMMON_UNIT_TESTS_SRCS = $(wildcard $(UMD_HOME)/tests/test_utils/*.cpp)
+
 DEVICE_UNIT_TESTS += $(basename $(wildcard $(UMD_HOME)/tests/*.c*))
 
 DEVICE_UNIT_TESTS_SRCS = $(addsuffix .cpp, $(DEVICE_UNIT_TESTS))
+DEVICE_UNIT_TESTS_SRCS += $(COMMON_UNIT_TESTS_SRCS)
 
 # Build galaxy tests separately
 ifeq ("$(ARCH_NAME)", "wormhole_b0")
   GALAXY_UNIT_TESTS = $(DEVICE_UNIT_TESTS)
   GALAXY_UNIT_TESTS += $(basename $(wildcard $(UMD_HOME)/tests/galaxy/*.c*))
   GALAXY_UNIT_TESTS_SRCS = $(addsuffix .cpp, $(GALAXY_UNIT_TESTS))
+  GALAXY_UNIT_TESTS_SRCS += $(COMMON_UNIT_TESTS_SRCS)
 endif
 
 DEVICE_UNIT_TESTS_LDFLAGS = -L$(LIBDIR) -lyaml-cpp -lhwloc -lgtest -lgtest_main -lpthread -lstdc++fs
@@ -31,6 +35,7 @@ DEVICE_UNIT_TESTS_DEPS = $(addprefix $(OBJDIR)/, $(DEVICE_UNIT_TESTS_SRCS:.cpp=.
 ifeq ($(EMULATION_DEVICE_EN),1)
   EMULATION_UNIT_TESTS += $(basename $(wildcard $(UMD_HOME)/tests/emulation/*.c*))
   EMULATION_UNIT_TESTS_SRCS = $(addsuffix .cpp, $(EMULATION_UNIT_TESTS))
+  EMULATION_UNIT_TESTS_SRCS += $(COMMON_UNIT_TESTS_SRCS)
 
   EMULATION_LDFLAGS += -L$(ZEBU_IP_ROOT)/lib -L$(ZEBU_ROOT)/lib -LDFLAGS "-g"
   EMULATION_LIBS += -lxtor_amba_master_svs -lZebuXtor -lZebu -lZebuZEMI3 -lZebuVpi \

@@ -1272,7 +1272,7 @@ namespace {
 }
 // Get TLB index (from zero), check if it's in 16MB, 2MB or 1MB TLB range, and dynamically program it.
 dynamic_tlb set_dynamic_tlb(PCIdevice* dev, unsigned int tlb_index, tt_xy_pair start, tt_xy_pair end,
-                            std::uint32_t address, bool multicast, std::unordered_map<chip_id_t, std::unordered_map<tt_xy_pair, tt_xy_pair>>& harvested_coord_translation, std::uint64_t ordering) {
+                            std::uint64_t address, bool multicast, std::unordered_map<chip_id_t, std::unordered_map<tt_xy_pair, tt_xy_pair>>& harvested_coord_translation, std::uint64_t ordering) {
     auto architecture_implementation = dev->hdev->get_architecture_implementation();
     if (multicast) {
         std::tie(start, end) = architecture_implementation->multicast_workaround(start, end);
@@ -1308,11 +1308,11 @@ dynamic_tlb set_dynamic_tlb(PCIdevice* dev, unsigned int tlb_index, tt_xy_pair s
 }
 
 
-dynamic_tlb set_dynamic_tlb(PCIdevice *dev, unsigned int tlb_index, tt_xy_pair target, std::uint32_t address, std::unordered_map<chip_id_t, std::unordered_map<tt_xy_pair, tt_xy_pair>>& harvested_coord_translation, std::uint64_t ordering = TLB_DATA::Relaxed) {
+dynamic_tlb set_dynamic_tlb(PCIdevice *dev, unsigned int tlb_index, tt_xy_pair target, std::uint64_t address, std::unordered_map<chip_id_t, std::unordered_map<tt_xy_pair, tt_xy_pair>>& harvested_coord_translation, std::uint64_t ordering = TLB_DATA::Relaxed) {
     return set_dynamic_tlb(dev, tlb_index, tt_xy_pair(0, 0), target, address, false, harvested_coord_translation, ordering);
 }
 
-dynamic_tlb set_dynamic_tlb_broadcast(PCIdevice *dev, unsigned int tlb_index, std::uint32_t address, std::unordered_map<chip_id_t, std::unordered_map<tt_xy_pair, tt_xy_pair>>& harvested_coord_translation, tt_xy_pair start, tt_xy_pair end, std::uint64_t ordering = TLB_DATA::Relaxed) {
+dynamic_tlb set_dynamic_tlb_broadcast(PCIdevice *dev, unsigned int tlb_index, std::uint64_t address, std::unordered_map<chip_id_t, std::unordered_map<tt_xy_pair, tt_xy_pair>>& harvested_coord_translation, tt_xy_pair start, tt_xy_pair end, std::uint64_t ordering = TLB_DATA::Relaxed) {
     // Issue a broadcast to cores included in the start (top left) and end (bottom right) grid
     return set_dynamic_tlb (dev, tlb_index, start, end,
                             address, true, harvested_coord_translation, ordering);

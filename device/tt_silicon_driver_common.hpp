@@ -9,10 +9,6 @@
 #include <cstdint>
 #include <string>
 
-#include "device/tlb.h"
-
-using TLB_OFFSETS = tt::umd::tlb_offsets;
-using TLB_DATA = tt::umd::tlb_data;
 
 typedef struct {
     uint32_t  chip_addr;

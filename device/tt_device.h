@@ -17,6 +17,11 @@
 #include "tt_xy_pair.h"
 #include "tt_silicon_driver_common.hpp"
 #include "device/tt_cluster_descriptor_types.h"
+#include "device/tlb.h"
+
+using TLB_OFFSETS = tt::umd::tlb_offsets;
+using TLB_DATA = tt::umd::tlb_data;
+
 
 namespace boost::interprocess{
     class named_mutex;

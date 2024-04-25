@@ -93,7 +93,6 @@ DEVICE_INCLUDES+=      	\
   -I$(UMD_VERSIM_HEADERS)$(ARCH_NAME)/headers/src/t6ifc/versim-core/monitors                            \
   -I$(UMD_VERSIM_HEADERS)$(ARCH_NAME)/headers/src/t6ifc/versim-core/checkers                            \
   -I$(UMD_VERSIM_HEADERS)$(ARCH_NAME)/headers/src/tvm/inc                                               \
-  -I$(UMD_VERSIM_HEADERS)$(ARCH_NAME)/headers/usr_include                                               \
   -I$(UMD_VERSIM_HEADERS)$(ARCH_NAME)/headers \
   
   ifeq ("$(ARCH_NAME)", "wormhole_b0")

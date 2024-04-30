@@ -1560,9 +1560,7 @@ tt_SiliconDevice::tt_SiliconDevice(const std::string &sdesc_path, const std::str
     dynamic_tlb_config["LARGE_WRITE_TLB"] = architecture_implementation->get_mem_large_write_tlb();
 
     for(const auto& tlb : dynamic_tlb_config) {
-        // Try relaxed
-        // dynamic_tlb_ordering_modes.insert({tlb.first, TLB_DATA::Relaxed}); // All dynamic TLBs use Relaxed Ordering by default; MT: Good for BH
-        dynamic_tlb_ordering_modes.insert({tlb.first, TLB_DATA::Strict}); // All dynamic TLBs use Relaxed Ordering by default; MT: Good for BH
+        dynamic_tlb_ordering_modes.insert({tlb.first, TLB_DATA::Relaxed}); // All dynamic TLBs use Relaxed Ordering by default; MT: Good for BH
     }
     create_device(target_mmio_device_ids, num_host_mem_ch_per_mmio_device, skip_driver_allocs, clean_system_resources);
 

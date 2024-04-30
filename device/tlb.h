@@ -8,6 +8,8 @@
 
 #include <cstdint>
 #include <optional>
+#include <utility>
+#include <stdexcept>
 
 namespace tt::umd {
 
@@ -43,7 +45,7 @@ struct tlb_data {
     static constexpr uint64_t Posted  = 2;
 
     bool check(const tlb_offsets & offset) const;
-    std::optional<uint64_t> apply_offset(const tlb_offsets& offset) const;
+    std::pair<std::uint64_t, std::uint64_t> apply_offset(const tlb_offsets &offset) const;
 };
 
 struct tlb_configuration {

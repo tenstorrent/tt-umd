@@ -132,17 +132,18 @@ static constexpr uint32_t TLB_BASE_INDEX_2M = TLB_COUNT_1M;
 static constexpr uint32_t TLB_BASE_INDEX_16M = TLB_BASE_INDEX_2M + TLB_COUNT_2M;
 
 static constexpr uint32_t STATIC_TLB_CFG_ADDR = 0x1fc00000;
+static constexpr uint32_t TLB_CFG_REG_SIZE_BYTES = 8;
 
 static constexpr uint32_t DYNAMIC_TLB_16M_SIZE = 16 * 1024 * 1024;
-static constexpr uint32_t DYNAMIC_TLB_16M_CFG_ADDR = STATIC_TLB_CFG_ADDR + (TLB_BASE_INDEX_16M * 8);
+static constexpr uint32_t DYNAMIC_TLB_16M_CFG_ADDR = STATIC_TLB_CFG_ADDR + (TLB_BASE_INDEX_16M * TLB_CFG_REG_SIZE_BYTES);
 static constexpr uint32_t DYNAMIC_TLB_16M_BASE = TLB_BASE_16M;
 
 static constexpr uint32_t DYNAMIC_TLB_2M_SIZE = 2 * 1024 * 1024;
-static constexpr uint32_t DYNAMIC_TLB_2M_CFG_ADDR = STATIC_TLB_CFG_ADDR + (TLB_BASE_INDEX_2M * 8);
+static constexpr uint32_t DYNAMIC_TLB_2M_CFG_ADDR = STATIC_TLB_CFG_ADDR + (TLB_BASE_INDEX_2M * TLB_CFG_REG_SIZE_BYTES);
 static constexpr uint32_t DYNAMIC_TLB_2M_BASE = TLB_BASE_2M;
 
 static constexpr uint32_t DYNAMIC_TLB_1M_SIZE = 1 * 1024 * 1024;
-static constexpr uint32_t DYNAMIC_TLB_1M_CFG_ADDR = STATIC_TLB_CFG_ADDR + (TLB_BASE_INDEX_1M * 8);
+static constexpr uint32_t DYNAMIC_TLB_1M_CFG_ADDR = STATIC_TLB_CFG_ADDR + (TLB_BASE_INDEX_1M * TLB_CFG_REG_SIZE_BYTES);
 static constexpr uint32_t DYNAMIC_TLB_1M_BASE = TLB_BASE_1M;
 
 // MEM_*_TLB are for dynamic read/writes to memory, either 16MB (large read/writes) or 2MB (polling). REG_TLB for
@@ -216,6 +217,7 @@ class grayskull_implementation : public architecture_implementation {
     uint32_t get_tensix_soft_reset_addr() const override { return grayskull::TENSIX_SOFT_RESET_ADDR; }
     uint32_t get_grid_size_x() const override { return grayskull::GRID_SIZE_X; }
     uint32_t get_grid_size_y() const override { return grayskull::GRID_SIZE_Y; }
+    uint32_t get_tlb_cfg_reg_size_bytes() const override { return grayskull::TLB_CFG_REG_SIZE_BYTES; }
     const std::vector<uint32_t>& get_harvesting_noc_locations() const override {
         return grayskull::HARVESTING_NOC_LOCATIONS;
     }
@@ -225,7 +227,7 @@ class grayskull_implementation : public architecture_implementation {
     std::tuple<xy_pair, xy_pair> multicast_workaround(xy_pair start, xy_pair end) const override;
     tlb_configuration get_tlb_configuration(uint32_t tlb_index) const override;
     std::optional<std::tuple<std::uint32_t, std::uint32_t>> describe_tlb(std::int32_t tlb_index) const override;
-    std::optional<std::uint64_t> get_tlb_data(std::uint32_t tlb_index, const tlb_data& data) const override;
+    std::pair<std::uint64_t, std::uint64_t> get_tlb_data(std::uint32_t tlb_index, const tlb_data& data) const override;
 };
 
 }  // namespace tt::umd

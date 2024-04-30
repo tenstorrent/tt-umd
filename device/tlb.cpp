@@ -18,14 +18,39 @@ bool tlb_data::check(const tlb_offsets &offset) const {
            static_vc > ((1 << (offset.static_vc_end - offset.static_vc)) - 1);
 }
 
-std::optional<std::uint64_t> tlb_data::apply_offset(const tlb_offsets &offset) const {
+// Helper lambda to handle bit packing
+void pack_bits(std::uint64_t &lower, std::uint64_t &upper, std::uint64_t value, std::uint32_t offset_pos) {
+    if (offset_pos < 64) {
+        lower |= value << offset_pos;
+        if (offset_pos != 0) {
+            upper |= value >> (64 - offset_pos);
+        }
+    } else {
+        uint64_t upper_delta = value << (offset_pos - 64);
+        upper = upper | upper_delta;
+    }
+}
+
+std::pair<std::uint64_t, std::uint64_t> tlb_data::apply_offset(const tlb_offsets &offset) const {
     if (this->check(offset)) {
-        return std::nullopt;
+        throw std::runtime_error("Invalid offsets for TLB index");
     }
 
-    return local_offset << offset.local_offset | x_end << offset.x_end | y_end << offset.y_end |
-           x_start << offset.x_start | y_start << offset.y_start | noc_sel << offset.noc_sel | mcast << offset.mcast |
-           ordering << offset.ordering | linked << offset.linked | static_vc << offset.static_vc;
+    std::uint64_t lower = 0;
+    std::uint64_t upper = 0;
+
+    pack_bits(lower, upper, local_offset, offset.local_offset);
+    pack_bits(lower, upper, x_end, offset.x_end);
+    pack_bits(lower, upper, y_end, offset.y_end);
+    pack_bits(lower, upper, x_start, offset.x_start);
+    pack_bits(lower, upper, y_start, offset.y_start);
+    pack_bits(lower, upper, noc_sel, offset.noc_sel);
+    pack_bits(lower, upper, mcast, offset.mcast);
+    pack_bits(lower, upper, ordering, offset.ordering);
+    pack_bits(lower, upper, linked, offset.linked);
+    pack_bits(lower, upper, static_vc, offset.static_vc);
+
+    return std::make_pair(lower, upper);
 }
 
 }  // namespace tt::umd

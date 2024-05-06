@@ -9,6 +9,7 @@
 
 #include "device/tt_xy_pair.h"
 
+#include <cstdint>
 #include <unordered_map>
 #include <unordered_set>
 #include <set>

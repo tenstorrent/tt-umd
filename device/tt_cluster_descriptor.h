@@ -22,10 +22,17 @@
 
 namespace YAML { class Node; }
 
+enum BoardType : uint32_t {
+    N150 = 0,
+    N300 = 1,
+    GALAXY = 2,
+    DEFAULT = 3,
+};
+
 class tt_ClusterDescriptor {
 
   private:
-    int get_ethernet_link_coord_distance(const eth_coord_t &location_a, const eth_coord_t &location_b);
+  int get_ethernet_link_coord_distance(const eth_coord_t &location_a, const eth_coord_t &location_b) const;
 
   protected:
 
@@ -39,6 +46,7 @@ class tt_ClusterDescriptor {
   std::unordered_map<chip_id_t, std::uint32_t> harvesting_masks = {};
   std::unordered_set<chip_id_t> enabled_active_chips;
   std::unordered_map<chip_id_t, chip_id_t> closest_mmio_chip_cache = {};
+  std::unordered_map<chip_id_t, BoardType> chip_board_type = {};
 
   // one-to-many chip connections
   struct Chip2ChipConnection {
@@ -87,6 +95,10 @@ class tt_ClusterDescriptor {
   std::unordered_map<chip_id_t, chip_id_t> get_chips_with_mmio() const;
   std::unordered_set<chip_id_t> get_all_chips() const;
   std::size_t get_number_of_chips() const;
+
+  int get_ethernet_link_distance(chip_id_t chip_a, chip_id_t chip_b) const;
+
+  BoardType get_board_type(chip_id_t chip_id) const;
 
   bool ethernet_core_has_active_ethernet_link(chip_id_t local_chip, ethernet_channel_t local_ethernet_channel) const;
   std::tuple<chip_id_t, ethernet_channel_t> get_chip_and_channel_of_remote_ethernet_core(chip_id_t local_chip, ethernet_channel_t local_ethernet_channel) const;

@@ -86,7 +86,7 @@ bool tt_ClusterDescriptor::is_chip_mmio_capable(const chip_id_t &chip_id) const 
 // then once a chip on the same shelf&rack is found,
 // the distance from this chip to either location_a or location_b is just x&y dim difference.
 // the function returns the total distance of travelled between shelves and racks, plust the x&y dim difference
-int tt_ClusterDescriptor::get_ethernet_link_coord_distance(const eth_coord_t &location_a, const eth_coord_t &location_b) {
+int tt_ClusterDescriptor::get_ethernet_link_coord_distance(const eth_coord_t &location_a, const eth_coord_t &location_b) const {
 
     log_trace(LogSiliconDriver, "get_ethernet_link_coord_distance from ({}, {}, {}, {}) to ({}, {}, {}, {})",
         std::get<0>(location_a), std::get<1>(location_a), std::get<2>(location_a), std::get<3>(location_a),
@@ -560,6 +560,27 @@ void tt_ClusterDescriptor::load_chips_from_connectivity_descriptor(YAML::Node &y
             std::get<2>(chip_location),
             std::get<3>(chip_location));
     }
+
+		if (yaml["boardtype"]) {
+        for (const auto& chip_board_type : yaml["boardtype"].as<std::map<int, std::string>>()) {
+            auto &chip = chip_board_type.first;
+            BoardType board_type;
+            if (chip_board_type.second == "n150") {
+                board_type = BoardType::N150;
+            } else if (chip_board_type.second == "n300") {
+                board_type = BoardType::N300;
+            } else if (chip_board_type.second == "GALAXY") {
+                board_type = BoardType::GALAXY;
+            } else {
+                board_type = BoardType::DEFAULT;
+            }
+            desc.chip_board_type.insert({chip, board_type});
+        }
+    } else {
+        for (const auto& chip: desc.all_chips) {
+            desc.chip_board_type.insert({chip, BoardType::DEFAULT});
+        }
+    }
 }
 
 void tt_ClusterDescriptor::load_harvesting_information(YAML::Node &yaml, tt_ClusterDescriptor &desc) {
@@ -651,3 +672,12 @@ std::unordered_map<chip_id_t, bool> tt_ClusterDescriptor::get_noc_translation_ta
 }
 
 std::size_t tt_ClusterDescriptor::get_number_of_chips() const { return this->enabled_active_chips.size(); }
+
+int tt_ClusterDescriptor::get_ethernet_link_distance(chip_id_t chip_a, chip_id_t chip_b) const {
+    return this->get_ethernet_link_coord_distance(chip_locations.at(chip_a), chip_locations.at(chip_b));
+}
+
+BoardType tt_ClusterDescriptor::get_board_type(chip_id_t chip_id) const {
+  BoardType board_type = this->chip_board_type.at(chip_id);
+  return board_type;
+}

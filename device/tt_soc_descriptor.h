@@ -125,7 +125,7 @@ class tt_SocDescriptor {
     int worker_l1_size;
     int eth_l1_size;
     bool noc_translation_id_enabled;
-    uint32_t dram_bank_size;
+    uint64_t dram_bank_size;
 
     int get_num_dram_channels() const;
     std::vector<int> get_dram_chan_map();

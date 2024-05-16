@@ -619,7 +619,7 @@ class tt_device
      * \param channel Logical channel id (taken from soc descriptor) for which the size will be queried
      * \returns Size of specific DRAM channel
     */ 
-    virtual std::uint32_t get_dram_channel_size(std::uint32_t device_id, std::uint32_t channel) {
+    virtual std::uint64_t get_dram_channel_size(std::uint32_t device_id, std::uint32_t channel) {
         throw std::runtime_error("---- tt_device::get_dram_channel_size is not implemented\n");
         return 0;
     }
@@ -720,7 +720,7 @@ class tt_VersimDevice: public tt_device
     static int detect_number_of_chips();
     virtual std::map<int,int> get_clocks();
     virtual std::uint32_t get_num_dram_channels(std::uint32_t device_id);
-    virtual std::uint32_t get_dram_channel_size(std::uint32_t device_id, std::uint32_t channel);
+    virtual std::uint64_t get_dram_channel_size(std::uint32_t device_id, std::uint32_t channel);
     virtual std::uint32_t get_num_host_channels(std::uint32_t device_id);
     virtual std::uint32_t get_host_channel_size(std::uint32_t device_id, std::uint32_t channel);
     private:
@@ -835,7 +835,7 @@ class tt_SiliconDevice: public tt_device
     static std::unordered_map<chip_id_t, uint32_t> get_harvesting_masks_from_harvested_rows(std::unordered_map<chip_id_t, std::vector<uint32_t>> harvested_rows); 
     std::unordered_map<tt_xy_pair, tt_xy_pair> get_harvested_coord_translation_map(chip_id_t logical_device_id);
     virtual std::uint32_t get_num_dram_channels(std::uint32_t device_id);
-    virtual std::uint32_t get_dram_channel_size(std::uint32_t device_id, std::uint32_t channel);
+    virtual std::uint64_t get_dram_channel_size(std::uint32_t device_id, std::uint32_t channel);
     virtual std::uint32_t get_num_host_channels(std::uint32_t device_id);
     virtual std::uint32_t get_host_channel_size(std::uint32_t device_id, std::uint32_t channel);
     virtual std::uint32_t get_pcie_speed(std::uint32_t device_id);

@@ -62,7 +62,7 @@ void tt_SocDescriptor::load_soc_features_from_device_descriptor(YAML::Node &devi
     dst_size_alignment = device_descriptor_yaml["features"]["math"]["dst_size_alignment"].as<int>();
     worker_l1_size = device_descriptor_yaml["worker_l1_size"].as<int>();
     eth_l1_size = device_descriptor_yaml["eth_l1_size"].as<int>();
-    dram_bank_size = device_descriptor_yaml["dram_bank_size"].as<uint32_t>();
+    dram_bank_size = device_descriptor_yaml["dram_bank_size"].as<uint64_t>();
 }
 
 void tt_SocDescriptor::load_core_descriptors_from_device_descriptor(YAML::Node &device_descriptor_yaml) {

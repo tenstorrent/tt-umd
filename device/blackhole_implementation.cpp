@@ -37,7 +37,7 @@ std::optional<std::tuple<std::uint32_t, std::uint32_t>> blackhole_implementation
     }
 
     // Only have 2MB TLBs for now
-    if (tlb_index >= 0 && tlb_index < TLB_BASE_2M) {
+    if (tlb_index >= 0 && tlb_index < TLB_COUNT_2M) {
         auto tlb_offset = tlb_index;
         auto size = 1 << 21;
         return std::tuple(TLB_BASE_2M + tlb_offset * size, size);

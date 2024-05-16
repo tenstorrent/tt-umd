@@ -4662,7 +4662,7 @@ std::uint32_t tt_SiliconDevice::get_num_dram_channels(std::uint32_t device_id) {
     return get_soc_descriptor(device_id).get_num_dram_channels();
 }
 
-std::uint32_t tt_SiliconDevice::get_dram_channel_size(std::uint32_t device_id, std::uint32_t channel) {
+std::uint64_t tt_SiliconDevice::get_dram_channel_size(std::uint32_t device_id, std::uint32_t channel) {
     log_assert(channel < get_num_dram_channels(device_id), "Querying size for a device channel that does not exist.");
     return  get_soc_descriptor(device_id).dram_bank_size; // Space per channel is identical for now
 }

@@ -68,7 +68,7 @@ std::optional<std::tuple<std::uint32_t, std::uint32_t>> grayskull_implementation
     return std::nullopt;
 }
 
-std::optional<std::uint64_t> grayskull_implementation::get_tlb_data(
+std::pair<std::uint64_t, std::uint64_t> grayskull_implementation::get_tlb_data(
     std::uint32_t tlb_index, const tlb_data &data) const {
     if (tlb_index < grayskull::TLB_COUNT_1M) {
         return data.apply_offset(grayskull::TLB_1M_OFFSET);
@@ -76,9 +76,9 @@ std::optional<std::uint64_t> grayskull_implementation::get_tlb_data(
         return data.apply_offset(grayskull::TLB_2M_OFFSET);
     } else if (tlb_index < grayskull::TLB_COUNT_1M + grayskull::TLB_COUNT_2M + grayskull::TLB_COUNT_16M) {
         return data.apply_offset(grayskull::TLB_16M_OFFSET);
+    } else {
+        throw std::runtime_error("Invalid TLB index for Grayskull arch");
     }
-
-    return std::nullopt;
 }
 
 }  // namespace tt::umd

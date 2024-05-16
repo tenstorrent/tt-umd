@@ -72,7 +72,7 @@ std::optional<std::tuple<std::uint32_t, std::uint32_t>> wormhole_implementation:
     return std::nullopt;
 }
 
-std::optional<std::uint64_t> wormhole_implementation::get_tlb_data(
+std::pair<std::uint64_t, std::uint64_t> wormhole_implementation::get_tlb_data(
     std::uint32_t tlb_index, const tlb_data &data) const {
     std::uint32_t TLB_COUNT_1M = 156;
     std::uint32_t TLB_COUNT_2M = 10;
@@ -84,9 +84,9 @@ std::optional<std::uint64_t> wormhole_implementation::get_tlb_data(
         return data.apply_offset(wormhole::TLB_2M_OFFSET);
     } else if (tlb_index < TLB_COUNT_1M + TLB_COUNT_2M + TLB_COUNT_16M) {
         return data.apply_offset(wormhole::TLB_16M_OFFSET);
+    } else {
+        throw std::runtime_error("Invalid TLB index for Wormhole arch");
     }
-
-    return std::nullopt;
 }
 
 }  // namespace tt::umd

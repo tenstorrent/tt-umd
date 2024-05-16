@@ -74,7 +74,7 @@ void tt_VersimDevice::set_device_l1_address_params(const tt_device_l1_address_pa
 void tt_VersimDevice::set_device_dram_address_params(const tt_device_dram_address_params& dram_address_params_) {}
 
 std::uint32_t tt_VersimDevice::get_num_dram_channels(std::uint32_t device_id) {return 0;}
-std::uint32_t tt_VersimDevice::get_dram_channel_size(std::uint32_t device_id, std::uint32_t channel) {return 0;}
+std::uint64_t tt_VersimDevice::get_dram_channel_size(std::uint32_t device_id, std::uint32_t channel) {return 0;}
 std::uint32_t tt_VersimDevice::get_num_host_channels(std::uint32_t device_id) {return 0;}
 std::uint32_t tt_VersimDevice::get_host_channel_size(std::uint32_t device_id, std::uint32_t channel) {return 0;}
 

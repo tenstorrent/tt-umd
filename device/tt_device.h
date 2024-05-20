@@ -573,6 +573,10 @@ class tt_device
         return 8 * 16;  // default to x8 at 16 GT/s
     }
 
+    virtual std::uint32_t get_numa_node_for_pcie_device(std::uint32_t device_id) {
+        throw std::runtime_error("---- tt_device::get_numa_node_for_pcie_device is not implemented\n");
+    }
+
     /**
      * @brief Get the ethernet firmware version used by the physical cluster (only implemented for Silicon Backend)
      * \returns Firmware version {major, minor, patch}
@@ -839,6 +843,7 @@ class tt_SiliconDevice: public tt_device
     virtual std::uint32_t get_num_host_channels(std::uint32_t device_id);
     virtual std::uint32_t get_host_channel_size(std::uint32_t device_id, std::uint32_t channel);
     virtual std::uint32_t get_pcie_speed(std::uint32_t device_id);
+    virtual std::uint32_t get_numa_node_for_pcie_device(std::uint32_t device_id);
     virtual tt_version get_ethernet_fw_version() const;
 
     // Destructor

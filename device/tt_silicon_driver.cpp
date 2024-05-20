@@ -687,6 +687,22 @@ int get_link_speed(TTDevice *dev) {
     }
 }
 
+int get_numa_node(TTDevice *dev) {
+
+    static const char pattern[] = "/sys/bus/pci/devices/%04x:%02x:%02x.%u/numa_node";
+    char buf[sizeof(pattern)];
+    std::snprintf(buf, sizeof(buf), pattern,
+    (unsigned int)dev->pci_domain, (unsigned int)dev->pci_bus, (unsigned int)dev->pci_device, (unsigned int)dev->pci_function);
+
+    std::ifstream num_node_file(buf);
+    std::string numa_node_string;
+    if (std::getline(num_node_file, numa_node_string)) {
+        return std::stoi(numa_node_string, nullptr, 0);
+    } else {
+        return -1;
+    }
+}
+
 std::uint64_t read_bar0_base(TTDevice *dev) {
     const std::uint64_t bar_address_mask = ~(std::uint64_t)0xF;
     unsigned int bar0_config_offset = 0x10;
@@ -4690,6 +4706,10 @@ std::uint32_t tt_SiliconDevice::get_pcie_speed(std::uint32_t device_id) {
         log_debug(LogSiliconDriver, "Device {} is NOT a PCIe device, width: x{}, speed: {} Gb/s", device_id, link_width, link_speed);
     }
     return (link_width * link_speed);
+}
+
+std::uint32_t tt_SiliconDevice::get_numa_node_for_pcie_device(std::uint32_t device_id) {
+    return get_numa_node(get_pci_device(device_id)->hdev);
 }
 
 std::uint64_t tt_SiliconDevice::get_pcie_base_addr_from_device() const {

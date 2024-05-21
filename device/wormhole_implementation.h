@@ -238,6 +238,8 @@ class wormhole_implementation : public architecture_implementation {
     uint32_t get_dram_channel_0_x() const override { return wormhole::DRAM_CHANNEL_0_X; }
     uint32_t get_dram_channel_0_y() const override { return wormhole::DRAM_CHANNEL_0_Y; }
     uint32_t get_broadcast_tlb_index() const override { return wormhole::BROADCAST_TLB_INDEX; }
+    uint32_t get_dynamic_tlb_2m_base() const override { return wormhole::DYNAMIC_TLB_2M_BASE; }
+    uint32_t get_dynamic_tlb_2m_size() const override { return wormhole::DYNAMIC_TLB_2M_SIZE; }
     uint32_t get_dynamic_tlb_16m_base() const override { return wormhole::DYNAMIC_TLB_16M_BASE; }
     uint32_t get_dynamic_tlb_16m_size() const override { return wormhole::DYNAMIC_TLB_16M_SIZE; }
     uint32_t get_dynamic_tlb_16m_cfg_addr() const override { return wormhole::DYNAMIC_TLB_16M_CFG_ADDR; }

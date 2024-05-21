@@ -3062,7 +3062,7 @@ void *tt_SiliconDevice::channel_0_address(std::uint32_t offset, std::uint32_t de
 
     // Temporary hack for blackhole bringup.
     if (arch_name == tt::ARCH::BLACKHOLE) {
-        // Use 195th 2MB TLB onwards.
+        // Use 184th 2MB TLB onwards.
         // TLBs up to 184 are used as static or fallback TLBs.
         const std::uint32_t TLB_CH0_START = 184;
         bar0_offset = offset - architecture_implementation->get_dram_channel_0_peer2peer_region_start()

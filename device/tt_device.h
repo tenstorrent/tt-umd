@@ -805,6 +805,19 @@ class tt_SiliconDevice: public tt_device
      * @brief This API allows you to write directly to device memory that is addressable by a static TLB
     */
     std::function<void(uint32_t, uint32_t, const uint8_t*, uint32_t)> get_fast_pcie_static_tlb_write_callable(int device_id);
+
+    /**
+     * @brief Provides fast four-byte write access to a statically-mapped TLB.
+     * It is the caller's responsibility to ensure that:
+     * - the target has a static TLB mapping configured.
+     * - the mapping is unchanged during the lifetime of the returned function.
+     * - the tt_SiliconDevice instance outlives the returned function.
+     * @param target The target chip and core to write to.
+     * @throws std::runtime_error on error.
+     * @returns a function with signature `void write32(uint32_t addr, uint32_t data)`
+     */
+    std::function<void(uint32_t /*addr*/, uint32_t /*val*/)> get_static_tlb_write32_callable(tt_cxy_pair target);
+
     /**
      * @brief Returns the DMA buf size 
     */

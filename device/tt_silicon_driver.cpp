@@ -2085,7 +2085,7 @@ std::function<void(uint32_t, uint32_t, const uint8_t*, uint32_t)> tt_SiliconDevi
     return callable;
 }
 
-std::function<void(uint32_t, uint32_t)> tt_SiliconDevice::get_static_tlb_write32_callable(tt_cxy_pair target) {
+tt::Writer tt_SiliconDevice::get_static_tlb_write_callable(tt_cxy_pair target) {
     if (!ndesc->is_chip_mmio_capable(target.chip)) {
         throw std::runtime_error("Target not in MMIO chip: " + target.str());
     }
@@ -2096,6 +2096,11 @@ std::function<void(uint32_t, uint32_t)> tt_SiliconDevice::get_static_tlb_write32
 
     auto *pci_device = get_pci_device(target.chip);
     auto *dev = pci_device->hdev;
+
+    if (!dev->bar0_wc) {
+        throw std::runtime_error("No write-combined mapping for BAR0");
+    }
+
     auto tlb_index = map_core_to_tlb(tt_xy_pair(target.x, target.y));
     auto tlb_data = dev->get_architecture_implementation()->describe_tlb(tlb_index);
 
@@ -2103,24 +2108,10 @@ std::function<void(uint32_t, uint32_t)> tt_SiliconDevice::get_static_tlb_write32
         throw std::runtime_error("No TLB mapped to core " + target.str());
     }
 
-    if (!dev->bar0_wc) {
-        throw std::runtime_error("No write-combined mapping for BAR0");
-    }
+    auto [tlb_offset, tlb_size] = tlb_data.value();
+    auto *base = reinterpret_cast<uint8_t *>(dev->bar0_wc);
 
-    const auto callable = [dev, tlb_data](uint32_t address, uint32_t value) {
-        auto [tlb_offset, tlb_size] = tlb_data.value();
-
-        if (address >= tlb_size) {
-            throw std::runtime_error("Address out of bounds for TLB");
-        }
-
-        auto *wc = reinterpret_cast<uint8_t *>(dev->bar0_wc);
-        auto *ptr = reinterpret_cast<volatile uint32_t *>(wc + tlb_offset + address);
-        *ptr = value;
-        tt_driver_atomics::sfence();
-    };
-
-    return callable;
+    return tt::Writer(base + tlb_offset, tlb_size);
 }
 
 void tt_SiliconDevice::write_device_memory(const void *mem_ptr, uint32_t size_in_bytes, tt_cxy_pair target, std::uint32_t address, const std::string& fallback_tlb) {

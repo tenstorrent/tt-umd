@@ -19,6 +19,8 @@
 #include "device/tt_cluster_descriptor_types.h"
 #include "device/tlb.h"
 
+#include "device/tt_io.hpp"
+
 using TLB_OFFSETS = tt::umd::tlb_offsets;
 using TLB_DATA = tt::umd::tlb_data;
 
@@ -807,16 +809,16 @@ class tt_SiliconDevice: public tt_device
     std::function<void(uint32_t, uint32_t, const uint8_t*, uint32_t)> get_fast_pcie_static_tlb_write_callable(int device_id);
 
     /**
-     * @brief Provides fast four-byte write access to a statically-mapped TLB.
+     * @brief Provides fast write access to a statically-mapped TLB.
      * It is the caller's responsibility to ensure that:
      * - the target has a static TLB mapping configured.
-     * - the mapping is unchanged during the lifetime of the returned function.
-     * - the tt_SiliconDevice instance outlives the returned function.
+     * - the mapping is unchanged during the lifetime of the returned object.
+     * - the tt_SiliconDevice instance outlives the returned object.
      * @param target The target chip and core to write to.
      * @throws std::runtime_error on error.
-     * @returns a function with signature `void write32(uint32_t addr, uint32_t data)`
+     * @returns a Writer instance that can be used to write to the target.
      */
-    std::function<void(uint32_t /*addr*/, uint32_t /*val*/)> get_static_tlb_write32_callable(tt_cxy_pair target);
+    tt::Writer get_static_tlb_write_callable(tt_cxy_pair target);
 
     /**
      * @brief Returns the DMA buf size 

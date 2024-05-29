@@ -59,22 +59,22 @@ inline std::ostream &operator <<(std::ostream &os, const tt_DevicePowerState pow
 }
 
 struct tt_device_dram_address_params {
-    std::int32_t DRAM_BARRIER_BASE = 0;
+    std::uint32_t DRAM_BARRIER_BASE = 0;
 };
 /**
  * @brief Struct encapsulating all L1 Address Map parameters required by UMD.
  * These parameters are passed to the constructor.
 */
 struct tt_device_l1_address_params {
-    std::int32_t NCRISC_FW_BASE = 0;
-    std::int32_t FW_BASE = 0;
-    std::int32_t TRISC0_SIZE = 0;
-    std::int32_t TRISC1_SIZE = 0;
-    std::int32_t TRISC2_SIZE = 0;
-    std::int32_t TRISC_BASE = 0;
-    std::int32_t TENSIX_L1_BARRIER_BASE = 0;
-    std::int32_t ETH_L1_BARRIER_BASE = 0;
-    std::int32_t FW_VERSION_ADDR = 0;
+    std::uint32_t NCRISC_FW_BASE = 0;
+    std::uint32_t FW_BASE = 0;
+    std::uint32_t TRISC0_SIZE = 0;
+    std::uint32_t TRISC1_SIZE = 0;
+    std::uint32_t TRISC2_SIZE = 0;
+    std::uint32_t TRISC_BASE = 0;
+    std::uint32_t TENSIX_L1_BARRIER_BASE = 0;
+    std::uint32_t ETH_L1_BARRIER_BASE = 0;
+    std::uint32_t FW_VERSION_ADDR = 0;
 };
 
 /**
@@ -82,8 +82,8 @@ struct tt_device_l1_address_params {
  * These parameters are passed to the constructor and are needed for non-MMIO transactions.
 */
 struct tt_driver_host_address_params {
-    std::int32_t ETH_ROUTING_BLOCK_SIZE = 0;
-    std::int32_t ETH_ROUTING_BUFFERS_START = 0;
+    std::uint32_t ETH_ROUTING_BLOCK_SIZE = 0;
+    std::uint32_t ETH_ROUTING_BUFFERS_START = 0;
 };
 
 /**
@@ -91,28 +91,28 @@ struct tt_driver_host_address_params {
  * These parameters are passed to the constructor and are needed for non-MMIO transactions.
 */
 struct tt_driver_eth_interface_params {
-    std::int32_t NOC_ADDR_LOCAL_BITS = 0;
-    std::int32_t NOC_ADDR_NODE_ID_BITS = 0;
-    std::int32_t ETH_RACK_COORD_WIDTH = 0;
-    std::int32_t CMD_BUF_SIZE_MASK = 0;
-    std::int32_t MAX_BLOCK_SIZE = 0;
-    std::int32_t REQUEST_CMD_QUEUE_BASE = 0;
-    std::int32_t RESPONSE_CMD_QUEUE_BASE = 0;
-    std::int32_t CMD_COUNTERS_SIZE_BYTES = 0;
-    std::int32_t REMOTE_UPDATE_PTR_SIZE_BYTES = 0;
-    std::int32_t CMD_DATA_BLOCK = 0;
-    std::int32_t CMD_WR_REQ = 0;
-    std::int32_t CMD_WR_ACK = 0;
-    std::int32_t CMD_RD_REQ = 0;
-    std::int32_t CMD_RD_DATA = 0;
-    std::int32_t CMD_BUF_SIZE = 0;
-    std::int32_t CMD_DATA_BLOCK_DRAM = 0;
-    std::int32_t ETH_ROUTING_DATA_BUFFER_ADDR = 0;
-    std::int32_t REQUEST_ROUTING_CMD_QUEUE_BASE = 0;
-    std::int32_t RESPONSE_ROUTING_CMD_QUEUE_BASE = 0;
-    std::int32_t CMD_BUF_PTR_MASK = 0;
-    std::int32_t CMD_ORDERED = 0;
-    std::int32_t CMD_BROADCAST = 0;
+    std::uint32_t NOC_ADDR_LOCAL_BITS = 0;
+    std::uint32_t NOC_ADDR_NODE_ID_BITS = 0;
+    std::uint32_t ETH_RACK_COORD_WIDTH = 0;
+    std::uint32_t CMD_BUF_SIZE_MASK = 0;
+    std::uint32_t MAX_BLOCK_SIZE = 0;
+    std::uint32_t REQUEST_CMD_QUEUE_BASE = 0;
+    std::uint32_t RESPONSE_CMD_QUEUE_BASE = 0;
+    std::uint32_t CMD_COUNTERS_SIZE_BYTES = 0;
+    std::uint32_t REMOTE_UPDATE_PTR_SIZE_BYTES = 0;
+    std::uint32_t CMD_DATA_BLOCK = 0;
+    std::uint32_t CMD_WR_REQ = 0;
+    std::uint32_t CMD_WR_ACK = 0;
+    std::uint32_t CMD_RD_REQ = 0;
+    std::uint32_t CMD_RD_DATA = 0;
+    std::uint32_t CMD_BUF_SIZE = 0;
+    std::uint32_t CMD_DATA_BLOCK_DRAM = 0;
+    std::uint32_t ETH_ROUTING_DATA_BUFFER_ADDR = 0;
+    std::uint32_t REQUEST_ROUTING_CMD_QUEUE_BASE = 0;
+    std::uint32_t RESPONSE_ROUTING_CMD_QUEUE_BASE = 0;
+    std::uint32_t CMD_BUF_PTR_MASK = 0;
+    std::uint32_t CMD_ORDERED = 0;
+    std::uint32_t CMD_BROADCAST = 0;
 };
 
 struct tt_version {

@@ -2101,6 +2101,35 @@ std::function<void(uint32_t, uint32_t, const uint8_t*, uint32_t)> tt_SiliconDevi
     return callable;
 }
 
+tt::Writer tt_SiliconDevice::get_static_tlb_writer(tt_cxy_pair target) {
+    if (!ndesc->is_chip_mmio_capable(target.chip)) {
+        throw std::runtime_error("Target not in MMIO chip: " + target.str());
+    }
+
+    if (!tlbs_init || !map_core_to_tlb) {
+        throw std::runtime_error("TLBs not initialized");
+    }
+
+    auto *pci_device = get_pci_device(target.chip);
+    auto *dev = pci_device->hdev;
+
+    if (!dev->bar0_wc) {
+        throw std::runtime_error("No write-combined mapping for BAR0");
+    }
+
+    auto tlb_index = map_core_to_tlb(tt_xy_pair(target.x, target.y));
+    auto tlb_data = dev->get_architecture_implementation()->describe_tlb(tlb_index);
+
+    if (!tlb_data.has_value()) {
+        throw std::runtime_error("No TLB mapped to core " + target.str());
+    }
+
+    auto [tlb_offset, tlb_size] = tlb_data.value();
+    auto *base = reinterpret_cast<uint8_t *>(dev->bar0_wc);
+
+    return tt::Writer(base + tlb_offset, tlb_size);
+}
+
 void tt_SiliconDevice::write_device_memory(const void *mem_ptr, uint32_t size_in_bytes, tt_cxy_pair target, std::uint32_t address, const std::string& fallback_tlb) {
     struct PCIdevice* pci_device = get_pci_device(target.chip);
     TTDevice *dev = pci_device->hdev;

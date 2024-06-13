@@ -18,6 +18,19 @@ std::tuple<xy_pair, xy_pair> blackhole_implementation::multicast_workaround(xy_p
 }
 
 tlb_configuration blackhole_implementation::get_tlb_configuration(uint32_t tlb_index) const {
+
+    // if tlb index is in range for 4GB tlbs
+    // if (tlb_index >= blackhole::TLB_COUNT_2M && tlb_index < blackhole::TLB_COUNT_2M + blackhole::TLB_COUNT_4G) {
+    //     // TODO(pjanevski): check these parameters
+    //     return tlb_configuration {
+    //         .size = blackhole::DYNAMIC_TLB_4G_SIZE,
+    //         .base = blackhole::DYNAMIC_TLB_4G_BASE,
+    //         .cfg_addr = blackhole::DYNAMIC_TLB_4G_CFG_ADDR,
+    //         .index_offset = tlb_index - blackhole::TLB_BASE_INDEX_4G,
+    //         .offset = blackhole::TLB_4G_OFFSET,
+    //     };
+    // }
+    
     return tlb_configuration{
         .size = blackhole::DYNAMIC_TLB_2M_SIZE,
         .base = blackhole::DYNAMIC_TLB_2M_BASE,

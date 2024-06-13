@@ -30,6 +30,19 @@ static constexpr auto TLB_2M_OFFSET = tlb_offsets{
     // missing .stream_header
     .static_vc_end = 75};
 
+static constexpr auto TLB_4G_OFFSET = tlb_offsets{
+    .local_offset = 0,
+    .x_end = 32,
+    .y_end = 38,
+    .x_start = 44,
+    .y_start = 50,
+    .noc_sel = 56,
+    .mcast = 58,
+    .ordering = 59,
+    .linked = 61,
+    .static_vc = 62,
+    // missing .stream_header
+    .static_vc_end = 64};
 
 enum class arc_message_type {
     NOP = 0x11,  // Do nothing
@@ -101,13 +114,24 @@ static constexpr uint32_t BROADCAST_TLB_INDEX = 0;     // TODO: Copied from worm
 static constexpr uint32_t STATIC_TLB_CFG_ADDR = 0x1fc00000;
 
 static constexpr uint32_t TLB_COUNT_2M = 202;
-static constexpr uint32_t TLB_BASE_2M = 0;
+static constexpr uint32_t TLB_BASE_2M = 0; // 0 in BAR0
 static constexpr uint32_t TLB_BASE_INDEX_2M = 0;
 static constexpr uint32_t TLB_2M_SIZE = 2 * 1024 * 1024;
 
+static constexpr uint32_t TLB_CFG_REG_SIZE_BYTES = 12;
+
+// TODO(pjanevski): put 4G tlb constants into separate groups
+static constexpr uint32_t TLB_COUNT_4G = 8;
+static constexpr uint32_t TLB_BASE_4G = 0; // 0 in BAR4
+static constexpr uint32_t TLB_BASE_INDEX_4G = TLB_COUNT_2M;
+static constexpr uint64_t TLB_4G_SIZE = 4ULL * 1024ULL * 1024ULL * 1024ULL;
+static constexpr uint64_t DYNAMIC_TLB_4G_SIZE = TLB_4G_SIZE;
+static constexpr uint32_t DYNAMIC_TLB_4G_CFG_ADDR = STATIC_TLB_CFG_ADDR + (TLB_BASE_INDEX_4G * TLB_CFG_REG_SIZE_BYTES);
+static constexpr uint32_t DYNAMIC_TLB_4G_BASE = TLB_BASE_4G;
+// TODO(pjanevski): end of 4G tlb constants
+
 static constexpr uint32_t DYNAMIC_TLB_COUNT = 16;
 
-static constexpr uint32_t TLB_CFG_REG_SIZE_BYTES = 12;
 static constexpr uint32_t DYNAMIC_TLB_2M_SIZE = 2 * 1024 * 1024;
 static constexpr uint32_t DYNAMIC_TLB_2M_CFG_ADDR = STATIC_TLB_CFG_ADDR + (TLB_BASE_INDEX_2M * TLB_CFG_REG_SIZE_BYTES);
 static constexpr uint32_t DYNAMIC_TLB_2M_BASE = TLB_BASE_2M;

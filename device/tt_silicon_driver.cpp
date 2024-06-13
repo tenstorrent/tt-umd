@@ -441,6 +441,7 @@ void TTDevice::do_open() {
 
     max_dma_buf_size_log2 = device_info.out.max_dma_buf_size_log2;
 
+    // TODO(pjanevski): is length of 8 mapping enough when we add BAR4?
     struct {
         tenstorrent_query_mappings query_mappings;
         tenstorrent_mapping mapping_array[8];
@@ -507,6 +508,9 @@ void TTDevice::do_open() {
         bar0_uc_offset = 0;
     }
 
+
+    log_info(tt::LogSiliconDriver, "mapping bar0 size 0x{:x}", bar0_uc_size);
+
     bar0_uc = mmap(NULL, bar0_uc_size, PROT_READ | PROT_WRITE, MAP_SHARED, device_fd, bar0_uc_mapping.mapping_base + bar0_uc_offset);
 
     if (bar0_uc == MAP_FAILED) {
@@ -521,6 +525,8 @@ void TTDevice::do_open() {
         if (bar2_uc_mapping.mapping_id != TENSTORRENT_MAPPING_RESOURCE2_UC) {
             throw std::runtime_error(std::string("Device ") + std::to_string(index) + " has no BAR4 UC mapping.");
         }
+
+        log_info(tt::LogSiliconDriver, "BAR4 UC mapping size 0x{:x}", bar2_uc_mapping.mapping_size);
 
         this->system_reg_mapping_size = bar2_uc_mapping.mapping_size;
 

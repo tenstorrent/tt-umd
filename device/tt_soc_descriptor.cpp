@@ -2,6 +2,7 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
+#include "yaml-cpp/yaml.h"
 #include "tt_soc_descriptor.h"
 
 #include <assert.h>

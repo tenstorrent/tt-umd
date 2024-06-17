@@ -105,13 +105,13 @@ void tt_VersimDevice::start(
      // TODO: End
 
      std::cout << "Versim Device: turn_on_device ";
-     std::vector<std::uint32_t> trisc_sizes = {static_cast<unsigned int>(l1_address_params.TRISC0_SIZE), static_cast<unsigned int>(l1_address_params.TRISC1_SIZE), static_cast<unsigned int>(l1_address_params.TRISC2_SIZE)};
+     std::vector<std::uint32_t> trisc_sizes = {static_cast<unsigned int>(l1_address_params.trisc0_size), static_cast<unsigned int>(l1_address_params.trisc1_size), static_cast<unsigned int>(l1_address_params.trisc2_size)};
      std::unique_ptr<versim::VersimSimulator> versim_unique = versim::turn_on_device(CA_grid_size, *p_ca_soc_manager_unique, plusargs, vcd_suffix, dump_cores, no_checkers,
-        l1_address_params.TRISC_BASE, trisc_sizes);
+        l1_address_params.trisc_base, trisc_sizes);
      versim = versim_unique.release();
 
      std::cout << "Versim Device: write info to tvm db " << std::endl;
-     versim::write_info_to_tvm_db(l1_address_params.TRISC_BASE, trisc_sizes);
+     versim::write_info_to_tvm_db(l1_address_params.trisc_base, trisc_sizes);
      versim::build_and_connect_tvm_phase();
 
      versim->spin_threads(*p_ca_soc_manager_unique, false);

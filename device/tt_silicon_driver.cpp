@@ -3237,7 +3237,7 @@ void tt_SiliconDevice::write_to_non_mmio_device(
     std::string write_tlb = "LARGE_WRITE_TLB";
     std::string read_tlb = "LARGE_READ_TLB";
     std::string empty_tlb = "";
-    translate_to_noc_table_coords(*this->get_target_mmio_device_ids().begin(), core.y, core.x);
+    translate_to_noc_table_coords(core.chip, core.y, core.x);
     std::vector<std::uint32_t> erisc_command;
     std::vector<std::uint32_t> erisc_q_rptr = std::vector<uint32_t>(1);
     std::vector<std::uint32_t> erisc_q_ptrs = std::vector<uint32_t>(eth_interface_params.remote_update_ptr_size_bytes*2 / sizeof(uint32_t));
@@ -3418,7 +3418,7 @@ void tt_SiliconDevice::write_to_non_mmio_device_send_epoch_cmd(const uint32_t *m
     std::string write_tlb = "LARGE_WRITE_TLB";
     std::string read_tlb = "LARGE_READ_TLB";
     std::string empty_tlb = "";
-    translate_to_noc_table_coords(0, core.y, core.x);
+    translate_to_noc_table_coords(core.chip, core.y, core.x);
 
     const auto &mmio_capable_chip_logical = ndesc->get_closest_mmio_capable_chip(core.chip);
     tt_cxy_pair remote_transfer_ethernet_core = remote_transfer_ethernet_cores.at(mmio_capable_chip_logical)[active_core_epoch];
@@ -3561,7 +3561,7 @@ void tt_SiliconDevice::rolled_write_to_non_mmio_device(const uint32_t *mem_ptr, 
     std::string write_tlb = "LARGE_WRITE_TLB";
     std::string read_tlb = "LARGE_READ_TLB";
     std::string empty_tlb = "";
-    translate_to_noc_table_coords(0, core.y, core.x);
+    translate_to_noc_table_coords(core.chip, core.y, core.x);
 
     const eth_coord_t target_chip = ndesc->get_chip_locations().at(core.chip);
 
@@ -3684,7 +3684,7 @@ void tt_SiliconDevice::read_from_non_mmio_device(void* mem_ptr, tt_cxy_pair core
     std::string write_tlb = "LARGE_WRITE_TLB";
     std::string read_tlb = "LARGE_READ_TLB";
     std::string empty_tlb = "";
-    translate_to_noc_table_coords(*this->get_target_mmio_device_ids().begin(), core.y, core.x);
+    translate_to_noc_table_coords(core.chip, core.y, core.x);
 
     const auto &mmio_capable_chip_logical = ndesc->get_closest_mmio_capable_chip(core.chip);
     const eth_coord_t target_chip = ndesc->get_chip_locations().at(core.chip);

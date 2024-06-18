@@ -464,19 +464,35 @@ void TTDevice::do_open() {
     memset(&bar2_wc_mapping, 0, sizeof(bar2_wc_mapping));
 
     for (unsigned int i = 0; i < mappings.query_mappings.in.output_mapping_count; i++) {
+        log_info(tt::LogSiliconDriver, "i {}", i);
+        log_info(tt::LogSiliconDriver, "mapping id {}", mappings.mapping_array[i].mapping_id);
         if (mappings.mapping_array[i].mapping_id == TENSTORRENT_MAPPING_RESOURCE0_UC) {
+            log_info(tt::LogSiliconDriver, "Resource 0 UC");
             bar0_uc_mapping = mappings.mapping_array[i];
         }
 
         if (mappings.mapping_array[i].mapping_id == TENSTORRENT_MAPPING_RESOURCE0_WC) {
+            log_info(tt::LogSiliconDriver, "Resource 0 WC");
             bar0_wc_mapping = mappings.mapping_array[i];
         }
 
+        if (mappings.mapping_array[i].mapping_id == TENSTORRENT_MAPPING_RESOURCE1_UC) {
+            log_info(tt::LogSiliconDriver, "Resource 1 UC");
+            bar2_uc_mapping = mappings.mapping_array[i];
+        }
+
+        if (mappings.mapping_array[i].mapping_id == TENSTORRENT_MAPPING_RESOURCE1_WC) {
+            log_info(tt::LogSiliconDriver, "Resource 1 WC");
+            bar2_wc_mapping = mappings.mapping_array[i];
+        }
+
         if (mappings.mapping_array[i].mapping_id == TENSTORRENT_MAPPING_RESOURCE2_UC) {
+            log_info(tt::LogSiliconDriver, "Resource 2 UC");
             bar2_uc_mapping = mappings.mapping_array[i];
         }
 
         if (mappings.mapping_array[i].mapping_id == TENSTORRENT_MAPPING_RESOURCE2_WC) {
+            log_info(tt::LogSiliconDriver, "Resource 2 WC");
             bar2_wc_mapping = mappings.mapping_array[i];
         }
     }
@@ -510,6 +526,10 @@ void TTDevice::do_open() {
 
     log_info(tt::LogSiliconDriver, "mapping bar0 size 0x{:x}", bar0_uc_size);
 
+    log_info(tt::LogSiliconDriver, "wc mapping size 0x{:x}", wc_mapping_size);
+
+    log_info(tt::LogSiliconDriver, "total size 0x{:x}", wc_mapping_size + bar0_uc_size);
+
     bar0_uc = mmap(NULL, bar0_uc_size, PROT_READ | PROT_WRITE, MAP_SHARED, device_fd, bar0_uc_mapping.mapping_base + bar0_uc_offset);
 
     if (bar0_uc == MAP_FAILED) {
@@ -527,6 +547,8 @@ void TTDevice::do_open() {
 
         log_info(tt::LogSiliconDriver, "BAR4 UC mapping size 0x{:x}", bar2_uc_mapping.mapping_size);
 
+        log_info(tt::LogSiliconDriver, "BAR WC mapping size 0x{:x}", bar2_wc_mapping.mapping_size);
+
         this->system_reg_mapping_size = bar2_uc_mapping.mapping_size;
 
         this->system_reg_mapping = mmap(NULL, bar2_uc_mapping.mapping_size, PROT_READ | PROT_WRITE, MAP_SHARED, device_fd, bar2_uc_mapping.mapping_base);
@@ -537,6 +559,19 @@ void TTDevice::do_open() {
 
         this->system_reg_start_offset = (512 - 16) * 1024*1024;
         this->system_reg_offset_adjust = (512 - 32) * 1024*1024;
+    } else if(is_blackhole(device_info.out)) {
+
+        log_info(tt::LogSiliconDriver, "Device is blackhole");
+
+        // if (bar2_uc_mapping.mapping_id != TENSTORRENT_MAPPING_RESOURCE2_UC) {
+            // throw std::runtime_error(std::string("Device ") + std::to_string(index) + " has no BAR4 UC mapping.");
+        // }
+
+        log_info(tt::LogSiliconDriver, "BAR4 UC mapping size 0x{:x}", bar2_uc_mapping.mapping_size);
+
+        log_info(tt::LogSiliconDriver, "BAR WC mapping size 0x{:x}", bar2_wc_mapping.mapping_size);
+
+        throw std::runtime_error(std::string("Device ") + std::to_string(index) + " has no BAR4 UC mapping.");
     }
     pci_domain = device_info.out.pci_domain;
     pci_bus = device_info.out.bus_dev_fn >> 8;

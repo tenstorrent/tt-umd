@@ -177,6 +177,9 @@ struct TTDeviceBase
     std::vector<DMAbuffer> dma_buffer_mappings;
 
     std::uint32_t read_checking_offset;
+
+    void* bar4_mapping = nullptr;
+    std::uint64_t bar4_mapping_size;
 };
 
 struct TTDevice : TTDeviceBase
@@ -478,12 +481,10 @@ void TTDevice::do_open() {
 
         if (mappings.mapping_array[i].mapping_id == TENSTORRENT_MAPPING_RESOURCE1_UC) {
             log_info(tt::LogSiliconDriver, "Resource 1 UC");
-            bar2_uc_mapping = mappings.mapping_array[i];
         }
 
         if (mappings.mapping_array[i].mapping_id == TENSTORRENT_MAPPING_RESOURCE1_WC) {
             log_info(tt::LogSiliconDriver, "Resource 1 WC");
-            bar2_wc_mapping = mappings.mapping_array[i];
         }
 
         if (mappings.mapping_array[i].mapping_id == TENSTORRENT_MAPPING_RESOURCE2_UC) {
@@ -522,7 +523,6 @@ void TTDevice::do_open() {
         bar0_uc_size = bar0_uc_mapping.mapping_size;
         bar0_uc_offset = 0;
     }
-
 
     log_info(tt::LogSiliconDriver, "mapping bar0 size 0x{:x}", bar0_uc_size);
 
@@ -571,7 +571,13 @@ void TTDevice::do_open() {
 
         log_info(tt::LogSiliconDriver, "BAR WC mapping size 0x{:x}", bar2_wc_mapping.mapping_size);
 
-        throw std::runtime_error(std::string("Device ") + std::to_string(index) + " has no BAR4 UC mapping.");
+        this->bar4_mapping_size = bar2_wc_mapping.mapping_size;
+
+        this->bar4_mapping = mmap(NULL, bar2_wc_mapping.mapping_size, PROT_READ | PROT_WRITE, MAP_SHARED, device_fd, bar2_wc_mapping.mapping_base);
+
+        if (this->bar4_mapping == MAP_FAILED) {
+            throw std::runtime_error(std::string("BAR4 WC memory mapping failed for device ") + std::to_string(index) + ".");
+        }
     }
     pci_domain = device_info.out.pci_domain;
     pci_bus = device_info.out.bus_dev_fn >> 8;
@@ -1017,7 +1023,7 @@ void memcpy_from_device(void *dest, const void *src, std::size_t num_bytes) {
     }
 }
 
-void read_block(TTDevice *dev, uint32_t byte_addr, uint32_t num_bytes, uint8_t* buffer_addr, uint32_t dma_buf_size) {
+void read_block(TTDevice *dev, uint32_t byte_addr, uint64_t num_bytes, uint8_t* buffer_addr, uint32_t dma_buf_size) {
     if (num_bytes >= g_DMA_BLOCK_SIZE_READ_THRESHOLD_BYTES && g_DMA_BLOCK_SIZE_READ_THRESHOLD_BYTES > 0) {
         record_access ("read_block_a", byte_addr, num_bytes, true, false, true, true); // addr, size, turbo, write, block, endline
 
@@ -1039,7 +1045,12 @@ void read_block(TTDevice *dev, uint32_t byte_addr, uint32_t num_bytes, uint8_t* 
     record_access("read_block_b", byte_addr, num_bytes, false, false, true, false); // addr, size, turbo, write, block, endline
 
     void *reg_mapping;
-    if (dev->system_reg_mapping != nullptr && byte_addr >= dev->system_reg_start_offset) {
+    const uint64_t bar0_size = 512 * 1024 * 1024;
+    if (byte_addr >= bar0_size) {
+        byte_addr -= bar0_size;
+        reg_mapping = dev->bar4_mapping;
+    }
+    else if (dev->system_reg_mapping != nullptr && byte_addr >= dev->system_reg_start_offset) {
         byte_addr -= dev->system_reg_offset_adjust;
         reg_mapping = dev->system_reg_mapping;
     } else if (dev->bar0_wc != dev->bar0_uc && byte_addr < dev->bar0_wc_size) {
@@ -1073,10 +1084,10 @@ void read_block(TTDevice *dev, uint32_t byte_addr, uint32_t num_bytes, uint8_t* 
     if (num_bytes >= sizeof(std::uint32_t)) {
         detect_ffffffff_read(dev, *reinterpret_cast<std::uint32_t*>(dest));
     }
-    print_buffer (buffer_addr, std::min(g_NUM_BYTES_TO_PRINT, num_bytes), true);
+    print_buffer (buffer_addr, std::min((uint64_t)g_NUM_BYTES_TO_PRINT, num_bytes), true);
 }
 
-void write_block(TTDevice *dev, uint32_t byte_addr, uint32_t num_bytes, const uint8_t* buffer_addr, uint32_t dma_buf_size) {
+void write_block(TTDevice *dev, uint64_t byte_addr, uint64_t num_bytes, const uint8_t* buffer_addr, uint32_t dma_buf_size) {
     if (num_bytes >= g_DMA_BLOCK_SIZE_WRITE_THRESHOLD_BYTES && g_DMA_BLOCK_SIZE_WRITE_THRESHOLD_BYTES > 0) {
         record_access ("write_block_a", byte_addr, num_bytes, true, true, true, true); // addr, size, turbo, write, block, endline
 
@@ -1098,7 +1109,12 @@ void write_block(TTDevice *dev, uint32_t byte_addr, uint32_t num_bytes, const ui
     record_access("write_block_b", byte_addr, num_bytes, false, true, true, false); // addr, size, turbo, write, block, endline
 
     void *reg_mapping;
-    if (dev->system_reg_mapping != nullptr && byte_addr >= dev->system_reg_start_offset) {
+    const uint64_t bar0_size = 512 * 1024 * 1024;
+    if (byte_addr >= bar0_size) {
+        byte_addr -= bar0_size;
+        reg_mapping = dev->bar4_mapping;
+    }
+    else if (dev->system_reg_mapping != nullptr && byte_addr >= dev->system_reg_start_offset) {
         byte_addr -= dev->system_reg_offset_adjust;
         reg_mapping = dev->system_reg_mapping;
     } else if (dev->bar0_wc != dev->bar0_uc && byte_addr < dev->bar0_wc_size) {
@@ -1127,7 +1143,7 @@ void write_block(TTDevice *dev, uint32_t byte_addr, uint32_t num_bytes, const ui
      memcpy(dest, src, num_bytes);
 #endif
 #endif
-    print_buffer (buffer_addr, std::min(g_NUM_BYTES_TO_PRINT, num_bytes), true);
+    print_buffer (buffer_addr, std::min((uint64_t)g_NUM_BYTES_TO_PRINT, num_bytes), true);
 }
 
 void read_checking_enable(bool enable = true) {
@@ -1319,7 +1335,7 @@ void print_device_info (struct PCIdevice &d) {
 
 struct dynamic_tlb {
     uint32_t bar_offset;        // Offset that address is mapped to, within the PCI BAR.
-    uint32_t remaining_size;    // Bytes remaining between bar_offset and end of the TLB.
+    uint64_t remaining_size;    // Bytes remaining between bar_offset and end of the TLB.
 };
 
 struct routing_cmd_t {
@@ -1375,7 +1391,7 @@ dynamic_tlb set_dynamic_tlb(PCIdevice* dev, unsigned int tlb_index, tt_xy_pair s
         std::tie(start, end) = architecture_implementation->multicast_workaround(start, end);
     }
 
-    LOG2("set_dynamic_tlb with arguments: tlb_index = %d, start = (%d, %d), end = (%d, %d), address = 0x%x, multicast = %d, ordering = %d\n",
+    PRINT("set_dynamic_tlb with arguments: tlb_index = %d, start = (%d, %d), end = (%d, %d), address = 0x%x, multicast = %d, ordering = %d\n",
          tlb_index, start.x, start.y, end.x, end.y, address, multicast, (int)ordering);
 
     tt::umd::tlb_configuration tlb_config = architecture_implementation->get_tlb_configuration(tlb_index);
@@ -1385,7 +1401,7 @@ dynamic_tlb set_dynamic_tlb(PCIdevice* dev, unsigned int tlb_index, tt_xy_pair s
     uint32_t tlb_address    = address / tlb_config.size;
     uint32_t local_offset   = address % tlb_config.size;
     uint32_t tlb_base       = tlb_config.base + (tlb_config.size * tlb_config.index_offset);
-    uint32_t tlb_cfg_reg    = tlb_config.cfg_addr + (TLB_CFG_REG_SIZE_BYTES * tlb_config.index_offset);
+    uint32_t tlb_cfg_reg  = tlb_config.cfg_addr + (TLB_CFG_REG_SIZE_BYTES * tlb_config.index_offset);
 
     std::pair<std::uint64_t, std::uint64_t> tlb_data = TLB_DATA {
         .local_offset = tlb_address,
@@ -1398,12 +1414,46 @@ dynamic_tlb set_dynamic_tlb(PCIdevice* dev, unsigned int tlb_index, tt_xy_pair s
         .static_vc = true,
     }.apply_offset(tlb_config.offset);
 
-    LOG1 ("set_dynamic_tlb() with tlb_index: %d tlb_index_offset: %d dynamic_tlb_size: %dMB tlb_base: 0x%x tlb_cfg_reg: 0x%x\n", tlb_index, tlb_config.index_offset, tlb_config.size/(1024*1024), tlb_base, tlb_cfg_reg);
+    PRINT("set_dynamic_tlb() with tlb_index: %d tlb_index_offset: %d dynamic_tlb_size: %dMB tlb_base: 0x%x tlb_cfg_reg: 0x%x\n", tlb_index, tlb_config.index_offset, tlb_config.size/(1024*1024), tlb_base, tlb_cfg_reg);
     //write_regs(dev -> hdev, tlb_cfg_reg, 2, &tlb_data);
     write_tlb_reg(dev->hdev, tlb_cfg_reg, tlb_data.first, tlb_data.second, TLB_CFG_REG_SIZE_BYTES);
 
     return { tlb_base + local_offset, tlb_config.size - local_offset };
 }
+
+// dynamic_tlb set_4g_dynamic_tlb(PCIdevice* dev, unsigned int tlb_index, tt_xy_pair start, tt_xy_pair end,
+//                                std::uint64_t address, bool multicast, std::unordered_map<chip_id_t, std::unordered_map<tt_xy_pair, tt_xy_pair>>& harvested_coord_translation, std::uint64_t ordering) {
+//     auto architecture_implementation = dev->hdev->get_architecture_implementation();
+
+//     PRINT("set_4g_dynamic_tlb with arguments: tlb_index = %d, start = (%d, %d), end = (%d, %d), address = 0x%x, multicast = %d, ordering = %d\n",
+//          tlb_index, start.x, start.y, end.x, end.y, address, multicast, (int)ordering);
+
+//     tt::umd::tlb_configuration tlb_config = architecture_implementation->get_tlb_configuration(tlb_index);
+//     std::uint32_t TLB_CFG_REG_SIZE_BYTES = architecture_implementation->get_tlb_cfg_reg_size_bytes();
+//     auto translated_start_coords = harvested_coord_translation.at(dev -> logical_id).at(start);
+//     auto translated_end_coords = harvested_coord_translation.at(dev -> logical_id).at(end);
+//     uint32_t tlb_address    = address / tlb_config.size;
+//     uint32_t local_offset   = address % tlb_config.size;
+//     uint32_t tlb_base       = tlb_config.base + (tlb_config.size * tlb_config.index_offset);
+//     uint32_t tlb_cfg_reg    = tlb_config.cfg_addr + (TLB_CFG_REG_SIZE_BYTES * tlb_config.index_offset);
+
+//     std::pair<std::uint64_t, std::uint64_t> tlb_data = TLB_DATA {
+//         .local_offset = tlb_address,
+//         .x_end = static_cast<uint64_t>(translated_end_coords.x),
+//         .y_end = static_cast<uint64_t>(translated_end_coords.y),
+//         .x_start = static_cast<uint64_t>(translated_start_coords.x),
+//         .y_start = static_cast<uint64_t>(translated_start_coords.y),
+//         .mcast = multicast,
+//         .ordering = ordering,
+//         .static_vc = true,
+//     }.apply_offset(tlb_config.offset);
+
+//     PRINT("set_4g_dynamic_tlb() with tlb_index: %d tlb_index_offset: %d dynamic_tlb_size: %dMB tlb_base: 0x%x tlb_cfg_reg: 0x%x\n", tlb_index, tlb_config.index_offset, tlb_config.size/(1024*1024), tlb_base, tlb_cfg_reg);
+//     //write_regs(dev -> hdev, tlb_cfg_reg, 2, &tlb_data);
+//     write_tlb_reg(dev->hdev, tlb_cfg_reg, tlb_data.first, tlb_data.second, TLB_CFG_REG_SIZE_BYTES);
+
+//     return { tlb_base + local_offset, tlb_config.size - local_offset };
+// }
 
 
 dynamic_tlb set_dynamic_tlb(PCIdevice *dev, unsigned int tlb_index, tt_xy_pair target, std::uint64_t address, std::unordered_map<chip_id_t, std::unordered_map<tt_xy_pair, tt_xy_pair>>& harvested_coord_translation, std::uint64_t ordering = TLB_DATA::Relaxed) {
@@ -2190,7 +2240,12 @@ void tt_SiliconDevice::write_device_memory(const void *mem_ptr, uint32_t size_in
     if (tlb_data.has_value() && address_in_tlb_space(address, size_in_bytes, tlb_index, std::get<1>(tlb_data.value()), target.chip)) {
         // log_assert(arch_name != tt::ARCH::BLACKHOLE, "Pre-initialized TLBs not supported in BH");
         auto [tlb_offset, tlb_size] = tlb_data.value();
-        write_block(dev, tlb_offset + address % tlb_size, size_in_bytes, buffer_addr, m_dma_buf_size);
+        const uint64_t tlb_2m_size = 512 * 1024 * 1024;
+        if (tlb_size > tlb_2m_size) {
+            write_block(dev, (tlb_offset + address % tlb_size) + tlb_2m_size, size_in_bytes, buffer_addr, m_dma_buf_size);
+        } else {
+            write_block(dev, tlb_offset + address % tlb_size, size_in_bytes, buffer_addr, m_dma_buf_size);
+        }
     } else {
         const auto tlb_index = dynamic_tlb_config.at(fallback_tlb);
         const scoped_lock<named_mutex> lock(*get_mutex(fallback_tlb, pci_device -> id));
@@ -2198,7 +2253,7 @@ void tt_SiliconDevice::write_device_memory(const void *mem_ptr, uint32_t size_in
         while(size_in_bytes > 0) {
 
             auto [mapped_address, tlb_size] = set_dynamic_tlb(pci_device, tlb_index, target, address, harvested_coord_translation, dynamic_tlb_ordering_modes.at(fallback_tlb));
-            uint32_t transfer_size = std::min(size_in_bytes, tlb_size);
+            uint32_t transfer_size = std::min((uint64_t)size_in_bytes, tlb_size);
             write_block(dev, mapped_address, transfer_size, buffer_addr, m_dma_buf_size);
 
             size_in_bytes -= transfer_size;
@@ -2227,7 +2282,12 @@ void tt_SiliconDevice::read_device_memory(void *mem_ptr, tt_cxy_pair target, std
 
     if (tlb_data.has_value()  && address_in_tlb_space(address, size_in_bytes, tlb_index, std::get<1>(tlb_data.value()), target.chip)) {
         auto [tlb_offset, tlb_size] = tlb_data.value();
-        read_block(dev, tlb_offset + address % tlb_size, size_in_bytes, buffer_addr, m_dma_buf_size);
+        const uint64_t tlb_2m_size = 512 * 1024 * 1024;
+        if (tlb_size > tlb_2m_size) {
+            read_block(dev, (tlb_offset + address % tlb_size) + tlb_2m_size, size_in_bytes, buffer_addr, m_dma_buf_size);
+        } else {
+            read_block(dev, tlb_offset + address % tlb_size, size_in_bytes, buffer_addr, m_dma_buf_size);
+        }
         LOG1 ("  read_block called with tlb_offset: %d, tlb_size: %d\n", tlb_offset, tlb_size);
     } else {
         const auto tlb_index = dynamic_tlb_config.at(fallback_tlb);
@@ -2236,7 +2296,7 @@ void tt_SiliconDevice::read_device_memory(void *mem_ptr, tt_cxy_pair target, std
         while(size_in_bytes > 0) {
 
             auto [mapped_address, tlb_size] = set_dynamic_tlb(pci_device, tlb_index, target, address, harvested_coord_translation, dynamic_tlb_ordering_modes.at(fallback_tlb));
-            uint32_t transfer_size = std::min(size_in_bytes, tlb_size);
+            uint32_t transfer_size = std::min((uint64_t)size_in_bytes, tlb_size);
             read_block(dev, mapped_address, transfer_size, buffer_addr, m_dma_buf_size);
 
             size_in_bytes -= transfer_size;
@@ -3351,7 +3411,7 @@ void tt_SiliconDevice::write_to_non_mmio_device(
             block_size = (block_size + alignment_mask) & ~alignment_mask;
         }
         // For 4 byte aligned data, transfer_size always == block_size. For unaligned data, transfer_size < block_size in the last block
-        uint32_t transfer_size = std::min(block_size, size_in_bytes - offset); // Host side data size that needs to be copied
+        uint64_t transfer_size = std::min(block_size, size_in_bytes - offset); // Host side data size that needs to be copied
         // Use block mode for broadcast
         uint32_t req_flags = (broadcast || (block_size > DATA_WORD_SIZE)) ? (eth_interface_params.CMD_DATA_BLOCK | eth_interface_params.CMD_WR_REQ | timestamp) : eth_interface_params.CMD_WR_REQ;
         uint32_t resp_flags = block_size > DATA_WORD_SIZE ? (eth_interface_params.CMD_DATA_BLOCK | eth_interface_params.CMD_WR_ACK) : eth_interface_params.CMD_WR_ACK;
@@ -4062,7 +4122,7 @@ void tt_SiliconDevice::pcie_broadcast_write(chip_id_t chip, const void* mem_ptr,
     const scoped_lock<named_mutex> lock(*get_mutex(fallback_tlb, pci_device -> id));
     while(size_in_bytes > 0) {
         auto [mapped_address, tlb_size] = set_dynamic_tlb_broadcast(pci_device, tlb_index, addr, harvested_coord_translation, start, end, dynamic_tlb_ordering_modes.at(fallback_tlb));
-        uint32_t transfer_size = std::min(size_in_bytes, tlb_size);
+        uint64_t transfer_size = std::min((uint64_t)size_in_bytes, tlb_size);
         write_block(dev, mapped_address, transfer_size, buffer_addr, m_dma_buf_size);
 
         size_in_bytes -= transfer_size;

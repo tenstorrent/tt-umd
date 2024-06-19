@@ -83,6 +83,33 @@ static constexpr std::array<xy_pair, 24> DRAM_LOCATIONS = {
      {9, 9},
      {9, 10},
      {9, 11}}};
+
+static constexpr std::array<xy_pair, 24> DRAM_LOCATIONS_4GB = {
+    {{0, 0},
+     {0, 1},
+     {0, 11},
+     {0, 2},
+     {0, 10},
+     {0, 3},
+     {0, 9},
+     {0, 4},
+     {0, 8},
+     {0, 5},
+     {0, 7},
+     {0, 6},
+     {9, 0},
+     {9, 1},
+     {9, 11},
+     {9, 2},
+     {9, 10},
+     {9, 3},
+     {9, 9},
+     {9, 4},
+     {9, 8},
+     {9, 5},
+     {9, 7},
+     {9, 6}}};
+
 static constexpr std::array<xy_pair, 1> ARC_LOCATIONS = {{{8, 0}}};
 static constexpr std::array<xy_pair, 1> PCI_LOCATIONS = {{{11, 0}}};
 static constexpr std::array<xy_pair, 14> ETH_LOCATIONS = {
@@ -227,7 +254,7 @@ class blackhole_implementation : public architecture_implementation {
 
     std::tuple<xy_pair, xy_pair> multicast_workaround(xy_pair start, xy_pair end) const override;
     tlb_configuration get_tlb_configuration(uint32_t tlb_index) const override;
-    std::optional<std::tuple<std::uint32_t, std::uint32_t>> describe_tlb(std::int32_t tlb_index) const override;
+    std::optional<std::tuple<std::uint32_t, std::uint64_t>> describe_tlb(std::int32_t tlb_index) const override;
     std::pair<std::uint64_t, std::uint64_t> get_tlb_data(std::uint32_t tlb_index, const tlb_data& data) const override;
 };
 

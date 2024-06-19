@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 #include "device/blackhole_implementation.h"
+#include "common/logger.hpp"
 
 namespace tt::umd {
 

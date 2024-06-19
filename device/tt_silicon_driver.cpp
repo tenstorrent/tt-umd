@@ -1391,8 +1391,8 @@ dynamic_tlb set_dynamic_tlb(PCIdevice* dev, unsigned int tlb_index, tt_xy_pair s
         std::tie(start, end) = architecture_implementation->multicast_workaround(start, end);
     }
 
-    PRINT("set_dynamic_tlb with arguments: tlb_index = %d, start = (%d, %d), end = (%d, %d), address = 0x%x, multicast = %d, ordering = %d\n",
-         tlb_index, start.x, start.y, end.x, end.y, address, multicast, (int)ordering);
+    // PRINT("set_dynamic_tlb with arguments: tlb_index = %d, start = (%d, %d), end = (%d, %d), address = 0x%x, multicast = %d, ordering = %d\n",
+    //      tlb_index, start.x, start.y, end.x, end.y, address, multicast, (int)ordering);
 
     tt::umd::tlb_configuration tlb_config = architecture_implementation->get_tlb_configuration(tlb_index);
     std::uint32_t TLB_CFG_REG_SIZE_BYTES = architecture_implementation->get_tlb_cfg_reg_size_bytes();
@@ -1414,7 +1414,7 @@ dynamic_tlb set_dynamic_tlb(PCIdevice* dev, unsigned int tlb_index, tt_xy_pair s
         .static_vc = true,
     }.apply_offset(tlb_config.offset);
 
-    PRINT("set_dynamic_tlb() with tlb_index: %d tlb_index_offset: %d dynamic_tlb_size: %dMB tlb_base: 0x%x tlb_cfg_reg: 0x%x\n", tlb_index, tlb_config.index_offset, tlb_config.size/(1024*1024), tlb_base, tlb_cfg_reg);
+    // PRINT("set_dynamic_tlb() with tlb_index: %d tlb_index_offset: %d dynamic_tlb_size: %dMB tlb_base: 0x%x tlb_cfg_reg: 0x%x\n", tlb_index, tlb_config.index_offset, tlb_config.size/(1024*1024), tlb_base, tlb_cfg_reg);
     //write_regs(dev -> hdev, tlb_cfg_reg, 2, &tlb_data);
     write_tlb_reg(dev->hdev, tlb_cfg_reg, tlb_data.first, tlb_data.second, TLB_CFG_REG_SIZE_BYTES);
 
@@ -1466,7 +1466,10 @@ dynamic_tlb set_dynamic_tlb_broadcast(PCIdevice *dev, unsigned int tlb_index, st
                             address, true, harvested_coord_translation, ordering);
 }
 
-bool tt_SiliconDevice::address_in_tlb_space(uint32_t address, uint32_t size_in_bytes, int32_t tlb_index, uint32_t tlb_size, std::uint32_t chip) {
+bool tt_SiliconDevice::address_in_tlb_space(uint32_t address, uint32_t size_in_bytes, int32_t tlb_index, uint64_t tlb_size, std::uint32_t chip) {
+    if (tlb_index >= 202) {
+        // log_info(tt::LogSiliconDriver, "tlb index {} address 0x{:x} size in bytes 0x{:x} tlb size 0x{:x}", tlb_index, address, size_in_bytes, tlb_size);
+    }
     return ((tlb_config_map.at(chip).find(tlb_index) != tlb_config_map.at(chip).end()) && address >= tlb_config_map.at(chip).at(tlb_index) && (address + size_in_bytes <= tlb_config_map.at(chip).at(tlb_index) + tlb_size));
 }
 
@@ -2231,10 +2234,16 @@ void tt_SiliconDevice::write_device_memory(const void *mem_ptr, uint32_t size_in
     //     target.chip, target.x, target.y, address, size_in_bytes, small_access);
 
     std::int32_t tlb_index = 0;
-    std::optional<std::tuple<std::uint32_t, std::uint32_t>> tlb_data = std::nullopt;
+    std::optional<std::tuple<std::uint32_t, std::uint64_t>> tlb_data = std::nullopt;
     if(tlbs_init) {
         tlb_index = map_core_to_tlb(tt_xy_pair(target.x, target.y));
+        if (tlb_index >= 202) {
+            log_info(tt::LogSiliconDriver, "write device memory to index >= 202 {}", tlb_index);
+        }
         tlb_data = dev->get_architecture_implementation()->describe_tlb(tlb_index);
+        if (tlb_index >= 202 && tlb_data.has_value()) {
+            log_info(tt::LogSiliconDriver, "tlb size 0x{:x}", std::get<1>(tlb_data.value()));
+        }
     }
 
     if (tlb_data.has_value() && address_in_tlb_space(address, size_in_bytes, tlb_index, std::get<1>(tlb_data.value()), target.chip)) {
@@ -2242,13 +2251,20 @@ void tt_SiliconDevice::write_device_memory(const void *mem_ptr, uint32_t size_in
         auto [tlb_offset, tlb_size] = tlb_data.value();
         const uint64_t tlb_2m_size = 512 * 1024 * 1024;
         if (tlb_size > tlb_2m_size) {
+            log_info(tt::LogSiliconDriver, "writing to dram channel on core ({}, {}) using static tlb", target.x, target.y);
             write_block(dev, (tlb_offset + address % tlb_size) + tlb_2m_size, size_in_bytes, buffer_addr, m_dma_buf_size);
         } else {
+            log_info(tt::LogSiliconDriver, "writing to core ({}, {}) using static tlb", target.x, target.y);
             write_block(dev, tlb_offset + address % tlb_size, size_in_bytes, buffer_addr, m_dma_buf_size);
         }
     } else {
+        if (tlb_index >= 202) {
+            log_info(tt::LogSiliconDriver, "fallback write");
+        }
         const auto tlb_index = dynamic_tlb_config.at(fallback_tlb);
         const scoped_lock<named_mutex> lock(*get_mutex(fallback_tlb, pci_device -> id));
+
+        // log_info(tt::LogSiliconDriver, "fallback tlb for core ({}, {}) address 0x{:x}", target.x, target.y, address);
 
         while(size_in_bytes > 0) {
 
@@ -2273,7 +2289,7 @@ void tt_SiliconDevice::read_device_memory(void *mem_ptr, tt_cxy_pair target, std
     uint8_t* buffer_addr = static_cast<uint8_t*>(mem_ptr);
 
     std::int32_t tlb_index = 0;
-    std::optional<std::tuple<std::uint32_t, std::uint32_t>> tlb_data = std::nullopt;
+    std::optional<std::tuple<std::uint32_t, std::uint64_t>> tlb_data = std::nullopt;
     if(tlbs_init) {
         tlb_index = map_core_to_tlb(tt_xy_pair(target.x, target.y));
         tlb_data = dev->get_architecture_implementation()->describe_tlb(tlb_index);

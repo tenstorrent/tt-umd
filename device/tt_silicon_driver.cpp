@@ -2164,6 +2164,37 @@ tt::Writer tt_SiliconDevice::get_static_tlb_writer(tt_cxy_pair target) {
     return tt::Writer(base + tlb_offset, tlb_size);
 }
 
+static bool is_dram_core(tt_xy_pair target) {
+
+    static constexpr std::array<tt_xy_pair, 24> DRAM_LOCATIONS_TEST = {
+    {{0, 0},
+     {0, 1},
+     {0, 11},
+     {0, 2},
+     {0, 10},
+     {0, 3},
+     {0, 9},
+     {0, 4},
+     {0, 8},
+     {0, 5},
+     {0, 7},
+     {0, 6},
+     {9, 0},
+     {9, 1},
+     {9, 11},
+     {9, 2},
+     {9, 10},
+     {9, 3},
+     {9, 9},
+     {9, 4},
+     {9, 8},
+     {9, 5},
+     {9, 7},
+     {9, 6}}};
+
+    return std::find(DRAM_LOCATIONS_TEST.begin(), DRAM_LOCATIONS_TEST.end(), target) != DRAM_LOCATIONS_TEST.end();
+}
+
 void tt_SiliconDevice::write_device_memory(const void *mem_ptr, uint32_t size_in_bytes, tt_cxy_pair target, std::uint32_t address, const std::string& fallback_tlb) {
     struct PCIdevice* pci_device = get_pci_device(target.chip);
     TTDevice *dev = pci_device->hdev;
@@ -2184,12 +2215,14 @@ void tt_SiliconDevice::write_device_memory(const void *mem_ptr, uint32_t size_in
         auto [tlb_offset, tlb_size] = tlb_data.value();
         const uint64_t tlb_2m_size = 512 * 1024 * 1024;
         if (tlb_size > tlb_2m_size) {
-            uint64_t bar4_offset = tlb_offset + address % tlb_size;
+            log_assert(is_dram_core(tt_xy_pair(target.x, target.y)), "We only want to write to DRAM cores here");
             write_block(dev, (tlb_offset + address % tlb_size) + tlb_2m_size, size_in_bytes, buffer_addr, m_dma_buf_size);
         } else {
+            log_assert(!is_dram_core(tt_xy_pair(target.x, target.y)), "We don't want to write to DRAM cores here");
             write_block(dev, tlb_offset + address % tlb_size, size_in_bytes, buffer_addr, m_dma_buf_size);
         }
     } else {
+        log_assert(!is_dram_core(tt_xy_pair(target.x, target.y)), "We don't want write fallback TLB for DRAM cores here");
         const auto tlb_index = dynamic_tlb_config.at(fallback_tlb);
         const scoped_lock<named_mutex> lock(*get_mutex(fallback_tlb, pci_device -> id));
 
@@ -2227,12 +2260,15 @@ void tt_SiliconDevice::read_device_memory(void *mem_ptr, tt_cxy_pair target, std
         auto [tlb_offset, tlb_size] = tlb_data.value();
         const uint64_t tlb_2m_size = 512 * 1024 * 1024;
         if (tlb_size > tlb_2m_size) {
+            log_assert(is_dram_core(tt_xy_pair(target.x, target.y)), "We only want to read from DRAM cores here");
             read_block(dev, (tlb_offset + address % tlb_size) + tlb_2m_size, size_in_bytes, buffer_addr, m_dma_buf_size);
         } else {
+            log_assert(!is_dram_core(tt_xy_pair(target.x, target.y)), "We don't want to read from DRAM cores here");
             read_block(dev, tlb_offset + address % tlb_size, size_in_bytes, buffer_addr, m_dma_buf_size);
         }
         LOG1 ("  read_block called with tlb_offset: %d, tlb_size: %d\n", tlb_offset, tlb_size);
     } else {
+        log_assert(!is_dram_core(tt_xy_pair(target.x, target.y)), "We don't want read fallback TLB for DRAM cores here");
         const auto tlb_index = dynamic_tlb_config.at(fallback_tlb);
         const scoped_lock<named_mutex> lock(*get_mutex(fallback_tlb, pci_device -> id));
         LOG1 ("  dynamic tlb_index: %d\n", tlb_index);

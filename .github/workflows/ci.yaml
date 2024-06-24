@@ -1,0 +1,57 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+      - joelsmith/github-ci
+  pull_request:
+    branches:
+      - main
+      
+jobs:
+  build:
+    runs-on: ubuntu-20.04
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        submodules: recursive
+    - name: Set up environment
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y build-essential libyaml-cpp-dev libhwloc-dev libgtest-dev libboost-dev
+    - name: Build wormhole_b0
+      run: |
+        echo "Compiling the code..."
+        make build ARCH_NAME=wormhole_b0 -j$(nproc)
+        echo "Compile complete."
+    - name: Build tests for wormhole_b0
+      run: |
+        echo "Compiling the tests..."
+        make test ARCH_NAME=wormhole_b0 -j$(nproc)
+        echo "Compile tests complete."
+    - name: Upload build artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: build-artifacts
+        path: |
+          ./build
+          ./build/tests
+
+  test:
+    needs: build
+    runs-on: self-hosted
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        submodules: recursive
+    - name: Download build artifacts
+      uses: actions/download-artifact@v4
+      with:
+        name: build-artifacts
+        path: ./build
+    - name: Run silicon driver tests
+      run: |
+        echo "Running silicon driver tests ..."
+        chmod a+x ./build/tests/device_unit_tests 
+        ./build/tests/device_unit_tests --gtest_filter=SiliconDriverWH.*

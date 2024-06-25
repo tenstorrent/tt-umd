@@ -115,12 +115,12 @@ static constexpr uint32_t DYNAMIC_TLB_2M_BASE = TLB_BASE_2M;
 // REG_TLB for dynamic writes to registers. They are aligned with the kernel driver's WC/UC split.  But kernel driver
 // uses different TLB's for these.
 // Revisit for BH
-
 static constexpr unsigned int REG_TLB = TLB_BASE_INDEX_2M + 191;
-static constexpr unsigned int MEM_LARGE_WRITE_TLB = TLB_BASE_INDEX_2M + 192;
-static constexpr unsigned int MEM_LARGE_READ_TLB = TLB_BASE_INDEX_2M + 193;
-static constexpr unsigned int MEM_SMALL_READ_WRITE_TLB = TLB_BASE_INDEX_2M + 194;
-static constexpr uint32_t DYNAMIC_TLB_BASE_INDEX = TLB_BASE_INDEX_2M + 190;
+
+static constexpr uint32_t DYNAMIC_TLB_BASE_INDEX = TLB_BASE_INDEX_2M + 180;
+static constexpr unsigned int MEM_LARGE_WRITE_TLB = TLB_BASE_INDEX_2M + 181;
+static constexpr unsigned int MEM_LARGE_READ_TLB = TLB_BASE_INDEX_2M + 182;
+static constexpr unsigned int MEM_SMALL_READ_WRITE_TLB = TLB_BASE_INDEX_2M + 183;
 
 static constexpr uint32_t DRAM_CHANNEL_0_X = 0;
 static constexpr uint32_t DRAM_CHANNEL_0_Y = 1;

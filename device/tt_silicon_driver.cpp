@@ -544,21 +544,12 @@ void TTDevice::do_open() {
         }
 
         // WC mapping
-        // this->bar4_mapping_size = bar2_wc_mapping.mapping_size;
-        // this->bar4_mapping = mmap(NULL, bar2_wc_mapping.mapping_size, PROT_READ | PROT_WRITE, MAP_SHARED, device_fd, bar2_wc_mapping.mapping_base);
+        this->bar4_mapping_size = bar2_wc_mapping.mapping_size;
+        this->bar4_mapping = mmap(NULL, bar2_wc_mapping.mapping_size, PROT_READ | PROT_WRITE, MAP_SHARED, device_fd, bar2_wc_mapping.mapping_base);
 
-        // if (this->bar4_mapping == MAP_FAILED) {
-        //     throw std::runtime_error(std::string("BAR4 WC memory mapping failed for device ") + std::to_string(index) + ".");
-        // }
-
-        // UC mapping
-        this->bar4_mapping_size = bar2_uc_mapping.mapping_size;
-        this->bar4_mapping = mmap(NULL, bar2_uc_mapping.mapping_size, PROT_READ | PROT_WRITE, MAP_SHARED, device_fd, bar2_uc_mapping.mapping_base);
-        
         if (this->bar4_mapping == MAP_FAILED) {
-            throw std::runtime_error(std::string("BAR4 UC memory mapping failed for device ") + std::to_string(index) + ".");
+            throw std::runtime_error(std::string("BAR4 WC memory mapping failed for device ") + std::to_string(index) + ".");
         }
-       
     }
     pci_domain = device_info.out.pci_domain;
     pci_bus = device_info.out.bus_dev_fn >> 8;

@@ -131,6 +131,9 @@ std::string hugepage_dir = hugepage_dir_env ? hugepage_dir_env : "/dev/hugepages
 // BAR0 size for Blackhole, used to determine whether write block should use BAR0 or BAR4
 const uint64_t BAR0_BH_SIZE = 512 * 1024 * 1024;
 
+// TLB size for DRAM on blackhole - 4GB
+const uint64_t BH_4GB_TLB_SIZE = 4ULL * 1024 * 1024 * 1024;
+
 // Foward declarations
 PCIdevice ttkmd_open(DWORD device_id, bool sharable /* = false */);
 int ttkmd_close(struct PCIdevice &device);
@@ -1080,9 +1083,8 @@ void write_block(TTDevice *dev, uint64_t byte_addr, uint64_t num_bytes, const ui
     record_access("write_block_b", byte_addr, num_bytes, false, true, true, false); // addr, size, turbo, write, block, endline
 
     void *reg_mapping;
-    const uint64_t bar0_size = 512 * 1024 * 1024;
-    if (dev->bar4_mapping != nullptr && byte_addr >= bar0_size) {
-        byte_addr -= bar0_size;
+    if (dev->bar4_mapping != nullptr && byte_addr >= BAR0_BH_SIZE) {
+        byte_addr -= BAR0_BH_SIZE;
         reg_mapping = dev->bar4_mapping;
     }
     else if (dev->system_reg_mapping != nullptr && byte_addr >= dev->system_reg_start_offset) {
@@ -2175,7 +2177,9 @@ void tt_SiliconDevice::write_device_memory(const void *mem_ptr, uint32_t size_in
 
     if (tlb_data.has_value() && address_in_tlb_space(address, size_in_bytes, tlb_index, std::get<1>(tlb_data.value()), target.chip)) {
         auto [tlb_offset, tlb_size] = tlb_data.value();
-        if (dev->bar4_mapping != nullptr && tlb_size > BAR0_BH_SIZE) {
+        if (dev->bar4_mapping != nullptr && tlb_size == BH_4GB_TLB_SIZE) {
+            // This is only for Blackhole. If we want to  write to DRAM (BAR4 space), we add offset
+            // to which we write so write_block knows it needs to target BAR4
             write_block(dev, (tlb_offset + address % tlb_size) + BAR0_BH_SIZE, size_in_bytes, buffer_addr, m_dma_buf_size);
         } else {
             write_block(dev, tlb_offset + address % tlb_size, size_in_bytes, buffer_addr, m_dma_buf_size);
@@ -2216,7 +2220,9 @@ void tt_SiliconDevice::read_device_memory(void *mem_ptr, tt_cxy_pair target, std
 
     if (tlb_data.has_value()  && address_in_tlb_space(address, size_in_bytes, tlb_index, std::get<1>(tlb_data.value()), target.chip)) {
         auto [tlb_offset, tlb_size] = tlb_data.value();
-        if (dev->bar4_mapping != nullptr && tlb_size > BAR0_BH_SIZE) {
+        if (dev->bar4_mapping != nullptr && tlb_size == BH_4GB_TLB_SIZE) {
+            // This is only for Blackhole. If we want to  read from DRAM (BAR4 space), we add offset
+            // from which we read so read_block knows it needs to target BAR4
             read_block(dev, (tlb_offset + address % tlb_size) + BAR0_BH_SIZE, size_in_bytes, buffer_addr, m_dma_buf_size);
         } else {
             read_block(dev, tlb_offset + address % tlb_size, size_in_bytes, buffer_addr, m_dma_buf_size);

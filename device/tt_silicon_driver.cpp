@@ -461,15 +461,19 @@ void TTDevice::do_open() {
         throw std::runtime_error(std::string("Query mappings failed on device ") + std::to_string(index) + ".");
     }
 
+    // Mapping resource to BAR
+    // Resource 0 -> BAR0
+    // Resource 1 -> BAR2
+    // Resource 2 -> BAR4
     tenstorrent_mapping bar0_uc_mapping;
     tenstorrent_mapping bar0_wc_mapping;
-    tenstorrent_mapping bar2_uc_mapping;
-    tenstorrent_mapping bar2_wc_mapping;
+    tenstorrent_mapping bar4_uc_mapping;
+    tenstorrent_mapping bar4_wc_mapping;
 
     memset(&bar0_uc_mapping, 0, sizeof(bar0_uc_mapping));
     memset(&bar0_wc_mapping, 0, sizeof(bar0_wc_mapping));
-    memset(&bar2_uc_mapping, 0, sizeof(bar2_uc_mapping));
-    memset(&bar2_wc_mapping, 0, sizeof(bar2_wc_mapping));
+    memset(&bar4_uc_mapping, 0, sizeof(bar4_uc_mapping));
+    memset(&bar4_wc_mapping, 0, sizeof(bar4_wc_mapping));
 
     for (unsigned int i = 0; i < mappings.query_mappings.in.output_mapping_count; i++) {
         if (mappings.mapping_array[i].mapping_id == TENSTORRENT_MAPPING_RESOURCE0_UC) {
@@ -481,11 +485,11 @@ void TTDevice::do_open() {
         }
 
         if (mappings.mapping_array[i].mapping_id == TENSTORRENT_MAPPING_RESOURCE2_UC) {
-            bar2_uc_mapping = mappings.mapping_array[i];
+            bar4_uc_mapping = mappings.mapping_array[i];
         }
 
         if (mappings.mapping_array[i].mapping_id == TENSTORRENT_MAPPING_RESOURCE2_WC) {
-            bar2_wc_mapping = mappings.mapping_array[i];
+            bar4_wc_mapping = mappings.mapping_array[i];
         }
     }
 
@@ -526,13 +530,13 @@ void TTDevice::do_open() {
     }
 
     if (is_wormhole(device_info.out)) {
-        if (bar2_uc_mapping.mapping_id != TENSTORRENT_MAPPING_RESOURCE2_UC) {
+        if (bar4_uc_mapping.mapping_id != TENSTORRENT_MAPPING_RESOURCE2_UC) {
             throw std::runtime_error(std::string("Device ") + std::to_string(index) + " has no BAR4 UC mapping.");
         }
 
-        this->system_reg_mapping_size = bar2_uc_mapping.mapping_size;
+        this->system_reg_mapping_size = bar4_uc_mapping.mapping_size;
 
-        this->system_reg_mapping = mmap(NULL, bar2_uc_mapping.mapping_size, PROT_READ | PROT_WRITE, MAP_SHARED, device_fd, bar2_uc_mapping.mapping_base);
+        this->system_reg_mapping = mmap(NULL, bar4_uc_mapping.mapping_size, PROT_READ | PROT_WRITE, MAP_SHARED, device_fd, bar4_uc_mapping.mapping_base);
 
         if (this->system_reg_mapping == MAP_FAILED) {
             throw std::runtime_error(std::string("BAR4 UC memory mapping failed for device ") + std::to_string(index) + ".");
@@ -542,13 +546,13 @@ void TTDevice::do_open() {
         this->system_reg_offset_adjust = (512 - 32) * 1024*1024;
     } else if(is_blackhole(device_info.out)) {
 
-        if (bar2_uc_mapping.mapping_id != TENSTORRENT_MAPPING_RESOURCE2_UC) {
-            throw std::runtime_error(std::string("Device ") + std::to_string(index) + " has no BAR4 UC mapping.");
+        if (bar4_wc_mapping.mapping_id != TENSTORRENT_MAPPING_RESOURCE2_WC) {
+            throw std::runtime_error(std::string("Device ") + std::to_string(index) + " has no BAR4 WC mapping.");
         }
 
         // WC mapping
-        this->bar4_mapping_size = bar2_wc_mapping.mapping_size;
-        this->bar4_mapping = mmap(NULL, bar2_wc_mapping.mapping_size, PROT_READ | PROT_WRITE, MAP_SHARED, device_fd, bar2_wc_mapping.mapping_base);
+        this->bar4_mapping_size = bar4_wc_mapping.mapping_size;
+        this->bar4_mapping = mmap(NULL, bar4_wc_mapping.mapping_size, PROT_READ | PROT_WRITE, MAP_SHARED, device_fd, bar4_wc_mapping.mapping_base);
 
         if (this->bar4_mapping == MAP_FAILED) {
             throw std::runtime_error(std::string("BAR4 WC memory mapping failed for device ") + std::to_string(index) + ".");

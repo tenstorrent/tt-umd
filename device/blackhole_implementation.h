@@ -105,6 +105,8 @@ static constexpr uint32_t TLB_BASE_2M = 0;
 static constexpr uint32_t TLB_BASE_INDEX_2M = 0;
 static constexpr uint32_t TLB_2M_SIZE = 2 * 1024 * 1024;
 
+static constexpr uint32_t DYNAMIC_TLB_COUNT = 16;
+
 static constexpr uint32_t TLB_CFG_REG_SIZE_BYTES = 12;
 static constexpr uint32_t DYNAMIC_TLB_2M_SIZE = 2 * 1024 * 1024;
 static constexpr uint32_t DYNAMIC_TLB_2M_CFG_ADDR = STATIC_TLB_CFG_ADDR + (TLB_BASE_INDEX_2M * TLB_CFG_REG_SIZE_BYTES);
@@ -113,15 +115,15 @@ static constexpr uint32_t DYNAMIC_TLB_2M_BASE = TLB_BASE_2M;
 // REG_TLB for dynamic writes to registers. They are aligned with the kernel driver's WC/UC split.  But kernel driver
 // uses different TLB's for these.
 // Revisit for BH
-
 static constexpr unsigned int REG_TLB = TLB_BASE_INDEX_2M + 191;
-static constexpr unsigned int MEM_LARGE_WRITE_TLB = TLB_BASE_INDEX_2M + 192;
-static constexpr unsigned int MEM_LARGE_READ_TLB = TLB_BASE_INDEX_2M + 193;
-static constexpr unsigned int MEM_SMALL_READ_WRITE_TLB = TLB_BASE_INDEX_2M + 194;
-static constexpr uint32_t DYNAMIC_TLB_BASE_INDEX = TLB_BASE_INDEX_2M + 190;
+
+static constexpr uint32_t DYNAMIC_TLB_BASE_INDEX = TLB_BASE_INDEX_2M + 180;
+static constexpr unsigned int MEM_LARGE_WRITE_TLB = TLB_BASE_INDEX_2M + 181;
+static constexpr unsigned int MEM_LARGE_READ_TLB = TLB_BASE_INDEX_2M + 182;
+static constexpr unsigned int MEM_SMALL_READ_WRITE_TLB = TLB_BASE_INDEX_2M + 183;
 
 static constexpr uint32_t DRAM_CHANNEL_0_X = 0;
-static constexpr uint32_t DRAM_CHANNEL_0_Y = 0;
+static constexpr uint32_t DRAM_CHANNEL_0_Y = 1;
 static constexpr uint32_t DRAM_CHANNEL_0_PEER2PEER_REGION_START = 0x30000000;  // This is the last 256MB of DRAM
 
 static constexpr uint32_t GRID_SIZE_X = 17;
@@ -178,13 +180,15 @@ class blackhole_implementation : public architecture_implementation {
     uint32_t get_dram_channel_0_x() const override { return blackhole::DRAM_CHANNEL_0_X; }
     uint32_t get_dram_channel_0_y() const override { return blackhole::DRAM_CHANNEL_0_Y; }
     uint32_t get_broadcast_tlb_index() const override { return blackhole::BROADCAST_TLB_INDEX; }
+    uint32_t get_dynamic_tlb_2m_base() const override { return blackhole::DYNAMIC_TLB_2M_BASE; }
+    uint32_t get_dynamic_tlb_2m_size() const override { return blackhole::DYNAMIC_TLB_2M_SIZE; }
     uint32_t get_dynamic_tlb_16m_base() const override { throw std::runtime_error("No 16MB TLBs for Blackhole arch"); return 0; }
     uint32_t get_dynamic_tlb_16m_size() const override { throw std::runtime_error("No 16MB TLBs for Blackhole arch"); return 0; }
     uint32_t get_dynamic_tlb_16m_cfg_addr() const override { throw std::runtime_error("No 16MB TLBs for Blackhole arch"); return 0; }
     uint32_t get_mem_large_read_tlb() const override { return blackhole::MEM_LARGE_READ_TLB; }
     uint32_t get_mem_large_write_tlb() const override { return blackhole::MEM_LARGE_WRITE_TLB; }
-    uint32_t get_static_tlb_cfg_addr() const override { throw std::runtime_error("No static TLBs for Blackhole arch"); return 0; }
-    uint32_t get_static_tlb_size() const override { throw std::runtime_error("No static TLBs for Blackhole arch"); return 0;  }
+    uint32_t get_static_tlb_cfg_addr() const override { return blackhole::STATIC_TLB_CFG_ADDR; }
+    uint32_t get_static_tlb_size() const override { return blackhole::STATIC_TLB_SIZE;  }
     uint32_t get_reg_tlb() const override { return blackhole::REG_TLB; }
     uint32_t get_tlb_base_index_16m() const override { throw std::runtime_error("No 16MB TLBs for Blackhole arch"); return 0;  }
     uint32_t get_tensix_soft_reset_addr() const override { return blackhole::TENSIX_SOFT_RESET_ADDR; }

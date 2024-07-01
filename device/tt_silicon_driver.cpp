@@ -2142,13 +2142,11 @@ void tt_SiliconDevice::write_device_memory(const void *mem_ptr, uint32_t size_in
     std::int32_t tlb_index = 0;
     std::optional<std::tuple<std::uint32_t, std::uint32_t>> tlb_data = std::nullopt;
     if(tlbs_init) {
-        log_assert(arch_name != tt::ARCH::BLACKHOLE, "Pre-initialized TLBs not supported in BH");
         tlb_index = map_core_to_tlb(tt_xy_pair(target.x, target.y));
         tlb_data = dev->get_architecture_implementation()->describe_tlb(tlb_index);
     }
 
     if (tlb_data.has_value() && address_in_tlb_space(address, size_in_bytes, tlb_index, std::get<1>(tlb_data.value()), target.chip)) {
-        log_assert(arch_name != tt::ARCH::BLACKHOLE, "Pre-initialized TLBs not supported in BH");
         auto [tlb_offset, tlb_size] = tlb_data.value();
         write_block(dev, tlb_offset + address % tlb_size, size_in_bytes, buffer_addr, m_dma_buf_size);
     } else {
@@ -2180,14 +2178,12 @@ void tt_SiliconDevice::read_device_memory(void *mem_ptr, tt_cxy_pair target, std
     std::int32_t tlb_index = 0;
     std::optional<std::tuple<std::uint32_t, std::uint32_t>> tlb_data = std::nullopt;
     if(tlbs_init) {
-        log_assert(arch_name != tt::ARCH::BLACKHOLE, "Pre-initialized TLBs not supported in BH");
         tlb_index = map_core_to_tlb(tt_xy_pair(target.x, target.y));
         tlb_data = dev->get_architecture_implementation()->describe_tlb(tlb_index);
     }
     LOG1("  tlb_index: %d, tlb_data.has_value(): %d\n", tlb_index, tlb_data.has_value());
 
     if (tlb_data.has_value()  && address_in_tlb_space(address, size_in_bytes, tlb_index, std::get<1>(tlb_data.value()), target.chip)) {
-        log_assert(arch_name != tt::ARCH::BLACKHOLE, "Pre-initialized TLBs not supported in BH");    // MT: Use only dynamic TLBs and never program static
         auto [tlb_offset, tlb_size] = tlb_data.value();
         read_block(dev, tlb_offset + address % tlb_size, size_in_bytes, buffer_addr, m_dma_buf_size);
         LOG1 ("  read_block called with tlb_offset: %d, tlb_size: %d\n", tlb_offset, tlb_size);
@@ -3059,12 +3055,24 @@ void tt_SiliconDevice::enable_local_ethernet_queue(const chip_id_t &device_id, i
 
 
 void *tt_SiliconDevice::channel_0_address(std::uint32_t offset, std::uint32_t device_id) const {
-    // This hard-codes that we use 16MB TLB #1 onwards for the mapping. See tt_SiliconDevice::init_pcie_tlb.
     log_assert(ndesc->is_chip_mmio_capable(device_id), "Cannot call channel_0_address for non-MMIO device");
     struct PCIdevice* pci_device = get_pci_device(device_id);
     auto architecture_implementation = pci_device->hdev->get_architecture_implementation();
-    std::uint64_t bar0_offset = offset - architecture_implementation->get_dram_channel_0_peer2peer_region_start()
-                                + architecture_implementation->get_dynamic_tlb_16m_base() + architecture_implementation->get_dynamic_tlb_16m_size();
+    std::uint64_t bar0_offset;
+
+    // Temporary hack for blackhole bringup.
+    if (arch_name == tt::ARCH::BLACKHOLE) {
+        // Use 195th 2MB TLB onwards.
+        // TLBs up to 195 are used as static or fallback TLBs.
+        const std::uint32_t TLB_CH0_START = 195;
+        bar0_offset = offset - architecture_implementation->get_dram_channel_0_peer2peer_region_start()
+                        + architecture_implementation->get_dynamic_tlb_2m_base() + (TLB_CH0_START * architecture_implementation->get_dynamic_tlb_2m_size());
+
+    } else {
+        // This hard-codes that we use 16MB TLB #1 onwards for the mapping.
+        bar0_offset = offset - architecture_implementation->get_dram_channel_0_peer2peer_region_start()
+                        + architecture_implementation->get_dynamic_tlb_16m_base() + architecture_implementation->get_dynamic_tlb_16m_size();
+    }
 
     return static_cast<std::byte*>(pci_device->hdev->bar0_wc) + bar0_offset;
 }

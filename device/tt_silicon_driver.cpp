@@ -184,8 +184,8 @@ struct TTDeviceBase
 
     std::uint32_t read_checking_offset;
 
-    void* bar4_mapping = nullptr;
-    std::uint64_t bar4_mapping_size;
+    void* bar4_wc = nullptr;
+    std::uint64_t bar4_wc_size;
 };
 
 struct TTDevice : TTDeviceBase
@@ -236,6 +236,10 @@ private:
             munmap(bar0_uc, bar0_uc_size);
         }
 
+        if (bar4_wc != nullptr && bar4_wc != MAP_FAILED) {
+            munmap(bar4_wc, bar4_wc_size);
+        }
+
         if (system_reg_mapping != nullptr && system_reg_mapping != MAP_FAILED) {
             munmap(system_reg_mapping, system_reg_mapping_size);
         }
@@ -255,6 +259,7 @@ private:
         device_fd = -1;
         bar0_uc = nullptr;
         bar0_wc = nullptr;
+        bar4_wc = nullptr;
         system_reg_mapping = nullptr;
         dma_buffer_mappings.clear();
         sysfs_config_fd = -1;
@@ -551,10 +556,10 @@ void TTDevice::do_open() {
         }
 
         // WC mapping
-        this->bar4_mapping_size = bar4_wc_mapping.mapping_size;
-        this->bar4_mapping = mmap(NULL, bar4_wc_mapping.mapping_size, PROT_READ | PROT_WRITE, MAP_SHARED, device_fd, bar4_wc_mapping.mapping_base);
+        this->bar4_wc_size = bar4_wc_mapping.mapping_size;
+        this->bar4_wc = mmap(NULL, bar4_wc_mapping.mapping_size, PROT_READ | PROT_WRITE, MAP_SHARED, device_fd, bar4_wc_mapping.mapping_base);
 
-        if (this->bar4_mapping == MAP_FAILED) {
+        if (this->bar4_wc == MAP_FAILED) {
             throw std::runtime_error(std::string("BAR4 WC memory mapping failed for device ") + std::to_string(index) + ".");
         }
     }
@@ -1024,9 +1029,9 @@ void read_block(TTDevice *dev, uint64_t byte_addr, uint64_t num_bytes, uint8_t* 
     record_access("read_block_b", byte_addr, num_bytes, false, false, true, false); // addr, size, turbo, write, block, endline
 
     void *reg_mapping;
-    if (dev->bar4_mapping != nullptr && byte_addr >= BAR0_BH_SIZE) {
+    if (dev->bar4_wc != nullptr && byte_addr >= BAR0_BH_SIZE) {
         byte_addr -= BAR0_BH_SIZE;
-        reg_mapping = dev->bar4_mapping;
+        reg_mapping = dev->bar4_wc;
     }
     else if (dev->system_reg_mapping != nullptr && byte_addr >= dev->system_reg_start_offset) {
         byte_addr -= dev->system_reg_offset_adjust;
@@ -1087,9 +1092,9 @@ void write_block(TTDevice *dev, uint64_t byte_addr, uint64_t num_bytes, const ui
     record_access("write_block_b", byte_addr, num_bytes, false, true, true, false); // addr, size, turbo, write, block, endline
 
     void *reg_mapping;
-    if (dev->bar4_mapping != nullptr && byte_addr >= BAR0_BH_SIZE) {
+    if (dev->bar4_wc != nullptr && byte_addr >= BAR0_BH_SIZE) {
         byte_addr -= BAR0_BH_SIZE;
-        reg_mapping = dev->bar4_mapping;
+        reg_mapping = dev->bar4_wc;
     }
     else if (dev->system_reg_mapping != nullptr && byte_addr >= dev->system_reg_start_offset) {
         byte_addr -= dev->system_reg_offset_adjust;
@@ -2181,7 +2186,7 @@ void tt_SiliconDevice::write_device_memory(const void *mem_ptr, uint32_t size_in
 
     if (tlb_data.has_value() && address_in_tlb_space(address, size_in_bytes, tlb_index, std::get<1>(tlb_data.value()), target.chip)) {
         auto [tlb_offset, tlb_size] = tlb_data.value();
-        if (dev->bar4_mapping != nullptr && tlb_size == BH_4GB_TLB_SIZE) {
+        if (dev->bar4_wc != nullptr && tlb_size == BH_4GB_TLB_SIZE) {
             // This is only for Blackhole. If we want to  write to DRAM (BAR4 space), we add offset
             // to which we write so write_block knows it needs to target BAR4
             write_block(dev, (tlb_offset + address % tlb_size) + BAR0_BH_SIZE, size_in_bytes, buffer_addr, m_dma_buf_size);
@@ -2224,7 +2229,7 @@ void tt_SiliconDevice::read_device_memory(void *mem_ptr, tt_cxy_pair target, std
 
     if (tlb_data.has_value()  && address_in_tlb_space(address, size_in_bytes, tlb_index, std::get<1>(tlb_data.value()), target.chip)) {
         auto [tlb_offset, tlb_size] = tlb_data.value();
-        if (dev->bar4_mapping != nullptr && tlb_size == BH_4GB_TLB_SIZE) {
+        if (dev->bar4_wc != nullptr && tlb_size == BH_4GB_TLB_SIZE) {
             // This is only for Blackhole. If we want to  read from DRAM (BAR4 space), we add offset
             // from which we read so read_block knows it needs to target BAR4
             read_block(dev, (tlb_offset + address % tlb_size) + BAR0_BH_SIZE, size_in_bytes, buffer_addr, m_dma_buf_size);

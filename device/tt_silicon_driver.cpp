@@ -235,7 +235,7 @@ private:
     TTDevice() = default;
 
     void reset() {
-        if (arch == tt::ARCH::BLACKHOLE) {
+        if (arch == tt::ARCH::BLACKHOLE && bar2_uc != nullptr && bar2_uc != MAP_FAILED) {
             // Disable ATU.
             uint64_t iatu_index = 0;
             uint64_t iatu_base = UNROLL_ATU_OFFSET_BAR + iatu_index * 0x200;

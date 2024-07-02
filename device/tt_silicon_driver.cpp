@@ -134,6 +134,9 @@ const uint64_t BAR0_BH_SIZE = 512 * 1024 * 1024;
 // TLB size for DRAM on blackhole - 4GB
 const uint64_t BH_4GB_TLB_SIZE = 4ULL * 1024 * 1024 * 1024;
 
+// See /vendor_ip/synopsys/052021/bh_pcie_ctl_gen5/export/configuration/DWC_pcie_ctl.h
+const uint64_t UNROLL_ATU_OFFSET_BAR = 0x1200
+
 // Foward declarations
 PCIdevice ttkmd_open(DWORD device_id, bool sharable /* = false */);
 int ttkmd_close(struct PCIdevice &device);
@@ -155,6 +158,12 @@ struct TTDeviceBase
 
     void *bar0_wc = nullptr;
     std::size_t bar0_wc_size = 0;
+
+    void *bar2_uc = nullptr;
+    std::size_t bar2_uc_size;
+
+    void *bar4_wc = nullptr;
+    std::uint64_t bar4_wc_size;
 
     void *system_reg_mapping = nullptr;
     std::size_t system_reg_mapping_size;
@@ -224,6 +233,10 @@ private:
     TTDevice() = default;
 
     void reset() {
+        if (arch_name == tt::ARCH::BLACKHOLE) {
+
+        }
+
         if (device_fd != -1) {
             close(device_fd);
         }
@@ -234,6 +247,10 @@ private:
 
         if (bar0_uc != nullptr && bar0_uc != MAP_FAILED) {
             munmap(bar0_uc, bar0_uc_size);
+        }
+
+        if (bar2_uc != nullptr && bar2_uc != MAP_FAILED) {
+            munmap(bar2_uc, bar2_uc_size);
         }
 
         if (bar4_wc != nullptr && bar4_wc != MAP_FAILED) {
@@ -259,6 +276,7 @@ private:
         device_fd = -1;
         bar0_uc = nullptr;
         bar0_wc = nullptr;
+        bar2_uc = nullptr;
         bar4_wc = nullptr;
         system_reg_mapping = nullptr;
         dma_buffer_mappings.clear();
@@ -292,8 +310,8 @@ bool is_blackhole(const uint16_t device_id) {
     return device_id == 0xb140;
 }
 
-bool is_blackhole(const tenstorrent_get_device_info_out &device_info) {
-    return is_blackhole(device_info.device_id);
+bool is_grayskull(const tenstorrent_get_device_info_out &device_info) {
+    return is_grayskull(device_info.device_id);
 }
 
 bool is_wormhole(const tenstorrent_get_device_info_out &device_info) {
@@ -302,6 +320,10 @@ bool is_wormhole(const tenstorrent_get_device_info_out &device_info) {
 
 bool is_wormhole_b0(const uint16_t device_id, const uint16_t revision_id) {
     return (is_wormhole(device_id) && (revision_id == 0x01));
+}
+
+bool is_blackhole(const tenstorrent_get_device_info_out &device_info) {
+    return is_blackhole(device_info.device_id);
 }
 
 
@@ -472,11 +494,15 @@ void TTDevice::do_open() {
     // Resource 2 -> BAR4
     tenstorrent_mapping bar0_uc_mapping;
     tenstorrent_mapping bar0_wc_mapping;
+    tenstorrent_mapping bar2_uc_mapping;
+    tenstorrent_mapping bar2_wc_mapping;
     tenstorrent_mapping bar4_uc_mapping;
     tenstorrent_mapping bar4_wc_mapping;
 
     memset(&bar0_uc_mapping, 0, sizeof(bar0_uc_mapping));
     memset(&bar0_wc_mapping, 0, sizeof(bar0_wc_mapping));
+    memset(&bar2_uc_mapping, 0, sizeof(bar2_uc_mapping));
+    memset(&bar2_wc_mapping, 0, sizeof(bar2_wc_mapping));
     memset(&bar4_uc_mapping, 0, sizeof(bar4_uc_mapping));
     memset(&bar4_wc_mapping, 0, sizeof(bar4_wc_mapping));
 
@@ -489,20 +515,24 @@ void TTDevice::do_open() {
             bar0_wc_mapping = mappings.mapping_array[i];
         }
 
-        if (mappings.mapping_array[i].mapping_id == TENSTORRENT_MAPPING_RESOURCE2_UC) {
-            bar4_uc_mapping = mappings.mapping_array[i];
+        if (mappings.mapping_array[i].mapping_id == TENSTORRENT_MAPPING_RESOURCE1_UC) {
+            bar2_uc_mapping = mappings.mapping_array[i];
         }
 
-        if (mappings.mapping_array[i].mapping_id == TENSTORRENT_MAPPING_RESOURCE2_WC) {
-            bar4_wc_mapping = mappings.mapping_array[i];
+        if (mappings.mapping_array[i].mapping_id == TENSTORRENT_MAPPING_RESOURCE1_WC) {
+            bar2_wc_mapping = mappings.mapping_array[i];
         }
+        log_debug(LogSiliconDriver, "BAR mapping id {} base {} size {}",
+            mappings.mapping_array[i].mapping_id,
+            std::reinterpret_cast<void *>(mappings.mapping_array[i].mapping_base),
+            mappings.mapping_array[i].mapping_size);
     }
 
     if (bar0_uc_mapping.mapping_id != TENSTORRENT_MAPPING_RESOURCE0_UC) {
         throw std::runtime_error(std::string("Device ") + std::to_string(index) + " has no BAR0 UC mapping.");
     }
 
-    auto wc_mapping_size = is_blackhole(device_info.out) ? BH_BAR0_WC_MAPPING_SIZE : GS_BAR0_WC_MAPPING_SIZE;
+    auto wc_mapping_size = is_blackhole(device_info) ? BH_BAR0_WC_MAPPING_SIZE : GS_BAR0_WC_MAPPING_SIZE;
 
     // Attempt WC mapping first so we can fall back to all-UC if it fails.
     if (bar0_wc_mapping.mapping_id == TENSTORRENT_MAPPING_RESOURCE0_WC) {
@@ -534,7 +564,7 @@ void TTDevice::do_open() {
         bar0_wc = bar0_uc;
     }
 
-    if (is_wormhole(device_info.out)) {
+    if (is_wormhole(device_info)) {
         if (bar4_uc_mapping.mapping_id != TENSTORRENT_MAPPING_RESOURCE2_UC) {
             throw std::runtime_error(std::string("Device ") + std::to_string(index) + " has no BAR4 UC mapping.");
         }
@@ -549,13 +579,25 @@ void TTDevice::do_open() {
 
         this->system_reg_start_offset = (512 - 16) * 1024*1024;
         this->system_reg_offset_adjust = (512 - 32) * 1024*1024;
-    } else if(is_blackhole(device_info.out)) {
+    } else if(is_blackhole(device_info)) {
+        if (bar2_uc_mapping.mapping_id != TENSTORRENT_MAPPING_RESOURCE1_UC) {
+            throw std::runtime_error(std::string("Device ") + std::to_string(index) + " has no BAR2 UC mapping.");
+        }
+
+        // Using UnCachable memory mode. This is used for accessing registers on Blackhole.
+        this->bar2_uc_size = bar2_uc_mapping.mapping_size;
+        this->bar2_uc = mmap(NULL, bar2_uc_mapping.mapping_size, PROT_READ | PROT_WRITE, MAP_SHARED, device_fd, bar2_uc_mapping.mapping_base);
+
+        if (this->bar2_uc == MAP_FAILED) {
+            throw std::runtime_error(std::string("BAR2 UC memory mapping failed for device ") + std::to_string(index) + ".");
+        }
 
         if (bar4_wc_mapping.mapping_id != TENSTORRENT_MAPPING_RESOURCE2_WC) {
             throw std::runtime_error(std::string("Device ") + std::to_string(index) + " has no BAR4 WC mapping.");
         }
 
-        // WC mapping
+        // Using Write-Combine memory mode. This is used for accessing DRAM on Blackhole.
+        // WC doesn't guarantee write ordering but has better performance.
         this->bar4_wc_size = bar4_wc_mapping.mapping_size;
         this->bar4_wc = mmap(NULL, bar4_wc_mapping.mapping_size, PROT_READ | PROT_WRITE, MAP_SHARED, device_fd, bar4_wc_mapping.mapping_base);
 
@@ -563,16 +605,16 @@ void TTDevice::do_open() {
             throw std::runtime_error(std::string("BAR4 WC memory mapping failed for device ") + std::to_string(index) + ".");
         }
     }
-    pci_domain = device_info.out.pci_domain;
-    pci_bus = device_info.out.bus_dev_fn >> 8;
-    pci_device = PCI_SLOT(device_info.out.bus_dev_fn);
-    pci_function = PCI_FUNC(device_info.out.bus_dev_fn);
+    pci_domain = device_info.pci_domain;
+    pci_bus = device_info.bus_dev_fn >> 8;
+    pci_device = PCI_SLOT(device_info.bus_dev_fn);
+    pci_function = PCI_FUNC(device_info.bus_dev_fn);
 
     arch = detect_arch(this);
     architecture_implementation = tt::umd::architecture_implementation::create(static_cast<tt::umd::architecture>(arch));
 
     // GS+WH: ARC_SCRATCH[6], BH: NOC NODE_ID
-    this->read_checking_offset = is_blackhole(device_info.out) ? BH_NOC_NODE_ID_OFFSET : GS_WH_ARC_SCRATCH_6_OFFSET;
+    this->read_checking_offset = is_blackhole(device_info) ? BH_NOC_NODE_ID_OFFSET : GS_WH_ARC_SCRATCH_6_OFFSET;
 }
 
 void set_debug_level(int dl) {
@@ -1179,12 +1221,7 @@ void set_use_dma(bool msi, uint32_t dma_block_size_read_threshold_bytes, uint32_
     g_DMA_BLOCK_SIZE_WRITE_THRESHOLD_BYTES = dma_block_size_write_threshold_bytes;
 }
 
-void write_regs(TTDevice *dev, uint32_t byte_addr, uint32_t word_len, const void *data) {
-    record_access("write_regs", byte_addr, word_len * sizeof(uint32_t), false, true, false, false);
-
-    volatile uint32_t *dest = register_address<std::uint32_t>(dev, byte_addr);
-    const uint32_t *src = reinterpret_cast<const uint32_t*>(data);
-
+void write_regs(volatile uint32_t *dest, const uint32_t *src, uint32_t word_len) {
     while (word_len-- != 0) {
         uint32_t temp;
         memcpy(&temp, src++, sizeof(temp));
@@ -1192,6 +1229,15 @@ void write_regs(TTDevice *dev, uint32_t byte_addr, uint32_t word_len, const void
     }
     LOG2(" REG ");
     print_buffer (data, std::min(g_NUM_BYTES_TO_PRINT, word_len * 4), true);
+}
+
+void write_regs(TTDevice *dev, uint32_t byte_addr, uint32_t word_len, const void *data) {
+    record_access("write_regs", byte_addr, word_len * sizeof(uint32_t), false, true, false, false);
+
+    volatile uint32_t *dest = register_address<std::uint32_t>(dev, byte_addr);
+    const uint32_t *src = reinterpret_cast<const uint32_t*>(data);
+
+    write_regs(dest, src, word_len);
 }
 
 void write_tlb_reg(TTDevice *dev, uint32_t byte_addr, std::uint64_t value_lower, std::uint64_t value_upper, std::uint32_t tlb_cfg_reg_size) {
@@ -1505,12 +1551,7 @@ void tt_SiliconDevice::create_device(const std::unordered_set<chip_id_t> &target
         *pci_device = ttkmd_open ((DWORD) pci_interface_id, false);
         pci_device->logical_id = logical_device_id;
 
-        // MT: Initial BH
-        if (arch_name == tt::ARCH::BLACKHOLE) {
-            m_num_host_mem_channels = 0;
-        } else {
-            m_num_host_mem_channels = get_available_num_host_mem_channels(num_host_mem_ch_per_mmio_device, pci_device->device_id, pci_device->revision_id);
-        }
+        m_num_host_mem_channels = get_available_num_host_mem_channels(num_host_mem_ch_per_mmio_device, pci_device->device_id, pci_device->revision_id);
 
         log_debug(LogSiliconDriver, "Using {} Hugepages/NumHostMemChannels for TTDevice (logical_device_id: {} pci_interface_id: {} device_id: 0x{:x} revision: {})",
             m_num_host_mem_channels, logical_device_id, pci_interface_id, pci_device->device_id, pci_device->revision_id);
@@ -1980,14 +2021,14 @@ void tt_SiliconDevice::initialize_pcie_devices() {
     }
 
     // If requires multi-channel or doesn't support mmio-p2p, init iatus without p2p.
-    // MT Initial BH - skip device to host related init
-    if (arch_name != tt::ARCH::BLACKHOLE) {
-        if (m_num_host_mem_channels > 1 || arch_name != tt::ARCH::GRAYSKULL) {
-            init_pcie_iatus_no_p2p();
-        } else {
-            init_pcie_iatus();
-        }
+    if (m_num_host_mem_channels > 1 || arch_name != tt::ARCH::GRAYSKULL) {
+        log_assert(!(arch_name == tt::ARCH::BLACKHOLE && m_num_host_mem_channels > 1),
+            "More channels are not yet supported for Blackhole");
+        init_pcie_iatus_no_p2p();
+    } else {
+        init_pcie_iatus();
     }
+
     init_membars();
     
     // https://yyz-gitlab.local.tenstorrent.com/ihamer/ll-sw/issues/25
@@ -2288,12 +2329,25 @@ void tt_SiliconDevice::write_dma_buffer(
     std::uint16_t channel,
     chip_id_t src_device_id) {
 
-    log_trace(LogSiliconDriver, "Issuing write to host side DMA Buffer inside Silicon Driver. DMA Buffer chan {} address {} size {}", channel, address, size);
-    // log_debug(LogSiliconDriver, "Issuing write to host side DMA Buffer inside Silicon Driver. DMA Buffer chan {} address {} size {}", channel, address, size);
-
     void * user_scratchspace = nullptr;
     if(hugepage_mapping.at(src_device_id).at(channel)) {
+      log_debug(LogSiliconDriver, "Using hugepage mapping at address {} offset {} chan {} size {}",
+        hugepage_mapping.at(src_device_id).at(channel),
+        (address & HUGEPAGE_MAP_MASK),
+        channel,
+        size);
       user_scratchspace = static_cast<char*>(hugepage_mapping.at(src_device_id).at(channel)) + (address & HUGEPAGE_MAP_MASK);
+    }
+    else if(buf_mapping) {
+      log_debug(LogSiliconDriver, "Using DMA Buffer at address {} offset {} size {}",
+        buf_mapping,
+        address,
+        size);
+        // we failed when initializing huge pages, we are using a 1MB DMA buffer as a stand-in
+        user_scratchspace = reinterpret_cast<char*>(buf_mapping);
+    } else {
+      std::string err_msg = "write_dma_buffer: Hugepage or DMAbuffer are not allocated for src_device_id: " + std::to_string(src_device_id) + " ch: " + std::to_string(channel);
+      throw std::runtime_error(err_msg);
     }
     memcpy(user_scratchspace, mem_ptr, size);
 }
@@ -2585,12 +2639,14 @@ void tt_SiliconDevice::init_pcie_iatus_no_p2p() {
             if (hugepage_mapping.at(src_pci_id).at(channel_id)) {
                 std::uint32_t region_size = HUGEPAGE_REGION_SIZE;
                 if(channel_id == 3) region_size = 805306368; // Remove 256MB from full 1GB for channel 3 (iATU limitation)
+                log_debug(LogSiliconDriver, "Configuring ATU channel {} to point to hugepage {}.", channel_id, src_pci_id);
                 iatu_configure_peer_region(src_pci_id, channel_id, hugepage_physical_address.at(src_pci_id).at(channel_id), region_size);
                 if(host_channel_size.find(src_pci_device -> logical_id) == host_channel_size.end()) {
                      host_channel_size.insert({src_pci_device -> logical_id, {}});
                 }
                 host_channel_size.at(src_pci_device -> logical_id).push_back(region_size);
             } else if(buf_mapping) {
+                log_debug(LogSiliconDriver, "Configuring ATU channel {} to point to DMA buffer.", channel_id);
                 // we failed when initializing huge pages, we are using a 1MB DMA buffer as a stand-in
                 iatu_configure_peer_region(src_pci_id, channel_id, buf_physical_addr, DMA_BUF_REGION_SIZE);
             }
@@ -3030,11 +3086,40 @@ int tt_SiliconDevice::iatu_configure_peer_region (int logical_device_id, uint32_
     struct PCIdevice* pci_device = get_pci_device(logical_device_id);
     auto architecture_implementation = pci_device->hdev->get_architecture_implementation();
 
-    bar_write32(logical_device_id, architecture_implementation->get_arc_csm_mailbox_offset() + 0 * 4, region_id_to_use);
-    bar_write32(logical_device_id, architecture_implementation->get_arc_csm_mailbox_offset() + 1 * 4, dest_bar_lo);
-    bar_write32(logical_device_id, architecture_implementation->get_arc_csm_mailbox_offset() + 2 * 4, dest_bar_hi);
-    bar_write32(logical_device_id, architecture_implementation->get_arc_csm_mailbox_offset() + 3 * 4, region_size);
-    arc_msg(logical_device_id, 0xaa00 | architecture_implementation->get_arc_message_setup_iatu_for_peer_to_peer(), true, 0, 0);
+    // BR: ARC doesn't work yet on Blackhole, so programming ATU directly. Should be removed when arc starts working.
+    if (arch_name == tt::ARCH::BLACKHOLE) {
+        uint64_t base_addr = region_id_to_use*region_size;
+        uint64_t base_size = (region_id_to_use+1)*region_size;
+        uint64_t limit_address = base_addr + base_size - 1;
+
+        uint32_t region_ctrl_1 = 1 << 13; // INCREASE_REGION_SIZE = 1
+        uint32_t region_ctrl_2 = 1 << 31; // REGION_EN = 1
+        uint32_t region_ctrl_3 = 0;
+        uint32_t base_addr_lo = base_addr & 0xffffffff;
+        uint32_t base_addr_hi = (base_addr >> 32) & 0xffffffff;
+        uint32_t limit_address_lo = limit_address & 0xffffffff;
+        uint32_t limit_address_hi = (limit_address >> 32) & 0xffffffff;
+
+        uint64_t iatu_index = 0;
+        uint64_t iatu_base = UNROLL_ATU_OFFSET_BAR + iatu_index * 0x200;
+
+        write_regs(reinterpret_cast<std::uint32_t*>(static_cast<uint8_t*>(dev->bar1_uc_mapping) + iatu_base + 0x00), &region_ctrl_1, 1);
+        write_regs(reinterpret_cast<std::uint32_t*>(static_cast<uint8_t*>(dev->bar1_uc_mapping) + iatu_base + 0x04), &region_ctrl_2, 1);
+        write_regs(reinterpret_cast<std::uint32_t*>(static_cast<uint8_t*>(dev->bar1_uc_mapping) + iatu_base + 0x08), &base_addr_lo, 1);
+        write_regs(reinterpret_cast<std::uint32_t*>(static_cast<uint8_t*>(dev->bar1_uc_mapping) + iatu_base + 0x0c), &base_addr_hi, 1);
+        write_regs(reinterpret_cast<std::uint32_t*>(static_cast<uint8_t*>(dev->bar1_uc_mapping) + iatu_base + 0x10), &limit_address_lo, 1);
+        write_regs(reinterpret_cast<std::uint32_t*>(static_cast<uint8_t*>(dev->bar1_uc_mapping) + iatu_base + 0x14), &dest_bar_lo, 1);
+        write_regs(reinterpret_cast<std::uint32_t*>(static_cast<uint8_t*>(dev->bar1_uc_mapping) + iatu_base + 0x18), &dest_bar_hi, 1);
+        write_regs(reinterpret_cast<std::uint32_t*>(static_cast<uint8_t*>(dev->bar1_uc_mapping) + iatu_base + 0x1c), &region_ctrl_3, 1);
+        write_regs(reinterpret_cast<std::uint32_t*>(static_cast<uint8_t*>(dev->bar1_uc_mapping) + iatu_base + 0x20), &limit_address_hi, 1);
+    }
+    else {
+        bar_write32(logical_device_id, architecture_implementation->get_arc_csm_mailbox_offset() + 0 * 4, region_id_to_use);
+        bar_write32(logical_device_id, architecture_implementation->get_arc_csm_mailbox_offset() + 1 * 4, dest_bar_lo);
+        bar_write32(logical_device_id, architecture_implementation->get_arc_csm_mailbox_offset() + 2 * 4, dest_bar_hi);
+        bar_write32(logical_device_id, architecture_implementation->get_arc_csm_mailbox_offset() + 3 * 4, region_size);
+        arc_msg(logical_device_id, 0xaa00 | architecture_implementation->get_arc_message_setup_iatu_for_peer_to_peer(), true, 0, 0);
+    }
 
     // Print what just happened
     uint32_t peer_region_start = region_id_to_use*region_size;
@@ -3131,6 +3216,9 @@ void *tt_SiliconDevice::host_dma_address(std::uint64_t offset, chip_id_t src_dev
 
     if (hugepage_mapping.at(src_device_id).at(channel) != nullptr) {
         return static_cast<std::byte*>(hugepage_mapping.at(src_device_id).at(channel)) + offset;
+    } else if(buf_mapping) {
+        // we failed when initializing huge pages, we are using a 1MB DMA buffer as a stand-in
+        return static_cast<std::byte*>(buf_mapping) + offset;
     } else {
         return nullptr;
     }

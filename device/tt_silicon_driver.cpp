@@ -4729,7 +4729,7 @@ void tt_SiliconDevice::set_power_state(tt_DevicePowerState device_state) {
                 set_pcie_power_state(device_state);
             } else {
                 int exit_code = set_remote_power_state(chip, device_state);
-                log_assert(exit_code == 0, "Failed to set power state to {} with exit code: {}", device_state, exit_code);
+                log_assert(exit_code == 0, "Failed to set power state to {} with exit code: {}", (int)device_state, exit_code);
             }
         }
     }

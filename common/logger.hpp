@@ -23,6 +23,8 @@
 #include "fmt/color.h"
 #include "fmt/core.h"
 #include "fmt/ostream.h"
+#include "fmt/std.h"
+#include "fmt/ranges.h"
 
 #include "common/backtrace.hpp"
 
@@ -122,7 +124,7 @@ class LoggerDevice {
 
             std::string str;
             fmt::format_to(std::back_inserter(str), "{} | {} | {} - ", timestamp_str, level_str, type_str);
-            fmt::format_to(std::back_inserter(str), fmt, std::forward<Args>(args)...);
+            fmt::format_to(std::back_inserter(str), fmt::runtime(fmt), std::forward<Args>(args)...);
 
             std::lock_guard<std::mutex> lock(fd_mutex);
             *fd << str << std::endl;

@@ -38,7 +38,7 @@ tlb_configuration grayskull_implementation::get_tlb_configuration(uint32_t tlb_i
     }
 }
 
-std::optional<std::tuple<std::uint32_t, std::uint32_t>> grayskull_implementation::describe_tlb(
+std::optional<std::tuple<std::uint64_t, std::uint64_t>> grayskull_implementation::describe_tlb(
     std::int32_t tlb_index) const {
     std::uint32_t TLB_COUNT_1M = 156;
     std::uint32_t TLB_COUNT_2M = 10;

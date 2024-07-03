@@ -30,6 +30,19 @@ static constexpr auto TLB_2M_OFFSET = tlb_offsets{
     // missing .stream_header
     .static_vc_end = 75};
 
+static constexpr auto TLB_4G_OFFSET = tlb_offsets{
+    .local_offset = 0,
+    .x_end = 32,
+    .y_end = 38,
+    .x_start = 44,
+    .y_start = 50,
+    .noc_sel = 56,
+    .mcast = 58,
+    .ordering = 59,
+    .linked = 61,
+    .static_vc = 62,
+    // missing .stream_header
+    .static_vc_end = 64};
 
 enum class arc_message_type {
     NOP = 0x11,  // Do nothing
@@ -48,28 +61,29 @@ enum class arc_message_type {
 static constexpr std::array<xy_pair, 24> DRAM_LOCATIONS = {
     {{0, 0},
      {0, 1},
-     {0, 2},
-     {0, 3},
-     {0, 4},
-     {0, 5},
-     {0, 6},
-     {0, 7},
-     {0, 8},
-     {0, 9},
-     {0, 10},
      {0, 11},
-     {9, 9},
+     {0, 2},
+     {0, 10},
+     {0, 3},
+     {0, 9},
+     {0, 4},
+     {0, 8},
+     {0, 5},
+     {0, 7},
+     {0, 6},
+     {9, 0},
      {9, 1},
+     {9, 11},
      {9, 2},
-     {9, 3},
-     {9, 4},
-     {9, 5},
-     {9, 6},
-     {9, 7},
-     {9, 8},
-     {9, 9},
      {9, 10},
-     {9, 11}}};
+     {9, 3},
+     {9, 9},
+     {9, 4},
+     {9, 8},
+     {9, 5},
+     {9, 7},
+     {9, 6}}};
+
 static constexpr std::array<xy_pair, 1> ARC_LOCATIONS = {{{8, 0}}};
 static constexpr std::array<xy_pair, 1> PCI_LOCATIONS = {{{11, 0}}};
 static constexpr std::array<xy_pair, 14> ETH_LOCATIONS = {
@@ -101,13 +115,22 @@ static constexpr uint32_t BROADCAST_TLB_INDEX = 0;     // TODO: Copied from worm
 static constexpr uint32_t STATIC_TLB_CFG_ADDR = 0x1fc00000;
 
 static constexpr uint32_t TLB_COUNT_2M = 202;
-static constexpr uint32_t TLB_BASE_2M = 0;
+static constexpr uint32_t TLB_BASE_2M = 0; // 0 in BAR0
 static constexpr uint32_t TLB_BASE_INDEX_2M = 0;
 static constexpr uint32_t TLB_2M_SIZE = 2 * 1024 * 1024;
 
+static constexpr uint32_t TLB_CFG_REG_SIZE_BYTES = 12;
+
+static constexpr uint32_t TLB_COUNT_4G = 8;
+static constexpr uint32_t TLB_BASE_4G = 0; // 0 in BAR4
+static constexpr uint32_t TLB_BASE_INDEX_4G = TLB_COUNT_2M;
+static constexpr uint64_t TLB_4G_SIZE = 4ULL * 1024ULL * 1024ULL * 1024ULL;
+static constexpr uint64_t DYNAMIC_TLB_4G_SIZE = TLB_4G_SIZE;
+static constexpr uint32_t DYNAMIC_TLB_4G_CFG_ADDR = STATIC_TLB_CFG_ADDR + (TLB_BASE_INDEX_4G * TLB_CFG_REG_SIZE_BYTES);
+static constexpr uint32_t DYNAMIC_TLB_4G_BASE = TLB_BASE_4G;
+
 static constexpr uint32_t DYNAMIC_TLB_COUNT = 16;
 
-static constexpr uint32_t TLB_CFG_REG_SIZE_BYTES = 12;
 static constexpr uint32_t DYNAMIC_TLB_2M_SIZE = 2 * 1024 * 1024;
 static constexpr uint32_t DYNAMIC_TLB_2M_CFG_ADDR = STATIC_TLB_CFG_ADDR + (TLB_BASE_INDEX_2M * TLB_CFG_REG_SIZE_BYTES);
 static constexpr uint32_t DYNAMIC_TLB_2M_BASE = TLB_BASE_2M;
@@ -203,7 +226,7 @@ class blackhole_implementation : public architecture_implementation {
 
     std::tuple<xy_pair, xy_pair> multicast_workaround(xy_pair start, xy_pair end) const override;
     tlb_configuration get_tlb_configuration(uint32_t tlb_index) const override;
-    std::optional<std::tuple<std::uint32_t, std::uint32_t>> describe_tlb(std::int32_t tlb_index) const override;
+    std::optional<std::tuple<std::uint64_t, std::uint64_t>> describe_tlb(std::int32_t tlb_index) const override;
     std::pair<std::uint64_t, std::uint64_t> get_tlb_data(std::uint32_t tlb_index, const tlb_data& data) const override;
 };
 

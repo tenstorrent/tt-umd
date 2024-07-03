@@ -43,7 +43,7 @@ tlb_configuration wormhole_implementation::get_tlb_configuration(uint32_t tlb_in
     }
 }
 
-std::optional<std::tuple<std::uint32_t, std::uint32_t>> wormhole_implementation::describe_tlb(
+std::optional<std::tuple<std::uint64_t, std::uint64_t>> wormhole_implementation::describe_tlb(
     std::int32_t tlb_index) const {
     std::uint32_t TLB_COUNT_1M = 156;
     std::uint32_t TLB_COUNT_2M = 10;

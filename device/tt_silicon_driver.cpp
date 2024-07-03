@@ -2607,7 +2607,7 @@ void tt_SiliconDevice::init_pcie_iatus() {
                 const uint16_t host_memory_channel = 0; // Only single channel supported.
                 if (hugepage_mapping.at(src_pci_id).at(host_memory_channel)) {
                     iatu_configure_peer_region(src_pci_id, current_peer_region, hugepage_physical_address.at(src_pci_id).at(host_memory_channel), HUGEPAGE_REGION_SIZE);
-                    host_channel_size.insert({src_pci_device -> logical_id, {HUGEPAGE_REGION_SIZE}});
+                    host_channel_size.insert({(int)src_pci_device->logical_id, {HUGEPAGE_REGION_SIZE}});
                 } else if(buf_mapping) {
                     // we failed when initializing huge pages, we are using a 1MB DMA buffer as a stand-in
                     iatu_configure_peer_region(src_pci_id, current_peer_region, buf_physical_addr, DMA_BUF_REGION_SIZE);
@@ -2656,8 +2656,8 @@ void tt_SiliconDevice::init_pcie_iatus_no_p2p() {
                 if(channel_id == 3) region_size = 805306368; // Remove 256MB from full 1GB for channel 3 (iATU limitation)
                 log_debug(LogSiliconDriver, "Configuring ATU channel {} to point to hugepage {}.", channel_id, src_pci_id);
                 iatu_configure_peer_region(src_pci_id, channel_id, hugepage_physical_address.at(src_pci_id).at(channel_id), region_size);
-                if(host_channel_size.find(src_pci_device -> logical_id) == host_channel_size.end()) {
-                     host_channel_size.insert({src_pci_device -> logical_id, {}});
+                if(host_channel_size.find(src_pci_device->logical_id) == host_channel_size.end()) {
+                     host_channel_size.insert({(int)src_pci_device->logical_id, {}});
                 }
                 host_channel_size.at(src_pci_device -> logical_id).push_back(region_size);
             } else if(buf_mapping) {

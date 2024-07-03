@@ -194,9 +194,6 @@ struct TTDeviceBase
     std::vector<DMAbuffer> dma_buffer_mappings;
 
     std::uint32_t read_checking_offset;
-
-    void* bar4_wc = nullptr;
-    std::uint64_t bar4_wc_size;
 };
 
 struct TTDevice : TTDeviceBase
@@ -529,6 +526,15 @@ void TTDevice::do_open() {
         if (mappings.mapping_array[i].mapping_id == TENSTORRENT_MAPPING_RESOURCE1_WC) {
             bar2_wc_mapping = mappings.mapping_array[i];
         }
+
+        if (mappings.mapping_array[i].mapping_id == TENSTORRENT_MAPPING_RESOURCE2_UC) {
+            bar4_uc_mapping = mappings.mapping_array[i];
+        }
+
+        if (mappings.mapping_array[i].mapping_id == TENSTORRENT_MAPPING_RESOURCE2_WC) {
+            bar4_wc_mapping = mappings.mapping_array[i];
+        }
+
         log_debug(LogSiliconDriver, "BAR mapping id {} base {} size {}",
             mappings.mapping_array[i].mapping_id,
             (void *)mappings.mapping_array[i].mapping_base,
@@ -1243,7 +1249,7 @@ void write_regs(TTDevice *dev, uint32_t byte_addr, uint32_t word_len, const void
     write_regs(dest, src, word_len);
 
     LOG2(" REG ");
-    print_buffer (src, std::min(g_NUM_BYTES_TO_PRINT, word_len * 4), true);
+    print_buffer (data, std::min(g_NUM_BYTES_TO_PRINT, word_len * 4), true);
 }
 
 void write_tlb_reg(TTDevice *dev, uint32_t byte_addr, std::uint64_t value_lower, std::uint64_t value_upper, std::uint32_t tlb_cfg_reg_size) {

@@ -236,7 +236,8 @@ private:
 
     void reset() {
         if (arch == tt::ARCH::BLACKHOLE && bar2_uc != nullptr && bar2_uc != MAP_FAILED) {
-            // Disable ATU.
+            // Disable ATU index 0
+            // TODO: Implement disabling for all indexes, once more host channels are enabled.
             uint64_t iatu_index = 0;
             uint64_t iatu_base = UNROLL_ATU_OFFSET_BAR + iatu_index * 0x200;
             uint32_t region_ctrl_2 = 0 << 31; // REGION_EN = 0
@@ -1229,9 +1230,7 @@ void set_use_dma(bool msi, uint32_t dma_block_size_read_threshold_bytes, uint32_
 
 void write_regs(volatile uint32_t *dest, const uint32_t *src, uint32_t word_len) {
     while (word_len-- != 0) {
-        uint32_t temp;
-        memcpy(&temp, src++, sizeof(temp));
-        *dest++ = temp;
+        *dest++ = *src++;
     }
 }
 
@@ -2028,12 +2027,13 @@ void tt_SiliconDevice::initialize_pcie_devices() {
     }
 
     // If requires multi-channel or doesn't support mmio-p2p, init iatus without p2p.
-    if (m_num_host_mem_channels > 1 || arch_name != tt::ARCH::GRAYSKULL) {
+    if (m_num_host_mem_channels <= 1 && arch_name == tt::ARCH::GRAYSKULL) {
+        init_pcie_iatus();
+    } else {
+        // TODO: Implement support for multiple host channels on BLACKHOLE.
         log_assert(!(arch_name == tt::ARCH::BLACKHOLE && m_num_host_mem_channels > 1),
             "More channels are not yet supported for Blackhole");
         init_pcie_iatus_no_p2p();
-    } else {
-        init_pcie_iatus();
     }
 
     init_membars();
@@ -2338,6 +2338,7 @@ void tt_SiliconDevice::write_dma_buffer(
 
     void * user_scratchspace = nullptr;
     if(hugepage_mapping.at(src_device_id).at(channel)) {
+      log_assert(size <= HUGEPAGE_REGION_SIZE, "write_dma_buffer data has larger size {} than destination buffer {}", size, HUGEPAGE_REGION_SIZE);
       log_debug(LogSiliconDriver, "Using hugepage mapping at address {} offset {} chan {} size {}",
         hugepage_mapping.at(src_device_id).at(channel),
         (address & HUGEPAGE_MAP_MASK),
@@ -2346,6 +2347,7 @@ void tt_SiliconDevice::write_dma_buffer(
       user_scratchspace = static_cast<char*>(hugepage_mapping.at(src_device_id).at(channel)) + (address & HUGEPAGE_MAP_MASK);
     }
     else if(buf_mapping) {
+      log_assert(size <= DMA_BUF_REGION_SIZE, "write_dma_buffer data has larger size {} than destination buffer {}", size, DMA_BUF_REGION_SIZE);
       log_debug(LogSiliconDriver, "Using DMA Buffer at address {} offset {} size {}",
         buf_mapping,
         address,
@@ -3094,9 +3096,10 @@ int tt_SiliconDevice::iatu_configure_peer_region (int logical_device_id, uint32_
     auto architecture_implementation = pci_device->hdev->get_architecture_implementation();
 
     // BR: ARC doesn't work yet on Blackhole, so programming ATU directly. Should be removed when arc starts working.
+    // TODO: Remove when ARC is implemented on BH.
     if (arch_name == tt::ARCH::BLACKHOLE) {
-        uint64_t base_addr = region_id_to_use*region_size;
-        uint64_t base_size = (region_id_to_use+1)*region_size;
+        uint64_t base_addr = region_id_to_use * region_size;
+        uint64_t base_size = (region_id_to_use + 1) * region_size;
         uint64_t limit_address = base_addr + base_size - 1;
 
         uint32_t region_ctrl_1 = 1 << 13; // INCREASE_REGION_SIZE = 1
@@ -4897,6 +4900,10 @@ std::uint32_t tt_SiliconDevice::get_numa_node_for_pcie_device(std::uint32_t devi
 std::uint64_t tt_SiliconDevice::get_pcie_base_addr_from_device() const {
     if(arch_name == tt::ARCH::WORMHOLE or arch_name == tt::ARCH::WORMHOLE_B0) {
         return 0x800000000;
+    }
+    else if (arch_name == tt::ARCH::BLACKHOLE) {
+        // Enable 4th ATU window.
+        return 1ULL << 60;
     }
     else {
         return 0;

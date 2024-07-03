@@ -16,7 +16,6 @@
 
 #include "device/tt_cluster_descriptor.h" // For chip_id_t
 
-#include "fmt/ranges.h" // For logger printing of vectors
 #include "hwloc.h"
 
 using tt_cluster_description = tt_ClusterDescriptor;

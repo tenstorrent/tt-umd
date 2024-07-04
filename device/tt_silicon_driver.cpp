@@ -3213,12 +3213,8 @@ void *tt_SiliconDevice::channel_0_address(std::uint32_t offset, std::uint32_t de
 
     // Temporary hack for blackhole bringup.
     if (arch_name == tt::ARCH::BLACKHOLE) {
-        // Use 184th 2MB TLB onwards.
-        // TLBs up to 184 are used as static or fallback TLBs.
-        const std::uint32_t TLB_CH0_START = 184;
-        bar0_offset = offset - architecture_implementation->get_dram_channel_0_peer2peer_region_start()
-                        + architecture_implementation->get_dynamic_tlb_2m_base() + (TLB_CH0_START * architecture_implementation->get_dynamic_tlb_2m_size());
-
+        // We use BAR4 segment for mapping for Blackhole.
+        return static_cast<std::byte*>(pci_device->hdev->bar4_wc) + offset;
     } else {
         // This hard-codes that we use 16MB TLB #1 onwards for the mapping.
         bar0_offset = offset - architecture_implementation->get_dram_channel_0_peer2peer_region_start()

@@ -1563,9 +1563,10 @@ void tt_SiliconDevice::create_device(const std::unordered_set<chip_id_t> &target
         *pci_device = ttkmd_open ((DWORD) pci_interface_id, false);
         pci_device->logical_id = logical_device_id;
 
-        m_num_host_mem_channels = get_available_num_host_mem_channels(num_host_mem_ch_per_mmio_device, pci_device->device_id, pci_device->revision_id);
+        // m_num_host_mem_channels = get_available_num_host_mem_channels(num_host_mem_ch_per_mmio_device, pci_device->device_id, pci_device->revision_id);
+        m_num_host_mem_channels = 1;        
 
-        log_debug(LogSiliconDriver, "Using {} Hugepages/NumHostMemChannels for TTDevice (logical_device_id: {} pci_interface_id: {} device_id: 0x{:x} revision: {})",
+        log_info(LogSiliconDriver, "Using {} Hugepages/NumHostMemChannels for TTDevice (logical_device_id: {} pci_interface_id: {} device_id: 0x{:x} revision: {})",
             m_num_host_mem_channels, logical_device_id, pci_interface_id, pci_device->device_id, pci_device->revision_id);
 
         if (g_SINGLE_PIN_PAGE_PER_FD_WORKAROND) {
@@ -2345,7 +2346,7 @@ void tt_SiliconDevice::write_dma_buffer(
     void * user_scratchspace = nullptr;
     if(hugepage_mapping.at(src_device_id).at(channel)) {
       log_assert(size <= HUGEPAGE_REGION_SIZE, "write_dma_buffer data has larger size {} than destination buffer {}", size, HUGEPAGE_REGION_SIZE);
-      log_debug(LogSiliconDriver, "Using hugepage mapping at address {} offset {} chan {} size {}",
+      log_info(LogSiliconDriver, "Using hugepage mapping at address {} offset {} chan {} size {}",
         hugepage_mapping.at(src_device_id).at(channel),
         (address & HUGEPAGE_MAP_MASK),
         channel,
@@ -2354,7 +2355,7 @@ void tt_SiliconDevice::write_dma_buffer(
     }
     else if(buf_mapping) {
       log_assert(size <= DMA_BUF_REGION_SIZE, "write_dma_buffer data has larger size {} than destination buffer {}", size, DMA_BUF_REGION_SIZE);
-      log_debug(LogSiliconDriver, "Using DMA Buffer at address {} offset {} size {}",
+      log_info(LogSiliconDriver, "Using DMA Buffer at address {} offset {} size {}",
         buf_mapping,
         address,
         size);
@@ -2654,14 +2655,14 @@ void tt_SiliconDevice::init_pcie_iatus_no_p2p() {
             if (hugepage_mapping.at(src_pci_id).at(channel_id)) {
                 std::uint32_t region_size = HUGEPAGE_REGION_SIZE;
                 if(channel_id == 3) region_size = 805306368; // Remove 256MB from full 1GB for channel 3 (iATU limitation)
-                log_debug(LogSiliconDriver, "Configuring ATU channel {} to point to hugepage {}.", channel_id, src_pci_id);
+                log_info(LogSiliconDriver, "Configuring ATU channel {} to point to hugepage {}.", channel_id, src_pci_id);
                 iatu_configure_peer_region(src_pci_id, channel_id, hugepage_physical_address.at(src_pci_id).at(channel_id), region_size);
                 if(host_channel_size.find(src_pci_device -> logical_id) == host_channel_size.end()) {
                      host_channel_size.insert({src_pci_device -> logical_id, {}});
                 }
                 host_channel_size.at(src_pci_device -> logical_id).push_back(region_size);
             } else if(buf_mapping) {
-                log_debug(LogSiliconDriver, "Configuring ATU channel {} to point to DMA buffer.", channel_id);
+                log_info(LogSiliconDriver, "Configuring ATU channel {} to point to DMA buffer.", channel_id);
                 // we failed when initializing huge pages, we are using a 1MB DMA buffer as a stand-in
                 iatu_configure_peer_region(src_pci_id, channel_id, buf_physical_addr, DMA_BUF_REGION_SIZE);
             }

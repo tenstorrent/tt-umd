@@ -1564,6 +1564,12 @@ void tt_SiliconDevice::create_device(const std::unordered_set<chip_id_t> &target
         pci_device->logical_id = logical_device_id;
 
         m_num_host_mem_channels = get_available_num_host_mem_channels(num_host_mem_ch_per_mmio_device, pci_device->device_id, pci_device->revision_id);
+        if (arch_name == tt::ARCH::BLACKHOLE && m_num_host_mem_channels > 1) {
+            // TODO: Implement support for multiple host channels on BLACKHOLE.
+            log_warning(!(arch_name == tt::ARCH::BLACKHOLE && m_num_host_mem_channels > 1),
+                "Forcing a single channel for Blackhole device. Multiple host channels not supported.");
+            m_num_host_mem_channels = 1;
+        }
 
         log_debug(LogSiliconDriver, "Using {} Hugepages/NumHostMemChannels for TTDevice (logical_device_id: {} pci_interface_id: {} device_id: 0x{:x} revision: {})",
             m_num_host_mem_channels, logical_device_id, pci_interface_id, pci_device->device_id, pci_device->revision_id);

@@ -2410,6 +2410,18 @@ void tt_SiliconDevice::set_pcie_power_state(tt_DevicePowerState state) {
 }
 
 int tt_SiliconDevice::get_clock(int logical_device_id) {
+
+    // TODO: remove this once ARC messages work.
+    // This is currently used only for testing and bringing up Blackhole on Buda.
+    if (arch_name == tt::ARCH::BLACKHOLE) {
+        char* clk_env_var = getenv("TT_SILICON_DRIVER_AICLK");
+        if (clk_env_var != nullptr) {
+            log_warning(LogSiliconDriver, "ARC messages are not enabled on Blackhole. "
+                        "Using AICLK value from environment variable TT_SILICON_DRIVER_AICLK: {}" , clk_env_var);
+            return std::stoi(clk_env_var);
+        }
+    }
+
     uint32_t clock;
     auto mmio_capable_chip_logical = ndesc->get_closest_mmio_capable_chip(logical_device_id);
     struct PCIdevice* pci_device = get_pci_device(mmio_capable_chip_logical);

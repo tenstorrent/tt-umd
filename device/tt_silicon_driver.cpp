@@ -3209,8 +3209,7 @@ void tt_SiliconDevice::enable_local_ethernet_queue(const chip_id_t &device_id, i
     }
 }
 
-
-void *tt_SiliconDevice::channel_0_address(std::uint32_t offset, std::uint32_t device_id) const {
+void *tt_SiliconDevice::channel_address(std::uint32_t offset, std::uint32_t device_id, const tt_cxy_pair& target) {
     log_assert(ndesc->is_chip_mmio_capable(device_id), "Cannot call channel_0_address for non-MMIO device");
     struct PCIdevice* pci_device = get_pci_device(device_id);
     auto architecture_implementation = pci_device->hdev->get_architecture_implementation();
@@ -3219,7 +3218,12 @@ void *tt_SiliconDevice::channel_0_address(std::uint32_t offset, std::uint32_t de
     // Temporary hack for blackhole bringup.
     if (arch_name == tt::ARCH::BLACKHOLE) {
         // We use BAR4 segment for mapping for Blackhole.
-        return static_cast<std::byte*>(pci_device->hdev->bar4_wc) + offset;
+        log_assert(tlbs_init, "tlb not init.");
+        std::int32_t tlb_index = map_core_to_tlb(tt_xy_pair(target.x, target.y));
+        auto [tlb_offset, tlb_size] = pci_device->hdev->get_architecture_implementation()->describe_tlb(tlb_index).value();
+
+        log_assert(pci_device->hdev->bar4_wc != nullptr && tlb_size == BH_4GB_TLB_SIZE, "bar4 not initialized, or tlbs not initialized properly.");
+        return static_cast<std::byte*>(pci_device->hdev->bar4_wc) + tlb_offset + offset;
     } else {
         // This hard-codes that we use 16MB TLB #1 onwards for the mapping.
         bar0_offset = offset - architecture_implementation->get_dram_channel_0_peer2peer_region_start()

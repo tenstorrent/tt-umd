@@ -665,6 +665,12 @@ class tt_device
         throw std::runtime_error("---- tt_device::get_pcie_base_addr_from_device is not implemented\n");
         return 0;
     }
+
+    virtual void *get_mmio_mapped_address(std::uint32_t offset, std::uint32_t channel, std::uint32_t device_id) const {
+        throw std::runtime_error("---- tt_device::get_mmio_mapped_address is not implemented\n");
+        return nullptr;
+    } 
+
     const tt_SocDescriptor *get_soc_descriptor(chip_id_t chip) const;
 
     bool performed_harvesting = false;
@@ -845,6 +851,7 @@ class tt_SiliconDevice: public tt_device
     virtual std::map<int,int> get_clocks();
     virtual uint32_t dma_allocation_size(chip_id_t src_device_id = -1);
     virtual void *channel_0_address(std::uint32_t offset, std::uint32_t device_id) const;
+    virtual void *get_mmio_mapped_address(std::uint32_t offset, std::uint32_t channel, std::uint32_t device_id) const;
     virtual void *host_dma_address(std::uint64_t offset, chip_id_t src_device_id, uint16_t channel) const;
     virtual std::uint64_t get_pcie_base_addr_from_device() const;
     static std::vector<int> extract_rows_to_remove(const tt::ARCH &arch, const int worker_grid_rows, const int harvested_rows);

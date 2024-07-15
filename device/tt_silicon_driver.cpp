@@ -3209,6 +3209,26 @@ void tt_SiliconDevice::enable_local_ethernet_queue(const chip_id_t &device_id, i
     }
 }
 
+void *tt_SiliconDevice::get_mmio_mapped_address(std::uint32_t offset, std::uint32_t channel, std::uint32_t device_id) const {
+    log_info(LogSiliconDriver, "calling get mmio mapped address");
+    log_assert(ndesc->is_chip_mmio_capable(device_id), "Cannot call get_mmio_mapped_address for non-MMIO device");
+    struct PCIdevice* pci_device = get_pci_device(device_id);
+    auto architecture_implementation = pci_device->hdev->get_architecture_implementation();
+    std::uint64_t bar0_offset;
+
+    // Temporary hack for blackhole bringup.
+    if (arch_name == tt::ARCH::BLACKHOLE) {
+        // We use BAR4 segment for mapping for Blackhole.
+        // We offset the address into BAR4 segment by addr on channel plus for all other previous channels.
+        return static_cast<std::byte*>(pci_device->hdev->bar4_wc) + channel *  BH_4GB_TLB_SIZE + offset;
+    } else {
+        // This hard-codes that we use 16MB TLB #1 onwards for the mapping.
+        bar0_offset = offset - architecture_implementation->get_dram_channel_0_peer2peer_region_start()
+                        + architecture_implementation->get_dynamic_tlb_16m_base() + architecture_implementation->get_dynamic_tlb_16m_size();
+    }
+
+    return static_cast<std::byte*>(pci_device->hdev->bar0_wc) + bar0_offset;
+}
 
 void *tt_SiliconDevice::channel_0_address(std::uint32_t offset, std::uint32_t device_id) const {
     log_assert(ndesc->is_chip_mmio_capable(device_id), "Cannot call channel_0_address for non-MMIO device");

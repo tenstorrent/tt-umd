@@ -602,7 +602,7 @@ class tt_device
     /** 
      * Get the address for the MMIO mapped region on Channel (as seen from host memory)
      * \param offset Address in DRAM
-     * \param device_id logical id for MMIO device being queried FIXME
+     * \param target chip-x-y struct specifying device and core of target DRAM
      * \returns Host interpretation of MMIO mapped channel 0 address 
      */ 
     virtual void *channel_address(std::uint32_t offset, const tt_cxy_pair& target) {

@@ -605,7 +605,7 @@ class tt_device
      * \param device_id logical id for MMIO device being queried FIXME
      * \returns Host interpretation of MMIO mapped channel 0 address 
      */ 
-    virtual void *channel_address(std::uint32_t offset, std::uint32_t device_id, const tt_cxy_pair& target) {
+    virtual void *channel_address(std::uint32_t offset, const tt_cxy_pair& target) {
         throw std::runtime_error("---- tt_device::channel_0_address is not implemented\n");
         return nullptr;
     }
@@ -844,7 +844,7 @@ class tt_SiliconDevice: public tt_device
     virtual std::set<chip_id_t> get_target_remote_device_ids();
     virtual std::map<int,int> get_clocks();
     virtual uint32_t dma_allocation_size(chip_id_t src_device_id = -1);
-    virtual void *channel_address(std::uint32_t offset, std::uint32_t device_id, const tt_cxy_pair& target) override;
+    virtual void *channel_address(std::uint32_t offset, const tt_cxy_pair& target) override;
     virtual void *host_dma_address(std::uint64_t offset, chip_id_t src_device_id, uint16_t channel) const;
     virtual std::uint64_t get_pcie_base_addr_from_device() const;
     static std::vector<int> extract_rows_to_remove(const tt::ARCH &arch, const int worker_grid_rows, const int harvested_rows);

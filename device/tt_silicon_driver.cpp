@@ -3218,11 +3218,11 @@ void *tt_SiliconDevice::channel_address(std::uint32_t offset, const tt_cxy_pair&
     // Temporary hack for blackhole bringup.
     if (arch_name == tt::ARCH::BLACKHOLE) {
         // We use BAR4 segment for mapping for Blackhole.
-        log_assert(tlbs_init, "tlb not init.");
+        log_assert(tlbs_init, "TLBs were not initialized.");
         std::int32_t tlb_index = map_core_to_tlb(tt_xy_pair(target.x, target.y));
         auto [tlb_offset, tlb_size] = pci_device->hdev->get_architecture_implementation()->describe_tlb(tlb_index).value();
 
-        log_assert(pci_device->hdev->bar4_wc != nullptr && tlb_size == BH_4GB_TLB_SIZE, "bar4 not initialized, or tlbs not initialized properly.");
+        log_assert(pci_device->hdev->bar4_wc != nullptr && tlb_size == BH_4GB_TLB_SIZE, "BAR4 not initialized, or TLBs not initialized properly.");
         return static_cast<std::byte*>(pci_device->hdev->bar4_wc) + tlb_offset + offset;
     } else {
         // This hard-codes that we use 16MB TLB #1 onwards for the mapping.

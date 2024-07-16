@@ -3210,7 +3210,7 @@ void tt_SiliconDevice::enable_local_ethernet_queue(const chip_id_t &device_id, i
 }
 
 void *tt_SiliconDevice::channel_address(std::uint32_t offset, const tt_cxy_pair& target) {
-    log_assert(ndesc->is_chip_mmio_capable(target.chip), "Cannot call channel_0_address for non-MMIO device");
+    log_assert(ndesc->is_chip_mmio_capable(target.chip), "Cannot call channel_address for non-MMIO device");
     struct PCIdevice* pci_device = get_pci_device(target.chip);
     auto architecture_implementation = pci_device->hdev->get_architecture_implementation();
     std::uint64_t bar0_offset;

@@ -606,7 +606,7 @@ class tt_device
      * \returns Host interpretation of MMIO mapped channel 0 address 
      */ 
     virtual void *channel_address(std::uint32_t offset, const tt_cxy_pair& target) {
-        throw std::runtime_error("---- tt_device::channel_0_address is not implemented\n");
+        throw std::runtime_error("---- tt_device::channel_address is not implemented\n");
         return nullptr;
     }
     /**

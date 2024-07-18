@@ -43,7 +43,6 @@ add_library(umd_device_objects OBJECT
     device/tt_silicon_driver.cpp
     device/tt_silicon_driver_common.cpp
     device/tt_soc_descriptor.cpp
-    device/tt_versim_stub.cpp
     device/wormhole_implementation.cpp
 )
 set_target_properties(umd_device_objects PROPERTIES POSITION_INDEPENDENT_CODE ON)

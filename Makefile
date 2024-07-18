@@ -9,7 +9,6 @@ BINDIR ?= $(OUT)/bin
 INCDIR ?= $(OUT)/include
 TESTDIR ?= $(OUT)/test
 DOCSDIR ?= $(OUT)/docs
-UMD_VERSIM_STUB ?= 1
 SHARED_LIB_FLAGS ?= -shared -fPIC
 STATIC_LIB_FLAGS ?= -fPIC
 UMD_LD_LIBRARY_PATH ?= $(LIBDIR)

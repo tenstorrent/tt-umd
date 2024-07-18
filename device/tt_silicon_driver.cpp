@@ -4016,15 +4016,15 @@ void tt_SiliconDevice::wait_for_non_mmio_flush() {
                 std::vector<std::uint32_t> erisc_q_ptrs = std::vector<uint32_t>(eth_interface_params.remote_update_ptr_size_bytes*2 / sizeof(uint32_t));
 
                 //wait for all queues to be empty.
-                for (int i = 0; i < NUM_ETH_CORES_FOR_NON_MMIO_TRANSFERS; i++) {
+                for (tt_cxy_pair &cxy : remote_transfer_ethernet_cores.at(chip_id)) {
                     do {
-                        read_device_memory(erisc_q_ptrs.data(), remote_transfer_ethernet_cores.at(chip_id)[i], eth_interface_params.request_cmd_queue_base + eth_interface_params.cmd_counters_size_bytes, eth_interface_params.remote_update_ptr_size_bytes*2, read_tlb);
+                        read_device_memory(erisc_q_ptrs.data(), cxy, eth_interface_params.request_cmd_queue_base + eth_interface_params.cmd_counters_size_bytes, eth_interface_params.remote_update_ptr_size_bytes*2, read_tlb);
                     } while (erisc_q_ptrs[0] != erisc_q_ptrs[4]);
                 }
                 //wait for all write responses to come back.
-                for (int i = 0; i < NUM_ETH_CORES_FOR_NON_MMIO_TRANSFERS; i++) {
+                for (tt_cxy_pair &cxy : remote_transfer_ethernet_cores.at(chip_id)) {
                     do {
-                        read_device_memory(erisc_txn_counters.data(), remote_transfer_ethernet_cores.at(chip_id)[i], eth_interface_params.request_cmd_queue_base, 8, read_tlb);
+                        read_device_memory(erisc_txn_counters.data(), cxy, eth_interface_params.request_cmd_queue_base, 8, read_tlb);
                     } while (erisc_txn_counters[0] != erisc_txn_counters[1]);
                 }
             } else {

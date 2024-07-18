@@ -307,6 +307,17 @@ TTDevice TTDevice::open(unsigned int device_id) {
     return ttdev;
 }
 
+constexpr inline bool operator==(const tt_version &a, const tt_version &b) {
+    return a.major == b.major && a.minor == b.minor && a.patch == b.patch;
+}
+
+constexpr inline bool operator>=(const tt_version &a, const tt_version &b) {
+    bool fw_major_greater = a.major > b.major;
+    bool fw_minor_greater = (a.major == b.major) && (a.minor > b.minor);
+    bool patch_greater_or_equal = (a.major == b.major) && (a.minor == b.minor) && (a.patch >= b.patch);
+    return fw_major_greater || fw_minor_greater || patch_greater_or_equal;
+}
+
 bool is_grayskull(const uint16_t device_id) {
     return device_id == 0xfaca;
 }

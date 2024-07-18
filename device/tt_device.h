@@ -855,17 +855,8 @@ class tt_SiliconDevice: public tt_device
     static constexpr std::uint32_t SW_VERSION = 0x06060000;
 };
 
+// TODO(jms): tt_eager/tt_dnn/op_library/prod/prod_op_all.cpp calls this, but that's it.
 tt::ARCH detect_arch(uint16_t device_id = 0);
 
+// TODO(jms): tt_metal/llrt/tt_cluster.cpp calls this, but only for error-checking.
 uint32_t get_num_hugepages();
-
-constexpr inline bool operator==(const tt_version &a, const tt_version &b) {
-    return a.major == b.major && a.minor == b.minor && a.patch == b.patch;
-}
-
-constexpr inline bool operator>=(const tt_version &a, const tt_version &b) {
-    bool fw_major_greater = a.major > b.major;
-    bool fw_minor_greater = (a.major == b.major) && (a.minor > b.minor);
-    bool patch_greater_or_equal = (a.major == b.major) && (a.minor == b.minor) && (a.patch >= b.patch);
-    return fw_major_greater || fw_minor_greater || patch_greater_or_equal;
-}

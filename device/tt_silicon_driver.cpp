@@ -147,6 +147,11 @@ void pcie_init_dma_transfer_turbo (PCIdevice* dev);
 
 void write_regs(volatile uint32_t *dest, const uint32_t *src, uint32_t word_len);
 
+enum tt_MemBarFlag {
+    SET = 0xaa,
+    RESET = 0xbb,
+};
+
 // Stash all the fields of TTDevice in TTDeviceBase to make moving simpler.
 struct TTDeviceBase
 {

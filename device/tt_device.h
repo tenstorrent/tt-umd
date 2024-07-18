@@ -37,11 +37,6 @@ enum tt_DevicePowerState {
     LONG_IDLE
 };
 
-enum tt_MemBarFlag {
-    SET = 0xaa,
-    RESET = 0xbb,
-};
-
 struct tt_device_dram_address_params {
     std::uint32_t DRAM_BARRIER_BASE = 0;
 };

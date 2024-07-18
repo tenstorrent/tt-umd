@@ -49,16 +49,6 @@ enum tt_MemBarFlag {
     RESET = 0xbb,
 };
 
-inline std::ostream &operator <<(std::ostream &os, const tt_DevicePowerState power_state) {
-    switch (power_state) {
-        case tt_DevicePowerState::BUSY: os << "Busy"; break;
-        case tt_DevicePowerState::SHORT_IDLE: os << "SHORT_IDLE"; break;
-        case tt_DevicePowerState::LONG_IDLE: os << "LONG_IDLE"; break;
-        default: throw ("Unknown DevicePowerState");
-    }
-    return os;
-}
-
 struct tt_device_dram_address_params {
     std::uint32_t DRAM_BARRIER_BASE = 0;
 };

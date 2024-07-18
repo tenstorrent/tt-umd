@@ -37,13 +37,6 @@ enum tt_DevicePowerState {
     LONG_IDLE
 };
 
-enum tt_MutexType {
-    LARGE_READ_TLB,
-    LARGE_WRITE_TLB,
-    SMALL_READ_WRITE_TLB,
-    ARC_MSG
-};
-
 enum tt_MemBarFlag {
     SET = 0xaa,
     RESET = 0xbb,

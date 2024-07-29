@@ -5,7 +5,7 @@
 #include "gtest/gtest.h"
 #include <tt_device.h>
 #include <device/tt_soc_descriptor.h>
-#include "device_data.hpp"
+#include "device/wormhole_implementation.h"
 #include "l1_address_map.h"
 #include <thread>
 
@@ -73,7 +73,7 @@ TEST(SiliconDriverGS, CustomSocDesc) {
 
 TEST(SiliconDriverGS, HarvestingRuntime) {
     auto get_static_tlb_index = [] (tt_xy_pair target) {
-        int flat_index = target.y * DEVICE_DATA.GRID_SIZE_X + target.x;
+        int flat_index = target.y * tt::umd::wormhole::GRID_SIZE_X + target.x;
         if (flat_index == 0) {
             return -1;
         }
@@ -139,7 +139,7 @@ TEST(SiliconDriverGS, HarvestingRuntime) {
 
 TEST(SiliconDriverGS, StaticTLB_RW) {
     auto get_static_tlb_index = [] (tt_xy_pair target) {
-        int flat_index = target.y * DEVICE_DATA.GRID_SIZE_X + target.x;
+        int flat_index = target.y * tt::umd::wormhole::GRID_SIZE_X + target.x;
         if (flat_index == 0) {
             return -1;
         }
@@ -311,7 +311,7 @@ TEST(SiliconDriverGS, MultiThreadedMemBar) {
     // Memory barrier flags get sent to address 0 for all channels in this test
 
      auto get_static_tlb_index = [] (tt_xy_pair target) {
-        int flat_index = target.y * DEVICE_DATA.GRID_SIZE_X + target.x;
+        int flat_index = target.y * tt::umd::wormhole::GRID_SIZE_X + target.x;
         if (flat_index == 0) {
             return -1;
         }

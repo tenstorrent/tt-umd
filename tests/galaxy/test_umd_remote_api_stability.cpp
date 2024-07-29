@@ -7,7 +7,6 @@
 #include <thread>
 
 #include "common/logger.hpp"
-#include "device_data.hpp"
 #include "eth_interface.h"
 #include "filesystem"
 #include "gtest/gtest.h"

@@ -4,7 +4,6 @@
 
 #include "gtest/gtest.h"
 #include <tt_device.h>
-#include "device_data.hpp"
 #include "eth_l1_address_map.h"
 #include "l1_address_map.h"
 #include "eth_l1_address_map.h"
@@ -14,6 +13,7 @@
 #include <memory>
 
 #include "device/tt_cluster_descriptor.h"
+#include "device/wormhole_implementation.h"
 #include "tests/test_utils/generate_cluster_desc.hpp"
 
 void set_params_for_remote_txn(tt_SiliconDevice& device) {
@@ -32,9 +32,9 @@ void set_params_for_remote_txn(tt_SiliconDevice& device) {
 }
 
 std::int32_t get_static_tlb_index(tt_xy_pair target) {
-    bool is_eth_location = std::find(std::cbegin(DEVICE_DATA.ETH_LOCATIONS), std::cend(DEVICE_DATA.ETH_LOCATIONS), target) != std::cend(DEVICE_DATA.ETH_LOCATIONS);
-    bool is_tensix_location = std::find(std::cbegin(DEVICE_DATA.T6_X_LOCATIONS), std::cend(DEVICE_DATA.T6_X_LOCATIONS), target.x) != std::cend(DEVICE_DATA.T6_X_LOCATIONS) &&
-                            std::find(std::cbegin(DEVICE_DATA.T6_Y_LOCATIONS), std::cend(DEVICE_DATA.T6_Y_LOCATIONS), target.y) != std::cend(DEVICE_DATA.T6_Y_LOCATIONS);
+    bool is_eth_location = std::find(std::cbegin(tt::umd::wormhole::ETH_LOCATIONS), std::cend(tt::umd::wormhole::ETH_LOCATIONS), target) != std::cend(tt::umd::wormhole::ETH_LOCATIONS);
+    bool is_tensix_location = std::find(std::cbegin(tt::umd::wormhole::T6_X_LOCATIONS), std::cend(tt::umd::wormhole::T6_X_LOCATIONS), target.x) != std::cend(tt::umd::wormhole::T6_X_LOCATIONS) &&
+                            std::find(std::cbegin(tt::umd::wormhole::T6_Y_LOCATIONS), std::cend(tt::umd::wormhole::T6_Y_LOCATIONS), target.y) != std::cend(tt::umd::wormhole::T6_Y_LOCATIONS);
     if (is_eth_location) {
         if (target.y == 6) {
             target.y = 1;
@@ -63,7 +63,7 @@ std::int32_t get_static_tlb_index(tt_xy_pair target) {
         int flat_index = target.y * 8 + target.x;
 
         // All 80 get single 1MB TLB.
-        int tlb_index = DEVICE_DATA.ETH_LOCATIONS.size() + flat_index;
+        int tlb_index = tt::umd::wormhole::ETH_LOCATIONS.size() + flat_index;
 
         return tlb_index;
     } else {

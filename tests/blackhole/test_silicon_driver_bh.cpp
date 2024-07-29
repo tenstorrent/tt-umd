@@ -4,7 +4,6 @@
 
 #include "gtest/gtest.h"
 #include <tt_device.h>
-#include "device_data.hpp"
 #include "eth_l1_address_map.h"
 #include "l1_address_map.h"
 #include "eth_l1_address_map.h"
@@ -13,7 +12,7 @@
 #include <thread>
 #include <memory>
 
-
+#include "device/blackhole_implementation.h"
 #include "device/tt_cluster_descriptor.h"
 #include "tests/test_utils/generate_cluster_desc.hpp"
 
@@ -33,9 +32,9 @@ void set_params_for_remote_txn(tt_SiliconDevice& device) {
 }
 
 std::int32_t get_static_tlb_index(tt_xy_pair target) {
-    bool is_eth_location = std::find(std::begin(DEVICE_DATA.ETH_LOCATIONS), std::end(DEVICE_DATA.ETH_LOCATIONS), target) != std::end(DEVICE_DATA.ETH_LOCATIONS);
-    bool is_tensix_location = std::find(std::begin(DEVICE_DATA.T6_X_LOCATIONS), std::end(DEVICE_DATA.T6_X_LOCATIONS), target.x) != std::end(DEVICE_DATA.T6_X_LOCATIONS) &&
-                            std::find(std::begin(DEVICE_DATA.T6_Y_LOCATIONS), std::end(DEVICE_DATA.T6_Y_LOCATIONS), target.y) != std::end(DEVICE_DATA.T6_Y_LOCATIONS);
+    bool is_eth_location = std::find(std::begin(tt::umd::blackhole::ETH_LOCATIONS), std::end(tt::umd::blackhole::ETH_LOCATIONS), target) != std::end(tt::umd::blackhole::ETH_LOCATIONS);
+    bool is_tensix_location = std::find(std::begin(tt::umd::blackhole::T6_X_LOCATIONS), std::end(tt::umd::blackhole::T6_X_LOCATIONS), target.x) != std::end(tt::umd::blackhole::T6_X_LOCATIONS) &&
+                            std::find(std::begin(tt::umd::blackhole::T6_Y_LOCATIONS), std::end(tt::umd::blackhole::T6_Y_LOCATIONS), target.y) != std::end(tt::umd::blackhole::T6_Y_LOCATIONS);
     if (is_eth_location) {
         if (target.y == 6) {
             target.y = 1;
@@ -61,7 +60,7 @@ std::int32_t get_static_tlb_index(tt_xy_pair target) {
         int flat_index = target.y * 14 + target.x;
 
         // All 140 get single 2MB TLB.
-        int tlb_index = DEVICE_DATA.ETH_LOCATIONS.size() + flat_index;
+        int tlb_index = tt::umd::blackhole::ETH_LOCATIONS.size() + flat_index;
 
         return tlb_index;
     } else {

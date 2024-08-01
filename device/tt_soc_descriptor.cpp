@@ -275,14 +275,17 @@ int tt_SocDescriptor::get_num_dram_blocks_per_channel() const {
     return num_blocks;
 }
 
+// Note: same as t_SiliconDevice::get_pcie_base_addr_from_device
 uint64_t tt_SocDescriptor::get_noc2host_offset(uint16_t host_channel) const {
 
     const std::uint64_t PEER_REGION_SIZE = (1024 * 1024 * 1024);
 
     if (arch == tt::ARCH::GRAYSKULL) {
         return (host_channel * PEER_REGION_SIZE);
-    }else if (arch == tt::ARCH::WORMHOLE || arch == tt::ARCH::WORMHOLE_B0 || arch == tt::ARCH::BLACKHOLE) {
+    }else if (arch == tt::ARCH::WORMHOLE || arch == tt::ARCH::WORMHOLE_B0) {
         return (host_channel * PEER_REGION_SIZE) + 0x800000000;
+    } else if (arch == tt::ARCH::BLACKHOLE) {
+        return (host_channel * PEER_REGION_SIZE) + (1ULL << 60);
     } else {
         throw std::runtime_error("Unsupported architecture");
     }

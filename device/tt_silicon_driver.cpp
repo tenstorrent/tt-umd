@@ -1451,7 +1451,7 @@ dynamic_tlb set_dynamic_tlb(PCIdevice* dev, unsigned int tlb_index, tt_xy_pair s
         .y_start = static_cast<uint64_t>(translated_start_coords.y),
         .mcast = multicast,
         .ordering = ordering,
-        .static_vc = true,
+        .static_vc = false,
     }.apply_offset(tlb_config.offset);
 
     LOG1("set_dynamic_tlb() with tlb_index: %d tlb_index_offset: %d dynamic_tlb_size: %dMB tlb_base: 0x%x tlb_cfg_reg: 0x%x\n", tlb_index, tlb_config.index_offset, tlb_config.size/(1024*1024), tlb_base, tlb_cfg_reg);

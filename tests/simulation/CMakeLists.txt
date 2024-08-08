@@ -6,7 +6,7 @@ set(SIMULATION_TEST_SRCS
 foreach(TEST ${SIMULATION_TEST_SRCS})
     get_filename_component(TEST_NAME ${TEST} NAME_WE)
     add_executable(${TEST_NAME} ${TEST})
-    target_link_libraries(${TEST_NAME} PRIVATE umd_device gtest_main gtest pthread fmt::fmt-header-only)
+    target_link_libraries(${TEST_NAME} PRIVATE test_common)
     target_include_directories(${TEST_NAME} PRIVATE 
         ${CMAKE_SOURCE_DIR}/device/simulation
     )

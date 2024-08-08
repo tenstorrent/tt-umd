@@ -1451,7 +1451,9 @@ dynamic_tlb set_dynamic_tlb(PCIdevice* dev, unsigned int tlb_index, tt_xy_pair s
         .y_start = static_cast<uint64_t>(translated_start_coords.y),
         .mcast = multicast,
         .ordering = ordering,
-        // TODO: Issue 2715 for blackhole.
+        // TODO #2715: hack for Blackhole A0, will potentially be fixed in B0.
+        // Using the same static vc for reads and writes through TLBs can hang the card. It doesn't even have to be the same TLB.
+        // Dynamic vc should not have this issue. There might be a perf impact with using dynamic vc.
         .static_vc = (dev->hdev->get_arch() == tt::ARCH::BLACKHOLE) ? false : true,
     }.apply_offset(tlb_config.offset);
 

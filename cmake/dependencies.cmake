@@ -12,7 +12,6 @@ CPMAddPackage(
     GIT_TAG v1.13.0
     VERSION 1.13.0
     OPTIONS "INSTALL_GTEST OFF"
-    QUIET
 )
 
 ############################################################################################################################
@@ -26,7 +25,6 @@ CPMAddPackage(
         "BUILD_SHARED_LIBS ON"
         "NNG_TESTS OFF"
         "NNG_TOOLS OFF"
-    QUIET
 )
 
 ############################################################################################################################
@@ -43,7 +41,6 @@ CPMAddPackage(
         "FLATBUFFERS_BUILD_FLATLIB OFF"
         "FLATBUFFERS_SKIP_MONSTER_EXTRA ON"
         "FLATBUFFERS_STRICT_MODE ON"
-    QUIET
 )
 
 ############################################################################################################################
@@ -55,5 +52,4 @@ CPMAddPackage(
     GIT_TAG v1.48.0
     OPTIONS
         "LIBUV_BUILD_TESTS OFF"
-    DOWNLOAD_ONLY TRUE
 )

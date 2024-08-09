@@ -87,22 +87,20 @@ static constexpr std::array<xy_pair, 24> DRAM_LOCATIONS = {
 static constexpr std::array<xy_pair, 1> ARC_LOCATIONS = {{{8, 0}}};
 static constexpr std::array<xy_pair, 1> PCI_LOCATIONS = {{{11, 0}}};
 static constexpr std::array<xy_pair, 14> ETH_LOCATIONS = {
-    // MT: First implementation without ETH
-    // {{1, 1},
-    //  {2, 1},
-    //  {3, 1},
-    //  {4, 1},
-    //  {5, 1},
-    //  {6, 1},
-    //  {7, 1},
-    //  {10, 1},
-    //  {11, 1},
-    //  {12, 1},
-    //  {13, 1},
-    //  {14, 1},
-    //  {15, 1},
-    //  {16, 1}}
-     };
+    {{1, 1},
+     {2, 1},
+     {3, 1},
+     {4, 1},
+     {5, 1},
+     {6, 1},
+     {7, 1},
+     {10, 1},
+     {11, 1},
+     {12, 1},
+     {13, 1},
+     {14, 1},
+     {15, 1},
+     {16, 1}}};
 // Return to std::array instead of std::vector once we get std::span support in C++20
 static const std::vector<uint32_t> T6_X_LOCATIONS = {1, 2, 3, 4, 5, 6, 7, 10, 11, 12, 13, 14, 15, 16};
 static const std::vector<uint32_t> T6_Y_LOCATIONS = {2, 3, 4, 5, 6, 7, 8, 9, 10, 11};

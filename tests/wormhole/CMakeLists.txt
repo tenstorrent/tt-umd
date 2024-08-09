@@ -2,7 +2,6 @@
 set(UNIT_TESTS_WH_SRCS
     test_silicon_driver_wh.cpp
     test_umd_remote_api_stability.cpp
-    ../test_utils/generate_cluster_desc.cpp
 )
 
 add_executable(unit_tests_wormhole ${UNIT_TESTS_WH_SRCS})

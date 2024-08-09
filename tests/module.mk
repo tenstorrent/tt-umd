@@ -11,7 +11,7 @@ else
   DEVICE_UNIT_TESTS_INCLUDES += -I$(UMD_HOME)/device/$(ARCH_NAME)/ -I$(UMD_HOME)/src/firmware/riscv/$(ARCH_NAME)
 endif
 
-COMMON_UNIT_TESTS_SRCS = $(wildcard $(UMD_HOME)/tests/test_utils/*.cpp)
+# COMMON_UNIT_TESTS_SRCS = $(wildcard $(UMD_HOME)/tests/test_utils/*.cpp)
 
 DEVICE_UNIT_TESTS += $(basename $(wildcard $(UMD_HOME)/tests/*.c*))
 

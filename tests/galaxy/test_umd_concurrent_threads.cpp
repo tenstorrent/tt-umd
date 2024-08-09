@@ -2,11 +2,11 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-#include <tt_cluster_descriptor.h>
-#include <tt_device.h>
-
 #include <numeric>
 #include <thread>
+
+#include "tt_cluster_descriptor.h"
+#include "tt_device.h"
 
 #include "common/logger.hpp"
 #include "eth_interface.h"
@@ -17,14 +17,14 @@
 #include "test_galaxy_common.h"
 #include "tests/test_utils/generate_cluster_desc.hpp"
 
-static const std::string SOC_DESC_PATH = "./tests/soc_descs/wormhole_b0_8x10.yaml";
+static const std::string SOC_DESC_PATH = "tests/soc_descs/wormhole_b0_8x10.yaml";
 void set_params_for_remote_txn(tt_SiliconDevice& device);
 
 // Have 2 threads read and write to all cores on the Galaxy
 TEST(GalaxyConcurrentThreads, WriteToAllChipsL1) {
     // Galaxy Setup
 
-    std::string cluster_desc_path = GetClusterDescYAML().string();
+    std::string cluster_desc_path = test_utils::GetClusterDescYAML();
     std::shared_ptr<tt_ClusterDescriptor> cluster_desc = tt_ClusterDescriptor::create_from_yaml(cluster_desc_path);
     std::set<chip_id_t> target_devices_th1 = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16};
     std::set<chip_id_t> target_devices_th2 = {17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32};
@@ -53,7 +53,7 @@ TEST(GalaxyConcurrentThreads, WriteToAllChipsL1) {
     dynamic_tlb_config.insert({"SMALL_READ_WRITE_TLB", 157});  // Use this for all reads and writes to worker cores
 
     tt_SiliconDevice device = tt_SiliconDevice(
-        SOC_DESC_PATH, cluster_desc_path, all_devices, num_host_mem_ch_per_mmio_device, dynamic_tlb_config, false, true);
+        test_utils::GetAbsPath(SOC_DESC_PATH), cluster_desc_path, all_devices, num_host_mem_ch_per_mmio_device, dynamic_tlb_config, false, true);
     const auto sdesc_per_chip = device.get_virtual_soc_descriptors();
 
     set_params_for_remote_txn(device);
@@ -114,7 +114,7 @@ TEST(GalaxyConcurrentThreads, WriteToAllChipsL1) {
 
 TEST(GalaxyConcurrentThreads, WriteToAllChipsDram) {
     // Galaxy Setup
-    std::string cluster_desc_path = GetClusterDescYAML().string();
+    std::string cluster_desc_path = test_utils::GetClusterDescYAML();
     std::shared_ptr<tt_ClusterDescriptor> cluster_desc = tt_ClusterDescriptor::create_from_yaml(cluster_desc_path);
     std::set<chip_id_t> target_devices_th1 = {0, 2, 4, 6, 8, 10, 12, 14, 16, 18, 20, 22, 24, 26, 28, 30, 32};
     std::set<chip_id_t> target_devices_th2 = {1, 3, 5, 7, 9, 11, 13, 15, 17, 19, 21, 23, 25, 27, 29, 31};
@@ -143,7 +143,7 @@ TEST(GalaxyConcurrentThreads, WriteToAllChipsDram) {
     dynamic_tlb_config.insert({"SMALL_READ_WRITE_TLB", 157});  // Use this for all reads and writes to worker cores
 
     tt_SiliconDevice device = tt_SiliconDevice(
-        SOC_DESC_PATH, cluster_desc_path, all_devices, num_host_mem_ch_per_mmio_device, dynamic_tlb_config, false, true);
+        test_utils::GetAbsPath(SOC_DESC_PATH), cluster_desc_path, all_devices, num_host_mem_ch_per_mmio_device, dynamic_tlb_config, false, true);
     const auto sdesc_per_chip = device.get_virtual_soc_descriptors();
 
     set_params_for_remote_txn(device);
@@ -207,7 +207,7 @@ TEST(GalaxyConcurrentThreads, WriteToAllChipsDram) {
 
 TEST(GalaxyConcurrentThreads, PushInputsWhileSignalingCluster) {
     // Galaxy Setup
-    std::string cluster_desc_path = GetClusterDescYAML().string();
+    std::string cluster_desc_path = test_utils::GetClusterDescYAML();
     std::shared_ptr<tt_ClusterDescriptor> cluster_desc = tt_ClusterDescriptor::create_from_yaml(cluster_desc_path);
     std::set<chip_id_t> target_devices = {0, 1, 2, 3, 4, 5, 6, 7, 8};
     for (const auto& chip : target_devices) {
@@ -222,7 +222,7 @@ TEST(GalaxyConcurrentThreads, PushInputsWhileSignalingCluster) {
     dynamic_tlb_config.insert({"SMALL_READ_WRITE_TLB", 157});  // Use this for all reads and writes to worker cores
 
     tt_SiliconDevice device = tt_SiliconDevice(
-        SOC_DESC_PATH, cluster_desc_path, target_devices, num_host_mem_ch_per_mmio_device, dynamic_tlb_config, false, true);
+        test_utils::GetAbsPath(SOC_DESC_PATH), cluster_desc_path, target_devices, num_host_mem_ch_per_mmio_device, dynamic_tlb_config, false, true);
     const auto sdesc_per_chip = device.get_virtual_soc_descriptors();
 
     set_params_for_remote_txn(device);

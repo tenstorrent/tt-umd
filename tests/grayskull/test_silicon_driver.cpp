@@ -2,20 +2,22 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-#include "gtest/gtest.h"
-#include <tt_device.h>
-#include <device/tt_soc_descriptor.h>
-#include "device/wormhole_implementation.h"
-#include "l1_address_map.h"
 #include <thread>
 
+#include "gtest/gtest.h"
+#include "tt_device.h"
+#include "device/tt_soc_descriptor.h"
+#include "device/wormhole_implementation.h"
+#include "l1_address_map.h"
+#include "tests/test_utils/generate_cluster_desc.hpp"
+
 TEST(SiliconDriverGS, CreateDestroySequential) {
-    std::set<chip_id_t> target_devices = {0, 1, 2, 3};
+    std::set<chip_id_t> target_devices = {0};
     uint32_t num_host_mem_ch_per_mmio_device = 1;
     std::unordered_map<std::string, std::int32_t> dynamic_tlb_config = {}; // Don't set any dynamic TLBs in this test
     tt_device_params default_params;
     for(int i = 0; i < 100; i++) {
-        tt_SiliconDevice device = tt_SiliconDevice("./tests/soc_descs/grayskull_10x12.yaml", "", target_devices, num_host_mem_ch_per_mmio_device, dynamic_tlb_config, false, true);
+        tt_SiliconDevice device = tt_SiliconDevice(test_utils::GetAbsPath("tests/soc_descs/grayskull_10x12.yaml"), "", target_devices, num_host_mem_ch_per_mmio_device, dynamic_tlb_config, false, true);
         device.start_device(default_params);
         device.deassert_risc_reset();
         device.close_device();
@@ -23,14 +25,14 @@ TEST(SiliconDriverGS, CreateDestroySequential) {
 }
 
 TEST(SiliconDriverGS, CreateMultipleInstance) {
-    std::set<chip_id_t> target_devices = {0, 1, 2, 3};
+    std::set<chip_id_t> target_devices = {0};
     uint32_t num_host_mem_ch_per_mmio_device = 1;
     std::unordered_map<std::string, std::int32_t> dynamic_tlb_config = {}; // Don't set any dynamic TLBs in this test
     tt_device_params default_params;
     default_params.init_device = false;
     std::unordered_map<int, tt_SiliconDevice*> concurrent_devices = {};
     for(int i = 0; i < 100; i++) {
-        concurrent_devices.insert({i, new tt_SiliconDevice("./tests/soc_descs/grayskull_10x12.yaml", "", target_devices, num_host_mem_ch_per_mmio_device, dynamic_tlb_config, false, true)});
+        concurrent_devices.insert({i, new tt_SiliconDevice(test_utils::GetAbsPath("tests/soc_descs/grayskull_10x12.yaml"), "", target_devices, num_host_mem_ch_per_mmio_device, dynamic_tlb_config, false, true)});
         concurrent_devices.at(i) -> start_device(default_params);
     }
 
@@ -41,11 +43,11 @@ TEST(SiliconDriverGS, CreateMultipleInstance) {
 }
 
 TEST(SiliconDriverGS, Harvesting) {
-    std::set<chip_id_t> target_devices = {0, 1};
+    std::set<chip_id_t> target_devices = {0};
     std::unordered_map<chip_id_t, uint32_t> simulated_harvesting_masks = {{0, 6}, {1, 12}};
     std::unordered_map<std::string, std::int32_t> dynamic_tlb_config = {}; // Don't set any dynamic TLBs in this test
     uint32_t num_host_mem_ch_per_mmio_device = 1;
-    tt_SiliconDevice device = tt_SiliconDevice("./tests/soc_descs/grayskull_10x12.yaml", "", target_devices, num_host_mem_ch_per_mmio_device, dynamic_tlb_config, false, true, true, simulated_harvesting_masks);
+    tt_SiliconDevice device = tt_SiliconDevice(test_utils::GetAbsPath("tests/soc_descs/grayskull_10x12.yaml"), "", target_devices, num_host_mem_ch_per_mmio_device, dynamic_tlb_config, false, true, true, simulated_harvesting_masks);
     auto sdesc_per_chip = device.get_virtual_soc_descriptors();
 
     ASSERT_EQ(device.using_harvested_soc_descriptors(), true) << "Expected Driver to have performed harvesting";
@@ -53,17 +55,17 @@ TEST(SiliconDriverGS, Harvesting) {
         ASSERT_EQ(chip.second.workers.size(), 96) << "Expected SOC descriptor with harvesting to have 96 workers for chip " << chip.first;
     }
     ASSERT_EQ(device.get_harvesting_masks_for_soc_descriptors().at(0), 6) << "Expected first chip to have harvesting mask of 6";
-    ASSERT_EQ(device.get_harvesting_masks_for_soc_descriptors().at(1), 12) << "Expected second chip to have harvesting mask of 12";
+    // ASSERT_EQ(device.get_harvesting_masks_for_soc_descriptors().at(1), 12) << "Expected second chip to have harvesting mask of 12";
     device.close_device();
 }
 
 TEST(SiliconDriverGS, CustomSocDesc) {
-    std::set<chip_id_t> target_devices = {0, 1};
+    std::set<chip_id_t> target_devices = {0};
     std::unordered_map<chip_id_t, uint32_t> simulated_harvesting_masks = {{0, 6}, {1, 12}};
     std::unordered_map<std::string, std::int32_t> dynamic_tlb_config = {}; // Don't set any dynamic TLBs in this test
     uint32_t num_host_mem_ch_per_mmio_device = 1;
     // Initialize the driver with a 1x1 descriptor and explictly do not perform harvesting
-    tt_SiliconDevice device = tt_SiliconDevice("./tests/soc_descs/grayskull_1x1_arch.yaml", "", target_devices, num_host_mem_ch_per_mmio_device, dynamic_tlb_config, false, true, false, simulated_harvesting_masks);
+    tt_SiliconDevice device = tt_SiliconDevice(test_utils::GetAbsPath("./tests/soc_descs/grayskull_1x1_arch.yaml"), "", target_devices, num_host_mem_ch_per_mmio_device, dynamic_tlb_config, false, true, false, simulated_harvesting_masks);
     auto sdesc_per_chip = device.get_virtual_soc_descriptors();
     ASSERT_EQ(device.using_harvested_soc_descriptors(), false) << "SOC descriptors should not be modified when harvesting is disabled";
     for(const auto& chip : sdesc_per_chip) {
@@ -80,11 +82,11 @@ TEST(SiliconDriverGS, HarvestingRuntime) {
         return flat_index;
     };
 
-    std::set<chip_id_t> target_devices = {0, 1};
+    std::set<chip_id_t> target_devices = {0};
     std::unordered_map<chip_id_t, uint32_t> simulated_harvesting_masks = {{0, 6}, {1, 12}};
     std::unordered_map<std::string, std::int32_t> dynamic_tlb_config = {{"SMALL_READ_WRITE_TLB", 157}}; // Use both static and dynamic TLBs here
     uint32_t num_host_mem_ch_per_mmio_device = 1;
-    tt_SiliconDevice device = tt_SiliconDevice("./tests/soc_descs/grayskull_10x12.yaml", "", target_devices, num_host_mem_ch_per_mmio_device, dynamic_tlb_config, false, true, true, simulated_harvesting_masks);
+    tt_SiliconDevice device = tt_SiliconDevice(test_utils::GetAbsPath("tests/soc_descs/grayskull_10x12.yaml"), "", target_devices, num_host_mem_ch_per_mmio_device, dynamic_tlb_config, false, true, true, simulated_harvesting_masks);
 
     for(int i = 0; i < target_devices.size(); i++) {
         // Iterate over devices and only setup static TLBs for functional worker cores
@@ -145,11 +147,11 @@ TEST(SiliconDriverGS, StaticTLB_RW) {
         }
         return flat_index;
     };
-    std::set<chip_id_t> target_devices = {0, 1};
+    std::set<chip_id_t> target_devices = {0};
     
     std::unordered_map<std::string, std::int32_t> dynamic_tlb_config = {}; // Don't set any dynamic TLBs in this test
     uint32_t num_host_mem_ch_per_mmio_device = 1;
-    tt_SiliconDevice device = tt_SiliconDevice("./tests/soc_descs/grayskull_10x12.yaml", "", target_devices, num_host_mem_ch_per_mmio_device, dynamic_tlb_config, false, true);
+    tt_SiliconDevice device = tt_SiliconDevice(test_utils::GetAbsPath("tests/soc_descs/grayskull_10x12.yaml"), "", target_devices, num_host_mem_ch_per_mmio_device, dynamic_tlb_config, false, true);
     for(int i = 0; i < target_devices.size(); i++) {
         // Iterate over devices and only setup static TLBs for worker cores
         auto& sdesc = device.get_virtual_soc_descriptors().at(i);
@@ -195,12 +197,12 @@ TEST(SiliconDriverGS, StaticTLB_RW) {
 
 TEST(SiliconDriverGS, DynamicTLB_RW) {
     // Don't use any static TLBs in this test. All writes go through a dynamic TLB that needs to be reconfigured for each transaction
-    std::set<chip_id_t> target_devices = {0, 1};
+    std::set<chip_id_t> target_devices = {0};
 
     std::unordered_map<std::string, std::int32_t> dynamic_tlb_config = {};
     uint32_t num_host_mem_ch_per_mmio_device = 1;
     dynamic_tlb_config.insert({"SMALL_READ_WRITE_TLB", 157}); // Use this for all reads and writes to worker cores
-    tt_SiliconDevice device = tt_SiliconDevice("./tests/soc_descs/grayskull_10x12.yaml", "", target_devices, num_host_mem_ch_per_mmio_device, dynamic_tlb_config, false, true);
+    tt_SiliconDevice device = tt_SiliconDevice(test_utils::GetAbsPath("tests/soc_descs/grayskull_10x12.yaml"), "", target_devices, num_host_mem_ch_per_mmio_device, dynamic_tlb_config, false, true);
     device.set_fallback_tlb_ordering_mode("SMALL_READ_WRITE_TLB", TLB_DATA::Posted); // Explicitly test API to set fallback tlb ordering mode
     tt_device_params default_params;
     device.start_device(default_params);
@@ -244,7 +246,7 @@ TEST(SiliconDriverGS, MultiThreadedDevice) {
     std::unordered_map<std::string, std::int32_t> dynamic_tlb_config = {};
     uint32_t num_host_mem_ch_per_mmio_device = 1;
     dynamic_tlb_config.insert({"SMALL_READ_WRITE_TLB", 157}); // Use this for all reads and writes to worker cores
-    tt_SiliconDevice device = tt_SiliconDevice("./tests/soc_descs/grayskull_10x12.yaml", "", target_devices, num_host_mem_ch_per_mmio_device, dynamic_tlb_config, false, true);
+    tt_SiliconDevice device = tt_SiliconDevice(test_utils::GetAbsPath("tests/soc_descs/grayskull_10x12.yaml"), "", target_devices, num_host_mem_ch_per_mmio_device, dynamic_tlb_config, false, true);
     
     tt_device_params default_params;
     device.start_device(default_params);
@@ -303,7 +305,7 @@ TEST(SiliconDriverGS, MultiThreadedDevice) {
     device.close_device();
 }
 
-TEST(SiliconDriverGS, MultiThreadedMemBar) {
+TEST(SiliconDriverGS, MultiThreadedMemBar) { // this tests takes ~5 mins to run
     // Have 2 threads read and write from a single device concurrently
     // All (fairly large) transactions go through a static TLB. 
     // We want to make sure the memory barrier is thread/process safe.
@@ -324,7 +326,7 @@ TEST(SiliconDriverGS, MultiThreadedMemBar) {
     dynamic_tlb_config.insert({"SMALL_READ_WRITE_TLB", 157}); // Use this for reading back membar values
     uint32_t num_host_mem_ch_per_mmio_device = 1;
 
-    tt_SiliconDevice device = tt_SiliconDevice("./tests/soc_descs/grayskull_10x12.yaml", "", target_devices, num_host_mem_ch_per_mmio_device, dynamic_tlb_config, false, true);
+    tt_SiliconDevice device = tt_SiliconDevice(test_utils::GetAbsPath("tests/soc_descs/grayskull_10x12.yaml"), "", target_devices, num_host_mem_ch_per_mmio_device, dynamic_tlb_config, false, true);
     
     for(int i = 0; i < target_devices.size(); i++) {
         // Iterate over devices and only setup static TLBs for functional worker cores

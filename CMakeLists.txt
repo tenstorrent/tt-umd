@@ -16,14 +16,13 @@ if(MASTER_PROJECT)
         set(CMAKE_BUILD_TYPE "Release" CACHE STRING "Release build is the default" FORCE)
     endif()
 
-    message(STATUS "UMD build type: ${CMAKE_BUILD_TYPE}")
-    set(CMAKE_CXX_FLAGS_RELEASE "-O3")
-    set(CMAKE_CXX_FLAGS_RELWITHDEBINFO "-O3 -g -DDEBUG=DEBUG")
-    set(CMAKE_CXX_FLAGS_DEBUG "-O0 -g -DDEBUG=DEBUG")
-
     add_library(compiler_flags INTERFACE)
     target_compile_options(compiler_flags INTERFACE -DFMT_HEADER_ONLY)
 endif()
+message(STATUS "UMD build type: ${CMAKE_BUILD_TYPE}")
+set(CMAKE_CXX_FLAGS_RELEASE "-O3")
+set(CMAKE_CXX_FLAGS_RELWITHDEBINFO "-O3 -g -DDEBUG=DEBUG")
+set(CMAKE_CXX_FLAGS_DEBUG "-O0 -g -DDEBUG=DEBUG")
 
 include(${PROJECT_SOURCE_DIR}/cmake/dependencies.cmake)
 

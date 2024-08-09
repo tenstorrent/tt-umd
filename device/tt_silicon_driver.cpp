@@ -4294,7 +4294,7 @@ void tt_SiliconDevice::broadcast_write_to_cluster(const void *mem_ptr, uint32_t 
     else if (arch_name == tt::ARCH::BLACKHOLE) {
         auto architecture_implementation = tt::umd::architecture_implementation::create(static_cast<tt::umd::architecture>(arch_name));
         if(cols_to_exclude.find(0) == cols_to_exclude.end() or cols_to_exclude.find(9) == cols_to_exclude.end()) {
-            log_assert(!tensix_or_eth_in_broadcast(cols_to_exclude, architecture_implementation.get()), "Cannot broadcast to tensix/ethernet and DRAM simultaneously on Wormhole.");
+            log_assert(!tensix_or_eth_in_broadcast(cols_to_exclude, architecture_implementation.get()), "Cannot broadcast to tensix/ethernet and DRAM simultaneously on Blackhole.");
             if(cols_to_exclude.find(0) == cols_to_exclude.end()) {
                 // When broadcast includes column zero do not exclude anything
                 std::set<uint32_t> unsafe_rows = {};

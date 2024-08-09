@@ -1,9 +1,11 @@
 #pragma once
-#include "../test_utils/stimulus_generators.hpp"
-#include "eth_l1_address_map.h"
+
+#include "tt_cluster_descriptor.h"
+#include "tt_device.h"
 #include "tt_xy_pair.h"
-#include <tt_cluster_descriptor.h>
-#include <tt_device.h>
+#include "eth_l1_address_map.h"
+
+#include "tests/test_utils/stimulus_generators.hpp"
 
 namespace tt::umd::test::utils {
 
@@ -57,7 +59,7 @@ class WormholeTestFixture : public ::testing::Test {
     std::set<chip_id_t> target_devices = {devices.begin(), devices.end()};
     uint32_t num_host_mem_ch_per_mmio_device = 1;
     std::unordered_map<std::string, std::int32_t> dynamic_tlb_config = {}; // Don't set any dynamic TLBs in this test
-    device = std::make_unique<tt_SiliconDevice>(SOC_DESC_PATH, GetClusterDescYAML().string(), target_devices, num_host_mem_ch_per_mmio_device, dynamic_tlb_config, false, true, true);
+    device = std::make_unique<tt_SiliconDevice>(test_utils::GetAbsPath(SOC_DESC_PATH), test_utils::GetClusterDescYAML(), target_devices, num_host_mem_ch_per_mmio_device, dynamic_tlb_config, false, true, true);
     assert(device != nullptr);
     assert(device->get_cluster_description()->get_number_of_chips() == get_detected_num_chips());
 

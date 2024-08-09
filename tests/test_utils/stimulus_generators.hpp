@@ -1,7 +1,7 @@
 #pragma once
 #include "tt_xy_pair.h"
-#include <tt_cluster_descriptor.h>
-#include <tt_device.h>
+#include "tt_cluster_descriptor.h"
+#include "tt_device.h"
 
 
 #include <functional>
@@ -33,7 +33,7 @@
 
 namespace tt::umd::test::utils {
 
-static const std::string SOC_DESC_PATH = "./tests/soc_descs/wormhole_b0_8x10.yaml";
+static const std::string SOC_DESC_PATH = "tests/soc_descs/wormhole_b0_8x10.yaml";
 
 
 enum RemoteTransferType : uint8_t { WRITE = 0, ROLLED_WRITE, READ, EPOCH_CMD_WRITE };

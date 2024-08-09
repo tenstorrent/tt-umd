@@ -1,16 +1,16 @@
 // SPDX-FileCopyrightText: (c) 2023 Tenstorrent Inc.
 //
 // SPDX-License-Identifier: Apache-2.0
+#include <thread>
+#include <memory>
 
 #include "gtest/gtest.h"
-#include <tt_device.h>
+#include "tt_device.h"
 #include "eth_l1_address_map.h"
 #include "l1_address_map.h"
 #include "eth_l1_address_map.h"
 #include "eth_interface.h"
 #include "host_mem_address_map.h"
-#include <thread>
-#include <memory>
 
 #include "device/tt_cluster_descriptor.h"
 #include "device/wormhole_implementation.h"
@@ -71,14 +71,23 @@ std::int32_t get_static_tlb_index(tt_xy_pair target) {
     }
 }
 
+std::set<chip_id_t> get_target_devices() {
+    std::set<chip_id_t> target_devices;
+    std::unique_ptr<tt_ClusterDescriptor> cluster_desc_uniq = tt_ClusterDescriptor::create_from_yaml(test_utils::GetClusterDescYAML());
+    for (int i = 0; i < cluster_desc_uniq->get_number_of_chips(); i++) {
+        target_devices.insert(i);
+    }
+    return target_devices;
+}
+
 TEST(SiliconDriverWH, CreateDestroy) {
-    std::set<chip_id_t> target_devices = {0, 1};
+    std::set<chip_id_t> target_devices = get_target_devices();
     uint32_t num_host_mem_ch_per_mmio_device = 1;
     std::unordered_map<std::string, std::int32_t> dynamic_tlb_config = {}; // Don't set any dynamic TLBs in this test
     tt_device_params default_params;
     // Initialize the driver with a 1x1 descriptor and explictly do not perform harvesting
     for(int i = 0; i < 50; i++) {
-        tt_SiliconDevice device = tt_SiliconDevice("./tests/soc_descs/wormhole_b0_1x1.yaml", GetClusterDescYAML().string(), target_devices, num_host_mem_ch_per_mmio_device, dynamic_tlb_config, false, true, false);
+        tt_SiliconDevice device = tt_SiliconDevice(test_utils::GetAbsPath("tests/soc_descs/wormhole_b0_1x1.yaml"), test_utils::GetClusterDescYAML(), target_devices, num_host_mem_ch_per_mmio_device, dynamic_tlb_config, false, true, false);
         set_params_for_remote_txn(device);
         device.start_device(default_params);
         device.deassert_risc_reset();
@@ -87,19 +96,13 @@ TEST(SiliconDriverWH, CreateDestroy) {
 }
 
 TEST(SiliconDriverWH, Harvesting) {
-    std::set<chip_id_t> target_devices = {0, 1};
+    std::set<chip_id_t> target_devices = get_target_devices();
+    int num_devices = target_devices.size();
     std::unordered_map<chip_id_t, uint32_t> simulated_harvesting_masks = {{0, 30}, {1, 60}};
-    
-    {
-        std::unique_ptr<tt_ClusterDescriptor> cluster_desc_uniq = tt_ClusterDescriptor::create_from_yaml(GetClusterDescYAML().string());
-        if (cluster_desc_uniq->get_number_of_chips() != target_devices.size()) {
-            GTEST_SKIP() << "SiliconDriverWH.Harvesting skipped because it can only be run on a two chip nebula system";
-        }
-    }
 
     std::unordered_map<std::string, std::int32_t> dynamic_tlb_config = {}; // Don't set any dynamic TLBs in this test
     uint32_t num_host_mem_ch_per_mmio_device = 1;
-    tt_SiliconDevice device = tt_SiliconDevice("./tests/soc_descs/wormhole_b0_8x10.yaml", GetClusterDescYAML().string(), target_devices, num_host_mem_ch_per_mmio_device, dynamic_tlb_config, false, true, true, simulated_harvesting_masks);
+    tt_SiliconDevice device = tt_SiliconDevice(test_utils::GetAbsPath("tests/soc_descs/wormhole_b0_8x10.yaml"), test_utils::GetClusterDescYAML(), target_devices, num_host_mem_ch_per_mmio_device, dynamic_tlb_config, false, true, true, simulated_harvesting_masks);
     auto sdesc_per_chip = device.get_virtual_soc_descriptors();
 
     ASSERT_EQ(device.using_harvested_soc_descriptors(), true) << "Expected Driver to have performed harvesting";
@@ -107,24 +110,19 @@ TEST(SiliconDriverWH, Harvesting) {
     for(const auto& chip : sdesc_per_chip) {
         ASSERT_EQ(chip.second.workers.size(), 48) << "Expected SOC descriptor with harvesting to have 48 workers for chip" << chip.first;
     }
-    ASSERT_EQ(device.get_harvesting_masks_for_soc_descriptors().at(0), 30) << "Expected first chip to have harvesting mask of 30";
-    ASSERT_EQ(device.get_harvesting_masks_for_soc_descriptors().at(1), 60) << "Expected second chip to have harvesting mask of 60";
+    for(int i = 0; i < num_devices; i++){
+        ASSERT_EQ(device.get_harvesting_masks_for_soc_descriptors().at(i), simulated_harvesting_masks.at(i)) << "Expecting chip " << i << " to have harvesting mask of " << simulated_harvesting_masks.at(i);
+    }
 }
 
 TEST(SiliconDriverWH, CustomSocDesc) {
-    std::set<chip_id_t> target_devices = {0, 1};
+    std::set<chip_id_t> target_devices = get_target_devices();
     std::unordered_map<chip_id_t, uint32_t> simulated_harvesting_masks = {{0, 30}, {1, 60}};
-    {
-        std::unique_ptr<tt_ClusterDescriptor> cluster_desc_uniq = tt_ClusterDescriptor::create_from_yaml(GetClusterDescYAML().string());
-        if (cluster_desc_uniq->get_number_of_chips() != target_devices.size()) {
-            GTEST_SKIP() << "SiliconDriverWH.Harvesting skipped because it can only be run on a two chip nebula system";
-        }
-    }
 
     std::unordered_map<std::string, std::int32_t> dynamic_tlb_config = {}; // Don't set any dynamic TLBs in this test
     uint32_t num_host_mem_ch_per_mmio_device = 1;
     // Initialize the driver with a 1x1 descriptor and explictly do not perform harvesting
-    tt_SiliconDevice device = tt_SiliconDevice("./tests/soc_descs/wormhole_b0_1x1.yaml", GetClusterDescYAML().string(), target_devices, num_host_mem_ch_per_mmio_device, dynamic_tlb_config, false, true, false, simulated_harvesting_masks);
+    tt_SiliconDevice device = tt_SiliconDevice(test_utils::GetAbsPath("tests/soc_descs/wormhole_b0_1x1.yaml"), test_utils::GetClusterDescYAML(), target_devices, num_host_mem_ch_per_mmio_device, dynamic_tlb_config, false, true, false, simulated_harvesting_masks);
     auto sdesc_per_chip = device.get_virtual_soc_descriptors();
     
     ASSERT_EQ(device.using_harvested_soc_descriptors(), false) << "SOC descriptors should not be modified when harvesting is disabled";
@@ -139,19 +137,13 @@ TEST(SiliconDriverWH, HarvestingRuntime) {
         return get_static_tlb_index(target);
     };
 
-    std::set<chip_id_t> target_devices = {0, 1};
+    std::set<chip_id_t> target_devices = get_target_devices();
     std::unordered_map<chip_id_t, uint32_t> simulated_harvesting_masks = {{0, 30}, {1, 60}};
-    {
-        std::unique_ptr<tt_ClusterDescriptor> cluster_desc_uniq = tt_ClusterDescriptor::create_from_yaml(GetClusterDescYAML().string());
-        if (cluster_desc_uniq->get_number_of_chips() != target_devices.size()) {
-            GTEST_SKIP() << "SiliconDriverWH.Harvesting skipped because it can only be run on a two chip nebula system";
-        }
-    }
 
     uint32_t num_host_mem_ch_per_mmio_device = 1;
     std::unordered_map<std::string, std::int32_t> dynamic_tlb_config = {{"SMALL_READ_WRITE_TLB", 157}}; // Use both static and dynamic TLBs here
     
-    tt_SiliconDevice device = tt_SiliconDevice("./tests/soc_descs/wormhole_b0_8x10.yaml", GetClusterDescYAML().string(), target_devices, num_host_mem_ch_per_mmio_device, dynamic_tlb_config, false, true, true, simulated_harvesting_masks);
+    tt_SiliconDevice device = tt_SiliconDevice(test_utils::GetAbsPath("tests/soc_descs/wormhole_b0_8x10.yaml"), test_utils::GetClusterDescYAML(), target_devices, num_host_mem_ch_per_mmio_device, dynamic_tlb_config, false, true, true, simulated_harvesting_masks);
     set_params_for_remote_txn(device);
     auto mmio_devices = device.get_target_mmio_device_ids();
     
@@ -210,13 +202,14 @@ TEST(SiliconDriverWH, UnalignedStaticTLB_RW) {
         return get_static_tlb_index(target);
     };
 
-    std::set<chip_id_t> target_devices = {0, 1};
+    std::set<chip_id_t> target_devices = get_target_devices();
+    int num_devices = target_devices.size();
 
     std::unordered_map<std::string, std::int32_t> dynamic_tlb_config = {}; // Don't set any dynamic TLBs in this test
     dynamic_tlb_config["REG_TLB"] = 184;
     uint32_t num_host_mem_ch_per_mmio_device = 1;
     
-    tt_SiliconDevice device = tt_SiliconDevice("./tests/soc_descs/wormhole_b0_8x10.yaml", GetClusterDescYAML().string(), target_devices, num_host_mem_ch_per_mmio_device, dynamic_tlb_config, false, true, true);
+    tt_SiliconDevice device = tt_SiliconDevice(test_utils::GetAbsPath("tests/soc_descs/wormhole_b0_8x10.yaml"), test_utils::GetClusterDescYAML(), target_devices, num_host_mem_ch_per_mmio_device, dynamic_tlb_config, false, true, true);
     set_params_for_remote_txn(device);
     auto mmio_devices = device.get_target_mmio_device_ids();
 
@@ -238,7 +231,7 @@ TEST(SiliconDriverWH, UnalignedStaticTLB_RW) {
     device.deassert_risc_reset();
 
     std::vector<uint32_t> unaligned_sizes = {3, 14, 21, 255, 362, 430, 1022, 1023, 1025};
-    for(int i = 0; i < 2; i++) {
+    for(int i = 0; i < num_devices; i++) {
         for(const auto& size : unaligned_sizes) {
             std::vector<uint8_t> write_vec(size, 0);
             for(int i = 0; i < size; i++){
@@ -273,19 +266,12 @@ TEST(SiliconDriverWH, StaticTLB_RW) {
         return get_static_tlb_index(target);
     };
 
-    std::set<chip_id_t> target_devices = {0, 1};
-
-    {
-        std::unique_ptr<tt_ClusterDescriptor> cluster_desc_uniq = tt_ClusterDescriptor::create_from_yaml(GetClusterDescYAML().string());
-        if (cluster_desc_uniq->get_number_of_chips() != target_devices.size()) {
-            GTEST_SKIP() << "SiliconDriverWH.Harvesting skipped because it can only be run on a two chip nebula system";
-        }
-    }
+    std::set<chip_id_t> target_devices = get_target_devices();
 
     std::unordered_map<std::string, std::int32_t> dynamic_tlb_config = {}; // Don't set any dynamic TLBs in this test
     uint32_t num_host_mem_ch_per_mmio_device = 1;
     
-    tt_SiliconDevice device = tt_SiliconDevice("./tests/soc_descs/wormhole_b0_8x10.yaml", GetClusterDescYAML().string(), target_devices, num_host_mem_ch_per_mmio_device, dynamic_tlb_config, false, true, true);
+    tt_SiliconDevice device = tt_SiliconDevice(test_utils::GetAbsPath("tests/soc_descs/wormhole_b0_8x10.yaml"), test_utils::GetClusterDescYAML(), target_devices, num_host_mem_ch_per_mmio_device, dynamic_tlb_config, false, true, true);
     set_params_for_remote_txn(device);
     auto mmio_devices = device.get_target_mmio_device_ids();
 
@@ -331,19 +317,12 @@ TEST(SiliconDriverWH, StaticTLB_RW) {
 
 TEST(SiliconDriverWH, DynamicTLB_RW) {
     // Don't use any static TLBs in this test. All writes go through a dynamic TLB that needs to be reconfigured for each transaction
-    std::set<chip_id_t> target_devices = {0, 1};
-
-    {
-        std::unique_ptr<tt_ClusterDescriptor> cluster_desc_uniq = tt_ClusterDescriptor::create_from_yaml(GetClusterDescYAML().string());
-        if (cluster_desc_uniq->get_number_of_chips() != target_devices.size()) {
-            GTEST_SKIP() << "SiliconDriverWH.Harvesting skipped because it can only be run on a two chip nebula system";
-        }
-    }
+    std::set<chip_id_t> target_devices = get_target_devices();
 
     std::unordered_map<std::string, std::int32_t> dynamic_tlb_config = {};
     uint32_t num_host_mem_ch_per_mmio_device = 1;
     dynamic_tlb_config.insert({"SMALL_READ_WRITE_TLB", 157}); // Use this for all reads and writes to worker cores
-    tt_SiliconDevice device = tt_SiliconDevice("./tests/soc_descs/wormhole_b0_8x10.yaml",  GetClusterDescYAML().string(), target_devices, num_host_mem_ch_per_mmio_device, dynamic_tlb_config, false, true, true);
+    tt_SiliconDevice device = tt_SiliconDevice(test_utils::GetAbsPath("tests/soc_descs/wormhole_b0_8x10.yaml"),  test_utils::GetClusterDescYAML(), target_devices, num_host_mem_ch_per_mmio_device, dynamic_tlb_config, false, true, true);
 
     set_params_for_remote_txn(device);
 
@@ -378,19 +357,12 @@ TEST(SiliconDriverWH, MultiThreadedDevice) {
     // Have 2 threads read and write from a single device concurrently
     // All transactions go through a single Dynamic TLB. We want to make sure this is thread/process safe
 
-    std::set<chip_id_t> target_devices = {0};
-
-    {
-        std::unique_ptr<tt_ClusterDescriptor> cluster_desc_uniq = tt_ClusterDescriptor::create_from_yaml(GetClusterDescYAML().string());
-        if (cluster_desc_uniq->get_number_of_chips() > 2) {
-            GTEST_SKIP() << "SiliconDriverWH.Harvesting skipped because it can only be run on a one or two chip nebula system";
-        }
-    }
+    std::set<chip_id_t> target_devices = get_target_devices();
 
     std::unordered_map<std::string, std::int32_t> dynamic_tlb_config = {};
     uint32_t num_host_mem_ch_per_mmio_device = 1;
     dynamic_tlb_config.insert({"SMALL_READ_WRITE_TLB", 157}); // Use this for all reads and writes to worker cores
-    tt_SiliconDevice device = tt_SiliconDevice("./tests/soc_descs/wormhole_b0_8x10.yaml", GetClusterDescYAML().string(), target_devices, num_host_mem_ch_per_mmio_device, dynamic_tlb_config, false, true, true);
+    tt_SiliconDevice device = tt_SiliconDevice(test_utils::GetAbsPath("tests/soc_descs/wormhole_b0_8x10.yaml"), test_utils::GetClusterDescYAML(), target_devices, num_host_mem_ch_per_mmio_device, dynamic_tlb_config, false, true, true);
     
     set_params_for_remote_txn(device);
 
@@ -445,20 +417,24 @@ TEST(SiliconDriverWH, MultiThreadedMemBar) {
         return get_static_tlb_index(target);
     };
 
-    std::set<chip_id_t> target_devices = {0};
+    std::set<chip_id_t> target_devices = get_target_devices();
     uint32_t base_addr = l1_mem::address_map::DATA_BUFFER_SPACE_BASE;
     std::unordered_map<std::string, std::int32_t> dynamic_tlb_config = {};
     dynamic_tlb_config.insert({"SMALL_READ_WRITE_TLB", 157}); // Use this for reading back membar values
     uint32_t num_host_mem_ch_per_mmio_device = 1;
 
-    tt_SiliconDevice device = tt_SiliconDevice("./tests/soc_descs/wormhole_b0_8x10.yaml", GetClusterDescYAML().string(), target_devices, num_host_mem_ch_per_mmio_device, dynamic_tlb_config, false, true, true);
+    tt_SiliconDevice device = tt_SiliconDevice(test_utils::GetAbsPath("tests/soc_descs/wormhole_b0_8x10.yaml"), test_utils::GetClusterDescYAML(), target_devices, num_host_mem_ch_per_mmio_device, dynamic_tlb_config, false, true, true);
     set_params_for_remote_txn(device);
+    auto mmio_devices = device.get_target_mmio_device_ids();
+    
     for(int i = 0; i < target_devices.size(); i++) {
         // Iterate over devices and only setup static TLBs for functional worker cores
-        auto& sdesc = device.get_virtual_soc_descriptors().at(i);
-        for(auto& core : sdesc.workers) {
-            // Statically mapping a 1MB TLB to this core, starting from address DATA_BUFFER_SPACE_BASE. 
-            device.configure_tlb(i, core, get_static_tlb_index_callback(core), base_addr);
+        if(std::find(mmio_devices.begin(), mmio_devices.end(), i) != mmio_devices.end()) {
+            auto& sdesc = device.get_virtual_soc_descriptors().at(i);
+            for(auto& core : sdesc.workers) {
+                // Statically mapping a 1MB TLB to this core, starting from address DATA_BUFFER_SPACE_BASE. 
+                device.configure_tlb(i, core, get_static_tlb_index_callback(core), base_addr);
+            }
         }
     }
     device.setup_core_to_tlb_map(get_static_tlb_index_callback);
@@ -550,19 +526,12 @@ TEST(SiliconDriverWH, MultiThreadedMemBar) {
 
 TEST(SiliconDriverWH, BroadcastWrite) {
     // Broadcast multiple vectors to tensix and dram grid. Verify broadcasted data is read back correctly
-    std::set<chip_id_t> target_devices = {0, 1};
-
-    {
-        std::unique_ptr<tt_ClusterDescriptor> cluster_desc_uniq = tt_ClusterDescriptor::create_from_yaml(GetClusterDescYAML().string());
-        if (cluster_desc_uniq->get_number_of_chips() != target_devices.size()) {
-            GTEST_SKIP() << "SiliconDriverWH.Harvesting skipped because it can only be run on a two chip nebula system";
-        }
-    }
+    std::set<chip_id_t> target_devices = get_target_devices();
 
     std::unordered_map<std::string, std::int32_t> dynamic_tlb_config = {}; // Don't set any dynamic TLBs in this test
     uint32_t num_host_mem_ch_per_mmio_device = 1;
     
-    tt_SiliconDevice device = tt_SiliconDevice("./tests/soc_descs/wormhole_b0_8x10.yaml", GetClusterDescYAML().string(), target_devices, num_host_mem_ch_per_mmio_device, dynamic_tlb_config, false, true, true);
+    tt_SiliconDevice device = tt_SiliconDevice(test_utils::GetAbsPath("tests/soc_descs/wormhole_b0_8x10.yaml"), test_utils::GetClusterDescYAML(), target_devices, num_host_mem_ch_per_mmio_device, dynamic_tlb_config, false, true, true);
     set_params_for_remote_txn(device);
     auto mmio_devices = device.get_target_mmio_device_ids();
 
@@ -614,19 +583,12 @@ TEST(SiliconDriverWH, BroadcastWrite) {
 
 TEST(SiliconDriverWH, VirtualCoordinateBroadcast) {
     // Broadcast multiple vectors to tensix and dram grid. Verify broadcasted data is read back correctly
-    std::set<chip_id_t> target_devices = {0, 1};
-
-    {
-        std::unique_ptr<tt_ClusterDescriptor> cluster_desc_uniq = tt_ClusterDescriptor::create_from_yaml(GetClusterDescYAML().string());
-        if (cluster_desc_uniq->get_number_of_chips() != target_devices.size()) {
-            GTEST_SKIP() << "SiliconDriverWH.Harvesting skipped because it can only be run on a two chip nebula system";
-        }
-    }
+    std::set<chip_id_t> target_devices = get_target_devices();
 
     std::unordered_map<std::string, std::int32_t> dynamic_tlb_config = {}; // Don't set any dynamic TLBs in this test
     uint32_t num_host_mem_ch_per_mmio_device = 1;
     
-    tt_SiliconDevice device = tt_SiliconDevice("./tests/soc_descs/wormhole_b0_8x10.yaml", GetClusterDescYAML().string(), target_devices, num_host_mem_ch_per_mmio_device, dynamic_tlb_config, false, true, true);
+    tt_SiliconDevice device = tt_SiliconDevice(test_utils::GetAbsPath("tests/soc_descs/wormhole_b0_8x10.yaml"), test_utils::GetClusterDescYAML(), target_devices, num_host_mem_ch_per_mmio_device, dynamic_tlb_config, false, true, true);
     set_params_for_remote_txn(device);
     auto mmio_devices = device.get_target_mmio_device_ids();
 

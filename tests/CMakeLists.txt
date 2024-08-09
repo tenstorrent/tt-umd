@@ -1,7 +1,10 @@
 
 add_library(test_common INTERFACE)
 target_link_libraries(test_common INTERFACE umd_device gtest_main gtest pthread)
-target_include_directories(test_common INTERFACE ${PROJECT_SOURCE_DIR})
+target_include_directories(test_common INTERFACE 
+    ${PROJECT_SOURCE_DIR}
+    ${CMAKE_CURRENT_SOURCE_DIR}
+)
 
 add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/simulation)
 if($ENV{ARCH_NAME} STREQUAL "wormhole_b0")

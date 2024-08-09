@@ -1,10 +1,14 @@
-#include <tt_cluster_descriptor.h>
-#include <tt_device.h>
+// SPDX-FileCopyrightText: (c) 2023 Tenstorrent Inc.
+//
+// SPDX-License-Identifier: Apache-2.0
 
 #include <cstdint>
 #include <numeric>
 #include <random>
 #include <thread>
+
+#include "tt_cluster_descriptor.h"
+#include "tt_device.h"
 
 #include "common/logger.hpp"
 #include "eth_interface.h"
@@ -12,12 +16,12 @@
 #include "gtest/gtest.h"
 #include "host_mem_address_map.h"
 #include "l1_address_map.h"
-#include "../galaxy/test_galaxy_common.h"
 #include "tt_soc_descriptor.h"
 
-#include "../test_utils/stimulus_generators.hpp"
-#include "../test_utils/generate_cluster_desc.hpp"
-#include "../wormhole/test_wh_common.h"
+#include "tests/test_utils/stimulus_generators.hpp"
+#include "tests/test_utils/generate_cluster_desc.hpp"
+#include "tests/galaxy/test_galaxy_common.h"
+#include "tests/wormhole/test_wh_common.h"
 
 
 namespace tt::umd::test::utils {
@@ -34,7 +38,7 @@ class WormholeGalaxyStabilityTestFixture : public WormholeTestFixture {
   static uint32_t scale_number_of_tests;
 
   static void SetUpTestSuite() {
-    std::unique_ptr<tt_ClusterDescriptor> cluster_desc = tt_ClusterDescriptor::create_from_yaml(GetClusterDescYAML().string());
+    std::unique_ptr<tt_ClusterDescriptor> cluster_desc = tt_ClusterDescriptor::create_from_yaml(test_utils::GetClusterDescYAML());
     detected_num_chips = cluster_desc->get_number_of_chips();
     if (detected_num_chips < EXPECTED_MIN_CHIPS) {
         skip_tests = true;

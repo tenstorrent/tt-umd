@@ -2,10 +2,10 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-#include <tt_cluster_descriptor.h>
-#include <tt_device.h>
-
 #include <numeric>
+
+#include "tt_cluster_descriptor.h"
+#include "tt_device.h"
 
 #include "common/logger.hpp"
 #include "eth_interface.h"
@@ -16,13 +16,13 @@
 #include "test_galaxy_common.h"
 #include "tests/test_utils/generate_cluster_desc.hpp"
 
-static const std::string SOC_DESC_PATH = "./tests/soc_descs/wormhole_b0_8x10.yaml";
+static const std::string SOC_DESC_PATH = "tests/soc_descs/wormhole_b0_8x10.yaml";
 
 void set_params_for_remote_txn(tt_SiliconDevice& device);
 
 void run_remote_read_write_test(uint32_t vector_size, bool dram_write) {
     // Galaxy Setup
-    std::string cluster_desc_path = GetClusterDescYAML().string();
+    std::string cluster_desc_path = test_utils::GetClusterDescYAML();
     std::shared_ptr<tt_ClusterDescriptor> cluster_desc = tt_ClusterDescriptor::create_from_yaml(cluster_desc_path);
     std::set<chip_id_t> target_devices = {};
     for (const auto& chip : cluster_desc->get_all_chips()) {
@@ -34,7 +34,7 @@ void run_remote_read_write_test(uint32_t vector_size, bool dram_write) {
     dynamic_tlb_config.insert({"SMALL_READ_WRITE_TLB", 157});  // Use this for all reads and writes to worker cores
 
     tt_SiliconDevice device = tt_SiliconDevice(
-        SOC_DESC_PATH, cluster_desc_path, target_devices, num_host_mem_ch_per_mmio_device, dynamic_tlb_config, false, true);
+        test_utils::GetAbsPath(SOC_DESC_PATH), cluster_desc_path, target_devices, num_host_mem_ch_per_mmio_device, dynamic_tlb_config, false, true);
     const auto sdesc_per_chip = device.get_virtual_soc_descriptors();
 
     set_params_for_remote_txn(device);
@@ -128,7 +128,7 @@ TEST(GalaxyBasicReadWrite, LargeRemoteDramBlockReadWrite) { run_remote_read_writ
 void run_data_mover_test(
     uint32_t vector_size, tt_multichip_core_addr sender_core, tt_multichip_core_addr receiver_core) {
     // Galaxy Setup
-    std::string cluster_desc_path = GetClusterDescYAML().string();
+    std::string cluster_desc_path = test_utils::GetClusterDescYAML();
     std::shared_ptr<tt_ClusterDescriptor> cluster_desc = tt_ClusterDescriptor::create_from_yaml(cluster_desc_path);
     std::set<chip_id_t> target_devices = {};
     for (const auto& chip : cluster_desc->get_all_chips()) {
@@ -149,7 +149,7 @@ void run_data_mover_test(
     dynamic_tlb_config.insert({"SMALL_READ_WRITE_TLB", 157});  // Use this for all reads and writes to worker cores
 
     tt_SiliconDevice device = tt_SiliconDevice(
-        SOC_DESC_PATH, cluster_desc_path, target_devices, num_host_mem_ch_per_mmio_device, dynamic_tlb_config, false, true);
+        test_utils::GetAbsPath(SOC_DESC_PATH), cluster_desc_path, target_devices, num_host_mem_ch_per_mmio_device, dynamic_tlb_config, false, true);
 
     set_params_for_remote_txn(device);
 
@@ -243,7 +243,7 @@ TEST(GalaxyDataMovement, TwoChipMoveData4) {
 void run_data_broadcast_test(
     uint32_t vector_size, tt_multichip_core_addr sender_core, std::vector<tt_multichip_core_addr> receiver_cores) {
     // Galaxy Setup
-    std::string cluster_desc_path = GetClusterDescYAML().string();
+    std::string cluster_desc_path = test_utils::GetClusterDescYAML();
     std::shared_ptr<tt_ClusterDescriptor> cluster_desc = tt_ClusterDescriptor::create_from_yaml(cluster_desc_path);
     std::set<chip_id_t> target_devices = {};
     for (const auto& chip : cluster_desc->get_all_chips()) {
@@ -266,7 +266,7 @@ void run_data_broadcast_test(
     dynamic_tlb_config.insert({"SMALL_READ_WRITE_TLB", 157});  // Use this for all reads and writes to worker cores
 
     tt_SiliconDevice device = tt_SiliconDevice(
-        SOC_DESC_PATH, cluster_desc_path, target_devices, num_host_mem_ch_per_mmio_device, dynamic_tlb_config, false, true);
+        test_utils::GetAbsPath(SOC_DESC_PATH), cluster_desc_path, target_devices, num_host_mem_ch_per_mmio_device, dynamic_tlb_config, false, true);
 
     set_params_for_remote_txn(device);
 
@@ -318,7 +318,7 @@ void run_data_broadcast_test(
 
 // L1 to L1 single chip
 TEST(GalaxyDataMovement, BroadcastData1) {
-    tt_SocDescriptor sdesc(SOC_DESC_PATH);
+    tt_SocDescriptor sdesc(test_utils::GetAbsPath(SOC_DESC_PATH));
 
     tt_multichip_core_addr sender_core(4, tt_xy_pair(1, 1), 0x5000);
     std::vector<tt_multichip_core_addr> receiver_cores;
@@ -331,7 +331,7 @@ TEST(GalaxyDataMovement, BroadcastData1) {
 
 // L1 to L1 multi chip
 TEST(GalaxyDataMovement, BroadcastData2) {
-    tt_SocDescriptor sdesc(SOC_DESC_PATH);
+    tt_SocDescriptor sdesc(test_utils::GetAbsPath(SOC_DESC_PATH));
 
     tt_multichip_core_addr sender_core(12, tt_xy_pair(1, 1), 0x5000);
     std::vector<tt_multichip_core_addr> receiver_cores;
@@ -357,7 +357,7 @@ TEST(GalaxyDataMovement, BroadcastData2) {
 
 // Dram to L1
 TEST(GalaxyDataMovement, BroadcastData3) {
-    tt_SocDescriptor sdesc(SOC_DESC_PATH);
+    tt_SocDescriptor sdesc(test_utils::GetAbsPath(SOC_DESC_PATH));
 
     tt_multichip_core_addr sender_core(10, tt_xy_pair(0, 0), 0x20000);
     std::vector<tt_multichip_core_addr> receiver_cores;
@@ -371,7 +371,7 @@ TEST(GalaxyDataMovement, BroadcastData3) {
 
 // L1 to Dram
 TEST(GalaxyDataMovement, BroadcastData4) {
-    tt_SocDescriptor sdesc(SOC_DESC_PATH);
+    tt_SocDescriptor sdesc(test_utils::GetAbsPath(SOC_DESC_PATH));
 
     tt_multichip_core_addr sender_core(17, tt_xy_pair(8, 8), 0x20000);
     std::vector<tt_multichip_core_addr> receiver_cores;
@@ -387,7 +387,7 @@ TEST(GalaxyDataMovement, BroadcastData4) {
 
 // Dram to Dram
 TEST(GalaxyDataMovement, BroadcastData5) {
-    tt_SocDescriptor sdesc(SOC_DESC_PATH);
+    tt_SocDescriptor sdesc(test_utils::GetAbsPath(SOC_DESC_PATH));
 
     tt_multichip_core_addr sender_core(31, tt_xy_pair(2, 2), 0x20000);
     std::vector<tt_multichip_core_addr> receiver_cores;

@@ -8,7 +8,7 @@ foreach(TEST ${SIMULATION_TEST_SRCS})
     add_executable(${TEST_NAME} ${TEST})
     target_link_libraries(${TEST_NAME} PRIVATE test_common)
     target_include_directories(${TEST_NAME} PRIVATE 
-        ${CMAKE_SOURCE_DIR}/device/simulation
+        ${PROJECT_SOURCE_DIR}/device/simulation
     )
     set_target_properties(${TEST_NAME} PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/test/simulation)
     

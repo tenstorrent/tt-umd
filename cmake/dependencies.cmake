@@ -15,6 +15,29 @@ CPMAddPackage(
 )
 
 ############################################################################################################################
+# yaml-cpp
+############################################################################################################################
+CPMAddPackage(
+  NAME yaml-cpp
+  GITHUB_REPOSITORY jbeder/yaml-cpp
+  GIT_TAG 0.8.0
+  OPTIONS
+    "YAML_CPP_BUILD_TESTS OFF"
+    "YAML_CPP_BUILD_TOOLS OFF"
+    "YAML_BUILD_SHARED_LIBS OFF"
+)
+
+if (yaml-cpp_ADDED)
+    set_target_properties(yaml-cpp PROPERTIES DEBUG_POSTFIX "")
+endif()
+
+############################################################################################################################
+# boost::interprocess
+############################################################################################################################
+include(${PROJECT_SOURCE_DIR}/cmake/fetch_boost.cmake)
+fetch_boost_library(interprocess)
+
+############################################################################################################################
 # Nanomsg
 ############################################################################################################################
 CPMAddPackage(
@@ -53,3 +76,9 @@ CPMAddPackage(
     OPTIONS
         "LIBUV_BUILD_TESTS OFF"
 )
+
+if(NOT MASTER_PROJECT)
+    set(nng_include_dir ${nanomsg_SOURCE_DIR}/include PARENT_SCOPE)
+    set(flatbuffers_include_dir ${flatbuffers_SOURCE_DIR}/include PARENT_SCOPE)
+    set(libuv_include_dir ${libuv_SOURCE_DIR}/include PARENT_SCOPE)
+endif()

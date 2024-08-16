@@ -20,7 +20,6 @@
 #include "device/tlb.h"
 #include "device/tt_io.hpp"
 
-using TLB_OFFSETS = tt::umd::tlb_offsets;
 using TLB_DATA = tt::umd::tlb_data;
 
 
@@ -35,13 +34,6 @@ enum tt_DevicePowerState {
     BUSY,
     SHORT_IDLE,
     LONG_IDLE
-};
-
-enum tt_MutexType {
-    LARGE_READ_TLB,
-    LARGE_WRITE_TLB,
-    SMALL_READ_WRITE_TLB,
-    ARC_MSG
 };
 
 enum tt_MemBarFlag {
@@ -353,10 +345,8 @@ class tt_device
     * \param core chip-x-y struct specifying device and core
     * \param addr Address to write to
     * \param tlb_to_use Specifies fallback/dynamic TLB to use for transaction, if this core does not have static TLBs mapped to this address (dynamic TLBs were initialized in driver constructor)
-    * \param send_epoch_cmd Specifies that this is an epoch_cmd write, forcing runtime to take a faster write path (Buda only)
-    * \param last_send_epoch_cmd Specifies that this is the last epoch command being written, which requires metadata to be updated (Buda only)
     */
-    virtual void write_to_device(const void *mem_ptr, uint32_t size_in_bytes, tt_cxy_pair core, uint64_t addr, const std::string& tlb_to_use, bool send_epoch_cmd = false, bool last_send_epoch_cmd = true, bool ordered_with_prev_remote_write = false) {
+    virtual void write_to_device(const void *mem_ptr, uint32_t size_in_bytes, tt_cxy_pair core, uint64_t addr, const std::string& tlb_to_use) {
         // Only implement this for Silicon Backend
         throw std::runtime_error("---- tt_device::write_to_device is not implemented\n");
     }
@@ -369,36 +359,9 @@ class tt_device
     * \param core chip-x-y struct specifying device and core
     * \param addr Address to write to
     * \param tlb_to_use Specifies fallback/dynamic TLB to use for transaction, if this core does not have static TLBs mapped to this address (dynamic TLBs were initialized in driver constructor)
-    * \param send_epoch_cmd Specifies that this is an epoch_cmd write, forcing runtime to take a faster write path (Buda only)
-    * \param last_send_epoch_cmd Specifies that this is the last epoch command being written, which requires metadata to be updated (Buda only)
     */
-    virtual void write_to_device(std::vector<uint32_t> &vec, tt_cxy_pair core, uint64_t addr, const std::string& tlb_to_use, bool send_epoch_cmd = false, bool last_send_epoch_cmd = true, bool ordered_with_prev_remote_write = false) {
+    virtual void write_to_device(std::vector<uint32_t> &vec, tt_cxy_pair core, uint64_t addr, const std::string& tlb_to_use) {
         throw std::runtime_error("---- tt_device::write_to_device is not implemented\n");
-    }
-
-    /**
-    * @brief Unroll/replicate uint32_t data (as specified by ptr + len pair) and write it to specified device, core and address (defined for Silicon).
-    * \param mem_ptr src data address
-    * \param len src data size (specified for uint32_t)
-    * \param unroll_count Number of times vector should be unrolled
-    * \param core chip-x-y struct specifying device and core
-    * \param addr Address to write to
-    * \param fallback_tlb Specifies fallback/dynamic TLB to use for transaction, if this core does not have static TLBs mapped to this address (dynamic TLBs were initialized in driver constructor)
-    */
-    virtual void rolled_write_to_device(uint32_t* mem_ptr, uint32_t size_in_bytes, uint32_t unroll_count, tt_cxy_pair core, uint64_t addr, const std::string& fallback_tlb) {
-        // Only implement this for Silicon Backend
-        throw std::runtime_error("---- tt_device::rolled_write_to_device is not implemented\n");
-    }
-    /**
-    * @brief Unroll/replicate a uint32_t vector and write it to specified device, core and address (defined for Silicon and Versim).
-    * \param vec Vector to write
-    * \param unroll_count Number of times vector should be unrolled
-    * \param core chip-x-y struct specifying device and core
-    * \param addr Address to write to
-    * \param tlb_to_use Specifies fallback/dynamic TLB to use for transaction, if this core does not have static TLBs mapped to this address (dynamic TLBs were initialized in driver constructor)
-    */
-    virtual void rolled_write_to_device(std::vector<uint32_t> &vec, uint32_t unroll_count, tt_cxy_pair core, uint64_t addr, const std::string& tlb_to_use) {
-        throw std::runtime_error("---- tt_device::rolled_write_to_device is not implemented\n");
     }
 
     /**
@@ -491,13 +454,7 @@ class tt_device
     virtual std::unordered_map<chip_id_t, uint32_t> get_harvesting_masks_for_soc_descriptors() {
         throw std::runtime_error("---- tt_device:get_harvesting_masks_for_soc_descriptors is not implemented\n");
     }
-     /**
-     * @brief Get Hardware Translation Table state
-     * \returns true if translation tables are enabled (WH only)
-     */ 
-    virtual bool noc_translation_en() {
-        throw std::runtime_error("---- tt_device:noc_translation_en is not implemented\n");
-    }
+
     /**
      * @brief Issue message to device, meant to be picked up by ARC Firmare
      * \param logical_device_id Chip to target
@@ -566,14 +523,6 @@ class tt_device
         return std::map<int,int>();
     }
 
-    /**
-     * @brief Get the PCIe speed for a specific device based on link width and link speed
-     * \returns Bandwidth in Gbps
-     */
-    virtual std::uint32_t get_pcie_speed(std::uint32_t device_id) {
-        return 8 * 16;  // default to x8 at 16 GT/s
-    }
-
     virtual std::uint32_t get_numa_node_for_pcie_device(std::uint32_t device_id) {
         throw std::runtime_error("---- tt_device::get_numa_node_for_pcie_device is not implemented\n");
     }
@@ -584,30 +533,6 @@ class tt_device
     */
     virtual tt_version get_ethernet_fw_version() const {
         throw std::runtime_error("---- tt_device::get_ethernet_fw_version is not implemented \n");
-    }
-
-    /** 
-     * @brief Get the total hugepage (host memory) size allocated for a device. 
-     * This memory is not entirely accessible by device. To query the number of channels
-     * or memory per channel that is accessbile, see get_host_channel_size or get_num_host_channels
-     * \param src_device_id Device for which allocated host memory is being queried
-     * \returns Total memory allocated on host for a specific device
-     * 
-    */ 
-    virtual uint32_t dma_allocation_size(chip_id_t src_device_id = -1) {
-        throw std::runtime_error("---- tt_device::dma_allocation_size is not implemented\n");
-        return 0;
-    }
-
-    /** 
-     * Get the address for the MMIO mapped region on Channel (as seen from host memory)
-     * \param offset Address in DRAM
-     * \param target chip-x-y struct specifying device and core of target DRAM
-     * \returns Host interpretation of MMIO mapped channel 0 address 
-     */ 
-    virtual void *channel_address(std::uint32_t offset, const tt_cxy_pair& target) {
-        throw std::runtime_error("---- tt_device::channel_address is not implemented\n");
-        return nullptr;
     }
     /**
      * @brief Query number of DRAM channels on a specific device
@@ -676,67 +601,6 @@ class tt_device
     std::unordered_map<chip_id_t, tt_SocDescriptor> soc_descriptor_per_chip = {};
 };
 
-class c_versim_core;
-namespace nuapi {namespace device {template <typename, typename>class Simulator;}}
-namespace versim {
-  struct VersimSimulatorState;
-  using VersimSimulator = nuapi::device::Simulator<c_versim_core *, VersimSimulatorState>;
-}
-
-/**
- * @brief Versim Backend Class, derived from the tt_device class
- * Implements APIs to communicate with a simulated (using Verilator) Tenstorrent Device.
-*/ 
-class tt_VersimDevice: public tt_device
-{
-    public:
-    virtual void set_device_l1_address_params(const tt_device_l1_address_params& l1_address_params_);
-    virtual void set_device_dram_address_params(const tt_device_dram_address_params& dram_address_params_);
-    tt_VersimDevice(const std::string &sdesc_path, const std::string &ndesc_path);
-    virtual std::unordered_map<chip_id_t, tt_SocDescriptor>& get_virtual_soc_descriptors();
-    virtual void start(std::vector<std::string> plusargs, std::vector<std::string> dump_cores, bool no_checkers, bool init_device, bool skip_driver_allocs);
-    virtual void start_device(const tt_device_params &device_params);
-    virtual void close_device();
-    virtual void deassert_risc_reset();
-    virtual void deassert_risc_reset_at_core(tt_cxy_pair core);
-    virtual void assert_risc_reset();
-    virtual void assert_risc_reset_at_core(tt_cxy_pair core);
-    virtual void write_to_device(std::vector<uint32_t> &vec, tt_cxy_pair core, uint64_t addr, const std::string& tlb_to_use, bool send_epoch_cmd = false, bool last_send_epoch_cmd = true, bool ordered_with_prev_remote_write = false);
-    virtual void broadcast_write_to_cluster(const void *mem_ptr, uint32_t size_in_bytes, uint64_t address, const std::set<chip_id_t>& chips_to_exclude, std::set<uint32_t>& rows_to_exclude, std::set<uint32_t>& columns_to_exclude, const std::string& fallback_tlb);
-    virtual void rolled_write_to_device(std::vector<uint32_t> &vec, uint32_t unroll_count, tt_cxy_pair core, uint64_t addr, const std::string& tlb_to_use);
-    virtual void read_from_device(std::vector<uint32_t> &vec, tt_cxy_pair core, uint64_t addr, uint32_t size, const std::string& tlb_to_use);
-    virtual void rolled_write_to_device(uint32_t* mem_ptr, uint32_t size_in_bytes, uint32_t unroll_count, tt_cxy_pair core, uint64_t addr, const std::string& fallback_tlb);
-    virtual void write_to_device(const void *mem_ptr, uint32_t size_in_bytes, tt_cxy_pair core, uint64_t addr, const std::string& tlb_to_use, bool send_epoch_cmd = false, bool last_send_epoch_cmd = true, bool ordered_with_prev_remote_write = false);
-    virtual void read_from_device(void *mem_ptr, tt_cxy_pair core, uint64_t addr, uint32_t size, const std::string& tlb_to_use); 
-    virtual void wait_for_non_mmio_flush();
-    void l1_membar(const chip_id_t chip, const std::string& fallback_tlb, const std::unordered_set<tt_xy_pair>& cores = {});
-    void dram_membar(const chip_id_t chip, const std::string& fallback_tlb, const std::unordered_set<uint32_t>& channels);
-    void dram_membar(const chip_id_t chip, const std::string& fallback_tlb, const std::unordered_set<tt_xy_pair>& cores = {});
-    virtual void translate_to_noc_table_coords(chip_id_t device_id, std::size_t &r, std::size_t &c);
-    virtual bool using_harvested_soc_descriptors();
-    virtual std::unordered_map<chip_id_t, uint32_t> get_harvesting_masks_for_soc_descriptors();
-    virtual bool noc_translation_en();
-    virtual std::set<chip_id_t> get_target_mmio_device_ids();
-    virtual std::set<chip_id_t> get_target_remote_device_ids();
-    virtual ~tt_VersimDevice();
-    virtual tt_ClusterDescriptor* get_cluster_description();
-    virtual int get_number_of_chips_in_cluster();
-    virtual std::unordered_set<chip_id_t> get_all_chips_in_cluster();
-    static int detect_number_of_chips();
-    virtual std::map<int,int> get_clocks();
-    virtual std::uint32_t get_num_dram_channels(std::uint32_t device_id);
-    virtual std::uint64_t get_dram_channel_size(std::uint32_t device_id, std::uint32_t channel);
-    virtual std::uint32_t get_num_host_channels(std::uint32_t device_id);
-    virtual std::uint32_t get_host_channel_size(std::uint32_t device_id, std::uint32_t channel);
-    private:
-    bool stop();
-    tt_device_l1_address_params l1_address_params;
-    tt_device_dram_address_params dram_address_params;
-    versim::VersimSimulator* versim;
-    std::shared_ptr<tt_ClusterDescriptor> ndesc;
-    void* p_ca_soc_manager;
-};
-
 #include "device/architecture_implementation.h"
 
 /**
@@ -781,14 +645,10 @@ class tt_SiliconDevice: public tt_device
     virtual void close_device();
 
     // Runtime Functions
-    virtual void write_to_device(const void *mem_ptr, uint32_t size_in_bytes, tt_cxy_pair core, uint64_t addr, const std::string& tlb_to_use, bool send_epoch_cmd = false, bool last_send_epoch_cmd = true, bool ordered_with_prev_remote_write = false);
-    virtual void write_to_device(std::vector<uint32_t> &vec, tt_cxy_pair core, uint64_t addr, const std::string& tlb_to_use, bool send_epoch_cmd = false, bool last_send_epoch_cmd = true, bool ordered_with_prev_remote_write = false);
+    virtual void write_to_device(const void *mem_ptr, uint32_t size_in_bytes, tt_cxy_pair core, uint64_t addr, const std::string& tlb_to_use);
+    virtual void write_to_device(std::vector<uint32_t> &vec, tt_cxy_pair core, uint64_t addr, const std::string& tlb_to_use);
     void broadcast_write_to_cluster(const void *mem_ptr, uint32_t size_in_bytes, uint64_t address, const std::set<chip_id_t>& chips_to_exclude,  std::set<uint32_t>& rows_to_exclude,  std::set<uint32_t>& columns_to_exclude, const std::string& fallback_tlb);
-    virtual void write_epoch_cmd_to_device(const uint32_t *mem_ptr, uint32_t size_in_bytes, tt_cxy_pair core, uint64_t addr, const std::string& tlb_to_use, bool last_send_epoch_cmd, bool ordered_with_prev_remote_write);
-    virtual void write_epoch_cmd_to_device(std::vector<uint32_t> &vec, tt_cxy_pair core, uint64_t addr, const std::string& tlb_to_use, bool last_send_epoch_cmd, bool ordered_with_prev_remote_write);
 
-    virtual void rolled_write_to_device(uint32_t* mem_ptr, uint32_t size_in_bytes, uint32_t unroll_count, tt_cxy_pair core, uint64_t addr, const std::string& fallback_tlb);
-    virtual void rolled_write_to_device(std::vector<uint32_t> &vec, uint32_t unroll_count, tt_cxy_pair core, uint64_t addr, const std::string& tlb_to_use);
     virtual void read_from_device(void* mem_ptr, tt_cxy_pair core, uint64_t addr, uint32_t size, const std::string& fallback_tlb);
     virtual void read_from_device(std::vector<uint32_t> &vec, tt_cxy_pair core, uint64_t addr, uint32_t size, const std::string& tlb_to_use);
     virtual void write_to_sysmem(std::vector<uint32_t>& vec, uint64_t addr, uint16_t channel, chip_id_t src_device_id);
@@ -809,7 +669,7 @@ class tt_SiliconDevice: public tt_device
     /**
      * @brief This API allows you to write directly to device memory that is addressable by a static TLB
     */
-    std::function<void(uint32_t, uint32_t, const uint8_t*, uint32_t)> get_fast_pcie_static_tlb_write_callable(int device_id);
+    std::function<void(uint32_t, uint32_t, const uint8_t*)> get_fast_pcie_static_tlb_write_callable(int device_id);
 
     /**
      * @brief Provide fast write access to a statically-mapped TLB.
@@ -824,40 +684,30 @@ class tt_SiliconDevice: public tt_device
      */
     tt::Writer get_static_tlb_writer(tt_cxy_pair target);
 
-    /**
-     * @brief Returns the DMA buf size 
-    */
-    uint32_t get_m_dma_buf_size() const;
     // Misc. Functions to Query/Set Device State
     virtual int arc_msg(int logical_device_id, uint32_t msg_code, bool wait_for_done = true, uint32_t arg0 = 0, uint32_t arg1 = 0, int timeout=1, uint32_t *return_3 = nullptr, uint32_t *return_4 = nullptr);
     virtual bool using_harvested_soc_descriptors();
     virtual std::unordered_map<chip_id_t, uint32_t> get_harvesting_masks_for_soc_descriptors();
-    virtual bool noc_translation_en();
     virtual void translate_to_noc_table_coords(chip_id_t device_id, std::size_t &r, std::size_t &c);
     virtual int get_number_of_chips_in_cluster();
     virtual std::unordered_set<chip_id_t> get_all_chips_in_cluster();
     virtual tt_ClusterDescriptor* get_cluster_description();
     static int detect_number_of_chips();
     static std::vector<chip_id_t> detect_available_device_ids();
-    static std::unordered_map<chip_id_t, chip_id_t> get_logical_to_physical_mmio_device_id_map(std::vector<chip_id_t> physical_device_ids);
     virtual std::set<chip_id_t> get_target_mmio_device_ids();
     virtual std::set<chip_id_t> get_target_remote_device_ids();
     virtual std::map<int,int> get_clocks();
-    virtual uint32_t dma_allocation_size(chip_id_t src_device_id = -1);
-    virtual void *channel_address(std::uint32_t offset, const tt_cxy_pair& target);
     virtual void *host_dma_address(std::uint64_t offset, chip_id_t src_device_id, uint16_t channel) const;
     virtual std::uint64_t get_pcie_base_addr_from_device() const;
     static std::vector<int> extract_rows_to_remove(const tt::ARCH &arch, const int worker_grid_rows, const int harvested_rows);
     static void remove_worker_row_from_descriptor(tt_SocDescriptor& full_soc_descriptor, const std::vector<int>& row_coordinates_to_remove);
     static void harvest_rows_in_soc_descriptor(tt::ARCH arch, tt_SocDescriptor& sdesc, uint32_t harvested_rows);
     static std::unordered_map<tt_xy_pair, tt_xy_pair> create_harvested_coord_translation(const tt::ARCH arch, bool identity_map);
-    static std::unordered_map<chip_id_t, uint32_t> get_harvesting_masks_from_harvested_rows(std::unordered_map<chip_id_t, std::vector<uint32_t>> harvested_rows); 
     std::unordered_map<tt_xy_pair, tt_xy_pair> get_harvested_coord_translation_map(chip_id_t logical_device_id);
     virtual std::uint32_t get_num_dram_channels(std::uint32_t device_id);
     virtual std::uint64_t get_dram_channel_size(std::uint32_t device_id, std::uint32_t channel);
     virtual std::uint32_t get_num_host_channels(std::uint32_t device_id);
     virtual std::uint32_t get_host_channel_size(std::uint32_t device_id, std::uint32_t channel);
-    virtual std::uint32_t get_pcie_speed(std::uint32_t device_id);
     virtual std::uint32_t get_numa_node_for_pcie_device(std::uint32_t device_id);
     virtual tt_version get_ethernet_fw_version() const;
 
@@ -877,14 +727,9 @@ class tt_SiliconDevice: public tt_device
     void send_tensix_risc_reset_to_core(const tt_cxy_pair &core, const TensixSoftResetOptions &soft_resets);
     void perform_harvesting_and_populate_soc_descriptors(const std::string& sdesc_path, const bool perform_harvesting);
     void populate_cores();
-    void init_pcie_iatus();
-    void init_pcie_iatus_no_p2p();
+    void init_pcie_iatus(); // No more p2p support.
     bool init_hugepage(chip_id_t device_id);
-    bool init_dmabuf(chip_id_t device_id);
     void check_pcie_device_initialized(int device_id);
-    bool init_dma_turbo_buf(struct PCIdevice* pci_device);
-    bool uninit_dma_turbo_buf(struct PCIdevice* pci_device);
-    static std::map<chip_id_t, std::string> get_physical_device_id_to_bus_id_map(std::vector<chip_id_t> physical_device_ids);
     void set_pcie_power_state(tt_DevicePowerState state);
     int set_remote_power_state(const chip_id_t &chip, tt_DevicePowerState device_state);
     void set_power_state(tt_DevicePowerState state);
@@ -900,13 +745,11 @@ class tt_SiliconDevice: public tt_device
     int get_clock(int logical_device_id);
 
     // Communication Functions
-    void read_dma_buffer(void* mem_ptr, std::uint32_t address, std::uint16_t channel, std::uint32_t size_in_bytes, chip_id_t src_device_id);
-    void write_dma_buffer(const void *mem_ptr, std::uint32_t size, std::uint32_t address, std::uint16_t channel, chip_id_t src_device_id);
+    void read_buffer(void* mem_ptr, std::uint32_t address, std::uint16_t channel, std::uint32_t size_in_bytes, chip_id_t src_device_id);
+    void write_buffer(const void *mem_ptr, std::uint32_t size, std::uint32_t address, std::uint16_t channel, chip_id_t src_device_id);
     void write_device_memory(const void *mem_ptr, uint32_t size_in_bytes, tt_cxy_pair target, std::uint32_t address, const std::string& fallback_tlb);
     void write_to_non_mmio_device(const void *mem_ptr, uint32_t size_in_bytes, tt_cxy_pair core, uint64_t address, bool broadcast = false, std::vector<int> broadcast_header = {});
     void read_device_memory(void *mem_ptr, tt_cxy_pair target, std::uint32_t address, std::uint32_t size_in_bytes, const std::string& fallback_tlb);
-    void write_to_non_mmio_device_send_epoch_cmd(const uint32_t *mem_ptr, uint32_t size_in_bytes, tt_cxy_pair core, uint64_t address, bool last_send_epoch_cmd, bool ordered_with_prev_remote_write);
-    void rolled_write_to_non_mmio_device(const uint32_t *mem_ptr, uint32_t len, tt_cxy_pair core, uint64_t address, uint32_t unroll_count);
     void read_from_non_mmio_device(void* mem_ptr, tt_cxy_pair core, uint64_t address, uint32_t size_in_bytes);
     void read_mmio_device_register(void* mem_ptr, tt_cxy_pair core, uint64_t addr, uint32_t size, const std::string& fallback_tlb);
     void write_mmio_device_register(const void* mem_ptr, tt_cxy_pair core, uint64_t addr, uint32_t size, const std::string& fallback_tlb);
@@ -930,9 +773,7 @@ class tt_SiliconDevice: public tt_device
     // Test functions
     void verify_eth_fw();
     void verify_sw_fw_versions(int device_id, std::uint32_t sw_version, std::vector<std::uint32_t> &fw_versions);
-    int test_pcie_tlb_setup (struct PCIdevice* pci_device);
     int test_setup_interface ();
-    int test_broadcast (int logical_device_id);
 
     // State variables
     tt_device_dram_address_params dram_address_params;
@@ -962,17 +803,10 @@ class tt_SiliconDevice: public tt_device
     static constexpr std::uint32_t EPOCH_ETH_CORES_MASK = (EPOCH_ETH_CORES_FOR_NON_MMIO_TRANSFERS-1);
 
     int active_core = NON_EPOCH_ETH_CORES_START_ID;
-    int active_core_epoch = EPOCH_ETH_CORES_START_ID;
-    bool erisc_q_ptrs_initialized = false;
-    std::vector<std::uint32_t> erisc_q_ptrs_epoch[NUM_ETH_CORES_FOR_NON_MMIO_TRANSFERS];
-    bool erisc_q_wrptr_updated[NUM_ETH_CORES_FOR_NON_MMIO_TRANSFERS];
     std::vector< std::vector<tt_cxy_pair> > remote_transfer_ethernet_cores;
     bool flush_non_mmio = false;
     bool non_mmio_transfer_cores_customized = false;
     std::unordered_map<chip_id_t, int> active_eth_core_idx_per_chip = {};
-    // Size of the PCIE DMA buffer
-    // The setting should not exceed MAX_DMA_BYTES
-    std::uint32_t m_dma_buf_size;
     std::unordered_map<chip_id_t, bool> noc_translation_enabled_for_chip = {};
     std::map<std::string, std::shared_ptr<boost::interprocess::named_mutex>> hardware_resource_mutex_map = {};
     std::unordered_map<chip_id_t, std::unordered_map<tt_xy_pair, tt_xy_pair>> harvested_coord_translation = {};
@@ -991,9 +825,6 @@ class tt_SiliconDevice: public tt_device
     std::unordered_map<std::string, std::int32_t> dynamic_tlb_config = {};
     std::unordered_map<std::string, uint64_t> dynamic_tlb_ordering_modes = {};
     std::map<std::set<chip_id_t>, std::unordered_map<chip_id_t, std::vector<std::vector<int>>>> bcast_header_cache = {};
-    std::uint64_t buf_physical_addr = 0;
-    void * buf_mapping = nullptr;
-    int driver_id;  
     bool perform_harvesting_on_sdesc = false;
     bool use_ethernet_ordered_writes = true;
     bool use_ethernet_broadcast = true;

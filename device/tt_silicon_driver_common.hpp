@@ -9,19 +9,6 @@
 #include <cstdint>
 #include <string>
 
-
-typedef struct {
-    uint32_t  chip_addr;
-    uint32_t  host_phys_addr;
-    uint32_t  completion_flag_phys_addr;
-    uint32_t  size_bytes                  : 28;
-    uint32_t  write                       : 1;
-    uint32_t  pcie_msi_on_done            : 1;
-    uint32_t  pcie_write_on_done          : 1;
-    uint32_t  trigger                     : 1;
-    uint32_t  repeat;
-} arc_pcie_ctrl_dma_request_t; // 5 * 4 = 20B
-
 enum class TensixSoftResetOptions: std::uint32_t {
     NONE = 0,
     BRISC = ((std::uint32_t) 1 << 11),

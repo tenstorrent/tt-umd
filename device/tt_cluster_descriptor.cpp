@@ -52,29 +52,6 @@ std::vector<std::tuple<ethernet_channel_t, ethernet_channel_t>> tt_ClusterDescri
     return directly_connected_channels;
 }
 
-bool tt_ClusterDescriptor::channels_are_directly_connected(const chip_id_t &first, const ethernet_channel_t &first_channel, const chip_id_t &second, const ethernet_channel_t &second_channel) const {
-    if (this->enabled_active_chips.find(first) == this->enabled_active_chips.end() || this->enabled_active_chips.find(second) == this->enabled_active_chips.end()) {
-        return false;
-    }
-
-    if (this->ethernet_connections.at(first).find(first_channel) == this->ethernet_connections.at(first).end()) {
-        return false;
-    }
-
-    const auto &[connected_chip, connected_channel] = this->ethernet_connections.at(first).at(first_channel);
-    return connected_chip == second && connected_channel == second_channel;   
-}
-
-// const eth_coord_t tt_ClusterDescriptor::get_chip_xy(const chip_id_t &chip_id) const {
-//     // For now we only support a 1D cluster, so the mapping is trivial (where the chip ID is the x value of the xy
-//     location) return eth_coord_t(chip_id, 0, 0, 0);
-// }
-
-// const chip_id_t tt_ClusterDescriptor::get_chip_id_at_location(const eth_coord_t &chip_location) const {
-//     // For now we only support a 1D cluster, so the mapping is trivial (where the chip ID is the x value of the xy
-//     location) return chip_location.x;
-// }
-
 bool tt_ClusterDescriptor::is_chip_mmio_capable(const chip_id_t &chip_id) const {
     return this->chips_with_mmio.find(chip_id) != this->chips_with_mmio.end();
 }
@@ -367,14 +344,6 @@ std::unique_ptr<tt_ClusterDescriptor> tt_ClusterDescriptor::create_for_grayskull
     return desc;
 }
 
-std::set<chip_id_t> get_sequential_chip_id_set(int num_chips) {
-    std::set<chip_id_t> chip_ids;
-    for (int i = 0; i < num_chips; ++i) {
-        chip_ids.insert(static_cast<chip_id_t>(i));
-    }
-    return chip_ids;
-}
-
 void tt_ClusterDescriptor::load_ethernet_connections_from_connectivity_descriptor(YAML::Node &yaml, tt_ClusterDescriptor &desc) {
     log_assert(yaml["ethernet_connections"].IsSequence(), "Invalid YAML");
     for (YAML::Node &connected_endpoints : yaml["ethernet_connections"].as<std::vector<YAML::Node>>()) {
@@ -594,21 +563,9 @@ void tt_ClusterDescriptor::load_harvesting_information(YAML::Node &yaml, tt_Clus
     }
 }
 
-void tt_ClusterDescriptor::specify_enabled_devices(const std::vector<chip_id_t> &chip_ids) {
-    this->enabled_active_chips.clear();
-    for (auto chip_id : chip_ids) {
-        this->enabled_active_chips.insert(chip_id);
-    }
-}
-
 void tt_ClusterDescriptor::enable_all_devices() {
     this->enabled_active_chips = this->all_chips;
 }
-
-bool tt_ClusterDescriptor::chips_have_ethernet_connectivity() const { 
-    return ethernet_connections.size() > 0; 
-}
-
 
 std::unordered_map<chip_id_t, std::unordered_map<ethernet_channel_t, std::tuple<chip_id_t, ethernet_channel_t> > > tt_ClusterDescriptor::get_ethernet_connections() const {
     auto eth_connections = std::unordered_map<chip_id_t, std::unordered_map<ethernet_channel_t, std::tuple<chip_id_t, ethernet_channel_t> > >();

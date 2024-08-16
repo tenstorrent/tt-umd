@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-#include "device/grayskull_implementation.h"
+#include "grayskull_implementation.h"
 
 namespace tt::umd {
 

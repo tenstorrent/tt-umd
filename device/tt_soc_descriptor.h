@@ -23,8 +23,6 @@ namespace YAML {
     class Node;
 }
 
-static constexpr std::size_t DEFAULT_DRAM_SIZE_PER_CORE = 8 * 1024 * 1024;
-
 std::ostream &operator<<(std::ostream &out, const tt::ARCH &arch_name);
 
 static inline std::string get_arch_str(const tt::ARCH arch_name){
@@ -132,18 +130,9 @@ class tt_SocDescriptor {
     uint64_t dram_bank_size;
 
     int get_num_dram_channels() const;
-    std::vector<int> get_dram_chan_map();
     bool is_worker_core(const tt_xy_pair &core) const;
-    tt_xy_pair get_worker_core(const tt_xy_pair& core) const;
-    tt_xy_pair get_routing_core(const tt_xy_pair& core) const;
     tt_xy_pair get_core_for_dram_channel(int dram_chan, int subchannel) const;
-    tt_xy_pair get_pcie_core(int pcie_id = 0) const;
-    bool is_dram_core(const tt_xy_pair& core) const;
     bool is_ethernet_core(const tt_xy_pair& core) const;
-    int get_channel_of_ethernet_core(const tt_xy_pair &core) const;
-    int get_num_dram_subchans() const;
-    int get_num_dram_blocks_per_channel() const;
-    uint64_t get_noc2host_offset(uint16_t host_channel) const;
 
     // Default constructor. Creates uninitialized object with public access to all of its attributes.
     tt_SocDescriptor() = default;

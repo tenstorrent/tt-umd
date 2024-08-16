@@ -76,13 +76,11 @@ TEST_F(WormholeGalaxyStabilityTestFixture, MixedRemoteTransfers) {
             100000 * scale_number_of_tests,
             seed,
 
-            transfer_type_weights_t{.write = 0.40, .rolled_write = 0.2, .read = 0.4, .epoch_cmd_write = 0.0},
+            transfer_type_weights_t{.write = 0.40, .read = 0.4},
 
             std::uniform_int_distribution<address_t>(0x100000, 0x200000), // address generator distribution
             std::uniform_int_distribution<transfer_size_t>(0x4, 30000), //WRITE_SIZE_GENERATOR_T const& write_size_distribution,
-            std::uniform_int_distribution<transfer_size_t>(0x4, 30000), //ROLLED_WRITE_SIZE_GENERATOR_T const& rolled_write_size_distribution,
             std::uniform_int_distribution<int>(2, 4), //UNROLL_COUNT_GENERATOR_T const& unroll_count_distribution
-            std::uniform_int_distribution<transfer_size_t>(0x4, 0x12), //WRITE_EPOCH_CMD_SIZE_GENERATOR_T const& write_epoch_cmd_size_distribution,
             0.75,
             0.75,
             std::uniform_int_distribution<transfer_size_t>(0x4, 30000), //READ_SIZE_GENERATOR_T const& read_size_distribution,
@@ -108,13 +106,11 @@ TEST_F(WormholeGalaxyStabilityTestFixture, DISABLED_MultithreadedMixedRemoteTran
             50000 * scale_number_of_tests,
             0,
 
-            transfer_type_weights_t{.write = 0.50, .rolled_write = 0., .read = 0.50, .epoch_cmd_write = 0.},
+            transfer_type_weights_t{.write = 0.50, .read = 0.50},
 
             std::uniform_int_distribution<address_t>(0x100000, 0x200000), // address generator distribution
             std::uniform_int_distribution<transfer_size_t>(0x4, 30000), //WRITE_SIZE_GENERATOR_T const& write_size_distribution,
-            std::uniform_int_distribution<transfer_size_t>(0x4, 30000), //ROLLED_WRITE_SIZE_GENERATOR_T const& rolled_write_size_distribution,
             std::uniform_int_distribution<int>(2, 4), //UNROLL_COUNT_GENERATOR_T const& unroll_count_distribution
-            std::uniform_int_distribution<transfer_size_t>(0x4, 0x12), //WRITE_EPOCH_CMD_SIZE_GENERATOR_T const& write_epoch_cmd_size_distribution,
             0.75,
             0.75,
             std::uniform_int_distribution<transfer_size_t>(0x4, 30000), //READ_SIZE_GENERATOR_T const& read_size_distribution,
@@ -129,13 +125,11 @@ TEST_F(WormholeGalaxyStabilityTestFixture, DISABLED_MultithreadedMixedRemoteTran
             50000 * scale_number_of_tests,
             100,
 
-            transfer_type_weights_t{.write = 0.25, .rolled_write = 0.25, .read = 0.50, .epoch_cmd_write = 0.},
+            transfer_type_weights_t{.write = 0.25, .read = 0.50},
 
             std::uniform_int_distribution<address_t>(0x100000, 0x200000), // address generator distribution
             std::uniform_int_distribution<transfer_size_t>(0x4, 30000), //WRITE_SIZE_GENERATOR_T const& write_size_distribution,
-            std::uniform_int_distribution<transfer_size_t>(0x4, 30000), //ROLLED_WRITE_SIZE_GENERATOR_T const& rolled_write_size_distribution,
             std::uniform_int_distribution<int>(2, 4), //UNROLL_COUNT_GENERATOR_T const& unroll_count_distribution
-            std::uniform_int_distribution<transfer_size_t>(0x4, 0x12), //WRITE_EPOCH_CMD_SIZE_GENERATOR_T const& write_epoch_cmd_size_distribution,
             0.75,
             0.75,
             std::uniform_int_distribution<transfer_size_t>(0x4, 30000), //READ_SIZE_GENERATOR_T const& read_size_distribution,
@@ -150,13 +144,11 @@ TEST_F(WormholeGalaxyStabilityTestFixture, DISABLED_MultithreadedMixedRemoteTran
             50000 * scale_number_of_tests,
             23,
 
-            transfer_type_weights_t{.write = 0.5, .rolled_write = 0.25, .read = 0.25, .epoch_cmd_write = 0.},
+            transfer_type_weights_t{.write = 0.5, .read = 0.25},
 
             std::uniform_int_distribution<address_t>(0x100000, 0x200000), // address generator distribution
             std::uniform_int_distribution<transfer_size_t>(0x4, 30000), //WRITE_SIZE_GENERATOR_T const& write_size_distribution,
-            std::uniform_int_distribution<transfer_size_t>(0x4, 30000), //ROLLED_WRITE_SIZE_GENERATOR_T const& rolled_write_size_distribution,
             std::uniform_int_distribution<int>(2, 4), //UNROLL_COUNT_GENERATOR_T const& unroll_count_distribution
-            std::uniform_int_distribution<transfer_size_t>(0x4, 0x12), //WRITE_EPOCH_CMD_SIZE_GENERATOR_T const& write_epoch_cmd_size_distribution,
             0.75,
             0.75,
             std::uniform_int_distribution<transfer_size_t>(0x4, 30000), //READ_SIZE_GENERATOR_T const& read_size_distribution,
@@ -171,13 +163,11 @@ TEST_F(WormholeGalaxyStabilityTestFixture, DISABLED_MultithreadedMixedRemoteTran
             100000 * scale_number_of_tests,
             99,
 
-            transfer_type_weights_t{.write = 0.1, .rolled_write = 0, .read = 0.1, .epoch_cmd_write = 0.8},
+            transfer_type_weights_t{.write = 0.1, .read = 0.1},
 
             std::uniform_int_distribution<address_t>(0x100000, 0x200000), // address generator distribution
             std::uniform_int_distribution<transfer_size_t>(0x4, 3000), //WRITE_SIZE_GENERATOR_T const& write_size_distribution,
-            std::uniform_int_distribution<transfer_size_t>(0x4, 3000), //ROLLED_WRITE_SIZE_GENERATOR_T const& rolled_write_size_distribution,
             std::uniform_int_distribution<int>(2, 4), //UNROLL_COUNT_GENERATOR_T const& unroll_count_distribution
-            std::uniform_int_distribution<transfer_size_t>(0x4, 0x12), //WRITE_EPOCH_CMD_SIZE_GENERATOR_T const& write_epoch_cmd_size_distribution,
             0.75,
             0.75,
             std::uniform_int_distribution<transfer_size_t>(0x4, 3000), //READ_SIZE_GENERATOR_T const& read_size_distribution,

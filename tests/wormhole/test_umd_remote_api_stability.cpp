@@ -73,13 +73,11 @@ TEST_F(WormholeNebulaX2TestFixture, MixedRemoteTransfersMediumSmall) {
             100000 * scale_number_of_tests,
             0,
 
-            transfer_type_weights_t{.write = 0.25, .rolled_write = 0.25, .read = 0.25, .epoch_cmd_write = 0.25},
+            transfer_type_weights_t{.write = 0.25, .read = 0.25},
 
             std::uniform_int_distribution<address_t>(0x100000, 0x200000), // address generator distribution
             std::uniform_int_distribution<transfer_size_t>(0x4, 3000), //WRITE_SIZE_GENERATOR_T const& write_size_distribution,
-            std::uniform_int_distribution<transfer_size_t>(0x4, 3000), //ROLLED_WRITE_SIZE_GENERATOR_T const& rolled_write_size_distribution,
             std::uniform_int_distribution<int>(2, 4), //UNROLL_COUNT_GENERATOR_T const& unroll_count_distribution
-            std::uniform_int_distribution<transfer_size_t>(0x4, 0x12), //WRITE_EPOCH_CMD_SIZE_GENERATOR_T const& write_epoch_cmd_size_distribution,
             0.75,
             0.75,
             std::uniform_int_distribution<transfer_size_t>(0x4, 3000), //READ_SIZE_GENERATOR_T const& read_size_distribution,
@@ -108,13 +106,11 @@ TEST_F(WormholeNebulaX2TestFixture, MultithreadedMixedRemoteTransfersMediumSmall
             100000 * scale_number_of_tests,
             0,
 
-            transfer_type_weights_t{.write = 0.50, .rolled_write = 0., .read = 0.50, .epoch_cmd_write = 0.},
+            transfer_type_weights_t{.write = 0.50, .read = 0.50},
 
             std::uniform_int_distribution<address_t>(0x100000, 0x200000), // address generator distribution
             std::uniform_int_distribution<transfer_size_t>(0x4, 3000), //WRITE_SIZE_GENERATOR_T const& write_size_distribution,
-            std::uniform_int_distribution<transfer_size_t>(0x4, 3000), //ROLLED_WRITE_SIZE_GENERATOR_T const& rolled_write_size_distribution,
             std::uniform_int_distribution<int>(2, 4), //UNROLL_COUNT_GENERATOR_T const& unroll_count_distribution
-            std::uniform_int_distribution<transfer_size_t>(0x4, 0x12), //WRITE_EPOCH_CMD_SIZE_GENERATOR_T const& write_epoch_cmd_size_distribution,
             0.75,
             0.75,
             std::uniform_int_distribution<transfer_size_t>(0x4, 3000), //READ_SIZE_GENERATOR_T const& read_size_distribution,
@@ -129,13 +125,11 @@ TEST_F(WormholeNebulaX2TestFixture, MultithreadedMixedRemoteTransfersMediumSmall
             100000 * scale_number_of_tests,
             100,
 
-            transfer_type_weights_t{.write = 0.25, .rolled_write = 0.25, .read = 0.50, .epoch_cmd_write = 0.},
+            transfer_type_weights_t{.write = 0.25, .read = 0.50},
 
             std::uniform_int_distribution<address_t>(0x100000, 0x200000), // address generator distribution
             std::uniform_int_distribution<transfer_size_t>(0x4, 3000), //WRITE_SIZE_GENERATOR_T const& write_size_distribution,
-            std::uniform_int_distribution<transfer_size_t>(0x4, 3000), //ROLLED_WRITE_SIZE_GENERATOR_T const& rolled_write_size_distribution,
             std::uniform_int_distribution<int>(2, 4), //UNROLL_COUNT_GENERATOR_T const& unroll_count_distribution
-            std::uniform_int_distribution<transfer_size_t>(0x4, 0x12), //WRITE_EPOCH_CMD_SIZE_GENERATOR_T const& write_epoch_cmd_size_distribution,
             0.75,
             0.75,
             std::uniform_int_distribution<transfer_size_t>(0x4, 3000), //READ_SIZE_GENERATOR_T const& read_size_distribution,
@@ -150,13 +144,11 @@ TEST_F(WormholeNebulaX2TestFixture, MultithreadedMixedRemoteTransfersMediumSmall
             100000 * scale_number_of_tests,
             23,
 
-            transfer_type_weights_t{.write = 0.5, .rolled_write = 0.25, .read = 0.25, .epoch_cmd_write = 0.},
+            transfer_type_weights_t{.write = 0.5, .read = 0.25},
 
             std::uniform_int_distribution<address_t>(0x100000, 0x200000), // address generator distribution
             std::uniform_int_distribution<transfer_size_t>(0x4, 3000), //WRITE_SIZE_GENERATOR_T const& write_size_distribution,
-            std::uniform_int_distribution<transfer_size_t>(0x4, 3000), //ROLLED_WRITE_SIZE_GENERATOR_T const& rolled_write_size_distribution,
             std::uniform_int_distribution<int>(2, 4), //UNROLL_COUNT_GENERATOR_T const& unroll_count_distribution
-            std::uniform_int_distribution<transfer_size_t>(0x4, 0x12), //WRITE_EPOCH_CMD_SIZE_GENERATOR_T const& write_epoch_cmd_size_distribution,
             0.75,
             0.75,
             std::uniform_int_distribution<transfer_size_t>(0x4, 3000), //READ_SIZE_GENERATOR_T const& read_size_distribution,
@@ -171,13 +163,11 @@ TEST_F(WormholeNebulaX2TestFixture, MultithreadedMixedRemoteTransfersMediumSmall
             100000 * scale_number_of_tests,
             99,
 
-            transfer_type_weights_t{.write = 1.0, .rolled_write = 0, .read = 0.0, .epoch_cmd_write = 0.0},
+            transfer_type_weights_t{.write = 1.0, .read = 0.0},
 
             std::uniform_int_distribution<address_t>(0x100000, 0x200000), // address generator distribution
             std::uniform_int_distribution<transfer_size_t>(0x4, 3000), //WRITE_SIZE_GENERATOR_T const& write_size_distribution,
-            std::uniform_int_distribution<transfer_size_t>(0x4, 3000), //ROLLED_WRITE_SIZE_GENERATOR_T const& rolled_write_size_distribution,
             std::uniform_int_distribution<int>(2, 4), //UNROLL_COUNT_GENERATOR_T const& unroll_count_distribution
-            std::uniform_int_distribution<transfer_size_t>(0x4, 0x12), //WRITE_EPOCH_CMD_SIZE_GENERATOR_T const& write_epoch_cmd_size_distribution,
             0.75,
             0.75,
             std::uniform_int_distribution<transfer_size_t>(0x4, 3000), //READ_SIZE_GENERATOR_T const& read_size_distribution,
@@ -206,13 +196,11 @@ TEST_F(WormholeNebulaX2TestFixture, MixedRemoteTransfersLarge) {
             10000 * scale_number_of_tests,
             0,
 
-            transfer_type_weights_t{.write = 0.15, .rolled_write = 0, .read = 0.15, .epoch_cmd_write = 0.7},
+            transfer_type_weights_t{.write = 0.15, .read = 0.15},
 
             std::uniform_int_distribution<address_t>(0x10000, 0x200000), // address generator distribution
             std::uniform_int_distribution<transfer_size_t>(0x4, 300000), //WRITE_SIZE_GENERATOR_T const& write_size_distribution,
-            std::uniform_int_distribution<transfer_size_t>(0x4, 300000), //ROLLED_WRITE_SIZE_GENERATOR_T const& rolled_write_size_distribution,
             std::uniform_int_distribution<int>(2, 4), //UNROLL_COUNT_GENERATOR_T const& unroll_count_distribution
-            std::uniform_int_distribution<transfer_size_t>(0x4, 0x12), //WRITE_EPOCH_CMD_SIZE_GENERATOR_T const& write_epoch_cmd_size_distribution,
             0.75,
             0.75,
             std::uniform_int_distribution<transfer_size_t>(0x4, 300000), //READ_SIZE_GENERATOR_T const& read_size_distribution,
@@ -247,11 +235,9 @@ TEST_F(WormholeNebulaX2TestFixture, WritesOnlyNormalDistributionMean10kStd3kMinS
             10000 * scale_number_of_tests,
             0,
 
-            transfer_type_weights_t{.write = 1., .rolled_write = 0., .read = 0., .epoch_cmd_write = 0.},
+            transfer_type_weights_t{.write = 1., .read = 0.},
 
             WriteCommandGenerator(dest_generator, address_generator, write_size_generator),
-            build_dummy_rolled_write_command_generator(*device),
-            build_dummy_write_epoch_cmd_command_generator(*device),
             build_dummy_read_command_generator(*device),
 
             false, // Set to true if you want to emit the command history code to command line
@@ -279,13 +265,11 @@ TEST_F(WormholeNebulaX2TestFixture, MultithreadedMixedRemoteTransfersLMS) {
             100000 * scale_number_of_tests,
             0,
 
-            transfer_type_weights_t{.write = 0.50, .rolled_write = 0., .read = 0.50, .epoch_cmd_write = 0.},
+            transfer_type_weights_t{.write = 0.50, .read = 0.50},
 
             std::uniform_int_distribution<address_t>(0x100000, 0x200000), // address generator distribution
             std::uniform_int_distribution<transfer_size_t>(4, 300000), //WRITE_SIZE_GENERATOR_T const& write_size_distribution,
-            std::uniform_int_distribution<transfer_size_t>(0x4, 3000), //ROLLED_WRITE_SIZE_GENERATOR_T const& rolled_write_size_distribution,
             std::uniform_int_distribution<int>(2, 4), //UNROLL_COUNT_GENERATOR_T const& unroll_count_distribution
-            std::uniform_int_distribution<transfer_size_t>(0x4, 0x12), //WRITE_EPOCH_CMD_SIZE_GENERATOR_T const& write_epoch_cmd_size_distribution,
             0.75,
             0.75,
             std::uniform_int_distribution<transfer_size_t>(0x4, 3000), //READ_SIZE_GENERATOR_T const& read_size_distribution,
@@ -300,13 +284,11 @@ TEST_F(WormholeNebulaX2TestFixture, MultithreadedMixedRemoteTransfersLMS) {
             100000 * scale_number_of_tests,
             100,
 
-            transfer_type_weights_t{.write = 0.25, .rolled_write = 0.25, .read = 0.50, .epoch_cmd_write = 0.},
+            transfer_type_weights_t{.write = 0.25, .read = 0.50},
 
             std::uniform_int_distribution<address_t>(0x100000, 0x200000), // address generator distribution
             std::uniform_int_distribution<transfer_size_t>(0x4, 3000), //WRITE_SIZE_GENERATOR_T const& write_size_distribution,
-            std::uniform_int_distribution<transfer_size_t>(0x4, 3000), //ROLLED_WRITE_SIZE_GENERATOR_T const& rolled_write_size_distribution,
             std::uniform_int_distribution<int>(2, 4), //UNROLL_COUNT_GENERATOR_T const& unroll_count_distribution
-            std::uniform_int_distribution<transfer_size_t>(0x4, 0x12), //WRITE_EPOCH_CMD_SIZE_GENERATOR_T const& write_epoch_cmd_size_distribution,
             0.75,
             0.75,
             std::uniform_int_distribution<transfer_size_t>(0x4, 3000), //READ_SIZE_GENERATOR_T const& read_size_distribution,
@@ -321,13 +303,11 @@ TEST_F(WormholeNebulaX2TestFixture, MultithreadedMixedRemoteTransfersLMS) {
             100000 * scale_number_of_tests,
             23,
 
-            transfer_type_weights_t{.write = 0.5, .rolled_write = 0.25, .read = 0.25, .epoch_cmd_write = 0.},
+            transfer_type_weights_t{.write = 0.5, .read = 0.25},
 
             std::uniform_int_distribution<address_t>(0x100000, 0x200000), // address generator distribution
             std::uniform_int_distribution<transfer_size_t>(0x4, 3000), //WRITE_SIZE_GENERATOR_T const& write_size_distribution,
-            std::uniform_int_distribution<transfer_size_t>(0x4, 3000), //ROLLED_WRITE_SIZE_GENERATOR_T const& rolled_write_size_distribution,
             std::uniform_int_distribution<int>(2, 4), //UNROLL_COUNT_GENERATOR_T const& unroll_count_distribution
-            std::uniform_int_distribution<transfer_size_t>(0x4, 0x12), //WRITE_EPOCH_CMD_SIZE_GENERATOR_T const& write_epoch_cmd_size_distribution,
             0.75,
             0.75,
             std::uniform_int_distribution<transfer_size_t>(0x4, 3000), //READ_SIZE_GENERATOR_T const& read_size_distribution,
@@ -342,13 +322,11 @@ TEST_F(WormholeNebulaX2TestFixture, MultithreadedMixedRemoteTransfersLMS) {
             100000 * scale_number_of_tests,
             99,
 
-            transfer_type_weights_t{.write = 1.0, .rolled_write = 0, .read = 0.0, .epoch_cmd_write = 0.0},
+            transfer_type_weights_t{.write = 1.0, .read = 0.0},
 
             std::uniform_int_distribution<address_t>(0x100000, 0x200000), // address generator distribution
             std::uniform_int_distribution<transfer_size_t>(0x4, 3000), //WRITE_SIZE_GENERATOR_T const& write_size_distribution,
-            std::uniform_int_distribution<transfer_size_t>(0x4, 3000), //ROLLED_WRITE_SIZE_GENERATOR_T const& rolled_write_size_distribution,
             std::uniform_int_distribution<int>(2, 4), //UNROLL_COUNT_GENERATOR_T const& unroll_count_distribution
-            std::uniform_int_distribution<transfer_size_t>(0x4, 0x12), //WRITE_EPOCH_CMD_SIZE_GENERATOR_T const& write_epoch_cmd_size_distribution,
             0.75,
             0.75,
             std::uniform_int_distribution<transfer_size_t>(0x4, 3000), //READ_SIZE_GENERATOR_T const& read_size_distribution,
@@ -387,11 +365,9 @@ TEST_F(WormholeNebulaX2TestFixture, MultithreadedMixedRemoteTransfersLargeWrites
             10000 * scale_number_of_tests,
             0,
 
-            transfer_type_weights_t{.write = 1., .rolled_write = 0., .read = 0., .epoch_cmd_write = 0.},
+            transfer_type_weights_t{.write = 1., .read = 0.},
 
             WriteCommandGenerator(dest_generator, address_generator, write_size_generator),
-            build_dummy_rolled_write_command_generator(*device),
-            build_dummy_write_epoch_cmd_command_generator(*device),
             build_dummy_read_command_generator(*device),
 
             false, // Set to true if you want to emit the command history code to command line
@@ -404,11 +380,9 @@ TEST_F(WormholeNebulaX2TestFixture, MultithreadedMixedRemoteTransfersLargeWrites
             10000 * scale_number_of_tests,
             0,
 
-            transfer_type_weights_t{.write = 1., .rolled_write = 0., .read = 0., .epoch_cmd_write = 0.},
+            transfer_type_weights_t{.write = 1., .read = 0.},
 
             WriteCommandGenerator(dest_generator, address_generator, write_size_generator),
-            build_dummy_rolled_write_command_generator(*device),
-            build_dummy_write_epoch_cmd_command_generator(*device),
             build_dummy_read_command_generator(*device),
 
             false, // Set to true if you want to emit the command history code to command line
@@ -421,11 +395,9 @@ TEST_F(WormholeNebulaX2TestFixture, MultithreadedMixedRemoteTransfersLargeWrites
             10000 * scale_number_of_tests,
             0,
 
-            transfer_type_weights_t{.write = 0, .rolled_write = 0., .read = 1., .epoch_cmd_write = 0.},
+            transfer_type_weights_t{.write = 0, .read = 1.},
 
             build_dummy_write_command_generator(*device),
-            build_dummy_rolled_write_command_generator(*device),
-            build_dummy_write_epoch_cmd_command_generator(*device),
             ReadCommandGenerator(dest_generator, address_generator, read_size_generator),
 
             false, // Set to true if you want to emit the command history code to command line
@@ -438,11 +410,9 @@ TEST_F(WormholeNebulaX2TestFixture, MultithreadedMixedRemoteTransfersLargeWrites
             10000 * scale_number_of_tests,
             0,
 
-            transfer_type_weights_t{.write = 0, .rolled_write = 0., .read = 1., .epoch_cmd_write = 0.},
+            transfer_type_weights_t{.write = 0, .read = 1.},
 
             build_dummy_write_command_generator(*device),
-            build_dummy_rolled_write_command_generator(*device),
-            build_dummy_write_epoch_cmd_command_generator(*device),
             ReadCommandGenerator(dest_generator, address_generator, read_size_generator),
 
             false, // Set to true if you want to emit the command history code to command line

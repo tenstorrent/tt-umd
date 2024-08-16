@@ -376,31 +376,6 @@ class tt_device
     }
 
     /**
-    * @brief Unroll/replicate uint32_t data (as specified by ptr + len pair) and write it to specified device, core and address (defined for Silicon).
-    * \param mem_ptr src data address
-    * \param len src data size (specified for uint32_t)
-    * \param unroll_count Number of times vector should be unrolled
-    * \param core chip-x-y struct specifying device and core
-    * \param addr Address to write to
-    * \param fallback_tlb Specifies fallback/dynamic TLB to use for transaction, if this core does not have static TLBs mapped to this address (dynamic TLBs were initialized in driver constructor)
-    */
-    virtual void rolled_write_to_device(uint32_t* mem_ptr, uint32_t size_in_bytes, uint32_t unroll_count, tt_cxy_pair core, uint64_t addr, const std::string& fallback_tlb) {
-        // Only implement this for Silicon Backend
-        throw std::runtime_error("---- tt_device::rolled_write_to_device is not implemented\n");
-    }
-    /**
-    * @brief Unroll/replicate a uint32_t vector and write it to specified device, core and address (defined for Silicon).
-    * \param vec Vector to write
-    * \param unroll_count Number of times vector should be unrolled
-    * \param core chip-x-y struct specifying device and core
-    * \param addr Address to write to
-    * \param tlb_to_use Specifies fallback/dynamic TLB to use for transaction, if this core does not have static TLBs mapped to this address (dynamic TLBs were initialized in driver constructor)
-    */
-    virtual void rolled_write_to_device(std::vector<uint32_t> &vec, uint32_t unroll_count, tt_cxy_pair core, uint64_t addr, const std::string& tlb_to_use) {
-        throw std::runtime_error("---- tt_device::rolled_write_to_device is not implemented\n");
-    }
-
-    /**
     * @brief Read uint32_t data from a specified device, core and address to host memory (defined for Silicon).
     * \param mem_ptr dest data address on host (expected to be preallocated, depending on transfer size)
     * \param core chip-x-y struct specifying device and core
@@ -725,8 +700,6 @@ class tt_SiliconDevice: public tt_device
     virtual void write_epoch_cmd_to_device(const uint32_t *mem_ptr, uint32_t size_in_bytes, tt_cxy_pair core, uint64_t addr, const std::string& tlb_to_use, bool last_send_epoch_cmd, bool ordered_with_prev_remote_write);
     virtual void write_epoch_cmd_to_device(std::vector<uint32_t> &vec, tt_cxy_pair core, uint64_t addr, const std::string& tlb_to_use, bool last_send_epoch_cmd, bool ordered_with_prev_remote_write);
 
-    virtual void rolled_write_to_device(uint32_t* mem_ptr, uint32_t size_in_bytes, uint32_t unroll_count, tt_cxy_pair core, uint64_t addr, const std::string& fallback_tlb);
-    virtual void rolled_write_to_device(std::vector<uint32_t> &vec, uint32_t unroll_count, tt_cxy_pair core, uint64_t addr, const std::string& tlb_to_use);
     virtual void read_from_device(void* mem_ptr, tt_cxy_pair core, uint64_t addr, uint32_t size, const std::string& fallback_tlb);
     virtual void read_from_device(std::vector<uint32_t> &vec, tt_cxy_pair core, uint64_t addr, uint32_t size, const std::string& tlb_to_use);
     virtual void write_to_sysmem(std::vector<uint32_t>& vec, uint64_t addr, uint16_t channel, chip_id_t src_device_id);

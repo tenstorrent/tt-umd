@@ -7,7 +7,7 @@
 #include "cpuset_lib.hpp"
 #include "common/logger.hpp"
 #include <thread>
-#include "device/device_api.h"
+#include "device/tt_device.h"
 #include <filesystem>
 namespace tt {
 

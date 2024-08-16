@@ -76,7 +76,6 @@ class tt_ClusterDescriptor {
    */
   std::vector<std::tuple<ethernet_channel_t, ethernet_channel_t>> get_directly_connected_ethernet_channels_between_chips(const chip_id_t &first, const chip_id_t &second) const;
   
-  bool channels_are_directly_connected(const chip_id_t &first, const ethernet_channel_t &first_channel, const chip_id_t &second, const ethernet_channel_t &second_channel) const;
   bool is_chip_mmio_capable(const chip_id_t &chip_id) const;
   chip_id_t get_closest_mmio_capable_chip(const chip_id_t &chip);
   chip_id_t get_shelf_local_physical_chip_coords(chip_id_t virtual_coord);
@@ -84,10 +83,7 @@ class tt_ClusterDescriptor {
   static std::unique_ptr<tt_ClusterDescriptor> create_for_grayskull_cluster(
       const std::set<chip_id_t> &logical_mmio_device_ids,
       const std::vector<chip_id_t> &physical_mmio_device_ids);
-  // const eth_coord_t get_chip_xy(const chip_id_t &chip_id) const;
-  // const chip_id_t get_chip_id_at_location(const eth_coord_t &chip_location) const;
 
-  bool chips_have_ethernet_connectivity() const;
   std::unordered_map<chip_id_t, std::uint32_t> get_harvesting_info() const;
   std::unordered_map<chip_id_t, bool> get_noc_translation_table_en() const;
   std::unordered_map<chip_id_t, eth_coord_t> get_chip_locations() const;
@@ -103,9 +99,6 @@ class tt_ClusterDescriptor {
   bool ethernet_core_has_active_ethernet_link(chip_id_t local_chip, ethernet_channel_t local_ethernet_channel) const;
   std::tuple<chip_id_t, ethernet_channel_t> get_chip_and_channel_of_remote_ethernet_core(chip_id_t local_chip, ethernet_channel_t local_ethernet_channel) const;
 
-  void specify_enabled_devices(const std::vector<chip_id_t> &chip_ids);
   void enable_all_devices();
 
 };
-
-std::set<chip_id_t> get_sequential_chip_id_set(int num_chips);

@@ -3,6 +3,8 @@
 #include "device/tt_device.h"
 #include "device/tt_emulation_device.h"
 
+// DEPRECATED TEST SUITE !!!
+
 TEST(EmulationDeviceGS, BasicEmuTest) {
     tt_emulation_device device = tt_emulation_device("../../tests/soc_descs/grayskull_10x12.yaml");
     tt_device_params default_params;

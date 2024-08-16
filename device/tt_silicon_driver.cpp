@@ -4587,27 +4587,6 @@ void tt_SiliconDevice::write_epoch_cmd_to_device(std::vector<uint32_t> &vec, tt_
     write_epoch_cmd_to_device(vec.data(), vec.size() * sizeof(uint32_t), core, addr, fallback_tlb, last_send_epoch_cmd, ordered_with_prev_remote_write);
 }
 
-void tt_SiliconDevice::rolled_write_to_device(uint32_t* mem_ptr, uint32_t size_in_bytes, uint32_t unroll_count, tt_cxy_pair core, uint64_t addr, const std::string& fallback_tlb) {
-    log_assert(!(size_in_bytes % 4), "{} only supports 4-byte aligned data", __FUNCTION__);
-    bool target_is_mmio_capable = ndesc->is_chip_mmio_capable(core.chip);
-
-    if (target_is_mmio_capable) {
-        for (int i=0; i<unroll_count; i++) {
-            *mem_ptr = i; // slot id for debug
-            write_device_memory(mem_ptr, size_in_bytes, core, addr + i * size_in_bytes, fallback_tlb);
-        }
-    }
-    else {
-        log_assert(arch_name != tt::ARCH::BLACKHOLE, "Non-MMIO targets not supported in Blackhole");    // MT: Use only dynamic TLBs and never program static
-        log_assert((get_soc_descriptor(core.chip).ethernet_cores).size() > 0 && get_number_of_chips_in_cluster() > 1, "Cannot issue ethernet writes to a single chip cluster!");
-        rolled_write_to_non_mmio_device(mem_ptr, size_in_bytes, core, addr, unroll_count);
-    }
-}
-
-void tt_SiliconDevice::rolled_write_to_device(std::vector<uint32_t> &vec, uint32_t unroll_count, tt_cxy_pair core, uint64_t addr, const std::string& fallback_tlb) {
-    rolled_write_to_device(vec.data(), vec.size() * sizeof(uint32_t), unroll_count, core, addr, fallback_tlb);
-}
-
 void tt_SiliconDevice::read_mmio_device_register(void* mem_ptr, tt_cxy_pair core, uint64_t addr, uint32_t size, const std::string& fallback_tlb) {
     struct PCIdevice* pci_device = get_pci_device(core.chip);
     TTDevice *dev = pci_device->hdev;

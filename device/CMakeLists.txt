@@ -7,11 +7,9 @@ set(UMD_DEVICE_SRCS
     tlb.cpp
     tt_cluster_descriptor.cpp
     tt_device.cpp
-    tt_emulation_stub.cpp
     tt_silicon_driver.cpp
     tt_silicon_driver_common.cpp
     tt_soc_descriptor.cpp
-    tt_versim_stub.cpp
     wormhole_implementation.cpp
     simulation/tt_simulation_device.cpp
     simulation/tt_simulation_host.cpp

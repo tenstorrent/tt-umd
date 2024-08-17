@@ -555,19 +555,6 @@ class tt_device
     }
 
     /** 
-     * @brief Get the total hugepage (host memory) size allocated for a device. 
-     * This memory is not entirely accessible by device. To query the number of channels
-     * or memory per channel that is accessbile, see get_host_channel_size or get_num_host_channels
-     * \param src_device_id Device for which allocated host memory is being queried
-     * \returns Total memory allocated on host for a specific device
-     * 
-    */ 
-    virtual uint32_t dma_allocation_size(chip_id_t src_device_id = -1) {
-        throw std::runtime_error("---- tt_device::dma_allocation_size is not implemented\n");
-        return 0;
-    }
-
-    /** 
      * Get the address for the MMIO mapped region on Channel (as seen from host memory)
      * \param offset Address in DRAM
      * \param target chip-x-y struct specifying device and core of target DRAM
@@ -745,7 +732,6 @@ class tt_SiliconDevice: public tt_device
     virtual std::set<chip_id_t> get_target_mmio_device_ids();
     virtual std::set<chip_id_t> get_target_remote_device_ids();
     virtual std::map<int,int> get_clocks();
-    virtual uint32_t dma_allocation_size(chip_id_t src_device_id = -1);
     virtual void *channel_address(std::uint32_t offset, const tt_cxy_pair& target);
     virtual void *host_dma_address(std::uint64_t offset, chip_id_t src_device_id, uint16_t channel) const;
     virtual std::uint64_t get_pcie_base_addr_from_device() const;

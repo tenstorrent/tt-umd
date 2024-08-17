@@ -1618,9 +1618,6 @@ void tt_SiliconDevice::create_device(const std::unordered_set<chip_id_t> &target
     }
 }
 
-bool tt_SiliconDevice::noc_translation_en() {
-    return translation_tables_en;
-}
 bool tt_SiliconDevice::using_harvested_soc_descriptors() {
     return perform_harvesting_on_sdesc && performed_harvesting;
 }

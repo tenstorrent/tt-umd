@@ -55,7 +55,6 @@ class tt_SimulationDevice: public tt_device {
     // Misc. Functions to Query/Set Device State
     // virtual bool using_harvested_soc_descriptors();
     virtual std::unordered_map<chip_id_t, uint32_t> get_harvesting_masks_for_soc_descriptors();
-    // virtual bool noc_translation_en();
     // virtual void translate_to_noc_table_coords(chip_id_t device_id, std::size_t &r, std::size_t &c);
     // virtual int get_number_of_chips_in_cluster();
     // virtual std::unordered_set<chip_id_t> get_all_chips_in_cluster();

@@ -2686,22 +2686,6 @@ void tt_SiliconDevice::init_pcie_iatus_no_p2p() {
     }
 }
 
-uint32_t tt_SiliconDevice::dma_allocation_size(chip_id_t src_device_id)
-{
-
-  // Fall back to first device if no src_device_id is provided. Assumes all devices have the same size, which is true.
-  chip_id_t device_index = src_device_id == -1 ? m_pci_device_map.begin()->first : src_device_id;
-
-  if (hugepage_mapping.at(device_index).at(0)) {
-    return HUGEPAGE_REGION_SIZE;
-  } else if (buf_mapping) {
-    return DMA_BUF_REGION_SIZE;
-  } else {
-    log_fatal("Nothing has been allocated yet");
-    return 0;
-  }
-}
-
 
 
 

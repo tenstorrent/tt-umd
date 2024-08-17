@@ -63,7 +63,6 @@ class tt_SimulationDevice: public tt_device {
     // static std::unordered_map<chip_id_t, chip_id_t> get_logical_to_physical_mmio_device_id_map(std::vector<chip_id_t> physical_device_ids);
     virtual std::set<chip_id_t> get_target_remote_device_ids();
     virtual std::map<int,int> get_clocks();
-    // virtual uint32_t dma_allocation_size(chip_id_t src_device_id = -1);
     // virtual void *channel_0_address(std::uint32_t offset, std::uint32_t device_id) const;
     virtual void *host_dma_address(std::uint64_t offset, chip_id_t src_device_id, uint16_t channel) const;
     virtual std::uint64_t get_pcie_base_addr_from_device() const;

@@ -3345,7 +3345,6 @@ bool tt_SiliconDevice::is_non_mmio_cmd_q_full(uint32_t curr_wptr, uint32_t curr_
  *
  * Relevant functions:
  *  - write_to_non_mmio_device
- *  - rolled_write_to_non_mmio_device
  *  - read_from_non_mmio_device
  *
  * The non-MMIO read/write functions (excluding the `*_epoch_cmd` variants) are responsible for the
@@ -3729,129 +3728,6 @@ void tt_SiliconDevice::write_to_non_mmio_device_send_epoch_cmd(const uint32_t *m
         erisc_q_wrptr_updated[active_core_epoch] = true;
     } else {
         erisc_q_wrptr_updated[active_core_epoch] = false;
-    }
-}
-
-/*
- * Note that this function is required to acquire the `NON_MMIO_MUTEX_NAME` mutex for interacting with the ethernet core (host) command queue
- * DO NOT issue any pcie reads/writes to the ethernet core prior to acquiring the mutex. For extra information, see the "NON_MMIO_MUTEX Usage" above
- */
-void tt_SiliconDevice::rolled_write_to_non_mmio_device(const uint32_t *mem_ptr, uint32_t size_in_bytes, tt_cxy_pair core, uint64_t address, uint32_t unroll_count) {
-    using data_word_t = uint32_t;
-    constexpr int DATA_WORD_SIZE = sizeof(data_word_t);
-
-    std::string write_tlb = "LARGE_WRITE_TLB";
-    std::string read_tlb = "LARGE_READ_TLB";
-    std::string empty_tlb = "";
-    translate_to_noc_table_coords(core.chip, core.y, core.x);
-
-    const eth_coord_t target_chip = ndesc->get_chip_locations().at(core.chip);
-
-
-    std::vector<std::uint32_t> erisc_command;
-    std::vector<std::uint32_t> erisc_q_rptr = std::vector<uint32_t>(1);
-    std::vector<std::uint32_t> erisc_q_ptrs = std::vector<uint32_t>(eth_interface_params.remote_update_ptr_size_bytes*2 / sizeof(uint32_t));
-
-    std::vector<std::uint32_t> data_block = std::vector<uint32_t>(size_in_bytes / DATA_WORD_SIZE);
-
-    routing_cmd_t *new_cmd;
-
-    flush_non_mmio = true;
-    uint32_t transfer_size = size_in_bytes * unroll_count;
-    uint32_t buffer_id = 0;
-    uint32_t timestamp = 0; //CMD_TIMESTAMP;
-
-    //
-    //                    MUTEX ACQUIRE (NON-MMIO)
-    //  do not locate any ethernet core reads/writes before this acquire
-    //
-    const auto &mmio_capable_chip_logical = ndesc->get_closest_mmio_capable_chip(core.chip);
-
-    if (non_mmio_transfer_cores_customized) {
-        log_assert(active_eth_core_idx_per_chip.find(mmio_capable_chip_logical) != active_eth_core_idx_per_chip.end(), "Ethernet Cores for Host to Cluster communication were not initialized for all MMIO devices.");
-    }
-
-    const scoped_lock<named_mutex> lock(
-        *get_mutex(NON_MMIO_MUTEX_NAME, this->get_pci_device(mmio_capable_chip_logical)->id));
-
-    erisc_command.resize(sizeof(routing_cmd_t)/DATA_WORD_SIZE);
-    new_cmd = (routing_cmd_t *)&erisc_command[0];
-    int& active_core_for_txn = non_mmio_transfer_cores_customized ? active_eth_core_idx_per_chip.at(mmio_capable_chip_logical) : active_core;
-    read_device_memory(erisc_q_ptrs.data(), remote_transfer_ethernet_cores.at(mmio_capable_chip_logical)[active_core_for_txn], eth_interface_params.request_cmd_queue_base + eth_interface_params.cmd_counters_size_bytes, eth_interface_params.remote_update_ptr_size_bytes*2, read_tlb);
-
-    uint32_t offset = 0;
-
-    bool full = is_non_mmio_cmd_q_full(erisc_q_ptrs[0], erisc_q_ptrs[4]);
-    erisc_q_rptr.resize(1);
-    erisc_q_rptr[0] = erisc_q_ptrs[4];
-
-    uint32_t unroll_offset = 0;
-
-    while (offset < transfer_size) {
-        while (full) {
-            read_device_memory(erisc_q_rptr.data(), remote_transfer_ethernet_cores.at(mmio_capable_chip_logical)[active_core_for_txn], eth_interface_params.request_cmd_queue_base + eth_interface_params.cmd_counters_size_bytes + eth_interface_params.remote_update_ptr_size_bytes, DATA_WORD_SIZE, read_tlb);
-            full = is_non_mmio_cmd_q_full(erisc_q_ptrs[0],erisc_q_rptr[0]);
-        }
-        //full = true;
-        // set full only if this command will make the q full.
-        // otherwise full stays false so that we do not poll the rd pointer in next iteration.
-        // As long as current command push does not fill up the queue completely, we do not want
-        // to poll rd pointer in every iteration.
-        //full = is_non_mmio_cmd_q_full((erisc_q_ptrs[0] + 1) & CMD_BUF_PTR_MASK, erisc_q_rptr[0]);
-
-        log_assert(((address + offset) & 0x1F) == 0, "Base address + offset in incorrect range!");
-
-        uint32_t req_wr_ptr = erisc_q_ptrs[0] & eth_interface_params.cmd_buf_size_mask;
-
-        uint32_t req_flags = eth_interface_params.cmd_data_block_dram | eth_interface_params.cmd_data_block | eth_interface_params.cmd_wr_req;
-        timestamp = 0;
-
-        uint32_t host_dram_block_addr = host_address_params.eth_routing_buffers_start + (active_core_for_txn * eth_interface_params.cmd_buf_size + req_wr_ptr) * host_address_params.eth_routing_block_size;
-        uint16_t host_dram_channel = 0; // This needs to be 0, since WH can only map ETH buffers to chan 0.
-
-        memcpy(data_block.data(), mem_ptr, size_in_bytes);
-        uint32_t byte_increment = data_block.size() * DATA_WORD_SIZE;
-        uint32_t host_mem_offset = 0;
-        uint32_t i = 0;
-        for (i = 0; (i + unroll_offset) < unroll_count; i++) {
-            if ((host_mem_offset + byte_increment) > host_address_params.eth_routing_block_size) {
-                break;
-            }
-            data_block[0] = i + unroll_offset;
-            write_to_sysmem(data_block, host_dram_block_addr + host_mem_offset, host_dram_channel, mmio_capable_chip_logical);
-            host_mem_offset += byte_increment;
-        }
-        unroll_offset += i;
-        tt_driver_atomics::sfence();
-        new_cmd->sys_addr = get_sys_addr(std::get<0>(target_chip), std::get<1>(target_chip), core.x, core.y, address + offset);
-        new_cmd->rack = get_sys_rack(std::get<2>(target_chip), std::get<3>(target_chip));
-        new_cmd->data = host_mem_offset;
-        new_cmd->flags = req_flags;
-        new_cmd->src_addr_tag = host_dram_block_addr;
-
-        write_device_memory(erisc_command.data(), erisc_command.size() * DATA_WORD_SIZE, remote_transfer_ethernet_cores.at(mmio_capable_chip_logical)[active_core_for_txn], eth_interface_params.request_routing_cmd_queue_base + (sizeof(routing_cmd_t) * req_wr_ptr), write_tlb);
-        tt_driver_atomics::sfence();
-        erisc_q_ptrs[0] = (erisc_q_ptrs[0] + 1) & eth_interface_params.cmd_buf_ptr_mask;
-        std::vector<std::uint32_t> erisc_q_wptr;
-        erisc_q_wptr.resize(1);
-        erisc_q_wptr[0] = erisc_q_ptrs[0];
-        write_device_memory(erisc_q_wptr.data(), erisc_q_wptr.size() * DATA_WORD_SIZE, remote_transfer_ethernet_cores.at(mmio_capable_chip_logical)[active_core_for_txn], eth_interface_params.request_cmd_queue_base + eth_interface_params.cmd_counters_size_bytes, write_tlb);
-        tt_driver_atomics::sfence();
-        offset += host_mem_offset;
-
-        // If there is more data to send and this command will make the q full, switch to next Q.
-        // otherwise full stays false so that we do not poll the rd pointer in next iteration.
-        // As long as current command push does not fill up the queue completely, we do not want
-        // to poll rd pointer in every iteration.
-
-        if (is_non_mmio_cmd_q_full((erisc_q_ptrs[0]) & eth_interface_params.cmd_buf_ptr_mask, erisc_q_rptr[0])) {
-            active_core_for_txn++;
-            uint32_t update_mask_for_chip = (remote_transfer_ethernet_cores[mmio_capable_chip_logical].size() - 1);
-            active_core_for_txn = non_mmio_transfer_cores_customized ? (active_core_for_txn & update_mask_for_chip) : ((active_core_for_txn & NON_EPOCH_ETH_CORES_MASK) + NON_EPOCH_ETH_CORES_START_ID);
-            read_device_memory(erisc_q_ptrs.data(), remote_transfer_ethernet_cores.at(mmio_capable_chip_logical)[active_core_for_txn], eth_interface_params.request_cmd_queue_base + eth_interface_params.cmd_counters_size_bytes, eth_interface_params.remote_update_ptr_size_bytes*2, read_tlb);
-            full = is_non_mmio_cmd_q_full(erisc_q_ptrs[0], erisc_q_ptrs[4]);
-            erisc_q_rptr[0] = erisc_q_ptrs[4];
-        }
     }
 }
 

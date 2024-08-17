@@ -553,17 +553,6 @@ class tt_device
     virtual tt_version get_ethernet_fw_version() const {
         throw std::runtime_error("---- tt_device::get_ethernet_fw_version is not implemented \n");
     }
-
-    /** 
-     * Get the address for the MMIO mapped region on Channel (as seen from host memory)
-     * \param offset Address in DRAM
-     * \param target chip-x-y struct specifying device and core of target DRAM
-     * \returns Host interpretation of MMIO mapped channel 0 address 
-     */ 
-    virtual void *channel_address(std::uint32_t offset, const tt_cxy_pair& target) {
-        throw std::runtime_error("---- tt_device::channel_address is not implemented\n");
-        return nullptr;
-    }
     /**
      * @brief Query number of DRAM channels on a specific device
      * \param device_id Logical device id to query
@@ -732,7 +721,6 @@ class tt_SiliconDevice: public tt_device
     virtual std::set<chip_id_t> get_target_mmio_device_ids();
     virtual std::set<chip_id_t> get_target_remote_device_ids();
     virtual std::map<int,int> get_clocks();
-    virtual void *channel_address(std::uint32_t offset, const tt_cxy_pair& target);
     virtual void *host_dma_address(std::uint64_t offset, chip_id_t src_device_id, uint16_t channel) const;
     virtual std::uint64_t get_pcie_base_addr_from_device() const;
     static std::vector<int> extract_rows_to_remove(const tt::ARCH &arch, const int worker_grid_rows, const int harvested_rows);

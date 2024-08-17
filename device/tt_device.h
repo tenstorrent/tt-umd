@@ -465,13 +465,7 @@ class tt_device
     virtual std::unordered_map<chip_id_t, uint32_t> get_harvesting_masks_for_soc_descriptors() {
         throw std::runtime_error("---- tt_device:get_harvesting_masks_for_soc_descriptors is not implemented\n");
     }
-     /**
-     * @brief Get Hardware Translation Table state
-     * \returns true if translation tables are enabled (WH only)
-     */ 
-    virtual bool noc_translation_en() {
-        throw std::runtime_error("---- tt_device:noc_translation_en is not implemented\n");
-    }
+
     /**
      * @brief Issue message to device, meant to be picked up by ARC Firmare
      * \param logical_device_id Chip to target
@@ -741,7 +735,6 @@ class tt_SiliconDevice: public tt_device
     virtual int arc_msg(int logical_device_id, uint32_t msg_code, bool wait_for_done = true, uint32_t arg0 = 0, uint32_t arg1 = 0, int timeout=1, uint32_t *return_3 = nullptr, uint32_t *return_4 = nullptr);
     virtual bool using_harvested_soc_descriptors();
     virtual std::unordered_map<chip_id_t, uint32_t> get_harvesting_masks_for_soc_descriptors();
-    virtual bool noc_translation_en();
     virtual void translate_to_noc_table_coords(chip_id_t device_id, std::size_t &r, std::size_t &c);
     virtual int get_number_of_chips_in_cluster();
     virtual std::unordered_set<chip_id_t> get_all_chips_in_cluster();

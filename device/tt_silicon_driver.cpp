@@ -4441,26 +4441,9 @@ void tt_SiliconDevice::write_to_device(const void *mem_ptr, uint32_t size, tt_cx
     }
 }
 
-
 void tt_SiliconDevice::write_to_device(std::vector<uint32_t> &vec, tt_cxy_pair core, uint64_t addr, const std::string& fallback_tlb, bool send_epoch_cmd, bool last_send_epoch_cmd, bool ordered_with_prev_remote_write) {
     // Overloaded device writer that accepts a vector
     write_to_device(vec.data(), vec.size() * sizeof(uint32_t), core, addr, fallback_tlb, send_epoch_cmd, last_send_epoch_cmd, ordered_with_prev_remote_write);
-}
-
-
-void tt_SiliconDevice::write_epoch_cmd_to_device(const uint32_t *mem_ptr, uint32_t size_in_bytes, tt_cxy_pair core, uint64_t addr, const std::string& fallback_tlb, bool last_send_epoch_cmd, bool ordered_with_prev_remote_write) {
-    bool target_is_mmio_capable = ndesc -> is_chip_mmio_capable(core.chip);
-    if(target_is_mmio_capable) {
-        write_device_memory(mem_ptr, size_in_bytes, core, addr, fallback_tlb);
-    } else {
-        log_assert(arch_name != tt::ARCH::BLACKHOLE, "Non-MMIO targets not supported in Blackhole");    // MT: Use only dynamic TLBs and never program static
-        write_to_non_mmio_device_send_epoch_cmd(mem_ptr, size_in_bytes, core, addr, last_send_epoch_cmd, ordered_with_prev_remote_write);
-     }
-}
-
-void tt_SiliconDevice::write_epoch_cmd_to_device(std::vector<uint32_t> &vec, tt_cxy_pair core, uint64_t addr, const std::string& fallback_tlb, bool last_send_epoch_cmd, bool ordered_with_prev_remote_write) {
-    // Overloaded device writer that accepts a vector
-    write_epoch_cmd_to_device(vec.data(), vec.size() * sizeof(uint32_t), core, addr, fallback_tlb, last_send_epoch_cmd, ordered_with_prev_remote_write);
 }
 
 void tt_SiliconDevice::read_mmio_device_register(void* mem_ptr, tt_cxy_pair core, uint64_t addr, uint32_t size, const std::string& fallback_tlb) {

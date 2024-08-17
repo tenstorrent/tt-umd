@@ -70,7 +70,6 @@ class tt_SimulationDevice: public tt_device {
     virtual std::uint64_t get_dram_channel_size(std::uint32_t device_id, std::uint32_t channel);
     virtual std::uint32_t get_num_host_channels(std::uint32_t device_id);
     virtual std::uint32_t get_host_channel_size(std::uint32_t device_id, std::uint32_t channel);
-    // virtual std::uint32_t get_pcie_speed(std::uint32_t device_id);
     virtual std::uint32_t get_numa_node_for_pcie_device(std::uint32_t device_id);
     // virtual tt_version get_ethernet_fw_version() const;
 

@@ -63,8 +63,6 @@ struct tt_cpuset_allocator {
         int _get_num_tt_pci_devices();
         int _get_num_tt_pci_devices_by_pci_device_id(uint16_t device_id, uint16_t revision_id);
 
-        hwloc_cpuset_t allocate_cpu_set_for_thread(chip_id_t physical_device_id, bool skip_singlify);
-
         // Series of init functions, must be called in this order. Seperated out to support
         // early exit in case of errors.
         bool init_topology_init_and_load();

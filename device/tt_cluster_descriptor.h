@@ -86,7 +86,6 @@ class tt_ClusterDescriptor {
   // const eth_coord_t get_chip_xy(const chip_id_t &chip_id) const;
   // const chip_id_t get_chip_id_at_location(const eth_coord_t &chip_location) const;
 
-  bool chips_have_ethernet_connectivity() const;
   std::unordered_map<chip_id_t, std::uint32_t> get_harvesting_info() const;
   std::unordered_map<chip_id_t, bool> get_noc_translation_table_en() const;
   std::unordered_map<chip_id_t, eth_coord_t> get_chip_locations() const;

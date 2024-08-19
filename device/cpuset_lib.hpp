@@ -95,8 +95,6 @@ struct tt_cpuset_allocator {
         std::map<chip_id_t, std::vector<hwloc_cpuset_t>> m_physical_device_id_to_cpusets_map;
         std::map<chip_id_t, int> m_physical_device_id_to_package_id_map;
 
-        std::mutex allocate_cpu_id_mutex;
-
         bool m_enable_cpuset_allocator = true; // Enable feature, otherwise do nothing.
         int m_num_packages = 0;
         std::vector<int> m_all_tt_devices = {};

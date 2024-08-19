@@ -581,13 +581,6 @@ void tt_ClusterDescriptor::load_harvesting_information(YAML::Node &yaml, tt_Clus
     }
 }
 
-void tt_ClusterDescriptor::specify_enabled_devices(const std::vector<chip_id_t> &chip_ids) {
-    this->enabled_active_chips.clear();
-    for (auto chip_id : chip_ids) {
-        this->enabled_active_chips.insert(chip_id);
-    }
-}
-
 void tt_ClusterDescriptor::enable_all_devices() {
     this->enabled_active_chips = this->all_chips;
 }

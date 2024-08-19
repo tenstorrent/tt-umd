@@ -101,7 +101,6 @@ class tt_ClusterDescriptor {
   bool ethernet_core_has_active_ethernet_link(chip_id_t local_chip, ethernet_channel_t local_ethernet_channel) const;
   std::tuple<chip_id_t, ethernet_channel_t> get_chip_and_channel_of_remote_ethernet_core(chip_id_t local_chip, ethernet_channel_t local_ethernet_channel) const;
 
-  void specify_enabled_devices(const std::vector<chip_id_t> &chip_ids);
   void enable_all_devices();
 
 };

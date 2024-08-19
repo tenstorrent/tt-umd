@@ -1147,10 +1147,6 @@ void write_block(TTDevice *dev, uint64_t byte_addr, uint64_t num_bytes, const ui
     print_buffer (buffer_addr, std::min((uint64_t)g_NUM_BYTES_TO_PRINT, num_bytes), true);
 }
 
-void read_checking_enable(bool enable = true) {
-    g_READ_CHECKING_ENABLED = enable;
-}
-
 // Read/write to the configuration space of the device
 // pData is a pointer to a buffer (see memory module)
 DWORD read_cfg(TTDevice *dev, DWORD byte_offset, uint64_t pData, DWORD num_bytes) {

@@ -105,7 +105,6 @@ struct tt_cpuset_allocator {
         std::map<int, int> m_package_id_to_num_l3_per_ccx_map;
         std::map<int, int> m_package_id_to_num_ccx_per_ccd_map;
 
-        std::thread::id m_main_thread_id;
         bool m_stored_main_thread_id = false;
 
         // For quicker unbinding of threads, record the physical_device_id during binding.

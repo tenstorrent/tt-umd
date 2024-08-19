@@ -105,7 +105,6 @@ struct tt_cpuset_allocator {
         std::map<int, int> m_package_id_to_num_l3_per_ccx_map;
         std::map<int, int> m_package_id_to_num_ccx_per_ccd_map;
 
-        std::unordered_set<std::thread::id> m_global_thread_ids_pinned = {};
         std::thread::id m_main_thread_id;
         bool m_stored_main_thread_id = false;
 

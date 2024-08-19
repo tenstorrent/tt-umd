@@ -52,19 +52,6 @@ std::vector<std::tuple<ethernet_channel_t, ethernet_channel_t>> tt_ClusterDescri
     return directly_connected_channels;
 }
 
-bool tt_ClusterDescriptor::channels_are_directly_connected(const chip_id_t &first, const ethernet_channel_t &first_channel, const chip_id_t &second, const ethernet_channel_t &second_channel) const {
-    if (this->enabled_active_chips.find(first) == this->enabled_active_chips.end() || this->enabled_active_chips.find(second) == this->enabled_active_chips.end()) {
-        return false;
-    }
-
-    if (this->ethernet_connections.at(first).find(first_channel) == this->ethernet_connections.at(first).end()) {
-        return false;
-    }
-
-    const auto &[connected_chip, connected_channel] = this->ethernet_connections.at(first).at(first_channel);
-    return connected_chip == second && connected_channel == second_channel;   
-}
-
 // const eth_coord_t tt_ClusterDescriptor::get_chip_xy(const chip_id_t &chip_id) const {
 //     // For now we only support a 1D cluster, so the mapping is trivial (where the chip ID is the x value of the xy
 //     location) return eth_coord_t(chip_id, 0, 0, 0);

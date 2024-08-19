@@ -3141,22 +3141,6 @@ std::shared_ptr<boost::interprocess::named_mutex> tt_SiliconDevice::get_mutex(co
     return hardware_resource_mutex_map.at(mutex_name);
 }
 
-
-std::unordered_map<chip_id_t, chip_id_t> tt_SiliconDevice::get_logical_to_physical_mmio_device_id_map(std::vector<chip_id_t> physical_device_ids){
-
-    std::unordered_map<chip_id_t, chip_id_t> logical_to_physical_mmio_device_id_map;
-
-    LOG1("get_logical_to_physical_mmio_device_id_map() -- num_physical_devices: %d\n", physical_device_ids.size());
-
-    for (int logical_device_idx=0; logical_device_idx < physical_device_ids.size(); logical_device_idx++){
-        logical_to_physical_mmio_device_id_map.insert({logical_device_idx, physical_device_ids.at(logical_device_idx)});
-    }
-
-    return logical_to_physical_mmio_device_id_map;
-
-}
-
-
 // Get PCI bus_id info for looking up TT devices in hwloc to find associated CPU package.
 std::map<chip_id_t, std::string> tt_SiliconDevice::get_physical_device_id_to_bus_id_map(std::vector<chip_id_t> physical_device_ids){
 

@@ -199,14 +199,6 @@ int tt_SocDescriptor::get_num_dram_channels() const {
     return num_channels;
 }
 
-std::vector<int> tt_SocDescriptor::get_dram_chan_map() {
-    std::vector<int> chan_map;
-    for (unsigned int i = 0; i < dram_cores.size(); i++) {
-        chan_map.push_back(i);
-    }
-    return chan_map;
-};
-
 bool tt_SocDescriptor::is_worker_core(const tt_xy_pair &core) const {
     return (
         routing_x_to_worker_x.find(core.x) != routing_x_to_worker_x.end() &&

@@ -737,22 +737,6 @@ int get_revision_id(TTDevice *dev) {
     }
 }
 
-int get_link_width(TTDevice *dev) {
-
-    static const char pattern[] = "/sys/bus/pci/devices/%04x:%02x:%02x.%u/current_link_width";
-    char buf[sizeof(pattern)];
-    std::snprintf(buf, sizeof(buf), pattern,
-    (unsigned int)dev->pci_domain, (unsigned int)dev->pci_bus, (unsigned int)dev->pci_device, (unsigned int)dev->pci_function);
-
-    std::ifstream linkwidth_file(buf);
-    std::string linkwidth_string;
-    if (std::getline(linkwidth_file, linkwidth_string)) {
-        return std::stoi(linkwidth_string, nullptr, 0);
-    } else {
-        throw std::runtime_error("Link width read failed for device");
-    }
-}
-
 int get_link_speed(TTDevice *dev) {
 
     static const char pattern[] = "/sys/bus/pci/devices/%04x:%02x:%02x.%u/current_link_speed";

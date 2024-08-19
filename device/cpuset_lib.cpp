@@ -395,21 +395,6 @@ hwloc_cpuset_t tt_cpuset_allocator::allocate_cpu_set_for_thread(chip_id_t physic
         return cpuset;
 }
 
-void tt_cpuset_allocator::store_thread_original_cpuset(){
-
-    auto tid = std::this_thread::get_id();
-    hwloc_cpuset_t orig_cpuset = hwloc_bitmap_alloc();
-
-    if (hwloc_get_cpubind(m_topology, orig_cpuset, HWLOC_CPUBIND_THREAD)){
-        log_warning(LogSiliconDriver,"store_thread_original_cpuset() calling hwloc_get_cpubind() failed with errno: {} (pid: {} tid:{})", strerror(errno), m_pid, tid);
-    }else{
-        auto orig_cpuset_vector = get_hwloc_bitmap_vector(orig_cpuset);
-        log_debug(LogSiliconDriver, "store_thread_original_cpuset() success - got orig cpuset: {} PU's: {} (pid: {} tid: {})", orig_cpuset_vector.size(), orig_cpuset_vector, m_pid, tid);
-        m_global_thread_id_to_original_cpuset_map.insert({tid, hwloc_bitmap_dup(orig_cpuset)});
-    }
-    hwloc_bitmap_free(orig_cpuset);
-}
-
 // Given a physical device_id, determine the right numa nodes associated with it and attempt to membind a previously allocated memory region to it.
 bool tt_cpuset_allocator::bind_area_memory_nodeset(chip_id_t physical_device_id, const void * addr, size_t len){
 

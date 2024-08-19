@@ -209,10 +209,6 @@ tt_xy_pair tt_SocDescriptor::get_core_for_dram_channel(int dram_chan, int subcha
     return this->dram_cores.at(dram_chan).at(subchannel);
 };
 
-tt_xy_pair tt_SocDescriptor::get_pcie_core(int pcie_id) const {
-    return this->pcie_cores.at(pcie_id);
-};
-
 bool tt_SocDescriptor::is_ethernet_core(const tt_xy_pair &core) const {
     return this->ethernet_core_channel_map.find(core) != ethernet_core_channel_map.end();
 }

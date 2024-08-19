@@ -135,7 +135,6 @@ class tt_SocDescriptor {
     bool is_worker_core(const tt_xy_pair &core) const;
     tt_xy_pair get_core_for_dram_channel(int dram_chan, int subchannel) const;
     bool is_ethernet_core(const tt_xy_pair& core) const;
-    int get_channel_of_ethernet_core(const tt_xy_pair &core) const;
     int get_num_dram_subchans() const;
     int get_num_dram_blocks_per_channel() const;
     uint64_t get_noc2host_offset(uint16_t host_channel) const;

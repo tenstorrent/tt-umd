@@ -737,23 +737,6 @@ int get_revision_id(TTDevice *dev) {
     }
 }
 
-int get_link_speed(TTDevice *dev) {
-
-    static const char pattern[] = "/sys/bus/pci/devices/%04x:%02x:%02x.%u/current_link_speed";
-    char buf[sizeof(pattern)];
-    std::snprintf(buf, sizeof(buf), pattern,
-    (unsigned int)dev->pci_domain, (unsigned int)dev->pci_bus, (unsigned int)dev->pci_device, (unsigned int)dev->pci_function);
-
-    std::ifstream linkspeed_file(buf);
-    std::string linkspeed_string;
-    int linkspeed;
-    if (std::getline(linkspeed_file, linkspeed_string) && sscanf(linkspeed_string.c_str(), "%d", &linkspeed) == 1) {
-        return linkspeed;
-    } else {
-        throw std::runtime_error("Link speed read failed for device");
-    }
-}
-
 int get_numa_node(TTDevice *dev) {
 
     static const char pattern[] = "/sys/bus/pci/devices/%04x:%02x:%02x.%u/numa_node";

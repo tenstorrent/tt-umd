@@ -1235,12 +1235,6 @@ void read_regs(TTDevice *dev, uint32_t byte_addr, uint32_t word_len, void *data)
     print_buffer (data, std::min(g_NUM_BYTES_TO_PRINT, word_len * 4), true);
 }
 
-void handle_dma_timeout(TTDevice *dev, uint32_t size_bytes, bool write) {
-    detect_ffffffff_read(dev);
-    throw std::runtime_error(std::string("DMA transfer timeout: ")
-                             + std::to_string(size_bytes)
-                             + (write ? " byte write." : " byte read."));
-}
 uint32_t pcie_dma_transfer_turbo (TTDevice *dev, uint32_t chip_addr, uint32_t host_phys_addr, uint32_t size_bytes, bool write) {
     // c_timer t ("");
 

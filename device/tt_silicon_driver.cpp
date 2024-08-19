@@ -644,9 +644,6 @@ std::uint64_t pci_dma_buffer_get_user_addr(DMAbuffer &dma_buffer) {
     return reinterpret_cast<std::uint64_t>(dma_buffer.pBuf);
 }
 
-DWORD ttkmd_init() { return 0; }    // 0 on success
-DWORD ttkmd_uninit() { return 0; }  // 0 on success
-
 bool is_char_dev(const dirent *ent, const char *parent_dir) {
     if (ent->d_type == DT_UNKNOWN || ent->d_type == DT_LNK) {
         char name[2 * NAME_MAX + 2];

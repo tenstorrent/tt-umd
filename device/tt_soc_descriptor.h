@@ -135,7 +135,6 @@ class tt_SocDescriptor {
     bool is_worker_core(const tt_xy_pair &core) const;
     tt_xy_pair get_core_for_dram_channel(int dram_chan, int subchannel) const;
     bool is_ethernet_core(const tt_xy_pair& core) const;
-    uint64_t get_noc2host_offset(uint16_t host_channel) const;
 
     // Default constructor. Creates uninitialized object with public access to all of its attributes.
     tt_SocDescriptor() = default;

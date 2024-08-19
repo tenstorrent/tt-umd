@@ -1147,26 +1147,6 @@ void write_block(TTDevice *dev, uint64_t byte_addr, uint64_t num_bytes, const ui
     print_buffer (buffer_addr, std::min((uint64_t)g_NUM_BYTES_TO_PRINT, num_bytes), true);
 }
 
-// Read/write to the configuration space of the device
-// pData is a pointer to a buffer (see memory module)
-DWORD read_cfg(TTDevice *dev, DWORD byte_offset, uint64_t pData, DWORD num_bytes) {
-
-    if (pread(get_config_space_fd(dev), reinterpret_cast<void*>(pData), num_bytes, byte_offset) != num_bytes) {
-        throw std::runtime_error("Config space read failed for device ");
-    }
-
-    return 0;
-}
-
-DWORD write_cfg(TTDevice *dev, DWORD byte_offset, uint64_t pData, DWORD num_bytes) {
-
-    if (pwrite(get_config_space_fd(dev), reinterpret_cast<const void*>(pData), num_bytes, byte_offset) != num_bytes) {
-        throw std::runtime_error("Config space read failed for device ");
-    }
-
-    return 0;
-}
-
 DMAbuffer pci_allocate_dma_buffer(TTDevice *dev, uint32_t size) {
 
     uint32_t page_size = getpagesize();

@@ -2098,18 +2098,6 @@ std::vector<chip_id_t> tt_SiliconDevice::detect_available_device_ids() {
     return detected_device_ids;
 }
 
-static bool check_dram_core_exists(const std::vector<std::vector<tt_xy_pair>> &all_dram_cores, tt_xy_pair target_core) {
-    bool dram_core_exists = false;
-    for (const auto &dram_cores_in_channel : all_dram_cores) {
-        for (auto dram_core : dram_cores_in_channel) {
-            if (dram_core.x == target_core.x && dram_core.y == target_core.y) {
-                return true;
-            }
-        }
-    }
-    return false;
-}
-
 std::function<void(uint32_t, uint32_t, const uint8_t*, uint32_t)> tt_SiliconDevice::get_fast_pcie_static_tlb_write_callable(int device_id) {
     struct PCIdevice* pci_device = get_pci_device(device_id);
     TTDevice* dev = pci_device->hdev;

@@ -749,7 +749,6 @@ class tt_SiliconDevice: public tt_device
     void check_pcie_device_initialized(int device_id);
     bool init_dma_turbo_buf(struct PCIdevice* pci_device);
     bool uninit_dma_turbo_buf(struct PCIdevice* pci_device);
-    static std::map<chip_id_t, std::string> get_physical_device_id_to_bus_id_map(std::vector<chip_id_t> physical_device_ids);
     void set_pcie_power_state(tt_DevicePowerState state);
     int set_remote_power_state(const chip_id_t &chip, tt_DevicePowerState device_state);
     void set_power_state(tt_DevicePowerState state);

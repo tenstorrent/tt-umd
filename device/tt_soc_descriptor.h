@@ -134,7 +134,6 @@ class tt_SocDescriptor {
     int get_num_dram_channels() const;
     bool is_worker_core(const tt_xy_pair &core) const;
     tt_xy_pair get_core_for_dram_channel(int dram_chan, int subchannel) const;
-    tt_xy_pair get_pcie_core(int pcie_id = 0) const;
     bool is_dram_core(const tt_xy_pair& core) const;
     bool is_ethernet_core(const tt_xy_pair& core) const;
     int get_channel_of_ethernet_core(const tt_xy_pair &core) const;

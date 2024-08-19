@@ -213,18 +213,6 @@ bool tt_SocDescriptor::is_ethernet_core(const tt_xy_pair &core) const {
     return this->ethernet_core_channel_map.find(core) != ethernet_core_channel_map.end();
 }
 
-bool tt_SocDescriptor::is_dram_core(const tt_xy_pair &core) const {
-    static std::unordered_set<tt_xy_pair> cores = {};
-    if (cores.empty()) {
-        for (const std::vector<tt_xy_pair> &dram_chan : this->dram_cores) {
-            for (const tt_xy_pair &subchannel : dram_chan) {
-                cores.insert(subchannel);
-            }
-        }
-    }
-    return cores.find(core) != cores.end();
-}
-
 int tt_SocDescriptor::get_channel_of_ethernet_core(const tt_xy_pair &core) const {
     return this->ethernet_core_channel_map.at(core);
 }

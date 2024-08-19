@@ -132,7 +132,6 @@ class tt_SocDescriptor {
     uint64_t dram_bank_size;
 
     int get_num_dram_channels() const;
-    std::vector<int> get_dram_chan_map();
     bool is_worker_core(const tt_xy_pair &core) const;
     tt_xy_pair get_worker_core(const tt_xy_pair& core) const;
     tt_xy_pair get_routing_core(const tt_xy_pair& core) const;

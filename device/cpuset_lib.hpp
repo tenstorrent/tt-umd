@@ -105,12 +105,6 @@ struct tt_cpuset_allocator {
         std::map<int, int> m_package_id_to_num_l3_per_ccx_map;
         std::map<int, int> m_package_id_to_num_ccx_per_ccd_map;
 
-        // For quicker unbinding of threads, record the physical_device_id during binding.
-        std::map<std::thread::id, chip_id_t> m_global_thread_id_to_physical_device_id_map = {};
-
-        // For storing original cpuset during binding, to restore during unbinding.
-        std::map<std::thread::id, hwloc_cpuset_t> m_global_thread_id_to_original_cpuset_map = {};
-
         // Memory Binding
         std::map<chip_id_t, hwloc_nodeset_t> m_physical_device_id_to_numa_nodeset_map;
 

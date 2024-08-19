@@ -465,14 +465,6 @@ bool tt_cpuset_allocator::bind_area_memory_nodeset(chip_id_t physical_device_id,
     return true; // Success
 }
 
-
-// For checking purposes, to make sure main thread is not cpubinded accidentally.
-void tt_cpuset_allocator::_set_main_thread_id(){
-    m_main_thread_id = std::this_thread::get_id();
-    m_stored_main_thread_id = true;
-    log_debug(LogSiliconDriver,"Captured main_thread_id: {}", m_main_thread_id);
-}
-
 int tt_cpuset_allocator::_get_num_tt_pci_devices() {
 
     for (auto &d : m_physical_device_id_to_package_id_map) {

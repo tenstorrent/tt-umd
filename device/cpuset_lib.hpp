@@ -40,12 +40,6 @@ struct tt_cpuset_allocator {
             return instance.bind_area_memory_nodeset(physical_device_id, addr, len);
         }
 
-        // Store process' main thread_id (not required, mainly for checking purposes to ensure no cpubinds on it occur).
-        static void set_main_thread_id(){
-            auto& instance = tt_cpuset_allocator::get();
-            instance._set_main_thread_id();
-        }
-
         static int get_num_cpu_cores_allocated_to_device(chip_id_t physical_device_id){
             auto& instance = tt_cpuset_allocator::get();
             auto num_cores = instance.m_enable_cpuset_allocator ? instance.m_num_cpu_cores_allocated_per_tt_device.at(physical_device_id) : get_allowed_num_threads();
@@ -75,7 +69,6 @@ struct tt_cpuset_allocator {
 
         void store_thread_original_cpuset();
         bool bind_area_memory_nodeset(chip_id_t physical_device_id, const void * addr, size_t len);
-        void _set_main_thread_id();
         int _get_num_tt_pci_devices();
         int _get_num_tt_pci_devices_by_pci_device_id(uint16_t device_id, uint16_t revision_id);
 

@@ -24,8 +24,6 @@ namespace tt {
 //! Utility functions for various backend paramsf
 namespace cpuset {
 
-int get_allowed_num_threads();
-
 // CPU ID allocator for pinning threads to cpu_ids
 // It's a singleton that should be retrieved via get()
 struct tt_cpuset_allocator {

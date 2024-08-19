@@ -719,7 +719,6 @@ class tt_SiliconDevice: public tt_device
     static void remove_worker_row_from_descriptor(tt_SocDescriptor& full_soc_descriptor, const std::vector<int>& row_coordinates_to_remove);
     static void harvest_rows_in_soc_descriptor(tt::ARCH arch, tt_SocDescriptor& sdesc, uint32_t harvested_rows);
     static std::unordered_map<tt_xy_pair, tt_xy_pair> create_harvested_coord_translation(const tt::ARCH arch, bool identity_map);
-    static std::unordered_map<chip_id_t, uint32_t> get_harvesting_masks_from_harvested_rows(std::unordered_map<chip_id_t, std::vector<uint32_t>> harvested_rows); 
     std::unordered_map<tt_xy_pair, tt_xy_pair> get_harvested_coord_translation_map(chip_id_t logical_device_id);
     virtual std::uint32_t get_num_dram_channels(std::uint32_t device_id);
     virtual std::uint64_t get_dram_channel_size(std::uint32_t device_id, std::uint32_t channel);

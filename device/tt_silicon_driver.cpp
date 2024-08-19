@@ -1751,17 +1751,6 @@ void tt_SiliconDevice::populate_cores() {
     }
 }
 
-std::unordered_map<chip_id_t, uint32_t> tt_SiliconDevice::get_harvesting_masks_from_harvested_rows(std::unordered_map<chip_id_t, std::vector<uint32_t>> harvested_rows) {
-    std::unordered_map<chip_id_t, uint32_t> harvesting_masks = {};
-    for(const auto& chip : harvested_rows) {
-        uint32_t harvesting_mask_per_chip = 0;
-        harvesting_masks.insert({chip.first, 0});
-        for(const auto& row : chip.second) {
-            harvesting_masks.at(chip.first) |= (1 << row);
-        }
-    }
-    return harvesting_masks;
-}
 std::vector<int> tt_SiliconDevice::extract_rows_to_remove(const tt::ARCH &arch, const int worker_grid_rows, const int harvested_rows) {
     // Check if harvesting config is legal for GS and WH
     log_assert(!((harvested_rows & 1) || (harvested_rows & 64) || (harvested_rows & 0xFFFFF000)), "For grayskull and wormhole, only rows 1-5 and 7-11 can be harvested");

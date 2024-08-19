@@ -436,46 +436,6 @@ void tt_cpuset_allocator::store_thread_original_cpuset(){
     hwloc_bitmap_free(orig_cpuset);
 }
 
-// Restore thread's original cpubind. Perhaps could be simplified to not require physical_device_id or previous binding, and just always bind to MACHINE cpuset.
-void tt_cpuset_allocator::unbind_thread_cpuset(){
-
-    if (m_enable_cpuset_allocator){
-        auto tid = std::this_thread::get_id();
-
-        // Make sure this thread was successfully and previously binded to a cpuset.
-        if (!m_global_thread_id_to_original_cpuset_map.count(tid)){
-            log_warning(LogSiliconDriver,"unbind_thread_cpuset() called for tid: {} but no original cpuset for this thread found. Previous cpu binding skipped or failed?", tid);
-            return;
-        }
-
-        if (!m_global_thread_id_to_physical_device_id_map.count(tid)){
-            log_warning(LogSiliconDriver,"unbind_thread_cpuset() called for tid: {} but no physical_device_id this thread found. Previous cpu binding skipped or failed?", tid);
-            return;
-        }
-
-        // Handle the case where something goes wrong during original binding above, don't want to error out.
-        auto cpuset             = m_global_thread_id_to_original_cpuset_map.at(tid);
-        auto physical_device_id = m_global_thread_id_to_physical_device_id_map.at(tid);
-        auto cpuset_vector      = get_hwloc_bitmap_vector(cpuset); // Can tighten this up and remove, it's purely for debug anyways.
-
-        if (hwloc_set_cpubind(m_topology, cpuset, HWLOC_CPUBIND_THREAD)){
-            log_warning(LogSiliconDriver,"unbind_thread_cpuset() binding failed (errno: {}) for physical_device_id: {} to original {} PU's: {} (pid: {} tid: {})",
-                strerror(errno), physical_device_id, cpuset_vector.size(), cpuset_vector, m_pid, tid);
-        }else{
-            log_debug(LogSiliconDriver,"unbind_thread_cpuset() binding success for physical_device_id: {} to original {} PU's: {} (pid: {} tid: {})",
-                physical_device_id, cpuset_vector.size(), cpuset_vector, m_pid, tid);
-
-            // To prevent races on read/modify/write to m_num_threads_pinned_per_tt_device across threads to same device.
-            const std::lock_guard<std::mutex> lock(allocate_cpu_id_mutex);
-
-            // Update book-keeping by removing entry, so this thread can be re-pinned in the future.
-            m_num_threads_pinned_per_tt_device.at(physical_device_id)--;
-            m_global_thread_ids_pinned.erase(tid);
-            m_global_thread_id_to_physical_device_id_map.erase(tid);
-        }
-    }
-}
-
 // Teardown/Cleanup for end of process. Don't do anything if feature disabled. Probably don't even need this if process is going to be ended.
 void tt_cpuset_allocator::clear_state(){
     if (m_enable_cpuset_allocator){

@@ -45,7 +45,6 @@ tt_cpuset_allocator::tt_cpuset_allocator() {
 
         if (is_cpu_supported){
             m_enable_cpuset_allocator &= init_determine_cpuset_allocations();
-            m_enable_cpuset_allocator &= init_populate_physical_mmio_device_id_map();
         }else{
             m_enable_cpuset_allocator = false;
         }
@@ -323,30 +322,6 @@ bool tt_cpuset_allocator::init_determine_cpuset_allocations(){
     return true; // Success
 
 }
-
-// Step 6 - Populate map of logical to physical mmio device map.
-bool tt_cpuset_allocator::init_populate_physical_mmio_device_id_map(){
-
-    if (!m_enable_cpuset_allocator){
-        return false;
-    }
-
-    log_debug(LogSiliconDriver,"Starting tt_cpuset_allocator::populate_physical_mmio_device_id_map()");
-
-    // Get map of logical to physical device ids - FIXME: This is not accurate for some WHB0 clusters.
-    std::vector<chip_id_t> available_device_ids = tt_SiliconDevice::detect_available_device_ids();
-    m_logical_to_physical_mmio_device_id_map    = tt_SiliconDevice::get_logical_to_physical_mmio_device_id_map(available_device_ids);
-
-    for (auto &d: m_logical_to_physical_mmio_device_id_map){
-        auto logical_device_id = d.first;
-        auto physical_device_id = d.second;
-        log_debug(LogSiliconDriver, "populate_physical_mmio_device_id_map() -- available_devices: {} logical_device_id: {} => physical_device_id: {}", available_device_ids.size(), (int) logical_device_id, (int) physical_device_id);
-        m_num_threads_pinned_per_tt_device.insert({physical_device_id, 0});
-    }
-
-    return true; // Success
-}
-
 
 /////////////////////////////////////////////////////////////////////////
 // Runtime Functions ////////////////////////////////////////////////////

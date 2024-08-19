@@ -40,12 +40,6 @@ struct tt_cpuset_allocator {
             return instance.bind_area_memory_nodeset(physical_device_id, addr, len);
         }
 
-        static int get_num_cpu_cores_allocated_to_device(chip_id_t physical_device_id){
-            auto& instance = tt_cpuset_allocator::get();
-            auto num_cores = instance.m_enable_cpuset_allocator ? instance.m_num_cpu_cores_allocated_per_tt_device.at(physical_device_id) : get_allowed_num_threads();
-            return num_cores;
-        }
-
         static int get_num_tt_pci_devices(){
             auto& instance = tt_cpuset_allocator::get();
             return instance._get_num_tt_pci_devices();

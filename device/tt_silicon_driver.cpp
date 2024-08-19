@@ -3141,30 +3141,6 @@ std::shared_ptr<boost::interprocess::named_mutex> tt_SiliconDevice::get_mutex(co
     return hardware_resource_mutex_map.at(mutex_name);
 }
 
-// Get PCI bus_id info for looking up TT devices in hwloc to find associated CPU package.
-std::map<chip_id_t, std::string> tt_SiliconDevice::get_physical_device_id_to_bus_id_map(std::vector<chip_id_t> physical_device_ids){
-
-    std::map<int, std::string> physical_device_id_to_bus_id_map;
-
-    for (auto &pci_interface_id : physical_device_ids){
-
-        auto ttdev = std::make_unique<TTDevice>(TTDevice::open(pci_interface_id));
-
-        std::ostringstream pci_bsf;
-        pci_bsf << std::hex << std::setw(2) << std::setfill('0') << (int) ttdev->pci_bus << ":";
-        pci_bsf << std::hex << std::setw(2) << std::setfill('0') << (int) ttdev->pci_device << ".";
-        pci_bsf << std::hex << (int) ttdev->pci_function;
-
-        std::string pci_bsf_str = pci_bsf.str();
-        LOG2("get_physical_device_id_to_bus_id_map() -- pci_interface_id: %d BSF: %s\n", pci_interface_id, pci_bsf_str.c_str());
-        physical_device_id_to_bus_id_map.insert({pci_interface_id, pci_bsf_str});
-
-    }
-
-    return physical_device_id_to_bus_id_map;
-
-}
-
 uint64_t tt_SiliconDevice::get_sys_addr(uint32_t chip_x, uint32_t chip_y, uint32_t noc_x, uint32_t noc_y, uint64_t offset) {
     uint64_t result = chip_y;
     uint64_t noc_addr_local_bits_mask = (1UL << eth_interface_params.noc_addr_local_bits) - 1;

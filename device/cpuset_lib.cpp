@@ -436,59 +436,6 @@ void tt_cpuset_allocator::store_thread_original_cpuset(){
     hwloc_bitmap_free(orig_cpuset);
 }
 
-
-
-// Given a logical device_id, determine the right cpu_ids associated with it and pin this thread to them.
-void tt_cpuset_allocator::bind_thread_cpuset(tt_cluster_description *ndesc, chip_id_t logical_device_id, bool skip_singlify){
-
-    auto tid = std::this_thread::get_id();
-
-    // This needed to be protected by not-empty otherwise arithmetic error.
-    if ((!m_global_thread_ids_pinned.empty() && m_global_thread_ids_pinned.count(tid)) || (!m_enable_cpuset_allocator)){
-        return;
-    }else{
-
-        if (!ndesc->is_chip_mmio_capable(logical_device_id)){
-            logical_device_id = ndesc->get_closest_mmio_capable_chip(logical_device_id);
-        }
-
-        log_debug(LogSiliconDriver,"bind_thread_cpuset_cpuset() for logical_device_id: {} m_logical_to_physical_mmio_device_id_map.size(): {}", logical_device_id, m_logical_to_physical_mmio_device_id_map.size());
-
-        // If a main thread ID was captured, make sure it is not attempted to be pinned. Only IO API sub threads are expected to be pinned today.
-        if (m_stored_main_thread_id && tid == m_main_thread_id){
-            log_warning(LogSiliconDriver, "bind_thread_cpuset() - Skipping cpubind for runtime main thread_id: {} to prevent undesired inheritence. Consider moving device IO (ie. push/pop/get) to sub-threads for binding to be supported.", m_main_thread_id);
-            return;
-        }
-
-        if (m_logical_to_physical_mmio_device_id_map.count(logical_device_id) > 0){
-
-            auto physical_device_id = m_logical_to_physical_mmio_device_id_map.at(logical_device_id);
-            auto package_id = m_physical_device_id_to_package_id_map.at(physical_device_id);
-
-            store_thread_original_cpuset(); // Store original cpuset for later unbinding if necessary.
-
-            // Get the cpuset, and attempt to bind thread to it.
-            hwloc_cpuset_t cpuset   = allocate_cpu_set_for_thread(physical_device_id, skip_singlify);
-            auto cpuset_vector      = get_hwloc_bitmap_vector(cpuset);
-
-            if (hwloc_set_cpubind(m_topology, cpuset, HWLOC_CPUBIND_THREAD | HWLOC_CPUBIND_STRICT )){; // HWLOC_CPUBIND_NOMEMBIND
-                log_warning(LogSiliconDriver,"bind_thread_cpuset() binding failed (errno: {}) for physical_device_id: {} on package_id: {} to {} PU's: {} (pid: {} tid: {})",
-                    strerror(errno), physical_device_id, package_id, cpuset_vector.size(), cpuset_vector, m_pid, tid);
-            }else{
-                log_debug(LogSiliconDriver,"bind_thread_cpuset() binding success skip: {} for physical_device_id: {} on package_id: {} to {} PU's: {} (pid: {} tid: {})",
-                    skip_singlify, physical_device_id, package_id, cpuset_vector.size(), cpuset_vector, m_pid, tid);
-                // Record that this thread is pinned, no need to repeat on subsequent IO API calls.
-                m_global_thread_ids_pinned.insert(tid);
-                m_global_thread_id_to_physical_device_id_map.insert({tid, physical_device_id});
-            }
-
-        }else{
-            log_warning(LogSiliconDriver,"Could not find logical_device_id: {} in m_logical_to_physical_mmio_device_id_map. This shouldn't happen.", logical_device_id);
-        }
-    }
-}
-
-
 // Restore thread's original cpubind. Perhaps could be simplified to not require physical_device_id or previous binding, and just always bind to MACHINE cpuset.
 void tt_cpuset_allocator::unbind_thread_cpuset(){
 

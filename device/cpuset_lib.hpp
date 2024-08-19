@@ -59,7 +59,6 @@ struct tt_cpuset_allocator {
 
         int TENSTORRENT_VENDOR_ID = 0x1e52;
 
-        void store_thread_original_cpuset();
         bool bind_area_memory_nodeset(chip_id_t physical_device_id, const void * addr, size_t len);
         int _get_num_tt_pci_devices();
         int _get_num_tt_pci_devices_by_pci_device_id(uint16_t device_id, uint16_t revision_id);

@@ -23,7 +23,6 @@ tt_cpuset_allocator::tt_cpuset_allocator() {
 
     m_pid           = getpid();
     m_debug         = std::getenv("TT_BACKEND_CPUSET_ALLOCATOR_DEBUG") ? true : false;
-    m_skip_singlify = std::getenv("TT_BACKEND_CPUSET_ALLOCATOR_SKIP_SINGLIFY") ? true : false;
 
     // Chicken bit to disable this entire feature for debug/comparison.
     bool cpuset_allocator_enable_env = std::getenv("TT_BACKEND_CPUSET_ALLOCATOR_ENABLE") ? true : false;

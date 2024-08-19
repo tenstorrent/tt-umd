@@ -354,14 +354,6 @@ std::unique_ptr<tt_ClusterDescriptor> tt_ClusterDescriptor::create_for_grayskull
     return desc;
 }
 
-std::set<chip_id_t> get_sequential_chip_id_set(int num_chips) {
-    std::set<chip_id_t> chip_ids;
-    for (int i = 0; i < num_chips; ++i) {
-        chip_ids.insert(static_cast<chip_id_t>(i));
-    }
-    return chip_ids;
-}
-
 void tt_ClusterDescriptor::load_ethernet_connections_from_connectivity_descriptor(YAML::Node &yaml, tt_ClusterDescriptor &desc) {
     log_assert(yaml["ethernet_connections"].IsSequence(), "Invalid YAML");
     for (YAML::Node &connected_endpoints : yaml["ethernet_connections"].as<std::vector<YAML::Node>>()) {

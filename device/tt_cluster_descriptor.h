@@ -104,5 +104,3 @@ class tt_ClusterDescriptor {
   void enable_all_devices();
 
 };
-
-std::set<chip_id_t> get_sequential_chip_id_set(int num_chips);

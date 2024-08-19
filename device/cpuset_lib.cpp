@@ -14,32 +14,6 @@ namespace tt {
 namespace fs = std::filesystem;
 namespace cpuset {
 
-// Unrelated to hwloc binding of threads, instead to query cpu affinity to find reasonable number of threads to parallelize over.
-int get_allowed_num_threads(){
-    unsigned int num_pus_in_system = sysconf(_SC_NPROCESSORS_ONLN);
-    unsigned int num_threads = num_pus_in_system;
-
-    cpu_set_t mask;
-    if (sched_getaffinity(0, sizeof(cpu_set_t), &mask) == -1) {
-        log_warning(LogSiliconDriver, "Could not detect current process cpu id affinity for calculating num_threads, will use default num_threads: {}.", num_threads);
-    } else{
-        unsigned int visible_pu_count = CPU_COUNT(&mask);
-        if (visible_pu_count < num_pus_in_system){
-            num_threads = visible_pu_count;
-        }
-        log_trace(LogSiliconDriver, "Detected (allowed) visible_pu_count: {}, setting num_threads: {}", visible_pu_count, num_threads);
-    }
-
-    char const* override_thread_count = std::getenv("TT_BACKEND_COMPILE_THREADS");
-    if (override_thread_count != nullptr && std::atoi(override_thread_count) > 0){
-        num_threads = std::atoi(override_thread_count);
-        log_trace(LogSiliconDriver, "Overriding via env-var to num_threads: {}", num_threads);
-    }
-
-    return num_threads;
-}
-
-
 /////////////////////////////////////////////////////////////////////////
 // Initialization Functions /////////////////////////////////////////////
 /////////////////////////////////////////////////////////////////////////

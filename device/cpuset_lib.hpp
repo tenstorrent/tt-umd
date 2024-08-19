@@ -70,7 +70,6 @@ struct tt_cpuset_allocator {
         bool init_get_number_of_packages();
         bool init_is_cpu_model_supported();
         bool init_determine_cpuset_allocations();
-        bool init_populate_physical_mmio_device_id_map();
 
         // Helper Functions
         std::string get_pci_bus_id(hwloc_obj_t pci_device_obj);
@@ -88,8 +87,6 @@ struct tt_cpuset_allocator {
         bool m_debug;
         pid_t m_pid;
 
-        std::unordered_map<chip_id_t, chip_id_t> m_logical_to_physical_mmio_device_id_map;
-
         // Items calculated by parsing system info, used by allocation algorithm:
         std::map<int, std::vector<int>> m_package_id_to_devices_map;
         std::map<int, std::string> m_physical_device_id_to_pci_bus_id_map; // Debug/Info
@@ -106,12 +103,10 @@ struct tt_cpuset_allocator {
 
         hwloc_obj_type_t m_object_per_alloc_slot = HWLOC_OBJ_L3CACHE; // Default
 
-
         // For 2CCX-PER-CCD Optimization detection.
         std::map<int, int> m_package_id_to_num_l3_per_ccx_map;
         std::map<int, int> m_package_id_to_num_ccx_per_ccd_map;
 
-        std::map<chip_id_t, int> m_num_threads_pinned_per_tt_device;
         std::unordered_set<std::thread::id> m_global_thread_ids_pinned = {};
         std::thread::id m_main_thread_id;
         bool m_stored_main_thread_id = false;

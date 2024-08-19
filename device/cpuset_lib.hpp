@@ -34,11 +34,6 @@ struct tt_cpuset_allocator {
         tt_cpuset_allocator(tt_cpuset_allocator const&)     = delete;
         void operator=(tt_cpuset_allocator const&)          = delete;
 
-        static void unbind_thread_from_cpuset(){
-            auto& instance = tt_cpuset_allocator::get();
-            instance.unbind_thread_cpuset();
-        }
-
         static void clear_state_and_cpuset_pins(){
             auto& instance = tt_cpuset_allocator::get();
             instance.clear_state();
@@ -83,7 +78,6 @@ struct tt_cpuset_allocator {
 
         int TENSTORRENT_VENDOR_ID = 0x1e52;
 
-        void unbind_thread_cpuset();
         void store_thread_original_cpuset();
         bool bind_area_memory_nodeset(chip_id_t physical_device_id, const void * addr, size_t len);
         void _set_main_thread_id();

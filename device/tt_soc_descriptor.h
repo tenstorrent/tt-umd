@@ -23,8 +23,6 @@ namespace YAML {
     class Node;
 }
 
-static constexpr std::size_t DEFAULT_DRAM_SIZE_PER_CORE = 8 * 1024 * 1024;
-
 std::ostream &operator<<(std::ostream &out, const tt::ARCH &arch_name);
 
 static inline std::string get_arch_str(const tt::ARCH arch_name){

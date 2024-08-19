@@ -353,48 +353,6 @@ bool tt_cpuset_allocator::init_populate_physical_mmio_device_id_map(){
 // Runtime Functions ////////////////////////////////////////////////////
 /////////////////////////////////////////////////////////////////////////
 
-// Idea  - Something to compare cpuset from Slurm to cpuset picked by this function.
-hwloc_cpuset_t tt_cpuset_allocator::allocate_cpu_set_for_thread(chip_id_t physical_device_id, bool skip_singlify){
-
-        // To prevent races on read/modify/write to m_num_threads_pinned_per_tt_device across threads to same device.
-        const std::lock_guard<std::mutex> lock(allocate_cpu_id_mutex);
-
-        int num_alloc_slots_for_tt_device   = m_physical_device_id_to_cpusets_map.at(physical_device_id).size();
-        int tt_device_alloc_idx             = m_num_threads_pinned_per_tt_device.at(physical_device_id) % num_alloc_slots_for_tt_device;
-
-        // Check if 2CCX-PER-CCD Optimization can be enabled. For AMD EPYC models : There is 1 L3Cache per CCX and 2 CCX per CCD.
-        // Better perf to first allocate to unique CCD's if we have enough per device. Expand to other CPU types?
-        bool enable_special_case    = true;
-        auto package_id             = m_physical_device_id_to_package_id_map.at(physical_device_id);
-        auto num_l3_per_ccx         = m_package_id_to_num_l3_per_ccx_map.at(package_id);
-        auto num_ccx_per_ccd        = m_package_id_to_num_ccx_per_ccd_map.at(package_id);
-
-        if (enable_special_case && num_l3_per_ccx == 1 && num_ccx_per_ccd == 2 && num_alloc_slots_for_tt_device > num_ccx_per_ccd && m_object_per_alloc_slot == HWLOC_OBJ_L3CACHE){
-            int alloc_idx_for_device    = m_num_threads_pinned_per_tt_device.at(physical_device_id);
-            int ccx_in_ccd              = (alloc_idx_for_device % num_alloc_slots_for_tt_device) < num_alloc_slots_for_tt_device/num_ccx_per_ccd ? 0 : 1;
-            tt_device_alloc_idx         = (ccx_in_ccd + (alloc_idx_for_device * num_ccx_per_ccd)) % num_alloc_slots_for_tt_device;
-            log_debug(LogSiliconDriver,"Special L3Cache case physical_device_id: {} alloc_idx_for_device: {} ccx_in_ccd: {} tt_device_alloc_idx: {}", physical_device_id, alloc_idx_for_device, ccx_in_ccd, tt_device_alloc_idx);
-        }
-
-
-        // Get the desired cpuset and prevent migration between different PU's in set by singlifying to single PU.
-        hwloc_cpuset_t cpuset = hwloc_bitmap_dup(m_physical_device_id_to_cpusets_map.at(physical_device_id).at(tt_device_alloc_idx));
-        if (!m_skip_singlify && !skip_singlify){
-            hwloc_bitmap_singlify(cpuset);
-        }
-
-        // Debug
-        auto tid = std::this_thread::get_id();
-        log_debug(LogSiliconDriver,"Allocating for physical_device_id: {} num_alloc_slots: {} num_threads_pinned: {} alloc_idx: {} skip_singlify: {} (pid: {} tid: {}) => {} PU's {}", 
-            physical_device_id, num_alloc_slots_for_tt_device, m_num_threads_pinned_per_tt_device.at(physical_device_id), tt_device_alloc_idx, skip_singlify,
-            m_pid, tid, hwloc_bitmap_weight(cpuset), get_hwloc_bitmap_vector(cpuset));
-
-        // Increment counter to keep track of number of pinned thread per device, to get unique cpuset per thread.
-        m_num_threads_pinned_per_tt_device.at(physical_device_id)++;
-
-        return cpuset;
-}
-
 // Given a physical device_id, determine the right numa nodes associated with it and attempt to membind a previously allocated memory region to it.
 bool tt_cpuset_allocator::bind_area_memory_nodeset(chip_id_t physical_device_id, const void * addr, size_t len){
 

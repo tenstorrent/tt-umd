@@ -213,28 +213,6 @@ bool tt_SocDescriptor::is_ethernet_core(const tt_xy_pair &core) const {
     return this->ethernet_core_channel_map.find(core) != ethernet_core_channel_map.end();
 }
 
-int tt_SocDescriptor::get_num_dram_subchans() const {
-    int num_chan = 0;
-    for (const std::vector<tt_xy_pair> &core : this->dram_cores) {
-        num_chan += core.size();
-    }
-    return num_chan;
-}
-
-int tt_SocDescriptor::get_num_dram_blocks_per_channel() const {
-    int num_blocks = 0;
-    if (arch == tt::ARCH::GRAYSKULL) {
-        num_blocks = 1;
-    } else if (arch == tt::ARCH::WORMHOLE) {
-        num_blocks = 2;
-    } else if (arch == tt::ARCH::WORMHOLE_B0) {
-        num_blocks = 2;
-    } else if (arch == tt::ARCH::BLACKHOLE) {
-        num_blocks = 2;
-    }
-    return num_blocks;
-}
-
 // Note: same as t_SiliconDevice::get_pcie_base_addr_from_device
 uint64_t tt_SocDescriptor::get_noc2host_offset(uint16_t host_channel) const {
 

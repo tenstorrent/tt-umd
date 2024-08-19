@@ -436,28 +436,6 @@ void tt_cpuset_allocator::store_thread_original_cpuset(){
     hwloc_bitmap_free(orig_cpuset);
 }
 
-// Teardown/Cleanup for end of process. Don't do anything if feature disabled. Probably don't even need this if process is going to be ended.
-void tt_cpuset_allocator::clear_state(){
-    if (m_enable_cpuset_allocator){
-
-        auto tid = std::this_thread::get_id();
-        log_debug(LogSiliconDriver,"Clearing state and unbinding entire process' cpuset (pid: {} tid: {}).", m_pid, tid);
-
-        // Reset state variables so that next time the thread can be freshly pinned
-        m_global_thread_ids_pinned.clear();
-        for (auto &device: m_num_threads_pinned_per_tt_device){
-            device.second = 0;
-        }
-
-        // Undo previous pinning, by binding to full machine cpuset. Alternatively could have saved and restored orig cpuset per thread.
-        auto machine_obj = hwloc_get_obj_by_type(m_topology, HWLOC_OBJ_MACHINE, 0);
-        if (hwloc_set_cpubind(m_topology, machine_obj->cpuset, HWLOC_CPUBIND_PROCESS)){
-            log_warning(LogSiliconDriver,"clear_state() binding failed (errno: {}) to Machine cpuset (pid: {} tid: {})", strerror(errno), m_pid, tid);
-        }
-    }
-}
-
-
 // Given a physical device_id, determine the right numa nodes associated with it and attempt to membind a previously allocated memory region to it.
 bool tt_cpuset_allocator::bind_area_memory_nodeset(chip_id_t physical_device_id, const void * addr, size_t len){
 

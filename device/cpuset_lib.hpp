@@ -34,11 +34,6 @@ struct tt_cpuset_allocator {
         tt_cpuset_allocator(tt_cpuset_allocator const&)     = delete;
         void operator=(tt_cpuset_allocator const&)          = delete;
 
-        static void clear_state_and_cpuset_pins(){
-            auto& instance = tt_cpuset_allocator::get();
-            instance.clear_state();
-        }
-
         // Bind an already allocated memory region to particular numa nodes
         static bool bind_area_to_memory_nodeset(chip_id_t physical_device_id, const void * addr, size_t len){
             auto& instance = tt_cpuset_allocator::get();
@@ -84,7 +79,6 @@ struct tt_cpuset_allocator {
         int _get_num_tt_pci_devices();
         int _get_num_tt_pci_devices_by_pci_device_id(uint16_t device_id, uint16_t revision_id);
 
-        void clear_state();
         hwloc_cpuset_t allocate_cpu_set_for_thread(chip_id_t physical_device_id, bool skip_singlify);
 
         // Series of init functions, must be called in this order. Seperated out to support

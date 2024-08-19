@@ -205,12 +205,6 @@ bool tt_SocDescriptor::is_worker_core(const tt_xy_pair &core) const {
         routing_y_to_worker_y.find(core.y) != routing_y_to_worker_y.end());
 }
 
-tt_xy_pair tt_SocDescriptor::get_routing_core(const tt_xy_pair& core) const {
-    tt_xy_pair routing_xy = {
-        static_cast<size_t>(worker_log_to_routing_x.at(core.x)), static_cast<size_t>(worker_log_to_routing_y.at(core.y))};
-    return routing_xy;
-}
-
 tt_xy_pair tt_SocDescriptor::get_core_for_dram_channel(int dram_chan, int subchannel) const {
     return this->dram_cores.at(dram_chan).at(subchannel);
 };

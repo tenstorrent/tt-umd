@@ -86,7 +86,6 @@ struct tt_cpuset_allocator {
         std::vector<int> get_hwloc_nodeset_vector(hwloc_obj_t &obj);
         hwloc_topology_t m_topology;
         bool m_debug;
-        bool m_skip_singlify;
         pid_t m_pid;
 
         std::unordered_map<chip_id_t, chip_id_t> m_logical_to_physical_mmio_device_id_map;

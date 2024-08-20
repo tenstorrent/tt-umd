@@ -2352,46 +2352,6 @@ std::map<int, int> tt_SiliconDevice::get_clocks() {
     return clock_freq_map;
 }
 
-//! Simple test of communication to device/target.  true if it passes.
-// bool tt_SiliconDevice::test_write_read(tt_cxy_pair target) {
-//     WARN("---- tt_SiliconDevice::test_write_read not implemented\n");
-//     return true;
-// }
-
-// bool tt_SiliconDevice::test_write_speed (struct PCIdevice* pci_device) {
-//     TTDevice *dev = pci_device->hdev;
-
-//     if (dev->bar0_uc == dev->bar0_wc) {
-//         WARN("---- tt_SiliconDevice::test_write_speed WC not configured\n");
-//     }
-
-//     std::byte fill_value{0x42};
-//     std::vector<std::byte> write_buf(architecture_implementation->get_static_tlb_size(), fill_value);
-
-//     auto before = std::chrono::high_resolution_clock::now();
-//     for (std::uint32_t y = 1; y < architecture_implementation->get_grid_size_y(); y++)
-//     {
-//         for (std::uint32_t x = 1; x < architecture_implementation->get_grid_size_x(); x++)
-//         {
-//             auto tlb_index = map_core_to_tlb(tt_xy_pair(x, y));
-//             if (tlb_index < 0) { continue; }
-
-//             auto offset = tlb_index * architecture_implementation->get_static_tlb_size();
-
-//             memcpy(static_cast<std::byte*>(dev->bar0_wc) + offset, write_buf.data(), write_buf.size());
-//         }
-//     }
-//     auto after = std::chrono::high_resolution_clock::now();
-
-//     std::chrono::duration<double, std::milli> interval = after - before;
-
-//     unsigned int write_bw = 120 * std::milli::den / interval.count();
-
-//     LOG1("---- tt_SiliconDevice::test_write_speed Wrote 120MB @ %u MB/s\n", write_bw);
-
-//     return (write_bw >= 512); // L1 write BW scales with AICLK, for low AICLK it will be very slow.
-// }
-
 tt_SiliconDevice::~tt_SiliconDevice () {
 
     LOG1 ("---- tt_SiliconDevice::~tt_SiliconDevice\n");
@@ -2458,52 +2418,6 @@ void tt_SiliconDevice::set_fallback_tlb_ordering_mode(const std::string& fallbac
     log_assert(fallback_tlb != "LARGE_READ_TLB" &&  fallback_tlb != "LARGE_WRITE_TLB", "Ordering modes for LARGE_READ_TLB and LARGE_WRITE_TLB cannot be modified.");
     dynamic_tlb_ordering_modes.at(fallback_tlb) = ordering;
 }
-// This function checks that all TLBs are properly setup. It should return 0 if all is good (i.e. if init_pcie_tlb is called prior)
-// int tt_SiliconDevice::test_pcie_tlb_setup (struct PCIdevice* pci_device) {
-    // LOG1("---- tt_SiliconDevice::test_pcie_tlb_setup\n");
-    // uint64_t tlb_data;
-    // int ret_val;
-    // // Check static TLBs (only active Tensix cores for GS ... Active tensix cores + ethernet cores for WH)
-    // for (uint32_t y = 0; y < architecture_implementation->get_grid_size_y() - num_rows_harvested; y++) {
-    //     for (uint32_t x = 0; x < architecture_implementation->get_grid_size_x(); x++) {
-    //         int tlb_index = get_static_tlb_index(tt_xy_pair(x, y));
-    //         auto translated_coords = harvested_coord_translation.at(pci_device -> id).at(tt_xy_pair(x, y));
-    //         if (tlb_index < 0) { continue; }
-
-    //         auto tlb_data_attempt = architecture_implementation->get_tlb_data(tlb_index, TLB_DATA {
-    //             .x_end = translated_coords.x,
-    //             .y_end = translated_coords.y,
-    //         });
-    //         if (!tlb_data_attempt.has_value()) {
-    //             throw std::runtime_error("Error setting up (" + std::to_string(x) + ", " + std::to_string(y) + ") in pcie_tlb_test.");
-    //         }
-    //         uint64_t expected_tlb_data = tlb_data_attempt.value();
-
-    //         uint32_t tlb_setup_addr = architecture_implementation->get_static_tlb_cfg_addr() + 8 * tlb_index; // Each tlb setup takes 2 dwords, hence 8 bytes
-    //         read_regs(pci_device->hdev, tlb_setup_addr, 2, &tlb_data);
-
-    //     }
-    // }
-
-    // // Check 16MB TLBs 1-16 for peer-to-peer communication with DRAM channel 0
-    // uint64_t peer_dram_offset = architecture_implementation->get_dram_channel_0_peer2peer_region_start();
-    // for (uint32_t tlb_id = 1; tlb_id < 17; tlb_id++) {
-    //     auto tlb_data_expected = architecture_implementation->get_tlb_data(architecture_implementation->get_tlb_base_index_16m() + tlb_id, TLB_DATA {
-    //         .local_offset = peer_dram_offset / architecture_implementation->get_dynamic_tlb_16m_size(),
-    //         .x_end = architecture_implementation->get_dram_channel_0_x(),
-    //         .y_end = architecture_implementation->get_dram_channel_0_y(),
-    //         .ordering = TLB_DATA::Posted,
-    //         .static_vc = true,
-    //     });
-    //     uint64_t tlb_data_observed;
-    //     uint32_t tlb_setup_addr = architecture_implementation->get_dynamic_tlb_16m_cfg_addr() + 8 * tlb_id; // Each tlb setup takes 2 dwords, hence 8 bytes
-    //     read_regs(pci_device->hdev, tlb_setup_addr, 2, &tlb_data_observed);
-    //     ret_val = (tlb_data_expected == tlb_data_observed) ? 0 : 1;
-    //     if (ret_val != 0) return ret_val;
-    //     peer_dram_offset += architecture_implementation->get_dynamic_tlb_16m_size();
-    // }
-    // return ret_val;
-//}
 
 // Set up IATU for peer2peer
 // Consider changing this function
@@ -2862,62 +2776,6 @@ int tt_SiliconDevice::test_setup_interface () {
         throw std::runtime_error("Unsupported architecture: " + get_arch_str(arch_name));
     }
 }
-
-// Code used to test non existent broadcast TLB
-// Keep for now, in case we need to test broadcast TLB again.
-// int tt_SiliconDevice::test_broadcast (int logical_device_id) {
-//     LOG1("---- tt_SiliconDevice::test_broadcast\n");
-
-//     int ret_val = 0;
-//     struct PCIdevice* pci_device = get_pci_device(logical_device_id);
-
-//     assert (test_pcie_tlb_setup(pci_device) == 0);
-
-//     std::vector<std::uint32_t> fill_array (1024, 0);
-//     uint32_t broadcast_bar_offset = architecture_implementation->get_broadcast_tlb_index() * architecture_implementation->get_static_tlb_size();
-//     LOG2 ("broadcast_bar_offset = 0x%x\n", broadcast_bar_offset);
-
-//     uint64_t fill_array_ptr = (uint64_t)(&fill_array[0]);
-
-//     // a. Fill with increasing numbers
-//     //
-//     for (size_t i = 0; i < fill_array.size(); i++) {
-//         fill_array[i] = i;
-//     }
-//     write_block(pci_device->hdev, broadcast_bar_offset, fill_array.size() * sizeof (std::uint32_t), fill_array_ptr, m_dma_buf_size);
-
-//     // Check individual locations
-//     for (uint32_t xi = 0; xi < architecture_implementation->get_t6_x_locations().size(); xi++) {
-//         for (uint32_t yi = 0; yi < architecture_implementation->get_t6_y_locations().size(); yi++) {
-//             tt_cxy_pair read_loc(logical_device_id, architecture_implementation->get_t6_x_locations()[xi], architecture_implementation->get_t6_y_locations()[yi]);
-//             read_vector (fill_array, read_loc, 0, fill_array.size() * sizeof (fill_array[0]) );
-//             for (size_t i = 0; i < fill_array.size(); i++) {
-//                 ret_val = (fill_array[i] == i) ? 0 : 1;
-//                 if (ret_val) return ret_val;
-//             }
-//         }
-//     }
-
-//     // b. Test with zeroes
-//     //
-//     std::vector<std::uint32_t> fill_array_zeroes (1024, 0);
-//     uint64_t fill_array_zeroes_ptr = (uint64_t)(&fill_array_zeroes[0]);
-//     write_block(pci_device->hdev, broadcast_bar_offset, fill_array.size() * sizeof (std::uint32_t), fill_array_zeroes_ptr, m_dma_buf_size);
-
-//     // Check individual locations
-//     for (uint32_t xi = 0; xi < architecture_implementation->get_t6_x_locations().size(); xi++) {
-//         for (uint32_t yi = 0; yi < architecture_implementation->get_t6_y_locations().size(); yi++) {
-//             tt_cxy_pair read_loc(logical_device_id, architecture_implementation->get_t6_x_locations()[xi], architecture_implementation->get_t6_y_locations()[yi]);
-//             read_vector (fill_array, read_loc, 0, fill_array.size() * sizeof (fill_array_zeroes[0]) );
-//             for (size_t i = 0; i < fill_array.size(); i++) {
-//                 ret_val = (fill_array_zeroes[i] == 0) ? 0 : 1;
-//                 if (ret_val) return ret_val;
-//             }
-//         }
-//     }
-
-//     return ret_val;
-// }
 
 void tt_SiliconDevice::bar_write32 (int logical_device_id, uint32_t addr, uint32_t data) {
     TTDevice* dev = get_pci_device(logical_device_id)->hdev;

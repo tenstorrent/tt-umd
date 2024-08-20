@@ -9,6 +9,8 @@ target_include_directories(test_common INTERFACE
 add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/simulation)
 if($ENV{ARCH_NAME} STREQUAL "wormhole_b0")
     add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/wormhole)
+    add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/galaxy)
+    add_custom_target(umd_unit_tests DEPENDS unit_tests_wormhole unit_tests_glx)
 else()
     add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/$ENV{ARCH_NAME})
 endif()

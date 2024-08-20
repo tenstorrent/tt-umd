@@ -10,5 +10,3 @@ set_target_properties(unit_tests_wormhole PROPERTIES
     RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/test/umd/wormhole_b0
     OUTPUT_NAME unit_tests
 )
-
-add_custom_target(umd_unit_tests DEPENDS unit_tests_wormhole)

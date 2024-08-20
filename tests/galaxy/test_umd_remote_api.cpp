@@ -3,22 +3,21 @@
 // SPDX-License-Identifier: Apache-2.0
 
 #include <numeric>
+#include <filesystem>
 
+#include "gtest/gtest.h"
+#include "common/logger.hpp"
 #include "tt_cluster_descriptor.h"
 #include "tt_device.h"
-
-#include "common/logger.hpp"
 #include "eth_interface.h"
-#include "filesystem"
-#include "gtest/gtest.h"
 #include "host_mem_address_map.h"
 #include "l1_address_map.h"
+
 #include "test_galaxy_common.h"
+#include "tests/wormhole/test_wh_common.h"
 #include "tests/test_utils/generate_cluster_desc.hpp"
 
 static const std::string SOC_DESC_PATH = "tests/soc_descs/wormhole_b0_8x10.yaml";
-
-void set_params_for_remote_txn(tt_SiliconDevice& device);
 
 void run_remote_read_write_test(uint32_t vector_size, bool dram_write) {
     // Galaxy Setup
@@ -37,7 +36,7 @@ void run_remote_read_write_test(uint32_t vector_size, bool dram_write) {
         test_utils::GetAbsPath(SOC_DESC_PATH), cluster_desc_path, target_devices, num_host_mem_ch_per_mmio_device, dynamic_tlb_config, false, true);
     const auto sdesc_per_chip = device.get_virtual_soc_descriptors();
 
-    set_params_for_remote_txn(device);
+    tt::umd::test::utils::set_params_for_remote_txn(device);
 
     tt_device_params default_params;
     device.start_device(default_params);
@@ -151,7 +150,7 @@ void run_data_mover_test(
     tt_SiliconDevice device = tt_SiliconDevice(
         test_utils::GetAbsPath(SOC_DESC_PATH), cluster_desc_path, target_devices, num_host_mem_ch_per_mmio_device, dynamic_tlb_config, false, true);
 
-    set_params_for_remote_txn(device);
+    tt::umd::test::utils::set_params_for_remote_txn(device);
 
     tt_device_params default_params;
     device.start_device(default_params);
@@ -268,7 +267,7 @@ void run_data_broadcast_test(
     tt_SiliconDevice device = tt_SiliconDevice(
         test_utils::GetAbsPath(SOC_DESC_PATH), cluster_desc_path, target_devices, num_host_mem_ch_per_mmio_device, dynamic_tlb_config, false, true);
 
-    set_params_for_remote_txn(device);
+    tt::umd::test::utils::set_params_for_remote_txn(device);
 
     tt_device_params default_params;
     device.start_device(default_params);

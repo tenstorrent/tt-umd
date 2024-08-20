@@ -680,7 +680,7 @@ class tt_SiliconDevice: public tt_device
     /**
      * @brief This API allows you to write directly to device memory that is addressable by a static TLB
     */
-    std::function<void(uint32_t, uint32_t, const uint8_t*, uint32_t)> get_fast_pcie_static_tlb_write_callable(int device_id);
+    std::function<void(uint32_t, uint32_t, const uint8_t*)> get_fast_pcie_static_tlb_write_callable(int device_id);
 
     /**
      * @brief Provide fast write access to a statically-mapped TLB.
@@ -695,10 +695,6 @@ class tt_SiliconDevice: public tt_device
      */
     tt::Writer get_static_tlb_writer(tt_cxy_pair target);
 
-    /**
-     * @brief Returns the DMA buf size 
-    */
-    uint32_t get_m_dma_buf_size() const;
     // Misc. Functions to Query/Set Device State
     virtual int arc_msg(int logical_device_id, uint32_t msg_code, bool wait_for_done = true, uint32_t arg0 = 0, uint32_t arg1 = 0, int timeout=1, uint32_t *return_3 = nullptr, uint32_t *return_4 = nullptr);
     virtual bool using_harvested_soc_descriptors();
@@ -745,10 +741,7 @@ class tt_SiliconDevice: public tt_device
     void init_pcie_iatus();
     void init_pcie_iatus_no_p2p();
     bool init_hugepage(chip_id_t device_id);
-    bool init_dmabuf(chip_id_t device_id);
     void check_pcie_device_initialized(int device_id);
-    bool init_dma_turbo_buf(struct PCIdevice* pci_device);
-    bool uninit_dma_turbo_buf(struct PCIdevice* pci_device);
     void set_pcie_power_state(tt_DevicePowerState state);
     int set_remote_power_state(const chip_id_t &chip, tt_DevicePowerState device_state);
     void set_power_state(tt_DevicePowerState state);
@@ -764,8 +757,8 @@ class tt_SiliconDevice: public tt_device
     int get_clock(int logical_device_id);
 
     // Communication Functions
-    void read_dma_buffer(void* mem_ptr, std::uint32_t address, std::uint16_t channel, std::uint32_t size_in_bytes, chip_id_t src_device_id);
-    void write_dma_buffer(const void *mem_ptr, std::uint32_t size, std::uint32_t address, std::uint16_t channel, chip_id_t src_device_id);
+    void read_buffer(void* mem_ptr, std::uint32_t address, std::uint16_t channel, std::uint32_t size_in_bytes, chip_id_t src_device_id);
+    void write_buffer(const void *mem_ptr, std::uint32_t size, std::uint32_t address, std::uint16_t channel, chip_id_t src_device_id);
     void write_device_memory(const void *mem_ptr, uint32_t size_in_bytes, tt_cxy_pair target, std::uint32_t address, const std::string& fallback_tlb);
     void write_to_non_mmio_device(const void *mem_ptr, uint32_t size_in_bytes, tt_cxy_pair core, uint64_t address, bool broadcast = false, std::vector<int> broadcast_header = {});
     void read_device_memory(void *mem_ptr, tt_cxy_pair target, std::uint32_t address, std::uint32_t size_in_bytes, const std::string& fallback_tlb);
@@ -833,9 +826,6 @@ class tt_SiliconDevice: public tt_device
     bool flush_non_mmio = false;
     bool non_mmio_transfer_cores_customized = false;
     std::unordered_map<chip_id_t, int> active_eth_core_idx_per_chip = {};
-    // Size of the PCIE DMA buffer
-    // The setting should not exceed MAX_DMA_BYTES
-    std::uint32_t m_dma_buf_size;
     std::unordered_map<chip_id_t, bool> noc_translation_enabled_for_chip = {};
     std::map<std::string, std::shared_ptr<boost::interprocess::named_mutex>> hardware_resource_mutex_map = {};
     std::unordered_map<chip_id_t, std::unordered_map<tt_xy_pair, tt_xy_pair>> harvested_coord_translation = {};
@@ -855,7 +845,6 @@ class tt_SiliconDevice: public tt_device
     std::unordered_map<std::string, uint64_t> dynamic_tlb_ordering_modes = {};
     std::map<std::set<chip_id_t>, std::unordered_map<chip_id_t, std::vector<std::vector<int>>>> bcast_header_cache = {};
     std::uint64_t buf_physical_addr = 0;
-    void * buf_mapping = nullptr;
     int driver_id;  
     bool perform_harvesting_on_sdesc = false;
     bool use_ethernet_ordered_writes = true;

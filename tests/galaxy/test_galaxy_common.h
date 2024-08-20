@@ -11,6 +11,7 @@
 #include <string>
 #include <tuple>
 #include <vector>
+#include <sstream>
 
 #include "device/tt_device.h"
 #include "device/tt_xy_pair.h"

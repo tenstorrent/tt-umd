@@ -4,21 +4,21 @@
 
 #include <numeric>
 #include <thread>
+#include <filesystem>
 
+#include "gtest/gtest.h"
+#include "common/logger.hpp"
 #include "tt_cluster_descriptor.h"
 #include "tt_device.h"
-
-#include "common/logger.hpp"
 #include "eth_interface.h"
-#include "filesystem"
-#include "gtest/gtest.h"
 #include "host_mem_address_map.h"
 #include "l1_address_map.h"
+
 #include "test_galaxy_common.h"
+#include "tests/wormhole/test_wh_common.h"
 #include "tests/test_utils/generate_cluster_desc.hpp"
 
 static const std::string SOC_DESC_PATH = "tests/soc_descs/wormhole_b0_8x10.yaml";
-void set_params_for_remote_txn(tt_SiliconDevice& device);
 
 // Have 2 threads read and write to all cores on the Galaxy
 TEST(GalaxyConcurrentThreads, WriteToAllChipsL1) {
@@ -56,7 +56,7 @@ TEST(GalaxyConcurrentThreads, WriteToAllChipsL1) {
         test_utils::GetAbsPath(SOC_DESC_PATH), cluster_desc_path, all_devices, num_host_mem_ch_per_mmio_device, dynamic_tlb_config, false, true);
     const auto sdesc_per_chip = device.get_virtual_soc_descriptors();
 
-    set_params_for_remote_txn(device);
+    tt::umd::test::utils::set_params_for_remote_txn(device);
 
     tt_device_params default_params;
     device.start_device(default_params);
@@ -146,7 +146,7 @@ TEST(GalaxyConcurrentThreads, WriteToAllChipsDram) {
         test_utils::GetAbsPath(SOC_DESC_PATH), cluster_desc_path, all_devices, num_host_mem_ch_per_mmio_device, dynamic_tlb_config, false, true);
     const auto sdesc_per_chip = device.get_virtual_soc_descriptors();
 
-    set_params_for_remote_txn(device);
+    tt::umd::test::utils::set_params_for_remote_txn(device);
 
     tt_device_params default_params;
     device.start_device(default_params);
@@ -225,7 +225,7 @@ TEST(GalaxyConcurrentThreads, PushInputsWhileSignalingCluster) {
         test_utils::GetAbsPath(SOC_DESC_PATH), cluster_desc_path, target_devices, num_host_mem_ch_per_mmio_device, dynamic_tlb_config, false, true);
     const auto sdesc_per_chip = device.get_virtual_soc_descriptors();
 
-    set_params_for_remote_txn(device);
+    tt::umd::test::utils::set_params_for_remote_txn(device);
 
     tt_device_params default_params;
     device.start_device(default_params);

@@ -6,6 +6,7 @@
 #include "eth_l1_address_map.h"
 
 #include "tests/test_utils/stimulus_generators.hpp"
+#include "tests/test_utils/generate_cluster_desc.hpp"
 
 namespace tt::umd::test::utils {
 

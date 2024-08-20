@@ -99,7 +99,6 @@ enum class arc_message_type {
     ARC_GO_LONG_IDLE = 0x54,
     ARC_GET_HARVESTING = 0x57,
     TEST = 0x90,
-    NOC_DMA_TRANSFER = 0x9A,
     SETUP_IATU_FOR_PEER_TO_PEER = 0x97,
     DEASSERT_RISCV_RESET = 0xba
 };

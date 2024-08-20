@@ -9,15 +9,6 @@
 
 typedef std::uint32_t DWORD;
 
-const uint32_t MAX_DMA_BYTES = 4*1024*1024;
-
-// DMA
-struct DMAbuffer {
-	void *pBuf = NULL;
-	std::uint64_t pDma = 0;
-	std::uint64_t size;
-};
-
 struct TTDevice;
 
 struct PCIdevice  {

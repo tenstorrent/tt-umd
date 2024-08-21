@@ -590,10 +590,6 @@ void TTDevice::do_open() {
     this->read_checking_offset = is_blackhole(device_info.out) ? BH_NOC_NODE_ID_OFFSET : GS_WH_ARC_SCRATCH_6_OFFSET;
 }
 
-void set_debug_level(int dl) {
-    g_DEBUG_LEVEL = dl;
-}
-
 bool is_char_dev(const dirent *ent, const char *parent_dir) {
     if (ent->d_type == DT_UNKNOWN || ent->d_type == DT_LNK) {
         char name[2 * NAME_MAX + 2];
@@ -1271,7 +1267,7 @@ void tt_SiliconDevice::create_device(const std::unordered_set<chip_id_t> &target
     if (pci_log_level) {
         m_pci_log_level = atoi (pci_log_level);
     }
-    set_debug_level(m_pci_log_level);
+    g_DEBUG_LEVEL = m_pci_log_level;
     LOG1 ("TT_PCI_LOG_LEVEL=%d\n", m_pci_log_level);
 
     // Don't buffer stdout.

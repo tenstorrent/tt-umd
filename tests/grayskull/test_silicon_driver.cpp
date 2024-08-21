@@ -7,7 +7,7 @@
 #include "gtest/gtest.h"
 #include "tt_device.h"
 #include "device/tt_soc_descriptor.h"
-#include "device/wormhole_implementation.h"
+#include "device/wormhole/wormhole_implementation.h"
 #include "l1_address_map.h"
 #include "tests/test_utils/generate_cluster_desc.hpp"
 

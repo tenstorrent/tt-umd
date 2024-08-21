@@ -12,7 +12,7 @@
 #include <thread>
 #include <memory>
 
-#include "device/blackhole_implementation.h"
+#include "device/blackhole/blackhole_implementation.h"
 #include "device/tt_cluster_descriptor.h"
 #include "tests/test_utils/generate_cluster_desc.hpp"
 

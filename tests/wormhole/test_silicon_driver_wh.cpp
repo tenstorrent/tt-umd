@@ -13,7 +13,7 @@
 #include "host_mem_address_map.h"
 
 #include "device/tt_cluster_descriptor.h"
-#include "device/wormhole_implementation.h"
+#include "device/wormhole/wormhole_implementation.h"
 #include "tests/test_utils/generate_cluster_desc.hpp"
 
 void set_params_for_remote_txn(tt_SiliconDevice& device) {

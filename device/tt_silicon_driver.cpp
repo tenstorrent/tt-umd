@@ -1752,15 +1752,9 @@ void tt_SiliconDevice::initialize_pcie_devices() {
         check_pcie_device_initialized(device_it.first);
     }
 
-    // If requires multi-channel or doesn't support mmio-p2p, init iatus without p2p.
-    if (m_num_host_mem_channels <= 1 && arch_name == tt::ARCH::GRAYSKULL) {
-        init_pcie_iatus();
-    } else {
-        // TODO: Implement support for multiple host channels on BLACKHOLE.
-        log_assert(!(arch_name == tt::ARCH::BLACKHOLE && m_num_host_mem_channels > 1),
-            "More channels are not yet supported for Blackhole");
-        init_pcie_iatus_no_p2p();
-    }
+    // TODO: Implement support for multiple host channels on BLACKHOLE.
+    log_assert(!(arch_name == tt::ARCH::BLACKHOLE && m_num_host_mem_channels > 1), "More channels are not yet supported for Blackhole");
+    init_pcie_iatus();
 
     init_membars();
 }
@@ -2166,71 +2160,10 @@ void tt_SiliconDevice::set_fallback_tlb_ordering_mode(const std::string& fallbac
     dynamic_tlb_ordering_modes.at(fallback_tlb) = ordering;
 }
 
-// Set up IATU for peer2peer
-// Consider changing this function
-void tt_SiliconDevice::init_pcie_iatus() {
-
-    int starting_device_id  = m_pci_device_map.begin()->first;
-    int ending_device_id    = m_pci_device_map.rbegin()->first;
-    int num_enabled_devices = m_pci_device_map.size();
-
-    LOG1("---- tt_SiliconDevice::init_pcie_iatus() num_enabled_devices: %d starting_device_id: %d ending_device_id: %d\n", num_enabled_devices, starting_device_id, ending_device_id);
-    log_assert(m_num_host_mem_channels <= 1, "Maximum of 1x 1GB Host memory channels supported.");
-
-    // Requirement for ring topology in GS, but since WH can share below code, check it again here for mmio mapped devices,
-    // otherwise us/ds device calculations will not be correct. Don't expect to see this for Wormhole today.
-    log_assert((starting_device_id + num_enabled_devices - 1) == ending_device_id, "The set of workload mmio-mapped target_device_id's must be sequential, without gaps.");
-
-    for (auto &src_device_it : m_pci_device_map){
-        int src_pci_id = src_device_it.first;
-        struct PCIdevice* src_pci_device = src_device_it.second;
-
-        uint32_t current_peer_region = 0;
-        const int num_peer_ids = 3; // 0=HOST, 1=UPSTREAM Device, 2=DOWNSTREAM Device, 3=Unused
-        for (int peer_id = 0; peer_id < num_peer_ids; peer_id++) {
-
-            //TODO: migrate this to huge pages when that support is in
-            if (peer_id == 0){
-                LOG2 ("Setting up src_pci_id: %d peer_id: %d to Host. current_peer_region: %d\n", src_pci_id, peer_id, current_peer_region);
-                // Device to Host (peer_id==0)
-                const uint16_t host_memory_channel = 0; // Only single channel supported.
-                if (hugepage_mapping.at(src_pci_id).at(host_memory_channel)) {
-                    iatu_configure_peer_region(src_pci_id, current_peer_region, hugepage_physical_address.at(src_pci_id).at(host_memory_channel), HUGEPAGE_REGION_SIZE);
-                    host_channel_size.insert({(int)src_pci_device->logical_id, {HUGEPAGE_REGION_SIZE}});
-                } else {
-                    std::string err_msg = "init_pcie_iatus: Hugepages are not allocated for src_pci_id: " + std::to_string(src_pci_id) + " ch: " + std::to_string(host_memory_channel);
-                    throw std::runtime_error(err_msg);
-                }
-            } else if (peer_id == 1 || peer_id == 2){
-                // Device to Device (peer_id==1 : Upstream, peer_id==2 : Downstream)
-                // For determining upstream/downstream peers in ring topology - this matches is_target_device_downstream() in net2pipe
-                int upstream_peer_device_id = src_pci_id > starting_device_id ? src_pci_id - 1 : ending_device_id;
-                int downstream_peer_device_id = src_pci_id < (ending_device_id) ? src_pci_id + 1 : starting_device_id;
-
-                int peer_device_id = peer_id == 1 ? upstream_peer_device_id : downstream_peer_device_id;
-
-                struct PCIdevice* peer_pci_device = m_pci_device_map.at(peer_device_id);
-                uint64_t peer_BAR_addr = peer_pci_device->BAR_addr;
-                uint32_t peer_pci_interface_id = peer_pci_device->id;
-                uint32_t TLB1_16MB_OFFSET = 0; // Was 192MB offset to DRAM, now added by net2pipe since ATU maps to base of 512MB PCI Bar.
-                uint32_t PEER_REGION_SIZE = 1024 * 1024 * 1024; // Was 256MB. Want 512MB. Updated to 1024MB to match net2pipe more easily.
-                // FIXME - How to reduce PEER_REGION_SIZE=256 again, and make this still work? Need to make the ATU mappings non-contiguous 256MB chunks (every 1GB?) to match net2pipe?
-
-                LOG2 ("Setting up src_pci_id: %d peer_id: %d to Device (upstream_peer_device_id: %d downstream_peer_device_id: %d) gives peer_device_id: %d (peer_pci_interface_id: %d) current_peer_region: %d\n",
-                    src_pci_id, peer_id, upstream_peer_device_id, downstream_peer_device_id, peer_device_id, peer_pci_interface_id, current_peer_region );
-
-                iatu_configure_peer_region (src_pci_id, current_peer_region, peer_BAR_addr + TLB1_16MB_OFFSET, PEER_REGION_SIZE);
-            }
-            current_peer_region ++;
-        }
-    }
-}
-
 // TT<->TT P2P support removed in favor of increased Host memory.
-void tt_SiliconDevice::init_pcie_iatus_no_p2p() {
-
+void tt_SiliconDevice::init_pcie_iatus() {
     int num_enabled_devices = m_pci_device_map.size();
-    LOG1("---- tt_SiliconDevice::init_pcie_iatus_no_p2p() num_enabled_devices: %d\n", num_enabled_devices);
+    LOG1("---- tt_SiliconDevice::init_pcie_iatus() num_enabled_devices: %d\n", num_enabled_devices);
     log_assert(m_num_host_mem_channels <= g_MAX_HOST_MEM_CHANNELS, "Maximum of {} 1GB Host memory channels supported.",  g_MAX_HOST_MEM_CHANNELS);
 
     for (auto &src_device_it : m_pci_device_map){
@@ -2249,15 +2182,12 @@ void tt_SiliconDevice::init_pcie_iatus_no_p2p() {
                 }
                 host_channel_size.at(src_pci_device -> logical_id).push_back(region_size);
             } else {
-                std::string err_msg = "init_pcie_iatus_no_p2p: Hugepages are not allocated for src_pci_id: " + std::to_string(src_pci_id) + " ch: " + std::to_string(channel_id);
+                std::string err_msg = "init_pcie_iatus: Hugepages are not allocated for src_pci_id: " + std::to_string(src_pci_id) + " ch: " + std::to_string(channel_id);
                 throw std::runtime_error(err_msg);
             }
         }
     }
 }
-
-
-
 
 // Looks for hugetlbfs inside /proc/mounts matching desired pagesize (typically 1G)
 std::string find_hugepage_dir(std::size_t pagesize)

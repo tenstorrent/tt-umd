@@ -738,8 +738,7 @@ class tt_SiliconDevice: public tt_device
     void send_tensix_risc_reset_to_core(const tt_cxy_pair &core, const TensixSoftResetOptions &soft_resets);
     void perform_harvesting_and_populate_soc_descriptors(const std::string& sdesc_path, const bool perform_harvesting);
     void populate_cores();
-    void init_pcie_iatus();
-    void init_pcie_iatus_no_p2p();
+    void init_pcie_iatus(); // No more p2p support.
     bool init_hugepage(chip_id_t device_id);
     void check_pcie_device_initialized(int device_id);
     void set_pcie_power_state(tt_DevicePowerState state);

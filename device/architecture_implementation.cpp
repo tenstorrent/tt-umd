@@ -4,9 +4,9 @@
 
 #include "device/architecture_implementation.h"
 
-#include "device/blackhole_implementation.h"
-#include "device/grayskull_implementation.h"
-#include "device/wormhole_implementation.h"
+#include "device/blackhole/blackhole_implementation.h"
+#include "device/grayskull/grayskull_implementation.h"
+#include "device/wormhole/wormhole_implementation.h"
 
 namespace tt::umd {
 

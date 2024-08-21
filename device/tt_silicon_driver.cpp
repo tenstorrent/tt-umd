@@ -93,11 +93,6 @@ const uint32_t g_MAX_HOST_MEM_CHANNELS = 4;
 
 const char device_name_pattern[] = "/dev/tenstorrent/%u";
 
-const std::string tlb_large_read_mutex_name_prefix = "mem_tlb_large_read_mutex_pci_interface_id_";
-const std::string tlb_large_write_mutex_name_prefix = "mem_tlb_large_write_mutex_pci_interface_id_";
-const std::string tlb_small_read_write_mutex_name_prefix = "mem_tlb_small_read_write_mutex_pci_interface_id_";
-const std::string arc_msg_mutex_name_prefix = "arc_msg_mutex_pci_interface_id_";
-
 static uint32_t GS_BAR0_WC_MAPPING_SIZE = (156<<20) + (10<<21) + (18<<24);
 static uint32_t BH_BAR0_WC_MAPPING_SIZE = 188<<21; // Defines the address for WC region. addresses 0 to BH_BAR0_WC_MAPPING_SIZE are in WC, above that are UC
 

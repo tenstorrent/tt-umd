@@ -388,8 +388,7 @@ static inline void dispatch_remote_transfer_command(
             write_transfer_sample_t const& command_args = std::get<write_transfer_sample_t>(std::get<1>(command));
             assert(command_args.size_in_bytes >= sizeof(uint32_t));
             resize_payload(payload,command_args.size_in_bytes);
-            driver.write_to_device(payload.data(), bytes_to_words<uint32_t>(command_args.size_in_bytes), command_args.destination, command_args.address, command_args.
-            tlb_to_use, false, false);
+            driver.write_to_device(payload.data(), bytes_to_words<uint32_t>(command_args.size_in_bytes), command_args.destination, command_args.address, command_args.tlb_to_use);
         } break;
         case RemoteTransferType::READ: {
             read_transfer_sample_t const& command_args = std::get<read_transfer_sample_t>(std::get<1>(command));
@@ -421,7 +420,7 @@ static void print_command_executable_code(remote_transfer_sample_t const& comman
             std::cout << "assert(" << command_args.size_in_bytes << " >= sizeof(uint32_t));" << std::endl;
             emit_bytes_to_words_len_string("len", command_args.size_in_bytes, sizeof(uint32_t));
             emit_payload_resize_string(command_args.size_in_bytes, sizeof(uint32_t));
-            std::cout << "device->write_to_device(payload.data(), len, destination, " << command_args.address << ", \"" << command_args.tlb_to_use << "\", false, false);" << std::endl;
+            std::cout << "device->write_to_device(payload.data(), len, destination, " << command_args.address << ", \"" << command_args.tlb_to_use << "\");" << std::endl;
             // driver.write_to_device(payload.data(), command_args.size, command_args.destination, command_args.address, command_args.tlb_to_use, false, false);
         } break;
         case RemoteTransferType::READ: {

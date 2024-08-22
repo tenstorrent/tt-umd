@@ -2885,159 +2885,6 @@ void tt_SiliconDevice::write_to_non_mmio_device(
     }
 }
 
-
-// Specialized function for small epoch commands:
-// 1) uses separate eth cores than other non-mmio transfers hence does not require mutex
-// 2) does not have the code paths for transfers larger than 32kB (1024 cmds)
-// 3) only reads erisc_q_ptrs_epoch once, or when the queues are full
-// 4) only updates wptr on eth command queues for the last epoch command or when the queue is full or when switching eth cores based on eth-ordered-writes policy, or when
-//    eth-ordered-writes are not supported but current write must be ordered (flush prev wrptr).
-// 5) When eth-ordered-write not supported, allow flush to be used as ordering mechanism when ordering is requested via arg. When eth-ordered-write is supported, always use it
-//    and ensure ordering to same remote chip destinations by always using same remote xfer eth core for a given destination based on noc xy. Must ensure wrptr is flushed on
-//    switch of eth cores, and copy of rdptr/wrptr maintained on host for each eth xfer core.
-void tt_SiliconDevice::write_to_non_mmio_device_send_epoch_cmd(const uint32_t *mem_ptr, uint32_t size_in_bytes, tt_cxy_pair core, uint64_t address, bool last_send_epoch_cmd, bool ordered_with_prev_remote_write) {
-    log_assert(!non_mmio_transfer_cores_customized, "{} cannot be used if ethernet cores for host->cluster transfers are customized. The default Ethernet Core configuration must be used.", __FUNCTION__);
-    using data_word_t = uint32_t;
-    constexpr int DATA_WORD_SIZE = sizeof(data_word_t);
-
-    const auto &mmio_capable_chip = ndesc->get_closest_mmio_capable_chip(core.chip);
-    const auto target_chip = ndesc->get_chip_locations().at(core.chip);
-
-    std::string write_tlb = "LARGE_WRITE_TLB";
-    std::string read_tlb = "LARGE_READ_TLB";
-    std::string empty_tlb = "";
-    translate_to_noc_table_coords(core.chip, core.y, core.x);
-
-    const auto &mmio_capable_chip_logical = ndesc->get_closest_mmio_capable_chip(core.chip);
-    tt_cxy_pair remote_transfer_ethernet_core = remote_transfer_ethernet_cores.at(mmio_capable_chip_logical)[active_core_epoch];
-
-    // read all eth queue ptrs for the first time, and initialize wrptr_updated bool for strict ordering.
-    if (!erisc_q_ptrs_initialized) {
-        for (int core_epoch = EPOCH_ETH_CORES_START_ID; core_epoch < EPOCH_ETH_CORES_FOR_NON_MMIO_TRANSFERS + EPOCH_ETH_CORES_START_ID; core_epoch++) {
-            erisc_q_ptrs_epoch[core_epoch].reserve(eth_interface_params.remote_update_ptr_size_bytes*2/sizeof(uint32_t));
-            read_device_memory(erisc_q_ptrs_epoch[core_epoch].data(), remote_transfer_ethernet_core, eth_interface_params.request_cmd_queue_base + eth_interface_params.cmd_counters_size_bytes, eth_interface_params.remote_update_ptr_size_bytes*2, read_tlb);
-            erisc_q_wrptr_updated[core_epoch] = false;
-            erisc_q_ptrs_initialized = true;
-        }
-    }
-
-    std::vector<std::uint32_t> erisc_command(sizeof(routing_cmd_t)/DATA_WORD_SIZE);
-    routing_cmd_t *new_cmd = (routing_cmd_t *)&erisc_command[0];
-    std::vector<std::uint32_t> data_block;
-
-    // Two mechanisms for ordering depending on eth fw version.
-    if (use_ethernet_ordered_writes) {
-        // Feature in this function to ensure ordering via eth-ordered-writes by using same eth core for all epoch writes to same dest noc xy.
-        auto &soc_desc  = get_soc_descriptor(mmio_capable_chip);
-        int core_id = core.x * soc_desc.grid_size.y + core.y;
-        int new_active_core_epoch = (core_id % EPOCH_ETH_CORES_FOR_NON_MMIO_TRANSFERS) + EPOCH_ETH_CORES_START_ID;
-
-        // Switch eth cores, and if wrptr was not flushed to device for previous eth core, do it now.
-        if (new_active_core_epoch != active_core_epoch) {
-            if (!erisc_q_wrptr_updated[active_core_epoch]) {
-                std::vector<std::uint32_t> erisc_q_wptr = { erisc_q_ptrs_epoch[active_core_epoch][0] };
-                write_device_memory(erisc_q_wptr.data(), erisc_q_wptr.size() * DATA_WORD_SIZE, remote_transfer_ethernet_core, eth_interface_params.request_cmd_queue_base + eth_interface_params.cmd_counters_size_bytes, write_tlb);
-                tt_driver_atomics::sfence();
-                erisc_q_wrptr_updated[active_core_epoch] = true;
-            }
-            active_core_epoch = new_active_core_epoch;
-            remote_transfer_ethernet_core = remote_transfer_ethernet_cores.at(mmio_capable_chip_logical)[active_core_epoch];
-        }
-    } else if (ordered_with_prev_remote_write) {
-        // Flush used as ordering mechanism when eth ordered writes are unsupported. If previous write requires flush,
-        // handle it here before setting flush_non_mmio for the current write.
-        if (!erisc_q_wrptr_updated[active_core_epoch]) {
-            std::vector<std::uint32_t> erisc_q_wptr = { erisc_q_ptrs_epoch[active_core_epoch][0] };
-            write_device_memory(erisc_q_wptr.data(), erisc_q_wptr.size() * DATA_WORD_SIZE, remote_transfer_ethernet_core, eth_interface_params.request_cmd_queue_base + eth_interface_params.cmd_counters_size_bytes, write_tlb);
-            tt_driver_atomics::sfence();
-            erisc_q_wrptr_updated[active_core_epoch] = true;
-        }
-        wait_for_non_mmio_flush();
-    }
-
-    flush_non_mmio = true;
-    uint32_t timestamp = 0; //CMD_TIMESTAMP;
-
-    bool use_dram = size_in_bytes > 256 * DATA_WORD_SIZE ? true : false;
-    uint32_t max_block_size = use_dram ? host_address_params.eth_routing_block_size : eth_interface_params.max_block_size;
-    uint32_t block_size;
-
-    // Ethernet ordered writes must originate from same erisc core, so prevent updating active core here.
-    while (is_non_mmio_cmd_q_full(erisc_q_ptrs_epoch[active_core_epoch][0], erisc_q_ptrs_epoch[active_core_epoch][4])) {
-        if (!use_ethernet_ordered_writes){
-            active_core_epoch++;
-            log_assert(active_core_epoch - EPOCH_ETH_CORES_START_ID >= 0, "Invalid ERISC core for sending epoch commands");
-            active_core_epoch = ((active_core_epoch - EPOCH_ETH_CORES_START_ID) % EPOCH_ETH_CORES_FOR_NON_MMIO_TRANSFERS) + EPOCH_ETH_CORES_START_ID;
-            remote_transfer_ethernet_core = remote_transfer_ethernet_cores.at(mmio_capable_chip_logical)[active_core_epoch];
-        }
-        read_device_memory(erisc_q_ptrs_epoch[active_core_epoch].data(), remote_transfer_ethernet_core, eth_interface_params.request_cmd_queue_base + eth_interface_params.cmd_counters_size_bytes, eth_interface_params.remote_update_ptr_size_bytes*2, read_tlb);
-    }
-
-    uint32_t req_wr_ptr = erisc_q_ptrs_epoch[active_core_epoch][0] & eth_interface_params.cmd_buf_size_mask;
-    if (address & 0x1F) { // address not 32-byte aligned
-        // can send it in one transfer, no need to break it up
-        log_assert(size_in_bytes == DATA_WORD_SIZE, "Non-mmio cmd queue update is too big");
-        block_size = DATA_WORD_SIZE;
-    } else {
-        // can send it in one transfer, no need to break it up
-        log_assert(size_in_bytes <= max_block_size, "Non-mmio cmd queue update is too big. size_in_bytes: {} exceeds max_block_size: {}", size_in_bytes, max_block_size);
-        block_size = size_in_bytes;
-    }
-    uint32_t req_flags = block_size > DATA_WORD_SIZE ? (eth_interface_params.cmd_data_block | eth_interface_params.cmd_wr_req | timestamp) : eth_interface_params.cmd_wr_req;
-    if (use_ethernet_ordered_writes) {
-        req_flags |= eth_interface_params.cmd_ordered;
-    }
-
-    uint32_t resp_flags = block_size > DATA_WORD_SIZE ? (eth_interface_params.cmd_data_block | eth_interface_params.cmd_wr_ack) : eth_interface_params.cmd_wr_ack;
-    timestamp = 0;
-
-    uint32_t host_dram_block_addr = host_address_params.eth_routing_buffers_start + (active_core_epoch * eth_interface_params.cmd_buf_size + req_wr_ptr) * max_block_size;
-    uint16_t host_dram_channel = 0; // This needs to be 0, since WH can only map ETH buffers to chan 0.
-
-    // send the data
-    if (req_flags & eth_interface_params.cmd_data_block) {
-        // Copy data to sysmem or device DRAM for Block mode
-        if (use_dram) {
-            req_flags |= eth_interface_params.cmd_data_block_dram;
-            resp_flags |= eth_interface_params.cmd_data_block_dram;
-            size_buffer_to_capacity(data_block, block_size);
-            memcpy(&data_block[0], mem_ptr, block_size);
-            write_to_sysmem(data_block, host_dram_block_addr, host_dram_channel, mmio_capable_chip_logical);
-        } else {
-            uint32_t buf_address = eth_interface_params.eth_routing_data_buffer_addr + req_wr_ptr * max_block_size;
-            size_buffer_to_capacity(data_block, block_size);
-            memcpy(&data_block[0], mem_ptr, block_size);
-            write_device_memory(data_block.data(), data_block.size() * DATA_WORD_SIZE, remote_transfer_ethernet_core, buf_address, write_tlb);
-        }
-        tt_driver_atomics::sfence();
-    }
-
-    // send the write request
-    log_assert((req_flags & eth_interface_params.cmd_data_block) ? (address & 0x1F) == 0 : true, "Block mode address must be 32-byte aligned.");
-
-    new_cmd->sys_addr = get_sys_addr(std::get<0>(target_chip), std::get<1>(target_chip), core.x, core.y, address);
-    new_cmd->rack = get_sys_rack(std::get<2>(target_chip), std::get<3>(target_chip));
-    new_cmd->data = req_flags & eth_interface_params.cmd_data_block ? block_size : *mem_ptr;
-    new_cmd->flags = req_flags;
-    if (use_dram) {
-        new_cmd->src_addr_tag = host_dram_block_addr;
-    }
-
-    write_device_memory(erisc_command.data(), erisc_command.size() * DATA_WORD_SIZE, remote_transfer_ethernet_core, eth_interface_params.request_routing_cmd_queue_base + (sizeof(routing_cmd_t) * req_wr_ptr), write_tlb);
-    tt_driver_atomics::sfence();
-
-    // update the wptr only if the eth queue is full or for the last command
-    erisc_q_ptrs_epoch[active_core_epoch][0] = (erisc_q_ptrs_epoch[active_core_epoch][0] + 1) & eth_interface_params.cmd_buf_ptr_mask;
-    if (last_send_epoch_cmd || is_non_mmio_cmd_q_full(erisc_q_ptrs_epoch[active_core_epoch][0], erisc_q_ptrs_epoch[active_core_epoch][4])) {
-        std::vector<std::uint32_t> erisc_q_wptr = { erisc_q_ptrs_epoch[active_core_epoch][0] };
-        write_device_memory(erisc_q_wptr.data(), erisc_q_wptr.size() * DATA_WORD_SIZE, remote_transfer_ethernet_core, eth_interface_params.request_cmd_queue_base + eth_interface_params.cmd_counters_size_bytes, write_tlb);
-        tt_driver_atomics::sfence();
-        erisc_q_wrptr_updated[active_core_epoch] = true;
-    } else {
-        erisc_q_wrptr_updated[active_core_epoch] = false;
-    }
-}
-
 /*
  * Note that this function is required to acquire the `NON_MMIO_MUTEX_NAME` mutex for interacting with the ethernet core (host) command queue
  * DO NOT use `active_core` or issue any pcie reads/writes to the ethernet core prior to acquiring the mutex. For extra information, see the "NON_MMIO_MUTEX Usage" above
@@ -3727,7 +3574,7 @@ void tt_SiliconDevice::dram_membar(const chip_id_t chip, const std::string& fall
     }
 }
 
-void tt_SiliconDevice::write_to_device(const void *mem_ptr, uint32_t size, tt_cxy_pair core, uint64_t addr, const std::string& fallback_tlb, bool send_epoch_cmd, bool last_send_epoch_cmd, bool ordered_with_prev_remote_write) {
+void tt_SiliconDevice::write_to_device(const void *mem_ptr, uint32_t size, tt_cxy_pair core, uint64_t addr, const std::string& fallback_tlb) {
     bool target_is_mmio_capable = ndesc -> is_chip_mmio_capable(core.chip);
     if(target_is_mmio_capable) {
         if (fallback_tlb == "REG_TLB") {
@@ -3735,22 +3582,16 @@ void tt_SiliconDevice::write_to_device(const void *mem_ptr, uint32_t size, tt_cx
         } else {
             write_device_memory(mem_ptr, size, core, addr, fallback_tlb);
         }
-    }
-    else if (!send_epoch_cmd) {
+    } else {
         log_assert(arch_name != tt::ARCH::BLACKHOLE, "Non-MMIO targets not supported in Blackhole");
         log_assert((get_soc_descriptor(core.chip).ethernet_cores).size() > 0 && get_number_of_chips_in_cluster() > 1, "Cannot issue ethernet writes to a single chip cluster!");
         write_to_non_mmio_device(mem_ptr, size, core, addr);
-    } else {
-        log_assert(arch_name != tt::ARCH::BLACKHOLE, "Non-MMIO targets not supported in Blackhole");
-        // as long as epoch commands are sent single-threaded, no need to acquire mutex
-        log_assert(!(size % 4), "Epoch commands must be 4 byte aligned!");
-        write_to_non_mmio_device_send_epoch_cmd((uint32_t*)mem_ptr, size, core, addr, last_send_epoch_cmd, ordered_with_prev_remote_write);
     }
 }
 
-void tt_SiliconDevice::write_to_device(std::vector<uint32_t> &vec, tt_cxy_pair core, uint64_t addr, const std::string& fallback_tlb, bool send_epoch_cmd, bool last_send_epoch_cmd, bool ordered_with_prev_remote_write) {
+void tt_SiliconDevice::write_to_device(std::vector<uint32_t> &vec, tt_cxy_pair core, uint64_t addr, const std::string& fallback_tlb) {
     // Overloaded device writer that accepts a vector
-    write_to_device(vec.data(), vec.size() * sizeof(uint32_t), core, addr, fallback_tlb, send_epoch_cmd, last_send_epoch_cmd, ordered_with_prev_remote_write);
+    write_to_device(vec.data(), vec.size() * sizeof(uint32_t), core, addr, fallback_tlb);
 }
 
 void tt_SiliconDevice::read_mmio_device_register(void* mem_ptr, tt_cxy_pair core, uint64_t addr, uint32_t size, const std::string& fallback_tlb) {

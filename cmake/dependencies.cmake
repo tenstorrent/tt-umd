@@ -82,3 +82,14 @@ if(NOT MASTER_PROJECT)
     set(flatbuffers_include_dir ${flatbuffers_SOURCE_DIR}/include PARENT_SCOPE)
     set(libuv_include_dir ${libuv_SOURCE_DIR}/include PARENT_SCOPE)
 endif()
+
+############################################################################################################################
+# nanobench (for uBenchmarking)
+############################################################################################################################
+if (MASTER_PROJECT)
+    CPMAddPackage(
+        NAME nanobench
+        GITHUB_REPOSITORY martinus/nanobench
+        GIT_TAG v4.3.11
+    )
+endif()

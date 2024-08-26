@@ -773,9 +773,7 @@ class tt_SiliconDevice: public tt_device
     // Test functions
     void verify_eth_fw();
     void verify_sw_fw_versions(int device_id, std::uint32_t sw_version, std::vector<std::uint32_t> &fw_versions);
-    int test_pcie_tlb_setup (struct PCIdevice* pci_device);
     int test_setup_interface ();
-    int test_broadcast (int logical_device_id);
 
     // State variables
     tt_device_dram_address_params dram_address_params;

@@ -1259,8 +1259,6 @@ void tt_SiliconDevice::initialize_interprocess_mutexes(int pci_interface_id, boo
 void tt_SiliconDevice::create_device(const std::unordered_set<chip_id_t> &target_mmio_device_ids, const uint32_t &num_host_mem_ch_per_mmio_device, const bool skip_driver_allocs, const bool clean_system_resources) {
     m_pci_log_level = 0;
     LOG1("---- tt_SiliconDevice::tt_SiliconDevice\n");
-    static int unique_driver_id = 0;
-    driver_id = unique_driver_id++;
 
     // Set the log level for debugging
     const char* pci_log_level = std::getenv("TT_PCI_LOG_LEVEL");

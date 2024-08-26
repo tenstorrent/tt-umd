@@ -20,7 +20,6 @@
 #include "device/tlb.h"
 #include "device/tt_io.hpp"
 
-using TLB_OFFSETS = tt::umd::tlb_offsets;
 using TLB_DATA = tt::umd::tlb_data;
 
 

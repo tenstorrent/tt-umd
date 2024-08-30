@@ -13,6 +13,7 @@ set(UMD_DEVICE_SRCS
     blackhole/blackhole_implementation.cpp
     grayskull/grayskull_implementation.cpp
     wormhole/wormhole_implementation.cpp
+    pci_device.cpp
 )
 add_library(umd_device SHARED ${UMD_DEVICE_SRCS})
 target_link_libraries(umd_device 

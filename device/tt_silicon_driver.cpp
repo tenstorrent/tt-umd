@@ -232,15 +232,6 @@ private:
     TTDevice() = default;
 
     void reset() {
-        if (arch == tt::ARCH::BLACKHOLE && bar2_uc != nullptr && bar2_uc != MAP_FAILED) {
-            // Disable ATU index 0
-            // TODO: Implement disabling for all indexes, once more host channels are enabled.
-            uint64_t iatu_index = 0;
-            uint64_t iatu_base = UNROLL_ATU_OFFSET_BAR + iatu_index * 0x200;
-            uint32_t region_ctrl_2 = 0 << 31; // REGION_EN = 0
-            write_regs(reinterpret_cast<std::uint32_t*>(static_cast<uint8_t*>(bar2_uc) + iatu_base + 0x04), &region_ctrl_2, 1);
-        }
-
         if (device_fd != -1) {
             close(device_fd);
         }
@@ -2498,14 +2489,27 @@ tt_SiliconDevice::~tt_SiliconDevice () {
     for (auto &device_it : m_pci_device_map){
 
         chip_id_t device_id = device_it.first;
+        struct PCIdevice* pci_device = device_it.second;
+
+        // If IATU was setup, host_channel_size will be setup for that device_id
+        // The asumption is that only a single tt_SiliconDevice for which start_device was called, exists at one moment.
+        // Two tt_SiliconDevice instances for the same device_id which are both started will clash with each other. 
+        if (host_channel_size.find(device_id) != host_channel_size.end()) {
+            if (archs_in_cluster[device_id] == tt::ARCH::BLACKHOLE) {
+                // Disable ATU index 0
+                // TODO: Implement disabling for all indexes, once more host channels are enabled.
+                uint64_t iatu_index = 0;
+                uint64_t iatu_base = UNROLL_ATU_OFFSET_BAR + iatu_index * 0x200;
+                uint32_t region_ctrl_2 = 0 << 31; // REGION_EN = 0
+                write_regs(reinterpret_cast<std::uint32_t*>(static_cast<uint8_t*>(pci_device->hdev->bar2_uc) + iatu_base + 0x04), &region_ctrl_2, 1);
+            }
+        }
 
         for (int ch = 0; ch < m_num_host_mem_channels; ch ++) {
             if (hugepage_mapping.at(device_id).at(ch)) {
                 munmap(hugepage_mapping.at(device_id).at(ch), hugepage_mapping_size.at(device_id).at(ch));
             }
         }
-
-        struct PCIdevice* pci_device = device_it.second;
 
         ttkmd_close (*pci_device);
         delete pci_device;

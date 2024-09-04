@@ -5,6 +5,7 @@ build*
 compile_commands.json
 .cache/**
 .cpmcache/
+.envrc
 .vscode/
 *.log
 *.csv

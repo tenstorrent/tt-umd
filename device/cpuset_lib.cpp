@@ -126,7 +126,7 @@ bool tt_cpuset_allocator::init_find_tt_pci_devices_packages_numanodes(){
 
             std::string pci_bus_id_str  = get_pci_bus_id(pci_device_obj);
             std::string pci_device_dir  = "/sys/bus/pci/devices/" + pci_bus_id_str + "/tenstorrent/";
-            int physical_device_id = -1;
+            auto physical_device_id = umd::chip_id::none;
 
             log_trace(LogSiliconDriver, "Found TT device with pci_bus_id_str: {} num_devices_by_pci_device_id: {}", pci_bus_id_str, m_num_tt_device_by_pci_device_id_map[device_id_revision]);
 
@@ -136,14 +136,14 @@ bool tt_cpuset_allocator::init_find_tt_pci_devices_packages_numanodes(){
                     auto entry_str = entry.path().string();
 
                     if (std::smatch device_match; std::regex_search(entry_str, device_match, tt_device_re) and (stoi(device_match[1]) >= 0)){
-                        physical_device_id = stoi(device_match[1]);
+                        physical_device_id = umd::chip_id{stoi(device_match[1])};
                         m_all_tt_devices.push_back(physical_device_id);
                         log_debug(LogSiliconDriver, "Found physical_device_id: {} from file: {}", physical_device_id, entry_str);
                         break;
                     }
                 }
 
-                if (physical_device_id == -1){
+                if (physical_device_id == umd::chip_id::none){
                     log_warning(LogSiliconDriver, "Did not find file containing physical_device_id in {}", pci_device_dir);
                     return false;
                 }

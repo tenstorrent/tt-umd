@@ -20,10 +20,16 @@ struct DMAbuffer {
 
 struct TTDevice;
 
+namespace tt::umd {
+
+enum class chip_id : int;
+
+}  // namespace tt::umd
+
 struct PCIdevice  {
-	unsigned int id = 0;
+	tt::umd::chip_id id{0};
 	TTDevice *hdev = nullptr;
-    unsigned int logical_id;
+    tt::umd::chip_id logical_id;
     std::uint16_t vendor_id;
     std::uint16_t device_id;
     std::uint16_t subsystem_vendor_id;

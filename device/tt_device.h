@@ -561,20 +561,19 @@ class tt_device
      * @brief Get clock frequencies for all MMIO devices targeted by UMD
      * \returns Map of logical chip id to clock frequency (for MMIO chips only)
     */
-    virtual std::map<int,int> get_clocks() {
+    virtual std::map<tt::umd::chip_id,int> get_clocks() {
         throw std::runtime_error("---- tt_device::get_clocks is not implemented\n");
-        return std::map<int,int>();
     }
 
     /**
      * @brief Get the PCIe speed for a specific device based on link width and link speed
      * \returns Bandwidth in Gbps
      */
-    virtual std::uint32_t get_pcie_speed(std::uint32_t device_id) {
+    virtual std::uint32_t get_pcie_speed(tt::umd::chip_id device_id) {
         return 8 * 16;  // default to x8 at 16 GT/s
     }
 
-    virtual std::uint32_t get_numa_node_for_pcie_device(std::uint32_t device_id) {
+    virtual std::uint32_t get_numa_node_for_pcie_device(tt::umd::chip_id device_id) {
         throw std::runtime_error("---- tt_device::get_numa_node_for_pcie_device is not implemented\n");
     }
 
@@ -594,7 +593,7 @@ class tt_device
      * \returns Total memory allocated on host for a specific device
      * 
     */ 
-    virtual uint32_t dma_allocation_size(chip_id_t src_device_id = -1) {
+    virtual uint32_t dma_allocation_size(chip_id_t src_device_id = tt::umd::chip_id::none) {
         throw std::runtime_error("---- tt_device::dma_allocation_size is not implemented\n");
         return 0;
     }
@@ -614,7 +613,7 @@ class tt_device
      * \param device_id Logical device id to query
      * \returns Number of DRAM channels on device
     */ 
-    virtual std::uint32_t get_num_dram_channels(std::uint32_t device_id) {
+    virtual std::uint32_t get_num_dram_channels(tt::umd::chip_id device_id) {
         throw std::runtime_error("---- tt_device::get_num_dram_channels is not implemented\n");
         return 0;
     }
@@ -624,7 +623,7 @@ class tt_device
      * \param channel Logical channel id (taken from soc descriptor) for which the size will be queried
      * \returns Size of specific DRAM channel
     */ 
-    virtual std::uint64_t get_dram_channel_size(std::uint32_t device_id, std::uint32_t channel) {
+    virtual std::uint64_t get_dram_channel_size(tt::umd::chip_id device_id, std::uint32_t channel) {
         throw std::runtime_error("---- tt_device::get_dram_channel_size is not implemented\n");
         return 0;
     }
@@ -634,7 +633,7 @@ class tt_device
      * \param device_id Logical device id to query
      * \returns Number of Host channels allocated for device
     */ 
-    virtual std::uint32_t get_num_host_channels(std::uint32_t device_id) {
+    virtual std::uint32_t get_num_host_channels(tt::umd::chip_id device_id) {
         throw std::runtime_error("---- tt_device::get_num_host_channels is not implemented\n");
         return 0;
     }
@@ -645,7 +644,7 @@ class tt_device
      * \param channel Logical Host channel id for which the accessible  size will be queried
      * \returns Device accessible size of specific Host channel
     */ 
-    virtual std::uint32_t get_host_channel_size(std::uint32_t device_id, std::uint32_t channel) {
+    virtual std::uint32_t get_host_channel_size(tt::umd::chip_id device_id, std::uint32_t channel) {
         throw std::runtime_error("---- tt_device::get_host_channel_size is not implemented\n");
         return 0;
     }
@@ -723,7 +722,7 @@ class tt_VersimDevice: public tt_device
     virtual int get_number_of_chips_in_cluster();
     virtual std::unordered_set<chip_id_t> get_all_chips_in_cluster();
     static int detect_number_of_chips();
-    virtual std::map<int,int> get_clocks();
+    virtual std::map<tt::umd::chip_id,int> get_clocks();
     virtual std::uint32_t get_num_dram_channels(std::uint32_t device_id);
     virtual std::uint64_t get_dram_channel_size(std::uint32_t device_id, std::uint32_t channel);
     virtual std::uint32_t get_num_host_channels(std::uint32_t device_id);
@@ -800,8 +799,8 @@ class tt_SiliconDevice: public tt_device
     void dram_membar(const chip_id_t chip, const std::string& fallback_tlb, const std::unordered_set<uint32_t>& channels);
     void dram_membar(const chip_id_t chip, const std::string& fallback_tlb, const std::unordered_set<tt_xy_pair>& cores = {});
     // These functions are used by Debuda, so make them public
-    void bar_write32 (int logical_device_id, uint32_t addr, uint32_t data);
-    uint32_t bar_read32 (int logical_device_id, uint32_t addr);
+    void bar_write32 (tt::umd::chip_id logical_device_id, uint32_t addr, uint32_t data);
+    uint32_t bar_read32 (tt::umd::chip_id logical_device_id, uint32_t addr);
     /**
      * @brief If the tlbs are initialized, returns a tuple with the TLB base address and its size
     */
@@ -809,7 +808,7 @@ class tt_SiliconDevice: public tt_device
     /**
      * @brief This API allows you to write directly to device memory that is addressable by a static TLB
     */
-    std::function<void(uint32_t, uint32_t, const uint8_t*, uint32_t)> get_fast_pcie_static_tlb_write_callable(int device_id);
+    std::function<void(uint32_t, uint32_t, const uint8_t*, uint32_t)> get_fast_pcie_static_tlb_write_callable(tt::umd::chip_id device_id);
 
     /**
      * @brief Provide fast write access to a statically-mapped TLB.
@@ -829,7 +828,7 @@ class tt_SiliconDevice: public tt_device
     */
     uint32_t get_m_dma_buf_size() const;
     // Misc. Functions to Query/Set Device State
-    virtual int arc_msg(int logical_device_id, uint32_t msg_code, bool wait_for_done = true, uint32_t arg0 = 0, uint32_t arg1 = 0, int timeout=1, uint32_t *return_3 = nullptr, uint32_t *return_4 = nullptr);
+    virtual int arc_msg(tt::umd::chip_id logical_device_id, uint32_t msg_code, bool wait_for_done = true, uint32_t arg0 = 0, uint32_t arg1 = 0, int timeout=1, uint32_t *return_3 = nullptr, uint32_t *return_4 = nullptr);
     virtual bool using_harvested_soc_descriptors();
     virtual std::unordered_map<chip_id_t, uint32_t> get_harvesting_masks_for_soc_descriptors();
     virtual bool noc_translation_en();
@@ -842,8 +841,8 @@ class tt_SiliconDevice: public tt_device
     static std::unordered_map<chip_id_t, chip_id_t> get_logical_to_physical_mmio_device_id_map(std::vector<chip_id_t> physical_device_ids);
     virtual std::set<chip_id_t> get_target_mmio_device_ids();
     virtual std::set<chip_id_t> get_target_remote_device_ids();
-    virtual std::map<int,int> get_clocks();
-    virtual uint32_t dma_allocation_size(chip_id_t src_device_id = -1);
+    virtual std::map<tt::umd::chip_id,int> get_clocks();
+    virtual uint32_t dma_allocation_size(chip_id_t src_device_id = tt::umd::chip_id::none);
     virtual void *channel_address(std::uint32_t offset, const tt_cxy_pair& target);
     virtual void *host_dma_address(std::uint64_t offset, chip_id_t src_device_id, uint16_t channel) const;
     virtual std::uint64_t get_pcie_base_addr_from_device() const;
@@ -853,12 +852,12 @@ class tt_SiliconDevice: public tt_device
     static std::unordered_map<tt_xy_pair, tt_xy_pair> create_harvested_coord_translation(const tt::ARCH arch, bool identity_map);
     static std::unordered_map<chip_id_t, uint32_t> get_harvesting_masks_from_harvested_rows(std::unordered_map<chip_id_t, std::vector<uint32_t>> harvested_rows); 
     std::unordered_map<tt_xy_pair, tt_xy_pair> get_harvested_coord_translation_map(chip_id_t logical_device_id);
-    virtual std::uint32_t get_num_dram_channels(std::uint32_t device_id);
-    virtual std::uint64_t get_dram_channel_size(std::uint32_t device_id, std::uint32_t channel);
-    virtual std::uint32_t get_num_host_channels(std::uint32_t device_id);
-    virtual std::uint32_t get_host_channel_size(std::uint32_t device_id, std::uint32_t channel);
-    virtual std::uint32_t get_pcie_speed(std::uint32_t device_id);
-    virtual std::uint32_t get_numa_node_for_pcie_device(std::uint32_t device_id);
+    virtual std::uint32_t get_num_dram_channels(tt::umd::chip_id device_id);
+    virtual std::uint64_t get_dram_channel_size(tt::umd::chip_id device_id, std::uint32_t channel);
+    virtual std::uint32_t get_num_host_channels(tt::umd::chip_id device_id);
+    virtual std::uint32_t get_host_channel_size(tt::umd::chip_id device_id, std::uint32_t channel);
+    virtual std::uint32_t get_pcie_speed(tt::umd::chip_id device_id);
+    virtual std::uint32_t get_numa_node_for_pcie_device(tt::umd::chip_id device_id);
     virtual tt_version get_ethernet_fw_version() const;
 
     // Destructor
@@ -868,7 +867,7 @@ class tt_SiliconDevice: public tt_device
     // Helper functions
     // Startup + teardown
     void create_device(const std::unordered_set<chip_id_t> &target_mmio_device_ids, const uint32_t &num_host_mem_ch_per_mmio_device, const bool skip_driver_allocs, const bool clean_system_resources);
-    void initialize_interprocess_mutexes(int pci_interface_id, bool cleanup_mutexes_in_shm);
+    void initialize_interprocess_mutexes(tt::umd::chip_id pci_interface_id, bool cleanup_mutexes_in_shm);
     void cleanup_shared_host_state();
     void initialize_pcie_devices();
     void broadcast_pcie_tensix_risc_reset(struct PCIdevice *device, const TensixSoftResetOptions &cores);
@@ -881,7 +880,7 @@ class tt_SiliconDevice: public tt_device
     void init_pcie_iatus_no_p2p();
     bool init_hugepage(chip_id_t device_id);
     bool init_dmabuf(chip_id_t device_id);
-    void check_pcie_device_initialized(int device_id);
+    void check_pcie_device_initialized(tt::umd::chip_id device_id);
     bool init_dma_turbo_buf(struct PCIdevice* pci_device);
     bool uninit_dma_turbo_buf(struct PCIdevice* pci_device);
     static std::map<chip_id_t, std::string> get_physical_device_id_to_bus_id_map(std::vector<chip_id_t> physical_device_ids);
@@ -894,10 +893,10 @@ class tt_SiliconDevice: public tt_device
     void enable_remote_ethernet_queue(const chip_id_t& chip, int timeout);
     void deassert_resets_and_set_power_state();
     int open_hugepage_file(const std::string &dir, chip_id_t device_id, uint16_t channel);
-    int iatu_configure_peer_region (int logical_device_id, uint32_t peer_region_id, uint64_t bar_addr_64, uint32_t region_size);
+    int iatu_configure_peer_region (tt::umd::chip_id logical_device_id, uint32_t peer_region_id, uint64_t bar_addr_64, uint32_t region_size);
     uint32_t get_harvested_noc_rows (uint32_t harvesting_mask);
-    uint32_t get_harvested_rows (int logical_device_id);
-    int get_clock(int logical_device_id);
+    uint32_t get_harvested_rows (tt::umd::chip_id logical_device_id);
+    int get_clock(tt::umd::chip_id logical_device_id);
 
     // Communication Functions
     void read_dma_buffer(void* mem_ptr, std::uint32_t address, std::uint16_t channel, std::uint32_t size_in_bytes, chip_id_t src_device_id);
@@ -919,17 +918,17 @@ class tt_SiliconDevice: public tt_device
     uint64_t get_sys_addr(uint32_t chip_x, uint32_t chip_y, uint32_t noc_x, uint32_t noc_y, uint64_t offset);
     uint16_t get_sys_rack(uint32_t rack_x, uint32_t rack_y);
     bool is_non_mmio_cmd_q_full(uint32_t curr_wptr, uint32_t curr_rptr);
-    int pcie_arc_msg(int logical_device_id, uint32_t msg_code, bool wait_for_done = true, uint32_t arg0 = 0, uint32_t arg1 = 0, int timeout=1, uint32_t *return_3 = nullptr, uint32_t *return_4 = nullptr);
-    int remote_arc_msg(int logical_device_id, uint32_t msg_code, bool wait_for_done = true, uint32_t arg0 = 0, uint32_t arg1 = 0, int timeout=1, uint32_t *return_3 = nullptr, uint32_t *return_4 = nullptr);
-    bool address_in_tlb_space(uint32_t address, uint32_t size_in_bytes, int32_t tlb_index, uint64_t tlb_size, uint32_t chip);
-    struct PCIdevice* get_pci_device(int pci_intf_id) const;
-    std::shared_ptr<boost::interprocess::named_mutex> get_mutex(const std::string& tlb_name, int pci_interface_id);
-    virtual uint32_t get_harvested_noc_rows_for_chip(int logical_device_id); // Returns one-hot encoded harvesting mask for PCIe mapped chips
+    int pcie_arc_msg(tt::umd::chip_id logical_device_id, uint32_t msg_code, bool wait_for_done = true, uint32_t arg0 = 0, uint32_t arg1 = 0, int timeout=1, uint32_t *return_3 = nullptr, uint32_t *return_4 = nullptr);
+    int remote_arc_msg(tt::umd::chip_id logical_device_id, uint32_t msg_code, bool wait_for_done = true, uint32_t arg0 = 0, uint32_t arg1 = 0, int timeout=1, uint32_t *return_3 = nullptr, uint32_t *return_4 = nullptr);
+    bool address_in_tlb_space(uint32_t address, uint32_t size_in_bytes, int32_t tlb_index, uint64_t tlb_size, tt::umd::chip_id chip);
+    struct PCIdevice* get_pci_device(tt::umd::chip_id pci_intf_id) const;
+    std::shared_ptr<boost::interprocess::named_mutex> get_mutex(const std::string& tlb_name, tt::umd::chip_id pci_interface_id);
+    virtual uint32_t get_harvested_noc_rows_for_chip(tt::umd::chip_id logical_device_id); // Returns one-hot encoded harvesting mask for PCIe mapped chips
     void generate_tensix_broadcast_grids_for_grayskull( std::set<std::pair<tt_xy_pair, tt_xy_pair>>& broadcast_grids, std::set<uint32_t>& rows_to_exclude, std::set<uint32_t>& cols_to_exclude);
     std::unordered_map<chip_id_t, std::vector<std::vector<int>>>&  get_ethernet_broadcast_headers(const std::set<chip_id_t>& chips_to_exclude);
     // Test functions
     void verify_eth_fw();
-    void verify_sw_fw_versions(int device_id, std::uint32_t sw_version, std::vector<std::uint32_t> &fw_versions);
+    void verify_sw_fw_versions(tt::umd::chip_id device_id, std::uint32_t sw_version, std::vector<std::uint32_t> &fw_versions);
     int test_pcie_tlb_setup (struct PCIdevice* pci_device);
     int test_setup_interface ();
     int test_broadcast (int logical_device_id);
@@ -1007,7 +1006,7 @@ class tt_SiliconDevice: public tt_device
     static constexpr std::uint32_t SW_VERSION = 0x06060000;
 };
 
-tt::ARCH detect_arch(uint16_t device_id = 0);
+tt::ARCH detect_arch(tt::umd::chip_id device_id = {});
 
 uint32_t get_num_hugepages();
 

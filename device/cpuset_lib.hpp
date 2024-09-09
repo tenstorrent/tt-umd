@@ -128,8 +128,8 @@ struct tt_cpuset_allocator {
         std::unordered_map<chip_id_t, chip_id_t> m_logical_to_physical_mmio_device_id_map;
 
         // Items calculated by parsing system info, used by allocation algorithm:
-        std::map<int, std::vector<int>> m_package_id_to_devices_map;
-        std::map<int, std::string> m_physical_device_id_to_pci_bus_id_map; // Debug/Info
+        std::map<int, std::vector<umd::chip_id>> m_package_id_to_devices_map;
+        std::map<umd::chip_id, std::string> m_physical_device_id_to_pci_bus_id_map; // Debug/Info
         std::map<std::pair<uint16_t, uint16_t>, int> m_num_tt_device_by_pci_device_id_map;
 
         std::map<chip_id_t, std::vector<hwloc_cpuset_t>> m_physical_device_id_to_cpusets_map;
@@ -139,7 +139,7 @@ struct tt_cpuset_allocator {
 
         bool m_enable_cpuset_allocator = true; // Enable feature, otherwise do nothing.
         int m_num_packages = 0;
-        std::vector<int> m_all_tt_devices = {};
+        std::vector<umd::chip_id> m_all_tt_devices = {};
 
         hwloc_obj_type_t m_object_per_alloc_slot = HWLOC_OBJ_L3CACHE; // Default
 

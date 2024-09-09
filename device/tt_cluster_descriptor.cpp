@@ -89,22 +89,11 @@ bool tt_ClusterDescriptor::is_chip_mmio_capable(const chip_id_t &chip_id) const 
 int tt_ClusterDescriptor::get_ethernet_link_coord_distance(const eth_coord_t &location_a, const eth_coord_t &location_b) const {
 
     log_trace(LogSiliconDriver, "get_ethernet_link_coord_distance from ({}, {}, {}, {}) to ({}, {}, {}, {})",
-        std::get<0>(location_a), std::get<1>(location_a), std::get<2>(location_a), std::get<3>(location_a),
-        std::get<0>(location_b), std::get<1>(location_b), std::get<2>(location_b), std::get<3>(location_b));
+        location_a.x, location_a.y, location_a.shelf, location_a.rack,
+        location_b.x, location_b.y, location_b.shelf, location_b.rack);
 
-    // eth_coord_t: x, y, rack, shelf
-
-    int x_a = std::get<0>(location_a);
-    int x_b = std::get<0>(location_b);
-
-    int y_a = std::get<1>(location_a);
-    int y_b = std::get<1>(location_b);
-
-    int shelf_a = std::get<3>(location_a);
-    int shelf_b = std::get<3>(location_b);
-
-    int rack_a = std::get<2>(location_a);
-    int rack_b = std::get<2>(location_b);
+    auto [x_a, y_a, shelf_a, rack_a] = location_a;
+    auto [x_b, y_b, shelf_b, rack_b] = location_b;
 
     int x_distance = std::abs(x_a - x_b);
     int y_distance = std::abs(y_a - y_b);
@@ -127,11 +116,11 @@ int tt_ClusterDescriptor::get_ethernet_link_coord_distance(const eth_coord_t &lo
         eth_coord_t exit_shelf = shelf_to_shelf_connection.source_chip_coord;
         for(eth_coord_t next_shelf : shelf_to_shelf_connection.destination_chip_coords) {
 
-            log_assert(std::get<1>(exit_shelf) == y_a && std::get<3>(exit_shelf) == shelf_a && std::get<2>(exit_shelf) == rack_a,
+            log_assert(exit_shelf.y == y_a && exit_shelf.shelf == shelf_a && exit_shelf.rack == rack_a,
                 "Invalid shelf exit coordinates");
 
             // next shelf could be at a different y-dim in nebula->galaxy systems
-            log_assert(std::get<3>(next_shelf) == (shelf_a+1) && std::get<2>(next_shelf) == rack_a,
+            log_assert(next_shelf.shelf == (shelf_a+1) && next_shelf.rack == rack_a,
                 "Invalid shelf entry coordinates");
 
             // hop onto the next shelf and find distance from there
@@ -144,8 +133,8 @@ int tt_ClusterDescriptor::get_ethernet_link_coord_distance(const eth_coord_t &lo
             distance = std::min(distance, distance_to_exit + distance_in_next_shelf + 1);
         }
         log_trace(LogSiliconDriver, "\tdistance from ({}, {}, {}, {}) to ({}, {}, {}, {}) is {}",
-            std::get<0>(location_a), std::get<1>(location_a), std::get<2>(location_a), std::get<3>(location_a),
-            std::get<0>(location_b), std::get<1>(location_b), std::get<2>(location_b), std::get<3>(location_b), distance);
+            location_a.x, location_a.y, location_a.rack, location_a.shelf,
+            location_b.x, location_b.y, location_b.rack, location_b.shelf, distance);
         return distance;
     }
     else if(shelf_a > shelf_b) {
@@ -166,10 +155,10 @@ int tt_ClusterDescriptor::get_ethernet_link_coord_distance(const eth_coord_t &lo
         eth_coord_t exit_shelf = shelf_to_shelf_connection.source_chip_coord;
         for(eth_coord_t next_shelf : shelf_to_shelf_connection.destination_chip_coords) {
 
-            log_assert(std::get<1>(exit_shelf) == y_b && std::get<3>(exit_shelf) == shelf_b && std::get<2>(exit_shelf) == rack_b,
+            log_assert(exit_shelf.y == y_b && exit_shelf.shelf == shelf_b && exit_shelf.rack == rack_b,
                 "Invalid shelf exit coordinates");
             // next shelf could be at a different y-dim in nebula->galaxy systems
-            log_assert(std::get<3>(next_shelf) == (shelf_b+1) && std::get<2>(next_shelf) == rack_b,
+            log_assert(next_shelf.shelf == (shelf_b+1) && next_shelf.rack == rack_b,
                 "Invalid shelf entry coordinates");
 
             // hop onto the next shelf and find distance from there
@@ -182,8 +171,8 @@ int tt_ClusterDescriptor::get_ethernet_link_coord_distance(const eth_coord_t &lo
             distance = std::min(distance, distance_to_exit + distance_in_next_shelf + 1);
         }
         log_trace(LogSiliconDriver, "\tdistance from ({}, {}, {}, {}) to ({}, {}, {}, {}) is {}",
-            std::get<0>(location_a), std::get<1>(location_a), std::get<2>(location_a), std::get<3>(location_a),
-            std::get<0>(location_b), std::get<1>(location_b), std::get<2>(location_b), std::get<3>(location_b), distance);
+            location_a.x, location_a.y, location_a.rack, location_a.shelf,
+            location_b.x, location_b.y, location_b.rack, location_b.shelf, distance);
         return distance;
     }
 
@@ -207,9 +196,9 @@ int tt_ClusterDescriptor::get_ethernet_link_coord_distance(const eth_coord_t &lo
         eth_coord_t exit_rack = rack_to_rack_connection.source_chip_coord;
         for(eth_coord_t next_rack : rack_to_rack_connection.destination_chip_coords) {
 
-            log_assert(std::get<0>(exit_rack) == x_a && std::get<3>(exit_rack) == shelf_a && std::get<2>(exit_rack) == rack_a,
+            log_assert(exit_rack.x == x_a && exit_rack.shelf == shelf_a && exit_rack.rack == rack_a,
                 "Invalid rack exit coordinates");
-            log_assert(std::get<0>(next_rack) == x_a && std::get<3>(next_rack) == shelf_a && std::get<2>(next_rack) == (rack_a+1),
+            log_assert(next_rack.x == x_a && next_rack.shelf == shelf_a && next_rack.rack == (rack_a+1),
                 "Invalid rack entry coordinates");
 
             // hop onto the next rack and find distance from there
@@ -222,8 +211,8 @@ int tt_ClusterDescriptor::get_ethernet_link_coord_distance(const eth_coord_t &lo
             distance = std::min(distance, distance_to_exit + distance_in_next_rack + 1);
         }
         log_trace(LogSiliconDriver, "\tdistance from ({}, {}, {}, {}) to ({}, {}, {}, {}) is {}",
-            std::get<0>(location_a), std::get<1>(location_a), std::get<2>(location_a), std::get<3>(location_a),
-            std::get<0>(location_b), std::get<1>(location_b), std::get<2>(location_b), std::get<3>(location_b), distance);
+            location_a.x, location_a.y, location_a.rack, location_a.shelf,
+            location_b.x, location_b.y, location_b.rack, location_b.shelf, distance);
 
         return distance;
     }
@@ -246,9 +235,9 @@ int tt_ClusterDescriptor::get_ethernet_link_coord_distance(const eth_coord_t &lo
         eth_coord_t exit_rack = rack_to_rack_connection.source_chip_coord;
         for(eth_coord_t next_rack : rack_to_rack_connection.destination_chip_coords) {
 
-            log_assert(std::get<0>(exit_rack) == x_b && std::get<3>(exit_rack) == shelf_b && std::get<2>(exit_rack) == rack_b,
+            log_assert(exit_rack.x == x_b && exit_rack.shelf == shelf_b && exit_rack.rack == rack_b,
                 "Invalid rack exit coordinates");
-            log_assert(std::get<0>(next_rack) == x_b && std::get<3>(next_rack) == shelf_b && std::get<2>(next_rack) == (rack_b+1),
+            log_assert(next_rack.x == x_b && next_rack.shelf == shelf_b && next_rack.rack == (rack_b+1),
                 "Invalid rack entry coordinates");
 
             // hop onto the next rack and find distance from there
@@ -261,15 +250,15 @@ int tt_ClusterDescriptor::get_ethernet_link_coord_distance(const eth_coord_t &lo
             distance = std::min(distance, distance_to_exit + distance_in_next_rack + 1);
         }
         log_trace(LogSiliconDriver, "\tdistance from ({}, {}, {}, {}) to ({}, {}, {}, {}) is {}",
-            std::get<0>(location_a), std::get<1>(location_a), std::get<2>(location_a), std::get<3>(location_a),
-            std::get<0>(location_b), std::get<1>(location_b), std::get<2>(location_b), std::get<3>(location_b), distance);
+            location_a.x, location_a.y, location_a.rack, location_a.shelf,
+            location_b.x, location_b.y, location_b.rack, location_b.shelf, distance);
 
         return distance;
     }
 
     log_trace(LogSiliconDriver, "\tdistance from ({}, {}, {}, {}) to ({}, {}, {}, {}) is {}",
-        std::get<0>(location_a), std::get<1>(location_a), std::get<2>(location_a), std::get<3>(location_a),
-        std::get<0>(location_b), std::get<1>(location_b), std::get<2>(location_b), std::get<3>(location_b), x_distance + y_distance);
+        location_a.x, location_a.y, location_a.rack, location_a.shelf,
+        location_b.x, location_b.y, location_b.rack, location_b.shelf, x_distance + y_distance);
 
     // on same shelf/rack, the distance is just x+y difference
     return x_distance + y_distance;
@@ -296,7 +285,7 @@ chip_id_t tt_ClusterDescriptor::get_closest_mmio_capable_chip(const chip_id_t &c
         const chip_id_t &mmio_chip = pair.first;
         eth_coord_t mmio_eth_coord = this->chip_locations.at(mmio_chip);
 
-        log_debug(LogSiliconDriver, "Checking chip{} at ({}, {}, {}, {})", mmio_chip, std::get<0>(mmio_eth_coord), std::get<1>(mmio_eth_coord), std::get<2>(mmio_eth_coord), std::get<3>(mmio_eth_coord));
+        log_debug(LogSiliconDriver, "Checking chip{} at ({}, {}, {}, {})", mmio_chip, mmio_eth_coord.x, mmio_eth_coord.y, mmio_eth_coord.rack, mmio_eth_coord.shelf);
 
         int distance = get_ethernet_link_coord_distance(mmio_eth_coord, chip_eth_coord);
         if (distance < min_distance) {
@@ -342,7 +331,7 @@ std::unique_ptr<tt_ClusterDescriptor> tt_ClusterDescriptor::create_for_grayskull
     auto use_physical_ids                   = physical_mmio_device_ids.size() ? true : false;
     auto largest_workload_logical_device_id = *logical_mmio_device_ids.rbegin(); // Last element in ordered set.
     auto num_available_physical_devices     = physical_mmio_device_ids.size();
-    auto required_physical_devices          = largest_workload_logical_device_id + 1;
+    auto required_physical_devices          = static_cast<int>(largest_workload_logical_device_id) + 1;
 
     log_debug(tt::LogSiliconDriver, "{} - use_physical_ids: {} largest_workload_logical_device_id: {} num_available_physical_devices: {} required_physical_devices: {}",
         __FUNCTION__, use_physical_ids, largest_workload_logical_device_id, num_available_physical_devices, required_physical_devices);
@@ -353,12 +342,12 @@ std::unique_ptr<tt_ClusterDescriptor> tt_ClusterDescriptor::create_for_grayskull
 
     // All Grayskull devices are MMIO mapped so physical_mmio_device_ids correspond to all available devices
     for (auto &logical_id : logical_mmio_device_ids) {
-        auto physical_id = use_physical_ids ? physical_mmio_device_ids.at(logical_id) : -1;
+        auto physical_id = use_physical_ids ? physical_mmio_device_ids.at(static_cast<int>(logical_id)) : umd::chip_id::none;
         desc->chips_with_mmio.insert({logical_id, physical_id});
         desc->all_chips.insert(logical_id);
-        eth_coord_t chip_location{logical_id, 0, 0, 0};
+        eth_coord_t chip_location{static_cast<int>(logical_id), 0, 0, 0};
         desc->chip_locations.insert({logical_id, chip_location});
-        desc->coords_to_chip_ids[std::get<2>(chip_location)][std::get<3>(chip_location)][std::get<1>(chip_location)][std::get<0>(chip_location)] = logical_id;
+        desc->coords_to_chip_ids[chip_location.rack][chip_location.shelf][chip_location.y][chip_location.x] = logical_id;
         log_debug(tt::LogSiliconDriver, "{} - adding logical: {} => physical: {}", __FUNCTION__, logical_id, physical_id);
     }
 
@@ -383,10 +372,10 @@ void tt_ClusterDescriptor::load_ethernet_connections_from_connectivity_descripto
         std::vector<YAML::Node> endpoints = connected_endpoints.as<std::vector<YAML::Node>>();
         log_assert(endpoints.size() == 2, "Currently ethernet cores can only connect to one other ethernet endpoint");
 
-        int chip_0 = endpoints.at(0)["chip"].as<int>();
-        int channel_0 = endpoints.at(0)["chan"].as<int>();
-        int chip_1 = endpoints.at(1)["chip"].as<int>();
-        int channel_1 = endpoints.at(1)["chan"].as<int>();
+        const umd::chip_id chip_0{endpoints.at(0)["chip"].as<int>()};
+        const umd::ethernet_channel channel_0{endpoints.at(0)["chan"].as<int>()};
+        const umd::chip_id chip_1{endpoints.at(1)["chip"].as<int>()};
+        const umd::ethernet_channel channel_1{endpoints.at(1)["chan"].as<int>()};
         if (desc.ethernet_connections[chip_0].find(channel_0) != desc.ethernet_connections[chip_0].end()) {
             log_assert(
                 (std::get<0>(desc.ethernet_connections[chip_0][channel_0]) == chip_1) &&
@@ -419,7 +408,7 @@ void tt_ClusterDescriptor::load_ethernet_connections_from_connectivity_descripto
             for (const auto &[row, row_chip_map] : shelf_chip_map) {
                 std::stringstream row_chips;
                 for (const auto &[col, chip_id] : row_chip_map) {
-                    row_chips << chip_id << "\t";
+                    row_chips << static_cast<int>(chip_id) << "\t";
                 }
                 log_debug(LogSiliconDriver, "\t\t{}", row_chips.str());
             }
@@ -433,8 +422,8 @@ void tt_ClusterDescriptor::load_ethernet_connections_from_connectivity_descripto
     // determine which chips are connected to the next (i.e. higher id) shelf/rack and what the coordinate of the chip on the other shelf/rack is
     // this is used in get_ethernet_link_coord_distance to find the distance between two chips
     for (const auto &[chip_id, chip_eth_coord] : desc.chip_locations) {
-        highest_shelf_id = std::max(highest_shelf_id, std::get<3>(chip_eth_coord));
-        highest_rack_id = std::max(highest_rack_id, std::get<2>(chip_eth_coord));
+        highest_shelf_id = std::max(highest_shelf_id, chip_eth_coord.shelf);
+        highest_rack_id = std::max(highest_rack_id, chip_eth_coord.rack);
         // iterate over all neighbors
         if(desc.ethernet_connections.find(chip_id) == desc.ethernet_connections.end()) {
             continue; // chip has no eth connections
@@ -443,11 +432,11 @@ void tt_ClusterDescriptor::load_ethernet_connections_from_connectivity_descripto
             const chip_id_t &neighbor_chip = std::get<0>(chip_and_chan);
             eth_coord_t neighbor_eth_coord = desc.chip_locations.at(neighbor_chip);
             // shelves are connected in x-dim
-            if(std::get<3>(neighbor_eth_coord) != std::get<3>(chip_eth_coord)) {
-                eth_coord_t higher_shelf_coord = std::get<3>(neighbor_eth_coord) > std::get<3>(chip_eth_coord) ? neighbor_eth_coord : chip_eth_coord;
-                eth_coord_t lower_shelf_coord = std::get<3>(neighbor_eth_coord) < std::get<3>(chip_eth_coord) ? neighbor_eth_coord : chip_eth_coord;
-                int lower_shelf_id = std::get<3>(lower_shelf_coord);
-                int lower_shelf_y = std::get<1>(lower_shelf_coord);
+            if(neighbor_eth_coord.shelf != chip_eth_coord.shelf) {
+                eth_coord_t higher_shelf_coord = neighbor_eth_coord.shelf > chip_eth_coord.shelf ? neighbor_eth_coord : chip_eth_coord;
+                eth_coord_t lower_shelf_coord = neighbor_eth_coord.shelf < chip_eth_coord.shelf ? neighbor_eth_coord : chip_eth_coord;
+                int lower_shelf_id = lower_shelf_coord.shelf;
+                int lower_shelf_y = lower_shelf_coord.y;
 
                 auto& galaxy_shelf_exit_chip_coords_per_y_dim = desc.galaxy_shelves_exit_chip_coords_per_y_dim[lower_shelf_id];
 
@@ -460,11 +449,11 @@ void tt_ClusterDescriptor::load_ethernet_connections_from_connectivity_descripto
             }
 
             // racks are connected in y-dim
-            if(std::get<2>(neighbor_eth_coord) != std::get<2>(chip_eth_coord)) {
-                eth_coord_t higher_rack_coord = std::get<2>(neighbor_eth_coord) > std::get<2>(chip_eth_coord) ? neighbor_eth_coord : chip_eth_coord;
-                eth_coord_t lower_rack_coord = std::get<2>(neighbor_eth_coord) < std::get<2>(chip_eth_coord) ? neighbor_eth_coord : chip_eth_coord;
-                int lower_rack_id = std::get<2>(lower_rack_coord);
-                int lower_rack_x = std::get<0>(lower_rack_coord);
+            if(neighbor_eth_coord.rack != chip_eth_coord.rack) {
+                eth_coord_t higher_rack_coord = neighbor_eth_coord.rack > chip_eth_coord.rack ? neighbor_eth_coord : chip_eth_coord;
+                eth_coord_t lower_rack_coord = neighbor_eth_coord.rack < chip_eth_coord.rack ? neighbor_eth_coord : chip_eth_coord;
+                int lower_rack_id = lower_rack_coord.rack;
+                int lower_rack_x = lower_rack_coord.x;
 
                 auto& galaxy_rack_exit_chip_coords_per_x_dim = desc.galaxy_racks_exit_chip_coords_per_x_dim[lower_rack_id];
 
@@ -527,25 +516,25 @@ void tt_ClusterDescriptor::load_ethernet_connections_from_connectivity_descripto
 
 void tt_ClusterDescriptor::load_chips_from_connectivity_descriptor(YAML::Node &yaml, tt_ClusterDescriptor &desc) {
     for (YAML::const_iterator node = yaml["chips"].begin(); node != yaml["chips"].end(); ++node) {
-        chip_id_t chip_id = node->first.as<int>();
+        const umd::chip_id chip_id{node->first.as<int>()};
         std::vector<int> chip_rack_coords = node->second.as<std::vector<int>>();
         log_assert(chip_rack_coords.size() == 4, "Galaxy (x, y, rack, shelf) coords must be size 4");
         eth_coord_t chip_location{
             chip_rack_coords.at(0), chip_rack_coords.at(1), chip_rack_coords.at(2), chip_rack_coords.at(3)};
         
         desc.chip_locations.insert({chip_id, chip_location});
-        desc.coords_to_chip_ids[std::get<2>(chip_location)][std::get<3>(chip_location)][std::get<1>(chip_location)][std::get<0>(chip_location)] = chip_id;
+        desc.coords_to_chip_ids[chip_location.rack][chip_location.shelf][chip_location.y][chip_location.x] = chip_id;
         desc.all_chips.insert(chip_id);
     }
     
     for(const auto& chip : yaml["chips_with_mmio"]) {
         if(chip.IsMap()) {
-            const auto &chip_map = chip.as<std::map<chip_id_t, chip_id_t>>();
+            const auto &chip_map = chip.as<std::map<int, int>>();
             const auto &chips = chip_map.begin();
-            desc.chips_with_mmio.insert({chips->first, chips->second});
+            desc.chips_with_mmio.insert({umd::chip_id{chips->first}, umd::chip_id{chips->second}});
         }
         else {
-            const auto &chip_val = chip.as<int>();
+            const umd::chip_id chip_val{chip.as<int>()};
             desc.chips_with_mmio.insert({chip_val, chip_val});
         }
     }
@@ -555,15 +544,15 @@ void tt_ClusterDescriptor::load_chips_from_connectivity_descriptor(YAML::Node &y
             LogSiliconDriver,
             "\tchip: {},  EthCoord(x={}, y={}, rack={}, shelf={})",
             chip_id,
-            std::get<0>(chip_location),
-            std::get<1>(chip_location),
-            std::get<2>(chip_location),
-            std::get<3>(chip_location));
+            chip_location.x,
+            chip_location.y,
+            chip_location.rack,
+            chip_location.shelf);
     }
 
 		if (yaml["boardtype"]) {
         for (const auto& chip_board_type : yaml["boardtype"].as<std::map<int, std::string>>()) {
-            auto &chip = chip_board_type.first;
+            umd::chip_id chip{chip_board_type.first};
             BoardType board_type;
             if (chip_board_type.second == "n150") {
                 board_type = BoardType::N150;
@@ -586,7 +575,7 @@ void tt_ClusterDescriptor::load_chips_from_connectivity_descriptor(YAML::Node &y
 void tt_ClusterDescriptor::load_harvesting_information(YAML::Node &yaml, tt_ClusterDescriptor &desc) {
     if(yaml["harvesting"]) {
         for (const auto& chip_node : yaml["harvesting"].as<std::map<int, YAML::Node>>()) {
-            chip_id_t chip = chip_node.first;
+            chip_id_t chip{chip_node.first};
             auto harvesting_info = chip_node.second;
             desc.noc_translation_enabled.insert({chip, harvesting_info["noc_translation"].as<bool>()});
             desc.harvesting_masks.insert({chip, harvesting_info["harvest_mask"].as<std::uint32_t>()});
@@ -641,9 +630,8 @@ std::unordered_map<chip_id_t, eth_coord_t> tt_ClusterDescriptor::get_chip_locati
 chip_id_t tt_ClusterDescriptor::get_shelf_local_physical_chip_coords(chip_id_t virtual_coord) {
     // Physical cooridnates of chip inside a single rack. Calculated based on Galaxy topology.
     // See: https://yyz-gitlab.local.tenstorrent.com/tenstorrent/budabackend/-/wikis/uploads/23e7a5168f38dfb706f9887fde78cb03/image.png
-    int x = std::get<0>(get_chip_locations().at(virtual_coord));
-    int y = std::get<1>(get_chip_locations().at(virtual_coord));
-    return 8 * x + y;
+    const auto chip_location = get_chip_locations().at(virtual_coord);
+    return umd::chip_id{8 * chip_location.x + chip_location.y};
 }
 
 // Return map, but filter by enabled active chips.

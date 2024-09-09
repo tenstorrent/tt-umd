@@ -10,6 +10,8 @@
 
 namespace tt::umd {
 
+enum class chip_id : int;
+
 struct xy_pair {
     constexpr xy_pair() : x{}, y{} {}
     constexpr xy_pair(std::size_t x, std::size_t y) : x(x), y(y) {}
@@ -30,13 +32,13 @@ constexpr inline bool operator<(const xy_pair &left, const xy_pair &right) {
 
 struct cxy_pair : public xy_pair {
     cxy_pair() : xy_pair{}, chip{} {}
-    cxy_pair(std::size_t ichip, xy_pair pair) : xy_pair(pair.x, pair.y), chip(ichip) {}
-    cxy_pair(std::size_t ichip, std::size_t x, std::size_t y) : xy_pair(x, y), chip(ichip) {}
+    cxy_pair(chip_id ichip, xy_pair pair) : xy_pair(pair.x, pair.y), chip(ichip) {}
+    cxy_pair(chip_id ichip, std::size_t x, std::size_t y) : xy_pair(x, y), chip(ichip) {}
 
-    std::size_t chip;
+    chip_id chip;
 
     std::string str() const {
-        return "(chip=" + std::to_string(chip) + ",x=" + std::to_string(x) + ",y=" + std::to_string(y) + ")";
+        return "(chip=" + std::to_string(static_cast<std::size_t>(chip)) + ",x=" + std::to_string(x) + ",y=" + std::to_string(y) + ")";
     }
 };
 
@@ -70,7 +72,7 @@ template <>
 struct hash<tt::umd::cxy_pair> {
     std::size_t operator()(tt::umd::cxy_pair const &o) const {
         std::size_t seed = 0;
-        seed = std::hash<std::size_t>()(o.chip) ^ (std::hash<std::size_t>()(o.x) << 1) ^
+        seed = std::hash<std::size_t>()(static_cast<std::size_t>(o.chip)) ^ (std::hash<std::size_t>()(o.x) << 1) ^
                (std::hash<std::size_t>()(o.y) << 2);
         return seed;
     }

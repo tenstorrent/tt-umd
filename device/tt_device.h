@@ -21,6 +21,7 @@
 #include "device/tt_io.hpp"
 
 #include "pcie/pci_device.hpp"
+#include "fmt/core.h"
 
 using TLB_DATA = tt::umd::tlb_data;
 
@@ -126,7 +127,7 @@ struct tt_version {
         patch = version & 0xfff;
     }
     std::string str() const {
-        return std::to_string(major) + "." + std::to_string(minor) + "." + std::to_string(patch);
+        return fmt::format("{}.{}.{}", major, minor, patch);
     }
 };
 
@@ -149,7 +150,7 @@ struct tt_device_params {
             if (dump_core == "*") {
                 for (size_t x = 0; x < grid_size.x; x++) {
                 for (size_t y = 0; y < grid_size.y; y++) {
-                    std::string current_core_coord(std::to_string(x) + "-" + std::to_string(y));
+                    std::string current_core_coord = fmt::format("{}-{}", x, y);
                     if (std::find(std::begin(unrolled_dump_core), std::end(unrolled_dump_core), current_core_coord) == std::end(unrolled_dump_core)) {
                         unrolled_dump_core.push_back(current_core_coord);
                     }
@@ -169,7 +170,7 @@ struct tt_device_params {
             if (core_dim_x == "*" && core_dim_y == "*") {
                 for (size_t x = 0; x < grid_size.x; x++) {
                     for (size_t y = 0; y < grid_size.y; y++) {
-                        std::string current_core_coord(std::to_string(x) + "-" + std::to_string(y));
+                        std::string current_core_coord = fmt::format("{}-{}", x, y);
                         if (std::find(std::begin(unrolled_dump_core), std::end(unrolled_dump_core), current_core_coord) == std::end(unrolled_dump_core)) {
                             unrolled_dump_core.push_back(current_core_coord);
                         }
@@ -177,14 +178,14 @@ struct tt_device_params {
                 }
             } else if (core_dim_x == "*") {
                 for (size_t x = 0; x < grid_size.x; x++) {
-                    std::string current_core_coord(std::to_string(x) + "-" + core_dim_y);
+                    std::string current_core_coord = fmt::format("{}-{}", x, core_dim_y);
                     if (std::find(std::begin(unrolled_dump_core), std::end(unrolled_dump_core), current_core_coord) == std::end(unrolled_dump_core)) {
                         unrolled_dump_core.push_back(current_core_coord);
                     }
                 }
             } else if (core_dim_y == "*") {
                 for (size_t y = 0; y < grid_size.y; y++) {
-                    std::string current_core_coord(core_dim_x + "-" + std::to_string(y));
+                    std::string current_core_coord = fmt::format("{}-{}", core_dim_x, y);
                     if (std::find(std::begin(unrolled_dump_core), std::end(unrolled_dump_core), current_core_coord) == std::end(unrolled_dump_core)) {
                         unrolled_dump_core.push_back(current_core_coord);
                     }
@@ -198,8 +199,8 @@ struct tt_device_params {
 
     std::vector<std::string> expand_plusargs() const {
         std::vector<std::string> all_plusargs {
-            "+enable_perf_scoreboard=" + std::to_string(enable_perf_scoreboard),
-            "+register_monitor=" + std::to_string(register_monitor)
+            fmt::format("+enable_perf_scoreboard={}", enable_perf_scoreboard),
+            fmt::format("+register_monitor={}", register_monitor)
         };
 
         all_plusargs.insert(all_plusargs.end(), plusargs.begin(), plusargs.end());

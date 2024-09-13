@@ -9,6 +9,7 @@
 #include <thread>
 #include "device/tt_device.h"
 #include <filesystem>
+#include "fmt/core.h"
 namespace tt {
 
 namespace fs = std::filesystem;
@@ -97,7 +98,7 @@ bool tt_cpuset_allocator::init_find_tt_pci_devices_packages_numanodes(){
             m_num_tt_device_by_pci_device_id_map[device_id_revision] += 1;
 
             std::string pci_bus_id_str  = get_pci_bus_id(pci_device_obj);
-            std::string pci_device_dir  = "/sys/bus/pci/devices/" + pci_bus_id_str + "/tenstorrent/";
+            std::string pci_device_dir = fmt::format("/sys/bus/pci/devices/{}/tenstorrent/", pci_bus_id_str);
             int physical_device_id = -1;
 
             log_trace(LogSiliconDriver, "Found TT device with pci_bus_id_str: {} num_devices_by_pci_device_id: {}", pci_bus_id_str, m_num_tt_device_by_pci_device_id_map[device_id_revision]);
@@ -376,11 +377,9 @@ std::string tt_cpuset_allocator::get_pci_bus_id(hwloc_obj_t pci_device_obj){
 
     std::string pci_bus_id_str = "";
 
-    if (hwloc_obj_type_is_io(pci_device_obj->type)) {
-        char pci_bus_id[14];
+    if (hwloc_obj_type_is_io(pci_device_obj->type)) {        
         auto attrs = pci_device_obj->attr->pcidev;
-        snprintf(pci_bus_id, sizeof(pci_bus_id), "%04x:%02x:%02x.%01x", attrs.domain, attrs.bus, attrs.dev, attrs.func);
-        pci_bus_id_str = (std::string) pci_bus_id;
+        pci_bus_id_str = fmt::format("{:04x}{:02x}{:02x}{:01x}", attrs.domain, attrs.bus, attrs.dev, attrs.func);
     }
 
     return pci_bus_id_str;

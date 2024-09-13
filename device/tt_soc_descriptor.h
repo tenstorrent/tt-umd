@@ -19,6 +19,9 @@
 #include "tt_xy_pair.h"
 #include "device/tt_arch_types.h"
 
+
+#include "fmt/core.h"
+
 namespace YAML {
     class Node;
 }
@@ -60,7 +63,7 @@ static inline tt::ARCH get_arch_name(const std::string &arch_str){
         arch = tt::ARCH::BLACKHOLE;
     }else {
         throw std::runtime_error(
-            "At LoadSocDescriptorFromYaml: \"" + arch_str + "\" is not recognized as tt::ARCH.");
+            fmt::format("At LoadSocDescriptorFromYaml: \"{}\" is not recognized as tt::ARCH.", arch_str));
     }
 
     return arch;

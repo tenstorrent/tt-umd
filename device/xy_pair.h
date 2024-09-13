@@ -8,6 +8,8 @@
 
 #include <string>
 
+#include "fmt/core.h"
+
 namespace tt::umd {
 
 struct xy_pair {
@@ -17,7 +19,7 @@ struct xy_pair {
     std::size_t x;
     std::size_t y;
 
-    std::string str() const { return "(x=" + std::to_string(x) + ",y=" + std::to_string(y) + ")"; }
+    std::string str() const { return fmt::format("(x={},y={})", x, y); }
 };
 
 constexpr inline bool operator==(const xy_pair &a, const xy_pair &b) { return a.x == b.x && a.y == b.y; }
@@ -36,7 +38,7 @@ struct cxy_pair : public xy_pair {
     std::size_t chip;
 
     std::string str() const {
-        return "(chip=" + std::to_string(chip) + ",x=" + std::to_string(x) + ",y=" + std::to_string(y) + ")";
+        return fmt::format("(chip={},x={},y={})", chip, x, y);
     }
 };
 

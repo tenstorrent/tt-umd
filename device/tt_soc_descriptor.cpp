@@ -12,9 +12,11 @@
 #include <string>
 #include <unordered_set>
 
+#include "fmt/core.h"
+
 // #include "l1_address_map.h"
 
-std::string format_node(tt_xy_pair xy) { return std::to_string(xy.x) + "-" + std::to_string(xy.y); }
+std::string format_node(tt_xy_pair xy) { return fmt::format("{}-{}", xy.x, xy.y); }
 
 tt_xy_pair format_node(std::string str) {
   int x_coord;
@@ -26,7 +28,7 @@ tt_xy_pair format_node(std::string str) {
     x_coord = std::stoi(x_y_pair[1]);
     y_coord = std::stoi(x_y_pair[2]);
   } else {
-    throw std::runtime_error("Could not parse the core id: " + str);
+    throw std::runtime_error(fmt::format("Could not parse the core id: {}", str));
   }
 
   tt_xy_pair xy(x_coord, y_coord);
@@ -167,7 +169,7 @@ void tt_SocDescriptor::load_core_descriptors_from_device_descriptor(YAML::Node &
 tt_SocDescriptor::tt_SocDescriptor(std::string device_descriptor_path) {
     std::ifstream fdesc(device_descriptor_path);
     if (fdesc.fail()) {
-        throw std::runtime_error("Error: device descriptor file " + device_descriptor_path + " does not exist!");
+        throw std::runtime_error(fmt::format("Error: device descriptor file {} does not exist!", device_descriptor_path));
     }
     fdesc.close();
 

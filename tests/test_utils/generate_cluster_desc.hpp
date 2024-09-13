@@ -10,6 +10,8 @@
 #include <string>
 #include <iostream>
 
+#include "fmt/core.h"
+
 namespace test_utils {
 
 inline std::string GetAbsPath(std::string path_){
@@ -42,7 +44,7 @@ inline std::string GetClusterDescYAML(){
         // Generates the cluster descriptor in the CWD
 
         std::filesystem::path eth_fpath = umd_path / "device/bin/silicon/x86/create-ethernet-map";
-        std::string cmd = eth_fpath.string() + " " + cluster_path.string();
+        std::string cmd = fmt::format("{} {}", eth_fpath.string(), cluster_path.string());
         int val = system(cmd.c_str());
         if(val != 0) throw std::runtime_error("Cluster Generation Failed!");
         yaml_path = cluster_path.string();

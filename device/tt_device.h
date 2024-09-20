@@ -56,9 +56,9 @@ struct tt_device_dram_address_params {
     std::uint32_t DRAM_BARRIER_BASE = 0;
 };
 /**
-* Struct encapsulating all L1 Address Map parameters required by UMD.
+ * Struct encapsulating all L1 Address Map parameters required by UMD.
  * These parameters are passed to the constructor.
-*/
+ */
 struct tt_device_l1_address_params {
     std::uint32_t ncrisc_fw_base = 0;
     std::uint32_t fw_base = 0;
@@ -72,18 +72,18 @@ struct tt_device_l1_address_params {
 };
 
 /**
-* Struct encapsulating all Host Address Map parameters required by UMD.
+ * Struct encapsulating all Host Address Map parameters required by UMD.
  * These parameters are passed to the constructor and are needed for non-MMIO transactions.
-*/
+ */
 struct tt_driver_host_address_params {
     std::uint32_t eth_routing_block_size = 0;
     std::uint32_t eth_routing_buffers_start = 0;
 };
 
 /**
-* Struct encapsulating all ERISC Firmware parameters required by UMD.
+ * Struct encapsulating all ERISC Firmware parameters required by UMD.
  * These parameters are passed to the constructor and are needed for non-MMIO transactions.
-*/
+ */
 struct tt_driver_eth_interface_params {
     std::uint32_t noc_addr_local_bits = 0;
     std::uint32_t noc_addr_node_id_bits = 0;
@@ -222,9 +222,9 @@ class tt_device
     /**
      * Set L1 Address Map parameters used by UMD to communicate with the TT Device.
      *
-     * | Argument            | Description                           | Type                        | Valid Range | Required |
-     * |---------------------|---------------------------------------|-----------------------------|-------------|----------|
-     * | l1_address_params_ | All the L1 parameters required by UMD. | tt_device_l1_address_params |             | Yes      |
+     * | Argument            | Description                            | Type                        | Valid Range | Required |
+     * |---------------------|----------------------------------------|-----------------------------|-------------|----------|
+     * | l1_address_params_  | All the L1 parameters required by UMD. | tt_device_l1_address_params |             | Yes      |
      */ 
     virtual void set_device_l1_address_params(const tt_device_l1_address_params& l1_address_params_) {
         throw std::runtime_error("---- tt_device::set_device_l1_address_params is not implemented\n");

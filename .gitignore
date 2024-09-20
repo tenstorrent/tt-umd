@@ -9,4 +9,3 @@ compile_commands.json
 .vscode/
 *.log
 *.csv
-docs/doxygen_build/

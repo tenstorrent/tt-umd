@@ -5,5 +5,10 @@ fi
 
 echo "Building tt-umd docs..."
 
-cd $TT_UMD_HOME
+pushd $TT_UMD_HOME
+DOCS_BUILD_DIR="build"
+if [ ! -d "$DOCS_BUILD_DIR" ]; then
+    mkdir $DOCS_BUILD_DIR
+fi
 doxygen Doxyfile
+popd

@@ -2,7 +2,7 @@
 
 ## Requirements
 
-TODO
+In order to be able to build the docs, required packages need to be installed. In order to install the required packages, run [`install_docs_requirements.sh`](install_docs_requirements.sh)
 
 ## Build docs
 

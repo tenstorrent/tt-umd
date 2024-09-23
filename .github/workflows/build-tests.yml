@@ -1,0 +1,134 @@
+name: Build and run Tests
+
+on:
+  workflow_call:
+    inputs:
+      arch:
+        required: true
+        type: string
+  workflow_dispatch:
+    inputs:
+      arch:
+        required: true
+        description: 'The architecture to build for'
+        type: choice
+        options:
+          - grayskull
+          - wormhole_b0
+          - blackhole
+env:
+  BUILD_OUTPUT_DIR: ${{ github.workspace }}/build
+  INSTALL_OUTPUT_DIR: ${{ github.workspace }}/install
+
+jobs:
+  build:
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        build: [
+          {name: ubuntu-22.04},
+          {name: ubuntu-20.04},
+        ]
+    runs-on: ${{ matrix.build.name }}
+    container:
+      image: ghcr.io/${{ github.repository }}/tt-metalium/${{ matrix.build.name }}:latest
+      options: --user root
+
+    env:
+      ARCH_NAME: ${{ inputs.arch }}
+
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        submodules: recursive
+
+    # - name: Set up environment
+    #   run: |
+    #     sudo apt-get update
+    #     sudo apt-get install -y build-essential libyaml-cpp-dev libhwloc-dev libgtest-dev libboost-dev
+
+    # - name: Set reusable strings
+    #   id: strings
+    #   shell: bash
+    #   run: |
+    #     echo "work-dir=$(pwd)" >> "$GITHUB_OUTPUT"
+    #     echo "build-output-dir=$(pwd)/build" >> "$GITHUB_OUTPUT"
+    #     echo "install-output-dir=$(pwd)/install" >> "$GITHUB_OUTPUT"
+
+    - name: Build UMD
+      run: |
+        echo "Compiling the code..."
+        cmake -B ${{ env.BUILD_OUTPUT_DIR }} -G Ninja
+        cmake --build ${{ env.BUILD_OUTPUT_DIR }} --target umd_tests
+        echo "Compile complete."
+    
+    - name: Install UMD
+      run: |
+        echo "Installing the code..."
+        cmake --install ${{ env.BUILD_OUTPUT_DIR }} --component umd_device --prefix ${{ env.INSTALL_OUTPUT_DIR }}
+        echo "Install complete."
+
+    # This is needed to preserve file permissions
+    # https://github.com/actions/upload-artifact?tab=readme-ov-file#permission-loss
+    - name: 'Tar install directory'
+      shell: bash
+      working-directory: ${{ env.INSTALL_OUTPUT_DIR }}
+      run: tar cvf artifact.tar .
+
+    - name: Upload install folder to archive
+      uses: actions/upload-artifact@v4
+      with:
+        name: install-artifacts-${{ matrix.build.name }}
+        path: ${{ env.INSTALL_OUTPUT_DIR }}/artifact.tar
+
+
+  # test:
+  #   timeout-minutes: 30
+  #   strategy:
+  #     fail-fast: false
+  #     matrix:
+  #       test: [
+  #         {name: ubuntu-22.04, machine: ?},
+  #         {name: ubuntu-20.04, machine: ?},
+  #       ]
+  #   runs-on: ${{ matrix.test.machine }}
+  #   needs: build
+
+  #   container:
+  #     image: ghcr.io/${{ github.repository }}/tt-metalium/${{ matrix.test.name }}:latest
+  #     options: --user root
+  #     volumes:
+  #       - /dev/hugepages:/dev/hugepages
+  #       - /dev/hugepages-1G:/dev/hugepages-1G
+
+  #   env:
+  #     ARCH_NAME: ${{ inputs.arch }}
+
+  #   steps:
+
+  #   - name: Set reusable strings
+  #     id: strings
+  #     shell: bash
+  #     run: |
+  #       echo "work-dir=$(pwd)" >> "$GITHUB_OUTPUT"
+  #       echo "build-output-dir=$(pwd)/build" >> "$GITHUB_OUTPUT"
+  #       echo "install-output-dir=$(pwd)/install" >> "$GITHUB_OUTPUT"
+
+  #   - name: Use build artifacts
+  #     uses: actions/download-artifact@v4
+  #     with:
+  #       name: install-artifacts-${{ matrix.build.name }}
+  #       path: ${{ env.INSTALL_OUTPUT_DIR }}
+
+  #   # This is needed to preserve file permissions
+  #   # https://github.com/actions/upload-artifact?tab=readme-ov-file#permission-loss
+  #   - name: 'Untar install directory'
+  #     shell: bash
+  #     working-directory: ${{ env.INSTALL_OUTPUT_DIR }}
+  #     run: tar xvf artifact.tar
+
+  #   - name: Run UMD unit tests
+  #     timeout-minutes: ${{ inputs.timeout }}
+  #     run: build/test/umd/${{ inputs.arch }}/unit_tests
+

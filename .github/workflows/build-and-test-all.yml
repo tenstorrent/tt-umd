@@ -1,0 +1,37 @@
+name: "Build and Test All"
+
+on:
+  workflow_dispatch:
+  workflow_call:
+
+jobs:
+  build-all:
+    secrets: inherit
+    strategy:
+      fail-fast: false
+      matrix:
+        test-group: [
+          { arch: grayskull},
+          { arch: wormhole},
+          { arch: wormhole_b0},
+          { arch: blackhole},
+        ]
+    uses: ./.github/workflows/build-source.yml
+    with:
+      arch: ${{ matrix.test-group.arch }}
+
+    
+  test-all:
+    secrets: inherit
+    strategy:
+      fail-fast: false
+      matrix:
+        test-group: [
+          { arch: grayskull},
+          { arch: wormhole},
+          { arch: wormhole_b0},
+          # { arch: blackhole},
+        ]
+    uses: ./.github/workflows/build-.yml
+    with:
+      arch: ${{ matrix.test-group.arch }}

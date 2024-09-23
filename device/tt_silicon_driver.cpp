@@ -58,7 +58,7 @@
 #include <stdarg.h>
 #include "device/cpuset_lib.hpp"
 #include "common/logger.hpp"
-#include "device/driver_atomics.h"
+#include "driver_atomics.h"
 
 #define WHT "\e[0;37m"
 #define BLK "\e[0;30m"

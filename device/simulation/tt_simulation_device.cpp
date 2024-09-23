@@ -11,7 +11,7 @@
 
 #include "common/logger.hpp"
 #include "common/assert.hpp"
-#include "device/driver_atomics.h"
+#include "driver_atomics.h"
 #include "device/tt_cluster_descriptor.h"
 
 #include "tt_simulation_device.h"

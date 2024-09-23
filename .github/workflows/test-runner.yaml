@@ -1,0 +1,103 @@
+name: Check runner
+
+on:
+  workflow_dispatch:
+  pull_request:
+  push:
+
+jobs:
+  
+  check-runners-host:
+    timeout-minutes: 10
+    strategy:
+      matrix:
+        build: [
+          {runs-on: ubuntu-latest},
+          {runs-on: e150},
+          {runs-on: e300},
+          {runs-on: e75},
+          {runs-on: n150},
+          {runs-on: n300},
+        ]
+
+    name: Check runner
+    runs-on: ${{ matrix.build.runs-on }}
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Print machine info    
+      run: |
+        # Print machine name
+        echo "Machine Name: $(hostname)"
+
+        # Print OS information
+        echo "Operating System: $(lsb_release -d | cut -f2-)"
+        echo "Kernel Version: $(uname -r)"
+        echo "Architecture: $(uname -m)"
+
+        # Print current user
+        echo "Current User: $(whoami)"
+
+        # Print CPU information
+        echo "CPU Information:"
+        lscpu | grep 'Model name'
+        lscpu | grep 'Architecture'
+
+        # Print Memory information
+        echo "Memory Information:"
+        free -h
+
+        # Print Disk usage
+        echo "Disk Usage:"
+        df -h
+
+  check-runners-docker:
+    timeout-minutes: 10
+    strategy:
+      matrix:
+        build: [
+          {runs-on: ubuntu-latest},
+          {runs-on: e150},
+          {runs-on: e300},
+          {runs-on: e75},
+          {runs-on: n150},
+          {runs-on: n300},
+        ]
+
+    name: Check runner docker
+    needs: check-runners-host
+    runs-on: ${{ matrix.build.runs-on }}
+
+    container:
+      image: ghcr.io/tenstorrent/tt-mlir/tt-mlir-base-ubuntu-22-04:latest
+      options: --user root
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Print machine info    
+      run: |
+        # Print machine name
+        echo "Machine Name: $(hostname)"
+
+        # Print OS information
+        echo "Operating System: $(lsb_release -d | cut -f2-)"
+        echo "Kernel Version: $(uname -r)"
+        echo "Architecture: $(uname -m)"
+
+        # Print current user
+        echo "Current User: $(whoami)"
+
+        # Print CPU information
+        echo "CPU Information:"
+        lscpu | grep 'Model name'
+        lscpu | grep 'Architecture'
+
+        # Print Memory information
+        echo "Memory Information:"
+        free -h
+
+        # Print Disk usage
+        echo "Disk Usage:"
+        df -h

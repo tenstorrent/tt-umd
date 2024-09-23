@@ -10,6 +10,7 @@
 #include "device/wormhole/wormhole_implementation.h"
 #include "l1_address_map.h"
 #include "tests/test_utils/generate_cluster_desc.hpp"
+#include "tests/test_utils/device_test_utils.hpp"
 
 TEST(SiliconDriverGS, CreateDestroySequential) {
     std::set<chip_id_t> target_devices = {0};
@@ -115,20 +116,20 @@ TEST(SiliconDriverGS, HarvestingRuntime) {
         std::uint32_t dynamic_write_address = 0x30000000;
         for(int loop = 0; loop < 100; loop++){ // Write to each core a 100 times at different statically mapped addresses
             for(auto& core :  device.get_virtual_soc_descriptors().at(i).workers) {
-                device.write_to_device(vector_to_write, tt_cxy_pair(i, core), address, "");
-                device.write_to_device(vector_to_write, tt_cxy_pair(i, core), dynamic_write_address, "SMALL_READ_WRITE_TLB");
+                device.write_to_device(vector_to_write.data(), vector_to_write.size() * sizeof(std::uint32_t), tt_cxy_pair(i, core), address, "");
+                device.write_to_device(vector_to_write.data(), vector_to_write.size() * sizeof(std::uint32_t), tt_cxy_pair(i, core), dynamic_write_address, "SMALL_READ_WRITE_TLB");
                 auto start_time = std::chrono::high_resolution_clock::now();
                 while(!(vector_to_write == readback_vec)) {
                     float wait_duration = std::chrono::duration_cast<std::chrono::seconds>(std::chrono::high_resolution_clock::now() - start_time).count();
                     if(wait_duration > timeout_in_seconds) {
                         break;
                     }
-                    device.read_from_device(readback_vec, tt_cxy_pair(i, core), address, 40, "");
-                    device.read_from_device(dynamic_readback_vec, tt_cxy_pair(i, core), dynamic_write_address, 40, "SMALL_READ_WRITE_TLB");
+                    test_utils::read_data_from_device(device, readback_vec, tt_cxy_pair(i, core), address, 40, "");
+                    test_utils::read_data_from_device(device, dynamic_readback_vec, tt_cxy_pair(i, core), dynamic_write_address, 40, "SMALL_READ_WRITE_TLB");
                 }
                 ASSERT_EQ(vector_to_write, readback_vec) << "Vector read back from core " << core.x << "-" << core.y << "does not match what was written";
-                device.write_to_device(zeros, tt_cxy_pair(i, core), address, "SMALL_READ_WRITE_TLB"); // Clear any written data
-                device.write_to_device(zeros, tt_cxy_pair(i, core), dynamic_write_address, "SMALL_READ_WRITE_TLB"); // Clear any written data
+                device.write_to_device(zeros.data(), zeros.size() * sizeof(std::uint32_t), tt_cxy_pair(i, core), address, "SMALL_READ_WRITE_TLB"); // Clear any written data
+                device.write_to_device(zeros.data(), zeros.size() * sizeof(std::uint32_t), tt_cxy_pair(i, core), dynamic_write_address, "SMALL_READ_WRITE_TLB"); // Clear any written data
                 readback_vec = {};
                 dynamic_readback_vec = {};
             }
@@ -176,17 +177,17 @@ TEST(SiliconDriverGS, StaticTLB_RW) {
         std::uint32_t address = l1_mem::address_map::DATA_BUFFER_SPACE_BASE;
         for(int loop = 0; loop < 100; loop++){ // Write to each core a 100 times at different statically mapped addresses
             for(auto& core :  device.get_virtual_soc_descriptors().at(i).workers) {
-                device.write_to_device(vector_to_write, tt_cxy_pair(i, core), address, "");
+                device.write_to_device(vector_to_write.data(), vector_to_write.size() * sizeof(std::uint32_t), tt_cxy_pair(i, core), address, "");
                 auto start_time = std::chrono::high_resolution_clock::now();
                 while(!(vector_to_write == readback_vec)) {
                     float wait_duration = std::chrono::duration_cast<std::chrono::seconds>(std::chrono::high_resolution_clock::now() - start_time).count();
                     if(wait_duration > timeout_in_seconds) {
                         break;
                     }
-                    device.read_from_device(readback_vec, tt_cxy_pair(i, core), address, 40, "");
+                    test_utils::read_data_from_device(device, readback_vec, tt_cxy_pair(i, core), address, 40, "");
                 }
                 ASSERT_EQ(vector_to_write, readback_vec) << "Vector read back from core " << core.x << "-" << core.y << "does not match what was written";
-                device.write_to_device(zeros, tt_cxy_pair(i, core), address, "SMALL_READ_WRITE_TLB"); // Clear any written data
+                device.write_to_device(zeros.data(), zeros.size() * sizeof(std::uint32_t), tt_cxy_pair(i, core), address, "SMALL_READ_WRITE_TLB"); // Clear any written data
                 readback_vec = {};
             }
             address += 0x20; // Increment by uint32_t size for each write
@@ -217,18 +218,18 @@ TEST(SiliconDriverGS, DynamicTLB_RW) {
         std::uint32_t address = l1_mem::address_map::DATA_BUFFER_SPACE_BASE;
         for(int loop = 0; loop < 100; loop++){ // Write to each core a 100 times at different statically mapped addresses
             for(auto& core : device.get_virtual_soc_descriptors().at(i).workers) {
-                device.write_to_device(vector_to_write, tt_cxy_pair(i, core), address, "SMALL_READ_WRITE_TLB");
+                device.write_to_device(vector_to_write.data(), vector_to_write.size() * sizeof(std::uint32_t), tt_cxy_pair(i, core), address, "SMALL_READ_WRITE_TLB");
                 auto start_time = std::chrono::high_resolution_clock::now();
                 while(!(vector_to_write == readback_vec)) {
                     float wait_duration = std::chrono::duration_cast<std::chrono::seconds>(std::chrono::high_resolution_clock::now() - start_time).count();
                     if(wait_duration > timeout_in_seconds) {
                         break;
                     }
-                    device.read_from_device(readback_vec, tt_cxy_pair(i, core), address, 40, "SMALL_READ_WRITE_TLB");
+                    test_utils::read_data_from_device(device, readback_vec, tt_cxy_pair(i, core), address, 40, "SMALL_READ_WRITE_TLB");
                 }
 
                 ASSERT_EQ(vector_to_write, readback_vec) << "Vector read back from core " << core.x << "-" << core.y << "does not match what was written";
-                device.write_to_device(zeros, tt_cxy_pair(i, core), address, "SMALL_READ_WRITE_TLB"); // Clear any written data
+                device.write_to_device(zeros.data(), zeros.size() * sizeof(std::uint32_t), tt_cxy_pair(i, core), address, "SMALL_READ_WRITE_TLB"); // Clear any written data
                 readback_vec = {};
             }
             address += 0x20; // Increment by uint32_t size for each write
@@ -259,14 +260,14 @@ TEST(SiliconDriverGS, MultiThreadedDevice) {
         std::uint32_t address = l1_mem::address_map::DATA_BUFFER_SPACE_BASE;
         for(int loop = 0; loop < 100; loop++) {
             for(auto& core : device.get_virtual_soc_descriptors().at(0).workers) {
-                device.write_to_device(vector_to_write, tt_cxy_pair(0, core), address, "SMALL_READ_WRITE_TLB");
+                device.write_to_device(vector_to_write.data(), vector_to_write.size() * sizeof(std::uint32_t), tt_cxy_pair(0, core), address, "SMALL_READ_WRITE_TLB");
                 auto start_time = std::chrono::high_resolution_clock::now();
                 while(!(vector_to_write == readback_vec)) {
                     float wait_duration = std::chrono::duration_cast<std::chrono::seconds>(std::chrono::high_resolution_clock::now() - start_time).count();
                     if(wait_duration > timeout_in_seconds) {
                         break;
                     }
-                    device.read_from_device(readback_vec, tt_cxy_pair(0, core), address, 40, "SMALL_READ_WRITE_TLB");
+                    test_utils::read_data_from_device(device, readback_vec, tt_cxy_pair(0, core), address, 40, "SMALL_READ_WRITE_TLB");
                 }
                 ASSERT_EQ(vector_to_write, readback_vec) << "Vector read back from core " << core.x << "-" << core.y << "does not match what was written";
                 readback_vec = {};
@@ -283,14 +284,14 @@ TEST(SiliconDriverGS, MultiThreadedDevice) {
         for(auto& core_ls : device.get_virtual_soc_descriptors().at(0).dram_cores) {
             for(int loop = 0; loop < 100; loop++) {
                 for(auto& core : core_ls) {
-                    device.write_to_device(vector_to_write, tt_cxy_pair(0, core), address, "SMALL_READ_WRITE_TLB");
+                    device.write_to_device(vector_to_write.data(), vector_to_write.size() * sizeof(std::uint32_t), tt_cxy_pair(0, core), address, "SMALL_READ_WRITE_TLB");
                     auto start_time = std::chrono::high_resolution_clock::now();
                     while(!(vector_to_write == readback_vec)) {
                         float wait_duration = std::chrono::duration_cast<std::chrono::seconds>(std::chrono::high_resolution_clock::now() - start_time).count();
                         if(wait_duration > timeout_in_seconds) {
                             break;
                     }
-                    device.read_from_device(readback_vec, tt_cxy_pair(0, core), address, 40, "SMALL_READ_WRITE_TLB");
+                    test_utils::read_data_from_device(device, readback_vec, tt_cxy_pair(0, core), address, 40, "SMALL_READ_WRITE_TLB");
                 }
                     ASSERT_EQ(vector_to_write, readback_vec) << "Vector read back from core " << core.x << "-" << core.y << "does not match what was written";
                     readback_vec = {};
@@ -344,20 +345,20 @@ TEST(SiliconDriverGS, MultiThreadedMemBar) { // this tests takes ~5 mins to run
     device.deassert_risc_reset();
     std::vector<uint32_t> readback_membar_vec = {};
     for(auto& core : device.get_virtual_soc_descriptors().at(0).workers) {
-        device.read_from_device(readback_membar_vec, tt_cxy_pair(0, core), 0, 4, "SMALL_READ_WRITE_TLB");
+        test_utils::read_data_from_device(device, readback_membar_vec, tt_cxy_pair(0, core), 0, 4, "SMALL_READ_WRITE_TLB");
         ASSERT_EQ(readback_membar_vec.at(0), 187); // Ensure that memory barriers were correctly initialized on all workers
         readback_membar_vec = {};
     }
 
     for(auto& core : device.get_virtual_soc_descriptors().at(0).workers) {
-        device.read_from_device(readback_membar_vec, tt_cxy_pair(0, core), 0, 4, "SMALL_READ_WRITE_TLB");
+        test_utils::read_data_from_device(device, readback_membar_vec, tt_cxy_pair(0, core), 0, 4, "SMALL_READ_WRITE_TLB");
         ASSERT_EQ(readback_membar_vec.at(0), 187); // Ensure that memory barriers were correctly initialized on all workers
         readback_membar_vec = {};
     }
 
     for(int chan = 0; chan <  device.get_virtual_soc_descriptors().at(0).get_num_dram_channels(); chan++) {
         auto core = device.get_virtual_soc_descriptors().at(0).get_core_for_dram_channel(chan, 0);
-        device.read_from_device(readback_membar_vec, tt_cxy_pair(0, core), 0, 4, "SMALL_READ_WRITE_TLB");
+        test_utils::read_data_from_device(device, readback_membar_vec, tt_cxy_pair(0, core), 0, 4, "SMALL_READ_WRITE_TLB");
         ASSERT_EQ(readback_membar_vec.at(0), 187); // Ensure that memory barriers were correctly initialized on all DRAM
         readback_membar_vec = {};
     }
@@ -379,11 +380,11 @@ TEST(SiliconDriverGS, MultiThreadedMemBar) { // this tests takes ~5 mins to run
         for(int loop = 0; loop < 100; loop++) {
             for(auto& core : device.get_virtual_soc_descriptors().at(0).workers) {
                 std::vector<uint32_t> readback_vec = {};
-                device.write_to_device(vec1, tt_cxy_pair(0, core), address, "");
+                device.write_to_device(vec1.data(), vec1.size() * sizeof(std::uint32_t), tt_cxy_pair(0, core), address, "");
                 device.l1_membar(0, "", {core});
-                device.read_from_device(readback_vec, tt_cxy_pair(0, core), address, 4*vec1.size(), "");
+                test_utils::read_data_from_device(device, readback_vec, tt_cxy_pair(0, core), address, 4*vec1.size(), "");
                 ASSERT_EQ(readback_vec, vec1);
-                device.write_to_device(zeros, tt_cxy_pair(0, core), address, "");
+                device.write_to_device(zeros.data(), zeros.size() * sizeof(std::uint32_t), tt_cxy_pair(0, core), address, "");
                 readback_vec = {};
             }
         }
@@ -394,11 +395,11 @@ TEST(SiliconDriverGS, MultiThreadedMemBar) { // this tests takes ~5 mins to run
         for(int loop = 0; loop < 100; loop++) {
             for(auto& core : device.get_virtual_soc_descriptors().at(0).workers) {
                 std::vector<uint32_t> readback_vec = {};
-                device.write_to_device(vec2, tt_cxy_pair(0, core), address, "");
+                device.write_to_device(vec2.data(), vec2.size() * sizeof(std::uint32_t), tt_cxy_pair(0, core), address, "");
                 device.l1_membar(0, "", {core});
-                device.read_from_device(readback_vec, tt_cxy_pair(0, core), address, 4*vec2.size(), "");
+                test_utils::read_data_from_device(device, readback_vec, tt_cxy_pair(0, core), address, 4*vec2.size(), "");
                 ASSERT_EQ(readback_vec, vec2);
-                device.write_to_device(zeros, tt_cxy_pair(0, core), address, "") ;
+                device.write_to_device(zeros.data(), zeros.size() * sizeof(std::uint32_t), tt_cxy_pair(0, core), address, "") ;
                 readback_vec = {};
             }
         }
@@ -408,7 +409,7 @@ TEST(SiliconDriverGS, MultiThreadedMemBar) { // this tests takes ~5 mins to run
     th2.join();
 
     for(auto& core : device.get_virtual_soc_descriptors().at(0).workers) {
-        device.read_from_device(readback_membar_vec, tt_cxy_pair(0, core), 0, 4, "SMALL_READ_WRITE_TLB");
+        test_utils::read_data_from_device(device, readback_membar_vec, tt_cxy_pair(0, core), 0, 4, "SMALL_READ_WRITE_TLB");
         ASSERT_EQ(readback_membar_vec.at(0), 187); // Ensure that memory barriers end up in correct sate workers
         readback_membar_vec = {};
     }

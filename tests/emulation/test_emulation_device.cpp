@@ -24,14 +24,14 @@ TEST(EmulationDeviceGS, BasicEmuTest) {
         for (auto &byte : wdata) {
             byte = rand();
         }
-        device.write_to_device(wdata, tt_cxy_pair(0, core), l1_addr, "l1");
-        device.read_from_device(rdata, tt_cxy_pair(0, core), l1_addr, size, "l1");
+        device.write_to_device(wdata.data(), wdata.size() * sizeof(std::uint32_t), tt_cxy_pair(0, core), l1_addr, "l1");
+        test_utils::read_data_from_device(device, rdata, tt_cxy_pair(0, core), l1_addr, size, "l1");
         ASSERT_EQ(wdata, rdata) << "Vector read back from core " << core.x << "-" << core.y << "does not match what was written";
 
         device.deassert_risc_reset();
-        device.write_to_device(wdata, tt_cxy_pair(0, tt_xy_pair(phys_x, phys_y)), l1_addr, "l1");
+        device.write_to_device(wdata.data(), wdata.size() * sizeof(std::uint32_t), tt_cxy_pair(0, tt_xy_pair(phys_x, phys_y)), l1_addr, "l1");
         device.assert_risc_reset();
-        device.write_to_device(wdata, tt_cxy_pair(0, tt_xy_pair(phys_x, phys_y)), l1_addr, "l1");
+        device.write_to_device(wdata.data(), wdata.size() * sizeof(std::uint32_t), tt_cxy_pair(0, tt_xy_pair(phys_x, phys_y)), l1_addr, "l1");
 
 
     } catch (const std::exception &e) {

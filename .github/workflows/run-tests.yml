@@ -6,6 +6,9 @@ on:
       arch:
         required: true
         type: string
+      card:
+        required: true
+        type: string
   workflow_dispatch:
     inputs:
       arch:
@@ -16,12 +19,22 @@ on:
           - grayskull
           - wormhole_b0
           - blackhole
+      card:
+        required: true
+        description: 'The card to run tests on'
+        type: choice
+        options:
+          - e75
+          - e150
+          - e300
+          - n150
+          - n300
 
 env:
   BUILD_ARTEFACT_NAME: umd_tests
 
 jobs:
-  build:
+  test:
     timeout-minutes: 10
     strategy:
       fail-fast: false
@@ -31,19 +44,25 @@ jobs:
           {runs-on: ubuntu-20.04, docker_image: tt-umd-ci-ubuntu-20.04},
         ]
 
-    name: Build umd_tests for ${{ inputs.arch }} on ${{ matrix.build.runs-on }}
-    runs-on: ${{ matrix.build.runs-on }}
+    name: Run tests for ${{ inputs.arch }} on ${{ inputs.card }} on ${{ matrix.build.runs-on }}
+    runs-on:
+      - self-hosted
+      - ${{ inputs.card }}
     container:
       image: ghcr.io/${{ github.repository }}/${{ matrix.build.docker_image }}:latest
       options: --user root
+      volumes:
+        - /dev/hugepages:/dev/hugepages
+        - /dev/hugepages-1G:/dev/hugepages-1G
 
     env:
       ARCH_NAME: ${{ inputs.arch }}
 
     steps:
-    - uses: actions/checkout@v4
-      with:
-        submodules: recursive
+    - name: Change directory as if we were in a github.repository
+      run: |
+        mkdir tt-umd
+        cd tt-umd
 
     - name: Set reusable strings
       id: strings
@@ -54,22 +73,20 @@ jobs:
         echo "TEST_OUTPUT_DIR=$(pwd)/build/test" >> "$GITHUB_ENV"
         echo "CREATE_MAP_BINARIES_DIR=$(pwd)/device/bin/silicon" >> "$GITHUB_ENV"
 
-    - name: Build UMD
-      run: |
-        echo "Compiling the code..."
-        cmake -B ${{ env.BUILD_OUTPUT_DIR }} -G Ninja
-        cmake --build ${{ env.BUILD_OUTPUT_DIR }} --target ${{ env.BUILD_ARTEFACT_NAME }}
-        echo "Compile complete."
-
-    # This is needed to preserve file permissions
-    # https://github.com/actions/upload-artifact?tab=readme-ov-file#permission-loss
-    - name: 'Tar needed directories'
-      shell: bash
-      # working-directory: ${{ env.INSTALL_OUTPUT_DIR }}
-      run: tar cvf artifact.tar ${{ env.TEST_OUTPUT_DIR }} ${{ env.CREATE_MAP_BINARIES_DIR }}
-
-    - name: Upload build artifacts folder to archive
-      uses: actions/upload-artifact@v4
+    - name: Use build artifacts
+      uses: actions/download-artifact@v4
       with:
         name: build-artifacts-${{ inputs.arch }}-${{ matrix.build.runs-on }}
         path: artifact.tar
+
+    # This is needed to preserve file permissions
+    # https://github.com/actions/upload-artifact?tab=readme-ov-file#permission-loss
+    - name: 'Untar build artifacts'
+      shell: bash
+      # working-directory: ${{ env.INSTALL_OUTPUT_DIR }}
+      run: tar xvf artifact.tar
+
+    - name: Run UMD unit tests
+      # timeout-minutes: ${{ inputs.timeout }}
+      run: build/test/umd/${{ inputs.arch }}/unit_tests
+

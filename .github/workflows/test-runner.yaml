@@ -2,8 +2,6 @@ name: Check runner
 
 on:
   workflow_dispatch:
-  pull_request:
-  push:
 
 jobs:
   
@@ -11,17 +9,10 @@ jobs:
     timeout-minutes: 10
     strategy:
       matrix:
-        build: [
-          {runs-on: ubuntu-latest},
-          {runs-on: e150},
-          {runs-on: e300},
-          {runs-on: e75},
-          {runs-on: n150},
-          {runs-on: n300},
-        ]
+        machine: [ ubuntu-20.04, ubuntu-22.04, e75, e150, e300, n150, n300 ]
 
     name: Check runner
-    runs-on: ${{ matrix.build.runs-on }}
+    runs-on: ${{ matrix.machine }}
 
     steps:
     - uses: actions/checkout@v4
@@ -51,30 +42,33 @@ jobs:
         # Print Disk usage
         echo "Disk Usage:"
         df -h
+
+        # Print usage of landing folder
+        echo "Show file usage"
+        du -h --max-depth=1 | sort -rh
 
   check-runners-docker:
     timeout-minutes: 10
     strategy:
       matrix:
-        build: [
-          {runs-on: ubuntu-latest},
-          {runs-on: e150},
-          {runs-on: e300},
-          {runs-on: e75},
-          {runs-on: n150},
-          {runs-on: n300},
-        ]
+        machine: [ ubuntu-20.04, ubuntu-22.04, e75, e150, e300, n150, n300 ]
+        image: [ tt-umd-ci-ubuntu-22.04, tt-umd-ci-ubuntu-20.04 ]
 
     name: Check runner docker
     needs: check-runners-host
-    runs-on: ${{ matrix.build.runs-on }}
+    runs-on: ${{ matrix.machine }}
 
     container:
-      image: ghcr.io/tenstorrent/tt-mlir/tt-mlir-base-ubuntu-22-04:latest
+      image: ghcr.io/${{ github.repository }}/${{ matrix.image }}:latest
       options: --user root
+      volumes:
+        - /dev/hugepages:/dev/hugepages
+        - /dev/hugepages-1G:/dev/hugepages-1G
 
     steps:
     - uses: actions/checkout@v4
+      with:
+        submodules: recursive
 
     - name: Print machine info    
       run: |
@@ -101,3 +95,7 @@ jobs:
         # Print Disk usage
         echo "Disk Usage:"
         df -h
+
+        # Print usage of landing folder
+        echo "Show file usage"
+        du -h --max-depth=1 | sort -rh

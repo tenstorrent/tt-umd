@@ -20,6 +20,8 @@
 #include "device/tlb.h"
 #include "device/tt_io.hpp"
 
+#include "pcie/pci_device.hpp"
+
 using TLB_DATA = tt::umd::tlb_data;
 
 
@@ -27,7 +29,6 @@ namespace boost::interprocess{
     class named_mutex;
 }
 
-class PCIDevice;
 class tt_ClusterDescriptor;
 
 enum tt_DevicePowerState {
@@ -721,7 +722,7 @@ class tt_SiliconDevice: public tt_device
     void initialize_interprocess_mutexes(int pci_interface_id, bool cleanup_mutexes_in_shm);
     void cleanup_shared_host_state();
     void initialize_pcie_devices();
-    void broadcast_pcie_tensix_risc_reset(struct PCIdevice *device, const TensixSoftResetOptions &cores);
+    void broadcast_pcie_tensix_risc_reset(PCIDevice *device, const TensixSoftResetOptions &cores);
     void broadcast_tensix_risc_reset_to_cluster(const TensixSoftResetOptions &soft_resets);
     void send_remote_tensix_risc_reset_to_core(const tt_cxy_pair &core, const TensixSoftResetOptions &soft_resets);
     void send_tensix_risc_reset_to_core(const tt_cxy_pair &core, const TensixSoftResetOptions &soft_resets);
@@ -733,7 +734,7 @@ class tt_SiliconDevice: public tt_device
     void set_pcie_power_state(tt_DevicePowerState state);
     int set_remote_power_state(const chip_id_t &chip, tt_DevicePowerState device_state);
     void set_power_state(tt_DevicePowerState state);
-    uint32_t get_power_state_arc_msg(struct PCIdevice* pci_device, tt_DevicePowerState state);
+    uint32_t get_power_state_arc_msg(PCIDevice *pci_device, tt_DevicePowerState state);
     void enable_local_ethernet_queue(const chip_id_t& chip, int timeout);
     void enable_ethernet_queue(int timeout);
     void enable_remote_ethernet_queue(const chip_id_t& chip, int timeout);
@@ -765,7 +766,7 @@ class tt_SiliconDevice: public tt_device
     int pcie_arc_msg(int logical_device_id, uint32_t msg_code, bool wait_for_done = true, uint32_t arg0 = 0, uint32_t arg1 = 0, int timeout=1, uint32_t *return_3 = nullptr, uint32_t *return_4 = nullptr);
     int remote_arc_msg(int logical_device_id, uint32_t msg_code, bool wait_for_done = true, uint32_t arg0 = 0, uint32_t arg1 = 0, int timeout=1, uint32_t *return_3 = nullptr, uint32_t *return_4 = nullptr);
     bool address_in_tlb_space(uint32_t address, uint32_t size_in_bytes, int32_t tlb_index, uint64_t tlb_size, uint32_t chip);
-    struct PCIdevice* get_pci_device(int pci_intf_id) const;
+    PCIDevice *get_pci_device(int pci_intf_id) const;
     std::shared_ptr<boost::interprocess::named_mutex> get_mutex(const std::string& tlb_name, int pci_interface_id);
     virtual uint32_t get_harvested_noc_rows_for_chip(int logical_device_id); // Returns one-hot encoded harvesting mask for PCIe mapped chips
     void generate_tensix_broadcast_grids_for_grayskull( std::set<std::pair<tt_xy_pair, tt_xy_pair>>& broadcast_grids, std::set<uint32_t>& rows_to_exclude, std::set<uint32_t>& cols_to_exclude);
@@ -785,7 +786,7 @@ class tt_SiliconDevice: public tt_device
     std::set<chip_id_t> target_remote_chips = {};
     tt_SocDescriptor& get_soc_descriptor(chip_id_t chip_id);
     tt::ARCH arch_name;
-    std::map<chip_id_t, struct PCIdevice*> m_pci_device_map;    // Map of enabled pci devices
+    std::unordered_map<chip_id_t, std::unique_ptr<PCIDevice>> m_pci_device_map;    // Map of enabled pci devices
     int m_num_pci_devices;                                      // Number of pci devices in system (enabled or disabled)
     std::shared_ptr<tt_ClusterDescriptor> ndesc;
     // Level of printouts. Controlled by env var TT_PCI_LOG_LEVEL
@@ -837,8 +838,6 @@ class tt_SiliconDevice: public tt_device
     // ERISC FW Version Required by UMD
     static constexpr std::uint32_t SW_VERSION = 0x06060000;
 };
-
-tt::ARCH detect_arch(uint16_t device_id = 0);
 
 uint32_t get_num_hugepages();
 

@@ -12,11 +12,29 @@
 
 namespace test_utils {
 
+
+// during compilation path was /__w/tt-umd/tt-umd/tests/test_utils/generate_cluster_desc.hpp
+// umd_root_relative tt-umd
+// umd_root /__w/tt-umd/tt-umd/tt-umd
+// abs_path /__w/tt-umd/tt-umd/tt-umd/
+// path_ 
+// umd_path /__w/tt-umd/tt-umd/tt-umd/
+// sh: 1: /__w/tt-umd/tt-umd/tt-umd/device/bin/silicon/x86/create-ethernet-map: not found
+
+// during compilation path was ../tests/test_utils/generate_cluster_desc.hpp
+// umd_root_relative .
+// umd_root /__w/tt-umd/tt-umd
+// abs_path /__w/tt-umd/tt-umd/
+// path_ 
+// umd_path /__w/tt-umd/tt-umd/
+
 inline std::string GetAbsPath(std::string path_){
+    std::filesystem::path current_file_path = std::filesystem::canonical(std::filesystem::path(__FILE__));
     std::filesystem::path umd_root_relative = std::filesystem::relative(std::filesystem::path(__FILE__).parent_path().parent_path().parent_path(), "../");
         std::cout << "during compilation path was " << std::filesystem::path(__FILE__).string() << std::endl;
+        std::cout << "current_file_path " << current_file_path.string() << std::endl;
         std::cout << "umd_root_relative " << umd_root_relative.string() << std::endl;
-    std::filesystem::path umd_root = std::filesystem::canonical(umd_root_relative);
+    std::filesystem::path umd_root = current_file_path.parent_path().parent_path().parent_path();
         std::cout << "umd_root " << umd_root.string() << std::endl;
     std::filesystem::path abs_path = umd_root / path_;
         std::cout << "abs_path " << abs_path.string() << std::endl;

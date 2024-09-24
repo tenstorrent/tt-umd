@@ -77,13 +77,13 @@ jobs:
       uses: actions/download-artifact@v4
       with:
         name: build-artifacts-${{ inputs.arch }}-${{ matrix.build.runs-on }}
-        path: artifact.tar
+        path: ${{ env.WORK_DIR }}
 
     # This is needed to preserve file permissions
     # https://github.com/actions/upload-artifact?tab=readme-ov-file#permission-loss
     - name: 'Untar build artifacts'
       shell: bash
-      # working-directory: ${{ env.INSTALL_OUTPUT_DIR }}
+      working-directory: ${{ env.WORK_DIR }}
       run: tar xvf artifact.tar
 
     - name: Run UMD unit tests

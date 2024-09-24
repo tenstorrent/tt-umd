@@ -85,6 +85,7 @@ jobs:
         ${{ env.TEST_OUTPUT_DIR }}/umd/${{ inputs.arch }}/unit_tests
 
     - name: upload artifact even if previous step fail-fast
+      if: always()
       uses: actions/upload-artifact@v4
       with:
         name: clusterdescriptor-${{ inputs.arch }}-${{ matrix.build.runs-on }}

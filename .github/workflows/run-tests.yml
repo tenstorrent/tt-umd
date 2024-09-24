@@ -59,8 +59,9 @@ jobs:
       ARCH_NAME: ${{ inputs.arch }}
 
     steps:
-    - name: Change directory as if we were in a github.repository
+    - name: Cleanup tt-umd dir, and change directory as if we were in a github.repository
       run: |
+        rm -rf tt-umd
         mkdir tt-umd
         cd tt-umd
 

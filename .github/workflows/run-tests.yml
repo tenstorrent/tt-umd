@@ -84,3 +84,10 @@ jobs:
       run: |
         ${{ env.TEST_OUTPUT_DIR }}/umd/${{ inputs.arch }}/unit_tests
 
+    - name: upload artifact even if previous step fail-fast
+      uses: actions/upload-artifact@v4
+      with:
+        name: clusterdescriptor-${{ inputs.arch }}-${{ matrix.build.runs-on }}
+        path: ./.umd/cluster_desc.yaml
+
+

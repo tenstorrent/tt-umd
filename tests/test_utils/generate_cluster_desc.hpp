@@ -29,17 +29,32 @@ namespace test_utils {
 // umd_path /__w/tt-umd/tt-umd/
 
 inline std::string GetAbsPath(std::string path_){
-    std::filesystem::path current_file_path = std::filesystem::canonical(std::filesystem::path(__FILE__));
-    std::filesystem::path umd_root_relative = std::filesystem::relative(std::filesystem::path(__FILE__).parent_path().parent_path().parent_path(), "../");
-        std::cout << "during compilation path was " << std::filesystem::path(__FILE__).string() << std::endl;
-        std::cout << "current_file_path " << current_file_path.string() << std::endl;
-        std::cout << "umd_root_relative " << umd_root_relative.string() << std::endl;
-    std::filesystem::path umd_root = current_file_path.parent_path().parent_path().parent_path();
-        std::cout << "umd_root " << umd_root.string() << std::endl;
-    std::filesystem::path abs_path = umd_root / path_;
-        std::cout << "abs_path " << abs_path.string() << std::endl;
-        std::cout << "path_ " << path_ << std::endl;
-    return abs_path.string();
+    std::filesystem::path current_file_path = std::filesystem::path(__FILE__);
+    if (current_file_path.is_absolute()) {
+        std::cout << "is absolute" << std::endl;
+        std::filesystem::path umd_root_relative = std::filesystem::relative(std::filesystem::path(__FILE__).parent_path().parent_path().parent_path(), "../");
+            std::cout << "during compilation path was " << std::filesystem::path(__FILE__).string() << std::endl;
+            std::cout << "current_file_path " << current_file_path.string() << std::endl;
+            std::cout << "umd_root_relative " << umd_root_relative.string() << std::endl;
+        std::filesystem::path umd_root = current_file_path.parent_path().parent_path().parent_path();
+            std::cout << "umd_root " << umd_root.string() << std::endl;
+        std::filesystem::path abs_path = umd_root / path_;
+            std::cout << "abs_path " << abs_path.string() << std::endl;
+            std::cout << "path_ " << path_ << std::endl;
+        return abs_path.string();
+    } else {
+        std::cout << "is not absolute" << std::endl;
+        std::filesystem::path umd_root_relative = std::filesystem::relative(std::filesystem::path(__FILE__).parent_path().parent_path().parent_path(), "../");
+            std::cout << "during compilation path was " << std::filesystem::path(__FILE__).string() << std::endl;
+            std::cout << "current_file_path " << current_file_path.string() << std::endl;
+            std::cout << "umd_root_relative " << umd_root_relative.string() << std::endl;
+        std::filesystem::path umd_root = std::filesystem::canonical(umd_root_relative);
+            std::cout << "umd_root " << umd_root.string() << std::endl;
+        std::filesystem::path abs_path = umd_root / path_;
+            std::cout << "abs_path " << abs_path.string() << std::endl;
+            std::cout << "path_ " << path_ << std::endl;
+        return abs_path.string();
+    }
 }
 
 inline std::string GetClusterDescYAML(){
@@ -51,6 +66,7 @@ inline std::string GetClusterDescYAML(){
         std::filesystem::create_directories( cluster_path );
         
         cluster_path /= "cluster_desc.yaml";
+        std::cout << "cluster_path " << cluster_path.string() << std::endl;
         if (!std::filesystem::exists(cluster_path)){
             auto val = system ( ("touch " + cluster_path.string()).c_str());
             if(val != 0) throw std::runtime_error("Cluster Generation Failed!");

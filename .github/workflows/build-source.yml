@@ -62,22 +62,3 @@ jobs:
         cmake -B ${{ steps.strings.outputs.build-output-dir }} -G Ninja
         cmake --build ${{ steps.strings.outputs.build-output-dir }} --target umd_device
         echo "Compile complete."
-    
-    - name: Install UMD
-      run: |
-        echo "Installing the code..."
-        cmake --install ${{ steps.strings.outputs.build-output-dir }} --component umd_device --prefix ${{ steps.strings.outputs.install-output-dir }}
-        echo "Install complete."
-
-    # This is needed to preserve file permissions
-    # https://github.com/actions/upload-artifact?tab=readme-ov-file#permission-loss
-    - name: 'Tar install directory'
-      shell: bash
-      working-directory: ${{ steps.strings.outputs.install-output-dir }}
-      run: tar cvf artifact.tar .
-
-    - name: Upload install folder to archive
-      uses: actions/upload-artifact@v4
-      with:
-        name: install-artifacts-${{ matrix.build.name }}
-        path: ${{ steps.strings.outputs.install-output-dir }}/artifact.tar

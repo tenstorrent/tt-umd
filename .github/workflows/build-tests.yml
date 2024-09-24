@@ -67,24 +67,24 @@ jobs:
         cmake --build ${{ env.BUILD_OUTPUT_DIR }} --target ${{ env.BUILD_ARTEFACT_NAME }}
         echo "Compile complete."
     
-    - name: Install UMD
-      run: |
-        echo "Installing the code..."
-        cmake --install ${{ env.BUILD_OUTPUT_DIR }} --component ${{ env.BUILD_ARTEFACT_NAME }} --prefix ${{ env.INSTALL_OUTPUT_DIR }}
-        echo "Install complete."
+    # - name: Install UMD
+    #   run: |
+    #     echo "Installing the code..."
+    #     cmake --install ${{ env.BUILD_OUTPUT_DIR }} --component ${{ env.BUILD_ARTEFACT_NAME }} --prefix ${{ env.INSTALL_OUTPUT_DIR }}
+    #     echo "Install complete."
 
     # This is needed to preserve file permissions
     # https://github.com/actions/upload-artifact?tab=readme-ov-file#permission-loss
-    - name: 'Tar install directory'
+    - name: 'Tar needed directories'
       shell: bash
-      working-directory: ${{ env.INSTALL_OUTPUT_DIR }}
-      run: tar cvf artifact.tar .
+      # working-directory: ${{ env.INSTALL_OUTPUT_DIR }}
+      run: tar cvf artifact.tar build/test device/bin/silicon
 
-    - name: Upload install folder to archive
+    - name: Upload tar folder to archive
       uses: actions/upload-artifact@v4
       with:
-        name: install-artifacts-${{ matrix.build.name }}
-        path: ${{ env.INSTALL_OUTPUT_DIR }}/artifact.tar
+        name: build-artifacts-${{ matrix.build.name }}
+        path: artifact.tar
 
 
   # test:

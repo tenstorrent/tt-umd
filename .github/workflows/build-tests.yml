@@ -53,6 +53,9 @@ jobs:
         cmake --build ${{ env.BUILD_OUTPUT_DIR }} --target ${{ env.BUILD_ARTEFACT_NAME }}
         echo "Compile complete."
 
+    - name: Show all files
+      run: find . -not -path "./build/_deps/*" -not -path "./.git/*" -not -path "./.cpmcache/*"
+
     # This is needed to preserve file permissions
     # https://github.com/actions/upload-artifact?tab=readme-ov-file#permission-loss
     - name: 'Tar needed directories'

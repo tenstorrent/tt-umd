@@ -7,11 +7,6 @@ on:
 
 jobs:
   build:
-
-    runs-on:
-      - in-service
-      - builder
-
     strategy:
       fail-fast: false
       matrix:

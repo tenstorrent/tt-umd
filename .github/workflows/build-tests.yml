@@ -18,7 +18,6 @@ on:
           - blackhole
 
 env:
-  BUILD_OUTPUT_DIR: ${{ github.workspace }}/build
   BUILD_ARTEFACT_NAME: umd_tests
 
 jobs:
@@ -46,6 +45,15 @@ jobs:
       with:
         submodules: recursive
 
+    - name: Set reusable strings
+      id: strings
+      shell: bash
+      run: |
+        echo "WORK_DIR=$(pwd)" >> "$GITHUB_ENV"
+        echo "BUILD_OUTPUT_DIR=$(pwd)/build" >> "$GITHUB_ENV"
+        echo "TEST_OUTPUT_DIR=$(pwd)/build/test" >> "$GITHUB_ENV"
+        echo "CREATE_MAP_BINARIES_DIR=$(pwd)/device/bin/silicon" >> "$GITHUB_ENV"
+
     - name: Build UMD
       run: |
         echo "Compiling the code..."
@@ -53,15 +61,12 @@ jobs:
         cmake --build ${{ env.BUILD_OUTPUT_DIR }} --target ${{ env.BUILD_ARTEFACT_NAME }}
         echo "Compile complete."
 
-    - name: Show all files
-      run: find . -not -path "./build/_deps/*" -not -path "./.git/*" -not -path "./.cpmcache/*"
-
     # This is needed to preserve file permissions
     # https://github.com/actions/upload-artifact?tab=readme-ov-file#permission-loss
     - name: 'Tar needed directories'
       shell: bash
       # working-directory: ${{ env.INSTALL_OUTPUT_DIR }}
-      run: tar cvf artifact.tar ${{ env.BUILD_OUTPUT_DIR }}/test ${{ github.workspace }}/device/bin/silicon
+      run: tar cvf artifact.tar ${{ env.TEST_OUTPUT_DIR }} ${{ env.CREATE_MAP_BINARIES_DIR }}
 
     - name: Upload build artifacts folder to archive
       uses: actions/upload-artifact@v4
@@ -70,52 +75,57 @@ jobs:
         path: artifact.tar
 
 
-  # test:
-  #   timeout-minutes: 30
-  #   strategy:
-  #     fail-fast: false
-  #     matrix:
-  #       test: [
-  #         {name: ubuntu-22.04, machine: ?},
-  #         {name: ubuntu-20.04, machine: ?},
-  #       ]
-  #   runs-on: ${{ matrix.test.machine }}
-  #   needs: build
+  test:
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        build: [
+          {runs-on: ubuntu-22.04, docker_image: tt-umd-ci-ubuntu-22.04},
+          {runs-on: ubuntu-20.04, docker_image: tt-umd-ci-ubuntu-20.04},
+        ]
 
-  #   container:
-  #     image: ghcr.io/${{ github.repository }}/tt-metalium/${{ matrix.test.name }}:latest
-  #     options: --user root
-  #     volumes:
-  #       - /dev/hugepages:/dev/hugepages
-  #       - /dev/hugepages-1G:/dev/hugepages-1G
+    name: Run tests for ${{ inputs.arch }} on ${{ matrix.build.runs-on }}
+    runs-on: ${{ matrix.build.runs-on }}
+    container:
+      image: ghcr.io/${{ github.repository }}/${{ matrix.build.docker_image }}:latest
+      options: --user root
+      volumes:
+        - /dev/hugepages:/dev/hugepages
+        - /dev/hugepages-1G:/dev/hugepages-1G
 
-  #   env:
-  #     ARCH_NAME: ${{ inputs.arch }}
+    env:
+      ARCH_NAME: ${{ inputs.arch }}
 
-  #   steps:
+    steps:
+    - name: Change directory as if we were in a github.repository
+      run: |
+        mkdir tt-umd
+        cd tt-umd
 
-  #   - name: Set reusable strings
-  #     id: strings
-  #     shell: bash
-  #     run: |
-  #       echo "work-dir=$(pwd)" >> "$GITHUB_OUTPUT"
-  #       echo "build-output-dir=$(pwd)/build" >> "$GITHUB_OUTPUT"
-  #       echo "install-output-dir=$(pwd)/install" >> "$GITHUB_OUTPUT"
+    - name: Set reusable strings
+      id: strings
+      shell: bash
+      run: |
+        echo "WORK_DIR=$(pwd)" >> "$GITHUB_ENV"
+        echo "BUILD_OUTPUT_DIR=$(pwd)/build" >> "$GITHUB_ENV"
+        echo "TEST_OUTPUT_DIR=$(pwd)/build/test" >> "$GITHUB_ENV"
+        echo "CREATE_MAP_BINARIES_DIR=$(pwd)/device/bin/silicon" >> "$GITHUB_ENV"
 
-  #   - name: Use build artifacts
-  #     uses: actions/download-artifact@v4
-  #     with:
-  #       name: install-artifacts-${{ matrix.build.name }}
-  #       path: ${{ env.INSTALL_OUTPUT_DIR }}
+    - name: Use build artifacts
+      uses: actions/download-artifact@v4
+      with:
+        name: build-artifacts-${{ matrix.build.name }}
+        path: artifact.tar
 
-  #   # This is needed to preserve file permissions
-  #   # https://github.com/actions/upload-artifact?tab=readme-ov-file#permission-loss
-  #   - name: 'Untar install directory'
-  #     shell: bash
-  #     working-directory: ${{ env.INSTALL_OUTPUT_DIR }}
-  #     run: tar xvf artifact.tar
+    # This is needed to preserve file permissions
+    # https://github.com/actions/upload-artifact?tab=readme-ov-file#permission-loss
+    - name: 'Untar build artifacts'
+      shell: bash
+      # working-directory: ${{ env.INSTALL_OUTPUT_DIR }}
+      run: tar xvf artifact.tar
 
-  #   - name: Run UMD unit tests
-  #     timeout-minutes: ${{ inputs.timeout }}
-  #     run: build/test/umd/${{ inputs.arch }}/unit_tests
+    - name: Run UMD unit tests
+      # timeout-minutes: ${{ inputs.timeout }}
+      run: build/test/umd/${{ inputs.arch }}/unit_tests
 

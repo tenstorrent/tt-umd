@@ -2,6 +2,7 @@ name: Check runner
 
 on:
   workflow_dispatch:
+  push:
 
 jobs:
   

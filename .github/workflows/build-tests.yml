@@ -20,6 +20,7 @@ on:
 env:
   BUILD_ARTEFACT_NAME: umd_tests
   BUILD_OUTPUT_DIR: ./build
+  LIB_OUTPUT_DIR: ./build/lib
   TEST_OUTPUT_DIR: ./build/test
   CREATE_MAP_BINARIES_DIR: ./device/bin/silicon
 
@@ -59,7 +60,7 @@ jobs:
     # https://github.com/actions/upload-artifact?tab=readme-ov-file#permission-loss
     - name: 'Tar build and run artifacts'
       shell: bash
-      run: tar cvf artifact.tar ${{ env.TEST_OUTPUT_DIR }} ${{ env.CREATE_MAP_BINARIES_DIR }}
+      run: tar cvf artifact.tar ${{ env.TEST_OUTPUT_DIR }} ${{ env.LIB_OUTPUT_DIR }} ${{ env.CREATE_MAP_BINARIES_DIR }}
 
     - name: Upload build artifacts folder to archive
       uses: actions/upload-artifact@v4

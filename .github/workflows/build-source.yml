@@ -17,10 +17,13 @@ on:
           - wormhole_b0
           - blackhole
 
+env:
+  BUILD_OUTPUT_DIR: ${{ github.workspace }}/build
+  BUILD_ARTEFACT_NAME: umd_device
+
 jobs:
   build:
-
-    timeout-minutes: 30
+    timeout-minutes: 10
     strategy:
       fail-fast: false
       matrix:
@@ -29,7 +32,7 @@ jobs:
           {runs-on: ubuntu-20.04, docker_image: tt-umd-ci-ubuntu-20.04},
         ]
 
-    name: Build umd_device for ${{ inputs.arch }} architecture on machine ${{ matrix.build.runs-on }}
+    name: Build umd_device for ${{ inputs.arch }} on ${{ matrix.build.runs-on }}
     runs-on: ${{ matrix.build.runs-on }}
     container:
       image: ghcr.io/${{ github.repository }}/${{ matrix.build.docker_image }}:latest
@@ -43,22 +46,9 @@ jobs:
       with:
         submodules: recursive
 
-    # - name: Set up environment
-    #   run: |
-    #     sudo apt-get update
-    #     sudo apt-get install -y build-essential libyaml-cpp-dev libhwloc-dev libgtest-dev libboost-dev
-
-    - name: Set reusable strings
-      id: strings
-      shell: bash
-      run: |
-        echo "work-dir=$(pwd)" >> "$GITHUB_OUTPUT"
-        echo "build-output-dir=$(pwd)/build" >> "$GITHUB_OUTPUT"
-        echo "install-output-dir=$(pwd)/install" >> "$GITHUB_OUTPUT"
-
     - name: Build UMD
       run: |
         echo "Compiling the code..."
-        cmake -B ${{ steps.strings.outputs.build-output-dir }} -G Ninja
-        cmake --build ${{ steps.strings.outputs.build-output-dir }} --target umd_device
+        cmake -B ${{ env.BUILD_OUTPUT_DIR }} -G Ninja
+        cmake --build ${{ env.BUILD_OUTPUT_DIR }} --target ${{ env.BUILD_ARTEFACT_NAME }}
         echo "Compile complete."

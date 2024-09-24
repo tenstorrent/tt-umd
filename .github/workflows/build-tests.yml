@@ -19,12 +19,11 @@ on:
 
 env:
   BUILD_OUTPUT_DIR: ${{ github.workspace }}/build
-  INSTALL_OUTPUT_DIR: ${{ github.workspace }}/install
   BUILD_ARTEFACT_NAME: umd_tests
 
 jobs:
   build:
-    timeout-minutes: 30
+    timeout-minutes: 10
     strategy:
       fail-fast: false
       matrix:
@@ -33,8 +32,8 @@ jobs:
           {runs-on: ubuntu-20.04, docker_image: tt-umd-ci-ubuntu-20.04},
         ]
 
-    name: Build umd_tests for ${{ inputs.arch }} architecture on machine ${{ matrix.build.runs-on }}
-    runs-on: ${{ matrix.build.name }}
+    name: Build umd_tests for ${{ inputs.arch }} on ${{ matrix.build.runs-on }}
+    runs-on: ${{ matrix.build.runs-on }}
     container:
       image: ghcr.io/${{ github.repository }}/${{ matrix.build.docker_image }}:latest
       options: --user root
@@ -47,40 +46,21 @@ jobs:
       with:
         submodules: recursive
 
-    # - name: Set up environment
-    #   run: |
-    #     sudo apt-get update
-    #     sudo apt-get install -y build-essential libyaml-cpp-dev libhwloc-dev libgtest-dev libboost-dev
-
-    # - name: Set reusable strings
-    #   id: strings
-    #   shell: bash
-    #   run: |
-    #     echo "work-dir=$(pwd)" >> "$GITHUB_OUTPUT"
-    #     echo "build-output-dir=$(pwd)/build" >> "$GITHUB_OUTPUT"
-    #     echo "install-output-dir=$(pwd)/install" >> "$GITHUB_OUTPUT"
-
     - name: Build UMD
       run: |
         echo "Compiling the code..."
         cmake -B ${{ env.BUILD_OUTPUT_DIR }} -G Ninja
         cmake --build ${{ env.BUILD_OUTPUT_DIR }} --target ${{ env.BUILD_ARTEFACT_NAME }}
         echo "Compile complete."
-    
-    # - name: Install UMD
-    #   run: |
-    #     echo "Installing the code..."
-    #     cmake --install ${{ env.BUILD_OUTPUT_DIR }} --component ${{ env.BUILD_ARTEFACT_NAME }} --prefix ${{ env.INSTALL_OUTPUT_DIR }}
-    #     echo "Install complete."
 
     # This is needed to preserve file permissions
     # https://github.com/actions/upload-artifact?tab=readme-ov-file#permission-loss
     - name: 'Tar needed directories'
       shell: bash
       # working-directory: ${{ env.INSTALL_OUTPUT_DIR }}
-      run: tar cvf artifact.tar build/test device/bin/silicon
+      run: tar cvf artifact.tar ${{ env.BUILD_OUTPUT_DIR }}/test ${{ github.workspace }}/device/bin/silicon
 
-    - name: Upload tar folder to archive
+    - name: Upload build artifacts folder to archive
       uses: actions/upload-artifact@v4
       with:
         name: build-artifacts-${{ matrix.build.name }}

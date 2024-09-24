@@ -16,9 +16,11 @@ on:
           - grayskull
           - wormhole_b0
           - blackhole
+
 env:
   BUILD_OUTPUT_DIR: ${{ github.workspace }}/build
   INSTALL_OUTPUT_DIR: ${{ github.workspace }}/install
+  BUILD_ARTEFACT_NAME: umd_tests
 
 jobs:
   build:
@@ -30,6 +32,8 @@ jobs:
           {name: ubuntu-22.04},
           {name: ubuntu-20.04},
         ]
+
+    name: Build ${{ env.BUILD_ARTEFACT_NAME }} for ${{ inputs.arch }} architecture on machine ${{ matrix.build.runs-on }}
     runs-on: ${{ matrix.build.name }}
     container:
       image: ghcr.io/${{ github.repository }}/tt-metalium/${{ matrix.build.name }}:latest
@@ -60,13 +64,13 @@ jobs:
       run: |
         echo "Compiling the code..."
         cmake -B ${{ env.BUILD_OUTPUT_DIR }} -G Ninja
-        cmake --build ${{ env.BUILD_OUTPUT_DIR }} --target umd_tests
+        cmake --build ${{ env.BUILD_OUTPUT_DIR }} --target ${{ env.BUILD_ARTEFACT_NAME }}
         echo "Compile complete."
     
     - name: Install UMD
       run: |
         echo "Installing the code..."
-        cmake --install ${{ env.BUILD_OUTPUT_DIR }} --component umd_device --prefix ${{ env.INSTALL_OUTPUT_DIR }}
+        cmake --install ${{ env.BUILD_OUTPUT_DIR }} --component ${{ env.BUILD_ARTEFACT_NAME }} --prefix ${{ env.INSTALL_OUTPUT_DIR }}
         echo "Install complete."
 
     # This is needed to preserve file permissions

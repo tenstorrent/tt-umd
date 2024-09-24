@@ -10,6 +10,7 @@ on:
     inputs:
       arch:
         required: true
+        description: 'The architecture to build for'
         type: choice
         options:
           - grayskull
@@ -18,7 +19,6 @@ on:
 
 jobs:
   build:
-    name: Build umd_device for ${{ inputs.arch }}
 
     timeout-minutes: 30
     strategy:
@@ -28,6 +28,8 @@ jobs:
           {runs-on: ubuntu-22.04},
           {runs-on: ubuntu-20.04},
         ]
+
+    name: Build umd_device for ${{ inputs.arch }} architecture on machine ${{ matrix.build.runs-on }}
     runs-on: ${{ matrix.build.runs-on }}
     container:
       image: ghcr.io/${{ github.repository }}/tt-metalium/${{ matrix.build.runs-on }}:latest
@@ -35,7 +37,7 @@ jobs:
 
     env:
       ARCH_NAME: ${{ inputs.arch }}
-      
+
     steps:
     - uses: actions/checkout@v4
       with:

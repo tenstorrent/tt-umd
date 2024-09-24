@@ -6,6 +6,9 @@ on:
       arch:
         required: true
         type: string
+      card:
+        required: true
+        type: string
   workflow_dispatch:
     inputs:
       arch:
@@ -16,6 +19,16 @@ on:
           - grayskull
           - wormhole_b0
           - blackhole
+      card:
+        required: true
+        description: 'The card to run tests on'
+        type: choice
+        options:
+          - e75
+          - e150
+          - e300
+          - n150
+          - n300
 
 env:
   BUILD_ARTEFACT_NAME: umd_tests
@@ -71,7 +84,7 @@ jobs:
     - name: Upload build artifacts folder to archive
       uses: actions/upload-artifact@v4
       with:
-        name: build-artifacts-${{ matrix.build.name }}
+        name: build-artifacts-${{ matrix.build.runs-on }}
         path: artifact.tar
 
 
@@ -85,8 +98,10 @@ jobs:
           {runs-on: ubuntu-20.04, docker_image: tt-umd-ci-ubuntu-20.04},
         ]
 
-    name: Run tests for ${{ inputs.arch }} on ${{ matrix.build.runs-on }}
-    runs-on: ${{ matrix.build.runs-on }}
+    name: Run tests for ${{ inputs.arch }} on ${{ inputs.card }} on ${{ matrix.build.runs-on }}
+    runs-on:
+      - self-hosted
+      - ${{ inputs.card }}
     container:
       image: ghcr.io/${{ github.repository }}/${{ matrix.build.docker_image }}:latest
       options: --user root
@@ -115,7 +130,7 @@ jobs:
     - name: Use build artifacts
       uses: actions/download-artifact@v4
       with:
-        name: build-artifacts-${{ matrix.build.name }}
+        name: build-artifacts-${{ matrix.build.runs-on }}
         path: artifact.tar
 
     # This is needed to preserve file permissions

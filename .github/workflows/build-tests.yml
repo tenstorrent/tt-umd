@@ -29,14 +29,14 @@ jobs:
       fail-fast: false
       matrix:
         build: [
-          {name: ubuntu-22.04},
-          {name: ubuntu-20.04},
+          {runs-on: ubuntu-22.04, docker_image: tt-umd-ci-ubuntu-22.04},
+          {runs-on: ubuntu-20.04, docker_image: tt-umd-ci-ubuntu-20.04},
         ]
 
     name: Build umd_tests for ${{ inputs.arch }} architecture on machine ${{ matrix.build.runs-on }}
     runs-on: ${{ matrix.build.name }}
     container:
-      image: ghcr.io/${{ github.repository }}/tt-metalium/${{ matrix.build.name }}:latest
+      image: ghcr.io/${{ github.repository }}/${{ matrix.build.docker_image }}:latest
       options: --user root
 
     env:

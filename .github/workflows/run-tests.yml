@@ -92,5 +92,5 @@ jobs:
         echo "echo find ."
         find .
         echo "run tests"
-        ${{ TEST_OUTPUT_DIR }}/umd/${{ inputs.arch }}/unit_tests
+        ${{ env.TEST_OUTPUT_DIR }}/umd/${{ inputs.arch }}/unit_tests
 

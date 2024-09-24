@@ -89,5 +89,11 @@ jobs:
 
     - name: Run UMD unit tests
       # timeout-minutes: ${{ inputs.timeout }}
-      run: build/test/umd/${{ inputs.arch }}/unit_tests
+      run: |
+        echo $(pwd)
+        find .
+        cd ${{ env.WORK_DIR }}
+        echo $(pwd)
+        find .
+        build/test/umd/${{ inputs.arch }}/unit_tests
 

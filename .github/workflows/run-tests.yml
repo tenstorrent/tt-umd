@@ -31,7 +31,9 @@ on:
           - n300
 
 env:
-  BUILD_ARTEFACT_NAME: umd_tests
+  BUILD_OUTPUT_DIR: ./build
+  TEST_OUTPUT_DIR: ./build/test
+  CREATE_MAP_BINARIES_DIR: ./device/bin/silicon
 
 jobs:
   test:
@@ -65,35 +67,30 @@ jobs:
         mkdir tt-umd
         cd tt-umd
 
-    - name: Set reusable strings
-      id: strings
-      shell: bash
-      run: |
-        echo "WORK_DIR=$(pwd)" >> "$GITHUB_ENV"
-        echo "BUILD_OUTPUT_DIR=$(pwd)/build" >> "$GITHUB_ENV"
-        echo "TEST_OUTPUT_DIR=$(pwd)/build/test" >> "$GITHUB_ENV"
-        echo "CREATE_MAP_BINARIES_DIR=$(pwd)/device/bin/silicon" >> "$GITHUB_ENV"
-
     - name: Use build artifacts
       uses: actions/download-artifact@v4
       with:
         name: build-artifacts-${{ inputs.arch }}-${{ matrix.build.runs-on }}
-        path: ${{ env.WORK_DIR }}
+        path: ./
 
     # This is needed to preserve file permissions
     # https://github.com/actions/upload-artifact?tab=readme-ov-file#permission-loss
     - name: 'Untar build artifacts'
       shell: bash
-      working-directory: ${{ env.WORK_DIR }}
       run: tar xvf artifact.tar
 
     - name: Run UMD unit tests
       # timeout-minutes: ${{ inputs.timeout }}
       run: |
+        echo "echo pwd"
         echo $(pwd)
+        echo "echo find ."
         find .
         cd ${{ env.WORK_DIR }}
+        echo "echo pwd"
         echo $(pwd)
+        echo "echo find ."
         find .
-        build/test/umd/${{ inputs.arch }}/unit_tests
+        echo "run tests"
+        ${{ TEST_OUTPUT_DIR }}/umd/${{ inputs.arch }}/unit_tests
 

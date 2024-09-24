@@ -36,3 +36,4 @@ jobs:
     uses: ./.github/workflows/build-tests.yml
     with:
       arch: ${{ matrix.test-group.arch }}
+      card: ${{ matrix.test-group.card }}

@@ -1,3 +1,4 @@
+# This workflow verifies that the build passes for specified architecture on all supported OS versions.
 name: Build Source
 
 on:

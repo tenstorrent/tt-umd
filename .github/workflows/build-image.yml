@@ -1,3 +1,4 @@
+# This workflow is intended to be called manually when a new Docker image is needed.
 name: Build and Publish Docker Image
 
 on:

@@ -1,25 +1,12 @@
-name: "Build and Test All"
+# Optional PR checks
+name: On PR - Optional
 
 on:
   workflow_dispatch:
-  workflow_call:
+  pull_request:
+    branches: [ "main" ]
 
 jobs:
-  build-all:
-    secrets: inherit
-    strategy:
-      fail-fast: false
-      matrix:
-        test-group: [
-          { arch: grayskull },
-          { arch: wormhole_b0 },
-          { arch: blackhole },
-        ]
-    uses: ./.github/workflows/build-source.yml
-    with:
-      arch: ${{ matrix.test-group.arch }}
-
-    
   build-tests:
     secrets: inherit
     strategy:

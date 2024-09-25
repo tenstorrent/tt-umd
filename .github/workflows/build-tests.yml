@@ -1,4 +1,5 @@
-name: Build and run Tests
+# Builds tests to be ran on the specified architecture on all supported OS versions.
+name: Build Tests
 
 on:
   workflow_call:

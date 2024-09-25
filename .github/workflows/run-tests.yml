@@ -1,4 +1,5 @@
-name: Build and run Tests
+# Run tests on the specified architecture and card, on all supported OS versions.
+name: Run Tests
 
 on:
   workflow_call:
@@ -52,10 +53,13 @@ jobs:
       - ${{ inputs.card }}
     container:
       image: ghcr.io/${{ github.repository }}/${{ matrix.build.docker_image }}:latest
-      options: --user root
+      options: --user root --device /dev/tenstorrent/0
       volumes:
         - /dev/hugepages:/dev/hugepages
         - /dev/hugepages-1G:/dev/hugepages-1G
+        - /etc/udev/rules.d:/etc/udev/rules.d
+        - /lib/modules:/lib/modules
+        - /opt/tt_metal_infra/provisioning/provisioning_env:/opt/tt_metal_infra/provisioning/provisioning_env
 
     env:
       ARCH_NAME: ${{ inputs.arch }}
@@ -80,15 +84,7 @@ jobs:
       run: tar xvf artifact.tar
 
     - name: Run UMD unit tests
-      # timeout-minutes: ${{ inputs.timeout }}
       run: |
         ${{ env.TEST_OUTPUT_DIR }}/umd/${{ inputs.arch }}/unit_tests
-
-    - name: upload artifact even if previous step fail-fast
-      if: always()
-      uses: actions/upload-artifact@v4
-      with:
-        name: clusterdescriptor-${{ inputs.arch }}-${{ matrix.build.runs-on }}
-        path: ./.umd/cluster_desc.yaml
 
 

@@ -1,3 +1,4 @@
+# Mandatory PR checks
 name: On PR
 
 on:
@@ -6,15 +7,16 @@ on:
     branches: [ "main" ]
 
 jobs:
-  # pre-commit:
-  #   uses: ./.github/workflows/pre-commit.yml
-  #   secrets: inherit
-  # spdx:
-  #   uses: ./.github/workflows/spdx.yml
-  #   secrets: inherit
-  # macos-build:
-  #   uses: ./.github/workflows/macos-build.yml
-  #   secrets: inherit
-  build-and-test:
-    uses: ./.github/workflows/build-and-test-all.yml
+  build-all:
     secrets: inherit
+    strategy:
+      fail-fast: false
+      matrix:
+        test-group: [
+          { arch: grayskull },
+          { arch: wormhole_b0 },
+          { arch: blackhole },
+        ]
+    uses: ./.github/workflows/build-source.yml
+    with:
+      arch: ${{ matrix.test-group.arch }}

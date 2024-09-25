@@ -1,5 +1,6 @@
-# Builds tests to be ran on the specified architecture on all supported OS versions.
-name: Build Tests
+# Builds requested target and uploads its artifact if requested.
+# Build is performed on the specified architecture and on all supported OS versions.
+name: Build Target
 
 on:
   workflow_call:
@@ -10,6 +11,12 @@ on:
       timeout:
         required: true
         type: number
+      build-target:
+        required: true
+        type: string
+      upload-artifacts:
+        required: true
+        type: boolean
   workflow_dispatch:
     inputs:
       arch:
@@ -24,9 +31,20 @@ on:
         required: true
         description: 'The timeout for the build job in minutes'
         type: number
+      build-target:
+        required: true
+        description: 'The target to build'
+        type: choice
+        options:
+          - umd_device
+          - umd_tests
+      upload-artifacts:
+        required: true
+        description: 'Whether to upload artifacts'
+        type: boolean
+      
 
 env:
-  BUILD_ARTEFACT_NAME: umd_tests
   BUILD_OUTPUT_DIR: ./build
   LIB_OUTPUT_DIR: ./build/lib
   DEPS_OUTPUT_DIR: ./build/_deps
@@ -40,14 +58,14 @@ jobs:
       fail-fast: false
       matrix:
         build: [
-          {runs-on: ubuntu-22.04, docker_image: tt-umd-ci-ubuntu-22.04},
-          {runs-on: ubuntu-20.04, docker_image: tt-umd-ci-ubuntu-20.04},
+          {runs-on: ubuntu-22.04, docker-image: tt-umd-ci-ubuntu-22.04},
+          {runs-on: ubuntu-20.04, docker-image: tt-umd-ci-ubuntu-20.04},
         ]
 
-    name: Build umd_tests for ${{ inputs.arch }} on ${{ matrix.build.runs-on }}
+    name: Build ${{ inputs.build-target }} for ${{ inputs.arch }} on ${{ matrix.build.runs-on }}
     runs-on: ${{ matrix.build.runs-on }}
     container:
-      image: ghcr.io/${{ github.repository }}/${{ matrix.build.docker_image }}:latest
+      image: ghcr.io/${{ github.repository }}/${{ matrix.build.docker-image }}:latest
       options: --user root
 
     env:
@@ -58,20 +76,22 @@ jobs:
       with:
         submodules: recursive
 
-    - name: Build UMD
+    - name: Build ${{ inputs.build-target }}
       run: |
         echo "Compiling the code..."
         cmake -B ${{ env.BUILD_OUTPUT_DIR }} -G Ninja
-        cmake --build ${{ env.BUILD_OUTPUT_DIR }} --target ${{ env.BUILD_ARTEFACT_NAME }}
+        cmake --build ${{ env.BUILD_OUTPUT_DIR }} --target ${{ inputs.build-target }}
         echo "Compile complete."
 
     # This is needed to preserve file permissions
     # https://github.com/actions/upload-artifact?tab=readme-ov-file#permission-loss
-    - name: 'Tar build and run artifacts'
+    - name: Tar build, test and run artifacts
+      if: inputs.upload-artifacts == 'true'
       shell: bash
       run: tar cvf artifact.tar ${{ env.TEST_OUTPUT_DIR }} ${{ env.LIB_OUTPUT_DIR }} ${{ env.DEPS_OUTPUT_DIR }} ${{ env.CREATE_MAP_BINARIES_DIR }}
 
-    - name: Upload build artifacts folder to archive
+    - name: Upload build artifacts archive
+      if: inputs.upload-artifacts == 'true'
       uses: actions/upload-artifact@v4
       with:
         name: build-artifacts-${{ inputs.arch }}-${{ matrix.build.runs-on }}

@@ -50,8 +50,8 @@ jobs:
       fail-fast: false
       matrix:
         build: [
-          {runs-on: ubuntu-22.04, docker_image: tt-umd-ci-ubuntu-22.04},
-          {runs-on: ubuntu-20.04, docker_image: tt-umd-ci-ubuntu-20.04},
+          {runs-on: ubuntu-22.04, docker-image: tt-umd-ci-ubuntu-22.04},
+          {runs-on: ubuntu-20.04, docker-image: tt-umd-ci-ubuntu-20.04},
         ]
 
     name: Run tests for ${{ inputs.arch }} on ${{ inputs.card }} on ${{ matrix.build.runs-on }}
@@ -59,7 +59,7 @@ jobs:
       - self-hosted
       - ${{ inputs.card }}
     container:
-      image: ghcr.io/${{ github.repository }}/${{ matrix.build.docker_image }}:latest
+      image: ghcr.io/${{ github.repository }}/${{ matrix.build.docker-image }}:latest
       options: --user root --device /dev/tenstorrent/0
       volumes:
         - /dev/hugepages:/dev/hugepages

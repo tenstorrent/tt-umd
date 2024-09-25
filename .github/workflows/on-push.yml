@@ -16,9 +16,11 @@ jobs:
           { arch: wormhole_b0 },
           { arch: blackhole },
         ]
-    uses: ./.github/workflows/build-source.yml
+    uses: ./.github/workflows/build-target.yml
     with:
       arch: ${{ matrix.test-group.arch }}
+      timeout: 10
+      build-target: umd_device
 
   build-tests:
     secrets: inherit
@@ -26,13 +28,17 @@ jobs:
       fail-fast: false
       matrix:
         test-group: [
+          # Enable once we have functional cards with specified architecture.
           # { arch: grayskull },
           { arch: wormhole_b0 },
           # { arch: blackhole },
         ]
-    uses: ./.github/workflows/build-tests.yml
+    uses: ./.github/workflows/build-target.yml
     with:
       arch: ${{ matrix.test-group.arch }}
+      timeout: 10
+      build-target: umd_tests
+      upload-artifacts: true
 
   test-all:
     secrets: inherit
@@ -41,14 +47,16 @@ jobs:
       fail-fast: false
       matrix:
         test-group: [
+          # Enable once we have functional cards.
           # { arch: grayskull, card: e75 },
           # { arch: grayskull, card: e150 },
           # { arch: grayskull, card: e300 },
-          { arch: wormhole_b0, card: n150 },
-          { arch: wormhole_b0, card: n300 },
+          { arch: wormhole_b0, card: n150, timeout: 5 },
+          { arch: wormhole_b0, card: n300, timeout: 15 },
           # { arch: blackhole },
         ]
     uses: ./.github/workflows/run-tests.yml
     with:
       arch: ${{ matrix.test-group.arch }}
       card: ${{ matrix.test-group.card }}
+      timeout: ${{ matrix.test-group.timeout }}

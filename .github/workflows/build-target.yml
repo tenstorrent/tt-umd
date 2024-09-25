@@ -15,8 +15,9 @@ on:
         required: true
         type: string
       upload-artifacts:
-        required: true
+        required: false
         type: boolean
+        default: false
   workflow_dispatch:
     inputs:
       arch:
@@ -39,9 +40,10 @@ on:
           - umd_device
           - umd_tests
       upload-artifacts:
-        required: true
+        required: false
         description: 'Whether to upload artifacts'
         type: boolean
+        default: false
       
 
 env:
@@ -86,12 +88,12 @@ jobs:
     # This is needed to preserve file permissions
     # https://github.com/actions/upload-artifact?tab=readme-ov-file#permission-loss
     - name: Tar build, test and run artifacts
-      if: inputs.upload-artifacts == 'true'
+      if: ${{ inputs.upload-artifacts }}
       shell: bash
       run: tar cvf artifact.tar ${{ env.TEST_OUTPUT_DIR }} ${{ env.LIB_OUTPUT_DIR }} ${{ env.DEPS_OUTPUT_DIR }} ${{ env.CREATE_MAP_BINARIES_DIR }}
 
     - name: Upload build artifacts archive
-      if: inputs.upload-artifacts == 'true'
+      if: ${{ inputs.upload-artifacts }}
       uses: actions/upload-artifact@v4
       with:
         name: build-artifacts-${{ inputs.arch }}-${{ matrix.build.runs-on }}

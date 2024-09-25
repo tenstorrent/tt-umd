@@ -4,6 +4,7 @@ name: Build and Publish Docker Image
 on:
   workflow_dispatch:
   workflow_call:
+  push:
 
 jobs:
   build:
@@ -39,8 +40,6 @@ jobs:
           username: ${{ github.repository_owner }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      # Build image
-
       - name: Build and export base Docker image
         uses: docker/build-push-action@v6
         with:
@@ -51,16 +50,4 @@ jobs:
             GIT_SHA=${{ github.sha }}
           tags: |
             ${{ env.CI_IMAGE_NAME}}:${{ github.sha }}
-
-      # Tag image as latest
-
-      - name: Build and push base Docker image
-        uses: docker/build-push-action@v6
-        with:
-          context: .github
-          file: .github/${{ matrix.build.name }}.Dockerfile
-          push: true
-          build-args: |
-            GIT_SHA=${{ github.sha }}
-          tags: |
             ${{ env.CI_IMAGE_NAME}}:latest

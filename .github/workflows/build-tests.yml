@@ -7,6 +7,9 @@ on:
       arch:
         required: true
         type: string
+      timeout:
+        required: true
+        type: number
   workflow_dispatch:
     inputs:
       arch:
@@ -17,6 +20,10 @@ on:
           - grayskull
           - wormhole_b0
           - blackhole
+      timeout:
+        required: true
+        description: 'The timeout for the build job in minutes'
+        type: number
 
 env:
   BUILD_ARTEFACT_NAME: umd_tests
@@ -28,7 +35,7 @@ env:
 
 jobs:
   build:
-    timeout-minutes: 10
+    timeout-minutes: ${{ inputs.timeout }}
     strategy:
       fail-fast: false
       matrix:

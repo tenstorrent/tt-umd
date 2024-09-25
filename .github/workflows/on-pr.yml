@@ -20,3 +20,4 @@ jobs:
     uses: ./.github/workflows/build-source.yml
     with:
       arch: ${{ matrix.test-group.arch }}
+      timeout: 10

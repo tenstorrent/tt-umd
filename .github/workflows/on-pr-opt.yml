@@ -20,6 +20,7 @@ jobs:
     uses: ./.github/workflows/build-tests.yml
     with:
       arch: ${{ matrix.test-group.arch }}
+      timeout: 10
 
   test-all:
     secrets: inherit
@@ -31,11 +32,12 @@ jobs:
           # { arch: grayskull, card: e75 },
           # { arch: grayskull, card: e150 },
           # { arch: grayskull, card: e300 },
-          { arch: wormhole_b0, card: n150 },
-          { arch: wormhole_b0, card: n300 },
+          { arch: wormhole_b0, card: n150, timeout: 5 },
+          { arch: wormhole_b0, card: n300, timeout: 15 },
           # { arch: blackhole },
         ]
     uses: ./.github/workflows/run-tests.yml
     with:
       arch: ${{ matrix.test-group.arch }}
       card: ${{ matrix.test-group.card }}
+      timeout: ${{ matrix.test-group.timeout }}

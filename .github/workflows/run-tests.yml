@@ -10,6 +10,9 @@ on:
       card:
         required: true
         type: string
+      timeout:
+        required: true
+        type: number
   workflow_dispatch:
     inputs:
       arch:
@@ -30,6 +33,10 @@ on:
           - e300
           - n150
           - n300
+      timeout:
+        required: true
+        description: 'The timeout for the build job in minutes'
+        type: number
 
 env:
   BUILD_OUTPUT_DIR: ./build
@@ -38,7 +45,7 @@ env:
 
 jobs:
   test:
-    timeout-minutes: 10
+    timeout-minutes: ${{ inputs.timeout }}
     strategy:
       fail-fast: false
       matrix:

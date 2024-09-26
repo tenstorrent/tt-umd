@@ -150,7 +150,7 @@ void PCIDevice::setup_device() {
     mappings.query_mappings.in.output_mapping_count = 8;
 
     if (ioctl(device_fd, TENSTORRENT_IOCTL_QUERY_MAPPINGS, &mappings.query_mappings) == -1) {
-        throw std::runtime_error(std::string("Query mappings failed on device ") + std::to_string(device_id) + ".");
+        throw std::runtime_error(fmt::format("Query mappings failed on device {}.", device_id));
     }
 
     // Mapping resource to BAR
@@ -203,7 +203,7 @@ void PCIDevice::setup_device() {
     }
 
     if (bar0_uc_mapping.mapping_id != TENSTORRENT_MAPPING_RESOURCE0_UC) {
-        throw std::runtime_error(std::string("Device ") + std::to_string(device_id) + " has no BAR0 UC mapping.");
+        throw std::runtime_error(fmt::format("Device {} has no BAR0 UC mapping.", device_id));
     }
 
     auto wc_mapping_size = arch == tt::ARCH::BLACKHOLE ? BH_BAR0_WC_MAPPING_SIZE : GS_BAR0_WC_MAPPING_SIZE;
@@ -231,7 +231,7 @@ void PCIDevice::setup_device() {
     bar0_uc = mmap(NULL, bar0_uc_size, PROT_READ | PROT_WRITE, MAP_SHARED, device_fd, bar0_uc_mapping.mapping_base + bar0_uc_offset);
 
     if (bar0_uc == MAP_FAILED) {
-        throw std::runtime_error(std::string("BAR0 UC memory mapping failed for device ") + std::to_string(device_id) + ".");
+        throw std::runtime_error(fmt::format("BAR0 UC mapping failed for device {}.", device_id));
     }
 
     if (!bar0_wc) {
@@ -240,7 +240,7 @@ void PCIDevice::setup_device() {
 
     if (arch == tt::ARCH::WORMHOLE_B0) {
         if (bar4_uc_mapping.mapping_id != TENSTORRENT_MAPPING_RESOURCE2_UC) {
-            throw std::runtime_error(std::string("Device ") + std::to_string(device_id) + " has no BAR4 UC mapping.");
+            throw std::runtime_error(fmt::format("Device {} has no BAR4 UC mapping.", device_id));
         }
 
         system_reg_mapping_size = bar4_uc_mapping.mapping_size;
@@ -248,14 +248,14 @@ void PCIDevice::setup_device() {
         system_reg_mapping = mmap(NULL, bar4_uc_mapping.mapping_size, PROT_READ | PROT_WRITE, MAP_SHARED, device_fd, bar4_uc_mapping.mapping_base);
 
         if (system_reg_mapping == MAP_FAILED) {
-            throw std::runtime_error(std::string("BAR4 UC memory mapping failed for device ") + std::to_string(device_id) + ".");
+            throw std::runtime_error(fmt::format("BAR4 UC mapping failed for device {}.", device_id));
         }
 
         system_reg_start_offset = (512 - 16) * 1024*1024;
         system_reg_offset_adjust = (512 - 32) * 1024*1024;
     } else if(arch == tt::ARCH::BLACKHOLE) {
         if (bar2_uc_mapping.mapping_id != TENSTORRENT_MAPPING_RESOURCE1_UC) {
-            throw std::runtime_error(std::string("Device ") + std::to_string(device_id) + " has no BAR2 UC mapping.");
+            throw std::runtime_error(fmt::format("Device {} has no BAR2 UC mapping.", device_id));
         }
 
         // Using UnCachable memory mode. This is used for accessing registers on Blackhole.
@@ -263,11 +263,11 @@ void PCIDevice::setup_device() {
         bar2_uc = mmap(NULL, bar2_uc_mapping.mapping_size, PROT_READ | PROT_WRITE, MAP_SHARED, device_fd, bar2_uc_mapping.mapping_base);
 
         if (bar2_uc == MAP_FAILED) {
-            throw std::runtime_error(std::string("BAR2 UC memory mapping failed for device ") + std::to_string(device_id) + ".");
+            throw std::runtime_error(fmt::format("BAR2 UC mapping failed for device {}.", device_id));
         }
 
         if (bar4_wc_mapping.mapping_id != TENSTORRENT_MAPPING_RESOURCE2_WC) {
-            throw std::runtime_error(std::string("Device ") + std::to_string(device_id) + " has no BAR4 WC mapping.");
+            throw std::runtime_error(fmt::format("Device {} has no BAR4 WC mapping.", device_id));
         }
 
         // Using Write-Combine memory mode. This is used for accessing DRAM on Blackhole.
@@ -276,7 +276,7 @@ void PCIDevice::setup_device() {
         bar4_wc = mmap(NULL, bar4_wc_mapping.mapping_size, PROT_READ | PROT_WRITE, MAP_SHARED, device_fd, bar4_wc_mapping.mapping_base);
 
         if (bar4_wc == MAP_FAILED) {
-            throw std::runtime_error(std::string("BAR4 WC memory mapping failed for device ") + std::to_string(device_id) + ".");
+            throw std::runtime_error(fmt::format("BAR4 WC mapping failed for device {}.", device_id));
         }
     }
 
@@ -332,7 +332,7 @@ void PCIDevice::open_hugepage_per_host_mem_ch(uint32_t num_host_mem_channels) {
         log_debug(LogSiliconDriver, "Opening device_fd_per_host_ch device index: {} ch: {} (num_host_mem_channels: {})", device_id, ch, num_host_mem_channels);
         int device_fd_for_host_mem = find_device(device_id);
         if (device_fd_for_host_mem == -1) {
-            throw std::runtime_error(std::string("Failed opening a host memory device handle for device ") + std::to_string(device_id));
+            throw std::runtime_error(fmt::format("Failed opening a host memory device handle for device {}.", device_id));
         }
         device_fd_per_host_ch.push_back(device_fd_for_host_mem);
     }

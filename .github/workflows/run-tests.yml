@@ -1,0 +1,97 @@
+# Run tests on the specified architecture and card, on all supported OS versions.
+name: Run Tests
+
+on:
+  workflow_call:
+    inputs:
+      arch:
+        required: true
+        type: string
+      card:
+        required: true
+        type: string
+      timeout:
+        required: true
+        type: number
+  workflow_dispatch:
+    inputs:
+      arch:
+        required: true
+        description: 'The architecture to build for'
+        type: choice
+        options:
+          - grayskull
+          - wormhole_b0
+          - blackhole
+      card:
+        required: true
+        description: 'The card to run tests on'
+        type: choice
+        options:
+          - e75
+          - e150
+          - e300
+          - n150
+          - n300
+      timeout:
+        required: true
+        description: 'The timeout for the build job in minutes'
+        type: number
+
+env:
+  BUILD_OUTPUT_DIR: ./build
+  TEST_OUTPUT_DIR: ./build/test
+  CREATE_MAP_BINARIES_DIR: ./device/bin/silicon
+
+jobs:
+  test:
+    timeout-minutes: ${{ inputs.timeout }}
+    strategy:
+      fail-fast: false
+      matrix:
+        build: [
+          {runs-on: ubuntu-22.04, docker-image: tt-umd-ci-ubuntu-22.04},
+          {runs-on: ubuntu-20.04, docker-image: tt-umd-ci-ubuntu-20.04},
+        ]
+
+    name: Run tests for ${{ inputs.arch }} on ${{ inputs.card }} on ${{ matrix.build.runs-on }}
+    runs-on:
+      - self-hosted
+      - ${{ inputs.card }}
+    container:
+      image: ghcr.io/${{ github.repository }}/${{ matrix.build.docker-image }}:latest
+      options: --user root --device /dev/tenstorrent/0
+      volumes:
+        - /dev/hugepages:/dev/hugepages
+        - /dev/hugepages-1G:/dev/hugepages-1G
+        - /etc/udev/rules.d:/etc/udev/rules.d
+        - /lib/modules:/lib/modules
+        - /opt/tt_metal_infra/provisioning/provisioning_env:/opt/tt_metal_infra/provisioning/provisioning_env
+
+    env:
+      ARCH_NAME: ${{ inputs.arch }}
+
+    steps:
+    - name: Cleanup tt-umd dir, and change directory as if we were in a github.repository
+      run: |
+        rm -rf tt-umd
+        mkdir tt-umd
+        cd tt-umd
+
+    - name: Use build artifacts
+      uses: actions/download-artifact@v4
+      with:
+        name: build-artifacts-${{ inputs.arch }}-${{ matrix.build.runs-on }}
+        path: ./
+
+    # This is needed to preserve file permissions
+    # https://github.com/actions/upload-artifact?tab=readme-ov-file#permission-loss
+    - name: 'Untar build artifacts'
+      shell: bash
+      run: tar xvf artifact.tar
+
+    - name: Run UMD unit tests
+      run: |
+        ${{ env.TEST_OUTPUT_DIR }}/umd/${{ inputs.arch }}/unit_tests
+
+

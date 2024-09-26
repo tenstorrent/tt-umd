@@ -27,8 +27,7 @@ class tt_MockupDevice : public tt_device {
     void set_device_l1_address_params(const tt_device_l1_address_params& l1_address_params_) override {}
     void set_device_dram_address_params(const tt_device_dram_address_params& dram_address_params_) override {}
     void set_driver_host_address_params(const tt_driver_host_address_params& host_address_params_) override {}
-    void set_driver_eth_interface_params(
-        const tt_driver_eth_interface_params& eth_interface_params_) override {}
+    void set_driver_eth_interface_params(const tt_driver_eth_interface_params& eth_interface_params_) override {}
     void start_device(const tt_device_params& device_params) override {}
     void assert_risc_reset() override {}
     void deassert_risc_reset() override {}
@@ -79,6 +78,7 @@ class tt_MockupDevice : public tt_device {
 
     // Misc. Functions to Query/Set Device State
     std::unordered_map<chip_id_t, uint32_t> get_harvesting_masks_for_soc_descriptors() override {
+        std::cout << "test";
         return {{0, 0}};
     }
     static std::vector<chip_id_t> detect_available_device_ids() { return {0}; };

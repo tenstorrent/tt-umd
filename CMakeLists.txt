@@ -1,8 +1,27 @@
 cmake_minimum_required(VERSION 3.16)
-project(umd_device)
+
+include(cmake/compilers.cmake)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED True)
+
+if (DEFINED ENV{CMAKE_C_COMPILER} AND DEFINED ENV{CMAKE_CXX_COMPILER})
+    message(STATUS "Setting C and C++ compiler from environment variables")
+    set(CMAKE_C_COMPILER $ENV{CMAKE_C_COMPILER})
+    set(CMAKE_CXX_COMPILER $ENV{CMAKE_CXX_COMPILER})
+endif()
+
+if (CMAKE_CXX_COMPILER AND CMAKE_C_COMPILER)
+    message(STATUS "Using specifed C++ compiler: ${CMAKE_CXX_COMPILER}")
+    message(STATUS "Using specifed C compiler: ${CMAKE_C_COMPILER}")
+else()
+    message(STATUS "No C or C++ compiler specified, defaulting to Clang-17")
+    FIND_AND_SET_CLANG17()
+endif()
+
+project(umd_device)
+
+CHECK_COMPILERS()
 
 set(MASTER_PROJECT OFF)
 if(PROJECT_SOURCE_DIR STREQUAL CMAKE_SOURCE_DIR)

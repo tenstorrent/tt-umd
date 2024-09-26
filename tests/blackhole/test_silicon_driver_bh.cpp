@@ -257,7 +257,7 @@ TEST(SiliconDriverBH, UnalignedStaticTLB_RW) {
                 for(auto& core : device.get_virtual_soc_descriptors().at(i).workers) {
                     device.write_to_device(write_vec.data(), size, tt_cxy_pair(i, core), address, "");
                     device.wait_for_non_mmio_flush();
-                    test_utils::read_data_from_device(device, readback_vec, tt_cxy_pair(i, core), address, size, "");
+                    device.read_from_device(readback_vec.data(), tt_cxy_pair(i, core), address, size, "");
                     ASSERT_EQ(readback_vec, write_vec);
                     readback_vec = std::vector<uint8_t>(size, 0);
                     device.write_to_sysmem(write_vec.data(), size, 0, 0, 0);
@@ -273,7 +273,6 @@ TEST(SiliconDriverBH, UnalignedStaticTLB_RW) {
     }
     device.close_device();
 }
-
 
 TEST(SiliconDriverBH, StaticTLB_RW) {
     auto get_static_tlb_index_callback = [] (tt_xy_pair target) {

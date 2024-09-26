@@ -2243,6 +2243,7 @@ void tt_SiliconDevice::read_from_non_mmio_device(void* mem_ptr, tt_cxy_pair core
             } else {
                 // Read 4 byte aligned block from device/sysmem
                 if (use_dram) {
+                    size_buffer_to_capacity(data_block, block_size);
                     read_from_sysmem(data_block.data(), host_dram_block_addr, host_dram_channel, block_size, mmio_capable_chip_logical);
                 } else {
                     uint32_t buf_address = eth_interface_params.eth_routing_data_buffer_addr + resp_rd_ptr * max_block_size;

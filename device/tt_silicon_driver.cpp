@@ -1400,7 +1400,7 @@ void tt_SiliconDevice::init_pcie_iatus() {
 std::string find_hugepage_dir(std::size_t pagesize)
 {
 
-    static const std::regex hugetlbfs_mount_re(fmt::format("^(nodev|hugetlbfs) () hugetlbfs ([^ ]+) 0 0$", hugepage_dir));
+    static const std::regex hugetlbfs_mount_re(fmt::format("^(nodev|hugetlbfs) ({}) hugetlbfs ([^ ]+) 0 0$", hugepage_dir));
     static const std::regex pagesize_re("(?:^|,)pagesize=([0-9]+)([KMGT])(?:,|$)");
 
     std::ifstream proc_mounts("/proc/mounts");

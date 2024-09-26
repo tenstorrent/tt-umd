@@ -379,7 +379,7 @@ std::string tt_cpuset_allocator::get_pci_bus_id(hwloc_obj_t pci_device_obj){
 
     if (hwloc_obj_type_is_io(pci_device_obj->type)) {        
         auto attrs = pci_device_obj->attr->pcidev;
-        pci_bus_id_str = fmt::format("{:04x}{:02x}{:02x}{:01x}", attrs.domain, attrs.bus, attrs.dev, attrs.func);
+        pci_bus_id_str = fmt::format("{:04x}:{:02x}:{:02x}.{:01x}", attrs.domain, attrs.bus, attrs.dev, attrs.func);
     }
 
     return pci_bus_id_str;

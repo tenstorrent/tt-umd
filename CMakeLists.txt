@@ -101,6 +101,6 @@ add_subdirectory(${PROJECT_SOURCE_DIR}/device)
 
 option(TT_UMD_BUILD_TESTS "Enables build of tt_umd tests" OFF)
 if(TT_UMD_BUILD_TESTS)
-    add_subdirectory(tests)
+    add_subdirectory(${PROJECT_SOURCE_DIR}/tests)
 endif(TT_UMD_BUILD_TESTS)
 

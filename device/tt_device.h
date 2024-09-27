@@ -55,10 +55,11 @@ inline std::ostream &operator <<(std::ostream &os, const tt_DevicePowerState pow
 struct tt_device_dram_address_params {
     std::uint32_t DRAM_BARRIER_BASE = 0;
 };
+
 /**
- * @brief Struct encapsulating all L1 Address Map parameters required by UMD.
+ * Struct encapsulating all L1 Address Map parameters required by UMD.
  * These parameters are passed to the constructor.
-*/
+ */
 struct tt_device_l1_address_params {
     std::uint32_t ncrisc_fw_base = 0;
     std::uint32_t fw_base = 0;
@@ -72,18 +73,18 @@ struct tt_device_l1_address_params {
 };
 
 /**
- * @brief Struct encapsulating all Host Address Map parameters required by UMD.
+ * Struct encapsulating all Host Address Map parameters required by UMD.
  * These parameters are passed to the constructor and are needed for non-MMIO transactions.
-*/
+ */
 struct tt_driver_host_address_params {
     std::uint32_t eth_routing_block_size = 0;
     std::uint32_t eth_routing_buffers_start = 0;
 };
 
 /**
- * @brief Struct encapsulating all ERISC Firmware parameters required by UMD.
+ * Struct encapsulating all ERISC Firmware parameters required by UMD.
  * These parameters are passed to the constructor and are needed for non-MMIO transactions.
-*/
+ */
 struct tt_driver_eth_interface_params {
     std::uint32_t noc_addr_local_bits = 0;
     std::uint32_t noc_addr_node_id_bits = 0;
@@ -208,10 +209,9 @@ struct tt_device_params {
 };
 
 /**
- * @brief Parent class for tt_SiliconDevice (Silicon Driver) and tt_VersimDevice (Versim Backend API).
- * Exposes a generic interface to callers, providing declarations for virtual functions defined differently for
- * Silicon and Versim.
- * Valid usage consists of declaring a tt_device object and initializing it to either a Silicon or Versim backend.
+ * Parent class for tt_SiliconDevice (Silicon Driver).
+ * Exposes a generic interface to callers, providing declarations for virtual functions defined differently for Silicon.
+ * Valid usage consists of declaring a tt_device object and initializing it to Silicon backend.
  * Using tt_device itself will throw errors, since its APIs are undefined.
  */ 
 class tt_device
@@ -221,9 +221,10 @@ class tt_device
     virtual ~tt_device();
     // Setup/Teardown Functions
     /**
-    * @brief Set L1 Address Map parameters used by UMD to communicate with the TT Device
-    * \param l1_address_params_ tt_device_l1_address_params encapsulating all the L1 parameters required by UMD
-    */ 
+     * Set L1 Address Map parameters used by UMD to communicate with the TT Device.
+     *
+     * @param l1_address_params_  All the L1 parameters required by UMD
+     */ 
     virtual void set_device_l1_address_params(const tt_device_l1_address_params& l1_address_params_) {
         throw std::runtime_error("---- tt_device::set_device_l1_address_params is not implemented\n");
     }
@@ -233,120 +234,134 @@ class tt_device
     }
 
     /**
-    * @brief Set Host Address Map parameters used by UMD to communicate with the TT Device (used for remote transactions)
-    * \param host_address_params_ tt_driver_host_address_params encapsulating all the Host Address space parameters required by UMD
-    */ 
-
+     * Set Host Address Map parameters used by UMD to communicate with the TT Device (used for remote transactions).
+     *
+     * @param host_address_params_ All the Host Address space parameters required by UMD.
+     */ 
     virtual void set_driver_host_address_params(const tt_driver_host_address_params& host_address_params_) {
         throw std::runtime_error("---- tt_device::set_driver_host_address_params is not implemented\n");
     }
 
     /**
-    * @brief Set ERISC Firmware parameters used by UMD to communicate with the TT Device (used for remote transactions)
-    * \param eth_interface_params_ tt_driver_eth_interface_params encapsulating all the Ethernet Firmware parameters required by UMD
-    */ 
+     * Set ERISC Firmware parameters used by UMD to communicate with the TT Device (used for remote transactions).
+     *
+     * @param eth_interface_params_ All the Ethernet Firmware parameters required by UMD.
+     */ 
     virtual void set_driver_eth_interface_params(const tt_driver_eth_interface_params& eth_interface_params_) {
         throw std::runtime_error("---- tt_device::set_driver_eth_interface_params is not implemented\n");
     }
 
     /**
-    * @brief Configure a TLB to point to a specific core and an address within that core. Should be done for Static TLBs
-    * \param logical_device_id Logical Device being targeted
-    * \param core The TLB will be programmed to point to this core
-    * \param tlb_index TLB id that will be programmed
-    * \param address All incoming transactions to the TLB will be routed to an address space starting at this parameter (after its aligned to the TLB size)
-    * \param ordering Ordering mode for the TLB. Can be Strict (ordered and blocking, since this waits for ack -> slow), Relaxed (ordered, but non blocking -> fast) or Posted (no ordering, non blocking -> fastest).
-    */ 
+     * Configure a TLB to point to a specific core and an address within that core. Should be done for Static TLBs.
+     *
+     * @param logical_device_id Logical Device being targeted.
+     * @param core The TLB will be programmed to point to this core.
+     * @param tlb_index TLB id that will be programmed.
+     * @param address Start address TLB is mapped to.
+     * @param ordering Ordering mode for the TLB.
+     */ 
     virtual void configure_tlb(chip_id_t logical_device_id, tt_xy_pair core, std::int32_t tlb_index, std::int32_t address, uint64_t ordering = TLB_DATA::Relaxed) {
         throw std::runtime_error("---- tt_device::configure_tlb is not implemented\n");
     }
 
     /**
-    * @brief Set ordering mode for dynamic/fallback TLBs (passed into driver constructor)
-    * \param fallback_tlb Dynamic TLB being targeted
-    * \param ordering Ordering mode for the TLB. Can be Strict (ordered and blocking, since this waits for ack -> slow), Posted (ordered, but non blocking -> fast) or Relaxed (no ordering, non blocking -> fastest).
-    */ 
+     * Set ordering mode for dynamic/fallback TLBs (passed into driver constructor).
+     *
+     * @param fallback_tlb Dynamic TLB being targeted.
+     * @param ordering Ordering mode for the TLB.
+     */ 
     virtual void set_fallback_tlb_ordering_mode(const std::string& fallback_tlb, uint64_t ordering = TLB_DATA::Posted) {
         throw std::runtime_error("---- tt_device::set_fallback_tlb_ordering_mode is not implemented\n");
     }
+    
     /**
-    * @brief Give UMD a 1:1 function mapping a core to its appropriate static TLB (currently only support a single TLB per core).
-    * \param mapping_function An std::function object with tt_xy_pair as an input, returning the int32_t TLB index for the input core. If the core does not have a mapped TLB, the function should return -1.
-    */ 
+     * Give UMD a 1:1 function mapping a core to its appropriate static TLB (currently only support a single TLB per core).
+     *
+     * @param mapping_function Function which maps core to TLB index.
+     */
     virtual void setup_core_to_tlb_map(std::function<std::int32_t(tt_xy_pair)> mapping_function) {
         throw std::runtime_error("---- tt_device::setup_core_to_tlb_map is not implemented\n");
     }
+
     /**
-    * @brief Pass in ethernet cores with active links for a specific MMIO chip. When called, this function will force UMD to use a subset of cores from the active_eth_cores_per_chip set for all host->cluster
-    * non-MMIO transfers. If this function is not called, UMD will use a default set of ethernet core indices for these transfers (0 through 5).
-    * If default behaviour is not desired, this function must be called for all MMIO devices.
-    * \param mmio_chip MMIO device for which the active ethernet cores are being set
-    * \param active_eth_cores_per_chip The active ethernet cores for this chip
-    */
+     * Pass in ethernet cores with active links for a specific MMIO chip. When called, this function will force UMD to use a subset of cores from the active_eth_cores_per_chip set for all host->cluster
+     * non-MMIO transfers. If this function is not called, UMD will use a default set of ethernet core indices for these transfers (0 through 5).
+     * If default behaviour is not desired, this function must be called for all MMIO devices.
+     *
+     * @param mmio_chip Device being targeted.
+     * @param active_eth_cores_per_chip The active ethernet cores for this chip.
+     */
     virtual void configure_active_ethernet_cores_for_mmio_device(chip_id_t mmio_chip, const std::unordered_set<tt_xy_pair>& active_eth_cores_per_chip) {
         throw std::runtime_error("---- tt_device::configure_active_ethernet_cores_for_mmio_device is not implemented\n");
     }
-    /** 
-     * @brief Start the Silicon on Versim Device
+
+    /**
      * On Silicon: Assert soft Tensix reset, deassert RiscV reset, set power state to busy (ramp up AICLK), initialize iATUs for PCIe devices and ethernet queues for remote chips.
-     * \param device_params tt_device_params object specifying initialization configuration
-    */
+     *
+     * @param device_params Object specifying initialization configuration.
+     */
     virtual void start_device(const tt_device_params &device_params) {
         throw std::runtime_error("---- tt_device::start_device is not implemented\n");
     }
-    /** 
-     * @brief Broadcast deassert soft Tensix Reset to the entire device (to be done after start_device is called)
-     * \param target_device Logical device id being targeted
-    */  
+
+    /**
+     * Broadcast deassert soft Tensix Reset to the entire device (to be done after start_device is called).
+     */  
     virtual void deassert_risc_reset() {
         throw std::runtime_error("---- tt_device::deassert_risc_reset is not implemented\n");
     }
-    /** 
-     * @brief Send a soft deassert reset signal to a single tensix core 
-     * \param core tt_cxy_pair specifying the chip and core being targeted
-    */  
+
+    /**
+     * Send a soft deassert reset signal to a single tensix core.
+     *
+     * @param core Chip and core being targeted.
+     */  
     virtual void deassert_risc_reset_at_core(tt_cxy_pair core) {
         throw std::runtime_error("---- tt_device::deassert_risc_reset_at_core is not implemented\n");
     }
 
-    /** 
-     * @brief Broadcast assert soft Tensix Reset to the entire device
-     * \param target_device Logical device id being targeted
-    */  
+    /**
+     * Broadcast assert soft Tensix Reset to the entire device.
+     */  
     virtual void assert_risc_reset() {
         throw std::runtime_error("---- tt_device::assert_risc_reset is not implemented\n");
     }
-    /** 
-     * @brief Send a soft assert reset signal to a single tensix core 
-     * \param core tt_cxy_pair specifying the chip and core being targeted
-    */  
+
+    /**
+     * Send a soft assert reset signal to a single tensix core.
+     *
+     * @param core Chip and core being targeted.
+     */  
     virtual void assert_risc_reset_at_core(tt_cxy_pair core) {
         throw std::runtime_error("---- tt_device::assert_risc_reset_at_core is not implemented\n");
     }
-    /** 
-     * @brief To be called at the end of a run.
+
+    /**
+     * To be called at the end of a run.
      * Set power state to idle, assert tensix reset at all cores.
-    */  
+     */  
     virtual void close_device() {
         throw std::runtime_error("---- tt_device::close_device is not implemented\n");
     }
 
     // Runtime functions
     /**
-     * @brief Non-MMIO (ethernet) barrier.
+     * Non-MMIO (ethernet) barrier.
      * Similar to an mfence for host -> host transfers. Will flush all in-flight ethernet transactions before proceeding with the next one.
-    */ 
+     */ 
     virtual void wait_for_non_mmio_flush() {
         throw std::runtime_error("---- tt_device::wait_for_non_mmio_flush is not implemented\n");
     }
+
     /**
-    * @brief Write uint32_t data (as specified by ptr + len pair) to specified device, core and address (defined for Silicon).
-    * \param mem_ptr src data address
-    * \param len src data size (specified for uint32_t)
-    * \param core chip-x-y struct specifying device and core
-    * \param addr Address to write to
-    * \param tlb_to_use Specifies fallback/dynamic TLB to use for transaction, if this core does not have static TLBs mapped to this address (dynamic TLBs were initialized in driver constructor)
-    */
+     * Write uint32_t data (as specified by ptr + len pair) to specified device, core and address (defined for Silicon).
+     *
+     * @param mem_ptr Source data address.
+     * @param len Source data size.
+     * @param core Device and core being targeted.
+     * @param addr Address to write to.
+     * @param tlb_to_use Specifies fallback/dynamic TLB to use.
+     */
     virtual void write_to_device(const void *mem_ptr, uint32_t size_in_bytes, tt_cxy_pair core, uint64_t addr, const std::string& tlb_to_use) {
         // Only implement this for Silicon Backend
         throw std::runtime_error("---- tt_device::write_to_device is not implemented\n");
@@ -354,49 +369,54 @@ class tt_device
     virtual void broadcast_write_to_cluster(const void *mem_ptr, uint32_t size_in_bytes, uint64_t address, const std::set<chip_id_t>& chips_to_exclude,  std::set<uint32_t>& rows_to_exclude,  std::set<uint32_t>& columns_to_exclude, const std::string& fallback_tlb) {
         throw std::runtime_error("---- tt_device::broadcast_write_to_cluster is not implemented\n");
     }
+
     /**
-    * @brief Write uint32_t vector to specified device, core and address (defined for Silicon and Versim).
-    * \param vec Vector to write
-    * \param core chip-x-y struct specifying device and core
-    * \param addr Address to write to
-    * \param tlb_to_use Specifies fallback/dynamic TLB to use for transaction, if this core does not have static TLBs mapped to this address (dynamic TLBs were initialized in driver constructor)
-    */
+     * Write uint32_t vector to specified device, core and address (defined for Silicon).
+     *
+     * @param vec Data to write.
+     * @param core Chip and core being targeted.
+     * @param addr Address to write to.
+     * @param tlb_to_use Specifies fallback/dynamic TLB to use.
+     */
     virtual void write_to_device(std::vector<uint32_t> &vec, tt_cxy_pair core, uint64_t addr, const std::string& tlb_to_use) {
         throw std::runtime_error("---- tt_device::write_to_device is not implemented\n");
     }
 
     /**
-    * @brief Read uint32_t data from a specified device, core and address to host memory (defined for Silicon).
-    * \param mem_ptr dest data address on host (expected to be preallocated, depending on transfer size)
-    * \param core chip-x-y struct specifying device and core
-    * \param addr Address to read from
-    * \param size Read Size
-    * \param fallback_tlb Specifies fallback/dynamic TLB to use for transaction, if this core does not have static TLBs mapped to this address (dynamic TLBs were initialized in driver constructor)
-    */
+     * Read uint32_t data from a specified device, core and address to host memory (defined for Silicon).
+     *
+     * @param mem_ptr Data pointer to read the data into.
+     * @param core Chip and core being targeted.
+     * @param addr Address to read from.
+     * @param size Number of bytes to read.
+     * @param fallback_tlb Specifies fallback/dynamic TLB to use.
+     */
     virtual void read_from_device(void* mem_ptr, tt_cxy_pair core, uint64_t addr, uint32_t size, const std::string& fallback_tlb) {
         // Only implement this for Silicon Backend
         throw std::runtime_error("---- tt_device::read_from_device is not implemented\n");
     }
 
     /**
-    * @brief Read a uint32_t vector from a specified device, core and address to host memory (defined for Silicon and Versim).
-    * \param vec host side vector to populate with data read from device (does not need to be preallocated)
-    * \param core chip-x-y struct specifying device and core
-    * \param addr Address to read from
-    * \param size Read Size
-    * \param fallback_tlb Specifies fallback/dynamic TLB to use for transaction, if this core does not have static TLBs mapped to this address (dynamic TLBs were initialized in driver constructor)
+     * Read a uint32_t vector from a specified device, core and address to host memory (defined for Silicon).
+     *
+     * @param vec Vector to fill with data.
+     * @param core Chip and core to target.
+     * @param addr Address to read from.
+     * @param size Number of bytes to read.
+     * @param fallback_tlb Specifies fallback/dynamic TLB to use.
     */
     virtual void read_from_device(std::vector<uint32_t> &vec, tt_cxy_pair core, uint64_t addr, uint32_t size, const std::string& tlb_to_use) {
         throw std::runtime_error("---- tt_device::read_from_device is not implemented\n");
     }
 
     /**
-    * @brief Write uint32_t vector to specified address and channel on host (defined for Silicon).
-    * \param vec Vector to write
-    * \param addr Address to write to
-    * \param channel Host channel to target (each MMIO Mapped chip has its own set of channels)
-    * \param src_device_id Chip level specifier identifying which chip's host address space needs to be targeted
-    */
+     * Write uint32_t vector to specified address and channel on host (defined for Silicon).
+     * 
+     * @param vec Data to write.
+     * @param addr Address to write to.
+     * @param channel Host channel to target.
+     * @param src_device_id Chip to target.
+     */
     virtual void write_to_sysmem(std::vector<uint32_t>& vec, uint64_t addr, uint16_t channel, chip_id_t src_device_id) {
         throw std::runtime_error("---- tt_device::write_to_sysmem is not implemented\n");
     }
@@ -405,12 +425,14 @@ class tt_device
         throw std::runtime_error("---- tt_device::write_to_sysmem is not implemented\n");
     }
     /**
-    * @brief Read uint32_t vector from specified address and channel on host (defined for Silicon).
-    * \param vec Vector to read (does not need to be preallocated)
-    * \param addr Address to read from
-    * \param channel Host channel to query (each MMIO Mapped chip has its own set of channels)
-    * \param src_device_id Chip level specifier identifying which chip's host address space needs to be queried
-    */
+     * Read uint32_t vector from specified address and channel on host (defined for Silicon).
+     *
+     * @param vec Vector to fill with data.
+     * @param addr Address to read from.
+     * @param channel Host channel to read data from.
+     * @param size Number of bytes to read.
+     * @param src_device_id Chip being targeted.
+     */
     virtual void read_from_sysmem(std::vector<uint32_t> &vec, uint64_t addr, uint16_t channel, uint32_t size, chip_id_t src_device_id) {
         throw std::runtime_error("---- tt_device::read_from_sysmem is not implemented\n");
     }
@@ -429,27 +451,23 @@ class tt_device
 
     // Misc. Functions to Query/Set Device State
     /**
-    * @brief Query post harvesting SOC descriptors from UMD in virtual coordinates. 
-    * These descriptors should be used for looking up cores that are passed into UMD APIs.
-    * \returns A map of SOC Descriptors per chip.
-    */
+     * Query post harvesting SOC descriptors from UMD in virtual coordinates. 
+     * These descriptors should be used for looking up cores that are passed into UMD APIs.
+     */
     virtual std::unordered_map<chip_id_t, tt_SocDescriptor>& get_virtual_soc_descriptors() {
         throw std::runtime_error("---- tt_device:get_virtual_soc_descriptors is not implemented\n");
     }
    
     /**
-    * @brief Determine if UMD performed harvesting on SOC descriptors.
-    * \returns true if the cluster contains harvested chips and if perform_harvesting was set to 
-    * true in the driver constructor
-    */
+     * Determine if UMD performed harvesting on SOC descriptors.
+     */
     virtual bool using_harvested_soc_descriptors() {
         throw std::runtime_error("---- tt_device:using_harvested_soc_descriptors is not implemented\n");
         return 0;
     }
     
     /**
-     * @brief Get harvesting masks for all chips/SOC Descriptors in the cluster
-     * \returns A map of one hot encoded masks showing the physical harvesting state per chip.
+     * Get harvesting masks for all chips/SOC Descriptors in the cluster.
      * Each mask represents a map of enabled (0) and disabled (1) rows on a specific chip (in NOC0 Coordinateds).
      */ 
     virtual std::unordered_map<chip_id_t, uint32_t> get_harvesting_masks_for_soc_descriptors() {
@@ -457,68 +475,70 @@ class tt_device
     }
 
     /**
-     * @brief Issue message to device, meant to be picked up by ARC Firmare
-     * \param logical_device_id Chip to target
-     * \param msg_code Specifies type of message (understood by ARC FW)
-     * \param wait_for_done Block until ARC responds
-     * \param arg0 Message related argument understood by ARC
-     * \param arg1 Message related argument understood by ARC
-     * \param timeout Timeout on ARC
-     * \param return3 Return value from ARC
-     * \param return4 Return value from ARC
-     * \returns Exit code based on ARC status after the message was issued
+     * Issue message to device, meant to be picked up by ARC firmware.
+     * 
+     * @param logical_device_id Chip to target.
+     * @param msg_code Specifies type of ARC message.
+     * @param wait_for_done Block until ARC responds.
+     * @param arg0 Message related argument.
+     * @param arg1 Message related argument.
+     * @param timeout Timeout on ARC.
+     * @param return3 Return value from ARC.
+     * @param return4 Return value from ARC.
      */ 
     virtual int arc_msg(int logical_device_id, uint32_t msg_code, bool wait_for_done = true, uint32_t arg0 = 0, uint32_t arg1 = 0, int timeout=1, uint32_t *return_3 = nullptr, uint32_t *return_4 = nullptr) {
         throw std::runtime_error("---- tt_device::arc_msg is not implemented\n");
     }
+
     /**
-     * @brief Translate between virtual coordinates (from UMD SOC Descriptor) and Translated Coordinates
-     * \param device_id Logical Device for which the core coordinates need to be transalted
-     * \param r Row coordinate
-     * \param c Column coordinate
+     * Translate between virtual coordinates (from UMD SOC Descriptor) and translated coordinates.
+     *
+     * @param device_id Chip to target.
+     * @param r Row coordinate.
+     * @param c Column coordinate.
      */ 
     virtual void translate_to_noc_table_coords(chip_id_t device_id, std::size_t &r, std::size_t &c) {
         throw std::runtime_error("---- tt_device::translate_to_noc_table_coords is not implemented\n");
     }
+
     /**
-     * @brief Get the total number of chips in the cluster based on the network descriptor
-     * \returns Total number of chips
+     * Get the total number of chips in the cluster based on the network descriptor.
      */ 
     virtual int get_number_of_chips_in_cluster() {
         throw std::runtime_error("---- tt_device::get_number_of_chips_in_cluster is not implemented\n");
     }
+
     /**
-     * @brief Get the logical ids for all chips in the cluster
-     * \returns Unordered set with logical chip ids
+     * Get the logical ids for all chips in the cluster
      */ 
     virtual std::unordered_set<chip_id_t> get_all_chips_in_cluster() {
         throw std::runtime_error("---- tt_device::get_all_chips_in_cluster is not implemented\n");
     }
+
     /**
-     * @brief Get cluster descriptor object being used in UMD instance
-     * \returns Pointer to cluster descriptor object from UMD
+     * Get cluster descriptor object being used in UMD instance.
      */ 
     virtual tt_ClusterDescriptor* get_cluster_description() {
         throw std::runtime_error("---- tt_device::get_cluster_description is not implemented\n");
     }
+
     /**
-     * @brief Get all logical ids for all MMIO chips targeted by UMD
-     * \returns Set with logical ids for MMIO chips 
-    */
+     * Get all logical ids for all MMIO chips targeted by UMD.
+     */
     virtual std::set<chip_id_t> get_target_mmio_device_ids() {
         throw std::runtime_error("---- tt_device::get_target_mmio_device_ids is not implemented\n");
     }
+
     /**
-     * @brief Get all logical ids for all Ethernet Mapped chips targeted by UMD
-     * \returns Set with logical ids for Ethernet Mapped chips 
-    */
+     * Get all logical ids for all Ethernet Mapped chips targeted by UMD.
+     */
     virtual std::set<chip_id_t> get_target_remote_device_ids() {
         throw std::runtime_error("---- tt_device::get_target_remote_device_ids is not implemented\n");
     }
+
     /**
-     * @brief Get clock frequencies for all MMIO devices targeted by UMD
-     * \returns Map of logical chip id to clock frequency (for MMIO chips only)
-    */
+     * Get clock frequencies for all MMIO devices targeted by UMD.
+     */
     virtual std::map<int,int> get_clocks() {
         throw std::runtime_error("---- tt_device::get_clocks is not implemented\n");
         return std::map<int,int>();
@@ -529,59 +549,61 @@ class tt_device
     }
 
     /**
-     * @brief Get the ethernet firmware version used by the physical cluster (only implemented for Silicon Backend)
-     * \returns Firmware version {major, minor, patch}
-    */
+     * Get the ethernet firmware version used by the physical cluster (only implemented for Silicon Backend).
+     */
     virtual tt_version get_ethernet_fw_version() const {
         throw std::runtime_error("---- tt_device::get_ethernet_fw_version is not implemented \n");
     }
+
     /**
-     * @brief Query number of DRAM channels on a specific device
-     * \param device_id Logical device id to query
-     * \returns Number of DRAM channels on device
-    */ 
+     * Query number of DRAM channels on a specific device.
+     *
+     * @param device_id Logical device id to query.
+     */ 
     virtual std::uint32_t get_num_dram_channels(std::uint32_t device_id) {
         throw std::runtime_error("---- tt_device::get_num_dram_channels is not implemented\n");
         return 0;
     }
+
     /**
-     * @brief Get size for a specific DRAM channel on a device
-     * \param device_id Logical device id to query
-     * \param channel Logical channel id (taken from soc descriptor) for which the size will be queried
-     * \returns Size of specific DRAM channel
-    */ 
+     * Get size for a specific DRAM channel on a device.
+     *    
+     * @param device_id Device to target.
+     * @param channel DRAM channel to target.
+     */ 
     virtual std::uint64_t get_dram_channel_size(std::uint32_t device_id, std::uint32_t channel) {
         throw std::runtime_error("---- tt_device::get_dram_channel_size is not implemented\n");
         return 0;
     }
 
     /**
-     * @brief Query number of Host channels (hugepages) allocated for a specific device
-     * \param device_id Logical device id to query
-     * \returns Number of Host channels allocated for device
-    */ 
+     * Query number of Host channels (hugepages) allocated for a specific device.
+     *
+     * @param device_id Logical device id to target.
+     */ 
     virtual std::uint32_t get_num_host_channels(std::uint32_t device_id) {
         throw std::runtime_error("---- tt_device::get_num_host_channels is not implemented\n");
         return 0;
     }
 
     /**
-     * @brief Get size for a specific Host channel accessible by the corresponding device
-     * \param device_id Logical device id to query
-     * \param channel Logical Host channel id for which the accessible  size will be queried
-     * \returns Device accessible size of specific Host channel
-    */ 
+     * Get size for a specific Host channel accessible by the corresponding device.
+     *
+     * @param device_id Logical device id to target.
+     * @param channel Logical host channel to target.
+     */ 
     virtual std::uint32_t get_host_channel_size(std::uint32_t device_id, std::uint32_t channel) {
         throw std::runtime_error("---- tt_device::get_host_channel_size is not implemented\n");
         return 0;
     }
+
     /**
-     * @brief Get absolute address corresponding to a zero based offset into a specific host
-     * memory channel for a specific device
-     * \param offset Zero based relative offset wrt the start of the channel's address space
-     * src_device_id Device for which the host memory address will be queried
-     * channel Host memory channel id for which the absolute address will be computed
-    */
+     * Get absolute address corresponding to a zero based offset into a specific host memory channel for a specific device.
+     *   
+     * @param offset Offset wrt the start of the channel's address space.
+     * @param src_device_id Device to target. 
+     * @param channel Host memory channel.
+     */
     virtual void *host_dma_address(std::uint64_t offset, chip_id_t src_device_id, uint16_t channel) const {
         throw std::runtime_error("---- tt_device::host_dma_address is not implemented\n");
         return nullptr;
@@ -605,7 +627,7 @@ class tt_device
 #include "device/architecture_implementation.h"
 
 /**
- * @brief Silicon Driver Class, derived from the tt_device class
+* Silicon Driver Class, derived from the tt_device class
  * Implements APIs to communicate with a physical Tenstorrent Device.
 */ 
 class tt_SiliconDevice: public tt_device
@@ -613,17 +635,18 @@ class tt_SiliconDevice: public tt_device
     public:
     // Constructor
     /**
-     * @brief Silicon Driver constructor.
-     * \param sdesc_path Location of the SOC descriptor containing the default description of a single chip in the cluster (this does not have to account for product level changes such as harvesting).
-     * \param ndesc_path Location of the Network Descriptor specifying the network topology of the system.
-     * \param target_devices Logical Device ids being targeted by workload.
-     * \param num_host_mem_ch_per_mmio_device Requested number of host channels (hugepages) per MMIO mapped device. The driver may allocated less per device, depending on availability.
-     * \param dynamic_tlb_config_ Map specifying dynamic tlb names and the indices they correspond to
-     * \param skip_driver_allocs Specifies if the Silicon Driver object should be initialized + started without modifying device state (ex: bringing device out of reset or shared host state (ex: initializing hugepages)
-     * \param clean_system_resource Specifies if potentially corrupted shared host state from previous runs needs to be cleaned up. Should only be set by the main thread/process running
-     * on a device. Setting this across multiple processes per device will cause issues since objects required by the driver will be cleared.
-    * \param perform_harvesting Allow the driver to modify the SOC descriptors per chip by considering the harvesting configuration of the cluster.
-    */ 
+     * Silicon Driver constructor.
+     *
+     * @param sdesc_path SOC descriptor specifying single chip.
+     * @param ndesc_path Network Descriptor specifying the network topology of the system.
+     * @param target_devices Devices to target.
+     * @param num_host_mem_ch_per_mmio_device Requested number of host channels (hugepages).
+     * @param dynamic_tlb_config_ Map specifying tlb name to tlb index mapping.
+     * @param skip_driver_allocs
+     * @param clean_system_resource Specifies if host state from previous runs needs to be cleaned up.
+     * @param perform_harvesting Allow the driver to modify the SOC descriptors per chip.
+     * @param simulated_harvesting_masks
+     */ 
     tt_SiliconDevice(const std::string &sdesc_path, const std::string &ndesc_path = "", const std::set<chip_id_t> &target_devices = {}, 
                     const uint32_t &num_host_mem_ch_per_mmio_device = 1, const std::unordered_map<std::string, std::int32_t>& dynamic_tlb_config_ = {}, 
                     const bool skip_driver_allocs = false, const bool clean_system_resources = false, bool perform_harvesting = true, std::unordered_map<chip_id_t, uint32_t> simulated_harvesting_masks = {});
@@ -663,25 +686,25 @@ class tt_SiliconDevice: public tt_device
     // These functions are used by Debuda, so make them public
     void bar_write32 (int logical_device_id, uint32_t addr, uint32_t data);
     uint32_t bar_read32 (int logical_device_id, uint32_t addr);
+
     /**
-     * @brief If the tlbs are initialized, returns a tuple with the TLB base address and its size
-    */
+     * If the tlbs are initialized, returns a tuple with the TLB base address and its size
+     */
     std::optional<std::tuple<uint32_t, uint32_t>> get_tlb_data_from_target(const tt_xy_pair& target);
     /**
-     * @brief This API allows you to write directly to device memory that is addressable by a static TLB
-    */
+     * This API allows you to write directly to device memory that is addressable by a static TLB
+     */
     std::function<void(uint32_t, uint32_t, const uint8_t*)> get_fast_pcie_static_tlb_write_callable(int device_id);
 
     /**
-     * @brief Provide fast write access to a statically-mapped TLB.
+     * Provide fast write access to a statically-mapped TLB.
      * It is the caller's responsibility to ensure that
      * - the target has a static TLB mapping configured.
      * - the mapping is unchanged during the lifetime of the returned object.
      * - the tt_SiliconDevice instance outlives the returned object.
      * - use of the returned object is congruent with the target's TLB setup.
+     *    
      * @param target The target chip and core to write to.
-     * @throws std::runtime_error on error.
-     * @returns a Writer instance that can be used to write to the target.
      */
     tt::Writer get_static_tlb_writer(tt_cxy_pair target);
 

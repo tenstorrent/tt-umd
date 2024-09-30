@@ -366,20 +366,9 @@ class tt_device
         // Only implement this for Silicon Backend
         throw std::runtime_error("---- tt_device::write_to_device is not implemented\n");
     }
+
     virtual void broadcast_write_to_cluster(const void *mem_ptr, uint32_t size_in_bytes, uint64_t address, const std::set<chip_id_t>& chips_to_exclude,  std::set<uint32_t>& rows_to_exclude,  std::set<uint32_t>& columns_to_exclude, const std::string& fallback_tlb) {
         throw std::runtime_error("---- tt_device::broadcast_write_to_cluster is not implemented\n");
-    }
-
-    /**
-     * Write uint32_t vector to specified device, core and address (defined for Silicon).
-     *
-     * @param vec Data to write.
-     * @param core Chip and core being targeted.
-     * @param addr Address to write to.
-     * @param tlb_to_use Specifies fallback/dynamic TLB to use.
-     */
-    virtual void write_to_device(std::vector<uint32_t> &vec, tt_cxy_pair core, uint64_t addr, const std::string& tlb_to_use) {
-        throw std::runtime_error("---- tt_device::write_to_device is not implemented\n");
     }
 
     /**
@@ -397,19 +386,6 @@ class tt_device
     }
 
     /**
-     * Read a uint32_t vector from a specified device, core and address to host memory (defined for Silicon).
-     *
-     * @param vec Vector to fill with data.
-     * @param core Chip and core to target.
-     * @param addr Address to read from.
-     * @param size Number of bytes to read.
-     * @param fallback_tlb Specifies fallback/dynamic TLB to use.
-    */
-    virtual void read_from_device(std::vector<uint32_t> &vec, tt_cxy_pair core, uint64_t addr, uint32_t size, const std::string& tlb_to_use) {
-        throw std::runtime_error("---- tt_device::read_from_device is not implemented\n");
-    }
-
-    /**
      * Write uint32_t vector to specified address and channel on host (defined for Silicon).
      * 
      * @param vec Data to write.
@@ -417,24 +393,8 @@ class tt_device
      * @param channel Host channel to target.
      * @param src_device_id Chip to target.
      */
-    virtual void write_to_sysmem(std::vector<uint32_t>& vec, uint64_t addr, uint16_t channel, chip_id_t src_device_id) {
-        throw std::runtime_error("---- tt_device::write_to_sysmem is not implemented\n");
-    }
-
     virtual void write_to_sysmem(const void* mem_ptr, std::uint32_t size,  uint64_t addr, uint16_t channel, chip_id_t src_device_id) {
         throw std::runtime_error("---- tt_device::write_to_sysmem is not implemented\n");
-    }
-    /**
-     * Read uint32_t vector from specified address and channel on host (defined for Silicon).
-     *
-     * @param vec Vector to fill with data.
-     * @param addr Address to read from.
-     * @param channel Host channel to read data from.
-     * @param size Number of bytes to read.
-     * @param src_device_id Chip being targeted.
-     */
-    virtual void read_from_sysmem(std::vector<uint32_t> &vec, uint64_t addr, uint16_t channel, uint32_t size, chip_id_t src_device_id) {
-        throw std::runtime_error("---- tt_device::read_from_sysmem is not implemented\n");
     }
     virtual void read_from_sysmem(void* mem_ptr, uint64_t addr, uint16_t channel, uint32_t size, chip_id_t src_device_id) {
         throw std::runtime_error("---- tt_device::read_from_sysmem is not implemented\n");
@@ -670,14 +630,10 @@ class tt_SiliconDevice: public tt_device
 
     // Runtime Functions
     virtual void write_to_device(const void *mem_ptr, uint32_t size_in_bytes, tt_cxy_pair core, uint64_t addr, const std::string& tlb_to_use);
-    virtual void write_to_device(std::vector<uint32_t> &vec, tt_cxy_pair core, uint64_t addr, const std::string& tlb_to_use);
     void broadcast_write_to_cluster(const void *mem_ptr, uint32_t size_in_bytes, uint64_t address, const std::set<chip_id_t>& chips_to_exclude,  std::set<uint32_t>& rows_to_exclude,  std::set<uint32_t>& columns_to_exclude, const std::string& fallback_tlb);
 
     virtual void read_from_device(void* mem_ptr, tt_cxy_pair core, uint64_t addr, uint32_t size, const std::string& fallback_tlb);
-    virtual void read_from_device(std::vector<uint32_t> &vec, tt_cxy_pair core, uint64_t addr, uint32_t size, const std::string& tlb_to_use);
-    virtual void write_to_sysmem(std::vector<uint32_t>& vec, uint64_t addr, uint16_t channel, chip_id_t src_device_id);
     virtual void write_to_sysmem(const void* mem_ptr, std::uint32_t size,  uint64_t addr, uint16_t channel, chip_id_t src_device_id);
-    virtual void read_from_sysmem(std::vector<uint32_t> &vec, uint64_t addr, uint16_t channel, uint32_t size, chip_id_t src_device_id);
     virtual void read_from_sysmem(void* mem_ptr, uint64_t addr, uint16_t channel, uint32_t size, chip_id_t src_device_id);
     virtual void wait_for_non_mmio_flush();
     void l1_membar(const chip_id_t chip, const std::string& fallback_tlb, const std::unordered_set<tt_xy_pair>& cores = {});

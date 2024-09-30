@@ -23,7 +23,6 @@
 #include "tests/galaxy/test_galaxy_common.h"
 #include "tests/wormhole/test_wh_common.h"
 
-
 namespace tt::umd::test::utils {
 
 

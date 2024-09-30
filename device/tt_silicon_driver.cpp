@@ -2023,7 +2023,7 @@ void tt_SiliconDevice::write_to_non_mmio_device(
                     write_to_sysmem(broadcast_header.data(), broadcast_header.size() * sizeof(uint32_t), host_dram_block_addr, host_dram_channel, mmio_capable_chip_logical);
                 }
                 // Write payload to sysmem
-                write_to_sysmem(data_block, host_dram_block_addr + BROADCAST_HEADER_SIZE * broadcast, host_dram_channel, mmio_capable_chip_logical);
+                write_to_sysmem(data_block.data(), data_block.size() * DATA_WORD_SIZE, host_dram_block_addr + BROADCAST_HEADER_SIZE * broadcast, host_dram_channel, mmio_capable_chip_logical);
 
             } else {
                 uint32_t buf_address = eth_interface_params.eth_routing_data_buffer_addr + req_wr_ptr * max_block_size;
@@ -2243,7 +2243,8 @@ void tt_SiliconDevice::read_from_non_mmio_device(void* mem_ptr, tt_cxy_pair core
             } else {
                 // Read 4 byte aligned block from device/sysmem
                 if (use_dram) {
-                    read_from_sysmem(data_block, host_dram_block_addr, host_dram_channel, block_size, mmio_capable_chip_logical);
+                    size_buffer_to_capacity(data_block, block_size);
+                    read_from_sysmem(data_block.data(), host_dram_block_addr, host_dram_channel, block_size, mmio_capable_chip_logical);
                 } else {
                     uint32_t buf_address = eth_interface_params.eth_routing_data_buffer_addr + resp_rd_ptr * max_block_size;
                     size_buffer_to_capacity(data_block, block_size);
@@ -2659,16 +2660,9 @@ int tt_SiliconDevice::remote_arc_msg(int chip, uint32_t msg_code, bool wait_for_
 void tt_SiliconDevice::write_to_sysmem(const void* mem_ptr, std::uint32_t size,  uint64_t addr, uint16_t channel, chip_id_t src_device_id) {
     write_buffer(mem_ptr, size, addr, channel, src_device_id);
 }
-void tt_SiliconDevice::write_to_sysmem(std::vector<uint32_t>& vec, uint64_t addr, uint16_t channel, chip_id_t src_device_id) {
-    write_buffer(vec.data(), vec.size() * sizeof(uint32_t), addr, channel, src_device_id);
-}
 
 void tt_SiliconDevice::read_from_sysmem(void* mem_ptr, uint64_t addr, uint16_t channel, uint32_t size, chip_id_t src_device_id) {
     read_buffer(mem_ptr, addr, channel, size, src_device_id);
-}
-void tt_SiliconDevice::read_from_sysmem(std::vector<uint32_t> &vec, uint64_t addr, uint16_t channel, uint32_t size, chip_id_t src_device_id) {
-    size_buffer_to_capacity(vec, size);
-    read_buffer(vec.data(), addr, channel, size, src_device_id);
 }
 
 void tt_SiliconDevice::set_membar_flag(const chip_id_t chip, const std::unordered_set<tt_xy_pair>& cores, const uint32_t barrier_value, const uint32_t barrier_addr, const std::string& fallback_tlb) {
@@ -2676,15 +2670,15 @@ void tt_SiliconDevice::set_membar_flag(const chip_id_t chip, const std::unordere
     std::unordered_set<tt_xy_pair> cores_synced = {};
     std::vector<uint32_t> barrier_val_vec = {barrier_value};
     for (const auto& core : cores) {
-        write_to_device(barrier_val_vec, tt_cxy_pair(chip, core), barrier_addr, fallback_tlb);
+        write_to_device(barrier_val_vec.data(), barrier_val_vec.size() * sizeof(uint32_t), tt_cxy_pair(chip, core), barrier_addr, fallback_tlb);
     }
     tt_driver_atomics::sfence(); // Ensure that all writes in the Host WC buffer are flushed
     while (cores_synced.size() != cores.size()) {
         for(const auto& core : cores) {
             if (cores_synced.find(core) == cores_synced.end()) {
-                std::vector<uint32_t> readback_vec = {};
-                read_from_device(readback_vec, tt_cxy_pair(chip, core), barrier_addr, sizeof(std::uint32_t), fallback_tlb);
-                if (readback_vec.at(0) == barrier_value) {
+                uint32_t readback_val;
+                read_from_device(&readback_val, tt_cxy_pair(chip, core), barrier_addr, sizeof(std::uint32_t), fallback_tlb);
+                if (readback_val == barrier_value) {
                     cores_synced.insert(core);
                 }
                 else {
@@ -2797,11 +2791,6 @@ void tt_SiliconDevice::write_to_device(const void *mem_ptr, uint32_t size, tt_cx
     }
 }
 
-void tt_SiliconDevice::write_to_device(std::vector<uint32_t> &vec, tt_cxy_pair core, uint64_t addr, const std::string& fallback_tlb) {
-    // Overloaded device writer that accepts a vector
-    write_to_device(vec.data(), vec.size() * sizeof(uint32_t), core, addr, fallback_tlb);
-}
-
 void tt_SiliconDevice::read_mmio_device_register(void* mem_ptr, tt_cxy_pair core, uint64_t addr, uint32_t size, const std::string& fallback_tlb) {
     PCIDevice *pci_device = get_pci_device(core.chip);
 
@@ -2853,12 +2842,6 @@ void tt_SiliconDevice::read_from_device(void* mem_ptr, tt_cxy_pair core, uint64_
         read_from_non_mmio_device(mem_ptr, core, addr, size);
     }
 }
-
-void tt_SiliconDevice::read_from_device(std::vector<uint32_t> &vec, tt_cxy_pair core, uint64_t addr, uint32_t size, const std::string& fallback_tlb) {
-    size_buffer_to_capacity(vec, size);
-    read_from_device(vec.data(), core, addr, size, fallback_tlb);
-}
-
 
 int tt_SiliconDevice::arc_msg(int logical_device_id, uint32_t msg_code, bool wait_for_done, uint32_t arg0, uint32_t arg1, int timeout, uint32_t *return_3, uint32_t *return_4) {
     log_assert(arch_name != tt::ARCH::BLACKHOLE, "ARC messages not supported in Blackhole");
@@ -3003,11 +2986,11 @@ void tt_SiliconDevice::deassert_resets_and_set_power_state() {
 
 void tt_SiliconDevice::verify_eth_fw() {
     for(const auto& chip : target_devices_in_cluster) {
-        std::vector<uint32_t> mem_vector;
+        uint32_t fw_version;
         std::vector<uint32_t> fw_versions;
         for (tt_xy_pair &eth_core : get_soc_descriptor(chip).ethernet_cores) {
-            read_from_device(mem_vector, tt_cxy_pair(chip, eth_core), l1_address_params.fw_version_addr, sizeof(uint32_t), "LARGE_READ_TLB");
-            fw_versions.push_back(mem_vector.at(0));
+            read_from_device(&fw_version, tt_cxy_pair(chip, eth_core), l1_address_params.fw_version_addr, sizeof(uint32_t), "LARGE_READ_TLB");
+            fw_versions.push_back(fw_version);
         }
         verify_sw_fw_versions(chip, SW_VERSION, fw_versions);
         eth_fw_version = tt_version(fw_versions.at(0));

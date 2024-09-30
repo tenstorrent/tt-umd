@@ -17,6 +17,7 @@
 #include "test_galaxy_common.h"
 #include "tests/wormhole/test_wh_common.h"
 #include "tests/test_utils/generate_cluster_desc.hpp"
+#include "tests/test_utils/device_test_utils.hpp"
 
 static const std::string SOC_DESC_PATH = "tests/soc_descs/wormhole_b0_8x10.yaml";
 
@@ -71,14 +72,14 @@ TEST(GalaxyConcurrentThreads, WriteToAllChipsL1) {
         std::uint32_t address = l1_mem::address_map::NCRISC_FIRMWARE_BASE;
         for (const auto& chip : target_devices_th1) {
             for (auto& core : sdesc_per_chip.at(chip).workers) {
-                device.write_to_device(vector_to_write_th1, tt_cxy_pair(chip, core), address, "SMALL_READ_WRITE_TLB");
+                device.write_to_device(vector_to_write_th1.data(), vector_to_write_th1.size() * sizeof(std::uint32_t), tt_cxy_pair(chip, core), address, "SMALL_READ_WRITE_TLB");
             }
         }
         device.wait_for_non_mmio_flush();
         for (auto& chip : target_devices_th1) {
             for (auto& core : sdesc_per_chip.at(chip).workers) {
-                device.read_from_device(
-                    readback_vec, tt_cxy_pair(chip, core), address, write_size, "SMALL_READ_WRITE_TLB");
+                test_utils::read_data_from_device(
+                    device, readback_vec, tt_cxy_pair(chip, core), address, write_size, "SMALL_READ_WRITE_TLB");
                 EXPECT_EQ(vector_to_write_th1, readback_vec)
                     << "Vector read back from core " << core.x << "-" << core.y << "does not match what was written";
                 readback_vec = {};
@@ -92,14 +93,14 @@ TEST(GalaxyConcurrentThreads, WriteToAllChipsL1) {
         std::uint32_t address = l1_mem::address_map::NCRISC_FIRMWARE_BASE;
         for (const auto& chip : target_devices_th2) {
             for (auto& core : sdesc_per_chip.at(chip).workers) {
-                device.write_to_device(vector_to_write_th2, tt_cxy_pair(chip, core), address, "SMALL_READ_WRITE_TLB");
+                device.write_to_device(vector_to_write_th2.data(), vector_to_write_th2.size() * sizeof(std::uint32_t), tt_cxy_pair(chip, core), address, "SMALL_READ_WRITE_TLB");
             }
         }
         device.wait_for_non_mmio_flush();
         for (const auto& chip : target_devices_th2) {
             for (auto& core : sdesc_per_chip.at(chip).workers) {
-                device.read_from_device(
-                    readback_vec, tt_cxy_pair(chip, core), address, write_size, "SMALL_READ_WRITE_TLB");
+                test_utils::read_data_from_device(
+                    device, readback_vec, tt_cxy_pair(chip, core), address, write_size, "SMALL_READ_WRITE_TLB");
                 EXPECT_EQ(vector_to_write_th2, readback_vec)
                     << "Vector read back from core " << core.x << "-" << core.y << "does not match what was written";
                 readback_vec = {};
@@ -165,14 +166,14 @@ TEST(GalaxyConcurrentThreads, WriteToAllChipsDram) {
         std::uint32_t address = 0x4000000;
         for (const auto& chip : target_devices_th1) {
             for (auto& core : dram_cores) {
-                device.write_to_device(vector_to_write, tt_cxy_pair(chip, core), address, "SMALL_READ_WRITE_TLB");
+                device.write_to_device(vector_to_write.data(), vector_to_write.size() * sizeof(std::uint32_t), tt_cxy_pair(chip, core), address, "SMALL_READ_WRITE_TLB");
             }
         }
         device.wait_for_non_mmio_flush();
         for (const auto& chip : target_devices_th1) {
             for (auto& core : dram_cores) {
-                device.read_from_device(
-                    readback_vec, tt_cxy_pair(chip, core), address, write_size, "SMALL_READ_WRITE_TLB");
+                test_utils::read_data_from_device(
+                    device, readback_vec, tt_cxy_pair(chip, core), address, write_size, "SMALL_READ_WRITE_TLB");
                 EXPECT_EQ(vector_to_write, readback_vec) << "Vector read back from dram core " << core.x << "-"
                                                          << core.y << "does not match what was written";
                 readback_vec = {};
@@ -185,14 +186,14 @@ TEST(GalaxyConcurrentThreads, WriteToAllChipsDram) {
         std::uint32_t address = 0x5000000;
         for (const auto& chip : target_devices_th2) {
             for (auto& core : sdesc_per_chip.at(chip).workers) {
-                device.write_to_device(vector_to_write, tt_cxy_pair(chip, core), address, "SMALL_READ_WRITE_TLB");
+                device.write_to_device(vector_to_write.data(), vector_to_write.size() * sizeof(std::uint32_t), tt_cxy_pair(chip, core), address, "SMALL_READ_WRITE_TLB");
             }
         }
         device.wait_for_non_mmio_flush();
         for (const auto& chip : target_devices_th2) {
             for (auto& core : sdesc_per_chip.at(chip).workers) {
-                device.read_from_device(
-                    readback_vec, tt_cxy_pair(chip, core), address, write_size, "SMALL_READ_WRITE_TLB");
+                test_utils::read_data_from_device(
+                    device, readback_vec, tt_cxy_pair(chip, core), address, write_size, "SMALL_READ_WRITE_TLB");
                 EXPECT_EQ(vector_to_write, readback_vec) << "Vector read back from dram core " << core.x << "-"
                                                          << core.y << "does not match what was written";
                 readback_vec = {};
@@ -244,8 +245,9 @@ TEST(GalaxyConcurrentThreads, PushInputsWhileSignalingCluster) {
         chip_id_t mmio_chip = cluster_desc->get_chips_with_mmio().begin()->first;
         std::vector<uint32_t> readback_vec = {};
         std::uint32_t address = 0x0;
-        device.write_to_device(large_vector, tt_cxy_pair(mmio_chip, tt_xy_pair(0, 0)), address, "SMALL_READ_WRITE_TLB");
-        device.read_from_device(
+        device.write_to_device(large_vector.data(), large_vector.size() * sizeof(std::uint32_t), tt_cxy_pair(mmio_chip, tt_xy_pair(0, 0)), address, "SMALL_READ_WRITE_TLB");
+        test_utils::read_data_from_device(
+            device,
             readback_vec,
             tt_cxy_pair(mmio_chip, tt_xy_pair(0, 0)),
             address,
@@ -261,14 +263,14 @@ TEST(GalaxyConcurrentThreads, PushInputsWhileSignalingCluster) {
         std::uint32_t address = l1_mem::address_map::NCRISC_FIRMWARE_BASE;
         for (const auto& chip : target_devices) {
             for (auto& core : sdesc_per_chip.at(chip).workers) {
-                device.write_to_device(small_vector, tt_cxy_pair(chip, core), address, "SMALL_READ_WRITE_TLB");
+                device.write_to_device(small_vector.data(), small_vector.size() * sizeof(std::uint32_t), tt_cxy_pair(chip, core), address, "SMALL_READ_WRITE_TLB");
             }
         }
         device.wait_for_non_mmio_flush();
         for (const auto& chip : target_devices) {
             for (auto& core : sdesc_per_chip.at(chip).workers) {
-                device.read_from_device(
-                    readback_vec, tt_cxy_pair(chip, core), address, small_vector.size() * 4, "SMALL_READ_WRITE_TLB");
+                test_utils::read_data_from_device(
+                    device, readback_vec, tt_cxy_pair(chip, core), address, small_vector.size() * 4, "SMALL_READ_WRITE_TLB");
                 EXPECT_EQ(small_vector, readback_vec)
                     << "Vector read back from core " << core.x << "-" << core.y << "does not match what was written";
                 readback_vec = {};

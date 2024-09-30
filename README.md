@@ -8,7 +8,7 @@ sudo apt install -y libhwloc-dev
 
 ## Build flow
 We are transitioning away from Make. The main libraries and tests should now be built with CMake.
-Specify the `ARCH_NAME` environment variable as `grayskull` or `wormhole_b0` before building.
+The device lib is built once for all supported architectures (grayskull, wormhole and blackhole).
 
 To build `libdevice.so`: 
 ```
@@ -18,8 +18,12 @@ ninja -C build
 ninja umd_device -C build
 ```
 
+Tests are build separatelly for each architecture.
+Specify the `ARCH_NAME` environment variable as `grayskull`,  `wormhole_b0` or `blackhole` before building.
+You also need to configure cmake to enable tests, hence the need to run cmake configuration step again.
 To build tests:
 ```
+cmake -B build -G Ninja -DTT_UMD_BUILD_TESTS=ON
 ninja umd_tests -C build
 ```
 

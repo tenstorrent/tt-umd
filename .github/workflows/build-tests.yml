@@ -1,4 +1,4 @@
-# Builds requested target and uploads its artifact if requested.
+# Builds umd_tests.
 # Build is performed on the specified architecture and on all supported OS versions.
 name: Build Target
 
@@ -11,13 +11,6 @@ on:
       timeout:
         required: true
         type: number
-      build-target:
-        required: true
-        type: string
-      upload-artifacts:
-        required: false
-        type: boolean
-        default: false
   workflow_dispatch:
     inputs:
       arch:
@@ -32,21 +25,10 @@ on:
         required: true
         description: 'The timeout for the build job in minutes'
         type: number
-      build-target:
-        required: true
-        description: 'The target to build'
-        type: choice
-        options:
-          - umd_device
-          - umd_tests
-      upload-artifacts:
-        required: false
-        description: 'Whether to upload artifacts'
-        type: boolean
-        default: false
       
 
 env:
+  BUILD_TARGET: umd_tests
   BUILD_OUTPUT_DIR: ./build
   LIB_OUTPUT_DIR: ./build/lib
   DEPS_OUTPUT_DIR: ./build/_deps
@@ -64,7 +46,7 @@ jobs:
           {runs-on: ubuntu-20.04, docker-image: tt-umd-ci-ubuntu-20.04},
         ]
 
-    name: Build ${{ inputs.build-target }} for ${{ inputs.arch }} on ${{ matrix.build.runs-on }}
+    name: Build umd_tests for ${{ inputs.arch }} on ${{ matrix.build.runs-on }}
     runs-on: ${{ matrix.build.runs-on }}
     container:
       image: ghcr.io/${{ github.repository }}/${{ matrix.build.docker-image }}:latest
@@ -78,22 +60,20 @@ jobs:
       with:
         submodules: recursive
 
-    - name: Build ${{ inputs.build-target }}
+    - name: Build ${{ env.BUILD_TARGET }}
       run: |
         echo "Compiling the code..."
         cmake -B ${{ env.BUILD_OUTPUT_DIR }} -G Ninja -DTT_UMD_BUILD_TESTS=ON
-        cmake --build ${{ env.BUILD_OUTPUT_DIR }} --target ${{ inputs.build-target }}
+        cmake --build ${{ env.BUILD_OUTPUT_DIR }} --target ${{ env.BUILD_TARGET }}
         echo "Compile complete."
 
     # This is needed to preserve file permissions
     # https://github.com/actions/upload-artifact?tab=readme-ov-file#permission-loss
     - name: Tar build, test and run artifacts
-      if: ${{ inputs.upload-artifacts }}
       shell: bash
       run: tar cvf artifact.tar ${{ env.TEST_OUTPUT_DIR }} ${{ env.LIB_OUTPUT_DIR }} ${{ env.DEPS_OUTPUT_DIR }} ${{ env.CREATE_MAP_BINARIES_DIR }}
 
     - name: Upload build artifacts archive
-      if: ${{ inputs.upload-artifacts }}
       uses: actions/upload-artifact@v4
       with:
         name: build-artifacts-${{ inputs.arch }}-${{ matrix.build.runs-on }}

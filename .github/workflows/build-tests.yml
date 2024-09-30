@@ -46,7 +46,7 @@ jobs:
           {runs-on: ubuntu-20.04, docker-image: tt-umd-ci-ubuntu-20.04},
         ]
 
-    name: Build ${{ env.BUILD_TARGET }} for ${{ inputs.arch }} on ${{ matrix.build.runs-on }}
+    name: Build umd_tests for ${{ inputs.arch }} on ${{ matrix.build.runs-on }}
     runs-on: ${{ matrix.build.runs-on }}
     container:
       image: ghcr.io/${{ github.repository }}/${{ matrix.build.docker-image }}:latest

@@ -50,7 +50,7 @@ endif
 UMDHEADERS := device/device_api.h
 
 
-include device/module.mk
+include new_device/module.mk
 include tests/module.mk
 
 init:

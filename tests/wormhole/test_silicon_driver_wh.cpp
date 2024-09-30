@@ -5,18 +5,22 @@
 #include <memory>
 
 #include "gtest/gtest.h"
-#include "tt_device.h"
+#include "chip.h"
 #include "eth_l1_address_map.h"
 #include "l1_address_map.h"
 #include "eth_l1_address_map.h"
 #include "eth_interface.h"
 #include "host_mem_address_map.h"
+#include "local_chip.h"
 
-#include "device/tt_cluster_descriptor.h"
-#include "device/wormhole/wormhole_implementation.h"
+#include "new_device/cluster_descriptor.h"
+// #include "new_device/wormhole/wormhole_implementation.h"
+#include "new_device/wormhole_tt_device.h"
 #include "tests/test_utils/generate_cluster_desc.hpp"
 
-void set_params_for_remote_txn(tt_SiliconDevice& device) {
+using namespace tt::umd;
+
+void set_params_for_remote_txn(LocalChip& device) {
     // Populate address map and NOC parameters that the driver needs for remote transactions
     device.set_driver_host_address_params({host_mem::address_map::ETH_ROUTING_BLOCK_SIZE, host_mem::address_map::ETH_ROUTING_BUFFERS_START});
 
@@ -31,7 +35,7 @@ void set_params_for_remote_txn(tt_SiliconDevice& device) {
 
 }
 
-std::int32_t get_static_tlb_index(tt_xy_pair target) {
+std::int32_t get_static_tlb_index(xy_pair target) {
     bool is_eth_location = std::find(std::cbegin(tt::umd::wormhole::ETH_LOCATIONS), std::cend(tt::umd::wormhole::ETH_LOCATIONS), target) != std::cend(tt::umd::wormhole::ETH_LOCATIONS);
     bool is_tensix_location = std::find(std::cbegin(tt::umd::wormhole::T6_X_LOCATIONS), std::cend(tt::umd::wormhole::T6_X_LOCATIONS), target.x) != std::cend(tt::umd::wormhole::T6_X_LOCATIONS) &&
                             std::find(std::cbegin(tt::umd::wormhole::T6_Y_LOCATIONS), std::cend(tt::umd::wormhole::T6_Y_LOCATIONS), target.y) != std::cend(tt::umd::wormhole::T6_Y_LOCATIONS);
@@ -73,7 +77,7 @@ std::int32_t get_static_tlb_index(tt_xy_pair target) {
 
 std::set<chip_id_t> get_target_devices() {
     std::set<chip_id_t> target_devices;
-    std::unique_ptr<tt_ClusterDescriptor> cluster_desc_uniq = tt_ClusterDescriptor::create_from_yaml(test_utils::GetClusterDescYAML());
+    std::unique_ptr<ClusterDescriptor> cluster_desc_uniq = ClusterDescriptor::create_from_yaml(test_utils::GetClusterDescYAML());
     for (int i = 0; i < cluster_desc_uniq->get_number_of_chips(); i++) {
         target_devices.insert(i);
     }
@@ -84,10 +88,10 @@ TEST(SiliconDriverWH, CreateDestroy) {
     std::set<chip_id_t> target_devices = get_target_devices();
     uint32_t num_host_mem_ch_per_mmio_device = 1;
     std::unordered_map<std::string, std::int32_t> dynamic_tlb_config = {}; // Don't set any dynamic TLBs in this test
-    tt_device_params default_params;
+    device_params default_params;
     // Initialize the driver with a 1x1 descriptor and explictly do not perform harvesting
     for(int i = 0; i < 50; i++) {
-        tt_SiliconDevice device = tt_SiliconDevice(test_utils::GetAbsPath("tests/soc_descs/wormhole_b0_1x1.yaml"), test_utils::GetClusterDescYAML(), target_devices, num_host_mem_ch_per_mmio_device, dynamic_tlb_config, false, true, false);
+        LocalChip device = LocalChip(test_utils::GetAbsPath("tests/soc_descs/wormhole_b0_1x1.yaml"), test_utils::GetClusterDescYAML(), target_devices, num_host_mem_ch_per_mmio_device, dynamic_tlb_config, false, true, false);
         set_params_for_remote_txn(device);
         device.start_device(default_params);
         device.deassert_risc_reset();
@@ -102,7 +106,7 @@ TEST(SiliconDriverWH, Harvesting) {
 
     std::unordered_map<std::string, std::int32_t> dynamic_tlb_config = {}; // Don't set any dynamic TLBs in this test
     uint32_t num_host_mem_ch_per_mmio_device = 1;
-    tt_SiliconDevice device = tt_SiliconDevice(test_utils::GetAbsPath("tests/soc_descs/wormhole_b0_8x10.yaml"), test_utils::GetClusterDescYAML(), target_devices, num_host_mem_ch_per_mmio_device, dynamic_tlb_config, false, true, true, simulated_harvesting_masks);
+    LocalChip device = LocalChip(test_utils::GetAbsPath("tests/soc_descs/wormhole_b0_8x10.yaml"), test_utils::GetClusterDescYAML(), target_devices, num_host_mem_ch_per_mmio_device, dynamic_tlb_config, false, true, true, simulated_harvesting_masks);
     auto sdesc_per_chip = device.get_virtual_soc_descriptors();
 
     ASSERT_EQ(device.using_harvested_soc_descriptors(), true) << "Expected Driver to have performed harvesting";
@@ -122,7 +126,7 @@ TEST(SiliconDriverWH, CustomSocDesc) {
     std::unordered_map<std::string, std::int32_t> dynamic_tlb_config = {}; // Don't set any dynamic TLBs in this test
     uint32_t num_host_mem_ch_per_mmio_device = 1;
     // Initialize the driver with a 1x1 descriptor and explictly do not perform harvesting
-    tt_SiliconDevice device = tt_SiliconDevice(test_utils::GetAbsPath("tests/soc_descs/wormhole_b0_1x1.yaml"), test_utils::GetClusterDescYAML(), target_devices, num_host_mem_ch_per_mmio_device, dynamic_tlb_config, false, true, false, simulated_harvesting_masks);
+    LocalChip device = LocalChip(test_utils::GetAbsPath("tests/soc_descs/wormhole_b0_1x1.yaml"), test_utils::GetClusterDescYAML(), target_devices, num_host_mem_ch_per_mmio_device, dynamic_tlb_config, false, true, false, simulated_harvesting_masks);
     auto sdesc_per_chip = device.get_virtual_soc_descriptors();
     
     ASSERT_EQ(device.using_harvested_soc_descriptors(), false) << "SOC descriptors should not be modified when harvesting is disabled";
@@ -133,7 +137,7 @@ TEST(SiliconDriverWH, CustomSocDesc) {
 
 TEST(SiliconDriverWH, HarvestingRuntime) {
 
-    auto get_static_tlb_index_callback = [] (tt_xy_pair target) {
+    auto get_static_tlb_index_callback = [] (xy_pair target) {
         return get_static_tlb_index(target);
     };
 
@@ -143,7 +147,7 @@ TEST(SiliconDriverWH, HarvestingRuntime) {
     uint32_t num_host_mem_ch_per_mmio_device = 1;
     std::unordered_map<std::string, std::int32_t> dynamic_tlb_config = {{"SMALL_READ_WRITE_TLB", 157}}; // Use both static and dynamic TLBs here
     
-    tt_SiliconDevice device = tt_SiliconDevice(test_utils::GetAbsPath("tests/soc_descs/wormhole_b0_8x10.yaml"), test_utils::GetClusterDescYAML(), target_devices, num_host_mem_ch_per_mmio_device, dynamic_tlb_config, false, true, true, simulated_harvesting_masks);
+    LocalChip device = LocalChip(test_utils::GetAbsPath("tests/soc_descs/wormhole_b0_8x10.yaml"), test_utils::GetClusterDescYAML(), target_devices, num_host_mem_ch_per_mmio_device, dynamic_tlb_config, false, true, true, simulated_harvesting_masks);
     set_params_for_remote_txn(device);
     auto mmio_devices = device.get_target_mmio_device_ids();
     
@@ -159,7 +163,7 @@ TEST(SiliconDriverWH, HarvestingRuntime) {
     }
     device.setup_core_to_tlb_map(get_static_tlb_index_callback);
     
-    tt_device_params default_params;
+    device_params default_params;
     device.start_device(default_params);
     device.deassert_risc_reset();
 
@@ -174,18 +178,18 @@ TEST(SiliconDriverWH, HarvestingRuntime) {
         std::uint32_t dynamic_write_address = 0x40000000;
         for(int loop = 0; loop < 100; loop++){ // Write to each core a 100 times at different statically mapped addresses
             for(auto& core : device.get_virtual_soc_descriptors().at(i).workers) {
-                device.write_to_device(vector_to_write, tt_cxy_pair(i, core), address, "");
-                device.write_to_device(vector_to_write, tt_cxy_pair(i, core), dynamic_write_address, "SMALL_READ_WRITE_TLB");
+                device.write_to_device(vector_to_write, cxy_pair(i, core), address, "");
+                device.write_to_device(vector_to_write, cxy_pair(i, core), dynamic_write_address, "SMALL_READ_WRITE_TLB");
                 device.wait_for_non_mmio_flush(); // Barrier to ensure that all writes over ethernet were commited
                 
-                device.read_from_device(readback_vec, tt_cxy_pair(i, core), address, 40, "");
-                device.read_from_device(dynamic_readback_vec, tt_cxy_pair(i, core), dynamic_write_address, 40, "SMALL_READ_WRITE_TLB");
+                device.read_from_device(readback_vec, cxy_pair(i, core), address, 40, "");
+                device.read_from_device(dynamic_readback_vec, cxy_pair(i, core), dynamic_write_address, 40, "SMALL_READ_WRITE_TLB");
                 ASSERT_EQ(vector_to_write, readback_vec) << "Vector read back from core " << core.x << "-" << core.y << "does not match what was written";
                 ASSERT_EQ(vector_to_write, dynamic_readback_vec) << "Vector read back from core " << core.x << "-" << core.y << "does not match what was written";
                 device.wait_for_non_mmio_flush();
                 
-                device.write_to_device(zeros, tt_cxy_pair(i, core), dynamic_write_address, "SMALL_READ_WRITE_TLB"); // Clear any written data
-                device.write_to_device(zeros, tt_cxy_pair(i, core), address, ""); // Clear any written data
+                device.write_to_device(zeros, cxy_pair(i, core), dynamic_write_address, "SMALL_READ_WRITE_TLB"); // Clear any written data
+                device.write_to_device(zeros, cxy_pair(i, core), address, ""); // Clear any written data
                 device.wait_for_non_mmio_flush();
                 readback_vec = {};
                 dynamic_readback_vec = {};
@@ -198,7 +202,7 @@ TEST(SiliconDriverWH, HarvestingRuntime) {
 }
 
 TEST(SiliconDriverWH, UnalignedStaticTLB_RW) {
-    auto get_static_tlb_index_callback = [] (tt_xy_pair target) {
+    auto get_static_tlb_index_callback = [] (xy_pair target) {
         return get_static_tlb_index(target);
     };
 
@@ -209,7 +213,7 @@ TEST(SiliconDriverWH, UnalignedStaticTLB_RW) {
     dynamic_tlb_config["REG_TLB"] = 184;
     uint32_t num_host_mem_ch_per_mmio_device = 1;
     
-    tt_SiliconDevice device = tt_SiliconDevice(test_utils::GetAbsPath("tests/soc_descs/wormhole_b0_8x10.yaml"), test_utils::GetClusterDescYAML(), target_devices, num_host_mem_ch_per_mmio_device, dynamic_tlb_config, false, true, true);
+    LocalChip device = LocalChip(test_utils::GetAbsPath("tests/soc_descs/wormhole_b0_8x10.yaml"), test_utils::GetClusterDescYAML(), target_devices, num_host_mem_ch_per_mmio_device, dynamic_tlb_config, false, true, true);
     set_params_for_remote_txn(device);
     auto mmio_devices = device.get_target_mmio_device_ids();
 
@@ -226,7 +230,7 @@ TEST(SiliconDriverWH, UnalignedStaticTLB_RW) {
 
     device.setup_core_to_tlb_map(get_static_tlb_index_callback);
     
-    tt_device_params default_params;
+    device_params default_params;
     device.start_device(default_params);
     device.deassert_risc_reset();
 
@@ -241,9 +245,9 @@ TEST(SiliconDriverWH, UnalignedStaticTLB_RW) {
             std::uint32_t address = l1_mem::address_map::NCRISC_FIRMWARE_BASE;
             for(int loop = 0; loop < 50; loop++){
                 for(auto& core : device.get_virtual_soc_descriptors().at(i).workers) {
-                    device.write_to_device(write_vec.data(), size, tt_cxy_pair(i, core), address, "");
+                    device.write_to_device(write_vec.data(), size, cxy_pair(i, core), address, "");
                     device.wait_for_non_mmio_flush();
-                    device.read_from_device(readback_vec.data(), tt_cxy_pair(i, core), address, size, "");
+                    device.read_from_device(readback_vec.data(), cxy_pair(i, core), address, size, "");
                     ASSERT_EQ(readback_vec, write_vec);
                     readback_vec = std::vector<uint8_t>(size, 0);
                     device.write_to_sysmem(write_vec.data(), size, 0, 0, 0);
@@ -262,7 +266,7 @@ TEST(SiliconDriverWH, UnalignedStaticTLB_RW) {
 
 
 TEST(SiliconDriverWH, StaticTLB_RW) {
-    auto get_static_tlb_index_callback = [] (tt_xy_pair target) {
+    auto get_static_tlb_index_callback = [] (xy_pair target) {
         return get_static_tlb_index(target);
     };
 
@@ -271,7 +275,7 @@ TEST(SiliconDriverWH, StaticTLB_RW) {
     std::unordered_map<std::string, std::int32_t> dynamic_tlb_config = {}; // Don't set any dynamic TLBs in this test
     uint32_t num_host_mem_ch_per_mmio_device = 1;
     
-    tt_SiliconDevice device = tt_SiliconDevice(test_utils::GetAbsPath("tests/soc_descs/wormhole_b0_8x10.yaml"), test_utils::GetClusterDescYAML(), target_devices, num_host_mem_ch_per_mmio_device, dynamic_tlb_config, false, true, true);
+    LocalChip device = LocalChip(test_utils::GetAbsPath("tests/soc_descs/wormhole_b0_8x10.yaml"), test_utils::GetClusterDescYAML(), target_devices, num_host_mem_ch_per_mmio_device, dynamic_tlb_config, false, true, true);
     set_params_for_remote_txn(device);
     auto mmio_devices = device.get_target_mmio_device_ids();
 
@@ -288,7 +292,7 @@ TEST(SiliconDriverWH, StaticTLB_RW) {
 
     device.setup_core_to_tlb_map(get_static_tlb_index_callback);
     
-    tt_device_params default_params;
+    device_params default_params;
     device.start_device(default_params);
     device.deassert_risc_reset();
 
@@ -300,12 +304,12 @@ TEST(SiliconDriverWH, StaticTLB_RW) {
         std::uint32_t address = l1_mem::address_map::NCRISC_FIRMWARE_BASE;
         for(int loop = 0; loop < 100; loop++){ // Write to each core a 100 times at different statically mapped addresses
             for(auto& core : device.get_virtual_soc_descriptors().at(i).workers) {
-                device.write_to_device(vector_to_write, tt_cxy_pair(i, core), address, "");
+                device.write_to_device(vector_to_write, cxy_pair(i, core), address, "");
                 device.wait_for_non_mmio_flush(); // Barrier to ensure that all writes over ethernet were commited
-                device.read_from_device(readback_vec, tt_cxy_pair(i, core), address, 40, "");
+                device.read_from_device(readback_vec, cxy_pair(i, core), address, 40, "");
                 ASSERT_EQ(vector_to_write, readback_vec) << "Vector read back from core " << core.x << "-" << core.y << "does not match what was written";
                 device.wait_for_non_mmio_flush();
-                device.write_to_device(zeros, tt_cxy_pair(i, core), address, "SMALL_READ_WRITE_TLB"); // Clear any written data
+                device.write_to_device(zeros, cxy_pair(i, core), address, "SMALL_READ_WRITE_TLB"); // Clear any written data
                 device.wait_for_non_mmio_flush();
                 readback_vec = {};
             }
@@ -322,11 +326,11 @@ TEST(SiliconDriverWH, DynamicTLB_RW) {
     std::unordered_map<std::string, std::int32_t> dynamic_tlb_config = {};
     uint32_t num_host_mem_ch_per_mmio_device = 1;
     dynamic_tlb_config.insert({"SMALL_READ_WRITE_TLB", 157}); // Use this for all reads and writes to worker cores
-    tt_SiliconDevice device = tt_SiliconDevice(test_utils::GetAbsPath("tests/soc_descs/wormhole_b0_8x10.yaml"),  test_utils::GetClusterDescYAML(), target_devices, num_host_mem_ch_per_mmio_device, dynamic_tlb_config, false, true, true);
+    LocalChip device = LocalChip(test_utils::GetAbsPath("tests/soc_descs/wormhole_b0_8x10.yaml"),  test_utils::GetClusterDescYAML(), target_devices, num_host_mem_ch_per_mmio_device, dynamic_tlb_config, false, true, true);
 
     set_params_for_remote_txn(device);
 
-    tt_device_params default_params;
+    device_params default_params;
     device.start_device(default_params);
     device.deassert_risc_reset();
 
@@ -338,12 +342,12 @@ TEST(SiliconDriverWH, DynamicTLB_RW) {
         std::uint32_t address = l1_mem::address_map::NCRISC_FIRMWARE_BASE;
         for(int loop = 0; loop < 100; loop++){ // Write to each core a 100 times at different statically mapped addresses
             for(auto& core : device.get_virtual_soc_descriptors().at(i).workers) {
-                device.write_to_device(vector_to_write, tt_cxy_pair(i, core), address, "SMALL_READ_WRITE_TLB");
+                device.write_to_device(vector_to_write, cxy_pair(i, core), address, "SMALL_READ_WRITE_TLB");
                 device.wait_for_non_mmio_flush(); // Barrier to ensure that all writes over ethernet were commited
-                device.read_from_device(readback_vec, tt_cxy_pair(i, core), address, 40, "SMALL_READ_WRITE_TLB");
+                device.read_from_device(readback_vec, cxy_pair(i, core), address, 40, "SMALL_READ_WRITE_TLB");
                 ASSERT_EQ(vector_to_write, readback_vec) << "Vector read back from core " << core.x << "-" << core.y << "does not match what was written";
                 device.wait_for_non_mmio_flush();
-                device.write_to_device(zeros, tt_cxy_pair(i, core), address, "SMALL_READ_WRITE_TLB");
+                device.write_to_device(zeros, cxy_pair(i, core), address, "SMALL_READ_WRITE_TLB");
                 device.wait_for_non_mmio_flush();
                 readback_vec = {};
             }
@@ -362,11 +366,11 @@ TEST(SiliconDriverWH, MultiThreadedDevice) {
     std::unordered_map<std::string, std::int32_t> dynamic_tlb_config = {};
     uint32_t num_host_mem_ch_per_mmio_device = 1;
     dynamic_tlb_config.insert({"SMALL_READ_WRITE_TLB", 157}); // Use this for all reads and writes to worker cores
-    tt_SiliconDevice device = tt_SiliconDevice(test_utils::GetAbsPath("tests/soc_descs/wormhole_b0_8x10.yaml"), test_utils::GetClusterDescYAML(), target_devices, num_host_mem_ch_per_mmio_device, dynamic_tlb_config, false, true, true);
+    LocalChip device = LocalChip(test_utils::GetAbsPath("tests/soc_descs/wormhole_b0_8x10.yaml"), test_utils::GetClusterDescYAML(), target_devices, num_host_mem_ch_per_mmio_device, dynamic_tlb_config, false, true, true);
     
     set_params_for_remote_txn(device);
 
-    tt_device_params default_params;
+    device_params default_params;
     device.start_device(default_params);
     device.deassert_risc_reset();
 
@@ -376,8 +380,8 @@ TEST(SiliconDriverWH, MultiThreadedDevice) {
         std::uint32_t address = l1_mem::address_map::NCRISC_FIRMWARE_BASE;
         for(int loop = 0; loop < 100; loop++) {
             for(auto& core : device.get_virtual_soc_descriptors().at(0).workers) {
-                device.write_to_device(vector_to_write, tt_cxy_pair(0, core), address, "SMALL_READ_WRITE_TLB");
-                device.read_from_device(readback_vec, tt_cxy_pair(0, core), address, 40, "SMALL_READ_WRITE_TLB");
+                device.write_to_device(vector_to_write, cxy_pair(0, core), address, "SMALL_READ_WRITE_TLB");
+                device.read_from_device(readback_vec, cxy_pair(0, core), address, 40, "SMALL_READ_WRITE_TLB");
                 ASSERT_EQ(vector_to_write, readback_vec) << "Vector read back from core " << core.x << "-" << core.y << "does not match what was written";
                 readback_vec = {};
             }
@@ -392,8 +396,8 @@ TEST(SiliconDriverWH, MultiThreadedDevice) {
         for(auto& core_ls : device.get_virtual_soc_descriptors().at(0).dram_cores) {
             for(int loop = 0; loop < 100; loop++) {
                 for(auto& core : core_ls) {
-                    device.write_to_device(vector_to_write, tt_cxy_pair(0, core), address, "SMALL_READ_WRITE_TLB");
-                    device.read_from_device(readback_vec, tt_cxy_pair(0, core), address, 40, "SMALL_READ_WRITE_TLB");
+                    device.write_to_device(vector_to_write, cxy_pair(0, core), address, "SMALL_READ_WRITE_TLB");
+                    device.read_from_device(readback_vec, cxy_pair(0, core), address, 40, "SMALL_READ_WRITE_TLB");
                     ASSERT_EQ(vector_to_write, readback_vec) << "Vector read back from core " << core.x << "-" << core.y << "does not match what was written";
                     readback_vec = {};
                 }
@@ -413,7 +417,7 @@ TEST(SiliconDriverWH, MultiThreadedMemBar) {
     // We want to make sure the memory barrier is thread/process safe.
 
     // Memory barrier flags get sent to address 0 for all channels in this test
-    auto get_static_tlb_index_callback = [] (tt_xy_pair target) {
+    auto get_static_tlb_index_callback = [] (xy_pair target) {
         return get_static_tlb_index(target);
     };
 
@@ -423,7 +427,7 @@ TEST(SiliconDriverWH, MultiThreadedMemBar) {
     dynamic_tlb_config.insert({"SMALL_READ_WRITE_TLB", 157}); // Use this for reading back membar values
     uint32_t num_host_mem_ch_per_mmio_device = 1;
 
-    tt_SiliconDevice device = tt_SiliconDevice(test_utils::GetAbsPath("tests/soc_descs/wormhole_b0_8x10.yaml"), test_utils::GetClusterDescYAML(), target_devices, num_host_mem_ch_per_mmio_device, dynamic_tlb_config, false, true, true);
+    LocalChip device = LocalChip(test_utils::GetAbsPath("tests/soc_descs/wormhole_b0_8x10.yaml"), test_utils::GetClusterDescYAML(), target_devices, num_host_mem_ch_per_mmio_device, dynamic_tlb_config, false, true, true);
     set_params_for_remote_txn(device);
     auto mmio_devices = device.get_target_mmio_device_ids();
     
@@ -439,26 +443,26 @@ TEST(SiliconDriverWH, MultiThreadedMemBar) {
     }
     device.setup_core_to_tlb_map(get_static_tlb_index_callback);
 
-    tt_device_params default_params;
+    device_params default_params;
     device.start_device(default_params);
     device.deassert_risc_reset();
     
     std::vector<uint32_t> readback_membar_vec = {};
     for(auto& core : device.get_virtual_soc_descriptors().at(0).workers) {
-        device.read_from_device(readback_membar_vec, tt_cxy_pair(0, core), l1_mem::address_map::L1_BARRIER_BASE, 4, "SMALL_READ_WRITE_TLB");
+        device.read_from_device(readback_membar_vec, cxy_pair(0, core), l1_mem::address_map::L1_BARRIER_BASE, 4, "SMALL_READ_WRITE_TLB");
         ASSERT_EQ(readback_membar_vec.at(0), 187); // Ensure that memory barriers were correctly initialized on all workers
         readback_membar_vec = {};
     }
 
     for(int chan = 0; chan <  device.get_virtual_soc_descriptors().at(0).get_num_dram_channels(); chan++) {
         auto core = device.get_virtual_soc_descriptors().at(0).get_core_for_dram_channel(chan, 0);
-        device.read_from_device(readback_membar_vec, tt_cxy_pair(0, core), 0, 4, "SMALL_READ_WRITE_TLB");
+        device.read_from_device(readback_membar_vec, cxy_pair(0, core), 0, 4, "SMALL_READ_WRITE_TLB");
         ASSERT_EQ(readback_membar_vec.at(0), 187); // Ensure that memory barriers were correctly initialized on all DRAM
         readback_membar_vec = {};
     }
     
     for(auto& core : device.get_virtual_soc_descriptors().at(0).ethernet_cores) {
-        device.read_from_device(readback_membar_vec, tt_cxy_pair(0, core), eth_l1_mem::address_map::ERISC_BARRIER_BASE, 4, "SMALL_READ_WRITE_TLB");
+        device.read_from_device(readback_membar_vec, cxy_pair(0, core), eth_l1_mem::address_map::ERISC_BARRIER_BASE, 4, "SMALL_READ_WRITE_TLB");
         ASSERT_EQ(readback_membar_vec.at(0), 187); // Ensure that memory barriers were correctly initialized on all ethernet cores
         readback_membar_vec = {};
     }
@@ -480,11 +484,11 @@ TEST(SiliconDriverWH, MultiThreadedMemBar) {
         for(int loop = 0; loop < 50; loop++) {
             for(auto& core : device.get_virtual_soc_descriptors().at(0).workers) {
                 std::vector<uint32_t> readback_vec = {};
-                device.write_to_device(vec1, tt_cxy_pair(0, core), address, "");
+                device.write_to_device(vec1, cxy_pair(0, core), address, "");
                 device.l1_membar(0, "SMALL_READ_WRITE_TLB", {core});
-                device.read_from_device(readback_vec, tt_cxy_pair(0, core), address, 4*vec1.size(), "");
+                device.read_from_device(readback_vec, cxy_pair(0, core), address, 4*vec1.size(), "");
                 ASSERT_EQ(readback_vec, vec1);
-                device.write_to_device(zeros, tt_cxy_pair(0, core), address, "");
+                device.write_to_device(zeros, cxy_pair(0, core), address, "");
                 readback_vec = {};
             }
             
@@ -496,11 +500,11 @@ TEST(SiliconDriverWH, MultiThreadedMemBar) {
         for(int loop = 0; loop < 50; loop++) {
             for(auto& core : device.get_virtual_soc_descriptors().at(0).workers) {
                 std::vector<uint32_t> readback_vec = {};
-                device.write_to_device(vec2, tt_cxy_pair(0, core), address, "");
+                device.write_to_device(vec2, cxy_pair(0, core), address, "");
                 device.l1_membar(0, "SMALL_READ_WRITE_TLB", {core});
-                device.read_from_device(readback_vec, tt_cxy_pair(0, core), address, 4*vec2.size(), "");
+                device.read_from_device(readback_vec, cxy_pair(0, core), address, 4*vec2.size(), "");
                 ASSERT_EQ(readback_vec, vec2);
-                device.write_to_device(zeros, tt_cxy_pair(0, core), address, "") ;
+                device.write_to_device(zeros, cxy_pair(0, core), address, "") ;
                 readback_vec = {};
             }
         }
@@ -510,13 +514,13 @@ TEST(SiliconDriverWH, MultiThreadedMemBar) {
     th2.join();
 
     for(auto& core : device.get_virtual_soc_descriptors().at(0).workers) {
-        device.read_from_device(readback_membar_vec, tt_cxy_pair(0, core), l1_mem::address_map::L1_BARRIER_BASE, 4, "SMALL_READ_WRITE_TLB");
+        device.read_from_device(readback_membar_vec, cxy_pair(0, core), l1_mem::address_map::L1_BARRIER_BASE, 4, "SMALL_READ_WRITE_TLB");
         ASSERT_EQ(readback_membar_vec.at(0), 187); // Ensure that memory barriers end up in the correct sate for workers
         readback_membar_vec = {};
     }
 
     for(auto& core : device.get_virtual_soc_descriptors().at(0).ethernet_cores) {
-        device.read_from_device(readback_membar_vec, tt_cxy_pair(0, core), eth_l1_mem::address_map::ERISC_BARRIER_BASE, 4, "SMALL_READ_WRITE_TLB");
+        device.read_from_device(readback_membar_vec, cxy_pair(0, core), eth_l1_mem::address_map::ERISC_BARRIER_BASE, 4, "SMALL_READ_WRITE_TLB");
         ASSERT_EQ(readback_membar_vec.at(0), 187); // Ensure that memory barriers end up in the correct sate for ethernet cores
         readback_membar_vec = {};
     }
@@ -531,11 +535,11 @@ TEST(SiliconDriverWH, BroadcastWrite) {
     std::unordered_map<std::string, std::int32_t> dynamic_tlb_config = {}; // Don't set any dynamic TLBs in this test
     uint32_t num_host_mem_ch_per_mmio_device = 1;
     
-    tt_SiliconDevice device = tt_SiliconDevice(test_utils::GetAbsPath("tests/soc_descs/wormhole_b0_8x10.yaml"), test_utils::GetClusterDescYAML(), target_devices, num_host_mem_ch_per_mmio_device, dynamic_tlb_config, false, true, true);
+    LocalChip device = LocalChip(test_utils::GetAbsPath("tests/soc_descs/wormhole_b0_8x10.yaml"), test_utils::GetClusterDescYAML(), target_devices, num_host_mem_ch_per_mmio_device, dynamic_tlb_config, false, true, true);
     set_params_for_remote_txn(device);
     auto mmio_devices = device.get_target_mmio_device_ids();
 
-    tt_device_params default_params;
+    device_params default_params;
     device.start_device(default_params);
     device.deassert_risc_reset();
     std::vector<uint32_t> broadcast_sizes = {1, 2, 4, 8, 16, 32, 64, 128, 256, 512, 1024, 2048, 4096, 8192, 16384};
@@ -562,16 +566,16 @@ TEST(SiliconDriverWH, BroadcastWrite) {
         for(const auto i : target_devices) {
             for(const auto& core : device.get_virtual_soc_descriptors().at(i).workers) {
                 if(rows_to_exclude.find(core.y) != rows_to_exclude.end()) continue;
-                device.read_from_device(readback_vec, tt_cxy_pair(i, core), address, vector_to_write.size() * 4, "LARGE_READ_TLB");
+                device.read_from_device(readback_vec, cxy_pair(i, core), address, vector_to_write.size() * 4, "LARGE_READ_TLB");
                 ASSERT_EQ(vector_to_write, readback_vec) << "Vector read back from core " << core.x << "-" << core.y << "does not match what was broadcasted";
-                device.write_to_device(zeros, tt_cxy_pair(i, core), address, "LARGE_WRITE_TLB"); // Clear any written data
+                device.write_to_device(zeros, cxy_pair(i, core), address, "LARGE_WRITE_TLB"); // Clear any written data
                 readback_vec = {};
             }
             for(int chan = 0; chan < device.get_virtual_soc_descriptors().at(i).get_num_dram_channels(); chan++) {
                 const auto& core = device.get_virtual_soc_descriptors().at(i).get_core_for_dram_channel(chan, 0);
-                device.read_from_device(readback_vec, tt_cxy_pair(i, core), address, vector_to_write.size() * 4, "LARGE_READ_TLB");
+                device.read_from_device(readback_vec, cxy_pair(i, core), address, vector_to_write.size() * 4, "LARGE_READ_TLB");
                 ASSERT_EQ(vector_to_write, readback_vec) << "Vector read back from DRAM core " << i << " " << core.x << "-" << core.y << " does not match what was broadcasted " << size;
-                device.write_to_device(zeros, tt_cxy_pair(i, core), address, "LARGE_WRITE_TLB"); // Clear any written data
+                device.write_to_device(zeros, cxy_pair(i, core), address, "LARGE_WRITE_TLB"); // Clear any written data
                 readback_vec = {};
             }
         }
@@ -588,11 +592,11 @@ TEST(SiliconDriverWH, VirtualCoordinateBroadcast) {
     std::unordered_map<std::string, std::int32_t> dynamic_tlb_config = {}; // Don't set any dynamic TLBs in this test
     uint32_t num_host_mem_ch_per_mmio_device = 1;
     
-    tt_SiliconDevice device = tt_SiliconDevice(test_utils::GetAbsPath("tests/soc_descs/wormhole_b0_8x10.yaml"), test_utils::GetClusterDescYAML(), target_devices, num_host_mem_ch_per_mmio_device, dynamic_tlb_config, false, true, true);
+    LocalChip device = LocalChip(test_utils::GetAbsPath("tests/soc_descs/wormhole_b0_8x10.yaml"), test_utils::GetClusterDescYAML(), target_devices, num_host_mem_ch_per_mmio_device, dynamic_tlb_config, false, true, true);
     set_params_for_remote_txn(device);
     auto mmio_devices = device.get_target_mmio_device_ids();
 
-    tt_device_params default_params;
+    device_params default_params;
     device.start_device(default_params);
     auto eth_version = device.get_ethernet_fw_version();
     bool virtual_bcast_supported = (eth_version >= tt_version(6, 8, 0) || eth_version == tt_version(6, 7, 241)) && device.translation_tables_en;
@@ -626,16 +630,16 @@ TEST(SiliconDriverWH, VirtualCoordinateBroadcast) {
         for(const auto i : target_devices) {
             for(const auto& core : device.get_virtual_soc_descriptors().at(i).workers) {
                 if(rows_to_exclude.find(core.y) != rows_to_exclude.end()) continue;
-                device.read_from_device(readback_vec, tt_cxy_pair(i, core), address, vector_to_write.size() * 4, "LARGE_READ_TLB");
+                device.read_from_device(readback_vec, cxy_pair(i, core), address, vector_to_write.size() * 4, "LARGE_READ_TLB");
                 ASSERT_EQ(vector_to_write, readback_vec) << "Vector read back from core " << core.x << "-" << core.y << "does not match what was broadcasted";
-                device.write_to_device(zeros, tt_cxy_pair(i, core), address, "LARGE_WRITE_TLB"); // Clear any written data
+                device.write_to_device(zeros, cxy_pair(i, core), address, "LARGE_WRITE_TLB"); // Clear any written data
                 readback_vec = {};
             }
             for(int chan = 0; chan < device.get_virtual_soc_descriptors().at(i).get_num_dram_channels(); chan++) {
                 const auto& core = device.get_virtual_soc_descriptors().at(i).get_core_for_dram_channel(chan, 0);
-                device.read_from_device(readback_vec, tt_cxy_pair(i, core), address, vector_to_write.size() * 4, "LARGE_READ_TLB");
+                device.read_from_device(readback_vec, cxy_pair(i, core), address, vector_to_write.size() * 4, "LARGE_READ_TLB");
                 ASSERT_EQ(vector_to_write, readback_vec) << "Vector read back from DRAM core " << i << " " << core.x << "-" << core.y << " does not match what was broadcasted " << size;
-                device.write_to_device(zeros, tt_cxy_pair(i, core), address, "LARGE_WRITE_TLB"); // Clear any written data
+                device.write_to_device(zeros, cxy_pair(i, core), address, "LARGE_WRITE_TLB"); // Clear any written data
                 readback_vec = {};
             }
         }

@@ -7,8 +7,8 @@
 
 #include "gtest/gtest.h"
 #include "common/logger.hpp"
-#include "tt_cluster_descriptor.h"
-#include "tt_device.h"
+#include "cluster_descriptor.h"
+#include "chip.h"
 #include "eth_interface.h"
 #include "host_mem_address_map.h"
 #include "l1_address_map.h"
@@ -22,7 +22,7 @@ static const std::string SOC_DESC_PATH = "tests/soc_descs/wormhole_b0_8x10.yaml"
 void run_remote_read_write_test(uint32_t vector_size, bool dram_write) {
     // Galaxy Setup
     std::string cluster_desc_path = test_utils::GetClusterDescYAML();
-    std::shared_ptr<tt_ClusterDescriptor> cluster_desc = tt_ClusterDescriptor::create_from_yaml(cluster_desc_path);
+    std::shared_ptr<ClusterDescriptor> cluster_desc = ClusterDescriptor::create_from_yaml(cluster_desc_path);
     std::set<chip_id_t> target_devices = {};
     for (const auto& chip : cluster_desc->get_all_chips()) {
         target_devices.insert(chip);
@@ -32,13 +32,13 @@ void run_remote_read_write_test(uint32_t vector_size, bool dram_write) {
     uint32_t num_host_mem_ch_per_mmio_device = 1;
     dynamic_tlb_config.insert({"SMALL_READ_WRITE_TLB", 157});  // Use this for all reads and writes to worker cores
 
-    tt_SiliconDevice device = tt_SiliconDevice(
+    LocalChip device = LocalChip(
         test_utils::GetAbsPath(SOC_DESC_PATH), cluster_desc_path, target_devices, num_host_mem_ch_per_mmio_device, dynamic_tlb_config, false, true);
     const auto sdesc_per_chip = device.get_virtual_soc_descriptors();
 
     tt::umd::test::utils::set_params_for_remote_txn(device);
 
-    tt_device_params default_params;
+    device_params default_params;
     device.start_device(default_params);
     device.deassert_risc_reset();
 
@@ -54,7 +54,7 @@ void run_remote_read_write_test(uint32_t vector_size, bool dram_write) {
         std::vector<float> write_bw;
         std::vector<float> read_bw;
         for (int loop = 0; loop < 10; loop++) {
-            std::vector<tt_xy_pair> target_cores;
+            std::vector<xy_pair> target_cores;
             if (dram_write) {
                 for (const auto& subchan_cores : sdesc_per_chip.at(chip).dram_cores) {
                     target_cores.insert(target_cores.end(), subchan_cores.begin(), subchan_cores.end());
@@ -63,7 +63,7 @@ void run_remote_read_write_test(uint32_t vector_size, bool dram_write) {
                 target_cores = sdesc_per_chip.at(chip).workers;
             }
             for (const auto& core : target_cores) {
-                tt_cxy_pair target_core = tt_cxy_pair(chip, core);
+                cxy_pair target_core = cxy_pair(chip, core);
                 auto start = std::chrono::high_resolution_clock::now();
                 device.write_to_device(vector_to_write, target_core, address, "SMALL_READ_WRITE_TLB");
                 device.wait_for_non_mmio_flush();  // Barrier to ensure that all writes over ethernet were commited
@@ -128,7 +128,7 @@ void run_data_mover_test(
     uint32_t vector_size, tt_multichip_core_addr sender_core, tt_multichip_core_addr receiver_core) {
     // Galaxy Setup
     std::string cluster_desc_path = test_utils::GetClusterDescYAML();
-    std::shared_ptr<tt_ClusterDescriptor> cluster_desc = tt_ClusterDescriptor::create_from_yaml(cluster_desc_path);
+    std::shared_ptr<ClusterDescriptor> cluster_desc = ClusterDescriptor::create_from_yaml(cluster_desc_path);
     std::set<chip_id_t> target_devices = {};
     for (const auto& chip : cluster_desc->get_all_chips()) {
         target_devices.insert(chip);
@@ -147,12 +147,12 @@ void run_data_mover_test(
     uint32_t num_host_mem_ch_per_mmio_device = 1;
     dynamic_tlb_config.insert({"SMALL_READ_WRITE_TLB", 157});  // Use this for all reads and writes to worker cores
 
-    tt_SiliconDevice device = tt_SiliconDevice(
+    LocalChip device = LocalChip(
         test_utils::GetAbsPath(SOC_DESC_PATH), cluster_desc_path, target_devices, num_host_mem_ch_per_mmio_device, dynamic_tlb_config, false, true);
 
     tt::umd::test::utils::set_params_for_remote_txn(device);
 
-    tt_device_params default_params;
+    device_params default_params;
     device.start_device(default_params);
     device.deassert_risc_reset();
 
@@ -165,7 +165,7 @@ void run_data_mover_test(
     std::vector<float> send_bw;
     // Set up data in sender core
     device.write_to_device(
-        vector_to_write, tt_cxy_pair(sender_core.chip, sender_core.core), sender_core.addr, "SMALL_READ_WRITE_TLB");
+        vector_to_write, cxy_pair(sender_core.chip, sender_core.core), sender_core.addr, "SMALL_READ_WRITE_TLB");
     device.wait_for_non_mmio_flush();  // Barrier to ensure that all writes over ethernet were commited
 
     // Send data from sender core to receiver core
@@ -179,7 +179,7 @@ void run_data_mover_test(
     // Verify data is correct in receiver core
     device.read_from_device(
         readback_vec,
-        tt_cxy_pair(receiver_core.chip, receiver_core.core),
+        cxy_pair(receiver_core.chip, receiver_core.core),
         receiver_core.addr,
         write_size,
         "SMALL_READ_WRITE_TLB");
@@ -197,45 +197,45 @@ void run_data_mover_test(
 
 // L1 to L1
 TEST(GalaxyDataMovement, TwoChipMoveData1) {
-    tt_multichip_core_addr sender_core(4, tt_xy_pair(1, 1), 0x5000);
-    tt_multichip_core_addr receiver_core(5, tt_xy_pair(9, 11), 0x6000);
+    tt_multichip_core_addr sender_core(4, xy_pair(1, 1), 0x5000);
+    tt_multichip_core_addr receiver_core(5, xy_pair(9, 11), 0x6000);
     run_data_mover_test(100, sender_core, receiver_core);
 
-    sender_core = tt_multichip_core_addr(31, tt_xy_pair(2, 2), 0x5000);
-    receiver_core = tt_multichip_core_addr(9, tt_xy_pair(8, 8), 0x6000);
+    sender_core = tt_multichip_core_addr(31, xy_pair(2, 2), 0x5000);
+    receiver_core = tt_multichip_core_addr(9, xy_pair(8, 8), 0x6000);
     run_data_mover_test(30000, sender_core, receiver_core);
 }
 
 // L1 to Dram
 TEST(GalaxyDataMovement, TwoChipMoveData2) {
-    tt_multichip_core_addr sender_core(1, tt_xy_pair(2, 3), 0x30000);
-    tt_multichip_core_addr receiver_core(6, tt_xy_pair(5, 0), 0x0);
+    tt_multichip_core_addr sender_core(1, xy_pair(2, 3), 0x30000);
+    tt_multichip_core_addr receiver_core(6, xy_pair(5, 0), 0x0);
     run_data_mover_test(2000, sender_core, receiver_core);
 
-    sender_core = tt_multichip_core_addr(11, tt_xy_pair(3, 3), 0x50000);
-    receiver_core = tt_multichip_core_addr(5, tt_xy_pair(0, 0), 0x60000);
+    sender_core = tt_multichip_core_addr(11, xy_pair(3, 3), 0x50000);
+    receiver_core = tt_multichip_core_addr(5, xy_pair(0, 0), 0x60000);
     run_data_mover_test(20000, sender_core, receiver_core);
 }
 
 // Dram to L1
 TEST(GalaxyDataMovement, TwoChipMoveData3) {
-    tt_multichip_core_addr sender_core(8, tt_xy_pair(5, 9), 0x90000);
-    tt_multichip_core_addr receiver_core(21, tt_xy_pair(1, 9), 0x5200);
+    tt_multichip_core_addr sender_core(8, xy_pair(5, 9), 0x90000);
+    tt_multichip_core_addr receiver_core(21, xy_pair(1, 9), 0x5200);
     run_data_mover_test(1200, sender_core, receiver_core);
 
-    sender_core = tt_multichip_core_addr(11, tt_xy_pair(5, 5), 0x40000);
-    receiver_core = tt_multichip_core_addr(18, tt_xy_pair(8, 7), 0x7000);
+    sender_core = tt_multichip_core_addr(11, xy_pair(5, 5), 0x40000);
+    receiver_core = tt_multichip_core_addr(18, xy_pair(8, 7), 0x7000);
     run_data_mover_test(8800, sender_core, receiver_core);
 }
 
 // Dram to Dram
 TEST(GalaxyDataMovement, TwoChipMoveData4) {
-    tt_multichip_core_addr sender_core(7, tt_xy_pair(0, 6), 0x300000);
-    tt_multichip_core_addr receiver_core(19, tt_xy_pair(0, 0), 0x300000);
+    tt_multichip_core_addr sender_core(7, xy_pair(0, 6), 0x300000);
+    tt_multichip_core_addr receiver_core(19, xy_pair(0, 0), 0x300000);
     run_data_mover_test(1200, sender_core, receiver_core);
 
-    sender_core = tt_multichip_core_addr(15, tt_xy_pair(5, 2), 0x400000);
-    receiver_core = tt_multichip_core_addr(16, tt_xy_pair(0, 11), 0x400000);
+    sender_core = tt_multichip_core_addr(15, xy_pair(5, 2), 0x400000);
+    receiver_core = tt_multichip_core_addr(16, xy_pair(0, 11), 0x400000);
     run_data_mover_test(8800, sender_core, receiver_core);
 }
 
@@ -243,7 +243,7 @@ void run_data_broadcast_test(
     uint32_t vector_size, tt_multichip_core_addr sender_core, std::vector<tt_multichip_core_addr> receiver_cores) {
     // Galaxy Setup
     std::string cluster_desc_path = test_utils::GetClusterDescYAML();
-    std::shared_ptr<tt_ClusterDescriptor> cluster_desc = tt_ClusterDescriptor::create_from_yaml(cluster_desc_path);
+    std::shared_ptr<ClusterDescriptor> cluster_desc = ClusterDescriptor::create_from_yaml(cluster_desc_path);
     std::set<chip_id_t> target_devices = {};
     for (const auto& chip : cluster_desc->get_all_chips()) {
         target_devices.insert(chip);
@@ -264,12 +264,12 @@ void run_data_broadcast_test(
     uint32_t num_host_mem_ch_per_mmio_device = 1;
     dynamic_tlb_config.insert({"SMALL_READ_WRITE_TLB", 157});  // Use this for all reads and writes to worker cores
 
-    tt_SiliconDevice device = tt_SiliconDevice(
+    LocalChip device = LocalChip(
         test_utils::GetAbsPath(SOC_DESC_PATH), cluster_desc_path, target_devices, num_host_mem_ch_per_mmio_device, dynamic_tlb_config, false, true);
 
     tt::umd::test::utils::set_params_for_remote_txn(device);
 
-    tt_device_params default_params;
+    device_params default_params;
     device.start_device(default_params);
     device.deassert_risc_reset();
 
@@ -282,7 +282,7 @@ void run_data_broadcast_test(
     std::vector<float> send_bw;
     //  Set up data in sender core
     device.write_to_device(
-        vector_to_write, tt_cxy_pair(sender_core.chip, sender_core.core), sender_core.addr, "SMALL_READ_WRITE_TLB");
+        vector_to_write, cxy_pair(sender_core.chip, sender_core.core), sender_core.addr, "SMALL_READ_WRITE_TLB");
     device.wait_for_non_mmio_flush();  // Barrier to ensure that all writes over ethernet were commited
 
     // Send data from sender core to receiver core
@@ -297,7 +297,7 @@ void run_data_broadcast_test(
     for (const auto& receiver_core : receiver_cores) {
         device.read_from_device(
             readback_vec,
-            tt_cxy_pair(receiver_core.chip, receiver_core.core),
+            cxy_pair(receiver_core.chip, receiver_core.core),
             receiver_core.addr,
             write_size,
             "SMALL_READ_WRITE_TLB");
@@ -317,9 +317,9 @@ void run_data_broadcast_test(
 
 // L1 to L1 single chip
 TEST(GalaxyDataMovement, BroadcastData1) {
-    tt_SocDescriptor sdesc(test_utils::GetAbsPath(SOC_DESC_PATH));
+    SocDescriptor sdesc(test_utils::GetAbsPath(SOC_DESC_PATH));
 
-    tt_multichip_core_addr sender_core(4, tt_xy_pair(1, 1), 0x5000);
+    tt_multichip_core_addr sender_core(4, xy_pair(1, 1), 0x5000);
     std::vector<tt_multichip_core_addr> receiver_cores;
 
     for (const auto& core : sdesc.workers) {
@@ -330,81 +330,81 @@ TEST(GalaxyDataMovement, BroadcastData1) {
 
 // L1 to L1 multi chip
 TEST(GalaxyDataMovement, BroadcastData2) {
-    tt_SocDescriptor sdesc(test_utils::GetAbsPath(SOC_DESC_PATH));
+    SocDescriptor sdesc(test_utils::GetAbsPath(SOC_DESC_PATH));
 
-    tt_multichip_core_addr sender_core(12, tt_xy_pair(1, 1), 0x5000);
+    tt_multichip_core_addr sender_core(12, xy_pair(1, 1), 0x5000);
     std::vector<tt_multichip_core_addr> receiver_cores;
 
-    receiver_cores.push_back(tt_multichip_core_addr(1, tt_xy_pair(2, 2), 0x6000));
-    receiver_cores.push_back(tt_multichip_core_addr(2, tt_xy_pair(2, 3), 0x6000));
-    receiver_cores.push_back(tt_multichip_core_addr(3, tt_xy_pair(2, 4), 0x6000));
-    receiver_cores.push_back(tt_multichip_core_addr(4, tt_xy_pair(2, 5), 0x6000));
-    receiver_cores.push_back(tt_multichip_core_addr(5, tt_xy_pair(2, 5), 0x6000));
-    receiver_cores.push_back(tt_multichip_core_addr(6, tt_xy_pair(2, 5), 0x6000));
-    receiver_cores.push_back(tt_multichip_core_addr(7, tt_xy_pair(2, 5), 0x6000));
-    receiver_cores.push_back(tt_multichip_core_addr(8, tt_xy_pair(2, 5), 0x6000));
-    receiver_cores.push_back(tt_multichip_core_addr(9, tt_xy_pair(2, 5), 0x6000));
-    receiver_cores.push_back(tt_multichip_core_addr(10, tt_xy_pair(2, 5), 0x6000));
-    receiver_cores.push_back(tt_multichip_core_addr(11, tt_xy_pair(2, 5), 0x6000));
-    receiver_cores.push_back(tt_multichip_core_addr(12, tt_xy_pair(2, 5), 0x6000));
-    receiver_cores.push_back(tt_multichip_core_addr(13, tt_xy_pair(2, 5), 0x6000));
-    receiver_cores.push_back(tt_multichip_core_addr(14, tt_xy_pair(2, 5), 0x6000));
-    receiver_cores.push_back(tt_multichip_core_addr(15, tt_xy_pair(2, 5), 0x6000));
-    receiver_cores.push_back(tt_multichip_core_addr(16, tt_xy_pair(2, 5), 0x6000));
+    receiver_cores.push_back(tt_multichip_core_addr(1, xy_pair(2, 2), 0x6000));
+    receiver_cores.push_back(tt_multichip_core_addr(2, xy_pair(2, 3), 0x6000));
+    receiver_cores.push_back(tt_multichip_core_addr(3, xy_pair(2, 4), 0x6000));
+    receiver_cores.push_back(tt_multichip_core_addr(4, xy_pair(2, 5), 0x6000));
+    receiver_cores.push_back(tt_multichip_core_addr(5, xy_pair(2, 5), 0x6000));
+    receiver_cores.push_back(tt_multichip_core_addr(6, xy_pair(2, 5), 0x6000));
+    receiver_cores.push_back(tt_multichip_core_addr(7, xy_pair(2, 5), 0x6000));
+    receiver_cores.push_back(tt_multichip_core_addr(8, xy_pair(2, 5), 0x6000));
+    receiver_cores.push_back(tt_multichip_core_addr(9, xy_pair(2, 5), 0x6000));
+    receiver_cores.push_back(tt_multichip_core_addr(10, xy_pair(2, 5), 0x6000));
+    receiver_cores.push_back(tt_multichip_core_addr(11, xy_pair(2, 5), 0x6000));
+    receiver_cores.push_back(tt_multichip_core_addr(12, xy_pair(2, 5), 0x6000));
+    receiver_cores.push_back(tt_multichip_core_addr(13, xy_pair(2, 5), 0x6000));
+    receiver_cores.push_back(tt_multichip_core_addr(14, xy_pair(2, 5), 0x6000));
+    receiver_cores.push_back(tt_multichip_core_addr(15, xy_pair(2, 5), 0x6000));
+    receiver_cores.push_back(tt_multichip_core_addr(16, xy_pair(2, 5), 0x6000));
     run_data_broadcast_test(1000, sender_core, receiver_cores);
 }
 
 // Dram to L1
 TEST(GalaxyDataMovement, BroadcastData3) {
-    tt_SocDescriptor sdesc(test_utils::GetAbsPath(SOC_DESC_PATH));
+    SocDescriptor sdesc(test_utils::GetAbsPath(SOC_DESC_PATH));
 
-    tt_multichip_core_addr sender_core(10, tt_xy_pair(0, 0), 0x20000);
+    tt_multichip_core_addr sender_core(10, xy_pair(0, 0), 0x20000);
     std::vector<tt_multichip_core_addr> receiver_cores;
 
-    receiver_cores.push_back(tt_multichip_core_addr(5, tt_xy_pair(1, 8), 0x5000));
-    receiver_cores.push_back(tt_multichip_core_addr(10, tt_xy_pair(1, 9), 0x6000));
-    receiver_cores.push_back(tt_multichip_core_addr(15, tt_xy_pair(1, 10), 0x7000));
-    receiver_cores.push_back(tt_multichip_core_addr(20, tt_xy_pair(1, 11), 0x8000));
+    receiver_cores.push_back(tt_multichip_core_addr(5, xy_pair(1, 8), 0x5000));
+    receiver_cores.push_back(tt_multichip_core_addr(10, xy_pair(1, 9), 0x6000));
+    receiver_cores.push_back(tt_multichip_core_addr(15, xy_pair(1, 10), 0x7000));
+    receiver_cores.push_back(tt_multichip_core_addr(20, xy_pair(1, 11), 0x8000));
     run_data_broadcast_test(2000, sender_core, receiver_cores);
 }
 
 // L1 to Dram
 TEST(GalaxyDataMovement, BroadcastData4) {
-    tt_SocDescriptor sdesc(test_utils::GetAbsPath(SOC_DESC_PATH));
+    SocDescriptor sdesc(test_utils::GetAbsPath(SOC_DESC_PATH));
 
-    tt_multichip_core_addr sender_core(17, tt_xy_pair(8, 8), 0x20000);
+    tt_multichip_core_addr sender_core(17, xy_pair(8, 8), 0x20000);
     std::vector<tt_multichip_core_addr> receiver_cores;
 
-    receiver_cores.push_back(tt_multichip_core_addr(21, tt_xy_pair(0, 1), 0x5000));
-    receiver_cores.push_back(tt_multichip_core_addr(22, tt_xy_pair(0, 6), 0x6000));
-    receiver_cores.push_back(tt_multichip_core_addr(23, tt_xy_pair(5, 1), 0x7000));
-    receiver_cores.push_back(tt_multichip_core_addr(24, tt_xy_pair(5, 9), 0x8000));
-    receiver_cores.push_back(tt_multichip_core_addr(25, tt_xy_pair(5, 4), 0x9000));
-    receiver_cores.push_back(tt_multichip_core_addr(26, tt_xy_pair(5, 6), 0x10000));
+    receiver_cores.push_back(tt_multichip_core_addr(21, xy_pair(0, 1), 0x5000));
+    receiver_cores.push_back(tt_multichip_core_addr(22, xy_pair(0, 6), 0x6000));
+    receiver_cores.push_back(tt_multichip_core_addr(23, xy_pair(5, 1), 0x7000));
+    receiver_cores.push_back(tt_multichip_core_addr(24, xy_pair(5, 9), 0x8000));
+    receiver_cores.push_back(tt_multichip_core_addr(25, xy_pair(5, 4), 0x9000));
+    receiver_cores.push_back(tt_multichip_core_addr(26, xy_pair(5, 6), 0x10000));
     run_data_broadcast_test(150, sender_core, receiver_cores);
 }
 
 // Dram to Dram
 TEST(GalaxyDataMovement, BroadcastData5) {
-    tt_SocDescriptor sdesc(test_utils::GetAbsPath(SOC_DESC_PATH));
+    SocDescriptor sdesc(test_utils::GetAbsPath(SOC_DESC_PATH));
 
-    tt_multichip_core_addr sender_core(31, tt_xy_pair(2, 2), 0x20000);
+    tt_multichip_core_addr sender_core(31, xy_pair(2, 2), 0x20000);
     std::vector<tt_multichip_core_addr> receiver_cores;
 
-    receiver_cores.push_back(tt_multichip_core_addr(21, tt_xy_pair(0, 1), 0x5000));
-    receiver_cores.push_back(tt_multichip_core_addr(30, tt_xy_pair(0, 6), 0x6000));
-    receiver_cores.push_back(tt_multichip_core_addr(11, tt_xy_pair(5, 1), 0x7000));
-    receiver_cores.push_back(tt_multichip_core_addr(17, tt_xy_pair(5, 9), 0x8000));
+    receiver_cores.push_back(tt_multichip_core_addr(21, xy_pair(0, 1), 0x5000));
+    receiver_cores.push_back(tt_multichip_core_addr(30, xy_pair(0, 6), 0x6000));
+    receiver_cores.push_back(tt_multichip_core_addr(11, xy_pair(5, 1), 0x7000));
+    receiver_cores.push_back(tt_multichip_core_addr(17, xy_pair(5, 9), 0x8000));
     run_data_broadcast_test(2500, sender_core, receiver_cores);
 }
 
 // L1 to L1 cores on many chips
 // TODO: Failing with mismatch
 TEST(GalaxyDataMovement, DISABLED_BroadcastData6) {
-    tt_multichip_core_addr sender_core(1, tt_xy_pair(1, 1), 0x5000);
+    tt_multichip_core_addr sender_core(1, xy_pair(1, 1), 0x5000);
     std::vector<tt_multichip_core_addr> receiver_cores;
     for (int i = 2; i < 33; ++i) {
-        receiver_cores.push_back(tt_multichip_core_addr(i, tt_xy_pair(2, 2), 0x7000));
+        receiver_cores.push_back(tt_multichip_core_addr(i, xy_pair(2, 2), 0x7000));
     }
     run_data_broadcast_test(10000, sender_core, receiver_cores);
 }

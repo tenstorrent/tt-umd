@@ -69,37 +69,37 @@ if(MASTER_PROJECT)
     target_link_libraries(compiler_flags INTERFACE linker_flags)
 endif()
 message(STATUS "UMD build type: ${CMAKE_BUILD_TYPE}")
-set(CMAKE_CXX_FLAGS_RELEASE "-O3")
-set(CMAKE_CXX_FLAGS_RELWITHDEBINFO "-O3 -g -DDEBUG=DEBUG")
-set(CMAKE_CXX_FLAGS_DEBUG "-O0 -g -DDEBUG=DEBUG")
+set(CMAKE_CXX_FLAGS_RELEASE "-O3 -fdiagnostics-color=always")
+set(CMAKE_CXX_FLAGS_RELWITHDEBINFO "-O3 -g -DDEBUG=DEBUG -fdiagnostics-color=always")
+set(CMAKE_CXX_FLAGS_DEBUG "-O0 -g -DDEBUG=DEBUG -fdiagnostics-color=always")
 
 include(${PROJECT_SOURCE_DIR}/cmake/dependencies.cmake)
 
 add_library(umd_common_directories INTERFACE)
-target_include_directories(umd_common_directories INTERFACE ${PROJECT_SOURCE_DIR} ${PROJECT_SOURCE_DIR}/device ${PROJECT_SOURCE_DIR}/third_party/fmt/include)
+target_include_directories(umd_common_directories INTERFACE ${PROJECT_SOURCE_DIR} ${PROJECT_SOURCE_DIR}/new_device ${PROJECT_SOURCE_DIR}/third_party/fmt/include)
 
 if(NOT DEFINED ENV{ARCH_NAME})
     message(FATAL_ERROR "Please set ARCH_NAME to grayskull, wormhole_b0, or blackhole")
 elseif($ENV{ARCH_NAME} STREQUAL "grayskull")
     message(STATUS "UMD: Building for Grayskull")
     target_include_directories(umd_common_directories INTERFACE 
-        ${PROJECT_SOURCE_DIR}/device/grayskull 
+        ${PROJECT_SOURCE_DIR}/new_device/grayskull 
         ${PROJECT_SOURCE_DIR}/src/firmware/riscv/grayskull
     )
 elseif($ENV{ARCH_NAME} STREQUAL "wormhole_b0")
     message(STATUS "UMD: Building for Wormhole")
     target_include_directories(umd_common_directories INTERFACE 
-        ${PROJECT_SOURCE_DIR}/device/wormhole 
+        ${PROJECT_SOURCE_DIR}/new_device/wormhole 
         ${PROJECT_SOURCE_DIR}/src/firmware/riscv/wormhole
     )
 elseif($ENV{ARCH_NAME} STREQUAL "blackhole")
     message(STATUS "UMD: Building for Blackhole")
     target_include_directories(umd_common_directories INTERFACE 
-        ${PROJECT_SOURCE_DIR}/device/blackhole 
+        ${PROJECT_SOURCE_DIR}/new_device/blackhole 
         ${PROJECT_SOURCE_DIR}/src/firmware/riscv/blackhole
     )
 endif()
 
-add_subdirectory(${PROJECT_SOURCE_DIR}/device)
+add_subdirectory(${PROJECT_SOURCE_DIR}/new_device)
 add_subdirectory(${PROJECT_SOURCE_DIR}/tests EXCLUDE_FROM_ALL)
 

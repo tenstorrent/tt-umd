@@ -13,19 +13,19 @@
 #include <vector>
 #include <sstream>
 
-#include "device/tt_device.h"
-#include "device/tt_xy_pair.h"
+#include "new_device/chip.h"
+#include "new_device/local_chip.h"
+#include "new_device/common_types.h"
 
 // static const std::string SOC_DESC_PATH = "./tests/soc_descs/wormhole_b0_8x10.yaml";
 
-using chip_id_t = int;
-using ethernet_channel_t = int;
-using eth_coord_t = std::tuple<int, int, int, int>;  // x, y, rack, shelf
+using namespace tt::umd;
+
 struct tt_multichip_core_addr {
     tt_multichip_core_addr() : core{}, chip{}, addr{} {}
-    tt_multichip_core_addr(chip_id_t chip, tt_xy_pair core, std::uint64_t addr) : core(core), chip(chip), addr(addr) {}
+    tt_multichip_core_addr(chip_id_t chip, xy_pair core, std::uint64_t addr) : core(core), chip(chip), addr(addr) {}
 
-    tt_xy_pair core;
+    xy_pair core;
     chip_id_t chip;
     std::uint64_t addr;
     std::string str() const {
@@ -39,11 +39,11 @@ struct tt_multichip_core_addr {
 // SIMPLE DATAMOVEMENT API BASED ON UMD
 // send one contiguous chunk of data from one sender core to a receiver core
 void move_data(
-    tt_SiliconDevice& device, tt_multichip_core_addr sender_core, tt_multichip_core_addr receiver_core, uint32_t size);
+    LocalChip& device, tt_multichip_core_addr sender_core, tt_multichip_core_addr receiver_core, uint32_t size);
 
 // send one contiguous chunk of data to a vector of receiver cores
 void broadcast_data(
-    tt_SiliconDevice& device,
+    LocalChip& device,
     tt_multichip_core_addr sender_core,
     std::vector<tt_multichip_core_addr> receiver_cores,
     uint32_t size);

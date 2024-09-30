@@ -1,0 +1,58 @@
+
+all PUBLIC functions from tt_device
+
+    chip:           virtual void set_device_l1_address_params(const device_l1_address_params& l1_address_params_);
+    chip:           virtual void set_device_dram_address_params(const device_dram_address_params& dram_address_params_);
+    chip:           virtual void set_driver_host_address_params(const driver_host_address_params& host_address_params_);
+    chip:           virtual void set_driver_eth_interface_params(const driver_eth_interface_params& eth_interface_params_);
+    localchip:      virtual void configure_tlb( chip_id_t logical_device_id, xy_pair core, std::int32_t tlb_index, std::int32_t address, uint64_t ordering = tlb_data::Relaxed);
+    localchip:      virtual void set_fallback_tlb_ordering_mode( const std::string& fallback_tlb, uint64_t ordering = tlb_data::Posted);
+    localchip:      virtual void setup_core_to_tlb_map(std::function<std::int32_t(xy_pair)> mapping_function);
+    localchip:      virtual void configure_active_ethernet_cores_for_mmio_device( chip_id_t mmio_chip, const std::unordered_set<xy_pair>& active_eth_cores_per_chip);
+    chip + cluster: virtual void start_device(const device_params& device_params);
+    chip + cluster: virtual void deassert_risc_reset();
+    core:           virtual void deassert_risc_reset_at_core(cxy_pair core);
+    chip + cluster: virtual void assert_risc_reset();
+    core:           virtual void assert_risc_reset_at_core(cxy_pair core);
+    chip + cluster: virtual void close_device();
+    chip (but implementation in remotechip): virtual void wait_for_non_mmio_flush();
+    core:           virtual void write_to_device( const void* mem_ptr, uint32_t size_in_bytes, cxy_pair core, uint64_t addr, const std::string& tlb_to_use);
+    cluster?:       virtual void broadcast_write_to_cluster( const void* mem_ptr, uint32_t size_in_bytes, uint64_t address, const std::set<chip_id_t>& chips_to_exclude, std::set<uint32_t>& rows_to_exclude, std::set<uint32_t>& columns_to_exclude, const std::string& fallback_tlb);
+    core:           virtual void write_to_device( std::vector<uint32_t>& vec, cxy_pair core, uint64_t addr, const std::string& tlb_to_use);
+    core:           virtual void read_from_device( void* mem_ptr, cxy_pair core, uint64_t addr, uint32_t size, const std::string& fallback_tlb);
+    core:           virtual void read_from_device( std::vector<uint32_t>& vec, cxy_pair core, uint64_t addr, uint32_t size, const std::string& tlb_to_use);
+    chip:           virtual void write_to_sysmem( std::vector<uint32_t>& vec, uint64_t addr, uint16_t channel, chip_id_t src_device_id);
+    chip:           virtual void write_to_sysmem( const void* mem_ptr, std::uint32_t size, uint64_t addr, uint16_t channel, chip_id_t src_device_id);
+    chip:           virtual void read_from_sysmem( std::vector<uint32_t>& vec, uint64_t addr, uint16_t channel, uint32_t size, chip_id_t src_device_id);
+    chip:           virtual void read_from_sysmem( void* mem_ptr, uint64_t addr, uint16_t channel, uint32_t size, chip_id_t src_device_id);
+    chip:           virtual void l1_membar( const chip_id_t chip, const std::string& fallback_tlb, const std::unordered_set<xy_pair>& cores = {});
+    chip:           virtual void dram_membar( const chip_id_t chip, const std::string& fallback_tlb, const std::unordered_set<uint32_t>& channels = {});
+    chip:           virtual void dram_membar( const chip_id_t chip, const std::string& fallback_tlb, const std::unordered_set<xy_pair>& cores = {});
+    cluster_desc:   virtual std::unordered_map<chip_id_t, SocDescriptor>& get_virtual_soc_descriptors();
+    soc_descriptor?:virtual bool using_harvested_soc_descriptors();
+    soc_descriptor: virtual std::unordered_map<chip_id_t, uint32_t> get_harvesting_masks_for_soc_descriptors();
+    private:        virtual int arc_msg( int logical_device_id, uint32_t msg_code, bool wait_for_done = true, uint32_t arg0 = 0, uint32_t arg1 = 0, int timeout = 1, uint32_t* return_3 = nullptr, uint32_t* return_4 = nullptr);
+    soc_descriptor: virtual void translate_to_noc_table_coords(chip_id_t device_id, std::size_t& r, std::size_t& c);
+    nowhere, redundant with next: virtual int get_number_of_chips_in_cluster();
+    cluster:        virtual std::unordered_set<chip_id_t> get_all_chips_in_cluster();
+    cluster:        virtual ClusterDescriptor* get_cluster_description();
+    cluster_desc:   virtual std::set<chip_id_t> get_target_mmio_device_ids();
+    cluster_desc:   virtual std::set<chip_id_t> get_target_remote_device_ids();
+    cluster + chip: virtual std::map<int, int> get_clocks();
+
+    chip:           virtual std::uint32_t get_numa_node_for_pcie_device(std::uint32_t device_id);
+    cluster:        virtual tt_version get_ethernet_fw_version();
+    soc_descriptor: virtual std::uint32_t get_num_dram_channels(std::uint32_t device_id);
+    soc_descriptor: virtual std::uint64_t get_dram_channel_size(std::uint32_t device_id, std::uint32_t channel);
+
+    chip:           virtual std::uint32_t get_num_host_channels(std::uint32_t device_id);
+    chip:           virtual std::uint32_t get_host_channel_size(std::uint32_t device_id, std::uint32_t channel);
+    unnecessary:    virtual void* host_dma_address(std::uint64_t offset, chip_id_t src_device_id, uint16_t channel);
+
+    chip:           virtual std::uint64_t get_pcie_base_addr_from_device();
+    chip:           const SocDescriptor* get_soc_descriptor(chip_id_t chip);
+
+
+tt::Writer would be exchanged with AbstractIO. Specifically LocalCoreIO
+
+

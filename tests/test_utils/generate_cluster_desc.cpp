@@ -5,7 +5,7 @@
  */
 
 #include "tests/test_utils/generate_cluster_desc.hpp"
-#include "device/tt_device.h"
+#include "new_device/tt_device.h"
 
 namespace test_utils {
 fs::path generate_cluster_desc_yaml() {

@@ -25,25 +25,6 @@ namespace YAML {
 
 std::ostream &operator<<(std::ostream &out, const tt::ARCH &arch_name);
 
-static inline std::string get_arch_str(const tt::ARCH arch_name){
-    std::string arch_name_str;
-
-    if (arch_name == tt::ARCH::JAWBRIDGE) {
-        arch_name_str = "jawbridge";
-    } else if (arch_name == tt::ARCH::GRAYSKULL) {
-        arch_name_str = "grayskull";
-    } else if (arch_name == tt::ARCH::WORMHOLE) {
-        arch_name_str = "wormhole";
-    } else if (arch_name == tt::ARCH::WORMHOLE_B0) {
-        arch_name_str = "wormhole_b0";
-    } else if (arch_name == tt::ARCH::BLACKHOLE) {
-        arch_name_str = "blackhole";
-    } else {
-        throw std::runtime_error("Invalid arch_name");
-    }
-
-    return arch_name_str;
-}
 
 static inline tt::ARCH get_arch_name(const std::string &arch_str){
     tt::ARCH arch;
@@ -83,16 +64,6 @@ enum class CoreType {
 
 };
 
-//! SocNodeDescriptor contains information regarding the Node/Core
-/*!
-    Should only contain relevant configuration for SOC
-*/
-struct CoreDescriptor {
-  tt_xy_pair coord = tt_xy_pair(0, 0);
-  CoreType type;
-
-  std::size_t l1_size = 0;
-};
 
 //! tt_SocDescriptor contains information regarding the SOC configuration targetted.
 /*!

@@ -17,7 +17,7 @@
 class SimulationDeviceFixture : public ::testing::Test {
 protected:
     static void SetUpTestSuite() {
-        tt_device_params default_params;
+        device_params default_params;
         device = std::make_unique<tt_SimulationDevice>("");
         device->start_device(default_params);
     }

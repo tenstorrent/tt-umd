@@ -1,8 +1,8 @@
 #pragma once
 
-#include "tt_cluster_descriptor.h"
-#include "tt_device.h"
-#include "tt_xy_pair.h"
+#include "cluster_descriptor.h"
+#include "chip.h"
+#include "common_types.h"
 #include "eth_l1_address_map.h"
 
 #include "tests/test_utils/stimulus_generators.hpp"
@@ -10,7 +10,7 @@
 
 namespace tt::umd::test::utils {
 
-static void set_params_for_remote_txn(tt_SiliconDevice& device) {
+static void set_params_for_remote_txn(LocalChip& device) {
     // Populate address map and NOC parameters that the driver needs for remote transactions
     device.set_driver_host_address_params({host_mem::address_map::ETH_ROUTING_BLOCK_SIZE, host_mem::address_map::ETH_ROUTING_BUFFERS_START});
 
@@ -29,7 +29,7 @@ class WormholeTestFixture : public ::testing::Test {
   // You can remove any or all of the following functions if their bodies would
   // be empty.
 
-  std::unique_ptr<tt_SiliconDevice> device;
+  std::unique_ptr<LocalChip> device;
 
   WormholeTestFixture() {
 
@@ -60,13 +60,13 @@ class WormholeTestFixture : public ::testing::Test {
     std::set<chip_id_t> target_devices = {devices.begin(), devices.end()};
     uint32_t num_host_mem_ch_per_mmio_device = 1;
     std::unordered_map<std::string, std::int32_t> dynamic_tlb_config = {}; // Don't set any dynamic TLBs in this test
-    device = std::make_unique<tt_SiliconDevice>(test_utils::GetAbsPath(SOC_DESC_PATH), test_utils::GetClusterDescYAML(), target_devices, num_host_mem_ch_per_mmio_device, dynamic_tlb_config, false, true, true);
+    device = std::make_unique<LocalChip>(test_utils::GetAbsPath(SOC_DESC_PATH), test_utils::GetClusterDescYAML(), target_devices, num_host_mem_ch_per_mmio_device, dynamic_tlb_config, false, true, true);
     assert(device != nullptr);
     assert(device->get_cluster_description()->get_number_of_chips() == get_detected_num_chips());
 
     set_params_for_remote_txn(*device);
 
-    tt_device_params default_params;
+    device_params default_params;
     device->start_device(default_params);
 
     device->deassert_risc_reset();

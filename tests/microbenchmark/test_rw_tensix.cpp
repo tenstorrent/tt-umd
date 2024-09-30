@@ -22,11 +22,11 @@ TEST_F(uBenchmarkFixture, WriteAllCores32Bytes) {
         wname << "Write to device core (" << core.x << ", " << core.y << ")";
         // Write 32 bytes through static tlbs
         bench_static.title("Write 32 bytes").unit("writes").minEpochIterations(50).output(nullptr).run(wname.str(), [&] {
-            device->write_to_device(vector_to_write, tt_cxy_pair(0, core), address, "SMALL_READ_WRITE_TLB");
+            device->write_to_device(vector_to_write, cxy_pair(0, core), address, "SMALL_READ_WRITE_TLB");
         });
         // Write through "fallback/dynamic" tlb
         bench_dynamic.title("Write 32 bytes fallback").unit("writes").minEpochIterations(50).output(nullptr).run(wname.str(), [&] {
-            device->write_to_device(vector_to_write, tt_cxy_pair(0, core), bad_address, "SMALL_READ_WRITE_TLB");
+            device->write_to_device(vector_to_write, cxy_pair(0, core), bad_address, "SMALL_READ_WRITE_TLB");
         });
         wname.clear();
     }
@@ -47,11 +47,11 @@ TEST_F(uBenchmarkFixture, ReadAllCores32Bytes){
         // Read through static tlbs
         rname << "Read from device core (" << core.x << ", " << core.y << ")";
         bench_static.title("Read 32 bytes").unit("reads").minEpochIterations(50).output(nullptr).run(rname.str(), [&] {
-            device->read_from_device(readback_vec, tt_cxy_pair(0, core), address, 0x20, "SMALL_READ_WRITE_TLB");
+            device->read_from_device(readback_vec, cxy_pair(0, core), address, 0x20, "SMALL_READ_WRITE_TLB");
         });
         // Read through "fallback/dynamic" tlb
         bench_dynamic.title("Read 32 bytes fallback").unit("reads").minEpochIterations(50).output(nullptr).run(rname.str(), [&] {
-            device->read_from_device(readback_vec, tt_cxy_pair(0, core), bad_address, 0x20, "SMALL_READ_WRITE_TLB");
+            device->read_from_device(readback_vec, cxy_pair(0, core), bad_address, 0x20, "SMALL_READ_WRITE_TLB");
         });
         rname.clear();
     }
@@ -69,7 +69,7 @@ TEST_F(uBenchmarkFixture, Write32BytesRandomAddr){
         std::stringstream wname;
         wname << "Write to device core (" << core.x << ", " << core.y << ") @ address " << std::hex << address;
         bench.title("Write 32 bytes random address").unit("writes").minEpochIterations(50).output(nullptr).run(wname.str(), [&] {
-            device->write_to_device(vector_to_write, tt_cxy_pair(0, core), address, "SMALL_READ_WRITE_TLB");
+            device->write_to_device(vector_to_write, cxy_pair(0, core), address, "SMALL_READ_WRITE_TLB");
         });
         wname.clear();
     }
@@ -86,7 +86,7 @@ TEST_F(uBenchmarkFixture, Read32BytesRandomAddr){
         std::stringstream rname;
         rname << "Read from device core (" << core.x << ", " << core.y << ") @ address " << std::hex << address;
         bench.title("Read 32 bytes random address").unit("reads").minEpochIterations(50).output(nullptr).run(rname.str(), [&] {
-            device->read_from_device(readback_vec, tt_cxy_pair(0, core), address, 0x20, "SMALL_READ_WRITE_TLB");
+            device->read_from_device(readback_vec, cxy_pair(0, core), address, 0x20, "SMALL_READ_WRITE_TLB");
         });
         rname.clear();
     }

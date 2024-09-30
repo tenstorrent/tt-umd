@@ -28,6 +28,7 @@ on:
           - grayskull
           - wormhole_b0
           - blackhole
+          - ""
       timeout:
         required: true
         description: 'The timeout for the build job in minutes'
@@ -70,13 +71,16 @@ jobs:
       image: ghcr.io/${{ github.repository }}/${{ matrix.build.docker-image }}:latest
       options: --user root
 
-    env:
-      ARCH_NAME: ${{ inputs.arch }}
-
     steps:
     - uses: actions/checkout@v4
       with:
         submodules: recursive
+
+    - name: Set ARCH_NAME if not empty
+      run: |
+        if [[ -n "${{ inputs.arch }}" ]]; then
+          echo "ARCH_NAME=${{ inputs.arch }}" >> $GITHUB_ENV
+        fi
 
     - name: Build ${{ inputs.build-target }}
       run: |

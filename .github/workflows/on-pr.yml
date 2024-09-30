@@ -9,8 +9,6 @@ on:
 jobs:
   build-all:
     secrets: inherit
-    uses: ./.github/workflows/build-target.yml
+    uses: ./.github/workflows/build-device.yml
     with:
-      arch: ""
       timeout: 10
-      build-target: umd_device

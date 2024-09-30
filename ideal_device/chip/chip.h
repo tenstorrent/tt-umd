@@ -8,6 +8,7 @@
 #include "core/core.h"
 #include "chip/soc_descriptor.h"
 #include "io/abstract_io.h"
+#include "tt_device/tt_device.h"
 
 #include <cstdint>
 #include <functional>
@@ -21,6 +22,18 @@ enum class ChipType {
     Versim,
     Mock
 };
+
+enum class tlb_type {
+    tlb_1m,
+    tlb_2m,
+    tlb_16m,
+    tlb_4gb,
+};
+
+struct tlb_index {
+    tlb_type type;
+    int index;
+}
 
 // This is a layer which should be used by a regular user.
 // This hides implementation details for local, remote, versim, and mock chips.
@@ -94,6 +107,23 @@ public:
     // 0 for remote chip
     virtual std::uint32_t get_num_host_channels();
     virtual std::uint32_t get_host_channel_size(std::uint32_t channel);
+
+    // Throws for remote chip.
+    virtual void configure_active_ethernet_cores_for_mmio_device(
+        const std::unordered_set<physical_coord>& active_eth_cores_per_chip);
+    
+    // Also throws for remote chip.
+    // TLB setup is done by default, and is hidden behind chip implementation.
+    // If you want to have your own TLB setup, you have to grab the TTDevice and do it there.
+    // After that you setup the core to tlb mapping here.
+    // This all has to be done before you start using the chip (start_device), or it will fail.
+    virtual void setup_core_to_tlb_map(std::unordered_map<tlb_index, physical_coord> mapping_function);
+
+    // Also throws for remote chip, since there is no such thing.
+    virtual void TTDevice* get_tt_device();
+
+    // Throws for local chip since only remote chip has underlying localchip.
+    virtual Chip* get_local_chip();
 };
 
 }

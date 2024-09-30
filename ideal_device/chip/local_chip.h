@@ -10,17 +10,6 @@
 
 namespace tt::umd {
 
-enum class tlb_type {
-    tlb_1m,
-    tlb_2m,
-    tlb_16m,
-    tlb_4gb,
-};
-
-struct tlb_index {
-    tlb_type type;
-    int index;
-}
 
 class LocalChip: public Chip {
 public:

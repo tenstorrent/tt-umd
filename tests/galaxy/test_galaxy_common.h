@@ -16,6 +16,8 @@
 #include "device/tt_device.h"
 #include "device/tt_xy_pair.h"
 
+#include "fmt/core.h"
+
 // static const std::string SOC_DESC_PATH = "./tests/soc_descs/wormhole_b0_8x10.yaml";
 
 using chip_id_t = int;
@@ -29,10 +31,7 @@ struct tt_multichip_core_addr {
     chip_id_t chip;
     std::uint64_t addr;
     std::string str() const {
-        std::stringstream ss;
-        ss << std::hex << addr << std::dec;
-        return "(chip=" + std::to_string(chip) + ",x=" + std::to_string(core.x) + ",y=" + std::to_string(core.y) +
-               ",addr=0x" + ss.str() + ")";
+        return fmt::format("(chip={},x={},y={},addr=0x{:x})", chip, core.x, core.y, addr);
     }
 };
 

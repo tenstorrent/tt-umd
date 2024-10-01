@@ -12,6 +12,8 @@
 #include "common/logger.hpp"
 #include "yaml-cpp/yaml.h"
 
+#include "fmt/core.h"
+
 using namespace tt;
 bool tt_ClusterDescriptor::ethernet_core_has_active_ethernet_link(chip_id_t local_chip, ethernet_channel_t local_ethernet_channel) const {
     return this->ethernet_connections.find(local_chip) != this->ethernet_connections.end() &&
@@ -297,7 +299,7 @@ std::unique_ptr<tt_ClusterDescriptor> tt_ClusterDescriptor::create_from_yaml(con
 
     std::ifstream fdesc(cluster_descriptor_file_path);
     if (fdesc.fail()) {
-        throw std::runtime_error("Error: cluster connectivity descriptor file " + cluster_descriptor_file_path + " does not exist!");
+        throw std::runtime_error(fmt::format("Error: cluster connectivity descriptor file {} does not exist!", cluster_descriptor_file_path));
     }
     fdesc.close();
 

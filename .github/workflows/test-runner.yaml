@@ -67,12 +67,17 @@ jobs:
 
     container:
       image: ghcr.io/${{ github.repository }}/${{ matrix.image }}:latest
-      options: --user root
+      # options: --user root
       volumes:
         - /dev/hugepages:/dev/hugepages
         - /dev/hugepages-1G:/dev/hugepages-1G
 
     steps:
+
+    - name: Fix ownership    
+      run: |
+        sudo chown -R ubuntu:ubuntu $GITHUB_WORKSPACE || true
+
     - uses: actions/checkout@v4
       with:
         submodules: recursive

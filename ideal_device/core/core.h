@@ -26,12 +26,8 @@ class Core {
     // read write functions
     virtual void write_to_device(const void* mem_ptr, uint32_t size_in_bytes, uint64_t addr);
     virtual void write_reg_to_device(const void* mem_ptr, uint32_t size_in_bytes, uint64_t addr);
-    virtual void write_to_device(std::vector<uint32_t>& vec, uint64_t addr);
-    virtual void write_reg_to_device(std::vector<uint32_t>& vec, uint64_t addr);
     virtual void read_from_device(void* mem_ptr, uint64_t addr, uint32_t size);
     virtual void read_reg_from_device(void* mem_ptr, uint64_t addr, uint32_t size);
-    virtual void read_from_device(std::vector<uint32_t>& vec, uint64_t addr, uint32_t size);
-    virtual void read_reg_from_device(std::vector<uint32_t>& vec, uint64_t addr, uint32_t size);
 
     // Returns local_core_io, remote_core_io, local_dram_io, remote_dram_io, based on the core type.
     virtual std::unique_ptr<AbstractIO> get_io(uint64_t base_addr = 0, uint64_t size = 0);

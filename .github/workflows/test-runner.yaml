@@ -85,9 +85,9 @@ jobs:
     - name: Git add safe dir for base rpo and submodules
       run: |
         # Mark the main repository as safe
-        git config --global --add safe.directory "$(pwd)"
+        git config --global --add safe.directory ${{ steps.strings.outputs.work-dir }} || true
         # Iterate over all submodules and mark them as safe
-        git submodule foreach 'git config --global --add safe.directory "$toplevel/$sm_path"'
+        git submodule foreach 'git config --global --add safe.directory "$toplevel/$sm_path"' || true
 
     - uses: actions/checkout@v4
       with:

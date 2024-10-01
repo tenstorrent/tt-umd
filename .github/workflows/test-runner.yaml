@@ -18,7 +18,7 @@ jobs:
 
     - name: Fix ownership    
       run: |
-        sudo chown -R ubuntu:ubuntu $GITHUB_WORKSPACE
+        sudo chown -R ubuntu:ubuntu $GITHUB_WORKSPACE || true
 
     - uses: actions/checkout@v4
 

@@ -15,6 +15,11 @@ jobs:
     runs-on: ${{ matrix.machine }}
 
     steps:
+
+    - name: Fix ownership    
+      run: |
+        sudo chown -R ubuntu:ubuntu $GITHUB_WORKSPACE
+
     - uses: actions/checkout@v4
 
     - name: Print machine info    

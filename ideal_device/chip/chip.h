@@ -75,9 +75,7 @@ public:
 
     // Read write to system memory.
     // Available for all chips, but num channels for remote chip will be zero.
-    virtual void write_to_sysmem(std::vector<uint32_t>& vec, uint64_t addr, uint16_t channel);
     virtual void write_to_sysmem(const void* mem_ptr, std::uint32_t size, uint64_t addr, uint16_t channel);
-    virtual void read_from_sysmem(std::vector<uint32_t>& vec, uint64_t addr, uint16_t channel, uint32_t size);
     virtual void read_from_sysmem(void* mem_ptr, uint64_t addr, uint16_t channel, uint32_t size);
 
     // Returns an IO object which can be used for fast read/write to system memory.

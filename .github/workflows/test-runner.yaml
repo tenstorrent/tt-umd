@@ -74,9 +74,16 @@ jobs:
 
     steps:
 
-    - name: Fix ownership    
+    - name: Set reusable strings
+      id: strings
+      shell: bash
       run: |
-        sudo chown -R ubuntu:ubuntu $GITHUB_WORKSPACE || true
+        echo "work-dir=$(pwd)" >> "$GITHUB_OUTPUT"
+        echo "build-output-dir=$(pwd)/build" >> "$GITHUB_OUTPUT"
+        echo "install-output-dir=$(pwd)/install" >> "$GITHUB_OUTPUT"
+
+    - name: Git safe dir
+      run: git config --global --add safe.directory ${{ steps.strings.outputs.work-dir }}
 
     - uses: actions/checkout@v4
       with:

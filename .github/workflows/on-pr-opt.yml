@@ -14,7 +14,7 @@ jobs:
       matrix:
         test-group: [
           # Enable once we have functional cards with specified architecture.
-          # { arch: grayskull },
+          { arch: grayskull },
           { arch: wormhole_b0 },
           # { arch: blackhole },
         ]
@@ -31,9 +31,9 @@ jobs:
       matrix:
         test-group: [
           # Enable once we have functional cards.
-          # { arch: grayskull, card: e75 },
-          # { arch: grayskull, card: e150 },
-          # { arch: grayskull, card: e300 },
+          { arch: grayskull, card: e75 },
+          { arch: grayskull, card: e150 },
+          { arch: grayskull, card: e300 },
           { arch: wormhole_b0, card: n150, timeout: 5 },
           { arch: wormhole_b0, card: n300, timeout: 15 },
           # { arch: blackhole },

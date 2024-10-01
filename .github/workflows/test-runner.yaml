@@ -10,7 +10,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        machine: [ ubuntu-20.04, ubuntu-22.04, e75, e150, e300, n150, n300 ]
+        machine: [ ubuntu-20.04, ubuntu-22.04, e75, e150, e300, n150 ]
 
     name: Check runner
     runs-on: ${{ matrix.machine }}
@@ -58,7 +58,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        machine: [ ubuntu-20.04, ubuntu-22.04, e75, e150, e300, n150, n300 ]
+        machine: [ ubuntu-20.04, ubuntu-22.04, e75, e150, e300, n150 ]
         image: [ tt-umd-ci-ubuntu-22.04, tt-umd-ci-ubuntu-20.04 ]
 
     name: Check runner docker
@@ -82,8 +82,12 @@ jobs:
         echo "build-output-dir=$(pwd)/build" >> "$GITHUB_OUTPUT"
         echo "install-output-dir=$(pwd)/install" >> "$GITHUB_OUTPUT"
 
-    - name: Git safe dir
-      run: git config --global --add safe.directory ${{ steps.strings.outputs.work-dir }}
+    - name: Git add safe dir for base rpo and submodules
+      run: |
+        # Mark the main repository as safe
+        git config --global --add safe.directory "$(pwd)"
+        # Iterate over all submodules and mark them as safe
+        git submodule foreach 'git config --global --add safe.directory "$toplevel/$sm_path"'
 
     - uses: actions/checkout@v4
       with:

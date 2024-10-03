@@ -5,6 +5,7 @@
  */
 
 #include <cstdint>
+#include <cstring> // for memcpy
 #include <vector>
 #include <fcntl.h>  // for ::open
 #include <unistd.h> // for ::close
@@ -35,8 +36,7 @@ tt::ARCH detect_arch(int device_id){
 // which glibc's memcpy may perform when unrolling. This affects from and to device.
 // 2. syseng#3487 WH GDDR5 controller has a bug when 1-byte writes are temporarily adjacent
 // to 2-byte writes. We avoid ever performing a 1-byte write to the device. This only affects to device.
-#ifndef DISABLE_ISSUE_3487_FIX
-void memcpy_to_device(void *dest, const void *src, std::size_t num_bytes) {
+inline void memcpy_to_device(void *dest, const void *src, std::size_t num_bytes) {
     typedef std::uint32_t copy_t;
 
     // Start by aligning the destination (device) pointer. If needed, do RMW to fix up the
@@ -82,7 +82,7 @@ void memcpy_to_device(void *dest, const void *src, std::size_t num_bytes) {
     }
 }
 
-void memcpy_from_device(void *dest, const void *src, std::size_t num_bytes) {
+inline void memcpy_from_device(void *dest, const void *src, std::size_t num_bytes) {
     typedef std::uint32_t copy_t;
 
     // Start by aligning the source (device) pointer.
@@ -119,7 +119,6 @@ void memcpy_from_device(void *dest, const void *src, std::size_t num_bytes) {
         std::memcpy(dp, &tmp, trailing_len);
     }
 }
-#endif
 
 // --------------------------------------------------------------------------------------------------------------
 // --------------------------------------------------------------------------------------------------------------
@@ -364,16 +363,16 @@ void PCIDevice::write_block(uint64_t byte_addr, uint64_t num_bytes, const uint8_
     if (bar4_wc != nullptr && byte_addr >= BAR0_BH_SIZE) {
         byte_addr -= BAR0_BH_SIZE;
         dest = reinterpret_cast<uint8_t *>(bar4_wc) + byte_addr;
-    }else {
+    } else {
         dest = get_register_address<uint8_t>(byte_addr);
     }
 
     const void *src = reinterpret_cast<const void *>(buffer_addr);
-#ifdef DISABLE_ISSUE_3487_FIX
-    memcpy(dest, src, num_bytes);
-#else
-    memcpy_to_device(dest, src, num_bytes);
-#endif
+    if (arch == tt::ARCH::WORMHOLE_B0) {
+        memcpy_to_device(dest, src, num_bytes);
+    } else {
+        memcpy(dest, src, num_bytes);
+    }
 }
 
 void PCIDevice::read_block(uint64_t byte_addr, uint64_t num_bytes, uint8_t* buffer_addr) {
@@ -386,11 +385,11 @@ void PCIDevice::read_block(uint64_t byte_addr, uint64_t num_bytes, uint8_t* buff
     }
 
     void *dest = reinterpret_cast<void *>(buffer_addr);
-#ifdef DISABLE_ISSUE_3487_FIX
-    memcpy(dest, src, num_bytes);
-#else
-    memcpy_from_device(dest, src, num_bytes);
-#endif
+    if (arch == tt::ARCH::WORMHOLE_B0) {
+        memcpy_from_device(dest, src, num_bytes);
+    } else {
+        memcpy(dest, src, num_bytes);
+    }
 }
 
 // This is only needed for the BH workaround in iatu_configure_peer_region since no arc

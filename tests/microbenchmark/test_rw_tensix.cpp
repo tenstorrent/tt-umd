@@ -52,7 +52,7 @@ TEST_F(uBenchmarkFixture, ReadAllCores32Bytes){
         });
         // Read through "fallback/dynamic" tlb
         bench_dynamic.title("Read 32 bytes fallback").unit("reads").minEpochIterations(50).output(nullptr).run(rname.str(), [&] {
-            test_utils::read_data_from_device(*device, readback_vec.data(), tt_cxy_pair(0, core), bad_address, 0x20, "SMALL_READ_WRITE_TLB");
+            test_utils::read_data_from_device(*device, readback_vec, tt_cxy_pair(0, core), bad_address, 0x20, "SMALL_READ_WRITE_TLB");
         });
         rname.clear();
     }

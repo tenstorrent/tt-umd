@@ -458,7 +458,6 @@ int tt_cpuset_allocator::_get_num_tt_pci_devices_by_pci_device_id(uint16_t devic
     if (m_num_tt_device_by_pci_device_id_map.find(device_id_revision) != m_num_tt_device_by_pci_device_id_map.end()) {
         return m_num_tt_device_by_pci_device_id_map.at(device_id_revision);
     } else {
-        log_fatal("Cannot find any TT device with PCI device_id: 0x{:x} and revision: {} in topology.", device_id, revision);
         return 0;
     }
 }

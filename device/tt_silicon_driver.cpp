@@ -1526,9 +1526,7 @@ bool tt_SiliconDevice::init_hugepage(chip_id_t device_id) {
         close(hugepage_fd);
 
         if (mapping == MAP_FAILED) {
-            uint32_t num_tt_mmio_devices_for_arch = tt::cpuset::tt_cpuset_allocator::get_num_tt_pci_devices_by_pci_device_id(physical_device_id, dev->pcie_revision_id);
-            WARN("---- ttSiliconDevice::init_hugepage: physical_device_id: %d ch: %d mapping hugepage failed. (errno: %s).\n", physical_device_id, ch, strerror(errno));
-            WARN("---- Possible hint: /proc/cmdline should have hugepages=N, nr_hugepages=N - (N = NUM_MMIO_TT_DEVICES * (is_grayskull ? 1 : 4). NUM_MMIO_DEVICES = %d\n", num_tt_mmio_devices_for_arch);
+            WARN("UMD: Mapping a hugepage failed. (device: %d, %d/%d errno: %s).\n", physical_device_id, ch, m_num_host_mem_channels, strerror(errno));
             print_file_contents("/proc/cmdline");\
             print_file_contents("/sys/kernel/mm/hugepages/hugepages-1048576kB/nr_hugepages"); // Hardcoded for 1GB hugepage.
             success = false;

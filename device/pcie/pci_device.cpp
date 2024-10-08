@@ -325,18 +325,6 @@ void PCIDevice::close_device() {
     system_reg_mapping = nullptr;
 }
 
-// Open a unique device_id per host memory channel (workaround for ttkmd < 1.21 support for more than 1 pin per fd)
-void PCIDevice::open_hugepage_per_host_mem_ch(uint32_t num_host_mem_channels) {
-    for (int ch = 0; ch < num_host_mem_channels; ch++) {
-        log_debug(LogSiliconDriver, "Opening device_fd_per_host_ch device index: {} ch: {} (num_host_mem_channels: {})", device_id, ch, num_host_mem_channels);
-        int device_fd_for_host_mem = find_device(device_id);
-        if (device_fd_for_host_mem == -1) {
-            throw std::runtime_error(fmt::format("Failed opening a host memory device handle for device {}.", device_id));
-        }
-        device_fd_per_host_ch.push_back(device_fd_for_host_mem);
-    }
-}
-
 tt::ARCH PCIDevice::get_arch() const {
     return arch;
 }

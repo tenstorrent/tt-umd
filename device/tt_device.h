@@ -795,7 +795,10 @@ class tt_SiliconDevice: public tt_device
     std::unordered_map<chip_id_t, std::unordered_set<tt_xy_pair>> workers_per_chip = {};
     std::unordered_set<tt_xy_pair> eth_cores = {};
     std::unordered_set<tt_xy_pair> dram_cores = {};
+
+    // number of host memory channels is really "number of 1G hugepages per device"
     uint32_t m_num_host_mem_channels = 0;
+
     std::unordered_map<chip_id_t, std::unordered_map<int, void *>> hugepage_mapping;
     std::unordered_map<chip_id_t, std::unordered_map<int, std::size_t>> hugepage_mapping_size;
     std::unordered_map<chip_id_t, std::unordered_map<int, std::uint64_t>> hugepage_physical_address;

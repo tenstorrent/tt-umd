@@ -38,7 +38,6 @@ public:
     void read_regs(uint32_t byte_addr, uint32_t word_len, void *data);
     void write_tlb_reg(uint32_t byte_addr, std::uint64_t value_lower, std::uint64_t value_upper, std::uint32_t tlb_cfg_reg_size);
 
-    void open_hugepage_per_host_mem_ch(uint32_t num_host_mem_channels);
     bool reset_board();
     tt::umd::architecture_implementation* get_architecture_implementation() const { return architecture_implementation.get(); }
 
@@ -52,7 +51,6 @@ public:
     std::uint32_t pcie_revision_id;
 
     // BAR and regs mapping setup
-    std::vector<int> device_fd_per_host_ch;
     void *bar0_uc = nullptr;
     std::size_t bar0_uc_size = 0;
     std::size_t bar0_uc_offset = 0;

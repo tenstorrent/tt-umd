@@ -3,7 +3,7 @@
 ## Dependencies
 Required Ubuntu dependencies:
 ```
-sudo apt install -y libhwloc-dev
+sudo apt install -y libnuma-dev
 ```
 
 ## Build flow

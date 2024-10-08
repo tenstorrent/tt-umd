@@ -1,7 +1,6 @@
 
 set(UMD_DEVICE_SRCS
     architecture_implementation.cpp
-    cpuset_lib.cpp
     tlb.cpp
     tt_cluster_descriptor.cpp
     tt_device.cpp
@@ -18,7 +17,7 @@ set(UMD_DEVICE_SRCS
 add_library(umd_device SHARED ${UMD_DEVICE_SRCS})
 target_link_libraries(umd_device 
     PUBLIC yaml-cpp::yaml-cpp umd_common_directories nng uv compiler_flags
-    PRIVATE numa hwloc rt Boost::interprocess
+    PRIVATE numa rt Boost::interprocess
 )
 target_include_directories(umd_device PUBLIC
     ${flatbuffers_SOURCE_DIR}/include

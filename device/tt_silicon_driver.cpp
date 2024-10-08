@@ -45,7 +45,7 @@
 #include "yaml-cpp/yaml.h"
 #include "common/logger.hpp"
 
-#include "device/cpuset_lib.hpp"
+#include "device/tt_cluster_descriptor.h"
 #include "device/driver_atomics.h"
 #include "device/architecture.h"
 #include "device/architecture_implementation.h"

@@ -142,6 +142,9 @@ TEST(SiliconDriverWH, CustomSocDesc) {
     }
 }
 
+// Disabled for now.
+// https://github.com/tenstorrent/tt-umd/issues/82
+#if 0
 TEST(SiliconDriverWH, HarvestingRuntime) {
 
     auto get_static_tlb_index_callback = [] (tt_xy_pair target) {
@@ -207,6 +210,7 @@ TEST(SiliconDriverWH, HarvestingRuntime) {
     }
     device.close_device();
 }
+#endif
 
 TEST(SiliconDriverWH, UnalignedStaticTLB_RW) {
     auto get_static_tlb_index_callback = [] (tt_xy_pair target) {

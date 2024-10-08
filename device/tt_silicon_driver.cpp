@@ -54,12 +54,6 @@
 using namespace boost::interprocess;
 using namespace tt;
 
-int g_DEBUG_LEVEL; // /src/t6ifc/t6py/packages/tenstorrent/jlink/jtag_comm.cpp
-bool g_READ_CHECKING_ENABLED = true;
-
-// Print all buffers smaller than this number of bytes
-uint32_t g_NUM_BYTES_TO_PRINT = 8;
-
 // Workaround for tkmd < 1.21 use device_fd_per_host_ch[ch] instead of device_fd once per channel.
 const bool g_SINGLE_PIN_PAGE_PER_FD_WORKAROND = true;
 const uint32_t g_MAX_HOST_MEM_CHANNELS = 4;
@@ -70,7 +64,7 @@ const uint32_t HUGEPAGE_MAP_MASK = HUGEPAGE_REGION_SIZE - 1;
 static const uint32_t MSG_ERROR_REPLY = 0xFFFFFFFF;
 
 // Hardcode (but allow override) of path now, to support environments with other 1GB hugepage mounts not for runtime.
-const char* hugepage_dir_env = std::getenv("TT_BACKEND_HUGEPAGE_DIR");
+const char* hugepage_dir_env = std::getenv("TT_UMD_HUGEPAGE_DIR");
 std::string hugepage_dir = hugepage_dir_env ? hugepage_dir_env : "/dev/hugepages-1G";
 
 // TLB size for DRAM on blackhole - 4GB
@@ -275,7 +269,7 @@ bool auto_reset_board(PCIDevice *dev) {
 }
 
 void detect_ffffffff_read(PCIDevice *dev, std::uint32_t data_read = 0xffffffffu) {
-    if (g_READ_CHECKING_ENABLED && data_read == 0xffffffffu && is_hardware_hung(dev)) {
+    if (data_read == 0xffffffffu && is_hardware_hung(dev)) {
         std::uint32_t scratch_data = *register_address<std::uint32_t>(dev, dev->read_checking_offset);
 
         if (auto_reset_board(dev)) {
@@ -292,14 +286,12 @@ inline void record_access (const char* where, uint32_t addr, uint32_t size, bool
 
 inline void print_buffer (const void* buffer_addr, uint32_t len_bytes = 16, bool endline = true) {
     // Prints each byte in a buffer
-    if (g_DEBUG_LEVEL > 1) {
-        uint8_t *b = (uint8_t *)(buffer_addr);
-        for (uint32_t i = 0; i < len_bytes; i++) {
-            log_trace(LogSiliconDriver, "    [0x{:x}] = 0x{:x} ({}) ", i, b[i], b[i]);
-        }
-        if (endline) {
-            log_trace(LogSiliconDriver, "\n");
-        }
+    uint8_t *b = (uint8_t *)(buffer_addr);
+    for (uint32_t i = 0; i < len_bytes; i++) {
+        log_trace(LogSiliconDriver, "    [0x{:x}] = 0x{:x} ({}) ", i, b[i], b[i]);
+    }
+    if (endline) {
+        log_trace(LogSiliconDriver, "\n");
     }
 }
 #endif
@@ -466,16 +458,7 @@ void tt_SiliconDevice::initialize_interprocess_mutexes(int pci_interface_id, boo
 }
 
 void tt_SiliconDevice::create_device(const std::unordered_set<chip_id_t> &target_mmio_device_ids, const uint32_t &num_host_mem_ch_per_mmio_device, const bool skip_driver_allocs, const bool clean_system_resources) {
-    m_pci_log_level = 0;
-    log_debug(LogSiliconDriver, "---- tt_SiliconDevice::tt_SiliconDevice");
-
-    // Set the log level for debugging
-    const char* pci_log_level = std::getenv("TT_PCI_LOG_LEVEL");
-    if (pci_log_level) {
-        m_pci_log_level = atoi (pci_log_level);
-    }
-    g_DEBUG_LEVEL = m_pci_log_level;
-    log_debug(LogSiliconDriver, "TT_PCI_LOG_LEVEL={}", m_pci_log_level);
+    log_debug(LogSiliconDriver, "tt_SiliconDevice::tt_SiliconDevice");
 
     // Don't buffer stdout.
     setbuf(stdout, NULL);
@@ -946,7 +929,7 @@ void tt_SiliconDevice::translate_to_noc_table_coords(chip_id_t device_id, std::s
 }
 
 void tt_SiliconDevice::initialize_pcie_devices() {
-    log_debug(LogSiliconDriver, "---- tt_SiliconDevice::start");
+    log_debug(LogSiliconDriver, "tt_SiliconDevice::start");
 
     for (auto &device_it : m_pci_device_map){
         check_pcie_device_initialized(device_it.first);
@@ -960,7 +943,7 @@ void tt_SiliconDevice::initialize_pcie_devices() {
 }
 
 void tt_SiliconDevice::broadcast_pcie_tensix_risc_reset(PCIDevice *device, const TensixSoftResetOptions &soft_resets) {
-    log_debug(LogSiliconDriver, "---- tt_SiliconDevice::broadcast_tensix_risc_reset");
+    log_debug(LogSiliconDriver, "tt_SiliconDevice::broadcast_tensix_risc_reset");
 
     auto valid = soft_resets & ALL_TENSIX_SOFT_RESET;
 
@@ -1096,8 +1079,8 @@ void tt_SiliconDevice::write_device_memory(const void *mem_ptr, uint32_t size_in
     PCIDevice *dev = get_pci_device(target.chip);
     const uint8_t* buffer_addr = static_cast<const uint8_t*>(mem_ptr);
 
-    // log_debug(LogSiliconDriver, "---- tt_SiliconDevice::write_device_memory to chip:{} {}-{} at 0x{:x} size_in_bytes: {} small_access: {}",
-    //     target.chip, target.x, target.y, address, size_in_bytes, small_access);
+    log_debug(LogSiliconDriver, "tt_SiliconDevice::write_device_memory to chip:{} {}-{} at 0x{:x} size_in_bytes: {} small_access: {}",
+        target.chip, target.x, target.y, address, size_in_bytes, small_access);
 
     std::int32_t tlb_index = 0;
     std::optional<std::tuple<std::uint64_t, std::uint64_t>> tlb_data = std::nullopt;
@@ -1135,7 +1118,7 @@ void tt_SiliconDevice::write_device_memory(const void *mem_ptr, uint32_t size_in
 
 void tt_SiliconDevice::read_device_memory(void *mem_ptr, tt_cxy_pair target, std::uint32_t address, std::uint32_t size_in_bytes, const std::string& fallback_tlb) {
     // Assume that mem_ptr has been allocated adequate memory on host when this function is called. Otherwise, this function will cause a segfault.
-    log_debug(LogSiliconDriver, "---- tt_SiliconDevice::read_device_memory to chip:{} {}-{} at 0x{:x} size_in_bytes: {}", target.chip, target.x, target.y, address, size_in_bytes);
+    log_debug(LogSiliconDriver, "tt_SiliconDevice::read_device_memory to chip:{} {}-{} at 0x{:x} size_in_bytes: {}", target.chip, target.x, target.y, address, size_in_bytes);
     PCIDevice *dev = get_pci_device(target.chip);
 
     uint8_t* buffer_addr = static_cast<uint8_t*>(mem_ptr);
@@ -1196,7 +1179,7 @@ void tt_SiliconDevice::read_buffer(
                                              channel));
     }
 
-    log_debug(LogSiliconDriver, "---- tt_SiliconDevice::read_buffer (src_device_id: {}, ch: {}) from 0x{:x}",  src_device_id, channel, user_scratchspace);
+    log_debug(LogSiliconDriver, "tt_SiliconDevice::read_buffer (src_device_id: {}, ch: {}) from 0x{:x}",  src_device_id, channel, user_scratchspace);
     
     memcpy(mem_ptr, user_scratchspace, size_in_bytes);
 }
@@ -1295,7 +1278,7 @@ std::map<int, int> tt_SiliconDevice::get_clocks() {
 
 tt_SiliconDevice::~tt_SiliconDevice () {
 
-    log_debug(LogSiliconDriver, "---- tt_SiliconDevice::~tt_SiliconDevice");
+    log_debug(LogSiliconDriver, "tt_SiliconDevice::~tt_SiliconDevice");
 
     cleanup_shared_host_state();
 
@@ -1351,7 +1334,7 @@ void tt_SiliconDevice::set_fallback_tlb_ordering_mode(const std::string& fallbac
 // TT<->TT P2P support removed in favor of increased Host memory.
 void tt_SiliconDevice::init_pcie_iatus() {
     int num_enabled_devices = m_pci_device_map.size();
-    log_debug(LogSiliconDriver, "---- tt_SiliconDevice::init_pcie_iatus() num_enabled_devices: {}", num_enabled_devices);
+    log_debug(LogSiliconDriver, "tt_SiliconDevice::init_pcie_iatus() num_enabled_devices: {}", num_enabled_devices);
     log_assert(m_num_host_mem_channels <= g_MAX_HOST_MEM_CHANNELS, "Maximum of {} 1GB Host memory channels supported.",  g_MAX_HOST_MEM_CHANNELS);
 
     for (auto &src_device_it : m_pci_device_map){
@@ -1409,7 +1392,7 @@ std::string find_hugepage_dir(std::size_t pagesize)
         }
     }
 
-    log_warning(LogSiliconDriver, "---- ttSiliconDevice::find_hugepage_dir: no huge page mount found in /proc/mounts for path: {} with hugepage_size: {}.", hugepage_dir, pagesize);
+    log_warning(LogSiliconDriver, "ttSiliconDevice::find_hugepage_dir: no huge page mount found in /proc/mounts for path: {} with hugepage_size: {}.", hugepage_dir, pagesize);
     return std::string();
 }
 
@@ -1440,14 +1423,14 @@ int tt_SiliconDevice::open_hugepage_file(const std::string &dir, chip_id_t physi
 
     std::string filename_str(filename.begin(), filename.end());
     filename_str.erase(std::find(filename_str.begin(), filename_str.end(), '\0'), filename_str.end()); // Erase NULL terminator for printing.
-    log_debug(LogSiliconDriver, "---- ttSiliconDevice::open_hugepage_file: using filename: {} for physical_device_id: {} channel: {}", filename_str.c_str(), physical_device_id, channel);
+    log_debug(LogSiliconDriver, "ttSiliconDevice::open_hugepage_file: using filename: {} for physical_device_id: {} channel: {}", filename_str.c_str(), physical_device_id, channel);
 
     // Save original and set umask to unrestricted.
     auto old_umask = umask(0);
 
     int fd = open(filename.data(), O_RDWR | O_CREAT | O_CLOEXEC, S_IWUSR | S_IRUSR | S_IWGRP | S_IRGRP | S_IWOTH | S_IROTH );
     if (fd == -1 && errno == EACCES) {
-        log_warning(LogSiliconDriver, "---- ttSiliconDevice::open_hugepage_file could not open filename: {} on first try, unlinking it and retrying.", filename_str);
+        log_warning(LogSiliconDriver, "ttSiliconDevice::open_hugepage_file could not open filename: {} on first try, unlinking it and retrying.", filename_str);
         unlink(filename.data());
         fd = open(filename.data(), O_RDWR | O_CREAT | O_CLOEXEC, S_IWUSR | S_IRUSR | S_IWGRP | S_IRGRP | S_IWOTH | S_IROTH );
     }
@@ -1456,7 +1439,7 @@ int tt_SiliconDevice::open_hugepage_file(const std::string &dir, chip_id_t physi
     umask(old_umask);
 
     if (fd == -1) {
-        log_warning(LogSiliconDriver, "---- open_hugepage_file failed");
+        log_warning(LogSiliconDriver, "open_hugepage_file failed");
         return -1;
     }
 
@@ -1484,7 +1467,7 @@ bool tt_SiliconDevice::init_hugepage(chip_id_t device_id) {
 
     std::string hugepage_dir = find_hugepage_dir(hugepage_size);
     if (hugepage_dir.empty()) {
-        log_warning(LogSiliconDriver, "---- ttSiliconDevice::init_hugepage: no huge page mount found for hugepage_size: {}.", hugepage_size);
+        log_warning(LogSiliconDriver, "ttSiliconDevice::init_hugepage: no huge page mount found for hugepage_size: {}.", hugepage_size);
         return false;
     }
 
@@ -1496,7 +1479,7 @@ bool tt_SiliconDevice::init_hugepage(chip_id_t device_id) {
         int hugepage_fd = open_hugepage_file(hugepage_dir, physical_device_id, ch);
         if (hugepage_fd == -1) {
             // Probably a permissions problem.
-            log_warning(LogSiliconDriver, "---- ttSiliconDevice::init_hugepage: physical_device_id: {} ch: {} creating hugepage mapping file failed.", physical_device_id, ch);
+            log_warning(LogSiliconDriver, "ttSiliconDevice::init_hugepage: physical_device_id: {} ch: {} creating hugepage mapping file failed.", physical_device_id, ch);
             success = false;
             continue;
         }
@@ -1543,8 +1526,7 @@ bool tt_SiliconDevice::init_hugepage(chip_id_t device_id) {
         hugepage_mapping_size.at(device_id).at(ch) = hugepage_size;
         hugepage_physical_address.at(device_id).at(ch) = pin_pages.out.physical_address;
 
-        log_debug(LogSiliconDriver, "---- ttSiliconDevice::init_hugepage: physical_device_id: {} ch: {} mapping_size: {} physical address 0x{:x}", physical_device_id, ch, hugepage_size, (unsigned long long)hugepage_physical_address.at(device_id).at(ch));
-
+        log_debug(LogSiliconDriver, "ttSiliconDevice::init_hugepage: physical_device_id: {} ch: {} mapping_size: {} physical address 0x{:x}", physical_device_id, ch, hugepage_size, (unsigned long long)hugepage_physical_address.at(device_id).at(ch));
     }
 
     return success;

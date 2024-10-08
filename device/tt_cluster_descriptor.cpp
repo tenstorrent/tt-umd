@@ -509,7 +509,6 @@ void tt_ClusterDescriptor::load_chips_from_connectivity_descriptor(YAML::Node &y
         std::string arch = node->second.as<std::string>();
         desc.chip_arch[chip_id] = get_arch_type_from_string(arch);
     }
-    log_info(LogSiliconDriver, "Passed");
     for (YAML::const_iterator node = yaml["chips"].begin(); node != yaml["chips"].end(); ++node) {
         chip_id_t chip_id = node->first.as<int>();
         std::vector<int> chip_rack_coords = node->second.as<std::vector<int>>();
@@ -685,14 +684,12 @@ std::unordered_map<chip_id_t, std::unique_ptr<tt_SiliconDevice>> tt_ClusterDescr
         const bool skip_driver_allocs = false;
         log_info(LogSiliconDriver, "Creating silicon driver for mmio device: {}", mmio_device_id);
         tt:ARCH arch = chip_arch[mmio_device_id];
-        std::unordered_map<std::string, std::int32_t> dynamic_tlb_config = {};
         auto target_devices = get_target_devices();
         silicon_driver = std::make_unique<tt_SiliconDevice>(
             arch,
             this->cluster_desc_path,
             target_devices,
             num_host_mem_ch_per_mmio_device,
-            dynamic_tlb_config,
             skip_driver_allocs,
             clean_system_resources,
             perform_harvesting);

@@ -608,13 +608,13 @@ class tt_SiliconDevice: public tt_device
      * @param perform_harvesting Allow the driver to modify the SOC descriptors per chip.
      * @param simulated_harvesting_masks
      */ 
-    tt_SiliconDevice(std::string sdesc_path, const std::string &ndesc_path = "", const std::set<chip_id_t> &target_devices = {}, 
-                    const uint32_t &num_host_mem_ch_per_mmio_device = 1, const std::unordered_map<std::string, std::int32_t>& dynamic_tlb_config_ = {}, 
-                    const bool skip_driver_allocs = false, const bool clean_system_resources = false, bool perform_harvesting = true, std::unordered_map<chip_id_t, uint32_t> simulated_harvesting_masks = {});
+    tt_SiliconDevice(const std::string &sdesc_path, const std::string &ndesc_path = "", const std::set<chip_id_t> &target_devices = {}, 
+                    const uint32_t &num_host_mem_ch_per_mmio_device = 1, const bool skip_driver_allocs = false,
+                    const bool clean_system_resources = false, bool perform_harvesting = true, std::unordered_map<chip_id_t, uint32_t> simulated_harvesting_masks = {});
     
     tt_SiliconDevice(tt::ARCH arch, const std::string &ndesc_path = "", const std::set<chip_id_t> &target_devices = {}, 
-                    const uint32_t &num_host_mem_ch_per_mmio_device = 1, const std::unordered_map<std::string, std::int32_t>& dynamic_tlb_config_ = {}, 
-                    const bool skip_driver_allocs = false, const bool clean_system_resources = false, bool perform_harvesting = true, std::unordered_map<chip_id_t, uint32_t> simulated_harvesting_masks = {});
+                    const uint32_t &num_host_mem_ch_per_mmio_device = 1, const bool skip_driver_allocs = false,
+                    const bool clean_system_resources = false, bool perform_harvesting = true, std::unordered_map<chip_id_t, uint32_t> simulated_harvesting_masks = {});
 
     //Setup/Teardown Functions
     virtual std::unordered_map<chip_id_t, tt_SocDescriptor>& get_virtual_soc_descriptors();
@@ -703,8 +703,8 @@ class tt_SiliconDevice: public tt_device
     // Helper functions
     // Startup + teardown
     void construct_tt_silicon_device(std::string sdesc_path, const std::string &ndesc_path, const std::set<chip_id_t> &target_devices, 
-                                   const uint32_t &num_host_mem_ch_per_mmio_device, const std::unordered_map<std::string, std::int32_t>& dynamic_tlb_config_, 
-                                   const bool skip_driver_allocs, const bool clean_system_resources, bool perform_harvesting, std::unordered_map<chip_id_t, uint32_t> simulated_harvesting_masks);
+                                   const uint32_t &num_host_mem_ch_per_mmio_device, const bool skip_driver_allocs,
+                                   const bool clean_system_resources, bool perform_harvesting, std::unordered_map<chip_id_t, uint32_t> simulated_harvesting_masks);
     void create_device(const std::unordered_set<chip_id_t> &target_mmio_device_ids, const uint32_t &num_host_mem_ch_per_mmio_device, const bool skip_driver_allocs, const bool clean_system_resources);
     void initialize_interprocess_mutexes(int pci_interface_id, bool cleanup_mutexes_in_shm);
     void cleanup_shared_host_state();

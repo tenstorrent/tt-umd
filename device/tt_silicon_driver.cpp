@@ -1332,28 +1332,32 @@ void tt_SiliconDevice::set_fallback_tlb_ordering_mode(const std::string& fallbac
 }
 
 // TT<->TT P2P support removed in favor of increased Host memory.
+// TODO: this is in the wrong place, it should be in the PCIDevice.
 void tt_SiliconDevice::init_pcie_iatus() {
     int num_enabled_devices = m_pci_device_map.size();
     log_debug(LogSiliconDriver, "tt_SiliconDevice::init_pcie_iatus() num_enabled_devices: {}", num_enabled_devices);
     log_assert(m_num_host_mem_channels <= g_MAX_HOST_MEM_CHANNELS, "Maximum of {} 1GB Host memory channels supported.",  g_MAX_HOST_MEM_CHANNELS);
 
     for (auto &src_device_it : m_pci_device_map){
-        int src_pci_id = src_device_it.first;
+        int logical_id = src_device_it.first;
         PCIDevice* src_pci_device = src_device_it.second.get();
 
         // Device to Host (multiple channels)
         for (int channel_id = 0; channel_id < m_num_host_mem_channels; channel_id++) {
-            if (hugepage_mapping.at(src_pci_id).at(channel_id)) {
+            if (hugepage_mapping.at(logical_id).at(channel_id)) {
                 std::uint32_t region_size = HUGEPAGE_REGION_SIZE;
-                if(channel_id == 3) region_size = 805306368; // Remove 256MB from full 1GB for channel 3 (iATU limitation)
-                log_debug(LogSiliconDriver, "Configuring ATU channel {} to point to hugepage {}.", channel_id, src_pci_id);
-                iatu_configure_peer_region(src_pci_id, channel_id, hugepage_physical_address.at(src_pci_id).at(channel_id), region_size);
-                if(host_channel_size.find(src_pci_device->logical_id) == host_channel_size.end()) {
-                     host_channel_size.insert({src_pci_device->logical_id, {}});
+                if (channel_id == 3) region_size = 805306368; // Remove 256MB from full 1GB for channel 3 (iATU limitation)
+
+                // This log message doesn't look right.
+                log_debug(LogSiliconDriver, "Configuring ATU channel {} to point to hugepage {}.", channel_id, logical_id);
+                iatu_configure_peer_region(logical_id, channel_id, hugepage_physical_address.at(logical_id).at(channel_id), region_size);
+
+                if (host_channel_size.find(logical_id) == host_channel_size.end()) {
+                     host_channel_size.insert({logical_id, {}});
                 }
-                host_channel_size.at(src_pci_device -> logical_id).push_back(region_size);
+                host_channel_size.at(logical_id).push_back(region_size);
             } else {
-                throw std::runtime_error(fmt::format("init_pcie_iatus: Hugepages are not allocated for src_pci_id: {} ch: {}", src_pci_id, channel_id));
+                throw std::runtime_error(fmt::format("init_pcie_iatus: Hugepages are not allocated for logical device id: {} ch: {}", logical_id, channel_id));
             }
         }
     }

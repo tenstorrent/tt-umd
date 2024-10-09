@@ -23,6 +23,38 @@
 #include "common/assert.hpp"
 #include "common/logger.hpp"
 
+static PciDeviceInfo read_device_info(int fd)
+{
+    tenstorrent_get_device_info info{};
+    info.in.output_size_bytes = sizeof(info.out);
+
+    if (ioctl(fd, TENSTORRENT_IOCTL_GET_DEVICE_INFO, &info) < 0) {
+        TT_THROW("TENSTORRENT_IOCTL_GET_DEVICE_INFO failed");
+    }
+
+    uint16_t bus = info.out.bus_dev_fn >> 8;
+    uint16_t dev = (info.out.bus_dev_fn >> 3) & 0x1F;
+    uint16_t fn = info.out.bus_dev_fn & 0x07;
+
+    return PciDeviceInfo{info.out.vendor_id, info.out.device_id, info.out.pci_domain, bus, dev, fn};
+}
+
+static int determine_numa_node(int fd)
+{
+    const auto device_info = read_device_info(fd);
+    const auto sysfs_path = fmt::format("/sys/bus/pci/devices/{:04x}:{:02x}:{:02x}.{}/numa_node",
+                                        device_info.pci_domain, device_info.pci_bus,
+                                        device_info.pci_device, device_info.pci_function);
+
+    std::ifstream numa_file(sysfs_path);
+    int numa_node = -1;
+    if (numa_file >> numa_node) {
+        return numa_node;
+    }
+    return -1;
+}
+
+
 tt::ARCH detect_arch(int device_id){
     std::uint32_t pcie_device_id = get_pcie_info(device_id, "pcie_device_id");
     std::uint32_t pcie_revision_id = get_pcie_info(device_id, "revision");
@@ -124,18 +156,26 @@ inline void memcpy_from_device(void *dest, const void *src, std::size_t num_byte
 // --------------------------------------------------------------------------------------------------------------
 // --------------------------------------------------------------------------------------------------------------
 
-PCIDevice::PCIDevice(int device_id, int logical_device_id){
+PCIDevice::PCIDevice(int device_id, int logical_device_id) {
+    // TODO: use C++ constructor to do everything
+    // TODO: make public member vars const
+    // TODO: get logical_id out of here
     this->device_id = device_id;
     this->logical_id = logical_device_id;
     setup_device();
+
+    this->info = read_device_info(device_fd);
+
 }
 
-PCIDevice::~PCIDevice(){
+PCIDevice::~PCIDevice() {
     close_device();
 }
 
+
 void PCIDevice::setup_device() {
     this->device_fd = find_device(this->device_id);
+    this->numa_node = determine_numa_node(this->device_fd);
     this->pcie_device_id = get_pcie_info(this->device_id, "pcie_device_id");
     this->pcie_revision_id = get_pcie_info(this->device_id, "revision");
     this->arch = detect_arch(pcie_device_id, pcie_revision_id);

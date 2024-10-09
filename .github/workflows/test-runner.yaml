@@ -74,18 +74,16 @@ jobs:
 
     steps:
 
-    - name: Set reusable strings
+    - name: Set working directory env variable
       id: strings
       shell: bash
       run: |
-        echo "work-dir=$(pwd)" >> "$GITHUB_OUTPUT"
-        echo "build-output-dir=$(pwd)/build" >> "$GITHUB_OUTPUT"
-        echo "install-output-dir=$(pwd)/install" >> "$GITHUB_OUTPUT"
+        echo "WORK_DIR=$(pwd)" >> $GITHUB_ENV
 
-    - name: Git add safe dir for base rpo and submodules
+    - name: Git add safe dir for working directory
       run: |
         # Mark the main repository as safe
-        git config --global --add safe.directory ${{ steps.strings.outputs.work-dir }} || true
+        git config --global --add safe.directory ${{ env.WORK_DIR }} || true
         # Iterate over all submodules and mark them as safe
         git submodule foreach 'git config --global --add safe.directory "$toplevel/$sm_path"' || true
 

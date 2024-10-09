@@ -11,6 +11,7 @@
 #include "l1_address_map.h"
 #include "tests/test_utils/generate_cluster_desc.hpp"
 #include "tests/test_utils/device_test_utils.hpp"
+#include "device/tt_cluster_descriptor.h"
 
 TEST(SiliconDriverGS, CreateDestroySequential) {
     std::set<chip_id_t> target_devices = {0};
@@ -45,7 +46,10 @@ TEST(SiliconDriverGS, CreateMultipleInstance) {
 
 TEST(SiliconDriverGS, Harvesting) {
     std::set<chip_id_t> target_devices = {0};
-    std::unordered_map<chip_id_t, uint32_t> simulated_harvesting_masks = {{0, 6}, {1, 12}};
+    std::vector<chip_id_t> available_devices = {0};
+    std::shared_ptr<tt_ClusterDescriptor> ndesc = tt_ClusterDescriptor::create_for_grayskull_cluster(target_devices, available_devices);
+    std::unordered_map<chip_id_t, uint32_t> harvesting_masks = ndesc -> get_harvesting_info();
+    std::unordered_map<chip_id_t, uint32_t> simulated_harvesting_masks = {{0, 6 & harvesting_masks[0]}, {1, 12 & harvesting_masks[1]}}; // Simulated masks have to include the actual masks.
     std::unordered_map<std::string, std::int32_t> dynamic_tlb_config = {}; // Don't set any dynamic TLBs in this test
     uint32_t num_host_mem_ch_per_mmio_device = 1;
     tt_SiliconDevice device = tt_SiliconDevice(test_utils::GetAbsPath("tests/soc_descs/grayskull_10x12.yaml"), "", target_devices, num_host_mem_ch_per_mmio_device, dynamic_tlb_config, false, true, true, simulated_harvesting_masks);
@@ -62,11 +66,10 @@ TEST(SiliconDriverGS, Harvesting) {
 
 TEST(SiliconDriverGS, CustomSocDesc) {
     std::set<chip_id_t> target_devices = {0};
-    std::unordered_map<chip_id_t, uint32_t> simulated_harvesting_masks = {{0, 6}, {1, 12}};
     std::unordered_map<std::string, std::int32_t> dynamic_tlb_config = {}; // Don't set any dynamic TLBs in this test
     uint32_t num_host_mem_ch_per_mmio_device = 1;
     // Initialize the driver with a 1x1 descriptor and explictly do not perform harvesting
-    tt_SiliconDevice device = tt_SiliconDevice(test_utils::GetAbsPath("./tests/soc_descs/grayskull_1x1_arch.yaml"), "", target_devices, num_host_mem_ch_per_mmio_device, dynamic_tlb_config, false, true, false, simulated_harvesting_masks);
+    tt_SiliconDevice device = tt_SiliconDevice(test_utils::GetAbsPath("./tests/soc_descs/grayskull_1x1_arch.yaml"), "", target_devices, num_host_mem_ch_per_mmio_device, dynamic_tlb_config, false, true, false);
     auto sdesc_per_chip = device.get_virtual_soc_descriptors();
     ASSERT_EQ(device.using_harvested_soc_descriptors(), false) << "SOC descriptors should not be modified when harvesting is disabled";
     for(const auto& chip : sdesc_per_chip) {
@@ -84,7 +87,10 @@ TEST(SiliconDriverGS, HarvestingRuntime) {
     };
 
     std::set<chip_id_t> target_devices = {0};
-    std::unordered_map<chip_id_t, uint32_t> simulated_harvesting_masks = {{0, 6}, {1, 12}};
+    std::vector<chip_id_t> available_devices = {0};
+    std::shared_ptr<tt_ClusterDescriptor> ndesc = tt_ClusterDescriptor::create_for_grayskull_cluster(target_devices, available_devices);
+    std::unordered_map<chip_id_t, uint32_t> harvesting_masks = ndesc -> get_harvesting_info();
+    std::unordered_map<chip_id_t, uint32_t> simulated_harvesting_masks = {{0, 6 & harvesting_masks[0]}, {1, 12 & harvesting_masks[1]}}; // Simulated masks have to include the actual masks.
     std::unordered_map<std::string, std::int32_t> dynamic_tlb_config = {{"SMALL_READ_WRITE_TLB", 157}}; // Use both static and dynamic TLBs here
     uint32_t num_host_mem_ch_per_mmio_device = 1;
     tt_SiliconDevice device = tt_SiliconDevice(test_utils::GetAbsPath("tests/soc_descs/grayskull_10x12.yaml"), "", target_devices, num_host_mem_ch_per_mmio_device, dynamic_tlb_config, false, true, true, simulated_harvesting_masks);

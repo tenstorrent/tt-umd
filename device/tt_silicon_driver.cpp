@@ -1496,8 +1496,7 @@ void print_file_contents(std::string filename, std::string hint = ""){
 
 // Initialize hugepage, N per device (all same size).
 bool tt_SiliconDevice::init_hugepage(chip_id_t device_id) {
-    const std::size_t hugepage_size = (std::size_t)1 << 30;
-    const std::size_t mapping_size = (std::size_t) HUGEPAGE_REGION_SIZE;
+    const size_t hugepage_size = HUGEPAGE_REGION_SIZE;
 
     // Convert from logical (device_id in netlist) to physical device_id (in case of virtualization)
     auto dev = m_pci_device_map.at(device_id).get();
@@ -1522,14 +1521,12 @@ bool tt_SiliconDevice::init_hugepage(chip_id_t device_id) {
             continue;
         }
 
-        std::byte *mapping = static_cast<std::byte*>(mmap(nullptr, mapping_size, PROT_READ|PROT_WRITE, MAP_SHARED | MAP_POPULATE, hugepage_fd, 0));
+        std::byte *mapping = static_cast<std::byte*>(mmap(nullptr, hugepage_size, PROT_READ|PROT_WRITE, MAP_SHARED | MAP_POPULATE, hugepage_fd, 0));
 
         close(hugepage_fd);
 
         if (mapping == MAP_FAILED) {
-            uint32_t num_tt_mmio_devices_for_arch = tt::cpuset::tt_cpuset_allocator::get_num_tt_pci_devices_by_pci_device_id(physical_device_id, dev->pcie_revision_id);
-            WARN("---- ttSiliconDevice::init_hugepage: physical_device_id: %d ch: %d mapping hugepage failed. (errno: %s).\n", physical_device_id, ch, strerror(errno));
-            WARN("---- Possible hint: /proc/cmdline should have hugepages=N, nr_hugepages=N - (N = NUM_MMIO_TT_DEVICES * (is_grayskull ? 1 : 4). NUM_MMIO_DEVICES = %d\n", num_tt_mmio_devices_for_arch);
+            WARN("UMD: Mapping a hugepage failed. (device: %d, %d/%d errno: %s).\n", physical_device_id, ch, m_num_host_mem_channels, strerror(errno));
             print_file_contents("/proc/cmdline");\
             print_file_contents("/sys/kernel/mm/hugepages/hugepages-1048576kB/nr_hugepages"); // Hardcoded for 1GB hugepage.
             success = false;
@@ -1537,7 +1534,7 @@ bool tt_SiliconDevice::init_hugepage(chip_id_t device_id) {
         }
 
         // Beter performance if hugepage just allocated (populate flag to prevent lazy alloc) is migrated to same numanode as TT device.
-        if (!tt::cpuset::tt_cpuset_allocator::bind_area_to_memory_nodeset(physical_device_id, mapping, mapping_size)){
+        if (!tt::cpuset::tt_cpuset_allocator::bind_area_to_memory_nodeset(physical_device_id, mapping, hugepage_size)){
             WARN("---- ttSiliconDevice::init_hugepage: bind_area_to_memory_nodeset() failed (physical_device_id: %d ch: %d). "
             "Hugepage allocation is not on NumaNode matching TT Device. Side-Effect is decreased Device->Host perf (Issue #893).\n",
             physical_device_id, ch);
@@ -1548,13 +1545,13 @@ bool tt_SiliconDevice::init_hugepage(chip_id_t device_id) {
         pin_pages.in.output_size_bytes = sizeof(pin_pages.out);
         pin_pages.in.flags = TENSTORRENT_PIN_PAGES_CONTIGUOUS;
         pin_pages.in.virtual_address = reinterpret_cast<std::uintptr_t>(mapping);
-        pin_pages.in.size = mapping_size;
+        pin_pages.in.size = hugepage_size;
 
         auto &fd = g_SINGLE_PIN_PAGE_PER_FD_WORKAROND ? dev->device_fd_per_host_ch[ch] : dev->device_fd;
 
         if (ioctl(fd, TENSTORRENT_IOCTL_PIN_PAGES, &pin_pages) == -1) {
             WARN("---- ttSiliconDevice::init_hugepage: physical_device_id: %d ch: %d TENSTORRENT_IOCTL_PIN_PAGES failed (errno: %s). Common Issue: Requires TTMKD >= 1.11, see following file contents...\n", physical_device_id, ch, strerror(errno));
-            munmap(mapping, mapping_size);
+            munmap(mapping, hugepage_size);
             print_file_contents("/sys/module/tenstorrent/version", "(TTKMD version)");
             print_file_contents("/proc/meminfo");
             print_file_contents("/proc/buddyinfo");
@@ -1563,10 +1560,10 @@ bool tt_SiliconDevice::init_hugepage(chip_id_t device_id) {
         }
 
         hugepage_mapping.at(device_id).at(ch) = mapping;
-        hugepage_mapping_size.at(device_id).at(ch) = mapping_size;
+        hugepage_mapping_size.at(device_id).at(ch) = hugepage_size;
         hugepage_physical_address.at(device_id).at(ch) = pin_pages.out.physical_address;
 
-        LOG1("---- ttSiliconDevice::init_hugepage: physical_device_id: %d ch: %d mapping_size: %d physical address 0x%llx\n", physical_device_id, ch, mapping_size, (unsigned long long)hugepage_physical_address.at(device_id).at(ch));
+        LOG1("---- ttSiliconDevice::init_hugepage: physical_device_id: %d ch: %d mapping_size: %d physical address 0x%llx\n", physical_device_id, ch, hugepage_size, (unsigned long long)hugepage_physical_address.at(device_id).at(ch));
 
     }
 

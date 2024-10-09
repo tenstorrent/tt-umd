@@ -113,7 +113,7 @@ TEST(SiliconDriverWH, Harvesting) {
 
     std::unordered_map<std::string, std::int32_t> dynamic_tlb_config = {}; // Don't set any dynamic TLBs in this test
     uint32_t num_host_mem_ch_per_mmio_device = 1;
-    tt_SiliconDevice device = tt_SiliconDevice(test_utils::GetAbsPath("tests/soc_descs/wormhole_b0_8x10.yaml"), test_utils::GetClusterDescYAML(), target_devices, num_host_mem_ch_per_mmio_device, dynamic_tlb_config, false, true, true, simulated_harvesting_masks);
+    tt_SiliconDevice device = tt_SiliconDevice(tt::ARCH::WORMHOLE_B0, test_utils::GetClusterDescYAML(), target_devices, num_host_mem_ch_per_mmio_device, dynamic_tlb_config, false, true, true, simulated_harvesting_masks);
     auto sdesc_per_chip = device.get_virtual_soc_descriptors();
 
     ASSERT_EQ(device.using_harvested_soc_descriptors(), true) << "Expected Driver to have performed harvesting";
@@ -154,7 +154,7 @@ TEST(SiliconDriverWH, HarvestingRuntime) {
     uint32_t num_host_mem_ch_per_mmio_device = 1;
     std::unordered_map<std::string, std::int32_t> dynamic_tlb_config = {{"SMALL_READ_WRITE_TLB", 157}}; // Use both static and dynamic TLBs here
     
-    tt_SiliconDevice device = tt_SiliconDevice(test_utils::GetAbsPath("tests/soc_descs/wormhole_b0_8x10.yaml"), test_utils::GetClusterDescYAML(), target_devices, num_host_mem_ch_per_mmio_device, dynamic_tlb_config, false, true, true, simulated_harvesting_masks);
+    tt_SiliconDevice device = tt_SiliconDevice(tt::ARCH::WORMHOLE_B0, test_utils::GetClusterDescYAML(), target_devices, num_host_mem_ch_per_mmio_device, dynamic_tlb_config, false, true, true, simulated_harvesting_masks);
     set_params_for_remote_txn(device);
     auto mmio_devices = device.get_target_mmio_device_ids();
     
@@ -220,7 +220,7 @@ TEST(SiliconDriverWH, UnalignedStaticTLB_RW) {
     dynamic_tlb_config["REG_TLB"] = 184;
     uint32_t num_host_mem_ch_per_mmio_device = 1;
     
-    tt_SiliconDevice device = tt_SiliconDevice(test_utils::GetAbsPath("tests/soc_descs/wormhole_b0_8x10.yaml"), test_utils::GetClusterDescYAML(), target_devices, num_host_mem_ch_per_mmio_device, dynamic_tlb_config, false, true, true);
+    tt_SiliconDevice device = tt_SiliconDevice(tt::ARCH::WORMHOLE_B0, test_utils::GetClusterDescYAML(), target_devices, num_host_mem_ch_per_mmio_device, dynamic_tlb_config, false, true, true);
     set_params_for_remote_txn(device);
     auto mmio_devices = device.get_target_mmio_device_ids();
 
@@ -281,7 +281,7 @@ TEST(SiliconDriverWH, StaticTLB_RW) {
     std::unordered_map<std::string, std::int32_t> dynamic_tlb_config = {}; // Don't set any dynamic TLBs in this test
     uint32_t num_host_mem_ch_per_mmio_device = 1;
     
-    tt_SiliconDevice device = tt_SiliconDevice(test_utils::GetAbsPath("tests/soc_descs/wormhole_b0_8x10.yaml"), test_utils::GetClusterDescYAML(), target_devices, num_host_mem_ch_per_mmio_device, dynamic_tlb_config, false, true, true);
+    tt_SiliconDevice device = tt_SiliconDevice(tt::ARCH::WORMHOLE_B0, test_utils::GetClusterDescYAML(), target_devices, num_host_mem_ch_per_mmio_device, dynamic_tlb_config, false, true, true);
     set_params_for_remote_txn(device);
     auto mmio_devices = device.get_target_mmio_device_ids();
 
@@ -332,7 +332,7 @@ TEST(SiliconDriverWH, DynamicTLB_RW) {
     std::unordered_map<std::string, std::int32_t> dynamic_tlb_config = {};
     uint32_t num_host_mem_ch_per_mmio_device = 1;
     dynamic_tlb_config.insert({"SMALL_READ_WRITE_TLB", 157}); // Use this for all reads and writes to worker cores
-    tt_SiliconDevice device = tt_SiliconDevice(test_utils::GetAbsPath("tests/soc_descs/wormhole_b0_8x10.yaml"),  test_utils::GetClusterDescYAML(), target_devices, num_host_mem_ch_per_mmio_device, dynamic_tlb_config, false, true, true);
+    tt_SiliconDevice device = tt_SiliconDevice(tt::ARCH::WORMHOLE_B0, test_utils::GetClusterDescYAML(), target_devices, num_host_mem_ch_per_mmio_device, dynamic_tlb_config, false, true, true);
 
     set_params_for_remote_txn(device);
 
@@ -372,7 +372,7 @@ TEST(SiliconDriverWH, MultiThreadedDevice) {
     std::unordered_map<std::string, std::int32_t> dynamic_tlb_config = {};
     uint32_t num_host_mem_ch_per_mmio_device = 1;
     dynamic_tlb_config.insert({"SMALL_READ_WRITE_TLB", 157}); // Use this for all reads and writes to worker cores
-    tt_SiliconDevice device = tt_SiliconDevice(test_utils::GetAbsPath("tests/soc_descs/wormhole_b0_8x10.yaml"), test_utils::GetClusterDescYAML(), target_devices, num_host_mem_ch_per_mmio_device, dynamic_tlb_config, false, true, true);
+    tt_SiliconDevice device = tt_SiliconDevice(tt::ARCH::WORMHOLE_B0, test_utils::GetClusterDescYAML(), target_devices, num_host_mem_ch_per_mmio_device, dynamic_tlb_config, false, true, true);
     
     set_params_for_remote_txn(device);
 
@@ -433,7 +433,7 @@ TEST(SiliconDriverWH, MultiThreadedMemBar) {
     dynamic_tlb_config.insert({"SMALL_READ_WRITE_TLB", 157}); // Use this for reading back membar values
     uint32_t num_host_mem_ch_per_mmio_device = 1;
 
-    tt_SiliconDevice device = tt_SiliconDevice(test_utils::GetAbsPath("tests/soc_descs/wormhole_b0_8x10.yaml"), test_utils::GetClusterDescYAML(), target_devices, num_host_mem_ch_per_mmio_device, dynamic_tlb_config, false, true, true);
+    tt_SiliconDevice device = tt_SiliconDevice(tt::ARCH::WORMHOLE_B0, test_utils::GetClusterDescYAML(), target_devices, num_host_mem_ch_per_mmio_device, dynamic_tlb_config, false, true, true);
     set_params_for_remote_txn(device);
     auto mmio_devices = device.get_target_mmio_device_ids();
     
@@ -598,7 +598,7 @@ TEST(SiliconDriverWH, VirtualCoordinateBroadcast) {
     std::unordered_map<std::string, std::int32_t> dynamic_tlb_config = {}; // Don't set any dynamic TLBs in this test
     uint32_t num_host_mem_ch_per_mmio_device = 1;
     
-    tt_SiliconDevice device = tt_SiliconDevice(test_utils::GetAbsPath("tests/soc_descs/wormhole_b0_8x10.yaml"), test_utils::GetClusterDescYAML(), target_devices, num_host_mem_ch_per_mmio_device, dynamic_tlb_config, false, true, true);
+    tt_SiliconDevice device = tt_SiliconDevice(tt::ARCH::WORMHOLE_B0, test_utils::GetClusterDescYAML(), target_devices, num_host_mem_ch_per_mmio_device, dynamic_tlb_config, false, true, true);
     set_params_for_remote_txn(device);
     auto mmio_devices = device.get_target_mmio_device_ids();
 
@@ -655,7 +655,6 @@ TEST(SiliconDriverWH, VirtualCoordinateBroadcast) {
     device.close_device();    
 }
 
-
 /**
  * This is a basic DMA test -- not using the PCIe controller's DMA engine, but
  * rather using the ability of the NOC to access the host system bus via traffic
@@ -685,7 +684,7 @@ TEST(SiliconDriverWH, SysmemTestWithPcie) {
         { "REG_TLB", tt::umd::wormhole::REG_TLB }
     };
 
-    tt_SiliconDevice device(test_utils::GetAbsPath("tests/soc_descs/wormhole_b0_8x10.yaml"),
+    tt_SiliconDevice device(tt::ARCH::WORMHOLE_B0,
                             test_utils::GetClusterDescYAML(),
                             target_devices,
                             1,  // one "host memory channel", currently a 1G huge page

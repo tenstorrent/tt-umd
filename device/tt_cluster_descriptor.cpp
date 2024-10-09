@@ -10,6 +10,7 @@
 #include <sstream> 
 
 #include "common/logger.hpp"
+#include "tt_arch_types.h"
 #include "yaml-cpp/yaml.h"
 
 #include "fmt/core.h"
@@ -639,4 +640,55 @@ int tt_ClusterDescriptor::get_ethernet_link_distance(chip_id_t chip_a, chip_id_t
 BoardType tt_ClusterDescriptor::get_board_type(chip_id_t chip_id) const {
   BoardType board_type = this->chip_board_type.at(chip_id);
   return board_type;
+}
+
+tt::ARCH tt_ClusterDescriptor::get_arch() {
+    // TODO(pjanevski): this is dummy get_arch return
+    return tt::ARCH::WORMHOLE_B0;
+}
+
+// TODO(pjanevski): this is dummy implementation
+bool tt_ClusterDescriptor::is_galaxy_cluster() {
+    return false;
+}
+
+std::unordered_map<chip_id_t, std::unique_ptr<tt_device>> tt_ClusterDescriptor::get_silicon_drivers(const std::string& cluster_desc_path) {
+    std::unordered_map<chip_id_t, std::set<chip_id_t>> devices_grouped_by_assoc_mmio_device_;
+    for (chip_id_t device_id : this->get_all_chips()) {
+        chip_id_t closest_mmio_device_id = this->get_closest_mmio_capable_chip(device_id);
+        std::set<chip_id_t> &device_ids = devices_grouped_by_assoc_mmio_device_[closest_mmio_device_id];
+        device_ids.insert(device_id);
+    }
+    
+    std::unordered_map<chip_id_t, std::unique_ptr<tt_device>> silicon_drivers;
+    std::unique_ptr<tt_device> silicon_driver;
+    static const std::uint32_t MAX_NUM_HOST_MEM_CHANNELS = 4;
+    for (const auto &[mmio_device_id, controlled_devices] : devices_grouped_by_assoc_mmio_device_) {
+         uint32_t num_host_mem_ch_per_mmio_device = controlled_devices.size();
+         if (get_board_type(mmio_device_id) == BoardType::GALAXY) {
+             num_host_mem_ch_per_mmio_device = MAX_NUM_HOST_MEM_CHANNELS;
+         }
+
+        const bool perform_harvesting = true;
+        const bool clean_system_resources = true;
+        const bool skip_driver_allocs = false;
+        std::unordered_map<std::string, std::int32_t> dynamic_tlb_config = {};
+        silicon_driver = std::make_unique<tt_SiliconDevice>(
+            this->get_arch(),
+            cluster_desc_path,
+            controlled_devices,
+            num_host_mem_ch_per_mmio_device,
+            dynamic_tlb_config,
+            skip_driver_allocs,
+            clean_system_resources,
+            perform_harvesting);
+        
+        if (this->get_arch() == tt::ARCH::WORMHOLE_B0 and not this->is_galaxy_cluster()) {
+            silicon_driver->configure_active_ethernet_cores_for_mmio_device(mmio_device_id, {});
+        }
+        
+        silicon_drivers[mmio_device_id] = std::move(silicon_driver);
+    }
+
+    return silicon_drivers;
 }

@@ -19,6 +19,7 @@
 #include <vector>
 #include <memory>
 #include "device/tt_cluster_descriptor_types.h"
+#include "device/tt_device.h"
 
 namespace YAML { class Node; }
 
@@ -100,5 +101,13 @@ class tt_ClusterDescriptor {
   std::tuple<chip_id_t, ethernet_channel_t> get_chip_and_channel_of_remote_ethernet_core(chip_id_t local_chip, ethernet_channel_t local_ethernet_channel) const;
 
   void enable_all_devices();
+
+  std::unordered_map<chip_id_t, std::unique_ptr<tt_device>> get_silicon_drivers(const std::string& cluster_desc_path);
+
+  // TODO(pjanevski): this is dummy implementation
+  tt::ARCH get_arch();
+
+  // TODO(pjanevski): this is dummy implementation
+  bool is_galaxy_cluster();
 
 };

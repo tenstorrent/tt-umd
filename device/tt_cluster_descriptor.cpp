@@ -10,6 +10,8 @@
 #include <sstream> 
 
 #include "common/logger.hpp"
+#include "tt_arch_types.h"
+#include "tt_io.hpp"
 #include "yaml-cpp/yaml.h"
 
 #include "fmt/core.h"
@@ -297,6 +299,8 @@ chip_id_t tt_ClusterDescriptor::get_closest_mmio_capable_chip(const chip_id_t &c
 std::unique_ptr<tt_ClusterDescriptor> tt_ClusterDescriptor::create_from_yaml(const std::string &cluster_descriptor_file_path) {
     std::unique_ptr<tt_ClusterDescriptor> desc = std::unique_ptr<tt_ClusterDescriptor>(new tt_ClusterDescriptor());
 
+    desc->cluster_desc_path = cluster_descriptor_file_path;
+
     std::ifstream fdesc(cluster_descriptor_file_path);
     if (fdesc.fail()) {
         throw std::runtime_error(fmt::format("Error: cluster connectivity descriptor file {} does not exist!", cluster_descriptor_file_path));
@@ -316,6 +320,8 @@ std::unique_ptr<tt_ClusterDescriptor> tt_ClusterDescriptor::create_for_grayskull
     const std::set<chip_id_t> &logical_mmio_device_ids,
     const std::vector<chip_id_t> &physical_mmio_device_ids) {
     std::unique_ptr<tt_ClusterDescriptor> desc = std::unique_ptr<tt_ClusterDescriptor>(new tt_ClusterDescriptor());
+
+    desc->cluster_desc_path = "";
 
     // Some users need not care about physical ids, can provide empty set.
     auto use_physical_ids                   = physical_mmio_device_ids.size() ? true : false;
@@ -339,6 +345,7 @@ std::unique_ptr<tt_ClusterDescriptor> tt_ClusterDescriptor::create_for_grayskull
         desc->chip_locations.insert({logical_id, chip_location});
         desc->coords_to_chip_ids[std::get<2>(chip_location)][std::get<3>(chip_location)][std::get<1>(chip_location)][std::get<0>(chip_location)] = logical_id;
         log_debug(tt::LogSiliconDriver, "{} - adding logical: {} => physical: {}", __FUNCTION__, logical_id, physical_id);
+        desc->chip_arch[logical_id] = tt::ARCH::GRAYSKULL;
     }
 
     desc->enable_all_devices();
@@ -497,6 +504,12 @@ void tt_ClusterDescriptor::load_ethernet_connections_from_connectivity_descripto
 }
 
 void tt_ClusterDescriptor::load_chips_from_connectivity_descriptor(YAML::Node &yaml, tt_ClusterDescriptor &desc) {
+    for (YAML::const_iterator node = yaml["arch"].begin(); node != yaml["arch"].end(); ++node) {
+        chip_id_t chip_id = node->first.as<int>();
+        std::string arch = node->second.as<std::string>();
+        desc.chip_arch[chip_id] = get_arch_type_from_string(arch);
+    }
+    log_info(LogSiliconDriver, "Passed");
     for (YAML::const_iterator node = yaml["chips"].begin(); node != yaml["chips"].end(); ++node) {
         chip_id_t chip_id = node->first.as<int>();
         std::vector<int> chip_rack_coords = node->second.as<std::vector<int>>();
@@ -639,4 +652,53 @@ int tt_ClusterDescriptor::get_ethernet_link_distance(chip_id_t chip_a, chip_id_t
 BoardType tt_ClusterDescriptor::get_board_type(chip_id_t chip_id) const {
   BoardType board_type = this->chip_board_type.at(chip_id);
   return board_type;
+}
+
+std::set<chip_id_t> tt_ClusterDescriptor::get_target_devices() {
+    std::set<chip_id_t> target_devices;
+    for (int i = 0; i < this->get_number_of_chips(); i++) {
+        target_devices.insert(i);
+    }
+    return target_devices;
+}
+
+
+std::unordered_map<chip_id_t, std::unique_ptr<tt_SiliconDevice>> tt_ClusterDescriptor::get_silicon_drivers() {
+    std::unordered_map<chip_id_t, std::set<chip_id_t>> devices_grouped_by_assoc_mmio_device_;
+    for (chip_id_t device_id : this->get_all_chips()) {
+        chip_id_t closest_mmio_device_id = this->get_closest_mmio_capable_chip(device_id);
+        std::set<chip_id_t> &device_ids = devices_grouped_by_assoc_mmio_device_[closest_mmio_device_id];
+        device_ids.insert(device_id);
+    }
+    
+    std::unordered_map<chip_id_t, std::unique_ptr<tt_SiliconDevice>> silicon_drivers;
+    std::unique_ptr<tt_SiliconDevice> silicon_driver;
+    static const std::uint32_t MAX_NUM_HOST_MEM_CHANNELS = 4;
+    for (const auto &[mmio_device_id, controlled_devices] : devices_grouped_by_assoc_mmio_device_) {
+         uint32_t num_host_mem_ch_per_mmio_device = controlled_devices.size();
+         if (get_board_type(mmio_device_id) == BoardType::GALAXY) {
+             num_host_mem_ch_per_mmio_device = MAX_NUM_HOST_MEM_CHANNELS;
+         }
+
+        const bool perform_harvesting = true;
+        const bool clean_system_resources = true;
+        const bool skip_driver_allocs = false;
+        log_info(LogSiliconDriver, "Creating silicon driver for mmio device: {}", mmio_device_id);
+        tt:ARCH arch = chip_arch[mmio_device_id];
+        std::unordered_map<std::string, std::int32_t> dynamic_tlb_config = {};
+        auto target_devices = get_target_devices();
+        silicon_driver = std::make_unique<tt_SiliconDevice>(
+            arch,
+            this->cluster_desc_path,
+            target_devices,
+            num_host_mem_ch_per_mmio_device,
+            dynamic_tlb_config,
+            skip_driver_allocs,
+            clean_system_resources,
+            perform_harvesting);
+        
+        silicon_drivers[mmio_device_id] = std::move(silicon_driver);
+    }
+
+    return silicon_drivers;
 }

@@ -84,7 +84,7 @@ bool tt_cpuset_allocator::init_find_tt_pci_devices_packages_numanodes(){
         return false;
     }
 
-    log_debug(LogSiliconDriver,"Starting tt_cpuset_allocator::init_find_tt_pci_devices_packages_numanodes()");
+    log_info(LogSiliconDriver,"Starting tt_cpuset_allocator::init_find_tt_pci_devices_packages_numanodes()");
     m_num_tt_device_by_pci_device_id_map.clear();
 
     hwloc_obj_t pci_device_obj = NULL;

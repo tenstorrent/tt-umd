@@ -19,6 +19,7 @@
 #include <vector>
 #include <memory>
 #include "device/tt_cluster_descriptor_types.h"
+#include "device/tt_device.h"
 
 namespace YAML { class Node; }
 
@@ -47,6 +48,7 @@ class tt_ClusterDescriptor {
   std::unordered_set<chip_id_t> enabled_active_chips;
   std::unordered_map<chip_id_t, chip_id_t> closest_mmio_chip_cache = {};
   std::unordered_map<chip_id_t, BoardType> chip_board_type = {};
+  std::unordered_map<chip_id_t, tt::ARCH> chip_arch = {};
 
   // one-to-many chip connections
   struct Chip2ChipConnection {
@@ -100,5 +102,11 @@ class tt_ClusterDescriptor {
   std::tuple<chip_id_t, ethernet_channel_t> get_chip_and_channel_of_remote_ethernet_core(chip_id_t local_chip, ethernet_channel_t local_ethernet_channel) const;
 
   void enable_all_devices();
+
+  std::string cluster_desc_path;
+
+  std::unordered_map<chip_id_t, std::unique_ptr<tt_SiliconDevice>> get_silicon_drivers();
+
+  std::set<chip_id_t> get_target_devices();
 
 };

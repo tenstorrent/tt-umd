@@ -49,7 +49,7 @@ TEST(SiliconDriverGS, Harvesting) {
     std::vector<chip_id_t> available_devices = {0};
     std::shared_ptr<tt_ClusterDescriptor> ndesc = tt_ClusterDescriptor::create_for_grayskull_cluster(target_devices, available_devices);
     std::unordered_map<chip_id_t, uint32_t> harvesting_masks = ndesc -> get_harvesting_info();
-    std::unordered_map<chip_id_t, uint32_t> simulated_harvesting_masks = {{0, 6 & harvesting_masks[0]}, {1, 12 & harvesting_masks[1]}}; // Simulated masks have to include the actual masks.
+    std::unordered_map<chip_id_t, uint32_t> simulated_harvesting_masks = {{0, 6 | harvesting_masks[0]}, {1, 12 | harvesting_masks[1]}}; // Simulated masks have to include the actual masks.
     std::unordered_map<std::string, std::int32_t> dynamic_tlb_config = {}; // Don't set any dynamic TLBs in this test
     uint32_t num_host_mem_ch_per_mmio_device = 1;
     tt_SiliconDevice device = tt_SiliconDevice(test_utils::GetAbsPath("tests/soc_descs/grayskull_10x12.yaml"), "", target_devices, num_host_mem_ch_per_mmio_device, dynamic_tlb_config, false, true, true, simulated_harvesting_masks);
@@ -57,9 +57,11 @@ TEST(SiliconDriverGS, Harvesting) {
 
     ASSERT_EQ(device.using_harvested_soc_descriptors(), true) << "Expected Driver to have performed harvesting";
     for(const auto& chip : sdesc_per_chip) {
-        ASSERT_EQ(chip.second.workers.size(), 96) << "Expected SOC descriptor with harvesting to have 96 workers for chip " << chip.first;
+        int harvested_rows = std::bitset<32>(simulated_harvesting_masks[0]).count();
+        int expected_workers = 120 - 12 * harvested_rows;
+        ASSERT_EQ(chip.second.workers.size(), expected_workers) << "Expected SOC descriptor with harvesting to have " << expected_workers << " workers for chip " << chip.first;
     }
-    ASSERT_EQ(device.get_harvesting_masks_for_soc_descriptors().at(0), 6) << "Expected first chip to have harvesting mask of 6";
+    ASSERT_EQ(device.get_harvesting_masks_for_soc_descriptors().at(0), simulated_harvesting_masks[0]) << "Expected first chip to have harvesting mask of " << simulated_harvesting_masks[0];
     // ASSERT_EQ(device.get_harvesting_masks_for_soc_descriptors().at(1), 12) << "Expected second chip to have harvesting mask of 12";
     device.close_device();
 }
@@ -90,7 +92,7 @@ TEST(SiliconDriverGS, HarvestingRuntime) {
     std::vector<chip_id_t> available_devices = {0};
     std::shared_ptr<tt_ClusterDescriptor> ndesc = tt_ClusterDescriptor::create_for_grayskull_cluster(target_devices, available_devices);
     std::unordered_map<chip_id_t, uint32_t> harvesting_masks = ndesc -> get_harvesting_info();
-    std::unordered_map<chip_id_t, uint32_t> simulated_harvesting_masks = {{0, 6 & harvesting_masks[0]}, {1, 12 & harvesting_masks[1]}}; // Simulated masks have to include the actual masks.
+    std::unordered_map<chip_id_t, uint32_t> simulated_harvesting_masks = {{0, 6 | harvesting_masks[0]}, {1, 12 | harvesting_masks[1]}}; // Simulated masks have to include the actual masks.
     std::unordered_map<std::string, std::int32_t> dynamic_tlb_config = {{"SMALL_READ_WRITE_TLB", 157}}; // Use both static and dynamic TLBs here
     uint32_t num_host_mem_ch_per_mmio_device = 1;
     tt_SiliconDevice device = tt_SiliconDevice(test_utils::GetAbsPath("tests/soc_descs/grayskull_10x12.yaml"), "", target_devices, num_host_mem_ch_per_mmio_device, dynamic_tlb_config, false, true, true, simulated_harvesting_masks);

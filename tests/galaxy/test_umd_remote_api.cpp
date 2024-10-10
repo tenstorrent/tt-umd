@@ -29,12 +29,10 @@ void run_remote_read_write_test(uint32_t vector_size, bool dram_write) {
         target_devices.insert(chip);
     }
 
-    std::unordered_map<std::string, std::int32_t> dynamic_tlb_config = {};
     uint32_t num_host_mem_ch_per_mmio_device = 1;
-    dynamic_tlb_config.insert({"SMALL_READ_WRITE_TLB", 157});  // Use this for all reads and writes to worker cores
 
     tt_SiliconDevice device = tt_SiliconDevice(
-        test_utils::GetAbsPath(SOC_DESC_PATH), cluster_desc_path, target_devices, num_host_mem_ch_per_mmio_device, dynamic_tlb_config, false, true);
+        test_utils::GetAbsPath(SOC_DESC_PATH), cluster_desc_path, target_devices, num_host_mem_ch_per_mmio_device, false, true);
     const auto sdesc_per_chip = device.get_virtual_soc_descriptors();
 
     tt::umd::test::utils::set_params_for_remote_txn(device);
@@ -144,12 +142,10 @@ void run_data_mover_test(
     ASSERT_TRUE(it != target_devices.end())
         << "Receiver core is on chip " << sender_core.chip << " which is not in the Galaxy cluster";
 
-    std::unordered_map<std::string, std::int32_t> dynamic_tlb_config = {};
     uint32_t num_host_mem_ch_per_mmio_device = 1;
-    dynamic_tlb_config.insert({"SMALL_READ_WRITE_TLB", 157});  // Use this for all reads and writes to worker cores
 
     tt_SiliconDevice device = tt_SiliconDevice(
-        test_utils::GetAbsPath(SOC_DESC_PATH), cluster_desc_path, target_devices, num_host_mem_ch_per_mmio_device, dynamic_tlb_config, false, true);
+        test_utils::GetAbsPath(SOC_DESC_PATH), cluster_desc_path, target_devices, num_host_mem_ch_per_mmio_device, false, true);
 
     tt::umd::test::utils::set_params_for_remote_txn(device);
 
@@ -262,12 +258,10 @@ void run_data_broadcast_test(
             << "Receiver core is on chip " << sender_core.chip << " which is not in the Galaxy cluster";
     }
 
-    std::unordered_map<std::string, std::int32_t> dynamic_tlb_config = {};
     uint32_t num_host_mem_ch_per_mmio_device = 1;
-    dynamic_tlb_config.insert({"SMALL_READ_WRITE_TLB", 157});  // Use this for all reads and writes to worker cores
 
     tt_SiliconDevice device = tt_SiliconDevice(
-        test_utils::GetAbsPath(SOC_DESC_PATH), cluster_desc_path, target_devices, num_host_mem_ch_per_mmio_device, dynamic_tlb_config, false, true);
+        test_utils::GetAbsPath(SOC_DESC_PATH), cluster_desc_path, target_devices, num_host_mem_ch_per_mmio_device, false, true);
 
     tt::umd::test::utils::set_params_for_remote_txn(device);
 

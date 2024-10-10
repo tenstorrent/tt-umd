@@ -81,11 +81,10 @@ std::set<chip_id_t> get_target_devices() {
 TEST(SiliconDriverBH, CreateDestroy) {
     std::set<chip_id_t> target_devices = get_target_devices();
     uint32_t num_host_mem_ch_per_mmio_device = 1;
-    std::unordered_map<std::string, std::int32_t> dynamic_tlb_config = {}; // Don't set any dynamic TLBs in this test
     tt_device_params default_params;
     // Initialize the driver with a 1x1 descriptor and explictly do not perform harvesting
     for(int i = 0; i < 50; i++) {
-        tt_SiliconDevice device = tt_SiliconDevice(test_utils::GetAbsPath("tests/soc_descs/blackhole_140_arch_no_eth.yaml"), test_utils::GetAbsPath("blackhole_1chip_cluster.yaml"), target_devices, num_host_mem_ch_per_mmio_device, dynamic_tlb_config, false, true, false);
+        tt_SiliconDevice device = tt_SiliconDevice(test_utils::GetAbsPath("tests/soc_descs/blackhole_140_arch_no_eth.yaml"), test_utils::GetAbsPath("blackhole_1chip_cluster.yaml"), target_devices, num_host_mem_ch_per_mmio_device, false, true, false);
         set_params_for_remote_txn(device);
         device.start_device(default_params);
         device.deassert_risc_reset();
@@ -104,9 +103,8 @@ TEST(SiliconDriverBH, CreateDestroy) {
 //         }
 //     }
 
-//     std::unordered_map<std::string, std::int32_t> dynamic_tlb_config = {}; // Don't set any dynamic TLBs in this test
 //     uint32_t num_host_mem_ch_per_mmio_device = 1;
-//     tt_SiliconDevice device = tt_SiliconDevice("./tests/soc_descs/wormhole_b0_8x10.yaml", test_utils::GetClusterDescYAML(), target_devices, num_host_mem_ch_per_mmio_device, dynamic_tlb_config, false, true, true, simulated_harvesting_masks);
+//     tt_SiliconDevice device = tt_SiliconDevice("./tests/soc_descs/wormhole_b0_8x10.yaml", test_utils::GetClusterDescYAML(), target_devices, num_host_mem_ch_per_mmio_device, false, true, true, simulated_harvesting_masks);
 //     auto sdesc_per_chip = device.get_virtual_soc_descriptors();
 
 //     ASSERT_EQ(device.using_harvested_soc_descriptors(), true) << "Expected Driver to have performed harvesting";
@@ -128,10 +126,9 @@ TEST(SiliconDriverBH, CreateDestroy) {
 //         }
 //     }
 
-//     std::unordered_map<std::string, std::int32_t> dynamic_tlb_config = {}; // Don't set any dynamic TLBs in this test
 //     uint32_t num_host_mem_ch_per_mmio_device = 1;
 //     // Initialize the driver with a 1x1 descriptor and explictly do not perform harvesting
-//     tt_SiliconDevice device = tt_SiliconDevice("./tests/soc_descs/wormhole_b0_1x1.yaml", test_utils::GetClusterDescYAML(), target_devices, num_host_mem_ch_per_mmio_device, dynamic_tlb_config, false, true, false, simulated_harvesting_masks);
+//     tt_SiliconDevice device = tt_SiliconDevice("./tests/soc_descs/wormhole_b0_1x1.yaml", test_utils::GetClusterDescYAML(), target_devices, num_host_mem_ch_per_mmio_device, false, true, false, simulated_harvesting_masks);
 //     auto sdesc_per_chip = device.get_virtual_soc_descriptors();
     
 //     ASSERT_EQ(device.using_harvested_soc_descriptors(), false) << "SOC descriptors should not be modified when harvesting is disabled";
@@ -156,9 +153,8 @@ TEST(SiliconDriverBH, CreateDestroy) {
 //     }
 
 //     uint32_t num_host_mem_ch_per_mmio_device = 1;
-//     std::unordered_map<std::string, std::int32_t> dynamic_tlb_config = {{"SMALL_READ_WRITE_TLB", 157}}; // Use both static and dynamic TLBs here
     
-//     tt_SiliconDevice device = tt_SiliconDevice("./tests/soc_descs/wormhole_b0_8x10.yaml", test_utils::GetClusterDescYAML(), target_devices, num_host_mem_ch_per_mmio_device, dynamic_tlb_config, false, true, true, simulated_harvesting_masks);
+//     tt_SiliconDevice device = tt_SiliconDevice("./tests/soc_descs/wormhole_b0_8x10.yaml", test_utils::GetClusterDescYAML(), target_devices, num_host_mem_ch_per_mmio_device, false, true, true, simulated_harvesting_masks);
 //     set_params_for_remote_txn(device);
 //     auto mmio_devices = device.get_target_mmio_device_ids();
     
@@ -219,11 +215,9 @@ TEST(SiliconDriverBH, UnalignedStaticTLB_RW) {
 
     std::set<chip_id_t> target_devices = get_target_devices();
 
-    std::unordered_map<std::string, std::int32_t> dynamic_tlb_config = {}; // Don't set any dynamic TLBs in this test
-    dynamic_tlb_config["REG_TLB"] = 184;
     uint32_t num_host_mem_ch_per_mmio_device = 1;
     
-    tt_SiliconDevice device = tt_SiliconDevice(test_utils::GetAbsPath("tests/soc_descs/blackhole_140_arch_no_eth.yaml"), test_utils::GetAbsPath("blackhole_1chip_cluster.yaml"), target_devices, num_host_mem_ch_per_mmio_device, dynamic_tlb_config, false, true, true);
+    tt_SiliconDevice device = tt_SiliconDevice(test_utils::GetAbsPath("tests/soc_descs/blackhole_140_arch_no_eth.yaml"), test_utils::GetAbsPath("blackhole_1chip_cluster.yaml"), target_devices, num_host_mem_ch_per_mmio_device, false, true, true);
     set_params_for_remote_txn(device);
     auto mmio_devices = device.get_target_mmio_device_ids();
 
@@ -281,10 +275,9 @@ TEST(SiliconDriverBH, StaticTLB_RW) {
 
     std::set<chip_id_t> target_devices = get_target_devices();
 
-    std::unordered_map<std::string, std::int32_t> dynamic_tlb_config = {}; // Don't set any dynamic TLBs in this test
     uint32_t num_host_mem_ch_per_mmio_device = 1;
     
-    tt_SiliconDevice device = tt_SiliconDevice(test_utils::GetAbsPath("tests/soc_descs/blackhole_140_arch_no_eth.yaml"), test_utils::GetAbsPath("blackhole_1chip_cluster.yaml"), target_devices, num_host_mem_ch_per_mmio_device, dynamic_tlb_config, false, true, true);
+    tt_SiliconDevice device = tt_SiliconDevice(test_utils::GetAbsPath("tests/soc_descs/blackhole_140_arch_no_eth.yaml"), test_utils::GetAbsPath("blackhole_1chip_cluster.yaml"), target_devices, num_host_mem_ch_per_mmio_device, false, true, true);
     set_params_for_remote_txn(device);
     auto mmio_devices = device.get_target_mmio_device_ids();
 
@@ -334,10 +327,8 @@ TEST(SiliconDriverBH, DynamicTLB_RW) {
     // Don't use any static TLBs in this test. All writes go through a dynamic TLB that needs to be reconfigured for each transaction
     std::set<chip_id_t> target_devices = get_target_devices();
 
-    std::unordered_map<std::string, std::int32_t> dynamic_tlb_config = {};
     uint32_t num_host_mem_ch_per_mmio_device = 1;
-    dynamic_tlb_config.insert({"DYNAMIC_TLB_BASE_INDEX", 190}); // Use this for all reads and writes to worker cores
-    tt_SiliconDevice device = tt_SiliconDevice(test_utils::GetAbsPath("tests/soc_descs/blackhole_140_arch_no_eth.yaml"), test_utils::GetAbsPath("blackhole_1chip_cluster.yaml"), target_devices, num_host_mem_ch_per_mmio_device, dynamic_tlb_config, false, true, true);
+    tt_SiliconDevice device = tt_SiliconDevice(test_utils::GetAbsPath("tests/soc_descs/blackhole_140_arch_no_eth.yaml"), test_utils::GetAbsPath("blackhole_1chip_cluster.yaml"), target_devices, num_host_mem_ch_per_mmio_device, false, true, true);
 
     set_params_for_remote_txn(device);
 
@@ -400,10 +391,8 @@ TEST(SiliconDriverBH, MultiThreadedDevice) {
 
     std::set<chip_id_t> target_devices = get_target_devices();
 
-    std::unordered_map<std::string, std::int32_t> dynamic_tlb_config = {};
     uint32_t num_host_mem_ch_per_mmio_device = 1;
-    dynamic_tlb_config.insert({"SMALL_READ_WRITE_TLB", 157}); // Use this for all reads and writes to worker cores
-    tt_SiliconDevice device = tt_SiliconDevice(test_utils::GetAbsPath("tests/soc_descs/blackhole_140_arch_no_eth.yaml"), test_utils::GetAbsPath("blackhole_1chip_cluster.yaml"), target_devices, num_host_mem_ch_per_mmio_device, dynamic_tlb_config, false, true, true);
+    tt_SiliconDevice device = tt_SiliconDevice(test_utils::GetAbsPath("tests/soc_descs/blackhole_140_arch_no_eth.yaml"), test_utils::GetAbsPath("blackhole_1chip_cluster.yaml"), target_devices, num_host_mem_ch_per_mmio_device, false, true, true);
     
     set_params_for_remote_txn(device);
 
@@ -460,11 +449,9 @@ TEST(SiliconDriverBH, MultiThreadedMemBar) {
 
     std::set<chip_id_t> target_devices = get_target_devices();
     uint32_t base_addr = l1_mem::address_map::DATA_BUFFER_SPACE_BASE;
-    std::unordered_map<std::string, std::int32_t> dynamic_tlb_config = {};
-    dynamic_tlb_config.insert({"SMALL_READ_WRITE_TLB", 157}); // Use this for reading back membar values
     uint32_t num_host_mem_ch_per_mmio_device = 1;
 
-    tt_SiliconDevice device = tt_SiliconDevice(test_utils::GetAbsPath("tests/soc_descs/blackhole_140_arch_no_eth.yaml"), test_utils::GetAbsPath("blackhole_1chip_cluster.yaml"), target_devices, num_host_mem_ch_per_mmio_device, dynamic_tlb_config, false, true, true);
+    tt_SiliconDevice device = tt_SiliconDevice(test_utils::GetAbsPath("tests/soc_descs/blackhole_140_arch_no_eth.yaml"), test_utils::GetAbsPath("blackhole_1chip_cluster.yaml"), target_devices, num_host_mem_ch_per_mmio_device, false, true, true);
     set_params_for_remote_txn(device);
     for(int i = 0; i < target_devices.size(); i++) {
         // Iterate over devices and only setup static TLBs for functional worker cores
@@ -564,10 +551,9 @@ TEST(SiliconDriverBH, DISABLED_BroadcastWrite) { // Cannot broadcast to tensix/e
     // Broadcast multiple vectors to tensix and dram grid. Verify broadcasted data is read back correctly
     std::set<chip_id_t> target_devices = get_target_devices();
 
-    std::unordered_map<std::string, std::int32_t> dynamic_tlb_config = {}; // Don't set any dynamic TLBs in this test
     uint32_t num_host_mem_ch_per_mmio_device = 1;
     
-    tt_SiliconDevice device = tt_SiliconDevice(test_utils::GetAbsPath("tests/soc_descs/blackhole_140_arch_no_eth.yaml"), test_utils::GetAbsPath("blackhole_1chip_cluster.yaml"), target_devices, num_host_mem_ch_per_mmio_device, dynamic_tlb_config, false, true, true);
+    tt_SiliconDevice device = tt_SiliconDevice(test_utils::GetAbsPath("tests/soc_descs/blackhole_140_arch_no_eth.yaml"), test_utils::GetAbsPath("blackhole_1chip_cluster.yaml"), target_devices, num_host_mem_ch_per_mmio_device, false, true, true);
     set_params_for_remote_txn(device);
     auto mmio_devices = device.get_target_mmio_device_ids();
 
@@ -622,10 +608,9 @@ TEST(SiliconDriverBH, DISABLED_VirtualCoordinateBroadcast) { // same problem as 
     // Broadcast multiple vectors to tensix and dram grid. Verify broadcasted data is read back correctly
     std::set<chip_id_t> target_devices = get_target_devices();
 
-    std::unordered_map<std::string, std::int32_t> dynamic_tlb_config = {}; // Don't set any dynamic TLBs in this test
     uint32_t num_host_mem_ch_per_mmio_device = 1;
     
-    tt_SiliconDevice device = tt_SiliconDevice(test_utils::GetAbsPath("tests/soc_descs/blackhole_140_arch_no_eth.yaml"), test_utils::GetAbsPath("blackhole_1chip_cluster.yaml"), target_devices, num_host_mem_ch_per_mmio_device, dynamic_tlb_config, false, true, true);
+    tt_SiliconDevice device = tt_SiliconDevice(test_utils::GetAbsPath("tests/soc_descs/blackhole_140_arch_no_eth.yaml"), test_utils::GetAbsPath("blackhole_1chip_cluster.yaml"), target_devices, num_host_mem_ch_per_mmio_device, false, true, true);
     set_params_for_remote_txn(device);
     auto mmio_devices = device.get_target_mmio_device_ids();
 

@@ -769,9 +769,6 @@ class tt_SiliconDevice: public tt_device
     std::unordered_map<chip_id_t, std::unique_ptr<PCIDevice>> m_pci_device_map;    // Map of enabled pci devices
     int m_num_pci_devices;                                      // Number of pci devices in system (enabled or disabled)
     std::shared_ptr<tt_ClusterDescriptor> ndesc;
-    // Level of printouts. Controlled by env var TT_PCI_LOG_LEVEL
-    // 0: no debugging messages, 1: less verbose, 2: more verbose
-    int m_pci_log_level;
 
     // remote eth transfer setup
     static constexpr std::uint32_t NUM_ETH_CORES_FOR_NON_MMIO_TRANSFERS = 6;

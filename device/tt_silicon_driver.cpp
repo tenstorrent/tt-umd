@@ -51,34 +51,8 @@
 #include "tt_device.h"
 #include "ioctl.h"
 
-//#include "epoch_q.h"
-
-#define WHT "\e[0;37m"
-#define BLK "\e[0;30m"
-#define RED "\e[0;31m"
-#define GRN "\e[0;32m"
-#define YEL "\e[0;33m"
-#define BLU "\e[0;34m"
-#define RST "\e[0m"
-#define LOG1(...) if (g_DEBUG_LEVEL > 0) clr_printf("", __VA_ARGS__)  // Mostly debugging
-#define LOG2(...) if (g_DEBUG_LEVEL > 1) clr_printf("", __VA_ARGS__)  // Mostly debugging
-#define PRINT(...) clr_printf("",__VA_ARGS__)                       // What users should see
-// #define LOG(...) if (false) clr_printf("", __VA_ARGS__)   // Mostly debugging
-// #define PRINT(...) if (false) clr_printf(BLK, __VA_ARGS__)                       // What users should see
-#define WARN(...)  clr_printf(YEL, __VA_ARGS__)                       // Something wrong
-#define ERROR(...) clr_printf(RED, __VA_ARGS__)                       // Something very bad
-
 using namespace boost::interprocess;
 using namespace tt;
-void clr_printf(const char *clr, const char *fmt, ...) {
-    va_list args; va_start(args, fmt); printf ("%s", clr); vprintf(fmt, args); printf (RST); va_end(args);
-}
-
-int g_DEBUG_LEVEL; // /src/t6ifc/t6py/packages/tenstorrent/jlink/jtag_comm.cpp
-bool g_READ_CHECKING_ENABLED = true;
-
-// Print all buffers smaller than this number of bytes
-uint32_t g_NUM_BYTES_TO_PRINT = 8;
 
 // Workaround for tkmd < 1.21 use device_fd_per_host_ch[ch] instead of device_fd once per channel.
 const bool g_SINGLE_PIN_PAGE_PER_FD_WORKAROND = true;
@@ -295,7 +269,7 @@ bool auto_reset_board(PCIDevice *dev) {
 }
 
 void detect_ffffffff_read(PCIDevice *dev, std::uint32_t data_read = 0xffffffffu) {
-    if (g_READ_CHECKING_ENABLED && data_read == 0xffffffffu && is_hardware_hung(dev)) {
+    if (data_read == 0xffffffffu && is_hardware_hung(dev)) {
         std::uint32_t scratch_data = *register_address<std::uint32_t>(dev, dev->read_checking_offset);
 
         if (auto_reset_board(dev)) {
@@ -307,19 +281,17 @@ void detect_ffffffff_read(PCIDevice *dev, std::uint32_t data_read = 0xffffffffu)
 }
 
 inline void record_access (const char* where, uint32_t addr, uint32_t size, bool turbo, bool write, bool block, bool endline) {
-    LOG2 ("%s PCI_ACCESS %s 0x%8x  %8d bytes %s %s%s", where, write ? "WR" : "RD", addr, size, turbo ? "TU" : "  ", block ? "BLK" : "   ", endline ? "\n" : "" );
+    log_trace(LogSiliconDriver, "{} PCI_ACCESS {} 0x{:x}  {} bytes {} {}{}", where, write ? "WR" : "RD", addr, size, turbo ? "TU" : "  ", block ? "BLK" : "   ", endline ? "\n" : "" );
 }
 
 inline void print_buffer (const void* buffer_addr, uint32_t len_bytes = 16, bool endline = true) {
     // Prints each byte in a buffer
-    if (g_DEBUG_LEVEL > 1) {
-        uint8_t *b = (uint8_t *)(buffer_addr);
-        for (uint32_t i = 0; i < len_bytes; i++) {
-            LOG2 ("    [0x%x] = 0x%x (%u) ", i, b[i], b[i]);
-        }
-        if (endline) {
-            LOG2 ("\n");
-        }
+    uint8_t *b = (uint8_t *)(buffer_addr);
+    for (uint32_t i = 0; i < len_bytes; i++) {
+        log_trace(LogSiliconDriver, "    [0x{:x}] = 0x{:x} ({}) ", i, b[i], b[i]);
+    }
+    if (endline) {
+        log_trace(LogSiliconDriver, "\n");
     }
 }
 #endif
@@ -391,7 +363,7 @@ dynamic_tlb set_dynamic_tlb(PCIDevice *dev, unsigned int tlb_index, tt_xy_pair s
         std::tie(start, end) = architecture_implementation->multicast_workaround(start, end);
     }
 
-    LOG2("set_dynamic_tlb with arguments: tlb_index = %d, start = (%d, %d), end = (%d, %d), address = 0x%x, multicast = %d, ordering = %d\n",
+    log_trace(LogSiliconDriver, "set_dynamic_tlb with arguments: tlb_index = {}, start = ({}, {}), end = ({}, {}), address = 0x{:x}, multicast = {}, ordering = {}",
          tlb_index, start.x, start.y, end.x, end.y, address, multicast, (int)ordering);
 
     tt::umd::tlb_configuration tlb_config = architecture_implementation->get_tlb_configuration(tlb_index);
@@ -417,7 +389,7 @@ dynamic_tlb set_dynamic_tlb(PCIDevice *dev, unsigned int tlb_index, tt_xy_pair s
         .static_vc = (dev->get_arch() == tt::ARCH::BLACKHOLE) ? false : true,
     }.apply_offset(tlb_config.offset);
 
-    LOG1("set_dynamic_tlb() with tlb_index: %d tlb_index_offset: %d dynamic_tlb_size: %dMB tlb_base: 0x%x tlb_cfg_reg: 0x%x\n", tlb_index, tlb_config.index_offset, tlb_config.size/(1024*1024), tlb_base, tlb_cfg_reg);
+    log_debug(LogSiliconDriver, "set_dynamic_tlb() with tlb_index: {} tlb_index_offset: {} dynamic_tlb_size: {}MB tlb_base: 0x{:x} tlb_cfg_reg: 0x{:x}", tlb_index, tlb_config.index_offset, tlb_config.size/(1024*1024), tlb_base, tlb_cfg_reg);
     // write_regs(dev -> hdev, tlb_cfg_reg, 2, &tlb_data);
     dev->write_tlb_reg(tlb_cfg_reg, tlb_data.first, tlb_data.second, TLB_CFG_REG_SIZE_BYTES);
 
@@ -486,16 +458,7 @@ void tt_SiliconDevice::initialize_interprocess_mutexes(int pci_interface_id, boo
 }
 
 void tt_SiliconDevice::create_device(const std::unordered_set<chip_id_t> &target_mmio_device_ids, const uint32_t &num_host_mem_ch_per_mmio_device, const bool skip_driver_allocs, const bool clean_system_resources) {
-    m_pci_log_level = 0;
-    LOG1("---- tt_SiliconDevice::tt_SiliconDevice\n");
-
-    // Set the log level for debugging
-    const char* pci_log_level = std::getenv("TT_PCI_LOG_LEVEL");
-    if (pci_log_level) {
-        m_pci_log_level = atoi (pci_log_level);
-    }
-    g_DEBUG_LEVEL = m_pci_log_level;
-    LOG1 ("TT_PCI_LOG_LEVEL=%d\n", m_pci_log_level);
+    log_debug(LogSiliconDriver, "tt_SiliconDevice::tt_SiliconDevice");
 
     // Don't buffer stdout.
     setbuf(stdout, NULL);
@@ -548,7 +511,7 @@ void tt_SiliconDevice::create_device(const std::unordered_set<chip_id_t> &target
                 log_assert(hugepages_initialized, "Hugepages must be successfully initialized if workload contains remote chips!");
             }
             if (not hugepage_mapping.at(logical_device_id).at(0)) {
-                log_warning(LogSiliconDriver, "No hugepage mapping at device {}", logical_device_id);
+                log_warning(LogSiliconDriver, "No hugepage mapping at device {}.", logical_device_id);
             }
         }
         harvested_coord_translation.insert({logical_device_id, create_harvested_coord_translation(arch_name, true)}); //translation layer for harvested coords. Default is identity map
@@ -855,7 +818,7 @@ void tt_SiliconDevice::check_pcie_device_initialized(int device_id) {
 
     // MT Initial BH - Add check for blackhole once access to ARC registers is setup through TLBs
     if (arch_name != tt::ARCH::BLACKHOLE) {
-        LOG1 ("== Check if device_id: %d is initialized\n", device_id);
+        log_debug(LogSiliconDriver, "== Check if device_id: {} is initialized", device_id);
         uint32_t bar_read_initial = bar_read32(device_id, architecture_implementation->get_arc_reset_scratch_offset() + 3 * 4);
         uint32_t arg = bar_read_initial == 500 ? 325 : 500;
         uint32_t bar_read_again;
@@ -966,7 +929,7 @@ void tt_SiliconDevice::translate_to_noc_table_coords(chip_id_t device_id, std::s
 }
 
 void tt_SiliconDevice::initialize_pcie_devices() {
-    LOG1("---- tt_SiliconDevice::start\n");
+    log_debug(LogSiliconDriver, "tt_SiliconDevice::start");
 
     for (auto &device_it : m_pci_device_map){
         check_pcie_device_initialized(device_it.first);
@@ -980,11 +943,11 @@ void tt_SiliconDevice::initialize_pcie_devices() {
 }
 
 void tt_SiliconDevice::broadcast_pcie_tensix_risc_reset(PCIDevice *device, const TensixSoftResetOptions &soft_resets) {
-    LOG1("---- tt_SiliconDevice::broadcast_tensix_risc_reset\n");
+    log_debug(LogSiliconDriver, "tt_SiliconDevice::broadcast_tensix_risc_reset");
 
     auto valid = soft_resets & ALL_TENSIX_SOFT_RESET;
 
-    LOG1("== For all tensix set soft-reset for %s risc cores.\n", TensixSoftResetOptionsToString(valid).c_str());
+    log_debug(LogSiliconDriver, "== For all tensix set soft-reset for {} risc cores.", TensixSoftResetOptionsToString(valid).c_str());
 
     auto architecture_implementation = device->get_architecture_implementation();
     auto [soft_reset_reg, _] = set_dynamic_tlb_broadcast(device, architecture_implementation->get_reg_tlb(), architecture_implementation->get_tensix_soft_reset_addr(), harvested_coord_translation, tt_xy_pair(0, 0), 
@@ -1116,8 +1079,8 @@ void tt_SiliconDevice::write_device_memory(const void *mem_ptr, uint32_t size_in
     PCIDevice *dev = get_pci_device(target.chip);
     const uint8_t* buffer_addr = static_cast<const uint8_t*>(mem_ptr);
 
-    // LOG1("---- tt_SiliconDevice::write_device_memory to chip:%lu %lu-%lu at 0x%x size_in_bytes: %d small_access: %d\n",
-    //     target.chip, target.x, target.y, address, size_in_bytes, small_access);
+    log_debug(LogSiliconDriver, "tt_SiliconDevice::write_device_memory to chip:{} {}-{} at 0x{:x} size_in_bytes: {} small_access: {}",
+        target.chip, target.x, target.y, address, size_in_bytes, small_access);
 
     std::int32_t tlb_index = 0;
     std::optional<std::tuple<std::uint64_t, std::uint64_t>> tlb_data = std::nullopt;
@@ -1149,13 +1112,13 @@ void tt_SiliconDevice::write_device_memory(const void *mem_ptr, uint32_t size_in
             address += transfer_size;
             buffer_addr += transfer_size;
         }
-        // LOG1 ("Write done Dynamic TLB with pid=%ld\n", (long)getpid());
+        log_debug(LogSiliconDriver, "Write done Dynamic TLB with pid={}", (long)getpid());
     }
 }
 
 void tt_SiliconDevice::read_device_memory(void *mem_ptr, tt_cxy_pair target, std::uint32_t address, std::uint32_t size_in_bytes, const std::string& fallback_tlb) {
     // Assume that mem_ptr has been allocated adequate memory on host when this function is called. Otherwise, this function will cause a segfault.
-    LOG1("---- tt_SiliconDevice::read_device_memory to chip:%lu %lu-%lu at 0x%x size_in_bytes: %d\n", target.chip, target.x, target.y, address, size_in_bytes);
+    log_debug(LogSiliconDriver, "tt_SiliconDevice::read_device_memory to chip:{} {}-{} at 0x{:x} size_in_bytes: {}", target.chip, target.x, target.y, address, size_in_bytes);
     PCIDevice *dev = get_pci_device(target.chip);
 
     uint8_t* buffer_addr = static_cast<uint8_t*>(mem_ptr);
@@ -1166,7 +1129,7 @@ void tt_SiliconDevice::read_device_memory(void *mem_ptr, tt_cxy_pair target, std
         tlb_index = map_core_to_tlb(tt_xy_pair(target.x, target.y));
         tlb_data = dev->get_architecture_implementation()->describe_tlb(tlb_index);
     }
-    LOG1("  tlb_index: %d, tlb_data.has_value(): %d\n", tlb_index, tlb_data.has_value());
+    log_debug(LogSiliconDriver, "  tlb_index: {}, tlb_data.has_value(): {}", tlb_index, tlb_data.has_value());
 
     if (tlb_data.has_value()  && address_in_tlb_space(address, size_in_bytes, tlb_index, std::get<1>(tlb_data.value()), target.chip)) {
         auto [tlb_offset, tlb_size] = tlb_data.value();
@@ -1177,11 +1140,11 @@ void tt_SiliconDevice::read_device_memory(void *mem_ptr, tt_cxy_pair target, std
         } else {
             dev->read_block(tlb_offset + address % tlb_size, size_in_bytes, buffer_addr);
         }
-        LOG1 ("  read_block called with tlb_offset: %d, tlb_size: %d\n", tlb_offset, tlb_size);
+        log_debug(LogSiliconDriver, "  read_block called with tlb_offset: {}, tlb_size: {}", tlb_offset, tlb_size);
     } else {
         const auto tlb_index = dynamic_tlb_config.at(fallback_tlb);
         const scoped_lock<named_mutex> lock(*get_mutex(fallback_tlb, dev->device_id));
-        LOG1 ("  dynamic tlb_index: %d\n", tlb_index);
+        log_debug(LogSiliconDriver, "  dynamic tlb_index: {}", tlb_index);
         while(size_in_bytes > 0) {
 
             auto [mapped_address, tlb_size] = set_dynamic_tlb(dev, tlb_index, target, address, harvested_coord_translation, dynamic_tlb_ordering_modes.at(fallback_tlb));
@@ -1192,7 +1155,7 @@ void tt_SiliconDevice::read_device_memory(void *mem_ptr, tt_cxy_pair target, std
             address += transfer_size;
             buffer_addr += transfer_size;
         }
-        // LOG1 ("Read done Dynamic TLB with pid=%ld\n", (long)getpid());
+        log_debug(LogSiliconDriver, "Read done Dynamic TLB with pid={}", (long)getpid());
     }
 }
 
@@ -1216,7 +1179,7 @@ void tt_SiliconDevice::read_buffer(
                                              channel));
     }
 
-    LOG1("---- tt_SiliconDevice::read_buffer (src_device_id: %d, ch: %d) from 0x%lx\n",  src_device_id, channel, user_scratchspace);
+    log_debug(LogSiliconDriver, "tt_SiliconDevice::read_buffer (src_device_id: {}, ch: {}) from 0x{:x}",  src_device_id, channel, user_scratchspace);
     
     memcpy(mem_ptr, user_scratchspace, size_in_bytes);
 }
@@ -1315,7 +1278,7 @@ std::map<int, int> tt_SiliconDevice::get_clocks() {
 
 tt_SiliconDevice::~tt_SiliconDevice () {
 
-    LOG1 ("---- tt_SiliconDevice::~tt_SiliconDevice\n");
+    log_debug(LogSiliconDriver, "tt_SiliconDevice::~tt_SiliconDevice");
 
     cleanup_shared_host_state();
 
@@ -1371,7 +1334,7 @@ void tt_SiliconDevice::set_fallback_tlb_ordering_mode(const std::string& fallbac
 // TT<->TT P2P support removed in favor of increased Host memory.
 void tt_SiliconDevice::init_pcie_iatus() {
     int num_enabled_devices = m_pci_device_map.size();
-    LOG1("---- tt_SiliconDevice::init_pcie_iatus() num_enabled_devices: %d\n", num_enabled_devices);
+    log_debug(LogSiliconDriver, "tt_SiliconDevice::init_pcie_iatus() num_enabled_devices: {}", num_enabled_devices);
     log_assert(m_num_host_mem_channels <= g_MAX_HOST_MEM_CHANNELS, "Maximum of {} 1GB Host memory channels supported.",  g_MAX_HOST_MEM_CHANNELS);
 
     for (auto &src_device_it : m_pci_device_map){
@@ -1429,7 +1392,7 @@ std::string find_hugepage_dir(std::size_t pagesize)
         }
     }
 
-    WARN("---- ttSiliconDevice::find_hugepage_dir: no huge page mount found in /proc/mounts for path: %s with hugepage_size: %d.\n", hugepage_dir.c_str(), pagesize);
+    log_warning(LogSiliconDriver, "ttSiliconDevice::find_hugepage_dir: no huge page mount found in /proc/mounts for path: {} with hugepage_size: {}.", hugepage_dir, pagesize);
     return std::string();
 }
 
@@ -1460,14 +1423,14 @@ int tt_SiliconDevice::open_hugepage_file(const std::string &dir, chip_id_t physi
 
     std::string filename_str(filename.begin(), filename.end());
     filename_str.erase(std::find(filename_str.begin(), filename_str.end(), '\0'), filename_str.end()); // Erase NULL terminator for printing.
-    LOG1("---- ttSiliconDevice::open_hugepage_file: using filename: %s for physical_device_id: %d channel: %d\n", filename_str.c_str(), physical_device_id, channel);
+    log_debug(LogSiliconDriver, "ttSiliconDevice::open_hugepage_file: using filename: {} for physical_device_id: {} channel: {}", filename_str.c_str(), physical_device_id, channel);
 
     // Save original and set umask to unrestricted.
     auto old_umask = umask(0);
 
     int fd = open(filename.data(), O_RDWR | O_CREAT | O_CLOEXEC, S_IWUSR | S_IRUSR | S_IWGRP | S_IRGRP | S_IWOTH | S_IROTH );
     if (fd == -1 && errno == EACCES) {
-        WARN("---- ttSiliconDevice::open_hugepage_file could not open filename: %s on first try, unlinking it and retrying.\n", filename_str.c_str());
+        log_warning(LogSiliconDriver, "ttSiliconDevice::open_hugepage_file could not open filename: {} on first try, unlinking it and retrying.", filename_str);
         unlink(filename.data());
         fd = open(filename.data(), O_RDWR | O_CREAT | O_CLOEXEC, S_IWUSR | S_IRUSR | S_IWGRP | S_IRGRP | S_IWOTH | S_IROTH );
     }
@@ -1476,7 +1439,7 @@ int tt_SiliconDevice::open_hugepage_file(const std::string &dir, chip_id_t physi
     umask(old_umask);
 
     if (fd == -1) {
-        WARN("---- open_hugepage_file failed\n");
+        log_warning(LogSiliconDriver, "open_hugepage_file failed");
         return -1;
     }
 
@@ -1504,7 +1467,7 @@ bool tt_SiliconDevice::init_hugepage(chip_id_t device_id) {
 
     std::string hugepage_dir = find_hugepage_dir(hugepage_size);
     if (hugepage_dir.empty()) {
-        WARN("---- ttSiliconDevice::init_hugepage: no huge page mount found for hugepage_size: %d.\n", hugepage_size);
+        log_warning(LogSiliconDriver, "ttSiliconDevice::init_hugepage: no huge page mount found for hugepage_size: {}.", hugepage_size);
         return false;
     }
 
@@ -1516,7 +1479,7 @@ bool tt_SiliconDevice::init_hugepage(chip_id_t device_id) {
         int hugepage_fd = open_hugepage_file(hugepage_dir, physical_device_id, ch);
         if (hugepage_fd == -1) {
             // Probably a permissions problem.
-            WARN("---- ttSiliconDevice::init_hugepage: physical_device_id: %d ch: %d creating hugepage mapping file failed.\n", physical_device_id, ch);
+            log_warning(LogSiliconDriver, "ttSiliconDevice::init_hugepage: physical_device_id: {} ch: {} creating hugepage mapping file failed.", physical_device_id, ch);
             success = false;
             continue;
         }
@@ -1526,7 +1489,7 @@ bool tt_SiliconDevice::init_hugepage(chip_id_t device_id) {
         close(hugepage_fd);
 
         if (mapping == MAP_FAILED) {
-            WARN("UMD: Mapping a hugepage failed. (device: %d, %d/%d errno: %s).\n", physical_device_id, ch, m_num_host_mem_channels, strerror(errno));
+            log_warning(LogSiliconDriver, "UMD: Mapping a hugepage failed. (device: {}, {}/{} errno: {}).", physical_device_id, ch, m_num_host_mem_channels, strerror(errno));
             print_file_contents("/proc/cmdline");\
             print_file_contents("/sys/kernel/mm/hugepages/hugepages-1048576kB/nr_hugepages"); // Hardcoded for 1GB hugepage.
             success = false;
@@ -1535,8 +1498,8 @@ bool tt_SiliconDevice::init_hugepage(chip_id_t device_id) {
 
         // Beter performance if hugepage just allocated (populate flag to prevent lazy alloc) is migrated to same numanode as TT device.
         if (!tt::cpuset::tt_cpuset_allocator::bind_area_to_memory_nodeset(physical_device_id, mapping, hugepage_size)){
-            WARN("---- ttSiliconDevice::init_hugepage: bind_area_to_memory_nodeset() failed (physical_device_id: %d ch: %d). "
-            "Hugepage allocation is not on NumaNode matching TT Device. Side-Effect is decreased Device->Host perf (Issue #893).\n",
+            log_warning(LogSiliconDriver, "---- ttSiliconDevice::init_hugepage: bind_area_to_memory_nodeset() failed (physical_device_id: {} ch: {}). "
+            "Hugepage allocation is not on NumaNode matching TT Device. Side-Effect is decreased Device->Host perf (Issue #893).",
             physical_device_id, ch);
         }
 
@@ -1550,7 +1513,7 @@ bool tt_SiliconDevice::init_hugepage(chip_id_t device_id) {
         auto &fd = g_SINGLE_PIN_PAGE_PER_FD_WORKAROND ? dev->device_fd_per_host_ch[ch] : dev->device_fd;
 
         if (ioctl(fd, TENSTORRENT_IOCTL_PIN_PAGES, &pin_pages) == -1) {
-            WARN("---- ttSiliconDevice::init_hugepage: physical_device_id: %d ch: %d TENSTORRENT_IOCTL_PIN_PAGES failed (errno: %s). Common Issue: Requires TTMKD >= 1.11, see following file contents...\n", physical_device_id, ch, strerror(errno));
+            log_warning(LogSiliconDriver, "---- ttSiliconDevice::init_hugepage: physical_device_id: {} ch: {} TENSTORRENT_IOCTL_PIN_PAGES failed (errno: {}). Common Issue: Requires TTMKD >= 1.11, see following file contents...", physical_device_id, ch, strerror(errno));
             munmap(mapping, hugepage_size);
             print_file_contents("/sys/module/tenstorrent/version", "(TTKMD version)");
             print_file_contents("/proc/meminfo");
@@ -1563,8 +1526,7 @@ bool tt_SiliconDevice::init_hugepage(chip_id_t device_id) {
         hugepage_mapping_size.at(device_id).at(ch) = hugepage_size;
         hugepage_physical_address.at(device_id).at(ch) = pin_pages.out.physical_address;
 
-        LOG1("---- ttSiliconDevice::init_hugepage: physical_device_id: %d ch: %d mapping_size: %d physical address 0x%llx\n", physical_device_id, ch, hugepage_size, (unsigned long long)hugepage_physical_address.at(device_id).at(ch));
-
+        log_debug(LogSiliconDriver, "ttSiliconDevice::init_hugepage: physical_device_id: {} ch: {} mapping_size: {} physical address 0x{:x}", physical_device_id, ch, hugepage_size, (unsigned long long)hugepage_physical_address.at(device_id).at(ch));
     }
 
     return success;
@@ -1638,7 +1600,7 @@ int tt_SiliconDevice::pcie_arc_msg(int logical_device_id, uint32_t msg_code, boo
 
 
     if ((msg_code & 0xff00) != 0xaa00) {
-        ERROR ("Malformed message. msg_code is 0x%x but should be 0xaa..\n", msg_code);
+        log_error("Malformed message. msg_code is 0x{:x} but should be 0xaa..", msg_code);
     }
     log_assert(arg0 <= 0xffff and arg1 <= 0xffff, "Only 16 bits allowed in arc_msg args"); // Only 16 bits are allowed
 
@@ -1697,7 +1659,6 @@ int tt_SiliconDevice::pcie_arc_msg(int logical_device_id, uint32_t msg_code, boo
 }
 
 int tt_SiliconDevice::iatu_configure_peer_region (int logical_device_id, uint32_t peer_region_id, uint64_t bar_addr_64, uint32_t region_size) {
-    // utility.INFO (f"    Setting peer_region_id {peer_region_id} to BAR addr 0x%x" % bar_addr_64)
     uint32_t dest_bar_lo = bar_addr_64 & 0xffffffff;
     uint32_t dest_bar_hi = (bar_addr_64 >> 32) & 0xffffffff;
     std::uint32_t region_id_to_use = peer_region_id;
@@ -1744,7 +1705,7 @@ int tt_SiliconDevice::iatu_configure_peer_region (int logical_device_id, uint32_
     // Print what just happened
     uint32_t peer_region_start = region_id_to_use*region_size;
     uint32_t peer_region_end = (region_id_to_use+1)*region_size - 1;
-    LOG1 ("    [region id %d] NOC to PCI address range 0x%x-0x%x mapped to addr 0x%llx\n", peer_region_id, peer_region_start, peer_region_end, bar_addr_64);
+    log_debug(LogSiliconDriver, "    [region id {}] NOC to PCI address range 0x{:x}-0x{:x} mapped to addr 0x{:x}", peer_region_id, peer_region_start, peer_region_end, bar_addr_64);
     return 0;
 }
 
@@ -1765,7 +1726,7 @@ uint32_t tt_SiliconDevice::get_harvested_noc_rows(uint32_t harvesting_mask) {
         harvesting_mask = harvesting_mask >> 1;
     }
     if (harv_noc_rows > 0) {
-        LOG1 ("HARVESTING NOC Y-LOC 0x%x = {%s}\n", harv_noc_rows, harv_noc_rows_str.c_str());
+        log_debug(LogSiliconDriver, "HARVESTING NOC Y-LOC 0x{:x} = {{}}", harv_noc_rows, harv_noc_rows_str.c_str());
     }
     return harv_noc_rows;
 }
@@ -1782,7 +1743,7 @@ uint32_t tt_SiliconDevice::get_harvested_rows (int logical_device_id) {
         log_assert(harvesting_msg_code != MSG_ERROR_REPLY, "Failed to read harvested rows from device {}", logical_device_id);
     }
     log_assert(harv != 0xffffffff, "Readback 0xffffffff for harvesting info. Chip is fused incorrectly!");
-    LOG1("HARVESTING %s, 0x%x\n", (harv==0) ? "DISABLED":"ENABLED", harv);
+    log_debug(LogSiliconDriver, "HARVESTING {}, 0x{:x}", (harv==0) ? "DISABLED":"ENABLED", harv);
     
     uint32_t memory = harv & 0x3ff;
     uint32_t logic = (harv >> 10) & 0x3ff;
@@ -2594,7 +2555,7 @@ int tt_SiliconDevice::remote_arc_msg(int chip, uint32_t msg_code, bool wait_for_
     auto core = tt_cxy_pair(chip, get_soc_descriptor(chip).arc_cores.at(0));
 
     if ((msg_code & 0xff00) != 0xaa00) {
-        log_error("Malformed message. msg_code is 0x{:x} but should be 0xaa..\n", msg_code);
+        log_error("Malformed message. msg_code is 0x{:x} but should be 0xaa..", msg_code);
     }
     log_assert (arg0 <= 0xffff and arg1 <= 0xffff, "Only 16 bits allowed in arc_msg args"); // Only 16 bits are allowed
 
@@ -2794,7 +2755,7 @@ void tt_SiliconDevice::read_mmio_device_register(void* mem_ptr, tt_cxy_pair core
 
     const auto tlb_index = dynamic_tlb_config.at(fallback_tlb);
     const scoped_lock<named_mutex> lock(*get_mutex(fallback_tlb, pci_device->device_id));
-    LOG1 ("  dynamic tlb_index: %d\n", tlb_index);
+    log_debug(LogSiliconDriver, "  dynamic tlb_index: {}", tlb_index);
 
     auto [mapped_address, tlb_size] = set_dynamic_tlb(pci_device, tlb_index, core, addr, harvested_coord_translation, TLB_DATA::Strict);
     // Align block to 4bytes if needed. 
@@ -2813,7 +2774,7 @@ void tt_SiliconDevice::write_mmio_device_register(const void* mem_ptr, tt_cxy_pa
 
     const auto tlb_index = dynamic_tlb_config.at(fallback_tlb);
     const scoped_lock<named_mutex> lock(*get_mutex(fallback_tlb, pci_device->device_id));
-    LOG1 ("  dynamic tlb_index: %d\n", tlb_index);
+    log_debug(LogSiliconDriver, "  dynamic tlb_index: {}", tlb_index);
 
     auto [mapped_address, tlb_size] = set_dynamic_tlb(pci_device, tlb_index, core, addr, harvested_coord_translation, TLB_DATA::Strict);
     // Align block to 4bytes if needed. 

@@ -35,6 +35,11 @@ struct PciDeviceInfo
 
 class PCIDevice {
 public:
+    /**
+     * Return a list of integers corresponding to character devices in /dev/tenstorrent/
+     */
+    static std::vector<int> enumerate_devices();
+
     PCIDevice(int device_id, int logical_device_id);
     ~PCIDevice();
     PCIDevice(const PCIDevice&) = delete; // copy

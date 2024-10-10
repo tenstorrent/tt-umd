@@ -20,7 +20,7 @@ fs::path generate_cluster_desc_yaml() {
 
     fs::path eth_fpath = fs::path ( __FILE__ ).parent_path().parent_path().parent_path();
     eth_fpath /= "device/bin/silicon/x86/create-ethernet-map";
-    std::string cmd = eth_fpath.string() + " " + umd_path.string();
+    std::string cmd = fmt::format("{} {}", eth_fpath.string(), umd_path.string());
     int val = system(cmd.c_str());
     if(val != 0) throw std::runtime_error("Cluster Generation Failed!");
 

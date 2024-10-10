@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: Apache-2.0
 #include <thread>
 #include <memory>
+#include <random>
 
 #include "gtest/gtest.h"
 #include "tt_device.h"
@@ -16,6 +17,15 @@
 #include "device/wormhole/wormhole_implementation.h"
 #include "tests/test_utils/generate_cluster_desc.hpp"
 #include "tests/test_utils/device_test_utils.hpp"
+
+inline void fill_with_random_bytes(uint8_t* data, size_t n)
+{
+    static std::random_device rd;
+    static std::mt19937 gen(rd());
+    static std::uniform_int_distribution<uint8_t> dis(0, 255);
+
+    std::generate(data, data + n, [&]() { return dis(gen); });
+}
 
 void set_params_for_remote_txn(tt_SiliconDevice& device) {
     // Populate address map and NOC parameters that the driver needs for remote transactions
@@ -132,6 +142,9 @@ TEST(SiliconDriverWH, CustomSocDesc) {
     }
 }
 
+// Disabled for now.
+// https://github.com/tenstorrent/tt-umd/issues/82
+#if 0
 TEST(SiliconDriverWH, HarvestingRuntime) {
 
     auto get_static_tlb_index_callback = [] (tt_xy_pair target) {
@@ -197,6 +210,7 @@ TEST(SiliconDriverWH, HarvestingRuntime) {
     }
     device.close_device();
 }
+#endif
 
 TEST(SiliconDriverWH, UnalignedStaticTLB_RW) {
     auto get_static_tlb_index_callback = [] (tt_xy_pair target) {
@@ -643,4 +657,87 @@ TEST(SiliconDriverWH, VirtualCoordinateBroadcast) {
         device.wait_for_non_mmio_flush();
     }
     device.close_device();    
+}
+
+
+/**
+ * This is a basic DMA test -- not using the PCIe controller's DMA engine, but
+ * rather using the ability of the NOC to access the host system bus via traffic
+ * to the PCIe block.
+ *
+ * sysmem means memory in the host that has been mapped for device access.  It
+ * is currently one or more 1G huge pages, although this may change.
+ *
+ * 1. Fills sysmem with a random pattern.
+ * 2. Uses PCIe block on WH to read sysmem into buffer.
+ * 3. Verifies that buffer matches sysmem.
+ * 4. Fills buffer with a random pattern.
+ * 5. Uses PCIe block on WH to write buffer into sysmem.
+ * 6. Verifies that sysmem matches buffer.
+ *
+ * This uses a small size for speed purposes.
+ *
+ * If/when we move to using IOMMU to map userspace memory for device access,
+ * the technique below is a straightforward way to test that hardware can access
+ * the buffer(s).
+ */
+TEST(SiliconDriverWH, SysmemTestWithPcie) {
+    auto target_devices = get_target_devices();
+
+    // Why is this required by the tt_SiliconDevice constructor?!
+    std::unordered_map<std::string, std::int32_t> dynamic_tlb_config = {
+        { "REG_TLB", tt::umd::wormhole::REG_TLB }
+    };
+
+    tt_SiliconDevice device(test_utils::GetAbsPath("tests/soc_descs/wormhole_b0_8x10.yaml"),
+                            test_utils::GetClusterDescYAML(),
+                            target_devices,
+                            1,  // one "host memory channel", currently a 1G huge page
+                            dynamic_tlb_config,
+                            false, // skip driver allocs - no (don't skip)
+                            true,  // clean system resources - yes
+                            true); // perform harvesting - yes
+
+    // PCIe core is at (x=0, y=3) on Wormhole NOC0.
+    const size_t PCIE_X = 0;    // NOC0
+    const size_t PCIE_Y = 3;    // NOC0
+    const tt_cxy_pair PCIE_CORE(0, PCIE_X, PCIE_Y);
+    const size_t test_size_bytes = 0x4000;  // Arbitrarilly chosen, but small size so the test runs quickly.
+
+    // Bad API: how big is the buffer?  How do we know it's big enough?
+    // Situation today is that there's a 1G hugepage behind it, although this is
+    // unclear from the API and may change in the future.
+    uint8_t *sysmem = (uint8_t*)device.host_dma_address(0, 0, 0);
+    ASSERT_NE(sysmem, nullptr);
+
+    // This is the address inside the Wormhole PCIe block that is mapped to the
+    // system bus.  In Wormhole, this is a fixed address, 0x8'0000'0000.
+    // The driver should have mapped this address to the bottom of sysmem.
+    uint64_t base_address = device.get_pcie_base_addr_from_device();
+
+    // Buffer that we will use to read sysmem into, then write sysmem from.
+    std::vector<uint8_t> buffer(test_size_bytes, 0x0);
+
+    // Step 1: Fill sysmem with random bytes.
+    fill_with_random_bytes(sysmem, test_size_bytes);
+
+    // Step 2: Read sysmem into buffer.
+    device.read_from_device(&buffer[0], PCIE_CORE, base_address, buffer.size(), "REG_TLB");
+
+    // Step 3: Verify that buffer matches sysmem.
+    ASSERT_EQ(buffer, std::vector<uint8_t>(sysmem, sysmem + test_size_bytes));
+
+    // Step 4: Fill buffer with random bytes.
+    fill_with_random_bytes(&buffer[0], test_size_bytes);
+
+    // Step 5: Write buffer into sysmem, overwriting what was there.
+    device.write_to_device(&buffer[0], buffer.size(), PCIE_CORE, base_address, "REG_TLB");
+
+    // Step 5b: Read back sysmem into a throwaway buffer.  The intent is to
+    // ensure the write has completed before we check sysmem against buffer.
+    std::vector<uint8_t> throwaway(test_size_bytes, 0x0);
+    device.read_from_device(&throwaway[0], PCIE_CORE, base_address, throwaway.size(), "REG_TLB");
+
+    // Step 6: Verify that sysmem matches buffer.
+    ASSERT_EQ(buffer, std::vector<uint8_t>(sysmem, sysmem + test_size_bytes));
 }

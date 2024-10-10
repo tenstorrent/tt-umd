@@ -465,7 +465,7 @@ void tt_SiliconDevice::initialize_interprocess_mutexes(int pci_interface_id, boo
     }
 
     // Initialize ARC core mutex
-    mutex_name = "ARC_MSG" + std::to_string(pci_interface_id);
+    mutex_name = fmt::format("ARC_MSG{}", pci_interface_id);
     if (cleanup_mutexes_in_shm) named_mutex::remove(mutex_name.c_str());
     hardware_resource_mutex_map[mutex_name] = std::make_shared<named_mutex>(open_or_create, mutex_name.c_str(), unrestricted_permissions);
 
@@ -686,21 +686,21 @@ tt_SiliconDevice::tt_SiliconDevice(const std::string &sdesc_path, const std::str
         for (auto device_id = target_devices.begin(); device_id != target_devices.end(); device_id++) {
             log_assert(simulated_harvesting_masks.find(*device_id) != simulated_harvesting_masks.end(), "Could not find harvesting mask for device_id {}", *device_id);
             if(arch_name == tt::ARCH::GRAYSKULL) {
-                log_assert((simulated_harvesting_masks.at(*device_id) & harvested_rows_per_target[*device_id]) == harvested_rows_per_target[*device_id],
-                            "Simulated harvesting config for device {} does not include the actual harvesting config (real config must be contained in simulated config when running on device). Actual Harvested Rows : {}    Simulated Harvested Rows : {}",
-                            *device_id,  harvested_rows_per_target[*device_id], simulated_harvesting_masks.at(*device_id));
-
+                if ((simulated_harvesting_masks.at(*device_id) & harvested_rows_per_target[*device_id]) != harvested_rows_per_target[*device_id]) {
+                    log_warning(LogSiliconDriver,
+                                "Simulated harvesting config for device {} does not include the actual harvesting config. Simulated harvesting mask will be added to the real harvesting mask. Actual Harvested Rows : {}    Simulated Harvested Rows : {}",
+                                *device_id,  harvested_rows_per_target[*device_id], simulated_harvesting_masks.at(*device_id));
+                }
+                simulated_harvesting_masks.at(*device_id) |= harvested_rows_per_target[*device_id];
             }
             else if(arch_name == tt::ARCH::WORMHOLE_B0 || arch_name == tt::ARCH::WORMHOLE) {
                 log_assert(std::bitset<32>(simulated_harvesting_masks.at(*device_id)).count() >= std::bitset<32>(harvested_rows_per_target[*device_id]).count(),
                             "Simulated Harvesting for WH must contain at least as many rows as the actual harvesting config. Actual Harvested Rows : {}  Simulated Harvested Rows : {}",
                             harvested_rows_per_target[*device_id], simulated_harvesting_masks.at(*device_id));
                             num_rows_harvested.at(*device_id) = std::bitset<32>(simulated_harvesting_masks.at(*device_id)).count();
-            }
-            harvested_rows_per_target[*device_id] = simulated_harvesting_masks.at(*device_id);
-            if(arch_name == tt::ARCH::WORMHOLE or arch_name == tt::ARCH::WORMHOLE_B0) {
                 log_assert(performed_harvesting ? translation_tables_en : true, "Using a harvested WH cluster with NOC translation disabled.");
             }
+            harvested_rows_per_target[*device_id] = simulated_harvesting_masks.at(*device_id);
         }
     }
 
@@ -835,21 +835,21 @@ void tt_SiliconDevice::check_pcie_device_initialized(int device_id) {
     tt::ARCH device_arch = pci_device->get_arch();
     if (arch_name == tt::ARCH::GRAYSKULL) {
         if (device_arch != tt::ARCH::GRAYSKULL) {
-            throw std::runtime_error("Attempted to run grayskull configured tt_device on " + get_arch_str(device_arch));
+            throw std::runtime_error(fmt::format("Attempted to run grayskull configured tt_device on {}", get_arch_str(device_arch)));
         }
     }
     else if (arch_name == tt::ARCH::WORMHOLE || arch_name == tt::ARCH::WORMHOLE_B0) {
         if (device_arch != tt::ARCH::WORMHOLE && device_arch != tt::ARCH::WORMHOLE_B0) {
-            throw std::runtime_error("Attempted to run wormhole configured tt_device on " + get_arch_str(device_arch));
+            throw std::runtime_error(fmt::format("Attempted to run wormhole configured tt_device on {}", get_arch_str(device_arch)));
         }
     }
     else if (arch_name == tt::ARCH::BLACKHOLE) {
         if (device_arch != tt::ARCH::BLACKHOLE) {
-            throw std::runtime_error("Attempted to run blackhole configured tt_device on " + get_arch_str(device_arch));
+            throw std::runtime_error(fmt::format("Attempted to run blackhole configured tt_device on {}", get_arch_str(device_arch)));
         }
     }
     else {
-        throw std::runtime_error("Unsupported architecture: " + get_arch_str(arch_name));
+        throw std::runtime_error(fmt::format("Unsupported architecture: {}", get_arch_str(arch_name)));
     }
     auto architecture_implementation = pci_device->get_architecture_implementation();
 
@@ -862,11 +862,12 @@ void tt_SiliconDevice::check_pcie_device_initialized(int device_id) {
         uint32_t arc_msg_return = arc_msg(device_id, 0xaa00 | architecture_implementation->get_arc_message_test(), true, arg, 0, 1, &bar_read_again);
         if (arc_msg_return != 0 || bar_read_again != arg + 1) {
             auto postcode = bar_read32(device_id, architecture_implementation->get_arc_reset_scratch_offset());
-            throw std::runtime_error("Device is not initialized: arc_fw postcode: " + std::to_string(postcode)
-            + " arc_msg_return: " + std::to_string(arc_msg_return)
-            + " arg: " + std::to_string(arg)
-            + " bar_read_initial: " + std::to_string(bar_read_initial)
-            + " bar_read_again: " + std::to_string(bar_read_again));
+            throw std::runtime_error(fmt::format("Device is not initialized: arc_fw postcode: {} arc_msg_return: {} arg: {} bar_read_initial: {} bar_read_again: {}",
+                                                 postcode,
+                                                 arc_msg_return,
+                                                 arg,
+                                                 bar_read_initial,
+                                                 bar_read_again));
         }
     }
 
@@ -1085,7 +1086,7 @@ std::function<void(uint32_t, uint32_t, const uint8_t*)> tt_SiliconDevice::get_fa
 
 tt::Writer tt_SiliconDevice::get_static_tlb_writer(tt_cxy_pair target) {
     if (!ndesc->is_chip_mmio_capable(target.chip)) {
-        throw std::runtime_error("Target not in MMIO chip: " + target.str());
+        throw std::runtime_error(fmt::format("Target not in MMIO chip: {}", target.str()));
     }
 
     if (!tlbs_init || !map_core_to_tlb) {
@@ -1102,7 +1103,7 @@ tt::Writer tt_SiliconDevice::get_static_tlb_writer(tt_cxy_pair target) {
     auto tlb_data = dev->get_architecture_implementation()->describe_tlb(tlb_index);
 
     if (!tlb_data.has_value()) {
-        throw std::runtime_error("No TLB mapped to core " + target.str());
+        throw std::runtime_error(fmt::format("No TLB mapped to core {}", target.str()));
     }
 
     auto [tlb_offset, tlb_size] = tlb_data.value();
@@ -1209,9 +1210,10 @@ void tt_SiliconDevice::read_buffer(
     if(hugepage_mapping.at(src_device_id).at(channel)) {
       user_scratchspace = static_cast<char*>(hugepage_mapping.at(src_device_id).at(channel)) + (address & HUGEPAGE_MAP_MASK);
     } else {
-      std::string err_msg = "write_buffer: Hugepages are not allocated for src_device_id: " + std::to_string(src_device_id) + " ch: " + std::to_string(channel);
-      err_msg += " - Ensure sufficient number of Hugepages installed per device (1 per host mem ch, per device)";
-      throw std::runtime_error(err_msg);
+        throw std::runtime_error(fmt::format("write_buffer: Hugepages are not allocated for src_device_id: {} ch: {}."
+                                             " - Ensure sufficient number of Hugepages installed per device (1 per host mem ch, per device)",
+                                             src_device_id,
+                                             channel));
     }
 
     LOG1("---- tt_SiliconDevice::read_buffer (src_device_id: %d, ch: %d) from 0x%lx\n",  src_device_id, channel, user_scratchspace);
@@ -1236,8 +1238,9 @@ void tt_SiliconDevice::write_buffer(
         size);
       user_scratchspace = static_cast<char*>(hugepage_mapping.at(src_device_id).at(channel)) + (address & HUGEPAGE_MAP_MASK);
     } else {
-      std::string err_msg = "write_buffer: Hugepage are not allocated for src_device_id: " + std::to_string(src_device_id) + " ch: " + std::to_string(channel);
-      throw std::runtime_error(err_msg);
+        throw std::runtime_error(fmt::format("write_buffer: Hugepage are not allocated for src_device_id: {} ch: {}",
+                                             src_device_id,
+                                             channel));
     }
     memcpy(user_scratchspace, mem_ptr, size);
 }
@@ -1273,8 +1276,7 @@ void tt_SiliconDevice::set_pcie_power_state(tt_DevicePowerState state) {
         ss << state;
         auto exit_code = arc_msg(d, 0xaa00 | msg, true, 0, 0);
         if (exit_code != 0) {
-            throw std::runtime_error(
-                "Failed to set power state to " + ss.str() + " with exit code " + std::to_string(exit_code));
+            throw std::runtime_error(fmt::format("Failed to set power state to {} with exit code {}", ss.str(), exit_code));
         }
     }
 }
@@ -1297,7 +1299,7 @@ int tt_SiliconDevice::get_clock(int logical_device_id) {
     PCIDevice* pci_device = get_pci_device(mmio_capable_chip_logical);
     auto exit_code = arc_msg(logical_device_id, 0xaa00 | pci_device->get_architecture_implementation()->get_arc_message_get_aiclk(), true, 0xFFFF, 0xFFFF, 1, &clock);
     if (exit_code != 0) {
-        throw std::runtime_error("Failed to get aiclk value with exit code " + std::to_string(exit_code));
+        throw std::runtime_error(fmt::format("Failed to get aiclk value with exit code {}", exit_code));
     }
     return clock;
 }
@@ -1388,8 +1390,7 @@ void tt_SiliconDevice::init_pcie_iatus() {
                 }
                 host_channel_size.at(src_pci_device -> logical_id).push_back(region_size);
             } else {
-                std::string err_msg = "init_pcie_iatus: Hugepages are not allocated for src_pci_id: " + std::to_string(src_pci_id) + " ch: " + std::to_string(channel_id);
-                throw std::runtime_error(err_msg);
+                throw std::runtime_error(fmt::format("init_pcie_iatus: Hugepages are not allocated for src_pci_id: {} ch: {}", src_pci_id, channel_id));
             }
         }
     }
@@ -1399,7 +1400,7 @@ void tt_SiliconDevice::init_pcie_iatus() {
 std::string find_hugepage_dir(std::size_t pagesize)
 {
 
-    static const std::regex hugetlbfs_mount_re("^(nodev|hugetlbfs) (" + hugepage_dir + ") hugetlbfs ([^ ]+) 0 0$");
+    static const std::regex hugetlbfs_mount_re(fmt::format("^(nodev|hugetlbfs) ({}) hugetlbfs ([^ ]+) 0 0$", hugepage_dir));
     static const std::regex pagesize_re("(?:^|,)pagesize=([0-9]+)([KMGT])(?:,|$)");
 
     std::ifstream proc_mounts("/proc/mounts");
@@ -1446,12 +1447,12 @@ int tt_SiliconDevice::open_hugepage_file(const std::string &dir, chip_id_t physi
     // In order to limit number of hugepages while transition from shared hugepage (1 per system) to unique
     // hugepage per device, will share original/shared hugepage filename with physical device 0.
     if (physical_device_id != 0 || channel != 0){
-        std::string device_id_str = "device_" + std::to_string((int)physical_device_id) + "_";
+        std::string device_id_str = fmt::format("device_{}_channel_{}_", physical_device_id, channel);
         filename.insert(filename.end(), device_id_str.begin(), device_id_str.end());
     }
 
     if (channel != 0) {
-        std::string channel_id_str = "channel_" + std::to_string(channel) + "_";
+        std::string channel_id_str = fmt::format("channel_{}_", channel);
         filename.insert(filename.end(), channel_id_str.begin(), channel_id_str.end());
     }
 
@@ -1495,8 +1496,7 @@ void print_file_contents(std::string filename, std::string hint = ""){
 
 // Initialize hugepage, N per device (all same size).
 bool tt_SiliconDevice::init_hugepage(chip_id_t device_id) {
-    const std::size_t hugepage_size = (std::size_t)1 << 30;
-    const std::size_t mapping_size = (std::size_t) HUGEPAGE_REGION_SIZE;
+    const size_t hugepage_size = HUGEPAGE_REGION_SIZE;
 
     // Convert from logical (device_id in netlist) to physical device_id (in case of virtualization)
     auto dev = m_pci_device_map.at(device_id).get();
@@ -1521,14 +1521,12 @@ bool tt_SiliconDevice::init_hugepage(chip_id_t device_id) {
             continue;
         }
 
-        std::byte *mapping = static_cast<std::byte*>(mmap(nullptr, mapping_size, PROT_READ|PROT_WRITE, MAP_SHARED | MAP_POPULATE, hugepage_fd, 0));
+        std::byte *mapping = static_cast<std::byte*>(mmap(nullptr, hugepage_size, PROT_READ|PROT_WRITE, MAP_SHARED | MAP_POPULATE, hugepage_fd, 0));
 
         close(hugepage_fd);
 
         if (mapping == MAP_FAILED) {
-            uint32_t num_tt_mmio_devices_for_arch = tt::cpuset::tt_cpuset_allocator::get_num_tt_pci_devices_by_pci_device_id(physical_device_id, dev->pcie_revision_id);
-            WARN("---- ttSiliconDevice::init_hugepage: physical_device_id: %d ch: %d mapping hugepage failed. (errno: %s).\n", physical_device_id, ch, strerror(errno));
-            WARN("---- Possible hint: /proc/cmdline should have hugepages=N, nr_hugepages=N - (N = NUM_MMIO_TT_DEVICES * (is_grayskull ? 1 : 4). NUM_MMIO_DEVICES = %d\n", num_tt_mmio_devices_for_arch);
+            WARN("UMD: Mapping a hugepage failed. (device: %d, %d/%d errno: %s).\n", physical_device_id, ch, m_num_host_mem_channels, strerror(errno));
             print_file_contents("/proc/cmdline");\
             print_file_contents("/sys/kernel/mm/hugepages/hugepages-1048576kB/nr_hugepages"); // Hardcoded for 1GB hugepage.
             success = false;
@@ -1536,7 +1534,7 @@ bool tt_SiliconDevice::init_hugepage(chip_id_t device_id) {
         }
 
         // Beter performance if hugepage just allocated (populate flag to prevent lazy alloc) is migrated to same numanode as TT device.
-        if (!tt::cpuset::tt_cpuset_allocator::bind_area_to_memory_nodeset(physical_device_id, mapping, mapping_size)){
+        if (!tt::cpuset::tt_cpuset_allocator::bind_area_to_memory_nodeset(physical_device_id, mapping, hugepage_size)){
             WARN("---- ttSiliconDevice::init_hugepage: bind_area_to_memory_nodeset() failed (physical_device_id: %d ch: %d). "
             "Hugepage allocation is not on NumaNode matching TT Device. Side-Effect is decreased Device->Host perf (Issue #893).\n",
             physical_device_id, ch);
@@ -1547,13 +1545,13 @@ bool tt_SiliconDevice::init_hugepage(chip_id_t device_id) {
         pin_pages.in.output_size_bytes = sizeof(pin_pages.out);
         pin_pages.in.flags = TENSTORRENT_PIN_PAGES_CONTIGUOUS;
         pin_pages.in.virtual_address = reinterpret_cast<std::uintptr_t>(mapping);
-        pin_pages.in.size = mapping_size;
+        pin_pages.in.size = hugepage_size;
 
         auto &fd = g_SINGLE_PIN_PAGE_PER_FD_WORKAROND ? dev->device_fd_per_host_ch[ch] : dev->device_fd;
 
         if (ioctl(fd, TENSTORRENT_IOCTL_PIN_PAGES, &pin_pages) == -1) {
             WARN("---- ttSiliconDevice::init_hugepage: physical_device_id: %d ch: %d TENSTORRENT_IOCTL_PIN_PAGES failed (errno: %s). Common Issue: Requires TTMKD >= 1.11, see following file contents...\n", physical_device_id, ch, strerror(errno));
-            munmap(mapping, mapping_size);
+            munmap(mapping, hugepage_size);
             print_file_contents("/sys/module/tenstorrent/version", "(TTKMD version)");
             print_file_contents("/proc/meminfo");
             print_file_contents("/proc/buddyinfo");
@@ -1562,10 +1560,10 @@ bool tt_SiliconDevice::init_hugepage(chip_id_t device_id) {
         }
 
         hugepage_mapping.at(device_id).at(ch) = mapping;
-        hugepage_mapping_size.at(device_id).at(ch) = mapping_size;
+        hugepage_mapping_size.at(device_id).at(ch) = hugepage_size;
         hugepage_physical_address.at(device_id).at(ch) = pin_pages.out.physical_address;
 
-        LOG1("---- ttSiliconDevice::init_hugepage: physical_device_id: %d ch: %d mapping_size: %d physical address 0x%llx\n", physical_device_id, ch, mapping_size, (unsigned long long)hugepage_physical_address.at(device_id).at(ch));
+        LOG1("---- ttSiliconDevice::init_hugepage: physical_device_id: %d ch: %d mapping_size: %d physical address 0x%llx\n", physical_device_id, ch, hugepage_size, (unsigned long long)hugepage_physical_address.at(device_id).at(ch));
 
     }
 
@@ -1609,7 +1607,7 @@ int tt_SiliconDevice::test_setup_interface () {
         return 0;
     }
     else {
-        throw std::runtime_error("Unsupported architecture: " + get_arch_str(arch_name));
+        throw std::runtime_error(fmt::format("Unsupported architecture: {}", get_arch_str(arch_name)));
     }
 }
 
@@ -1670,7 +1668,7 @@ int tt_SiliconDevice::pcie_arc_msg(int logical_device_id, uint32_t msg_code, boo
         auto start = std::chrono::system_clock::now();
         while (true) {
             if (std::chrono::system_clock::now() - start > timeout_seconds) {
-                throw std::runtime_error("Timed out after waiting " + std::to_string(timeout) + " seconds for device " + std::to_string(logical_device_id) + " ARC to respond");
+                throw std::runtime_error(fmt::format("Timed out after waiting {} seconds for device {} ARC to respond", timeout, logical_device_id));
             }
 
             status = bar_read32(logical_device_id, architecture_implementation->get_arc_reset_scratch_offset() + 5 * 4);
@@ -1801,7 +1799,7 @@ void tt_SiliconDevice::enable_local_ethernet_queue(const chip_id_t &device_id, i
     auto start = std::chrono::system_clock::now();
     while (msg_success != 1) {
         if (std::chrono::system_clock::now() - start > timeout_seconds) {
-            throw std::runtime_error("Timed out after waiting " + std::to_string(timeout) + " seconds for DRAM to finish training");
+            throw std::runtime_error(fmt::format("Timed out after waiting {} seconds for for DRAM to finish training", timeout));
         }
 
         if (arc_msg(device_id, 0xaa58, true, 0xFFFF, 0xFFFF, 1, &msg_success) == MSG_ERROR_REPLY) {
@@ -1821,7 +1819,7 @@ void *tt_SiliconDevice::host_dma_address(std::uint64_t offset, chip_id_t src_dev
 // Wrapper for throwing more helpful exception when not-enabled pci intf is accessed.
 inline PCIDevice* tt_SiliconDevice::get_pci_device(int device_id) const {
     if (!m_pci_device_map.count(device_id)){
-        throw std::runtime_error(std::string("device_id: " + std::to_string(device_id) + " attempted to be accessed, but is not enabled."));
+        throw std::runtime_error(fmt::format("device_id: {} attempted to be accessed, but is not enabled.", device_id));
     }
     return m_pci_device_map.at(device_id).get();
 }
@@ -2631,7 +2629,7 @@ int tt_SiliconDevice::remote_arc_msg(int chip, uint32_t msg_code, bool wait_for_
             if (std::chrono::system_clock::now() - start > timeout_seconds) {
                 std::stringstream ss;
                 ss << std::hex << msg_code;
-                throw std::runtime_error("Timed out after waiting " + std::to_string(timeout) + " seconds for device " + std::to_string(chip) + " ARC to respond to message 0x" +  ss.str());
+                throw std::runtime_error(fmt::format("Timed out after waiting {} seconds for device {} ARC to respond to message 0x{}", timeout, chip, ss.str()));
             }
 
             uint32_t status = 0;
@@ -2880,7 +2878,7 @@ void tt_SiliconDevice::enable_remote_ethernet_queue(const chip_id_t& chip, int t
     auto start = std::chrono::system_clock::now();
     while (msg_success != 1) {
         if (std::chrono::system_clock::now() - start > timeout_seconds) {
-            throw std::runtime_error("Timed out after waiting " + std::to_string(timeout) + " seconds for DRAM to finish training");
+            throw std::runtime_error(fmt::format("Timed out after waiting {} seconds for DRAM to finish training", timeout));
         }
         int msg_rt = remote_arc_msg(chip, 0xaa58, true, 0xFFFF, 0xFFFF, 1, &msg_success, NULL);
         if (msg_rt == MSG_ERROR_REPLY) {

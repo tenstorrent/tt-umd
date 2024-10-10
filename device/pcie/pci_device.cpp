@@ -156,6 +156,24 @@ inline void memcpy_from_device(void *dest, const void *src, std::size_t num_byte
 // --------------------------------------------------------------------------------------------------------------
 // --------------------------------------------------------------------------------------------------------------
 
+/* static */ std::vector<int> PCIDevice::enumerate_devices() {
+    std::vector<int> device_ids;
+    std::string path = "/dev/tenstorrent/";
+
+    for (const auto& entry : std::filesystem::directory_iterator(path)) {
+        std::string filename = entry.path().filename().string();
+
+        // TODO: this will skip any device that has a non-numeric name, which
+        // is probably what we want longer-term (i.e. a UUID or something).
+        if (std::all_of(filename.begin(), filename.end(), ::isdigit)) {
+            device_ids.push_back(std::stoi(filename));
+        }
+    }
+
+    std::sort(device_ids.begin(), device_ids.end());
+    return device_ids;
+}
+
 PCIDevice::PCIDevice(int device_id, int logical_device_id) {
     // TODO: use C++ constructor to do everything
     // TODO: make public member vars const

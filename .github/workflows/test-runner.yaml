@@ -8,6 +8,7 @@ jobs:
   check-runners-host:
     timeout-minutes: 10
     strategy:
+      fail-fast: false
       matrix:
         machine: [ ubuntu-20.04, ubuntu-22.04, e75, e150, e300, n150, n300 ]
 
@@ -15,6 +16,11 @@ jobs:
     runs-on: ${{ matrix.machine }}
 
     steps:
+
+    - name: Fix ownership    
+      run: |
+        sudo chown -R ubuntu:ubuntu $GITHUB_WORKSPACE || true
+
     - uses: actions/checkout@v4
 
     - name: Print machine info    
@@ -50,6 +56,7 @@ jobs:
   check-runners-docker:
     timeout-minutes: 10
     strategy:
+      fail-fast: false
       matrix:
         machine: [ ubuntu-20.04, ubuntu-22.04, e75, e150, e300, n150, n300 ]
         image: [ tt-umd-ci-ubuntu-22.04, tt-umd-ci-ubuntu-20.04 ]
@@ -60,12 +67,25 @@ jobs:
 
     container:
       image: ghcr.io/${{ github.repository }}/${{ matrix.image }}:latest
-      options: --user root
       volumes:
         - /dev/hugepages:/dev/hugepages
         - /dev/hugepages-1G:/dev/hugepages-1G
 
     steps:
+
+    - name: Set working directory env variable
+      id: strings
+      shell: bash
+      run: |
+        echo "WORK_DIR=$(pwd)" >> $GITHUB_ENV
+
+    - name: Git add safe dir for working directory
+      run: |
+        # Mark the main repository as safe
+        git config --global --add safe.directory ${{ env.WORK_DIR }} || true
+        # Iterate over all submodules and mark them as safe
+        git submodule foreach 'git config --global --add safe.directory "$toplevel/$sm_path"' || true
+
     - uses: actions/checkout@v4
       with:
         submodules: recursive

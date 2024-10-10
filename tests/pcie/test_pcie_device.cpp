@@ -1,5 +1,6 @@
 
 #include <gtest/gtest.h>
+#include "fmt/xchar.h"
 
 #include <algorithm>
 #include <filesystem>
@@ -27,7 +28,8 @@ TEST(PcieDeviceTest, Numa) {
         bool all_non_negative = std::all_of(nodes.begin(), nodes.end(), [](int node) { return node >= 0; });
 
         EXPECT_TRUE(all_negative_one || all_non_negative)
-            << "NUMA nodes should either all be -1 (non-NUMA system) or all be non-negative (NUMA system)";
+            << "NUMA nodes should either all be -1 (non-NUMA system) or all be non-negative (NUMA system)"
+            << " but got: " << fmt::format("{}", fmt::join(nodes, ", "));
     } else {
         SUCCEED() << "No PCIe devices were enumerated";
     }

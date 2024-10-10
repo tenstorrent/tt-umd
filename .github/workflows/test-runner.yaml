@@ -67,7 +67,6 @@ jobs:
 
     container:
       image: ghcr.io/${{ github.repository }}/${{ matrix.image }}:latest
-      # options: --user root
       volumes:
         - /dev/hugepages:/dev/hugepages
         - /dev/hugepages-1G:/dev/hugepages-1G

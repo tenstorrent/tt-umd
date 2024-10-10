@@ -8,29 +8,11 @@
 
 #include "device/pcie/pci_device.hpp"
 
-static std::vector<int> simple_pcie_device_enumeration()
-{
-    std::vector<int> device_ids;
-    std::string path = "/dev/tenstorrent/";
-
-    for (const auto& entry : std::filesystem::directory_iterator(path)) {
-        std::string filename = entry.path().filename().string();
-
-        // TODO: this will skip any device that has a non-numeric name, which
-        // is probably what we want longer-term (i.e. a UUID or something).
-        if (std::all_of(filename.begin(), filename.end(), ::isdigit)) {
-            device_ids.push_back(std::stoi(filename));
-        }
-    }
-
-    std::sort(device_ids.begin(), device_ids.end());
-    return device_ids;
-}
 
 TEST(PcieDeviceTest, Numa) {
     std::vector<int> nodes;
 
-    for (auto device_id : simple_pcie_device_enumeration()) {
+    for (auto device_id : PCIDevice::enumerate_devices()) {
         PCIDevice device(device_id, 0);
         nodes.push_back(device.numa_node);
     }

@@ -686,21 +686,21 @@ tt_SiliconDevice::tt_SiliconDevice(const std::string &sdesc_path, const std::str
         for (auto device_id = target_devices.begin(); device_id != target_devices.end(); device_id++) {
             log_assert(simulated_harvesting_masks.find(*device_id) != simulated_harvesting_masks.end(), "Could not find harvesting mask for device_id {}", *device_id);
             if(arch_name == tt::ARCH::GRAYSKULL) {
-                log_assert((simulated_harvesting_masks.at(*device_id) & harvested_rows_per_target[*device_id]) == harvested_rows_per_target[*device_id],
-                            "Simulated harvesting config for device {} does not include the actual harvesting config (real config must be contained in simulated config when running on device). Actual Harvested Rows : {}    Simulated Harvested Rows : {}",
-                            *device_id,  harvested_rows_per_target[*device_id], simulated_harvesting_masks.at(*device_id));
-
+                if ((simulated_harvesting_masks.at(*device_id) & harvested_rows_per_target[*device_id]) != harvested_rows_per_target[*device_id]) {
+                    log_warning(LogSiliconDriver,
+                                "Simulated harvesting config for device {} does not include the actual harvesting config. Simulated harvesting mask will be added to the real harvesting mask. Actual Harvested Rows : {}    Simulated Harvested Rows : {}",
+                                *device_id,  harvested_rows_per_target[*device_id], simulated_harvesting_masks.at(*device_id));
+                }
+                simulated_harvesting_masks.at(*device_id) |= harvested_rows_per_target[*device_id];
             }
             else if(arch_name == tt::ARCH::WORMHOLE_B0 || arch_name == tt::ARCH::WORMHOLE) {
                 log_assert(std::bitset<32>(simulated_harvesting_masks.at(*device_id)).count() >= std::bitset<32>(harvested_rows_per_target[*device_id]).count(),
                             "Simulated Harvesting for WH must contain at least as many rows as the actual harvesting config. Actual Harvested Rows : {}  Simulated Harvested Rows : {}",
                             harvested_rows_per_target[*device_id], simulated_harvesting_masks.at(*device_id));
                             num_rows_harvested.at(*device_id) = std::bitset<32>(simulated_harvesting_masks.at(*device_id)).count();
-            }
-            harvested_rows_per_target[*device_id] = simulated_harvesting_masks.at(*device_id);
-            if(arch_name == tt::ARCH::WORMHOLE or arch_name == tt::ARCH::WORMHOLE_B0) {
                 log_assert(performed_harvesting ? translation_tables_en : true, "Using a harvested WH cluster with NOC translation disabled.");
             }
+            harvested_rows_per_target[*device_id] = simulated_harvesting_masks.at(*device_id);
         }
     }
 

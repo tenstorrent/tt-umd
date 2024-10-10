@@ -53,9 +53,9 @@ TEST(SiliconDriverGS, Harvesting) {
 
     ASSERT_EQ(device.using_harvested_soc_descriptors(), true) << "Expected Driver to have performed harvesting";
     for(const auto& chip : sdesc_per_chip) {
-        ASSERT_EQ(chip.second.workers.size(), 96) << "Expected SOC descriptor with harvesting to have 96 workers for chip " << chip.first;
+        ASSERT_LE(chip.second.workers.size(), 96) << "Expected SOC descriptor with harvesting to have less than or equal to 96 workers for chip " << chip.first;
     }
-    ASSERT_EQ(device.get_harvesting_masks_for_soc_descriptors().at(0), 6) << "Expected first chip to have harvesting mask of 6";
+    ASSERT_EQ(device.get_harvesting_masks_for_soc_descriptors().at(0) & simulated_harvesting_masks[0], 6) << "Expected first chip to include simulated harvesting mask of 6";
     // ASSERT_EQ(device.get_harvesting_masks_for_soc_descriptors().at(1), 12) << "Expected second chip to have harvesting mask of 12";
     device.close_device();
 }

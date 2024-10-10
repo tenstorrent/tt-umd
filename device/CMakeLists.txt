@@ -1,6 +1,6 @@
 
 set(UMD_DEVICE_SRCS
-    architecture_implementation.cpp
+    tt_device/tt_device.cpp
     cpuset_lib.cpp
     tlb.cpp
     tt_cluster_descriptor.cpp
@@ -10,9 +10,9 @@ set(UMD_DEVICE_SRCS
     tt_soc_descriptor.cpp
     simulation/tt_simulation_device.cpp
     simulation/tt_simulation_host.cpp
-    blackhole/blackhole_implementation.cpp
-    grayskull/grayskull_implementation.cpp
-    wormhole/wormhole_implementation.cpp
+    tt_device/blackhole_tt_device.cpp
+    tt_device/grayskull_tt_device.cpp
+    tt_device/wormhole_tt_device.cpp
     pcie/pci_device.cpp
 )
 add_library(umd_device SHARED ${UMD_DEVICE_SRCS})

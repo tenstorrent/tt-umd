@@ -8,7 +8,7 @@
 
 #include <array>
 
-#include "device/architecture_implementation.h"
+#include "device/tt_device/tt_device.h"
 #include "device/tlb.h"
 #include <stdexcept>
 
@@ -167,7 +167,7 @@ static constexpr uint32_t MSG_TYPE_SETUP_IATU_FOR_PEER_TO_PEER = 0x97;
 
 }  // namespace blackhole
 
-class blackhole_implementation : public architecture_implementation {
+class BlackholeTTDevice : public TTDevice {
    public:
     architecture get_architecture() const override { return architecture::blackhole; }
     uint32_t get_arc_message_arc_get_harvesting() const override {

@@ -2,15 +2,15 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-#include "grayskull_implementation.h"
+#include "grayskull_tt_device.h"
 
 namespace tt::umd {
 
-std::tuple<xy_pair, xy_pair> grayskull_implementation::multicast_workaround(xy_pair start, xy_pair end) const {
+std::tuple<xy_pair, xy_pair> GrayskullTTDevice::multicast_workaround(xy_pair start, xy_pair end) const {
     return std::make_tuple(start, end);
 }
 
-tlb_configuration grayskull_implementation::get_tlb_configuration(uint32_t tlb_index) const {
+tlb_configuration GrayskullTTDevice::get_tlb_configuration(uint32_t tlb_index) const {
     if (tlb_index >= grayskull::TLB_BASE_INDEX_16M) {
         return tlb_configuration{
             .size = grayskull::DYNAMIC_TLB_16M_SIZE,
@@ -38,7 +38,7 @@ tlb_configuration grayskull_implementation::get_tlb_configuration(uint32_t tlb_i
     }
 }
 
-std::optional<std::tuple<std::uint64_t, std::uint64_t>> grayskull_implementation::describe_tlb(
+std::optional<std::tuple<std::uint64_t, std::uint64_t>> GrayskullTTDevice::describe_tlb(
     std::int32_t tlb_index) const {
     std::uint32_t TLB_COUNT_1M = 156;
     std::uint32_t TLB_COUNT_2M = 10;
@@ -68,7 +68,7 @@ std::optional<std::tuple<std::uint64_t, std::uint64_t>> grayskull_implementation
     return std::nullopt;
 }
 
-std::pair<std::uint64_t, std::uint64_t> grayskull_implementation::get_tlb_data(
+std::pair<std::uint64_t, std::uint64_t> GrayskullTTDevice::get_tlb_data(
     std::uint32_t tlb_index, const tlb_data &data) const {
     if (tlb_index < grayskull::TLB_COUNT_1M) {
         return data.apply_offset(grayskull::TLB_1M_OFFSET);

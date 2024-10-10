@@ -8,7 +8,7 @@
 
 #include <array>
 
-#include "device/architecture_implementation.h"
+#include "device/tt_device/tt_device.h"
 #include "device/tlb.h"
 
 namespace tt::umd {
@@ -170,7 +170,7 @@ static constexpr uint32_t TENSIX_SOFT_RESET_ADDR = 0xFFB121B0;
 
 }  // namespace grayskull
 
-class grayskull_implementation : public architecture_implementation {
+class GrayskullTTDevice : public TTDevice {
    public:
     architecture get_architecture() const override { return architecture::grayskull; }
     uint32_t get_arc_message_arc_get_harvesting() const override {

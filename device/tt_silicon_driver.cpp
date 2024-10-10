@@ -45,7 +45,7 @@
 #include "device/cpuset_lib.hpp"
 #include "device/driver_atomics.h"
 #include "device/architecture.h"
-#include "device/architecture_implementation.h"
+#include "device/tt_device/tt_device.h"
 #include "device/tlb.h"
 #include "device/tt_arch_types.h"
 #include "tt_device.h"
@@ -531,7 +531,7 @@ tt_SiliconDevice::tt_SiliconDevice(const std::string &sdesc_path, const std::str
     dynamic_tlb_config = dynamic_tlb_config_;
 
     // It is mandatory for all devices to have these TLBs set aside, as the driver needs them to issue remote reads and writes.
-    auto architecture_implementation = tt::umd::architecture_implementation::create(static_cast<tt::umd::architecture>(arch_name));
+    auto architecture_implementation = tt::umd::TTDevice::create(static_cast<tt::umd::architecture>(arch_name));
     dynamic_tlb_config["LARGE_READ_TLB"] =  architecture_implementation->get_mem_large_read_tlb();
     dynamic_tlb_config["LARGE_WRITE_TLB"] = architecture_implementation->get_mem_large_write_tlb();
 
@@ -1270,7 +1270,7 @@ std::optional<std::tuple<uint32_t, uint32_t>> tt_SiliconDevice::get_tlb_data_fro
 
     if (tlbs_init) {
         tlb_index = map_core_to_tlb(target);
-        auto architecture_implementation = tt::umd::architecture_implementation::create(static_cast<tt::umd::architecture>(arch_name));
+        auto architecture_implementation = tt::umd::TTDevice::create(static_cast<tt::umd::architecture>(arch_name));
         tlb_data = architecture_implementation->describe_tlb(tlb_index);
     } 
     return tlb_data;
@@ -1676,7 +1676,7 @@ int tt_SiliconDevice::iatu_configure_peer_region (int logical_device_id, uint32_
 
 // Returns broken rows as bits set to 1 in 'memory' and 'logic'
 uint32_t tt_SiliconDevice::get_harvested_noc_rows(uint32_t harvesting_mask) {
-    auto architecture_implementation = tt::umd::architecture_implementation::create(static_cast<tt::umd::architecture>(arch_name));
+    auto architecture_implementation = tt::umd::TTDevice::create(static_cast<tt::umd::architecture>(arch_name));
     const std::vector<uint32_t> &harv_to_noc_loc = architecture_implementation->get_harvesting_noc_locations();
     uint32_t harv_noc_rows = 0;
     std::string harv_noc_rows_str = "";
@@ -2365,7 +2365,7 @@ void tt_SiliconDevice::pcie_broadcast_write(chip_id_t chip, const void* mem_ptr,
     }
 }
 
-inline bool tensix_or_eth_in_broadcast(const std::set<uint32_t>& cols_to_exclude, const tt::umd::architecture_implementation* architecture_implementation) {
+inline bool tensix_or_eth_in_broadcast(const std::set<uint32_t>& cols_to_exclude, const tt::umd::TTDevice* architecture_implementation) {
     bool found_tensix_or_eth = false;
     for(const auto& col : architecture_implementation->get_t6_x_locations()) {
         found_tensix_or_eth |= (cols_to_exclude.find(col) == cols_to_exclude.end());
@@ -2373,7 +2373,7 @@ inline bool tensix_or_eth_in_broadcast(const std::set<uint32_t>& cols_to_exclude
     return found_tensix_or_eth;
 }
 
-inline bool valid_tensix_broadcast_grid(const std::set<uint32_t>& rows_to_exclude, const std::set<uint32_t>& cols_to_exclude, const tt::umd::architecture_implementation* architecture_implementation) {
+inline bool valid_tensix_broadcast_grid(const std::set<uint32_t>& rows_to_exclude, const std::set<uint32_t>& cols_to_exclude, const tt::umd::TTDevice* architecture_implementation) {
     bool t6_bcast_rows_complete = true;
     bool t6_bcast_rows_empty = true;
     
@@ -2455,7 +2455,7 @@ void tt_SiliconDevice::broadcast_write_to_cluster(const void *mem_ptr, uint32_t 
         } 
     }
     else if (arch_name == tt::ARCH::BLACKHOLE) {
-        auto architecture_implementation = tt::umd::architecture_implementation::create(static_cast<tt::umd::architecture>(arch_name));
+        auto architecture_implementation = tt::umd::TTDevice::create(static_cast<tt::umd::architecture>(arch_name));
         if(cols_to_exclude.find(0) == cols_to_exclude.end() or cols_to_exclude.find(9) == cols_to_exclude.end()) {
             log_assert(!tensix_or_eth_in_broadcast(cols_to_exclude, architecture_implementation.get()), "Cannot broadcast to tensix/ethernet and DRAM simultaneously on Blackhole.");
             if(cols_to_exclude.find(0) == cols_to_exclude.end()) {
@@ -2483,7 +2483,7 @@ void tt_SiliconDevice::broadcast_write_to_cluster(const void *mem_ptr, uint32_t 
         }
     }
     else {
-        auto architecture_implementation = tt::umd::architecture_implementation::create(static_cast<tt::umd::architecture>(arch_name));
+        auto architecture_implementation = tt::umd::TTDevice::create(static_cast<tt::umd::architecture>(arch_name));
         if(cols_to_exclude.find(0) == cols_to_exclude.end() or cols_to_exclude.find(5) == cols_to_exclude.end()) {
             log_assert(!tensix_or_eth_in_broadcast(cols_to_exclude, architecture_implementation.get()), "Cannot broadcast to tensix/ethernet and DRAM simultaneously on Wormhole.");
             if(cols_to_exclude.find(0) == cols_to_exclude.end()) {

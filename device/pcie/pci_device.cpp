@@ -19,7 +19,6 @@
 #include "ioctl.h"
 #include "device/tt_arch_types.h"
 #include "device/driver_atomics.h"
-#include "device/architecture_implementation.h"
 #include "common/assert.hpp"
 #include "common/logger.hpp"
 
@@ -197,7 +196,7 @@ void PCIDevice::setup_device() {
     this->pcie_device_id = get_pcie_info(this->device_id, "pcie_device_id");
     this->pcie_revision_id = get_pcie_info(this->device_id, "revision");
     this->arch = detect_arch(pcie_device_id, pcie_revision_id);
-    this->architecture_implementation = tt::umd::architecture_implementation::create(static_cast<tt::umd::architecture>(arch));
+    this->architecture_implementation = tt::umd::TTDevice::create(static_cast<tt::umd::architecture>(arch));
 
     struct {
         tenstorrent_query_mappings query_mappings;

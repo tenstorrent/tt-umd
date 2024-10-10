@@ -2,11 +2,11 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-#include "wormhole_implementation.h"
+#include "wormhole_tt_device.h"
 
 namespace tt::umd {
 
-std::tuple<xy_pair, xy_pair> wormhole_implementation::multicast_workaround(xy_pair start, xy_pair end) const {
+std::tuple<xy_pair, xy_pair> WormholeTTDevice::multicast_workaround(xy_pair start, xy_pair end) const {
     // When multicasting there is a rare case where including the multicasting node in the box can result in a backup
     // and the multicasted data not reaching all endpoints specified. As a workaround we exclude the pci endpoint from
     // the multicast. This doesn't cause any problems with making some tensix cores inaccessible because column 0 (which
@@ -15,7 +15,7 @@ std::tuple<xy_pair, xy_pair> wormhole_implementation::multicast_workaround(xy_pa
     return std::make_tuple(start, end);
 }
 
-tlb_configuration wormhole_implementation::get_tlb_configuration(uint32_t tlb_index) const {
+tlb_configuration WormholeTTDevice::get_tlb_configuration(uint32_t tlb_index) const {
     if (tlb_index >= wormhole::TLB_BASE_INDEX_16M) {
         return tlb_configuration{
             .size = wormhole::DYNAMIC_TLB_16M_SIZE,
@@ -43,7 +43,7 @@ tlb_configuration wormhole_implementation::get_tlb_configuration(uint32_t tlb_in
     }
 }
 
-std::optional<std::tuple<std::uint64_t, std::uint64_t>> wormhole_implementation::describe_tlb(
+std::optional<std::tuple<std::uint64_t, std::uint64_t>> WormholeTTDevice::describe_tlb(
     std::int32_t tlb_index) const {
     std::uint32_t TLB_COUNT_1M = 156;
     std::uint32_t TLB_COUNT_2M = 10;
@@ -72,7 +72,7 @@ std::optional<std::tuple<std::uint64_t, std::uint64_t>> wormhole_implementation:
     return std::nullopt;
 }
 
-std::pair<std::uint64_t, std::uint64_t> wormhole_implementation::get_tlb_data(
+std::pair<std::uint64_t, std::uint64_t> WormholeTTDevice::get_tlb_data(
     std::uint32_t tlb_index, const tlb_data &data) const {
     std::uint32_t TLB_COUNT_1M = 156;
     std::uint32_t TLB_COUNT_2M = 10;

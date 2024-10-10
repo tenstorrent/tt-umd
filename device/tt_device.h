@@ -585,7 +585,7 @@ class tt_device
     std::unordered_map<chip_id_t, tt_SocDescriptor> soc_descriptor_per_chip = {};
 };
 
-#include "device/architecture_implementation.h"
+#include "device/tt_device/tt_device.h"
 
 /**
 * Silicon Driver Class, derived from the tt_device class

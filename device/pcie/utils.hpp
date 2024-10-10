@@ -47,7 +47,7 @@ tenstorrent_get_device_info get_pcie_device_info(int device_fd) {
 std::uint32_t get_pcie_info(int device_id, const std::string &info_needed) {
     // Get PCIe device info through iotcl
     int device_fd = find_device(device_id);
-    static const tenstorrent_get_device_info device_info = get_pcie_device_info(device_fd);
+    auto device_info = get_pcie_device_info(device_fd);
 
     if(info_needed == "pcie_device_id"){
         return device_info.out.device_id;

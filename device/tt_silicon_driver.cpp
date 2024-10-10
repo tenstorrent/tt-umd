@@ -164,49 +164,6 @@ bool is_char_dev(const dirent *ent, const char *parent_dir) {
     }
 }
 
-std::vector<chip_id_t> ttkmd_scan() {
-
-    static const char dev_dir[] = "/dev/tenstorrent";
-
-    std::vector<chip_id_t> found_devices;
-
-    DIR *d = opendir(dev_dir);
-    if (d != nullptr) {
-        while (true) {
-            const dirent *ent = readdir(d);
-            if (ent == nullptr) {
-                break;
-            }
-
-            // strtoul allows initial whitespace, +, -
-            if (!std::isdigit(ent->d_name[0])) {
-                continue;
-            }
-
-            if (!is_char_dev(ent, dev_dir)) {
-                continue;
-            }
-
-            char *endptr = nullptr;
-            errno = 0;
-            unsigned long index = std::strtoul(ent->d_name, &endptr, 10);
-            if (index == std::numeric_limits<unsigned int>::max() && errno == ERANGE) {
-                continue;
-            }
-            if (*endptr != '\0') {
-                continue;
-            }
-
-            found_devices.push_back( (chip_id_t) index);
-        }
-        closedir(d);
-    }
-
-    std::sort(found_devices.begin(), found_devices.end());
-
-    return found_devices;
-}
-
 // leaving this in for now, TODO clean up
 #if 0
 bool is_hardware_hung(const PCIDevice *dev) {
@@ -1032,9 +989,13 @@ int tt_SiliconDevice::detect_number_of_chips() {
 
 // Can be used before instantiating a silicon device
 std::vector<chip_id_t> tt_SiliconDevice::detect_available_device_ids() {
-
-    std::vector<chip_id_t> detected_device_ids = ttkmd_scan();
-    return detected_device_ids;
+    // TODO: The chip_id_t type is used for two types of device id:
+    //  *   device id which is the N in /dev/tenstorrent/N
+    //  *   "logical" id which is the id of the chip in the YAML produced by
+    //      the create-ethernet-map tool
+    // Maybe these should be disambiguated.  Here, what is being returned is the
+    // former, the "device id" -- not to be confused with 16 bit PCI device id!
+    return PCIDevice::enumerate_devices();
 }
 
 std::function<void(uint32_t, uint32_t, const uint8_t*)> tt_SiliconDevice::get_fast_pcie_static_tlb_write_callable(int device_id) {
@@ -1332,28 +1293,32 @@ void tt_SiliconDevice::set_fallback_tlb_ordering_mode(const std::string& fallbac
 }
 
 // TT<->TT P2P support removed in favor of increased Host memory.
+// TODO: this is in the wrong place, it should be in the PCIDevice.
 void tt_SiliconDevice::init_pcie_iatus() {
     int num_enabled_devices = m_pci_device_map.size();
     log_debug(LogSiliconDriver, "tt_SiliconDevice::init_pcie_iatus() num_enabled_devices: {}", num_enabled_devices);
     log_assert(m_num_host_mem_channels <= g_MAX_HOST_MEM_CHANNELS, "Maximum of {} 1GB Host memory channels supported.",  g_MAX_HOST_MEM_CHANNELS);
 
     for (auto &src_device_it : m_pci_device_map){
-        int src_pci_id = src_device_it.first;
+        int logical_id = src_device_it.first;
         PCIDevice* src_pci_device = src_device_it.second.get();
 
         // Device to Host (multiple channels)
         for (int channel_id = 0; channel_id < m_num_host_mem_channels; channel_id++) {
-            if (hugepage_mapping.at(src_pci_id).at(channel_id)) {
+            if (hugepage_mapping.at(logical_id).at(channel_id)) {
                 std::uint32_t region_size = HUGEPAGE_REGION_SIZE;
-                if(channel_id == 3) region_size = 805306368; // Remove 256MB from full 1GB for channel 3 (iATU limitation)
-                log_debug(LogSiliconDriver, "Configuring ATU channel {} to point to hugepage {}.", channel_id, src_pci_id);
-                iatu_configure_peer_region(src_pci_id, channel_id, hugepage_physical_address.at(src_pci_id).at(channel_id), region_size);
-                if(host_channel_size.find(src_pci_device->logical_id) == host_channel_size.end()) {
-                     host_channel_size.insert({src_pci_device->logical_id, {}});
+                if (channel_id == 3) region_size = 805306368; // Remove 256MB from full 1GB for channel 3 (iATU limitation)
+
+                // This log message doesn't look right.
+                log_debug(LogSiliconDriver, "Configuring ATU channel {} to point to hugepage {}.", channel_id, logical_id);
+                iatu_configure_peer_region(logical_id, channel_id, hugepage_physical_address.at(logical_id).at(channel_id), region_size);
+
+                if (host_channel_size.find(logical_id) == host_channel_size.end()) {
+                     host_channel_size.insert({logical_id, {}});
                 }
-                host_channel_size.at(src_pci_device -> logical_id).push_back(region_size);
+                host_channel_size.at(logical_id).push_back(region_size);
             } else {
-                throw std::runtime_error(fmt::format("init_pcie_iatus: Hugepages are not allocated for src_pci_id: {} ch: {}", src_pci_id, channel_id));
+                throw std::runtime_error(fmt::format("init_pcie_iatus: Hugepages are not allocated for logical device id: {} ch: {}", logical_id, channel_id));
             }
         }
     }

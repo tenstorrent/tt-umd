@@ -90,8 +90,11 @@ jobs:
       shell: bash
       run: tar xvf artifact.tar
 
-    - name: Run UMD unit tests
+    - name: Run arch-specific UMD unit tests
       run: |
         ${{ env.TEST_OUTPUT_DIR }}/umd/${{ inputs.arch }}/unit_tests
+    - name: Run additional UMD tests
+      run: |
+        ${{ env.TEST_OUTPUT_DIR }}/umd/test_pcie_device/test_pcie_device
 
 

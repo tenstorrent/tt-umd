@@ -31,6 +31,7 @@ target_include_directories(test_common INTERFACE
 
 if (MASTER_PROJECT)
     add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/microbenchmark)
+    add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/pcie)
 endif()
 add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/simulation)
 if($ENV{ARCH_NAME} STREQUAL "wormhole_b0")

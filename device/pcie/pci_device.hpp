@@ -9,7 +9,7 @@
 #include <vector>
 
 #include "device/tt_arch_types.h"
-#include "device/architecture_implementation.h"
+#include "device/tt_device/tt_device.h"
 
 static uint32_t GS_BAR0_WC_MAPPING_SIZE = (156<<20) + (10<<21) + (18<<24);
 static uint32_t BH_BAR0_WC_MAPPING_SIZE = 188<<21; // Defines the address for WC region. addresses 0 to BH_BAR0_WC_MAPPING_SIZE are in WC, above that are UC
@@ -40,7 +40,7 @@ public:
 
     void open_hugepage_per_host_mem_ch(uint32_t num_host_mem_channels);
     bool reset_board();
-    tt::umd::architecture_implementation* get_architecture_implementation() const { return architecture_implementation.get(); }
+    tt::umd::TTDevice* get_architecture_implementation() const { return architecture_implementation.get(); }
 
     int device_id;
     int logical_id;
@@ -93,7 +93,7 @@ private:
     T* get_register_address(std::uint32_t register_offset);
 
     tt::ARCH arch;
-    std::unique_ptr<tt::umd::architecture_implementation> architecture_implementation;
+    std::unique_ptr<tt::umd::TTDevice> architecture_implementation;
 };
 
 tt::ARCH detect_arch(int device_id=0);

@@ -1112,7 +1112,7 @@ void tt_SiliconDevice::write_device_memory(const void *mem_ptr, uint32_t size_in
             address += transfer_size;
             buffer_addr += transfer_size;
         }
-        // log_debug(LogSiliconDriver, "Write done Dynamic TLB with pid={}", (long)getpid());
+        log_debug(LogSiliconDriver, "Write done Dynamic TLB with pid={}", (long)getpid());
     }
 }
 
@@ -1155,7 +1155,7 @@ void tt_SiliconDevice::read_device_memory(void *mem_ptr, tt_cxy_pair target, std
             address += transfer_size;
             buffer_addr += transfer_size;
         }
-        // log_debug(LogSiliconDriver, "Read done Dynamic TLB with pid={}", (long)getpid());
+        log_debug(LogSiliconDriver, "Read done Dynamic TLB with pid={}", (long)getpid());
     }
 }
 

@@ -93,18 +93,24 @@ public:
     std::uint32_t system_reg_start_offset;  // Registers >= this are system regs, use the mapping.
     std::uint32_t system_reg_offset_adjust; // This is the offset of the first reg in the system reg mapping.
 
-    // int sysfs_config_fd = -1;    // not used
     std::uint32_t read_checking_offset;
 
     tt::ARCH get_arch() const;
+
+    void detect_ffffffff_read(std::uint32_t data_read = 0xffffffffu);
     
 private:
     void setup_device();
     void close_device();
-    // void drop();
 
-    // bool reset_by_sysfs();
-    // bool reset_by_ioctl();
+    void resume_after_device_reset();
+    void suspend_before_device_reset();
+
+    bool is_hardware_hung();
+
+    bool reset_by_sysfs();
+    bool reset_by_ioctl();
+    bool auto_reset_board();
 
     template <typename T>
     T* get_register_address(std::uint32_t register_offset);

@@ -12,6 +12,8 @@
 #include <sys/ioctl.h> // for ioctl
 #include <sys/mman.h>  // for mmap, munmap
 #include <linux/pci.h> // for PCI_SLOT, PCI_FUNC
+#include <spawn.h> // for posix_spawn
+#include <wait.h> // for waitpid
 
 #include "pci_device.hpp"
 #include "utils.hpp"
@@ -448,6 +450,10 @@ void PCIDevice::read_block(uint64_t byte_addr, uint64_t num_bytes, uint8_t* buff
     } else {
         memcpy(dest, src, num_bytes);
     }
+
+    if (num_bytes >= sizeof(std::uint32_t)) {
+        detect_ffffffff_read(*reinterpret_cast<std::uint32_t*>(dest));
+    }
 }
 
 // This is only needed for the BH workaround in iatu_configure_peer_region since no arc
@@ -492,4 +498,85 @@ void PCIDevice::write_tlb_reg(uint32_t byte_addr, std::uint64_t value_lower, std
         *dest_extra_dw = p_value_upper[0];
     }
     tt_driver_atomics::mfence(); // Otherwise subsequent WC loads move earlier than the above UC store to the TLB register.
+}
+
+
+bool PCIDevice::is_hardware_hung() {
+    volatile const void *addr = reinterpret_cast<const char *>(bar0_uc) + (get_architecture_implementation()->get_arc_reset_scratch_offset() + 6 * 4) - bar0_uc_offset;
+    std::uint32_t scratch_data = *reinterpret_cast<const volatile std::uint32_t*>(addr);
+
+    return (scratch_data == 0xffffffffu);
+}
+
+bool PCIDevice::reset_by_sysfs() {
+
+    const char *virtual_env = getenv("VIRTUAL_ENV");
+    if (virtual_env == nullptr)
+        return false;
+
+    std::string reset_helper_path = virtual_env;
+    reset_helper_path += "/bin/reset-helper";
+
+    // TBD fix this after #141 is resolved
+    std::string busid = std::to_string(pci_bus);
+
+    suspend_before_device_reset();
+
+    char *argv[3];
+    argv[0] = const_cast<char*>(reset_helper_path.c_str());
+    argv[1] = const_cast<char*>(busid.c_str());
+    argv[2] = nullptr;
+
+    pid_t reset_helper_pid;
+    if (posix_spawn(&reset_helper_pid, reset_helper_path.c_str(), nullptr, nullptr, argv, environ) != 0)
+        return false;
+
+    siginfo_t reset_helper_status;
+    if (waitid(P_PID, reset_helper_pid, &reset_helper_status, WEXITED) != 0)
+        return false;
+
+    if (reset_helper_status.si_status != 0)
+        return false;
+
+    resume_after_device_reset();
+
+    return true;
+}
+
+bool PCIDevice::reset_by_ioctl() {
+    struct tenstorrent_reset_device reset_device;
+    memset(&reset_device, 0, sizeof(reset_device));
+
+    reset_device.in.output_size_bytes = sizeof(reset_device.out);
+    reset_device.in.flags = 0;
+
+    if (ioctl(device_fd, TENSTORRENT_IOCTL_RESET_DEVICE, &reset_device) == -1) {
+        return false;
+    }
+
+    return (reset_device.out.result == 0);
+}
+
+bool PCIDevice::auto_reset_board() {
+    return ((reset_by_ioctl() || reset_by_sysfs()) && !is_hardware_hung());
+}
+
+void PCIDevice::detect_ffffffff_read(std::uint32_t data_read) {
+    if (data_read == 0xffffffffu && is_hardware_hung()) {
+        std::uint32_t scratch_data = *get_register_address<std::uint32_t>(read_checking_offset);
+
+        if (auto_reset_board()) {
+            throw std::runtime_error("Read 0xffffffff from PCIE: auto-reset succeeded.");
+        } else {
+            throw std::runtime_error("Read 0xffffffff from PCIE: you should reset the board.");
+        }
+    }
+}
+
+void PCIDevice::resume_after_device_reset() {
+    setup_device();
+}
+
+void PCIDevice::suspend_before_device_reset() {
+    close_device();
 }

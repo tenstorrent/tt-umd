@@ -64,7 +64,7 @@ const uint32_t HUGEPAGE_MAP_MASK = HUGEPAGE_REGION_SIZE - 1;
 static const uint32_t MSG_ERROR_REPLY = 0xFFFFFFFF;
 
 // Hardcode (but allow override) of path now, to support environments with other 1GB hugepage mounts not for runtime.
-const char* hugepage_dir_env = std::getenv("TT_UMD_HUGEPAGE_DIR");
+const char* hugepage_dir_env = std::getenv("TT_BACKEND_HUGEPAGE_DIR");
 std::string hugepage_dir = hugepage_dir_env ? hugepage_dir_env : "/dev/hugepages-1G";
 
 // TLB size for DRAM on blackhole - 4GB

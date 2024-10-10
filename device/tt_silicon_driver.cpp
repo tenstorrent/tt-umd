@@ -164,49 +164,6 @@ bool is_char_dev(const dirent *ent, const char *parent_dir) {
     }
 }
 
-std::vector<chip_id_t> ttkmd_scan() {
-
-    static const char dev_dir[] = "/dev/tenstorrent";
-
-    std::vector<chip_id_t> found_devices;
-
-    DIR *d = opendir(dev_dir);
-    if (d != nullptr) {
-        while (true) {
-            const dirent *ent = readdir(d);
-            if (ent == nullptr) {
-                break;
-            }
-
-            // strtoul allows initial whitespace, +, -
-            if (!std::isdigit(ent->d_name[0])) {
-                continue;
-            }
-
-            if (!is_char_dev(ent, dev_dir)) {
-                continue;
-            }
-
-            char *endptr = nullptr;
-            errno = 0;
-            unsigned long index = std::strtoul(ent->d_name, &endptr, 10);
-            if (index == std::numeric_limits<unsigned int>::max() && errno == ERANGE) {
-                continue;
-            }
-            if (*endptr != '\0') {
-                continue;
-            }
-
-            found_devices.push_back( (chip_id_t) index);
-        }
-        closedir(d);
-    }
-
-    std::sort(found_devices.begin(), found_devices.end());
-
-    return found_devices;
-}
-
 // leaving this in for now, TODO clean up
 #if 0
 bool is_hardware_hung(const PCIDevice *dev) {
@@ -1032,9 +989,13 @@ int tt_SiliconDevice::detect_number_of_chips() {
 
 // Can be used before instantiating a silicon device
 std::vector<chip_id_t> tt_SiliconDevice::detect_available_device_ids() {
-
-    std::vector<chip_id_t> detected_device_ids = ttkmd_scan();
-    return detected_device_ids;
+    // TODO: The chip_id_t type is used for two types of device id:
+    //  *   device id which is the N in /dev/tenstorrent/N
+    //  *   "logical" id which is the id of the chip in the YAML produced by
+    //      the create-ethernet-map tool
+    // Maybe these should be disambiguated.  Here, what is being returned is the
+    // former, the "device id" -- not to be confused with 16 bit PCI device id!
+    return PCIDevice::enumerate_devices();
 }
 
 std::function<void(uint32_t, uint32_t, const uint8_t*)> tt_SiliconDevice::get_fast_pcie_static_tlb_write_callable(int device_id) {

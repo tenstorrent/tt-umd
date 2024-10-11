@@ -27,9 +27,8 @@ class uBenchmarkFixture : public ::testing::Test {
             return flat_index;
         };
         std::set<chip_id_t> target_devices = {0};
-        std::unordered_map<std::string, std::int32_t> dynamic_tlb_config = {{"SMALL_READ_WRITE_TLB", 157}}; // Use both static and dynamic TLBs here
         uint32_t num_host_mem_ch_per_mmio_device = 1;
-        device = std::make_shared<tt_SiliconDevice>(test_utils::GetAbsPath("tests/soc_descs/grayskull_10x12.yaml"), "", target_devices, num_host_mem_ch_per_mmio_device, dynamic_tlb_config, false, true);
+        device = std::make_shared<tt_SiliconDevice>(test_utils::GetAbsPath("tests/soc_descs/grayskull_10x12.yaml"), "", target_devices, num_host_mem_ch_per_mmio_device, false, true);
 
         for(int i = 0; i < target_devices.size(); i++) {
             // Iterate over devices and only setup static TLBs for functional worker cores

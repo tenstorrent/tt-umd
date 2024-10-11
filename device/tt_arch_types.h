@@ -8,6 +8,7 @@
 
 // defines of tt_arch_types
 #include "device/architecture.h"
+#include <string>
 
 namespace tt {
 /**
@@ -21,4 +22,20 @@ enum class ARCH {
     BLACKHOLE = static_cast<int>(tt::umd::architecture::blackhole),
     Invalid = static_cast<int>(tt::umd::architecture::invalid),
 };
+
+static ARCH get_arch_type_from_string(std::string arch_string) {
+    
+    if (arch_string == "Jawbridge") {
+            return ARCH::JAWBRIDGE;
+    } else if (arch_string == "Grayskull") {
+            return ARCH::GRAYSKULL;
+    } else if (arch_string == "Wormhole" || arch_string == "Wormhole_b0") {
+            return ARCH::WORMHOLE_B0;
+    }
+    else if (arch_string == "Blackhole") {
+            return ARCH::BLACKHOLE;
+    }
+    
+    return ARCH::Invalid;   
+}
 }

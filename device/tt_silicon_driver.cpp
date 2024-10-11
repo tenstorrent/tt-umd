@@ -499,9 +499,21 @@ std::unordered_map<chip_id_t, uint32_t> tt_SiliconDevice::get_harvesting_masks_f
     return default_harvesting_masks;
 }
 
-tt_SiliconDevice::tt_SiliconDevice(const std::string &sdesc_path, const std::string &ndesc_path, const std::set<chip_id_t> &target_devices, 
-                                   const uint32_t &num_host_mem_ch_per_mmio_device, const std::unordered_map<std::string, std::int32_t>& dynamic_tlb_config_, 
-                                   const bool skip_driver_allocs, const bool clean_system_resources, bool perform_harvesting, std::unordered_map<chip_id_t, uint32_t> simulated_harvesting_masks) : tt_device(sdesc_path) {
+std::string get_sdesc_path(tt::ARCH arch) {
+    switch (arch) {
+        case tt::ARCH::Invalid: throw std::runtime_error("Invalid arch not supported");
+        case tt::ARCH::JAWBRIDGE: throw std::runtime_error("JAWBRIDGE arch not supported");
+        case tt::ARCH::GRAYSKULL: return "/proj_sw/user_dev/pjanevski/work/tt-umd/soc_descriptors/grayskull_120_arch.yaml";
+        case tt::ARCH::WORMHOLE: throw std::runtime_error("WORMHOLE arch not supported");
+        case tt::ARCH::WORMHOLE_B0: return "/proj_sw/user_dev/pjanevski/work/tt-umd/soc_descriptors/wormhole_b0_80_arch.yaml";
+        case tt::ARCH::BLACKHOLE: return "/proj_sw/user_dev/pjanevski/work/tt-umd/soc_descriptors/blackhole_140_arch.yaml";
+        default: throw std::runtime_error("Unsupported device arch");
+    }
+    return "";
+}
+
+void tt_SiliconDevice::construct_tt_silicon_device(std::string sdesc_path, const std::string &ndesc_path, const std::set<chip_id_t> &target_devices, 
+                                   const uint32_t &num_host_mem_ch_per_mmio_device, const bool skip_driver_allocs, const bool clean_system_resources, bool perform_harvesting, std::unordered_map<chip_id_t, uint32_t> simulated_harvesting_masks) {
     std::unordered_set<chip_id_t> target_mmio_device_ids;
     target_devices_in_cluster = target_devices;
     arch_name = tt_SocDescriptor(sdesc_path).arch;
@@ -510,8 +522,9 @@ tt_SiliconDevice::tt_SiliconDevice(const std::string &sdesc_path, const std::str
     auto available_device_ids = detect_available_device_ids();
     m_num_pci_devices = available_device_ids.size();
 
-    if (!skip_driver_allocs)
+    if (!skip_driver_allocs) {
         log_info(LogSiliconDriver, "Detected {} PCI device{} : {}", m_num_pci_devices, (m_num_pci_devices > 1) ? "s":"", available_device_ids);
+    }
 
     if (ndesc_path == "") {
         ndesc = tt_ClusterDescriptor::create_for_grayskull_cluster(target_devices, available_device_ids);
@@ -528,12 +541,13 @@ tt_SiliconDevice::tt_SiliconDevice(const std::string &sdesc_path, const std::str
             target_remote_chips.insert(d);
         }
     }
-    dynamic_tlb_config = dynamic_tlb_config_;
 
     // It is mandatory for all devices to have these TLBs set aside, as the driver needs them to issue remote reads and writes.
     auto architecture_implementation = tt::umd::architecture_implementation::create(static_cast<tt::umd::architecture>(arch_name));
     dynamic_tlb_config["LARGE_READ_TLB"] =  architecture_implementation->get_mem_large_read_tlb();
     dynamic_tlb_config["LARGE_WRITE_TLB"] = architecture_implementation->get_mem_large_write_tlb();
+    dynamic_tlb_config["REG_TLB"] = architecture_implementation->get_reg_tlb();
+    dynamic_tlb_config["SMALL_READ_WRITE_TLB"] = architecture_implementation->get_small_read_write_tlb();
 
     for(const auto& tlb : dynamic_tlb_config) {
         dynamic_tlb_ordering_modes.insert({tlb.first, TLB_DATA::Relaxed}); // All dynamic TLBs use Relaxed Ordering by default; MT: Good for BH
@@ -643,6 +657,19 @@ tt_SiliconDevice::tt_SiliconDevice(const std::string &sdesc_path, const std::str
             }
         }
     }
+}
+
+tt_SiliconDevice::tt_SiliconDevice(const std::string& sdesc_path, const std::string &ndesc_path, const std::set<chip_id_t> &target_devices, 
+                                   const uint32_t &num_host_mem_ch_per_mmio_device, const bool skip_driver_allocs,
+                                   const bool clean_system_resources, bool perform_harvesting, std::unordered_map<chip_id_t, uint32_t> simulated_harvesting_masks) : tt_device() {
+    construct_tt_silicon_device(sdesc_path, ndesc_path, target_devices, num_host_mem_ch_per_mmio_device, skip_driver_allocs, clean_system_resources, perform_harvesting, simulated_harvesting_masks);
+}
+
+tt_SiliconDevice::tt_SiliconDevice(tt::ARCH arch, const std::string &ndesc_path, const std::set<chip_id_t> &target_devices, 
+                                   const uint32_t &num_host_mem_ch_per_mmio_device, const bool skip_driver_allocs,
+                                   const bool clean_system_resources, bool perform_harvesting, std::unordered_map<chip_id_t, uint32_t> simulated_harvesting_masks) : tt_device() {
+    std::string sdesc_path = get_sdesc_path(arch);
+    construct_tt_silicon_device(sdesc_path, ndesc_path, target_devices, num_host_mem_ch_per_mmio_device, skip_driver_allocs, clean_system_resources, perform_harvesting, simulated_harvesting_masks);
 }
 
 void tt_SiliconDevice::configure_active_ethernet_cores_for_mmio_device(chip_id_t mmio_chip, const std::unordered_set<tt_xy_pair>& active_eth_cores_per_chip) {

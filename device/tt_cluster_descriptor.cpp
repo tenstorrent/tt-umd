@@ -653,15 +653,6 @@ BoardType tt_ClusterDescriptor::get_board_type(chip_id_t chip_id) const {
   return board_type;
 }
 
-std::set<chip_id_t> tt_ClusterDescriptor::get_target_devices() {
-    std::set<chip_id_t> target_devices;
-    for (int i = 0; i < this->get_number_of_chips(); i++) {
-        target_devices.insert(i);
-    }
-    return target_devices;
-}
-
-
 std::unordered_map<chip_id_t, std::unique_ptr<tt_SiliconDevice>> tt_ClusterDescriptor::get_silicon_drivers() {
     std::unordered_map<chip_id_t, std::set<chip_id_t>> devices_grouped_by_assoc_mmio_device_;
     for (chip_id_t device_id : this->get_all_chips()) {
@@ -684,11 +675,10 @@ std::unordered_map<chip_id_t, std::unique_ptr<tt_SiliconDevice>> tt_ClusterDescr
         const bool skip_driver_allocs = false;
         log_info(LogSiliconDriver, "Creating silicon driver for mmio device: {}", mmio_device_id);
         tt:ARCH arch = chip_arch[mmio_device_id];
-        auto target_devices = get_target_devices();
         silicon_driver = std::make_unique<tt_SiliconDevice>(
             arch,
             this->cluster_desc_path,
-            target_devices,
+            controlled_devices,
             num_host_mem_ch_per_mmio_device,
             skip_driver_allocs,
             clean_system_resources,

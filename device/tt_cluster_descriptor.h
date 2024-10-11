@@ -107,6 +107,4 @@ class tt_ClusterDescriptor {
 
   std::unordered_map<chip_id_t, std::unique_ptr<tt_SiliconDevice>> get_silicon_drivers();
 
-  std::set<chip_id_t> get_target_devices();
-
 };

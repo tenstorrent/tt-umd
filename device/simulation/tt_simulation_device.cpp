@@ -117,8 +117,7 @@ void tt_SimulationDevice::close_device() {
 }
 
 // Runtime Functions
-void tt_SimulationDevice::write_to_device(const void *mem_ptr, uint32_t size_in_bytes, tt_cxy_pair core, uint64_t addr, const std::string& tlb_to_use, 
-                    bool send_epoch_cmd, bool last_send_epoch_cmd, bool ordered_with_prev_remote_write) {
+void tt_SimulationDevice::write_to_device(const void *mem_ptr, uint32_t size_in_bytes, tt_cxy_pair core, uint64_t addr, const std::string& tlb_to_use) {
     log_info(tt::LogEmulationDriver, "Device writing");
     std::vector<std::uint32_t> data((uint32_t*)mem_ptr, (uint32_t*)mem_ptr + size_in_bytes / sizeof(uint32_t));
     auto wr_buffer = create_flatbuffer(DEVICE_COMMAND_WRITE, data, core, addr);

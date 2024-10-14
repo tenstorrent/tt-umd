@@ -29,7 +29,10 @@ TEST(ApiTest, OpenAllChips) {
     // Which are different than physical PCI ids, which are /dev/tenstorrent/N ones.
     // You have to see if physical PCIe is GS before constructing a cluster descriptor.
     std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
-    std::set<int> pci_device_ids_set(pci_device_ids.begin(), pci_device_ids.end());
+    std::set<int> pci_device_ids_set;
+    for (int pci_device_id : pci_device_ids) {
+        pci_device_ids_set.insert(pci_device_id);
+    }
 
     // TODO: This should be removed from the API, the driver itself should do it.
     std::string soc_path;
@@ -69,5 +72,5 @@ TEST(ApiTest, OpenAllChips) {
 
 
     // TODO: Don't pass each of these arguments.
-    Cluster umd_cluster = Cluster(soc_path, yaml_path, detected_num_chips_set);
+    Cluster umd_cluster = Cluster(soc_path, device_arch == tt::ARCH::GRAYSKULL ? "" : yaml_path, detected_num_chips_set);
 }

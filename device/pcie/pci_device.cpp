@@ -517,8 +517,7 @@ bool PCIDevice::reset_by_sysfs() {
     std::string reset_helper_path = virtual_env;
     reset_helper_path += "/bin/reset-helper";
 
-    // TBD fix this after #141 is resolved
-    std::string busid = std::to_string(pci_bus);
+    std::string busid = std::to_string(info.pci_bus);
 
     suspend_before_device_reset();
 

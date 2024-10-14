@@ -44,9 +44,7 @@ tt_SimulationDevice::tt_SimulationDevice(const std::string &sdesc_path) : tt_dev
 }
 
 tt_SimulationDevice::~tt_SimulationDevice() {
-    log_info(tt::LogEmulationDriver, "Sending exit signal to remote...");
-    auto builder = create_flatbuffer(DEVICE_COMMAND_EXIT, std::vector<uint32_t>(1, 0), {0, 0, 0}, 0);
-    host.send_to_device(builder.GetBufferPointer(), builder.GetSize());
+    close_device();
 }
 
 // Setup/Teardown Functions
@@ -114,6 +112,9 @@ void tt_SimulationDevice::assert_risc_reset_at_core(tt_cxy_pair core) {
 
 void tt_SimulationDevice::close_device() {
     // disconnect from remote connection
+    log_info(tt::LogEmulationDriver, "Sending exit signal to remote...");
+    auto builder = create_flatbuffer(DEVICE_COMMAND_EXIT, std::vector<uint32_t>(1, 0), {0, 0, 0}, 0);
+    host.send_to_device(builder.GetBufferPointer(), builder.GetSize());
 }
 
 // Runtime Functions
@@ -146,12 +147,6 @@ void tt_SimulationDevice::read_from_device(void* mem_ptr, tt_cxy_pair core, uint
     std::memcpy(mem_ptr, rd_resp_buf->data()->data(), rd_resp_buf->data()->size() * sizeof(uint32_t));
     nng_free(rd_resp, rd_rsp_sz);
 }
-
-// For fd cqs
-void tt_SimulationDevice::write_to_sysmem(std::vector<uint32_t>& vec, uint64_t addr, uint16_t channel, chip_id_t src_device_id) {}
-void tt_SimulationDevice::write_to_sysmem(const void* mem_ptr, std::uint32_t size,  uint64_t addr, uint16_t channel, chip_id_t src_device_id) {}
-void tt_SimulationDevice::read_from_sysmem(std::vector<uint32_t> &vec, uint64_t addr, uint16_t channel, uint32_t size, chip_id_t src_device_id) {}
-void tt_SimulationDevice::read_from_sysmem(void* mem_ptr, uint64_t addr, uint16_t channel, uint32_t size, chip_id_t src_device_id) {}
 
 void tt_SimulationDevice::wait_for_non_mmio_flush() {}
 void tt_SimulationDevice::l1_membar(const chip_id_t chip, const std::string& fallback_tlb, const std::unordered_set<tt_xy_pair>& cores) {}

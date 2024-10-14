@@ -42,11 +42,18 @@ TEST(ApiTest, OpenAllChips) {
         throw std::runtime_error("Unsupported architecture");
     }
 
-
+    // TODO: remove getting manually cluster descriptor from yaml.
+    std::string yaml_path = test_utils::GetClusterDescYAML();
     // TODO: Remove the need to do this, allow default constructor to construct with all chips.
-    // std::unique_ptr<tt_ClusterDescriptor> cluster_desc = tt_ClusterDescriptor::create_from_yaml(test_utils::GetClusterDescYAML());
-    // detected_num_chips = cluster_desc->get_number_of_chips();
+    std::unique_ptr<tt_ClusterDescriptor> cluster_desc = tt_ClusterDescriptor::create_from_yaml(yaml_path);
+    std::unordered_set<int> detected_num_chips = cluster_desc->get_all_chips();
+
+    // TODO: make these unordered vs
+    std::set<chip_id_t> detected_num_chips_set;
+    for (int chip : detected_num_chips) {
+        detected_num_chips_set.insert(chip);
+    }
 
     // TODO: Don't pass soc path to the driver.
-    Cluster umd_cluster = Cluster(soc_path);
+    Cluster umd_cluster = Cluster(soc_path, "", detected_num_chips_set);
 }

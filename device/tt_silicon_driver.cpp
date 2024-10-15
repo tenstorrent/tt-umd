@@ -353,6 +353,10 @@ void tt_SiliconDevice::create_device(const std::unordered_set<chip_id_t> &target
             harvested_coord_translation.insert({chip, create_harvested_coord_translation(arch_name, true)});
         }
     }
+
+    for (const chip_id_t &logical_device_id : target_remote_chips) {
+        flush_non_mmio_per_chip[logical_device_id] = false;
+    }
 }
 
 bool tt_SiliconDevice::using_harvested_soc_descriptors() {
@@ -1771,7 +1775,7 @@ void tt_SiliconDevice::write_to_non_mmio_device(
     bool use_dram;
     uint32_t max_block_size;
 
-    flush_non_mmio = true;
+    flush_non_mmio_per_chip[core.chip] = true;
     // Broadcast requires block writes to host dram
     use_dram = broadcast || (size_in_bytes > 256 * DATA_WORD_SIZE);
     max_block_size = use_dram ? host_address_params.eth_routing_block_size : eth_interface_params.max_block_size;
@@ -2089,34 +2093,57 @@ void tt_SiliconDevice::read_from_non_mmio_device(void* mem_ptr, tt_cxy_pair core
 
 }
 
-void tt_SiliconDevice::wait_for_non_mmio_flush() {
-    if(flush_non_mmio) {
+void tt_SiliconDevice::wait_for_connected_non_mmio_flush(chip_id_t chip_id) {
+    log_assert(arch_name != tt::ARCH::BLACKHOLE, "Non-MMIO flush not supported in Blackhole");
+    std::string read_tlb = "LARGE_READ_TLB";
+    auto chips_with_mmio = this->get_target_mmio_device_ids();
+
+    if (chips_with_mmio.find(chip_id) == chips_with_mmio.end()) {
+        log_debug(LogSiliconDriver, "Chip {} is not an MMIO chip, skipping wait_for_connected_non_mmio_flush", chip_id);
+        return;
+    }
+
+    if (arch_name == tt::ARCH::WORMHOLE || arch_name == tt::ARCH::WORMHOLE_B0) {
+        std::vector<std::uint32_t> erisc_txn_counters = std::vector<uint32_t>(2);
+        std::vector<std::uint32_t> erisc_q_ptrs = std::vector<uint32_t>(eth_interface_params.remote_update_ptr_size_bytes*2 / sizeof(uint32_t));
+
+        //wait for all queues to be empty.
+        for (tt_cxy_pair &cxy : remote_transfer_ethernet_cores.at(chip_id)) {
+            do {
+                read_device_memory(erisc_q_ptrs.data(), cxy, eth_interface_params.request_cmd_queue_base + eth_interface_params.cmd_counters_size_bytes, eth_interface_params.remote_update_ptr_size_bytes*2, read_tlb);
+            } while (erisc_q_ptrs[0] != erisc_q_ptrs[4]);
+        }
+        //wait for all write responses to come back.
+        for (tt_cxy_pair &cxy : remote_transfer_ethernet_cores.at(chip_id)) {
+            do {
+                read_device_memory(erisc_txn_counters.data(), cxy, eth_interface_params.request_cmd_queue_base, 8, read_tlb);
+            } while (erisc_txn_counters[0] != erisc_txn_counters[1]);
+        }
+    }
+}
+
+
+void tt_SiliconDevice::wait_for_non_mmio_flush(chip_id_t chip_id) {
+    if(flush_non_mmio_per_chip[chip_id]) {
         log_assert(arch_name != tt::ARCH::BLACKHOLE, "Non-MMIO flush not supported in Blackhole");
         std::string read_tlb = "LARGE_READ_TLB";
-        auto chips_with_mmio = this->get_target_mmio_device_ids();
-        for(auto chip_id : chips_with_mmio) {
-            auto arch = get_soc_descriptor(chip_id).arch;
-            if (arch == tt::ARCH::WORMHOLE || arch == tt::ARCH::WORMHOLE_B0) {
-                std::vector<std::uint32_t> erisc_txn_counters = std::vector<uint32_t>(2);
-                std::vector<std::uint32_t> erisc_q_ptrs = std::vector<uint32_t>(eth_interface_params.remote_update_ptr_size_bytes*2 / sizeof(uint32_t));
 
-                //wait for all queues to be empty.
-                for (tt_cxy_pair &cxy : remote_transfer_ethernet_cores.at(chip_id)) {
-                    do {
-                        read_device_memory(erisc_q_ptrs.data(), cxy, eth_interface_params.request_cmd_queue_base + eth_interface_params.cmd_counters_size_bytes, eth_interface_params.remote_update_ptr_size_bytes*2, read_tlb);
-                    } while (erisc_q_ptrs[0] != erisc_q_ptrs[4]);
-                }
-                //wait for all write responses to come back.
-                for (tt_cxy_pair &cxy : remote_transfer_ethernet_cores.at(chip_id)) {
-                    do {
-                        read_device_memory(erisc_txn_counters.data(), cxy, eth_interface_params.request_cmd_queue_base, 8, read_tlb);
-                    } while (erisc_txn_counters[0] != erisc_txn_counters[1]);
-                }
-            } else {
-                break;
-            }
+        auto remote_chips = this->get_target_remote_device_ids();
+        if (remote_chips.find(chip_id) == remote_chips.end()) {
+            log_debug(LogSiliconDriver, "Chip {} is not a remote chip, skipping wait_for_non_mmio_flush", chip_id);
+            return;
         }
-        flush_non_mmio = false;
+
+        chip_id_t mmio_connected_chip = ndesc->get_closest_mmio_capable_chip(chip_id);
+        wait_for_connected_non_mmio_flush(mmio_connected_chip);
+
+        flush_non_mmio_per_chip[chip_id] = false;
+    }
+}
+
+void tt_SiliconDevice::wait_for_non_mmio_flush() {
+    for (auto& chip_id : get_target_remote_device_ids()) {
+        wait_for_non_mmio_flush(chip_id);
     }
 }
 

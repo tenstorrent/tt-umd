@@ -58,6 +58,10 @@ bool tt_ClusterDescriptor::is_chip_mmio_capable(const chip_id_t &chip_id) const 
     return this->chips_with_mmio.find(chip_id) != this->chips_with_mmio.end();
 }
 
+bool tt_ClusterDescriptor::is_chip_remote(const chip_id_t &chip_id) const {
+    return !is_chip_mmio_capable(chip_id);
+}
+
 // given two coordinates, finds the number of hops between the two chips
 // it assumes that shelves are connected in x-dim and racks are connected in y-dim
 // it recursively hops between shelves (in x-dim) until the correct shelf is found,

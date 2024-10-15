@@ -278,10 +278,6 @@ bool tt_SiliconDevice::address_in_tlb_space(uint32_t address, uint32_t size_in_b
     return ((tlb_config_map.at(chip).find(tlb_index) != tlb_config_map.at(chip).end()) && address >= tlb_config_map.at(chip).at(tlb_index) && (address + size_in_bytes <= tlb_config_map.at(chip).at(tlb_index) + tlb_size));
 }
 
-tt_SocDescriptor& tt_SiliconDevice::get_soc_descriptor(chip_id_t chip_id){
-    return soc_descriptor_per_chip.at(chip_id);
-}
-
 std::unordered_map<chip_id_t, tt_SocDescriptor>& tt_SiliconDevice::get_virtual_soc_descriptors() {
     return soc_descriptor_per_chip;
 }

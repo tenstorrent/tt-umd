@@ -574,7 +574,7 @@ class tt_device
         throw std::runtime_error("---- tt_device::get_pcie_base_addr_from_device is not implemented\n");
         return 0;
     }
-    const tt_SocDescriptor *get_soc_descriptor(chip_id_t chip) const;
+    tt_SocDescriptor& get_soc_descriptor(chip_id_t chip_id);
 
     bool performed_harvesting = false;
     std::unordered_map<chip_id_t, uint32_t> harvested_rows_per_target = {};
@@ -764,7 +764,6 @@ class tt_SiliconDevice: public tt_device
     std::vector<tt::ARCH> archs_in_cluster = {};
     std::set<chip_id_t> target_devices_in_cluster = {};
     std::set<chip_id_t> target_remote_chips = {};
-    tt_SocDescriptor& get_soc_descriptor(chip_id_t chip_id);
     tt::ARCH arch_name;
     std::unordered_map<chip_id_t, std::unique_ptr<PCIDevice>> m_pci_device_map;    // Map of enabled pci devices
     int m_num_pci_devices;                                      // Number of pci devices in system (enabled or disabled)

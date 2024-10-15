@@ -512,11 +512,3 @@ void PCIDevice::detect_ffffffff_read(std::uint32_t data_read) {
         throw std::runtime_error("Read 0xffffffff from PCIE: you should reset the board.");
     }
 }
-
-void PCIDevice::resume_after_device_reset() {
-    setup_device();
-}
-
-void PCIDevice::suspend_before_device_reset() {
-    close_device();
-}

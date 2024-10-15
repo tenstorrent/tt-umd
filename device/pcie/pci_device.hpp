@@ -103,9 +103,6 @@ private:
     void setup_device();
     void close_device();
 
-    void resume_after_device_reset();
-    void suspend_before_device_reset();
-
     bool is_hardware_hung();
 
     template <typename T>

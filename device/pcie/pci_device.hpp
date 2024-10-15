@@ -97,7 +97,7 @@ public:
 
     tt::ARCH get_arch() const;
 
-    void detect_ffffffff_read(std::uint32_t data_read = 0xffffffffu);
+    void detect_hang_read(std::uint32_t data_read = 0xffffffffu);
     
 private:
     void setup_device();

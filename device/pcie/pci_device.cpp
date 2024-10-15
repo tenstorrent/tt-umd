@@ -23,6 +23,8 @@
 #include "common/assert.hpp"
 #include "common/logger.hpp"
 
+constexpr unsigned int c_hang_read_value = 0xffffffffu;
+
 static PciDeviceInfo read_device_info(int fd)
 {
     tenstorrent_get_device_info info{};
@@ -450,7 +452,7 @@ void PCIDevice::read_block(uint64_t byte_addr, uint64_t num_bytes, uint8_t* buff
     }
 
     if (num_bytes >= sizeof(std::uint32_t)) {
-        detect_ffffffff_read(*reinterpret_cast<std::uint32_t*>(dest));
+        detect_hang_read(*reinterpret_cast<std::uint32_t*>(dest));
     }
 }
 
@@ -502,11 +504,11 @@ bool PCIDevice::is_hardware_hung() {
     volatile const void *addr = reinterpret_cast<const char *>(bar0_uc) + (get_architecture_implementation()->get_arc_reset_scratch_offset() + 6 * 4) - bar0_uc_offset;
     std::uint32_t scratch_data = *reinterpret_cast<const volatile std::uint32_t*>(addr);
 
-    return (scratch_data == 0xffffffffu);
+    return (scratch_data == c_hang_read_value);
 }
 
-void PCIDevice::detect_ffffffff_read(std::uint32_t data_read) {
-    if (data_read == 0xffffffffu && is_hardware_hung()) {
+void PCIDevice::detect_hang_read(std::uint32_t data_read) {
+    if (data_read == c_hang_read_value && is_hardware_hung()) {
         std::uint32_t scratch_data = *get_register_address<std::uint32_t>(read_checking_offset);
 
         throw std::runtime_error("Read 0xffffffff from PCIE: you should reset the board.");

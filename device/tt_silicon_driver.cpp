@@ -1531,7 +1531,7 @@ int tt_SiliconDevice::pcie_arc_msg(int logical_device_id, uint32_t msg_code, boo
         }
     }
 
-    pci_device->detect_ffffffff_read();
+    pci_device->detect_hang_read();
     return exit_code;
 }
 

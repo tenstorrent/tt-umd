@@ -448,6 +448,10 @@ void PCIDevice::read_block(uint64_t byte_addr, uint64_t num_bytes, uint8_t* buff
     } else {
         memcpy(dest, src, num_bytes);
     }
+
+    if (num_bytes >= sizeof(std::uint32_t)) {
+        detect_hang_read(*reinterpret_cast<std::uint32_t*>(dest));
+    }
 }
 
 // This is only needed for the BH workaround in iatu_configure_peer_region since no arc
@@ -492,4 +496,19 @@ void PCIDevice::write_tlb_reg(uint32_t byte_addr, std::uint64_t value_lower, std
         *dest_extra_dw = p_value_upper[0];
     }
     tt_driver_atomics::mfence(); // Otherwise subsequent WC loads move earlier than the above UC store to the TLB register.
+}
+
+bool PCIDevice::is_hardware_hung() {
+    volatile const void *addr = reinterpret_cast<const char *>(bar0_uc) + (get_architecture_implementation()->get_arc_reset_scratch_offset() + 6 * 4) - bar0_uc_offset;
+    std::uint32_t scratch_data = *reinterpret_cast<const volatile std::uint32_t*>(addr);
+
+    return (scratch_data == c_hang_read_value);
+}
+
+void PCIDevice::detect_hang_read(std::uint32_t data_read) {
+    if (data_read == c_hang_read_value && is_hardware_hung()) {
+        std::uint32_t scratch_data = *get_register_address<std::uint32_t>(read_checking_offset);
+
+        throw std::runtime_error("Read 0xffffffff from PCIE: you should reset the board.");
+    }
 }

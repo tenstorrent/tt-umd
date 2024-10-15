@@ -23,6 +23,7 @@ static const uint64_t UNROLL_ATU_OFFSET_BAR = 0x1200;
 // BAR0 size for Blackhole, used to determine whether write block should use BAR0 or BAR4
 const uint64_t BAR0_BH_SIZE = 512 * 1024 * 1024;
 
+constexpr unsigned int c_hang_read_value = 0xffffffffu;
 struct PciDeviceInfo
 {
     uint16_t vendor_id;
@@ -93,18 +94,17 @@ public:
     std::uint32_t system_reg_start_offset;  // Registers >= this are system regs, use the mapping.
     std::uint32_t system_reg_offset_adjust; // This is the offset of the first reg in the system reg mapping.
 
-    // int sysfs_config_fd = -1;    // not used
     std::uint32_t read_checking_offset;
 
     tt::ARCH get_arch() const;
+
+    void detect_hang_read(std::uint32_t data_read = c_hang_read_value);
     
 private:
     void setup_device();
     void close_device();
-    // void drop();
 
-    // bool reset_by_sysfs();
-    // bool reset_by_ioctl();
+    bool is_hardware_hung();
 
     template <typename T>
     T* get_register_address(std::uint32_t register_offset);

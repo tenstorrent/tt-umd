@@ -108,10 +108,6 @@ private:
 
     bool is_hardware_hung();
 
-    bool reset_by_sysfs();
-    bool reset_by_ioctl();
-    bool auto_reset_board();
-
     template <typename T>
     T* get_register_address(std::uint32_t register_offset);
 

@@ -12,8 +12,6 @@
 #include <sys/ioctl.h> // for ioctl
 #include <sys/mman.h>  // for mmap, munmap
 #include <linux/pci.h> // for PCI_SLOT, PCI_FUNC
-#include <spawn.h> // for posix_spawn
-#include <wait.h> // for waitpid
 
 #include "pci_device.hpp"
 #include "utils.hpp"

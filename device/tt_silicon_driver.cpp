@@ -35,8 +35,6 @@
 #include <sys/ioctl.h>
 #include <sys/mman.h>
 #include <dirent.h>
-#include <spawn.h>
-#include <wait.h>
 #include <errno.h>
 
 #include "yaml-cpp/yaml.h"
@@ -164,94 +162,8 @@ bool is_char_dev(const dirent *ent, const char *parent_dir) {
     }
 }
 
-// leaving this in for now, TODO clean up
-#if 0
-bool is_hardware_hung(const PCIDevice *dev) {
-    volatile const void *addr = reinterpret_cast<const char *>(dev->bar0_uc) + (dev->get_architecture_implementation()->get_arc_reset_scratch_offset() + 6 * 4) - dev->bar0_uc_offset;
-    std::uint32_t scratch_data = *reinterpret_cast<const volatile std::uint32_t*>(addr);
 
-    return (scratch_data == 0xffffffffu);
-}
 
-bool reset_by_sysfs(PCIDevice *dev) {
-
-    const char *virtual_env = getenv("VIRTUAL_ENV");
-    if (virtual_env == nullptr)
-        return false;
-
-    std::string reset_helper_path = virtual_env;
-    reset_helper_path += "/bin/reset-helper";
-
-    std::string busid = std::to_string(dev->pci_bus);
-
-    dev->suspend_before_device_reset();
-
-    char *argv[3];
-    argv[0] = const_cast<char*>(reset_helper_path.c_str());
-    argv[1] = const_cast<char*>(busid.c_str());
-    argv[2] = nullptr;
-
-    pid_t reset_helper_pid;
-    if (posix_spawn(&reset_helper_pid, reset_helper_path.c_str(), nullptr, nullptr, argv, environ) != 0)
-        return false;
-
-    siginfo_t reset_helper_status;
-    if (waitid(P_PID, reset_helper_pid, &reset_helper_status, WEXITED) != 0)
-        return false;
-
-    if (reset_helper_status.si_status != 0)
-        return false;
-
-    dev->resume_after_device_reset();
-
-    return true;
-}
-
-bool reset_by_ioctl(PCIDevice *dev) {
-    struct tenstorrent_reset_device reset_device;
-    memset(&reset_device, 0, sizeof(reset_device));
-
-    reset_device.in.output_size_bytes = sizeof(reset_device.out);
-    reset_device.in.flags = 0;
-
-    if (ioctl(dev->device_fd, TENSTORRENT_IOCTL_RESET_DEVICE, &reset_device) == -1) {
-        return false;
-    }
-
-    return (reset_device.out.result == 0);
-}
-
-bool auto_reset_board(PCIDevice *dev) {
-    return ((reset_by_ioctl(dev) || reset_by_sysfs(dev)) && !is_hardware_hung(dev));
-}
-
-void detect_ffffffff_read(PCIDevice *dev, std::uint32_t data_read = 0xffffffffu) {
-    if (data_read == 0xffffffffu && is_hardware_hung(dev)) {
-        std::uint32_t scratch_data = *register_address<std::uint32_t>(dev, dev->read_checking_offset);
-
-        if (auto_reset_board(dev)) {
-            throw std::runtime_error("Read 0xffffffff from PCIE: auto-reset succeeded.");
-        } else {
-            throw std::runtime_error("Read 0xffffffff from PCIE: you should reset the board.");
-        }
-    }
-}
-
-inline void record_access (const char* where, uint32_t addr, uint32_t size, bool turbo, bool write, bool block, bool endline) {
-    log_trace(LogSiliconDriver, "{} PCI_ACCESS {} 0x{:x}  {} bytes {} {}{}", where, write ? "WR" : "RD", addr, size, turbo ? "TU" : "  ", block ? "BLK" : "   ", endline ? "\n" : "" );
-}
-
-inline void print_buffer (const void* buffer_addr, uint32_t len_bytes = 16, bool endline = true) {
-    // Prints each byte in a buffer
-    uint8_t *b = (uint8_t *)(buffer_addr);
-    for (uint32_t i = 0; i < len_bytes; i++) {
-        log_trace(LogSiliconDriver, "    [0x{:x}] = 0x{:x} ({}) ", i, b[i], b[i]);
-    }
-    if (endline) {
-        log_trace(LogSiliconDriver, "\n");
-    }
-}
-#endif
 // --------------------------------------------------------------------------------------------------------------
 // --------------------------------------------------------------------------------------------------------------
 // --------------------------------------------------------------------------------------------------------------
@@ -1621,7 +1533,7 @@ int tt_SiliconDevice::pcie_arc_msg(int logical_device_id, uint32_t msg_code, boo
         }
     }
 
-    // detect_ffffffff_read(pci_device);
+    pci_device->detect_hang_read();
     return exit_code;
 }
 

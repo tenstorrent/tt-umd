@@ -95,7 +95,7 @@ set(CMAKE_CXX_FLAGS_DEBUG "-O0 -g -DDEBUG=DEBUG")
 include(${PROJECT_SOURCE_DIR}/cmake/dependencies.cmake)
 
 add_library(umd_common_directories INTERFACE)
-target_include_directories(umd_common_directories INTERFACE ${PROJECT_SOURCE_DIR} ${PROJECT_SOURCE_DIR}/device ${PROJECT_SOURCE_DIR}/third_party/fmt/include)
+target_include_directories(umd_common_directories INTERFACE ${PROJECT_SOURCE_DIR} ${PROJECT_SOURCE_DIR}/device)
 
 add_subdirectory(${PROJECT_SOURCE_DIR}/device)
 

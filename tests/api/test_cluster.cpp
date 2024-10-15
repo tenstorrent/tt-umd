@@ -29,17 +29,22 @@ TEST(ApiTest, OpenAllChips) {
     // Which are different than physical PCI ids, which are /dev/tenstorrent/N ones.
     // You have to see if physical PCIe is GS before constructing a cluster descriptor.
     std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
-    std::set<int> pci_device_ids_set;
-    for (int pci_device_id : pci_device_ids) {
-        pci_device_ids_set.insert(pci_device_id);
+    std::set<int> pci_device_ids_set (pci_device_ids.begin(), pci_device_ids.end());
+
+    tt::ARCH device_arch = tt::ARCH::GRAYSKULL;
+    if (!pci_device_ids.empty()) {
+        // TODO: This should be removed from the API, the driver itself should do it.
+        int physical_device_id = pci_device_ids[0];
+        // TODO: remove logical_device_id
+        PCIDevice pci_device (physical_device_id, 0);
+        tt::ARCH device_arch = pci_device.get_arch();
     }
 
-    // TODO: This should be removed from the API, the driver itself should do it.
-    std::string soc_path;
-    int physical_device_id = pci_device_ids[0];
-    // TODO: remove logical_device_id
-    PCIDevice pci_device (physical_device_id, 0);
-    tt::ARCH device_arch = pci_device.get_arch();
+    // TODO: Make this test work on a host system without any tt devices.
+    if (pci_device_ids.empty()) {
+        std::cout << "No Tenstorrent devices found. Skipping test." << std::endl;
+        return;
+    }
 
     // TODO: remove getting manually cluster descriptor from yaml.
     std::string yaml_path = test_utils::GetClusterDescYAML();
@@ -52,14 +57,12 @@ TEST(ApiTest, OpenAllChips) {
     }
     std::unordered_set<int> detected_num_chips = cluster_desc->get_all_chips();
 
-    // TODO: make these unordered vs
-    std::set<chip_id_t> detected_num_chips_set;
-    for (int chip : detected_num_chips) {
-        detected_num_chips_set.insert(chip);
-    }
+    // TODO: make this unordered vs set conversion not needed.
+    std::set<chip_id_t> detected_num_chips_set (detected_num_chips.begin(), detected_num_chips.end());
 
     
     // TODO: This would be incorporated inside SocDescriptor.
+    std::string soc_path;
     if (device_arch == tt::ARCH::GRAYSKULL) {
         soc_path = test_utils::GetAbsPath("tests/soc_descs/grayskull_10x12.yaml");
     } else if (device_arch == tt::ARCH::WORMHOLE || device_arch == tt::ARCH::WORMHOLE_B0) {

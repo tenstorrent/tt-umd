@@ -160,6 +160,9 @@ inline void memcpy_from_device(void *dest, const void *src, std::size_t num_byte
     std::vector<int> device_ids;
     std::string path = "/dev/tenstorrent/";
 
+    if (!std::filesystem::exists(path)) {
+        return device_ids;
+    }
     for (const auto& entry : std::filesystem::directory_iterator(path)) {
         std::string filename = entry.path().filename().string();
 

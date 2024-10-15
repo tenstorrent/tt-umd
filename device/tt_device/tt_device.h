@@ -17,9 +17,9 @@
 
 namespace tt::umd {
 
-class architecture_implementation {
+class TTDevice {
    public:
-    virtual ~architecture_implementation() = default;
+    virtual ~TTDevice() = default;
 
     virtual architecture get_architecture() const = 0;
     virtual uint32_t get_arc_message_arc_get_harvesting() const = 0;
@@ -62,7 +62,7 @@ class architecture_implementation {
     virtual std::optional<std::tuple<std::uint64_t, std::uint64_t>> describe_tlb(std::int32_t tlb_index) const = 0;
     virtual std::pair<std::uint64_t, std::uint64_t> get_tlb_data(std::uint32_t tlb_index, const tlb_data& data) const = 0;
 
-    static std::unique_ptr<architecture_implementation> create(architecture architecture);
+    static std::unique_ptr<TTDevice> create(architecture architecture);
 };
 
 }  // namespace tt::umd

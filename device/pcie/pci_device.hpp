@@ -23,6 +23,7 @@ static const uint64_t UNROLL_ATU_OFFSET_BAR = 0x1200;
 // BAR0 size for Blackhole, used to determine whether write block should use BAR0 or BAR4
 const uint64_t BAR0_BH_SIZE = 512 * 1024 * 1024;
 
+constexpr unsigned int c_hang_read_value = 0xffffffffu;
 struct PciDeviceInfo
 {
     uint16_t vendor_id;
@@ -97,7 +98,7 @@ public:
 
     tt::ARCH get_arch() const;
 
-    void detect_hang_read(std::uint32_t data_read = 0xffffffffu);
+    void detect_hang_read(std::uint32_t data_read = c_hang_read_value);
     
 private:
     void setup_device();

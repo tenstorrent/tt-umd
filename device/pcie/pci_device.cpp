@@ -23,8 +23,6 @@
 #include "common/assert.hpp"
 #include "common/logger.hpp"
 
-constexpr unsigned int c_hang_read_value = 0xffffffffu;
-
 static PciDeviceInfo read_device_info(int fd)
 {
     tenstorrent_get_device_info info{};

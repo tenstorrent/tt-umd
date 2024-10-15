@@ -11,6 +11,7 @@
 #include <vector>
 #include <unordered_map>
 
+#include "device/tt_xy_pair.h"
 #include "device/tt_arch_types.h"
 #include "device/architecture_implementation.h"
 #include "device/tt_cluster_descriptor_types.h"

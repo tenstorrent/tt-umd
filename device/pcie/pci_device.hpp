@@ -9,9 +9,11 @@
 #include <cstdint>
 #include <cstdio>
 #include <vector>
+#include <unordered_map>
 
 #include "device/tt_arch_types.h"
 #include "device/architecture_implementation.h"
+#include "device/tt_cluster_descriptor_types.h"
 
 // TODO: this is used up in tt_silicon_driver.cpp but that logic ought to be
 // lowered into the PCIDevice class since it is specific to PCIe cards.
@@ -24,6 +26,12 @@ static const uint64_t UNROLL_ATU_OFFSET_BAR = 0x1200;
 static const uint64_t BAR0_BH_SIZE = 512 * 1024 * 1024;
 
 constexpr unsigned int c_hang_read_value = 0xffffffffu;
+
+struct dynamic_tlb {
+    uint64_t bar_offset;        // Offset that address is mapped to, within the PCI BAR.
+    uint64_t remaining_size;    // Bytes remaining between bar_offset and end of the TLB.
+};
+
 struct PciDeviceInfo
 {
     uint16_t vendor_id;
@@ -133,7 +141,14 @@ public:
     void write_regs(uint32_t byte_addr, uint32_t word_len, const void *data);
     void write_regs(volatile uint32_t *dest, const uint32_t *src, uint32_t word_len);
     void read_regs(uint32_t byte_addr, uint32_t word_len, void *data);
+
+    // TLB related functions.
+    // TODO: These are architecture specific, and will be moved out of the class.
     void write_tlb_reg(uint32_t byte_addr, std::uint64_t value_lower, std::uint64_t value_upper, std::uint32_t tlb_cfg_reg_size);
+    dynamic_tlb set_dynamic_tlb(unsigned int tlb_index, tt_xy_pair start, tt_xy_pair end,
+                                std::uint64_t address, bool multicast, std::unordered_map<chip_id_t, std::unordered_map<tt_xy_pair, tt_xy_pair>>& harvested_coord_translation, std::uint64_t ordering);
+    dynamic_tlb set_dynamic_tlb(unsigned int tlb_index, tt_xy_pair target, std::uint64_t address, std::unordered_map<chip_id_t, std::unordered_map<tt_xy_pair, tt_xy_pair>>& harvested_coord_translation, std::uint64_t ordering = tt::umd::tlb_data::Relaxed);
+    dynamic_tlb set_dynamic_tlb_broadcast(unsigned int tlb_index, std::uint64_t address, std::unordered_map<chip_id_t, std::unordered_map<tt_xy_pair, tt_xy_pair>>& harvested_coord_translation, tt_xy_pair start, tt_xy_pair end, std::uint64_t ordering = tt::umd::tlb_data::Relaxed);
 
     tt::umd::architecture_implementation* get_architecture_implementation() const { return architecture_implementation.get(); }
     void detect_hang_read(uint32_t data_read = c_hang_read_value);

@@ -524,7 +524,7 @@ dynamic_tlb PCIDevice::set_dynamic_tlb(unsigned int tlb_index, tt_xy_pair start,
     auto translated_start_coords = harvested_coord_translation.at(logical_id).at(start);
     auto translated_end_coords = harvested_coord_translation.at(logical_id).at(end);
     uint32_t tlb_address    = address / tlb_config.size;
-    uint32_t local_offset   = address % tlb_config.size;
+    uint32_t local_address   = address % tlb_config.size;
     uint64_t tlb_base       = tlb_config.base + (tlb_config.size * tlb_config.index_offset);
     uint32_t tlb_cfg_reg    = tlb_config.cfg_addr + (TLB_CFG_REG_SIZE_BYTES * tlb_config.index_offset);
 
@@ -543,10 +543,9 @@ dynamic_tlb PCIDevice::set_dynamic_tlb(unsigned int tlb_index, tt_xy_pair start,
     }.apply_offset(tlb_config.offset);
 
     log_debug(LogSiliconDriver, "set_dynamic_tlb() with tlb_index: {} tlb_index_offset: {} dynamic_tlb_size: {}MB tlb_base: 0x{:x} tlb_cfg_reg: 0x{:x}", tlb_index, tlb_config.index_offset, tlb_config.size/(1024*1024), tlb_base, tlb_cfg_reg);
-    // write_regs(dev -> hdev, tlb_cfg_reg, 2, &tlb_data);
     write_tlb_reg(tlb_cfg_reg, tlb_data.first, tlb_data.second, TLB_CFG_REG_SIZE_BYTES);
 
-    return { tlb_base + local_offset, tlb_config.size - local_offset };
+    return { tlb_base + local_address, tlb_config.size - local_address };
 }
 
 dynamic_tlb PCIDevice::set_dynamic_tlb(unsigned int tlb_index, tt_xy_pair target, std::uint64_t address, std::unordered_map<chip_id_t, std::unordered_map<tt_xy_pair, tt_xy_pair>>& harvested_coord_translation, std::uint64_t ordering) {

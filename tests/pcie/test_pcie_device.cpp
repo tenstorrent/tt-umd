@@ -14,8 +14,8 @@ TEST(PcieDeviceTest, Numa) {
     std::vector<int> nodes;
 
     for (auto device_id : PCIDevice::enumerate_devices()) {
-        PCIDevice device(device_id, 0);
-        nodes.push_back(device.numa_node);
+        PCIDevice device(device_id);
+        nodes.push_back(device.get_numa_node());
     }
 
     // Acceptable outcomes:

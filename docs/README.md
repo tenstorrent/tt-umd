@@ -11,3 +11,7 @@ In order to build docs environment variable `TT_UMD_HOME` needs to be set to roo
 After that you can run [`build_docs.sh`](build_docs.sh)
 
 In `build/docs` directory you will find multiple formats of the docs.
+
+## Adding documentation
+
+Augment the `INPUT` line in [`Doxyfile`](../Doxyfile)

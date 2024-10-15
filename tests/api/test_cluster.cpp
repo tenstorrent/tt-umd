@@ -37,7 +37,7 @@ TEST(ApiTest, OpenAllChips) {
         int physical_device_id = pci_device_ids[0];
         // TODO: remove logical_device_id
         PCIDevice pci_device (physical_device_id, 0);
-        tt::ARCH device_arch = pci_device.get_arch();
+        device_arch = pci_device.get_arch();
     }
 
     // TODO: Make this test work on a host system without any tt devices.

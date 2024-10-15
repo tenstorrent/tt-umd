@@ -512,7 +512,7 @@ tt_SiliconDevice::tt_SiliconDevice(const std::string &sdesc_path, const std::str
 
     if (!skip_driver_allocs) {
         log_info(LogSiliconDriver, "Detected {} PCI device{} : {}", m_num_pci_devices, (m_num_pci_devices > 1) ? "s":"", available_device_ids);
-        log_info(LogSiliconDriver, "Passed target devices: {}", target_devices);
+        log_debug(LogSiliconDriver, "Passed target devices: {}", target_devices);
     }
 
     if (ndesc_path == "") {

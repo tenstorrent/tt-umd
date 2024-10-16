@@ -698,6 +698,9 @@ TEST(SiliconDriverWH, SysmemTestWithPcie) {
                             true,  // clean system resources - yes
                             true); // perform harvesting - yes
 
+    set_params_for_remote_txn(device);
+    device.start_device(tt_device_params{});  // no special parameters
+
     // PCIe core is at (x=0, y=3) on Wormhole NOC0.
     const size_t PCIE_X = 0;    // NOC0
     const size_t PCIE_Y = 3;    // NOC0

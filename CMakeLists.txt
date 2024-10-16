@@ -70,7 +70,7 @@ if(MASTER_PROJECT)
     add_library(compiler_flags INTERFACE)
     target_compile_options(
         compiler_flags
-        INTERFACE -DFMT_HEADER_ONLY
+        INTERFACE
                 $<$<BOOL:${ENABLE_ASAN}>:-fsanitize=address>
                 $<$<BOOL:${ENABLE_MSAN}>:-fsanitize=memory>
                 $<$<BOOL:${ENABLE_TSAN}>:-fsanitize=thread>

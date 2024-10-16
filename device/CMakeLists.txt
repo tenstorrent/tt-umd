@@ -20,7 +20,8 @@ target_link_libraries(umd_device
     PUBLIC yaml-cpp::yaml-cpp umd_common_directories nng uv compiler_flags
     PRIVATE hwloc rt Boost::interprocess fmt
 )
-target_include_directories(umd_device PUBLIC
+target_include_directories(umd_device
+    PRIVATE
     ${flatbuffers_SOURCE_DIR}/include
     ${nanomsg_SOURCE_DIR}/include
     ${libuv_SOURCE_DIR}/include
@@ -29,4 +30,18 @@ set_target_properties(umd_device PROPERTIES
     OUTPUT_NAME device
     LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib
     POSITION_INDEPENDENT_CODE ON
+)
+
+include(GNUInstallDirs)
+
+install(TARGETS umd_device
+    EXPORT umdTargets
+    ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
+    LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
+    COMPONENT dev
+)
+
+install(EXPORT umdTargets
+    FILE umdTargets.cmake
+    DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/umd
 )

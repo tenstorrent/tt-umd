@@ -48,6 +48,46 @@ struct PciDeviceInfo
     // onto this struct as methods?  e.g. current_link_width etc.
 };
 
+// TODO: probably belongs in common.hpp
+struct semver_t {
+    uint32_t major;
+    uint32_t minor;
+    uint32_t patch;
+
+    // TODO: there's a neater, C++20 way to do these comparisons.
+    // Start using it once we move off of Ubuntu 20.04 to a distro that ships a
+    // modern compiler.
+
+    bool operator<(const semver_t& other) const {
+        return std::tie(major, minor, patch) < std::tie(other.major, other.minor, other.patch);
+    }
+
+    bool operator>(const semver_t& other) const {
+        return other < *this;
+    }
+
+    bool operator==(const semver_t& other) const {
+        return std::tie(major, minor, patch) == std::tie(other.major, other.minor, other.patch);
+    }
+
+    bool operator!=(const semver_t& other) const {
+        return !(*this == other);
+    }
+
+    bool operator<=(const semver_t& other) const {
+        return !(other < *this);
+    }
+
+    bool operator>=(const semver_t& other) const {
+        return !(*this < other);
+    }
+
+    std::string to_string() const {
+        return std::to_string(major) + "." + std::to_string(minor) + "." + std::to_string(patch);
+    }
+};
+
+
 class PCIDevice {
     const std::string device_path;  // Path to character device: /dev/tenstorrent/N
     const int pci_device_num;       // N in /dev/tenstorrent/N

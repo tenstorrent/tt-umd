@@ -61,11 +61,20 @@ TEST(ApiClusterDescriptorTest, BasicFunctionality) {
         return;
     }
 
-    auto all_chips = cluster_desc->get_all_chips();
-    auto harvesting_for_chips = cluster_desc->get_harvesting_info();
-    auto eth_chip_coords = cluster_desc->get_chip_locations();
-    auto local_chips_to_pci_device_id = cluster_desc->get_chips_with_mmio();
-
+    std::unordered_set<chip_id_t> all_chips = cluster_desc->get_all_chips();
+    std::unordered_map<chip_id_t, std::uint32_t> harvesting_for_chips = cluster_desc->get_harvesting_info();
+    std::unordered_map<chip_id_t, eth_coord_t> eth_chip_coords = cluster_desc->get_chip_locations();
+    std::unordered_map<chip_id_t, chip_id_t> local_chips_to_pci_device_id = cluster_desc->get_chips_with_mmio();
+    std::unordered_set<chip_id_t> local_chips;
+    for (auto [chip, _]: local_chips_to_pci_device_id) {
+        local_chips.insert(chip);
+    }
+    std::unordered_set<chip_id_t> remote_chips;
+    for (auto chip : all_chips) {
+        if (local_chips.find(chip) == local_chips.end()) {
+            remote_chips.insert(chip);
+        }
+    }
 }
 
 // A standard disjoint set data structure to track connected components.

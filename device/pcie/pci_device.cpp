@@ -22,6 +22,7 @@
 #include "device/architecture_implementation.h"
 #include "common/assert.hpp"
 #include "common/logger.hpp"
+#include "common/logger2.hpp"
 
 static const uint16_t GS_PCIE_DEVICE_ID = 0xfaca;
 static const uint16_t WH_PCIE_DEVICE_ID = 0x401e;
@@ -223,6 +224,7 @@ PCIDevice::PCIDevice(int pci_device_number, int logical_device_id)
     , arch(detect_arch(info.device_id, revision))
     , architecture_implementation(tt::umd::architecture_implementation::create(static_cast<tt::umd::architecture>(arch)))
 {
+
     struct {
         tenstorrent_query_mappings query_mappings;
         tenstorrent_mapping mapping_array[8];
@@ -356,6 +358,8 @@ PCIDevice::PCIDevice(int pci_device_number, int logical_device_id)
 
     // GS+WH: ARC_SCRATCH[6], BH: NOC NODE_ID
     read_checking_offset = arch == tt::ARCH::BLACKHOLE ? BH_NOC_NODE_ID_OFFSET : GS_WH_ARC_SCRATCH_6_OFFSET;
+
+    UMD_INFO("Opened device {}", device_path);
 }
 
 PCIDevice::~PCIDevice() {
@@ -392,6 +396,8 @@ PCIDevice::~PCIDevice() {
     if (system_reg_mapping != nullptr && system_reg_mapping != MAP_FAILED) {
         munmap(system_reg_mapping, system_reg_mapping_size);
     }
+
+    UMD_INFO("Closed device {}", device_path);
 }
 
 template<typename T>
@@ -497,7 +503,11 @@ bool PCIDevice::is_hardware_hung() {
     volatile const void *addr = reinterpret_cast<const char *>(bar0_uc) + (get_architecture_implementation()->get_arc_reset_scratch_offset() + 6 * 4) - bar0_uc_offset;
     std::uint32_t scratch_data = *reinterpret_cast<const volatile std::uint32_t*>(addr);
 
-    return (scratch_data == c_hang_read_value);
+    bool hung = (scratch_data == c_hang_read_value);
+    if (hung) {
+        UMD_ERROR("{} is hung", device_path);
+    }
+    return hung;
 }
 
 void PCIDevice::detect_hang_read(std::uint32_t data_read) {

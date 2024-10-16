@@ -1245,7 +1245,7 @@ int tt_SiliconDevice::open_hugepage_file(const std::string &dir, chip_id_t physi
     // In order to limit number of hugepages while transition from shared hugepage (1 per system) to unique
     // hugepage per device, will share original/shared hugepage filename with physical device 0.
     if (physical_device_id != 0 || channel != 0){
-        std::string device_id_str = fmt::format("device_{}_channel_{}_", physical_device_id, channel);
+        std::string device_id_str = fmt::format("device_{}_", physical_device_id);
         filename.insert(filename.end(), device_id_str.begin(), device_id_str.end());
     }
 

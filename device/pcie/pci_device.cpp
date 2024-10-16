@@ -258,7 +258,10 @@ PCIDevice::PCIDevice(int pci_device_number, int logical_device_id) :
     numa_node(read_sysfs<int>(info, "numa_node")),
     revision(read_sysfs<int>(info, "revision")),
     arch(detect_arch(info.device_id, revision)),
-    architecture_implementation(tt::umd::architecture_implementation::create(arch)) {
+    architecture_implementation(tt::umd::architecture_implementation::create(arch)),
+    kmd_version(read_kmd_version()) {
+    log_info(LogSiliconDriver, "Opened device {}; KMD version: {}", pci_device_num, kmd_version.to_string());
+
     struct {
         tenstorrent_query_mappings query_mappings;
         tenstorrent_mapping mapping_array[8];
@@ -808,4 +811,19 @@ void PCIDevice::print_file_contents(std::string filename, std::string hint) {
             std::cout << meminfo.rdbuf();
         }
     }
+}
+
+semver_t PCIDevice::read_kmd_version() {
+    static const std::string path = "/sys/module/tenstorrent/version";
+    std::ifstream file(path);
+
+    if (!file.is_open()) {
+        log_warning(LogSiliconDriver, "Failed to open file: {}", path);
+        return {0, 0, 0};
+    }
+
+    std::string version_str;
+    std::getline(file, version_str);
+
+    return semver_t(version_str);
 }

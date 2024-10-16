@@ -103,3 +103,7 @@ jobs:
       - name: Run API tests
         run: |
           ${{ env.TEST_OUTPUT_DIR }}/umd/api/api_tests
+
+      - name: Run MISC tests
+        run: |
+          ${{ env.TEST_OUTPUT_DIR }}/umd/misc/umd_misc_tests

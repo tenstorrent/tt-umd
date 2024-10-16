@@ -8,8 +8,9 @@
 
 #include <cstdint>
 #include <cstdio>
-#include <vector>
+#include <map>
 #include <unordered_map>
+#include <vector>
 
 #include "device/tt_xy_pair.h"
 #include "device/tt_arch_types.h"
@@ -41,13 +42,17 @@ struct PciDeviceInfo
     uint16_t pci_bus;
     uint16_t pci_device;
     uint16_t pci_function;
+
+    tt::ARCH get_arch() const;
+    // TODO: does it make sense to move attributes that we can read from sysfs
+    // onto this struct as methods?  e.g. current_link_width etc.
 };
 
 class PCIDevice {
     const std::string device_path;  // Path to character device: /dev/tenstorrent/N
-    const int pci_device_num;           // N in /dev/tenstorrent/N
+    const int pci_device_num;       // N in /dev/tenstorrent/N
     const int logical_id;           // Unique identifier for each device in entire network topology
-    const int pci_device_file_desc;                   // Character device file descriptor
+    const int pci_device_file_desc; // Character device file descriptor
     const PciDeviceInfo info;       // PCI device info
     const int numa_node;            // -1 if non-NUMA
     const int revision;             // PCI revision value from sysfs
@@ -59,6 +64,11 @@ public:
      * @return a list of integers corresponding to character devices in /dev/tenstorrent/
      */
     static std::vector<int> enumerate_devices();
+
+    /**
+     * @return a map of PCI device numbers (/dev/tenstorrent/N) to PciDeviceInfo
+     */
+    static std::map<int, PciDeviceInfo> enumerate_devices_info();
 
     /**
      * PCI device constructor.

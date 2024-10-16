@@ -1270,6 +1270,16 @@ int tt_SiliconDevice::open_hugepage_file(const std::string &dir, chip_id_t physi
         fd = open(filename.data(), O_RDWR | O_CREAT | O_CLOEXEC, S_IWUSR | S_IRUSR | S_IWGRP | S_IRGRP | S_IWOTH | S_IROTH );
     }
 
+    // Verify opened file size.
+    struct stat st;
+    if (fstat(fd, &st) == -1) {
+        log_warning(LogSiliconDriver, "Error reading file size after opening: {}", filename_str);
+    } else {
+        if (st.st_size == 0) {
+            log_warning(LogSiliconDriver, "Opened hugepage file has zero size, mapping it might fail: {}. Verify that enough hugepages are provided.", filename_str);
+        }
+    }
+
     // Restore original mask
     umask(old_umask);
 

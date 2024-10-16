@@ -313,6 +313,8 @@ std::unique_ptr<tt_ClusterDescriptor> tt_ClusterDescriptor::create_from_yaml(con
     tt_ClusterDescriptor::load_harvesting_information(yaml, *desc);
     desc->enable_all_devices();
 
+    fill_chips_grouped_by_closest_mmio();
+
     return desc;
 }
 
@@ -573,6 +575,14 @@ void tt_ClusterDescriptor::enable_all_devices() {
     this->enabled_active_chips = this->all_chips;
 }
 
+void tt_ClusterDescriptor::fill_chips_grouped_by_closest_mmio() {
+    for (const auto &chip : this->all_chips) {
+        // This will also fill up the closest_mmio_chip_cache
+        chip_id_t closest_mmio_chip = get_closest_mmio_capable_chip(chip);
+        this->chips_grouped_by_closest_mmio[closest_mmio_chip].insert(chip);
+    }
+}
+
 std::unordered_map<chip_id_t, std::unordered_map<ethernet_channel_t, std::tuple<chip_id_t, ethernet_channel_t> > > tt_ClusterDescriptor::get_ethernet_connections() const {
     auto eth_connections = std::unordered_map<chip_id_t, std::unordered_map<ethernet_channel_t, std::tuple<chip_id_t, ethernet_channel_t> > >();
 
@@ -643,4 +653,8 @@ int tt_ClusterDescriptor::get_ethernet_link_distance(chip_id_t chip_a, chip_id_t
 BoardType tt_ClusterDescriptor::get_board_type(chip_id_t chip_id) const {
   BoardType board_type = this->chip_board_type.at(chip_id);
   return board_type;
+}
+
+std::unordered_map<chip_id_t, std::unordered_set<chip_id_t>> tt_ClusterDescriptor::get_chips_grouped_by_closest_mmio() {
+    return chips_grouped_by_closest_mmio;
 }

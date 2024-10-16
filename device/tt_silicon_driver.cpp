@@ -1245,7 +1245,7 @@ int tt_SiliconDevice::open_hugepage_file(const std::string &dir, chip_id_t physi
     // In order to limit number of hugepages while transition from shared hugepage (1 per system) to unique
     // hugepage per device, will share original/shared hugepage filename with physical device 0.
     if (physical_device_id != 0 || channel != 0){
-        std::string device_id_str = fmt::format("device_{}_channel_{}_", physical_device_id, channel);
+        std::string device_id_str = fmt::format("device_{}_", physical_device_id);
         filename.insert(filename.end(), device_id_str.begin(), device_id_str.end());
     }
 
@@ -1268,6 +1268,16 @@ int tt_SiliconDevice::open_hugepage_file(const std::string &dir, chip_id_t physi
         log_warning(LogSiliconDriver, "ttSiliconDevice::open_hugepage_file could not open filename: {} on first try, unlinking it and retrying.", filename_str);
         unlink(filename.data());
         fd = open(filename.data(), O_RDWR | O_CREAT | O_CLOEXEC, S_IWUSR | S_IRUSR | S_IWGRP | S_IRGRP | S_IWOTH | S_IROTH );
+    }
+
+    // Verify opened file size.
+    struct stat st;
+    if (fstat(fd, &st) == -1) {
+        log_warning(LogSiliconDriver, "Error reading file size after opening: {}", filename_str);
+    } else {
+        if (st.st_size == 0) {
+            log_warning(LogSiliconDriver, "Opened hugepage file has zero size, mapping it might fail: {}. Verify that enough hugepages are provided.", filename_str);
+        }
     }
 
     // Restore original mask

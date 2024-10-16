@@ -33,14 +33,14 @@ set_target_properties(umd_device PROPERTIES
 
 include(GNUInstallDirs)
 
+# EXPORT umdTargets
 install(TARGETS umd_device
-    EXPORT umdTargets
     ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
     LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
     COMPONENT dev
 )
 
-install(EXPORT umdTargets
-    FILE umdTargets.cmake
-    DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/umd
-)
+#install(EXPORT umdTargets
+#    FILE umdTargets.cmake
+#    DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/umd
+#)

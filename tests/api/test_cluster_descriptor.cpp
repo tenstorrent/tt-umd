@@ -1,25 +1,15 @@
 
 #include <gtest/gtest.h>
-#include "fmt/xchar.h"
 
-#include <algorithm>
-#include <filesystem>
 #include <string>
 #include <vector>
+#include <unordered_map>
 
 #include "tests/test_utils/generate_cluster_desc.hpp"
 
-// TODO: change to tt_cluster
-#include "device/tt_device.h"
+#include "device/pcie/pci_device.hpp"
 #include "device/tt_cluster_descriptor.h"
 
-// TODO: do proper renaming.
-using Cluster = tt_SiliconDevice;
-
-// These tests are intended to be run with the same code on all kinds of systems:
-// E75, E150, E300
-// N150. N300
-// Galaxy
 
 std::unique_ptr<tt_ClusterDescriptor> get_cluster_desc() {
 

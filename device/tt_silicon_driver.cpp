@@ -87,6 +87,16 @@ tt::ARCH detect_arch(int pci_device_num) {
     return info.get_arch();
 }
 
+// There is also a function which just wants to get any architecture, since it
+// presumably already checked that all archs are the same.
+tt::ARCH detect_arch() {
+    const auto devices_info = PCIDevice::enumerate_devices_info();
+    if (devices_info.empty()) {
+        return tt::ARCH::Invalid;
+    }
+    return devices_info.begin()->second.get_arch();
+}
+
 template <typename T>
 void size_buffer_to_capacity(std::vector<T> &data_buf, std::size_t size_in_bytes) {
     std::size_t target_size = 0;

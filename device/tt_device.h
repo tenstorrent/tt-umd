@@ -28,6 +28,7 @@ using TLB_DATA = tt::umd::tlb_data;
 // TODO: Remove this - it's here for Metal backwards compatibility.
 // Implementation is in tt_silicon_driver.cpp.
 tt::ARCH detect_arch(int pci_device_num);
+tt::ARCH detect_arch();
 
 namespace boost::interprocess{
     class named_mutex;

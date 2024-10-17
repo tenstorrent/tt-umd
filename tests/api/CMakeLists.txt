@@ -1,6 +1,7 @@
 set(API_TESTS_SRCS
-    test_cluster.cpp
+    test_chip.cpp
     test_cluster_descriptor.cpp
+    test_cluster.cpp
 )
 
 add_executable(api_tests ${API_TESTS_SRCS})

@@ -30,3 +30,17 @@ set_target_properties(umd_device PROPERTIES
     LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib
     POSITION_INDEPENDENT_CODE ON
 )
+
+include(GNUInstallDirs)
+
+# EXPORT umdTargets
+install(TARGETS umd_device
+    ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
+    LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
+    COMPONENT dev
+)
+
+#install(EXPORT umdTargets
+#    FILE umdTargets.cmake
+#    DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/umd
+#)

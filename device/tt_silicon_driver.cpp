@@ -66,6 +66,39 @@ std::string hugepage_dir = hugepage_dir_env ? hugepage_dir_env : "/dev/hugepages
 // TLB size for DRAM on blackhole - 4GB
 const uint64_t BH_4GB_TLB_SIZE = 4ULL * 1024 * 1024 * 1024;
 
+// TODO: Remove in favor of cluster descriptor method, when it becomes available.
+// Metal uses this function to determine the architecture of the first PCIe chip
+// and then verifies that all subsequent chips are of the same architecture.  It
+// looks like Metal is doing this because we don't provide any other way... When
+// we are further along in our refactoring efforts and `tt_device` is more of a
+// Cluster abstraction, we should provide Metal with interfaces for:
+//      1. Checking that all chips are of the same architecture (we may not care
+//         about this, but the application might).
+//      2. Getting the architecture of a specific chip.
+// Until then... I'm putting this function back so that Metal will still build
+// next time someone bumps its UMD submodule version.
+tt::ARCH detect_arch(int pci_device_num) {
+    const auto devices_info = PCIDevice::enumerate_devices_info();
+    const auto it = devices_info.find(pci_device_num);
+    if (it == devices_info.end()) {
+        return tt::ARCH::Invalid;
+    }
+
+    const auto info = it->second;
+    return info.get_arch();
+}
+
+// TODO: Remove in favor of cluster descriptor method, when it becomes available.
+// There is also a function which just wants to get any architecture, since it
+// presumably already checked that all archs are the same.
+tt::ARCH detect_arch() {
+    const auto devices_info = PCIDevice::enumerate_devices_info();
+    if (devices_info.empty()) {
+        return tt::ARCH::Invalid;
+    }
+    return devices_info.begin()->second.get_arch();
+}
+
 template <typename T>
 void size_buffer_to_capacity(std::vector<T> &data_buf, std::size_t size_in_bytes) {
     std::size_t target_size = 0;
@@ -223,10 +256,6 @@ bool tt_SiliconDevice::address_in_tlb_space(uint32_t address, uint32_t size_in_b
     return ((tlb_config_map.at(chip).find(tlb_index) != tlb_config_map.at(chip).end()) && address >= tlb_config_map.at(chip).at(tlb_index) && (address + size_in_bytes <= tlb_config_map.at(chip).at(tlb_index) + tlb_size));
 }
 
-tt_SocDescriptor& tt_SiliconDevice::get_soc_descriptor(chip_id_t chip_id){
-    return soc_descriptor_per_chip.at(chip_id);
-}
-
 std::unordered_map<chip_id_t, tt_SocDescriptor>& tt_SiliconDevice::get_virtual_soc_descriptors() {
     return soc_descriptor_per_chip;
 }
@@ -356,8 +385,8 @@ std::unordered_map<chip_id_t, uint32_t> tt_SiliconDevice::get_harvesting_masks_f
 }
 
 tt_SiliconDevice::tt_SiliconDevice(const std::string &sdesc_path, const std::string &ndesc_path, const std::set<chip_id_t> &target_devices, 
-                                   const uint32_t &num_host_mem_ch_per_mmio_device, const std::unordered_map<std::string, std::int32_t>& dynamic_tlb_config_, 
-                                   const bool skip_driver_allocs, const bool clean_system_resources, bool perform_harvesting, std::unordered_map<chip_id_t, uint32_t> simulated_harvesting_masks) : tt_device(sdesc_path) {
+                                   const uint32_t &num_host_mem_ch_per_mmio_device, const bool skip_driver_allocs,
+                                   const bool clean_system_resources, bool perform_harvesting, std::unordered_map<chip_id_t, uint32_t> simulated_harvesting_masks) : tt_device(sdesc_path) {
     std::unordered_set<chip_id_t> target_mmio_device_ids;
     target_devices_in_cluster = target_devices;
     arch_name = tt_SocDescriptor(sdesc_path).arch;
@@ -386,12 +415,13 @@ tt_SiliconDevice::tt_SiliconDevice(const std::string &sdesc_path, const std::str
             target_remote_chips.insert(d);
         }
     }
-    dynamic_tlb_config = dynamic_tlb_config_;
 
     // It is mandatory for all devices to have these TLBs set aside, as the driver needs them to issue remote reads and writes.
     auto architecture_implementation = tt::umd::architecture_implementation::create(static_cast<tt::umd::architecture>(arch_name));
     dynamic_tlb_config["LARGE_READ_TLB"] =  architecture_implementation->get_mem_large_read_tlb();
     dynamic_tlb_config["LARGE_WRITE_TLB"] = architecture_implementation->get_mem_large_write_tlb();
+    dynamic_tlb_config["REG_TLB"] = architecture_implementation->get_reg_tlb();
+    dynamic_tlb_config["SMALL_READ_WRITE_TLB"] = architecture_implementation->get_small_read_write_tlb();
 
     for(const auto& tlb : dynamic_tlb_config) {
         dynamic_tlb_ordering_modes.insert({tlb.first, TLB_DATA::Relaxed}); // All dynamic TLBs use Relaxed Ordering by default; MT: Good for BH
@@ -489,7 +519,7 @@ tt_SiliconDevice::tt_SiliconDevice(const std::string &sdesc_path, const std::str
     if(arch_name == tt::ARCH::WORMHOLE or arch_name == tt::ARCH::WORMHOLE_B0) {
         remote_transfer_ethernet_cores.resize(target_mmio_device_ids.size());
         for (const auto &logical_mmio_chip_id : target_mmio_device_ids) {
-            tt_SocDescriptor& soc_desc = get_soc_descriptor(logical_mmio_chip_id);
+            const tt_SocDescriptor& soc_desc = get_soc_descriptor(logical_mmio_chip_id);
             // 4-5 is for send_epoch_commands, 0-3 are for everything else
             for (std::uint32_t i = 0; i < NUM_ETH_CORES_FOR_NON_MMIO_TRANSFERS; i++) {
                 if(remote_transfer_ethernet_cores.size() <= logical_mmio_chip_id) {
@@ -1245,7 +1275,7 @@ int tt_SiliconDevice::open_hugepage_file(const std::string &dir, chip_id_t physi
     // In order to limit number of hugepages while transition from shared hugepage (1 per system) to unique
     // hugepage per device, will share original/shared hugepage filename with physical device 0.
     if (physical_device_id != 0 || channel != 0){
-        std::string device_id_str = fmt::format("device_{}_channel_{}_", physical_device_id, channel);
+        std::string device_id_str = fmt::format("device_{}_", physical_device_id);
         filename.insert(filename.end(), device_id_str.begin(), device_id_str.end());
     }
 
@@ -1268,6 +1298,16 @@ int tt_SiliconDevice::open_hugepage_file(const std::string &dir, chip_id_t physi
         log_warning(LogSiliconDriver, "ttSiliconDevice::open_hugepage_file could not open filename: {} on first try, unlinking it and retrying.", filename_str);
         unlink(filename.data());
         fd = open(filename.data(), O_RDWR | O_CREAT | O_CLOEXEC, S_IWUSR | S_IRUSR | S_IWGRP | S_IRGRP | S_IWOTH | S_IROTH );
+    }
+
+    // Verify opened file size.
+    struct stat st;
+    if (fstat(fd, &st) == -1) {
+        log_warning(LogSiliconDriver, "Error reading file size after opening: {}", filename_str);
+    } else {
+        if (st.st_size == 0) {
+            log_warning(LogSiliconDriver, "Opened hugepage file has zero size, mapping it might fail: {}. Verify that enough hugepages are provided.", filename_str);
+        }
     }
 
     // Restore original mask
@@ -2781,7 +2821,7 @@ void tt_SiliconDevice::verify_eth_fw() {
     for(const auto& chip : target_devices_in_cluster) {
         uint32_t fw_version;
         std::vector<uint32_t> fw_versions;
-        for (tt_xy_pair &eth_core : get_soc_descriptor(chip).ethernet_cores) {
+        for (const tt_xy_pair &eth_core : get_soc_descriptor(chip).ethernet_cores) {
             read_from_device(&fw_version, tt_cxy_pair(chip, eth_core), l1_address_params.fw_version_addr, sizeof(uint32_t), "LARGE_READ_TLB");
             fw_versions.push_back(fw_version);
         }

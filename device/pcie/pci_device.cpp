@@ -190,6 +190,17 @@ inline void memcpy_from_device(void *dest, const void *src, std::size_t num_byte
     }
 }
 
+tt::ARCH PciDeviceInfo::get_arch() const {
+    if (this->device_id == GS_PCIE_DEVICE_ID){
+        return tt::ARCH::GRAYSKULL;
+    } else if (this->device_id == WH_PCIE_DEVICE_ID) {
+        return tt::ARCH::WORMHOLE_B0;
+    } else if (this->device_id == WH_PCIE_DEVICE_ID){
+        return tt::ARCH::BLACKHOLE;
+    }
+    return tt::ARCH::Invalid;
+}
+
 
 /* static */ std::vector<int> PCIDevice::enumerate_devices() {
     std::vector<int> device_ids;
@@ -210,6 +221,23 @@ inline void memcpy_from_device(void *dest, const void *src, std::size_t num_byte
 
     std::sort(device_ids.begin(), device_ids.end());
     return device_ids;
+}
+
+/* static */ std::map<int, PciDeviceInfo> PCIDevice::enumerate_devices_info() {
+    std::map<int, PciDeviceInfo> infos;
+    for (int n : PCIDevice::enumerate_devices()) {
+        int fd = open(fmt::format("/dev/tenstorrent/{}", n).c_str(), O_RDWR | O_CLOEXEC);
+        if (fd == -1) {
+            continue;
+        }
+
+        try {
+            infos[n] = read_device_info(fd);
+        } catch (...) {}
+
+        close(fd);
+    }
+    return infos;
 }
 
 PCIDevice::PCIDevice(int pci_device_number, int logical_device_id)

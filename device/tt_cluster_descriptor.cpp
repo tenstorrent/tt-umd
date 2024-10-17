@@ -54,8 +54,12 @@ std::vector<std::tuple<ethernet_channel_t, ethernet_channel_t>> tt_ClusterDescri
     return directly_connected_channels;
 }
 
-bool tt_ClusterDescriptor::is_chip_mmio_capable(const chip_id_t &chip_id) const {
+bool tt_ClusterDescriptor::is_chip_mmio_capable(const chip_id_t chip_id) const {
     return this->chips_with_mmio.find(chip_id) != this->chips_with_mmio.end();
+}
+
+bool tt_ClusterDescriptor::is_chip_remote(const chip_id_t chip_id) const {
+    return !is_chip_mmio_capable(chip_id);
 }
 
 // given two coordinates, finds the number of hops between the two chips
@@ -255,7 +259,7 @@ int tt_ClusterDescriptor::get_ethernet_link_coord_distance(const eth_coord_t &lo
 }
 
 // Returns the closest mmio chip to the given chip
-chip_id_t tt_ClusterDescriptor::get_closest_mmio_capable_chip(const chip_id_t &chip) {
+chip_id_t tt_ClusterDescriptor::get_closest_mmio_capable_chip(const chip_id_t chip) {
 
     log_debug(LogSiliconDriver, "get_closest_mmio_chip to chip{}", chip);
 

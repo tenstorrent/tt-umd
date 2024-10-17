@@ -25,6 +25,10 @@
 
 using TLB_DATA = tt::umd::tlb_data;
 
+// TODO: Remove this - it's here for Metal backwards compatibility.
+// Implementation is in tt_silicon_driver.cpp.
+tt::ARCH detect_arch(int pci_device_num);
+tt::ARCH detect_arch();
 
 namespace boost::interprocess{
     class named_mutex;
@@ -574,7 +578,7 @@ class tt_device
         throw std::runtime_error("---- tt_device::get_pcie_base_addr_from_device is not implemented\n");
         return 0;
     }
-    const tt_SocDescriptor *get_soc_descriptor(chip_id_t chip) const;
+    const tt_SocDescriptor& get_soc_descriptor(chip_id_t chip_id);
 
     bool performed_harvesting = false;
     std::unordered_map<chip_id_t, uint32_t> harvested_rows_per_target = {};
@@ -609,8 +613,8 @@ class tt_SiliconDevice: public tt_device
      * @param simulated_harvesting_masks
      */ 
     tt_SiliconDevice(const std::string &sdesc_path, const std::string &ndesc_path, const std::set<chip_id_t> &target_devices, 
-                    const uint32_t &num_host_mem_ch_per_mmio_device = 1, const std::unordered_map<std::string, std::int32_t>& dynamic_tlb_config_ = {}, 
-                    const bool skip_driver_allocs = false, const bool clean_system_resources = false, bool perform_harvesting = true, std::unordered_map<chip_id_t, uint32_t> simulated_harvesting_masks = {});
+                    const uint32_t &num_host_mem_ch_per_mmio_device = 1, const bool skip_driver_allocs = false,
+                    const bool clean_system_resources = false, bool perform_harvesting = true, std::unordered_map<chip_id_t, uint32_t> simulated_harvesting_masks = {});
     
     //Setup/Teardown Functions
     virtual std::unordered_map<chip_id_t, tt_SocDescriptor>& get_virtual_soc_descriptors();
@@ -764,7 +768,6 @@ class tt_SiliconDevice: public tt_device
     std::vector<tt::ARCH> archs_in_cluster = {};
     std::set<chip_id_t> target_devices_in_cluster = {};
     std::set<chip_id_t> target_remote_chips = {};
-    tt_SocDescriptor& get_soc_descriptor(chip_id_t chip_id);
     tt::ARCH arch_name;
     std::unordered_map<chip_id_t, std::unique_ptr<PCIDevice>> m_pci_device_map;    // Map of enabled pci devices
     int m_num_pci_devices;                                      // Number of pci devices in system (enabled or disabled)

@@ -190,6 +190,17 @@ inline void memcpy_from_device(void *dest, const void *src, std::size_t num_byte
     }
 }
 
+tt::ARCH PciDeviceInfo::get_arch() const {
+    if (this->device_id == GS_PCIE_DEVICE_ID){
+        return tt::ARCH::GRAYSKULL;
+    } else if (this->device_id == WH_PCIE_DEVICE_ID) {
+        return tt::ARCH::WORMHOLE_B0;
+    } else if (this->device_id == WH_PCIE_DEVICE_ID){
+        return tt::ARCH::BLACKHOLE;
+    }
+    return tt::ARCH::Invalid;
+}
+
 
 /* static */ std::vector<int> PCIDevice::enumerate_devices() {
     std::vector<int> device_ids;
@@ -210,6 +221,23 @@ inline void memcpy_from_device(void *dest, const void *src, std::size_t num_byte
 
     std::sort(device_ids.begin(), device_ids.end());
     return device_ids;
+}
+
+/* static */ std::map<int, PciDeviceInfo> PCIDevice::enumerate_devices_info() {
+    std::map<int, PciDeviceInfo> infos;
+    for (int n : PCIDevice::enumerate_devices()) {
+        int fd = open(fmt::format("/dev/tenstorrent/{}", n).c_str(), O_RDWR | O_CLOEXEC);
+        if (fd == -1) {
+            continue;
+        }
+
+        try {
+            infos[n] = read_device_info(fd);
+        } catch (...) {}
+
+        close(fd);
+    }
+    return infos;
 }
 
 PCIDevice::PCIDevice(int pci_device_number, int logical_device_id)
@@ -506,4 +534,53 @@ void PCIDevice::detect_hang_read(std::uint32_t data_read) {
 
         throw std::runtime_error("Read 0xffffffff from PCIE: you should reset the board.");
     }
+}
+
+// Get TLB index (from zero), check if it's in 16MB, 2MB or 1MB TLB range, and dynamically program it.
+dynamic_tlb PCIDevice::set_dynamic_tlb(unsigned int tlb_index, tt_xy_pair start, tt_xy_pair end,
+                            std::uint64_t address, bool multicast, std::unordered_map<chip_id_t, std::unordered_map<tt_xy_pair, tt_xy_pair>>& harvested_coord_translation, std::uint64_t ordering) {
+    auto architecture_implementation = get_architecture_implementation();
+    if (multicast) {
+        std::tie(start, end) = architecture_implementation->multicast_workaround(start, end);
+    }
+
+    log_trace(LogSiliconDriver, "set_dynamic_tlb with arguments: tlb_index = {}, start = ({}, {}), end = ({}, {}), address = 0x{:x}, multicast = {}, ordering = {}",
+         tlb_index, start.x, start.y, end.x, end.y, address, multicast, (int)ordering);
+
+    tt::umd::tlb_configuration tlb_config = architecture_implementation->get_tlb_configuration(tlb_index);
+    std::uint32_t TLB_CFG_REG_SIZE_BYTES = architecture_implementation->get_tlb_cfg_reg_size_bytes();
+    auto translated_start_coords = harvested_coord_translation.at(logical_id).at(start);
+    auto translated_end_coords = harvested_coord_translation.at(logical_id).at(end);
+    uint32_t tlb_address    = address / tlb_config.size;
+    uint32_t local_address   = address % tlb_config.size;
+    uint64_t tlb_base       = tlb_config.base + (tlb_config.size * tlb_config.index_offset);
+    uint32_t tlb_cfg_reg    = tlb_config.cfg_addr + (TLB_CFG_REG_SIZE_BYTES * tlb_config.index_offset);
+
+    std::pair<std::uint64_t, std::uint64_t> tlb_data = tt::umd::tlb_data {
+        .local_offset = tlb_address,
+        .x_end = static_cast<uint64_t>(translated_end_coords.x),
+        .y_end = static_cast<uint64_t>(translated_end_coords.y),
+        .x_start = static_cast<uint64_t>(translated_start_coords.x),
+        .y_start = static_cast<uint64_t>(translated_start_coords.y),
+        .mcast = multicast,
+        .ordering = ordering,
+        // TODO #2715: hack for Blackhole A0, will potentially be fixed in B0.
+        // Using the same static vc for reads and writes through TLBs can hang the card. It doesn't even have to be the same TLB.
+        // Dynamic vc should not have this issue. There might be a perf impact with using dynamic vc.
+        .static_vc = (get_arch() == tt::ARCH::BLACKHOLE) ? false : true,
+    }.apply_offset(tlb_config.offset);
+
+    log_debug(LogSiliconDriver, "set_dynamic_tlb() with tlb_index: {} tlb_index_offset: {} dynamic_tlb_size: {}MB tlb_base: 0x{:x} tlb_cfg_reg: 0x{:x}", tlb_index, tlb_config.index_offset, tlb_config.size/(1024*1024), tlb_base, tlb_cfg_reg);
+    write_tlb_reg(tlb_cfg_reg, tlb_data.first, tlb_data.second, TLB_CFG_REG_SIZE_BYTES);
+
+    return { tlb_base + local_address, tlb_config.size - local_address };
+}
+
+dynamic_tlb PCIDevice::set_dynamic_tlb(unsigned int tlb_index, tt_xy_pair target, std::uint64_t address, std::unordered_map<chip_id_t, std::unordered_map<tt_xy_pair, tt_xy_pair>>& harvested_coord_translation, std::uint64_t ordering) {
+    return set_dynamic_tlb(tlb_index, tt_xy_pair(0, 0), target, address, false, harvested_coord_translation, ordering);
+}
+
+dynamic_tlb PCIDevice::set_dynamic_tlb_broadcast(unsigned int tlb_index, std::uint64_t address, std::unordered_map<chip_id_t, std::unordered_map<tt_xy_pair, tt_xy_pair>>& harvested_coord_translation, tt_xy_pair start, tt_xy_pair end, std::uint64_t ordering) {
+    // Issue a broadcast to cores included in the start (top left) and end (bottom right) grid
+    return set_dynamic_tlb(tlb_index, start, end, address, true, harvested_coord_translation, ordering);
 }

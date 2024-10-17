@@ -25,6 +25,9 @@
 
 using TLB_DATA = tt::umd::tlb_data;
 
+// TODO: Remove this - it's here for Metal backwards compatibility.
+// Implementation is in tt_silicon_driver.cpp.
+tt::ARCH detect_arch(int pci_device_num);
 
 namespace boost::interprocess{
     class named_mutex;
@@ -702,7 +705,7 @@ class tt_SiliconDevice: public tt_device
     void initialize_interprocess_mutexes(int pci_interface_id, bool cleanup_mutexes_in_shm);
     void cleanup_shared_host_state();
     void initialize_pcie_devices();
-    void broadcast_pcie_tensix_risc_reset(PCIDevice *device, const TensixSoftResetOptions &cores);
+    void broadcast_pcie_tensix_risc_reset(chip_id_t chip_id, const TensixSoftResetOptions &cores);
     void broadcast_tensix_risc_reset_to_cluster(const TensixSoftResetOptions &soft_resets);
     void send_remote_tensix_risc_reset_to_core(const tt_cxy_pair &core, const TensixSoftResetOptions &soft_resets);
     void send_tensix_risc_reset_to_core(const tt_cxy_pair &core, const TensixSoftResetOptions &soft_resets);
@@ -714,7 +717,7 @@ class tt_SiliconDevice: public tt_device
     void set_pcie_power_state(tt_DevicePowerState state);
     int set_remote_power_state(const chip_id_t &chip, tt_DevicePowerState device_state);
     void set_power_state(tt_DevicePowerState state);
-    uint32_t get_power_state_arc_msg(PCIDevice *pci_device, tt_DevicePowerState state);
+    uint32_t get_power_state_arc_msg(chip_id_t chip_id, tt_DevicePowerState state);
     void enable_local_ethernet_queue(const chip_id_t& chip, int timeout);
     void enable_ethernet_queue(int timeout);
     void enable_remote_ethernet_queue(const chip_id_t& chip, int timeout);

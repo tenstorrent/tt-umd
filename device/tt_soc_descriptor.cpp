@@ -216,14 +216,10 @@ bool tt_SocDescriptor::is_ethernet_core(const tt_xy_pair &core) const {
 }
 
 std::ostream &operator<<(std::ostream &out, const tt::ARCH &arch_name) {
-    if (arch_name == tt::ARCH::JAWBRIDGE) {
-        out << "jawbridge";
-    } else if (arch_name == tt::ARCH::Invalid) {
+    if (arch_name == tt::ARCH::Invalid) {
         out << "none";
     } else if (arch_name == tt::ARCH::GRAYSKULL) {
         out << "grayskull";
-    } else if (arch_name == tt::ARCH::WORMHOLE) {
-        out << "wormhole";
     } else if (arch_name == tt::ARCH::WORMHOLE_B0) {
         out << "wormhole_b0";
     } else if (arch_name == tt::ARCH::BLACKHOLE) {

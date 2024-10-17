@@ -169,7 +169,7 @@ static constexpr uint32_t MSG_TYPE_SETUP_IATU_FOR_PEER_TO_PEER = 0x97;
 
 class blackhole_implementation : public architecture_implementation {
    public:
-    architecture get_architecture() const override { return architecture::blackhole; }
+    tt::ARCH get_architecture() const override { return tt::ARCH::BLACKHOLE; }
     uint32_t get_arc_message_arc_get_harvesting() const override {
         return static_cast<uint32_t>(blackhole::arc_message_type::ARC_GET_HARVESTING);
     }

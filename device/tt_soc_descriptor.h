@@ -31,13 +31,9 @@ std::ostream &operator<<(std::ostream &out, const tt::ARCH &arch_name);
 static inline std::string get_arch_str(const tt::ARCH arch_name){
     std::string arch_name_str;
 
-    if (arch_name == tt::ARCH::JAWBRIDGE) {
-        arch_name_str = "jawbridge";
-    } else if (arch_name == tt::ARCH::GRAYSKULL) {
+    if (arch_name == tt::ARCH::GRAYSKULL) {
         arch_name_str = "grayskull";
-    } else if (arch_name == tt::ARCH::WORMHOLE) {
-        arch_name_str = "wormhole";
-    } else if (arch_name == tt::ARCH::WORMHOLE_B0) {
+    } if (arch_name == tt::ARCH::WORMHOLE_B0) {
         arch_name_str = "wormhole_b0";
     } else if (arch_name == tt::ARCH::BLACKHOLE) {
         arch_name_str = "blackhole";
@@ -51,17 +47,13 @@ static inline std::string get_arch_str(const tt::ARCH arch_name){
 static inline tt::ARCH get_arch_name(const std::string &arch_str){
     tt::ARCH arch;
 
-    if ((arch_str == "jawbridge") || (arch_str == "JAWBRIDGE")) {
-        arch = tt::ARCH::JAWBRIDGE;
-    } else if ((arch_str == "grayskull") || (arch_str == "GRAYSKULL")) {
+    if ((arch_str == "grayskull") || (arch_str == "GRAYSKULL")) {
         arch = tt::ARCH::GRAYSKULL;
-    } else if ((arch_str == "wormhole") || (arch_str == "WORMHOLE")){
-        arch = tt::ARCH::WORMHOLE;
-    } else if ((arch_str == "wormhole_b0") || (arch_str == "WORMHOLE_B0")){
+    } else if ((arch_str == "wormhole_b0") || (arch_str == "WORMHOLE_B0") || (arch_str=="wormhole") || (arch_str=="WORMHOLE")){
         arch = tt::ARCH::WORMHOLE_B0;
     } else if ((arch_str == "blackhole") || (arch_str == "BLACKHOLE")){
         arch = tt::ARCH::BLACKHOLE;
-    }else {
+    } else {
         throw std::runtime_error(
             fmt::format("At LoadSocDescriptorFromYaml: \"{}\" is not recognized as tt::ARCH.", arch_str));
     }

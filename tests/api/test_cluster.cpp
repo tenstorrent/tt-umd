@@ -104,7 +104,7 @@ std::unique_ptr<Cluster> get_cluster() {
     std::string soc_path;
     if (device_arch == tt::ARCH::GRAYSKULL) {
         soc_path = test_utils::GetAbsPath("tests/soc_descs/grayskull_10x12.yaml");
-    } else if (device_arch == tt::ARCH::WORMHOLE || device_arch == tt::ARCH::WORMHOLE_B0) {
+    } else if (device_arch == tt::ARCH::WORMHOLE_B0) {
         soc_path = test_utils::GetAbsPath("tests/soc_descs/wormhole_b0_8x10.yaml");
     } else if (device_arch == tt::ARCH::BLACKHOLE) {
         soc_path = test_utils::GetAbsPath("tests/soc_descs/blackhole_140_arch_no_eth.yaml");

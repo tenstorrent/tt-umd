@@ -172,7 +172,7 @@ static constexpr uint32_t TENSIX_SOFT_RESET_ADDR = 0xFFB121B0;
 
 class grayskull_implementation : public architecture_implementation {
    public:
-    architecture get_architecture() const override { return architecture::grayskull; }
+    tt::ARCH get_architecture() const override { return tt::ARCH::GRAYSKULL; }
     uint32_t get_arc_message_arc_get_harvesting() const override {
         return static_cast<uint32_t>(grayskull::arc_message_type::ARC_GET_HARVESTING);
     }

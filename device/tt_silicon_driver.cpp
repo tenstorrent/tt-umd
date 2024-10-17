@@ -914,7 +914,7 @@ tt::Writer tt_SiliconDevice::get_static_tlb_writer(tt_cxy_pair target) {
         throw std::runtime_error(fmt::format("Target not in MMIO chip: {}", target.str()));
     }
 
-    if (!tlbs_init || !map_core_to_tlb) {
+    if (!tlbs_init || !map_core_to_tlb_per_chip[target.chip]) {
         throw std::runtime_error("TLBs not initialized");
     }
 
@@ -924,7 +924,7 @@ tt::Writer tt_SiliconDevice::get_static_tlb_writer(tt_cxy_pair target) {
         throw std::runtime_error("No write-combined mapping for BAR0");
     }
 
-    auto tlb_index = map_core_to_tlb(tt_xy_pair(target.x, target.y));
+    auto tlb_index = map_core_to_tlb_per_chip[target.chip](tt_xy_pair(target.x, target.y));
     auto tlb_data = dev->get_architecture_implementation()->describe_tlb(tlb_index);
 
     if (!tlb_data.has_value()) {
@@ -947,7 +947,7 @@ void tt_SiliconDevice::write_device_memory(const void *mem_ptr, uint32_t size_in
     std::int32_t tlb_index = 0;
     std::optional<std::tuple<std::uint64_t, std::uint64_t>> tlb_data = std::nullopt;
     if(tlbs_init) {
-        tlb_index = map_core_to_tlb(tt_xy_pair(target.x, target.y));
+        tlb_index = map_core_to_tlb_per_chip[target.chip](tt_xy_pair(target.x, target.y));
         tlb_data = dev->get_architecture_implementation()->describe_tlb(tlb_index);
     }
 
@@ -988,7 +988,7 @@ void tt_SiliconDevice::read_device_memory(void *mem_ptr, tt_cxy_pair target, std
     std::int32_t tlb_index = 0;
     std::optional<std::tuple<std::uint64_t, std::uint64_t>> tlb_data = std::nullopt;
     if(tlbs_init) {
-        tlb_index = map_core_to_tlb(tt_xy_pair(target.x, target.y));
+        tlb_index = map_core_to_tlb_per_chip[target.chip](tt_xy_pair(target.x, target.y));
         tlb_data = dev->get_architecture_implementation()->describe_tlb(tlb_index);
     }
     log_debug(LogSiliconDriver, "  tlb_index: {}, tlb_data.has_value(): {}", tlb_index, tlb_data.has_value());
@@ -1165,12 +1165,12 @@ tt_SiliconDevice::~tt_SiliconDevice () {
     dynamic_tlb_ordering_modes.clear();
 }
 
-std::optional<std::tuple<uint32_t, uint32_t>> tt_SiliconDevice::get_tlb_data_from_target(const tt_xy_pair& target) {
+std::optional<std::tuple<uint32_t, uint32_t>> tt_SiliconDevice::get_tlb_data_from_target(const tt_cxy_pair& target) {
     std::int32_t tlb_index = 0;
     std::optional<std::tuple<std::uint32_t, std::uint32_t>> tlb_data;
 
     if (tlbs_init) {
-        tlb_index = map_core_to_tlb(target);
+        tlb_index = map_core_to_tlb[target.chip](tt_xy_pair(target.x, target.y));
         auto architecture_implementation = tt::umd::architecture_implementation::create(static_cast<tt::umd::architecture>(arch_name));
         tlb_data = architecture_implementation->describe_tlb(tlb_index);
     } 

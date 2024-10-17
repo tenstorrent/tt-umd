@@ -37,6 +37,39 @@ static const uint32_t BH_BAR0_WC_MAPPING_SIZE = 188<<21;
 static const uint32_t BH_NOC_NODE_ID_OFFSET = 0x1FD04044;
 static const uint32_t GS_WH_ARC_SCRATCH_6_OFFSET = 0x1FF30078;
 
+static constexpr semver_t MINIMUM_SUPPORTED_KMD_VERSION{1, 27, 1};
+
+static semver_t read_kmd_version() {
+    static const std::string path = "/sys/module/tenstorrent/version";
+    std::ifstream file(path);
+
+    if (!file.is_open()) {
+       log_warning(LogSiliconDriver, "Failed to open file: {}", path);
+       return semver_t{0, 0, 0};
+    }
+
+    std::string version_str;
+    std::getline(file, version_str);
+
+    std::istringstream iss(version_str);
+    std::string token;
+    semver_t semver{};
+
+    if (std::getline(iss, token, '.')) {
+        semver.major = std::stoul(token);
+
+        if (std::getline(iss, token, '.')) {
+            semver.minor = std::stoul(token);
+
+            if (std::getline(iss, token, '.')) {
+                semver.patch = std::stoul(token);
+            }
+        }
+    }
+
+    return semver;
+}
+
 template <typename T>
 static T read_sysfs(const PciDeviceInfo &device_info, const std::string &attribute_name) {
     const auto sysfs_path = fmt::format("/sys/bus/pci/devices/{:04x}:{:02x}:{:02x}.{:x}/{}",
@@ -68,6 +101,12 @@ static T read_sysfs(const PciDeviceInfo &device_info, const std::string &attribu
 
 static PciDeviceInfo read_device_info(int fd)
 {
+    const semver_t kmd_version = read_kmd_version();
+    if (kmd_version < MINIMUM_SUPPORTED_KMD_VERSION) {
+        TT_THROW("Unsupported tenstorrent driver version: {}.  Please upgrade to at least {}.",
+                 kmd_version.to_string(), MINIMUM_SUPPORTED_KMD_VERSION.to_string());
+    }
+
     tenstorrent_get_device_info info{};
     info.in.output_size_bytes = sizeof(info.out);
 

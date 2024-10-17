@@ -17,6 +17,8 @@
 #include "device/architecture_implementation.h"
 #include "device/tt_cluster_descriptor_types.h"
 
+#include "fmt/format.h"
+
 // TODO: this is used up in tt_silicon_driver.cpp but that logic ought to be
 // lowered into the PCIDevice class since it is specific to PCIe cards.
 // See /vendor_ip/synopsys/052021/bh_pcie_ctl_gen5/export/configuration/DWC_pcie_ctl.h
@@ -47,6 +49,46 @@ struct PciDeviceInfo
     // TODO: does it make sense to move attributes that we can read from sysfs
     // onto this struct as methods?  e.g. current_link_width etc.
 };
+
+// TODO: probably belongs in common.hpp
+struct semver_t {
+    uint32_t major;
+    uint32_t minor;
+    uint32_t patch;
+
+    // TODO: there's a neater, C++20 way to do these comparisons.
+    // Start using it once we move off of Ubuntu 20.04 to a distro that ships a
+    // modern compiler.
+
+    bool operator<(const semver_t& other) const {
+        return std::tie(major, minor, patch) < std::tie(other.major, other.minor, other.patch);
+    }
+
+    bool operator>(const semver_t& other) const {
+        return other < *this;
+    }
+
+    bool operator==(const semver_t& other) const {
+        return std::tie(major, minor, patch) == std::tie(other.major, other.minor, other.patch);
+    }
+
+    bool operator!=(const semver_t& other) const {
+        return !(*this == other);
+    }
+
+    bool operator<=(const semver_t& other) const {
+        return !(other < *this);
+    }
+
+    bool operator>=(const semver_t& other) const {
+        return !(*this < other);
+    }
+
+    std::string to_string() const {
+        return fmt::format("{}.{}.{}", major, minor, patch);
+    }
+};
+
 
 class PCIDevice {
     const std::string device_path;  // Path to character device: /dev/tenstorrent/N

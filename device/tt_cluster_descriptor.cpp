@@ -313,7 +313,7 @@ std::unique_ptr<tt_ClusterDescriptor> tt_ClusterDescriptor::create_from_yaml(con
     tt_ClusterDescriptor::load_harvesting_information(yaml, *desc);
     desc->enable_all_devices();
 
-    fill_chips_grouped_by_closest_mmio();
+    desc->fill_chips_grouped_by_closest_mmio();
 
     return desc;
 }
@@ -655,6 +655,6 @@ BoardType tt_ClusterDescriptor::get_board_type(chip_id_t chip_id) const {
   return board_type;
 }
 
-std::unordered_map<chip_id_t, std::unordered_set<chip_id_t>> tt_ClusterDescriptor::get_chips_grouped_by_closest_mmio() {
+std::unordered_map<chip_id_t, std::unordered_set<chip_id_t>> tt_ClusterDescriptor::get_chips_grouped_by_closest_mmio() const {
     return chips_grouped_by_closest_mmio;
 }

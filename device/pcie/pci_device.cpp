@@ -87,12 +87,7 @@ static tt::ARCH detect_arch(uint32_t pcie_device_id, uint32_t pcie_revision_id) 
         return tt::ARCH::GRAYSKULL;
     } else if (pcie_device_id == WH_PCIE_DEVICE_ID && pcie_revision_id == 0x01){
         return tt::ARCH::WORMHOLE_B0;
-    } else if (pcie_device_id == WH_PCIE_DEVICE_ID){
-        // TODO: did we ship any of these?  I've never seen one.  Can we stop
-        // having an ARCH for it if they don't exist?
-        TT_THROW("Wormhole is not supported. Please use Wormhole B0 instead.");
-        return tt::ARCH::WORMHOLE;
-    } else if (pcie_device_id == WH_PCIE_DEVICE_ID){
+    } else if (pcie_device_id == BH_PCIE_DEVICE_ID) {
         return tt::ARCH::BLACKHOLE;
     } else {
         TT_THROW("Unknown pcie device id that does not match any known architecture: ", pcie_device_id);
@@ -249,7 +244,7 @@ PCIDevice::PCIDevice(int pci_device_number, int logical_device_id)
     , numa_node(read_sysfs<int>(info, "numa_node"))
     , revision(read_sysfs<int>(info, "revision"))
     , arch(detect_arch(info.device_id, revision))
-    , architecture_implementation(tt::umd::architecture_implementation::create(static_cast<tt::umd::architecture>(arch)))
+    , architecture_implementation(tt::umd::architecture_implementation::create(arch))
 {
     struct {
         tenstorrent_query_mappings query_mappings;

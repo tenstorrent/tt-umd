@@ -10,7 +10,7 @@
 #include "device/pcie/pci_device.hpp"
 #include "device/tt_cluster_descriptor.h"
 
-// Needed for detect_arch, remove when it is part of cluster descriptor.
+// TODO: Needed for detect_arch, remove when it is part of cluster descriptor.
 #include "device/tt_device.h"
 
 

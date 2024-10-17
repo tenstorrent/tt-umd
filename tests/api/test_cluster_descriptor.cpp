@@ -59,6 +59,9 @@ TEST(ApiTest, DetectArch) {
         // TODO: This should be the only available API, previous call should be routed to this one to get any arch.
         tt::ARCH arch2 = detect_arch(PCIDevice::enumerate_devices()[0]);
         EXPECT_NE(arch2, tt::ARCH::Invalid);
+
+        // In our current setup, we expect all arch to be the same.
+        EXPECT_EQ(arch, arch2);
     }
 }
 

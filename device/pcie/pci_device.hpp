@@ -17,6 +17,8 @@
 #include "device/architecture_implementation.h"
 #include "device/tt_cluster_descriptor_types.h"
 
+#include "fmt/format.h"
+
 // TODO: this is used up in tt_silicon_driver.cpp but that logic ought to be
 // lowered into the PCIDevice class since it is specific to PCIe cards.
 // See /vendor_ip/synopsys/052021/bh_pcie_ctl_gen5/export/configuration/DWC_pcie_ctl.h
@@ -83,7 +85,7 @@ struct semver_t {
     }
 
     std::string to_string() const {
-        return std::to_string(major) + "." + std::to_string(minor) + "." + std::to_string(patch);
+        return fmt::format("{}.{}.{}", major, minor, patch);
     }
 };
 

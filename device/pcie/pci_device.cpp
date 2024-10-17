@@ -44,7 +44,8 @@ static semver_t read_kmd_version() {
     std::ifstream file(path);
 
     if (!file.is_open()) {
-       TT_THROW("Failed to open: {}; could not determine tenstorrent driver version", path);
+       log_warning(LogSiliconDriver, "Failed to open file: {}", path);
+       return semver_t{0, 0, 0};
     }
 
     std::string version_str;

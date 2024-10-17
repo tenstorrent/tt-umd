@@ -230,10 +230,9 @@ TEST(SiliconDriverWH, UnalignedStaticTLB_RW) {
                 // Statically mapping a 1MB TLB to this core, starting from address NCRISC_FIRMWARE_BASE.  
                 device.configure_tlb(i, core, get_static_tlb_index_callback(core), l1_mem::address_map::NCRISC_FIRMWARE_BASE);
             }
-        } 
+            device.setup_core_to_tlb_map(i, get_static_tlb_index_callback);
+        }
     }
-
-    device.setup_core_to_tlb_map(get_static_tlb_index_callback);
     
     tt_device_params default_params;
     device.start_device(default_params);
@@ -290,10 +289,10 @@ TEST(SiliconDriverWH, StaticTLB_RW) {
                 // Statically mapping a 1MB TLB to this core, starting from address NCRISC_FIRMWARE_BASE.  
                 device.configure_tlb(i, core, get_static_tlb_index_callback(core), l1_mem::address_map::NCRISC_FIRMWARE_BASE);
             }
+            device.setup_core_to_tlb_map(i, get_static_tlb_index_callback);
         } 
     }
 
-    device.setup_core_to_tlb_map(get_static_tlb_index_callback);
     
     tt_device_params default_params;
     device.start_device(default_params);
@@ -436,9 +435,9 @@ TEST(SiliconDriverWH, MultiThreadedMemBar) {
                 // Statically mapping a 1MB TLB to this core, starting from address DATA_BUFFER_SPACE_BASE. 
                 device.configure_tlb(i, core, get_static_tlb_index_callback(core), base_addr);
             }
+            device.setup_core_to_tlb_map(i, get_static_tlb_index_callback);
         }
     }
-    device.setup_core_to_tlb_map(get_static_tlb_index_callback);
 
     tt_device_params default_params;
     device.start_device(default_params);

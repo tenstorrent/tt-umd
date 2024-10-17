@@ -111,8 +111,28 @@ inline std::unique_ptr<Cluster> get_cluster() {
 TEST(ApiChipTest, ManualTLBConfiguration) {
     std::unique_ptr<Cluster> umd_cluster = get_cluster();
 
-    std::function<int(tt_xy_pair)> get_static_tlb_index =[](tt_xy_pair core) {
+    // Expect to throw for remote chip for any worker core
+    auto remote_chips = umd_cluster->get_target_remote_device_ids();
+    if (!remote_chips.empty()) {
+        chip_id_t any_remote_chip = *remote_chips.begin();
+        const tt_SocDescriptor& soc_desc = umd_cluster->get_soc_descriptor(any_remote_chip);
+        tt_xy_pair core = soc_desc.workers[0];
+        EXPECT_THROW(umd_cluster->get_static_tlb_writer(tt_cxy_pair(any_remote_chip, core)), std::runtime_error);
+    }
+
+    // Expect to throw for non configured mmio chip.
+    chip_id_t any_mmio_chip = *umd_cluster->get_target_mmio_device_ids().begin();
+    const tt_SocDescriptor& soc_desc = umd_cluster->get_soc_descriptor(any_mmio_chip);
+    tt_xy_pair core = soc_desc.workers[0];
+    EXPECT_THROW(umd_cluster->get_static_tlb_writer(tt_cxy_pair(any_mmio_chip, core)), std::runtime_error);
+
+    // Configure TLBs.
+    std::function<int(tt_xy_pair)> get_static_tlb_index = [&soc_desc](tt_xy_pair core) -> int {
         // TODO: Make this per arch.
+        bool is_worker_core = soc_desc.is_worker_core(core);
+        if (!is_worker_core) {
+            return -1;
+        }
         return core.x + core.y * 14;
     };
 
@@ -128,4 +148,13 @@ TEST(ApiChipTest, ManualTLBConfiguration) {
 
         umd_cluster->setup_core_to_tlb_map(mmio_chip, get_static_tlb_index);
     }
+
+    // Expect not to throw for now configured mmio chip, same one as before.
+    EXPECT_NO_THROW(umd_cluster->get_static_tlb_writer(tt_cxy_pair(any_mmio_chip, core)));
+
+    // Expect to throw for non worker cores.
+    tt_xy_pair dram_core = soc_desc.dram_cores[0][0];
+    EXPECT_THROW(umd_cluster->get_static_tlb_writer(tt_cxy_pair(any_mmio_chip, dram_core)), std::runtime_error);
+    tt_xy_pair eth_core = soc_desc.ethernet_cores[0];
+    EXPECT_THROW(umd_cluster->get_static_tlb_writer(tt_cxy_pair(any_mmio_chip, eth_core)), std::runtime_error);
 }

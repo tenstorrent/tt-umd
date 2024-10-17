@@ -8,6 +8,13 @@ Required Ubuntu dependencies:
 sudo apt install -y libhwloc-dev cmake ninja-build
 ```
 
+Suggested third-party dependency is Clang 17:
+```
+wget https://apt.llvm.org/llvm.sh
+chmod u+x llvm.sh
+sudo ./llvm.sh 17
+```
+
 ## Build flow
 
 To build `libdevice.so`: 
@@ -25,6 +32,12 @@ To build tests:
 ```
 cmake -B build -G Ninja -DTT_UMD_BUILD_TESTS=ON
 ninja umd_tests -C build
+```
+
+To build with GCC, set these environment variables before invoking `cmake`:
+```
+export CMAKE_C_COMPILER=/usr/bin/gcc
+export CMAKE_CXX_COMPILER=/usr/bin/g++
 ```
 
 ## As a submodule/external project

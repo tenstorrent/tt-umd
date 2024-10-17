@@ -52,8 +52,6 @@
 using namespace boost::interprocess;
 using namespace tt;
 
-// Workaround for tkmd < 1.21 use device_fd_per_host_ch[ch] instead of device_fd once per channel.
-const bool g_SINGLE_PIN_PAGE_PER_FD_WORKAROND = true;
 const uint32_t g_MAX_HOST_MEM_CHANNELS = 4;
 
 const uint32_t HUGEPAGE_REGION_SIZE = 1 << 30; // 1GB
@@ -67,6 +65,27 @@ std::string hugepage_dir = hugepage_dir_env ? hugepage_dir_env : "/dev/hugepages
 
 // TLB size for DRAM on blackhole - 4GB
 const uint64_t BH_4GB_TLB_SIZE = 4ULL * 1024 * 1024 * 1024;
+
+// Metal uses this function to determine the architecture of the first PCIe chip
+// and then verifies that all subsequent chips are of the same architecture.  It
+// looks like Metal is doing this because we don't provide any other way... When
+// we are further along in our refactoring efforts and `tt_device` is more of a
+// Cluster abstraction, we should provide Metal with interfaces for:
+//      1. Checking that all chips are of the same architecture (we may not care
+//         about this, but the application might).
+//      2. Getting the architecture of a specific chip.
+// Until then... I'm putting this function back so that Metal will still build
+// next time someone bumps its UMD submodule version.
+tt::ARCH detect_arch(int pci_device_num) {
+    const auto devices_info = PCIDevice::enumerate_devices_info();
+    const auto it = devices_info.find(pci_device_num);
+    if (it == devices_info.end()) {
+        return tt::ARCH::Invalid;
+    }
+
+    const auto info = it->second;
+    return info.get_arch();
+}
 
 template <typename T>
 void size_buffer_to_capacity(std::vector<T> &data_buf, std::size_t size_in_bytes) {
@@ -174,10 +193,6 @@ bool is_char_dev(const dirent *ent, const char *parent_dir) {
 #include <fstream>
 #include <iomanip>
 
-struct dynamic_tlb {
-    uint64_t bar_offset;        // Offset that address is mapped to, within the PCI BAR.
-    uint64_t remaining_size;    // Bytes remaining between bar_offset and end of the TLB.
-};
 
 struct routing_cmd_t {
     uint64_t sys_addr;
@@ -223,55 +238,6 @@ namespace {
             }
         }
     };
-}
-// Get TLB index (from zero), check if it's in 16MB, 2MB or 1MB TLB range, and dynamically program it.
-dynamic_tlb set_dynamic_tlb(PCIDevice *dev, unsigned int tlb_index, tt_xy_pair start, tt_xy_pair end,
-                            std::uint64_t address, bool multicast, std::unordered_map<chip_id_t, std::unordered_map<tt_xy_pair, tt_xy_pair>>& harvested_coord_translation, std::uint64_t ordering) {
-    auto architecture_implementation = dev->get_architecture_implementation();
-    if (multicast) {
-        std::tie(start, end) = architecture_implementation->multicast_workaround(start, end);
-    }
-
-    log_trace(LogSiliconDriver, "set_dynamic_tlb with arguments: tlb_index = {}, start = ({}, {}), end = ({}, {}), address = 0x{:x}, multicast = {}, ordering = {}",
-         tlb_index, start.x, start.y, end.x, end.y, address, multicast, (int)ordering);
-
-    tt::umd::tlb_configuration tlb_config = architecture_implementation->get_tlb_configuration(tlb_index);
-    std::uint32_t TLB_CFG_REG_SIZE_BYTES = architecture_implementation->get_tlb_cfg_reg_size_bytes();
-    auto translated_start_coords = harvested_coord_translation.at(dev->logical_id).at(start);
-    auto translated_end_coords = harvested_coord_translation.at(dev->logical_id).at(end);
-    uint32_t tlb_address    = address / tlb_config.size;
-    uint32_t local_offset   = address % tlb_config.size;
-    uint64_t tlb_base       = tlb_config.base + (tlb_config.size * tlb_config.index_offset);
-    uint32_t tlb_cfg_reg    = tlb_config.cfg_addr + (TLB_CFG_REG_SIZE_BYTES * tlb_config.index_offset);
-
-    std::pair<std::uint64_t, std::uint64_t> tlb_data = TLB_DATA {
-        .local_offset = tlb_address,
-        .x_end = static_cast<uint64_t>(translated_end_coords.x),
-        .y_end = static_cast<uint64_t>(translated_end_coords.y),
-        .x_start = static_cast<uint64_t>(translated_start_coords.x),
-        .y_start = static_cast<uint64_t>(translated_start_coords.y),
-        .mcast = multicast,
-        .ordering = ordering,
-        // TODO #2715: hack for Blackhole A0, will potentially be fixed in B0.
-        // Using the same static vc for reads and writes through TLBs can hang the card. It doesn't even have to be the same TLB.
-        // Dynamic vc should not have this issue. There might be a perf impact with using dynamic vc.
-        .static_vc = (dev->get_arch() == tt::ARCH::BLACKHOLE) ? false : true,
-    }.apply_offset(tlb_config.offset);
-
-    log_debug(LogSiliconDriver, "set_dynamic_tlb() with tlb_index: {} tlb_index_offset: {} dynamic_tlb_size: {}MB tlb_base: 0x{:x} tlb_cfg_reg: 0x{:x}", tlb_index, tlb_config.index_offset, tlb_config.size/(1024*1024), tlb_base, tlb_cfg_reg);
-    // write_regs(dev -> hdev, tlb_cfg_reg, 2, &tlb_data);
-    dev->write_tlb_reg(tlb_cfg_reg, tlb_data.first, tlb_data.second, TLB_CFG_REG_SIZE_BYTES);
-
-    return { tlb_base + local_offset, tlb_config.size - local_offset };
-}
-
-dynamic_tlb set_dynamic_tlb(PCIDevice *dev, unsigned int tlb_index, tt_xy_pair target, std::uint64_t address, std::unordered_map<chip_id_t, std::unordered_map<tt_xy_pair, tt_xy_pair>>& harvested_coord_translation, std::uint64_t ordering = TLB_DATA::Relaxed) {
-    return set_dynamic_tlb(dev, tlb_index, tt_xy_pair(0, 0), target, address, false, harvested_coord_translation, ordering);
-}
-
-dynamic_tlb set_dynamic_tlb_broadcast(PCIDevice *dev, unsigned int tlb_index, std::uint64_t address, std::unordered_map<chip_id_t, std::unordered_map<tt_xy_pair, tt_xy_pair>>& harvested_coord_translation, tt_xy_pair start, tt_xy_pair end, std::uint64_t ordering = TLB_DATA::Relaxed) {
-    // Issue a broadcast to cores included in the start (top left) and end (bottom right) grid
-    return set_dynamic_tlb(dev, tlb_index, start, end, address, true, harvested_coord_translation, ordering);
 }
 
 bool tt_SiliconDevice::address_in_tlb_space(uint32_t address, uint32_t size_in_bytes, int32_t tlb_index, uint64_t tlb_size, std::uint32_t chip) {
@@ -343,7 +309,10 @@ void tt_SiliconDevice::create_device(const std::unordered_set<chip_id_t> &target
         }
         auto dev = m_pci_device_map.at(logical_device_id).get();
 
-        m_num_host_mem_channels = get_available_num_host_mem_channels(num_host_mem_ch_per_mmio_device, dev->pcie_device_id, dev->pcie_revision_id);
+        uint16_t pcie_device_id = dev->get_pci_device_id();
+        uint32_t pcie_revision = dev->get_pci_revision();
+        // TODO: get rid of this, it doesn't make any sense.
+        m_num_host_mem_channels = get_available_num_host_mem_channels(num_host_mem_ch_per_mmio_device, pcie_device_id, pcie_revision);
         if (dev->get_arch() == tt::ARCH::BLACKHOLE && m_num_host_mem_channels > 1) {
             // TODO: Implement support for multiple host channels on BLACKHOLE.
             log_warning(LogSiliconDriver, "Forcing a single channel for Blackhole device. Multiple host channels not supported.");
@@ -351,11 +320,7 @@ void tt_SiliconDevice::create_device(const std::unordered_set<chip_id_t> &target
         }
 
         log_debug(LogSiliconDriver, "Using {} Hugepages/NumHostMemChannels for PCIDevice (logical_device_id: {} pci_interface_id: {} device_id: 0x{:x} revision: {})",
-            m_num_host_mem_channels, logical_device_id, pci_interface_id, pci_device->device_id, pci_device->revision_id);
-
-        if (g_SINGLE_PIN_PAGE_PER_FD_WORKAROND) {
-            dev->open_hugepage_per_host_mem_ch(m_num_host_mem_channels);
-        }
+            m_num_host_mem_channels, logical_device_id, pci_interface_id, pci_device->get_device_num(), pci_device->revision_id);
 
         // Initialize these. Used to be in header file.
         for (int ch = 0; ch < g_MAX_HOST_MEM_CHANNELS; ch ++) {
@@ -809,16 +774,28 @@ void tt_SiliconDevice::initialize_pcie_devices() {
     init_membars();
 }
 
-void tt_SiliconDevice::broadcast_pcie_tensix_risc_reset(PCIDevice *device, const TensixSoftResetOptions &soft_resets) {
+void tt_SiliconDevice::broadcast_pcie_tensix_risc_reset(chip_id_t chip_id, const TensixSoftResetOptions &soft_resets) {
     log_debug(LogSiliconDriver, "tt_SiliconDevice::broadcast_tensix_risc_reset");
 
+    PCIDevice* device = get_pci_device(chip_id);
+
     auto valid = soft_resets & ALL_TENSIX_SOFT_RESET;
+    auto logical_id = device->get_logical_id();
 
     log_debug(LogSiliconDriver, "== For all tensix set soft-reset for {} risc cores.", TensixSoftResetOptionsToString(valid).c_str());
 
     auto architecture_implementation = device->get_architecture_implementation();
-    auto [soft_reset_reg, _] = set_dynamic_tlb_broadcast(device, architecture_implementation->get_reg_tlb(), architecture_implementation->get_tensix_soft_reset_addr(), harvested_coord_translation, tt_xy_pair(0, 0), 
-                                tt_xy_pair(architecture_implementation->get_grid_size_x() - 1, architecture_implementation->get_grid_size_y() - 1 - num_rows_harvested.at(device -> logical_id)), TLB_DATA::Posted);
+
+    // TODO: this is clumsy and difficult to read
+    auto [soft_reset_reg, _] = device->set_dynamic_tlb_broadcast(
+        architecture_implementation->get_reg_tlb(),
+        architecture_implementation->get_tensix_soft_reset_addr(),
+        harvested_coord_translation,
+        tt_xy_pair(0, 0),
+        tt_xy_pair(
+            architecture_implementation->get_grid_size_x() - 1,
+            architecture_implementation->get_grid_size_y() - 1 - num_rows_harvested.at(logical_id)),
+        TLB_DATA::Posted);
     device->write_regs(soft_reset_reg, 1, &valid);
     tt_driver_atomics::sfence();
 }
@@ -971,11 +948,11 @@ void tt_SiliconDevice::write_device_memory(const void *mem_ptr, uint32_t size_in
         }
     } else {
         const auto tlb_index = dynamic_tlb_config.at(fallback_tlb);
-        const scoped_lock<named_mutex> lock(*get_mutex(fallback_tlb, dev->device_id));
+        const scoped_lock<named_mutex> lock(*get_mutex(fallback_tlb, dev->get_device_num()));
 
         while(size_in_bytes > 0) {
 
-            auto [mapped_address, tlb_size] = set_dynamic_tlb(dev, tlb_index, target, address, harvested_coord_translation, dynamic_tlb_ordering_modes.at(fallback_tlb));
+            auto [mapped_address, tlb_size] = dev->set_dynamic_tlb(tlb_index, target, address, harvested_coord_translation, dynamic_tlb_ordering_modes.at(fallback_tlb));
             uint32_t transfer_size = std::min((uint64_t)size_in_bytes, tlb_size);
             dev->write_block(mapped_address, transfer_size, buffer_addr);
 
@@ -1014,11 +991,11 @@ void tt_SiliconDevice::read_device_memory(void *mem_ptr, tt_cxy_pair target, std
         log_debug(LogSiliconDriver, "  read_block called with tlb_offset: {}, tlb_size: {}", tlb_offset, tlb_size);
     } else {
         const auto tlb_index = dynamic_tlb_config.at(fallback_tlb);
-        const scoped_lock<named_mutex> lock(*get_mutex(fallback_tlb, dev->device_id));
+        const scoped_lock<named_mutex> lock(*get_mutex(fallback_tlb, dev->get_device_num()));
         log_debug(LogSiliconDriver, "  dynamic tlb_index: {}", tlb_index);
         while(size_in_bytes > 0) {
 
-            auto [mapped_address, tlb_size] = set_dynamic_tlb(dev, tlb_index, target, address, harvested_coord_translation, dynamic_tlb_ordering_modes.at(fallback_tlb));
+            auto [mapped_address, tlb_size] = dev->set_dynamic_tlb(tlb_index, target, address, harvested_coord_translation, dynamic_tlb_ordering_modes.at(fallback_tlb));
             uint32_t transfer_size = std::min((uint64_t)size_in_bytes, tlb_size);
             dev->read_block(mapped_address, transfer_size, buffer_addr);
 
@@ -1080,7 +1057,8 @@ void tt_SiliconDevice::write_buffer(
 }
 
 
-uint32_t tt_SiliconDevice::get_power_state_arc_msg(PCIDevice* pci_device, tt_DevicePowerState state) {
+uint32_t tt_SiliconDevice::get_power_state_arc_msg(chip_id_t chip_id, tt_DevicePowerState state) {
+    PCIDevice* pci_device = get_pci_device(chip_id);
     uint32_t msg = 0xaa00;
     switch (state) {
         case BUSY: {
@@ -1103,12 +1081,11 @@ uint32_t tt_SiliconDevice::get_power_state_arc_msg(PCIDevice* pci_device, tt_Dev
 void tt_SiliconDevice::set_pcie_power_state(tt_DevicePowerState state) {
 
     for (auto &device_it : m_pci_device_map){
-        int d = device_it.first;
-        auto pci_device = device_it.second.get();
-        uint32_t msg = get_power_state_arc_msg(pci_device, state);
+        int chip_id = device_it.first;
+        uint32_t msg = get_power_state_arc_msg(chip_id, state);
         std::stringstream ss;
         ss << state;
-        auto exit_code = arc_msg(d, 0xaa00 | msg, true, 0, 0);
+        auto exit_code = arc_msg(chip_id, 0xaa00 | msg, true, 0, 0);
         if (exit_code != 0) {
             throw std::runtime_error(fmt::format("Failed to set power state to {} with exit code {}", ss.str(), exit_code));
         }
@@ -1189,7 +1166,7 @@ std::optional<std::tuple<uint32_t, uint32_t>> tt_SiliconDevice::get_tlb_data_fro
 void tt_SiliconDevice::configure_tlb(chip_id_t logical_device_id, tt_xy_pair core, std::int32_t tlb_index, std::int32_t address, uint64_t ordering) {
     log_assert(ordering == TLB_DATA::Strict || ordering == TLB_DATA::Posted || ordering == TLB_DATA::Relaxed, "Invalid ordering specified in tt_SiliconDevice::configure_tlb");
     PCIDevice *pci_device = get_pci_device(logical_device_id);
-    set_dynamic_tlb(pci_device, tlb_index, core, address, harvested_coord_translation, ordering);
+    pci_device->set_dynamic_tlb(tlb_index, core, address, harvested_coord_translation, ordering);
     auto tlb_size = std::get<1>(pci_device->get_architecture_implementation()->describe_tlb(tlb_index).value());
     if(tlb_config_map.find(logical_device_id) == tlb_config_map.end()) tlb_config_map.insert({logical_device_id, {}});
     tlb_config_map[logical_device_id].insert({tlb_index, (address / tlb_size) * tlb_size});
@@ -1285,7 +1262,7 @@ int tt_SiliconDevice::open_hugepage_file(const std::string &dir, chip_id_t physi
     // In order to limit number of hugepages while transition from shared hugepage (1 per system) to unique
     // hugepage per device, will share original/shared hugepage filename with physical device 0.
     if (physical_device_id != 0 || channel != 0){
-        std::string device_id_str = fmt::format("device_{}_channel_{}_", physical_device_id, channel);
+        std::string device_id_str = fmt::format("device_{}_", physical_device_id);
         filename.insert(filename.end(), device_id_str.begin(), device_id_str.end());
     }
 
@@ -1308,6 +1285,16 @@ int tt_SiliconDevice::open_hugepage_file(const std::string &dir, chip_id_t physi
         log_warning(LogSiliconDriver, "ttSiliconDevice::open_hugepage_file could not open filename: {} on first try, unlinking it and retrying.", filename_str);
         unlink(filename.data());
         fd = open(filename.data(), O_RDWR | O_CREAT | O_CLOEXEC, S_IWUSR | S_IRUSR | S_IWGRP | S_IRGRP | S_IWOTH | S_IROTH );
+    }
+
+    // Verify opened file size.
+    struct stat st;
+    if (fstat(fd, &st) == -1) {
+        log_warning(LogSiliconDriver, "Error reading file size after opening: {}", filename_str);
+    } else {
+        if (st.st_size == 0) {
+            log_warning(LogSiliconDriver, "Opened hugepage file has zero size, mapping it might fail: {}. Verify that enough hugepages are provided.", filename_str);
+        }
     }
 
     // Restore original mask
@@ -1338,7 +1325,7 @@ bool tt_SiliconDevice::init_hugepage(chip_id_t device_id) {
 
     // Convert from logical (device_id in netlist) to physical device_id (in case of virtualization)
     auto dev = m_pci_device_map.at(device_id).get();
-    auto physical_device_id = dev->device_id;
+    auto physical_device_id = dev->get_device_num();
 
     std::string hugepage_dir = find_hugepage_dir(hugepage_size);
     if (hugepage_dir.empty()) {
@@ -1385,7 +1372,7 @@ bool tt_SiliconDevice::init_hugepage(chip_id_t device_id) {
         pin_pages.in.virtual_address = reinterpret_cast<std::uintptr_t>(mapping);
         pin_pages.in.size = hugepage_size;
 
-        auto &fd = g_SINGLE_PIN_PAGE_PER_FD_WORKAROND ? dev->device_fd_per_host_ch[ch] : dev->device_fd;
+        auto fd = dev->get_fd();
 
         if (ioctl(fd, TENSTORRENT_IOCTL_PIN_PAGES, &pin_pages) == -1) {
             log_warning(LogSiliconDriver, "---- ttSiliconDevice::init_hugepage: physical_device_id: {} ch: {} TENSTORRENT_IOCTL_PIN_PAGES failed (errno: {}). Common Issue: Requires TTMKD >= 1.11, see following file contents...", physical_device_id, ch, strerror(errno));
@@ -1412,7 +1399,7 @@ int tt_SiliconDevice::test_setup_interface () {
         int ret_val = 0;
         PCIDevice *dev = m_pci_device_map.begin()->second.get();
 
-        uint32_t mapped_reg = set_dynamic_tlb(dev, dev->get_architecture_implementation()->get_reg_tlb(), tt_xy_pair(0, 0), 0xffb20108, harvested_coord_translation).bar_offset;
+        uint32_t mapped_reg = dev->set_dynamic_tlb(dev->get_architecture_implementation()->get_reg_tlb(), tt_xy_pair(0, 0), 0xffb20108, harvested_coord_translation).bar_offset;
 
         uint32_t regval = 0;
         dev->read_regs(mapped_reg, 1, &regval);
@@ -1423,7 +1410,7 @@ int tt_SiliconDevice::test_setup_interface () {
         int ret_val = 0;
         PCIDevice *dev = m_pci_device_map.begin()->second.get();
 
-        uint32_t mapped_reg = set_dynamic_tlb(dev, dev->get_architecture_implementation()->get_reg_tlb(), tt_xy_pair(1, 0), 0xffb20108, harvested_coord_translation).bar_offset;
+        uint32_t mapped_reg = dev->set_dynamic_tlb(dev->get_architecture_implementation()->get_reg_tlb(), tt_xy_pair(1, 0), 0xffb20108, harvested_coord_translation).bar_offset;
 
         uint32_t regval = 0;
         dev->read_regs(mapped_reg, 1, &regval);
@@ -1435,7 +1422,7 @@ int tt_SiliconDevice::test_setup_interface () {
         // int ret_val = 0;
         // PCIDevice *dev = m_pci_device_map.begin()->second->hdev;
 
-        // uint32_t mapped_reg = set_dynamic_tlb(m_pci_device_map.begin()->second, dev->get_architecture_implementation()->get_reg_tlb(), tt_xy_pair(1, 0), 0xffb20108, harvested_coord_translation).bar_offset;
+        // uint32_t mapped_reg = dev->set_dynamic_tlb(m_pci_device_map.begin()->second, dev->get_architecture_implementation()->get_reg_tlb(), tt_xy_pair(1, 0), 0xffb20108, harvested_coord_translation).bar_offset;
 
         // uint32_t regval = 0;
         // read_regs(dev, mapped_reg, 1, &regval);
@@ -1484,7 +1471,7 @@ int tt_SiliconDevice::pcie_arc_msg(int logical_device_id, uint32_t msg_code, boo
 
     // Exclusive access for a single process at a time. Based on physical pci interface id.
     std::string msg_type = "ARC_MSG";
-    const scoped_lock<named_mutex> lock(*get_mutex(msg_type, pci_device->device_id));
+    const scoped_lock<named_mutex> lock(*get_mutex(msg_type, pci_device->get_device_num()));
     uint32_t fw_arg = arg0 | (arg1<<16);
     int exit_code = 0;
 
@@ -1793,7 +1780,7 @@ void tt_SiliconDevice::write_to_non_mmio_device(
     //                    MUTEX ACQUIRE (NON-MMIO)
     //  do not locate any ethernet core reads/writes before this acquire
     //
-    const scoped_lock<named_mutex> lock(*get_mutex(NON_MMIO_MUTEX_NAME, this->get_pci_device(mmio_capable_chip_logical)->device_id));
+    const scoped_lock<named_mutex> lock(*get_mutex(NON_MMIO_MUTEX_NAME, this->get_pci_device(mmio_capable_chip_logical)->get_device_num()));
 
     int& active_core_for_txn = non_mmio_transfer_cores_customized ? active_eth_core_idx_per_chip.at(mmio_capable_chip_logical) : active_core;
     tt_cxy_pair remote_transfer_ethernet_core = remote_transfer_ethernet_cores.at(mmio_capable_chip_logical)[active_core_for_txn];
@@ -1963,7 +1950,7 @@ void tt_SiliconDevice::read_from_non_mmio_device(void* mem_ptr, tt_cxy_pair core
     //                    MUTEX ACQUIRE (NON-MMIO)
     //  do not locate any ethernet core reads/writes before this acquire
     //
-    const scoped_lock<named_mutex> lock(*get_mutex(NON_MMIO_MUTEX_NAME, this->get_pci_device(mmio_capable_chip_logical)->device_id));
+    const scoped_lock<named_mutex> lock(*get_mutex(NON_MMIO_MUTEX_NAME, this->get_pci_device(mmio_capable_chip_logical)->get_device_num()));
     const tt_cxy_pair remote_transfer_ethernet_core = remote_transfer_ethernet_cores[mmio_capable_chip_logical].at(0);
 
     read_device_memory(erisc_q_ptrs.data(), remote_transfer_ethernet_core, eth_interface_params.request_cmd_queue_base + eth_interface_params.cmd_counters_size_bytes, eth_interface_params.remote_update_ptr_size_bytes*2, read_tlb);
@@ -2263,9 +2250,9 @@ void tt_SiliconDevice::pcie_broadcast_write(chip_id_t chip, const void* mem_ptr,
     PCIDevice *pci_device = get_pci_device(chip);
     const auto tlb_index = dynamic_tlb_config.at(fallback_tlb);
     const uint8_t* buffer_addr = static_cast<const uint8_t*>(mem_ptr);
-    const scoped_lock<named_mutex> lock(*get_mutex(fallback_tlb, pci_device->device_id));
+    const scoped_lock<named_mutex> lock(*get_mutex(fallback_tlb, pci_device->get_device_num()));
     while(size_in_bytes > 0) {
-        auto [mapped_address, tlb_size] = set_dynamic_tlb_broadcast(pci_device, tlb_index, addr, harvested_coord_translation, start, end, dynamic_tlb_ordering_modes.at(fallback_tlb));
+        auto [mapped_address, tlb_size] = pci_device->set_dynamic_tlb_broadcast(tlb_index, addr, harvested_coord_translation, start, end, dynamic_tlb_ordering_modes.at(fallback_tlb));
         uint64_t transfer_size = std::min((uint64_t)size_in_bytes, tlb_size);
         pci_device->write_block(mapped_address, transfer_size, buffer_addr);
 
@@ -2528,7 +2515,7 @@ void tt_SiliconDevice::set_membar_flag(const chip_id_t chip, const std::unordere
 
 void tt_SiliconDevice::insert_host_to_device_barrier(const chip_id_t chip, const std::unordered_set<tt_xy_pair>& cores, const uint32_t barrier_addr, const std::string& fallback_tlb) {
     // Ensure that this memory barrier is atomic across processes/threads
-    const scoped_lock<named_mutex> lock(*get_mutex(MEM_BARRIER_MUTEX_NAME, this->get_pci_device(chip)->device_id));
+    const scoped_lock<named_mutex> lock(*get_mutex(MEM_BARRIER_MUTEX_NAME, this->get_pci_device(chip)->get_device_num()));
     set_membar_flag(chip, cores, tt_MemBarFlag::SET, barrier_addr, fallback_tlb);
     set_membar_flag(chip, cores, tt_MemBarFlag::RESET, barrier_addr, fallback_tlb);
 }
@@ -2629,10 +2616,10 @@ void tt_SiliconDevice::read_mmio_device_register(void* mem_ptr, tt_cxy_pair core
     PCIDevice *pci_device = get_pci_device(core.chip);
 
     const auto tlb_index = dynamic_tlb_config.at(fallback_tlb);
-    const scoped_lock<named_mutex> lock(*get_mutex(fallback_tlb, pci_device->device_id));
+    const scoped_lock<named_mutex> lock(*get_mutex(fallback_tlb, pci_device->get_device_num()));
     log_debug(LogSiliconDriver, "  dynamic tlb_index: {}", tlb_index);
 
-    auto [mapped_address, tlb_size] = set_dynamic_tlb(pci_device, tlb_index, core, addr, harvested_coord_translation, TLB_DATA::Strict);
+    auto [mapped_address, tlb_size] = pci_device->set_dynamic_tlb(tlb_index, core, addr, harvested_coord_translation, TLB_DATA::Strict);
     // Align block to 4bytes if needed. 
     auto aligned_buf = tt_4_byte_aligned_buffer(mem_ptr, size);
     pci_device->read_regs(mapped_address, aligned_buf.block_size / sizeof(std::uint32_t), aligned_buf.local_storage);
@@ -2648,10 +2635,10 @@ void tt_SiliconDevice::write_mmio_device_register(const void* mem_ptr, tt_cxy_pa
     PCIDevice *pci_device = get_pci_device(core.chip);
 
     const auto tlb_index = dynamic_tlb_config.at(fallback_tlb);
-    const scoped_lock<named_mutex> lock(*get_mutex(fallback_tlb, pci_device->device_id));
+    const scoped_lock<named_mutex> lock(*get_mutex(fallback_tlb, pci_device->get_device_num()));
     log_debug(LogSiliconDriver, "  dynamic tlb_index: {}", tlb_index);
 
-    auto [mapped_address, tlb_size] = set_dynamic_tlb(pci_device, tlb_index, core, addr, harvested_coord_translation, TLB_DATA::Strict);
+    auto [mapped_address, tlb_size] = pci_device->set_dynamic_tlb(tlb_index, core, addr, harvested_coord_translation, TLB_DATA::Strict);
     // Align block to 4bytes if needed. 
     auto aligned_buf = tt_4_byte_aligned_buffer(mem_ptr, size);
     if(aligned_buf.input_size != aligned_buf.block_size) {
@@ -2703,8 +2690,7 @@ void tt_SiliconDevice::send_remote_tensix_risc_reset_to_core(const tt_cxy_pair &
 
 int tt_SiliconDevice::set_remote_power_state(const chip_id_t &chip, tt_DevicePowerState device_state) {
     auto mmio_capable_chip_logical = ndesc->get_closest_mmio_capable_chip(chip);
-    PCIDevice *pci_device = get_pci_device(mmio_capable_chip_logical);
-    return remote_arc_msg(chip, get_power_state_arc_msg(pci_device, device_state), true, 0, 0, 1, NULL, NULL);
+    return remote_arc_msg(chip, get_power_state_arc_msg(mmio_capable_chip_logical, device_state), true, 0, 0, 1, NULL, NULL);
 }
 
 
@@ -2727,7 +2713,7 @@ void tt_SiliconDevice::enable_remote_ethernet_queue(const chip_id_t& chip, int t
 void tt_SiliconDevice::broadcast_tensix_risc_reset_to_cluster(const TensixSoftResetOptions &soft_resets) {
     if(arch_name == tt::ARCH::GRAYSKULL) {
         for (auto &device_it : m_pci_device_map) {
-            broadcast_pcie_tensix_risc_reset(device_it.second.get(), soft_resets);
+            broadcast_pcie_tensix_risc_reset(device_it.first, soft_resets);
         }
     }
     else {
@@ -2915,7 +2901,7 @@ std::uint32_t tt_SiliconDevice::get_host_channel_size(std::uint32_t device_id, s
 }
 
 std::uint32_t tt_SiliconDevice::get_numa_node_for_pcie_device(std::uint32_t device_id) {
-    return get_pci_device(device_id)->numa_node;
+    return get_pci_device(device_id)->get_numa_node();
 }
 
 std::uint64_t tt_SiliconDevice::get_pcie_base_addr_from_device() const {

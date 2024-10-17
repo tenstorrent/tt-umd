@@ -14,7 +14,7 @@
 #include <linux/pci.h> // for PCI_SLOT, PCI_FUNC
 
 #include "pci_device.hpp"
-#include "utils.hpp"
+#include "ioctl.h"
 
 #include "ioctl.h"
 #include "device/tt_arch_types.h"
@@ -22,6 +22,49 @@
 #include "device/architecture_implementation.h"
 #include "common/assert.hpp"
 #include "common/logger.hpp"
+
+static const uint16_t GS_PCIE_DEVICE_ID = 0xfaca;
+static const uint16_t WH_PCIE_DEVICE_ID = 0x401e;
+static const uint16_t BH_PCIE_DEVICE_ID = 0xb140;
+
+// TODO: we'll have to rethink this when KMD takes control of the inbound PCIe
+// TLB windows and there is no longer a pre-defined WC/UC split.
+static const uint32_t GS_BAR0_WC_MAPPING_SIZE = (156<<20) + (10<<21) + (18<<24);
+
+// Defines the address for WC region. addresses 0 to BH_BAR0_WC_MAPPING_SIZE are in WC, above that are UC
+static const uint32_t BH_BAR0_WC_MAPPING_SIZE = 188<<21;
+
+static const uint32_t BH_NOC_NODE_ID_OFFSET = 0x1FD04044;
+static const uint32_t GS_WH_ARC_SCRATCH_6_OFFSET = 0x1FF30078;
+
+template <typename T>
+static T read_sysfs(const PciDeviceInfo &device_info, const std::string &attribute_name) {
+    const auto sysfs_path = fmt::format("/sys/bus/pci/devices/{:04x}:{:02x}:{:02x}.{:x}/{}",
+                                        device_info.pci_domain, device_info.pci_bus,
+                                        device_info.pci_device, device_info.pci_function, attribute_name);
+    std::ifstream attribute_file(sysfs_path);
+    std::string value_str;
+    T value;
+
+    if (!std::getline(attribute_file, value_str)) {
+        TT_THROW("Failed reading sysfs attribute: {}", sysfs_path);
+    }
+
+    std::istringstream iss(value_str);
+
+    // Handle hexadecimal input for integer types
+    if constexpr (std::is_integral_v<T>) {
+        if (value_str.substr(0, 2) == "0x") {
+            iss >> std::hex;
+        }
+    }
+
+    if (!(iss >> value)) {
+        TT_THROW("Failed to parse sysfs attribute value: {}", value_str);
+    }
+
+    return value;
+}
 
 static PciDeviceInfo read_device_info(int fd)
 {
@@ -39,26 +82,21 @@ static PciDeviceInfo read_device_info(int fd)
     return PciDeviceInfo{info.out.vendor_id, info.out.device_id, info.out.pci_domain, bus, dev, fn};
 }
 
-static int determine_numa_node(int fd)
-{
-    const auto device_info = read_device_info(fd);
-    const auto sysfs_path = fmt::format("/sys/bus/pci/devices/{:04x}:{:02x}:{:02x}.{}/numa_node",
-                                        device_info.pci_domain, device_info.pci_bus,
-                                        device_info.pci_device, device_info.pci_function);
-
-    std::ifstream numa_file(sysfs_path);
-    int numa_node = -1;
-    if (numa_file >> numa_node) {
-        return numa_node;
+static tt::ARCH detect_arch(uint32_t pcie_device_id, uint32_t pcie_revision_id) {
+    if (pcie_device_id == GS_PCIE_DEVICE_ID){
+        return tt::ARCH::GRAYSKULL;
+    } else if (pcie_device_id == WH_PCIE_DEVICE_ID && pcie_revision_id == 0x01){
+        return tt::ARCH::WORMHOLE_B0;
+    } else if (pcie_device_id == WH_PCIE_DEVICE_ID){
+        // TODO: did we ship any of these?  I've never seen one.  Can we stop
+        // having an ARCH for it if they don't exist?
+        TT_THROW("Wormhole is not supported. Please use Wormhole B0 instead.");
+        return tt::ARCH::WORMHOLE;
+    } else if (pcie_device_id == WH_PCIE_DEVICE_ID){
+        return tt::ARCH::BLACKHOLE;
+    } else {
+        TT_THROW("Unknown pcie device id that does not match any known architecture: ", pcie_device_id);
     }
-    return -1;
-}
-
-
-tt::ARCH detect_arch(int device_id){
-    std::uint32_t pcie_device_id = get_pcie_info(device_id, "pcie_device_id");
-    std::uint32_t pcie_revision_id = get_pcie_info(device_id, "revision");
-    return detect_arch(pcie_device_id, pcie_revision_id);
 }
 
 // Custom device memcpy. This is only safe for memory-like regions on the device (Tensix L1, DRAM, ARC CSM).
@@ -152,9 +190,17 @@ inline void memcpy_from_device(void *dest, const void *src, std::size_t num_byte
     }
 }
 
-// --------------------------------------------------------------------------------------------------------------
-// --------------------------------------------------------------------------------------------------------------
-// --------------------------------------------------------------------------------------------------------------
+tt::ARCH PciDeviceInfo::get_arch() const {
+    if (this->device_id == GS_PCIE_DEVICE_ID){
+        return tt::ARCH::GRAYSKULL;
+    } else if (this->device_id == WH_PCIE_DEVICE_ID) {
+        return tt::ARCH::WORMHOLE_B0;
+    } else if (this->device_id == WH_PCIE_DEVICE_ID){
+        return tt::ARCH::BLACKHOLE;
+    }
+    return tt::ARCH::Invalid;
+}
+
 
 /* static */ std::vector<int> PCIDevice::enumerate_devices() {
     std::vector<int> device_ids;
@@ -177,31 +223,34 @@ inline void memcpy_from_device(void *dest, const void *src, std::size_t num_byte
     return device_ids;
 }
 
-PCIDevice::PCIDevice(int device_id, int logical_device_id) {
-    // TODO: use C++ constructor to do everything
-    // TODO: make public member vars const
-    // TODO: get logical_id out of here
-    this->device_id = device_id;
-    this->logical_id = logical_device_id;
-    setup_device();
+/* static */ std::map<int, PciDeviceInfo> PCIDevice::enumerate_devices_info() {
+    std::map<int, PciDeviceInfo> infos;
+    for (int n : PCIDevice::enumerate_devices()) {
+        int fd = open(fmt::format("/dev/tenstorrent/{}", n).c_str(), O_RDWR | O_CLOEXEC);
+        if (fd == -1) {
+            continue;
+        }
 
-    this->info = read_device_info(device_fd);
+        try {
+            infos[n] = read_device_info(fd);
+        } catch (...) {}
 
+        close(fd);
+    }
+    return infos;
 }
 
-PCIDevice::~PCIDevice() {
-    close_device();
-}
-
-
-void PCIDevice::setup_device() {
-    this->device_fd = find_device(this->device_id);
-    this->numa_node = determine_numa_node(this->device_fd);
-    this->pcie_device_id = get_pcie_info(this->device_id, "pcie_device_id");
-    this->pcie_revision_id = get_pcie_info(this->device_id, "revision");
-    this->arch = detect_arch(pcie_device_id, pcie_revision_id);
-    this->architecture_implementation = tt::umd::architecture_implementation::create(static_cast<tt::umd::architecture>(arch));
-
+PCIDevice::PCIDevice(int pci_device_number, int logical_device_id)
+    : device_path(fmt::format("/dev/tenstorrent/{}", pci_device_number))
+    , pci_device_num(pci_device_number)
+    , logical_id(logical_device_id)
+    , pci_device_file_desc(open(device_path.c_str(), O_RDWR | O_CLOEXEC))
+    , info(read_device_info(pci_device_file_desc))
+    , numa_node(read_sysfs<int>(info, "numa_node"))
+    , revision(read_sysfs<int>(info, "revision"))
+    , arch(detect_arch(info.device_id, revision))
+    , architecture_implementation(tt::umd::architecture_implementation::create(static_cast<tt::umd::architecture>(arch)))
+{
     struct {
         tenstorrent_query_mappings query_mappings;
         tenstorrent_mapping mapping_array[8];
@@ -209,27 +258,20 @@ void PCIDevice::setup_device() {
     memset(&mappings, 0, sizeof(mappings));
     mappings.query_mappings.in.output_mapping_count = 8;
 
-    if (ioctl(device_fd, TENSTORRENT_IOCTL_QUERY_MAPPINGS, &mappings.query_mappings) == -1) {
-        throw std::runtime_error(fmt::format("Query mappings failed on device {}.", device_id));
+    if (ioctl(pci_device_file_desc, TENSTORRENT_IOCTL_QUERY_MAPPINGS, &mappings.query_mappings) == -1) {
+        throw std::runtime_error(fmt::format("Query mappings failed on device {}.", pci_device_num));
     }
 
     // Mapping resource to BAR
     // Resource 0 -> BAR0
     // Resource 1 -> BAR2
     // Resource 2 -> BAR4
-    tenstorrent_mapping bar0_uc_mapping;
-    tenstorrent_mapping bar0_wc_mapping;
-    tenstorrent_mapping bar2_uc_mapping;
-    tenstorrent_mapping bar2_wc_mapping;
-    tenstorrent_mapping bar4_uc_mapping;
-    tenstorrent_mapping bar4_wc_mapping;
-
-    memset(&bar0_uc_mapping, 0, sizeof(bar0_uc_mapping));
-    memset(&bar0_wc_mapping, 0, sizeof(bar0_wc_mapping));
-    memset(&bar2_uc_mapping, 0, sizeof(bar2_uc_mapping));
-    memset(&bar2_wc_mapping, 0, sizeof(bar2_wc_mapping));
-    memset(&bar4_uc_mapping, 0, sizeof(bar4_uc_mapping));
-    memset(&bar4_wc_mapping, 0, sizeof(bar4_wc_mapping));
+    tenstorrent_mapping bar0_uc_mapping{};
+    tenstorrent_mapping bar0_wc_mapping{};
+    tenstorrent_mapping bar2_uc_mapping{};
+    tenstorrent_mapping bar2_wc_mapping{};
+    tenstorrent_mapping bar4_uc_mapping{};
+    tenstorrent_mapping bar4_wc_mapping{};
 
     for (unsigned int i = 0; i < mappings.query_mappings.in.output_mapping_count; i++) {
         if (mappings.mapping_array[i].mapping_id == TENSTORRENT_MAPPING_RESOURCE0_UC) {
@@ -263,7 +305,7 @@ void PCIDevice::setup_device() {
     }
 
     if (bar0_uc_mapping.mapping_id != TENSTORRENT_MAPPING_RESOURCE0_UC) {
-        throw std::runtime_error(fmt::format("Device {} has no BAR0 UC mapping.", device_id));
+        throw std::runtime_error(fmt::format("Device {} has no BAR0 UC mapping.", pci_device_num));
     }
 
     auto wc_mapping_size = arch == tt::ARCH::BLACKHOLE ? BH_BAR0_WC_MAPPING_SIZE : GS_BAR0_WC_MAPPING_SIZE;
@@ -271,7 +313,7 @@ void PCIDevice::setup_device() {
     // Attempt WC mapping first so we can fall back to all-UC if it fails.
     if (bar0_wc_mapping.mapping_id == TENSTORRENT_MAPPING_RESOURCE0_WC) {
         bar0_wc_size = std::min<size_t>(bar0_wc_mapping.mapping_size, wc_mapping_size);
-        bar0_wc = mmap(NULL, bar0_wc_size, PROT_READ | PROT_WRITE, MAP_SHARED, device_fd, bar0_wc_mapping.mapping_base);
+        bar0_wc = mmap(NULL, bar0_wc_size, PROT_READ | PROT_WRITE, MAP_SHARED, pci_device_file_desc, bar0_wc_mapping.mapping_base);
         if (bar0_wc == MAP_FAILED) {
             bar0_wc_size = 0;
             bar0_wc = nullptr;
@@ -288,10 +330,10 @@ void PCIDevice::setup_device() {
         bar0_uc_offset = 0;
     }
 
-    bar0_uc = mmap(NULL, bar0_uc_size, PROT_READ | PROT_WRITE, MAP_SHARED, device_fd, bar0_uc_mapping.mapping_base + bar0_uc_offset);
+    bar0_uc = mmap(NULL, bar0_uc_size, PROT_READ | PROT_WRITE, MAP_SHARED, pci_device_file_desc, bar0_uc_mapping.mapping_base + bar0_uc_offset);
 
     if (bar0_uc == MAP_FAILED) {
-        throw std::runtime_error(fmt::format("BAR0 UC mapping failed for device {}.", device_id));
+        throw std::runtime_error(fmt::format("BAR0 UC mapping failed for device {}.", pci_device_num));
     }
 
     if (!bar0_wc) {
@@ -300,43 +342,43 @@ void PCIDevice::setup_device() {
 
     if (arch == tt::ARCH::WORMHOLE_B0) {
         if (bar4_uc_mapping.mapping_id != TENSTORRENT_MAPPING_RESOURCE2_UC) {
-            throw std::runtime_error(fmt::format("Device {} has no BAR4 UC mapping.", device_id));
+            throw std::runtime_error(fmt::format("Device {} has no BAR4 UC mapping.", pci_device_num));
         }
 
         system_reg_mapping_size = bar4_uc_mapping.mapping_size;
 
-        system_reg_mapping = mmap(NULL, bar4_uc_mapping.mapping_size, PROT_READ | PROT_WRITE, MAP_SHARED, device_fd, bar4_uc_mapping.mapping_base);
+        system_reg_mapping = mmap(NULL, bar4_uc_mapping.mapping_size, PROT_READ | PROT_WRITE, MAP_SHARED, pci_device_file_desc, bar4_uc_mapping.mapping_base);
 
         if (system_reg_mapping == MAP_FAILED) {
-            throw std::runtime_error(fmt::format("BAR4 UC mapping failed for device {}.", device_id));
+            throw std::runtime_error(fmt::format("BAR4 UC mapping failed for device {}.", pci_device_num));
         }
 
         system_reg_start_offset = (512 - 16) * 1024*1024;
         system_reg_offset_adjust = (512 - 32) * 1024*1024;
     } else if(arch == tt::ARCH::BLACKHOLE) {
         if (bar2_uc_mapping.mapping_id != TENSTORRENT_MAPPING_RESOURCE1_UC) {
-            throw std::runtime_error(fmt::format("Device {} has no BAR2 UC mapping.", device_id));
+            throw std::runtime_error(fmt::format("Device {} has no BAR2 UC mapping.", pci_device_num));
         }
 
         // Using UnCachable memory mode. This is used for accessing registers on Blackhole.
         bar2_uc_size = bar2_uc_mapping.mapping_size;
-        bar2_uc = mmap(NULL, bar2_uc_mapping.mapping_size, PROT_READ | PROT_WRITE, MAP_SHARED, device_fd, bar2_uc_mapping.mapping_base);
+        bar2_uc = mmap(NULL, bar2_uc_mapping.mapping_size, PROT_READ | PROT_WRITE, MAP_SHARED, pci_device_file_desc, bar2_uc_mapping.mapping_base);
 
         if (bar2_uc == MAP_FAILED) {
-            throw std::runtime_error(fmt::format("BAR2 UC mapping failed for device {}.", device_id));
+            throw std::runtime_error(fmt::format("BAR2 UC mapping failed for device {}.", pci_device_num));
         }
 
         if (bar4_wc_mapping.mapping_id != TENSTORRENT_MAPPING_RESOURCE2_WC) {
-            throw std::runtime_error(fmt::format("Device {} has no BAR4 WC mapping.", device_id));
+            throw std::runtime_error(fmt::format("Device {} has no BAR4 WC mapping.", pci_device_num));
         }
 
         // Using Write-Combine memory mode. This is used for accessing DRAM on Blackhole.
         // WC doesn't guarantee write ordering but has better performance.
         bar4_wc_size = bar4_wc_mapping.mapping_size;
-        bar4_wc = mmap(NULL, bar4_wc_mapping.mapping_size, PROT_READ | PROT_WRITE, MAP_SHARED, device_fd, bar4_wc_mapping.mapping_base);
+        bar4_wc = mmap(NULL, bar4_wc_mapping.mapping_size, PROT_READ | PROT_WRITE, MAP_SHARED, pci_device_file_desc, bar4_wc_mapping.mapping_base);
 
         if (bar4_wc == MAP_FAILED) {
-            throw std::runtime_error(fmt::format("BAR4 WC mapping failed for device {}.", device_id));
+            throw std::runtime_error(fmt::format("BAR4 WC mapping failed for device {}.", pci_device_num));
         }
     }
 
@@ -344,19 +386,20 @@ void PCIDevice::setup_device() {
     read_checking_offset = arch == tt::ARCH::BLACKHOLE ? BH_NOC_NODE_ID_OFFSET : GS_WH_ARC_SCRATCH_6_OFFSET;
 }
 
-void PCIDevice::close_device() {
+PCIDevice::~PCIDevice() {
     if (arch == tt::ARCH::BLACKHOLE && bar2_uc != nullptr && bar2_uc != MAP_FAILED) {
         // Disable ATU index 0
         // TODO: Implement disabling for all indexes, once more host channels are enabled.
+
+        // This is not going to happen if the application crashes, so if it's
+        // essential for correctness then it needs to move to the driver.
         uint64_t iatu_index = 0;
         uint64_t iatu_base = UNROLL_ATU_OFFSET_BAR + iatu_index * 0x200;
         uint32_t region_ctrl_2 = 0 << 31; // REGION_EN = 0
-        write_regs(reinterpret_cast<std::uint32_t*>(static_cast<uint8_t*>(bar2_uc) + iatu_base + 0x04), &region_ctrl_2, 1);
+        write_regs(reinterpret_cast<uint32_t*>(static_cast<uint8_t*>(bar2_uc) + iatu_base + 0x04), &region_ctrl_2, 1);
     }
 
-    if (device_fd != -1) {
-        ::close(device_fd);
-    }
+    close(pci_device_file_desc);
 
     if (bar0_wc != nullptr && bar0_wc != MAP_FAILED && bar0_wc != bar0_uc) {
         munmap(bar0_wc, bar0_wc_size);
@@ -377,33 +420,10 @@ void PCIDevice::close_device() {
     if (system_reg_mapping != nullptr && system_reg_mapping != MAP_FAILED) {
         munmap(system_reg_mapping, system_reg_mapping_size);
     }
-
-    device_fd = -1;
-    bar0_uc = nullptr;
-    bar0_wc = nullptr;
-    bar2_uc = nullptr;
-    bar4_wc = nullptr;
-    system_reg_mapping = nullptr;
-}
-
-// Open a unique device_id per host memory channel (workaround for ttkmd < 1.21 support for more than 1 pin per fd)
-void PCIDevice::open_hugepage_per_host_mem_ch(uint32_t num_host_mem_channels) {
-    for (int ch = 0; ch < num_host_mem_channels; ch++) {
-        log_debug(LogSiliconDriver, "Opening device_fd_per_host_ch device index: {} ch: {} (num_host_mem_channels: {})", device_id, ch, num_host_mem_channels);
-        int device_fd_for_host_mem = find_device(device_id);
-        if (device_fd_for_host_mem == -1) {
-            throw std::runtime_error(fmt::format("Failed opening a host memory device handle for device {}.", device_id));
-        }
-        device_fd_per_host_ch.push_back(device_fd_for_host_mem);
-    }
-}
-
-tt::ARCH PCIDevice::get_arch() const {
-    return arch;
 }
 
 template<typename T>
-T* PCIDevice::get_register_address(std::uint32_t register_offset) {
+T* PCIDevice::get_register_address(uint32_t register_offset) {
     // Right now, address can either be exposed register in BAR, or TLB window in BAR0 (BAR4 for Blackhole).
     // Should clarify this interface
     void *reg_mapping;
@@ -481,11 +501,11 @@ void PCIDevice::read_regs(uint32_t byte_addr, uint32_t word_len, void *data) {
     }
 }
 
-void PCIDevice::write_tlb_reg(uint32_t byte_addr, std::uint64_t value_lower, std::uint64_t value_upper, std::uint32_t tlb_cfg_reg_size){
+void PCIDevice::write_tlb_reg(uint32_t byte_addr, uint64_t value_lower, uint64_t value_upper, uint32_t tlb_cfg_reg_size){
     log_assert((tlb_cfg_reg_size == 8) or (tlb_cfg_reg_size == 12), "Tenstorrent hardware supports only 64bit or 96bit TLB config regs");
 
-    volatile uint64_t *dest_qw = get_register_address<std::uint64_t>(byte_addr);
-    volatile uint32_t *dest_extra_dw = get_register_address<std::uint32_t>(byte_addr+8);
+    volatile uint64_t *dest_qw = get_register_address<uint64_t>(byte_addr);
+    volatile uint32_t *dest_extra_dw = get_register_address<uint32_t>(byte_addr+8);
 #if defined(__ARM_ARCH) || defined(__riscv)
     // The store below goes through UC memory on x86, which has implicit ordering constraints with WC accesses.
     // ARM has no concept of UC memory. This will not allow for implicit ordering of this store wrt other memory accesses.
@@ -514,4 +534,53 @@ void PCIDevice::detect_hang_read(std::uint32_t data_read) {
 
         throw std::runtime_error("Read 0xffffffff from PCIE: you should reset the board.");
     }
+}
+
+// Get TLB index (from zero), check if it's in 16MB, 2MB or 1MB TLB range, and dynamically program it.
+dynamic_tlb PCIDevice::set_dynamic_tlb(unsigned int tlb_index, tt_xy_pair start, tt_xy_pair end,
+                            std::uint64_t address, bool multicast, std::unordered_map<chip_id_t, std::unordered_map<tt_xy_pair, tt_xy_pair>>& harvested_coord_translation, std::uint64_t ordering) {
+    auto architecture_implementation = get_architecture_implementation();
+    if (multicast) {
+        std::tie(start, end) = architecture_implementation->multicast_workaround(start, end);
+    }
+
+    log_trace(LogSiliconDriver, "set_dynamic_tlb with arguments: tlb_index = {}, start = ({}, {}), end = ({}, {}), address = 0x{:x}, multicast = {}, ordering = {}",
+         tlb_index, start.x, start.y, end.x, end.y, address, multicast, (int)ordering);
+
+    tt::umd::tlb_configuration tlb_config = architecture_implementation->get_tlb_configuration(tlb_index);
+    std::uint32_t TLB_CFG_REG_SIZE_BYTES = architecture_implementation->get_tlb_cfg_reg_size_bytes();
+    auto translated_start_coords = harvested_coord_translation.at(logical_id).at(start);
+    auto translated_end_coords = harvested_coord_translation.at(logical_id).at(end);
+    uint32_t tlb_address    = address / tlb_config.size;
+    uint32_t local_address   = address % tlb_config.size;
+    uint64_t tlb_base       = tlb_config.base + (tlb_config.size * tlb_config.index_offset);
+    uint32_t tlb_cfg_reg    = tlb_config.cfg_addr + (TLB_CFG_REG_SIZE_BYTES * tlb_config.index_offset);
+
+    std::pair<std::uint64_t, std::uint64_t> tlb_data = tt::umd::tlb_data {
+        .local_offset = tlb_address,
+        .x_end = static_cast<uint64_t>(translated_end_coords.x),
+        .y_end = static_cast<uint64_t>(translated_end_coords.y),
+        .x_start = static_cast<uint64_t>(translated_start_coords.x),
+        .y_start = static_cast<uint64_t>(translated_start_coords.y),
+        .mcast = multicast,
+        .ordering = ordering,
+        // TODO #2715: hack for Blackhole A0, will potentially be fixed in B0.
+        // Using the same static vc for reads and writes through TLBs can hang the card. It doesn't even have to be the same TLB.
+        // Dynamic vc should not have this issue. There might be a perf impact with using dynamic vc.
+        .static_vc = (get_arch() == tt::ARCH::BLACKHOLE) ? false : true,
+    }.apply_offset(tlb_config.offset);
+
+    log_debug(LogSiliconDriver, "set_dynamic_tlb() with tlb_index: {} tlb_index_offset: {} dynamic_tlb_size: {}MB tlb_base: 0x{:x} tlb_cfg_reg: 0x{:x}", tlb_index, tlb_config.index_offset, tlb_config.size/(1024*1024), tlb_base, tlb_cfg_reg);
+    write_tlb_reg(tlb_cfg_reg, tlb_data.first, tlb_data.second, TLB_CFG_REG_SIZE_BYTES);
+
+    return { tlb_base + local_address, tlb_config.size - local_address };
+}
+
+dynamic_tlb PCIDevice::set_dynamic_tlb(unsigned int tlb_index, tt_xy_pair target, std::uint64_t address, std::unordered_map<chip_id_t, std::unordered_map<tt_xy_pair, tt_xy_pair>>& harvested_coord_translation, std::uint64_t ordering) {
+    return set_dynamic_tlb(tlb_index, tt_xy_pair(0, 0), target, address, false, harvested_coord_translation, ordering);
+}
+
+dynamic_tlb PCIDevice::set_dynamic_tlb_broadcast(unsigned int tlb_index, std::uint64_t address, std::unordered_map<chip_id_t, std::unordered_map<tt_xy_pair, tt_xy_pair>>& harvested_coord_translation, tt_xy_pair start, tt_xy_pair end, std::uint64_t ordering) {
+    // Issue a broadcast to cores included in the start (top left) and end (bottom right) grid
+    return set_dynamic_tlb(tlb_index, start, end, address, true, harvested_coord_translation, ordering);
 }

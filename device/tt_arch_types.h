@@ -10,6 +10,9 @@
 #include "device/architecture.h"
 
 namespace tt {
+
+// TODO: why do we have ARCH and architecture?  This is a mess.  Can we have just one?
+// Can we get rid of the entries that (for all practical purposes) do not exist?
 /**
  * @brief ARCH Enums
  */

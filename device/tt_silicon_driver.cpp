@@ -66,6 +66,7 @@ std::string hugepage_dir = hugepage_dir_env ? hugepage_dir_env : "/dev/hugepages
 // TLB size for DRAM on blackhole - 4GB
 const uint64_t BH_4GB_TLB_SIZE = 4ULL * 1024 * 1024 * 1024;
 
+// TODO: Remove in favor of cluster descriptor method, when it becomes available.
 // Metal uses this function to determine the architecture of the first PCIe chip
 // and then verifies that all subsequent chips are of the same architecture.  It
 // looks like Metal is doing this because we don't provide any other way... When
@@ -85,6 +86,17 @@ tt::ARCH detect_arch(int pci_device_num) {
 
     const auto info = it->second;
     return info.get_arch();
+}
+
+// TODO: Remove in favor of cluster descriptor method, when it becomes available.
+// There is also a function which just wants to get any architecture, since it
+// presumably already checked that all archs are the same.
+tt::ARCH detect_arch() {
+    const auto devices_info = PCIDevice::enumerate_devices_info();
+    if (devices_info.empty()) {
+        return tt::ARCH::Invalid;
+    }
+    return devices_info.begin()->second.get_arch();
 }
 
 template <typename T>

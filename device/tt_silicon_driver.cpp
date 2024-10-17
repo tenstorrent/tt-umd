@@ -2093,7 +2093,7 @@ void tt_SiliconDevice::read_from_non_mmio_device(void* mem_ptr, tt_cxy_pair core
 
 }
 
-void tt_SiliconDevice::wait_for_connected_non_mmio_flush(chip_id_t chip_id) {
+void tt_SiliconDevice::wait_for_connected_non_mmio_flush(const chip_id_t chip_id) {
     log_assert(arch_name != tt::ARCH::BLACKHOLE, "Non-MMIO flush not supported in Blackhole");
     std::string read_tlb = "LARGE_READ_TLB";
     auto chips_with_mmio = this->get_target_mmio_device_ids();
@@ -2123,7 +2123,7 @@ void tt_SiliconDevice::wait_for_connected_non_mmio_flush(chip_id_t chip_id) {
 }
 
 
-void tt_SiliconDevice::wait_for_non_mmio_flush(chip_id_t chip_id) {
+void tt_SiliconDevice::wait_for_non_mmio_flush(const chip_id_t chip_id) {
     if(flush_non_mmio_per_chip[chip_id]) {
         log_assert(arch_name != tt::ARCH::BLACKHOLE, "Non-MMIO flush not supported in Blackhole");
         std::string read_tlb = "LARGE_READ_TLB";

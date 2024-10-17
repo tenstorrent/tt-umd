@@ -202,7 +202,7 @@ TEST(ApiTest, SimpleIOAllChips) {
 
 TEST(ApiTest, RemoteFlush) {
 
-    std::unique_ptr<tt_ClusterDescriptor> cluster_desc = get_cluster_desc();
+    std::unique_ptr<tt_ClusterDescriptor> cluster_desc = get_cluster_descriptor();
     std::unique_ptr<Cluster> umd_cluster = get_cluster();
 
     if (umd_cluster == nullptr || umd_cluster->get_all_chips_in_cluster().empty()) {
@@ -217,7 +217,7 @@ TEST(ApiTest, RemoteFlush) {
     setup_wormhole_remote(umd_cluster.get());
 
     for (auto chip_id : umd_cluster->get_target_remote_device_ids()) {
-        tt_SocDescriptor& soc_desc = umd_cluster->get_soc_descriptor(chip_id);
+        const tt_SocDescriptor& soc_desc = umd_cluster->get_soc_descriptor(chip_id);
 
         // TODO: figure out if core locations should contain chip_id
         tt_xy_pair any_core = soc_desc.workers[0];
@@ -244,7 +244,7 @@ TEST(ApiTest, RemoteFlush) {
     }
 
     chip_id_t any_remote_chip = *umd_cluster->get_target_remote_device_ids().begin();
-    tt_SocDescriptor& soc_desc = umd_cluster->get_soc_descriptor(any_remote_chip);
+    const tt_SocDescriptor& soc_desc = umd_cluster->get_soc_descriptor(any_remote_chip);
     tt_xy_pair any_core = soc_desc.workers[0];
     tt_cxy_pair any_core_global (any_remote_chip, any_core);
     if (soc_desc.arch != tt::ARCH::WORMHOLE_B0) {

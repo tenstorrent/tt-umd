@@ -362,7 +362,7 @@ class tt_device
      * Non-MMIO (ethernet) barrier.
      * This function should be called for a remote chip. If called for local chip, it will be a no-op.
      */
-    virtual void wait_for_non_mmio_flush(chip_id_t chip_id) {
+    virtual void wait_for_non_mmio_flush(const chip_id_t chip_id) {
         throw std::runtime_error("---- tt_device::wait_for_non_mmio_flush is not implemented\n");
     }
 
@@ -649,7 +649,7 @@ class tt_SiliconDevice: public tt_device
     virtual void write_to_sysmem(const void* mem_ptr, std::uint32_t size,  uint64_t addr, uint16_t channel, chip_id_t src_device_id);
     virtual void read_from_sysmem(void* mem_ptr, uint64_t addr, uint16_t channel, uint32_t size, chip_id_t src_device_id);
     virtual void wait_for_non_mmio_flush();
-    virtual void wait_for_non_mmio_flush(chip_id_t chip_id);
+    virtual void wait_for_non_mmio_flush(const chip_id_t chip_id);
     void l1_membar(const chip_id_t chip, const std::string& fallback_tlb, const std::unordered_set<tt_xy_pair>& cores = {});
     void dram_membar(const chip_id_t chip, const std::string& fallback_tlb, const std::unordered_set<uint32_t>& channels);
     void dram_membar(const chip_id_t chip, const std::string& fallback_tlb, const std::unordered_set<tt_xy_pair>& cores = {});

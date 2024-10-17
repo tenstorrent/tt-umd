@@ -574,7 +574,7 @@ class tt_device
         throw std::runtime_error("---- tt_device::get_pcie_base_addr_from_device is not implemented\n");
         return 0;
     }
-    tt_SocDescriptor& get_soc_descriptor(chip_id_t chip_id);
+    const tt_SocDescriptor& get_soc_descriptor(chip_id_t chip_id);
 
     bool performed_harvesting = false;
     std::unordered_map<chip_id_t, uint32_t> harvested_rows_per_target = {};

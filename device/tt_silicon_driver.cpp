@@ -541,7 +541,7 @@ tt_SiliconDevice::tt_SiliconDevice(const std::string &sdesc_path, const std::str
     if(arch_name == tt::ARCH::WORMHOLE or arch_name == tt::ARCH::WORMHOLE_B0) {
         remote_transfer_ethernet_cores.resize(target_mmio_device_ids.size());
         for (const auto &logical_mmio_chip_id : target_mmio_device_ids) {
-            tt_SocDescriptor& soc_desc = get_soc_descriptor(logical_mmio_chip_id);
+            const tt_SocDescriptor& soc_desc = get_soc_descriptor(logical_mmio_chip_id);
             // 4-5 is for send_epoch_commands, 0-3 are for everything else
             for (std::uint32_t i = 0; i < NUM_ETH_CORES_FOR_NON_MMIO_TRANSFERS; i++) {
                 if(remote_transfer_ethernet_cores.size() <= logical_mmio_chip_id) {
@@ -2822,7 +2822,7 @@ void tt_SiliconDevice::verify_eth_fw() {
     for(const auto& chip : target_devices_in_cluster) {
         uint32_t fw_version;
         std::vector<uint32_t> fw_versions;
-        for (tt_xy_pair &eth_core : get_soc_descriptor(chip).ethernet_cores) {
+        for (const tt_xy_pair &eth_core : get_soc_descriptor(chip).ethernet_cores) {
             read_from_device(&fw_version, tt_cxy_pair(chip, eth_core), l1_address_params.fw_version_addr, sizeof(uint32_t), "LARGE_READ_TLB");
             fw_versions.push_back(fw_version);
         }

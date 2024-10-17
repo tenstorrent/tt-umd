@@ -162,7 +162,7 @@ TEST(ApiTest, SimpleIOAllChips) {
     setup_wormhole_remote(umd_cluster.get());
 
     for (auto chip_id : umd_cluster->get_all_chips_in_cluster()) {
-        tt_SocDescriptor& soc_desc = umd_cluster->get_soc_descriptor(chip_id);
+        const tt_SocDescriptor& soc_desc = umd_cluster->get_soc_descriptor(chip_id);
 
         // TODO: figure out if core locations should contain chip_id
         tt_xy_pair any_core = soc_desc.workers[0];
@@ -180,7 +180,7 @@ TEST(ApiTest, SimpleIOAllChips) {
 
     // Now read back the data.
     for (auto chip_id : umd_cluster->get_all_chips_in_cluster()) {
-        tt_SocDescriptor& soc_desc = umd_cluster->get_soc_descriptor(chip_id);
+        const tt_SocDescriptor& soc_desc = umd_cluster->get_soc_descriptor(chip_id);
 
         // TODO: figure out if core locations should contain chip_id
         tt_xy_pair any_core = soc_desc.workers[0];
@@ -194,7 +194,7 @@ TEST(ApiTest, SimpleIOAllChips) {
         std::cout << "Reading from chip " << chip_id << " core " << any_core.str() << std::endl;
 
         std::vector<uint8_t> readback_data(data_size, 0);
-        umd_cluster->read_from_device(readback_data.data(), any_core_global, 0, data_size, "LARGE_WRITE_TLB");
+        umd_cluster->read_from_device(readback_data.data(), any_core_global, 0, data_size, "LARGE_READ_TLB");
 
         ASSERT_EQ(data, readback_data);
     }

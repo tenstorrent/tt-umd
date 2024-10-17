@@ -87,6 +87,8 @@ TEST(ApiClusterDescriptorTest, BasicFunctionality) {
             remote_chips.insert(chip);
         }
     }
+
+    std::unordered_map<chip_id_t, std::unordered_set<chip_id_t>> chips_grouped_by_closest_mmio = cluster_desc->get_chips_grouped_by_closest_mmio();
 }
 
 // A standard disjoint set data structure to track connected components.

@@ -87,12 +87,6 @@ CPMAddPackage(
   GIT_TAG 11.0.1
 )
 
-if(NOT MASTER_PROJECT)
-    set(nng_include_dir ${nanomsg_SOURCE_DIR}/include PARENT_SCOPE)
-    set(flatbuffers_include_dir ${flatbuffers_SOURCE_DIR}/include PARENT_SCOPE)
-    set(libuv_include_dir ${libuv_SOURCE_DIR}/include PARENT_SCOPE)
-endif()
-
 ############################################################################################################################
 # nanobench (for uBenchmarking)
 ############################################################################################################################

@@ -6,9 +6,10 @@
 
 #pragma once
 
-#include <iostream>
 #include <stdio.h>
 #include <stdlib.h>
+
+#include <iostream>
 #include <sstream>
 #include <vector>
 
@@ -18,6 +19,7 @@ namespace tt {
 template <typename A, typename B>
 struct OStreamJoin {
     OStreamJoin(A const& a, B const& b, char const* delim = " ") : a(a), b(b), delim(delim) {}
+
     A const& a;
     B const& b;
     char const* delim;
@@ -41,7 +43,8 @@ void tt_assert_message(std::ostream& os, T const& t, Ts const&... ts) {
 }
 
 template <typename... Ts>
-[[ noreturn ]] void tt_throw(char const* file, int line, const std::string& assert_type, char const* condition_str, Ts const&... messages) {
+[[noreturn]] void tt_throw(
+    char const* file, int line, const std::string& assert_type, char const* condition_str, Ts const&... messages) {
     std::stringstream trace_message_ss = {};
     trace_message_ss << assert_type << " @ " << file << ":" << line << ": " << condition_str << std::endl;
     if constexpr (sizeof...(messages) > 0) {
@@ -53,11 +56,16 @@ template <typename... Ts>
     trace_message_ss << std::flush;
     LoggerDevice::get().flush();
     throw std::runtime_error(trace_message_ss.str());
-
 }
 
 template <typename... Ts>
-void tt_assert(char const* file, int line, const std::string& assert_type, bool condition, char const* condition_str, Ts const&... messages) {
+void tt_assert(
+    char const* file,
+    int line,
+    const std::string& assert_type,
+    bool condition,
+    char const* condition_str,
+    Ts const&... messages) {
     if (not condition) {
         ::tt::assert::tt_throw(file, line, assert_type, condition_str, messages...);
     }
@@ -65,5 +73,6 @@ void tt_assert(char const* file, int line, const std::string& assert_type, bool 
 
 }  // namespace tt::assert
 
-#define TT_ASSERT(condition, ...) ::tt::assert::tt_assert(__FILE__, __LINE__, "TT_ASSERT", (condition), #condition,      ##__VA_ARGS__)
-#define TT_THROW(...)             ::tt::assert::tt_throw(__FILE__, __LINE__, "TT_THROW",     "tt::exception", ##__VA_ARGS__)
+#define TT_ASSERT(condition, ...) \
+    ::tt::assert::tt_assert(__FILE__, __LINE__, "TT_ASSERT", (condition), #condition, ##__VA_ARGS__)
+#define TT_THROW(...) ::tt::assert::tt_throw(__FILE__, __LINE__, "TT_THROW", "tt::exception", ##__VA_ARGS__)

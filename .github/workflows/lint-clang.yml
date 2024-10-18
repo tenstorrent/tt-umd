@@ -1,0 +1,26 @@
+# Runs clang-format on all cpp and h files in the repository.
+name: Build Target
+
+on:
+  workflow_call:
+  workflow_dispatch:
+
+jobs:
+  build:
+    timeout-minutes: 10
+    # It is unnecessary to run this job on multiple OS versions.
+    runs-on: ubuntu-22.04
+    container:
+      image: ghcr.io/${{ github.repository }}/tt-umd-ci-ubuntu-22.04:latest
+      options: --user root
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      # The git diff will have non-zero exit code if clang-format changes any files.
+      - name: Run clang-format
+        run: |
+          .github/clang_format_repo.sh
+          git diff --exit-code

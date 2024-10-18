@@ -6,6 +6,10 @@ on:
     branches: [ "main" ]
 
 jobs:
+  spdx:
+    secrets: inherit
+    uses: ./.github/workflows/spdx.yml
+
   build-all:
     secrets: inherit
     uses: ./.github/workflows/build-device.yml

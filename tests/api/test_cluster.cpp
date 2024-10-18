@@ -29,7 +29,7 @@ using Cluster = tt_SiliconDevice;
 // Galaxy
 
 // TODO: This function should not exist, the API itself should be simple enough.
-std::unique_ptr<tt_ClusterDescriptor> get_cluster_descriptor() {
+inline std::unique_ptr<tt_ClusterDescriptor> get_cluster_desc() {
 
     // TODO: This should not be needed. And could be part of the cluster descriptor probably.
     // Note that cluster descriptor holds logical ids of chips.
@@ -66,7 +66,7 @@ std::unique_ptr<tt_ClusterDescriptor> get_cluster_descriptor() {
 }
 
 // TODO: This function should not exist, the API itself should be simple enough.
-std::unique_ptr<Cluster> get_cluster() {
+inline std::unique_ptr<Cluster> get_cluster() {
 
     // TODO: This should not be needed. And could be part of the cluster descriptor probably.
     // Note that cluster descriptor holds logical ids of chips.
@@ -93,7 +93,7 @@ std::unique_ptr<Cluster> get_cluster() {
     // TODO: remove getting manually cluster descriptor from yaml.
     std::string yaml_path = test_utils::GetClusterDescYAML();
     // TODO: Remove the need to do this, allow default constructor to construct with all chips.
-    std::unique_ptr<tt_ClusterDescriptor> cluster_desc = get_cluster_descriptor();
+    std::unique_ptr<tt_ClusterDescriptor> cluster_desc = get_cluster_desc();
     std::unordered_set<int> detected_num_chips = cluster_desc->get_all_chips();
 
     // TODO: make this unordered vs set conversion not needed.
@@ -138,12 +138,12 @@ void setup_wormhole_remote(Cluster* umd_cluster) {
 }
 
 // This test should be one line only.
-TEST(ApiTest, OpenAllChips) {
+TEST(ApiClusterTest, OpenAllChips) {
     std::unique_ptr<Cluster> umd_cluster = get_cluster();
 }
 
-TEST(ApiTest, SimpleIOAllChips) {
-    std::unique_ptr<tt_ClusterDescriptor> cluster_desc = get_cluster_descriptor();
+TEST(ApiClusterTest, SimpleIOAllChips) {
+    std::unique_ptr<tt_ClusterDescriptor> cluster_desc = get_cluster_desc();
     std::unique_ptr<Cluster> umd_cluster = get_cluster();
 
     if (umd_cluster == nullptr || umd_cluster->get_all_chips_in_cluster().empty()) {
@@ -198,4 +198,65 @@ TEST(ApiTest, SimpleIOAllChips) {
 
         ASSERT_EQ(data, readback_data);
     }
+}
+
+TEST(ApiClusterTest, RemoteFlush) {
+
+    std::unique_ptr<tt_ClusterDescriptor> cluster_desc = get_cluster_desc();
+    std::unique_ptr<Cluster> umd_cluster = get_cluster();
+
+    if (umd_cluster == nullptr || umd_cluster->get_all_chips_in_cluster().empty()) {
+        std::cout << "No chips found. Skipping test." << std::endl;
+        return;
+    }
+
+    size_t data_size = 1024;
+    std::vector<uint8_t> data(data_size, 0);
+
+    // TODO: this should be part of constructor if it is mandatory.
+    setup_wormhole_remote(umd_cluster.get());
+
+    for (auto chip_id : umd_cluster->get_target_remote_device_ids()) {
+        const tt_SocDescriptor& soc_desc = umd_cluster->get_soc_descriptor(chip_id);
+
+        // TODO: figure out if core locations should contain chip_id
+        tt_xy_pair any_core = soc_desc.workers[0];
+        tt_cxy_pair any_core_global (chip_id, any_core);
+
+        if (!cluster_desc->is_chip_remote(chip_id)) {
+            std::cout << "Chip " << chip_id << " skipped because it is not a remote chip." << std::endl;
+            continue;
+        }
+
+        if (soc_desc.arch != tt::ARCH::WORMHOLE_B0) {
+            std::cout << "Skipping remote chip " << chip_id << " because it is not a wormhole_b0 chip." << std::endl;
+            continue;
+        }
+
+        std::cout << "Writing to chip " << chip_id << " core " << any_core.str() << std::endl;
+        umd_cluster->write_to_device(data.data(), data_size, any_core_global, 0, "LARGE_WRITE_TLB");
+
+        std::cout << "Waiting for remote chip flush " << chip_id << std::endl;
+        umd_cluster->wait_for_non_mmio_flush(chip_id);
+
+        std::cout << "Waiting again for flush " << chip_id << ", should be no-op" << std::endl;
+        umd_cluster->wait_for_non_mmio_flush(chip_id);
+    }
+
+    chip_id_t any_remote_chip = *umd_cluster->get_target_remote_device_ids().begin();
+    const tt_SocDescriptor& soc_desc = umd_cluster->get_soc_descriptor(any_remote_chip);
+    tt_xy_pair any_core = soc_desc.workers[0];
+    tt_cxy_pair any_core_global (any_remote_chip, any_core);
+    if (soc_desc.arch != tt::ARCH::WORMHOLE_B0) {
+        std::cout << "Skipping whole cluster wait because it is not a wormhole_b0 chip." << std::endl;
+        return;
+    }
+    std::cout << "Writing to chip " << any_remote_chip << " core " << any_core.str() << std::endl;
+    umd_cluster->write_to_device(data.data(), data_size, any_core_global, 0, "LARGE_WRITE_TLB");    
+
+    std::cout << "Testing whole cluster wait for remote chip flush." << std::endl;
+    umd_cluster->wait_for_non_mmio_flush();
+
+    std::cout << "Testing whole cluster wait for remote chip flush again, should be no-op." << std::endl;
+    umd_cluster->wait_for_non_mmio_flush();
 }

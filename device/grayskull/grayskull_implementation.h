@@ -219,6 +219,7 @@ class grayskull_implementation : public architecture_implementation {
     uint32_t get_grid_size_x() const override { return grayskull::GRID_SIZE_X; }
     uint32_t get_grid_size_y() const override { return grayskull::GRID_SIZE_Y; }
     uint32_t get_tlb_cfg_reg_size_bytes() const override { return grayskull::TLB_CFG_REG_SIZE_BYTES; }
+    uint32_t get_small_read_write_tlb() const override { return grayskull::MEM_SMALL_READ_WRITE_TLB; }
     const std::vector<uint32_t>& get_harvesting_noc_locations() const override {
         return grayskull::HARVESTING_NOC_LOCATIONS;
     }

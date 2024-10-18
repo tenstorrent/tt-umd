@@ -70,6 +70,7 @@ jobs:
 
     env:
       ARCH_NAME: ${{ inputs.arch }}
+      LD_LIBRARY_PATH: ${{ env.BUILD_OUTPUT_DIR }}/lib
 
     steps:
     - name: Cleanup tt-umd dir, and change directory as if we were in a github.repository
@@ -92,10 +93,6 @@ jobs:
 
     - name: Run arch-specific UMD unit tests
       run: |
-        pwd
-        export LD_LIBRARY_PATH=$(pwd)/build/lib:$LD_LIBRARY_PATH
-        echo $LD_LIBRARY_PATH
-        ls -lart build/lib/
         ldd ${{ env.TEST_OUTPUT_DIR }}/umd/${{ inputs.arch }}/unit_tests
         ${{ env.TEST_OUTPUT_DIR }}/umd/${{ inputs.arch }}/unit_tests
 

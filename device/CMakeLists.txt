@@ -1,3 +1,5 @@
+set(CMAKE_POSITION_INDEPENDENT_CODE ON)
+
 set(UMD_DEVICE_SRCS
     architecture_implementation.cpp
     cpuset_lib.cpp
@@ -41,6 +43,4 @@ set_target_properties(
             device
         LIBRARY_OUTPUT_DIRECTORY
             ${CMAKE_BINARY_DIR}/lib
-        POSITION_INDEPENDENT_CODE
-            ON
 )

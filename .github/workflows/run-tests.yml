@@ -92,6 +92,10 @@ jobs:
 
     - name: Run arch-specific UMD unit tests
       run: |
+        pwd
+        echo $LD_LIBRARY_PATH
+        ls -lart build/lib/
+        ldd ${{ env.TEST_OUTPUT_DIR }}/umd/${{ inputs.arch }}/unit_tests
         ${{ env.TEST_OUTPUT_DIR }}/umd/${{ inputs.arch }}/unit_tests
 
     - name: Run PCI tests

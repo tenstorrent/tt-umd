@@ -59,7 +59,7 @@ endif()
 
 if(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
     message(
-        STATUS
+        WARNING
         "CRITICAL WARNING: Forcing LLVM version of the standard library for Clang"
     )
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -stdlib=libc++")

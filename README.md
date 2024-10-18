@@ -45,5 +45,5 @@ add_subdirectory(<path to umd>)
 ```
 You can then use `libdevice.so` by linking against the `umd::device` target wheverever is needed.
 ```
-target_link_libraries(tt_metal PUBLIC umd::device)
+target_link_libraries(tt_metal PRIVATE umd::device)
 ```

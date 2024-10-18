@@ -1,4 +1,3 @@
-include(GNUInstallDirs)
 
 set(UMD_DEVICE_SRCS
     architecture_implementation.cpp

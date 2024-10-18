@@ -28,7 +28,6 @@ target_link_libraries(
     PUBLIC
         nng
         FlatBuffers::FlatBuffers
-	compiler_flags
     PRIVATE
         hwloc
         rt

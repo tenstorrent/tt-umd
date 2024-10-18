@@ -44,9 +44,3 @@ add_link_options(
     $<$<BOOL:${ENABLE_TSAN}>:-fsanitize=thread>
     $<$<BOOL:${ENABLE_UBSAN}>:-fsanitize=undefined>
 )
-
-add_library(compiler_flags INTERFACE)
-
-add_library(linker_flags INTERFACE)
-
-target_link_libraries(compiler_flags INTERFACE linker_flags)

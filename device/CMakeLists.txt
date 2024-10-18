@@ -1,3 +1,6 @@
+
+include(GNUInstallDirs)
+
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
 set(UMD_DEVICE_SRCS
@@ -20,8 +23,10 @@ add_library(umd_device SHARED ${UMD_DEVICE_SRCS})
 target_include_directories(
     umd_device
     PUBLIC
-        ${PROJECT_SOURCE_DIR}
-        ${CMAKE_CURRENT_SOURCE_DIR}
+        $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}>
+        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
+	$<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}/umd>
+	$<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}/umd/device>
 )
 target_link_libraries(
     umd_device
@@ -44,3 +49,13 @@ set_target_properties(
         LIBRARY_OUTPUT_DIRECTORY
             ${CMAKE_BINARY_DIR}/lib
 )
+#install(TARGETS umd_device
+#    EXPORT umdTargets
+#    ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
+#    LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
+#    COMPONENT dev
+#)
+#install(EXPORT umdTargets
+#    FILE umdTargets.cmake
+#    DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/umd
+#)

@@ -1,4 +1,4 @@
-# Runs yamllint on all yaml files in the github workflows directory
+# Runs yamllint on all yaml files in the github workflows directory.
 name: Build Target
 
 on:
@@ -8,7 +8,7 @@ on:
 jobs:
   build:
     timeout-minutes: 10
-    # It is unnecessary to run this job on multiple OS versions
+    # It is unnecessary to run this job on multiple OS versions.
     runs-on: ubuntu-22.04
     container:
       image: ghcr.io/${{ github.repository }}/tt-umd-ci-ubuntu-22.04:latest

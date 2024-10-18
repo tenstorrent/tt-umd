@@ -1,7 +1,5 @@
 include(GNUInstallDirs)
 
-set(CMAKE_POSITION_INDEPENDENT_CODE ON)
-
 set(UMD_DEVICE_SRCS
     architecture_implementation.cpp
     cpuset_lib.cpp
@@ -30,13 +28,13 @@ target_include_directories(
         $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}/umd/device>
 )
 
-# FlatBuffers is public - exposed to tt_metal by tt_simulation_device_generated.h
+# flatbuffers is public - exposed to tt_metal by tt_simulation_device_generated.h
 # nng is public - exposed to tt_metal by tt_simulation_host.hpp
 target_link_libraries(
     umd_device
     PUBLIC
         nng
-        FlatBuffers::FlatBuffers
+        flatbuffers
     PRIVATE
         hwloc
         rt
@@ -51,6 +49,17 @@ set_target_properties(
     PROPERTIES
         OUTPUT_NAME
             device
-        LIBRARY_OUTPUT_DIRECTORY
-            ${CMAKE_BINARY_DIR}/lib
 )
+
+install(TARGETS umd_device
+    EXPORT umdTargets
+    ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
+    LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
+    COMPONENT dev
+)
+
+install(EXPORT umdTargets
+    FILE umdTargets.cmake
+    DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/umd
+)
+

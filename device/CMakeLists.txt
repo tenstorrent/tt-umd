@@ -18,10 +18,9 @@ set(UMD_DEVICE_SRCS
 add_library(umd_device SHARED ${UMD_DEVICE_SRCS})
 target_link_libraries(umd_device 
     PUBLIC yaml-cpp::yaml-cpp nng uv
-    PRIVATE hwloc rt Boost::interprocess fmt::fmt-header-only
+    PRIVATE hwloc rt Boost::interprocess fmt::fmt-header-only FlatBuffers::FlatBuffers
 )
 target_include_directories(umd_device PUBLIC
-    ${flatbuffers_SOURCE_DIR}/include
     ${nanomsg_SOURCE_DIR}/include
     ${libuv_SOURCE_DIR}/include
     ${PROJECT_SOURCE_DIR}

@@ -28,8 +28,16 @@ elseif($ENV{ARCH_NAME} STREQUAL "blackhole")
     )
 endif()
 
-target_link_libraries(test_common INTERFACE umd_device gtest_main gtest pthread fmt)
-target_include_directories(test_common INTERFACE 
+target_link_libraries(test_common
+	INTERFACE
+	umd_device
+	gtest_main
+	gtest
+	pthread
+	fmt::fmt-header-only
+	FlatBuffers::FlatBuffers
+)
+target_include_directories(test_common INTERFACE
     ${PROJECT_SOURCE_DIR}
     ${CMAKE_CURRENT_SOURCE_DIR}
 )

@@ -17,10 +17,11 @@ set(CMAKE_CXX_STANDARD_REQUIRED True)
 CHECK_COMPILERS()
 
 set(MASTER_PROJECT OFF)
+if(PROJECT_SOURCE_DIR STREQUAL CMAKE_SOURCE_DIR)
     set(MASTER_PROJECT ON)
 endif()
 
-if(PROJECT_SOURCE_DIR STREQUAL CMAKE_SOURCE_DIR)
+if(MASTER_PROJECT)
     message(STATUS "UMD: Building as master project")
     if(NOT CMAKE_BUILD_TYPE)
         message(STATUS "Setting build type to 'Release' as none was specified.")

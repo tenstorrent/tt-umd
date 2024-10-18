@@ -19,19 +19,23 @@ set(UMD_DEVICE_SRCS
     pcie/pci_device.cpp
 )
 add_library(umd_device SHARED ${UMD_DEVICE_SRCS})
+
+
+# FlatBuffers is public - exposed to tt_metal by tt_simulation_device_generated.h
+# nng is public - exposed to tt_metal by tt_simulation_host.hpp
 target_link_libraries(
     umd_device
     PUBLIC
-        yaml-cpp::yaml-cpp
         nng
-        uv
-        compiler_flags
+        FlatBuffers::FlatBuffers
+	compiler_flags
     PRIVATE
         hwloc
         rt
         Boost::interprocess
         fmt::fmt-header-only
-        FlatBuffers::FlatBuffers
+        uv
+        yaml-cpp::yaml-cpp
 )
 target_include_directories(
     umd_device

@@ -51,15 +51,19 @@ set_target_properties(
             device
 )
 
-install(TARGETS umd_device
+install(
+    TARGETS
+        umd_device
     EXPORT umdTargets
-    ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
-    LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
-    COMPONENT dev
+    ARCHIVE
+        DESTINATION ${CMAKE_INSTALL_LIBDIR}
+    LIBRARY
+        DESTINATION ${CMAKE_INSTALL_LIBDIR}
+        COMPONENT dev
 )
 
-install(EXPORT umdTargets
+install(
+    EXPORT umdTargets
     FILE umdTargets.cmake
     DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/umd
 )
-

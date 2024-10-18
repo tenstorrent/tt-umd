@@ -1,4 +1,3 @@
-
 set(ENV{CPM_SOURCE_CACHE} "${PROJECT_SOURCE_DIR}/.cpmcache")
 
 include(${PROJECT_SOURCE_DIR}/cmake/CPM.cmake)
@@ -27,8 +26,13 @@ CPMAddPackage(
     "YAML_BUILD_SHARED_LIBS OFF"
 )
 
-if (yaml-cpp_ADDED)
-    set_target_properties(yaml-cpp PROPERTIES DEBUG_POSTFIX "")
+if(yaml-cpp_ADDED)
+    set_target_properties(
+        yaml-cpp
+        PROPERTIES
+            DEBUG_POSTFIX
+                ""
+    )
 endif()
 
 ############################################################################################################################
@@ -88,7 +92,7 @@ CPMAddPackage(
 ############################################################################################################################
 # nanobench (for uBenchmarking)
 ############################################################################################################################
-if (MASTER_PROJECT)
+if(MASTER_PROJECT)
     CPMAddPackage(
         NAME nanobench
         GITHUB_REPOSITORY martinus/nanobench

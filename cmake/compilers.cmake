@@ -57,9 +57,10 @@ else()
     FIND_AND_SET_CLANG17()
 endif()
 
-
 if(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
-    message(STATUS "CRITICAL WARNING: Forcing LLVM version of the standard library for Clang")
+    message(
+        STATUS
+        "CRITICAL WARNING: Forcing LLVM version of the standard library for Clang"
+    )
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -stdlib=libc++")
 endif()
-

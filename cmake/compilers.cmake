@@ -43,40 +43,6 @@ function(CHECK_COMPILERS)
     endif()
 endfunction()
 
-function(ADJUST_COMPILER_WARNINGS)
-    if(CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
-        target_compile_options(
-            compiler_warnings
-            INTERFACE
-                -Wsometimes-uninitialized
-                -Wno-c++11-narrowing
-                -Wno-error=local-type-template-args
-                -Wno-delete-non-abstract-non-virtual-dtor
-                -Wno-c99-designator
-                -Wno-shift-op-parentheses
-                -Wno-non-c-typedef-for-linkage
-                -Wno-deprecated-this-capture
-                -Wno-deprecated-volatile
-                -Wno-deprecated-builtins
-                -Wno-deprecated-declarations
-        )
-    else() # GCC-12 or higher
-        target_compile_options(
-            compiler_warnings
-            INTERFACE
-                -Wno-deprecated
-                -Wno-attributes
-                -Wno-stringop-overread
-                -Wno-stringop-overflow
-                -Wno-maybe-uninitialized
-                -Wno-missing-requires
-                -Wno-narrowing
-                -Wno-non-template-friend
-                -Wno-error=non-template-friend
-        )
-    endif()
-endfunction()
-
 if(DEFINED ENV{CMAKE_C_COMPILER} AND DEFINED ENV{CMAKE_CXX_COMPILER})
     message(STATUS "Setting C and C++ compiler from environment variables")
     set(CMAKE_C_COMPILER $ENV{CMAKE_C_COMPILER})
@@ -90,3 +56,10 @@ else()
     message(STATUS "No C or C++ compiler specified, defaulting to Clang-17")
     FIND_AND_SET_CLANG17()
 endif()
+
+
+if(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+    message(STATUS "CRITICAL WARNING: Forcing LLVM version of the standard library for Clang")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -stdlib=libc++")
+endif()
+

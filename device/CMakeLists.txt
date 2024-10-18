@@ -62,3 +62,9 @@ install(
     DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/${PROJECT_NAME}
     NAMESPACE ${PROJECT_NAME}::
 )
+
+# Add a custom command to copy the library to build/lib
+add_custom_command(TARGET device POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy $<TARGET_FILE:device> ${CMAKE_BINARY_DIR}/lib/
+    COMMENT "Copying device library to build/lib"
+)

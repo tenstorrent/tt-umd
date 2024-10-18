@@ -1,4 +1,4 @@
-# Optional PR checks
+# Optional PR checks.
 name: On PR - Optional
 
 on:

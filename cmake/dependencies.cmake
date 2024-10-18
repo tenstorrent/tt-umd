@@ -1,4 +1,3 @@
-
 set(ENV{CPM_SOURCE_CACHE} "${PROJECT_SOURCE_DIR}/.cpmcache")
 
 include(${PROJECT_SOURCE_DIR}/cmake/CPM.cmake)
@@ -27,8 +26,13 @@ CPMAddPackage(
     "YAML_BUILD_SHARED_LIBS OFF"
 )
 
-if (yaml-cpp_ADDED)
-    set_target_properties(yaml-cpp PROPERTIES DEBUG_POSTFIX "")
+if(yaml-cpp_ADDED)
+    set_target_properties(
+        yaml-cpp
+        PROPERTIES
+            DEBUG_POSTFIX
+                ""
+    )
 endif()
 
 ############################################################################################################################
@@ -60,8 +64,6 @@ CPMAddPackage(
     OPTIONS
         "FLATBUFFERS_BUILD_FLATC OFF"
         "FLATBUFFERS_BUILD_TESTS OFF"
-        "FLATBUFFERS_INSTALL OFF"
-        "FLATBUFFERS_BUILD_FLATLIB OFF"
         "FLATBUFFERS_SKIP_MONSTER_EXTRA ON"
         "FLATBUFFERS_STRICT_MODE ON"
 )
@@ -87,16 +89,10 @@ CPMAddPackage(
   GIT_TAG 11.0.1
 )
 
-if(NOT MASTER_PROJECT)
-    set(nng_include_dir ${nanomsg_SOURCE_DIR}/include PARENT_SCOPE)
-    set(flatbuffers_include_dir ${flatbuffers_SOURCE_DIR}/include PARENT_SCOPE)
-    set(libuv_include_dir ${libuv_SOURCE_DIR}/include PARENT_SCOPE)
-endif()
-
 ############################################################################################################################
 # nanobench (for uBenchmarking)
 ############################################################################################################################
-if (MASTER_PROJECT)
+if(MASTER_PROJECT)
     CPMAddPackage(
         NAME nanobench
         GITHUB_REPOSITORY martinus/nanobench

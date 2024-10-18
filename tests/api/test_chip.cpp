@@ -156,6 +156,8 @@ TEST(ApiChipTest, ManualTLBConfiguration) {
     // Expect to throw for non worker cores.
     tt_xy_pair dram_core = soc_desc.dram_cores[0][0];
     EXPECT_THROW(umd_cluster->get_static_tlb_writer(tt_cxy_pair(any_mmio_chip, dram_core)), std::runtime_error);
-    tt_xy_pair eth_core = soc_desc.ethernet_cores[0];
-    EXPECT_THROW(umd_cluster->get_static_tlb_writer(tt_cxy_pair(any_mmio_chip, eth_core)), std::runtime_error);
+    if (!soc_desc.ethernet_cores.empty()) {
+        tt_xy_pair eth_core = soc_desc.ethernet_cores[0];
+        EXPECT_THROW(umd_cluster->get_static_tlb_writer(tt_cxy_pair(any_mmio_chip, eth_core)), std::runtime_error);
+    }
 }

@@ -27,11 +27,15 @@ if(MASTER_PROJECT)
     message("-- UMD: Building as master project")
     if(NOT CMAKE_BUILD_TYPE)
         message(STATUS "Setting build type to 'Release' as none was specified.")
-        set(CMAKE_BUILD_TYPE "Release" CACHE STRING "Release build is the default" FORCE)
+        set(CMAKE_BUILD_TYPE
+            "Release"
+            CACHE STRING
+            "Release build is the default"
+            FORCE
+        )
     endif()
 
     include(sanitizer_options)
-
 endif()
 
 message(STATUS "UMD build type: ${CMAKE_BUILD_TYPE}")
@@ -49,4 +53,3 @@ option(TT_UMD_BUILD_TESTS "Enables build of tt_umd tests" OFF)
 if(TT_UMD_BUILD_TESTS)
     add_subdirectory(tests)
 endif(TT_UMD_BUILD_TESTS)
-

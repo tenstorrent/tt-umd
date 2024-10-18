@@ -18,23 +18,21 @@ add_library(umd_device SHARED ${UMD_DEVICE_SRCS})
 target_include_directories(
     umd_device
     PUBLIC
-        ${nanomsg_SOURCE_DIR}/include
-        ${libuv_SOURCE_DIR}/include
         ${PROJECT_SOURCE_DIR}
         ${CMAKE_CURRENT_SOURCE_DIR}
 )
 target_link_libraries(
     umd_device
     PUBLIC
-        yaml-cpp::yaml-cpp
         nng
         uv
+	fmt::fmt-header-only
+	FlatBuffers::FlatBuffers
     PRIVATE
         hwloc
         rt
         Boost::interprocess
-        fmt::fmt-header-only
-        FlatBuffers::FlatBuffers
+        yaml-cpp::yaml-cpp
 )
 set_target_properties(
     umd_device

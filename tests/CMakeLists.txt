@@ -34,8 +34,6 @@ target_link_libraries(test_common
 	gtest_main
 	gtest
 	pthread
-	fmt::fmt-header-only
-	FlatBuffers::FlatBuffers
 )
 target_include_directories(test_common INTERFACE
     ${PROJECT_SOURCE_DIR}

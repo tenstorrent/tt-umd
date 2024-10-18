@@ -49,5 +49,5 @@ jobs:
       run: |
         echo "Compiling the code..."
         cmake -B ${{ env.BUILD_OUTPUT_DIR }} -G Ninja
-        cmake --build ${{ env.BUILD_OUTPUT_DIR }} --target ${{ env.BUILD_TARGET }}
+        cmake --build ${{ env.BUILD_OUTPUT_DIR }}
         echo "Compile complete."

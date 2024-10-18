@@ -13,9 +13,7 @@ sudo apt install -y libhwloc-dev cmake ninja-build
 To build `libdevice.so`: 
 ```
 cmake -B build -G Ninja
-ninja -C build
-# or
-ninja umd_device -C build
+cmake --build build
 ```
 
 Tests are build separatelly for each architecture.
@@ -24,7 +22,7 @@ You also need to configure cmake to enable tests, hence the need to run cmake co
 To build tests:
 ```
 cmake -B build -G Ninja -DTT_UMD_BUILD_TESTS=ON
-ninja umd_tests -C build
+cmake --build build
 ```
 
 ## As a submodule/external project
@@ -32,7 +30,7 @@ If your project has CMake support, simply add this repo as a subdirectory:
 ```
 add_subdirectory(<path to umd>)
 ```
-You can then use `libdevice.so` by linking against the `umd_device` target wheverever is needed.
+You can then use `libdevice.so` by linking against the `umd::device` target wheverever is needed.
 ```
-target_link_libraries(tt_metal PUBLIC umd_device)
+target_link_libraries(tt_metal PUBLIC umd::device)
 ```

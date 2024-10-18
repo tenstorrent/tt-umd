@@ -10,7 +10,7 @@ add_library(test_common INTERFACE)
 target_link_libraries(
     test_common
     INTERFACE
-        umd_device
+        umd::device
         gtest_main
         gtest
         pthread

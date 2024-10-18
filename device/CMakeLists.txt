@@ -17,21 +17,23 @@ set(UMD_DEVICE_SRCS
     pcie/pci_device.cpp
 )
 
-add_library(umd_device SHARED ${UMD_DEVICE_SRCS})
+add_library(device SHARED ${UMD_DEVICE_SRCS})
+add_library(${PROJECT_NAME}::device ALIAS device)
+add_library(${PROJECT_NAME}_device ALIAS device) # For legacy I guess
 
 target_include_directories(
-    umd_device
+    device
     PUBLIC
         $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}>
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
-        $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}/umd>
-        $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}/umd/device>
+        $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}/${PROJECT_NAME}>
+        $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}/${PROJECT_NAME}/device>
 )
 
 # flatbuffers is public - exposed to tt_metal by tt_simulation_device_generated.h
 # nng is public - exposed to tt_metal by tt_simulation_host.hpp
 target_link_libraries(
-    umd_device
+    device
     PUBLIC
         nng
         flatbuffers
@@ -44,17 +46,10 @@ target_link_libraries(
         yaml-cpp::yaml-cpp
 )
 
-set_target_properties(
-    umd_device
-    PROPERTIES
-        OUTPUT_NAME
-            device
-)
-
 install(
     TARGETS
-        umd_device
-    EXPORT umdTargets
+        device
+    EXPORT ${PROJECT_NAME}Targets
     ARCHIVE
         DESTINATION ${CMAKE_INSTALL_LIBDIR}
     LIBRARY
@@ -63,7 +58,8 @@ install(
 )
 
 install(
-    EXPORT umdTargets
-    FILE umdTargets.cmake
-    DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/umd
+    EXPORT ${PROJECT_NAME}Targets
+    FILE ${PROJECT_NAME}Targets.cmake
+    DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/${PROJECT_NAME}
+    NAMESPACE ${PROJECT_NAME}::
 )

@@ -2,29 +2,40 @@
 # Tests currently depend on ARCH_NAME for compile time include paths
 if(NOT DEFINED ENV{ARCH_NAME})
     message(FATAL_ERROR "Please set ARCH_NAME to grayskull, wormhole_b0, or blackhole")
-elseif($ENV{ARCH_NAME} STREQUAL "grayskull")
+endif()
+
+
+add_library(test_common INTERFACE)
+add_library(umd::test_common ALIAS test_common)
+
+if($ENV{ARCH_NAME} STREQUAL "grayskull")
     message(STATUS "UMD: Building for Grayskull")
-    target_include_directories(umd_common_directories INTERFACE
+    target_include_directories(test_common INTERFACE
         ${PROJECT_SOURCE_DIR}/device/grayskull
         ${PROJECT_SOURCE_DIR}/src/firmware/riscv/grayskull
     )
 elseif($ENV{ARCH_NAME} STREQUAL "wormhole_b0")
     message(STATUS "UMD: Building for Wormhole")
-    target_include_directories(umd_common_directories INTERFACE
+    target_include_directories(test_common INTERFACE
         ${PROJECT_SOURCE_DIR}/device/wormhole
         ${PROJECT_SOURCE_DIR}/src/firmware/riscv/wormhole
     )
 elseif($ENV{ARCH_NAME} STREQUAL "blackhole")
     message(STATUS "UMD: Building for Blackhole")
-    target_include_directories(umd_common_directories INTERFACE
+    target_include_directories(test_common INTERFACE
         ${PROJECT_SOURCE_DIR}/device/blackhole
         ${PROJECT_SOURCE_DIR}/src/firmware/riscv/blackhole
     )
 endif()
 
-add_library(test_common INTERFACE)
-target_link_libraries(test_common INTERFACE umd_device gtest_main gtest pthread fmt)
-target_include_directories(test_common INTERFACE 
+target_link_libraries(test_common
+	INTERFACE
+	umd_device
+	gtest_main
+	gtest
+	pthread
+)
+target_include_directories(test_common INTERFACE
     ${PROJECT_SOURCE_DIR}
     ${CMAKE_CURRENT_SOURCE_DIR}
 )

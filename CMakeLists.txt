@@ -9,13 +9,14 @@ project(
     VERSION 0.1.0
     DESCRIPTION "Tenstorrent User Mode Driver"
     HOMEPAGE_URL "https://github.com/tenstorrent/tt-umd"
-    LANGUAGES CXX
+    LANGUAGES
+        CXX
 )
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED True)
 
-check_compilers()
+CHECK_COMPILERS()
 
 set(MASTER_PROJECT OFF)
 if(PROJECT_SOURCE_DIR STREQUAL CMAKE_SOURCE_DIR)

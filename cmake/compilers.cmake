@@ -1,3 +1,5 @@
+include_guard(GLOBAL)
+
 function(FIND_AND_SET_CLANG17)
     find_program(CLANGPP_17 clang++-17)
     find_program(CLANG_17 clang-17)

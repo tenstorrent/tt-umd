@@ -24,7 +24,7 @@ if(PROJECT_SOURCE_DIR STREQUAL CMAKE_SOURCE_DIR)
 endif()
 
 if(MASTER_PROJECT)
-    message("-- UMD: Building as master project")
+    message(STATUS "UMD: Building as master project")
     if(NOT CMAKE_BUILD_TYPE)
         message(STATUS "Setting build type to 'Release' as none was specified.")
         set(CMAKE_BUILD_TYPE

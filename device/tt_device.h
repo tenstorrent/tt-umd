@@ -593,7 +593,6 @@ class tt_device
     bool performed_harvesting = false;
     std::unordered_map<chip_id_t, uint32_t> harvested_rows_per_target = {};
     bool translation_tables_en = false;
-    bool tlbs_init = false;
 
     protected:
     std::unordered_map<chip_id_t, tt_SocDescriptor> soc_descriptor_per_chip = {};
@@ -818,6 +817,7 @@ class tt_SiliconDevice: public tt_device
     std::set<chip_id_t> all_target_mmio_devices;
     std::unordered_map<chip_id_t, std::vector<uint32_t>> host_channel_size;
     std::unordered_map<chip_id_t, std::function<std::int32_t(tt_xy_pair)>> map_core_to_tlb_per_chip = {};
+    std::unordered_map<chip_id_t, bool> tlbs_init_per_chip = {};
     std::unordered_map<std::string, std::int32_t> dynamic_tlb_config = {};
     std::unordered_map<std::string, uint64_t> dynamic_tlb_ordering_modes = {};
     std::map<std::set<chip_id_t>, std::unordered_map<chip_id_t, std::vector<std::vector<int>>>> bcast_header_cache = {};

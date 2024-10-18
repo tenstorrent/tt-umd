@@ -27,6 +27,6 @@ tt_device::tt_device(const std::string& sdesc_path) : soc_descriptor_per_chip({}
 tt_device::~tt_device() {
 }
 
-const tt_SocDescriptor& tt_device::get_soc_descriptor(chip_id_t chip_id){
+const tt_SocDescriptor& tt_device::get_soc_descriptor(chip_id_t chip_id) const {
     return soc_descriptor_per_chip.at(chip_id);
 }

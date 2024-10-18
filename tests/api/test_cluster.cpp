@@ -5,25 +5,25 @@
 // This file holds Cluster specific API examples.
 
 #include <gtest/gtest.h>
-#include "fmt/xchar.h"
 
 #include <algorithm>
 #include <filesystem>
 #include <string>
 #include <vector>
 
+#include "fmt/xchar.h"
 #include "tests/test_utils/generate_cluster_desc.hpp"
 
 // TODO: change to tt_cluster
-#include "device/tt_device.h"
 #include "device/tt_cluster_descriptor.h"
+#include "device/tt_device.h"
 
 // TODO: obviously we need some other way to set this up
-#include "src/firmware/riscv/wormhole/host_mem_address_map.h"
-#include "src/firmware/riscv/wormhole/noc/noc_parameters.h"
 #include "src/firmware/riscv/wormhole/eth_interface.h"
-#include "src/firmware/riscv/wormhole/l1_address_map.h"
 #include "src/firmware/riscv/wormhole/eth_l1_address_map.h"
+#include "src/firmware/riscv/wormhole/host_mem_address_map.h"
+#include "src/firmware/riscv/wormhole/l1_address_map.h"
+#include "src/firmware/riscv/wormhole/noc/noc_parameters.h"
 
 // TODO: do proper renaming.
 using Cluster = tt_SiliconDevice;
@@ -35,20 +35,19 @@ using Cluster = tt_SiliconDevice;
 
 // TODO: This function should not exist, the API itself should be simple enough.
 inline std::unique_ptr<tt_ClusterDescriptor> get_cluster_desc() {
-
     // TODO: This should not be needed. And could be part of the cluster descriptor probably.
     // Note that cluster descriptor holds logical ids of chips.
     // Which are different than physical PCI ids, which are /dev/tenstorrent/N ones.
     // You have to see if physical PCIe is GS before constructing a cluster descriptor.
     std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
-    std::set<int> pci_device_ids_set (pci_device_ids.begin(), pci_device_ids.end());
+    std::set<int> pci_device_ids_set(pci_device_ids.begin(), pci_device_ids.end());
 
     tt::ARCH device_arch = tt::ARCH::GRAYSKULL;
     if (!pci_device_ids.empty()) {
         // TODO: This should be removed from the API, the driver itself should do it.
         int physical_device_id = pci_device_ids[0];
         // TODO: remove logical_device_id
-        PCIDevice pci_device (physical_device_id, 0);
+        PCIDevice pci_device(physical_device_id, 0);
         device_arch = pci_device.get_arch();
     }
 
@@ -72,20 +71,19 @@ inline std::unique_ptr<tt_ClusterDescriptor> get_cluster_desc() {
 
 // TODO: This function should not exist, the API itself should be simple enough.
 inline std::unique_ptr<Cluster> get_cluster() {
-
     // TODO: This should not be needed. And could be part of the cluster descriptor probably.
     // Note that cluster descriptor holds logical ids of chips.
     // Which are different than physical PCI ids, which are /dev/tenstorrent/N ones.
     // You have to see if physical PCIe is GS before constructing a cluster descriptor.
     std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
-    std::set<int> pci_device_ids_set (pci_device_ids.begin(), pci_device_ids.end());
+    std::set<int> pci_device_ids_set(pci_device_ids.begin(), pci_device_ids.end());
 
     tt::ARCH device_arch = tt::ARCH::GRAYSKULL;
     if (!pci_device_ids.empty()) {
         // TODO: This should be removed from the API, the driver itself should do it.
         int physical_device_id = pci_device_ids[0];
         // TODO: remove logical_device_id
-        PCIDevice pci_device (physical_device_id, 0);
+        PCIDevice pci_device(physical_device_id, 0);
         device_arch = pci_device.get_arch();
     }
 
@@ -102,9 +100,8 @@ inline std::unique_ptr<Cluster> get_cluster() {
     std::unordered_set<int> detected_num_chips = cluster_desc->get_all_chips();
 
     // TODO: make this unordered vs set conversion not needed.
-    std::set<chip_id_t> detected_num_chips_set (detected_num_chips.begin(), detected_num_chips.end());
+    std::set<chip_id_t> detected_num_chips_set(detected_num_chips.begin(), detected_num_chips.end());
 
-    
     // TODO: This would be incorporated inside SocDescriptor.
     std::string soc_path;
     if (device_arch == tt::ARCH::GRAYSKULL) {
@@ -117,35 +114,60 @@ inline std::unique_ptr<Cluster> get_cluster() {
         throw std::runtime_error("Unsupported architecture");
     }
 
-
     // TODO: Don't pass each of these arguments.
-    return std::unique_ptr<Cluster>(new Cluster(soc_path, device_arch == tt::ARCH::GRAYSKULL ? "" : yaml_path, detected_num_chips_set));
+    return std::unique_ptr<Cluster>(
+        new Cluster(soc_path, device_arch == tt::ARCH::GRAYSKULL ? "" : yaml_path, detected_num_chips_set));
 }
 
 // TODO: Should not be wormhole specific.
 // TODO: Offer default setup for what you can.
 void setup_wormhole_remote(Cluster* umd_cluster) {
-    if (!umd_cluster->get_target_remote_device_ids().empty() && umd_cluster->get_soc_descriptor(*umd_cluster->get_all_chips_in_cluster().begin()).arch == tt::ARCH::WORMHOLE_B0) {
-        
+    if (!umd_cluster->get_target_remote_device_ids().empty() &&
+        umd_cluster->get_soc_descriptor(*umd_cluster->get_all_chips_in_cluster().begin()).arch ==
+            tt::ARCH::WORMHOLE_B0) {
         // Populate address map and NOC parameters that the driver needs for remote transactions
-        umd_cluster->set_driver_host_address_params({host_mem::address_map::ETH_ROUTING_BLOCK_SIZE, host_mem::address_map::ETH_ROUTING_BUFFERS_START});
+        umd_cluster->set_driver_host_address_params(
+            {host_mem::address_map::ETH_ROUTING_BLOCK_SIZE, host_mem::address_map::ETH_ROUTING_BUFFERS_START});
 
-        umd_cluster->set_driver_eth_interface_params({NOC_ADDR_LOCAL_BITS, NOC_ADDR_NODE_ID_BITS, ETH_RACK_COORD_WIDTH, CMD_BUF_SIZE_MASK, MAX_BLOCK_SIZE,
-                                                REQUEST_CMD_QUEUE_BASE, RESPONSE_CMD_QUEUE_BASE, CMD_COUNTERS_SIZE_BYTES, REMOTE_UPDATE_PTR_SIZE_BYTES,
-                                                CMD_DATA_BLOCK, CMD_WR_REQ, CMD_WR_ACK, CMD_RD_REQ, CMD_RD_DATA, CMD_BUF_SIZE, CMD_DATA_BLOCK_DRAM, ETH_ROUTING_DATA_BUFFER_ADDR,
-                                                REQUEST_ROUTING_CMD_QUEUE_BASE, RESPONSE_ROUTING_CMD_QUEUE_BASE, CMD_BUF_PTR_MASK, CMD_ORDERED, CMD_BROADCAST});
-        
-        umd_cluster->set_device_l1_address_params({l1_mem::address_map::NCRISC_FIRMWARE_BASE, l1_mem::address_map::FIRMWARE_BASE,
-                                    l1_mem::address_map::TRISC0_SIZE, l1_mem::address_map::TRISC1_SIZE, l1_mem::address_map::TRISC2_SIZE,
-                                    l1_mem::address_map::TRISC_BASE, l1_mem::address_map::L1_BARRIER_BASE, eth_l1_mem::address_map::ERISC_BARRIER_BASE, eth_l1_mem::address_map::FW_VERSION_ADDR});
+        umd_cluster->set_driver_eth_interface_params(
+            {NOC_ADDR_LOCAL_BITS,
+             NOC_ADDR_NODE_ID_BITS,
+             ETH_RACK_COORD_WIDTH,
+             CMD_BUF_SIZE_MASK,
+             MAX_BLOCK_SIZE,
+             REQUEST_CMD_QUEUE_BASE,
+             RESPONSE_CMD_QUEUE_BASE,
+             CMD_COUNTERS_SIZE_BYTES,
+             REMOTE_UPDATE_PTR_SIZE_BYTES,
+             CMD_DATA_BLOCK,
+             CMD_WR_REQ,
+             CMD_WR_ACK,
+             CMD_RD_REQ,
+             CMD_RD_DATA,
+             CMD_BUF_SIZE,
+             CMD_DATA_BLOCK_DRAM,
+             ETH_ROUTING_DATA_BUFFER_ADDR,
+             REQUEST_ROUTING_CMD_QUEUE_BASE,
+             RESPONSE_ROUTING_CMD_QUEUE_BASE,
+             CMD_BUF_PTR_MASK,
+             CMD_ORDERED,
+             CMD_BROADCAST});
 
+        umd_cluster->set_device_l1_address_params(
+            {l1_mem::address_map::NCRISC_FIRMWARE_BASE,
+             l1_mem::address_map::FIRMWARE_BASE,
+             l1_mem::address_map::TRISC0_SIZE,
+             l1_mem::address_map::TRISC1_SIZE,
+             l1_mem::address_map::TRISC2_SIZE,
+             l1_mem::address_map::TRISC_BASE,
+             l1_mem::address_map::L1_BARRIER_BASE,
+             eth_l1_mem::address_map::ERISC_BARRIER_BASE,
+             eth_l1_mem::address_map::FW_VERSION_ADDR});
     }
 }
 
 // This test should be one line only.
-TEST(ApiClusterTest, OpenAllChips) {
-    std::unique_ptr<Cluster> umd_cluster = get_cluster();
-}
+TEST(ApiClusterTest, OpenAllChips) { std::unique_ptr<Cluster> umd_cluster = get_cluster(); }
 
 TEST(ApiClusterTest, SimpleIOAllChips) {
     std::unique_ptr<tt_ClusterDescriptor> cluster_desc = get_cluster_desc();
@@ -171,7 +193,7 @@ TEST(ApiClusterTest, SimpleIOAllChips) {
 
         // TODO: figure out if core locations should contain chip_id
         tt_xy_pair any_core = soc_desc.workers[0];
-        tt_cxy_pair any_core_global (chip_id, any_core);
+        tt_cxy_pair any_core_global(chip_id, any_core);
 
         if (cluster_desc->is_chip_remote(chip_id) && soc_desc.arch != tt::ARCH::WORMHOLE_B0) {
             std::cout << "Skipping remote chip " << chip_id << " because it is not a wormhole_b0 chip." << std::endl;
@@ -189,7 +211,7 @@ TEST(ApiClusterTest, SimpleIOAllChips) {
 
         // TODO: figure out if core locations should contain chip_id
         tt_xy_pair any_core = soc_desc.workers[0];
-        tt_cxy_pair any_core_global (chip_id, any_core);
+        tt_cxy_pair any_core_global(chip_id, any_core);
 
         if (cluster_desc->is_chip_remote(chip_id) && soc_desc.arch != tt::ARCH::WORMHOLE_B0) {
             std::cout << "Skipping remote chip " << chip_id << " because it is not a wormhole_b0 chip." << std::endl;
@@ -206,7 +228,6 @@ TEST(ApiClusterTest, SimpleIOAllChips) {
 }
 
 TEST(ApiClusterTest, RemoteFlush) {
-
     std::unique_ptr<tt_ClusterDescriptor> cluster_desc = get_cluster_desc();
     std::unique_ptr<Cluster> umd_cluster = get_cluster();
 
@@ -226,7 +247,7 @@ TEST(ApiClusterTest, RemoteFlush) {
 
         // TODO: figure out if core locations should contain chip_id
         tt_xy_pair any_core = soc_desc.workers[0];
-        tt_cxy_pair any_core_global (chip_id, any_core);
+        tt_cxy_pair any_core_global(chip_id, any_core);
 
         if (!cluster_desc->is_chip_remote(chip_id)) {
             std::cout << "Chip " << chip_id << " skipped because it is not a remote chip." << std::endl;
@@ -251,13 +272,13 @@ TEST(ApiClusterTest, RemoteFlush) {
     chip_id_t any_remote_chip = *umd_cluster->get_target_remote_device_ids().begin();
     const tt_SocDescriptor& soc_desc = umd_cluster->get_soc_descriptor(any_remote_chip);
     tt_xy_pair any_core = soc_desc.workers[0];
-    tt_cxy_pair any_core_global (any_remote_chip, any_core);
+    tt_cxy_pair any_core_global(any_remote_chip, any_core);
     if (soc_desc.arch != tt::ARCH::WORMHOLE_B0) {
         std::cout << "Skipping whole cluster wait because it is not a wormhole_b0 chip." << std::endl;
         return;
     }
     std::cout << "Writing to chip " << any_remote_chip << " core " << any_core.str() << std::endl;
-    umd_cluster->write_to_device(data.data(), data_size, any_core_global, 0, "LARGE_WRITE_TLB");    
+    umd_cluster->write_to_device(data.data(), data_size, any_core_global, 0, "LARGE_WRITE_TLB");
 
     std::cout << "Testing whole cluster wait for remote chip flush." << std::endl;
     umd_cluster->wait_for_non_mmio_flush();

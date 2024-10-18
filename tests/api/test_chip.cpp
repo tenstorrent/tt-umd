@@ -161,3 +161,12 @@ TEST(ApiChipTest, ManualTLBConfiguration) {
         EXPECT_THROW(umd_cluster->get_static_tlb_writer(tt_cxy_pair(any_mmio_chip, eth_core)), std::runtime_error);
     }
 }
+
+// TODO: Move to test_chip
+TEST(ApiChipTest, SimpleAPIShowcase) {
+    std::unique_ptr<Cluster> umd_cluster = get_cluster();
+    chip_id_t chip_id = *umd_cluster->get_all_chips_in_cluster().begin();
+
+    // TODO: In future, will be accessed through tt::umd::Chip api.
+    umd_cluster->get_pcie_base_addr_from_device(chip_id);
+}

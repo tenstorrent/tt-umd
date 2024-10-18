@@ -1,3 +1,8 @@
+// SPDX-FileCopyrightText: (c) 2023 Tenstorrent Inc.
+//
+// SPDX-License-Identifier: Apache-2.0
+
+// This file holds Cluster specific API examples.
 
 #include <gtest/gtest.h>
 #include "fmt/xchar.h"
@@ -29,8 +34,7 @@ using Cluster = tt_SiliconDevice;
 // Galaxy
 
 // TODO: This function should not exist, the API itself should be simple enough.
-std::unique_ptr<tt_ClusterDescriptor> get_cluster_descriptor() {
-
+inline std::unique_ptr<tt_ClusterDescriptor> get_cluster_desc() {
     // TODO: This should not be needed. And could be part of the cluster descriptor probably.
     // Note that cluster descriptor holds logical ids of chips.
     // Which are different than physical PCI ids, which are /dev/tenstorrent/N ones.
@@ -66,7 +70,7 @@ std::unique_ptr<tt_ClusterDescriptor> get_cluster_descriptor() {
 }
 
 // TODO: This function should not exist, the API itself should be simple enough.
-std::unique_ptr<Cluster> get_cluster() {
+inline std::unique_ptr<Cluster> get_cluster() {
 
     // TODO: This should not be needed. And could be part of the cluster descriptor probably.
     // Note that cluster descriptor holds logical ids of chips.
@@ -93,7 +97,7 @@ std::unique_ptr<Cluster> get_cluster() {
     // TODO: remove getting manually cluster descriptor from yaml.
     std::string yaml_path = test_utils::GetClusterDescYAML();
     // TODO: Remove the need to do this, allow default constructor to construct with all chips.
-    std::unique_ptr<tt_ClusterDescriptor> cluster_desc = get_cluster_descriptor();
+    std::unique_ptr<tt_ClusterDescriptor> cluster_desc = get_cluster_desc();
     std::unordered_set<int> detected_num_chips = cluster_desc->get_all_chips();
 
     // TODO: make this unordered vs set conversion not needed.
@@ -138,12 +142,12 @@ void setup_wormhole_remote(Cluster* umd_cluster) {
 }
 
 // This test should be one line only.
-TEST(ApiTest, OpenAllChips) {
+TEST(ApiClusterTest, OpenAllChips) {
     std::unique_ptr<Cluster> umd_cluster = get_cluster();
 }
 
-TEST(ApiTest, SimpleIOAllChips) {
-    std::unique_ptr<tt_ClusterDescriptor> cluster_desc = get_cluster_descriptor();
+TEST(ApiClusterTest, SimpleIOAllChips) {
+    std::unique_ptr<tt_ClusterDescriptor> cluster_desc = get_cluster_desc();
     std::unique_ptr<Cluster> umd_cluster = get_cluster();
 
     if (umd_cluster == nullptr || umd_cluster->get_all_chips_in_cluster().empty()) {

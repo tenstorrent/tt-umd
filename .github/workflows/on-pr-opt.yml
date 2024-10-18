@@ -4,7 +4,7 @@ name: On PR - Optional
 on:
   workflow_dispatch:
   pull_request:
-    branches: [ "main" ]
+    branches: ["main"]
 
 jobs:
   build-tests:
@@ -14,13 +14,13 @@ jobs:
       matrix:
         test-group: [
           # Enable once we have functional cards with specified architecture.
-          { arch: grayskull },
-          { arch: wormhole_b0 },
-          # { arch: blackhole },
+          {arch: grayskull},
+          {arch: wormhole_b0},
+          # {arch: blackhole},
         ]
     uses: ./.github/workflows/build-tests.yml
     with:
-      arch: ${{ matrix.test-group.arch }}
+      arch: ${{ matrix.test-group.arch}}
       timeout: 10
 
   test-all:
@@ -31,15 +31,15 @@ jobs:
       matrix:
         test-group: [
           # Enable once we have functional cards.
-          { arch: grayskull, card: e75, timeout: 10 },
-          { arch: grayskull, card: e150, timeout: 10 },
-          { arch: grayskull, card: e300, timeout: 10 },
-          { arch: wormhole_b0, card: n150, timeout: 5 },
-          { arch: wormhole_b0, card: n300, timeout: 15 },
-          # { arch: blackhole },
+          {arch: grayskull, card: e75, timeout: 10},
+          {arch: grayskull, card: e150, timeout: 10},
+          {arch: grayskull, card: e300, timeout: 10},
+          {arch: wormhole_b0, card: n150, timeout: 5},
+          {arch: wormhole_b0, card: n300, timeout: 15},
+          # {arch: blackhole},
         ]
     uses: ./.github/workflows/run-tests.yml
     with:
-      arch: ${{ matrix.test-group.arch }}
-      card: ${{ matrix.test-group.card }}
-      timeout: ${{ matrix.test-group.timeout }}
+      arch: ${{ matrix.test-group.arch}}
+      card: ${{ matrix.test-group.card}}
+      timeout: ${{ matrix.test-group.timeout}}

@@ -7,15 +7,7 @@ on:
 
 jobs:
   build:
-    strategy:
-      fail-fast: false
-      matrix:
-        build: [
-          {runs-on: ubuntu-22.04, docker-image: tt-umd-ci-ubuntu-22.04},
-          {runs-on: ubuntu-20.04, docker-image: tt-umd-ci-ubuntu-20.04},
-        ]
-
-    name: Run yamllint
+    timeout-minutes: 10
     # It is unnecessary to run this job on multiple OS versions
     runs-on: ubuntu-22.04
     container:

@@ -55,7 +55,7 @@ class tt_SimulationDevice: public tt_device {
     virtual std::set<chip_id_t> get_target_remote_device_ids();
     virtual std::map<int,int> get_clocks();
     virtual void *host_dma_address(std::uint64_t offset, chip_id_t src_device_id, uint16_t channel) const;
-    virtual std::uint64_t get_pcie_base_addr_from_device() const;
+    virtual std::uint64_t get_pcie_base_addr_from_device(const chip_id_t chip_id) const;
     virtual std::uint32_t get_num_dram_channels(std::uint32_t device_id);
     virtual std::uint64_t get_dram_channel_size(std::uint32_t device_id, std::uint32_t channel);
     virtual std::uint32_t get_num_host_channels(std::uint32_t device_id);

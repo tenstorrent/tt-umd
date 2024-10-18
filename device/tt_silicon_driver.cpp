@@ -2917,11 +2917,13 @@ std::uint32_t tt_SiliconDevice::get_numa_node_for_pcie_device(std::uint32_t devi
     return get_pci_device(device_id)->get_numa_node();
 }
 
-std::uint64_t tt_SiliconDevice::get_pcie_base_addr_from_device() const {
-    if(arch_name == tt::ARCH::WORMHOLE or arch_name == tt::ARCH::WORMHOLE_B0) {
+std::uint64_t tt_SiliconDevice::get_pcie_base_addr_from_device(const chip_id_t chip_id) const {
+    // TODO: Should probably be lowered to TTDevice.
+    tt::ARCH arch = get_soc_descriptor(chip_id).arch;
+    if(arch == tt::ARCH::WORMHOLE or arch == tt::ARCH::WORMHOLE_B0) {
         return 0x800000000;
     }
-    else if (arch_name == tt::ARCH::BLACKHOLE) {
+    else if (arch == tt::ARCH::BLACKHOLE) {
         // Enable 4th ATU window.
         return 1ULL << 60;
     }

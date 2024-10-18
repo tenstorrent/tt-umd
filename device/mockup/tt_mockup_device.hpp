@@ -87,7 +87,7 @@ class tt_MockupDevice : public tt_device {
     void* host_dma_address(std::uint64_t offset, chip_id_t src_device_id, uint16_t channel) const override {
         return nullptr;
     }
-    std::uint64_t get_pcie_base_addr_from_device() const override { return 0; }
+    std::uint64_t get_pcie_base_addr_from_device(const chip_id_t chip_id) const override { return 0; }
     std::uint32_t get_num_dram_channels(std::uint32_t device_id) override {
         return get_soc_descriptor(device_id)->get_num_dram_channels();
     };

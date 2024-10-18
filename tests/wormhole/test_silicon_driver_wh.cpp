@@ -681,9 +681,10 @@ TEST(SiliconDriverWH, SysmemTestWithPcie) {
     device.start_device(tt_device_params{});  // no special parameters
 
     // PCIe core is at (x=0, y=3) on Wormhole NOC0.
+    const chip_id_t mmio_chip_id = 0;
     const size_t PCIE_X = 0;    // NOC0
     const size_t PCIE_Y = 3;    // NOC0
-    const tt_cxy_pair PCIE_CORE(0, PCIE_X, PCIE_Y);
+    const tt_cxy_pair PCIE_CORE(mmio_chip_id, PCIE_X, PCIE_Y);
     const size_t test_size_bytes = 0x4000;  // Arbitrarilly chosen, but small size so the test runs quickly.
 
     // Bad API: how big is the buffer?  How do we know it's big enough?
@@ -695,7 +696,7 @@ TEST(SiliconDriverWH, SysmemTestWithPcie) {
     // This is the address inside the Wormhole PCIe block that is mapped to the
     // system bus.  In Wormhole, this is a fixed address, 0x8'0000'0000.
     // The driver should have mapped this address to the bottom of sysmem.
-    uint64_t base_address = device.get_pcie_base_addr_from_device();
+    uint64_t base_address = device.get_pcie_base_addr_from_device(mmio_chip_id);
 
     // Buffer that we will use to read sysmem into, then write sysmem from.
     std::vector<uint8_t> buffer(test_size_bytes, 0x0);

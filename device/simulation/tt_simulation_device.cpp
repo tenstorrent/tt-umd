@@ -180,7 +180,7 @@ void *tt_SimulationDevice::host_dma_address(std::uint64_t offset, chip_id_t src_
     return nullptr;
 }
 
-std::uint64_t tt_SimulationDevice::get_pcie_base_addr_from_device() const {
+std::uint64_t tt_SimulationDevice::get_pcie_base_addr_from_device(const chip_id_t chip_id) const {
     if(arch_name == tt::ARCH::WORMHOLE or arch_name == tt::ARCH::WORMHOLE_B0) {
         return 0x800000000;
     }

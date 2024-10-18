@@ -6,6 +6,10 @@ on:
     branches: [ "main" ]
 
 jobs:
+  lint-clang:
+    secrets: inherit
+    uses: ./.github/workflows/lint-clang.yml
+
   build-all:
     secrets: inherit
     uses: ./.github/workflows/build-device.yml

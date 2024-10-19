@@ -38,6 +38,13 @@ export CMAKE_C_COMPILER=/usr/bin/gcc
 export CMAKE_CXX_COMPILER=/usr/bin/g++
 ```
 
+## Build debian dev package
+```
+cmake --build build --target package
+
+# Generates umd-dev-x.y.z-Linux.deb
+```
+
 ## As a submodule/external project
 If your project has CMake support, simply add this repo as a subdirectory:
 ```

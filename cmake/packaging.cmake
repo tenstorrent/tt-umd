@@ -21,8 +21,11 @@ install(
     DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/${PROJECT_NAME}
 )
 
+set(CPACK_PACKAGE_NAME "${PROJECT_NAME}-dev")
 set(CPACK_GENERATOR "DEB")
+set(CPACK_PACKAGE_VENDOR "Tenstorrent, Inc.")
 set(CPACK_DEBIAN_PACKAGE_MAINTAINER "support@tenstorrent.com")
+set(CPACK_PACKAGE_DESCRIPTION_SUMMARY "Tenstorrent User Mode Driver")
 #set(CPACK_DEBIAN_PACKAGE_DEPENDS "")
 
 include(CPack)

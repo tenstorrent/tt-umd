@@ -75,8 +75,18 @@ add_custom_command(
 # I can only assume everything is public
 install(
     DIRECTORY
-        ${PROJECT_SOURCE_DIR}
-    DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/${PROJECT_NAME}
+        ${PROJECT_SOURCE_DIR}/device
+    DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/${PROJECT_NAME}/device
+    FILES_MATCHING
+    PATTERN
+    "*.h"
+    PATTERN
+    "*.hpp"
+)
+install(
+    DIRECTORY
+        ${PROJECT_SOURCE_DIR}/common
+    DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/${PROJECT_NAME}/common
     FILES_MATCHING
     PATTERN
     "*.h"

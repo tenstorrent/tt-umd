@@ -20,3 +20,10 @@ install(
         ${PROJECT_BINARY_DIR}/${PROJECT_NAME}ConfigVersion.cmake
     DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/${PROJECT_NAME}
 )
+
+
+set(CPACK_GENERATOR "DEB")
+set(CPACK_DEBIAN_PACKAGE_MAINTAINER "support@tenstorrent.com")
+#set(CPACK_DEBIAN_PACKAGE_DEPENDS "")
+
+include(CPack)

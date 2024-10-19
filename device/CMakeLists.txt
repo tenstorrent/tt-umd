@@ -1,4 +1,3 @@
-
 set(UMD_DEVICE_SRCS
     architecture_implementation.cpp
     cpuset_lib.cpp
@@ -64,14 +63,23 @@ install(
 )
 
 # Add a custom command to copy the library to build/lib
-add_custom_command(TARGET device POST_BUILD
-    COMMAND ${CMAKE_COMMAND} -E copy $<TARGET_FILE:device> ${CMAKE_BINARY_DIR}/lib/
+add_custom_command(
+    TARGET device
+    POST_BUILD
+    COMMAND
+        ${CMAKE_COMMAND} -E copy $<TARGET_FILE:device> ${CMAKE_BINARY_DIR}/lib/
     COMMENT "Copying device library to build/lib"
 )
 
 # No separation of public and private header files
 # I can only assume everything is public
-install(DIRECTORY ${PROJECT_SOURCE_DIR}
+install(
+    DIRECTORY
+        ${PROJECT_SOURCE_DIR}
     DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/${PROJECT_NAME}
-    FILES_MATCHING PATTERN "*.h" PATTERN "*.hpp"
+    FILES_MATCHING
+    PATTERN
+    "*.h"
+    PATTERN
+    "*.hpp"
 )

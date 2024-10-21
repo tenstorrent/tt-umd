@@ -633,7 +633,7 @@ class tt_SiliconDevice: public tt_device
     virtual void set_driver_eth_interface_params(const tt_driver_eth_interface_params& eth_interface_params_);
     virtual void configure_tlb(chip_id_t logical_device_id, tt_xy_pair core, std::int32_t tlb_index, std::int32_t address, uint64_t ordering = TLB_DATA::Posted);
     virtual void set_fallback_tlb_ordering_mode(const std::string& fallback_tlb, uint64_t ordering = TLB_DATA::Posted);
-    virtual void setup_core_to_tlb_map(const chip_id_t chip_id, std::function<std::int32_t(tt_xy_pair)> mapping_function);
+    virtual void setup_core_to_tlb_map(const chip_id_t logical_device_id, std::function<std::int32_t(tt_xy_pair)> mapping_function);
     virtual void configure_active_ethernet_cores_for_mmio_device(chip_id_t mmio_chip, const std::unordered_set<tt_xy_pair>& active_eth_cores_per_chip);
     virtual void start_device(const tt_device_params &device_params);
     virtual void assert_risc_reset();
@@ -816,8 +816,11 @@ class tt_SiliconDevice: public tt_device
     std::map<chip_id_t, std::unordered_map<std::int32_t, std::int32_t>> tlb_config_map = {};
     std::set<chip_id_t> all_target_mmio_devices;
     std::unordered_map<chip_id_t, std::vector<uint32_t>> host_channel_size;
+
+    // Note that these maps holds only entries for local PCIe chips.
     std::unordered_map<chip_id_t, std::function<std::int32_t(tt_xy_pair)>> map_core_to_tlb_per_chip = {};
     std::unordered_map<chip_id_t, bool> tlbs_init_per_chip = {};
+
     std::unordered_map<std::string, std::int32_t> dynamic_tlb_config = {};
     std::unordered_map<std::string, uint64_t> dynamic_tlb_ordering_modes = {};
     std::map<std::set<chip_id_t>, std::unordered_map<chip_id_t, std::vector<std::vector<int>>>> bcast_header_cache = {};

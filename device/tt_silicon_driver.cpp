@@ -2909,9 +2909,9 @@ void tt_SiliconDevice::set_driver_eth_interface_params(const tt_driver_eth_inter
     eth_interface_params = eth_interface_params_;
 }
 
-void tt_SiliconDevice::setup_core_to_tlb_map(const chip_id_t chip_id, std::function<std::int32_t(tt_xy_pair)> mapping_function) {
-    map_core_to_tlb_per_chip[chip_id] = mapping_function;
-    tlbs_init_per_chip[chip_id] = true;
+void tt_SiliconDevice::setup_core_to_tlb_map(const chip_id_t logical_device_id, std::function<std::int32_t(tt_xy_pair)> mapping_function) {
+    map_core_to_tlb_per_chip[logical_device_id] = mapping_function;
+    tlbs_init_per_chip[logical_device_id] = true;
 }
 
 std::uint32_t tt_SiliconDevice::get_num_dram_channels(std::uint32_t device_id) {

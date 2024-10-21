@@ -11,7 +11,8 @@ apt-get update && apt-get install -y \
     libgtest-dev \
     libyaml-cpp-dev \
     libboost-all-dev \
-    wget
+    wget \
+    yamllint
 
 # Install clang 17
 wget https://apt.llvm.org/llvm.sh && \

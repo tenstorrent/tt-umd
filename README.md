@@ -45,12 +45,31 @@ cmake --build build --target package
 # Generates umd-dev-x.y.z-Linux.deb
 ```
 
-## As a submodule/external project
-If your project has CMake support, simply add this repo as a subdirectory:
+# Integration
+UMD can be consumed by downstream projects in multiple ways.
+
+## From Source (CMake)
+You can link `libdevice.so` by linking against the `umd::device` target.
+
+### Using CPM Package Manager
+```
+CPMAddPackage(
+  NAME umd
+  GITHUB_REPOSITORY tenstorrent/tt-umd
+  GIT_TAG v0.1.0
+  VERSION 0.1.0
+)
+```
+
+### As a submodule/external project
 ```
 add_subdirectory(<path to umd>)
 ```
-You can then use `libdevice.so` by linking against the `umd::device` target wheverever is needed.
+
+## From Prebuilt Binaries
+
+### Ubuntu
 ```
-target_link_libraries(tt_metal PRIVATE umd::device)
+apt install ./umd-dev-x.y.z-Linux.deb 
 ```
+

@@ -1,8 +1,15 @@
 cmake_minimum_required(VERSION 3.16)
 
-list(PREPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/cmake)
-
-include(compilers)
+# Temporarily default to clang-17
+if(NOT CMAKE_TOOLCHAIN_FILE)
+    message(STATUS "No toolchain file provided. Using default toolchain.")
+    set(CMAKE_TOOLCHAIN_FILE
+        "${CMAKE_SOURCE_DIR}/cmake/x86-linux-clang-17-toolchain.cmake"
+        CACHE STRING
+        "Default toolchain file"
+        FORCE
+    )
+endif()
 
 project(
     umd
@@ -13,13 +20,15 @@ project(
         CXX
 )
 
+list(PREPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/cmake)
+
+include(check_libcpp)
+
 include(GNUInstallDirs)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED True)
 set(CMAKE_POSITION_INDEPENDENT_CODE ON) # This also impacts dependencies brought in through CPM
-
-CHECK_COMPILERS()
 
 set(MASTER_PROJECT OFF)
 if(PROJECT_SOURCE_DIR STREQUAL CMAKE_SOURCE_DIR)

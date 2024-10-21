@@ -28,8 +28,11 @@ project(
         CXX
 )
 
+list(PREPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/cmake)
 CHECK_COMPILERS()
+include(check_libcpp)
 
+include(GNUInstallDirs)
 set(MASTER_PROJECT OFF)
 if(PROJECT_SOURCE_DIR STREQUAL CMAKE_SOURCE_DIR)
     set(MASTER_PROJECT ON)

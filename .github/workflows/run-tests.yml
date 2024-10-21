@@ -73,33 +73,32 @@ jobs:
       LD_LIBRARY_PATH: ./build/lib
 
     steps:
-    - name: Cleanup tt-umd dir, and change directory as if we were in a github.repository
-      run: |
-        rm -rf tt-umd
-        mkdir tt-umd
-        cd tt-umd
+      - name: Cleanup tt-umd dir, and change directory as if we were in a github.repository
+        run: |
+          rm -rf tt-umd
+          mkdir tt-umd
+          cd tt-umd
 
-    - name: Use build artifacts
-      uses: actions/download-artifact@v4
-      with:
-        name: build-artifacts-${{ inputs.arch }}-${{ matrix.build.runs-on }}
-        path: ./
+      - name: Use build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: build-artifacts-${{ inputs.arch }}-${{ matrix.build.runs-on }}
+          path: ./
 
-    # This is needed to preserve file permissions
-    # https://github.com/actions/upload-artifact?tab=readme-ov-file#permission-loss
-    - name: 'Untar build artifacts'
-      shell: bash
-      run: tar xvf artifact.tar
+      # This is needed to preserve file permissions
+      # https://github.com/actions/upload-artifact?tab=readme-ov-file#permission-loss
+      - name: 'Untar build artifacts'
+        shell: bash
+        run: tar xvf artifact.tar
 
-    - name: Run arch-specific UMD unit tests
-      run: |
-        ldd ${{ env.TEST_OUTPUT_DIR }}/umd/${{ inputs.arch }}/unit_tests
-        ${{ env.TEST_OUTPUT_DIR }}/umd/${{ inputs.arch }}/unit_tests
+      - name: Run arch-specific UMD unit tests
+        run: |
+          ${{ env.TEST_OUTPUT_DIR }}/umd/${{ inputs.arch }}/unit_tests
 
-    - name: Run PCI tests
-      run: |
-        ${{ env.TEST_OUTPUT_DIR }}/umd/test_pcie_device/test_pcie_device
+      - name: Run PCI tests
+        run: |
+          ${{ env.TEST_OUTPUT_DIR }}/umd/test_pcie_device/test_pcie_device
 
-    - name: Run API tests
-      run: |
-        ${{ env.TEST_OUTPUT_DIR }}/umd/api/api_tests
+      - name: Run API tests
+        run: |
+          ${{ env.TEST_OUTPUT_DIR }}/umd/api/api_tests

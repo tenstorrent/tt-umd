@@ -25,7 +25,7 @@ on:
         required: true
         description: 'The timeout for the build job in minutes'
         type: number
-      
+
 
 env:
   BUILD_TARGET: umd_tests
@@ -56,25 +56,29 @@ jobs:
       ARCH_NAME: ${{ inputs.arch }}
 
     steps:
-    - uses: actions/checkout@v4
-      with:
-        submodules: recursive
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
 
-    - name: Build ${{ env.BUILD_TARGET }}
-      run: |
-        echo "Compiling the code..."
-        cmake -B ${{ env.BUILD_OUTPUT_DIR }} -G Ninja -DTT_UMD_BUILD_TESTS=ON
-        cmake --build ${{ env.BUILD_OUTPUT_DIR }} --target ${{ env.BUILD_TARGET }}
-        echo "Compile complete."
+      - name: Build ${{ env.BUILD_TARGET }}
+        run: |
+          echo "Compiling the code..."
+          cmake -B ${{ env.BUILD_OUTPUT_DIR }} -G Ninja -DTT_UMD_BUILD_TESTS=ON
+          cmake --build ${{ env.BUILD_OUTPUT_DIR }} --target ${{ env.BUILD_TARGET }}
+          echo "Compile complete."
 
-    # This is needed to preserve file permissions
-    # https://github.com/actions/upload-artifact?tab=readme-ov-file#permission-loss
-    - name: Tar build, test and run artifacts
-      shell: bash
-      run: tar cvf artifact.tar ${{ env.TEST_OUTPUT_DIR }} ${{ env.LIB_OUTPUT_DIR }} ${{ env.DEPS_OUTPUT_DIR }} ${{ env.CREATE_MAP_BINARIES_DIR }}
+      # This is needed to preserve file permissions
+      # https://github.com/actions/upload-artifact?tab=readme-ov-file#permission-loss
+      - name: Tar build, test and run artifacts
+        shell: bash
+        run: |
+          tar cvf artifact.tar ${{ env.TEST_OUTPUT_DIR }} \
+          ${{ env.LIB_OUTPUT_DIR }} \
+          ${{ env.DEPS_OUTPUT_DIR }} \
+          ${{ env.CREATE_MAP_BINARIES_DIR }}
 
-    - name: Upload build artifacts archive
-      uses: actions/upload-artifact@v4
-      with:
-        name: build-artifacts-${{ inputs.arch }}-${{ matrix.build.runs-on }}
-        path: artifact.tar
+      - name: Upload build artifacts archive
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-artifacts-${{ inputs.arch }}-${{ matrix.build.runs-on }}
+          path: artifact.tar

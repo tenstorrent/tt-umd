@@ -4,62 +4,60 @@ on:
   workflow_dispatch:
 
 jobs:
-  
   check-runners-host:
     timeout-minutes: 10
     strategy:
       fail-fast: false
       matrix:
-        machine: [ ubuntu-20.04, ubuntu-22.04, e75, e150, e300, n150, n300 ]
+        machine: [ubuntu-20.04, ubuntu-22.04, e75, e150, e300, n150, n300]
 
     name: Check runner
     runs-on: ${{ matrix.machine }}
 
     steps:
+      - name: Fix ownership
+        run: |
+          sudo chown -R ubuntu:ubuntu $GITHUB_WORKSPACE || true
 
-    - name: Fix ownership    
-      run: |
-        sudo chown -R ubuntu:ubuntu $GITHUB_WORKSPACE || true
+      - uses: actions/checkout@v4
 
-    - uses: actions/checkout@v4
+      - name: Print machine info
+        run: |
+          # Print machine name
+          echo "Machine Name: $(hostname)"
 
-    - name: Print machine info    
-      run: |
-        # Print machine name
-        echo "Machine Name: $(hostname)"
+          # Print OS information
+          echo "Operating System: $(lsb_release -d | cut -f2-)"
+          echo "Kernel Version: $(uname -r)"
+          echo "Architecture: $(uname -m)"
 
-        # Print OS information
-        echo "Operating System: $(lsb_release -d | cut -f2-)"
-        echo "Kernel Version: $(uname -r)"
-        echo "Architecture: $(uname -m)"
+          # Print current user
+          echo "Current User: $(whoami)"
 
-        # Print current user
-        echo "Current User: $(whoami)"
+          # Print CPU information
+          echo "CPU Information:"
+          lscpu | grep 'Model name'
+          lscpu | grep 'Architecture'
 
-        # Print CPU information
-        echo "CPU Information:"
-        lscpu | grep 'Model name'
-        lscpu | grep 'Architecture'
+          # Print Memory information
+          echo "Memory Information:"
+          free -h
 
-        # Print Memory information
-        echo "Memory Information:"
-        free -h
+          # Print Disk usage
+          echo "Disk Usage:"
+          df -h
 
-        # Print Disk usage
-        echo "Disk Usage:"
-        df -h
-
-        # Print usage of landing folder
-        echo "Show file usage"
-        du -h --max-depth=1 | sort -rh
+          # Print usage of landing folder
+          echo "Show file usage"
+          du -h --max-depth=1 | sort -rh
 
   check-runners-docker:
     timeout-minutes: 10
     strategy:
       fail-fast: false
       matrix:
-        machine: [ ubuntu-20.04, ubuntu-22.04, e75, e150, e300, n150, n300 ]
-        image: [ tt-umd-ci-ubuntu-22.04, tt-umd-ci-ubuntu-20.04 ]
+        machine: [ubuntu-20.04, ubuntu-22.04, e75, e150, e300, n150, n300]
+        image: [tt-umd-ci-ubuntu-22.04, tt-umd-ci-ubuntu-20.04]
 
     name: Check runner docker
     needs: check-runners-host
@@ -72,50 +70,49 @@ jobs:
         - /dev/hugepages-1G:/dev/hugepages-1G
 
     steps:
+      - name: Set working directory env variable
+        id: strings
+        shell: bash
+        run: |
+          echo "WORK_DIR=$(pwd)" >> $GITHUB_ENV
 
-    - name: Set working directory env variable
-      id: strings
-      shell: bash
-      run: |
-        echo "WORK_DIR=$(pwd)" >> $GITHUB_ENV
+      - name: Git add safe dir for working directory
+        run: |
+          # Mark the main repository as safe
+          git config --global --add safe.directory ${{ env.WORK_DIR }} || true
+          # Iterate over all submodules and mark them as safe
+          git submodule foreach 'git config --global --add safe.directory "$toplevel/$sm_path"' || true
 
-    - name: Git add safe dir for working directory
-      run: |
-        # Mark the main repository as safe
-        git config --global --add safe.directory ${{ env.WORK_DIR }} || true
-        # Iterate over all submodules and mark them as safe
-        git submodule foreach 'git config --global --add safe.directory "$toplevel/$sm_path"' || true
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
 
-    - uses: actions/checkout@v4
-      with:
-        submodules: recursive
+      - name: Print machine info
+        run: |
+          # Print machine name
+          echo "Machine Name: $(hostname)"
 
-    - name: Print machine info    
-      run: |
-        # Print machine name
-        echo "Machine Name: $(hostname)"
+          # Print OS information
+          echo "Operating System: $(lsb_release -d | cut -f2-)"
+          echo "Kernel Version: $(uname -r)"
+          echo "Architecture: $(uname -m)"
 
-        # Print OS information
-        echo "Operating System: $(lsb_release -d | cut -f2-)"
-        echo "Kernel Version: $(uname -r)"
-        echo "Architecture: $(uname -m)"
+          # Print current user
+          echo "Current User: $(whoami)"
 
-        # Print current user
-        echo "Current User: $(whoami)"
+          # Print CPU information
+          echo "CPU Information:"
+          lscpu | grep 'Model name'
+          lscpu | grep 'Architecture'
 
-        # Print CPU information
-        echo "CPU Information:"
-        lscpu | grep 'Model name'
-        lscpu | grep 'Architecture'
+          # Print Memory information
+          echo "Memory Information:"
+          free -h
 
-        # Print Memory information
-        echo "Memory Information:"
-        free -h
+          # Print Disk usage
+          echo "Disk Usage:"
+          df -h
 
-        # Print Disk usage
-        echo "Disk Usage:"
-        df -h
-
-        # Print usage of landing folder
-        echo "Show file usage"
-        du -h --max-depth=1 | sort -rh
+          # Print usage of landing folder
+          echo "Show file usage"
+          du -h --max-depth=1 | sort -rh

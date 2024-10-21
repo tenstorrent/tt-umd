@@ -16,7 +16,7 @@ on:
         type: number
 
 env:
-  BUILD_TARGET: device
+  BUILD_TARGET: umd_device
   BUILD_OUTPUT_DIR: ./build
   LIB_OUTPUT_DIR: ./build/lib
   DEPS_OUTPUT_DIR: ./build/_deps

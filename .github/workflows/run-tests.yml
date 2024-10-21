@@ -70,7 +70,6 @@ jobs:
 
     env:
       ARCH_NAME: ${{ inputs.arch }}
-      LD_LIBRARY_PATH: ./build/lib
 
     steps:
       - name: Cleanup tt-umd dir, and change directory as if we were in a github.repository

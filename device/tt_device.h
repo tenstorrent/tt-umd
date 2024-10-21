@@ -353,8 +353,17 @@ class tt_device
     /**
      * Non-MMIO (ethernet) barrier.
      * Similar to an mfence for host -> host transfers. Will flush all in-flight ethernet transactions before proceeding with the next one.
+     * This will be applied to all chips in the cluster.
      */ 
     virtual void wait_for_non_mmio_flush() {
+        throw std::runtime_error("---- tt_device::wait_for_non_mmio_flush is not implemented\n");
+    }
+
+    /**
+     * Non-MMIO (ethernet) barrier.
+     * This function should be called for a remote chip. If called for local chip, it will be a no-op.
+     */
+    virtual void wait_for_non_mmio_flush(const chip_id_t chip_id) {
         throw std::runtime_error("---- tt_device::wait_for_non_mmio_flush is not implemented\n");
     }
 
@@ -641,6 +650,7 @@ class tt_SiliconDevice: public tt_device
     virtual void write_to_sysmem(const void* mem_ptr, std::uint32_t size,  uint64_t addr, uint16_t channel, chip_id_t src_device_id);
     virtual void read_from_sysmem(void* mem_ptr, uint64_t addr, uint16_t channel, uint32_t size, chip_id_t src_device_id);
     virtual void wait_for_non_mmio_flush();
+    virtual void wait_for_non_mmio_flush(const chip_id_t chip_id);
     void l1_membar(const chip_id_t chip, const std::string& fallback_tlb, const std::unordered_set<tt_xy_pair>& cores = {});
     void dram_membar(const chip_id_t chip, const std::string& fallback_tlb, const std::unordered_set<uint32_t>& channels);
     void dram_membar(const chip_id_t chip, const std::string& fallback_tlb, const std::unordered_set<tt_xy_pair>& cores = {});
@@ -760,6 +770,9 @@ class tt_SiliconDevice: public tt_device
     void verify_sw_fw_versions(int device_id, std::uint32_t sw_version, std::vector<std::uint32_t> &fw_versions);
     int test_setup_interface ();
 
+    // This functions has to be called for local chip, and then it will wait for all connected remote chips to flush.
+    void wait_for_connected_non_mmio_flush(chip_id_t chip_id);
+
     // State variables
     tt_device_dram_address_params dram_address_params;
     tt_device_l1_address_params l1_address_params;
@@ -785,7 +798,7 @@ class tt_SiliconDevice: public tt_device
 
     int active_core = NON_EPOCH_ETH_CORES_START_ID;
     std::vector< std::vector<tt_cxy_pair> > remote_transfer_ethernet_cores;
-    bool flush_non_mmio = false;
+    std::unordered_map<chip_id_t, bool> flush_non_mmio_per_chip = {};
     bool non_mmio_transfer_cores_customized = false;
     std::unordered_map<chip_id_t, int> active_eth_core_idx_per_chip = {};
     std::unordered_map<chip_id_t, bool> noc_translation_enabled_for_chip = {};

@@ -14,7 +14,7 @@
 #include "device/tt_device.h"
 
 
-std::unique_ptr<tt_ClusterDescriptor> get_cluster_desc() {
+inline std::unique_ptr<tt_ClusterDescriptor> get_cluster_desc() {
 
     std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
     std::set<int> pci_device_ids_set (pci_device_ids.begin(), pci_device_ids.end());
@@ -87,6 +87,8 @@ TEST(ApiClusterDescriptorTest, BasicFunctionality) {
             remote_chips.insert(chip);
         }
     }
+
+    std::unordered_map<chip_id_t, std::unordered_set<chip_id_t>> chips_grouped_by_closest_mmio = cluster_desc->get_chips_grouped_by_closest_mmio();
 }
 
 // A standard disjoint set data structure to track connected components.

@@ -2,6 +2,8 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
+#include "coordinate_manager.h"
+#include "tt_xy_pair.h"
 #include "yaml-cpp/yaml.h"
 #include "tt_soc_descriptor.h"
 
@@ -9,6 +11,7 @@
 #include <fstream>
 #include <iostream>
 #include <regex>
+#include <stdexcept>
 #include <string>
 #include <unordered_set>
 
@@ -58,10 +61,7 @@ inline std::string& trim(std::string& s, const char* t = ws)
 }
 
 void tt_SocDescriptor::load_soc_features_from_device_descriptor(YAML::Node &device_descriptor_yaml) {
-    overlay_version = device_descriptor_yaml["features"]["overlay"]["version"].as<int>();
     noc_translation_id_enabled = device_descriptor_yaml["features"]["noc"] && device_descriptor_yaml["features"]["noc"]["translation_id_enabled"] ? device_descriptor_yaml["features"]["noc"]["translation_id_enabled"].as<bool>() : false;
-    packer_version = device_descriptor_yaml["features"]["packer"]["version"].as<int>();
-    unpacker_version = device_descriptor_yaml["features"]["unpacker"]["version"].as<int>();
     dst_size_alignment = device_descriptor_yaml["features"]["math"]["dst_size_alignment"].as<int>();
     worker_l1_size = device_descriptor_yaml["worker_l1_size"].as<int>();
     eth_l1_size = device_descriptor_yaml["eth_l1_size"].as<int>();
@@ -166,7 +166,39 @@ void tt_SocDescriptor::load_core_descriptors_from_device_descriptor(YAML::Node &
     }
 }
 
-tt_SocDescriptor::tt_SocDescriptor(std::string device_descriptor_path) {
+void tt_SocDescriptor::create_coordinate_manager(std::size_t harvesting_mask) {
+    coordinate_manager = CoordinateManager::get_coordinate_manager(arch, worker_grid_size, workers, harvesting_mask);
+}
+
+void tt_SocDescriptor::perform_harvesting(std::size_t harvesting_mask) {
+    coordinate_manager->perform_harvesting(harvesting_mask);
+}
+
+tt_physical_coords tt_SocDescriptor::logical_to_physical_coords(tt_logical_coords logical_coords) {
+    return coordinate_manager->logical_to_physical_coords(logical_coords);
+}
+
+tt_translated_coords tt_SocDescriptor::logical_to_translated_coords(tt_logical_coords logical_coords) {
+    return coordinate_manager->logical_to_translated_coords(logical_coords);
+}
+
+tt_logical_coords tt_SocDescriptor::physical_to_logical_coords(tt_physical_coords physical_coords) {
+    return coordinate_manager->physical_to_logical_coords(physical_coords);
+}
+
+tt_translated_coords tt_SocDescriptor::physical_to_translated_coords(tt_physical_coords physical_coords) {
+    return coordinate_manager->physical_to_translated_coords(physical_coords);
+}
+
+tt_virtual_coords tt_SocDescriptor::logical_to_virtual_coords(tt_logical_coords logical_coords) {
+    return coordinate_manager->logical_to_virtual_coords(logical_coords);
+}
+
+tt_logical_coords tt_SocDescriptor::virtual_to_logical_coords(tt_virtual_coords virtual_coords) {
+    return coordinate_manager->virtual_to_logical_coords(virtual_coords);
+}
+
+tt_SocDescriptor::tt_SocDescriptor(std::string device_descriptor_path, std::size_t harvesting_mask) {
     std::ifstream fdesc(device_descriptor_path);
     if (fdesc.fail()) {
         throw std::runtime_error(fmt::format("Error: device descriptor file {} does not exist!", device_descriptor_path));
@@ -189,6 +221,8 @@ tt_SocDescriptor::tt_SocDescriptor(std::string device_descriptor_path) {
     arch_name_value = trim(arch_name_value);
     arch = get_arch_name(arch_name_value);
     load_soc_features_from_device_descriptor(device_descriptor_yaml);
+    create_coordinate_manager(harvesting_mask);
+    perform_harvesting(harvesting_mask);
 }
 
 int tt_SocDescriptor::get_num_dram_channels() const {

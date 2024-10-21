@@ -16,9 +16,11 @@
 #include <string>
 #include <cstdint>
 
+#include "coordinate_manager.h"
 #include "tt_xy_pair.h"
 #include "device/tt_arch_types.h"
 
+#include "device/coordinate_manager.h"
 
 #include "fmt/core.h"
 
@@ -102,7 +104,8 @@ struct CoreDescriptor {
     Should only contain relevant configuration for SOC
 */
 class tt_SocDescriptor {
-    public:
+
+public:
     tt::ARCH arch;
     tt_xy_pair grid_size;
     tt_xy_pair physical_grid_size;
@@ -123,10 +126,7 @@ class tt_SocDescriptor {
     std::vector<std::size_t> trisc_sizes;  // Most of software stack assumes same trisc size for whole chip..
     std::string device_descriptor_file_path = std::string("");
     bool has(tt_xy_pair input) { return cores.find(input) != cores.end(); }
-    int overlay_version;
-    int unpacker_version;
     int dst_size_alignment;
-    int packer_version;
     int worker_l1_size;
     int eth_l1_size;
     bool noc_translation_id_enabled;
@@ -139,8 +139,9 @@ class tt_SocDescriptor {
 
     // Default constructor. Creates uninitialized object with public access to all of its attributes.
     tt_SocDescriptor() = default;
-    // Constructor used to build object from device descriptor file.
-    tt_SocDescriptor(std::string device_descriptor_path);
+    // Constructor used to build object from device descriptor file.    
+    tt_SocDescriptor(std::string device_descriptor_path, std::size_t harvesting_mask = 0);
+
     // Copy constructor
     tt_SocDescriptor(const tt_SocDescriptor& other) :
         arch(other.arch),
@@ -162,16 +163,27 @@ class tt_SocDescriptor {
         ethernet_core_channel_map(other.ethernet_core_channel_map),
         trisc_sizes(other.trisc_sizes),
         device_descriptor_file_path(other.device_descriptor_file_path),
-        overlay_version(other.overlay_version),
-        unpacker_version(other.unpacker_version),
         dst_size_alignment(other.dst_size_alignment),
-        packer_version(other.packer_version),
         worker_l1_size(other.worker_l1_size),
         eth_l1_size(other.eth_l1_size),
         noc_translation_id_enabled(other.noc_translation_id_enabled),
-        dram_bank_size(other.dram_bank_size) {
+        dram_bank_size(other.dram_bank_size),
+        coordinate_manager(other.coordinate_manager) {
     }
-    private:
+    
+    // Coordinate converters.
+    tt_physical_coords logical_to_physical_coords(tt_logical_coords logical_coords);
+    tt_translated_coords logical_to_translated_coords(tt_logical_coords logical_coords);
+    tt_logical_coords physical_to_logical_coords(tt_physical_coords physical_coords);
+    tt_translated_coords physical_to_translated_coords(tt_physical_coords physical_coords);
+    tt_virtual_coords logical_to_virtual_coords(tt_logical_coords logical_coords);
+    tt_logical_coords virtual_to_logical_coords(tt_virtual_coords virtual_coords);
+
+    void perform_harvesting(std::size_t harvesting_mask);
+
+private:
+    CoordinateManager* coordinate_manager = nullptr;
+    void create_coordinate_manager(std::size_t harvesting_mask);
     void load_core_descriptors_from_device_descriptor(YAML::Node &device_descriptor_yaml);
     void load_soc_features_from_device_descriptor(YAML::Node &device_descriptor_yaml);
 };

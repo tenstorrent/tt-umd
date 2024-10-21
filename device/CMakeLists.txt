@@ -1,4 +1,3 @@
-
 set(POSITION_INDEPENDENT_CODE ON)
 
 set(UMD_DEVICE_SRCS
@@ -15,6 +14,9 @@ set(UMD_DEVICE_SRCS
     blackhole/blackhole_implementation.cpp
     grayskull/grayskull_implementation.cpp
     wormhole/wormhole_implementation.cpp
+    coordinate_manager.cpp
+    blackhole/blackhole_coordinate_manager.cpp
+    wormhole/wormhole_coordinate_manager.cpp
     pcie/pci_device.cpp
 )
 

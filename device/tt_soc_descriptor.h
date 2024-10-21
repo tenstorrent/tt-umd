@@ -123,14 +123,17 @@ class tt_SocDescriptor {
     std::vector<std::size_t> trisc_sizes;  // Most of software stack assumes same trisc size for whole chip..
     std::string device_descriptor_file_path = std::string("");
     bool has(tt_xy_pair input) { return cores.find(input) != cores.end(); }
-    int overlay_version;
-    int unpacker_version;
     int dst_size_alignment;
-    int packer_version;
     int worker_l1_size;
     int eth_l1_size;
     bool noc_translation_id_enabled;
     uint64_t dram_bank_size;
+
+    // Vectors used to translate logical coordinates to physical and translated coordinates.
+    std::vector<size_t> logical_y_to_physical_y;
+    std::vector<size_t> logical_x_to_physical_x;
+    std::vector<size_t> logical_y_to_translated_y;
+    std::vector<size_t> logical_x_to_translated_x;
 
     int get_num_dram_channels() const;
     bool is_worker_core(const tt_xy_pair &core) const;
@@ -141,6 +144,9 @@ class tt_SocDescriptor {
     tt_SocDescriptor() = default;
     // Constructor used to build object from device descriptor file.
     tt_SocDescriptor(std::string device_descriptor_path);
+    
+    tt_SocDescriptor(std::string device_descriptor_path, std::size_t harvesting_mask);
+
     // Copy constructor
     tt_SocDescriptor(const tt_SocDescriptor& other) :
         arch(other.arch),
@@ -162,10 +168,7 @@ class tt_SocDescriptor {
         ethernet_core_channel_map(other.ethernet_core_channel_map),
         trisc_sizes(other.trisc_sizes),
         device_descriptor_file_path(other.device_descriptor_file_path),
-        overlay_version(other.overlay_version),
-        unpacker_version(other.unpacker_version),
         dst_size_alignment(other.dst_size_alignment),
-        packer_version(other.packer_version),
         worker_l1_size(other.worker_l1_size),
         eth_l1_size(other.eth_l1_size),
         noc_translation_id_enabled(other.noc_translation_id_enabled),
@@ -174,6 +177,7 @@ class tt_SocDescriptor {
     private:
     void load_core_descriptors_from_device_descriptor(YAML::Node &device_descriptor_yaml);
     void load_soc_features_from_device_descriptor(YAML::Node &device_descriptor_yaml);
+    void perform_harvesting(std::size_t harvesting_mask);
 };
 
 // Allocates a new soc descriptor on the heap. Returns an owning pointer.

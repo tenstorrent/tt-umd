@@ -19,20 +19,32 @@ else()
     FIND_AND_SET_CLANG17()
 endif()
 
-project(umd_device)
+project(
+    umd
+    VERSION 0.1.0
+    DESCRIPTION "Tenstorrent User Mode Driver"
+    HOMEPAGE_URL "https://github.com/tenstorrent/tt-umd"
+    LANGUAGES
+        CXX
+)
 
 CHECK_COMPILERS()
 
 set(MASTER_PROJECT OFF)
 if(PROJECT_SOURCE_DIR STREQUAL CMAKE_SOURCE_DIR)
     set(MASTER_PROJECT ON)
-    message("-- UMD: Building as master project")
 endif()
 
 if(MASTER_PROJECT)
+    message(STATUS "UMD: Building as master project")
     if(NOT CMAKE_BUILD_TYPE)
         message(STATUS "Setting build type to 'Release' as none was specified.")
-        set(CMAKE_BUILD_TYPE "Release" CACHE STRING "Release build is the default" FORCE)
+        set(CMAKE_BUILD_TYPE
+            "Release"
+            CACHE STRING
+            "Release build is the default"
+            FORCE
+        )
     endif()
 
     option(ENABLE_ASAN "Enable build with AddressSanitizer" OFF)
@@ -92,15 +104,16 @@ set(CMAKE_CXX_FLAGS_RELEASE "-O3")
 set(CMAKE_CXX_FLAGS_RELWITHDEBINFO "-O3 -g -DDEBUG=DEBUG")
 set(CMAKE_CXX_FLAGS_DEBUG "-O0 -g -DDEBUG=DEBUG")
 
-include(${PROJECT_SOURCE_DIR}/cmake/dependencies.cmake)
+include(dependencies)
 
 add_library(umd_common_directories INTERFACE)
 target_include_directories(umd_common_directories INTERFACE ${PROJECT_SOURCE_DIR} ${PROJECT_SOURCE_DIR}/device)
 
-add_subdirectory(${PROJECT_SOURCE_DIR}/device)
+add_subdirectory(device)
 
 option(TT_UMD_BUILD_TESTS "Enables build of tt_umd tests" OFF)
 if(TT_UMD_BUILD_TESTS)
-    add_subdirectory(${PROJECT_SOURCE_DIR}/tests)
+    add_subdirectory(tests)
 endif(TT_UMD_BUILD_TESTS)
 
+include(packaging)

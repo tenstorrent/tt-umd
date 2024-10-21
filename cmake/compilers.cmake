@@ -20,7 +20,7 @@ function(CHECK_COMPILERS)
         endif()
     elseif(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
         if(CMAKE_CXX_COMPILER_VERSION VERSION_LESS "12.0.0")
-            message(FATAL_ERROR "GCC-12 or higher is required")
+            message(WARNING "GCC-12 or higher is suggested")
         elseif(CMAKE_CXX_COMPILER_VERSION GREATER_EQUAL "13.0.0")
             message(WARNING "Only GCC-12 is tested right now")
         endif()
@@ -37,7 +37,7 @@ function(ADJUST_COMPILER_WARNINGS)
             -Wno-delete-non-abstract-non-virtual-dtor -Wno-c99-designator -Wno-shift-op-parentheses -Wno-non-c-typedef-for-linkage
             -Wno-deprecated-this-capture -Wno-deprecated-volatile -Wno-deprecated-builtins -Wno-deprecated-declarations
         )
-    else() # GCC-12 or higher
+    else() # GCC
         target_compile_options(compiler_warnings INTERFACE
             -Wno-deprecated -Wno-attributes -Wno-stringop-overread -Wno-stringop-overflow -Wno-maybe-uninitialized -Wno-missing-requires
             -Wno-narrowing -Wno-non-template-friend -Wno-error=non-template-friend

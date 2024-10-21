@@ -66,6 +66,7 @@ std::string hugepage_dir = hugepage_dir_env ? hugepage_dir_env : "/dev/hugepages
 // TLB size for DRAM on blackhole - 4GB
 const uint64_t BH_4GB_TLB_SIZE = 4ULL * 1024 * 1024 * 1024;
 
+// TODO: Remove in favor of cluster descriptor method, when it becomes available.
 // Metal uses this function to determine the architecture of the first PCIe chip
 // and then verifies that all subsequent chips are of the same architecture.  It
 // looks like Metal is doing this because we don't provide any other way... When
@@ -85,6 +86,17 @@ tt::ARCH detect_arch(int pci_device_num) {
 
     const auto info = it->second;
     return info.get_arch();
+}
+
+// TODO: Remove in favor of cluster descriptor method, when it becomes available.
+// There is also a function which just wants to get any architecture, since it
+// presumably already checked that all archs are the same.
+tt::ARCH detect_arch() {
+    const auto devices_info = PCIDevice::enumerate_devices_info();
+    if (devices_info.empty()) {
+        return tt::ARCH::Invalid;
+    }
+    return devices_info.begin()->second.get_arch();
 }
 
 template <typename T>
@@ -374,8 +386,8 @@ std::unordered_map<chip_id_t, uint32_t> tt_SiliconDevice::get_harvesting_masks_f
 }
 
 tt_SiliconDevice::tt_SiliconDevice(const std::string &sdesc_path, const std::string &ndesc_path, const std::set<chip_id_t> &target_devices, 
-                                   const uint32_t &num_host_mem_ch_per_mmio_device, const std::unordered_map<std::string, std::int32_t>& dynamic_tlb_config_, 
-                                   const bool skip_driver_allocs, const bool clean_system_resources, bool perform_harvesting, std::unordered_map<chip_id_t, uint32_t> simulated_harvesting_masks) : tt_device(sdesc_path) {
+                                   const uint32_t &num_host_mem_ch_per_mmio_device, const bool skip_driver_allocs,
+                                   const bool clean_system_resources, bool perform_harvesting, std::unordered_map<chip_id_t, uint32_t> simulated_harvesting_masks) : tt_device(sdesc_path) {
     std::unordered_set<chip_id_t> target_mmio_device_ids;
     target_devices_in_cluster = target_devices;
     arch_name = tt_SocDescriptor(sdesc_path).arch;
@@ -404,12 +416,13 @@ tt_SiliconDevice::tt_SiliconDevice(const std::string &sdesc_path, const std::str
             target_remote_chips.insert(d);
         }
     }
-    dynamic_tlb_config = dynamic_tlb_config_;
 
     // It is mandatory for all devices to have these TLBs set aside, as the driver needs them to issue remote reads and writes.
     auto architecture_implementation = tt::umd::architecture_implementation::create(static_cast<tt::umd::architecture>(arch_name));
     dynamic_tlb_config["LARGE_READ_TLB"] =  architecture_implementation->get_mem_large_read_tlb();
     dynamic_tlb_config["LARGE_WRITE_TLB"] = architecture_implementation->get_mem_large_write_tlb();
+    dynamic_tlb_config["REG_TLB"] = architecture_implementation->get_reg_tlb();
+    dynamic_tlb_config["SMALL_READ_WRITE_TLB"] = architecture_implementation->get_small_read_write_tlb();
 
     for(const auto& tlb : dynamic_tlb_config) {
         dynamic_tlb_ordering_modes.insert({tlb.first, TLB_DATA::Relaxed}); // All dynamic TLBs use Relaxed Ordering by default; MT: Good for BH

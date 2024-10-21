@@ -10,6 +10,9 @@
 #include "device/pcie/pci_device.hpp"
 #include "device/tt_cluster_descriptor.h"
 
+// TODO: Needed for detect_arch, remove when it is part of cluster descriptor.
+#include "device/tt_device.h"
+
 
 inline std::unique_ptr<tt_ClusterDescriptor> get_cluster_desc() {
 
@@ -43,6 +46,25 @@ inline std::unique_ptr<tt_ClusterDescriptor> get_cluster_desc() {
     return cluster_desc;
 }
 
+TEST(ApiTest, DetectArch) {
+    // TODO: This should be part of cluster descriptor. It is currently used like this from tt_metal.
+    tt::ARCH arch = detect_arch();
+
+    // Expect it to be invalid if no devices are found.
+    if (PCIDevice::enumerate_devices().empty()) {
+        EXPECT_EQ(arch, tt::ARCH::Invalid);
+    } else {
+        EXPECT_NE(arch, tt::ARCH::Invalid);
+
+        // TODO: This should be the only available API, previous call should be routed to this one to get any arch.
+        tt::ARCH arch2 = detect_arch(PCIDevice::enumerate_devices()[0]);
+        EXPECT_NE(arch2, tt::ARCH::Invalid);
+
+        // In our current setup, we expect all arch to be the same.
+        EXPECT_EQ(arch, arch2);
+    }
+}
+
 TEST(ApiClusterDescriptorTest, BasicFunctionality) {
 
     std::unique_ptr<tt_ClusterDescriptor> cluster_desc = get_cluster_desc();
@@ -65,6 +87,8 @@ TEST(ApiClusterDescriptorTest, BasicFunctionality) {
             remote_chips.insert(chip);
         }
     }
+
+    std::unordered_map<chip_id_t, std::unordered_set<chip_id_t>> chips_grouped_by_closest_mmio = cluster_desc->get_chips_grouped_by_closest_mmio();
 }
 
 // A standard disjoint set data structure to track connected components.

@@ -136,6 +136,39 @@ public:
      */
     tt::ARCH get_arch() const { return arch; }
 
+    /**
+     * @return whether the system is protected from this device by an IOMMU
+     * TODO: this is a placeholder -- legacy software requires either no IOMMU
+     * or IOMMU in passthrough mode.
+     */
+    bool is_behind_iommu() const { return false; }
+
+    /**
+     * Map a region of memory for DMA by the device.
+     *
+     * @param buffer    page-aligned buffer
+     * @param size      size in bytes; size % page_size == 0
+     * @return          DMA address usable by the device
+     */
+    uint64_t map_for_dma(void *buffer, size_t size);
+
+    /**
+     * Allocate memory and pin/map it for DMA by the device.
+     * 
+     * @param size size in bytes; must be a multiple of page size
+     * @param dma_addr out parameter for the DMA address
+     * @return page-aligned buffer
+     */
+    void* alloc_for_dma(size_t size, uint64_t &dma_addr);
+
+    /**
+     * TODO: KMD does not implement this.
+     * TODO: does our implementation need the dma_addr? 
+     * @param buffer buffer from alloc_for_dma.
+     * @param size size in bytes
+     */
+    void free_for_dma(void *buffer, size_t size);
+
     // Note: byte_addr is (mostly but not always) offset into BAR0.  This
     // interface assumes the caller knows what they are doing - but it's unclear
     // how to use this interface correctly without knowing details of the chip

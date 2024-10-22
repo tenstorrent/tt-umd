@@ -434,6 +434,56 @@ T* PCIDevice::get_register_address(uint32_t register_offset) {
     return reinterpret_cast<T*>(static_cast<uint8_t*>(reg_mapping) + register_offset);
 }
 
+uint64_t PCIDevice::map_for_dma(void *buffer, size_t size) {
+    static const auto page_size = sysconf(_SC_PAGESIZE);
+
+    const uint64_t vaddr = reinterpret_cast<uint64_t>(buffer);
+    const uint32_t flags = is_behind_iommu() ? 0 : TENSTORRENT_PIN_PAGES_CONTIGUOUS;
+
+    if (vaddr % page_size != 0 || size % page_size != 0) {
+        TT_THROW("Buffer must be page-aligned with a size that is a multiple of the page size");
+    }
+
+    tenstorrent_pin_pages pin_pages{};
+    pin_pages.in.output_size_bytes = sizeof(pin_pages.out);
+    pin_pages.in.flags = flags;
+    pin_pages.in.virtual_address = vaddr;
+    pin_pages.in.size = size;
+
+    if (ioctl(pci_device_file_desc, TENSTORRENT_IOCTL_PIN_PAGES, &pin_pages) == -1) {
+        TT_THROW("Failed to pin pages for DMA: {}", strerror(errno));
+    }
+
+    return pin_pages.out.physical_address;
+}
+
+void* PCIDevice::alloc_for_dma(size_t size, uint64_t &dma_addr) {
+    void *buffer;
+    int flags = MAP_PRIVATE | MAP_ANONYMOUS | MAP_POPULATE;
+
+    if (is_behind_iommu()) {
+        buffer = mmap(nullptr, size, PROT_READ | PROT_WRITE, flags, -1, 0);
+    } else {
+        flags |= MAP_HUGETLB | (30 << MAP_HUGE_SHIFT);
+        buffer = mmap(nullptr, size, PROT_READ | PROT_WRITE, flags, -1, 0);
+    }
+
+    if (buffer == MAP_FAILED) {
+        if (is_behind_iommu()) {
+            TT_THROW("Failed: {} byte buffer allocation: {}", size, strerror(errno));
+        } else {
+            TT_THROW("Failed: 1G hugepage allocation: {}", strerror(errno));
+        }
+    }
+
+    dma_addr = map_for_dma(buffer, size);
+    return buffer;
+}
+
+void PCIDevice::free_for_dma(void *buffer, size_t size) {
+    TT_THROW("Not implemented");
+}
+
 void PCIDevice::write_block(uint64_t byte_addr, uint64_t num_bytes, const uint8_t* buffer_addr) {
     void *dest = nullptr;
     if (bar4_wc != nullptr && byte_addr >= BAR0_BH_SIZE) {

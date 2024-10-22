@@ -225,6 +225,9 @@ static void log_trace_(LogTypeDevice type, std::string const& src_info, char con
     { \
         log_custom(tt::LoggerDevice::Level::Warning, type, str, ## __VA_ARGS__); \
     }
+
+// TODO: fix the logger. This is less clumsy for now.
+#define UMD_WARN(...) log_warning(tt::LogSiliconDriver, __VA_ARGS__)
     
 #define log_error(str, ...) \
     { \

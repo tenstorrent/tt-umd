@@ -149,10 +149,8 @@ class tt_SocDescriptor {
 
     // Default constructor. Creates uninitialized object with public access to all of its attributes.
     tt_SocDescriptor() = default;
-    // Constructor used to build object from device descriptor file.
-    tt_SocDescriptor(std::string device_descriptor_path);
-    
-    tt_SocDescriptor(std::string device_descriptor_path, std::size_t harvesting_mask);
+    // Constructor used to build object from device descriptor file.    
+    tt_SocDescriptor(std::string device_descriptor_path, std::size_t harvesting_mask = 0);
 
     // Copy constructor
     tt_SocDescriptor(const tt_SocDescriptor& other) :

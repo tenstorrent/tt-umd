@@ -166,36 +166,42 @@ void tt_SocDescriptor::load_core_descriptors_from_device_descriptor(YAML::Node &
 }
 
 void tt_SocDescriptor::perform_harvesting(std::size_t harvesting_mask) {
-    size_t logical_y = 0;
-    std::set<size_t> harvested_y;
-    while (harvesting_mask > 0) {
-        if (harvesting_mask & 1) {
-            harvested_y.insert(logical_y);
-        }
-        logical_y++;
-        harvesting_mask >>= 1;
-    }
-
-    std::cout << "harvested y size " << harvested_y.size() << std::endl;
-
-    size_t num_harvested_y = harvested_y.size();
-    size_t num_harvested_x = 0;
-
-    size_t grid_size_x = 8;
-    size_t grid_size_y = 10;
-
-    logical_x_to_physical_x.resize(grid_size_x - num_harvested_x);
-    logical_y_to_physical_y.resize(grid_size_y - num_harvested_y);
-
-    logical_x_to_virtual_x.resize(grid_size_x - num_harvested_x);
-    logical_y_to_virtual_y.resize(grid_size_y - num_harvested_y);
-
     std::set<size_t> physical_x_unharvested;
     std::set<size_t> physical_y_unharvested;
     for (auto core : workers) {
         physical_x_unharvested.insert(core.x);
         physical_y_unharvested.insert(core.y);
     }
+
+    std::set<std::size_t> harvested_x;
+    std::set<std::size_t> harvested_y;
+
+    std::size_t logical_y = 0;
+    std::size_t logical_x = 0;
+    while (harvesting_mask > 0) {
+        if (harvesting_mask & 1) {
+            if (arch == tt::ARCH::WORMHOLE_B0) {
+                harvested_y.insert(logical_y);
+            } else if (arch == tt::ARCH::BLACKHOLE) {
+                harvested_x.insert(logical_x);
+            }
+        }
+        logical_y++;
+        logical_x++;
+        harvesting_mask >>= 1;
+    }
+
+    std::size_t num_harvested_y = harvested_y.size();
+    std::size_t num_harvested_x = harvested_x.size();
+
+    std::size_t grid_size_x = worker_grid_size.x;
+    std::size_t grid_size_y = worker_grid_size.y;
+
+    logical_x_to_physical_x.resize(grid_size_x - num_harvested_x);
+    logical_y_to_physical_y.resize(grid_size_y - num_harvested_y);
+
+    logical_x_to_virtual_x.resize(grid_size_x - num_harvested_x);
+    logical_y_to_virtual_y.resize(grid_size_y - num_harvested_y);
 
     auto physical_y_it = physical_y_unharvested.begin();
     logical_y = 0;
@@ -214,13 +220,19 @@ void tt_SocDescriptor::perform_harvesting(std::size_t harvesting_mask) {
     }
 
     auto physical_x_it = physical_x_unharvested.begin();
+    logical_x = 0;
     for(std::size_t x = 0; x < grid_size_x; x++) {
-        logical_x_to_physical_x[x] = *physical_x_it;
-        if (physical_x_to_logical_x.find(*physical_x_it) != physical_x_to_logical_x.end()) {
-            throw std::runtime_error("Duplicate physical x coordinate found in the worker cores");
+        if (harvested_x.find(x) == harvested_x.end()) {
+            logical_x_to_physical_x[logical_x] = *physical_x_it;
+            if (physical_x_to_logical_x.find(*physical_x_it) != physical_x_to_logical_x.end()) {
+                throw std::runtime_error("Duplicate physical x coordinate found in the worker cores");
+            }
+            physical_x_to_logical_x[*physical_x_it] = logical_x;
+            logical_x++;
+            physical_x_it++;
+        } else {
+            physical_x_it++;
         }
-        physical_x_to_logical_x[*physical_x_it] = x;
-        physical_x_it++;
     }
 
     physical_y_it = physical_y_unharvested.begin();
@@ -241,26 +253,6 @@ void tt_SocDescriptor::perform_harvesting(std::size_t harvesting_mask) {
         }
         virtual_x_to_logical_x[*physical_x_it] = x;
         physical_x_it++;
-    }
-
-    std::cout << "logical to physical y mapping" << std::endl;
-    for(size_t log_y = 0; log_y < logical_y_to_physical_y.size(); log_y++) {
-        std::cout << log_y << " " << logical_y_to_physical_y[log_y] << std::endl;
-    }
-
-    std::cout << "logical to physical x mapping" << std::endl;
-    for(size_t log_x = 0; log_x < logical_x_to_physical_x.size(); log_x++) {
-        std::cout << log_x << " " << logical_x_to_physical_x[log_x] << std::endl;
-    }
-
-    std::cout << "logical to virtual y mapping" << std::endl;
-    for(size_t log_y = 0; log_y < logical_y_to_virtual_y.size(); log_y++) {
-        std::cout << log_y << " " << logical_y_to_virtual_y[log_y] << std::endl;
-    }
-
-    std::cout << "logical to virtual x mapping" << std::endl;
-    for(size_t log_x = 0; log_x < logical_x_to_virtual_x.size(); log_x++) {
-        std::cout << log_x << " " << logical_x_to_virtual_x[log_x] << std::endl;
     }
 }
 
@@ -317,31 +309,6 @@ tt_SocDescriptor::tt_SocDescriptor(std::string device_descriptor_path, std::size
     arch = get_arch_name(arch_name_value);
     load_soc_features_from_device_descriptor(device_descriptor_yaml);
     perform_harvesting(harvesting_mask);
-}
-
-tt_SocDescriptor::tt_SocDescriptor(std::string device_descriptor_path) {
-    std::ifstream fdesc(device_descriptor_path);
-    if (fdesc.fail()) {
-        throw std::runtime_error(fmt::format("Error: device descriptor file {} does not exist!", device_descriptor_path));
-    }
-    fdesc.close();
-
-    YAML::Node device_descriptor_yaml = YAML::LoadFile(device_descriptor_path);
-
-    auto grid_size_x = device_descriptor_yaml["grid"]["x_size"].as<int>();
-    auto grid_size_y = device_descriptor_yaml["grid"]["y_size"].as<int>();
-    int physical_grid_size_x = device_descriptor_yaml["physical"] && device_descriptor_yaml["physical"]["x_size"] ?
-                                device_descriptor_yaml["physical"]["x_size"].as<int>() : grid_size_x;
-    int physical_grid_size_y = device_descriptor_yaml["physical"] && device_descriptor_yaml["physical"]["y_size"] ?
-                                device_descriptor_yaml["physical"]["y_size"].as<int>() : grid_size_y;
-    load_core_descriptors_from_device_descriptor(device_descriptor_yaml);
-    grid_size = tt_xy_pair(grid_size_x, grid_size_y);
-    physical_grid_size = tt_xy_pair(physical_grid_size_x, physical_grid_size_y);
-    device_descriptor_file_path = device_descriptor_path;
-    std::string arch_name_value = device_descriptor_yaml["arch_name"].as<std::string>();
-    arch_name_value = trim(arch_name_value);
-    arch = get_arch_name(arch_name_value);
-    load_soc_features_from_device_descriptor(device_descriptor_yaml);
 }
 
 int tt_SocDescriptor::get_num_dram_channels() const {

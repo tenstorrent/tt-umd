@@ -109,9 +109,6 @@ set(CMAKE_CXX_FLAGS_DEBUG "-O0 -g -DDEBUG=DEBUG")
 
 include(dependencies)
 
-add_library(umd_common_directories INTERFACE)
-target_include_directories(umd_common_directories INTERFACE ${PROJECT_SOURCE_DIR} ${PROJECT_SOURCE_DIR}/device)
-
 add_subdirectory(device)
 
 option(TT_UMD_BUILD_TESTS "Enables build of tt_umd tests" OFF)

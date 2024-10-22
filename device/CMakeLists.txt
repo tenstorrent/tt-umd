@@ -16,8 +16,16 @@ set(UMD_DEVICE_SRCS
     pcie/pci_device.cpp
 )
 add_library(umd_device SHARED ${UMD_DEVICE_SRCS})
+target_include_directories(
+    umd_device
+    PUBLIC
+        $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}>
+        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
+        $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}/${PROJECT_NAME}>
+        $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}/${PROJECT_NAME}/device>
+)
 target_link_libraries(umd_device 
-    PUBLIC yaml-cpp::yaml-cpp umd_common_directories nng uv compiler_flags
+    PUBLIC yaml-cpp::yaml-cpp nng uv compiler_flags
     PRIVATE hwloc rt Boost::interprocess fmt
 )
 target_include_directories(umd_device PUBLIC

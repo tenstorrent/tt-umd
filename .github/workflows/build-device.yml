@@ -14,7 +14,7 @@ on:
         required: true
         description: 'The timeout for the build job in minutes'
         type: number
-      
+
 env:
   BUILD_TARGET: umd_device
   BUILD_OUTPUT_DIR: ./build
@@ -41,13 +41,13 @@ jobs:
       options: --user root
 
     steps:
-    - uses: actions/checkout@v4
-      with:
-        submodules: recursive
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
 
-    - name: Build ${{ env.BUILD_TARGET }}
-      run: |
-        echo "Compiling the code..."
-        cmake -B ${{ env.BUILD_OUTPUT_DIR }} -G Ninja
-        cmake --build ${{ env.BUILD_OUTPUT_DIR }} --target ${{ env.BUILD_TARGET }}
-        echo "Compile complete."
+      - name: Build ${{ env.BUILD_TARGET }}
+        run: |
+          echo "Compiling the code..."
+          cmake -B ${{ env.BUILD_OUTPUT_DIR }} -G Ninja
+          cmake --build ${{ env.BUILD_OUTPUT_DIR }} --target ${{ env.BUILD_TARGET }}
+          echo "Compile complete."

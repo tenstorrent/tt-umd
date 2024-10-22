@@ -14,7 +14,7 @@
 #include "device/tt_device.h"
 
 
-std::unique_ptr<tt_ClusterDescriptor> get_cluster_desc() {
+inline std::unique_ptr<tt_ClusterDescriptor> get_cluster_desc() {
 
     std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
     std::set<int> pci_device_ids_set (pci_device_ids.begin(), pci_device_ids.end());

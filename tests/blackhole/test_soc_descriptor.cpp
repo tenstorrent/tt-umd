@@ -73,13 +73,16 @@ TEST(SocDescriptorBH, SocDescriptorLogicalPhysicalMapping) {
     std::set<tt_physical_coords> physical_coords_set;
     tt_xy_pair worker_grid_size = soc_desc.worker_grid_size;
 
-    std::size_t num_harvested_y = 2;
+    std::size_t num_harvested_x = 2;
 
-    for (size_t x = 0; x < worker_grid_size.x; x++) {
-        for (size_t y = 0; y < worker_grid_size.y - num_harvested_y; y++) {
+    for (size_t x = 0; x < worker_grid_size.x - num_harvested_x; x++) {
+        for (size_t y = 0; y < worker_grid_size.y; y++) {
             tt_logical_coords logical_coords = tt_logical_coords(x, y);
             tt_physical_coords physical_coords = soc_desc.logical_to_physical_coords(logical_coords);
             logical_to_physical[logical_coords] = physical_coords;
+
+            std::cout << "logical " << x << " " << y << std::endl;
+            std::cout << "physical " << physical_coords.x << " " << physical_coords.y << std::endl; 
 
             EXPECT_EQ(physical_coords_set.count(physical_coords), 0);
             physical_coords_set.insert(physical_coords);
@@ -103,10 +106,10 @@ TEST(SocDescriptorBH, SocDescriptorLogicalVirtualMapping) {
     std::set<tt_virtual_coords> virtual_coords_set;
     tt_xy_pair worker_grid_size = soc_desc.worker_grid_size;
 
-    std::size_t num_harvested_y = 2;
+    std::size_t num_harvested_x = 2;
 
-    for (size_t x = 0; x < worker_grid_size.x; x++) {
-        for (size_t y = 0; y < worker_grid_size.y - num_harvested_y; y++) {
+    for (size_t x = 0; x < worker_grid_size.x - num_harvested_x; x++) {
+        for (size_t y = 0; y < worker_grid_size.y; y++) {
             tt_logical_coords logical_coords = tt_logical_coords(x, y);
             tt_virtual_coords virtual_coords = soc_desc.logical_to_virtual_coords(logical_coords);
             logical_to_virtual[logical_coords] = virtual_coords;

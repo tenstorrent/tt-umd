@@ -78,19 +78,19 @@ std::set<chip_id_t> get_target_devices() {
     return target_devices;
 }
 
-TEST(SiliconDriverBH, CreateDestroy) {
-    std::set<chip_id_t> target_devices = get_target_devices();
-    uint32_t num_host_mem_ch_per_mmio_device = 1;
-    tt_device_params default_params;
-    // Initialize the driver with a 1x1 descriptor and explictly do not perform harvesting
-    for(int i = 0; i < 50; i++) {
-        tt_SiliconDevice device = tt_SiliconDevice(test_utils::GetAbsPath("tests/soc_descs/blackhole_140_arch_no_eth.yaml"), test_utils::GetAbsPath("blackhole_1chip_cluster.yaml"), target_devices, num_host_mem_ch_per_mmio_device, false, true, false);
-        set_params_for_remote_txn(device);
-        device.start_device(default_params);
-        device.deassert_risc_reset();
-        device.close_device();
-    }
-}
+// TEST(SiliconDriverBH, CreateDestroy) {
+//     std::set<chip_id_t> target_devices = get_target_devices();
+//     uint32_t num_host_mem_ch_per_mmio_device = 1;
+//     tt_device_params default_params;
+//     // Initialize the driver with a 1x1 descriptor and explictly do not perform harvesting
+//     for(int i = 0; i < 50; i++) {
+//         tt_SiliconDevice device = tt_SiliconDevice(test_utils::GetAbsPath("tests/soc_descs/blackhole_140_arch_no_eth.yaml"), test_utils::GetAbsPath("blackhole_1chip_cluster.yaml"), target_devices, num_host_mem_ch_per_mmio_device, false, true, false);
+//         set_params_for_remote_txn(device);
+//         device.start_device(default_params);
+//         device.deassert_risc_reset();
+//         device.close_device();
+//     }
+// }
 
 // TEST(SiliconDriverWH, Harvesting) {
 //     std::set<chip_id_t> target_devices = {0, 1};

@@ -283,7 +283,7 @@ void tt_SiliconDevice::initialize_interprocess_mutexes(int pci_interface_id, boo
     if (cleanup_mutexes_in_shm) named_mutex::remove(mutex_name.c_str());
     hardware_resource_mutex_map[mutex_name] = std::make_shared<named_mutex>(open_or_create, mutex_name.c_str(), unrestricted_permissions);
 
-    if (arch_name == tt::ARCH::WORMHOLE or arch_name == tt::ARCH::WORMHOLE_B0) {
+    if (arch_name == tt::ARCH::WORMHOLE_B0) {
         mutex_name = NON_MMIO_MUTEX_NAME + std::to_string(pci_interface_id);
         // Initialize non-MMIO mutexes for WH devices regardless of number of chips, since these may be used for ethernet broadcast
         if (cleanup_mutexes_in_shm) named_mutex::remove(mutex_name.c_str());
@@ -435,7 +435,7 @@ tt_SiliconDevice::tt_SiliconDevice(const std::string &sdesc_path, const std::str
         use_virtual_coords_for_eth_broadcast = false;
     }
 
-    if(arch_name == tt::ARCH::WORMHOLE or arch_name == tt::ARCH::WORMHOLE_B0) {
+    if(arch_name == tt::ARCH::WORMHOLE_B0) {
         const auto& harvesting_masks = ndesc -> get_harvesting_info();
         const auto& noc_translation_enabled = ndesc -> get_noc_translation_table_en();
 
@@ -501,7 +501,7 @@ tt_SiliconDevice::tt_SiliconDevice(const std::string &sdesc_path, const std::str
                 }
                 simulated_harvesting_masks.at(*device_id) |= harvested_rows_per_target[*device_id];
             }
-            else if(arch_name == tt::ARCH::WORMHOLE_B0 || arch_name == tt::ARCH::WORMHOLE) {
+            else if(arch_name == tt::ARCH::WORMHOLE_B0) {
                 log_assert(std::bitset<32>(simulated_harvesting_masks.at(*device_id)).count() >= std::bitset<32>(harvested_rows_per_target[*device_id]).count(),
                             "Simulated Harvesting for WH must contain at least as many rows as the actual harvesting config. Actual Harvested Rows : {}  Simulated Harvested Rows : {}",
                             harvested_rows_per_target[*device_id], simulated_harvesting_masks.at(*device_id));
@@ -516,7 +516,7 @@ tt_SiliconDevice::tt_SiliconDevice(const std::string &sdesc_path, const std::str
     populate_cores();
 
     // MT: Initial BH - skip this for BH
-    if(arch_name == tt::ARCH::WORMHOLE or arch_name == tt::ARCH::WORMHOLE_B0) {
+    if(arch_name == tt::ARCH::WORMHOLE_B0) {
         remote_transfer_ethernet_cores.resize(target_mmio_device_ids.size());
         for (const auto &logical_mmio_chip_id : target_mmio_device_ids) {
             const tt_SocDescriptor& soc_desc = get_soc_descriptor(logical_mmio_chip_id);
@@ -582,7 +582,7 @@ std::vector<int> tt_SiliconDevice::extract_rows_to_remove(const tt::ARCH &arch, 
         tmp = tmp >> 1;
         row_coordinate++;
     }
-    if (arch == tt::ARCH::WORMHOLE || arch == tt::ARCH::WORMHOLE_B0) {
+    if (arch == tt::ARCH::WORMHOLE_B0) {
         // For Wormhole, we always remove the last few rows in the SOC descriptor in case of harvesting
         for (int i = 0; i < row_coordinates_to_remove.size(); i++) {
             row_coordinates_to_remove[i] = worker_grid_rows - i;
@@ -646,8 +646,8 @@ void tt_SiliconDevice::check_pcie_device_initialized(int device_id) {
             throw std::runtime_error(fmt::format("Attempted to run grayskull configured tt_device on {}", get_arch_str(device_arch)));
         }
     }
-    else if (arch_name == tt::ARCH::WORMHOLE || arch_name == tt::ARCH::WORMHOLE_B0) {
-        if (device_arch != tt::ARCH::WORMHOLE && device_arch != tt::ARCH::WORMHOLE_B0) {
+    else if (arch_name == tt::ARCH::WORMHOLE_B0) {
+        if (device_arch != tt::ARCH::WORMHOLE_B0) {
             throw std::runtime_error(fmt::format("Attempted to run wormhole configured tt_device on {}", get_arch_str(device_arch)));
         }
     }
@@ -1419,7 +1419,7 @@ int tt_SiliconDevice::test_setup_interface () {
         ret_val = (regval != 0xffffffff && ((regval & 0x1) == 1)) ? 0 : 1;
         return ret_val;
     }
-    else if (arch_name == tt::ARCH::WORMHOLE || arch_name == tt::ARCH::WORMHOLE_B0) {
+    else if (arch_name == tt::ARCH::WORMHOLE_B0) {
         int ret_val = 0;
         PCIDevice *dev = m_pci_device_map.begin()->second.get();
 
@@ -2113,7 +2113,7 @@ void tt_SiliconDevice::wait_for_connected_non_mmio_flush(const chip_id_t chip_id
             return;
         }
 
-        if (arch_name == tt::ARCH::WORMHOLE || arch_name == tt::ARCH::WORMHOLE_B0) {
+        if (arch_name == tt::ARCH::WORMHOLE_B0) {
             std::vector<std::uint32_t> erisc_txn_counters = std::vector<uint32_t>(2);
             std::vector<std::uint32_t> erisc_q_ptrs = std::vector<uint32_t>(eth_interface_params.remote_update_ptr_size_bytes*2 / sizeof(uint32_t));
 
@@ -2789,7 +2789,6 @@ void tt_SiliconDevice::enable_ethernet_queue(int timeout) {
         auto arch = get_soc_descriptor(chip).arch;
 
          switch (arch) {
-            case tt::ARCH::WORMHOLE:
             case tt::ARCH::WORMHOLE_B0: {
                 if (ndesc->is_chip_mmio_capable(chip)) {
                     enable_local_ethernet_queue(chip, timeout);
@@ -2879,7 +2878,7 @@ void tt_SiliconDevice::start_device(const tt_device_params &device_params) {
     if(device_params.init_device) {
         initialize_pcie_devices();
         // MT Initial BH - Ethernet firmware not present in Blackhole
-        if(arch_name == tt::ARCH::WORMHOLE || arch_name == tt::ARCH::WORMHOLE_B0) {
+        if(arch_name == tt::ARCH::WORMHOLE_B0) {
             verify_eth_fw();
         }
         deassert_resets_and_set_power_state();
@@ -2941,7 +2940,7 @@ std::uint32_t tt_SiliconDevice::get_numa_node_for_pcie_device(std::uint32_t devi
 std::uint64_t tt_SiliconDevice::get_pcie_base_addr_from_device(const chip_id_t chip_id) const {
     // TODO: Should probably be lowered to TTDevice.
     tt::ARCH arch = get_soc_descriptor(chip_id).arch;
-    if(arch == tt::ARCH::WORMHOLE or arch == tt::ARCH::WORMHOLE_B0) {
+    if(arch == tt::ARCH::WORMHOLE_B0) {
         return 0x800000000;
     }
     else if (arch == tt::ARCH::BLACKHOLE) {
@@ -2954,7 +2953,7 @@ std::uint64_t tt_SiliconDevice::get_pcie_base_addr_from_device(const chip_id_t c
 }
 
 tt_version tt_SiliconDevice::get_ethernet_fw_version() const {
-    log_assert(arch_name == tt::ARCH::WORMHOLE or arch_name == tt::ARCH::WORMHOLE_B0, "Can only get Ethernet FW version for Wormhole architectures.");
+    log_assert(arch_name == tt::ARCH::WORMHOLE_B0, "Can only get Ethernet FW version for Wormhole architectures.");
     log_assert(eth_fw_version.major != 0xffff and eth_fw_version.minor != 0xff and eth_fw_version.patch != 0xff, "Device must be started before querying Ethernet FW version.");
     return eth_fw_version;
 }

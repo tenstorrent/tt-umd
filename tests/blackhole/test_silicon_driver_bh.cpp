@@ -345,12 +345,12 @@ TEST(SiliconDriverBH, DynamicTLB_RW) {
         std::uint32_t address = l1_mem::address_map::NCRISC_FIRMWARE_BASE;
         for(int loop = 0; loop < 100; loop++){ // Write to each core a 100 times at different statically mapped addresses
             for(auto& core : device.get_virtual_soc_descriptors().at(i).workers) {
-                device.write_to_device(vector_to_write.data(), vector_to_write.size() * sizeof(std::uint32_t), tt_cxy_pair(i, core), address, "DYNAMIC_TLB_BASE_INDEX");
+                device.write_to_device(vector_to_write.data(), vector_to_write.size() * sizeof(std::uint32_t), tt_cxy_pair(i, core), address, "SMALL_READ_WRITE_TLB");
                 device.wait_for_non_mmio_flush(); // Barrier to ensure that all writes over ethernet were commited
-                test_utils::read_data_from_device(device, readback_vec, tt_cxy_pair(i, core), address, 40, "DYNAMIC_TLB_BASE_INDEX");
+                test_utils::read_data_from_device(device, readback_vec, tt_cxy_pair(i, core), address, 40, "SMALL_READ_WRITE_TLB");
                 ASSERT_EQ(vector_to_write, readback_vec) << "Vector read back from core " << core.x << "-" << core.y << "does not match what was written";
                 device.wait_for_non_mmio_flush();
-                device.write_to_device(zeros.data(), zeros.size() * sizeof(std::uint32_t), tt_cxy_pair(i, core), address, "DYNAMIC_TLB_BASE_INDEX");
+                device.write_to_device(zeros.data(), zeros.size() * sizeof(std::uint32_t), tt_cxy_pair(i, core), address, "SMALL_READ_WRITE_TLB");
                 device.wait_for_non_mmio_flush();
                 readback_vec = {};
             }
@@ -368,12 +368,12 @@ TEST(SiliconDriverBH, DynamicTLB_RW) {
             for (int ch=0; ch<NUM_CHANNELS; ch++) {
                 std::vector<tt_xy_pair> chan = device.get_virtual_soc_descriptors().at(i).dram_cores.at(ch);
                 tt_xy_pair subchan = chan.at(0);
-                device.write_to_device(vector_to_write.data(), vector_to_write.size() * sizeof(std::uint32_t), tt_cxy_pair(i, subchan), address, "DYNAMIC_TLB_BASE_INDEX");
+                device.write_to_device(vector_to_write.data(), vector_to_write.size() * sizeof(std::uint32_t), tt_cxy_pair(i, subchan), address, "SMALL_READ_WRITE_TLB");
                 device.wait_for_non_mmio_flush(); // Barrier to ensure that all writes over ethernet were commited
-                test_utils::read_data_from_device(device, readback_vec, tt_cxy_pair(i, subchan), address, 40, "DYNAMIC_TLB_BASE_INDEX");
+                test_utils::read_data_from_device(device, readback_vec, tt_cxy_pair(i, subchan), address, 40, "SMALL_READ_WRITE_TLB");
                 ASSERT_EQ(vector_to_write, readback_vec) << "Vector read back from core " << subchan.x << "-" << subchan.y << "does not match what was written";
                 device.wait_for_non_mmio_flush();
-                device.write_to_device(zeros.data(), zeros.size() * sizeof(std::uint32_t), tt_cxy_pair(i, subchan), address, "DYNAMIC_TLB_BASE_INDEX");
+                device.write_to_device(zeros.data(), zeros.size() * sizeof(std::uint32_t), tt_cxy_pair(i, subchan), address, "SMALL_READ_WRITE_TLB");
                 device.wait_for_non_mmio_flush();
                 readback_vec = {};
                 address += 0x20; // Increment by uint32_t size for each write

@@ -25,13 +25,8 @@ target_include_directories(
         $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}/${PROJECT_NAME}/device>
 )
 target_link_libraries(umd_device 
-    PUBLIC yaml-cpp::yaml-cpp nng uv
+    PUBLIC yaml-cpp::yaml-cpp nng uv flatbuffers
     PRIVATE hwloc rt Boost::interprocess fmt::fmt-header-only
-)
-target_include_directories(umd_device PUBLIC
-    ${flatbuffers_SOURCE_DIR}/include
-    ${nanomsg_SOURCE_DIR}/include
-    ${libuv_SOURCE_DIR}/include
 )
 set_target_properties(umd_device PROPERTIES 
     OUTPUT_NAME device

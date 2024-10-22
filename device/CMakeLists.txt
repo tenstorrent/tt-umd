@@ -25,7 +25,7 @@ target_include_directories(
         $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}/${PROJECT_NAME}/device>
 )
 target_link_libraries(umd_device 
-    PUBLIC yaml-cpp::yaml-cpp nng uv compiler_flags
+    PUBLIC yaml-cpp::yaml-cpp nng uv
     PRIVATE hwloc rt Boost::interprocess fmt::fmt-header-only
 )
 target_include_directories(umd_device PUBLIC

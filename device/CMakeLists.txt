@@ -26,7 +26,7 @@ target_include_directories(
 )
 target_link_libraries(umd_device 
     PUBLIC yaml-cpp::yaml-cpp nng uv compiler_flags
-    PRIVATE hwloc rt Boost::interprocess fmt
+    PRIVATE hwloc rt Boost::interprocess fmt::fmt-header-only
 )
 target_include_directories(umd_device PUBLIC
     ${flatbuffers_SOURCE_DIR}/include

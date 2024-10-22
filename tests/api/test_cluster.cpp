@@ -106,7 +106,7 @@ inline std::unique_ptr<Cluster> get_cluster() {
     std::string soc_path;
     if (device_arch == tt::ARCH::GRAYSKULL) {
         soc_path = test_utils::GetAbsPath("tests/soc_descs/grayskull_10x12.yaml");
-    } else if (device_arch == tt::ARCH::WORMHOLE || device_arch == tt::ARCH::WORMHOLE_B0) {
+    } else if (device_arch == tt::ARCH::WORMHOLE) {
         soc_path = test_utils::GetAbsPath("tests/soc_descs/wormhole_b0_8x10.yaml");
     } else if (device_arch == tt::ARCH::BLACKHOLE) {
         soc_path = test_utils::GetAbsPath("tests/soc_descs/blackhole_140_arch_no_eth.yaml");
@@ -124,7 +124,7 @@ inline std::unique_ptr<Cluster> get_cluster() {
 void setup_wormhole_remote(Cluster* umd_cluster) {
     if (!umd_cluster->get_target_remote_device_ids().empty() &&
         umd_cluster->get_soc_descriptor(*umd_cluster->get_all_chips_in_cluster().begin()).arch ==
-            tt::ARCH::WORMHOLE_B0) {
+            tt::ARCH::WORMHOLE) {
         // Populate address map and NOC parameters that the driver needs for remote transactions
         umd_cluster->set_driver_host_address_params(
             {host_mem::address_map::ETH_ROUTING_BLOCK_SIZE, host_mem::address_map::ETH_ROUTING_BUFFERS_START});
@@ -195,7 +195,7 @@ TEST(ApiClusterTest, SimpleIOAllChips) {
         tt_xy_pair any_core = soc_desc.workers[0];
         tt_cxy_pair any_core_global(chip_id, any_core);
 
-        if (cluster_desc->is_chip_remote(chip_id) && soc_desc.arch != tt::ARCH::WORMHOLE_B0) {
+        if (cluster_desc->is_chip_remote(chip_id) && soc_desc.arch != tt::ARCH::WORMHOLE) {
             std::cout << "Skipping remote chip " << chip_id << " because it is not a wormhole_b0 chip." << std::endl;
             continue;
         }
@@ -213,7 +213,7 @@ TEST(ApiClusterTest, SimpleIOAllChips) {
         tt_xy_pair any_core = soc_desc.workers[0];
         tt_cxy_pair any_core_global(chip_id, any_core);
 
-        if (cluster_desc->is_chip_remote(chip_id) && soc_desc.arch != tt::ARCH::WORMHOLE_B0) {
+        if (cluster_desc->is_chip_remote(chip_id) && soc_desc.arch != tt::ARCH::WORMHOLE) {
             std::cout << "Skipping remote chip " << chip_id << " because it is not a wormhole_b0 chip." << std::endl;
             continue;
         }
@@ -254,7 +254,7 @@ TEST(ApiClusterTest, RemoteFlush) {
             continue;
         }
 
-        if (soc_desc.arch != tt::ARCH::WORMHOLE_B0) {
+        if (soc_desc.arch != tt::ARCH::WORMHOLE) {
             std::cout << "Skipping remote chip " << chip_id << " because it is not a wormhole_b0 chip." << std::endl;
             continue;
         }
@@ -273,7 +273,7 @@ TEST(ApiClusterTest, RemoteFlush) {
     const tt_SocDescriptor& soc_desc = umd_cluster->get_soc_descriptor(any_remote_chip);
     tt_xy_pair any_core = soc_desc.workers[0];
     tt_cxy_pair any_core_global(any_remote_chip, any_core);
-    if (soc_desc.arch != tt::ARCH::WORMHOLE_B0) {
+    if (soc_desc.arch != tt::ARCH::WORMHOLE) {
         std::cout << "Skipping whole cluster wait because it is not a wormhole_b0 chip." << std::endl;
         return;
     }

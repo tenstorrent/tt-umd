@@ -743,11 +743,3 @@ std::set<chip_id_t> get_target_devices() {
 //  8               1-10,  2-10,  3-10,  4-10,  6-10,  7-10,  8-10,  9-10, # Row 9                        24
 //  9               1-11,  2-11,  3-11,  4-11,  6-11,  7-11,  8-11,  9-11, # Row 10                       25
 //  ]
-
-
-// TEST(SiliconDriverWH, SocDescHarvestingInfo) {
-//     for (size_t harvesting_mask = 0; harvesting_mask < 5; harvesting_mask++) {
-//         std::cout << "harvesting mask is " << harvesting_mask << std::endl;
-//         tt_SocDescriptor soc_desc = tt_SocDescriptor(test_utils::GetAbsPath("tests/soc_descs/wormhole_b0_8x10.yaml"), harvesting_mask);
-//     }
-// }

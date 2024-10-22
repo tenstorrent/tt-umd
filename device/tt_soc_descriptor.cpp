@@ -264,7 +264,7 @@ void tt_SocDescriptor::perform_harvesting(std::size_t harvesting_mask) {
     }
 }
 
-tt_physical_coords tt_SocDescriptor::logical_to_physical_coords(tt_logical_coords logical_coords) const {
+tt_physical_coords tt_SocDescriptor::logical_to_physical_coords(tt_logical_coords logical_coords) {
     // log_assert(logical_coords.x < logical_x_to_physical_x.size());
     // log_assert(logical_coords.y < logical_y_to_physical_y.size());
     return tt_physical_coords(logical_x_to_physical_x[logical_coords.x], logical_y_to_physical_y[logical_coords.y]);
@@ -272,21 +272,25 @@ tt_physical_coords tt_SocDescriptor::logical_to_physical_coords(tt_logical_coord
 
 // TODO(pjanevski): is it enough just to add 18 to the logical coordinates
 // in order to get the translated coordinates?
-tt_translated_coords tt_SocDescriptor::logical_to_translated_coords(tt_logical_coords logical_coords) const {
+tt_translated_coords tt_SocDescriptor::logical_to_translated_coords(tt_logical_coords logical_coords) {
     static const std::size_t translated_offset = 18;
     return tt_translated_coords(logical_coords.x + translated_offset, logical_coords.y + translated_offset);
 }
 
-tt_logical_coords tt_SocDescriptor::physical_to_logical_coords(tt_physical_coords physical_coords) const {
-    return tt_logical_coords(0, 0);
+tt_logical_coords tt_SocDescriptor::physical_to_logical_coords(tt_physical_coords physical_coords) {
+    return tt_logical_coords(physical_x_to_logical_x[physical_coords.x], physical_y_to_logical_y[physical_coords.y]);
 }
 
-tt_translated_coords tt_SocDescriptor::physical_to_translated_coords(tt_physical_coords physical_coords) const {
+tt_translated_coords tt_SocDescriptor::physical_to_translated_coords(tt_physical_coords physical_coords) {
     return tt_translated_coords(0, 0);
 }
 
-tt_virtual_coords tt_SocDescriptor::logical_to_virtual_coords(tt_logical_coords logical_coords) const {
+tt_virtual_coords tt_SocDescriptor::logical_to_virtual_coords(tt_logical_coords logical_coords) {
     return tt_virtual_coords(logical_x_to_virtual_x[logical_coords.x], logical_y_to_virtual_y[logical_coords.y]);
+}
+
+tt_logical_coords tt_SocDescriptor::virtual_to_logical_coords(tt_virtual_coords virtual_coords) {
+    return tt_logical_coords(virtual_x_to_logical_x[virtual_coords.x], virtual_y_to_logical_y[virtual_coords.y]);
 }
 
 tt_SocDescriptor::tt_SocDescriptor(std::string device_descriptor_path, std::size_t harvesting_mask) {

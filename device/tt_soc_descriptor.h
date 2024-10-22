@@ -183,11 +183,12 @@ class tt_SocDescriptor {
     }
     
     // Coordinate converters.
-    tt_physical_coords logical_to_physical_coords(tt_logical_coords logical_coords) const;
-    tt_translated_coords logical_to_translated_coords(tt_logical_coords logical_coords) const;
-    tt_logical_coords physical_to_logical_coords(tt_physical_coords physical_coords) const;
-    tt_translated_coords physical_to_translated_coords(tt_physical_coords physical_coords) const;
-    tt_virtual_coords logical_to_virtual_coords(tt_logical_coords logical_coords) const;
+    tt_physical_coords logical_to_physical_coords(tt_logical_coords logical_coords);
+    tt_translated_coords logical_to_translated_coords(tt_logical_coords logical_coords);
+    tt_logical_coords physical_to_logical_coords(tt_physical_coords physical_coords);
+    tt_translated_coords physical_to_translated_coords(tt_physical_coords physical_coords);
+    tt_virtual_coords logical_to_virtual_coords(tt_logical_coords logical_coords);
+    tt_logical_coords virtual_to_logical_coords(tt_virtual_coords virtual_coords);
 
     private:
     void load_core_descriptors_from_device_descriptor(YAML::Node &device_descriptor_yaml);

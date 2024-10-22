@@ -49,7 +49,7 @@ inline std::unique_ptr<tt_ClusterDescriptor> get_cluster_desc() {
     return cluster_desc;
 }
 
-TEST(ApiTest, DetectArch) {
+TEST(ApiClusterDescriptorTest, DetectArch) {
     // TODO: This should be part of cluster descriptor. It is currently used like this from tt_metal.
     tt::ARCH arch = detect_arch();
 

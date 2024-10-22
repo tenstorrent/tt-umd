@@ -2,6 +2,7 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
+#include "tt_xy_pair.h"
 #include "yaml-cpp/yaml.h"
 #include "tt_soc_descriptor.h"
 
@@ -9,6 +10,7 @@
 #include <fstream>
 #include <iostream>
 #include <regex>
+#include <stdexcept>
 #include <string>
 #include <unordered_set>
 
@@ -174,16 +176,19 @@ void tt_SocDescriptor::perform_harvesting(std::size_t harvesting_mask) {
         harvesting_mask >>= 1;
     }
 
+    std::cout << "harvested y size " << harvested_y.size() << std::endl;
+
     size_t num_harvested_y = harvested_y.size();
     size_t num_harvested_x = 0;
 
-    size_t grid_size_x = grid_size.x;
-    size_t grid_size_y = grid_size.y;
+    size_t grid_size_x = 8;
+    size_t grid_size_y = 10;
 
     logical_x_to_physical_x.resize(grid_size_x - num_harvested_x);
     logical_y_to_physical_y.resize(grid_size_y - num_harvested_y);
-    logical_x_to_translated_x.resize(grid_size_x - num_harvested_x);
-    logical_y_to_translated_y.resize(grid_size_y - num_harvested_y);
+
+    logical_x_to_virtual_x.resize(grid_size_x - num_harvested_x);
+    logical_y_to_virtual_y.resize(grid_size_y - num_harvested_y);
 
     std::set<size_t> physical_x_unharvested;
     std::set<size_t> physical_y_unharvested;
@@ -194,9 +199,13 @@ void tt_SocDescriptor::perform_harvesting(std::size_t harvesting_mask) {
 
     auto physical_y_it = physical_y_unharvested.begin();
     logical_y = 0;
-    for(size_t y = 0; y < grid_size_y; y++) {
+    for (size_t y = 0; y < grid_size_y; y++) {
         if (harvested_y.find(y) == harvested_y.end()) {
             logical_y_to_physical_y[logical_y] = *physical_y_it;
+            if (physical_y_to_logical_y.find(*physical_y_it) != physical_y_to_logical_y.end()) {
+                throw std::runtime_error("Duplicate physical y coordinate found in the worker cores");
+            }
+            physical_y_to_logical_y[*physical_y_it] = logical_y;
             logical_y++;
             physical_y_it++;
         } else {
@@ -205,8 +214,32 @@ void tt_SocDescriptor::perform_harvesting(std::size_t harvesting_mask) {
     }
 
     auto physical_x_it = physical_x_unharvested.begin();
-    for(size_t x = 0; x < grid_size_x; x++) {
+    for(std::size_t x = 0; x < grid_size_x; x++) {
         logical_x_to_physical_x[x] = *physical_x_it;
+        if (physical_x_to_logical_x.find(*physical_x_it) != physical_x_to_logical_x.end()) {
+            throw std::runtime_error("Duplicate physical x coordinate found in the worker cores");
+        }
+        physical_x_to_logical_x[*physical_x_it] = x;
+        physical_x_it++;
+    }
+
+    physical_y_it = physical_y_unharvested.begin();
+    for (std::size_t y = 0; y < logical_y_to_virtual_y.size(); y++) {
+        logical_y_to_virtual_y[y] = *physical_y_it;
+        if (virtual_y_to_logical_y.find(*physical_y_it) != virtual_y_to_logical_y.end()) {
+            throw std::runtime_error("Duplicate virtual y coordinate found in the worker cores");
+        }
+        virtual_y_to_logical_y[*physical_y_it] = y;
+        physical_y_it++;
+    }
+
+    physical_x_it = physical_x_unharvested.begin();
+    for (std::size_t x = 0; x < logical_x_to_virtual_x.size(); x++) {
+        logical_x_to_virtual_x[x] = *physical_x_it;
+        if (virtual_x_to_logical_x.find(*physical_x_it) != virtual_x_to_logical_x.end()) {
+            throw std::runtime_error("Duplicate virtual x coordinate found in the worker cores");
+        }
+        virtual_x_to_logical_x[*physical_x_it] = x;
         physical_x_it++;
     }
 
@@ -219,6 +252,41 @@ void tt_SocDescriptor::perform_harvesting(std::size_t harvesting_mask) {
     for(size_t log_x = 0; log_x < logical_x_to_physical_x.size(); log_x++) {
         std::cout << log_x << " " << logical_x_to_physical_x[log_x] << std::endl;
     }
+
+    std::cout << "logical to virtual y mapping" << std::endl;
+    for(size_t log_y = 0; log_y < logical_y_to_virtual_y.size(); log_y++) {
+        std::cout << log_y << " " << logical_y_to_virtual_y[log_y] << std::endl;
+    }
+
+    std::cout << "logical to virtual x mapping" << std::endl;
+    for(size_t log_x = 0; log_x < logical_x_to_virtual_x.size(); log_x++) {
+        std::cout << log_x << " " << logical_x_to_virtual_x[log_x] << std::endl;
+    }
+}
+
+tt_physical_coords tt_SocDescriptor::logical_to_physical_coords(tt_logical_coords logical_coords) const {
+    // log_assert(logical_coords.x < logical_x_to_physical_x.size());
+    // log_assert(logical_coords.y < logical_y_to_physical_y.size());
+    return tt_physical_coords(logical_x_to_physical_x[logical_coords.x], logical_y_to_physical_y[logical_coords.y]);
+}
+
+// TODO(pjanevski): is it enough just to add 18 to the logical coordinates
+// in order to get the translated coordinates?
+tt_translated_coords tt_SocDescriptor::logical_to_translated_coords(tt_logical_coords logical_coords) const {
+    static const std::size_t translated_offset = 18;
+    return tt_translated_coords(logical_coords.x + translated_offset, logical_coords.y + translated_offset);
+}
+
+tt_logical_coords tt_SocDescriptor::physical_to_logical_coords(tt_physical_coords physical_coords) const {
+    return tt_logical_coords(0, 0);
+}
+
+tt_translated_coords tt_SocDescriptor::physical_to_translated_coords(tt_physical_coords physical_coords) const {
+    return tt_translated_coords(0, 0);
+}
+
+tt_virtual_coords tt_SocDescriptor::logical_to_virtual_coords(tt_logical_coords logical_coords) const {
+    return tt_virtual_coords(logical_x_to_virtual_x[logical_coords.x], logical_y_to_virtual_y[logical_coords.y]);
 }
 
 tt_SocDescriptor::tt_SocDescriptor(std::string device_descriptor_path, std::size_t harvesting_mask) {

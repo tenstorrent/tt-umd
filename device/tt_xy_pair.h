@@ -19,5 +19,8 @@ using tt_chip_physical_coords = tt::umd::cxy_pair;
 using tt_logical_coords = tt::umd::xy_pair;
 using tt_chip_logical_coords = tt::umd::cxy_pair;
 
+using tt_virtual_coords = tt::umd::xy_pair;
+using tt_chip_virtual_coords = tt::umd::cxy_pair;
+
 using tt_translated_coords = tt::umd::xy_pair;
 using tt_chip_translated_coords = tt::umd::cxy_pair;

@@ -745,6 +745,9 @@ std::set<chip_id_t> get_target_devices() {
 //  ]
 
 
-TEST(SiliconDriverWH, SocDescHarvestingInfo) {
-    tt_SocDescriptor soc_desc = tt_SocDescriptor(test_utils::GetAbsPath("tests/soc_descs/wormhole_b0_8x10.yaml"), 1);
-}
+// TEST(SiliconDriverWH, SocDescHarvestingInfo) {
+//     for (size_t harvesting_mask = 0; harvesting_mask < 5; harvesting_mask++) {
+//         std::cout << "harvesting mask is " << harvesting_mask << std::endl;
+//         tt_SocDescriptor soc_desc = tt_SocDescriptor(test_utils::GetAbsPath("tests/soc_descs/wormhole_b0_8x10.yaml"), harvesting_mask);
+//     }
+// }

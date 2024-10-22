@@ -130,10 +130,17 @@ class tt_SocDescriptor {
     uint64_t dram_bank_size;
 
     // Vectors used to translate logical coordinates to physical and translated coordinates.
-    std::vector<size_t> logical_y_to_physical_y;
-    std::vector<size_t> logical_x_to_physical_x;
-    std::vector<size_t> logical_y_to_translated_y;
-    std::vector<size_t> logical_x_to_translated_x;
+    std::map<std::size_t, std::size_t> physical_y_to_logical_y;
+    std::map<std::size_t, std::size_t> physical_x_to_logical_x;
+
+    std::vector<std::size_t> logical_y_to_physical_y;
+    std::vector<std::size_t> logical_x_to_physical_x;
+
+    std::vector<std::size_t> logical_y_to_virtual_y;
+    std::vector<std::size_t> logical_x_to_virtual_x;
+
+    std::map<std::size_t, std::size_t> virtual_y_to_logical_y;
+    std::map<std::size_t, std::size_t> virtual_x_to_logical_x;
 
     int get_num_dram_channels() const;
     bool is_worker_core(const tt_xy_pair &core) const;
@@ -174,6 +181,14 @@ class tt_SocDescriptor {
         noc_translation_id_enabled(other.noc_translation_id_enabled),
         dram_bank_size(other.dram_bank_size) {
     }
+    
+    // Coordinate converters.
+    tt_physical_coords logical_to_physical_coords(tt_logical_coords logical_coords) const;
+    tt_translated_coords logical_to_translated_coords(tt_logical_coords logical_coords) const;
+    tt_logical_coords physical_to_logical_coords(tt_physical_coords physical_coords) const;
+    tt_translated_coords physical_to_translated_coords(tt_physical_coords physical_coords) const;
+    tt_virtual_coords logical_to_virtual_coords(tt_logical_coords logical_coords) const;
+
     private:
     void load_core_descriptors_from_device_descriptor(YAML::Node &device_descriptor_yaml);
     void load_soc_features_from_device_descriptor(YAML::Node &device_descriptor_yaml);

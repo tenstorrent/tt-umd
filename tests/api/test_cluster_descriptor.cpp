@@ -8,6 +8,8 @@
 #include <vector>
 #include <unordered_map>
 
+#include "device/tt_cluster_descriptor.h" // For chip_id_t
+
 #include "tests/test_utils/generate_cluster_desc.hpp"
 
 #include "device/pcie/pci_device.hpp"

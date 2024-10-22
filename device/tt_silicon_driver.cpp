@@ -40,11 +40,12 @@
 #include "yaml-cpp/yaml.h"
 #include "common/logger.hpp"
 
-#include "device/cpuset_lib.hpp"
 #include "device/driver_atomics.h"
 #include "device/architecture_implementation.h"
 #include "device/tlb.h"
 #include "device/tt_arch_types.h"
+#include "device/tt_cluster_descriptor.h"
+
 #include "tt_device.h"
 #include "ioctl.h"
 
@@ -125,52 +126,6 @@ uint32_t get_num_hugepages(){
     }
 
     return num_hugepages;
-
-}
-
-// Dynamically figure out how many host memory channels (based on hugepages installed) for each device, based on arch.
-uint32_t get_available_num_host_mem_channels(const uint32_t num_channels_per_device_target, const uint16_t device_id, const uint16_t revision_id) {
-
-    // To minimally support hybrid dev systems with mix of ARCH, get only devices matching current ARCH's device_id.
-    uint32_t total_num_tt_mmio_devices      = tt::cpuset::tt_cpuset_allocator::get_num_tt_pci_devices();
-    uint32_t num_tt_mmio_devices_for_arch   = tt::cpuset::tt_cpuset_allocator::get_num_tt_pci_devices_by_pci_device_id(device_id, revision_id);
-    uint32_t total_hugepages                = get_num_hugepages();
-
-    // This shouldn't happen on silicon machines.
-    if (num_tt_mmio_devices_for_arch == 0) {
-        log_warning(LogSiliconDriver,
-            "No TT devices found that match PCI device_id: 0x{:x} revision: {}, returning NumHostMemChannels:0",
-            device_id, revision_id);
-        return 0;
-    }
-
-    // GS will use P2P + 1 channel, others may support 4 host channels. Apply min of 1 to not completely break setups that were incomplete
-    // ie fewer hugepages than devices, which would partially work previously for some devices.
-    uint32_t num_channels_per_device_available = std::min(num_channels_per_device_target, std::max((uint32_t) 1, total_hugepages / num_tt_mmio_devices_for_arch));
-
-    // Perform some helpful assertion checks to guard against common pitfalls that would show up as runtime issues later on.
-    if (total_num_tt_mmio_devices > num_tt_mmio_devices_for_arch) {
-        log_warning(LogSiliconDriver,
-            "Hybrid system mixing different TTDevices - this is not well supported. Ensure sufficient Hugepages/HostMemChannels per device.");
-    }
-
-    if (total_hugepages < num_tt_mmio_devices_for_arch) {
-        log_warning(LogSiliconDriver,
-            "Insufficient NumHugepages: {} should be at least NumMMIODevices: {} for device_id: 0x{:x} revision: {}. NumHostMemChannels would be 0, bumping to 1.",
-            total_hugepages, num_tt_mmio_devices_for_arch, device_id, revision_id);
-    }
-
-    if (num_channels_per_device_available < num_channels_per_device_target) {
-        log_warning(LogSiliconDriver,
-            "NumHostMemChannels: {} used for device_id: 0x{:x} less than target: {}. Workload will fail if it exceeds NumHostMemChannels. Increase Number of Hugepages.",
-            num_channels_per_device_available, device_id, num_channels_per_device_target);
-    }
-
-    log_assert(num_channels_per_device_available <= g_MAX_HOST_MEM_CHANNELS,
-        "NumHostMemChannels: {} exceeds supported maximum: {}, this is unexpected.",
-        num_channels_per_device_available, g_MAX_HOST_MEM_CHANNELS);
-
-    return num_channels_per_device_available;
 
 }
 
@@ -320,10 +275,10 @@ void tt_SiliconDevice::create_device(const std::unordered_set<chip_id_t> &target
         }
         auto dev = m_pci_device_map.at(logical_device_id).get();
 
-        uint16_t pcie_device_id = dev->get_pci_device_id();
-        uint32_t pcie_revision = dev->get_pci_revision();
+        uint16_t pcie_device_id = dev->get_pci_device_id(); // TODO(JMS): remove this, remove the PCIDevice function too
+        uint32_t pcie_revision = dev->get_pci_revision();   // TODO(JMS): As above
         // TODO: get rid of this, it doesn't make any sense.
-        m_num_host_mem_channels = get_available_num_host_mem_channels(num_host_mem_ch_per_mmio_device, pcie_device_id, pcie_revision);
+        m_num_host_mem_channels = num_host_mem_ch_per_mmio_device;  // TODO(JMS): move to constructor
         if (dev->get_arch() == tt::ARCH::BLACKHOLE && m_num_host_mem_channels > 1) {
             // TODO: Implement support for multiple host channels on BLACKHOLE.
             log_warning(LogSiliconDriver, "Forcing a single channel for Blackhole device. Multiple host channels not supported.");
@@ -1371,12 +1326,14 @@ bool tt_SiliconDevice::init_hugepage(chip_id_t device_id) {
             continue;
         }
 
+#if no
         // Beter performance if hugepage just allocated (populate flag to prevent lazy alloc) is migrated to same numanode as TT device.
         if (!tt::cpuset::tt_cpuset_allocator::bind_area_to_memory_nodeset(physical_device_id, mapping, hugepage_size)){
             log_warning(LogSiliconDriver, "---- ttSiliconDevice::init_hugepage: bind_area_to_memory_nodeset() failed (physical_device_id: {} ch: {}). "
             "Hugepage allocation is not on NumaNode matching TT Device. Side-Effect is decreased Device->Host perf (Issue #893).",
             physical_device_id, ch);
         }
+#endif
 
         tenstorrent_pin_pages pin_pages;
         memset(&pin_pages, 0, sizeof(pin_pages));

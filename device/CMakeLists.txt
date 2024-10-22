@@ -2,7 +2,6 @@ set(POSITION_INDEPENDENT_CODE ON)
 
 set(UMD_DEVICE_SRCS
     architecture_implementation.cpp
-    cpuset_lib.cpp
     tlb.cpp
     tt_cluster_descriptor.cpp
     tt_device.cpp

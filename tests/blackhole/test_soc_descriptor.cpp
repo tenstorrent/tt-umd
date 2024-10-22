@@ -15,6 +15,7 @@
 #include "tests/test_utils/generate_cluster_desc.hpp"
 #include "tests/test_utils/device_test_utils.hpp"
 
+// workers are in x-y annotation
 // functional_workers:
 //   [
 //    1-2,   2-2,   3-2,   4-2,   5-2,   6-2,   7-2,   10-2,   11-2,   12-2,   13-2,   14-2,   15-2,   16-2,
@@ -42,13 +43,15 @@ TEST(SocDescriptorBH, SocDescriptorNoHarvesting) {
             tt_logical_coords logical_coords = tt_logical_coords(x, y);
             tt_virtual_coords virtual_coords = soc_desc.logical_to_virtual_coords(logical_coords);
             tt_physical_coords physical_coords = soc_desc.logical_to_physical_coords(logical_coords);
+            
+            // Virtual and physical coordinates should be the same.
             EXPECT_EQ(physical_coords, virtual_coords);
         }
     }
 }
 
 // Test basic translation to virtual and physical noc coordinates.
-// We expect that the top left core will have virtual and physical coordinates (1, 1) and (1, 2) for
+// We expect that the top left core will have virtual and physical coordinates (1, 2) and (2, 2) for
 // the logical coordinates if the first row is harvested.
 TEST(SocDescriptorBH, SocDescriptorTopLeftCore) {
     tt_SocDescriptor soc_desc = tt_SocDescriptor(test_utils::GetAbsPath("tests/soc_descs/blackhole_140_arch_no_eth.yaml"), 1);
@@ -56,9 +59,11 @@ TEST(SocDescriptorBH, SocDescriptorTopLeftCore) {
 
     tt_logical_coords logical_coords = tt_logical_coords(0, 0);
 
+    // Always expect same virtual coordinate for (0, 0) logical coordinate.
     tt_virtual_coords virtual_cords = soc_desc.logical_to_virtual_coords(logical_coords);
     EXPECT_EQ(virtual_cords, tt_virtual_coords(1, 2));
 
+    // This depends on harvesting mask. So expected physical coord is specific to this test and Blackhole arch.
     tt_physical_coords physical_cords = soc_desc.logical_to_physical_coords(logical_coords);
     EXPECT_EQ(physical_cords, tt_physical_coords(2, 2));
 }
@@ -81,9 +86,7 @@ TEST(SocDescriptorBH, SocDescriptorLogicalPhysicalMapping) {
             tt_physical_coords physical_coords = soc_desc.logical_to_physical_coords(logical_coords);
             logical_to_physical[logical_coords] = physical_coords;
 
-            std::cout << "logical " << x << " " << y << std::endl;
-            std::cout << "physical " << physical_coords.x << " " << physical_coords.y << std::endl; 
-
+            // Expect that logical to physical translation is 1-1 mapping. No duplicates for physical coordinates.
             EXPECT_EQ(physical_coords_set.count(physical_coords), 0);
             physical_coords_set.insert(physical_coords);
         }
@@ -92,6 +95,9 @@ TEST(SocDescriptorBH, SocDescriptorLogicalPhysicalMapping) {
     for (auto it : logical_to_physical) {
         tt_physical_coords physical_coords = it.second;
         tt_logical_coords logical_coords = soc_desc.physical_to_logical_coords(physical_coords);
+        
+        // Expect that reverse mapping of physical coordinates gives the same logical coordinates
+        // using which we got the physical coordinates.
         EXPECT_EQ(it.first, logical_coords);
     }
 }
@@ -114,6 +120,7 @@ TEST(SocDescriptorBH, SocDescriptorLogicalVirtualMapping) {
             tt_virtual_coords virtual_coords = soc_desc.logical_to_virtual_coords(logical_coords);
             logical_to_virtual[logical_coords] = virtual_coords;
 
+            // Expect that logical to virtual translation is 1-1 mapping. No duplicates for virtual coordinates.
             EXPECT_EQ(virtual_coords_set.count(virtual_coords), 0);
             virtual_coords_set.insert(virtual_coords);
         }
@@ -122,6 +129,9 @@ TEST(SocDescriptorBH, SocDescriptorLogicalVirtualMapping) {
     for (auto it : logical_to_virtual) {
         tt_virtual_coords virtual_coords = it.second;
         tt_logical_coords logical_coords = soc_desc.virtual_to_logical_coords(virtual_coords);
+
+        // Expect that reverse mapping of virtual coordinates gives the same logical coordinates
+        // using which we got the virtual coordinates.
         EXPECT_EQ(it.first, logical_coords);
     }
 }

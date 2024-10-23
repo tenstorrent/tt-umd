@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: (c) 2023 Tenstorrent Inc.
+//
+// SPDX-License-Identifier: Apache-2.0
 
 #include <gtest/gtest.h>
 
@@ -46,7 +49,7 @@ inline std::unique_ptr<tt_ClusterDescriptor> get_cluster_desc() {
     return cluster_desc;
 }
 
-TEST(ApiTest, DetectArch) {
+TEST(ApiClusterDescriptorTest, DetectArch) {
     // TODO: This should be part of cluster descriptor. It is currently used like this from tt_metal.
     tt::ARCH arch = detect_arch();
 

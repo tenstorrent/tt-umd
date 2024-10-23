@@ -91,10 +91,9 @@ TEST(SiliconDriverGS, HarvestingRuntime) {
             // Statically mapping a 1MB TLB to this core, starting from address DATA_BUFFER_SPACE_BASE. 
             device.configure_tlb(i, core, get_static_tlb_index(core), l1_mem::address_map::DATA_BUFFER_SPACE_BASE);
         }
+        device.setup_core_to_tlb_map(i, get_static_tlb_index);
     }
 
-    device.setup_core_to_tlb_map(get_static_tlb_index);
-    
     tt_device_params default_params;
     device.start_device(default_params);
     device.deassert_risc_reset();
@@ -154,9 +153,8 @@ TEST(SiliconDriverGS, StaticTLB_RW) {
             // Statically mapping a 1MB TLB to this core, starting from address DATA_BUFFER_SPACE_BASE. 
             device.configure_tlb(i, core, get_static_tlb_index(core), l1_mem::address_map::DATA_BUFFER_SPACE_BASE, TLB_DATA::Posted);
         }
+        device.setup_core_to_tlb_map(i, get_static_tlb_index);
     }
-
-    device.setup_core_to_tlb_map(get_static_tlb_index);
     
     tt_device_params default_params;
     device.start_device(default_params);
@@ -324,9 +322,8 @@ TEST(SiliconDriverGS, MultiThreadedMemBar) { // this tests takes ~5 mins to run
             // Statically mapping a 1MB TLB to this core, starting from address DATA_BUFFER_SPACE_BASE. 
             device.configure_tlb(i, core, get_static_tlb_index(core), base_addr);
         }
+        device.setup_core_to_tlb_map(i, get_static_tlb_index);
     }
-
-    device.setup_core_to_tlb_map(get_static_tlb_index);
 
     tt_device_params default_params;
     device.start_device(default_params);

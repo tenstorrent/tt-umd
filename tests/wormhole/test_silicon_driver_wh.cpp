@@ -645,27 +645,27 @@ TEST(SiliconDriverWH, VirtualCoordinateBroadcast) {
 }
 
 
-// /**
-//  * This is a basic DMA test -- not using the PCIe controller's DMA engine, but
-//  * rather using the ability of the NOC to access the host system bus via traffic
-//  * to the PCIe block.
-//  *
-//  * sysmem means memory in the host that has been mapped for device access.  It
-//  * is currently one or more 1G huge pages, although this may change.
-//  *
-//  * 1. Fills sysmem with a random pattern.
-//  * 2. Uses PCIe block on WH to read sysmem into buffer.
-//  * 3. Verifies that buffer matches sysmem.
-//  * 4. Fills buffer with a random pattern.
-//  * 5. Uses PCIe block on WH to write buffer into sysmem.
-//  * 6. Verifies that sysmem matches buffer.
-//  *
-//  * This uses a small size for speed purposes.
-//  *
-//  * If/when we move to using IOMMU to map userspace memory for device access,
-//  * the technique below is a straightforward way to test that hardware can access
-//  * the buffer(s).
-//  */
+/**
+ * This is a basic DMA test -- not using the PCIe controller's DMA engine, but
+ * rather using the ability of the NOC to access the host system bus via traffic
+ * to the PCIe block.
+ *
+ * sysmem means memory in the host that has been mapped for device access.  It
+ * is currently one or more 1G huge pages, although this may change.
+ *
+ * 1. Fills sysmem with a random pattern.
+ * 2. Uses PCIe block on WH to read sysmem into buffer.
+ * 3. Verifies that buffer matches sysmem.
+ * 4. Fills buffer with a random pattern.
+ * 5. Uses PCIe block on WH to write buffer into sysmem.
+ * 6. Verifies that sysmem matches buffer.
+ *
+ * This uses a small size for speed purposes.
+ *
+ * If/when we move to using IOMMU to map userspace memory for device access,
+ * the technique below is a straightforward way to test that hardware can access
+ * the buffer(s).
+ */
 TEST(SiliconDriverWH, SysmemTestWithPcie) {
     auto target_devices = get_target_devices();
 

@@ -45,6 +45,17 @@
 //    1-11,  2-11,  3-11,  4-11,  5-11,  6-11,  7-11,  10-11,  11-11,  12-11,  13-11,  14-11,  15-11,  16-11,
 //  ]
 
+std::size_t get_num_harvested(std::size_t harvesting_mask) {
+    std::size_t num_harvested = 0;
+    while (harvesting_mask > 0) {
+        if (harvesting_mask & 1) {
+            num_harvested++;
+        }
+        harvesting_mask >>= 1;
+    }
+    return num_harvested;
+}
+
 // Tests that all physical coordinates are same as all virtual coordinates
 // when there is no harvesting.
 TEST(SocDescriptor, SocDescriptorWHNoHarvesting) {
@@ -131,35 +142,41 @@ TEST(SocDescriptor, SocDescriptorBHTopLeftCore) {
 // For the reverse mapping back of physical to logical coordinates we expect that same logical coordinates are returned as from original mapping.
 TEST(SocDescriptor, SocDescriptorWHLogicalPhysicalMapping) {
 
-    const std::size_t harvesting_mask = 5;
+    const std::size_t max_num_harvested_y = 10;
+    tt_SocDescriptor soc_desc = tt_SocDescriptor(test_utils::GetAbsPath("tests/soc_descs/wormhole_b0_8x10.yaml"));
+    for (std::size_t harvesting_mask = 0; harvesting_mask < (1 << max_num_harvested_y); harvesting_mask++) {
 
-    tt_SocDescriptor soc_desc = tt_SocDescriptor(test_utils::GetAbsPath("tests/soc_descs/wormhole_b0_8x10.yaml"), harvesting_mask);
+        soc_desc.perform_harvesting(harvesting_mask);
 
-    std::map<tt_logical_coords, tt_physical_coords> logical_to_physical;
-    std::set<tt_physical_coords> physical_coords_set;
-    tt_xy_pair worker_grid_size = soc_desc.worker_grid_size;
+        std::map<tt_logical_coords, tt_physical_coords> logical_to_physical;
+        std::set<tt_physical_coords> physical_coords_set;
+        tt_xy_pair worker_grid_size = soc_desc.worker_grid_size;
 
-    std::size_t num_harvested_y = 2;
+        std::size_t num_harvested_y = get_num_harvested(harvesting_mask);
 
-    for (size_t x = 0; x < worker_grid_size.x; x++) {
-        for (size_t y = 0; y < worker_grid_size.y - num_harvested_y; y++) {
-            tt_logical_coords logical_coords = tt_logical_coords(x, y);
-            tt_physical_coords physical_coords = soc_desc.logical_to_physical_coords(logical_coords);
-            logical_to_physical[logical_coords] = physical_coords;
+        for (size_t x = 0; x < worker_grid_size.x; x++) {
+            for (size_t y = 0; y < worker_grid_size.y - num_harvested_y; y++) {
+                tt_logical_coords logical_coords = tt_logical_coords(x, y);
+                tt_physical_coords physical_coords = soc_desc.logical_to_physical_coords(logical_coords);
+                logical_to_physical[logical_coords] = physical_coords;
 
-            // Expect that logical to physical translation is 1-1 mapping. No duplicates for physical coordinates.
-            EXPECT_EQ(physical_coords_set.count(physical_coords), 0);
-            physical_coords_set.insert(physical_coords);
+                // Expect that logical to physical translation is 1-1 mapping. No duplicates for physical coordinates.
+                EXPECT_EQ(physical_coords_set.count(physical_coords), 0);
+                physical_coords_set.insert(physical_coords);
+            }
         }
-    }
+        
+        // Expect that the number of physical coordinates is equal to the number of workers minus the number of harvested rows.
+        EXPECT_EQ(physical_coords_set.size(), worker_grid_size.x * (worker_grid_size.y - num_harvested_y));
 
-    for (auto it : logical_to_physical) {
-        tt_physical_coords physical_coords = it.second;
-        tt_logical_coords logical_coords = soc_desc.physical_to_logical_coords(physical_coords);
+        for (auto it : logical_to_physical) {
+            tt_physical_coords physical_coords = it.second;
+            tt_logical_coords logical_coords = soc_desc.physical_to_logical_coords(physical_coords);
 
-        // Expect that reverse mapping of physical coordinates gives the same logical coordinates
-        // using which we got the physical coordinates.
-        EXPECT_EQ(it.first, logical_coords);
+            // Expect that reverse mapping of physical coordinates gives the same logical coordinates
+            // using which we got the physical coordinates.
+            EXPECT_EQ(it.first, logical_coords);
+        }
     }
 }
 
@@ -167,33 +184,41 @@ TEST(SocDescriptor, SocDescriptorWHLogicalPhysicalMapping) {
 // For the full grid of logical coordinates we expect that there are no duplicates of physical coordinates.
 // For the reverse mapping back of physical to logical coordinates we expect that same logical coordinates are returned as from original mapping.
 TEST(SocDescriptor, SocDescriptorBHLogicalPhysicalMapping) {
-    tt_SocDescriptor soc_desc = tt_SocDescriptor(test_utils::GetAbsPath("tests/soc_descs/blackhole_140_arch_no_eth.yaml"), 5);
 
-    std::map<tt_logical_coords, tt_physical_coords> logical_to_physical;
-    std::set<tt_physical_coords> physical_coords_set;
-    tt_xy_pair worker_grid_size = soc_desc.worker_grid_size;
+    const std::size_t max_num_harvested_x = 14;
+    tt_SocDescriptor soc_desc = tt_SocDescriptor(test_utils::GetAbsPath("tests/soc_descs/blackhole_140_arch.yaml"));
+    for (std::size_t harvesting_mask = 0; harvesting_mask < (1 << max_num_harvested_x); harvesting_mask++) {
+       
+        soc_desc.perform_harvesting(harvesting_mask);
 
-    std::size_t num_harvested_x = 2;
+        std::map<tt_logical_coords, tt_physical_coords> logical_to_physical;
+        std::set<tt_physical_coords> physical_coords_set;
+        tt_xy_pair worker_grid_size = soc_desc.worker_grid_size;
 
-    for (size_t x = 0; x < worker_grid_size.x - num_harvested_x; x++) {
-        for (size_t y = 0; y < worker_grid_size.y; y++) {
-            tt_logical_coords logical_coords = tt_logical_coords(x, y);
-            tt_physical_coords physical_coords = soc_desc.logical_to_physical_coords(logical_coords);
-            logical_to_physical[logical_coords] = physical_coords;
+        std::size_t num_harvested_x = get_num_harvested(harvesting_mask);
 
-            // Expect that logical to physical translation is 1-1 mapping. No duplicates for physical coordinates.
-            EXPECT_EQ(physical_coords_set.count(physical_coords), 0);
-            physical_coords_set.insert(physical_coords);
+        for (size_t x = 0; x < worker_grid_size.x - num_harvested_x; x++) {
+            for (size_t y = 0; y < worker_grid_size.y; y++) {
+                tt_logical_coords logical_coords = tt_logical_coords(x, y);
+                tt_physical_coords physical_coords = soc_desc.logical_to_physical_coords(logical_coords);
+                logical_to_physical[logical_coords] = physical_coords;
+
+                // Expect that logical to physical translation is 1-1 mapping. No duplicates for physical coordinates.
+                EXPECT_EQ(physical_coords_set.count(physical_coords), 0);
+                physical_coords_set.insert(physical_coords);
+            }
         }
-    }
 
-    for (auto it : logical_to_physical) {
-        tt_physical_coords physical_coords = it.second;
-        tt_logical_coords logical_coords = soc_desc.physical_to_logical_coords(physical_coords);
-        
-        // Expect that reverse mapping of physical coordinates gives the same logical coordinates
-        // using which we got the physical coordinates.
-        EXPECT_EQ(it.first, logical_coords);
+        EXPECT_EQ(physical_coords_set.size(), worker_grid_size.y * (worker_grid_size.x - num_harvested_x));
+
+        for (auto it : logical_to_physical) {
+            tt_physical_coords physical_coords = it.second;
+            tt_logical_coords logical_coords = soc_desc.physical_to_logical_coords(physical_coords);
+            
+            // Expect that reverse mapping of physical coordinates gives the same logical coordinates
+            // using which we got the physical coordinates.
+            EXPECT_EQ(it.first, logical_coords);
+        }
     }
 }
 
@@ -202,35 +227,38 @@ TEST(SocDescriptor, SocDescriptorBHLogicalPhysicalMapping) {
 // For the reverse mapping back of virtual to logical coordinates we expect that same logical coordinates are returned as from original mapping.
 TEST(SocDescriptor, SocDescriptorWHLogicalVirtualMapping) {
 
-    const std::size_t harvesting_mask = 3;
+    const std::size_t max_num_harvested_y = 10;
+    tt_SocDescriptor soc_desc = tt_SocDescriptor(test_utils::GetAbsPath("tests/soc_descs/wormhole_b0_8x10.yaml"));
+    for (std::size_t harvesting_mask = 0; harvesting_mask < (1 << max_num_harvested_y); harvesting_mask++) {
 
-    tt_SocDescriptor soc_desc = tt_SocDescriptor(test_utils::GetAbsPath("tests/soc_descs/wormhole_b0_8x10.yaml"), harvesting_mask);
+        soc_desc.perform_harvesting(harvesting_mask);
 
-    std::map<tt_logical_coords, tt_virtual_coords> logical_to_virtual;
-    std::set<tt_virtual_coords> virtual_coords_set;
-    tt_xy_pair worker_grid_size = soc_desc.worker_grid_size;
+        std::map<tt_logical_coords, tt_virtual_coords> logical_to_virtual;
+        std::set<tt_virtual_coords> virtual_coords_set;
+        tt_xy_pair worker_grid_size = soc_desc.worker_grid_size;
 
-    std::size_t num_harvested_y = 2;
+        std::size_t num_harvested_y = get_num_harvested(harvesting_mask);
 
-    for (size_t x = 0; x < worker_grid_size.x; x++) {
-        for (size_t y = 0; y < worker_grid_size.y - num_harvested_y; y++) {
-            tt_logical_coords logical_coords = tt_logical_coords(x, y);
-            tt_virtual_coords virtual_coords = soc_desc.logical_to_virtual_coords(logical_coords);
-            logical_to_virtual[logical_coords] = virtual_coords;
+        for (size_t x = 0; x < worker_grid_size.x; x++) {
+            for (size_t y = 0; y < worker_grid_size.y - num_harvested_y; y++) {
+                tt_logical_coords logical_coords = tt_logical_coords(x, y);
+                tt_virtual_coords virtual_coords = soc_desc.logical_to_virtual_coords(logical_coords);
+                logical_to_virtual[logical_coords] = virtual_coords;
 
-            // Expect that logical to virtual translation is 1-1 mapping. No duplicates for virtual coordinates.
-            EXPECT_EQ(virtual_coords_set.count(virtual_coords), 0);
-            virtual_coords_set.insert(virtual_coords);
+                // Expect that logical to virtual translation is 1-1 mapping. No duplicates for virtual coordinates.
+                EXPECT_EQ(virtual_coords_set.count(virtual_coords), 0);
+                virtual_coords_set.insert(virtual_coords);
+            }
         }
-    }
 
-    for (auto it : logical_to_virtual) {
-        tt_virtual_coords virtual_coords = it.second;
-        tt_logical_coords logical_coords = soc_desc.virtual_to_logical_coords(virtual_coords);
+        for (auto it : logical_to_virtual) {
+            tt_virtual_coords virtual_coords = it.second;
+            tt_logical_coords logical_coords = soc_desc.virtual_to_logical_coords(virtual_coords);
 
-        // Expect that reverse mapping of virtual coordinates gives the same logical coordinates
-        // using which we got the virtual coordinates.
-        EXPECT_EQ(it.first, logical_coords);
+            // Expect that reverse mapping of virtual coordinates gives the same logical coordinates
+            // using which we got the virtual coordinates.
+            EXPECT_EQ(it.first, logical_coords);
+        }
     }
 }
 
@@ -238,32 +266,40 @@ TEST(SocDescriptor, SocDescriptorWHLogicalVirtualMapping) {
 // For the full grid of logical coordinates we expect that there are no duplicates of virtual coordinates.
 // For the reverse mapping back of virtual to logical coordinates we expect that same logical coordinates are returned as from original mapping.
 TEST(SocDescriptor, SocDescriptorBHLogicalVirtualMapping) {
-    tt_SocDescriptor soc_desc = tt_SocDescriptor(test_utils::GetAbsPath("tests/soc_descs/blackhole_140_arch_no_eth.yaml"), 3);
 
-    std::map<tt_logical_coords, tt_virtual_coords> logical_to_virtual;
-    std::set<tt_virtual_coords> virtual_coords_set;
-    tt_xy_pair worker_grid_size = soc_desc.worker_grid_size;
+    const std::size_t max_num_harvested_x = 14;
+    tt_SocDescriptor soc_desc = tt_SocDescriptor(test_utils::GetAbsPath("tests/soc_descs/blackhole_140_arch.yaml"));
+    for (std::size_t harvesting_mask = 0; harvesting_mask < (1 << max_num_harvested_x); harvesting_mask++) {
+        
+        soc_desc.perform_harvesting(harvesting_mask);
 
-    std::size_t num_harvested_x = 2;
+        std::map<tt_logical_coords, tt_virtual_coords> logical_to_virtual;
+        std::set<tt_virtual_coords> virtual_coords_set;
+        tt_xy_pair worker_grid_size = soc_desc.worker_grid_size;
 
-    for (size_t x = 0; x < worker_grid_size.x - num_harvested_x; x++) {
-        for (size_t y = 0; y < worker_grid_size.y; y++) {
-            tt_logical_coords logical_coords = tt_logical_coords(x, y);
-            tt_virtual_coords virtual_coords = soc_desc.logical_to_virtual_coords(logical_coords);
-            logical_to_virtual[logical_coords] = virtual_coords;
+        std::size_t num_harvested_x = get_num_harvested(harvesting_mask);
 
-            // Expect that logical to virtual translation is 1-1 mapping. No duplicates for virtual coordinates.
-            EXPECT_EQ(virtual_coords_set.count(virtual_coords), 0);
-            virtual_coords_set.insert(virtual_coords);
+        for (size_t x = 0; x < worker_grid_size.x - num_harvested_x; x++) {
+            for (size_t y = 0; y < worker_grid_size.y; y++) {
+                tt_logical_coords logical_coords = tt_logical_coords(x, y);
+                tt_virtual_coords virtual_coords = soc_desc.logical_to_virtual_coords(logical_coords);
+                logical_to_virtual[logical_coords] = virtual_coords;
+
+                // Expect that logical to virtual translation is 1-1 mapping. No duplicates for virtual coordinates.
+                EXPECT_EQ(virtual_coords_set.count(virtual_coords), 0);
+                virtual_coords_set.insert(virtual_coords);
+            }
         }
-    }
 
-    for (auto it : logical_to_virtual) {
-        tt_virtual_coords virtual_coords = it.second;
-        tt_logical_coords logical_coords = soc_desc.virtual_to_logical_coords(virtual_coords);
+        EXPECT_EQ(virtual_coords_set.size(), worker_grid_size.y * (worker_grid_size.x - num_harvested_x));
 
-        // Expect that reverse mapping of virtual coordinates gives the same logical coordinates
-        // using which we got the virtual coordinates.
-        EXPECT_EQ(it.first, logical_coords);
+        for (auto it : logical_to_virtual) {
+            tt_virtual_coords virtual_coords = it.second;
+            tt_logical_coords logical_coords = soc_desc.virtual_to_logical_coords(virtual_coords);
+
+            // Expect that reverse mapping of virtual coordinates gives the same logical coordinates
+            // using which we got the virtual coordinates.
+            EXPECT_EQ(it.first, logical_coords);
+        }
     }
 }

@@ -166,6 +166,15 @@ void tt_SocDescriptor::load_core_descriptors_from_device_descriptor(YAML::Node &
 }
 
 void tt_SocDescriptor::perform_harvesting(std::size_t harvesting_mask) {
+    logical_x_to_physical_x.clear();
+    logical_y_to_physical_y.clear();
+    logical_x_to_virtual_x.clear();
+    logical_y_to_virtual_y.clear();
+    physical_x_to_logical_x.clear();
+    physical_y_to_logical_y.clear();
+    virtual_x_to_logical_x.clear();
+    virtual_y_to_logical_y.clear();
+
     std::set<size_t> physical_x_unharvested;
     std::set<size_t> physical_y_unharvested;
     for (auto core : workers) {

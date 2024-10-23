@@ -188,10 +188,11 @@ class tt_SocDescriptor {
     tt_virtual_coords logical_to_virtual_coords(tt_logical_coords logical_coords);
     tt_logical_coords virtual_to_logical_coords(tt_virtual_coords virtual_coords);
 
+    void perform_harvesting(std::size_t harvesting_mask);
+
     private:
     void load_core_descriptors_from_device_descriptor(YAML::Node &device_descriptor_yaml);
     void load_soc_features_from_device_descriptor(YAML::Node &device_descriptor_yaml);
-    void perform_harvesting(std::size_t harvesting_mask);
 };
 
 // Allocates a new soc descriptor on the heap. Returns an owning pointer.

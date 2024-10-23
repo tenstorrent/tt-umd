@@ -5,7 +5,6 @@
  */
 
 #pragma once
-
 #include <algorithm>
 #include <cctype>
 #include <chrono>

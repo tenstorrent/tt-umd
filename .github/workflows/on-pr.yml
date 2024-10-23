@@ -48,8 +48,10 @@ jobs:
         uses: peter-evans/create-pull-request@v7
         with:
           commit-message: "Fix pre-commit issues"
-          title: "Propose pre-commit fixes"
+          title: "Proposed pre-commit fixes"
           body: "This PR contains proposed fixes from pre-commit hooks."
+          branch: "pre-commit-fixes-${{ github.event.pull_request.number }}"
+          asignees: "${{ github.actor }}"
 
       - name: Fail the Job if Changes Were Made
         if: steps.git_diff.outputs.changes-detected == 'true'

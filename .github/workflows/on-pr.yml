@@ -16,3 +16,26 @@ jobs:
     uses: ./.github/workflows/build-device.yml
     with:
       timeout: 10
+
+  pre-commit:
+    name: Run Pre-commit Hooks and Propose Fixes
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: 3.11
+
+      - name: Run Pre-commit and Fix Issues
+        uses: pre-commit/action@v3.0.1
+
+      - name: Create Pull Request with Fixes
+        uses: peter-evans/create-pull-request@v5
+        with:
+          commit-message: "Fix pre-commit issues"
+          title: "Propose pre-commit fixes"
+          body: "This PR contains proposed fixes from pre-commit hooks."
+          labels: ["pre-commit"]

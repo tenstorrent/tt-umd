@@ -92,7 +92,7 @@ static tt::ARCH detect_arch(uint32_t pcie_device_id, uint32_t pcie_revision_id) 
         // having an ARCH for it if they don't exist?
         TT_THROW("Wormhole is not supported. Please use Wormhole B0 instead.");
         return tt::ARCH::WORMHOLE;
-    } else if (pcie_device_id == WH_PCIE_DEVICE_ID){
+    } else if (pcie_device_id == BH_PCIE_DEVICE_ID){
         return tt::ARCH::BLACKHOLE;
     } else {
         TT_THROW("Unknown pcie device id that does not match any known architecture: ", pcie_device_id);
@@ -195,7 +195,7 @@ tt::ARCH PciDeviceInfo::get_arch() const {
         return tt::ARCH::GRAYSKULL;
     } else if (this->device_id == WH_PCIE_DEVICE_ID) {
         return tt::ARCH::WORMHOLE_B0;
-    } else if (this->device_id == WH_PCIE_DEVICE_ID){
+    } else if (this->device_id == BH_PCIE_DEVICE_ID){
         return tt::ARCH::BLACKHOLE;
     }
     return tt::ARCH::Invalid;

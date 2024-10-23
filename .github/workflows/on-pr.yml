@@ -22,7 +22,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           fetch-depth: 0  # Fetch all history so 'origin/main' is available
 
@@ -44,7 +44,7 @@ jobs:
 
       - name: Create Pull Request with Fixes
         if: steps.git_diff.outputs.changes-detected == 'true'
-        uses: peter-evans/create-pull-request@v5
+        uses: peter-evans/create-pull-request@v7
         with:
           commit-message: "Fix pre-commit issues"
           title: "Propose pre-commit fixes"

@@ -36,8 +36,12 @@ jobs:
         uses: pre-commit/action@v3.0.1
         with:
           extra_args: "--from-ref origin/main --to-ref HEAD"
-        continue-on-error: true
+        continue-on-error: false
 
+      # Declarations from here irrelevant
+      # We are failing PRs on pre-commit error
+      # Nothing below this comment will have impact
+      # Leaving this incase we want this feature later
       - name: Check for Modified Files and Set Flag
         id: git_diff
         run: |

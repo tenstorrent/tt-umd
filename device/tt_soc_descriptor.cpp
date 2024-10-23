@@ -2,6 +2,7 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
+#include "tt_xy_pair.h"
 #include "yaml-cpp/yaml.h"
 #include "tt_soc_descriptor.h"
 
@@ -9,6 +10,7 @@
 #include <fstream>
 #include <iostream>
 #include <regex>
+#include <stdexcept>
 #include <string>
 #include <unordered_set>
 
@@ -58,10 +60,7 @@ inline std::string& trim(std::string& s, const char* t = ws)
 }
 
 void tt_SocDescriptor::load_soc_features_from_device_descriptor(YAML::Node &device_descriptor_yaml) {
-    overlay_version = device_descriptor_yaml["features"]["overlay"]["version"].as<int>();
     noc_translation_id_enabled = device_descriptor_yaml["features"]["noc"] && device_descriptor_yaml["features"]["noc"]["translation_id_enabled"] ? device_descriptor_yaml["features"]["noc"]["translation_id_enabled"].as<bool>() : false;
-    packer_version = device_descriptor_yaml["features"]["packer"]["version"].as<int>();
-    unpacker_version = device_descriptor_yaml["features"]["unpacker"]["version"].as<int>();
     dst_size_alignment = device_descriptor_yaml["features"]["math"]["dst_size_alignment"].as<int>();
     worker_l1_size = device_descriptor_yaml["worker_l1_size"].as<int>();
     eth_l1_size = device_descriptor_yaml["eth_l1_size"].as<int>();
@@ -166,7 +165,136 @@ void tt_SocDescriptor::load_core_descriptors_from_device_descriptor(YAML::Node &
     }
 }
 
-tt_SocDescriptor::tt_SocDescriptor(std::string device_descriptor_path) {
+void tt_SocDescriptor::perform_harvesting(std::size_t harvesting_mask) {
+    logical_x_to_physical_x.clear();
+    logical_y_to_physical_y.clear();
+    logical_x_to_virtual_x.clear();
+    logical_y_to_virtual_y.clear();
+    physical_x_to_logical_x.clear();
+    physical_y_to_logical_y.clear();
+    virtual_x_to_logical_x.clear();
+    virtual_y_to_logical_y.clear();
+
+    std::set<size_t> physical_x_unharvested;
+    std::set<size_t> physical_y_unharvested;
+    for (auto core : workers) {
+        physical_x_unharvested.insert(core.x);
+        physical_y_unharvested.insert(core.y);
+    }
+
+    std::set<std::size_t> harvested_x;
+    std::set<std::size_t> harvested_y;
+
+    std::size_t logical_y = 0;
+    std::size_t logical_x = 0;
+    while (harvesting_mask > 0) {
+        if (harvesting_mask & 1) {
+            if (arch == tt::ARCH::WORMHOLE_B0) {
+                harvested_y.insert(logical_y);
+            } else if (arch == tt::ARCH::BLACKHOLE) {
+                harvested_x.insert(logical_x);
+            }
+        }
+        logical_y++;
+        logical_x++;
+        harvesting_mask >>= 1;
+    }
+
+    std::size_t num_harvested_y = harvested_y.size();
+    std::size_t num_harvested_x = harvested_x.size();
+
+    std::size_t grid_size_x = worker_grid_size.x;
+    std::size_t grid_size_y = worker_grid_size.y;
+
+    logical_x_to_physical_x.resize(grid_size_x - num_harvested_x);
+    logical_y_to_physical_y.resize(grid_size_y - num_harvested_y);
+
+    logical_x_to_virtual_x.resize(grid_size_x - num_harvested_x);
+    logical_y_to_virtual_y.resize(grid_size_y - num_harvested_y);
+
+    auto physical_y_it = physical_y_unharvested.begin();
+    logical_y = 0;
+    for (size_t y = 0; y < grid_size_y; y++) {
+        if (harvested_y.find(y) == harvested_y.end()) {
+            logical_y_to_physical_y[logical_y] = *physical_y_it;
+            if (physical_y_to_logical_y.find(*physical_y_it) != physical_y_to_logical_y.end()) {
+                throw std::runtime_error("Duplicate physical y coordinate found in the worker cores");
+            }
+            physical_y_to_logical_y[*physical_y_it] = logical_y;
+            logical_y++;
+            physical_y_it++;
+        } else {
+            physical_y_it++;
+        }
+    }
+
+    auto physical_x_it = physical_x_unharvested.begin();
+    logical_x = 0;
+    for(std::size_t x = 0; x < grid_size_x; x++) {
+        if (harvested_x.find(x) == harvested_x.end()) {
+            logical_x_to_physical_x[logical_x] = *physical_x_it;
+            if (physical_x_to_logical_x.find(*physical_x_it) != physical_x_to_logical_x.end()) {
+                throw std::runtime_error("Duplicate physical x coordinate found in the worker cores");
+            }
+            physical_x_to_logical_x[*physical_x_it] = logical_x;
+            logical_x++;
+            physical_x_it++;
+        } else {
+            physical_x_it++;
+        }
+    }
+
+    physical_y_it = physical_y_unharvested.begin();
+    for (std::size_t y = 0; y < logical_y_to_virtual_y.size(); y++) {
+        logical_y_to_virtual_y[y] = *physical_y_it;
+        if (virtual_y_to_logical_y.find(*physical_y_it) != virtual_y_to_logical_y.end()) {
+            throw std::runtime_error("Duplicate virtual y coordinate found in the worker cores");
+        }
+        virtual_y_to_logical_y[*physical_y_it] = y;
+        physical_y_it++;
+    }
+
+    physical_x_it = physical_x_unharvested.begin();
+    for (std::size_t x = 0; x < logical_x_to_virtual_x.size(); x++) {
+        logical_x_to_virtual_x[x] = *physical_x_it;
+        if (virtual_x_to_logical_x.find(*physical_x_it) != virtual_x_to_logical_x.end()) {
+            throw std::runtime_error("Duplicate virtual x coordinate found in the worker cores");
+        }
+        virtual_x_to_logical_x[*physical_x_it] = x;
+        physical_x_it++;
+    }
+}
+
+tt_physical_coords tt_SocDescriptor::logical_to_physical_coords(tt_logical_coords logical_coords) {
+    // log_assert(logical_coords.x < logical_x_to_physical_x.size());
+    // log_assert(logical_coords.y < logical_y_to_physical_y.size());
+    return tt_physical_coords(logical_x_to_physical_x[logical_coords.x], logical_y_to_physical_y[logical_coords.y]);
+}
+
+// TODO(pjanevski): is it enough just to add 18 to the logical coordinates
+// in order to get the translated coordinates?
+tt_translated_coords tt_SocDescriptor::logical_to_translated_coords(tt_logical_coords logical_coords) {
+    static const std::size_t translated_offset = 18;
+    return tt_translated_coords(logical_coords.x + translated_offset, logical_coords.y + translated_offset);
+}
+
+tt_logical_coords tt_SocDescriptor::physical_to_logical_coords(tt_physical_coords physical_coords) {
+    return tt_logical_coords(physical_x_to_logical_x[physical_coords.x], physical_y_to_logical_y[physical_coords.y]);
+}
+
+tt_translated_coords tt_SocDescriptor::physical_to_translated_coords(tt_physical_coords physical_coords) {
+    return tt_translated_coords(0, 0);
+}
+
+tt_virtual_coords tt_SocDescriptor::logical_to_virtual_coords(tt_logical_coords logical_coords) {
+    return tt_virtual_coords(logical_x_to_virtual_x[logical_coords.x], logical_y_to_virtual_y[logical_coords.y]);
+}
+
+tt_logical_coords tt_SocDescriptor::virtual_to_logical_coords(tt_virtual_coords virtual_coords) {
+    return tt_logical_coords(virtual_x_to_logical_x[virtual_coords.x], virtual_y_to_logical_y[virtual_coords.y]);
+}
+
+tt_SocDescriptor::tt_SocDescriptor(std::string device_descriptor_path, std::size_t harvesting_mask) {
     std::ifstream fdesc(device_descriptor_path);
     if (fdesc.fail()) {
         throw std::runtime_error(fmt::format("Error: device descriptor file {} does not exist!", device_descriptor_path));
@@ -189,6 +317,7 @@ tt_SocDescriptor::tt_SocDescriptor(std::string device_descriptor_path) {
     arch_name_value = trim(arch_name_value);
     arch = get_arch_name(arch_name_value);
     load_soc_features_from_device_descriptor(device_descriptor_yaml);
+    perform_harvesting(harvesting_mask);
 }
 
 int tt_SocDescriptor::get_num_dram_channels() const {

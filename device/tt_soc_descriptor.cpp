@@ -178,6 +178,10 @@ tt_physical_coords tt_SocDescriptor::logical_to_physical_coords(tt_logical_coord
     return coordinate_manager->logical_to_physical_coords(logical_coords);
 }
 
+tt_virtual_coords tt_SocDescriptor::logical_to_virtual_coords(tt_logical_coords logical_coords) {
+    return coordinate_manager->logical_to_virtual_coords(logical_coords);
+}
+
 tt_translated_coords tt_SocDescriptor::logical_to_translated_coords(tt_logical_coords logical_coords) {
     return coordinate_manager->logical_to_translated_coords(logical_coords);
 }
@@ -186,16 +190,36 @@ tt_logical_coords tt_SocDescriptor::physical_to_logical_coords(tt_physical_coord
     return coordinate_manager->physical_to_logical_coords(physical_coords);
 }
 
+tt_virtual_coords tt_SocDescriptor::physical_to_virtual_coords(tt_physical_coords physical_coords) {
+    return coordinate_manager->physical_to_virtual_coords(physical_coords);
+}
+
 tt_translated_coords tt_SocDescriptor::physical_to_translated_coords(tt_physical_coords physical_coords) {
     return coordinate_manager->physical_to_translated_coords(physical_coords);
 }
 
-tt_virtual_coords tt_SocDescriptor::logical_to_virtual_coords(tt_logical_coords logical_coords) {
-    return coordinate_manager->logical_to_virtual_coords(logical_coords);
-}
-
 tt_logical_coords tt_SocDescriptor::virtual_to_logical_coords(tt_virtual_coords virtual_coords) {
     return coordinate_manager->virtual_to_logical_coords(virtual_coords);
+}
+
+tt_physical_coords tt_SocDescriptor::virtual_to_physical_coords(tt_virtual_coords virtual_coords) {
+    return coordinate_manager->virtual_to_physical_coords(virtual_coords);
+}
+
+tt_translated_coords tt_SocDescriptor::virtual_to_translated_coords(tt_virtual_coords virtual_coords) {
+    return coordinate_manager->virtual_to_translated_coords(virtual_coords);
+}
+
+tt_logical_coords tt_SocDescriptor::translated_to_logical_coords(tt_translated_coords translated_coords) {
+    return coordinate_manager->translated_to_logical_coords(translated_coords);
+}
+
+tt_physical_coords tt_SocDescriptor::translated_to_physical_coords(tt_translated_coords translated_coords) {
+    return coordinate_manager->translated_to_physical_coords(translated_coords);
+}
+
+tt_virtual_coords tt_SocDescriptor::translated_to_virtual_coords(tt_translated_coords translated_coords) {
+    return coordinate_manager->translated_to_virtual_coords(translated_coords);
 }
 
 tt_SocDescriptor::tt_SocDescriptor(std::string device_descriptor_path, std::size_t harvesting_mask) {

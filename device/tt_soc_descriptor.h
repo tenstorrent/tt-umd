@@ -171,13 +171,24 @@ public:
         coordinate_manager(other.coordinate_manager) {
     }
     
-    // Coordinate converters.
+    // Coordinate conversions.
+
+    // Conversions from logical coordinates should be used just for worker cores.
     tt_physical_coords logical_to_physical_coords(tt_logical_coords logical_coords);
-    tt_translated_coords logical_to_translated_coords(tt_logical_coords logical_coords);
-    tt_logical_coords physical_to_logical_coords(tt_physical_coords physical_coords);
-    tt_translated_coords physical_to_translated_coords(tt_physical_coords physical_coords);
     tt_virtual_coords logical_to_virtual_coords(tt_logical_coords logical_coords);
+    tt_translated_coords logical_to_translated_coords(tt_logical_coords logical_coords);
+
+    tt_logical_coords physical_to_logical_coords(tt_physical_coords physical_coords);
+    tt_virtual_coords physical_to_virtual_coords(tt_physical_coords physical_coords);
+    tt_translated_coords physical_to_translated_coords(tt_physical_coords physical_coords);
+
     tt_logical_coords virtual_to_logical_coords(tt_virtual_coords virtual_coords);
+    tt_physical_coords virtual_to_physical_coords(tt_virtual_coords virtual_coords);
+    tt_translated_coords virtual_to_translated_coords(tt_virtual_coords virtual_coords);
+
+    tt_logical_coords translated_to_logical_coords(tt_translated_coords translated_coords);
+    tt_physical_coords translated_to_physical_coords(tt_translated_coords translated_coords);
+    tt_virtual_coords translated_to_virtual_coords(tt_translated_coords translated_coords);
 
     void perform_harvesting(std::size_t harvesting_mask);
 

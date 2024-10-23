@@ -27,10 +27,19 @@ public:
 
     virtual tt_physical_coords logical_to_physical_coords(tt_logical_coords logical_coords);
     virtual tt_translated_coords logical_to_translated_coords(tt_logical_coords logical_coords);
-    virtual tt_logical_coords physical_to_logical_coords(tt_physical_coords physical_coords);
-    virtual tt_translated_coords physical_to_translated_coords(tt_physical_coords physical_coords);
     virtual tt_virtual_coords logical_to_virtual_coords(tt_logical_coords logical_coords);
+
+    virtual tt_logical_coords physical_to_logical_coords(tt_physical_coords physical_coords);
+    virtual tt_virtual_coords physical_to_virtual_coords(tt_physical_coords physical_coords);
+    virtual tt_translated_coords physical_to_translated_coords(tt_physical_coords physical_coords);
+
     virtual tt_logical_coords virtual_to_logical_coords(tt_virtual_coords virtual_coords);
+    virtual tt_physical_coords virtual_to_physical_coords(tt_virtual_coords virtual_coords);
+    virtual tt_translated_coords virtual_to_translated_coords(tt_virtual_coords virtual_coords);
+
+    virtual tt_logical_coords translated_to_logical_coords(tt_translated_coords translated_coords);
+    virtual tt_physical_coords translated_to_physical_coords(tt_translated_coords translated_coords);
+    virtual tt_virtual_coords translated_to_virtual_coords(tt_translated_coords translated_coords);
 
     static CoordinateManager* get_coordinate_manager(
         tt::ARCH arch,

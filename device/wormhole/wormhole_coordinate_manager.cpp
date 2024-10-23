@@ -12,3 +12,11 @@ std::set<std::size_t> WormholeCoordinateManager::get_y_coordinates_to_harvest(st
     }
     return y_to_harvest;
 }
+
+tt_translated_coords WormholeCoordinateManager::logical_to_translated_coords(tt_logical_coords logical_coords) {
+    return tt_translated_coords(logical_coords.x + translated_coordinate_start_x, logical_coords.y + translated_coordinate_start_y);
+}
+
+tt_logical_coords WormholeCoordinateManager::translated_to_logical_coords(tt_translated_coords translated_coords) {
+    return tt_logical_coords(translated_coords.x - translated_coordinate_start_x, translated_coords.y - translated_coordinate_start_y);
+}

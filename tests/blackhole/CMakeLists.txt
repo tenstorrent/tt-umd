@@ -1,7 +1,6 @@
 
 set(UNIT_TESTS_BH_SRCS
     test_silicon_driver_bh.cpp
-    test_soc_descriptor.cpp
 )
 
 add_executable(unit_tests_blackhole ${UNIT_TESTS_BH_SRCS})

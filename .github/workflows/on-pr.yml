@@ -36,29 +36,3 @@ jobs:
         uses: pre-commit/action@v3.0.1
         with:
           extra_args: "--from-ref origin/main --to-ref HEAD"
-        continue-on-error: false
-
-      # Declarations from here irrelevant
-      # We are failing PRs on pre-commit error
-      # Nothing below this comment will have impact
-      # Leaving this incase we want this feature later
-      - name: Check for Modified Files and Set Flag
-        id: git_diff
-        run: |
-          git diff --exit-code || echo "::set-output name=changes-detected::true"
-
-      - name: Create Pull Request with Fixes
-        if: steps.git_diff.outputs.changes-detected == 'true'
-        uses: peter-evans/create-pull-request@v7
-        with:
-          commit-message: "Fix pre-commit issues"
-          title: "Proposed pre-commit fixes"
-          body: "This PR contains proposed fixes from pre-commit hooks."
-          branch: "pre-commit-fixes-${{ github.event.pull_request.number }}"
-          asignees: "${{ github.actor }}"
-
-      - name: Fail the Job if Changes Were Made
-        if: steps.git_diff.outputs.changes-detected == 'true'
-        run: |
-          echo "Pre-commit made changes. Marking job as failed."
-          exit 1  # Fail the job explicitly if changes were made

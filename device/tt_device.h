@@ -615,7 +615,6 @@ class tt_SiliconDevice: public tt_device
      * @param ndesc_path Network Descriptor specifying the network topology of the system.
      * @param target_devices Devices to target.
      * @param num_host_mem_ch_per_mmio_device Requested number of host channels (hugepages).
-     * @param dynamic_tlb_config_ Map specifying tlb name to tlb index mapping.
      * @param skip_driver_allocs
      * @param clean_system_resource Specifies if host state from previous runs needs to be cleaned up.
      * @param perform_harvesting Allow the driver to modify the SOC descriptors per chip.

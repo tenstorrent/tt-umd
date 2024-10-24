@@ -86,11 +86,6 @@ static tt::ARCH detect_arch(uint32_t pcie_device_id, uint32_t pcie_revision_id) 
     if (pcie_device_id == GS_PCIE_DEVICE_ID){
         return tt::ARCH::GRAYSKULL;
     } else if (pcie_device_id == WH_PCIE_DEVICE_ID && pcie_revision_id == 0x01){
-        return tt::ARCH::WORMHOLE_B0;
-    } else if (pcie_device_id == WH_PCIE_DEVICE_ID){
-        // TODO: did we ship any of these?  I've never seen one.  Can we stop
-        // having an ARCH for it if they don't exist?
-        TT_THROW("Wormhole is not supported. Please use Wormhole B0 instead.");
         return tt::ARCH::WORMHOLE;
     } else if (pcie_device_id == BH_PCIE_DEVICE_ID){
         return tt::ARCH::BLACKHOLE;
@@ -194,7 +189,7 @@ tt::ARCH PciDeviceInfo::get_arch() const {
     if (this->device_id == GS_PCIE_DEVICE_ID){
         return tt::ARCH::GRAYSKULL;
     } else if (this->device_id == WH_PCIE_DEVICE_ID) {
-        return tt::ARCH::WORMHOLE_B0;
+        return tt::ARCH::WORMHOLE;
     } else if (this->device_id == BH_PCIE_DEVICE_ID){
         return tt::ARCH::BLACKHOLE;
     }
@@ -340,7 +335,7 @@ PCIDevice::PCIDevice(int pci_device_number, int logical_device_id)
         bar0_wc = bar0_uc;
     }
 
-    if (arch == tt::ARCH::WORMHOLE_B0) {
+    if (arch == tt::ARCH::WORMHOLE) {
         if (bar4_uc_mapping.mapping_id != TENSTORRENT_MAPPING_RESOURCE2_UC) {
             throw std::runtime_error(fmt::format("Device {} has no BAR4 UC mapping.", pci_device_num));
         }
@@ -449,7 +444,7 @@ void PCIDevice::write_block(uint64_t byte_addr, uint64_t num_bytes, const uint8_
     }
 
     const void *src = reinterpret_cast<const void *>(buffer_addr);
-    if (arch == tt::ARCH::WORMHOLE_B0) {
+    if (arch == tt::ARCH::WORMHOLE) {
         memcpy_to_device(dest, src, num_bytes);
     } else {
         memcpy(dest, src, num_bytes);
@@ -466,7 +461,7 @@ void PCIDevice::read_block(uint64_t byte_addr, uint64_t num_bytes, uint8_t* buff
     }
 
     void *dest = reinterpret_cast<void *>(buffer_addr);
-    if (arch == tt::ARCH::WORMHOLE_B0) {
+    if (arch == tt::ARCH::WORMHOLE) {
         memcpy_from_device(dest, src, num_bytes);
     } else {
         memcpy(dest, src, num_bytes);

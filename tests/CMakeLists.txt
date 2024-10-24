@@ -14,7 +14,7 @@ target_link_libraries(
         gtest_main
         gtest
         pthread
-        fmt
+        fmt::fmt-header-only
 )
 target_include_directories(
     test_common

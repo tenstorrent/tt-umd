@@ -10,12 +10,12 @@
 
 namespace tt::umd {
 
-std::unique_ptr<architecture_implementation> architecture_implementation::create(architecture architecture) {
+std::unique_ptr<architecture_implementation> architecture_implementation::create(tt::ARCH architecture) {
     switch (architecture) {
-        case architecture::blackhole: return std::make_unique<blackhole_implementation>();
-        case architecture::grayskull: return std::make_unique<grayskull_implementation>();
-        case architecture::wormhole:
-        case architecture::wormhole_b0: return std::make_unique<wormhole_implementation>();
+        case tt::ARCH::BLACKHOLE: return std::make_unique<blackhole_implementation>();
+        case tt::ARCH::GRAYSKULL: return std::make_unique<grayskull_implementation>();
+        case tt::ARCH::WORMHOLE:
+        case tt::ARCH::WORMHOLE_B0: return std::make_unique<wormhole_implementation>();
         default: return nullptr;
     }
 }

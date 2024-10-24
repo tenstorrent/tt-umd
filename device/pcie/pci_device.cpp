@@ -249,7 +249,7 @@ PCIDevice::PCIDevice(int pci_device_number, int logical_device_id)
     , numa_node(read_sysfs<int>(info, "numa_node"))
     , revision(read_sysfs<int>(info, "revision"))
     , arch(detect_arch(info.device_id, revision))
-    , architecture_implementation(tt::umd::architecture_implementation::create(static_cast<tt::umd::architecture>(arch)))
+    , architecture_implementation(tt::umd::architecture_implementation::create(arch))
 {
     struct {
         tenstorrent_query_mappings query_mappings;

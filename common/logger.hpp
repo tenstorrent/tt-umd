@@ -46,7 +46,7 @@ enum LogTypeDevice : uint32_t {
 static_assert(LogTypeDevice_Count < 64, "Exceeded number of log types");
 
 #pragma GCC visibility push(hidden)
-class LoggerDevice {
+  class LoggerDevice {
    public:
     static constexpr char const* type_names[LogTypeDevice_Count] = {
     // clang-format off

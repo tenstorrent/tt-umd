@@ -14,7 +14,6 @@ std::unique_ptr<architecture_implementation> architecture_implementation::create
     switch (architecture) {
         case tt::ARCH::BLACKHOLE: return std::make_unique<blackhole_implementation>();
         case tt::ARCH::GRAYSKULL: return std::make_unique<grayskull_implementation>();
-        case tt::ARCH::WORMHOLE:
         case tt::ARCH::WORMHOLE_B0: return std::make_unique<wormhole_implementation>();
         default: return nullptr;
     }

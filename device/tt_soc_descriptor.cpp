@@ -221,7 +221,7 @@ std::ostream &operator<<(std::ostream &out, const tt::ARCH &arch_name) {
     } else if (arch_name == tt::ARCH::GRAYSKULL) {
         out << "grayskull";
     } else if (arch_name == tt::ARCH::WORMHOLE_B0) {
-        out << "wormhole";
+        out << "wormhole_b0";
     } else if (arch_name == tt::ARCH::BLACKHOLE) {
         out << "blackhole"; //Just how many ARCH-to-string functions do we plan to have, anyway?
     } else {

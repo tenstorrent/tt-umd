@@ -34,7 +34,7 @@ static inline std::string get_arch_str(const tt::ARCH arch_name){
     if (arch_name == tt::ARCH::GRAYSKULL) {
         arch_name_str = "grayskull";
     } else if (arch_name == tt::ARCH::WORMHOLE_B0) {
-        arch_name_str = "wormhole";
+        arch_name_str = "wormhole_b0";
     } else if (arch_name == tt::ARCH::BLACKHOLE) {
         arch_name_str = "blackhole";
     } else {

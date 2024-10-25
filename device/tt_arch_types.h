@@ -14,7 +14,7 @@ namespace tt {
 enum class ARCH {
     GRAYSKULL = 1,
     WORMHOLE_B0 = 2,
-    BLACKHOLE = 4,
+    BLACKHOLE = 3,
     Invalid = 0xFF,
 };
 }

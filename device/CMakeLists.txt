@@ -1,4 +1,3 @@
-
 set(POSITION_INDEPENDENT_CODE ON)
 
 set(UMD_DEVICE_SRCS
@@ -38,12 +37,12 @@ target_link_libraries(
     PUBLIC
         nng
         flatbuffers
+        uv
     PRIVATE
         hwloc
         rt
         Boost::interprocess
         fmt::fmt-header-only
-        uv
         yaml-cpp::yaml-cpp
 )
 

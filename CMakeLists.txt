@@ -56,11 +56,6 @@ endif()
 
 message(STATUS "UMD build type: ${CMAKE_BUILD_TYPE}")
 
-add_compile_definitions(
-    $<$<CONFIG:Debug>:DEBUG>
-    $<$<CONFIG:RelWithDebInfo>:DEBUG>
-)
-
 include(dependencies)
 
 add_subdirectory(device)

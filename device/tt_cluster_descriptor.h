@@ -47,6 +47,7 @@ class tt_ClusterDescriptor {
   std::unordered_set<chip_id_t> enabled_active_chips;
   std::unordered_map<chip_id_t, chip_id_t> closest_mmio_chip_cache = {};
   std::unordered_map<chip_id_t, BoardType> chip_board_type = {};
+  std::unordered_map<chip_id_t, std::unordered_set<chip_id_t>> chips_grouped_by_closest_mmio;
 
   // one-to-many chip connections
   struct Chip2ChipConnection {
@@ -66,6 +67,8 @@ class tt_ClusterDescriptor {
   static void load_chips_from_connectivity_descriptor(YAML::Node &yaml, tt_ClusterDescriptor &desc);
   static void load_harvesting_information(YAML::Node &yaml, tt_ClusterDescriptor &desc);
 
+  void fill_chips_grouped_by_closest_mmio();
+
  public:
   tt_ClusterDescriptor() = default;
   tt_ClusterDescriptor(const tt_ClusterDescriptor&) = default;
@@ -76,8 +79,9 @@ class tt_ClusterDescriptor {
    */
   std::vector<std::tuple<ethernet_channel_t, ethernet_channel_t>> get_directly_connected_ethernet_channels_between_chips(const chip_id_t &first, const chip_id_t &second) const;
   
-  bool is_chip_mmio_capable(const chip_id_t &chip_id) const;
-  chip_id_t get_closest_mmio_capable_chip(const chip_id_t &chip);
+  bool is_chip_mmio_capable(const chip_id_t chip_id) const;
+  bool is_chip_remote(const chip_id_t chip_id) const;
+  chip_id_t get_closest_mmio_capable_chip(const chip_id_t chip);
   chip_id_t get_shelf_local_physical_chip_coords(chip_id_t virtual_coord);
   static std::unique_ptr<tt_ClusterDescriptor> create_from_yaml(const std::string &cluster_descriptor_file_path);
   static std::unique_ptr<tt_ClusterDescriptor> create_for_grayskull_cluster(
@@ -91,6 +95,7 @@ class tt_ClusterDescriptor {
   std::unordered_map<chip_id_t, chip_id_t> get_chips_with_mmio() const;
   std::unordered_set<chip_id_t> get_all_chips() const;
   std::size_t get_number_of_chips() const;
+  std::unordered_map<chip_id_t, std::unordered_set<chip_id_t>> get_chips_grouped_by_closest_mmio() const;
 
   int get_ethernet_link_distance(chip_id_t chip_a, chip_id_t chip_b) const;
 

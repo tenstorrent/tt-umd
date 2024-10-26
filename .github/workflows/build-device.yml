@@ -1,4 +1,4 @@
-# Builds umd_device.
+# Builds device.
 # Build is performed on all supported OS versions.
 name: Build Target
 
@@ -14,9 +14,9 @@ on:
         required: true
         description: 'The timeout for the build job in minutes'
         type: number
-      
+
 env:
-  BUILD_TARGET: umd_device
+  BUILD_TARGET: device
   BUILD_OUTPUT_DIR: ./build
   LIB_OUTPUT_DIR: ./build/lib
   DEPS_OUTPUT_DIR: ./build/_deps
@@ -34,20 +34,20 @@ jobs:
           {runs-on: ubuntu-20.04, docker-image: tt-umd-ci-ubuntu-20.04},
         ]
 
-    name: Build umd_device for any arch on ${{ matrix.build.runs-on }}
+    name: Build device for any arch on ${{ matrix.build.runs-on }}
     runs-on: ${{ matrix.build.runs-on }}
     container:
       image: ghcr.io/${{ github.repository }}/${{ matrix.build.docker-image }}:latest
       options: --user root
 
     steps:
-    - uses: actions/checkout@v4
-      with:
-        submodules: recursive
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
 
-    - name: Build ${{ env.BUILD_TARGET }}
-      run: |
-        echo "Compiling the code..."
-        cmake -B ${{ env.BUILD_OUTPUT_DIR }} -G Ninja
-        cmake --build ${{ env.BUILD_OUTPUT_DIR }} --target ${{ env.BUILD_TARGET }}
-        echo "Compile complete."
+      - name: Build ${{ env.BUILD_TARGET }}
+        run: |
+          echo "Compiling the code..."
+          cmake -B ${{ env.BUILD_OUTPUT_DIR }} -G Ninja
+          cmake --build ${{ env.BUILD_OUTPUT_DIR }} --target ${{ env.BUILD_TARGET }}
+          echo "Compile complete."

@@ -206,7 +206,7 @@ static constexpr uint32_t TENSIX_SOFT_RESET_ADDR = 0xFFB121B0;
 
 class wormhole_implementation : public architecture_implementation {
    public:
-    architecture get_architecture() const override { return architecture::wormhole; }
+    tt::ARCH get_architecture() const override { return tt::ARCH::WORMHOLE_B0; }
     uint32_t get_arc_message_arc_get_harvesting() const override {
         return static_cast<uint32_t>(wormhole::arc_message_type::ARC_GET_HARVESTING);
     }
@@ -253,6 +253,7 @@ class wormhole_implementation : public architecture_implementation {
     uint32_t get_grid_size_x() const override { return wormhole::GRID_SIZE_X; }
     uint32_t get_grid_size_y() const override { return wormhole::GRID_SIZE_Y; }
     uint32_t get_tlb_cfg_reg_size_bytes() const override { return wormhole::TLB_CFG_REG_SIZE_BYTES; }
+    uint32_t get_small_read_write_tlb() const override { return wormhole::MEM_SMALL_READ_WRITE_TLB; }
     const std::vector<uint32_t>& get_harvesting_noc_locations() const override {
         return wormhole::HARVESTING_NOC_LOCATIONS;
     }

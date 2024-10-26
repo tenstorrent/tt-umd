@@ -155,6 +155,7 @@ void tt_SimulationDevice::read_from_sysmem(std::vector<uint32_t> &vec, uint64_t 
 void tt_SimulationDevice::read_from_sysmem(void* mem_ptr, uint64_t addr, uint16_t channel, uint32_t size, chip_id_t src_device_id) {}
 
 void tt_SimulationDevice::wait_for_non_mmio_flush() {}
+void tt_SimulationDevice::wait_for_non_mmio_flush(const chip_id_t chip) {}
 void tt_SimulationDevice::l1_membar(const chip_id_t chip, const std::string& fallback_tlb, const std::unordered_set<tt_xy_pair>& cores) {}
 void tt_SimulationDevice::dram_membar(const chip_id_t chip, const std::string& fallback_tlb, const std::unordered_set<uint32_t>& channels) {}
 void tt_SimulationDevice::dram_membar(const chip_id_t chip, const std::string& fallback_tlb, const std::unordered_set<tt_xy_pair>& cores) {}
@@ -180,8 +181,8 @@ void *tt_SimulationDevice::host_dma_address(std::uint64_t offset, chip_id_t src_
     return nullptr;
 }
 
-std::uint64_t tt_SimulationDevice::get_pcie_base_addr_from_device() const {
-    if(arch_name == tt::ARCH::WORMHOLE or arch_name == tt::ARCH::WORMHOLE_B0) {
+std::uint64_t tt_SimulationDevice::get_pcie_base_addr_from_device(const chip_id_t chip_id) const {
+    if(arch_name == tt::ARCH::WORMHOLE_B0) {
         return 0x800000000;
     }
     else if (arch_name == tt::ARCH::BLACKHOLE) {
@@ -194,11 +195,11 @@ std::uint64_t tt_SimulationDevice::get_pcie_base_addr_from_device() const {
 }
 
 std::uint32_t tt_SimulationDevice::get_num_dram_channels(std::uint32_t device_id) {
-    return get_soc_descriptor(device_id)->get_num_dram_channels();
+    return get_soc_descriptor(device_id).get_num_dram_channels();
 }
 
 std::uint64_t tt_SimulationDevice::get_dram_channel_size(std::uint32_t device_id, std::uint32_t channel) {
-    return get_soc_descriptor(device_id)->dram_bank_size; // Space per channel is identical for now
+    return get_soc_descriptor(device_id).dram_bank_size; // Space per channel is identical for now
 }
 
 std::uint32_t tt_SimulationDevice::get_num_host_channels(std::uint32_t device_id) {

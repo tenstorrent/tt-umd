@@ -54,8 +54,12 @@ std::vector<std::tuple<ethernet_channel_t, ethernet_channel_t>> tt_ClusterDescri
     return directly_connected_channels;
 }
 
-bool tt_ClusterDescriptor::is_chip_mmio_capable(const chip_id_t &chip_id) const {
+bool tt_ClusterDescriptor::is_chip_mmio_capable(const chip_id_t chip_id) const {
     return this->chips_with_mmio.find(chip_id) != this->chips_with_mmio.end();
+}
+
+bool tt_ClusterDescriptor::is_chip_remote(const chip_id_t chip_id) const {
+    return !is_chip_mmio_capable(chip_id);
 }
 
 // given two coordinates, finds the number of hops between the two chips
@@ -255,7 +259,7 @@ int tt_ClusterDescriptor::get_ethernet_link_coord_distance(const eth_coord_t &lo
 }
 
 // Returns the closest mmio chip to the given chip
-chip_id_t tt_ClusterDescriptor::get_closest_mmio_capable_chip(const chip_id_t &chip) {
+chip_id_t tt_ClusterDescriptor::get_closest_mmio_capable_chip(const chip_id_t chip) {
 
     log_debug(LogSiliconDriver, "get_closest_mmio_chip to chip{}", chip);
 
@@ -308,6 +312,8 @@ std::unique_ptr<tt_ClusterDescriptor> tt_ClusterDescriptor::create_from_yaml(con
     tt_ClusterDescriptor::load_ethernet_connections_from_connectivity_descriptor(yaml, *desc);
     tt_ClusterDescriptor::load_harvesting_information(yaml, *desc);
     desc->enable_all_devices();
+
+    desc->fill_chips_grouped_by_closest_mmio();
 
     return desc;
 }
@@ -569,6 +575,14 @@ void tt_ClusterDescriptor::enable_all_devices() {
     this->enabled_active_chips = this->all_chips;
 }
 
+void tt_ClusterDescriptor::fill_chips_grouped_by_closest_mmio() {
+    for (const auto &chip : this->all_chips) {
+        // This will also fill up the closest_mmio_chip_cache
+        chip_id_t closest_mmio_chip = get_closest_mmio_capable_chip(chip);
+        this->chips_grouped_by_closest_mmio[closest_mmio_chip].insert(chip);
+    }
+}
+
 std::unordered_map<chip_id_t, std::unordered_map<ethernet_channel_t, std::tuple<chip_id_t, ethernet_channel_t> > > tt_ClusterDescriptor::get_ethernet_connections() const {
     auto eth_connections = std::unordered_map<chip_id_t, std::unordered_map<ethernet_channel_t, std::tuple<chip_id_t, ethernet_channel_t> > >();
 
@@ -639,4 +653,8 @@ int tt_ClusterDescriptor::get_ethernet_link_distance(chip_id_t chip_a, chip_id_t
 BoardType tt_ClusterDescriptor::get_board_type(chip_id_t chip_id) const {
   BoardType board_type = this->chip_board_type.at(chip_id);
   return board_type;
+}
+
+std::unordered_map<chip_id_t, std::unordered_set<chip_id_t>> tt_ClusterDescriptor::get_chips_grouped_by_closest_mmio() const {
+    return chips_grouped_by_closest_mmio;
 }

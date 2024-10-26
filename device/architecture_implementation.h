@@ -11,9 +11,9 @@
 #include <tuple>
 #include <vector>
 
-#include "device/architecture.h"
 #include "device/tlb.h"
 #include "device/xy_pair.h"
+#include "device/tt_arch_types.h"
 
 namespace tt::umd {
 
@@ -21,7 +21,7 @@ class architecture_implementation {
    public:
     virtual ~architecture_implementation() = default;
 
-    virtual architecture get_architecture() const = 0;
+    virtual tt::ARCH get_architecture() const = 0;
     virtual uint32_t get_arc_message_arc_get_harvesting() const = 0;
     virtual uint32_t get_arc_message_arc_go_busy() const = 0;
     virtual uint32_t get_arc_message_arc_go_long_idle() const = 0;
@@ -52,6 +52,7 @@ class architecture_implementation {
     virtual uint32_t get_grid_size_x() const = 0;
     virtual uint32_t get_grid_size_y() const = 0;
     virtual uint32_t get_tlb_cfg_reg_size_bytes() const = 0;
+    virtual uint32_t get_small_read_write_tlb() const = 0;
     // Replace with std::span once we enable C++20
     virtual const std::vector<uint32_t>& get_harvesting_noc_locations() const = 0;
     virtual const std::vector<uint32_t>& get_t6_x_locations() const = 0;
@@ -62,7 +63,7 @@ class architecture_implementation {
     virtual std::optional<std::tuple<std::uint64_t, std::uint64_t>> describe_tlb(std::int32_t tlb_index) const = 0;
     virtual std::pair<std::uint64_t, std::uint64_t> get_tlb_data(std::uint32_t tlb_index, const tlb_data& data) const = 0;
 
-    static std::unique_ptr<architecture_implementation> create(architecture architecture);
+    static std::unique_ptr<architecture_implementation> create(tt::ARCH architecture);
 };
 
 }  // namespace tt::umd

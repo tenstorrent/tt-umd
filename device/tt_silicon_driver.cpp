@@ -2538,7 +2538,7 @@ void tt_SiliconDevice::set_membar_flag(const chip_id_t chip, const std::unordere
                     cores_synced.insert(core);
                 }
                 else {
-                    log_info(LogSiliconDriver, "Waiting for core {} to recieve mem bar flag {} in function", core.str(), barrier_value);
+                    log_trace(LogSiliconDriver, "Waiting for core {} to recieve mem bar flag {} in function", core.str(), barrier_value);
                 }
             }
         }

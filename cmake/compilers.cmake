@@ -15,6 +15,11 @@ function(CHECK_COMPILERS)
     message(STATUS "Checking compilers")
 
     if(CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
+        set(CMAKE_CXX_FLAGS
+            "${CMAKE_CXX_FLAGS} -stdlib=libc++"
+            CACHE STRING
+            "CXX FLAGS for clang"
+        )
         if(CMAKE_CXX_COMPILER_VERSION VERSION_LESS "17.0.0" OR CMAKE_CXX_COMPILER_VERSION GREATER_EQUAL "18.0.0")
             message(WARNING "Only Clang-17 is tested right now")
         endif()

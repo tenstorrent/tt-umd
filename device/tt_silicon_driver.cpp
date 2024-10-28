@@ -42,7 +42,6 @@
 
 #include "device/cpuset_lib.hpp"
 #include "device/driver_atomics.h"
-#include "device/architecture.h"
 #include "device/architecture_implementation.h"
 #include "device/tlb.h"
 #include "device/tt_arch_types.h"
@@ -284,7 +283,7 @@ void tt_SiliconDevice::initialize_interprocess_mutexes(int pci_interface_id, boo
     if (cleanup_mutexes_in_shm) named_mutex::remove(mutex_name.c_str());
     hardware_resource_mutex_map[mutex_name] = std::make_shared<named_mutex>(open_or_create, mutex_name.c_str(), unrestricted_permissions);
 
-    if (arch_name == tt::ARCH::WORMHOLE or arch_name == tt::ARCH::WORMHOLE_B0) {
+    if (arch_name == tt::ARCH::WORMHOLE_B0) {
         mutex_name = NON_MMIO_MUTEX_NAME + std::to_string(pci_interface_id);
         // Initialize non-MMIO mutexes for WH devices regardless of number of chips, since these may be used for ethernet broadcast
         if (cleanup_mutexes_in_shm) named_mutex::remove(mutex_name.c_str());
@@ -418,7 +417,7 @@ tt_SiliconDevice::tt_SiliconDevice(const std::string &sdesc_path, const std::str
     }
 
     // It is mandatory for all devices to have these TLBs set aside, as the driver needs them to issue remote reads and writes.
-    auto architecture_implementation = tt::umd::architecture_implementation::create(static_cast<tt::umd::architecture>(arch_name));
+    auto architecture_implementation = tt::umd::architecture_implementation::create(arch_name);
     dynamic_tlb_config["LARGE_READ_TLB"] =  architecture_implementation->get_mem_large_read_tlb();
     dynamic_tlb_config["LARGE_WRITE_TLB"] = architecture_implementation->get_mem_large_write_tlb();
     dynamic_tlb_config["REG_TLB"] = architecture_implementation->get_reg_tlb();
@@ -436,7 +435,7 @@ tt_SiliconDevice::tt_SiliconDevice(const std::string &sdesc_path, const std::str
         use_virtual_coords_for_eth_broadcast = false;
     }
 
-    if(arch_name == tt::ARCH::WORMHOLE or arch_name == tt::ARCH::WORMHOLE_B0) {
+    if(arch_name == tt::ARCH::WORMHOLE_B0) {
         const auto& harvesting_masks = ndesc -> get_harvesting_info();
         const auto& noc_translation_enabled = ndesc -> get_noc_translation_table_en();
 
@@ -502,7 +501,7 @@ tt_SiliconDevice::tt_SiliconDevice(const std::string &sdesc_path, const std::str
                 }
                 simulated_harvesting_masks.at(*device_id) |= harvested_rows_per_target[*device_id];
             }
-            else if(arch_name == tt::ARCH::WORMHOLE_B0 || arch_name == tt::ARCH::WORMHOLE) {
+            else if(arch_name == tt::ARCH::WORMHOLE_B0) {
                 log_assert(std::bitset<32>(simulated_harvesting_masks.at(*device_id)).count() >= std::bitset<32>(harvested_rows_per_target[*device_id]).count(),
                             "Simulated Harvesting for WH must contain at least as many rows as the actual harvesting config. Actual Harvested Rows : {}  Simulated Harvested Rows : {}",
                             harvested_rows_per_target[*device_id], simulated_harvesting_masks.at(*device_id));
@@ -517,7 +516,7 @@ tt_SiliconDevice::tt_SiliconDevice(const std::string &sdesc_path, const std::str
     populate_cores();
 
     // MT: Initial BH - skip this for BH
-    if(arch_name == tt::ARCH::WORMHOLE or arch_name == tt::ARCH::WORMHOLE_B0) {
+    if(arch_name == tt::ARCH::WORMHOLE_B0) {
         remote_transfer_ethernet_cores.resize(target_mmio_device_ids.size());
         for (const auto &logical_mmio_chip_id : target_mmio_device_ids) {
             const tt_SocDescriptor& soc_desc = get_soc_descriptor(logical_mmio_chip_id);
@@ -583,7 +582,7 @@ std::vector<int> tt_SiliconDevice::extract_rows_to_remove(const tt::ARCH &arch, 
         tmp = tmp >> 1;
         row_coordinate++;
     }
-    if (arch == tt::ARCH::WORMHOLE || arch == tt::ARCH::WORMHOLE_B0) {
+    if (arch == tt::ARCH::WORMHOLE_B0) {
         // For Wormhole, we always remove the last few rows in the SOC descriptor in case of harvesting
         for (int i = 0; i < row_coordinates_to_remove.size(); i++) {
             row_coordinates_to_remove[i] = worker_grid_rows - i;
@@ -647,8 +646,8 @@ void tt_SiliconDevice::check_pcie_device_initialized(int device_id) {
             throw std::runtime_error(fmt::format("Attempted to run grayskull configured tt_device on {}", get_arch_str(device_arch)));
         }
     }
-    else if (arch_name == tt::ARCH::WORMHOLE || arch_name == tt::ARCH::WORMHOLE_B0) {
-        if (device_arch != tt::ARCH::WORMHOLE && device_arch != tt::ARCH::WORMHOLE_B0) {
+    else if (arch_name == tt::ARCH::WORMHOLE_B0) {
+        if (device_arch != tt::ARCH::WORMHOLE_B0) {
             throw std::runtime_error(fmt::format("Attempted to run wormhole configured tt_device on {}", get_arch_str(device_arch)));
         }
     }
@@ -914,7 +913,7 @@ tt::Writer tt_SiliconDevice::get_static_tlb_writer(tt_cxy_pair target) {
         throw std::runtime_error(fmt::format("Target not in MMIO chip: {}", target.str()));
     }
 
-    if (!tlbs_init || !map_core_to_tlb) {
+    if (!tlbs_init_per_chip[target.chip] || !map_core_to_tlb_per_chip[target.chip]) {
         throw std::runtime_error("TLBs not initialized");
     }
 
@@ -924,7 +923,7 @@ tt::Writer tt_SiliconDevice::get_static_tlb_writer(tt_cxy_pair target) {
         throw std::runtime_error("No write-combined mapping for BAR0");
     }
 
-    auto tlb_index = map_core_to_tlb(tt_xy_pair(target.x, target.y));
+    auto tlb_index = map_core_to_tlb_per_chip[target.chip](tt_xy_pair(target.x, target.y));
     auto tlb_data = dev->get_architecture_implementation()->describe_tlb(tlb_index);
 
     if (!tlb_data.has_value()) {
@@ -946,8 +945,8 @@ void tt_SiliconDevice::write_device_memory(const void *mem_ptr, uint32_t size_in
 
     std::int32_t tlb_index = 0;
     std::optional<std::tuple<std::uint64_t, std::uint64_t>> tlb_data = std::nullopt;
-    if(tlbs_init) {
-        tlb_index = map_core_to_tlb(tt_xy_pair(target.x, target.y));
+    if(tlbs_init_per_chip[target.chip]) {
+        tlb_index = map_core_to_tlb_per_chip[target.chip](tt_xy_pair(target.x, target.y));
         tlb_data = dev->get_architecture_implementation()->describe_tlb(tlb_index);
     }
 
@@ -987,8 +986,8 @@ void tt_SiliconDevice::read_device_memory(void *mem_ptr, tt_cxy_pair target, std
 
     std::int32_t tlb_index = 0;
     std::optional<std::tuple<std::uint64_t, std::uint64_t>> tlb_data = std::nullopt;
-    if(tlbs_init) {
-        tlb_index = map_core_to_tlb(tt_xy_pair(target.x, target.y));
+    if(tlbs_init_per_chip[target.chip]) {
+        tlb_index = map_core_to_tlb_per_chip[target.chip](tt_xy_pair(target.x, target.y));
         tlb_data = dev->get_architecture_implementation()->describe_tlb(tlb_index);
     }
     log_debug(LogSiliconDriver, "  tlb_index: {}, tlb_data.has_value(): {}", tlb_index, tlb_data.has_value());
@@ -1165,13 +1164,13 @@ tt_SiliconDevice::~tt_SiliconDevice () {
     dynamic_tlb_ordering_modes.clear();
 }
 
-std::optional<std::tuple<uint32_t, uint32_t>> tt_SiliconDevice::get_tlb_data_from_target(const tt_xy_pair& target) {
+std::optional<std::tuple<uint32_t, uint32_t>> tt_SiliconDevice::get_tlb_data_from_target(const tt_cxy_pair& target) {
     std::int32_t tlb_index = 0;
     std::optional<std::tuple<std::uint32_t, std::uint32_t>> tlb_data;
 
-    if (tlbs_init) {
-        tlb_index = map_core_to_tlb(target);
-        auto architecture_implementation = tt::umd::architecture_implementation::create(static_cast<tt::umd::architecture>(arch_name));
+    if (tlbs_init_per_chip[target.chip]) {
+        tlb_index = map_core_to_tlb_per_chip[target.chip](tt_xy_pair(target.x, target.y));
+        auto architecture_implementation = tt::umd::architecture_implementation::create(arch_name);
         tlb_data = architecture_implementation->describe_tlb(tlb_index);
     } 
     return tlb_data;
@@ -1420,7 +1419,7 @@ int tt_SiliconDevice::test_setup_interface () {
         ret_val = (regval != 0xffffffff && ((regval & 0x1) == 1)) ? 0 : 1;
         return ret_val;
     }
-    else if (arch_name == tt::ARCH::WORMHOLE || arch_name == tt::ARCH::WORMHOLE_B0) {
+    else if (arch_name == tt::ARCH::WORMHOLE_B0) {
         int ret_val = 0;
         PCIDevice *dev = m_pci_device_map.begin()->second.get();
 
@@ -1587,7 +1586,7 @@ int tt_SiliconDevice::iatu_configure_peer_region (int logical_device_id, uint32_
 
 // Returns broken rows as bits set to 1 in 'memory' and 'logic'
 uint32_t tt_SiliconDevice::get_harvested_noc_rows(uint32_t harvesting_mask) {
-    auto architecture_implementation = tt::umd::architecture_implementation::create(static_cast<tt::umd::architecture>(arch_name));
+    auto architecture_implementation = tt::umd::architecture_implementation::create(arch_name);
     const std::vector<uint32_t> &harv_to_noc_loc = architecture_implementation->get_harvesting_noc_locations();
     uint32_t harv_noc_rows = 0;
     std::string harv_noc_rows_str = "";
@@ -2114,7 +2113,7 @@ void tt_SiliconDevice::wait_for_connected_non_mmio_flush(const chip_id_t chip_id
             return;
         }
 
-        if (arch_name == tt::ARCH::WORMHOLE || arch_name == tt::ARCH::WORMHOLE_B0) {
+        if (arch_name == tt::ARCH::WORMHOLE_B0) {
             std::vector<std::uint32_t> erisc_txn_counters = std::vector<uint32_t>(2);
             std::vector<std::uint32_t> erisc_q_ptrs = std::vector<uint32_t>(eth_interface_params.remote_update_ptr_size_bytes*2 / sizeof(uint32_t));
 
@@ -2387,7 +2386,7 @@ void tt_SiliconDevice::broadcast_write_to_cluster(const void *mem_ptr, uint32_t 
         } 
     }
     else if (arch_name == tt::ARCH::BLACKHOLE) {
-        auto architecture_implementation = tt::umd::architecture_implementation::create(static_cast<tt::umd::architecture>(arch_name));
+        auto architecture_implementation = tt::umd::architecture_implementation::create(arch_name);
         if(cols_to_exclude.find(0) == cols_to_exclude.end() or cols_to_exclude.find(9) == cols_to_exclude.end()) {
             log_assert(!tensix_or_eth_in_broadcast(cols_to_exclude, architecture_implementation.get()), "Cannot broadcast to tensix/ethernet and DRAM simultaneously on Blackhole.");
             if(cols_to_exclude.find(0) == cols_to_exclude.end()) {
@@ -2415,7 +2414,7 @@ void tt_SiliconDevice::broadcast_write_to_cluster(const void *mem_ptr, uint32_t 
         }
     }
     else {
-        auto architecture_implementation = tt::umd::architecture_implementation::create(static_cast<tt::umd::architecture>(arch_name));
+        auto architecture_implementation = tt::umd::architecture_implementation::create(arch_name);
         if(cols_to_exclude.find(0) == cols_to_exclude.end() or cols_to_exclude.find(5) == cols_to_exclude.end()) {
             log_assert(!tensix_or_eth_in_broadcast(cols_to_exclude, architecture_implementation.get()), "Cannot broadcast to tensix/ethernet and DRAM simultaneously on Wormhole.");
             if(cols_to_exclude.find(0) == cols_to_exclude.end()) {
@@ -2790,7 +2789,6 @@ void tt_SiliconDevice::enable_ethernet_queue(int timeout) {
         auto arch = get_soc_descriptor(chip).arch;
 
          switch (arch) {
-            case tt::ARCH::WORMHOLE:
             case tt::ARCH::WORMHOLE_B0: {
                 if (ndesc->is_chip_mmio_capable(chip)) {
                     enable_local_ethernet_queue(chip, timeout);
@@ -2880,7 +2878,7 @@ void tt_SiliconDevice::start_device(const tt_device_params &device_params) {
     if(device_params.init_device) {
         initialize_pcie_devices();
         // MT Initial BH - Ethernet firmware not present in Blackhole
-        if(arch_name == tt::ARCH::WORMHOLE || arch_name == tt::ARCH::WORMHOLE_B0) {
+        if(arch_name == tt::ARCH::WORMHOLE_B0) {
             verify_eth_fw();
         }
         deassert_resets_and_set_power_state();
@@ -2909,9 +2907,9 @@ void tt_SiliconDevice::set_driver_eth_interface_params(const tt_driver_eth_inter
     eth_interface_params = eth_interface_params_;
 }
 
-void tt_SiliconDevice::setup_core_to_tlb_map(std::function<std::int32_t(tt_xy_pair)> mapping_function) {
-    map_core_to_tlb = mapping_function;
-    tlbs_init = true;
+void tt_SiliconDevice::setup_core_to_tlb_map(const chip_id_t logical_device_id, std::function<std::int32_t(tt_xy_pair)> mapping_function) {
+    map_core_to_tlb_per_chip[logical_device_id] = mapping_function;
+    tlbs_init_per_chip[logical_device_id] = true;
 }
 
 std::uint32_t tt_SiliconDevice::get_num_dram_channels(std::uint32_t device_id) {
@@ -2939,11 +2937,13 @@ std::uint32_t tt_SiliconDevice::get_numa_node_for_pcie_device(std::uint32_t devi
     return get_pci_device(device_id)->get_numa_node();
 }
 
-std::uint64_t tt_SiliconDevice::get_pcie_base_addr_from_device() const {
-    if(arch_name == tt::ARCH::WORMHOLE or arch_name == tt::ARCH::WORMHOLE_B0) {
+std::uint64_t tt_SiliconDevice::get_pcie_base_addr_from_device(const chip_id_t chip_id) const {
+    // TODO: Should probably be lowered to TTDevice.
+    tt::ARCH arch = get_soc_descriptor(chip_id).arch;
+    if(arch == tt::ARCH::WORMHOLE_B0) {
         return 0x800000000;
     }
-    else if (arch_name == tt::ARCH::BLACKHOLE) {
+    else if (arch == tt::ARCH::BLACKHOLE) {
         // Enable 4th ATU window.
         return 1ULL << 60;
     }
@@ -2953,7 +2953,7 @@ std::uint64_t tt_SiliconDevice::get_pcie_base_addr_from_device() const {
 }
 
 tt_version tt_SiliconDevice::get_ethernet_fw_version() const {
-    log_assert(arch_name == tt::ARCH::WORMHOLE or arch_name == tt::ARCH::WORMHOLE_B0, "Can only get Ethernet FW version for Wormhole architectures.");
+    log_assert(arch_name == tt::ARCH::WORMHOLE_B0, "Can only get Ethernet FW version for Wormhole architectures.");
     log_assert(eth_fw_version.major != 0xffff and eth_fw_version.minor != 0xff and eth_fw_version.patch != 0xff, "Device must be started before querying Ethernet FW version.");
     return eth_fw_version;
 }

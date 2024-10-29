@@ -6,13 +6,13 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED True)
 set(CMAKE_POSITION_INDEPENDENT_CODE ON) # This also impacts dependencies brought in through CPM
 
-if (DEFINED ENV{CMAKE_C_COMPILER} AND DEFINED ENV{CMAKE_CXX_COMPILER})
+if(DEFINED ENV{CMAKE_C_COMPILER} AND DEFINED ENV{CMAKE_CXX_COMPILER})
     message(STATUS "Setting C and C++ compiler from environment variables")
     set(CMAKE_C_COMPILER $ENV{CMAKE_C_COMPILER})
     set(CMAKE_CXX_COMPILER $ENV{CMAKE_CXX_COMPILER})
 endif()
 
-if (CMAKE_CXX_COMPILER AND CMAKE_C_COMPILER)
+if(CMAKE_CXX_COMPILER AND CMAKE_C_COMPILER)
     message(STATUS "Using specifed C++ compiler: ${CMAKE_CXX_COMPILER}")
     message(STATUS "Using specifed C compiler: ${CMAKE_C_COMPILER}")
 else()
@@ -55,11 +55,6 @@ if(MASTER_PROJECT)
 endif()
 
 message(STATUS "UMD build type: ${CMAKE_BUILD_TYPE}")
-
-add_compile_definitions(
-    $<$<CONFIG:Debug>:DEBUG>
-    $<$<CONFIG:RelWithDebInfo>:DEBUG>
-)
 
 include(dependencies)
 

@@ -26,101 +26,132 @@ Wiki on coordinates understood by open-UMD
   * [Important Notes about Harvesting](#important-notes-about-harvesting)
     + [Additional Notes about the Translation Scheme in UMD](#additional-notes-about-the-translation-scheme-in-umd)
 
+# Summary
 
-# API and Coordinates Usage
-## Important Notes
-* UMD accepts Virtual Coordinates (these match Physical Coordinates on Grayskull)
-* Any application programming overlay hardware/streams must use Translated Coordinates on a Wormhole Device with translation tables enabled
-* Regular Physical Coordinates can be used on a Wormhole Device with Translation Tables disabled
-* Translation Tables are a prerequisite for Wormhole Harvesting
-* As part of product definition, translation tables are enabled on Wormhole devices regardless of their grid size
+This documentation is intended to be used as a guide to understanding harvesting of Tenstorrent chips, as well as understanding different coordinate systems for cores on the chip.
 
-# Coordinates System Definitions
-## Physical Coordinates - Any Arch
-These are the NOC coordinates that the hardware understands, there are two distinct variations for NOC0 and NOC1.  In hardware, each node is given an ID (which is different for each NOC) which can be used to identify this node.  In the SOC descriptor, physical coordinates are specified for NOC0. 
+This document describes coordinate systems of the chip cores and harvesting in the following sequence:
 
-### Important Notes 
-* The coordinates are **NOT** contiguous for tensix cores -- In the example shown, ethernet corresponds to physical coords `[*-6]`:  this row is not on in the grid of worker cores
-* The coordinates are statically assigned to each "node" regardless of harvesting
-* `grayskull` are listed in `[y-x]` while `wormhole_b0` are listed in `[x-y]`
+1. Harvesting basics
+2. Different coordinate systems used
+3. How does harvesting affect coordinate systems
+4. Programming guide using different coordinate systems
 
-### Example
-Example for `wormhole_b0`, where coordinates are specified in `[x-y]` pairs for `NOC0`
-```yaml
-eth:
-  [   # Each node specifies the coordinates for NOC0 specifically.  We need to translate these to NOC1 if we are using NOC1 coordinates
-      1-0, 2-0, 3-0, 4-0, 6-0, 7-0, 8-0, 9-0,
-      1-6, 2-6, 3-6, 4-6, 6-6, 7-6, 8-6, 9-6,
-  ]
-functional_workers:
-  [   # Each node specifies the coordinates for NOC0 specifically.  We need to translate these to NOC1 if we are using NOC1 coordinates
-      1-1,   2-1,   3-1,   4-1,   6-1,   7-1,   8-1,   9-1,
-      1-2,   2-2,   3-2,   4-2,   6-2,   7-2,   8-2,   9-2,
-      1-3,   2-3,   3-3,   4-3,   6-3,   7-3,   8-3,   9-3,
-      1-4,   2-4,   3-4,   4-4,   6-4,   7-4,   8-4,   9-4, 
-      1-5,   2-5,   3-5,   4-5,   6-5,   7-5,   8-5,   9-5,    
-      1-7,   2-7,   3-7,   4-7,   6-7,   7-7,   8-7,   9-7,    
-      1-8,   2-8,   3-8,   4-8,   6-8,   7-8,   8-8,   9-8,    
-      1-9,   2-9,   3-9,   4-9,   6-9,   7-9,   8-9,   9-9, 
-      1-10,  2-10,  3-10,  4-10,  6-10,  7-10,  8-10,  9-10,   
-      1-11,  2-11,  3-11,  4-11,  6-11,  7-11,  8-11,  9-11,
-  ]
-```
-A similar example displaying physical coordinates on Grayskull can be found in `tests/soc_descs/grayskull_10x12.yaml` inside the UMD repo.
+Prior to reading this document, it is recommended the reader is familiar with following concepts
+- General architecture of the current generation of Tenstorrent chips (Grayskull, Wormhole, Blackhole)
+- Difference between different core types (Tensix, DRAM, PCIe, ARC, Ethernet)
 
-### Mapping relationship between NOC0/NOC1
-Below is the way we map the physical to `NOC0`/`NOC1` coordinates -- Notice that physical maps to `NOC0`directly and `noc_size_*` changes depending on `ARCH`
-```cpp
-#define NOC_X(x) (noc == NOC0 ? (x) : (noc_size_x-1-(x)))
-#define NOC_Y(y) (noc == NOC0 ? (y) : (noc_size_y-1-(y)))
-```
+## Important notes for further reading
 
-## Logical Coordinates - Any Arch
-This coordinate system is not used within UMD. It hides the details of physical coordinates and allows upper layers of the stack to access tensix endpoints through a set of traditional Cartesian Coordinates (starting at `0-0`).
+- Annotation X x Y (for example, 8x10) represents that we have X cores on the x axis, and Y cores on the Y axis. In terms of row/column view, that would mean that we have Y rows and X columns. Example for 8x10 is the image below
 
-### Important Notes
-* These coordinates cannot be used in APIs provided by UMD. UMD expects virtual coordinates to be passed into its APIs (see below for definition).
-* This coordinate system is easier to use than physical coordinates and can be used by Buda or Metal. However, certain operations may require the use of physical coordinates. For this, the SOC descriptor class in UMD presents the following translation layers:
+![Tensix grid](images/tensix_grid.png)
 
-```
-std::unordered_map<int, int> worker_log_to_routing_x; // worker logical to routing (x)
-std::unordered_map<int, int> worker_log_to_routing_y; // worker logical to routing (y)
-```
+(TODO: add image for cores)
 
-### Example
-Given the physical worker grid for `wormhole_b0` in the diagram above, the following set of logical coordinates (in `x-y`) can be used to access each physical core:
+# Harvesting basics
 
-```yaml
-functional_workers:
-  [   # Each node specifies logical coords specifically.  
-      0-0,   1-0,   2-0,   3-0,   4-0,   5-0,   6-0,   7-0,   
-      0-1,   1-1,   2-1,   3-1,   4-1,   5-1,   6-1,   7-1,   
-      0-2,   1-2,   2-2,   3-2,   4-2,   5-2,   6-2,   7-2,   
-      0-3,   1-3,   2-3,   3-3,   4-3,   5-3,   6-3,   7-3,   
-      0-4,   1-4,   2-4,   3-4,   4-4,   5-4,   6-4,   7-4,   
-      0-5,   1-5,   2-5,   3-5,   4-5,   5-5,   6-5,   7-5,   
-      0-6,   1-6,   2-6,   3-6,   4-6,   5-6,   6-6,   7-6,   
-      0-7,   1-7,   2-7,   3-7,   4-7,   5-7,   6-7,   7-7,   
-      0-8,   1-8,   2-8,   3-8,   4-8,   5-8,   6-8,   7-8,   
-      0-9,   1-9,   2-9,   3-9,   4-9,   5-9,   6-9,   7-9,
-  ]
-```
+In basic terms, harvesting represents turning off certain cores on the chip. This is done for various reasons, for example faulty cores on the chip can be harvested. Only certain types of cores are harvested on Tenstorrent chips, based on the chip architecture.
+
+Harvesting refers to cores being disabled due to binning. Workloads cannot be run on these cores and they can only be used for data routing. In this doc, it is discussed how different coordinate systems can be used to program Tenstorrent chip with custom harvesting spec.
+
+### Grayskull harvesting
+
+On Grayskull there is no harvesting. That means that on each Grayskull chip full grid of tensix cores (12x10) is available.
+
+Harvesting of non-tensix cores (DRAM, PCIe, ARC, Ethernet) is also not supported.
+
+### Wormhole harvesting
+
+On wormhole, harvesting of tensix rows is supported. That means that on the tensix grid (8x10) there will always be 8 columns of chips, but number of rows can decrease. In practice, Wormhole chips have one or two rows harvested. Example for two harvested rows is in the image below.
+
+(TODO: attach image of harvested rows)
+
+Note that there is no limitation on which specific rows can be harvested.
+
+Harvesting of non-tensix cores (DRAM, PCIe, ARC, Ethernet) is not supported on Wormhole.
+
+### Blackhole harvesting
+
+On Blackhole, harvesting of tensix columns is supported. That means that on the tensix grid (14x10), there will always be 10 rows of tensix cores, but number of columns may decrease. In practice, Blackhole chips have (TODO: how many columns) columns harvested. Example for two harvested columns is in the image below.
+
+(TODO: attach image of harvested columns)
+
+Note that there is no limitation on which specific columns can be harvested.
+
+(TODO: dram harvesting)
+
+Harvesting of other cores (PCIe, ARC, Ethernet) is not supported on Blackhole.
+
+# Coordinate systems
+
+In the following section, coordinate systems that can be used to access cores are going to be described. For each coordinate system it will be described how does harvesting affect access to different cores when using certain coordinate system, as well as the API support through UMD for this coordinate system.
+
+To keep everything consistent, example of 8x10 grid, which represents Wormhole chip, is going to be used in each image in this section.
+
+In order to illustrate harvesting effect on coordinate systems, example with two harvested rows of Tensix cores (image below) is going to be used
+
+
+
+## Logical coordinates
+
+This coordinate system is mostly used to reference Tensix cores, since this cores are most frequently accessed. This coordinate system hides the details of physical coordinates and allows upper layers of the stack to access Tensix endpoints through a set of traditional Cartesian Coordinates. This coordinate systems has very simple indexing, it starts from `0-0` and ends at `(X-1)-(Y-1)` where X and Y is number of cores on x-axis and y-axis, respectively. Example on logical coordinate indexing is one the image below
+
+(TODO: image on indexing using logical cores)
+
+Logical coordinates are used in a same way for Grayskull, Wormhole and Blackhole, only difference being in grid size of tensix cores.
+
+### Harvesting effect on logical coordinates
+
+Using harvesting example, the effect on logical coordinates for two harvested configuration is on the image below
+
+Note that range on X axis stays the same (no harvested columns), but the range on Y axis is smaller by two (number of harvested rows).
+
+## Physical Coordinates
+
+These are the NOC coordinates that the hardware understands, there are two distinct variations for NOC0 and NOC1. In hardware, each node is given an ID (which is different for each NOC), represented as x-y pair, which can be used to identify this node. In the SOC descriptor, physical coordinates are specified for NOC0.
+
+### Harvesting effect on physical coordinates
+
+Using harvesting example, the effect on physical coordinates for two harvested configuration is on the image below
+
+(TODO: add image of harvested coordinates)
+
+Note that physical coordinates stay the same, coordinates are not changed, some coordinates simply become unavailable. The user of UMD needs to be careful not to hit harvested coordinates, or the chip is going to hang.
+
+## Virtual coordinates
+
+Virtual Coordinates are a subset of the full chip Physical Coordinates shown above, allowing users to treat either coordinate system in a similar manner.
+(TODO: describe virtual coordinates, is there even a use case for these?)
 
 ## Hardware Translated Coordinates - Only for Wormhole and beyond
-**Note: This is an implementation detail in UMD that upper layers of the stack are not exposed to. However, device binaries using streams should use the translated coordinate scheme presented here.**
 
 **Motivation: Allow binaries to be compatible across different Wormhole devices, as long as their grid sizes are identical.**
 
-Wormhole_b0 and later architectures implement a programmable coordinate translation table in hardware for each row and column.  Programming is done ahead of time by FW (ARC) -- see example for `wormhole_b0` mapping.
-This coordinate system aims to abstract away the effects of harvesting (see below) by relying on a convex grid of worker cores. This allows each layer to be oblivious to the effects of harvesting,
+Wormhole and later architectures implement a programmable coordinate translation table in hardware for each row and column.  Programming is done ahead of time by ARC firmware. The coordinates are dynamically mapped to each physical node through hardware LUTs, which depend on the harvesting configuration.
 
-Translated coordinates start at 16-16 (due to hardware design features) and go through a Hardware based LUT to access physical tensix endpoints. Since using translated coordinates is difficult in the upper layers of software, UMD exposes virtual coordinates (discussed later), which are then translated to this system through software.
+This coordinate system aims to abstract away the effects of harvesting (see below) by relying on a convex grid of worker cores. This allows each layer to be oblivious to the effects of harvesting.
 
-### Important Notes 
-* The coordinates are contiguous for tensix cores 
-* The coordinates are dynamically mapped to each physical node through hardware LUTs, which depend on the harvesting configuration
-* This system preserves the physical coordinate values for DRAM/PCIE/ARC (identity mapping between physical and translated nodes)
-* ETH/Tensix are remapped and UMD -> Device communication is done using translated coordinates
+Translated coordinates can be used to program TLBs and other things that are used for targeting NOC endpoints.
+
+### Grayskull translated coordinates
+
+Translated coordinates are not supported on Grayskull. Physical coordiantes must be used on Grayskull for targeting NOC endpoints.
+
+### Wormhole translated coordinates
+
+Translated coordinates on Wormhole are supported for Ethernet and Tensix cores. Translated coordinates on Wormhole start at 16-16 (due to hardware design features) and go through a hardware based LUT to access physical tensix endpoints. Example mapping for Tensix and Ethernet cores to translated coordinates are below
+
+Harvesting some number of rows on Wormhole chip would result in removing the same number of rows in translated grid, just the last couple of rows (image below). 
+
+### Blachkole translated coordinates
+
+(TODO:pjanevski write a doc about translated coordinates on Blackhole)
+
+
+## Full example
+
+
 
 ### Example
 Given the physical coordinates grid shown above the translated grid is as follows (a write to core `18-18` will ping physical core `1-1`):
@@ -145,15 +176,14 @@ functional_workers:
        18-27,  19-27,  20-27,  21-27,  22-27,  23-27,  24-27,  25-27, 
    ]
 ```
-## Virtualized coordinates (Inputs and outputs from UMD)
-The virtual coordinate system is to be used when specifying cores through UMD APIs. During initialization, UMD will provide users with SOC descriptors consisting of virtual coordinates, which can be used across the stack. 
 
-**Virtual Coordinates are a subset of the full chip Physical Coordinates shown above, allowing users to treat either coordinate system in a similar manner.**
+## Coordinate systems relations
 
-Caveats due to harvesting are provided in the next section.
+### Grayskull
 
-### Important Notes
-**Wormhole Scheme - Relies on Translation Tables**
+* Virtual Coordinates == Physical Coordinates == Translated Coordinates for all cases (no translation tables on this Device).
+
+### Wormhole**
 
 When no harvesting has taken place (chip has full grid size):
 * Virtual Coordinates == Physical Coordinates for all cores
@@ -165,11 +195,8 @@ When harvesting is perfomed on a chip:
 * Virtual Coordinates != Translated Coordinates for Tensix and Ethernet
 * Virtual Coordinates != Physical Coordinates for Tensix and Ethernet
 
-**Grayskull Scheme**
-* Virtual Coordinates == Physical Coordinates == Translated Coordinates for all cases (no translation tables on this Device).
+### Blackhole
 
-# Harvesting and Coordinates
-Harvesting refers to rows of tensix being disabled due to binning. Workloads cannot be run on these rows and they can only be used for data routing. However, we still need to navigate these cores. In this section, we discuss how virtualized and translated coordinates are used to do this for Wormhole and how physical coordinates are used for harvested Grayskull devices (since translation tables don't exist on here).
 
 ## Harvesting and Virtualization Example (Wormhole)
 The following example assumes that we disable rows 4 and 8 (physical coordinates).
@@ -338,9 +365,6 @@ functional_workers:
 An identity mapping between physical and virtual coordinates is maintained. UMD will remove rows 4 and 8 when presenting users with virtualized SOC descriptors, as these cores are not to be accessed.
 
 
-## Important Notes about Harvesting
-* Only tensix/worker rows are removed during the harvesting process. UMD does not support chips with PCIe, ARC, Ethernet or DRAM cores disabled.
-* Only rows can be disabled for Grayskull and Wormhole devices.
 
 ### Additional Notes about the Translation Scheme in UMD
 During initialization, UMD queries the device to determine if translation tables are enabled. If so, it will always map virtual coordinates to the translated space when accessing the device. If not, UMD has not concept of translated coordinates, and will use an identity mapping between virtual and "translated" coordinates. In this case: physical, virtual and translated coordinates are identical (this is the case for Grayskull, since it does not have translation tables).
@@ -357,5 +381,3 @@ translate_to_noc_table_coords(chip_id_t device_id, std::size_t &r, std::size_t &
 A user may choose to use translated coordinates in customized parts of their stack. For example, Buda uses this system when generating overlay binaries (since these program streams).
 
 Even when translation tables are enabled, all endpoints are accessible through their original NOC0/NOC1 coordinates. Customized firmware/kernels (except for streams) running on device should be able to access all cores using either system.
-
-**As mentioned previously overlay hardware/streams must use translated coordinates if this feature is enabled.**

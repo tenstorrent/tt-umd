@@ -60,9 +60,13 @@ include(dependencies)
 
 add_subdirectory(device)
 
-option(TT_UMD_BUILD_TESTS "Enables build of tt_umd tests" OFF)
-if(TT_UMD_BUILD_TESTS)
-    add_subdirectory(tests)
-endif(TT_UMD_BUILD_TESTS)
+# TODO: put this back, but: I want tests by default
+# Opt out if you don't want them.
+# option(TT_UMD_BUILD_TESTS "Enables build of tt_umd tests" OFF)
+# if(TT_UMD_BUILD_TESTS)
+#     add_subdirectory(tests)
+# endif(TT_UMD_BUILD_TESTS)
+
+add_subdirectory(tests)
 
 include(packaging)

@@ -975,8 +975,6 @@ void tt_SiliconDevice::read_device_memory(void *mem_ptr, tt_cxy_pair target, std
     }
 }
 
-#define while if
-
 void tt_SiliconDevice::read_buffer(
     void* mem_ptr,
     std::uint32_t address,
@@ -1231,15 +1229,17 @@ bool tt_SiliconDevice::init_hugepage(chip_id_t device_id) {
     auto physical_device_id = dev->get_device_num();
     bool success = true;
 
+    // I removed the hugetlbfs code, but systems may still have 1G hugepages
+    // mounted.  This is a hack to clean up any old mappings that may be left.
+    const std::string hugepage_dir = "/dev/hugepage-1G/";
+    for (const auto &entry : std::filesystem::directory_iterator(hugepage_dir)) {
+        if (entry.path().filename().string().find("tenstorrent") != std::string::npos) {
+            std::filesystem::remove(entry.path());
+        }
+    }
+
     // Support for more than 1GB host memory accessible per device, via channels.
     for (int ch = 0; ch < m_num_host_mem_channels; ch++) {
-        // I ripped out all of the hugetlbfs stuff.  This is what getting a
-        // hugepage looks like now.  If your system doesn't have hugepages,
-        // this will fail and you'll have to go fix that.  Maybe soon we won't
-        // need to do hugepage things unless you don't have an IOMMU.
-
-        // TODO: might as well just move this to the device??
-
         // Map a 1G hugepage.
         void *mapping = mmap(nullptr,
                              HUGEPAGE_REGION_SIZE,
@@ -1255,6 +1255,16 @@ bool tt_SiliconDevice::init_hugepage(chip_id_t device_id) {
         }
 
         auto dma_address = dev->map_for_dma(mapping, hugepage_size);
+
+        // I thought about moving this into the PCIDevice class, but I'm not
+        // convinced it really belongs there.  Ultimately, I think we should
+        // require IOMMU and let the application map its own memory for DMA.
+        // In this situation, there's no need for us to track the mappings,
+        // sizes, and DMA addresses.  The application can do that itself.
+        // Perhaps we need a provision for allocationg and mapping memory on
+        // behalf of the application, and that mechanism could provide 1G pages
+        // if there's no IOMMU.  But that's not something that needs to be
+        // on the PCIDevice class.
 
         hugepage_mapping.at(device_id).at(ch) = mapping;
         hugepage_mapping_size.at(device_id).at(ch) = hugepage_size;

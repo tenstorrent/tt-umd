@@ -1,9 +1,6 @@
 # Tests currently depend on ARCH_NAME for compile time include paths
 if(NOT DEFINED ENV{ARCH_NAME})
-    message(
-        FATAL_ERROR
-        "Please set ARCH_NAME to grayskull, wormhole_b0, or blackhole"
-    )
+    message(FATAL_ERROR "Please set ARCH_NAME to grayskull, wormhole_b0, or blackhole")
 endif(NOT DEFINED ENV{ARCH_NAME})
 
 add_library(test_common INTERFACE)

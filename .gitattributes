@@ -1,0 +1,8 @@
+docs/images/tensix_translated_coordinates.png filter=lfs diff=lfs merge=lfs -text
+docs/images/tensix_translated_coordinates_harvested.png filter=lfs diff=lfs merge=lfs -text
+docs/images/tensix_grid.png filter=lfs diff=lfs merge=lfs -text
+docs/images/tensix_harvested_rows.png filter=lfs diff=lfs merge=lfs -text
+docs/images/tensix_logical_coordinates.png filter=lfs diff=lfs merge=lfs -text
+docs/images/tensix_logical_coordinates_harvested.png filter=lfs diff=lfs merge=lfs -text
+docs/images/tensix_phyiscal_coordinates_harvested.png filter=lfs diff=lfs merge=lfs -text
+docs/images/tensix_physical_coordinates.png filter=lfs diff=lfs merge=lfs -text

@@ -166,7 +166,63 @@ void tt_SocDescriptor::load_core_descriptors_from_device_descriptor(YAML::Node &
     }
 }
 
-tt_SocDescriptor::tt_SocDescriptor(std::string device_descriptor_path) {
+void tt_SocDescriptor::create_coordinate_manager(std::size_t harvesting_mask) {
+    coordinate_manager = CoordinateManager::get_coordinate_manager(arch, worker_grid_size, workers, harvesting_mask);
+}
+
+void tt_SocDescriptor::perform_harvesting(std::size_t harvesting_mask) {
+    coordinate_manager->perform_harvesting(harvesting_mask);
+}
+
+tt_physical_coords tt_SocDescriptor::to_physical_coords(tt_logical_coords logical_coords) {
+    return coordinate_manager->to_physical_coords(logical_coords);
+}
+
+tt_virtual_coords tt_SocDescriptor::to_virtual_coords(tt_logical_coords logical_coords) {
+    return coordinate_manager->to_virtual_coords(logical_coords);
+}
+
+tt_translated_coords tt_SocDescriptor::to_translated_coords(tt_logical_coords logical_coords) {
+    return coordinate_manager->to_translated_coords(logical_coords);
+}
+
+tt_logical_coords tt_SocDescriptor::to_logical_coords(tt_physical_coords physical_coords) {
+    return coordinate_manager->to_logical_coords(physical_coords);
+}
+
+tt_virtual_coords tt_SocDescriptor::to_virtual_coords(tt_physical_coords physical_coords) {
+    return coordinate_manager->to_virtual_coords(physical_coords);
+}
+
+tt_translated_coords tt_SocDescriptor::to_translated_coords(tt_physical_coords physical_coords) {
+    return coordinate_manager->to_translated_coords(physical_coords);
+}
+
+tt_logical_coords tt_SocDescriptor::to_logical_coords(tt_virtual_coords virtual_coords) {
+    return coordinate_manager->to_logical_coords(virtual_coords);
+}
+
+tt_physical_coords tt_SocDescriptor::to_physical_coords(tt_virtual_coords virtual_coords) {
+    return coordinate_manager->to_physical_coords(virtual_coords);
+}
+
+tt_translated_coords tt_SocDescriptor::to_translated_coords(tt_virtual_coords virtual_coords) {
+    return coordinate_manager->to_translated_coords(virtual_coords);
+}
+
+tt_logical_coords tt_SocDescriptor::to_logical_coords(tt_translated_coords translated_coords) {
+    return coordinate_manager->to_logical_coords(translated_coords);
+}
+
+tt_physical_coords tt_SocDescriptor::to_physical_coords(tt_translated_coords translated_coords) {
+    return coordinate_manager->to_physical_coords(translated_coords);
+}
+
+tt_virtual_coords tt_SocDescriptor::to_virtual_coords(tt_translated_coords translated_coords) {
+    return coordinate_manager->to_virtual_coords(translated_coords);
+}
+
+tt_SocDescriptor::tt_SocDescriptor(std::string device_descriptor_path, std::size_t harvesting_mask) {
     std::ifstream fdesc(device_descriptor_path);
     if (fdesc.fail()) {
         throw std::runtime_error(fmt::format("Error: device descriptor file {} does not exist!", device_descriptor_path));
@@ -189,6 +245,8 @@ tt_SocDescriptor::tt_SocDescriptor(std::string device_descriptor_path) {
     arch_name_value = trim(arch_name_value);
     arch = get_arch_name(arch_name_value);
     load_soc_features_from_device_descriptor(device_descriptor_yaml);
+    create_coordinate_manager(harvesting_mask);
+    perform_harvesting(harvesting_mask);
 }
 
 int tt_SocDescriptor::get_num_dram_channels() const {

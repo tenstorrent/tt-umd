@@ -21,7 +21,7 @@ class tt_MockupDevice : public tt_device {
     virtual ~tt_MockupDevice() {}
 
     // Setup/Teardown Functions
-    std::unordered_map<chip_id_t, tt_SocDescriptor>& get_virtual_soc_descriptors() override {
+    virtual std::unordered_map<chip_id_t, tt_SocDescriptor>& get_virtual_soc_descriptors() override {
         return soc_descriptor_per_chip;
     }
     void set_device_l1_address_params(const tt_device_l1_address_params& l1_address_params_) override {}
@@ -43,22 +43,10 @@ class tt_MockupDevice : public tt_device {
         tt_cxy_pair core,
         uint64_t addr,
         const std::string& tlb_to_use) override {}
-    void write_to_device(
-        std::vector<uint32_t>& vec, tt_cxy_pair core, uint64_t addr, const std::string& tlb_to_use) override {}
     void read_from_device(
         void* mem_ptr, tt_cxy_pair core, uint64_t addr, uint32_t size, const std::string& fallback_tlb) override {}
-    void read_from_device(
-        std::vector<uint32_t>& vec,
-        tt_cxy_pair core,
-        uint64_t addr,
-        uint32_t size,
-        const std::string& tlb_to_use) override {}
-    void write_to_sysmem(
-        std::vector<uint32_t>& vec, uint64_t addr, uint16_t channel, chip_id_t src_device_id) override {}
     void write_to_sysmem(
         const void* mem_ptr, std::uint32_t size, uint64_t addr, uint16_t channel, chip_id_t src_device_id) override {}
-    void read_from_sysmem(
-        std::vector<uint32_t>& vec, uint64_t addr, uint16_t channel, uint32_t size, chip_id_t src_device_id) override {}
     void read_from_sysmem(
         void* mem_ptr, uint64_t addr, uint16_t channel, uint32_t size, chip_id_t src_device_id) override {}
 
@@ -89,10 +77,10 @@ class tt_MockupDevice : public tt_device {
     }
     std::uint64_t get_pcie_base_addr_from_device(const chip_id_t chip_id) const override { return 0; }
     std::uint32_t get_num_dram_channels(std::uint32_t device_id) override {
-        return get_soc_descriptor(device_id)->get_num_dram_channels();
+        return get_soc_descriptor(device_id).get_num_dram_channels();
     };
     std::uint64_t get_dram_channel_size(std::uint32_t device_id, std::uint32_t channel) override {
-        return get_soc_descriptor(device_id)->dram_bank_size;
+        return get_soc_descriptor(device_id).dram_bank_size;
     }
     std::uint32_t get_num_host_channels(std::uint32_t device_id) override { return 1; }
     std::uint32_t get_host_channel_size(std::uint32_t device_id, std::uint32_t channel) override { return 0; }

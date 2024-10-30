@@ -44,12 +44,16 @@ inline std::unique_ptr<tt_ClusterDescriptor> get_cluster_desc() {
         return nullptr;
     }
 
-    // TODO: remove getting manually cluster descriptor from yaml.
-    std::string yaml_path = test_utils::GetClusterDescYAML();
+    // TODO: Remove different branch for different archs
     std::unique_ptr<tt_ClusterDescriptor> cluster_desc;
     if (device_arch == tt::ARCH::GRAYSKULL) {
         cluster_desc = tt_ClusterDescriptor::create_for_grayskull_cluster(pci_device_ids_set, pci_device_ids);
+    } else if (device_arch == tt::ARCH::BLACKHOLE) {
+        std::string yaml_path = test_utils::GetAbsPath("blackhole_1chip_cluster.yaml");
+        cluster_desc = tt_ClusterDescriptor::create_from_yaml(yaml_path);
     } else {
+        // TODO: remove getting manually cluster descriptor from yaml.
+        std::string yaml_path = test_utils::GetClusterDescYAML();
         cluster_desc = tt_ClusterDescriptor::create_from_yaml(yaml_path);
     }
 
@@ -80,8 +84,15 @@ inline std::unique_ptr<Cluster> get_cluster() {
         return nullptr;
     }
 
-    // TODO: remove getting manually cluster descriptor from yaml.
-    std::string yaml_path = test_utils::GetClusterDescYAML();
+    std::string yaml_path;
+    if (device_arch == tt::ARCH::GRAYSKULL) {
+        yaml_path = "";
+    } else if (device_arch == tt::ARCH::BLACKHOLE) {
+        yaml_path = test_utils::GetAbsPath("blackhole_1chip_cluster.yaml");
+    } else {
+        // TODO: remove getting manually cluster descriptor from yaml.
+        yaml_path = test_utils::GetClusterDescYAML();
+    }
     // TODO: Remove the need to do this, allow default constructor to construct with all chips.
     std::unique_ptr<tt_ClusterDescriptor> cluster_desc = get_cluster_desc();
     std::unordered_set<int> detected_num_chips = cluster_desc->get_all_chips();

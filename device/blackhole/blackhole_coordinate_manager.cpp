@@ -1,3 +1,8 @@
+/*
+ * SPDX-FileCopyrightText: (c) 2024 Tenstorrent Inc.
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ */
 #include "blackhole_coordinate_manager.h"
 
 std::set<std::size_t> BlackholeCoordinateManager::get_x_coordinates_to_harvest(std::size_t harvesting_mask) {

@@ -1,3 +1,8 @@
+/*
+ * SPDX-FileCopyrightText: (c) 2024 Tenstorrent Inc.
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ */
 #include "gtest/gtest.h"
 
 #include "device/tt_soc_descriptor.h"

@@ -48,6 +48,10 @@
 #include "tt_device.h"
 #include "ioctl.h"
 
+#include "src/firmware/riscv/grayskull/host_mem_address_map.h"
+#include "src/firmware/riscv/wormhole/host_mem_address_map.h"
+#include "src/firmware/riscv/blackhole/host_mem_address_map.h"
+
 using namespace boost::interprocess;
 using namespace tt;
 
@@ -531,6 +535,22 @@ tt_SiliconDevice::tt_SiliconDevice(const std::string &sdesc_path, const std::str
             }
         }
     }
+
+    // Default initialize host_address_params based on detected arch
+    switch(arch_name) {
+        case tt::ARCH::GRAYSKULL:
+            host_address_params = {grayskull::host_mem::address_map::ETH_ROUTING_BLOCK_SIZE, grayskull::host_mem::address_map::ETH_ROUTING_BUFFERS_START};
+            break;
+
+        case tt::ARCH::WORMHOLE_B0:
+            host_address_params = {wormhole::host_mem::address_map::ETH_ROUTING_BLOCK_SIZE, wormhole::host_mem::address_map::ETH_ROUTING_BUFFERS_START};
+            break;
+
+        case tt::ARCH::BLACKHOLE:
+            host_address_params = {blackhole::host_mem::address_map::ETH_ROUTING_BLOCK_SIZE, blackhole::host_mem::address_map::ETH_ROUTING_BUFFERS_START};
+            break;
+    }
+
 }
 
 void tt_SiliconDevice::configure_active_ethernet_cores_for_mmio_device(chip_id_t mmio_chip, const std::unordered_set<tt_xy_pair>& active_eth_cores_per_chip) {

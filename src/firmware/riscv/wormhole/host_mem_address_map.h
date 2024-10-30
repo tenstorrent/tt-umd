@@ -8,7 +8,9 @@
 #include <cstdint>
 #include <stdint.h>
 
-namespace host_mem {
+namespace wormhole {
+
+inliine namespace host_mem {
 
 struct address_map {
   
@@ -31,5 +33,6 @@ struct address_map {
   static constexpr std::int32_t NUM_HOST_PERF_QUEUES = 6 * 64;
   static constexpr std::int32_t HOST_PERF_QUEUE_SLOT_SIZE = HOST_PERF_SCRATCH_BUF_SIZE / NUM_HOST_PERF_QUEUES / 32 * 32;  
 };
+}
 }
 

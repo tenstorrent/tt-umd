@@ -63,11 +63,30 @@ CPMAddPackage(
     GITHUB_REPOSITORY google/flatbuffers
     GIT_TAG v24.3.25
     OPTIONS
-        "FLATBUFFERS_BUILD_FLATC OFF"
+        "FLATBUFFERS_BUILD_FLATC ON"
         "FLATBUFFERS_BUILD_TESTS OFF"
         "FLATBUFFERS_SKIP_MONSTER_EXTRA ON"
         "FLATBUFFERS_STRICT_MODE ON"
 )
+function(GENERATE_FBS_HEADER FBS_FILE)
+    get_filename_component(FBS_FILE_NAME ${FBS_FILE} NAME)
+    get_filename_component(FBS_FILE_DIR ${FBS_FILE} DIRECTORY)
+    set(FBS_GENERATED_HEADER "${CMAKE_BINARY_DIR}/${FBS_FILE_NAME}_generated.h")
+    add_custom_command(
+        OUTPUT
+            ${FBS_GENERATED_HEADER}
+        COMMAND
+            flatc
+        ARGS
+            --cpp -o "${CMAKE_BINARY_DIR}/" ${FBS_FILE}
+        DEPENDS
+            flatc
+            ${FBS_FILE}
+        COMMENT "Building C++ header for ${FBS_FILE}"
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+    )
+    set(FBS_GENERATED_HEADER ${FBS_GENERATED_HEADER} PARENT_SCOPE)
+endfunction()
 
 ############################################################################################################################
 # libuv (for process management)

@@ -3,11 +3,10 @@
 enum DEVICE_COMMAND : byte {
     WRITE = 0,
     READ = 1,
-    WRITE_SYSMEM = 2,
-    READ_SYSMEM = 3,
-    ALL_TENSIX_RESET_DEASSERT = 4,
-    ALL_TENSIX_RESET_ASSERT = 5,
-    EXIT = 6,
+    ALL_TENSIX_RESET_DEASSERT = 2,
+    ALL_TENSIX_RESET_ASSERT = 3,
+    START = 4,
+    EXIT = 5,
 }
 
 struct tt_vcs_core {

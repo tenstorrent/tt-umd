@@ -10,20 +10,21 @@ CPMAddPackage(
     GITHUB_REPOSITORY google/googletest
     GIT_TAG v1.13.0
     VERSION 1.13.0
-    OPTIONS "INSTALL_GTEST OFF"
+    OPTIONS
+        "INSTALL_GTEST OFF"
 )
 
 ############################################################################################################################
 # yaml-cpp
 ############################################################################################################################
 CPMAddPackage(
-  NAME yaml-cpp
-  GITHUB_REPOSITORY jbeder/yaml-cpp
-  GIT_TAG 0.8.0
-  OPTIONS
-    "YAML_CPP_BUILD_TESTS OFF"
-    "YAML_CPP_BUILD_TOOLS OFF"
-    "YAML_BUILD_SHARED_LIBS OFF"
+    NAME yaml-cpp
+    GITHUB_REPOSITORY jbeder/yaml-cpp
+    GIT_TAG 0.8.0
+    OPTIONS
+        "YAML_CPP_BUILD_TESTS OFF"
+        "YAML_CPP_BUILD_TOOLS OFF"
+        "YAML_BUILD_SHARED_LIBS OFF"
 )
 
 if(yaml-cpp_ADDED)
@@ -71,31 +72,17 @@ CPMAddPackage(
 ############################################################################################################################
 # libuv (for process management)
 ############################################################################################################################
-CPMAddPackage(
-    NAME libuv
-    GITHUB_REPOSITORY libuv/libuv
-    GIT_TAG v1.48.0
-    OPTIONS
-        "LIBUV_BUILD_TESTS OFF"
-)
+CPMAddPackage(NAME libuv GITHUB_REPOSITORY libuv/libuv GIT_TAG v1.48.0 OPTIONS "LIBUV_BUILD_TESTS OFF")
 
 ############################################################################################################################
 # fmt : https://github.com/fmtlib/fmt
 ############################################################################################################################
 
-CPMAddPackage(
-  NAME fmt
-  GITHUB_REPOSITORY fmtlib/fmt
-  GIT_TAG 11.0.1
-)
+CPMAddPackage(NAME fmt GITHUB_REPOSITORY fmtlib/fmt GIT_TAG 11.0.1)
 
 ############################################################################################################################
 # nanobench (for uBenchmarking)
 ############################################################################################################################
 if(MASTER_PROJECT)
-    CPMAddPackage(
-        NAME nanobench
-        GITHUB_REPOSITORY martinus/nanobench
-        GIT_TAG v4.3.11
-    )
+    CPMAddPackage(NAME nanobench GITHUB_REPOSITORY martinus/nanobench GIT_TAG v4.3.11)
 endif()

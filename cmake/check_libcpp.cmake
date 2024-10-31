@@ -10,9 +10,6 @@ if(CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
     if(HAS_LIBCPP)
         message(STATUS "libc++ is available")
     else()
-        message(
-            FATAL_ERROR
-            "libc++ was not detected! Please ensure that libc++ is installed and available."
-        )
+        message(FATAL_ERROR "libc++ was not detected! Please ensure that libc++ is installed and available.")
     endif()
 endif()

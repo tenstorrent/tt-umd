@@ -11,7 +11,6 @@
 #include <vector>
 
 #include "device/tt_device.h"
-#include "tt_simulation_device_generated.h"
 #include "device/simulation/tt_simulation_host.hpp"
 
 class tt_SimulationDevice: public tt_device {
@@ -69,7 +68,4 @@ class tt_SimulationDevice: public tt_device {
     std::set<chip_id_t> target_remote_chips = {};
     tt::ARCH arch_name;
     std::shared_ptr<tt_ClusterDescriptor> ndesc;
-
-    flatbuffers::FlatBufferBuilder create_flatbuffer(DEVICE_COMMAND rw, std::vector<uint32_t> vec, tt_cxy_pair core_, uint64_t addr, uint64_t size_=0);
-    void print_flatbuffer(const DeviceRequestResponse *buf);
 };

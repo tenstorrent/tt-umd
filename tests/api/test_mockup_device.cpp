@@ -35,8 +35,6 @@ std::string get_env_arch_name() {
 tt::ARCH get_arch_from_string(const std::string &arch_str) {
     if (arch_str == "grayskull" || arch_str == "GRAYSKULL")
         return tt::ARCH::GRAYSKULL;
-    if (arch_str == "wormhole" || arch_str == "WORMHOLE")
-        return tt::ARCH::WORMHOLE;
     if (arch_str == "wormhole_b0" || arch_str == "WORMHOLE_B0")
         return tt::ARCH::WORMHOLE_B0;
     if (arch_str == "blackhole" || arch_str == "BLACKHOLE")
@@ -54,7 +52,6 @@ std::string get_soc_description_file(tt::ARCH arch) {
         case tt::ARCH::GRAYSKULL: return umd_root + "/tests/soc_descs/grayskull_10x12.yaml";
         case tt::ARCH::WORMHOLE_B0: return umd_root + "/tests/soc_descs/wormhole_b0_8x10.yaml";
         case tt::ARCH::BLACKHOLE: return umd_root + "/tests/soc_descs/blackhole_140_arch.yaml";
-        case tt::ARCH::WORMHOLE: throw std::runtime_error("WORMHOLE arch not supported");
         case tt::ARCH::Invalid: throw std::runtime_error("Invalid arch not supported");
         default: throw std::runtime_error("Unsupported device architecture");
     }

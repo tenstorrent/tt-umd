@@ -66,7 +66,7 @@ inline std::unique_ptr<tt_ClusterDescriptor> get_cluster_desc() {
         cluster_desc = tt_ClusterDescriptor::create_from_yaml(yaml_path);
     } else {
         // TODO: remove getting manually cluster descriptor from yaml.
-        std::string yaml_path = test_utils::GetClusterDescYAML();
+        std::string yaml_path = tt_ClusterDescriptor::get_cluster_descriptor_file_path();
         cluster_desc = tt_ClusterDescriptor::create_from_yaml(yaml_path);
     }
 
@@ -104,7 +104,7 @@ inline std::unique_ptr<Cluster> get_cluster() {
         yaml_path = test_utils::GetAbsPath("blackhole_1chip_cluster.yaml");
     } else {
         // TODO: remove getting manually cluster descriptor from yaml.
-        yaml_path = test_utils::GetClusterDescYAML();
+        yaml_path = tt_ClusterDescriptor::get_cluster_descriptor_file_path();
     }
     // TODO: Remove the need to do this, allow default constructor to construct with all chips.
     std::unique_ptr<tt_ClusterDescriptor> cluster_desc = get_cluster_desc();

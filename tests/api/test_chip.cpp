@@ -53,7 +53,7 @@ inline std::unique_ptr<tt_ClusterDescriptor> get_cluster_desc() {
         cluster_desc = tt_ClusterDescriptor::create_from_yaml(yaml_path);
     } else {
         // TODO: remove getting manually cluster descriptor from yaml.
-        std::string yaml_path = test_utils::GetClusterDescYAML();
+        std::string yaml_path = tt_ClusterDescriptor::get_cluster_descriptor_file_path();
         cluster_desc = tt_ClusterDescriptor::create_from_yaml(yaml_path);
     }
 
@@ -91,7 +91,7 @@ inline std::unique_ptr<Cluster> get_cluster() {
         yaml_path = test_utils::GetAbsPath("blackhole_1chip_cluster.yaml");
     } else {
         // TODO: remove getting manually cluster descriptor from yaml.
-        yaml_path = test_utils::GetClusterDescYAML();
+        yaml_path = tt_ClusterDescriptor::get_cluster_descriptor_file_path();
     }
     // TODO: Remove the need to do this, allow default constructor to construct with all chips.
     std::unique_ptr<tt_ClusterDescriptor> cluster_desc = get_cluster_desc();
@@ -121,6 +121,11 @@ inline std::unique_ptr<Cluster> get_cluster() {
 // TODO: Once default auto TLB setup is in, check it is setup properly.
 TEST(ApiChipTest, ManualTLBConfiguration) {
     std::unique_ptr<Cluster> umd_cluster = get_cluster();
+
+    if (umd_cluster == nullptr || umd_cluster->get_all_chips_in_cluster().empty()) {
+        std::cout << "No chips found. Skipping test." << std::endl;
+        return;
+    }
 
     // Expect to throw for remote chip for any worker core
     auto remote_chips = umd_cluster->get_target_remote_device_ids();
@@ -176,6 +181,12 @@ TEST(ApiChipTest, ManualTLBConfiguration) {
 // TODO: Move to test_chip
 TEST(ApiChipTest, SimpleAPIShowcase) {
     std::unique_ptr<Cluster> umd_cluster = get_cluster();
+
+    if (umd_cluster == nullptr || umd_cluster->get_all_chips_in_cluster().empty()) {
+        std::cout << "No chips found. Skipping test." << std::endl;
+        return;
+    }
+
     chip_id_t chip_id = umd_cluster->get_cluster_description()->get_chips_with_mmio().begin()->first;
 
     // TODO: In future, will be accessed through tt::umd::Chip api.

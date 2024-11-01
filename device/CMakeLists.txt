@@ -1,5 +1,7 @@
 set(POSITION_INDEPENDENT_CODE ON)
 
+GENERATE_FBS_HEADER(${PROJECT_SOURCE_DIR}/device/simulation/tt_simulation_device.fbs)
+
 set(UMD_DEVICE_SRCS
     architecture_implementation.cpp
     cpuset_lib.cpp
@@ -24,6 +26,8 @@ add_library(device SHARED ${UMD_DEVICE_SRCS})
 add_library(${PROJECT_NAME}::device ALIAS device)
 add_library(${PROJECT_NAME}_device ALIAS device) # For legacy I guess
 
+target_sources(device PRIVATE ${FBS_GENERATED_HEADER})
+
 target_include_directories(
     device
     PUBLIC
@@ -31,6 +35,8 @@ target_include_directories(
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
         $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}/${PROJECT_NAME}>
         $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}/${PROJECT_NAME}/device>
+    PRIVATE
+        $<BUILD_INTERFACE:${PROJECT_BINARY_DIR}>
 )
 
 # flatbuffers is public - exposed to tt_metal by tt_simulation_device_generated.h

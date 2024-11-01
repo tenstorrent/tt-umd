@@ -10,20 +10,21 @@ CPMAddPackage(
     GITHUB_REPOSITORY google/googletest
     GIT_TAG v1.13.0
     VERSION 1.13.0
-    OPTIONS "INSTALL_GTEST OFF"
+    OPTIONS
+        "INSTALL_GTEST OFF"
 )
 
 ############################################################################################################################
 # yaml-cpp
 ############################################################################################################################
 CPMAddPackage(
-  NAME yaml-cpp
-  GITHUB_REPOSITORY jbeder/yaml-cpp
-  GIT_TAG 0.8.0
-  OPTIONS
-    "YAML_CPP_BUILD_TESTS OFF"
-    "YAML_CPP_BUILD_TOOLS OFF"
-    "YAML_BUILD_SHARED_LIBS OFF"
+    NAME yaml-cpp
+    GITHUB_REPOSITORY jbeder/yaml-cpp
+    GIT_TAG 0.8.0
+    OPTIONS
+        "YAML_CPP_BUILD_TESTS OFF"
+        "YAML_CPP_BUILD_TOOLS OFF"
+        "YAML_BUILD_SHARED_LIBS OFF"
 )
 
 if(yaml-cpp_ADDED)
@@ -62,40 +63,45 @@ CPMAddPackage(
     GITHUB_REPOSITORY google/flatbuffers
     GIT_TAG v24.3.25
     OPTIONS
-        "FLATBUFFERS_BUILD_FLATC OFF"
+        "FLATBUFFERS_BUILD_FLATC ON"
         "FLATBUFFERS_BUILD_TESTS OFF"
         "FLATBUFFERS_SKIP_MONSTER_EXTRA ON"
         "FLATBUFFERS_STRICT_MODE ON"
 )
+function(GENERATE_FBS_HEADER FBS_FILE)
+    get_filename_component(FBS_FILE_NAME ${FBS_FILE} NAME)
+    get_filename_component(FBS_FILE_DIR ${FBS_FILE} DIRECTORY)
+    set(FBS_GENERATED_HEADER "${CMAKE_BINARY_DIR}/${FBS_FILE_NAME}_generated.h")
+    add_custom_command(
+        OUTPUT
+            ${FBS_GENERATED_HEADER}
+        COMMAND
+            flatc
+        ARGS
+            --cpp -o "${CMAKE_BINARY_DIR}/" ${FBS_FILE}
+        DEPENDS
+            flatc
+            ${FBS_FILE}
+        COMMENT "Building C++ header for ${FBS_FILE}"
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+    )
+    set(FBS_GENERATED_HEADER ${FBS_GENERATED_HEADER} PARENT_SCOPE)
+endfunction()
 
 ############################################################################################################################
 # libuv (for process management)
 ############################################################################################################################
-CPMAddPackage(
-    NAME libuv
-    GITHUB_REPOSITORY libuv/libuv
-    GIT_TAG v1.48.0
-    OPTIONS
-        "LIBUV_BUILD_TESTS OFF"
-)
+CPMAddPackage(NAME libuv GITHUB_REPOSITORY libuv/libuv GIT_TAG v1.48.0 OPTIONS "LIBUV_BUILD_TESTS OFF")
 
 ############################################################################################################################
 # fmt : https://github.com/fmtlib/fmt
 ############################################################################################################################
 
-CPMAddPackage(
-  NAME fmt
-  GITHUB_REPOSITORY fmtlib/fmt
-  GIT_TAG 11.0.1
-)
+CPMAddPackage(NAME fmt GITHUB_REPOSITORY fmtlib/fmt GIT_TAG 11.0.1)
 
 ############################################################################################################################
 # nanobench (for uBenchmarking)
 ############################################################################################################################
 if(MASTER_PROJECT)
-    CPMAddPackage(
-        NAME nanobench
-        GITHUB_REPOSITORY martinus/nanobench
-        GIT_TAG v4.3.11
-    )
+    CPMAddPackage(NAME nanobench GITHUB_REPOSITORY martinus/nanobench GIT_TAG v4.3.11)
 endif()

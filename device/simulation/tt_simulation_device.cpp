@@ -9,13 +9,44 @@
 #include <string>
 #include <vector>
 
+#include <uv.h>
+#include <nng/nng.h>
+
 #include "common/logger.hpp"
 #include "common/assert.hpp"
 #include "device/driver_atomics.h"
 #include "device/tt_cluster_descriptor.h"
 
 #include "tt_simulation_device.h"
-#include "uv.h"
+#include "tt_simulation_device_generated.h"
+
+flatbuffers::FlatBufferBuilder create_flatbuffer(DEVICE_COMMAND rw, std::vector<uint32_t> vec, tt_cxy_pair core_, uint64_t addr, uint64_t size_=0){
+    flatbuffers::FlatBufferBuilder builder;
+    auto data = builder.CreateVector(vec);
+    auto core = tt_vcs_core(core_.x, core_.y);
+    uint64_t size = size_ == 0 ? size = vec.size()*sizeof(uint32_t) : size = size_;
+    auto device_cmd = CreateDeviceRequestResponse(builder, rw, data, &core, addr, size);
+    builder.Finish(device_cmd);
+    return builder;
+}
+
+void print_flatbuffer(const DeviceRequestResponse *buf){    
+    std::vector<uint32_t> data_vec(buf->data()->begin(), buf->data()->end());
+    uint64_t addr = buf->address();
+    uint32_t size = buf->size();
+    tt_cxy_pair core = {0, buf->core()->x(), buf->core()->y()};
+    
+    std::stringstream ss;
+    ss << std::hex << reinterpret_cast<uintptr_t>(addr);
+    std::string addr_hex = ss.str();
+    log_info(tt::LogEmulationDriver, "{} bytes @ address {} in core ({}, {})", size, addr_hex, core.x, core.y);
+    for(int i = 0; i < data_vec.size(); i++){
+        std::ios_base::fmtflags save = std::cout.flags();
+        std::cout << "0x" << std::hex << std::setw(8) << std::setfill('0') << data_vec[i] << " ";
+        std::cout.flags(save);
+    }
+    std::cout << std::endl;
+}
 
 tt_SimulationDevice::tt_SimulationDevice(const std::string &sdesc_path) : tt_device(sdesc_path){
     log_info(tt::LogEmulationDriver, "Instantiating simulation device");
@@ -202,31 +233,3 @@ std::uint32_t tt_SimulationDevice::get_num_host_channels(std::uint32_t device_id
 
 std::uint32_t tt_SimulationDevice::get_host_channel_size(std::uint32_t device_id, std::uint32_t channel) {return 0;}
 std::uint32_t tt_SimulationDevice::get_numa_node_for_pcie_device(std::uint32_t device_id) {return 0;}
-
-flatbuffers::FlatBufferBuilder tt_SimulationDevice::create_flatbuffer(DEVICE_COMMAND rw, std::vector<uint32_t> vec, tt_cxy_pair core_, uint64_t addr, uint64_t size_){
-    flatbuffers::FlatBufferBuilder builder;
-    auto data = builder.CreateVector(vec);
-    auto core = tt_vcs_core(core_.x, core_.y);
-    uint64_t size = size_ == 0 ? size = vec.size()*sizeof(uint32_t) : size = size_;
-    auto device_cmd = CreateDeviceRequestResponse(builder, rw, data, &core, addr, size);
-    builder.Finish(device_cmd);
-    return builder;
-}
-
-void tt_SimulationDevice::print_flatbuffer(const DeviceRequestResponse *buf){    
-    std::vector<uint32_t> data_vec(buf->data()->begin(), buf->data()->end());
-    uint64_t addr = buf->address();
-    uint32_t size = buf->size();
-    tt_cxy_pair core = {0, buf->core()->x(), buf->core()->y()};
-    
-    std::stringstream ss;
-    ss << std::hex << reinterpret_cast<uintptr_t>(addr);
-    std::string addr_hex = ss.str();
-    log_info(tt::LogEmulationDriver, "{} bytes @ address {} in core ({}, {})", size, addr_hex, core.x, core.y);
-    for(int i = 0; i < data_vec.size(); i++){
-        std::ios_base::fmtflags save = std::cout.flags();
-        std::cout << "0x" << std::hex << std::setw(8) << std::setfill('0') << data_vec[i] << " ";
-        std::cout.flags(save);
-    }
-    std::cout << std::endl;
-}

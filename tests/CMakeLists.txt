@@ -7,7 +7,8 @@ add_library(test_common INTERFACE)
 target_link_libraries(
     test_common
     INTERFACE
-        umd_device
+        umd::device
+        umd::Firmware
         gtest_main
         gtest
         pthread
@@ -19,31 +20,6 @@ target_include_directories(
         ${PROJECT_SOURCE_DIR}
         ${CMAKE_CURRENT_SOURCE_DIR}
 )
-if($ENV{ARCH_NAME} STREQUAL "grayskull")
-    message(STATUS "UMD: Building for Grayskull")
-    target_include_directories(
-        test_common
-        INTERFACE
-            ${PROJECT_SOURCE_DIR}/device/grayskull
-            ${PROJECT_SOURCE_DIR}/src/firmware/riscv/grayskull
-    )
-elseif($ENV{ARCH_NAME} STREQUAL "wormhole_b0")
-    message(STATUS "UMD: Building for Wormhole")
-    target_include_directories(
-        test_common
-        INTERFACE
-            ${PROJECT_SOURCE_DIR}/device/wormhole
-            ${PROJECT_SOURCE_DIR}/src/firmware/riscv/wormhole
-    )
-elseif($ENV{ARCH_NAME} STREQUAL "blackhole")
-    message(STATUS "UMD: Building for Blackhole")
-    target_include_directories(
-        test_common
-        INTERFACE
-            ${PROJECT_SOURCE_DIR}/device/blackhole
-            ${PROJECT_SOURCE_DIR}/src/firmware/riscv/blackhole
-    )
-endif()
 
 if(MASTER_PROJECT)
     add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/microbenchmark)

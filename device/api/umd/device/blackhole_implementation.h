@@ -58,13 +58,43 @@ enum class arc_message_type {
 };
 
 // DEVICE_DATA
-static constexpr std::array<xy_pair, 24> DRAM_LOCATIONS = {
+const static tt_xy_pair TENSIX_GRID_SIZE = {14, 10};
+const static std::vector<tt_xy_pair> TENSIX_CORES = {{
+    {1, 2},   {2, 2},   {3, 2},   {4, 2},   {5, 2},   {6, 2},   {7, 2},   {10, 2},  {11, 2}, {12, 2}, {13, 2}, {14, 2},
+    {15, 2},  {16, 2},  {1, 3},   {2, 3},   {3, 3},   {4, 3},   {5, 3},   {6, 3},   {7, 3},  {10, 3}, {11, 3}, {12, 3},
+    {13, 3},  {14, 3},  {15, 3},  {16, 3},  {1, 4},   {2, 4},   {3, 4},   {4, 4},   {5, 4},  {6, 4},  {7, 4},  {10, 4},
+    {11, 4},  {12, 4},  {13, 4},  {14, 4},  {15, 4},  {16, 4},  {1, 5},   {2, 5},   {3, 5},  {4, 5},  {5, 5},  {6, 5},
+    {7, 5},   {10, 5},  {11, 5},  {12, 5},  {13, 5},  {14, 5},  {15, 5},  {16, 5},  {1, 6},  {2, 6},  {3, 6},  {4, 6},
+    {5, 6},   {6, 6},   {7, 6},   {10, 6},  {11, 6},  {12, 6},  {13, 6},  {14, 6},  {15, 6}, {16, 6}, {1, 7},  {2, 7},
+    {3, 7},   {4, 7},   {5, 7},   {6, 7},   {7, 7},   {10, 7},  {11, 7},  {12, 7},  {13, 7}, {14, 7}, {15, 7}, {16, 7},
+    {1, 8},   {2, 8},   {3, 8},   {4, 8},   {5, 8},   {6, 8},   {7, 8},   {10, 8},  {11, 8}, {12, 8}, {13, 8}, {14, 8},
+    {15, 8},  {16, 8},  {1, 9},   {2, 9},   {3, 9},   {4, 9},   {5, 9},   {6, 9},   {7, 9},  {10, 9}, {11, 9}, {12, 9},
+    {13, 9},  {14, 9},  {15, 9},  {16, 9},  {1, 10},  {2, 10},  {3, 10},  {4, 10},  {5, 10}, {6, 10}, {7, 10}, {10, 10},
+    {11, 10}, {12, 10}, {13, 10}, {14, 10}, {15, 10}, {16, 10}, {1, 11},  {2, 11},  {3, 11}, {4, 11}, {5, 11}, {6, 11},
+    {7, 11},  {10, 11}, {11, 11}, {12, 11}, {13, 11}, {14, 11}, {15, 11}, {16, 11},
+}};
+
+const std::size_t NUM_DRAM_BANKS = 8;
+const std::size_t NUM_NOC_PORTS_PER_DRAM_BANK = 3;
+static const tt_xy_pair DRAM_GRID_SIZE = {NUM_DRAM_BANKS, NUM_NOC_PORTS_PER_DRAM_BANK};
+static const std::vector<tt_xy_pair> DRAM_CORES = {
     {{0, 0}, {0, 1}, {0, 11}, {0, 2}, {0, 10}, {0, 3}, {0, 9}, {0, 4}, {0, 8}, {0, 5}, {0, 7}, {0, 6},
      {9, 0}, {9, 1}, {9, 11}, {9, 2}, {9, 10}, {9, 3}, {9, 9}, {9, 4}, {9, 8}, {9, 5}, {9, 7}, {9, 6}}};
 
-static constexpr std::array<xy_pair, 1> ARC_LOCATIONS = {{{8, 0}}};
-static constexpr std::array<xy_pair, 1> PCI_LOCATIONS = {{{11, 0}}};
-static constexpr std::array<xy_pair, 14> ETH_LOCATIONS = {
+// TODO: DRAM locations should be deleted. We keep it for compatibility with
+// the existing code in clients which rely on DRAM_LOCATIONS.
+static const std::vector<tt_xy_pair> DRAM_LOCATIONS = DRAM_CORES;
+
+static const tt_xy_pair ARC_GRID_SIZE = {1, 1};
+static const std::vector<tt_xy_pair> ARC_CORES = {{8, 0}};
+static const std::vector<tt_xy_pair> ARC_LOCATIONS = ARC_CORES;
+
+static const tt_xy_pair PCIE_GRID_SIZE = {1, 1};
+static const std::vector<tt_xy_pair> PCIE_CORES = {{{11, 0}}};
+static const std::vector<tt_xy_pair> PCI_LOCATIONS = PCIE_CORES;
+
+static const tt_xy_pair ETH_GRID_SIZE = {14, 1};
+static const std::vector<tt_xy_pair> ETH_CORES = {
     {{1, 1},
      {2, 1},
      {3, 1},
@@ -79,6 +109,7 @@ static constexpr std::array<xy_pair, 14> ETH_LOCATIONS = {
      {14, 1},
      {15, 1},
      {16, 1}}};
+static const std::vector<tt_xy_pair> ETH_LOCATIONS = ETH_CORES;
 // Return to std::array instead of std::vector once we get std::span support in C++20
 static const std::vector<uint32_t> T6_X_LOCATIONS = {1, 2, 3, 4, 5, 6, 7, 10, 11, 12, 13, 14, 15, 16};
 static const std::vector<uint32_t> T6_Y_LOCATIONS = {2, 3, 4, 5, 6, 7, 8, 9, 10, 11};

@@ -3,17 +3,18 @@
  *
  * SPDX-License-Identifier: Apache-2.0
  */
-#include "umd/device/wormhole_coordinate_manager.h"
+#include "umd/device/grayskull_coordinate_manager.h"
 
 using namespace tt::umd;
 
-void WormholeCoordinateManager::fill_tensix_logical_to_translated() {
+void GrayskullCoordinateManager::fill_tensix_logical_to_translated() {
     size_t num_harvested_y = __builtin_popcount(CoordinateManager::tensix_harvesting_mask);
 
-    for (size_t y = 0; y < CoordinateManager::tensix_grid_size.y - num_harvested_y; y++) {
-        for (size_t x = 0; x < CoordinateManager::tensix_grid_size.x; x++) {
-            const size_t translated_x = x + tensix_translated_coordinate_start_x;
-            const size_t translated_y = y + tensix_translated_coordinate_start_y;
+    for (size_t x = 0; x < CoordinateManager::tensix_grid_size.x; x++) {
+        for (size_t y = 0; y < CoordinateManager::tensix_grid_size.y - num_harvested_y; y++) {
+            const CoreCoord physical_coord = CoordinateManager::tensix_logical_to_physical[{x, y}];
+            const size_t translated_x = physical_coord.x;
+            const size_t translated_y = physical_coord.y;
             CoordinateManager::tensix_logical_to_translated[{x, y}] =
                 CoreCoord(translated_x, translated_y, CoreType::TENSIX, CoordSystem::TRANSLATED);
             CoordinateManager::tensix_translated_to_logical[tt_xy_pair(translated_x, translated_y)] =
@@ -22,11 +23,12 @@ void WormholeCoordinateManager::fill_tensix_logical_to_translated() {
     }
 }
 
-void WormholeCoordinateManager::fill_eth_logical_to_translated() {
+void GrayskullCoordinateManager::fill_eth_logical_to_translated() {
     for (size_t x = 0; x < CoordinateManager::eth_grid_size.x; x++) {
         for (size_t y = 0; y < CoordinateManager::eth_grid_size.y; y++) {
-            const size_t translated_x = x + eth_translated_coordinate_start_x;
-            const size_t translated_y = y + eth_translated_coordinate_start_y;
+            const CoreCoord physical_coord = CoordinateManager::eth_logical_to_physical[{x, y}];
+            const size_t translated_x = physical_coord.x;
+            const size_t translated_y = physical_coord.y;
             CoordinateManager::eth_logical_to_translated[{x, y}] =
                 CoreCoord(translated_x, translated_y, CoreType::ETH, CoordSystem::TRANSLATED);
             CoordinateManager::eth_translated_to_logical[{translated_x, translated_y}] =

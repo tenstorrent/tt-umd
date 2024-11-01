@@ -15,6 +15,7 @@ target_sources(
         coordinate_manager.cpp
         cpuset_lib.cpp
         grayskull/grayskull_implementation.cpp
+        grayskull/grayskull_coordinate_manager.cpp
         hugepage.cpp
         pcie/pci_device.cpp
         simulation/tt_simulation_device.cpp

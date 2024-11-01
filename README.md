@@ -73,6 +73,11 @@ add_subdirectory(<path to umd>)
 apt install ./umd-dev-x.y.z-Linux.deb 
 ```
 
+## Simulator Integration
+You can run UMD tests without silicon by following setup instructions [here](https://yyz-gitlab.local.tenstorrent.com/tenstorrent/tt-metal).
+
+For UMD, sample tests can be found in `tests/simulation/test_simulation_device.cpp`
+
 # Pre-commit Hook Integration for Formatting and Linting
 
 As part of maintaining consistent code formatting across the project, we have integrated the [pre-commit](https://pre-commit.com/) framework into our workflow. The pre-commit hooks will help automatically check and format code before commits are made, ensuring that we adhere to the project's coding standards.

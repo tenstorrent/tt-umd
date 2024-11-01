@@ -12,6 +12,7 @@
 
 #include "device/mockup/tt_mockup_device.hpp"
 #include "device/tt_arch_types.h"
+#include "tests/test_utils/generate_cluster_desc.hpp"
 
 namespace test::mockup_device {
 
@@ -46,12 +47,12 @@ tt::ARCH get_arch_from_string(const std::string &arch_str) {
 }
 
 std::string get_soc_description_file(tt::ARCH arch) {
-    const std::string umd_root = get_umd_root();
+    // const std::string umd_root = get_umd_root();
 
     switch (arch) {
-        case tt::ARCH::GRAYSKULL: return umd_root + "/tests/soc_descs/grayskull_10x12.yaml";
-        case tt::ARCH::WORMHOLE_B0: return umd_root + "/tests/soc_descs/wormhole_b0_8x10.yaml";
-        case tt::ARCH::BLACKHOLE: return umd_root + "/tests/soc_descs/blackhole_140_arch.yaml";
+        case tt::ARCH::GRAYSKULL: return test_utils::GetAbsPath("tests/soc_descs/grayskull_10x12.yaml");
+        case tt::ARCH::WORMHOLE_B0: return  test_utils::GetAbsPath("tests/soc_descs/wormhole_b0_8x10.yaml");
+        case tt::ARCH::BLACKHOLE: return  test_utils::GetAbsPath("tests/soc_descs/blackhole_140_arch.yaml");
         case tt::ARCH::Invalid: throw std::runtime_error("Invalid arch not supported");
         default: throw std::runtime_error("Unsupported device architecture");
     }
@@ -59,6 +60,7 @@ std::string get_soc_description_file(tt::ARCH arch) {
 
 TEST(ApiMockupTest, CreateDevice) {
     const auto arch = get_arch_from_string(get_env_arch_name());
+    std::cout << "Creating mockup device" << std::endl;
     auto device_driver = std::make_unique<tt_MockupDevice>(get_soc_description_file(arch));
 }
 

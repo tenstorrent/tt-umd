@@ -3,10 +3,10 @@
 #include <cxxabi.h>
 #include <execinfo.h>
 
+#include <csignal>
 #include <iostream>
 #include <sstream>
 #include <vector>
-#include <csignal>
 
 namespace tt::assert {
 
@@ -33,7 +33,7 @@ static std::string demangle(const char *str) {
  * @param[in] size Maximum number of return layers
  * @param[in] skip Skip the number of layers at the top of the stack
  */
-inline std::vector<std::string> backtrace(int size = 64, int skip = 1, void* caller_address = nullptr) {
+inline std::vector<std::string> backtrace(int size = 64, int skip = 1, void *caller_address = nullptr) {
     std::vector<std::string> bt;
     void **array = (void **)malloc((sizeof(void *) * size));
     if (caller_address != nullptr) {
@@ -60,7 +60,8 @@ inline std::vector<std::string> backtrace(int size = 64, int skip = 1, void* cal
  * @param[in] skip Skip the number of layers at the top of the stack
  * @param[in] prefix Output before stack information
  */
-inline std::string backtrace_to_string(int size = 64, int skip = 2, const std::string &prefix = "", void* caller_address = nullptr) {
+inline std::string backtrace_to_string(
+    int size = 64, int skip = 2, const std::string &prefix = "", void *caller_address = nullptr) {
     std::vector<std::string> bt = backtrace(size, skip, caller_address);
     std::stringstream ss;
     for (size_t i = 0; i < bt.size(); ++i) {

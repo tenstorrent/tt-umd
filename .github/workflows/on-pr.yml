@@ -11,7 +11,7 @@ jobs:
     secrets: inherit
     uses: ./.github/workflows/build-device.yml
     with:
-      timeout: 10
+      timeout: 15
 
   pre-commit:
     name: Run Pre-commit Hooks and Propose Fixes

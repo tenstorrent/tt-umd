@@ -176,8 +176,9 @@ TEST(ApiChipTest, ManualTLBConfiguration) {
 // TODO: Move to test_chip
 TEST(ApiChipTest, SimpleAPIShowcase) {
     std::unique_ptr<Cluster> umd_cluster = get_cluster();
-    chip_id_t chip_id = *umd_cluster->get_all_chips_in_cluster().begin();
+    chip_id_t chip_id = *umd_cluster->get_target_mmio_device_ids().begin();
 
     // TODO: In future, will be accessed through tt::umd::Chip api.
     umd_cluster->get_pcie_base_addr_from_device(chip_id);
+    umd_cluster->get_num_host_channels(chip_id);
 }

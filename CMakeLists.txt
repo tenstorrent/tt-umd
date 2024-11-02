@@ -54,6 +54,7 @@ message(STATUS "UMD build type: ${CMAKE_BUILD_TYPE}")
 include(dependencies)
 
 add_subdirectory(device)
+add_subdirectory(src)
 
 option(TT_UMD_BUILD_TESTS "Enables build of tt_umd tests" OFF)
 if(TT_UMD_BUILD_TESTS)

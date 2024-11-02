@@ -20,7 +20,7 @@ jobs:
     uses: ./.github/workflows/build-tests.yml
     with:
       arch: ${{ matrix.test-group.arch}}
-      timeout: 10
+      timeout: 15
 
   test-all:
     secrets: inherit

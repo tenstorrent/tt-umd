@@ -2923,7 +2923,8 @@ std::uint64_t tt_SiliconDevice::get_dram_channel_size(std::uint32_t device_id, s
 }
 
 std::uint32_t tt_SiliconDevice::get_num_host_channels(std::uint32_t device_id) {
-    log_assert(all_target_mmio_devices.find(device_id) != all_target_mmio_devices.end(), "Querying Host Address parameters for a non-mmio device or a device does not exist.");
+    auto devices = get_target_mmio_device_ids();
+    log_assert(devices.find(device_id) != devices.end(), "Querying Host Address parameters for a non-mmio device or a device does not exist.");
     return m_num_host_mem_channels; // Same number of host channels per device for now
 }
 

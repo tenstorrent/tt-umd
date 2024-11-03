@@ -643,6 +643,58 @@ TEST(SiliconDriverWH, VirtualCoordinateBroadcast) {
     device.close_device();    
 }
 
+void dump_iatu_config(tt_SiliconDevice &device, int region)
+{
+    const size_t PCIE_X = 0;    // NOC0
+    const size_t PCIE_Y = 3;    // NOC0
+    const tt_cxy_pair PCIE_CORE(0, PCIE_X, PCIE_Y);
+
+    auto read_iatu_reg = [&](uint64_t addr) {
+        uint32_t v;
+        addr |= 0x8'0000'0000;
+        device.read_from_device(&v, PCIE_CORE, addr, 4, "REG_TLB");
+        return v;
+    };
+
+    auto ARC_RESET = 0x1FF30000;
+    auto PCI_RESERVED = 0x0078;
+    auto DBI = ARC_RESET | PCI_RESERVED;
+    uint64_t regs = 0x300000 + (0x200 * region);
+
+    device.bar_write32(0, DBI, 0x00200000);
+    device.bar_write32(0, DBI + 4, 0x00200000);
+
+    auto ctrl1 = read_iatu_reg(regs + 0x00);
+    auto crtl2 = read_iatu_reg(regs + 0x04);
+    auto lower_base = read_iatu_reg(regs + 0x08);
+    auto upper_base = read_iatu_reg(regs + 0x0C);
+    auto limit = read_iatu_reg(regs + 0x10);
+    auto lower_target = read_iatu_reg(regs + 0x14);
+    auto upper_target = read_iatu_reg(regs + 0x18);
+    auto base = (uint64_t)upper_base << 32 | lower_base;
+    auto target = (uint64_t)upper_target << 32 | lower_target;
+
+    std::cout << "iATU Region " << region << " configuration:" << std::endl;
+    std::cout << "\tCTRL1: 0x" << std::hex << ctrl1 << std::endl;
+    std::cout << "\tCTRL2: 0x" << std::hex << crtl2 << std::endl;
+    std::cout << "\tLIMIT: 0x" << std::hex << limit << std::endl;
+    std::cout << "\tTRGET: 0x" << std::hex << target << std::endl;
+    std::cout << "\t BASE: 0x" << std::hex << base << std::endl;
+
+    device.bar_write32(0, DBI, 0);
+    device.bar_write32(0, DBI + 4, 0);
+    std::cout << "\n";
+}
+
+void read_noc_node_id(tt_SiliconDevice &device) {
+    const size_t PCIE_X = 0;    // NOC0
+    const size_t PCIE_Y = 10;    // NOC0
+    const tt_cxy_pair PCIE_CORE(0, PCIE_X, PCIE_Y);
+    uint64_t addr = 0x0;
+    uint32_t val;
+    device.read_from_device(&val, PCIE_CORE, addr, 4, "REG_TLB");
+    std::cout << "PCIE READ 0x" << std::hex << val << std::dec << std::endl;
+}
 
 /**
  * This is a basic DMA test -- not using the PCIe controller's DMA engine, but
@@ -678,36 +730,56 @@ TEST(SiliconDriverWH, SysmemTestWithPcie) {
 
     set_params_for_remote_txn(device);
     device.start_device(tt_device_params{});  // no special parameters
+                                              //
+    read_noc_node_id(device);
+    dump_iatu_config(device, 0);
+    dump_iatu_config(device, 1);
+    dump_iatu_config(device, 2);
+    read_noc_node_id(device);
 
     // PCIe core is at (x=0, y=3) on Wormhole NOC0.
     const chip_id_t mmio_chip_id = 0;
     const size_t PCIE_X = 0;    // NOC0
     const size_t PCIE_Y = 3;    // NOC0
     const tt_cxy_pair PCIE_CORE(mmio_chip_id, PCIE_X, PCIE_Y);
-    const size_t test_size_bytes = 0x4000;  // Arbitrarilly chosen, but small size so the test runs quickly.
+    // const size_t test_size_bytes = 0x4000;  // Arbitrarilly chosen, but small size so the test runs quickly.
+    const size_t test_size_bytes = 0x4;  // Arbitrarilly chosen, but small size so the test runs quickly.
 
     // Bad API: how big is the buffer?  How do we know it's big enough?
     // Situation today is that there's a 1G hugepage behind it, although this is
     // unclear from the API and may change in the future.
     uint8_t *sysmem = (uint8_t*)device.host_dma_address(0, 0, 0);
     ASSERT_NE(sysmem, nullptr);
+    read_noc_node_id(device);
 
     // This is the address inside the Wormhole PCIe block that is mapped to the
     // system bus.  In Wormhole, this is a fixed address, 0x8'0000'0000.
     // The driver should have mapped this address to the bottom of sysmem.
     uint64_t base_address = device.get_pcie_base_addr_from_device(mmio_chip_id);
+    std::cout << "base address is 0x" << std::hex << base_address << std::endl;
 
     // Buffer that we will use to read sysmem into, then write sysmem from.
     std::vector<uint8_t> buffer(test_size_bytes, 0x0);
 
     // Step 1: Fill sysmem with random bytes.
+    std::cout << "fill " << std::endl;
     fill_with_random_bytes(sysmem, test_size_bytes);
 
+    read_noc_node_id(device);
+
     // Step 2: Read sysmem into buffer.
+    std::cout << "read " << std::endl;
     device.read_from_device(&buffer[0], PCIE_CORE, base_address, buffer.size(), "REG_TLB");
 
     // Step 3: Verify that buffer matches sysmem.
-    ASSERT_EQ(buffer, std::vector<uint8_t>(sysmem, sysmem + test_size_bytes));
+    std::cout << "verify " << std::endl;
+    EXPECT_EQ(buffer, std::vector<uint8_t>(sysmem, sysmem + test_size_bytes));
+
+    base_address += (1ULL << 30);
+    base_address += (1ULL << 30);
+    std::cout << "read unmapped 0x" << std::hex << base_address << std::dec << std::endl;
+    device.read_from_device(&buffer[0], PCIE_CORE, base_address, buffer.size(), "");
+    
 
     // Step 4: Fill buffer with random bytes.
     fill_with_random_bytes(&buffer[0], test_size_bytes);

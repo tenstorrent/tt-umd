@@ -76,7 +76,6 @@ uint32_t get_available_num_host_mem_channels(const uint32_t num_channels_per_dev
             num_channels_per_device_available, device_id, num_channels_per_device_target);
     }
 
-    log_info(LogSiliconDriver, "AAAAAAAAAAAAA - checked for g_MAX_HOST_MEM_CHANNELS inside get_available_num_host_mem_channels");
     log_assert(num_channels_per_device_available <= g_MAX_HOST_MEM_CHANNELS,
         "NumHostMemChannels: {} exceeds supported maximum: {}, this is unexpected.",
         num_channels_per_device_available, g_MAX_HOST_MEM_CHANNELS);

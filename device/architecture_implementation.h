@@ -15,7 +15,7 @@
 #include "device/xy_pair.h"
 #include "device/tt_arch_types.h"
 
-#include "device/tt_device.h"
+struct tt_driver_host_address_params;
 
 namespace tt::umd {
 

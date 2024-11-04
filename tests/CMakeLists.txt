@@ -22,6 +22,9 @@ target_include_directories(
 )
 
 # Download noc_parameters.h for tests
+# Generally avoid downloading files in cmake configure step
+# It can slow down reconfigures
+# Here we skip downloading repeatedly
 set(ARCHS
     grayskull
     wormhole
@@ -34,15 +37,18 @@ foreach(ARCH IN LISTS ARCHS)
     set(DESTINATION_DIR ${CMAKE_CURRENT_BINARY_DIR}/${ARCH}/noc)
     file(MAKE_DIRECTORY ${DESTINATION_DIR})
     get_filename_component(fileName ${HW_NOC_PARAMETERS_URL} NAME)
-    file(
-        DOWNLOAD
-            ${HW_NOC_PARAMETERS_URL}
-            ${DESTINATION_DIR}/${fileName}
-        SHOW_PROGRESS
-        STATUS status
-    )
-    if(NOT status EQUAL 0)
-        message(FATAL_ERROR "Failed to download ${HW_NOC_PARAMETERS_URL}")
+    set(filePath ${DESTINATION_DIR}/${fileName})
+    if(NOT EXISTS ${filePath})
+        file(
+            DOWNLOAD
+                ${HW_NOC_PARAMETERS_URL}
+                ${filePath}
+            SHOW_PROGRESS
+            STATUS status
+        )
+        if(NOT status EQUAL 0)
+            message(FATAL_ERROR "Failed to download ${HW_NOC_PARAMETERS_URL}")
+        endif()
     endif()
 endforeach()
 if($ENV{ARCH_NAME} STREQUAL "wormhole_b0")

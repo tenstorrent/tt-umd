@@ -32,7 +32,6 @@
 #include <stdarg.h>
 #include <optional>
 
-#include <sys/ioctl.h>
 #include <sys/mman.h>
 #include <dirent.h>
 #include <errno.h>
@@ -47,7 +46,6 @@
 #include "device/tlb.h"
 #include "device/tt_arch_types.h"
 #include "tt_device.h"
-#include "ioctl.h"
 
 using namespace boost::interprocess;
 using namespace tt;

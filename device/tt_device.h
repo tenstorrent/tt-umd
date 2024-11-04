@@ -243,6 +243,7 @@ class tt_device
      *
      * @param host_address_params_ All the Host Address space parameters required by UMD.
      */ 
+    [[deprecated("Using unnecessary function.")]]
     virtual void set_driver_host_address_params(const tt_driver_host_address_params& host_address_params_) {
         throw std::runtime_error("---- tt_device::set_driver_host_address_params is not implemented\n");
     }

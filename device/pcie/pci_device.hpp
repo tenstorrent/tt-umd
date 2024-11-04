@@ -14,8 +14,8 @@
 
 #include "device/tt_xy_pair.h"
 #include "device/tt_arch_types.h"
-#include "device/architecture_implementation.h"
 #include "device/tt_cluster_descriptor_types.h"
+#include "device/tlb.h"
 
 // TODO: this is used up in tt_silicon_driver.cpp but that logic ought to be
 // lowered into the PCIDevice class since it is specific to PCIe cards.
@@ -28,6 +28,8 @@ static const uint64_t UNROLL_ATU_OFFSET_BAR = 0x1200;
 static const uint64_t BAR0_BH_SIZE = 512 * 1024 * 1024;
 
 constexpr unsigned int c_hang_read_value = 0xffffffffu;
+
+namespace tt::umd { class architecture_implementation; }
 
 struct dynamic_tlb {
     uint64_t bar_offset;        // Offset that address is mapped to, within the PCI BAR.
@@ -161,7 +163,7 @@ public:
     dynamic_tlb set_dynamic_tlb(unsigned int tlb_index, tt_xy_pair target, std::uint64_t address, std::unordered_map<chip_id_t, std::unordered_map<tt_xy_pair, tt_xy_pair>>& harvested_coord_translation, std::uint64_t ordering = tt::umd::tlb_data::Relaxed);
     dynamic_tlb set_dynamic_tlb_broadcast(unsigned int tlb_index, std::uint64_t address, std::unordered_map<chip_id_t, std::unordered_map<tt_xy_pair, tt_xy_pair>>& harvested_coord_translation, tt_xy_pair start, tt_xy_pair end, std::uint64_t ordering = tt::umd::tlb_data::Relaxed);
 
-    tt::umd::architecture_implementation* get_architecture_implementation() const { return architecture_implementation.get(); }
+    tt::umd::architecture_implementation* get_architecture_implementation() const;
     void detect_hang_read(uint32_t data_read = c_hang_read_value);
 
 public:

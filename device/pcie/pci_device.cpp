@@ -579,3 +579,5 @@ dynamic_tlb PCIDevice::set_dynamic_tlb_broadcast(unsigned int tlb_index, std::ui
     // Issue a broadcast to cores included in the start (top left) and end (bottom right) grid
     return set_dynamic_tlb(tlb_index, start, end, address, true, harvested_coord_translation, ordering);
 }
+
+tt::umd::architecture_implementation* PCIDevice::get_architecture_implementation() const {return architecture_implementation.get();}

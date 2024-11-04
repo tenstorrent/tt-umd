@@ -5,6 +5,9 @@
 #include <cstdint>
 #include <stdint.h>
 
+// Remove inline ASAP
+inline namespace blackhole {
+
 namespace host_mem {
 
 struct address_map {
@@ -44,5 +47,6 @@ struct address_map {
     return ALLOCATABLE_QUEUE_REGION_END(channel) - ALLOCATABLE_QUEUE_REGION_START(channel);
   }
 };
+}
 }
 

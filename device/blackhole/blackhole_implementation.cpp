@@ -4,6 +4,10 @@
 
 #include "blackhole_implementation.h"
 
+#include "src/firmware/riscv/blackhole/host_mem_address_map.h"
+
+#include "device/tt_device.h"
+
 namespace tt::umd {
 
 std::tuple<xy_pair, xy_pair> blackhole_implementation::multicast_workaround(xy_pair start, xy_pair end) const {
@@ -72,6 +76,10 @@ std::pair<std::uint64_t, std::uint64_t> blackhole_implementation::get_tlb_data(
         throw std::runtime_error("Invalid TLB index for Blackhole arch");
     }
 
+}
+
+tt_driver_host_address_params blackhole_implementation::get_host_address_params() const {
+    return {::blackhole::host_mem::address_map::ETH_ROUTING_BLOCK_SIZE, ::blackhole::host_mem::address_map::ETH_ROUTING_BUFFERS_START};
 }
 
 }  // namespace tt::umd

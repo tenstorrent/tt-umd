@@ -45,6 +45,8 @@ public:
 
     CoordinateManager(CoordinateManager& other) = default;
 
+    virtual ~CoordinateManager() {}
+
 protected:
     virtual void clear_harvesting_structures();
     

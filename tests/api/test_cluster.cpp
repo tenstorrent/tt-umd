@@ -23,7 +23,7 @@
 #include "src/firmware/riscv/wormhole/eth_l1_address_map.h"
 #include "src/firmware/riscv/wormhole/host_mem_address_map.h"
 #include "src/firmware/riscv/wormhole/l1_address_map.h"
-#include "src/firmware/riscv/wormhole/noc/noc_parameters.h"
+#include "noc/noc_parameters.h"
 
 // TODO: do proper renaming.
 using Cluster = tt_SiliconDevice;

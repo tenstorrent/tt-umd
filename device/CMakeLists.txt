@@ -20,6 +20,7 @@ set(UMD_DEVICE_SRCS
     blackhole/blackhole_coordinate_manager.cpp
     wormhole/wormhole_coordinate_manager.cpp
     pcie/pci_device.cpp
+    hugepage.cpp
 )
 
 add_library(device SHARED ${UMD_DEVICE_SRCS})

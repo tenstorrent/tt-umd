@@ -27,6 +27,8 @@ class tt_MockupDevice : public tt_device {
     void set_device_l1_address_params(const tt_device_l1_address_params& l1_address_params_) override {}
     void set_device_dram_address_params(const tt_device_dram_address_params& dram_address_params_) override {}
     void set_driver_host_address_params(const tt_driver_host_address_params& host_address_params_) override {}
+    void set_driver_noc_params(
+        const tt_driver_noc_params& noc_params_) override {}
     void set_driver_eth_interface_params(
         const tt_driver_eth_interface_params& eth_interface_params_) override {}
     void start_device(const tt_device_params& device_params) override {}

@@ -16,6 +16,7 @@
 #include "device/tt_arch_types.h"
 
 struct tt_driver_host_address_params;
+struct tt_driver_eth_interface_params;
 
 namespace tt::umd {
 
@@ -66,6 +67,7 @@ class architecture_implementation {
     virtual std::pair<std::uint64_t, std::uint64_t> get_tlb_data(std::uint32_t tlb_index, const tlb_data& data) const = 0;
 
     virtual tt_driver_host_address_params get_host_address_params() const = 0;
+    virtual tt_driver_eth_interface_params get_eth_interface_params() const = 0;
 
     static std::unique_ptr<architecture_implementation> create(tt::ARCH architecture);
 };

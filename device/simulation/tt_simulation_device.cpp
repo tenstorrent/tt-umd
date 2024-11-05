@@ -95,6 +95,10 @@ void tt_SimulationDevice::set_driver_host_address_params(const tt_driver_host_ad
     host_address_params = host_address_params_;
 }
 
+void tt_SimulationDevice::set_driver_noc_params(const tt_driver_noc_params& noc_params_) {
+    noc_params = noc_params_;
+}
+
 void tt_SimulationDevice::set_driver_eth_interface_params(const tt_driver_eth_interface_params& eth_interface_params_) {
     eth_interface_params = eth_interface_params_;
 }

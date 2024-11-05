@@ -232,6 +232,7 @@ class grayskull_implementation : public architecture_implementation {
     std::pair<std::uint64_t, std::uint64_t> get_tlb_data(std::uint32_t tlb_index, const tlb_data& data) const override;
 
     tt_driver_host_address_params get_host_address_params() const override;
+    tt_driver_eth_interface_params get_eth_interface_params() const override;
 
 };
 

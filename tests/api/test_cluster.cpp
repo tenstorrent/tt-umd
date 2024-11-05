@@ -19,7 +19,6 @@
 #include "device/tt_device.h"
 
 // TODO: obviously we need some other way to set this up
-#include "src/firmware/riscv/wormhole/eth_interface.h"
 #include "src/firmware/riscv/wormhole/eth_l1_address_map.h"
 #include "src/firmware/riscv/wormhole/host_mem_address_map.h"
 #include "src/firmware/riscv/wormhole/l1_address_map.h"
@@ -140,29 +139,10 @@ void setup_wormhole_remote(Cluster* umd_cluster) {
         umd_cluster->set_driver_host_address_params(
             {host_mem::address_map::ETH_ROUTING_BLOCK_SIZE, host_mem::address_map::ETH_ROUTING_BUFFERS_START});
 
-        umd_cluster->set_driver_eth_interface_params(
+        umd_cluster->set_driver_noc_params(
             {NOC_ADDR_LOCAL_BITS,
              NOC_ADDR_NODE_ID_BITS,
-             ETH_RACK_COORD_WIDTH,
-             CMD_BUF_SIZE_MASK,
-             MAX_BLOCK_SIZE,
-             REQUEST_CMD_QUEUE_BASE,
-             RESPONSE_CMD_QUEUE_BASE,
-             CMD_COUNTERS_SIZE_BYTES,
-             REMOTE_UPDATE_PTR_SIZE_BYTES,
-             CMD_DATA_BLOCK,
-             CMD_WR_REQ,
-             CMD_WR_ACK,
-             CMD_RD_REQ,
-             CMD_RD_DATA,
-             CMD_BUF_SIZE,
-             CMD_DATA_BLOCK_DRAM,
-             ETH_ROUTING_DATA_BUFFER_ADDR,
-             REQUEST_ROUTING_CMD_QUEUE_BASE,
-             RESPONSE_ROUTING_CMD_QUEUE_BASE,
-             CMD_BUF_PTR_MASK,
-             CMD_ORDERED,
-             CMD_BROADCAST});
+            });
 
         umd_cluster->set_device_l1_address_params(
             {l1_mem::address_map::NCRISC_FIRMWARE_BASE,

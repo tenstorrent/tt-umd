@@ -13,7 +13,7 @@
 
 namespace tt::umd {
 
-// Get number of 1GB host hugepages installed. They are used for host queues.
+// Get number of 1GB host hugepages installed.
 uint32_t get_num_hugepages();
 
 // Dynamically figure out how many host memory channels (based on hugepages installed) for each device, based on arch.

@@ -57,6 +57,8 @@ static const uint32_t MSG_ERROR_REPLY = 0xFFFFFFFF;
 // TLB size for DRAM on blackhole - 4GB
 const uint64_t BH_4GB_TLB_SIZE = 4ULL * 1024 * 1024 * 1024;
 
+static constexpr uint32_t HUGEPAGE_CHANNEL_3_SIZE_LIMIT = 805306368; // Remove 256MB from full 1GB for channel 3 (iATU limitation)
+
 // TODO: Remove in favor of cluster descriptor method, when it becomes available.
 // Metal uses this function to determine the architecture of the first PCIe chip
 // and then verifies that all subsequent chips are of the same architecture.  It
@@ -1097,7 +1099,9 @@ void tt_SiliconDevice::init_pcie_iatus() {
             hugepage_mapping hugepage_map = src_pci_device->get_hugepage_mapping(channel_id);
             if (hugepage_map.mapping) {
                 std::uint32_t region_size = hugepage_map.mapping_size;
-                if (channel_id == 3) region_size = 805306368; // Remove 256MB from full 1GB for channel 3 (iATU limitation)
+                if (channel_id == 3) {
+                    region_size = HUGEPAGE_CHANNEL_3_SIZE_LIMIT; 
+                }
 
                 // This log message doesn't look right.
                 log_debug(LogSiliconDriver, "Configuring ATU channel {} to point to hugepage {}.", channel_id, logical_id);

@@ -3,7 +3,6 @@ arch: {
 }
 
 chips: {
-   0: [0,0,0,0],
 }
 
 ethernet_connections: [

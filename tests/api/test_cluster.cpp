@@ -11,17 +11,16 @@
 #include <string>
 #include <vector>
 
+#include "device/cluster.h"
+#include "device/tt_cluster_descriptor.h"
 #include "fmt/xchar.h"
 #include "tests/test_utils/generate_cluster_desc.hpp"
 
-#include "device/tt_cluster_descriptor.h"
-#include "device/cluster.h"
-
 // TODO: obviously we need some other way to set this up
+#include "noc/noc_parameters.h"
 #include "src/firmware/riscv/wormhole/eth_l1_address_map.h"
 #include "src/firmware/riscv/wormhole/host_mem_address_map.h"
 #include "src/firmware/riscv/wormhole/l1_address_map.h"
-#include "noc/noc_parameters.h"
 
 using namespace tt::umd;
 
@@ -103,11 +102,9 @@ void setup_wormhole_remote(Cluster* umd_cluster) {
         // Populate address map and NOC parameters that the driver needs for remote transactions
 
         umd_cluster->set_device_l1_address_params(
-            {
-             l1_mem::address_map::L1_BARRIER_BASE,
+            {l1_mem::address_map::L1_BARRIER_BASE,
              eth_l1_mem::address_map::ERISC_BARRIER_BASE,
-             eth_l1_mem::address_map::FW_VERSION_ADDR
-	    });
+             eth_l1_mem::address_map::FW_VERSION_ADDR});
     }
 }
 

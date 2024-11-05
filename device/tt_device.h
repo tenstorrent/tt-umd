@@ -599,8 +599,6 @@ class tt_device
     std::unordered_map<chip_id_t, tt_SocDescriptor> soc_descriptor_per_chip = {};
 };
 
-#include "device/architecture_implementation.h"
-
 /**
 * Silicon Driver Class, derived from the tt_device class
  * Implements APIs to communicate with a physical Tenstorrent Device.
@@ -725,7 +723,6 @@ class tt_SiliconDevice: public tt_device
     void perform_harvesting_and_populate_soc_descriptors(const std::string& sdesc_path, const bool perform_harvesting);
     void populate_cores();
     void init_pcie_iatus(); // No more p2p support.
-    bool init_hugepage(chip_id_t device_id);
     void check_pcie_device_initialized(int device_id);
     void set_pcie_power_state(tt_DevicePowerState state);
     int set_remote_power_state(const chip_id_t &chip, tt_DevicePowerState device_state);
@@ -735,7 +732,6 @@ class tt_SiliconDevice: public tt_device
     void enable_ethernet_queue(int timeout);
     void enable_remote_ethernet_queue(const chip_id_t& chip, int timeout);
     void deassert_resets_and_set_power_state();
-    int open_hugepage_file(const std::string &dir, chip_id_t device_id, uint16_t channel);
     int iatu_configure_peer_region (int logical_device_id, uint32_t peer_region_id, uint64_t bar_addr_64, uint32_t region_size);
     uint32_t get_harvested_noc_rows (uint32_t harvesting_mask);
     uint32_t get_harvested_rows (int logical_device_id);
@@ -809,13 +805,8 @@ class tt_SiliconDevice: public tt_device
     std::unordered_map<chip_id_t, std::unordered_set<tt_xy_pair>> workers_per_chip = {};
     std::unordered_set<tt_xy_pair> eth_cores = {};
     std::unordered_set<tt_xy_pair> dram_cores = {};
-    uint32_t m_num_host_mem_channels = 0;
-    std::unordered_map<chip_id_t, std::unordered_map<int, void *>> hugepage_mapping;
-    std::unordered_map<chip_id_t, std::unordered_map<int, std::size_t>> hugepage_mapping_size;
-    std::unordered_map<chip_id_t, std::unordered_map<int, std::uint64_t>> hugepage_physical_address;
     std::map<chip_id_t, std::unordered_map<std::int32_t, std::int32_t>> tlb_config_map = {};
     std::set<chip_id_t> all_target_mmio_devices;
-    std::unordered_map<chip_id_t, std::vector<uint32_t>> host_channel_size;
 
     // Note that these maps holds only entries for local PCIe chips.
     std::unordered_map<chip_id_t, std::function<std::int32_t(tt_xy_pair)>> map_core_to_tlb_per_chip = {};
@@ -836,8 +827,6 @@ class tt_SiliconDevice: public tt_device
     // ERISC FW Version Required by UMD
     static constexpr std::uint32_t SW_VERSION = 0x06060000;
 };
-
-uint32_t get_num_hugepages();
 
 constexpr inline bool operator==(const tt_version &a, const tt_version &b) {
     return a.major == b.major && a.minor == b.minor && a.patch == b.patch;

@@ -17,6 +17,7 @@
 // TODO: change to tt_cluster
 #include "device/tt_device.h"
 #include "device/tt_cluster_descriptor.h"
+#include "device/architecture_implementation.h"
 
 // TODO: write this test to work with Chip not whole Cluster.
 using Cluster = tt_SiliconDevice;

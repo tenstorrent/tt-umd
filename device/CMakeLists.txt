@@ -1,6 +1,6 @@
 set(POSITION_INDEPENDENT_CODE ON)
 
-GENERATE_FBS_HEADER(${PROJECT_SOURCE_DIR}/device/simulation/tt_simulation_device.fbs)
+generate_fbs_header(${PROJECT_SOURCE_DIR}/device/simulation/tt_simulation_device.fbs)
 
 set(UMD_DEVICE_SRCS
     architecture_implementation.cpp

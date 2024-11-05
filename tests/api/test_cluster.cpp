@@ -30,68 +30,14 @@ using namespace tt::umd;
 // N150. N300
 // Galaxy
 
-// TODO: This function should not exist, the API itself should be simple enough.
-inline std::unique_ptr<tt_ClusterDescriptor> get_cluster_desc() {
-    // TODO: remove getting manually cluster descriptor from yaml.
-    std::string yaml_path = tt_ClusterDescriptor::get_cluster_descriptor_file_path();
-
-    return tt_ClusterDescriptor::create_from_yaml(yaml_path);
-}
-
-// TODO: This function should not exist, the API itself should be simple enough.
 inline std::unique_ptr<Cluster> get_cluster() {
-    // TODO: This should not be needed. And could be part of the cluster descriptor probably.
-    // Note that cluster descriptor holds logical ids of chips.
-    // Which are different than physical PCI ids, which are /dev/tenstorrent/N ones.
-    // You have to see if physical PCIe is GS before constructing a cluster descriptor.
     std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
-    std::set<int> pci_device_ids_set(pci_device_ids.begin(), pci_device_ids.end());
-
-    tt::ARCH device_arch = tt::ARCH::GRAYSKULL;
-    if (!pci_device_ids.empty()) {
-        // TODO: This should be removed from the API, the driver itself should do it.
-        int physical_device_id = pci_device_ids[0];
-        // TODO: remove logical_device_id
-        PCIDevice pci_device(physical_device_id, 0);
-        device_arch = pci_device.get_arch();
-    }
-
     // TODO: Make this test work on a host system without any tt devices.
     if (pci_device_ids.empty()) {
         return nullptr;
     }
-
-    std::string yaml_path;
-    if (device_arch == tt::ARCH::GRAYSKULL) {
-        yaml_path = "";
-    } else if (device_arch == tt::ARCH::BLACKHOLE) {
-        yaml_path = test_utils::GetAbsPath("blackhole_1chip_cluster.yaml");
-    } else {
-        // TODO: remove getting manually cluster descriptor from yaml.
-        yaml_path = tt_ClusterDescriptor::get_cluster_descriptor_file_path();
-    }
-    // TODO: Remove the need to do this, allow default constructor to construct with all chips.
-    std::unique_ptr<tt_ClusterDescriptor> cluster_desc = get_cluster_desc();
-    std::unordered_set<int> detected_num_chips = cluster_desc->get_all_chips();
-
-    // TODO: make this unordered vs set conversion not needed.
-    std::set<chip_id_t> detected_num_chips_set(detected_num_chips.begin(), detected_num_chips.end());
-
-    // TODO: This would be incorporated inside SocDescriptor.
-    std::string soc_path;
-    if (device_arch == tt::ARCH::GRAYSKULL) {
-        soc_path = test_utils::GetAbsPath("tests/soc_descs/grayskull_10x12.yaml");
-    } else if (device_arch == tt::ARCH::WORMHOLE_B0) {
-        soc_path = test_utils::GetAbsPath("tests/soc_descs/wormhole_b0_8x10.yaml");
-    } else if (device_arch == tt::ARCH::BLACKHOLE) {
-        soc_path = test_utils::GetAbsPath("tests/soc_descs/blackhole_140_arch_no_eth.yaml");
-    } else {
-        throw std::runtime_error("Unsupported architecture");
-    }
-
-    // TODO: Don't pass each of these arguments.
     return std::unique_ptr<Cluster>(
-        new Cluster(soc_path, tt_ClusterDescriptor::get_cluster_descriptor_file_path(), detected_num_chips_set));
+        new Cluster());
 }
 
 // TODO: Should not be wormhole specific.
@@ -115,8 +61,9 @@ void setup_wormhole_remote(Cluster* umd_cluster) {
 TEST(ApiClusterTest, OpenAllChips) { std::unique_ptr<Cluster> umd_cluster = get_cluster(); }
 
 TEST(ApiClusterTest, SimpleIOAllChips) {
-    std::unique_ptr<tt_ClusterDescriptor> cluster_desc = get_cluster_desc();
     std::unique_ptr<Cluster> umd_cluster = get_cluster();
+
+    const tt_ClusterDescriptor* cluster_desc = umd_cluster->get_cluster_description();
 
     if (umd_cluster == nullptr || umd_cluster->get_all_chips_in_cluster().empty()) {
         GTEST_SKIP() << "No chips present on the system. Skipping test.";
@@ -172,8 +119,9 @@ TEST(ApiClusterTest, SimpleIOAllChips) {
 }
 
 TEST(ApiClusterTest, RemoteFlush) {
-    std::unique_ptr<tt_ClusterDescriptor> cluster_desc = get_cluster_desc();
     std::unique_ptr<Cluster> umd_cluster = get_cluster();
+
+    const tt_ClusterDescriptor* cluster_desc = umd_cluster->get_cluster_description();
 
     if (umd_cluster == nullptr || umd_cluster->get_all_chips_in_cluster().empty()) {
         GTEST_SKIP() << "No chips present on the system. Skipping test.";

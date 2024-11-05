@@ -8,7 +8,6 @@ set(UMD_DEVICE_SRCS
     tlb.cpp
     tt_cluster_descriptor.cpp
     cluster.cpp
-    cluster.cpp
     tt_silicon_driver_common.cpp
     tt_soc_descriptor.cpp
     xy_pair.cpp

@@ -8,8 +8,8 @@
 
 #include <cstdint>
 #include <optional>
-#include <utility>
 #include <stdexcept>
+#include <utility>
 
 namespace tt::umd {
 
@@ -41,10 +41,10 @@ struct tlb_data {
 
     // Orderings
     static constexpr uint64_t Relaxed = 0;
-    static constexpr uint64_t Strict  = 1;
-    static constexpr uint64_t Posted  = 2;
+    static constexpr uint64_t Strict = 1;
+    static constexpr uint64_t Posted = 2;
 
-    bool check(const tlb_offsets & offset) const;
+    bool check(const tlb_offsets &offset) const;
     std::pair<std::uint64_t, std::uint64_t> apply_offset(const tlb_offsets &offset) const;
 };
 

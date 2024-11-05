@@ -20,20 +20,18 @@ namespace tt {
  *
  * It is the caller's responsibility to manage the lifetime of Writer objects.
  */
-class Writer
-{
+class Writer {
     friend class ::tt_SiliconDevice;
 
 public:
     /**
      * @brief Write to a SoC core.
-     * 
+     *
      * @param address must be aligned to the size of T
-     * @param value 
+     * @param value
      */
     template <class T>
-    void write(uint32_t address, T value)
-    {
+    void write(uint32_t address, T value) {
         auto dst = reinterpret_cast<uintptr_t>(base) + address;
 
         if (address >= tlb_size) {
@@ -44,27 +42,23 @@ public:
             throw std::runtime_error("Unaligned write");
         }
 
-        *reinterpret_cast<volatile T*>(dst) = value;
+        *reinterpret_cast<volatile T *>(dst) = value;
     }
 
 private:
     /**
      * @brief tt_SiliconDriver interface to construct a new Writer object.
-     * 
+     *
      * @param base pointer to the base address of a mapped TLB.
      * @param tlb_size size of the mapped TLB.
      */
-    Writer(void *base, size_t tlb_size)
-        : base(base)
-        , tlb_size(tlb_size)
-    {
+    Writer(void *base, size_t tlb_size) : base(base), tlb_size(tlb_size) {
         assert(base);
         assert(tlb_size > 0);
     }
 
-    void *base{ nullptr };
-    size_t tlb_size{ 0 };
+    void *base{nullptr};
+    size_t tlb_size{0};
 };
 
-
-} // namespace tt
+}  // namespace tt

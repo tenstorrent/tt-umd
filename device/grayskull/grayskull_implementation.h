@@ -104,7 +104,8 @@ enum class arc_message_type {
 };
 
 // DEVICE_DATA
-static const std::array<xy_pair, 8> DRAM_LOCATIONS = {{{1, 6}, {4, 6}, {7, 6}, {10, 6}, {1, 0}, {4, 0}, {7, 0}, {10, 0}}};
+static const std::array<xy_pair, 8> DRAM_LOCATIONS = {
+    {{1, 6}, {4, 6}, {7, 6}, {10, 6}, {1, 0}, {4, 0}, {7, 0}, {10, 0}}};
 static const std::array<xy_pair, 1> ARC_LOCATIONS = {{{0, 2}}};
 static const std::array<xy_pair, 1> PCI_LOCATIONS = {{{0, 4}}};
 static const std::array<xy_pair, 0> ETH_LOCATIONS = {};
@@ -134,7 +135,8 @@ static constexpr uint32_t STATIC_TLB_CFG_ADDR = 0x1fc00000;
 static constexpr uint32_t TLB_CFG_REG_SIZE_BYTES = 8;
 
 static constexpr uint32_t DYNAMIC_TLB_16M_SIZE = 16 * 1024 * 1024;
-static constexpr uint32_t DYNAMIC_TLB_16M_CFG_ADDR = STATIC_TLB_CFG_ADDR + (TLB_BASE_INDEX_16M * TLB_CFG_REG_SIZE_BYTES);
+static constexpr uint32_t DYNAMIC_TLB_16M_CFG_ADDR =
+    STATIC_TLB_CFG_ADDR + (TLB_BASE_INDEX_16M * TLB_CFG_REG_SIZE_BYTES);
 static constexpr uint32_t DYNAMIC_TLB_16M_BASE = TLB_BASE_16M;
 
 static constexpr uint32_t DYNAMIC_TLB_2M_SIZE = 2 * 1024 * 1024;
@@ -171,59 +173,93 @@ static constexpr uint32_t TENSIX_SOFT_RESET_ADDR = 0xFFB121B0;
 }  // namespace grayskull
 
 class grayskull_implementation : public architecture_implementation {
-   public:
+public:
     tt::ARCH get_architecture() const override { return tt::ARCH::GRAYSKULL; }
+
     uint32_t get_arc_message_arc_get_harvesting() const override {
         return static_cast<uint32_t>(grayskull::arc_message_type::ARC_GET_HARVESTING);
     }
+
     uint32_t get_arc_message_arc_go_busy() const override {
         return static_cast<uint32_t>(grayskull::arc_message_type::ARC_GO_BUSY);
     }
+
     uint32_t get_arc_message_arc_go_long_idle() const override {
         return static_cast<uint32_t>(grayskull::arc_message_type::ARC_GO_LONG_IDLE);
     }
+
     uint32_t get_arc_message_arc_go_short_idle() const override {
         return static_cast<uint32_t>(grayskull::arc_message_type::ARC_GO_SHORT_IDLE);
     }
+
     uint32_t get_arc_message_deassert_riscv_reset() const override {
         return static_cast<uint32_t>(grayskull::arc_message_type::DEASSERT_RISCV_RESET);
     }
+
     uint32_t get_arc_message_get_aiclk() const override {
         return static_cast<uint32_t>(grayskull::arc_message_type::GET_AICLK);
     }
+
     uint32_t get_arc_message_setup_iatu_for_peer_to_peer() const override {
         return static_cast<uint32_t>(grayskull::arc_message_type::SETUP_IATU_FOR_PEER_TO_PEER);
     }
+
     uint32_t get_arc_message_test() const override { return static_cast<uint32_t>(grayskull::arc_message_type::TEST); }
+
     uint32_t get_arc_csm_mailbox_offset() const override { return grayskull::ARC_CSM_MAILBOX_OFFSET; }
+
     uint32_t get_arc_reset_arc_misc_cntl_offset() const override { return grayskull::ARC_RESET_ARC_MISC_CNTL_OFFSET; }
+
     uint32_t get_arc_reset_scratch_offset() const override { return grayskull::ARC_RESET_SCRATCH_OFFSET; }
+
     uint32_t get_dram_channel_0_peer2peer_region_start() const override {
         return grayskull::DRAM_CHANNEL_0_PEER2PEER_REGION_START;
     }
+
     uint32_t get_dram_channel_0_x() const override { return grayskull::DRAM_CHANNEL_0_X; }
+
     uint32_t get_dram_channel_0_y() const override { return grayskull::DRAM_CHANNEL_0_Y; }
+
     uint32_t get_broadcast_tlb_index() const override { return grayskull::BROADCAST_TLB_INDEX; }
+
     uint32_t get_dynamic_tlb_2m_base() const override { return grayskull::DYNAMIC_TLB_2M_BASE; }
+
     uint32_t get_dynamic_tlb_2m_size() const override { return grayskull::DYNAMIC_TLB_2M_SIZE; }
+
     uint32_t get_dynamic_tlb_16m_base() const override { return grayskull::DYNAMIC_TLB_16M_BASE; }
+
     uint32_t get_dynamic_tlb_16m_size() const override { return grayskull::DYNAMIC_TLB_16M_SIZE; }
+
     uint32_t get_dynamic_tlb_16m_cfg_addr() const override { return grayskull::DYNAMIC_TLB_16M_CFG_ADDR; }
+
     uint32_t get_mem_large_read_tlb() const override { return grayskull::MEM_LARGE_READ_TLB; }
+
     uint32_t get_mem_large_write_tlb() const override { return grayskull::MEM_LARGE_WRITE_TLB; }
+
     uint32_t get_static_tlb_cfg_addr() const override { return grayskull::STATIC_TLB_CFG_ADDR; }
+
     uint32_t get_static_tlb_size() const override { return grayskull::STATIC_TLB_SIZE; }
+
     uint32_t get_reg_tlb() const override { return grayskull::REG_TLB; }
+
     uint32_t get_tlb_base_index_16m() const override { return grayskull::TLB_BASE_INDEX_16M; }
+
     uint32_t get_tensix_soft_reset_addr() const override { return grayskull::TENSIX_SOFT_RESET_ADDR; }
+
     uint32_t get_grid_size_x() const override { return grayskull::GRID_SIZE_X; }
+
     uint32_t get_grid_size_y() const override { return grayskull::GRID_SIZE_Y; }
+
     uint32_t get_tlb_cfg_reg_size_bytes() const override { return grayskull::TLB_CFG_REG_SIZE_BYTES; }
+
     uint32_t get_small_read_write_tlb() const override { return grayskull::MEM_SMALL_READ_WRITE_TLB; }
+
     const std::vector<uint32_t>& get_harvesting_noc_locations() const override {
         return grayskull::HARVESTING_NOC_LOCATIONS;
     }
+
     const std::vector<uint32_t>& get_t6_x_locations() const override { return grayskull::T6_X_LOCATIONS; }
+
     const std::vector<uint32_t>& get_t6_y_locations() const override { return grayskull::T6_Y_LOCATIONS; }
 
     std::tuple<xy_pair, xy_pair> multicast_workaround(xy_pair start, xy_pair end) const override;
@@ -232,7 +268,6 @@ class grayskull_implementation : public architecture_implementation {
     std::pair<std::uint64_t, std::uint64_t> get_tlb_data(std::uint32_t tlb_index, const tlb_data& data) const override;
 
     tt_driver_host_address_params get_host_address_params() const override;
-
 };
 
 }  // namespace tt::umd

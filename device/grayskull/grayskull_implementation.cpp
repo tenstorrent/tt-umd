@@ -4,9 +4,8 @@
 
 #include "grayskull_implementation.h"
 
-#include "src/firmware/riscv/grayskull/host_mem_address_map.h"
-
 #include "device/tt_device.h"
+#include "src/firmware/riscv/grayskull/host_mem_address_map.h"
 
 namespace tt::umd {
 
@@ -86,7 +85,9 @@ std::pair<std::uint64_t, std::uint64_t> grayskull_implementation::get_tlb_data(
 }
 
 tt_driver_host_address_params grayskull_implementation::get_host_address_params() const {
-    return {::grayskull::host_mem::address_map::ETH_ROUTING_BLOCK_SIZE, ::grayskull::host_mem::address_map::ETH_ROUTING_BUFFERS_START};
+    return {
+        ::grayskull::host_mem::address_map::ETH_ROUTING_BLOCK_SIZE,
+        ::grayskull::host_mem::address_map::ETH_ROUTING_BUFFERS_START};
 }
 
 }  // namespace tt::umd

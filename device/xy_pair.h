@@ -14,6 +14,7 @@ namespace tt::umd {
 
 struct xy_pair {
     constexpr xy_pair() : x{}, y{} {}
+
     constexpr xy_pair(std::size_t x, std::size_t y) : x(x), y(y) {}
 
     std::size_t x;
@@ -32,14 +33,14 @@ constexpr inline bool operator<(const xy_pair &left, const xy_pair &right) {
 
 struct cxy_pair : public xy_pair {
     cxy_pair() : xy_pair{}, chip{} {}
+
     cxy_pair(std::size_t ichip, xy_pair pair) : xy_pair(pair.x, pair.y), chip(ichip) {}
+
     cxy_pair(std::size_t ichip, std::size_t x, std::size_t y) : xy_pair(x, y), chip(ichip) {}
 
     std::size_t chip;
 
-    std::string str() const {
-        return fmt::format("(chip={},x={},y={})", chip, x, y);
-    }
+    std::string str() const { return fmt::format("(chip={},x={},y={})", chip, x, y); }
 };
 
 constexpr inline bool operator==(const cxy_pair &a, const cxy_pair &b) {

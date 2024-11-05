@@ -9,7 +9,7 @@
 #include <vector>
 #include <string>
 
-#include "tt_device.h"
+#include "cluster.h"
 
 namespace test_utils {
 

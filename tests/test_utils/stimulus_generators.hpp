@@ -6,7 +6,7 @@
 #pragma once
 #include "tt_xy_pair.h"
 #include "tt_cluster_descriptor.h"
-#include "tt_device.h"
+#include "cluster.h"
 
 
 #include <functional>
@@ -379,7 +379,7 @@ int bytes_to_words(int num_bytes) {
 }
 
 static inline void dispatch_remote_transfer_command(
-    tt_SiliconDevice &driver, 
+    Cluster &driver, 
     remote_transfer_sample_t const& command, 
     std::vector<uint32_t> &payload) {
 
@@ -464,7 +464,7 @@ template<
     template <typename> class READ_SIZE_DISTR_T
 >
 void RunMixedTransfers(
-    tt_SiliconDevice& device, 
+    Cluster& device, 
     int num_samples,
     int seed,
 
@@ -520,7 +520,7 @@ static ConstrainedTemplateTemplateGenerator<address_t, address_t, std::uniform_i
 }
 
 
-static ConstrainedTemplateTemplateGenerator<destination_t, int, std::uniform_int_distribution> get_default_full_dram_dest_generator(int seed, tt_SiliconDevice *device) {
+static ConstrainedTemplateTemplateGenerator<destination_t, int, std::uniform_int_distribution> get_default_full_dram_dest_generator(int seed, Cluster *device) {
     assert(device != nullptr);
     tt_ClusterDescriptor *cluster_desc = device->get_cluster_description();
     tt_SocDescriptor const& soc_desc = device->get_virtual_soc_descriptors().at(0);
@@ -537,7 +537,7 @@ static WriteCommandGenerator<
     std::uniform_int_distribution,
     transfer_size_t,
     std::uniform_int_distribution
-> build_dummy_write_command_generator(tt_SiliconDevice &device) {
+> build_dummy_write_command_generator(Cluster &device) {
     tt_ClusterDescriptor *cluster_desc = device.get_cluster_description();
     tt_SocDescriptor const& soc_desc = device.get_virtual_soc_descriptors().at(0);
     std::vector<destination_t> core_index_to_location = generate_core_index_locations(*cluster_desc, soc_desc);
@@ -558,7 +558,7 @@ static ReadCommandGenerator<
     std::uniform_int_distribution,
     transfer_size_t,
     std::uniform_int_distribution
-> build_dummy_read_command_generator(tt_SiliconDevice &device) {
+> build_dummy_read_command_generator(Cluster &device) {
     tt_ClusterDescriptor *cluster_desc = device.get_cluster_description();
     tt_SocDescriptor const& soc_desc = device.get_virtual_soc_descriptors().at(0);
     std::vector<destination_t> core_index_to_location = generate_core_index_locations(*cluster_desc, soc_desc);
@@ -586,7 +586,7 @@ template<
     class UNROLL_COUNT_GENERATOR_T
 >
 void RunMixedTransfersUniformDistributions(
-    tt_SiliconDevice& device, 
+    Cluster& device, 
     int num_samples,
     int seed,
 

@@ -9,7 +9,7 @@
 #include "gtest/gtest.h"
 #include "common/logger.hpp"
 #include "tt_cluster_descriptor.h"
-#include "tt_device.h"
+#include "cluster.h"
 #include "eth_interface.h"
 #include "host_mem_address_map.h"
 #include "l1_address_map.h"
@@ -51,7 +51,7 @@ TEST(GalaxyConcurrentThreads, WriteToAllChipsL1) {
 
     uint32_t num_host_mem_ch_per_mmio_device = 1;
 
-    tt_SiliconDevice device = tt_SiliconDevice(
+    Cluster device = Cluster(
         test_utils::GetAbsPath(SOC_DESC_PATH), cluster_desc_path, all_devices, num_host_mem_ch_per_mmio_device, false, true);
     const auto sdesc_per_chip = device.get_virtual_soc_descriptors();
 
@@ -139,7 +139,7 @@ TEST(GalaxyConcurrentThreads, WriteToAllChipsDram) {
 
     uint32_t num_host_mem_ch_per_mmio_device = 1;
 
-    tt_SiliconDevice device = tt_SiliconDevice(
+    Cluster device = Cluster(
         test_utils::GetAbsPath(SOC_DESC_PATH), cluster_desc_path, all_devices, num_host_mem_ch_per_mmio_device, false, true);
     const auto sdesc_per_chip = device.get_virtual_soc_descriptors();
 
@@ -216,7 +216,7 @@ TEST(GalaxyConcurrentThreads, PushInputsWhileSignalingCluster) {
 
     uint32_t num_host_mem_ch_per_mmio_device = 1;
 
-    tt_SiliconDevice device = tt_SiliconDevice(
+    Cluster device = Cluster(
         test_utils::GetAbsPath(SOC_DESC_PATH), cluster_desc_path, target_devices, num_host_mem_ch_per_mmio_device, false, true);
     const auto sdesc_per_chip = device.get_virtual_soc_descriptors();
 

@@ -17,7 +17,7 @@
 #include "device/tt_cluster_descriptor_types.h"
 #include "device/tlb.h"
 
-// TODO: this is used up in tt_silicon_driver.cpp but that logic ought to be
+// TODO: this is used up in cluster.cpp but that logic ought to be
 // lowered into the PCIDevice class since it is specific to PCIe cards.
 // See /vendor_ip/synopsys/052021/bh_pcie_ctl_gen5/export/configuration/DWC_pcie_ctl.h
 static const uint64_t UNROLL_ATU_OFFSET_BAR = 0x1200;

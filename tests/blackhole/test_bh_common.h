@@ -5,14 +5,14 @@
 #pragma once
 #include "tt_xy_pair.h"
 #include "tt_cluster_descriptor.h"
-#include "tt_device.h"
+#include "cluster.h"
 
 #include "tests/test_utils/stimulus_generators.hpp"
 #include "eth_l1_address_map.h"
 
 namespace tt::umd::test::utils {
 
-static void set_params_for_remote_txn(tt_SiliconDevice& device) {
+static void set_params_for_remote_txn(Cluster& device) {
     // Populate address map and NOC parameters that the driver needs for remote transactions
     device.set_device_l1_address_params({l1_mem::address_map::L1_BARRIER_BASE, eth_l1_mem::address_map::ERISC_BARRIER_BASE, eth_l1_mem::address_map::FW_VERSION_ADDR});
 }
@@ -22,7 +22,7 @@ class BlackholeTestFixture : public ::testing::Test {
   // You can remove any or all of the following functions if their bodies would
   // be empty.
 
-  std::unique_ptr<tt_SiliconDevice> device;
+  std::unique_ptr<Cluster> device;
 
   BlackholeTestFixture() {
 
@@ -52,7 +52,7 @@ class BlackholeTestFixture : public ::testing::Test {
     std::iota(devices.begin(), devices.end(), 0);
     std::set<chip_id_t> target_devices = {devices.begin(), devices.end()};
     uint32_t num_host_mem_ch_per_mmio_device = 1;
-    device = std::make_unique<tt_SiliconDevice>(test_utils::GetAbsPath(SOC_DESC_PATH), tt_ClusterDescriptor::get_cluster_descriptor_file_path(), target_devices, num_host_mem_ch_per_mmio_device, false, true, true);
+    device = std::make_unique<Cluster>(test_utils::GetAbsPath(SOC_DESC_PATH), tt_ClusterDescriptor::get_cluster_descriptor_file_path(), target_devices, num_host_mem_ch_per_mmio_device, false, true, true);
     assert(device != nullptr);
     assert(device->get_cluster_description()->get_number_of_chips() == get_detected_num_chips());
 

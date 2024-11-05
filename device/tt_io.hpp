@@ -8,9 +8,11 @@
 #include <cstdint>
 #include <stdexcept>
 
-class tt_SiliconDevice;
-
 namespace tt {
+
+namespace umd {
+    class Cluster;
+}
 
 /**
  * @brief Provides write access to a SoC core via a statically-mapped TLB.
@@ -22,7 +24,7 @@ namespace tt {
  */
 class Writer
 {
-    friend class ::tt_SiliconDevice;
+    friend class tt::umd::Cluster;
 
 public:
     /**
@@ -49,7 +51,7 @@ public:
 
 private:
     /**
-     * @brief tt_SiliconDriver interface to construct a new Writer object.
+     * @brief tt::umd::Cluster interface to construct a new Writer object.
      * 
      * @param base pointer to the base address of a mapped TLB.
      * @param tlb_size size of the mapped TLB.

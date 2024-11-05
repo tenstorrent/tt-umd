@@ -26,7 +26,7 @@
 using TLB_DATA = tt::umd::tlb_data;
 
 // TODO: Remove this - it's here for Metal backwards compatibility.
-// Implementation is in tt_silicon_driver.cpp.
+// Implementation is in cluster.cpp.
 tt::ARCH detect_arch(int pci_device_num);
 tt::ARCH detect_arch();
 
@@ -210,8 +210,9 @@ struct tt_device_params {
     }
 };
 
+// TODO: This class is to be removed once we move Simulation and Mockup devices to be Chips instead of Clusters.
 /**
- * Parent class for tt_SiliconDevice (Silicon Driver).
+ * Parent class for Cluster (Silicon Driver).
  * Exposes a generic interface to callers, providing declarations for virtual functions defined differently for Silicon.
  * Valid usage consists of declaring a tt_device object and initializing it to Silicon backend.
  * Using tt_device itself will throw errors, since its APIs are undefined.
@@ -597,11 +598,13 @@ class tt_device
     std::unordered_map<chip_id_t, tt_SocDescriptor> soc_descriptor_per_chip = {};
 };
 
+namespace tt::umd {
+
 /**
 * Silicon Driver Class, derived from the tt_device class
  * Implements APIs to communicate with a physical Tenstorrent Device.
 */ 
-class tt_SiliconDevice: public tt_device
+class Cluster: public tt_device
 {
     public:
     // Constructor
@@ -617,7 +620,7 @@ class tt_SiliconDevice: public tt_device
      * @param perform_harvesting Allow the driver to modify the SOC descriptors per chip.
      * @param simulated_harvesting_masks
      */ 
-    tt_SiliconDevice(const std::string &sdesc_path, const std::string &ndesc_path, const std::set<chip_id_t> &target_devices, 
+    Cluster(const std::string &sdesc_path, const std::string &ndesc_path, const std::set<chip_id_t> &target_devices, 
                     const uint32_t &num_host_mem_ch_per_mmio_device = 1, const bool skip_driver_allocs = false,
                     const bool clean_system_resources = false, bool perform_harvesting = true, std::unordered_map<chip_id_t, uint32_t> simulated_harvesting_masks = {});
     
@@ -668,7 +671,7 @@ class tt_SiliconDevice: public tt_device
      * It is the caller's responsibility to ensure that
      * - the target has a static TLB mapping configured.
      * - the mapping is unchanged during the lifetime of the returned object.
-     * - the tt_SiliconDevice instance outlives the returned object.
+     * - the Cluster instance outlives the returned object.
      * - use of the returned object is congruent with the target's TLB setup.
      *    
      * @param target The target chip and core to write to.
@@ -705,7 +708,7 @@ class tt_SiliconDevice: public tt_device
     PCIDevice *get_pci_device(int device_id) const;
 
     // Destructor
-    virtual ~tt_SiliconDevice ();
+    virtual ~Cluster ();
 
     private:
     // Helper functions
@@ -836,4 +839,6 @@ constexpr inline bool operator>=(const tt_version &a, const tt_version &b) {
     bool fw_minor_greater = (a.major == b.major) && (a.minor > b.minor);
     bool patch_greater_or_equal = (a.major == b.major) && (a.minor == b.minor) && (a.patch >= b.patch);
     return fw_major_greater || fw_minor_greater || patch_greater_or_equal;
+}
+
 }

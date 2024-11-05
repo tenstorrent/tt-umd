@@ -8,7 +8,7 @@
 #include <random>
 #include <gtest/gtest.h>
 
-#include "tt_device.h"
+#include "cluster.h"
 #include "l1_address_map.h"
 #include "device/tt_soc_descriptor.h"
 #include "tests/test_utils/generate_cluster_desc.hpp"
@@ -28,7 +28,7 @@ class uBenchmarkFixture : public ::testing::Test {
         };
         std::set<chip_id_t> target_devices = {0};
         uint32_t num_host_mem_ch_per_mmio_device = 1;
-        device = std::make_shared<tt_SiliconDevice>(test_utils::GetAbsPath("tests/soc_descs/grayskull_10x12.yaml"), "", target_devices, num_host_mem_ch_per_mmio_device, false, true);
+        device = std::make_shared<Cluster>(test_utils::GetAbsPath("tests/soc_descs/grayskull_10x12.yaml"), "", target_devices, num_host_mem_ch_per_mmio_device, false, true);
 
         for(int i = 0; i < target_devices.size(); i++) {
             // Iterate over devices and only setup static TLBs for functional worker cores
@@ -45,6 +45,6 @@ class uBenchmarkFixture : public ::testing::Test {
         results_csv.close();
     }
 
-    std::shared_ptr<tt_SiliconDevice> device;
+    std::shared_ptr<Cluster> device;
     std::ofstream results_csv;
 };

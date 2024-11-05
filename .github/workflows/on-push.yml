@@ -12,6 +12,10 @@ jobs:
     with:
       timeout: 15
 
+  pre-commit:
+    secrets: inherit
+    uses: ./.github/workflows/pre-commit.yml
+
   build-tests:
     secrets: inherit
     strategy:
@@ -48,23 +52,3 @@ jobs:
       arch: ${{ matrix.test-group.arch }}
       card: ${{ matrix.test-group.card }}
       timeout: ${{ matrix.test-group.timeout }}
-
-  pre-commit:
-    name: Run Pre-commit Hooks and Propose Fixes
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0  # Fetch all history so 'origin/main' is available
-          ref: ${{ github.head_ref }}
-
-      - name: Set up Python
-        uses: actions/setup-python@v4
-        with:
-          python-version: 3.11
-
-      - name: Run Pre-commit and Fix Issues
-        uses: pre-commit/action@v3.0.1
-        with:
-          extra_args: "--from-ref origin/main --to-ref HEAD"

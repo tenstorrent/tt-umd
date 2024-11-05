@@ -9,14 +9,14 @@
 #include "tt_device.h"
 #include "eth_l1_address_map.h"
 #include "l1_address_map.h"
-#include "eth_l1_address_map.h"
-#include "eth_interface.h"
 #include "host_mem_address_map.h"
 
 #include "device/tt_cluster_descriptor.h"
 #include "device/wormhole/wormhole_implementation.h"
 #include "tests/test_utils/generate_cluster_desc.hpp"
 #include "tests/test_utils/device_test_utils.hpp"
+
+#include "noc/noc_parameters.h"
 
 inline void fill_with_random_bytes(uint8_t* data, size_t n)
 {

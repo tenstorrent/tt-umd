@@ -36,6 +36,7 @@ class tt_ClusterDescriptor {
 
   protected:
 
+  bool chips_have_coordinates;
   std::unordered_map<chip_id_t, std::unordered_map<ethernet_channel_t, std::tuple<chip_id_t, ethernet_channel_t> > > ethernet_connections;
   std::unordered_map<chip_id_t, eth_coord_t> chip_locations;
   // reverse map: rack/shelf/y/x -> chip_id
@@ -88,9 +89,6 @@ class tt_ClusterDescriptor {
   // get_cluster_descriptor_file_path will create ethernet map in the background.
   static std::string get_cluster_descriptor_file_path();
   static std::unique_ptr<tt_ClusterDescriptor> create_from_yaml(const std::string &cluster_descriptor_file_path);
-  static std::unique_ptr<tt_ClusterDescriptor> create_for_grayskull_cluster(
-      const std::set<chip_id_t> &logical_mmio_device_ids,
-      const std::vector<chip_id_t> &physical_mmio_device_ids);
 
   const std::unordered_map<chip_id_t, std::uint32_t>& get_harvesting_info() const;
   const std::unordered_map<chip_id_t, bool>& get_noc_translation_table_en() const;

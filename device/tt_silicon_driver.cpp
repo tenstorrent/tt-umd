@@ -302,13 +302,13 @@ tt_SiliconDevice::tt_SiliconDevice(const std::string &sdesc_path, const std::str
         log_info(LogSiliconDriver, "Detected {} PCI device{} : {}", m_num_pci_devices, (m_num_pci_devices > 1) ? "s":"", available_device_ids);
         log_debug(LogSiliconDriver, "Passed target devices: {}", target_devices);
     }
+    
+    std::string cluster_descriptor_path = ndesc_path;
+    if (cluster_descriptor_path == "") {
+        cluster_descriptor_path = tt_ClusterDescriptor::get_cluster_descriptor_file_path();
+    }
 
-    if (ndesc_path == "") {
-        ndesc = tt_ClusterDescriptor::create_for_grayskull_cluster(target_devices, available_device_ids);
-    }
-    else {
-        ndesc = tt_ClusterDescriptor::create_from_yaml(ndesc_path);
-    }
+    ndesc = tt_ClusterDescriptor::create_from_yaml(cluster_descriptor_path);
 
     for (auto &d: target_devices){
         if (ndesc->is_chip_mmio_capable(d)){

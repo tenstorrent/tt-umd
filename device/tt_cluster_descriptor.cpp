@@ -338,40 +338,6 @@ std::unique_ptr<tt_ClusterDescriptor> tt_ClusterDescriptor::create_from_yaml(con
     return desc;
 }
 
-std::unique_ptr<tt_ClusterDescriptor> tt_ClusterDescriptor::create_for_grayskull_cluster(
-    const std::set<chip_id_t> &logical_mmio_device_ids,
-    const std::vector<chip_id_t> &physical_mmio_device_ids) {
-    std::unique_ptr<tt_ClusterDescriptor> desc = std::unique_ptr<tt_ClusterDescriptor>(new tt_ClusterDescriptor());
-
-    // Some users need not care about physical ids, can provide empty set.
-    auto use_physical_ids                   = physical_mmio_device_ids.size() ? true : false;
-    auto largest_workload_logical_device_id = *logical_mmio_device_ids.rbegin(); // Last element in ordered set.
-    auto num_available_physical_devices     = physical_mmio_device_ids.size();
-    auto required_physical_devices          = largest_workload_logical_device_id + 1;
-
-    log_debug(tt::LogSiliconDriver, "{} - use_physical_ids: {} largest_workload_logical_device_id: {} num_available_physical_devices: {} required_physical_devices: {}",
-        __FUNCTION__, use_physical_ids, largest_workload_logical_device_id, num_available_physical_devices, required_physical_devices);
-
-    log_assert(!use_physical_ids || num_available_physical_devices >= required_physical_devices,
-        "Insufficient silicon devices. Workload requires device_id: {} (ie. {} devices) but only {} present",
-        largest_workload_logical_device_id, required_physical_devices, num_available_physical_devices);
-
-    // All Grayskull devices are MMIO mapped so physical_mmio_device_ids correspond to all available devices
-    for (auto &logical_id : logical_mmio_device_ids) {
-        auto physical_id = use_physical_ids ? physical_mmio_device_ids.at(logical_id) : -1;
-        desc->chips_with_mmio.insert({logical_id, physical_id});
-        desc->all_chips.insert(logical_id);
-        eth_coord_t chip_location{logical_id, 0, 0, 0};
-        desc->chip_locations.insert({logical_id, chip_location});
-        desc->coords_to_chip_ids[std::get<2>(chip_location)][std::get<3>(chip_location)][std::get<1>(chip_location)][std::get<0>(chip_location)] = logical_id;
-        log_debug(tt::LogSiliconDriver, "{} - adding logical: {} => physical: {}", __FUNCTION__, logical_id, physical_id);
-    }
-
-    desc->enable_all_devices();
-
-    return desc;
-}
-
 void tt_ClusterDescriptor::load_ethernet_connections_from_connectivity_descriptor(YAML::Node &yaml, tt_ClusterDescriptor &desc) {
     log_assert(yaml["ethernet_connections"].IsSequence(), "Invalid YAML");
     for (YAML::Node &connected_endpoints : yaml["ethernet_connections"].as<std::vector<YAML::Node>>()) {
@@ -523,15 +489,20 @@ void tt_ClusterDescriptor::load_ethernet_connections_from_connectivity_descripto
 }
 
 void tt_ClusterDescriptor::load_chips_from_connectivity_descriptor(YAML::Node &yaml, tt_ClusterDescriptor &desc) {
-    for (YAML::const_iterator node = yaml["chips"].begin(); node != yaml["chips"].end(); ++node) {
+    auto chip_coordinate_map = yaml["chips"].as<std::map<int, std::vector<int>>>();
+    desc.chips_have_coordinates = not chip_coordinate_map.empty();
+
+    for (YAML::const_iterator node = yaml["arch"].begin(); node != yaml["arch"].end(); ++node) {
         chip_id_t chip_id = node->first.as<int>();
-        std::vector<int> chip_rack_coords = node->second.as<std::vector<int>>();
-        log_assert(chip_rack_coords.size() == 4, "Galaxy (x, y, rack, shelf) coords must be size 4");
-        eth_coord_t chip_location{
-            chip_rack_coords.at(0), chip_rack_coords.at(1), chip_rack_coords.at(2), chip_rack_coords.at(3)};
-        
-        desc.chip_locations.insert({chip_id, chip_location});
-        desc.coords_to_chip_ids[std::get<2>(chip_location)][std::get<3>(chip_location)][std::get<1>(chip_location)][std::get<0>(chip_location)] = chip_id;
+        // Not all archs (e.g. BH) have chip coordinates
+        if (chip_coordinate_map.find(chip_id) != chip_coordinate_map.end()) {
+            std::vector<int> chip_rack_coords = chip_coordinate_map[chip_id];
+            log_assert(chip_rack_coords.size() == 4, "Galaxy (x, y, rack, shelf) coords must be size 4");
+            eth_coord_t chip_location{
+                chip_rack_coords.at(0), chip_rack_coords.at(1), chip_rack_coords.at(2), chip_rack_coords.at(3)};
+            desc.chip_locations.insert({chip_id, chip_location});
+            desc.coords_to_chip_ids[std::get<2>(chip_location)][std::get<3>(chip_location)][std::get<1>(chip_location)][std::get<0>(chip_location)] = chip_id;
+        }
         desc.all_chips.insert(chip_id);
     }
     
@@ -558,7 +529,7 @@ void tt_ClusterDescriptor::load_chips_from_connectivity_descriptor(YAML::Node &y
             std::get<3>(chip_location));
     }
 
-		if (yaml["boardtype"]) {
+	if (yaml["boardtype"]) {
         for (const auto& chip_board_type : yaml["boardtype"].as<std::map<int, std::string>>()) {
             auto &chip = chip_board_type.first;
             BoardType board_type;
@@ -569,6 +540,9 @@ void tt_ClusterDescriptor::load_chips_from_connectivity_descriptor(YAML::Node &y
             } else if (chip_board_type.second == "GALAXY") {
                 board_type = BoardType::GALAXY;
             } else {
+                if (chip_board_type.second != "e150" && chip_board_type.second != "p150A") {
+                    log_warning(LogSiliconDriver, "Unknown board type for chip {}. This might happen because chip is running old firmware. Defaulting to DEFAULT", chip);
+                }
                 board_type = BoardType::DEFAULT;
             }
             desc.chip_board_type.insert({chip, board_type});
@@ -622,7 +596,7 @@ const std::unordered_map<chip_id_t, std::unordered_map<ethernet_channel_t, std::
 
 const std::unordered_map<chip_id_t, eth_coord_t>& tt_ClusterDescriptor::get_chip_locations() const {
     static auto locations = std::unordered_map<chip_id_t, eth_coord_t>();
-    if (locations.empty()) {
+    if (locations.empty() and this->chips_have_coordinates) {
         for (auto chip_id : this->enabled_active_chips) {
             locations[chip_id] = chip_locations.at(chip_id);
         }
@@ -632,6 +606,7 @@ const std::unordered_map<chip_id_t, eth_coord_t>& tt_ClusterDescriptor::get_chip
 }
 
 chip_id_t tt_ClusterDescriptor::get_shelf_local_physical_chip_coords(chip_id_t virtual_coord) {
+    log_assert(this->chips_have_coordinates, "Getting physical chip coordinates is only valid for systems where chips have coordinates");
     // Physical cooridnates of chip inside a single rack. Calculated based on Galaxy topology.
     // See: https://yyz-gitlab.local.tenstorrent.com/tenstorrent/budabackend/-/wikis/uploads/23e7a5168f38dfb706f9887fde78cb03/image.png
     int x = std::get<0>(get_chip_locations().at(virtual_coord));
@@ -667,6 +642,7 @@ const std::unordered_map<chip_id_t, bool>& tt_ClusterDescriptor::get_noc_transla
 std::size_t tt_ClusterDescriptor::get_number_of_chips() const { return this->enabled_active_chips.size(); }
 
 int tt_ClusterDescriptor::get_ethernet_link_distance(chip_id_t chip_a, chip_id_t chip_b) const {
+    log_assert(this->chips_have_coordinates, "Getting physical chip coordinates is only valid for systems where chips have coordinates");
     return this->get_ethernet_link_coord_distance(chip_locations.at(chip_a), chip_locations.at(chip_b));
 }
 

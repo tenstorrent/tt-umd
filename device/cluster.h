@@ -830,6 +830,8 @@ class Cluster: public tt_device
     static constexpr std::uint32_t SW_VERSION = 0x06060000;
 };
 
+}
+
 constexpr inline bool operator==(const tt_version &a, const tt_version &b) {
     return a.major == b.major && a.minor == b.minor && a.patch == b.patch;
 }
@@ -839,6 +841,4 @@ constexpr inline bool operator>=(const tt_version &a, const tt_version &b) {
     bool fw_minor_greater = (a.major == b.major) && (a.minor > b.minor);
     bool patch_greater_or_equal = (a.major == b.major) && (a.minor == b.minor) && (a.patch >= b.patch);
     return fw_major_greater || fw_minor_greater || patch_greater_or_equal;
-}
-
 }

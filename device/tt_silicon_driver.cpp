@@ -531,6 +531,10 @@ tt_SiliconDevice::tt_SiliconDevice(const std::string &sdesc_path, const std::str
             }
         }
     }
+
+    // Default initialize host_address_params based on detected arch
+    host_address_params = architecture_implementation->get_host_address_params();
+
 }
 
 void tt_SiliconDevice::configure_active_ethernet_cores_for_mmio_device(chip_id_t mmio_chip, const std::unordered_set<tt_xy_pair>& active_eth_cores_per_chip) {

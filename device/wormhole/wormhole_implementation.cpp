@@ -4,6 +4,10 @@
 
 #include "wormhole_implementation.h"
 
+#include "src/firmware/riscv/wormhole/host_mem_address_map.h"
+
+#include "device/tt_device.h"
+
 namespace tt::umd {
 
 std::tuple<xy_pair, xy_pair> wormhole_implementation::multicast_workaround(xy_pair start, xy_pair end) const {
@@ -87,6 +91,10 @@ std::pair<std::uint64_t, std::uint64_t> wormhole_implementation::get_tlb_data(
     } else {
         throw std::runtime_error("Invalid TLB index for Wormhole arch");
     }
+}
+
+tt_driver_host_address_params wormhole_implementation::get_host_address_params() const {
+    return {::wormhole::host_mem::address_map::ETH_ROUTING_BLOCK_SIZE, ::wormhole::host_mem::address_map::ETH_ROUTING_BUFFERS_START};
 }
 
 }  // namespace tt::umd

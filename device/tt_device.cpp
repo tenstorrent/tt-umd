@@ -21,7 +21,7 @@
 ////////
 // Device base
 ////////
-tt_device::tt_device(const std::string& sdesc_path) : soc_descriptor_per_chip({}) {
+tt_device::tt_device() : soc_descriptor_per_chip({}) {
 }
 
 tt_device::~tt_device() {

@@ -36,6 +36,8 @@
 #include <dirent.h>
 #include <errno.h>
 
+#include "tt_arch_types.h"
+#include "tt_cluster_descriptor.h"
 #include "yaml-cpp/yaml.h"
 #include "common/logger.hpp"
 
@@ -167,6 +169,10 @@ std::unordered_map<chip_id_t, tt_SocDescriptor>& tt_SiliconDevice::get_virtual_s
     return soc_descriptor_per_chip;
 }
 
+const tt_ClusterDescriptor* tt_SiliconDevice::get_cluster_desc() {
+    return ndesc.get();
+}
+
 void tt_SiliconDevice::initialize_interprocess_mutexes(int pci_interface_id, bool cleanup_mutexes_in_shm) {
     // These mutexes are intended to be based on physical devices/pci-intf not logical. Set these up ahead of time here (during device init)
     // since its unsafe to modify shared state during multithreaded runtime.
@@ -287,30 +293,11 @@ std::unordered_map<chip_id_t, uint32_t> tt_SiliconDevice::get_harvesting_masks_f
     return default_harvesting_masks;
 }
 
-tt_SiliconDevice::tt_SiliconDevice(const std::string &sdesc_path, const std::string &ndesc_path, const std::set<chip_id_t> &target_devices, 
-                                   const uint32_t &num_host_mem_ch_per_mmio_device, const bool skip_driver_allocs,
-                                   const bool clean_system_resources, bool perform_harvesting, std::unordered_map<chip_id_t, uint32_t> simulated_harvesting_masks) : tt_device(sdesc_path) {
-    std::unordered_set<chip_id_t> target_mmio_device_ids;
-    target_devices_in_cluster = target_devices;
-    arch_name = tt_SocDescriptor(sdesc_path).arch;
-    perform_harvesting_on_sdesc = perform_harvesting;
-
-    auto available_device_ids = detect_available_device_ids();
-    m_num_pci_devices = available_device_ids.size();
-
-    if (!skip_driver_allocs) {
-        log_info(LogSiliconDriver, "Detected {} PCI device{} : {}", m_num_pci_devices, (m_num_pci_devices > 1) ? "s":"", available_device_ids);
-        log_debug(LogSiliconDriver, "Passed target devices: {}", target_devices);
-    }
+void tt_SiliconDevice::construct_tt_silicon_device(const uint32_t &num_host_mem_ch_per_mmio_device, const bool skip_driver_allocs,
+                                   const bool clean_system_resources, bool perform_harvesting, std::unordered_map<chip_id_t, uint32_t> simulated_harvesting_masks) {
     
-    std::string cluster_descriptor_path = ndesc_path;
-    if (cluster_descriptor_path == "") {
-        cluster_descriptor_path = tt_ClusterDescriptor::get_cluster_descriptor_file_path();
-    }
-
-    ndesc = tt_ClusterDescriptor::create_from_yaml(cluster_descriptor_path);
-
-    for (auto &d: target_devices){
+    std::unordered_set<chip_id_t> target_mmio_device_ids;
+    for (auto &d: target_devices_in_cluster){
         if (ndesc->is_chip_mmio_capable(d)){
             target_mmio_device_ids.insert(d);
         }
@@ -344,7 +331,7 @@ tt_SiliconDevice::tt_SiliconDevice(const std::string &sdesc_path, const std::str
 
         translation_tables_en = false;
         for(auto& masks : harvesting_masks) {
-            if(target_devices.find(masks.first) != target_devices.end()) {
+            if(target_devices_in_cluster.find(masks.first) != target_devices_in_cluster.end()) {
                 harvested_rows_per_target[masks.first] = get_harvested_noc_rows(masks.second);
                 noc_translation_enabled_for_chip[masks.first] = noc_translation_enabled.at(masks.first);
                 num_rows_harvested.insert({masks.first, std::bitset<32>(masks.second).count()});
@@ -373,7 +360,7 @@ tt_SiliconDevice::tt_SiliconDevice(const std::string &sdesc_path, const std::str
     }
     else if(arch_name == tt::ARCH::BLACKHOLE) {
         // Default harvesting info for Blackhole, describing no harvesting
-        for(auto chip_id = target_devices.begin(); chip_id != target_devices.end(); chip_id++){
+        for(auto chip_id = target_devices_in_cluster.begin(); chip_id != target_devices_in_cluster.end(); chip_id++){
             harvested_rows_per_target[*chip_id] =  0; //get_harvested_noc_rows_for_chip(*chip_id);
             num_rows_harvested.insert({*chip_id, 0}); // Only set for broadcast TLB to get RISCS out of reset. We want all rows to have a reset signal sent.
             if(harvested_rows_per_target[*chip_id]) {
@@ -383,7 +370,7 @@ tt_SiliconDevice::tt_SiliconDevice(const std::string &sdesc_path, const std::str
     }
     else if(arch_name == tt::ARCH::GRAYSKULL) {
         // Multichip harvesting is supported for GS.
-        for(auto chip_id = target_devices.begin(); chip_id != target_devices.end(); chip_id++){
+        for(auto chip_id = target_devices_in_cluster.begin(); chip_id != target_devices_in_cluster.end(); chip_id++){
             harvested_rows_per_target[*chip_id] =  get_harvested_noc_rows_for_chip(*chip_id);
             num_rows_harvested.insert({*chip_id, 0}); // Only set for broadcast TLB to get RISCS out of reset. We want all rows to have a reset signal sent.
             if(harvested_rows_per_target[*chip_id]) {
@@ -394,7 +381,7 @@ tt_SiliconDevice::tt_SiliconDevice(const std::string &sdesc_path, const std::str
 
     if(simulated_harvesting_masks.size()) {
         performed_harvesting = true;
-        for (auto device_id = target_devices.begin(); device_id != target_devices.end(); device_id++) {
+        for (auto device_id = target_devices_in_cluster.begin(); device_id != target_devices_in_cluster.end(); device_id++) {
             log_assert(simulated_harvesting_masks.find(*device_id) != simulated_harvesting_masks.end(), "Could not find harvesting mask for device_id {}", *device_id);
             if(arch_name == tt::ARCH::GRAYSKULL) {
                 if ((simulated_harvesting_masks.at(*device_id) & harvested_rows_per_target[*device_id]) != harvested_rows_per_target[*device_id]) {
@@ -443,7 +430,63 @@ tt_SiliconDevice::tt_SiliconDevice(const std::string &sdesc_path, const std::str
 
     // Default initialize noc_params based on detected arch
     noc_params = architecture_implementation->get_noc_params();
+}
 
+tt_SiliconDevice::tt_SiliconDevice(const uint32_t &num_host_mem_ch_per_mmio_device, const bool skip_driver_allocs,
+                                   const bool clean_system_resources, bool perform_harvesting, std::unordered_map<chip_id_t, uint32_t> simulated_harvesting_masks) : tt_device() {
+    auto available_device_ids = detect_available_device_ids();
+    m_num_pci_devices = available_device_ids.size();
+    
+    int physical_device_id = available_device_ids[0];
+    PCIDevice pci_device (physical_device_id, 0);
+    tt::ARCH device_arch = pci_device.get_arch();
+
+    sdesc_path = tt_SocDescriptor::get_soc_descriptor_path(device_arch);
+
+    arch_name = tt_SocDescriptor(sdesc_path).arch;
+    perform_harvesting_on_sdesc = perform_harvesting;
+
+    if (!skip_driver_allocs) {
+        log_info(LogSiliconDriver, "Detected {} PCI device{} : {}", m_num_pci_devices, (m_num_pci_devices > 1) ? "s":"", available_device_ids);
+        log_debug(LogSiliconDriver, "Passed target devices: {}", target_devices);
+    }
+
+    std::string ndesc_path = tt_ClusterDescriptor::get_cluster_descriptor_file_path();
+    ndesc = tt_ClusterDescriptor::create_from_yaml(ndesc_path);
+
+    std::set<chip_id_t> target_devices;
+    for (int i = 0; i < ndesc->get_number_of_chips(); i++) {
+        target_devices.insert(i);
+    }
+    target_devices_in_cluster = target_devices;
+
+    construct_tt_silicon_device(num_host_mem_ch_per_mmio_device, skip_driver_allocs, clean_system_resources, perform_harvesting, simulated_harvesting_masks); 
+}
+
+tt_SiliconDevice::tt_SiliconDevice(const std::string &sdesc_path, const std::string &ndesc_path, const std::set<chip_id_t> &target_devices, 
+                                   const uint32_t &num_host_mem_ch_per_mmio_device, const bool skip_driver_allocs,
+                                   const bool clean_system_resources, bool perform_harvesting, std::unordered_map<chip_id_t, uint32_t> simulated_harvesting_masks) : tt_device() {
+    auto available_device_ids = detect_available_device_ids();
+    m_num_pci_devices = available_device_ids.size();
+
+    target_devices_in_cluster = target_devices;
+    arch_name = tt_SocDescriptor(sdesc_path).arch;
+    perform_harvesting_on_sdesc = perform_harvesting;
+    this->sdesc_path = sdesc_path;
+
+    if (!skip_driver_allocs) {
+        log_info(LogSiliconDriver, "Detected {} PCI device{} : {}", m_num_pci_devices, (m_num_pci_devices > 1) ? "s":"", available_device_ids);
+        log_debug(LogSiliconDriver, "Passed target devices: {}", target_devices);
+    }
+
+    std::string cluster_descriptor_path = ndesc_path;
+    if (cluster_descriptor_path == "") {
+        cluster_descriptor_path = tt_ClusterDescriptor::get_cluster_descriptor_file_path();
+    }
+
+    ndesc = tt_ClusterDescriptor::create_from_yaml(cluster_descriptor_path);
+
+    construct_tt_silicon_device(num_host_mem_ch_per_mmio_device, skip_driver_allocs, clean_system_resources, perform_harvesting, simulated_harvesting_masks);
 }
 
 void tt_SiliconDevice::configure_active_ethernet_cores_for_mmio_device(chip_id_t mmio_chip, const std::unordered_set<tt_xy_pair>& active_eth_cores_per_chip) {

@@ -219,7 +219,7 @@ struct tt_device_params {
 class tt_device
 {
     public:
-    tt_device(const std::string& sdesc_path);
+    tt_device();
     virtual ~tt_device();
     // Setup/Teardown Functions
     /**
@@ -603,7 +603,7 @@ class tt_device
 */ 
 class tt_SiliconDevice: public tt_device
 {
-    public:
+public:
     // Constructor
     /**
      * Silicon Driver constructor.
@@ -621,6 +621,19 @@ class tt_SiliconDevice: public tt_device
                     const uint32_t &num_host_mem_ch_per_mmio_device = 1, const bool skip_driver_allocs = false,
                     const bool clean_system_resources = false, bool perform_harvesting = true, std::unordered_map<chip_id_t, uint32_t> simulated_harvesting_masks = {});
     
+    /**
+     * Silicon Driver constructor. This constructor should be used to work towards removing all
+     * of the params from the constructor of tt_SiliconDevice (to become Cluster).
+     *
+     * @param num_host_mem_ch_per_mmio_device Requested number of host channels (hugepages).
+     * @param skip_driver_allocs
+     * @param clean_system_resource Specifies if host state from previous runs needs to be cleaned up.
+     * @param perform_harvesting Allow the driver to modify the SOC descriptors per chip.
+     * @param simulated_harvesting_masks
+     */ 
+    tt_SiliconDevice(const uint32_t &num_host_mem_ch_per_mmio_device = 1, const bool skip_driver_allocs = false,
+                     const bool clean_system_resources = false, bool perform_harvesting = true, std::unordered_map<chip_id_t, uint32_t> simulated_harvesting_masks = {});
+
     //Setup/Teardown Functions
     virtual std::unordered_map<chip_id_t, tt_SocDescriptor>& get_virtual_soc_descriptors();
     virtual void set_device_l1_address_params(const tt_device_l1_address_params& l1_address_params_);
@@ -703,11 +716,12 @@ class tt_SiliconDevice: public tt_device
     virtual tt_version get_ethernet_fw_version() const;
     // TODO: This should be accessible through public API, probably to be moved to tt_device.
     PCIDevice *get_pci_device(int device_id) const;
+    const tt_ClusterDescriptor* get_cluster_desc();
 
     // Destructor
     virtual ~tt_SiliconDevice ();
 
-    private:
+private:
     // Helper functions
     // Startup + teardown
     void create_device(const std::unordered_set<chip_id_t> &target_mmio_device_ids, const uint32_t &num_host_mem_ch_per_mmio_device, const bool skip_driver_allocs, const bool clean_system_resources);
@@ -768,6 +782,9 @@ class tt_SiliconDevice: public tt_device
     // This functions has to be called for local chip, and then it will wait for all connected remote chips to flush.
     void wait_for_connected_non_mmio_flush(chip_id_t chip_id);
 
+    void construct_tt_silicon_device(const uint32_t &num_host_mem_ch_per_mmio_device, const bool skip_driver_allocs,
+                                     const bool clean_system_resources, bool perform_harvesting, std::unordered_map<chip_id_t, uint32_t> simulated_harvesting_masks);
+
     // State variables
     tt_device_dram_address_params dram_address_params;
     tt_device_l1_address_params l1_address_params;
@@ -781,6 +798,7 @@ class tt_SiliconDevice: public tt_device
     std::unordered_map<chip_id_t, std::unique_ptr<PCIDevice>> m_pci_device_map;    // Map of enabled pci devices
     int m_num_pci_devices;                                      // Number of pci devices in system (enabled or disabled)
     std::shared_ptr<tt_ClusterDescriptor> ndesc;
+    std::string sdesc_path;
 
     // remote eth transfer setup
     static constexpr std::uint32_t NUM_ETH_CORES_FOR_NON_MMIO_TRANSFERS = 6;

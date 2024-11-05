@@ -22,3 +22,5 @@ const uint32_t ETH_ROUTING_DATA_BUFFER_ADDR = 0;
 const uint32_t REQUEST_ROUTING_CMD_QUEUE_BASE = 0;
 const uint32_t RESPONSE_ROUTING_CMD_QUEUE_BASE = 0;
 const uint32_t CMD_BUF_PTR_MASK = 0;
+const uint32_t CMD_BROADCAST = 0;
+const uint32_t CMD_ORDERED = 0;

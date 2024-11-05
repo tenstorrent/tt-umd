@@ -109,7 +109,10 @@ tt_driver_eth_interface_params grayskull_implementation::get_eth_interface_param
         ETH_ROUTING_DATA_BUFFER_ADDR,
         REQUEST_ROUTING_CMD_QUEUE_BASE,
         RESPONSE_ROUTING_CMD_QUEUE_BASE,
-        CMD_BUF_PTR_MASK};
+        CMD_BUF_PTR_MASK,
+        CMD_ORDERED,
+        CMD_BROADCAST,
+    };
 }
 
 }  // namespace tt::umd

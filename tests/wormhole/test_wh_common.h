@@ -8,6 +8,8 @@
 #include "tests/test_utils/stimulus_generators.hpp"
 #include "tests/test_utils/generate_cluster_desc.hpp"
 
+#include "noc/noc_parameters.h"
+
 namespace tt::umd::test::utils {
 
 static void set_params_for_remote_txn(tt_SiliconDevice& device) {

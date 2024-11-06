@@ -23,9 +23,6 @@
 #include "pcie/pci_device.hpp"
 #include "fmt/core.h"
 
-constexpr std::uint32_t NOC_ADDR_LOCAL_BITS = 36; // source: noc_parameters.h, common for WH && BH
-constexpr std::uint32_t NOC_ADDR_NODE_ID_BITS = 6; // source: noc_parameters.h, common for WH && BH
-
 using TLB_DATA = tt::umd::tlb_data;
 
 // TODO: Remove this - it's here for Metal backwards compatibility.
@@ -90,8 +87,8 @@ struct tt_driver_host_address_params {
 };
 
 struct tt_driver_noc_params {
-    std::uint32_t noc_addr_local_bits = NOC_ADDR_LOCAL_BITS;
-    std::uint32_t noc_addr_node_id_bits = NOC_ADDR_NODE_ID_BITS;
+    std::uint32_t noc_addr_local_bits = 0;
+    std::uint32_t noc_addr_node_id_bits = 0;
 };
 
 /**

@@ -17,6 +17,7 @@
 
 struct tt_driver_host_address_params;
 struct tt_driver_eth_interface_params;
+struct tt_driver_noc_params;
 
 namespace tt::umd {
 
@@ -68,6 +69,7 @@ class architecture_implementation {
 
     virtual tt_driver_host_address_params get_host_address_params() const = 0;
     virtual tt_driver_eth_interface_params get_eth_interface_params() const = 0;
+    virtual tt_driver_noc_params get_noc_params() const = 0;
 
     static std::unique_ptr<architecture_implementation> create(tt::ARCH architecture);
 };

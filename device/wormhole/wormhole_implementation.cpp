@@ -9,6 +9,9 @@
 
 #include "device/tt_device.h"
 
+constexpr std::uint32_t NOC_ADDR_LOCAL_BITS = 36; // source: noc_parameters.h, common for WH && BH
+constexpr std::uint32_t NOC_ADDR_NODE_ID_BITS = 6; // source: noc_parameters.h, common for WH && BH
+
 namespace tt::umd {
 
 std::tuple<xy_pair, xy_pair> wormhole_implementation::multicast_workaround(xy_pair start, xy_pair end) const {
@@ -121,6 +124,10 @@ tt_driver_eth_interface_params wormhole_implementation::get_eth_interface_params
         CMD_ORDERED,
         CMD_BROADCAST,
     };
+}
+
+tt_driver_noc_params wormhole_implementation::get_noc_params() const {
+    return {NOC_ADDR_LOCAL_BITS, NOC_ADDR_NODE_ID_BITS};
 }
 
 }  // namespace tt::umd

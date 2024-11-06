@@ -635,7 +635,6 @@ class tt_SiliconDevice: public tt_device
     virtual void set_device_l1_address_params(const tt_device_l1_address_params& l1_address_params_);
     virtual void set_device_dram_address_params(const tt_device_dram_address_params& dram_address_params_);
     virtual void set_driver_host_address_params(const tt_driver_host_address_params& host_address_params_);
-    virtual void set_driver_noc_params(const tt_driver_noc_params& noc_params_);
     virtual void set_driver_eth_interface_params(const tt_driver_eth_interface_params& eth_interface_params_);
     virtual void configure_tlb(chip_id_t logical_device_id, tt_xy_pair core, std::int32_t tlb_index, std::int32_t address, uint64_t ordering = TLB_DATA::Posted);
     virtual void set_fallback_tlb_ordering_mode(const std::string& fallback_tlb, uint64_t ordering = TLB_DATA::Posted);

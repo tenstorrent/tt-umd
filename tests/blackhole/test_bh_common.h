@@ -10,16 +10,10 @@
 #include "tests/test_utils/stimulus_generators.hpp"
 #include "eth_l1_address_map.h"
 
-#include "noc/noc_parameters.h"
-
 namespace tt::umd::test::utils {
 
 static void set_params_for_remote_txn(tt_SiliconDevice& device) {
     // Populate address map and NOC parameters that the driver needs for remote transactions
-    device.set_driver_host_address_params({host_mem::address_map::ETH_ROUTING_BLOCK_SIZE, host_mem::address_map::ETH_ROUTING_BUFFERS_START});
-
-    device.set_driver_noc_params({NOC_ADDR_LOCAL_BITS, NOC_ADDR_NODE_ID_BITS});
-    
     device.set_device_l1_address_params({l1_mem::address_map::NCRISC_FIRMWARE_BASE, l1_mem::address_map::FIRMWARE_BASE,
                                   l1_mem::address_map::TRISC0_SIZE, l1_mem::address_map::TRISC1_SIZE, l1_mem::address_map::TRISC2_SIZE,
                                   l1_mem::address_map::TRISC_BASE, l1_mem::address_map::L1_BARRIER_BASE, eth_l1_mem::address_map::ERISC_BARRIER_BASE, eth_l1_mem::address_map::FW_VERSION_ADDR});

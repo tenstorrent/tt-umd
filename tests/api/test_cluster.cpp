@@ -136,13 +136,6 @@ void setup_wormhole_remote(Cluster* umd_cluster) {
         umd_cluster->get_soc_descriptor(*umd_cluster->get_all_chips_in_cluster().begin()).arch ==
             tt::ARCH::WORMHOLE_B0) {
         // Populate address map and NOC parameters that the driver needs for remote transactions
-        umd_cluster->set_driver_host_address_params(
-            {host_mem::address_map::ETH_ROUTING_BLOCK_SIZE, host_mem::address_map::ETH_ROUTING_BUFFERS_START});
-
-        umd_cluster->set_driver_noc_params(
-            {NOC_ADDR_LOCAL_BITS,
-             NOC_ADDR_NODE_ID_BITS,
-            });
 
         umd_cluster->set_device_l1_address_params(
             {l1_mem::address_map::NCRISC_FIRMWARE_BASE,

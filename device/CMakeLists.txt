@@ -1,6 +1,6 @@
 set(POSITION_INDEPENDENT_CODE ON)
 
-GENERATE_FBS_HEADER(${PROJECT_SOURCE_DIR}/device/simulation/tt_simulation_device.fbs)
+generate_fbs_header(${PROJECT_SOURCE_DIR}/device/simulation/tt_simulation_device.fbs)
 
 set(UMD_DEVICE_SRCS
     architecture_implementation.cpp
@@ -20,6 +20,7 @@ set(UMD_DEVICE_SRCS
     blackhole/blackhole_coordinate_manager.cpp
     wormhole/wormhole_coordinate_manager.cpp
     pcie/pci_device.cpp
+    hugepage.cpp
 )
 
 add_library(device SHARED ${UMD_DEVICE_SRCS})

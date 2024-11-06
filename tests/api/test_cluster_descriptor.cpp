@@ -45,7 +45,7 @@ inline std::unique_ptr<tt_ClusterDescriptor> get_cluster_desc() {
         cluster_desc = tt_ClusterDescriptor::create_from_yaml(yaml_path);
     } else {
         // TODO: remove getting manually cluster descriptor from yaml.
-        std::string yaml_path = test_utils::GetClusterDescYAML();
+        std::string yaml_path = tt_ClusterDescriptor::get_cluster_descriptor_file_path();
         cluster_desc = tt_ClusterDescriptor::create_from_yaml(yaml_path);
     }
 

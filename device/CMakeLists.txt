@@ -54,6 +54,7 @@ target_link_libraries(
         Boost::interprocess
         fmt::fmt-header-only
         yaml-cpp::yaml-cpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/libs/${CMAKE_SYSTEM_PROCESSOR}/libcreate_ethernet_map.a
 )
 
 install(

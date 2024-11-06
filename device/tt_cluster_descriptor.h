@@ -83,6 +83,10 @@ class tt_ClusterDescriptor {
   bool is_chip_remote(const chip_id_t chip_id) const;
   chip_id_t get_closest_mmio_capable_chip(const chip_id_t chip);
   chip_id_t get_shelf_local_physical_chip_coords(chip_id_t virtual_coord);
+
+  // TODO: These following functions will be removed, and ClusterDescriptor will be created without any parameters.
+  // get_cluster_descriptor_file_path will create ethernet map in the background.
+  static std::string get_cluster_descriptor_file_path();
   static std::unique_ptr<tt_ClusterDescriptor> create_from_yaml(const std::string &cluster_descriptor_file_path);
   static std::unique_ptr<tt_ClusterDescriptor> create_for_grayskull_cluster(
       const std::set<chip_id_t> &logical_mmio_device_ids,

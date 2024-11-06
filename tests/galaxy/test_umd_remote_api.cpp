@@ -22,7 +22,7 @@ static const std::string SOC_DESC_PATH = "tests/soc_descs/wormhole_b0_8x10.yaml"
 
 void run_remote_read_write_test(uint32_t vector_size, bool dram_write) {
     // Galaxy Setup
-    std::string cluster_desc_path = test_utils::GetClusterDescYAML();
+    std::string cluster_desc_path = tt_ClusterDescriptor::get_cluster_descriptor_file_path();
     std::shared_ptr<tt_ClusterDescriptor> cluster_desc = tt_ClusterDescriptor::create_from_yaml(cluster_desc_path);
     std::set<chip_id_t> target_devices = {};
     for (const auto& chip : cluster_desc->get_all_chips()) {
@@ -126,7 +126,7 @@ TEST(GalaxyBasicReadWrite, LargeRemoteDramBlockReadWrite) { run_remote_read_writ
 void run_data_mover_test(
     uint32_t vector_size, tt_multichip_core_addr sender_core, tt_multichip_core_addr receiver_core) {
     // Galaxy Setup
-    std::string cluster_desc_path = test_utils::GetClusterDescYAML();
+    std::string cluster_desc_path = tt_ClusterDescriptor::get_cluster_descriptor_file_path();
     std::shared_ptr<tt_ClusterDescriptor> cluster_desc = tt_ClusterDescriptor::create_from_yaml(cluster_desc_path);
     std::set<chip_id_t> target_devices = {};
     for (const auto& chip : cluster_desc->get_all_chips()) {
@@ -240,7 +240,7 @@ TEST(GalaxyDataMovement, TwoChipMoveData4) {
 void run_data_broadcast_test(
     uint32_t vector_size, tt_multichip_core_addr sender_core, std::vector<tt_multichip_core_addr> receiver_cores) {
     // Galaxy Setup
-    std::string cluster_desc_path = test_utils::GetClusterDescYAML();
+    std::string cluster_desc_path = tt_ClusterDescriptor::get_cluster_descriptor_file_path();
     std::shared_ptr<tt_ClusterDescriptor> cluster_desc = tt_ClusterDescriptor::create_from_yaml(cluster_desc_path);
     std::set<chip_id_t> target_devices = {};
     for (const auto& chip : cluster_desc->get_all_chips()) {

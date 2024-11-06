@@ -1,3 +1,8 @@
+/*
+ * SPDX-FileCopyrightText: (c) 2023 Tenstorrent Inc.
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ */
 #pragma once
 
 #include "tt_cluster_descriptor.h"
@@ -57,7 +62,7 @@ class WormholeTestFixture : public ::testing::Test {
     std::iota(devices.begin(), devices.end(), 0);
     std::set<chip_id_t> target_devices = {devices.begin(), devices.end()};
     uint32_t num_host_mem_ch_per_mmio_device = 1;
-    device = std::make_unique<tt_SiliconDevice>(test_utils::GetAbsPath(SOC_DESC_PATH), test_utils::GetClusterDescYAML(), target_devices, num_host_mem_ch_per_mmio_device, false, true, true);
+    device = std::make_unique<tt_SiliconDevice>(test_utils::GetAbsPath(SOC_DESC_PATH), tt_ClusterDescriptor::get_cluster_descriptor_file_path(), target_devices, num_host_mem_ch_per_mmio_device, false, true, true);
     assert(device != nullptr);
     assert(device->get_cluster_description()->get_number_of_chips() == get_detected_num_chips());
 

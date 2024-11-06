@@ -1,3 +1,8 @@
+/*
+ * SPDX-FileCopyrightText: (c) 2023 Tenstorrent Inc.
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ */
 #include "wormhole_coordinate_manager.h"
 
 std::set<std::size_t> WormholeCoordinateManager::get_y_coordinates_to_harvest(std::size_t harvesting_mask) {

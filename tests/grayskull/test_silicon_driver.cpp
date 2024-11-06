@@ -13,6 +13,8 @@
 #include "tests/test_utils/generate_cluster_desc.hpp"
 #include "tests/test_utils/device_test_utils.hpp"
 
+using namespace tt::umd;
+
 TEST(SiliconDriverGS, CreateDestroySequential) {
     std::set<chip_id_t> target_devices = {0};
     uint32_t num_host_mem_ch_per_mmio_device = 1;

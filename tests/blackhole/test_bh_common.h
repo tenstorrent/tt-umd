@@ -10,6 +10,8 @@
 #include "tests/test_utils/stimulus_generators.hpp"
 #include "eth_l1_address_map.h"
 
+using namespace tt::umd;
+
 namespace tt::umd::test::utils {
 
 static void set_params_for_remote_txn(Cluster& device) {

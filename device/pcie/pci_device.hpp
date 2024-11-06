@@ -36,6 +36,12 @@ struct dynamic_tlb {
     uint64_t remaining_size;    // Bytes remaining between bar_offset and end of the TLB.
 };
 
+struct hugepage_mapping {
+    void *mapping = nullptr;
+    size_t mapping_size = 0;
+    uint64_t physical_address = 0;
+};
+
 struct PciDeviceInfo
 {
     uint16_t vendor_id;
@@ -166,6 +172,11 @@ public:
     tt::umd::architecture_implementation* get_architecture_implementation() const;
     void detect_hang_read(uint32_t data_read = c_hang_read_value);
 
+    // TODO: this also probably has more sense to live in the future TTDevice class.
+    bool init_hugepage(uint32_t num_host_mem_channels);
+    int get_num_host_mem_channels() const;
+    hugepage_mapping get_hugepage_mapping(int channel) const;
+
 public:
     // TODO: we can and should make all of these private.
     void *bar0_uc = nullptr;
@@ -196,5 +207,10 @@ private:
 
     template <typename T>
     T* get_register_address(uint32_t register_offset);
+
+    // For debug purposes when various stages fails.
+    void print_file_contents(std::string filename, std::string hint = "");
+
+    std::vector<hugepage_mapping> hugepage_mapping_per_channel;
 };
 

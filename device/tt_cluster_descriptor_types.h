@@ -6,6 +6,7 @@
 
 #pragma once 
 
+#include <functional>
 #include <tuple>
 
 using chip_id_t = int;

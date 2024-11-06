@@ -4,6 +4,7 @@
 
 
 #include "tt_cluster_descriptor.h"
+#include "libs/create_ethernet_map.h"
 
 #include <fstream>
 #include <memory>
@@ -296,6 +297,25 @@ chip_id_t tt_ClusterDescriptor::get_closest_mmio_capable_chip(const chip_id_t ch
     closest_mmio_chip_cache[chip] = closest_chip;
 
     return closest_chip;
+}
+
+std::string tt_ClusterDescriptor::get_cluster_descriptor_file_path() {
+    static std::string yaml_path;
+    static bool is_initialized = false;
+    if (!is_initialized){
+        // Cluster descriptor path will be created in the working directory.        
+        std::filesystem::path cluster_path = std::filesystem::path("cluster_descriptor.yaml");
+        if (!std::filesystem::exists(cluster_path)){
+            auto val = system ( ("touch " + cluster_path.string()).c_str());
+            if(val != 0) throw std::runtime_error("Cluster Generation Failed!");
+        }
+
+        int val = create_ethernet_map((char*)cluster_path.string().c_str());
+        if(val != 0) throw std::runtime_error("Cluster Generation Failed!");
+        yaml_path = cluster_path.string();
+        is_initialized = true;
+    }
+    return yaml_path;
 }
 
 std::unique_ptr<tt_ClusterDescriptor> tt_ClusterDescriptor::create_from_yaml(const std::string &cluster_descriptor_file_path) {

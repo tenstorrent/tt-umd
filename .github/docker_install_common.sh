@@ -7,6 +7,7 @@ apt-get update && apt-get install -y \
     cmake \
     ninja-build \
     git \
+    git-lfs \
     libhwloc-dev \
     libgtest-dev \
     libyaml-cpp-dev \

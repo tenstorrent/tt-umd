@@ -1,4 +1,4 @@
-### Ticket
+### Issue
 (Link to Github issue(s))
 
 ### Description

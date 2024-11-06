@@ -20,16 +20,10 @@ jobs:
         with:
           python-version: 3.11
 
-      - name: Install Python dependencies
+      - name: Run pre-commit
+        shell: bash
         run: |
-          python -m pip install cython
-
-      - name: Run Pre-commit and Fix Issues
-        uses: pre-commit/action@v3.0.1
-        with:
-          extra_args: "--from-ref origin/main --to-ref HEAD"
-
-      - name: print log
-        if: always()
-        run: |
-          cat /home/runner/.cache/pre-commit/pre-commit.log
+          python3 -m venv venv
+          source venv/bin/activate
+          pip install pre-commit
+          pre-commit run --all-files --show-diff-on-failure

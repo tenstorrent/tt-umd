@@ -88,14 +88,14 @@ TEST(SiliconDriverBH, CreateDestroy) {
 //     std::unordered_map<chip_id_t, uint32_t> simulated_harvesting_masks = {{0, 30}, {1, 60}};
     
 //     {
-//         std::unique_ptr<tt_ClusterDescriptor> cluster_desc_uniq = tt_ClusterDescriptor::create_from_yaml(test_utils::GetClusterDescYAML());
+//         std::unique_ptr<tt_ClusterDescriptor> cluster_desc_uniq = tt_ClusterDescriptor::create_from_yaml(tt_ClusterDescriptor::get_cluster_descriptor_file_path());
 //         if (cluster_desc_uniq->get_number_of_chips() != target_devices.size()) {
 //             GTEST_SKIP() << "SiliconDriverWH.Harvesting skipped because it can only be run on a two chip nebula system";
 //         }
 //     }
 
 //     uint32_t num_host_mem_ch_per_mmio_device = 1;
-//     tt_SiliconDevice device = tt_SiliconDevice("./tests/soc_descs/wormhole_b0_8x10.yaml", test_utils::GetClusterDescYAML(), target_devices, num_host_mem_ch_per_mmio_device, false, true, true, simulated_harvesting_masks);
+//     tt_SiliconDevice device = tt_SiliconDevice("./tests/soc_descs/wormhole_b0_8x10.yaml", tt_ClusterDescriptor::get_cluster_descriptor_file_path(), target_devices, num_host_mem_ch_per_mmio_device, false, true, true, simulated_harvesting_masks);
 //     auto sdesc_per_chip = device.get_virtual_soc_descriptors();
 
 //     ASSERT_EQ(device.using_harvested_soc_descriptors(), true) << "Expected Driver to have performed harvesting";
@@ -111,7 +111,7 @@ TEST(SiliconDriverBH, CreateDestroy) {
 //     std::set<chip_id_t> target_devices = {0, 1};
 //     std::unordered_map<chip_id_t, uint32_t> simulated_harvesting_masks = {{0, 30}, {1, 60}};
 //     {
-//         std::unique_ptr<tt_ClusterDescriptor> cluster_desc_uniq = tt_ClusterDescriptor::create_from_yaml(test_utils::GetClusterDescYAML());
+//         std::unique_ptr<tt_ClusterDescriptor> cluster_desc_uniq = tt_ClusterDescriptor::create_from_yaml(tt_ClusterDescriptor::get_cluster_descriptor_file_path());
 //         if (cluster_desc_uniq->get_number_of_chips() != target_devices.size()) {
 //             GTEST_SKIP() << "SiliconDriverWH.Harvesting skipped because it can only be run on a two chip nebula system";
 //         }
@@ -119,7 +119,7 @@ TEST(SiliconDriverBH, CreateDestroy) {
 
 //     uint32_t num_host_mem_ch_per_mmio_device = 1;
 //     // Initialize the driver with a 1x1 descriptor and explictly do not perform harvesting
-//     tt_SiliconDevice device = tt_SiliconDevice("./tests/soc_descs/wormhole_b0_1x1.yaml", test_utils::GetClusterDescYAML(), target_devices, num_host_mem_ch_per_mmio_device, false, true, false, simulated_harvesting_masks);
+//     tt_SiliconDevice device = tt_SiliconDevice("./tests/soc_descs/wormhole_b0_1x1.yaml", tt_ClusterDescriptor::get_cluster_descriptor_file_path(), target_devices, num_host_mem_ch_per_mmio_device, false, true, false, simulated_harvesting_masks);
 //     auto sdesc_per_chip = device.get_virtual_soc_descriptors();
     
 //     ASSERT_EQ(device.using_harvested_soc_descriptors(), false) << "SOC descriptors should not be modified when harvesting is disabled";
@@ -137,7 +137,7 @@ TEST(SiliconDriverBH, CreateDestroy) {
 //     std::set<chip_id_t> target_devices = {0, 1};
 //     std::unordered_map<chip_id_t, uint32_t> simulated_harvesting_masks = {{0, 30}, {1, 60}};
 //     {
-//         std::unique_ptr<tt_ClusterDescriptor> cluster_desc_uniq = tt_ClusterDescriptor::create_from_yaml(test_utils::GetClusterDescYAML());
+//         std::unique_ptr<tt_ClusterDescriptor> cluster_desc_uniq = tt_ClusterDescriptor::create_from_yaml(tt_ClusterDescriptor::get_cluster_descriptor_file_path());
 //         if (cluster_desc_uniq->get_number_of_chips() != target_devices.size()) {
 //             GTEST_SKIP() << "SiliconDriverWH.Harvesting skipped because it can only be run on a two chip nebula system";
 //         }
@@ -145,7 +145,7 @@ TEST(SiliconDriverBH, CreateDestroy) {
 
 //     uint32_t num_host_mem_ch_per_mmio_device = 1;
     
-//     tt_SiliconDevice device = tt_SiliconDevice("./tests/soc_descs/wormhole_b0_8x10.yaml", test_utils::GetClusterDescYAML(), target_devices, num_host_mem_ch_per_mmio_device, false, true, true, simulated_harvesting_masks);
+//     tt_SiliconDevice device = tt_SiliconDevice("./tests/soc_descs/wormhole_b0_8x10.yaml", tt_ClusterDescriptor::get_cluster_descriptor_file_path(), target_devices, num_host_mem_ch_per_mmio_device, false, true, true, simulated_harvesting_masks);
 //     set_params_for_remote_txn(device);
 //     auto mmio_devices = device.get_target_mmio_device_ids();
     

@@ -20,6 +20,8 @@
 #include "device/tt_arch_types.h"
 #include "device/driver_atomics.h"
 #include "device/architecture_implementation.h"
+#include "device/cpuset_lib.hpp"
+#include "device/hugepage.h"
 #include "common/assert.hpp"
 #include "common/logger.hpp"
 
@@ -36,6 +38,12 @@ static const uint32_t BH_BAR0_WC_MAPPING_SIZE = 188<<21;
 
 static const uint32_t BH_NOC_NODE_ID_OFFSET = 0x1FD04044;
 static const uint32_t GS_WH_ARC_SCRATCH_6_OFFSET = 0x1FF30078;
+
+// Hugepages must be 1GB in size
+const uint32_t HUGEPAGE_REGION_SIZE = 1 << 30; // 1GB
+
+using namespace tt;
+using namespace tt::umd;
 
 template <typename T>
 static T read_sysfs(const PciDeviceInfo &device_info, const std::string &attribute_name) {
@@ -382,6 +390,12 @@ PCIDevice::PCIDevice(int pci_device_number, int logical_device_id)
 }
 
 PCIDevice::~PCIDevice() {
+    for (const auto& hugepage_mapping : hugepage_mapping_per_channel) {
+        if (hugepage_mapping.mapping) {
+            munmap(hugepage_mapping.mapping, hugepage_mapping.mapping_size);
+        }
+    }
+
     if (arch == tt::ARCH::BLACKHOLE && bar2_uc != nullptr && bar2_uc != MAP_FAILED) {
         // Disable ATU index 0
         // TODO: Implement disabling for all indexes, once more host channels are enabled.
@@ -581,3 +595,98 @@ dynamic_tlb PCIDevice::set_dynamic_tlb_broadcast(unsigned int tlb_index, std::ui
 }
 
 tt::umd::architecture_implementation* PCIDevice::get_architecture_implementation() const {return architecture_implementation.get();}
+
+bool PCIDevice::init_hugepage(uint32_t num_host_mem_channels) {
+    const size_t hugepage_size = HUGEPAGE_REGION_SIZE;
+
+    // Convert from logical (device_id in netlist) to physical device_id (in case of virtualization)
+    auto physical_device_id = get_device_num();
+
+    std::string hugepage_dir = find_hugepage_dir(hugepage_size);
+    if (hugepage_dir.empty()) {
+        log_warning(LogSiliconDriver, "ttSiliconDevice::init_hugepage: no huge page mount found for hugepage_size: {}.", hugepage_size);
+        return false;
+    }
+
+    bool success = true;
+
+    hugepage_mapping_per_channel.resize(num_host_mem_channels);
+
+    // Support for more than 1GB host memory accessible per device, via channels.
+    for (int ch = 0; ch < num_host_mem_channels; ch++) {
+
+        int hugepage_fd = open_hugepage_file(hugepage_dir, physical_device_id, ch);
+        if (hugepage_fd == -1) {
+            // Probably a permissions problem.
+            log_warning(LogSiliconDriver, "ttSiliconDevice::init_hugepage: physical_device_id: {} ch: {} creating hugepage mapping file failed.", physical_device_id, ch);
+            success = false;
+            continue;
+        }
+
+        std::byte *mapping = static_cast<std::byte*>(mmap(nullptr, hugepage_size, PROT_READ|PROT_WRITE, MAP_SHARED | MAP_POPULATE, hugepage_fd, 0));
+
+        close(hugepage_fd);
+
+        if (mapping == MAP_FAILED) {
+            log_warning(LogSiliconDriver, "UMD: Mapping a hugepage failed. (device: {}, {}/{} errno: {}).", physical_device_id, ch, num_host_mem_channels, strerror(errno));
+            print_file_contents("/proc/cmdline");\
+            print_file_contents("/sys/kernel/mm/hugepages/hugepages-1048576kB/nr_hugepages"); // Hardcoded for 1GB hugepage.
+            success = false;
+            continue;
+        }
+
+        // Beter performance if hugepage just allocated (populate flag to prevent lazy alloc) is migrated to same numanode as TT device.
+        if (!tt::cpuset::tt_cpuset_allocator::bind_area_to_memory_nodeset(physical_device_id, mapping, hugepage_size)){
+            log_warning(LogSiliconDriver, "---- ttSiliconDevice::init_hugepage: bind_area_to_memory_nodeset() failed (physical_device_id: {} ch: {}). "
+            "Hugepage allocation is not on NumaNode matching TT Device. Side-Effect is decreased Device->Host perf (Issue #893).",
+            physical_device_id, ch);
+        }
+
+        tenstorrent_pin_pages pin_pages;
+        memset(&pin_pages, 0, sizeof(pin_pages));
+        pin_pages.in.output_size_bytes = sizeof(pin_pages.out);
+        pin_pages.in.flags = TENSTORRENT_PIN_PAGES_CONTIGUOUS;
+        pin_pages.in.virtual_address = reinterpret_cast<std::uintptr_t>(mapping);
+        pin_pages.in.size = hugepage_size;
+
+        auto fd = get_fd();
+
+        if (ioctl(fd, TENSTORRENT_IOCTL_PIN_PAGES, &pin_pages) == -1) {
+            log_warning(LogSiliconDriver, "---- ttSiliconDevice::init_hugepage: physical_device_id: {} ch: {} TENSTORRENT_IOCTL_PIN_PAGES failed (errno: {}). Common Issue: Requires TTMKD >= 1.11, see following file contents...", physical_device_id, ch, strerror(errno));
+            munmap(mapping, hugepage_size);
+            print_file_contents("/sys/module/tenstorrent/version", "(TTKMD version)");
+            print_file_contents("/proc/meminfo");
+            print_file_contents("/proc/buddyinfo");
+            success = false;
+            continue;
+        }
+
+        hugepage_mapping_per_channel[ch] = {mapping, hugepage_size, pin_pages.out.physical_address};
+
+        log_debug(LogSiliconDriver, "ttSiliconDevice::init_hugepage: physical_device_id: {} ch: {} mapping_size: {} physical address 0x{:x}", physical_device_id, ch, hugepage_size, (unsigned long long)hugepage_mappings.at(device_id).at(ch).physical_address);
+    }
+
+    return success;
+}
+
+int PCIDevice::get_num_host_mem_channels() const {
+    return hugepage_mapping_per_channel.size();
+}
+
+hugepage_mapping PCIDevice::get_hugepage_mapping(int channel) const {
+    if (channel < 0 || hugepage_mapping_per_channel.size() <= channel) {
+        return {nullptr, 0, 0};
+    } else {
+        return hugepage_mapping_per_channel[channel];
+    }
+}
+
+void PCIDevice::print_file_contents(std::string filename, std::string hint){
+    if (std::filesystem::exists(filename)){
+        std::ifstream meminfo(filename);
+        if (meminfo.is_open()){
+            std::cout << std::endl << "File " << filename << " " << hint << " is: " << std::endl;
+            std::cout << meminfo.rdbuf();
+        }
+    }
+}

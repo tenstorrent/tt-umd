@@ -7,6 +7,9 @@
 ### List of the changes
 (Itemized list of all the changes.)
 
+### Testing
+(Comment on CI testing or Manual testing touching this change.)
+
 ### API Changes
 (When making API changes, don't merge this PR until tt_metal and tt_debuda PRs are approved.)
 (Then merge this PR, change the client PRs to point to UMD main, and then merge them.)

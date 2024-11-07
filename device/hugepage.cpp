@@ -6,7 +6,7 @@
 
 #include "hugepage.h"
 
-#include <sys/stat.h> // for umask, fstat
+#include <sys/stat.h> // for umask
 #include <fcntl.h> // for O_RDWR and other constants
 
 #include "common/logger.hpp"
@@ -153,16 +153,6 @@ int open_hugepage_file(const std::string &dir, chip_id_t physical_device_id, uin
         log_warning(LogSiliconDriver, "ttSiliconDevice::open_hugepage_file could not open filename: {} on first try, unlinking it and retrying.", filename_str);
         unlink(filename.data());
         fd = open(filename.data(), O_RDWR | O_CREAT | O_CLOEXEC, S_IWUSR | S_IRUSR | S_IWGRP | S_IRGRP | S_IWOTH | S_IROTH );
-    }
-
-    // Verify opened file size.
-    struct stat st;
-    if (fstat(fd, &st) == -1) {
-        log_warning(LogSiliconDriver, "Error reading file size after opening: {}", filename_str);
-    } else {
-        if (st.st_size == 0) {
-            log_warning(LogSiliconDriver, "Opened hugepage file has zero size, mapping it might fail: {}. Verify that enough hugepages are provided.", filename_str);
-        }
     }
 
     // Restore original mask

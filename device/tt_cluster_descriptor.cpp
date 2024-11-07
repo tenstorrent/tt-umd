@@ -603,7 +603,7 @@ void tt_ClusterDescriptor::fill_chips_grouped_by_closest_mmio() {
     }
 }
 
-std::unordered_map<chip_id_t, std::unordered_map<ethernet_channel_t, std::tuple<chip_id_t, ethernet_channel_t> > > tt_ClusterDescriptor::get_ethernet_connections() const {
+const std::unordered_map<chip_id_t, std::unordered_map<ethernet_channel_t, std::tuple<chip_id_t, ethernet_channel_t> > > tt_ClusterDescriptor::get_ethernet_connections() const {
     auto eth_connections = std::unordered_map<chip_id_t, std::unordered_map<ethernet_channel_t, std::tuple<chip_id_t, ethernet_channel_t> > >();
 
     for (const auto &[chip, channel_mapping] : this->ethernet_connections) {
@@ -620,7 +620,7 @@ std::unordered_map<chip_id_t, std::unordered_map<ethernet_channel_t, std::tuple<
     return eth_connections;
 }
 
-std::unordered_map<chip_id_t, eth_coord_t> tt_ClusterDescriptor::get_chip_locations() const {
+const std::unordered_map<chip_id_t, eth_coord_t>& tt_ClusterDescriptor::get_chip_locations() const {
     static auto locations = std::unordered_map<chip_id_t, eth_coord_t>();
     if (locations.empty()) {
         for (auto chip_id : this->enabled_active_chips) {
@@ -640,7 +640,7 @@ chip_id_t tt_ClusterDescriptor::get_shelf_local_physical_chip_coords(chip_id_t v
 }
 
 // Return map, but filter by enabled active chips.
-std::unordered_map<chip_id_t, chip_id_t> tt_ClusterDescriptor::get_chips_with_mmio() const {
+const std::unordered_map<chip_id_t, chip_id_t> tt_ClusterDescriptor::get_chips_with_mmio() const {
     auto chips_map = std::unordered_map<chip_id_t, chip_id_t>();
     for (const auto &pair : chips_with_mmio) {
         auto &chip_id = pair.first;
@@ -652,15 +652,15 @@ std::unordered_map<chip_id_t, chip_id_t> tt_ClusterDescriptor::get_chips_with_mm
     return chips_map;
 }
 
-std::unordered_set<chip_id_t> tt_ClusterDescriptor::get_all_chips() const {
+const std::unordered_set<chip_id_t>& tt_ClusterDescriptor::get_all_chips() const {
     return this->enabled_active_chips;
 }
 
-std::unordered_map<chip_id_t, std::uint32_t> tt_ClusterDescriptor::get_harvesting_info() const {
+const std::unordered_map<chip_id_t, std::uint32_t>& tt_ClusterDescriptor::get_harvesting_info() const {
     return harvesting_masks;
 }
 
-std::unordered_map<chip_id_t, bool> tt_ClusterDescriptor::get_noc_translation_table_en() const {
+const std::unordered_map<chip_id_t, bool>& tt_ClusterDescriptor::get_noc_translation_table_en() const {
     return noc_translation_enabled;
 }
 
@@ -675,6 +675,6 @@ BoardType tt_ClusterDescriptor::get_board_type(chip_id_t chip_id) const {
   return board_type;
 }
 
-std::unordered_map<chip_id_t, std::unordered_set<chip_id_t>> tt_ClusterDescriptor::get_chips_grouped_by_closest_mmio() const {
+const std::unordered_map<chip_id_t, std::unordered_set<chip_id_t>>& tt_ClusterDescriptor::get_chips_grouped_by_closest_mmio() const {
     return chips_grouped_by_closest_mmio;
 }

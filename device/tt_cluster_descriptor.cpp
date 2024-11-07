@@ -603,7 +603,7 @@ void tt_ClusterDescriptor::fill_chips_grouped_by_closest_mmio() {
     }
 }
 
-const std::unordered_map<chip_id_t, std::unordered_map<ethernet_channel_t, std::tuple<chip_id_t, ethernet_channel_t> > >& tt_ClusterDescriptor::get_ethernet_connections() const {
+const std::unordered_map<chip_id_t, std::unordered_map<ethernet_channel_t, std::tuple<chip_id_t, ethernet_channel_t> > > tt_ClusterDescriptor::get_ethernet_connections() const {
     auto eth_connections = std::unordered_map<chip_id_t, std::unordered_map<ethernet_channel_t, std::tuple<chip_id_t, ethernet_channel_t> > >();
 
     for (const auto &[chip, channel_mapping] : this->ethernet_connections) {
@@ -640,7 +640,7 @@ chip_id_t tt_ClusterDescriptor::get_shelf_local_physical_chip_coords(chip_id_t v
 }
 
 // Return map, but filter by enabled active chips.
-const std::unordered_map<chip_id_t, chip_id_t>& tt_ClusterDescriptor::get_chips_with_mmio() const {
+const std::unordered_map<chip_id_t, chip_id_t> tt_ClusterDescriptor::get_chips_with_mmio() const {
     auto chips_map = std::unordered_map<chip_id_t, chip_id_t>();
     for (const auto &pair : chips_with_mmio) {
         auto &chip_id = pair.first;

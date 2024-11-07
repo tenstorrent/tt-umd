@@ -11,6 +11,7 @@
 #include <unistd.h> // for ::close
 #include <sys/ioctl.h> // for ioctl
 #include <sys/mman.h>  // for mmap, munmap
+#include <sys/stat.h> // for fstat
 #include <linux/pci.h> // for PCI_SLOT, PCI_FUNC
 
 #include "pci_device.hpp"
@@ -623,12 +624,21 @@ bool PCIDevice::init_hugepage(uint32_t num_host_mem_channels) {
             continue;
         }
 
+        // Verify opened file size.
+        struct stat hugepage_st;
+        if (fstat(hugepage_fd, &hugepage_st) == -1) {
+            log_warning(LogSiliconDriver, "Error reading hugepage file size after opening.");
+        }
+
         std::byte *mapping = static_cast<std::byte*>(mmap(nullptr, hugepage_size, PROT_READ|PROT_WRITE, MAP_SHARED | MAP_POPULATE, hugepage_fd, 0));
 
         close(hugepage_fd);
 
         if (mapping == MAP_FAILED) {
             log_warning(LogSiliconDriver, "UMD: Mapping a hugepage failed. (device: {}, {}/{} errno: {}).", physical_device_id, ch, num_host_mem_channels, strerror(errno));
+            if (hugepage_st.st_size == 0) {
+                log_warning(LogSiliconDriver, "Opened hugepage file has zero size, mapping might've failed due to that. Verify that enough hugepages are provided.");
+            }
             print_file_contents("/proc/cmdline");\
             print_file_contents("/sys/kernel/mm/hugepages/hugepages-1048576kB/nr_hugepages"); // Hardcoded for 1GB hugepage.
             success = false;

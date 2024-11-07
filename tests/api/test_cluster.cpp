@@ -165,15 +165,11 @@ void setup_wormhole_remote(Cluster* umd_cluster) {
              CMD_BROADCAST});
 
         umd_cluster->set_device_l1_address_params(
-            {l1_mem::address_map::NCRISC_FIRMWARE_BASE,
-             l1_mem::address_map::FIRMWARE_BASE,
-             l1_mem::address_map::TRISC0_SIZE,
-             l1_mem::address_map::TRISC1_SIZE,
-             l1_mem::address_map::TRISC2_SIZE,
-             l1_mem::address_map::TRISC_BASE,
+            {
              l1_mem::address_map::L1_BARRIER_BASE,
              eth_l1_mem::address_map::ERISC_BARRIER_BASE,
-             eth_l1_mem::address_map::FW_VERSION_ADDR});
+             eth_l1_mem::address_map::FW_VERSION_ADDR
+	    });
     }
 }
 

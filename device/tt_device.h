@@ -66,12 +66,6 @@ struct tt_device_dram_address_params {
  * These parameters are passed to the constructor.
  */
 struct tt_device_l1_address_params {
-    std::uint32_t ncrisc_fw_base = 0;
-    std::uint32_t fw_base = 0;
-    std::uint32_t trisc0_size = 0;
-    std::uint32_t trisc1_size = 0;
-    std::uint32_t trisc2_size = 0;
-    std::uint32_t trisc_base = 0;
     std::uint32_t tensix_l1_barrier_base = 0;
     std::uint32_t eth_l1_barrier_base = 0;
     std::uint32_t fw_version_addr = 0;

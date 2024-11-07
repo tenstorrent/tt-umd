@@ -62,6 +62,7 @@ class tt_SimulationDevice: public tt_device {
     tt_device_dram_address_params dram_address_params;
     tt_device_l1_address_params l1_address_params;
     tt_driver_host_address_params host_address_params;
+    tt_driver_noc_params noc_params;
     tt_driver_eth_interface_params eth_interface_params;
     std::vector<tt::ARCH> archs_in_cluster = {};
     std::set<chip_id_t> target_devices_in_cluster = {};

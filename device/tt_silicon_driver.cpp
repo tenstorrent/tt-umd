@@ -438,6 +438,12 @@ tt_SiliconDevice::tt_SiliconDevice(const std::string &sdesc_path, const std::str
     // Default initialize host_address_params based on detected arch
     host_address_params = architecture_implementation->get_host_address_params();
 
+    // Default initialize eth_interface_params based on detected arch
+    eth_interface_params = architecture_implementation->get_eth_interface_params();
+
+    // Default initialize noc_params based on detected arch
+    noc_params = architecture_implementation->get_noc_params();
+
 }
 
 void tt_SiliconDevice::configure_active_ethernet_cores_for_mmio_device(chip_id_t mmio_chip, const std::unordered_set<tt_xy_pair>& active_eth_cores_per_chip) {
@@ -1375,14 +1381,14 @@ std::shared_ptr<boost::interprocess::named_mutex> tt_SiliconDevice::get_mutex(co
 
 uint64_t tt_SiliconDevice::get_sys_addr(uint32_t chip_x, uint32_t chip_y, uint32_t noc_x, uint32_t noc_y, uint64_t offset) {
     uint64_t result = chip_y;
-    uint64_t noc_addr_local_bits_mask = (1UL << eth_interface_params.noc_addr_local_bits) - 1;
-    result <<= eth_interface_params.noc_addr_node_id_bits;
+    uint64_t noc_addr_local_bits_mask = (1UL << noc_params.noc_addr_local_bits) - 1;
+    result <<= noc_params.noc_addr_node_id_bits;
     result |= chip_x;
-    result <<= eth_interface_params.noc_addr_node_id_bits;
+    result <<= noc_params.noc_addr_node_id_bits;
     result |= noc_y;
-    result <<= eth_interface_params.noc_addr_node_id_bits;
+    result <<= noc_params.noc_addr_node_id_bits;
     result |= noc_x;
-    result <<= eth_interface_params.noc_addr_local_bits;
+    result <<= noc_params.noc_addr_local_bits;
     result |= (noc_addr_local_bits_mask & offset);
     return result;
 }

@@ -80,13 +80,16 @@ struct tt_driver_host_address_params {
     std::uint32_t eth_routing_buffers_start = 0;
 };
 
+struct tt_driver_noc_params {
+    std::uint32_t noc_addr_local_bits = 0;
+    std::uint32_t noc_addr_node_id_bits = 0;
+};
+
 /**
  * Struct encapsulating all ERISC Firmware parameters required by UMD.
  * These parameters are passed to the constructor and are needed for non-MMIO transactions.
  */
 struct tt_driver_eth_interface_params {
-    std::uint32_t noc_addr_local_bits = 0;
-    std::uint32_t noc_addr_node_id_bits = 0;
     std::uint32_t eth_rack_coord_width = 0;
     std::uint32_t cmd_buf_size_mask = 0;
     std::uint32_t max_block_size = 0;
@@ -247,6 +250,7 @@ class tt_device
      *
      * @param eth_interface_params_ All the Ethernet Firmware parameters required by UMD.
      */ 
+    [[deprecated("Using unnecessary function.")]]
     virtual void set_driver_eth_interface_params(const tt_driver_eth_interface_params& eth_interface_params_) {
         throw std::runtime_error("---- tt_device::set_driver_eth_interface_params is not implemented\n");
     }
@@ -768,6 +772,7 @@ class tt_SiliconDevice: public tt_device
     tt_device_dram_address_params dram_address_params;
     tt_device_l1_address_params l1_address_params;
     tt_driver_host_address_params host_address_params;
+    tt_driver_noc_params noc_params;
     tt_driver_eth_interface_params eth_interface_params;
     std::vector<tt::ARCH> archs_in_cluster = {};
     std::set<chip_id_t> target_devices_in_cluster = {};

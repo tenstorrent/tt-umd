@@ -9,8 +9,6 @@
 #include "tt_device.h"
 #include "eth_l1_address_map.h"
 #include "l1_address_map.h"
-#include "eth_l1_address_map.h"
-#include "eth_interface.h"
 #include "host_mem_address_map.h"
 
 #include "device/tt_cluster_descriptor.h"
@@ -29,15 +27,7 @@ inline void fill_with_random_bytes(uint8_t* data, size_t n)
 
 void set_params_for_remote_txn(tt_SiliconDevice& device) {
     // Populate address map and NOC parameters that the driver needs for remote transactions
-    device.set_driver_host_address_params({host_mem::address_map::ETH_ROUTING_BLOCK_SIZE, host_mem::address_map::ETH_ROUTING_BUFFERS_START});
-
-    device.set_driver_eth_interface_params({NOC_ADDR_LOCAL_BITS, NOC_ADDR_NODE_ID_BITS, ETH_RACK_COORD_WIDTH, CMD_BUF_SIZE_MASK, MAX_BLOCK_SIZE,
-                                            REQUEST_CMD_QUEUE_BASE, RESPONSE_CMD_QUEUE_BASE, CMD_COUNTERS_SIZE_BYTES, REMOTE_UPDATE_PTR_SIZE_BYTES,
-                                            CMD_DATA_BLOCK, CMD_WR_REQ, CMD_WR_ACK, CMD_RD_REQ, CMD_RD_DATA, CMD_BUF_SIZE, CMD_DATA_BLOCK_DRAM, ETH_ROUTING_DATA_BUFFER_ADDR,
-                                             REQUEST_ROUTING_CMD_QUEUE_BASE, RESPONSE_ROUTING_CMD_QUEUE_BASE, CMD_BUF_PTR_MASK, CMD_ORDERED, CMD_BROADCAST});
-    
     device.set_device_l1_address_params({l1_mem::address_map::L1_BARRIER_BASE, eth_l1_mem::address_map::ERISC_BARRIER_BASE, eth_l1_mem::address_map::FW_VERSION_ADDR});
-
 }
 
 std::int32_t get_static_tlb_index(tt_xy_pair target) {

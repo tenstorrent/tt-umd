@@ -12,3 +12,8 @@ repos:
   hooks:
   - id: yamllint
     exclude: ^(?!\.github/).* # Only include files in .github/
+- repo: https://github.com/espressif/check-copyright/
+  rev: v1.0.3
+  hooks:
+    - id: check-copyright
+      args: ['--config', '.check-copyright-config.yaml', "--ignore", ""]

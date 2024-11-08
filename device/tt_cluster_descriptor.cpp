@@ -338,6 +338,40 @@ std::unique_ptr<tt_ClusterDescriptor> tt_ClusterDescriptor::create_from_yaml(con
     return desc;
 }
 
+std::unique_ptr<tt_ClusterDescriptor> tt_ClusterDescriptor::create_for_grayskull_cluster(
+    const std::set<chip_id_t> &logical_mmio_device_ids,
+    const std::vector<chip_id_t> &physical_mmio_device_ids) {
+    std::unique_ptr<tt_ClusterDescriptor> desc = std::unique_ptr<tt_ClusterDescriptor>(new tt_ClusterDescriptor());
+
+    // Some users need not care about physical ids, can provide empty set.
+    auto use_physical_ids                   = physical_mmio_device_ids.size() ? true : false;
+    auto largest_workload_logical_device_id = *logical_mmio_device_ids.rbegin(); // Last element in ordered set.
+    auto num_available_physical_devices     = physical_mmio_device_ids.size();
+    auto required_physical_devices          = largest_workload_logical_device_id + 1;
+
+    log_debug(tt::LogSiliconDriver, "{} - use_physical_ids: {} largest_workload_logical_device_id: {} num_available_physical_devices: {} required_physical_devices: {}",
+        __FUNCTION__, use_physical_ids, largest_workload_logical_device_id, num_available_physical_devices, required_physical_devices);
+
+    log_assert(!use_physical_ids || num_available_physical_devices >= required_physical_devices,
+        "Insufficient silicon devices. Workload requires device_id: {} (ie. {} devices) but only {} present",
+        largest_workload_logical_device_id, required_physical_devices, num_available_physical_devices);
+
+    // All Grayskull devices are MMIO mapped so physical_mmio_device_ids correspond to all available devices
+    for (auto &logical_id : logical_mmio_device_ids) {
+        auto physical_id = use_physical_ids ? physical_mmio_device_ids.at(logical_id) : -1;
+        desc->chips_with_mmio.insert({logical_id, physical_id});
+        desc->all_chips.insert(logical_id);
+        eth_coord_t chip_location{logical_id, 0, 0, 0};
+        desc->chip_locations.insert({logical_id, chip_location});
+        desc->coords_to_chip_ids[std::get<2>(chip_location)][std::get<3>(chip_location)][std::get<1>(chip_location)][std::get<0>(chip_location)] = logical_id;
+        log_debug(tt::LogSiliconDriver, "{} - adding logical: {} => physical: {}", __FUNCTION__, logical_id, physical_id);
+    }
+
+    desc->enable_all_devices();
+
+    return desc;
+}
+
 void tt_ClusterDescriptor::load_ethernet_connections_from_connectivity_descriptor(YAML::Node &yaml, tt_ClusterDescriptor &desc) {
     log_assert(yaml["ethernet_connections"].IsSequence(), "Invalid YAML");
     for (YAML::Node &connected_endpoints : yaml["ethernet_connections"].as<std::vector<YAML::Node>>()) {

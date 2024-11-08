@@ -528,7 +528,7 @@ void tt_ClusterDescriptor::load_chips_from_connectivity_descriptor(YAML::Node &y
 
     for (YAML::const_iterator node = yaml["arch"].begin(); node != yaml["arch"].end(); ++node) {
         chip_id_t chip_id = node->first.as<int>();
-        // Not all archs (e.g. BH) have chip coordinates
+        // Not all archs (e.g. Blackhole and Grayskull) have chip coordinates
         if (chip_coordinate_map.find(chip_id) != chip_coordinate_map.end()) {
             std::vector<int> chip_rack_coords = chip_coordinate_map[chip_id];
             log_assert(chip_rack_coords.size() == 4, "Galaxy (x, y, rack, shelf) coords must be size 4");

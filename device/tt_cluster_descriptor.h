@@ -25,8 +25,10 @@ namespace YAML { class Node; }
 enum BoardType : uint32_t {
     N150 = 0,
     N300 = 1,
-    GALAXY = 2,
-    DEFAULT = 3,
+    E150 = 2,
+    P150A = 3,
+    GALAXY = 4,
+    DEFAULT = 5,
 };
 
 class tt_ClusterDescriptor {

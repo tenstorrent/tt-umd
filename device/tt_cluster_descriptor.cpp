@@ -573,10 +573,13 @@ void tt_ClusterDescriptor::load_chips_from_connectivity_descriptor(YAML::Node &y
                 board_type = BoardType::N300;
             } else if (chip_board_type.second == "GALAXY") {
                 board_type = BoardType::GALAXY;
+            } else if (chip_board_type.second == "e150") {
+                board_type = BoardType::E150;
+            }
+            else if (chip_board_type.second == "p150A") {
+                board_type = BoardType::P150A;
             } else {
-                if (chip_board_type.second != "e150" && chip_board_type.second != "p150A") {
-                    log_warning(LogSiliconDriver, "Unknown board type for chip {}. This might happen because chip is running old firmware. Defaulting to DEFAULT", chip);
-                }
+                log_warning(LogSiliconDriver, "Unknown board type for chip {}. This might happen because chip is running old firmware. Defaulting to DEFAULT", chip);
                 board_type = BoardType::DEFAULT;
             }
             desc.chip_board_type.insert({chip, board_type});

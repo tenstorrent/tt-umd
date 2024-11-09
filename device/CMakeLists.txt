@@ -11,6 +11,7 @@ set(UMD_DEVICE_SRCS
     tt_silicon_driver.cpp
     tt_silicon_driver_common.cpp
     tt_soc_descriptor.cpp
+    xy_pair.cpp
     simulation/tt_simulation_device.cpp
     simulation/tt_simulation_host.cpp
     blackhole/blackhole_implementation.cpp

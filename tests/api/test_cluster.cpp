@@ -19,11 +19,10 @@
 #include "device/tt_device.h"
 
 // TODO: obviously we need some other way to set this up
-#include "src/firmware/riscv/wormhole/eth_interface.h"
 #include "src/firmware/riscv/wormhole/eth_l1_address_map.h"
 #include "src/firmware/riscv/wormhole/host_mem_address_map.h"
 #include "src/firmware/riscv/wormhole/l1_address_map.h"
-#include "src/firmware/riscv/wormhole/noc/noc_parameters.h"
+#include "noc/noc_parameters.h"
 
 // TODO: do proper renaming.
 using Cluster = tt_SiliconDevice;
@@ -57,12 +56,16 @@ inline std::unique_ptr<tt_ClusterDescriptor> get_cluster_desc() {
         return nullptr;
     }
 
-    // TODO: remove getting manually cluster descriptor from yaml.
-    std::string yaml_path = test_utils::GetClusterDescYAML();
+    // TODO: Remove different branch for different archs
     std::unique_ptr<tt_ClusterDescriptor> cluster_desc;
     if (device_arch == tt::ARCH::GRAYSKULL) {
         cluster_desc = tt_ClusterDescriptor::create_for_grayskull_cluster(pci_device_ids_set, pci_device_ids);
+    } else if (device_arch == tt::ARCH::BLACKHOLE) {
+        std::string yaml_path = test_utils::GetAbsPath("blackhole_1chip_cluster.yaml");
+        cluster_desc = tt_ClusterDescriptor::create_from_yaml(yaml_path);
     } else {
+        // TODO: remove getting manually cluster descriptor from yaml.
+        std::string yaml_path = tt_ClusterDescriptor::get_cluster_descriptor_file_path();
         cluster_desc = tt_ClusterDescriptor::create_from_yaml(yaml_path);
     }
 
@@ -93,8 +96,15 @@ inline std::unique_ptr<Cluster> get_cluster() {
         return nullptr;
     }
 
-    // TODO: remove getting manually cluster descriptor from yaml.
-    std::string yaml_path = test_utils::GetClusterDescYAML();
+    std::string yaml_path;
+    if (device_arch == tt::ARCH::GRAYSKULL) {
+        yaml_path = "";
+    } else if (device_arch == tt::ARCH::BLACKHOLE) {
+        yaml_path = test_utils::GetAbsPath("blackhole_1chip_cluster.yaml");
+    } else {
+        // TODO: remove getting manually cluster descriptor from yaml.
+        yaml_path = tt_ClusterDescriptor::get_cluster_descriptor_file_path();
+    }
     // TODO: Remove the need to do this, allow default constructor to construct with all chips.
     std::unique_ptr<tt_ClusterDescriptor> cluster_desc = get_cluster_desc();
     std::unordered_set<int> detected_num_chips = cluster_desc->get_all_chips();
@@ -126,43 +136,13 @@ void setup_wormhole_remote(Cluster* umd_cluster) {
         umd_cluster->get_soc_descriptor(*umd_cluster->get_all_chips_in_cluster().begin()).arch ==
             tt::ARCH::WORMHOLE_B0) {
         // Populate address map and NOC parameters that the driver needs for remote transactions
-        umd_cluster->set_driver_host_address_params(
-            {host_mem::address_map::ETH_ROUTING_BLOCK_SIZE, host_mem::address_map::ETH_ROUTING_BUFFERS_START});
-
-        umd_cluster->set_driver_eth_interface_params(
-            {NOC_ADDR_LOCAL_BITS,
-             NOC_ADDR_NODE_ID_BITS,
-             ETH_RACK_COORD_WIDTH,
-             CMD_BUF_SIZE_MASK,
-             MAX_BLOCK_SIZE,
-             REQUEST_CMD_QUEUE_BASE,
-             RESPONSE_CMD_QUEUE_BASE,
-             CMD_COUNTERS_SIZE_BYTES,
-             REMOTE_UPDATE_PTR_SIZE_BYTES,
-             CMD_DATA_BLOCK,
-             CMD_WR_REQ,
-             CMD_WR_ACK,
-             CMD_RD_REQ,
-             CMD_RD_DATA,
-             CMD_BUF_SIZE,
-             CMD_DATA_BLOCK_DRAM,
-             ETH_ROUTING_DATA_BUFFER_ADDR,
-             REQUEST_ROUTING_CMD_QUEUE_BASE,
-             RESPONSE_ROUTING_CMD_QUEUE_BASE,
-             CMD_BUF_PTR_MASK,
-             CMD_ORDERED,
-             CMD_BROADCAST});
 
         umd_cluster->set_device_l1_address_params(
-            {l1_mem::address_map::NCRISC_FIRMWARE_BASE,
-             l1_mem::address_map::FIRMWARE_BASE,
-             l1_mem::address_map::TRISC0_SIZE,
-             l1_mem::address_map::TRISC1_SIZE,
-             l1_mem::address_map::TRISC2_SIZE,
-             l1_mem::address_map::TRISC_BASE,
+            {
              l1_mem::address_map::L1_BARRIER_BASE,
              eth_l1_mem::address_map::ERISC_BARRIER_BASE,
-             eth_l1_mem::address_map::FW_VERSION_ADDR});
+             eth_l1_mem::address_map::FW_VERSION_ADDR
+	    });
     }
 }
 

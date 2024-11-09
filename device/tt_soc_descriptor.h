@@ -19,6 +19,7 @@
 #include "tt_xy_pair.h"
 #include "device/tt_arch_types.h"
 
+#include "device/coordinate_manager.h"
 
 #include "fmt/core.h"
 
@@ -94,7 +95,8 @@ struct CoreDescriptor {
     Should only contain relevant configuration for SOC
 */
 class tt_SocDescriptor {
-    public:
+
+public:
     tt::ARCH arch;
     tt_xy_pair grid_size;
     tt_xy_pair physical_grid_size;
@@ -131,8 +133,9 @@ class tt_SocDescriptor {
 
     // Default constructor. Creates uninitialized object with public access to all of its attributes.
     tt_SocDescriptor() = default;
-    // Constructor used to build object from device descriptor file.
-    tt_SocDescriptor(std::string device_descriptor_path);
+    // Constructor used to build object from device descriptor file.    
+    tt_SocDescriptor(std::string device_descriptor_path, std::size_t harvesting_mask = 0);
+
     // Copy constructor
     tt_SocDescriptor(const tt_SocDescriptor& other) :
         arch(other.arch),
@@ -162,8 +165,33 @@ class tt_SocDescriptor {
         eth_l1_size(other.eth_l1_size),
         noc_translation_id_enabled(other.noc_translation_id_enabled),
         dram_bank_size(other.dram_bank_size) {
+        coordinate_manager.reset(new CoordinateManager(*other.coordinate_manager));
     }
-    private:
+    
+    // Coordinate conversions.
+
+    // Conversions from logical coordinates should be used just for worker cores.
+    tt_physical_coords to_physical_coords(tt_logical_coords logical_coords);
+    tt_virtual_coords to_virtual_coords(tt_logical_coords logical_coords);
+    tt_translated_coords to_translated_coords(tt_logical_coords logical_coords);
+
+    tt_logical_coords to_logical_coords(tt_physical_coords physical_coords);
+    tt_virtual_coords to_virtual_coords(tt_physical_coords physical_coords);
+    tt_translated_coords to_translated_coords(tt_physical_coords physical_coords);
+
+    tt_logical_coords to_logical_coords(tt_virtual_coords virtual_coords);
+    tt_physical_coords to_physical_coords(tt_virtual_coords virtual_coords);
+    tt_translated_coords to_translated_coords(tt_virtual_coords virtual_coords);
+
+    tt_logical_coords to_logical_coords(tt_translated_coords translated_coords);
+    tt_physical_coords to_physical_coords(tt_translated_coords translated_coords);
+    tt_virtual_coords to_virtual_coords(tt_translated_coords translated_coords);
+
+    void perform_harvesting(std::size_t harvesting_mask);
+
+private:
+    std::unique_ptr<CoordinateManager> coordinate_manager = nullptr;
+    void create_coordinate_manager(std::size_t harvesting_mask);
     void load_core_descriptors_from_device_descriptor(YAML::Node &device_descriptor_yaml);
     void load_soc_features_from_device_descriptor(YAML::Node &device_descriptor_yaml);
 };

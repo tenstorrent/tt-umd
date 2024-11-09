@@ -73,6 +73,11 @@ add_subdirectory(<path to umd>)
 apt install ./umd-dev-x.y.z-Linux.deb 
 ```
 
+## Simulator Integration
+You can run UMD tests without silicon by following setup instructions [here](https://yyz-gitlab.local.tenstorrent.com/tenstorrent/tt-metal).
+
+For UMD, sample tests can be found in `tests/simulation/test_simulation_device.cpp`
+
 # Pre-commit Hook Integration for Formatting and Linting
 
 As part of maintaining consistent code formatting across the project, we have integrated the [pre-commit](https://pre-commit.com/) framework into our workflow. The pre-commit hooks will help automatically check and format code before commits are made, ensuring that we adhere to the project's coding standards.
@@ -113,3 +118,26 @@ By setting up pre-commit locally, you can help maintain the quality of the codeb
 Since the hooks run automatically before each commit, you don't need to remember to manually format or check your code, making it easier to maintain consistency.  
   
 We strongly encourage all developers to integrate pre-commit into their workflow.
+
+# Formatting C++ code
+
+## Installing clang-format
+
+If you're using an IRD docker, clang-format should be already available.
+If you don't have clang-format in your working environment, follow the instructions
+on [llvm website](https://apt.llvm.org/) for installing it.
+
+## Formatting files
+
+If working with VSCode, you can copy the provided default settings:
+```bash
+cp .vscode/default.settings.json .vscode/settings.json
+```
+
+From now on, c++ files will be formatted on save (given that clang-format is available).
+
+Note that if you setup pre-commit hook, the files will be automatically formatted when you commit changes.
+You can also manually auto format the whole repo using mentioned pre-commit:
+```bash
+   pre-commit run --all-files
+```

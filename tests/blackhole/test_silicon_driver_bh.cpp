@@ -6,8 +6,6 @@
 #include <tt_device.h>
 #include "eth_l1_address_map.h"
 #include "l1_address_map.h"
-#include "eth_l1_address_map.h"
-#include "eth_interface.h"
 #include "host_mem_address_map.h"
 #include <thread>
 #include <memory>
@@ -19,17 +17,7 @@
 
 void set_params_for_remote_txn(tt_SiliconDevice& device) {
     // Populate address map and NOC parameters that the driver needs for remote transactions
-    device.set_driver_host_address_params({host_mem::address_map::ETH_ROUTING_BLOCK_SIZE, host_mem::address_map::ETH_ROUTING_BUFFERS_START});
-
-    device.set_driver_eth_interface_params({NOC_ADDR_LOCAL_BITS, NOC_ADDR_NODE_ID_BITS, ETH_RACK_COORD_WIDTH, CMD_BUF_SIZE_MASK, MAX_BLOCK_SIZE,
-                                            REQUEST_CMD_QUEUE_BASE, RESPONSE_CMD_QUEUE_BASE, CMD_COUNTERS_SIZE_BYTES, REMOTE_UPDATE_PTR_SIZE_BYTES,
-                                            CMD_DATA_BLOCK, CMD_WR_REQ, CMD_WR_ACK, CMD_RD_REQ, CMD_RD_DATA, CMD_BUF_SIZE, CMD_DATA_BLOCK_DRAM, ETH_ROUTING_DATA_BUFFER_ADDR,
-                                             REQUEST_ROUTING_CMD_QUEUE_BASE, RESPONSE_ROUTING_CMD_QUEUE_BASE, CMD_BUF_PTR_MASK, CMD_ORDERED, CMD_BROADCAST});
-    
-    device.set_device_l1_address_params({l1_mem::address_map::NCRISC_FIRMWARE_BASE, l1_mem::address_map::FIRMWARE_BASE,
-                                  l1_mem::address_map::TRISC0_SIZE, l1_mem::address_map::TRISC1_SIZE, l1_mem::address_map::TRISC2_SIZE,
-                                  l1_mem::address_map::TRISC_BASE, l1_mem::address_map::L1_BARRIER_BASE, eth_l1_mem::address_map::ERISC_BARRIER_BASE, eth_l1_mem::address_map::FW_VERSION_ADDR});
-
+    device.set_device_l1_address_params({l1_mem::address_map::L1_BARRIER_BASE, eth_l1_mem::address_map::ERISC_BARRIER_BASE, eth_l1_mem::address_map::FW_VERSION_ADDR});
 }
 
 std::int32_t get_static_tlb_index(tt_xy_pair target) {
@@ -97,14 +85,14 @@ TEST(SiliconDriverBH, CreateDestroy) {
 //     std::unordered_map<chip_id_t, uint32_t> simulated_harvesting_masks = {{0, 30}, {1, 60}};
     
 //     {
-//         std::unique_ptr<tt_ClusterDescriptor> cluster_desc_uniq = tt_ClusterDescriptor::create_from_yaml(test_utils::GetClusterDescYAML());
+//         std::unique_ptr<tt_ClusterDescriptor> cluster_desc_uniq = tt_ClusterDescriptor::create_from_yaml(tt_ClusterDescriptor::get_cluster_descriptor_file_path());
 //         if (cluster_desc_uniq->get_number_of_chips() != target_devices.size()) {
 //             GTEST_SKIP() << "SiliconDriverWH.Harvesting skipped because it can only be run on a two chip nebula system";
 //         }
 //     }
 
 //     uint32_t num_host_mem_ch_per_mmio_device = 1;
-//     tt_SiliconDevice device = tt_SiliconDevice("./tests/soc_descs/wormhole_b0_8x10.yaml", test_utils::GetClusterDescYAML(), target_devices, num_host_mem_ch_per_mmio_device, false, true, true, simulated_harvesting_masks);
+//     tt_SiliconDevice device = tt_SiliconDevice("./tests/soc_descs/wormhole_b0_8x10.yaml", tt_ClusterDescriptor::get_cluster_descriptor_file_path(), target_devices, num_host_mem_ch_per_mmio_device, false, true, true, simulated_harvesting_masks);
 //     auto sdesc_per_chip = device.get_virtual_soc_descriptors();
 
 //     ASSERT_EQ(device.using_harvested_soc_descriptors(), true) << "Expected Driver to have performed harvesting";
@@ -120,7 +108,7 @@ TEST(SiliconDriverBH, CreateDestroy) {
 //     std::set<chip_id_t> target_devices = {0, 1};
 //     std::unordered_map<chip_id_t, uint32_t> simulated_harvesting_masks = {{0, 30}, {1, 60}};
 //     {
-//         std::unique_ptr<tt_ClusterDescriptor> cluster_desc_uniq = tt_ClusterDescriptor::create_from_yaml(test_utils::GetClusterDescYAML());
+//         std::unique_ptr<tt_ClusterDescriptor> cluster_desc_uniq = tt_ClusterDescriptor::create_from_yaml(tt_ClusterDescriptor::get_cluster_descriptor_file_path());
 //         if (cluster_desc_uniq->get_number_of_chips() != target_devices.size()) {
 //             GTEST_SKIP() << "SiliconDriverWH.Harvesting skipped because it can only be run on a two chip nebula system";
 //         }
@@ -128,7 +116,7 @@ TEST(SiliconDriverBH, CreateDestroy) {
 
 //     uint32_t num_host_mem_ch_per_mmio_device = 1;
 //     // Initialize the driver with a 1x1 descriptor and explictly do not perform harvesting
-//     tt_SiliconDevice device = tt_SiliconDevice("./tests/soc_descs/wormhole_b0_1x1.yaml", test_utils::GetClusterDescYAML(), target_devices, num_host_mem_ch_per_mmio_device, false, true, false, simulated_harvesting_masks);
+//     tt_SiliconDevice device = tt_SiliconDevice("./tests/soc_descs/wormhole_b0_1x1.yaml", tt_ClusterDescriptor::get_cluster_descriptor_file_path(), target_devices, num_host_mem_ch_per_mmio_device, false, true, false, simulated_harvesting_masks);
 //     auto sdesc_per_chip = device.get_virtual_soc_descriptors();
     
 //     ASSERT_EQ(device.using_harvested_soc_descriptors(), false) << "SOC descriptors should not be modified when harvesting is disabled";
@@ -146,7 +134,7 @@ TEST(SiliconDriverBH, CreateDestroy) {
 //     std::set<chip_id_t> target_devices = {0, 1};
 //     std::unordered_map<chip_id_t, uint32_t> simulated_harvesting_masks = {{0, 30}, {1, 60}};
 //     {
-//         std::unique_ptr<tt_ClusterDescriptor> cluster_desc_uniq = tt_ClusterDescriptor::create_from_yaml(test_utils::GetClusterDescYAML());
+//         std::unique_ptr<tt_ClusterDescriptor> cluster_desc_uniq = tt_ClusterDescriptor::create_from_yaml(tt_ClusterDescriptor::get_cluster_descriptor_file_path());
 //         if (cluster_desc_uniq->get_number_of_chips() != target_devices.size()) {
 //             GTEST_SKIP() << "SiliconDriverWH.Harvesting skipped because it can only be run on a two chip nebula system";
 //         }
@@ -154,7 +142,7 @@ TEST(SiliconDriverBH, CreateDestroy) {
 
 //     uint32_t num_host_mem_ch_per_mmio_device = 1;
     
-//     tt_SiliconDevice device = tt_SiliconDevice("./tests/soc_descs/wormhole_b0_8x10.yaml", test_utils::GetClusterDescYAML(), target_devices, num_host_mem_ch_per_mmio_device, false, true, true, simulated_harvesting_masks);
+//     tt_SiliconDevice device = tt_SiliconDevice("./tests/soc_descs/wormhole_b0_8x10.yaml", tt_ClusterDescriptor::get_cluster_descriptor_file_path(), target_devices, num_host_mem_ch_per_mmio_device, false, true, true, simulated_harvesting_masks);
 //     set_params_for_remote_txn(device);
 //     auto mmio_devices = device.get_target_mmio_device_ids();
     
@@ -229,10 +217,9 @@ TEST(SiliconDriverBH, UnalignedStaticTLB_RW) {
                 // Statically mapping a 1MB TLB to this core, starting from address NCRISC_FIRMWARE_BASE.  
                 device.configure_tlb(i, core, get_static_tlb_index_callback(core), l1_mem::address_map::NCRISC_FIRMWARE_BASE);
             }
+            device.setup_core_to_tlb_map(i, get_static_tlb_index_callback);
         } 
     }
-
-    device.setup_core_to_tlb_map(get_static_tlb_index_callback);
     
     tt_device_params default_params;
     device.start_device(default_params);
@@ -289,10 +276,9 @@ TEST(SiliconDriverBH, StaticTLB_RW) {
                 // Statically mapping a 2MB TLB to this core, starting from address NCRISC_FIRMWARE_BASE.  
                 device.configure_tlb(i, core, get_static_tlb_index_callback(core), l1_mem::address_map::NCRISC_FIRMWARE_BASE);
             }
+            device.setup_core_to_tlb_map(i, get_static_tlb_index_callback);
         } 
     }
-
-    device.setup_core_to_tlb_map(get_static_tlb_index_callback);
     
     printf("MT: Static TLBs set\n");
 
@@ -460,8 +446,8 @@ TEST(SiliconDriverBH, MultiThreadedMemBar) {
             // Statically mapping a 1MB TLB to this core, starting from address DATA_BUFFER_SPACE_BASE. 
             device.configure_tlb(i, core, get_static_tlb_index_callback(core), base_addr);
         }
+        device.setup_core_to_tlb_map(i, get_static_tlb_index_callback);
     }
-    device.setup_core_to_tlb_map(get_static_tlb_index_callback);
 
     tt_device_params default_params;
     device.start_device(default_params);

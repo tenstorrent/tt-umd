@@ -7,3 +7,13 @@ repos:
   rev: v17.0.6
   hooks:
   - id: clang-format
+- repo: https://github.com/adrienverge/yamllint
+  rev: v1.35.1
+  hooks:
+  - id: yamllint
+    exclude: ^(?!\.github/).* # Only include files in .github/
+- repo: https://github.com/espressif/check-copyright/
+  rev: v1.0.3
+  hooks:
+    - id: check-copyright
+      args: ['--config', '.check-copyright-config.yaml', "--ignore", ""]

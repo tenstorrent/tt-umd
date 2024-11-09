@@ -7,32 +7,12 @@ on:
     branches: ["main"]
 
 jobs:
-  lint-yaml:
-    secrets: inherit
-    uses: ./.github/workflows/lint-yaml.yml
-
   build-all:
     secrets: inherit
     uses: ./.github/workflows/build-device.yml
     with:
-      timeout: 10
+      timeout: 15
 
   pre-commit:
-    name: Run Pre-commit Hooks and Propose Fixes
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0  # Fetch all history so 'origin/main' is available
-          ref: ${{ github.head_ref }}
-
-      - name: Set up Python
-        uses: actions/setup-python@v4
-        with:
-          python-version: 3.11
-
-      - name: Run Pre-commit and Fix Issues
-        uses: pre-commit/action@v3.0.1
-        with:
-          extra_args: "--from-ref origin/main --to-ref HEAD"
+    secrets: inherit
+    uses: ./.github/workflows/pre-commit.yml

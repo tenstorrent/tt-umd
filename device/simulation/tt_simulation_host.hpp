@@ -3,13 +3,14 @@
 // SPDX-License-Identifier: Apache-2.0
 #include <vector>
 #include <cstdint>
-
-#include <nng/nng.h>
-#include <nng/protocol/pair1/pair.h>
+#include <memory>
 
 #include "device/tt_xy_pair.h"
 
 #define NNG_SOCKET_PREFIX "ipc:///tmp/"
+
+typedef struct nng_socket_s nng_socket;
+typedef struct nng_dialer_s nng_dialer;
 
 class tt_SimulationHost {
 public:
@@ -20,6 +21,6 @@ public:
     void send_to_device(uint8_t *buf, size_t buf_size);
     size_t recv_from_device(void **data_ptr);
 private:
-    nng_socket host_socket;
-    nng_dialer host_dialer;
+    std::unique_ptr<nng_socket> host_socket;
+    std::unique_ptr<nng_dialer> host_dialer;
 };

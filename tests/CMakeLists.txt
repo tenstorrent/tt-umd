@@ -1,16 +1,14 @@
 # Tests currently depend on ARCH_NAME for compile time include paths
 if(NOT DEFINED ENV{ARCH_NAME})
-    message(
-        FATAL_ERROR
-        "Please set ARCH_NAME to grayskull, wormhole_b0, or blackhole"
-    )
+    message(FATAL_ERROR "Please set ARCH_NAME to grayskull, wormhole_b0, or blackhole")
 endif(NOT DEFINED ENV{ARCH_NAME})
 
 add_library(test_common INTERFACE)
 target_link_libraries(
     test_common
     INTERFACE
-        umd_device
+        umd::device
+        umd::Firmware
         gtest_main
         gtest
         pthread
@@ -22,30 +20,41 @@ target_include_directories(
         ${PROJECT_SOURCE_DIR}
         ${CMAKE_CURRENT_SOURCE_DIR}
 )
-if($ENV{ARCH_NAME} STREQUAL "grayskull")
-    message(STATUS "UMD: Building for Grayskull")
-    target_include_directories(
-        test_common
-        INTERFACE
-            ${PROJECT_SOURCE_DIR}/device/grayskull
-            ${PROJECT_SOURCE_DIR}/src/firmware/riscv/grayskull
+
+# Download noc_parameters.h for tests
+# Generally avoid downloading files in cmake configure step
+# It can slow down reconfigures
+# Here we skip downloading repeatedly
+set(ARCHS
+    grayskull
+    wormhole
+    blackhole
+)
+foreach(ARCH IN LISTS ARCHS)
+    set(HW_NOC_PARAMETERS_URL
+        "https://raw.githubusercontent.com/tenstorrent/tt-metal/refs/heads/main/tt_metal/hw/inc/${ARCH}/noc/noc_parameters.h"
     )
-elseif($ENV{ARCH_NAME} STREQUAL "wormhole_b0")
-    message(STATUS "UMD: Building for Wormhole")
-    target_include_directories(
-        test_common
-        INTERFACE
-            ${PROJECT_SOURCE_DIR}/device/wormhole
-            ${PROJECT_SOURCE_DIR}/src/firmware/riscv/wormhole
-    )
-elseif($ENV{ARCH_NAME} STREQUAL "blackhole")
-    message(STATUS "UMD: Building for Blackhole")
-    target_include_directories(
-        test_common
-        INTERFACE
-            ${PROJECT_SOURCE_DIR}/device/blackhole
-            ${PROJECT_SOURCE_DIR}/src/firmware/riscv/blackhole
-    )
+    set(DESTINATION_DIR ${CMAKE_CURRENT_BINARY_DIR}/${ARCH}/noc)
+    file(MAKE_DIRECTORY ${DESTINATION_DIR})
+    get_filename_component(fileName ${HW_NOC_PARAMETERS_URL} NAME)
+    set(filePath ${DESTINATION_DIR}/${fileName})
+    if(NOT EXISTS ${filePath})
+        file(
+            DOWNLOAD
+                ${HW_NOC_PARAMETERS_URL}
+                ${filePath}
+            SHOW_PROGRESS
+            STATUS status
+        )
+        if(NOT status EQUAL 0)
+            message(FATAL_ERROR "Failed to download ${HW_NOC_PARAMETERS_URL}")
+        endif()
+    endif()
+endforeach()
+if($ENV{ARCH_NAME} STREQUAL "wormhole_b0")
+    include_directories("${CMAKE_CURRENT_BINARY_DIR}/wormhole")
+else()
+    include_directories("${CMAKE_CURRENT_BINARY_DIR}/$ENV{ARCH_NAME}")
 endif()
 
 if(MASTER_PROJECT)

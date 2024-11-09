@@ -14,8 +14,8 @@
 
 #include "device/tt_xy_pair.h"
 #include "device/tt_arch_types.h"
-#include "device/architecture_implementation.h"
 #include "device/tt_cluster_descriptor_types.h"
+#include "device/tlb.h"
 
 // TODO: this is used up in tt_silicon_driver.cpp but that logic ought to be
 // lowered into the PCIDevice class since it is specific to PCIe cards.
@@ -29,9 +29,17 @@ static const uint64_t BAR0_BH_SIZE = 512 * 1024 * 1024;
 
 constexpr unsigned int c_hang_read_value = 0xffffffffu;
 
+namespace tt::umd { class architecture_implementation; }
+
 struct dynamic_tlb {
     uint64_t bar_offset;        // Offset that address is mapped to, within the PCI BAR.
     uint64_t remaining_size;    // Bytes remaining between bar_offset and end of the TLB.
+};
+
+struct hugepage_mapping {
+    void *mapping = nullptr;
+    size_t mapping_size = 0;
+    uint64_t physical_address = 0;
 };
 
 struct PciDeviceInfo
@@ -161,8 +169,13 @@ public:
     dynamic_tlb set_dynamic_tlb(unsigned int tlb_index, tt_xy_pair target, std::uint64_t address, std::unordered_map<chip_id_t, std::unordered_map<tt_xy_pair, tt_xy_pair>>& harvested_coord_translation, std::uint64_t ordering = tt::umd::tlb_data::Relaxed);
     dynamic_tlb set_dynamic_tlb_broadcast(unsigned int tlb_index, std::uint64_t address, std::unordered_map<chip_id_t, std::unordered_map<tt_xy_pair, tt_xy_pair>>& harvested_coord_translation, tt_xy_pair start, tt_xy_pair end, std::uint64_t ordering = tt::umd::tlb_data::Relaxed);
 
-    tt::umd::architecture_implementation* get_architecture_implementation() const { return architecture_implementation.get(); }
+    tt::umd::architecture_implementation* get_architecture_implementation() const;
     void detect_hang_read(uint32_t data_read = c_hang_read_value);
+
+    // TODO: this also probably has more sense to live in the future TTDevice class.
+    bool init_hugepage(uint32_t num_host_mem_channels);
+    int get_num_host_mem_channels() const;
+    hugepage_mapping get_hugepage_mapping(int channel) const;
 
 public:
     // TODO: we can and should make all of these private.
@@ -194,5 +207,10 @@ private:
 
     template <typename T>
     T* get_register_address(uint32_t register_offset);
+
+    // For debug purposes when various stages fails.
+    void print_file_contents(std::string filename, std::string hint = "");
+
+    std::vector<hugepage_mapping> hugepage_mapping_per_channel;
 };
 

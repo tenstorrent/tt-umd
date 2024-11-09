@@ -4,6 +4,14 @@
 
 #include "blackhole_implementation.h"
 
+#include "src/firmware/riscv/blackhole/host_mem_address_map.h"
+#include "src/firmware/riscv/blackhole/eth_interface.h"
+
+#include "device/tt_device.h"
+
+constexpr std::uint32_t NOC_ADDR_LOCAL_BITS = 36; // source: noc_parameters.h, common for WH && BH
+constexpr std::uint32_t NOC_ADDR_NODE_ID_BITS = 6; // source: noc_parameters.h, common for WH && BH
+
 namespace tt::umd {
 
 std::tuple<xy_pair, xy_pair> blackhole_implementation::multicast_workaround(xy_pair start, xy_pair end) const {
@@ -72,6 +80,39 @@ std::pair<std::uint64_t, std::uint64_t> blackhole_implementation::get_tlb_data(
         throw std::runtime_error("Invalid TLB index for Blackhole arch");
     }
 
+}
+
+tt_driver_host_address_params blackhole_implementation::get_host_address_params() const {
+    return {::blackhole::host_mem::address_map::ETH_ROUTING_BLOCK_SIZE, ::blackhole::host_mem::address_map::ETH_ROUTING_BUFFERS_START};
+}
+
+tt_driver_eth_interface_params blackhole_implementation::get_eth_interface_params() const {
+    return {
+        ETH_RACK_COORD_WIDTH,
+        CMD_BUF_SIZE_MASK,
+        MAX_BLOCK_SIZE,
+        REQUEST_CMD_QUEUE_BASE,
+        RESPONSE_CMD_QUEUE_BASE,
+        CMD_COUNTERS_SIZE_BYTES,
+        REMOTE_UPDATE_PTR_SIZE_BYTES,
+        CMD_DATA_BLOCK,
+        CMD_WR_REQ,
+        CMD_WR_ACK,
+        CMD_RD_REQ,
+        CMD_RD_DATA,
+        CMD_BUF_SIZE,
+        CMD_DATA_BLOCK_DRAM,
+        ETH_ROUTING_DATA_BUFFER_ADDR,
+        REQUEST_ROUTING_CMD_QUEUE_BASE,
+        RESPONSE_ROUTING_CMD_QUEUE_BASE,
+        CMD_BUF_PTR_MASK,
+        CMD_ORDERED,
+        CMD_BROADCAST,
+    };
+}
+
+tt_driver_noc_params blackhole_implementation::get_noc_params() const {
+    return {NOC_ADDR_LOCAL_BITS, NOC_ADDR_NODE_ID_BITS};
 }
 
 }  // namespace tt::umd

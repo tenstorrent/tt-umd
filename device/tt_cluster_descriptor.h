@@ -83,19 +83,23 @@ class tt_ClusterDescriptor {
   bool is_chip_remote(const chip_id_t chip_id) const;
   chip_id_t get_closest_mmio_capable_chip(const chip_id_t chip);
   chip_id_t get_shelf_local_physical_chip_coords(chip_id_t virtual_coord);
+
+  // TODO: These following functions will be removed, and ClusterDescriptor will be created without any parameters.
+  // get_cluster_descriptor_file_path will create ethernet map in the background.
+  static std::string get_cluster_descriptor_file_path();
   static std::unique_ptr<tt_ClusterDescriptor> create_from_yaml(const std::string &cluster_descriptor_file_path);
   static std::unique_ptr<tt_ClusterDescriptor> create_for_grayskull_cluster(
       const std::set<chip_id_t> &logical_mmio_device_ids,
       const std::vector<chip_id_t> &physical_mmio_device_ids);
 
-  std::unordered_map<chip_id_t, std::uint32_t> get_harvesting_info() const;
-  std::unordered_map<chip_id_t, bool> get_noc_translation_table_en() const;
-  std::unordered_map<chip_id_t, eth_coord_t> get_chip_locations() const;
-  std::unordered_map<chip_id_t, std::unordered_map<ethernet_channel_t, std::tuple<chip_id_t, ethernet_channel_t> > > get_ethernet_connections() const;
-  std::unordered_map<chip_id_t, chip_id_t> get_chips_with_mmio() const;
-  std::unordered_set<chip_id_t> get_all_chips() const;
+  const std::unordered_map<chip_id_t, std::uint32_t>& get_harvesting_info() const;
+  const std::unordered_map<chip_id_t, bool>& get_noc_translation_table_en() const;
+  const std::unordered_map<chip_id_t, eth_coord_t>& get_chip_locations() const;
+  const std::unordered_map<chip_id_t, std::unordered_map<ethernet_channel_t, std::tuple<chip_id_t, ethernet_channel_t> > > get_ethernet_connections() const;
+  const std::unordered_map<chip_id_t, chip_id_t> get_chips_with_mmio() const;
+  const std::unordered_set<chip_id_t>& get_all_chips() const;
+  const std::unordered_map<chip_id_t, std::unordered_set<chip_id_t>>& get_chips_grouped_by_closest_mmio() const;
   std::size_t get_number_of_chips() const;
-  std::unordered_map<chip_id_t, std::unordered_set<chip_id_t>> get_chips_grouped_by_closest_mmio() const;
 
   int get_ethernet_link_distance(chip_id_t chip_a, chip_id_t chip_b) const;
 

@@ -38,16 +38,9 @@ inline std::unique_ptr<tt_ClusterDescriptor> get_cluster_desc() {
 
     // TODO: Remove different branch for different archs
     std::unique_ptr<tt_ClusterDescriptor> cluster_desc;
-    if (device_arch == tt::ARCH::GRAYSKULL) {
-        cluster_desc = tt_ClusterDescriptor::create_for_grayskull_cluster(pci_device_ids_set, pci_device_ids);
-    } else if (device_arch == tt::ARCH::BLACKHOLE) {
-        std::string yaml_path = test_utils::GetAbsPath("blackhole_1chip_cluster.yaml");
-        cluster_desc = tt_ClusterDescriptor::create_from_yaml(yaml_path);
-    } else {
-        // TODO: remove getting manually cluster descriptor from yaml.
-        std::string yaml_path = tt_ClusterDescriptor::get_cluster_descriptor_file_path();
-        cluster_desc = tt_ClusterDescriptor::create_from_yaml(yaml_path);
-    }
+    // TODO: remove getting manually cluster descriptor from yaml.
+    std::string yaml_path = tt_ClusterDescriptor::get_cluster_descriptor_file_path();
+    cluster_desc = tt_ClusterDescriptor::create_from_yaml(yaml_path);
 
     return cluster_desc;
 }

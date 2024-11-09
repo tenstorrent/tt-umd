@@ -523,16 +523,21 @@ void tt_ClusterDescriptor::load_ethernet_connections_from_connectivity_descripto
 }
 
 void tt_ClusterDescriptor::load_chips_from_connectivity_descriptor(YAML::Node &yaml, tt_ClusterDescriptor &desc) {
+
+    for (YAML::const_iterator node = yaml["arch"].begin(); node != yaml["arch"].end(); ++node) {
+        chip_id_t chip_id = node->first.as<int>();
+        desc.all_chips.insert(chip_id);
+    }
+
     for (YAML::const_iterator node = yaml["chips"].begin(); node != yaml["chips"].end(); ++node) {
         chip_id_t chip_id = node->first.as<int>();
         std::vector<int> chip_rack_coords = node->second.as<std::vector<int>>();
         log_assert(chip_rack_coords.size() == 4, "Galaxy (x, y, rack, shelf) coords must be size 4");
         eth_coord_t chip_location{
             chip_rack_coords.at(0), chip_rack_coords.at(1), chip_rack_coords.at(2), chip_rack_coords.at(3)};
-        
+
         desc.chip_locations.insert({chip_id, chip_location});
         desc.coords_to_chip_ids[std::get<2>(chip_location)][std::get<3>(chip_location)][std::get<1>(chip_location)][std::get<0>(chip_location)] = chip_id;
-        desc.all_chips.insert(chip_id);
     }
     
     for(const auto& chip : yaml["chips_with_mmio"]) {
@@ -558,7 +563,7 @@ void tt_ClusterDescriptor::load_chips_from_connectivity_descriptor(YAML::Node &y
             std::get<3>(chip_location));
     }
 
-		if (yaml["boardtype"]) {
+	if (yaml["boardtype"]) {
         for (const auto& chip_board_type : yaml["boardtype"].as<std::map<int, std::string>>()) {
             auto &chip = chip_board_type.first;
             BoardType board_type;
@@ -568,7 +573,13 @@ void tt_ClusterDescriptor::load_chips_from_connectivity_descriptor(YAML::Node &y
                 board_type = BoardType::N300;
             } else if (chip_board_type.second == "GALAXY") {
                 board_type = BoardType::GALAXY;
+            } else if (chip_board_type.second == "e150") {
+                board_type = BoardType::E150;
+            }
+            else if (chip_board_type.second == "p150A") {
+                board_type = BoardType::P150A;
             } else {
+                log_warning(LogSiliconDriver, "Unknown board type for chip {}. This might happen because chip is running old firmware. Defaulting to DEFAULT", chip);
                 board_type = BoardType::DEFAULT;
             }
             desc.chip_board_type.insert({chip, board_type});
@@ -622,7 +633,7 @@ const std::unordered_map<chip_id_t, std::unordered_map<ethernet_channel_t, std::
 
 const std::unordered_map<chip_id_t, eth_coord_t>& tt_ClusterDescriptor::get_chip_locations() const {
     static auto locations = std::unordered_map<chip_id_t, eth_coord_t>();
-    if (locations.empty()) {
+    if (locations.empty() and !this->chip_locations.empty()) {
         for (auto chip_id : this->enabled_active_chips) {
             locations[chip_id] = chip_locations.at(chip_id);
         }
@@ -632,6 +643,7 @@ const std::unordered_map<chip_id_t, eth_coord_t>& tt_ClusterDescriptor::get_chip
 }
 
 chip_id_t tt_ClusterDescriptor::get_shelf_local_physical_chip_coords(chip_id_t virtual_coord) {
+    log_assert(!this->chip_locations.empty(), "Getting physical chip coordinates is only valid for systems where chips have coordinates");
     // Physical cooridnates of chip inside a single rack. Calculated based on Galaxy topology.
     // See: https://yyz-gitlab.local.tenstorrent.com/tenstorrent/budabackend/-/wikis/uploads/23e7a5168f38dfb706f9887fde78cb03/image.png
     int x = std::get<0>(get_chip_locations().at(virtual_coord));
@@ -667,6 +679,7 @@ const std::unordered_map<chip_id_t, bool>& tt_ClusterDescriptor::get_noc_transla
 std::size_t tt_ClusterDescriptor::get_number_of_chips() const { return this->enabled_active_chips.size(); }
 
 int tt_ClusterDescriptor::get_ethernet_link_distance(chip_id_t chip_a, chip_id_t chip_b) const {
+    log_assert(!this->chip_locations.empty(), "Getting physical chip coordinates is only valid for systems where chips have coordinates");
     return this->get_ethernet_link_coord_distance(chip_locations.at(chip_a), chip_locations.at(chip_b));
 }
 

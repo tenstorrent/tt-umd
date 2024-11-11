@@ -59,7 +59,7 @@ void tt_emulation_device::assert_risc_reset() {
   log_info(tt::LogEmulationDriver, "Asserted all tensix RISC Reset ");
 }
 
-void tt_emulation_device::deassert_risc_reset_at_core(tt_cxy_pair core) {
+void tt_emulation_device::deassert_risc_reset_at_core(tt_cxy_pair core, const TensixSoftResetOptions &soft_resets) {
   tt_zebu_wrapper_inst->tensix_reset_deassert(core.x, core.y);
 }
 

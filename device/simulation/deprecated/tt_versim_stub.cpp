@@ -49,7 +49,7 @@ void tt_VersimDevice::start(
 ) {}
 
 void tt_VersimDevice::deassert_risc_reset() {}
-void tt_VersimDevice::deassert_risc_reset_at_core(tt_cxy_pair core) {}
+void tt_VersimDevice::deassert_risc_reset_at_core(tt_cxy_pair core, const TensixSoftResetOptions &soft_resets) {}
 void tt_VersimDevice::assert_risc_reset() {}
 void tt_VersimDevice::assert_risc_reset_at_core(tt_cxy_pair core) {}
 

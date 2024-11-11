@@ -24,7 +24,7 @@ public:
   virtual void start_device(const tt_device_params& device_params);
   virtual void close_device();
   virtual void deassert_risc_reset();
-  virtual void deassert_risc_reset_at_core(tt_cxy_pair core);
+  virtual void deassert_risc_reset_at_core(tt_cxy_pair core, const TensixSoftResetOptions &soft_resets = TENSIX_DEASSERT_SOFT_RESET);
   virtual void assert_risc_reset();
   virtual void assert_risc_reset_at_core(tt_cxy_pair core);
   virtual void write_to_device(std::vector<uint32_t>& vec, tt_cxy_pair core, uint64_t addr, const std::string& tlb_to_use, bool send_epoch_cmd = false, bool last_send_epoch_cmd = true, bool ordered_with_prev_remote_write = false);

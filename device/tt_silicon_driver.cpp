@@ -741,7 +741,7 @@ void tt_SiliconDevice::deassert_risc_reset() {
     broadcast_tensix_risc_reset_to_cluster(TENSIX_DEASSERT_SOFT_RESET);
 }
 
-void tt_SiliconDevice::deassert_risc_reset_at_core(tt_cxy_pair core) {
+void tt_SiliconDevice::deassert_risc_reset_at_core(tt_cxy_pair core, const TensixSoftResetOptions &soft_resets) {
     std::uint32_t target_device = core.chip; // Get Target Device to query soc descriptor and determine location in cluster
     log_assert(std::find(get_soc_descriptor(target_device).workers.begin(), get_soc_descriptor(target_device).workers.end(), core) != get_soc_descriptor(target_device).workers.end() ||
                std::find(get_soc_descriptor(target_device).ethernet_cores.begin(), get_soc_descriptor(target_device).ethernet_cores.end(), core) != get_soc_descriptor(target_device).ethernet_cores.end(),
@@ -749,11 +749,11 @@ void tt_SiliconDevice::deassert_risc_reset_at_core(tt_cxy_pair core) {
     bool target_is_mmio_capable = ndesc -> is_chip_mmio_capable(target_device);
     if(target_is_mmio_capable) {
         log_assert(m_pci_device_map.find(target_device) != m_pci_device_map.end(), "Could not find MMIO mapped device in devices connected over PCIe");
-        send_tensix_risc_reset_to_core(core, TENSIX_DEASSERT_SOFT_RESET);
+        send_tensix_risc_reset_to_core(core, soft_resets);
     }
     else {
         log_assert(arch_name != tt::ARCH::BLACKHOLE, "Can't issue access to remote core in BH");
-        send_remote_tensix_risc_reset_to_core(core, TENSIX_DEASSERT_SOFT_RESET);
+        send_remote_tensix_risc_reset_to_core(core, soft_resets);
     }
 }
 

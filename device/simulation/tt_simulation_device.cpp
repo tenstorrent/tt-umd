@@ -131,7 +131,7 @@ void tt_SimulationDevice::deassert_risc_reset() {
     host.send_to_device(wr_buffer_ptr, wr_buffer_size);
 }
 
-void tt_SimulationDevice::deassert_risc_reset_at_core(tt_cxy_pair core) {
+void tt_SimulationDevice::deassert_risc_reset_at_core(tt_cxy_pair core, const TensixSoftResetOptions &soft_resets) {
     log_info(tt::LogEmulationDriver, "Sending 'deassert_risc_reset_at_core'.. (Not implemented, defaulting to 'deassert_risc_reset' instead)");
     deassert_risc_reset();
 }

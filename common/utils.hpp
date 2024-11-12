@@ -17,7 +17,7 @@ static std::string get_abs_path(std::string path) {
     // compiler.
     std::filesystem::path current_file_path = std::filesystem::absolute(__FILE__);
     std::cout << "Current file path: " << current_file_path << std::endl;
-    std::filesystem::path umd_root = current_file_path.parent_path().parent_path();
+    std::filesystem::path umd_root = current_file_path.parent_path().parent_path().parent_path();
     std::cout << "UMD root: " << umd_root << std::endl;
     std::filesystem::path abs_path = umd_root / path;
     std::cout << "Absolute path: " << abs_path << std::endl;

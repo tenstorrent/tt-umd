@@ -12,7 +12,7 @@
 
 namespace tt::umd::utils {
 
-std::string get_abs_path(std::string path) {
+static std::string get_abs_path(std::string path) {
     // Note that __FILE__ might be resolved at compile time to an absolute or relative address, depending on the
     // compiler.
     std::filesystem::path current_file_path = std::filesystem::absolute(__FILE__);

@@ -7,6 +7,7 @@
 #pragma once
 
 #include <filesystem>
+#include <iostream>
 #include <string>
 
 namespace tt::umd::utils {
@@ -20,7 +21,7 @@ std::string get_abs_path(std::string path) {
         umd_root = current_file_path.parent_path().parent_path();
     } else {
         std::filesystem::path umd_root_relative =
-            std::filesystem::relative(std::filesystem::path(__FILE__).parent_path().parent_path().parent_path(), "../");
+            std::filesystem::relative(std::filesystem::path(__FILE__).parent_path().parent_path(), "../");
         umd_root = std::filesystem::canonical(umd_root_relative);
     }
     std::filesystem::path abs_path = umd_root / path;

@@ -716,7 +716,6 @@ public:
     virtual tt_version get_ethernet_fw_version() const;
     // TODO: This should be accessible through public API, probably to be moved to tt_device.
     PCIDevice *get_pci_device(int device_id) const;
-    const tt_ClusterDescriptor* get_cluster_desc();
 
     // Destructor
     virtual ~tt_SiliconDevice ();

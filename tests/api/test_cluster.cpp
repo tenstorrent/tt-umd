@@ -60,7 +60,7 @@ TEST(ApiClusterTest, OpenAllChips) { std::unique_ptr<Cluster> umd_cluster = get_
 TEST(ApiClusterTest, SimpleIOAllChips) {
     std::unique_ptr<Cluster> umd_cluster = get_cluster();
 
-    const tt_ClusterDescriptor* cluster_desc = umd_cluster->get_cluster_desc();
+    const tt_ClusterDescriptor* cluster_desc = umd_cluster->get_cluster_description();
 
     if (umd_cluster == nullptr || umd_cluster->get_all_chips_in_cluster().empty()) {
         std::cout << "No chips found. Skipping test." << std::endl;
@@ -119,7 +119,7 @@ TEST(ApiClusterTest, SimpleIOAllChips) {
 TEST(ApiClusterTest, RemoteFlush) {
     std::unique_ptr<Cluster> umd_cluster = get_cluster();
 
-    const tt_ClusterDescriptor* cluster_desc = umd_cluster->get_cluster_desc();
+    const tt_ClusterDescriptor* cluster_desc = umd_cluster->get_cluster_description();
 
     if (umd_cluster == nullptr || umd_cluster->get_all_chips_in_cluster().empty()) {
         std::cout << "No chips found. Skipping test." << std::endl;

@@ -278,11 +278,11 @@ bool tt_SocDescriptor::is_ethernet_core(const tt_xy_pair &core) const {
 std::string tt_SocDescriptor::get_soc_descriptor_path(tt::ARCH arch) {
     switch (arch) {
         case tt::ARCH::GRAYSKULL:
-            return tt::umd::utils::get_abs_path("device/soc_descriptors/grayskull_10x12.yaml");
+            return tt::umd::utils::get_abs_path("tests/soc_descs/grayskull_10x12.yaml");
         case tt::ARCH::WORMHOLE_B0:
-            return tt::umd::utils::get_abs_path("device/soc_descriptors/wormhole_b0_8x10.yaml");
+            return tt::umd::utils::get_abs_path("tests/soc_descs/wormhole_b0_8x10.yaml");
         case tt::ARCH::BLACKHOLE:
-            return tt::umd::utils::get_abs_path("device/soc_descriptors/blackhole_140_arch_no_eth.yaml");
+            return tt::umd::utils::get_abs_path("tests/soc_descs/blackhole_140_arch_no_eth.yaml");
         default:
             throw std::runtime_error("Invalid architecture");
     }

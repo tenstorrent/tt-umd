@@ -91,7 +91,7 @@ TEST(SiliconDriverGS, HarvestingRuntime) {
         // Iterate over devices and only setup static TLBs for functional worker cores
         auto& sdesc = device.get_virtual_soc_descriptors().at(i);
         for(auto& core : sdesc.workers) {
-            // Statically mapping a 1MB TLB to this core, starting from address DATA_BUFFER_SPACE_BASE. 
+            // Statically mapping a 1MB TLB to this core, starting from address DATA_BUFFER_SPACE_BASE.
             device.configure_tlb(i, core, get_static_tlb_index(core), l1_mem::address_map::DATA_BUFFER_SPACE_BASE);
         }
         device.setup_core_to_tlb_map(i, get_static_tlb_index);
@@ -146,19 +146,19 @@ TEST(SiliconDriverGS, StaticTLB_RW) {
         return flat_index;
     };
     std::set<chip_id_t> target_devices = {0};
-    
+
     uint32_t num_host_mem_ch_per_mmio_device = 1;
     Cluster device = Cluster(test_utils::GetAbsPath("tests/soc_descs/grayskull_10x12.yaml"), tt_ClusterDescriptor::get_cluster_descriptor_file_path(), target_devices, num_host_mem_ch_per_mmio_device, false, true);
     for(int i = 0; i < target_devices.size(); i++) {
         // Iterate over devices and only setup static TLBs for worker cores
         auto& sdesc = device.get_virtual_soc_descriptors().at(i);
         for(auto& core : sdesc.workers) {
-            // Statically mapping a 1MB TLB to this core, starting from address DATA_BUFFER_SPACE_BASE. 
+            // Statically mapping a 1MB TLB to this core, starting from address DATA_BUFFER_SPACE_BASE.
             device.configure_tlb(i, core, get_static_tlb_index(core), l1_mem::address_map::DATA_BUFFER_SPACE_BASE, TLB_DATA::Posted);
         }
         device.setup_core_to_tlb_map(i, get_static_tlb_index);
     }
-    
+
     tt_device_params default_params;
     device.start_device(default_params);
     device.deassert_risc_reset();
@@ -188,7 +188,7 @@ TEST(SiliconDriverGS, StaticTLB_RW) {
             address += 0x20; // Increment by uint32_t size for each write
         }
     }
-    device.close_device();    
+    device.close_device();
 }
 
 TEST(SiliconDriverGS, DynamicTLB_RW) {
@@ -239,7 +239,7 @@ TEST(SiliconDriverGS, MultiThreadedDevice) {
 
     uint32_t num_host_mem_ch_per_mmio_device = 1;
     Cluster device = Cluster(test_utils::GetAbsPath("tests/soc_descs/grayskull_10x12.yaml"), tt_ClusterDescriptor::get_cluster_descriptor_file_path(), target_devices, num_host_mem_ch_per_mmio_device, false, true);
-    
+
     tt_device_params default_params;
     device.start_device(default_params);
     device.deassert_risc_reset();
@@ -299,7 +299,7 @@ TEST(SiliconDriverGS, MultiThreadedDevice) {
 
 TEST(SiliconDriverGS, MultiThreadedMemBar) { // this tests takes ~5 mins to run
     // Have 2 threads read and write from a single device concurrently
-    // All (fairly large) transactions go through a static TLB. 
+    // All (fairly large) transactions go through a static TLB.
     // We want to make sure the memory barrier is thread/process safe.
 
     // Memory barrier flags get sent to address 0 for all channels in this test
@@ -317,12 +317,12 @@ TEST(SiliconDriverGS, MultiThreadedMemBar) { // this tests takes ~5 mins to run
     uint32_t num_host_mem_ch_per_mmio_device = 1;
 
     Cluster device = Cluster(test_utils::GetAbsPath("tests/soc_descs/grayskull_10x12.yaml"), tt_ClusterDescriptor::get_cluster_descriptor_file_path(), target_devices, num_host_mem_ch_per_mmio_device, false, true);
-    
+
     for(int i = 0; i < target_devices.size(); i++) {
         // Iterate over devices and only setup static TLBs for functional worker cores
         auto& sdesc = device.get_virtual_soc_descriptors().at(i);
         for(auto& core : sdesc.workers) {
-            // Statically mapping a 1MB TLB to this core, starting from address DATA_BUFFER_SPACE_BASE. 
+            // Statically mapping a 1MB TLB to this core, starting from address DATA_BUFFER_SPACE_BASE.
             device.configure_tlb(i, core, get_static_tlb_index(core), base_addr);
         }
         device.setup_core_to_tlb_map(i, get_static_tlb_index);
@@ -419,16 +419,16 @@ inline void fill_with_random_bytes(uint8_t* data, size_t n)
  * Copied from Wormhole unit tests.
  */
 TEST(SiliconDriverGS, SysmemTestWithPcie) {
-    tt_SiliconDevice device(test_utils::GetAbsPath("tests/soc_descs/grayskull_10x12.yaml"),
-                            "", // test_utils::GetClusterDescYAML(),
-                            {0},
-                            1,  // one "host memory channel", currently a 1G huge page
-                            false, // skip driver allocs - no (don't skip)
-                            true,  // clean system resources - yes
-                            true); // perform harvesting - yes
+    Cluster cluster(test_utils::GetAbsPath("tests/soc_descs/grayskull_10x12.yaml"),
+                    "", // test_utils::GetClusterDescYAML(),
+                    {0},
+                    1,  // one "host memory channel", currently a 1G huge page
+                    false, // skip driver allocs - no (don't skip)
+                    true,  // clean system resources - yes
+                    true); // perform harvesting - yes
 
 
-    device.start_device(tt_device_params{});  // no special parameters
+    cluster.start_device(tt_device_params{});  // no special parameters
 
     // PCIe core is at (x=0, y=4) on Grayskull NOC0.
     const chip_id_t mmio_chip_id = 0;
@@ -440,10 +440,10 @@ TEST(SiliconDriverGS, SysmemTestWithPcie) {
     // Bad API: how big is the buffer?  How do we know it's big enough?
     // Situation today is that there's a 1G hugepage behind it, although this is
     // unclear from the API and may change in the future.
-    uint8_t *sysmem = (uint8_t*)device.host_dma_address(0, 0, 0);
+    uint8_t *sysmem = (uint8_t*)cluster.host_dma_address(0, 0, 0);
     ASSERT_NE(sysmem, nullptr);
 
-    uint64_t base_address = device.get_pcie_base_addr_from_device(mmio_chip_id);
+    uint64_t base_address = cluster.get_pcie_base_addr_from_device(mmio_chip_id);
 
     // Buffer that we will use to read sysmem into, then write sysmem from.
     std::vector<uint8_t> buffer(test_size_bytes, 0x0);
@@ -452,7 +452,7 @@ TEST(SiliconDriverGS, SysmemTestWithPcie) {
     fill_with_random_bytes(sysmem, test_size_bytes);
 
     // Step 2: Read sysmem into buffer.
-    device.read_from_device(&buffer[0], PCIE_CORE, base_address, buffer.size(), "REG_TLB");
+    cluster.read_from_device(&buffer[0], PCIE_CORE, base_address, buffer.size(), "REG_TLB");
 
     // Step 3: Verify that buffer matches sysmem.
     ASSERT_EQ(buffer, std::vector<uint8_t>(sysmem, sysmem + test_size_bytes));
@@ -461,12 +461,12 @@ TEST(SiliconDriverGS, SysmemTestWithPcie) {
     fill_with_random_bytes(&buffer[0], test_size_bytes);
 
     // Step 5: Write buffer into sysmem, overwriting what was there.
-    device.write_to_device(&buffer[0], buffer.size(), PCIE_CORE, base_address, "REG_TLB");
+    cluster.write_to_device(&buffer[0], buffer.size(), PCIE_CORE, base_address, "REG_TLB");
 
     // Step 5b: Read back sysmem into a throwaway buffer.  The intent is to
     // ensure the write has completed before we check sysmem against buffer.
     std::vector<uint8_t> throwaway(test_size_bytes, 0x0);
-    device.read_from_device(&throwaway[0], PCIE_CORE, base_address, throwaway.size(), "REG_TLB");
+    cluster.read_from_device(&throwaway[0], PCIE_CORE, base_address, throwaway.size(), "REG_TLB");
 
     // Step 6: Verify that sysmem matches buffer.
     ASSERT_EQ(buffer, std::vector<uint8_t>(sysmem, sysmem + test_size_bytes));

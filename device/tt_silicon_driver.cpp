@@ -169,10 +169,6 @@ std::unordered_map<chip_id_t, tt_SocDescriptor>& tt_SiliconDevice::get_virtual_s
     return soc_descriptor_per_chip;
 }
 
-const tt_ClusterDescriptor* tt_SiliconDevice::get_cluster_desc() {
-    return ndesc.get();
-}
-
 void tt_SiliconDevice::initialize_interprocess_mutexes(int pci_interface_id, bool cleanup_mutexes_in_shm) {
     // These mutexes are intended to be based on physical devices/pci-intf not logical. Set these up ahead of time here (during device init)
     // since its unsafe to modify shared state during multithreaded runtime.
@@ -434,6 +430,7 @@ void tt_SiliconDevice::construct_tt_silicon_device(const uint32_t &num_host_mem_
 
 tt_SiliconDevice::tt_SiliconDevice(const uint32_t &num_host_mem_ch_per_mmio_device, const bool skip_driver_allocs,
                                    const bool clean_system_resources, bool perform_harvesting, std::unordered_map<chip_id_t, uint32_t> simulated_harvesting_masks) : tt_device() {
+    // TODO: this should be fetched through ClusterDescriptor
     auto available_device_ids = detect_available_device_ids();
     m_num_pci_devices = available_device_ids.size();
     
@@ -466,6 +463,7 @@ tt_SiliconDevice::tt_SiliconDevice(const uint32_t &num_host_mem_ch_per_mmio_devi
 tt_SiliconDevice::tt_SiliconDevice(const std::string &sdesc_path, const std::string &ndesc_path, const std::set<chip_id_t> &target_devices, 
                                    const uint32_t &num_host_mem_ch_per_mmio_device, const bool skip_driver_allocs,
                                    const bool clean_system_resources, bool perform_harvesting, std::unordered_map<chip_id_t, uint32_t> simulated_harvesting_masks) : tt_device() {
+    // TODO: this should be fetched through ClusterDescriptor
     auto available_device_ids = detect_available_device_ids();
     m_num_pci_devices = available_device_ids.size();
 

@@ -54,6 +54,13 @@ inline std::unique_ptr<tt_ClusterDescriptor> get_cluster_desc() {
     return cluster_desc;
 }
 
+inline tt_cxy_pair get_tensix_chip_core_coord(const std::unique_ptr<Cluster> &umd_cluster) {
+    chip_id_t any_mmio_chip = *umd_cluster->get_target_mmio_device_ids().begin();
+    const tt_SocDescriptor& soc_desc = umd_cluster->get_soc_descriptor(any_mmio_chip);
+    tt_xy_pair core = soc_desc.workers[0];
+    return tt_cxy_pair(any_mmio_chip, core);
+}
+
 inline std::unique_ptr<Cluster> get_cluster() {
 
     // TODO: This should not be needed. And could be part of the cluster descriptor probably.
@@ -186,4 +193,61 @@ TEST(ApiChipTest, SimpleAPIShowcase) {
     // TODO: In future, will be accessed through tt::umd::Chip api.
     umd_cluster->get_pcie_base_addr_from_device(chip_id);
     umd_cluster->get_num_host_channels(chip_id);
+}
+
+// This tests puts a specific core into reset and then deasserts it using default deassert value
+// It reads back the risc reset reg to validate
+TEST(ApiChipTest, DeassertRiscResetOnCore) {
+    std::unique_ptr<Cluster> umd_cluster = get_cluster();
+    
+    tt_cxy_pair chip_core_coord = get_tensix_chip_core_coord(umd_cluster);
+
+    umd_cluster->assert_risc_reset_at_core(chip_core_coord);
+    umd_cluster->l1_membar(chip_core_coord.chip, "LARGE_WRITE_TLB");
+    umd_cluster->deassert_risc_reset_at_core(chip_core_coord);
+    umd_cluster->l1_membar(chip_core_coord.chip, "LARGE_WRITE_TLB");
+
+    uint32_t soft_reset_reg_addr = 0xFFB121B0;
+    uint32_t expected_risc_reset_val = static_cast<uint32_t>(TENSIX_DEASSERT_SOFT_RESET);
+    uint32_t risc_reset_val;
+    umd_cluster->read_from_device(&risc_reset_val, chip_core_coord, soft_reset_reg_addr, sizeof(uint32_t), "REG_TLB");
+    EXPECT_EQ(expected_risc_reset_val, risc_reset_val);
+}
+
+// This tests puts a specific core into reset and then specifies a legal deassert value
+// It reads back the risc reset reg to validate
+TEST(ApiChipTest, SpecifyLegalDeassertRiscResetOnCore) {
+    std::unique_ptr<Cluster> umd_cluster = get_cluster();
+
+    tt_cxy_pair chip_core_coord = get_tensix_chip_core_coord(umd_cluster);
+
+    umd_cluster->assert_risc_reset_at_core(chip_core_coord);
+    TensixSoftResetOptions deassert_val = ALL_TRISC_SOFT_RESET | TensixSoftResetOptions::STAGGERED_START;
+    umd_cluster->deassert_risc_reset_at_core(chip_core_coord, deassert_val);
+    umd_cluster->l1_membar(chip_core_coord.chip, "LARGE_WRITE_TLB");
+
+    uint32_t soft_reset_reg_addr = 0xFFB121B0;
+    uint32_t risc_reset_val;
+    umd_cluster->read_from_device(&risc_reset_val, chip_core_coord, soft_reset_reg_addr, sizeof(uint32_t), "REG_TLB");
+    EXPECT_EQ(static_cast<uint32_t>(deassert_val), risc_reset_val);
+}
+
+// // This tests puts a specific core into reset and then specifies an illegal deassert value
+// // It reads back the risc reset reg to validate that reset reg is in a legal state
+TEST(ApiChipTest, SpecifyIllegalDeassertRiscResetOnCore) {
+    std::unique_ptr<Cluster> umd_cluster = get_cluster();
+
+    tt_cxy_pair chip_core_coord = get_tensix_chip_core_coord(umd_cluster);
+
+    umd_cluster->assert_risc_reset_at_core(chip_core_coord);
+
+    TensixSoftResetOptions deassert_val = static_cast<TensixSoftResetOptions>(0xDEADBEEF);
+    umd_cluster->deassert_risc_reset_at_core(chip_core_coord, deassert_val);
+    umd_cluster->l1_membar(chip_core_coord.chip, "LARGE_WRITE_TLB");
+
+    uint32_t soft_reset_reg_addr = 0xFFB121B0;
+    uint32_t risc_reset_val;
+    umd_cluster->read_from_device(&risc_reset_val, chip_core_coord, soft_reset_reg_addr, sizeof(uint32_t), "REG_TLB");
+    uint32_t expected_deassert_val = static_cast<uint32_t>(deassert_val & ALL_TENSIX_SOFT_RESET);
+    EXPECT_EQ(risc_reset_val, expected_deassert_val);
 }

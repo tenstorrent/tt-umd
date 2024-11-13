@@ -303,8 +303,12 @@ std::string tt_ClusterDescriptor::get_cluster_descriptor_file_path() {
     static std::string yaml_path;
     static bool is_initialized = false;
     if (!is_initialized){
-        // Cluster descriptor path will be created in the working directory.        
-        std::filesystem::path cluster_path = std::filesystem::path("cluster_descriptor.yaml");
+
+        // Cluster descriptor yaml will be created in a unique temporary directory.
+        std::filesystem::path temp_path = std::filesystem::temp_directory_path();
+        std::string cluster_path_dir_template = temp_path / "umd_XXXXXX";
+        std::filesystem::path cluster_path_dir = mkdtemp(cluster_path_dir_template.data());
+        std::filesystem::path cluster_path = cluster_path_dir / "cluster_descriptor.yaml";
         if (!std::filesystem::exists(cluster_path)){
             auto val = system ( ("touch " + cluster_path.string()).c_str());
             if(val != 0) throw std::runtime_error("Cluster Generation Failed!");

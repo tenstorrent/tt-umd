@@ -15,6 +15,8 @@
 #include "tests/test_utils/generate_cluster_desc.hpp"
 #include "tests/test_utils/device_test_utils.hpp"
 
+using namespace tt::umd;
+
 void set_params_for_remote_txn(Cluster& device) {
     // Populate address map and NOC parameters that the driver needs for remote transactions
     device.set_device_l1_address_params({l1_mem::address_map::L1_BARRIER_BASE, eth_l1_mem::address_map::ERISC_BARRIER_BASE, eth_l1_mem::address_map::FW_VERSION_ADDR});

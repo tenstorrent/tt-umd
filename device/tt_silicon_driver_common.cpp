@@ -4,7 +4,7 @@
 
 #include "device/tt_silicon_driver_common.hpp"
 #include "tt_xy_pair.h"
-#include "tt_device.h"
+#include "cluster.h"
 
 std::string TensixSoftResetOptionsToString(TensixSoftResetOptions value) {
     std::string output;

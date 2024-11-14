@@ -6,7 +6,7 @@
 
 #pragma once
 
-#include "tt_device.h"
+#include "cluster.h"
 #include "tt_soc_descriptor.h"
 #include "tt_xy_pair.h"
 

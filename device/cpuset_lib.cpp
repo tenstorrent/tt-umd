@@ -7,7 +7,7 @@
 #include "cpuset_lib.hpp"
 #include "common/logger.hpp"
 #include <thread>
-#include "device/tt_device.h"
+#include "device/cluster.h"
 #include <filesystem>
 #include "fmt/core.h"
 namespace tt {

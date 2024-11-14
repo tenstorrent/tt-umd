@@ -8,7 +8,7 @@
 #include "gtest/gtest.h"
 #include "common/logger.hpp"
 #include "tt_cluster_descriptor.h"
-#include "tt_device.h"
+#include "cluster.h"
 #include "eth_interface.h"
 #include "host_mem_address_map.h"
 #include "l1_address_map.h"
@@ -31,7 +31,7 @@ void run_remote_read_write_test(uint32_t vector_size, bool dram_write) {
 
     uint32_t num_host_mem_ch_per_mmio_device = 1;
 
-    tt_SiliconDevice device = tt_SiliconDevice(
+    Cluster device = Cluster(
         test_utils::GetAbsPath(SOC_DESC_PATH), cluster_desc_path, target_devices, num_host_mem_ch_per_mmio_device, false, true);
     const auto sdesc_per_chip = device.get_virtual_soc_descriptors();
 
@@ -144,7 +144,7 @@ void run_data_mover_test(
 
     uint32_t num_host_mem_ch_per_mmio_device = 1;
 
-    tt_SiliconDevice device = tt_SiliconDevice(
+    Cluster device = Cluster(
         test_utils::GetAbsPath(SOC_DESC_PATH), cluster_desc_path, target_devices, num_host_mem_ch_per_mmio_device, false, true);
 
     tt::umd::test::utils::set_params_for_remote_txn(device);
@@ -260,7 +260,7 @@ void run_data_broadcast_test(
 
     uint32_t num_host_mem_ch_per_mmio_device = 1;
 
-    tt_SiliconDevice device = tt_SiliconDevice(
+    Cluster device = Cluster(
         test_utils::GetAbsPath(SOC_DESC_PATH), cluster_desc_path, target_devices, num_host_mem_ch_per_mmio_device, false, true);
 
     tt::umd::test::utils::set_params_for_remote_txn(device);

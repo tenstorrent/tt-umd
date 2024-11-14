@@ -8,7 +8,7 @@
 #include <thread>
 
 #include "tt_cluster_descriptor.h"
-#include "tt_device.h"
+#include "cluster.h"
 
 #include "common/logger.hpp"
 #include "eth_interface.h"

@@ -449,7 +449,7 @@ TEST(SiliconDriverGS, SysmemTestWithPcie) {
     ASSERT_EQ(buffer, std::vector<uint8_t>(sysmem, sysmem + test_size_bytes));
 
     // Step 4: Fill buffer with random bytes.
-    fill_with_random_bytes(&buffer[0], test_size_bytes);
+    test_utils::fill_with_random_bytes(&buffer[0], test_size_bytes);
 
     // Step 5: Write buffer into sysmem, overwriting what was there.
     cluster.write_to_device(&buffer[0], buffer.size(), PCIE_CORE, base_address, "REG_TLB");

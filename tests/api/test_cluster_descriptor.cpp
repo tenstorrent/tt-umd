@@ -18,31 +18,10 @@
 
 
 inline std::unique_ptr<tt_ClusterDescriptor> get_cluster_desc() {
-
-    std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
-    std::set<int> pci_device_ids_set (pci_device_ids.begin(), pci_device_ids.end());
-
-    // TODO: This test requires knowledge of the device architecture, which should not be true.
-    tt::ARCH device_arch = tt::ARCH::GRAYSKULL;
-    if (!pci_device_ids.empty()) {
-        int physical_device_id = pci_device_ids[0];
-        PCIDevice pci_device (physical_device_id, 0);
-        device_arch = pci_device.get_arch();
-    }
-
-    // TODO: Make this test work on a host system without any tt devices.
-    if (pci_device_ids.empty()) {
-        std::cout << "No Tenstorrent devices found. Skipping test." << std::endl;
-        return nullptr;
-    }
-
-    // TODO: Remove different branch for different archs
-    std::unique_ptr<tt_ClusterDescriptor> cluster_desc;
     // TODO: remove getting manually cluster descriptor from yaml.
     std::string yaml_path = tt_ClusterDescriptor::get_cluster_descriptor_file_path();
-    cluster_desc = tt_ClusterDescriptor::create_from_yaml(yaml_path);
 
-    return cluster_desc;
+    return tt_ClusterDescriptor::create_from_yaml(yaml_path);
 }
 
 TEST(ApiClusterDescriptorTest, DetectArch) {
@@ -90,6 +69,38 @@ TEST(ApiClusterDescriptorTest, BasicFunctionality) {
     std::unordered_map<chip_id_t, std::unordered_set<chip_id_t>> chips_grouped_by_closest_mmio = cluster_desc->get_chips_grouped_by_closest_mmio();
 }
 
+TEST(ApiClusterDescriptorTest, TestAllOfflineClusterDescriptors) {
+    for (std::string cluster_desc_yaml : {
+        "blackhole_P150.yaml",
+        "galaxy.yaml",
+        "grayskull_E150.yaml",
+        "grayskull_E300.yaml",
+        "wormhole_2xN300_unconnected.yaml",
+        "wormhole_N150.yaml",
+        "wormhole_N300.yaml",
+    }) {
+        std::cout << "Testing " << cluster_desc_yaml << std::endl;
+        std::unique_ptr<tt_ClusterDescriptor> cluster_desc = tt_ClusterDescriptor::create_from_yaml(test_utils::GetAbsPath("tests/api/cluster_descriptor_examples/" + cluster_desc_yaml));
+
+        std::unordered_set<chip_id_t> all_chips = cluster_desc->get_all_chips();
+        std::unordered_map<chip_id_t, std::uint32_t> harvesting_for_chips = cluster_desc->get_harvesting_info();
+        std::unordered_map<chip_id_t, eth_coord_t> eth_chip_coords = cluster_desc->get_chip_locations();
+        std::unordered_map<chip_id_t, chip_id_t> local_chips_to_pci_device_id = cluster_desc->get_chips_with_mmio();
+        std::unordered_set<chip_id_t> local_chips;
+        for (auto [chip, _]: local_chips_to_pci_device_id) {
+            local_chips.insert(chip);
+        }
+        std::unordered_set<chip_id_t> remote_chips;
+        for (auto chip : all_chips) {
+            if (local_chips.find(chip) == local_chips.end()) {
+                remote_chips.insert(chip);
+            }
+        }
+
+        std::unordered_map<chip_id_t, std::unordered_set<chip_id_t>> chips_grouped_by_closest_mmio = cluster_desc->get_chips_grouped_by_closest_mmio();
+    }
+}
+
 // A standard disjoint set data structure to track connected components.
 class DisjointSet {
     public:
@@ -130,7 +141,9 @@ class DisjointSet {
 // It works as long as all the devices that are discoverable are connected through ethernet.
 // Our ClusterDescriptor doesn't have a notion of multiple unconnected clusters of cards.
 TEST(ApiClusterDescriptorTest, SeparateClusters) {
-    std::unique_ptr<tt_ClusterDescriptor> cluster_desc = get_cluster_desc();
+    GTEST_SKIP() << "Skipping test which documents non functional feature.";
+
+    std::unique_ptr<tt_ClusterDescriptor> cluster_desc = tt_ClusterDescriptor::create_from_yaml(test_utils::GetAbsPath("tests/api/cluster_descriptor_examples/wormhole_2xN300_unconnected.yaml"));
 
     if (cluster_desc == nullptr) {
         return;

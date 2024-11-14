@@ -34,34 +34,10 @@ using Cluster = tt_SiliconDevice;
 
 // TODO: This function should not exist, the API itself should be simple enough.
 inline std::unique_ptr<tt_ClusterDescriptor> get_cluster_desc() {
-    // TODO: This should not be needed. And could be part of the cluster descriptor probably.
-    // Note that cluster descriptor holds logical ids of chips.
-    // Which are different than physical PCI ids, which are /dev/tenstorrent/N ones.
-    // You have to see if physical PCIe is GS before constructing a cluster descriptor.
-    std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
-    std::set<int> pci_device_ids_set(pci_device_ids.begin(), pci_device_ids.end());
-
-    tt::ARCH device_arch = tt::ARCH::GRAYSKULL;
-    if (!pci_device_ids.empty()) {
-        // TODO: This should be removed from the API, the driver itself should do it.
-        int physical_device_id = pci_device_ids[0];
-        // TODO: remove logical_device_id
-        PCIDevice pci_device(physical_device_id, 0);
-        device_arch = pci_device.get_arch();
-    }
-
-    // TODO: Make this test work on a host system without any tt devices.
-    if (pci_device_ids.empty()) {
-        std::cout << "No Tenstorrent devices found. Skipping test." << std::endl;
-        return nullptr;
-    }
-
-    std::unique_ptr<tt_ClusterDescriptor> cluster_desc;
     // TODO: remove getting manually cluster descriptor from yaml.
     std::string yaml_path = tt_ClusterDescriptor::get_cluster_descriptor_file_path();
-    cluster_desc = tt_ClusterDescriptor::create_from_yaml(yaml_path);
 
-    return cluster_desc;
+    return tt_ClusterDescriptor::create_from_yaml(yaml_path);
 }
 
 // TODO: This function should not exist, the API itself should be simple enough.

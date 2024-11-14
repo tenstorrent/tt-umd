@@ -23,35 +23,10 @@
 using Cluster = tt_SiliconDevice;
 
 inline std::unique_ptr<tt_ClusterDescriptor> get_cluster_desc() {
-    // TODO: This should not be needed. And could be part of the cluster descriptor probably.
-    // Note that cluster descriptor holds logical ids of chips.
-    // Which are different than physical PCI ids, which are /dev/tenstorrent/N ones.
-    // You have to see if physical PCIe is GS before constructing a cluster descriptor.
-    std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
-    std::set<int> pci_device_ids_set (pci_device_ids.begin(), pci_device_ids.end());
-
-    tt::ARCH device_arch = tt::ARCH::GRAYSKULL;
-    if (!pci_device_ids.empty()) {
-        // TODO: This should be removed from the API, the driver itself should do it.
-        int physical_device_id = pci_device_ids[0];
-        // TODO: remove logical_device_id
-        PCIDevice pci_device (physical_device_id, 0);
-        device_arch = pci_device.get_arch();
-    }
-
-    // TODO: Make this test work on a host system without any tt devices.
-    if (pci_device_ids.empty()) {
-        std::cout << "No Tenstorrent devices found. Skipping test." << std::endl;
-        return nullptr;
-    }
-
-    // TODO: Remove different branch for different archs
-    std::unique_ptr<tt_ClusterDescriptor> cluster_desc;
     // TODO: remove getting manually cluster descriptor from yaml.
     std::string yaml_path = tt_ClusterDescriptor::get_cluster_descriptor_file_path();
-    cluster_desc = tt_ClusterDescriptor::create_from_yaml(yaml_path);
 
-    return cluster_desc;
+    return tt_ClusterDescriptor::create_from_yaml(yaml_path);
 }
 
 inline tt_cxy_pair get_tensix_chip_core_coord(const std::unique_ptr<Cluster> &umd_cluster) {
@@ -199,6 +174,11 @@ TEST(ApiChipTest, SimpleAPIShowcase) {
 // It reads back the risc reset reg to validate
 TEST(ApiChipTest, DeassertRiscResetOnCore) {
     std::unique_ptr<Cluster> umd_cluster = get_cluster();
+
+    if (umd_cluster == nullptr || umd_cluster->get_all_chips_in_cluster().empty()) {
+        std::cout << "No chips found. Skipping test." << std::endl;
+        return;
+    }
     
     tt_cxy_pair chip_core_coord = get_tensix_chip_core_coord(umd_cluster);
 
@@ -219,6 +199,11 @@ TEST(ApiChipTest, DeassertRiscResetOnCore) {
 TEST(ApiChipTest, SpecifyLegalDeassertRiscResetOnCore) {
     std::unique_ptr<Cluster> umd_cluster = get_cluster();
 
+    if (umd_cluster == nullptr || umd_cluster->get_all_chips_in_cluster().empty()) {
+        std::cout << "No chips found. Skipping test." << std::endl;
+        return;
+    }
+
     tt_cxy_pair chip_core_coord = get_tensix_chip_core_coord(umd_cluster);
 
     umd_cluster->assert_risc_reset_at_core(chip_core_coord);
@@ -236,6 +221,11 @@ TEST(ApiChipTest, SpecifyLegalDeassertRiscResetOnCore) {
 // // It reads back the risc reset reg to validate that reset reg is in a legal state
 TEST(ApiChipTest, SpecifyIllegalDeassertRiscResetOnCore) {
     std::unique_ptr<Cluster> umd_cluster = get_cluster();
+
+    if (umd_cluster == nullptr || umd_cluster->get_all_chips_in_cluster().empty()) {
+        std::cout << "No chips found. Skipping test." << std::endl;
+        return;
+    }
 
     tt_cxy_pair chip_core_coord = get_tensix_chip_core_coord(umd_cluster);
 

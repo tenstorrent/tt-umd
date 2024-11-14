@@ -3,7 +3,6 @@
 // SPDX-License-Identifier: Apache-2.0
 #include <thread>
 #include <memory>
-#include <random>
 
 #include "gtest/gtest.h"
 #include "cluster.h"
@@ -18,18 +17,6 @@
 
 using namespace tt::umd;
 
-inline void fill_with_random_bytes(uint8_t* data, size_t n)
-{
-    static std::random_device rd;
-    static std::mt19937_64 gen(rd());
-    uint64_t* data64 = reinterpret_cast<uint64_t*>(data);
-    std::generate_n(data64, n/8, [&]() { return gen(); });
-
-    // Handle remaining bytes
-    for (size_t i = (n/8)*8; i < n; ++i) {
-        data[i] = static_cast<uint8_t>(gen());
-    }
-}
 
 void set_params_for_remote_txn(Cluster& device) {
     // Populate address map and NOC parameters that the driver needs for remote transactions
@@ -669,7 +656,7 @@ TEST(SiliconDriverWH, SysmemTestWithPcie) {
     cluster.start_device(tt_device_params{});  // no special parameters
 
     const chip_id_t mmio_chip_id = 0;
-    const auto PCIE = device.get_soc_descriptor(mmio_chip_id).pcie_cores.at(0);
+    const auto PCIE = cluster.get_soc_descriptor(mmio_chip_id).pcie_cores.at(0);
     const tt_cxy_pair PCIE_CORE(mmio_chip_id, PCIE.x, PCIE.y);
     const size_t test_size_bytes = 0x4000;  // Arbitrarilly chosen, but small size so the test runs quickly.
 
@@ -692,7 +679,7 @@ TEST(SiliconDriverWH, SysmemTestWithPcie) {
     std::vector<uint8_t> buffer(test_size_bytes, 0x0);
 
     // Step 1: Fill sysmem with random bytes.
-    fill_with_random_bytes(sysmem, test_size_bytes);
+    test_utils::fill_with_random_bytes(sysmem, test_size_bytes);
 
     // Step 2: Read sysmem into buffer.
     cluster.read_from_device(&buffer[0], PCIE_CORE, base_address, buffer.size(), "REG_TLB");
@@ -701,7 +688,7 @@ TEST(SiliconDriverWH, SysmemTestWithPcie) {
     ASSERT_EQ(buffer, std::vector<uint8_t>(sysmem, sysmem + test_size_bytes));
 
     // Step 4: Fill buffer with random bytes.
-    fill_with_random_bytes(&buffer[0], test_size_bytes);
+    test_utils::fill_with_random_bytes(&buffer[0], test_size_bytes);
 
     // Step 5: Write buffer into sysmem, overwriting what was there.
     cluster.write_to_device(&buffer[0], buffer.size(), PCIE_CORE, base_address, "REG_TLB");
@@ -735,7 +722,7 @@ TEST(SiliconDriverWH, RandomSysmemTestWithPcie) {
     cluster.start_device(tt_device_params{});  // no special parameters
 
     const chip_id_t mmio_chip_id = 0;
-    const auto PCIE = device.get_soc_descriptor(mmio_chip_id).pcie_cores.at(0);
+    const auto PCIE = cluster.get_soc_descriptor(mmio_chip_id).pcie_cores.at(0);
     const tt_cxy_pair PCIE_CORE(mmio_chip_id, PCIE.x, PCIE.y);
     const size_t ONE_GIG = 1 << 30;
     const size_t num_tests = 0x20000;   // runs in a reasonable amount of time
@@ -757,7 +744,7 @@ TEST(SiliconDriverWH, RandomSysmemTestWithPcie) {
         uint8_t *sysmem = (uint8_t*)cluster.host_dma_address(0, 0, channel);
         ASSERT_NE(sysmem, nullptr);
 
-        fill_with_random_bytes(sysmem, ONE_GIG);
+        test_utils::fill_with_random_bytes(sysmem, ONE_GIG);
 
         uint64_t lo = (ONE_GIG * channel);
         uint64_t hi = (lo + ONE_GIG) - 1;
@@ -769,7 +756,7 @@ TEST(SiliconDriverWH, RandomSysmemTestWithPcie) {
             // restricting to 0x8'f000'0000.
             hi &= ~0x0fff'ffffULL;
         }
-        fmt::print("testing range lo={:#x} hi={:#x}\n", lo, hi);
+
         for (size_t i = 0; i < num_tests; ++i) {
             uint64_t address = generate_aligned_address(lo, hi);
             uint64_t noc_addr = base_address + address;

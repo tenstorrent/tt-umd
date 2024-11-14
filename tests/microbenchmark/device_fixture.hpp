@@ -13,6 +13,8 @@
 #include "device/tt_soc_descriptor.h"
 #include "tests/test_utils/generate_cluster_desc.hpp"
 
+using tt::umd::Cluster;
+
 class uBenchmarkFixture : public ::testing::Test {
     protected:
     void SetUp() override {
@@ -34,7 +36,7 @@ class uBenchmarkFixture : public ::testing::Test {
             // Iterate over devices and only setup static TLBs for functional worker cores
             auto& sdesc = device->get_virtual_soc_descriptors().at(i);
             for(auto& core : sdesc.workers) {
-                // Statically mapping a 1MB TLB to this core, starting from address DATA_BUFFER_SPACE_BASE. 
+                // Statically mapping a 1MB TLB to this core, starting from address DATA_BUFFER_SPACE_BASE.
                 device->configure_tlb(i, core, get_static_tlb_index(core), l1_mem::address_map::DATA_BUFFER_SPACE_BASE);
             }
         }

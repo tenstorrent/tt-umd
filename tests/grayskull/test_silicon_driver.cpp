@@ -404,16 +404,6 @@ TEST(SiliconDriverGS, MultiThreadedMemBar) { // this tests takes ~5 mins to run
     device.close_device();
 }
 
-#include <random>
-inline void fill_with_random_bytes(uint8_t* data, size_t n)
-{
-    static std::random_device rd;
-    static std::mt19937 gen(rd());
-    static std::uniform_int_distribution<uint8_t> dis(0, 255);
-
-    std::generate(data, data + n, [&]() { return dis(gen); });
-}
-
 /**
  * Copied from Wormhole unit tests.
  */
@@ -450,7 +440,7 @@ TEST(SiliconDriverGS, SysmemTestWithPcie) {
     std::vector<uint8_t> buffer(test_size_bytes, 0x0);
 
     // Step 1: Fill sysmem with random bytes.
-    fill_with_random_bytes(sysmem, test_size_bytes);
+    test_utils::fill_with_random_bytes(sysmem, test_size_bytes);
 
     // Step 2: Read sysmem into buffer.
     cluster.read_from_device(&buffer[0], PCIE_CORE, base_address, buffer.size(), "REG_TLB");

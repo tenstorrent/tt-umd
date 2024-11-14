@@ -668,12 +668,14 @@ TEST(SiliconDriverWH, SysmemTestWithPcie) {
     set_params_for_remote_txn(cluster);
     cluster.start_device(tt_device_params{});  // no special parameters
 
-    // PCIe core is at (x=0, y=3) on Wormhole NOC0.
     const chip_id_t mmio_chip_id = 0;
-    const size_t PCIE_X = 0;    // NOC0
-    const size_t PCIE_Y = 3;    // NOC0
-    const tt_cxy_pair PCIE_CORE(mmio_chip_id, PCIE_X, PCIE_Y);
+    const auto PCIE = device.get_soc_descriptor(mmio_chip_id).pcie_cores.at(0);
+    const tt_cxy_pair PCIE_CORE(mmio_chip_id, PCIE.x, PCIE.y);
     const size_t test_size_bytes = 0x4000;  // Arbitrarilly chosen, but small size so the test runs quickly.
+
+    // PCIe core is at (x=0, y=3) on Wormhole NOC0.
+    ASSERT_EQ(PCIE.x, 0);
+    ASSERT_EQ(PCIE.y, 3);
 
     // Bad API: how big is the buffer?  How do we know it's big enough?
     // Situation today is that there's a 1G hugepage behind it, although this is
@@ -732,13 +734,15 @@ TEST(SiliconDriverWH, RandomSysmemTestWithPcie) {
     set_params_for_remote_txn(cluster);
     cluster.start_device(tt_device_params{});  // no special parameters
 
-    // PCIe core is at (x=0, y=3) on Wormhole NOC0.
     const chip_id_t mmio_chip_id = 0;
-    const size_t PCIE_X = 0;    // NOC0
-    const size_t PCIE_Y = 3;    // NOC0
-    const tt_cxy_pair PCIE_CORE(mmio_chip_id, PCIE_X, PCIE_Y);
+    const auto PCIE = device.get_soc_descriptor(mmio_chip_id).pcie_cores.at(0);
+    const tt_cxy_pair PCIE_CORE(mmio_chip_id, PCIE.x, PCIE.y);
     const size_t ONE_GIG = 1 << 30;
     const size_t num_tests = 0x20000;   // runs in a reasonable amount of time
+
+    // PCIe core is at (x=0, y=3) on Wormhole NOC0.
+    ASSERT_EQ(PCIE.x, 0);
+    ASSERT_EQ(PCIE.y, 3);
 
     const uint64_t ALIGNMENT = sizeof(uint32_t);
     auto generate_aligned_address = [&](uint64_t lo, uint64_t hi) -> uint64_t {

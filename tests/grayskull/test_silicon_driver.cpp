@@ -239,7 +239,6 @@ TEST(SiliconDriverGS, MultiThreadedDevice) {
 
     uint32_t num_host_mem_ch_per_mmio_device = 1;
     Cluster device = Cluster(test_utils::GetAbsPath("tests/soc_descs/grayskull_10x12.yaml"), tt_ClusterDescriptor::get_cluster_descriptor_file_path(), target_devices, num_host_mem_ch_per_mmio_device, false, true);
-
     tt_device_params default_params;
     device.start_device(default_params);
     device.deassert_risc_reset();
@@ -430,12 +429,14 @@ TEST(SiliconDriverGS, SysmemTestWithPcie) {
 
     cluster.start_device(tt_device_params{});  // no special parameters
 
-    // PCIe core is at (x=0, y=4) on Grayskull NOC0.
     const chip_id_t mmio_chip_id = 0;
-    const size_t PCIE_X = 0;    // NOC0
-    const size_t PCIE_Y = 4;    // NOC0
-    const tt_cxy_pair PCIE_CORE(mmio_chip_id, PCIE_X, PCIE_Y);
+    const auto PCIE = cluster.get_soc_descriptor(mmio_chip_id).pcie_cores.at(0);
+    const tt_cxy_pair PCIE_CORE(mmio_chip_id, PCIE.x, PCIE.y);
     const size_t test_size_bytes = 0x4000;  // Arbitrarilly chosen, but small size so the test runs quickly.
+
+    // PCIe core is at (x=0, y=4) on Grayskull NOC0.
+    ASSERT_EQ(PCIE.x, 0);
+    ASSERT_EQ(PCIE.y, 4);
 
     // Bad API: how big is the buffer?  How do we know it's big enough?
     // Situation today is that there's a 1G hugepage behind it, although this is

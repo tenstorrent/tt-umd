@@ -15,6 +15,12 @@
 #include "tests/test_utils/generate_cluster_desc.hpp"
 #include "tests/test_utils/device_test_utils.hpp"
 
+#include "device/ioctl.h"
+#include <sys/ioctl.h> // for ioctl
+#include <sys/mman.h>  // for mmap, munmap
+#include <cassert>
+#include <iostream> // TODO: remove
+
 using namespace tt::umd;
 
 
@@ -702,6 +708,119 @@ TEST(SiliconDriverWH, SysmemTestWithPcie) {
     ASSERT_EQ(buffer, std::vector<uint8_t>(sysmem, sysmem + test_size_bytes));
 }
 
+class ATU {
+    void* bar2{nullptr};
+    size_t bar2_size{0};
+public:
+    ATU(int fd)
+    {
+        // Step 1: ask the kernel about its mappings.  We are looking for BAR2.
+        struct {
+            tenstorrent_query_mappings query_mappings;
+            tenstorrent_mapping mapping_array[8];
+        } mappings{};
+        mappings.query_mappings.in.output_mapping_count = 8;
+
+        if (ioctl(fd, TENSTORRENT_IOCTL_QUERY_MAPPINGS, &mappings.query_mappings) == -1) {
+            throw std::runtime_error("Failed to query mappings");
+        }
+
+        // NOTE: "Resource 1" is BAR2.
+        tenstorrent_mapping bar2_uc_mapping{};
+        for (unsigned int i = 0; i < mappings.query_mappings.in.output_mapping_count; i++) {
+            if (mappings.mapping_array[i].mapping_id == TENSTORRENT_MAPPING_RESOURCE1_UC) {
+                bar2_uc_mapping = mappings.mapping_array[i];
+                break;
+            }
+        }
+        if (bar2_uc_mapping.mapping_id != TENSTORRENT_MAPPING_RESOURCE1_UC) {
+            throw std::runtime_error("Device has no BAR2 UC mapping");
+        }
+
+        // Step 2: map in BAR2.
+        auto base = bar2_uc_mapping.mapping_base;
+        bar2_size = bar2_uc_mapping.mapping_size;
+        bar2 = mmap(nullptr, bar2_size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, base);
+        if (bar2 == MAP_FAILED) {
+            throw std::runtime_error("Failed to map BAR2");
+        }
+
+        static const size_t NUM_REGIONS = 16;
+        for (size_t i = 0; i < NUM_REGIONS; i++) {
+            print_config(i);
+        }
+    }
+    ~ATU()
+    {
+        munmap(bar2, bar2_size);
+    }
+
+    void print_config(size_t region)
+    {
+        auto read_iatu_reg = [&](uint64_t addr) {
+            return *reinterpret_cast<volatile uint32_t*>(iatu_base(region) + addr);
+        };
+
+        const uint64_t ctrl1 = read_iatu_reg(0x00);
+        const uint64_t ctrl2 = read_iatu_reg(0x04);
+        const uint64_t lower_base = read_iatu_reg(0x08);
+        const uint64_t upper_base = read_iatu_reg(0x0C);
+        const uint64_t limit = read_iatu_reg(0x10);
+        const uint64_t lower_target = read_iatu_reg(0x14);
+        const uint64_t upper_target = read_iatu_reg(0x18);
+        const uint64_t base = upper_base << 32 | lower_base;
+        const uint64_t target = upper_target << 32 | lower_target;
+
+        std::cout << "iATU Region " << region << " configuration:" << std::endl;
+        std::cout << "\tCTRL1: 0x" << std::hex << ctrl1 << std::endl;
+        std::cout << "\tCTRL2: 0x" << std::hex << ctrl2 << std::endl;
+        std::cout << "\tLIMIT: 0x" << std::hex << limit << std::endl;
+        std::cout << "\tTRGET: 0x" << std::hex << target << std::endl;
+        std::cout << "\t BASE: 0x" << std::hex << base << std::endl;
+
+        std::cout << "\n";
+    }
+
+    void read_config(size_t region, uint64_t& base, uint64_t& target, uint64_t& limit)
+    {
+        auto read_iatu_reg = [&](uint64_t addr) {
+            return *reinterpret_cast<volatile uint32_t*>(iatu_base(region) + addr);
+        };
+
+        const uint64_t lower_base = read_iatu_reg(0x08);
+        const uint64_t upper_base = read_iatu_reg(0x0C);
+        base = upper_base << 32 | lower_base;
+
+        const uint64_t lower_target = read_iatu_reg(0x14);
+        const uint64_t upper_target = read_iatu_reg(0x18);
+        target = upper_target << 32 | lower_target;
+
+        limit = read_iatu_reg(0x10);
+    }
+
+    void write_config(size_t region, uint64_t base, uint64_t target, uint64_t limit)
+    {
+        auto write_iatu_reg = [&](uint64_t addr, uint32_t value) {
+            *reinterpret_cast<volatile uint32_t*>(iatu_base(region) + addr) = value;
+        };
+
+        write_iatu_reg(0x00, 0x00000000);           // CTRL1
+        write_iatu_reg(0x04, 0x88280000);           // CTRL2
+        write_iatu_reg(0x08, base & 0xFFFFFFFF);    // LOWER_BASE
+        write_iatu_reg(0x0C, base >> 32);           // UPPER_BASE
+        write_iatu_reg(0x10, limit);                // LIMIT
+        write_iatu_reg(0x14, target & 0xFFFFFFFF);  // LOWER_TARGET
+        write_iatu_reg(0x18, target >> 32);         // UPPER_TARGET
+    }
+
+private:
+    uint8_t* iatu_base(size_t region) const
+    {
+        const uint64_t offset = 0x1200 + (region * 0x200);
+        return static_cast<uint8_t*>(bar2) + offset;
+    }
+};
+
 /**
  * Same idea as above, but with four channels of sysmem and random addresses.
  * The hardware mechanism is too slow to sweep the entire range.
@@ -730,6 +849,10 @@ TEST(SiliconDriverWH, RandomSysmemTestWithPcie) {
     // PCIe core is at (x=0, y=3) on Wormhole NOC0.
     ASSERT_EQ(PCIE.x, 0);
     ASSERT_EQ(PCIE.y, 3);
+
+    PCIDevice* pci_device = cluster.get_pci_device(0);
+    int fd = pci_device->get_fd();
+    ATU atu(fd);
 
     const uint64_t ALIGNMENT = sizeof(uint32_t);
     auto generate_aligned_address = [&](uint64_t lo, uint64_t hi) -> uint64_t {

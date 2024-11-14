@@ -1852,7 +1852,7 @@ void Cluster::wait_for_connected_non_mmio_flush(const chip_id_t chip_id) {
 
                     auto elapsed = std::chrono::system_clock::now() - start;
                     if (elapsed > std::chrono::seconds(1)) {
-                        log_error(LogSiliconDriver, "Timeout waiting for non-MMIO flush on chip {}", chip_id);
+                        log_error("Timeout waiting for non-MMIO flush on chip {}", chip_id);
                         break;
                     }
                 } while (erisc_q_ptrs[0] != erisc_q_ptrs[4]);
@@ -1864,7 +1864,7 @@ void Cluster::wait_for_connected_non_mmio_flush(const chip_id_t chip_id) {
 
                     auto elapsed = std::chrono::system_clock::now() - start;
                     if (elapsed > std::chrono::seconds(1)) {
-                        log_error(LogSiliconDriver, "Timeout waiting for non-MMIO flush on chip {}", chip_id);
+                        log_error("Timeout waiting for non-MMIO flush on chip {}", chip_id);
                         break;
                     }
                 } while (erisc_txn_counters[0] != erisc_txn_counters[1]);

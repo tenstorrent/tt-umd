@@ -60,7 +60,6 @@ inline std::unique_ptr<Cluster> get_cluster() {
 
     // TODO: Make this test work on a host system without any tt devices.
     if (pci_device_ids.empty()) {
-        std::cout << "No Tenstorrent devices found. Skipping test." << std::endl;
         return nullptr;
     }
 
@@ -122,8 +121,7 @@ TEST(ApiClusterTest, SimpleIOAllChips) {
     std::unique_ptr<Cluster> umd_cluster = get_cluster();
 
     if (umd_cluster == nullptr || umd_cluster->get_all_chips_in_cluster().empty()) {
-        std::cout << "No chips found. Skipping test." << std::endl;
-        return;
+        GTEST_SKIP() << "No chips present on the system. Skipping test.";
     }
 
     // Initialize random data.
@@ -180,8 +178,7 @@ TEST(ApiClusterTest, RemoteFlush) {
     std::unique_ptr<Cluster> umd_cluster = get_cluster();
 
     if (umd_cluster == nullptr || umd_cluster->get_all_chips_in_cluster().empty()) {
-        std::cout << "No chips found. Skipping test." << std::endl;
-        return;
+        GTEST_SKIP() << "No chips present on the system. Skipping test.";
     }
 
     size_t data_size = 1024;

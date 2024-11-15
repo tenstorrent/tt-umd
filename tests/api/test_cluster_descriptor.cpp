@@ -48,7 +48,7 @@ TEST(ApiClusterDescriptorTest, BasicFunctionality) {
     std::unique_ptr<tt_ClusterDescriptor> cluster_desc = get_cluster_desc();
 
     if (cluster_desc == nullptr) {
-        return;
+        GTEST_SKIP() << "No chips present on the system. Skipping test.";
     }
 
     std::unordered_set<chip_id_t> all_chips = cluster_desc->get_all_chips();
@@ -144,10 +144,6 @@ TEST(ApiClusterDescriptorTest, SeparateClusters) {
     GTEST_SKIP() << "Skipping test which documents non functional feature.";
 
     std::unique_ptr<tt_ClusterDescriptor> cluster_desc = tt_ClusterDescriptor::create_from_yaml(test_utils::GetAbsPath("tests/api/cluster_descriptor_examples/wormhole_2xN300_unconnected.yaml"));
-
-    if (cluster_desc == nullptr) {
-        return;
-    }
 
     auto all_chips = cluster_desc->get_all_chips();
     DisjointSet chip_clusters;

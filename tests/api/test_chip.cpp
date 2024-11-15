@@ -56,7 +56,6 @@ inline std::unique_ptr<Cluster> get_cluster() {
 
     // TODO: Make this test work on a host system without any tt devices.
     if (pci_device_ids.empty()) {
-        std::cout << "No Tenstorrent devices found. Skipping test." << std::endl;
         return nullptr;
     }
 
@@ -99,8 +98,7 @@ TEST(ApiChipTest, ManualTLBConfiguration) {
     std::unique_ptr<Cluster> umd_cluster = get_cluster();
 
     if (umd_cluster == nullptr || umd_cluster->get_all_chips_in_cluster().empty()) {
-        std::cout << "No chips found. Skipping test." << std::endl;
-        return;
+        GTEST_SKIP() << "No chips present on the system. Skipping test.";
     }
 
     // Expect to throw for remote chip for any worker core
@@ -159,8 +157,7 @@ TEST(ApiChipTest, SimpleAPIShowcase) {
     std::unique_ptr<Cluster> umd_cluster = get_cluster();
 
     if (umd_cluster == nullptr || umd_cluster->get_all_chips_in_cluster().empty()) {
-        std::cout << "No chips found. Skipping test." << std::endl;
-        return;
+        GTEST_SKIP() << "No chips present on the system. Skipping test.";
     }
 
     chip_id_t chip_id = umd_cluster->get_cluster_description()->get_chips_with_mmio().begin()->first;
@@ -176,8 +173,7 @@ TEST(ApiChipTest, DeassertRiscResetOnCore) {
     std::unique_ptr<Cluster> umd_cluster = get_cluster();
 
     if (umd_cluster == nullptr || umd_cluster->get_all_chips_in_cluster().empty()) {
-        std::cout << "No chips found. Skipping test." << std::endl;
-        return;
+        GTEST_SKIP() << "No chips present on the system. Skipping test.";
     }
     
     tt_cxy_pair chip_core_coord = get_tensix_chip_core_coord(umd_cluster);
@@ -200,8 +196,7 @@ TEST(ApiChipTest, SpecifyLegalDeassertRiscResetOnCore) {
     std::unique_ptr<Cluster> umd_cluster = get_cluster();
 
     if (umd_cluster == nullptr || umd_cluster->get_all_chips_in_cluster().empty()) {
-        std::cout << "No chips found. Skipping test." << std::endl;
-        return;
+        GTEST_SKIP() << "No chips present on the system. Skipping test.";
     }
 
     tt_cxy_pair chip_core_coord = get_tensix_chip_core_coord(umd_cluster);
@@ -223,8 +218,7 @@ TEST(ApiChipTest, SpecifyIllegalDeassertRiscResetOnCore) {
     std::unique_ptr<Cluster> umd_cluster = get_cluster();
 
     if (umd_cluster == nullptr || umd_cluster->get_all_chips_in_cluster().empty()) {
-        std::cout << "No chips found. Skipping test." << std::endl;
-        return;
+        GTEST_SKIP() << "No chips present on the system. Skipping test.";
     }
 
     tt_cxy_pair chip_core_coord = get_tensix_chip_core_coord(umd_cluster);

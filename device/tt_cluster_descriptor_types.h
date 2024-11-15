@@ -23,7 +23,7 @@ struct eth_coord_t {
     // in C++20 this should be defined as:
     // constexpr bool operator==(const eth_coord_t &other) const noexcept = default;
     constexpr bool operator==(const eth_coord_t &other) const noexcept {
-        return (x == other.x and y == other.y and rack == other.rack and shelf == other.shelf);
+        return (cluster_id == other.cluster_id and x == other.x and y == other.y and rack == other.rack and shelf == other.shelf);
     }
 };
 

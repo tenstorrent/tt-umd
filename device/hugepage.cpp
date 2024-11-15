@@ -15,10 +15,7 @@
 #include "common/logger.hpp"
 
 const uint32_t g_MAX_HOST_MEM_CHANNELS = 4;
-
-// Hardcode (but allow override) of path now, to support environments with other 1GB hugepage mounts not for runtime.
-const char* hugepage_dir_env = std::getenv("TT_BACKEND_HUGEPAGE_DIR");
-std::string hugepage_dir = hugepage_dir_env ? hugepage_dir_env : "/dev/hugepages-1G";
+static const std::string hugepage_dir = "/dev/hugepages-1G";
 
 namespace tt::umd {
 
@@ -43,7 +40,6 @@ uint32_t get_num_hugepages(){
 
 std::string find_hugepage_dir(std::size_t pagesize)
 {
-
     static const std::regex hugetlbfs_mount_re(fmt::format("^(nodev|hugetlbfs) ({}) hugetlbfs ([^ ]+) 0 0$", hugepage_dir));
     static const std::regex pagesize_re("(?:^|,)pagesize=([0-9]+)([KMGT])(?:,|$)");
 

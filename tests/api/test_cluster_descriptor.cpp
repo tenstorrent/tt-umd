@@ -102,13 +102,7 @@ TEST(ApiClusterDescriptorTest, TestAllOfflineClusterDescriptors) {
     }
 }
 
-
-// This tests fails on a machine with multiple cards.
-// It works as long as all the devices that are discoverable are connected through ethernet.
-// Our ClusterDescriptor doesn't have a notion of multiple unconnected clusters of cards.
 TEST(ApiClusterDescriptorTest, SeparateClusters) {
-    // GTEST_SKIP() << "Skipping test which documents non functional feature.";
-
     std::unique_ptr<tt_ClusterDescriptor> cluster_desc = tt_ClusterDescriptor::create_from_yaml(test_utils::GetAbsPath("tests/api/cluster_descriptor_examples/wormhole_2xN300_unconnected.yaml"));
 
     auto all_chips = cluster_desc->get_all_chips();

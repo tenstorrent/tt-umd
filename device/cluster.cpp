@@ -903,6 +903,7 @@ void Cluster::write_device_memory(const void *mem_ptr, uint32_t size_in_bytes, t
 
 void Cluster::read_device_memory(void *mem_ptr, tt_cxy_pair target, std::uint32_t address, std::uint32_t size_in_bytes, const std::string& fallback_tlb) {
     // Assume that mem_ptr has been allocated adequate memory on host when this function is called. Otherwise, this function will cause a segfault.
+    // LOL NO IF YOU ARE LUCKY IT WILL CAUSE A SEGFAULT. IF YOU ARE UNLUCKY IT WILL CORRUPT MEMORY AND YOU WILL HAVE NO IDEA WHY.
     log_debug(LogSiliconDriver, "Cluster::read_device_memory to chip:{} {}-{} at 0x{:x} size_in_bytes: {}", target.chip, target.x, target.y, address, size_in_bytes);
     PCIDevice *dev = get_pci_device(target.chip);
 
@@ -917,6 +918,7 @@ void Cluster::read_device_memory(void *mem_ptr, tt_cxy_pair target, std::uint32_
     log_debug(LogSiliconDriver, "  tlb_index: {}, tlb_data.has_value(): {}", tlb_index, tlb_data.has_value());
 
     if (tlb_data.has_value()  && address_in_tlb_space(address, size_in_bytes, tlb_index, std::get<1>(tlb_data.value()), target.chip)) {
+        fmt::print("already-allocated-tlb path\n");
         auto [tlb_offset, tlb_size] = tlb_data.value();
         if (dev->bar4_wc != nullptr && tlb_size == BH_4GB_TLB_SIZE) {
             // This is only for Blackhole. If we want to  read from DRAM (BAR4 space), we add offset
@@ -1087,7 +1089,7 @@ std::optional<std::tuple<uint32_t, uint32_t>> Cluster::get_tlb_data_from_target(
     return tlb_data;
 }
 
-void Cluster::configure_tlb(chip_id_t logical_device_id, tt_xy_pair core, std::int32_t tlb_index, std::int32_t address, uint64_t ordering) {
+void Cluster::configure_tlb(chip_id_t logical_device_id, tt_xy_pair core, std::int32_t tlb_index, std::uint64_t address, uint64_t ordering) {
     log_assert(ordering == TLB_DATA::Strict || ordering == TLB_DATA::Posted || ordering == TLB_DATA::Relaxed, "Invalid ordering specified in Cluster::configure_tlb");
     PCIDevice *pci_device = get_pci_device(logical_device_id);
     pci_device->set_dynamic_tlb(tlb_index, core, address, harvested_coord_translation, ordering);
@@ -2426,8 +2428,10 @@ void Cluster::read_from_device(void* mem_ptr, tt_cxy_pair core, uint64_t addr, u
     bool target_is_mmio_capable = ndesc -> is_chip_mmio_capable(core.chip);
     if (target_is_mmio_capable) {
         if (fallback_tlb == "REG_TLB") {
+            fmt::print("going through reg path\n");
             read_mmio_device_register(mem_ptr, core, addr, size, fallback_tlb);
         } else {
+            fmt::print("going through mem path\n");
             read_device_memory(mem_ptr, core, addr, size, fallback_tlb);
         }
     }

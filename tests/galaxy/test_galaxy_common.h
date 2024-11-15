@@ -22,9 +22,6 @@
 
 using namespace tt::umd;
 
-using chip_id_t = int;
-using ethernet_channel_t = int;
-using eth_coord_t = std::tuple<int, int, int, int>;  // x, y, rack, shelf
 struct tt_multichip_core_addr {
     tt_multichip_core_addr() : core{}, chip{}, addr{} {}
     tt_multichip_core_addr(chip_id_t chip, tt_xy_pair core, std::uint64_t addr) : core(core), chip(chip), addr(addr) {}

@@ -9,6 +9,7 @@
 #include <unordered_map>
 
 #include "tests/test_utils/generate_cluster_desc.hpp"
+#include "common/disjoint_set.hpp"
 
 #include "device/pcie/pci_device.hpp"
 #include "device/tt_cluster_descriptor.h"
@@ -101,52 +102,17 @@ TEST(ApiClusterDescriptorTest, TestAllOfflineClusterDescriptors) {
     }
 }
 
-// A standard disjoint set data structure to track connected components.
-class DisjointSet {
-    public:
-        void add_item(int item) {
-            parent[item] = item;
-        }
-
-        int get_parent(int item) {
-            while (parent[item] != item) {
-                item = parent[item];
-            }
-            return item;
-        }
-
-        void merge(int item1, int item2) {
-            int parent1 = get_parent(item1);
-            int parent2 = get_parent(item2);
-            parent[parent1] = parent2;
-        }
-
-        bool are_same_set(int item1, int item2) {
-            return get_parent(item1) == get_parent(item2);
-        }
-
-        int get_num_sets() {
-            std::unordered_set<int> sets;
-            for (auto [item, _]: parent) {
-                sets.insert(get_parent(item));
-            }
-            return sets.size();
-        }
-
-    private:
-        std::unordered_map<int, int> parent;
-};
 
 // This tests fails on a machine with multiple cards.
 // It works as long as all the devices that are discoverable are connected through ethernet.
 // Our ClusterDescriptor doesn't have a notion of multiple unconnected clusters of cards.
 TEST(ApiClusterDescriptorTest, SeparateClusters) {
-    GTEST_SKIP() << "Skipping test which documents non functional feature.";
+    // GTEST_SKIP() << "Skipping test which documents non functional feature.";
 
     std::unique_ptr<tt_ClusterDescriptor> cluster_desc = tt_ClusterDescriptor::create_from_yaml(test_utils::GetAbsPath("tests/api/cluster_descriptor_examples/wormhole_2xN300_unconnected.yaml"));
 
     auto all_chips = cluster_desc->get_all_chips();
-    DisjointSet chip_clusters;
+    DisjointSet<chip_id_t> chip_clusters;
     for (auto chip : all_chips) {
         chip_clusters.add_item(chip);
     }

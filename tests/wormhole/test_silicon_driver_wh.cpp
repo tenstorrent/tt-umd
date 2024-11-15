@@ -847,6 +847,9 @@ TEST(SiliconDriverWH, RandomSysmemTestWithPcie) {
     const size_t ONE_GIG = 1 << 30;
     const size_t num_tests = 4;
 
+    cluster.setup_core_to_tlb_map(0, get_static_tlb_index);
+    cluster.configure_tlb(0, PCIE, get_static_tlb_index(PCIE), 0x8'0000'0000);
+
     // PCIe core is at (x=0, y=3) on Wormhole NOC0.
     ASSERT_EQ(PCIE.x, 0);
     ASSERT_EQ(PCIE.y, 3);
@@ -898,7 +901,7 @@ TEST(SiliconDriverWH, RandomSysmemTestWithPcie) {
 
             cluster.read_from_device(&value, PCIE_CORE, noc_addr, sizeof(uint32_t), "");
 
-            uint32_t expected = *reinterpret_cast<uint32_t*>(&sysmem[sysmem_address]);
+            expected = *reinterpret_cast<uint32_t*>(&sysmem[sysmem_address]);
             EXPECT_EQ(value, expected) << fmt::format("Mismatch at address {:#x} {}", address, i);
         }
     }

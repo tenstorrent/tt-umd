@@ -81,5 +81,4 @@ add_custom_target(
         simulation_tests
         test_pcie_device
         api_tests
-        ubench
 )

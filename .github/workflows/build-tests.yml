@@ -28,7 +28,7 @@ on:
 
 
 env:
-  BUILD_TARGET: umd_tests
+  BUILD_TARGETS: "umd_tests ubench"
   BUILD_OUTPUT_DIR: ./build
   LIB_OUTPUT_DIR: ./build/lib
   DEPS_OUTPUT_DIR: ./build/_deps
@@ -61,11 +61,11 @@ jobs:
           submodules: recursive
           lfs: 'true'
 
-      - name: Build ${{ env.BUILD_TARGET }}
+      - name: Build ${{ env.BUILD_TARGETS }}
         run: |
           echo "Compiling the code..."
           cmake -B ${{ env.BUILD_OUTPUT_DIR }} -G Ninja -DTT_UMD_BUILD_TESTS=ON
-          cmake --build ${{ env.BUILD_OUTPUT_DIR }} --target ${{ env.BUILD_TARGET }}
+          cmake --build ${{ env.BUILD_OUTPUT_DIR }} --target ${{ env.BUILD_TARGETS }}
           echo "Compile complete."
 
       # This is needed to preserve file permissions

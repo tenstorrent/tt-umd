@@ -33,6 +33,7 @@ env:
   LIB_OUTPUT_DIR: ./build/lib
   DEPS_OUTPUT_DIR: ./build/_deps
   TEST_OUTPUT_DIR: ./build/test
+  CLUSTER_DESCRIPTORS_DIR: ./tests/api/cluster_descriptor_examples
 
 jobs:
   build:
@@ -74,7 +75,8 @@ jobs:
         run: |
           tar cvf artifact.tar ${{ env.TEST_OUTPUT_DIR }} \
           ${{ env.LIB_OUTPUT_DIR }} \
-          ${{ env.DEPS_OUTPUT_DIR }}
+          ${{ env.DEPS_OUTPUT_DIR }} \
+          ${{ env.CLUSTER_DESCRIPTORS_DIR }}
 
       - name: Upload build artifacts archive
         uses: actions/upload-artifact@v4

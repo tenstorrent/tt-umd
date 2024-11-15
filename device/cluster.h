@@ -338,7 +338,7 @@ class tt_device
      *
      * @param core Chip and core being targeted.
      */  
-    virtual void assert_risc_reset_at_core(tt_cxy_pair core) {
+    virtual void assert_risc_reset_at_core(tt_cxy_pair core, const TensixSoftResetOptions &soft_resets = TENSIX_ASSERT_SOFT_RESET) {
         throw std::runtime_error("---- tt_device::assert_risc_reset_at_core is not implemented\n");
     }
 
@@ -638,7 +638,7 @@ class Cluster: public tt_device
     virtual void assert_risc_reset();
     virtual void deassert_risc_reset();
     virtual void deassert_risc_reset_at_core(tt_cxy_pair core, const TensixSoftResetOptions &soft_resets = TENSIX_DEASSERT_SOFT_RESET);
-    virtual void assert_risc_reset_at_core(tt_cxy_pair core);
+    virtual void assert_risc_reset_at_core(tt_cxy_pair core, const TensixSoftResetOptions &soft_resets = TENSIX_ASSERT_SOFT_RESET);
     virtual void close_device();
 
     // Runtime Functions

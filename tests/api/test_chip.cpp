@@ -14,10 +14,10 @@
 
 #include "tests/test_utils/generate_cluster_desc.hpp"
 
-// TODO: change to tt_cluster
 #include "device/cluster.h"
 #include "device/tt_cluster_descriptor.h"
 #include "device/architecture_implementation.h"
+#include "device/driver_atomics.h"
 
 using namespace tt::umd;
 
@@ -166,9 +166,9 @@ TEST(ApiChipTest, SimpleAPIShowcase) {
     umd_cluster->get_num_host_channels(chip_id);
 }
 
-// This tests puts a specific core into reset and then deasserts it using default deassert value
-// It reads back the risc reset reg to validate
-TEST(ApiChipTest, DeassertRiscResetOnCore) {
+// This tests puts asserts, deasserts, and then asserts risc reset.
+// It reads back the risc reset reg to validate the reset register is in the expected state
+TEST(ApiChipTest, AssertDeassertRiscResetOnCore) {
     std::unique_ptr<Cluster> umd_cluster = get_cluster();
 
     if (umd_cluster == nullptr || umd_cluster->get_all_chips_in_cluster().empty()) {
@@ -183,15 +183,22 @@ TEST(ApiChipTest, DeassertRiscResetOnCore) {
     umd_cluster->l1_membar(chip_core_coord.chip, "LARGE_WRITE_TLB");
 
     uint32_t soft_reset_reg_addr = 0xFFB121B0;
-    uint32_t expected_risc_reset_val = static_cast<uint32_t>(TENSIX_DEASSERT_SOFT_RESET);
-    uint32_t risc_reset_val;
-    umd_cluster->read_from_device(&risc_reset_val, chip_core_coord, soft_reset_reg_addr, sizeof(uint32_t), "REG_TLB");
-    EXPECT_EQ(expected_risc_reset_val, risc_reset_val);
+    uint32_t expected_risc_deassert_val = static_cast<uint32_t>(TENSIX_DEASSERT_SOFT_RESET);
+    uint32_t deassert_reset_val;
+    umd_cluster->read_from_device(&deassert_reset_val, chip_core_coord, soft_reset_reg_addr, sizeof(uint32_t), "REG_TLB");
+    EXPECT_EQ(expected_risc_deassert_val, deassert_reset_val);
+
+    umd_cluster->assert_risc_reset_at_core(chip_core_coord);
+    umd_cluster->l1_membar(chip_core_coord.chip, "LARGE_WRITE_TLB");
+    uint32_t expected_risc_assert_val = static_cast<uint32_t>(TENSIX_ASSERT_SOFT_RESET);
+    uint32_t assert_reset_val;
+    umd_cluster->read_from_device(&assert_reset_val, chip_core_coord, soft_reset_reg_addr, sizeof(uint32_t), "REG_TLB");
+    EXPECT_EQ(expected_risc_assert_val, assert_reset_val);
 }
 
-// This tests puts a specific core into reset and then specifies a legal deassert value
+// This tests puts a specific core into reset and then specifies legal deassert and assert values
 // It reads back the risc reset reg to validate
-TEST(ApiChipTest, SpecifyLegalDeassertRiscResetOnCore) {
+TEST(ApiChipTest, SpecifyLegalAssertDeassertRiscResetOnCore) {
     std::unique_ptr<Cluster> umd_cluster = get_cluster();
 
     if (umd_cluster == nullptr || umd_cluster->get_all_chips_in_cluster().empty()) {
@@ -206,14 +213,23 @@ TEST(ApiChipTest, SpecifyLegalDeassertRiscResetOnCore) {
     umd_cluster->l1_membar(chip_core_coord.chip, "LARGE_WRITE_TLB");
 
     uint32_t soft_reset_reg_addr = 0xFFB121B0;
-    uint32_t risc_reset_val;
-    umd_cluster->read_from_device(&risc_reset_val, chip_core_coord, soft_reset_reg_addr, sizeof(uint32_t), "REG_TLB");
-    EXPECT_EQ(static_cast<uint32_t>(deassert_val), risc_reset_val);
+    uint32_t deassert_reset_val;
+    umd_cluster->read_from_device(&deassert_reset_val, chip_core_coord, soft_reset_reg_addr, sizeof(uint32_t), "REG_TLB");
+    EXPECT_EQ(static_cast<uint32_t>(deassert_val), deassert_reset_val);
+
+    TensixSoftResetOptions assert_val = TENSIX_ASSERT_SOFT_RESET & 
+        static_cast<TensixSoftResetOptions>(~std::underlying_type<TensixSoftResetOptions>::type(TensixSoftResetOptions::BRISC));
+    umd_cluster->assert_risc_reset_at_core(chip_core_coord, assert_val);
+    umd_cluster->l1_membar(chip_core_coord.chip, "LARGE_WRITE_TLB");
+
+    uint32_t assert_reset_val;
+    umd_cluster->read_from_device(&assert_reset_val, chip_core_coord, soft_reset_reg_addr, sizeof(uint32_t), "REG_TLB");
+    EXPECT_EQ(static_cast<uint32_t>(assert_val), assert_reset_val);
 }
 
-// // This tests puts a specific core into reset and then specifies an illegal deassert value
-// // It reads back the risc reset reg to validate that reset reg is in a legal state
-TEST(ApiChipTest, SpecifyIllegalDeassertRiscResetOnCore) {
+// This tests puts a specific core into reset and then specifies illegal deassert and assert values
+// It reads back the risc reset reg to validate that reset reg is in a legal state
+TEST(ApiChipTest, SpecifyIllegalAssertDeassertRiscResetOnCore) {
     std::unique_ptr<Cluster> umd_cluster = get_cluster();
 
     if (umd_cluster == nullptr || umd_cluster->get_all_chips_in_cluster().empty()) {
@@ -224,13 +240,22 @@ TEST(ApiChipTest, SpecifyIllegalDeassertRiscResetOnCore) {
 
     umd_cluster->assert_risc_reset_at_core(chip_core_coord);
 
-    TensixSoftResetOptions deassert_val = static_cast<TensixSoftResetOptions>(0xDEADBEEF);
-    umd_cluster->deassert_risc_reset_at_core(chip_core_coord, deassert_val);
+    TensixSoftResetOptions illegal_deassert_val = static_cast<TensixSoftResetOptions>(0xDEADBEEF);
+    umd_cluster->deassert_risc_reset_at_core(chip_core_coord, illegal_deassert_val);
     umd_cluster->l1_membar(chip_core_coord.chip, "LARGE_WRITE_TLB");
 
     uint32_t soft_reset_reg_addr = 0xFFB121B0;
-    uint32_t risc_reset_val;
-    umd_cluster->read_from_device(&risc_reset_val, chip_core_coord, soft_reset_reg_addr, sizeof(uint32_t), "REG_TLB");
-    uint32_t expected_deassert_val = static_cast<uint32_t>(deassert_val & ALL_TENSIX_SOFT_RESET);
-    EXPECT_EQ(risc_reset_val, expected_deassert_val);
+    uint32_t deassert_reset_val;
+    umd_cluster->read_from_device(&deassert_reset_val, chip_core_coord, soft_reset_reg_addr, sizeof(uint32_t), "REG_TLB");
+    uint32_t expected_deassert_val = static_cast<uint32_t>(illegal_deassert_val & ALL_TENSIX_SOFT_RESET);
+    EXPECT_EQ(deassert_reset_val, expected_deassert_val);
+
+    TensixSoftResetOptions illegal_assert_val = static_cast<TensixSoftResetOptions>(0xFACEFEED);
+    umd_cluster->assert_risc_reset_at_core(chip_core_coord, illegal_assert_val);
+    umd_cluster->l1_membar(chip_core_coord.chip, "LARGE_WRITE_TLB");
+
+    uint32_t assert_reset_val;
+    umd_cluster->read_from_device(&assert_reset_val, chip_core_coord, soft_reset_reg_addr, sizeof(uint32_t), "REG_TLB");
+    uint32_t expected_assert_val = static_cast<uint32_t>(illegal_assert_val & ALL_TENSIX_SOFT_RESET);
+    EXPECT_EQ(assert_reset_val, expected_assert_val);
 }

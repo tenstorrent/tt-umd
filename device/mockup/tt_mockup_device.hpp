@@ -10,7 +10,7 @@
 #include <vector>
 
 #include "device/tt_cluster_descriptor.h"
-#include "device/tt_device.h"
+#include "device/cluster.h"
 
 class tt_MockupDevice : public tt_device {
    public:

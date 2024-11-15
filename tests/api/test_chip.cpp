@@ -15,12 +15,11 @@
 #include "tests/test_utils/generate_cluster_desc.hpp"
 
 // TODO: change to tt_cluster
-#include "device/tt_device.h"
+#include "device/cluster.h"
 #include "device/tt_cluster_descriptor.h"
 #include "device/architecture_implementation.h"
 
-// TODO: write this test to work with Chip not whole Cluster.
-using Cluster = tt_SiliconDevice;
+using namespace tt::umd;
 
 inline std::unique_ptr<tt_ClusterDescriptor> get_cluster_desc() {
     // TODO: remove getting manually cluster descriptor from yaml.

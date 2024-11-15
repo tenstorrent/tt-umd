@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 
-#include "tt_device.h"
+#include "cluster.h"
 
 #include <iostream>
 #include <fstream>

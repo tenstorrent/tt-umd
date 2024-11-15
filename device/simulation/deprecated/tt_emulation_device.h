@@ -11,7 +11,7 @@
 #include <vector>
 #include "tt_soc_descriptor.h"
 #include "tt_xy_pair.h"
-#include "tt_device.h"
+#include "cluster.h"
 
 // use forward declaration here so we do not need to include tt_zebu_wrapper.h
 class tt_zebu_wrapper;

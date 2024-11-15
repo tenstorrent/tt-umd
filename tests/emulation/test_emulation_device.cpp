@@ -5,7 +5,7 @@
  */
 #include "gtest/gtest.h"
 #include "device/tt_soc_descriptor.h"
-#include "device/tt_device.h"
+#include "device/cluster.h"
 #include "device/tt_emulation_device.h"
 
 // DEPRECATED TEST SUITE !!!

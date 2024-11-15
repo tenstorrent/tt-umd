@@ -4,7 +4,7 @@
 
 
 
-#include "tt_device.h"
+#include "cluster.h"
 #include "device/driver_atomics.h"
 #include "common/logger.hpp"
 #include <iostream>

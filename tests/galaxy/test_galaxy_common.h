@@ -13,12 +13,14 @@
 #include <vector>
 #include <sstream>
 
-#include "device/tt_device.h"
+#include "device/cluster.h"
 #include "device/tt_xy_pair.h"
 
 #include "fmt/core.h"
 
 // static const std::string SOC_DESC_PATH = "./tests/soc_descs/wormhole_b0_8x10.yaml";
+
+using namespace tt::umd;
 
 using chip_id_t = int;
 using ethernet_channel_t = int;
@@ -38,11 +40,11 @@ struct tt_multichip_core_addr {
 // SIMPLE DATAMOVEMENT API BASED ON UMD
 // send one contiguous chunk of data from one sender core to a receiver core
 void move_data(
-    tt_SiliconDevice& device, tt_multichip_core_addr sender_core, tt_multichip_core_addr receiver_core, uint32_t size);
+    Cluster& device, tt_multichip_core_addr sender_core, tt_multichip_core_addr receiver_core, uint32_t size);
 
 // send one contiguous chunk of data to a vector of receiver cores
 void broadcast_data(
-    tt_SiliconDevice& device,
+    Cluster& device,
     tt_multichip_core_addr sender_core,
     std::vector<tt_multichip_core_addr> receiver_cores,
     uint32_t size);

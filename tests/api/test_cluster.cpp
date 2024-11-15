@@ -14,9 +14,8 @@
 #include "fmt/xchar.h"
 #include "tests/test_utils/generate_cluster_desc.hpp"
 
-// TODO: change to tt_cluster
 #include "device/tt_cluster_descriptor.h"
-#include "device/tt_device.h"
+#include "device/cluster.h"
 
 // TODO: obviously we need some other way to set this up
 #include "src/firmware/riscv/wormhole/eth_l1_address_map.h"
@@ -24,8 +23,7 @@
 #include "src/firmware/riscv/wormhole/l1_address_map.h"
 #include "noc/noc_parameters.h"
 
-// TODO: do proper renaming.
-using Cluster = tt_SiliconDevice;
+using namespace tt::umd;
 
 // These tests are intended to be run with the same code on all kinds of systems:
 // E75, E150, E300

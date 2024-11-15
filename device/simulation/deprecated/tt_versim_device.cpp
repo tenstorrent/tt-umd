@@ -173,7 +173,7 @@ void tt_VersimDevice::assert_risc_reset() {
     versim::assert_riscv_reset(*versim);
 }
 
-void tt_VersimDevice::assert_risc_reset_at_core(tt_cxy_pair core) {
+void tt_VersimDevice::assert_risc_reset_at_core(tt_cxy_pair core, const TensixSoftResetOptions& soft_resets) {
     // This function asserts reset on the full versim device (don't need core level granularity for versim)
     assert_risc_reset();
 }

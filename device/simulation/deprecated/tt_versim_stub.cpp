@@ -96,7 +96,7 @@ void tt_VersimDevice::deassert_risc_reset_at_core(tt_cxy_pair core, const Tensix
 
 void tt_VersimDevice::assert_risc_reset() {}
 
-void tt_VersimDevice::assert_risc_reset_at_core(tt_cxy_pair core) {}
+void tt_VersimDevice::assert_risc_reset_at_core(tt_cxy_pair core, const TensixSoftResetOptions& soft_resets) {}
 
 void tt_VersimDevice::translate_to_noc_table_coords(chip_id_t device_id, std::size_t& r, std::size_t& c){};
 

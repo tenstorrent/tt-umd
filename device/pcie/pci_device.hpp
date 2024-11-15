@@ -22,7 +22,7 @@
 // See /vendor_ip/synopsys/052021/bh_pcie_ctl_gen5/export/configuration/DWC_pcie_ctl.h
 static const uint64_t UNROLL_ATU_OFFSET_BAR = 0x1200;
 
-// TODO: this is a bit of a hack... something to revisit when we formalize an 
+// TODO: this is a bit of a hack... something to revisit when we formalize an
 // abstraction for IO.
 // BAR0 size for Blackhole, used to determine whether write block should use BAR0 or BAR4
 static const uint64_t BAR0_BH_SIZE = 512 * 1024 * 1024;
@@ -83,7 +83,7 @@ public:
      *
      * Opens the character device file descriptor, reads device information from
      * sysfs, and maps device memory region(s) into the process address space.
-     * 
+     *
      * @param pci_device_number     N in /dev/tenstorrent/N
      * @param logical_device_id     unique identifier for this device in the network topology
      */
@@ -127,17 +127,6 @@ public:
      * is unused by this class.
      */
     int get_logical_id() const { return logical_id; }
-
-    /**
-     * @return PCI device id
-     */
-    int get_pci_device_id() const { return info.device_id; }
-
-    /**
-     * @return PCI revision value from sysfs.
-     * TODO: target for removal; upper layers should not care about this.
-     */
-    int get_pci_revision() const { return revision; }
 
     /**
      * @return what architecture this device is (e.g. Wormhole, Blackhole, etc.)

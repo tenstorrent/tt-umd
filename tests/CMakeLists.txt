@@ -57,9 +57,7 @@ else()
     include_directories("${CMAKE_CURRENT_BINARY_DIR}/$ENV{ARCH_NAME}")
 endif()
 
-if(MASTER_PROJECT)
-    add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/microbenchmark)
-endif()
+add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/microbenchmark)
 add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/api)
 add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/pcie)
 add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/simulation)
@@ -83,4 +81,5 @@ add_custom_target(
         simulation_tests
         test_pcie_device
         api_tests
+        ubench
 )

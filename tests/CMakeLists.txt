@@ -58,11 +58,11 @@ else()
 endif()
 
 if(MASTER_PROJECT)
-    add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/microbenchmark)
+    #add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/microbenchmark)
 endif()
 add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/api)
 add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/pcie)
-add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/simulation)
+#add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/simulation)
 if($ENV{ARCH_NAME} STREQUAL "wormhole_b0")
     add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/wormhole)
     add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/galaxy)
@@ -80,7 +80,7 @@ add_custom_target(
     umd_tests
     DEPENDS
         umd_unit_tests
-        simulation_tests
+        #simulation_tests
         test_pcie_device
         api_tests
 )

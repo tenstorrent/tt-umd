@@ -1,6 +1,6 @@
 set(POSITION_INDEPENDENT_CODE ON)
 
-generate_fbs_header(${PROJECT_SOURCE_DIR}/device/simulation/tt_simulation_device.fbs)
+#generate_fbs_header(${PROJECT_SOURCE_DIR}/device/simulation/tt_simulation_device.fbs)
 
 set(UMD_DEVICE_SRCS
     architecture_implementation.cpp
@@ -11,8 +11,8 @@ set(UMD_DEVICE_SRCS
     tt_silicon_driver_common.cpp
     tt_soc_descriptor.cpp
     xy_pair.cpp
-    simulation/tt_simulation_device.cpp
-    simulation/tt_simulation_host.cpp
+    #simulation/tt_simulation_device.cpp
+    #simulation/tt_simulation_host.cpp
     blackhole/blackhole_implementation.cpp
     grayskull/grayskull_implementation.cpp
     wormhole/wormhole_implementation.cpp
@@ -44,10 +44,10 @@ target_include_directories(
 # nng is public - exposed to tt_metal by tt_simulation_host.hpp
 target_link_libraries(
     device
-    PUBLIC
-        nng
-        flatbuffers
-        uv
+    #    PUBLIC
+    #    nng
+    #    flatbuffers
+    #    uv
     PRIVATE
         hwloc
         rt

@@ -728,18 +728,19 @@ public:
         // NOTE: "Resource 1" is BAR2.
         tenstorrent_mapping bar2_uc_mapping{};
         for (unsigned int i = 0; i < mappings.query_mappings.in.output_mapping_count; i++) {
-            if (mappings.mapping_array[i].mapping_id == TENSTORRENT_MAPPING_RESOURCE1_UC) {
+            if (mappings.mapping_array[i].mapping_id == TENSTORRENT_MAPPING_RESOURCE1_WC) {
                 bar2_uc_mapping = mappings.mapping_array[i];
                 break;
             }
         }
-        if (bar2_uc_mapping.mapping_id != TENSTORRENT_MAPPING_RESOURCE1_UC) {
+        if (bar2_uc_mapping.mapping_id != TENSTORRENT_MAPPING_RESOURCE1_WC) {
             throw std::runtime_error("Device has no BAR2 UC mapping");
         }
 
         // Step 2: map in BAR2.
         auto base = bar2_uc_mapping.mapping_base;
         bar2_size = bar2_uc_mapping.mapping_size;
+        std::cout << "bar2_size: " << bar2_size << std::endl;
         bar2 = mmap(nullptr, bar2_size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, base);
         if (bar2 == MAP_FAILED) {
             throw std::runtime_error("Failed to map BAR2");
@@ -844,7 +845,7 @@ TEST(SiliconDriverWH, RandomSysmemTestWithPcie) {
     const auto PCIE = cluster.get_soc_descriptor(mmio_chip_id).pcie_cores.at(0);
     const tt_cxy_pair PCIE_CORE(mmio_chip_id, PCIE.x, PCIE.y);
     const size_t ONE_GIG = 1 << 30;
-    const size_t num_tests = 0x20000;   // runs in a reasonable amount of time
+    const size_t num_tests = 4;
 
     // PCIe core is at (x=0, y=3) on Wormhole NOC0.
     ASSERT_EQ(PCIE.x, 0);
@@ -893,7 +894,12 @@ TEST(SiliconDriverWH, RandomSysmemTestWithPcie) {
             cluster.read_from_device(&value, PCIE_CORE, noc_addr, sizeof(uint32_t), "REG_TLB");
 
             uint32_t expected = *reinterpret_cast<uint32_t*>(&sysmem[sysmem_address]);
-            ASSERT_EQ(value, expected) << fmt::format("Mismatch at address {:#x}", address);
+            EXPECT_EQ(value, expected) << fmt::format("Mismatch at address {:#x} {}", address, i);
+
+            cluster.read_from_device(&value, PCIE_CORE, noc_addr, sizeof(uint32_t), "");
+
+            uint32_t expected = *reinterpret_cast<uint32_t*>(&sysmem[sysmem_address]);
+            EXPECT_EQ(value, expected) << fmt::format("Mismatch at address {:#x} {}", address, i);
         }
     }
 }

@@ -4,7 +4,6 @@ generate_fbs_header(${PROJECT_SOURCE_DIR}/device/simulation/tt_simulation_device
 
 set(UMD_DEVICE_SRCS
     architecture_implementation.cpp
-    cpuset_lib.cpp
     tlb.cpp
     tt_cluster_descriptor.cpp
     cluster.cpp

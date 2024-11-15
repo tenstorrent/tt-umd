@@ -21,7 +21,6 @@
 #include "device/tt_arch_types.h"
 #include "device/driver_atomics.h"
 #include "device/architecture_implementation.h"
-#include "device/cpuset_lib.hpp"
 #include "device/hugepage.h"
 #include "common/assert.hpp"
 #include "common/logger.hpp"
@@ -615,6 +614,7 @@ bool PCIDevice::init_hugepage(uint32_t num_host_mem_channels) {
 
     // Support for more than 1GB host memory accessible per device, via channels.
     for (int ch = 0; ch < num_host_mem_channels; ch++) {
+        // TODO(JMS): NUMA considerations
 
         int hugepage_fd = open_hugepage_file(hugepage_dir, physical_device_id, ch);
         if (hugepage_fd == -1) {
@@ -643,13 +643,6 @@ bool PCIDevice::init_hugepage(uint32_t num_host_mem_channels) {
             print_file_contents("/sys/kernel/mm/hugepages/hugepages-1048576kB/nr_hugepages"); // Hardcoded for 1GB hugepage.
             success = false;
             continue;
-        }
-
-        // Beter performance if hugepage just allocated (populate flag to prevent lazy alloc) is migrated to same numanode as TT device.
-        if (!tt::cpuset::tt_cpuset_allocator::bind_area_to_memory_nodeset(physical_device_id, mapping, hugepage_size)){
-            log_warning(LogSiliconDriver, "---- ttSiliconDevice::init_hugepage: bind_area_to_memory_nodeset() failed (physical_device_id: {} ch: {}). "
-            "Hugepage allocation is not on NumaNode matching TT Device. Side-Effect is decreased Device->Host perf (Issue #893).",
-            physical_device_id, ch);
         }
 
         tenstorrent_pin_pages pin_pages;

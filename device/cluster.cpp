@@ -220,7 +220,7 @@ void Cluster::initialize_interprocess_mutexes(int pci_interface_id, bool cleanup
     umask(old_umask);
 }
 
-void Cluster::create_device(const std::unordered_set<chip_id_t> &target_mmio_device_ids, const uint32_t &num_host_mem_ch_per_mmio_device, const bool skip_driver_allocs, const bool clean_system_resources) {
+void Cluster::create_device(const std::unordered_set<chip_id_t> &target_mmio_device_ids, const uint32_t num_host_mem_ch_per_mmio_device, const bool skip_driver_allocs, const bool clean_system_resources) {
     log_debug(LogSiliconDriver, "Cluster::Cluster");
 
     // Don't buffer stdout.
@@ -298,7 +298,7 @@ std::unordered_map<chip_id_t, uint32_t> Cluster::get_harvesting_masks_for_soc_de
 }
 
 Cluster::Cluster(const std::string &sdesc_path, const std::string &ndesc_path, const std::set<chip_id_t> &target_devices,
-                                   const uint32_t &num_host_mem_ch_per_mmio_device, const bool skip_driver_allocs,
+                                   const uint32_t num_host_mem_ch_per_mmio_device, const bool skip_driver_allocs,
                                    const bool clean_system_resources, bool perform_harvesting, std::unordered_map<chip_id_t, uint32_t> simulated_harvesting_masks) : tt_device(sdesc_path) {
     std::unordered_set<chip_id_t> target_mmio_device_ids;
     target_devices_in_cluster = target_devices;

@@ -13,6 +13,7 @@ target_link_libraries(
         gtest
         pthread
         fmt::fmt-header-only
+        Boost::container_hash
 )
 target_include_directories(
     test_common

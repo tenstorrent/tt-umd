@@ -46,6 +46,7 @@ function(fetch_dependencies)
     # boost::interprocess
     ############################################################################################################################
     include(${PROJECT_SOURCE_DIR}/cmake/fetch_boost.cmake)
+    fetch_boost_library(container_hash)
     fetch_boost_library(interprocess)
 
     ############################################################################################################################

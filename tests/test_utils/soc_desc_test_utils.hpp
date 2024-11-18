@@ -15,4 +15,4 @@ static std::size_t get_num_harvested(std::size_t harvesting_mask) {
     return __builtin_popcount(harvesting_mask);
 }
 
-}
+}  // namespace test_utils

@@ -11,17 +11,16 @@
 #include <string>
 #include <vector>
 
+#include "device/cluster.h"
+#include "device/tt_cluster_descriptor.h"
 #include "fmt/xchar.h"
 #include "tests/test_utils/generate_cluster_desc.hpp"
 
-#include "device/tt_cluster_descriptor.h"
-#include "device/cluster.h"
-
 // TODO: obviously we need some other way to set this up
+#include "noc/noc_parameters.h"
 #include "src/firmware/riscv/wormhole/eth_l1_address_map.h"
 #include "src/firmware/riscv/wormhole/host_mem_address_map.h"
 #include "src/firmware/riscv/wormhole/l1_address_map.h"
-#include "noc/noc_parameters.h"
 
 using namespace tt::umd;
 
@@ -30,68 +29,13 @@ using namespace tt::umd;
 // N150. N300
 // Galaxy
 
-// TODO: This function should not exist, the API itself should be simple enough.
-inline std::unique_ptr<tt_ClusterDescriptor> get_cluster_desc() {
-    // TODO: remove getting manually cluster descriptor from yaml.
-    std::string yaml_path = tt_ClusterDescriptor::get_cluster_descriptor_file_path();
-
-    return tt_ClusterDescriptor::create_from_yaml(yaml_path);
-}
-
-// TODO: This function should not exist, the API itself should be simple enough.
 inline std::unique_ptr<Cluster> get_cluster() {
-    // TODO: This should not be needed. And could be part of the cluster descriptor probably.
-    // Note that cluster descriptor holds logical ids of chips.
-    // Which are different than physical PCI ids, which are /dev/tenstorrent/N ones.
-    // You have to see if physical PCIe is GS before constructing a cluster descriptor.
     std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
-    std::set<int> pci_device_ids_set(pci_device_ids.begin(), pci_device_ids.end());
-
-    tt::ARCH device_arch = tt::ARCH::GRAYSKULL;
-    if (!pci_device_ids.empty()) {
-        // TODO: This should be removed from the API, the driver itself should do it.
-        int physical_device_id = pci_device_ids[0];
-        // TODO: remove logical_device_id
-        PCIDevice pci_device(physical_device_id, 0);
-        device_arch = pci_device.get_arch();
-    }
-
     // TODO: Make this test work on a host system without any tt devices.
     if (pci_device_ids.empty()) {
         return nullptr;
     }
-
-    std::string yaml_path;
-    if (device_arch == tt::ARCH::GRAYSKULL) {
-        yaml_path = "";
-    } else if (device_arch == tt::ARCH::BLACKHOLE) {
-        yaml_path = test_utils::GetAbsPath("blackhole_1chip_cluster.yaml");
-    } else {
-        // TODO: remove getting manually cluster descriptor from yaml.
-        yaml_path = tt_ClusterDescriptor::get_cluster_descriptor_file_path();
-    }
-    // TODO: Remove the need to do this, allow default constructor to construct with all chips.
-    std::unique_ptr<tt_ClusterDescriptor> cluster_desc = get_cluster_desc();
-    std::unordered_set<int> detected_num_chips = cluster_desc->get_all_chips();
-
-    // TODO: make this unordered vs set conversion not needed.
-    std::set<chip_id_t> detected_num_chips_set(detected_num_chips.begin(), detected_num_chips.end());
-
-    // TODO: This would be incorporated inside SocDescriptor.
-    std::string soc_path;
-    if (device_arch == tt::ARCH::GRAYSKULL) {
-        soc_path = test_utils::GetAbsPath("tests/soc_descs/grayskull_10x12.yaml");
-    } else if (device_arch == tt::ARCH::WORMHOLE_B0) {
-        soc_path = test_utils::GetAbsPath("tests/soc_descs/wormhole_b0_8x10.yaml");
-    } else if (device_arch == tt::ARCH::BLACKHOLE) {
-        soc_path = test_utils::GetAbsPath("tests/soc_descs/blackhole_140_arch_no_eth.yaml");
-    } else {
-        throw std::runtime_error("Unsupported architecture");
-    }
-
-    // TODO: Don't pass each of these arguments.
-    return std::unique_ptr<Cluster>(
-        new Cluster(soc_path, tt_ClusterDescriptor::get_cluster_descriptor_file_path(), detected_num_chips_set));
+    return std::unique_ptr<Cluster>(new Cluster());
 }
 
 // TODO: Should not be wormhole specific.
@@ -103,11 +47,9 @@ void setup_wormhole_remote(Cluster* umd_cluster) {
         // Populate address map and NOC parameters that the driver needs for remote transactions
 
         umd_cluster->set_device_l1_address_params(
-            {
-             l1_mem::address_map::L1_BARRIER_BASE,
+            {l1_mem::address_map::L1_BARRIER_BASE,
              eth_l1_mem::address_map::ERISC_BARRIER_BASE,
-             eth_l1_mem::address_map::FW_VERSION_ADDR
-	    });
+             eth_l1_mem::address_map::FW_VERSION_ADDR});
     }
 }
 
@@ -115,8 +57,9 @@ void setup_wormhole_remote(Cluster* umd_cluster) {
 TEST(ApiClusterTest, OpenAllChips) { std::unique_ptr<Cluster> umd_cluster = get_cluster(); }
 
 TEST(ApiClusterTest, SimpleIOAllChips) {
-    std::unique_ptr<tt_ClusterDescriptor> cluster_desc = get_cluster_desc();
     std::unique_ptr<Cluster> umd_cluster = get_cluster();
+
+    const tt_ClusterDescriptor* cluster_desc = umd_cluster->get_cluster_description();
 
     if (umd_cluster == nullptr || umd_cluster->get_all_chips_in_cluster().empty()) {
         GTEST_SKIP() << "No chips present on the system. Skipping test.";
@@ -172,8 +115,9 @@ TEST(ApiClusterTest, SimpleIOAllChips) {
 }
 
 TEST(ApiClusterTest, RemoteFlush) {
-    std::unique_ptr<tt_ClusterDescriptor> cluster_desc = get_cluster_desc();
     std::unique_ptr<Cluster> umd_cluster = get_cluster();
+
+    const tt_ClusterDescriptor* cluster_desc = umd_cluster->get_cluster_description();
 
     if (umd_cluster == nullptr || umd_cluster->get_all_chips_in_cluster().empty()) {
         GTEST_SKIP() << "No chips present on the system. Skipping test.";
@@ -228,4 +172,62 @@ TEST(ApiClusterTest, RemoteFlush) {
 
     std::cout << "Testing whole cluster wait for remote chip flush again, should be no-op." << std::endl;
     umd_cluster->wait_for_non_mmio_flush();
+}
+
+TEST(ApiClusterTest, SimpleIOSpecificChips) {
+    std::unique_ptr<Cluster> umd_cluster = std::make_unique<Cluster>(0);
+
+    const tt_ClusterDescriptor* cluster_desc = umd_cluster->get_cluster_description();
+
+    if (umd_cluster == nullptr || umd_cluster->get_all_chips_in_cluster().empty()) {
+        GTEST_SKIP() << "No chips present on the system. Skipping test.";
+    }
+
+    // Initialize random data.
+    size_t data_size = 1024;
+    std::vector<uint8_t> data(data_size, 0);
+    for (int i = 0; i < data_size; i++) {
+        data[i] = i % 256;
+    }
+
+    // TODO: this should be part of constructor if it is mandatory.
+    setup_wormhole_remote(umd_cluster.get());
+
+    for (auto chip_id : umd_cluster->get_all_chips_in_cluster()) {
+        const tt_SocDescriptor& soc_desc = umd_cluster->get_soc_descriptor(chip_id);
+
+        // TODO: figure out if core locations should contain chip_id
+        tt_xy_pair any_core = soc_desc.workers[0];
+        tt_cxy_pair any_core_global(chip_id, any_core);
+
+        if (cluster_desc->is_chip_remote(chip_id) && soc_desc.arch != tt::ARCH::WORMHOLE_B0) {
+            std::cout << "Skipping remote chip " << chip_id << " because it is not a wormhole_b0 chip." << std::endl;
+            continue;
+        }
+
+        std::cout << "Writing to chip " << chip_id << " core " << any_core.str() << std::endl;
+
+        umd_cluster->write_to_device(data.data(), data_size, any_core_global, 0, "LARGE_WRITE_TLB");
+    }
+
+    // Now read back the data.
+    for (auto chip_id : umd_cluster->get_all_chips_in_cluster()) {
+        const tt_SocDescriptor& soc_desc = umd_cluster->get_soc_descriptor(chip_id);
+
+        // TODO: figure out if core locations should contain chip_id
+        tt_xy_pair any_core = soc_desc.workers[0];
+        tt_cxy_pair any_core_global(chip_id, any_core);
+
+        if (cluster_desc->is_chip_remote(chip_id) && soc_desc.arch != tt::ARCH::WORMHOLE_B0) {
+            std::cout << "Skipping remote chip " << chip_id << " because it is not a wormhole_b0 chip." << std::endl;
+            continue;
+        }
+
+        std::cout << "Reading from chip " << chip_id << " core " << any_core.str() << std::endl;
+
+        std::vector<uint8_t> readback_data(data_size, 0);
+        umd_cluster->read_from_device(readback_data.data(), any_core_global, 0, data_size, "LARGE_READ_TLB");
+
+        ASSERT_EQ(data, readback_data);
+    }
 }

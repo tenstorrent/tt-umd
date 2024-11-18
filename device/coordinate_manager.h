@@ -7,17 +7,17 @@
 #pragma once
 
 #include <map>
-#include <vector>
 #include <set>
+#include <vector>
 
-#include "device/tt_xy_pair.h"
 #include "device/tt_arch_types.h"
+#include "device/tt_xy_pair.h"
 
 class CoordinateManager {
-
 public:
-    CoordinateManager(const tt_xy_pair& worker_grid_size, const std::vector<tt_xy_pair>& workers, std::size_t harvesting_mask)
-        : worker_grid_size(worker_grid_size), workers(workers), harvesting_mask(harvesting_mask) {}
+    CoordinateManager(
+        const tt_xy_pair& worker_grid_size, const std::vector<tt_xy_pair>& workers, std::size_t harvesting_mask) :
+        worker_grid_size(worker_grid_size), workers(workers), harvesting_mask(harvesting_mask) {}
 
     virtual void perform_harvesting(std::size_t harvesting_mask);
 
@@ -49,14 +49,17 @@ public:
 
 protected:
     virtual void clear_harvesting_structures();
-    
+
     virtual std::set<std::size_t> get_x_coordinates_to_harvest(std::size_t harvesting_mask);
     virtual std::set<std::size_t> get_y_coordinates_to_harvest(std::size_t harvesting_mask);
 
     virtual void fill_logical_to_physical_mapping(
-        const std::set<size_t>& x_to_harvest, const std::set<size_t>& y_to_harvest,
+        const std::set<size_t>& x_to_harvest,
+        const std::set<size_t>& y_to_harvest,
+        const std::set<size_t>& physical_x_unharvested,
+        const std::set<size_t>& physical_y_unharvested);
+    virtual void fill_logical_to_virtual_mapping(
         const std::set<size_t>& physical_x_unharvested, const std::set<size_t>& physical_y_unharvested);
-    virtual void fill_logical_to_virtual_mapping(const std::set<size_t>& physical_x_unharvested, const std::set<size_t>& physical_y_unharvested);
 
     std::map<std::size_t, std::size_t> physical_y_to_logical_y;
     std::map<std::size_t, std::size_t> physical_x_to_logical_x;

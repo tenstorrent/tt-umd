@@ -5,18 +5,16 @@
 #include <gtest/gtest.h>
 
 #include <string>
-#include <vector>
 #include <unordered_map>
+#include <vector>
 
-#include "tests/test_utils/generate_cluster_desc.hpp"
 #include "common/disjoint_set.hpp"
-
 #include "device/pcie/pci_device.hpp"
 #include "device/tt_cluster_descriptor.h"
+#include "tests/test_utils/generate_cluster_desc.hpp"
 
 // TODO: Needed for detect_arch, remove when it is part of cluster descriptor.
 #include "device/cluster.h"
-
 
 inline std::unique_ptr<tt_ClusterDescriptor> get_cluster_desc() {
     // TODO: remove getting manually cluster descriptor from yaml.
@@ -45,7 +43,6 @@ TEST(ApiClusterDescriptorTest, DetectArch) {
 }
 
 TEST(ApiClusterDescriptorTest, BasicFunctionality) {
-
     std::unique_ptr<tt_ClusterDescriptor> cluster_desc = get_cluster_desc();
 
     if (cluster_desc == nullptr) {
@@ -57,7 +54,7 @@ TEST(ApiClusterDescriptorTest, BasicFunctionality) {
     std::unordered_map<chip_id_t, eth_coord_t> eth_chip_coords = cluster_desc->get_chip_locations();
     std::unordered_map<chip_id_t, chip_id_t> local_chips_to_pci_device_id = cluster_desc->get_chips_with_mmio();
     std::unordered_set<chip_id_t> local_chips;
-    for (auto [chip, _]: local_chips_to_pci_device_id) {
+    for (auto [chip, _] : local_chips_to_pci_device_id) {
         local_chips.insert(chip);
     }
     std::unordered_set<chip_id_t> remote_chips;
@@ -67,28 +64,30 @@ TEST(ApiClusterDescriptorTest, BasicFunctionality) {
         }
     }
 
-    std::unordered_map<chip_id_t, std::unordered_set<chip_id_t>> chips_grouped_by_closest_mmio = cluster_desc->get_chips_grouped_by_closest_mmio();
+    std::unordered_map<chip_id_t, std::unordered_set<chip_id_t>> chips_grouped_by_closest_mmio =
+        cluster_desc->get_chips_grouped_by_closest_mmio();
 }
 
 TEST(ApiClusterDescriptorTest, TestAllOfflineClusterDescriptors) {
     for (std::string cluster_desc_yaml : {
-        "blackhole_P150.yaml",
-        "galaxy.yaml",
-        "grayskull_E150.yaml",
-        "grayskull_E300.yaml",
-        "wormhole_2xN300_unconnected.yaml",
-        "wormhole_N150.yaml",
-        "wormhole_N300.yaml",
-    }) {
+             "blackhole_P150.yaml",
+             "galaxy.yaml",
+             "grayskull_E150.yaml",
+             "grayskull_E300.yaml",
+             "wormhole_2xN300_unconnected.yaml",
+             "wormhole_N150.yaml",
+             "wormhole_N300.yaml",
+         }) {
         std::cout << "Testing " << cluster_desc_yaml << std::endl;
-        std::unique_ptr<tt_ClusterDescriptor> cluster_desc = tt_ClusterDescriptor::create_from_yaml(test_utils::GetAbsPath("tests/api/cluster_descriptor_examples/" + cluster_desc_yaml));
+        std::unique_ptr<tt_ClusterDescriptor> cluster_desc = tt_ClusterDescriptor::create_from_yaml(
+            test_utils::GetAbsPath("tests/api/cluster_descriptor_examples/" + cluster_desc_yaml));
 
         std::unordered_set<chip_id_t> all_chips = cluster_desc->get_all_chips();
         std::unordered_map<chip_id_t, std::uint32_t> harvesting_for_chips = cluster_desc->get_harvesting_info();
         std::unordered_map<chip_id_t, eth_coord_t> eth_chip_coords = cluster_desc->get_chip_locations();
         std::unordered_map<chip_id_t, chip_id_t> local_chips_to_pci_device_id = cluster_desc->get_chips_with_mmio();
         std::unordered_set<chip_id_t> local_chips;
-        for (auto [chip, _]: local_chips_to_pci_device_id) {
+        for (auto [chip, _] : local_chips_to_pci_device_id) {
             local_chips.insert(chip);
         }
         std::unordered_set<chip_id_t> remote_chips;
@@ -98,12 +97,14 @@ TEST(ApiClusterDescriptorTest, TestAllOfflineClusterDescriptors) {
             }
         }
 
-        std::unordered_map<chip_id_t, std::unordered_set<chip_id_t>> chips_grouped_by_closest_mmio = cluster_desc->get_chips_grouped_by_closest_mmio();
+        std::unordered_map<chip_id_t, std::unordered_set<chip_id_t>> chips_grouped_by_closest_mmio =
+            cluster_desc->get_chips_grouped_by_closest_mmio();
     }
 }
 
 TEST(ApiClusterDescriptorTest, SeparateClusters) {
-    std::unique_ptr<tt_ClusterDescriptor> cluster_desc = tt_ClusterDescriptor::create_from_yaml(test_utils::GetAbsPath("tests/api/cluster_descriptor_examples/wormhole_2xN300_unconnected.yaml"));
+    std::unique_ptr<tt_ClusterDescriptor> cluster_desc = tt_ClusterDescriptor::create_from_yaml(
+        test_utils::GetAbsPath("tests/api/cluster_descriptor_examples/wormhole_2xN300_unconnected.yaml"));
 
     auto all_chips = cluster_desc->get_all_chips();
     DisjointSet<chip_id_t> chip_clusters;
@@ -112,9 +113,9 @@ TEST(ApiClusterDescriptorTest, SeparateClusters) {
     }
 
     // Merge into clusters of chips.
-    for (auto connection: cluster_desc->get_ethernet_connections()) {
+    for (auto connection : cluster_desc->get_ethernet_connections()) {
         chip_id_t chip = connection.first;
-        for (auto [channel, remote_chip_and_channel]: connection.second) {
+        for (auto [channel, remote_chip_and_channel] : connection.second) {
             chip_id_t remote_chip = std::get<0>(remote_chip_and_channel);
             chip_clusters.merge(chip, remote_chip);
         }

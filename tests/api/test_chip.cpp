@@ -5,23 +5,23 @@
 // This file holds Chip specific API examples.
 
 #include <gtest/gtest.h>
-#include "fmt/xchar.h"
 
 #include <algorithm>
 #include <filesystem>
 #include <string>
 #include <vector>
 
+#include "fmt/xchar.h"
 #include "tests/test_utils/generate_cluster_desc.hpp"
 
 // TODO: change to tt_cluster
+#include "device/architecture_implementation.h"
 #include "device/cluster.h"
 #include "device/tt_cluster_descriptor.h"
-#include "device/architecture_implementation.h"
 
 using namespace tt::umd;
 
-inline tt_cxy_pair get_tensix_chip_core_coord(const std::unique_ptr<Cluster> &umd_cluster) {
+inline tt_cxy_pair get_tensix_chip_core_coord(const std::unique_ptr<Cluster>& umd_cluster) {
     chip_id_t any_mmio_chip = *umd_cluster->get_target_mmio_device_ids().begin();
     const tt_SocDescriptor& soc_desc = umd_cluster->get_soc_descriptor(any_mmio_chip);
     tt_xy_pair core = soc_desc.workers[0];
@@ -68,16 +68,17 @@ TEST(ApiChipTest, ManualTLBConfiguration) {
         if (!is_worker_core) {
             return -1;
         }
-        return core.x + core.y * umd_cluster->get_pci_device(any_mmio_chip)->get_architecture_implementation()->get_grid_size_x();
+        return core.x +
+               core.y *
+                   umd_cluster->get_pci_device(any_mmio_chip)->get_architecture_implementation()->get_grid_size_x();
     };
 
     std::int32_t c_zero_address = 0;
 
     // Each MMIO chip has it's own set of TLBs, so needs its own configuration.
-    for (chip_id_t mmio_chip: umd_cluster->get_target_mmio_device_ids()) {
-
+    for (chip_id_t mmio_chip : umd_cluster->get_target_mmio_device_ids()) {
         const tt_SocDescriptor& soc_desc = umd_cluster->get_soc_descriptor(mmio_chip);
-        for (tt_xy_pair core: soc_desc.workers) {
+        for (tt_xy_pair core : soc_desc.workers) {
             umd_cluster->configure_tlb(mmio_chip, core, get_static_tlb_index(core), c_zero_address);
         }
 
@@ -119,7 +120,7 @@ TEST(ApiChipTest, DeassertRiscResetOnCore) {
     if (umd_cluster == nullptr || umd_cluster->get_all_chips_in_cluster().empty()) {
         GTEST_SKIP() << "No chips present on the system. Skipping test.";
     }
-    
+
     tt_cxy_pair chip_core_coord = get_tensix_chip_core_coord(umd_cluster);
 
     umd_cluster->assert_risc_reset_at_core(chip_core_coord);

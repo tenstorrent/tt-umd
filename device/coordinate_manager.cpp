@@ -4,7 +4,9 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 #include "device/coordinate_manager.h"
+
 #include <memory>
+
 #include "coordinate_manager.h"
 #include "grayskull/grayskull_coordinate_manager.h"
 
@@ -71,13 +73,9 @@ void CoordinateManager::clear_harvesting_structures() {
     virtual_y_to_logical_y.clear();
 }
 
-std::set<std::size_t> CoordinateManager::get_x_coordinates_to_harvest(std::size_t harvesting_mask) {
-    return {};
-}
+std::set<std::size_t> CoordinateManager::get_x_coordinates_to_harvest(std::size_t harvesting_mask) { return {}; }
 
-std::set<std::size_t> CoordinateManager::get_y_coordinates_to_harvest(std::size_t harvesting_mask) {
-    return {};
-}
+std::set<std::size_t> CoordinateManager::get_y_coordinates_to_harvest(std::size_t harvesting_mask) { return {}; }
 
 void CoordinateManager::perform_harvesting(std::size_t harvesting_mask) {
     clear_harvesting_structures();
@@ -104,14 +102,16 @@ void CoordinateManager::perform_harvesting(std::size_t harvesting_mask) {
     logical_x_to_virtual_x.resize(grid_size_x - num_harvested_x);
     logical_y_to_virtual_y.resize(grid_size_y - num_harvested_y);
 
-    fill_logical_to_physical_mapping(x_coordinates_to_harvest, y_coordinates_to_harvest, physical_x_unharvested, physical_y_unharvested);
+    fill_logical_to_physical_mapping(
+        x_coordinates_to_harvest, y_coordinates_to_harvest, physical_x_unharvested, physical_y_unharvested);
     fill_logical_to_virtual_mapping(physical_x_unharvested, physical_y_unharvested);
 }
 
 void CoordinateManager::fill_logical_to_physical_mapping(
-    const std::set<size_t>& x_to_harvest, const std::set<size_t>& y_to_harvest,
-    const std::set<size_t>& physical_x_unharvested, const std::set<size_t>& physical_y_unharvested) {
-    
+    const std::set<size_t>& x_to_harvest,
+    const std::set<size_t>& y_to_harvest,
+    const std::set<size_t>& physical_x_unharvested,
+    const std::set<size_t>& physical_y_unharvested) {
     auto physical_y_it = physical_y_unharvested.begin();
     std::size_t logical_y = 0;
     for (size_t y = 0; y < worker_grid_size.y; y++) {
@@ -130,7 +130,7 @@ void CoordinateManager::fill_logical_to_physical_mapping(
 
     auto physical_x_it = physical_x_unharvested.begin();
     std::size_t logical_x = 0;
-    for(std::size_t x = 0; x < worker_grid_size.x; x++) {
+    for (std::size_t x = 0; x < worker_grid_size.x; x++) {
         if (x_to_harvest.find(x) == x_to_harvest.end()) {
             logical_x_to_physical_x[logical_x] = *physical_x_it;
             if (physical_x_to_logical_x.find(*physical_x_it) != physical_x_to_logical_x.end()) {
@@ -145,7 +145,8 @@ void CoordinateManager::fill_logical_to_physical_mapping(
     }
 }
 
-void CoordinateManager::fill_logical_to_virtual_mapping(const std::set<size_t>& physical_x_unharvested, const std::set<size_t>& physical_y_unharvested) {
+void CoordinateManager::fill_logical_to_virtual_mapping(
+    const std::set<size_t>& physical_x_unharvested, const std::set<size_t>& physical_y_unharvested) {
     auto physical_y_it = physical_y_unharvested.begin();
     for (std::size_t y = 0; y < logical_y_to_virtual_y.size(); y++) {
         logical_y_to_virtual_y[y] = *physical_y_it;
@@ -176,7 +177,6 @@ std::unique_ptr<CoordinateManager> CoordinateManager::get_coordinate_manager(
     const tt_xy_pair& worker_grid_size,
     const std::vector<tt_xy_pair>& workers,
     std::size_t harvesting_mask) {
-
     switch (arch) {
         case tt::ARCH::GRAYSKULL:
             return std::make_unique<GrayskullCoordinateManager>(worker_grid_size, workers, harvesting_mask);

@@ -17,4 +17,4 @@ enum class ARCH {
     BLACKHOLE = 3,
     Invalid = 0xFF,
 };
-}
+}  // namespace tt

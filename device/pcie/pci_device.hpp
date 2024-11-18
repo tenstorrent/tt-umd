@@ -12,28 +12,30 @@
 #include <unordered_map>
 #include <vector>
 
-#include "device/tt_xy_pair.h"
+#include "device/tlb.h"
 #include "device/tt_arch_types.h"
 #include "device/tt_cluster_descriptor_types.h"
-#include "device/tlb.h"
+#include "device/tt_xy_pair.h"
 
 // TODO: this is used up in cluster.cpp but that logic ought to be
 // lowered into the PCIDevice class since it is specific to PCIe cards.
 // See /vendor_ip/synopsys/052021/bh_pcie_ctl_gen5/export/configuration/DWC_pcie_ctl.h
 static const uint64_t UNROLL_ATU_OFFSET_BAR = 0x1200;
 
-// TODO: this is a bit of a hack... something to revisit when we formalize an 
+// TODO: this is a bit of a hack... something to revisit when we formalize an
 // abstraction for IO.
 // BAR0 size for Blackhole, used to determine whether write block should use BAR0 or BAR4
 static const uint64_t BAR0_BH_SIZE = 512 * 1024 * 1024;
 
 constexpr unsigned int c_hang_read_value = 0xffffffffu;
 
-namespace tt::umd { class architecture_implementation; }
+namespace tt::umd {
+class architecture_implementation;
+}
 
 struct dynamic_tlb {
-    uint64_t bar_offset;        // Offset that address is mapped to, within the PCI BAR.
-    uint64_t remaining_size;    // Bytes remaining between bar_offset and end of the TLB.
+    uint64_t bar_offset;      // Offset that address is mapped to, within the PCI BAR.
+    uint64_t remaining_size;  // Bytes remaining between bar_offset and end of the TLB.
 };
 
 struct hugepage_mapping {
@@ -42,8 +44,7 @@ struct hugepage_mapping {
     uint64_t physical_address = 0;
 };
 
-struct PciDeviceInfo
-{
+struct PciDeviceInfo {
     uint16_t vendor_id;
     uint16_t device_id;
     uint16_t pci_domain;
@@ -57,14 +58,14 @@ struct PciDeviceInfo
 };
 
 class PCIDevice {
-    const std::string device_path;  // Path to character device: /dev/tenstorrent/N
-    const int pci_device_num;       // N in /dev/tenstorrent/N
-    const int logical_id;           // Unique identifier for each device in entire network topology
-    const int pci_device_file_desc; // Character device file descriptor
-    const PciDeviceInfo info;       // PCI device info
-    const int numa_node;            // -1 if non-NUMA
-    const int revision;             // PCI revision value from sysfs
-    const tt::ARCH arch;            // e.g. Grayskull, Wormhole, Blackhole
+    const std::string device_path;   // Path to character device: /dev/tenstorrent/N
+    const int pci_device_num;        // N in /dev/tenstorrent/N
+    const int logical_id;            // Unique identifier for each device in entire network topology
+    const int pci_device_file_desc;  // Character device file descriptor
+    const PciDeviceInfo info;        // PCI device info
+    const int numa_node;             // -1 if non-NUMA
+    const int revision;              // PCI revision value from sysfs
+    const tt::ARCH arch;             // e.g. Grayskull, Wormhole, Blackhole
     std::unique_ptr<tt::umd::architecture_implementation> architecture_implementation;
 
 public:
@@ -83,7 +84,7 @@ public:
      *
      * Opens the character device file descriptor, reads device information from
      * sysfs, and maps device memory region(s) into the process address space.
-     * 
+     *
      * @param pci_device_number     N in /dev/tenstorrent/N
      * @param logical_device_id     unique identifier for this device in the network topology
      */
@@ -95,8 +96,8 @@ public:
      */
     ~PCIDevice();
 
-    PCIDevice(const PCIDevice&) = delete; // copy
-    void operator=(const PCIDevice&) = delete; // copy assignment
+    PCIDevice(const PCIDevice &) = delete;       // copy
+    void operator=(const PCIDevice &) = delete;  // copy assignment
 
     /**
      * @return PCI device info
@@ -155,21 +156,39 @@ public:
     // NOC endpoints.  Probably worth waiting for the KMD to start owning the
     // resource management aspect of these PCIe->NOC mappings (the "TLBs")
     // before doing too much work here...
-    void write_block(uint64_t byte_addr, uint64_t num_bytes, const uint8_t* buffer_addr);
-    void read_block(uint64_t byte_addr, uint64_t num_bytes, uint8_t* buffer_addr);
+    void write_block(uint64_t byte_addr, uint64_t num_bytes, const uint8_t *buffer_addr);
+    void read_block(uint64_t byte_addr, uint64_t num_bytes, uint8_t *buffer_addr);
     void write_regs(uint32_t byte_addr, uint32_t word_len, const void *data);
     void write_regs(volatile uint32_t *dest, const uint32_t *src, uint32_t word_len);
     void read_regs(uint32_t byte_addr, uint32_t word_len, void *data);
 
     // TLB related functions.
     // TODO: These are architecture specific, and will be moved out of the class.
-    void write_tlb_reg(uint32_t byte_addr, std::uint64_t value_lower, std::uint64_t value_upper, std::uint32_t tlb_cfg_reg_size);
-    dynamic_tlb set_dynamic_tlb(unsigned int tlb_index, tt_xy_pair start, tt_xy_pair end,
-                                std::uint64_t address, bool multicast, std::unordered_map<chip_id_t, std::unordered_map<tt_xy_pair, tt_xy_pair>>& harvested_coord_translation, std::uint64_t ordering);
-    dynamic_tlb set_dynamic_tlb(unsigned int tlb_index, tt_xy_pair target, std::uint64_t address, std::unordered_map<chip_id_t, std::unordered_map<tt_xy_pair, tt_xy_pair>>& harvested_coord_translation, std::uint64_t ordering = tt::umd::tlb_data::Relaxed);
-    dynamic_tlb set_dynamic_tlb_broadcast(unsigned int tlb_index, std::uint64_t address, std::unordered_map<chip_id_t, std::unordered_map<tt_xy_pair, tt_xy_pair>>& harvested_coord_translation, tt_xy_pair start, tt_xy_pair end, std::uint64_t ordering = tt::umd::tlb_data::Relaxed);
+    void write_tlb_reg(
+        uint32_t byte_addr, std::uint64_t value_lower, std::uint64_t value_upper, std::uint32_t tlb_cfg_reg_size);
+    dynamic_tlb set_dynamic_tlb(
+        unsigned int tlb_index,
+        tt_xy_pair start,
+        tt_xy_pair end,
+        std::uint64_t address,
+        bool multicast,
+        std::unordered_map<chip_id_t, std::unordered_map<tt_xy_pair, tt_xy_pair>> &harvested_coord_translation,
+        std::uint64_t ordering);
+    dynamic_tlb set_dynamic_tlb(
+        unsigned int tlb_index,
+        tt_xy_pair target,
+        std::uint64_t address,
+        std::unordered_map<chip_id_t, std::unordered_map<tt_xy_pair, tt_xy_pair>> &harvested_coord_translation,
+        std::uint64_t ordering = tt::umd::tlb_data::Relaxed);
+    dynamic_tlb set_dynamic_tlb_broadcast(
+        unsigned int tlb_index,
+        std::uint64_t address,
+        std::unordered_map<chip_id_t, std::unordered_map<tt_xy_pair, tt_xy_pair>> &harvested_coord_translation,
+        tt_xy_pair start,
+        tt_xy_pair end,
+        std::uint64_t ordering = tt::umd::tlb_data::Relaxed);
 
-    tt::umd::architecture_implementation* get_architecture_implementation() const;
+    tt::umd::architecture_implementation *get_architecture_implementation() const;
     void detect_hang_read(uint32_t data_read = c_hang_read_value);
 
     // TODO: this also probably has more sense to live in the future TTDevice class.
@@ -197,8 +216,8 @@ public:
     // and simplify the code.
     void *system_reg_mapping = nullptr;
     size_t system_reg_mapping_size;
-    uint32_t system_reg_start_offset;  // Registers >= this are system regs, use the mapping.
-    uint32_t system_reg_offset_adjust; // This is the offset of the first reg in the system reg mapping.
+    uint32_t system_reg_start_offset;   // Registers >= this are system regs, use the mapping.
+    uint32_t system_reg_offset_adjust;  // This is the offset of the first reg in the system reg mapping.
 
     uint32_t read_checking_offset;
 
@@ -206,11 +225,10 @@ private:
     bool is_hardware_hung();
 
     template <typename T>
-    T* get_register_address(uint32_t register_offset);
+    T *get_register_address(uint32_t register_offset);
 
     // For debug purposes when various stages fails.
     void print_file_contents(std::string filename, std::string hint = "");
 
     std::vector<hugepage_mapping> hugepage_mapping_per_channel;
 };
-

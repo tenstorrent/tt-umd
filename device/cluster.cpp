@@ -1603,8 +1603,8 @@ void Cluster::write_to_non_mmio_device(
             new_cmd->sys_addr = address + offset;
         }
         else {
-            new_cmd->sys_addr = get_sys_addr(std::get<0>(target_chip), std::get<1>(target_chip), core.x, core.y, address + offset);
-            new_cmd->rack = get_sys_rack(std::get<2>(target_chip), std::get<3>(target_chip));
+            new_cmd->sys_addr = get_sys_addr(target_chip.x, target_chip.y, core.x, core.y, address + offset);
+            new_cmd->rack = get_sys_rack(target_chip.rack, target_chip.shelf);
         }
             
         if(req_flags & eth_interface_params.cmd_data_block) {
@@ -1740,8 +1740,8 @@ void Cluster::read_from_non_mmio_device(void* mem_ptr, tt_cxy_pair core, uint64_
 
         // Send the read request
         log_assert((req_flags == eth_interface_params.cmd_rd_req) || (((address + offset) & 0x1F) == 0), "Block mode offset must be 32-byte aligned."); // Block mode offset must be 32-byte aligned.
-        new_cmd->sys_addr = get_sys_addr(std::get<0>(target_chip), std::get<1>(target_chip), core.x, core.y, address + offset);
-        new_cmd->rack = get_sys_rack(std::get<2>(target_chip), std::get<3>(target_chip));
+        new_cmd->sys_addr = get_sys_addr(target_chip.x, target_chip.y, core.x, core.y, address + offset);
+        new_cmd->rack = get_sys_rack(target_chip.rack, target_chip.shelf);
         new_cmd->data = block_size;
         new_cmd->flags = req_flags;
         if (use_dram) {
@@ -1935,15 +1935,15 @@ std::unordered_map<chip_id_t, std::vector<std::vector<int>>>& Cluster::get_ether
                 chip_id_t physical_chip_id = ndesc -> get_shelf_local_physical_chip_coords(chip);
                 eth_coord_t eth_coords = ndesc -> get_chip_locations().at(chip);
                 // Rack word to be set in header
-                uint32_t rack_word = std::get<2>(eth_coords) >> 2;
+                uint32_t rack_word = eth_coords.rack >> 2;
                 // Rack byte to be set in header
-                uint32_t rack_byte = std::get<2>(eth_coords) % 4;
+                uint32_t rack_byte = eth_coords.rack % 4;
                 // 1st level grouping: Group broadcasts based on the MMIO chip they must go through
                 // Nebula + Galaxy Topology assumption: Disjoint sets can only be present in the first shelf, with each set connected to host through its closest MMIO chip
                 // For the first shelf, pass broadcasts to specific chips through their closest MMIO chip
                 // All other shelves are fully connected galaxy grids. These are connected to all MMIO devices. Use any (or the first) MMIO device in the list.
                 chip_id_t closest_mmio_chip = 0;
-                if (std::get<2>(eth_coords) == 0 && std::get<3>(eth_coords) == 0) {
+                if (eth_coords.rack == 0 && eth_coords.shelf == 0) {
                     // Shelf 0 + Rack 0: Either an MMIO chip or a remote chip potentially connected to host through its own MMIO counterpart.
                     closest_mmio_chip = ndesc -> get_closest_mmio_capable_chip(chip);
                 }
@@ -1958,14 +1958,14 @@ std::unordered_map<chip_id_t, std::vector<std::vector<int>>>& Cluster::get_ether
                 if(broadcast_mask_for_target_chips_per_group.at(closest_mmio_chip).find(physical_chip_id) == broadcast_mask_for_target_chips_per_group.at(closest_mmio_chip).end()) {
                     // Target seen for the first time.
                     std::vector<int> broadcast_mask(8, 0);
-                    broadcast_mask.at(rack_word) |= (1 << std::get<3>(eth_coords)) << rack_byte;
+                    broadcast_mask.at(rack_word) |= (1 << eth_coords.shelf) << rack_byte;
                     broadcast_mask.at(3) |= 1 << physical_chip_id;
                     broadcast_mask_for_target_chips_per_group.at(closest_mmio_chip).insert({physical_chip_id, broadcast_mask});
 
                 }
                 else {
                     // Target was seen before -> include curr rack and shelf in header
-                    broadcast_mask_for_target_chips_per_group.at(closest_mmio_chip).at(physical_chip_id).at(rack_word) |= static_cast<uint32_t>(1 << std::get<3>(eth_coords)) << rack_byte;
+                    broadcast_mask_for_target_chips_per_group.at(closest_mmio_chip).at(physical_chip_id).at(rack_word) |= static_cast<uint32_t>(1 << eth_coords.shelf) << rack_byte;
                 }
             }
         }

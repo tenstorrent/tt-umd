@@ -66,7 +66,9 @@ class tt_ClusterDescriptor {
   std::unordered_map<int, std::unordered_map<int, Chip2ChipConnection > > galaxy_racks_exit_chip_coords_per_x_dim = {};
 
   static void load_ethernet_connections_from_connectivity_descriptor(YAML::Node &yaml, tt_ClusterDescriptor &desc);
+  static void fill_galaxy_connections(tt_ClusterDescriptor &desc);
   static void load_chips_from_connectivity_descriptor(YAML::Node &yaml, tt_ClusterDescriptor &desc);
+  static void merge_cluster_ids(tt_ClusterDescriptor &desc);
   static void load_harvesting_information(YAML::Node &yaml, tt_ClusterDescriptor &desc);
 
   void fill_chips_grouped_by_closest_mmio();

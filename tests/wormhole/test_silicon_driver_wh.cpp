@@ -92,7 +92,7 @@ TEST(SiliconDriverWH, Harvesting) {
     std::unordered_map<chip_id_t, uint32_t> simulated_harvesting_masks = {{0, 30}, {1, 60}};
 
     uint32_t num_host_mem_ch_per_mmio_device = 1;
-    Cluster device = Cluster(test_utils::GetAbsPath("tests/soc_descs/wormhole_b0_8x10.yaml"), tt_ClusterDescriptor::get_cluster_descriptor_file_path(), target_devices, num_host_mem_ch_per_mmio_device, false, true, true, simulated_harvesting_masks);
+    Cluster device = Cluster(num_host_mem_ch_per_mmio_device, false, true, true, simulated_harvesting_masks);
     auto sdesc_per_chip = device.get_virtual_soc_descriptors();
 
     ASSERT_EQ(device.using_harvested_soc_descriptors(), true) << "Expected Driver to have performed harvesting";
@@ -133,8 +133,8 @@ TEST(SiliconDriverWH, HarvestingRuntime) {
     std::unordered_map<chip_id_t, uint32_t> simulated_harvesting_masks = {{0, 30}, {1, 60}};
 
     uint32_t num_host_mem_ch_per_mmio_device = 1;
-
-    Cluster device = Cluster(test_utils::GetAbsPath("tests/soc_descs/wormhole_b0_8x10.yaml"), tt_ClusterDescriptor::get_cluster_descriptor_file_path(), target_devices, num_host_mem_ch_per_mmio_device, false, true, true, simulated_harvesting_masks);
+    
+    Cluster device = Cluster(num_host_mem_ch_per_mmio_device, false, true, true, simulated_harvesting_masks);
     set_params_for_remote_txn(device);
     auto mmio_devices = device.get_target_mmio_device_ids();
 
@@ -198,7 +198,7 @@ TEST(SiliconDriverWH, UnalignedStaticTLB_RW) {
     int num_devices = target_devices.size();
 
     uint32_t num_host_mem_ch_per_mmio_device = 1;
-    Cluster device = Cluster(test_utils::GetAbsPath("tests/soc_descs/wormhole_b0_8x10.yaml"), tt_ClusterDescriptor::get_cluster_descriptor_file_path(), target_devices, num_host_mem_ch_per_mmio_device, false, true, true);
+    Cluster device = Cluster(num_host_mem_ch_per_mmio_device, false, true, true);
     set_params_for_remote_txn(device);
     auto mmio_devices = device.get_target_mmio_device_ids();
 
@@ -256,7 +256,7 @@ TEST(SiliconDriverWH, StaticTLB_RW) {
     std::set<chip_id_t> target_devices = get_target_devices();
 
     uint32_t num_host_mem_ch_per_mmio_device = 1;
-    Cluster device = Cluster(test_utils::GetAbsPath("tests/soc_descs/wormhole_b0_8x10.yaml"), tt_ClusterDescriptor::get_cluster_descriptor_file_path(), target_devices, num_host_mem_ch_per_mmio_device, false, true, true);
+    Cluster device = Cluster(num_host_mem_ch_per_mmio_device, false, true, true);
     set_params_for_remote_txn(device);
     auto mmio_devices = device.get_target_mmio_device_ids();
 
@@ -305,7 +305,7 @@ TEST(SiliconDriverWH, DynamicTLB_RW) {
     std::set<chip_id_t> target_devices = get_target_devices();
 
     uint32_t num_host_mem_ch_per_mmio_device = 1;
-    Cluster device = Cluster(test_utils::GetAbsPath("tests/soc_descs/wormhole_b0_8x10.yaml"),  tt_ClusterDescriptor::get_cluster_descriptor_file_path(), target_devices, num_host_mem_ch_per_mmio_device, false, true, true);
+    Cluster device = Cluster(num_host_mem_ch_per_mmio_device, false, true, true);
 
     set_params_for_remote_txn(device);
 
@@ -343,7 +343,8 @@ TEST(SiliconDriverWH, MultiThreadedDevice) {
     std::set<chip_id_t> target_devices = get_target_devices();
 
     uint32_t num_host_mem_ch_per_mmio_device = 1;
-    Cluster device = Cluster(test_utils::GetAbsPath("tests/soc_descs/wormhole_b0_8x10.yaml"), tt_ClusterDescriptor::get_cluster_descriptor_file_path(), target_devices, num_host_mem_ch_per_mmio_device, false, true, true);
+    Cluster device = Cluster(num_host_mem_ch_per_mmio_device, false, true, true);
+    
     set_params_for_remote_txn(device);
 
     tt_device_params default_params;
@@ -401,7 +402,7 @@ TEST(SiliconDriverWH, MultiThreadedMemBar) {
     uint32_t base_addr = l1_mem::address_map::DATA_BUFFER_SPACE_BASE;
     uint32_t num_host_mem_ch_per_mmio_device = 1;
 
-    Cluster device = Cluster(test_utils::GetAbsPath("tests/soc_descs/wormhole_b0_8x10.yaml"), tt_ClusterDescriptor::get_cluster_descriptor_file_path(), target_devices, num_host_mem_ch_per_mmio_device, false, true, true);
+    Cluster device = Cluster(num_host_mem_ch_per_mmio_device, false, true, true);
     set_params_for_remote_txn(device);
     auto mmio_devices = device.get_target_mmio_device_ids();
 
@@ -507,7 +508,8 @@ TEST(SiliconDriverWH, BroadcastWrite) {
     std::set<chip_id_t> target_devices = get_target_devices();
 
     uint32_t num_host_mem_ch_per_mmio_device = 1;
-    Cluster device = Cluster(test_utils::GetAbsPath("tests/soc_descs/wormhole_b0_8x10.yaml"), tt_ClusterDescriptor::get_cluster_descriptor_file_path(), target_devices, num_host_mem_ch_per_mmio_device, false, true, true);
+    
+    Cluster device = Cluster(num_host_mem_ch_per_mmio_device, false, true, true);
     set_params_for_remote_txn(device);
     auto mmio_devices = device.get_target_mmio_device_ids();
 
@@ -562,7 +564,8 @@ TEST(SiliconDriverWH, VirtualCoordinateBroadcast) {
     std::set<chip_id_t> target_devices = get_target_devices();
 
     uint32_t num_host_mem_ch_per_mmio_device = 1;
-    Cluster device = Cluster(test_utils::GetAbsPath("tests/soc_descs/wormhole_b0_8x10.yaml"), tt_ClusterDescriptor::get_cluster_descriptor_file_path(), target_devices, num_host_mem_ch_per_mmio_device, false, true, true);
+    
+    Cluster device = Cluster(num_host_mem_ch_per_mmio_device, false, true, true);
     set_params_for_remote_txn(device);
     auto mmio_devices = device.get_target_mmio_device_ids();
 
@@ -644,13 +647,10 @@ TEST(SiliconDriverWH, VirtualCoordinateBroadcast) {
 TEST(SiliconDriverWH, SysmemTestWithPcie) {
     auto target_devices = get_target_devices();
 
-    Cluster cluster(test_utils::GetAbsPath("tests/soc_descs/wormhole_b0_8x10.yaml"),
-                    tt_ClusterDescriptor::get_cluster_descriptor_file_path(),
-                    target_devices,
-                    1,  // one "host memory channel", currently a 1G huge page
-                    false, // skip driver allocs - no (don't skip)
-                    true,  // clean system resources - yes
-                    true); // perform harvesting - yes
+    Cluster cluster(1,  // one "host memory channel", currently a 1G huge page
+                            false, // skip driver allocs - no (don't skip)
+                            true,  // clean system resources - yes
+                            true); // perform harvesting - yes
 
     set_params_for_remote_txn(cluster);
     cluster.start_device(tt_device_params{});  // no special parameters

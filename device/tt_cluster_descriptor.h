@@ -33,10 +33,10 @@ enum BoardType : uint32_t {
 
 class tt_ClusterDescriptor {
 
-  private:
+private:
   int get_ethernet_link_coord_distance(const eth_coord_t &location_a, const eth_coord_t &location_b) const;
 
-  protected:
+protected:
 
   std::unordered_map<chip_id_t, std::unordered_map<ethernet_channel_t, std::tuple<chip_id_t, ethernet_channel_t> > > ethernet_connections;
   std::unordered_map<chip_id_t, eth_coord_t> chip_locations;
@@ -73,7 +73,7 @@ class tt_ClusterDescriptor {
 
   void fill_chips_grouped_by_closest_mmio();
 
- public:
+public:
   tt_ClusterDescriptor() = default;
   tt_ClusterDescriptor(const tt_ClusterDescriptor&) = default;
 

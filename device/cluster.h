@@ -220,7 +220,7 @@ struct tt_device_params {
 class tt_device
 {
     public:
-    tt_device(const std::string& sdesc_path);
+    tt_device();
     virtual ~tt_device();
     // Setup/Teardown Functions
     /**
@@ -606,10 +606,10 @@ namespace tt::umd {
 */ 
 class Cluster: public tt_device
 {
-    public:
+public:
     // Constructor
     /**
-     * Silicon Driver constructor.
+     * Cluster constructor.
      *
      * @param sdesc_path SOC descriptor specifying single chip.
      * @param ndesc_path Network Descriptor specifying the network topology of the system.
@@ -624,6 +624,32 @@ class Cluster: public tt_device
                     const uint32_t &num_host_mem_ch_per_mmio_device = 1, const bool skip_driver_allocs = false,
                     const bool clean_system_resources = false, bool perform_harvesting = true, std::unordered_map<chip_id_t, uint32_t> simulated_harvesting_masks = {});
     
+    /**
+     * Cluster constructor. This constructor should be used to work towards removing all
+     * of the params from the constructor of tt_SiliconDevice (to become Cluster).
+     *
+     * @param num_host_mem_ch_per_mmio_device Requested number of host channels (hugepages).
+     * @param skip_driver_allocs
+     * @param clean_system_resource Specifies if host state from previous runs needs to be cleaned up.
+     * @param perform_harvesting Allow the driver to modify the SOC descriptors per chip.
+     * @param simulated_harvesting_masks
+     */ 
+    Cluster(const uint32_t &num_host_mem_ch_per_mmio_device = 1, const bool skip_driver_allocs = false,
+                     const bool clean_system_resources = false, bool perform_harvesting = true, std::unordered_map<chip_id_t, uint32_t> simulated_harvesting_masks = {});
+
+    /**
+     * Cluster constructor. This constructor should be used to target specific devices in a cluster.
+     *
+     * @param target_devices Devices to target.
+     * @param num_host_mem_ch_per_mmio_device Requested number of host channels (hugepages).
+     * @param skip_driver_allocs
+     * @param clean_system_resource Specifies if host state from previous runs needs to be cleaned up.
+     * @param perform_harvesting Allow the driver to modify the SOC descriptors per chip.
+     * @param simulated_harvesting_masks
+     */ 
+    Cluster(const std::set<chip_id_t> &target_devices, const uint32_t &num_host_mem_ch_per_mmio_device = 1, const bool skip_driver_allocs = false,
+            const bool clean_system_resources = false, bool perform_harvesting = true, std::unordered_map<chip_id_t, uint32_t> simulated_harvesting_masks = {});
+
     //Setup/Teardown Functions
     virtual std::unordered_map<chip_id_t, tt_SocDescriptor>& get_virtual_soc_descriptors();
     virtual void set_device_l1_address_params(const tt_device_l1_address_params& l1_address_params_);
@@ -710,7 +736,7 @@ class Cluster: public tt_device
     // Destructor
     virtual ~Cluster ();
 
-    private:
+private:
     // Helper functions
     // Startup + teardown
     void create_device(const std::unordered_set<chip_id_t> &target_mmio_device_ids, const uint32_t &num_host_mem_ch_per_mmio_device, const bool skip_driver_allocs, const bool clean_system_resources);
@@ -770,6 +796,9 @@ class Cluster: public tt_device
 
     // This functions has to be called for local chip, and then it will wait for all connected remote chips to flush.
     void wait_for_connected_non_mmio_flush(chip_id_t chip_id);
+
+    void construct_cluster(const std::string& sdesc_path, const uint32_t &num_host_mem_ch_per_mmio_device, const bool skip_driver_allocs,
+                                     const bool clean_system_resources, bool perform_harvesting, std::unordered_map<chip_id_t, uint32_t> simulated_harvesting_masks);
 
     // State variables
     tt_device_dram_address_params dram_address_params;

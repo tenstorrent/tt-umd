@@ -189,11 +189,14 @@ public:
 
     void perform_harvesting(std::size_t harvesting_mask);
 
+    static std::string get_soc_descriptor_path(tt::ARCH arch); 
+
 private:
-    std::unique_ptr<CoordinateManager> coordinate_manager = nullptr;
     void create_coordinate_manager(std::size_t harvesting_mask);
     void load_core_descriptors_from_device_descriptor(YAML::Node &device_descriptor_yaml);
     void load_soc_features_from_device_descriptor(YAML::Node &device_descriptor_yaml);
+
+    std::unique_ptr<CoordinateManager> coordinate_manager = nullptr;
 };
 
 // Allocates a new soc descriptor on the heap. Returns an owning pointer.

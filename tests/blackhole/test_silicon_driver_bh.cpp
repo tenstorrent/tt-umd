@@ -207,7 +207,7 @@ TEST(SiliconDriverBH, UnalignedStaticTLB_RW) {
 
     uint32_t num_host_mem_ch_per_mmio_device = 1;
     
-    Cluster device = Cluster(test_utils::GetAbsPath("tests/soc_descs/blackhole_140_arch_no_eth.yaml"), tt_ClusterDescriptor::get_cluster_descriptor_file_path(), target_devices, num_host_mem_ch_per_mmio_device, false, true, true);
+    Cluster device = Cluster(num_host_mem_ch_per_mmio_device, false, true, true);
     set_params_for_remote_txn(device);
     auto mmio_devices = device.get_target_mmio_device_ids();
 
@@ -266,7 +266,7 @@ TEST(SiliconDriverBH, StaticTLB_RW) {
 
     uint32_t num_host_mem_ch_per_mmio_device = 1;
     
-    Cluster device = Cluster(test_utils::GetAbsPath("tests/soc_descs/blackhole_140_arch_no_eth.yaml"), tt_ClusterDescriptor::get_cluster_descriptor_file_path(), target_devices, num_host_mem_ch_per_mmio_device, false, true, true);
+    Cluster device = Cluster(num_host_mem_ch_per_mmio_device, false, true, true);
     set_params_for_remote_txn(device);
     auto mmio_devices = device.get_target_mmio_device_ids();
 
@@ -316,7 +316,7 @@ TEST(SiliconDriverBH, DynamicTLB_RW) {
     std::set<chip_id_t> target_devices = get_target_devices();
 
     uint32_t num_host_mem_ch_per_mmio_device = 1;
-    Cluster device = Cluster(test_utils::GetAbsPath("tests/soc_descs/blackhole_140_arch_no_eth.yaml"), tt_ClusterDescriptor::get_cluster_descriptor_file_path(), target_devices, num_host_mem_ch_per_mmio_device, false, true, true);
+    Cluster device = Cluster(num_host_mem_ch_per_mmio_device, false, true, true);
 
     set_params_for_remote_txn(device);
 
@@ -380,7 +380,7 @@ TEST(SiliconDriverBH, MultiThreadedDevice) {
     std::set<chip_id_t> target_devices = get_target_devices();
 
     uint32_t num_host_mem_ch_per_mmio_device = 1;
-    Cluster device = Cluster(test_utils::GetAbsPath("tests/soc_descs/blackhole_140_arch_no_eth.yaml"), tt_ClusterDescriptor::get_cluster_descriptor_file_path(), target_devices, num_host_mem_ch_per_mmio_device, false, true, true);
+    Cluster device = Cluster(num_host_mem_ch_per_mmio_device, false, true, true);
     
     set_params_for_remote_txn(device);
 
@@ -439,7 +439,7 @@ TEST(SiliconDriverBH, MultiThreadedMemBar) {
     uint32_t base_addr = l1_mem::address_map::DATA_BUFFER_SPACE_BASE;
     uint32_t num_host_mem_ch_per_mmio_device = 1;
 
-    Cluster device = Cluster(test_utils::GetAbsPath("tests/soc_descs/blackhole_140_arch_no_eth.yaml"), tt_ClusterDescriptor::get_cluster_descriptor_file_path(), target_devices, num_host_mem_ch_per_mmio_device, false, true, true);
+    Cluster device = Cluster(num_host_mem_ch_per_mmio_device, false, true, true);
     set_params_for_remote_txn(device);
     for(int i = 0; i < target_devices.size(); i++) {
         // Iterate over devices and only setup static TLBs for functional worker cores
@@ -541,7 +541,7 @@ TEST(SiliconDriverBH, DISABLED_BroadcastWrite) { // Cannot broadcast to tensix/e
 
     uint32_t num_host_mem_ch_per_mmio_device = 1;
     
-    Cluster device = Cluster(test_utils::GetAbsPath("tests/soc_descs/blackhole_140_arch_no_eth.yaml"), tt_ClusterDescriptor::get_cluster_descriptor_file_path(), target_devices, num_host_mem_ch_per_mmio_device, false, true, true);
+    Cluster device = Cluster(num_host_mem_ch_per_mmio_device, false, true, true);
     set_params_for_remote_txn(device);
     auto mmio_devices = device.get_target_mmio_device_ids();
 
@@ -598,7 +598,7 @@ TEST(SiliconDriverBH, DISABLED_VirtualCoordinateBroadcast) { // same problem as 
 
     uint32_t num_host_mem_ch_per_mmio_device = 1;
     
-    Cluster device = Cluster(test_utils::GetAbsPath("tests/soc_descs/blackhole_140_arch_no_eth.yaml"), tt_ClusterDescriptor::get_cluster_descriptor_file_path(), target_devices, num_host_mem_ch_per_mmio_device, false, true, true);
+    Cluster device = Cluster(num_host_mem_ch_per_mmio_device, false, true, true);
     set_params_for_remote_txn(device);
     auto mmio_devices = device.get_target_mmio_device_ids();
 

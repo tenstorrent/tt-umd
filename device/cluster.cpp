@@ -474,6 +474,35 @@ Cluster::Cluster(const uint32_t &num_host_mem_ch_per_mmio_device, const bool ski
     construct_cluster(sdesc_path, num_host_mem_ch_per_mmio_device, skip_driver_allocs, clean_system_resources, perform_harvesting, simulated_harvesting_masks); 
 }
 
+Cluster::Cluster(const std::set<chip_id_t> &target_devices, const uint32_t &num_host_mem_ch_per_mmio_device, const bool skip_driver_allocs,
+                                   const bool clean_system_resources, bool perform_harvesting, std::unordered_map<chip_id_t, uint32_t> simulated_harvesting_masks) : tt_device() {
+    // TODO: this should be fetched through ClusterDescriptor
+    auto available_device_ids = detect_available_device_ids();
+    m_num_pci_devices = available_device_ids.size();
+    
+    int physical_device_id = available_device_ids[0];
+    // TODO: remove logical_device_id
+    PCIDevice pci_device (physical_device_id, 0);
+    tt::ARCH device_arch = pci_device.get_arch();
+
+    std::string sdesc_path = tt_SocDescriptor::get_soc_descriptor_path(device_arch);
+
+    arch_name = tt_SocDescriptor(sdesc_path).arch;
+    perform_harvesting_on_sdesc = perform_harvesting;
+
+    if (!skip_driver_allocs) {
+        log_info(LogSiliconDriver, "Detected {} PCI device{} : {}", m_num_pci_devices, (m_num_pci_devices > 1) ? "s":"", available_device_ids);
+        log_debug(LogSiliconDriver, "Passed target devices: {}", target_devices);
+    }
+
+    std::string ndesc_path = tt_ClusterDescriptor::get_cluster_descriptor_file_path();
+    ndesc = tt_ClusterDescriptor::create_from_yaml(ndesc_path);
+
+    target_devices_in_cluster = target_devices;
+
+    construct_cluster(sdesc_path, num_host_mem_ch_per_mmio_device, skip_driver_allocs, clean_system_resources, perform_harvesting, simulated_harvesting_masks); 
+}
+
 Cluster::Cluster(const std::string &sdesc_path, const std::string &ndesc_path, const std::set<chip_id_t> &target_devices, 
                                    const uint32_t &num_host_mem_ch_per_mmio_device, const bool skip_driver_allocs,
                                    const bool clean_system_resources, bool perform_harvesting, std::unordered_map<chip_id_t, uint32_t> simulated_harvesting_masks) : tt_device() {

@@ -609,7 +609,7 @@ class Cluster: public tt_device
 public:
     // Constructor
     /**
-     * Silicon Driver constructor.
+     * Cluster constructor.
      *
      * @param sdesc_path SOC descriptor specifying single chip.
      * @param ndesc_path Network Descriptor specifying the network topology of the system.
@@ -625,7 +625,7 @@ public:
                     const bool clean_system_resources = false, bool perform_harvesting = true, std::unordered_map<chip_id_t, uint32_t> simulated_harvesting_masks = {});
     
     /**
-     * Silicon Driver constructor. This constructor should be used to work towards removing all
+     * Cluster constructor. This constructor should be used to work towards removing all
      * of the params from the constructor of tt_SiliconDevice (to become Cluster).
      *
      * @param num_host_mem_ch_per_mmio_device Requested number of host channels (hugepages).
@@ -636,6 +636,19 @@ public:
      */ 
     Cluster(const uint32_t &num_host_mem_ch_per_mmio_device = 1, const bool skip_driver_allocs = false,
                      const bool clean_system_resources = false, bool perform_harvesting = true, std::unordered_map<chip_id_t, uint32_t> simulated_harvesting_masks = {});
+
+    /**
+     * Cluster constructor. This constructor should be used to target specific devices in a cluster.
+     *
+     * @param target_devices Devices to target.
+     * @param num_host_mem_ch_per_mmio_device Requested number of host channels (hugepages).
+     * @param skip_driver_allocs
+     * @param clean_system_resource Specifies if host state from previous runs needs to be cleaned up.
+     * @param perform_harvesting Allow the driver to modify the SOC descriptors per chip.
+     * @param simulated_harvesting_masks
+     */ 
+    Cluster(const std::set<chip_id_t> &target_devices, const uint32_t &num_host_mem_ch_per_mmio_device = 1, const bool skip_driver_allocs = false,
+            const bool clean_system_resources = false, bool perform_harvesting = true, std::unordered_map<chip_id_t, uint32_t> simulated_harvesting_masks = {});
 
     //Setup/Teardown Functions
     virtual std::unordered_map<chip_id_t, tt_SocDescriptor>& get_virtual_soc_descriptors();

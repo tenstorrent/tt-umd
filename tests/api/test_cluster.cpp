@@ -177,3 +177,61 @@ TEST(ApiClusterTest, RemoteFlush) {
     std::cout << "Testing whole cluster wait for remote chip flush again, should be no-op." << std::endl;
     umd_cluster->wait_for_non_mmio_flush();
 }
+
+TEST(ApiClusterTest, SimpleIOSpecificChips) {
+    std::unique_ptr<Cluster> umd_cluster = std::make_unique<Cluster>(0);
+
+    const tt_ClusterDescriptor* cluster_desc = umd_cluster->get_cluster_description();
+
+    if (umd_cluster == nullptr || umd_cluster->get_all_chips_in_cluster().empty()) {
+        GTEST_SKIP() << "No chips present on the system. Skipping test.";
+    }
+
+    // Initialize random data.
+    size_t data_size = 1024;
+    std::vector<uint8_t> data(data_size, 0);
+    for (int i = 0; i < data_size; i++) {
+        data[i] = i % 256;
+    }
+
+    // TODO: this should be part of constructor if it is mandatory.
+    setup_wormhole_remote(umd_cluster.get());
+
+    for (auto chip_id : umd_cluster->get_all_chips_in_cluster()) {
+        const tt_SocDescriptor& soc_desc = umd_cluster->get_soc_descriptor(chip_id);
+
+        // TODO: figure out if core locations should contain chip_id
+        tt_xy_pair any_core = soc_desc.workers[0];
+        tt_cxy_pair any_core_global(chip_id, any_core);
+
+        if (cluster_desc->is_chip_remote(chip_id) && soc_desc.arch != tt::ARCH::WORMHOLE_B0) {
+            std::cout << "Skipping remote chip " << chip_id << " because it is not a wormhole_b0 chip." << std::endl;
+            continue;
+        }
+
+        std::cout << "Writing to chip " << chip_id << " core " << any_core.str() << std::endl;
+
+        umd_cluster->write_to_device(data.data(), data_size, any_core_global, 0, "LARGE_WRITE_TLB");
+    }
+
+    // Now read back the data.
+    for (auto chip_id : umd_cluster->get_all_chips_in_cluster()) {
+        const tt_SocDescriptor& soc_desc = umd_cluster->get_soc_descriptor(chip_id);
+
+        // TODO: figure out if core locations should contain chip_id
+        tt_xy_pair any_core = soc_desc.workers[0];
+        tt_cxy_pair any_core_global(chip_id, any_core);
+
+        if (cluster_desc->is_chip_remote(chip_id) && soc_desc.arch != tt::ARCH::WORMHOLE_B0) {
+            std::cout << "Skipping remote chip " << chip_id << " because it is not a wormhole_b0 chip." << std::endl;
+            continue;
+        }
+
+        std::cout << "Reading from chip " << chip_id << " core " << any_core.str() << std::endl;
+
+        std::vector<uint8_t> readback_data(data_size, 0);
+        umd_cluster->read_from_device(readback_data.data(), any_core_global, 0, data_size, "LARGE_READ_TLB");
+
+        ASSERT_EQ(data, readback_data);
+    }
+}

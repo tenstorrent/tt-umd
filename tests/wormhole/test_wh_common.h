@@ -49,7 +49,6 @@ protected:
             GTEST_SKIP() << "Test is skipped due to incorrect number of chips";
         }
 
-        // std::cout << "Setting Up Test." << std::endl;
         assert(get_detected_num_chips() > 0);
         auto devices = std::vector<chip_id_t>(get_detected_num_chips());
         std::iota(devices.begin(), devices.end(), 0);
@@ -74,7 +73,6 @@ protected:
         // before the destructor).
 
         if (!is_test_skipped()) {
-            // std::cout << "Tearing Down Test." << std::endl;
             device->close_device();
         }
     }

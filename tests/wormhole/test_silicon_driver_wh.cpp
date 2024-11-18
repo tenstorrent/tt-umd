@@ -306,8 +306,8 @@ TEST(SiliconDriverWH, StaticTLB_RW) {
     // Check functionality of Static TLBs by reading adn writing from statically mapped address space
     for (int i = 0; i < target_devices.size(); i++) {
         std::uint32_t address = l1_mem::address_map::NCRISC_FIRMWARE_BASE;
-        for (int loop = 0; loop < 100;
-             loop++) {  // Write to each core a 100 times at different statically mapped addresses
+        // Write to each core a 100 times at different statically mapped addresses
+        for (int loop = 0; loop < 100; loop++) {
             for (auto& core : device.get_virtual_soc_descriptors().at(i).workers) {
                 device.write_to_device(
                     vector_to_write.data(),
@@ -315,7 +315,8 @@ TEST(SiliconDriverWH, StaticTLB_RW) {
                     tt_cxy_pair(i, core),
                     address,
                     "");
-                device.wait_for_non_mmio_flush();  // Barrier to ensure that all writes over ethernet were commited
+                // Barrier to ensure that all writes over ethernet were commited
+                device.wait_for_non_mmio_flush();
                 test_utils::read_data_from_device(device, readback_vec, tt_cxy_pair(i, core), address, 40, "");
                 ASSERT_EQ(vector_to_write, readback_vec)
                     << "Vector read back from core " << core.x << "-" << core.y << "does not match what was written";
@@ -355,8 +356,8 @@ TEST(SiliconDriverWH, DynamicTLB_RW) {
 
     for (int i = 0; i < target_devices.size(); i++) {
         std::uint32_t address = l1_mem::address_map::NCRISC_FIRMWARE_BASE;
-        for (int loop = 0; loop < 100;
-             loop++) {  // Write to each core a 100 times at different statically mapped addresses
+        // Write to each core a 100 times at different statically mapped addresses
+        for (int loop = 0; loop < 100; loop++) {
             for (auto& core : device.get_virtual_soc_descriptors().at(i).workers) {
                 device.write_to_device(
                     vector_to_write.data(),
@@ -364,7 +365,8 @@ TEST(SiliconDriverWH, DynamicTLB_RW) {
                     tt_cxy_pair(i, core),
                     address,
                     "SMALL_READ_WRITE_TLB");
-                device.wait_for_non_mmio_flush();  // Barrier to ensure that all writes over ethernet were commited
+                // Barrier to ensure that all writes over ethernet were commited
+                device.wait_for_non_mmio_flush();
                 test_utils::read_data_from_device(
                     device, readback_vec, tt_cxy_pair(i, core), address, 40, "SMALL_READ_WRITE_TLB");
                 ASSERT_EQ(vector_to_write, readback_vec)

@@ -64,19 +64,19 @@ TEST_F(WormholeGalaxyStabilityTestFixture, MixedRemoteTransfers) {
             *this->device,
             100000 * scale_number_of_tests,
             seed,
-
             transfer_type_weights_t{.write = 0.40, .read = 0.4},
-
-            std::uniform_int_distribution<address_t>(0x100000, 0x200000),  // address generator distribution
-            std::uniform_int_distribution<transfer_size_t>(
-                0x4, 30000),                           // WRITE_SIZE_GENERATOR_T const& write_size_distribution,
-            std::uniform_int_distribution<int>(2, 4),  // UNROLL_COUNT_GENERATOR_T const& unroll_count_distribution
+            // address generator distribution
+            std::uniform_int_distribution<address_t>(0x100000, 0x200000),
+            // WRITE_SIZE_GENERATOR_T const& write_size_distribution,
+            std::uniform_int_distribution<transfer_size_t>(0x4, 30000),
+            // UNROLL_COUNT_GENERATOR_T const& unroll_count_distribution
+            std::uniform_int_distribution<int>(2, 4),
             0.75,
             0.75,
-            std::uniform_int_distribution<transfer_size_t>(
-                0x4, 30000),  // READ_SIZE_GENERATOR_T const& read_size_distribution,
-
-            false,  // Set to true if you want to emit the command history code to command line
+            // READ_SIZE_GENERATOR_T const& read_size_distribution,
+            std::uniform_int_distribution<transfer_size_t>(0x4, 30000),
+            // Set to true if you want to emit the command history code to command line
+            false,
             &command_history);
     } catch (...) {
         print_command_history_executable_code(command_history);
@@ -94,19 +94,19 @@ TEST_F(WormholeGalaxyStabilityTestFixture, DISABLED_MultithreadedMixedRemoteTran
             *device,
             50000 * scale_number_of_tests,
             0,
-
             transfer_type_weights_t{.write = 0.50, .read = 0.50},
-
-            std::uniform_int_distribution<address_t>(0x100000, 0x200000),  // address generator distribution
-            std::uniform_int_distribution<transfer_size_t>(
-                0x4, 30000),                           // WRITE_SIZE_GENERATOR_T const& write_size_distribution,
-            std::uniform_int_distribution<int>(2, 4),  // UNROLL_COUNT_GENERATOR_T const& unroll_count_distribution
+            // address generator distribution
+            std::uniform_int_distribution<address_t>(0x100000, 0x200000),
+            // WRITE_SIZE_GENERATOR_T const& write_size_distribution,
+            std::uniform_int_distribution<transfer_size_t>(0x4, 30000),
+            // UNROLL_COUNT_GENERATOR_T const& unroll_count_distribution
+            std::uniform_int_distribution<int>(2, 4),
             0.75,
             0.75,
-            std::uniform_int_distribution<transfer_size_t>(
-                0x4, 30000),  // READ_SIZE_GENERATOR_T const& read_size_distribution,
-
-            false,  // Set to true if you want to emit the command history code to command line
+            // READ_SIZE_GENERATOR_T const& read_size_distribution,
+            std::uniform_int_distribution<transfer_size_t>(0x4, 30000),
+            // Set to true if you want to emit the command history code to command line
+            false,
             nullptr);
     });
     std::thread t2([&]() {
@@ -114,19 +114,19 @@ TEST_F(WormholeGalaxyStabilityTestFixture, DISABLED_MultithreadedMixedRemoteTran
             *device,
             50000 * scale_number_of_tests,
             100,
-
             transfer_type_weights_t{.write = 0.25, .read = 0.50},
-
-            std::uniform_int_distribution<address_t>(0x100000, 0x200000),  // address generator distribution
-            std::uniform_int_distribution<transfer_size_t>(
-                0x4, 30000),                           // WRITE_SIZE_GENERATOR_T const& write_size_distribution,
-            std::uniform_int_distribution<int>(2, 4),  // UNROLL_COUNT_GENERATOR_T const& unroll_count_distribution
+            // address generator distribution
+            std::uniform_int_distribution<address_t>(0x100000, 0x200000),
+            // WRITE_SIZE_GENERATOR_T const& write_size_distribution,
+            std::uniform_int_distribution<transfer_size_t>(0x4, 30000),
+            // UNROLL_COUNT_GENERATOR_T const& unroll_count_distribution
+            std::uniform_int_distribution<int>(2, 4),
             0.75,
             0.75,
-            std::uniform_int_distribution<transfer_size_t>(
-                0x4, 30000),  // READ_SIZE_GENERATOR_T const& read_size_distribution,
-
-            false,  // Set to true if you want to emit the command history code to command line
+            // READ_SIZE_GENERATOR_T const& read_size_distribution,
+            // Set to true if you want to emit the command history code to command line
+            std::uniform_int_distribution<transfer_size_t>(0x4, 30000),
+            false,
             nullptr);
     });
     std::thread t3([&]() {
@@ -134,19 +134,19 @@ TEST_F(WormholeGalaxyStabilityTestFixture, DISABLED_MultithreadedMixedRemoteTran
             *device,
             50000 * scale_number_of_tests,
             23,
-
             transfer_type_weights_t{.write = 0.5, .read = 0.25},
-
-            std::uniform_int_distribution<address_t>(0x100000, 0x200000),  // address generator distribution
-            std::uniform_int_distribution<transfer_size_t>(
-                0x4, 30000),                           // WRITE_SIZE_GENERATOR_T const& write_size_distribution,
-            std::uniform_int_distribution<int>(2, 4),  // UNROLL_COUNT_GENERATOR_T const& unroll_count_distribution
+            // address generator distribution
+            std::uniform_int_distribution<address_t>(0x100000, 0x200000),
+            // WRITE_SIZE_GENERATOR_T const& write_size_distribution,
+            std::uniform_int_distribution<transfer_size_t>(0x4, 30000),
+            // UNROLL_COUNT_GENERATOR_T const& unroll_count_distribution
+            std::uniform_int_distribution<int>(2, 4),
             0.75,
             0.75,
-            std::uniform_int_distribution<transfer_size_t>(
-                0x4, 30000),  // READ_SIZE_GENERATOR_T const& read_size_distribution,
-
-            false,  // Set to true if you want to emit the command history code to command line
+            // READ_SIZE_GENERATOR_T const& read_size_distribution,
+            // Set to true if you want to emit the command history code to command line
+            std::uniform_int_distribution<transfer_size_t>(0x4, 30000),
+            false,
             nullptr);
     });
     std::thread t4([&]() {
@@ -154,19 +154,19 @@ TEST_F(WormholeGalaxyStabilityTestFixture, DISABLED_MultithreadedMixedRemoteTran
             *device,
             100000 * scale_number_of_tests,
             99,
-
             transfer_type_weights_t{.write = 0.1, .read = 0.1},
-
-            std::uniform_int_distribution<address_t>(0x100000, 0x200000),  // address generator distribution
-            std::uniform_int_distribution<transfer_size_t>(
-                0x4, 3000),                            // WRITE_SIZE_GENERATOR_T const& write_size_distribution,
-            std::uniform_int_distribution<int>(2, 4),  // UNROLL_COUNT_GENERATOR_T const& unroll_count_distribution
+            // address generator distribution
+            std::uniform_int_distribution<address_t>(0x100000, 0x200000),
+            // WRITE_SIZE_GENERATOR_T const& write_size_distribution,
+            std::uniform_int_distribution<transfer_size_t>(0x4, 3000),
+            // UNROLL_COUNT_GENERATOR_T const& unroll_count_distribution
+            std::uniform_int_distribution<int>(2, 4),
             0.75,
             0.75,
-            std::uniform_int_distribution<transfer_size_t>(
-                0x4, 3000),  // READ_SIZE_GENERATOR_T const& read_size_distribution,
-
-            false,  // Set to true if you want to emit the command history code to command line
+            // READ_SIZE_GENERATOR_T const& read_size_distribution,
+            std::uniform_int_distribution<transfer_size_t>(0x4, 3000),
+            // Set to true if you want to emit the command history code to command line
+            false,
             nullptr);
     });
 

@@ -56,8 +56,8 @@ static const uint32_t MSG_ERROR_REPLY = 0xFFFFFFFF;
 // TLB size for DRAM on blackhole - 4GB
 const uint64_t BH_4GB_TLB_SIZE = 4ULL * 1024 * 1024 * 1024;
 
-static constexpr uint32_t HUGEPAGE_CHANNEL_3_SIZE_LIMIT =
-    805306368;  // Remove 256MB from full 1GB for channel 3 (iATU limitation)
+// Remove 256MB from full 1GB for channel 3 (iATU limitation)
+static constexpr uint32_t HUGEPAGE_CHANNEL_3_SIZE_LIMIT = 805306368;
 
 // TODO: Remove in favor of cluster descriptor method, when it becomes available.
 // Metal uses this function to determine the architecture of the first PCIe chip
@@ -302,9 +302,8 @@ void Cluster::create_device(
             log_assert(
                 !(arch_name == tt::ARCH::BLACKHOLE && num_host_mem_channels > 1),
                 "More channels are not yet supported for Blackhole");
-            bool hugepages_initialized =
-                m_pci_device_map.at(logical_device_id)
-                    ->init_hugepage(num_host_mem_channels);  // Same number of host channels per device for now
+            // Same number of host channels per device for now
+            bool hugepages_initialized = m_pci_device_map.at(logical_device_id)->init_hugepage(num_host_mem_channels);
             // Large writes to remote chips require hugepages to be initialized.
             // Conservative assert - end workload if remote chips present but hugepages not initialized (failures caused
             // if using remote only for small transactions)
@@ -317,10 +316,8 @@ void Cluster::create_device(
                 log_warning(LogSiliconDriver, "No hugepage mapping at device {}.", logical_device_id);
             }
         }
-        harvested_coord_translation.insert(
-            {logical_device_id,
-             create_harvested_coord_translation(
-                 arch_name, true)});  // translation layer for harvested coords. Default is identity map
+        // translation layer for harvested coords. Default is identity map
+        harvested_coord_translation.insert({logical_device_id, create_harvested_coord_translation(arch_name, true)});
     }
 
     for (const chip_id_t& chip : target_devices_in_cluster) {
@@ -377,9 +374,9 @@ void Cluster::construct_cluster(
     dynamic_tlb_config["REG_TLB"] = architecture_implementation->get_reg_tlb();
     dynamic_tlb_config["SMALL_READ_WRITE_TLB"] = architecture_implementation->get_small_read_write_tlb();
 
+    // All dynamic TLBs use Relaxed Ordering by default
     for (const auto& tlb : dynamic_tlb_config) {
-        dynamic_tlb_ordering_modes.insert(
-            {tlb.first, TLB_DATA::Relaxed});  // All dynamic TLBs use Relaxed Ordering by default; MT: Good for BH
+        dynamic_tlb_ordering_modes.insert({tlb.first, TLB_DATA::Relaxed});
     }
     create_device(target_mmio_device_ids, num_host_mem_ch_per_mmio_device, skip_driver_allocs, clean_system_resources);
 
@@ -854,23 +851,10 @@ std::unordered_map<tt_xy_pair, tt_xy_pair> Cluster::create_harvested_coord_trans
         grid_size = tt_xy_pair(10, 12);
         T6_x = {1, 2, 3, 4, 6, 7, 8, 9};
         T6_y = {1, 2, 3, 4, 5, 7, 8, 9, 10, 11};
-        ethernet = {
-            {1, 0},
-            {2, 0},
-            {3, 0},
-            {4, 0},
-            {6, 0},
-            {7, 0},
-            {8, 0},
-            {9, 0},
-            {1, 6},
-            {2, 6},
-            {3, 6},
-            {4, 6},
-            {6, 6},
-            {7, 6},
-            {8, 6},
-            {9, 6}};
+        // clang-format off
+        ethernet = {{1, 0}, {2, 0}, {3, 0}, {4, 0}, {6, 0}, {7, 0}, {8, 0}, {9, 0},
+                    {1, 6}, {2, 6}, {3, 6}, {4, 6}, {6, 6}, {7, 6}, {8, 6}, {9, 6}};
+        // clang-format on
     }
 
     if (identity_map) {
@@ -1005,8 +989,8 @@ void Cluster::assert_risc_reset() { broadcast_tensix_risc_reset_to_cluster(TENSI
 void Cluster::deassert_risc_reset() { broadcast_tensix_risc_reset_to_cluster(TENSIX_DEASSERT_SOFT_RESET); }
 
 void Cluster::deassert_risc_reset_at_core(tt_cxy_pair core, const TensixSoftResetOptions& soft_resets) {
-    std::uint32_t target_device =
-        core.chip;  // Get Target Device to query soc descriptor and determine location in cluster
+    // Get Target Device to query soc descriptor and determine location in cluster
+    std::uint32_t target_device = core.chip;
     log_assert(
         std::find(
             get_soc_descriptor(target_device).workers.begin(), get_soc_descriptor(target_device).workers.end(), core) !=
@@ -1029,8 +1013,8 @@ void Cluster::deassert_risc_reset_at_core(tt_cxy_pair core, const TensixSoftRese
 }
 
 void Cluster::assert_risc_reset_at_core(tt_cxy_pair core) {
-    std::uint32_t target_device =
-        core.chip;  // Get Target Device to query soc descriptor and determine location in cluster
+    // Get Target Device to query soc descriptor and determine location in cluster
+    std::uint32_t target_device = core.chip;
     log_assert(
         std::find(
             get_soc_descriptor(target_device).workers.begin(), get_soc_descriptor(target_device).workers.end(), core) !=

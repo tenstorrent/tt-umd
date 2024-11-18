@@ -261,8 +261,8 @@ template <
 
     typename GENERATOR_T = std::mt19937>
 class TestGenerator {
-    using transfer_type_generator_t = DefaultTransferTypeGenerator;  // ConstrainedTemplateTemplateGenerator<RemoteTransferType,
-                                                                     // int, TRANS_TYPE_DISTRIBUTION_T, GENERATOR_T>;
+    // ConstrainedTemplateTemplateGenerator<RemoteTransferType, int, TRANS_TYPE_DISTRIBUTION_T, GENERATOR_T>;
+    using transfer_type_generator_t = DefaultTransferTypeGenerator;
     using write_command_generator_t =
         WriteCommandGenerator<WRITE_DEST_DISTR_T, WRITE_ADDR_DISTR_T, WRITE_SIZE_DISTR_OUT_T, WRITE_SIZE_DISTR_T>;
     using read_command_generator_t =

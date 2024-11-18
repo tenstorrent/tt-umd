@@ -33,7 +33,7 @@ class tt_MockupDevice : public tt_device {
     void assert_risc_reset() override {}
     void deassert_risc_reset() override {}
     void deassert_risc_reset_at_core(tt_cxy_pair core, const TensixSoftResetOptions &soft_resets = TENSIX_DEASSERT_SOFT_RESET) override {}
-    void assert_risc_reset_at_core(tt_cxy_pair core) override {}
+    void assert_risc_reset_at_core(tt_cxy_pair core, const TensixSoftResetOptions &soft_resets = TENSIX_ASSERT_SOFT_RESET) override {}
     void close_device() override {}
 
     // Runtime Functions

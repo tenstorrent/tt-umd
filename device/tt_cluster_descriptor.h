@@ -38,7 +38,6 @@ private:
 
 protected:
 
-  bool chips_have_coordinates;
   std::unordered_map<chip_id_t, std::unordered_map<ethernet_channel_t, std::tuple<chip_id_t, ethernet_channel_t> > > ethernet_connections;
   std::unordered_map<chip_id_t, eth_coord_t> chip_locations;
   // reverse map: rack/shelf/y/x -> chip_id

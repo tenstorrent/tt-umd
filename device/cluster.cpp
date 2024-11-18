@@ -448,6 +448,7 @@ Cluster::Cluster(const uint32_t &num_host_mem_ch_per_mmio_device, const bool ski
     m_num_pci_devices = available_device_ids.size();
     
     int physical_device_id = available_device_ids[0];
+    // TODO: remove logical_device_id
     PCIDevice pci_device (physical_device_id, 0);
     tt::ARCH device_arch = pci_device.get_arch();
 

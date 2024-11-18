@@ -438,7 +438,7 @@ std::unique_ptr<tt_ClusterDescriptor> tt_ClusterDescriptor::create_from_yaml(
 }
 
 std::unique_ptr<tt_ClusterDescriptor> tt_ClusterDescriptor::create_mock_cluster(
-    const std::set<chip_id_t> &logical_device_ids) {
+    const std::vector<chip_id_t> &logical_device_ids) {
     std::unique_ptr<tt_ClusterDescriptor> desc = std::unique_ptr<tt_ClusterDescriptor>(new tt_ClusterDescriptor());
 
     for (auto &logical_id : logical_device_ids) {

@@ -7,29 +7,25 @@
 #pragma once
 
 #include <cstddef>
-#include <string>
+#include <cstdint>
+#include <iostream>
 #include <map>
+#include <string>
 #include <unordered_map>
 #include <vector>
 
-#include <iostream>
-#include <string>
-#include <cstdint>
-
-#include "tt_xy_pair.h"
-#include "device/tt_arch_types.h"
-
 #include "device/coordinate_manager.h"
-
+#include "device/tt_arch_types.h"
 #include "fmt/core.h"
+#include "tt_xy_pair.h"
 
 namespace YAML {
-    class Node;
+class Node;
 }
 
 std::ostream &operator<<(std::ostream &out, const tt::ARCH &arch_name);
 
-static inline std::string get_arch_str(const tt::ARCH arch_name){
+static inline std::string get_arch_str(const tt::ARCH arch_name) {
     std::string arch_name_str;
 
     if (arch_name == tt::ARCH::GRAYSKULL) {
@@ -45,16 +41,18 @@ static inline std::string get_arch_str(const tt::ARCH arch_name){
     return arch_name_str;
 }
 
-static inline tt::ARCH get_arch_name(const std::string &arch_str){
+static inline tt::ARCH get_arch_name(const std::string &arch_str) {
     tt::ARCH arch;
 
     if ((arch_str == "grayskull") || (arch_str == "GRAYSKULL")) {
         arch = tt::ARCH::GRAYSKULL;
-    } else if ((arch_str == "wormhole") || (arch_str == "WORMHOLE") || (arch_str == "wormhole_b0") || (arch_str == "WORMHOLE_B0")){
+    } else if (
+        (arch_str == "wormhole") || (arch_str == "WORMHOLE") || (arch_str == "wormhole_b0") ||
+        (arch_str == "WORMHOLE_B0")) {
         arch = tt::ARCH::WORMHOLE_B0;
-    } else if ((arch_str == "blackhole") || (arch_str == "BLACKHOLE")){
+    } else if ((arch_str == "blackhole") || (arch_str == "BLACKHOLE")) {
         arch = tt::ARCH::BLACKHOLE;
-    }else {
+    } else {
         throw std::runtime_error(
             fmt::format("At LoadSocDescriptorFromYaml: \"{}\" is not recognized as tt::ARCH.", arch_str));
     }
@@ -69,13 +67,13 @@ tt_xy_pair format_node(std::string str);
 //! SocCore type enumerations
 /*! Superset for all chip generations */
 enum class CoreType {
-  ARC,
-  DRAM,
-  ETH,
-  PCIE,
-  WORKER,
-  HARVESTED,
-  ROUTER_ONLY,
+    ARC,
+    DRAM,
+    ETH,
+    PCIE,
+    WORKER,
+    HARVESTED,
+    ROUTER_ONLY,
 
 };
 
@@ -84,10 +82,10 @@ enum class CoreType {
     Should only contain relevant configuration for SOC
 */
 struct CoreDescriptor {
-  tt_xy_pair coord = tt_xy_pair(0, 0);
-  CoreType type;
+    tt_xy_pair coord = tt_xy_pair(0, 0);
+    CoreType type;
 
-  std::size_t l1_size = 0;
+    std::size_t l1_size = 0;
 };
 
 //! tt_SocDescriptor contains information regarding the SOC configuration targetted.
@@ -95,7 +93,6 @@ struct CoreDescriptor {
     Should only contain relevant configuration for SOC
 */
 class tt_SocDescriptor {
-
 public:
     tt::ARCH arch;
     tt_xy_pair grid_size;
@@ -110,13 +107,15 @@ public:
     std::unordered_map<int, int> worker_log_to_routing_y;
     std::unordered_map<int, int> routing_x_to_worker_x;
     std::unordered_map<int, int> routing_y_to_worker_y;
-    std::vector<std::vector<tt_xy_pair>> dram_cores;  // per channel list of dram cores
+    std::vector<std::vector<tt_xy_pair>> dram_cores;                             // per channel list of dram cores
     std::unordered_map<tt_xy_pair, std::tuple<int, int>> dram_core_channel_map;  // map dram core to chan/subchan
-    std::vector<tt_xy_pair> ethernet_cores;  // ethernet cores (index == channel id)
-    std::unordered_map<tt_xy_pair,int> ethernet_core_channel_map;
+    std::vector<tt_xy_pair> ethernet_cores;                                      // ethernet cores (index == channel id)
+    std::unordered_map<tt_xy_pair, int> ethernet_core_channel_map;
     std::vector<std::size_t> trisc_sizes;  // Most of software stack assumes same trisc size for whole chip..
     std::string device_descriptor_file_path = std::string("");
+
     bool has(tt_xy_pair input) { return cores.find(input) != cores.end(); }
+
     int overlay_version;
     int unpacker_version;
     int dst_size_alignment;
@@ -129,15 +128,15 @@ public:
     int get_num_dram_channels() const;
     bool is_worker_core(const tt_xy_pair &core) const;
     tt_xy_pair get_core_for_dram_channel(int dram_chan, int subchannel) const;
-    bool is_ethernet_core(const tt_xy_pair& core) const;
+    bool is_ethernet_core(const tt_xy_pair &core) const;
 
     // Default constructor. Creates uninitialized object with public access to all of its attributes.
     tt_SocDescriptor() = default;
-    // Constructor used to build object from device descriptor file.    
+    // Constructor used to build object from device descriptor file.
     tt_SocDescriptor(std::string device_descriptor_path, std::size_t harvesting_mask = 0);
 
     // Copy constructor
-    tt_SocDescriptor(const tt_SocDescriptor& other) :
+    tt_SocDescriptor(const tt_SocDescriptor &other) :
         arch(other.arch),
         grid_size(other.grid_size),
         physical_grid_size(other.physical_grid_size),
@@ -167,7 +166,7 @@ public:
         dram_bank_size(other.dram_bank_size) {
         coordinate_manager.reset(new CoordinateManager(*other.coordinate_manager));
     }
-    
+
     // Coordinate conversions.
 
     // Conversions from logical coordinates should be used just for worker cores.
@@ -189,7 +188,7 @@ public:
 
     void perform_harvesting(std::size_t harvesting_mask);
 
-    static std::string get_soc_descriptor_path(tt::ARCH arch); 
+    static std::string get_soc_descriptor_path(tt::ARCH arch);
 
 private:
     void create_coordinate_manager(std::size_t harvesting_mask);

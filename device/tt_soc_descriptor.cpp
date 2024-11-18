@@ -2,66 +2,65 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-#include "yaml-cpp/yaml.h"
 #include "tt_soc_descriptor.h"
 
-#include "common/utils.hpp"
-
 #include <assert.h>
+
 #include <fstream>
 #include <iostream>
 #include <regex>
 #include <string>
 #include <unordered_set>
 
+#include "common/utils.hpp"
 #include "fmt/core.h"
+#include "yaml-cpp/yaml.h"
 
 // #include "l1_address_map.h"
 
 std::string format_node(tt_xy_pair xy) { return fmt::format("{}-{}", xy.x, xy.y); }
 
 tt_xy_pair format_node(std::string str) {
-  int x_coord;
-  int y_coord;
-  std::regex expr("([0-9]+)[-,xX]([0-9]+)");
-  std::smatch x_y_pair;
+    int x_coord;
+    int y_coord;
+    std::regex expr("([0-9]+)[-,xX]([0-9]+)");
+    std::smatch x_y_pair;
 
-  if (std::regex_search(str, x_y_pair, expr)) {
-    x_coord = std::stoi(x_y_pair[1]);
-    y_coord = std::stoi(x_y_pair[2]);
-  } else {
-    throw std::runtime_error(fmt::format("Could not parse the core id: {}", str));
-  }
+    if (std::regex_search(str, x_y_pair, expr)) {
+        x_coord = std::stoi(x_y_pair[1]);
+        y_coord = std::stoi(x_y_pair[2]);
+    } else {
+        throw std::runtime_error(fmt::format("Could not parse the core id: {}", str));
+    }
 
-  tt_xy_pair xy(x_coord, y_coord);
+    tt_xy_pair xy(x_coord, y_coord);
 
-  return xy;
+    return xy;
 }
-const char* ws = " \t\n\r\f\v";
+
+const char *ws = " \t\n\r\f\v";
 
 // trim from end of string (right)
-inline std::string& rtrim(std::string& s, const char* t = ws)
-{
+inline std::string &rtrim(std::string &s, const char *t = ws) {
     s.erase(s.find_last_not_of(t) + 1);
     return s;
 }
 
 // trim from beginning of string (left)
-inline std::string& ltrim(std::string& s, const char* t = ws)
-{
+inline std::string &ltrim(std::string &s, const char *t = ws) {
     s.erase(0, s.find_first_not_of(t));
     return s;
 }
 
 // trim from both ends of string (right then left)
-inline std::string& trim(std::string& s, const char* t = ws)
-{
-    return ltrim(rtrim(s, t), t);
-}
+inline std::string &trim(std::string &s, const char *t = ws) { return ltrim(rtrim(s, t), t); }
 
 void tt_SocDescriptor::load_soc_features_from_device_descriptor(YAML::Node &device_descriptor_yaml) {
     overlay_version = device_descriptor_yaml["features"]["overlay"]["version"].as<int>();
-    noc_translation_id_enabled = device_descriptor_yaml["features"]["noc"] && device_descriptor_yaml["features"]["noc"]["translation_id_enabled"] ? device_descriptor_yaml["features"]["noc"]["translation_id_enabled"].as<bool>() : false;
+    noc_translation_id_enabled =
+        device_descriptor_yaml["features"]["noc"] && device_descriptor_yaml["features"]["noc"]["translation_id_enabled"]
+            ? device_descriptor_yaml["features"]["noc"]["translation_id_enabled"].as<bool>()
+            : false;
     packer_version = device_descriptor_yaml["features"]["packer"]["version"].as<int>();
     unpacker_version = device_descriptor_yaml["features"]["unpacker"]["version"].as<int>();
     dst_size_alignment = device_descriptor_yaml["features"]["math"]["dst_size_alignment"].as<int>();
@@ -92,7 +91,8 @@ void tt_SocDescriptor::load_core_descriptors_from_device_descriptor(YAML::Node &
     }
 
     int current_dram_channel = 0;
-    for (auto channel_it = device_descriptor_yaml["dram"].begin(); channel_it != device_descriptor_yaml["dram"].end(); ++channel_it) {
+    for (auto channel_it = device_descriptor_yaml["dram"].begin(); channel_it != device_descriptor_yaml["dram"].end();
+         ++channel_it) {
         dram_cores.push_back({});
         auto &soc_dram_cores = dram_cores.at(dram_cores.size() - 1);
         const auto &dram_cores = (*channel_it).as<std::vector<std::string>>();
@@ -123,8 +123,8 @@ void tt_SocDescriptor::load_core_descriptors_from_device_descriptor(YAML::Node &
     std::vector<std::string> worker_cores = device_descriptor_yaml["functional_workers"].as<std::vector<std::string>>();
     std::set<int> worker_routing_coords_x;
     std::set<int> worker_routing_coords_y;
-    std::unordered_map<int,int> routing_coord_worker_x;
-    std::unordered_map<int,int> routing_coord_worker_y;
+    std::unordered_map<int, int> routing_coord_worker_x;
+    std::unordered_map<int, int> routing_coord_worker_y;
     for (const auto &core_string : worker_cores) {
         CoreDescriptor core_descriptor;
         core_descriptor.coord = format_node(core_string);
@@ -139,12 +139,12 @@ void tt_SocDescriptor::load_core_descriptors_from_device_descriptor(YAML::Node &
     int func_x_start = 0;
     int func_y_start = 0;
     std::set<int>::iterator it;
-    for (it=worker_routing_coords_x.begin(); it!=worker_routing_coords_x.end(); ++it) {
+    for (it = worker_routing_coords_x.begin(); it != worker_routing_coords_x.end(); ++it) {
         worker_log_to_routing_x[func_x_start] = *it;
         routing_x_to_worker_x[*it] = func_x_start;
         func_x_start++;
     }
-    for (it=worker_routing_coords_y.begin(); it!=worker_routing_coords_y.end(); ++it) {
+    for (it = worker_routing_coords_y.begin(); it != worker_routing_coords_y.end(); ++it) {
         worker_log_to_routing_y[func_y_start] = *it;
         routing_y_to_worker_y[*it] = func_y_start;
         func_y_start++;
@@ -227,7 +227,8 @@ tt_virtual_coords tt_SocDescriptor::to_virtual_coords(tt_translated_coords trans
 tt_SocDescriptor::tt_SocDescriptor(std::string device_descriptor_path, std::size_t harvesting_mask) {
     std::ifstream fdesc(device_descriptor_path);
     if (fdesc.fail()) {
-        throw std::runtime_error(fmt::format("Error: device descriptor file {} does not exist!", device_descriptor_path));
+        throw std::runtime_error(
+            fmt::format("Error: device descriptor file {} does not exist!", device_descriptor_path));
     }
     fdesc.close();
 
@@ -235,10 +236,12 @@ tt_SocDescriptor::tt_SocDescriptor(std::string device_descriptor_path, std::size
 
     auto grid_size_x = device_descriptor_yaml["grid"]["x_size"].as<int>();
     auto grid_size_y = device_descriptor_yaml["grid"]["y_size"].as<int>();
-    int physical_grid_size_x = device_descriptor_yaml["physical"] && device_descriptor_yaml["physical"]["x_size"] ?
-                                device_descriptor_yaml["physical"]["x_size"].as<int>() : grid_size_x;
-    int physical_grid_size_y = device_descriptor_yaml["physical"] && device_descriptor_yaml["physical"]["y_size"] ?
-                                device_descriptor_yaml["physical"]["y_size"].as<int>() : grid_size_y;
+    int physical_grid_size_x = device_descriptor_yaml["physical"] && device_descriptor_yaml["physical"]["x_size"]
+                                   ? device_descriptor_yaml["physical"]["x_size"].as<int>()
+                                   : grid_size_x;
+    int physical_grid_size_y = device_descriptor_yaml["physical"] && device_descriptor_yaml["physical"]["y_size"]
+                                   ? device_descriptor_yaml["physical"]["y_size"].as<int>()
+                                   : grid_size_y;
     load_core_descriptors_from_device_descriptor(device_descriptor_yaml);
     grid_size = tt_xy_pair(grid_size_x, grid_size_y);
     physical_grid_size = tt_xy_pair(physical_grid_size_x, physical_grid_size_y);
@@ -253,7 +256,7 @@ tt_SocDescriptor::tt_SocDescriptor(std::string device_descriptor_path, std::size
 
 int tt_SocDescriptor::get_num_dram_channels() const {
     int num_channels = 0;
-    for (auto& dram_core : dram_cores) {
+    for (auto &dram_core : dram_cores) {
         if (dram_core.size() > 0) {
             num_channels++;
         }
@@ -299,7 +302,7 @@ std::ostream &operator<<(std::ostream &out, const tt::ARCH &arch_name) {
     } else if (arch_name == tt::ARCH::WORMHOLE_B0) {
         out << "wormhole_b0";
     } else if (arch_name == tt::ARCH::BLACKHOLE) {
-        out << "blackhole"; //Just how many ARCH-to-string functions do we plan to have, anyway?
+        out << "blackhole";  // Just how many ARCH-to-string functions do we plan to have, anyway?
     } else {
         out << "ArchNameSerializationNotImplemented";
     }

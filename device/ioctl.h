@@ -4,6 +4,9 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+// clang-format off
+// This file is copied from KMD, so we don't want clang formatting diff.
+
 #ifndef TTDRIVER_IOCTL_H_INCLUDED
 #define TTDRIVER_IOCTL_H_INCLUDED
 
@@ -155,3 +158,4 @@ struct tenstorrent_pin_pages {
 };
 
 #endif
+// clang-format on

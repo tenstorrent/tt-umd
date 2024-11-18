@@ -307,6 +307,7 @@ void Cluster::construct_cluster(const std::string& sdesc_path, const uint32_t &n
     
     std::unordered_set<chip_id_t> target_mmio_device_ids;
     for (auto &d: target_devices_in_cluster){
+        log_assert(ndesc->get_all_chips().find(d) != ndesc->get_all_chips().end(), "Target device {} not present in current cluster!", d);
         if (ndesc->is_chip_mmio_capable(d)){
             target_mmio_device_ids.insert(d);
         }
@@ -466,8 +467,8 @@ Cluster::Cluster(const uint32_t &num_host_mem_ch_per_mmio_device, const bool ski
     ndesc = tt_ClusterDescriptor::create_from_yaml(ndesc_path);
 
     std::set<chip_id_t> target_devices;
-    for (int i = 0; i < ndesc->get_number_of_chips(); i++) {
-        target_devices.insert(i);
+    for(const chip_id_t &d : ndesc->get_all_chips()) {
+        target_devices.insert(d);
     }
     target_devices_in_cluster = target_devices;
 

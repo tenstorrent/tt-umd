@@ -5,6 +5,7 @@
  */
 
 #include <gtest/gtest.h>
+
 #include <map>
 
 #include "common/semver.hpp"
@@ -13,8 +14,8 @@ using tt::umd::semver_t;
 
 TEST(Semver, Valid) {
     const std::map<std::string, semver_t> valid_test_cases = {
-        {"1.29", semver_t(1, 29, 0)},       // technically invalid, but seen from TT-KMD
-        {"1.28-bh2", semver_t(1, 28, 0)},   // technically invalid, but seen from TT-KMD
+        {"1.29", semver_t(1, 29, 0)},      // technically invalid, but seen from TT-KMD
+        {"1.28-bh2", semver_t(1, 28, 0)},  // technically invalid, but seen from TT-KMD
         {"0.0.4", semver_t(0, 0, 4)},
         {"1.2.3", semver_t(1, 2, 3)},
         {"10.20.30", semver_t(10, 20, 30)},
@@ -44,8 +45,7 @@ TEST(Semver, Valid) {
         {"1.2.3----R-S.12.9.1--.12+meta", semver_t(1, 2, 3)},
         {"1.2.3----RC-SNAPSHOT.12.9.1--.12", semver_t(1, 2, 3)},
         {"1.0.0+0.build.1-rc.10000aaa-kk-0.1", semver_t(1, 0, 0)},
-        {"1.0.0-0A.is.legal", semver_t(1, 0, 0)}
-    };
+        {"1.0.0-0A.is.legal", semver_t(1, 0, 0)}};
 
     for (const auto &[version_str, expected] : valid_test_cases) {
         semver_t actual(version_str);
@@ -75,7 +75,6 @@ TEST(Semver, Invalid) {
     };
 
     for (const auto &version_str : invalid_test_cases) {
-       EXPECT_THROW(semver_t{version_str}, std::exception) << "'" << version_str << "' should be invalid";
-   }
+        EXPECT_THROW(semver_t{version_str}, std::exception) << "'" << version_str << "' should be invalid";
+    }
 }
-

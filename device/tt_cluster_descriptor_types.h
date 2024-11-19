@@ -6,7 +6,6 @@
 
 #pragma once
 
-#include <boost/container_hash/hash.hpp>
 #include <functional>
 #include <tuple>
 
@@ -29,16 +28,22 @@ struct eth_coord_t {
     }
 };
 
+// Small performant hash combiner taken from boost library.
+// Not using boost::hash_combine due to dependency complications.
+inline void boost_hash_combine(std::size_t &seed, const int value) {
+    seed ^= value + 0x9e3779b9 + (seed << 6) + (seed >> 2);
+}
+
 namespace std {
 template <>
 struct hash<eth_coord_t> {
     std::size_t operator()(eth_coord_t const &c) const {
         std::size_t seed = 0;
-        boost::hash_combine(seed, c.cluster_id);
-        boost::hash_combine(seed, c.x);
-        boost::hash_combine(seed, c.y);
-        boost::hash_combine(seed, c.rack);
-        boost::hash_combine(seed, c.shelf);
+        boost_hash_combine(seed, c.cluster_id);
+        boost_hash_combine(seed, c.x);
+        boost_hash_combine(seed, c.y);
+        boost_hash_combine(seed, c.rack);
+        boost_hash_combine(seed, c.shelf);
         return seed;
     }
 };

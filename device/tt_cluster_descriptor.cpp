@@ -438,8 +438,21 @@ std::unique_ptr<tt_ClusterDescriptor> tt_ClusterDescriptor::create_from_yaml(
 }
 
 std::unique_ptr<tt_ClusterDescriptor> tt_ClusterDescriptor::create_mock_cluster(
-    const std::vector<chip_id_t> &logical_device_ids) {
+    const std::vector<chip_id_t> &logical_device_ids, tt::ARCH arch) {
     std::unique_ptr<tt_ClusterDescriptor> desc = std::unique_ptr<tt_ClusterDescriptor>(new tt_ClusterDescriptor());
+    
+    BoardType board_type;
+    switch(arch){
+        case tt::ARCH::WORMHOLE_B0:
+            board_type = BoardType::N150;
+            break;
+        case tt::ARCH::BLACKHOLE:
+            board_type = BoardType::P150A;
+            break;
+        default:
+            log_error("Unsupported architecture for mock cluster");
+            break;
+    }
 
     for (auto &logical_id : logical_device_ids) {
         desc->all_chips.insert(logical_id);
@@ -447,6 +460,8 @@ std::unique_ptr<tt_ClusterDescriptor> tt_ClusterDescriptor::create_mock_cluster(
         desc->chip_locations.insert({logical_id, chip_location});
         desc->coords_to_chip_ids[chip_location.rack][chip_location.shelf][chip_location.y][chip_location.x] = logical_id;
         log_debug(tt::LogSiliconDriver, "{} - adding logical: {}", __FUNCTION__, logical_id);
+        desc->chip_board_type.insert({logical_id, board_type});
+        desc->chips_with_mmio.insert({logical_id, logical_id});
     }
 
     desc->enable_all_devices();

@@ -39,7 +39,11 @@ jobs:
 
       - name: Build tt-metal
         run: |
+          echo $(pwd)
+          echo $(ls -la)
           cd tt-metal
+          echo $(pwd)
+          echo $(ls -la)
           echo "ARCH_NAME=${{ matrix.arch_name }}" >> $GITHUB_ENV
           echo "TT_METAL_HOME=$(pwd)" >> $GITHUB_ENV
           echo "PYTHONPATH=$(pwd)" >> $GITHUB_ENV

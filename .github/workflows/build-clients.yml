@@ -19,7 +19,7 @@ jobs:
     name: Build tt-metal for ${{ matrix.arch_name }} with newest UMD
     runs-on: ubuntu-20.04
     container:
-      image: ghcr.io/tt-metal/tt-metalium/ubuntu-20.04-amd64:latest
+      image: ghcr.io/tenstorrent/tt-metal/tt-metalium/ubuntu-20.04-amd64:latest
       options: --user root
 
     steps:
@@ -55,7 +55,7 @@ jobs:
     name: Build tt-debuda for ${{ matrix.arch_name }} with newest UMD
     runs-on: ubuntu-22.04
     container:
-      image: ghcr.io/tt-debuda/tt-debuda-ubuntu-22-04:latest
+      image: ghcr.io/tenstorrent/tt-debuda/tt-debuda-ubuntu-22-04:latest
       options: --user root
 
     steps:

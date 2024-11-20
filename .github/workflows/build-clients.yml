@@ -1,0 +1,80 @@
+name: Build clients on newest UMD
+
+on:
+  workflow_call:
+  workflow_dispatch:
+  pull_request:
+    branches: ["main"]
+  push:
+    branches: ["main"]
+
+jobs:
+  build-tt-metal:
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        arch_name: [grayskull, wormhole_b0, blackhole]
+
+    name: Build tt-metal for ${{ matrix.arch_name }} with newest UMD
+    runs-on: ubuntu-20.04
+    container:
+      image: ghcr.io/tt-metal/tt-metalium/ubuntu-20.04-amd64:latest
+      options: --user root
+
+    steps:
+      - name: Checkout client repo
+        uses: actions/checkout@v4
+        with:
+          repository: tenstorrent/tt-metal
+          submodules: recursive
+          lfs: 'true'
+
+      - name: Checkout UMD
+        uses: actions/checkout@v4
+        with:
+          path: tt-metal/tt_metal/third_party/umd
+          submodules: recursive
+          lfs: 'true'
+
+      - name: Build tt-metal
+        run: |
+          cd tt-metal
+          run: echo "ARCH_NAME=${{ matrix.arch_name }}" >> $GITHUB_ENV
+          run: echo "TT_METAL_HOME=$(pwd)" >> $GITHUB_ENV
+          run: echo "PYTHONPATH=$(pwd)" >> $GITHUB_ENV
+          ./build_metal.sh
+
+  build-tt-lens:
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        arch_name: [grayskull, wormhole_b0, blackhole]
+
+    name: Build tt-debuda for ${{ matrix.arch_name }} with newest UMD
+    runs-on: ubuntu-22.04
+    container:
+      image: ghcr.io/tt-debuda/tt-debuda-ubuntu-22-04:latest
+      options: --user root
+
+    steps:
+      - name: Checkout client repo
+        uses: actions/checkout@v4
+        with:
+          repository: tenstorrent/tt-debuda
+          submodules: recursive
+          lfs: 'true'
+
+      - name: Checkout UMD
+        uses: actions/checkout@v4
+        with:
+          path: tt-debuda/third_party/umd
+          submodules: recursive
+          lfs: 'true'
+
+      - name: Build tt-debuda
+        run: |
+          cd tt-debuda
+          run: echo "ARCH_NAME=${{ matrix.arch_name }}" >> $GITHUB_ENV
+          make build

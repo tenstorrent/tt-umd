@@ -8,8 +8,8 @@
 
 #include <array>
 
-#include "device/architecture_implementation.h"
-#include "device/tlb.h"
+#include "umd/device/architecture_implementation.h"
+#include "umd/device/tlb.h"
 #include <stdexcept>
 
 namespace tt::umd {

@@ -7,7 +7,7 @@
 
 #pragma once
 
-#include "device/tt_xy_pair.h"
+#include "umd/device/tt_xy_pair.h"
 
 #include <cstdint>
 #include <unordered_map>
@@ -18,7 +18,7 @@
 #include <string>
 #include <vector>
 #include <memory>
-#include "device/tt_cluster_descriptor_types.h"
+#include "umd/device/tt_cluster_descriptor_types.h"
 
 namespace YAML { class Node; }
 

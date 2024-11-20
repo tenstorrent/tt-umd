@@ -6,7 +6,7 @@
 
 #include <gtest/gtest.h>
 
-#include "tt_simulation_device.h"
+#include "umd/device/tt_simulation_device.h"
 #include "common/logger.hpp"
 #include "tests/test_utils/generate_cluster_desc.hpp"
 

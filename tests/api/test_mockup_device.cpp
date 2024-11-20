@@ -11,7 +11,7 @@
 #include <string_view>
 
 #include "device/mockup/tt_mockup_device.hpp"
-#include "device/tt_arch_types.h"
+#include "umd/device/tt_arch_types.h"
 #include "tests/test_utils/generate_cluster_desc.hpp"
 
 namespace test::mockup_device {

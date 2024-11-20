@@ -2,12 +2,12 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-#include "wormhole_implementation.h"
+#include "umd/device/wormhole_implementation.h"
 
-#include "src/firmware/riscv/wormhole/host_mem_address_map.h"
-#include "src/firmware/riscv/wormhole/eth_interface.h"
+#include "wormhole/host_mem_address_map.h"
+#include "wormhole/eth_interface.h"
 
-#include "device/cluster.h"
+#include "umd/device/cluster.h"
 
 constexpr std::uint32_t NOC_ADDR_LOCAL_BITS = 36; // source: noc_parameters.h, common for WH && BH
 constexpr std::uint32_t NOC_ADDR_NODE_ID_BITS = 6; // source: noc_parameters.h, common for WH && BH

@@ -13,8 +13,8 @@
 #include <vector>
 #include <sstream>
 
-#include "device/cluster.h"
-#include "device/tt_xy_pair.h"
+#include "umd/device/cluster.h"
+#include "umd/device/tt_xy_pair.h"
 
 #include "fmt/core.h"
 

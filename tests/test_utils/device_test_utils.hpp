@@ -9,7 +9,7 @@
 #include <vector>
 #include <string>
 
-#include "cluster.h"
+#include "umd/device/cluster.h"
 
 namespace test_utils {
 

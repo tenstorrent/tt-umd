@@ -4,13 +4,13 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#include "hugepage.h"
+#include "umd/device/hugepage.h"
 
 #include <sys/stat.h> // for umask
 #include <fcntl.h> // for O_RDWR and other constants
 
-#include "common/logger.hpp"
-#include "device/cpuset_lib.hpp"
+#include "logger.hpp"
+#include "cpuset_lib.hpp"
 
 const uint32_t g_MAX_HOST_MEM_CHANNELS = 4;
 

@@ -10,11 +10,11 @@
 
 #include "tests/test_utils/generate_cluster_desc.hpp"
 
-#include "device/pcie/pci_device.hpp"
-#include "device/tt_cluster_descriptor.h"
+#include "umd/device/pci_device.hpp"
+#include "umd/device/tt_cluster_descriptor.h"
 
 // TODO: Needed for detect_arch, remove when it is part of cluster descriptor.
-#include "device/cluster.h"
+#include "umd/device/cluster.h"
 
 
 inline std::unique_ptr<tt_ClusterDescriptor> get_cluster_desc() {

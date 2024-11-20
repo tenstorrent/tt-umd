@@ -7,8 +7,8 @@
 
 #include "gtest/gtest.h"
 #include "common/logger.hpp"
-#include "tt_cluster_descriptor.h"
-#include "cluster.h"
+#include "umd/device/tt_cluster_descriptor.h"
+#include "umd/device/cluster.h"
 #include "eth_interface.h"
 #include "host_mem_address_map.h"
 #include "l1_address_map.h"

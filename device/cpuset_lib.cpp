@@ -5,9 +5,9 @@
 #include <algorithm>
 
 #include "cpuset_lib.hpp"
-#include "common/logger.hpp"
+#include "logger.hpp"
 #include <thread>
-#include "device/cluster.h"
+#include "umd/device/cluster.h"
 #include <filesystem>
 #include "fmt/core.h"
 namespace tt {
@@ -519,4 +519,3 @@ void tt_cpuset_allocator::print_hwloc_object(hwloc_obj_t &obj, int depth, bool v
 
 }  // namespace cpuset
 }  // namespace tt
-

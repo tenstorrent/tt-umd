@@ -10,8 +10,8 @@
 #include <fstream>
 #include <vector>
 
-#include "device/cluster.h"
-#include "device/simulation/tt_simulation_host.hpp"
+#include "umd/device/cluster.h"
+#include "umd/device/tt_simulation_host.hpp"
 
 class tt_SimulationDevice: public tt_device {
     public:

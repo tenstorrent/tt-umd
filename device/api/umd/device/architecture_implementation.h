@@ -11,9 +11,9 @@
 #include <tuple>
 #include <vector>
 
-#include "device/tlb.h"
-#include "device/xy_pair.h"
-#include "device/tt_arch_types.h"
+#include "umd/device/tlb.h"
+#include "umd/device/xy_pair.h"
+#include "umd/device/tt_arch_types.h"
 
 struct tt_driver_host_address_params;
 struct tt_driver_eth_interface_params;

@@ -8,7 +8,7 @@
 
 #include <regex>
 
-#include "device/xy_pair.h"
+#include "umd/device/xy_pair.h"
 
 using tt_xy_pair = tt::umd::xy_pair;
 using tt_cxy_pair = tt::umd::cxy_pair;

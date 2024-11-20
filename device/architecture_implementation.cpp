@@ -2,11 +2,11 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-#include "device/architecture_implementation.h"
+#include "umd/device/architecture_implementation.h"
 
-#include "device/blackhole/blackhole_implementation.h"
-#include "device/grayskull/grayskull_implementation.h"
-#include "device/wormhole/wormhole_implementation.h"
+#include "umd/device/blackhole_implementation.h"
+#include "umd/device/grayskull_implementation.h"
+#include "umd/device/wormhole_implementation.h"
 
 namespace tt::umd {
 

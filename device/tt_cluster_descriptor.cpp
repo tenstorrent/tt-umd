@@ -3,14 +3,14 @@
 // SPDX-License-Identifier: Apache-2.0
 
 
-#include "tt_cluster_descriptor.h"
+#include "umd/device/tt_cluster_descriptor.h"
 #include "libs/create_ethernet_map.h"
 
 #include <fstream>
 #include <memory>
 #include <sstream> 
 
-#include "common/logger.hpp"
+#include "logger.hpp"
 #include "yaml-cpp/yaml.h"
 
 #include "fmt/core.h"

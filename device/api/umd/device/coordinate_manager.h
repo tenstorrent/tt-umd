@@ -10,8 +10,8 @@
 #include <vector>
 #include <set>
 
-#include "device/tt_xy_pair.h"
-#include "device/tt_arch_types.h"
+#include "umd/device/tt_xy_pair.h"
+#include "umd/device/tt_arch_types.h"
 
 class CoordinateManager {
 

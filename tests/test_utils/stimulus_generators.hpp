@@ -4,9 +4,9 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 #pragma once
-#include "tt_xy_pair.h"
-#include "tt_cluster_descriptor.h"
-#include "cluster.h"
+#include "umd/device/tt_xy_pair.h"
+#include "umd/device/tt_cluster_descriptor.h"
+#include "umd/device/cluster.h"
 
 
 #include <functional>

@@ -5,7 +5,7 @@
 #include <cstdint>
 #include <memory>
 
-#include "device/tt_xy_pair.h"
+#include "umd/device/tt_xy_pair.h"
 
 #define NNG_SOCKET_PREFIX "ipc:///tmp/"
 

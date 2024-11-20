@@ -15,9 +15,9 @@
 #include "tests/test_utils/generate_cluster_desc.hpp"
 
 // TODO: change to tt_cluster
-#include "device/cluster.h"
-#include "device/tt_cluster_descriptor.h"
-#include "device/architecture_implementation.h"
+#include "umd/device/cluster.h"
+#include "umd/device/tt_cluster_descriptor.h"
+#include "umd/device/architecture_implementation.h"
 
 using namespace tt::umd;
 

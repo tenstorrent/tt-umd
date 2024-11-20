@@ -1,7 +1,7 @@
 // SPDX-FileCopyrightText: (c) 2023 Tenstorrent Inc.
 //
 // SPDX-License-Identifier: Apache-2.0
-#include "cluster.h"
+#include "umd/device/cluster.h"
 
 #include <boost/interprocess/permissions.hpp>
 #include <boost/interprocess/sync/scoped_lock.hpp>
@@ -38,14 +38,14 @@
 #include <errno.h>
 
 #include "yaml-cpp/yaml.h"
-#include "common/logger.hpp"
+#include "logger.hpp"
 
-#include "device/tt_cluster_descriptor.h"
-#include "device/driver_atomics.h"
-#include "device/hugepage.h"
-#include "device/architecture_implementation.h"
-#include "device/tlb.h"
-#include "device/tt_arch_types.h"
+#include "umd/device/tt_cluster_descriptor.h"
+#include "umd/device/driver_atomics.h"
+#include "umd/device/hugepage.h"
+#include "umd/device/architecture_implementation.h"
+#include "umd/device/tlb.h"
+#include "umd/device/tt_arch_types.h"
 
 using namespace boost::interprocess;
 using namespace tt;
@@ -117,8 +117,8 @@ const tt_SocDescriptor& tt_device::get_soc_descriptor(chip_id_t chip_id) const {
 // --------------------------------------------------------------------------------------------------------------
 // --------------------------------------------------------------------------------------------------------------
 
-#include "tt_silicon_driver_common.hpp"
-#include "tt_xy_pair.h"
+#include "umd/device/tt_silicon_driver_common.hpp"
+#include "umd/device/tt_xy_pair.h"
 #include <thread>
 #include <fstream>
 #include <iomanip>

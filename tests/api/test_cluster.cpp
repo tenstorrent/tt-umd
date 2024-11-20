@@ -14,8 +14,8 @@
 #include "fmt/xchar.h"
 #include "tests/test_utils/generate_cluster_desc.hpp"
 
-#include "device/tt_cluster_descriptor.h"
-#include "device/cluster.h"
+#include "umd/device/tt_cluster_descriptor.h"
+#include "umd/device/cluster.h"
 
 // TODO: obviously we need some other way to set this up
 #include "src/firmware/riscv/wormhole/eth_l1_address_map.h"

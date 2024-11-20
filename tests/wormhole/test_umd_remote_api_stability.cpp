@@ -7,8 +7,8 @@
 #include <random>
 #include <thread>
 
-#include "tt_cluster_descriptor.h"
-#include "cluster.h"
+#include "umd/device/tt_cluster_descriptor.h"
+#include "umd/device/cluster.h"
 
 #include "common/logger.hpp"
 #include "eth_interface.h"
@@ -16,7 +16,7 @@
 #include "gtest/gtest.h"
 #include "host_mem_address_map.h"
 #include "l1_address_map.h"
-#include "tt_soc_descriptor.h"
+#include "umd/device/tt_soc_descriptor.h"
 
 #include "tests/test_utils/stimulus_generators.hpp"
 #include "tests/test_utils/generate_cluster_desc.hpp"

@@ -13,14 +13,14 @@
 #include <vector>
 #include <set>
 
-#include "tt_soc_descriptor.h"
-#include "tt_xy_pair.h"
-#include "tt_silicon_driver_common.hpp"
-#include "device/tt_cluster_descriptor_types.h"
-#include "device/tlb.h"
-#include "device/tt_io.hpp"
+#include "umd/device/tt_soc_descriptor.h"
+#include "umd/device/tt_xy_pair.h"
+#include "umd/device/tt_silicon_driver_common.hpp"
+#include "umd/device/tt_cluster_descriptor_types.h"
+#include "umd/device/tlb.h"
+#include "umd/device/tt_io.hpp"
 
-#include "pcie/pci_device.hpp"
+#include "umd/device/pci_device.hpp"
 #include "fmt/core.h"
 
 using TLB_DATA = tt::umd::tlb_data;

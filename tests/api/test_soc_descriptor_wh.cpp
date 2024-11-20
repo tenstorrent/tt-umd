@@ -5,7 +5,7 @@
  */
 #include "gtest/gtest.h"
 
-#include "device/tt_soc_descriptor.h"
+#include "umd/device/tt_soc_descriptor.h"
 #include "tests/test_utils/generate_cluster_desc.hpp"
 #include "tests/test_utils/soc_desc_test_utils.hpp"
 

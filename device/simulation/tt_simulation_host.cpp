@@ -12,9 +12,9 @@
 #include <nng/nng.h>
 #include <nng/protocol/pair1/pair.h>
 
-#include "common/logger.hpp"
-#include "common/assert.hpp"
-#include "tt_simulation_host.hpp"
+#include "logger.hpp"
+#include "assert.hpp"
+#include "umd/device/tt_simulation_host.hpp"
 
 tt_SimulationHost::tt_SimulationHost() {
     // Initialize socket and dialer

@@ -9,8 +9,8 @@
 #include <cstdint>
 #include <vector>
 
-#include "device/tt_cluster_descriptor.h"
-#include "device/cluster.h"
+#include "umd/device/tt_cluster_descriptor.h"
+#include "umd/device/cluster.h"
 
 class tt_MockupDevice : public tt_device {
    public:

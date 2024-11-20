@@ -14,7 +14,7 @@
 #include <thread>
 #include <unistd.h>
 
-#include "device/tt_cluster_descriptor.h" // For chip_id_t
+#include "umd/device/tt_cluster_descriptor.h" // For chip_id_t
 
 #include "hwloc.h"
 

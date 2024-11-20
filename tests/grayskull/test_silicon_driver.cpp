@@ -5,10 +5,10 @@
 #include <thread>
 
 #include "gtest/gtest.h"
-#include "cluster.h"
-#include "device/tt_soc_descriptor.h"
-#include "device/tt_cluster_descriptor.h"
-#include "device/wormhole/wormhole_implementation.h"
+#include "umd/device/cluster.h"
+#include "umd/device/tt_soc_descriptor.h"
+#include "umd/device/tt_cluster_descriptor.h"
+#include "umd/device/wormhole_implementation.h"
 #include "l1_address_map.h"
 #include "tests/test_utils/generate_cluster_desc.hpp"
 #include "tests/test_utils/device_test_utils.hpp"

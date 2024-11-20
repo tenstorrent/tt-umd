@@ -12,12 +12,12 @@
 #include <uv.h>
 #include <nng/nng.h>
 
-#include "common/logger.hpp"
-#include "common/assert.hpp"
-#include "device/driver_atomics.h"
-#include "device/tt_cluster_descriptor.h"
+#include "logger.hpp"
+#include "assert.hpp"
+#include "umd/device/driver_atomics.h"
+#include "umd/device/tt_cluster_descriptor.h"
 
-#include "tt_simulation_device.h"
+#include "umd/device/tt_simulation_device.h"
 #include "tt_simulation_device_generated.h"
 
 flatbuffers::FlatBufferBuilder create_flatbuffer(DEVICE_COMMAND rw, std::vector<uint32_t> vec, tt_cxy_pair core_, uint64_t addr, uint64_t size_=0){

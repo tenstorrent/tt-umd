@@ -6,7 +6,7 @@
 
 #pragma once
 
-#include "device/tt_cluster_descriptor_types.h"
+#include "umd/device/tt_cluster_descriptor_types.h"
 
 #include <string>
 #include <cstdint>

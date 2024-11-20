@@ -14,17 +14,17 @@
 #include <sys/stat.h> // for fstat
 #include <linux/pci.h> // for PCI_SLOT, PCI_FUNC
 
-#include "pci_device.hpp"
+#include "umd/device/pci_device.hpp"
 #include "ioctl.h"
 
 #include "ioctl.h"
-#include "device/tt_arch_types.h"
-#include "device/driver_atomics.h"
-#include "device/architecture_implementation.h"
-#include "device/cpuset_lib.hpp"
-#include "device/hugepage.h"
-#include "common/assert.hpp"
-#include "common/logger.hpp"
+#include "umd/device/tt_arch_types.h"
+#include "umd/device/driver_atomics.h"
+#include "umd/device/architecture_implementation.h"
+#include "cpuset_lib.hpp"
+#include "umd/device/hugepage.h"
+#include "assert.hpp"
+#include "logger.hpp"
 
 static const uint16_t GS_PCIE_DEVICE_ID = 0xfaca;
 static const uint16_t WH_PCIE_DEVICE_ID = 0x401e;

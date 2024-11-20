@@ -12,7 +12,7 @@
 #include <string>
 #include <vector>
 
-#include "device/pcie/pci_device.hpp"
+#include "umd/device/pci_device.hpp"
 
 
 TEST(PcieDeviceTest, Numa) {

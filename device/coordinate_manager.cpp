@@ -3,9 +3,9 @@
  *
  * SPDX-License-Identifier: Apache-2.0
  */
-#include "device/coordinate_manager.h"
+#include "umd/device/coordinate_manager.h"
 #include <memory>
-#include "coordinate_manager.h"
+#include "umd/device/coordinate_manager.h"
 #include "grayskull/grayskull_coordinate_manager.h"
 
 tt_physical_coords CoordinateManager::to_physical_coords(tt_logical_coords logical_coords) {
@@ -167,9 +167,9 @@ void CoordinateManager::fill_logical_to_virtual_mapping(const std::set<size_t>& 
     }
 }
 
-#include "device/blackhole/blackhole_coordinate_manager.h"
-#include "device/grayskull/grayskull_coordinate_manager.h"
-#include "device/wormhole/wormhole_coordinate_manager.h"
+#include "blackhole/blackhole_coordinate_manager.h"
+#include "grayskull/grayskull_coordinate_manager.h"
+#include "wormhole/wormhole_coordinate_manager.h"
 
 std::unique_ptr<CoordinateManager> CoordinateManager::get_coordinate_manager(
     tt::ARCH arch,

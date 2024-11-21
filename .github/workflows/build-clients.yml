@@ -23,6 +23,16 @@ jobs:
       options: --user root
 
     steps:
+
+      - name: See status
+        run: |
+          ls -la
+          ls -la tt-metal
+          ls -la tt-metal/tt_metal
+          ls -la tt-metal/tt_metal/third_party/umd
+          ls -la tt-metal/tt_metal/third_party/umd/.github
+          git -C tt-metal/tt_metal/third_party/umd/ status
+
       - name: Checkout client repo
         uses: actions/checkout@v4
         with:
@@ -31,6 +41,15 @@ jobs:
           submodules: recursive
           lfs: 'true'
 
+      - name: See status
+        run: |
+          ls -la
+          ls -la tt-metal
+          ls -la tt-metal/tt_metal
+          ls -la tt-metal/tt_metal/third_party/umd
+          ls -la tt-metal/tt_metal/third_party/umd/.github
+          git -C tt-metal/tt_metal/third_party/umd/ status
+
       - name: Checkout UMD
         uses: actions/checkout@v4
         with:
@@ -38,52 +57,18 @@ jobs:
           submodules: recursive
           lfs: 'true'
 
+      - name: See status
+        run: |
+          ls -la
+          ls -la tt-metal
+          ls -la tt-metal/tt_metal
+          ls -la tt-metal/tt_metal/third_party/umd
+          ls -la tt-metal/tt_metal/third_party/umd/.github
+          git -C tt-metal/tt_metal/third_party/umd/ status
+
       - name: Build tt-metal
         run: |
-          find .
-          echo PWD1: $(pwd)
-          echo $(ls -la)
-          cd tt-metal
-          echo PWD2: $(pwd)
-          echo $(ls -la)
-          cd tt-metal
-          echo PWD3: $(pwd)
-          echo $(ls -la)
           echo "ARCH_NAME=${{ matrix.arch_name }}" >> $GITHUB_ENV
           echo "TT_METAL_HOME=$(pwd)" >> $GITHUB_ENV
           echo "PYTHONPATH=$(pwd)" >> $GITHUB_ENV
           ./build_metal.sh
-
-  build-tt-lens:
-    timeout-minutes: 20
-    strategy:
-      fail-fast: false
-      matrix:
-        arch_name: [grayskull, wormhole_b0, blackhole]
-
-    name: Build tt-debuda for ${{ matrix.arch_name }} with newest UMD
-    runs-on: ubuntu-22.04
-    container:
-      image: ghcr.io/tenstorrent/tt-debuda/tt-debuda-ubuntu-22-04:latest
-      options: --user root
-
-    steps:
-      - name: Checkout client repo
-        uses: actions/checkout@v4
-        with:
-          repository: tenstorrent/tt-debuda
-          submodules: recursive
-          lfs: 'true'
-
-      - name: Checkout UMD
-        uses: actions/checkout@v4
-        with:
-          path: tt-debuda/third_party/umd
-          submodules: recursive
-          lfs: 'true'
-
-      - name: Build tt-debuda
-        run: |
-          cd tt-debuda
-          echo "ARCH_NAME=${{ matrix.arch_name }}" >> $GITHUB_ENV
-          make build

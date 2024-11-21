@@ -25,8 +25,9 @@ env:
 
 jobs:
   build:
-    # Due to parsing bug, fromJSON is used to convert string to number
-    timeout-minutes: ${{ fromJSON(inputs.timeout) }}
+    # Due to parsing bug, fromJSON is used to convert string to number.
+    # In pull_request or push events, the input context is not available, stating the default again here.
+    timeout-minutes: ${{ fromJSON(inputs.timeout || '15') }}
     strategy:
       fail-fast: false
       matrix:

@@ -3,11 +3,17 @@ name: Build and Publish Docker Image
 
 on:
   workflow_dispatch:
-  workflow_call:
+    inputs:
+      timeout:
+        required: true
+        description: 'The timeout for the job in minutes'
+        type: number
+        default: 15
 
 jobs:
   build:
-    timeout-minutes: 15
+    # Due to parsing bug, fromJSON is used to convert string to number
+    timeout-minutes: ${{ fromJSON(inputs.timeout) }}
     strategy:
       fail-fast: false
       matrix:

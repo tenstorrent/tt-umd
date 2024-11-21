@@ -1,9 +1,9 @@
 // SPDX-FileCopyrightText: (c) 2023 Tenstorrent Inc.
 //
 // SPDX-License-Identifier: Apache-2.0
-#include <vector>
 #include <cstdint>
 #include <memory>
+#include <vector>
 
 #include "umd/device/tt_xy_pair.h"
 
@@ -20,6 +20,7 @@ public:
     void start_host();
     void send_to_device(uint8_t *buf, size_t buf_size);
     size_t recv_from_device(void **data_ptr);
+
 private:
     std::unique_ptr<nng_socket> host_socket;
     std::unique_ptr<nng_dialer> host_dialer;

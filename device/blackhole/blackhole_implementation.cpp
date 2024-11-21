@@ -4,13 +4,12 @@
 
 #include "umd/device/blackhole_implementation.h"
 
-#include "blackhole/host_mem_address_map.h"
 #include "blackhole/eth_interface.h"
-
+#include "blackhole/host_mem_address_map.h"
 #include "umd/device/cluster.h"
 
-constexpr std::uint32_t NOC_ADDR_LOCAL_BITS = 36; // source: noc_parameters.h, common for WH && BH
-constexpr std::uint32_t NOC_ADDR_NODE_ID_BITS = 6; // source: noc_parameters.h, common for WH && BH
+constexpr std::uint32_t NOC_ADDR_LOCAL_BITS = 36;   // source: noc_parameters.h, common for WH && BH
+constexpr std::uint32_t NOC_ADDR_NODE_ID_BITS = 6;  // source: noc_parameters.h, common for WH && BH
 
 namespace tt::umd {
 
@@ -26,10 +25,9 @@ std::tuple<xy_pair, xy_pair> blackhole_implementation::multicast_workaround(xy_p
 }
 
 tlb_configuration blackhole_implementation::get_tlb_configuration(uint32_t tlb_index) const {
-
     // If TLB index is in range for 4GB tlbs (8 TLBs after 202 TLBs for 2MB)
     if (tlb_index >= blackhole::TLB_COUNT_2M && tlb_index < blackhole::TLB_COUNT_2M + blackhole::TLB_COUNT_4G) {
-        return tlb_configuration {
+        return tlb_configuration{
             .size = blackhole::DYNAMIC_TLB_4G_SIZE,
             .base = blackhole::DYNAMIC_TLB_4G_BASE,
             .cfg_addr = blackhole::DYNAMIC_TLB_4G_CFG_ADDR,
@@ -37,7 +35,7 @@ tlb_configuration blackhole_implementation::get_tlb_configuration(uint32_t tlb_i
             .offset = blackhole::TLB_4G_OFFSET,
         };
     }
-    
+
     return tlb_configuration{
         .size = blackhole::DYNAMIC_TLB_2M_SIZE,
         .base = blackhole::DYNAMIC_TLB_2M_BASE,
@@ -73,17 +71,17 @@ std::optional<std::tuple<std::uint64_t, std::uint64_t>> blackhole_implementation
 
 std::pair<std::uint64_t, std::uint64_t> blackhole_implementation::get_tlb_data(
     std::uint32_t tlb_index, const tlb_data& data) const {
-
     if (tlb_index < blackhole::TLB_COUNT_2M) {
         return data.apply_offset(blackhole::TLB_2M_OFFSET);
     } else {
         throw std::runtime_error("Invalid TLB index for Blackhole arch");
     }
-
 }
 
 tt_driver_host_address_params blackhole_implementation::get_host_address_params() const {
-    return {::blackhole::host_mem::address_map::ETH_ROUTING_BLOCK_SIZE, ::blackhole::host_mem::address_map::ETH_ROUTING_BUFFERS_START};
+    return {
+        ::blackhole::host_mem::address_map::ETH_ROUTING_BLOCK_SIZE,
+        ::blackhole::host_mem::address_map::ETH_ROUTING_BUFFERS_START};
 }
 
 tt_driver_eth_interface_params blackhole_implementation::get_eth_interface_params() const {

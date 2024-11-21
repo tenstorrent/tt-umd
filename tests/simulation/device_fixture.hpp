@@ -5,15 +5,14 @@
 #pragma once
 
 #include <gtest/gtest.h>
-
-#include "umd/device/tt_simulation_device.h"
-#include "common/logger.hpp"
-#include "tests/test_utils/generate_cluster_desc.hpp"
-
 #include <nng/nng.h>
+#include <nng/protocol/pair1/pair.h>
 #include <nng/protocol/pipeline0/pull.h>
 #include <nng/protocol/pipeline0/push.h>
-#include <nng/protocol/pair1/pair.h>
+
+#include "common/logger.hpp"
+#include "tests/test_utils/generate_cluster_desc.hpp"
+#include "umd/device/tt_simulation_device.h"
 
 class SimulationDeviceFixture : public ::testing::Test {
 protected:
@@ -24,9 +23,7 @@ protected:
         device->start_device(default_params);
     }
 
-    static void TearDownTestSuite() {
-        device->close_device();
-    }
+    static void TearDownTestSuite() { device->close_device(); }
 
     static std::unique_ptr<tt_SimulationDevice> device;
 };

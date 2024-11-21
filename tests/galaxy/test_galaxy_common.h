@@ -4,37 +4,32 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-
 #pragma once
 
 #include <set>
+#include <sstream>
 #include <string>
 #include <tuple>
 #include <vector>
-#include <sstream>
-
-#include "umd/device/cluster.h"
-#include "umd/device/tt_xy_pair.h"
 
 #include "fmt/core.h"
+#include "umd/device/cluster.h"
+#include "umd/device/tt_xy_pair.h"
 
 // static const std::string SOC_DESC_PATH = "./tests/soc_descs/wormhole_b0_8x10.yaml";
 
 using namespace tt::umd;
 
-using chip_id_t = int;
-using ethernet_channel_t = int;
-using eth_coord_t = std::tuple<int, int, int, int>;  // x, y, rack, shelf
 struct tt_multichip_core_addr {
     tt_multichip_core_addr() : core{}, chip{}, addr{} {}
+
     tt_multichip_core_addr(chip_id_t chip, tt_xy_pair core, std::uint64_t addr) : core(core), chip(chip), addr(addr) {}
 
     tt_xy_pair core;
     chip_id_t chip;
     std::uint64_t addr;
-    std::string str() const {
-        return fmt::format("(chip={},x={},y={},addr=0x{:x})", chip, core.x, core.y, addr);
-    }
+
+    std::string str() const { return fmt::format("(chip={},x={},y={},addr=0x{:x})", chip, core.x, core.y, addr); }
 };
 
 // SIMPLE DATAMOVEMENT API BASED ON UMD

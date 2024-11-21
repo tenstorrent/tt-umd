@@ -2,19 +2,20 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-#include <typeinfo>
-#include <sstream>
-#include <iomanip>
-#include <filesystem>
-#include <cassert>
-#include <cstdlib>
+#include "umd/device/tt_simulation_host.hpp"
 
 #include <nng/nng.h>
 #include <nng/protocol/pair1/pair.h>
 
-#include "logger.hpp"
+#include <cassert>
+#include <cstdlib>
+#include <filesystem>
+#include <iomanip>
+#include <sstream>
+#include <typeinfo>
+
 #include "assert.hpp"
-#include "umd/device/tt_simulation_host.hpp"
+#include "logger.hpp"
 
 tt_SimulationHost::tt_SimulationHost() {
     // Initialize socket and dialer
@@ -64,7 +65,7 @@ void tt_SimulationHost::start_host() {
 void tt_SimulationHost::send_to_device(uint8_t *buf, size_t buf_size) {
     int rv;
     log_debug(tt::LogEmulationDriver, "Sending messsage to remote..");
-    
+
     void *msg = nng_alloc(buf_size);
     std::memcpy(msg, buf, buf_size);
 

@@ -4,13 +4,12 @@
 
 #include "umd/device/grayskull_implementation.h"
 
-#include "grayskull/host_mem_address_map.h"
 #include "grayskull/eth_interface.h"
-
+#include "grayskull/host_mem_address_map.h"
 #include "umd/device/cluster.h"
 
-constexpr std::uint32_t NOC_ADDR_LOCAL_BITS = 32; // source: noc_parameters.h, unique for GS
-constexpr std::uint32_t NOC_ADDR_NODE_ID_BITS = 6; // source: noc_parameters.h, common for GS && WH && BH
+constexpr std::uint32_t NOC_ADDR_LOCAL_BITS = 32;   // source: noc_parameters.h, unique for GS
+constexpr std::uint32_t NOC_ADDR_NODE_ID_BITS = 6;  // source: noc_parameters.h, common for GS && WH && BH
 
 namespace tt::umd {
 
@@ -90,7 +89,9 @@ std::pair<std::uint64_t, std::uint64_t> grayskull_implementation::get_tlb_data(
 }
 
 tt_driver_host_address_params grayskull_implementation::get_host_address_params() const {
-    return {::grayskull::host_mem::address_map::ETH_ROUTING_BLOCK_SIZE, ::grayskull::host_mem::address_map::ETH_ROUTING_BUFFERS_START};
+    return {
+        ::grayskull::host_mem::address_map::ETH_ROUTING_BLOCK_SIZE,
+        ::grayskull::host_mem::address_map::ETH_ROUTING_BUFFERS_START};
 }
 
 tt_driver_eth_interface_params grayskull_implementation::get_eth_interface_params() const {

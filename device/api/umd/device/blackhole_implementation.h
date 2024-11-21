@@ -7,10 +7,10 @@
 #pragma once
 
 #include <array>
+#include <stdexcept>
 
 #include "umd/device/architecture_implementation.h"
 #include "umd/device/tlb.h"
-#include <stdexcept>
 
 namespace tt::umd {
 
@@ -59,30 +59,8 @@ enum class arc_message_type {
 
 // DEVICE_DATA
 static constexpr std::array<xy_pair, 24> DRAM_LOCATIONS = {
-    {{0, 0},
-     {0, 1},
-     {0, 11},
-     {0, 2},
-     {0, 10},
-     {0, 3},
-     {0, 9},
-     {0, 4},
-     {0, 8},
-     {0, 5},
-     {0, 7},
-     {0, 6},
-     {9, 0},
-     {9, 1},
-     {9, 11},
-     {9, 2},
-     {9, 10},
-     {9, 3},
-     {9, 9},
-     {9, 4},
-     {9, 8},
-     {9, 5},
-     {9, 7},
-     {9, 6}}};
+    {{0, 0}, {0, 1}, {0, 11}, {0, 2}, {0, 10}, {0, 3}, {0, 9}, {0, 4}, {0, 8}, {0, 5}, {0, 7}, {0, 6},
+     {9, 0}, {9, 1}, {9, 11}, {9, 2}, {9, 10}, {9, 3}, {9, 9}, {9, 4}, {9, 8}, {9, 5}, {9, 7}, {9, 6}}};
 
 static constexpr std::array<xy_pair, 1> ARC_LOCATIONS = {{{8, 0}}};
 static constexpr std::array<xy_pair, 1> PCI_LOCATIONS = {{{11, 0}}};
@@ -113,14 +91,14 @@ static constexpr uint32_t BROADCAST_TLB_INDEX = 0;     // TODO: Copied from worm
 static constexpr uint32_t STATIC_TLB_CFG_ADDR = 0x1fc00000;
 
 static constexpr uint32_t TLB_COUNT_2M = 202;
-static constexpr uint32_t TLB_BASE_2M = 0; // 0 in BAR0
+static constexpr uint32_t TLB_BASE_2M = 0;  // 0 in BAR0
 static constexpr uint32_t TLB_BASE_INDEX_2M = 0;
 static constexpr uint32_t TLB_2M_SIZE = 2 * 1024 * 1024;
 
 static constexpr uint32_t TLB_CFG_REG_SIZE_BYTES = 12;
 
 static constexpr uint32_t TLB_COUNT_4G = 8;
-static constexpr uint32_t TLB_BASE_4G = 0; // 0 in BAR4
+static constexpr uint32_t TLB_BASE_4G = 0;  // 0 in BAR4
 static constexpr uint32_t TLB_BASE_INDEX_4G = TLB_COUNT_2M;
 static constexpr uint64_t TLB_4G_SIZE = 4ULL * 1024ULL * 1024ULL * 1024ULL;
 static constexpr uint64_t DYNAMIC_TLB_4G_SIZE = TLB_4G_SIZE;
@@ -168,59 +146,108 @@ static constexpr uint32_t MSG_TYPE_SETUP_IATU_FOR_PEER_TO_PEER = 0x97;
 }  // namespace blackhole
 
 class blackhole_implementation : public architecture_implementation {
-   public:
+public:
     tt::ARCH get_architecture() const override { return tt::ARCH::BLACKHOLE; }
+
     uint32_t get_arc_message_arc_get_harvesting() const override {
         return static_cast<uint32_t>(blackhole::arc_message_type::ARC_GET_HARVESTING);
     }
+
     uint32_t get_arc_message_arc_go_busy() const override {
         return static_cast<uint32_t>(blackhole::arc_message_type::ARC_GO_BUSY);
     }
+
     uint32_t get_arc_message_arc_go_long_idle() const override {
         return static_cast<uint32_t>(blackhole::arc_message_type::ARC_GO_LONG_IDLE);
     }
+
     uint32_t get_arc_message_arc_go_short_idle() const override {
         return static_cast<uint32_t>(blackhole::arc_message_type::ARC_GO_SHORT_IDLE);
     }
+
     uint32_t get_arc_message_deassert_riscv_reset() const override {
         return static_cast<uint32_t>(blackhole::arc_message_type::DEASSERT_RISCV_RESET);
     }
+
     uint32_t get_arc_message_get_aiclk() const override {
         return static_cast<uint32_t>(blackhole::arc_message_type::GET_AICLK);
     }
+
     uint32_t get_arc_message_setup_iatu_for_peer_to_peer() const override {
         return static_cast<uint32_t>(blackhole::arc_message_type::SETUP_IATU_FOR_PEER_TO_PEER);
     }
+
     uint32_t get_arc_message_test() const override { return static_cast<uint32_t>(blackhole::arc_message_type::TEST); }
-    uint32_t get_arc_csm_mailbox_offset() const override { throw std::runtime_error("Not supported for Blackhole arch"); return 0; }
+
+    uint32_t get_arc_csm_mailbox_offset() const override {
+        throw std::runtime_error("Not supported for Blackhole arch");
+        return 0;
+    }
+
     uint32_t get_arc_reset_arc_misc_cntl_offset() const override { return blackhole::ARC_RESET_ARC_MISC_CNTL_OFFSET; }
+
     uint32_t get_arc_reset_scratch_offset() const override { return blackhole::ARC_RESET_SCRATCH_OFFSET; }
+
     uint32_t get_dram_channel_0_peer2peer_region_start() const override {
         return blackhole::DRAM_CHANNEL_0_PEER2PEER_REGION_START;
     }
+
     uint32_t get_dram_channel_0_x() const override { return blackhole::DRAM_CHANNEL_0_X; }
+
     uint32_t get_dram_channel_0_y() const override { return blackhole::DRAM_CHANNEL_0_Y; }
+
     uint32_t get_broadcast_tlb_index() const override { return blackhole::BROADCAST_TLB_INDEX; }
+
     uint32_t get_dynamic_tlb_2m_base() const override { return blackhole::DYNAMIC_TLB_2M_BASE; }
+
     uint32_t get_dynamic_tlb_2m_size() const override { return blackhole::DYNAMIC_TLB_2M_SIZE; }
-    uint32_t get_dynamic_tlb_16m_base() const override { throw std::runtime_error("No 16MB TLBs for Blackhole arch"); return 0; }
-    uint32_t get_dynamic_tlb_16m_size() const override { throw std::runtime_error("No 16MB TLBs for Blackhole arch"); return 0; }
-    uint32_t get_dynamic_tlb_16m_cfg_addr() const override { throw std::runtime_error("No 16MB TLBs for Blackhole arch"); return 0; }
+
+    uint32_t get_dynamic_tlb_16m_base() const override {
+        throw std::runtime_error("No 16MB TLBs for Blackhole arch");
+        return 0;
+    }
+
+    uint32_t get_dynamic_tlb_16m_size() const override {
+        throw std::runtime_error("No 16MB TLBs for Blackhole arch");
+        return 0;
+    }
+
+    uint32_t get_dynamic_tlb_16m_cfg_addr() const override {
+        throw std::runtime_error("No 16MB TLBs for Blackhole arch");
+        return 0;
+    }
+
     uint32_t get_mem_large_read_tlb() const override { return blackhole::MEM_LARGE_READ_TLB; }
+
     uint32_t get_mem_large_write_tlb() const override { return blackhole::MEM_LARGE_WRITE_TLB; }
+
     uint32_t get_static_tlb_cfg_addr() const override { return blackhole::STATIC_TLB_CFG_ADDR; }
-    uint32_t get_static_tlb_size() const override { return blackhole::STATIC_TLB_SIZE;  }
+
+    uint32_t get_static_tlb_size() const override { return blackhole::STATIC_TLB_SIZE; }
+
     uint32_t get_reg_tlb() const override { return blackhole::REG_TLB; }
-    uint32_t get_tlb_base_index_16m() const override { throw std::runtime_error("No 16MB TLBs for Blackhole arch"); return 0;  }
+
+    uint32_t get_tlb_base_index_16m() const override {
+        throw std::runtime_error("No 16MB TLBs for Blackhole arch");
+        return 0;
+    }
+
     uint32_t get_tensix_soft_reset_addr() const override { return blackhole::TENSIX_SOFT_RESET_ADDR; }
+
     uint32_t get_grid_size_x() const override { return blackhole::GRID_SIZE_X; }
+
     uint32_t get_grid_size_y() const override { return blackhole::GRID_SIZE_Y; }
+
     uint32_t get_tlb_cfg_reg_size_bytes() const override { return blackhole::TLB_CFG_REG_SIZE_BYTES; }
+
     uint32_t get_small_read_write_tlb() const override { return blackhole::MEM_SMALL_READ_WRITE_TLB; }
+
     const std::vector<uint32_t>& get_harvesting_noc_locations() const override {
         return blackhole::HARVESTING_NOC_LOCATIONS;
     }
+
     const std::vector<uint32_t>& get_t6_x_locations() const override { return blackhole::T6_X_LOCATIONS; }
+
     const std::vector<uint32_t>& get_t6_y_locations() const override { return blackhole::T6_Y_LOCATIONS; }
 
     std::tuple<xy_pair, xy_pair> multicast_workaround(xy_pair start, xy_pair end) const override;
@@ -231,7 +258,6 @@ class blackhole_implementation : public architecture_implementation {
     tt_driver_host_address_params get_host_address_params() const override;
     tt_driver_eth_interface_params get_eth_interface_params() const override;
     tt_driver_noc_params get_noc_params() const override;
-
 };
 
 }  // namespace tt::umd

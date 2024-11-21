@@ -30,18 +30,17 @@ jobs:
           pwd
           echo "---2"
           ls -la
-          echo "---3"
           if [ -d "tt-metal" ]; then
+            echo "---3 ls -la tt-metal"
             ls -la tt-metal
-            echo "---4"
+            echo "---4 ls -la tt-metal/tt_metal"
             ls -la tt-metal/tt_metal
-            echo "---5"
+            echo "---5 ls -la tt-metal/tt_metal/third_party/umd"
             ls -la tt-metal/tt_metal/third_party/umd
-            echo "---6"
+            echo "---6 ls -la tt-metal/tt_metal/third_party/umd/.github/workflows"
             ls -la tt-metal/tt_metal/third_party/umd/.github
-            echo "---7"
+            echo "---7 git -C tt-metal/tt_metal/third_party/umd/ status"
             git -C tt-metal/tt_metal/third_party/umd/ status
-            echo "---8"
           else
             echo "Directory tt-metal does not exist."
           fi
@@ -60,18 +59,17 @@ jobs:
           pwd
           echo "---2"
           ls -la
-          echo "---3"
           if [ -d "tt-metal" ]; then
+            echo "---3 ls -la tt-metal"
             ls -la tt-metal
-            echo "---4"
+            echo "---4 ls -la tt-metal/tt_metal"
             ls -la tt-metal/tt_metal
-            echo "---5"
+            echo "---5 ls -la tt-metal/tt_metal/third_party/umd"
             ls -la tt-metal/tt_metal/third_party/umd
-            echo "---6"
+            echo "---6 ls -la tt-metal/tt_metal/third_party/umd/.github/workflows"
             ls -la tt-metal/tt_metal/third_party/umd/.github
-            echo "---7"
+            echo "---7 git -C tt-metal/tt_metal/third_party/umd/ status"
             git -C tt-metal/tt_metal/third_party/umd/ status
-            echo "---8"
           else
             echo "Directory tt-metal does not exist."
           fi
@@ -89,24 +87,25 @@ jobs:
           pwd
           echo "---2"
           ls -la
-          echo "---3"
           if [ -d "tt-metal" ]; then
+            echo "---3 ls -la tt-metal"
             ls -la tt-metal
-            echo "---4"
+            echo "---4 ls -la tt-metal/tt_metal"
             ls -la tt-metal/tt_metal
-            echo "---5"
+            echo "---5 ls -la tt-metal/tt_metal/third_party/umd"
             ls -la tt-metal/tt_metal/third_party/umd
-            echo "---6"
+            echo "---6 ls -la tt-metal/tt_metal/third_party/umd/.github/workflows"
             ls -la tt-metal/tt_metal/third_party/umd/.github
-            echo "---7"
+            echo "---7 git -C tt-metal/tt_metal/third_party/umd/ status"
             git -C tt-metal/tt_metal/third_party/umd/ status
-            echo "---8"
           else
             echo "Directory tt-metal does not exist."
           fi
 
       - name: Build tt-metal
         run: |
+          pwd
+          cd tt-metal
           echo "ARCH_NAME=${{ matrix.arch_name }}" >> $GITHUB_ENV
           echo "TT_METAL_HOME=$(pwd)" >> $GITHUB_ENV
           echo "PYTHONPATH=$(pwd)" >> $GITHUB_ENV

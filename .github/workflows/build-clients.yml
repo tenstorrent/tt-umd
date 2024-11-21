@@ -26,6 +26,7 @@ jobs:
       - name: Checkout client repo
         uses: actions/checkout@v4
         with:
+          path: tt-metal
           repository: tenstorrent/tt-metal
           submodules: recursive
           lfs: 'true'
@@ -39,6 +40,7 @@ jobs:
 
       - name: Build tt-metal
         run: |
+          find .
           echo PWD1: $(pwd)
           echo $(ls -la)
           cd tt-metal

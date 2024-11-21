@@ -6,7 +6,6 @@ on:
       timeout:
         required: true
         description: 'The timeout for the job in minutes'
-        type: number
         default: 10
 
 jobs:

@@ -440,9 +440,9 @@ std::unique_ptr<tt_ClusterDescriptor> tt_ClusterDescriptor::create_from_yaml(
 std::unique_ptr<tt_ClusterDescriptor> tt_ClusterDescriptor::create_mock_cluster(
     const std::vector<chip_id_t> &logical_device_ids, tt::ARCH arch) {
     std::unique_ptr<tt_ClusterDescriptor> desc = std::unique_ptr<tt_ClusterDescriptor>(new tt_ClusterDescriptor());
-    
+
     BoardType board_type;
-    switch(arch){
+    switch (arch) {
         case tt::ARCH::WORMHOLE_B0:
             board_type = BoardType::N150;
             break;
@@ -458,7 +458,8 @@ std::unique_ptr<tt_ClusterDescriptor> tt_ClusterDescriptor::create_mock_cluster(
         desc->all_chips.insert(logical_id);
         eth_coord_t chip_location{0, logical_id, 0, 0, 0};
         desc->chip_locations.insert({logical_id, chip_location});
-        desc->coords_to_chip_ids[chip_location.rack][chip_location.shelf][chip_location.y][chip_location.x] = logical_id;
+        desc->coords_to_chip_ids[chip_location.rack][chip_location.shelf][chip_location.y][chip_location.x] =
+            logical_id;
         log_debug(tt::LogSiliconDriver, "{} - adding logical: {}", __FUNCTION__, logical_id);
         desc->chip_board_type.insert({logical_id, board_type});
         desc->chips_with_mmio.insert({logical_id, logical_id});

@@ -98,7 +98,8 @@ public:
     static std::unique_ptr<tt_ClusterDescriptor> create_from_yaml(const std::string &cluster_descriptor_file_path);
 
     // This function is used to create mock cluster descriptor yaml files, for example for simulation.
-    static std::unique_ptr<tt_ClusterDescriptor> create_mock_cluster(const std::vector<chip_id_t> &logical_device_ids, tt::ARCH arch);
+    static std::unique_ptr<tt_ClusterDescriptor> create_mock_cluster(
+        const std::vector<chip_id_t> &logical_device_ids, tt::ARCH arch);
 
     const std::unordered_map<chip_id_t, std::uint32_t> &get_harvesting_info() const;
     const std::unordered_map<chip_id_t, bool> &get_noc_translation_table_en() const;

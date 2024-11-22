@@ -48,7 +48,7 @@ target_link_libraries(
         uv
     PRIVATE
         hwloc
-        nng::nng
+        nng
         rt
         Boost::interprocess
         fmt::fmt-header-only

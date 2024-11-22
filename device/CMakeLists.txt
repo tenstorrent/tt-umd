@@ -45,11 +45,11 @@ target_link_libraries(
     device
     PUBLIC
         flatbuffers
-        uv
     PRIVATE
         hwloc
         nng
         rt
+        uv_a
         Boost::interprocess
         fmt::fmt-header-only
         yaml-cpp::yaml-cpp

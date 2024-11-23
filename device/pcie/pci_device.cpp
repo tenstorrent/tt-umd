@@ -260,7 +260,7 @@ PCIDevice::PCIDevice(int pci_device_number, int logical_device_id) :
     arch(detect_arch(info.device_id, revision)),
     architecture_implementation(tt::umd::architecture_implementation::create(arch)),
     kmd_version(read_kmd_version()) {
-    log_info(LogSiliconDriver, "Opened device {}; KMD version: {}", pci_device_num, kmd_version.to_string());
+    log_info(LogSiliconDriver, "Opened PCI device {}; KMD version: {}", pci_device_num, kmd_version.to_string());
 
     struct {
         tenstorrent_query_mappings query_mappings;

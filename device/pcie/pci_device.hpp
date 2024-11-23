@@ -12,10 +12,12 @@
 #include <unordered_map>
 #include <vector>
 
+#include "common/semver.hpp"
 #include "device/tlb.h"
 #include "device/tt_arch_types.h"
 #include "device/tt_cluster_descriptor_types.h"
 #include "device/tt_xy_pair.h"
+#include "fmt/format.h"
 
 // TODO: this is used up in cluster.cpp but that logic ought to be
 // lowered into the PCIDevice class since it is specific to PCIe cards.
@@ -31,7 +33,8 @@ constexpr unsigned int c_hang_read_value = 0xffffffffu;
 
 namespace tt::umd {
 class architecture_implementation;
-}
+struct semver_t;
+}  // namespace tt::umd
 
 struct dynamic_tlb {
     uint64_t bar_offset;      // Offset that address is mapped to, within the PCI BAR.
@@ -57,6 +60,9 @@ struct PciDeviceInfo {
     // onto this struct as methods?  e.g. current_link_width etc.
 };
 
+// Do we want to put everything into this file into tt::umd namespace?
+using tt::umd::semver_t;
+
 class PCIDevice {
     const std::string device_path;   // Path to character device: /dev/tenstorrent/N
     const int pci_device_num;        // N in /dev/tenstorrent/N
@@ -66,6 +72,7 @@ class PCIDevice {
     const int numa_node;             // -1 if non-NUMA
     const int revision;              // PCI revision value from sysfs
     const tt::ARCH arch;             // e.g. Grayskull, Wormhole, Blackhole
+    const semver_t kmd_version;      // KMD version
     std::unique_ptr<tt::umd::architecture_implementation> architecture_implementation;
 
 public:
@@ -229,6 +236,8 @@ private:
 
     // For debug purposes when various stages fails.
     void print_file_contents(std::string filename, std::string hint = "");
+
+    semver_t read_kmd_version();
 
     std::vector<hugepage_mapping> hugepage_mapping_per_channel;
 };

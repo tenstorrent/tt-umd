@@ -18,6 +18,7 @@
 
 #include "device/tt_cluster_descriptor_types.h"
 #include "device/tt_xy_pair.h"
+#include "tt_arch_types.h"
 
 namespace YAML {
 class Node;
@@ -96,11 +97,9 @@ public:
     static std::string get_cluster_descriptor_file_path();
     static std::unique_ptr<tt_ClusterDescriptor> create_from_yaml(const std::string &cluster_descriptor_file_path);
 
-    // TODO: This function is used to create mock cluster descriptor yaml files, for example for simulation.
-    // The name of the function is kept to not gate the changes regarding create-ethernet-map.
-    // It should be renamed to something like create_mock_cluster_descriptor and changed in tt-metal/tt-debuda.
-    static std::unique_ptr<tt_ClusterDescriptor> create_for_grayskull_cluster(
-        const std::set<chip_id_t> &logical_mmio_device_ids, const std::vector<chip_id_t> &physical_mmio_device_ids);
+    // This function is used to create mock cluster descriptor yaml files, for example for simulation.
+    static std::unique_ptr<tt_ClusterDescriptor> create_mock_cluster(
+        const std::vector<chip_id_t> &logical_device_ids, tt::ARCH arch);
 
     const std::unordered_map<chip_id_t, std::uint32_t> &get_harvesting_info() const;
     const std::unordered_map<chip_id_t, bool> &get_noc_translation_table_en() const;

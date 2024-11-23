@@ -1,19 +1,19 @@
 # Builds device.
 # Build is performed on all supported OS versions.
-name: Build Target
+name: Build Device
 
 on:
-  workflow_call:
-    inputs:
-      timeout:
-        required: true
-        type: number
   workflow_dispatch:
     inputs:
       timeout:
         required: true
-        description: 'The timeout for the build job in minutes'
+        description: 'The timeout for the job in minutes'
         type: number
+        default: 15
+  pull_request:
+    branches: ["main"]
+  push:
+    branches: ["main"]
 
 env:
   BUILD_TARGET: device
@@ -25,7 +25,9 @@ env:
 
 jobs:
   build:
-    timeout-minutes: ${{ inputs.timeout }}
+    # Due to parsing bug, fromJSON is used to convert string to number.
+    # In pull_request or push events, the input context is not available, stating the default again here.
+    timeout-minutes: ${{ fromJSON(inputs.timeout || '15') }}
     strategy:
       fail-fast: false
       matrix:

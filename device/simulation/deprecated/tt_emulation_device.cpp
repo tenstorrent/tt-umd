@@ -14,9 +14,7 @@
 
 tt_emulation_device::tt_emulation_device(const std::string& sdesc_path) : tt_device(sdesc_path) {
     soc_descriptor_per_chip.emplace(0, tt_SocDescriptor(sdesc_path));
-    std::set<chip_id_t> target_devices = {0};
-    // create just a default one, we do not have cluster anyway
-    ndesc = tt_ClusterDescriptor::create_for_grayskull_cluster(target_devices, {});
+    ndesc = tt_ClusterDescriptor::create_mock_cluster({0});
     tt_zebu_wrapper_inst = new tt_emu_zemi3_wrapper();
 
     log_info(tt::LogEmulationDriver, "Created Emulation Device ");

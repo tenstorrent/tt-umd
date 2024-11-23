@@ -67,9 +67,8 @@ void translate_soc_descriptor_to_ca_soc(CA::Soc& soc, const tt_SocDescriptor soc
 
 tt_VersimDevice::tt_VersimDevice(const std::string& sdesc_path, const std::string& ndesc_path) : tt_device(sdesc_path) {
     soc_descriptor_per_chip.emplace(0, tt_SocDescriptor(sdesc_path));
-    std::set<chip_id_t> target_devices = {0};
     if (ndesc_path == "") {
-        ndesc = tt_ClusterDescriptor::create_for_grayskull_cluster(target_devices, {});
+        ndesc = tt_ClusterDescriptor::create_mock_cluster({0});
     } else {
         ndesc = tt_ClusterDescriptor::create_from_yaml(ndesc_path);
     }

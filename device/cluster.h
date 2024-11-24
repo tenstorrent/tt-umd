@@ -278,8 +278,8 @@ public:
     virtual void configure_tlb(
         chip_id_t logical_device_id,
         tt_xy_pair core,
-        std::int32_t tlb_index,
-        std::int32_t address,
+        int32_t tlb_index,
+        uint64_t address,
         uint64_t ordering = TLB_DATA::Relaxed) {
         throw std::runtime_error("---- tt_device::configure_tlb is not implemented\n");
     }
@@ -721,8 +721,8 @@ public:
     virtual void configure_tlb(
         chip_id_t logical_device_id,
         tt_xy_pair core,
-        std::int32_t tlb_index,
-        std::int32_t address,
+        int32_t tlb_index,
+        uint64_t address,
         uint64_t ordering = TLB_DATA::Posted);
     virtual void set_fallback_tlb_ordering_mode(const std::string& fallback_tlb, uint64_t ordering = TLB_DATA::Posted);
     virtual void setup_core_to_tlb_map(

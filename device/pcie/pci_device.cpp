@@ -79,6 +79,15 @@ static T read_sysfs(const PciDeviceInfo &device_info, const std::string &attribu
     return value;
 }
 
+template <typename T>
+T read_sysfs(const PciDeviceInfo &device_info, const std::string &attribute_name, const T &default_value) {
+    try {
+        return read_sysfs<T>(device_info, attribute_name);
+    } catch (...) {
+        return default_value;
+    }
+}
+
 static PciDeviceInfo read_device_info(int fd) {
     tenstorrent_get_device_info info{};
     info.in.output_size_bytes = sizeof(info.out);
@@ -255,7 +264,7 @@ PCIDevice::PCIDevice(int pci_device_number, int logical_device_id) :
     logical_id(logical_device_id),
     pci_device_file_desc(open(device_path.c_str(), O_RDWR | O_CLOEXEC)),
     info(read_device_info(pci_device_file_desc)),
-    numa_node(read_sysfs<int>(info, "numa_node")),
+    numa_node(read_sysfs<int>(info, "numa_node", -1)),
     revision(read_sysfs<int>(info, "revision")),
     arch(detect_arch(info.device_id, revision)),
     architecture_implementation(tt::umd::architecture_implementation::create(arch)),

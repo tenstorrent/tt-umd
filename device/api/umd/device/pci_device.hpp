@@ -32,7 +32,7 @@ static const uint64_t BAR0_BH_SIZE = 512 * 1024 * 1024;
 constexpr unsigned int c_hang_read_value = 0xffffffffu;
 
 namespace tt::umd {
-class architecture_implementation;
+class TTDevice;
 struct semver_t;
 }  // namespace tt::umd
 
@@ -73,7 +73,7 @@ class PCIDevice {
     const int revision;              // PCI revision value from sysfs
     const tt::ARCH arch;             // e.g. Grayskull, Wormhole, Blackhole
     const semver_t kmd_version;      // KMD version
-    std::unique_ptr<tt::umd::architecture_implementation> architecture_implementation;
+    std::unique_ptr<tt::umd::TTDevice> tt_device;
 
 public:
     /**
@@ -195,7 +195,7 @@ public:
         tt_xy_pair end,
         std::uint64_t ordering = tt::umd::tlb_data::Relaxed);
 
-    tt::umd::architecture_implementation *get_architecture_implementation() const;
+    tt::umd::TTDevice *get_tt_device() const;
     void detect_hang_read(uint32_t data_read = c_hang_read_value);
 
     // TODO: this also probably has more sense to live in the future TTDevice class.

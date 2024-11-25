@@ -21,10 +21,10 @@
 #include "cpuset_lib.hpp"
 #include "ioctl.h"
 #include "logger.hpp"
-#include "umd/device/architecture_implementation.h"
 #include "umd/device/driver_atomics.h"
 #include "umd/device/hugepage.h"
 #include "umd/device/tt_arch_types.h"
+#include "umd/device/tt_device.h"
 
 static const uint16_t GS_PCIE_DEVICE_ID = 0xfaca;
 static const uint16_t WH_PCIE_DEVICE_ID = 0x401e;
@@ -267,7 +267,7 @@ PCIDevice::PCIDevice(int pci_device_number, int logical_device_id) :
     numa_node(read_sysfs<int>(info, "numa_node", -1)),  // default to -1 if not found
     revision(read_sysfs<int>(info, "revision")),
     arch(detect_arch(info.device_id, revision)),
-    architecture_implementation(tt::umd::architecture_implementation::create(arch)),
+    tt_device(tt::umd::TTDevice::create(arch)),
     kmd_version(read_kmd_version()) {
     log_info(LogSiliconDriver, "Opened PCI device {}; KMD version: {}", pci_device_num, kmd_version.to_string());
 
@@ -580,8 +580,7 @@ void PCIDevice::write_tlb_reg(
 
 bool PCIDevice::is_hardware_hung() {
     volatile const void *addr = reinterpret_cast<const char *>(bar0_uc) +
-                                (get_architecture_implementation()->get_arc_reset_scratch_offset() + 6 * 4) -
-                                bar0_uc_offset;
+                                (get_tt_device()->get_arc_reset_scratch_offset() + 6 * 4) - bar0_uc_offset;
     std::uint32_t scratch_data = *reinterpret_cast<const volatile std::uint32_t *>(addr);
 
     return (scratch_data == c_hang_read_value);
@@ -604,9 +603,9 @@ dynamic_tlb PCIDevice::set_dynamic_tlb(
     bool multicast,
     std::unordered_map<chip_id_t, std::unordered_map<tt_xy_pair, tt_xy_pair>> &harvested_coord_translation,
     std::uint64_t ordering) {
-    auto architecture_implementation = get_architecture_implementation();
+    auto tt_device = get_tt_device();
     if (multicast) {
-        std::tie(start, end) = architecture_implementation->multicast_workaround(start, end);
+        std::tie(start, end) = tt_device->multicast_workaround(start, end);
     }
 
     log_trace(
@@ -622,8 +621,8 @@ dynamic_tlb PCIDevice::set_dynamic_tlb(
         multicast,
         (int)ordering);
 
-    tt::umd::tlb_configuration tlb_config = architecture_implementation->get_tlb_configuration(tlb_index);
-    std::uint32_t TLB_CFG_REG_SIZE_BYTES = architecture_implementation->get_tlb_cfg_reg_size_bytes();
+    tt::umd::tlb_configuration tlb_config = tt_device->get_tlb_configuration(tlb_index);
+    std::uint32_t TLB_CFG_REG_SIZE_BYTES = tt_device->get_tlb_cfg_reg_size_bytes();
     auto translated_start_coords = harvested_coord_translation.at(logical_id).at(start);
     auto translated_end_coords = harvested_coord_translation.at(logical_id).at(end);
     uint32_t tlb_address = address / tlb_config.size;
@@ -681,9 +680,7 @@ dynamic_tlb PCIDevice::set_dynamic_tlb_broadcast(
     return set_dynamic_tlb(tlb_index, start, end, address, true, harvested_coord_translation, ordering);
 }
 
-tt::umd::architecture_implementation *PCIDevice::get_architecture_implementation() const {
-    return architecture_implementation.get();
-}
+tt::umd::TTDevice *PCIDevice::get_tt_device() const { return tt_device.get(); }
 
 bool PCIDevice::init_hugepage(uint32_t num_host_mem_channels) {
     const size_t hugepage_size = HUGEPAGE_REGION_SIZE;

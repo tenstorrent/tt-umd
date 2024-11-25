@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-#include "umd/device/blackhole_implementation.h"
+#include "umd/device/tt_device_blackhole.h"
 
 #include "blackhole/eth_interface.h"
 #include "blackhole/host_mem_address_map.h"
@@ -13,8 +13,8 @@ constexpr std::uint32_t NOC_ADDR_NODE_ID_BITS = 6;  // source: noc_parameters.h,
 
 namespace tt::umd {
 
-std::tuple<xy_pair, xy_pair> blackhole_implementation::multicast_workaround(xy_pair start, xy_pair end) const {
-    // TODO: This is copied from wormhole_implementation. It should be implemented properly.
+std::tuple<xy_pair, xy_pair> BlackholeTTDevice::multicast_workaround(xy_pair start, xy_pair end) const {
+    // TODO: This is copied from WormholeTTDevice. It should be implemented properly.
 
     // When multicasting there is a rare case where including the multicasting node in the box can result in a backup
     // and the multicasted data not reaching all endpoints specified. As a workaround we exclude the pci endpoint from
@@ -24,7 +24,7 @@ std::tuple<xy_pair, xy_pair> blackhole_implementation::multicast_workaround(xy_p
     return std::make_tuple(start, end);
 }
 
-tlb_configuration blackhole_implementation::get_tlb_configuration(uint32_t tlb_index) const {
+tlb_configuration BlackholeTTDevice::get_tlb_configuration(uint32_t tlb_index) const {
     // If TLB index is in range for 4GB tlbs (8 TLBs after 202 TLBs for 2MB)
     if (tlb_index >= blackhole::TLB_COUNT_2M && tlb_index < blackhole::TLB_COUNT_2M + blackhole::TLB_COUNT_4G) {
         return tlb_configuration{
@@ -45,8 +45,7 @@ tlb_configuration blackhole_implementation::get_tlb_configuration(uint32_t tlb_i
     };
 }
 
-std::optional<std::tuple<std::uint64_t, std::uint64_t>> blackhole_implementation::describe_tlb(
-    std::int32_t tlb_index) const {
+std::optional<std::tuple<std::uint64_t, std::uint64_t>> BlackholeTTDevice::describe_tlb(std::int32_t tlb_index) const {
     std::uint32_t TLB_COUNT_2M = 202;
 
     std::uint32_t TLB_BASE_2M = 0;
@@ -69,7 +68,7 @@ std::optional<std::tuple<std::uint64_t, std::uint64_t>> blackhole_implementation
     return std::nullopt;
 }
 
-std::pair<std::uint64_t, std::uint64_t> blackhole_implementation::get_tlb_data(
+std::pair<std::uint64_t, std::uint64_t> BlackholeTTDevice::get_tlb_data(
     std::uint32_t tlb_index, const tlb_data& data) const {
     if (tlb_index < blackhole::TLB_COUNT_2M) {
         return data.apply_offset(blackhole::TLB_2M_OFFSET);
@@ -78,13 +77,13 @@ std::pair<std::uint64_t, std::uint64_t> blackhole_implementation::get_tlb_data(
     }
 }
 
-tt_driver_host_address_params blackhole_implementation::get_host_address_params() const {
+tt_driver_host_address_params BlackholeTTDevice::get_host_address_params() const {
     return {
         ::blackhole::host_mem::address_map::ETH_ROUTING_BLOCK_SIZE,
         ::blackhole::host_mem::address_map::ETH_ROUTING_BUFFERS_START};
 }
 
-tt_driver_eth_interface_params blackhole_implementation::get_eth_interface_params() const {
+tt_driver_eth_interface_params BlackholeTTDevice::get_eth_interface_params() const {
     return {
         ETH_RACK_COORD_WIDTH,
         CMD_BUF_SIZE_MASK,
@@ -109,8 +108,6 @@ tt_driver_eth_interface_params blackhole_implementation::get_eth_interface_param
     };
 }
 
-tt_driver_noc_params blackhole_implementation::get_noc_params() const {
-    return {NOC_ADDR_LOCAL_BITS, NOC_ADDR_NODE_ID_BITS};
-}
+tt_driver_noc_params BlackholeTTDevice::get_noc_params() const { return {NOC_ADDR_LOCAL_BITS, NOC_ADDR_NODE_ID_BITS}; }
 
 }  // namespace tt::umd

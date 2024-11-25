@@ -13,8 +13,8 @@
 #include "l1_address_map.h"
 #include "tests/test_utils/device_test_utils.hpp"
 #include "tests/test_utils/generate_cluster_desc.hpp"
-#include "umd/device/blackhole_implementation.h"
 #include "umd/device/tt_cluster_descriptor.h"
+#include "umd/device/tt_device_blackhole.h"
 
 using namespace tt::umd;
 

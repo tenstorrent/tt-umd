@@ -9,8 +9,8 @@
 #include <array>
 #include <stdexcept>
 
-#include "umd/device/architecture_implementation.h"
 #include "umd/device/tlb.h"
+#include "umd/device/tt_device.h"
 
 namespace tt::umd {
 
@@ -145,7 +145,7 @@ static constexpr uint32_t MSG_TYPE_SETUP_IATU_FOR_PEER_TO_PEER = 0x97;
 
 }  // namespace blackhole
 
-class blackhole_implementation : public architecture_implementation {
+class BlackholeTTDevice : public TTDevice {
 public:
     tt::ARCH get_architecture() const override { return tt::ARCH::BLACKHOLE; }
 

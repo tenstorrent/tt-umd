@@ -15,9 +15,9 @@
 #include "tests/test_utils/generate_cluster_desc.hpp"
 
 // TODO: change to tt_cluster
-#include "umd/device/architecture_implementation.h"
 #include "umd/device/cluster.h"
 #include "umd/device/tt_cluster_descriptor.h"
+#include "umd/device/tt_device.h"
 
 using namespace tt::umd;
 
@@ -68,9 +68,7 @@ TEST(ApiChipTest, ManualTLBConfiguration) {
         if (!is_worker_core) {
             return -1;
         }
-        return core.x +
-               core.y *
-                   umd_cluster->get_pci_device(any_mmio_chip)->get_architecture_implementation()->get_grid_size_x();
+        return core.x + core.y * umd_cluster->get_pci_device(any_mmio_chip)->get_tt_device()->get_grid_size_x();
     };
 
     std::int32_t c_zero_address = 0;

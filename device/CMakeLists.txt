@@ -8,13 +8,13 @@ add_library(${PROJECT_NAME}::device ALIAS device)
 target_sources(
     device
     PRIVATE
-        architecture_implementation.cpp
+        tt_device.cpp
         blackhole/blackhole_coordinate_manager.cpp
-        blackhole/blackhole_implementation.cpp
+        blackhole/tt_device_blackhole.cpp
         cluster.cpp
         coordinate_manager.cpp
         cpuset_lib.cpp
-        grayskull/grayskull_implementation.cpp
+        grayskull/tt_device_grayskull.cpp
         hugepage.cpp
         pcie/pci_device.cpp
         simulation/tt_simulation_device.cpp
@@ -24,7 +24,7 @@ target_sources(
         tt_silicon_driver_common.cpp
         tt_soc_descriptor.cpp
         wormhole/wormhole_coordinate_manager.cpp
-        wormhole/wormhole_implementation.cpp
+        wormhole/tt_device_wormhole.cpp
         xy_pair.cpp
         ${FBS_GENERATED_HEADER}
 )

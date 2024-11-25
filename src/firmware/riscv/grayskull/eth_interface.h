@@ -4,6 +4,8 @@
 
 #pragma once
 
+#include <cstdint>
+
 const uint32_t ETH_RACK_COORD_WIDTH = 0;
 const uint32_t CMD_BUF_SIZE_MASK = 0;
 const uint32_t MAX_BLOCK_SIZE = 0;

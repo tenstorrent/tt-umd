@@ -2,33 +2,25 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-#ifdef TT_DEBUG_LOGGING
-#define DEBUG_LOG(str)                 \
-    do {                               \
-        std::cout << str << std::endl; \
-    } while (false)
-#else
-#define DEBUG_LOG(str) ((void)0)
-#endif
+#include "umd/device/tt_device.h"
 
-#include "tt_device.h"
+#include "umd/device/tt_device_blackhole.h"
+#include "umd/device/tt_device_grayskull.h"
+#include "umd/device/tt_device_wormhole.h"
 
-#include <fstream>
-#include <iostream>
-#include <string>
-#include <unordered_map>
-#include <vector>
+namespace tt::umd {
 
-#include "device/tt_cluster_descriptor_types.h"
-#include "yaml-cpp/yaml.h"
-
-////////
-// Device base
-////////
-tt_device::tt_device() : soc_descriptor_per_chip({}) {}
-
-tt_device::~tt_device() {}
-
-const tt_SocDescriptor& tt_device::get_soc_descriptor(chip_id_t chip_id) const {
-    return soc_descriptor_per_chip.at(chip_id);
+std::unique_ptr<TTDevice> TTDevice::create(tt::ARCH architecture) {
+    switch (architecture) {
+        case tt::ARCH::BLACKHOLE:
+            return std::make_unique<BlackholeTTDevice>();
+        case tt::ARCH::GRAYSKULL:
+            return std::make_unique<GrayskullTTDevice>();
+        case tt::ARCH::WORMHOLE_B0:
+            return std::make_unique<WormholeTTDevice>();
+        default:
+            return nullptr;
+    }
 }
+
+}  // namespace tt::umd

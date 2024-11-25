@@ -37,12 +37,12 @@
 #include <vector>
 
 #include "logger.hpp"
-#include "umd/device/architecture_implementation.h"
 #include "umd/device/driver_atomics.h"
 #include "umd/device/hugepage.h"
 #include "umd/device/tlb.h"
 #include "umd/device/tt_arch_types.h"
 #include "umd/device/tt_cluster_descriptor.h"
+#include "umd/device/tt_device.h"
 #include "yaml-cpp/yaml.h"
 
 using namespace boost::interprocess;
@@ -369,11 +369,11 @@ void Cluster::construct_cluster(
 
     // It is mandatory for all devices to have these TLBs set aside, as the driver needs them to issue remote reads and
     // writes.
-    auto architecture_implementation = tt::umd::architecture_implementation::create(arch_name);
-    dynamic_tlb_config["LARGE_READ_TLB"] = architecture_implementation->get_mem_large_read_tlb();
-    dynamic_tlb_config["LARGE_WRITE_TLB"] = architecture_implementation->get_mem_large_write_tlb();
-    dynamic_tlb_config["REG_TLB"] = architecture_implementation->get_reg_tlb();
-    dynamic_tlb_config["SMALL_READ_WRITE_TLB"] = architecture_implementation->get_small_read_write_tlb();
+    auto tt_device = tt::umd::TTDevice::create(arch_name);
+    dynamic_tlb_config["LARGE_READ_TLB"] = tt_device->get_mem_large_read_tlb();
+    dynamic_tlb_config["LARGE_WRITE_TLB"] = tt_device->get_mem_large_write_tlb();
+    dynamic_tlb_config["REG_TLB"] = tt_device->get_reg_tlb();
+    dynamic_tlb_config["SMALL_READ_WRITE_TLB"] = tt_device->get_small_read_write_tlb();
 
     // All dynamic TLBs use Relaxed Ordering by default
     for (const auto& tlb : dynamic_tlb_config) {
@@ -508,13 +508,13 @@ void Cluster::construct_cluster(
     }
 
     // Default initialize host_address_params based on detected arch
-    host_address_params = architecture_implementation->get_host_address_params();
+    host_address_params = tt_device->get_host_address_params();
 
     // Default initialize eth_interface_params based on detected arch
-    eth_interface_params = architecture_implementation->get_eth_interface_params();
+    eth_interface_params = tt_device->get_eth_interface_params();
 
     // Default initialize noc_params based on detected arch
-    noc_params = architecture_implementation->get_noc_params();
+    noc_params = tt_device->get_noc_params();
 }
 
 Cluster::Cluster(
@@ -798,19 +798,18 @@ void Cluster::check_pcie_device_initialized(int device_id) {
     } else {
         throw std::runtime_error(fmt::format("Unsupported architecture: {}", get_arch_str(arch_name)));
     }
-    auto architecture_implementation = pci_device->get_architecture_implementation();
+    auto tt_device = pci_device->get_tt_device();
 
     // MT Initial BH - Add check for blackhole once access to ARC registers is setup through TLBs
     if (arch_name != tt::ARCH::BLACKHOLE) {
         log_debug(LogSiliconDriver, "== Check if device_id: {} is initialized", device_id);
-        uint32_t bar_read_initial =
-            bar_read32(device_id, architecture_implementation->get_arc_reset_scratch_offset() + 3 * 4);
+        uint32_t bar_read_initial = bar_read32(device_id, tt_device->get_arc_reset_scratch_offset() + 3 * 4);
         uint32_t arg = bar_read_initial == 500 ? 325 : 500;
         uint32_t bar_read_again;
-        uint32_t arc_msg_return = arc_msg(
-            device_id, 0xaa00 | architecture_implementation->get_arc_message_test(), true, arg, 0, 1, &bar_read_again);
+        uint32_t arc_msg_return =
+            arc_msg(device_id, 0xaa00 | tt_device->get_arc_message_test(), true, arg, 0, 1, &bar_read_again);
         if (arc_msg_return != 0 || bar_read_again != arg + 1) {
-            auto postcode = bar_read32(device_id, architecture_implementation->get_arc_reset_scratch_offset());
+            auto postcode = bar_read32(device_id, tt_device->get_arc_reset_scratch_offset());
             throw std::runtime_error(fmt::format(
                 "Device is not initialized: arc_fw postcode: {} arc_msg_return: {} arg: {} bar_read_initial: {} "
                 "bar_read_again: {}",
@@ -960,17 +959,16 @@ void Cluster::broadcast_pcie_tensix_risc_reset(chip_id_t chip_id, const TensixSo
         "== For all tensix set soft-reset for {} risc cores.",
         TensixSoftResetOptionsToString(valid).c_str());
 
-    auto architecture_implementation = device->get_architecture_implementation();
+    auto tt_device = device->get_tt_device();
 
     // TODO: this is clumsy and difficult to read
     auto [soft_reset_reg, _] = device->set_dynamic_tlb_broadcast(
-        architecture_implementation->get_reg_tlb(),
-        architecture_implementation->get_tensix_soft_reset_addr(),
+        tt_device->get_reg_tlb(),
+        tt_device->get_tensix_soft_reset_addr(),
         harvested_coord_translation,
         tt_xy_pair(0, 0),
         tt_xy_pair(
-            architecture_implementation->get_grid_size_x() - 1,
-            architecture_implementation->get_grid_size_y() - 1 - num_rows_harvested.at(logical_id)),
+            tt_device->get_grid_size_x() - 1, tt_device->get_grid_size_y() - 1 - num_rows_harvested.at(logical_id)),
         TLB_DATA::Posted);
     device->write_regs(soft_reset_reg, 1, &valid);
     tt_driver_atomics::sfence();
@@ -1098,7 +1096,7 @@ tt::Writer Cluster::get_static_tlb_writer(tt_cxy_pair target) {
     }
 
     auto tlb_index = map_core_to_tlb_per_chip[target.chip](tt_xy_pair(target.x, target.y));
-    auto tlb_data = dev->get_architecture_implementation()->describe_tlb(tlb_index);
+    auto tlb_data = dev->get_tt_device()->describe_tlb(tlb_index);
 
     if (!tlb_data.has_value()) {
         throw std::runtime_error(fmt::format("No TLB mapped to core {}", target.str()));
@@ -1133,7 +1131,7 @@ void Cluster::write_device_memory(
     std::optional<std::tuple<std::uint64_t, std::uint64_t>> tlb_data = std::nullopt;
     if (tlbs_init_per_chip[target.chip]) {
         tlb_index = map_core_to_tlb_per_chip[target.chip](tt_xy_pair(target.x, target.y));
-        tlb_data = dev->get_architecture_implementation()->describe_tlb(tlb_index);
+        tlb_data = dev->get_tt_device()->describe_tlb(tlb_index);
     }
 
     if (tlb_data.has_value() &&
@@ -1182,7 +1180,7 @@ void Cluster::read_device_memory(
     std::optional<std::tuple<std::uint64_t, std::uint64_t>> tlb_data = std::nullopt;
     if (tlbs_init_per_chip[target.chip]) {
         tlb_index = map_core_to_tlb_per_chip[target.chip](tt_xy_pair(target.x, target.y));
-        tlb_data = dev->get_architecture_implementation()->describe_tlb(tlb_index);
+        tlb_data = dev->get_tt_device()->describe_tlb(tlb_index);
     }
     log_debug(LogSiliconDriver, "  tlb_index: {}, tlb_data.has_value(): {}", tlb_index, tlb_data.has_value());
 
@@ -1276,15 +1274,15 @@ uint32_t Cluster::get_power_state_arc_msg(chip_id_t chip_id, tt_DevicePowerState
     uint32_t msg = 0xaa00;
     switch (state) {
         case BUSY: {
-            msg |= pci_device->get_architecture_implementation()->get_arc_message_arc_go_busy();
+            msg |= pci_device->get_tt_device()->get_arc_message_arc_go_busy();
             break;
         }
         case LONG_IDLE: {
-            msg |= pci_device->get_architecture_implementation()->get_arc_message_arc_go_long_idle();
+            msg |= pci_device->get_tt_device()->get_arc_message_arc_go_long_idle();
             break;
         }
         case SHORT_IDLE: {
-            msg |= pci_device->get_architecture_implementation()->get_arc_message_arc_go_short_idle();
+            msg |= pci_device->get_tt_device()->get_arc_message_arc_go_short_idle();
             break;
         }
         default:
@@ -1327,7 +1325,7 @@ int Cluster::get_clock(int logical_device_id) {
     PCIDevice* pci_device = get_pci_device(mmio_capable_chip_logical);
     auto exit_code = arc_msg(
         logical_device_id,
-        0xaa00 | pci_device->get_architecture_implementation()->get_arc_message_get_aiclk(),
+        0xaa00 | pci_device->get_tt_device()->get_arc_message_get_aiclk(),
         true,
         0xFFFF,
         0xFFFF,
@@ -1367,8 +1365,8 @@ std::optional<std::tuple<uint32_t, uint32_t>> Cluster::get_tlb_data_from_target(
 
     if (tlbs_init_per_chip[target.chip]) {
         tlb_index = map_core_to_tlb_per_chip[target.chip](tt_xy_pair(target.x, target.y));
-        auto architecture_implementation = tt::umd::architecture_implementation::create(arch_name);
-        tlb_data = architecture_implementation->describe_tlb(tlb_index);
+        auto tt_device = tt::umd::TTDevice::create(arch_name);
+        tlb_data = tt_device->describe_tlb(tlb_index);
     }
     return tlb_data;
 }
@@ -1380,7 +1378,7 @@ void Cluster::configure_tlb(
         "Invalid ordering specified in Cluster::configure_tlb");
     PCIDevice* pci_device = get_pci_device(logical_device_id);
     pci_device->set_dynamic_tlb(tlb_index, core, address, harvested_coord_translation, ordering);
-    auto tlb_size = std::get<1>(pci_device->get_architecture_implementation()->describe_tlb(tlb_index).value());
+    auto tlb_size = std::get<1>(pci_device->get_tt_device()->describe_tlb(tlb_index).value());
     if (tlb_config_map.find(logical_device_id) == tlb_config_map.end()) {
         tlb_config_map.insert({logical_device_id, {}});
     }
@@ -1439,12 +1437,10 @@ int Cluster::test_setup_interface() {
         int ret_val = 0;
         PCIDevice* dev = m_pci_device_map.begin()->second.get();
 
-        uint32_t mapped_reg = dev->set_dynamic_tlb(
-                                     dev->get_architecture_implementation()->get_reg_tlb(),
-                                     tt_xy_pair(0, 0),
-                                     0xffb20108,
-                                     harvested_coord_translation)
-                                  .bar_offset;
+        uint32_t mapped_reg =
+            dev->set_dynamic_tlb(
+                   dev->get_tt_device()->get_reg_tlb(), tt_xy_pair(0, 0), 0xffb20108, harvested_coord_translation)
+                .bar_offset;
 
         uint32_t regval = 0;
         dev->read_regs(mapped_reg, 1, &regval);
@@ -1454,12 +1450,10 @@ int Cluster::test_setup_interface() {
         int ret_val = 0;
         PCIDevice* dev = m_pci_device_map.begin()->second.get();
 
-        uint32_t mapped_reg = dev->set_dynamic_tlb(
-                                     dev->get_architecture_implementation()->get_reg_tlb(),
-                                     tt_xy_pair(1, 0),
-                                     0xffb20108,
-                                     harvested_coord_translation)
-                                  .bar_offset;
+        uint32_t mapped_reg =
+            dev->set_dynamic_tlb(
+                   dev->get_tt_device()->get_reg_tlb(), tt_xy_pair(1, 0), 0xffb20108, harvested_coord_translation)
+                .bar_offset;
 
         uint32_t regval = 0;
         dev->read_regs(mapped_reg, 1, &regval);
@@ -1471,7 +1465,7 @@ int Cluster::test_setup_interface() {
         // PCIDevice *dev = m_pci_device_map.begin()->second->hdev;
 
         // uint32_t mapped_reg = dev->set_dynamic_tlb(m_pci_device_map.begin()->second,
-        // dev->get_architecture_implementation()->get_reg_tlb(), tt_xy_pair(1, 0), 0xffb20108,
+        // dev->get_tt_device()->get_reg_tlb(), tt_xy_pair(1, 0), 0xffb20108,
         // harvested_coord_translation).bar_offset;
 
         // uint32_t regval = 0;
@@ -1523,7 +1517,7 @@ int Cluster::pcie_arc_msg(
     log_assert(arg0 <= 0xffff and arg1 <= 0xffff, "Only 16 bits allowed in arc_msg args");  // Only 16 bits are allowed
 
     PCIDevice* pci_device = get_pci_device(logical_device_id);
-    auto architecture_implementation = pci_device->get_architecture_implementation();
+    auto tt_device = pci_device->get_tt_device();
 
     // Exclusive access for a single process at a time. Based on physical pci interface id.
     std::string msg_type = "ARC_MSG";
@@ -1531,16 +1525,15 @@ int Cluster::pcie_arc_msg(
     uint32_t fw_arg = arg0 | (arg1 << 16);
     int exit_code = 0;
 
-    bar_write32(logical_device_id, architecture_implementation->get_arc_reset_scratch_offset() + 3 * 4, fw_arg);
-    bar_write32(logical_device_id, architecture_implementation->get_arc_reset_scratch_offset() + 5 * 4, msg_code);
+    bar_write32(logical_device_id, tt_device->get_arc_reset_scratch_offset() + 3 * 4, fw_arg);
+    bar_write32(logical_device_id, tt_device->get_arc_reset_scratch_offset() + 5 * 4, msg_code);
 
-    uint32_t misc = bar_read32(logical_device_id, architecture_implementation->get_arc_reset_arc_misc_cntl_offset());
+    uint32_t misc = bar_read32(logical_device_id, tt_device->get_arc_reset_arc_misc_cntl_offset());
     if (misc & (1 << 16)) {
         log_error("trigger_fw_int failed on device {}", logical_device_id);
         return 1;
     } else {
-        bar_write32(
-            logical_device_id, architecture_implementation->get_arc_reset_arc_misc_cntl_offset(), misc | (1 << 16));
+        bar_write32(logical_device_id, tt_device->get_arc_reset_arc_misc_cntl_offset(), misc | (1 << 16));
     }
 
     if (wait_for_done) {
@@ -1553,17 +1546,15 @@ int Cluster::pcie_arc_msg(
                     "Timed out after waiting {} seconds for device {} ARC to respond", timeout, logical_device_id));
             }
 
-            status = bar_read32(logical_device_id, architecture_implementation->get_arc_reset_scratch_offset() + 5 * 4);
+            status = bar_read32(logical_device_id, tt_device->get_arc_reset_scratch_offset() + 5 * 4);
 
             if ((status & 0xffff) == (msg_code & 0xff)) {
                 if (return_3 != nullptr) {
-                    *return_3 = bar_read32(
-                        logical_device_id, architecture_implementation->get_arc_reset_scratch_offset() + 3 * 4);
+                    *return_3 = bar_read32(logical_device_id, tt_device->get_arc_reset_scratch_offset() + 3 * 4);
                 }
 
                 if (return_4 != nullptr) {
-                    *return_4 = bar_read32(
-                        logical_device_id, architecture_implementation->get_arc_reset_scratch_offset() + 4 * 4);
+                    *return_4 = bar_read32(logical_device_id, tt_device->get_arc_reset_scratch_offset() + 4 * 4);
                 }
 
                 exit_code = (status & 0xffff0000) >> 16;
@@ -1594,7 +1585,7 @@ int Cluster::iatu_configure_peer_region(
                                // space with the correct start offset
     }
     PCIDevice* pci_device = get_pci_device(logical_device_id);
-    auto architecture_implementation = pci_device->get_architecture_implementation();
+    auto tt_device = pci_device->get_tt_device();
 
     // BR: ARC doesn't work yet on Blackhole, so programming ATU directly. Should be removed when arc starts working.
     // TODO: Remove when ARC is implemented on BH.
@@ -1651,17 +1642,11 @@ int Cluster::iatu_configure_peer_region(
             &limit_address_hi,
             1);
     } else {
-        bar_write32(
-            logical_device_id, architecture_implementation->get_arc_csm_mailbox_offset() + 0 * 4, region_id_to_use);
-        bar_write32(logical_device_id, architecture_implementation->get_arc_csm_mailbox_offset() + 1 * 4, dest_bar_lo);
-        bar_write32(logical_device_id, architecture_implementation->get_arc_csm_mailbox_offset() + 2 * 4, dest_bar_hi);
-        bar_write32(logical_device_id, architecture_implementation->get_arc_csm_mailbox_offset() + 3 * 4, region_size);
-        arc_msg(
-            logical_device_id,
-            0xaa00 | architecture_implementation->get_arc_message_setup_iatu_for_peer_to_peer(),
-            true,
-            0,
-            0);
+        bar_write32(logical_device_id, tt_device->get_arc_csm_mailbox_offset() + 0 * 4, region_id_to_use);
+        bar_write32(logical_device_id, tt_device->get_arc_csm_mailbox_offset() + 1 * 4, dest_bar_lo);
+        bar_write32(logical_device_id, tt_device->get_arc_csm_mailbox_offset() + 2 * 4, dest_bar_hi);
+        bar_write32(logical_device_id, tt_device->get_arc_csm_mailbox_offset() + 3 * 4, region_size);
+        arc_msg(logical_device_id, 0xaa00 | tt_device->get_arc_message_setup_iatu_for_peer_to_peer(), true, 0, 0);
     }
 
     // Print what just happened
@@ -1679,8 +1664,8 @@ int Cluster::iatu_configure_peer_region(
 
 // Returns broken rows as bits set to 1 in 'memory' and 'logic'
 uint32_t Cluster::get_harvested_noc_rows(uint32_t harvesting_mask) {
-    auto architecture_implementation = tt::umd::architecture_implementation::create(arch_name);
-    const std::vector<uint32_t>& harv_to_noc_loc = architecture_implementation->get_harvesting_noc_locations();
+    auto tt_device = tt::umd::TTDevice::create(arch_name);
+    const std::vector<uint32_t>& harv_to_noc_loc = tt_device->get_harvesting_noc_locations();
     uint32_t harv_noc_rows = 0;
     std::string harv_noc_rows_str = "";
 
@@ -1711,7 +1696,7 @@ uint32_t Cluster::get_harvested_rows(int logical_device_id) {
         PCIDevice* pci_device = get_pci_device(mmio_capable_chip_logical);
         int harvesting_msg_code = arc_msg(
             logical_device_id,
-            0xaa00 | pci_device->get_architecture_implementation()->get_arc_message_arc_get_harvesting(),
+            0xaa00 | pci_device->get_tt_device()->get_arc_message_arc_get_harvesting(),
             true,
             0,
             0,
@@ -2572,11 +2557,9 @@ void Cluster::pcie_broadcast_write(
     }
 }
 
-inline bool tensix_or_eth_in_broadcast(
-    const std::set<uint32_t>& cols_to_exclude,
-    const tt::umd::architecture_implementation* architecture_implementation) {
+inline bool tensix_or_eth_in_broadcast(const std::set<uint32_t>& cols_to_exclude, const tt::umd::TTDevice* tt_device) {
     bool found_tensix_or_eth = false;
-    for (const auto& col : architecture_implementation->get_t6_x_locations()) {
+    for (const auto& col : tt_device->get_t6_x_locations()) {
         found_tensix_or_eth |= (cols_to_exclude.find(col) == cols_to_exclude.end());
     }
     return found_tensix_or_eth;
@@ -2585,11 +2568,11 @@ inline bool tensix_or_eth_in_broadcast(
 inline bool valid_tensix_broadcast_grid(
     const std::set<uint32_t>& rows_to_exclude,
     const std::set<uint32_t>& cols_to_exclude,
-    const tt::umd::architecture_implementation* architecture_implementation) {
+    const tt::umd::TTDevice* tt_device) {
     bool t6_bcast_rows_complete = true;
     bool t6_bcast_rows_empty = true;
 
-    for (const auto& row : architecture_implementation->get_t6_y_locations()) {
+    for (const auto& row : tt_device->get_t6_y_locations()) {
         t6_bcast_rows_complete &= (rows_to_exclude.find(row) == rows_to_exclude.end());
         t6_bcast_rows_empty &= (rows_to_exclude.find(row) != rows_to_exclude.end());
     }
@@ -2687,10 +2670,10 @@ void Cluster::broadcast_write_to_cluster(
             }
         }
     } else if (arch_name == tt::ARCH::BLACKHOLE) {
-        auto architecture_implementation = tt::umd::architecture_implementation::create(arch_name);
+        auto tt_device = tt::umd::TTDevice::create(arch_name);
         if (cols_to_exclude.find(0) == cols_to_exclude.end() or cols_to_exclude.find(9) == cols_to_exclude.end()) {
             log_assert(
-                !tensix_or_eth_in_broadcast(cols_to_exclude, architecture_implementation.get()),
+                !tensix_or_eth_in_broadcast(cols_to_exclude, tt_device.get()),
                 "Cannot broadcast to tensix/ethernet and DRAM simultaneously on Blackhole.");
             if (cols_to_exclude.find(0) == cols_to_exclude.end()) {
                 // When broadcast includes column zero do not exclude anything
@@ -2725,7 +2708,7 @@ void Cluster::broadcast_write_to_cluster(
         } else {
             log_assert(
                 use_virtual_coords_for_eth_broadcast or
-                    valid_tensix_broadcast_grid(rows_to_exclude, cols_to_exclude, architecture_implementation.get()),
+                    valid_tensix_broadcast_grid(rows_to_exclude, cols_to_exclude, tt_device.get()),
                 "Must broadcast to all tensix rows when ERISC FW is < 6.8.0.");
             ethernet_broadcast_write(
                 mem_ptr,
@@ -2738,10 +2721,10 @@ void Cluster::broadcast_write_to_cluster(
                 use_virtual_coords_for_eth_broadcast);
         }
     } else {
-        auto architecture_implementation = tt::umd::architecture_implementation::create(arch_name);
+        auto tt_device = tt::umd::TTDevice::create(arch_name);
         if (cols_to_exclude.find(0) == cols_to_exclude.end() or cols_to_exclude.find(5) == cols_to_exclude.end()) {
             log_assert(
-                !tensix_or_eth_in_broadcast(cols_to_exclude, architecture_implementation.get()),
+                !tensix_or_eth_in_broadcast(cols_to_exclude, tt_device.get()),
                 "Cannot broadcast to tensix/ethernet and DRAM simultaneously on Wormhole.");
             if (cols_to_exclude.find(0) == cols_to_exclude.end()) {
                 // When broadcast includes column zero Exclude PCIe, ARC and router cores from broadcast explictly,
@@ -2777,7 +2760,7 @@ void Cluster::broadcast_write_to_cluster(
         } else {
             log_assert(
                 use_virtual_coords_for_eth_broadcast or
-                    valid_tensix_broadcast_grid(rows_to_exclude, cols_to_exclude, architecture_implementation.get()),
+                    valid_tensix_broadcast_grid(rows_to_exclude, cols_to_exclude, tt_device.get()),
                 "Must broadcast to all tensix rows when ERISC FW is < 6.8.0.");
             ethernet_broadcast_write(
                 mem_ptr,
@@ -3229,8 +3212,7 @@ void Cluster::deassert_resets_and_set_power_state() {
         for (auto& device_it : m_pci_device_map) {
             arc_msg(
                 device_it.first,
-                0xaa00 |
-                    device_it.second.get()->get_architecture_implementation()->get_arc_message_deassert_riscv_reset(),
+                0xaa00 | device_it.second.get()->get_tt_device()->get_arc_message_deassert_riscv_reset(),
                 true,
                 0,
                 0);
@@ -3242,7 +3224,7 @@ void Cluster::deassert_resets_and_set_power_state() {
                     auto pci_device = get_pci_device(mmio_capable_chip_logical);
                     remote_arc_msg(
                         chip,
-                        0xaa00 | pci_device->get_architecture_implementation()->get_arc_message_deassert_riscv_reset(),
+                        0xaa00 | pci_device->get_tt_device()->get_arc_message_deassert_riscv_reset(),
                         true,
                         0x0,
                         0x0,

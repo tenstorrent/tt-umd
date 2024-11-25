@@ -21,9 +21,9 @@ struct tt_driver_noc_params;
 
 namespace tt::umd {
 
-class architecture_implementation {
+class TTDevice {
 public:
-    virtual ~architecture_implementation() = default;
+    virtual ~TTDevice() = default;
 
     virtual tt::ARCH get_architecture() const = 0;
     virtual uint32_t get_arc_message_arc_get_harvesting() const = 0;
@@ -72,7 +72,7 @@ public:
     virtual tt_driver_eth_interface_params get_eth_interface_params() const = 0;
     virtual tt_driver_noc_params get_noc_params() const = 0;
 
-    static std::unique_ptr<architecture_implementation> create(tt::ARCH architecture);
+    static std::unique_ptr<TTDevice> create(tt::ARCH architecture);
 };
 
 }  // namespace tt::umd

@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-#include "umd/device/grayskull_implementation.h"
+#include "umd/device/tt_device_grayskull.h"
 
 #include "grayskull/eth_interface.h"
 #include "grayskull/host_mem_address_map.h"
@@ -13,11 +13,11 @@ constexpr std::uint32_t NOC_ADDR_NODE_ID_BITS = 6;  // source: noc_parameters.h,
 
 namespace tt::umd {
 
-std::tuple<xy_pair, xy_pair> grayskull_implementation::multicast_workaround(xy_pair start, xy_pair end) const {
+std::tuple<xy_pair, xy_pair> GrayskullTTDevice::multicast_workaround(xy_pair start, xy_pair end) const {
     return std::make_tuple(start, end);
 }
 
-tlb_configuration grayskull_implementation::get_tlb_configuration(uint32_t tlb_index) const {
+tlb_configuration GrayskullTTDevice::get_tlb_configuration(uint32_t tlb_index) const {
     if (tlb_index >= grayskull::TLB_BASE_INDEX_16M) {
         return tlb_configuration{
             .size = grayskull::DYNAMIC_TLB_16M_SIZE,
@@ -45,8 +45,7 @@ tlb_configuration grayskull_implementation::get_tlb_configuration(uint32_t tlb_i
     }
 }
 
-std::optional<std::tuple<std::uint64_t, std::uint64_t>> grayskull_implementation::describe_tlb(
-    std::int32_t tlb_index) const {
+std::optional<std::tuple<std::uint64_t, std::uint64_t>> GrayskullTTDevice::describe_tlb(std::int32_t tlb_index) const {
     std::uint32_t TLB_COUNT_1M = 156;
     std::uint32_t TLB_COUNT_2M = 10;
     std::uint32_t TLB_COUNT_16M = 20;
@@ -75,7 +74,7 @@ std::optional<std::tuple<std::uint64_t, std::uint64_t>> grayskull_implementation
     return std::nullopt;
 }
 
-std::pair<std::uint64_t, std::uint64_t> grayskull_implementation::get_tlb_data(
+std::pair<std::uint64_t, std::uint64_t> GrayskullTTDevice::get_tlb_data(
     std::uint32_t tlb_index, const tlb_data &data) const {
     if (tlb_index < grayskull::TLB_COUNT_1M) {
         return data.apply_offset(grayskull::TLB_1M_OFFSET);
@@ -88,13 +87,13 @@ std::pair<std::uint64_t, std::uint64_t> grayskull_implementation::get_tlb_data(
     }
 }
 
-tt_driver_host_address_params grayskull_implementation::get_host_address_params() const {
+tt_driver_host_address_params GrayskullTTDevice::get_host_address_params() const {
     return {
         ::grayskull::host_mem::address_map::ETH_ROUTING_BLOCK_SIZE,
         ::grayskull::host_mem::address_map::ETH_ROUTING_BUFFERS_START};
 }
 
-tt_driver_eth_interface_params grayskull_implementation::get_eth_interface_params() const {
+tt_driver_eth_interface_params GrayskullTTDevice::get_eth_interface_params() const {
     return {
         ETH_RACK_COORD_WIDTH,
         CMD_BUF_SIZE_MASK,
@@ -119,8 +118,6 @@ tt_driver_eth_interface_params grayskull_implementation::get_eth_interface_param
     };
 }
 
-tt_driver_noc_params grayskull_implementation::get_noc_params() const {
-    return {NOC_ADDR_LOCAL_BITS, NOC_ADDR_NODE_ID_BITS};
-}
+tt_driver_noc_params GrayskullTTDevice::get_noc_params() const { return {NOC_ADDR_LOCAL_BITS, NOC_ADDR_NODE_ID_BITS}; }
 
 }  // namespace tt::umd

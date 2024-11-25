@@ -171,11 +171,14 @@ struct tt_4_byte_aligned_buffer {
 namespace tt::umd {
 
 bool Cluster::address_in_tlb_space(
-    uint32_t address, uint32_t size_in_bytes, int32_t tlb_index, uint64_t tlb_size, std::uint32_t chip) {
-    return (
-        (tlb_config_map.at(chip).find(tlb_index) != tlb_config_map.at(chip).end()) &&
-        address >= tlb_config_map.at(chip).at(tlb_index) &&
-        (address + size_in_bytes <= tlb_config_map.at(chip).at(tlb_index) + tlb_size));
+    uint64_t address, uint32_t size_in_bytes, int32_t tlb_index, uint64_t tlb_size, std::uint32_t chip) {
+    const auto& tlb_map = tlb_config_map.at(chip);
+    const auto it = tlb_map.find(tlb_index);
+    if (it != tlb_map.end()) {
+        auto mapped_address = it->second;
+        return address >= mapped_address && (address + size_in_bytes <= mapped_address + tlb_size);
+    }
+    return false;
 }
 
 std::unordered_map<chip_id_t, tt_SocDescriptor>& Cluster::get_virtual_soc_descriptors() {
@@ -1113,7 +1116,7 @@ void Cluster::write_device_memory(
     const void* mem_ptr,
     uint32_t size_in_bytes,
     tt_cxy_pair target,
-    std::uint32_t address,
+    uint64_t address,
     const std::string& fallback_tlb) {
     PCIDevice* dev = get_pci_device(target.chip);
     const uint8_t* buffer_addr = static_cast<const uint8_t*>(mem_ptr);
@@ -1164,13 +1167,7 @@ void Cluster::write_device_memory(
 }
 
 void Cluster::read_device_memory(
-    void* mem_ptr,
-    tt_cxy_pair target,
-    std::uint32_t address,
-    std::uint32_t size_in_bytes,
-    const std::string& fallback_tlb) {
-    // Assume that mem_ptr has been allocated adequate memory on host when this function is called. Otherwise, this
-    // function will cause a segfault.
+    void* mem_ptr, tt_cxy_pair target, uint64_t address, uint32_t size_in_bytes, const std::string& fallback_tlb) {
     log_debug(
         LogSiliconDriver,
         "Cluster::read_device_memory to chip:{} {}-{} at 0x{:x} size_in_bytes: {}",

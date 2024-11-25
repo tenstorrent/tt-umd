@@ -266,8 +266,7 @@ void Cluster::create_device(
                 "Opening TT_PCI_INTERFACE_ID {} for netlist target_device_id: {}",
                 pci_interface_id,
                 logical_device_id);
-            m_pci_device_map.insert(
-                {logical_device_id, std::make_unique<PCIDevice>(pci_interface_id, logical_device_id)});
+            m_pci_device_map.insert({logical_device_id, std::make_unique<PCIDevice>(pci_interface_id)});
         }
         auto dev = m_pci_device_map.at(logical_device_id).get();
 
@@ -529,8 +528,7 @@ Cluster::Cluster(
     m_num_pci_devices = available_device_ids.size();
 
     int physical_device_id = available_device_ids[0];
-    // TODO: remove logical_device_id
-    PCIDevice pci_device(physical_device_id, 0);
+    PCIDevice pci_device(physical_device_id);
     tt::ARCH device_arch = pci_device.get_arch();
 
     std::string sdesc_path = tt_SocDescriptor::get_soc_descriptor_path(device_arch);
@@ -579,8 +577,7 @@ Cluster::Cluster(
     m_num_pci_devices = available_device_ids.size();
 
     int physical_device_id = available_device_ids[0];
-    // TODO: remove logical_device_id
-    PCIDevice pci_device(physical_device_id, 0);
+    PCIDevice pci_device(physical_device_id);
     tt::ARCH device_arch = pci_device.get_arch();
 
     std::string sdesc_path = tt_SocDescriptor::get_soc_descriptor_path(device_arch);
@@ -953,7 +950,6 @@ void Cluster::broadcast_pcie_tensix_risc_reset(chip_id_t chip_id, const TensixSo
     PCIDevice* device = get_pci_device(chip_id);
 
     auto valid = soft_resets & ALL_TENSIX_SOFT_RESET;
-    auto logical_id = device->get_logical_id();
 
     log_debug(
         LogSiliconDriver,
@@ -966,11 +962,11 @@ void Cluster::broadcast_pcie_tensix_risc_reset(chip_id_t chip_id, const TensixSo
     auto [soft_reset_reg, _] = device->set_dynamic_tlb_broadcast(
         architecture_implementation->get_reg_tlb(),
         architecture_implementation->get_tensix_soft_reset_addr(),
-        harvested_coord_translation,
+        harvested_coord_translation.at(chip_id),
         tt_xy_pair(0, 0),
         tt_xy_pair(
             architecture_implementation->get_grid_size_x() - 1,
-            architecture_implementation->get_grid_size_y() - 1 - num_rows_harvested.at(logical_id)),
+            architecture_implementation->get_grid_size_y() - 1 - num_rows_harvested.at(chip_id)),
         TLB_DATA::Posted);
     device->write_regs(soft_reset_reg, 1, &valid);
     tt_driver_atomics::sfence();
@@ -1152,7 +1148,11 @@ void Cluster::write_device_memory(
 
         while (size_in_bytes > 0) {
             auto [mapped_address, tlb_size] = dev->set_dynamic_tlb(
-                tlb_index, target, address, harvested_coord_translation, dynamic_tlb_ordering_modes.at(fallback_tlb));
+                tlb_index,
+                target,
+                address,
+                harvested_coord_translation.at(target.chip),
+                dynamic_tlb_ordering_modes.at(fallback_tlb));
             uint32_t transfer_size = std::min((uint64_t)size_in_bytes, tlb_size);
             dev->write_block(mapped_address, transfer_size, buffer_addr);
 
@@ -1203,7 +1203,11 @@ void Cluster::read_device_memory(
         log_debug(LogSiliconDriver, "  dynamic tlb_index: {}", tlb_index);
         while (size_in_bytes > 0) {
             auto [mapped_address, tlb_size] = dev->set_dynamic_tlb(
-                tlb_index, target, address, harvested_coord_translation, dynamic_tlb_ordering_modes.at(fallback_tlb));
+                tlb_index,
+                target,
+                address,
+                harvested_coord_translation.at(target.chip),
+                dynamic_tlb_ordering_modes.at(fallback_tlb));
             uint32_t transfer_size = std::min((uint64_t)size_in_bytes, tlb_size);
             dev->read_block(mapped_address, transfer_size, buffer_addr);
 
@@ -1379,7 +1383,7 @@ void Cluster::configure_tlb(
         ordering == TLB_DATA::Strict || ordering == TLB_DATA::Posted || ordering == TLB_DATA::Relaxed,
         "Invalid ordering specified in Cluster::configure_tlb");
     PCIDevice* pci_device = get_pci_device(logical_device_id);
-    pci_device->set_dynamic_tlb(tlb_index, core, address, harvested_coord_translation, ordering);
+    pci_device->set_dynamic_tlb(tlb_index, core, address, harvested_coord_translation.at(logical_device_id), ordering);
     auto tlb_size = std::get<1>(pci_device->get_architecture_implementation()->describe_tlb(tlb_index).value());
     if (tlb_config_map.find(logical_device_id) == tlb_config_map.end()) {
         tlb_config_map.insert({logical_device_id, {}});
@@ -1435,15 +1439,15 @@ void Cluster::init_pcie_iatus() {
 }
 
 int Cluster::test_setup_interface() {
+    int ret_val = 0;
+    int logical_device_id = m_pci_device_map.begin()->first;
+    PCIDevice* dev = m_pci_device_map.at(logical_device_id).get();
     if (arch_name == tt::ARCH::GRAYSKULL) {
-        int ret_val = 0;
-        PCIDevice* dev = m_pci_device_map.begin()->second.get();
-
         uint32_t mapped_reg = dev->set_dynamic_tlb(
                                      dev->get_architecture_implementation()->get_reg_tlb(),
                                      tt_xy_pair(0, 0),
                                      0xffb20108,
-                                     harvested_coord_translation)
+                                     harvested_coord_translation.at(logical_device_id))
                                   .bar_offset;
 
         uint32_t regval = 0;
@@ -1451,14 +1455,11 @@ int Cluster::test_setup_interface() {
         ret_val = (regval != 0xffffffff && ((regval & 0x1) == 1)) ? 0 : 1;
         return ret_val;
     } else if (arch_name == tt::ARCH::WORMHOLE_B0) {
-        int ret_val = 0;
-        PCIDevice* dev = m_pci_device_map.begin()->second.get();
-
         uint32_t mapped_reg = dev->set_dynamic_tlb(
                                      dev->get_architecture_implementation()->get_reg_tlb(),
                                      tt_xy_pair(1, 0),
                                      0xffb20108,
-                                     harvested_coord_translation)
+                                     harvested_coord_translation.at(logical_device_id))
                                   .bar_offset;
 
         uint32_t regval = 0;
@@ -1472,7 +1473,7 @@ int Cluster::test_setup_interface() {
 
         // uint32_t mapped_reg = dev->set_dynamic_tlb(m_pci_device_map.begin()->second,
         // dev->get_architecture_implementation()->get_reg_tlb(), tt_xy_pair(1, 0), 0xffb20108,
-        // harvested_coord_translation).bar_offset;
+        // harvested_coord_translation.at(logical_device_id)).bar_offset;
 
         // uint32_t regval = 0;
         // read_regs(dev, mapped_reg, 1, &regval);
@@ -2562,7 +2563,12 @@ void Cluster::pcie_broadcast_write(
     const scoped_lock<named_mutex> lock(*get_mutex(fallback_tlb, pci_device->get_device_num()));
     while (size_in_bytes > 0) {
         auto [mapped_address, tlb_size] = pci_device->set_dynamic_tlb_broadcast(
-            tlb_index, addr, harvested_coord_translation, start, end, dynamic_tlb_ordering_modes.at(fallback_tlb));
+            tlb_index,
+            addr,
+            harvested_coord_translation.at(chip),
+            start,
+            end,
+            dynamic_tlb_ordering_modes.at(fallback_tlb));
         uint64_t transfer_size = std::min((uint64_t)size_in_bytes, tlb_size);
         pci_device->write_block(mapped_address, transfer_size, buffer_addr);
 
@@ -3043,7 +3049,7 @@ void Cluster::read_mmio_device_register(
     log_debug(LogSiliconDriver, "  dynamic tlb_index: {}", tlb_index);
 
     auto [mapped_address, tlb_size] =
-        pci_device->set_dynamic_tlb(tlb_index, core, addr, harvested_coord_translation, TLB_DATA::Strict);
+        pci_device->set_dynamic_tlb(tlb_index, core, addr, harvested_coord_translation.at(core.chip), TLB_DATA::Strict);
     // Align block to 4bytes if needed.
     auto aligned_buf = tt_4_byte_aligned_buffer(mem_ptr, size);
     pci_device->read_regs(mapped_address, aligned_buf.block_size / sizeof(std::uint32_t), aligned_buf.local_storage);
@@ -3063,7 +3069,7 @@ void Cluster::write_mmio_device_register(
     log_debug(LogSiliconDriver, "  dynamic tlb_index: {}", tlb_index);
 
     auto [mapped_address, tlb_size] =
-        pci_device->set_dynamic_tlb(tlb_index, core, addr, harvested_coord_translation, TLB_DATA::Strict);
+        pci_device->set_dynamic_tlb(tlb_index, core, addr, harvested_coord_translation.at(core.chip), TLB_DATA::Strict);
     // Align block to 4bytes if needed.
     auto aligned_buf = tt_4_byte_aligned_buffer(mem_ptr, size);
     if (aligned_buf.input_size != aligned_buf.block_size) {

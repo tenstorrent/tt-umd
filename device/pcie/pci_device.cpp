@@ -8,6 +8,7 @@
 
 #include <fcntl.h>      // for ::open
 #include <linux/pci.h>  // for PCI_SLOT, PCI_FUNC
+#include <numa.h>
 #include <sys/ioctl.h>  // for ioctl
 #include <sys/mman.h>   // for mmap, munmap
 #include <sys/stat.h>   // for fstat
@@ -18,7 +19,6 @@
 #include <vector>
 
 #include "assert.hpp"
-#include "cpuset_lib.hpp"
 #include "ioctl.h"
 #include "logger.hpp"
 #include "umd/device/hugepage.h"
@@ -377,13 +377,19 @@ PCIDevice::~PCIDevice() {
 bool PCIDevice::init_hugepage(uint32_t num_host_mem_channels) {
     const size_t hugepage_size = HUGEPAGE_REGION_SIZE;
 
+    if (numa_node > numa_max_node()) {
+        log_warning(LogSiliconDriver, "numa_node: {} is greater than numa_max_node: {}.", numa_node, numa_max_node());
+    }
+
+    // Prefer allocations on the NUMA node associated with the device.
+    numa_set_preferred(numa_node);
+
     if (is_iommu_enabled()) {
         size_t size = hugepage_size * num_host_mem_channels;
         return init_iommu(size);
     }
 
     auto physical_device_id = get_device_num();
-
     std::string hugepage_dir = find_hugepage_dir(hugepage_size);
     if (hugepage_dir.empty()) {
         log_warning(
@@ -441,19 +447,6 @@ bool PCIDevice::init_hugepage(uint32_t num_host_mem_channels) {
                 "/sys/kernel/mm/hugepages/hugepages-1048576kB/nr_hugepages");  // Hardcoded for 1GB hugepage.
             success = false;
             continue;
-        }
-
-        // Beter performance if hugepage just allocated (populate flag to prevent lazy alloc) is migrated to same
-        // numanode as TT device.
-        if (!tt::cpuset::tt_cpuset_allocator::bind_area_to_memory_nodeset(physical_device_id, mapping, hugepage_size)) {
-            log_warning(
-                LogSiliconDriver,
-                "---- ttSiliconDevice::init_hugepage: bind_area_to_memory_nodeset() failed (physical_device_id: {} ch: "
-                "{}). "
-                "Hugepage allocation is not on NumaNode matching TT Device. Side-Effect is decreased Device->Host perf "
-                "(Issue #893).",
-                physical_device_id,
-                ch);
         }
 
         tenstorrent_pin_pages pin_pages;

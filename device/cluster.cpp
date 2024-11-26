@@ -199,7 +199,7 @@ void Cluster::initialize_interprocess_mutexes(int logical_device_id, bool cleanu
 
 void Cluster::create_device(
     const std::set<chip_id_t>& target_mmio_device_ids,
-    const uint32_t& num_host_mem_ch_per_mmio_device,
+    const uint32_t num_host_mem_ch_per_mmio_device,
     const bool skip_driver_allocs,
     const bool clean_system_resources) {
     log_debug(LogSiliconDriver, "Cluster::Cluster");
@@ -212,15 +212,7 @@ void Cluster::create_device(
 
     for (const chip_id_t& logical_device_id : target_mmio_device_ids) {
         auto pci_device = get_tt_device(logical_device_id)->get_pci_device();
-
-        uint16_t pcie_device_id = pci_device->get_pci_device_id();
-        uint32_t pcie_revision = pci_device->get_pci_revision();
-        // TODO: get rid of this, it doesn't make any sense.
-        // Update: I did get rid of it and it broke Metal CI, which is passing
-        // tests that ask for more hugepages than exist.  That's wrong, but it
-        // isn't fixed yet, so until then...
-        int num_host_mem_channels =
-            get_available_num_host_mem_channels(num_host_mem_ch_per_mmio_device, pcie_device_id, pcie_revision);
+        int num_host_mem_channels = num_host_mem_ch_per_mmio_device;
 
         log_debug(
             LogSiliconDriver,
@@ -277,7 +269,7 @@ std::unordered_map<chip_id_t, uint32_t> Cluster::get_harvesting_masks_for_soc_de
 }
 
 void Cluster::construct_cluster(
-    const uint32_t& num_host_mem_ch_per_mmio_device,
+    const uint32_t num_host_mem_ch_per_mmio_device,
     const bool skip_driver_allocs,
     const bool clean_system_resources,
     bool perform_harvesting,
@@ -513,7 +505,7 @@ uint32_t Cluster::get_tensix_harvesting_mask(
 }
 
 Cluster::Cluster(
-    const uint32_t& num_host_mem_ch_per_mmio_device,
+    const uint32_t num_host_mem_ch_per_mmio_device,
     const bool skip_driver_allocs,
     const bool clean_system_resources,
     bool perform_harvesting,
@@ -539,7 +531,7 @@ Cluster::Cluster(
 
 Cluster::Cluster(
     const std::set<chip_id_t>& target_devices,
-    const uint32_t& num_host_mem_ch_per_mmio_device,
+    const uint32_t num_host_mem_ch_per_mmio_device,
     const bool skip_driver_allocs,
     const bool clean_system_resources,
     bool perform_harvesting,
@@ -570,7 +562,7 @@ Cluster::Cluster(
 Cluster::Cluster(
     const std::string& sdesc_path,
     const std::set<chip_id_t>& target_devices,
-    const uint32_t& num_host_mem_ch_per_mmio_device,
+    const uint32_t num_host_mem_ch_per_mmio_device,
     const bool skip_driver_allocs,
     const bool clean_system_resources,
     bool perform_harvesting,
@@ -607,7 +599,7 @@ Cluster::Cluster(
 
 Cluster::Cluster(
     std::unordered_map<chip_id_t, std::unique_ptr<Chip>>& chips,
-    const uint32_t& num_host_mem_ch_per_mmio_device,
+    const uint32_t num_host_mem_ch_per_mmio_device,
     const bool skip_driver_allocs,
     const bool clean_system_resources,
     bool perform_harvesting,

@@ -16,13 +16,6 @@
 // TODO: Needed for detect_arch, remove when it is part of cluster descriptor.
 #include "umd/device/cluster.h"
 
-inline std::unique_ptr<tt_ClusterDescriptor> get_cluster_desc() {
-    // TODO: remove getting manually cluster descriptor from yaml.
-    std::string yaml_path = tt_ClusterDescriptor::get_cluster_descriptor_file_path();
-
-    return tt_ClusterDescriptor::create_from_yaml(yaml_path);
-}
-
 TEST(ApiClusterDescriptorTest, DetectArch) {
     // TODO: This should be part of cluster descriptor. It is currently used like this from tt_metal.
     tt::ARCH arch = detect_arch();
@@ -43,7 +36,7 @@ TEST(ApiClusterDescriptorTest, DetectArch) {
 }
 
 TEST(ApiClusterDescriptorTest, BasicFunctionality) {
-    std::unique_ptr<tt_ClusterDescriptor> cluster_desc = get_cluster_desc();
+    std::unique_ptr<tt_ClusterDescriptor> cluster_desc = tt_ClusterDescriptor::create();
 
     if (cluster_desc == nullptr) {
         GTEST_SKIP() << "No chips present on the system. Skipping test.";

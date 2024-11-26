@@ -659,7 +659,6 @@ public:
      * Cluster constructor.
      *
      * @param sdesc_path SOC descriptor specifying single chip.
-     * @param ndesc_path Network Descriptor specifying the network topology of the system.
      * @param target_devices Devices to target.
      * @param num_host_mem_ch_per_mmio_device Requested number of host channels (hugepages).
      * @param skip_driver_allocs
@@ -669,7 +668,6 @@ public:
      */
     Cluster(
         const std::string& sdesc_path,
-        const std::string& ndesc_path,
         const std::set<chip_id_t>& target_devices,
         const uint32_t& num_host_mem_ch_per_mmio_device = 1,
         const bool skip_driver_allocs = false,
@@ -982,7 +980,7 @@ private:
     tt::ARCH arch_name;
     std::unordered_map<chip_id_t, std::unique_ptr<PCIDevice>> m_pci_device_map;  // Map of enabled pci devices
     int m_num_pci_devices;  // Number of pci devices in system (enabled or disabled)
-    std::shared_ptr<tt_ClusterDescriptor> ndesc;
+    std::shared_ptr<tt_ClusterDescriptor> cluster_desc;
 
     // remote eth transfer setup
     static constexpr std::uint32_t NUM_ETH_CORES_FOR_NON_MMIO_TRANSFERS = 6;

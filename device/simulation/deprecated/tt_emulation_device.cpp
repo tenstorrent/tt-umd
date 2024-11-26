@@ -14,14 +14,14 @@
 
 tt_emulation_device::tt_emulation_device(const std::string& sdesc_path) : tt_device(sdesc_path) {
     soc_descriptor_per_chip.emplace(0, tt_SocDescriptor(sdesc_path));
-    ndesc = tt_ClusterDescriptor::create_mock_cluster({0});
+    cluster_descriptor = tt_ClusterDescriptor::create_mock_cluster({0});
     tt_zebu_wrapper_inst = new tt_emu_zemi3_wrapper();
 
     log_info(tt::LogEmulationDriver, "Created Emulation Device ");
 }
 
 tt_emulation_device::~tt_emulation_device() {
-    ndesc.reset();
+    cluster_descriptor.reset();
     delete tt_zebu_wrapper_inst;
     log_info(tt::LogEmulationDriver, "Destroyed Emulation Device ");
 }
@@ -190,7 +190,7 @@ void tt_emulation_device::translate_to_noc_table_coords(chip_id_t device_id, std
     return;
 }
 
-tt_ClusterDescriptor* tt_emulation_device::get_cluster_description() { return ndesc.get(); }
+tt_ClusterDescriptor* tt_emulation_device::get_cluster_description() { return cluster_descriptor.get(); }
 
 std::set<chip_id_t> tt_emulation_device::get_target_mmio_device_ids() {
     log_error("LogEmulationDriver: get_target_mmio_device_ids not implemented");

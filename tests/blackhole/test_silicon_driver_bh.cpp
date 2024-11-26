@@ -72,8 +72,7 @@ std::int32_t get_static_tlb_index(tt_xy_pair target) {
 
 std::set<chip_id_t> get_target_devices() {
     std::set<chip_id_t> target_devices;
-    std::unique_ptr<tt_ClusterDescriptor> cluster_desc_uniq =
-        tt_ClusterDescriptor::create_from_yaml(tt_ClusterDescriptor::get_cluster_descriptor_file_path());
+    std::unique_ptr<tt_ClusterDescriptor> cluster_desc_uniq = tt_ClusterDescriptor::create();
     for (int i = 0; i < cluster_desc_uniq->get_number_of_chips(); i++) {
         target_devices.insert(i);
     }
@@ -88,7 +87,6 @@ TEST(SiliconDriverBH, CreateDestroy) {
     for (int i = 0; i < 50; i++) {
         Cluster device = Cluster(
             test_utils::GetAbsPath("tests/soc_descs/blackhole_140_arch_no_eth.yaml"),
-            tt_ClusterDescriptor::get_cluster_descriptor_file_path(),
             target_devices,
             num_host_mem_ch_per_mmio_device,
             false,
@@ -107,7 +105,7 @@ TEST(SiliconDriverBH, CreateDestroy) {
 
 //     {
 //         std::unique_ptr<tt_ClusterDescriptor> cluster_desc_uniq =
-//             tt_ClusterDescriptor::create_from_yaml(tt_ClusterDescriptor::get_cluster_descriptor_file_path());
+//             tt_ClusterDescriptor::create();
 //         if (cluster_desc_uniq->get_number_of_chips() != target_devices.size()) {
 //             GTEST_SKIP() << "SiliconDriverWH.Harvesting skipped because it can only be run on a two chip nebula
 //             system";
@@ -117,7 +115,6 @@ TEST(SiliconDriverBH, CreateDestroy) {
 //     uint32_t num_host_mem_ch_per_mmio_device = 1;
 //     Cluster device = Cluster(
 //         "./tests/soc_descs/wormhole_b0_8x10.yaml",
-//         tt_ClusterDescriptor::get_cluster_descriptor_file_path(),
 //         target_devices,
 //         num_host_mem_ch_per_mmio_device,
 //         false,
@@ -143,7 +140,7 @@ TEST(SiliconDriverBH, CreateDestroy) {
 //     std::unordered_map<chip_id_t, uint32_t> simulated_harvesting_masks = {{0, 30}, {1, 60}};
 //     {
 //         std::unique_ptr<tt_ClusterDescriptor> cluster_desc_uniq =
-//             tt_ClusterDescriptor::create_from_yaml(tt_ClusterDescriptor::get_cluster_descriptor_file_path());
+//             tt_ClusterDescriptor::create();
 //         if (cluster_desc_uniq->get_number_of_chips() != target_devices.size()) {
 //             GTEST_SKIP() << "SiliconDriverWH.Harvesting skipped because it can only be run on a two chip nebula
 //             system";
@@ -154,7 +151,6 @@ TEST(SiliconDriverBH, CreateDestroy) {
 //     // Initialize the driver with a 1x1 descriptor and explictly do not perform harvesting
 //     Cluster device = Cluster(
 //         "./tests/soc_descs/wormhole_b0_1x1.yaml",
-//         tt_ClusterDescriptor::get_cluster_descriptor_file_path(),
 //         target_devices,
 //         num_host_mem_ch_per_mmio_device,
 //         false,
@@ -177,7 +173,7 @@ TEST(SiliconDriverBH, CreateDestroy) {
 //     std::unordered_map<chip_id_t, uint32_t> simulated_harvesting_masks = {{0, 30}, {1, 60}};
 //     {
 //         std::unique_ptr<tt_ClusterDescriptor> cluster_desc_uniq =
-//             tt_ClusterDescriptor::create_from_yaml(tt_ClusterDescriptor::get_cluster_descriptor_file_path());
+//             tt_ClusterDescriptor::create();
 //         if (cluster_desc_uniq->get_number_of_chips() != target_devices.size()) {
 //             GTEST_SKIP() << "SiliconDriverWH.Harvesting skipped because it can only be run on a two chip nebula
 //             system";
@@ -188,7 +184,6 @@ TEST(SiliconDriverBH, CreateDestroy) {
 
 //     Cluster device = Cluster(
 //         "./tests/soc_descs/wormhole_b0_8x10.yaml",
-//         tt_ClusterDescriptor::get_cluster_descriptor_file_path(),
 //         target_devices,
 //         num_host_mem_ch_per_mmio_device,
 //         false,

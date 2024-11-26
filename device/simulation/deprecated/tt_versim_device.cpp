@@ -68,9 +68,9 @@ void translate_soc_descriptor_to_ca_soc(CA::Soc& soc, const tt_SocDescriptor soc
 tt_VersimDevice::tt_VersimDevice(const std::string& sdesc_path, const std::string& ndesc_path) : tt_device(sdesc_path) {
     soc_descriptor_per_chip.emplace(0, tt_SocDescriptor(sdesc_path));
     if (ndesc_path == "") {
-        ndesc = tt_ClusterDescriptor::create_mock_cluster({0});
+        cluster_descriptor = tt_ClusterDescriptor::create_mock_cluster({0});
     } else {
-        ndesc = tt_ClusterDescriptor::create_from_yaml(ndesc_path);
+        cluster_descriptor = tt_ClusterDescriptor::create_from_yaml(ndesc_path);
     }
 }
 
@@ -78,7 +78,7 @@ std::unordered_map<chip_id_t, tt_SocDescriptor>& tt_VersimDevice::get_virtual_so
     return soc_descriptor_per_chip;
 }
 
-tt_ClusterDescriptor* tt_VersimDevice::get_cluster_description() { return ndesc.get(); }
+tt_ClusterDescriptor* tt_VersimDevice::get_cluster_description() { return cluster_descriptor.get(); }
 
 void tt_VersimDevice::start_device(const tt_device_params& device_params) {
     bool no_checkers = true;
@@ -143,7 +143,7 @@ void tt_VersimDevice::start(
     std::cout << "Versim Device: Done start " << std::endl;
 }
 
-tt_VersimDevice::~tt_VersimDevice() { ndesc.reset(); }
+tt_VersimDevice::~tt_VersimDevice() { cluster_descriptor.reset(); }
 
 // bool tt_VersimDevice::run() {
 //   std::cout << "Versim Device: Run " << std::endl;

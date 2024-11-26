@@ -92,7 +92,7 @@ void tt_emulation_device::translate_to_noc_table_coords(chip_id_t device_id, std
     return;
 }
 
-tt_ClusterDescriptor* tt_emulation_device::get_cluster_description() { return ndesc.get(); }
+tt_ClusterDescriptor* tt_emulation_device::get_cluster_description() { return cluster_descriptor.get(); }
 
 std::set<chip_id_t> tt_emulation_device::get_target_mmio_device_ids() { return {}; }
 

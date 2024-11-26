@@ -437,6 +437,10 @@ std::unique_ptr<tt_ClusterDescriptor> tt_ClusterDescriptor::create_from_yaml(
     return desc;
 }
 
+std::unique_ptr<tt_ClusterDescriptor> tt_ClusterDescriptor::create() {
+    return tt_ClusterDescriptor::create_from_yaml(tt_ClusterDescriptor::get_cluster_descriptor_file_path());
+}
+
 std::unique_ptr<tt_ClusterDescriptor> tt_ClusterDescriptor::create_mock_cluster(
     const std::vector<chip_id_t> &logical_device_ids, tt::ARCH arch) {
     std::unique_ptr<tt_ClusterDescriptor> desc = std::unique_ptr<tt_ClusterDescriptor>(new tt_ClusterDescriptor());

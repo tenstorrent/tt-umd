@@ -53,4 +53,4 @@ jobs:
           export ARCH_NAME=${{ matrix.arch_name }}
           export TT_METAL_HOME=$(pwd)
           export PYTHONPATH=$(pwd)
-          ./build_metal.sh
+          ./build_metal.sh --build-all --enable-ccache --enable-profiler

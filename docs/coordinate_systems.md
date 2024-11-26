@@ -51,9 +51,9 @@ Harvesting refers to cores being disabled due to binning. Workloads cannot be ru
 
 ### Grayskull harvesting
 
-On Grayskull there is no harvesting. That means that on each Grayskull chip full grid of tensix cores (12x10) is available.
+On Grayskull, harvesting of tensix rows is supported. That means that on the tensix grid (12x10) there will always be 12 columns of chips, but number of rows can decrease. In practice, Grayskull chips have one or two rows harvested.
 
-Harvesting of non-tensix cores (DRAM, PCIe, ARC, Ethernet) is also not supported.
+Harvesting of non-tensix cores (DRAM, PCIe, ARC, Ethernet) is  not supported.
 
 ### Wormhole harvesting
 

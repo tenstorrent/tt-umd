@@ -56,6 +56,7 @@ function(fetch_dependencies)
         GITHUB_REPOSITORY nanomsg/nng
         GIT_TAG v1.8.0
         OPTIONS
+            "BUILD_SHARED_LIBS ON"
             "NNG_TESTS OFF"
             "NNG_TOOLS OFF"
     )
@@ -96,14 +97,7 @@ function(fetch_dependencies)
     ############################################################################################################################
     # libuv (for process management)
     ############################################################################################################################
-    CPMAddPackage(
-        NAME libuv
-        GITHUB_REPOSITORY libuv/libuv
-        GIT_TAG v1.48.0
-        OPTIONS
-            "LIBUV_BUILD_TESTS OFF"
-            "LIBUV_BUILD_SHARED OFF"
-    )
+    CPMAddPackage(NAME libuv GITHUB_REPOSITORY libuv/libuv GIT_TAG v1.48.0 OPTIONS "LIBUV_BUILD_TESTS OFF")
 
     ############################################################################################################################
     # fmt : https://github.com/fmtlib/fmt

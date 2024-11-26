@@ -1375,6 +1375,14 @@ void Cluster::init_pcie_iatus() {
         int logical_id = src_device_it.first;
         PCIDevice* src_pci_device = src_device_it.second.get();
 
+        // TODO: with the IOMMU case, I think we can get away with using just
+        // one iATU region for WH.  (On BH, we don't need iATU).  We can only
+        // cover slightly less than 4GB with WH, and the iATU can cover 4GB.
+        // Splitting it into multiple regions is fine, but it's not necessary.
+        //
+        // ... something to consider when this code is refactored into PCIDevice
+        // where it belongs.
+
         // Device to Host (multiple channels)
         for (int channel_id = 0; channel_id < src_pci_device->get_num_host_mem_channels(); channel_id++) {
             hugepage_mapping hugepage_map = src_pci_device->get_hugepage_mapping(channel_id);

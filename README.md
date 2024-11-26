@@ -5,7 +5,7 @@ Usermode Driver for Tenstorrent AI Accelerators
 ## Dependencies
 Required Ubuntu dependencies:
 ```
-sudo apt install -y libhwloc-dev cmake ninja-build
+sudo apt install -y cmake ninja-build libnuma-dev
 ```
 
 Suggested third-party dependency is Clang 17:
@@ -17,7 +17,7 @@ sudo ./llvm.sh 17
 
 ## Build flow
 
-To build `libdevice.so`: 
+To build `libdevice.so`:
 ```
 cmake -B build -G Ninja
 cmake --build build
@@ -70,7 +70,7 @@ add_subdirectory(<path to umd>)
 
 ### Ubuntu
 ```
-apt install ./umd-dev-x.y.z-Linux.deb 
+apt install ./umd-dev-x.y.z-Linux.deb
 ```
 
 ## Simulator Integration
@@ -100,7 +100,7 @@ To set up pre-commit on your local machine, follow these steps:
    Ensure you have Python installed, then run:
    ```bash
    pip install pre-commit
-   ```  
+   ```
 2. **Install the Git Hook Scripts**:
    In your local repository, run the following command to install the pre-commit hooks:
    ```bash
@@ -113,10 +113,10 @@ To set up pre-commit on your local machine, follow these steps:
    pre-commit run --all-files
    ```
 ## Why You Should Use Pre-commit
-By setting up pre-commit locally, you can help maintain the quality of the codebase and ensure that commits consistently meet the project's formatting standards. This saves time during code reviews and reduces the likelihood of code formatting issues slipping into the repository.  
-  
-Since the hooks run automatically before each commit, you don't need to remember to manually format or check your code, making it easier to maintain consistency.  
-  
+By setting up pre-commit locally, you can help maintain the quality of the codebase and ensure that commits consistently meet the project's formatting standards. This saves time during code reviews and reduces the likelihood of code formatting issues slipping into the repository.
+
+Since the hooks run automatically before each commit, you don't need to remember to manually format or check your code, making it easier to maintain consistency.
+
 We strongly encourage all developers to integrate pre-commit into their workflow.
 
 # Formatting C++ code

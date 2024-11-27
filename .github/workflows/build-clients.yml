@@ -7,7 +7,7 @@ on:
         required: true
         description: 'The timeout for the job in minutes'
         type: number
-        default: 30
+        default: 90
   pull_request:
     branches: ["main"]
   push:
@@ -17,7 +17,7 @@ jobs:
   build-tt-metal:
     # Due to parsing bug, fromJSON is used to convert string to number.
     # In pull_request or push events, the input context is not available, stating the default again here.
-    timeout-minutes: ${{ fromJSON(inputs.timeout || '30') }}
+    timeout-minutes: ${{ fromJSON(inputs.timeout || '90') }}
     strategy:
       fail-fast: false
       matrix:

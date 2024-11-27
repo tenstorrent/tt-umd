@@ -11,8 +11,8 @@
 #include <string>
 #include <vector>
 
-#include "device/pcie/pci_device.hpp"
 #include "fmt/xchar.h"
+#include "umd/device/pci_device.hpp"
 
 TEST(PcieDeviceTest, Numa) {
     std::vector<int> nodes;

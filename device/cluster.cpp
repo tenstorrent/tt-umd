@@ -1,7 +1,7 @@
 // SPDX-FileCopyrightText: (c) 2023 Tenstorrent Inc.
 //
 // SPDX-License-Identifier: Apache-2.0
-#include "cluster.h"
+#include "umd/device/cluster.h"
 
 #include <assert.h>
 #include <dirent.h>
@@ -36,15 +36,13 @@
 #include <utility>
 #include <vector>
 
-#include "common/logger.hpp"
-#include "device/architecture_implementation.h"
-#include "device/driver_atomics.h"
-#include "device/hugepage.h"
-#include "device/tlb.h"
-#include "device/tt_arch_types.h"
-#include "device/tt_cluster_descriptor.h"
-#include "tt_arch_types.h"
-#include "tt_cluster_descriptor.h"
+#include "logger.hpp"
+#include "umd/device/architecture_implementation.h"
+#include "umd/device/driver_atomics.h"
+#include "umd/device/hugepage.h"
+#include "umd/device/tlb.h"
+#include "umd/device/tt_arch_types.h"
+#include "umd/device/tt_cluster_descriptor.h"
 #include "yaml-cpp/yaml.h"
 
 using namespace boost::interprocess;
@@ -119,8 +117,8 @@ const tt_SocDescriptor& tt_device::get_soc_descriptor(chip_id_t chip_id) const {
 #include <iomanip>
 #include <thread>
 
-#include "tt_silicon_driver_common.hpp"
-#include "tt_xy_pair.h"
+#include "umd/device/tt_silicon_driver_common.hpp"
+#include "umd/device/tt_xy_pair.h"
 
 struct routing_cmd_t {
     uint64_t sys_addr;

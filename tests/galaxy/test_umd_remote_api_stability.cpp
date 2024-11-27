@@ -7,7 +7,6 @@
 #include <random>
 #include <thread>
 
-#include "cluster.h"
 #include "common/logger.hpp"
 #include "eth_interface.h"
 #include "filesystem"
@@ -18,8 +17,9 @@
 #include "tests/test_utils/generate_cluster_desc.hpp"
 #include "tests/test_utils/stimulus_generators.hpp"
 #include "tests/wormhole/test_wh_common.h"
-#include "tt_cluster_descriptor.h"
-#include "tt_soc_descriptor.h"
+#include "umd/device/cluster.h"
+#include "umd/device/tt_cluster_descriptor.h"
+#include "umd/device/tt_soc_descriptor.h"
 
 namespace tt::umd::test::utils {
 

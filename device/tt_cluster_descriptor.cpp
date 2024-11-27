@@ -2,16 +2,16 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-#include "tt_cluster_descriptor.h"
+#include "umd/device/tt_cluster_descriptor.h"
 
 #include <fstream>
 #include <memory>
 #include <sstream>
 
-#include "common/disjoint_set.hpp"
-#include "common/logger.hpp"
+#include "disjoint_set.hpp"
 #include "fmt/core.h"
 #include "libs/create_ethernet_map.h"
+#include "logger.hpp"
 #include "yaml-cpp/yaml.h"
 
 using namespace tt;

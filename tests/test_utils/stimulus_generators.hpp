@@ -12,9 +12,9 @@
 #include <variant>
 #include <vector>
 
-#include "cluster.h"
-#include "tt_cluster_descriptor.h"
-#include "tt_xy_pair.h"
+#include "umd/device/cluster.h"
+#include "umd/device/tt_cluster_descriptor.h"
+#include "umd/device/tt_xy_pair.h"
 
 /* Sizes:
  * Distribution (including min/max)

@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-#include "tt_soc_descriptor.h"
+#include "umd/device/tt_soc_descriptor.h"
 
 #include <assert.h>
 
@@ -12,8 +12,8 @@
 #include <string>
 #include <unordered_set>
 
-#include "common/utils.hpp"
 #include "fmt/core.h"
+#include "utils.hpp"
 #include "yaml-cpp/yaml.h"
 
 // #include "l1_address_map.h"

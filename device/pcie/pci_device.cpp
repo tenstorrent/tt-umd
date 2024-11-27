@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#include "pci_device.hpp"
+#include "umd/device/pci_device.hpp"
 
 #include <fcntl.h>      // for ::open
 #include <linux/pci.h>  // for PCI_SLOT, PCI_FUNC
@@ -17,14 +17,14 @@
 #include <cstring>  // for memcpy
 #include <vector>
 
-#include "common/assert.hpp"
-#include "common/logger.hpp"
-#include "device/architecture_implementation.h"
-#include "device/cpuset_lib.hpp"
-#include "device/driver_atomics.h"
-#include "device/hugepage.h"
-#include "device/tt_arch_types.h"
+#include "assert.hpp"
+#include "cpuset_lib.hpp"
 #include "ioctl.h"
+#include "logger.hpp"
+#include "umd/device/architecture_implementation.h"
+#include "umd/device/driver_atomics.h"
+#include "umd/device/hugepage.h"
+#include "umd/device/tt_arch_types.h"
 
 static const uint16_t GS_PCIE_DEVICE_ID = 0xfaca;
 static const uint16_t WH_PCIE_DEVICE_ID = 0x401e;

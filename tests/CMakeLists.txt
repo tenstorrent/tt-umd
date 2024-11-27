@@ -19,6 +19,7 @@ target_include_directories(
     INTERFACE
         ${PROJECT_SOURCE_DIR}
         ${CMAKE_CURRENT_SOURCE_DIR}
+        "$<TARGET_PROPERTY:umd::device,INCLUDE_DIRECTORIES>"
 )
 
 # Download noc_parameters.h for tests

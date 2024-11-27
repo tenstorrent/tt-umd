@@ -4,15 +4,15 @@
 #include <memory>
 #include <thread>
 
-#include "cluster.h"
-#include "device/tt_cluster_descriptor.h"
-#include "device/wormhole/wormhole_implementation.h"
 #include "eth_l1_address_map.h"
 #include "gtest/gtest.h"
 #include "host_mem_address_map.h"
 #include "l1_address_map.h"
 #include "tests/test_utils/device_test_utils.hpp"
 #include "tests/test_utils/generate_cluster_desc.hpp"
+#include "umd/device/cluster.h"
+#include "umd/device/tt_cluster_descriptor.h"
+#include "umd/device/wormhole_implementation.h"
 
 using namespace tt::umd;
 

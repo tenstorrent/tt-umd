@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#include "xy_pair.h"
+#include "umd/device/xy_pair.h"
 
 #include <fmt/core.h>
 

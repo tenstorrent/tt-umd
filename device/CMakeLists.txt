@@ -2,41 +2,41 @@ set(POSITION_INDEPENDENT_CODE ON)
 
 generate_fbs_header(${PROJECT_SOURCE_DIR}/device/simulation/tt_simulation_device.fbs)
 
-set(UMD_DEVICE_SRCS
-    architecture_implementation.cpp
-    cpuset_lib.cpp
-    tlb.cpp
-    tt_cluster_descriptor.cpp
-    cluster.cpp
-    tt_silicon_driver_common.cpp
-    tt_soc_descriptor.cpp
-    xy_pair.cpp
-    simulation/tt_simulation_device.cpp
-    simulation/tt_simulation_host.cpp
-    blackhole/blackhole_implementation.cpp
-    grayskull/grayskull_implementation.cpp
-    wormhole/wormhole_implementation.cpp
-    coordinate_manager.cpp
-    blackhole/blackhole_coordinate_manager.cpp
-    wormhole/wormhole_coordinate_manager.cpp
-    pcie/pci_device.cpp
-    hugepage.cpp
-)
-
-add_library(device SHARED ${UMD_DEVICE_SRCS})
+add_library(device SHARED)
 add_library(${PROJECT_NAME}::device ALIAS device)
-add_library(${PROJECT_NAME}_device ALIAS device) # For legacy I guess
 
-target_sources(device PRIVATE ${FBS_GENERATED_HEADER})
+target_sources(
+    device
+    PRIVATE
+        architecture_implementation.cpp
+        blackhole/blackhole_coordinate_manager.cpp
+        blackhole/blackhole_implementation.cpp
+        cluster.cpp
+        coordinate_manager.cpp
+        cpuset_lib.cpp
+        grayskull/grayskull_implementation.cpp
+        hugepage.cpp
+        pcie/pci_device.cpp
+        simulation/tt_simulation_device.cpp
+        simulation/tt_simulation_host.cpp
+        tlb.cpp
+        tt_cluster_descriptor.cpp
+        tt_silicon_driver_common.cpp
+        tt_soc_descriptor.cpp
+        wormhole/wormhole_coordinate_manager.cpp
+        wormhole/wormhole_implementation.cpp
+        xy_pair.cpp
+        ${FBS_GENERATED_HEADER}
+)
 
 target_include_directories(
     device
     PUBLIC
-        $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}>
-        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
+        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/api>
         $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}/${PROJECT_NAME}>
         $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}/${PROJECT_NAME}/device>
     PRIVATE
+        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
         $<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}>
 )
 
@@ -49,6 +49,8 @@ target_link_libraries(
         flatbuffers
         uv
     PRIVATE
+        umd::Common
+        umd::Firmware
         hwloc
         rt
         Boost::interprocess

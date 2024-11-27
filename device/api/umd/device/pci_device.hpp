@@ -12,12 +12,12 @@
 #include <unordered_map>
 #include <vector>
 
-#include "common/semver.hpp"
-#include "device/tlb.h"
-#include "device/tt_arch_types.h"
-#include "device/tt_cluster_descriptor_types.h"
-#include "device/tt_xy_pair.h"
 #include "fmt/format.h"
+#include "umd/device/semver.hpp"
+#include "umd/device/tlb.h"
+#include "umd/device/tt_arch_types.h"
+#include "umd/device/tt_cluster_descriptor_types.h"
+#include "umd/device/tt_xy_pair.h"
 
 // TODO: this is used up in cluster.cpp but that logic ought to be
 // lowered into the PCIDevice class since it is specific to PCIe cards.

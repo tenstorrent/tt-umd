@@ -2,11 +2,11 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-#include "grayskull_implementation.h"
+#include "umd/device/grayskull_implementation.h"
 
-#include "device/cluster.h"
-#include "src/firmware/riscv/grayskull/eth_interface.h"
-#include "src/firmware/riscv/grayskull/host_mem_address_map.h"
+#include "grayskull/eth_interface.h"
+#include "grayskull/host_mem_address_map.h"
+#include "umd/device/cluster.h"
 
 constexpr std::uint32_t NOC_ADDR_LOCAL_BITS = 32;   // source: noc_parameters.h, unique for GS
 constexpr std::uint32_t NOC_ADDR_NODE_ID_BITS = 6;  // source: noc_parameters.h, common for GS && WH && BH

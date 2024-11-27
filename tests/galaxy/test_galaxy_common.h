@@ -12,9 +12,9 @@
 #include <tuple>
 #include <vector>
 
-#include "device/cluster.h"
-#include "device/tt_xy_pair.h"
 #include "fmt/core.h"
+#include "umd/device/cluster.h"
+#include "umd/device/tt_xy_pair.h"
 
 // static const std::string SOC_DESC_PATH = "./tests/soc_descs/wormhole_b0_8x10.yaml";
 

@@ -5,7 +5,6 @@
 #include <filesystem>
 #include <numeric>
 
-#include "cluster.h"
 #include "common/logger.hpp"
 #include "eth_interface.h"
 #include "gtest/gtest.h"
@@ -15,7 +14,8 @@
 #include "tests/test_utils/device_test_utils.hpp"
 #include "tests/test_utils/generate_cluster_desc.hpp"
 #include "tests/wormhole/test_wh_common.h"
-#include "tt_cluster_descriptor.h"
+#include "umd/device/cluster.h"
+#include "umd/device/tt_cluster_descriptor.h"
 
 static const std::string SOC_DESC_PATH = "tests/soc_descs/wormhole_b0_8x10.yaml";
 

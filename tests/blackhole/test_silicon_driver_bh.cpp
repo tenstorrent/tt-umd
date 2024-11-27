@@ -2,19 +2,19 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-#include <cluster.h>
+#include <umd/device/cluster.h>
 
 #include <memory>
 #include <thread>
 
-#include "device/blackhole/blackhole_implementation.h"
-#include "device/tt_cluster_descriptor.h"
 #include "eth_l1_address_map.h"
 #include "gtest/gtest.h"
 #include "host_mem_address_map.h"
 #include "l1_address_map.h"
 #include "tests/test_utils/device_test_utils.hpp"
 #include "tests/test_utils/generate_cluster_desc.hpp"
+#include "umd/device/blackhole_implementation.h"
+#include "umd/device/tt_cluster_descriptor.h"
 
 using namespace tt::umd;
 

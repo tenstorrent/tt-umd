@@ -3,11 +3,11 @@
 // SPDX-License-Identifier: Apache-2.0
 
 #pragma once
-#include "cluster.h"
 #include "eth_l1_address_map.h"
 #include "tests/test_utils/stimulus_generators.hpp"
 #include "tt_cluster_descriptor.h"
 #include "tt_xy_pair.h"
+#include "umd/device/cluster.h"
 
 using namespace tt::umd;
 

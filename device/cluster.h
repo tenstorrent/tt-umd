@@ -278,8 +278,8 @@ public:
     virtual void configure_tlb(
         chip_id_t logical_device_id,
         tt_xy_pair core,
-        std::int32_t tlb_index,
-        std::int32_t address,
+        int32_t tlb_index,
+        uint64_t address,
         uint64_t ordering = TLB_DATA::Relaxed) {
         throw std::runtime_error("---- tt_device::configure_tlb is not implemented\n");
     }
@@ -721,8 +721,8 @@ public:
     virtual void configure_tlb(
         chip_id_t logical_device_id,
         tt_xy_pair core,
-        std::int32_t tlb_index,
-        std::int32_t address,
+        int32_t tlb_index,
+        uint64_t address,
         uint64_t ordering = TLB_DATA::Posted);
     virtual void set_fallback_tlb_ordering_mode(const std::string& fallback_tlb, uint64_t ordering = TLB_DATA::Posted);
     virtual void setup_core_to_tlb_map(
@@ -877,7 +877,7 @@ private:
         const void* mem_ptr,
         uint32_t size_in_bytes,
         tt_cxy_pair target,
-        std::uint32_t address,
+        uint64_t address,
         const std::string& fallback_tlb);
     void write_to_non_mmio_device(
         const void* mem_ptr,
@@ -887,11 +887,7 @@ private:
         bool broadcast = false,
         std::vector<int> broadcast_header = {});
     void read_device_memory(
-        void* mem_ptr,
-        tt_cxy_pair target,
-        std::uint32_t address,
-        std::uint32_t size_in_bytes,
-        const std::string& fallback_tlb);
+        void* mem_ptr, tt_cxy_pair target, uint64_t address, uint32_t size_in_bytes, const std::string& fallback_tlb);
     void read_from_non_mmio_device(void* mem_ptr, tt_cxy_pair core, uint64_t address, uint32_t size_in_bytes);
     void read_mmio_device_register(
         void* mem_ptr, tt_cxy_pair core, uint64_t addr, uint32_t size, const std::string& fallback_tlb);
@@ -948,7 +944,7 @@ private:
         uint32_t* return_3 = nullptr,
         uint32_t* return_4 = nullptr);
     bool address_in_tlb_space(
-        uint32_t address, uint32_t size_in_bytes, int32_t tlb_index, uint64_t tlb_size, uint32_t chip);
+        uint64_t address, uint32_t size_in_bytes, int32_t tlb_index, uint64_t tlb_size, uint32_t chip);
     std::shared_ptr<boost::interprocess::named_mutex> get_mutex(const std::string& tlb_name, int pci_interface_id);
     virtual uint32_t get_harvested_noc_rows_for_chip(
         int logical_device_id);  // Returns one-hot encoded harvesting mask for PCIe mapped chips
@@ -1012,7 +1008,7 @@ private:
     std::unordered_map<chip_id_t, std::unordered_set<tt_xy_pair>> workers_per_chip = {};
     std::unordered_set<tt_xy_pair> eth_cores = {};
     std::unordered_set<tt_xy_pair> dram_cores = {};
-    std::map<chip_id_t, std::unordered_map<std::int32_t, std::int32_t>> tlb_config_map = {};
+    std::map<chip_id_t, std::unordered_map<int32_t, uint64_t>> tlb_config_map = {};
     std::set<chip_id_t> all_target_mmio_devices;
 
     // Note that these maps holds only entries for local PCIe chips.

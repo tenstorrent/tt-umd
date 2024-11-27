@@ -41,15 +41,16 @@ target_include_directories(
 )
 
 # flatbuffers is public - exposed to tt_metal by tt_simulation_device_generated.h
+# nng is public - exposed to tt_metal by tt_simulation_host.hpp
 target_link_libraries(
     device
     PUBLIC
+        nng
         flatbuffers
+        uv
     PRIVATE
         hwloc
-        nng
         rt
-        uv_a
         Boost::interprocess
         fmt::fmt-header-only
         yaml-cpp::yaml-cpp

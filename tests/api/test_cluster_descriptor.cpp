@@ -99,6 +99,16 @@ TEST(ApiClusterDescriptorTest, TestAllOfflineClusterDescriptors) {
 
         std::unordered_map<chip_id_t, std::unordered_set<chip_id_t>> chips_grouped_by_closest_mmio =
             cluster_desc->get_chips_grouped_by_closest_mmio();
+
+        // Check that cluster_id is always the same for the same cluster.
+        // Cluster id takes the value of the smallest chip_id in the cluster.
+        for (auto const &[chip, coord] : eth_chip_coords) {
+            if (cluster_desc_yaml != "wormhole_2xN300_unconnected.yaml") {
+                EXPECT_EQ(coord.cluster_id, 0);
+            } else {
+                EXPECT_TRUE(coord.cluster_id == 0 || coord.cluster_id == 1);
+            }
+        }
     }
 }
 
@@ -125,7 +135,6 @@ TEST(ApiClusterDescriptorTest, SeparateClusters) {
     std::cout << "Detected " << chip_clusters.get_num_sets() << " separate clusters." << std::endl;
 
     // Check that get_closes_mmio_capable_chip works.
-    // Currently, it is expected that the following fails if there is more than 1 cluster.
     for (auto chip : all_chips) {
         chip_id_t closest_mmio_chip = cluster_desc->get_closest_mmio_capable_chip(chip);
         EXPECT_TRUE(chip_clusters.are_same_set(chip, closest_mmio_chip));

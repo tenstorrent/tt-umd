@@ -160,7 +160,7 @@ TEST(SiliconDriverWH, HarvestingRuntime) {
     std::unordered_map<chip_id_t, uint32_t> simulated_harvesting_masks = {{0, 30}, {1, 60}};
 
     uint32_t num_host_mem_ch_per_mmio_device = 1;
-    
+
     Cluster device = Cluster(num_host_mem_ch_per_mmio_device, false, true, true, simulated_harvesting_masks);
     set_params_for_remote_txn(device);
     auto mmio_devices = device.get_target_mmio_device_ids();
@@ -931,10 +931,62 @@ TEST(SiliconDriverWH, RandomSysmemTestWithPcie) {
             ASSERT_EQ(address % ALIGNMENT, 0) << "Address not properly aligned";
 
             uint32_t value = 0;
-            cluster.read_from_device(&value, PCIE_CORE, noc_addr, sizeof(uint32_t), "REG_TLB");
+            cluster.read_from_device(&value, PCIE_CORE, noc_addr, sizeof(uint32_t), "LARGE_READ_TLB");
 
             uint32_t expected = *reinterpret_cast<uint32_t*>(&sysmem[sysmem_address]);
             ASSERT_EQ(value, expected) << fmt::format("Mismatch at address {:#x}", address);
         }
     }
+}
+
+TEST(SiliconDriverWH, LargeAddressTlb) {
+    const size_t num_channels = 1;
+    auto target_devices = get_target_devices();
+
+    Cluster cluster(
+        test_utils::GetAbsPath("tests/soc_descs/wormhole_b0_8x10.yaml"),
+        tt_ClusterDescriptor::get_cluster_descriptor_file_path(),
+        target_devices,
+        num_channels,
+        false,  // skip driver allocs - no (don't skip)
+        true,   // clean system resources - yes
+        true);  // perform harvesting - yes
+
+    const auto ARC = cluster.get_soc_descriptor(0).arc_cores.at(0);
+    const tt_cxy_pair ARC_CORE(0, ARC.x, ARC.y);
+
+    set_params_for_remote_txn(cluster);
+    cluster.start_device(tt_device_params{});
+
+    auto get_static_tlb_index_callback = [](tt_xy_pair target) { return 0; };
+    cluster.setup_core_to_tlb_map(0, get_static_tlb_index_callback);
+
+    // Address of the reset unit in ARC core:
+    uint64_t arc_reset_noc = 0x880030000ULL;
+
+    // Offset to the scratch registers in the reset unit:
+    uint64_t scratch_offset = 0x60;
+
+    // Map a TLB to the reset unit in ARC core:
+    cluster.configure_tlb(0, ARC_CORE, 0, arc_reset_noc);
+
+    // Address of the scratch register in the reset unit:
+    uint64_t addr = arc_reset_noc + scratch_offset;
+
+    uint32_t value0 = 0;
+    uint32_t value1 = 0;
+    uint32_t value2 = 0;
+
+    // Read the scratch register via BAR0:
+    value0 = cluster.bar_read32(0, 0x1ff30060);
+
+    // Read the scratch register via the TLB:
+    cluster.read_from_device(&value1, ARC_CORE, addr, sizeof(uint32_t), "LARGE_READ_TLB");
+
+    // Read the scratch register via a different TLB, different code path:
+    cluster.read_from_device(&value2, ARC_CORE, addr, sizeof(uint32_t), "REG_TLB");
+
+    // Check that the values are the same:
+    EXPECT_EQ(value1, value0);
+    EXPECT_EQ(value2, value0);
 }

@@ -59,11 +59,11 @@ TEST(ApiClusterTest, OpenAllChips) { std::unique_ptr<Cluster> umd_cluster = get_
 TEST(ApiClusterTest, SimpleIOAllChips) {
     std::unique_ptr<Cluster> umd_cluster = get_cluster();
 
-    const tt_ClusterDescriptor* cluster_desc = umd_cluster->get_cluster_description();
-
     if (umd_cluster == nullptr || umd_cluster->get_all_chips_in_cluster().empty()) {
         GTEST_SKIP() << "No chips present on the system. Skipping test.";
     }
+
+    const tt_ClusterDescriptor* cluster_desc = umd_cluster->get_cluster_description();
 
     // Initialize random data.
     size_t data_size = 1024;
@@ -117,11 +117,11 @@ TEST(ApiClusterTest, SimpleIOAllChips) {
 TEST(ApiClusterTest, RemoteFlush) {
     std::unique_ptr<Cluster> umd_cluster = get_cluster();
 
-    const tt_ClusterDescriptor* cluster_desc = umd_cluster->get_cluster_description();
-
     if (umd_cluster == nullptr || umd_cluster->get_all_chips_in_cluster().empty()) {
         GTEST_SKIP() << "No chips present on the system. Skipping test.";
     }
+
+    const tt_ClusterDescriptor* cluster_desc = umd_cluster->get_cluster_description();
 
     size_t data_size = 1024;
     std::vector<uint8_t> data(data_size, 0);
@@ -175,13 +175,15 @@ TEST(ApiClusterTest, RemoteFlush) {
 }
 
 TEST(ApiClusterTest, SimpleIOSpecificChips) {
+    std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
+    // TODO: Make this test work on a host system without any tt devices.
+    if (pci_device_ids.empty()) {
+        GTEST_SKIP() << "No chips present on the system. Skipping test.";
+    }
+
     std::unique_ptr<Cluster> umd_cluster = std::make_unique<Cluster>(0);
 
     const tt_ClusterDescriptor* cluster_desc = umd_cluster->get_cluster_description();
-
-    if (umd_cluster == nullptr || umd_cluster->get_all_chips_in_cluster().empty()) {
-        GTEST_SKIP() << "No chips present on the system. Skipping test.";
-    }
 
     // Initialize random data.
     size_t data_size = 1024;

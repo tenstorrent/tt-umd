@@ -24,7 +24,7 @@ public:
     void merge(T item1, T item2) {
         T set1 = get_set(item1);
         T set2 = get_set(item2);
-        parent[set1] = set2;
+        parent[set1] = parent[set2] = std::min(set1, set2);
     }
 
     bool are_same_set(T item1, T item2) { return get_set(item1) == get_set(item2); }

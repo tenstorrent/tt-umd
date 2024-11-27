@@ -13,12 +13,8 @@
 #include "umd/device/pci_device.hpp"
 #include "umd/device/tt_cluster_descriptor.h"
 
-// TODO: Needed for detect_arch, remove when it is part of cluster descriptor.
-#include "umd/device/cluster.h"
-
 TEST(ApiClusterDescriptorTest, DetectArch) {
-    // TODO: This should be part of cluster descriptor. It is currently used like this from tt_metal.
-    tt::ARCH arch = detect_arch();
+    tt::ARCH arch = tt_ClusterDescriptor::detect_arch(0);
 
     // Expect it to be invalid if no devices are found.
     if (PCIDevice::enumerate_devices().empty()) {
@@ -26,12 +22,27 @@ TEST(ApiClusterDescriptorTest, DetectArch) {
     } else {
         EXPECT_NE(arch, tt::ARCH::Invalid);
 
-        // TODO: This should be the only available API, previous call should be routed to this one to get any arch.
-        tt::ARCH arch2 = detect_arch(PCIDevice::enumerate_devices()[0]);
-        EXPECT_NE(arch2, tt::ARCH::Invalid);
+        std::unique_ptr<tt_ClusterDescriptor> cluster_desc = tt_ClusterDescriptor::create();
 
-        // In our current setup, we expect all arch to be the same.
-        EXPECT_EQ(arch, arch2);
+        // Test that cluster descriptor and PCIDevice::enumerate_devices_info() return the same set of chips.
+        std::map<int, PciDeviceInfo> pci_device_infos = PCIDevice::enumerate_devices_info();
+        std::unordered_set<chip_id_t> pci_chips_set;
+        for (auto [pci_device_number, _] : pci_device_infos) {
+            pci_chips_set.insert(pci_device_number);
+        }
+
+        std::unordered_map<chip_id_t, chip_id_t> chips_with_mmio = cluster_desc->get_chips_with_mmio();
+        std::unordered_set<chip_id_t> cluster_chips_set;
+        for (auto [_, pci_device_number] : chips_with_mmio) {
+            cluster_chips_set.insert(pci_device_number);
+        }
+
+        EXPECT_EQ(pci_chips_set, cluster_chips_set);
+
+        // Test that cluster descriptor holds the same arch as pci_device.
+        for (auto [chip, pci_device_number] : cluster_desc->get_chips_with_mmio()) {
+            EXPECT_EQ(cluster_desc->get_arch(chip), pci_device_infos.at(pci_device_number).get_arch());
+        }
     }
 }
 

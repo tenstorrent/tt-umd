@@ -38,6 +38,8 @@
 
 #include "logger.hpp"
 #include "umd/device/architecture_implementation.h"
+#include "umd/device/chip/local_chip.h"
+#include "umd/device/chip/remote_chip.h"
 #include "umd/device/driver_atomics.h"
 #include "umd/device/hugepage.h"
 #include "umd/device/tlb.h"
@@ -136,6 +138,19 @@ struct tt_4_byte_aligned_buffer {
 }  // namespace
 
 namespace tt::umd {
+
+std::unique_ptr<Chip> Cluster::construct_chip_from_cluster(
+    chip_id_t logical_device_id, tt_ClusterDescriptor* cluster_desc) {
+    if (cluster_desc == nullptr) {
+        cluster_desc = tt_ClusterDescriptor::create();
+    }
+
+    if (cluster_desc->is_chip_mmio_capable(logical_device_id)) {
+        return std::make_unique<LocalChip>(logical_device_id, cluster_desc);
+    } else {
+        return std::make_unique<RemoteChip>(logical_device_id, cluster_desc);
+    }
+}
 
 bool Cluster::address_in_tlb_space(
     uint64_t address, uint32_t size_in_bytes, int32_t tlb_index, uint64_t tlb_size, std::uint32_t chip) {
@@ -532,7 +547,7 @@ Cluster::Cluster(
 }
 
 Cluster::Cluster(
-    const std::set<chip_id_t>& target_devices,
+    const std::unordered_set<chip_id_t>& target_devices,
     const uint32_t& num_host_mem_ch_per_mmio_device,
     const bool skip_driver_allocs,
     const bool clean_system_resources,
@@ -574,9 +589,13 @@ Cluster::Cluster(
         simulated_harvesting_masks);
 }
 
+// TODO: Note that this constructor might not completely functional yet.
+// This is due to Cluster using info from ClusterDescriptor, by using the corresponding logical_id of Chips.
+// All these calls should be ultimatelly routed to Chip class. Then this constructor would be able to work properly.
+// It will still work as intended for now if used with Chips which have logical_ids present in the ClusterDescriptor, or
+// if used through the other two constructors.
 Cluster::Cluster(
-    const std::string& sdesc_path,
-    const std::set<chip_id_t>& target_devices,
+    const std::unordered_set<std::unique_ptr<Chip>>& chips,
     const uint32_t& num_host_mem_ch_per_mmio_device,
     const bool skip_driver_allocs,
     const bool clean_system_resources,

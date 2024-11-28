@@ -941,7 +941,6 @@ TEST(SiliconDriverWH, LargeAddressTlb) {
 
     Cluster cluster(
         test_utils::GetAbsPath("tests/soc_descs/wormhole_b0_8x10.yaml"),
-        tt_ClusterDescriptor::get_cluster_descriptor_file_path(),
         target_devices,
         num_channels,
         false,  // skip driver allocs - no (don't skip)

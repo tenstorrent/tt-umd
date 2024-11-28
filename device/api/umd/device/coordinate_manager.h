@@ -28,19 +28,7 @@ public:
         const tt_xy_pair& arc_grid_size,
         const std::vector<tt_xy_pair>& arc_cores,
         const tt_xy_pair& pcie_grid_size,
-        const std::vector<tt_xy_pair>& pcie_cores) :
-        tensix_grid_size(tensix_grid_size),
-        tensix_cores(tensix_cores),
-        tensix_harvesting_mask(tensix_harvesting_mask),
-        dram_grid_size(dram_grid_size),
-        dram_cores(dram_cores),
-        dram_harvesting_mask(dram_harvesting_mask),
-        eth_grid_size(eth_grid_size),
-        eth_cores(eth_cores),
-        arc_grid_size(arc_grid_size),
-        arc_cores(arc_cores),
-        pcie_grid_size(pcie_grid_size),
-        pcie_cores(pcie_cores) {}
+        const std::vector<tt_xy_pair>& pcie_cores);
 
     static std::shared_ptr<CoordinateManager> get_coordinate_manager(
         tt::ARCH arch,

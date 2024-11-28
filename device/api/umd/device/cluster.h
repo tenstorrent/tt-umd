@@ -632,7 +632,7 @@ public:
         return 0;
     }
 
-    virtual const tt_SocDescriptor& get_soc_descriptor(chip_id_t chip_id) const;
+    virtual const tt_SocDescriptor& get_soc_descriptor(chip_id_t chip_id) const = 0;
 
     bool performed_harvesting = false;
     std::unordered_map<chip_id_t, uint32_t> harvested_rows_per_target = {};
@@ -703,10 +703,10 @@ public:
         bool perform_harvesting = true,
         std::unordered_map<chip_id_t, uint32_t> simulated_harvesting_masks = {});
 
-    // /**
-    //  * Cluster constructor which creates a cluster for Mock chips.
-    //  */
-    // static std::unique_ptr<Cluster> create_mock_cluster();
+    /**
+     * Cluster constructor which creates a cluster for Mock chips.
+     */
+    static std::unique_ptr<Cluster> create_mock_cluster();
 
     // /**
     //  * Helper function to construct a chip from info found in cluster descriptor.
@@ -841,6 +841,12 @@ public:
     virtual ~Cluster();
 
 private:
+    /**
+     * Construct empty cluster, for the purposes of creating a mock cluster.
+     * Note that the argument is not used, but is required to differentiate from the other constructor.
+     */
+    Cluster(bool mock);
+
     // Helper functions
     // Startup + teardown
     void create_device(
@@ -971,7 +977,7 @@ private:
     // This functions has to be called for local chip, and then it will wait for all connected remote chips to flush.
     void wait_for_connected_non_mmio_flush(chip_id_t chip_id);
 
-    void add_chip(chip_id_t chip_id, tt_SocDescriptor& soc_desc, bool is_mmio_capable);
+    void add_chip(chip_id_t chip_id, std::unique_ptr<Chip> chip);
     void construct_cluster(
         const uint32_t& num_host_mem_ch_per_mmio_device,
         const bool skip_driver_allocs,
@@ -993,6 +999,8 @@ private:
     tt::ARCH arch_name;
     std::unordered_map<chip_id_t, std::unique_ptr<PCIDevice>> m_pci_device_map;  // Map of enabled pci devices
     std::shared_ptr<tt_ClusterDescriptor> cluster_desc;
+    // TODO: See if this can be removed.
+    std::unordered_map<chip_id_t, tt_SocDescriptor> soc_desc_map;
 
     // remote eth transfer setup
     static constexpr std::uint32_t NUM_ETH_CORES_FOR_NON_MMIO_TRANSFERS = 6;

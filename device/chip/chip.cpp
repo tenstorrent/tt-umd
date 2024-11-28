@@ -8,9 +8,7 @@
 
 namespace tt::umd {
 
-Chip::Chip(chip_id_t chip_id, tt_SocDescriptor soc_descriptor) : chip_id_(chip_id), soc_descriptor_(soc_descriptor) {}
-
-chip_id_t Chip::get_chip_id() const { return chip_id_; }
+Chip::Chip(tt_SocDescriptor soc_descriptor) : soc_descriptor_(soc_descriptor) {}
 
 tt_SocDescriptor& Chip::get_soc_descriptor() { return soc_descriptor_; }
 

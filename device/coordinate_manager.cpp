@@ -5,8 +5,12 @@
  */
 #include "umd/device/coordinate_manager.h"
 
-#include <memory>
-#include <stdexcept>
+#include "umd/device/blackhole_coordinate_manager.h"
+#include "umd/device/blackhole_implementation.h"
+#include "umd/device/grayskull_coordinate_manager.h"
+#include "umd/device/grayskull_implementation.h"
+#include "umd/device/wormhole_coordinate_manager.h"
+#include "umd/device/wormhole_implementation.h"
 
 using namespace tt::umd;
 
@@ -198,35 +202,14 @@ CoreCoord CoordinateManager::to(const CoreCoord core_coord, const CoordSystem co
     }
 }
 
-void CoordinateManager::clear_tensix_harvesting_structures() {
-    tensix_logical_to_physical.clear();
-    tensix_logical_to_virtual.clear();
-    tensix_physical_to_logical.clear();
-    tensix_virtual_to_logical.clear();
-    tensix_logical_to_translated.clear();
-    tensix_translated_to_logical.clear();
-}
-
-void CoordinateManager::clear_dram_harvesting_structures() {
-    dram_logical_to_virtual.clear();
-    dram_logical_to_physical.clear();
-    dram_virtual_to_logical.clear();
-    dram_physical_to_logical.clear();
-    dram_logical_to_translated.clear();
-    dram_translated_to_logical.clear();
-}
-
-void CoordinateManager::tensix_harvesting(const size_t harvesting_mask) {
-    this->tensix_harvesting_mask = harvesting_mask;
-    clear_tensix_harvesting_structures();
-
-    size_t num_harvested_y = __builtin_popcount(harvesting_mask);
+void CoordinateManager::translate_tensix_coords() {
+    size_t num_harvested_y = __builtin_popcount(tensix_harvesting_mask);
     size_t grid_size_x = tensix_grid_size.x;
     size_t grid_size_y = tensix_grid_size.y;
 
     size_t logical_y = 0;
     for (size_t y = 0; y < grid_size_y; y++) {
-        if (!(harvesting_mask & (1 << y))) {
+        if (!(tensix_harvesting_mask & (1 << y))) {
             for (size_t x = 0; x < grid_size_x; x++) {
                 const tt_xy_pair& tensix_core = tensix_cores[y * grid_size_x + x];
                 tensix_logical_to_physical[{x, logical_y}] =
@@ -266,10 +249,7 @@ void CoordinateManager::fill_tensix_logical_to_translated() {
     }
 }
 
-void CoordinateManager::dram_harvesting(const size_t dram_harvesting_mask) {
-    this->dram_harvesting_mask = dram_harvesting_mask;
-    clear_dram_harvesting_structures();
-
+void CoordinateManager::translate_dram_coords() {
     for (size_t x = 0; x < dram_grid_size.x; x++) {
         for (size_t y = 0; y < dram_grid_size.y; y++) {
             const tt_xy_pair dram_core = dram_cores[x * dram_grid_size.y + y];
@@ -360,13 +340,6 @@ void CoordinateManager::fill_pcie_logical_to_translated() {
         }
     }
 }
-
-#include "umd/device/blackhole_coordinate_manager.h"
-#include "umd/device/blackhole_implementation.h"
-#include "umd/device/grayskull_coordinate_manager.h"
-#include "umd/device/grayskull_implementation.h"
-#include "umd/device/wormhole_coordinate_manager.h"
-#include "umd/device/wormhole_implementation.h"
 
 std::shared_ptr<CoordinateManager> CoordinateManager::get_coordinate_manager(
     tt::ARCH arch, const size_t tensix_harvesting_mask, const size_t dram_harvesting_mask) {

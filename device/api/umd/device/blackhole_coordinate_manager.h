@@ -36,16 +36,16 @@ public:
             arc_cores,
             pcie_grid_size,
             pcie_cores) {
-        this->tensix_harvesting(tensix_harvesting_mask);
-        this->dram_harvesting(dram_harvesting_mask);
+        this->translate_tensix_coords();
+        this->translate_dram_coords();
         this->translate_eth_coords();
         this->translate_arc_coords();
         this->translate_pcie_coords();
     }
 
 protected:
-    void dram_harvesting(const size_t dram_harvesting_mask) override;
-    void tensix_harvesting(const size_t tensix_harvesting_mask) override;
+    void translate_dram_coords() override;
+    void translate_tensix_coords() override;
 
     void fill_tensix_logical_to_translated() override;
     void fill_eth_logical_to_translated() override;

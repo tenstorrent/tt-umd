@@ -36,8 +36,8 @@ public:
             arc_cores,
             pcie_grid_size,
             pcie_cores) {
-        this->tensix_harvesting(tensix_harvesting_mask);
-        this->dram_harvesting(dram_harvesting_mask);
+        this->translate_tensix_coords();
+        this->translate_dram_coords();
         this->translate_eth_coords();
         this->translate_arc_coords();
         this->translate_pcie_coords();

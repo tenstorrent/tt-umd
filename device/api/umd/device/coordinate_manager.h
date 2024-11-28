@@ -73,14 +73,11 @@ private:
     tt::umd::CoreCoord to_translated(const tt::umd::CoreCoord core_coord);
 
 protected:
-    virtual void tensix_harvesting(const size_t harvesting_mask);
-    virtual void dram_harvesting(const size_t dram_harvesting_mask);
+    virtual void translate_tensix_coords();
+    virtual void translate_dram_coords();
     virtual void translate_eth_coords();
     virtual void translate_arc_coords();
     virtual void translate_pcie_coords();
-
-    void clear_tensix_harvesting_structures();
-    void clear_dram_harvesting_structures();
 
     /*
      * Fills the logical to translated mapping for the tensix cores.

@@ -38,7 +38,7 @@ void BlackholeCoordinateManager::tensix_harvesting(const size_t tensix_harvestin
         }
     }
 
-    BlackholeCoordinateManager::fill_tensix_logical_to_translated();
+    fill_tensix_logical_to_translated();
 }
 
 void BlackholeCoordinateManager::fill_tensix_logical_to_translated() {

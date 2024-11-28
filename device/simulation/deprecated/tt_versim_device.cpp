@@ -74,6 +74,10 @@ tt_VersimDevice::tt_VersimDevice(const std::string& sdesc_path, const std::strin
     }
 }
 
+const tt_SocDescriptor& Cluster::get_soc_descriptor(chip_id_t chip_id) const {
+    return soc_descriptor_per_chip.at(chip_id);
+}
+
 std::unordered_map<chip_id_t, tt_SocDescriptor>& tt_VersimDevice::get_virtual_soc_descriptors() {
     return soc_descriptor_per_chip;
 }

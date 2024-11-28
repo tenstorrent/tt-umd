@@ -84,6 +84,11 @@ TEST(ApiClusterTest, DifferentConstructors) {
     int harvesting_mask = 0;
     tt_SocDescriptor soc_desc = tt_SocDescriptor(sdesc_path, harvesting_mask);
     umd_cluster = std::make_unique<Cluster>(soc_desc, target_devices);
+    umd_cluster = nullptr;
+
+    // 4. Constructor for creating a cluster with mock chip.
+    umd_cluster = Cluster::create_mock_cluster();
+    umd_cluster = nullptr;
 
     // // ?????
     // // 5.1. First chip will be created using helper function from the cluster
@@ -101,18 +106,20 @@ TEST(ApiClusterTest, DifferentConstructors) {
     // tt_SocDescriptor soc_desc = tt_SocDescriptor(sdesc_path, harvesting_mask);
     // // We have to reuse the same chip1 since we can't open the same chip twice.
     // chip1 = nullptr;
-    // chip1 = std::make_unique<LocalChip>(logical_device_id, soc_desc);
+    // chip1 = std::make_unique<LocalChip>(soc_desc);
 
     // // 3.3. Third chip is a mock chip.
     // chip_id_t second_logical_id = 1;
     // // We can create with a custom soc descriptor.
     // std::unique_ptr<Chip> chip2 =
-    //     std::make_unique<MockChip>(second_logical_id,
-    //     tt_SocDescriptor::get_soc_descriptor_path(tt::ARCH::WORMHOLE_B0));
+    //     std::make_unique<MockChip>(tt_SocDescriptor::get_soc_descriptor_path(tt::ARCH::WORMHOLE_B0));
 
     // // 3. Constructor taking a custom set of Chips.
     // // Mark Experimental.
     // umd_cluster = std::make_unique<Cluster>({chip1, chip2});
+
+    // umd_cluster = std::make_unique<Cluster>(
+    //     {std::make_unique<MockChip>(tt_SocDescriptor::get_soc_descriptor_path(tt::ARCH::WORMHOLE_B0))});
 }
 
 TEST(ApiClusterTest, SimpleIOAllChips) {
@@ -240,7 +247,7 @@ TEST(ApiClusterTest, SimpleIOSpecificChips) {
         GTEST_SKIP() << "No chips present on the system. Skipping test.";
     }
 
-    std::unique_ptr<Cluster> umd_cluster = std::make_unique<Cluster>(0);
+    std::unique_ptr<Cluster> umd_cluster = std::make_unique<Cluster>(0u);
 
     const tt_ClusterDescriptor* cluster_desc = umd_cluster->get_cluster_description();
 

@@ -21,7 +21,9 @@ public:
 
     virtual ~tt_MockupDevice() {}
 
-    const tt_SocDescriptor& get_soc_descriptor(chip_id_t chip_id) const override;
+    const tt_SocDescriptor& get_soc_descriptor(chip_id_t chip_id) const override {
+        return soc_descriptor_per_chip.at(0);
+    }
 
     // Setup/Teardown Functions
     virtual std::unordered_map<chip_id_t, tt_SocDescriptor>& get_virtual_soc_descriptors() override {

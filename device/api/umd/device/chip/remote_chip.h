@@ -11,7 +11,7 @@
 namespace tt::umd {
 class RemoteChip : public Chip {
 public:
-    RemoteChip(chip_id_t chip_id, tt_SocDescriptor soc_descriptor);
+    RemoteChip(tt_SocDescriptor soc_descriptor);
     bool is_mmio_capable() const override;
 };
 }  // namespace tt::umd

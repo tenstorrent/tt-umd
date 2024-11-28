@@ -9,22 +9,22 @@ target_sources(
     device
     PRIVATE
         blackhole/blackhole_coordinate_manager.cpp
-        blackhole/tt_device_blackhole.cpp
         cluster.cpp
         coordinate_manager.cpp
         cpuset_lib.cpp
-        grayskull/tt_device_grayskull.cpp
         hugepage.cpp
         pcie/pci_device.cpp
         simulation/tt_simulation_device.cpp
         simulation/tt_simulation_host.cpp
         tlb.cpp
         tt_cluster_descriptor.cpp
+        tt_device/blackhole_tt_device.cpp
+        tt_device/grayskull_tt_device.cpp
         tt_device/tt_device.cpp
+        tt_device/wormhole_tt_device.cpp
         tt_silicon_driver_common.cpp
         tt_soc_descriptor.cpp
         wormhole/wormhole_coordinate_manager.cpp
-        wormhole/tt_device_wormhole.cpp
         xy_pair.cpp
         ${FBS_GENERATED_HEADER}
 )

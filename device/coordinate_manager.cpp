@@ -250,7 +250,21 @@ void CoordinateManager::tensix_harvesting(const size_t harvesting_mask) {
     fill_tensix_logical_to_translated();
 }
 
-void CoordinateManager::fill_tensix_logical_to_translated() {}
+void CoordinateManager::fill_tensix_logical_to_translated() {
+    size_t num_harvested_y = __builtin_popcount(tensix_harvesting_mask);
+
+    for (size_t x = 0; x < tensix_grid_size.x; x++) {
+        for (size_t y = 0; y < tensix_grid_size.y - num_harvested_y; y++) {
+            const CoreCoord physical_coord = tensix_logical_to_physical[{x, y}];
+            const size_t translated_x = physical_coord.x;
+            const size_t translated_y = physical_coord.y;
+            tensix_logical_to_translated[{x, y}] =
+                CoreCoord(translated_x, translated_y, CoreType::TENSIX, CoordSystem::TRANSLATED);
+            tensix_translated_to_logical[tt_xy_pair(translated_x, translated_y)] =
+                CoreCoord(x, y, CoreType::TENSIX, CoordSystem::LOGICAL);
+        }
+    }
+}
 
 void CoordinateManager::dram_harvesting(const size_t dram_harvesting_mask) {
     this->dram_harvesting_mask = dram_harvesting_mask;

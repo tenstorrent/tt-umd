@@ -44,6 +44,5 @@ public:
     }
 
 protected:
-    void fill_tensix_logical_to_translated() override;
     void fill_eth_logical_to_translated() override;
 };

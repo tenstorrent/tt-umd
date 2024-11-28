@@ -82,8 +82,31 @@ protected:
     void clear_tensix_harvesting_structures();
     void clear_dram_harvesting_structures();
 
+    /*
+     * Fills the logical to translated mapping for the tensix cores.
+     * By default, translated coordinates are the same as physical coordinates.
+     * Derived coordinate managers that need to implement different mapping
+     * should override this method. Wormhole and Blackhole coordinate managers
+     * override this method to implement different mapping.
+     */
     virtual void fill_tensix_logical_to_translated();
+
+    /*
+     * Fills the logical to translated mapping for the ethernet cores.
+     * By default, translated coordinates are the same as physical coordinates.
+     * Derived coordinate managers that need to implement different mapping
+     * should override this method. Wormhole and Blackhole coordinate managers
+     * override this method to implement different mapping.
+     */
     virtual void fill_eth_logical_to_translated();
+
+    /*
+     * Fills the logical to translated mapping for the PCIE cores.
+     * By default, translated coordinates are the same as physical coordinates.
+     * Derived coordinate managers that need to implement different mapping
+     * should override this method. Blackhole coordinate manager overrides
+     * this method to implement different mapping.
+     */
     virtual void fill_pcie_logical_to_translated();
 
     std::map<tt_xy_pair, tt::umd::CoreCoord> tensix_logical_to_translated;

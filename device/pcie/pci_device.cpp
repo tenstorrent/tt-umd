@@ -24,7 +24,7 @@
 #include "umd/device/driver_atomics.h"
 #include "umd/device/hugepage.h"
 #include "umd/device/tt_arch_types.h"
-#include "umd/device/tt_device.h"
+#include "umd/device/tt_device/tt_device.h"
 
 static const uint16_t GS_PCIE_DEVICE_ID = 0xfaca;
 static const uint16_t WH_PCIE_DEVICE_ID = 0x401e;

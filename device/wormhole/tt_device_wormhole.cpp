@@ -2,9 +2,8 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-#include "umd/device/tt_device_wormhole.h"
-
 #include "umd/device/cluster.h"
+#include "umd/device/tt_device/wormhole_tt_device.h"
 #include "wormhole/eth_interface.h"
 #include "wormhole/host_mem_address_map.h"
 

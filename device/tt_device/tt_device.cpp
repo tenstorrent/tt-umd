@@ -2,11 +2,11 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-#include "umd/device/tt_device.h"
+#include "umd/device/tt_device/tt_device.h"
 
-#include "umd/device/tt_device_blackhole.h"
-#include "umd/device/tt_device_grayskull.h"
-#include "umd/device/tt_device_wormhole.h"
+#include "umd/device/tt_device/blackhole_tt_device.h"
+#include "umd/device/tt_device/grayskull_tt_device.h"
+#include "umd/device/tt_device/wormhole_tt_device.h"
 
 namespace tt::umd {
 

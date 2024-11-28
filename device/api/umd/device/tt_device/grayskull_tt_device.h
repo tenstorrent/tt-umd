@@ -9,7 +9,7 @@
 #include <array>
 
 #include "umd/device/tlb.h"
-#include "umd/device/tt_device.h"
+#include "umd/device/tt_device/tt_device.h"
 
 namespace tt::umd {
 

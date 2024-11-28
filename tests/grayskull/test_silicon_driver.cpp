@@ -10,7 +10,7 @@
 #include "tests/test_utils/generate_cluster_desc.hpp"
 #include "umd/device/cluster.h"
 #include "umd/device/tt_cluster_descriptor.h"
-#include "umd/device/tt_device_wormhole.h"
+#include "umd/device/tt_device/wormhole_tt_device.h"
 #include "umd/device/tt_soc_descriptor.h"
 
 using namespace tt::umd;

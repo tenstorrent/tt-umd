@@ -8,7 +8,6 @@ add_library(${PROJECT_NAME}::device ALIAS device)
 target_sources(
     device
     PRIVATE
-        tt_device.cpp
         blackhole/blackhole_coordinate_manager.cpp
         blackhole/tt_device_blackhole.cpp
         cluster.cpp
@@ -21,6 +20,7 @@ target_sources(
         simulation/tt_simulation_host.cpp
         tlb.cpp
         tt_cluster_descriptor.cpp
+        tt_device/tt_device.cpp
         tt_silicon_driver_common.cpp
         tt_soc_descriptor.cpp
         wormhole/wormhole_coordinate_manager.cpp

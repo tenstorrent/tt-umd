@@ -2,11 +2,10 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-#include "umd/device/tt_device_blackhole.h"
-
 #include "blackhole/eth_interface.h"
 #include "blackhole/host_mem_address_map.h"
 #include "umd/device/cluster.h"
+#include "umd/device/tt_device/blackhole_tt_device.h"
 
 constexpr std::uint32_t NOC_ADDR_LOCAL_BITS = 36;   // source: noc_parameters.h, common for WH && BH
 constexpr std::uint32_t NOC_ADDR_NODE_ID_BITS = 6;  // source: noc_parameters.h, common for WH && BH

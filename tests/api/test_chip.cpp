@@ -17,7 +17,7 @@
 // TODO: change to tt_cluster
 #include "umd/device/cluster.h"
 #include "umd/device/tt_cluster_descriptor.h"
-#include "umd/device/tt_device.h"
+#include "umd/device/tt_device/tt_device.h"
 
 using namespace tt::umd;
 

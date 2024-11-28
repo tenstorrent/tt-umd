@@ -258,10 +258,9 @@ tt::ARCH PciDeviceInfo::get_arch() const {
     return infos;
 }
 
-PCIDevice::PCIDevice(int pci_device_number, int logical_device_id) :
+PCIDevice::PCIDevice(int pci_device_number) :
     device_path(fmt::format("/dev/tenstorrent/{}", pci_device_number)),
     pci_device_num(pci_device_number),
-    logical_id(logical_device_id),
     pci_device_file_desc(open(device_path.c_str(), O_RDWR | O_CLOEXEC)),
     info(read_device_info(pci_device_file_desc)),
     numa_node(read_sysfs<int>(info, "numa_node", -1)),  // default to -1 if not found
@@ -602,7 +601,7 @@ dynamic_tlb PCIDevice::set_dynamic_tlb(
     tt_xy_pair end,
     std::uint64_t address,
     bool multicast,
-    std::unordered_map<chip_id_t, std::unordered_map<tt_xy_pair, tt_xy_pair>> &harvested_coord_translation,
+    std::unordered_map<tt_xy_pair, tt_xy_pair> &harvested_coord_translation,
     std::uint64_t ordering) {
     auto architecture_implementation = get_architecture_implementation();
     if (multicast) {
@@ -624,8 +623,8 @@ dynamic_tlb PCIDevice::set_dynamic_tlb(
 
     tt::umd::tlb_configuration tlb_config = architecture_implementation->get_tlb_configuration(tlb_index);
     std::uint32_t TLB_CFG_REG_SIZE_BYTES = architecture_implementation->get_tlb_cfg_reg_size_bytes();
-    auto translated_start_coords = harvested_coord_translation.at(logical_id).at(start);
-    auto translated_end_coords = harvested_coord_translation.at(logical_id).at(end);
+    auto translated_start_coords = harvested_coord_translation.at(start);
+    auto translated_end_coords = harvested_coord_translation.at(end);
     uint32_t tlb_address = address / tlb_config.size;
     uint32_t local_address = address % tlb_config.size;
     uint64_t tlb_base = tlb_config.base + (tlb_config.size * tlb_config.index_offset);
@@ -665,7 +664,7 @@ dynamic_tlb PCIDevice::set_dynamic_tlb(
     unsigned int tlb_index,
     tt_xy_pair target,
     std::uint64_t address,
-    std::unordered_map<chip_id_t, std::unordered_map<tt_xy_pair, tt_xy_pair>> &harvested_coord_translation,
+    std::unordered_map<tt_xy_pair, tt_xy_pair> &harvested_coord_translation,
     std::uint64_t ordering) {
     return set_dynamic_tlb(tlb_index, tt_xy_pair(0, 0), target, address, false, harvested_coord_translation, ordering);
 }
@@ -673,7 +672,7 @@ dynamic_tlb PCIDevice::set_dynamic_tlb(
 dynamic_tlb PCIDevice::set_dynamic_tlb_broadcast(
     unsigned int tlb_index,
     std::uint64_t address,
-    std::unordered_map<chip_id_t, std::unordered_map<tt_xy_pair, tt_xy_pair>> &harvested_coord_translation,
+    std::unordered_map<tt_xy_pair, tt_xy_pair> &harvested_coord_translation,
     tt_xy_pair start,
     tt_xy_pair end,
     std::uint64_t ordering) {
@@ -688,7 +687,6 @@ tt::umd::architecture_implementation *PCIDevice::get_architecture_implementation
 bool PCIDevice::init_hugepage(uint32_t num_host_mem_channels) {
     const size_t hugepage_size = HUGEPAGE_REGION_SIZE;
 
-    // Convert from logical (device_id in netlist) to physical device_id (in case of virtualization)
     auto physical_device_id = get_device_num();
 
     std::string hugepage_dir = find_hugepage_dir(hugepage_size);

@@ -21,6 +21,8 @@ public:
 
     virtual ~tt_MockupDevice() {}
 
+    const tt_SocDescriptor& get_soc_descriptor(chip_id_t chip_id) const override;
+
     // Setup/Teardown Functions
     virtual std::unordered_map<chip_id_t, tt_SocDescriptor>& get_virtual_soc_descriptors() override {
         return soc_descriptor_per_chip;
@@ -109,6 +111,9 @@ public:
     std::uint32_t get_host_channel_size(std::uint32_t device_id, std::uint32_t channel) override { return 0; }
 
     std::uint32_t get_numa_node_for_pcie_device(std::uint32_t device_id) override { return 0; }
+
+protected:
+    std::unordered_map<chip_id_t, tt_SocDescriptor> soc_descriptor_per_chip = {};
 
 private:
     std::vector<tt::ARCH> archs_in_cluster = {};

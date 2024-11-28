@@ -20,6 +20,8 @@ public:
 
     tt_SimulationHost host;
 
+    const tt_SocDescriptor& get_soc_descriptor(chip_id_t chip_id) const;
+
     // Setup/Teardown Functions
     virtual std::unordered_map<chip_id_t, tt_SocDescriptor>& get_virtual_soc_descriptors();
     virtual void set_device_l1_address_params(const tt_device_l1_address_params& l1_address_params_);
@@ -62,6 +64,9 @@ public:
     virtual std::uint32_t get_num_host_channels(std::uint32_t device_id);
     virtual std::uint32_t get_host_channel_size(std::uint32_t device_id, std::uint32_t channel);
     virtual std::uint32_t get_numa_node_for_pcie_device(std::uint32_t device_id);
+
+protected:
+    std::unordered_map<chip_id_t, tt_SocDescriptor> soc_descriptor_per_chip = {};
 
 private:
     // State variables

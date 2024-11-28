@@ -449,14 +449,11 @@ public:
         return 0;
     }
 
-    const tt_SocDescriptor& get_soc_descriptor(chip_id_t chip_id) const;
+    virtual const tt_SocDescriptor& get_soc_descriptor(chip_id_t chip_id) const;
 
     bool performed_harvesting = false;
     std::unordered_map<chip_id_t, uint32_t> harvested_rows_per_target = {};
     bool translation_tables_en = false;
-
-protected:
-    std::unordered_map<chip_id_t, tt_SocDescriptor> soc_descriptor_per_chip = {};
 };
 
 namespace tt::umd {
@@ -469,8 +466,8 @@ class Cluster : public tt_device {
 public:
     // Constructor
     /**
-     * Cluster constructor.
-     * It will create all the chips available from the cluster descriptor of the machine this code is running on.
+     * Cluster constructor. This constructor should be used to work towards removing all
+     * of the params from the constructor of tt_SiliconDevice (to become Cluster).
      *
      * @param num_host_mem_ch_per_mmio_device Requested number of host channels (hugepages).
      * @param skip_driver_allocs
@@ -486,11 +483,9 @@ public:
         std::unordered_map<chip_id_t, uint32_t> simulated_harvesting_masks = {});
 
     /**
-     * Cluster constructor.
-     * This constructor takes set of target logical chip ids to create from the cluster descriptor of the machine this
-     * code is running on.
+     * Cluster constructor. This constructor should be used to target specific devices in a cluster.
      *
-     * @param target_devices Devices to construct.
+     * @param target_devices Devices to target.
      * @param num_host_mem_ch_per_mmio_device Requested number of host channels (hugepages).
      * @param skip_driver_allocs
      * @param clean_system_resource Specifies if host state from previous runs needs to be cleaned up.
@@ -498,7 +493,7 @@ public:
      * @param simulated_harvesting_masks
      */
     Cluster(
-        const std::unordered_set<chip_id_t>& target_devices,
+        const std::set<chip_id_t>& target_devices,
         const uint32_t& num_host_mem_ch_per_mmio_device = 1,
         const bool skip_driver_allocs = false,
         const bool clean_system_resources = false,
@@ -507,9 +502,9 @@ public:
 
     /**
      * Cluster constructor.
-     * Takes a set of manually constructed chips and takes ownership of them, and performs using them.
      *
-     * @param chips Chip objects to take ownership of and use as part of this cluster.
+     * @param soc_desc SOC descriptor specifying single chip.
+     * @param target_devices Devices to target.
      * @param num_host_mem_ch_per_mmio_device Requested number of host channels (hugepages).
      * @param skip_driver_allocs
      * @param clean_system_resource Specifies if host state from previous runs needs to be cleaned up.
@@ -517,23 +512,29 @@ public:
      * @param simulated_harvesting_masks
      */
     Cluster(
-        const std::set<std::unique_ptr<Chip>>& chips,
+        tt_SocDescriptor soc_desc,
+        const std::set<chip_id_t>& target_devices,
         const uint32_t& num_host_mem_ch_per_mmio_device = 1,
         const bool skip_driver_allocs = false,
         const bool clean_system_resources = false,
         bool perform_harvesting = true,
         std::unordered_map<chip_id_t, uint32_t> simulated_harvesting_masks = {});
 
-    /**
-     * Helper function to construct a chip from info found in cluster descriptor.
-     * This allows users to construct a Chip instance from a logical chip id which is a cluster descriptor concept.
-     *
-     * @param logical_device_id Logical device id of the chip to create, as found in the cluster descriptor.
-     * @param cluster_desc Cluster descriptor to use. If not provided, it will be constructed. If many chips are
-     * constructed
-     */
-    static std::unique_ptr<Chip> construct_chip_from_cluster(
-        chip_id_t logical_device_id, tt_ClusterDescriptor* cluster_desc = nullptr);
+    // /**
+    //  * Cluster constructor which creates a cluster for Mock chips.
+    //  */
+    // static std::unique_ptr<Cluster> create_mock_cluster();
+
+    // /**
+    //  * Helper function to construct a chip from info found in cluster descriptor.
+    //  * This allows users to construct a Chip instance from a logical chip id which is a cluster descriptor concept.
+    //  *
+    //  * @param logical_device_id Logical device id of the chip to create, as found in the cluster descriptor.
+    //  * @param cluster_desc Cluster descriptor to use. If not provided, it will be constructed. If many chips are
+    //  * constructed
+    //  */
+    // static std::unique_ptr<Chip> construct_chip_from_cluster(
+    //     chip_id_t logical_device_id, tt_ClusterDescriptor* cluster_desc = nullptr);
 
     // Setup/Teardown Functions
     virtual std::unordered_map<chip_id_t, tt_SocDescriptor>& get_virtual_soc_descriptors();
@@ -651,6 +652,8 @@ public:
 
     TTDevice* get_tt_device(chip_id_t device_id) const;
 
+    const tt_SocDescriptor& get_soc_descriptor(chip_id_t chip_id) const;
+
     // Destructor
     virtual ~Cluster();
 
@@ -658,7 +661,7 @@ private:
     // Helper functions
     // Startup + teardown
     void create_device(
-        const std::unordered_set<chip_id_t>& target_mmio_device_ids,
+        const std::set<chip_id_t>& target_mmio_device_ids,
         const uint32_t& num_host_mem_ch_per_mmio_device,
         const bool skip_driver_allocs,
         const bool clean_system_resources);
@@ -669,7 +672,7 @@ private:
     void broadcast_tensix_risc_reset_to_cluster(const TensixSoftResetOptions& soft_resets);
     void send_remote_tensix_risc_reset_to_core(const tt_cxy_pair& core, const TensixSoftResetOptions& soft_resets);
     void send_tensix_risc_reset_to_core(const tt_cxy_pair& core, const TensixSoftResetOptions& soft_resets);
-    void perform_harvesting_and_populate_soc_descriptors(const std::string& sdesc_path, const bool perform_harvesting);
+    void perform_harvesting_on_soc_descriptors();
     void populate_cores();
     void init_pcie_iatus();  // No more p2p support.
     void check_pcie_device_initialized(int device_id);
@@ -785,8 +788,8 @@ private:
     // This functions has to be called for local chip, and then it will wait for all connected remote chips to flush.
     void wait_for_connected_non_mmio_flush(chip_id_t chip_id);
 
+    void add_chip(chip_id_t chip_id, tt_SocDescriptor& soc_desc, bool is_mmio_capable);
     void construct_cluster(
-        const std::string& sdesc_path,
         const uint32_t& num_host_mem_ch_per_mmio_device,
         const bool skip_driver_allocs,
         const bool clean_system_resources,
@@ -802,6 +805,8 @@ private:
     std::vector<tt::ARCH> archs_in_cluster = {};
     std::set<chip_id_t> target_devices_in_cluster = {};
     std::set<chip_id_t> target_remote_chips = {};
+    std::set<chip_id_t> all_target_mmio_devices = {};
+    std::unordered_map<chip_id_t, std::unique_ptr<Chip>> chips_;
     tt::ARCH arch_name;
 
     // Map of enabled tt devices
@@ -833,7 +838,6 @@ private:
     std::unordered_set<tt_xy_pair> eth_cores = {};
     std::unordered_set<tt_xy_pair> dram_cores = {};
     std::map<chip_id_t, std::unordered_map<int32_t, uint64_t>> tlb_config_map = {};
-    std::set<chip_id_t> all_target_mmio_devices;
 
     // Note that these maps holds only entries for local PCIe chips.
     std::unordered_map<chip_id_t, std::function<std::int32_t(tt_xy_pair)>> map_core_to_tlb_per_chip = {};

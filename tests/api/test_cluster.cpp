@@ -72,29 +72,47 @@ TEST(ApiClusterTest, DifferentConstructors) {
     umd_cluster = nullptr;
 
     // 2. Constructor which allows choosing a subset of Chips to open.
-    std::set<chip_id_t> target_devices = {0};
+    chip_id_t logical_device_id = 0;
+    std::set<chip_id_t> target_devices = {logical_device_id};
     umd_cluster = std::make_unique<Cluster>(target_devices);
     umd_cluster = nullptr;
 
-    // 3.1. First chip will be created using helper function from the cluster
-    std::unique_ptr<Chip> chip1 = Cluster::construct_chip_from_cluster(0);
-    // If creating multiple chips, it might we worth to create a cluster descriptor, and pass it to all calls.
-    std::unique_ptr<tt_ClusterDescriptor> cluster_desc = tt_ClusterDescriptor::create();
-    chip1 = Cluster::construct_chip_from_cluster(0, cluster_desc.get());
-
-    // 3.2. Second chip is manually created with custom soc descriptor.
-    tt::ARCH device_arch = detect_arch();
+    // 3. Constructor taking a custom soc descriptor in addition.
+    tt::ARCH device_arch = tt_ClusterDescriptor::detect_arch(logical_device_id);
     // You can add a custom soc descriptor here.
     std::string sdesc_path = tt_SocDescriptor::get_soc_descriptor_path(device_arch);
     int harvesting_mask = 0;
     tt_SocDescriptor soc_desc = tt_SocDescriptor(sdesc_path, harvesting_mask);
-    std::unique_ptr<Chip> chip2 = std::make_unique<LocalChip>(0, soc_desc);
+    umd_cluster = std::make_unique<Cluster>(soc_desc, target_devices);
 
-    // 3.3. Third chip is a mock chip.
-    std::unique_ptr<Chip> chip3 = std::make_unique<MockChip>();
+    // // ?????
+    // // 5.1. First chip will be created using helper function from the cluster
+    // std::unique_ptr<Chip> chip1 = Cluster::construct_chip_from_cluster(0);
+    // // If creating multiple chips, it might we worth to create a cluster descriptor, and pass it to all calls.
+    // std::unique_ptr<tt_ClusterDescriptor> cluster_desc = tt_ClusterDescriptor::create();
+    // chip_id_t logical_device_id = 0;
+    // chip1 = Cluster::construct_chip_from_cluster(logical_device_id, cluster_desc.get());
 
-    // 3. Constructor taking a custom set of Chips.
-    umd_cluster = std::make_unique<Cluster>({chip1, chip2, chip3});
+    // // 3.2. Second chip is manually created with custom soc descriptor.
+    // tt::ARCH device_arch = cluster_desc->get_arch(logical_device_id);
+    // // You can add a custom soc descriptor here.
+    // std::string sdesc_path = tt_SocDescriptor::get_soc_descriptor_path(device_arch);
+    // int harvesting_mask = 0;
+    // tt_SocDescriptor soc_desc = tt_SocDescriptor(sdesc_path, harvesting_mask);
+    // // We have to reuse the same chip1 since we can't open the same chip twice.
+    // chip1 = nullptr;
+    // chip1 = std::make_unique<LocalChip>(logical_device_id, soc_desc);
+
+    // // 3.3. Third chip is a mock chip.
+    // chip_id_t second_logical_id = 1;
+    // // We can create with a custom soc descriptor.
+    // std::unique_ptr<Chip> chip2 =
+    //     std::make_unique<MockChip>(second_logical_id,
+    //     tt_SocDescriptor::get_soc_descriptor_path(tt::ARCH::WORMHOLE_B0));
+
+    // // 3. Constructor taking a custom set of Chips.
+    // // Mark Experimental.
+    // umd_cluster = std::make_unique<Cluster>({chip1, chip2});
 }
 
 TEST(ApiClusterTest, SimpleIOAllChips) {

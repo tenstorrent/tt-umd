@@ -87,7 +87,7 @@ TEST(SiliconDriverWH, CreateDestroy) {
     // Initialize the driver with a 1x1 descriptor and explictly do not perform harvesting
     for (int i = 0; i < 50; i++) {
         Cluster device = Cluster(
-            test_utils::GetAbsPath("tests/soc_descs/wormhole_b0_1x1.yaml"),
+            tt_SocDescriptor(test_utils::GetAbsPath("tests/soc_descs/wormhole_b0_1x1.yaml")),
             target_devices,
             num_host_mem_ch_per_mmio_device,
             false,
@@ -128,7 +128,7 @@ TEST(SiliconDriverWH, CustomSocDesc) {
     uint32_t num_host_mem_ch_per_mmio_device = 1;
     // Initialize the driver with a 1x1 descriptor and explictly do not perform harvesting
     Cluster device = Cluster(
-        test_utils::GetAbsPath("tests/soc_descs/wormhole_b0_1x1.yaml"),
+        tt_SocDescriptor(test_utils::GetAbsPath("tests/soc_descs/wormhole_b0_1x1.yaml")),
         target_devices,
         num_host_mem_ch_per_mmio_device,
         false,

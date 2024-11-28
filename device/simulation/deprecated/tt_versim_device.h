@@ -30,6 +30,8 @@ using VersimSimulator = nuapi::device::Simulator<c_versim_core*, VersimSimulator
  */
 class tt_VersimDevice : public tt_device {
 public:
+    const tt_SocDescriptor& get_soc_descriptor(chip_id_t chip_id) const;
+
     virtual void set_device_l1_address_params(const tt_device_l1_address_params& l1_address_params_);
     virtual void set_device_dram_address_params(const tt_device_dram_address_params& dram_address_params_);
     tt_VersimDevice(const std::string& sdesc_path, const std::string& ndesc_path);
@@ -112,6 +114,9 @@ public:
     virtual std::uint64_t get_dram_channel_size(std::uint32_t device_id, std::uint32_t channel);
     virtual std::uint32_t get_num_host_channels(std::uint32_t device_id);
     virtual std::uint32_t get_host_channel_size(std::uint32_t device_id, std::uint32_t channel);
+
+protected:
+    std::unordered_map<chip_id_t, tt_SocDescriptor> soc_descriptor_per_chip = {};
 
 private:
     bool stop();

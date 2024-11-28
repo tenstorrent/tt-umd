@@ -10,4 +10,5 @@ namespace tt::umd {
 
 RemoteChip::RemoteChip(chip_id_t chip_id, tt_SocDescriptor soc_descriptor) : Chip(chip_id, soc_descriptor) {}
 
+bool RemoteChip::is_mmio_capable() const { return false; }
 }  // namespace tt::umd

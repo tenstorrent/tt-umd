@@ -354,8 +354,6 @@ void Cluster::construct_cluster(
     const bool clean_system_resources,
     bool perform_harvesting,
     std::unordered_map<chip_id_t, uint32_t> simulated_harvesting_masks) {
-    cluster_desc = tt_ClusterDescriptor::create();
-
     std::unordered_set<chip_id_t> target_mmio_device_ids;
     for (auto& d : target_devices_in_cluster) {
         log_assert(
@@ -526,6 +524,8 @@ Cluster::Cluster(
     bool perform_harvesting,
     std::unordered_map<chip_id_t, uint32_t> simulated_harvesting_masks) :
     tt_device() {
+    cluster_desc = tt_ClusterDescriptor::create();
+
     // TODO: this should be fetched through ClusterDescriptor
     auto available_device_ids = detect_available_device_ids();
     m_num_pci_devices = available_device_ids.size();
@@ -573,6 +573,8 @@ Cluster::Cluster(
     bool perform_harvesting,
     std::unordered_map<chip_id_t, uint32_t> simulated_harvesting_masks) :
     tt_device() {
+    cluster_desc = tt_ClusterDescriptor::create();
+
     // TODO: this should be fetched through ClusterDescriptor
     auto available_device_ids = detect_available_device_ids();
     m_num_pci_devices = available_device_ids.size();
@@ -617,6 +619,8 @@ Cluster::Cluster(
     bool perform_harvesting,
     std::unordered_map<chip_id_t, uint32_t> simulated_harvesting_masks) :
     tt_device() {
+    cluster_desc = tt_ClusterDescriptor::create();
+
     // TODO: this should be fetched through ClusterDescriptor
     auto available_device_ids = detect_available_device_ids();
     m_num_pci_devices = available_device_ids.size();

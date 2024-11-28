@@ -14,17 +14,15 @@ namespace tt::umd {
 // An abstract class that represents a chip.
 class Chip {
 public:
-    Chip(chip_id_t chip_id, tt_SocDescriptor soc_descriptor);
+    Chip(tt_SocDescriptor soc_descriptor);
 
     virtual ~Chip() = default;
 
-    chip_id_t get_chip_id() const;
     tt_SocDescriptor& get_soc_descriptor();
 
     virtual bool is_mmio_capable() const = 0;
 
 private:
-    chip_id_t chip_id_;
     tt_SocDescriptor soc_descriptor_;
 };
 

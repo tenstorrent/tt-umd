@@ -8,7 +8,7 @@
 
 namespace tt::umd {
 
-MockChip::MockChip(chip_id_t chip_id, tt_SocDescriptor soc_descriptor) : Chip(chip_id, soc_descriptor) {}
+MockChip::MockChip(tt_SocDescriptor soc_descriptor) : Chip(soc_descriptor) {}
 
 bool MockChip::is_mmio_capable() const { return true; }
 }  // namespace tt::umd

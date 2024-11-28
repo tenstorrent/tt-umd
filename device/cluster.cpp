@@ -39,6 +39,7 @@
 #include "logger.hpp"
 #include "umd/device/architecture_implementation.h"
 #include "umd/device/chip/local_chip.h"
+#include "umd/device/chip/mock_chip.h"
 #include "umd/device/chip/remote_chip.h"
 #include "umd/device/driver_atomics.h"
 #include "umd/device/hugepage.h"
@@ -139,19 +140,6 @@ const tt_SocDescriptor& Cluster::get_soc_descriptor(chip_id_t chip_id) const {
     return chips_.at(chip_id)->get_soc_descriptor();
 }
 
-// std::unique_ptr<Chip> Cluster::construct_chip_from_cluster(
-//     chip_id_t logical_device_id, tt_ClusterDescriptor* cluster_desc) {
-//     if (cluster_desc == nullptr) {
-//         cluster_desc = tt_ClusterDescriptor::create();
-//     }
-
-//     if (cluster_desc->is_chip_mmio_capable(logical_device_id)) {
-//         return std::make_unique<LocalChip>(logical_device_id, cluster_desc);
-//     } else {
-//         return std::make_unique<RemoteChip>(logical_device_id, cluster_desc);
-//     }
-// }
-
 bool Cluster::address_in_tlb_space(
     uint64_t address, uint32_t size_in_bytes, int32_t tlb_index, uint64_t tlb_size, std::uint32_t chip) {
     const auto& tlb_map = tlb_config_map.at(chip);
@@ -163,13 +151,7 @@ bool Cluster::address_in_tlb_space(
     return false;
 }
 
-std::unordered_map<chip_id_t, tt_SocDescriptor>& Cluster::get_virtual_soc_descriptors() {
-    std::unordered_map<chip_id_t, tt_SocDescriptor> soc_desc_map;
-    for (const auto& [chip_id, chip] : chips_) {
-        soc_desc_map.emplace(chip_id, chip->get_soc_descriptor());
-    }
-    return soc_desc_map;
-}
+std::unordered_map<chip_id_t, tt_SocDescriptor>& Cluster::get_virtual_soc_descriptors() { return soc_desc_map; }
 
 void Cluster::initialize_interprocess_mutexes(int pci_interface_id, bool cleanup_mutexes_in_shm) {
     // These mutexes are intended to be based on physical devices/pci-intf not logical. Set these up ahead of time here
@@ -350,6 +332,11 @@ void Cluster::construct_cluster(
             target_remote_chips);
     }
 
+    // Prefill the soc_desc_map
+    for (const auto& [chip_id, chip] : chips_) {
+        soc_desc_map.emplace(chip_id, chip->get_soc_descriptor());
+    }
+
     perform_harvesting_on_sdesc = perform_harvesting;
 
     // It is mandatory for all devices to have these TLBs set aside, as the driver needs them to issue remote reads and
@@ -504,14 +491,11 @@ void Cluster::construct_cluster(
     noc_params = architecture_implementation->get_noc_params();
 }
 
-void Cluster::add_chip(chip_id_t chip_id, tt_SocDescriptor& soc_desc, bool is_mmio_capable) {
-    std::unique_ptr<Chip> chip;
+void Cluster::add_chip(chip_id_t chip_id, std::unique_ptr<Chip> chip) {
     target_devices_in_cluster.insert(chip_id);
-    if (is_mmio_capable) {
-        chip = std::make_unique<LocalChip>(soc_desc);
+    if (chip->is_mmio_capable()) {
         all_target_mmio_devices.insert(chip_id);
     } else {
-        chip = std::make_unique<RemoteChip>(soc_desc);
         target_remote_chips.insert(chip_id);
     }
     chips_.emplace(chip_id, std::move(chip));
@@ -522,8 +506,7 @@ Cluster::Cluster(
     const bool skip_driver_allocs,
     const bool clean_system_resources,
     bool perform_harvesting,
-    std::unordered_map<chip_id_t, uint32_t> simulated_harvesting_masks) :
-    tt_device() {
+    std::unordered_map<chip_id_t, uint32_t> simulated_harvesting_masks) {
     cluster_desc = tt_ClusterDescriptor::create();
 
     for (auto& chip_id : cluster_desc->get_all_chips()) {
@@ -531,12 +514,15 @@ Cluster::Cluster(
         std::string soc_desc_path = tt_SocDescriptor::get_soc_descriptor_path(arch);
         uint32_t harvesting_info = cluster_desc->get_harvesting_info().at(chip_id);
         tt_SocDescriptor soc_desc = tt_SocDescriptor(soc_desc_path, harvesting_info);
-        bool is_chip_mmio_capable = cluster_desc->is_chip_mmio_capable(chip_id);
-        add_chip(chip_id, soc_desc, is_chip_mmio_capable);
+        if (cluster_desc->is_chip_mmio_capable(chip_id)) {
+            add_chip(chip_id, std::make_unique<LocalChip>(soc_desc));
+        } else {
+            add_chip(chip_id, std::make_unique<RemoteChip>(soc_desc));
+        }
     }
 
     // TODO: work on removing this member altogether. Currently assumes all have the same arch.
-    arch_name = chips_.begin()->second->get()->get_soc_descriptor().arch;
+    arch_name = chips_.begin()->second->get_soc_descriptor().arch;
 
     construct_cluster(
         num_host_mem_ch_per_mmio_device,
@@ -552,8 +538,7 @@ Cluster::Cluster(
     const bool skip_driver_allocs,
     const bool clean_system_resources,
     bool perform_harvesting,
-    std::unordered_map<chip_id_t, uint32_t> simulated_harvesting_masks) :
-    tt_device() {
+    std::unordered_map<chip_id_t, uint32_t> simulated_harvesting_masks) {
     cluster_desc = tt_ClusterDescriptor::create();
 
     for (auto& chip_id : target_devices) {
@@ -565,12 +550,15 @@ Cluster::Cluster(
         std::string soc_desc_path = tt_SocDescriptor::get_soc_descriptor_path(arch);
         uint32_t harvesting_info = cluster_desc->get_harvesting_info().at(chip_id);
         tt_SocDescriptor soc_desc = tt_SocDescriptor(soc_desc_path, harvesting_info);
-        bool is_chip_mmio_capable = cluster_desc->is_chip_mmio_capable(chip_id);
-        add_chip(chip_id, soc_desc, is_chip_mmio_capable);
+        if (cluster_desc->is_chip_mmio_capable(chip_id)) {
+            add_chip(chip_id, std::make_unique<LocalChip>(soc_desc));
+        } else {
+            add_chip(chip_id, std::make_unique<RemoteChip>(soc_desc));
+        }
     }
 
     // TODO: work on removing this member altogether. Currently assumes all have the same arch.
-    arch_name = chips_.begin()->second->get()->get_soc_descriptor().arch;
+    arch_name = chips_.begin()->second->get_soc_descriptor().arch;
 
     construct_cluster(
         num_host_mem_ch_per_mmio_device,
@@ -587,8 +575,7 @@ Cluster::Cluster(
     const bool skip_driver_allocs,
     const bool clean_system_resources,
     bool perform_harvesting,
-    std::unordered_map<chip_id_t, uint32_t> simulated_harvesting_masks) :
-    tt_device() {
+    std::unordered_map<chip_id_t, uint32_t> simulated_harvesting_masks) {
     cluster_desc = tt_ClusterDescriptor::create();
 
     for (auto& chip_id : target_devices) {
@@ -599,15 +586,18 @@ Cluster::Cluster(
         log_assert(
             cluster_desc->get_arch(chip_id) == soc_desc.arch,
             "Passed soc descriptor has {} arch, but for chip id {} has arch {}",
-            soc_desc.arch,
+            get_arch_str(soc_desc.arch),
             chip_id,
-            cluster_desc->get_arch(chip_id));
-        bool is_chip_mmio_capable = cluster_desc->is_chip_mmio_capable(chip_id);
-        add_chip(chip_id, soc_desc, is_chip_mmio_capable);
+            get_arch_str(cluster_desc->get_arch(chip_id)));
+        if (cluster_desc->is_chip_mmio_capable(chip_id)) {
+            add_chip(chip_id, std::make_unique<LocalChip>(soc_desc));
+        } else {
+            add_chip(chip_id, std::make_unique<RemoteChip>(soc_desc));
+        }
     }
 
     // TODO: work on removing this member altogether. Currently assumes all have the same arch.
-    arch_name = chips_.begin()->second->get()->get_soc_descriptor().arch;
+    arch_name = chips_.begin()->second->get_soc_descriptor().arch;
 
     construct_cluster(
         num_host_mem_ch_per_mmio_device,
@@ -615,6 +605,22 @@ Cluster::Cluster(
         clean_system_resources,
         perform_harvesting,
         simulated_harvesting_masks);
+}
+
+Cluster::Cluster(bool mock) {}
+
+/* static */ std::unique_ptr<Cluster> Cluster::create_mock_cluster() {
+    // TBD how this would look like for simulated cluster.
+    std::unique_ptr<Cluster> cluster = std::unique_ptr<Cluster>(new Cluster(true));
+    // Arbitrary arch used for mock cluster.
+    cluster->arch_name = tt::ARCH::WORMHOLE_B0;
+    chip_id_t mock_chip_id = 0;
+    cluster->cluster_desc = tt_ClusterDescriptor::create_mock_cluster({mock_chip_id}, cluster->arch_name);
+    tt_SocDescriptor soc_desc = tt_SocDescriptor(tt_SocDescriptor::get_soc_descriptor_path(cluster->arch_name));
+    cluster->add_chip(mock_chip_id, std::make_unique<MockChip>(soc_desc));
+
+    cluster->construct_cluster(1, true, true, false, {});
+    return cluster;
 }
 
 void Cluster::configure_active_ethernet_cores_for_mmio_device(

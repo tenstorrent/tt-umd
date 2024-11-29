@@ -230,6 +230,12 @@ static constexpr uint32_t ARC_CSM_MAILBOX_SIZE_OFFSET = 0x1FEF84C4;
 
 static constexpr uint32_t TENSIX_SOFT_RESET_ADDR = 0xFFB121B0;
 
+static const size_t tensix_translated_coordinate_start_x = 18;
+static const size_t tensix_translated_coordinate_start_y = 18;
+
+static const size_t eth_translated_coordinate_start_x = 18;
+static const size_t eth_translated_coordinate_start_y = 16;
+
 }  // namespace wormhole
 
 class wormhole_implementation : public architecture_implementation {

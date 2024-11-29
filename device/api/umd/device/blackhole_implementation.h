@@ -174,6 +174,12 @@ static constexpr uint32_t TENSIX_SOFT_RESET_ADDR = 0xFFB121B0;
 
 static constexpr uint32_t MSG_TYPE_SETUP_IATU_FOR_PEER_TO_PEER = 0x97;
 
+static const size_t eth_translated_coordinate_start_x = 20;
+static const size_t eth_translated_coordinate_start_y = 25;
+
+static const size_t pcie_translated_coordinate_start_x = 19;
+static const size_t pcie_translated_coordinate_start_y = 24;
+
 }  // namespace blackhole
 
 class blackhole_implementation : public architecture_implementation {

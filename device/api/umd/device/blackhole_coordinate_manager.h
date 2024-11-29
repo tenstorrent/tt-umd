@@ -6,6 +6,7 @@
 
 #pragma once
 
+#include "umd/device/blackhole_implementation.h"
 #include "umd/device/coordinate_manager.h"
 
 class BlackholeCoordinateManager : public CoordinateManager {
@@ -31,11 +32,4 @@ protected:
     void fill_tensix_logical_to_translated() override;
     void fill_eth_logical_to_translated() override;
     void fill_pcie_logical_to_translated() override;
-
-private:
-    static const size_t eth_translated_coordinate_start_x = 20;
-    static const size_t eth_translated_coordinate_start_y = 25;
-
-    static const size_t pcie_translated_coordinate_start_x = 19;
-    static const size_t pcie_translated_coordinate_start_y = 24;
 };

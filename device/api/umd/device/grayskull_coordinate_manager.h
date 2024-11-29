@@ -7,6 +7,7 @@
 #pragma once
 
 #include "umd/device/coordinate_manager.h"
+#include "umd/device/grayskull_implementation.h"
 
 class GrayskullCoordinateManager : public CoordinateManager {
 public:

@@ -7,6 +7,7 @@
 #pragma once
 
 #include "umd/device/coordinate_manager.h"
+#include "umd/device/wormhole_implementation.h"
 
 class WormholeCoordinateManager : public CoordinateManager {
 public:
@@ -27,11 +28,4 @@ public:
 protected:
     void fill_tensix_logical_to_translated() override;
     void fill_eth_logical_to_translated() override;
-
-private:
-    static const size_t tensix_translated_coordinate_start_x = 18;
-    static const size_t tensix_translated_coordinate_start_y = 18;
-
-    static const size_t eth_translated_coordinate_start_x = 18;
-    static const size_t eth_translated_coordinate_start_y = 16;
 };

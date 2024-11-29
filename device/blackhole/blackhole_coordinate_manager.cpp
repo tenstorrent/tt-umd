@@ -117,8 +117,8 @@ void BlackholeCoordinateManager::translate_dram_coords() {
 void BlackholeCoordinateManager::fill_eth_logical_to_translated() {
     for (size_t x = 0; x < eth_grid_size.x; x++) {
         for (size_t y = 0; y < eth_grid_size.y; y++) {
-            const size_t translated_x = x + eth_translated_coordinate_start_x;
-            const size_t translated_y = y + eth_translated_coordinate_start_y;
+            const size_t translated_x = x + blackhole::eth_translated_coordinate_start_x;
+            const size_t translated_y = y + blackhole::eth_translated_coordinate_start_y;
             eth_logical_to_translated[{x, y}] =
                 CoreCoord(translated_x, translated_y, CoreType::ETH, CoordSystem::TRANSLATED);
             eth_translated_to_logical[{translated_x, translated_y}] =
@@ -129,10 +129,11 @@ void BlackholeCoordinateManager::fill_eth_logical_to_translated() {
 
 void BlackholeCoordinateManager::fill_pcie_logical_to_translated() {
     pcie_logical_to_translated[{0, 0}] = CoreCoord(
-        pcie_translated_coordinate_start_x,
-        pcie_translated_coordinate_start_y,
+        blackhole::pcie_translated_coordinate_start_x,
+        blackhole::pcie_translated_coordinate_start_y,
         CoreType::PCIE,
         CoordSystem::TRANSLATED);
-    pcie_translated_to_logical[{pcie_translated_coordinate_start_x, pcie_translated_coordinate_start_y}] =
+    pcie_translated_to_logical[{
+        blackhole::pcie_translated_coordinate_start_x, blackhole::pcie_translated_coordinate_start_y}] =
         CoreCoord(0, 0, CoreType::PCIE, CoordSystem::LOGICAL);
 }

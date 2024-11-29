@@ -17,49 +17,12 @@
 #include "fmt/core.h"
 #include "tt_xy_pair.h"
 #include "umd/device/coordinate_manager.h"
-#include "umd/device/tt_arch_types.h"
 #include "umd/device/tt_core_coordinates.h"
 #include "umd/device/tt_xy_pair.h"
+#include "umd/device/types/arch.h"
 
 namespace YAML {
 class Node;
-}
-
-std::ostream &operator<<(std::ostream &out, const tt::ARCH &arch_name);
-
-static inline std::string get_arch_str(const tt::ARCH arch_name) {
-    std::string arch_name_str;
-
-    if (arch_name == tt::ARCH::GRAYSKULL) {
-        arch_name_str = "grayskull";
-    } else if (arch_name == tt::ARCH::WORMHOLE_B0) {
-        arch_name_str = "wormhole_b0";
-    } else if (arch_name == tt::ARCH::BLACKHOLE) {
-        arch_name_str = "blackhole";
-    } else {
-        throw std::runtime_error("Invalid arch_name");
-    }
-
-    return arch_name_str;
-}
-
-static inline tt::ARCH get_arch_name(const std::string &arch_str) {
-    tt::ARCH arch;
-
-    if ((arch_str == "grayskull") || (arch_str == "GRAYSKULL")) {
-        arch = tt::ARCH::GRAYSKULL;
-    } else if (
-        (arch_str == "wormhole") || (arch_str == "WORMHOLE") || (arch_str == "wormhole_b0") ||
-        (arch_str == "WORMHOLE_B0")) {
-        arch = tt::ARCH::WORMHOLE_B0;
-    } else if ((arch_str == "blackhole") || (arch_str == "BLACKHOLE")) {
-        arch = tt::ARCH::BLACKHOLE;
-    } else {
-        throw std::runtime_error(
-            fmt::format("At LoadSocDescriptorFromYaml: \"{}\" is not recognized as tt::ARCH.", arch_str));
-    }
-
-    return arch;
 }
 
 std::string format_node(tt_xy_pair xy);

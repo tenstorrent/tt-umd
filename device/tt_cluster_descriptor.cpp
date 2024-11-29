@@ -696,7 +696,7 @@ void tt_ClusterDescriptor::load_chips_from_connectivity_descriptor(YAML::Node &y
         chip_id_t chip_id = node->first.as<int>();
         std::string arch_str = node->second.as<std::string>();
         desc.all_chips.insert(chip_id);
-        desc.chip_arch.insert({chip_id, arch_from_string(arch_str)});
+        desc.chip_arch.insert({chip_id, tt::arch_from_str(arch_str)});
     }
 
     for (YAML::const_iterator node = yaml["chips"].begin(); node != yaml["chips"].end(); ++node) {
@@ -782,19 +782,6 @@ void tt_ClusterDescriptor::fill_chips_grouped_by_closest_mmio() {
         chip_id_t closest_mmio_chip = get_closest_mmio_capable_chip(chip);
         this->chips_grouped_by_closest_mmio[closest_mmio_chip].insert(chip);
     }
-}
-
-tt::ARCH tt_ClusterDescriptor::arch_from_string(std::string arch_str) {
-    if (arch_str == "Grayskull") {
-        return tt::ARCH::GRAYSKULL;
-    }
-    if (arch_str == "Wormhole") {
-        return tt::ARCH::WORMHOLE_B0;
-    }
-    if (arch_str == "Blackhole") {
-        return tt::ARCH::BLACKHOLE;
-    }
-    return tt::ARCH::Invalid;
 }
 
 const std::unordered_map<chip_id_t, std::unordered_map<ethernet_channel_t, std::tuple<chip_id_t, ethernet_channel_t>>>

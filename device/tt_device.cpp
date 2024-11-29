@@ -19,7 +19,7 @@
 #include <unordered_map>
 #include <vector>
 
-#include "device/tt_cluster_descriptor_types.h"
+#include "device/types.h"
 #include "yaml-cpp/yaml.h"
 
 ////////

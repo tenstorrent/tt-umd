@@ -41,10 +41,10 @@
 #include "umd/device/driver_atomics.h"
 #include "umd/device/hugepage.h"
 #include "umd/device/tlb.h"
-#include "umd/device/tt_arch_types.h"
 #include "umd/device/tt_cluster_descriptor.h"
 #include "umd/device/tt_core_coordinates.h"
 #include "umd/device/tt_soc_descriptor.h"
+#include "umd/device/types/arch.h"
 #include "yaml-cpp/yaml.h"
 
 using namespace boost::interprocess;
@@ -738,20 +738,20 @@ void Cluster::check_pcie_device_initialized(int device_id) {
     if (arch_name == tt::ARCH::GRAYSKULL) {
         if (device_arch != tt::ARCH::GRAYSKULL) {
             throw std::runtime_error(
-                fmt::format("Attempted to run grayskull configured tt_device on {}", get_arch_str(device_arch)));
+                fmt::format("Attempted to run grayskull configured tt_device on {}", arch_to_str(device_arch)));
         }
     } else if (arch_name == tt::ARCH::WORMHOLE_B0) {
         if (device_arch != tt::ARCH::WORMHOLE_B0) {
             throw std::runtime_error(
-                fmt::format("Attempted to run wormhole configured tt_device on {}", get_arch_str(device_arch)));
+                fmt::format("Attempted to run wormhole configured tt_device on {}", arch_to_str(device_arch)));
         }
     } else if (arch_name == tt::ARCH::BLACKHOLE) {
         if (device_arch != tt::ARCH::BLACKHOLE) {
             throw std::runtime_error(
-                fmt::format("Attempted to run blackhole configured tt_device on {}", get_arch_str(device_arch)));
+                fmt::format("Attempted to run blackhole configured tt_device on {}", arch_to_str(device_arch)));
         }
     } else {
-        throw std::runtime_error(fmt::format("Unsupported architecture: {}", get_arch_str(arch_name)));
+        throw std::runtime_error(fmt::format("Unsupported architecture: {}", arch_to_str(arch_name)));
     }
     auto architecture_implementation = tt_device->get_architecture_implementation();
 
@@ -1451,7 +1451,7 @@ int Cluster::test_setup_interface() {
         // return ret_val;
         return 0;
     } else {
-        throw std::runtime_error(fmt::format("Unsupported architecture: {}", get_arch_str(arch_name)));
+        throw std::runtime_error(fmt::format("Unsupported architecture: {}", arch_to_str(arch_name)));
     }
 }
 

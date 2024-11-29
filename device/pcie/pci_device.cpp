@@ -22,7 +22,7 @@
 #include "ioctl.h"
 #include "logger.hpp"
 #include "umd/device/hugepage.h"
-#include "umd/device/tt_arch_types.h"
+#include "umd/device/types/arch.h"
 
 static const uint16_t GS_PCIE_DEVICE_ID = 0xfaca;
 static const uint16_t WH_PCIE_DEVICE_ID = 0x401e;

@@ -277,3 +277,8 @@ TEST(CoordinateManager, CoordinateManagerWormholePCIETranslation) {
         }
     }
 }
+
+// Test that we assert properly if DRAM harvesting mask is non-zero for Wormhole.
+TEST(CoordinateManager, CoordinateManagerWormholeDRAMHarvestingAssert) {
+    EXPECT_THROW(CoordinateManager::create_coordinate_manager(tt::ARCH::WORMHOLE_B0, 0, 1), std::runtime_error);
+}

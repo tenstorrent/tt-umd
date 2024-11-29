@@ -3,6 +3,8 @@
  *
  * SPDX-License-Identifier: Apache-2.0
  */
+#include <stdexcept>
+
 #include "gtest/gtest.h"
 #include "tests/test_utils/soc_desc_test_utils.hpp"
 #include "umd/device/coordinate_manager.h"
@@ -237,4 +239,9 @@ TEST(CoordinateManager, CoordinateManagerGrayskullARCTranslation) {
             EXPECT_EQ(arc_physical.y, arc_translated.y);
         }
     }
+}
+
+// Test that we assert properly if DRAM harvesting mask is non-zero for Grayskull.
+TEST(CoordinateManager, CoordinateManagerGrayskullDRAMHarvestingAssert) {
+    EXPECT_THROW(CoordinateManager::create_coordinate_manager(tt::ARCH::GRAYSKULL, 0, 1), std::runtime_error);
 }

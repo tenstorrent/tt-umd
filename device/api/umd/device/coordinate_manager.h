@@ -86,6 +86,15 @@ protected:
     virtual void fill_eth_logical_to_translated();
 
     /*
+     * Fills the logical to translated mapping for the DRAM cores.
+     * By default, translated coordinates are the same as physical coordinates.
+     * Derived coordinate managers that need to implement different mapping
+     * should override this method. Blackhole coordinate manager overrides
+     * this method to implement different mapping.
+     */
+    virtual void fill_dram_logical_to_translated();
+
+    /*
      * Fills the logical to translated mapping for the PCIE cores.
      * By default, translated coordinates are the same as physical coordinates.
      * Derived coordinate managers that need to implement different mapping
@@ -93,6 +102,14 @@ protected:
      * this method to implement different mapping.
      */
     virtual void fill_pcie_logical_to_translated();
+
+    /*
+     * Fills the logical to translated mapping for the ARC cores.
+     * By default, translated coordinates are the same as physical coordinates.
+     * Derived coordinate managers that need to implement different mapping
+     * should override this method.
+     */
+    virtual void fill_arc_logical_to_translated();
 
     std::map<tt_xy_pair, tt::umd::CoreCoord> tensix_logical_to_translated;
     std::map<tt_xy_pair, tt::umd::CoreCoord> tensix_logical_to_virtual;

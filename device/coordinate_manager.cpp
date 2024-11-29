@@ -70,9 +70,9 @@ std::map<tt_xy_pair, CoreCoord>& CoordinateManager::get_logical_to_virtual(CoreT
         case CoreType::ETH:
             return eth_logical_to_virtual;
         case CoreType::ARC:
-            return arc_logical_to_translated;
+            return arc_logical_to_virtual;
         case CoreType::PCIE:
-            return pcie_logical_to_translated;
+            return pcie_logical_to_virtual;
         default:
             throw std::runtime_error("Core type is not supported for getting logical to virtual mapping");
     }
@@ -287,6 +287,8 @@ void CoordinateManager::translate_dram_coords() {
             dram_physical_to_logical[dram_core] = CoreCoord(x, y, CoreType::DRAM, CoordSystem::LOGICAL);
         }
     }
+
+    fill_dram_logical_to_translated();
 }
 
 void CoordinateManager::translate_eth_coords() {
@@ -319,6 +321,8 @@ void CoordinateManager::translate_arc_coords() {
             arc_translated_to_logical[arc_core] = CoreCoord(x, y, CoreType::ARC, CoordSystem::LOGICAL);
         }
     }
+
+    fill_arc_logical_to_translated();
 }
 
 void CoordinateManager::translate_pcie_coords() {
@@ -331,12 +335,10 @@ void CoordinateManager::translate_pcie_coords() {
             pcie_logical_to_physical[{x, y}] =
                 CoreCoord(pcie_core.x, pcie_core.y, CoreType::PCIE, CoordSystem::PHYSICAL);
             pcie_physical_to_logical[pcie_core] = CoreCoord(x, y, CoreType::PCIE, CoordSystem::LOGICAL);
-
-            pcie_logical_to_translated[{x, y}] =
-                CoreCoord(pcie_core.x, pcie_core.y, CoreType::PCIE, CoordSystem::TRANSLATED);
-            pcie_translated_to_logical[pcie_core] = CoreCoord(x, y, CoreType::PCIE, CoordSystem::LOGICAL);
         }
     }
+
+    fill_pcie_logical_to_translated();
 }
 
 void CoordinateManager::fill_eth_logical_to_translated() {
@@ -353,9 +355,23 @@ void CoordinateManager::fill_eth_logical_to_translated() {
     }
 }
 
+void CoordinateManager::fill_dram_logical_to_translated() {
+    for (size_t x = 0; x < dram_grid_size.x; x++) {
+        for (size_t y = 0; y < dram_grid_size.y; y++) {
+            const CoreCoord physical_coord = dram_logical_to_physical[{x, y}];
+            const size_t translated_x = physical_coord.x;
+            const size_t translated_y = physical_coord.y;
+            dram_logical_to_translated[{x, y}] =
+                CoreCoord(translated_x, translated_y, CoreType::DRAM, CoordSystem::TRANSLATED);
+            dram_translated_to_logical[{translated_x, translated_y}] =
+                CoreCoord(x, y, CoreType::DRAM, CoordSystem::LOGICAL);
+        }
+    }
+}
+
 void CoordinateManager::fill_pcie_logical_to_translated() {
-    for (size_t x = 0; x < eth_grid_size.x; x++) {
-        for (size_t y = 0; y < eth_grid_size.y; y++) {
+    for (size_t x = 0; x < pcie_grid_size.x; x++) {
+        for (size_t y = 0; y < pcie_grid_size.y; y++) {
             const CoreCoord physical_coord = pcie_logical_to_physical[{x, y}];
             const size_t translated_x = physical_coord.x;
             const size_t translated_y = physical_coord.y;
@@ -363,6 +379,20 @@ void CoordinateManager::fill_pcie_logical_to_translated() {
                 CoreCoord(translated_x, translated_y, CoreType::PCIE, CoordSystem::TRANSLATED);
             pcie_translated_to_logical[{translated_x, translated_y}] =
                 CoreCoord(x, y, CoreType::PCIE, CoordSystem::LOGICAL);
+        }
+    }
+}
+
+void CoordinateManager::fill_arc_logical_to_translated() {
+    for (size_t x = 0; x < arc_grid_size.x; x++) {
+        for (size_t y = 0; y < arc_grid_size.y; y++) {
+            const CoreCoord physical_coord = arc_logical_to_physical[{x, y}];
+            const size_t translated_x = physical_coord.x;
+            const size_t translated_y = physical_coord.y;
+            arc_logical_to_translated[{x, y}] =
+                CoreCoord(translated_x, translated_y, CoreType::ARC, CoordSystem::TRANSLATED);
+            arc_translated_to_logical[{translated_x, translated_y}] =
+                CoreCoord(x, y, CoreType::ARC, CoordSystem::LOGICAL);
         }
     }
 }

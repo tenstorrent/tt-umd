@@ -203,7 +203,29 @@ TEST(CoordinateManager, CoordinateManagerGrayskullPCIETranslation) {
 
     for (size_t x = 0; x < pcie_grid_size.x; x++) {
         for (size_t y = 0; y < pcie_grid_size.y; y++) {
-            const CoreCoord arc_logical = CoreCoord(x, y, CoreType::PCIE, CoordSystem::LOGICAL);
+            const CoreCoord pcie_logical = CoreCoord(x, y, CoreType::PCIE, CoordSystem::LOGICAL);
+            const CoreCoord pcie_virtual = coordinate_manager->to(pcie_logical, CoordSystem::VIRTUAL);
+            const CoreCoord pcie_physical = coordinate_manager->to(pcie_logical, CoordSystem::PHYSICAL);
+            const CoreCoord pcie_translated = coordinate_manager->to(pcie_logical, CoordSystem::TRANSLATED);
+
+            EXPECT_EQ(pcie_virtual.x, pcie_physical.x);
+            EXPECT_EQ(pcie_virtual.y, pcie_physical.y);
+
+            EXPECT_EQ(pcie_physical.x, pcie_translated.x);
+            EXPECT_EQ(pcie_physical.y, pcie_translated.y);
+        }
+    }
+}
+
+// Test that virtual, physical and translated coordinates are the same for all logical ARC coordinates.
+TEST(CoordinateManager, CoordinateManagerGrayskullARCTranslation) {
+    std::shared_ptr<CoordinateManager> coordinate_manager =
+        CoordinateManager::get_coordinate_manager(tt::ARCH::GRAYSKULL);
+    const tt_xy_pair arc_grid_size = tt::umd::grayskull::ARC_GRID_SIZE;
+
+    for (size_t x = 0; x < arc_grid_size.x; x++) {
+        for (size_t y = 0; y < arc_grid_size.y; y++) {
+            const CoreCoord arc_logical = CoreCoord(x, y, CoreType::ARC, CoordSystem::LOGICAL);
             const CoreCoord arc_virtual = coordinate_manager->to(arc_logical, CoordSystem::VIRTUAL);
             const CoreCoord arc_physical = coordinate_manager->to(arc_logical, CoordSystem::PHYSICAL);
             const CoreCoord arc_translated = coordinate_manager->to(arc_logical, CoordSystem::TRANSLATED);

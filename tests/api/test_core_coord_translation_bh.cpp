@@ -252,6 +252,10 @@ TEST(CoordinateManager, CoordinateManagerBlackholeDRAMLogicalPhysicalMapping) {
     const std::vector<tt_xy_pair>& dram_cores = tt::umd::blackhole::DRAM_CORES;
 
     for (size_t harvesting_mask = 0; harvesting_mask < (1 << max_num_banks_harvested); harvesting_mask++) {
+        if (CoordinateManager::get_num_harvested(harvesting_mask) > 1) {
+            continue;
+        }
+
         std::shared_ptr<CoordinateManager> coordinate_manager =
             CoordinateManager::create_coordinate_manager(tt::ARCH::BLACKHOLE, 0, harvesting_mask);
 
@@ -262,7 +266,7 @@ TEST(CoordinateManager, CoordinateManagerBlackholeDRAMLogicalPhysicalMapping) {
 
         for (size_t x = 0; x < num_dram_banks - num_banks_harvested; x++) {
             for (size_t y = 0; y < num_noc_ports_per_bank; y++) {
-                const CoreCoord logical_coords = CoreCoord(x, y, CoreType::TENSIX, CoordSystem::LOGICAL);
+                const CoreCoord logical_coords = CoreCoord(x, y, CoreType::DRAM, CoordSystem::LOGICAL);
                 const CoreCoord physical_coords = coordinate_manager->to(logical_coords, CoordSystem::PHYSICAL);
                 logical_to_physical[logical_coords] = physical_coords;
 
@@ -295,6 +299,10 @@ TEST(CoordinateManager, CoordinateManagerBlackholeDRAMLogicalVirtualMapping) {
     const size_t num_noc_ports_per_bank = tt::umd::blackhole::NUM_NOC_PORTS_PER_DRAM_BANK;
 
     for (size_t harvesting_mask = 0; harvesting_mask < (1 << max_num_banks_harvested); harvesting_mask++) {
+        if (CoordinateManager::get_num_harvested(harvesting_mask) > 1) {
+            continue;
+        }
+
         std::shared_ptr<CoordinateManager> coordinate_manager =
             CoordinateManager::create_coordinate_manager(tt::ARCH::BLACKHOLE, 0, harvesting_mask);
 
@@ -305,7 +313,7 @@ TEST(CoordinateManager, CoordinateManagerBlackholeDRAMLogicalVirtualMapping) {
 
         for (size_t x = 0; x < num_dram_banks - num_harvested_banks; x++) {
             for (size_t y = 0; y < num_noc_ports_per_bank; y++) {
-                CoreCoord logical_coords = CoreCoord(x, y, CoreType::TENSIX, CoordSystem::LOGICAL);
+                CoreCoord logical_coords = CoreCoord(x, y, CoreType::DRAM, CoordSystem::LOGICAL);
                 CoreCoord virtual_coords = coordinate_manager->to(logical_coords, CoordSystem::VIRTUAL);
                 logical_to_virtual[logical_coords] = virtual_coords;
 
@@ -326,29 +334,66 @@ TEST(CoordinateManager, CoordinateManagerBlackholeDRAMLogicalVirtualMapping) {
     }
 }
 
-// Test equality of physical and translated coordinates for all logical coordinates for any harvesting mask.
-TEST(CoordinateManager, CoordinateManagerBlackholeDRAMPhysicalTranslatedEquality) {
+// Test DRAM translated mapping.
+TEST(CoordinateManager, CoordinateManagerBlackholeDRAMTranslatedMapping) {
     const size_t max_num_banks_harvested = tt::umd::blackhole::NUM_DRAM_BANKS;
     const size_t num_dram_banks = tt::umd::blackhole::NUM_DRAM_BANKS;
     const size_t num_noc_ports_per_bank = tt::umd::blackhole::NUM_NOC_PORTS_PER_DRAM_BANK;
 
     for (size_t harvesting_mask = 0; harvesting_mask < (1 << max_num_banks_harvested); harvesting_mask++) {
+        if (CoordinateManager::get_num_harvested(harvesting_mask) > 1) {
+            continue;
+        }
+
         std::shared_ptr<CoordinateManager> coordinate_manager =
             CoordinateManager::create_coordinate_manager(tt::ARCH::BLACKHOLE, 0, harvesting_mask);
+
+        std::map<CoreCoord, CoreCoord> logical_to_translated;
+        std::set<CoreCoord> translated_coord_set;
 
         const size_t num_harvested_banks = CoordinateManager::get_num_harvested(harvesting_mask);
 
         for (size_t x = 0; x < num_dram_banks - num_harvested_banks; x++) {
             for (size_t y = 0; y < num_noc_ports_per_bank; y++) {
-                const CoreCoord logical_coords = CoreCoord(x, y, CoreType::TENSIX, CoordSystem::LOGICAL);
-
-                const CoreCoord physical_coords = coordinate_manager->to(logical_coords, CoordSystem::PHYSICAL);
+                const CoreCoord logical_coords = CoreCoord(x, y, CoreType::DRAM, CoordSystem::LOGICAL);
                 const CoreCoord translated_coords = coordinate_manager->to(logical_coords, CoordSystem::TRANSLATED);
 
-                EXPECT_EQ(physical_coords.x, translated_coords.x);
-                EXPECT_EQ(physical_coords.y, translated_coords.y);
+                EXPECT_GE(translated_coords.x, tt::umd::blackhole::dram_translated_coordinate_start_x);
+                EXPECT_GE(translated_coords.y, tt::umd::blackhole::dram_translated_coordinate_start_y);
+
+                logical_to_translated[logical_coords] = translated_coords;
+
+                // Expect that logical to translated translation is 1-1 mapping. No duplicates for translated
+                // coordinates.
+                EXPECT_EQ(translated_coord_set.count(translated_coords), 0);
+                translated_coord_set.insert(translated_coords);
             }
         }
+
+        for (auto it : logical_to_translated) {
+            const CoreCoord translated_coords = it.second;
+            const CoreCoord logical_coords = coordinate_manager->to(translated_coords, CoordSystem::LOGICAL);
+
+            // Expect that reverse mapping of translated coordinates gives the same logical coordinates
+            // using which we got the translated coordinates.
+            EXPECT_EQ(it.first, logical_coords);
+        }
+    }
+}
+
+// Test that we cannot create a coordinate manager with more than one DRAM bank harvested.
+TEST(CoordinateManager, CoordinateManagerBlackholeDRAMPMoreThanOneDRAMBankHarvested) {
+    const size_t max_num_banks_harvested = tt::umd::blackhole::NUM_DRAM_BANKS;
+    const size_t num_dram_banks = tt::umd::blackhole::NUM_DRAM_BANKS;
+    const size_t num_noc_ports_per_bank = tt::umd::blackhole::NUM_NOC_PORTS_PER_DRAM_BANK;
+
+    for (size_t harvesting_mask = 0; harvesting_mask < (1 << max_num_banks_harvested); harvesting_mask++) {
+        if (CoordinateManager::get_num_harvested(harvesting_mask) <= 1) {
+            continue;
+        }
+
+        EXPECT_THROW(
+            CoordinateManager::create_coordinate_manager(tt::ARCH::BLACKHOLE, 0, harvesting_mask), std::runtime_error);
     }
 }
 

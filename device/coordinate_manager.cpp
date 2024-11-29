@@ -395,10 +395,19 @@ void CoordinateManager::fill_arc_logical_to_translated() {
     }
 }
 
-std::shared_ptr<CoordinateManager> CoordinateManager::create_coordinate_manager(
-    tt::ARCH arch, const size_t tensix_harvesting_mask, const size_t dram_harvesting_mask) {
+void CoordinateManager::assert_create_coordinate_manager(
+    const tt::ARCH arch, const size_t tensix_harvesting_mask, const size_t dram_harvesting_mask) {
     log_assert(
         !(arch != tt::ARCH::BLACKHOLE && dram_harvesting_mask != 0), "DRAM harvesting is supported only for Blackhole");
+
+    if (arch == tt::ARCH::BLACKHOLE) {
+        log_assert(get_num_harvested(dram_harvesting_mask) <= 1, "Only one DRAM bank can be harvested on Blackhole");
+    }
+}
+
+std::shared_ptr<CoordinateManager> CoordinateManager::create_coordinate_manager(
+    tt::ARCH arch, const size_t tensix_harvesting_mask, const size_t dram_harvesting_mask) {
+    assert_create_coordinate_manager(arch, tensix_harvesting_mask, dram_harvesting_mask);
 
     switch (arch) {
         case tt::ARCH::GRAYSKULL:
@@ -463,8 +472,7 @@ std::shared_ptr<CoordinateManager> CoordinateManager::create_coordinate_manager(
     const std::vector<tt_xy_pair>& arc_cores,
     const tt_xy_pair& pcie_grid_size,
     const std::vector<tt_xy_pair>& pcie_cores) {
-    log_assert(
-        !(arch != tt::ARCH::BLACKHOLE && dram_harvesting_mask != 0), "DRAM harvesting is supported only for Blackhole");
+    assert_create_coordinate_manager(arch, tensix_harvesting_mask, dram_harvesting_mask);
 
     switch (arch) {
         case tt::ARCH::GRAYSKULL:
@@ -526,4 +534,19 @@ size_t CoordinateManager::get_num_harvested(const size_t harvesting_mask) {
         mask >>= 1;
     }
     return num_harvested;
+}
+
+std::vector<size_t> CoordinateManager::get_harvested_indices(const size_t harvesting_mask) {
+    std::vector<size_t> indices;
+    size_t mask = harvesting_mask;
+    size_t index = 0;
+    while (mask > 0) {
+        if (mask & 1) {
+            indices.push_back(index);
+        }
+        mask >>= 1;
+        index++;
+    }
+
+    return indices;
 }

@@ -32,4 +32,8 @@ protected:
     void fill_tensix_logical_to_translated() override;
     void fill_eth_logical_to_translated() override;
     void fill_pcie_logical_to_translated() override;
+    void fill_dram_logical_to_translated() override;
+
+private:
+    void map_column_of_dram_banks(const size_t start_bank, const size_t end_bank, const size_t x_coord);
 };

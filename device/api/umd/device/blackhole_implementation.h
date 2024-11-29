@@ -180,6 +180,9 @@ static const size_t eth_translated_coordinate_start_y = 25;
 static const size_t pcie_translated_coordinate_start_x = 19;
 static const size_t pcie_translated_coordinate_start_y = 24;
 
+static const size_t dram_translated_coordinate_start_x = 17;
+static const size_t dram_translated_coordinate_start_y = 12;
+
 }  // namespace blackhole
 
 class blackhole_implementation : public architecture_implementation {

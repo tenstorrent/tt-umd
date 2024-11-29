@@ -50,6 +50,8 @@ public:
 
     static size_t get_num_harvested(const size_t harvesting_mask);
 
+    static std::vector<size_t> get_harvested_indices(const size_t harvesting_mask);
+
     CoordinateManager(CoordinateManager& other) = default;
 
     tt::umd::CoreCoord to(const tt::umd::CoreCoord core_coord, const CoordSystem coord_system);
@@ -61,6 +63,9 @@ private:
     tt::umd::CoreCoord to_logical(const tt::umd::CoreCoord core_coord);
     tt::umd::CoreCoord to_virtual(const tt::umd::CoreCoord core_coord);
     tt::umd::CoreCoord to_translated(const tt::umd::CoreCoord core_coord);
+
+    static void assert_create_coordinate_manager(
+        const tt::ARCH arch, const size_t tensix_harvesting_mask, const size_t dram_harvesting_mask);
 
 protected:
     virtual void translate_tensix_coords();

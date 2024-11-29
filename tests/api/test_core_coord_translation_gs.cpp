@@ -14,7 +14,7 @@ using namespace tt::umd;
 // when there is no harvesting.
 TEST(CoordinateManager, CoordinateManagerGrayskullNoHarvesting) {
     std::shared_ptr<CoordinateManager> coordinate_manager =
-        CoordinateManager::get_coordinate_manager(tt::ARCH::GRAYSKULL);
+        CoordinateManager::create_coordinate_manager(tt::ARCH::GRAYSKULL);
 
     // We expect full grid size since there is no harvesting.
     tt_xy_pair tensix_grid_size = tt::umd::grayskull::TENSIX_GRID_SIZE;
@@ -36,7 +36,7 @@ TEST(CoordinateManager, CoordinateManagerGrayskullNoHarvesting) {
 // the logical coordinates if the first row is harvested.
 TEST(CoordinateManager, CoordinateManagerGrayskullTopLeftCore) {
     std::shared_ptr<CoordinateManager> coordinate_manager =
-        CoordinateManager::get_coordinate_manager(tt::ARCH::GRAYSKULL);
+        CoordinateManager::create_coordinate_manager(tt::ARCH::GRAYSKULL);
 
     CoreCoord logical_coords = CoreCoord(0, 0, CoreType::TENSIX, CoordSystem::LOGICAL);
 
@@ -54,7 +54,7 @@ TEST(CoordinateManager, CoordinateManagerGrayskullTopLeftCore) {
 // the logical coordinates if the first row is harvested.
 TEST(CoordinateManager, CoordinateManagerGrayskullTopLeftCoreHarvesting) {
     std::shared_ptr<CoordinateManager> coordinate_manager =
-        CoordinateManager::get_coordinate_manager(tt::ARCH::GRAYSKULL, 1);
+        CoordinateManager::create_coordinate_manager(tt::ARCH::GRAYSKULL, 1);
 
     CoreCoord logical_coords = CoreCoord(0, 0, CoreType::TENSIX, CoordSystem::LOGICAL);
 
@@ -71,7 +71,7 @@ TEST(CoordinateManager, CoordinateManagerGrayskullTopLeftCoreHarvesting) {
 // We always expect that physical, virtual and translated coordinates are the same.
 TEST(CoordinateManager, CoordinateManagerGrayskullTranslatingCoords) {
     std::shared_ptr<CoordinateManager> coordinate_manager =
-        CoordinateManager::get_coordinate_manager(tt::ARCH::GRAYSKULL);
+        CoordinateManager::create_coordinate_manager(tt::ARCH::GRAYSKULL);
     tt_xy_pair tensix_grid_size = tt::umd::grayskull::TENSIX_GRID_SIZE;
 
     for (size_t x = 0; x < tensix_grid_size.x; x++) {
@@ -101,7 +101,7 @@ TEST(CoordinateManager, CoordinateManagerGrayskullLogicalPhysicalMapping) {
 
     for (size_t harvesting_mask = 0; harvesting_mask < (1 << max_num_harvested_y); harvesting_mask++) {
         std::shared_ptr<CoordinateManager> coordinate_manager =
-            CoordinateManager::get_coordinate_manager(tt::ARCH::GRAYSKULL, harvesting_mask);
+            CoordinateManager::create_coordinate_manager(tt::ARCH::GRAYSKULL, harvesting_mask);
 
         std::map<CoreCoord, CoreCoord> logical_to_physical;
         std::set<CoreCoord> physical_coords_set;
@@ -145,7 +145,7 @@ TEST(CoordinateManager, CoordinateManagerGrayskullLogicalVirtualMapping) {
 
     for (size_t harvesting_mask = 0; harvesting_mask < (1 << max_num_harvested_y); harvesting_mask++) {
         std::shared_ptr<CoordinateManager> coordinate_manager =
-            CoordinateManager::get_coordinate_manager(tt::ARCH::GRAYSKULL, harvesting_mask);
+            CoordinateManager::create_coordinate_manager(tt::ARCH::GRAYSKULL, harvesting_mask);
 
         std::map<CoreCoord, CoreCoord> logical_to_virtual;
         std::set<CoreCoord> virtual_coords_set;
@@ -179,7 +179,7 @@ TEST(CoordinateManager, CoordinateManagerGrayskullLogicalVirtualMapping) {
 // so logical coordinates should cover all physical coordinates.
 TEST(CoordinateManager, CoordinateManagerGrayskullDRAMNoHarvesting) {
     std::shared_ptr<CoordinateManager> coordinate_manager =
-        CoordinateManager::get_coordinate_manager(tt::ARCH::GRAYSKULL);
+        CoordinateManager::create_coordinate_manager(tt::ARCH::GRAYSKULL);
 
     const size_t num_dram_banks = tt::umd::grayskull::NUM_DRAM_BANKS;
     const std::vector<tt_xy_pair>& dram_cores = tt::umd::grayskull::DRAM_CORES;
@@ -198,7 +198,7 @@ TEST(CoordinateManager, CoordinateManagerGrayskullDRAMNoHarvesting) {
 // Test that virtual, physical and translated coordinates are the same for all logical PCIE coordinates.
 TEST(CoordinateManager, CoordinateManagerGrayskullPCIETranslation) {
     std::shared_ptr<CoordinateManager> coordinate_manager =
-        CoordinateManager::get_coordinate_manager(tt::ARCH::GRAYSKULL);
+        CoordinateManager::create_coordinate_manager(tt::ARCH::GRAYSKULL);
     const tt_xy_pair pcie_grid_size = tt::umd::grayskull::PCIE_GRID_SIZE;
 
     for (size_t x = 0; x < pcie_grid_size.x; x++) {
@@ -220,7 +220,7 @@ TEST(CoordinateManager, CoordinateManagerGrayskullPCIETranslation) {
 // Test that virtual, physical and translated coordinates are the same for all logical ARC coordinates.
 TEST(CoordinateManager, CoordinateManagerGrayskullARCTranslation) {
     std::shared_ptr<CoordinateManager> coordinate_manager =
-        CoordinateManager::get_coordinate_manager(tt::ARCH::GRAYSKULL);
+        CoordinateManager::create_coordinate_manager(tt::ARCH::GRAYSKULL);
     const tt_xy_pair arc_grid_size = tt::umd::grayskull::ARC_GRID_SIZE;
 
     for (size_t x = 0; x < arc_grid_size.x; x++) {

@@ -16,7 +16,7 @@ TEST(CoordinateManager, CoordinateManagerWormholeNoHarvesting) {
     const size_t harvesting_mask = 0;
 
     std::shared_ptr<CoordinateManager> coordinate_manager =
-        CoordinateManager::get_coordinate_manager(tt::ARCH::WORMHOLE_B0, 0, 0);
+        CoordinateManager::create_coordinate_manager(tt::ARCH::WORMHOLE_B0, 0, 0);
 
     // We expect full grid size since there is no harvesting.
     tt_xy_pair tensix_grid_size = tt::umd::wormhole::TENSIX_GRID_SIZE;
@@ -40,7 +40,7 @@ TEST(CoordinateManager, CoordinateManagerWormholeTopLeftCore) {
     const size_t harvesting_mask = 1;
 
     std::shared_ptr<CoordinateManager> coordinate_manager =
-        CoordinateManager::get_coordinate_manager(tt::ARCH::WORMHOLE_B0, harvesting_mask);
+        CoordinateManager::create_coordinate_manager(tt::ARCH::WORMHOLE_B0, harvesting_mask);
     tt_xy_pair tensix_grid_size = tt::umd::wormhole::TENSIX_GRID_SIZE;
 
     CoreCoord logical_coords = CoreCoord(0, 0, CoreType::TENSIX, CoordSystem::LOGICAL);
@@ -63,7 +63,7 @@ TEST(CoordinateManager, CoordinateManagerWormholeLogicalPhysicalMapping) {
 
     for (size_t harvesting_mask = 0; harvesting_mask < (1 << max_num_harvested_y); harvesting_mask++) {
         std::shared_ptr<CoordinateManager> coordinate_manager =
-            CoordinateManager::get_coordinate_manager(tt::ARCH::WORMHOLE_B0, harvesting_mask);
+            CoordinateManager::create_coordinate_manager(tt::ARCH::WORMHOLE_B0, harvesting_mask);
 
         std::map<CoreCoord, CoreCoord> logical_to_physical;
         std::set<CoreCoord> physical_coords_set;
@@ -107,7 +107,7 @@ TEST(CoordinateManager, CoordinateManagerWormholeLogicalVirtualMapping) {
 
     for (size_t harvesting_mask = 0; harvesting_mask < (1 << max_num_harvested_y); harvesting_mask++) {
         std::shared_ptr<CoordinateManager> coordinate_manager =
-            CoordinateManager::get_coordinate_manager(tt::ARCH::WORMHOLE_B0, harvesting_mask);
+            CoordinateManager::create_coordinate_manager(tt::ARCH::WORMHOLE_B0, harvesting_mask);
 
         std::map<CoreCoord, CoreCoord> logical_to_virtual;
         std::set<CoreCoord> virtual_coords_set;
@@ -151,7 +151,7 @@ TEST(CoordinateManager, CoordinateManagerWormholeLogicalTranslatedTopLeft) {
     // everything is harvested.
     for (size_t harvesting_mask = 0; harvesting_mask < (1 << max_num_harvested_y) - 1; harvesting_mask++) {
         std::shared_ptr<CoordinateManager> coordinate_manager =
-            CoordinateManager::get_coordinate_manager(tt::ARCH::WORMHOLE_B0, harvesting_mask);
+            CoordinateManager::create_coordinate_manager(tt::ARCH::WORMHOLE_B0, harvesting_mask);
 
         tt_xy_pair tensix_grid_size = tt::umd::wormhole::TENSIX_GRID_SIZE;
 
@@ -175,7 +175,7 @@ TEST(CoordinateManager, CoordinateManagerWormholeLogicalTranslatedTopLeft) {
 // so logical coordinates should cover all physical coordinates.
 TEST(CoordinateManager, CoordinateManagerWormholeDRAMNoHarvesting) {
     std::shared_ptr<CoordinateManager> coordinate_manager =
-        CoordinateManager::get_coordinate_manager(tt::ARCH::WORMHOLE_B0);
+        CoordinateManager::create_coordinate_manager(tt::ARCH::WORMHOLE_B0);
 
     const size_t num_dram_banks = tt::umd::wormhole::NUM_DRAM_BANKS;
     const size_t num_noc_ports_per_bank = tt::umd::wormhole::NUM_NOC_PORTS_PER_DRAM_BANK;
@@ -202,7 +202,7 @@ TEST(CoordinateManager, CoordinateManagerWormholeDRAMNoHarvesting) {
 // harvesting.
 TEST(CoordinateManager, CoordinateManagerWormholeETHPhysicalEqualVirtual) {
     std::shared_ptr<CoordinateManager> coordinate_manager =
-        CoordinateManager::get_coordinate_manager(tt::ARCH::WORMHOLE_B0);
+        CoordinateManager::create_coordinate_manager(tt::ARCH::WORMHOLE_B0);
     const tt_xy_pair eth_grid_size = tt::umd::wormhole::ETH_GRID_SIZE;
 
     for (size_t x = 0; x < eth_grid_size.x; x++) {
@@ -220,7 +220,7 @@ TEST(CoordinateManager, CoordinateManagerWormholeETHPhysicalEqualVirtual) {
 // Test translation of logical to translated ethernet coordinates.
 TEST(CoordinateManager, CoordinateManagerWormholeETHLogicalToTranslated) {
     std::shared_ptr<CoordinateManager> coordinate_manager =
-        CoordinateManager::get_coordinate_manager(tt::ARCH::WORMHOLE_B0);
+        CoordinateManager::create_coordinate_manager(tt::ARCH::WORMHOLE_B0);
     const tt_xy_pair eth_grid_size = tt::umd::wormhole::ETH_GRID_SIZE;
 
     for (size_t x = 0; x < eth_grid_size.x; x++) {
@@ -237,7 +237,7 @@ TEST(CoordinateManager, CoordinateManagerWormholeETHLogicalToTranslated) {
 // Test that virtual, physical and translated coordinates are the same for all logical coordinates.
 TEST(CoordinateManager, CoordinateManagerWormholeARCTranslation) {
     std::shared_ptr<CoordinateManager> coordinate_manager =
-        CoordinateManager::get_coordinate_manager(tt::ARCH::WORMHOLE_B0);
+        CoordinateManager::create_coordinate_manager(tt::ARCH::WORMHOLE_B0);
     const tt_xy_pair arc_grid_size = tt::umd::wormhole::ARC_GRID_SIZE;
 
     for (size_t x = 0; x < arc_grid_size.x; x++) {
@@ -259,7 +259,7 @@ TEST(CoordinateManager, CoordinateManagerWormholeARCTranslation) {
 // Test that virtual, physical and translated coordinates are the same for all logical PCIE coordinates.
 TEST(CoordinateManager, CoordinateManagerWormholePCIETranslation) {
     std::shared_ptr<CoordinateManager> coordinate_manager =
-        CoordinateManager::get_coordinate_manager(tt::ARCH::WORMHOLE_B0);
+        CoordinateManager::create_coordinate_manager(tt::ARCH::WORMHOLE_B0);
     const tt_xy_pair pcie_grid_size = tt::umd::wormhole::PCIE_GRID_SIZE;
 
     for (size_t x = 0; x < pcie_grid_size.x; x++) {

@@ -5,6 +5,7 @@
  */
 #include "umd/device/coordinate_manager.h"
 
+#include "logger.hpp"
 #include "umd/device/blackhole_coordinate_manager.h"
 #include "umd/device/grayskull_coordinate_manager.h"
 #include "umd/device/wormhole_coordinate_manager.h"
@@ -394,11 +395,14 @@ void CoordinateManager::fill_arc_logical_to_translated() {
     }
 }
 
-std::shared_ptr<CoordinateManager> CoordinateManager::get_coordinate_manager(
+std::shared_ptr<CoordinateManager> CoordinateManager::create_coordinate_manager(
     tt::ARCH arch, const size_t tensix_harvesting_mask, const size_t dram_harvesting_mask) {
+    log_assert(
+        !(arch != tt::ARCH::BLACKHOLE && dram_harvesting_mask != 0), "DRAM harvesting is supported only for Blackhole");
+
     switch (arch) {
         case tt::ARCH::GRAYSKULL:
-            return get_coordinate_manager(
+            return create_coordinate_manager(
                 arch,
                 tt::umd::grayskull::TENSIX_GRID_SIZE,
                 tt::umd::grayskull::TENSIX_CORES,
@@ -413,7 +417,7 @@ std::shared_ptr<CoordinateManager> CoordinateManager::get_coordinate_manager(
                 tt::umd::grayskull::PCIE_GRID_SIZE,
                 tt::umd::grayskull::PCIE_CORES);
         case tt::ARCH::WORMHOLE_B0:
-            return get_coordinate_manager(
+            return create_coordinate_manager(
                 arch,
                 tt::umd::wormhole::TENSIX_GRID_SIZE,
                 tt::umd::wormhole::TENSIX_CORES,
@@ -428,7 +432,7 @@ std::shared_ptr<CoordinateManager> CoordinateManager::get_coordinate_manager(
                 tt::umd::wormhole::PCIE_GRID_SIZE,
                 tt::umd::wormhole::PCIE_CORES);
         case tt::ARCH::BLACKHOLE:
-            return get_coordinate_manager(
+            return create_coordinate_manager(
                 arch,
                 tt::umd::blackhole::TENSIX_GRID_SIZE,
                 tt::umd::blackhole::TENSIX_CORES,
@@ -445,7 +449,7 @@ std::shared_ptr<CoordinateManager> CoordinateManager::get_coordinate_manager(
     }
 }
 
-std::shared_ptr<CoordinateManager> CoordinateManager::get_coordinate_manager(
+std::shared_ptr<CoordinateManager> CoordinateManager::create_coordinate_manager(
     tt::ARCH arch,
     const tt_xy_pair& tensix_grid_size,
     const std::vector<tt_xy_pair>& tensix_cores,
@@ -459,6 +463,9 @@ std::shared_ptr<CoordinateManager> CoordinateManager::get_coordinate_manager(
     const std::vector<tt_xy_pair>& arc_cores,
     const tt_xy_pair& pcie_grid_size,
     const std::vector<tt_xy_pair>& pcie_cores) {
+    log_assert(
+        !(arch != tt::ARCH::BLACKHOLE && dram_harvesting_mask != 0), "DRAM harvesting is supported only for Blackhole");
+
     switch (arch) {
         case tt::ARCH::GRAYSKULL:
             return std::make_shared<GrayskullCoordinateManager>(

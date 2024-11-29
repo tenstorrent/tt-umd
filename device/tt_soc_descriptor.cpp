@@ -170,7 +170,8 @@ void tt_SocDescriptor::load_core_descriptors_from_device_descriptor(YAML::Node &
 
 void tt_SocDescriptor::create_coordinate_manager(
     const std::size_t tensix_harvesting_mask, const std::size_t dram_harvesting_mask) {
-    coordinate_manager = CoordinateManager::get_coordinate_manager(arch, tensix_harvesting_mask, dram_harvesting_mask);
+    coordinate_manager =
+        CoordinateManager::create_coordinate_manager(arch, tensix_harvesting_mask, dram_harvesting_mask);
 }
 
 tt::umd::CoreCoord tt_SocDescriptor::to(const tt::umd::CoreCoord core_coord, const CoordSystem coord_system) {

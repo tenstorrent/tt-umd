@@ -30,7 +30,7 @@ public:
         const tt_xy_pair& pcie_grid_size,
         const std::vector<tt_xy_pair>& pcie_cores);
 
-    static std::shared_ptr<CoordinateManager> get_coordinate_manager(
+    static std::shared_ptr<CoordinateManager> create_coordinate_manager(
         tt::ARCH arch,
         const tt_xy_pair& tensix_grid_size,
         const std::vector<tt_xy_pair>& tensix_cores,
@@ -45,7 +45,7 @@ public:
         const tt_xy_pair& pcie_grid_size,
         const std::vector<tt_xy_pair>& pcie_cores);
 
-    static std::shared_ptr<CoordinateManager> get_coordinate_manager(
+    static std::shared_ptr<CoordinateManager> create_coordinate_manager(
         tt::ARCH arch, const size_t tensix_harvesting_mask = 0, const size_t dram_harvesting_mask = 0);
 
     CoordinateManager(CoordinateManager& other) = default;

@@ -4,7 +4,6 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 #include "gtest/gtest.h"
-#include "tests/test_utils/soc_desc_test_utils.hpp"
 #include "umd/device/blackhole_implementation.h"
 #include "umd/device/coordinate_manager.h"
 
@@ -65,7 +64,7 @@ TEST(CoordinateManager, CoordinateManagerBlackholeLogicalPhysicalMapping) {
         std::set<CoreCoord> physical_coords_set;
         tt_xy_pair tensix_grid_size = tt::umd::blackhole::TENSIX_GRID_SIZE;
 
-        size_t num_harvested_x = test_utils::get_num_harvested(harvesting_mask);
+        size_t num_harvested_x = CoordinateManager::get_num_harvested(harvesting_mask);
 
         for (size_t x = 0; x < tensix_grid_size.x - num_harvested_x; x++) {
             for (size_t y = 0; y < tensix_grid_size.y; y++) {
@@ -107,7 +106,7 @@ TEST(CoordinateManager, CoordinateManagerBlackholeLogicalVirtualMapping) {
         std::set<CoreCoord> virtual_coords_set;
         tt_xy_pair tensix_grid_size = tt::umd::blackhole::TENSIX_GRID_SIZE;
 
-        size_t num_harvested_x = test_utils::get_num_harvested(harvesting_mask);
+        size_t num_harvested_x = CoordinateManager::get_num_harvested(harvesting_mask);
 
         for (size_t x = 0; x < tensix_grid_size.x - num_harvested_x; x++) {
             for (size_t y = 0; y < tensix_grid_size.y; y++) {
@@ -149,7 +148,7 @@ TEST(CoordinateManager, CoordinateManagerBlackholeLogicalTranslatedMapping) {
         std::set<CoreCoord> translated_coords_set;
         tt_xy_pair tensix_grid_size = tt::umd::blackhole::TENSIX_GRID_SIZE;
 
-        size_t num_harvested_x = test_utils::get_num_harvested(harvesting_mask);
+        size_t num_harvested_x = CoordinateManager::get_num_harvested(harvesting_mask);
 
         for (size_t x = 0; x < tensix_grid_size.x - num_harvested_x; x++) {
             for (size_t y = 0; y < tensix_grid_size.y; y++) {
@@ -186,7 +185,7 @@ TEST(CoordinateManager, CoordinateManagerBlackholeVirtualEqualTranslated) {
         std::shared_ptr<CoordinateManager> coordinate_manager =
             CoordinateManager::create_coordinate_manager(tt::ARCH::BLACKHOLE, harvesting_mask);
 
-        size_t num_harvested_x = test_utils::get_num_harvested(harvesting_mask);
+        size_t num_harvested_x = CoordinateManager::get_num_harvested(harvesting_mask);
 
         for (size_t x = 0; x < tt::umd::blackhole::TENSIX_GRID_SIZE.x - num_harvested_x; x++) {
             for (size_t y = 0; y < tt::umd::blackhole::TENSIX_GRID_SIZE.y; y++) {
@@ -259,7 +258,7 @@ TEST(CoordinateManager, CoordinateManagerBlackholeDRAMLogicalPhysicalMapping) {
         std::map<CoreCoord, CoreCoord> logical_to_physical;
         std::set<CoreCoord> physical_coords_set;
 
-        size_t num_banks_harvested = test_utils::get_num_harvested(harvesting_mask);
+        size_t num_banks_harvested = CoordinateManager::get_num_harvested(harvesting_mask);
 
         for (size_t x = 0; x < num_dram_banks - num_banks_harvested; x++) {
             for (size_t y = 0; y < num_noc_ports_per_bank; y++) {
@@ -302,7 +301,7 @@ TEST(CoordinateManager, CoordinateManagerBlackholeDRAMLogicalVirtualMapping) {
         std::map<CoreCoord, CoreCoord> logical_to_virtual;
         std::set<CoreCoord> virtual_coords_set;
 
-        size_t num_harvested_banks = test_utils::get_num_harvested(harvesting_mask);
+        size_t num_harvested_banks = CoordinateManager::get_num_harvested(harvesting_mask);
 
         for (size_t x = 0; x < num_dram_banks - num_harvested_banks; x++) {
             for (size_t y = 0; y < num_noc_ports_per_bank; y++) {
@@ -337,7 +336,7 @@ TEST(CoordinateManager, CoordinateManagerBlackholeDRAMPhysicalTranslatedEquality
         std::shared_ptr<CoordinateManager> coordinate_manager =
             CoordinateManager::create_coordinate_manager(tt::ARCH::BLACKHOLE, 0, harvesting_mask);
 
-        const size_t num_harvested_banks = test_utils::get_num_harvested(harvesting_mask);
+        const size_t num_harvested_banks = CoordinateManager::get_num_harvested(harvesting_mask);
 
         for (size_t x = 0; x < num_dram_banks - num_harvested_banks; x++) {
             for (size_t y = 0; y < num_noc_ports_per_bank; y++) {

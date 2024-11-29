@@ -3,10 +3,7 @@
  *
  * SPDX-License-Identifier: Apache-2.0
  */
-#include <stdexcept>
-
 #include "gtest/gtest.h"
-#include "tests/test_utils/soc_desc_test_utils.hpp"
 #include "umd/device/coordinate_manager.h"
 #include "umd/device/grayskull_implementation.h"
 
@@ -108,7 +105,7 @@ TEST(CoordinateManager, CoordinateManagerGrayskullLogicalPhysicalMapping) {
         std::map<CoreCoord, CoreCoord> logical_to_physical;
         std::set<CoreCoord> physical_coords_set;
 
-        size_t num_harvested_y = test_utils::get_num_harvested(harvesting_mask);
+        size_t num_harvested_y = CoordinateManager::get_num_harvested(harvesting_mask);
 
         for (size_t x = 0; x < tensix_grid_size.x; x++) {
             for (size_t y = 0; y < tensix_grid_size.y - num_harvested_y; y++) {
@@ -152,7 +149,7 @@ TEST(CoordinateManager, CoordinateManagerGrayskullLogicalVirtualMapping) {
         std::map<CoreCoord, CoreCoord> logical_to_virtual;
         std::set<CoreCoord> virtual_coords_set;
 
-        size_t num_harvested_y = test_utils::get_num_harvested(harvesting_mask);
+        size_t num_harvested_y = CoordinateManager::get_num_harvested(harvesting_mask);
 
         for (size_t x = 0; x < tensix_grid_size.x; x++) {
             for (size_t y = 0; y < tensix_grid_size.y - num_harvested_y; y++) {

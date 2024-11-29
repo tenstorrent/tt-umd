@@ -48,6 +48,8 @@ public:
     static std::shared_ptr<CoordinateManager> create_coordinate_manager(
         tt::ARCH arch, const size_t tensix_harvesting_mask = 0, const size_t dram_harvesting_mask = 0);
 
+    static size_t get_num_harvested(const size_t harvesting_mask);
+
     CoordinateManager(CoordinateManager& other) = default;
 
     tt::umd::CoreCoord to(const tt::umd::CoreCoord core_coord, const CoordSystem coord_system);

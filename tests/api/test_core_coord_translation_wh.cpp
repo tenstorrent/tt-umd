@@ -4,7 +4,6 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 #include "gtest/gtest.h"
-#include "tests/test_utils/soc_desc_test_utils.hpp"
 #include "umd/device/coordinate_manager.h"
 #include "umd/device/wormhole_implementation.h"
 
@@ -69,7 +68,7 @@ TEST(CoordinateManager, CoordinateManagerWormholeLogicalPhysicalMapping) {
         std::set<CoreCoord> physical_coords_set;
         tt_xy_pair tensix_grid_size = tt::umd::wormhole::TENSIX_GRID_SIZE;
 
-        size_t num_harvested_y = test_utils::get_num_harvested(harvesting_mask);
+        size_t num_harvested_y = CoordinateManager::get_num_harvested(harvesting_mask);
 
         for (size_t x = 0; x < tensix_grid_size.x; x++) {
             for (size_t y = 0; y < tensix_grid_size.y - num_harvested_y; y++) {
@@ -113,7 +112,7 @@ TEST(CoordinateManager, CoordinateManagerWormholeLogicalVirtualMapping) {
         std::set<CoreCoord> virtual_coords_set;
         tt_xy_pair tensix_grid_size = tt::umd::wormhole::TENSIX_GRID_SIZE;
 
-        size_t num_harvested_y = test_utils::get_num_harvested(harvesting_mask);
+        size_t num_harvested_y = CoordinateManager::get_num_harvested(harvesting_mask);
 
         for (size_t x = 0; x < tensix_grid_size.x; x++) {
             for (size_t y = 0; y < tensix_grid_size.y - num_harvested_y; y++) {
@@ -155,7 +154,7 @@ TEST(CoordinateManager, CoordinateManagerWormholeLogicalTranslatedTopLeft) {
 
         tt_xy_pair tensix_grid_size = tt::umd::wormhole::TENSIX_GRID_SIZE;
 
-        size_t num_harvested_y = test_utils::get_num_harvested(harvesting_mask);
+        size_t num_harvested_y = CoordinateManager::get_num_harvested(harvesting_mask);
 
         CoreCoord logical_coords = CoreCoord(0, 0, CoreType::TENSIX, CoordSystem::LOGICAL);
         CoreCoord physical_coords = coordinate_manager->to(logical_coords, CoordSystem::PHYSICAL);

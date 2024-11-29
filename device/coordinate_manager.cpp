@@ -515,3 +515,15 @@ std::shared_ptr<CoordinateManager> CoordinateManager::create_coordinate_manager(
 
     throw std::runtime_error("Invalid architecture for creating coordinate manager");
 }
+
+size_t CoordinateManager::get_num_harvested(const size_t harvesting_mask) {
+    // Counts the number of 1 bits in harvesting mask, representing
+    // the number of harvested tensix rows, tensix columns, DRAM banks...
+    size_t num_harvested = 0;
+    size_t mask = harvesting_mask;
+    while (mask > 0) {
+        num_harvested += mask & 1;
+        mask >>= 1;
+    }
+    return num_harvested;
+}

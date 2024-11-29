@@ -66,7 +66,6 @@ using tt::umd::semver_t;
 class PCIDevice {
     const std::string device_path;   // Path to character device: /dev/tenstorrent/N
     const int pci_device_num;        // N in /dev/tenstorrent/N
-    const int logical_id;            // Unique identifier for each device in entire network topology
     const int pci_device_file_desc;  // Character device file descriptor
     const PciDeviceInfo info;        // PCI device info
     const int numa_node;             // -1 if non-NUMA
@@ -93,9 +92,8 @@ public:
      * sysfs, and maps device memory region(s) into the process address space.
      *
      * @param pci_device_number     N in /dev/tenstorrent/N
-     * @param logical_device_id     unique identifier for this device in the network topology
      */
-    PCIDevice(int pci_device_number, int logical_device_id = 0);
+    PCIDevice(int pci_device_number);
 
     /**
      * PCIDevice destructor.
@@ -128,13 +126,6 @@ public:
      * TODO: target for removal; upper layers should not care about this.
      */
     int get_device_num() const { return pci_device_num; }
-
-    /**
-     * @return unique integer for each device in entire network topology
-     * TODO: target for removal; upper layers shouldn't to pass this in here. It
-     * is unused by this class.
-     */
-    int get_logical_id() const { return logical_id; }
 
     /**
      * @return PCI device id
@@ -179,18 +170,18 @@ public:
         tt_xy_pair end,
         std::uint64_t address,
         bool multicast,
-        std::unordered_map<chip_id_t, std::unordered_map<tt_xy_pair, tt_xy_pair>> &harvested_coord_translation,
+        std::unordered_map<tt_xy_pair, tt_xy_pair> &harvested_coord_translation,
         std::uint64_t ordering);
     dynamic_tlb set_dynamic_tlb(
         unsigned int tlb_index,
         tt_xy_pair target,
         std::uint64_t address,
-        std::unordered_map<chip_id_t, std::unordered_map<tt_xy_pair, tt_xy_pair>> &harvested_coord_translation,
+        std::unordered_map<tt_xy_pair, tt_xy_pair> &harvested_coord_translation,
         std::uint64_t ordering = tt::umd::tlb_data::Relaxed);
     dynamic_tlb set_dynamic_tlb_broadcast(
         unsigned int tlb_index,
         std::uint64_t address,
-        std::unordered_map<chip_id_t, std::unordered_map<tt_xy_pair, tt_xy_pair>> &harvested_coord_translation,
+        std::unordered_map<tt_xy_pair, tt_xy_pair> &harvested_coord_translation,
         tt_xy_pair start,
         tt_xy_pair end,
         std::uint64_t ordering = tt::umd::tlb_data::Relaxed);

@@ -30,7 +30,7 @@ enum BoardType : uint32_t {
     E150 = 2,
     P150A = 3,
     GALAXY = 4,
-    DEFAULT = 5,
+    UNKNOWN = 5,
 };
 
 class tt_ClusterDescriptor {

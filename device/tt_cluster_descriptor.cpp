@@ -750,15 +750,15 @@ void tt_ClusterDescriptor::load_chips_from_connectivity_descriptor(YAML::Node &y
                 log_warning(
                     LogSiliconDriver,
                     "Unknown board type for chip {}. This might happen because chip is running old firmware. "
-                    "Defaulting to DEFAULT",
+                    "Defaulting to UNKNOWN",
                     chip);
-                board_type = BoardType::DEFAULT;
+                board_type = BoardType::UNKNOWN;
             }
             desc.chip_board_type.insert({chip, board_type});
         }
     } else {
         for (const auto &chip : desc.all_chips) {
-            desc.chip_board_type.insert({chip, BoardType::DEFAULT});
+            desc.chip_board_type.insert({chip, BoardType::UNKNOWN});
         }
     }
 }
@@ -872,16 +872,18 @@ int tt_ClusterDescriptor::get_ethernet_link_distance(chip_id_t chip_a, chip_id_t
 }
 
 BoardType tt_ClusterDescriptor::get_board_type(chip_id_t chip_id) const {
-    if (chip_board_type.find(chip_id) == chip_board_type.end()) {
-        return BoardType::DEFAULT;
-    }
+    log_assert(
+        chip_board_type.find(chip_id) != chip_board_type.end(),
+        "Chip {} does not have a board type in the cluster descriptor",
+        chip_id);
     return chip_board_type.at(chip_id);
 }
 
 tt::ARCH tt_ClusterDescriptor::get_arch(chip_id_t chip_id) const {
-    if (chip_arch.find(chip_id) == chip_arch.end()) {
-        return tt::ARCH::Invalid;
-    }
+    log_assert(
+        chip_arch.find(chip_id) != chip_arch.end(),
+        "Chip {} does not have an architecture in the cluster descriptor",
+        chip_id);
     return chip_arch.at(chip_id);
 }
 

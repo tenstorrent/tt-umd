@@ -6,11 +6,8 @@
 #include "umd/device/coordinate_manager.h"
 
 #include "umd/device/blackhole_coordinate_manager.h"
-#include "umd/device/blackhole_implementation.h"
 #include "umd/device/grayskull_coordinate_manager.h"
-#include "umd/device/grayskull_implementation.h"
 #include "umd/device/wormhole_coordinate_manager.h"
-#include "umd/device/wormhole_implementation.h"
 
 using namespace tt::umd;
 

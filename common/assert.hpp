@@ -45,6 +45,7 @@ void tt_assert_message(std::ostream& os, T const& t, Ts const&... ts) {
 template <typename... Ts>
 [[noreturn]] void tt_throw(
     char const* file, int line, const std::string& assert_type, char const* condition_str, Ts const&... messages) {
+#if 0
     std::stringstream trace_message_ss = {};
     trace_message_ss << assert_type << " @ " << file << ":" << line << ": " << condition_str << std::endl;
     if constexpr (sizeof...(messages) > 0) {
@@ -56,6 +57,8 @@ template <typename... Ts>
     trace_message_ss << std::flush;
     LoggerDevice::get().flush();
     throw std::runtime_error(trace_message_ss.str());
+#endif
+    std::terminate();
 }
 
 template <typename... Ts>

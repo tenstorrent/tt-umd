@@ -58,10 +58,10 @@ TEST_F(LoggerTest, BasicLogging) {
     tt::umd::logger::initialize(options);
 
     // Write some test messages
-    UMD_INFO("Test message 1");
-    UMD_INFO("Test message 2");
-    UMD_INFO("Test message 4");
-    UMD_INFO("Test message 3");
+    LOG_INFO("Test message 1");
+    LOG_INFO("Test message 2");
+    LOG_INFO("Test message 4");
+    LOG_INFO("Test message 3");
 
     // Force flush by destroying the logger
     spdlog::drop_all();
@@ -83,9 +83,9 @@ TEST_F(LoggerTest, LogLevels) {
     options.log_level = spdlog::level::info;  // Set to INFO level
     tt::umd::logger::initialize(options);
 
-    UMD_DEBUG("Debug message");  // Shouldn't appear
-    UMD_INFO("Info message");    // Should appear
-    UMD_ERROR("Error message");  // Should appear
+    LOG_DEBUG("Debug message");  // Shouldn't appear
+    LOG_INFO("Info message");    // Should appear
+    LOG_ERROR("Error message");  // Should appear
 
     spdlog::drop_all();
 
@@ -103,7 +103,7 @@ TEST_F(LoggerTest, FormatPatterns) {
     options.pattern = "[%l] %v";  // Level and message
     tt::umd::logger::initialize(options);
 
-    UMD_INFO("Test message");
+    LOG_INFO("Test message");
 
     spdlog::drop_all();
 
@@ -121,12 +121,12 @@ TEST_F(LoggerTest, MultipleInitialization) {
     // Initialize multiple times - should use first initialization only
     tt::umd::logger::initialize(options);
 
-    UMD_INFO("First message");
+    LOG_INFO("First message");
 
     options.pattern = "DIFFERENT: %v";
     tt::umd::logger::initialize(options);  // Should be ignored
 
-    UMD_INFO("Second message");
+    LOG_INFO("Second message");
 
     spdlog::drop_all();
 
@@ -155,7 +155,7 @@ TEST_F(LoggerTest, DiskPerformance) {
     {
         Timestamp ts;
         for (size_t i = 0; i < num_messages; i++) {
-            UMD_INFO("Test message");
+            LOG_INFO("Test message");
         }
         std::cout << ts.to_string() << " for " << num_messages << " messages to disk" << std::endl;
     }
@@ -164,7 +164,7 @@ TEST_F(LoggerTest, DiskPerformance) {
     {
         Timestamp ts;
         for (size_t i = 0; i < num_messages; i++) {
-            UMD_TRACE("Shouldn't be logged");
+            LOG_TRACE("Shouldn't be logged");
         }
         std::cout << ts.to_string() << " for " << num_messages << " messages below level threshold" << std::endl;
     }
@@ -182,7 +182,7 @@ TEST_F(LoggerTest, StderrPerformance) {
     {
         Timestamp ts;
         for (size_t i = 0; i < num_messages; i++) {
-            UMD_INFO("Test message");
+            LOG_INFO("Test message");
         }
         std::cout << ts.to_string() << " for " << num_messages << " messages to stderr" << std::endl;
     }
@@ -191,7 +191,7 @@ TEST_F(LoggerTest, StderrPerformance) {
     {
         Timestamp ts;
         for (size_t i = 0; i < num_messages; i++) {
-            UMD_TRACE("Shouldn't be logged");
+            LOG_TRACE("Shouldn't be logged");
         }
         std::cout << ts.to_string() << " for " << num_messages << " messages below level threshold" << std::endl;
     }
@@ -209,7 +209,7 @@ TEST_F(LoggerTest, StderrAndDiskPerformance) {
     {
         Timestamp ts;
         for (size_t i = 0; i < num_messages; i++) {
-            UMD_INFO("Test message");
+            LOG_INFO("Test message");
         }
         std::cout << ts.to_string() << " for " << num_messages << " messages to disk & stderr" << std::endl;
     }
@@ -218,7 +218,7 @@ TEST_F(LoggerTest, StderrAndDiskPerformance) {
     {
         Timestamp ts;
         for (size_t i = 0; i < num_messages; i++) {
-            UMD_TRACE("Shouldn't be logged");
+            LOG_TRACE("Shouldn't be logged");
         }
         std::cout << ts.to_string() << " for " << num_messages << " messages below level threshold" << std::endl;
     }

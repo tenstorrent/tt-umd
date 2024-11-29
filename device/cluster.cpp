@@ -36,6 +36,8 @@
 #include <utility>
 #include <vector>
 
+#include "fmt/ranges.h"
+#include "fmt/std.h"
 #include "logger.hpp"
 #include "umd/device/architecture_implementation.h"
 #include "umd/device/driver_atomics.h"

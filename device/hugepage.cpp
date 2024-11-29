@@ -9,6 +9,8 @@
 #include <fcntl.h>     // for O_RDWR and other constants
 #include <sys/stat.h>  // for umask
 
+#include <fstream>
+
 #include "cpuset_lib.hpp"
 #include "logger.hpp"
 

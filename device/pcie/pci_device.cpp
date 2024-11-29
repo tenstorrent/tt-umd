@@ -15,6 +15,8 @@
 
 #include <cstdint>
 #include <cstring>  // for memcpy
+#include <filesystem>
+#include <fstream>
 #include <vector>
 
 #include "assert.hpp"

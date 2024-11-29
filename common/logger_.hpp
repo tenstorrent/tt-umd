@@ -35,39 +35,89 @@ struct Options {
 void initialize(const Options& options = Options{});
 
 /**
- * Macros for using the logger.
+ * Macros to support the old logging API.
+ * Implementation deliberately mirrors original inconsistent pattern.
  */
-#define UMD_TRACE(...)                                   \
-    do {                                                 \
-        ::tt::umd::logger::detail::ensure_initialized(); \
-        SPDLOG_TRACE(__VA_ARGS__);                       \
-    } while (0)
-
-#define UMD_DEBUG(...)                                   \
-    do {                                                 \
-        ::tt::umd::logger::detail::ensure_initialized(); \
-        SPDLOG_DEBUG(__VA_ARGS__);                       \
-    } while (0)
-
-#define UMD_INFO(...)                                    \
+#define log_info(type, ...)                              \
     do {                                                 \
         ::tt::umd::logger::detail::ensure_initialized(); \
         SPDLOG_INFO(__VA_ARGS__);                        \
     } while (0)
 
-#define UMD_WARN(...)                                    \
+#define log_trace(type, fmt, ...)                        \
+    do {                                                 \
+        ::tt::umd::logger::detail::ensure_initialized(); \
+        SPDLOG_TRACE(__VA_ARGS__);                       \
+    } while (0)
+
+#define log_debug(type, ...)                             \
+    do {                                                 \
+        ::tt::umd::logger::detail::ensure_initialized(); \
+        SPDLOG_DEBUG(__VA_ARGS__);                       \
+    } while (0)
+
+#define log_warning(type, ...)                           \
     do {                                                 \
         ::tt::umd::logger::detail::ensure_initialized(); \
         SPDLOG_WARN(__VA_ARGS__);                        \
     } while (0)
 
-#define UMD_ERROR(...)                                   \
+#define log_error(...)                                   \
     do {                                                 \
         ::tt::umd::logger::detail::ensure_initialized(); \
         SPDLOG_ERROR(__VA_ARGS__);                       \
     } while (0)
 
-#define UMD_CRITICAL(...)                                \
+#define log_fatal(...)                                   \
+    do {                                                 \
+        ::tt::umd::logger::detail::ensure_initialized(); \
+        SPDLOG_CRITICAL(__VA_ARGS__);                    \
+        std::terminate();                                \
+    } while (0)
+
+#define log_assert(cond, ...)                                \
+    do {                                                     \
+        if (!(cond)) {                                       \
+            ::tt::umd::logger::detail::ensure_initialized(); \
+            SPDLOG_CRITICAL(__VA_ARGS__);                    \
+            std::terminate();                                \
+        }                                                    \
+    } while (0)
+
+/**
+ * Macros for using the logger.
+ */
+#define LOG_TRACE(...)                                   \
+    do {                                                 \
+        ::tt::umd::logger::detail::ensure_initialized(); \
+        SPDLOG_TRACE(__VA_ARGS__);                       \
+    } while (0)
+
+#define LOG_DEBUG(...)                                   \
+    do {                                                 \
+        ::tt::umd::logger::detail::ensure_initialized(); \
+        SPDLOG_DEBUG(__VA_ARGS__);                       \
+    } while (0)
+
+#define LOG_INFO(...)                                    \
+    do {                                                 \
+        ::tt::umd::logger::detail::ensure_initialized(); \
+        SPDLOG_INFO(__VA_ARGS__);                        \
+    } while (0)
+
+#define LOG_WARN(...)                                    \
+    do {                                                 \
+        ::tt::umd::logger::detail::ensure_initialized(); \
+        SPDLOG_WARN(__VA_ARGS__);                        \
+    } while (0)
+
+#define LOG_ERROR(...)                                   \
+    do {                                                 \
+        ::tt::umd::logger::detail::ensure_initialized(); \
+        SPDLOG_ERROR(__VA_ARGS__);                       \
+    } while (0)
+
+#define LOG_CRITICAL(...)                                \
     do {                                                 \
         ::tt::umd::logger::detail::ensure_initialized(); \
         SPDLOG_CRITICAL(__VA_ARGS__);                    \

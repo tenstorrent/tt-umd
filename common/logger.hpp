@@ -4,6 +4,13 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+#include "logger_.hpp"
+
+#define LogSiliconDriver 0
+#define LogEmulationDriver 1
+
+#if 0
+
 #pragma once
 #include <algorithm>
 #include <cctype>
@@ -264,3 +271,5 @@ static void log_trace_(LogTypeDevice type, std::string const& src_info, char con
 #define log_debug(...) ((void)0)
 #define log_profile(...) ((void)0)
 #endif
+
+#endif  // 0

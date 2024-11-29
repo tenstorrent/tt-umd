@@ -93,7 +93,7 @@ public:
 
 private:
     tt_device_l1_address_params l1_address_params;
-    std::shared_ptr<tt_ClusterDescriptor> ndesc;
+    std::shared_ptr<tt_ClusterDescriptor> cluster_descriptor;
     tt_device_dram_address_params dram_address_params;
 
     // zebu wrapper, provides interface to zebu emulator device through axi and command transactors

@@ -1,6 +1,20 @@
 set(POSITION_INDEPENDENT_CODE ON)
 
-generate_fbs_header(${PROJECT_SOURCE_DIR}/device/simulation/tt_simulation_device.fbs)
+set(FBS_FILE ${PROJECT_SOURCE_DIR}/device/simulation/tt_simulation_device.fbs)
+get_filename_component(FBS_FILE_NAME ${FBS_FILE} NAME)
+set(FBS_GENERATED_HEADER "${CMAKE_CURRENT_BINARY_DIR}/${FBS_FILE_NAME}_generated.h")
+add_custom_command(
+    OUTPUT
+        ${FBS_GENERATED_HEADER}
+    COMMAND
+        ${FLATC_EXE}
+    ARGS
+        --cpp -o "${CMAKE_CURRENT_BINARY_DIR}/" ${FBS_FILE}
+    DEPENDS
+        flatc
+    COMMENT "Generating FlatBuffers header ${FBS_GENERATED_HEADER}"
+    VERBATIM
+)
 
 add_library(device SHARED)
 add_library(${PROJECT_NAME}::device ALIAS device)

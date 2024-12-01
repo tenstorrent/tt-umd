@@ -17,9 +17,9 @@
 #include "tt_silicon_driver_common.hpp"
 #include "tt_soc_descriptor.h"
 #include "tt_xy_pair.h"
-#include "umd/device/pci_device.hpp"
 #include "umd/device/tlb.h"
 #include "umd/device/tt_cluster_descriptor_types.h"
+#include "umd/device/tt_device/tt_device.h"
 #include "umd/device/tt_io.hpp"
 
 using TLB_DATA = tt::umd::tlb_data;
@@ -818,8 +818,8 @@ public:
     virtual std::uint32_t get_host_channel_size(std::uint32_t device_id, std::uint32_t channel);
     virtual std::uint32_t get_numa_node_for_pcie_device(std::uint32_t device_id);
     virtual tt_version get_ethernet_fw_version() const;
-    // TODO: This should be accessible through public API, probably to be moved to tt_device.
-    PCIDevice* get_pci_device(int device_id) const;
+
+    TTDevice* get_tt_device(int device_id) const;
 
     // Destructor
     virtual ~Cluster();
@@ -973,8 +973,7 @@ private:
     std::set<chip_id_t> target_devices_in_cluster = {};
     std::set<chip_id_t> target_remote_chips = {};
     tt::ARCH arch_name;
-    std::unordered_map<chip_id_t, std::unique_ptr<PCIDevice>> m_pci_device_map;  // Map of enabled pci devices
-    int m_num_pci_devices;  // Number of pci devices in system (enabled or disabled)
+    std::unordered_map<chip_id_t, std::unique_ptr<TTDevice>> m_tt_device_map;  // Map of enabled tt devices
     std::shared_ptr<tt_ClusterDescriptor> cluster_desc;
 
     // remote eth transfer setup

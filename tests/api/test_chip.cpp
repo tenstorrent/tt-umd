@@ -69,8 +69,7 @@ TEST(ApiChipTest, ManualTLBConfiguration) {
             return -1;
         }
         return core.x +
-               core.y *
-                   umd_cluster->get_pci_device(any_mmio_chip)->get_architecture_implementation()->get_grid_size_x();
+               core.y * umd_cluster->get_tt_device(any_mmio_chip)->get_architecture_implementation()->get_grid_size_x();
     };
 
     std::int32_t c_zero_address = 0;

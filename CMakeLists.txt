@@ -53,6 +53,7 @@ message(STATUS "UMD build type: ${CMAKE_BUILD_TYPE}")
 
 include(dependencies)
 
+add_subdirectory(common)
 add_subdirectory(device)
 add_subdirectory(src)
 

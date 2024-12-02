@@ -2,10 +2,10 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-#include "device/tt_silicon_driver_common.hpp"
+#include "umd/device/tt_silicon_driver_common.hpp"
 
-#include "cluster.h"
-#include "tt_xy_pair.h"
+#include "umd/device/cluster.h"
+#include "umd/device/tt_xy_pair.h"
 
 std::string TensixSoftResetOptionsToString(TensixSoftResetOptions value) {
     std::string output;

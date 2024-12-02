@@ -16,9 +16,9 @@
 #include <unordered_set>
 #include <vector>
 
-#include "device/tt_cluster_descriptor_types.h"
-#include "device/tt_xy_pair.h"
-#include "tt_arch_types.h"
+#include "umd/device/tt_arch_types.h"
+#include "umd/device/tt_cluster_descriptor_types.h"
+#include "umd/device/tt_xy_pair.h"
 
 namespace YAML {
 class Node;
@@ -35,6 +35,8 @@ enum BoardType : uint32_t {
 
 class tt_ClusterDescriptor {
 private:
+    tt_ClusterDescriptor() = default;
+
     int get_ethernet_link_coord_distance(const eth_coord_t &location_a, const eth_coord_t &location_b) const;
 
 protected:
@@ -77,9 +79,6 @@ protected:
     void fill_chips_grouped_by_closest_mmio();
 
 public:
-    tt_ClusterDescriptor() = default;
-    tt_ClusterDescriptor(const tt_ClusterDescriptor &) = default;
-
     /*
      * Returns the pairs of channels that are connected where the first entry in the pair corresponds to the argument
      * ordering when calling the function An empty result implies that the two chips do not share any direct connection
@@ -96,6 +95,7 @@ public:
     // get_cluster_descriptor_file_path will create ethernet map in the background.
     static std::string get_cluster_descriptor_file_path();
     static std::unique_ptr<tt_ClusterDescriptor> create_from_yaml(const std::string &cluster_descriptor_file_path);
+    static std::unique_ptr<tt_ClusterDescriptor> create();
 
     // This function is used to create mock cluster descriptor yaml files, for example for simulation.
     static std::unique_ptr<tt_ClusterDescriptor> create_mock_cluster(

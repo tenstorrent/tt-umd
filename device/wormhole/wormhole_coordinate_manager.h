@@ -6,7 +6,7 @@
 
 #pragma once
 
-#include "device/coordinate_manager.h"
+#include "umd/device/coordinate_manager.h"
 
 class WormholeCoordinateManager : public CoordinateManager {
 public:

@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-#include "tt_simulation_host.hpp"
+#include "umd/device/tt_simulation_host.hpp"
 
 #include <nng/nng.h>
 #include <nng/protocol/pair1/pair.h>
@@ -14,8 +14,8 @@
 #include <sstream>
 #include <typeinfo>
 
-#include "common/assert.hpp"
-#include "common/logger.hpp"
+#include "assert.hpp"
+#include "logger.hpp"
 
 tt_SimulationHost::tt_SimulationHost() {
     // Initialize socket and dialer

@@ -4,14 +4,14 @@
 
 #include <thread>
 
-#include "cluster.h"
-#include "device/tt_cluster_descriptor.h"
-#include "device/tt_soc_descriptor.h"
-#include "device/wormhole/wormhole_implementation.h"
 #include "gtest/gtest.h"
 #include "l1_address_map.h"
 #include "tests/test_utils/device_test_utils.hpp"
 #include "tests/test_utils/generate_cluster_desc.hpp"
+#include "umd/device/cluster.h"
+#include "umd/device/tt_cluster_descriptor.h"
+#include "umd/device/tt_soc_descriptor.h"
+#include "umd/device/wormhole_implementation.h"
 
 using namespace tt::umd;
 
@@ -71,7 +71,6 @@ TEST(SiliconDriverGS, CustomSocDesc) {
     // Initialize the driver with a 1x1 descriptor and explictly do not perform harvesting
     Cluster device = Cluster(
         test_utils::GetAbsPath("./tests/soc_descs/grayskull_1x1_arch.yaml"),
-        tt_ClusterDescriptor::get_cluster_descriptor_file_path(),
         target_devices,
         num_host_mem_ch_per_mmio_device,
         false,
@@ -517,7 +516,6 @@ TEST(SiliconDriverGS, MultiThreadedMemBar) {  // this tests takes ~5 mins to run
 TEST(SiliconDriverGS, SysmemTestWithPcie) {
     Cluster cluster(
         test_utils::GetAbsPath("tests/soc_descs/grayskull_10x12.yaml"),
-        "",  // test_utils::GetClusterDescYAML(),
         {0},
         1,      // one "host memory channel", currently a 1G huge page
         false,  // skip driver allocs - no (don't skip)

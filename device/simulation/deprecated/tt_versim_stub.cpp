@@ -140,4 +140,4 @@ std::uint32_t tt_VersimDevice::get_host_channel_size(std::uint32_t device_id, st
 
 std::map<int, int> tt_VersimDevice::get_clocks() { return std::map<int, int>(); }
 
-tt_ClusterDescriptor* tt_VersimDevice::get_cluster_description() { return ndesc.get(); }
+tt_ClusterDescriptor* tt_VersimDevice::get_cluster_description() { return cluster_descriptor.get(); }

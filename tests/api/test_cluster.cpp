@@ -11,10 +11,10 @@
 #include <string>
 #include <vector>
 
-#include "device/cluster.h"
-#include "device/tt_cluster_descriptor.h"
 #include "fmt/xchar.h"
 #include "tests/test_utils/generate_cluster_desc.hpp"
+#include "umd/device/cluster.h"
+#include "umd/device/tt_cluster_descriptor.h"
 
 // TODO: obviously we need some other way to set this up
 #include "noc/noc_parameters.h"

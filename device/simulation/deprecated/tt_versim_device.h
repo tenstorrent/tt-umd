@@ -118,6 +118,6 @@ private:
     tt_device_l1_address_params l1_address_params;
     tt_device_dram_address_params dram_address_params;
     versim::VersimSimulator* versim;
-    std::shared_ptr<tt_ClusterDescriptor> ndesc;
+    std::shared_ptr<tt_ClusterDescriptor> cluster_descriptor;
     void* p_ca_soc_manager;
 };

@@ -1,7 +1,7 @@
 // SPDX-FileCopyrightText: (c) 2023 Tenstorrent Inc.
 //
 // SPDX-License-Identifier: Apache-2.0
-#include "cluster.h"
+#include "umd/device/cluster.h"
 
 #include <assert.h>
 #include <dirent.h>
@@ -36,15 +36,13 @@
 #include <utility>
 #include <vector>
 
-#include "common/logger.hpp"
-#include "device/architecture_implementation.h"
-#include "device/driver_atomics.h"
-#include "device/hugepage.h"
-#include "device/tlb.h"
-#include "device/tt_arch_types.h"
-#include "device/tt_cluster_descriptor.h"
-#include "tt_arch_types.h"
-#include "tt_cluster_descriptor.h"
+#include "logger.hpp"
+#include "umd/device/architecture_implementation.h"
+#include "umd/device/driver_atomics.h"
+#include "umd/device/hugepage.h"
+#include "umd/device/tlb.h"
+#include "umd/device/tt_arch_types.h"
+#include "umd/device/tt_cluster_descriptor.h"
 #include "yaml-cpp/yaml.h"
 
 using namespace boost::interprocess;
@@ -119,8 +117,8 @@ const tt_SocDescriptor& tt_device::get_soc_descriptor(chip_id_t chip_id) const {
 #include <iomanip>
 #include <thread>
 
-#include "tt_silicon_driver_common.hpp"
-#include "tt_xy_pair.h"
+#include "umd/device/tt_silicon_driver_common.hpp"
+#include "umd/device/tt_xy_pair.h"
 
 struct routing_cmd_t {
     uint64_t sys_addr;
@@ -250,7 +248,7 @@ void Cluster::create_device(
 
     // Just use PCI interface id from physical_device_id given by cluster desc mmio map. For GS, already virtualized to
     // use available devices.
-    auto logical_to_physical_device_id_map = ndesc->get_chips_with_mmio();
+    auto logical_to_physical_device_id_map = cluster_desc->get_chips_with_mmio();
 
     log_assert(
         target_mmio_device_ids.size() > 0, "Must provide set of target_mmio_device_ids to Cluster constructor now.");
@@ -268,8 +266,7 @@ void Cluster::create_device(
                 "Opening TT_PCI_INTERFACE_ID {} for netlist target_device_id: {}",
                 pci_interface_id,
                 logical_device_id);
-            m_pci_device_map.insert(
-                {logical_device_id, std::make_unique<PCIDevice>(pci_interface_id, logical_device_id)});
+            m_pci_device_map.insert({logical_device_id, std::make_unique<PCIDevice>(pci_interface_id)});
         }
         auto dev = m_pci_device_map.at(logical_device_id).get();
 
@@ -325,7 +322,7 @@ void Cluster::create_device(
 
     for (const chip_id_t& chip : target_devices_in_cluster) {
         // Initialize identity mapping for Non-MMIO chips as well
-        if (!ndesc->is_chip_mmio_capable(chip)) {
+        if (!cluster_desc->is_chip_mmio_capable(chip)) {
             harvested_coord_translation.insert({chip, create_harvested_coord_translation(arch_name, true)});
             flush_non_mmio_per_chip[chip] = false;
         }
@@ -359,10 +356,10 @@ void Cluster::construct_cluster(
     std::unordered_set<chip_id_t> target_mmio_device_ids;
     for (auto& d : target_devices_in_cluster) {
         log_assert(
-            ndesc->get_all_chips().find(d) != ndesc->get_all_chips().end(),
+            cluster_desc->get_all_chips().find(d) != cluster_desc->get_all_chips().end(),
             "Target device {} not present in current cluster!",
             d);
-        if (ndesc->is_chip_mmio_capable(d)) {
+        if (cluster_desc->is_chip_mmio_capable(d)) {
             target_mmio_device_ids.insert(d);
         } else {
             target_remote_chips.insert(d);
@@ -391,8 +388,8 @@ void Cluster::construct_cluster(
     }
 
     if (arch_name == tt::ARCH::WORMHOLE_B0) {
-        const auto& harvesting_masks = ndesc->get_harvesting_info();
-        const auto& noc_translation_enabled = ndesc->get_noc_translation_table_en();
+        const auto& harvesting_masks = cluster_desc->get_harvesting_info();
+        const auto& noc_translation_enabled = cluster_desc->get_noc_translation_table_en();
 
         translation_tables_en = false;
         for (auto& masks : harvesting_masks) {
@@ -526,13 +523,14 @@ Cluster::Cluster(
     bool perform_harvesting,
     std::unordered_map<chip_id_t, uint32_t> simulated_harvesting_masks) :
     tt_device() {
+    cluster_desc = tt_ClusterDescriptor::create();
+
     // TODO: this should be fetched through ClusterDescriptor
     auto available_device_ids = detect_available_device_ids();
     m_num_pci_devices = available_device_ids.size();
 
     int physical_device_id = available_device_ids[0];
-    // TODO: remove logical_device_id
-    PCIDevice pci_device(physical_device_id, 0);
+    PCIDevice pci_device(physical_device_id);
     tt::ARCH device_arch = pci_device.get_arch();
 
     std::string sdesc_path = tt_SocDescriptor::get_soc_descriptor_path(device_arch);
@@ -550,11 +548,8 @@ Cluster::Cluster(
         log_debug(LogSiliconDriver, "Passed target devices: {}", target_devices);
     }
 
-    std::string ndesc_path = tt_ClusterDescriptor::get_cluster_descriptor_file_path();
-    ndesc = tt_ClusterDescriptor::create_from_yaml(ndesc_path);
-
     std::set<chip_id_t> target_devices;
-    for (const chip_id_t& d : ndesc->get_all_chips()) {
+    for (const chip_id_t& d : cluster_desc->get_all_chips()) {
         target_devices.insert(d);
     }
     target_devices_in_cluster = target_devices;
@@ -576,13 +571,14 @@ Cluster::Cluster(
     bool perform_harvesting,
     std::unordered_map<chip_id_t, uint32_t> simulated_harvesting_masks) :
     tt_device() {
+    cluster_desc = tt_ClusterDescriptor::create();
+
     // TODO: this should be fetched through ClusterDescriptor
     auto available_device_ids = detect_available_device_ids();
     m_num_pci_devices = available_device_ids.size();
 
     int physical_device_id = available_device_ids[0];
-    // TODO: remove logical_device_id
-    PCIDevice pci_device(physical_device_id, 0);
+    PCIDevice pci_device(physical_device_id);
     tt::ARCH device_arch = pci_device.get_arch();
 
     std::string sdesc_path = tt_SocDescriptor::get_soc_descriptor_path(device_arch);
@@ -600,9 +596,6 @@ Cluster::Cluster(
         log_debug(LogSiliconDriver, "Passed target devices: {}", target_devices);
     }
 
-    std::string ndesc_path = tt_ClusterDescriptor::get_cluster_descriptor_file_path();
-    ndesc = tt_ClusterDescriptor::create_from_yaml(ndesc_path);
-
     target_devices_in_cluster = target_devices;
 
     construct_cluster(
@@ -616,7 +609,6 @@ Cluster::Cluster(
 
 Cluster::Cluster(
     const std::string& sdesc_path,
-    const std::string& ndesc_path,
     const std::set<chip_id_t>& target_devices,
     const uint32_t& num_host_mem_ch_per_mmio_device,
     const bool skip_driver_allocs,
@@ -624,6 +616,8 @@ Cluster::Cluster(
     bool perform_harvesting,
     std::unordered_map<chip_id_t, uint32_t> simulated_harvesting_masks) :
     tt_device() {
+    cluster_desc = tt_ClusterDescriptor::create();
+
     // TODO: this should be fetched through ClusterDescriptor
     auto available_device_ids = detect_available_device_ids();
     m_num_pci_devices = available_device_ids.size();
@@ -641,13 +635,6 @@ Cluster::Cluster(
             available_device_ids);
         log_debug(LogSiliconDriver, "Passed target devices: {}", target_devices);
     }
-
-    std::string cluster_descriptor_path = ndesc_path;
-    if (cluster_descriptor_path == "") {
-        cluster_descriptor_path = tt_ClusterDescriptor::get_cluster_descriptor_file_path();
-    }
-
-    ndesc = tt_ClusterDescriptor::create_from_yaml(cluster_descriptor_path);
 
     construct_cluster(
         sdesc_path,
@@ -955,7 +942,6 @@ void Cluster::broadcast_pcie_tensix_risc_reset(chip_id_t chip_id, const TensixSo
     PCIDevice* device = get_pci_device(chip_id);
 
     auto valid = soft_resets & ALL_TENSIX_SOFT_RESET;
-    auto logical_id = device->get_logical_id();
 
     log_debug(
         LogSiliconDriver,
@@ -968,11 +954,11 @@ void Cluster::broadcast_pcie_tensix_risc_reset(chip_id_t chip_id, const TensixSo
     auto [soft_reset_reg, _] = device->set_dynamic_tlb_broadcast(
         architecture_implementation->get_reg_tlb(),
         architecture_implementation->get_tensix_soft_reset_addr(),
-        harvested_coord_translation,
+        harvested_coord_translation.at(chip_id),
         tt_xy_pair(0, 0),
         tt_xy_pair(
             architecture_implementation->get_grid_size_x() - 1,
-            architecture_implementation->get_grid_size_y() - 1 - num_rows_harvested.at(logical_id)),
+            architecture_implementation->get_grid_size_y() - 1 - num_rows_harvested.at(chip_id)),
         TLB_DATA::Posted);
     device->write_regs(soft_reset_reg, 1, &valid);
     tt_driver_atomics::sfence();
@@ -1003,7 +989,7 @@ void Cluster::deassert_risc_reset_at_core(tt_cxy_pair core, const TensixSoftRese
                 get_soc_descriptor(target_device).ethernet_cores.end(),
                 core) != get_soc_descriptor(target_device).ethernet_cores.end(),
         "Cannot deassert reset on a non-tensix or harvested core");
-    bool target_is_mmio_capable = ndesc->is_chip_mmio_capable(target_device);
+    bool target_is_mmio_capable = cluster_desc->is_chip_mmio_capable(target_device);
     if (target_is_mmio_capable) {
         log_assert(
             m_pci_device_map.find(target_device) != m_pci_device_map.end(),
@@ -1027,7 +1013,7 @@ void Cluster::assert_risc_reset_at_core(tt_cxy_pair core) {
                 get_soc_descriptor(target_device).ethernet_cores.end(),
                 core) != get_soc_descriptor(target_device).ethernet_cores.end(),
         "Cannot assert reset on a non-tensix or harvested core");
-    bool target_is_mmio_capable = ndesc->is_chip_mmio_capable(target_device);
+    bool target_is_mmio_capable = cluster_desc->is_chip_mmio_capable(target_device);
     if (target_is_mmio_capable) {
         log_assert(
             m_pci_device_map.find(target_device) != m_pci_device_map.end(),
@@ -1047,14 +1033,14 @@ void Cluster::cleanup_shared_host_state() {
     }
 }
 
-std::unordered_set<chip_id_t> Cluster::get_all_chips_in_cluster() { return ndesc->get_all_chips(); }
+std::unordered_set<chip_id_t> Cluster::get_all_chips_in_cluster() { return cluster_desc->get_all_chips(); }
 
 int Cluster::get_number_of_chips_in_cluster() {
     // Returns the number of chips seen in the network descriptor
-    return ndesc->get_all_chips().size();
+    return cluster_desc->get_all_chips().size();
 }
 
-tt_ClusterDescriptor* Cluster::get_cluster_description() { return ndesc.get(); }
+tt_ClusterDescriptor* Cluster::get_cluster_description() { return cluster_desc.get(); }
 
 // Can be used before instantiating a silicon device
 int Cluster::detect_number_of_chips() {
@@ -1085,7 +1071,7 @@ std::function<void(uint32_t, uint32_t, const uint8_t*)> Cluster::get_fast_pcie_s
 }
 
 tt::Writer Cluster::get_static_tlb_writer(tt_cxy_pair target) {
-    if (!ndesc->is_chip_mmio_capable(target.chip)) {
+    if (!cluster_desc->is_chip_mmio_capable(target.chip)) {
         throw std::runtime_error(fmt::format("Target not in MMIO chip: {}", target.str()));
     }
 
@@ -1154,7 +1140,11 @@ void Cluster::write_device_memory(
 
         while (size_in_bytes > 0) {
             auto [mapped_address, tlb_size] = dev->set_dynamic_tlb(
-                tlb_index, target, address, harvested_coord_translation, dynamic_tlb_ordering_modes.at(fallback_tlb));
+                tlb_index,
+                target,
+                address,
+                harvested_coord_translation.at(target.chip),
+                dynamic_tlb_ordering_modes.at(fallback_tlb));
             uint32_t transfer_size = std::min((uint64_t)size_in_bytes, tlb_size);
             dev->write_block(mapped_address, transfer_size, buffer_addr);
 
@@ -1205,7 +1195,11 @@ void Cluster::read_device_memory(
         log_debug(LogSiliconDriver, "  dynamic tlb_index: {}", tlb_index);
         while (size_in_bytes > 0) {
             auto [mapped_address, tlb_size] = dev->set_dynamic_tlb(
-                tlb_index, target, address, harvested_coord_translation, dynamic_tlb_ordering_modes.at(fallback_tlb));
+                tlb_index,
+                target,
+                address,
+                harvested_coord_translation.at(target.chip),
+                dynamic_tlb_ordering_modes.at(fallback_tlb));
             uint32_t transfer_size = std::min((uint64_t)size_in_bytes, tlb_size);
             dev->read_block(mapped_address, transfer_size, buffer_addr);
 
@@ -1325,7 +1319,7 @@ int Cluster::get_clock(int logical_device_id) {
     }
 
     uint32_t clock;
-    auto mmio_capable_chip_logical = ndesc->get_closest_mmio_capable_chip(logical_device_id);
+    auto mmio_capable_chip_logical = cluster_desc->get_closest_mmio_capable_chip(logical_device_id);
     PCIDevice* pci_device = get_pci_device(mmio_capable_chip_logical);
     auto exit_code = arc_msg(
         logical_device_id,
@@ -1356,7 +1350,7 @@ Cluster::~Cluster() {
     cleanup_shared_host_state();
 
     m_pci_device_map.clear();
-    ndesc.reset();
+    cluster_desc.reset();
     soc_descriptor_per_chip.clear();
     dynamic_tlb_config.clear();
     tlb_config_map.clear();
@@ -1381,7 +1375,7 @@ void Cluster::configure_tlb(
         ordering == TLB_DATA::Strict || ordering == TLB_DATA::Posted || ordering == TLB_DATA::Relaxed,
         "Invalid ordering specified in Cluster::configure_tlb");
     PCIDevice* pci_device = get_pci_device(logical_device_id);
-    pci_device->set_dynamic_tlb(tlb_index, core, address, harvested_coord_translation, ordering);
+    pci_device->set_dynamic_tlb(tlb_index, core, address, harvested_coord_translation.at(logical_device_id), ordering);
     auto tlb_size = std::get<1>(pci_device->get_architecture_implementation()->describe_tlb(tlb_index).value());
     if (tlb_config_map.find(logical_device_id) == tlb_config_map.end()) {
         tlb_config_map.insert({logical_device_id, {}});
@@ -1437,15 +1431,15 @@ void Cluster::init_pcie_iatus() {
 }
 
 int Cluster::test_setup_interface() {
+    int ret_val = 0;
+    int logical_device_id = m_pci_device_map.begin()->first;
+    PCIDevice* dev = m_pci_device_map.at(logical_device_id).get();
     if (arch_name == tt::ARCH::GRAYSKULL) {
-        int ret_val = 0;
-        PCIDevice* dev = m_pci_device_map.begin()->second.get();
-
         uint32_t mapped_reg = dev->set_dynamic_tlb(
                                      dev->get_architecture_implementation()->get_reg_tlb(),
                                      tt_xy_pair(0, 0),
                                      0xffb20108,
-                                     harvested_coord_translation)
+                                     harvested_coord_translation.at(logical_device_id))
                                   .bar_offset;
 
         uint32_t regval = 0;
@@ -1453,14 +1447,11 @@ int Cluster::test_setup_interface() {
         ret_val = (regval != 0xffffffff && ((regval & 0x1) == 1)) ? 0 : 1;
         return ret_val;
     } else if (arch_name == tt::ARCH::WORMHOLE_B0) {
-        int ret_val = 0;
-        PCIDevice* dev = m_pci_device_map.begin()->second.get();
-
         uint32_t mapped_reg = dev->set_dynamic_tlb(
                                      dev->get_architecture_implementation()->get_reg_tlb(),
                                      tt_xy_pair(1, 0),
                                      0xffb20108,
-                                     harvested_coord_translation)
+                                     harvested_coord_translation.at(logical_device_id))
                                   .bar_offset;
 
         uint32_t regval = 0;
@@ -1474,7 +1465,7 @@ int Cluster::test_setup_interface() {
 
         // uint32_t mapped_reg = dev->set_dynamic_tlb(m_pci_device_map.begin()->second,
         // dev->get_architecture_implementation()->get_reg_tlb(), tt_xy_pair(1, 0), 0xffb20108,
-        // harvested_coord_translation).bar_offset;
+        // harvested_coord_translation.at(logical_device_id)).bar_offset;
 
         // uint32_t regval = 0;
         // read_regs(dev, mapped_reg, 1, &regval);
@@ -1709,7 +1700,7 @@ uint32_t Cluster::get_harvested_rows(int logical_device_id) {
     if (harv_override) {
         harv = std::stoul(harv_override, nullptr, 16);
     } else {
-        auto mmio_capable_chip_logical = ndesc->get_closest_mmio_capable_chip(logical_device_id);
+        auto mmio_capable_chip_logical = cluster_desc->get_closest_mmio_capable_chip(logical_device_id);
         PCIDevice* pci_device = get_pci_device(mmio_capable_chip_logical);
         int harvesting_msg_code = arc_msg(
             logical_device_id,
@@ -1864,9 +1855,9 @@ void Cluster::write_to_non_mmio_device(
     if (broadcast) {
         mmio_capable_chip_logical = core.chip;
     } else {
-        mmio_capable_chip_logical = ndesc->get_closest_mmio_capable_chip(core.chip);
+        mmio_capable_chip_logical = cluster_desc->get_closest_mmio_capable_chip(core.chip);
     }
-    flush_non_mmio_per_chip[ndesc->get_closest_mmio_capable_chip(core.chip)] = true;
+    flush_non_mmio_per_chip[cluster_desc->get_closest_mmio_capable_chip(core.chip)] = true;
 
     if (non_mmio_transfer_cores_customized) {
         log_assert(
@@ -1877,7 +1868,7 @@ void Cluster::write_to_non_mmio_device(
     using data_word_t = uint32_t;
     constexpr int DATA_WORD_SIZE = sizeof(data_word_t);
     constexpr int BROADCAST_HEADER_SIZE = sizeof(data_word_t) * 8;  // Broadcast header is 8 words
-    const auto target_chip = ndesc->get_chip_locations().at(core.chip);
+    const auto target_chip = cluster_desc->get_chip_locations().at(core.chip);
 
     std::string write_tlb = "LARGE_WRITE_TLB";
     std::string read_tlb = "LARGE_READ_TLB";
@@ -2110,8 +2101,8 @@ void Cluster::read_from_non_mmio_device(void* mem_ptr, tt_cxy_pair core, uint64_
     std::string empty_tlb = "";
     translate_to_noc_table_coords(core.chip, core.y, core.x);
 
-    const auto& mmio_capable_chip_logical = ndesc->get_closest_mmio_capable_chip(core.chip);
-    const eth_coord_t target_chip = ndesc->get_chip_locations().at(core.chip);
+    const auto& mmio_capable_chip_logical = cluster_desc->get_closest_mmio_capable_chip(core.chip);
+    const eth_coord_t target_chip = cluster_desc->get_chip_locations().at(core.chip);
 
     std::vector<std::uint32_t> erisc_command;
     std::vector<std::uint32_t> erisc_q_rptr;
@@ -2386,12 +2377,12 @@ void Cluster::wait_for_non_mmio_flush(const chip_id_t chip_id) {
     log_assert(arch_name != tt::ARCH::BLACKHOLE, "Non-MMIO flush not supported in Blackhole");
     std::string read_tlb = "LARGE_READ_TLB";
 
-    if (!this->ndesc->is_chip_remote(chip_id)) {
+    if (!this->cluster_desc->is_chip_remote(chip_id)) {
         log_debug(LogSiliconDriver, "Chip {} is not a remote chip, skipping wait_for_non_mmio_flush", chip_id);
         return;
     }
 
-    chip_id_t mmio_connected_chip = ndesc->get_closest_mmio_capable_chip(chip_id);
+    chip_id_t mmio_connected_chip = cluster_desc->get_closest_mmio_capable_chip(chip_id);
     wait_for_connected_non_mmio_flush(mmio_connected_chip);
 }
 
@@ -2463,8 +2454,8 @@ std::unordered_map<chip_id_t, std::vector<std::vector<int>>>& Cluster::get_ether
         for (const auto& chip : target_devices_in_cluster) {
             if (chips_to_exclude.find(chip) == chips_to_exclude.end()) {
                 // Get shelf local physical chip id included in broadcast
-                chip_id_t physical_chip_id = ndesc->get_shelf_local_physical_chip_coords(chip);
-                eth_coord_t eth_coords = ndesc->get_chip_locations().at(chip);
+                chip_id_t physical_chip_id = cluster_desc->get_shelf_local_physical_chip_coords(chip);
+                eth_coord_t eth_coords = cluster_desc->get_chip_locations().at(chip);
                 // Rack word to be set in header
                 uint32_t rack_word = eth_coords.rack >> 2;
                 // Rack byte to be set in header
@@ -2478,7 +2469,7 @@ std::unordered_map<chip_id_t, std::vector<std::vector<int>>>& Cluster::get_ether
                 if (eth_coords.rack == 0 && eth_coords.shelf == 0) {
                     // Shelf 0 + Rack 0: Either an MMIO chip or a remote chip potentially connected to host through its
                     // own MMIO counterpart.
-                    closest_mmio_chip = ndesc->get_closest_mmio_capable_chip(chip);
+                    closest_mmio_chip = cluster_desc->get_closest_mmio_capable_chip(chip);
                 } else {
                     // All other shelves: Group these under the same/first MMIO chip, since all MMIO chips are
                     // connected.
@@ -2564,7 +2555,12 @@ void Cluster::pcie_broadcast_write(
     const scoped_lock<named_mutex> lock(*get_mutex(fallback_tlb, pci_device->get_device_num()));
     while (size_in_bytes > 0) {
         auto [mapped_address, tlb_size] = pci_device->set_dynamic_tlb_broadcast(
-            tlb_index, addr, harvested_coord_translation, start, end, dynamic_tlb_ordering_modes.at(fallback_tlb));
+            tlb_index,
+            addr,
+            harvested_coord_translation.at(chip),
+            start,
+            end,
+            dynamic_tlb_ordering_modes.at(fallback_tlb));
         uint64_t transfer_size = std::min((uint64_t)size_in_bytes, tlb_size);
         pci_device->write_block(mapped_address, transfer_size, buffer_addr);
 
@@ -2934,7 +2930,7 @@ void Cluster::insert_host_to_device_barrier(
 
 void Cluster::init_membars() {
     for (const auto& chip : target_devices_in_cluster) {
-        if (ndesc->is_chip_mmio_capable(chip)) {
+        if (cluster_desc->is_chip_mmio_capable(chip)) {
             set_membar_flag(
                 chip,
                 workers_per_chip.at(chip),
@@ -2951,7 +2947,7 @@ void Cluster::init_membars() {
 
 void Cluster::l1_membar(
     const chip_id_t chip, const std::string& fallback_tlb, const std::unordered_set<tt_xy_pair>& cores) {
-    if (ndesc->is_chip_mmio_capable(chip)) {
+    if (cluster_desc->is_chip_mmio_capable(chip)) {
         const auto& all_workers = workers_per_chip.at(chip);
         const auto& all_eth = eth_cores;
         if (cores.size()) {
@@ -2983,7 +2979,7 @@ void Cluster::l1_membar(
 
 void Cluster::dram_membar(
     const chip_id_t chip, const std::string& fallback_tlb, const std::unordered_set<tt_xy_pair>& cores) {
-    if (ndesc->is_chip_mmio_capable(chip)) {
+    if (cluster_desc->is_chip_mmio_capable(chip)) {
         if (cores.size()) {
             for (const auto& core : cores) {
                 log_assert(
@@ -3001,7 +2997,7 @@ void Cluster::dram_membar(
 
 void Cluster::dram_membar(
     const chip_id_t chip, const std::string& fallback_tlb, const std::unordered_set<uint32_t>& channels) {
-    if (ndesc->is_chip_mmio_capable(chip)) {
+    if (cluster_desc->is_chip_mmio_capable(chip)) {
         if (channels.size()) {
             std::unordered_set<tt_xy_pair> dram_cores_to_sync = {};
             for (const auto& chan : channels) {
@@ -3020,7 +3016,7 @@ void Cluster::dram_membar(
 
 void Cluster::write_to_device(
     const void* mem_ptr, uint32_t size, tt_cxy_pair core, uint64_t addr, const std::string& fallback_tlb) {
-    bool target_is_mmio_capable = ndesc->is_chip_mmio_capable(core.chip);
+    bool target_is_mmio_capable = cluster_desc->is_chip_mmio_capable(core.chip);
     if (target_is_mmio_capable) {
         if (fallback_tlb == "REG_TLB") {
             write_mmio_device_register(mem_ptr, core, addr, size, fallback_tlb);
@@ -3045,7 +3041,7 @@ void Cluster::read_mmio_device_register(
     log_debug(LogSiliconDriver, "  dynamic tlb_index: {}", tlb_index);
 
     auto [mapped_address, tlb_size] =
-        pci_device->set_dynamic_tlb(tlb_index, core, addr, harvested_coord_translation, TLB_DATA::Strict);
+        pci_device->set_dynamic_tlb(tlb_index, core, addr, harvested_coord_translation.at(core.chip), TLB_DATA::Strict);
     // Align block to 4bytes if needed.
     auto aligned_buf = tt_4_byte_aligned_buffer(mem_ptr, size);
     pci_device->read_regs(mapped_address, aligned_buf.block_size / sizeof(std::uint32_t), aligned_buf.local_storage);
@@ -3065,7 +3061,7 @@ void Cluster::write_mmio_device_register(
     log_debug(LogSiliconDriver, "  dynamic tlb_index: {}", tlb_index);
 
     auto [mapped_address, tlb_size] =
-        pci_device->set_dynamic_tlb(tlb_index, core, addr, harvested_coord_translation, TLB_DATA::Strict);
+        pci_device->set_dynamic_tlb(tlb_index, core, addr, harvested_coord_translation.at(core.chip), TLB_DATA::Strict);
     // Align block to 4bytes if needed.
     auto aligned_buf = tt_4_byte_aligned_buffer(mem_ptr, size);
     if (aligned_buf.input_size != aligned_buf.block_size) {
@@ -3077,7 +3073,7 @@ void Cluster::write_mmio_device_register(
 
 void Cluster::read_from_device(
     void* mem_ptr, tt_cxy_pair core, uint64_t addr, uint32_t size, const std::string& fallback_tlb) {
-    bool target_is_mmio_capable = ndesc->is_chip_mmio_capable(core.chip);
+    bool target_is_mmio_capable = cluster_desc->is_chip_mmio_capable(core.chip);
     if (target_is_mmio_capable) {
         if (fallback_tlb == "REG_TLB") {
             read_mmio_device_register(mem_ptr, core, addr, size, fallback_tlb);
@@ -3105,7 +3101,7 @@ int Cluster::arc_msg(
     uint32_t* return_3,
     uint32_t* return_4) {
     log_assert(arch_name != tt::ARCH::BLACKHOLE, "ARC messages not supported in Blackhole");
-    if (ndesc->is_chip_mmio_capable(logical_device_id)) {
+    if (cluster_desc->is_chip_mmio_capable(logical_device_id)) {
         return pcie_arc_msg(logical_device_id, msg_code, wait_for_done, arg0, arg1, timeout, return_3, return_4);
     } else {
         return remote_arc_msg(logical_device_id, msg_code, wait_for_done, arg0, arg1, timeout, return_3, return_4);
@@ -3128,7 +3124,7 @@ void Cluster::send_remote_tensix_risc_reset_to_core(
 }
 
 int Cluster::set_remote_power_state(const chip_id_t& chip, tt_DevicePowerState device_state) {
-    auto mmio_capable_chip_logical = ndesc->get_closest_mmio_capable_chip(chip);
+    auto mmio_capable_chip_logical = cluster_desc->get_closest_mmio_capable_chip(chip);
     return remote_arc_msg(
         chip, get_power_state_arc_msg(mmio_capable_chip_logical, device_state), true, 0, 0, 1, NULL, NULL);
 }
@@ -3185,7 +3181,7 @@ void Cluster::set_power_state(tt_DevicePowerState device_state) {
     // MT Initial BH - ARC messages not supported in Blackhole
     if (arch_name != tt::ARCH::BLACKHOLE) {
         for (auto& chip : target_devices_in_cluster) {
-            if (ndesc->is_chip_mmio_capable(chip)) {
+            if (cluster_desc->is_chip_mmio_capable(chip)) {
                 set_pcie_power_state(device_state);
             } else {
                 int exit_code = set_remote_power_state(chip, device_state);
@@ -3202,7 +3198,7 @@ void Cluster::enable_ethernet_queue(int timeout) {
 
         switch (arch) {
             case tt::ARCH::WORMHOLE_B0: {
-                if (ndesc->is_chip_mmio_capable(chip)) {
+                if (cluster_desc->is_chip_mmio_capable(chip)) {
                     enable_local_ethernet_queue(chip, timeout);
                 } else {
                     enable_remote_ethernet_queue(chip, timeout);
@@ -3237,10 +3233,10 @@ void Cluster::deassert_resets_and_set_power_state() {
                 0,
                 0);
         }
-        if (ndesc != nullptr) {
+        if (cluster_desc != nullptr) {
             for (const chip_id_t& chip : target_devices_in_cluster) {
-                if (!ndesc->is_chip_mmio_capable(chip)) {
-                    auto mmio_capable_chip_logical = ndesc->get_closest_mmio_capable_chip(chip);
+                if (!cluster_desc->is_chip_mmio_capable(chip)) {
+                    auto mmio_capable_chip_logical = cluster_desc->get_closest_mmio_capable_chip(chip);
                     auto pci_device = get_pci_device(mmio_capable_chip_logical);
                     remote_arc_msg(
                         chip,

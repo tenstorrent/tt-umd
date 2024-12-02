@@ -5,12 +5,12 @@
  */
 #pragma once
 
-#include "cluster.h"
 #include "eth_l1_address_map.h"
 #include "tests/test_utils/generate_cluster_desc.hpp"
 #include "tests/test_utils/stimulus_generators.hpp"
-#include "tt_cluster_descriptor.h"
-#include "tt_xy_pair.h"
+#include "umd/device/cluster.h"
+#include "umd/device/tt_cluster_descriptor.h"
+#include "umd/device/tt_xy_pair.h"
 
 namespace tt::umd::test::utils {
 

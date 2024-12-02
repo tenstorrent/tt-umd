@@ -4,15 +4,15 @@
 #include <memory>
 #include <thread>
 
-#include "cluster.h"
-#include "device/tt_cluster_descriptor.h"
-#include "device/wormhole/wormhole_implementation.h"
 #include "eth_l1_address_map.h"
 #include "gtest/gtest.h"
 #include "host_mem_address_map.h"
 #include "l1_address_map.h"
 #include "tests/test_utils/device_test_utils.hpp"
 #include "tests/test_utils/generate_cluster_desc.hpp"
+#include "umd/device/cluster.h"
+#include "umd/device/tt_cluster_descriptor.h"
+#include "umd/device/wormhole_implementation.h"
 
 using namespace tt::umd;
 
@@ -73,8 +73,7 @@ std::int32_t get_static_tlb_index(tt_xy_pair target) {
 
 std::set<chip_id_t> get_target_devices() {
     std::set<chip_id_t> target_devices;
-    std::unique_ptr<tt_ClusterDescriptor> cluster_desc_uniq =
-        tt_ClusterDescriptor::create_from_yaml(tt_ClusterDescriptor::get_cluster_descriptor_file_path());
+    std::unique_ptr<tt_ClusterDescriptor> cluster_desc_uniq = tt_ClusterDescriptor::create();
     for (int i = 0; i < cluster_desc_uniq->get_number_of_chips(); i++) {
         target_devices.insert(i);
     }
@@ -89,7 +88,6 @@ TEST(SiliconDriverWH, CreateDestroy) {
     for (int i = 0; i < 50; i++) {
         Cluster device = Cluster(
             test_utils::GetAbsPath("tests/soc_descs/wormhole_b0_1x1.yaml"),
-            tt_ClusterDescriptor::get_cluster_descriptor_file_path(),
             target_devices,
             num_host_mem_ch_per_mmio_device,
             false,
@@ -131,7 +129,6 @@ TEST(SiliconDriverWH, CustomSocDesc) {
     // Initialize the driver with a 1x1 descriptor and explictly do not perform harvesting
     Cluster device = Cluster(
         test_utils::GetAbsPath("tests/soc_descs/wormhole_b0_1x1.yaml"),
-        tt_ClusterDescriptor::get_cluster_descriptor_file_path(),
         target_devices,
         num_host_mem_ch_per_mmio_device,
         false,
@@ -875,7 +872,6 @@ TEST(SiliconDriverWH, RandomSysmemTestWithPcie) {
 
     Cluster cluster(
         test_utils::GetAbsPath("tests/soc_descs/wormhole_b0_8x10.yaml"),
-        tt_ClusterDescriptor::get_cluster_descriptor_file_path(),
         target_devices,
         num_channels,
         false,  // skip driver allocs - no (don't skip)
@@ -945,7 +941,6 @@ TEST(SiliconDriverWH, LargeAddressTlb) {
 
     Cluster cluster(
         test_utils::GetAbsPath("tests/soc_descs/wormhole_b0_8x10.yaml"),
-        tt_ClusterDescriptor::get_cluster_descriptor_file_path(),
         target_devices,
         num_channels,
         false,  // skip driver allocs - no (don't skip)

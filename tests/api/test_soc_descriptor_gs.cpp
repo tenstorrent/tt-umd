@@ -3,10 +3,10 @@
  *
  * SPDX-License-Identifier: Apache-2.0
  */
-#include "device/tt_soc_descriptor.h"
 #include "gtest/gtest.h"
 #include "tests/test_utils/generate_cluster_desc.hpp"
 #include "tests/test_utils/soc_desc_test_utils.hpp"
+#include "umd/device/tt_soc_descriptor.h"
 
 // Grayskull workers - x-y annotation
 // functional_workers:

@@ -2,16 +2,16 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-#include "tt_cluster_descriptor.h"
+#include "umd/device/tt_cluster_descriptor.h"
 
 #include <fstream>
 #include <memory>
 #include <sstream>
 
-#include "common/disjoint_set.hpp"
-#include "common/logger.hpp"
+#include "disjoint_set.hpp"
 #include "fmt/core.h"
 #include "libs/create_ethernet_map.h"
+#include "logger.hpp"
 #include "yaml-cpp/yaml.h"
 
 using namespace tt;
@@ -435,6 +435,10 @@ std::unique_ptr<tt_ClusterDescriptor> tt_ClusterDescriptor::create_from_yaml(
     desc->fill_chips_grouped_by_closest_mmio();
 
     return desc;
+}
+
+std::unique_ptr<tt_ClusterDescriptor> tt_ClusterDescriptor::create() {
+    return tt_ClusterDescriptor::create_from_yaml(tt_ClusterDescriptor::get_cluster_descriptor_file_path());
 }
 
 std::unique_ptr<tt_ClusterDescriptor> tt_ClusterDescriptor::create_mock_cluster(

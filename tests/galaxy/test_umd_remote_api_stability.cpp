@@ -7,7 +7,6 @@
 #include <random>
 #include <thread>
 
-#include "cluster.h"
 #include "common/logger.hpp"
 #include "eth_interface.h"
 #include "filesystem"
@@ -18,8 +17,9 @@
 #include "tests/test_utils/generate_cluster_desc.hpp"
 #include "tests/test_utils/stimulus_generators.hpp"
 #include "tests/wormhole/test_wh_common.h"
-#include "tt_cluster_descriptor.h"
-#include "tt_soc_descriptor.h"
+#include "umd/device/cluster.h"
+#include "umd/device/tt_cluster_descriptor.h"
+#include "umd/device/tt_soc_descriptor.h"
 
 namespace tt::umd::test::utils {
 
@@ -33,8 +33,7 @@ protected:
     static uint32_t scale_number_of_tests;
 
     static void SetUpTestSuite() {
-        std::unique_ptr<tt_ClusterDescriptor> cluster_desc =
-            tt_ClusterDescriptor::create_from_yaml(tt_ClusterDescriptor::get_cluster_descriptor_file_path());
+        std::unique_ptr<tt_ClusterDescriptor> cluster_desc = tt_ClusterDescriptor::create();
         detected_num_chips = cluster_desc->get_number_of_chips();
         if (detected_num_chips < EXPECTED_MIN_CHIPS) {
             skip_tests = true;

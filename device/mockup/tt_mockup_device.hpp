@@ -9,8 +9,8 @@
 #include <cstdint>
 #include <vector>
 
-#include "device/cluster.h"
-#include "device/tt_cluster_descriptor.h"
+#include "umd/device/cluster.h"
+#include "umd/device/tt_cluster_descriptor.h"
 
 class tt_MockupDevice : public tt_device {
 public:
@@ -115,5 +115,5 @@ private:
     std::set<chip_id_t> target_devices_in_cluster = {};
     std::set<chip_id_t> target_remote_chips = {};
     tt::ARCH arch_name;
-    std::shared_ptr<tt_ClusterDescriptor> ndesc;
+    std::shared_ptr<tt_ClusterDescriptor> cluster_descriptor;
 };

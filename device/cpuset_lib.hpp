@@ -14,8 +14,8 @@
 #include <thread>
 #include <vector>
 
-#include "device/tt_cluster_descriptor.h"  // For chip_id_t
 #include "hwloc.h"
+#include "umd/device/tt_cluster_descriptor.h"  // For chip_id_t
 
 using tt_cluster_description = tt_ClusterDescriptor;
 

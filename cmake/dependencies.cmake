@@ -56,9 +56,9 @@ function(fetch_dependencies)
         GITHUB_REPOSITORY nanomsg/nng
         GIT_TAG v1.8.0
         OPTIONS
+            "BUILD_SHARED_LIBS OFF"
             "NNG_TESTS OFF"
             "NNG_TOOLS OFF"
-            "BUILD_SHARED_LIBS OFF"
     )
 
     ###################################################################################################################

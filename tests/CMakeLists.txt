@@ -13,6 +13,7 @@ target_link_libraries(
         gtest
         pthread
         fmt::fmt-header-only
+        nng
 )
 target_include_directories(
     test_common
@@ -51,12 +52,8 @@ foreach(ARCH IN LISTS ARCHS)
             message(FATAL_ERROR "Failed to download ${HW_NOC_PARAMETERS_URL}")
         endif()
     endif()
+    include_directories("${CMAKE_CURRENT_BINARY_DIR}/${ARCH}")
 endforeach()
-if($ENV{ARCH_NAME} STREQUAL "wormhole_b0")
-    include_directories("${CMAKE_CURRENT_BINARY_DIR}/wormhole")
-else()
-    include_directories("${CMAKE_CURRENT_BINARY_DIR}/$ENV{ARCH_NAME}")
-endif()
 
 if(MASTER_PROJECT)
     add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/microbenchmark)

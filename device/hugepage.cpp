@@ -10,8 +10,9 @@
 #include <sys/stat.h>  // for umask
 #include <unistd.h>    // for unlink
 
-#include "logger.hpp"
 #include <regex>
+
+#include "logger.hpp"
 
 static const std::string hugepage_dir = "/dev/hugepages-1G";
 

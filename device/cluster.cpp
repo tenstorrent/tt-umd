@@ -36,6 +36,7 @@
 #include <utility>
 #include <vector>
 
+#include "api/umd/device/tt_core_coordinates.h"
 #include "logger.hpp"
 #include "umd/device/architecture_implementation.h"
 #include "umd/device/driver_atomics.h"
@@ -766,6 +767,10 @@ void Cluster::perform_harvesting_and_populate_soc_descriptors(
         }
         soc_descriptor_per_chip.insert({chip.first, temp_sdesc});
     }
+
+    for (const auto& chip : harvested_rows_per_target) {
+        soc_desc_per_chip_harvesting.insert({chip.first, tt_SocDescriptor(sdesc_path, chip.second)});
+    }
 }
 
 void Cluster::check_pcie_device_initialized(int device_id) {
@@ -1385,6 +1390,15 @@ void Cluster::configure_tlb(
     tlb_config_map[logical_device_id].insert({tlb_index, (address / tlb_size) * tlb_size});
 }
 
+void Cluster::configure_tlb(
+    chip_id_t logical_device_id, tt::umd::CoreCoord core, int32_t tlb_index, uint64_t address, uint64_t ordering) {
+    tt_xy_pair virtual_core;
+    const CoreCoord virtual_coord = to(logical_device_id, core, CoordSystem::VIRTUAL);
+    virtual_core.x = virtual_coord.x;
+    virtual_core.y = virtual_coord.y;
+    configure_tlb(logical_device_id, virtual_core, tlb_index, address, ordering);
+}
+
 void Cluster::set_fallback_tlb_ordering_mode(const std::string& fallback_tlb, uint64_t ordering) {
     log_assert(
         ordering == TLB_DATA::Strict || ordering == TLB_DATA::Posted || ordering == TLB_DATA::Relaxed,
@@ -1725,6 +1739,10 @@ uint32_t Cluster::get_harvested_rows(int logical_device_id) {
 
 uint32_t Cluster::get_harvested_noc_rows_for_chip(int logical_device_id) {
     return get_harvested_noc_rows(get_harvested_rows(logical_device_id));
+}
+
+CoreCoord Cluster::to(const chip_id_t chip, const CoreCoord core_coord, const CoordSystem coord_system) {
+    return soc_desc_per_chip_harvesting.at(chip).to(core_coord, coord_system);
 }
 
 void Cluster::enable_local_ethernet_queue(const chip_id_t& device_id, int timeout) {
@@ -3034,6 +3052,21 @@ void Cluster::write_to_device(
     }
 }
 
+void Cluster::write_to_device(
+    const void* mem_ptr,
+    uint32_t size_in_bytes,
+    chip_id_t chip,
+    CoreCoord core,
+    uint64_t addr,
+    const std::string& tlb_to_use) {
+    tt_cxy_pair virtual_core;
+    virtual_core.chip = chip;
+    CoreCoord virtual_coord = to(chip, core, CoordSystem::VIRTUAL);
+    virtual_core.x = virtual_coord.x;
+    virtual_core.y = virtual_coord.y;
+    write_to_device(mem_ptr, size_in_bytes, virtual_core, addr, tlb_to_use);
+}
+
 void Cluster::read_mmio_device_register(
     void* mem_ptr, tt_cxy_pair core, uint64_t addr, uint32_t size, const std::string& fallback_tlb) {
     PCIDevice* pci_device = get_pci_device(core.chip);
@@ -3091,6 +3124,16 @@ void Cluster::read_from_device(
             "Cannot issue ethernet reads from a single chip cluster!");
         read_from_non_mmio_device(mem_ptr, core, addr, size);
     }
+}
+
+void Cluster::read_from_device(
+    void* mem_ptr, chip_id_t chip, CoreCoord core, uint64_t addr, uint32_t size, const std::string& fallback_tlb) {
+    tt_cxy_pair virtual_core;
+    virtual_core.chip = chip;
+    CoreCoord virtual_coord = to(chip, core, CoordSystem::VIRTUAL);
+    virtual_core.x = virtual_coord.x;
+    virtual_core.y = virtual_coord.y;
+    read_from_device(mem_ptr, virtual_core, addr, size, fallback_tlb);
 }
 
 int Cluster::arc_msg(
@@ -3382,6 +3425,10 @@ std::uint64_t Cluster::get_pcie_base_addr_from_device(const chip_id_t chip_id) c
     } else {
         return 0;
     }
+}
+
+const tt_SocDescriptor& Cluster::get_soc_desc(chip_id_t chip_id) const {
+    return soc_desc_per_chip_harvesting.at(chip_id);
 }
 
 tt_version Cluster::get_ethernet_fw_version() const {

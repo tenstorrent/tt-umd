@@ -13,10 +13,8 @@ using namespace tt::umd;
 // Tests that all physical coordinates are same as all virtual coordinates
 // when there is no harvesting.
 TEST(CoordinateManager, CoordinateManagerWormholeNoHarvesting) {
-    const size_t harvesting_mask = 0;
-
     std::shared_ptr<CoordinateManager> coordinate_manager =
-        CoordinateManager::create_coordinate_manager(tt::ARCH::WORMHOLE_B0, 0, 0);
+        CoordinateManager::create_coordinate_manager(tt::ARCH::WORMHOLE_B0);
 
     // We expect full grid size since there is no harvesting.
     tt_xy_pair tensix_grid_size = tt::umd::wormhole::TENSIX_GRID_SIZE;

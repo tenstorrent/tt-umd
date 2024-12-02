@@ -38,6 +38,7 @@ BlackholeCoordinateManager::BlackholeCoordinateManager(
     this->translate_eth_coords();
     this->translate_arc_coords();
     this->translate_pcie_coords();
+    this->fill_core_structures();
 }
 
 void BlackholeCoordinateManager::translate_tensix_coords() {
@@ -287,4 +288,42 @@ void BlackholeCoordinateManager::fill_dram_logical_to_translated() {
         to_physical_map[translated_coord] = {physical_core.x, physical_core.y};
         from_physical_map[{{physical_core.x, physical_core.y}, CoordSystem::TRANSLATED}] = translated_coord;
     }
+}
+
+void BlackholeCoordinateManager::fill_tensix_core_structures() {
+    std::vector<size_t> harvested_x_coords = get_harvested_indices(tensix_harvesting_mask);
+    for (size_t y = 0; y < tensix_grid_size.y; y++) {
+        for (size_t x = 0; x < tensix_grid_size.x; x++) {
+            const tt_xy_pair core = tensix_cores[y * tensix_grid_size.x + x];
+            CoreCoord core_coord(core.x, core.y, CoreType::TENSIX, CoordSystem::PHYSICAL);
+            if (std::find(harvested_x_coords.begin(), harvested_x_coords.end(), x) == harvested_x_coords.end()) {
+                unharvested_tensix_cores.push_back(core_coord);
+            } else {
+                harvested_tensix_cores.push_back(core_coord);
+            }
+        }
+    }
+    const size_t num_harvested_x = harvested_x_coords.size();
+    tensix_grid_size.x -= num_harvested_x;
+    harvested_tensix_grid_size.x = num_harvested_x;
+    harvested_tensix_grid_size.y = tensix_grid_size.y;
+}
+
+void BlackholeCoordinateManager::fill_dram_core_structures() {
+    std::vector<size_t> harvested_banks = get_harvested_indices(dram_harvesting_mask);
+    for (size_t bank = 0; bank < dram_grid_size.x; bank++) {
+        for (size_t port = 0; port < dram_grid_size.y; port++) {
+            const tt_xy_pair core = dram_cores[bank * dram_grid_size.y + port];
+            CoreCoord core_coord(core.x, core.y, CoreType::DRAM, CoordSystem::PHYSICAL);
+            if (std::find(harvested_banks.begin(), harvested_banks.end(), bank) == harvested_banks.end()) {
+                unharvested_dram_cores.push_back(core_coord);
+            } else {
+                harvested_dram_cores.push_back(core_coord);
+            }
+        }
+    }
+    const size_t num_harvested_banks = harvested_banks.size();
+    dram_grid_size.x -= num_harvested_banks;
+    harvested_dram_grid_size.x = num_harvested_banks;
+    harvested_dram_grid_size.y = dram_grid_size.y;
 }

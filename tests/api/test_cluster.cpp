@@ -41,9 +41,8 @@ inline std::unique_ptr<Cluster> get_cluster() {
 // TODO: Should not be wormhole specific.
 // TODO: Offer default setup for what you can.
 void setup_wormhole_remote(Cluster* umd_cluster) {
-    if (!umd_cluster->get_target_remote_device_ids().empty() &&
-        umd_cluster->get_soc_descriptor(*umd_cluster->get_all_chips_in_cluster().begin()).arch ==
-            tt::ARCH::WORMHOLE_B0) {
+    if (umd_cluster->get_soc_descriptor(*umd_cluster->get_all_chips_in_cluster().begin()).arch ==
+        tt::ARCH::WORMHOLE_B0) {
         // Populate address map and NOC parameters that the driver needs for remote transactions
 
         umd_cluster->set_device_l1_address_params(
@@ -232,4 +231,70 @@ TEST(ApiClusterTest, SimpleIOSpecificChips) {
 
         ASSERT_EQ(data, readback_data);
     }
+}
+
+std::set<chip_id_t> get_target_devices() {
+    std::set<chip_id_t> target_devices;
+    std::unique_ptr<tt_ClusterDescriptor> cluster_desc_uniq = tt_ClusterDescriptor::create();
+    for (int i = 0; i < cluster_desc_uniq->get_number_of_chips(); i++) {
+        target_devices.insert(i);
+    }
+    return target_devices;
+}
+
+TEST(ClusterAPI, DynamicTLB_RW) {
+    // Don't use any static TLBs in this test. All writes go through a dynamic TLB that needs to be reconfigured for
+    // each transaction
+
+    uint32_t num_host_mem_ch_per_mmio_device = 1;
+    std::unique_ptr<Cluster> cluster = get_cluster();
+
+    setup_wormhole_remote(cluster.get());
+
+    tt_device_params default_params;
+    cluster->start_device(default_params);
+    cluster->deassert_risc_reset();
+
+    std::vector<uint32_t> vector_to_write = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9};
+    std::vector<uint32_t> zeros = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+    std::vector<uint32_t> readback_vec = zeros;
+
+    static const uint32_t num_loops = 100;
+
+    std::unordered_set<chip_id_t> target_devices = cluster->get_all_chips_in_cluster();
+    for (const chip_id_t chip : target_devices) {
+        std::uint32_t address = l1_mem::address_map::NCRISC_FIRMWARE_BASE;
+        // Write to each core a 100 times at different statically mapped addresses
+        const tt_SocDescriptor& soc_desc = cluster->get_soc_desc(chip);
+        std::vector<CoreCoord> tensix_cores = soc_desc.get_cores(CoreType::TENSIX);
+        for (int loop = 0; loop < num_loops; loop++) {
+            for (auto& core : tensix_cores) {
+                cluster->write_to_device(
+                    vector_to_write.data(),
+                    vector_to_write.size() * sizeof(std::uint32_t),
+                    chip,
+                    core,
+                    address,
+                    "SMALL_READ_WRITE_TLB");
+
+                // Barrier to ensure that all writes over ethernet were commited
+                cluster->wait_for_non_mmio_flush();
+                cluster->read_from_device(readback_vec.data(), chip, core, address, 40, "SMALL_READ_WRITE_TLB");
+
+                ASSERT_EQ(vector_to_write, readback_vec)
+                    << "Vector read back from core " << core.x << "-" << core.y << "does not match what was written";
+
+                cluster->wait_for_non_mmio_flush();
+
+                cluster->write_to_device(
+                    zeros.data(), zeros.size() * sizeof(std::uint32_t), chip, core, address, "SMALL_READ_WRITE_TLB");
+
+                cluster->wait_for_non_mmio_flush();
+
+                readback_vec = zeros;
+            }
+            address += 0x20;  // Increment by uint32_t size for each write
+        }
+    }
+    cluster->close_device();
 }

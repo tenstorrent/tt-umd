@@ -9,6 +9,7 @@
 #include <cstdint>
 #include <memory>
 #include <set>
+#include <stdexcept>
 #include <string>
 #include <unordered_set>
 #include <vector>
@@ -284,6 +285,15 @@ public:
         throw std::runtime_error("---- tt_device::configure_tlb is not implemented\n");
     }
 
+    virtual void configure_tlb(
+        chip_id_t logical_device_id,
+        tt::umd::CoreCoord core,
+        int32_t tlb_index,
+        uint64_t address,
+        uint64_t ordering = TLB_DATA::Relaxed) {
+        throw std::runtime_error("---- tt_device::configure_tlb is not implemented\n");
+    }
+
     /**
      * Set ordering mode for dynamic/fallback TLBs (passed into driver constructor).
      *
@@ -403,6 +413,16 @@ public:
         throw std::runtime_error("---- tt_device::write_to_device is not implemented\n");
     }
 
+    virtual void write_to_device(
+        const void* mem_ptr,
+        uint32_t size_in_bytes,
+        chip_id_t chip,
+        tt::umd::CoreCoord core,
+        uint64_t addr,
+        const std::string& tlb_to_use) {
+        throw std::runtime_error("---- tt_device::write_to_device is not implemented\n");
+    }
+
     virtual void broadcast_write_to_cluster(
         const void* mem_ptr,
         uint32_t size_in_bytes,
@@ -426,6 +446,16 @@ public:
     virtual void read_from_device(
         void* mem_ptr, tt_cxy_pair core, uint64_t addr, uint32_t size, const std::string& fallback_tlb) {
         // Only implement this for Silicon Backend
+        throw std::runtime_error("---- tt_device::read_from_device is not implemented\n");
+    }
+
+    virtual void read_from_device(
+        void* mem_ptr,
+        chip_id_t chip,
+        tt::umd::CoreCoord core,
+        uint64_t addr,
+        uint32_t size,
+        const std::string& fallback_tlb) {
         throw std::runtime_error("---- tt_device::read_from_device is not implemented\n");
     }
 
@@ -636,6 +666,12 @@ public:
         return 0;
     }
 
+    virtual tt::umd::CoreCoord to(
+        const chip_id_t chip, const tt::umd::CoreCoord core_coord, const CoordSystem coord_system) {
+        throw std::runtime_error("---- tt_device::to is not implemented\n");
+        return tt::umd::CoreCoord();
+    }
+
     const tt_SocDescriptor& get_soc_descriptor(chip_id_t chip_id) const;
 
     bool performed_harvesting = false;
@@ -644,6 +680,7 @@ public:
 
 protected:
     std::unordered_map<chip_id_t, tt_SocDescriptor> soc_descriptor_per_chip = {};
+    std::unordered_map<chip_id_t, tt_SocDescriptor> soc_desc_per_chip_harvesting = {};
 };
 
 namespace tt::umd {
@@ -722,6 +759,12 @@ public:
         int32_t tlb_index,
         uint64_t address,
         uint64_t ordering = TLB_DATA::Posted);
+    virtual void configure_tlb(
+        chip_id_t logical_device_id,
+        tt::umd::CoreCoord core,
+        int32_t tlb_index,
+        uint64_t address,
+        uint64_t ordering = TLB_DATA::Posted);
     virtual void set_fallback_tlb_ordering_mode(const std::string& fallback_tlb, uint64_t ordering = TLB_DATA::Posted);
     virtual void setup_core_to_tlb_map(
         const chip_id_t logical_device_id, std::function<std::int32_t(tt_xy_pair)> mapping_function);
@@ -738,6 +781,14 @@ public:
     // Runtime Functions
     virtual void write_to_device(
         const void* mem_ptr, uint32_t size_in_bytes, tt_cxy_pair core, uint64_t addr, const std::string& tlb_to_use);
+    virtual void write_to_device(
+        const void* mem_ptr,
+        uint32_t size_in_bytes,
+        chip_id_t chip,
+        tt::umd::CoreCoord core,
+        uint64_t addr,
+        const std::string& tlb_to_use);
+
     void broadcast_write_to_cluster(
         const void* mem_ptr,
         uint32_t size_in_bytes,
@@ -749,10 +800,19 @@ public:
 
     virtual void read_from_device(
         void* mem_ptr, tt_cxy_pair core, uint64_t addr, uint32_t size, const std::string& fallback_tlb);
+    virtual void read_from_device(
+        void* mem_ptr,
+        chip_id_t chip,
+        tt::umd::CoreCoord core,
+        uint64_t addr,
+        uint32_t size,
+        const std::string& fallback_tlb);
+
     virtual void write_to_sysmem(
         const void* mem_ptr, std::uint32_t size, uint64_t addr, uint16_t channel, chip_id_t src_device_id);
     virtual void read_from_sysmem(
         void* mem_ptr, uint64_t addr, uint16_t channel, uint32_t size, chip_id_t src_device_id);
+
     virtual void wait_for_non_mmio_flush();
     virtual void wait_for_non_mmio_flush(const chip_id_t chip_id);
     void l1_membar(
@@ -825,6 +885,10 @@ public:
     virtual tt_version get_ethernet_fw_version() const;
     // TODO: This should be accessible through public API, probably to be moved to tt_device.
     PCIDevice* get_pci_device(int device_id) const;
+    virtual tt::umd::CoreCoord to(
+        const chip_id_t chip, const tt::umd::CoreCoord core_coord, const CoordSystem coord_system);
+
+    const tt_SocDescriptor& get_soc_desc(chip_id_t chip_id) const;
 
     // Destructor
     virtual ~Cluster();

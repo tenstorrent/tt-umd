@@ -58,6 +58,7 @@ function(fetch_dependencies)
         OPTIONS
             "NNG_TESTS OFF"
             "NNG_TOOLS OFF"
+            "BUILD_SHARED_LIBS OFF"
     )
 
     ############################################################################################################################

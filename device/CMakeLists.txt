@@ -12,6 +12,7 @@ add_custom_command(
         --cpp -o "${CMAKE_CURRENT_BINARY_DIR}/" ${FBS_FILE}
     DEPENDS
         flatc
+        ${FBS_FILE}
     COMMENT "Generating FlatBuffers header ${FBS_GENERATED_HEADER}"
     VERBATIM
 )

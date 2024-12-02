@@ -18,6 +18,7 @@
 #include "tt_xy_pair.h"
 #include "umd/device/coordinate_manager.h"
 #include "umd/device/tt_arch_types.h"
+#include "umd/device/tt_core_coordinates.h"
 #include "umd/device/tt_xy_pair.h"
 
 namespace YAML {
@@ -64,19 +65,6 @@ static inline tt::ARCH get_arch_name(const std::string &arch_str) {
 std::string format_node(tt_xy_pair xy);
 
 tt_xy_pair format_node(std::string str);
-
-//! SocCore type enumerations
-/*! Superset for all chip generations */
-enum class CoreType {
-    ARC,
-    DRAM,
-    ETH,
-    PCIE,
-    WORKER,
-    HARVESTED,
-    ROUTER_ONLY,
-
-};
 
 //! SocNodeDescriptor contains information regarding the Node/Core
 /*!
@@ -134,7 +122,10 @@ public:
     // Default constructor. Creates uninitialized object with public access to all of its attributes.
     tt_SocDescriptor() = default;
     // Constructor used to build object from device descriptor file.
-    tt_SocDescriptor(std::string device_descriptor_path, std::size_t harvesting_mask = 0);
+    tt_SocDescriptor(
+        std::string device_descriptor_path,
+        const std::size_t tensix_harvesting_mask = 0,
+        const std::size_t dram_harvesting_mask = 0);
 
     // Copy constructor
     tt_SocDescriptor(const tt_SocDescriptor &other) :
@@ -164,39 +155,23 @@ public:
         worker_l1_size(other.worker_l1_size),
         eth_l1_size(other.eth_l1_size),
         noc_translation_id_enabled(other.noc_translation_id_enabled),
-        dram_bank_size(other.dram_bank_size) {
-        coordinate_manager.reset(new CoordinateManager(*other.coordinate_manager));
-    }
+        dram_bank_size(other.dram_bank_size),
+        coordinate_manager(other.coordinate_manager) {}
 
-    // Coordinate conversions.
-
-    // Conversions from logical coordinates should be used just for worker cores.
-    tt_physical_coords to_physical_coords(tt_logical_coords logical_coords);
-    tt_virtual_coords to_virtual_coords(tt_logical_coords logical_coords);
-    tt_translated_coords to_translated_coords(tt_logical_coords logical_coords);
-
-    tt_logical_coords to_logical_coords(tt_physical_coords physical_coords);
-    tt_virtual_coords to_virtual_coords(tt_physical_coords physical_coords);
-    tt_translated_coords to_translated_coords(tt_physical_coords physical_coords);
-
-    tt_logical_coords to_logical_coords(tt_virtual_coords virtual_coords);
-    tt_physical_coords to_physical_coords(tt_virtual_coords virtual_coords);
-    tt_translated_coords to_translated_coords(tt_virtual_coords virtual_coords);
-
-    tt_logical_coords to_logical_coords(tt_translated_coords translated_coords);
-    tt_physical_coords to_physical_coords(tt_translated_coords translated_coords);
-    tt_virtual_coords to_virtual_coords(tt_translated_coords translated_coords);
-
-    void perform_harvesting(std::size_t harvesting_mask);
+    // CoreCoord conversions.
+    tt::umd::CoreCoord to(const tt::umd::CoreCoord core_coord, const CoordSystem coord_system);
 
     static std::string get_soc_descriptor_path(tt::ARCH arch);
 
 private:
-    void create_coordinate_manager(std::size_t harvesting_mask);
+    void create_coordinate_manager(const std::size_t tensix_harvesting_mask, const std::size_t dram_harvesting_mask);
     void load_core_descriptors_from_device_descriptor(YAML::Node &device_descriptor_yaml);
     void load_soc_features_from_device_descriptor(YAML::Node &device_descriptor_yaml);
 
-    std::unique_ptr<CoordinateManager> coordinate_manager = nullptr;
+    // TODO: change this to unique pointer as soon as copying of tt_SocDescriptor
+    // is not needed anymore. Soc descriptor and coordinate manager should be
+    // created once per chip.
+    std::shared_ptr<CoordinateManager> coordinate_manager = nullptr;
 };
 
 // Allocates a new soc descriptor on the heap. Returns an owning pointer.

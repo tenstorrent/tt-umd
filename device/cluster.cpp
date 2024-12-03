@@ -501,6 +501,10 @@ std::unique_ptr<Chip> Cluster::construct_chip_from_cluster(chip_id_t chip_id, tt
 }
 
 void Cluster::add_chip(chip_id_t chip_id, std::unique_ptr<Chip> chip) {
+    log_assert(
+        chips_.find(chip_id) == chips_.end(),
+        "Chip with id {} already exists in cluster. Cannot add another chip with the same id.",
+        chip_id);
     target_devices_in_cluster.insert(chip_id);
     if (chip->is_mmio_capable()) {
         all_target_mmio_devices.insert(chip_id);

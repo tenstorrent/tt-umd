@@ -26,10 +26,6 @@ tt_emulation_device::~tt_emulation_device() {
     log_info(tt::LogEmulationDriver, "Destroyed Emulation Device ");
 }
 
-const tt_SocDescriptor& tt_emulation_device::get_soc_descriptor(chip_id_t chip_id) const {
-    return soc_descriptor_per_chip.at(chip_id);
-}
-
 void tt_emulation_device::write(tt_cxy_pair core, uint64_t addr, const std::vector<uint8_t>& data) {
     const uint32_t size = static_cast<uint32_t>(data.size());
     tt_zebu_wrapper_inst->axi_write(0, core.x, core.y, addr, size, data);
@@ -222,10 +218,6 @@ bool tt_emulation_device::noc_translation_en() { return false; }
 
 std::unordered_map<chip_id_t, uint32_t> tt_emulation_device::get_harvesting_masks_for_soc_descriptors() {
     return {{0, 0}};
-}
-
-std::unordered_map<chip_id_t, tt_SocDescriptor>& tt_emulation_device::get_virtual_soc_descriptors() {
-    return soc_descriptor_per_chip;
 }
 
 std::map<int, int> tt_emulation_device::get_clocks() { return std::map<int, int>(); }

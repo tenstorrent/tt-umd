@@ -56,7 +56,7 @@ function(fetch_dependencies)
         GITHUB_REPOSITORY nanomsg/nng
         GIT_TAG v1.8.0
         OPTIONS
-            "BUILD_SHARED_LIBS ON"
+            "BUILD_SHARED_LIBS OFF"
             "NNG_TESTS OFF"
             "NNG_TOOLS OFF"
     )
@@ -74,30 +74,20 @@ function(fetch_dependencies)
             "FLATBUFFERS_SKIP_MONSTER_EXTRA ON"
             "FLATBUFFERS_STRICT_MODE ON"
     )
-    function(GENERATE_FBS_HEADER FBS_FILE)
-        get_filename_component(FBS_FILE_NAME ${FBS_FILE} NAME)
-        get_filename_component(FBS_FILE_DIR ${FBS_FILE} DIRECTORY)
-        set(FBS_GENERATED_HEADER "${CMAKE_CURRENT_BINARY_DIR}/${FBS_FILE_NAME}_generated.h")
-        add_custom_command(
-            OUTPUT
-                ${FBS_GENERATED_HEADER}
-            COMMAND
-                flatc
-            ARGS
-                --cpp -o "${CMAKE_CURRENT_BINARY_DIR}/" ${FBS_FILE}
-            DEPENDS
-                flatc
-                ${FBS_FILE}
-            COMMENT "Building C++ header for ${FBS_FILE}"
-            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
-        )
-        set(FBS_GENERATED_HEADER ${FBS_GENERATED_HEADER} PARENT_SCOPE)
-    endfunction()
+
+    set(FLATC_EXE ${flatbuffers_BINARY_DIR}/flatc PARENT_SCOPE)
 
     ###################################################################################################################
     # libuv (for process management)
     ###################################################################################################################
-    CPMAddPackage(NAME libuv GITHUB_REPOSITORY libuv/libuv GIT_TAG v1.48.0 OPTIONS "LIBUV_BUILD_TESTS OFF")
+    CPMAddPackage(
+        NAME libuv
+        GITHUB_REPOSITORY libuv/libuv
+        GIT_TAG v1.48.0
+        OPTIONS
+            "LIBUV_BUILD_TESTS OFF"
+            "LIBUV_BUILD_SHARED OFF"
+    )
 
     ###################################################################################################################
     # fmt : https://github.com/fmtlib/fmt

@@ -43,6 +43,8 @@
 #include "umd/device/tlb.h"
 #include "umd/device/tt_arch_types.h"
 #include "umd/device/tt_cluster_descriptor.h"
+#include "umd/device/tt_core_coordinates.h"
+#include "umd/device/tt_soc_descriptor.h"
 #include "yaml-cpp/yaml.h"
 
 using namespace boost::interprocess;

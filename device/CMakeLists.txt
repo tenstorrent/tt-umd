@@ -1,6 +1,21 @@
 set(POSITION_INDEPENDENT_CODE ON)
 
-generate_fbs_header(${PROJECT_SOURCE_DIR}/device/simulation/tt_simulation_device.fbs)
+set(FBS_FILE ${PROJECT_SOURCE_DIR}/device/simulation/tt_simulation_device.fbs)
+get_filename_component(FBS_FILE_NAME ${FBS_FILE} NAME)
+set(FBS_GENERATED_HEADER "${CMAKE_CURRENT_BINARY_DIR}/${FBS_FILE_NAME}_generated.h")
+add_custom_command(
+    OUTPUT
+        ${FBS_GENERATED_HEADER}
+    COMMAND
+        ${FLATC_EXE}
+    ARGS
+        --cpp -o "${CMAKE_CURRENT_BINARY_DIR}/" ${FBS_FILE}
+    DEPENDS
+        flatc
+        ${FBS_FILE}
+    COMMENT "Generating FlatBuffers header ${FBS_GENERATED_HEADER}"
+    VERBATIM
+)
 
 add_library(device SHARED)
 add_library(${PROJECT_NAME}::device ALIAS device)
@@ -9,12 +24,12 @@ target_sources(
     device
     PRIVATE
         architecture_implementation.cpp
-        blackhole/blackhole_coordinate_manager.cpp
-        blackhole/blackhole_implementation.cpp
         cluster.cpp
         coordinate_manager.cpp
         cpuset_lib.cpp
         grayskull/grayskull_implementation.cpp
+        wormhole/wormhole_implementation.cpp
+        blackhole/blackhole_implementation.cpp
         hugepage.cpp
         pcie/pci_device.cpp
         simulation/tt_simulation_device.cpp
@@ -23,8 +38,9 @@ target_sources(
         tt_cluster_descriptor.cpp
         tt_silicon_driver_common.cpp
         tt_soc_descriptor.cpp
+        grayskull/grayskull_coordinate_manager.cpp
         wormhole/wormhole_coordinate_manager.cpp
-        wormhole/wormhole_implementation.cpp
+        blackhole/blackhole_coordinate_manager.cpp
         xy_pair.cpp
         ${FBS_GENERATED_HEADER}
 )
@@ -41,18 +57,17 @@ target_include_directories(
 )
 
 # flatbuffers is public - exposed to tt_metal by tt_simulation_device_generated.h
-# nng is public - exposed to tt_metal by tt_simulation_host.hpp
 target_link_libraries(
     device
     PUBLIC
-        nng
         flatbuffers
-        uv
     PRIVATE
         umd::Common
         umd::Firmware
         hwloc
+        nng
         rt
+        uv_a
         Boost::interprocess
         spdlog::spdlog_header_only
         fmt::fmt-header-only

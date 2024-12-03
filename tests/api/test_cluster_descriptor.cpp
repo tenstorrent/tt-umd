@@ -14,15 +14,14 @@
 #include "umd/device/tt_cluster_descriptor.h"
 
 TEST(ApiClusterDescriptorTest, DetectArch) {
-    tt::ARCH arch = tt_ClusterDescriptor::detect_arch(0);
+    EXPECT_THROW(tt_ClusterDescriptor::detect_arch(0), std::runtime_error);
+
+    std::unique_ptr<tt_ClusterDescriptor> cluster_desc = tt_ClusterDescriptor::create();
 
     // Expect it to be invalid if no devices are found.
-    if (PCIDevice::enumerate_devices().empty()) {
-        EXPECT_EQ(arch, tt::ARCH::Invalid);
-    } else {
+    if (cluster_desc->get_number_of_chips() > 0) {
+        tt::ARCH arch = tt_ClusterDescriptor::detect_arch(0);
         EXPECT_NE(arch, tt::ARCH::Invalid);
-
-        std::unique_ptr<tt_ClusterDescriptor> cluster_desc = tt_ClusterDescriptor::create();
 
         // Test that cluster descriptor and PCIDevice::enumerate_devices_info() return the same set of chips.
         std::map<int, PciDeviceInfo> pci_device_infos = PCIDevice::enumerate_devices_info();

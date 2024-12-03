@@ -19,8 +19,6 @@ class tt_zebu_wrapper;
 
 class tt_emulation_device : public tt_device {
 public:
-    const tt_SocDescriptor& get_soc_descriptor(chip_id_t chip_id) const;
-
     virtual void set_device_l1_address_params(const tt_device_l1_address_params& l1_address_params_);  // Dont care
     tt_emulation_device(const std::string& sdesc_path);
     virtual void start(
@@ -92,9 +90,6 @@ public:
     virtual std::unordered_set<chip_id_t> get_all_chips_in_cluster();
     static int detect_number_of_chips();
     virtual std::map<int, int> get_clocks();
-
-protected:
-    std::unordered_map<chip_id_t, tt_SocDescriptor> soc_descriptor_per_chip = {};
 
 private:
     tt_device_l1_address_params l1_address_params;

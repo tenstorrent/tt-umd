@@ -15,11 +15,6 @@ tt_VersimDevice::tt_VersimDevice(const std::string& sdesc_path, const std::strin
 
 tt_VersimDevice::~tt_VersimDevice() {}
 
-std::unordered_map<chip_id_t, tt_SocDescriptor>& tt_VersimDevice::get_virtual_soc_descriptors() {
-    throw std::runtime_error("tt_VersimDevice() -- VERSIM is not supported in this build\n");
-    return soc_descriptor_per_chip;
-}
-
 int tt_VersimDevice::get_number_of_chips_in_cluster() { return detect_number_of_chips(); }
 
 std::unordered_set<int> tt_VersimDevice::get_all_chips_in_cluster() { return {}; }

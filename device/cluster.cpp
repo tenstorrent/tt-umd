@@ -71,12 +71,6 @@ void size_buffer_to_capacity(std::vector<T>& data_buf, std::size_t size_in_bytes
     data_buf.resize(target_size);
 }
 
-// TODO: To be removed when tt_device is removed
-
-tt_device::tt_device() {}
-
-tt_device::~tt_device() {}
-
 // --------------------------------------------------------------------------------------------------------------
 // --------------------------------------------------------------------------------------------------------------
 // --------------------------------------------------------------------------------------------------------------
@@ -150,8 +144,6 @@ bool Cluster::address_in_tlb_space(
     }
     return false;
 }
-
-std::unordered_map<chip_id_t, tt_SocDescriptor>& Cluster::get_virtual_soc_descriptors() { return soc_desc_map; }
 
 void Cluster::initialize_interprocess_mutexes(int pci_interface_id, bool cleanup_mutexes_in_shm) {
     // These mutexes are intended to be based on physical devices/pci-intf not logical. Set these up ahead of time here
@@ -332,9 +324,9 @@ void Cluster::construct_cluster(
             target_remote_chips);
     }
 
-    // Prefill the soc_desc_map
+    // Prefill the soc_descriptor_per_chip
     for (const auto& [chip_id, chip] : chips_) {
-        soc_desc_map.emplace(chip_id, chip->get_soc_descriptor());
+        soc_descriptor_per_chip.emplace(chip_id, chip->get_soc_descriptor());
     }
 
     perform_harvesting_on_sdesc = perform_harvesting;

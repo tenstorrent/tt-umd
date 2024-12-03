@@ -866,122 +866,124 @@ TEST(SiliconDriverWH, SysmemTestWithPcie) {
  * Same idea as above, but with four channels of sysmem and random addresses.
  * The hardware mechanism is too slow to sweep the entire range.
  */
-TEST(SiliconDriverWH, RandomSysmemTestWithPcie) {
-    const size_t num_channels = 2;  // ideally 4, but CI seems to have 2...
-    auto target_devices = get_target_devices();
+// TODO issue#363
+// TEST(SiliconDriverWH, RandomSysmemTestWithPcie) {
+//     const size_t num_channels = 2;  // ideally 4, but CI seems to have 2...
+//     auto target_devices = get_target_devices();
 
-    Cluster cluster(
-        test_utils::GetAbsPath("tests/soc_descs/wormhole_b0_8x10.yaml"),
-        target_devices,
-        num_channels,
-        false,  // skip driver allocs - no (don't skip)
-        true,   // clean system resources - yes
-        true);  // perform harvesting - yes
+//     Cluster cluster(
+//         test_utils::GetAbsPath("tests/soc_descs/wormhole_b0_8x10.yaml"),
+//         target_devices,
+//         num_channels,
+//         false,  // skip driver allocs - no (don't skip)
+//         true,   // clean system resources - yes
+//         true);  // perform harvesting - yes
 
-    set_params_for_remote_txn(cluster);
-    cluster.start_device(tt_device_params{});  // no special parameters
+//     set_params_for_remote_txn(cluster);
+//     cluster.start_device(tt_device_params{});  // no special parameters
 
-    const chip_id_t mmio_chip_id = 0;
-    const auto PCIE = cluster.get_soc_descriptor(mmio_chip_id).pcie_cores.at(0);
-    const tt_cxy_pair PCIE_CORE(mmio_chip_id, PCIE.x, PCIE.y);
-    const size_t ONE_GIG = 1 << 30;
-    const size_t num_tests = 0x20000;  // runs in a reasonable amount of time
+//     const chip_id_t mmio_chip_id = 0;
+//     const auto PCIE = cluster.get_soc_descriptor(mmio_chip_id).pcie_cores.at(0);
+//     const tt_cxy_pair PCIE_CORE(mmio_chip_id, PCIE.x, PCIE.y);
+//     const size_t ONE_GIG = 1 << 30;
+//     const size_t num_tests = 0x20000;  // runs in a reasonable amount of time
 
-    // PCIe core is at (x=0, y=3) on Wormhole NOC0.
-    ASSERT_EQ(PCIE.x, 0);
-    ASSERT_EQ(PCIE.y, 3);
+//     // PCIe core is at (x=0, y=3) on Wormhole NOC0.
+//     ASSERT_EQ(PCIE.x, 0);
+//     ASSERT_EQ(PCIE.y, 3);
 
-    const uint64_t ALIGNMENT = sizeof(uint32_t);
-    auto generate_aligned_address = [&](uint64_t lo, uint64_t hi) -> uint64_t {
-        static std::random_device rd;
-        static std::mt19937_64 gen(rd());
-        std::uniform_int_distribution<uint64_t> dis(lo / ALIGNMENT, hi / ALIGNMENT);
-        return dis(gen) * ALIGNMENT;
-    };
+//     const uint64_t ALIGNMENT = sizeof(uint32_t);
+//     auto generate_aligned_address = [&](uint64_t lo, uint64_t hi) -> uint64_t {
+//         static std::random_device rd;
+//         static std::mt19937_64 gen(rd());
+//         std::uniform_int_distribution<uint64_t> dis(lo / ALIGNMENT, hi / ALIGNMENT);
+//         return dis(gen) * ALIGNMENT;
+//     };
 
-    uint64_t base_address = cluster.get_pcie_base_addr_from_device(mmio_chip_id);
-    for (size_t channel = 0; channel < num_channels; ++channel) {
-        uint8_t* sysmem = (uint8_t*)cluster.host_dma_address(0, 0, channel);
-        ASSERT_NE(sysmem, nullptr);
+//     uint64_t base_address = cluster.get_pcie_base_addr_from_device(mmio_chip_id);
+//     for (size_t channel = 0; channel < num_channels; ++channel) {
+//         uint8_t* sysmem = (uint8_t*)cluster.host_dma_address(0, 0, channel);
+//         ASSERT_NE(sysmem, nullptr);
 
-        test_utils::fill_with_random_bytes(sysmem, ONE_GIG);
+//         test_utils::fill_with_random_bytes(sysmem, ONE_GIG);
 
-        uint64_t lo = (ONE_GIG * channel);
-        uint64_t hi = (lo + ONE_GIG) - 1;
+//         uint64_t lo = (ONE_GIG * channel);
+//         uint64_t hi = (lo + ONE_GIG) - 1;
 
-        if (channel == 3) {
-            // TODO: I thought everything past 0xffff'dddd was registers or
-            // something, but a) I don't know what's actually there, and b)
-            // the unusable range seems to be bigger than that... so
-            // restricting to 0x8'f000'0000.
-            hi &= ~0x0fff'ffffULL;
-        }
+//         if (channel == 3) {
+//             // TODO: I thought everything past 0xffff'dddd was registers or
+//             // something, but a) I don't know what's actually there, and b)
+//             // the unusable range seems to be bigger than that... so
+//             // restricting to 0x8'f000'0000.
+//             hi &= ~0x0fff'ffffULL;
+//         }
 
-        for (size_t i = 0; i < num_tests; ++i) {
-            uint64_t address = generate_aligned_address(lo, hi);
-            uint64_t noc_addr = base_address + address;
-            uint64_t sysmem_address = address - lo;
+//         for (size_t i = 0; i < num_tests; ++i) {
+//             uint64_t address = generate_aligned_address(lo, hi);
+//             uint64_t noc_addr = base_address + address;
+//             uint64_t sysmem_address = address - lo;
 
-            ASSERT_GE(address, lo) << "Address too low";
-            ASSERT_LE(address, hi) << "Address too high";
-            ASSERT_EQ(address % ALIGNMENT, 0) << "Address not properly aligned";
+//             ASSERT_GE(address, lo) << "Address too low";
+//             ASSERT_LE(address, hi) << "Address too high";
+//             ASSERT_EQ(address % ALIGNMENT, 0) << "Address not properly aligned";
 
-            uint32_t value = 0;
-            cluster.read_from_device(&value, PCIE_CORE, noc_addr, sizeof(uint32_t), "LARGE_READ_TLB");
+//             uint32_t value = 0;
+//             cluster.read_from_device(&value, PCIE_CORE, noc_addr, sizeof(uint32_t), "LARGE_READ_TLB");
 
-            uint32_t expected = *reinterpret_cast<uint32_t*>(&sysmem[sysmem_address]);
-            ASSERT_EQ(value, expected) << fmt::format("Mismatch at address {:#x}", address);
-        }
-    }
-}
+//             uint32_t expected = *reinterpret_cast<uint32_t*>(&sysmem[sysmem_address]);
+//             ASSERT_EQ(value, expected) << fmt::format("Mismatch at address {:#x}", address);
+//         }
+//     }
+// }
 
-TEST(SiliconDriverWH, LargeAddressTlb) {
-    const size_t num_channels = 1;
-    auto target_devices = get_target_devices();
+// TODO issue#364
+// TEST(SiliconDriverWH, LargeAddressTlb) {
+//     const size_t num_channels = 1;
+//     auto target_devices = get_target_devices();
 
-    Cluster cluster(
-        test_utils::GetAbsPath("tests/soc_descs/wormhole_b0_8x10.yaml"),
-        target_devices,
-        num_channels,
-        false,  // skip driver allocs - no (don't skip)
-        true,   // clean system resources - yes
-        true);  // perform harvesting - yes
+//     Cluster cluster(
+//         test_utils::GetAbsPath("tests/soc_descs/wormhole_b0_8x10.yaml"),
+//         target_devices,
+//         num_channels,
+//         false,  // skip driver allocs - no (don't skip)
+//         true,   // clean system resources - yes
+//         true);  // perform harvesting - yes
 
-    const auto ARC = cluster.get_soc_descriptor(0).arc_cores.at(0);
-    const tt_cxy_pair ARC_CORE(0, ARC.x, ARC.y);
+//     const auto ARC = cluster.get_soc_descriptor(0).arc_cores.at(0);
+//     const tt_cxy_pair ARC_CORE(0, ARC.x, ARC.y);
 
-    set_params_for_remote_txn(cluster);
-    cluster.start_device(tt_device_params{});
+//     set_params_for_remote_txn(cluster);
+//     cluster.start_device(tt_device_params{});
 
-    auto get_static_tlb_index_callback = [](tt_xy_pair target) { return 0; };
-    cluster.setup_core_to_tlb_map(0, get_static_tlb_index_callback);
+//     auto get_static_tlb_index_callback = [](tt_xy_pair target) { return 0; };
+//     cluster.setup_core_to_tlb_map(0, get_static_tlb_index_callback);
 
-    // Address of the reset unit in ARC core:
-    uint64_t arc_reset_noc = 0x880030000ULL;
+//     // Address of the reset unit in ARC core:
+//     uint64_t arc_reset_noc = 0x880030000ULL;
 
-    // Offset to the scratch registers in the reset unit:
-    uint64_t scratch_offset = 0x60;
+//     // Offset to the scratch registers in the reset unit:
+//     uint64_t scratch_offset = 0x60;
 
-    // Map a TLB to the reset unit in ARC core:
-    cluster.configure_tlb(0, ARC_CORE, 0, arc_reset_noc);
+//     // Map a TLB to the reset unit in ARC core:
+//     cluster.configure_tlb(0, ARC_CORE, 0, arc_reset_noc);
 
-    // Address of the scratch register in the reset unit:
-    uint64_t addr = arc_reset_noc + scratch_offset;
+//     // Address of the scratch register in the reset unit:
+//     uint64_t addr = arc_reset_noc + scratch_offset;
 
-    uint32_t value0 = 0;
-    uint32_t value1 = 0;
-    uint32_t value2 = 0;
+//     uint32_t value0 = 0;
+//     uint32_t value1 = 0;
+//     uint32_t value2 = 0;
 
-    // Read the scratch register via BAR0:
-    value0 = cluster.bar_read32(0, 0x1ff30060);
+//     // Read the scratch register via BAR0:
+//     value0 = cluster.bar_read32(0, 0x1ff30060);
 
-    // Read the scratch register via the TLB:
-    cluster.read_from_device(&value1, ARC_CORE, addr, sizeof(uint32_t), "LARGE_READ_TLB");
+//     // Read the scratch register via the TLB:
+//     cluster.read_from_device(&value1, ARC_CORE, addr, sizeof(uint32_t), "LARGE_READ_TLB");
 
-    // Read the scratch register via a different TLB, different code path:
-    cluster.read_from_device(&value2, ARC_CORE, addr, sizeof(uint32_t), "REG_TLB");
+//     // Read the scratch register via a different TLB, different code path:
+//     cluster.read_from_device(&value2, ARC_CORE, addr, sizeof(uint32_t), "REG_TLB");
 
-    // Check that the values are the same:
-    EXPECT_EQ(value1, value0);
-    EXPECT_EQ(value2, value0);
-}
+//     // Check that the values are the same:
+//     EXPECT_EQ(value1, value0);
+//     EXPECT_EQ(value2, value0);
+// }

@@ -42,8 +42,8 @@ class tt_ClusterDescriptor;
  */
 class tt_device {
 public:
-    tt_device();
-    virtual ~tt_device();
+    tt_device(){};
+    virtual ~tt_device(){};
 
     // Setup/Teardown Functions
     /**
@@ -281,7 +281,7 @@ public:
      * These descriptors should be used for looking up cores that are passed into UMD APIs.
      */
     virtual std::unordered_map<chip_id_t, tt_SocDescriptor>& get_virtual_soc_descriptors() {
-        throw std::runtime_error("---- tt_device:get_virtual_soc_descriptors is not implemented\n");
+        return soc_descriptor_per_chip;
     }
 
     /**
@@ -449,11 +449,17 @@ public:
         return 0;
     }
 
-    virtual const tt_SocDescriptor& get_soc_descriptor(chip_id_t chip_id) const = 0;
+    virtual const tt_SocDescriptor& get_soc_descriptor(chip_id_t chip_id) {
+        return soc_descriptor_per_chip.at(chip_id);
+    }
 
     bool performed_harvesting = false;
     std::unordered_map<chip_id_t, uint32_t> harvested_rows_per_target = {};
     bool translation_tables_en = false;
+
+protected:
+    // TODO: Remove this once get_virtual_soc_descriptors can be removed.
+    std::unordered_map<chip_id_t, tt_SocDescriptor> soc_descriptor_per_chip = {};
 };
 
 namespace tt::umd {
@@ -550,7 +556,6 @@ public:
     static std::unique_ptr<Cluster> create_mock_cluster();
 
     // Setup/Teardown Functions
-    virtual std::unordered_map<chip_id_t, tt_SocDescriptor>& get_virtual_soc_descriptors();
     virtual void set_device_l1_address_params(const tt_device_l1_address_params& l1_address_params_);
     virtual void set_device_dram_address_params(const tt_device_dram_address_params& dram_address_params_);
     virtual void set_driver_host_address_params(const tt_driver_host_address_params& host_address_params_);
@@ -827,8 +832,6 @@ private:
     // Map of enabled tt devices
     std::unordered_map<chip_id_t, std::unique_ptr<TTDevice>> m_tt_device_map;
     std::shared_ptr<tt_ClusterDescriptor> cluster_desc;
-    // TODO: See if this can be removed.
-    std::unordered_map<chip_id_t, tt_SocDescriptor> soc_desc_map;
 
     // remote eth transfer setup
     static constexpr std::uint32_t NUM_ETH_CORES_FOR_NON_MMIO_TRANSFERS = 6;

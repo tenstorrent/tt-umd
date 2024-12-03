@@ -79,15 +79,6 @@ tt_SimulationDevice::tt_SimulationDevice(const std::string& sdesc_path) : tt_dev
 
 tt_SimulationDevice::~tt_SimulationDevice() { close_device(); }
 
-const tt_SocDescriptor& tt_SimulationDevice::get_soc_descriptor(chip_id_t chip_id) const {
-    return soc_descriptor_per_chip.at(chip_id);
-}
-
-// Setup/Teardown Functions
-std::unordered_map<chip_id_t, tt_SocDescriptor>& tt_SimulationDevice::get_virtual_soc_descriptors() {
-    return soc_descriptor_per_chip;
-}
-
 void tt_SimulationDevice::set_device_l1_address_params(const tt_device_l1_address_params& l1_address_params_) {
     l1_address_params = l1_address_params_;
 }

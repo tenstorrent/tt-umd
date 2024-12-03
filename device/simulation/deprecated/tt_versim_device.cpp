@@ -74,14 +74,6 @@ tt_VersimDevice::tt_VersimDevice(const std::string& sdesc_path, const std::strin
     }
 }
 
-const tt_SocDescriptor& Cluster::get_soc_descriptor(chip_id_t chip_id) const {
-    return soc_descriptor_per_chip.at(chip_id);
-}
-
-std::unordered_map<chip_id_t, tt_SocDescriptor>& tt_VersimDevice::get_virtual_soc_descriptors() {
-    return soc_descriptor_per_chip;
-}
-
 tt_ClusterDescriptor* tt_VersimDevice::get_cluster_description() { return cluster_descriptor.get(); }
 
 void tt_VersimDevice::start_device(const tt_device_params& device_params) {

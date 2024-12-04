@@ -14,12 +14,12 @@
 #include "umd/device/tt_cluster_descriptor.h"
 
 TEST(ApiClusterDescriptorTest, DetectArch) {
-    EXPECT_THROW(tt_ClusterDescriptor::detect_arch(0), std::runtime_error);
-
     std::unique_ptr<tt_ClusterDescriptor> cluster_desc = tt_ClusterDescriptor::create();
 
-    // Expect it to be invalid if no devices are found.
-    if (cluster_desc->get_number_of_chips() > 0) {
+    if (cluster_desc->get_number_of_chips() == 0) {
+        // Expect it to be invalid if no devices are found.
+        EXPECT_THROW(tt_ClusterDescriptor::detect_arch(0), std::runtime_error);
+    } else {
         tt::ARCH arch = tt_ClusterDescriptor::detect_arch(0);
         EXPECT_NE(arch, tt::ARCH::Invalid);
 

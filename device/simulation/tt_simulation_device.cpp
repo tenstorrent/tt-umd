@@ -40,13 +40,15 @@ void print_flatbuffer(const DeviceRequestResponse* buf) {
     std::stringstream ss;
     ss << std::hex << reinterpret_cast<uintptr_t>(addr);
     std::string addr_hex = ss.str();
-    log_info(tt::LogEmulationDriver, "{} bytes @ address {} in core ({}, {})", size, addr_hex, core.x, core.y);
+
+    std::stringstream data_ss;
     for (int i = 0; i < data_vec.size(); i++) {
-        std::ios_base::fmtflags save = std::cout.flags();
-        std::cout << "0x" << std::hex << std::setw(8) << std::setfill('0') << data_vec[i] << " ";
-        std::cout.flags(save);
+        data_ss << "0x" << std::hex << std::setw(8) << std::setfill('0') << data_vec[i] << " ";
     }
-    std::cout << std::endl;
+    std::string data_hex = data_ss.str();
+
+    log_debug(tt::LogEmulationDriver, "{} bytes @ address {} in core ({}, {})", size, addr_hex, core.x, core.y);
+    log_debug(tt::LogEmulationDriver, "Data: {}", data_hex);
 }
 
 tt_SimulationDevice::tt_SimulationDevice(const std::string& sdesc_path) : tt_device() {
@@ -156,7 +158,13 @@ void tt_SimulationDevice::close_device() {
 // Runtime Functions
 void tt_SimulationDevice::write_to_device(
     const void* mem_ptr, uint32_t size_in_bytes, tt_cxy_pair core, uint64_t addr, const std::string& tlb_to_use) {
-    log_info(tt::LogEmulationDriver, "Device writing");
+    log_info(
+        tt::LogEmulationDriver,
+        "Device writing {} bytes to addr {} in core ({}, {})",
+        size_in_bytes,
+        addr,
+        core.x,
+        core.y);
     std::vector<std::uint32_t> data((uint32_t*)mem_ptr, (uint32_t*)mem_ptr + size_in_bytes / sizeof(uint32_t));
     auto wr_buffer = create_flatbuffer(DEVICE_COMMAND_WRITE, data, core, addr);
     uint8_t* wr_buffer_ptr = wr_buffer.GetBufferPointer();
@@ -178,10 +186,11 @@ void tt_SimulationDevice::read_from_device(
     size_t rd_rsp_sz = host.recv_from_device(&rd_resp);
 
     auto rd_resp_buf = GetDeviceRequestResponse(rd_resp);
-    if (addr != 0x40) {
-        log_info(tt::LogEmulationDriver, "Device reading vec");
-        print_flatbuffer(rd_resp_buf);  // 0x40 is host polling device, don't print since it'll spam
-    }
+
+    // Debug level polling as Metal will constantly poll the device, spamming the logs
+    log_debug(tt::LogEmulationDriver, "Device reading vec");
+    print_flatbuffer(rd_resp_buf);
+
     std::memcpy(mem_ptr, rd_resp_buf->data()->data(), rd_resp_buf->data()->size() * sizeof(uint32_t));
     nng_free(rd_resp, rd_rsp_sz);
 }

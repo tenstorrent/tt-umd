@@ -981,6 +981,11 @@ TEST(SiliconDriverWH, LargeAddressTlb) {
     // Read the scratch register via a different TLB, different code path:
     cluster.read_from_device(&value2, ARC_CORE, addr, sizeof(uint32_t), "REG_TLB");
 
+    // Mask off lower 16 bits; FW changes these dynamically:
+    value0 &= 0xffff0000;
+    value1 &= 0xffff0000;
+    value2 &= 0xffff0000;
+
     // Check that the values are the same:
     EXPECT_EQ(value1, value0);
     EXPECT_EQ(value2, value0);

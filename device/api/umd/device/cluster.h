@@ -819,7 +819,7 @@ public:
     virtual std::uint32_t get_numa_node_for_pcie_device(std::uint32_t device_id);
     virtual tt_version get_ethernet_fw_version() const;
 
-    TTDevice* get_tt_device(int device_id) const;
+    TTDevice* get_tt_device(chip_id_t device_id) const;
 
     // Destructor
     virtual ~Cluster();
@@ -973,7 +973,9 @@ private:
     std::set<chip_id_t> target_devices_in_cluster = {};
     std::set<chip_id_t> target_remote_chips = {};
     tt::ARCH arch_name;
-    std::unordered_map<chip_id_t, std::unique_ptr<TTDevice>> m_tt_device_map;  // Map of enabled tt devices
+
+    // Map of enabled tt devices
+    std::unordered_map<chip_id_t, std::unique_ptr<TTDevice>> m_tt_device_map;
     std::shared_ptr<tt_ClusterDescriptor> cluster_desc;
 
     // remote eth transfer setup

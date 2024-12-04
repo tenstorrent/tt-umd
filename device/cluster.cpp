@@ -1730,7 +1730,7 @@ void* Cluster::host_dma_address(std::uint64_t offset, chip_id_t src_device_id, u
 }
 
 // Wrapper for throwing more helpful exception when not-enabled pci intf is accessed.
-inline TTDevice* Cluster::get_tt_device(int device_id) const {
+inline TTDevice* Cluster::get_tt_device(chip_id_t device_id) const {
     if (!m_tt_device_map.count(device_id)) {
         throw std::runtime_error(fmt::format("device_id: {} attempted to be accessed, but is not enabled.", device_id));
     }

@@ -467,6 +467,7 @@ std::unique_ptr<tt_ClusterDescriptor> tt_ClusterDescriptor::create_mock_cluster(
         log_debug(tt::LogSiliconDriver, "{} - adding logical: {}", __FUNCTION__, logical_id);
         desc->chip_board_type.insert({logical_id, board_type});
         desc->chips_with_mmio.insert({logical_id, logical_id});
+        desc->chip_arch.insert({logical_id, arch});
     }
 
     desc->enable_all_devices();
@@ -693,7 +694,9 @@ void tt_ClusterDescriptor::merge_cluster_ids(tt_ClusterDescriptor &desc) {
 void tt_ClusterDescriptor::load_chips_from_connectivity_descriptor(YAML::Node &yaml, tt_ClusterDescriptor &desc) {
     for (YAML::const_iterator node = yaml["arch"].begin(); node != yaml["arch"].end(); ++node) {
         chip_id_t chip_id = node->first.as<int>();
+        std::string arch_str = node->second.as<std::string>();
         desc.all_chips.insert(chip_id);
+        desc.chip_arch.insert({chip_id, arch_from_string(arch_str)});
     }
 
     for (YAML::const_iterator node = yaml["chips"].begin(); node != yaml["chips"].end(); ++node) {
@@ -747,15 +750,15 @@ void tt_ClusterDescriptor::load_chips_from_connectivity_descriptor(YAML::Node &y
                 log_warning(
                     LogSiliconDriver,
                     "Unknown board type for chip {}. This might happen because chip is running old firmware. "
-                    "Defaulting to DEFAULT",
+                    "Defaulting to UNKNOWN",
                     chip);
-                board_type = BoardType::DEFAULT;
+                board_type = BoardType::UNKNOWN;
             }
             desc.chip_board_type.insert({chip, board_type});
         }
     } else {
         for (const auto &chip : desc.all_chips) {
-            desc.chip_board_type.insert({chip, BoardType::DEFAULT});
+            desc.chip_board_type.insert({chip, BoardType::UNKNOWN});
         }
     }
 }
@@ -779,6 +782,19 @@ void tt_ClusterDescriptor::fill_chips_grouped_by_closest_mmio() {
         chip_id_t closest_mmio_chip = get_closest_mmio_capable_chip(chip);
         this->chips_grouped_by_closest_mmio[closest_mmio_chip].insert(chip);
     }
+}
+
+tt::ARCH tt_ClusterDescriptor::arch_from_string(std::string arch_str) {
+    if (arch_str == "Grayskull") {
+        return tt::ARCH::GRAYSKULL;
+    }
+    if (arch_str == "Wormhole") {
+        return tt::ARCH::WORMHOLE_B0;
+    }
+    if (arch_str == "Blackhole") {
+        return tt::ARCH::BLACKHOLE;
+    }
+    return tt::ARCH::Invalid;
 }
 
 const std::unordered_map<chip_id_t, std::unordered_map<ethernet_channel_t, std::tuple<chip_id_t, ethernet_channel_t>>>
@@ -856,8 +872,23 @@ int tt_ClusterDescriptor::get_ethernet_link_distance(chip_id_t chip_a, chip_id_t
 }
 
 BoardType tt_ClusterDescriptor::get_board_type(chip_id_t chip_id) const {
-    BoardType board_type = this->chip_board_type.at(chip_id);
-    return board_type;
+    log_assert(
+        chip_board_type.find(chip_id) != chip_board_type.end(),
+        "Chip {} does not have a board type in the cluster descriptor",
+        chip_id);
+    return chip_board_type.at(chip_id);
+}
+
+tt::ARCH tt_ClusterDescriptor::get_arch(chip_id_t chip_id) const {
+    log_assert(
+        chip_arch.find(chip_id) != chip_arch.end(),
+        "Chip {} does not have an architecture in the cluster descriptor",
+        chip_id);
+    return chip_arch.at(chip_id);
+}
+
+/* static */ tt::ARCH tt_ClusterDescriptor::detect_arch(chip_id_t chip_id) {
+    return tt_ClusterDescriptor::create()->get_arch(chip_id);
 }
 
 const std::unordered_map<chip_id_t, std::unordered_set<chip_id_t>> &

@@ -59,39 +59,6 @@ const uint64_t BH_4GB_TLB_SIZE = 4ULL * 1024 * 1024 * 1024;
 // Remove 256MB from full 1GB for channel 3 (iATU limitation)
 static constexpr uint32_t HUGEPAGE_CHANNEL_3_SIZE_LIMIT = 805306368;
 
-// TODO: Remove in favor of cluster descriptor method, when it becomes available.
-// Metal uses this function to determine the architecture of the first PCIe chip
-// and then verifies that all subsequent chips are of the same architecture.  It
-// looks like Metal is doing this because we don't provide any other way... When
-// we are further along in our refactoring efforts and `tt_device` is more of a
-// Cluster abstraction, we should provide Metal with interfaces for:
-//      1. Checking that all chips are of the same architecture (we may not care
-//         about this, but the application might).
-//      2. Getting the architecture of a specific chip.
-// Until then... I'm putting this function back so that Metal will still build
-// next time someone bumps its UMD submodule version.
-tt::ARCH detect_arch(int pci_device_num) {
-    const auto devices_info = PCIDevice::enumerate_devices_info();
-    const auto it = devices_info.find(pci_device_num);
-    if (it == devices_info.end()) {
-        return tt::ARCH::Invalid;
-    }
-
-    const auto info = it->second;
-    return info.get_arch();
-}
-
-// TODO: Remove in favor of cluster descriptor method, when it becomes available.
-// There is also a function which just wants to get any architecture, since it
-// presumably already checked that all archs are the same.
-tt::ARCH detect_arch() {
-    const auto devices_info = PCIDevice::enumerate_devices_info();
-    if (devices_info.empty()) {
-        return tt::ARCH::Invalid;
-    }
-    return devices_info.begin()->second.get_arch();
-}
-
 template <typename T>
 void size_buffer_to_capacity(std::vector<T>& data_buf, std::size_t size_in_bytes) {
     std::size_t target_size = 0;

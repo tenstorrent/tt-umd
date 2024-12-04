@@ -30,7 +30,7 @@ enum BoardType : uint32_t {
     E150 = 2,
     P150A = 3,
     GALAXY = 4,
-    DEFAULT = 5,
+    UNKNOWN = 5,
 };
 
 class tt_ClusterDescriptor {
@@ -53,6 +53,7 @@ protected:
     std::unordered_map<chip_id_t, chip_id_t> closest_mmio_chip_cache = {};
     std::unordered_map<chip_id_t, BoardType> chip_board_type = {};
     std::unordered_map<chip_id_t, std::unordered_set<chip_id_t>> chips_grouped_by_closest_mmio;
+    std::unordered_map<chip_id_t, tt::ARCH> chip_arch = {};
 
     // one-to-many chip connections
     struct Chip2ChipConnection {
@@ -77,6 +78,7 @@ protected:
     static void load_harvesting_information(YAML::Node &yaml, tt_ClusterDescriptor &desc);
 
     void fill_chips_grouped_by_closest_mmio();
+    static tt::ARCH arch_from_string(std::string arch_str);
 
 public:
     /*
@@ -96,6 +98,7 @@ public:
     static std::string get_cluster_descriptor_file_path();
     static std::unique_ptr<tt_ClusterDescriptor> create_from_yaml(const std::string &cluster_descriptor_file_path);
     static std::unique_ptr<tt_ClusterDescriptor> create();
+    static tt::ARCH detect_arch(const chip_id_t chip_id);
 
     // This function is used to create mock cluster descriptor yaml files, for example for simulation.
     static std::unique_ptr<tt_ClusterDescriptor> create_mock_cluster(
@@ -115,6 +118,7 @@ public:
     int get_ethernet_link_distance(chip_id_t chip_a, chip_id_t chip_b) const;
 
     BoardType get_board_type(chip_id_t chip_id) const;
+    tt::ARCH get_arch(chip_id_t chip_id) const;
 
     bool ethernet_core_has_active_ethernet_link(chip_id_t local_chip, ethernet_channel_t local_ethernet_channel) const;
     std::tuple<chip_id_t, ethernet_channel_t> get_chip_and_channel_of_remote_ethernet_core(

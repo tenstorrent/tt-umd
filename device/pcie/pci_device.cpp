@@ -88,6 +88,15 @@ T read_sysfs(const PciDeviceInfo &device_info, const std::string &attribute_name
     }
 }
 
+static bool detect_iommu(const PciDeviceInfo &device_info) {
+    try {
+        auto iommu_type = read_sysfs<std::string>(device_info, "iommu_group/type");
+        return iommu_type.substr(0, 3) == "DMA";  // DMA or DMA-FQ
+    } catch (...) {
+        return false;
+    }
+}
+
 static PciDeviceInfo read_device_info(int fd) {
     tenstorrent_get_device_info info{};
     info.in.output_size_bytes = sizeof(info.out);
@@ -258,6 +267,8 @@ tt::ARCH PciDeviceInfo::get_arch() const {
     return infos;
 }
 
+static const semver_t kmd_ver_for_iommu = semver_t(1, 29, 0);
+
 PCIDevice::PCIDevice(int pci_device_number) :
     device_path(fmt::format("/dev/tenstorrent/{}", pci_device_number)),
     pci_device_num(pci_device_number),
@@ -266,9 +277,19 @@ PCIDevice::PCIDevice(int pci_device_number) :
     numa_node(read_sysfs<int>(info, "numa_node", -1)),  // default to -1 if not found
     revision(read_sysfs<int>(info, "revision")),
     arch(detect_arch(info.device_id, revision)),
-    architecture_implementation(tt::umd::architecture_implementation::create(arch)),
-    kmd_version(read_kmd_version()) {
-    log_info(LogSiliconDriver, "Opened PCI device {}; KMD version: {}", pci_device_num, kmd_version.to_string());
+    kmd_version(read_kmd_version()),
+    iommu_enabled(detect_iommu(info)),
+    architecture_implementation(tt::umd::architecture_implementation::create(arch)) {
+    if (iommu_enabled && kmd_version < kmd_ver_for_iommu) {
+        TT_THROW("Running with IOMMU support requires KMD version {} or newer", kmd_ver_for_iommu.to_string());
+    }
+
+    log_info(
+        LogSiliconDriver,
+        "Opened PCI device {}; KMD version: {}, IOMMU: {}",
+        pci_device_num,
+        kmd_version.to_string(),
+        iommu_enabled ? "enabled" : "disabled");
 
     struct {
         tenstorrent_query_mappings query_mappings;
@@ -687,6 +708,11 @@ tt::umd::architecture_implementation *PCIDevice::get_architecture_implementation
 bool PCIDevice::init_hugepage(uint32_t num_host_mem_channels) {
     const size_t hugepage_size = HUGEPAGE_REGION_SIZE;
 
+    if (is_iommu_enabled()) {
+        size_t size = hugepage_size * num_host_mem_channels;
+        return init_iommu(size);
+    }
+
     auto physical_device_id = get_device_num();
 
     std::string hugepage_dir = find_hugepage_dir(hugepage_size);
@@ -800,6 +826,37 @@ bool PCIDevice::init_hugepage(uint32_t num_host_mem_channels) {
     return success;
 }
 
+bool PCIDevice::init_iommu(size_t size) {
+    const size_t num_fake_mem_channels = size / HUGEPAGE_REGION_SIZE;
+
+    if (!is_iommu_enabled()) {
+        TT_THROW("IOMMU is required for sysmem without hugepages.");
+    }
+
+    log_info(LogSiliconDriver, "Allocating sysmem without hugepages (size: {:#x}).", size);
+    void *mapping = mmap(nullptr, size, PROT_READ | PROT_WRITE, MAP_ANONYMOUS | MAP_PRIVATE | MAP_POPULATE, -1, 0);
+
+    if (mapping == MAP_FAILED) {
+        TT_THROW(
+            "UMD: Failed to allocate memory for device/host shared buffer (size: {} errno: {}).",
+            size,
+            strerror(errno));
+    }
+
+    uint64_t iova = map_for_dma(mapping, size);
+    log_info(LogSiliconDriver, "Mapped sysmem without hugepages to IOVA {:#x}.", iova);
+
+    hugepage_mapping_per_channel.resize(num_fake_mem_channels);
+
+    // Support for more than 1GB host memory accessible per device, via channels.
+    for (size_t ch = 0; ch < num_fake_mem_channels; ch++) {
+        uint8_t *base = static_cast<uint8_t *>(mapping) + ch * HUGEPAGE_REGION_SIZE;
+        hugepage_mapping_per_channel[ch] = {base, HUGEPAGE_REGION_SIZE, iova + ch * HUGEPAGE_REGION_SIZE};
+    }
+
+    return true;
+}
+
 int PCIDevice::get_num_host_mem_channels() const { return hugepage_mapping_per_channel.size(); }
 
 hugepage_mapping PCIDevice::get_hugepage_mapping(int channel) const {
@@ -808,6 +865,55 @@ hugepage_mapping PCIDevice::get_hugepage_mapping(int channel) const {
     } else {
         return hugepage_mapping_per_channel[channel];
     }
+}
+
+uint64_t PCIDevice::map_for_dma(void *buffer, size_t size) {
+    static const auto page_size = sysconf(_SC_PAGESIZE);
+
+    const uint64_t vaddr = reinterpret_cast<uint64_t>(buffer);
+    const uint32_t flags = is_iommu_enabled() ? 0 : TENSTORRENT_PIN_PAGES_CONTIGUOUS;
+
+    if (vaddr % page_size != 0 || size % page_size != 0) {
+        TT_THROW("Buffer must be page-aligned with a size that is a multiple of the page size");
+    }
+
+    tenstorrent_pin_pages pin_pages{};
+    pin_pages.in.output_size_bytes = sizeof(pin_pages.out);
+    pin_pages.in.flags = flags;
+    pin_pages.in.virtual_address = vaddr;
+    pin_pages.in.size = size;
+
+    // With IOMMU, this will probably fail on you if you're mapping something
+    // large.  The situation today is that the kernel driver uses a 32-bit DMA
+    // address mask, so all DMA allocations and mappings show up in the IOVA
+    // range of 0x0 to 0xffff'ffff.  According to syseng, we can get up to 3GB
+    // on Intel, 3.75GB on AMD, but this requires multiple mappings with small
+    // chunks, down to 2MB.  It's possible to make such non-contiguous mappings
+    // appear both virtually contiguous (to the application) and physically
+    // contiguous (to the NOC, using iATU), but it's not clear that this is
+    // worth the effort...  the scheme this is intended to replace supports up
+    // to 4GB which is what application developers want.
+    //
+    // What can we do here?
+    // 1. Use hugepages (part of what we are trying to avoid here).
+    // 2. Use a larger value for the driver's dma_address_bits (currently 32;
+    //    has implications for non-UMD based applications -- basically that any
+    //    DMA buffer mapped beyond the 4GB boundary requires iATU configuration
+    //    for the hardware to be able to reach it).
+    // 3. Use multiple mappings with small chunks (won't get us to 4GB; adds
+    //    complexity).
+    // 4. Modify the driver so that DMA allocations are in the low 4GB IOVA
+    //    range but mappings from userspace can be further up (requires driver
+    //    changes).
+    // 5. ???
+    //
+    // If you need a quick workaround here, I suggest:
+    //   sudo insmod ./tenstorrent.ko dma_address_bits=48
+    if (ioctl(pci_device_file_desc, TENSTORRENT_IOCTL_PIN_PAGES, &pin_pages) == -1) {
+        TT_THROW("Failed to pin pages for DMA: {}", strerror(errno));
+    }
+
+    return pin_pages.out.physical_address;
 }
 
 void PCIDevice::print_file_contents(std::string filename, std::string hint) {

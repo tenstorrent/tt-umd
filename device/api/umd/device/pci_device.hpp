@@ -41,10 +41,11 @@ struct dynamic_tlb {
     uint64_t remaining_size;  // Bytes remaining between bar_offset and end of the TLB.
 };
 
+// These are not necessarily hugepages if IOMMU is enabled.
 struct hugepage_mapping {
     void *mapping = nullptr;
     size_t mapping_size = 0;
-    uint64_t physical_address = 0;
+    uint64_t physical_address = 0;  // or IOVA, if IOMMU is enabled
 };
 
 struct PciDeviceInfo {
@@ -72,6 +73,7 @@ class PCIDevice {
     const int revision;              // PCI revision value from sysfs
     const tt::ARCH arch;             // e.g. Grayskull, Wormhole, Blackhole
     const semver_t kmd_version;      // KMD version
+    const bool iommu_enabled;        // Whether the system is protected from this device by an IOMMU
     std::unique_ptr<tt::umd::architecture_implementation> architecture_implementation;
 
 public:
@@ -143,6 +145,11 @@ public:
      */
     tt::ARCH get_arch() const { return arch; }
 
+    /**
+     * @return whether the system is protected from this device by an IOMMU
+     */
+    bool is_iommu_enabled() const { return iommu_enabled; }
+
     // Note: byte_addr is (mostly but not always) offset into BAR0.  This
     // interface assumes the caller knows what they are doing - but it's unclear
     // how to use this interface correctly without knowing details of the chip
@@ -191,8 +198,30 @@ public:
 
     // TODO: this also probably has more sense to live in the future TTDevice class.
     bool init_hugepage(uint32_t num_host_mem_channels);
+
+    /**
+     * Allocate sysmem without hugepages and map it through IOMMU.
+     * This is used when the system is protected by an IOMMU.  The mappings will
+     * still appear as hugepages to the caller.
+     * @param size sysmem size in bytes; size % (1UL << 30) == 0
+     * @return whether allocation/mapping succeeded.
+     */
+    bool init_iommu(size_t size);
+
     int get_num_host_mem_channels() const;
     hugepage_mapping get_hugepage_mapping(int channel) const;
+
+    /**
+     * Map a buffer for DMA access by the device.
+     *
+     * Supports mapping physically-contiguous buffers (e.g. hugepages) for the
+     * no-IOMMU case.
+     *
+     * @param buffer must be page-aligned
+     * @param size must be a multiple of the page size
+     * @return uint64_t PA (no IOMMU) or IOVA (with IOMMU) for use by the device
+     */
+    uint64_t map_for_dma(void *buffer, size_t size);
 
 public:
     // TODO: we can and should make all of these private.

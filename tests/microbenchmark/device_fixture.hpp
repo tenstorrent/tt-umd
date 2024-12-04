@@ -9,10 +9,10 @@
 #include <iostream>
 #include <random>
 
-#include "cluster.h"
-#include "device/tt_soc_descriptor.h"
 #include "l1_address_map.h"
 #include "tests/test_utils/generate_cluster_desc.hpp"
+#include "umd/device/cluster.h"
+#include "umd/device/tt_soc_descriptor.h"
 
 using tt::umd::Cluster;
 
@@ -33,7 +33,6 @@ protected:
         uint32_t num_host_mem_ch_per_mmio_device = 1;
         device = std::make_shared<Cluster>(
             test_utils::GetAbsPath("tests/soc_descs/grayskull_10x12.yaml"),
-            "",
             target_devices,
             num_host_mem_ch_per_mmio_device,
             false,

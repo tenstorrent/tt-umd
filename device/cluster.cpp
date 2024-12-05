@@ -1008,6 +1008,15 @@ void Cluster::deassert_risc_reset_at_core(tt_cxy_pair core, const TensixSoftRese
     }
 }
 
+void Cluster::deassert_risc_reset_at_core(
+    const chip_id_t chip, const CoreCoord core, const TensixSoftResetOptions& soft_resets) {
+    tt_cxy_pair virtual_core;
+    const CoreCoord virtual_coord = to(chip, core, CoordSystem::VIRTUAL);
+    virtual_core.x = virtual_coord.x;
+    virtual_core.y = virtual_coord.y;
+    deassert_risc_reset_at_core(virtual_core, soft_resets);
+}
+
 void Cluster::assert_risc_reset_at_core(tt_cxy_pair core) {
     // Get Target Device to query soc descriptor and determine location in cluster
     std::uint32_t target_device = core.chip;
@@ -1029,6 +1038,14 @@ void Cluster::assert_risc_reset_at_core(tt_cxy_pair core) {
     } else {
         send_remote_tensix_risc_reset_to_core(core, TENSIX_ASSERT_SOFT_RESET);
     }
+}
+
+void Cluster::assert_risc_reset_at_core(const chip_id_t chip, const CoreCoord core) {
+    tt_cxy_pair virtual_core;
+    const CoreCoord virtual_coord = to(chip, core, CoordSystem::VIRTUAL);
+    virtual_core.x = virtual_coord.x;
+    virtual_core.y = virtual_coord.y;
+    assert_risc_reset_at_core(virtual_core);
 }
 
 // Free memory during teardown, and remove (clean/unlock) from any leftover mutexes.
@@ -1103,6 +1120,14 @@ tt::Writer Cluster::get_static_tlb_writer(tt_cxy_pair target) {
     auto* base = reinterpret_cast<uint8_t*>(dev->bar0_wc);
 
     return tt::Writer(base + tlb_offset, tlb_size);
+}
+
+tt::Writer Cluster::get_static_tlb_writer(const chip_id_t chip, const CoreCoord target) {
+    tt_cxy_pair virtual_core;
+    const CoreCoord virtual_coord = to(chip, target, CoordSystem::VIRTUAL);
+    virtual_core.x = virtual_coord.x;
+    virtual_core.y = virtual_coord.y;
+    return get_static_tlb_writer(virtual_core);
 }
 
 void Cluster::write_device_memory(

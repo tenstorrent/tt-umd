@@ -358,6 +358,13 @@ public:
         throw std::runtime_error("---- tt_device::deassert_risc_reset_at_core is not implemented\n");
     }
 
+    virtual void deassert_risc_reset_at_core(
+        const chip_id_t chip,
+        const tt::umd::CoreCoord core,
+        const TensixSoftResetOptions& soft_resets = TENSIX_DEASSERT_SOFT_RESET) {
+        throw std::runtime_error("---- tt_device::deassert_risc_reset_at_core is not implemented\n");
+    }
+
     /**
      * Broadcast assert soft Tensix Reset to the entire device.
      */
@@ -371,6 +378,10 @@ public:
      * @param core Chip and core being targeted.
      */
     virtual void assert_risc_reset_at_core(tt_cxy_pair core) {
+        throw std::runtime_error("---- tt_device::assert_risc_reset_at_core is not implemented\n");
+    }
+
+    virtual void assert_risc_reset_at_core(const chip_id_t chip, const tt::umd::CoreCoord core) {
         throw std::runtime_error("---- tt_device::assert_risc_reset_at_core is not implemented\n");
     }
 
@@ -775,7 +786,12 @@ public:
     virtual void deassert_risc_reset();
     virtual void deassert_risc_reset_at_core(
         tt_cxy_pair core, const TensixSoftResetOptions& soft_resets = TENSIX_DEASSERT_SOFT_RESET);
+    virtual void deassert_risc_reset_at_core(
+        const chip_id_t chip,
+        const tt::umd::CoreCoord core,
+        const TensixSoftResetOptions& soft_resets = TENSIX_DEASSERT_SOFT_RESET);
     virtual void assert_risc_reset_at_core(tt_cxy_pair core);
+    virtual void assert_risc_reset_at_core(const chip_id_t chip, const tt::umd::CoreCoord core);
     virtual void close_device();
 
     // Runtime Functions
@@ -789,6 +805,7 @@ public:
         uint64_t addr,
         const std::string& tlb_to_use);
 
+    // TODO(pjanevski): Add CoreCoord API for this function.
     void broadcast_write_to_cluster(
         const void* mem_ptr,
         uint32_t size_in_bytes,
@@ -845,6 +862,7 @@ public:
      * @param target The target chip and core to write to.
      */
     tt::Writer get_static_tlb_writer(tt_cxy_pair target);
+    tt::Writer get_static_tlb_writer(const chip_id_t chip, const tt::umd::CoreCoord target);
 
     // Misc. Functions to Query/Set Device State
     virtual int arc_msg(

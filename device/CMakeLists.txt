@@ -7,7 +7,7 @@ add_custom_command(
     OUTPUT
         ${FBS_GENERATED_HEADER}
     COMMAND
-        ${FLATC_EXE}
+        flatc
     ARGS
         --cpp -o "${CMAKE_CURRENT_BINARY_DIR}/" ${FBS_FILE}
     DEPENDS

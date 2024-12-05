@@ -75,8 +75,6 @@ function(fetch_dependencies)
             "FLATBUFFERS_STRICT_MODE ON"
     )
 
-    set(FLATC_EXE ${flatbuffers_BINARY_DIR}/flatc PARENT_SCOPE)
-
     ###################################################################################################################
     # libuv (for process management)
     ###################################################################################################################

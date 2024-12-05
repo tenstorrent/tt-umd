@@ -201,6 +201,49 @@ TEST(CoordinateManager, CoordinateManagerBlackholeVirtualEqualTranslated) {
     }
 }
 
+// Test mapping of the coordinates for harvested DRAM bank.
+TEST(CoordinateManager, CoordinateManagerBlackholeTransltedMappingHarvested) {
+    const size_t harvesting_mask = 3;
+    std::shared_ptr<CoordinateManager> coordinate_manager =
+        CoordinateManager::create_coordinate_manager(tt::ARCH::BLACKHOLE, harvesting_mask);
+
+    const tt_xy_pair tensix_grid_size = tt::umd::blackhole::TENSIX_GRID_SIZE;
+    const std::vector<tt_xy_pair> tensix_cores = tt::umd::blackhole::TENSIX_CORES;
+
+    size_t num_harvested_x = CoordinateManager::get_num_harvested(harvesting_mask);
+
+    size_t index = 0;
+    size_t virtual_index = tensix_grid_size.x - num_harvested_x;
+
+    for (size_t cnt = 0; cnt < num_harvested_x * tensix_grid_size.y; cnt++) {
+        CoreCoord physical_core =
+            CoreCoord(tensix_cores[index].x, tensix_cores[index].y, CoreType::TENSIX, CoordSystem::PHYSICAL);
+        const CoreCoord translated_core = coordinate_manager->to(physical_core, CoordSystem::TRANSLATED);
+
+        const CoreCoord virtual_core = CoreCoord(
+            tensix_cores[virtual_index].x, tensix_cores[virtual_index].y, CoreType::TENSIX, CoordSystem::VIRTUAL);
+        const CoreCoord translated_core_from_virtual = coordinate_manager->to(virtual_core, CoordSystem::TRANSLATED);
+
+        EXPECT_EQ(translated_core, translated_core_from_virtual);
+
+        EXPECT_EQ(translated_core.x, tensix_cores[virtual_index].x);
+        EXPECT_EQ(translated_core.y, tensix_cores[virtual_index].y);
+
+        index += tensix_grid_size.x;
+        virtual_index += tensix_grid_size.x;
+
+        if (index >= tensix_cores.size()) {
+            index = index % tensix_cores.size();
+            index++;
+        }
+
+        if (virtual_index >= tensix_cores.size()) {
+            virtual_index = virtual_index % tensix_cores.size();
+            virtual_index++;
+        }
+    }
+}
+
 // Test mapping of DRAM coordinates from logical to physical. When there is no DRAM harvesting, logical
 // coordinates should cover all physical coordinates.
 TEST(CoordinateManager, CoordinateManagerBlackholeDRAMNoHarvesting) {
@@ -378,6 +421,47 @@ TEST(CoordinateManager, CoordinateManagerBlackholeDRAMTranslatedMapping) {
             // using which we got the translated coordinates.
             EXPECT_EQ(it.first, logical_coords);
         }
+    }
+}
+
+// Test DRAM translated/virtual/physical mapping
+TEST(CoordinateManager, CoordinateManagerBlackholeDRAMVirtualPhysicalMapping) {
+    const size_t max_num_banks_harvested = tt::umd::blackhole::NUM_DRAM_BANKS;
+    const size_t num_dram_banks = tt::umd::blackhole::NUM_DRAM_BANKS;
+    const size_t num_noc_ports_per_bank = tt::umd::blackhole::NUM_NOC_PORTS_PER_DRAM_BANK;
+
+    const std::vector<tt_xy_pair> dram_cores = tt::umd::blackhole::DRAM_CORES;
+
+    const size_t dram_harvesting_mask = 1;
+
+    std::shared_ptr<CoordinateManager> coordinate_manager =
+        CoordinateManager::create_coordinate_manager(tt::ARCH::BLACKHOLE, 0, dram_harvesting_mask);
+
+    const size_t physical_index = 0;
+    const size_t virtual_index = (num_dram_banks - 1) * num_noc_ports_per_bank;
+
+    const size_t harvested_translated_bank_x = tt::umd::blackhole::dram_translated_coordinate_start_x + 1;
+    const size_t harvested_translated_bank_y =
+        tt::umd::blackhole::dram_translated_coordinate_start_y + 3 * num_noc_ports_per_bank;
+
+    for (size_t noc_port = 0; noc_port < num_noc_ports_per_bank; noc_port++) {
+        const tt_xy_pair physical_pair = dram_cores[physical_index + noc_port];
+        const tt_xy_pair virtual_pair = dram_cores[virtual_index + noc_port];
+
+        CoreCoord physical_core = CoreCoord(physical_pair.x, physical_pair.y, CoreType::DRAM, CoordSystem::PHYSICAL);
+        CoreCoord virtual_from_physical = coordinate_manager->to(physical_core, CoordSystem::VIRTUAL);
+
+        CoreCoord virtual_core = CoreCoord(virtual_pair.x, virtual_pair.y, CoreType::DRAM, CoordSystem::VIRTUAL);
+
+        EXPECT_EQ(virtual_from_physical, virtual_core);
+
+        CoreCoord translated_core = coordinate_manager->to(physical_core, CoordSystem::TRANSLATED);
+        CoreCoord translated_from_virtual = coordinate_manager->to(virtual_core, CoordSystem::TRANSLATED);
+
+        EXPECT_EQ(translated_core, translated_from_virtual);
+
+        EXPECT_EQ(translated_core.x, harvested_translated_bank_x);
+        EXPECT_EQ(translated_core.y, harvested_translated_bank_y + noc_port);
     }
 }
 

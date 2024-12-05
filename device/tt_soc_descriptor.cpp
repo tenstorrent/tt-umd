@@ -12,11 +12,14 @@
 #include <string>
 #include <unordered_set>
 
+#include "api/umd/device/tt_soc_descriptor.h"
 #include "fmt/core.h"
 #include "utils.hpp"
 #include "yaml-cpp/yaml.h"
 
 // #include "l1_address_map.h"
+
+using namespace tt::umd;
 
 std::string format_node(tt_xy_pair xy) { return fmt::format("{}-{}", xy.x, xy.y); }
 
@@ -168,13 +171,47 @@ void tt_SocDescriptor::load_core_descriptors_from_device_descriptor(YAML::Node &
     }
 }
 
-void tt_SocDescriptor::create_coordinate_manager(
-    const std::size_t tensix_harvesting_mask, const std::size_t dram_harvesting_mask) {
-    coordinate_manager =
-        CoordinateManager::create_coordinate_manager(arch, tensix_harvesting_mask, dram_harvesting_mask);
+tt_xy_pair tt_SocDescriptor::calculate_grid_size(const std::vector<tt_xy_pair> &cores) {
+    std::unordered_set<size_t> x;
+    std::unordered_set<size_t> y;
+    for (auto core : cores) {
+        x.insert(core.x);
+        y.insert(core.y);
+    }
+    return {x.size(), y.size()};
 }
 
-tt::umd::CoreCoord tt_SocDescriptor::to(const tt::umd::CoreCoord core_coord, const CoordSystem coord_system) {
+void tt_SocDescriptor::create_coordinate_manager(
+    const std::size_t tensix_harvesting_mask, const std::size_t dram_harvesting_mask) {
+    const tt_xy_pair dram_grid_size = tt_xy_pair(dram_cores.size(), dram_cores.empty() ? 0 : dram_cores[0].size());
+    const tt_xy_pair arc_grid_size = tt_SocDescriptor::calculate_grid_size(arc_cores);
+    const tt_xy_pair pcie_grid_size = tt_SocDescriptor::calculate_grid_size(pcie_cores);
+    const tt_xy_pair eth_grid_size = tt_SocDescriptor::calculate_grid_size(ethernet_cores);
+
+    std::vector<tt_xy_pair> dram_cores_unpacked;
+    for (const auto &vec : dram_cores) {
+        for (const auto &core : vec) {
+            dram_cores_unpacked.push_back(core);
+        }
+    }
+    coordinate_manager = CoordinateManager::create_coordinate_manager(
+        arch,
+        worker_grid_size,
+        workers,
+        tensix_harvesting_mask,
+        dram_grid_size,
+        dram_cores_unpacked,
+        dram_harvesting_mask,
+        eth_grid_size,
+        ethernet_cores,
+        arc_grid_size,
+        arc_cores,
+        pcie_grid_size,
+        pcie_cores);
+    get_cores_and_grid_size_from_coordinate_manager();
+}
+
+tt::umd::CoreCoord tt_SocDescriptor::to(const tt::umd::CoreCoord core_coord, const CoordSystem coord_system) const {
     return coordinate_manager->to(core_coord, coord_system);
 }
 
@@ -228,7 +265,12 @@ bool tt_SocDescriptor::is_worker_core(const tt_xy_pair &core) const {
 
 tt_xy_pair tt_SocDescriptor::get_core_for_dram_channel(int dram_chan, int subchannel) const {
     return this->dram_cores.at(dram_chan).at(subchannel);
-};
+}
+
+CoreCoord tt_SocDescriptor::get_dram_core_for_channel(int dram_chan, int subchannel) const {
+    const CoreCoord logical_dram_coord = CoreCoord(dram_chan, subchannel, CoreType::DRAM, CoordSystem::LOGICAL);
+    return to(logical_dram_coord, CoordSystem::PHYSICAL);
+}
 
 bool tt_SocDescriptor::is_ethernet_core(const tt_xy_pair &core) const {
     return this->ethernet_core_channel_map.find(core) != ethernet_core_channel_map.end();
@@ -248,4 +290,55 @@ std::string tt_SocDescriptor::get_soc_descriptor_path(tt::ARCH arch) {
         default:
             throw std::runtime_error("Invalid architecture");
     }
+}
+
+void tt_SocDescriptor::get_cores_and_grid_size_from_coordinate_manager() {
+    cores_map.insert({CoreType::TENSIX, coordinate_manager->get_cores(CoreType::TENSIX)});
+    grid_size_map.insert({CoreType::TENSIX, coordinate_manager->get_grid_size(CoreType::TENSIX)});
+
+    cores_map.insert({CoreType::DRAM, coordinate_manager->get_cores(CoreType::DRAM)});
+    grid_size_map.insert({CoreType::DRAM, coordinate_manager->get_grid_size(CoreType::DRAM)});
+
+    cores_map.insert({CoreType::ETH, coordinate_manager->get_cores(CoreType::ETH)});
+    grid_size_map.insert({CoreType::ETH, coordinate_manager->get_grid_size(CoreType::ETH)});
+
+    cores_map.insert({CoreType::ARC, coordinate_manager->get_cores(CoreType::ARC)});
+    grid_size_map.insert({CoreType::ARC, coordinate_manager->get_grid_size(CoreType::ARC)});
+
+    cores_map.insert({CoreType::PCIE, coordinate_manager->get_cores(CoreType::PCIE)});
+    grid_size_map.insert({CoreType::PCIE, coordinate_manager->get_grid_size(CoreType::PCIE)});
+
+    harvested_cores_map.insert({CoreType::TENSIX, coordinate_manager->get_harvested_cores(CoreType::TENSIX)});
+    harvested_grid_size_map.insert({CoreType::TENSIX, coordinate_manager->get_harvested_grid_size(CoreType::TENSIX)});
+
+    harvested_cores_map.insert({CoreType::DRAM, coordinate_manager->get_harvested_cores(CoreType::DRAM)});
+    harvested_grid_size_map.insert({CoreType::DRAM, coordinate_manager->get_harvested_grid_size(CoreType::DRAM)});
+}
+
+std::vector<tt::umd::CoreCoord> tt_SocDescriptor::get_cores(const CoreType core_type) const {
+    if (cores_map.find(core_type) == cores_map.end()) {
+        return {};
+    }
+    return cores_map.at(core_type);
+}
+
+std::vector<tt::umd::CoreCoord> tt_SocDescriptor::get_harvested_cores(const CoreType core_type) const {
+    if (harvested_cores_map.find(core_type) == harvested_cores_map.end()) {
+        return {};
+    }
+    return harvested_cores_map.at(core_type);
+}
+
+tt_xy_pair tt_SocDescriptor::get_grid_size(const CoreType core_type) const {
+    if (grid_size_map.find(core_type) == grid_size_map.end()) {
+        return {0, 0};
+    }
+    return grid_size_map.at(core_type);
+}
+
+tt_xy_pair tt_SocDescriptor::get_harvested_grid_size(const CoreType core_type) const {
+    if (harvested_grid_size_map.find(core_type) == harvested_grid_size_map.end()) {
+        return {0, 0};
+    }
+    return harvested_grid_size_map.at(core_type);
 }

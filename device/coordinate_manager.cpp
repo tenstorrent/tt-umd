@@ -5,6 +5,7 @@
  */
 #include "umd/device/coordinate_manager.h"
 
+#include "api/umd/device/tt_core_coordinates.h"
 #include "logger.hpp"
 #include "umd/device/blackhole_coordinate_manager.h"
 #include "umd/device/grayskull_coordinate_manager.h"
@@ -310,6 +311,137 @@ void CoordinateManager::shuffle_tensix_harvesting_mask(const std::vector<uint32_
     }
 
     tensix_harvesting_mask = new_harvesting_mask;
+}
+
+const std::vector<tt_xy_pair>& CoordinateManager::get_physical_pairs(const CoreType core_type) const {
+    switch (core_type) {
+        case CoreType::TENSIX:
+            return tensix_cores;
+        case CoreType::DRAM:
+            return dram_cores;
+        case CoreType::ETH:
+            return eth_cores;
+        case CoreType::ARC:
+            return arc_cores;
+        case CoreType::PCIE:
+            return pcie_cores;
+        default:
+            throw std::runtime_error("Core type is not supported for getting physical pairs");
+    }
+}
+
+std::vector<CoreCoord> CoordinateManager::get_all_physical_cores(const CoreType core_type) const {
+    const std::vector<tt_xy_pair>& physical_pairs = get_physical_pairs(core_type);
+    std::vector<CoreCoord> physical_cores;
+    for (const tt_xy_pair& core : physical_pairs) {
+        CoreCoord core_coord(core.x, core.y, core_type, CoordSystem::PHYSICAL);
+        physical_cores.push_back(core_coord);
+    }
+    return physical_cores;
+}
+
+std::vector<CoreCoord> CoordinateManager::get_tensix_cores() const {
+    std::vector<size_t> harvested_y_coords = get_harvested_indices(tensix_harvesting_mask);
+    std::vector<CoreCoord> unharvested_tensix_cores;
+    for (size_t y = 0; y < tensix_grid_size.y; y++) {
+        if (std::find(harvested_y_coords.begin(), harvested_y_coords.end(), y) == harvested_y_coords.end()) {
+            for (size_t x = 0; x < tensix_grid_size.x; x++) {
+                const tt_xy_pair core = tensix_cores[y * tensix_grid_size.x + x];
+                CoreCoord core_coord(core.x, core.y, CoreType::TENSIX, CoordSystem::PHYSICAL);
+
+                unharvested_tensix_cores.push_back(core_coord);
+            }
+        }
+    }
+    return unharvested_tensix_cores;
+}
+
+std::vector<CoreCoord> CoordinateManager::get_harvested_tensix_cores() const {
+    std::vector<size_t> harvested_y_coords = get_harvested_indices(tensix_harvesting_mask);
+    std::vector<CoreCoord> harvested_tensix_cores;
+    for (size_t y = 0; y < tensix_grid_size.y; y++) {
+        if (std::find(harvested_y_coords.begin(), harvested_y_coords.end(), y) != harvested_y_coords.end()) {
+            for (size_t x = 0; x < tensix_grid_size.x; x++) {
+                const tt_xy_pair core = tensix_cores[y * tensix_grid_size.x + x];
+                CoreCoord core_coord(core.x, core.y, CoreType::TENSIX, CoordSystem::PHYSICAL);
+
+                harvested_tensix_cores.push_back(core_coord);
+            }
+        }
+    }
+    return harvested_tensix_cores;
+}
+
+std::vector<CoreCoord> CoordinateManager::get_dram_cores() const { return get_all_physical_cores(CoreType::DRAM); }
+
+std::vector<CoreCoord> CoordinateManager::get_harvested_dram_cores() const { return {}; }
+
+std::vector<tt::umd::CoreCoord> CoordinateManager::get_cores(const CoreType core_type) const {
+    switch (core_type) {
+        case CoreType::TENSIX:
+            return get_tensix_cores();
+        case CoreType::DRAM:
+            return get_dram_cores();
+        case CoreType::ETH:
+            return get_all_physical_cores(CoreType::ETH);
+        case CoreType::ARC:
+            return get_all_physical_cores(CoreType::ARC);
+        case CoreType::PCIE:
+            return get_all_physical_cores(CoreType::PCIE);
+        default:
+            throw std::runtime_error("Core type is not supported for getting cores");
+    }
+}
+
+tt_xy_pair CoordinateManager::get_tensix_grid_size() const {
+    return {tensix_grid_size.x, tensix_grid_size.y - CoordinateManager::get_num_harvested(tensix_harvesting_mask)};
+}
+
+tt_xy_pair CoordinateManager::get_dram_grid_size() const { return dram_grid_size; }
+
+tt_xy_pair CoordinateManager::get_grid_size(const CoreType core_type) const {
+    switch (core_type) {
+        case CoreType::TENSIX:
+            return get_tensix_grid_size();
+        case CoreType::DRAM:
+            return get_dram_grid_size();
+        case CoreType::ETH:
+            return eth_grid_size;
+        case CoreType::ARC:
+            return arc_grid_size;
+        case CoreType::PCIE:
+            return pcie_grid_size;
+        default:
+            throw std::runtime_error("Core type is not supported for getting grid size");
+    }
+}
+
+std::vector<tt::umd::CoreCoord> CoordinateManager::get_harvested_cores(const CoreType core_type) const {
+    switch (core_type) {
+        case CoreType::TENSIX:
+            return get_harvested_tensix_cores();
+        case CoreType::DRAM:
+            return get_harvested_dram_cores();
+        default:
+            throw std::runtime_error("Core type is not supported for getting harvested cores");
+    }
+}
+
+tt_xy_pair CoordinateManager::get_harvested_tensix_grid_size() const {
+    return {tensix_grid_size.x, CoordinateManager::get_num_harvested(tensix_harvesting_mask)};
+}
+
+tt_xy_pair CoordinateManager::get_harvested_dram_grid_size() const { return {0, 0}; }
+
+tt_xy_pair CoordinateManager::get_harvested_grid_size(const CoreType core_type) const {
+    switch (core_type) {
+        case CoreType::TENSIX:
+            return get_harvested_tensix_grid_size();
+        case CoreType::DRAM:
+            return get_harvested_dram_grid_size();
+        default:
+            throw std::runtime_error("Core type is not supported for getting harvested grid size");
+    }
 }
 
 std::shared_ptr<CoordinateManager> CoordinateManager::create_coordinate_manager(

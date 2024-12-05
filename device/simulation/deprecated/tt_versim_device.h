@@ -33,7 +33,6 @@ public:
     virtual void set_device_l1_address_params(const tt_device_l1_address_params& l1_address_params_);
     virtual void set_device_dram_address_params(const tt_device_dram_address_params& dram_address_params_);
     tt_VersimDevice(const std::string& sdesc_path, const std::string& ndesc_path);
-    virtual std::unordered_map<chip_id_t, tt_SocDescriptor>& get_virtual_soc_descriptors();
     virtual void start(
         std::vector<std::string> plusargs,
         std::vector<std::string> dump_cores,

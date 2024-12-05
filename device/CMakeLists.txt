@@ -21,6 +21,7 @@ set(UMD_DEVICE_SRCS
     wormhole/wormhole_coordinate_manager.cpp
     pcie/pci_device.cpp
     hugepage.cpp
+    quasar/quasar_coordinate_manager.cpp
 )
 
 add_library(device SHARED ${UMD_DEVICE_SRCS})

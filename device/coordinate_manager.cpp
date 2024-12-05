@@ -170,6 +170,7 @@ void CoordinateManager::fill_logical_to_virtual_mapping(const std::set<size_t>& 
 #include "device/blackhole/blackhole_coordinate_manager.h"
 #include "device/grayskull/grayskull_coordinate_manager.h"
 #include "device/wormhole/wormhole_coordinate_manager.h"
+#include "device/quasar/quasar_coordinate_manager.h"
 
 std::unique_ptr<CoordinateManager> CoordinateManager::get_coordinate_manager(
     tt::ARCH arch,
@@ -184,6 +185,8 @@ std::unique_ptr<CoordinateManager> CoordinateManager::get_coordinate_manager(
             return std::make_unique<WormholeCoordinateManager>(worker_grid_size, workers, harvesting_mask);
         case tt::ARCH::BLACKHOLE:
             return std::make_unique<BlackholeCoordinateManager>(worker_grid_size, workers, harvesting_mask);
+        case tt::ARCH::QUASAR:
+            return std::make_unique<QuasarCoordinateManager>(worker_grid_size, workers, harvesting_mask);
         case tt::ARCH::Invalid:
             throw std::runtime_error("Invalid architecture for creating coordinate manager");
     }

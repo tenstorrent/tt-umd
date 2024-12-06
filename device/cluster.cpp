@@ -676,6 +676,9 @@ void Cluster::configure_active_ethernet_cores_for_mmio_device(
     non_mmio_transfer_cores_customized = true;
 }
 
+void Cluster::configure_active_ethernet_cores_for_mmio_device(
+    chip_id_t mmio_chip, const std::unordered_set<tt::umd::CoreCoord>& active_eth_cores_per_chip) {}
+
 void Cluster::populate_cores() {
     std::uint32_t count = 0;
     for (const auto chip : soc_descriptor_per_chip) {
@@ -1399,6 +1402,15 @@ std::optional<std::tuple<uint32_t, uint32_t>> Cluster::get_tlb_data_from_target(
         tlb_data = architecture_implementation->describe_tlb(tlb_index);
     }
     return tlb_data;
+}
+
+std::optional<std::tuple<uint32_t, uint32_t>> Cluster::get_tlb_data_from_target(const chip_id_t chip, CoreCoord core) {
+    tt_cxy_pair virtual_core;
+    const CoreCoord virtual_coord = to(chip, core, CoordSystem::VIRTUAL);
+    virtual_core.chip = chip;
+    virtual_core.x = virtual_coord.x;
+    virtual_core.y = virtual_coord.y;
+    return get_tlb_data_from_target(virtual_core);
 }
 
 void Cluster::configure_tlb(

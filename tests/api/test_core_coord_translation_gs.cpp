@@ -52,8 +52,10 @@ TEST(CoordinateManager, CoordinateManagerGrayskullTopLeftCore) {
 // We expect that the top left core will have virtual and physical coordinates (1, 1) and (1, 2) for
 // the logical coordinates if the first row is harvested.
 TEST(CoordinateManager, CoordinateManagerGrayskullTopLeftCoreHarvesting) {
+    // This is targeting first row of Tensix cores on NOC layout.
+    const size_t harvesting_mask = (1 << 8);
     std::shared_ptr<CoordinateManager> coordinate_manager =
-        CoordinateManager::create_coordinate_manager(tt::ARCH::GRAYSKULL, 1);
+        CoordinateManager::create_coordinate_manager(tt::ARCH::GRAYSKULL, harvesting_mask);
 
     CoreCoord logical_coords = CoreCoord(0, 0, CoreType::TENSIX, CoordSystem::LOGICAL);
 

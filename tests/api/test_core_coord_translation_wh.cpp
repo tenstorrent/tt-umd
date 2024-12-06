@@ -36,7 +36,8 @@ TEST(CoordinateManager, CoordinateManagerWormholeNoHarvesting) {
 // We expect that the top left core will have virtual and physical coordinates (1, 1) and (1, 2) for
 // the logical coordinates if the first row is harvested.
 TEST(CoordinateManager, CoordinateManagerWormholeTopLeftCore) {
-    const size_t harvesting_mask = 1;
+    // This harvesting mask if targeting first row in NOC layout.
+    const size_t harvesting_mask = (1 << 1);
 
     std::shared_ptr<CoordinateManager> coordinate_manager =
         CoordinateManager::create_coordinate_manager(tt::ARCH::WORMHOLE_B0, harvesting_mask);

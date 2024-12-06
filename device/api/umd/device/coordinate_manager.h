@@ -68,6 +68,8 @@ private:
         const tt::ARCH arch, const size_t tensix_harvesting_mask, const size_t dram_harvesting_mask);
 
 protected:
+    virtual void shuffle_tensix_harvesting_mask(const std::vector<uint32_t>& harvesting_locations);
+
     virtual void translate_tensix_coords();
     virtual void translate_dram_coords();
     virtual void translate_eth_coords();

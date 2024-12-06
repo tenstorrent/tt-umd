@@ -267,24 +267,13 @@ void Cluster::create_device(
             log_assert(
                 !(arch_name == tt::ARCH::BLACKHOLE && num_host_mem_channels > 1),
                 "More channels are not yet supported for Blackhole");
-            // Same number of host channels per device for now
-            bool hugepages_initialized = dev->init_hugepage(num_host_mem_channels);
 
-            if (!hugepages_initialized) {
-                log_warning(
-                    LogSiliconDriver,
-                    "Hugepages not initialized for device {} (logical_device_id: {} pci_interface_id: {})",
-                    dev->get_device_num(),
-                    logical_device_id,
-                    pci_interface_id);
-            }
+            dev->init_hugepage(num_host_mem_channels);
 
             // Large writes to remote chips require at least one hugepage.
             bool no_hugepages = (dev->get_hugepage_mapping(0).mapping == nullptr);
             if (target_remote_chips.size() && no_hugepages) {
-                log_assert(
-                    hugepages_initialized,
-                    "Hugepages must be successfully initialized if workload contains remote chips!");
+                log_assert(false, "Hugepages must be successfully initialized if workload contains remote chips!");
             }
         }
         // translation layer for harvested coords. Default is identity map

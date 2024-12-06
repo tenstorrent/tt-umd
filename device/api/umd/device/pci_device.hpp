@@ -19,27 +19,9 @@
 #include "umd/device/tt_cluster_descriptor_types.h"
 #include "umd/device/tt_xy_pair.h"
 
-// TODO: this is used up in cluster.cpp but that logic ought to be
-// lowered into the PCIDevice class since it is specific to PCIe cards.
-// See /vendor_ip/synopsys/052021/bh_pcie_ctl_gen5/export/configuration/DWC_pcie_ctl.h
-static const uint64_t UNROLL_ATU_OFFSET_BAR = 0x1200;
-
-// TODO: this is a bit of a hack... something to revisit when we formalize an
-// abstraction for IO.
-// BAR0 size for Blackhole, used to determine whether write block should use BAR0 or BAR4
-static const uint64_t BAR0_BH_SIZE = 512 * 1024 * 1024;
-
-constexpr unsigned int c_hang_read_value = 0xffffffffu;
-
 namespace tt::umd {
-class architecture_implementation;
 struct semver_t;
 }  // namespace tt::umd
-
-struct dynamic_tlb {
-    uint64_t bar_offset;      // Offset that address is mapped to, within the PCI BAR.
-    uint64_t remaining_size;  // Bytes remaining between bar_offset and end of the TLB.
-};
 
 // These are not necessarily hugepages if IOMMU is enabled.
 struct hugepage_mapping {
@@ -74,7 +56,6 @@ class PCIDevice {
     const tt::ARCH arch;             // e.g. Grayskull, Wormhole, Blackhole
     const semver_t kmd_version;      // KMD version
     const bool iommu_enabled;        // Whether the system is protected from this device by an IOMMU
-    std::unique_ptr<tt::umd::architecture_implementation> architecture_implementation;
 
 public:
     /**
@@ -150,52 +131,6 @@ public:
      */
     bool is_iommu_enabled() const { return iommu_enabled; }
 
-    // Note: byte_addr is (mostly but not always) offset into BAR0.  This
-    // interface assumes the caller knows what they are doing - but it's unclear
-    // how to use this interface correctly without knowing details of the chip
-    // and its state.
-    // TODO: build a proper abstraction for IO.  At this level, that is access
-    // to registers in BAR0 (although possibly the right abstraction is to add
-    // methods that perform specific operations as opposed to generic register
-    // read/write methods) and access to segments of BAR0/4 that are mapped to
-    // NOC endpoints.  Probably worth waiting for the KMD to start owning the
-    // resource management aspect of these PCIe->NOC mappings (the "TLBs")
-    // before doing too much work here...
-    void write_block(uint64_t byte_addr, uint64_t num_bytes, const uint8_t *buffer_addr);
-    void read_block(uint64_t byte_addr, uint64_t num_bytes, uint8_t *buffer_addr);
-    void write_regs(uint32_t byte_addr, uint32_t word_len, const void *data);
-    void write_regs(volatile uint32_t *dest, const uint32_t *src, uint32_t word_len);
-    void read_regs(uint32_t byte_addr, uint32_t word_len, void *data);
-
-    // TLB related functions.
-    // TODO: These are architecture specific, and will be moved out of the class.
-    void write_tlb_reg(
-        uint32_t byte_addr, std::uint64_t value_lower, std::uint64_t value_upper, std::uint32_t tlb_cfg_reg_size);
-    dynamic_tlb set_dynamic_tlb(
-        unsigned int tlb_index,
-        tt_xy_pair start,
-        tt_xy_pair end,
-        std::uint64_t address,
-        bool multicast,
-        std::unordered_map<tt_xy_pair, tt_xy_pair> &harvested_coord_translation,
-        std::uint64_t ordering);
-    dynamic_tlb set_dynamic_tlb(
-        unsigned int tlb_index,
-        tt_xy_pair target,
-        std::uint64_t address,
-        std::unordered_map<tt_xy_pair, tt_xy_pair> &harvested_coord_translation,
-        std::uint64_t ordering = tt::umd::tlb_data::Relaxed);
-    dynamic_tlb set_dynamic_tlb_broadcast(
-        unsigned int tlb_index,
-        std::uint64_t address,
-        std::unordered_map<tt_xy_pair, tt_xy_pair> &harvested_coord_translation,
-        tt_xy_pair start,
-        tt_xy_pair end,
-        std::uint64_t ordering = tt::umd::tlb_data::Relaxed);
-
-    tt::umd::architecture_implementation *get_architecture_implementation() const;
-    void detect_hang_read(uint32_t data_read = c_hang_read_value);
-
     // TODO: this also probably has more sense to live in the future TTDevice class.
     bool init_hugepage(uint32_t num_host_mem_channels);
 
@@ -248,12 +183,24 @@ public:
 
     uint32_t read_checking_offset;
 
-private:
-    bool is_hardware_hung();
-
     template <typename T>
-    T *get_register_address(uint32_t register_offset);
+    T *get_register_address(uint32_t register_offset) {
+        // Right now, address can either be exposed register in BAR, or TLB window in BAR0 (BAR4 for Blackhole).
+        // Should clarify this interface
+        void *reg_mapping;
+        if (system_reg_mapping != nullptr && register_offset >= system_reg_start_offset) {
+            register_offset -= system_reg_offset_adjust;
+            reg_mapping = system_reg_mapping;
+        } else if (bar0_wc != bar0_uc && register_offset < bar0_wc_size) {
+            reg_mapping = bar0_wc;
+        } else {
+            register_offset -= bar0_uc_offset;
+            reg_mapping = bar0_uc;
+        }
+        return reinterpret_cast<T *>(static_cast<uint8_t *>(reg_mapping) + register_offset);
+    }
 
+private:
     // For debug purposes when various stages fails.
     void print_file_contents(std::string filename, std::string hint = "");
 

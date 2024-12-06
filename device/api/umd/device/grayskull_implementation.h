@@ -197,6 +197,8 @@ static constexpr uint32_t ARC_CSM_MAILBOX_SIZE_OFFSET = 0x1FEF84BC;
 
 static constexpr uint32_t TENSIX_SOFT_RESET_ADDR = 0xFFB121B0;
 
+static constexpr uint32_t ARC_SCRATCH_6_OFFSET = 0x1FF30078;
+
 }  // namespace grayskull
 
 class grayskull_implementation : public architecture_implementation {
@@ -266,6 +268,8 @@ public:
     uint32_t get_static_tlb_cfg_addr() const override { return grayskull::STATIC_TLB_CFG_ADDR; }
 
     uint32_t get_static_tlb_size() const override { return grayskull::STATIC_TLB_SIZE; }
+
+    uint32_t get_read_checking_offset() const override { return grayskull::ARC_SCRATCH_6_OFFSET; }
 
     uint32_t get_reg_tlb() const override { return grayskull::REG_TLB; }
 

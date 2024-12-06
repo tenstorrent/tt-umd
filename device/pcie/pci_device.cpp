@@ -38,6 +38,22 @@ static const uint32_t BH_BAR0_WC_MAPPING_SIZE = 188 << 21;
 // Hugepages must be 1GB in size
 const uint32_t HUGEPAGE_REGION_SIZE = 1 << 30;  // 1GB
 
+static const char *HUGEPAGE_FAIL_MSG =
+    "Failed to allocate or map an adequate quantity of 1GB hugepages.  This is a critical error and will prevent the "
+    "application from functioning correctly.  Please ensure the system has enough 1GB hugepages available and that the "
+    "application is requesting an appropriate number of hugepages per device.  This per-device quantity is also "
+    "referred to as the number of host memory channels.  Helpful files to examine for debugging are as follows\n"
+    "  /proc/cmdline\n"
+    "  /proc/meminfo\n"
+    "  /proc/buddyinfo\n"
+    "  /sys/kernel/mm/hugepages/hugepages-1048576kB/nr_hugepages\n"
+    "  /sys/kernel/mm/hugepages/hugepages-1048576kB/free_hugepages\n"
+    "  /sys/devices/system/node/node0/hugepages/hugepages-1048576kB/nr_hugepages\n"
+    "  /sys/devices/system/node/node1/hugepages/hugepages-1048576kB/nr_hugepages\n"
+    "  /sys/devices/system/node/node0/hugepages/hugepages-1048576kB/free_hugepages\n"
+    "  /sys/devices/system/node/node1/hugepages/hugepages-1048576kB/free_hugepages\n"
+    "The application will now terminate.";
+
 using namespace tt;
 using namespace tt::umd;
 
@@ -374,7 +390,7 @@ PCIDevice::~PCIDevice() {
     }
 }
 
-bool PCIDevice::init_hugepage(uint32_t num_host_mem_channels) {
+void PCIDevice::init_hugepage(uint32_t num_host_mem_channels) {
     const size_t hugepage_size = HUGEPAGE_REGION_SIZE;
 
     if (numa_node > numa_max_node()) {
@@ -386,14 +402,14 @@ bool PCIDevice::init_hugepage(uint32_t num_host_mem_channels) {
 
     if (is_iommu_enabled()) {
         size_t size = hugepage_size * num_host_mem_channels;
-        return init_iommu(size);
+        init_iommu(size);
+        return;
     }
 
     auto physical_device_id = get_device_num();
     std::string hugepage_dir = find_hugepage_dir(hugepage_size);
     if (hugepage_dir.empty()) {
-        log_warning(LogSiliconDriver, "init_hugepage: no huge page mount found for hugepage_size: {}.", hugepage_size);
-        return false;
+        log_fatal("init_hugepage: no huge page mount found for hugepage_size: {}.", hugepage_size);
     }
 
     bool success = true;
@@ -411,7 +427,7 @@ bool PCIDevice::init_hugepage(uint32_t num_host_mem_channels) {
                 physical_device_id,
                 ch);
             success = false;
-            continue;
+            break;
         }
 
         // Verify opened file size.
@@ -428,10 +444,10 @@ bool PCIDevice::init_hugepage(uint32_t num_host_mem_channels) {
         if (mapping == MAP_FAILED) {
             log_warning(
                 LogSiliconDriver,
-                "Mapping a hugepage failed. (device: {}, channel {}/{} errno: {}).",
+                "Mapping a hugepage failed. (device: {}, channel {}/{}, errno: {}).",
                 physical_device_id,
-                ch,
-                num_host_mem_channels - 1,
+                ch + 1,
+                num_host_mem_channels,
                 strerror(errno));
             if (hugepage_st.st_size == 0) {
                 log_warning(
@@ -443,7 +459,7 @@ bool PCIDevice::init_hugepage(uint32_t num_host_mem_channels) {
             print_file_contents(
                 "/sys/kernel/mm/hugepages/hugepages-1048576kB/nr_hugepages");  // Hardcoded for 1GB hugepage.
             success = false;
-            continue;
+            break;
         }
 
         tenstorrent_pin_pages pin_pages;
@@ -462,7 +478,7 @@ bool PCIDevice::init_hugepage(uint32_t num_host_mem_channels) {
             print_file_contents("/proc/meminfo");
             print_file_contents("/proc/buddyinfo");
             success = false;
-            continue;
+            break;
         }
 
         hugepage_mapping_per_channel[ch] = {mapping, hugepage_size, pin_pages.out.physical_address};
@@ -476,10 +492,13 @@ bool PCIDevice::init_hugepage(uint32_t num_host_mem_channels) {
             (unsigned long long)hugepage_mappings.at(device_id).at(ch).physical_address);
     }
 
-    return success;
+    if (!success) {
+        log_error(HUGEPAGE_FAIL_MSG);
+        std::terminate();
+    }
 }
 
-bool PCIDevice::init_iommu(size_t size) {
+void PCIDevice::init_iommu(size_t size) {
     const size_t num_fake_mem_channels = size / HUGEPAGE_REGION_SIZE;
 
     if (!is_iommu_enabled()) {
@@ -506,8 +525,6 @@ bool PCIDevice::init_iommu(size_t size) {
         uint8_t *base = static_cast<uint8_t *>(mapping) + ch * HUGEPAGE_REGION_SIZE;
         hugepage_mapping_per_channel[ch] = {base, HUGEPAGE_REGION_SIZE, iova + ch * HUGEPAGE_REGION_SIZE};
     }
-
-    return true;
 }
 
 size_t PCIDevice::get_num_host_mem_channels() const { return hugepage_mapping_per_channel.size(); }

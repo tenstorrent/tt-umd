@@ -197,16 +197,15 @@ public:
     void detect_hang_read(uint32_t data_read = c_hang_read_value);
 
     // TODO: this also probably has more sense to live in the future TTDevice class.
-    bool init_hugepage(uint32_t num_host_mem_channels);
+    void init_hugepage(uint32_t num_host_mem_channels);
 
     /**
      * Allocate sysmem without hugepages and map it through IOMMU.
      * This is used when the system is protected by an IOMMU.  The mappings will
      * still appear as hugepages to the caller.
      * @param size sysmem size in bytes; size % (1UL << 30) == 0
-     * @return whether allocation/mapping succeeded.
      */
-    bool init_iommu(size_t size);
+    void init_iommu(size_t size);
 
     int get_num_host_mem_channels() const;
     hugepage_mapping get_hugepage_mapping(int channel) const;

@@ -207,7 +207,7 @@ void Cluster::initialize_interprocess_mutexes(int pci_interface_id, bool cleanup
 
 void Cluster::create_device(
     const std::unordered_set<chip_id_t>& target_mmio_device_ids,
-    const uint32_t& num_host_mem_ch_per_mmio_device,
+    const uint32_t num_host_mem_ch_per_mmio_device,
     const bool skip_driver_allocs,
     const bool clean_system_resources) {
     log_debug(LogSiliconDriver, "Cluster::Cluster");
@@ -239,11 +239,7 @@ void Cluster::create_device(
         }
         auto dev = m_pci_device_map.at(logical_device_id).get();
 
-        uint16_t pcie_device_id = dev->get_pci_device_id();
-        uint32_t pcie_revision = dev->get_pci_revision();
-        // TODO: get rid of this, it doesn't make any sense.
-        int num_host_mem_channels =
-            get_available_num_host_mem_channels(num_host_mem_ch_per_mmio_device, pcie_device_id, pcie_revision);
+        int num_host_mem_channels = num_host_mem_ch_per_mmio_device;
         if (dev->get_arch() == tt::ARCH::BLACKHOLE && num_host_mem_channels > 1) {
             // TODO: Implement support for multiple host channels on BLACKHOLE.
             log_warning(
@@ -271,18 +267,13 @@ void Cluster::create_device(
             log_assert(
                 !(arch_name == tt::ARCH::BLACKHOLE && num_host_mem_channels > 1),
                 "More channels are not yet supported for Blackhole");
-            // Same number of host channels per device for now
-            bool hugepages_initialized = m_pci_device_map.at(logical_device_id)->init_hugepage(num_host_mem_channels);
-            // Large writes to remote chips require hugepages to be initialized.
-            // Conservative assert - end workload if remote chips present but hugepages not initialized (failures caused
-            // if using remote only for small transactions)
-            if (target_remote_chips.size()) {
-                log_assert(
-                    hugepages_initialized,
-                    "Hugepages must be successfully initialized if workload contains remote chips!");
-            }
-            if (not m_pci_device_map.at(logical_device_id)->get_hugepage_mapping(0).mapping) {
-                log_warning(LogSiliconDriver, "No hugepage mapping at device {}.", logical_device_id);
+
+            dev->init_hugepage(num_host_mem_channels);
+
+            // Large writes to remote chips require at least one hugepage.
+            bool no_hugepages = (dev->get_hugepage_mapping(0).mapping == nullptr);
+            if (target_remote_chips.size() && no_hugepages) {
+                log_assert(false, "Hugepages must be successfully initialized if workload contains remote chips!");
             }
         }
         // translation layer for harvested coords. Default is identity map
@@ -317,7 +308,7 @@ std::unordered_map<chip_id_t, uint32_t> Cluster::get_harvesting_masks_for_soc_de
 
 void Cluster::construct_cluster(
     const std::string& sdesc_path,
-    const uint32_t& num_host_mem_ch_per_mmio_device,
+    const uint32_t num_host_mem_ch_per_mmio_device,
     const bool skip_driver_allocs,
     const bool clean_system_resources,
     bool perform_harvesting,
@@ -486,7 +477,7 @@ void Cluster::construct_cluster(
 }
 
 Cluster::Cluster(
-    const uint32_t& num_host_mem_ch_per_mmio_device,
+    const uint32_t num_host_mem_ch_per_mmio_device,
     const bool skip_driver_allocs,
     const bool clean_system_resources,
     bool perform_harvesting,
@@ -534,7 +525,7 @@ Cluster::Cluster(
 
 Cluster::Cluster(
     const std::set<chip_id_t>& target_devices,
-    const uint32_t& num_host_mem_ch_per_mmio_device,
+    const uint32_t num_host_mem_ch_per_mmio_device,
     const bool skip_driver_allocs,
     const bool clean_system_resources,
     bool perform_harvesting,
@@ -579,7 +570,7 @@ Cluster::Cluster(
 Cluster::Cluster(
     const std::string& sdesc_path,
     const std::set<chip_id_t>& target_devices,
-    const uint32_t& num_host_mem_ch_per_mmio_device,
+    const uint32_t num_host_mem_ch_per_mmio_device,
     const bool skip_driver_allocs,
     const bool clean_system_resources,
     bool perform_harvesting,

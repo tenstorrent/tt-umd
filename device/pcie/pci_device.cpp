@@ -392,10 +392,7 @@ bool PCIDevice::init_hugepage(uint32_t num_host_mem_channels) {
     auto physical_device_id = get_device_num();
     std::string hugepage_dir = find_hugepage_dir(hugepage_size);
     if (hugepage_dir.empty()) {
-        log_warning(
-            LogSiliconDriver,
-            "ttSiliconDevice::init_hugepage: no huge page mount found for hugepage_size: {}.",
-            hugepage_size);
+        log_warning(LogSiliconDriver, "init_hugepage: no huge page mount found for hugepage_size: {}.", hugepage_size);
         return false;
     }
 
@@ -410,7 +407,7 @@ bool PCIDevice::init_hugepage(uint32_t num_host_mem_channels) {
             // Probably a permissions problem.
             log_warning(
                 LogSiliconDriver,
-                "ttSiliconDevice::init_hugepage: physical_device_id: {} ch: {} creating hugepage mapping file failed.",
+                "init_hugepage: physical_device_id: {} ch: {} creating hugepage mapping file failed.",
                 physical_device_id,
                 ch);
             success = false;
@@ -431,10 +428,10 @@ bool PCIDevice::init_hugepage(uint32_t num_host_mem_channels) {
         if (mapping == MAP_FAILED) {
             log_warning(
                 LogSiliconDriver,
-                "UMD: Mapping a hugepage failed. (device: {}, {}/{} errno: {}).",
+                "Mapping a hugepage failed. (device: {}, channel {}/{} errno: {}).",
                 physical_device_id,
                 ch,
-                num_host_mem_channels,
+                num_host_mem_channels - 1,
                 strerror(errno));
             if (hugepage_st.st_size == 0) {
                 log_warning(
@@ -459,13 +456,7 @@ bool PCIDevice::init_hugepage(uint32_t num_host_mem_channels) {
         auto fd = get_fd();
 
         if (ioctl(fd, TENSTORRENT_IOCTL_PIN_PAGES, &pin_pages) == -1) {
-            log_warning(
-                LogSiliconDriver,
-                "---- ttSiliconDevice::init_hugepage: physical_device_id: {} ch: {} TENSTORRENT_IOCTL_PIN_PAGES failed "
-                "(errno: {}). Common Issue: Requires TTMKD >= 1.11, see following file contents...",
-                physical_device_id,
-                ch,
-                strerror(errno));
+            log_warning(LogSiliconDriver, "Failed to pin pages (errno: {}).", strerror(errno));
             munmap(mapping, hugepage_size);
             print_file_contents("/sys/module/tenstorrent/version", "(TTKMD version)");
             print_file_contents("/proc/meminfo");
@@ -478,7 +469,7 @@ bool PCIDevice::init_hugepage(uint32_t num_host_mem_channels) {
 
         log_debug(
             LogSiliconDriver,
-            "ttSiliconDevice::init_hugepage: physical_device_id: {} ch: {} mapping_size: {} physical address 0x{:x}",
+            "init_hugepage: physical_device_id: {} ch: {} mapping_size: {} physical address 0x{:x}",
             physical_device_id,
             ch,
             hugepage_size,

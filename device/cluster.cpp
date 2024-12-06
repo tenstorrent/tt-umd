@@ -227,22 +227,16 @@ void Cluster::create_device(
         // TODO: This will be moved to a dedicated Locking class.
         initialize_interprocess_mutexes(logical_device_id, clean_system_resources);
 
-        // MT: Initial BH - hugepages will fail init
-        // For using silicon driver without workload to query mission mode params, no need for hugepage.
         if (!skip_driver_allocs) {
-            bool hugepages_initialized = pci_device->init_hugepage(num_host_mem_channels);
-            // Large writes to remote chips require hugepages to be initialized.
-            // Conservative assert - end workload if remote chips present but hugepages not initialized (failures caused
-            // if using remote only for small transactions)
-            if (remote_chip_ids_.size()) {
-                log_assert(
-                    hugepages_initialized,
-                    "Hugepages must be successfully initialized if workload contains remote chips!");
-            }
-            if (not pci_device->get_hugepage_mapping(0).mapping) {
-                log_warning(LogSiliconDriver, "No hugepage mapping at device {}.", logical_device_id);
+            pci_device->init_hugepage(num_host_mem_channels);
+
+            // Large writes to remote chips require at least one hugepage.
+            bool no_hugepages = (pci_device->get_hugepage_mapping(0).mapping == nullptr);
+            if (remote_chip_ids_.size() && no_hugepages) {
+                log_assert(false, "Hugepages must be successfully initialized if workload contains remote chips!");
             }
         }
+
         // translation layer for harvested coords. Default is identity map
         harvested_coord_translation.insert({logical_device_id, create_harvested_coord_translation(arch_name, true)});
     }

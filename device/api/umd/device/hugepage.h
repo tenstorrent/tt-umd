@@ -9,7 +9,7 @@
 #include <cstdint>
 #include <string>
 
-#include "umd/device/tt_cluster_descriptor_types.h"
+#include "umd/device/types/cluster_descriptor_types.h"
 
 namespace tt::umd {
 

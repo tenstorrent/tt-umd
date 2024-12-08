@@ -36,6 +36,10 @@ target_sources(
         simulation/tt_simulation_host.cpp
         tlb.cpp
         tt_cluster_descriptor.cpp
+        tt_device/blackhole_tt_device.cpp
+        tt_device/grayskull_tt_device.cpp
+        tt_device/tt_device.cpp
+        tt_device/wormhole_tt_device.cpp
         tt_silicon_driver_common.cpp
         tt_soc_descriptor.cpp
         grayskull/grayskull_coordinate_manager.cpp

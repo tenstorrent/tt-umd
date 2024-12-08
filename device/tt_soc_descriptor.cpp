@@ -205,7 +205,7 @@ tt_SocDescriptor::tt_SocDescriptor(
     device_descriptor_file_path = device_descriptor_path;
     std::string arch_name_value = device_descriptor_yaml["arch_name"].as<std::string>();
     arch_name_value = trim(arch_name_value);
-    arch = get_arch_name(arch_name_value);
+    arch = tt::arch_from_str(arch_name_value);
     load_soc_features_from_device_descriptor(device_descriptor_yaml);
     create_coordinate_manager(tensix_harvesting_mask, dram_harvesting_mask);
 }
@@ -248,20 +248,4 @@ std::string tt_SocDescriptor::get_soc_descriptor_path(tt::ARCH arch) {
         default:
             throw std::runtime_error("Invalid architecture");
     }
-}
-
-std::ostream &operator<<(std::ostream &out, const tt::ARCH &arch_name) {
-    if (arch_name == tt::ARCH::Invalid) {
-        out << "none";
-    } else if (arch_name == tt::ARCH::GRAYSKULL) {
-        out << "grayskull";
-    } else if (arch_name == tt::ARCH::WORMHOLE_B0) {
-        out << "wormhole_b0";
-    } else if (arch_name == tt::ARCH::BLACKHOLE) {
-        out << "blackhole";  // Just how many ARCH-to-string functions do we plan to have, anyway?
-    } else {
-        out << "ArchNameSerializationNotImplemented";
-    }
-
-    return out;
 }

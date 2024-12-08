@@ -174,6 +174,8 @@ static constexpr uint32_t TENSIX_SOFT_RESET_ADDR = 0xFFB121B0;
 
 static constexpr uint32_t MSG_TYPE_SETUP_IATU_FOR_PEER_TO_PEER = 0x97;
 
+static const uint32_t BH_NOC_NODE_ID_OFFSET = 0x1FD04044;
+
 static const size_t eth_translated_coordinate_start_x = 20;
 static const size_t eth_translated_coordinate_start_y = 25;
 
@@ -264,6 +266,8 @@ public:
     uint32_t get_static_tlb_cfg_addr() const override { return blackhole::STATIC_TLB_CFG_ADDR; }
 
     uint32_t get_static_tlb_size() const override { return blackhole::STATIC_TLB_SIZE; }
+
+    uint32_t get_read_checking_offset() const override { return blackhole::BH_NOC_NODE_ID_OFFSET; }
 
     uint32_t get_reg_tlb() const override { return blackhole::REG_TLB; }
 

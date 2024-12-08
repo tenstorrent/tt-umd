@@ -7,6 +7,7 @@
 #pragma once
 
 #include "umd/device/tt_xy_pair.h"
+#include <cstdint>
 
 // For documentation on Coordinate systems, lookup docs/coordinate_systems.md
 

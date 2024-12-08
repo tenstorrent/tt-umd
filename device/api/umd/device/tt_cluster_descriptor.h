@@ -16,9 +16,9 @@
 #include <unordered_set>
 #include <vector>
 
-#include "umd/device/tt_arch_types.h"
-#include "umd/device/tt_cluster_descriptor_types.h"
 #include "umd/device/tt_xy_pair.h"
+#include "umd/device/types/arch.h"
+#include "umd/device/types/cluster_descriptor_types.h"
 
 namespace YAML {
 class Node;
@@ -78,7 +78,6 @@ protected:
     static void load_harvesting_information(YAML::Node &yaml, tt_ClusterDescriptor &desc);
 
     void fill_chips_grouped_by_closest_mmio();
-    static tt::ARCH arch_from_string(std::string arch_str);
 
 public:
     /*

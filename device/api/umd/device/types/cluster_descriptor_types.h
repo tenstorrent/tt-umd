@@ -1,13 +1,19 @@
 /*
- * SPDX-FileCopyrightText: (c) 2023 Tenstorrent Inc.
+ * SPDX-FileCopyrightText: (c) 2024 Tenstorrent Inc.
  *
  * SPDX-License-Identifier: Apache-2.0
  */
 
 #pragma once
 
+#include <cstdint>
 #include <functional>
-#include <tuple>
+
+// Small performant hash combiner taken from boost library.
+// Not using boost::hash_combine due to dependency complications.
+inline void boost_hash_combine(std::size_t &seed, const int value) {
+    seed ^= value + 0x9e3779b9 + (seed << 6) + (seed >> 2);
+}
 
 using chip_id_t = int;
 using ethernet_channel_t = int;
@@ -28,12 +34,6 @@ struct eth_coord_t {
     }
 };
 
-// Small performant hash combiner taken from boost library.
-// Not using boost::hash_combine due to dependency complications.
-inline void boost_hash_combine(std::size_t &seed, const int value) {
-    seed ^= value + 0x9e3779b9 + (seed << 6) + (seed >> 2);
-}
-
 namespace std {
 template <>
 struct hash<eth_coord_t> {
@@ -47,4 +47,5 @@ struct hash<eth_coord_t> {
         return seed;
     }
 };
+
 }  // namespace std

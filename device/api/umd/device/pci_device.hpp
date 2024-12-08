@@ -15,9 +15,8 @@
 #include "fmt/format.h"
 #include "umd/device/semver.hpp"
 #include "umd/device/tlb.h"
-#include "umd/device/tt_arch_types.h"
-#include "umd/device/tt_cluster_descriptor_types.h"
 #include "umd/device/tt_xy_pair.h"
+#include "umd/device/types/arch.h"
 
 namespace tt::umd {
 struct semver_t;

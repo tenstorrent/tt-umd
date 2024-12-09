@@ -1,4 +1,4 @@
-set(UNIT_TESTS_GS_SRCS test_silicon_driver.cpp)
+set(UNIT_TESTS_GS_SRCS test_cluster_gs.cpp)
 
 add_executable(unit_tests_grayskull ${UNIT_TESTS_GS_SRCS})
 target_link_libraries(unit_tests_grayskull PRIVATE test_common)

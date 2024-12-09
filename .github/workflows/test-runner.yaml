@@ -2,10 +2,17 @@ name: Check runner
 
 on:
   workflow_dispatch:
+    inputs:
+      timeout:
+        required: true
+        description: 'The timeout for the job in minutes'
+        type: number
+        default: 10
 
 jobs:
   check-runners-host:
-    timeout-minutes: 10
+    # Due to parsing bug, fromJSON is used to convert string to number
+    timeout-minutes: ${{ fromJSON(inputs.timeout) }}
     strategy:
       fail-fast: false
       matrix:
@@ -52,7 +59,8 @@ jobs:
           du -h --max-depth=1 | sort -rh
 
   check-runners-docker:
-    timeout-minutes: 10
+    # Due to parsing bug, fromJSON is used to convert string to number
+    timeout-minutes: ${{ fromJSON(inputs.timeout) }}
     strategy:
       fail-fast: false
       matrix:

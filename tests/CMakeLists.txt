@@ -13,12 +13,14 @@ target_link_libraries(
         gtest
         pthread
         fmt::fmt-header-only
+        nng
 )
 target_include_directories(
     test_common
     INTERFACE
         ${PROJECT_SOURCE_DIR}
         ${CMAKE_CURRENT_SOURCE_DIR}
+        "$<TARGET_PROPERTY:umd::device,INCLUDE_DIRECTORIES>"
 )
 
 # Download noc_parameters.h for tests
@@ -50,17 +52,14 @@ foreach(ARCH IN LISTS ARCHS)
             message(FATAL_ERROR "Failed to download ${HW_NOC_PARAMETERS_URL}")
         endif()
     endif()
+    include_directories("${CMAKE_CURRENT_BINARY_DIR}/${ARCH}")
 endforeach()
-if($ENV{ARCH_NAME} STREQUAL "wormhole_b0")
-    include_directories("${CMAKE_CURRENT_BINARY_DIR}/wormhole")
-else()
-    include_directories("${CMAKE_CURRENT_BINARY_DIR}/$ENV{ARCH_NAME}")
-endif()
 
 if(MASTER_PROJECT)
     add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/microbenchmark)
 endif()
 add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/api)
+add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/misc)
 add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/pcie)
 add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/simulation)
 if($ENV{ARCH_NAME} STREQUAL "wormhole_b0")
@@ -83,4 +82,5 @@ add_custom_target(
         simulation_tests
         test_pcie_device
         api_tests
+        umd_misc_tests
 )

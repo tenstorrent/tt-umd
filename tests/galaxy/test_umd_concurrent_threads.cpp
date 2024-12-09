@@ -2,22 +2,21 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
+#include <filesystem>
 #include <numeric>
 #include <thread>
-#include <filesystem>
 
-#include "gtest/gtest.h"
 #include "common/logger.hpp"
-#include "tt_cluster_descriptor.h"
-#include "cluster.h"
 #include "eth_interface.h"
+#include "gtest/gtest.h"
 #include "host_mem_address_map.h"
 #include "l1_address_map.h"
-
 #include "test_galaxy_common.h"
-#include "tests/wormhole/test_wh_common.h"
-#include "tests/test_utils/generate_cluster_desc.hpp"
 #include "tests/test_utils/device_test_utils.hpp"
+#include "tests/test_utils/generate_cluster_desc.hpp"
+#include "tests/wormhole/test_wh_common.h"
+#include "umd/device/cluster.h"
+#include "umd/device/tt_cluster_descriptor.h"
 
 static const std::string SOC_DESC_PATH = "tests/soc_descs/wormhole_b0_8x10.yaml";
 
@@ -25,8 +24,7 @@ static const std::string SOC_DESC_PATH = "tests/soc_descs/wormhole_b0_8x10.yaml"
 TEST(GalaxyConcurrentThreads, WriteToAllChipsL1) {
     // Galaxy Setup
 
-    std::string cluster_desc_path = tt_ClusterDescriptor::get_cluster_descriptor_file_path();
-    std::shared_ptr<tt_ClusterDescriptor> cluster_desc = tt_ClusterDescriptor::create_from_yaml(cluster_desc_path);
+    std::shared_ptr<tt_ClusterDescriptor> cluster_desc = tt_ClusterDescriptor::create();
     std::set<chip_id_t> target_devices_th1 = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16};
     std::set<chip_id_t> target_devices_th2 = {17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32};
     std::set<chip_id_t> all_devices = {};
@@ -51,8 +49,8 @@ TEST(GalaxyConcurrentThreads, WriteToAllChipsL1) {
 
     uint32_t num_host_mem_ch_per_mmio_device = 1;
 
-    Cluster device = Cluster(
-        test_utils::GetAbsPath(SOC_DESC_PATH), cluster_desc_path, all_devices, num_host_mem_ch_per_mmio_device, false, true);
+    Cluster device =
+        Cluster(test_utils::GetAbsPath(SOC_DESC_PATH), all_devices, num_host_mem_ch_per_mmio_device, false, true);
     const auto sdesc_per_chip = device.get_virtual_soc_descriptors();
 
     tt::umd::test::utils::set_params_for_remote_txn(device);
@@ -70,7 +68,12 @@ TEST(GalaxyConcurrentThreads, WriteToAllChipsL1) {
         std::uint32_t address = l1_mem::address_map::NCRISC_FIRMWARE_BASE;
         for (const auto& chip : target_devices_th1) {
             for (auto& core : sdesc_per_chip.at(chip).workers) {
-                device.write_to_device(vector_to_write_th1.data(), vector_to_write_th1.size() * sizeof(std::uint32_t), tt_cxy_pair(chip, core), address, "SMALL_READ_WRITE_TLB");
+                device.write_to_device(
+                    vector_to_write_th1.data(),
+                    vector_to_write_th1.size() * sizeof(std::uint32_t),
+                    tt_cxy_pair(chip, core),
+                    address,
+                    "SMALL_READ_WRITE_TLB");
             }
         }
         device.wait_for_non_mmio_flush();
@@ -91,7 +94,12 @@ TEST(GalaxyConcurrentThreads, WriteToAllChipsL1) {
         std::uint32_t address = l1_mem::address_map::NCRISC_FIRMWARE_BASE;
         for (const auto& chip : target_devices_th2) {
             for (auto& core : sdesc_per_chip.at(chip).workers) {
-                device.write_to_device(vector_to_write_th2.data(), vector_to_write_th2.size() * sizeof(std::uint32_t), tt_cxy_pair(chip, core), address, "SMALL_READ_WRITE_TLB");
+                device.write_to_device(
+                    vector_to_write_th2.data(),
+                    vector_to_write_th2.size() * sizeof(std::uint32_t),
+                    tt_cxy_pair(chip, core),
+                    address,
+                    "SMALL_READ_WRITE_TLB");
             }
         }
         device.wait_for_non_mmio_flush();
@@ -113,8 +121,7 @@ TEST(GalaxyConcurrentThreads, WriteToAllChipsL1) {
 
 TEST(GalaxyConcurrentThreads, WriteToAllChipsDram) {
     // Galaxy Setup
-    std::string cluster_desc_path = tt_ClusterDescriptor::get_cluster_descriptor_file_path();
-    std::shared_ptr<tt_ClusterDescriptor> cluster_desc = tt_ClusterDescriptor::create_from_yaml(cluster_desc_path);
+    std::shared_ptr<tt_ClusterDescriptor> cluster_desc = tt_ClusterDescriptor::create();
     std::set<chip_id_t> target_devices_th1 = {0, 2, 4, 6, 8, 10, 12, 14, 16, 18, 20, 22, 24, 26, 28, 30, 32};
     std::set<chip_id_t> target_devices_th2 = {1, 3, 5, 7, 9, 11, 13, 15, 17, 19, 21, 23, 25, 27, 29, 31};
     std::set<chip_id_t> all_devices = {};
@@ -139,8 +146,8 @@ TEST(GalaxyConcurrentThreads, WriteToAllChipsDram) {
 
     uint32_t num_host_mem_ch_per_mmio_device = 1;
 
-    Cluster device = Cluster(
-        test_utils::GetAbsPath(SOC_DESC_PATH), cluster_desc_path, all_devices, num_host_mem_ch_per_mmio_device, false, true);
+    Cluster device =
+        Cluster(test_utils::GetAbsPath(SOC_DESC_PATH), all_devices, num_host_mem_ch_per_mmio_device, false, true);
     const auto sdesc_per_chip = device.get_virtual_soc_descriptors();
 
     tt::umd::test::utils::set_params_for_remote_txn(device);
@@ -162,7 +169,12 @@ TEST(GalaxyConcurrentThreads, WriteToAllChipsDram) {
         std::uint32_t address = 0x4000000;
         for (const auto& chip : target_devices_th1) {
             for (auto& core : dram_cores) {
-                device.write_to_device(vector_to_write.data(), vector_to_write.size() * sizeof(std::uint32_t), tt_cxy_pair(chip, core), address, "SMALL_READ_WRITE_TLB");
+                device.write_to_device(
+                    vector_to_write.data(),
+                    vector_to_write.size() * sizeof(std::uint32_t),
+                    tt_cxy_pair(chip, core),
+                    address,
+                    "SMALL_READ_WRITE_TLB");
             }
         }
         device.wait_for_non_mmio_flush();
@@ -182,7 +194,12 @@ TEST(GalaxyConcurrentThreads, WriteToAllChipsDram) {
         std::uint32_t address = 0x5000000;
         for (const auto& chip : target_devices_th2) {
             for (auto& core : sdesc_per_chip.at(chip).workers) {
-                device.write_to_device(vector_to_write.data(), vector_to_write.size() * sizeof(std::uint32_t), tt_cxy_pair(chip, core), address, "SMALL_READ_WRITE_TLB");
+                device.write_to_device(
+                    vector_to_write.data(),
+                    vector_to_write.size() * sizeof(std::uint32_t),
+                    tt_cxy_pair(chip, core),
+                    address,
+                    "SMALL_READ_WRITE_TLB");
             }
         }
         device.wait_for_non_mmio_flush();
@@ -204,8 +221,7 @@ TEST(GalaxyConcurrentThreads, WriteToAllChipsDram) {
 
 TEST(GalaxyConcurrentThreads, PushInputsWhileSignalingCluster) {
     // Galaxy Setup
-    std::string cluster_desc_path = tt_ClusterDescriptor::get_cluster_descriptor_file_path();
-    std::shared_ptr<tt_ClusterDescriptor> cluster_desc = tt_ClusterDescriptor::create_from_yaml(cluster_desc_path);
+    std::shared_ptr<tt_ClusterDescriptor> cluster_desc = tt_ClusterDescriptor::create();
     std::set<chip_id_t> target_devices = {0, 1, 2, 3, 4, 5, 6, 7, 8};
     for (const auto& chip : target_devices) {
         // Verify that selected chips are in the cluster
@@ -216,8 +232,8 @@ TEST(GalaxyConcurrentThreads, PushInputsWhileSignalingCluster) {
 
     uint32_t num_host_mem_ch_per_mmio_device = 1;
 
-    Cluster device = Cluster(
-        test_utils::GetAbsPath(SOC_DESC_PATH), cluster_desc_path, target_devices, num_host_mem_ch_per_mmio_device, false, true);
+    Cluster device =
+        Cluster(test_utils::GetAbsPath(SOC_DESC_PATH), target_devices, num_host_mem_ch_per_mmio_device, false, true);
     const auto sdesc_per_chip = device.get_virtual_soc_descriptors();
 
     tt::umd::test::utils::set_params_for_remote_txn(device);
@@ -239,7 +255,12 @@ TEST(GalaxyConcurrentThreads, PushInputsWhileSignalingCluster) {
         chip_id_t mmio_chip = cluster_desc->get_chips_with_mmio().begin()->first;
         std::vector<uint32_t> readback_vec = {};
         std::uint32_t address = 0x0;
-        device.write_to_device(large_vector.data(), large_vector.size() * sizeof(std::uint32_t), tt_cxy_pair(mmio_chip, tt_xy_pair(0, 0)), address, "SMALL_READ_WRITE_TLB");
+        device.write_to_device(
+            large_vector.data(),
+            large_vector.size() * sizeof(std::uint32_t),
+            tt_cxy_pair(mmio_chip, tt_xy_pair(0, 0)),
+            address,
+            "SMALL_READ_WRITE_TLB");
         test_utils::read_data_from_device(
             device,
             readback_vec,
@@ -257,14 +278,24 @@ TEST(GalaxyConcurrentThreads, PushInputsWhileSignalingCluster) {
         std::uint32_t address = l1_mem::address_map::NCRISC_FIRMWARE_BASE;
         for (const auto& chip : target_devices) {
             for (auto& core : sdesc_per_chip.at(chip).workers) {
-                device.write_to_device(small_vector.data(), small_vector.size() * sizeof(std::uint32_t), tt_cxy_pair(chip, core), address, "SMALL_READ_WRITE_TLB");
+                device.write_to_device(
+                    small_vector.data(),
+                    small_vector.size() * sizeof(std::uint32_t),
+                    tt_cxy_pair(chip, core),
+                    address,
+                    "SMALL_READ_WRITE_TLB");
             }
         }
         device.wait_for_non_mmio_flush();
         for (const auto& chip : target_devices) {
             for (auto& core : sdesc_per_chip.at(chip).workers) {
                 test_utils::read_data_from_device(
-                    device, readback_vec, tt_cxy_pair(chip, core), address, small_vector.size() * 4, "SMALL_READ_WRITE_TLB");
+                    device,
+                    readback_vec,
+                    tt_cxy_pair(chip, core),
+                    address,
+                    small_vector.size() * 4,
+                    "SMALL_READ_WRITE_TLB");
                 EXPECT_EQ(small_vector, readback_vec)
                     << "Vector read back from core " << core.x << "-" << core.y << "does not match what was written";
                 readback_vec = {};

@@ -2,28 +2,26 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-#include <numeric>
 #include <filesystem>
+#include <numeric>
 
-#include "gtest/gtest.h"
 #include "common/logger.hpp"
-#include "tt_cluster_descriptor.h"
-#include "cluster.h"
 #include "eth_interface.h"
+#include "gtest/gtest.h"
 #include "host_mem_address_map.h"
 #include "l1_address_map.h"
-
 #include "test_galaxy_common.h"
-#include "tests/wormhole/test_wh_common.h"
-#include "tests/test_utils/generate_cluster_desc.hpp"
 #include "tests/test_utils/device_test_utils.hpp"
+#include "tests/test_utils/generate_cluster_desc.hpp"
+#include "tests/wormhole/test_wh_common.h"
+#include "umd/device/cluster.h"
+#include "umd/device/tt_cluster_descriptor.h"
 
 static const std::string SOC_DESC_PATH = "tests/soc_descs/wormhole_b0_8x10.yaml";
 
 void run_remote_read_write_test(uint32_t vector_size, bool dram_write) {
     // Galaxy Setup
-    std::string cluster_desc_path = tt_ClusterDescriptor::get_cluster_descriptor_file_path();
-    std::shared_ptr<tt_ClusterDescriptor> cluster_desc = tt_ClusterDescriptor::create_from_yaml(cluster_desc_path);
+    std::shared_ptr<tt_ClusterDescriptor> cluster_desc = tt_ClusterDescriptor::create();
     std::set<chip_id_t> target_devices = {};
     for (const auto& chip : cluster_desc->get_all_chips()) {
         target_devices.insert(chip);
@@ -31,8 +29,8 @@ void run_remote_read_write_test(uint32_t vector_size, bool dram_write) {
 
     uint32_t num_host_mem_ch_per_mmio_device = 1;
 
-    Cluster device = Cluster(
-        test_utils::GetAbsPath(SOC_DESC_PATH), cluster_desc_path, target_devices, num_host_mem_ch_per_mmio_device, false, true);
+    Cluster device =
+        Cluster(test_utils::GetAbsPath(SOC_DESC_PATH), target_devices, num_host_mem_ch_per_mmio_device, false, true);
     const auto sdesc_per_chip = device.get_virtual_soc_descriptors();
 
     tt::umd::test::utils::set_params_for_remote_txn(device);
@@ -64,7 +62,12 @@ void run_remote_read_write_test(uint32_t vector_size, bool dram_write) {
             for (const auto& core : target_cores) {
                 tt_cxy_pair target_core = tt_cxy_pair(chip, core);
                 auto start = std::chrono::high_resolution_clock::now();
-                device.write_to_device(vector_to_write.data(), vector_to_write.size() * sizeof(std::uint32_t), target_core, address, "SMALL_READ_WRITE_TLB");
+                device.write_to_device(
+                    vector_to_write.data(),
+                    vector_to_write.size() * sizeof(std::uint32_t),
+                    target_core,
+                    address,
+                    "SMALL_READ_WRITE_TLB");
                 device.wait_for_non_mmio_flush();  // Barrier to ensure that all writes over ethernet were commited
                 auto end = std::chrono::high_resolution_clock::now();
                 auto duration = double(std::chrono::duration_cast<std::chrono::microseconds>(end - start).count());
@@ -72,7 +75,8 @@ void run_remote_read_write_test(uint32_t vector_size, bool dram_write) {
                 // std::cout << "  chip " << chip << " core " << target_core.str() << " " << duration << std::endl;
 
                 start = std::chrono::high_resolution_clock::now();
-                test_utils::read_data_from_device(device, readback_vec, target_core, address, write_size, "SMALL_READ_WRITE_TLB");
+                test_utils::read_data_from_device(
+                    device, readback_vec, target_core, address, write_size, "SMALL_READ_WRITE_TLB");
                 end = std::chrono::high_resolution_clock::now();
                 duration = double(std::chrono::duration_cast<std::chrono::microseconds>(end - start).count());
                 // std::cout << " read chip " << chip << " core " << target_core.str()<< " " << duration << std::endl;
@@ -126,8 +130,7 @@ TEST(GalaxyBasicReadWrite, LargeRemoteDramBlockReadWrite) { run_remote_read_writ
 void run_data_mover_test(
     uint32_t vector_size, tt_multichip_core_addr sender_core, tt_multichip_core_addr receiver_core) {
     // Galaxy Setup
-    std::string cluster_desc_path = tt_ClusterDescriptor::get_cluster_descriptor_file_path();
-    std::shared_ptr<tt_ClusterDescriptor> cluster_desc = tt_ClusterDescriptor::create_from_yaml(cluster_desc_path);
+    std::shared_ptr<tt_ClusterDescriptor> cluster_desc = tt_ClusterDescriptor::create();
     std::set<chip_id_t> target_devices = {};
     for (const auto& chip : cluster_desc->get_all_chips()) {
         target_devices.insert(chip);
@@ -144,8 +147,8 @@ void run_data_mover_test(
 
     uint32_t num_host_mem_ch_per_mmio_device = 1;
 
-    Cluster device = Cluster(
-        test_utils::GetAbsPath(SOC_DESC_PATH), cluster_desc_path, target_devices, num_host_mem_ch_per_mmio_device, false, true);
+    Cluster device =
+        Cluster(test_utils::GetAbsPath(SOC_DESC_PATH), target_devices, num_host_mem_ch_per_mmio_device, false, true);
 
     tt::umd::test::utils::set_params_for_remote_txn(device);
 
@@ -162,7 +165,11 @@ void run_data_mover_test(
     std::vector<float> send_bw;
     // Set up data in sender core
     device.write_to_device(
-        vector_to_write.data(), vector_to_write.size() * sizeof(std::uint32_t), tt_cxy_pair(sender_core.chip, sender_core.core), sender_core.addr, "SMALL_READ_WRITE_TLB");
+        vector_to_write.data(),
+        vector_to_write.size() * sizeof(std::uint32_t),
+        tt_cxy_pair(sender_core.chip, sender_core.core),
+        sender_core.addr,
+        "SMALL_READ_WRITE_TLB");
     device.wait_for_non_mmio_flush();  // Barrier to ensure that all writes over ethernet were commited
 
     // Send data from sender core to receiver core
@@ -240,8 +247,7 @@ TEST(GalaxyDataMovement, TwoChipMoveData4) {
 void run_data_broadcast_test(
     uint32_t vector_size, tt_multichip_core_addr sender_core, std::vector<tt_multichip_core_addr> receiver_cores) {
     // Galaxy Setup
-    std::string cluster_desc_path = tt_ClusterDescriptor::get_cluster_descriptor_file_path();
-    std::shared_ptr<tt_ClusterDescriptor> cluster_desc = tt_ClusterDescriptor::create_from_yaml(cluster_desc_path);
+    std::shared_ptr<tt_ClusterDescriptor> cluster_desc = tt_ClusterDescriptor::create();
     std::set<chip_id_t> target_devices = {};
     for (const auto& chip : cluster_desc->get_all_chips()) {
         target_devices.insert(chip);
@@ -260,8 +266,8 @@ void run_data_broadcast_test(
 
     uint32_t num_host_mem_ch_per_mmio_device = 1;
 
-    Cluster device = Cluster(
-        test_utils::GetAbsPath(SOC_DESC_PATH), cluster_desc_path, target_devices, num_host_mem_ch_per_mmio_device, false, true);
+    Cluster device =
+        Cluster(test_utils::GetAbsPath(SOC_DESC_PATH), target_devices, num_host_mem_ch_per_mmio_device, false, true);
 
     tt::umd::test::utils::set_params_for_remote_txn(device);
 
@@ -278,7 +284,11 @@ void run_data_broadcast_test(
     std::vector<float> send_bw;
     //  Set up data in sender core
     device.write_to_device(
-        vector_to_write.data(), vector_to_write.size() * sizeof(std::uint32_t), tt_cxy_pair(sender_core.chip, sender_core.core), sender_core.addr, "SMALL_READ_WRITE_TLB");
+        vector_to_write.data(),
+        vector_to_write.size() * sizeof(std::uint32_t),
+        tt_cxy_pair(sender_core.chip, sender_core.core),
+        sender_core.addr,
+        "SMALL_READ_WRITE_TLB");
     device.wait_for_non_mmio_flush();  // Barrier to ensure that all writes over ethernet were commited
 
     // Send data from sender core to receiver core

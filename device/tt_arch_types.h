@@ -19,3 +19,4 @@ enum class ARCH {
     Invalid = 0xFF,
 };
 }
+

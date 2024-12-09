@@ -20,7 +20,7 @@
 #include <pybind11/iostream.h>
 #endif
 
-#include "common/backtrace.hpp"
+#include "backtrace.hpp"
 #include "fmt/color.h"
 #include "fmt/core.h"
 #include "fmt/ostream.h"

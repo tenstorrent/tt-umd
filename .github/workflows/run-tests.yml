@@ -45,7 +45,8 @@ env:
 
 jobs:
   test:
-    timeout-minutes: ${{ inputs.timeout }}
+    # Due to parsing bug, fromJSON is used to convert string to number
+    timeout-minutes: ${{ fromJSON(inputs.timeout) }}
     strategy:
       fail-fast: false
       matrix:
@@ -102,3 +103,7 @@ jobs:
       - name: Run API tests
         run: |
           ${{ env.TEST_OUTPUT_DIR }}/umd/api/api_tests
+
+      - name: Run MISC tests
+        run: |
+          ${{ env.TEST_OUTPUT_DIR }}/umd/misc/umd_misc_tests

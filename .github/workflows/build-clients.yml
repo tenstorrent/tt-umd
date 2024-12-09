@@ -1,0 +1,56 @@
+name: Build clients on newest UMD
+
+on:
+  workflow_dispatch:
+    inputs:
+      timeout:
+        required: true
+        description: 'The timeout for the job in minutes'
+        type: number
+        default: 90
+  pull_request:
+    branches: ["main"]
+  push:
+    branches: ["main"]
+
+jobs:
+  build-tt-metal:
+    # Due to parsing bug, fromJSON is used to convert string to number.
+    # In pull_request or push events, the input context is not available, stating the default again here.
+    timeout-minutes: ${{ fromJSON(inputs.timeout || '90') }}
+    strategy:
+      fail-fast: false
+      matrix:
+        arch_name: [grayskull, wormhole_b0, blackhole]
+
+    name: Build tt-metal for ${{ matrix.arch_name }} with newest UMD
+    runs-on: ubuntu-20.04
+    container:
+      image: ghcr.io/tenstorrent/tt-metal/tt-metalium/ubuntu-20.04-amd64:latest
+      options: --user root
+
+    steps:
+      - name: Checkout client repo
+        uses: actions/checkout@v4
+        with:
+          # Clone under tt-metal directory
+          path: tt-metal
+          repository: tenstorrent/tt-metal
+          submodules: recursive
+          lfs: 'true'
+
+      - name: Checkout UMD
+        uses: actions/checkout@v4
+        with:
+          # Clone directly into tt-metal directory for umd
+          path: tt-metal/tt_metal/third_party/umd
+          submodules: recursive
+          lfs: 'true'
+
+      - name: Build tt-metal
+        run: |
+          cd tt-metal
+          export ARCH_NAME=${{ matrix.arch_name }}
+          export TT_METAL_HOME=$(pwd)
+          export PYTHONPATH=$(pwd)
+          ./build_metal.sh --build-all --enable-ccache --enable-profiler

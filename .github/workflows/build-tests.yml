@@ -33,10 +33,12 @@ env:
   LIB_OUTPUT_DIR: ./build/lib
   DEPS_OUTPUT_DIR: ./build/_deps
   TEST_OUTPUT_DIR: ./build/test
+  CLUSTER_DESCRIPTORS_DIR: ./tests/api/cluster_descriptor_examples
 
 jobs:
   build:
-    timeout-minutes: ${{ inputs.timeout }}
+    # Due to parsing bug, fromJSON is used to convert string to number
+    timeout-minutes: ${{ fromJSON(inputs.timeout) }}
     strategy:
       fail-fast: false
       matrix:
@@ -74,7 +76,8 @@ jobs:
         run: |
           tar cvf artifact.tar ${{ env.TEST_OUTPUT_DIR }} \
           ${{ env.LIB_OUTPUT_DIR }} \
-          ${{ env.DEPS_OUTPUT_DIR }}
+          ${{ env.DEPS_OUTPUT_DIR }} \
+          ${{ env.CLUSTER_DESCRIPTORS_DIR }}
 
       - name: Upload build artifacts archive
         uses: actions/upload-artifact@v4

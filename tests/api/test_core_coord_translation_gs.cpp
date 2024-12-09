@@ -174,6 +174,62 @@ TEST(CoordinateManager, CoordinateManagerGrayskullLogicalVirtualMapping) {
     }
 }
 
+// Test that harvested physical coordinates map to the last row of the virtual coordinates.
+TEST(CoordinateManager, CoordinateManagerWormholePhysicalGrayskullHarvestedMapping) {
+    // Harvest first and second NOC layout row.
+    const size_t harvesting_mask = 3;
+    const size_t num_harvested = CoordinateManager::get_num_harvested(harvesting_mask);
+    std::shared_ptr<CoordinateManager> coordinate_manager =
+        CoordinateManager::create_coordinate_manager(tt::ARCH::GRAYSKULL, 3);
+
+    const std::vector<tt_xy_pair> tensix_cores = tt::umd::grayskull::TENSIX_CORES;
+    const tt_xy_pair tensix_grid_size = tt::umd::grayskull::TENSIX_GRID_SIZE;
+
+    size_t virtual_index = (tensix_grid_size.y - num_harvested) * tensix_grid_size.x;
+
+    for (size_t index = 0; index < num_harvested * tensix_grid_size.x; index++) {
+        const CoreCoord physical_core =
+            CoreCoord(tensix_cores[index].x, tensix_cores[index].y, CoreType::TENSIX, CoordSystem::PHYSICAL);
+        const CoreCoord virtual_core = coordinate_manager->to(physical_core, CoordSystem::VIRTUAL);
+
+        EXPECT_EQ(virtual_core.x, tensix_cores[virtual_index].x);
+        EXPECT_EQ(virtual_core.y, tensix_cores[virtual_index].y);
+
+        virtual_index++;
+    }
+}
+
+// Test that harvested physical coordinates map to the last row of the virtual coordinates.
+TEST(CoordinateManager, CoordinateManagerGrayskullPhysicalTranslatedHarvestedMapping) {
+    // Harvest first and second NOC layout row.
+    const size_t harvesting_mask = 3;
+    const size_t num_harvested = CoordinateManager::get_num_harvested(harvesting_mask);
+    std::shared_ptr<CoordinateManager> coordinate_manager =
+        CoordinateManager::create_coordinate_manager(tt::ARCH::GRAYSKULL, 3);
+
+    const std::vector<tt_xy_pair> tensix_cores = tt::umd::grayskull::TENSIX_CORES;
+    const tt_xy_pair tensix_grid_size = tt::umd::grayskull::TENSIX_GRID_SIZE;
+
+    size_t virtual_index = (tensix_grid_size.y - num_harvested) * tensix_grid_size.x;
+
+    for (size_t index = 0; index < num_harvested * tensix_grid_size.x; index++) {
+        const CoreCoord physical_core =
+            CoreCoord(tensix_cores[index].x, tensix_cores[index].y, CoreType::TENSIX, CoordSystem::PHYSICAL);
+        const CoreCoord translated_core = coordinate_manager->to(physical_core, CoordSystem::TRANSLATED);
+
+        const CoreCoord virtual_core = CoreCoord(
+            tensix_cores[virtual_index].x, tensix_cores[virtual_index].y, CoreType::TENSIX, CoordSystem::VIRTUAL);
+        const CoreCoord translated_core_from_virtual = coordinate_manager->to(virtual_core, CoordSystem::TRANSLATED);
+
+        EXPECT_EQ(translated_core, translated_core_from_virtual);
+
+        EXPECT_EQ(physical_core.x, translated_core.x);
+        EXPECT_EQ(physical_core.y, translated_core.y);
+
+        virtual_index++;
+    }
+}
+
 // Test mapping of DRAM coordinates from logical to physical. We have no DRAM harvesting on Grayskull,
 // so logical coordinates should cover all physical coordinates.
 TEST(CoordinateManager, CoordinateManagerGrayskullDRAMNoHarvesting) {

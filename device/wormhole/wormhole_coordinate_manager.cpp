@@ -41,16 +41,37 @@ WormholeCoordinateManager::WormholeCoordinateManager(
 }
 
 void WormholeCoordinateManager::fill_tensix_logical_to_translated() {
-    size_t num_harvested_y = __builtin_popcount(tensix_harvesting_mask);
+    size_t num_harvested_y = CoordinateManager::get_num_harvested(tensix_harvesting_mask);
 
     for (size_t y = 0; y < tensix_grid_size.y - num_harvested_y; y++) {
         for (size_t x = 0; x < tensix_grid_size.x; x++) {
+            CoreCoord logical_coord = CoreCoord(x, y, CoreType::TENSIX, CoordSystem::LOGICAL);
+            const tt_xy_pair physical_pair = to_physical_map[logical_coord];
             const size_t translated_x = x + wormhole::tensix_translated_coordinate_start_x;
             const size_t translated_y = y + wormhole::tensix_translated_coordinate_start_y;
-            tensix_logical_to_translated[{x, y}] =
+
+            CoreCoord translated_coord =
                 CoreCoord(translated_x, translated_y, CoreType::TENSIX, CoordSystem::TRANSLATED);
-            tensix_translated_to_logical[tt_xy_pair(translated_x, translated_y)] =
-                CoreCoord(x, y, CoreType::TENSIX, CoordSystem::LOGICAL);
+
+            to_physical_map[translated_coord] = {physical_pair.x, physical_pair.y};
+            from_physical_map[{{physical_pair.x, physical_pair.y}, CoordSystem::TRANSLATED}] = translated_coord;
+        }
+    }
+
+    size_t harvested_index = (tensix_grid_size.y - num_harvested_y) * tensix_grid_size.x;
+    size_t translated_y = wormhole::tensix_translated_coordinate_start_y + tensix_grid_size.y - num_harvested_y;
+    for (size_t y = 0; y < tensix_grid_size.y; y++) {
+        if (tensix_harvesting_mask & (1 << y)) {
+            for (size_t x = 0; x < tensix_grid_size.x; x++) {
+                const tt_xy_pair physical_core = tensix_cores[y * tensix_grid_size.x + x];
+                const size_t translated_x = x + wormhole::tensix_translated_coordinate_start_x;
+                CoreCoord translated_coord =
+                    CoreCoord(translated_x, translated_y, CoreType::TENSIX, CoordSystem::TRANSLATED);
+
+                to_physical_map[translated_coord] = {physical_core.x, physical_core.y};
+                from_physical_map[{{physical_core.x, physical_core.y}, CoordSystem::TRANSLATED}] = translated_coord;
+            }
+            translated_y++;
         }
     }
 }
@@ -60,10 +81,11 @@ void WormholeCoordinateManager::fill_eth_logical_to_translated() {
         for (size_t y = 0; y < eth_grid_size.y; y++) {
             const size_t translated_x = x + wormhole::eth_translated_coordinate_start_x;
             const size_t translated_y = y + wormhole::eth_translated_coordinate_start_y;
-            eth_logical_to_translated[{x, y}] =
-                CoreCoord(translated_x, translated_y, CoreType::ETH, CoordSystem::TRANSLATED);
-            eth_translated_to_logical[{translated_x, translated_y}] =
-                CoreCoord(x, y, CoreType::ETH, CoordSystem::LOGICAL);
+            CoreCoord logical_coord = CoreCoord(x, y, CoreType::ETH, CoordSystem::LOGICAL);
+            const tt_xy_pair physical_pair = to_physical_map[logical_coord];
+            CoreCoord translated_coord = CoreCoord(translated_x, translated_y, CoreType::ETH, CoordSystem::TRANSLATED);
+            to_physical_map[translated_coord] = {physical_pair.x, physical_pair.y};
+            from_physical_map[{{physical_pair.x, physical_pair.y}, CoordSystem::TRANSLATED}] = translated_coord;
         }
     }
 }

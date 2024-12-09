@@ -38,179 +38,53 @@ CoordinateManager::CoordinateManager(
     pcie_grid_size(pcie_grid_size),
     pcie_cores(pcie_cores) {}
 
-std::map<tt_xy_pair, CoreCoord>& CoordinateManager::get_logical_to_translated(CoreType core_type) {
-    switch (core_type) {
-        case CoreType::TENSIX:
-            return tensix_logical_to_translated;
-        case CoreType::DRAM:
-            return dram_logical_to_translated;
-        case CoreType::ACTIVE_ETH:
-        case CoreType::IDLE_ETH:
-        case CoreType::ETH:
-            return eth_logical_to_translated;
-        case CoreType::ARC:
-            return arc_logical_to_translated;
-        case CoreType::PCIE:
-            return pcie_logical_to_translated;
-        default:
-            throw std::runtime_error("Core type is not supported for getting logical to translated mapping");
-    }
-}
-
-std::map<tt_xy_pair, CoreCoord>& CoordinateManager::get_logical_to_virtual(CoreType core_type) {
-    switch (core_type) {
-        case CoreType::TENSIX:
-            return tensix_logical_to_virtual;
-        case CoreType::DRAM:
-            return dram_logical_to_virtual;
-        case CoreType::ACTIVE_ETH:
-        case CoreType::IDLE_ETH:
-        case CoreType::ETH:
-            return eth_logical_to_virtual;
-        case CoreType::ARC:
-            return arc_logical_to_virtual;
-        case CoreType::PCIE:
-            return pcie_logical_to_virtual;
-        default:
-            throw std::runtime_error("Core type is not supported for getting logical to virtual mapping");
-    }
-}
-
-std::map<tt_xy_pair, CoreCoord>& CoordinateManager::get_logical_to_physical(CoreType core_type) {
-    switch (core_type) {
-        case CoreType::TENSIX:
-            return tensix_logical_to_physical;
-        case CoreType::DRAM:
-            return dram_logical_to_physical;
-        case CoreType::ACTIVE_ETH:
-        case CoreType::IDLE_ETH:
-        case CoreType::ETH:
-            return eth_logical_to_physical;
-        case CoreType::ARC:
-            return arc_logical_to_physical;
-        case CoreType::PCIE:
-            return pcie_logical_to_physical;
-        default:
-            throw std::runtime_error("Core type is not supported for getting logical to physical mapping");
-    }
-}
-
-std::map<tt_xy_pair, CoreCoord>& CoordinateManager::get_physical_to_logical(CoreType core_type) {
-    switch (core_type) {
-        case CoreType::TENSIX:
-            return tensix_physical_to_logical;
-        case CoreType::DRAM:
-            return dram_physical_to_logical;
-        case CoreType::ACTIVE_ETH:
-        case CoreType::IDLE_ETH:
-        case CoreType::ETH:
-            return eth_physical_to_logical;
-        case CoreType::ARC:
-            return arc_physical_to_logical;
-        case CoreType::PCIE:
-            return pcie_physical_to_logical;
-        default:
-            throw std::runtime_error("Core type is not supported for getting physical to logical mapping");
-    }
-}
-
-std::map<tt_xy_pair, CoreCoord>& CoordinateManager::get_virtual_to_logical(CoreType core_type) {
-    switch (core_type) {
-        case CoreType::TENSIX:
-            return tensix_virtual_to_logical;
-        case CoreType::DRAM:
-            return dram_virtual_to_logical;
-        case CoreType::ACTIVE_ETH:
-        case CoreType::IDLE_ETH:
-        case CoreType::ETH:
-            return eth_virtual_to_logical;
-        case CoreType::ARC:
-            return arc_virtual_to_logical;
-        case CoreType::PCIE:
-            return pcie_virtual_to_logical;
-        default:
-            throw std::runtime_error("Core type is not supported for getting virtual to logical mapping");
-    }
-}
-
-std::map<tt_xy_pair, CoreCoord>& CoordinateManager::get_translated_to_logical(CoreType core_type) {
-    switch (core_type) {
-        case CoreType::TENSIX:
-            return tensix_translated_to_logical;
-        case CoreType::DRAM:
-            return dram_translated_to_logical;
-        case CoreType::ACTIVE_ETH:
-        case CoreType::IDLE_ETH:
-        case CoreType::ETH:
-            return eth_translated_to_logical;
-        case CoreType::ARC:
-            return arc_translated_to_logical;
-        case CoreType::PCIE:
-            return pcie_translated_to_logical;
-        default:
-            throw std::runtime_error("Core type is not supported for getting translated to logical mapping");
-    }
-}
-
 CoreCoord CoordinateManager::to_physical(const CoreCoord core_coord) {
     switch (core_coord.coord_system) {
         case CoordSystem::PHYSICAL:
             return core_coord;
         case CoordSystem::VIRTUAL:
         case CoordSystem::TRANSLATED:
-            return to_physical(to_logical(core_coord));
+        case CoordSystem::LOGICAL: {
+            const tt_xy_pair physical_pair = to_physical_map[core_coord];
+            return CoreCoord(physical_pair.x, physical_pair.y, core_coord.core_type, CoordSystem::PHYSICAL);
+        }
     }
-
-    // Coord system is surely logical.
-    auto& logical_mapping = get_logical_to_physical(core_coord.core_type);
-    return logical_mapping[{core_coord.x, core_coord.y}];
 }
 
 CoreCoord CoordinateManager::to_virtual(const CoreCoord core_coord) {
     switch (core_coord.coord_system) {
-        case CoordSystem::TRANSLATED:
-        case CoordSystem::PHYSICAL:
-            return to_virtual(to_logical(core_coord));
         case CoordSystem::VIRTUAL:
             return core_coord;
+        case CoordSystem::PHYSICAL:
+            return from_physical_map[{{core_coord.x, core_coord.y}, CoordSystem::VIRTUAL}];
+        case CoordSystem::TRANSLATED:
+        case CoordSystem::LOGICAL:
+            return to_virtual(to_physical(core_coord));
     }
-
-    // Coord system is surely logical.
-    auto& logical_mapping = get_logical_to_virtual(core_coord.core_type);
-    return logical_mapping[{core_coord.x, core_coord.y}];
 }
 
 CoreCoord CoordinateManager::to_logical(const CoreCoord core_coord) {
     switch (core_coord.coord_system) {
         case CoordSystem::LOGICAL:
             return core_coord;
-        case CoordSystem::PHYSICAL: {
-            auto& physical_mapping = get_physical_to_logical(core_coord.core_type);
-            return physical_mapping[{core_coord.x, core_coord.y}];
-        }
-        case CoordSystem::VIRTUAL: {
-            auto& virtual_mapping = get_virtual_to_logical(core_coord.core_type);
-            return virtual_mapping[{core_coord.x, core_coord.y}];
-        }
-        case CoordSystem::TRANSLATED: {
-            auto& translated_mapping = get_translated_to_logical(core_coord.core_type);
-            return translated_mapping[{core_coord.x, core_coord.y}];
-        }
+        case CoordSystem::PHYSICAL:
+            return from_physical_map[{{core_coord.x, core_coord.y}, CoordSystem::LOGICAL}];
+        case CoordSystem::VIRTUAL:
+        case CoordSystem::TRANSLATED:
+            return to_logical(to_physical(core_coord));
     }
 }
 
 CoreCoord CoordinateManager::to_translated(const CoreCoord core_coord) {
     switch (core_coord.coord_system) {
         case CoordSystem::PHYSICAL:
+            return from_physical_map[{{core_coord.x, core_coord.y}, CoordSystem::TRANSLATED}];
+        case CoordSystem::LOGICAL:
         case CoordSystem::VIRTUAL:
-            return to_translated(to_logical(core_coord));
+            return to_translated(to_physical(core_coord));
         case CoordSystem::TRANSLATED:
             return core_coord;
     }
-
-    // Coord system is surely logical.
-    auto& logical_mapping = get_logical_to_translated(core_coord.core_type);
-    return logical_mapping[{core_coord.x, core_coord.y}];
 }
 
 CoreCoord CoordinateManager::to(const CoreCoord core_coord, const CoordSystem coord_system) {
@@ -227,7 +101,7 @@ CoreCoord CoordinateManager::to(const CoreCoord core_coord, const CoordSystem co
 }
 
 void CoordinateManager::translate_tensix_coords() {
-    size_t num_harvested_y = __builtin_popcount(tensix_harvesting_mask);
+    size_t num_harvested_y = CoordinateManager::get_num_harvested(tensix_harvesting_mask);
     size_t grid_size_x = tensix_grid_size.x;
     size_t grid_size_y = tensix_grid_size.y;
 
@@ -236,10 +110,10 @@ void CoordinateManager::translate_tensix_coords() {
         if (!(tensix_harvesting_mask & (1 << y))) {
             for (size_t x = 0; x < grid_size_x; x++) {
                 const tt_xy_pair& tensix_core = tensix_cores[y * grid_size_x + x];
-                tensix_logical_to_physical[{x, logical_y}] =
-                    CoreCoord(tensix_core.x, tensix_core.y, CoreType::TENSIX, CoordSystem::PHYSICAL);
-                tensix_physical_to_logical[tensix_core] =
-                    CoreCoord(x, logical_y, CoreType::TENSIX, CoordSystem::LOGICAL);
+                CoreCoord logical_coord = CoreCoord(x, logical_y, CoreType::TENSIX, CoordSystem::LOGICAL);
+
+                to_physical_map.insert({logical_coord, {tensix_core.x, tensix_core.y}});
+                from_physical_map.insert({{{tensix_core.x, tensix_core.y}, CoordSystem::LOGICAL}, logical_coord});
             }
             logical_y++;
         }
@@ -248,9 +122,29 @@ void CoordinateManager::translate_tensix_coords() {
     for (size_t y = 0; y < grid_size_y - num_harvested_y; y++) {
         for (size_t x = 0; x < grid_size_x; x++) {
             const tt_xy_pair& tensix_core = tensix_cores[y * grid_size_x + x];
-            tensix_logical_to_virtual[{x, y}] =
-                CoreCoord(tensix_core.x, tensix_core.y, CoreType::TENSIX, CoordSystem::VIRTUAL);
-            tensix_virtual_to_logical[tensix_core] = CoreCoord(x, y, CoreType::TENSIX, CoordSystem::LOGICAL);
+            CoreCoord virtual_coord = CoreCoord(tensix_core.x, tensix_core.y, CoreType::TENSIX, CoordSystem::VIRTUAL);
+
+            CoreCoord logical_coord = CoreCoord(x, y, CoreType::TENSIX, CoordSystem::LOGICAL);
+            const tt_xy_pair physical_pair = to_physical_map[logical_coord];
+
+            to_physical_map[virtual_coord] = physical_pair;
+            from_physical_map[{physical_pair, CoordSystem::VIRTUAL}] = virtual_coord;
+        }
+    }
+
+    size_t harvested_index = (grid_size_y - num_harvested_y) * grid_size_x;
+    for (size_t y = 0; y < grid_size_y; y++) {
+        if (tensix_harvesting_mask & (1 << y)) {
+            for (size_t x = 0; x < grid_size_x; x++) {
+                const tt_xy_pair& physical_core = tensix_cores[y * grid_size_x + x];
+                const tt_xy_pair& virtual_core = tensix_cores[harvested_index++];
+
+                CoreCoord virtual_coord =
+                    CoreCoord(virtual_core.x, virtual_core.y, CoreType::TENSIX, CoordSystem::VIRTUAL);
+
+                to_physical_map[virtual_coord] = {physical_core.x, physical_core.y};
+                from_physical_map[{{physical_core.x, physical_core.y}, CoordSystem::VIRTUAL}] = virtual_coord;
+            }
         }
     }
 
@@ -258,17 +152,36 @@ void CoordinateManager::translate_tensix_coords() {
 }
 
 void CoordinateManager::fill_tensix_logical_to_translated() {
-    size_t num_harvested_y = __builtin_popcount(tensix_harvesting_mask);
+    size_t num_harvested_y = CoordinateManager::get_num_harvested(tensix_harvesting_mask);
 
     for (size_t x = 0; x < tensix_grid_size.x; x++) {
         for (size_t y = 0; y < tensix_grid_size.y - num_harvested_y; y++) {
-            const CoreCoord physical_coord = tensix_logical_to_physical[{x, y}];
-            const size_t translated_x = physical_coord.x;
-            const size_t translated_y = physical_coord.y;
-            tensix_logical_to_translated[{x, y}] =
+            CoreCoord logical_coord = CoreCoord(x, y, CoreType::TENSIX, CoordSystem::LOGICAL);
+            const tt_xy_pair physical_pair = to_physical_map[logical_coord];
+            const size_t translated_x = physical_pair.x;
+            const size_t translated_y = physical_pair.y;
+
+            CoreCoord translated_coord =
                 CoreCoord(translated_x, translated_y, CoreType::TENSIX, CoordSystem::TRANSLATED);
-            tensix_translated_to_logical[tt_xy_pair(translated_x, translated_y)] =
-                CoreCoord(x, y, CoreType::TENSIX, CoordSystem::LOGICAL);
+            to_physical_map[translated_coord] = physical_pair;
+            from_physical_map[{{physical_pair.x, physical_pair.y}, CoordSystem::TRANSLATED}] = translated_coord;
+        }
+    }
+
+    size_t harvested_index = (tensix_grid_size.y - num_harvested_y) * tensix_grid_size.x;
+    for (size_t y = 0; y < tensix_grid_size.y; y++) {
+        if (tensix_harvesting_mask & (1 << y)) {
+            for (size_t x = 0; x < tensix_grid_size.x; x++) {
+                const tt_xy_pair& physical_core = tensix_cores[y * tensix_grid_size.x + x];
+                const size_t translated_x = physical_core.x;
+                const size_t translated_y = physical_core.y;
+
+                CoreCoord translated_coord =
+                    CoreCoord(translated_x, translated_y, CoreType::TENSIX, CoordSystem::TRANSLATED);
+
+                to_physical_map[translated_coord] = {physical_core.x, physical_core.y};
+                from_physical_map[{{physical_core.x, physical_core.y}, CoordSystem::TRANSLATED}] = translated_coord;
+            }
         }
     }
 }
@@ -277,12 +190,15 @@ void CoordinateManager::translate_dram_coords() {
     for (size_t x = 0; x < dram_grid_size.x; x++) {
         for (size_t y = 0; y < dram_grid_size.y; y++) {
             const tt_xy_pair dram_core = dram_cores[x * dram_grid_size.y + y];
-            dram_logical_to_virtual[{x, y}] = CoreCoord(dram_core.x, dram_core.y, CoreType::DRAM, CoordSystem::VIRTUAL);
-            dram_virtual_to_logical[dram_core] = CoreCoord(x, y, CoreType::DRAM, CoordSystem::LOGICAL);
 
-            dram_logical_to_physical[{x, y}] =
-                CoreCoord(dram_core.x, dram_core.y, CoreType::DRAM, CoordSystem::PHYSICAL);
-            dram_physical_to_logical[dram_core] = CoreCoord(x, y, CoreType::DRAM, CoordSystem::LOGICAL);
+            CoreCoord logical_coord = CoreCoord(x, y, CoreType::DRAM, CoordSystem::LOGICAL);
+            CoreCoord virtual_coord = CoreCoord(dram_core.x, dram_core.y, CoreType::DRAM, CoordSystem::VIRTUAL);
+
+            to_physical_map[logical_coord] = {dram_core.x, dram_core.y};
+            from_physical_map[{{dram_core.x, dram_core.y}, CoordSystem::LOGICAL}] = logical_coord;
+
+            to_physical_map[virtual_coord] = {dram_core.x, dram_core.y};
+            from_physical_map[{{dram_core.x, dram_core.y}, CoordSystem::VIRTUAL}] = virtual_coord;
         }
     }
 
@@ -293,11 +209,15 @@ void CoordinateManager::translate_eth_coords() {
     for (size_t x = 0; x < eth_grid_size.x; x++) {
         for (size_t y = 0; y < eth_grid_size.y; y++) {
             const tt_xy_pair eth_core = eth_cores[x * eth_grid_size.y + y];
-            eth_logical_to_virtual[{x, y}] = CoreCoord(eth_core.x, eth_core.y, CoreType::ETH, CoordSystem::VIRTUAL);
-            eth_virtual_to_logical[eth_core] = CoreCoord(x, y, CoreType::ETH, CoordSystem::LOGICAL);
 
-            eth_logical_to_physical[{x, y}] = CoreCoord(eth_core.x, eth_core.y, CoreType::ETH, CoordSystem::PHYSICAL);
-            eth_physical_to_logical[eth_core] = CoreCoord(x, y, CoreType::ETH, CoordSystem::LOGICAL);
+            CoreCoord logical_coord = CoreCoord(x, y, CoreType::ETH, CoordSystem::LOGICAL);
+            CoreCoord virtual_coord = CoreCoord(eth_core.x, eth_core.y, CoreType::ETH, CoordSystem::VIRTUAL);
+
+            to_physical_map[logical_coord] = {eth_core.x, eth_core.y};
+            from_physical_map[{{eth_core.x, eth_core.y}, CoordSystem::LOGICAL}] = logical_coord;
+
+            to_physical_map[virtual_coord] = {eth_core.x, eth_core.y};
+            from_physical_map[{{eth_core.x, eth_core.y}, CoordSystem::VIRTUAL}] = virtual_coord;
         }
     }
 
@@ -308,15 +228,15 @@ void CoordinateManager::translate_arc_coords() {
     for (size_t x = 0; x < arc_grid_size.x; x++) {
         for (size_t y = 0; y < arc_grid_size.y; y++) {
             const tt_xy_pair arc_core = arc_cores[x * arc_grid_size.y + y];
-            arc_logical_to_virtual[{x, y}] = CoreCoord(arc_core.x, arc_core.y, CoreType::ARC, CoordSystem::VIRTUAL);
-            arc_virtual_to_logical[arc_core] = CoreCoord(x, y, CoreType::ARC, CoordSystem::LOGICAL);
 
-            arc_logical_to_physical[{x, y}] = CoreCoord(arc_core.x, arc_core.y, CoreType::ARC, CoordSystem::PHYSICAL);
-            arc_physical_to_logical[arc_core] = CoreCoord(x, y, CoreType::ARC, CoordSystem::LOGICAL);
+            CoreCoord logical_coord = CoreCoord(x, y, CoreType::ARC, CoordSystem::LOGICAL);
+            CoreCoord virtual_coord = CoreCoord(arc_core.x, arc_core.y, CoreType::ARC, CoordSystem::VIRTUAL);
 
-            arc_logical_to_translated[{x, y}] =
-                CoreCoord(arc_core.x, arc_core.y, CoreType::ARC, CoordSystem::TRANSLATED);
-            arc_translated_to_logical[arc_core] = CoreCoord(x, y, CoreType::ARC, CoordSystem::LOGICAL);
+            to_physical_map[logical_coord] = {arc_core.x, arc_core.y};
+            from_physical_map[{{arc_core.x, arc_core.y}, CoordSystem::LOGICAL}] = logical_coord;
+
+            to_physical_map[virtual_coord] = {arc_core.x, arc_core.y};
+            from_physical_map[{{arc_core.x, arc_core.y}, CoordSystem::VIRTUAL}] = virtual_coord;
         }
     }
 
@@ -327,12 +247,14 @@ void CoordinateManager::translate_pcie_coords() {
     for (size_t x = 0; x < pcie_grid_size.x; x++) {
         for (size_t y = 0; y < pcie_grid_size.y; y++) {
             const tt_xy_pair pcie_core = pcie_cores[x * pcie_grid_size.y + y];
-            pcie_logical_to_virtual[{x, y}] = CoreCoord(pcie_core.x, pcie_core.y, CoreType::PCIE, CoordSystem::VIRTUAL);
-            pcie_virtual_to_logical[pcie_core] = CoreCoord(x, y, CoreType::PCIE, CoordSystem::LOGICAL);
+            CoreCoord logical_coord = CoreCoord(x, y, CoreType::PCIE, CoordSystem::LOGICAL);
+            CoreCoord virtual_coord = CoreCoord(pcie_core.x, pcie_core.y, CoreType::PCIE, CoordSystem::VIRTUAL);
 
-            pcie_logical_to_physical[{x, y}] =
-                CoreCoord(pcie_core.x, pcie_core.y, CoreType::PCIE, CoordSystem::PHYSICAL);
-            pcie_physical_to_logical[pcie_core] = CoreCoord(x, y, CoreType::PCIE, CoordSystem::LOGICAL);
+            to_physical_map[logical_coord] = {pcie_core.x, pcie_core.y};
+            from_physical_map[{{pcie_core.x, pcie_core.y}, CoordSystem::LOGICAL}] = logical_coord;
+
+            to_physical_map[virtual_coord] = {pcie_core.x, pcie_core.y};
+            from_physical_map[{{pcie_core.x, pcie_core.y}, CoordSystem::VIRTUAL}] = virtual_coord;
         }
     }
 
@@ -342,13 +264,14 @@ void CoordinateManager::translate_pcie_coords() {
 void CoordinateManager::fill_eth_logical_to_translated() {
     for (size_t x = 0; x < eth_grid_size.x; x++) {
         for (size_t y = 0; y < eth_grid_size.y; y++) {
-            const CoreCoord physical_coord = eth_logical_to_physical[{x, y}];
-            const size_t translated_x = physical_coord.x;
-            const size_t translated_y = physical_coord.y;
-            eth_logical_to_translated[{x, y}] =
-                CoreCoord(translated_x, translated_y, CoreType::ETH, CoordSystem::TRANSLATED);
-            eth_translated_to_logical[{translated_x, translated_y}] =
-                CoreCoord(x, y, CoreType::ETH, CoordSystem::LOGICAL);
+            CoreCoord logical_coord = CoreCoord(x, y, CoreType::ETH, CoordSystem::LOGICAL);
+            const tt_xy_pair physical_pair = to_physical_map[logical_coord];
+            const size_t translated_x = physical_pair.x;
+            const size_t translated_y = physical_pair.y;
+
+            CoreCoord translated_coord = CoreCoord(translated_x, translated_y, CoreType::ETH, CoordSystem::TRANSLATED);
+            to_physical_map[translated_coord] = physical_pair;
+            from_physical_map[{{physical_pair.x, physical_pair.y}, CoordSystem::TRANSLATED}] = translated_coord;
         }
     }
 }
@@ -356,13 +279,14 @@ void CoordinateManager::fill_eth_logical_to_translated() {
 void CoordinateManager::fill_dram_logical_to_translated() {
     for (size_t x = 0; x < dram_grid_size.x; x++) {
         for (size_t y = 0; y < dram_grid_size.y; y++) {
-            const CoreCoord physical_coord = dram_logical_to_physical[{x, y}];
-            const size_t translated_x = physical_coord.x;
-            const size_t translated_y = physical_coord.y;
-            dram_logical_to_translated[{x, y}] =
-                CoreCoord(translated_x, translated_y, CoreType::DRAM, CoordSystem::TRANSLATED);
-            dram_translated_to_logical[{translated_x, translated_y}] =
-                CoreCoord(x, y, CoreType::DRAM, CoordSystem::LOGICAL);
+            CoreCoord logical_coord = CoreCoord(x, y, CoreType::DRAM, CoordSystem::LOGICAL);
+            const tt_xy_pair physical_pair = to_physical_map[logical_coord];
+            const size_t translated_x = physical_pair.x;
+            const size_t translated_y = physical_pair.y;
+
+            CoreCoord translated_coord = CoreCoord(translated_x, translated_y, CoreType::DRAM, CoordSystem::TRANSLATED);
+            to_physical_map[translated_coord] = physical_pair;
+            from_physical_map[{{physical_pair.x, physical_pair.y}, CoordSystem::TRANSLATED}] = translated_coord;
         }
     }
 }
@@ -370,13 +294,14 @@ void CoordinateManager::fill_dram_logical_to_translated() {
 void CoordinateManager::fill_pcie_logical_to_translated() {
     for (size_t x = 0; x < pcie_grid_size.x; x++) {
         for (size_t y = 0; y < pcie_grid_size.y; y++) {
-            const CoreCoord physical_coord = pcie_logical_to_physical[{x, y}];
-            const size_t translated_x = physical_coord.x;
-            const size_t translated_y = physical_coord.y;
-            pcie_logical_to_translated[{x, y}] =
-                CoreCoord(translated_x, translated_y, CoreType::PCIE, CoordSystem::TRANSLATED);
-            pcie_translated_to_logical[{translated_x, translated_y}] =
-                CoreCoord(x, y, CoreType::PCIE, CoordSystem::LOGICAL);
+            CoreCoord logical_coord = CoreCoord(x, y, CoreType::PCIE, CoordSystem::LOGICAL);
+            const tt_xy_pair physical_pair = to_physical_map[logical_coord];
+            const size_t translated_x = physical_pair.x;
+            const size_t translated_y = physical_pair.y;
+
+            CoreCoord translated_coord = CoreCoord(translated_x, translated_y, CoreType::PCIE, CoordSystem::TRANSLATED);
+            to_physical_map[translated_coord] = physical_pair;
+            from_physical_map[{{physical_pair.x, physical_pair.y}, CoordSystem::TRANSLATED}] = translated_coord;
         }
     }
 }
@@ -384,13 +309,14 @@ void CoordinateManager::fill_pcie_logical_to_translated() {
 void CoordinateManager::fill_arc_logical_to_translated() {
     for (size_t x = 0; x < arc_grid_size.x; x++) {
         for (size_t y = 0; y < arc_grid_size.y; y++) {
-            const CoreCoord physical_coord = arc_logical_to_physical[{x, y}];
-            const size_t translated_x = physical_coord.x;
-            const size_t translated_y = physical_coord.y;
-            arc_logical_to_translated[{x, y}] =
-                CoreCoord(translated_x, translated_y, CoreType::ARC, CoordSystem::TRANSLATED);
-            arc_translated_to_logical[{translated_x, translated_y}] =
-                CoreCoord(x, y, CoreType::ARC, CoordSystem::LOGICAL);
+            CoreCoord logical_coord = CoreCoord(x, y, CoreType::ARC, CoordSystem::LOGICAL);
+            const tt_xy_pair physical_pair = to_physical_map[logical_coord];
+            const size_t translated_x = physical_pair.x;
+            const size_t translated_y = physical_pair.y;
+
+            CoreCoord translated_coord = CoreCoord(translated_x, translated_y, CoreType::ARC, CoordSystem::TRANSLATED);
+            to_physical_map[translated_coord] = physical_pair;
+            from_physical_map[{{physical_pair.x, physical_pair.y}, CoordSystem::TRANSLATED}] = translated_coord;
         }
     }
 }

@@ -118,53 +118,8 @@ protected:
      */
     virtual void fill_arc_logical_to_translated();
 
-    std::map<tt_xy_pair, tt::umd::CoreCoord> tensix_logical_to_translated;
-    std::map<tt_xy_pair, tt::umd::CoreCoord> tensix_logical_to_virtual;
-    std::map<tt_xy_pair, tt::umd::CoreCoord> tensix_logical_to_physical;
-
-    std::map<tt_xy_pair, tt::umd::CoreCoord> tensix_physical_to_logical;
-    std::map<tt_xy_pair, tt::umd::CoreCoord> tensix_virtual_to_logical;
-    std::map<tt_xy_pair, tt::umd::CoreCoord> tensix_translated_to_logical;
-
-    std::map<tt_xy_pair, tt::umd::CoreCoord> dram_logical_to_translated;
-    std::map<tt_xy_pair, tt::umd::CoreCoord> dram_logical_to_virtual;
-    std::map<tt_xy_pair, tt::umd::CoreCoord> dram_logical_to_physical;
-
-    std::map<tt_xy_pair, tt::umd::CoreCoord> dram_physical_to_logical;
-    std::map<tt_xy_pair, tt::umd::CoreCoord> dram_virtual_to_logical;
-    std::map<tt_xy_pair, tt::umd::CoreCoord> dram_translated_to_logical;
-
-    std::map<tt_xy_pair, tt::umd::CoreCoord> eth_logical_to_translated;
-    std::map<tt_xy_pair, tt::umd::CoreCoord> eth_logical_to_virtual;
-    std::map<tt_xy_pair, tt::umd::CoreCoord> eth_logical_to_physical;
-
-    std::map<tt_xy_pair, tt::umd::CoreCoord> eth_physical_to_logical;
-    std::map<tt_xy_pair, tt::umd::CoreCoord> eth_virtual_to_logical;
-    std::map<tt_xy_pair, tt::umd::CoreCoord> eth_translated_to_logical;
-
-    std::map<tt_xy_pair, tt::umd::CoreCoord> arc_logical_to_translated;
-    std::map<tt_xy_pair, tt::umd::CoreCoord> arc_logical_to_virtual;
-    std::map<tt_xy_pair, tt::umd::CoreCoord> arc_logical_to_physical;
-
-    std::map<tt_xy_pair, tt::umd::CoreCoord> arc_physical_to_logical;
-    std::map<tt_xy_pair, tt::umd::CoreCoord> arc_virtual_to_logical;
-    std::map<tt_xy_pair, tt::umd::CoreCoord> arc_translated_to_logical;
-
-    std::map<tt_xy_pair, tt::umd::CoreCoord> pcie_logical_to_translated;
-    std::map<tt_xy_pair, tt::umd::CoreCoord> pcie_logical_to_virtual;
-    std::map<tt_xy_pair, tt::umd::CoreCoord> pcie_logical_to_physical;
-
-    std::map<tt_xy_pair, tt::umd::CoreCoord> pcie_physical_to_logical;
-    std::map<tt_xy_pair, tt::umd::CoreCoord> pcie_virtual_to_logical;
-    std::map<tt_xy_pair, tt::umd::CoreCoord> pcie_translated_to_logical;
-
-    std::map<tt_xy_pair, tt::umd::CoreCoord>& get_logical_to_translated(CoreType core_type);
-    std::map<tt_xy_pair, tt::umd::CoreCoord>& get_logical_to_virtual(CoreType core_type);
-    std::map<tt_xy_pair, tt::umd::CoreCoord>& get_logical_to_physical(CoreType core_type);
-
-    std::map<tt_xy_pair, tt::umd::CoreCoord>& get_physical_to_logical(CoreType core_type);
-    std::map<tt_xy_pair, tt::umd::CoreCoord>& get_virtual_to_logical(CoreType core_type);
-    std::map<tt_xy_pair, tt::umd::CoreCoord>& get_translated_to_logical(CoreType core_type);
+    std::map<tt::umd::CoreCoord, tt_xy_pair> to_physical_map;
+    std::map<std::pair<tt_xy_pair, CoordSystem>, tt::umd::CoreCoord> from_physical_map;
 
     const tt_xy_pair tensix_grid_size;
     const std::vector<tt_xy_pair>& tensix_cores;

@@ -255,7 +255,7 @@ dynamic_tlb TTDevice::set_dynamic_tlb(
     std::uint32_t TLB_CFG_REG_SIZE_BYTES = architecture_impl_->get_tlb_cfg_reg_size_bytes();
     auto translated_start_coords = harvested_coord_translation.at(start);
     auto translated_end_coords = harvested_coord_translation.at(end);
-    uint32_t tlb_address = address / tlb_config.size;
+    uint64_t tlb_address = address / tlb_config.size;
     uint32_t local_address = address % tlb_config.size;
     uint64_t tlb_base = tlb_config.base + (tlb_config.size * tlb_config.index_offset);
     uint32_t tlb_cfg_reg = tlb_config.cfg_addr + (TLB_CFG_REG_SIZE_BYTES * tlb_config.index_offset);

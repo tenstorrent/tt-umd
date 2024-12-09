@@ -54,12 +54,15 @@ message(STATUS "UMD build type: ${CMAKE_BUILD_TYPE}")
 include(dependencies)
 
 # Enable all warnings and treat them as errors
+# Ignore unused variables and functions since there is no harm.
+# TODO: Re-enable sign-compare
 add_compile_options(
     -Wall
     -Werror
     -Wno-unused-variable
     -Wno-unused-function
     -Wno-unused-but-set-variable
+    -Wno-sign-compare
 )
 
 add_subdirectory(common)

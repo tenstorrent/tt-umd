@@ -211,8 +211,9 @@ void tt_SocDescriptor::create_coordinate_manager(
     get_cores_and_grid_size_from_coordinate_manager();
 }
 
-tt::umd::CoreCoord tt_SocDescriptor::to(const tt::umd::CoreCoord core_coord, const CoordSystem coord_system) const {
-    return coordinate_manager->to(core_coord, coord_system);
+tt::umd::CoreCoord tt_SocDescriptor::translate_coord_to(
+    const tt::umd::CoreCoord core_coord, const CoordSystem coord_system) const {
+    return coordinate_manager->translate_coord_to(core_coord, coord_system);
 }
 
 tt_SocDescriptor::tt_SocDescriptor(
@@ -269,7 +270,7 @@ tt_xy_pair tt_SocDescriptor::get_core_for_dram_channel(int dram_chan, int subcha
 
 CoreCoord tt_SocDescriptor::get_dram_core_for_channel(int dram_chan, int subchannel) const {
     const CoreCoord logical_dram_coord = CoreCoord(dram_chan, subchannel, CoreType::DRAM, CoordSystem::LOGICAL);
-    return to(logical_dram_coord, CoordSystem::PHYSICAL);
+    return translate_coord_to(logical_dram_coord, CoordSystem::PHYSICAL);
 }
 
 bool tt_SocDescriptor::is_ethernet_core(const tt_xy_pair &core) const {

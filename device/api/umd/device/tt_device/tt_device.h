@@ -86,8 +86,8 @@ public:
         std::uint64_t ordering = tt::umd::tlb_data::Relaxed);
 
 protected:
-    std::unique_ptr<architecture_implementation> architecture_impl_;
     std::unique_ptr<PCIDevice> pci_device_;
+    std::unique_ptr<architecture_implementation> architecture_impl_;
     tt::ARCH arch;
 
     bool is_hardware_hung();

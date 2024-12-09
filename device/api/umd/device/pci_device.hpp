@@ -19,7 +19,7 @@
 #include "umd/device/types/arch.h"
 
 namespace tt::umd {
-struct semver_t;
+class semver_t;
 }  // namespace tt::umd
 
 // These are not necessarily hugepages if IOMMU is enabled.

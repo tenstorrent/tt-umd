@@ -57,6 +57,6 @@ static inline std::string arch_to_str(const tt::ARCH arch) {
     }
 }
 
-}  // namespace tt
-
 static inline std::ostream &operator<<(std::ostream &out, const tt::ARCH &arch) { return out << arch_to_str(arch); }
+
+}  // namespace tt

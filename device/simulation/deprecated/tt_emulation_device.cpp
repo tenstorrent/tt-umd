@@ -220,10 +220,6 @@ std::unordered_map<chip_id_t, uint32_t> tt_emulation_device::get_harvesting_mask
     return {{0, 0}};
 }
 
-std::unordered_map<chip_id_t, tt_SocDescriptor>& tt_emulation_device::get_virtual_soc_descriptors() {
-    return soc_descriptor_per_chip;
-}
-
 std::map<int, int> tt_emulation_device::get_clocks() { return std::map<int, int>(); }
 
 void tt_emulation_device::set_device_l1_address_params(const tt_device_l1_address_params& l1_address_params_) {

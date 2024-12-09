@@ -52,8 +52,8 @@ jobs:
       - name: Set GCC compiler
         if: ${{ matrix.compiler == 'gcc' }}
         run: |
-          export CMAKE_C_COMPILER=/usr/bin/gcc
-          export CMAKE_CXX_COMPILER=/usr/bin/g++
+          echo "CMAKE_C_COMPILER=/usr/bin/gcc" >> $GITHUB_ENV
+          echo "CMAKE_CXX_COMPILER=/usr/bin/g++" >> $GITHUB_ENV
 
       - name: Build ${{ env.BUILD_TARGET }}
         run: |

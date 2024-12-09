@@ -21,7 +21,6 @@ TEST(ApiClusterDescriptorTest, DetectArch) {
         EXPECT_THROW(tt_ClusterDescriptor::detect_arch(0), std::runtime_error);
     } else {
         tt::ARCH arch = tt_ClusterDescriptor::detect_arch(0);
-        std::cout << arch << std::endl;
         EXPECT_TRUE(arch != tt::ARCH::Invalid);
 
         // Test that cluster descriptor and PCIDevice::enumerate_devices_info() return the same set of chips.

@@ -36,6 +36,7 @@
 #include <utility>
 #include <vector>
 
+#include "api/umd/device/tt_core_coordinates.h"
 #include "logger.hpp"
 #include "umd/device/architecture_implementation.h"
 #include "umd/device/chip/local_chip.h"
@@ -503,8 +504,8 @@ std::unique_ptr<Chip> Cluster::construct_chip_from_cluster(chip_id_t chip_id, tt
     // true.
     // TODO: This should be changed, harvesting should be done in tt_socdescriptor's constructor and not as part of
     // cluster class.
-    // uint32_t harvesting_info = cluster_desc->get_harvesting_info().at(chip_id);
-    tt_SocDescriptor soc_desc = tt_SocDescriptor(soc_desc_path /*, harvesting_info*/);
+    uint32_t tensix_harvesting_mask = cluster_desc->get_harvesting_info().at(chip_id);
+    tt_SocDescriptor soc_desc = tt_SocDescriptor(soc_desc_path, tensix_harvesting_mask /*, harvesting_info*/);
     return construct_chip_from_cluster(chip_id, cluster_desc, soc_desc);
 }
 
@@ -681,6 +682,18 @@ void Cluster::configure_active_ethernet_cores_for_mmio_device(
     remote_transfer_ethernet_cores[mmio_chip] = non_mmio_access_cores_for_chip;
     active_eth_core_idx_per_chip.insert({mmio_chip, 0});
     non_mmio_transfer_cores_customized = true;
+}
+
+void Cluster::configure_active_ethernet_cores_for_mmio_device(
+    const std::unordered_set<CoreCoord>& active_eth_cores_per_chip, chip_id_t mmio_chip) {
+    std::unordered_set<tt_xy_pair> active_eth_cores_xy;
+    const tt_SocDescriptor& soc_desc = get_soc_descriptor(mmio_chip);
+    for (const auto& core : active_eth_cores_per_chip) {
+        CoreCoord virtual_coord = soc_desc.translate_coord_to(core, CoordSystem::VIRTUAL);
+        active_eth_cores_xy.insert(tt_xy_pair(virtual_coord.x, virtual_coord.y));
+    }
+
+    configure_active_ethernet_cores_for_mmio_device(mmio_chip, active_eth_cores_xy);
 }
 
 void Cluster::populate_cores() {
@@ -996,6 +1009,16 @@ void Cluster::deassert_risc_reset_at_core(tt_cxy_pair core, const TensixSoftRese
     }
 }
 
+void Cluster::deassert_risc_reset_at_core(
+    const chip_id_t chip, const CoreCoord core, const TensixSoftResetOptions& soft_resets) {
+    tt_cxy_pair virtual_core;
+    virtual_core.chip = chip;
+    const CoreCoord virtual_coord = get_soc_descriptor(chip).translate_coord_to(core, CoordSystem::VIRTUAL);
+    virtual_core.x = virtual_coord.x;
+    virtual_core.y = virtual_coord.y;
+    deassert_risc_reset_at_core(virtual_core, soft_resets);
+}
+
 void Cluster::assert_risc_reset_at_core(tt_cxy_pair core) {
     // Get Target Device to query soc descriptor and determine location in cluster
     std::uint32_t target_device = core.chip;
@@ -1014,6 +1037,15 @@ void Cluster::assert_risc_reset_at_core(tt_cxy_pair core) {
     } else {
         send_remote_tensix_risc_reset_to_core(core, TENSIX_ASSERT_SOFT_RESET);
     }
+}
+
+void Cluster::assert_risc_reset_at_core(const chip_id_t chip, const CoreCoord core) {
+    tt_cxy_pair virtual_core;
+    virtual_core.chip = chip;
+    const CoreCoord virtual_coord = get_soc_descriptor(chip).translate_coord_to(core, CoordSystem::VIRTUAL);
+    virtual_core.x = virtual_coord.x;
+    virtual_core.y = virtual_coord.y;
+    assert_risc_reset_at_core(virtual_core);
 }
 
 // Free memory during teardown, and remove (clean/unlock) from any leftover mutexes.
@@ -1076,6 +1108,15 @@ tt::Writer Cluster::get_static_tlb_writer(tt_cxy_pair target) {
     auto* base = reinterpret_cast<uint8_t*>(dev->get_pci_device()->bar0_wc);
 
     return tt::Writer(base + tlb_offset, tlb_size);
+}
+
+tt::Writer Cluster::get_static_tlb_writer(const chip_id_t chip, const CoreCoord target) {
+    tt_cxy_pair virtual_core;
+    virtual_core.chip = chip;
+    const CoreCoord virtual_coord = get_soc_descriptor(chip).translate_coord_to(target, CoordSystem::VIRTUAL);
+    virtual_core.x = virtual_coord.x;
+    virtual_core.y = virtual_coord.y;
+    return get_static_tlb_writer(virtual_core);
 }
 
 void Cluster::write_device_memory(
@@ -1323,6 +1364,15 @@ std::optional<std::tuple<uint32_t, uint32_t>> Cluster::get_tlb_data_from_target(
     return get_tt_device(target.chip)->get_architecture_implementation()->describe_tlb(tlb_index);
 }
 
+std::optional<std::tuple<uint32_t, uint32_t>> Cluster::get_tlb_data_from_target(const chip_id_t chip, CoreCoord core) {
+    tt_cxy_pair virtual_core;
+    virtual_core.chip = chip;
+    const CoreCoord virtual_coord = get_soc_descriptor(chip).translate_coord_to(core, CoordSystem::VIRTUAL);
+    virtual_core.x = virtual_coord.x;
+    virtual_core.y = virtual_coord.y;
+    return get_tlb_data_from_target(virtual_core);
+}
+
 void Cluster::configure_tlb(
     chip_id_t logical_device_id, tt_xy_pair core, int32_t tlb_index, uint64_t address, uint64_t ordering) {
     log_assert(
@@ -1351,6 +1401,16 @@ void Cluster::configure_tlb(
     auto tlb_size = std::get<1>(tt_device->get_architecture_implementation()->describe_tlb(tlb_index).value());
     tlb_config_map.at(logical_device_id).insert({tlb_index, (address / tlb_size) * tlb_size});
     map_core_to_tlb_per_chip.at(logical_device_id).insert({core, tlb_index});
+}
+
+void Cluster::configure_tlb(
+    chip_id_t logical_device_id, tt::umd::CoreCoord core, int32_t tlb_index, uint64_t address, uint64_t ordering) {
+    tt_xy_pair virtual_core;
+    const CoreCoord virtual_coord =
+        get_soc_descriptor(logical_device_id).translate_coord_to(core, CoordSystem::VIRTUAL);
+    virtual_core.x = virtual_coord.x;
+    virtual_core.y = virtual_coord.y;
+    configure_tlb(logical_device_id, virtual_core, tlb_index, address, ordering);
 }
 
 void Cluster::set_fallback_tlb_ordering_mode(const std::string& fallback_tlb, uint64_t ordering) {
@@ -2932,6 +2992,16 @@ void Cluster::l1_membar(
     }
 }
 
+void Cluster::l1_membar(
+    const chip_id_t chip, const std::unordered_set<tt::umd::CoreCoord>& cores, const std::string& fallback_tlb) {
+    std::unordered_set<tt_xy_pair> cores_xy;
+    for (const auto& core : cores) {
+        const CoreCoord virtual_core = get_soc_descriptor(chip).translate_coord_to(core, CoordSystem::VIRTUAL);
+        cores_xy.insert({virtual_core.x, virtual_core.y});
+    }
+    l1_membar(chip, fallback_tlb, cores_xy);
+}
+
 void Cluster::dram_membar(
     const chip_id_t chip, const std::string& fallback_tlb, const std::unordered_set<tt_xy_pair>& cores) {
     if (cluster_desc->is_chip_mmio_capable(chip)) {
@@ -2948,6 +3018,16 @@ void Cluster::dram_membar(
     } else {
         wait_for_non_mmio_flush();
     }
+}
+
+void Cluster::dram_membar(
+    const chip_id_t chip, const std::unordered_set<tt::umd::CoreCoord>& cores, const std::string& fallback_tlb) {
+    std::unordered_set<tt_xy_pair> cores_xy;
+    for (const auto& core : cores) {
+        const CoreCoord virtual_core = get_soc_descriptor(chip).translate_coord_to(core, CoordSystem::VIRTUAL);
+        cores_xy.insert({virtual_core.x, virtual_core.y});
+    }
+    dram_membar(chip, fallback_tlb, cores_xy);
 }
 
 void Cluster::dram_membar(
@@ -2985,6 +3065,21 @@ void Cluster::write_to_device(
             "Cannot issue ethernet writes to a single chip cluster!");
         write_to_non_mmio_device(mem_ptr, size, core, addr);
     }
+}
+
+void Cluster::write_to_device(
+    const void* mem_ptr,
+    uint32_t size_in_bytes,
+    chip_id_t chip,
+    CoreCoord core,
+    uint64_t addr,
+    const std::string& tlb_to_use) {
+    tt_cxy_pair virtual_core;
+    virtual_core.chip = chip;
+    CoreCoord virtual_coord = get_soc_descriptor(chip).translate_coord_to(core, CoordSystem::VIRTUAL);
+    virtual_core.x = virtual_coord.x;
+    virtual_core.y = virtual_coord.y;
+    write_to_device(mem_ptr, size_in_bytes, virtual_core, addr, tlb_to_use);
 }
 
 void Cluster::read_mmio_device_register(
@@ -3044,6 +3139,16 @@ void Cluster::read_from_device(
             "Cannot issue ethernet reads from a single chip cluster!");
         read_from_non_mmio_device(mem_ptr, core, addr, size);
     }
+}
+
+void Cluster::read_from_device(
+    void* mem_ptr, chip_id_t chip, CoreCoord core, uint64_t addr, uint32_t size, const std::string& fallback_tlb) {
+    tt_cxy_pair virtual_core;
+    virtual_core.chip = chip;
+    CoreCoord virtual_coord = get_soc_descriptor(chip).translate_coord_to(core, CoordSystem::VIRTUAL);
+    virtual_core.x = virtual_coord.x;
+    virtual_core.y = virtual_coord.y;
+    read_from_device(mem_ptr, virtual_core, addr, size, fallback_tlb);
 }
 
 int Cluster::arc_msg(

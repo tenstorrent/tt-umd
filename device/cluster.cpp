@@ -455,7 +455,11 @@ void Cluster::construct_cluster(
         }
     }
 
-    perform_harvesting_and_populate_soc_descriptors(sdesc_path, perform_harvesting);
+    for (const auto& chip : harvested_rows_per_target) {
+        uint32_t harvesting = perform_harvesting ? chip.second : 0;
+        auto soc_desc = tt_SocDescriptor(sdesc_path, harvesting);
+        soc_descriptor_per_chip.insert({chip.first, soc_desc});
+    }
     populate_cores();
 
     // MT: Initial BH - skip this for BH
@@ -651,83 +655,6 @@ void Cluster::populate_cores() {
             }
         }
         count++;
-    }
-}
-
-std::vector<int> Cluster::extract_rows_to_remove(
-    const tt::ARCH& arch, const int worker_grid_rows, const int harvested_rows) {
-    // Check if harvesting config is legal for GS and WH
-    log_assert(
-        !((harvested_rows & 1) || (harvested_rows & 64) || (harvested_rows & 0xFFFFF000)),
-        "For grayskull and wormhole, only rows 1-5 and 7-11 can be harvested");
-    std::vector<int> row_coordinates_to_remove;
-    int row_coordinate = 0;
-    int tmp = harvested_rows;
-    while (tmp) {
-        if (tmp & 1) {
-            row_coordinates_to_remove.push_back(row_coordinate);
-        }
-
-        tmp = tmp >> 1;
-        row_coordinate++;
-    }
-    if (arch == tt::ARCH::WORMHOLE_B0) {
-        // For Wormhole, we always remove the last few rows in the SOC descriptor in case of harvesting
-        for (int i = 0; i < row_coordinates_to_remove.size(); i++) {
-            row_coordinates_to_remove[i] = worker_grid_rows - i;
-        }
-    }
-    return row_coordinates_to_remove;
-}
-
-void Cluster::remove_worker_row_from_descriptor(
-    tt_SocDescriptor& full_soc_descriptor, const std::vector<int>& row_coordinates_to_remove) {
-    std::vector<tt_xy_pair> workers_to_keep;
-    for (auto worker = (full_soc_descriptor.workers).begin(); worker != (full_soc_descriptor.workers).end(); worker++) {
-        if (find(row_coordinates_to_remove.begin(), row_coordinates_to_remove.end(), (*worker).y) ==
-            row_coordinates_to_remove.end()) {
-            workers_to_keep.push_back(*worker);
-        } else {
-            (full_soc_descriptor.harvested_workers).push_back(*worker);
-            full_soc_descriptor.cores.at(*worker).type = CoreType::HARVESTED;
-        }
-    }
-    full_soc_descriptor.workers = workers_to_keep;
-    (full_soc_descriptor.worker_grid_size).y -= row_coordinates_to_remove.size();
-    full_soc_descriptor.routing_y_to_worker_y = {};
-    full_soc_descriptor.worker_log_to_routing_y = {};
-
-    std::set<int> modified_y_coords = {};
-
-    for (const auto& core : full_soc_descriptor.workers) {
-        modified_y_coords.insert(core.y);
-    }
-    int logical_y_coord = 0;
-    for (const auto& y_coord : modified_y_coords) {
-        full_soc_descriptor.routing_y_to_worker_y.insert({y_coord, logical_y_coord});
-        full_soc_descriptor.worker_log_to_routing_y.insert({logical_y_coord, y_coord});
-        logical_y_coord++;
-    }
-}
-
-void Cluster::harvest_rows_in_soc_descriptor(tt::ARCH arch, tt_SocDescriptor& sdesc, uint32_t harvested_rows) {
-    std::uint32_t max_row_to_remove =
-        (*std::max_element((sdesc.workers).begin(), (sdesc.workers).end(), [](const auto& a, const auto& b) {
-            return a.y < b.y;
-        })).y;
-    std::vector<int> row_coordinates_to_remove = extract_rows_to_remove(arch, max_row_to_remove, harvested_rows);
-    remove_worker_row_from_descriptor(sdesc, row_coordinates_to_remove);
-}
-
-void Cluster::perform_harvesting_and_populate_soc_descriptors(
-    const std::string& sdesc_path, const bool perform_harvesting) {
-    const auto default_sdesc = tt_SocDescriptor(sdesc_path);
-    for (const auto& chip : harvested_rows_per_target) {
-        auto temp_sdesc = default_sdesc;
-        if (perform_harvesting) {
-            harvest_rows_in_soc_descriptor(arch_name, temp_sdesc, chip.second);
-        }
-        soc_descriptor_per_chip.insert({chip.first, temp_sdesc});
     }
 }
 

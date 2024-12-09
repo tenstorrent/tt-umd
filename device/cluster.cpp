@@ -585,9 +585,9 @@ Cluster::Cluster(
         log_assert(
             cluster_desc->get_arch(chip_id) == soc_desc.arch,
             "Passed soc descriptor has {} arch, but for chip id {} has arch {}",
-            get_arch_str(soc_desc.arch),
+            arch_to_str(soc_desc.arch),
             chip_id,
-            get_arch_str(cluster_desc->get_arch(chip_id)));
+            arch_to_str(cluster_desc->get_arch(chip_id)));
         add_chip(chip_id, construct_chip_from_cluster(chip_id, cluster_desc.get(), soc_desc));
     }
 

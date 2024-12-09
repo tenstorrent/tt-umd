@@ -21,7 +21,7 @@ TEST(ApiClusterDescriptorTest, DetectArch) {
         EXPECT_THROW(tt_ClusterDescriptor::detect_arch(0), std::runtime_error);
     } else {
         tt::ARCH arch = tt_ClusterDescriptor::detect_arch(0);
-        EXPECT_TRUE(arch != tt::ARCH::Invalid);
+        EXPECT_NE(arch, tt::ARCH::Invalid);
 
         // Test that cluster descriptor and PCIDevice::enumerate_devices_info() return the same set of chips.
         std::map<int, PciDeviceInfo> pci_device_infos = PCIDevice::enumerate_devices_info();
@@ -40,7 +40,7 @@ TEST(ApiClusterDescriptorTest, DetectArch) {
 
         // Test that cluster descriptor holds the same arch as pci_device.
         for (auto [chip, pci_device_number] : cluster_desc->get_chips_with_mmio()) {
-            EXPECT_TRUE(cluster_desc->get_arch(chip) == pci_device_infos.at(pci_device_number).get_arch());
+            EXPECT_EQ(cluster_desc->get_arch(chip), pci_device_infos.at(pci_device_number).get_arch());
         }
     }
 }

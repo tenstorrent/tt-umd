@@ -49,12 +49,8 @@ TEST(GalaxyConcurrentThreads, WriteToAllChipsL1) {
 
     uint32_t num_host_mem_ch_per_mmio_device = 1;
 
-    Cluster device = Cluster(
-        tt_SocDescriptor(test_utils::GetAbsPath(SOC_DESC_PATH)),
-        all_devices,
-        num_host_mem_ch_per_mmio_device,
-        false,
-        true);
+    Cluster device =
+        Cluster(test_utils::GetAbsPath(SOC_DESC_PATH), all_devices, num_host_mem_ch_per_mmio_device, false, true);
     const auto sdesc_per_chip = device.get_virtual_soc_descriptors();
 
     tt::umd::test::utils::set_params_for_remote_txn(device);
@@ -150,12 +146,8 @@ TEST(GalaxyConcurrentThreads, WriteToAllChipsDram) {
 
     uint32_t num_host_mem_ch_per_mmio_device = 1;
 
-    Cluster device = Cluster(
-        tt_SocDescriptor(test_utils::GetAbsPath(SOC_DESC_PATH)),
-        all_devices,
-        num_host_mem_ch_per_mmio_device,
-        false,
-        true);
+    Cluster device =
+        Cluster(test_utils::GetAbsPath(SOC_DESC_PATH), all_devices, num_host_mem_ch_per_mmio_device, false, true);
     const auto sdesc_per_chip = device.get_virtual_soc_descriptors();
 
     tt::umd::test::utils::set_params_for_remote_txn(device);
@@ -240,12 +232,8 @@ TEST(GalaxyConcurrentThreads, PushInputsWhileSignalingCluster) {
 
     uint32_t num_host_mem_ch_per_mmio_device = 1;
 
-    Cluster device = Cluster(
-        tt_SocDescriptor(test_utils::GetAbsPath(SOC_DESC_PATH)),
-        target_devices,
-        num_host_mem_ch_per_mmio_device,
-        false,
-        true);
+    Cluster device =
+        Cluster(test_utils::GetAbsPath(SOC_DESC_PATH), target_devices, num_host_mem_ch_per_mmio_device, false, true);
     const auto sdesc_per_chip = device.get_virtual_soc_descriptors();
 
     tt::umd::test::utils::set_params_for_remote_txn(device);

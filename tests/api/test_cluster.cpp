@@ -81,9 +81,7 @@ TEST(ApiClusterTest, DifferentConstructors) {
     tt::ARCH device_arch = tt_ClusterDescriptor::detect_arch(logical_device_id);
     // You can add a custom soc descriptor here.
     std::string sdesc_path = tt_SocDescriptor::get_soc_descriptor_path(device_arch);
-    int harvesting_mask = 0;
-    tt_SocDescriptor soc_desc = tt_SocDescriptor(sdesc_path, harvesting_mask);
-    umd_cluster = std::make_unique<Cluster>(soc_desc, target_devices);
+    umd_cluster = std::make_unique<Cluster>(sdesc_path, target_devices);
     umd_cluster = nullptr;
 
     // 4. Constructor for creating a cluster with mock chip.

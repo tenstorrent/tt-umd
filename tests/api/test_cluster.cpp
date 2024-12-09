@@ -67,7 +67,7 @@ TEST(ApiClusterTest, DifferentConstructors) {
 
     std::unique_ptr<Cluster> umd_cluster;
 
-    // 1. Simplest constructor. Creates Cluster with all the chips available
+    // 1. Simplest constructor. Creates Cluster with all the chips available.
     umd_cluster = std::make_unique<Cluster>();
     umd_cluster = nullptr;
 

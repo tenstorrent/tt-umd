@@ -479,7 +479,8 @@ public:
      * @param skip_driver_allocs
      * @param clean_system_resource Specifies if host state from previous runs needs to be cleaned up.
      * @param perform_harvesting Allow the driver to modify the SOC descriptors per chip.
-     * @param simulated_harvesting_masks
+     * @param simulated_harvesting_masks Manually specify additional harvesting masks for the devices in the cluster.
+     * The ones defined by the devices itself have to be used, they will be merged with the ones passed here.
      */
     Cluster(
         const uint32_t& num_host_mem_ch_per_mmio_device = 1,
@@ -490,14 +491,15 @@ public:
 
     /**
      * Cluster constructor.
-     * This constructor can be used to target specific devices on the system.
+     * This constructor can be used to target only specific devices on the system.
      *
      * @param target_devices Devices to target.
      * @param num_host_mem_ch_per_mmio_device Requested number of host channels (hugepages).
      * @param skip_driver_allocs
      * @param clean_system_resource Specifies if host state from previous runs needs to be cleaned up.
      * @param perform_harvesting Allow the driver to modify the SOC descriptors per chip.
-     * @param simulated_harvesting_masks
+     * @param simulated_harvesting_masks Manually specify additional harvesting masks for the devices in the cluster.
+     * The ones defined by the devices itself have to be used, they will be merged with the ones passed here.
      */
     Cluster(
         const std::set<chip_id_t>& target_devices,
@@ -511,14 +513,16 @@ public:
      * Cluster constructor.
      * This constructor can be used with custom soc descriptors for the devices on the system.
      *
-     * @param sdesc_path SOC descriptor yaml path specifying single chip. This represents default architecture and will
-     * be harvested according to the devices present in the cluster.
+     * @param sdesc_path SOC descriptor yaml path specifying single chip. The passed soc descriptor will be used as a
+     * default device description for devices in the cluster, but each chip will be harvested according to the
+     * harvesting info of the devices in the cluster.
      * @param target_devices Devices to target.
      * @param num_host_mem_ch_per_mmio_device Requested number of host channels (hugepages).
      * @param skip_driver_allocs
      * @param clean_system_resource Specifies if host state from previous runs needs to be cleaned up.
      * @param perform_harvesting Allow the driver to modify the SOC descriptors per chip.
-     * @param simulated_harvesting_masks
+     * @param simulated_harvesting_masks Manually specify additional harvesting masks for the devices in the cluster.
+     * The ones defined by the devices itself have to be used, they will be merged with the ones passed here.
      */
     Cluster(
         const std::string& sdesc_path,

@@ -53,6 +53,15 @@ message(STATUS "UMD build type: ${CMAKE_BUILD_TYPE}")
 
 include(dependencies)
 
+# Enable all warnings and treat them as errors
+add_compile_options(
+    -Wall
+    -Werror
+    -Wno-unused-variable
+    -Wno-unused-function
+    -Wno-unused-but-set-variable
+)
+
 add_subdirectory(common)
 add_subdirectory(device)
 add_subdirectory(src)

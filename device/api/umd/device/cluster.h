@@ -511,7 +511,8 @@ public:
      * Cluster constructor.
      * This constructor can be used with custom soc descriptors for the devices on the system.
      *
-     * @param soc_desc SOC descriptor specifying single chip.
+     * @param sdesc_path SOC descriptor yaml path specifying single chip. This represents default architecture and will
+     * be harvested according to the devices present in the cluster.
      * @param target_devices Devices to target.
      * @param num_host_mem_ch_per_mmio_device Requested number of host channels (hugepages).
      * @param skip_driver_allocs
@@ -520,7 +521,7 @@ public:
      * @param simulated_harvesting_masks
      */
     Cluster(
-        tt_SocDescriptor soc_desc,
+        const std::string& sdesc_path,
         const std::set<chip_id_t>& target_devices,
         const uint32_t& num_host_mem_ch_per_mmio_device = 1,
         const bool skip_driver_allocs = false,

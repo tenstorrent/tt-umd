@@ -566,7 +566,7 @@ Cluster::Cluster(
 }
 
 Cluster::Cluster(
-    tt_SocDescriptor soc_desc,
+    const std::string& sdesc_path,
     const std::set<chip_id_t>& target_devices,
     const uint32_t& num_host_mem_ch_per_mmio_device,
     const bool skip_driver_allocs,
@@ -580,6 +580,8 @@ Cluster::Cluster(
             cluster_desc->get_all_chips().find(chip_id) != cluster_desc->get_all_chips().end(),
             "Target device {} not present in current cluster!",
             chip_id);
+
+        tt_SocDescriptor soc_desc = tt_SocDescriptor(sdesc_path, cluster_desc->get_harvesting_info().at(chip_id));
         log_assert(
             cluster_desc->get_arch(chip_id) == soc_desc.arch,
             "Passed soc descriptor has {} arch, but for chip id {} has arch {}",

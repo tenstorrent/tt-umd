@@ -36,6 +36,7 @@
 #include <utility>
 #include <vector>
 
+#include "api/umd/device/tt_core_coordinates.h"
 #include "logger.hpp"
 #include "umd/device/architecture_implementation.h"
 #include "umd/device/driver_atomics.h"
@@ -675,6 +676,17 @@ void Cluster::configure_active_ethernet_cores_for_mmio_device(
     non_mmio_transfer_cores_customized = true;
 }
 
+void Cluster::configure_active_ethernet_cores_for_mmio_device(
+    chip_id_t mmio_chip, const std::unordered_set<CoreCoord>& active_eth_cores_per_chip) {
+    std::unordered_set<tt_xy_pair> active_eth_cores_xy;
+    for (const auto& core : active_eth_cores_per_chip) {
+        CoreCoord virtual_coord = to(mmio_chip, core, CoordSystem::VIRTUAL);
+        active_eth_cores_xy.insert(tt_xy_pair(virtual_coord.x, virtual_coord.y));
+    }
+
+    configure_active_ethernet_cores_for_mmio_device(mmio_chip, active_eth_cores_xy);
+}
+
 void Cluster::populate_cores() {
     std::uint32_t count = 0;
     for (const auto chip : soc_descriptor_per_chip) {
@@ -765,6 +777,10 @@ void Cluster::perform_harvesting_and_populate_soc_descriptors(
             harvest_rows_in_soc_descriptor(arch_name, temp_sdesc, chip.second);
         }
         soc_descriptor_per_chip.insert({chip.first, temp_sdesc});
+    }
+
+    for (const auto& chip : harvested_rows_per_target) {
+        soc_desc_per_chip_harvesting.insert({chip.first, tt_SocDescriptor(sdesc_path, chip.second)});
     }
 }
 
@@ -1003,6 +1019,15 @@ void Cluster::deassert_risc_reset_at_core(tt_cxy_pair core, const TensixSoftRese
     }
 }
 
+void Cluster::deassert_risc_reset_at_core(
+    const chip_id_t chip, const CoreCoord core, const TensixSoftResetOptions& soft_resets) {
+    tt_cxy_pair virtual_core;
+    const CoreCoord virtual_coord = to(chip, core, CoordSystem::VIRTUAL);
+    virtual_core.x = virtual_coord.x;
+    virtual_core.y = virtual_coord.y;
+    deassert_risc_reset_at_core(virtual_core, soft_resets);
+}
+
 void Cluster::assert_risc_reset_at_core(tt_cxy_pair core) {
     // Get Target Device to query soc descriptor and determine location in cluster
     std::uint32_t target_device = core.chip;
@@ -1024,6 +1049,14 @@ void Cluster::assert_risc_reset_at_core(tt_cxy_pair core) {
     } else {
         send_remote_tensix_risc_reset_to_core(core, TENSIX_ASSERT_SOFT_RESET);
     }
+}
+
+void Cluster::assert_risc_reset_at_core(const chip_id_t chip, const CoreCoord core) {
+    tt_cxy_pair virtual_core;
+    const CoreCoord virtual_coord = to(chip, core, CoordSystem::VIRTUAL);
+    virtual_core.x = virtual_coord.x;
+    virtual_core.y = virtual_coord.y;
+    assert_risc_reset_at_core(virtual_core);
 }
 
 // Free memory during teardown, and remove (clean/unlock) from any leftover mutexes.
@@ -1098,6 +1131,14 @@ tt::Writer Cluster::get_static_tlb_writer(tt_cxy_pair target) {
     auto* base = reinterpret_cast<uint8_t*>(dev->bar0_wc);
 
     return tt::Writer(base + tlb_offset, tlb_size);
+}
+
+tt::Writer Cluster::get_static_tlb_writer(const chip_id_t chip, const CoreCoord target) {
+    tt_cxy_pair virtual_core;
+    const CoreCoord virtual_coord = to(chip, target, CoordSystem::VIRTUAL);
+    virtual_core.x = virtual_coord.x;
+    virtual_core.y = virtual_coord.y;
+    return get_static_tlb_writer(virtual_core);
 }
 
 void Cluster::write_device_memory(
@@ -1371,6 +1412,15 @@ std::optional<std::tuple<uint32_t, uint32_t>> Cluster::get_tlb_data_from_target(
     return tlb_data;
 }
 
+std::optional<std::tuple<uint32_t, uint32_t>> Cluster::get_tlb_data_from_target(const chip_id_t chip, CoreCoord core) {
+    tt_cxy_pair virtual_core;
+    const CoreCoord virtual_coord = to(chip, core, CoordSystem::VIRTUAL);
+    virtual_core.chip = chip;
+    virtual_core.x = virtual_coord.x;
+    virtual_core.y = virtual_coord.y;
+    return get_tlb_data_from_target(virtual_core);
+}
+
 void Cluster::configure_tlb(
     chip_id_t logical_device_id, tt_xy_pair core, int32_t tlb_index, uint64_t address, uint64_t ordering) {
     log_assert(
@@ -1383,6 +1433,15 @@ void Cluster::configure_tlb(
         tlb_config_map.insert({logical_device_id, {}});
     }
     tlb_config_map[logical_device_id].insert({tlb_index, (address / tlb_size) * tlb_size});
+}
+
+void Cluster::configure_tlb(
+    chip_id_t logical_device_id, tt::umd::CoreCoord core, int32_t tlb_index, uint64_t address, uint64_t ordering) {
+    tt_xy_pair virtual_core;
+    const CoreCoord virtual_coord = to(logical_device_id, core, CoordSystem::VIRTUAL);
+    virtual_core.x = virtual_coord.x;
+    virtual_core.y = virtual_coord.y;
+    configure_tlb(logical_device_id, virtual_core, tlb_index, address, ordering);
 }
 
 void Cluster::set_fallback_tlb_ordering_mode(const std::string& fallback_tlb, uint64_t ordering) {
@@ -1725,6 +1784,10 @@ uint32_t Cluster::get_harvested_rows(int logical_device_id) {
 
 uint32_t Cluster::get_harvested_noc_rows_for_chip(int logical_device_id) {
     return get_harvested_noc_rows(get_harvested_rows(logical_device_id));
+}
+
+CoreCoord Cluster::to(const chip_id_t chip, const CoreCoord core_coord, const CoordSystem coord_system) {
+    return soc_desc_per_chip_harvesting.at(chip).to(core_coord, coord_system);
 }
 
 void Cluster::enable_local_ethernet_queue(const chip_id_t& device_id, int timeout) {
@@ -2979,6 +3042,16 @@ void Cluster::l1_membar(
     }
 }
 
+void Cluster::l1_membar(
+    const chip_id_t chip, const std::string& fallback_tlb, const std::unordered_set<tt::umd::CoreCoord>& cores) {
+    std::unordered_set<tt_xy_pair> cores_xy;
+    for (const auto& core : cores) {
+        const CoreCoord virtual_core = to(chip, core, CoordSystem::VIRTUAL);
+        cores_xy.insert({virtual_core.x, virtual_core.y});
+    }
+    l1_membar(chip, fallback_tlb, cores_xy);
+}
+
 void Cluster::dram_membar(
     const chip_id_t chip, const std::string& fallback_tlb, const std::unordered_set<tt_xy_pair>& cores) {
     if (cluster_desc->is_chip_mmio_capable(chip)) {
@@ -2995,6 +3068,16 @@ void Cluster::dram_membar(
     } else {
         wait_for_non_mmio_flush();
     }
+}
+
+void Cluster::dram_membar(
+    const chip_id_t chip, const std::string& fallback_tlb, const std::unordered_set<tt::umd::CoreCoord>& cores) {
+    std::unordered_set<tt_xy_pair> cores_xy;
+    for (const auto& core : cores) {
+        const CoreCoord virtual_core = to(chip, core, CoordSystem::VIRTUAL);
+        cores_xy.insert({virtual_core.x, virtual_core.y});
+    }
+    dram_membar(chip, fallback_tlb, cores_xy);
 }
 
 void Cluster::dram_membar(
@@ -3032,6 +3115,21 @@ void Cluster::write_to_device(
             "Cannot issue ethernet writes to a single chip cluster!");
         write_to_non_mmio_device(mem_ptr, size, core, addr);
     }
+}
+
+void Cluster::write_to_device(
+    const void* mem_ptr,
+    uint32_t size_in_bytes,
+    chip_id_t chip,
+    CoreCoord core,
+    uint64_t addr,
+    const std::string& tlb_to_use) {
+    tt_cxy_pair virtual_core;
+    virtual_core.chip = chip;
+    CoreCoord virtual_coord = to(chip, core, CoordSystem::VIRTUAL);
+    virtual_core.x = virtual_coord.x;
+    virtual_core.y = virtual_coord.y;
+    write_to_device(mem_ptr, size_in_bytes, virtual_core, addr, tlb_to_use);
 }
 
 void Cluster::read_mmio_device_register(
@@ -3091,6 +3189,16 @@ void Cluster::read_from_device(
             "Cannot issue ethernet reads from a single chip cluster!");
         read_from_non_mmio_device(mem_ptr, core, addr, size);
     }
+}
+
+void Cluster::read_from_device(
+    void* mem_ptr, chip_id_t chip, CoreCoord core, uint64_t addr, uint32_t size, const std::string& fallback_tlb) {
+    tt_cxy_pair virtual_core;
+    virtual_core.chip = chip;
+    CoreCoord virtual_coord = to(chip, core, CoordSystem::VIRTUAL);
+    virtual_core.x = virtual_coord.x;
+    virtual_core.y = virtual_coord.y;
+    read_from_device(mem_ptr, virtual_core, addr, size, fallback_tlb);
 }
 
 int Cluster::arc_msg(
@@ -3382,6 +3490,10 @@ std::uint64_t Cluster::get_pcie_base_addr_from_device(const chip_id_t chip_id) c
     } else {
         return 0;
     }
+}
+
+const tt_SocDescriptor& Cluster::get_soc_desc(chip_id_t chip_id) const {
+    return soc_desc_per_chip_harvesting.at(chip_id);
 }
 
 tt_version Cluster::get_ethernet_fw_version() const {

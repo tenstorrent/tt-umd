@@ -12,11 +12,14 @@
 #include <string>
 #include <unordered_set>
 
+#include "api/umd/device/tt_soc_descriptor.h"
 #include "fmt/core.h"
 #include "utils.hpp"
 #include "yaml-cpp/yaml.h"
 
 // #include "l1_address_map.h"
+
+using namespace tt::umd;
 
 std::string format_node(tt_xy_pair xy) { return fmt::format("{}-{}", xy.x, xy.y); }
 
@@ -172,9 +175,10 @@ void tt_SocDescriptor::create_coordinate_manager(
     const std::size_t tensix_harvesting_mask, const std::size_t dram_harvesting_mask) {
     coordinate_manager =
         CoordinateManager::create_coordinate_manager(arch, tensix_harvesting_mask, dram_harvesting_mask);
+    get_coordinates_from_coordinate_manager();
 }
 
-tt::umd::CoreCoord tt_SocDescriptor::to(const tt::umd::CoreCoord core_coord, const CoordSystem coord_system) {
+tt::umd::CoreCoord tt_SocDescriptor::to(const tt::umd::CoreCoord core_coord, const CoordSystem coord_system) const {
     return coordinate_manager->to(core_coord, coord_system);
 }
 
@@ -221,17 +225,38 @@ int tt_SocDescriptor::get_num_dram_channels() const {
 }
 
 bool tt_SocDescriptor::is_worker_core(const tt_xy_pair &core) const {
-    return (
-        routing_x_to_worker_x.find(core.x) != routing_x_to_worker_x.end() &&
-        routing_y_to_worker_y.find(core.y) != routing_y_to_worker_y.end());
+    const CoreCoord physical_tensix_core = CoreCoord(core.x, core.y, CoreType::TENSIX, CoordSystem::PHYSICAL);
+    const std::vector<CoreCoord> &tensix_cores = get_cores(CoreType::TENSIX);
+    return std::find(tensix_cores.begin(), tensix_cores.end(), physical_tensix_core) != tensix_cores.end();
 }
 
 tt_xy_pair tt_SocDescriptor::get_core_for_dram_channel(int dram_chan, int subchannel) const {
     return this->dram_cores.at(dram_chan).at(subchannel);
-};
+}
+
+CoreCoord tt_SocDescriptor::get_dram_core_for_channel(int dram_chan, int subchannel) const {
+    const CoreCoord logical_dram_coord = CoreCoord(dram_chan, subchannel, CoreType::DRAM, CoordSystem::LOGICAL);
+    return to(logical_dram_coord, CoordSystem::PHYSICAL);
+}
 
 bool tt_SocDescriptor::is_ethernet_core(const tt_xy_pair &core) const {
-    return this->ethernet_core_channel_map.find(core) != ethernet_core_channel_map.end();
+    const CoreCoord eth_coord = CoreCoord(core.x, core.y, CoreType::ETH, CoordSystem::PHYSICAL);
+    const std::vector<CoreCoord> &eth_coords = get_cores(CoreType::ETH);
+    return std::find(eth_coords.begin(), eth_coords.end(), eth_coord) != eth_coords.end();
+}
+
+void tt_SocDescriptor::get_coordinates_from_coordinate_manager() {
+    cores_map.clear();
+    harvested_cores_map.clear();
+
+    cores_map.insert({CoreType::TENSIX, coordinate_manager->get_cores_and_grid(CoreType::TENSIX)});
+    cores_map.insert({CoreType::DRAM, coordinate_manager->get_cores_and_grid(CoreType::DRAM)});
+    cores_map.insert({CoreType::ETH, coordinate_manager->get_cores_and_grid(CoreType::ETH)});
+    cores_map.insert({CoreType::ARC, coordinate_manager->get_cores_and_grid(CoreType::ARC)});
+    cores_map.insert({CoreType::PCIE, coordinate_manager->get_cores_and_grid(CoreType::PCIE)});
+
+    harvested_cores_map.insert({CoreType::TENSIX, coordinate_manager->get_harvested_cores_and_grid(CoreType::TENSIX)});
+    harvested_cores_map.insert({CoreType::DRAM, coordinate_manager->get_harvested_cores_and_grid(CoreType::DRAM)});
 }
 
 std::string tt_SocDescriptor::get_soc_descriptor_path(tt::ARCH arch) {
@@ -248,6 +273,20 @@ std::string tt_SocDescriptor::get_soc_descriptor_path(tt::ARCH arch) {
         default:
             throw std::runtime_error("Invalid architecture");
     }
+}
+
+std::vector<tt::umd::CoreCoord> tt_SocDescriptor::get_cores(const CoreType core_type) const {
+    if (cores_map.find(core_type) == cores_map.end()) {
+        return {};
+    }
+    return cores_map.at(core_type).second;
+}
+
+std::vector<tt::umd::CoreCoord> tt_SocDescriptor::get_harvested_cores(const CoreType core_type) const {
+    if (harvested_cores_map.find(core_type) == harvested_cores_map.end()) {
+        return {};
+    }
+    return harvested_cores_map.at(core_type).second;
 }
 
 std::ostream &operator<<(std::ostream &out, const tt::ARCH &arch_name) {

@@ -38,6 +38,7 @@ WormholeCoordinateManager::WormholeCoordinateManager(
     this->translate_eth_coords();
     this->translate_arc_coords();
     this->translate_pcie_coords();
+    this->fill_core_structures();
 }
 
 void WormholeCoordinateManager::fill_tensix_logical_to_translated() {

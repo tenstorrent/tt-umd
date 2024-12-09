@@ -25,7 +25,7 @@ flatbuffers::FlatBufferBuilder create_flatbuffer(
     flatbuffers::FlatBufferBuilder builder;
     auto data = builder.CreateVector(vec);
     auto core = tt_vcs_core(core_.x, core_.y);
-    uint64_t size = size_ == 0 ? size = vec.size() * sizeof(uint32_t) : size = size_;
+    uint64_t size = (size_ == 0 ? vec.size() * sizeof(uint32_t) : size_);
     auto device_cmd = CreateDeviceRequestResponse(builder, rw, data, &core, addr, size);
     builder.Finish(device_cmd);
     return builder;

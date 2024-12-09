@@ -159,11 +159,14 @@ CoreCoord CoordinateManager::to_physical(const CoreCoord core_coord) {
         case CoordSystem::VIRTUAL:
         case CoordSystem::TRANSLATED:
             return to_physical(to_logical(core_coord));
+        case CoordSystem::LOGICAL: {
+            auto& logical_mapping = get_logical_to_physical(core_coord.core_type);
+            return logical_mapping[{core_coord.x, core_coord.y}];
+        }
+        default:
+            throw std::runtime_error(
+                "Unexpected CoordSystem value " + std::to_string((uint8_t)core_coord.coord_system));
     }
-
-    // Coord system is surely logical.
-    auto& logical_mapping = get_logical_to_physical(core_coord.core_type);
-    return logical_mapping[{core_coord.x, core_coord.y}];
 }
 
 CoreCoord CoordinateManager::to_virtual(const CoreCoord core_coord) {
@@ -173,11 +176,14 @@ CoreCoord CoordinateManager::to_virtual(const CoreCoord core_coord) {
             return to_virtual(to_logical(core_coord));
         case CoordSystem::VIRTUAL:
             return core_coord;
+        case CoordSystem::LOGICAL: {
+            auto& logical_mapping = get_logical_to_virtual(core_coord.core_type);
+            return logical_mapping[{core_coord.x, core_coord.y}];
+        }
+        default:
+            throw std::runtime_error(
+                "Unexpected CoordSystem value " + std::to_string((uint8_t)core_coord.coord_system));
     }
-
-    // Coord system is surely logical.
-    auto& logical_mapping = get_logical_to_virtual(core_coord.core_type);
-    return logical_mapping[{core_coord.x, core_coord.y}];
 }
 
 CoreCoord CoordinateManager::to_logical(const CoreCoord core_coord) {
@@ -196,6 +202,9 @@ CoreCoord CoordinateManager::to_logical(const CoreCoord core_coord) {
             auto& translated_mapping = get_translated_to_logical(core_coord.core_type);
             return translated_mapping[{core_coord.x, core_coord.y}];
         }
+        default:
+            throw std::runtime_error(
+                "Unexpected CoordSystem value " + std::to_string((uint8_t)core_coord.coord_system));
     }
 }
 
@@ -206,11 +215,14 @@ CoreCoord CoordinateManager::to_translated(const CoreCoord core_coord) {
             return to_translated(to_logical(core_coord));
         case CoordSystem::TRANSLATED:
             return core_coord;
+        case CoordSystem::LOGICAL: {
+            auto& logical_mapping = get_logical_to_translated(core_coord.core_type);
+            return logical_mapping[{core_coord.x, core_coord.y}];
+        }
+        default:
+            throw std::runtime_error(
+                "Unexpected CoordSystem value " + std::to_string((uint8_t)core_coord.coord_system));
     }
-
-    // Coord system is surely logical.
-    auto& logical_mapping = get_logical_to_translated(core_coord.core_type);
-    return logical_mapping[{core_coord.x, core_coord.y}];
 }
 
 CoreCoord CoordinateManager::to(const CoreCoord core_coord, const CoordSystem coord_system) {
@@ -223,6 +235,9 @@ CoreCoord CoordinateManager::to(const CoreCoord core_coord, const CoordSystem co
             return to_virtual(core_coord);
         case CoordSystem::TRANSLATED:
             return to_translated(core_coord);
+        default:
+            throw std::runtime_error(
+                "Unexpected CoordSystem value " + std::to_string((uint8_t)core_coord.coord_system));
     }
 }
 
@@ -455,6 +470,10 @@ std::shared_ptr<CoordinateManager> CoordinateManager::create_coordinate_manager(
                 tt::umd::blackhole::ARC_CORES,
                 tt::umd::blackhole::PCIE_GRID_SIZE,
                 tt::umd::blackhole::PCIE_CORES);
+        case tt::ARCH::Invalid:
+            throw std::runtime_error("Invalid architecture for creating coordinate manager");
+        default:
+            throw std::runtime_error("Unexpected ARCH value " + std::to_string((int)arch));
     }
 }
 

@@ -641,14 +641,13 @@ void Cluster::configure_active_ethernet_cores_for_mmio_device(
 
 void Cluster::populate_cores() {
     std::uint32_t count = 0;
-    for (const auto chip : soc_descriptor_per_chip) {
+    for (const auto& [chip_id, soc_desc] : soc_descriptor_per_chip) {
         workers_per_chip.insert(
-            {chip.first, std::unordered_set<tt_xy_pair>(chip.second.workers.begin(), chip.second.workers.end())});
+            {chip_id, std::unordered_set<tt_xy_pair>(soc_desc.workers.begin(), soc_desc.workers.end())});
         if (count == 0) {
-            eth_cores =
-                std::unordered_set<tt_xy_pair>(chip.second.ethernet_cores.begin(), chip.second.ethernet_cores.end());
-            for (std::uint32_t dram_idx = 0; dram_idx < chip.second.get_num_dram_channels(); dram_idx++) {
-                dram_cores.insert(chip.second.get_core_for_dram_channel(dram_idx, 0));
+            eth_cores = std::unordered_set<tt_xy_pair>(soc_desc.ethernet_cores.begin(), soc_desc.ethernet_cores.end());
+            for (std::uint32_t dram_idx = 0; dram_idx < soc_desc.get_num_dram_channels(); dram_idx++) {
+                dram_cores.insert(soc_desc.get_core_for_dram_channel(dram_idx, 0));
             }
         }
         count++;

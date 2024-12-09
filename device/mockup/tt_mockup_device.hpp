@@ -114,6 +114,5 @@ private:
     std::vector<tt::ARCH> archs_in_cluster = {};
     std::set<chip_id_t> target_devices_in_cluster = {};
     std::set<chip_id_t> target_remote_chips = {};
-    tt::ARCH arch_name;
     std::shared_ptr<tt_ClusterDescriptor> cluster_descriptor;
 };

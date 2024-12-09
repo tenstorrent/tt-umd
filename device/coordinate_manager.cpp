@@ -442,6 +442,7 @@ std::shared_ptr<CoordinateManager> CoordinateManager::create_coordinate_manager(
                 tt::umd::wormhole::PCIE_GRID_SIZE,
                 tt::umd::wormhole::PCIE_CORES);
         case tt::ARCH::BLACKHOLE:
+        case tt::ARCH::QUASAR: // TODO: Add Quasar configuration
             return create_coordinate_manager(
                 arch,
                 tt::umd::blackhole::TENSIX_GRID_SIZE,
@@ -456,7 +457,11 @@ std::shared_ptr<CoordinateManager> CoordinateManager::create_coordinate_manager(
                 tt::umd::blackhole::ARC_CORES,
                 tt::umd::blackhole::PCIE_GRID_SIZE,
                 tt::umd::blackhole::PCIE_CORES);
+        case tt::ARCH::Invalid:
+            throw std::runtime_error("Invalid architecture for creating coordinate manager");
     }
+
+    throw std::runtime_error("Invalid architecture for creating coordinate manager 2");
 }
 
 std::shared_ptr<CoordinateManager> CoordinateManager::create_coordinate_manager(

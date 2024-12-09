@@ -39,6 +39,8 @@ static inline tt::ARCH arch_from_str(const std::string &arch_str) {
         return tt::ARCH::WORMHOLE_B0;
     } else if (arch_str_lower == "blackhole") {
         return tt::ARCH::BLACKHOLE;
+    } else if (arch_str_lower == "quasar") {
+        return tt::ARCH::QUASAR;
     } else {
         return tt::ARCH::Invalid;
     }
@@ -52,6 +54,8 @@ static inline std::string arch_to_str(const tt::ARCH arch) {
             return "wormhole_b0";
         case tt::ARCH::BLACKHOLE:
             return "blackhole";
+        case tt::ARCH::QUASAR:
+            return "quasar";
         case tt::ARCH::Invalid:
         default:
             return "Invalid";

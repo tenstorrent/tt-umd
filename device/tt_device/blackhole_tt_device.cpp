@@ -6,6 +6,7 @@
 #include <sys/mman.h>  // for MAP_FAILED
 
 #include "umd/device/blackhole_implementation.h"
+#include "logger.hpp"
 
 namespace tt::umd {
 
@@ -60,6 +61,9 @@ void BlackholeTTDevice::configure_iatu_region(size_t region, uint64_t base, uint
     uint32_t region_ctrl_2 = 1 << 31;   // REGION_EN
     uint32_t region_ctrl_3 = 0;
     uint32_t limit_hi = 0;
+
+    log_info(LogSiliconDriver, "Device: {} Mapping iATU region {} from 0x{:x} to 0x{:x} to 0x{:x}", this->pci_device_->get_device_num(),
+        region, base, limit, target);
 
     write_iatu_reg(iatu_base + 0x00, region_ctrl_1);
     write_iatu_reg(iatu_base + 0x04, region_ctrl_2);

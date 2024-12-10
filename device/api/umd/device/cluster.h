@@ -280,7 +280,7 @@ public:
      * Query post harvesting SOC descriptors from UMD in virtual coordinates.
      * These descriptors should be used for looking up cores that are passed into UMD APIs.
      */
-    virtual std::unordered_map<chip_id_t, tt_SocDescriptor>& get_virtual_soc_descriptors() {
+    virtual std::unordered_map<chip_id_t, tt_SocDescriptor> get_virtual_soc_descriptors() {
         return soc_descriptor_per_chip;
     }
 
@@ -677,7 +677,7 @@ public:
 
     const tt_SocDescriptor& get_soc_descriptor(chip_id_t chip_id) const;
     // TODO: This function should be removed.
-    std::unordered_map<chip_id_t, tt_SocDescriptor>& get_virtual_soc_descriptors();
+    std::unordered_map<chip_id_t, tt_SocDescriptor> get_virtual_soc_descriptors();
 
     // Destructor
     virtual ~Cluster();

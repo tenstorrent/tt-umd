@@ -134,14 +134,12 @@ const tt_SocDescriptor& Cluster::get_soc_descriptor(chip_id_t chip_id) const {
     return chips_.at(chip_id)->get_soc_descriptor();
 }
 
-std::unordered_map<chip_id_t, tt_SocDescriptor>& Cluster::get_virtual_soc_descriptors() {
-    // Refresh map of soc descriptors before returning it.
-    // TODO: This function should not exist.
-    soc_descriptor_per_chip.clear();
+std::unordered_map<chip_id_t, tt_SocDescriptor> Cluster::get_virtual_soc_descriptors() {
+    std::unordered_map<chip_id_t, tt_SocDescriptor> soc_descs;
     for (const auto& chip : chips_) {
-        soc_descriptor_per_chip[chip.first] = chip.second->get_soc_descriptor();
+        soc_descs[chip.first] = chip.second->get_soc_descriptor();
     }
-    return soc_descriptor_per_chip;
+    return soc_descs;
 }
 
 bool Cluster::address_in_tlb_space(

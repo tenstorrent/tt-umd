@@ -101,7 +101,7 @@ TEST(SiliconDriverGS, HarvestingRuntime) {
 
     for (int i = 0; i < target_devices.size(); i++) {
         // Iterate over devices and only setup static TLBs for functional worker cores
-        auto& sdesc = device.get_virtual_soc_descriptors().at(i);
+        auto& sdesc = device.get_soc_descriptor(i);
         for (auto& core : sdesc.workers) {
             // Statically mapping a 1MB TLB to this core, starting from address DATA_BUFFER_SPACE_BASE.
             device.configure_tlb(i, core, get_static_tlb_index(core), l1_mem::address_map::DATA_BUFFER_SPACE_BASE);
@@ -125,7 +125,7 @@ TEST(SiliconDriverGS, HarvestingRuntime) {
         std::uint32_t dynamic_write_address = 0x30000000;
         for (int loop = 0; loop < 100;
              loop++) {  // Write to each core a 100 times at different statically mapped addresses
-            for (auto& core : device.get_virtual_soc_descriptors().at(i).workers) {
+            for (auto& core : device.get_soc_descriptor(i).workers) {
                 device.write_to_device(
                     vector_to_write.data(),
                     vector_to_write.size() * sizeof(std::uint32_t),
@@ -193,7 +193,7 @@ TEST(SiliconDriverGS, StaticTLB_RW) {
     Cluster device = Cluster(num_host_mem_ch_per_mmio_device, false, true);
     for (int i = 0; i < target_devices.size(); i++) {
         // Iterate over devices and only setup static TLBs for worker cores
-        auto& sdesc = device.get_virtual_soc_descriptors().at(i);
+        auto& sdesc = device.get_soc_descriptor(i);
         for (auto& core : sdesc.workers) {
             // Statically mapping a 1MB TLB to this core, starting from address DATA_BUFFER_SPACE_BASE.
             device.configure_tlb(
@@ -215,7 +215,7 @@ TEST(SiliconDriverGS, StaticTLB_RW) {
         std::uint32_t address = l1_mem::address_map::DATA_BUFFER_SPACE_BASE;
         for (int loop = 0; loop < 100;
              loop++) {  // Write to each core a 100 times at different statically mapped addresses
-            for (auto& core : device.get_virtual_soc_descriptors().at(i).workers) {
+            for (auto& core : device.get_soc_descriptor(i).workers) {
                 device.write_to_device(
                     vector_to_write.data(),
                     vector_to_write.size() * sizeof(std::uint32_t),
@@ -270,7 +270,7 @@ TEST(SiliconDriverGS, DynamicTLB_RW) {
         std::uint32_t address = l1_mem::address_map::DATA_BUFFER_SPACE_BASE;
         for (int loop = 0; loop < 100;
              loop++) {  // Write to each core a 100 times at different statically mapped addresses
-            for (auto& core : device.get_virtual_soc_descriptors().at(i).workers) {
+            for (auto& core : device.get_soc_descriptor(i).workers) {
                 device.write_to_device(
                     vector_to_write.data(),
                     vector_to_write.size() * sizeof(std::uint32_t),
@@ -324,7 +324,7 @@ TEST(SiliconDriverGS, MultiThreadedDevice) {
         float timeout_in_seconds = 10;
         std::uint32_t address = l1_mem::address_map::DATA_BUFFER_SPACE_BASE;
         for (int loop = 0; loop < 100; loop++) {
-            for (auto& core : device.get_virtual_soc_descriptors().at(0).workers) {
+            for (auto& core : device.get_soc_descriptor(0).workers) {
                 device.write_to_device(
                     vector_to_write.data(),
                     vector_to_write.size() * sizeof(std::uint32_t),
@@ -355,7 +355,7 @@ TEST(SiliconDriverGS, MultiThreadedDevice) {
         std::vector<uint32_t> readback_vec = {};
         float timeout_in_seconds = 10;
         std::uint32_t address = 0x30000000;
-        for (auto& core_ls : device.get_virtual_soc_descriptors().at(0).dram_cores) {
+        for (auto& core_ls : device.get_soc_descriptor(0).dram_cores) {
             for (int loop = 0; loop < 100; loop++) {
                 for (auto& core : core_ls) {
                     device.write_to_device(
@@ -412,7 +412,7 @@ TEST(SiliconDriverGS, MultiThreadedMemBar) {  // this tests takes ~5 mins to run
 
     for (int i = 0; i < target_devices.size(); i++) {
         // Iterate over devices and only setup static TLBs for functional worker cores
-        auto& sdesc = device.get_virtual_soc_descriptors().at(i);
+        auto& sdesc = device.get_soc_descriptor(i);
         for (auto& core : sdesc.workers) {
             // Statically mapping a 1MB TLB to this core, starting from address DATA_BUFFER_SPACE_BASE.
             device.configure_tlb(i, core, get_static_tlb_index(core), base_addr);
@@ -424,7 +424,7 @@ TEST(SiliconDriverGS, MultiThreadedMemBar) {  // this tests takes ~5 mins to run
     device.start_device(default_params);
     device.deassert_risc_reset();
     std::vector<uint32_t> readback_membar_vec = {};
-    for (auto& core : device.get_virtual_soc_descriptors().at(0).workers) {
+    for (auto& core : device.get_soc_descriptor(0).workers) {
         test_utils::read_data_from_device(
             device, readback_membar_vec, tt_cxy_pair(0, core), 0, 4, "SMALL_READ_WRITE_TLB");
         ASSERT_EQ(
@@ -432,7 +432,7 @@ TEST(SiliconDriverGS, MultiThreadedMemBar) {  // this tests takes ~5 mins to run
         readback_membar_vec = {};
     }
 
-    for (auto& core : device.get_virtual_soc_descriptors().at(0).workers) {
+    for (auto& core : device.get_soc_descriptor(0).workers) {
         test_utils::read_data_from_device(
             device, readback_membar_vec, tt_cxy_pair(0, core), 0, 4, "SMALL_READ_WRITE_TLB");
         ASSERT_EQ(
@@ -440,8 +440,8 @@ TEST(SiliconDriverGS, MultiThreadedMemBar) {  // this tests takes ~5 mins to run
         readback_membar_vec = {};
     }
 
-    for (int chan = 0; chan < device.get_virtual_soc_descriptors().at(0).get_num_dram_channels(); chan++) {
-        auto core = device.get_virtual_soc_descriptors().at(0).get_core_for_dram_channel(chan, 0);
+    for (int chan = 0; chan < device.get_soc_descriptor(0).get_num_dram_channels(); chan++) {
+        auto core = device.get_soc_descriptor(0).get_core_for_dram_channel(chan, 0);
         test_utils::read_data_from_device(
             device, readback_membar_vec, tt_cxy_pair(0, core), 0, 4, "SMALL_READ_WRITE_TLB");
         ASSERT_EQ(
@@ -464,7 +464,7 @@ TEST(SiliconDriverGS, MultiThreadedMemBar) {  // this tests takes ~5 mins to run
     std::thread th1 = std::thread([&] {
         std::uint32_t address = base_addr;
         for (int loop = 0; loop < 100; loop++) {
-            for (auto& core : device.get_virtual_soc_descriptors().at(0).workers) {
+            for (auto& core : device.get_soc_descriptor(0).workers) {
                 std::vector<uint32_t> readback_vec = {};
                 device.write_to_device(
                     vec1.data(), vec1.size() * sizeof(std::uint32_t), tt_cxy_pair(0, core), address, "");
@@ -482,7 +482,7 @@ TEST(SiliconDriverGS, MultiThreadedMemBar) {  // this tests takes ~5 mins to run
     std::thread th2 = std::thread([&] {
         std::uint32_t address = base_addr + vec1.size() * 4;
         for (int loop = 0; loop < 100; loop++) {
-            for (auto& core : device.get_virtual_soc_descriptors().at(0).workers) {
+            for (auto& core : device.get_soc_descriptor(0).workers) {
                 std::vector<uint32_t> readback_vec = {};
                 device.write_to_device(
                     vec2.data(), vec2.size() * sizeof(std::uint32_t), tt_cxy_pair(0, core), address, "");
@@ -500,7 +500,7 @@ TEST(SiliconDriverGS, MultiThreadedMemBar) {  // this tests takes ~5 mins to run
     th1.join();
     th2.join();
 
-    for (auto& core : device.get_virtual_soc_descriptors().at(0).workers) {
+    for (auto& core : device.get_soc_descriptor(0).workers) {
         test_utils::read_data_from_device(
             device, readback_membar_vec, tt_cxy_pair(0, core), 0, 4, "SMALL_READ_WRITE_TLB");
         ASSERT_EQ(readback_membar_vec.at(0), 187);  // Ensure that memory barriers end up in correct sate workers

@@ -1409,10 +1409,8 @@ void Cluster::init_pcie_iatus() {
         for (size_t channel = 0; channel < pci_device->get_num_host_mem_channels(); channel++) {
             hugepage_mapping hugepage_map = pci_device->get_hugepage_mapping(channel);
             if (!hugepage_map.mapping) {
-                throw std::runtime_error(fmt::format(
-                    "Hugepages are not allocated for logical device id: {} ch: {}",
-                    logical_id,
-                    channel));
+                throw std::runtime_error(
+                    fmt::format("Hugepages are not allocated for logical device id: {} ch: {}", logical_id, channel));
             }
 
             size_t region_size = hugepage_map.mapping_size;
@@ -1429,8 +1427,8 @@ void Cluster::init_pcie_iatus() {
                 iatu_configure_peer_region(logical_id, channel, hugepage_map.physical_address, region_size);
             }
 
-        } // end for each host memory channel
-    } // end for each device
+        }  // end for each host memory channel
+    }      // end for each device
 }
 
 int Cluster::test_setup_interface() {
@@ -1596,7 +1594,6 @@ int Cluster::pcie_arc_msg(
 // -- JMS Dec 10 2024.
 int Cluster::iatu_configure_peer_region(
     int logical_device_id, uint32_t peer_region_id, uint64_t bar_addr_64, uint32_t region_size) {
-
     if (arch_name == tt::ARCH::BLACKHOLE) {
         throw std::runtime_error("Don't call this for Blackhole");
     }
@@ -1617,8 +1614,7 @@ int Cluster::iatu_configure_peer_region(
     PCIDevice* pci_device = tt_device->get_pci_device();
     auto architecture_implementation = tt_device->get_architecture_implementation();
 
-    bar_write32(
-        logical_device_id, architecture_implementation->get_arc_csm_mailbox_offset() + 0 * 4, region_id_to_use);
+    bar_write32(logical_device_id, architecture_implementation->get_arc_csm_mailbox_offset() + 0 * 4, region_id_to_use);
     bar_write32(logical_device_id, architecture_implementation->get_arc_csm_mailbox_offset() + 1 * 4, dest_bar_lo);
     bar_write32(logical_device_id, architecture_implementation->get_arc_csm_mailbox_offset() + 2 * 4, dest_bar_hi);
     bar_write32(logical_device_id, architecture_implementation->get_arc_csm_mailbox_offset() + 3 * 4, region_size);

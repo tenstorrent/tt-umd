@@ -21,11 +21,6 @@ public:
 
     virtual ~tt_MockupDevice() {}
 
-    // Setup/Teardown Functions
-    virtual std::unordered_map<chip_id_t, tt_SocDescriptor>& get_virtual_soc_descriptors() override {
-        return soc_descriptor_per_chip;
-    }
-
     void set_device_l1_address_params(const tt_device_l1_address_params& l1_address_params_) override {}
 
     void set_device_dram_address_params(const tt_device_dram_address_params& dram_address_params_) override {}

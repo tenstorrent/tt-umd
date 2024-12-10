@@ -23,7 +23,7 @@ TEST_F(uBenchmarkFixture, WriteAllCores32Bytes) {
 
     ankerl::nanobench::Bench bench_static;
     ankerl::nanobench::Bench bench_dynamic;
-    for (auto& core : device->get_virtual_soc_descriptors().at(0).workers) {
+    for (auto& core : device->get_soc_descriptor(0).workers) {
         std::stringstream wname;
         wname << "Write to device core (" << core.x << ", " << core.y << ")";
         // Write 32 bytes through static tlbs
@@ -66,13 +66,13 @@ TEST_F(uBenchmarkFixture, ReadAllCores32Bytes) {
     ankerl::nanobench::Bench bench_static;
     ankerl::nanobench::Bench bench_dynamic;
 
-    for (auto& core : device->get_virtual_soc_descriptors().at(0).workers) {
+    for (auto& core : device->get_soc_descriptor(0)
         std::stringstream rname;
         // Read through static tlbs
         rname << "Read from device core (" << core.x << ", " << core.y << ")";
         bench_static.title("Read 32 bytes").unit("reads").minEpochIterations(50).output(nullptr).run(rname.str(), [&] {
-            test_utils::read_data_from_device(
-                *device, readback_vec, tt_cxy_pair(0, core), address, 0x20, "SMALL_READ_WRITE_TLB");
+        test_utils::read_data_from_device(
+            *device, readback_vec, tt_cxy_pair(0, core), address, 0x20, "SMALL_READ_WRITE_TLB");
         });
         // Read through "fallback/dynamic" tlb
         bench_dynamic.title("Read 32 bytes fallback")
@@ -80,13 +80,14 @@ TEST_F(uBenchmarkFixture, ReadAllCores32Bytes) {
             .minEpochIterations(50)
             .output(nullptr)
             .run(rname.str(), [&] {
-                test_utils::read_data_from_device(
-                    *device, readback_vec, tt_cxy_pair(0, core), bad_address, 0x20, "SMALL_READ_WRITE_TLB");
+        test_utils::read_data_from_device(
+            *device, readback_vec, tt_cxy_pair(0, core), bad_address, 0x20, "SMALL_READ_WRITE_TLB");
             });
         rname.clear();
-    }
-    bench_static.render(ankerl::nanobench::templates::csv(), results_csv);
-    bench_dynamic.render(ankerl::nanobench::templates::csv(), results_csv);
+}
+
+bench_static.render(ankerl::nanobench::templates::csv(), results_csv);
+bench_dynamic.render(ankerl::nanobench::templates::csv(), results_csv);
 }
 
 TEST_F(uBenchmarkFixture, Write32BytesRandomAddr) {
@@ -94,7 +95,7 @@ TEST_F(uBenchmarkFixture, Write32BytesRandomAddr) {
     std::uint32_t address;
 
     ankerl::nanobench::Bench bench;
-    for (auto& core : device->get_virtual_soc_descriptors().at(0).workers) {
+    for (auto& core : device->get_soc_descriptor(0)
         address = generate_random_address(1 << 20);  // between 0 and 1MB
         std::stringstream wname;
         wname << "Write to device core (" << core.x << ", " << core.y << ") @ address " << std::hex << address;
@@ -103,16 +104,17 @@ TEST_F(uBenchmarkFixture, Write32BytesRandomAddr) {
             .minEpochIterations(50)
             .output(nullptr)
             .run(wname.str(), [&] {
-                device->write_to_device(
-                    vector_to_write.data(),
-                    vector_to_write.size() * sizeof(std::uint32_t),
-                    tt_cxy_pair(0, core),
-                    address,
-                    "SMALL_READ_WRITE_TLB");
+        device->write_to_device(
+            vector_to_write.data(),
+            vector_to_write.size() * sizeof(std::uint32_t),
+            tt_cxy_pair(0, core),
+            address,
+            "SMALL_READ_WRITE_TLB");
             });
         wname.clear();
-    }
-    bench.render(ankerl::nanobench::templates::csv(), results_csv);
+}
+
+bench.render(ankerl::nanobench::templates::csv(), results_csv);
 }
 
 TEST_F(uBenchmarkFixture, Read32BytesRandomAddr) {
@@ -120,7 +122,7 @@ TEST_F(uBenchmarkFixture, Read32BytesRandomAddr) {
     std::uint32_t address;
 
     ankerl::nanobench::Bench bench;
-    for (auto& core : device->get_virtual_soc_descriptors().at(0).workers) {
+    for (auto& core : device->get_soc_descriptor(0)
         address = generate_random_address(1 << 20);  // between 0 and 1MB
         std::stringstream rname;
         rname << "Read from device core (" << core.x << ", " << core.y << ") @ address " << std::hex << address;
@@ -129,10 +131,11 @@ TEST_F(uBenchmarkFixture, Read32BytesRandomAddr) {
             .minEpochIterations(50)
             .output(nullptr)
             .run(rname.str(), [&] {
-                test_utils::read_data_from_device(
-                    *device, readback_vec, tt_cxy_pair(0, core), address, 0x20, "SMALL_READ_WRITE_TLB");
+        test_utils::read_data_from_device(
+            *device, readback_vec, tt_cxy_pair(0, core), address, 0x20, "SMALL_READ_WRITE_TLB");
             });
         rname.clear();
-    }
-    bench.render(ankerl::nanobench::templates::csv(), results_csv);
+}
+
+bench.render(ankerl::nanobench::templates::csv(), results_csv);
 }

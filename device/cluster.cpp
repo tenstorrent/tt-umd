@@ -38,6 +38,9 @@
 
 #include "logger.hpp"
 #include "umd/device/architecture_implementation.h"
+#include "umd/device/chip/local_chip.h"
+#include "umd/device/chip/mock_chip.h"
+#include "umd/device/chip/remote_chip.h"
 #include "umd/device/driver_atomics.h"
 #include "umd/device/hugepage.h"
 #include "umd/device/tlb.h"
@@ -66,16 +69,6 @@ void size_buffer_to_capacity(std::vector<T>& data_buf, std::size_t size_in_bytes
         target_size = ((size_in_bytes - 1) / sizeof(T)) + 1;
     }
     data_buf.resize(target_size);
-}
-
-// TODO: To be removed when tt_device is removed
-
-tt_device::tt_device() : soc_descriptor_per_chip({}) {}
-
-tt_device::~tt_device() {}
-
-const tt_SocDescriptor& tt_device::get_soc_descriptor(chip_id_t chip_id) const {
-    return soc_descriptor_per_chip.at(chip_id);
 }
 
 // --------------------------------------------------------------------------------------------------------------
@@ -137,6 +130,18 @@ struct tt_4_byte_aligned_buffer {
 
 namespace tt::umd {
 
+const tt_SocDescriptor& Cluster::get_soc_descriptor(chip_id_t chip_id) const {
+    return chips_.at(chip_id)->get_soc_descriptor();
+}
+
+std::unordered_map<chip_id_t, tt_SocDescriptor> Cluster::get_virtual_soc_descriptors() {
+    std::unordered_map<chip_id_t, tt_SocDescriptor> soc_descs;
+    for (const auto& chip : chips_) {
+        soc_descs[chip.first] = chip.second->get_soc_descriptor();
+    }
+    return soc_descs;
+}
+
 bool Cluster::address_in_tlb_space(
     uint64_t address, uint32_t size_in_bytes, int32_t tlb_index, uint64_t tlb_size, std::uint32_t chip) {
     const auto& tlb_map = tlb_config_map.at(chip);
@@ -146,10 +151,6 @@ bool Cluster::address_in_tlb_space(
         return address >= mapped_address && (address + size_in_bytes <= mapped_address + tlb_size);
     }
     return false;
-}
-
-std::unordered_map<chip_id_t, tt_SocDescriptor>& Cluster::get_virtual_soc_descriptors() {
-    return soc_descriptor_per_chip;
 }
 
 void Cluster::initialize_interprocess_mutexes(int pci_interface_id, bool cleanup_mutexes_in_shm) {
@@ -206,7 +207,7 @@ void Cluster::initialize_interprocess_mutexes(int pci_interface_id, bool cleanup
 }
 
 void Cluster::create_device(
-    const std::unordered_set<chip_id_t>& target_mmio_device_ids,
+    const std::set<chip_id_t>& target_mmio_device_ids,
     const uint32_t& num_host_mem_ch_per_mmio_device,
     const bool skip_driver_allocs,
     const bool clean_system_resources) {
@@ -316,24 +317,27 @@ std::unordered_map<chip_id_t, uint32_t> Cluster::get_harvesting_masks_for_soc_de
 }
 
 void Cluster::construct_cluster(
-    const std::string& sdesc_path,
     const uint32_t& num_host_mem_ch_per_mmio_device,
     const bool skip_driver_allocs,
     const bool clean_system_resources,
     bool perform_harvesting,
     std::unordered_map<chip_id_t, uint32_t> simulated_harvesting_masks) {
-    std::unordered_set<chip_id_t> target_mmio_device_ids;
-    for (auto& d : target_devices_in_cluster) {
-        log_assert(
-            cluster_desc->get_all_chips().find(d) != cluster_desc->get_all_chips().end(),
-            "Target device {} not present in current cluster!",
-            d);
-        if (cluster_desc->is_chip_mmio_capable(d)) {
-            target_mmio_device_ids.insert(d);
-        } else {
-            target_remote_chips.insert(d);
-        }
+    if (!skip_driver_allocs) {
+        auto available_device_ids = detect_available_device_ids();
+        log_info(LogSiliconDriver, "Detected PCI devices: {}", available_device_ids);
+        log_info(
+            LogSiliconDriver,
+            "Using local chip ids: {} and remote chip ids {}",
+            all_target_mmio_devices,
+            target_remote_chips);
     }
+
+    // Prefill the soc_descriptor_per_chip
+    for (const auto& [chip_id, chip] : chips_) {
+        soc_descriptor_per_chip.emplace(chip_id, chip->get_soc_descriptor());
+    }
+
+    perform_harvesting_on_sdesc = perform_harvesting;
 
     // It is mandatory for all devices to have these TLBs set aside, as the driver needs them to issue remote reads and
     // writes.
@@ -347,7 +351,7 @@ void Cluster::construct_cluster(
     for (const auto& tlb : dynamic_tlb_config) {
         dynamic_tlb_ordering_modes.insert({tlb.first, TLB_DATA::Relaxed});
     }
-    create_device(target_mmio_device_ids, num_host_mem_ch_per_mmio_device, skip_driver_allocs, clean_system_resources);
+    create_device(all_target_mmio_devices, num_host_mem_ch_per_mmio_device, skip_driver_allocs, clean_system_resources);
 
     // MT: Initial BH - Disable dependency to ethernet firmware
     if (arch_name == tt::ARCH::BLACKHOLE) {
@@ -455,13 +459,15 @@ void Cluster::construct_cluster(
         }
     }
 
-    perform_harvesting_and_populate_soc_descriptors(sdesc_path, perform_harvesting);
+    if (perform_harvesting) {
+        perform_harvesting_on_soc_descriptors();
+    }
     populate_cores();
 
     // MT: Initial BH - skip this for BH
     if (arch_name == tt::ARCH::WORMHOLE_B0) {
-        remote_transfer_ethernet_cores.resize(target_mmio_device_ids.size());
-        for (const auto& logical_mmio_chip_id : target_mmio_device_ids) {
+        remote_transfer_ethernet_cores.resize(all_target_mmio_devices.size());
+        for (const auto& logical_mmio_chip_id : all_target_mmio_devices) {
             const tt_SocDescriptor& soc_desc = get_soc_descriptor(logical_mmio_chip_id);
             // 4-5 is for send_epoch_commands, 0-3 are for everything else
             for (std::uint32_t i = 0; i < NUM_ETH_CORES_FOR_NON_MMIO_TRANSFERS; i++) {
@@ -485,45 +491,57 @@ void Cluster::construct_cluster(
     noc_params = architecture_implementation->get_noc_params();
 }
 
+std::unique_ptr<Chip> Cluster::construct_chip_from_cluster(
+    chip_id_t chip_id, tt_ClusterDescriptor* cluster_desc, tt_SocDescriptor& soc_desc) {
+    if (cluster_desc->is_chip_mmio_capable(chip_id)) {
+        return std::make_unique<LocalChip>(soc_desc);
+    } else {
+        return std::make_unique<RemoteChip>(soc_desc);
+    }
+}
+
+std::unique_ptr<Chip> Cluster::construct_chip_from_cluster(chip_id_t chip_id, tt_ClusterDescriptor* cluster_desc) {
+    tt::ARCH arch = cluster_desc->get_arch(chip_id);
+    std::string soc_desc_path = tt_SocDescriptor::get_soc_descriptor_path(arch);
+    // Note that initially soc_descriptors are not harvested, but will be harvested later if perform_harvesting is
+    // true.
+    // TODO: This should be changed, harvesting should be done in tt_socdescriptor's constructor and not as part of
+    // cluster class.
+    // uint32_t harvesting_info = cluster_desc->get_harvesting_info().at(chip_id);
+    tt_SocDescriptor soc_desc = tt_SocDescriptor(soc_desc_path /*, harvesting_info*/);
+    return construct_chip_from_cluster(chip_id, cluster_desc, soc_desc);
+}
+
+void Cluster::add_chip(chip_id_t chip_id, std::unique_ptr<Chip> chip) {
+    log_assert(
+        chips_.find(chip_id) == chips_.end(),
+        "Chip with id {} already exists in cluster. Cannot add another chip with the same id.",
+        chip_id);
+    target_devices_in_cluster.insert(chip_id);
+    if (chip->is_mmio_capable()) {
+        all_target_mmio_devices.insert(chip_id);
+    } else {
+        target_remote_chips.insert(chip_id);
+    }
+    chips_.emplace(chip_id, std::move(chip));
+}
+
 Cluster::Cluster(
     const uint32_t& num_host_mem_ch_per_mmio_device,
     const bool skip_driver_allocs,
     const bool clean_system_resources,
     bool perform_harvesting,
-    std::unordered_map<chip_id_t, uint32_t> simulated_harvesting_masks) :
-    tt_device() {
+    std::unordered_map<chip_id_t, uint32_t> simulated_harvesting_masks) {
     cluster_desc = tt_ClusterDescriptor::create();
 
-    // TODO: this should be fetched through ClusterDescriptor
-    auto available_device_ids = detect_available_device_ids();
-
-    int physical_device_id = available_device_ids[0];
-    PCIDevice pci_device(physical_device_id);
-    tt::ARCH device_arch = pci_device.get_arch();
-
-    std::string sdesc_path = tt_SocDescriptor::get_soc_descriptor_path(device_arch);
-
-    arch_name = tt_SocDescriptor(sdesc_path).arch;
-    perform_harvesting_on_sdesc = perform_harvesting;
-
-    if (!skip_driver_allocs) {
-        log_info(
-            LogSiliconDriver,
-            "Detected {} PCI device{} : {}",
-            available_device_ids.size(),
-            (available_device_ids.size() > 1) ? "s" : "",
-            available_device_ids);
-        log_debug(LogSiliconDriver, "Passed target devices: {}", target_devices);
+    for (auto& chip_id : cluster_desc->get_all_chips()) {
+        add_chip(chip_id, construct_chip_from_cluster(chip_id, cluster_desc.get()));
     }
 
-    std::set<chip_id_t> target_devices;
-    for (const chip_id_t& d : cluster_desc->get_all_chips()) {
-        target_devices.insert(d);
-    }
-    target_devices_in_cluster = target_devices;
+    // TODO: work on removing this member altogether. Currently assumes all have the same arch.
+    arch_name = chips_.begin()->second->get_soc_descriptor().arch;
 
     construct_cluster(
-        sdesc_path,
         num_host_mem_ch_per_mmio_device,
         skip_driver_allocs,
         clean_system_resources,
@@ -537,36 +555,21 @@ Cluster::Cluster(
     const bool skip_driver_allocs,
     const bool clean_system_resources,
     bool perform_harvesting,
-    std::unordered_map<chip_id_t, uint32_t> simulated_harvesting_masks) :
-    tt_device() {
+    std::unordered_map<chip_id_t, uint32_t> simulated_harvesting_masks) {
     cluster_desc = tt_ClusterDescriptor::create();
 
-    // TODO: this should be fetched through ClusterDescriptor
-    auto available_device_ids = detect_available_device_ids();
-
-    int physical_device_id = available_device_ids[0];
-    PCIDevice pci_device(physical_device_id);
-    tt::ARCH device_arch = pci_device.get_arch();
-
-    std::string sdesc_path = tt_SocDescriptor::get_soc_descriptor_path(device_arch);
-
-    arch_name = tt_SocDescriptor(sdesc_path).arch;
-    perform_harvesting_on_sdesc = perform_harvesting;
-
-    if (!skip_driver_allocs) {
-        log_info(
-            LogSiliconDriver,
-            "Detected {} PCI device{} : {}",
-            available_device_ids.size(),
-            (available_device_ids.size() > 1) ? "s" : "",
-            available_device_ids);
-        log_debug(LogSiliconDriver, "Passed target devices: {}", target_devices);
+    for (auto& chip_id : target_devices) {
+        log_assert(
+            cluster_desc->get_all_chips().find(chip_id) != cluster_desc->get_all_chips().end(),
+            "Target device {} not present in current cluster!",
+            chip_id);
+        add_chip(chip_id, construct_chip_from_cluster(chip_id, cluster_desc.get()));
     }
 
-    target_devices_in_cluster = target_devices;
+    // TODO: work on removing this member altogether. Currently assumes all have the same arch.
+    arch_name = chips_.begin()->second->get_soc_descriptor().arch;
 
     construct_cluster(
-        sdesc_path,
         num_host_mem_ch_per_mmio_device,
         skip_driver_allocs,
         clean_system_resources,
@@ -581,34 +584,79 @@ Cluster::Cluster(
     const bool skip_driver_allocs,
     const bool clean_system_resources,
     bool perform_harvesting,
-    std::unordered_map<chip_id_t, uint32_t> simulated_harvesting_masks) :
-    tt_device() {
+    std::unordered_map<chip_id_t, uint32_t> simulated_harvesting_masks) {
     cluster_desc = tt_ClusterDescriptor::create();
 
-    // TODO: this should be fetched through ClusterDescriptor
-    auto available_device_ids = detect_available_device_ids();
+    for (auto& chip_id : target_devices) {
+        log_assert(
+            cluster_desc->get_all_chips().find(chip_id) != cluster_desc->get_all_chips().end(),
+            "Target device {} not present in current cluster!",
+            chip_id);
 
-    target_devices_in_cluster = target_devices;
-    arch_name = tt_SocDescriptor(sdesc_path).arch;
-    perform_harvesting_on_sdesc = perform_harvesting;
-
-    if (!skip_driver_allocs) {
-        log_info(
-            LogSiliconDriver,
-            "Detected {} PCI device{} : {}",
-            available_device_ids.size(),
-            (available_device_ids.size() > 1) ? "s" : "",
-            available_device_ids);
-        log_debug(LogSiliconDriver, "Passed target devices: {}", target_devices);
+        // Note that initially soc_descriptors are not harvested, but will be harvested later if perform_harvesting is
+        // true.
+        // TODO: This should be changed, harvesting should be done in tt_socdescriptor's constructor and not as part of
+        // cluster class.
+        tt_SocDescriptor soc_desc = tt_SocDescriptor(sdesc_path);
+        log_assert(
+            cluster_desc->get_arch(chip_id) == soc_desc.arch,
+            "Passed soc descriptor has {} arch, but for chip id {} has arch {}",
+            arch_to_str(soc_desc.arch),
+            chip_id,
+            arch_to_str(cluster_desc->get_arch(chip_id)));
+        add_chip(chip_id, construct_chip_from_cluster(chip_id, cluster_desc.get(), soc_desc));
     }
 
+    // TODO: work on removing this member altogether. Currently assumes all have the same arch.
+    arch_name = chips_.begin()->second->get_soc_descriptor().arch;
+
     construct_cluster(
-        sdesc_path,
         num_host_mem_ch_per_mmio_device,
         skip_driver_allocs,
         clean_system_resources,
         perform_harvesting,
         simulated_harvesting_masks);
+}
+
+Cluster::Cluster(
+    std::unordered_map<chip_id_t, std::unique_ptr<Chip>>& chips,
+    const uint32_t& num_host_mem_ch_per_mmio_device,
+    const bool skip_driver_allocs,
+    const bool clean_system_resources,
+    bool perform_harvesting,
+    std::unordered_map<chip_id_t, uint32_t> simulated_harvesting_masks) {
+    cluster_desc = tt_ClusterDescriptor::create();
+
+    for (auto& [chip_id, chip] : chips) {
+        add_chip(chip_id, std::move(chip));
+    }
+
+    // TODO: work on removing this member altogether. Currently assumes all have the same arch.
+    arch_name = chips_.begin()->second->get_soc_descriptor().arch;
+
+    construct_cluster(
+        num_host_mem_ch_per_mmio_device,
+        skip_driver_allocs,
+        clean_system_resources,
+        perform_harvesting,
+        simulated_harvesting_masks);
+}
+
+// TODO:This likely won't work well as long as cluster_descriptor is used throughout the code.
+/* static */ std::unique_ptr<Cluster> Cluster::create_mock_cluster() {
+    // TBD how this would look like for simulated cluster.
+    // Arbitrary arch used for mock cluster.
+    // Note that this arch currently has an impact on some stuff in Cluster class, based on the produced cluster
+    // descriptor on the system. This should not be true in the future when we start taking stuff in Cluster from Chip
+    // rather than ClusterDescriptor.
+    tt::ARCH arch = tt::ARCH::GRAYSKULL;
+    chip_id_t mock_chip_id = 0;
+    tt_SocDescriptor soc_desc = tt_SocDescriptor(tt_SocDescriptor::get_soc_descriptor_path(arch));
+    std::unique_ptr<Chip> chip = std::make_unique<MockChip>(soc_desc);
+
+    std::unordered_map<chip_id_t, std::unique_ptr<Chip>> chips;
+    chips.emplace(mock_chip_id, std::move(chip));
+    return std::make_unique<Cluster>(chips);
 }
 
 void Cluster::configure_active_ethernet_cores_for_mmio_device(
@@ -641,7 +689,8 @@ void Cluster::configure_active_ethernet_cores_for_mmio_device(
 
 void Cluster::populate_cores() {
     std::uint32_t count = 0;
-    for (const auto& [chip_id, soc_desc] : soc_descriptor_per_chip) {
+    for (const auto& [chip_id, chip] : chips_) {
+        auto& soc_desc = chip->get_soc_descriptor();
         workers_per_chip.insert(
             {chip_id, std::unordered_set<tt_xy_pair>(soc_desc.workers.begin(), soc_desc.workers.end())});
         if (count == 0) {
@@ -719,15 +768,9 @@ void Cluster::harvest_rows_in_soc_descriptor(tt::ARCH arch, tt_SocDescriptor& sd
     remove_worker_row_from_descriptor(sdesc, row_coordinates_to_remove);
 }
 
-void Cluster::perform_harvesting_and_populate_soc_descriptors(
-    const std::string& sdesc_path, const bool perform_harvesting) {
-    const auto default_sdesc = tt_SocDescriptor(sdesc_path);
+void Cluster::perform_harvesting_on_soc_descriptors() {
     for (const auto& chip : harvested_rows_per_target) {
-        auto temp_sdesc = default_sdesc;
-        if (perform_harvesting) {
-            harvest_rows_in_soc_descriptor(arch_name, temp_sdesc, chip.second);
-        }
-        soc_descriptor_per_chip.insert({chip.first, temp_sdesc});
+        harvest_rows_in_soc_descriptor(arch_name, chips_.at(chip.first)->get_soc_descriptor(), chip.second);
     }
 }
 
@@ -1316,7 +1359,6 @@ Cluster::~Cluster() {
 
     m_tt_device_map.clear();
     cluster_desc.reset();
-    soc_descriptor_per_chip.clear();
     dynamic_tlb_config.clear();
     tlb_config_map.clear();
     dynamic_tlb_ordering_modes.clear();

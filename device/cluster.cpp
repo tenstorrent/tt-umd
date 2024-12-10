@@ -646,7 +646,10 @@ Cluster::Cluster(
 /* static */ std::unique_ptr<Cluster> Cluster::create_mock_cluster() {
     // TBD how this would look like for simulated cluster.
     // Arbitrary arch used for mock cluster.
-    tt::ARCH arch = tt::ARCH::WORMHOLE_B0;
+    // Note that this arch currently has an impact on some stuff in Cluster class, based on the produced cluster
+    // descriptor on the system. This should not be true in the future when we start taking stuff in Cluster from Chip
+    // rather than ClusterDescriptor.
+    tt::ARCH arch = tt::ARCH::GRAYSKULL;
     chip_id_t mock_chip_id = 0;
     tt_SocDescriptor soc_desc = tt_SocDescriptor(tt_SocDescriptor::get_soc_descriptor_path(arch));
     std::unique_ptr<Chip> chip = std::make_unique<MockChip>(soc_desc);

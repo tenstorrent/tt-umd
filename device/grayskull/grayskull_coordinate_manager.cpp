@@ -38,6 +38,7 @@ GrayskullCoordinateManager::GrayskullCoordinateManager(
     this->translate_eth_coords();
     this->translate_arc_coords();
     this->translate_pcie_coords();
+    this->fill_core_structures();
 }
 
 void GrayskullCoordinateManager::fill_eth_logical_to_translated() {

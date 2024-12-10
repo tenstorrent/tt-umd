@@ -449,7 +449,7 @@ public:
         return 0;
     }
 
-    virtual const tt_SocDescriptor& get_soc_descriptor(chip_id_t chip_id) {
+    virtual const tt_SocDescriptor& get_soc_descriptor(chip_id_t chip_id) const {
         return soc_descriptor_per_chip.at(chip_id);
     }
 
@@ -676,6 +676,8 @@ public:
     TTDevice* get_tt_device(chip_id_t device_id) const;
 
     const tt_SocDescriptor& get_soc_descriptor(chip_id_t chip_id) const;
+    // TODO: This function should be removed.
+    std::unordered_map<chip_id_t, tt_SocDescriptor>& get_virtual_soc_descriptors();
 
     // Destructor
     virtual ~Cluster();

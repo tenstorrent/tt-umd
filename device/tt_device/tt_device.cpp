@@ -310,4 +310,8 @@ dynamic_tlb TTDevice::set_dynamic_tlb_broadcast(
     return set_dynamic_tlb(tlb_index, start, end, address, true, harvested_coord_translation, ordering);
 }
 
+void TTDevice::configure_iatu_region(size_t region, uint64_t base, uint64_t target, size_t size) {
+    throw std::runtime_error("configure_iatu_region is not implemented for this device");
+}
+
 }  // namespace tt::umd

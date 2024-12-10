@@ -85,6 +85,31 @@ public:
         tt_xy_pair end,
         std::uint64_t ordering = tt::umd::tlb_data::Relaxed);
 
+    /**
+     * Configures a PCIe Address Translation Unit (iATU) region to maintain
+     * compatibility software expecations.
+     *
+     * Device software expects to be able to access the host's memory at fixed
+     * NOC addresses:
+     * - GS: 0x0
+     * - WH: 0x8_0000_0000
+     * - BH: 0x1000_0000_0000_0000
+     * Without iATU configuration, these map to PA 0x0.
+     *
+     * While modern hardware supports IOMMU with flexible IOVA mapping, we must
+     * maintain the iATU configuration to satisfy software that has hard-coded
+     * the above NOC addresses rather than using driver-provided IOVAs.
+     *
+     * @param region - iATU region index (0-15)
+     * @param base   - Source address in device-expected address space
+     * @param target - Actual physical address to map to
+     * @param size   - Size of the mapping window
+     *
+     * TODO: this is only implemented for Blackhole right now; ARC messaging
+     * logic needs to be re-homed for Grayskull and Wormhole implementations.
+     */
+    virtual void configure_iatu_region(size_t region, uint64_t base, uint64_t target, size_t size);
+
 protected:
     std::unique_ptr<PCIDevice> pci_device_;
     std::unique_ptr<architecture_implementation> architecture_impl_;

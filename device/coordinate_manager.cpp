@@ -420,6 +420,26 @@ void CoordinateManager::assert_create_coordinate_manager(
     }
 }
 
+void CoordinateManager::shuffle_tensix_harvesting_mask(const std::vector<uint32_t>& harvesting_locations) {
+    std::vector<uint32_t> sorted_harvesting_locations = harvesting_locations;
+    std::sort(sorted_harvesting_locations.begin(), sorted_harvesting_locations.end());
+    size_t new_harvesting_mask = 0;
+    uint32_t pos = 0;
+    while (tensix_harvesting_mask > 0) {
+        if (tensix_harvesting_mask & 1) {
+            uint32_t sorted_position =
+                std::find(
+                    sorted_harvesting_locations.begin(), sorted_harvesting_locations.end(), harvesting_locations[pos]) -
+                sorted_harvesting_locations.begin();
+            new_harvesting_mask |= (1 << sorted_position);
+        }
+        tensix_harvesting_mask >>= 1;
+        pos++;
+    }
+
+    tensix_harvesting_mask = new_harvesting_mask;
+}
+
 std::shared_ptr<CoordinateManager> CoordinateManager::create_coordinate_manager(
     tt::ARCH arch, const size_t tensix_harvesting_mask, const size_t dram_harvesting_mask) {
     assert_create_coordinate_manager(arch, tensix_harvesting_mask, dram_harvesting_mask);

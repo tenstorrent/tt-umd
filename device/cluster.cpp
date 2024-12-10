@@ -134,6 +134,16 @@ const tt_SocDescriptor& Cluster::get_soc_descriptor(chip_id_t chip_id) const {
     return chips_.at(chip_id)->get_soc_descriptor();
 }
 
+std::unordered_map<chip_id_t, tt_SocDescriptor>& Cluster::get_virtual_soc_descriptors() {
+    // Refresh map of soc descriptors before returning it.
+    // TODO: This function should not exist.
+    soc_descriptor_per_chip.clear();
+    for (const auto& chip : chips_) {
+        soc_descriptor_per_chip[chip.first] = chip.second->get_soc_descriptor();
+    }
+    return soc_descriptor_per_chip;
+}
+
 bool Cluster::address_in_tlb_space(
     uint64_t address, uint32_t size_in_bytes, int32_t tlb_index, uint64_t tlb_size, std::uint32_t chip) {
     const auto& tlb_map = tlb_config_map.at(chip);
@@ -495,8 +505,12 @@ std::unique_ptr<Chip> Cluster::construct_chip_from_cluster(
 std::unique_ptr<Chip> Cluster::construct_chip_from_cluster(chip_id_t chip_id, tt_ClusterDescriptor* cluster_desc) {
     tt::ARCH arch = cluster_desc->get_arch(chip_id);
     std::string soc_desc_path = tt_SocDescriptor::get_soc_descriptor_path(arch);
-    uint32_t harvesting_info = cluster_desc->get_harvesting_info().at(chip_id);
-    tt_SocDescriptor soc_desc = tt_SocDescriptor(soc_desc_path, harvesting_info);
+    // Note that initially soc_descriptors are not harvested, but will be harvested later if perform_harvesting is
+    // true.
+    // TODO: This should be changed, harvesting should be done in tt_socdescriptor's constructor and not as part of
+    // cluster class.
+    // uint32_t harvesting_info = cluster_desc->get_harvesting_info().at(chip_id);
+    tt_SocDescriptor soc_desc = tt_SocDescriptor(soc_desc_path /*, harvesting_info*/);
     return construct_chip_from_cluster(chip_id, cluster_desc, soc_desc);
 }
 
@@ -581,7 +595,11 @@ Cluster::Cluster(
             "Target device {} not present in current cluster!",
             chip_id);
 
-        tt_SocDescriptor soc_desc = tt_SocDescriptor(sdesc_path, cluster_desc->get_harvesting_info().at(chip_id));
+        // Note that initially soc_descriptors are not harvested, but will be harvested later if perform_harvesting is
+        // true.
+        // TODO: This should be changed, harvesting should be done in tt_socdescriptor's constructor and not as part of
+        // cluster class.
+        tt_SocDescriptor soc_desc = tt_SocDescriptor(sdesc_path);
         log_assert(
             cluster_desc->get_arch(chip_id) == soc_desc.arch,
             "Passed soc descriptor has {} arch, but for chip id {} has arch {}",

@@ -240,11 +240,7 @@ void Cluster::create_device(
         }
         auto pci_device = m_tt_device_map.at(logical_device_id)->get_pci_device();
 
-        uint16_t pcie_device_id = pci_device->get_pci_device_id();
-        uint32_t pcie_revision = pci_device->get_pci_revision();
-        // TODO: get rid of this, it doesn't make any sense.
-        int num_host_mem_channels =
-            get_available_num_host_mem_channels(num_host_mem_ch_per_mmio_device, pcie_device_id, pcie_revision);
+        int num_host_mem_channels = num_host_mem_ch_per_mmio_device;
         if (pci_device->get_arch() == tt::ARCH::BLACKHOLE && num_host_mem_channels > 1) {
             // TODO: Implement support for multiple host channels on BLACKHOLE.
             log_warning(

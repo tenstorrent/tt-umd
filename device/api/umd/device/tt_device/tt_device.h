@@ -89,7 +89,7 @@ public:
      * Configures a PCIe Address Translation Unit (iATU) region.
      *
      * Device software expects to be able to access memory that is shared with
-     * the host at using the following NOC addresses at the PCIe core:
+     * the host using the following NOC addresses at the PCIe core:
      * - GS: 0x0
      * - WH: 0x8_0000_0000
      * - BH: 0x1000_0000_0000_0000

@@ -549,8 +549,10 @@ void RunMixedTransfers(
 }
 
 // TODO: This gives warning on GCC 14 only (not GCC 9, not clang), and I wasn't able to quickly figure out quickly.
+#ifdef __GNUC__
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wmaybe-uninitialized"
+#endif
 
 static ConstrainedTemplateTemplateGenerator<address_t, address_t, std::uniform_int_distribution>
 get_default_address_generator(int seed, address_t start, address_t end) {
@@ -559,7 +561,9 @@ get_default_address_generator(int seed, address_t start, address_t end) {
         seed + 1, address_distribution, address_aligner);
 }
 
+#ifdef __GNUC__
 #pragma GCC diagnostic pop
+#endif
 
 static ConstrainedTemplateTemplateGenerator<destination_t, int, std::uniform_int_distribution>
 get_default_full_dram_dest_generator(int seed, Cluster* device) {

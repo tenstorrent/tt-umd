@@ -33,7 +33,7 @@ apt install libmpfr-dev libgmp3-dev libmpc-dev -y && \
     tar -xf gcc-14.2.0.tar.gz && \
     cd gcc-14.2.0 && \
     ./configure -v --build=x86_64-linux-gnu --host=x86_64-linux-gnu --target=x86_64-linux-gnu --prefix=/usr/local/gcc-14.2.0 --enable-checking=release --enable-languages=c,c++ --disable-multilib --program-suffix=-14.2.0 && \
-    make -j && \
+    make && \
     make install && \
     ln -s /usr/local/gcc-14.2.0/bin/gcc-14.2.0 /usr/bin/gcc-14 && \
     ln -s /usr/local/gcc-14.2.0/bin/g++-14.2.0 /usr/bin/g++-14 && \

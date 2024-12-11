@@ -886,7 +886,7 @@ TEST(SiliconDriverBH, SysmemTestWithPcie) {
     auto target_devices = get_target_devices();
 
     Cluster cluster(
-        1,      // one "host memory channel", currently a 1G huge page
+        1,      // one "host memory channel",
         false,  // skip driver allocs - no (don't skip)
         true,   // clean system resources - yes
         true);  // perform harvesting - yes
@@ -904,8 +904,6 @@ TEST(SiliconDriverBH, SysmemTestWithPcie) {
     ASSERT_NE(sysmem, nullptr);
 
     uint64_t base_address = cluster.get_pcie_base_addr_from_device(mmio_chip_id);
-    std::cout << "Base address: " << std::hex << base_address << std::endl;
-    std::cout << std::dec;
 
     // Buffer that we will use to read sysmem into, then write sysmem from.
     std::vector<uint8_t> buffer(test_size_bytes, 0x0);
@@ -934,12 +932,28 @@ TEST(SiliconDriverBH, SysmemTestWithPcie) {
     ASSERT_EQ(buffer, std::vector<uint8_t>(sysmem, sysmem + test_size_bytes));
 }
 
+static bool is_iommu_available()
+{
+    const size_t num_channels = 1;
+    auto target_devices = get_target_devices();
+    Cluster cluster(
+        test_utils::GetAbsPath("tests/soc_descs/blackhole_140_arch_no_eth.yaml"),
+        target_devices,
+        num_channels,
+        false,  // skip driver allocs - no (don't skip)
+        true,   // clean system resources - yes
+        true);  // perform harvesting - yes
+    return cluster.get_tt_device(0)->get_pci_device()->is_iommu_enabled();
+}
+
 /**
- * Same idea as above, but with four channels of sysmem and random addresses.
+ * Same idea as above, but with multiple channels of sysmem and random addresses.
  * The hardware mechanism is too slow to sweep the entire range.
  */
 TEST(SiliconDriverBH, RandomSysmemTestWithPcie) {
-    const size_t num_channels = 2;  // ideally 4, but CI seems to have 2...
+    // How many hugepages will Blackhole CI systems allocate?  Hopefully zero,
+    // and they'll have IOMMU instead.  But if not, let's assume 2.
+    const size_t num_channels = is_iommu_available() ? 4 : 2;
     auto target_devices = get_target_devices();
 
     Cluster cluster(

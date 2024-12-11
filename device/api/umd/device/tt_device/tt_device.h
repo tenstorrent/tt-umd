@@ -86,27 +86,31 @@ public:
         std::uint64_t ordering = tt::umd::tlb_data::Relaxed);
 
     /**
-     * Configures a PCIe Address Translation Unit (iATU) region to maintain
-     * compatibility software expecations.
+     * Configures a PCIe Address Translation Unit (iATU) region.
      *
-     * Device software expects to be able to access the host's memory at fixed
-     * NOC addresses:
+     * Device software expects to be able to access memory that is shared with
+     * the host at using the following NOC addresses at the PCIe core:
      * - GS: 0x0
      * - WH: 0x8_0000_0000
      * - BH: 0x1000_0000_0000_0000
-     * Without iATU configuration, these map to PA 0x0.
+     * Without iATU configuration, these map to host PA 0x0.
      *
      * While modern hardware supports IOMMU with flexible IOVA mapping, we must
      * maintain the iATU configuration to satisfy software that has hard-coded
      * the above NOC addresses rather than using driver-provided IOVAs.
      *
-     * @param region - iATU region index (0-15)
-     * @param base   - Source address in device-expected address space
-     * @param target - Actual physical address to map to
-     * @param size   - Size of the mapping window
+     * This interface is only intended to be used for configuring sysmem with
+     * either 1GB hugepages or a compatible scheme.
      *
-     * TODO: this is only implemented for Blackhole right now; ARC messaging
-     * logic needs to be re-homed for Grayskull and Wormhole implementations.
+     * @param region iATU region index (0-15)
+     * @param base region * (1 << 30)
+     * @param target DMA address (PA or IOVA) to map to
+     * @param size size of the mapping window; must be (1 << 30)
+     *
+     * NOTE: Programming the iATU from userspace is architecturally incorrect:
+     * - iATU should be managed by KMD to ensure proper cleanup on process exit
+     * - Multiple processes can corrupt each other's iATU configurations
+     * We should fix this!
      */
     virtual void configure_iatu_region(size_t region, uint64_t base, uint64_t target, size_t size);
 

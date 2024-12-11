@@ -33,12 +33,7 @@ GrayskullCoordinateManager::GrayskullCoordinateManager(
         arc_cores,
         pcie_grid_size,
         pcie_cores) {
-    this->identity_map_physical_cores();
-    this->translate_tensix_coords();
-    this->translate_dram_coords();
-    this->translate_eth_coords();
-    this->translate_arc_coords();
-    this->translate_pcie_coords();
+    initialize();
 }
 
 void GrayskullCoordinateManager::fill_eth_physical_translated_mapping() {

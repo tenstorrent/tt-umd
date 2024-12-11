@@ -33,12 +33,7 @@ BlackholeCoordinateManager::BlackholeCoordinateManager(
         arc_cores,
         pcie_grid_size,
         pcie_cores) {
-    this->identity_map_physical_cores();
-    this->translate_tensix_coords();
-    this->translate_dram_coords();
-    this->translate_eth_coords();
-    this->translate_arc_coords();
-    this->translate_pcie_coords();
+    initialize();
 }
 
 void BlackholeCoordinateManager::translate_tensix_coords() {
@@ -50,17 +45,14 @@ void BlackholeCoordinateManager::translate_tensix_coords() {
     size_t x_index = grid_size_x - num_harvested_x;
     for (size_t x = 0; x < grid_size_x; x++) {
         if (tensix_harvesting_mask & (1 << x)) {
-            size_t y_index = 0;
             for (size_t y = 0; y < grid_size_y; y++) {
                 const tt_xy_pair& physical_core = tensix_cores[x + y * grid_size_x];
-                const tt_xy_pair& virtual_core = tensix_cores[x_index + y_index * grid_size_x];
+                const tt_xy_pair& virtual_core = tensix_cores[x_index + y * grid_size_x];
 
                 CoreCoord virtual_coord =
                     CoreCoord(virtual_core.x, virtual_core.y, CoreType::TENSIX, CoordSystem::VIRTUAL);
 
                 add_core_translation(virtual_coord, physical_core);
-
-                y_index++;
             }
             x_index++;
         } else {

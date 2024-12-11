@@ -38,6 +38,15 @@ CoordinateManager::CoordinateManager(
     pcie_grid_size(pcie_grid_size),
     pcie_cores(pcie_cores) {}
 
+void CoordinateManager::initialize() {
+    this->identity_map_physical_cores();
+    this->translate_tensix_coords();
+    this->translate_dram_coords();
+    this->translate_eth_coords();
+    this->translate_arc_coords();
+    this->translate_pcie_coords();
+}
+
 void CoordinateManager::add_core_translation(const CoreCoord& core_coord, const tt_xy_pair& physical_pair) {
     to_physical_map.insert({core_coord, physical_pair});
     from_physical_map.insert({{{physical_pair.x, physical_pair.y}, core_coord.coord_system}, core_coord});
@@ -108,7 +117,7 @@ void CoordinateManager::translate_tensix_coords() {
         }
     }
 
-    fill_tensix_physical_translated_mapping();
+    this->fill_tensix_physical_translated_mapping();
 }
 
 void CoordinateManager::fill_tensix_physical_translated_mapping() {

@@ -63,6 +63,8 @@ protected:
         const tt_xy_pair& pcie_grid_size,
         const std::vector<tt_xy_pair>& pcie_cores);
 
+    void initialize();
+
     virtual void translate_tensix_coords();
     virtual void translate_dram_coords();
     virtual void translate_eth_coords();
@@ -136,3 +138,5 @@ protected:
     const tt_xy_pair pcie_grid_size;
     const std::vector<tt_xy_pair>& pcie_cores;
 };
+
+// friend

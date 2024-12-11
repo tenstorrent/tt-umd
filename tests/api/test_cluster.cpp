@@ -13,6 +13,8 @@
 
 #include "fmt/xchar.h"
 #include "tests/test_utils/generate_cluster_desc.hpp"
+#include "umd/device/chip/local_chip.h"
+#include "umd/device/chip/mock_chip.h"
 #include "umd/device/cluster.h"
 #include "umd/device/tt_cluster_descriptor.h"
 
@@ -55,6 +57,37 @@ void setup_wormhole_remote(Cluster* umd_cluster) {
 
 // This test should be one line only.
 TEST(ApiClusterTest, OpenAllChips) { std::unique_ptr<Cluster> umd_cluster = get_cluster(); }
+
+TEST(ApiClusterTest, DifferentConstructors) {
+    std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
+    // TODO: Make this test work on a host system without any tt devices.
+    if (pci_device_ids.empty()) {
+        GTEST_SKIP() << "No chips present on the system. Skipping test.";
+    }
+
+    std::unique_ptr<Cluster> umd_cluster;
+
+    // 1. Simplest constructor. Creates Cluster with all the chips available.
+    umd_cluster = std::make_unique<Cluster>();
+    umd_cluster = nullptr;
+
+    // 2. Constructor which allows choosing a subset of Chips to open.
+    chip_id_t logical_device_id = 0;
+    std::set<chip_id_t> target_devices = {logical_device_id};
+    umd_cluster = std::make_unique<Cluster>(target_devices);
+    umd_cluster = nullptr;
+
+    // 3. Constructor taking a custom soc descriptor in addition.
+    tt::ARCH device_arch = tt_ClusterDescriptor::detect_arch(logical_device_id);
+    // You can add a custom soc descriptor here.
+    std::string sdesc_path = tt_SocDescriptor::get_soc_descriptor_path(device_arch);
+    umd_cluster = std::make_unique<Cluster>(sdesc_path, target_devices);
+    umd_cluster = nullptr;
+
+    // 4. Constructor for creating a cluster with mock chip.
+    umd_cluster = Cluster::create_mock_cluster();
+    umd_cluster = nullptr;
+}
 
 TEST(ApiClusterTest, SimpleIOAllChips) {
     std::unique_ptr<Cluster> umd_cluster = get_cluster();
@@ -181,7 +214,7 @@ TEST(ApiClusterTest, SimpleIOSpecificChips) {
         GTEST_SKIP() << "No chips present on the system. Skipping test.";
     }
 
-    std::unique_ptr<Cluster> umd_cluster = std::make_unique<Cluster>(0);
+    std::unique_ptr<Cluster> umd_cluster = std::make_unique<Cluster>(0u);
 
     const tt_ClusterDescriptor* cluster_desc = umd_cluster->get_cluster_description();
 

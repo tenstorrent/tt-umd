@@ -22,6 +22,10 @@ target_sources(
     device
     PRIVATE
         architecture_implementation.cpp
+        chip/chip.cpp
+        chip/local_chip.cpp
+        chip/mock_chip.cpp
+        chip/remote_chip.cpp
         cluster.cpp
         coordinate_manager.cpp
         cpuset_lib.cpp

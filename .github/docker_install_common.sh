@@ -18,7 +18,7 @@ apt-get update && apt-get install -y \
 # gcc-12 should be available only for ubuntu 22 and not 20
 if apt-cache show gcc-12 > /dev/null 2>&1; then
     echo "gcc-12 is available. Installing..."
-    apt-get install -y gcc-12
+    apt-get install -y gcc-12 g++-12
 else
     echo "gcc-12 is not available in the repository."
 fi

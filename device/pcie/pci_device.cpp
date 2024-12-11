@@ -526,10 +526,10 @@ bool PCIDevice::init_iommu(size_t size) {
     return true;
 }
 
-int PCIDevice::get_num_host_mem_channels() const { return hugepage_mapping_per_channel.size(); }
+size_t PCIDevice::get_num_host_mem_channels() const { return hugepage_mapping_per_channel.size(); }
 
-hugepage_mapping PCIDevice::get_hugepage_mapping(int channel) const {
-    if (channel < 0 || hugepage_mapping_per_channel.size() <= channel) {
+hugepage_mapping PCIDevice::get_hugepage_mapping(size_t channel) const {
+    if (hugepage_mapping_per_channel.size() <= channel) {
         return {nullptr, 0, 0};
     } else {
         return hugepage_mapping_per_channel[channel];

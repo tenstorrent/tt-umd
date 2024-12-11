@@ -240,18 +240,7 @@ void Cluster::create_device(
         }
         auto pci_device = m_tt_device_map.at(logical_device_id)->get_pci_device();
 
-        uint16_t pcie_device_id = pci_device->get_pci_device_id();
-        uint32_t pcie_revision = pci_device->get_pci_revision();
-        // TODO: get rid of this, it doesn't make any sense.
-        int num_host_mem_channels =
-            get_available_num_host_mem_channels(num_host_mem_ch_per_mmio_device, pcie_device_id, pcie_revision);
-        if (pci_device->get_arch() == tt::ARCH::BLACKHOLE && num_host_mem_channels > 1) {
-            // TODO: Implement support for multiple host channels on BLACKHOLE.
-            log_warning(
-                LogSiliconDriver,
-                "Forcing a single channel for Blackhole device. Multiple host channels not supported.");
-            num_host_mem_channels = 1;
-        }
+        int num_host_mem_channels = num_host_mem_ch_per_mmio_device;
 
         log_debug(
             LogSiliconDriver,
@@ -268,11 +257,6 @@ void Cluster::create_device(
         // MT: Initial BH - hugepages will fail init
         // For using silicon driver without workload to query mission mode params, no need for hugepage.
         if (!skip_driver_allocs) {
-            // TODO: Implement support for multiple host channels on BLACKHOLE.
-            log_assert(
-                !(arch_name == tt::ARCH::BLACKHOLE && num_host_mem_channels > 1),
-                "More channels are not yet supported for Blackhole");
-            // Same number of host channels per device for now
             bool hugepages_initialized = pci_device->init_hugepage(num_host_mem_channels);
             // Large writes to remote chips require hugepages to be initialized.
             // Conservative assert - end workload if remote chips present but hugepages not initialized (failures caused
@@ -1403,43 +1387,68 @@ void Cluster::set_fallback_tlb_ordering_mode(const std::string& fallback_tlb, ui
     dynamic_tlb_ordering_modes.at(fallback_tlb) = ordering;
 }
 
-// TT<->TT P2P support removed in favor of increased Host memory.
-// TODO: this is in the wrong place, it should be in the PCIDevice.
+// TODO: this is in the wrong place, it should be in the TTDevice.
+// It should also happen at the same time the huge pages or sysmem buffers are
+// allocated/pinned/mapped.
 void Cluster::init_pcie_iatus() {
     int num_enabled_devices = m_tt_device_map.size();
     log_debug(LogSiliconDriver, "Cluster::init_pcie_iatus() num_enabled_devices: {}", num_enabled_devices);
 
-    for (auto& src_device_it : m_tt_device_map) {
-        int logical_id = src_device_it.first;
-        PCIDevice* src_pci_device = src_device_it.second->get_pci_device();
+    for (auto& [logical_id, tt_device] : m_tt_device_map) {
+        PCIDevice* pci_device = tt_device->get_pci_device();
 
         // TODO: with the IOMMU case, I think we can get away with using just
         // one iATU region for WH.  (On BH, we don't need iATU).  We can only
         // cover slightly less than 4GB with WH, and the iATU can cover 4GB.
         // Splitting it into multiple regions is fine, but it's not necessary.
         //
-        // ... something to consider when this code is refactored into PCIDevice
-        // where it belongs.
+        // Update: unfortunately this turned out to be unrealistic.  For the
+        // IOMMU case, the easiest thing to do is fake that we have hugepages
+        // so we can support the hugepage-inspired API that the user application
+        // has come to rely on.  In that scenario, it's simpler to treat such
+        // fake hugepages the same way we treat real ones -- even if underneath
+        // there is only a single buffer.  Simple is good.
+        //
+        // With respect to BH: it turns out that Metal has hard-coded NOC
+        // addressing assumptions for sysmem access.  First step to fix this is
+        // have Metal ask us where sysmem is at runtime, and use that value in
+        // on-device code.  Until then, we're stuck programming iATU.  A more
+        // forward-looking solution is to abandon the sysmem API entirely, and
+        // have the application assume a more active role in managing the memory
+        // shared between host and device.  UMD would be relegated to assisting
+        // the application set up and tear down the mappings.  This is probably
+        // a unrealistic for GS/WH, but it's a good goal for BH.
+        //
+        // Until then...
+        //
+        // For every 1GB channel of memory mapped for DMA, program an iATU
+        // region to map it to the underlying buffer's IOVA (IOMMU case) or PA
+        // (non-IOMMU case).
+        for (size_t channel = 0; channel < pci_device->get_num_host_mem_channels(); channel++) {
+            hugepage_mapping hugepage_map = pci_device->get_hugepage_mapping(channel);
+            size_t region_size = hugepage_map.mapping_size;
 
-        // Device to Host (multiple channels)
-        for (int channel_id = 0; channel_id < src_pci_device->get_num_host_mem_channels(); channel_id++) {
-            hugepage_mapping hugepage_map = src_pci_device->get_hugepage_mapping(channel_id);
-            if (hugepage_map.mapping) {
-                std::uint32_t region_size = hugepage_map.mapping_size;
-                if (channel_id == 3) {
+            if (!hugepage_map.mapping) {
+                throw std::runtime_error(
+                    fmt::format("Hugepages are not allocated for logical device id: {} ch: {}", logical_id, channel));
+            }
+
+            if (arch_name == tt::ARCH::BLACKHOLE) {
+                uint64_t base = channel * region_size;
+                uint64_t target = hugepage_map.physical_address;
+                tt_device->configure_iatu_region(channel, base, target, region_size);
+            } else {
+                // TODO: stop doing this.  The intent was good, but it's not
+                // documented and nothing takes advantage of it.
+                if (channel == 3) {
                     region_size = HUGEPAGE_CHANNEL_3_SIZE_LIMIT;
                 }
 
-                // This log message doesn't look right.
-                log_debug(
-                    LogSiliconDriver, "Configuring ATU channel {} to point to hugepage {}.", channel_id, logical_id);
-                iatu_configure_peer_region(logical_id, channel_id, hugepage_map.physical_address, region_size);
-
-            } else {
-                throw std::runtime_error(fmt::format(
-                    "init_pcie_iatus: Hugepages are not allocated for logical device id: {} ch: {}",
-                    logical_id,
-                    channel_id));
+                // TODO: remove this and the Blackhole special case after ARC
+                // messaging is lowered to the TTDevice layer and we have a
+                // configure_iatu_region that works for GS/WH.  Longer term it'd
+                // be nice to have KMD deal with iATU for us...
+                iatu_configure_peer_region(logical_id, channel, hugepage_map.physical_address, region_size);
             }
         }
     }
@@ -1596,86 +1605,40 @@ int Cluster::pcie_arc_msg(
     return exit_code;
 }
 
+// TODO: this method should be lowered into TTDevice, where a common
+// implementation can be shared between GS/WH.  The major obstacle to doing it
+// (and the reason I'm leaving it alone for now) is the lack of ARC messaging
+// support at that layer of abstraction.
 int Cluster::iatu_configure_peer_region(
     int logical_device_id, uint32_t peer_region_id, uint64_t bar_addr_64, uint32_t region_size) {
+    if (arch_name == tt::ARCH::BLACKHOLE) {
+        throw std::runtime_error("Don't call this for Blackhole");
+    }
+
     uint32_t dest_bar_lo = bar_addr_64 & 0xffffffff;
     uint32_t dest_bar_hi = (bar_addr_64 >> 32) & 0xffffffff;
     std::uint32_t region_id_to_use = peer_region_id;
+
+    // TODO: stop doing this.  It's related to HUGEPAGE_CHANNEL_3_SIZE_LIMIT.
     if (peer_region_id == 3) {
         region_id_to_use = 4;  // Hack use region 4 for channel 3..this ensures that we have a smaller chan 3 address
                                // space with the correct start offset
     }
+
     TTDevice* tt_device = get_tt_device(logical_device_id);
     PCIDevice* pci_device = tt_device->get_pci_device();
     auto architecture_implementation = tt_device->get_architecture_implementation();
 
-    // BR: ARC doesn't work yet on Blackhole, so programming ATU directly. Should be removed when arc starts working.
-    // TODO: Remove when ARC is implemented on BH.
-    if (arch_name == tt::ARCH::BLACKHOLE) {
-        uint64_t base_addr = region_id_to_use * region_size;
-        uint64_t base_size = (region_id_to_use + 1) * region_size;
-        uint64_t limit_address = base_addr + base_size - 1;
-
-        uint32_t region_ctrl_1 = 1 << 13;  // INCREASE_REGION_SIZE = 1
-        uint32_t region_ctrl_2 = 1 << 31;  // REGION_EN = 1
-        uint32_t region_ctrl_3 = 0;
-        uint32_t base_addr_lo = base_addr & 0xffffffff;
-        uint32_t base_addr_hi = (base_addr >> 32) & 0xffffffff;
-        uint32_t limit_address_lo = limit_address & 0xffffffff;
-        uint32_t limit_address_hi = (limit_address >> 32) & 0xffffffff;
-
-        uint64_t iatu_index = 0;
-        uint64_t iatu_base = UNROLL_ATU_OFFSET_BAR + iatu_index * 0x200;
-
-        tt_device->write_regs(
-            reinterpret_cast<std::uint32_t*>(static_cast<uint8_t*>(pci_device->bar2_uc) + iatu_base + 0x00),
-            &region_ctrl_1,
-            1);
-        tt_device->write_regs(
-            reinterpret_cast<std::uint32_t*>(static_cast<uint8_t*>(pci_device->bar2_uc) + iatu_base + 0x04),
-            &region_ctrl_2,
-            1);
-        tt_device->write_regs(
-            reinterpret_cast<std::uint32_t*>(static_cast<uint8_t*>(pci_device->bar2_uc) + iatu_base + 0x08),
-            &base_addr_lo,
-            1);
-        tt_device->write_regs(
-            reinterpret_cast<std::uint32_t*>(static_cast<uint8_t*>(pci_device->bar2_uc) + iatu_base + 0x0c),
-            &base_addr_hi,
-            1);
-        tt_device->write_regs(
-            reinterpret_cast<std::uint32_t*>(static_cast<uint8_t*>(pci_device->bar2_uc) + iatu_base + 0x10),
-            &limit_address_lo,
-            1);
-        tt_device->write_regs(
-            reinterpret_cast<std::uint32_t*>(static_cast<uint8_t*>(pci_device->bar2_uc) + iatu_base + 0x14),
-            &dest_bar_lo,
-            1);
-        tt_device->write_regs(
-            reinterpret_cast<std::uint32_t*>(static_cast<uint8_t*>(pci_device->bar2_uc) + iatu_base + 0x18),
-            &dest_bar_hi,
-            1);
-        tt_device->write_regs(
-            reinterpret_cast<std::uint32_t*>(static_cast<uint8_t*>(pci_device->bar2_uc) + iatu_base + 0x1c),
-            &region_ctrl_3,
-            1);
-        tt_device->write_regs(
-            reinterpret_cast<std::uint32_t*>(static_cast<uint8_t*>(pci_device->bar2_uc) + iatu_base + 0x20),
-            &limit_address_hi,
-            1);
-    } else {
-        bar_write32(
-            logical_device_id, architecture_implementation->get_arc_csm_mailbox_offset() + 0 * 4, region_id_to_use);
-        bar_write32(logical_device_id, architecture_implementation->get_arc_csm_mailbox_offset() + 1 * 4, dest_bar_lo);
-        bar_write32(logical_device_id, architecture_implementation->get_arc_csm_mailbox_offset() + 2 * 4, dest_bar_hi);
-        bar_write32(logical_device_id, architecture_implementation->get_arc_csm_mailbox_offset() + 3 * 4, region_size);
-        arc_msg(
-            logical_device_id,
-            0xaa00 | architecture_implementation->get_arc_message_setup_iatu_for_peer_to_peer(),
-            true,
-            0,
-            0);
-    }
+    bar_write32(logical_device_id, architecture_implementation->get_arc_csm_mailbox_offset() + 0 * 4, region_id_to_use);
+    bar_write32(logical_device_id, architecture_implementation->get_arc_csm_mailbox_offset() + 1 * 4, dest_bar_lo);
+    bar_write32(logical_device_id, architecture_implementation->get_arc_csm_mailbox_offset() + 2 * 4, dest_bar_hi);
+    bar_write32(logical_device_id, architecture_implementation->get_arc_csm_mailbox_offset() + 3 * 4, region_size);
+    arc_msg(
+        logical_device_id,
+        0xaa00 | architecture_implementation->get_arc_message_setup_iatu_for_peer_to_peer(),
+        true,
+        0,
+        0);
 
     // Print what just happened
     uint32_t peer_region_start = region_id_to_use * region_size;

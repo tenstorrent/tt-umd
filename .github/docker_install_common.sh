@@ -27,7 +27,7 @@ wget https://apt.llvm.org/llvm.sh && \
 apt install -y clang-format-17 && \
     ln -s /usr/bin/clang-format-17 /usr/bin/clang-format
 
-# Install newest GCC
+# Install newest GCC. This step takes ~3h
 apt install libmpfr-dev libgmp3-dev libmpc-dev -y && \
     wget https://ftp.gnu.org/gnu/gcc/gcc-14.2.0/gcc-14.2.0.tar.gz && \
     tar -xf gcc-14.2.0.tar.gz && \
@@ -37,5 +37,6 @@ apt install libmpfr-dev libgmp3-dev libmpc-dev -y && \
     make install && \
     ln -s /usr/local/gcc-14.2.0/bin/gcc-14.2.0 /usr/bin/gcc-14 && \
     ln -s /usr/local/gcc-14.2.0/bin/g++-14.2.0 /usr/bin/g++-14 && \
+    cd .. && \
     rm gcc-14.2.0.tar.gz && \
     rm -rf gcc-14.2.0

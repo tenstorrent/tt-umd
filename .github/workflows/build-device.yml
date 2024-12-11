@@ -36,12 +36,12 @@ jobs:
           {runs-on: ubuntu-20.04, docker-image: tt-umd-ci-ubuntu-20.04},
         ]
         compiler: [
-          {c: clang, cpp: clang},
-          {c: /usr/bin/gcc, cpp: /usr/bin/g++},
-          {c: /usr/bin/gcc-14, cpp: /usr/bin/g++-14},
+          {name: clang},
+          {name: gcc, c: /usr/bin/gcc, cpp: /usr/bin/g++},
+          {name: gcc-14, c: /usr/bin/gcc-14, cpp: /usr/bin/g++-14},
         ]
 
-    name: Build device for any arch on ${{ matrix.image.runs-on }} with ${{ matrix.compiler }}
+    name: Build device for any arch on ${{ matrix.image.runs-on }} with ${{ matrix.compiler.name }}
     runs-on: ${{ matrix.image.runs-on }}
     container:
       image: ghcr.io/${{ github.repository }}/${{ matrix.image.docker-image }}:latest
@@ -55,7 +55,7 @@ jobs:
 
       - name: Set GCC compiler
           # In case clang is selected, don't set these variables, cmake will find it by default.
-        if: ${{ matrix.compiler.c != 'clang' }}
+        if: ${{ matrix.compiler.name != 'clang' }}
         run: |
           echo "CMAKE_C_COMPILER=${{ matrix.compiler.c }}" >> $GITHUB_ENV
           echo "CMAKE_CXX_COMPILER=${{ matrix.compiler.cpp }}" >> $GITHUB_ENV

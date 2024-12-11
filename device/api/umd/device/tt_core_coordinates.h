@@ -16,8 +16,7 @@
  * CoreType is an enum class that represents all types of cores
  * present on the Tenstorrent chip.
  */
-// TODO: change to uint8_t and uplift to tt-metal
-enum class CoreType {
+enum class CoreType : uint8_t {
     ARC,
     DRAM,
     ACTIVE_ETH,
@@ -29,14 +28,13 @@ enum class CoreType {
     // but it won't be needed later on
     HARVESTED,
     ETH,
-    WORKER,
 };
 
 /*
  * CoordSystem is an enum class that represents all types of coordinate
  * systems that can be used to represent a core's location.
  */
-enum class CoordSystem : std::uint8_t {
+enum class CoordSystem : uint8_t {
     LOGICAL,
     PHYSICAL,
     VIRTUAL,

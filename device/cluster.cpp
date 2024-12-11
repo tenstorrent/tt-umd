@@ -1387,9 +1387,9 @@ void Cluster::set_fallback_tlb_ordering_mode(const std::string& fallback_tlb, ui
     dynamic_tlb_ordering_modes.at(fallback_tlb) = ordering;
 }
 
-// TODO: this is in the wrong place, it should be in the PCIDevice.
-// Update: or TTDevice?  This should probably happen at the same time the huge
-// pages or sysmem buffers are allocated/pinned/mapped.
+// TODO: this is in the wrong place, it should be in the TTDevice.
+// It should also happen at the same time the huge pages or sysmem buffers are
+// allocated/pinned/mapped.
 void Cluster::init_pcie_iatus() {
     int num_enabled_devices = m_tt_device_map.size();
     log_debug(LogSiliconDriver, "Cluster::init_pcie_iatus() num_enabled_devices: {}", num_enabled_devices);
@@ -1402,33 +1402,56 @@ void Cluster::init_pcie_iatus() {
         // cover slightly less than 4GB with WH, and the iATU can cover 4GB.
         // Splitting it into multiple regions is fine, but it's not necessary.
         //
-        // ... something to consider when this code is refactored into PCIDevice
-        // where it belongs.
-
-        // Device to Host (multiple channels)
+        // Update: unfortunately this turned out to be unrealistic.  For the
+        // IOMMU case, the easiest thing to do is fake that we have hugepages
+        // so we can support the hugepage-inspired API that the user application
+        // has come to rely on.  In that scenario, it's simpler to treat such
+        // fake hugepages the same way we treat real ones -- even if underneath
+        // there is only a single buffer.  Simple is good.
+        //
+        // With respect to BH: it turns out that Metal has hard-coded NOC
+        // addressing assumptions for sysmem access.  First step to fix this is
+        // have Metal ask us where sysmem is at runtime, and use that value in
+        // on-device code.  Until then, we're stuck programming iATU.  A more
+        // forward-looking solution is to abandon the sysmem API entirely, and
+        // have the application assume a more active role in managing the memory
+        // shared between host and device.  UMD would be relegated to assisting
+        // the application set up and tear down the mappings.  This is probably
+        // a unrealistic for GS/WH, but it's a good goal for BH.
+        //
+        // Until then...
+        //
+        // For every 1GB channel of memory mapped for DMA, program an iATU
+        // region to map it to the underlying buffer's IOVA (IOMMU case) or PA
+        // (non-IOMMU case).
         for (size_t channel = 0; channel < pci_device->get_num_host_mem_channels(); channel++) {
             hugepage_mapping hugepage_map = pci_device->get_hugepage_mapping(channel);
+            size_t region_size = hugepage_map.mapping_size;
+
             if (!hugepage_map.mapping) {
                 throw std::runtime_error(
                     fmt::format("Hugepages are not allocated for logical device id: {} ch: {}", logical_id, channel));
             }
-
-            size_t region_size = hugepage_map.mapping_size;
 
             if (arch_name == tt::ARCH::BLACKHOLE) {
                 uint64_t base = channel * region_size;
                 uint64_t target = hugepage_map.physical_address;
                 tt_device->configure_iatu_region(channel, base, target, region_size);
             } else {
-                // TODO: stop doing this, it never really made sense.
+                // TODO: stop doing this.  The intent was good, but it's not
+                // documented and nothing takes advantage of it.
                 if (channel == 3) {
                     region_size = HUGEPAGE_CHANNEL_3_SIZE_LIMIT;
                 }
+
+                // TODO: remove this and the Blackhole special case after ARC
+                // messaging is lowered to the TTDevice layer and we have a
+                // configure_iatu_region that works for GS/WH.  Longer term it'd
+                // be nice to have KMD deal with iATU for us...
                 iatu_configure_peer_region(logical_id, channel, hugepage_map.physical_address, region_size);
             }
-
-        }  // end for each host memory channel
-    }      // end for each device
+        }
+    }
 }
 
 int Cluster::test_setup_interface() {
@@ -1586,12 +1609,6 @@ int Cluster::pcie_arc_msg(
 // implementation can be shared between GS/WH.  The major obstacle to doing it
 // (and the reason I'm leaving it alone for now) is the lack of ARC messaging
 // support at that layer of abstraction.
-//
-// I've added a BlackholeTTDevice implementation for iATU programming and am
-// deliberately not calling it in here because I think the hugepage (or fake
-// hugepage) allocation/mapping and iATU configuration should happen closer
-// together.
-// -- JMS Dec 10 2024.
 int Cluster::iatu_configure_peer_region(
     int logical_device_id, uint32_t peer_region_id, uint64_t bar_addr_64, uint32_t region_size) {
     if (arch_name == tt::ARCH::BLACKHOLE) {
@@ -1602,9 +1619,7 @@ int Cluster::iatu_configure_peer_region(
     uint32_t dest_bar_hi = (bar_addr_64 >> 32) & 0xffffffff;
     std::uint32_t region_id_to_use = peer_region_id;
 
-    // TODO: stop doing this, it never really made sense.
-    // Conceptually, sure, but nothing could ever take advantage of it, and the
-    // intent is not clear.
+    // TODO: stop doing this.  It's related to HUGEPAGE_CHANNEL_3_SIZE_LIMIT.
     if (peer_region_id == 3) {
         region_id_to_use = 4;  // Hack use region 4 for channel 3..this ensures that we have a smaller chan 3 address
                                // space with the correct start offset

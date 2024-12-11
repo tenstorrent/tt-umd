@@ -15,6 +15,14 @@ apt-get update && apt-get install -y \
     wget \
     yamllint
 
+# gcc-12 should be available only for ubuntu 22 and not 20
+if apt-cache show gcc-12 > /dev/null 2>&1; then
+    echo "gcc-12 is available. Installing..."
+    apt-get install -y gcc-12
+else
+    echo "gcc-12 is not available in the repository."
+fi
+
 # Install clang 17
 wget https://apt.llvm.org/llvm.sh && \
     chmod u+x llvm.sh && \
@@ -26,17 +34,3 @@ wget https://apt.llvm.org/llvm.sh && \
 # Install clang-format
 apt install -y clang-format-17 && \
     ln -s /usr/bin/clang-format-17 /usr/bin/clang-format
-
-# Install newest GCC. This step takes ~3h
-apt install libmpfr-dev libgmp3-dev libmpc-dev -y && \
-    wget https://ftp.gnu.org/gnu/gcc/gcc-14.2.0/gcc-14.2.0.tar.gz && \
-    tar -xf gcc-14.2.0.tar.gz && \
-    cd gcc-14.2.0 && \
-    ./configure -v --build=x86_64-linux-gnu --host=x86_64-linux-gnu --target=x86_64-linux-gnu --prefix=/usr/local/gcc-14.2.0 --enable-checking=release --enable-languages=c,c++ --disable-multilib --program-suffix=-14.2.0 && \
-    make && \
-    make install && \
-    ln -s /usr/local/gcc-14.2.0/bin/gcc-14.2.0 /usr/bin/gcc-14 && \
-    ln -s /usr/local/gcc-14.2.0/bin/g++-14.2.0 /usr/bin/g++-14 && \
-    cd .. && \
-    rm gcc-14.2.0.tar.gz && \
-    rm -rf gcc-14.2.0

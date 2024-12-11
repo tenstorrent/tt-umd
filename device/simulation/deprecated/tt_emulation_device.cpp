@@ -206,10 +206,6 @@ void tt_emulation_device::set_device_dram_address_params(const tt_device_dram_ad
     dram_address_params = dram_address_params_;
 }
 
-int tt_emulation_device::get_number_of_chips_in_cluster() { return detect_number_of_chips(); }
-
-std::unordered_set<int> tt_emulation_device::get_all_chips_in_cluster() { return {0}; }
-
 int tt_emulation_device::detect_number_of_chips() { return 1; }
 
 bool tt_emulation_device::using_harvested_soc_descriptors() { return false; }

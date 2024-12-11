@@ -85,8 +85,6 @@ public:
     virtual ~tt_emulation_device();
     virtual tt_ClusterDescriptor* get_cluster_description();
     virtual void set_device_dram_address_params(const tt_device_dram_address_params& dram_address_params_);
-    virtual int get_number_of_chips_in_cluster();
-    virtual std::unordered_set<chip_id_t> get_all_chips_in_cluster();
     static int detect_number_of_chips();
     virtual std::map<int, int> get_clocks();
 

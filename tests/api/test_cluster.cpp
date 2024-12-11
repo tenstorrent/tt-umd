@@ -78,7 +78,7 @@ TEST(ApiClusterTest, DifferentConstructors) {
 TEST(ApiClusterTest, SimpleIOAllChips) {
     std::unique_ptr<Cluster> umd_cluster = get_cluster();
 
-    if (umd_cluster == nullptr || umd_cluster->get_all_chips_in_cluster().empty()) {
+    if (umd_cluster == nullptr || umd_cluster->get_target_device_ids().empty()) {
         GTEST_SKIP() << "No chips present on the system. Skipping test.";
     }
 
@@ -95,7 +95,7 @@ TEST(ApiClusterTest, SimpleIOAllChips) {
     // Some default values are set during construction of UMD, but you can override them.
     umd_cluster->set_barrier_address_params({L1_BARRIER_BASE, ETH_BARRIER_BASE, DRAM_BARRIER_BASE});
 
-    for (auto chip_id : umd_cluster->get_all_chips_in_cluster()) {
+    for (auto chip_id : umd_cluster->get_target_device_ids()) {
         const tt_SocDescriptor& soc_desc = umd_cluster->get_soc_descriptor(chip_id);
 
         // TODO: figure out if core locations should contain chip_id
@@ -113,7 +113,7 @@ TEST(ApiClusterTest, SimpleIOAllChips) {
     }
 
     // Now read back the data.
-    for (auto chip_id : umd_cluster->get_all_chips_in_cluster()) {
+    for (auto chip_id : umd_cluster->get_target_device_ids()) {
         const tt_SocDescriptor& soc_desc = umd_cluster->get_soc_descriptor(chip_id);
 
         // TODO: figure out if core locations should contain chip_id
@@ -137,7 +137,7 @@ TEST(ApiClusterTest, SimpleIOAllChips) {
 TEST(ApiClusterTest, RemoteFlush) {
     std::unique_ptr<Cluster> umd_cluster = get_cluster();
 
-    if (umd_cluster == nullptr || umd_cluster->get_all_chips_in_cluster().empty()) {
+    if (umd_cluster == nullptr || umd_cluster->get_target_device_ids().empty()) {
         GTEST_SKIP() << "No chips present on the system. Skipping test.";
     }
 
@@ -217,7 +217,7 @@ TEST(ApiClusterTest, SimpleIOSpecificChips) {
     // Some default values are set during construction of UMD, but you can override them.
     umd_cluster->set_barrier_address_params({L1_BARRIER_BASE, ETH_BARRIER_BASE, DRAM_BARRIER_BASE});
 
-    for (auto chip_id : umd_cluster->get_all_chips_in_cluster()) {
+    for (auto chip_id : umd_cluster->get_target_device_ids()) {
         const tt_SocDescriptor& soc_desc = umd_cluster->get_soc_descriptor(chip_id);
 
         // TODO: figure out if core locations should contain chip_id
@@ -235,7 +235,7 @@ TEST(ApiClusterTest, SimpleIOSpecificChips) {
     }
 
     // Now read back the data.
-    for (auto chip_id : umd_cluster->get_all_chips_in_cluster()) {
+    for (auto chip_id : umd_cluster->get_target_device_ids()) {
         const tt_SocDescriptor& soc_desc = umd_cluster->get_soc_descriptor(chip_id);
 
         // TODO: figure out if core locations should contain chip_id

@@ -41,7 +41,7 @@ inline std::unique_ptr<Cluster> get_cluster() {
 TEST(ApiChipTest, ManualTLBConfiguration) {
     std::unique_ptr<Cluster> umd_cluster = get_cluster();
 
-    if (umd_cluster == nullptr || umd_cluster->get_all_chips_in_cluster().empty()) {
+    if (umd_cluster == nullptr || umd_cluster->get_target_device_ids().empty()) {
         GTEST_SKIP() << "No chips present on the system. Skipping test.";
     }
 
@@ -100,7 +100,7 @@ TEST(ApiChipTest, ManualTLBConfiguration) {
 TEST(ApiChipTest, SimpleAPIShowcase) {
     std::unique_ptr<Cluster> umd_cluster = get_cluster();
 
-    if (umd_cluster == nullptr || umd_cluster->get_all_chips_in_cluster().empty()) {
+    if (umd_cluster == nullptr || umd_cluster->get_target_device_ids().empty()) {
         GTEST_SKIP() << "No chips present on the system. Skipping test.";
     }
 
@@ -117,7 +117,7 @@ TEST(ApiChipTest, SimpleAPIShowcase) {
 // TEST(ApiChipTest, DeassertRiscResetOnCore) {
 //     std::unique_ptr<Cluster> umd_cluster = get_cluster();
 
-//     if (umd_cluster == nullptr || umd_cluster->get_all_chips_in_cluster().empty()) {
+//     if (umd_cluster == nullptr || umd_cluster->get_target_device_ids().empty()) {
 //         GTEST_SKIP() << "No chips present on the system. Skipping test.";
 //     }
 
@@ -140,7 +140,7 @@ TEST(ApiChipTest, SimpleAPIShowcase) {
 // TEST(ApiChipTest, SpecifyLegalDeassertRiscResetOnCore) {
 //     std::unique_ptr<Cluster> umd_cluster = get_cluster();
 
-//     if (umd_cluster == nullptr || umd_cluster->get_all_chips_in_cluster().empty()) {
+//     if (umd_cluster == nullptr || umd_cluster->get_target_device_ids().empty()) {
 //         GTEST_SKIP() << "No chips present on the system. Skipping test.";
 //     }
 
@@ -162,7 +162,7 @@ TEST(ApiChipTest, SimpleAPIShowcase) {
 // TEST(ApiChipTest, SpecifyIllegalDeassertRiscResetOnCore) {
 //     std::unique_ptr<Cluster> umd_cluster = get_cluster();
 
-//     if (umd_cluster == nullptr || umd_cluster->get_all_chips_in_cluster().empty()) {
+//     if (umd_cluster == nullptr || umd_cluster->get_target_device_ids().empty()) {
 //         GTEST_SKIP() << "No chips present on the system. Skipping test.";
 //     }
 

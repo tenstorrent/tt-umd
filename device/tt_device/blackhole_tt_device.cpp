@@ -78,7 +78,6 @@ void BlackholeTTDevice::configure_iatu_region(size_t region, uint64_t base, uint
         base,
         limit,
         target);
-
 }
 
 }  // namespace tt::umd

@@ -899,7 +899,6 @@ TEST(SiliconDriverBH, SysmemTestWithPcie) {
     const tt_cxy_pair PCIE_CORE(mmio_chip_id, PCIE.x, PCIE.y);
     const size_t test_size_bytes = 0x4000;  // Arbitrarilly chosen, but small size so the test runs quickly.
 
-
     uint8_t* sysmem = (uint8_t*)cluster.host_dma_address(0, 0, 0);
     ASSERT_NE(sysmem, nullptr);
 
@@ -932,8 +931,7 @@ TEST(SiliconDriverBH, SysmemTestWithPcie) {
     ASSERT_EQ(buffer, std::vector<uint8_t>(sysmem, sysmem + test_size_bytes));
 }
 
-static bool is_iommu_available()
-{
+static bool is_iommu_available() {
     const size_t num_channels = 1;
     auto target_devices = get_target_devices();
     Cluster cluster(

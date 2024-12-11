@@ -10,7 +10,6 @@
 #include "nanobench.h"
 #include "tests/test_utils/device_test_utils.hpp"
 
-
 // This isn't compiling and I'm too busy to figure out why.
 // I'm also too busy to coax my environment into not building it, so...
 #if 0

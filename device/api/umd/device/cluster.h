@@ -47,36 +47,12 @@ public:
 
     // Setup/Teardown Functions
     /**
-     * Set L1 Address Map parameters used by UMD to communicate with the TT Device.
+     * Set Barrier Address Map parameters used by UMD to communicate with the TT Device.
      *
-     * @param l1_address_params_  All the L1 parameters required by UMD
+     * @param barrier_address_params_  All the barrier parameters required by UMD
      */
-    virtual void set_device_l1_address_params(const tt_device_l1_address_params& l1_address_params_) {
-        throw std::runtime_error("---- tt_device::set_device_l1_address_params is not implemented\n");
-    }
-
-    virtual void set_device_dram_address_params(const tt_device_dram_address_params& dram_address_params_) {
-        throw std::runtime_error("---- tt_device::set_device_dram_address_params is not implemented\n");
-    }
-
-    /**
-     * Set Host Address Map parameters used by UMD to communicate with the TT Device (used for remote transactions).
-     *
-     * @param host_address_params_ All the Host Address space parameters required by UMD.
-     */
-    [[deprecated("Using unnecessary function.")]] virtual void set_driver_host_address_params(
-        const tt_driver_host_address_params& host_address_params_) {
-        throw std::runtime_error("---- tt_device::set_driver_host_address_params is not implemented\n");
-    }
-
-    /**
-     * Set ERISC Firmware parameters used by UMD to communicate with the TT Device (used for remote transactions).
-     *
-     * @param eth_interface_params_ All the Ethernet Firmware parameters required by UMD.
-     */
-    [[deprecated("Using unnecessary function.")]] virtual void set_driver_eth_interface_params(
-        const tt_driver_eth_interface_params& eth_interface_params_) {
-        throw std::runtime_error("---- tt_device::set_driver_eth_interface_params is not implemented\n");
+    virtual void set_barrier_address_params(const barrier_address_params& barrier_address_params_) {
+        throw std::runtime_error("---- tt_device::set_barrier_address_params is not implemented\n");
     }
 
     /**
@@ -561,10 +537,7 @@ public:
     static std::unique_ptr<Cluster> create_mock_cluster();
 
     // Setup/Teardown Functions
-    virtual void set_device_l1_address_params(const tt_device_l1_address_params& l1_address_params_);
-    virtual void set_device_dram_address_params(const tt_device_dram_address_params& dram_address_params_);
-    virtual void set_driver_host_address_params(const tt_driver_host_address_params& host_address_params_);
-    virtual void set_driver_eth_interface_params(const tt_driver_eth_interface_params& eth_interface_params_);
+    virtual void set_barrier_address_params(const barrier_address_params& barrier_address_params_);
     virtual void configure_tlb(
         chip_id_t logical_device_id,
         tt_xy_pair core,

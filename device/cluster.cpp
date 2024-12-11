@@ -472,6 +472,12 @@ void Cluster::construct_cluster(
         }
     }
 
+    // Default initialize l1_address_params based on detected arch
+    l1_address_params = architecture_implementation->get_l1_address_params();
+
+    // Default initialize dram_address_params.
+    dram_address_params = {0u};
+
     // Default initialize host_address_params based on detected arch
     host_address_params = architecture_implementation->get_host_address_params();
 
@@ -3305,22 +3311,6 @@ void Cluster::close_device() {
     broadcast_tensix_risc_reset_to_cluster(TENSIX_ASSERT_SOFT_RESET);
 }
 
-void Cluster::set_device_l1_address_params(const tt_device_l1_address_params& l1_address_params_) {
-    l1_address_params = l1_address_params_;
-}
-
-void Cluster::set_device_dram_address_params(const tt_device_dram_address_params& dram_address_params_) {
-    dram_address_params = dram_address_params_;
-}
-
-void Cluster::set_driver_host_address_params(const tt_driver_host_address_params& host_address_params_) {
-    host_address_params = host_address_params_;
-}
-
-void Cluster::set_driver_eth_interface_params(const tt_driver_eth_interface_params& eth_interface_params_) {
-    eth_interface_params = eth_interface_params_;
-}
-
 void Cluster::setup_core_to_tlb_map(
     const chip_id_t logical_device_id, std::function<std::int32_t(tt_xy_pair)> mapping_function) {
     map_core_to_tlb_per_chip[logical_device_id] = mapping_function;
@@ -3377,6 +3367,12 @@ tt_version Cluster::get_ethernet_fw_version() const {
         eth_fw_version.major != 0xffff and eth_fw_version.minor != 0xff and eth_fw_version.patch != 0xff,
         "Device must be started before querying Ethernet FW version.");
     return eth_fw_version;
+}
+
+void Cluster::set_barrier_address_params(const barrier_address_params& barrier_address_params_) {
+    l1_address_params.tensix_l1_barrier_base = barrier_address_params_.tensix_l1_barrier_base;
+    l1_address_params.eth_l1_barrier_base = barrier_address_params_.eth_l1_barrier_base;
+    dram_address_params.DRAM_BARRIER_BASE = barrier_address_params_.dram_barrier_base;
 }
 
 }  // namespace tt::umd

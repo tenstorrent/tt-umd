@@ -6,7 +6,9 @@
 
 #include "umd/device/cluster.h"
 #include "wormhole/eth_interface.h"
+#include "wormhole/eth_l1_address_map.h"
 #include "wormhole/host_mem_address_map.h"
+#include "wormhole/l1_address_map.h"
 
 constexpr std::uint32_t NOC_ADDR_LOCAL_BITS = 36;   // source: noc_parameters.h, common for WH && BH
 constexpr std::uint32_t NOC_ADDR_NODE_ID_BITS = 6;  // source: noc_parameters.h, common for WH && BH
@@ -94,6 +96,15 @@ std::pair<std::uint64_t, std::uint64_t> wormhole_implementation::get_tlb_data(
     } else {
         throw std::runtime_error("Invalid TLB index for Wormhole arch");
     }
+}
+
+tt_device_l1_address_params wormhole_implementation::get_l1_address_params() const {
+    // L1 barrier base and erisc barrier base should be explicitly set by the client.
+    // Setting some default values here, but it should be ultimately overridden by the client.
+    return {
+        ::l1_mem::address_map::L1_BARRIER_BASE,
+        ::eth_l1_mem::address_map::ERISC_BARRIER_BASE,
+        ::eth_l1_mem::address_map::FW_VERSION_ADDR};
 }
 
 tt_driver_host_address_params wormhole_implementation::get_host_address_params() const {

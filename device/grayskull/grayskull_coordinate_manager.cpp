@@ -33,23 +33,20 @@ GrayskullCoordinateManager::GrayskullCoordinateManager(
         arc_cores,
         pcie_grid_size,
         pcie_cores) {
-    this->translate_tensix_coords();
-    this->translate_dram_coords();
-    this->translate_eth_coords();
-    this->translate_arc_coords();
-    this->translate_pcie_coords();
+    initialize();
 }
 
-void GrayskullCoordinateManager::fill_eth_logical_to_translated() {
+void GrayskullCoordinateManager::fill_eth_physical_translated_mapping() {
     for (size_t x = 0; x < eth_grid_size.x; x++) {
         for (size_t y = 0; y < eth_grid_size.y; y++) {
-            const CoreCoord physical_coord = eth_logical_to_physical[{x, y}];
-            const size_t translated_x = physical_coord.x;
-            const size_t translated_y = physical_coord.y;
-            eth_logical_to_translated[{x, y}] =
-                CoreCoord(translated_x, translated_y, CoreType::ETH, CoordSystem::TRANSLATED);
-            eth_translated_to_logical[{translated_x, translated_y}] =
-                CoreCoord(x, y, CoreType::ETH, CoordSystem::LOGICAL);
+            CoreCoord logical_coord = CoreCoord(x, y, CoreType::ETH, CoordSystem::LOGICAL);
+            const tt_xy_pair physical_pair = to_physical_map[logical_coord];
+            const size_t translated_x = physical_pair.x;
+            const size_t translated_y = physical_pair.y;
+
+            CoreCoord translated_coord = CoreCoord(translated_x, translated_y, CoreType::ETH, CoordSystem::TRANSLATED);
+
+            add_core_translation(translated_coord, physical_pair);
         }
     }
 }

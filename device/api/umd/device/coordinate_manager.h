@@ -44,11 +44,22 @@ public:
 
     virtual ~CoordinateManager() = default;
 
+    size_t get_tensix_harvesting_mask() const;
+
+    size_t get_dram_harvesting_mask() const;
+
 private:
     static void assert_create_coordinate_manager(
         const tt::ARCH arch, const size_t tensix_harvesting_mask, const size_t dram_harvesting_mask);
 
 protected:
+    /*
+     * Constructor for Coordinate Manager.
+     * Tensix harvesting mask is supposed to be passed as original harvesting mask that is
+     * returned from create-ethernet-map, so each bit is responsible for one row of the actual physical
+     * row of the tensix cores on the chip. Harvesting mask is shuffled in constructor to match the NOC
+     * layout of the tensix cores.
+     */
     CoordinateManager(
         const tt_xy_pair& tensix_grid_size,
         const std::vector<tt_xy_pair>& tensix_cores,
@@ -64,6 +75,8 @@ protected:
         const std::vector<tt_xy_pair>& pcie_cores);
 
     void initialize();
+
+    virtual void shuffle_tensix_harvesting_mask(const std::vector<uint32_t>& harvesting_locations);
 
     virtual void translate_tensix_coords();
     virtual void translate_dram_coords();
@@ -124,6 +137,7 @@ protected:
     const tt_xy_pair tensix_grid_size;
     const std::vector<tt_xy_pair>& tensix_cores;
     size_t tensix_harvesting_mask;
+    const size_t physical_layout_tensix_harvesting_mask;
 
     const tt_xy_pair dram_grid_size;
     const std::vector<tt_xy_pair>& dram_cores;

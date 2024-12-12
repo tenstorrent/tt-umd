@@ -34,8 +34,10 @@ TEST(CoordinateManager, CoordinateManagerBlackholeNoHarvesting) {
 // We expect that the top left core will have virtual and physical coordinates (1, 2) and (2, 2) for
 // the logical coordinates if the first row is harvested.
 TEST(CoordinateManager, CoordinateManagerBlackholeTopLeftCore) {
+    // This is targeting first row of Tensix cores on NOC layout.
+    const size_t harvesting_mask = (1 << tt::umd::blackhole::LOGICAL_HARVESTING_LAYOUT[0]);
     std::shared_ptr<CoordinateManager> coordinate_manager =
-        CoordinateManager::create_coordinate_manager(tt::ARCH::BLACKHOLE, 1);
+        CoordinateManager::create_coordinate_manager(tt::ARCH::BLACKHOLE, harvesting_mask);
     tt_xy_pair tensix_grid_size = tt::umd::blackhole::TENSIX_GRID_SIZE;
 
     CoreCoord logical_coords = CoreCoord(0, 0, CoreType::TENSIX, CoordSystem::LOGICAL);
@@ -203,7 +205,8 @@ TEST(CoordinateManager, CoordinateManagerBlackholeVirtualEqualTranslated) {
 
 // Test mapping of the coordinates for harvested DRAM bank.
 TEST(CoordinateManager, CoordinateManagerBlackholeTransltedMappingHarvested) {
-    const size_t harvesting_mask = 3;
+    const size_t harvesting_mask = (1 << tt::umd::blackhole::LOGICAL_HARVESTING_LAYOUT[0]) |
+                                   (1 << tt::umd::blackhole::LOGICAL_HARVESTING_LAYOUT[1]);
     std::shared_ptr<CoordinateManager> coordinate_manager =
         CoordinateManager::create_coordinate_manager(tt::ARCH::BLACKHOLE, harvesting_mask);
 
@@ -543,5 +546,17 @@ TEST(CoordinateManager, CoordinateManagerBlackholeETHTranslation) {
             EXPECT_EQ(eth_translated.x, x + eth_translated_coordinate_start_x);
             EXPECT_EQ(eth_translated.y, eth_translated_coordinate_start_y);
         }
+    }
+}
+
+// Test that we properly get harvesting mask that is based on the physical layout of the chip.
+TEST(CoordinateManager, CoordinateManagerBlackholePhysicalLayoutTensixHarvestingMask) {
+    const size_t max_num_harvested_x = 14;
+
+    for (size_t harvesting_mask = 0; harvesting_mask < (1 << max_num_harvested_x); harvesting_mask++) {
+        std::shared_ptr<CoordinateManager> coordinate_manager =
+            CoordinateManager::create_coordinate_manager(tt::ARCH::BLACKHOLE, harvesting_mask);
+
+        EXPECT_EQ(coordinate_manager->get_tensix_harvesting_mask(), harvesting_mask);
     }
 }

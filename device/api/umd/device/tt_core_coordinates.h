@@ -58,6 +58,28 @@ struct CoreCoord : public tt_xy_pair {
         return this->x == other.x && this->y == other.y && this->core_type == other.core_type &&
                this->coord_system == other.coord_system;
     }
+
+    bool operator<(const CoreCoord& o) const {
+        if (x < o.x) {
+            return true;
+        }
+        if (x > o.x) {
+            return false;
+        }
+        if (y < o.y) {
+            return true;
+        }
+        if (y > o.y) {
+            return false;
+        }
+        if (core_type < o.core_type) {
+            return true;
+        }
+        if (core_type > o.core_type) {
+            return false;
+        }
+        return coord_system < o.coord_system;
+    }
 };
 
 }  // namespace tt::umd

@@ -8,6 +8,7 @@
 #include "umd/device/wormhole_implementation.h"
 
 using namespace tt::umd;
+#include <iostream>
 
 // Tests that all physical coordinates are same as all virtual coordinates
 // when there is no harvesting.
@@ -146,8 +147,8 @@ TEST(CoordinateManager, CoordinateManagerWormholeLogicalTranslatedTopLeft) {
 
     const size_t max_num_harvested_y = 10;
 
-    // We go up to numbers less than 2^10 - 1 to test all possible harvesting masks, we fon't want to try to convert if
-    // everything is harvested.
+    // We go up to numbers less than 2^10 - 1 to test all possible harvesting masks, we fon't want to try to convert
+    // if everything is harvested.
     for (size_t harvesting_mask = 0; harvesting_mask < (1 << max_num_harvested_y) - 1; harvesting_mask++) {
         std::shared_ptr<CoordinateManager> coordinate_manager =
             CoordinateManager::create_coordinate_manager(tt::ARCH::WORMHOLE_B0, harvesting_mask);
@@ -167,6 +168,75 @@ TEST(CoordinateManager, CoordinateManagerWormholeLogicalTranslatedTopLeft) {
         EXPECT_EQ(translated_from_logical, expected_translated_coords);
         EXPECT_EQ(translated_from_physical, expected_translated_coords);
         EXPECT_EQ(translated_from_virtual, expected_translated_coords);
+    }
+}
+
+// Test that harvested physical coordinates map to the last row of the virtual coordinates.
+TEST(CoordinateManager, CoordinateManagerWormholePhysicalVirtualHarvestedMapping) {
+    // Harvest first and second NOC layout row.
+    const size_t harvesting_mask = 3;
+    const size_t num_harvested = CoordinateManager::get_num_harvested(harvesting_mask);
+    std::shared_ptr<CoordinateManager> coordinate_manager =
+        CoordinateManager::create_coordinate_manager(tt::ARCH::WORMHOLE_B0, 3);
+
+    const std::vector<tt_xy_pair> tensix_cores = tt::umd::wormhole::TENSIX_CORES;
+    const tt_xy_pair tensix_grid_size = tt::umd::wormhole::TENSIX_GRID_SIZE;
+
+    size_t virtual_index = (tensix_grid_size.y - num_harvested) * tensix_grid_size.x;
+
+    for (size_t index = 0; index < num_harvested * tensix_grid_size.x; index++) {
+        const CoreCoord physical_core =
+            CoreCoord(tensix_cores[index].x, tensix_cores[index].y, CoreType::TENSIX, CoordSystem::PHYSICAL);
+        const CoreCoord virtual_core = coordinate_manager->to(physical_core, CoordSystem::VIRTUAL);
+
+        EXPECT_EQ(virtual_core.x, tensix_cores[virtual_index].x);
+        EXPECT_EQ(virtual_core.y, tensix_cores[virtual_index].y);
+
+        virtual_index++;
+    }
+}
+
+// Test that harvested physical coordinates map to the last row of the virtual coordinates.
+TEST(CoordinateManager, CoordinateManagerWormholePhysicalTranslatedHarvestedMapping) {
+    // Harvest first and second NOC layout row.
+    const size_t harvesting_mask = 3;
+    const size_t num_harvested = CoordinateManager::get_num_harvested(harvesting_mask);
+    std::shared_ptr<CoordinateManager> coordinate_manager =
+        CoordinateManager::create_coordinate_manager(tt::ARCH::WORMHOLE_B0, 3);
+
+    const std::vector<tt_xy_pair> tensix_cores = tt::umd::wormhole::TENSIX_CORES;
+    const tt_xy_pair tensix_grid_size = tt::umd::wormhole::TENSIX_GRID_SIZE;
+
+    size_t virtual_index = (tensix_grid_size.y - num_harvested) * tensix_grid_size.x;
+
+    const size_t translated_x_start = tt::umd::wormhole::tensix_translated_coordinate_start_x;
+    const size_t translated_y_start = tt::umd::wormhole::tensix_translated_coordinate_start_y;
+
+    size_t logical_x = 0;
+    size_t logical_y = tensix_grid_size.y - num_harvested;
+
+    for (size_t index = 0; index < num_harvested * tensix_grid_size.x; index++) {
+        const CoreCoord physical_core =
+            CoreCoord(tensix_cores[index].x, tensix_cores[index].y, CoreType::TENSIX, CoordSystem::PHYSICAL);
+        const CoreCoord translated_core = coordinate_manager->to(physical_core, CoordSystem::TRANSLATED);
+
+        const CoreCoord virtual_core = CoreCoord(
+            tensix_cores[virtual_index].x, tensix_cores[virtual_index].y, CoreType::TENSIX, CoordSystem::VIRTUAL);
+        const CoreCoord translated_core_from_virtual = coordinate_manager->to(virtual_core, CoordSystem::TRANSLATED);
+
+        EXPECT_EQ(translated_core, translated_core_from_virtual);
+
+        EXPECT_EQ(translated_core.x, translated_x_start + logical_x);
+        EXPECT_EQ(translated_core.y, translated_y_start + logical_y);
+
+        logical_x++;
+
+        if (logical_x == tensix_grid_size.x) {
+            logical_x = 0;
+            logical_y++;
+        }
+
+        virtual_index++;
     }
 }
 
@@ -263,16 +333,16 @@ TEST(CoordinateManager, CoordinateManagerWormholePCIETranslation) {
 
     for (size_t x = 0; x < pcie_grid_size.x; x++) {
         for (size_t y = 0; y < pcie_grid_size.y; y++) {
-            const CoreCoord arc_logical = CoreCoord(x, y, CoreType::PCIE, CoordSystem::LOGICAL);
-            const CoreCoord arc_virtual = coordinate_manager->to(arc_logical, CoordSystem::VIRTUAL);
-            const CoreCoord arc_physical = coordinate_manager->to(arc_logical, CoordSystem::PHYSICAL);
-            const CoreCoord arc_translated = coordinate_manager->to(arc_logical, CoordSystem::TRANSLATED);
+            const CoreCoord pcie_logical = CoreCoord(x, y, CoreType::PCIE, CoordSystem::LOGICAL);
+            const CoreCoord pcie_virtual = coordinate_manager->to(pcie_logical, CoordSystem::VIRTUAL);
+            const CoreCoord pcie_physical = coordinate_manager->to(pcie_logical, CoordSystem::PHYSICAL);
+            const CoreCoord pcie_translated = coordinate_manager->to(pcie_logical, CoordSystem::TRANSLATED);
 
-            EXPECT_EQ(arc_virtual.x, arc_physical.x);
-            EXPECT_EQ(arc_virtual.y, arc_physical.y);
+            EXPECT_EQ(pcie_virtual.x, pcie_physical.x);
+            EXPECT_EQ(pcie_virtual.y, pcie_physical.y);
 
-            EXPECT_EQ(arc_physical.x, arc_translated.x);
-            EXPECT_EQ(arc_physical.y, arc_translated.y);
+            EXPECT_EQ(pcie_virtual.x, pcie_translated.x);
+            EXPECT_EQ(pcie_virtual.y, pcie_translated.y);
         }
     }
 }

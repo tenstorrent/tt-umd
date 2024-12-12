@@ -142,8 +142,8 @@ public:
      */
     bool init_iommu(size_t size);
 
-    int get_num_host_mem_channels() const;
-    hugepage_mapping get_hugepage_mapping(int channel) const;
+    size_t get_num_host_mem_channels() const;
+    hugepage_mapping get_hugepage_mapping(size_t channel) const;
 
     /**
      * Map a buffer for DMA access by the device.

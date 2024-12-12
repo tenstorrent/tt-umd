@@ -1,15 +1,13 @@
 set(POSITION_INDEPENDENT_CODE ON)
 
 set(FBS_FILE ${PROJECT_SOURCE_DIR}/device/simulation/tt_simulation_device.fbs)
-get_filename_component(FBS_FILE_NAME ${FBS_FILE} NAME)
+get_filename_component(FBS_FILE_NAME ${FBS_FILE} NAME_WLE)
 set(FBS_GENERATED_HEADER "${CMAKE_CURRENT_BINARY_DIR}/${FBS_FILE_NAME}_generated.h")
 add_custom_command(
     OUTPUT
         ${FBS_GENERATED_HEADER}
     COMMAND
-        flatc
-    ARGS
-        --cpp -o "${CMAKE_CURRENT_BINARY_DIR}/" ${FBS_FILE}
+        flatc --cpp -o "${CMAKE_CURRENT_BINARY_DIR}/" ${FBS_FILE}
     DEPENDS
         flatc
         ${FBS_FILE}

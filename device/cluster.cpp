@@ -1359,7 +1359,7 @@ void Cluster::init_pcie_iatus() {
     log_debug(LogSiliconDriver, "Cluster::init_pcie_iatus() num_enabled_devices: {}", num_enabled_devices);
 
     for (auto& chip_id : mmio_chip_ids_) {
-        PCIDevice* src_pci_device = get_tt_device(chip_id)->get_pci_device();
+        TTDevice* tt_device = get_tt_device(chip_id);
 
         // TODO: with the IOMMU case, I think we can get away with using just
         // one iATU region for WH.  (On BH, we don't need iATU).  We can only
@@ -1388,8 +1388,8 @@ void Cluster::init_pcie_iatus() {
         // For every 1GB channel of memory mapped for DMA, program an iATU
         // region to map it to the underlying buffer's IOVA (IOMMU case) or PA
         // (non-IOMMU case).
-        for (size_t channel = 0; channel < pci_device->get_num_host_mem_channels(); channel++) {
-            hugepage_mapping hugepage_map = pci_device->get_hugepage_mapping(channel);
+        for (size_t channel = 0; channel < tt_device->get_pci_device()->get_num_host_mem_channels(); channel++) {
+            hugepage_mapping hugepage_map = tt_device->get_pci_device()->get_hugepage_mapping(channel);
             size_t region_size = hugepage_map.mapping_size;
 
             if (!hugepage_map.mapping) {

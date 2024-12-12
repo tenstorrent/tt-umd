@@ -122,7 +122,8 @@ static const std::vector<tt_xy_pair> ETH_LOCATIONS = ETH_CORES;
 // Return to std::array instead of std::vector once we get std::span support in C++20
 static const std::vector<uint32_t> T6_X_LOCATIONS = {1, 2, 3, 4, 5, 6, 7, 10, 11, 12, 13, 14, 15, 16};
 static const std::vector<uint32_t> T6_Y_LOCATIONS = {2, 3, 4, 5, 6, 7, 8, 9, 10, 11};
-static const std::vector<uint32_t> HARVESTING_NOC_LOCATIONS = {};
+static const std::vector<uint32_t> HARVESTING_NOC_LOCATIONS = {1, 16, 2, 15, 3, 14, 4, 13, 5, 12, 6, 11, 7, 10};
+static const std::vector<uint32_t> LOGICAL_HARVESTING_LAYOUT = {0, 2, 4, 6, 8, 10, 12, 13, 11, 9, 7, 5, 3, 1};
 
 static constexpr uint32_t STATIC_TLB_SIZE = 1024 * 1024;  // TODO: Copied from wormhole. Need to verify.
 

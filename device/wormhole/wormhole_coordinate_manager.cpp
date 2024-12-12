@@ -33,6 +33,7 @@ WormholeCoordinateManager::WormholeCoordinateManager(
         arc_cores,
         pcie_grid_size,
         pcie_cores) {
+    this->shuffle_tensix_harvesting_mask(wormhole::HARVESTING_NOC_LOCATIONS);
     initialize();
 }
 

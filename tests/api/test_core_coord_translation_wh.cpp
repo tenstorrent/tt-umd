@@ -37,7 +37,8 @@ TEST(CoordinateManager, CoordinateManagerWormholeNoHarvesting) {
 // We expect that the top left core will have virtual and physical coordinates (1, 1) and (1, 2) for
 // the logical coordinates if the first row is harvested.
 TEST(CoordinateManager, CoordinateManagerWormholeTopLeftCore) {
-    const size_t harvesting_mask = 1;
+    // This harvesting mask if targeting first row in NOC layout.
+    const size_t harvesting_mask = (1 << tt::umd::wormhole::LOGICAL_HARVESTING_LAYOUT[0]);
 
     std::shared_ptr<CoordinateManager> coordinate_manager =
         CoordinateManager::create_coordinate_manager(tt::ARCH::WORMHOLE_B0, harvesting_mask);
@@ -174,10 +175,11 @@ TEST(CoordinateManager, CoordinateManagerWormholeLogicalTranslatedTopLeft) {
 // Test that harvested physical coordinates map to the last row of the virtual coordinates.
 TEST(CoordinateManager, CoordinateManagerWormholePhysicalVirtualHarvestedMapping) {
     // Harvest first and second NOC layout row.
-    const size_t harvesting_mask = 3;
+    const size_t harvesting_mask =
+        (1 << tt::umd::wormhole::LOGICAL_HARVESTING_LAYOUT[0]) | (1 << tt::umd::wormhole::LOGICAL_HARVESTING_LAYOUT[1]);
     const size_t num_harvested = CoordinateManager::get_num_harvested(harvesting_mask);
     std::shared_ptr<CoordinateManager> coordinate_manager =
-        CoordinateManager::create_coordinate_manager(tt::ARCH::WORMHOLE_B0, 3);
+        CoordinateManager::create_coordinate_manager(tt::ARCH::WORMHOLE_B0, harvesting_mask);
 
     const std::vector<tt_xy_pair> tensix_cores = tt::umd::wormhole::TENSIX_CORES;
     const tt_xy_pair tensix_grid_size = tt::umd::wormhole::TENSIX_GRID_SIZE;
@@ -199,10 +201,11 @@ TEST(CoordinateManager, CoordinateManagerWormholePhysicalVirtualHarvestedMapping
 // Test that harvested physical coordinates map to the last row of the virtual coordinates.
 TEST(CoordinateManager, CoordinateManagerWormholePhysicalTranslatedHarvestedMapping) {
     // Harvest first and second NOC layout row.
-    const size_t harvesting_mask = 3;
+    const size_t harvesting_mask =
+        (1 << tt::umd::wormhole::LOGICAL_HARVESTING_LAYOUT[0]) | (1 << tt::umd::wormhole::LOGICAL_HARVESTING_LAYOUT[1]);
     const size_t num_harvested = CoordinateManager::get_num_harvested(harvesting_mask);
     std::shared_ptr<CoordinateManager> coordinate_manager =
-        CoordinateManager::create_coordinate_manager(tt::ARCH::WORMHOLE_B0, 3);
+        CoordinateManager::create_coordinate_manager(tt::ARCH::WORMHOLE_B0, harvesting_mask);
 
     const std::vector<tt_xy_pair> tensix_cores = tt::umd::wormhole::TENSIX_CORES;
     const tt_xy_pair tensix_grid_size = tt::umd::wormhole::TENSIX_GRID_SIZE;
@@ -350,4 +353,16 @@ TEST(CoordinateManager, CoordinateManagerWormholePCIETranslation) {
 // Test that we assert properly if DRAM harvesting mask is non-zero for Wormhole.
 TEST(CoordinateManager, CoordinateManagerWormholeDRAMHarvestingAssert) {
     EXPECT_THROW(CoordinateManager::create_coordinate_manager(tt::ARCH::WORMHOLE_B0, 0, 1), std::runtime_error);
+}
+
+// Test that we properly get harvesting mask that is based on the physical layout of the chip.
+TEST(CoordinateManager, CoordinateManagerWormholePhysicalLayoutTensixHarvestingMask) {
+    const size_t max_num_harvested_y = 10;
+
+    for (size_t harvesting_mask = 0; harvesting_mask < (1 << max_num_harvested_y); harvesting_mask++) {
+        std::shared_ptr<CoordinateManager> coordinate_manager =
+            CoordinateManager::create_coordinate_manager(tt::ARCH::WORMHOLE_B0, harvesting_mask);
+
+        EXPECT_EQ(coordinate_manager->get_tensix_harvesting_mask(), harvesting_mask);
+    }
 }

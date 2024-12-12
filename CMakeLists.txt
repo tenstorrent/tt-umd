@@ -65,6 +65,14 @@ add_compile_options(
     -Wno-sign-compare
 )
 
+# Conditionally add -Wno-maybe-uninitialized for GCC
+# If this is left enabled it produces a hard to track down issue in stimulus_generators.hpp with ConstrainedTemplateTemplateGenerator
+# TODO: Fix the issue and re-enable this warning
+if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+    add_compile_options(-Wno-maybe-uninitialized)
+    add_compile_options(-Wno-nonnull)
+endif()
+
 add_subdirectory(common)
 add_subdirectory(device)
 add_subdirectory(src)

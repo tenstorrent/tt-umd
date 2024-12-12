@@ -52,8 +52,10 @@ TEST(CoordinateManager, CoordinateManagerGrayskullTopLeftCore) {
 // We expect that the top left core will have virtual and physical coordinates (1, 1) and (1, 2) for
 // the logical coordinates if the first row is harvested.
 TEST(CoordinateManager, CoordinateManagerGrayskullTopLeftCoreHarvesting) {
+    // This is targeting first row of Tensix cores on NOC layout.
+    const size_t harvesting_mask = (1 << tt::umd::grayskull::LOGICAL_HARVESTING_LAYOUT[0]);
     std::shared_ptr<CoordinateManager> coordinate_manager =
-        CoordinateManager::create_coordinate_manager(tt::ARCH::GRAYSKULL, 1);
+        CoordinateManager::create_coordinate_manager(tt::ARCH::GRAYSKULL, harvesting_mask);
 
     CoreCoord logical_coords = CoreCoord(0, 0, CoreType::TENSIX, CoordSystem::LOGICAL);
 
@@ -175,12 +177,13 @@ TEST(CoordinateManager, CoordinateManagerGrayskullLogicalVirtualMapping) {
 }
 
 // Test that harvested physical coordinates map to the last row of the virtual coordinates.
-TEST(CoordinateManager, CoordinateManagerWormholePhysicalGrayskullHarvestedMapping) {
+TEST(CoordinateManager, CoordinateManagerGrayskullPhysicalHarvestedMapping) {
     // Harvest first and second NOC layout row.
-    const size_t harvesting_mask = 3;
+    const size_t harvesting_mask = (1 << tt::umd::grayskull::LOGICAL_HARVESTING_LAYOUT[0]) |
+                                   (1 << tt::umd::grayskull::LOGICAL_HARVESTING_LAYOUT[1]);
     const size_t num_harvested = CoordinateManager::get_num_harvested(harvesting_mask);
     std::shared_ptr<CoordinateManager> coordinate_manager =
-        CoordinateManager::create_coordinate_manager(tt::ARCH::GRAYSKULL, 3);
+        CoordinateManager::create_coordinate_manager(tt::ARCH::GRAYSKULL, harvesting_mask);
 
     const std::vector<tt_xy_pair> tensix_cores = tt::umd::grayskull::TENSIX_CORES;
     const tt_xy_pair tensix_grid_size = tt::umd::grayskull::TENSIX_GRID_SIZE;
@@ -202,10 +205,11 @@ TEST(CoordinateManager, CoordinateManagerWormholePhysicalGrayskullHarvestedMappi
 // Test that harvested physical coordinates map to the last row of the virtual coordinates.
 TEST(CoordinateManager, CoordinateManagerGrayskullPhysicalTranslatedHarvestedMapping) {
     // Harvest first and second NOC layout row.
-    const size_t harvesting_mask = 3;
+    const size_t harvesting_mask = (1 << tt::umd::grayskull::LOGICAL_HARVESTING_LAYOUT[0]) |
+                                   (1 << tt::umd::grayskull::LOGICAL_HARVESTING_LAYOUT[1]);
     const size_t num_harvested = CoordinateManager::get_num_harvested(harvesting_mask);
     std::shared_ptr<CoordinateManager> coordinate_manager =
-        CoordinateManager::create_coordinate_manager(tt::ARCH::GRAYSKULL, 3);
+        CoordinateManager::create_coordinate_manager(tt::ARCH::GRAYSKULL, harvesting_mask);
 
     const std::vector<tt_xy_pair> tensix_cores = tt::umd::grayskull::TENSIX_CORES;
     const tt_xy_pair tensix_grid_size = tt::umd::grayskull::TENSIX_GRID_SIZE;
@@ -297,4 +301,16 @@ TEST(CoordinateManager, CoordinateManagerGrayskullARCTranslation) {
 // Test that we assert properly if DRAM harvesting mask is non-zero for Grayskull.
 TEST(CoordinateManager, CoordinateManagerGrayskullDRAMHarvestingAssert) {
     EXPECT_THROW(CoordinateManager::create_coordinate_manager(tt::ARCH::GRAYSKULL, 0, 1), std::runtime_error);
+}
+
+// Test that we properly get harvesting mask that is based on the physical layout of the chip.
+TEST(CoordinateManager, CoordinateManagerGrayskullPhysicalLayoutTensixHarvestingMask) {
+    const size_t max_num_harvested_y = 10;
+
+    for (size_t harvesting_mask = 0; harvesting_mask < (1 << max_num_harvested_y); harvesting_mask++) {
+        std::shared_ptr<CoordinateManager> coordinate_manager =
+            CoordinateManager::create_coordinate_manager(tt::ARCH::GRAYSKULL, harvesting_mask);
+
+        EXPECT_EQ(coordinate_manager->get_tensix_harvesting_mask(), harvesting_mask);
+    }
 }

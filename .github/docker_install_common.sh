@@ -8,7 +8,7 @@ apt-get update && apt-get install -y \
     ninja-build \
     git \
     git-lfs \
-    libhwloc-dev \
+    libnuma-dev \
     libgtest-dev \
     libyaml-cpp-dev \
     libboost-all-dev \

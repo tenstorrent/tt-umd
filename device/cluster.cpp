@@ -240,7 +240,14 @@ void Cluster::create_device(
         }
         auto pci_device = m_tt_device_map.at(logical_device_id)->get_pci_device();
 
-        int num_host_mem_channels = num_host_mem_ch_per_mmio_device;
+        uint16_t pcie_device_id = pci_device->get_pci_device_id();
+        uint32_t pcie_revision = pci_device->get_pci_revision();
+        // TODO: get rid of this, it doesn't make any sense.
+        // Update: I did get rid of it and it broke Metal CI, which is passing
+        // tests that ask for more hugepages than exist.  That's wrong, but it
+        // isn't fixed yet, so until then...
+        int num_host_mem_channels =
+            get_available_num_host_mem_channels(num_host_mem_ch_per_mmio_device, pcie_device_id, pcie_revision);
 
         log_debug(
             LogSiliconDriver,

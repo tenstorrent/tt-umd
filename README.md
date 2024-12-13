@@ -1,8 +1,10 @@
-# UMD
-## About
-Usermode Driver for Tenstorrent AI Accelerators
+# Tenstorrent AI User-Mode Driver
+## Official Repository
+https://github.com/tenstorrent/tt-umd
 
-## Dependencies
+## Software Dependencies
+UMD requires Tenstorrent's [kernel-mode driver](https://github.com/tenstorrent/tt-kmd)
+
 Required Ubuntu dependencies:
 ```
 sudo apt install -y libhwloc-dev cmake ninja-build
@@ -15,9 +17,29 @@ chmod u+x llvm.sh
 sudo ./llvm.sh 17
 ```
 
+
+## IOMMU and Hugepage requirements
+To determine whether your system requires hugepage configuration, run the provided script:
+
+```bash
+./scripts/iommu_detect.sh
+```
+
+#### Grayskull and Wormhole
+[1G hugepages](https://www.kernel.org/doc/Documentation/admin-guide/mm/hugetlbpage.rst) are required for shared device/host memory.  Techniques for setup:
+  * Recommended: the [tt-system-tools](https://github.com/tenstorrent/tt-system-tools) repository contains a .deb package which will configure your system
+      * `sudo dpkg -i tenstorrent-tools_1.1-5_all.deb`
+  * Alternative: Metal project provides instructions and a [script](https://github.com/tenstorrent/tt-metal/blob/main/INSTALLING.md#step-3-hugepages).
+  * For experts:
+    * Put system IOMMU in passthrough mode or disable it
+    * Allocate 1 or more 1G hugepages
+    * Mount the hugetlbfs at /dev/hugepages-1G (e.g. `mount -t hugetlbfs hugetlbfs /dev/hugepages-1G -o mode=777,pagesize=1024M`)
+#### Blackhole
+If your system IOMMU is enabled, no hugepage setup is required.
+
 ## Build flow
 
-To build `libdevice.so`: 
+To build `libdevice.so`:
 ```
 cmake -B build -G Ninja
 cmake --build build
@@ -70,7 +92,7 @@ add_subdirectory(<path to umd>)
 
 ### Ubuntu
 ```
-apt install ./umd-dev-x.y.z-Linux.deb 
+apt install ./umd-dev-x.y.z-Linux.deb
 ```
 
 ## Simulator Integration
@@ -100,7 +122,7 @@ To set up pre-commit on your local machine, follow these steps:
    Ensure you have Python installed, then run:
    ```bash
    pip install pre-commit
-   ```  
+   ```
 2. **Install the Git Hook Scripts**:
    In your local repository, run the following command to install the pre-commit hooks:
    ```bash
@@ -113,10 +135,10 @@ To set up pre-commit on your local machine, follow these steps:
    pre-commit run --all-files
    ```
 ## Why You Should Use Pre-commit
-By setting up pre-commit locally, you can help maintain the quality of the codebase and ensure that commits consistently meet the project's formatting standards. This saves time during code reviews and reduces the likelihood of code formatting issues slipping into the repository.  
-  
-Since the hooks run automatically before each commit, you don't need to remember to manually format or check your code, making it easier to maintain consistency.  
-  
+By setting up pre-commit locally, you can help maintain the quality of the codebase and ensure that commits consistently meet the project's formatting standards. This saves time during code reviews and reduces the likelihood of code formatting issues slipping into the repository.
+
+Since the hooks run automatically before each commit, you don't need to remember to manually format or check your code, making it easier to maintain consistency.
+
 We strongly encourage all developers to integrate pre-commit into their workflow.
 
 # Formatting C++ code

@@ -100,6 +100,35 @@ TEST(SocDescriptor, SocDescriptorWormholeOneRowHarvesting) {
     ASSERT_TRUE(soc_desc.get_harvested_cores(CoreType::DRAM).empty());
 }
 
+// Test ETH translation from logical to physical coordinates.
+TEST(SocDescriptor, SocDescriptorWormholeETHLogicalToPhysical) {
+    tt_SocDescriptor soc_desc(test_utils::GetAbsPath("tests/soc_descs/wormhole_b0_8x10.yaml"));
+
+    const std::vector<tt_xy_pair>& wormhole_eth_cores = tt::umd::wormhole::ETH_CORES;
+    const tt_xy_pair eth_grid_size = soc_desc.get_grid_size(CoreType::ETH);
+    const std::vector<CoreCoord> eth_cores = soc_desc.get_cores(CoreType::ETH);
+
+    size_t index = 0;
+    for (size_t y = 0; y < eth_grid_size.y; y++) {
+        for (size_t x = 0; x < eth_grid_size.x; x++) {
+            const CoreCoord eth_logical = CoreCoord(x, y, CoreType::ETH, CoordSystem::LOGICAL);
+            const CoreCoord eth_physical = soc_desc.to(eth_logical, CoordSystem::PHYSICAL);
+            const CoreCoord eth_virtual = soc_desc.to(eth_logical, CoordSystem::VIRTUAL);
+
+            EXPECT_EQ(eth_physical.x, wormhole_eth_cores[index].x);
+            EXPECT_EQ(eth_physical.y, wormhole_eth_cores[index].y);
+
+            EXPECT_EQ(eth_virtual.x, wormhole_eth_cores[index].x);
+            EXPECT_EQ(eth_virtual.y, wormhole_eth_cores[index].y);
+
+            EXPECT_EQ(eth_cores[index].x, wormhole_eth_cores[index].x);
+            EXPECT_EQ(eth_cores[index].y, wormhole_eth_cores[index].y);
+
+            index++;
+        }
+    }
+}
+
 // Test soc descriptor API for Blackhole when there is no harvesting.
 TEST(SocDescriptor, SocDescriptorBlackholeNoHarvesting) {
     tt_SocDescriptor soc_desc(test_utils::GetAbsPath("tests/soc_descs/blackhole_140_arch_no_eth.yaml"));

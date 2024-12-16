@@ -175,7 +175,7 @@ void CoordinateManager::translate_dram_coords() {
 void CoordinateManager::translate_eth_coords() {
     for (size_t x = 0; x < eth_grid_size.x; x++) {
         for (size_t y = 0; y < eth_grid_size.y; y++) {
-            const tt_xy_pair eth_core = eth_cores[x * eth_grid_size.y + y];
+            const tt_xy_pair eth_core = eth_cores[y * eth_grid_size.x + x];
 
             CoreCoord logical_coord = CoreCoord(x, y, CoreType::ETH, CoordSystem::LOGICAL);
             CoreCoord virtual_coord = CoreCoord(eth_core.x, eth_core.y, CoreType::ETH, CoordSystem::VIRTUAL);

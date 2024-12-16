@@ -79,21 +79,7 @@ tt_SimulationDevice::tt_SimulationDevice(const std::string& sdesc_path) : tt_dev
 
 tt_SimulationDevice::~tt_SimulationDevice() { close_device(); }
 
-void tt_SimulationDevice::set_device_l1_address_params(const tt_device_l1_address_params& l1_address_params_) {
-    l1_address_params = l1_address_params_;
-}
-
-void tt_SimulationDevice::set_device_dram_address_params(const tt_device_dram_address_params& dram_address_params_) {
-    dram_address_params = dram_address_params_;
-}
-
-void tt_SimulationDevice::set_driver_host_address_params(const tt_driver_host_address_params& host_address_params_) {
-    host_address_params = host_address_params_;
-}
-
-void tt_SimulationDevice::set_driver_eth_interface_params(const tt_driver_eth_interface_params& eth_interface_params_) {
-    eth_interface_params = eth_interface_params_;
-}
+void tt_SimulationDevice::set_barrier_address_params(const barrier_address_params& barrier_address_params_) {}
 
 void tt_SimulationDevice::start_device(const tt_device_params& device_params) {
     void* buf_ptr = nullptr;

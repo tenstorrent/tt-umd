@@ -20,9 +20,6 @@
 
 // TODO: obviously we need some other way to set this up
 #include "noc/noc_parameters.h"
-#include "src/firmware/riscv/wormhole/eth_l1_address_map.h"
-#include "src/firmware/riscv/wormhole/host_mem_address_map.h"
-#include "src/firmware/riscv/wormhole/l1_address_map.h"
 
 using namespace tt::umd;
 
@@ -31,6 +28,10 @@ using namespace tt::umd;
 // N150. N300
 // Galaxy
 
+constexpr std::uint32_t L1_BARRIER_BASE = 12;
+constexpr std::uint32_t ETH_BARRIER_BASE = 256 * 1024 - 32;
+constexpr std::uint32_t DRAM_BARRIER_BASE = 0;
+
 inline std::unique_ptr<Cluster> get_cluster() {
     std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
     // TODO: Make this test work on a host system without any tt devices.
@@ -38,21 +39,6 @@ inline std::unique_ptr<Cluster> get_cluster() {
         return nullptr;
     }
     return std::unique_ptr<Cluster>(new Cluster());
-}
-
-// TODO: Should not be wormhole specific.
-// TODO: Offer default setup for what you can.
-void setup_wormhole_remote(Cluster* umd_cluster) {
-    if (!umd_cluster->get_target_remote_device_ids().empty() &&
-        umd_cluster->get_soc_descriptor(*umd_cluster->get_all_chips_in_cluster().begin()).arch ==
-            tt::ARCH::WORMHOLE_B0) {
-        // Populate address map and NOC parameters that the driver needs for remote transactions
-
-        umd_cluster->set_device_l1_address_params(
-            {l1_mem::address_map::L1_BARRIER_BASE,
-             eth_l1_mem::address_map::ERISC_BARRIER_BASE,
-             eth_l1_mem::address_map::FW_VERSION_ADDR});
-    }
 }
 
 // This test should be one line only.
@@ -105,8 +91,9 @@ TEST(ApiClusterTest, SimpleIOAllChips) {
         data[i] = i % 256;
     }
 
-    // TODO: this should be part of constructor if it is mandatory.
-    setup_wormhole_remote(umd_cluster.get());
+    // Setup memory barrier addresses.
+    // Some default values are set during construction of UMD, but you can override them.
+    umd_cluster->set_barrier_address_params({L1_BARRIER_BASE, ETH_BARRIER_BASE, DRAM_BARRIER_BASE});
 
     for (auto chip_id : umd_cluster->get_all_chips_in_cluster()) {
         const tt_SocDescriptor& soc_desc = umd_cluster->get_soc_descriptor(chip_id);
@@ -159,8 +146,9 @@ TEST(ApiClusterTest, RemoteFlush) {
     size_t data_size = 1024;
     std::vector<uint8_t> data(data_size, 0);
 
-    // TODO: this should be part of constructor if it is mandatory.
-    setup_wormhole_remote(umd_cluster.get());
+    // Setup memory barrier addresses.
+    // Some default values are set during construction of UMD, but you can override them.
+    umd_cluster->set_barrier_address_params({L1_BARRIER_BASE, ETH_BARRIER_BASE, DRAM_BARRIER_BASE});
 
     for (auto chip_id : umd_cluster->get_target_remote_device_ids()) {
         const tt_SocDescriptor& soc_desc = umd_cluster->get_soc_descriptor(chip_id);
@@ -225,8 +213,9 @@ TEST(ApiClusterTest, SimpleIOSpecificChips) {
         data[i] = i % 256;
     }
 
-    // TODO: this should be part of constructor if it is mandatory.
-    setup_wormhole_remote(umd_cluster.get());
+    // Setup memory barrier addresses.
+    // Some default values are set during construction of UMD, but you can override them.
+    umd_cluster->set_barrier_address_params({L1_BARRIER_BASE, ETH_BARRIER_BASE, DRAM_BARRIER_BASE});
 
     for (auto chip_id : umd_cluster->get_all_chips_in_cluster()) {
         const tt_SocDescriptor& soc_desc = umd_cluster->get_soc_descriptor(chip_id);

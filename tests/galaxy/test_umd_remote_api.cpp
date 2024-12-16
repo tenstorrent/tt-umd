@@ -33,7 +33,7 @@ void run_remote_read_write_test(uint32_t vector_size, bool dram_write) {
         Cluster(test_utils::GetAbsPath(SOC_DESC_PATH), target_devices, num_host_mem_ch_per_mmio_device, false, true);
     const auto sdesc_per_chip = device.get_virtual_soc_descriptors();
 
-    tt::umd::test::utils::set_params_for_remote_txn(device);
+    tt::umd::test::utils::set_barrier_params(device);
 
     tt_device_params default_params;
     device.start_device(default_params);
@@ -150,7 +150,7 @@ void run_data_mover_test(
     Cluster device =
         Cluster(test_utils::GetAbsPath(SOC_DESC_PATH), target_devices, num_host_mem_ch_per_mmio_device, false, true);
 
-    tt::umd::test::utils::set_params_for_remote_txn(device);
+    tt::umd::test::utils::set_barrier_params(device);
 
     tt_device_params default_params;
     device.start_device(default_params);
@@ -269,7 +269,7 @@ void run_data_broadcast_test(
     Cluster device =
         Cluster(test_utils::GetAbsPath(SOC_DESC_PATH), target_devices, num_host_mem_ch_per_mmio_device, false, true);
 
-    tt::umd::test::utils::set_params_for_remote_txn(device);
+    tt::umd::test::utils::set_barrier_params(device);
 
     tt_device_params default_params;
     device.start_device(default_params);

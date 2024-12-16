@@ -15,6 +15,14 @@
 
 using namespace tt::umd;
 
+constexpr std::uint32_t DRAM_BARRIER_BASE = 0;
+
+static void set_barrier_params(Cluster& cluster) {
+    // Populate address map and NOC parameters that the driver needs for memory barriers.
+    // Grayskull doesn't have ETH, so we don't need to populate the ETH barrier address.
+    cluster.set_barrier_address_params({l1_mem::address_map::L1_BARRIER_BASE, 0u, DRAM_BARRIER_BASE});
+}
+
 TEST(SiliconDriverGS, CreateDestroySequential) {
     std::set<chip_id_t> target_devices = {0};
     uint32_t num_host_mem_ch_per_mmio_device = 1;
@@ -426,7 +434,12 @@ TEST(SiliconDriverGS, MultiThreadedMemBar) {  // this tests takes ~5 mins to run
     std::vector<uint32_t> readback_membar_vec = {};
     for (auto& core : cluster.get_soc_descriptor(0).workers) {
         test_utils::read_data_from_device(
-            cluster, readback_membar_vec, tt_cxy_pair(0, core), 0, 4, "SMALL_READ_WRITE_TLB");
+            cluster,
+            readback_membar_vec,
+            tt_cxy_pair(0, core),
+            l1_mem::address_map::L1_BARRIER_BASE,
+            4,
+            "SMALL_READ_WRITE_TLB");
         ASSERT_EQ(
             readback_membar_vec.at(0), 187);  // Ensure that memory barriers were correctly initialized on all workers
         readback_membar_vec = {};
@@ -434,7 +447,12 @@ TEST(SiliconDriverGS, MultiThreadedMemBar) {  // this tests takes ~5 mins to run
 
     for (auto& core : cluster.get_soc_descriptor(0).workers) {
         test_utils::read_data_from_device(
-            cluster, readback_membar_vec, tt_cxy_pair(0, core), 0, 4, "SMALL_READ_WRITE_TLB");
+            cluster,
+            readback_membar_vec,
+            tt_cxy_pair(0, core),
+            l1_mem::address_map::L1_BARRIER_BASE,
+            4,
+            "SMALL_READ_WRITE_TLB");
         ASSERT_EQ(
             readback_membar_vec.at(0), 187);  // Ensure that memory barriers were correctly initialized on all workers
         readback_membar_vec = {};
@@ -443,7 +461,7 @@ TEST(SiliconDriverGS, MultiThreadedMemBar) {  // this tests takes ~5 mins to run
     for (int chan = 0; chan < cluster.get_soc_descriptor(0).get_num_dram_channels(); chan++) {
         auto core = cluster.get_soc_descriptor(0).get_core_for_dram_channel(chan, 0);
         test_utils::read_data_from_device(
-            cluster, readback_membar_vec, tt_cxy_pair(0, core), 0, 4, "SMALL_READ_WRITE_TLB");
+            cluster, readback_membar_vec, tt_cxy_pair(0, core), DRAM_BARRIER_BASE, 4, "SMALL_READ_WRITE_TLB");
         ASSERT_EQ(
             readback_membar_vec.at(0), 187);  // Ensure that memory barriers were correctly initialized on all DRAM
         readback_membar_vec = {};
@@ -502,7 +520,12 @@ TEST(SiliconDriverGS, MultiThreadedMemBar) {  // this tests takes ~5 mins to run
 
     for (auto& core : cluster.get_soc_descriptor(0).workers) {
         test_utils::read_data_from_device(
-            cluster, readback_membar_vec, tt_cxy_pair(0, core), 0, 4, "SMALL_READ_WRITE_TLB");
+            cluster,
+            readback_membar_vec,
+            tt_cxy_pair(0, core),
+            l1_mem::address_map::L1_BARRIER_BASE,
+            4,
+            "SMALL_READ_WRITE_TLB");
         ASSERT_EQ(readback_membar_vec.at(0), 187);  // Ensure that memory barriers end up in correct sate workers
         readback_membar_vec = {};
     }

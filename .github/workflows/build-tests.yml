@@ -34,6 +34,7 @@ env:
   DEPS_OUTPUT_DIR: ./build/_deps
   TEST_OUTPUT_DIR: ./build/test
   CLUSTER_DESCRIPTORS_DIR: ./tests/api/cluster_descriptor_examples
+  SOC_DESCRIPTORS_DIR: ./tests/soc_descs
 
 jobs:
   build:
@@ -77,7 +78,8 @@ jobs:
           tar cvf artifact.tar ${{ env.TEST_OUTPUT_DIR }} \
           ${{ env.LIB_OUTPUT_DIR }} \
           ${{ env.DEPS_OUTPUT_DIR }} \
-          ${{ env.CLUSTER_DESCRIPTORS_DIR }}
+          ${{ env.CLUSTER_DESCRIPTORS_DIR }} \
+          ${{ env.SOC_DESCRIPTORS_DIR }}
 
       - name: Upload build artifacts archive
         uses: actions/upload-artifact@v4

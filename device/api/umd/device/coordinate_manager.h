@@ -42,6 +42,12 @@ public:
 
     tt::umd::CoreCoord to(const tt::umd::CoreCoord core_coord, const CoordSystem coord_system);
 
+    std::vector<tt::umd::CoreCoord> get_cores(const CoreType core_type) const;
+    tt_xy_pair get_grid_size(const CoreType core_type) const;
+
+    std::vector<tt::umd::CoreCoord> get_harvested_cores(const CoreType core_type) const;
+    tt_xy_pair get_harvested_grid_size(const CoreType core_type) const;
+
     virtual ~CoordinateManager() = default;
 
     size_t get_tensix_harvesting_mask() const;
@@ -51,6 +57,9 @@ public:
 private:
     static void assert_create_coordinate_manager(
         const tt::ARCH arch, const size_t tensix_harvesting_mask, const size_t dram_harvesting_mask);
+
+    const std::vector<tt_xy_pair>& get_physical_pairs(const CoreType core_type) const;
+    std::vector<tt::umd::CoreCoord> get_all_physical_cores(const CoreType core_type) const;
 
 protected:
     /*
@@ -86,6 +95,15 @@ protected:
 
     void identity_map_physical_cores();
     void add_core_translation(const tt::umd::CoreCoord& core_coord, const tt_xy_pair& physical_pair);
+
+    virtual std::vector<tt::umd::CoreCoord> get_tensix_cores() const;
+    virtual std::vector<tt::umd::CoreCoord> get_harvested_tensix_cores() const;
+    virtual std::vector<tt::umd::CoreCoord> get_dram_cores() const;
+    virtual std::vector<tt::umd::CoreCoord> get_harvested_dram_cores() const;
+    virtual tt_xy_pair get_tensix_grid_size() const;
+    virtual tt_xy_pair get_dram_grid_size() const;
+    virtual tt_xy_pair get_harvested_tensix_grid_size() const;
+    virtual tt_xy_pair get_harvested_dram_grid_size() const;
 
     /*
      * Fills the logical to translated mapping for the tensix cores.
@@ -134,23 +152,21 @@ protected:
     std::map<tt::umd::CoreCoord, tt_xy_pair> to_physical_map;
     std::map<std::pair<tt_xy_pair, CoordSystem>, tt::umd::CoreCoord> from_physical_map;
 
-    const tt_xy_pair tensix_grid_size;
-    const std::vector<tt_xy_pair>& tensix_cores;
+    tt_xy_pair tensix_grid_size;
+    const std::vector<tt_xy_pair> tensix_cores;
     size_t tensix_harvesting_mask;
     const size_t physical_layout_tensix_harvesting_mask;
 
-    const tt_xy_pair dram_grid_size;
-    const std::vector<tt_xy_pair>& dram_cores;
+    tt_xy_pair dram_grid_size;
+    const std::vector<tt_xy_pair> dram_cores;
     size_t dram_harvesting_mask;
 
-    const tt_xy_pair eth_grid_size;
-    const std::vector<tt_xy_pair>& eth_cores;
+    tt_xy_pair eth_grid_size;
+    const std::vector<tt_xy_pair> eth_cores;
 
-    const tt_xy_pair arc_grid_size;
-    const std::vector<tt_xy_pair>& arc_cores;
+    tt_xy_pair arc_grid_size;
+    const std::vector<tt_xy_pair> arc_cores;
 
-    const tt_xy_pair pcie_grid_size;
-    const std::vector<tt_xy_pair>& pcie_cores;
+    tt_xy_pair pcie_grid_size;
+    const std::vector<tt_xy_pair> pcie_cores;
 };
-
-// friend

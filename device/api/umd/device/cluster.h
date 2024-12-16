@@ -84,18 +84,6 @@ public:
     }
 
     /**
-     * Give UMD a 1:1 function mapping a core to its appropriate static TLB (currently only support a single TLB per
-     * core).
-     *
-     * @param logical_device_id MMIO chip being targeted.
-     * @param mapping_function Function which maps core to TLB index.
-     */
-    virtual void setup_core_to_tlb_map(
-        const chip_id_t logical_device_id, std::function<std::int32_t(tt_xy_pair)> mapping_function) {
-        throw std::runtime_error("---- tt_device::setup_core_to_tlb_map is not implemented\n");
-    }
-
-    /**
      * Pass in ethernet cores with active links for a specific MMIO chip. When called, this function will force UMD to
      * use a subset of cores from the active_eth_cores_per_chip set for all host->cluster non-MMIO transfers. If this
      * function is not called, UMD will use a default set of ethernet core indices for these transfers (0 through 5). If
@@ -531,8 +519,6 @@ public:
         uint64_t address,
         uint64_t ordering = TLB_DATA::Posted);
     virtual void set_fallback_tlb_ordering_mode(const std::string& fallback_tlb, uint64_t ordering = TLB_DATA::Posted);
-    virtual void setup_core_to_tlb_map(
-        const chip_id_t logical_device_id, std::function<std::int32_t(tt_xy_pair)> mapping_function);
     virtual void configure_active_ethernet_cores_for_mmio_device(
         chip_id_t mmio_chip, const std::unordered_set<tt_xy_pair>& active_eth_cores_per_chip);
     virtual void start_device(const tt_device_params& device_params);
@@ -752,8 +738,16 @@ private:
         int timeout = 1,
         uint32_t* return_3 = nullptr,
         uint32_t* return_4 = nullptr);
+
+    // TODO: These will be moved to a dedicated class for TLB management
     bool address_in_tlb_space(
         uint64_t address, uint32_t size_in_bytes, int32_t tlb_index, uint64_t tlb_size, uint32_t chip);
+    bool is_tlb_mapped(tt_cxy_pair target);
+    bool is_tlb_mapped(tt_cxy_pair target, uint64_t address, uint32_t size_in_bytes);
+    // Note that these maps holds only entries for local PCIe chips.
+    std::map<chip_id_t, std::unordered_map<int32_t, uint64_t>> tlb_config_map = {};
+    std::unordered_map<chip_id_t, std::unordered_map<tt_xy_pair, std::int32_t>> map_core_to_tlb_per_chip = {};
+
     std::shared_ptr<boost::interprocess::named_mutex> get_mutex(const std::string& tlb_name, int pci_interface_id);
     virtual uint32_t get_harvested_noc_rows_for_chip(
         int logical_device_id);  // Returns one-hot encoded harvesting mask for PCIe mapped chips
@@ -820,11 +814,6 @@ private:
     std::unordered_map<chip_id_t, std::unordered_set<tt_xy_pair>> workers_per_chip = {};
     std::unordered_set<tt_xy_pair> eth_cores = {};
     std::unordered_set<tt_xy_pair> dram_cores = {};
-    std::map<chip_id_t, std::unordered_map<int32_t, uint64_t>> tlb_config_map = {};
-
-    // Note that these maps holds only entries for local PCIe chips.
-    std::unordered_map<chip_id_t, std::function<std::int32_t(tt_xy_pair)>> map_core_to_tlb_per_chip = {};
-    std::unordered_map<chip_id_t, bool> tlbs_init_per_chip = {};
 
     std::unordered_map<std::string, std::int32_t> dynamic_tlb_config = {};
     std::unordered_map<std::string, uint64_t> dynamic_tlb_ordering_modes = {};

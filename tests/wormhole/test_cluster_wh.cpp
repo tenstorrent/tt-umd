@@ -95,7 +95,6 @@ TEST(SiliconDriverWH, CreateDestroy) {
             false);
         set_params_for_remote_txn(cluster);
         cluster.start_device(default_params);
-        cluster.deassert_risc_reset();
         cluster.close_device();
     }
 }
@@ -146,12 +145,9 @@ TEST(SiliconDriverWH, CustomSocDesc) {
 
 // Disabled for now.
 // https://github.com/tenstorrent/tt-umd/issues/82
-#if 0
+#if 1
 TEST(SiliconDriverWH, HarvestingRuntime) {
-
-    auto get_static_tlb_index_callback = [] (tt_xy_pair target) {
-        return get_static_tlb_index(target);
-    };
+    auto get_static_tlb_index_callback = [](tt_xy_pair target) { return get_static_tlb_index(target); };
 
     std::set<chip_id_t> target_devices = get_target_devices();
     std::unordered_map<chip_id_t, uint32_t> simulated_harvesting_masks = {{0, 30}, {1, 60}};
@@ -162,50 +158,78 @@ TEST(SiliconDriverWH, HarvestingRuntime) {
     set_params_for_remote_txn(cluster);
     auto mmio_devices = cluster.get_target_mmio_device_ids();
 
-    for(int i = 0; i < target_devices.size(); i++) {
+    for (int i = 0; i < target_devices.size(); i++) {
         // Iterate over MMIO devices and only setup static TLBs for worker cores
-        if(std::find(mmio_devices.begin(), mmio_devices.end(), i) != mmio_devices.end()) {
+        if (std::find(mmio_devices.begin(), mmio_devices.end(), i) != mmio_devices.end()) {
             auto& sdesc = cluster.get_soc_descriptor(i);
-            for(auto& core : sdesc.workers) {
+            for (auto& core : sdesc.workers) {
                 // Statically mapping a 1MB TLB to this core, starting from address NCRISC_FIRMWARE_BASE.
-                cluster.configure_tlb(i, core, get_static_tlb_index_callback(core), l1_mem::address_map::NCRISC_FIRMWARE_BASE);
+                cluster.configure_tlb(
+                    i, core, get_static_tlb_index_callback(core), l1_mem::address_map::NCRISC_FIRMWARE_BASE);
             }
         }
+        cluster.setup_core_to_tlb_map(i, get_static_tlb_index_callback);
     }
-    cluster.setup_core_to_tlb_map(get_static_tlb_index_callback);
 
     tt_device_params default_params;
     cluster.start_device(default_params);
-    cluster.deassert_risc_reset();
 
     std::vector<uint32_t> vector_to_write = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9};
     std::vector<uint32_t> dynamic_readback_vec = {};
     std::vector<uint32_t> readback_vec = {};
     std::vector<uint32_t> zeros = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
 
-
-    for(int i = 0; i < target_devices.size(); i++) {
+    for (int i = 0; i < target_devices.size(); i++) {
         std::uint32_t address = l1_mem::address_map::NCRISC_FIRMWARE_BASE;
         std::uint32_t dynamic_write_address = 0x40000000;
-        for(int loop = 0; loop < 100; loop++){ // Write to each core a 100 times at different statically mapped addresses
-            for(auto& core : cluster.get_soc_descriptor(i).workers) {
-                cluster.write_to_device(vector_to_write.data(), vector_to_write.size() * sizeof(std::uint32_t), tt_cxy_pair(i, core), address, "");
-                cluster.write_to_device(vector_to_write.data(), vector_to_write.size() * sizeof(std::uint32_t), tt_cxy_pair(i, core), dynamic_write_address, "SMALL_READ_WRITE_TLB");
-                cluster.wait_for_non_mmio_flush(); // Barrier to ensure that all writes over ethernet were commited
+        for (int loop = 0; loop < 100;
+             loop++) {  // Write to each core a 100 times at different statically mapped addresses
+            for (auto& core : cluster.get_soc_descriptor(i).workers) {
+                cluster.write_to_device(
+                    vector_to_write.data(),
+                    vector_to_write.size() * sizeof(std::uint32_t),
+                    tt_cxy_pair(i, core),
+                    address,
+                    "");
+                cluster.write_to_device(
+                    vector_to_write.data(),
+                    vector_to_write.size() * sizeof(std::uint32_t),
+                    tt_cxy_pair(i, core),
+                    dynamic_write_address,
+                    "SMALL_READ_WRITE_TLB");
+                cluster.wait_for_non_mmio_flush();  // Barrier to ensure that all writes over ethernet were commited
 
                 test_utils::read_data_from_device(cluster, readback_vec, tt_cxy_pair(i, core), address, 40, "");
-                test_utils::read_data_from_device(cluster, dynamic_readback_vec, tt_cxy_pair(i, core), dynamic_write_address, 40, "SMALL_READ_WRITE_TLB");
-                ASSERT_EQ(vector_to_write, readback_vec) << "Vector read back from core " << core.x << "-" << core.y << "does not match what was written";
-                ASSERT_EQ(vector_to_write, dynamic_readback_vec) << "Vector read back from core " << core.x << "-" << core.y << "does not match what was written";
+                test_utils::read_data_from_device(
+                    cluster,
+                    dynamic_readback_vec,
+                    tt_cxy_pair(i, core),
+                    dynamic_write_address,
+                    40,
+                    "SMALL_READ_WRITE_TLB");
+                ASSERT_EQ(vector_to_write, readback_vec)
+                    << "Vector read back from core " << core.x << "-" << core.y << "does not match what was written";
+                ASSERT_EQ(vector_to_write, dynamic_readback_vec)
+                    << "Vector read back from core " << core.x << "-" << core.y << "does not match what was written";
                 cluster.wait_for_non_mmio_flush();
 
-                cluster.write_to_device(zeros.data(), zeros.size() * sizeof(std::uint32_t), tt_cxy_pair(i, core), dynamic_write_address, "SMALL_READ_WRITE_TLB"); // Clear any written data
-                cluster.write_to_device(zeros.data(), zeros.size() * sizeof(std::uint32_t), tt_cxy_pair(i, core), address, ""); // Clear any written data
+                cluster.write_to_device(
+                    zeros.data(),
+                    zeros.size() * sizeof(std::uint32_t),
+                    tt_cxy_pair(i, core),
+                    dynamic_write_address,
+                    "SMALL_READ_WRITE_TLB");  // Clear any written data
+                cluster.write_to_device(
+                    zeros.data(),
+                    zeros.size() * sizeof(std::uint32_t),
+                    tt_cxy_pair(i, core),
+                    address,
+                    "");  // Clear any written data
                 cluster.wait_for_non_mmio_flush();
                 readback_vec = {};
                 dynamic_readback_vec = {};
             }
-            address += 0x20; // Increment by uint32_t size for each write
+            address += 0x20;  // Increment by uint32_t size for each write
             dynamic_write_address += 0x20;
         }
     }
@@ -239,7 +263,6 @@ TEST(SiliconDriverWH, UnalignedStaticTLB_RW) {
 
     tt_device_params default_params;
     cluster.start_device(default_params);
-    cluster.deassert_risc_reset();
 
     std::vector<uint32_t> unaligned_sizes = {3, 14, 21, 255, 362, 430, 1022, 1023, 1025};
     for (int i = 0; i < num_devices; i++) {
@@ -295,7 +318,6 @@ TEST(SiliconDriverWH, StaticTLB_RW) {
 
     tt_device_params default_params;
     cluster.start_device(default_params);
-    cluster.deassert_risc_reset();
 
     std::vector<uint32_t> vector_to_write = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9};
     std::vector<uint32_t> readback_vec = {};
@@ -345,7 +367,6 @@ TEST(SiliconDriverWH, DynamicTLB_RW) {
 
     tt_device_params default_params;
     cluster.start_device(default_params);
-    cluster.deassert_risc_reset();
 
     std::vector<uint32_t> vector_to_write = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9};
     std::vector<uint32_t> zeros = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
@@ -397,7 +418,6 @@ TEST(SiliconDriverWH, MultiThreadedDevice) {
 
     tt_device_params default_params;
     cluster.start_device(default_params);
-    cluster.deassert_risc_reset();
 
     std::thread th1 = std::thread([&] {
         std::vector<uint32_t> vector_to_write = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9};
@@ -480,7 +500,6 @@ TEST(SiliconDriverWH, MultiThreadedMemBar) {
 
     tt_device_params default_params;
     cluster.start_device(default_params);
-    cluster.deassert_risc_reset();
 
     std::vector<uint32_t> readback_membar_vec = {};
     for (auto& core : cluster.get_soc_descriptor(0).workers) {
@@ -611,7 +630,6 @@ TEST(SiliconDriverWH, BroadcastWrite) {
 
     tt_device_params default_params;
     cluster.start_device(default_params);
-    cluster.deassert_risc_reset();
     std::vector<uint32_t> broadcast_sizes = {1, 2, 4, 8, 16, 32, 64, 128, 256, 512, 1024, 2048, 4096, 8192, 16384};
     uint32_t address = l1_mem::address_map::DATA_BUFFER_SPACE_BASE;
     std::set<uint32_t> rows_to_exclude = {0, 6};
@@ -707,7 +725,6 @@ TEST(SiliconDriverWH, VirtualCoordinateBroadcast) {
                         "Virtual Coordinate Broadcast or NOC translation is not enabled";
     }
 
-    cluster.deassert_risc_reset();
     std::vector<uint32_t> broadcast_sizes = {1, 2, 4, 8, 16, 32, 64, 128, 256, 512, 1024, 2048, 4096, 8192, 16384};
     uint32_t address = l1_mem::address_map::DATA_BUFFER_SPACE_BASE;
     std::set<uint32_t> rows_to_exclude = {0, 3, 5, 6, 8, 9};

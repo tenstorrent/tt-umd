@@ -1335,13 +1335,15 @@ void Cluster::configure_tlb(
     log_assert(
         ordering == TLB_DATA::Strict || ordering == TLB_DATA::Posted || ordering == TLB_DATA::Relaxed,
         "Invalid ordering specified in Cluster::configure_tlb");
-    TTDevice* tt_device = get_tt_device(logical_device_id);
-    tt_device->set_dynamic_tlb(tlb_index, core, address, harvested_coord_translation.at(logical_device_id), ordering);
-    auto tlb_size = std::get<1>(tt_device->get_architecture_implementation()->describe_tlb(tlb_index).value());
     if (tlb_config_map.find(logical_device_id) == tlb_config_map.end()) {
         tlb_config_map.insert({logical_device_id, {}});
         map_core_to_tlb_per_chip.insert({logical_device_id, {}});
     }
+    log_assert(tlb_config_map.find(tlb_index) == tlb_config_map.end(), "TLB index already configured.");
+
+    TTDevice* tt_device = get_tt_device(logical_device_id);
+    tt_device->set_dynamic_tlb(tlb_index, core, address, harvested_coord_translation.at(logical_device_id), ordering);
+    auto tlb_size = std::get<1>(tt_device->get_architecture_implementation()->describe_tlb(tlb_index).value());
     tlb_config_map.at(logical_device_id).insert({tlb_index, (address / tlb_size) * tlb_size});
     map_core_to_tlb_per_chip.at(logical_device_id).insert({core, tlb_index});
 }

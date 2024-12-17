@@ -9,9 +9,9 @@
 #include "tests/test_utils/device_test_utils.hpp"
 #include "tests/test_utils/generate_cluster_desc.hpp"
 #include "umd/device/cluster.h"
+#include "umd/device/grayskull_implementation.h"
 #include "umd/device/tt_cluster_descriptor.h"
 #include "umd/device/tt_soc_descriptor.h"
-#include "umd/device/wormhole_implementation.h"
 
 using namespace tt::umd;
 
@@ -95,7 +95,7 @@ TEST(SiliconDriverGS, CustomSocDesc) {
 
 TEST(SiliconDriverGS, HarvestingRuntime) {
     auto get_static_tlb_index = [](tt_xy_pair target) {
-        int flat_index = target.y * tt::umd::wormhole::GRID_SIZE_X + target.x;
+        int flat_index = target.y * tt::umd::grayskull::GRID_SIZE_X + target.x;
         if (flat_index == 0) {
             return -1;
         }
@@ -114,7 +114,6 @@ TEST(SiliconDriverGS, HarvestingRuntime) {
             // Statically mapping a 1MB TLB to this core, starting from address DATA_BUFFER_SPACE_BASE.
             cluster.configure_tlb(i, core, get_static_tlb_index(core), l1_mem::address_map::DATA_BUFFER_SPACE_BASE);
         }
-        cluster.setup_core_to_tlb_map(i, get_static_tlb_index);
     }
 
     tt_device_params default_params;
@@ -189,7 +188,7 @@ TEST(SiliconDriverGS, HarvestingRuntime) {
 
 TEST(SiliconDriverGS, StaticTLB_RW) {
     auto get_static_tlb_index = [](tt_xy_pair target) {
-        int flat_index = target.y * tt::umd::wormhole::GRID_SIZE_X + target.x;
+        int flat_index = target.y * tt::umd::grayskull::GRID_SIZE_X + target.x;
         if (flat_index == 0) {
             return -1;
         }
@@ -207,7 +206,6 @@ TEST(SiliconDriverGS, StaticTLB_RW) {
             cluster.configure_tlb(
                 i, core, get_static_tlb_index(core), l1_mem::address_map::DATA_BUFFER_SPACE_BASE, TLB_DATA::Posted);
         }
-        cluster.setup_core_to_tlb_map(i, get_static_tlb_index);
     }
 
     tt_device_params default_params;
@@ -405,7 +403,7 @@ TEST(SiliconDriverGS, MultiThreadedMemBar) {  // this tests takes ~5 mins to run
     // Memory barrier flags get sent to address 0 for all channels in this test
 
     auto get_static_tlb_index = [](tt_xy_pair target) {
-        int flat_index = target.y * tt::umd::wormhole::GRID_SIZE_X + target.x;
+        int flat_index = target.y * tt::umd::grayskull::GRID_SIZE_X + target.x;
         if (flat_index == 0) {
             return -1;
         }
@@ -425,7 +423,6 @@ TEST(SiliconDriverGS, MultiThreadedMemBar) {  // this tests takes ~5 mins to run
             // Statically mapping a 1MB TLB to this core, starting from address DATA_BUFFER_SPACE_BASE.
             cluster.configure_tlb(i, core, get_static_tlb_index(core), base_addr);
         }
-        cluster.setup_core_to_tlb_map(i, get_static_tlb_index);
     }
 
     tt_device_params default_params;

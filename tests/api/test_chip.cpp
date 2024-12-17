@@ -80,8 +80,6 @@ TEST(ApiChipTest, ManualTLBConfiguration) {
         for (tt_xy_pair core : soc_desc.workers) {
             umd_cluster->configure_tlb(mmio_chip, core, get_static_tlb_index(core), c_zero_address);
         }
-
-        umd_cluster->setup_core_to_tlb_map(mmio_chip, get_static_tlb_index);
     }
 
     // Expect not to throw for now configured mmio chip, same one as before.

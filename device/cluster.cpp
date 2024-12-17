@@ -1339,7 +1339,18 @@ void Cluster::configure_tlb(
         tlb_config_map.insert({logical_device_id, {}});
         map_core_to_tlb_per_chip.insert({logical_device_id, {}});
     }
-    log_assert(tlb_config_map.find(tlb_index) != tlb_config_map.end(), "TLB index already configured {}", tlb_index);
+    log_debug(
+        LogSiliconDriver,
+        "Configuring TLB for chip: {} core: {} tlb_index: {} address: {} ordering: {}",
+        logical_device_id,
+        core.str(),
+        tlb_index,
+        address,
+        ordering);
+    log_assert(
+        tlb_config_map.at(logical_device_id).find(tlb_index) == tlb_config_map.at(logical_device_id).end(),
+        "TLB index already configured {}",
+        tlb_index);
 
     TTDevice* tt_device = get_tt_device(logical_device_id);
     tt_device->set_dynamic_tlb(tlb_index, core, address, harvested_coord_translation.at(logical_device_id), ordering);

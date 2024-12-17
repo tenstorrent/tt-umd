@@ -312,20 +312,6 @@ public:
     }
 
     /**
-     * Get the total number of chips in the cluster based on the network descriptor.
-     */
-    virtual int get_number_of_chips_in_cluster() {
-        throw std::runtime_error("---- tt_device::get_number_of_chips_in_cluster is not implemented\n");
-    }
-
-    /**
-     * Get the logical ids for all chips in the cluster
-     */
-    virtual std::unordered_set<chip_id_t> get_all_chips_in_cluster() {
-        throw std::runtime_error("---- tt_device::get_all_chips_in_cluster is not implemented\n");
-    }
-
-    /**
      * Get cluster descriptor object being used in UMD instance.
      */
     virtual tt_ClusterDescriptor* get_cluster_description() {
@@ -621,13 +607,12 @@ public:
     virtual bool using_harvested_soc_descriptors();
     virtual std::unordered_map<chip_id_t, uint32_t> get_harvesting_masks_for_soc_descriptors();
     virtual void translate_to_noc_table_coords(chip_id_t device_id, std::size_t& r, std::size_t& c);
-    virtual int get_number_of_chips_in_cluster();
-    virtual std::unordered_set<chip_id_t> get_all_chips_in_cluster();
     virtual tt_ClusterDescriptor* get_cluster_description();
     static int detect_number_of_chips();
     static std::vector<chip_id_t> detect_available_device_ids();
     virtual std::set<chip_id_t> get_target_mmio_device_ids();
     virtual std::set<chip_id_t> get_target_remote_device_ids();
+    virtual std::set<chip_id_t> get_target_device_ids();
     virtual std::map<int, int> get_clocks();
     virtual void* host_dma_address(std::uint64_t offset, chip_id_t src_device_id, uint16_t channel) const;
     virtual std::uint64_t get_pcie_base_addr_from_device(const chip_id_t chip_id) const;
@@ -803,14 +788,12 @@ private:
     tt_driver_noc_params noc_params;
     tt_driver_eth_interface_params eth_interface_params;
     std::vector<tt::ARCH> archs_in_cluster = {};
-    std::set<chip_id_t> target_devices_in_cluster = {};
-    std::set<chip_id_t> target_remote_chips = {};
-    std::set<chip_id_t> all_target_mmio_devices = {};
+    std::set<chip_id_t> all_chip_ids_ = {};
+    std::set<chip_id_t> remote_chip_ids_ = {};
+    std::set<chip_id_t> local_chip_ids_ = {};
     std::unordered_map<chip_id_t, std::unique_ptr<Chip>> chips_;
     tt::ARCH arch_name;
 
-    // Map of enabled tt devices
-    std::unordered_map<chip_id_t, std::unique_ptr<TTDevice>> m_tt_device_map;
     std::shared_ptr<tt_ClusterDescriptor> cluster_desc;
 
     // remote eth transfer setup

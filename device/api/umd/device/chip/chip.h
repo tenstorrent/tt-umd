@@ -11,6 +11,8 @@
 
 namespace tt::umd {
 
+class TTDevice;
+
 // An abstract class that represents a chip.
 class Chip {
 public:
@@ -19,6 +21,8 @@ public:
     virtual ~Chip() = default;
 
     tt_SocDescriptor& get_soc_descriptor();
+
+    virtual TTDevice* get_tt_device();
 
     virtual bool is_mmio_capable() const = 0;
 

@@ -204,7 +204,6 @@ TEST(SiliconDriverBH, CreateDestroy) {
 //             }
 //         }
 //     }
-//     cluster.setup_core_to_tlb_map(get_static_tlb_index_callback);
 
 //     tt_device_params default_params;
 //     cluster.start_device(default_params);
@@ -292,7 +291,6 @@ TEST(SiliconDriverBH, UnalignedStaticTLB_RW) {
                 cluster.configure_tlb(
                     i, core, get_static_tlb_index_callback(core), l1_mem::address_map::NCRISC_FIRMWARE_BASE);
             }
-            cluster.setup_core_to_tlb_map(i, get_static_tlb_index_callback);
         }
     }
 
@@ -349,7 +347,6 @@ TEST(SiliconDriverBH, StaticTLB_RW) {
                 cluster.configure_tlb(
                     i, core, get_static_tlb_index_callback(core), l1_mem::address_map::NCRISC_FIRMWARE_BASE);
             }
-            cluster.setup_core_to_tlb_map(i, get_static_tlb_index_callback);
         }
     }
 
@@ -570,7 +567,6 @@ TEST(SiliconDriverBH, MultiThreadedMemBar) {
             // Statically mapping a 1MB TLB to this core, starting from address DATA_BUFFER_SPACE_BASE.
             cluster.configure_tlb(i, core, get_static_tlb_index_callback(core), base_addr);
         }
-        cluster.setup_core_to_tlb_map(i, get_static_tlb_index_callback);
     }
 
     tt_device_params default_params;

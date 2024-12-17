@@ -114,7 +114,6 @@ TEST(SiliconDriverGS, HarvestingRuntime) {
             // Statically mapping a 1MB TLB to this core, starting from address DATA_BUFFER_SPACE_BASE.
             cluster.configure_tlb(i, core, get_static_tlb_index(core), l1_mem::address_map::DATA_BUFFER_SPACE_BASE);
         }
-        cluster.setup_core_to_tlb_map(i, get_static_tlb_index);
     }
 
     tt_device_params default_params;
@@ -207,7 +206,6 @@ TEST(SiliconDriverGS, StaticTLB_RW) {
             cluster.configure_tlb(
                 i, core, get_static_tlb_index(core), l1_mem::address_map::DATA_BUFFER_SPACE_BASE, TLB_DATA::Posted);
         }
-        cluster.setup_core_to_tlb_map(i, get_static_tlb_index);
     }
 
     tt_device_params default_params;
@@ -425,7 +423,6 @@ TEST(SiliconDriverGS, MultiThreadedMemBar) {  // this tests takes ~5 mins to run
             // Statically mapping a 1MB TLB to this core, starting from address DATA_BUFFER_SPACE_BASE.
             cluster.configure_tlb(i, core, get_static_tlb_index(core), base_addr);
         }
-        cluster.setup_core_to_tlb_map(i, get_static_tlb_index);
     }
 
     tt_device_params default_params;

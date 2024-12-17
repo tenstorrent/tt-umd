@@ -172,7 +172,6 @@ TEST(SiliconDriverWH, HarvestingRuntime) {
             }
         }
     }
-    cluster.setup_core_to_tlb_map(get_static_tlb_index_callback);
 
     tt_device_params default_params;
     cluster.start_device(default_params);
@@ -233,7 +232,6 @@ TEST(SiliconDriverWH, UnalignedStaticTLB_RW) {
                 cluster.configure_tlb(
                     i, core, get_static_tlb_index_callback(core), l1_mem::address_map::NCRISC_FIRMWARE_BASE);
             }
-            cluster.setup_core_to_tlb_map(i, get_static_tlb_index_callback);
         }
     }
 
@@ -289,7 +287,6 @@ TEST(SiliconDriverWH, StaticTLB_RW) {
                 cluster.configure_tlb(
                     i, core, get_static_tlb_index_callback(core), l1_mem::address_map::NCRISC_FIRMWARE_BASE);
             }
-            cluster.setup_core_to_tlb_map(i, get_static_tlb_index_callback);
         }
     }
 
@@ -474,7 +471,6 @@ TEST(SiliconDriverWH, MultiThreadedMemBar) {
                 // Statically mapping a 1MB TLB to this core, starting from address DATA_BUFFER_SPACE_BASE.
                 cluster.configure_tlb(i, core, get_static_tlb_index_callback(core), base_addr);
             }
-            cluster.setup_core_to_tlb_map(i, get_static_tlb_index_callback);
         }
     }
 
@@ -954,7 +950,6 @@ TEST(SiliconDriverWH, LargeAddressTlb) {
     cluster.start_device(tt_device_params{});
 
     auto get_static_tlb_index_callback = [](tt_xy_pair target) { return 0; };
-    cluster.setup_core_to_tlb_map(0, get_static_tlb_index_callback);
 
     // Address of the reset unit in ARC core:
     uint64_t arc_reset_noc = 0x880030000ULL;

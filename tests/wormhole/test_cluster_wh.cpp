@@ -943,8 +943,8 @@ TEST(SiliconDriverWH, LargeAddressTlb) {
         true,   // clean system resources - yes
         true);  // perform harvesting - yes
 
-    const auto ARC = cluster.get_soc_descriptor(0).arc_cores.at(0);
-    const tt_cxy_pair ARC_CORE(0, ARC.x, ARC.y);
+    const tt_xy_pair ARC_CORE = cluster.get_soc_descriptor(0).arc_cores.at(0);
+    const tt_cxy_pair ARC_CORE_CHIP(0, ARC_CORE.x, ARC_CORE.y);
 
     set_barrier_params(cluster);
     cluster.start_device(tt_device_params{});
@@ -971,10 +971,10 @@ TEST(SiliconDriverWH, LargeAddressTlb) {
     value0 = cluster.bar_read32(0, 0x1ff30060);
 
     // Read the scratch register via the TLB:
-    cluster.read_from_device(&value1, ARC_CORE, addr, sizeof(uint32_t), "LARGE_READ_TLB");
+    cluster.read_from_device(&value1, ARC_CORE_CHIP, addr, sizeof(uint32_t), "LARGE_READ_TLB");
 
     // Read the scratch register via a different TLB, different code path:
-    cluster.read_from_device(&value2, ARC_CORE, addr, sizeof(uint32_t), "REG_TLB");
+    cluster.read_from_device(&value2, ARC_CORE_CHIP, addr, sizeof(uint32_t), "REG_TLB");
 
     // Mask off lower 16 bits; FW changes these dynamically:
     value0 &= 0xffff0000;

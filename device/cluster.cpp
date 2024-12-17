@@ -298,7 +298,8 @@ void Cluster::construct_cluster(
     if (!skip_driver_allocs) {
         auto available_device_ids = detect_available_device_ids();
         log_info(LogSiliconDriver, "Detected PCI devices: {}", available_device_ids);
-        log_info(LogSiliconDriver, "Using local chip ids: {} and remote chip ids {}", mmio_chip_ids_, remote_chip_ids_);
+        log_info(
+            LogSiliconDriver, "Using local chip ids: {} and remote chip ids {}", local_chip_ids_, remote_chip_ids_);
     }
 
     // Prefill the soc_descriptor_per_chip
@@ -320,7 +321,7 @@ void Cluster::construct_cluster(
     for (const auto& tlb : dynamic_tlb_config) {
         dynamic_tlb_ordering_modes.insert({tlb.first, TLB_DATA::Relaxed});
     }
-    create_device(mmio_chip_ids_, num_host_mem_ch_per_mmio_device, skip_driver_allocs, clean_system_resources);
+    create_device(local_chip_ids_, num_host_mem_ch_per_mmio_device, skip_driver_allocs, clean_system_resources);
 
     // MT: Initial BH - Disable dependency to ethernet firmware
     if (arch_name == tt::ARCH::BLACKHOLE) {
@@ -434,8 +435,8 @@ void Cluster::construct_cluster(
 
     // MT: Initial BH - skip this for BH
     if (arch_name == tt::ARCH::WORMHOLE_B0) {
-        remote_transfer_ethernet_cores.resize(mmio_chip_ids_.size());
-        for (const auto& logical_mmio_chip_id : mmio_chip_ids_) {
+        remote_transfer_ethernet_cores.resize(local_chip_ids_.size());
+        for (const auto& logical_mmio_chip_id : local_chip_ids_) {
             const tt_SocDescriptor& soc_desc = get_soc_descriptor(logical_mmio_chip_id);
             // 4-5 is for send_epoch_commands, 0-3 are for everything else
             for (std::uint32_t i = 0; i < NUM_ETH_CORES_FOR_NON_MMIO_TRANSFERS; i++) {
@@ -493,7 +494,7 @@ void Cluster::add_chip(chip_id_t chip_id, std::unique_ptr<Chip> chip) {
         chip_id);
     all_chip_ids_.insert(chip_id);
     if (chip->is_mmio_capable()) {
-        mmio_chip_ids_.insert(chip_id);
+        local_chip_ids_.insert(chip_id);
     } else {
         remote_chip_ids_.insert(chip_id);
     }
@@ -909,7 +910,7 @@ void Cluster::translate_to_noc_table_coords(chip_id_t device_id, std::size_t& r,
 void Cluster::initialize_pcie_devices() {
     log_debug(LogSiliconDriver, "Cluster::start");
 
-    for (auto chip_id : mmio_chip_ids_) {
+    for (auto chip_id : local_chip_ids_) {
         check_pcie_device_initialized(chip_id);
     }
 
@@ -946,7 +947,7 @@ void Cluster::broadcast_pcie_tensix_risc_reset(chip_id_t chip_id, const TensixSo
     tt_driver_atomics::sfence();
 }
 
-std::set<chip_id_t> Cluster::get_target_mmio_device_ids() { return mmio_chip_ids_; }
+std::set<chip_id_t> Cluster::get_target_mmio_device_ids() { return local_chip_ids_; }
 
 std::set<chip_id_t> Cluster::get_target_device_ids() { return all_chip_ids_; }
 
@@ -1249,7 +1250,7 @@ uint32_t Cluster::get_power_state_arc_msg(chip_id_t chip_id, tt_DevicePowerState
 }
 
 void Cluster::set_pcie_power_state(tt_DevicePowerState state) {
-    for (auto& chip_id : mmio_chip_ids_) {
+    for (auto& chip_id : local_chip_ids_) {
         uint32_t msg = get_power_state_arc_msg(chip_id, state);
         std::stringstream ss;
         ss << state;
@@ -1295,7 +1296,7 @@ int Cluster::get_clock(int logical_device_id) {
 
 std::map<int, int> Cluster::get_clocks() {
     std::map<int, int> clock_freq_map;
-    for (auto& chip_id : mmio_chip_ids_) {
+    for (auto& chip_id : local_chip_ids_) {
         clock_freq_map.insert({chip_id, get_clock(chip_id)});
     }
     return clock_freq_map;
@@ -1355,10 +1356,10 @@ void Cluster::set_fallback_tlb_ordering_mode(const std::string& fallback_tlb, ui
 // It should also happen at the same time the huge pages or sysmem buffers are
 // allocated/pinned/mapped.
 void Cluster::init_pcie_iatus() {
-    int num_enabled_devices = mmio_chip_ids_.size();
+    int num_enabled_devices = local_chip_ids_.size();
     log_debug(LogSiliconDriver, "Cluster::init_pcie_iatus() num_enabled_devices: {}", num_enabled_devices);
 
-    for (auto& chip_id : mmio_chip_ids_) {
+    for (auto& chip_id : local_chip_ids_) {
         TTDevice* tt_device = get_tt_device(chip_id);
 
         // TODO: with the IOMMU case, I think we can get away with using just
@@ -1420,7 +1421,7 @@ void Cluster::init_pcie_iatus() {
 
 int Cluster::test_setup_interface() {
     int ret_val = 0;
-    int chip_id = *mmio_chip_ids_.begin();
+    int chip_id = *local_chip_ids_.begin();
     TTDevice* tt_device = get_tt_device(chip_id);
     if (arch_name == tt::ARCH::GRAYSKULL) {
         uint32_t mapped_reg = tt_device
@@ -3094,7 +3095,7 @@ void Cluster::enable_remote_ethernet_queue(const chip_id_t& chip, int timeout) {
 
 void Cluster::broadcast_tensix_risc_reset_to_cluster(const TensixSoftResetOptions& soft_resets) {
     if (arch_name == tt::ARCH::GRAYSKULL) {
-        for (auto& chip_id : mmio_chip_ids_) {
+        for (auto& chip_id : local_chip_ids_) {
             broadcast_pcie_tensix_risc_reset(chip_id, soft_resets);
         }
     } else {
@@ -3171,7 +3172,7 @@ void Cluster::deassert_resets_and_set_power_state() {
     // MT Initial BH - ARC messages not supported in Blackhole
     if (arch_name != tt::ARCH::BLACKHOLE) {
         // Send ARC Messages to deassert RISCV resets
-        for (auto& chip_id : mmio_chip_ids_) {
+        for (auto& chip_id : local_chip_ids_) {
             arc_msg(
                 chip_id,
                 0xaa00 |

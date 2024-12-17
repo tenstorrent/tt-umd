@@ -790,7 +790,7 @@ private:
     std::vector<tt::ARCH> archs_in_cluster = {};
     std::set<chip_id_t> all_chip_ids_ = {};
     std::set<chip_id_t> remote_chip_ids_ = {};
-    std::set<chip_id_t> mmio_chip_ids_ = {};
+    std::set<chip_id_t> local_chip_ids_ = {};
     std::unordered_map<chip_id_t, std::unique_ptr<Chip>> chips_;
     tt::ARCH arch_name;
 

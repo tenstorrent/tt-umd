@@ -10,8 +10,8 @@
 
 namespace tt::umd {
 
-LocalChip::LocalChip(tt_SocDescriptor soc_descriptor, int pci_device_num) :
-    Chip(soc_descriptor), tt_device_(TTDevice::create(pci_device_num)) {}
+LocalChip::LocalChip(tt_SocDescriptor soc_descriptor, int pci_device_id) :
+    Chip(soc_descriptor), tt_device_(TTDevice::create(pci_device_id)) {}
 
 TTDevice* LocalChip::get_tt_device() { return tt_device_.get(); }
 

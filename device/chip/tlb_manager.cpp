@@ -35,7 +35,7 @@ void TLBManager::configure_tlb(tt_xy_pair core, int32_t tlb_index, uint64_t addr
     map_core_to_tlb_.insert({core, tlb_index});
 }
 
-void TLBManager::set_dynamic_tlb(std::string fallback_tlb_name, int32_t tlb_index) {
+void TLBManager::set_dynamic_tlb_config(std::string fallback_tlb_name, int32_t tlb_index) {
     log_assert(
         dynamic_tlb_config_.find(fallback_tlb_name) == dynamic_tlb_config_.end(),
         "Dynamic TLB already configured for {}",
@@ -43,10 +43,10 @@ void TLBManager::set_dynamic_tlb(std::string fallback_tlb_name, int32_t tlb_inde
     dynamic_tlb_config_.insert({fallback_tlb_name, tlb_index});
 }
 
-void TLBManager::set_dynamic_tlb_ordering(std::string fallback_tlb_name, uint64_t ordering) {
+void TLBManager::set_dynamic_tlb_config_ordering(std::string fallback_tlb_name, uint64_t ordering) {
     log_assert(
         ordering == tlb_data::Strict || ordering == tlb_data::Posted || ordering == tlb_data::Relaxed,
-        "Invalid ordering specified in set_dynamic_tlb_ordering.");
+        "Invalid ordering specified in set_dynamic_tlb_config_ordering.");
     log_assert(
         fallback_tlb_name != "LARGE_READ_TLB" && fallback_tlb_name != "LARGE_WRITE_TLB",
         "Ordering modes for LARGE_READ_TLB and LARGE_WRITE_TLB cannot be modified.");

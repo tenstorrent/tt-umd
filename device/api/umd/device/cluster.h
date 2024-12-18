@@ -841,9 +841,6 @@ private:
         uint64_t address, uint32_t size_in_bytes, int32_t tlb_index, uint64_t tlb_size, uint32_t chip);
     bool is_tlb_mapped(tt_cxy_pair target);
     bool is_tlb_mapped(tt_cxy_pair target, uint64_t address, uint32_t size_in_bytes);
-    // Note that these maps holds only entries for local PCIe chips.
-    std::map<chip_id_t, std::unordered_map<int32_t, uint64_t>> tlb_config_map = {};
-    std::unordered_map<chip_id_t, std::unordered_map<tt_xy_pair, std::int32_t>> map_core_to_tlb_per_chip = {};
 
     std::shared_ptr<boost::interprocess::named_mutex> get_mutex(const std::string& tlb_name, int logical_device_id);
     virtual uint32_t get_harvested_noc_rows_for_chip(

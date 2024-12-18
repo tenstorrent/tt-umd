@@ -16,4 +16,5 @@ LocalChip::LocalChip(tt_SocDescriptor soc_descriptor, int pci_device_id) :
 TTDevice* LocalChip::get_tt_device() { return tt_device_.get(); }
 
 bool LocalChip::is_mmio_capable() const { return true; }
+
 }  // namespace tt::umd

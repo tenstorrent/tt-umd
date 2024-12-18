@@ -178,7 +178,7 @@ bool Cluster::is_tlb_mapped(tt_cxy_pair target, uint64_t address, uint32_t size_
            address_in_tlb_space(address, size_in_bytes, tlb_index, std::get<1>(tlb_description.value()), target.chip);
 }
 
-void Cluster::initialize_interprocess_mutexes(int pci_interface_id, bool cleanup_mutexes_in_shm) {
+void Cluster::initialize_interprocess_mutexes(int logical_device_id, bool cleanup_mutexes_in_shm) {
     // These mutexes are intended to be based on physical devices/pci-intf not logical. Set these up ahead of time here
     // (during device init) since its unsafe to modify shared state during multithreaded runtime. cleanup_mutexes_in_shm
     // is tied to clean_system_resources from the constructor. The main process is responsible for initializing the
@@ -192,7 +192,7 @@ void Cluster::initialize_interprocess_mutexes(int pci_interface_id, bool cleanup
 
     // Initialize Dynamic TLB mutexes
     for (auto& tlb : dynamic_tlb_config) {
-        mutex_name = tlb.first + std::to_string(pci_interface_id);
+        mutex_name = tlb.first + std::to_string(logical_device_id);
         if (cleanup_mutexes_in_shm) {
             named_mutex::remove(mutex_name.c_str());
         }
@@ -201,7 +201,7 @@ void Cluster::initialize_interprocess_mutexes(int pci_interface_id, bool cleanup
     }
 
     // Initialize ARC core mutex
-    mutex_name = fmt::format("ARC_MSG{}", pci_interface_id);
+    mutex_name = fmt::format("ARC_MSG{}", logical_device_id);
     if (cleanup_mutexes_in_shm) {
         named_mutex::remove(mutex_name.c_str());
     }
@@ -209,7 +209,7 @@ void Cluster::initialize_interprocess_mutexes(int pci_interface_id, bool cleanup
         std::make_shared<named_mutex>(open_or_create, mutex_name.c_str(), unrestricted_permissions);
 
     if (arch_name == tt::ARCH::WORMHOLE_B0) {
-        mutex_name = NON_MMIO_MUTEX_NAME + std::to_string(pci_interface_id);
+        mutex_name = NON_MMIO_MUTEX_NAME + std::to_string(logical_device_id);
         // Initialize non-MMIO mutexes for WH devices regardless of number of chips, since these may be used for
         // ethernet broadcast
         if (cleanup_mutexes_in_shm) {
@@ -220,7 +220,7 @@ void Cluster::initialize_interprocess_mutexes(int pci_interface_id, bool cleanup
     }
 
     // Initialize interprocess mutexes to make host -> device memory barriers atomic
-    mutex_name = MEM_BARRIER_MUTEX_NAME + std::to_string(pci_interface_id);
+    mutex_name = MEM_BARRIER_MUTEX_NAME + std::to_string(logical_device_id);
     if (cleanup_mutexes_in_shm) {
         named_mutex::remove(mutex_name.c_str());
     }
@@ -266,7 +266,7 @@ void Cluster::create_device(
             pci_device->get_device_num(),
             pci_device->revision_id);
 
-        initialize_interprocess_mutexes(pci_device->get_device_num(), clean_system_resources);
+        initialize_interprocess_mutexes(logical_device_id, clean_system_resources);
 
         // MT: Initial BH - hugepages will fail init
         // For using silicon driver without workload to query mission mode params, no need for hugepage.
@@ -1110,7 +1110,7 @@ void Cluster::write_device_memory(
         }
     } else {
         const auto tlb_index = dynamic_tlb_config.at(fallback_tlb);
-        const scoped_lock<named_mutex> lock(*get_mutex(fallback_tlb, dev->get_pci_device()->get_device_num()));
+        const scoped_lock<named_mutex> lock(*get_mutex(fallback_tlb, target.chip));
 
         while (size_in_bytes > 0) {
             auto [mapped_address, tlb_size] = dev->set_dynamic_tlb(
@@ -1158,7 +1158,7 @@ void Cluster::read_device_memory(
         log_debug(LogSiliconDriver, "  read_block called with tlb_offset: {}, tlb_size: {}", tlb_offset, tlb_size);
     } else {
         const auto tlb_index = dynamic_tlb_config.at(fallback_tlb);
-        const scoped_lock<named_mutex> lock(*get_mutex(fallback_tlb, dev->get_pci_device()->get_device_num()));
+        const scoped_lock<named_mutex> lock(*get_mutex(fallback_tlb, target.chip));
         log_debug(LogSiliconDriver, "  dynamic tlb_index: {}", tlb_index);
         while (size_in_bytes > 0) {
             auto [mapped_address, tlb_size] = dev->set_dynamic_tlb(
@@ -1524,7 +1524,7 @@ int Cluster::pcie_arc_msg(
 
     // Exclusive access for a single process at a time. Based on physical pci interface id.
     std::string msg_type = "ARC_MSG";
-    const scoped_lock<named_mutex> lock(*get_mutex(msg_type, tt_device->get_pci_device()->get_device_num()));
+    const scoped_lock<named_mutex> lock(*get_mutex(msg_type, logical_device_id));
     uint32_t fw_arg = arg0 | (arg1 << 16);
     int exit_code = 0;
 
@@ -1718,8 +1718,8 @@ inline TTDevice* Cluster::get_tt_device(chip_id_t device_id) const {
 }
 
 std::shared_ptr<boost::interprocess::named_mutex> Cluster::get_mutex(
-    const std::string& tlb_name, int pci_interface_id) {
-    std::string mutex_name = tlb_name + std::to_string(pci_interface_id);
+    const std::string& tlb_name, int logical_device_id) {
+    std::string mutex_name = tlb_name + std::to_string(logical_device_id);
     return hardware_resource_mutex_map.at(mutex_name);
 }
 
@@ -1855,8 +1855,7 @@ void Cluster::write_to_non_mmio_device(
     //                    MUTEX ACQUIRE (NON-MMIO)
     //  do not locate any ethernet core reads/writes before this acquire
     //
-    const scoped_lock<named_mutex> lock(*get_mutex(
-        NON_MMIO_MUTEX_NAME, this->get_tt_device(mmio_capable_chip_logical)->get_pci_device()->get_device_num()));
+    const scoped_lock<named_mutex> lock(*get_mutex(NON_MMIO_MUTEX_NAME, mmio_capable_chip_logical));
 
     int& active_core_for_txn =
         non_mmio_transfer_cores_customized ? active_eth_core_idx_per_chip.at(mmio_capable_chip_logical) : active_core;
@@ -2081,8 +2080,7 @@ void Cluster::read_from_non_mmio_device(void* mem_ptr, tt_cxy_pair core, uint64_
     //                    MUTEX ACQUIRE (NON-MMIO)
     //  do not locate any ethernet core reads/writes before this acquire
     //
-    const scoped_lock<named_mutex> lock(*get_mutex(
-        NON_MMIO_MUTEX_NAME, this->get_tt_device(mmio_capable_chip_logical)->get_pci_device()->get_device_num()));
+    const scoped_lock<named_mutex> lock(*get_mutex(NON_MMIO_MUTEX_NAME, mmio_capable_chip_logical));
     const tt_cxy_pair remote_transfer_ethernet_core = remote_transfer_ethernet_cores[mmio_capable_chip_logical].at(0);
 
     read_device_memory(
@@ -2511,7 +2509,7 @@ void Cluster::pcie_broadcast_write(
     TTDevice* tt_device = get_tt_device(chip);
     const auto tlb_index = dynamic_tlb_config.at(fallback_tlb);
     const uint8_t* buffer_addr = static_cast<const uint8_t*>(mem_ptr);
-    const scoped_lock<named_mutex> lock(*get_mutex(fallback_tlb, tt_device->get_pci_device()->get_device_num()));
+    const scoped_lock<named_mutex> lock(*get_mutex(fallback_tlb, chip));
     while (size_in_bytes > 0) {
         auto [mapped_address, tlb_size] = tt_device->set_dynamic_tlb_broadcast(
             tlb_index,
@@ -2880,8 +2878,7 @@ void Cluster::insert_host_to_device_barrier(
     const uint32_t barrier_addr,
     const std::string& fallback_tlb) {
     // Ensure that this memory barrier is atomic across processes/threads
-    const scoped_lock<named_mutex> lock(
-        *get_mutex(MEM_BARRIER_MUTEX_NAME, this->get_tt_device(chip)->get_pci_device()->get_device_num()));
+    const scoped_lock<named_mutex> lock(*get_mutex(MEM_BARRIER_MUTEX_NAME, chip));
     set_membar_flag(chip, cores, tt_MemBarFlag::SET, barrier_addr, fallback_tlb);
     set_membar_flag(chip, cores, tt_MemBarFlag::RESET, barrier_addr, fallback_tlb);
 }
@@ -2995,7 +2992,7 @@ void Cluster::read_mmio_device_register(
     TTDevice* tt_device = get_tt_device(core.chip);
 
     const auto tlb_index = dynamic_tlb_config.at(fallback_tlb);
-    const scoped_lock<named_mutex> lock(*get_mutex(fallback_tlb, tt_device->get_pci_device()->get_device_num()));
+    const scoped_lock<named_mutex> lock(*get_mutex(fallback_tlb, core.chip));
     log_debug(LogSiliconDriver, "  dynamic tlb_index: {}", tlb_index);
 
     auto [mapped_address, tlb_size] = tt_device->set_dynamic_tlb(
@@ -3015,7 +3012,7 @@ void Cluster::write_mmio_device_register(
     TTDevice* tt_device = get_tt_device(core.chip);
 
     const auto tlb_index = dynamic_tlb_config.at(fallback_tlb);
-    const scoped_lock<named_mutex> lock(*get_mutex(fallback_tlb, tt_device->get_pci_device()->get_device_num()));
+    const scoped_lock<named_mutex> lock(*get_mutex(fallback_tlb, core.chip));
     log_debug(LogSiliconDriver, "  dynamic tlb_index: {}", tlb_index);
 
     auto [mapped_address, tlb_size] = tt_device->set_dynamic_tlb(

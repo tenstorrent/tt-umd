@@ -633,7 +633,7 @@ private:
         const uint32_t& num_host_mem_ch_per_mmio_device,
         const bool skip_driver_allocs,
         const bool clean_system_resources);
-    void initialize_interprocess_mutexes(int pci_interface_id, bool cleanup_mutexes_in_shm);
+    void initialize_interprocess_mutexes(int logical_device_id, bool cleanup_mutexes_in_shm);
     void cleanup_shared_host_state();
     void initialize_pcie_devices();
     void broadcast_pcie_tensix_risc_reset(chip_id_t chip_id, const TensixSoftResetOptions& cores);
@@ -747,7 +747,7 @@ private:
     std::map<chip_id_t, std::unordered_map<int32_t, uint64_t>> tlb_config_map = {};
     std::unordered_map<chip_id_t, std::unordered_map<tt_xy_pair, std::int32_t>> map_core_to_tlb_per_chip = {};
 
-    std::shared_ptr<boost::interprocess::named_mutex> get_mutex(const std::string& tlb_name, int pci_interface_id);
+    std::shared_ptr<boost::interprocess::named_mutex> get_mutex(const std::string& tlb_name, int logical_device_id);
     virtual uint32_t get_harvested_noc_rows_for_chip(
         int logical_device_id);  // Returns one-hot encoded harvesting mask for PCIe mapped chips
     void generate_tensix_broadcast_grids_for_grayskull(

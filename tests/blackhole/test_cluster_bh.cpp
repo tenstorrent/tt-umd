@@ -94,7 +94,6 @@ TEST(SiliconDriverBH, CreateDestroy) {
             false);
         set_barrier_params(cluster);
         cluster.start_device(default_params);
-        cluster.deassert_risc_reset();
         cluster.close_device();
     }
 }
@@ -207,7 +206,6 @@ TEST(SiliconDriverBH, CreateDestroy) {
 
 //     tt_device_params default_params;
 //     cluster.start_device(default_params);
-//     cluster.deassert_risc_reset();
 
 //     std::vector<uint32_t> vector_to_write = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9};
 //     std::vector<uint32_t> dynamic_readback_vec = {};
@@ -296,7 +294,6 @@ TEST(SiliconDriverBH, UnalignedStaticTLB_RW) {
 
     tt_device_params default_params;
     cluster.start_device(default_params);
-    cluster.deassert_risc_reset();
 
     std::vector<uint32_t> unaligned_sizes = {3, 14, 21, 255, 362, 430, 1022, 1023, 1025};
     for (int i = 0; i < target_devices.size(); i++) {
@@ -354,7 +351,6 @@ TEST(SiliconDriverBH, StaticTLB_RW) {
 
     tt_device_params default_params;
     cluster.start_device(default_params);
-    cluster.deassert_risc_reset();
 
     std::vector<uint32_t> vector_to_write = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9};
     std::vector<uint32_t> readback_vec = {};
@@ -403,8 +399,6 @@ TEST(SiliconDriverBH, DynamicTLB_RW) {
 
     tt_device_params default_params;
     cluster.start_device(default_params);
-    // MT: Don't deassert risc resets since there's no loaded FW
-    // cluster.deassert_risc_reset();
 
     std::vector<uint32_t> vector_to_write = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9};
     std::vector<uint32_t> zeros = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
@@ -493,7 +487,6 @@ TEST(SiliconDriverBH, MultiThreadedDevice) {
 
     tt_device_params default_params;
     cluster.start_device(default_params);
-    cluster.deassert_risc_reset();
 
     std::thread th1 = std::thread([&] {
         std::vector<uint32_t> vector_to_write = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9};
@@ -571,7 +564,6 @@ TEST(SiliconDriverBH, MultiThreadedMemBar) {
 
     tt_device_params default_params;
     cluster.start_device(default_params);
-    cluster.deassert_risc_reset();
 
     std::vector<uint32_t> readback_membar_vec = {};
     for (auto& core : cluster.get_soc_descriptor(0).workers) {
@@ -703,7 +695,6 @@ TEST(SiliconDriverBH, DISABLED_BroadcastWrite) {  // Cannot broadcast to tensix/
 
     tt_device_params default_params;
     cluster.start_device(default_params);
-    cluster.deassert_risc_reset();
     std::vector<uint32_t> broadcast_sizes = {1, 2, 4, 8, 16, 32, 64, 128, 256, 512, 1024, 2048, 4096, 8192, 16384};
     uint32_t address = l1_mem::address_map::DATA_BUFFER_SPACE_BASE;
     std::set<uint32_t> rows_to_exclude = {0, 6};
@@ -800,7 +791,6 @@ TEST(SiliconDriverBH, DISABLED_VirtualCoordinateBroadcast) {  // same problem as
                         "Virtual Coordinate Broadcast or NOC translation is not enabled";
     }
 
-    cluster.deassert_risc_reset();
     std::vector<uint32_t> broadcast_sizes = {1, 2, 4, 8, 16, 32, 64, 128, 256, 512, 1024, 2048, 4096, 8192, 16384};
     uint32_t address = l1_mem::address_map::DATA_BUFFER_SPACE_BASE;
     std::set<uint32_t> rows_to_exclude = {0, 3, 5, 6, 8, 9};

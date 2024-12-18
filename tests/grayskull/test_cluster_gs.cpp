@@ -30,7 +30,6 @@ TEST(SiliconDriverGS, CreateDestroySequential) {
     for (int i = 0; i < 100; i++) {
         Cluster cluster = Cluster(num_host_mem_ch_per_mmio_device, false, true);
         cluster.start_device(default_params);
-        cluster.deassert_risc_reset();
         cluster.close_device();
     }
 }
@@ -118,7 +117,6 @@ TEST(SiliconDriverGS, HarvestingRuntime) {
 
     tt_device_params default_params;
     cluster.start_device(default_params);
-    cluster.deassert_risc_reset();
 
     std::vector<uint32_t> vector_to_write = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9};
     std::vector<uint32_t> dynamic_tlb_vector_to_write = {10, 11, 12, 13, 14, 15, 16, 17, 18, 19};
@@ -210,7 +208,6 @@ TEST(SiliconDriverGS, StaticTLB_RW) {
 
     tt_device_params default_params;
     cluster.start_device(default_params);
-    cluster.deassert_risc_reset();
 
     std::vector<uint32_t> vector_to_write = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9};
     std::vector<uint32_t> readback_vec = {};
@@ -265,7 +262,6 @@ TEST(SiliconDriverGS, DynamicTLB_RW) {
         "SMALL_READ_WRITE_TLB", TLB_DATA::Posted);  // Explicitly test API to set fallback tlb ordering mode
     tt_device_params default_params;
     cluster.start_device(default_params);
-    cluster.deassert_risc_reset();
 
     std::vector<uint32_t> vector_to_write = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9};
     std::vector<uint32_t> zeros = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
@@ -322,7 +318,6 @@ TEST(SiliconDriverGS, MultiThreadedDevice) {
 
     tt_device_params default_params;
     cluster.start_device(default_params);
-    cluster.deassert_risc_reset();
 
     std::thread th1 = std::thread([&] {
         std::vector<uint32_t> vector_to_write = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9};
@@ -427,7 +422,6 @@ TEST(SiliconDriverGS, MultiThreadedMemBar) {  // this tests takes ~5 mins to run
 
     tt_device_params default_params;
     cluster.start_device(default_params);
-    cluster.deassert_risc_reset();
     std::vector<uint32_t> readback_membar_vec = {};
     for (auto& core : cluster.get_soc_descriptor(0).workers) {
         test_utils::read_data_from_device(

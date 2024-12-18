@@ -172,10 +172,9 @@ bool Cluster::is_tlb_mapped(tt_cxy_pair target, uint64_t address, uint32_t size_
     auto* dev = get_tt_device(target.chip);
 
     int32_t tlb_index = map_core_to_tlb_per_chip.at(target.chip).at(tt_xy_pair(target.x, target.y));
-    auto tlb_description = dev->get_architecture_implementation()->describe_tlb(tlb_index);
+    auto tlb_description = dev->get_architecture_implementation()->get_tlb_configuration(tlb_index);
 
-    return tlb_description.has_value() &&
-           address_in_tlb_space(address, size_in_bytes, tlb_index, std::get<1>(tlb_description.value()), target.chip);
+    return address_in_tlb_space(address, size_in_bytes, tlb_index, tlb_description.size, target.chip);
 }
 
 void Cluster::initialize_interprocess_mutexes(int pci_interface_id, bool cleanup_mutexes_in_shm) {
@@ -1075,12 +1074,10 @@ tt::Writer Cluster::get_static_tlb_writer(tt_cxy_pair target) {
     }
 
     auto tlb_index = map_core_to_tlb_per_chip.at(target.chip).at(tt_xy_pair(target.x, target.y));
-    auto tlb_data = dev->get_architecture_implementation()->describe_tlb(tlb_index);
+    auto tlb_description = dev->get_architecture_implementation()->get_tlb_configuration(tlb_index);
 
-    auto [tlb_offset, tlb_size] = tlb_data.value();
     auto* base = reinterpret_cast<uint8_t*>(dev->get_pci_device()->bar0_wc);
-
-    return tt::Writer(base + tlb_offset, tlb_size);
+    return tt::Writer(base + tlb_description.tlb_offset, tlb_description.size);
 }
 
 void Cluster::write_device_memory(
@@ -1103,15 +1100,17 @@ void Cluster::write_device_memory(
         small_access);
 
     if (is_tlb_mapped(target, address, size_in_bytes)) {
-        auto tlb_description = dev->get_architecture_implementation()->describe_tlb(
+        auto tlb_description = dev->get_architecture_implementation()->get_tlb_configuration(
             map_core_to_tlb_per_chip.at(target.chip).at(tt_xy_pair(target.x, target.y)));
-        auto [tlb_offset, tlb_size] = tlb_description.value();
-        if (dev->get_pci_device()->bar4_wc != nullptr && tlb_size == BH_4GB_TLB_SIZE) {
+        if (dev->get_pci_device()->bar4_wc != nullptr && tlb_description.size == BH_4GB_TLB_SIZE) {
             // This is only for Blackhole. If we want to  write to DRAM (BAR4 space), we add offset
             // to which we write so write_block knows it needs to target BAR4
-            dev->write_block((tlb_offset + address % tlb_size) + BAR0_BH_SIZE, size_in_bytes, buffer_addr);
+            dev->write_block(
+                (tlb_description.tlb_offset + address % tlb_description.size) + BAR0_BH_SIZE,
+                size_in_bytes,
+                buffer_addr);
         } else {
-            dev->write_block(tlb_offset + address % tlb_size, size_in_bytes, buffer_addr);
+            dev->write_block(tlb_description.tlb_offset + address % tlb_description.size, size_in_bytes, buffer_addr);
         }
     } else {
         const auto tlb_index = dynamic_tlb_config.at(fallback_tlb);
@@ -1151,17 +1150,23 @@ void Cluster::read_device_memory(
     log_debug(LogSiliconDriver, "  tlb_index: {}, tlb_data.has_value(): {}", tlb_index, tlb_data.has_value());
 
     if (is_tlb_mapped(target, address, size_in_bytes)) {
-        auto tlb_description = dev->get_architecture_implementation()->describe_tlb(
+        auto tlb_description = dev->get_architecture_implementation()->get_tlb_configuration(
             map_core_to_tlb_per_chip.at(target.chip).at(tt_xy_pair(target.x, target.y)));
-        auto [tlb_offset, tlb_size] = tlb_description.value();
-        if (dev->get_pci_device()->bar4_wc != nullptr && tlb_size == BH_4GB_TLB_SIZE) {
+        if (dev->get_pci_device()->bar4_wc != nullptr && tlb_description.size == BH_4GB_TLB_SIZE) {
             // This is only for Blackhole. If we want to  read from DRAM (BAR4 space), we add offset
             // from which we read so read_block knows it needs to target BAR4
-            dev->read_block((tlb_offset + address % tlb_size) + BAR0_BH_SIZE, size_in_bytes, buffer_addr);
+            dev->read_block(
+                (tlb_description.tlb_offset + address % tlb_description.size) + BAR0_BH_SIZE,
+                size_in_bytes,
+                buffer_addr);
         } else {
-            dev->read_block(tlb_offset + address % tlb_size, size_in_bytes, buffer_addr);
+            dev->read_block(tlb_description.tlb_offset + address % tlb_description.size, size_in_bytes, buffer_addr);
         }
-        log_debug(LogSiliconDriver, "  read_block called with tlb_offset: {}, tlb_size: {}", tlb_offset, tlb_size);
+        log_debug(
+            LogSiliconDriver,
+            "  read_block called with tlb_offset: {}, tlb_size: {}",
+            tlb_description.tlb_offset,
+            tlb_description.size);
     } else {
         const auto tlb_index = dynamic_tlb_config.at(fallback_tlb);
         const scoped_lock<named_mutex> lock(*get_mutex(fallback_tlb, dev->get_pci_device()->get_device_num()));
@@ -1321,13 +1326,11 @@ Cluster::~Cluster() {
     dynamic_tlb_ordering_modes.clear();
 }
 
-std::optional<std::tuple<uint32_t, uint32_t>> Cluster::get_tlb_data_from_target(const tt_cxy_pair& target) {
-    if (!is_tlb_mapped(target)) {
-        return std::nullopt;
-    }
+tlb_configuration Cluster::get_tlb_data_from_target(const tt_cxy_pair& target) {
+    log_assert(is_tlb_mapped(target), "TLB not mapped for core: {}", target.str());
 
     int tlb_index = map_core_to_tlb_per_chip.at(target.chip).at(tt_xy_pair(target.x, target.y));
-    return get_tt_device(target.chip)->get_architecture_implementation()->describe_tlb(tlb_index);
+    return get_tt_device(target.chip)->get_architecture_implementation()->get_tlb_configuration(tlb_index);
 }
 
 void Cluster::configure_tlb(
@@ -1354,7 +1357,7 @@ void Cluster::configure_tlb(
 
     TTDevice* tt_device = get_tt_device(logical_device_id);
     tt_device->set_dynamic_tlb(tlb_index, core, address, harvested_coord_translation.at(logical_device_id), ordering);
-    auto tlb_size = std::get<1>(tt_device->get_architecture_implementation()->describe_tlb(tlb_index).value());
+    auto tlb_size = tt_device->get_architecture_implementation()->get_tlb_configuration(tlb_index).size;
     tlb_config_map.at(logical_device_id).insert({tlb_index, (address / tlb_size) * tlb_size});
     map_core_to_tlb_per_chip.at(logical_device_id).insert({core, tlb_index});
 }

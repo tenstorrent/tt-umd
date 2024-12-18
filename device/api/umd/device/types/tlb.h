@@ -50,9 +50,10 @@ struct tlb_data {
 
 struct tlb_configuration {
     uint64_t size;
-    uint32_t base;
-    uint32_t cfg_addr;
-    uint32_t index_offset;
+    uint64_t base;
+    uint64_t cfg_addr;
+    uint64_t index_offset;
+    uint64_t tlb_offset;
     tlb_offsets offset;
 };
 

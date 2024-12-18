@@ -562,7 +562,7 @@ public:
     /**
      * If the tlbs are initialized, returns a tuple with the TLB base address and its size
      */
-    std::optional<std::tuple<uint32_t, uint32_t>> get_tlb_data_from_target(const tt_cxy_pair& target);
+    tlb_configuration get_tlb_data_from_target(const tt_cxy_pair& target);
     /**
      * This API allows you to write directly to device memory that is addressable by a static TLB
      */

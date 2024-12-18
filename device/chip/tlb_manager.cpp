@@ -18,10 +18,6 @@ void TLBManager::configure_tlb(tt_xy_pair core, int32_t tlb_index, uint64_t addr
     log_assert(
         ordering == tlb_data::Strict || ordering == tlb_data::Posted || ordering == tlb_data::Relaxed,
         "Invalid ordering specified in Cluster::configure_tlb");
-    if (tlb_config_map.find(logical_device_id) == tlb_config_map.end()) {
-        tlb_config_map.insert({logical_device_id, {}});
-        map_core_to_tlb_per_chip.insert({logical_device_id, {}});
-    }
     log_debug(
         LogSiliconDriver,
         "Configuring TLB for chip: {} core: {} tlb_index: {} address: {} ordering: {}",
@@ -30,14 +26,28 @@ void TLBManager::configure_tlb(tt_xy_pair core, int32_t tlb_index, uint64_t addr
         tlb_index,
         address,
         ordering);
-    log_assert(
-        tlb_config_map.at(logical_device_id).find(tlb_index) == tlb_config_map.at(logical_device_id).end(),
-        "TLB index already configured {}",
-        tlb_index);
+    log_assert(tlb_config_map_.find(tlb_index) == tlb_config_map_.end(), "TLB index already configured {}", tlb_index);
 
-    tt_device_->set_dynamic_tlb(tlb_index, core, address, harvested_coord_translation.at(logical_device_id), ordering);
+    tt_device_->set_dynamic_tlb(tlb_index, core, address, ordering);
     auto tlb_size = std::get<1>(tt_device_->get_architecture_implementation()->describe_tlb(tlb_index).value());
-    tlb_config_map.at(logical_device_id).insert({tlb_index, (address / tlb_size) * tlb_size});
-    map_core_to_tlb_per_chip.at(logical_device_id).insert({core, tlb_index});
+    tlb_config_map_.insert({tlb_index, (address / tlb_size) * tlb_size});
+    map_core_to_tlb_.insert({core, tlb_index});
+}
+
+void TLBManager::set_dynamic_tlb(std::string fallback_tlb_name, int32_t tlb_index) {
+    log_assert(
+        dynamic_tlb_config_.find(fallback_tlb_name) == dynamic_tlb_config_.end(),
+        "Dynamic TLB already configured for {}",
+        fallback_tlb_name);
+    dynamic_tlb_config_.insert({fallback_tlb_name, tlb_index});
+}
+
+void TLBManager::set_dynamic_tlb_ordering(std::string fallback_tlb_name, uint64_t ordering) {
+    log_assert(
+        dynamic_tlb_config_.find(fallback_tlb_name) != dynamic_tlb_config_.end(),
+        "Dynamic TLB not configured {}",
+        fallback_tlb_name);
+
+    dynamic_tlb_ordering_modes_[fallback_tlb_name] = ordering;
 }
 };  // namespace tt::umd

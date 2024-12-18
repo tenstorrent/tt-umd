@@ -232,7 +232,6 @@ dynamic_tlb TTDevice::set_dynamic_tlb(
     tt_xy_pair end,
     std::uint64_t address,
     bool multicast,
-    std::unordered_map<tt_xy_pair, tt_xy_pair> &harvested_coord_translation,
     std::uint64_t ordering) {
     if (multicast) {
         std::tie(start, end) = architecture_impl_->multicast_workaround(start, end);
@@ -253,8 +252,6 @@ dynamic_tlb TTDevice::set_dynamic_tlb(
 
     tt::umd::tlb_configuration tlb_config = architecture_impl_->get_tlb_configuration(tlb_index);
     std::uint32_t TLB_CFG_REG_SIZE_BYTES = architecture_impl_->get_tlb_cfg_reg_size_bytes();
-    auto translated_start_coords = harvested_coord_translation.at(start);
-    auto translated_end_coords = harvested_coord_translation.at(end);
     uint64_t tlb_address = address / tlb_config.size;
     uint32_t local_address = address % tlb_config.size;
     uint64_t tlb_base = tlb_config.base + (tlb_config.size * tlb_config.index_offset);
@@ -263,10 +260,10 @@ dynamic_tlb TTDevice::set_dynamic_tlb(
     std::pair<std::uint64_t, std::uint64_t> tlb_data =
         tt::umd::tlb_data{
             .local_offset = tlb_address,
-            .x_end = static_cast<uint64_t>(translated_end_coords.x),
-            .y_end = static_cast<uint64_t>(translated_end_coords.y),
-            .x_start = static_cast<uint64_t>(translated_start_coords.x),
-            .y_start = static_cast<uint64_t>(translated_start_coords.y),
+            .x_end = static_cast<uint64_t>(end.x),
+            .y_end = static_cast<uint64_t>(end.y),
+            .x_start = static_cast<uint64_t>(start.x),
+            .y_start = static_cast<uint64_t>(start.y),
             .mcast = multicast,
             .ordering = ordering,
             // TODO #2715: hack for Blackhole A0, will potentially be fixed in B0.
@@ -291,23 +288,14 @@ dynamic_tlb TTDevice::set_dynamic_tlb(
 }
 
 dynamic_tlb TTDevice::set_dynamic_tlb(
-    unsigned int tlb_index,
-    tt_xy_pair target,
-    std::uint64_t address,
-    std::unordered_map<tt_xy_pair, tt_xy_pair> &harvested_coord_translation,
-    std::uint64_t ordering) {
-    return set_dynamic_tlb(tlb_index, tt_xy_pair(0, 0), target, address, false, harvested_coord_translation, ordering);
+    unsigned int tlb_index, tt_xy_pair target, std::uint64_t address, std::uint64_t ordering) {
+    return set_dynamic_tlb(tlb_index, tt_xy_pair(0, 0), target, address, false, ordering);
 }
 
 dynamic_tlb TTDevice::set_dynamic_tlb_broadcast(
-    unsigned int tlb_index,
-    std::uint64_t address,
-    std::unordered_map<tt_xy_pair, tt_xy_pair> &harvested_coord_translation,
-    tt_xy_pair start,
-    tt_xy_pair end,
-    std::uint64_t ordering) {
+    unsigned int tlb_index, std::uint64_t address, tt_xy_pair start, tt_xy_pair end, std::uint64_t ordering) {
     // Issue a broadcast to cores included in the start (top left) and end (bottom right) grid
-    return set_dynamic_tlb(tlb_index, start, end, address, true, harvested_coord_translation, ordering);
+    return set_dynamic_tlb(tlb_index, start, end, address, true, ordering);
 }
 
 void TTDevice::configure_iatu_region(size_t region, uint64_t base, uint64_t target, size_t size) {

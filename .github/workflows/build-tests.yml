@@ -8,6 +8,9 @@ on:
       arch:
         required: true
         type: string
+      ubuntu-version:
+        required: true
+        type: string
       timeout:
         required: true
         type: number
@@ -21,6 +24,13 @@ on:
           - grayskull
           - wormhole_b0
           - blackhole
+      ubuntu-version:
+        required: true
+        description: 'The version of Ubuntu to build on'
+        type: choice
+        options:
+          - ubuntu-22.04
+          - ubuntu-20.04
       timeout:
         required: true
         description: 'The timeout for the build job in minutes'
@@ -40,18 +50,11 @@ jobs:
   build:
     # Due to parsing bug, fromJSON is used to convert string to number
     timeout-minutes: ${{ fromJSON(inputs.timeout) }}
-    strategy:
-      fail-fast: false
-      matrix:
-        build: [
-          {runs-on: ubuntu-22.04, docker-image: tt-umd-ci-ubuntu-22.04},
-          {runs-on: ubuntu-20.04, docker-image: tt-umd-ci-ubuntu-20.04},
-        ]
 
-    name: Build umd_tests for ${{ inputs.arch }} on ${{ matrix.build.runs-on }}
-    runs-on: ${{ matrix.build.runs-on }}
+    name: Build umd_tests for ${{ inputs.arch }} on ${{ inputs.ubuntu-version }}
+    runs-on: ${{ inputs.ubuntu-version }}
     container:
-      image: ghcr.io/${{ github.repository }}/${{ matrix.build.docker-image }}:latest
+      image: ghcr.io/${{ github.repository }}/tt-umd-ci-${{ inputs.ubuntu-version }}:latest
       options: --user root
 
     env:
@@ -84,5 +87,5 @@ jobs:
       - name: Upload build artifacts archive
         uses: actions/upload-artifact@v4
         with:
-          name: build-artifacts-${{ inputs.arch }}-${{ matrix.build.runs-on }}
+          name: build-artifacts-${{ inputs.arch }}-${{ inputs.ubuntu-version }}
           path: artifact.tar

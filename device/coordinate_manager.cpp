@@ -81,7 +81,7 @@ void CoordinateManager::identity_map_physical_cores() {
     }
 }
 
-CoreCoord CoordinateManager::to(const CoreCoord core_coord, const CoordSystem coord_system) {
+CoreCoord CoordinateManager::translate_coord_to(const CoreCoord core_coord, const CoordSystem coord_system) {
     return from_physical_map.at({to_physical_map.at(core_coord), coord_system});
 }
 

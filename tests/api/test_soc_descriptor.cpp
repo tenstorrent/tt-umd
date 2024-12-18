@@ -112,8 +112,8 @@ TEST(SocDescriptor, SocDescriptorWormholeETHLogicalToPhysical) {
     for (size_t y = 0; y < eth_grid_size.y; y++) {
         for (size_t x = 0; x < eth_grid_size.x; x++) {
             const CoreCoord eth_logical = CoreCoord(x, y, CoreType::ETH, CoordSystem::LOGICAL);
-            const CoreCoord eth_physical = soc_desc.to(eth_logical, CoordSystem::PHYSICAL);
-            const CoreCoord eth_virtual = soc_desc.to(eth_logical, CoordSystem::VIRTUAL);
+            const CoreCoord eth_physical = soc_desc.translate_coord_to(eth_logical, CoordSystem::PHYSICAL);
+            const CoreCoord eth_virtual = soc_desc.translate_coord_to(eth_logical, CoordSystem::VIRTUAL);
 
             EXPECT_EQ(eth_physical.x, wormhole_eth_cores[index].x);
             EXPECT_EQ(eth_physical.y, wormhole_eth_cores[index].y);
@@ -216,9 +216,9 @@ TEST(SocDescriptor, CustomSocDescriptor) {
     tt_SocDescriptor soc_desc(test_utils::GetAbsPath("tests/soc_descs/blackhole_simulation_1x2.yaml"), 0, 0);
 
     const CoreCoord tensix_core_01 = CoreCoord(0, 1, CoreType::TENSIX, CoordSystem::PHYSICAL);
-    const CoreCoord tensix_core_01_virtual = soc_desc.to(tensix_core_01, CoordSystem::VIRTUAL);
-    const CoreCoord tensix_core_01_logical = soc_desc.to(tensix_core_01, CoordSystem::LOGICAL);
-    const CoreCoord tensix_core_01_translated = soc_desc.to(tensix_core_01, CoordSystem::TRANSLATED);
+    const CoreCoord tensix_core_01_virtual = soc_desc.translate_coord_to(tensix_core_01, CoordSystem::VIRTUAL);
+    const CoreCoord tensix_core_01_logical = soc_desc.translate_coord_to(tensix_core_01, CoordSystem::LOGICAL);
+    const CoreCoord tensix_core_01_translated = soc_desc.translate_coord_to(tensix_core_01, CoordSystem::TRANSLATED);
 
     EXPECT_EQ(tensix_core_01_virtual.x, tensix_core_01.x);
     EXPECT_EQ(tensix_core_01_virtual.y, tensix_core_01.y);
@@ -230,9 +230,9 @@ TEST(SocDescriptor, CustomSocDescriptor) {
     EXPECT_EQ(tensix_core_01_logical.y, 0);
 
     const CoreCoord tensix_core_11 = CoreCoord(1, 1, CoreType::TENSIX, CoordSystem::PHYSICAL);
-    const CoreCoord tensix_core_11_virtual = soc_desc.to(tensix_core_11, CoordSystem::VIRTUAL);
-    const CoreCoord tensix_core_11_logical = soc_desc.to(tensix_core_11, CoordSystem::LOGICAL);
-    const CoreCoord tensix_core_11_translated = soc_desc.to(tensix_core_11, CoordSystem::TRANSLATED);
+    const CoreCoord tensix_core_11_virtual = soc_desc.translate_coord_to(tensix_core_11, CoordSystem::VIRTUAL);
+    const CoreCoord tensix_core_11_logical = soc_desc.translate_coord_to(tensix_core_11, CoordSystem::LOGICAL);
+    const CoreCoord tensix_core_11_translated = soc_desc.translate_coord_to(tensix_core_11, CoordSystem::TRANSLATED);
 
     EXPECT_EQ(tensix_core_11_virtual.x, tensix_core_11.x);
     EXPECT_EQ(tensix_core_11_virtual.y, tensix_core_11.y);
@@ -253,9 +253,9 @@ TEST(SocDescriptor, CustomSocDescriptor) {
     EXPECT_TRUE(harvested_tensix_cores.empty());
 
     const CoreCoord dram_core_10 = CoreCoord(1, 0, CoreType::DRAM, CoordSystem::PHYSICAL);
-    const CoreCoord dram_core_10_virtual = soc_desc.to(dram_core_10, CoordSystem::VIRTUAL);
-    const CoreCoord dram_core_10_logical = soc_desc.to(dram_core_10, CoordSystem::LOGICAL);
-    const CoreCoord dram_core_10_translated = soc_desc.to(dram_core_10, CoordSystem::TRANSLATED);
+    const CoreCoord dram_core_10_virtual = soc_desc.translate_coord_to(dram_core_10, CoordSystem::VIRTUAL);
+    const CoreCoord dram_core_10_logical = soc_desc.translate_coord_to(dram_core_10, CoordSystem::LOGICAL);
+    const CoreCoord dram_core_10_translated = soc_desc.translate_coord_to(dram_core_10, CoordSystem::TRANSLATED);
 
     EXPECT_EQ(dram_core_10_virtual.x, dram_core_10.x);
     EXPECT_EQ(dram_core_10_virtual.y, dram_core_10.y);

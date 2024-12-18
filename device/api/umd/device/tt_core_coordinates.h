@@ -83,3 +83,10 @@ struct CoreCoord : public tt_xy_pair {
 };
 
 }  // namespace tt::umd
+
+namespace std {
+template <>
+struct hash<tt::umd::CoreCoord> {
+    size_t operator()(const tt::umd::CoreCoord& core_coord) const;
+};
+}  // namespace std

@@ -11,9 +11,9 @@
 #include <tuple>
 #include <vector>
 
-#include "umd/device/tlb.h"
 #include "umd/device/tt_xy_pair.h"
 #include "umd/device/types/arch.h"
+#include "umd/device/types/tlb.h"
 #include "umd/device/types/xy_pair.h"
 
 struct tt_device_l1_address_params;

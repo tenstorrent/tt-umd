@@ -14,4 +14,6 @@ tt_SocDescriptor& Chip::get_soc_descriptor() { return soc_descriptor_; }
 
 TTDevice* Chip::get_tt_device() { return nullptr; }
 
+TLBManager* Chip::get_tlb_manager() { return nullptr; }
+
 }  // namespace tt::umd

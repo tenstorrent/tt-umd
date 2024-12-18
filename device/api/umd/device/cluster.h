@@ -609,7 +609,6 @@ public:
     static void harvest_rows_in_soc_descriptor(tt::ARCH arch, tt_SocDescriptor& sdesc, uint32_t harvested_rows);
     static std::unordered_map<tt_xy_pair, tt_xy_pair> create_harvested_coord_translation(
         const tt::ARCH arch, bool identity_map);
-    std::unordered_map<tt_xy_pair, tt_xy_pair> get_harvested_coord_translation_map(chip_id_t logical_device_id);
     virtual std::uint32_t get_num_dram_channels(std::uint32_t device_id);
     virtual std::uint64_t get_dram_channel_size(std::uint32_t device_id, std::uint32_t channel);
     virtual std::uint32_t get_num_host_channels(std::uint32_t device_id);

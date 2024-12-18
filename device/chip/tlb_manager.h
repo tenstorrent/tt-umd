@@ -14,12 +14,21 @@ class TTDevice;
 class TLBManager {
 public:
     TLBManager(TTDevice* tt_device);
+
     void configure_tlb(tt_xy_pair core, int32_t tlb_index, uint64_t address, uint64_t ordering);
+
+    void set_dynamic_tlb(std::string fallback_tlb_name, int32_t tlb_index);
+    void set_dynamic_tlb_ordering(std::string fallback_tlb_name, uint64_t ordering);
+
+    // TODO: the following members will be moved to private once enough stuff is moved out of cluster.
+    std::unordered_map<int32_t, uint64_t> tlb_config_map_;
+    std::unordered_map<tt_xy_pair, std::int32_t> map_core_to_tlb_;
+
+    std::unordered_map<std::string, std::int32_t> dynamic_tlb_config_;
+    std::unordered_map<std::string, uint64_t> dynamic_tlb_ordering_modes_;
 
 private:
     TTDevice* tt_device_;
-    std::unordered_map<int32_t, uint64_t> tlb_config_map_;
-    std::unordered_map<tt_xy_pair, std::int32_t> map_core_to_tlb_;
 };
 
 }  // namespace tt::umd

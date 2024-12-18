@@ -36,6 +36,7 @@
 #include <utility>
 #include <vector>
 
+#include "device/chip/tlb_manager.h"
 #include "api/umd/device/tt_core_coordinates.h"
 #include "logger.hpp"
 #include "umd/device/architecture_implementation.h"
@@ -179,6 +180,7 @@ bool Cluster::is_tlb_mapped(tt_cxy_pair target, uint64_t address, uint32_t size_
 }
 
 void Cluster::initialize_interprocess_mutexes(int logical_device_id, bool cleanup_mutexes_in_shm) {
+void Cluster::initialize_interprocess_mutexes(int logical_device_id, bool cleanup_mutexes_in_shm) {
     // These mutexes are intended to be based on physical devices/pci-intf not logical. Set these up ahead of time here
     // (during device init) since its unsafe to modify shared state during multithreaded runtime. cleanup_mutexes_in_shm
     // is tied to clean_system_resources from the constructor. The main process is responsible for initializing the
@@ -191,7 +193,7 @@ void Cluster::initialize_interprocess_mutexes(int logical_device_id, bool cleanu
     std::string mutex_name = "";
 
     // Initialize Dynamic TLB mutexes
-    for (auto& tlb : dynamic_tlb_config) {
+    for (auto& tlb : chips_.at(logical_device_id)->get_tlb_manager()->dynamic_tlb_config_) {
         mutex_name = tlb.first + std::to_string(logical_device_id);
         if (cleanup_mutexes_in_shm) {
             named_mutex::remove(mutex_name.c_str());
@@ -266,6 +268,7 @@ void Cluster::create_device(
             pci_device->get_device_num(),
             pci_device->revision_id);
 
+        // TODO: This will be moved to a dedicated Locking class.
         initialize_interprocess_mutexes(logical_device_id, clean_system_resources);
 
         // MT: Initial BH - hugepages will fail init
@@ -330,18 +333,6 @@ void Cluster::construct_cluster(
 
     perform_harvesting_on_sdesc = perform_harvesting;
 
-    // It is mandatory for all devices to have these TLBs set aside, as the driver needs them to issue remote reads and
-    // writes.
-    auto architecture_implementation = tt::umd::architecture_implementation::create(arch_name);
-    dynamic_tlb_config["LARGE_READ_TLB"] = architecture_implementation->get_mem_large_read_tlb();
-    dynamic_tlb_config["LARGE_WRITE_TLB"] = architecture_implementation->get_mem_large_write_tlb();
-    dynamic_tlb_config["REG_TLB"] = architecture_implementation->get_reg_tlb();
-    dynamic_tlb_config["SMALL_READ_WRITE_TLB"] = architecture_implementation->get_small_read_write_tlb();
-
-    // All dynamic TLBs use Relaxed Ordering by default
-    for (const auto& tlb : dynamic_tlb_config) {
-        dynamic_tlb_ordering_modes.insert({tlb.first, TLB_DATA::Relaxed});
-    }
     create_device(local_chip_ids_, num_host_mem_ch_per_mmio_device, skip_driver_allocs, clean_system_resources);
 
     // MT: Initial BH - Disable dependency to ethernet firmware
@@ -1368,7 +1359,9 @@ tlb_configuration Cluster::get_tlb_configuration(const chip_id_t chip, CoreCoord
 
 void Cluster::configure_tlb(
     chip_id_t logical_device_id, tt_xy_pair core, int32_t tlb_index, uint64_t address, uint64_t ordering) {
-    chips_.at(logical_device_id)->configure_tlb(core, tlb_index, address, ordering);
+    chips_.at(logical_device_id)
+        ->get_tlb_manager()
+        ->configure_tlb(harvested_coord_translation.at(logical_device_id).at(core), tlb_index, address, ordering);
 }
 
 void Cluster::configure_tlb(

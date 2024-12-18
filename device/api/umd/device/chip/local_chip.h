@@ -17,6 +17,7 @@ public:
     LocalChip(tt_SocDescriptor soc_descriptor, int pci_device_id);
 
     TTDevice* get_tt_device() override;
+    TLBManager* get_tlb_manager() override;
 
     bool is_mmio_capable() const override;
 

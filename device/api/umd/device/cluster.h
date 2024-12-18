@@ -911,8 +911,6 @@ private:
     std::unordered_set<tt_xy_pair> eth_cores = {};
     std::unordered_set<tt_xy_pair> dram_cores = {};
 
-    std::unordered_map<std::string, std::int32_t> dynamic_tlb_config = {};
-    std::unordered_map<std::string, uint64_t> dynamic_tlb_ordering_modes = {};
     std::map<std::set<chip_id_t>, std::unordered_map<chip_id_t, std::vector<std::vector<int>>>> bcast_header_cache = {};
     bool perform_harvesting_on_sdesc = false;
     bool use_ethernet_ordered_writes = true;

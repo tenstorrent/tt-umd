@@ -43,11 +43,11 @@
 #include "umd/device/chip/remote_chip.h"
 #include "umd/device/driver_atomics.h"
 #include "umd/device/hugepage.h"
-#include "umd/device/tlb.h"
 #include "umd/device/tt_cluster_descriptor.h"
 #include "umd/device/tt_core_coordinates.h"
 #include "umd/device/tt_soc_descriptor.h"
 #include "umd/device/types/arch.h"
+#include "umd/device/types/tlb.h"
 #include "yaml-cpp/yaml.h"
 
 using namespace boost::interprocess;

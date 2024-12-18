@@ -9,7 +9,7 @@
 #include <array>
 
 #include "architecture_implementation.h"
-#include "umd/device/tlb.h"
+#include "umd/device/types/tlb.h"
 
 namespace tt::umd {
 

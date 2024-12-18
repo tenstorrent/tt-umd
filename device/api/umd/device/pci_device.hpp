@@ -14,9 +14,9 @@
 
 #include "fmt/format.h"
 #include "umd/device/semver.hpp"
-#include "umd/device/tlb.h"
 #include "umd/device/tt_xy_pair.h"
 #include "umd/device/types/arch.h"
+#include "umd/device/types/tlb.h"
 
 namespace tt::umd {
 class semver_t;

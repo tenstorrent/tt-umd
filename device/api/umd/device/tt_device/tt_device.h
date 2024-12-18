@@ -69,18 +69,15 @@ public:
         tt_xy_pair end,
         std::uint64_t address,
         bool multicast,
-        std::unordered_map<tt_xy_pair, tt_xy_pair> &harvested_coord_translation,
         std::uint64_t ordering);
     dynamic_tlb set_dynamic_tlb(
         unsigned int tlb_index,
         tt_xy_pair target,
         std::uint64_t address,
-        std::unordered_map<tt_xy_pair, tt_xy_pair> &harvested_coord_translation,
         std::uint64_t ordering = tt::umd::tlb_data::Relaxed);
     dynamic_tlb set_dynamic_tlb_broadcast(
         unsigned int tlb_index,
         std::uint64_t address,
-        std::unordered_map<tt_xy_pair, tt_xy_pair> &harvested_coord_translation,
         tt_xy_pair start,
         tt_xy_pair end,
         std::uint64_t ordering = tt::umd::tlb_data::Relaxed);

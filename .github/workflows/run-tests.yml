@@ -7,6 +7,9 @@ on:
       arch:
         required: true
         type: string
+      ubuntu-version:
+        required: true
+        type: string
       card:
         required: true
         type: string
@@ -23,6 +26,13 @@ on:
           - grayskull
           - wormhole_b0
           - blackhole
+      ubuntu-version:
+        required: true
+        description: 'The version of Ubuntu to build on'
+        type: choice
+        options:
+          - ubuntu-22.04
+          - ubuntu-20.04
       card:
         required: true
         description: 'The card to run tests on'
@@ -47,20 +57,13 @@ jobs:
   test:
     # Due to parsing bug, fromJSON is used to convert string to number
     timeout-minutes: ${{ fromJSON(inputs.timeout) }}
-    strategy:
-      fail-fast: false
-      matrix:
-        build: [
-          {runs-on: ubuntu-22.04, docker-image: tt-umd-ci-ubuntu-22.04},
-          {runs-on: ubuntu-20.04, docker-image: tt-umd-ci-ubuntu-20.04},
-        ]
 
-    name: Run tests for ${{ inputs.arch }} on ${{ inputs.card }} on ${{ matrix.build.runs-on }}
+    name: Run tests for ${{ inputs.arch }} on ${{ inputs.card }} on ${{ inputs.ubuntu-version }}
     runs-on:
       - self-hosted
       - ${{ inputs.card }}
     container:
-      image: ghcr.io/${{ github.repository }}/${{ matrix.build.docker-image }}:latest
+      image: ghcr.io/${{ github.repository }}/tt-umd-ci-${{ inputs.ubuntu-version }}:latest
       options: --user root --device /dev/tenstorrent/0
       volumes:
         - /dev/hugepages:/dev/hugepages
@@ -83,7 +86,7 @@ jobs:
       - name: Use build artifacts
         uses: actions/download-artifact@v4
         with:
-          name: build-artifacts-${{ inputs.arch }}-${{ matrix.build.runs-on }}
+          name: build-artifacts-${{ inputs.arch }}-${{ inputs.ubuntu-version }}
           path: ./
 
       # This is needed to preserve file permissions

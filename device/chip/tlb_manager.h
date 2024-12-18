@@ -28,7 +28,8 @@ public:
     bool is_tlb_mapped(tt_xy_pair core);
     bool is_tlb_mapped(tt_xy_pair core, uint64_t address, uint32_t size_in_bytes);
 
-    tt::Writer TLBManager::get_static_tlb_writer(tt_xy_pair core);
+    tt::Writer get_static_tlb_writer(tt_xy_pair core);
+    tlb_configuration get_tlb_configuration(tt_xy_pair core);
 
     // TODO: the following members will be moved to private once enough stuff is moved out of cluster.
     std::unordered_map<int32_t, uint64_t> tlb_config_map_;

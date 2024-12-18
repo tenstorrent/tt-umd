@@ -36,7 +36,7 @@
 #include <utility>
 #include <vector>
 
-#include "device/chip/tlb_manager.h"
+#include "chip/tlb_manager.h"
 #include "api/umd/device/tt_core_coordinates.h"
 #include "logger.hpp"
 #include "umd/device/architecture_implementation.h"
@@ -1058,8 +1058,7 @@ void Cluster::write_device_memory(
         small_access);
 
     if (get_tlb_manager(target.chip)->is_tlb_mapped({target.x, target.y}, address, size_in_bytes)) {
-        tlb_configuration tlb_description = dev->get_architecture_implementation()->get_tlb_configuration(
-            map_core_to_tlb_per_chip.at(target.chip).at(tt_xy_pair(target.x, target.y)));
+        auto tlb_description = get_tlb_manager(target.chip)->get_tlb_configuration({target.x, target.y});
         if (dev->get_pci_device()->bar4_wc != nullptr && tlb_description.size == BH_4GB_TLB_SIZE) {
             // This is only for Blackhole. If we want to  write to DRAM (BAR4 space), we add offset
             // to which we write so write_block knows it needs to target BAR4
@@ -1106,9 +1105,8 @@ void Cluster::read_device_memory(
 
     log_debug(LogSiliconDriver, "  tlb_index: {}, tlb_data.has_value(): {}", tlb_index, tlb_data.has_value());
 
-    if (is_tlb_mapped(target, address, size_in_bytes)) {
-        tlb_configuration tlb_description = dev->get_architecture_implementation()->get_tlb_configuration(
-            map_core_to_tlb_per_chip.at(target.chip).at(tt_xy_pair(target.x, target.y)));
+    if (get_tlb_manager(target.chip)->is_tlb_mapped({target.x, target.y}, address, size_in_bytes)) {
+        auto tlb_description = get_tlb_manager(target.chip)->get_tlb_configuration({target.x, target.y});
         if (dev->get_pci_device()->bar4_wc != nullptr && tlb_description.size == BH_4GB_TLB_SIZE) {
             // This is only for Blackhole. If we want to  read from DRAM (BAR4 space), we add offset
             // from which we read so read_block knows it needs to target BAR4
@@ -1279,16 +1277,8 @@ Cluster::~Cluster() {
     cluster_desc.reset();
 }
 
-std::optional<std::tuple<uint32_t, uint32_t>> Cluster::get_tlb_data_from_target(const tt_cxy_pair& target) {
-    tlb_configuration tlb_configuration = get_tlb_configuration(target);
-    return std::tuple((uint32_t)tlb_configuration.tlb_offset, (uint32_t)tlb_configuration.size);
-}
-
-tlb_configuration Cluster::get_tlb_configuration(const tt_cxy_pair& target) {
-    log_assert(is_tlb_mapped(target), "TLB not mapped for core: {}", target.str());
-
-    int tlb_index = map_core_to_tlb_per_chip.at(target.chip).at(tt_xy_pair(target.x, target.y));
-    return get_tt_device(target.chip)->get_architecture_implementation()->get_tlb_configuration(tlb_index);
+tlb_configuration Cluster::get_tlb_data_from_target(const tt_cxy_pair& target) {
+    return get_tlb_manager(target.chip)->get_tlb_configuration({target.x, target.y});
 }
 
 std::optional<std::tuple<uint32_t, uint32_t>> Cluster::get_tlb_data_from_target(const chip_id_t chip, CoreCoord core) {

@@ -7,9 +7,9 @@
 #include "chip/tlb_manager.h"
 
 #include "common/logger.hpp"
-#include "device/types/tlb.h"
 #include "umd/device/tt_device/tt_device.h"
 #include "umd/device/tt_io.hpp"
+#include "umd/device/types/tlb.h"
 
 namespace tt::umd {
 
@@ -30,7 +30,7 @@ void TLBManager::configure_tlb(tt_xy_pair core, int32_t tlb_index, uint64_t addr
     log_assert(tlb_config_map_.find(tlb_index) == tlb_config_map_.end(), "TLB index already configured {}", tlb_index);
 
     tt_device_->set_dynamic_tlb(tlb_index, core, address, ordering);
-    auto tlb_size = std::get<1>(tt_device_->get_architecture_implementation()->describe_tlb(tlb_index).value());
+    auto tlb_size = tt_device_->get_architecture_implementation()->get_tlb_configuration(tlb_index).size;
     tlb_config_map_.insert({tlb_index, (address / tlb_size) * tlb_size});
     map_core_to_tlb_.insert({core, tlb_index});
 }
@@ -74,10 +74,9 @@ bool TLBManager::is_tlb_mapped(tt_xy_pair core, uint64_t address, uint32_t size_
     }
 
     int32_t tlb_index = map_core_to_tlb_.at(core);
-    auto tlb_description = tt_device_->get_architecture_implementation()->describe_tlb(tlb_index);
+    auto tlb_description = tt_device_->get_architecture_implementation()->get_tlb_configuration(tlb_index);
 
-    return tlb_description.has_value() &&
-           address_in_tlb_space(address, size_in_bytes, tlb_index, std::get<1>(tlb_description.value()));
+    return address_in_tlb_space(address, size_in_bytes, tlb_index, tlb_description.size);
 }
 
 tt::Writer TLBManager::get_static_tlb_writer(tt_xy_pair core) {
@@ -90,12 +89,18 @@ tt::Writer TLBManager::get_static_tlb_writer(tt_xy_pair core) {
     }
 
     auto tlb_index = map_core_to_tlb_.at(core);
-    auto tlb_data = tt_device_->get_architecture_implementation()->describe_tlb(tlb_index);
+    auto tlb_data = tt_device_->get_architecture_implementation()->get_tlb_configuration(tlb_index);
 
-    auto [tlb_offset, tlb_size] = tlb_data.value();
     auto* base = reinterpret_cast<uint8_t*>(tt_device_->get_pci_device()->bar0_wc);
 
-    return tt::Writer(base + tlb_offset, tlb_size);
+    return tt::Writer(base + tlb_data.tlb_offset, tlb_data.size);
+}
+
+tlb_configuration TLBManager::get_tlb_configuration(tt_xy_pair core) {
+    log_assert(is_tlb_mapped(core), "TLB not mapped for core: {}", core.str());
+
+    int tlb_index = map_core_to_tlb_.at(core);
+    return tt_device_->get_architecture_implementation()->get_tlb_configuration(tlb_index);
 }
 
 };  // namespace tt::umd

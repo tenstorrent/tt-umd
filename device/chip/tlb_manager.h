@@ -22,8 +22,8 @@ public:
 
     void configure_tlb(tt_xy_pair core, int32_t tlb_index, uint64_t address, uint64_t ordering);
 
-    void set_dynamic_tlb(std::string fallback_tlb_name, int32_t tlb_index);
-    void set_dynamic_tlb_ordering(std::string fallback_tlb_name, uint64_t ordering);
+    void set_dynamic_tlb_config(std::string fallback_tlb_name, int32_t tlb_index);
+    void set_dynamic_tlb_config_ordering(std::string fallback_tlb_name, uint64_t ordering);
 
     bool address_in_tlb_space(uint64_t address, uint32_t size_in_bytes, int32_t tlb_index, uint64_t tlb_size);
     bool is_tlb_mapped(tt_xy_pair core);

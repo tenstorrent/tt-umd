@@ -21,11 +21,6 @@ public:
 
     bool is_mmio_capable() const override;
 
-    // TLB related functions
-    // void configure_tlb(tt_xy_pair core, int32_t tlb_index, uint64_t address, uint64_t ordering);
-
-    // TODO: remove this function once write and read is moved to chip class.
-
 private:
     std::unique_ptr<TTDevice> tt_device_;
     std::unique_ptr<TLBManager> tlb_manager_;

@@ -1306,7 +1306,7 @@ void Cluster::configure_tlb(
 
 void Cluster::set_fallback_tlb_ordering_mode(const std::string& fallback_tlb, uint64_t ordering) {
     for (auto& chip_id : local_chip_ids_) {
-        get_tlb_manager(chip_id)->set_dynamic_tlb_ordering(fallback_tlb, ordering);
+        get_tlb_manager(chip_id)->set_dynamic_tlb_config_ordering(fallback_tlb, ordering);
     }
 }
 
@@ -1541,8 +1541,8 @@ int Cluster::iatu_configure_peer_region(
 
     // TODO: stop doing this.  It's related to HUGEPAGE_CHANNEL_3_SIZE_LIMIT.
     if (peer_region_id == 3) {
-        region_id_to_use = 4;  // Hack use region 4 for channel 3..this ensures that we have a smaller chan 3
-                               // address space with the correct start offset
+        region_id_to_use = 4;  // Hack use region 4 for channel 3..this ensures that we have a smaller chan 3 address
+                               // space with the correct start offset
     }
 
     TTDevice* tt_device = get_tt_device(logical_device_id);
@@ -1714,17 +1714,16 @@ bool Cluster::is_non_mmio_cmd_q_full(uint32_t curr_wptr, uint32_t curr_rptr) {
  * writes/reads to/from those wormhole chips that aren't memory mapped or directly host connected.
  * To get the data to or from those other chips, there is a memory transfer protocol - initiated on
  * the host side but carried out by any number of the ethernet cores (the ethernet core pool is dictated
- * by `this->NUM_ETH_CORES_FOR_NON_MMIO_TRANSFERS`) on the MMIO chips (e.g. typically just the one chip in a
- * galaxy).
+ * by `this->NUM_ETH_CORES_FOR_NON_MMIO_TRANSFERS`) on the MMIO chips (e.g. typically just the one chip in a galaxy).
  *
  * There is a command queue structure in ethernet core FW to accept these read/write commands. However, there is no
  * atomic increment (from host side) for the write pointers of these queues, nor is there any sort of other hardware
  * mutual exclusion (as of WH) from host side when populating commands into the queue (as in when the host pushes a
  * write command into the ethernet core's queue).
  *
- * Therefore, any of these non_mmio commands from host side need to be synchronized so they don't accidentally
- * corrupt each other. The finest granularity possible to synchronize on would be the command slot and wrptr (per
- * core), but wrptr updates also need to be coordinated:
+ * Therefore, any of these non_mmio commands from host side need to be synchronized so they don't accidentally corrupt
+ * each other. The finest granularity possible to synchronize on would be the command slot and wrptr (per core),
+ * but wrptr updates also need to be coordinated:
  *  - you can't increment wrptr unless you are writing to the next index and your write is complete
  *  - if two threads could guarantee separate command slots, they'd need to order their wrptr updates from lowest to
  *    highest and based on completion of command writes.
@@ -1860,8 +1859,8 @@ void Cluster::write_to_non_mmio_device(
             uint32_t alignment_mask = sizeof(uint32_t) - 1;
             block_size = (block_size + alignment_mask) & ~alignment_mask;
         }
-        // For 4 byte aligned data, transfer_size always == block_size. For unaligned data, transfer_size <
-        // block_size in the last block
+        // For 4 byte aligned data, transfer_size always == block_size. For unaligned data, transfer_size < block_size
+        // in the last block
         uint64_t transfer_size =
             std::min(block_size, size_in_bytes - offset);  // Host side data size that needs to be copied
         // Use block mode for broadcast
@@ -2000,9 +1999,9 @@ void Cluster::write_to_non_mmio_device(
 }
 
 /*
- * Note that this function is required to acquire the `NON_MMIO_MUTEX_NAME` mutex for interacting with the ethernet
- * core (host) command queue DO NOT use `active_core` or issue any pcie reads/writes to the ethernet core prior to
- * acquiring the mutex. For extra information, see the "NON_MMIO_MUTEX Usage" above
+ * Note that this function is required to acquire the `NON_MMIO_MUTEX_NAME` mutex for interacting with the ethernet core
+ * (host) command queue DO NOT use `active_core` or issue any pcie reads/writes to the ethernet core prior to acquiring
+ * the mutex. For extra information, see the "NON_MMIO_MUTEX Usage" above
  */
 void Cluster::read_from_non_mmio_device(void* mem_ptr, tt_cxy_pair core, uint64_t address, uint32_t size_in_bytes) {
     using data_word_t = uint32_t;
@@ -2371,14 +2370,14 @@ std::unordered_map<chip_id_t, std::vector<std::vector<int>>>& Cluster::get_ether
                 // Rack byte to be set in header
                 uint32_t rack_byte = eth_coords.rack % 4;
                 // 1st level grouping: Group broadcasts based on the MMIO chip they must go through
-                // Nebula + Galaxy Topology assumption: Disjoint sets can only be present in the first shelf, with
-                // each set connected to host through its closest MMIO chip For the first shelf, pass broadcasts to
-                // specific chips through their closest MMIO chip All other shelves are fully connected galaxy
-                // grids. These are connected to all MMIO devices. Use any (or the first) MMIO device in the list.
+                // Nebula + Galaxy Topology assumption: Disjoint sets can only be present in the first shelf, with each
+                // set connected to host through its closest MMIO chip For the first shelf, pass broadcasts to specific
+                // chips through their closest MMIO chip All other shelves are fully connected galaxy grids. These are
+                // connected to all MMIO devices. Use any (or the first) MMIO device in the list.
                 chip_id_t closest_mmio_chip = 0;
                 if (eth_coords.rack == 0 && eth_coords.shelf == 0) {
-                    // Shelf 0 + Rack 0: Either an MMIO chip or a remote chip potentially connected to host through
-                    // its own MMIO counterpart.
+                    // Shelf 0 + Rack 0: Either an MMIO chip or a remote chip potentially connected to host through its
+                    // own MMIO counterpart.
                     closest_mmio_chip = cluster_desc->get_closest_mmio_capable_chip(chip);
                 } else {
                     // All other shelves: Group these under the same/first MMIO chip, since all MMIO chips are
@@ -2389,8 +2388,8 @@ std::unordered_map<chip_id_t, std::vector<std::vector<int>>>& Cluster::get_ether
                     broadcast_mask_for_target_chips_per_group.end()) {
                     broadcast_mask_for_target_chips_per_group.insert({closest_mmio_chip, {}});
                 }
-                // For each target physical chip id (local to a shelf), generate headers based on all racks and
-                // shelves that contain this physical id.
+                // For each target physical chip id (local to a shelf), generate headers based on all racks and shelves
+                // that contain this physical id.
                 if (broadcast_mask_for_target_chips_per_group.at(closest_mmio_chip).find(physical_chip_id) ==
                     broadcast_mask_for_target_chips_per_group.at(closest_mmio_chip).end()) {
                     // Target seen for the first time.
@@ -2408,8 +2407,8 @@ std::unordered_map<chip_id_t, std::vector<std::vector<int>>>& Cluster::get_ether
                 }
             }
         }
-        // 2nd level grouping: For each MMIO group, further group the chips based on their rack and shelf headers.
-        // The number of groups after this step represent the final set of broadcast grids.
+        // 2nd level grouping: For each MMIO group, further group the chips based on their rack and shelf headers. The
+        // number of groups after this step represent the final set of broadcast grids.
         for (auto& mmio_group : broadcast_mask_for_target_chips_per_group) {
             for (auto& chip : mmio_group.second) {
                 // Generate a hash for this MMIO Chip + Rack + Shelf group
@@ -2457,8 +2456,8 @@ void Cluster::pcie_broadcast_write(
     const tt_xy_pair& start,
     const tt_xy_pair& end,
     const std::string& fallback_tlb) {
-    // Use the specified TLB to broadcast data to all cores included in the [start, end] grid -> GS Only. Use
-    // Ethernet Broadcast for WH.
+    // Use the specified TLB to broadcast data to all cores included in the [start, end] grid -> GS Only. Use Ethernet
+    // Broadcast for WH.
     TTDevice* tt_device = get_tt_device(chip);
     const auto tlb_index = get_tlb_manager(chip)->dynamic_tlb_config_.at(fallback_tlb);
     const uint8_t* buffer_addr = static_cast<const uint8_t*>(mem_ptr);

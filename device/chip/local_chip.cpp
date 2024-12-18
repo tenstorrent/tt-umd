@@ -6,7 +6,7 @@
 
 #include "umd/device/chip/local_chip.h"
 
-#include "device/chip/tlb_manager.h"
+#include "chip/tlb_manager.h"
 #include "umd/device/tt_device/tt_device.h"
 
 namespace tt::umd {

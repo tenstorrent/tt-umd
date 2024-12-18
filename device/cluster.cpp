@@ -426,20 +426,21 @@ void Cluster::construct_cluster(
         }
     }
 
+    auto any_architecture_implementation = get_tt_device(*local_chip_ids_.begin())->get_architecture_implementation();
     // Default initialize l1_address_params based on detected arch
-    l1_address_params = architecture_implementation->get_l1_address_params();
+    l1_address_params = any_architecture_implementation->get_l1_address_params();
 
     // Default initialize dram_address_params.
     dram_address_params = {0u};
 
     // Default initialize host_address_params based on detected arch
-    host_address_params = architecture_implementation->get_host_address_params();
+    host_address_params = any_architecture_implementation->get_host_address_params();
 
     // Default initialize eth_interface_params based on detected arch
-    eth_interface_params = architecture_implementation->get_eth_interface_params();
+    eth_interface_params = any_architecture_implementation->get_eth_interface_params();
 
     // Default initialize noc_params based on detected arch
-    noc_params = architecture_implementation->get_noc_params();
+    noc_params = any_architecture_implementation->get_noc_params();
 }
 
 std::unique_ptr<Chip> Cluster::construct_chip_from_cluster(

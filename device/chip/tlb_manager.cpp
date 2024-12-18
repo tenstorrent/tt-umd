@@ -6,7 +6,7 @@
 
 #include "chip/tlb_manager.h"
 
-#include "common/logger.hpp"
+#include "logger.hpp"
 #include "umd/device/tt_device/tt_device.h"
 #include "umd/device/tt_io.hpp"
 #include "umd/device/types/tlb.h"

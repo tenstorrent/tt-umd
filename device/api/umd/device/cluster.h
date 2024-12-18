@@ -18,12 +18,12 @@
 #include "tt_soc_descriptor.h"
 #include "tt_xy_pair.h"
 #include "umd/device/chip/chip.h"
-#include "umd/device/tlb.h"
 #include "umd/device/tt_device/tt_device.h"
 #include "umd/device/tt_io.hpp"
 #include "umd/device/types/arch.h"
 #include "umd/device/types/cluster_descriptor_types.h"
 #include "umd/device/types/cluster_types.h"
+#include "umd/device/types/tlb.h"
 
 using TLB_DATA = tt::umd::tlb_data;
 
@@ -47,36 +47,12 @@ public:
 
     // Setup/Teardown Functions
     /**
-     * Set L1 Address Map parameters used by UMD to communicate with the TT Device.
+     * Set Barrier Address Map parameters used by UMD to communicate with the TT Device.
      *
-     * @param l1_address_params_  All the L1 parameters required by UMD
+     * @param barrier_address_params_  All the barrier parameters required by UMD
      */
-    virtual void set_device_l1_address_params(const tt_device_l1_address_params& l1_address_params_) {
-        throw std::runtime_error("---- tt_device::set_device_l1_address_params is not implemented\n");
-    }
-
-    virtual void set_device_dram_address_params(const tt_device_dram_address_params& dram_address_params_) {
-        throw std::runtime_error("---- tt_device::set_device_dram_address_params is not implemented\n");
-    }
-
-    /**
-     * Set Host Address Map parameters used by UMD to communicate with the TT Device (used for remote transactions).
-     *
-     * @param host_address_params_ All the Host Address space parameters required by UMD.
-     */
-    [[deprecated("Using unnecessary function.")]] virtual void set_driver_host_address_params(
-        const tt_driver_host_address_params& host_address_params_) {
-        throw std::runtime_error("---- tt_device::set_driver_host_address_params is not implemented\n");
-    }
-
-    /**
-     * Set ERISC Firmware parameters used by UMD to communicate with the TT Device (used for remote transactions).
-     *
-     * @param eth_interface_params_ All the Ethernet Firmware parameters required by UMD.
-     */
-    [[deprecated("Using unnecessary function.")]] virtual void set_driver_eth_interface_params(
-        const tt_driver_eth_interface_params& eth_interface_params_) {
-        throw std::runtime_error("---- tt_device::set_driver_eth_interface_params is not implemented\n");
+    virtual void set_barrier_address_params(const barrier_address_params& barrier_address_params_) {
+        throw std::runtime_error("---- tt_device::set_barrier_address_params is not implemented\n");
     }
 
     /**
@@ -105,18 +81,6 @@ public:
      */
     virtual void set_fallback_tlb_ordering_mode(const std::string& fallback_tlb, uint64_t ordering = TLB_DATA::Posted) {
         throw std::runtime_error("---- tt_device::set_fallback_tlb_ordering_mode is not implemented\n");
-    }
-
-    /**
-     * Give UMD a 1:1 function mapping a core to its appropriate static TLB (currently only support a single TLB per
-     * core).
-     *
-     * @param logical_device_id MMIO chip being targeted.
-     * @param mapping_function Function which maps core to TLB index.
-     */
-    virtual void setup_core_to_tlb_map(
-        const chip_id_t logical_device_id, std::function<std::int32_t(tt_xy_pair)> mapping_function) {
-        throw std::runtime_error("---- tt_device::setup_core_to_tlb_map is not implemented\n");
     }
 
     /**
@@ -336,20 +300,6 @@ public:
     }
 
     /**
-     * Get the total number of chips in the cluster based on the network descriptor.
-     */
-    virtual int get_number_of_chips_in_cluster() {
-        throw std::runtime_error("---- tt_device::get_number_of_chips_in_cluster is not implemented\n");
-    }
-
-    /**
-     * Get the logical ids for all chips in the cluster
-     */
-    virtual std::unordered_set<chip_id_t> get_all_chips_in_cluster() {
-        throw std::runtime_error("---- tt_device::get_all_chips_in_cluster is not implemented\n");
-    }
-
-    /**
      * Get cluster descriptor object being used in UMD instance.
      */
     virtual tt_ClusterDescriptor* get_cluster_description() {
@@ -561,10 +511,7 @@ public:
     static std::unique_ptr<Cluster> create_mock_cluster();
 
     // Setup/Teardown Functions
-    virtual void set_device_l1_address_params(const tt_device_l1_address_params& l1_address_params_);
-    virtual void set_device_dram_address_params(const tt_device_dram_address_params& dram_address_params_);
-    virtual void set_driver_host_address_params(const tt_driver_host_address_params& host_address_params_);
-    virtual void set_driver_eth_interface_params(const tt_driver_eth_interface_params& eth_interface_params_);
+    virtual void set_barrier_address_params(const barrier_address_params& barrier_address_params_);
     virtual void configure_tlb(
         chip_id_t logical_device_id,
         tt_xy_pair core,
@@ -572,8 +519,6 @@ public:
         uint64_t address,
         uint64_t ordering = TLB_DATA::Posted);
     virtual void set_fallback_tlb_ordering_mode(const std::string& fallback_tlb, uint64_t ordering = TLB_DATA::Posted);
-    virtual void setup_core_to_tlb_map(
-        const chip_id_t logical_device_id, std::function<std::int32_t(tt_xy_pair)> mapping_function);
     virtual void configure_active_ethernet_cores_for_mmio_device(
         chip_id_t mmio_chip, const std::unordered_set<tt_xy_pair>& active_eth_cores_per_chip);
     virtual void start_device(const tt_device_params& device_params);
@@ -648,13 +593,12 @@ public:
     virtual bool using_harvested_soc_descriptors();
     virtual std::unordered_map<chip_id_t, uint32_t> get_harvesting_masks_for_soc_descriptors();
     virtual void translate_to_noc_table_coords(chip_id_t device_id, std::size_t& r, std::size_t& c);
-    virtual int get_number_of_chips_in_cluster();
-    virtual std::unordered_set<chip_id_t> get_all_chips_in_cluster();
     virtual tt_ClusterDescriptor* get_cluster_description();
     static int detect_number_of_chips();
     static std::vector<chip_id_t> detect_available_device_ids();
     virtual std::set<chip_id_t> get_target_mmio_device_ids();
     virtual std::set<chip_id_t> get_target_remote_device_ids();
+    virtual std::set<chip_id_t> get_target_device_ids();
     virtual std::map<int, int> get_clocks();
     virtual void* host_dma_address(std::uint64_t offset, chip_id_t src_device_id, uint16_t channel) const;
     virtual std::uint64_t get_pcie_base_addr_from_device(const chip_id_t chip_id) const;
@@ -665,7 +609,6 @@ public:
     static void harvest_rows_in_soc_descriptor(tt::ARCH arch, tt_SocDescriptor& sdesc, uint32_t harvested_rows);
     static std::unordered_map<tt_xy_pair, tt_xy_pair> create_harvested_coord_translation(
         const tt::ARCH arch, bool identity_map);
-    std::unordered_map<tt_xy_pair, tt_xy_pair> get_harvested_coord_translation_map(chip_id_t logical_device_id);
     virtual std::uint32_t get_num_dram_channels(std::uint32_t device_id);
     virtual std::uint64_t get_dram_channel_size(std::uint32_t device_id, std::uint32_t channel);
     virtual std::uint32_t get_num_host_channels(std::uint32_t device_id);
@@ -690,7 +633,7 @@ private:
         const uint32_t& num_host_mem_ch_per_mmio_device,
         const bool skip_driver_allocs,
         const bool clean_system_resources);
-    void initialize_interprocess_mutexes(int pci_interface_id, bool cleanup_mutexes_in_shm);
+    void initialize_interprocess_mutexes(int logical_device_id, bool cleanup_mutexes_in_shm);
     void cleanup_shared_host_state();
     void initialize_pcie_devices();
     void broadcast_pcie_tensix_risc_reset(chip_id_t chip_id, const TensixSoftResetOptions& cores);
@@ -794,9 +737,17 @@ private:
         int timeout = 1,
         uint32_t* return_3 = nullptr,
         uint32_t* return_4 = nullptr);
+
+    // TODO: These will be moved to a dedicated class for TLB management
     bool address_in_tlb_space(
         uint64_t address, uint32_t size_in_bytes, int32_t tlb_index, uint64_t tlb_size, uint32_t chip);
-    std::shared_ptr<boost::interprocess::named_mutex> get_mutex(const std::string& tlb_name, int pci_interface_id);
+    bool is_tlb_mapped(tt_cxy_pair target);
+    bool is_tlb_mapped(tt_cxy_pair target, uint64_t address, uint32_t size_in_bytes);
+    // Note that these maps holds only entries for local PCIe chips.
+    std::map<chip_id_t, std::unordered_map<int32_t, uint64_t>> tlb_config_map = {};
+    std::unordered_map<chip_id_t, std::unordered_map<tt_xy_pair, std::int32_t>> map_core_to_tlb_per_chip = {};
+
+    std::shared_ptr<boost::interprocess::named_mutex> get_mutex(const std::string& tlb_name, int logical_device_id);
     virtual uint32_t get_harvested_noc_rows_for_chip(
         int logical_device_id);  // Returns one-hot encoded harvesting mask for PCIe mapped chips
     void generate_tensix_broadcast_grids_for_grayskull(
@@ -830,14 +781,12 @@ private:
     tt_driver_noc_params noc_params;
     tt_driver_eth_interface_params eth_interface_params;
     std::vector<tt::ARCH> archs_in_cluster = {};
-    std::set<chip_id_t> target_devices_in_cluster = {};
-    std::set<chip_id_t> target_remote_chips = {};
-    std::set<chip_id_t> all_target_mmio_devices = {};
+    std::set<chip_id_t> all_chip_ids_ = {};
+    std::set<chip_id_t> remote_chip_ids_ = {};
+    std::set<chip_id_t> local_chip_ids_ = {};
     std::unordered_map<chip_id_t, std::unique_ptr<Chip>> chips_;
     tt::ARCH arch_name;
 
-    // Map of enabled tt devices
-    std::unordered_map<chip_id_t, std::unique_ptr<TTDevice>> m_tt_device_map;
     std::shared_ptr<tt_ClusterDescriptor> cluster_desc;
 
     // remote eth transfer setup
@@ -864,11 +813,6 @@ private:
     std::unordered_map<chip_id_t, std::unordered_set<tt_xy_pair>> workers_per_chip = {};
     std::unordered_set<tt_xy_pair> eth_cores = {};
     std::unordered_set<tt_xy_pair> dram_cores = {};
-    std::map<chip_id_t, std::unordered_map<int32_t, uint64_t>> tlb_config_map = {};
-
-    // Note that these maps holds only entries for local PCIe chips.
-    std::unordered_map<chip_id_t, std::function<std::int32_t(tt_xy_pair)>> map_core_to_tlb_per_chip = {};
-    std::unordered_map<chip_id_t, bool> tlbs_init_per_chip = {};
 
     std::unordered_map<std::string, std::int32_t> dynamic_tlb_config = {};
     std::unordered_map<std::string, uint64_t> dynamic_tlb_ordering_modes = {};

@@ -18,12 +18,12 @@
 
 using namespace tt::umd;
 
-void set_params_for_remote_txn(Cluster& cluster) {
-    // Populate address map and NOC parameters that the driver needs for remote transactions
-    cluster.set_device_l1_address_params(
-        {l1_mem::address_map::L1_BARRIER_BASE,
-         eth_l1_mem::address_map::ERISC_BARRIER_BASE,
-         eth_l1_mem::address_map::FW_VERSION_ADDR});
+constexpr std::uint32_t DRAM_BARRIER_BASE = 0;
+
+static void set_barrier_params(Cluster& cluster) {
+    // Populate address map and NOC parameters that the driver needs for memory barriers and remote transactions.
+    cluster.set_barrier_address_params(
+        {l1_mem::address_map::L1_BARRIER_BASE, eth_l1_mem::address_map::ERISC_BARRIER_BASE, DRAM_BARRIER_BASE});
 }
 
 std::int32_t get_static_tlb_index(tt_xy_pair target) {
@@ -92,7 +92,7 @@ TEST(SiliconDriverBH, CreateDestroy) {
             false,
             true,
             false);
-        set_params_for_remote_txn(cluster);
+        set_barrier_params(cluster);
         cluster.start_device(default_params);
         cluster.close_device();
     }
@@ -189,7 +189,7 @@ TEST(SiliconDriverBH, CreateDestroy) {
 //         true,
 //         true,
 //         simulated_harvesting_masks);
-//     set_params_for_remote_txn(cluster);
+//     set_barrier_params(cluster);
 //     auto mmio_devices = cluster.get_target_mmio_device_ids();
 
 //     for (int i = 0; i < target_devices.size(); i++) {
@@ -203,7 +203,6 @@ TEST(SiliconDriverBH, CreateDestroy) {
 //             }
 //         }
 //     }
-//     cluster.setup_core_to_tlb_map(get_static_tlb_index_callback);
 
 //     tt_device_params default_params;
 //     cluster.start_device(default_params);
@@ -278,7 +277,7 @@ TEST(SiliconDriverBH, UnalignedStaticTLB_RW) {
     uint32_t num_host_mem_ch_per_mmio_device = 1;
 
     Cluster cluster = Cluster(num_host_mem_ch_per_mmio_device, false, true, true);
-    set_params_for_remote_txn(cluster);
+    set_barrier_params(cluster);
     auto mmio_devices = cluster.get_target_mmio_device_ids();
 
     for (int i = 0; i < target_devices.size(); i++) {
@@ -290,7 +289,6 @@ TEST(SiliconDriverBH, UnalignedStaticTLB_RW) {
                 cluster.configure_tlb(
                     i, core, get_static_tlb_index_callback(core), l1_mem::address_map::NCRISC_FIRMWARE_BASE);
             }
-            cluster.setup_core_to_tlb_map(i, get_static_tlb_index_callback);
         }
     }
 
@@ -334,7 +332,7 @@ TEST(SiliconDriverBH, StaticTLB_RW) {
     uint32_t num_host_mem_ch_per_mmio_device = 1;
 
     Cluster cluster = Cluster(num_host_mem_ch_per_mmio_device, false, true, true);
-    set_params_for_remote_txn(cluster);
+    set_barrier_params(cluster);
     auto mmio_devices = cluster.get_target_mmio_device_ids();
 
     for (int i = 0; i < target_devices.size(); i++) {
@@ -346,7 +344,6 @@ TEST(SiliconDriverBH, StaticTLB_RW) {
                 cluster.configure_tlb(
                     i, core, get_static_tlb_index_callback(core), l1_mem::address_map::NCRISC_FIRMWARE_BASE);
             }
-            cluster.setup_core_to_tlb_map(i, get_static_tlb_index_callback);
         }
     }
 
@@ -398,7 +395,7 @@ TEST(SiliconDriverBH, DynamicTLB_RW) {
     uint32_t num_host_mem_ch_per_mmio_device = 1;
     Cluster cluster = Cluster(num_host_mem_ch_per_mmio_device, false, true, true);
 
-    set_params_for_remote_txn(cluster);
+    set_barrier_params(cluster);
 
     tt_device_params default_params;
     cluster.start_device(default_params);
@@ -486,7 +483,7 @@ TEST(SiliconDriverBH, MultiThreadedDevice) {
     uint32_t num_host_mem_ch_per_mmio_device = 1;
     Cluster cluster = Cluster(num_host_mem_ch_per_mmio_device, false, true, true);
 
-    set_params_for_remote_txn(cluster);
+    set_barrier_params(cluster);
 
     tt_device_params default_params;
     cluster.start_device(default_params);
@@ -555,7 +552,7 @@ TEST(SiliconDriverBH, MultiThreadedMemBar) {
     uint32_t num_host_mem_ch_per_mmio_device = 1;
 
     Cluster cluster = Cluster(num_host_mem_ch_per_mmio_device, false, true, true);
-    set_params_for_remote_txn(cluster);
+    set_barrier_params(cluster);
     for (int i = 0; i < target_devices.size(); i++) {
         // Iterate over devices and only setup static TLBs for functional worker cores
         auto& sdesc = cluster.get_soc_descriptor(i);
@@ -563,7 +560,6 @@ TEST(SiliconDriverBH, MultiThreadedMemBar) {
             // Statically mapping a 1MB TLB to this core, starting from address DATA_BUFFER_SPACE_BASE.
             cluster.configure_tlb(i, core, get_static_tlb_index_callback(core), base_addr);
         }
-        cluster.setup_core_to_tlb_map(i, get_static_tlb_index_callback);
     }
 
     tt_device_params default_params;
@@ -694,7 +690,7 @@ TEST(SiliconDriverBH, DISABLED_BroadcastWrite) {  // Cannot broadcast to tensix/
     uint32_t num_host_mem_ch_per_mmio_device = 1;
 
     Cluster cluster = Cluster(num_host_mem_ch_per_mmio_device, false, true, true);
-    set_params_for_remote_txn(cluster);
+    set_barrier_params(cluster);
     auto mmio_devices = cluster.get_target_mmio_device_ids();
 
     tt_device_params default_params;
@@ -781,7 +777,7 @@ TEST(SiliconDriverBH, DISABLED_VirtualCoordinateBroadcast) {  // same problem as
     uint32_t num_host_mem_ch_per_mmio_device = 1;
 
     Cluster cluster = Cluster(num_host_mem_ch_per_mmio_device, false, true, true);
-    set_params_for_remote_txn(cluster);
+    set_barrier_params(cluster);
     auto mmio_devices = cluster.get_target_mmio_device_ids();
 
     tt_device_params default_params;
@@ -881,7 +877,7 @@ TEST(SiliconDriverBH, SysmemTestWithPcie) {
         true,   // clean system resources - yes
         true);  // perform harvesting - yes
 
-    set_params_for_remote_txn(cluster);
+    set_barrier_params(cluster);
     cluster.start_device(tt_device_params{});  // no special parameters
 
     const chip_id_t mmio_chip_id = 0;
@@ -952,7 +948,7 @@ TEST(SiliconDriverBH, RandomSysmemTestWithPcie) {
         true,   // clean system resources - yes
         true);  // perform harvesting - yes
 
-    set_params_for_remote_txn(cluster);
+    set_barrier_params(cluster);
     cluster.start_device(tt_device_params{});  // no special parameters
 
     const chip_id_t mmio_chip_id = 0;

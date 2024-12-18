@@ -53,7 +53,7 @@ TEST(GalaxyConcurrentThreads, WriteToAllChipsL1) {
         Cluster(test_utils::GetAbsPath(SOC_DESC_PATH), all_devices, num_host_mem_ch_per_mmio_device, false, true);
     const auto sdesc_per_chip = device.get_virtual_soc_descriptors();
 
-    tt::umd::test::utils::set_params_for_remote_txn(device);
+    tt::umd::test::utils::set_barrier_params(device);
 
     tt_device_params default_params;
     device.start_device(default_params);
@@ -150,7 +150,7 @@ TEST(GalaxyConcurrentThreads, WriteToAllChipsDram) {
         Cluster(test_utils::GetAbsPath(SOC_DESC_PATH), all_devices, num_host_mem_ch_per_mmio_device, false, true);
     const auto sdesc_per_chip = device.get_virtual_soc_descriptors();
 
-    tt::umd::test::utils::set_params_for_remote_txn(device);
+    tt::umd::test::utils::set_barrier_params(device);
 
     tt_device_params default_params;
     device.start_device(default_params);
@@ -236,7 +236,7 @@ TEST(GalaxyConcurrentThreads, PushInputsWhileSignalingCluster) {
         Cluster(test_utils::GetAbsPath(SOC_DESC_PATH), target_devices, num_host_mem_ch_per_mmio_device, false, true);
     const auto sdesc_per_chip = device.get_virtual_soc_descriptors();
 
-    tt::umd::test::utils::set_params_for_remote_txn(device);
+    tt::umd::test::utils::set_barrier_params(device);
 
     tt_device_params default_params;
     device.start_device(default_params);

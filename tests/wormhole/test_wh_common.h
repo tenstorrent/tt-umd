@@ -12,14 +12,14 @@
 #include "umd/device/tt_cluster_descriptor.h"
 #include "umd/device/tt_xy_pair.h"
 
+constexpr std::uint32_t DRAM_BARRIER_BASE = 0;
+
 namespace tt::umd::test::utils {
 
-static void set_params_for_remote_txn(Cluster& cluster) {
-    // Populate address map and NOC parameters that the driver needs for remote transactions
-    cluster.set_device_l1_address_params(
-        {l1_mem::address_map::L1_BARRIER_BASE,
-         eth_l1_mem::address_map::ERISC_BARRIER_BASE,
-         eth_l1_mem::address_map::FW_VERSION_ADDR});
+static void set_barrier_params(Cluster& cluster) {
+    // Populate address map and NOC parameters that the driver needs for memory barriers and remote transactions.
+    cluster.set_barrier_address_params(
+        {l1_mem::address_map::L1_BARRIER_BASE, eth_l1_mem::address_map::ERISC_BARRIER_BASE, DRAM_BARRIER_BASE});
 }
 
 class WormholeTestFixture : public ::testing::Test {
@@ -58,7 +58,7 @@ protected:
         assert(cluster != nullptr);
         assert(cluster->get_cluster_description()->get_number_of_chips() == get_detected_num_chips());
 
-        set_params_for_remote_txn(*cluster);
+        set_barrier_params(*cluster);
 
         tt_device_params default_params;
         cluster->start_device(default_params);

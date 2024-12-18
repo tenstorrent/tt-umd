@@ -165,7 +165,6 @@ TEST(SiliconDriverWH, HarvestingRuntime) {
                     i, core, get_static_tlb_index_callback(core), l1_mem::address_map::NCRISC_FIRMWARE_BASE);
             }
         }
-        cluster.setup_core_to_tlb_map(i, get_static_tlb_index_callback);
     }
 
     tt_device_params default_params;

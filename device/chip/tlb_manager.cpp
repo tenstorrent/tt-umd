@@ -9,6 +9,7 @@
 #include "common/logger.hpp"
 #include "device/types/tlb.h"
 #include "umd/device/tt_device/tt_device.h"
+#include "umd/device/tt_io.hpp"
 
 namespace tt::umd {
 
@@ -44,10 +45,57 @@ void TLBManager::set_dynamic_tlb(std::string fallback_tlb_name, int32_t tlb_inde
 
 void TLBManager::set_dynamic_tlb_ordering(std::string fallback_tlb_name, uint64_t ordering) {
     log_assert(
+        ordering == tlb_data::Strict || ordering == tlb_data::Posted || ordering == tlb_data::Relaxed,
+        "Invalid ordering specified in set_dynamic_tlb_ordering.");
+    log_assert(
+        fallback_tlb_name != "LARGE_READ_TLB" && fallback_tlb_name != "LARGE_WRITE_TLB",
+        "Ordering modes for LARGE_READ_TLB and LARGE_WRITE_TLB cannot be modified.");
+    log_assert(
         dynamic_tlb_config_.find(fallback_tlb_name) != dynamic_tlb_config_.end(),
         "Dynamic TLB not configured {}",
         fallback_tlb_name);
 
     dynamic_tlb_ordering_modes_[fallback_tlb_name] = ordering;
 }
+
+bool TLBManager::address_in_tlb_space(uint64_t address, uint32_t size_in_bytes, int32_t tlb_index, uint64_t tlb_size) {
+    if (tlb_config_map_.find(tlb_index) != tlb_config_map_.end()) {
+        auto mapped_address = tlb_config_map_.at(tlb_index);
+        return address >= mapped_address && (address + size_in_bytes <= mapped_address + tlb_size);
+    }
+    return false;
+}
+
+bool TLBManager::is_tlb_mapped(tt_xy_pair core) { return map_core_to_tlb_.find(core) != map_core_to_tlb_.end(); }
+
+bool TLBManager::is_tlb_mapped(tt_xy_pair core, uint64_t address, uint32_t size_in_bytes) {
+    if (!is_tlb_mapped(core)) {
+        return false;
+    }
+
+    int32_t tlb_index = map_core_to_tlb_.at(core);
+    auto tlb_description = tt_device_->get_architecture_implementation()->describe_tlb(tlb_index);
+
+    return tlb_description.has_value() &&
+           address_in_tlb_space(address, size_in_bytes, tlb_index, std::get<1>(tlb_description.value()));
+}
+
+tt::Writer TLBManager::get_static_tlb_writer(tt_xy_pair core) {
+    if (!is_tlb_mapped(core)) {
+        throw std::runtime_error(fmt::format("TLBs not initialized for core: {}", core.str()));
+    }
+
+    if (!tt_device_->get_pci_device()->bar0_wc) {
+        throw std::runtime_error("No write-combined mapping for BAR0");
+    }
+
+    auto tlb_index = map_core_to_tlb_.at(core);
+    auto tlb_data = tt_device_->get_architecture_implementation()->describe_tlb(tlb_index);
+
+    auto [tlb_offset, tlb_size] = tlb_data.value();
+    auto* base = reinterpret_cast<uint8_t*>(tt_device_->get_pci_device()->bar0_wc);
+
+    return tt::Writer(base + tlb_offset, tlb_size);
+}
+
 };  // namespace tt::umd

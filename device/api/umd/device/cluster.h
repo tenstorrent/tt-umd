@@ -656,7 +656,7 @@ public:
     /**
      * If the tlbs are initialized, returns a tuple with the TLB base address and its size
      */
-    std::optional<std::tuple<uint32_t, uint32_t>> get_tlb_data_from_target(const tt_cxy_pair& target);
+    tlb_configuration get_tlb_data_from_target(const tt_cxy_pair& target);
     /**
      * Provide fast write access to a statically-mapped TLB.
      * It is the caller's responsibility to ensure that

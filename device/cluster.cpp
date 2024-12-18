@@ -144,42 +144,6 @@ std::unordered_map<chip_id_t, tt_SocDescriptor> Cluster::get_virtual_soc_descrip
     return soc_descs;
 }
 
-bool Cluster::address_in_tlb_space(
-    uint64_t address, uint32_t size_in_bytes, int32_t tlb_index, uint64_t tlb_size, std::uint32_t chip) {
-    const auto& tlb_map = tlb_config_map.at(chip);
-    const auto it = tlb_map.find(tlb_index);
-    if (it != tlb_map.end()) {
-        auto mapped_address = it->second;
-        return address >= mapped_address && (address + size_in_bytes <= mapped_address + tlb_size);
-    }
-    return false;
-}
-
-bool Cluster::is_tlb_mapped(tt_cxy_pair target) {
-    if (map_core_to_tlb_per_chip.find(target.chip) == map_core_to_tlb_per_chip.end()) {
-        return false;
-    }
-
-    auto& map_core_to_tlb = map_core_to_tlb_per_chip.at(target.chip);
-    tt_xy_pair target_core = tt_xy_pair(target.x, target.y);
-
-    return map_core_to_tlb.find(target_core) != map_core_to_tlb.end();
-}
-
-bool Cluster::is_tlb_mapped(tt_cxy_pair target, uint64_t address, uint32_t size_in_bytes) {
-    if (!is_tlb_mapped(target)) {
-        return false;
-    }
-
-    auto* dev = get_tt_device(target.chip);
-
-    int32_t tlb_index = map_core_to_tlb_per_chip.at(target.chip).at(tt_xy_pair(target.x, target.y));
-    tlb_configuration tlb_description = dev->get_architecture_implementation()->get_tlb_configuration(tlb_index);
-
-    return address_in_tlb_space(address, size_in_bytes, tlb_index, tlb_description.size, target.chip);
-}
-
-void Cluster::initialize_interprocess_mutexes(int logical_device_id, bool cleanup_mutexes_in_shm) {
 void Cluster::initialize_interprocess_mutexes(int logical_device_id, bool cleanup_mutexes_in_shm) {
     // These mutexes are intended to be based on physical devices/pci-intf not logical. Set these up ahead of time here
     // (during device init) since its unsafe to modify shared state during multithreaded runtime. cleanup_mutexes_in_shm
@@ -193,7 +157,7 @@ void Cluster::initialize_interprocess_mutexes(int logical_device_id, bool cleanu
     std::string mutex_name = "";
 
     // Initialize Dynamic TLB mutexes
-    for (auto& tlb : chips_.at(logical_device_id)->get_tlb_manager()->dynamic_tlb_config_) {
+    for (auto& tlb : get_tlb_manager(logical_device_id)->dynamic_tlb_config_) {
         mutex_name = tlb.first + std::to_string(logical_device_id);
         if (cleanup_mutexes_in_shm) {
             named_mutex::remove(mutex_name.c_str());
@@ -1066,24 +1030,7 @@ std::function<void(uint32_t, uint32_t, const uint8_t*)> Cluster::get_fast_pcie_s
 }
 
 tt::Writer Cluster::get_static_tlb_writer(tt_cxy_pair target) {
-    if (!cluster_desc->is_chip_mmio_capable(target.chip)) {
-        throw std::runtime_error(fmt::format("Target not in MMIO chip: {}", target.str()));
-    }
-
-    if (!is_tlb_mapped(target)) {
-        throw std::runtime_error(fmt::format("TLBs not initialized for core: {}", target.str()));
-    }
-
-    auto* dev = get_tt_device(target.chip);
-    if (!dev->get_pci_device()->bar0_wc) {
-        throw std::runtime_error("No write-combined mapping for BAR0");
-    }
-
-    auto tlb_index = map_core_to_tlb_per_chip.at(target.chip).at(tt_xy_pair(target.x, target.y));
-    tlb_configuration tlb_description = dev->get_architecture_implementation()->get_tlb_configuration(tlb_index);
-
-    auto* base = reinterpret_cast<uint8_t*>(dev->get_pci_device()->bar0_wc);
-    return tt::Writer(base + tlb_description.tlb_offset, tlb_description.size);
+    return get_tlb_manager(target.chip)->get_static_tlb_writer({target.x, target.y});
 }
 
 tt::Writer Cluster::get_static_tlb_writer(const chip_id_t chip, const CoreCoord target) {
@@ -1110,7 +1057,7 @@ void Cluster::write_device_memory(
         size_in_bytes,
         small_access);
 
-    if (is_tlb_mapped(target, address, size_in_bytes)) {
+    if (get_tlb_manager(target.chip)->is_tlb_mapped({target.x, target.y}, address, size_in_bytes)) {
         tlb_configuration tlb_description = dev->get_architecture_implementation()->get_tlb_configuration(
             map_core_to_tlb_per_chip.at(target.chip).at(tt_xy_pair(target.x, target.y)));
         if (dev->get_pci_device()->bar4_wc != nullptr && tlb_description.size == BH_4GB_TLB_SIZE) {
@@ -1124,7 +1071,7 @@ void Cluster::write_device_memory(
             dev->write_block(tlb_description.tlb_offset + address % tlb_description.size, size_in_bytes, buffer_addr);
         }
     } else {
-        const auto tlb_index = dynamic_tlb_config.at(fallback_tlb);
+        const auto tlb_index = get_tlb_manager(target.chip)->dynamic_tlb_config_.at(fallback_tlb);
         const scoped_lock<named_mutex> lock(*get_mutex(fallback_tlb, target.chip));
 
         while (size_in_bytes > 0) {
@@ -1132,7 +1079,7 @@ void Cluster::write_device_memory(
                 tlb_index,
                 harvested_coord_translation.at(target.chip).at(target),
                 address,
-                dynamic_tlb_ordering_modes.at(fallback_tlb));
+                get_tlb_manager(target.chip)->dynamic_tlb_ordering_modes_.at(fallback_tlb));
             uint32_t transfer_size = std::min((uint64_t)size_in_bytes, tlb_size);
             dev->write_block(mapped_address, transfer_size, buffer_addr);
 
@@ -1178,7 +1125,7 @@ void Cluster::read_device_memory(
             tlb_description.tlb_offset,
             tlb_description.size);
     } else {
-        const auto tlb_index = dynamic_tlb_config.at(fallback_tlb);
+        const auto tlb_index = get_tlb_manager(target.chip)->dynamic_tlb_config_.at(fallback_tlb);
         const scoped_lock<named_mutex> lock(*get_mutex(fallback_tlb, target.chip));
         log_debug(LogSiliconDriver, "  dynamic tlb_index: {}", tlb_index);
         while (size_in_bytes > 0) {
@@ -1186,7 +1133,7 @@ void Cluster::read_device_memory(
                 tlb_index,
                 harvested_coord_translation.at(target.chip).at(target),
                 address,
-                dynamic_tlb_ordering_modes.at(fallback_tlb));
+                get_tlb_manager(target.chip)->dynamic_tlb_ordering_modes_.at(fallback_tlb));
             uint32_t transfer_size = std::min((uint64_t)size_in_bytes, tlb_size);
             dev->read_block(mapped_address, transfer_size, buffer_addr);
 
@@ -1330,13 +1277,10 @@ Cluster::~Cluster() {
     cleanup_shared_host_state();
 
     cluster_desc.reset();
-    dynamic_tlb_config.clear();
-    tlb_config_map.clear();
-    dynamic_tlb_ordering_modes.clear();
 }
 
 std::optional<std::tuple<uint32_t, uint32_t>> Cluster::get_tlb_data_from_target(const tt_cxy_pair& target) {
-    auto tlb_configuration = get_tlb_configuration(target);
+    tlb_configuration tlb_configuration = get_tlb_configuration(target);
     return std::tuple((uint32_t)tlb_configuration.tlb_offset, (uint32_t)tlb_configuration.size);
 }
 
@@ -1359,8 +1303,7 @@ tlb_configuration Cluster::get_tlb_configuration(const chip_id_t chip, CoreCoord
 
 void Cluster::configure_tlb(
     chip_id_t logical_device_id, tt_xy_pair core, int32_t tlb_index, uint64_t address, uint64_t ordering) {
-    chips_.at(logical_device_id)
-        ->get_tlb_manager()
+    get_tlb_manager(logical_device_id)
         ->configure_tlb(harvested_coord_translation.at(logical_device_id).at(core), tlb_index, address, ordering);
 }
 
@@ -1371,16 +1314,9 @@ void Cluster::configure_tlb(
 }
 
 void Cluster::set_fallback_tlb_ordering_mode(const std::string& fallback_tlb, uint64_t ordering) {
-    log_assert(
-        ordering == TLB_DATA::Strict || ordering == TLB_DATA::Posted || ordering == TLB_DATA::Relaxed,
-        "Invalid ordering specified in Cluster::configure_tlb.");
-    log_assert(
-        dynamic_tlb_ordering_modes.find(fallback_tlb) != dynamic_tlb_ordering_modes.end(),
-        "Invalid TLB specified in Cluster::set_fallback_tlb_ordering_mode.");
-    log_assert(
-        fallback_tlb != "LARGE_READ_TLB" && fallback_tlb != "LARGE_WRITE_TLB",
-        "Ordering modes for LARGE_READ_TLB and LARGE_WRITE_TLB cannot be modified.");
-    dynamic_tlb_ordering_modes.at(fallback_tlb) = ordering;
+    for (auto& chip_id : local_chip_ids_) {
+        get_tlb_manager(chip_id)->set_dynamic_tlb_ordering(fallback_tlb, ordering);
+    }
 }
 
 // TODO: this is in the wrong place, it should be in the TTDevice.
@@ -1614,8 +1550,8 @@ int Cluster::iatu_configure_peer_region(
 
     // TODO: stop doing this.  It's related to HUGEPAGE_CHANNEL_3_SIZE_LIMIT.
     if (peer_region_id == 3) {
-        region_id_to_use = 4;  // Hack use region 4 for channel 3..this ensures that we have a smaller chan 3 address
-                               // space with the correct start offset
+        region_id_to_use = 4;  // Hack use region 4 for channel 3..this ensures that we have a smaller chan 3
+                               // address space with the correct start offset
     }
 
     TTDevice* tt_device = get_tt_device(logical_device_id);
@@ -1726,12 +1662,20 @@ void* Cluster::host_dma_address(std::uint64_t offset, chip_id_t src_device_id, u
     }
 }
 
-// Wrapper for throwing more helpful exception when not-enabled pci intf is accessed.
+// Wrapper for throwing a more helpful exception when trying to access non pci enabled interface.
 inline TTDevice* Cluster::get_tt_device(chip_id_t device_id) const {
     log_assert(chips_.find(device_id) != chips_.end(), "Device id {} not found in cluster.", device_id);
     auto tt_device = chips_.at(device_id)->get_tt_device();
     log_assert(tt_device != nullptr, "TTDevice not found for device: {}", device_id);
     return tt_device;
+}
+
+// Wrapper for throwing a more helpful exception when trying to access non pci enabled interface.
+inline TLBManager* Cluster::get_tlb_manager(chip_id_t device_id) const {
+    log_assert(chips_.find(device_id) != chips_.end(), "Device id {} not found in cluster.", device_id);
+    auto tlb_manager = chips_.at(device_id)->get_tlb_manager();
+    log_assert(tlb_manager != nullptr, "TLBManager not found for device: {}", device_id);
+    return tlb_manager;
 }
 
 std::shared_ptr<boost::interprocess::named_mutex> Cluster::get_mutex(
@@ -1779,16 +1723,17 @@ bool Cluster::is_non_mmio_cmd_q_full(uint32_t curr_wptr, uint32_t curr_rptr) {
  * writes/reads to/from those wormhole chips that aren't memory mapped or directly host connected.
  * To get the data to or from those other chips, there is a memory transfer protocol - initiated on
  * the host side but carried out by any number of the ethernet cores (the ethernet core pool is dictated
- * by `this->NUM_ETH_CORES_FOR_NON_MMIO_TRANSFERS`) on the MMIO chips (e.g. typically just the one chip in a galaxy).
+ * by `this->NUM_ETH_CORES_FOR_NON_MMIO_TRANSFERS`) on the MMIO chips (e.g. typically just the one chip in a
+ * galaxy).
  *
  * There is a command queue structure in ethernet core FW to accept these read/write commands. However, there is no
  * atomic increment (from host side) for the write pointers of these queues, nor is there any sort of other hardware
  * mutual exclusion (as of WH) from host side when populating commands into the queue (as in when the host pushes a
  * write command into the ethernet core's queue).
  *
- * Therefore, any of these non_mmio commands from host side need to be synchronized so they don't accidentally corrupt
- * each other. The finest granularity possible to synchronize on would be the command slot and wrptr (per core),
- * but wrptr updates also need to be coordinated:
+ * Therefore, any of these non_mmio commands from host side need to be synchronized so they don't accidentally
+ * corrupt each other. The finest granularity possible to synchronize on would be the command slot and wrptr (per
+ * core), but wrptr updates also need to be coordinated:
  *  - you can't increment wrptr unless you are writing to the next index and your write is complete
  *  - if two threads could guarantee separate command slots, they'd need to order their wrptr updates from lowest to
  *    highest and based on completion of command writes.
@@ -1924,8 +1869,8 @@ void Cluster::write_to_non_mmio_device(
             uint32_t alignment_mask = sizeof(uint32_t) - 1;
             block_size = (block_size + alignment_mask) & ~alignment_mask;
         }
-        // For 4 byte aligned data, transfer_size always == block_size. For unaligned data, transfer_size < block_size
-        // in the last block
+        // For 4 byte aligned data, transfer_size always == block_size. For unaligned data, transfer_size <
+        // block_size in the last block
         uint64_t transfer_size =
             std::min(block_size, size_in_bytes - offset);  // Host side data size that needs to be copied
         // Use block mode for broadcast
@@ -2064,9 +2009,9 @@ void Cluster::write_to_non_mmio_device(
 }
 
 /*
- * Note that this function is required to acquire the `NON_MMIO_MUTEX_NAME` mutex for interacting with the ethernet core
- * (host) command queue DO NOT use `active_core` or issue any pcie reads/writes to the ethernet core prior to acquiring
- * the mutex. For extra information, see the "NON_MMIO_MUTEX Usage" above
+ * Note that this function is required to acquire the `NON_MMIO_MUTEX_NAME` mutex for interacting with the ethernet
+ * core (host) command queue DO NOT use `active_core` or issue any pcie reads/writes to the ethernet core prior to
+ * acquiring the mutex. For extra information, see the "NON_MMIO_MUTEX Usage" above
  */
 void Cluster::read_from_non_mmio_device(void* mem_ptr, tt_cxy_pair core, uint64_t address, uint32_t size_in_bytes) {
     using data_word_t = uint32_t;
@@ -2435,14 +2380,14 @@ std::unordered_map<chip_id_t, std::vector<std::vector<int>>>& Cluster::get_ether
                 // Rack byte to be set in header
                 uint32_t rack_byte = eth_coords.rack % 4;
                 // 1st level grouping: Group broadcasts based on the MMIO chip they must go through
-                // Nebula + Galaxy Topology assumption: Disjoint sets can only be present in the first shelf, with each
-                // set connected to host through its closest MMIO chip For the first shelf, pass broadcasts to specific
-                // chips through their closest MMIO chip All other shelves are fully connected galaxy grids. These are
-                // connected to all MMIO devices. Use any (or the first) MMIO device in the list.
+                // Nebula + Galaxy Topology assumption: Disjoint sets can only be present in the first shelf, with
+                // each set connected to host through its closest MMIO chip For the first shelf, pass broadcasts to
+                // specific chips through their closest MMIO chip All other shelves are fully connected galaxy
+                // grids. These are connected to all MMIO devices. Use any (or the first) MMIO device in the list.
                 chip_id_t closest_mmio_chip = 0;
                 if (eth_coords.rack == 0 && eth_coords.shelf == 0) {
-                    // Shelf 0 + Rack 0: Either an MMIO chip or a remote chip potentially connected to host through its
-                    // own MMIO counterpart.
+                    // Shelf 0 + Rack 0: Either an MMIO chip or a remote chip potentially connected to host through
+                    // its own MMIO counterpart.
                     closest_mmio_chip = cluster_desc->get_closest_mmio_capable_chip(chip);
                 } else {
                     // All other shelves: Group these under the same/first MMIO chip, since all MMIO chips are
@@ -2453,8 +2398,8 @@ std::unordered_map<chip_id_t, std::vector<std::vector<int>>>& Cluster::get_ether
                     broadcast_mask_for_target_chips_per_group.end()) {
                     broadcast_mask_for_target_chips_per_group.insert({closest_mmio_chip, {}});
                 }
-                // For each target physical chip id (local to a shelf), generate headers based on all racks and shelves
-                // that contain this physical id.
+                // For each target physical chip id (local to a shelf), generate headers based on all racks and
+                // shelves that contain this physical id.
                 if (broadcast_mask_for_target_chips_per_group.at(closest_mmio_chip).find(physical_chip_id) ==
                     broadcast_mask_for_target_chips_per_group.at(closest_mmio_chip).end()) {
                     // Target seen for the first time.
@@ -2472,8 +2417,8 @@ std::unordered_map<chip_id_t, std::vector<std::vector<int>>>& Cluster::get_ether
                 }
             }
         }
-        // 2nd level grouping: For each MMIO group, further group the chips based on their rack and shelf headers. The
-        // number of groups after this step represent the final set of broadcast grids.
+        // 2nd level grouping: For each MMIO group, further group the chips based on their rack and shelf headers.
+        // The number of groups after this step represent the final set of broadcast grids.
         for (auto& mmio_group : broadcast_mask_for_target_chips_per_group) {
             for (auto& chip : mmio_group.second) {
                 // Generate a hash for this MMIO Chip + Rack + Shelf group
@@ -2521,10 +2466,10 @@ void Cluster::pcie_broadcast_write(
     const tt_xy_pair& start,
     const tt_xy_pair& end,
     const std::string& fallback_tlb) {
-    // Use the specified TLB to broadcast data to all cores included in the [start, end] grid -> GS Only. Use Ethernet
-    // Broadcast for WH.
+    // Use the specified TLB to broadcast data to all cores included in the [start, end] grid -> GS Only. Use
+    // Ethernet Broadcast for WH.
     TTDevice* tt_device = get_tt_device(chip);
-    const auto tlb_index = dynamic_tlb_config.at(fallback_tlb);
+    const auto tlb_index = get_tlb_manager(chip)->dynamic_tlb_config_.at(fallback_tlb);
     const uint8_t* buffer_addr = static_cast<const uint8_t*>(mem_ptr);
     const scoped_lock<named_mutex> lock(*get_mutex(fallback_tlb, chip));
     while (size_in_bytes > 0) {
@@ -2533,7 +2478,7 @@ void Cluster::pcie_broadcast_write(
             addr,
             harvested_coord_translation.at(chip).at(start),
             harvested_coord_translation.at(chip).at(end),
-            dynamic_tlb_ordering_modes.at(fallback_tlb));
+            get_tlb_manager(chip)->dynamic_tlb_ordering_modes_.at(fallback_tlb));
         uint64_t transfer_size = std::min((uint64_t)size_in_bytes, tlb_size);
         tt_device->write_block(mapped_address, transfer_size, buffer_addr);
 
@@ -3039,7 +2984,7 @@ void Cluster::read_mmio_device_register(
     void* mem_ptr, tt_cxy_pair core, uint64_t addr, uint32_t size, const std::string& fallback_tlb) {
     TTDevice* tt_device = get_tt_device(core.chip);
 
-    const auto tlb_index = dynamic_tlb_config.at(fallback_tlb);
+    const auto tlb_index = get_tlb_manager(core.chip)->dynamic_tlb_config_.at(fallback_tlb);
     const scoped_lock<named_mutex> lock(*get_mutex(fallback_tlb, core.chip));
     log_debug(LogSiliconDriver, "  dynamic tlb_index: {}", tlb_index);
 
@@ -3059,7 +3004,7 @@ void Cluster::write_mmio_device_register(
     const void* mem_ptr, tt_cxy_pair core, uint64_t addr, uint32_t size, const std::string& fallback_tlb) {
     TTDevice* tt_device = get_tt_device(core.chip);
 
-    const auto tlb_index = dynamic_tlb_config.at(fallback_tlb);
+    const auto tlb_index = get_tlb_manager(core.chip)->dynamic_tlb_config_.at(fallback_tlb);
     const scoped_lock<named_mutex> lock(*get_mutex(fallback_tlb, core.chip));
     log_debug(LogSiliconDriver, "  dynamic tlb_index: {}", tlb_index);
 

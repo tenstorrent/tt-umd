@@ -619,6 +619,7 @@ public:
     // TODO: This should be accessible through public API, probably to be moved to tt_device.
     PCIDevice* get_pci_device(int device_id) const;
     TTDevice* get_tt_device(chip_id_t device_id) const;
+    TLBManager* get_tlb_manager(chip_id_t device_id) const;
     const tt_SocDescriptor& get_soc_descriptor(chip_id_t chip_id) const;
 
     // Existing API we want to remove. UMD is transitioning to use CoreCoord instead of tt_xy_pair.
@@ -835,12 +836,6 @@ private:
         int timeout = 1,
         uint32_t* return_3 = nullptr,
         uint32_t* return_4 = nullptr);
-
-    // TODO: These will be moved to a dedicated class for TLB management
-    bool address_in_tlb_space(
-        uint64_t address, uint32_t size_in_bytes, int32_t tlb_index, uint64_t tlb_size, uint32_t chip);
-    bool is_tlb_mapped(tt_cxy_pair target);
-    bool is_tlb_mapped(tt_cxy_pair target, uint64_t address, uint32_t size_in_bytes);
 
     std::shared_ptr<boost::interprocess::named_mutex> get_mutex(const std::string& tlb_name, int logical_device_id);
     virtual uint32_t get_harvested_noc_rows_for_chip(

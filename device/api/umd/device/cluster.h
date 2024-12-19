@@ -866,6 +866,8 @@ private:
         const bool clean_system_resources,
         bool perform_harvesting,
         std::unordered_map<chip_id_t, uint32_t> simulated_harvesting_masks);
+    tt::umd::CoreCoord translate_chip_coord(
+        const chip_id_t chip, const tt::umd::CoreCoord core_coord, const CoordSystem coord_system) const;
 
     // State variables
     tt_device_dram_address_params dram_address_params;

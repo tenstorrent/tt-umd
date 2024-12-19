@@ -19,5 +19,5 @@ harvesting: {
 
 # This value will be null if the boardtype is unknown, should never happen in practice but to be defensive it would be useful to throw an error on this case.
 boardtype: {
-   0: null,
+   0: p100,
 }

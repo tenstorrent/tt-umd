@@ -81,11 +81,14 @@ void CoordinateManager::identity_map_physical_cores() {
     }
 }
 
-CoreCoord CoordinateManager::to(const CoreCoord core_coord, const CoordSystem coord_system) {
+CoreCoord CoordinateManager::translate_coord_to(const CoreCoord core_coord, const CoordSystem coord_system) {
     return from_physical_map.at({to_physical_map.at(core_coord), coord_system});
 }
 
 void CoordinateManager::translate_tensix_coords() {
+    if (CoordinateManager::get_num_harvested(tensix_harvesting_mask) > tensix_grid_size.y) {
+        tensix_harvesting_mask = 0;
+    }
     size_t num_harvested_y = CoordinateManager::get_num_harvested(tensix_harvesting_mask);
     size_t grid_size_x = tensix_grid_size.x;
     size_t grid_size_y = tensix_grid_size.y;

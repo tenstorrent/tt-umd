@@ -40,7 +40,7 @@ public:
 
     CoordinateManager(CoordinateManager& other) = default;
 
-    tt::umd::CoreCoord to(const tt::umd::CoreCoord core_coord, const CoordSystem coord_system);
+    tt::umd::CoreCoord translate_coord_to(const tt::umd::CoreCoord core_coord, const CoordSystem coord_system);
 
     std::vector<tt::umd::CoreCoord> get_cores(const CoreType core_type) const;
     tt_xy_pair get_grid_size(const CoreType core_type) const;

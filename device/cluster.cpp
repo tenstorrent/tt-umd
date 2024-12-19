@@ -684,9 +684,8 @@ void Cluster::configure_active_ethernet_cores_for_mmio_device(
 void Cluster::configure_active_ethernet_cores_for_mmio_device(
     const std::unordered_set<CoreCoord>& active_eth_cores_per_chip, chip_id_t mmio_chip) {
     std::unordered_set<tt_xy_pair> active_eth_cores_xy;
-    const tt_SocDescriptor& soc_desc = get_soc_descriptor(mmio_chip);
     for (const auto& core : active_eth_cores_per_chip) {
-        CoreCoord virtual_coord = soc_desc.translate_coord_to(core, CoordSystem::VIRTUAL);
+        CoreCoord virtual_coord = translate_chip_coord(mmio_chip, core, CoordSystem::VIRTUAL);
         active_eth_cores_xy.insert(virtual_coord);
     }
 
@@ -1008,7 +1007,7 @@ void Cluster::deassert_risc_reset_at_core(tt_cxy_pair core, const TensixSoftRese
 
 void Cluster::deassert_risc_reset_at_core(
     const chip_id_t chip, const CoreCoord core, const TensixSoftResetOptions& soft_resets) {
-    const CoreCoord virtual_coord = get_soc_descriptor(chip).translate_coord_to(core, CoordSystem::VIRTUAL);
+    const CoreCoord virtual_coord = translate_chip_coord(chip, core, CoordSystem::VIRTUAL);
     deassert_risc_reset_at_core({(size_t)chip, virtual_coord}, soft_resets);
 }
 
@@ -1033,7 +1032,7 @@ void Cluster::assert_risc_reset_at_core(tt_cxy_pair core) {
 }
 
 void Cluster::assert_risc_reset_at_core(const chip_id_t chip, const CoreCoord core) {
-    const CoreCoord virtual_coord = get_soc_descriptor(chip).translate_coord_to(core, CoordSystem::VIRTUAL);
+    const CoreCoord virtual_coord = translate_chip_coord(chip, core, CoordSystem::VIRTUAL);
     assert_risc_reset_at_core({(size_t)chip, virtual_coord});
 }
 
@@ -1100,7 +1099,7 @@ tt::Writer Cluster::get_static_tlb_writer(tt_cxy_pair target) {
 }
 
 tt::Writer Cluster::get_static_tlb_writer(const chip_id_t chip, const CoreCoord target) {
-    const CoreCoord virtual_coord = get_soc_descriptor(chip).translate_coord_to(target, CoordSystem::VIRTUAL);
+    const CoreCoord virtual_coord = translate_chip_coord(chip, target, CoordSystem::VIRTUAL);
     return get_static_tlb_writer({(size_t)chip, virtual_coord});
 }
 
@@ -1350,7 +1349,7 @@ std::optional<std::tuple<uint32_t, uint32_t>> Cluster::get_tlb_data_from_target(
 }
 
 std::optional<std::tuple<uint32_t, uint32_t>> Cluster::get_tlb_data_from_target(const chip_id_t chip, CoreCoord core) {
-    const CoreCoord virtual_coord = get_soc_descriptor(chip).translate_coord_to(core, CoordSystem::VIRTUAL);
+    const CoreCoord virtual_coord = translate_chip_coord(chip, core, CoordSystem::VIRTUAL);
     return get_tlb_data_from_target({(size_t)chip, virtual_coord});
 }
 
@@ -1386,8 +1385,7 @@ void Cluster::configure_tlb(
 
 void Cluster::configure_tlb(
     chip_id_t logical_device_id, tt::umd::CoreCoord core, int32_t tlb_index, uint64_t address, uint64_t ordering) {
-    const CoreCoord virtual_coord =
-        get_soc_descriptor(logical_device_id).translate_coord_to(core, CoordSystem::VIRTUAL);
+    const CoreCoord virtual_coord = translate_chip_coord(logical_device_id, core, CoordSystem::VIRTUAL);
     configure_tlb(logical_device_id, {virtual_coord.x, virtual_coord.y}, tlb_index, address, ordering);
 }
 
@@ -2974,7 +2972,7 @@ void Cluster::l1_membar(
     const chip_id_t chip, const std::unordered_set<tt::umd::CoreCoord>& cores, const std::string& fallback_tlb) {
     std::unordered_set<tt_xy_pair> cores_xy;
     for (const auto& core : cores) {
-        const CoreCoord virtual_core = get_soc_descriptor(chip).translate_coord_to(core, CoordSystem::VIRTUAL);
+        const CoreCoord virtual_core = translate_chip_coord(chip, core, CoordSystem::VIRTUAL);
         cores_xy.insert({virtual_core.x, virtual_core.y});
     }
     l1_membar(chip, fallback_tlb, cores_xy);
@@ -3002,7 +3000,7 @@ void Cluster::dram_membar(
     const chip_id_t chip, const std::unordered_set<tt::umd::CoreCoord>& cores, const std::string& fallback_tlb) {
     std::unordered_set<tt_xy_pair> cores_xy;
     for (const auto& core : cores) {
-        const CoreCoord virtual_core = get_soc_descriptor(chip).translate_coord_to(core, CoordSystem::VIRTUAL);
+        const CoreCoord virtual_core = translate_chip_coord(chip, core, CoordSystem::VIRTUAL);
         cores_xy.insert({virtual_core.x, virtual_core.y});
     }
     dram_membar(chip, fallback_tlb, cores_xy);
@@ -3052,7 +3050,7 @@ void Cluster::write_to_device(
     CoreCoord core,
     uint64_t addr,
     const std::string& tlb_to_use) {
-    CoreCoord virtual_coord = get_soc_descriptor(chip).translate_coord_to(core, CoordSystem::VIRTUAL);
+    CoreCoord virtual_coord = translate_chip_coord(chip, core, CoordSystem::VIRTUAL);
     write_to_device(mem_ptr, size_in_bytes, {(size_t)chip, virtual_coord}, addr, tlb_to_use);
 }
 
@@ -3117,7 +3115,7 @@ void Cluster::read_from_device(
 
 void Cluster::read_from_device(
     void* mem_ptr, chip_id_t chip, CoreCoord core, uint64_t addr, uint32_t size, const std::string& fallback_tlb) {
-    CoreCoord virtual_coord = get_soc_descriptor(chip).translate_coord_to(core, CoordSystem::VIRTUAL);
+    CoreCoord virtual_coord = translate_chip_coord(chip, core, CoordSystem::VIRTUAL);
     read_from_device(mem_ptr, {(size_t)chip, virtual_coord}, addr, size, fallback_tlb);
 }
 
@@ -3402,6 +3400,11 @@ void Cluster::set_barrier_address_params(const barrier_address_params& barrier_a
     l1_address_params.tensix_l1_barrier_base = barrier_address_params_.tensix_l1_barrier_base;
     l1_address_params.eth_l1_barrier_base = barrier_address_params_.eth_l1_barrier_base;
     dram_address_params.DRAM_BARRIER_BASE = barrier_address_params_.dram_barrier_base;
+}
+
+tt::umd::CoreCoord Cluster::translate_chip_coord(
+    const chip_id_t chip, const tt::umd::CoreCoord core_coord, const CoordSystem coord_system) const {
+    return get_soc_descriptor(chip).translate_coord_to(core_coord, coord_system);
 }
 
 }  // namespace tt::umd

@@ -590,11 +590,8 @@ Cluster::Cluster(
             "Target device {} not present in current cluster!",
             chip_id);
 
-        // Note that initially soc_descriptors are not harvested, but will be harvested later if perform_harvesting is
-        // true.
-        // TODO: This should be changed, harvesting should be done in tt_socdescriptor's constructor and not as part of
-        // cluster class.
-        tt_SocDescriptor soc_desc = tt_SocDescriptor(sdesc_path);
+        size_t tensix_harvesting_mask = cluster_desc->get_harvesting_info().at(chip_id);
+        tt_SocDescriptor soc_desc = tt_SocDescriptor(sdesc_path, tensix_harvesting_mask);
         log_assert(
             cluster_desc->get_arch(chip_id) == soc_desc.arch,
             "Passed soc descriptor has {} arch, but for chip id {} has arch {}",

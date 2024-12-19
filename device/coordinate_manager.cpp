@@ -86,6 +86,9 @@ CoreCoord CoordinateManager::translate_coord_to(const CoreCoord core_coord, cons
 }
 
 void CoordinateManager::translate_tensix_coords() {
+    if (CoordinateManager::get_num_harvested(tensix_harvesting_mask) > tensix_grid_size.y) {
+        tensix_harvesting_mask = 0;
+    }
     size_t num_harvested_y = CoordinateManager::get_num_harvested(tensix_harvesting_mask);
     size_t grid_size_x = tensix_grid_size.x;
     size_t grid_size_y = tensix_grid_size.y;

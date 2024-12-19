@@ -25,14 +25,15 @@ class Node;
 }
 
 enum BoardType : uint32_t {
-    E75 = 0,
-    E150 = 1,
-    E300 = 2,
-    N150 = 3,
-    N300 = 4,
-    P150A = 5,
-    GALAXY = 6,
-    UNKNOWN = 7,
+    E75,
+    E150,
+    E300,
+    N150,
+    N300,
+    P100,
+    P150A,
+    GALAXY,
+    UNKNOWN,
 };
 
 class tt_ClusterDescriptor {

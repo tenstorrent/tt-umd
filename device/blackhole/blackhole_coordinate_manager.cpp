@@ -38,6 +38,9 @@ BlackholeCoordinateManager::BlackholeCoordinateManager(
 }
 
 void BlackholeCoordinateManager::translate_tensix_coords() {
+    if (CoordinateManager::get_num_harvested(tensix_harvesting_mask) > tensix_grid_size.x) {
+        tensix_harvesting_mask = 0;
+    }
     size_t num_harvested_x = CoordinateManager::get_num_harvested(tensix_harvesting_mask);
     size_t grid_size_x = tensix_grid_size.x;
     size_t grid_size_y = tensix_grid_size.y;

@@ -73,7 +73,7 @@ TEST(ApiClusterDescriptorTest, BasicFunctionality) {
 
 TEST(ApiClusterDescriptorTest, TestAllOfflineClusterDescriptors) {
     for (std::string cluster_desc_yaml : {
-             "blackhole_P150.yaml",
+             "blackhole_P100.yaml",
              "galaxy.yaml",
              "grayskull_e75.yaml",
              "grayskull_E150.yaml",

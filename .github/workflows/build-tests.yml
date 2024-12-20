@@ -64,7 +64,6 @@ jobs:
       - uses: actions/checkout@v4
         with:
           submodules: recursive
-          lfs: 'true'
 
       - name: Build ${{ env.BUILD_TARGET }}
         run: |

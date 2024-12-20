@@ -12,6 +12,7 @@
 #include <vector>
 
 #include "fmt/xchar.h"
+#include "l1_address_map.h"
 #include "tests/test_utils/generate_cluster_desc.hpp"
 #include "umd/device/chip/local_chip.h"
 #include "umd/device/chip/mock_chip.h"
@@ -101,37 +102,25 @@ TEST(ApiClusterTest, SimpleIOAllChips) {
     for (auto chip_id : umd_cluster->get_target_device_ids()) {
         const tt_SocDescriptor& soc_desc = umd_cluster->get_soc_descriptor(chip_id);
 
-        // TODO: figure out if core locations should contain chip_id
-        tt_xy_pair any_core = soc_desc.workers[0];
-        tt_cxy_pair any_core_global(chip_id, any_core);
-
-        if (cluster_desc->is_chip_remote(chip_id) && soc_desc.arch != tt::ARCH::WORMHOLE_B0) {
-            std::cout << "Skipping remote chip " << chip_id << " because it is not a wormhole_b0 chip." << std::endl;
-            continue;
-        }
+        CoreCoord any_core = soc_desc.get_cores(CoreType::TENSIX)[0];
 
         std::cout << "Writing to chip " << chip_id << " core " << any_core.str() << std::endl;
 
-        umd_cluster->write_to_device(data.data(), data_size, any_core_global, 0, "LARGE_WRITE_TLB");
+        umd_cluster->write_to_device(data.data(), data_size, chip_id, any_core, 0, "LARGE_WRITE_TLB");
+
+        umd_cluster->wait_for_non_mmio_flush(chip_id);
     }
 
     // Now read back the data.
     for (auto chip_id : umd_cluster->get_target_device_ids()) {
         const tt_SocDescriptor& soc_desc = umd_cluster->get_soc_descriptor(chip_id);
 
-        // TODO: figure out if core locations should contain chip_id
-        tt_xy_pair any_core = soc_desc.workers[0];
-        tt_cxy_pair any_core_global(chip_id, any_core);
-
-        if (cluster_desc->is_chip_remote(chip_id) && soc_desc.arch != tt::ARCH::WORMHOLE_B0) {
-            std::cout << "Skipping remote chip " << chip_id << " because it is not a wormhole_b0 chip." << std::endl;
-            continue;
-        }
+        CoreCoord any_core = soc_desc.get_cores(CoreType::TENSIX)[0];
 
         std::cout << "Reading from chip " << chip_id << " core " << any_core.str() << std::endl;
 
         std::vector<uint8_t> readback_data(data_size, 0);
-        umd_cluster->read_from_device(readback_data.data(), any_core_global, 0, data_size, "LARGE_READ_TLB");
+        umd_cluster->read_from_device(readback_data.data(), chip_id, any_core, 0, data_size, "LARGE_READ_TLB");
 
         ASSERT_EQ(data, readback_data);
     }
@@ -156,9 +145,7 @@ TEST(ApiClusterTest, RemoteFlush) {
     for (auto chip_id : umd_cluster->get_target_remote_device_ids()) {
         const tt_SocDescriptor& soc_desc = umd_cluster->get_soc_descriptor(chip_id);
 
-        // TODO: figure out if core locations should contain chip_id
-        tt_xy_pair any_core = soc_desc.workers[0];
-        tt_cxy_pair any_core_global(chip_id, any_core);
+        const CoreCoord any_core = soc_desc.get_cores(CoreType::TENSIX)[0];
 
         if (!cluster_desc->is_chip_remote(chip_id)) {
             std::cout << "Chip " << chip_id << " skipped because it is not a remote chip." << std::endl;
@@ -171,31 +158,17 @@ TEST(ApiClusterTest, RemoteFlush) {
         }
 
         std::cout << "Writing to chip " << chip_id << " core " << any_core.str() << std::endl;
-        umd_cluster->write_to_device(data.data(), data_size, any_core_global, 0, "LARGE_WRITE_TLB");
+        umd_cluster->write_to_device(data.data(), data_size, chip_id, any_core, 0, "LARGE_WRITE_TLB");
 
         std::cout << "Waiting for remote chip flush " << chip_id << std::endl;
         umd_cluster->wait_for_non_mmio_flush(chip_id);
 
-        std::cout << "Waiting again for flush " << chip_id << ", should be no-op" << std::endl;
-        umd_cluster->wait_for_non_mmio_flush(chip_id);
+        std::cout << "Reading from chip " << chip_id << " core " << any_core.str() << std::endl;
+        std::vector<uint8_t> readback_data(data_size, 0);
+        umd_cluster->read_from_device(readback_data.data(), chip_id, any_core, 0, data_size, "LARGE_READ_TLB");
+
+        ASSERT_EQ(data, readback_data);
     }
-
-    chip_id_t any_remote_chip = *umd_cluster->get_target_remote_device_ids().begin();
-    const tt_SocDescriptor& soc_desc = umd_cluster->get_soc_descriptor(any_remote_chip);
-    tt_xy_pair any_core = soc_desc.workers[0];
-    tt_cxy_pair any_core_global(any_remote_chip, any_core);
-    if (soc_desc.arch != tt::ARCH::WORMHOLE_B0) {
-        std::cout << "Skipping whole cluster wait because it is not a wormhole_b0 chip." << std::endl;
-        return;
-    }
-    std::cout << "Writing to chip " << any_remote_chip << " core " << any_core.str() << std::endl;
-    umd_cluster->write_to_device(data.data(), data_size, any_core_global, 0, "LARGE_WRITE_TLB");
-
-    std::cout << "Testing whole cluster wait for remote chip flush." << std::endl;
-    umd_cluster->wait_for_non_mmio_flush();
-
-    std::cout << "Testing whole cluster wait for remote chip flush again, should be no-op." << std::endl;
-    umd_cluster->wait_for_non_mmio_flush();
 }
 
 TEST(ApiClusterTest, SimpleIOSpecificChips) {
@@ -223,38 +196,86 @@ TEST(ApiClusterTest, SimpleIOSpecificChips) {
     for (auto chip_id : umd_cluster->get_target_device_ids()) {
         const tt_SocDescriptor& soc_desc = umd_cluster->get_soc_descriptor(chip_id);
 
-        // TODO: figure out if core locations should contain chip_id
-        tt_xy_pair any_core = soc_desc.workers[0];
-        tt_cxy_pair any_core_global(chip_id, any_core);
-
-        if (cluster_desc->is_chip_remote(chip_id) && soc_desc.arch != tt::ARCH::WORMHOLE_B0) {
-            std::cout << "Skipping remote chip " << chip_id << " because it is not a wormhole_b0 chip." << std::endl;
-            continue;
-        }
+        const CoreCoord any_core = soc_desc.get_cores(CoreType::TENSIX)[0];
 
         std::cout << "Writing to chip " << chip_id << " core " << any_core.str() << std::endl;
 
-        umd_cluster->write_to_device(data.data(), data_size, any_core_global, 0, "LARGE_WRITE_TLB");
+        umd_cluster->write_to_device(data.data(), data_size, chip_id, any_core, 0, "LARGE_WRITE_TLB");
+
+        umd_cluster->wait_for_non_mmio_flush(chip_id);
     }
 
     // Now read back the data.
     for (auto chip_id : umd_cluster->get_target_device_ids()) {
         const tt_SocDescriptor& soc_desc = umd_cluster->get_soc_descriptor(chip_id);
 
-        // TODO: figure out if core locations should contain chip_id
-        tt_xy_pair any_core = soc_desc.workers[0];
-        tt_cxy_pair any_core_global(chip_id, any_core);
-
-        if (cluster_desc->is_chip_remote(chip_id) && soc_desc.arch != tt::ARCH::WORMHOLE_B0) {
-            std::cout << "Skipping remote chip " << chip_id << " because it is not a wormhole_b0 chip." << std::endl;
-            continue;
-        }
+        const CoreCoord any_core = soc_desc.get_cores(CoreType::TENSIX)[0];
 
         std::cout << "Reading from chip " << chip_id << " core " << any_core.str() << std::endl;
 
         std::vector<uint8_t> readback_data(data_size, 0);
-        umd_cluster->read_from_device(readback_data.data(), any_core_global, 0, data_size, "LARGE_READ_TLB");
+        umd_cluster->read_from_device(readback_data.data(), chip_id, any_core, 0, data_size, "LARGE_READ_TLB");
 
         ASSERT_EQ(data, readback_data);
     }
+}
+
+TEST(ClusterAPI, DynamicTLB_RW) {
+    // Don't use any static TLBs in this test. All writes go through a dynamic TLB that needs to be reconfigured for
+    // each transaction
+
+    std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
+    // TODO: Make this test work on a host system without any tt devices.
+    if (pci_device_ids.empty()) {
+        GTEST_SKIP() << "No chips present on the system. Skipping test.";
+    }
+
+    std::unique_ptr<Cluster> cluster = get_cluster();
+
+    tt_device_params default_params;
+    cluster->start_device(default_params);
+    cluster->deassert_risc_reset();
+
+    std::vector<uint32_t> vector_to_write = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9};
+    std::vector<uint32_t> zeros = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+    std::vector<uint32_t> readback_vec = zeros;
+
+    static const uint32_t num_loops = 100;
+
+    std::set<chip_id_t> target_devices = cluster->get_target_device_ids();
+    for (const chip_id_t chip : target_devices) {
+        std::uint32_t address = l1_mem::address_map::NCRISC_FIRMWARE_BASE;
+        // Write to each core a 100 times at different statically mapped addresses
+        const tt_SocDescriptor& soc_desc = cluster->get_soc_descriptor(chip);
+        std::vector<CoreCoord> tensix_cores = soc_desc.get_cores(CoreType::TENSIX);
+        for (int loop = 0; loop < num_loops; loop++) {
+            for (auto& core : tensix_cores) {
+                cluster->write_to_device(
+                    vector_to_write.data(),
+                    vector_to_write.size() * sizeof(std::uint32_t),
+                    chip,
+                    core,
+                    address,
+                    "SMALL_READ_WRITE_TLB");
+
+                // Barrier to ensure that all writes over ethernet were commited
+                cluster->wait_for_non_mmio_flush();
+                cluster->read_from_device(readback_vec.data(), chip, core, address, 40, "SMALL_READ_WRITE_TLB");
+
+                ASSERT_EQ(vector_to_write, readback_vec)
+                    << "Vector read back from core " << core.x << "-" << core.y << "does not match what was written";
+
+                cluster->wait_for_non_mmio_flush();
+
+                cluster->write_to_device(
+                    zeros.data(), zeros.size() * sizeof(std::uint32_t), chip, core, address, "SMALL_READ_WRITE_TLB");
+
+                cluster->wait_for_non_mmio_flush();
+
+                readback_vec = zeros;
+            }
+            address += 0x20;  // Increment by uint32_t size for each write
+        }
+    }
+    cluster->close_device();
 }

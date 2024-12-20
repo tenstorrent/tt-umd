@@ -61,12 +61,6 @@ public:
     size_t get_eth_harvesting_mask() const;
 
 private:
-    static void assert_create_coordinate_manager(
-        const tt::ARCH arch,
-        const size_t tensix_harvesting_mask,
-        const size_t dram_harvesting_mask,
-        const size_t eth_harvesting_mask);
-
     const std::vector<tt_xy_pair>& get_physical_pairs(const CoreType core_type) const;
     std::vector<tt::umd::CoreCoord> get_all_physical_cores(const CoreType core_type) const;
 
@@ -94,6 +88,8 @@ protected:
         const std::vector<tt_xy_pair>& pcie_cores);
 
     void initialize();
+
+    virtual void assert_coordinate_manager_constructor();
 
     virtual void shuffle_tensix_harvesting_mask(const std::vector<uint32_t>& harvesting_locations);
 

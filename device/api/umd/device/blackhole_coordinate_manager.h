@@ -27,6 +27,8 @@ public:
         const std::vector<tt_xy_pair>& pcie_cores);
 
 protected:
+    void assert_coordinate_manager_constructor() override;
+
     void translate_dram_coords() override;
     void translate_tensix_coords() override;
     void translate_eth_coords() override;

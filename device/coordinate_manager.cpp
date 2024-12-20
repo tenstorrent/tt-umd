@@ -5,7 +5,6 @@
  */
 #include "umd/device/coordinate_manager.h"
 
-#include "api/umd/device/tt_core_coordinates.h"
 #include "logger.hpp"
 #include "umd/device/blackhole_coordinate_manager.h"
 #include "umd/device/grayskull_coordinate_manager.h"
@@ -43,12 +42,19 @@ CoordinateManager::CoordinateManager(
     pcie_cores(pcie_cores) {}
 
 void CoordinateManager::initialize() {
+    this->assert_coordinate_manager_constructor();
     this->identity_map_physical_cores();
     this->translate_tensix_coords();
     this->translate_dram_coords();
     this->translate_eth_coords();
     this->translate_arc_coords();
     this->translate_pcie_coords();
+}
+
+void CoordinateManager::assert_coordinate_manager_constructor() {
+    log_assert(dram_harvesting_mask == 0, "DRAM harvesting is supported only for Blackhole");
+
+    log_assert(eth_harvesting_mask == 0, "ETH harvesting is supported only for Blackhole");
 }
 
 void CoordinateManager::add_core_translation(const CoreCoord& core_coord, const tt_xy_pair& physical_pair) {
@@ -288,27 +294,6 @@ size_t CoordinateManager::get_tensix_harvesting_mask() const { return physical_l
 
 size_t CoordinateManager::get_dram_harvesting_mask() const { return dram_harvesting_mask; }
 
-void CoordinateManager::assert_create_coordinate_manager(
-    const tt::ARCH arch,
-    const size_t tensix_harvesting_mask,
-    const size_t dram_harvesting_mask,
-    const size_t eth_harvesting_mask) {
-    log_assert(
-        !(arch != tt::ARCH::BLACKHOLE && dram_harvesting_mask != 0), "DRAM harvesting is supported only for Blackhole");
-
-    log_assert(
-        !(arch != tt::ARCH::BLACKHOLE && eth_harvesting_mask != 0), "ETH harvesting is supported only for Blackhole");
-
-    if (arch == tt::ARCH::BLACKHOLE) {
-        log_assert(get_num_harvested(dram_harvesting_mask) <= 1, "Only one DRAM bank can be harvested on Blackhole");
-
-        // TODO: assert that exactly 2 ETH cores are harvested for Blackhole. This is
-        // going to be true both for all Blackhole products.
-        // log_assert(
-        //     get_num_harvested(eth_harvesting_mask) == 2, "Exactly 2 ETH cores should be harvested on Blackhole");
-    }
-}
-
 void CoordinateManager::shuffle_tensix_harvesting_mask(const std::vector<uint32_t>& harvesting_locations) {
     std::vector<uint32_t> sorted_harvesting_locations = harvesting_locations;
     std::sort(sorted_harvesting_locations.begin(), sorted_harvesting_locations.end());
@@ -477,8 +462,6 @@ std::shared_ptr<CoordinateManager> CoordinateManager::create_coordinate_manager(
     const size_t tensix_harvesting_mask,
     const size_t dram_harvesting_mask,
     const size_t eth_harvesting_mask) {
-    assert_create_coordinate_manager(arch, tensix_harvesting_mask, dram_harvesting_mask, eth_harvesting_mask);
-
     switch (arch) {
         case tt::ARCH::GRAYSKULL:
             return create_coordinate_manager(
@@ -550,8 +533,6 @@ std::shared_ptr<CoordinateManager> CoordinateManager::create_coordinate_manager(
     const std::vector<tt_xy_pair>& arc_cores,
     const tt_xy_pair& pcie_grid_size,
     const std::vector<tt_xy_pair>& pcie_cores) {
-    assert_create_coordinate_manager(arch, tensix_harvesting_mask, dram_harvesting_mask, eth_harvesting_mask);
-
     switch (arch) {
         case tt::ARCH::GRAYSKULL:
             return std::make_shared<GrayskullCoordinateManager>(

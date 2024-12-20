@@ -1344,7 +1344,12 @@ Cluster::~Cluster() {
     dynamic_tlb_ordering_modes.clear();
 }
 
-tlb_configuration Cluster::get_tlb_data_from_target(const tt_cxy_pair& target) {
+std::optional<std::tuple<uint32_t, uint32_t>> Cluster::get_tlb_data_from_target(const tt_cxy_pair& target) {
+    auto tlb_configuration = get_tlb_configuration(target);
+    return std::tuple(tlb_configuration.tlb_offset, tlb_configuration.size);
+}
+
+tlb_configuration Cluster::get_tlb_configuration(const tt_cxy_pair& target) {
     log_assert(is_tlb_mapped(target), "TLB not mapped for core: {}", target.str());
 
     int tlb_index = map_core_to_tlb_per_chip.at(target.chip).at(tt_xy_pair(target.x, target.y));

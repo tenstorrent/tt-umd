@@ -364,6 +364,11 @@ TEST(CoordinateManager, CoordinateManagerWormholeDRAMHarvestingAssert) {
     EXPECT_THROW(CoordinateManager::create_coordinate_manager(tt::ARCH::WORMHOLE_B0, 0, 1), std::runtime_error);
 }
 
+// Test that we assert properly if ETH harvesting mask is non-zero for Wormhole.
+TEST(CoordinateManager, CoordinateManagerWormholeETHHarvestingAssert) {
+    EXPECT_THROW(CoordinateManager::create_coordinate_manager(tt::ARCH::WORMHOLE_B0, 0, 0, 1), std::runtime_error);
+}
+
 // Test that we properly get harvesting mask that is based on the physical layout of the chip.
 TEST(CoordinateManager, CoordinateManagerWormholePhysicalLayoutTensixHarvestingMask) {
     const size_t max_num_harvested_y = 10;

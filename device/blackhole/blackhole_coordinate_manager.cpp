@@ -5,6 +5,8 @@
  */
 #include "umd/device/blackhole_coordinate_manager.h"
 
+#include "logger.hpp"
+
 using namespace tt::umd;
 
 BlackholeCoordinateManager::BlackholeCoordinateManager(
@@ -37,6 +39,17 @@ BlackholeCoordinateManager::BlackholeCoordinateManager(
         pcie_cores) {
     this->shuffle_tensix_harvesting_mask(blackhole::HARVESTING_NOC_LOCATIONS);
     initialize();
+}
+
+void BlackholeCoordinateManager::assert_coordinate_manager_constructor() {
+    log_assert(get_num_harvested(dram_harvesting_mask) <= 1, "Only one DRAM bank can be harvested on Blackhole");
+
+    // TODO: assert that exactly 2 or all 14 (P100) ETH cores are harvested for Blackhole. This is
+    // going to be true both for all Blackhole products.
+    // const size_t num_harvested_eth_cores = get_num_harvested(eth_harvesting_mask);
+    // log_assert(
+    //     num_harvested_eth_cores == 2 || num_harvested_eth_cores == blackhole::ETH_GRID_SIZE.x, "Exactly 2 or 14 ETH
+    //     cores should be harvested on Blackhole");
 }
 
 void BlackholeCoordinateManager::translate_tensix_coords() {

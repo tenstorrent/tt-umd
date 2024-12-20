@@ -224,6 +224,12 @@ TEST(ClusterAPI, DynamicTLB_RW) {
     // Don't use any static TLBs in this test. All writes go through a dynamic TLB that needs to be reconfigured for
     // each transaction
 
+    std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
+    // TODO: Make this test work on a host system without any tt devices.
+    if (pci_device_ids.empty()) {
+        GTEST_SKIP() << "No chips present on the system. Skipping test.";
+    }
+
     std::unique_ptr<Cluster> cluster = get_cluster();
 
     tt_device_params default_params;

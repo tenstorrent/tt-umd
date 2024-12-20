@@ -314,6 +314,27 @@ void tt_SocDescriptor::get_cores_and_grid_size_from_coordinate_manager() {
 
     harvested_cores_map.insert({CoreType::DRAM, coordinate_manager->get_harvested_cores(CoreType::DRAM)});
     harvested_grid_size_map.insert({CoreType::DRAM, coordinate_manager->get_harvested_grid_size(CoreType::DRAM)});
+
+    const std::vector<CoreCoord> dram_cores = cores_map.at(CoreType::DRAM);
+    const tt_xy_pair dram_grid_size = grid_size_map.at(CoreType::DRAM);
+
+    dram_cores_core_coord.resize(dram_grid_size.x);
+    for (size_t bank = 0; bank < dram_grid_size.x; bank++) {
+        for (size_t noc_port = 0; noc_port < dram_grid_size.y; noc_port++) {
+            dram_cores_core_coord[bank].push_back(dram_cores[bank * dram_grid_size.y + noc_port]);
+        }
+    }
+
+    const std::vector<CoreCoord> harvested_dram_cores = harvested_cores_map.at(CoreType::DRAM);
+    const tt_xy_pair harvested_dram_grid_size = harvested_grid_size_map.at(CoreType::DRAM);
+
+    harvested_dram_cores_core_coord.resize(harvested_dram_grid_size.x);
+    for (size_t bank = 0; bank < harvested_dram_grid_size.x; bank++) {
+        for (size_t noc_port = 0; noc_port < harvested_dram_grid_size.y; noc_port++) {
+            harvested_dram_cores_core_coord[bank].push_back(
+                harvested_dram_cores[bank * harvested_dram_grid_size.y + noc_port]);
+        }
+    }
 }
 
 std::vector<tt::umd::CoreCoord> tt_SocDescriptor::get_cores(const CoreType core_type) const {
@@ -342,4 +363,10 @@ tt_xy_pair tt_SocDescriptor::get_harvested_grid_size(const CoreType core_type) c
         return {0, 0};
     }
     return harvested_grid_size_map.at(core_type);
+}
+
+std::vector<std::vector<CoreCoord>> tt_SocDescriptor::get_dram_cores() const { return dram_cores_core_coord; }
+
+std::vector<std::vector<CoreCoord>> tt_SocDescriptor::get_harvested_dram_cores() const {
+    return harvested_dram_cores_core_coord;
 }

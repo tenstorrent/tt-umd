@@ -56,6 +56,18 @@ TEST(SocDescriptor, SocDescriptorGrayskullOneRowHarvesting) {
     ASSERT_TRUE(soc_desc.get_harvested_cores(CoreType::DRAM).empty());
 }
 
+// Test soc descriptor API for getting DRAM cores.
+TEST(SocDescriptor, SocDescriptorGrayskullDRAM) {
+    tt_SocDescriptor soc_desc(test_utils::GetAbsPath("tests/soc_descs/grayskull_10x12.yaml"));
+
+    const std::vector<std::vector<CoreCoord>> dram_cores = soc_desc.get_dram_cores();
+
+    ASSERT_EQ(dram_cores.size(), tt::umd::grayskull::NUM_DRAM_BANKS);
+    for (auto& vec : dram_cores) {
+        ASSERT_EQ(vec.size(), tt::umd::grayskull::NUM_NOC_PORTS_PER_DRAM_BANK);
+    }
+}
+
 // Test soc descriptor API for Wormhole when there is no harvesting.
 TEST(SocDescriptor, SocDescriptorWormholeNoHarvesting) {
     tt_SocDescriptor soc_desc(test_utils::GetAbsPath("tests/soc_descs/wormhole_b0_8x10.yaml"));
@@ -71,6 +83,18 @@ TEST(SocDescriptor, SocDescriptorWormholeNoHarvesting) {
 
     ASSERT_TRUE(soc_desc.get_harvested_cores(CoreType::TENSIX).empty());
     ASSERT_TRUE(soc_desc.get_harvested_cores(CoreType::DRAM).empty());
+}
+
+// Test soc descriptor API for getting DRAM cores.
+TEST(SocDescriptor, SocDescriptorWormholeDRAM) {
+    tt_SocDescriptor soc_desc(test_utils::GetAbsPath("tests/soc_descs/wormhole_b0_8x10.yaml"));
+
+    const std::vector<std::vector<CoreCoord>> dram_cores = soc_desc.get_dram_cores();
+
+    ASSERT_EQ(dram_cores.size(), tt::umd::wormhole::NUM_DRAM_BANKS);
+    for (auto& vec : dram_cores) {
+        ASSERT_EQ(vec.size(), tt::umd::wormhole::NUM_NOC_PORTS_PER_DRAM_BANK);
+    }
 }
 
 // Test soc descriptor API for Wormhole when there is tensix harvesting.
@@ -173,6 +197,18 @@ TEST(SocDescriptor, SocDescriptorBlackholeOneRowHarvesting) {
     ASSERT_FALSE(harvested_cores.empty());
 
     ASSERT_TRUE(soc_desc.get_harvested_cores(CoreType::DRAM).empty());
+}
+
+// Test soc descriptor API for getting DRAM cores.
+TEST(SocDescriptor, SocDescriptorBlackholeDRAM) {
+    tt_SocDescriptor soc_desc(test_utils::GetAbsPath("tests/soc_descs/blackhole_140_arch_no_eth.yaml"));
+
+    const std::vector<std::vector<CoreCoord>> dram_cores = soc_desc.get_dram_cores();
+
+    ASSERT_EQ(dram_cores.size(), tt::umd::blackhole::NUM_DRAM_BANKS);
+    for (auto& vec : dram_cores) {
+        ASSERT_EQ(vec.size(), tt::umd::blackhole::NUM_NOC_PORTS_PER_DRAM_BANK);
+    }
 }
 
 // Test soc descriptor API for Blackhole when there is DRAM harvesting.

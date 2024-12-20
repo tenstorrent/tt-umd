@@ -20,8 +20,8 @@ TEST(CoordinateManager, CoordinateManagerGrayskullNoHarvesting) {
     for (size_t x = 0; x < tensix_grid_size.x; x++) {
         for (size_t y = 0; y < tensix_grid_size.y; y++) {
             CoreCoord logical_coords = CoreCoord(x, y, CoreType::TENSIX, CoordSystem::LOGICAL);
-            CoreCoord virtual_coords = coordinate_manager->to(logical_coords, CoordSystem::VIRTUAL);
-            CoreCoord physical_coords = coordinate_manager->to(logical_coords, CoordSystem::PHYSICAL);
+            CoreCoord virtual_coords = coordinate_manager->translate_coord_to(logical_coords, CoordSystem::VIRTUAL);
+            CoreCoord physical_coords = coordinate_manager->translate_coord_to(logical_coords, CoordSystem::PHYSICAL);
 
             // Virtual and physical coordinates should be the same.
             EXPECT_EQ(physical_coords.x, virtual_coords.x);
@@ -40,11 +40,11 @@ TEST(CoordinateManager, CoordinateManagerGrayskullTopLeftCore) {
     CoreCoord logical_coords = CoreCoord(0, 0, CoreType::TENSIX, CoordSystem::LOGICAL);
 
     // Always expect same virtual coordinate for (0, 0) logical coordinate.
-    CoreCoord virtual_cords = coordinate_manager->to(logical_coords, CoordSystem::VIRTUAL);
+    CoreCoord virtual_cords = coordinate_manager->translate_coord_to(logical_coords, CoordSystem::VIRTUAL);
     EXPECT_EQ(virtual_cords, CoreCoord(1, 1, CoreType::TENSIX, CoordSystem::VIRTUAL));
 
     // This depends on harvesting mask. So expected physical coord is specific to this test and Wormhole arch.
-    CoreCoord physical_cords = coordinate_manager->to(logical_coords, CoordSystem::PHYSICAL);
+    CoreCoord physical_cords = coordinate_manager->translate_coord_to(logical_coords, CoordSystem::PHYSICAL);
     EXPECT_EQ(physical_cords, CoreCoord(1, 1, CoreType::TENSIX, CoordSystem::PHYSICAL));
 }
 
@@ -60,11 +60,11 @@ TEST(CoordinateManager, CoordinateManagerGrayskullTopLeftCoreHarvesting) {
     CoreCoord logical_coords = CoreCoord(0, 0, CoreType::TENSIX, CoordSystem::LOGICAL);
 
     // Always expect same virtual coordinate for (0, 0) logical coordinate.
-    CoreCoord virtual_cords = coordinate_manager->to(logical_coords, CoordSystem::VIRTUAL);
+    CoreCoord virtual_cords = coordinate_manager->translate_coord_to(logical_coords, CoordSystem::VIRTUAL);
     EXPECT_EQ(virtual_cords, CoreCoord(1, 1, CoreType::TENSIX, CoordSystem::VIRTUAL));
 
     // This depends on harvesting mask. So expected physical coord is specific to this test and Wormhole arch.
-    CoreCoord physical_cords = coordinate_manager->to(logical_coords, CoordSystem::PHYSICAL);
+    CoreCoord physical_cords = coordinate_manager->translate_coord_to(logical_coords, CoordSystem::PHYSICAL);
     EXPECT_EQ(physical_cords, CoreCoord(1, 2, CoreType::TENSIX, CoordSystem::PHYSICAL));
 }
 
@@ -78,9 +78,10 @@ TEST(CoordinateManager, CoordinateManagerGrayskullTranslatingCoords) {
     for (size_t x = 0; x < tensix_grid_size.x; x++) {
         for (size_t y = 0; y < tensix_grid_size.y; y++) {
             CoreCoord logical_coords = CoreCoord(x, y, CoreType::TENSIX, CoordSystem::LOGICAL);
-            CoreCoord virtual_coords = coordinate_manager->to(logical_coords, CoordSystem::VIRTUAL);
-            CoreCoord physical_coords = coordinate_manager->to(logical_coords, CoordSystem::PHYSICAL);
-            CoreCoord translated_coords = coordinate_manager->to(logical_coords, CoordSystem::TRANSLATED);
+            CoreCoord virtual_coords = coordinate_manager->translate_coord_to(logical_coords, CoordSystem::VIRTUAL);
+            CoreCoord physical_coords = coordinate_manager->translate_coord_to(logical_coords, CoordSystem::PHYSICAL);
+            CoreCoord translated_coords =
+                coordinate_manager->translate_coord_to(logical_coords, CoordSystem::TRANSLATED);
 
             // Virtual, physical and translated coordinates should be the same.
             EXPECT_EQ(physical_coords.x, virtual_coords.x);
@@ -112,7 +113,8 @@ TEST(CoordinateManager, CoordinateManagerGrayskullLogicalPhysicalMapping) {
         for (size_t x = 0; x < tensix_grid_size.x; x++) {
             for (size_t y = 0; y < tensix_grid_size.y - num_harvested_y; y++) {
                 CoreCoord logical_coords = CoreCoord(x, y, CoreType::TENSIX, CoordSystem::LOGICAL);
-                CoreCoord physical_coords = coordinate_manager->to(logical_coords, CoordSystem::PHYSICAL);
+                CoreCoord physical_coords =
+                    coordinate_manager->translate_coord_to(logical_coords, CoordSystem::PHYSICAL);
                 logical_to_physical[logical_coords] = physical_coords;
 
                 // Expect that logical to physical translation is 1-1 mapping. No duplicates for physical coordinates.
@@ -127,7 +129,7 @@ TEST(CoordinateManager, CoordinateManagerGrayskullLogicalPhysicalMapping) {
 
         for (auto it : logical_to_physical) {
             CoreCoord physical_coords = it.second;
-            CoreCoord logical_coords = coordinate_manager->to(physical_coords, CoordSystem::LOGICAL);
+            CoreCoord logical_coords = coordinate_manager->translate_coord_to(physical_coords, CoordSystem::LOGICAL);
 
             // Expect that reverse mapping of physical coordinates gives the same logical coordinates
             // using which we got the physical coordinates.
@@ -156,7 +158,7 @@ TEST(CoordinateManager, CoordinateManagerGrayskullLogicalVirtualMapping) {
         for (size_t x = 0; x < tensix_grid_size.x; x++) {
             for (size_t y = 0; y < tensix_grid_size.y - num_harvested_y; y++) {
                 CoreCoord logical_coords = CoreCoord(x, y, CoreType::TENSIX, CoordSystem::LOGICAL);
-                CoreCoord virtual_coords = coordinate_manager->to(logical_coords, CoordSystem::VIRTUAL);
+                CoreCoord virtual_coords = coordinate_manager->translate_coord_to(logical_coords, CoordSystem::VIRTUAL);
                 logical_to_virtual[logical_coords] = virtual_coords;
 
                 // Expect that logical to virtual translation is 1-1 mapping. No duplicates for virtual coordinates.
@@ -167,7 +169,7 @@ TEST(CoordinateManager, CoordinateManagerGrayskullLogicalVirtualMapping) {
 
         for (auto it : logical_to_virtual) {
             CoreCoord virtual_coords = it.second;
-            CoreCoord logical_coords = coordinate_manager->to(virtual_coords, CoordSystem::LOGICAL);
+            CoreCoord logical_coords = coordinate_manager->translate_coord_to(virtual_coords, CoordSystem::LOGICAL);
 
             // Expect that reverse mapping of virtual coordinates gives the same logical coordinates
             // using which we got the virtual coordinates.
@@ -193,7 +195,7 @@ TEST(CoordinateManager, CoordinateManagerGrayskullPhysicalHarvestedMapping) {
     for (size_t index = 0; index < num_harvested * tensix_grid_size.x; index++) {
         const CoreCoord physical_core =
             CoreCoord(tensix_cores[index].x, tensix_cores[index].y, CoreType::TENSIX, CoordSystem::PHYSICAL);
-        const CoreCoord virtual_core = coordinate_manager->to(physical_core, CoordSystem::VIRTUAL);
+        const CoreCoord virtual_core = coordinate_manager->translate_coord_to(physical_core, CoordSystem::VIRTUAL);
 
         EXPECT_EQ(virtual_core.x, tensix_cores[virtual_index].x);
         EXPECT_EQ(virtual_core.y, tensix_cores[virtual_index].y);
@@ -219,11 +221,13 @@ TEST(CoordinateManager, CoordinateManagerGrayskullPhysicalTranslatedHarvestedMap
     for (size_t index = 0; index < num_harvested * tensix_grid_size.x; index++) {
         const CoreCoord physical_core =
             CoreCoord(tensix_cores[index].x, tensix_cores[index].y, CoreType::TENSIX, CoordSystem::PHYSICAL);
-        const CoreCoord translated_core = coordinate_manager->to(physical_core, CoordSystem::TRANSLATED);
+        const CoreCoord translated_core =
+            coordinate_manager->translate_coord_to(physical_core, CoordSystem::TRANSLATED);
 
         const CoreCoord virtual_core = CoreCoord(
             tensix_cores[virtual_index].x, tensix_cores[virtual_index].y, CoreType::TENSIX, CoordSystem::VIRTUAL);
-        const CoreCoord translated_core_from_virtual = coordinate_manager->to(virtual_core, CoordSystem::TRANSLATED);
+        const CoreCoord translated_core_from_virtual =
+            coordinate_manager->translate_coord_to(virtual_core, CoordSystem::TRANSLATED);
 
         EXPECT_EQ(translated_core, translated_core_from_virtual);
 
@@ -248,7 +252,7 @@ TEST(CoordinateManager, CoordinateManagerGrayskullDRAMNoHarvesting) {
         const CoreCoord expected_physical =
             CoreCoord(dram_cores[dram_bank].x, dram_cores[dram_bank].y, CoreType::DRAM, CoordSystem::PHYSICAL);
 
-        const CoreCoord dram_physical = coordinate_manager->to(dram_logical, CoordSystem::PHYSICAL);
+        const CoreCoord dram_physical = coordinate_manager->translate_coord_to(dram_logical, CoordSystem::PHYSICAL);
 
         EXPECT_EQ(dram_physical, expected_physical);
     }
@@ -263,9 +267,10 @@ TEST(CoordinateManager, CoordinateManagerGrayskullPCIETranslation) {
     for (size_t x = 0; x < pcie_grid_size.x; x++) {
         for (size_t y = 0; y < pcie_grid_size.y; y++) {
             const CoreCoord pcie_logical = CoreCoord(x, y, CoreType::PCIE, CoordSystem::LOGICAL);
-            const CoreCoord pcie_virtual = coordinate_manager->to(pcie_logical, CoordSystem::VIRTUAL);
-            const CoreCoord pcie_physical = coordinate_manager->to(pcie_logical, CoordSystem::PHYSICAL);
-            const CoreCoord pcie_translated = coordinate_manager->to(pcie_logical, CoordSystem::TRANSLATED);
+            const CoreCoord pcie_virtual = coordinate_manager->translate_coord_to(pcie_logical, CoordSystem::VIRTUAL);
+            const CoreCoord pcie_physical = coordinate_manager->translate_coord_to(pcie_logical, CoordSystem::PHYSICAL);
+            const CoreCoord pcie_translated =
+                coordinate_manager->translate_coord_to(pcie_logical, CoordSystem::TRANSLATED);
 
             EXPECT_EQ(pcie_virtual.x, pcie_physical.x);
             EXPECT_EQ(pcie_virtual.y, pcie_physical.y);
@@ -285,9 +290,10 @@ TEST(CoordinateManager, CoordinateManagerGrayskullARCTranslation) {
     for (size_t x = 0; x < arc_grid_size.x; x++) {
         for (size_t y = 0; y < arc_grid_size.y; y++) {
             const CoreCoord arc_logical = CoreCoord(x, y, CoreType::ARC, CoordSystem::LOGICAL);
-            const CoreCoord arc_virtual = coordinate_manager->to(arc_logical, CoordSystem::VIRTUAL);
-            const CoreCoord arc_physical = coordinate_manager->to(arc_logical, CoordSystem::PHYSICAL);
-            const CoreCoord arc_translated = coordinate_manager->to(arc_logical, CoordSystem::TRANSLATED);
+            const CoreCoord arc_virtual = coordinate_manager->translate_coord_to(arc_logical, CoordSystem::VIRTUAL);
+            const CoreCoord arc_physical = coordinate_manager->translate_coord_to(arc_logical, CoordSystem::PHYSICAL);
+            const CoreCoord arc_translated =
+                coordinate_manager->translate_coord_to(arc_logical, CoordSystem::TRANSLATED);
 
             EXPECT_EQ(arc_virtual.x, arc_physical.x);
             EXPECT_EQ(arc_virtual.y, arc_physical.y);

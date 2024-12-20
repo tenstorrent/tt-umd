@@ -90,7 +90,7 @@ public:
         harvested_grid_size_map(other.harvested_grid_size_map) {}
 
     // CoreCoord conversions.
-    tt::umd::CoreCoord to(const tt::umd::CoreCoord core_coord, const CoordSystem coord_system) const;
+    tt::umd::CoreCoord translate_coord_to(const tt::umd::CoreCoord core_coord, const CoordSystem coord_system) const;
 
     static std::string get_soc_descriptor_path(tt::ARCH arch);
 

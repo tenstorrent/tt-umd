@@ -59,7 +59,6 @@ public:
     tt_SocDescriptor(const tt_SocDescriptor &other) :
         arch(other.arch),
         grid_size(other.grid_size),
-        physical_grid_size(other.physical_grid_size),
         worker_grid_size(other.worker_grid_size),
         cores(other.cores),
         arc_cores(other.arc_cores),
@@ -116,7 +115,6 @@ public:
 
     tt::ARCH arch;
     tt_xy_pair grid_size;
-    tt_xy_pair physical_grid_size;
     tt_xy_pair worker_grid_size;
     std::unordered_map<tt_xy_pair, CoreDescriptor> cores;
     std::vector<tt_xy_pair> arc_cores;

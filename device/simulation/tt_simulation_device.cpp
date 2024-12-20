@@ -25,7 +25,7 @@ flatbuffers::FlatBufferBuilder create_flatbuffer(
     flatbuffers::FlatBufferBuilder builder;
     auto data = builder.CreateVector(vec);
     auto core = tt_vcs_core(core_.x, core_.y);
-    uint64_t size = size_ == 0 ? size = vec.size() * sizeof(uint32_t) : size = size_;
+    uint64_t size = (size_ == 0 ? vec.size() * sizeof(uint32_t) : size_);
     auto device_cmd = CreateDeviceRequestResponse(builder, rw, data, &core, addr, size);
     builder.Finish(device_cmd);
     return builder;
@@ -79,26 +79,7 @@ tt_SimulationDevice::tt_SimulationDevice(const std::string& sdesc_path) : tt_dev
 
 tt_SimulationDevice::~tt_SimulationDevice() { close_device(); }
 
-// Setup/Teardown Functions
-std::unordered_map<chip_id_t, tt_SocDescriptor>& tt_SimulationDevice::get_virtual_soc_descriptors() {
-    return soc_descriptor_per_chip;
-}
-
-void tt_SimulationDevice::set_device_l1_address_params(const tt_device_l1_address_params& l1_address_params_) {
-    l1_address_params = l1_address_params_;
-}
-
-void tt_SimulationDevice::set_device_dram_address_params(const tt_device_dram_address_params& dram_address_params_) {
-    dram_address_params = dram_address_params_;
-}
-
-void tt_SimulationDevice::set_driver_host_address_params(const tt_driver_host_address_params& host_address_params_) {
-    host_address_params = host_address_params_;
-}
-
-void tt_SimulationDevice::set_driver_eth_interface_params(const tt_driver_eth_interface_params& eth_interface_params_) {
-    eth_interface_params = eth_interface_params_;
-}
+void tt_SimulationDevice::set_barrier_address_params(const barrier_address_params& barrier_address_params_) {}
 
 void tt_SimulationDevice::start_device(const tt_device_params& device_params) {
     void* buf_ptr = nullptr;

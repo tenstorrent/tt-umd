@@ -11,11 +11,12 @@
 #include <tuple>
 #include <vector>
 
-#include "umd/device/tlb.h"
 #include "umd/device/tt_xy_pair.h"
 #include "umd/device/types/arch.h"
+#include "umd/device/types/tlb.h"
 #include "umd/device/types/xy_pair.h"
 
+struct tt_device_l1_address_params;
 struct tt_driver_host_address_params;
 struct tt_driver_eth_interface_params;
 struct tt_driver_noc_params;
@@ -70,6 +71,7 @@ public:
     virtual std::pair<std::uint64_t, std::uint64_t> get_tlb_data(
         std::uint32_t tlb_index, const tlb_data& data) const = 0;
 
+    virtual tt_device_l1_address_params get_l1_address_params() const = 0;
     virtual tt_driver_host_address_params get_host_address_params() const = 0;
     virtual tt_driver_eth_interface_params get_eth_interface_params() const = 0;
     virtual tt_driver_noc_params get_noc_params() const = 0;

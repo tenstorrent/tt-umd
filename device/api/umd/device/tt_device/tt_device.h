@@ -69,25 +69,51 @@ public:
         tt_xy_pair end,
         std::uint64_t address,
         bool multicast,
-        std::unordered_map<tt_xy_pair, tt_xy_pair> &harvested_coord_translation,
         std::uint64_t ordering);
     dynamic_tlb set_dynamic_tlb(
         unsigned int tlb_index,
         tt_xy_pair target,
         std::uint64_t address,
-        std::unordered_map<tt_xy_pair, tt_xy_pair> &harvested_coord_translation,
         std::uint64_t ordering = tt::umd::tlb_data::Relaxed);
     dynamic_tlb set_dynamic_tlb_broadcast(
         unsigned int tlb_index,
         std::uint64_t address,
-        std::unordered_map<tt_xy_pair, tt_xy_pair> &harvested_coord_translation,
         tt_xy_pair start,
         tt_xy_pair end,
         std::uint64_t ordering = tt::umd::tlb_data::Relaxed);
 
+    /**
+     * Configures a PCIe Address Translation Unit (iATU) region.
+     *
+     * Device software expects to be able to access memory that is shared with
+     * the host using the following NOC addresses at the PCIe core:
+     * - GS: 0x0
+     * - WH: 0x8_0000_0000
+     * - BH: 0x1000_0000_0000_0000
+     * Without iATU configuration, these map to host PA 0x0.
+     *
+     * While modern hardware supports IOMMU with flexible IOVA mapping, we must
+     * maintain the iATU configuration to satisfy software that has hard-coded
+     * the above NOC addresses rather than using driver-provided IOVAs.
+     *
+     * This interface is only intended to be used for configuring sysmem with
+     * either 1GB hugepages or a compatible scheme.
+     *
+     * @param region iATU region index (0-15)
+     * @param base region * (1 << 30)
+     * @param target DMA address (PA or IOVA) to map to
+     * @param size size of the mapping window; must be (1 << 30)
+     *
+     * NOTE: Programming the iATU from userspace is architecturally incorrect:
+     * - iATU should be managed by KMD to ensure proper cleanup on process exit
+     * - Multiple processes can corrupt each other's iATU configurations
+     * We should fix this!
+     */
+    virtual void configure_iatu_region(size_t region, uint64_t base, uint64_t target, size_t size);
+
 protected:
-    std::unique_ptr<architecture_implementation> architecture_impl_;
     std::unique_ptr<PCIDevice> pci_device_;
+    std::unique_ptr<architecture_implementation> architecture_impl_;
     tt::ARCH arch;
 
     bool is_hardware_hung();

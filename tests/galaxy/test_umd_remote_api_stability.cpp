@@ -55,12 +55,12 @@ uint32_t WormholeGalaxyStabilityTestFixture::scale_number_of_tests = 1;
 TEST_F(WormholeGalaxyStabilityTestFixture, MixedRemoteTransfers) {
     int seed = 0;
 
-    assert(device != nullptr);
+    assert(cluster != nullptr);
     log_info(LogSiliconDriver, "Started MixedRemoteTransfers");
     std::vector<remote_transfer_sample_t> command_history;
     try {
         RunMixedTransfersUniformDistributions(
-            *this->device,
+            *this->cluster,
             100000 * scale_number_of_tests,
             seed,
             transfer_type_weights_t{.write = 0.40, .read = 0.4},
@@ -87,10 +87,10 @@ TEST_F(WormholeGalaxyStabilityTestFixture, DISABLED_MultithreadedMixedRemoteTran
 
     log_info(LogSiliconDriver, "Started MultithreadedMixedRemoteTransfersMediumSmall");
 
-    assert(device != nullptr);
+    assert(cluster != nullptr);
     std::thread t1([&]() {
         RunMixedTransfersUniformDistributions(
-            *device,
+            *cluster,
             50000 * scale_number_of_tests,
             0,
             transfer_type_weights_t{.write = 0.50, .read = 0.50},
@@ -110,7 +110,7 @@ TEST_F(WormholeGalaxyStabilityTestFixture, DISABLED_MultithreadedMixedRemoteTran
     });
     std::thread t2([&]() {
         RunMixedTransfersUniformDistributions(
-            *device,
+            *cluster,
             50000 * scale_number_of_tests,
             100,
             transfer_type_weights_t{.write = 0.25, .read = 0.50},
@@ -130,7 +130,7 @@ TEST_F(WormholeGalaxyStabilityTestFixture, DISABLED_MultithreadedMixedRemoteTran
     });
     std::thread t3([&]() {
         RunMixedTransfersUniformDistributions(
-            *device,
+            *cluster,
             50000 * scale_number_of_tests,
             23,
             transfer_type_weights_t{.write = 0.5, .read = 0.25},
@@ -150,7 +150,7 @@ TEST_F(WormholeGalaxyStabilityTestFixture, DISABLED_MultithreadedMixedRemoteTran
     });
     std::thread t4([&]() {
         RunMixedTransfersUniformDistributions(
-            *device,
+            *cluster,
             100000 * scale_number_of_tests,
             99,
             transfer_type_weights_t{.write = 0.1, .read = 0.1},

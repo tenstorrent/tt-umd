@@ -29,10 +29,19 @@ protected:
     void translate_dram_coords() override;
     void translate_tensix_coords() override;
 
-    void fill_tensix_logical_to_translated() override;
-    void fill_eth_logical_to_translated() override;
-    void fill_pcie_logical_to_translated() override;
-    void fill_dram_logical_to_translated() override;
+    void fill_tensix_physical_translated_mapping() override;
+    void fill_eth_physical_translated_mapping() override;
+    void fill_pcie_physical_translated_mapping() override;
+    void fill_dram_physical_translated_mapping() override;
+
+    std::vector<tt::umd::CoreCoord> get_tensix_cores() const override;
+    std::vector<tt::umd::CoreCoord> get_harvested_tensix_cores() const override;
+    std::vector<tt::umd::CoreCoord> get_dram_cores() const override;
+    std::vector<tt::umd::CoreCoord> get_harvested_dram_cores() const override;
+    tt_xy_pair get_tensix_grid_size() const override;
+    tt_xy_pair get_dram_grid_size() const override;
+    tt_xy_pair get_harvested_tensix_grid_size() const override;
+    tt_xy_pair get_harvested_dram_grid_size() const override;
 
 private:
     void map_column_of_dram_banks(const size_t start_bank, const size_t end_bank, const size_t x_coord);

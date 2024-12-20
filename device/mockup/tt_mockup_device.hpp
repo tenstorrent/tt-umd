@@ -21,18 +21,7 @@ public:
 
     virtual ~tt_MockupDevice() {}
 
-    // Setup/Teardown Functions
-    virtual std::unordered_map<chip_id_t, tt_SocDescriptor>& get_virtual_soc_descriptors() override {
-        return soc_descriptor_per_chip;
-    }
-
-    void set_device_l1_address_params(const tt_device_l1_address_params& l1_address_params_) override {}
-
-    void set_device_dram_address_params(const tt_device_dram_address_params& dram_address_params_) override {}
-
-    void set_driver_host_address_params(const tt_driver_host_address_params& host_address_params_) override {}
-
-    void set_driver_eth_interface_params(const tt_driver_eth_interface_params& eth_interface_params_) override {}
+    void set_barrier_address_params(const barrier_address_params& barrier_address_params_) override {}
 
     void start_device(const tt_device_params& device_params) override {}
 
@@ -114,6 +103,5 @@ private:
     std::vector<tt::ARCH> archs_in_cluster = {};
     std::set<chip_id_t> target_devices_in_cluster = {};
     std::set<chip_id_t> target_remote_chips = {};
-    tt::ARCH arch_name;
     std::shared_ptr<tt_ClusterDescriptor> cluster_descriptor;
 };

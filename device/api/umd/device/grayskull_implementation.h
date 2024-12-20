@@ -9,7 +9,7 @@
 #include <array>
 
 #include "architecture_implementation.h"
-#include "umd/device/tlb.h"
+#include "umd/device/types/tlb.h"
 
 namespace tt::umd {
 
@@ -140,6 +140,7 @@ static const std::array<xy_pair, 0> ETH_LOCATIONS = {};
 static const std::vector<uint32_t> T6_X_LOCATIONS = {12, 1, 11, 2, 10, 3, 9, 4, 8, 5, 7, 6};
 static const std::vector<uint32_t> T6_Y_LOCATIONS = {11, 1, 10, 2, 9, 3, 8, 4, 7, 5};
 static const std::vector<uint32_t> HARVESTING_NOC_LOCATIONS = {5, 7, 4, 8, 3, 9, 2, 10, 1, 11};
+static const std::vector<uint32_t> LOGICAL_HARVESTING_LAYOUT = {8, 6, 4, 2, 0, 1, 3, 5, 7, 9};
 
 static constexpr uint32_t STATIC_TLB_SIZE = 1024 * 1024;
 
@@ -298,6 +299,7 @@ public:
     std::optional<std::tuple<std::uint64_t, std::uint64_t>> describe_tlb(std::int32_t tlb_index) const override;
     std::pair<std::uint64_t, std::uint64_t> get_tlb_data(std::uint32_t tlb_index, const tlb_data& data) const override;
 
+    tt_device_l1_address_params get_l1_address_params() const override;
     tt_driver_host_address_params get_host_address_params() const override;
     tt_driver_eth_interface_params get_eth_interface_params() const override;
     tt_driver_noc_params get_noc_params() const override;

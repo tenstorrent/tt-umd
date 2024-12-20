@@ -46,42 +46,6 @@ struct CoreDescriptor {
 */
 class tt_SocDescriptor {
 public:
-    tt::ARCH arch;
-    tt_xy_pair grid_size;
-    tt_xy_pair physical_grid_size;
-    tt_xy_pair worker_grid_size;
-    std::unordered_map<tt_xy_pair, CoreDescriptor> cores;
-    std::vector<tt_xy_pair> arc_cores;
-    std::vector<tt_xy_pair> workers;
-    std::vector<tt_xy_pair> harvested_workers;
-    std::vector<tt_xy_pair> pcie_cores;
-    std::unordered_map<int, int> worker_log_to_routing_x;
-    std::unordered_map<int, int> worker_log_to_routing_y;
-    std::unordered_map<int, int> routing_x_to_worker_x;
-    std::unordered_map<int, int> routing_y_to_worker_y;
-    std::vector<std::vector<tt_xy_pair>> dram_cores;                             // per channel list of dram cores
-    std::unordered_map<tt_xy_pair, std::tuple<int, int>> dram_core_channel_map;  // map dram core to chan/subchan
-    std::vector<tt_xy_pair> ethernet_cores;                                      // ethernet cores (index == channel id)
-    std::unordered_map<tt_xy_pair, int> ethernet_core_channel_map;
-    std::vector<std::size_t> trisc_sizes;  // Most of software stack assumes same trisc size for whole chip..
-    std::string device_descriptor_file_path = std::string("");
-
-    bool has(tt_xy_pair input) { return cores.find(input) != cores.end(); }
-
-    int overlay_version;
-    int unpacker_version;
-    int dst_size_alignment;
-    int packer_version;
-    int worker_l1_size;
-    int eth_l1_size;
-    bool noc_translation_id_enabled;
-    uint64_t dram_bank_size;
-
-    int get_num_dram_channels() const;
-    bool is_worker_core(const tt_xy_pair &core) const;
-    tt_xy_pair get_core_for_dram_channel(int dram_chan, int subchannel) const;
-    bool is_ethernet_core(const tt_xy_pair &core) const;
-
     // Default constructor. Creates uninitialized object with public access to all of its attributes.
     tt_SocDescriptor() = default;
     // Constructor used to build object from device descriptor file.
@@ -119,22 +83,78 @@ public:
         eth_l1_size(other.eth_l1_size),
         noc_translation_id_enabled(other.noc_translation_id_enabled),
         dram_bank_size(other.dram_bank_size),
-        coordinate_manager(other.coordinate_manager) {}
+        coordinate_manager(other.coordinate_manager),
+        cores_map(other.cores_map),
+        grid_size_map(other.grid_size_map),
+        harvested_cores_map(other.harvested_cores_map),
+        harvested_grid_size_map(other.harvested_grid_size_map) {}
 
     // CoreCoord conversions.
-    tt::umd::CoreCoord to(const tt::umd::CoreCoord core_coord, const CoordSystem coord_system);
+    tt::umd::CoreCoord translate_coord_to(const tt::umd::CoreCoord core_coord, const CoordSystem coord_system) const;
 
     static std::string get_soc_descriptor_path(tt::ARCH arch);
+
+    std::vector<tt::umd::CoreCoord> get_cores(const CoreType core_type) const;
+    std::vector<tt::umd::CoreCoord> get_harvested_cores(const CoreType core_type) const;
+    tt_xy_pair get_grid_size(const CoreType core_type) const;
+    tt_xy_pair get_harvested_grid_size(const CoreType core_type) const;
+
+    int get_num_dram_channels() const;
+
+    bool is_worker_core(const tt_xy_pair &core) const;
+
+    tt_xy_pair get_core_for_dram_channel(int dram_chan, int subchannel) const;
+
+    tt::umd::CoreCoord get_dram_core_for_channel(int dram_chan, int subchannel) const;
+    tt::umd::CoreCoord get_dram_core(uint32_t dram_chan, uint32_t subchannel) const;
+
+    bool is_ethernet_core(const tt_xy_pair &core) const;
+
+    tt::ARCH arch;
+    tt_xy_pair grid_size;
+    tt_xy_pair physical_grid_size;
+    tt_xy_pair worker_grid_size;
+    std::unordered_map<tt_xy_pair, CoreDescriptor> cores;
+    std::vector<tt_xy_pair> arc_cores;
+    std::vector<tt_xy_pair> workers;
+    std::vector<tt_xy_pair> harvested_workers;
+    std::vector<tt_xy_pair> pcie_cores;
+    std::unordered_map<int, int> worker_log_to_routing_x;
+    std::unordered_map<int, int> worker_log_to_routing_y;
+    std::unordered_map<int, int> routing_x_to_worker_x;
+    std::unordered_map<int, int> routing_y_to_worker_y;
+    std::vector<std::vector<tt_xy_pair>> dram_cores;                             // per channel list of dram cores
+    std::unordered_map<tt_xy_pair, std::tuple<int, int>> dram_core_channel_map;  // map dram core to chan/subchan
+    std::vector<tt_xy_pair> ethernet_cores;                                      // ethernet cores (index == channel id)
+    std::unordered_map<tt_xy_pair, int> ethernet_core_channel_map;
+    std::vector<std::size_t> trisc_sizes;  // Most of software stack assumes same trisc size for whole chip..
+    std::string device_descriptor_file_path = std::string("");
+
+    int overlay_version;
+    int unpacker_version;
+    int dst_size_alignment;
+    int packer_version;
+    int worker_l1_size;
+    int eth_l1_size;
+    bool noc_translation_id_enabled;
+    uint64_t dram_bank_size;
 
 private:
     void create_coordinate_manager(const std::size_t tensix_harvesting_mask, const std::size_t dram_harvesting_mask);
     void load_core_descriptors_from_device_descriptor(YAML::Node &device_descriptor_yaml);
     void load_soc_features_from_device_descriptor(YAML::Node &device_descriptor_yaml);
+    void get_cores_and_grid_size_from_coordinate_manager();
+
+    static tt_xy_pair calculate_grid_size(const std::vector<tt_xy_pair> &cores);
 
     // TODO: change this to unique pointer as soon as copying of tt_SocDescriptor
     // is not needed anymore. Soc descriptor and coordinate manager should be
     // created once per chip.
     std::shared_ptr<CoordinateManager> coordinate_manager = nullptr;
+    std::map<CoreType, std::vector<tt::umd::CoreCoord>> cores_map;
+    std::map<CoreType, tt_xy_pair> grid_size_map;
+    std::map<CoreType, std::vector<tt::umd::CoreCoord>> harvested_cores_map;
+    std::map<CoreType, tt_xy_pair> harvested_grid_size_map;
 };
 
 // Allocates a new soc descriptor on the heap. Returns an owning pointer.

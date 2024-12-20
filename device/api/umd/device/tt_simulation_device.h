@@ -20,12 +20,7 @@ public:
 
     tt_SimulationHost host;
 
-    // Setup/Teardown Functions
-    virtual std::unordered_map<chip_id_t, tt_SocDescriptor>& get_virtual_soc_descriptors();
-    virtual void set_device_l1_address_params(const tt_device_l1_address_params& l1_address_params_);
-    virtual void set_device_dram_address_params(const tt_device_dram_address_params& dram_address_params_);
-    virtual void set_driver_host_address_params(const tt_driver_host_address_params& host_address_params_);
-    virtual void set_driver_eth_interface_params(const tt_driver_eth_interface_params& eth_interface_params_);
+    virtual void set_barrier_address_params(const barrier_address_params& barrier_address_params_);
     virtual void start_device(const tt_device_params& device_params);
     virtual void assert_risc_reset();
     virtual void deassert_risc_reset();
@@ -65,11 +60,7 @@ public:
 
 private:
     // State variables
-    tt_device_dram_address_params dram_address_params;
-    tt_device_l1_address_params l1_address_params;
-    tt_driver_host_address_params host_address_params;
     tt_driver_noc_params noc_params;
-    tt_driver_eth_interface_params eth_interface_params;
     std::vector<tt::ARCH> archs_in_cluster = {};
     std::set<chip_id_t> target_devices_in_cluster = {};
     std::set<chip_id_t> target_remote_chips = {};

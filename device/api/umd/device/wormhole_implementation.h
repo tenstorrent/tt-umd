@@ -9,7 +9,7 @@
 #include <array>
 
 #include "architecture_implementation.h"
-#include "umd/device/tlb.h"
+#include "umd/device/types/tlb.h"
 
 namespace tt::umd {
 
@@ -103,49 +103,44 @@ enum class arc_message_type {
 
 // DEVICE_DATA
 static const tt_xy_pair TENSIX_GRID_SIZE = {8, 10};
+// clang-format off
 static const std::vector<tt_xy_pair> TENSIX_CORES = {{
-    {1, 1},  {2, 1},  {3, 1},  {4, 1},  {6, 1},  {7, 1},  {8, 1},  {9, 1},  {1, 2},  {2, 2},  {3, 2},  {4, 2},
-    {6, 2},  {7, 2},  {8, 2},  {9, 2},  {1, 3},  {2, 3},  {3, 3},  {4, 3},  {6, 3},  {7, 3},  {8, 3},  {9, 3},
-    {1, 4},  {2, 4},  {3, 4},  {4, 4},  {6, 4},  {7, 4},  {8, 4},  {9, 4},  {1, 5},  {2, 5},  {3, 5},  {4, 5},
-    {6, 5},  {7, 5},  {8, 5},  {9, 5},  {1, 7},  {2, 7},  {3, 7},  {4, 7},  {6, 7},  {7, 7},  {8, 7},  {9, 7},
-    {1, 8},  {2, 8},  {3, 8},  {4, 8},  {6, 8},  {7, 8},  {8, 8},  {9, 8},  {1, 9},  {2, 9},  {3, 9},  {4, 9},
-    {6, 9},  {7, 9},  {8, 9},  {9, 9},  {1, 10}, {2, 10}, {3, 10}, {4, 10}, {6, 10}, {7, 10}, {8, 10}, {9, 10},
+    {1, 1},   {2, 1},  {3, 1},  {4, 1},  {6, 1},  {7, 1},  {8, 1},  {9, 1},
+    {1, 2},   {2, 2},  {3, 2},  {4, 2},  {6, 2},  {7, 2},  {8, 2},  {9, 2},
+    {1, 3},   {2, 3},  {3, 3},  {4, 3},  {6, 3},  {7, 3},  {8, 3},  {9, 3},
+    {1, 4},   {2, 4},  {3, 4},  {4, 4},  {6, 4},  {7, 4},  {8, 4},  {9, 4},
+    {1, 5},   {2, 5},  {3, 5},  {4, 5},  {6, 5},  {7, 5},  {8, 5},  {9, 5},
+    {1, 7},   {2, 7},  {3, 7},  {4, 7},  {6, 7},  {7, 7},  {8, 7},  {9, 7},
+    {1, 8},   {2, 8},  {3, 8},  {4, 8},  {6, 8},  {7, 8},  {8, 8},  {9, 8},
+    {1, 9},   {2, 9},  {3, 9},  {4, 9},  {6, 9},  {7, 9},  {8, 9},  {9, 9},
+    {1, 10}, {2, 10}, {3, 10}, {4, 10}, {6, 10}, {7, 10}, {8, 10}, {9, 10},
     {1, 11}, {2, 11}, {3, 11}, {4, 11}, {6, 11}, {7, 11}, {8, 11}, {9, 11},
 }};
+// clang-format on
 
 static const std::size_t NUM_DRAM_BANKS = 6;
 static const std::size_t NUM_NOC_PORTS_PER_DRAM_BANK = 3;
 static const tt_xy_pair DRAM_GRID_SIZE = {NUM_DRAM_BANKS, NUM_NOC_PORTS_PER_DRAM_BANK};
+// clang-format off
 static const std::vector<tt_xy_pair> DRAM_CORES = {
-    {{0, 0},
-     {5, 0},
-     {0, 1},
-     {5, 1},
-     {5, 2},
-     {5, 3},
-     {5, 4},
-     {0, 5},
-     {5, 5},
-     {0, 6},
-     {5, 6},
-     {0, 7},
-     {5, 7},
-     {5, 8},
-     {5, 9},
-     {5, 10},
-     {0, 11},
-     {5, 11}}};
+    {{0, 0}, {0, 1}, {0, 11},
+     {0, 5}, {0, 6},  {0, 7},
+     {5, 0}, {5, 1}, {5, 11},
+     {5, 2}, {5, 9}, {5, 10},
+     {5, 3}, {5, 4},  {5, 8},
+     {5, 5}, {5, 6},  {5, 7}}};
+// clang-format on
 
 // TODO: DRAM locations should be deleted. We keep it for compatibility with
 // the existing code in clients which rely on DRAM_LOCATIONS.
 static const std::vector<tt_xy_pair> DRAM_LOCATIONS = DRAM_CORES;
 
 static const tt_xy_pair ARC_GRID_SIZE = {1, 1};
-static const std::vector<tt_xy_pair> ARC_CORES = {{0, 2}};
+static const std::vector<tt_xy_pair> ARC_CORES = {{0, 10}};
 static const std::vector<tt_xy_pair> ARC_LOCATIONS = ARC_CORES;
 
 static const tt_xy_pair PCIE_GRID_SIZE = {1, 1};
-static const std::vector<tt_xy_pair> PCIE_CORES = {{{0, 4}}};
+static const std::vector<tt_xy_pair> PCIE_CORES = {{{0, 3}}};
 static const std::vector<tt_xy_pair> PCI_LOCATIONS = PCIE_CORES;
 
 static const tt_xy_pair ETH_GRID_SIZE = {8, 2};
@@ -171,6 +166,7 @@ static const std::vector<tt_xy_pair> ETH_LOCATIONS = ETH_CORES;
 static const std::vector<uint32_t> T6_X_LOCATIONS = {1, 2, 3, 4, 6, 7, 8, 9};
 static const std::vector<uint32_t> T6_Y_LOCATIONS = {1, 2, 3, 4, 5, 7, 8, 9, 10, 11};
 static const std::vector<uint32_t> HARVESTING_NOC_LOCATIONS = {11, 1, 10, 2, 9, 3, 8, 4, 7, 5};
+static const std::vector<uint32_t> LOGICAL_HARVESTING_LAYOUT = {1, 3, 5, 7, 9, 8, 6, 4, 2, 0};
 
 static constexpr uint32_t STATIC_TLB_SIZE = 1024 * 1024;
 
@@ -337,6 +333,7 @@ public:
     std::optional<std::tuple<std::uint64_t, std::uint64_t>> describe_tlb(std::int32_t tlb_index) const override;
     std::pair<std::uint64_t, std::uint64_t> get_tlb_data(std::uint32_t tlb_index, const tlb_data& data) const override;
 
+    tt_device_l1_address_params get_l1_address_params() const override;
     tt_driver_host_address_params get_host_address_params() const override;
     tt_driver_eth_interface_params get_eth_interface_params() const override;
     tt_driver_noc_params get_noc_params() const override;

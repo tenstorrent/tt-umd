@@ -8,6 +8,9 @@ on:
       arch:
         required: true
         type: string
+      ubuntu-version:
+        required: true
+        type: string
       timeout:
         required: true
         type: number
@@ -21,6 +24,13 @@ on:
           - grayskull
           - wormhole_b0
           - blackhole
+      ubuntu-version:
+        required: true
+        description: 'The version of Ubuntu to build on'
+        type: choice
+        options:
+          - ubuntu-22.04
+          - ubuntu-20.04
       timeout:
         required: true
         description: 'The timeout for the build job in minutes'
@@ -34,23 +44,17 @@ env:
   DEPS_OUTPUT_DIR: ./build/_deps
   TEST_OUTPUT_DIR: ./build/test
   CLUSTER_DESCRIPTORS_DIR: ./tests/api/cluster_descriptor_examples
+  SOC_DESCRIPTORS_DIR: ./tests/soc_descs
 
 jobs:
   build:
     # Due to parsing bug, fromJSON is used to convert string to number
     timeout-minutes: ${{ fromJSON(inputs.timeout) }}
-    strategy:
-      fail-fast: false
-      matrix:
-        build: [
-          {runs-on: ubuntu-22.04, docker-image: tt-umd-ci-ubuntu-22.04},
-          {runs-on: ubuntu-20.04, docker-image: tt-umd-ci-ubuntu-20.04},
-        ]
 
-    name: Build umd_tests for ${{ inputs.arch }} on ${{ matrix.build.runs-on }}
-    runs-on: ${{ matrix.build.runs-on }}
+    name: Build umd_tests for ${{ inputs.arch }} on ${{ inputs.ubuntu-version }}
+    runs-on: ${{ inputs.ubuntu-version }}
     container:
-      image: ghcr.io/${{ github.repository }}/${{ matrix.build.docker-image }}:latest
+      image: ghcr.io/${{ github.repository }}/tt-umd-ci-${{ inputs.ubuntu-version }}:latest
       options: --user root
 
     env:
@@ -60,7 +64,6 @@ jobs:
       - uses: actions/checkout@v4
         with:
           submodules: recursive
-          lfs: 'true'
 
       - name: Build ${{ env.BUILD_TARGET }}
         run: |
@@ -77,10 +80,11 @@ jobs:
           tar cvf artifact.tar ${{ env.TEST_OUTPUT_DIR }} \
           ${{ env.LIB_OUTPUT_DIR }} \
           ${{ env.DEPS_OUTPUT_DIR }} \
-          ${{ env.CLUSTER_DESCRIPTORS_DIR }}
+          ${{ env.CLUSTER_DESCRIPTORS_DIR }} \
+          ${{ env.SOC_DESCRIPTORS_DIR }}
 
       - name: Upload build artifacts archive
         uses: actions/upload-artifact@v4
         with:
-          name: build-artifacts-${{ inputs.arch }}-${{ matrix.build.runs-on }}
+          name: build-artifacts-${{ inputs.arch }}-${{ inputs.ubuntu-version }}
           path: artifact.tar

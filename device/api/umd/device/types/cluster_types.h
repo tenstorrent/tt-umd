@@ -35,6 +35,12 @@ inline std::ostream& operator<<(std::ostream& os, const tt_DevicePowerState powe
     return os;
 }
 
+struct barrier_address_params {
+    std::uint32_t tensix_l1_barrier_base = 0;
+    std::uint32_t eth_l1_barrier_base = 0;
+    std::uint32_t dram_barrier_base = 0;
+};
+
 struct tt_device_dram_address_params {
     std::uint32_t DRAM_BARRIER_BASE = 0;
 };

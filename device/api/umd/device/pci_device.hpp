@@ -14,12 +14,12 @@
 
 #include "fmt/format.h"
 #include "umd/device/semver.hpp"
-#include "umd/device/tlb.h"
 #include "umd/device/tt_xy_pair.h"
 #include "umd/device/types/arch.h"
+#include "umd/device/types/tlb.h"
 
 namespace tt::umd {
-struct semver_t;
+class semver_t;
 }  // namespace tt::umd
 
 // These are not necessarily hugepages if IOMMU is enabled.
@@ -142,8 +142,8 @@ public:
      */
     bool init_iommu(size_t size);
 
-    int get_num_host_mem_channels() const;
-    hugepage_mapping get_hugepage_mapping(int channel) const;
+    size_t get_num_host_mem_channels() const;
+    hugepage_mapping get_hugepage_mapping(size_t channel) const;
 
     /**
      * Map a buffer for DMA access by the device.

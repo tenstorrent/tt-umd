@@ -12,14 +12,14 @@
 #include "umd/device/tt_cluster_descriptor.h"
 #include "umd/device/tt_xy_pair.h"
 
+constexpr std::uint32_t DRAM_BARRIER_BASE = 0;
+
 namespace tt::umd::test::utils {
 
-static void set_params_for_remote_txn(Cluster& device) {
-    // Populate address map and NOC parameters that the driver needs for remote transactions
-    device.set_device_l1_address_params(
-        {l1_mem::address_map::L1_BARRIER_BASE,
-         eth_l1_mem::address_map::ERISC_BARRIER_BASE,
-         eth_l1_mem::address_map::FW_VERSION_ADDR});
+static void set_barrier_params(Cluster& cluster) {
+    // Populate address map and NOC parameters that the driver needs for memory barriers and remote transactions.
+    cluster.set_barrier_address_params(
+        {l1_mem::address_map::L1_BARRIER_BASE, eth_l1_mem::address_map::ERISC_BARRIER_BASE, DRAM_BARRIER_BASE});
 }
 
 class WormholeTestFixture : public ::testing::Test {
@@ -27,7 +27,7 @@ protected:
     // You can remove any or all of the following functions if their bodies would
     // be empty.
 
-    std::unique_ptr<Cluster> device;
+    std::unique_ptr<Cluster> cluster;
 
     WormholeTestFixture() {}
 
@@ -54,18 +54,18 @@ protected:
         std::iota(devices.begin(), devices.end(), 0);
         std::set<chip_id_t> target_devices = {devices.begin(), devices.end()};
         uint32_t num_host_mem_ch_per_mmio_device = 1;
-        device = std::make_unique<Cluster>(num_host_mem_ch_per_mmio_device, false, true, true);
-        assert(device != nullptr);
-        assert(device->get_cluster_description()->get_number_of_chips() == get_detected_num_chips());
+        cluster = std::make_unique<Cluster>(num_host_mem_ch_per_mmio_device, false, true, true);
+        assert(cluster != nullptr);
+        assert(cluster->get_cluster_description()->get_number_of_chips() == get_detected_num_chips());
 
-        set_params_for_remote_txn(*device);
+        set_barrier_params(*cluster);
 
         tt_device_params default_params;
-        device->start_device(default_params);
+        cluster->start_device(default_params);
 
-        device->deassert_risc_reset();
+        cluster->deassert_risc_reset();
 
-        device->wait_for_non_mmio_flush();
+        cluster->wait_for_non_mmio_flush();
     }
 
     void TearDown() override {
@@ -73,7 +73,7 @@ protected:
         // before the destructor).
 
         if (!is_test_skipped()) {
-            device->close_device();
+            cluster->close_device();
         }
     }
 };

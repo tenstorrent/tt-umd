@@ -37,7 +37,6 @@ jobs:
           path: tt-metal
           repository: tenstorrent/tt-metal
           submodules: recursive
-          lfs: 'true'
 
       - name: Checkout UMD
         uses: actions/checkout@v4
@@ -45,7 +44,6 @@ jobs:
           # Clone directly into tt-metal directory for umd
           path: tt-metal/tt_metal/third_party/umd
           submodules: recursive
-          lfs: 'true'
 
       - name: Build tt-metal
         run: |

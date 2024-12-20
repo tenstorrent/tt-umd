@@ -26,5 +26,5 @@ public:
         const std::vector<tt_xy_pair>& pcie_cores);
 
 protected:
-    void fill_eth_logical_to_translated() override;
+    void fill_eth_physical_translated_mapping() override;
 };

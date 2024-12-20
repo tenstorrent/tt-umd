@@ -454,6 +454,7 @@ std::unique_ptr<tt_ClusterDescriptor> tt_ClusterDescriptor::create_mock_cluster(
             board_type = BoardType::P150A;
             break;
         default:
+            board_type = BoardType::UNKNOWN;
             log_error("Unsupported architecture for mock cluster");
             break;
     }
@@ -736,16 +737,22 @@ void tt_ClusterDescriptor::load_chips_from_connectivity_descriptor(YAML::Node &y
         for (const auto &chip_board_type : yaml["boardtype"].as<std::map<int, std::string>>()) {
             auto &chip = chip_board_type.first;
             BoardType board_type;
-            if (chip_board_type.second == "n150") {
+            if (chip_board_type.second == "e75") {
+                board_type = BoardType::E75;
+            } else if (chip_board_type.second == "e150") {
+                board_type = BoardType::E150;
+            } else if (chip_board_type.second == "e300") {
+                board_type = BoardType::E300;
+            } else if (chip_board_type.second == "n150") {
                 board_type = BoardType::N150;
             } else if (chip_board_type.second == "n300") {
                 board_type = BoardType::N300;
-            } else if (chip_board_type.second == "GALAXY") {
-                board_type = BoardType::GALAXY;
-            } else if (chip_board_type.second == "e150") {
-                board_type = BoardType::E150;
+            } else if (chip_board_type.second == "p100") {
+                board_type = BoardType::P100;
             } else if (chip_board_type.second == "p150A") {
                 board_type = BoardType::P150A;
+            } else if (chip_board_type.second == "GALAXY") {
+                board_type = BoardType::GALAXY;
             } else {
                 log_warning(
                     LogSiliconDriver,

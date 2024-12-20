@@ -47,7 +47,6 @@ target_sources(
         grayskull/grayskull_coordinate_manager.cpp
         wormhole/wormhole_coordinate_manager.cpp
         blackhole/blackhole_coordinate_manager.cpp
-        quasar/quasar_coordinate_manager.cpp
         xy_pair.cpp
         ${FBS_GENERATED_HEADER}
 )

@@ -9,7 +9,6 @@
 #include "logger.hpp"
 #include "umd/device/blackhole_coordinate_manager.h"
 #include "umd/device/grayskull_coordinate_manager.h"
-#include "umd/device/quasar_coordinate_manager.h"
 #include "umd/device/wormhole_coordinate_manager.h"
 
 using namespace tt::umd;
@@ -554,21 +553,8 @@ std::shared_ptr<CoordinateManager> CoordinateManager::create_coordinate_manager(
                 pcie_grid_size,
                 pcie_cores);
         case tt::ARCH::BLACKHOLE:
-            return std::make_shared<BlackholeCoordinateManager>(
-                tensix_grid_size,
-                tensix_cores,
-                tensix_harvesting_mask,
-                dram_grid_size,
-                dram_cores,
-                dram_harvesting_mask,
-                eth_grid_size,
-                eth_cores,
-                arc_grid_size,
-                arc_cores,
-                pcie_grid_size,
-                pcie_cores);
         case tt::ARCH::QUASAR:
-            return std::make_shared<QuasarCoordinateManager>(
+            return std::make_shared<BlackholeCoordinateManager>(
                 tensix_grid_size,
                 tensix_cores,
                 tensix_harvesting_mask,

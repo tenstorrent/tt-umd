@@ -99,6 +99,9 @@ public:
     tt_xy_pair get_grid_size(const CoreType core_type) const;
     tt_xy_pair get_harvested_grid_size(const CoreType core_type) const;
 
+    std::vector<std::vector<tt::umd::CoreCoord>> get_dram_cores() const;
+    std::vector<std::vector<tt::umd::CoreCoord>> get_harvested_dram_cores() const;
+
     int get_num_dram_channels() const;
 
     bool is_worker_core(const tt_xy_pair &core) const;
@@ -155,6 +158,11 @@ private:
     std::map<CoreType, tt_xy_pair> grid_size_map;
     std::map<CoreType, std::vector<tt::umd::CoreCoord>> harvested_cores_map;
     std::map<CoreType, tt_xy_pair> harvested_grid_size_map;
+
+    // DRAM cores are kept in additional vector struct since one DRAM bank
+    // has multiple NOC endpoints, so some UMD clients prefer vector of vectors returned.
+    std::vector<std::vector<tt::umd::CoreCoord>> dram_cores_core_coord;
+    std::vector<std::vector<tt::umd::CoreCoord>> harvested_dram_cores_core_coord;
 };
 
 // Allocates a new soc descriptor on the heap. Returns an owning pointer.

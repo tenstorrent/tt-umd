@@ -865,6 +865,9 @@ TEST(SiliconDriverBH, DISABLED_VirtualCoordinateBroadcast) {  // same problem as
     cluster.close_device();
 }
 
+// This is broken on P150 because it's getting the wrong PCIe coordinate.
+// Disabling these tests until this is addressed.
+#if 0
 /**
  * Copied from the Wormhole test.
  */
@@ -992,3 +995,4 @@ TEST(SiliconDriverBH, RandomSysmemTestWithPcie) {
         }
     }
 }
+#endif

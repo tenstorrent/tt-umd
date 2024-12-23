@@ -182,7 +182,7 @@ tt_xy_pair tt_SocDescriptor::calculate_grid_size(const std::vector<tt_xy_pair> &
 }
 
 void tt_SocDescriptor::create_coordinate_manager(
-    const std::size_t tensix_harvesting_mask, const std::size_t dram_harvesting_mask) {
+    const size_t tensix_harvesting_mask, const size_t dram_harvesting_mask, const size_t eth_harvesting_mask) {
     const tt_xy_pair dram_grid_size = tt_xy_pair(dram_cores.size(), dram_cores.empty() ? 0 : dram_cores[0].size());
     const tt_xy_pair arc_grid_size = tt_SocDescriptor::calculate_grid_size(arc_cores);
     const tt_xy_pair pcie_grid_size = tt_SocDescriptor::calculate_grid_size(pcie_cores);
@@ -194,6 +194,7 @@ void tt_SocDescriptor::create_coordinate_manager(
             dram_cores_unpacked.push_back(core);
         }
     }
+
     coordinate_manager = CoordinateManager::create_coordinate_manager(
         arch,
         worker_grid_size,
@@ -204,6 +205,7 @@ void tt_SocDescriptor::create_coordinate_manager(
         dram_harvesting_mask,
         eth_grid_size,
         ethernet_cores,
+        eth_harvesting_mask,
         arc_grid_size,
         arc_cores,
         pcie_grid_size,
@@ -218,8 +220,9 @@ tt::umd::CoreCoord tt_SocDescriptor::translate_coord_to(
 
 tt_SocDescriptor::tt_SocDescriptor(
     std::string device_descriptor_path,
-    const std::size_t tensix_harvesting_mask,
-    const std::size_t dram_harvesting_mask) {
+    const size_t tensix_harvesting_mask,
+    const size_t dram_harvesting_mask,
+    const size_t eth_harvesting_mask) {
     std::ifstream fdesc(device_descriptor_path);
     if (fdesc.fail()) {
         throw std::runtime_error(
@@ -245,7 +248,7 @@ tt_SocDescriptor::tt_SocDescriptor(
     arch_name_value = trim(arch_name_value);
     arch = tt::arch_from_str(arch_name_value);
     load_soc_features_from_device_descriptor(device_descriptor_yaml);
-    create_coordinate_manager(tensix_harvesting_mask, dram_harvesting_mask);
+    create_coordinate_manager(tensix_harvesting_mask, dram_harvesting_mask, eth_harvesting_mask);
 }
 
 int tt_SocDescriptor::get_num_dram_channels() const {
@@ -314,6 +317,9 @@ void tt_SocDescriptor::get_cores_and_grid_size_from_coordinate_manager() {
 
     harvested_cores_map.insert({CoreType::DRAM, coordinate_manager->get_harvested_cores(CoreType::DRAM)});
     harvested_grid_size_map.insert({CoreType::DRAM, coordinate_manager->get_harvested_grid_size(CoreType::DRAM)});
+
+    harvested_cores_map.insert({CoreType::ETH, coordinate_manager->get_harvested_cores(CoreType::ETH)});
+    harvested_grid_size_map.insert({CoreType::ETH, coordinate_manager->get_harvested_grid_size(CoreType::ETH)});
 
     const std::vector<CoreCoord> dram_cores = cores_map.at(CoreType::DRAM);
     const tt_xy_pair dram_grid_size = grid_size_map.at(CoreType::DRAM);

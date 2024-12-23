@@ -188,6 +188,18 @@ static constexpr uint32_t MSG_TYPE_SETUP_IATU_FOR_PEER_TO_PEER = 0x97;
 
 static const uint32_t BH_NOC_NODE_ID_OFFSET = 0x1FD04044;
 
+// Register from which address of the ARC queue control block is read.
+constexpr uint64_t SCRATCH_RAM_11 = 0x8003042C;
+
+// ARC message queue header and entry size in bytes.
+constexpr uint32_t ARC_MSG_QUEUE_HEADER_SIZE = 32;
+constexpr uint32_t ARC_QUEUE_ENTRY_SIZE = 32;
+
+// ARC firmware interrupt address and value to write in order
+// to make an interrupt request.
+constexpr uint32_t ARC_FW_INT_ADDR = 2147680512;
+constexpr uint32_t ARC_FW_INT_VAL = 65536;
+
 static const size_t eth_translated_coordinate_start_x = 20;
 static const size_t eth_translated_coordinate_start_y = 25;
 

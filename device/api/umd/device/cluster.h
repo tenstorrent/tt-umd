@@ -658,6 +658,10 @@ public:
      */
     std::optional<std::tuple<uint32_t, uint32_t>> get_tlb_data_from_target(const tt_cxy_pair& target);
     /**
+     * Returns a struct with the TLB configuration, or throws an exception if the target does not have a static TLB.
+     */
+    tlb_configuration get_tlb_configuration(const tt_cxy_pair& target);
+    /**
      * Provide fast write access to a statically-mapped TLB.
      * It is the caller's responsibility to ensure that
      * - the target has a static TLB mapping configured.
@@ -707,6 +711,7 @@ public:
         const std::string& fallback_tlb);
     std::optional<std::tuple<uint32_t, uint32_t>> get_tlb_data_from_target(
         const chip_id_t chip, const tt::umd::CoreCoord core);
+    tlb_configuration get_tlb_configuration(const chip_id_t chip, const tt::umd::CoreCoord core);
     tt::Writer get_static_tlb_writer(const chip_id_t chip, const tt::umd::CoreCoord target);
     virtual void configure_active_ethernet_cores_for_mmio_device(
         const std::unordered_set<tt::umd::CoreCoord>& active_eth_cores_per_chip, chip_id_t mmio_chip);

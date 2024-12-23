@@ -173,7 +173,7 @@ bool Cluster::is_tlb_mapped(tt_cxy_pair target, uint64_t address, uint32_t size_
     auto* dev = get_tt_device(target.chip);
 
     int32_t tlb_index = map_core_to_tlb_per_chip.at(target.chip).at(tt_xy_pair(target.x, target.y));
-    auto tlb_description = dev->get_architecture_implementation()->get_tlb_configuration(tlb_index);
+    tlb_configuration tlb_description = dev->get_architecture_implementation()->get_tlb_configuration(tlb_index);
 
     return address_in_tlb_space(address, size_in_bytes, tlb_index, tlb_description.size, target.chip);
 }
@@ -1089,7 +1089,7 @@ tt::Writer Cluster::get_static_tlb_writer(tt_cxy_pair target) {
     }
 
     auto tlb_index = map_core_to_tlb_per_chip.at(target.chip).at(tt_xy_pair(target.x, target.y));
-    auto tlb_description = dev->get_architecture_implementation()->get_tlb_configuration(tlb_index);
+    tlb_configuration tlb_description = dev->get_architecture_implementation()->get_tlb_configuration(tlb_index);
 
     auto* base = reinterpret_cast<uint8_t*>(dev->get_pci_device()->bar0_wc);
     return tt::Writer(base + tlb_description.tlb_offset, tlb_description.size);
@@ -1120,7 +1120,7 @@ void Cluster::write_device_memory(
         small_access);
 
     if (is_tlb_mapped(target, address, size_in_bytes)) {
-        auto tlb_description = dev->get_architecture_implementation()->get_tlb_configuration(
+        tlb_configuration tlb_description = dev->get_architecture_implementation()->get_tlb_configuration(
             map_core_to_tlb_per_chip.at(target.chip).at(tt_xy_pair(target.x, target.y)));
         if (dev->get_pci_device()->bar4_wc != nullptr && tlb_description.size == BH_4GB_TLB_SIZE) {
             // This is only for Blackhole. If we want to  write to DRAM (BAR4 space), we add offset
@@ -1169,7 +1169,7 @@ void Cluster::read_device_memory(
     log_debug(LogSiliconDriver, "  tlb_index: {}, tlb_data.has_value(): {}", tlb_index, tlb_data.has_value());
 
     if (is_tlb_mapped(target, address, size_in_bytes)) {
-        auto tlb_description = dev->get_architecture_implementation()->get_tlb_configuration(
+        tlb_configuration tlb_description = dev->get_architecture_implementation()->get_tlb_configuration(
             map_core_to_tlb_per_chip.at(target.chip).at(tt_xy_pair(target.x, target.y)));
         if (dev->get_pci_device()->bar4_wc != nullptr && tlb_description.size == BH_4GB_TLB_SIZE) {
             // This is only for Blackhole. If we want to  read from DRAM (BAR4 space), we add offset
@@ -1391,7 +1391,7 @@ void Cluster::configure_tlb(
     TTDevice* tt_device = get_tt_device(logical_device_id);
     tt_device->set_dynamic_tlb(
         tlb_index, harvested_coord_translation.at(logical_device_id).at(core), address, ordering);
-    auto tlb_size = tt_device->get_architecture_implementation()->get_tlb_configuration(tlb_index).size;
+    uint64_t tlb_size = tt_device->get_architecture_implementation()->get_tlb_configuration(tlb_index).size;
     tlb_config_map.at(logical_device_id).insert({tlb_index, (address / tlb_size) * tlb_size});
     map_core_to_tlb_per_chip.at(logical_device_id).insert({core, tlb_index});
 }

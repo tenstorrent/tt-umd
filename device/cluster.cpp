@@ -1361,6 +1361,11 @@ std::optional<std::tuple<uint32_t, uint32_t>> Cluster::get_tlb_data_from_target(
     return get_tlb_data_from_target({(size_t)chip, virtual_coord});
 }
 
+tlb_configuration Cluster::get_tlb_configuration(const chip_id_t chip, CoreCoord core) {
+    const CoreCoord virtual_coord = translate_chip_coord(chip, core, CoordSystem::VIRTUAL);
+    return get_tlb_configuration({(size_t)chip, virtual_coord});
+}
+
 void Cluster::configure_tlb(
     chip_id_t logical_device_id, tt_xy_pair core, int32_t tlb_index, uint64_t address, uint64_t ordering) {
     log_assert(

@@ -18,6 +18,7 @@
 #include "tt_silicon_driver_common.hpp"
 #include "tt_soc_descriptor.h"
 #include "tt_xy_pair.h"
+#include "umd/device/blackhole_arc_message_queue.h"
 #include "umd/device/chip/chip.h"
 #include "umd/device/tt_device/tt_device.h"
 #include "umd/device/tt_io.hpp"
@@ -719,6 +720,9 @@ public:
         const chip_id_t chip, const std::unordered_set<tt::umd::CoreCoord>& cores, const std::string& fallback_tlb);
     virtual void dram_membar(
         const chip_id_t chip, const std::unordered_set<tt::umd::CoreCoord>& cores, const std::string& fallback_tlb);
+
+    // TODO: these should be moved to private, this is for testing
+    std::unique_ptr<tt::umd::BlackholeArcMessageQueue> get_bh_arc_msg_queue(const chip_id_t chip);
 
     // Destructor
     virtual ~Cluster();

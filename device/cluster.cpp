@@ -3420,4 +3420,26 @@ tt::umd::CoreCoord Cluster::translate_chip_coord(
     return get_soc_descriptor(chip).translate_coord_to(core_coord, coord_system);
 }
 
+std::unique_ptr<BlackholeArcMessageQueue> Cluster::get_bh_arc_msg_queue(const chip_id_t chip) {
+    const size_t queue_index = blackhole::BlackholeArcMessageQueueIndex::APPLICATION;
+    const uint64_t queue_control_block_addr = blackhole::QUEUE_CONTROL_BLOCK_ADDR;
+
+    tt_cxy_pair arc_core = {(size_t)chip, 8, 0};
+    uint64_t queue_control_block;
+    read_from_device(
+        &queue_control_block, arc_core, queue_control_block_addr, sizeof(uint32_t), "LARGE_READ_WRITE_TLB");
+
+    std::cout << "queue_control_block: " << queue_control_block << std::endl;
+
+    uint32_t queue_base_addr = queue_control_block & 0xFFFFFFFF;
+    uint32_t num_entries_per_queue = (queue_control_block >> 32) & 0xFF;
+    uint32_t num_queues = (queue_control_block >> 40) & 0xFF;
+
+    std::cout << "queue_base_addr: " << queue_base_addr << std::endl;
+    std::cout << "num_entries_per_queue: " << num_entries_per_queue << std::endl;
+    std::cout << "num_queues: " << num_queues << std::endl;
+
+    return std::make_unique<tt::umd::BlackholeArcMessageQueue>(this, chip, queue_base_addr, 0);
+}
+
 }  // namespace tt::umd

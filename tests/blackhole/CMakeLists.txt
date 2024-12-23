@@ -1,4 +1,7 @@
-set(UNIT_TESTS_BH_SRCS test_cluster_bh.cpp)
+set(UNIT_TESTS_BH_SRCS
+    test_cluster_bh.cpp
+    test_arc_messages_bh.cpp
+)
 
 add_executable(unit_tests_blackhole ${UNIT_TESTS_BH_SRCS})
 target_link_libraries(unit_tests_blackhole PRIVATE test_common)

@@ -1346,7 +1346,7 @@ Cluster::~Cluster() {
 
 std::optional<std::tuple<uint32_t, uint32_t>> Cluster::get_tlb_data_from_target(const tt_cxy_pair& target) {
     auto tlb_configuration = get_tlb_configuration(target);
-    return std::tuple(tlb_configuration.tlb_offset, tlb_configuration.size);
+    return std::tuple((uint32_t)tlb_configuration.tlb_offset, (uint32_t)tlb_configuration.size);
 }
 
 tlb_configuration Cluster::get_tlb_configuration(const tt_cxy_pair& target) {

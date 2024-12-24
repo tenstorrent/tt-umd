@@ -7,6 +7,7 @@ set(API_TESTS_SRCS
     test_core_coord_translation_bh.cpp
     test_mockup_device.cpp
     test_soc_descriptor.cpp
+    test_tlb_manager.cpp
 )
 
 add_executable(api_tests ${API_TESTS_SRCS})

@@ -328,6 +328,20 @@ public:
 
     const std::vector<uint32_t>& get_t6_y_locations() const override { return wormhole::T6_Y_LOCATIONS; }
 
+    std::pair<uint32_t, uint32_t> get_tlb_1m_base_and_count() const override {
+        return {wormhole::TLB_BASE_1M, wormhole::TLB_COUNT_1M};
+    }
+
+    std::pair<uint32_t, uint32_t> get_tlb_2m_base_and_count() const override {
+        return {wormhole::TLB_BASE_2M, wormhole::TLB_COUNT_2M};
+    }
+
+    std::pair<uint32_t, uint32_t> get_tlb_16m_base_and_count() const override {
+        return {wormhole::TLB_BASE_16M, wormhole::TLB_COUNT_16M};
+    }
+
+    std::pair<uint32_t, uint32_t> get_tlb_4g_base_and_count() const override { return {0, 0}; }
+
     std::tuple<xy_pair, xy_pair> multicast_workaround(xy_pair start, xy_pair end) const override;
     tlb_configuration get_tlb_configuration(uint32_t tlb_index) const override;
     std::pair<std::uint64_t, std::uint64_t> get_tlb_data(std::uint32_t tlb_index, const tlb_data& data) const override;

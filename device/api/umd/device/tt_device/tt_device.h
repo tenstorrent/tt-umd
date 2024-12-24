@@ -44,6 +44,8 @@ public:
     PCIDevice *get_pci_device();
     TLBManager *get_tlb_manager();
 
+    tt::ARCH get_arch();
+
     void detect_hang_read(uint32_t data_read = c_hang_read_value);
 
     // Note: byte_addr is (mostly but not always) offset into BAR0.  This

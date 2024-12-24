@@ -6,6 +6,7 @@
 
 #pragma once
 
+#include "tt_device/tlb_manager.h"
 #include "umd/device/architecture_implementation.h"
 #include "umd/device/pci_device.hpp"
 
@@ -28,6 +29,8 @@ struct dynamic_tlb {
 
 namespace tt::umd {
 
+class TLBManager;
+
 class TTDevice {
 public:
     /**
@@ -39,6 +42,7 @@ public:
 
     architecture_implementation *get_architecture_implementation();
     PCIDevice *get_pci_device();
+    TLBManager *get_tlb_manager();
 
     void detect_hang_read(uint32_t data_read = c_hang_read_value);
 
@@ -114,6 +118,7 @@ public:
 protected:
     std::unique_ptr<PCIDevice> pci_device_;
     std::unique_ptr<architecture_implementation> architecture_impl_;
+    std::unique_ptr<TLBManager> tlb_manager_;
     tt::ARCH arch;
 
     bool is_hardware_hung();

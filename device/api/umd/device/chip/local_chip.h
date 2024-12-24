@@ -9,6 +9,7 @@
 #include "umd/device/chip/chip.h"
 
 namespace tt::umd {
+
 class LocalChip : public Chip {
 public:
     LocalChip(tt_SocDescriptor soc_descriptor, int pci_device_id);

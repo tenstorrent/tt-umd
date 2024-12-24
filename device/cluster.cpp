@@ -1655,8 +1655,9 @@ void* Cluster::host_dma_address(std::uint64_t offset, chip_id_t src_device_id, u
 
 // Wrapper for throwing a more helpful exception when trying to access non pci enabled interface.
 inline TTDevice* Cluster::get_tt_device(chip_id_t device_id) const {
-    log_assert(chips_.find(device_id) != chips_.end(), "Device id {} not found in cluster.", device_id);
-    auto tt_device = chips_.at(device_id)->get_tt_device();
+    auto chip_it = chips_.find(device_id);
+    log_assert(chip_it != chips_.end(), "Device id {} not found in cluster.", device_id);
+    auto tt_device = chip_it->second->get_tt_device();
     log_assert(tt_device != nullptr, "TTDevice not found for device: {}", device_id);
     return tt_device;
 }

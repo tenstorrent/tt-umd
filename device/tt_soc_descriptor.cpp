@@ -234,15 +234,8 @@ tt_SocDescriptor::tt_SocDescriptor(
 
     auto grid_size_x = device_descriptor_yaml["grid"]["x_size"].as<int>();
     auto grid_size_y = device_descriptor_yaml["grid"]["y_size"].as<int>();
-    int physical_grid_size_x = device_descriptor_yaml["physical"] && device_descriptor_yaml["physical"]["x_size"]
-                                   ? device_descriptor_yaml["physical"]["x_size"].as<int>()
-                                   : grid_size_x;
-    int physical_grid_size_y = device_descriptor_yaml["physical"] && device_descriptor_yaml["physical"]["y_size"]
-                                   ? device_descriptor_yaml["physical"]["y_size"].as<int>()
-                                   : grid_size_y;
     load_core_descriptors_from_device_descriptor(device_descriptor_yaml);
     grid_size = tt_xy_pair(grid_size_x, grid_size_y);
-    physical_grid_size = tt_xy_pair(physical_grid_size_x, physical_grid_size_y);
     device_descriptor_file_path = device_descriptor_path;
     std::string arch_name_value = device_descriptor_yaml["arch_name"].as<std::string>();
     arch_name_value = trim(arch_name_value);

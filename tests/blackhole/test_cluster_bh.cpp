@@ -941,7 +941,6 @@ TEST(SiliconDriverBH, RandomSysmemTestWithPcie) {
     auto target_devices = get_target_devices();
 
     Cluster cluster(
-        test_utils::GetAbsPath("tests/soc_descs/blackhole_140_arch_no_eth.yaml"),
         target_devices,
         num_channels,
         false,  // skip driver allocs - no (don't skip)

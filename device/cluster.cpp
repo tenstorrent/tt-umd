@@ -454,7 +454,9 @@ std::unique_ptr<Chip> Cluster::construct_chip_from_cluster(
 
 std::unique_ptr<Chip> Cluster::construct_chip_from_cluster(chip_id_t chip_id, tt_ClusterDescriptor* cluster_desc) {
     tt::ARCH arch = cluster_desc->get_arch(chip_id);
-    std::string soc_desc_path = tt_SocDescriptor::get_soc_descriptor_path(arch);
+    const BoardType chip_board_type = cluster_desc->get_board_type(chip_id);
+    std::string soc_desc_path =
+        tt_SocDescriptor::get_soc_descriptor_path(arch, chip_board_type, cluster_desc->is_chip_remote(chip_id));
     // Note that initially soc_descriptors are not harvested, but will be harvested later if perform_harvesting is
     // true.
     // TODO: This should be changed, harvesting should be done in tt_socdescriptor's constructor and not as part of
@@ -600,7 +602,7 @@ Cluster::Cluster(
     // rather than ClusterDescriptor.
     tt::ARCH arch = tt::ARCH::GRAYSKULL;
     chip_id_t mock_chip_id = 0;
-    tt_SocDescriptor soc_desc = tt_SocDescriptor(tt_SocDescriptor::get_soc_descriptor_path(arch));
+    tt_SocDescriptor soc_desc = tt_SocDescriptor(tt_SocDescriptor::get_soc_descriptor_path(arch, BoardType::UNKNOWN));
     std::unique_ptr<Chip> chip = std::make_unique<MockChip>(soc_desc);
 
     std::unordered_map<chip_id_t, std::unique_ptr<Chip>> chips;
@@ -2286,13 +2288,13 @@ void Cluster::wait_for_connected_non_mmio_flush(const chip_id_t chip_id) {
 }
 
 void Cluster::wait_for_non_mmio_flush(const chip_id_t chip_id) {
-    log_assert(arch_name != tt::ARCH::BLACKHOLE, "Non-MMIO flush not supported in Blackhole");
-    std::string read_tlb = "LARGE_READ_TLB";
-
     if (!this->cluster_desc->is_chip_remote(chip_id)) {
         log_debug(LogSiliconDriver, "Chip {} is not a remote chip, skipping wait_for_non_mmio_flush", chip_id);
         return;
     }
+
+    std::string read_tlb = "LARGE_READ_TLB";
+    log_assert(arch_name != tt::ARCH::BLACKHOLE, "Non-MMIO flush not supported in Blackhole");
 
     chip_id_t mmio_connected_chip = cluster_desc->get_closest_mmio_capable_chip(chip_id);
     wait_for_connected_non_mmio_flush(mmio_connected_chip);

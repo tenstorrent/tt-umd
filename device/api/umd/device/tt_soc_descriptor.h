@@ -20,6 +20,7 @@
 #include "umd/device/tt_core_coordinates.h"
 #include "umd/device/tt_xy_pair.h"
 #include "umd/device/types/arch.h"
+#include "umd/device/types/cluster_descriptor_types.h"
 
 namespace YAML {
 class Node;
@@ -58,7 +59,8 @@ public:
     // CoreCoord conversions.
     tt::umd::CoreCoord translate_coord_to(const tt::umd::CoreCoord core_coord, const CoordSystem coord_system) const;
 
-    static std::string get_soc_descriptor_path(tt::ARCH arch);
+    static std::string get_soc_descriptor_path(
+        tt::ARCH arch, const BoardType board_type = BoardType::UNKNOWN, const bool is_chip_remote = false);
 
     std::vector<tt::umd::CoreCoord> get_cores(
         const CoreType core_type, const CoordSystem coord_system = CoordSystem::PHYSICAL) const;

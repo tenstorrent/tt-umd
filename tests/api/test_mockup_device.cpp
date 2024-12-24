@@ -33,7 +33,7 @@ std::string get_soc_descriptor_file(tt::ARCH arch) {
         case tt::ARCH::WORMHOLE_B0:
             return test_utils::GetAbsPath("tests/soc_descs/wormhole_b0_8x10.yaml");
         case tt::ARCH::BLACKHOLE:
-            return test_utils::GetAbsPath("tests/soc_descs/blackhole_140_arch.yaml");
+            return test_utils::GetAbsPath("tests/soc_descs/blackhole_140_arch_local.yaml");
         case tt::ARCH::Invalid:
             throw std::runtime_error("Invalid arch not supported");
         default:

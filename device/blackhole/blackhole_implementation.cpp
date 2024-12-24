@@ -104,4 +104,18 @@ tt_driver_noc_params blackhole_implementation::get_noc_params() const {
     return {NOC_ADDR_LOCAL_BITS, NOC_ADDR_NODE_ID_BITS};
 }
 
+namespace blackhole {
+std::vector<tt_xy_pair> get_pcie_cores(const BoardType board_type, const bool is_chip_remote) {
+    if (board_type == BoardType::UNKNOWN || board_type == BoardType::P100) {
+        return PCIE_CORES_REMOTE;
+    } else if (board_type == BoardType::P150A) {
+        return PCIE_CORES_LOCAL;
+    } else if (board_type == BoardType::P300) {
+        return is_chip_remote ? PCIE_CORES_REMOTE : PCIE_CORES_LOCAL;
+    }
+
+    return PCIE_CORES_LOCAL;
+}
+}  // namespace blackhole
+
 }  // namespace tt::umd

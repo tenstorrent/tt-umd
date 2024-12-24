@@ -457,7 +457,8 @@ std::unique_ptr<Chip> Cluster::construct_chip_from_cluster(
     bool perform_harvesting,
     std::unordered_map<chip_id_t, uint32_t>& simulated_harvesting_masks) {
     tt::ARCH arch = cluster_desc->get_arch(chip_id);
-    std::string soc_desc_path = tt_SocDescriptor::get_soc_descriptor_path(arch);
+    const BoardType chip_board_type = cluster_desc->get_board_type(chip_id);
+    std::string soc_desc_path = tt_SocDescriptor::get_soc_descriptor_path(arch, chip_board_type);
     uint32_t tensix_harvesting_mask =
         get_tensix_harvesting_mask(chip_id, cluster_desc, perform_harvesting, simulated_harvesting_masks);
     tt_SocDescriptor soc_desc = tt_SocDescriptor(soc_desc_path, tensix_harvesting_mask);
@@ -638,7 +639,7 @@ Cluster::Cluster(
     // rather than ClusterDescriptor.
     tt::ARCH arch = tt::ARCH::GRAYSKULL;
     chip_id_t mock_chip_id = 0;
-    tt_SocDescriptor soc_desc = tt_SocDescriptor(tt_SocDescriptor::get_soc_descriptor_path(arch));
+    tt_SocDescriptor soc_desc = tt_SocDescriptor(tt_SocDescriptor::get_soc_descriptor_path(arch, BoardType::UNKNOWN));
     std::unique_ptr<Chip> chip = std::make_unique<MockChip>(soc_desc);
 
     std::unordered_map<chip_id_t, std::unique_ptr<Chip>> chips;
@@ -2325,13 +2326,13 @@ void Cluster::wait_for_connected_non_mmio_flush(const chip_id_t chip_id) {
 }
 
 void Cluster::wait_for_non_mmio_flush(const chip_id_t chip_id) {
-    log_assert(arch_name != tt::ARCH::BLACKHOLE, "Non-MMIO flush not supported in Blackhole");
-    std::string read_tlb = "LARGE_READ_TLB";
-
     if (!this->cluster_desc->is_chip_remote(chip_id)) {
         log_debug(LogSiliconDriver, "Chip {} is not a remote chip, skipping wait_for_non_mmio_flush", chip_id);
         return;
     }
+
+    std::string read_tlb = "LARGE_READ_TLB";
+    log_assert(arch_name != tt::ARCH::BLACKHOLE, "Non-MMIO flush not supported in Blackhole");
 
     chip_id_t mmio_connected_chip = cluster_desc->get_closest_mmio_capable_chip(chip_id);
     wait_for_connected_non_mmio_flush(mmio_connected_chip);

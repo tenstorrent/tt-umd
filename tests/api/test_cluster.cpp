@@ -67,7 +67,7 @@ TEST(ApiClusterTest, DifferentConstructors) {
     // 3. Constructor taking a custom soc descriptor in addition.
     tt::ARCH device_arch = tt_ClusterDescriptor::detect_arch(logical_device_id);
     // You can add a custom soc descriptor here.
-    std::string sdesc_path = tt_SocDescriptor::get_soc_descriptor_path(device_arch);
+    std::string sdesc_path = tt_SocDescriptor::get_soc_descriptor_path(device_arch, BoardType::UNKNOWN);
     umd_cluster = std::make_unique<Cluster>(sdesc_path, target_devices);
     umd_cluster = nullptr;
 

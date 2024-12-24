@@ -489,7 +489,9 @@ std::shared_ptr<CoordinateManager> CoordinateManager::create_coordinate_manager(
     tt::ARCH arch,
     const size_t tensix_harvesting_mask,
     const size_t dram_harvesting_mask,
-    const size_t eth_harvesting_mask) {
+    const size_t eth_harvesting_mask,
+    const BoardType board_type,
+    bool is_chip_remote) {
     switch (arch) {
         case tt::ARCH::GRAYSKULL:
             return create_coordinate_manager(
@@ -523,7 +525,8 @@ std::shared_ptr<CoordinateManager> CoordinateManager::create_coordinate_manager(
                 tt::umd::wormhole::ARC_CORES,
                 tt::umd::wormhole::PCIE_GRID_SIZE,
                 tt::umd::wormhole::PCIE_CORES);
-        case tt::ARCH::BLACKHOLE:
+        case tt::ARCH::BLACKHOLE: {
+            const std::vector<tt_xy_pair> pcie_cores = tt::umd::blackhole::get_pcie_cores(board_type, is_chip_remote);
             return create_coordinate_manager(
                 arch,
                 tt::umd::blackhole::TENSIX_GRID_SIZE,
@@ -538,7 +541,8 @@ std::shared_ptr<CoordinateManager> CoordinateManager::create_coordinate_manager(
                 tt::umd::blackhole::ARC_GRID_SIZE,
                 tt::umd::blackhole::ARC_CORES,
                 tt::umd::blackhole::PCIE_GRID_SIZE,
-                tt::umd::blackhole::PCIE_CORES);
+                pcie_cores);
+        }
         case tt::ARCH::Invalid:
             throw std::runtime_error("Invalid architecture for creating coordinate manager");
         default:

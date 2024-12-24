@@ -39,6 +39,8 @@ PCIDevice *TTDevice::get_pci_device() { return pci_device_.get(); }
 
 TLBManager *TTDevice::get_tlb_manager() { return tlb_manager_.get(); }
 
+tt::ARCH TTDevice::get_arch() { return arch; }
+
 bool TTDevice::is_hardware_hung() {
     volatile const void *addr = reinterpret_cast<const char *>(pci_device_->bar0_uc) +
                                 (architecture_impl_->get_arc_reset_scratch_offset() + 6 * 4) -

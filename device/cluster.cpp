@@ -498,7 +498,8 @@ std::unique_ptr<Chip> Cluster::construct_chip_from_cluster(
 
 std::unique_ptr<Chip> Cluster::construct_chip_from_cluster(chip_id_t chip_id, tt_ClusterDescriptor* cluster_desc) {
     tt::ARCH arch = cluster_desc->get_arch(chip_id);
-    std::string soc_desc_path = tt_SocDescriptor::get_soc_descriptor_path(arch);
+    const BoardType chip_board_type = cluster_desc->get_board_type(chip_id);
+    std::string soc_desc_path = tt_SocDescriptor::get_soc_descriptor_path(arch, chip_board_type);
     // Note that initially soc_descriptors are not harvested, but will be harvested later if perform_harvesting is
     // true.
     // TODO: This should be changed, harvesting should be done in tt_socdescriptor's constructor and not as part of
@@ -644,7 +645,7 @@ Cluster::Cluster(
     // rather than ClusterDescriptor.
     tt::ARCH arch = tt::ARCH::GRAYSKULL;
     chip_id_t mock_chip_id = 0;
-    tt_SocDescriptor soc_desc = tt_SocDescriptor(tt_SocDescriptor::get_soc_descriptor_path(arch));
+    tt_SocDescriptor soc_desc = tt_SocDescriptor(tt_SocDescriptor::get_soc_descriptor_path(arch, BoardType::UNKNOWN));
     std::unique_ptr<Chip> chip = std::make_unique<MockChip>(soc_desc);
 
     std::unordered_map<chip_id_t, std::unique_ptr<Chip>> chips;

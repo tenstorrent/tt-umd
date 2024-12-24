@@ -101,6 +101,7 @@ static const std::vector<tt_xy_pair> ARC_LOCATIONS = ARC_CORES;
 static const tt_xy_pair PCIE_GRID_SIZE = {1, 1};
 static const std::vector<tt_xy_pair> PCIE_CORES = {{{11, 0}}};
 static const std::vector<tt_xy_pair> PCI_LOCATIONS = PCIE_CORES;
+static const std::vector<tt_xy_pair> PCIE_CORES_P150 = {{{2, 0}}};
 
 static const tt_xy_pair ETH_GRID_SIZE = {14, 1};
 static const std::vector<tt_xy_pair> ETH_CORES = {

@@ -34,6 +34,18 @@ struct eth_coord_t {
     }
 };
 
+enum BoardType : uint32_t {
+    E75,
+    E150,
+    E300,
+    N150,
+    N300,
+    P100,
+    P150,
+    GALAXY,
+    UNKNOWN,
+};
+
 namespace std {
 template <>
 struct hash<eth_coord_t> {

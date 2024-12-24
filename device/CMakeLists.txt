@@ -26,7 +26,7 @@ target_sources(
         chip/local_chip.cpp
         chip/mock_chip.cpp
         chip/remote_chip.cpp
-        chip/tlb_manager.cpp
+        tt_device/tlb_manager.cpp
         cluster.cpp
         coordinate_manager.cpp
         cpuset_lib.cpp

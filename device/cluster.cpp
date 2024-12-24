@@ -36,9 +36,9 @@
 #include <utility>
 #include <vector>
 
-#include "chip/tlb_manager.h"
 #include "api/umd/device/tt_core_coordinates.h"
 #include "logger.hpp"
+#include "tt_device/tlb_manager.h"
 #include "umd/device/architecture_implementation.h"
 #include "umd/device/chip/local_chip.h"
 #include "umd/device/chip/mock_chip.h"
@@ -1663,10 +1663,7 @@ inline TTDevice* Cluster::get_tt_device(chip_id_t device_id) const {
 
 // Wrapper for throwing a more helpful exception when trying to access non pci enabled interface.
 inline TLBManager* Cluster::get_tlb_manager(chip_id_t device_id) const {
-    log_assert(chips_.find(device_id) != chips_.end(), "Device id {} not found in cluster.", device_id);
-    auto tlb_manager = chips_.at(device_id)->get_tlb_manager();
-    log_assert(tlb_manager != nullptr, "TLBManager not found for device: {}", device_id);
-    return tlb_manager;
+    return get_tt_device(device_id)->get_tlb_manager();
 }
 
 std::shared_ptr<boost::interprocess::named_mutex> Cluster::get_mutex(

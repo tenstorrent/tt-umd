@@ -1059,7 +1059,7 @@ void Cluster::write_device_memory(
         small_access);
 
     if (get_tlb_manager(target.chip)->is_tlb_mapped({target.x, target.y}, address, size_in_bytes)) {
-        auto tlb_description = get_tlb_manager(target.chip)->get_tlb_configuration({target.x, target.y});
+        tlb_configuration tlb_description = get_tlb_manager(target.chip)->get_tlb_configuration({target.x, target.y});
         if (dev->get_pci_device()->bar4_wc != nullptr && tlb_description.size == BH_4GB_TLB_SIZE) {
             // This is only for Blackhole. If we want to  write to DRAM (BAR4 space), we add offset
             // to which we write so write_block knows it needs to target BAR4
@@ -1107,7 +1107,7 @@ void Cluster::read_device_memory(
     log_debug(LogSiliconDriver, "  tlb_index: {}, tlb_data.has_value(): {}", tlb_index, tlb_data.has_value());
 
     if (get_tlb_manager(target.chip)->is_tlb_mapped({target.x, target.y}, address, size_in_bytes)) {
-        auto tlb_description = get_tlb_manager(target.chip)->get_tlb_configuration({target.x, target.y});
+        tlb_configuration tlb_description = get_tlb_manager(target.chip)->get_tlb_configuration({target.x, target.y});
         if (dev->get_pci_device()->bar4_wc != nullptr && tlb_description.size == BH_4GB_TLB_SIZE) {
             // This is only for Blackhole. If we want to  read from DRAM (BAR4 space), we add offset
             // from which we read so read_block knows it needs to target BAR4
@@ -1278,7 +1278,12 @@ Cluster::~Cluster() {
     cluster_desc.reset();
 }
 
-tlb_configuration Cluster::get_tlb_data_from_target(const tt_cxy_pair& target) {
+std::optional<std::tuple<uint32_t, uint32_t>> Cluster::get_tlb_data_from_target(const tt_cxy_pair& target) {
+    tlb_configuration tlb_configuration = get_tlb_configuration(target);
+    return std::tuple((uint32_t)tlb_configuration.tlb_offset, (uint32_t)tlb_configuration.size);
+}
+
+tlb_configuration Cluster::get_tlb_configuration(const tt_cxy_pair& target) {
     return get_tlb_manager(target.chip)->get_tlb_configuration({target.x, target.y});
 }
 

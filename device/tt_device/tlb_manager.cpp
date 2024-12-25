@@ -74,7 +74,7 @@ bool TLBManager::is_tlb_mapped(tt_xy_pair core, uint64_t address, uint32_t size_
     }
 
     int32_t tlb_index = map_core_to_tlb_.at(core);
-    auto tlb_description = tt_device_->get_architecture_implementation()->get_tlb_configuration(tlb_index);
+    tlb_configuration tlb_description = tt_device_->get_architecture_implementation()->get_tlb_configuration(tlb_index);
 
     return address_in_tlb_space(address, size_in_bytes, tlb_index, tlb_description.size);
 }

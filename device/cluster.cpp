@@ -1299,6 +1299,11 @@ tlb_configuration Cluster::get_tlb_configuration(const chip_id_t chip, CoreCoord
 
 void Cluster::configure_tlb(
     chip_id_t logical_device_id, tt_xy_pair core, int32_t tlb_index, uint64_t address, uint64_t ordering) {
+    std::cout << "harvested_coord_translation has input for these chip ides: ";
+    for (auto& [key, value] : harvested_coord_translation) {
+        std::cout << key << " ";
+    }
+    std::cout << std::endl;
     get_tlb_manager(logical_device_id)
         ->configure_tlb(harvested_coord_translation.at(logical_device_id).at(core), tlb_index, address, ordering);
 }

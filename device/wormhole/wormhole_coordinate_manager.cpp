@@ -46,6 +46,8 @@ void WormholeCoordinateManager::fill_tensix_physical_translated_mapping() {
         for (size_t x = 0; x < tensix_grid_size.x; x++) {
             CoreCoord logical_coord = CoreCoord(x, y, CoreType::TENSIX, CoordSystem::LOGICAL);
             const tt_xy_pair physical_pair = to_physical_map[logical_coord];
+            // TODO: Do we need to pass in noc_translation from cluster descriptor? If this is false, then this should
+            // match virtual coords.
             const size_t translated_x = x + wormhole::tensix_translated_coordinate_start_x;
             const size_t translated_y = y + wormhole::tensix_translated_coordinate_start_y;
 
@@ -62,6 +64,8 @@ void WormholeCoordinateManager::fill_tensix_physical_translated_mapping() {
         if (tensix_harvesting_mask & (1 << y)) {
             for (size_t x = 0; x < tensix_grid_size.x; x++) {
                 const tt_xy_pair physical_core = tensix_cores[y * tensix_grid_size.x + x];
+                // TODO: Do we need to pass in noc_translation from cluster descriptor? If this is false, then this
+                // should match virtual coords.
                 const size_t translated_x = x + wormhole::tensix_translated_coordinate_start_x;
                 CoreCoord translated_coord =
                     CoreCoord(translated_x, translated_y, CoreType::TENSIX, CoordSystem::TRANSLATED);
@@ -76,6 +80,8 @@ void WormholeCoordinateManager::fill_tensix_physical_translated_mapping() {
 void WormholeCoordinateManager::fill_eth_physical_translated_mapping() {
     for (size_t x = 0; x < eth_grid_size.x; x++) {
         for (size_t y = 0; y < eth_grid_size.y; y++) {
+            // TODO: Do we need to pass in noc_translation from cluster descriptor? If this is false, then this should
+            // match virtual coords.
             const size_t translated_x = x + wormhole::eth_translated_coordinate_start_x;
             const size_t translated_y = y + wormhole::eth_translated_coordinate_start_y;
             CoreCoord logical_coord = CoreCoord(x, y, CoreType::ETH, CoordSystem::LOGICAL);

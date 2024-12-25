@@ -222,7 +222,8 @@ tt_SocDescriptor::tt_SocDescriptor(
     std::string device_descriptor_path,
     const size_t tensix_harvesting_mask,
     const size_t dram_harvesting_mask,
-    const size_t eth_harvesting_mask) {
+    const size_t eth_harvesting_mask) :
+    tensix_harvesting_mask(tensix_harvesting_mask) {
     std::ifstream fdesc(device_descriptor_path);
     if (fdesc.fail()) {
         throw std::runtime_error(

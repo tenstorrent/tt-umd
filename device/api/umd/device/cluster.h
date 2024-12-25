@@ -306,14 +306,6 @@ public:
     }
 
     /**
-     * Determine if UMD performed harvesting on SOC descriptors.
-     */
-    virtual bool using_harvested_soc_descriptors() {
-        throw std::runtime_error("---- tt_device:using_harvested_soc_descriptors is not implemented\n");
-        return 0;
-    }
-
-    /**
      * Get harvesting masks for all chips/SOC Descriptors in the cluster.
      * Each mask represents a map of enabled (0) and disabled (1) rows on a specific chip (in NOC0 Coordinateds).
      */
@@ -460,7 +452,6 @@ public:
         return soc_descriptor_per_chip.at(chip_id);
     }
 
-    bool performed_harvesting = false;
     std::unordered_map<chip_id_t, uint32_t> harvested_rows_per_target = {};
     bool translation_tables_en = false;
 
@@ -673,7 +664,6 @@ public:
      * @param target The target chip and core to write to.
      */
     tt::Writer get_static_tlb_writer(tt_cxy_pair target);
-    virtual bool using_harvested_soc_descriptors();
     virtual void translate_to_noc_table_coords(chip_id_t device_id, std::size_t& r, std::size_t& c);
     static std::vector<int> extract_rows_to_remove(
         const tt::ARCH& arch, const int worker_grid_rows, const int harvested_rows);
@@ -739,7 +729,6 @@ private:
     void broadcast_tensix_risc_reset_to_cluster(const TensixSoftResetOptions& soft_resets);
     void send_remote_tensix_risc_reset_to_core(const tt_cxy_pair& core, const TensixSoftResetOptions& soft_resets);
     void send_tensix_risc_reset_to_core(const tt_cxy_pair& core, const TensixSoftResetOptions& soft_resets);
-    void perform_harvesting_on_soc_descriptors();
     void populate_cores();
     void init_pcie_iatus();  // No more p2p support.
     void check_pcie_device_initialized(int device_id);
@@ -753,7 +742,6 @@ private:
     void deassert_resets_and_set_power_state();
     int iatu_configure_peer_region(
         int logical_device_id, uint32_t peer_region_id, uint64_t bar_addr_64, uint32_t region_size);
-    uint32_t get_harvested_noc_rows(uint32_t harvesting_mask);
     uint32_t get_harvested_rows(int logical_device_id);
     int get_clock(int logical_device_id);
 
@@ -844,8 +832,6 @@ private:
         uint32_t* return_4 = nullptr);
 
     std::shared_ptr<boost::interprocess::named_mutex> get_mutex(const std::string& tlb_name, int logical_device_id);
-    virtual uint32_t get_harvested_noc_rows_for_chip(
-        int logical_device_id);  // Returns one-hot encoded harvesting mask for PCIe mapped chips
     void generate_tensix_broadcast_grids_for_grayskull(
         std::set<std::pair<tt_xy_pair, tt_xy_pair>>& broadcast_grids,
         std::set<uint32_t>& rows_to_exclude,
@@ -861,16 +847,24 @@ private:
     void wait_for_connected_non_mmio_flush(chip_id_t chip_id);
     std::unique_ptr<Chip> construct_chip_from_cluster(
         chip_id_t chip_id, tt_ClusterDescriptor* cluster_desc, tt_SocDescriptor& soc_desc);
-    std::unique_ptr<Chip> construct_chip_from_cluster(chip_id_t logical_device_id, tt_ClusterDescriptor* cluster_desc);
+    std::unique_ptr<Chip> construct_chip_from_cluster(
+        chip_id_t logical_device_id,
+        tt_ClusterDescriptor* cluster_desc,
+        bool perform_harvesting,
+        uint32_t simulated_tensix_harvesting);
     void add_chip(chip_id_t chip_id, std::unique_ptr<Chip> chip);
+    uint32_t get_tensix_harvesting_mask(
+        chip_id_t chip_id,
+        tt_ClusterDescriptor* cluster_desc,
+        bool perform_harvesting,
+        uint32_t simulated_tensix_harvesting);
     void construct_cluster(
         const uint32_t& num_host_mem_ch_per_mmio_device,
         const bool skip_driver_allocs,
-        const bool clean_system_resources,
-        bool perform_harvesting,
-        std::unordered_map<chip_id_t, uint32_t> simulated_harvesting_masks);
+        const bool clean_system_resources);
     tt::umd::CoreCoord translate_chip_coord(
-        const chip_id_t chip, const tt::umd::CoreCoord core_coord, const CoordSystem coord_system) const;
+        const chip_id_t chip_id, const tt::umd::CoreCoord core_coord, const CoordSystem coord_system) const;
+    tt_xy_pair get_harvested_coord_translation(const chip_id_t chip_id, tt_xy_pair coord) const;
 
     // State variables
     std::vector<tt::ARCH> archs_in_cluster = {};
@@ -901,14 +895,11 @@ private:
     std::unordered_map<chip_id_t, int> active_eth_core_idx_per_chip = {};
     std::unordered_map<chip_id_t, bool> noc_translation_enabled_for_chip = {};
     std::map<std::string, std::shared_ptr<boost::interprocess::named_mutex>> hardware_resource_mutex_map = {};
-    std::unordered_map<chip_id_t, std::unordered_map<tt_xy_pair, tt_xy_pair>> harvested_coord_translation = {};
-    std::unordered_map<chip_id_t, std::uint32_t> num_rows_harvested = {};
     std::unordered_map<chip_id_t, std::unordered_set<tt_xy_pair>> workers_per_chip = {};
     std::unordered_set<tt_xy_pair> eth_cores = {};
     std::unordered_set<tt_xy_pair> dram_cores = {};
 
     std::map<std::set<chip_id_t>, std::unordered_map<chip_id_t, std::vector<std::vector<int>>>> bcast_header_cache = {};
-    bool perform_harvesting_on_sdesc = false;
     bool use_ethernet_ordered_writes = true;
     bool use_ethernet_broadcast = true;
     bool use_virtual_coords_for_eth_broadcast = true;

@@ -108,8 +108,6 @@ TEST(SiliconDriverWH, Harvesting) {
     Cluster cluster = Cluster(num_host_mem_ch_per_mmio_device, false, true, true, simulated_harvesting_masks);
     auto sdesc_per_chip = cluster.get_virtual_soc_descriptors();
 
-    ASSERT_EQ(cluster.using_harvested_soc_descriptors(), true) << "Expected Driver to have performed harvesting";
-
     for (const auto& chip : sdesc_per_chip) {
         ASSERT_EQ(chip.second.workers.size(), 48)
             << "Expected SOC descriptor with harvesting to have 48 workers for chip" << chip.first;
@@ -136,8 +134,6 @@ TEST(SiliconDriverWH, CustomSocDesc) {
         simulated_harvesting_masks);
     auto sdesc_per_chip = cluster.get_virtual_soc_descriptors();
 
-    ASSERT_EQ(cluster.using_harvested_soc_descriptors(), false)
-        << "SOC descriptors should not be modified when harvesting is disabled";
     for (const auto& chip : sdesc_per_chip) {
         ASSERT_EQ(chip.second.workers.size(), 1) << "Expected 1x1 SOC descriptor to be unmodified by driver";
     }

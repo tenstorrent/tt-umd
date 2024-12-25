@@ -6,9 +6,9 @@
 
 #pragma once
 
-#include "tt_device/tlb_manager.h"
 #include "umd/device/architecture_implementation.h"
 #include "umd/device/pci_device.hpp"
+#include "umd/device/tt_device/tlb_manager.h"
 
 // TODO: Should be moved to blackhole_architecture_implementation.h
 // See /vendor_ip/synopsys/052021/bh_pcie_ctl_gen5/export/configuration/DWC_pcie_ctl.h

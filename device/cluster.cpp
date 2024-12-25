@@ -38,7 +38,6 @@
 
 #include "api/umd/device/tt_core_coordinates.h"
 #include "logger.hpp"
-#include "tt_device/tlb_manager.h"
 #include "umd/device/architecture_implementation.h"
 #include "umd/device/chip/local_chip.h"
 #include "umd/device/chip/mock_chip.h"
@@ -47,6 +46,7 @@
 #include "umd/device/hugepage.h"
 #include "umd/device/tt_cluster_descriptor.h"
 #include "umd/device/tt_core_coordinates.h"
+#include "umd/device/tt_device/tlb_manager.h"
 #include "umd/device/tt_soc_descriptor.h"
 #include "umd/device/types/arch.h"
 #include "umd/device/types/tlb.h"

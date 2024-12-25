@@ -61,12 +61,12 @@ TEST(ApiTLBManager, ManualTLBConfiguration) {
 
     std::int32_t c_zero_address = 0;
 
-    for (tt_xy_pair core : soc_desc.workers) {
+    for (tt_xy_pair core : soc_desc.get_cores(CoreType::TENSIX)) {
         tlb_manager->configure_tlb(core, get_static_tlb_index(core), c_zero_address, tlb_data::Relaxed);
     }
 
     // So now that we have configured TLBs we can use it to interface with the TTDevice.
-    auto any_worker_core = soc_desc.workers[0];
+    auto any_worker_core = soc_desc.get_cores(CoreType::TENSIX)[0];
     auto tlb_description = tlb_manager->get_tlb_configuration(any_worker_core);
 
     // TODO: Maybe accept tlb_index only?

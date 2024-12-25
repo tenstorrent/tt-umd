@@ -6,6 +6,8 @@
 
 #include "umd/device/chip/chip.h"
 
+#include "umd/device/architecture_implementation.h"
+
 namespace tt::umd {
 
 Chip::Chip(tt_SocDescriptor soc_descriptor) : soc_descriptor_(soc_descriptor) {}
@@ -15,7 +17,7 @@ tt_SocDescriptor& Chip::get_soc_descriptor() { return soc_descriptor_; }
 TTDevice* Chip::get_tt_device() { return nullptr; }
 
 void Chip::set_default_params(ARCH arch) {
-    auto architecture_implementation = get_architecture_implementation(arch);
+    auto architecture_implementation = tt::umd::architecture_implementation::create(arch);
 
     // Default initialize l1_address_params based on detected arch
     l1_address_params = architecture_implementation->get_l1_address_params();

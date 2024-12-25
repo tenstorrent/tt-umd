@@ -17,7 +17,8 @@ static constexpr uint64_t DEFAULT_ORDERING_MODE = tlb_data::Relaxed;
 
 TLBManager::TLBManager(TTDevice* tt_device) : tt_device_(tt_device) {}
 
-void TLBManager::configure_tlb(tt_xy_pair core, tt_xy_pair translated_core, int32_t tlb_index, uint64_t address, uint64_t ordering) {
+void TLBManager::configure_tlb(
+    tt_xy_pair core, tt_xy_pair translated_core, int32_t tlb_index, uint64_t address, uint64_t ordering) {
     log_assert(
         ordering == tlb_data::Strict || ordering == tlb_data::Posted || ordering == tlb_data::Relaxed,
         "Invalid ordering specified in Cluster::configure_tlb");

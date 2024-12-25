@@ -24,7 +24,8 @@ public:
 
     // TODO: Think about proper API which doesn't accept two cores.
     // core should be in VIRTUAL coords, and translated_core should be in TRANSLATED coords.
-    void configure_tlb(tt_xy_pair core, tt_xy_pair translated_core, int32_t tlb_index, uint64_t address, uint64_t ordering);
+    void configure_tlb(
+        tt_xy_pair core, tt_xy_pair translated_core, int32_t tlb_index, uint64_t address, uint64_t ordering);
 
     void set_dynamic_tlb_config(std::string fallback_tlb_name, int32_t tlb_index);
     void set_dynamic_tlb_config_ordering(std::string fallback_tlb_name, uint64_t ordering);

@@ -13,6 +13,8 @@
 
 namespace tt::umd {
 
+static constexpr uint64_t DEFAULT_ORDERING_MODE = tlb_data::Relaxed;
+
 TLBManager::TLBManager(TTDevice* tt_device) : tt_device_(tt_device) {}
 
 void TLBManager::configure_tlb(tt_xy_pair core, int32_t tlb_index, uint64_t address, uint64_t ordering) {
@@ -41,6 +43,7 @@ void TLBManager::set_dynamic_tlb_config(std::string fallback_tlb_name, int32_t t
         "Dynamic TLB already configured for {}",
         fallback_tlb_name);
     dynamic_tlb_config_.insert({fallback_tlb_name, tlb_index});
+    dynamic_tlb_ordering_modes_[fallback_tlb_name] = DEFAULT_ORDERING_MODE;
 }
 
 void TLBManager::set_dynamic_tlb_config_ordering(std::string fallback_tlb_name, uint64_t ordering) {

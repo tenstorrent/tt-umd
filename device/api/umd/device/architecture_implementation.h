@@ -65,6 +65,12 @@ public:
     virtual const std::vector<uint32_t>& get_t6_x_locations() const = 0;
     virtual const std::vector<uint32_t>& get_t6_y_locations() const = 0;
 
+    // TLB related. Move other functions here as well.
+    virtual std::pair<uint32_t, uint32_t> get_tlb_1m_base_and_count() const = 0;
+    virtual std::pair<uint32_t, uint32_t> get_tlb_2m_base_and_count() const = 0;
+    virtual std::pair<uint32_t, uint32_t> get_tlb_16m_base_and_count() const = 0;
+    virtual std::pair<uint32_t, uint32_t> get_tlb_4g_base_and_count() const = 0;
+
     virtual std::tuple<xy_pair, xy_pair> multicast_workaround(xy_pair start, xy_pair end) const = 0;
     virtual tlb_configuration get_tlb_configuration(uint32_t tlb_index) const = 0;
     virtual std::pair<std::uint64_t, std::uint64_t> get_tlb_data(

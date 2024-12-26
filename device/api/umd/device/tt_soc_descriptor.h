@@ -141,6 +141,9 @@ public:
     bool noc_translation_id_enabled;
     uint64_t dram_bank_size;
 
+    // TODO: Consider removing this once it is not being used anymore by metal_socdescriptor.
+    size_t tensix_harvesting_mask;
+
 private:
     void create_coordinate_manager(
         const size_t tensix_harvesting_mask, const size_t dram_harvesting_mask, const size_t eth_harvesting_mask);

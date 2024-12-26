@@ -306,14 +306,6 @@ public:
     }
 
     /**
-     * Determine if UMD performed harvesting on SOC descriptors.
-     */
-    virtual bool using_harvested_soc_descriptors() {
-        throw std::runtime_error("---- tt_device:using_harvested_soc_descriptors is not implemented\n");
-        return 0;
-    }
-
-    /**
      * Get harvesting masks for all chips/SOC Descriptors in the cluster.
      * Each mask represents a map of enabled (0) and disabled (1) rows on a specific chip (in NOC0 Coordinateds).
      */
@@ -673,7 +665,6 @@ public:
      * @param target The target chip and core to write to.
      */
     tt::Writer get_static_tlb_writer(tt_cxy_pair target);
-    virtual bool using_harvested_soc_descriptors();
     virtual void translate_to_noc_table_coords(chip_id_t device_id, std::size_t& r, std::size_t& c);
     static std::vector<int> extract_rows_to_remove(
         const tt::ARCH& arch, const int worker_grid_rows, const int harvested_rows);

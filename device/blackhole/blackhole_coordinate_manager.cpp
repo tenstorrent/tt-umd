@@ -10,6 +10,7 @@
 using namespace tt::umd;
 
 BlackholeCoordinateManager::BlackholeCoordinateManager(
+    const bool noc_translation_enabled,
     const tt_xy_pair& tensix_grid_size,
     const std::vector<tt_xy_pair>& tensix_cores,
     const size_t tensix_harvesting_mask,
@@ -24,6 +25,7 @@ BlackholeCoordinateManager::BlackholeCoordinateManager(
     const tt_xy_pair& pcie_grid_size,
     const std::vector<tt_xy_pair>& pcie_cores) :
     CoordinateManager(
+        noc_translation_enabled,
         tensix_grid_size,
         tensix_cores,
         tensix_harvesting_mask,
@@ -89,7 +91,11 @@ void BlackholeCoordinateManager::translate_tensix_coords() {
         }
     }
 
-    fill_tensix_physical_translated_mapping();
+    if (noc_translation_enabled) {
+        fill_tensix_physical_translated_mapping();
+    } else {
+        fill_tensix_default_physical_translated_mapping();
+    }
 }
 
 void BlackholeCoordinateManager::fill_tensix_physical_translated_mapping() {
@@ -146,7 +152,11 @@ void BlackholeCoordinateManager::translate_dram_coords() {
         }
     }
 
-    fill_dram_physical_translated_mapping();
+    if (noc_translation_enabled) {
+        fill_dram_physical_translated_mapping();
+    } else {
+        fill_dram_default_physical_translated_mapping();
+    }
 }
 
 void BlackholeCoordinateManager::translate_eth_coords() {
@@ -184,7 +194,11 @@ void BlackholeCoordinateManager::translate_eth_coords() {
         }
     }
 
-    fill_eth_physical_translated_mapping();
+    if (noc_translation_enabled) {
+        fill_eth_physical_translated_mapping();
+    } else {
+        fill_eth_default_physical_translated_mapping();
+    }
 }
 
 void BlackholeCoordinateManager::fill_eth_physical_translated_mapping() {
@@ -229,6 +243,11 @@ void BlackholeCoordinateManager::fill_pcie_physical_translated_mapping() {
         CoordSystem::TRANSLATED);
 
     add_core_translation(translated_coord, physical_pair);
+}
+
+void BlackholeCoordinateManager::fill_arc_physical_translated_mapping() {
+    // ARC cores are not translated in Blackhole.
+    fill_arc_default_physical_translated_mapping();
 }
 
 void BlackholeCoordinateManager::map_column_of_dram_banks(

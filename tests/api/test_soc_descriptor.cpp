@@ -342,3 +342,118 @@ TEST(SocDescriptor, CustomSocDescriptor) {
 
     EXPECT_EQ(soc_desc.get_num_dram_channels(), 1);
 }
+
+bool core_coord_vectors_equal(const std::vector<CoreCoord>& vec1, const std::vector<CoreCoord>& vec2) {
+    if (vec1.size() != vec2.size()) {
+        return false;
+    }
+
+    for (size_t i = 0; i < vec1.size(); i++) {
+        if (vec1[i] != vec2[i]) {
+            return false;
+        }
+    }
+    return true;
+}
+
+TEST(SocDescriptor, SocDescriptorGrayskullMultipleCoordinateSystems) {
+    tt_SocDescriptor soc_desc(test_utils::GetAbsPath("tests/soc_descs/grayskull_10x12.yaml"));
+
+    std::vector<CoreCoord> cores_physical = soc_desc.get_cores(CoreType::TENSIX, CoordSystem::PHYSICAL);
+
+    std::vector<CoreCoord> virtual_from_physical;
+    std::vector<CoreCoord> logical_from_physical;
+    std::vector<CoreCoord> translated_from_physical;
+
+    for (const CoreCoord& core : cores_physical) {
+        virtual_from_physical.push_back(soc_desc.translate_coord_to(core, CoordSystem::VIRTUAL));
+        logical_from_physical.push_back(soc_desc.translate_coord_to(core, CoordSystem::LOGICAL));
+        translated_from_physical.push_back(soc_desc.translate_coord_to(core, CoordSystem::TRANSLATED));
+    }
+
+    std::vector<CoreCoord> cores_virtual = soc_desc.get_cores(CoreType::TENSIX, CoordSystem::VIRTUAL);
+    std::vector<CoreCoord> cores_logical = soc_desc.get_cores(CoreType::TENSIX, CoordSystem::LOGICAL);
+    std::vector<CoreCoord> cores_translated = soc_desc.get_cores(CoreType::TENSIX, CoordSystem::TRANSLATED);
+
+    EXPECT_TRUE(core_coord_vectors_equal(virtual_from_physical, cores_virtual));
+    EXPECT_TRUE(core_coord_vectors_equal(logical_from_physical, cores_logical));
+    EXPECT_TRUE(core_coord_vectors_equal(translated_from_physical, cores_translated));
+}
+
+TEST(SocDescriptor, SocDescriptorWormholeMultipleCoordinateSystems) {
+    tt_SocDescriptor soc_desc(test_utils::GetAbsPath("tests/soc_descs/wormhole_b0_8x10.yaml"));
+
+    std::vector<CoreCoord> cores_physical = soc_desc.get_cores(CoreType::TENSIX, CoordSystem::PHYSICAL);
+
+    std::vector<CoreCoord> virtual_from_physical;
+    std::vector<CoreCoord> logical_from_physical;
+    std::vector<CoreCoord> translated_from_physical;
+
+    for (const CoreCoord& core : cores_physical) {
+        virtual_from_physical.push_back(soc_desc.translate_coord_to(core, CoordSystem::VIRTUAL));
+        logical_from_physical.push_back(soc_desc.translate_coord_to(core, CoordSystem::LOGICAL));
+        translated_from_physical.push_back(soc_desc.translate_coord_to(core, CoordSystem::TRANSLATED));
+    }
+
+    std::vector<CoreCoord> cores_virtual = soc_desc.get_cores(CoreType::TENSIX, CoordSystem::VIRTUAL);
+    std::vector<CoreCoord> cores_logical = soc_desc.get_cores(CoreType::TENSIX, CoordSystem::LOGICAL);
+    std::vector<CoreCoord> cores_translated = soc_desc.get_cores(CoreType::TENSIX, CoordSystem::TRANSLATED);
+
+    EXPECT_TRUE(core_coord_vectors_equal(virtual_from_physical, cores_virtual));
+    EXPECT_TRUE(core_coord_vectors_equal(logical_from_physical, cores_logical));
+    EXPECT_TRUE(core_coord_vectors_equal(translated_from_physical, cores_translated));
+}
+
+TEST(SocDescriptor, SocDescriptorBlackholeMultipleCoordinateSystems) {
+    tt_SocDescriptor soc_desc(test_utils::GetAbsPath("tests/soc_descs/blackhole_140_arch_no_eth.yaml"));
+
+    std::vector<CoreCoord> cores_physical = soc_desc.get_cores(CoreType::TENSIX, CoordSystem::PHYSICAL);
+
+    std::vector<CoreCoord> virtual_from_physical;
+    std::vector<CoreCoord> logical_from_physical;
+    std::vector<CoreCoord> translated_from_physical;
+
+    for (const CoreCoord& core : cores_physical) {
+        virtual_from_physical.push_back(soc_desc.translate_coord_to(core, CoordSystem::VIRTUAL));
+        logical_from_physical.push_back(soc_desc.translate_coord_to(core, CoordSystem::LOGICAL));
+        translated_from_physical.push_back(soc_desc.translate_coord_to(core, CoordSystem::TRANSLATED));
+    }
+
+    std::vector<CoreCoord> cores_virtual = soc_desc.get_cores(CoreType::TENSIX, CoordSystem::VIRTUAL);
+    std::vector<CoreCoord> cores_logical = soc_desc.get_cores(CoreType::TENSIX, CoordSystem::LOGICAL);
+    std::vector<CoreCoord> cores_translated = soc_desc.get_cores(CoreType::TENSIX, CoordSystem::TRANSLATED);
+
+    EXPECT_TRUE(core_coord_vectors_equal(virtual_from_physical, cores_virtual));
+    EXPECT_TRUE(core_coord_vectors_equal(logical_from_physical, cores_logical));
+    EXPECT_TRUE(core_coord_vectors_equal(translated_from_physical, cores_translated));
+}
+
+TEST(SocDescriptor, SocDescriptorGrayskullNoLogicalForHarvestedCores) {
+    tt_SocDescriptor soc_desc(test_utils::GetAbsPath("tests/soc_descs/grayskull_10x12.yaml"), 1);
+
+    EXPECT_THROW(soc_desc.get_harvested_cores(CoreType::TENSIX, CoordSystem::LOGICAL), std::runtime_error);
+
+    EXPECT_THROW(soc_desc.get_harvested_cores(CoreType::DRAM, CoordSystem::LOGICAL), std::runtime_error);
+
+    EXPECT_THROW(soc_desc.get_harvested_cores(CoreType::ETH, CoordSystem::LOGICAL), std::runtime_error);
+}
+
+TEST(SocDescriptor, SocDescriptorWormholeNoLogicalForHarvestedCores) {
+    tt_SocDescriptor soc_desc(test_utils::GetAbsPath("tests/soc_descs/wormhole_b0_8x10.yaml"), 1);
+
+    EXPECT_THROW(soc_desc.get_harvested_cores(CoreType::TENSIX, CoordSystem::LOGICAL), std::runtime_error);
+
+    EXPECT_THROW(soc_desc.get_harvested_cores(CoreType::DRAM, CoordSystem::LOGICAL), std::runtime_error);
+
+    EXPECT_THROW(soc_desc.get_harvested_cores(CoreType::ETH, CoordSystem::LOGICAL), std::runtime_error);
+}
+
+TEST(SocDescriptor, SocDescriptorBlackholeNoLogicalForHarvestedCores) {
+    tt_SocDescriptor soc_desc(test_utils::GetAbsPath("tests/soc_descs/blackhole_140_arch.yaml"), 1);
+
+    EXPECT_THROW(soc_desc.get_harvested_cores(CoreType::TENSIX, CoordSystem::LOGICAL), std::runtime_error);
+
+    EXPECT_THROW(soc_desc.get_harvested_cores(CoreType::DRAM, CoordSystem::LOGICAL), std::runtime_error);
+
+    EXPECT_THROW(soc_desc.get_harvested_cores(CoreType::ETH, CoordSystem::LOGICAL), std::runtime_error);
+}

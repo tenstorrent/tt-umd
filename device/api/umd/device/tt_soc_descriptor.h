@@ -60,8 +60,10 @@ public:
 
     static std::string get_soc_descriptor_path(tt::ARCH arch);
 
-    std::vector<tt::umd::CoreCoord> get_cores(const CoreType core_type) const;
-    std::vector<tt::umd::CoreCoord> get_harvested_cores(const CoreType core_type) const;
+    std::vector<tt::umd::CoreCoord> get_cores(
+        const CoreType core_type, const CoordSystem coord_system = CoordSystem::PHYSICAL) const;
+    std::vector<tt::umd::CoreCoord> get_harvested_cores(
+        const CoreType core_type, const CoordSystem coord_system = CoordSystem::PHYSICAL) const;
     tt_xy_pair get_grid_size(const CoreType core_type) const;
     tt_xy_pair get_harvested_grid_size(const CoreType core_type) const;
 
@@ -116,14 +118,16 @@ private:
     void get_cores_and_grid_size_from_coordinate_manager();
 
     static tt_xy_pair calculate_grid_size(const std::vector<tt_xy_pair> &cores);
+    std::vector<tt::umd::CoreCoord> translate_coordinates(
+        const std::vector<tt::umd::CoreCoord> &physical_cores, const CoordSystem coord_system) const;
 
     // TODO: change this to unique pointer as soon as copying of tt_SocDescriptor
     // is not needed anymore. Soc descriptor and coordinate manager should be
     // created once per chip.
     std::shared_ptr<CoordinateManager> coordinate_manager = nullptr;
-    std::map<CoreType, std::vector<tt::umd::CoreCoord>> cores_map;
+    mutable std::map<CoreType, std::vector<tt::umd::CoreCoord>> cores_map;
     std::map<CoreType, tt_xy_pair> grid_size_map;
-    std::map<CoreType, std::vector<tt::umd::CoreCoord>> harvested_cores_map;
+    mutable std::map<CoreType, std::vector<tt::umd::CoreCoord>> harvested_cores_map;
     std::map<CoreType, tt_xy_pair> harvested_grid_size_map;
 
     // DRAM cores are kept in additional vector struct since one DRAM bank

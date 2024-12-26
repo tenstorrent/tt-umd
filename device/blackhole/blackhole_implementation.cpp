@@ -8,6 +8,7 @@
 #include "blackhole/eth_l1_address_map.h"
 #include "blackhole/host_mem_address_map.h"
 #include "blackhole/l1_address_map.h"
+#include "logger.hpp"
 #include "umd/device/cluster.h"
 
 constexpr std::uint32_t NOC_ADDR_LOCAL_BITS = 36;   // source: noc_parameters.h, common for WH && BH
@@ -106,15 +107,19 @@ tt_driver_noc_params blackhole_implementation::get_noc_params() const {
 
 namespace blackhole {
 std::vector<tt_xy_pair> get_pcie_cores(const BoardType board_type, const bool is_chip_remote) {
-    if (board_type == BoardType::UNKNOWN || board_type == BoardType::P100) {
-        return PCIE_CORES_REMOTE;
-    } else if (board_type == BoardType::P150A) {
-        return PCIE_CORES_LOCAL;
-    } else if (board_type == BoardType::P300) {
-        return is_chip_remote ? PCIE_CORES_REMOTE : PCIE_CORES_LOCAL;
+    if (is_chip_remote) {
+        log_assert(board_type == BoardType::P300, "Remote chip is supported only for Blackhole P300 board.");
     }
 
-    return PCIE_CORES_LOCAL;
+    if (board_type == BoardType::UNKNOWN || board_type == BoardType::P100) {
+        return PCIE_CORES_TYPE1;
+    } else if (board_type == BoardType::P150A) {
+        return PCIE_CORES_TYPE2;
+    } else if (board_type == BoardType::P300) {
+        return is_chip_remote ? PCIE_CORES_TYPE1 : PCIE_CORES_TYPE2;
+    }
+
+    return PCIE_CORES_TYPE2;
 }
 }  // namespace blackhole
 

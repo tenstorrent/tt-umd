@@ -859,13 +859,13 @@ private:
         chip_id_t logical_device_id,
         tt_ClusterDescriptor* cluster_desc,
         bool perform_harvesting,
-        uint32_t simulated_tensix_harvesting);
+        std::unordered_map<chip_id_t, uint32_t>& simulated_harvesting_masks);
     void add_chip(chip_id_t chip_id, std::unique_ptr<Chip> chip);
     uint32_t get_tensix_harvesting_mask(
         chip_id_t chip_id,
         tt_ClusterDescriptor* cluster_desc,
         bool perform_harvesting,
-        uint32_t simulated_tensix_harvesting);
+        std::unordered_map<chip_id_t, uint32_t>& simulated_harvesting_masks);
     void construct_cluster(
         const uint32_t& num_host_mem_ch_per_mmio_device,
         const bool skip_driver_allocs,

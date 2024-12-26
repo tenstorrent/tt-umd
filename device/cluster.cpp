@@ -483,21 +483,24 @@ uint32_t Cluster::get_tensix_harvesting_mask(
     chip_id_t chip_id,
     tt_ClusterDescriptor* cluster_desc,
     bool perform_harvesting,
-    uint32_t simulated_tensix_harvesting) {
+    std::unordered_map<chip_id_t, uint32_t>& simulated_harvesting_masks) {
     if (!perform_harvesting) {
         log_info(LogSiliconDriver, "Skipping harvesting for chip {}.", chip_id);
         return 0;
     }
     uint32_t tensix_harvesting_mask = cluster_desc->get_harvesting_info().at(chip_id);
-    if (simulated_tensix_harvesting != 0) {
+    uint32_t simulated_harvesting_mask = (simulated_harvesting_masks.find(chip_id) != simulated_harvesting_masks.end())
+                                             ? simulated_harvesting_masks.at(chip_id)
+                                             : 0;
+    if (simulated_harvesting_mask != 0) {
         log_info(
             LogSiliconDriver,
             "Adding simulated harvesting mask {} for chip {} which has real harvesting mask {}.",
-            simulated_tensix_harvesting,
+            simulated_harvesting_mask,
             chip_id,
             tensix_harvesting_mask);
     }
-    return tensix_harvesting_mask | simulated_tensix_harvesting;
+    return tensix_harvesting_mask | simulated_harvesting_mask;
 }
 
 Cluster::Cluster(
@@ -511,8 +514,7 @@ Cluster::Cluster(
     for (auto& chip_id : cluster_desc->get_all_chips()) {
         add_chip(
             chip_id,
-            construct_chip_from_cluster(
-                chip_id, cluster_desc.get(), perform_harvesting, simulated_harvesting_masks[chip_id]));
+            construct_chip_from_cluster(chip_id, cluster_desc.get(), perform_harvesting, simulated_harvesting_masks));
     }
 
     // TODO: work on removing this member altogether. Currently assumes all have the same arch.
@@ -542,8 +544,7 @@ Cluster::Cluster(
             chip_id);
         add_chip(
             chip_id,
-            construct_chip_from_cluster(
-                chip_id, cluster_desc.get(), perform_harvesting, simulated_harvesting_masks[chip_id]));
+            construct_chip_from_cluster(chip_id, cluster_desc.get(), perform_harvesting, simulated_harvesting_masks));
     }
 
     // TODO: work on removing this member altogether. Currently assumes all have the same arch.
@@ -572,9 +573,8 @@ Cluster::Cluster(
             cluster_desc->get_all_chips().find(chip_id) != cluster_desc->get_all_chips().end(),
             "Target device {} not present in current cluster!",
             chip_id);
-
-        size_t tensix_harvesting_mask = get_tensix_harvesting_mask(
-            chip_id, cluster_desc.get(), perform_harvesting, simulated_harvesting_masks[chip_id]);
+        size_t tensix_harvesting_mask =
+            get_tensix_harvesting_mask(chip_id, cluster_desc.get(), perform_harvesting, simulated_harvesting_masks);
         tt_SocDescriptor soc_desc = tt_SocDescriptor(sdesc_path, tensix_harvesting_mask);
         log_assert(
             cluster_desc->get_arch(chip_id) == soc_desc.arch,

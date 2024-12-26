@@ -16,6 +16,7 @@ tt_SocDescriptor& Chip::get_soc_descriptor() { return soc_descriptor_; }
 
 TTDevice* Chip::get_tt_device() { return nullptr; }
 
+// TODO: This will be moved to LocalChip.
 void Chip::set_default_params(ARCH arch) {
     auto architecture_implementation = tt::umd::architecture_implementation::create(arch);
 

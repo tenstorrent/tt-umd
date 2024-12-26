@@ -1775,6 +1775,7 @@ void Cluster::write_to_non_mmio_device(
     constexpr int BROADCAST_HEADER_SIZE = sizeof(data_word_t) * 8;  // Broadcast header is 8 words
     const auto target_chip = cluster_desc->get_chip_locations().at(core.chip);
 
+    // TODO: To be removed when this is moved to Chip classes.
     auto host_address_params = chips_.at(mmio_capable_chip_logical)->host_address_params;
     auto eth_interface_params = chips_.at(mmio_capable_chip_logical)->eth_interface_params;
     auto noc_params = chips_.at(mmio_capable_chip_logical)->noc_params;
@@ -2016,6 +2017,7 @@ void Cluster::read_from_non_mmio_device(void* mem_ptr, tt_cxy_pair core, uint64_
     const auto& mmio_capable_chip_logical = cluster_desc->get_closest_mmio_capable_chip(core.chip);
     const eth_coord_t target_chip = cluster_desc->get_chip_locations().at(core.chip);
 
+    // TODO: To be removed when this is moved to Chip classes.
     auto host_address_params = chips_.at(mmio_capable_chip_logical)->host_address_params;
     auto eth_interface_params = chips_.at(mmio_capable_chip_logical)->eth_interface_params;
     auto noc_params = chips_.at(mmio_capable_chip_logical)->noc_params;
@@ -2261,7 +2263,9 @@ void Cluster::wait_for_connected_non_mmio_flush(const chip_id_t chip_id) {
         }
 
         if (arch_name == tt::ARCH::WORMHOLE_B0) {
+            // TODO: To be removed when this is moved to Chip classes.
             auto eth_interface_params = chips_.at(chip_id)->eth_interface_params;
+
             std::vector<std::uint32_t> erisc_txn_counters = std::vector<uint32_t>(2);
             std::vector<std::uint32_t> erisc_q_ptrs =
                 std::vector<uint32_t>(eth_interface_params.remote_update_ptr_size_bytes * 2 / sizeof(uint32_t));
@@ -2845,8 +2849,10 @@ void Cluster::insert_host_to_device_barrier(
 void Cluster::init_membars() {
     for (const auto& chip : all_chip_ids_) {
         if (cluster_desc->is_chip_mmio_capable(chip)) {
+            // TODO: To be removed when this is moved to Chip classes.
             const auto& l1_address_params = chips_.at(chip)->l1_address_params;
             const auto& dram_address_params = chips_.at(chip)->dram_address_params;
+
             set_membar_flag(
                 chip,
                 workers_per_chip.at(chip),
@@ -2866,7 +2872,10 @@ void Cluster::l1_membar(
     if (cluster_desc->is_chip_mmio_capable(chip)) {
         const auto& all_workers = workers_per_chip.at(chip);
         const auto& all_eth = eth_cores;
+
+        // TODO: To be removed when this is moved to Chip classes.
         const auto& l1_address_params = chips_.at(chip)->l1_address_params;
+
         if (cores.size()) {
             // Insert barrier on specific cores with L1
             std::unordered_set<tt_xy_pair> workers_to_sync = {};
@@ -2936,7 +2945,9 @@ void Cluster::dram_membar(
 void Cluster::dram_membar(
     const chip_id_t chip, const std::string& fallback_tlb, const std::unordered_set<uint32_t>& channels) {
     if (cluster_desc->is_chip_mmio_capable(chip)) {
+        // TODO: To be removed when this is moved to Chip classes.
         const auto& dram_address_params = chips_.at(chip)->dram_address_params;
+
         if (channels.size()) {
             std::unordered_set<tt_xy_pair> dram_cores_to_sync = {};
             for (const auto& chan : channels) {

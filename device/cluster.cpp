@@ -456,11 +456,11 @@ std::unique_ptr<Chip> Cluster::construct_chip_from_cluster(
     chip_id_t chip_id,
     tt_ClusterDescriptor* cluster_desc,
     bool perform_harvesting,
-    uint32_t simulated_tensix_harvesting) {
+    std::unordered_map<chip_id_t, uint32_t>& simulated_harvesting_masks) {
     tt::ARCH arch = cluster_desc->get_arch(chip_id);
     std::string soc_desc_path = tt_SocDescriptor::get_soc_descriptor_path(arch);
     uint32_t tensix_harvesting_mask =
-        get_tensix_harvesting_mask(chip_id, cluster_desc, perform_harvesting, simulated_tensix_harvesting);
+        get_tensix_harvesting_mask(chip_id, cluster_desc, perform_harvesting, simulated_harvesting_masks);
     tt_SocDescriptor soc_desc = tt_SocDescriptor(soc_desc_path, tensix_harvesting_mask);
     return construct_chip_from_cluster(chip_id, cluster_desc, soc_desc);
 }

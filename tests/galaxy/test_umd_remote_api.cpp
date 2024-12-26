@@ -324,7 +324,7 @@ void run_data_broadcast_test(
 
 // L1 to L1 single chip
 TEST(GalaxyDataMovement, BroadcastData1) {
-    tt_SocDescriptor sdesc(test_utils::GetAbsPath(SOC_DESC_PATH));
+    tt_SocDescriptor sdesc(test_utils::GetAbsPath(SOC_DESC_PATH), true);
 
     tt_multichip_core_addr sender_core(4, tt_xy_pair(1, 1), 0x5000);
     std::vector<tt_multichip_core_addr> receiver_cores;
@@ -337,7 +337,7 @@ TEST(GalaxyDataMovement, BroadcastData1) {
 
 // L1 to L1 multi chip
 TEST(GalaxyDataMovement, BroadcastData2) {
-    tt_SocDescriptor sdesc(test_utils::GetAbsPath(SOC_DESC_PATH));
+    tt_SocDescriptor sdesc(test_utils::GetAbsPath(SOC_DESC_PATH), true);
 
     tt_multichip_core_addr sender_core(12, tt_xy_pair(1, 1), 0x5000);
     std::vector<tt_multichip_core_addr> receiver_cores;
@@ -363,7 +363,7 @@ TEST(GalaxyDataMovement, BroadcastData2) {
 
 // Dram to L1
 TEST(GalaxyDataMovement, BroadcastData3) {
-    tt_SocDescriptor sdesc(test_utils::GetAbsPath(SOC_DESC_PATH));
+    tt_SocDescriptor sdesc(test_utils::GetAbsPath(SOC_DESC_PATH), true);
 
     tt_multichip_core_addr sender_core(10, tt_xy_pair(0, 0), 0x20000);
     std::vector<tt_multichip_core_addr> receiver_cores;
@@ -377,7 +377,7 @@ TEST(GalaxyDataMovement, BroadcastData3) {
 
 // L1 to Dram
 TEST(GalaxyDataMovement, BroadcastData4) {
-    tt_SocDescriptor sdesc(test_utils::GetAbsPath(SOC_DESC_PATH));
+    tt_SocDescriptor sdesc(test_utils::GetAbsPath(SOC_DESC_PATH), true);
 
     tt_multichip_core_addr sender_core(17, tt_xy_pair(8, 8), 0x20000);
     std::vector<tt_multichip_core_addr> receiver_cores;
@@ -393,7 +393,7 @@ TEST(GalaxyDataMovement, BroadcastData4) {
 
 // Dram to Dram
 TEST(GalaxyDataMovement, BroadcastData5) {
-    tt_SocDescriptor sdesc(test_utils::GetAbsPath(SOC_DESC_PATH));
+    tt_SocDescriptor sdesc(test_utils::GetAbsPath(SOC_DESC_PATH), true);
 
     tt_multichip_core_addr sender_core(31, tt_xy_pair(2, 2), 0x20000);
     std::vector<tt_multichip_core_addr> receiver_cores;

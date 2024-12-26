@@ -14,7 +14,7 @@ using namespace tt::umd;
 
 // Test soc descriptor API for Wormhole when there is no harvesting.
 TEST(SocDescriptor, SocDescriptorGrayskullNoHarvesting) {
-    tt_SocDescriptor soc_desc(test_utils::GetAbsPath("tests/soc_descs/grayskull_10x12.yaml"));
+    tt_SocDescriptor soc_desc(test_utils::GetAbsPath("tests/soc_descs/grayskull_10x12.yaml"), false);
 
     const std::vector<tt_xy_pair> grayskull_tensix_cores = tt::umd::grayskull::TENSIX_CORES;
 
@@ -35,7 +35,7 @@ TEST(SocDescriptor, SocDescriptorGrayskullOneRowHarvesting) {
     const std::vector<tt_xy_pair> grayskull_tensix_cores = tt::umd::grayskull::TENSIX_CORES;
     const size_t harvesting_mask = (1 << 0);
 
-    tt_SocDescriptor soc_desc(test_utils::GetAbsPath("tests/soc_descs/grayskull_10x12.yaml"), harvesting_mask);
+    tt_SocDescriptor soc_desc(test_utils::GetAbsPath("tests/soc_descs/grayskull_10x12.yaml"), false, harvesting_mask);
 
     const std::vector<CoreCoord> tensix_cores = soc_desc.get_cores(CoreType::TENSIX);
 
@@ -58,7 +58,7 @@ TEST(SocDescriptor, SocDescriptorGrayskullOneRowHarvesting) {
 
 // Test soc descriptor API for getting DRAM cores.
 TEST(SocDescriptor, SocDescriptorGrayskullDRAM) {
-    tt_SocDescriptor soc_desc(test_utils::GetAbsPath("tests/soc_descs/grayskull_10x12.yaml"));
+    tt_SocDescriptor soc_desc(test_utils::GetAbsPath("tests/soc_descs/grayskull_10x12.yaml"), false);
 
     const std::vector<std::vector<CoreCoord>> dram_cores = soc_desc.get_dram_cores();
 
@@ -70,7 +70,7 @@ TEST(SocDescriptor, SocDescriptorGrayskullDRAM) {
 
 // Test soc descriptor API for Wormhole when there is no harvesting.
 TEST(SocDescriptor, SocDescriptorWormholeNoHarvesting) {
-    tt_SocDescriptor soc_desc(test_utils::GetAbsPath("tests/soc_descs/wormhole_b0_8x10.yaml"));
+    tt_SocDescriptor soc_desc(test_utils::GetAbsPath("tests/soc_descs/wormhole_b0_8x10.yaml"), true);
 
     const std::vector<tt_xy_pair> wormhole_tensix_cores = tt::umd::wormhole::TENSIX_CORES;
 
@@ -87,7 +87,7 @@ TEST(SocDescriptor, SocDescriptorWormholeNoHarvesting) {
 
 // Test soc descriptor API for getting DRAM cores.
 TEST(SocDescriptor, SocDescriptorWormholeDRAM) {
-    tt_SocDescriptor soc_desc(test_utils::GetAbsPath("tests/soc_descs/wormhole_b0_8x10.yaml"));
+    tt_SocDescriptor soc_desc(test_utils::GetAbsPath("tests/soc_descs/wormhole_b0_8x10.yaml"), true);
 
     const std::vector<std::vector<CoreCoord>> dram_cores = soc_desc.get_dram_cores();
 
@@ -103,7 +103,7 @@ TEST(SocDescriptor, SocDescriptorWormholeOneRowHarvesting) {
     const std::vector<tt_xy_pair> wormhole_tensix_cores = tt::umd::wormhole::TENSIX_CORES;
     const size_t harvesting_mask = (1 << 0);
 
-    tt_SocDescriptor soc_desc(test_utils::GetAbsPath("tests/soc_descs/wormhole_b0_8x10.yaml"), harvesting_mask);
+    tt_SocDescriptor soc_desc(test_utils::GetAbsPath("tests/soc_descs/wormhole_b0_8x10.yaml"), true, harvesting_mask);
 
     const std::vector<CoreCoord> tensix_cores = soc_desc.get_cores(CoreType::TENSIX);
 
@@ -126,7 +126,7 @@ TEST(SocDescriptor, SocDescriptorWormholeOneRowHarvesting) {
 
 // Test ETH translation from logical to physical coordinates.
 TEST(SocDescriptor, SocDescriptorWormholeETHLogicalToPhysical) {
-    tt_SocDescriptor soc_desc(test_utils::GetAbsPath("tests/soc_descs/wormhole_b0_8x10.yaml"));
+    tt_SocDescriptor soc_desc(test_utils::GetAbsPath("tests/soc_descs/wormhole_b0_8x10.yaml"), true);
 
     const std::vector<tt_xy_pair>& wormhole_eth_cores = tt::umd::wormhole::ETH_CORES;
     const tt_xy_pair eth_grid_size = soc_desc.get_grid_size(CoreType::ETH);
@@ -165,7 +165,7 @@ TEST(SocDescriptor, SocDescriptorBlackholeETHHarvesting) {
         }
 
         tt_SocDescriptor soc_desc(
-            test_utils::GetAbsPath("tests/soc_descs/blackhole_140_arch.yaml"), 0, 0, eth_harvesting_mask);
+            test_utils::GetAbsPath("tests/soc_descs/blackhole_140_arch.yaml"), true, 0, 0, eth_harvesting_mask);
 
         const std::vector<CoreCoord> eth_cores = soc_desc.get_cores(CoreType::ETH);
 
@@ -193,7 +193,7 @@ TEST(SocDescriptor, SocDescriptorBlackholeETHHarvesting) {
 
 // Test soc descriptor API for Blackhole when there is no harvesting.
 TEST(SocDescriptor, SocDescriptorBlackholeNoHarvesting) {
-    tt_SocDescriptor soc_desc(test_utils::GetAbsPath("tests/soc_descs/blackhole_140_arch_no_eth.yaml"));
+    tt_SocDescriptor soc_desc(test_utils::GetAbsPath("tests/soc_descs/blackhole_140_arch_no_eth.yaml"), true);
 
     const std::vector<tt_xy_pair> blackhole_tensix_cores = tt::umd::blackhole::TENSIX_CORES;
 
@@ -213,7 +213,7 @@ TEST(SocDescriptor, SocDescriptorBlackholeOneRowHarvesting) {
     const tt_xy_pair blackhole_tensix_grid_size = tt::umd::blackhole::TENSIX_GRID_SIZE;
     const std::vector<tt_xy_pair> blackhole_tensix_cores = tt::umd::blackhole::TENSIX_CORES;
 
-    tt_SocDescriptor soc_desc(test_utils::GetAbsPath("tests/soc_descs/blackhole_140_arch_no_eth.yaml"), 1);
+    tt_SocDescriptor soc_desc(test_utils::GetAbsPath("tests/soc_descs/blackhole_140_arch_no_eth.yaml"), true, 1);
 
     const std::vector<CoreCoord> tensix_cores = soc_desc.get_cores(CoreType::TENSIX);
 
@@ -239,7 +239,7 @@ TEST(SocDescriptor, SocDescriptorBlackholeOneRowHarvesting) {
 
 // Test soc descriptor API for getting DRAM cores.
 TEST(SocDescriptor, SocDescriptorBlackholeDRAM) {
-    tt_SocDescriptor soc_desc(test_utils::GetAbsPath("tests/soc_descs/blackhole_140_arch_no_eth.yaml"));
+    tt_SocDescriptor soc_desc(test_utils::GetAbsPath("tests/soc_descs/blackhole_140_arch_no_eth.yaml"), true);
 
     const std::vector<std::vector<CoreCoord>> dram_cores = soc_desc.get_dram_cores();
 
@@ -257,7 +257,7 @@ TEST(SocDescriptor, SocDescriptorBlackholeDRAMHarvesting) {
     const size_t num_dram_banks = tt::umd::blackhole::NUM_DRAM_BANKS;
     const size_t num_noc_ports_per_bank = tt::umd::blackhole::NUM_NOC_PORTS_PER_DRAM_BANK;
 
-    tt_SocDescriptor soc_desc(test_utils::GetAbsPath("tests/soc_descs/blackhole_140_arch_no_eth.yaml"), 0, 1);
+    tt_SocDescriptor soc_desc(test_utils::GetAbsPath("tests/soc_descs/blackhole_140_arch_no_eth.yaml"), true, 0, 1);
 
     const std::vector<CoreCoord> tensix_cores = soc_desc.get_cores(CoreType::TENSIX);
 
@@ -287,7 +287,7 @@ TEST(SocDescriptor, SocDescriptorBlackholeDRAMHarvesting) {
 }
 
 TEST(SocDescriptor, CustomSocDescriptor) {
-    tt_SocDescriptor soc_desc(test_utils::GetAbsPath("tests/soc_descs/blackhole_simulation_1x2.yaml"), 0, 0);
+    tt_SocDescriptor soc_desc(test_utils::GetAbsPath("tests/soc_descs/blackhole_simulation_1x2.yaml"), true, 0, 0);
 
     const CoreCoord tensix_core_01 = CoreCoord(0, 1, CoreType::TENSIX, CoordSystem::PHYSICAL);
     const CoreCoord tensix_core_01_virtual = soc_desc.translate_coord_to(tensix_core_01, CoordSystem::VIRTUAL);
@@ -341,4 +341,29 @@ TEST(SocDescriptor, CustomSocDescriptor) {
     EXPECT_EQ(dram_core_10_logical.y, 0);
 
     EXPECT_EQ(soc_desc.get_num_dram_channels(), 1);
+}
+
+TEST(SocDescriptor, NocTranslation) {
+    // Test when noc translation is disabled.
+    {
+        tt_SocDescriptor soc_desc(test_utils::GetAbsPath("tests/soc_descs/blackhole_140_arch_no_eth.yaml"), false, 1);
+
+        const CoreCoord tensix_core = CoreCoord(2, 2, CoreType::TENSIX, CoordSystem::PHYSICAL);
+        const CoreCoord tensix_core_virtual = soc_desc.translate_coord_to(tensix_core, CoordSystem::VIRTUAL);
+        const CoreCoord tensix_core_translated = soc_desc.translate_coord_to(tensix_core, CoordSystem::TRANSLATED);
+
+        EXPECT_EQ((tt_xy_pair)tensix_core_translated, (tt_xy_pair)tensix_core);
+        EXPECT_NE((tt_xy_pair)tensix_core_translated, (tt_xy_pair)tensix_core_virtual);
+    }
+    // Test when noc translation is enabled.
+    {
+        tt_SocDescriptor soc_desc(test_utils::GetAbsPath("tests/soc_descs/blackhole_140_arch_no_eth.yaml"), true, 1);
+
+        const CoreCoord tensix_core = CoreCoord(2, 2, CoreType::TENSIX, CoordSystem::PHYSICAL);
+        const CoreCoord tensix_core_virtual = soc_desc.translate_coord_to(tensix_core, CoordSystem::VIRTUAL);
+        const CoreCoord tensix_core_translated = soc_desc.translate_coord_to(tensix_core, CoordSystem::TRANSLATED);
+
+        EXPECT_NE((tt_xy_pair)tensix_core_translated, (tt_xy_pair)tensix_core);
+        EXPECT_EQ((tt_xy_pair)tensix_core_translated, (tt_xy_pair)tensix_core_virtual);
+    }
 }

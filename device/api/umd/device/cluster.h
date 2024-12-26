@@ -855,8 +855,17 @@ private:
     void wait_for_connected_non_mmio_flush(chip_id_t chip_id);
     std::unique_ptr<Chip> construct_chip_from_cluster(
         chip_id_t chip_id, tt_ClusterDescriptor* cluster_desc, tt_SocDescriptor& soc_desc);
-    std::unique_ptr<Chip> construct_chip_from_cluster(chip_id_t logical_device_id, tt_ClusterDescriptor* cluster_desc);
+    std::unique_ptr<Chip> construct_chip_from_cluster(
+        chip_id_t logical_device_id,
+        tt_ClusterDescriptor* cluster_desc,
+        bool perform_harvesting,
+        uint32_t simulated_tensix_harvesting);
     void add_chip(chip_id_t chip_id, std::unique_ptr<Chip> chip);
+    uint32_t get_tensix_harvesting_mask(
+        chip_id_t chip_id,
+        tt_ClusterDescriptor* cluster_desc,
+        bool perform_harvesting,
+        uint32_t simulated_tensix_harvesting);
     void construct_cluster(
         const uint32_t& num_host_mem_ch_per_mmio_device,
         const bool skip_driver_allocs,

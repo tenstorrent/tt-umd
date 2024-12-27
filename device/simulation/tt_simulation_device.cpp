@@ -9,7 +9,6 @@
 #include <nng/nng.h>
 #include <uv.h>
 
-#include <fstream>
 #include <iostream>
 #include <string>
 #include <vector>
@@ -18,7 +17,6 @@
 #include "logger.hpp"
 #include "tt_simulation_device_generated.h"
 #include "umd/device/driver_atomics.h"
-#include "umd/device/tt_cluster_descriptor.h"
 
 flatbuffers::FlatBufferBuilder create_flatbuffer(
     DEVICE_COMMAND rw, std::vector<uint32_t> vec, tt_cxy_pair core_, uint64_t addr, uint64_t size_ = 0) {
@@ -51,18 +49,24 @@ void print_flatbuffer(const DeviceRequestResponse* buf) {
     log_debug(tt::LogEmulationDriver, "Data: {}", data_hex);
 }
 
-tt_SimulationDevice::tt_SimulationDevice(const std::string& sdesc_path) : tt_device() {
+tt_SimulationDevice::tt_SimulationDevice(const std::filesystem::path& simulator_directory) : tt_device() {
     log_info(tt::LogEmulationDriver, "Instantiating simulation device");
-    soc_descriptor_per_chip.emplace(0, tt_SocDescriptor(sdesc_path));
+    std::string soc_descriptor_path = simulator_directory / "soc_descriptor.yaml";
+    soc_descriptor_per_chip.emplace(0, tt_SocDescriptor(soc_descriptor_path));
+    arch_name = soc_descriptor_per_chip[0].arch;
     std::set<chip_id_t> target_devices = {0};
 
     // Start VCS simulator in a separate process
-    TT_ASSERT(std::getenv("TT_REMOTE_EXE"), "TT_REMOTE_EXE not set, please provide path to the VCS binary");
+    std::filesystem::path simulator_path = simulator_directory / "run.sh";
+    if (!std::filesystem::exists(simulator_path)) {
+        TT_THROW("Simulator binary not found at: ", simulator_path);
+    }
     uv_loop_t* loop = uv_default_loop();
     uv_process_t child_p;
     uv_process_options_t child_options = {0};
+    std::string simulator_path_string = simulator_path;
 
-    child_options.file = std::getenv("TT_REMOTE_EXE");
+    child_options.file = simulator_path_string.c_str();
     child_options.flags = UV_PROCESS_DETACHED;
 
     int rv = uv_spawn(loop, &child_p, &child_options);

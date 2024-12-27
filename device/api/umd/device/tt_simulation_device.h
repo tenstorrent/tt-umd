@@ -7,7 +7,7 @@
 #pragma once
 
 #include <cstdint>
-#include <fstream>
+#include <filesystem>
 #include <vector>
 
 #include "umd/device/cluster.h"
@@ -15,7 +15,7 @@
 
 class tt_SimulationDevice : public tt_device {
 public:
-    tt_SimulationDevice(const std::string& sdesc_path);
+    tt_SimulationDevice(const std::filesystem::path& simulator_directory);
     ~tt_SimulationDevice();
 
     tt_SimulationHost host;

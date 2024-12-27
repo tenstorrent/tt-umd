@@ -501,6 +501,14 @@ uint32_t Cluster::get_tensix_harvesting_mask(
             chip_id,
             tensix_harvesting_mask);
     }
+    log_debug(
+        LogSiliconDriver,
+        "Harvesting mask for chip {} is {} (physical layout: {}, logical: {}, simulated harvesting mask: {}).",
+        chip_id,
+        tensix_harvesting_mask | simulated_harvesting_mask,
+        tensix_harvesting_mask_physical_layout,
+        tensix_harvesting_mask,
+        simulated_harvesting_mask);
     return tensix_harvesting_mask | simulated_harvesting_mask;
 }
 
@@ -516,6 +524,8 @@ Cluster::Cluster(
         add_chip(
             chip_id,
             construct_chip_from_cluster(chip_id, cluster_desc.get(), perform_harvesting, simulated_harvesting_masks));
+        // log_info(LogSiliconDriver, "Added chip {} to cluster with harvesting {}.",
+        // chips_.at(chip_id)->get_soc_descriptor().tensix_harvesting_mask);
     }
 
     // TODO: work on removing this member altogether. Currently assumes all have the same arch.

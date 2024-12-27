@@ -267,14 +267,13 @@ void Cluster::create_device(
 bool Cluster::using_harvested_soc_descriptors() { return perform_harvesting_on_sdesc && performed_harvesting; }
 
 std::unordered_map<chip_id_t, uint32_t> Cluster::get_harvesting_masks_for_soc_descriptors() {
-    if (using_harvested_soc_descriptors()) {
-        return harvested_rows_per_target;
+    std::unordered_map<chip_id_t, uint32_t> harvesting_masks = {};
+    for (const auto& [chip_id, chip] : chips_) {
+        uint32_t noc0_harvesting_mask = CoordinateManager::shuffle_tensix_harvesting_mask_to_noc0_coords(
+            chip->get_soc_descriptor().arch, chip->get_soc_descriptor().tensix_harvesting_mask);
+        harvesting_masks.insert({chip_id, noc0_harvesting_mask});
     }
-    std::unordered_map<chip_id_t, uint32_t> default_harvesting_masks = {};
-    for (const auto chip : all_chip_ids_) {
-        default_harvesting_masks.insert({chip, 0});
-    }
-    return default_harvesting_masks;
+    return harvesting_masks;
 }
 
 void Cluster::construct_cluster(
@@ -488,7 +487,9 @@ uint32_t Cluster::get_tensix_harvesting_mask(
         log_info(LogSiliconDriver, "Skipping harvesting for chip {}.", chip_id);
         return 0;
     }
-    uint32_t tensix_harvesting_mask = cluster_desc->get_harvesting_info().at(chip_id);
+    uint32_t tensix_harvesting_mask_physical_layout = cluster_desc->get_harvesting_info().at(chip_id);
+    uint32_t tensix_harvesting_mask = CoordinateManager::shuffle_tensix_harvesting_mask(
+        cluster_desc->get_arch(chip_id), tensix_harvesting_mask_physical_layout);
     uint32_t simulated_harvesting_mask = (simulated_harvesting_masks.find(chip_id) != simulated_harvesting_masks.end())
                                              ? simulated_harvesting_masks.at(chip_id)
                                              : 0;

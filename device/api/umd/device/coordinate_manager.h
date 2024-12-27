@@ -42,6 +42,13 @@ public:
 
     static std::vector<size_t> get_harvested_indices(const size_t harvesting_mask);
 
+    // Harvesting mask is reported by hardware in the order of physical layout. This function returns a more suitable
+    // representation in logical order: Bit 0 being set means the first row in NOC0 coords is harvested.
+    static uint32_t shuffle_tensix_harvesting_mask(tt::ARCH arch, uint32_t tensix_harvesting_physical_layout);
+    // TODO: This function should be removed once the corresponding API is removed from Cluster.
+    static uint32_t shuffle_tensix_harvesting_mask_to_noc0_coords(
+        tt::ARCH arch, uint32_t tensix_harvesting_logical_layout);
+
     CoordinateManager(CoordinateManager& other) = default;
 
     tt::umd::CoreCoord translate_coord_to(const tt::umd::CoreCoord core_coord, const CoordSystem coord_system);
@@ -90,8 +97,6 @@ protected:
     void initialize();
 
     virtual void assert_coordinate_manager_constructor();
-
-    virtual void shuffle_tensix_harvesting_mask(const std::vector<uint32_t>& harvesting_locations);
 
     virtual void translate_tensix_coords();
     virtual void translate_dram_coords();

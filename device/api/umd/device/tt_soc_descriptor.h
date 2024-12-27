@@ -140,6 +140,7 @@ public:
     int eth_l1_size;
     bool noc_translation_id_enabled;
     uint64_t dram_bank_size;
+    uint32_t tensix_harvesting_mask;
 
 private:
     void create_coordinate_manager(

@@ -9,7 +9,6 @@ on:
         type: number
         default: 90
   pull_request:
-    branches: ["main"]
   push:
     branches: ["main"]
 

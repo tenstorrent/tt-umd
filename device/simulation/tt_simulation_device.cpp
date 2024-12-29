@@ -122,7 +122,7 @@ void tt_SimulationDevice::deassert_risc_reset_at_core(tt_cxy_pair core, const Te
     deassert_risc_reset();
 }
 
-void tt_SimulationDevice::assert_risc_reset_at_core(tt_cxy_pair core) {
+void tt_SimulationDevice::assert_risc_reset_at_core(tt_cxy_pair core, const TensixSoftResetOptions& soft_resets) {
     log_info(
         tt::LogEmulationDriver,
         "Sending 'assert_risc_reset_at_core'.. (Not implemented, defaulting to 'assert_risc_reset' instead)");

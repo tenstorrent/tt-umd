@@ -1004,7 +1004,7 @@ void Cluster::deassert_risc_reset_at_core(
     deassert_risc_reset_at_core({(size_t)chip, virtual_coord}, soft_resets);
 }
 
-void Cluster::assert_risc_reset_at_core(tt_cxy_pair core) {
+void Cluster::assert_risc_reset_at_core(tt_cxy_pair core, const TensixSoftResetOptions& soft_resets) {
     // Get Target Device to query soc descriptor and determine location in cluster
     std::uint32_t target_device = core.chip;
     log_assert(
@@ -1018,15 +1018,16 @@ void Cluster::assert_risc_reset_at_core(tt_cxy_pair core) {
         "Cannot assert reset on a non-tensix or harvested core");
     bool target_is_mmio_capable = cluster_desc->is_chip_mmio_capable(target_device);
     if (target_is_mmio_capable) {
-        send_tensix_risc_reset_to_core(core, TENSIX_ASSERT_SOFT_RESET);
+        send_tensix_risc_reset_to_core(core, soft_resets);
     } else {
-        send_remote_tensix_risc_reset_to_core(core, TENSIX_ASSERT_SOFT_RESET);
+        send_remote_tensix_risc_reset_to_core(core, soft_resets);
     }
 }
 
-void Cluster::assert_risc_reset_at_core(const chip_id_t chip, const CoreCoord core) {
+void Cluster::assert_risc_reset_at_core(
+    const chip_id_t chip, const CoreCoord core, const TensixSoftResetOptions& soft_resets) {
     const CoreCoord virtual_coord = translate_chip_coord(chip, core, CoordSystem::VIRTUAL);
-    assert_risc_reset_at_core({(size_t)chip, virtual_coord});
+    assert_risc_reset_at_core({(size_t)chip, virtual_coord}, soft_resets);
 }
 
 // Free memory during teardown, and remove (clean/unlock) from any leftover mutexes.

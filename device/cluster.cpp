@@ -524,8 +524,6 @@ Cluster::Cluster(
         add_chip(
             chip_id,
             construct_chip_from_cluster(chip_id, cluster_desc.get(), perform_harvesting, simulated_harvesting_masks));
-        // log_info(LogSiliconDriver, "Added chip {} to cluster with harvesting {}.",
-        // chips_.at(chip_id)->get_soc_descriptor().tensix_harvesting_mask);
     }
 
     // TODO: work on removing this member altogether. Currently assumes all have the same arch.

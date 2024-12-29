@@ -61,6 +61,8 @@ inline std::string &trim(std::string &s, const char *t = ws) { return ltrim(rtri
 
 void tt_SocDescriptor::load_soc_features_from_device_descriptor(YAML::Node &device_descriptor_yaml) {
     overlay_version = device_descriptor_yaml["features"]["overlay"]["version"].as<int>();
+    // TODO: Check whether this is a valid value, and whether it is used.
+    // Also check if this is the same thing as noc_translation in cluster descriptor.
     noc_translation_id_enabled =
         device_descriptor_yaml["features"]["noc"] && device_descriptor_yaml["features"]["noc"]["translation_id_enabled"]
             ? device_descriptor_yaml["features"]["noc"]["translation_id_enabled"].as<bool>()

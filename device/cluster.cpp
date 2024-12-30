@@ -3381,7 +3381,8 @@ tt::umd::CoreCoord Cluster::translate_chip_coord(
 }
 
 tt_xy_pair Cluster::translate_chip_coord_virtual_to_translated(const chip_id_t chip_id, const tt_xy_pair core) const {
-    return translate_chip_coord(chip_id, {core, CoreType::TENSIX, CoordSystem::VIRTUAL}, CoordSystem::TRANSLATED);
+    CoreCoord virtual_coord = get_soc_descriptor(chip_id).get_coord_at(core, CoordSystem::VIRTUAL);
+    return (tt_xy_pair)translate_chip_coord(chip_id, virtual_coord, CoordSystem::TRANSLATED);
 }
 
 }  // namespace tt::umd

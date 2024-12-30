@@ -171,6 +171,7 @@ void tt_SocDescriptor::load_core_descriptors_from_device_descriptor(YAML::Node &
         core_descriptor.coord = format_node(core_string);
         core_descriptor.type = CoreType::ROUTER_ONLY;
         cores.insert({core_descriptor.coord, core_descriptor});
+        router_cores.push_back(core_descriptor.coord);
     }
 }
 
@@ -216,7 +217,8 @@ void tt_SocDescriptor::create_coordinate_manager(
         arc_grid_size,
         arc_cores,
         pcie_grid_size,
-        pcie_cores);
+        pcie_cores,
+        router_cores);
     get_cores_and_grid_size_from_coordinate_manager();
 }
 

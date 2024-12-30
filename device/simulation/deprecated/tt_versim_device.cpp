@@ -39,7 +39,7 @@ void translate_soc_descriptor_to_ca_soc(CA::Soc& soc, const tt_SocDescriptor soc
             case CoreType::PCIE:
                 node.pcie = true;
                 break;
-            case CoreType::WORKER:
+            case CoreType::TENSIX:
                 node.worker = true;
                 break;
             case CoreType::HARVESTED:

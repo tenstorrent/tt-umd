@@ -624,7 +624,7 @@ TEST(CoordinateManager, CoordinateManagerBlackholePhysicalLayoutTensixHarvesting
 
 TEST(CoordinateManager, CoordinateManagerBlackholeGettingCoreType) {
     std::shared_ptr<CoordinateManager> coordinate_manager =
-        CoordinateManager::create_coordinate_manager(tt::ARCH::BLACKHOLE);
+        CoordinateManager::create_coordinate_manager(tt::ARCH::BLACKHOLE, true);
 
     EXPECT_EQ(coordinate_manager->get_coord_at({0, 0}, CoordSystem::PHYSICAL).core_type, CoreType::DRAM);
     EXPECT_EQ(coordinate_manager->get_coord_at({0, 0}, CoordSystem::VIRTUAL).core_type, CoreType::DRAM);

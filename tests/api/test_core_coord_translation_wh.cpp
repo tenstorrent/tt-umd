@@ -382,7 +382,7 @@ TEST(CoordinateManager, CoordinateManagerWormholePhysicalLayoutTensixHarvestingM
 
 TEST(CoordinateManager, CoordinateManagerWormholeGettingCoreType) {
     std::shared_ptr<CoordinateManager> coordinate_manager =
-        CoordinateManager::create_coordinate_manager(tt::ARCH::WORMHOLE_B0);
+        CoordinateManager::create_coordinate_manager(tt::ARCH::WORMHOLE_B0, true);
 
     EXPECT_EQ(coordinate_manager->get_coord_at({0, 0}, CoordSystem::PHYSICAL).core_type, CoreType::DRAM);
     EXPECT_EQ(coordinate_manager->get_coord_at({0, 0}, CoordSystem::VIRTUAL).core_type, CoreType::DRAM);

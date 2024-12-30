@@ -326,7 +326,7 @@ TEST(CoordinateManager, CoordinateManagerGrayskullPhysicalLayoutTensixHarvesting
 
 TEST(CoordinateManager, CoordinateManagerGrayskullGettingCoreType) {
     std::shared_ptr<CoordinateManager> coordinate_manager =
-        CoordinateManager::create_coordinate_manager(tt::ARCH::GRAYSKULL);
+        CoordinateManager::create_coordinate_manager(tt::ARCH::GRAYSKULL, false);
 
     EXPECT_EQ(coordinate_manager->get_coord_at({0, 0}, CoordSystem::PHYSICAL).core_type, CoreType::ROUTER_ONLY);
     EXPECT_EQ(coordinate_manager->get_coord_at({0, 0}, CoordSystem::VIRTUAL).core_type, CoreType::ROUTER_ONLY);

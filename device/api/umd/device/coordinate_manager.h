@@ -16,6 +16,9 @@
 
 class CoordinateManager {
 public:
+    CoordinateManager(CoordinateManager& other) = default;
+    virtual ~CoordinateManager() = default;
+
     static std::shared_ptr<CoordinateManager> create_coordinate_manager(
         tt::ARCH arch,
         const tt_xy_pair& tensix_grid_size,
@@ -30,7 +33,8 @@ public:
         const tt_xy_pair& arc_grid_size,
         const std::vector<tt_xy_pair>& arc_cores,
         const tt_xy_pair& pcie_grid_size,
-        const std::vector<tt_xy_pair>& pcie_cores);
+        const std::vector<tt_xy_pair>& pcie_cores,
+        const std::vector<tt_xy_pair>& router_cores);
 
     static std::shared_ptr<CoordinateManager> create_coordinate_manager(
         tt::ARCH arch,
@@ -39,12 +43,10 @@ public:
         const size_t eth_harvesting_mask = 0);
 
     static size_t get_num_harvested(const size_t harvesting_mask);
-
     static std::vector<size_t> get_harvested_indices(const size_t harvesting_mask);
 
-    CoordinateManager(CoordinateManager& other) = default;
-
     tt::umd::CoreCoord translate_coord_to(const tt::umd::CoreCoord core_coord, const CoordSystem coord_system);
+    tt::umd::CoreCoord get_coord_at(const tt_xy_pair& physical_pair, const CoordSystem coord_system);
 
     std::vector<tt::umd::CoreCoord> get_cores(const CoreType core_type) const;
     tt_xy_pair get_grid_size(const CoreType core_type) const;
@@ -52,12 +54,8 @@ public:
     std::vector<tt::umd::CoreCoord> get_harvested_cores(const CoreType core_type) const;
     tt_xy_pair get_harvested_grid_size(const CoreType core_type) const;
 
-    virtual ~CoordinateManager() = default;
-
     size_t get_tensix_harvesting_mask() const;
-
     size_t get_dram_harvesting_mask() const;
-
     size_t get_eth_harvesting_mask() const;
 
 private:
@@ -71,6 +69,7 @@ protected:
      * returned from create-ethernet-map, so each bit is responsible for one row of the actual physical
      * row of the tensix cores on the chip. Harvesting mask is shuffled in constructor to match the NOC
      * layout of the tensix cores.
+     * Router cores don't have a grid size, since they are not layed out in a regular fashion.
      */
     CoordinateManager(
         const tt_xy_pair& tensix_grid_size,
@@ -85,7 +84,8 @@ protected:
         const tt_xy_pair& arc_grid_size,
         const std::vector<tt_xy_pair>& arc_cores,
         const tt_xy_pair& pcie_grid_size,
-        const std::vector<tt_xy_pair>& pcie_cores);
+        const std::vector<tt_xy_pair>& pcie_cores,
+        const std::vector<tt_xy_pair>& router_cores);
 
     void initialize();
 
@@ -98,6 +98,7 @@ protected:
     virtual void translate_eth_coords();
     virtual void translate_arc_coords();
     virtual void translate_pcie_coords();
+    virtual void translate_router_coords();
 
     void identity_map_physical_cores();
     void add_core_translation(const tt::umd::CoreCoord& core_coord, const tt_xy_pair& physical_pair);
@@ -180,4 +181,7 @@ protected:
 
     tt_xy_pair pcie_grid_size;
     const std::vector<tt_xy_pair> pcie_cores;
+
+    // Router cores don't have a grid size, since they are not layed out in a regular fashion.
+    const std::vector<tt_xy_pair> router_cores;
 };

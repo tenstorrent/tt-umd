@@ -98,6 +98,7 @@ public:
     std::unordered_map<tt_xy_pair, int> ethernet_core_channel_map;
     std::vector<std::size_t> trisc_sizes;  // Most of software stack assumes same trisc size for whole chip..
     std::string device_descriptor_file_path = std::string("");
+    std::vector<tt_xy_pair> router_cores;
 
     int overlay_version;
     int unpacker_version;

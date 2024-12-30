@@ -21,7 +21,8 @@ WormholeCoordinateManager::WormholeCoordinateManager(
     const tt_xy_pair& arc_grid_size,
     const std::vector<tt_xy_pair>& arc_cores,
     const tt_xy_pair& pcie_grid_size,
-    const std::vector<tt_xy_pair>& pcie_cores) :
+    const std::vector<tt_xy_pair>& pcie_cores,
+    const std::vector<tt_xy_pair>& router_cores) :
     CoordinateManager(
         noc_translation_enabled,
         tensix_grid_size,
@@ -36,7 +37,8 @@ WormholeCoordinateManager::WormholeCoordinateManager(
         arc_grid_size,
         arc_cores,
         pcie_grid_size,
-        pcie_cores) {
+        pcie_cores,
+        router_cores) {
     initialize();
 }
 

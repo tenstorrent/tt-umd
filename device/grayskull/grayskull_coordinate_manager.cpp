@@ -22,7 +22,8 @@ GrayskullCoordinateManager::GrayskullCoordinateManager(
     const tt_xy_pair& arc_grid_size,
     const std::vector<tt_xy_pair>& arc_cores,
     const tt_xy_pair& pcie_grid_size,
-    const std::vector<tt_xy_pair>& pcie_cores) :
+    const std::vector<tt_xy_pair>& pcie_cores,
+    const std::vector<tt_xy_pair>& router_cores) :
     CoordinateManager(
         false,
         tensix_grid_size,
@@ -37,7 +38,8 @@ GrayskullCoordinateManager::GrayskullCoordinateManager(
         arc_grid_size,
         arc_cores,
         pcie_grid_size,
-        pcie_cores) {
+        pcie_cores,
+        router_cores) {
     initialize();
 }
 

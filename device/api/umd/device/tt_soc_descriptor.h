@@ -125,9 +125,9 @@ private:
     // is not needed anymore. Soc descriptor and coordinate manager should be
     // created once per chip.
     std::shared_ptr<CoordinateManager> coordinate_manager = nullptr;
-    mutable std::map<CoreType, std::vector<tt::umd::CoreCoord>> cores_map;
+    std::map<CoreType, std::vector<tt::umd::CoreCoord>> cores_map;
     std::map<CoreType, tt_xy_pair> grid_size_map;
-    mutable std::map<CoreType, std::vector<tt::umd::CoreCoord>> harvested_cores_map;
+    std::map<CoreType, std::vector<tt::umd::CoreCoord>> harvested_cores_map;
     std::map<CoreType, tt_xy_pair> harvested_grid_size_map;
 
     // DRAM cores are kept in additional vector struct since one DRAM bank

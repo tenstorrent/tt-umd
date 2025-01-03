@@ -33,7 +33,7 @@ TEST(SocDescriptor, SocDescriptorGrayskullNoHarvesting) {
 TEST(SocDescriptor, SocDescriptorGrayskullOneRowHarvesting) {
     const tt_xy_pair grayskull_tensix_grid_size = tt::umd::grayskull::TENSIX_GRID_SIZE;
     const std::vector<tt_xy_pair> grayskull_tensix_cores = tt::umd::grayskull::TENSIX_CORES;
-    const size_t harvesting_mask = (1 << tt::umd::grayskull::LOGICAL_HARVESTING_LAYOUT[0]);
+    const size_t harvesting_mask = (1 << 0);
 
     tt_SocDescriptor soc_desc(test_utils::GetAbsPath("tests/soc_descs/grayskull_10x12.yaml"), harvesting_mask);
 
@@ -101,7 +101,7 @@ TEST(SocDescriptor, SocDescriptorWormholeDRAM) {
 TEST(SocDescriptor, SocDescriptorWormholeOneRowHarvesting) {
     const tt_xy_pair wormhole_tensix_grid_size = tt::umd::wormhole::TENSIX_GRID_SIZE;
     const std::vector<tt_xy_pair> wormhole_tensix_cores = tt::umd::wormhole::TENSIX_CORES;
-    const size_t harvesting_mask = (1 << tt::umd::wormhole::LOGICAL_HARVESTING_LAYOUT[0]);
+    const size_t harvesting_mask = (1 << 0);
 
     tt_SocDescriptor soc_desc(test_utils::GetAbsPath("tests/soc_descs/wormhole_b0_8x10.yaml"), harvesting_mask);
 

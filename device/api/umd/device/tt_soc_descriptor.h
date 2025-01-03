@@ -55,40 +55,6 @@ public:
         const size_t dram_harvesting_mask = 0,
         const size_t eth_harvesting_mask = 0);
 
-    // Copy constructor
-    tt_SocDescriptor(const tt_SocDescriptor &other) :
-        arch(other.arch),
-        grid_size(other.grid_size),
-        worker_grid_size(other.worker_grid_size),
-        cores(other.cores),
-        arc_cores(other.arc_cores),
-        workers(other.workers),
-        harvested_workers(other.harvested_workers),
-        pcie_cores(other.pcie_cores),
-        worker_log_to_routing_x(other.worker_log_to_routing_x),
-        worker_log_to_routing_y(other.worker_log_to_routing_y),
-        routing_x_to_worker_x(other.routing_x_to_worker_x),
-        routing_y_to_worker_y(other.routing_y_to_worker_y),
-        dram_cores(other.dram_cores),
-        dram_core_channel_map(other.dram_core_channel_map),
-        ethernet_cores(other.ethernet_cores),
-        ethernet_core_channel_map(other.ethernet_core_channel_map),
-        trisc_sizes(other.trisc_sizes),
-        device_descriptor_file_path(other.device_descriptor_file_path),
-        overlay_version(other.overlay_version),
-        unpacker_version(other.unpacker_version),
-        dst_size_alignment(other.dst_size_alignment),
-        packer_version(other.packer_version),
-        worker_l1_size(other.worker_l1_size),
-        eth_l1_size(other.eth_l1_size),
-        noc_translation_id_enabled(other.noc_translation_id_enabled),
-        dram_bank_size(other.dram_bank_size),
-        coordinate_manager(other.coordinate_manager),
-        cores_map(other.cores_map),
-        grid_size_map(other.grid_size_map),
-        harvested_cores_map(other.harvested_cores_map),
-        harvested_grid_size_map(other.harvested_grid_size_map) {}
-
     // CoreCoord conversions.
     tt::umd::CoreCoord translate_coord_to(const tt::umd::CoreCoord core_coord, const CoordSystem coord_system) const;
 
@@ -140,6 +106,7 @@ public:
     int eth_l1_size;
     bool noc_translation_id_enabled;
     uint64_t dram_bank_size;
+    uint32_t tensix_harvesting_mask;
 
 private:
     void create_coordinate_manager(

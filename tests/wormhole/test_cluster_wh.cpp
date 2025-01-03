@@ -108,6 +108,15 @@ TEST(SiliconDriverWH, Harvesting) {
     Cluster cluster = Cluster(num_host_mem_ch_per_mmio_device, false, true, true, simulated_harvesting_masks);
     auto sdesc_per_chip = cluster.get_virtual_soc_descriptors();
 
+    // Real harvesting info on this system will be forcefully included in the harvesting mask.
+    std::unordered_map<chip_id_t, std::uint32_t> harvesting_info =
+        cluster.get_cluster_description()->get_harvesting_info();
+    for (int i = 0; i < num_devices; i++) {
+        uint32_t harvesting_mask_logical =
+            CoordinateManager::shuffle_tensix_harvesting_mask(tt::ARCH::WORMHOLE_B0, harvesting_info.at(i));
+        simulated_harvesting_masks[i] |= harvesting_mask_logical;
+    }
+
     ASSERT_EQ(cluster.using_harvested_soc_descriptors(), true) << "Expected Driver to have performed harvesting";
 
     for (const auto& chip : sdesc_per_chip) {
@@ -115,8 +124,17 @@ TEST(SiliconDriverWH, Harvesting) {
             << "Expected SOC descriptor with harvesting to have 48 workers for chip" << chip.first;
     }
     for (int i = 0; i < num_devices; i++) {
-        ASSERT_EQ(cluster.get_harvesting_masks_for_soc_descriptors().at(i), simulated_harvesting_masks.at(i))
+        // harvesting info stored in soc descriptor is in logical coordinates.
+        ASSERT_EQ(cluster.get_soc_descriptor(i).tensix_harvesting_mask, simulated_harvesting_masks.at(i))
             << "Expecting chip " << i << " to have harvesting mask of " << simulated_harvesting_masks.at(i);
+
+        // get_harvesting_masks_for_soc_descriptors will return harvesting info in noc0 coordinates.
+        simulated_harvesting_masks[i] = CoordinateManager::shuffle_tensix_harvesting_mask_to_noc0_coords(
+            tt::ARCH::WORMHOLE_B0, simulated_harvesting_masks[i]);
+        ASSERT_EQ(
+            cluster.get_harvesting_masks_for_soc_descriptors().at(i) & simulated_harvesting_masks.at(i),
+            simulated_harvesting_masks.at(i))
+            << "Expecting chip " << i << " to give noc0 harvesting mask of " << simulated_harvesting_masks.at(i);
     }
 }
 

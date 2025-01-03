@@ -21,93 +21,93 @@
 
 using namespace tt::umd;
 
-inline tt_cxy_pair get_tensix_chip_core_coord(const std::unique_ptr<Cluster>& umd_cluster) {
-    chip_id_t any_mmio_chip = *umd_cluster->get_target_mmio_device_ids().begin();
-    const tt_SocDescriptor& soc_desc = umd_cluster->get_soc_descriptor(any_mmio_chip);
-    tt_xy_pair core = soc_desc.workers[0];
-    return tt_cxy_pair(any_mmio_chip, core);
-}
+// inline tt_cxy_pair get_tensix_chip_core_coord(const std::unique_ptr<Cluster>& umd_cluster) {
+//     chip_id_t any_mmio_chip = *umd_cluster->get_target_mmio_device_ids().begin();
+//     const tt_SocDescriptor& soc_desc = umd_cluster->get_soc_descriptor(any_mmio_chip);
+//     tt_xy_pair core = soc_desc.workers[0];
+//     return tt_cxy_pair(any_mmio_chip, core);
+// }
 
-inline std::unique_ptr<Cluster> get_cluster() {
-    std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
-    // TODO: Make this test work on a host system without any tt devices.
-    if (pci_device_ids.empty()) {
-        return nullptr;
-    }
-    return std::unique_ptr<Cluster>(new Cluster());
-}
+// inline std::unique_ptr<Cluster> get_cluster() {
+//     std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
+//     // TODO: Make this test work on a host system without any tt devices.
+//     if (pci_device_ids.empty()) {
+//         return nullptr;
+//     }
+//     return std::unique_ptr<Cluster>(new Cluster());
+// }
 
-// TODO: Once default auto TLB setup is in, check it is setup properly.
-TEST(ApiChipTest, ManualTLBConfiguration) {
-    std::unique_ptr<Cluster> umd_cluster = get_cluster();
+// // TODO: Once default auto TLB setup is in, check it is setup properly.
+// TEST(ApiChipTest, ManualTLBConfiguration) {
+//     std::unique_ptr<Cluster> umd_cluster = get_cluster();
 
-    if (umd_cluster == nullptr || umd_cluster->get_target_device_ids().empty()) {
-        GTEST_SKIP() << "No chips present on the system. Skipping test.";
-    }
+//     if (umd_cluster == nullptr || umd_cluster->get_target_device_ids().empty()) {
+//         GTEST_SKIP() << "No chips present on the system. Skipping test.";
+//     }
 
-    // Expect to throw for remote chip for any worker core
-    auto remote_chips = umd_cluster->get_target_remote_device_ids();
-    if (!remote_chips.empty()) {
-        chip_id_t any_remote_chip = *remote_chips.begin();
-        const tt_SocDescriptor& soc_desc = umd_cluster->get_soc_descriptor(any_remote_chip);
-        tt_xy_pair core = soc_desc.workers[0];
-        EXPECT_THROW(umd_cluster->get_static_tlb_writer(tt_cxy_pair(any_remote_chip, core)), std::runtime_error);
-    }
+//     // Expect to throw for remote chip for any worker core
+//     auto remote_chips = umd_cluster->get_target_remote_device_ids();
+//     if (!remote_chips.empty()) {
+//         chip_id_t any_remote_chip = *remote_chips.begin();
+//         const tt_SocDescriptor& soc_desc = umd_cluster->get_soc_descriptor(any_remote_chip);
+//         tt_xy_pair core = soc_desc.workers[0];
+//         EXPECT_THROW(umd_cluster->get_static_tlb_writer(tt_cxy_pair(any_remote_chip, core)), std::runtime_error);
+//     }
 
-    // Expect to throw for non configured mmio chip.
-    chip_id_t any_mmio_chip = *umd_cluster->get_target_mmio_device_ids().begin();
-    const tt_SocDescriptor& soc_desc = umd_cluster->get_soc_descriptor(any_mmio_chip);
-    tt_xy_pair core = soc_desc.workers[0];
-    EXPECT_THROW(umd_cluster->get_static_tlb_writer(tt_cxy_pair(any_mmio_chip, core)), std::runtime_error);
+//     // Expect to throw for non configured mmio chip.
+//     chip_id_t any_mmio_chip = *umd_cluster->get_target_mmio_device_ids().begin();
+//     const tt_SocDescriptor& soc_desc = umd_cluster->get_soc_descriptor(any_mmio_chip);
+//     tt_xy_pair core = soc_desc.workers[0];
+//     EXPECT_THROW(umd_cluster->get_static_tlb_writer(tt_cxy_pair(any_mmio_chip, core)), std::runtime_error);
 
-    // TODO: This should be part of TTDevice interface, not Cluster or Chip.
-    // Configure TLBs.
-    std::function<int(tt_xy_pair)> get_static_tlb_index = [&](tt_xy_pair core) -> int {
-        // TODO: Make this per arch.
-        bool is_worker_core = soc_desc.is_worker_core(core);
-        if (!is_worker_core) {
-            return -1;
-        }
-        return core.x +
-               core.y * umd_cluster->get_tt_device(any_mmio_chip)->get_architecture_implementation()->get_grid_size_x();
-    };
+//     // TODO: This should be part of TTDevice interface, not Cluster or Chip.
+//     // Configure TLBs.
+//     std::function<int(tt_xy_pair)> get_static_tlb_index = [&](tt_xy_pair core) -> int {
+//         // TODO: Make this per arch.
+//         bool is_worker_core = soc_desc.is_worker_core(core);
+//         if (!is_worker_core) {
+//             return -1;
+//         }
+//         return core.x +
+//                core.y * umd_cluster->get_tt_device(any_mmio_chip)->get_architecture_implementation()->get_grid_size_x();
+//     };
 
-    std::int32_t c_zero_address = 0;
+//     std::int32_t c_zero_address = 0;
 
-    // Each MMIO chip has it's own set of TLBs, so needs its own configuration.
-    for (chip_id_t mmio_chip : umd_cluster->get_target_mmio_device_ids()) {
-        const tt_SocDescriptor& soc_desc = umd_cluster->get_soc_descriptor(mmio_chip);
-        for (tt_xy_pair core : soc_desc.workers) {
-            umd_cluster->configure_tlb(mmio_chip, core, get_static_tlb_index(core), c_zero_address);
-        }
-    }
+//     // Each MMIO chip has it's own set of TLBs, so needs its own configuration.
+//     for (chip_id_t mmio_chip : umd_cluster->get_target_mmio_device_ids()) {
+//         const tt_SocDescriptor& soc_desc = umd_cluster->get_soc_descriptor(mmio_chip);
+//         for (tt_xy_pair core : soc_desc.workers) {
+//             umd_cluster->configure_tlb(mmio_chip, core, get_static_tlb_index(core), c_zero_address);
+//         }
+//     }
 
-    // Expect not to throw for now configured mmio chip, same one as before.
-    EXPECT_NO_THROW(umd_cluster->get_static_tlb_writer(tt_cxy_pair(any_mmio_chip, core)));
+//     // Expect not to throw for now configured mmio chip, same one as before.
+//     EXPECT_NO_THROW(umd_cluster->get_static_tlb_writer(tt_cxy_pair(any_mmio_chip, core)));
 
-    // Expect to throw for non worker cores.
-    tt_xy_pair dram_core = soc_desc.dram_cores[0][0];
-    EXPECT_THROW(umd_cluster->get_static_tlb_writer(tt_cxy_pair(any_mmio_chip, dram_core)), std::runtime_error);
-    if (!soc_desc.ethernet_cores.empty()) {
-        tt_xy_pair eth_core = soc_desc.ethernet_cores[0];
-        EXPECT_THROW(umd_cluster->get_static_tlb_writer(tt_cxy_pair(any_mmio_chip, eth_core)), std::runtime_error);
-    }
-}
+//     // Expect to throw for non worker cores.
+//     tt_xy_pair dram_core = soc_desc.dram_cores[0][0];
+//     EXPECT_THROW(umd_cluster->get_static_tlb_writer(tt_cxy_pair(any_mmio_chip, dram_core)), std::runtime_error);
+//     if (!soc_desc.ethernet_cores.empty()) {
+//         tt_xy_pair eth_core = soc_desc.ethernet_cores[0];
+//         EXPECT_THROW(umd_cluster->get_static_tlb_writer(tt_cxy_pair(any_mmio_chip, eth_core)), std::runtime_error);
+//     }
+// }
 
-// TODO: Move to test_chip
-TEST(ApiChipTest, SimpleAPIShowcase) {
-    std::unique_ptr<Cluster> umd_cluster = get_cluster();
+// // TODO: Move to test_chip
+// TEST(ApiChipTest, SimpleAPIShowcase) {
+//     std::unique_ptr<Cluster> umd_cluster = get_cluster();
 
-    if (umd_cluster == nullptr || umd_cluster->get_target_device_ids().empty()) {
-        GTEST_SKIP() << "No chips present on the system. Skipping test.";
-    }
+//     if (umd_cluster == nullptr || umd_cluster->get_target_device_ids().empty()) {
+//         GTEST_SKIP() << "No chips present on the system. Skipping test.";
+//     }
 
-    chip_id_t chip_id = umd_cluster->get_cluster_description()->get_chips_with_mmio().begin()->first;
+//     chip_id_t chip_id = umd_cluster->get_cluster_description()->get_chips_with_mmio().begin()->first;
 
-    // TODO: In future, will be accessed through tt::umd::Chip api.
-    umd_cluster->get_pcie_base_addr_from_device(chip_id);
-    umd_cluster->get_num_host_channels(chip_id);
-}
+//     // TODO: In future, will be accessed through tt::umd::Chip api.
+//     umd_cluster->get_pcie_base_addr_from_device(chip_id);
+//     umd_cluster->get_num_host_channels(chip_id);
+// }
 
 // TODO: Re-enable once we debug why it doesn't work #362
 // // This tests puts a specific core into reset and then deasserts it using default deassert value

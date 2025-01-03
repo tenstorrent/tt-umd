@@ -54,7 +54,7 @@ enum BlackholeArcMessageQueueIndex : uint8_t {
     APPLICATION = 3,
 };
 
-constexpr uint64_t QUEUE_CONTROL_BLOCK_ADDR = 0x10000400;
+constexpr uint64_t QUEUE_CONTROL_BLOCK_ADDR = 268485548;
 
 }  // namespace blackhole
 

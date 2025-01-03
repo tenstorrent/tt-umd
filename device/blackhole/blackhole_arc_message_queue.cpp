@@ -43,6 +43,7 @@ void BlackholeArcMessageQueue::create_request(
 }
 
 void BlackholeArcMessageQueue::push_request(uint32_t* request) {
+    std::cout << "push request" << std::endl;
     // TODO: add check for the length of the request.
     if (sizeof(request) != BlackholeArcMessageQueue::entry_len) {
         throw std::runtime_error(
@@ -51,9 +52,12 @@ void BlackholeArcMessageQueue::push_request(uint32_t* request) {
 
     uint32_t request_queue_wptr = read_word(request_wptr_offset);
 
+    std::cout << "request_queue_wptr " << request_queue_wptr << std::endl;
+
     while (true) {
         uint32_t request_queue_rptr = read_word(request_rptr_offset);
         if (abs((int)request_queue_rptr - (int)request_queue_wptr) % (2 * size) != size) {
+            std::cout << "request_queue_rptr " << request_queue_rptr << std::endl;
             break;
         }
 
@@ -62,6 +66,7 @@ void BlackholeArcMessageQueue::push_request(uint32_t* request) {
 
     // Offset in words.
     uint32_t request_entry_offset = header_len + (request_queue_wptr % size) * BlackholeArcMessageQueue::entry_len;
+    std::cout << "request entry offset " << request_entry_offset << std::endl;
     write_words(request, BlackholeArcMessageQueue::entry_len, request_entry_offset);
 
     request_queue_wptr = (request_queue_wptr + 1) % (2 * size);
@@ -141,6 +146,8 @@ std::shared_ptr<BlackholeArcMessageQueue> BlackholeArcMessageQueue::get_blackhol
     std::cout << "queue_base_addr: " << queue_base_addr << std::endl;
     std::cout << "num_entries_per_queue: " << num_entries_per_queue << std::endl;
     std::cout << "num_queues: " << num_queues << std::endl;
+
+    std::cout << "msg queue base " << msg_queue_base << std::endl;
 
     return std::make_shared<tt::umd::BlackholeArcMessageQueue>(cluster, chip, msg_queue_base, num_entries_per_queue);
 }

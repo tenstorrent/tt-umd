@@ -359,7 +359,7 @@ static inline std::vector<destination_t> generate_core_index_locations(
     std::vector<destination_t> core_index_to_location = {};
 
     for (chip_id_t chip : cluster_desc.get_all_chips()) {
-        for (auto const& dram_channel_cores : soc_desc.dram_cores) {
+        for (auto const& dram_channel_cores : soc_desc.get_dram_cores()) {
             for (tt_xy_pair const& dram_core : dram_channel_cores) {
                 core_index_to_location.push_back({static_cast<std::size_t>(chip), dram_core.x, dram_core.y});
             }

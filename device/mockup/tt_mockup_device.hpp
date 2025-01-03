@@ -15,7 +15,7 @@
 class tt_MockupDevice : public tt_device {
 public:
     tt_MockupDevice(const std::string& sdesc_path) : tt_device() {
-        soc_descriptor_per_chip.emplace(0, tt_SocDescriptor(sdesc_path));
+        soc_descriptor_per_chip.emplace(0, tt_SocDescriptor(sdesc_path, false));
         std::set<chip_id_t> target_devices = {0};
     }
 

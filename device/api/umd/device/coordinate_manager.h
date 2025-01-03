@@ -18,6 +18,7 @@ class CoordinateManager {
 public:
     static std::shared_ptr<CoordinateManager> create_coordinate_manager(
         tt::ARCH arch,
+        const bool noc_translation_enabled,
         const tt_xy_pair& tensix_grid_size,
         const std::vector<tt_xy_pair>& tensix_cores,
         const size_t tensix_harvesting_mask,
@@ -34,6 +35,7 @@ public:
 
     static std::shared_ptr<CoordinateManager> create_coordinate_manager(
         tt::ARCH arch,
+        const bool noc_translation_enabled,
         const size_t tensix_harvesting_mask = 0,
         const size_t dram_harvesting_mask = 0,
         const size_t eth_harvesting_mask = 0);
@@ -80,6 +82,7 @@ protected:
      * layout of the tensix cores.
      */
     CoordinateManager(
+        const bool noc_translation_enabled,
         const tt_xy_pair& tensix_grid_size,
         const std::vector<tt_xy_pair>& tensix_cores,
         const size_t tensix_harvesting_mask,
@@ -121,13 +124,23 @@ protected:
     virtual tt_xy_pair get_harvested_eth_grid_size() const;
 
     /*
-     * Fills the logical to translated mapping for the tensix cores.
+     * By default, translated coordinates are the same as physical coordinates.
+     * This will be true for all architectures if noc_translation_enabled is false.
+     */
+    void fill_tensix_default_physical_translated_mapping();
+    void fill_eth_default_physical_translated_mapping();
+    void fill_dram_default_physical_translated_mapping();
+    void fill_pcie_default_physical_translated_mapping();
+    void fill_arc_default_physical_translated_mapping();
+
+    /*
+     * Fills the physical to translated mapping for the tensix cores.
      * By default, translated coordinates are the same as physical coordinates.
      * Derived coordinate managers that need to implement different mapping
      * should override this method. Wormhole and Blackhole coordinate managers
      * override this method to implement different mapping.
      */
-    virtual void fill_tensix_physical_translated_mapping();
+    virtual void fill_tensix_physical_translated_mapping() = 0;
 
     /*
      * Fills the physical to translated mapping for the ethernet cores.
@@ -136,7 +149,7 @@ protected:
      * should override this method. Wormhole and Blackhole coordinate managers
      * override this method to implement different mapping.
      */
-    virtual void fill_eth_physical_translated_mapping();
+    virtual void fill_eth_physical_translated_mapping() = 0;
 
     /*
      * Fills the physical to translated mapping for the DRAM cores.
@@ -145,7 +158,7 @@ protected:
      * should override this method. Blackhole coordinate manager overrides
      * this method to implement different mapping.
      */
-    virtual void fill_dram_physical_translated_mapping();
+    virtual void fill_dram_physical_translated_mapping() = 0;
 
     /*
      * Fills the physical to translated mapping for the PCIE cores.
@@ -154,7 +167,7 @@ protected:
      * should override this method. Blackhole coordinate manager overrides
      * this method to implement different mapping.
      */
-    virtual void fill_pcie_physical_translated_mapping();
+    virtual void fill_pcie_physical_translated_mapping() = 0;
 
     /*
      * Fills the physical to translated mapping for the ARC cores.
@@ -162,10 +175,16 @@ protected:
      * Derived coordinate managers that need to implement different mapping
      * should override this method.
      */
-    virtual void fill_arc_physical_translated_mapping();
+    virtual void fill_arc_physical_translated_mapping() = 0;
 
     std::map<tt::umd::CoreCoord, tt_xy_pair> to_physical_map;
     std::map<std::pair<tt_xy_pair, CoordSystem>, tt::umd::CoreCoord> from_physical_map;
+
+    // Whether NOC translation is enabled.
+    // Effectivelly, when this is enabled, we can interface NOC with Virtual coordinates (on wormhole, translated by
+    // some constant). If not, Physical should be used. This will be implemented through Translated coordinates, so the
+    // user can always use those to interface with NOC.
+    bool noc_translation_enabled;
 
     tt_xy_pair tensix_grid_size;
     const std::vector<tt_xy_pair> tensix_cores;

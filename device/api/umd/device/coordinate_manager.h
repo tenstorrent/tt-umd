@@ -13,9 +13,15 @@
 #include "umd/device/tt_core_coordinates.h"
 #include "umd/device/tt_xy_pair.h"
 #include "umd/device/types/arch.h"
+#include "umd/device/types/cluster_descriptor_types.h"
 
 class CoordinateManager {
 public:
+    /*
+     * Creates a Coordinate Manager object.
+     * Board type and is_chip_remote are used only for Blackhole, since PCIe cores are different
+     * for different boards and whether the chip is remote or not.
+     */
     static std::shared_ptr<CoordinateManager> create_coordinate_manager(
         tt::ARCH arch,
         const tt_xy_pair& tensix_grid_size,
@@ -36,7 +42,9 @@ public:
         tt::ARCH arch,
         const size_t tensix_harvesting_mask = 0,
         const size_t dram_harvesting_mask = 0,
-        const size_t eth_harvesting_mask = 0);
+        const size_t eth_harvesting_mask = 0,
+        const BoardType board_type = BoardType::UNKNOWN,
+        const bool is_chip_remote = false);
 
     static size_t get_num_harvested(const size_t harvesting_mask);
 

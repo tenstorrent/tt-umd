@@ -453,6 +453,9 @@ std::vector<tt::umd::CoreCoord> CoordinateManager::get_harvested_cores(const Cor
             return get_harvested_dram_cores();
         case CoreType::ETH:
             return get_harvested_eth_cores();
+        case CoreType::ARC:
+        case CoreType::PCIE:
+            return {};
         default:
             throw std::runtime_error("Core type is not supported for getting harvested cores");
     }
@@ -474,6 +477,9 @@ tt_xy_pair CoordinateManager::get_harvested_grid_size(const CoreType core_type) 
             return get_harvested_dram_grid_size();
         case CoreType::ETH:
             return get_harvested_eth_grid_size();
+        case CoreType::ARC:
+        case CoreType::PCIE:
+            return {0, 0};
         default:
             throw std::runtime_error("Core type is not supported for getting harvested grid size");
     }

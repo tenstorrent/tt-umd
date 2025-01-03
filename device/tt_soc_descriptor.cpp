@@ -14,6 +14,7 @@
 
 #include "api/umd/device/tt_soc_descriptor.h"
 #include "fmt/core.h"
+#include "logger.hpp"
 #include "utils.hpp"
 #include "yaml-cpp/yaml.h"
 
@@ -315,6 +316,12 @@ void tt_SocDescriptor::get_cores_and_grid_size_from_coordinate_manager() {
     harvested_cores_map.insert({CoreType::ETH, coordinate_manager->get_harvested_cores(CoreType::ETH)});
     harvested_grid_size_map.insert({CoreType::ETH, coordinate_manager->get_harvested_grid_size(CoreType::ETH)});
 
+    harvested_cores_map.insert({CoreType::ARC, coordinate_manager->get_harvested_cores(CoreType::ARC)});
+    harvested_grid_size_map.insert({CoreType::ARC, coordinate_manager->get_harvested_grid_size(CoreType::ARC)});
+
+    harvested_cores_map.insert({CoreType::PCIE, coordinate_manager->get_harvested_cores(CoreType::PCIE)});
+    harvested_grid_size_map.insert({CoreType::PCIE, coordinate_manager->get_harvested_grid_size(CoreType::PCIE)});
+
     const std::vector<CoreCoord> dram_cores = cores_map.at(CoreType::DRAM);
     const tt_xy_pair dram_grid_size = grid_size_map.at(CoreType::DRAM);
 
@@ -337,31 +344,37 @@ void tt_SocDescriptor::get_cores_and_grid_size_from_coordinate_manager() {
     }
 }
 
-std::vector<tt::umd::CoreCoord> tt_SocDescriptor::get_cores(const CoreType core_type) const {
-    if (cores_map.find(core_type) == cores_map.end()) {
-        return {};
+std::vector<CoreCoord> tt_SocDescriptor::translate_coordinates(
+    const std::vector<CoreCoord> &physical_cores, const CoordSystem coord_system) const {
+    std::vector<CoreCoord> translated_cores;
+    for (const auto &core : physical_cores) {
+        translated_cores.push_back(translate_coord_to(core, coord_system));
     }
-    return cores_map.at(core_type);
+    return translated_cores;
 }
 
-std::vector<tt::umd::CoreCoord> tt_SocDescriptor::get_harvested_cores(const CoreType core_type) const {
-    if (harvested_cores_map.find(core_type) == harvested_cores_map.end()) {
-        return {};
+std::vector<tt::umd::CoreCoord> tt_SocDescriptor::get_cores(
+    const CoreType core_type, const CoordSystem coord_system) const {
+    auto cores_map_it = cores_map.find(core_type);
+    if (coord_system != CoordSystem::PHYSICAL) {
+        return translate_coordinates(cores_map_it->second, coord_system);
     }
-    return harvested_cores_map.at(core_type);
+    return cores_map_it->second;
 }
 
-tt_xy_pair tt_SocDescriptor::get_grid_size(const CoreType core_type) const {
-    if (grid_size_map.find(core_type) == grid_size_map.end()) {
-        return {0, 0};
+std::vector<tt::umd::CoreCoord> tt_SocDescriptor::get_harvested_cores(
+    const CoreType core_type, const CoordSystem coord_system) const {
+    log_assert(coord_system != CoordSystem::LOGICAL, "Harvested cores are not supported for logical coordinates");
+    auto harvested_cores_map_it = harvested_cores_map.find(core_type);
+    if (coord_system != CoordSystem::PHYSICAL) {
+        return translate_coordinates(harvested_cores_map_it->second, coord_system);
     }
-    return grid_size_map.at(core_type);
+    return harvested_cores_map_it->second;
 }
+
+tt_xy_pair tt_SocDescriptor::get_grid_size(const CoreType core_type) const { return grid_size_map.at(core_type); }
 
 tt_xy_pair tt_SocDescriptor::get_harvested_grid_size(const CoreType core_type) const {
-    if (harvested_grid_size_map.find(core_type) == harvested_grid_size_map.end()) {
-        return {0, 0};
-    }
     return harvested_grid_size_map.at(core_type);
 }
 

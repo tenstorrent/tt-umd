@@ -41,7 +41,7 @@ protected:
         for (int i = 0; i < target_devices.size(); i++) {
             // Iterate over devices and only setup static TLBs for functional worker cores
             auto& sdesc = device->get_soc_descriptor(i);
-            for (auto& core : sdesc.workers) {
+            for (auto& core : sdesc.get_cores(CoreType::TENSIX)) {
                 // Statically mapping a 1MB TLB to this core, starting from address DATA_BUFFER_SPACE_BASE.
                 device->configure_tlb(i, core, get_static_tlb_index(core), l1_mem::address_map::DATA_BUFFER_SPACE_BASE);
             }

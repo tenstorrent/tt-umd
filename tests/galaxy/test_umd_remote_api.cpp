@@ -51,13 +51,13 @@ void run_remote_read_write_test(uint32_t vector_size, bool dram_write) {
         std::vector<float> write_bw;
         std::vector<float> read_bw;
         for (int loop = 0; loop < 10; loop++) {
-            std::vector<tt_xy_pair> target_cores;
+            std::vector<CoreCoord> target_cores;
             if (dram_write) {
-                for (const auto& subchan_cores : sdesc_per_chip.at(chip).dram_cores) {
+                for (const auto& subchan_cores : sdesc_per_chip.at(chip).get_dram_cores()) {
                     target_cores.insert(target_cores.end(), subchan_cores.begin(), subchan_cores.end());
                 }
             } else {
-                target_cores = sdesc_per_chip.at(chip).workers;
+                target_cores = sdesc_per_chip.at(chip).get_cores(CoreType::TENSIX);
             }
             for (const auto& core : target_cores) {
                 tt_cxy_pair target_core = tt_cxy_pair(chip, core);
@@ -329,7 +329,7 @@ TEST(GalaxyDataMovement, BroadcastData1) {
     tt_multichip_core_addr sender_core(4, tt_xy_pair(1, 1), 0x5000);
     std::vector<tt_multichip_core_addr> receiver_cores;
 
-    for (const auto& core : sdesc.workers) {
+    for (const auto& core : sdesc.get_cores(CoreType::TENSIX)) {
         receiver_cores.push_back(tt_multichip_core_addr(5, core, 0x6000));
     }
     run_data_broadcast_test(100, sender_core, receiver_cores);

@@ -84,21 +84,11 @@ public:
     bool is_ethernet_core(const tt_xy_pair &core) const;
 
     tt::ARCH arch;
-    tt_xy_pair grid_size;
-    tt_xy_pair worker_grid_size;
     std::unordered_map<tt_xy_pair, CoreDescriptor> cores;
-    std::vector<tt_xy_pair> arc_cores;
-    std::vector<tt_xy_pair> workers;
-    std::vector<tt_xy_pair> harvested_workers;
-    std::vector<tt_xy_pair> pcie_cores;
     std::unordered_map<int, int> worker_log_to_routing_x;
     std::unordered_map<int, int> worker_log_to_routing_y;
     std::unordered_map<int, int> routing_x_to_worker_x;
     std::unordered_map<int, int> routing_y_to_worker_y;
-    std::vector<std::vector<tt_xy_pair>> dram_cores;                             // per channel list of dram cores
-    std::unordered_map<tt_xy_pair, std::tuple<int, int>> dram_core_channel_map;  // map dram core to chan/subchan
-    std::vector<tt_xy_pair> ethernet_cores;                                      // ethernet cores (index == channel id)
-    std::unordered_map<tt_xy_pair, int> ethernet_core_channel_map;
     std::vector<std::size_t> trisc_sizes;  // Most of software stack assumes same trisc size for whole chip..
     std::string device_descriptor_file_path = std::string("");
 
@@ -111,6 +101,11 @@ public:
     bool noc_translation_id_enabled;
     uint64_t dram_bank_size;
     uint32_t tensix_harvesting_mask;
+
+    // TODO: Move to private when remove_worker_row_from_descriptor is removed.
+    tt_xy_pair worker_grid_size;
+    std::vector<tt_xy_pair> workers;
+    std::vector<tt_xy_pair> harvested_workers;
 
 private:
     void create_coordinate_manager(
@@ -136,6 +131,16 @@ private:
     // has multiple NOC endpoints, so some UMD clients prefer vector of vectors returned.
     std::vector<std::vector<tt::umd::CoreCoord>> dram_cores_core_coord;
     std::vector<std::vector<tt::umd::CoreCoord>> harvested_dram_cores_core_coord;
+
+    // Internal structures filled from soc descriptor yaml
+    tt_xy_pair grid_size;
+    std::vector<tt_xy_pair> arc_cores;
+    std::vector<tt_xy_pair> pcie_cores;
+    std::vector<std::vector<tt_xy_pair>> dram_cores;                             // per channel list of dram cores
+    std::unordered_map<tt_xy_pair, std::tuple<int, int>> dram_core_channel_map;  // map dram core to chan/subchan
+    std::vector<tt_xy_pair> ethernet_cores;                                      // ethernet cores (index == channel id)
+    std::unordered_map<tt_xy_pair, int> ethernet_core_channel_map;
+    std::vector<tt_xy_pair> router_cores;
 };
 
 // Allocates a new soc descriptor on the heap. Returns an owning pointer.

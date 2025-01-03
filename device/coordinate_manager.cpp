@@ -463,7 +463,7 @@ std::shared_ptr<CoordinateManager> CoordinateManager::create_coordinate_manager(
     const size_t dram_harvesting_mask,
     const size_t eth_harvesting_mask,
     const BoardType board_type,
-    bool is_chip_remote) {
+    bool is_right_chip) {
     switch (arch) {
         case tt::ARCH::GRAYSKULL:
             return create_coordinate_manager(
@@ -498,7 +498,7 @@ std::shared_ptr<CoordinateManager> CoordinateManager::create_coordinate_manager(
                 tt::umd::wormhole::PCIE_GRID_SIZE,
                 tt::umd::wormhole::PCIE_CORES);
         case tt::ARCH::BLACKHOLE: {
-            const std::vector<tt_xy_pair> pcie_cores = tt::umd::blackhole::get_pcie_cores(board_type, is_chip_remote);
+            const std::vector<tt_xy_pair> pcie_cores = tt::umd::blackhole::get_pcie_cores(board_type, is_right_chip);
             return create_coordinate_manager(
                 arch,
                 tt::umd::blackhole::TENSIX_GRID_SIZE,

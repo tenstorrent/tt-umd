@@ -274,7 +274,7 @@ bool tt_SocDescriptor::is_ethernet_core(const tt_xy_pair &core) const {
 }
 
 std::string tt_SocDescriptor::get_soc_descriptor_path(
-    tt::ARCH arch, const BoardType board_type, const bool is_chip_remote) {
+    tt::ARCH arch, const BoardType board_type, const bool is_right_chip) {
     switch (arch) {
         case tt::ARCH::GRAYSKULL:
             // TODO: this path needs to be changed to point to soc descriptors outside of tests directory.
@@ -290,7 +290,7 @@ std::string tt_SocDescriptor::get_soc_descriptor_path(
                 // TODO: this path needs to be changed to point to soc descriptors outside of tests directory.
                 return tt::umd::utils::get_abs_path("tests/soc_descs/blackhole_140_arch_local.yaml");
             } else if (board_type == BoardType::P300) {
-                if (is_chip_remote) {
+                if (is_right_chip) {
                     // TODO: this path needs to be changed to point to soc descriptors outside of tests directory.
                     return tt::umd::utils::get_abs_path("tests/soc_descs/blackhole_140_arch_remote.yaml");
                 } else {

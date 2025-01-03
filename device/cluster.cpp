@@ -455,8 +455,7 @@ std::unique_ptr<Chip> Cluster::construct_chip_from_cluster(
 std::unique_ptr<Chip> Cluster::construct_chip_from_cluster(chip_id_t chip_id, tt_ClusterDescriptor* cluster_desc) {
     tt::ARCH arch = cluster_desc->get_arch(chip_id);
     const BoardType chip_board_type = cluster_desc->get_board_type(chip_id);
-    std::string soc_desc_path =
-        tt_SocDescriptor::get_soc_descriptor_path(arch, chip_board_type, cluster_desc->is_chip_remote(chip_id));
+    std::string soc_desc_path = tt_SocDescriptor::get_soc_descriptor_path(arch, chip_board_type);
     // Note that initially soc_descriptors are not harvested, but will be harvested later if perform_harvesting is
     // true.
     // TODO: This should be changed, harvesting should be done in tt_socdescriptor's constructor and not as part of

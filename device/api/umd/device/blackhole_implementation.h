@@ -199,10 +199,10 @@ static const size_t dram_translated_coordinate_start_y = 12;
 
 /*
  * Ge the PCIE core that can be used for communication with host
- * based on the board type and whether the chip is remote or not.
- * Information on remote chip is used only if the board type is P300.
+ * based on the board type and whether the chip is left/right on the board.
+ * Information on left/right is used only if the board type is P300.
  */
-std::vector<tt_xy_pair> get_pcie_cores(const BoardType board_type, const bool is_chip_remote);
+std::vector<tt_xy_pair> get_pcie_cores(const BoardType board_type, const bool is_right_chip);
 
 }  // namespace blackhole
 

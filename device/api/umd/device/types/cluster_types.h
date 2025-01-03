@@ -6,6 +6,7 @@
 
 #pragma once
 
+#include <cassert>
 #include <ostream>
 #include <vector>
 

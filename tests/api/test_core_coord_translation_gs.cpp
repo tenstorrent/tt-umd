@@ -325,3 +325,16 @@ TEST(CoordinateManager, CoordinateManagerGrayskullPhysicalLayoutTensixHarvesting
         EXPECT_EQ(coordinate_manager->get_tensix_harvesting_mask(), harvesting_mask);
     }
 }
+
+TEST(CoordinateManager, CoordinateManagerGrayskullGettingCoreType) {
+    std::shared_ptr<CoordinateManager> coordinate_manager =
+        CoordinateManager::create_coordinate_manager(tt::ARCH::GRAYSKULL);
+
+    EXPECT_EQ(coordinate_manager->get_coord_at({0, 0}, CoordSystem::PHYSICAL).core_type, CoreType::ROUTER_ONLY);
+    EXPECT_EQ(coordinate_manager->get_coord_at({0, 0}, CoordSystem::VIRTUAL).core_type, CoreType::ROUTER_ONLY);
+    EXPECT_EQ(coordinate_manager->get_coord_at({2, 2}, CoordSystem::PHYSICAL).core_type, CoreType::TENSIX);
+    // Not allowed for logical coord system.
+    EXPECT_THROW(coordinate_manager->get_coord_at({0, 0}, CoordSystem::LOGICAL), std::runtime_error);
+    // Throws if nothing is located at this coordinate.
+    EXPECT_THROW(coordinate_manager->get_coord_at({100, 100}, CoordSystem::PHYSICAL), std::runtime_error);
+}

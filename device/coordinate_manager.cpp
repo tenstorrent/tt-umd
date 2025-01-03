@@ -25,7 +25,8 @@ CoordinateManager::CoordinateManager(
     const tt_xy_pair& arc_grid_size,
     const std::vector<tt_xy_pair>& arc_cores,
     const tt_xy_pair& pcie_grid_size,
-    const std::vector<tt_xy_pair>& pcie_cores) :
+    const std::vector<tt_xy_pair>& pcie_cores,
+    const std::vector<tt_xy_pair>& router_cores) :
     tensix_grid_size(tensix_grid_size),
     tensix_cores(tensix_cores),
     tensix_harvesting_mask(tensix_harvesting_mask),
@@ -39,7 +40,8 @@ CoordinateManager::CoordinateManager(
     arc_grid_size(arc_grid_size),
     arc_cores(arc_cores),
     pcie_grid_size(pcie_grid_size),
-    pcie_cores(pcie_cores) {}
+    pcie_cores(pcie_cores),
+    router_cores(router_cores) {}
 
 void CoordinateManager::initialize() {
     this->assert_coordinate_manager_constructor();
@@ -49,6 +51,7 @@ void CoordinateManager::initialize() {
     this->translate_eth_coords();
     this->translate_arc_coords();
     this->translate_pcie_coords();
+    this->translate_router_coords();
 }
 
 void CoordinateManager::assert_coordinate_manager_constructor() {
@@ -87,10 +90,34 @@ void CoordinateManager::identity_map_physical_cores() {
         const CoreCoord core_coord = CoreCoord(core.x, core.y, CoreType::PCIE, CoordSystem::PHYSICAL);
         add_core_translation(core_coord, core);
     }
+
+    for (auto& core : router_cores) {
+        const CoreCoord core_coord = CoreCoord(core.x, core.y, CoreType::ROUTER_ONLY, CoordSystem::PHYSICAL);
+        add_core_translation(core_coord, core);
+    }
 }
 
 CoreCoord CoordinateManager::translate_coord_to(const CoreCoord core_coord, const CoordSystem coord_system) {
     return from_physical_map.at({to_physical_map.at(core_coord), coord_system});
+}
+
+CoreCoord CoordinateManager::get_coord_at(const tt_xy_pair& core_location, const CoordSystem coord_system) {
+    log_assert(coord_system != CoordSystem::LOGICAL, "Coordinate is ambiguous for logical system.");
+
+    for (CoreType core_type :
+         {CoreType::ARC, CoreType::DRAM, CoreType::PCIE, CoreType::TENSIX, CoreType::ETH, CoreType::ROUTER_ONLY}) {
+        CoreCoord potential_core = CoreCoord(core_location, core_type, coord_system);
+        if (to_physical_map.find(potential_core) != to_physical_map.end()) {
+            return potential_core;
+        }
+    }
+
+    log_assert(
+        false,
+        "No core found for system {} at location: ({}, {})",
+        to_str(coord_system),
+        core_location.x,
+        core_location.y);
 }
 
 void CoordinateManager::translate_tensix_coords() {
@@ -228,6 +255,18 @@ void CoordinateManager::translate_pcie_coords() {
     }
 
     fill_pcie_physical_translated_mapping();
+}
+
+void CoordinateManager::translate_router_coords() {
+    // Just do identity mapping for virtual and translated router coordinates.
+    // No logical coordinates available for router cores.
+    for (tt_xy_pair router_core : router_cores) {
+        CoreCoord virtual_coord = CoreCoord(router_core, CoreType::ROUTER_ONLY, CoordSystem::VIRTUAL);
+        CoreCoord translated_coord = CoreCoord(router_core, CoreType::ROUTER_ONLY, CoordSystem::TRANSLATED);
+
+        add_core_translation(virtual_coord, router_core);
+        add_core_translation(translated_coord, router_core);
+    }
 }
 
 void CoordinateManager::fill_eth_physical_translated_mapping() {
@@ -478,7 +517,8 @@ std::shared_ptr<CoordinateManager> CoordinateManager::create_coordinate_manager(
                 tt::umd::grayskull::ARC_GRID_SIZE,
                 tt::umd::grayskull::ARC_CORES,
                 tt::umd::grayskull::PCIE_GRID_SIZE,
-                tt::umd::grayskull::PCIE_CORES);
+                tt::umd::grayskull::PCIE_CORES,
+                tt::umd::grayskull::ROUTER_CORES);
         case tt::ARCH::WORMHOLE_B0:
             return create_coordinate_manager(
                 arch,
@@ -494,7 +534,8 @@ std::shared_ptr<CoordinateManager> CoordinateManager::create_coordinate_manager(
                 tt::umd::wormhole::ARC_GRID_SIZE,
                 tt::umd::wormhole::ARC_CORES,
                 tt::umd::wormhole::PCIE_GRID_SIZE,
-                tt::umd::wormhole::PCIE_CORES);
+                tt::umd::wormhole::PCIE_CORES,
+                tt::umd::wormhole::ROUTER_CORES);
         case tt::ARCH::BLACKHOLE:
             return create_coordinate_manager(
                 arch,
@@ -510,7 +551,8 @@ std::shared_ptr<CoordinateManager> CoordinateManager::create_coordinate_manager(
                 tt::umd::blackhole::ARC_GRID_SIZE,
                 tt::umd::blackhole::ARC_CORES,
                 tt::umd::blackhole::PCIE_GRID_SIZE,
-                tt::umd::blackhole::PCIE_CORES);
+                tt::umd::blackhole::PCIE_CORES,
+                tt::umd::blackhole::ROUTER_CORES);
         case tt::ARCH::Invalid:
             throw std::runtime_error("Invalid architecture for creating coordinate manager");
         default:
@@ -532,7 +574,8 @@ std::shared_ptr<CoordinateManager> CoordinateManager::create_coordinate_manager(
     const tt_xy_pair& arc_grid_size,
     const std::vector<tt_xy_pair>& arc_cores,
     const tt_xy_pair& pcie_grid_size,
-    const std::vector<tt_xy_pair>& pcie_cores) {
+    const std::vector<tt_xy_pair>& pcie_cores,
+    const std::vector<tt_xy_pair>& router_cores) {
     switch (arch) {
         case tt::ARCH::GRAYSKULL:
             return std::make_shared<GrayskullCoordinateManager>(
@@ -548,7 +591,8 @@ std::shared_ptr<CoordinateManager> CoordinateManager::create_coordinate_manager(
                 arc_grid_size,
                 arc_cores,
                 pcie_grid_size,
-                pcie_cores);
+                pcie_cores,
+                router_cores);
         case tt::ARCH::WORMHOLE_B0:
             return std::make_shared<WormholeCoordinateManager>(
                 tensix_grid_size,
@@ -563,7 +607,8 @@ std::shared_ptr<CoordinateManager> CoordinateManager::create_coordinate_manager(
                 arc_grid_size,
                 arc_cores,
                 pcie_grid_size,
-                pcie_cores);
+                pcie_cores,
+                router_cores);
         case tt::ARCH::BLACKHOLE:
             return std::make_shared<BlackholeCoordinateManager>(
                 tensix_grid_size,
@@ -578,7 +623,8 @@ std::shared_ptr<CoordinateManager> CoordinateManager::create_coordinate_manager(
                 arc_grid_size,
                 arc_cores,
                 pcie_grid_size,
-                pcie_cores);
+                pcie_cores,
+                router_cores);
         case tt::ARCH::Invalid:
             throw std::runtime_error("Invalid architecture for creating coordinate manager");
         default:

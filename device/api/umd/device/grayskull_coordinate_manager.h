@@ -24,7 +24,8 @@ public:
         const tt_xy_pair& arc_grid_size,
         const std::vector<tt_xy_pair>& arc_cores,
         const tt_xy_pair& pcie_grid_size,
-        const std::vector<tt_xy_pair>& pcie_cores);
+        const std::vector<tt_xy_pair>& pcie_cores,
+        const std::vector<tt_xy_pair>& router_cores);
 
 protected:
     void fill_eth_physical_translated_mapping() override;

@@ -212,23 +212,21 @@ void Cluster::create_device(
 
     for (const chip_id_t& logical_device_id : target_mmio_device_ids) {
         auto pci_device = get_tt_device(logical_device_id)->get_pci_device();
-        int num_host_mem_channels = num_host_mem_ch_per_mmio_device;
 
         log_debug(
             LogSiliconDriver,
-            "Using {} Hugepages/NumHostMemChannels for PCIDevice (logical_device_id: {} pci_interface_id: {} "
-            "device_id: 0x{:x} revision: {})",
-            num_host_mem_channels,
+            "Using {} Host Memory Channels for PCIDevice (logical_device_id: {} pci_interface_id: {} "
+            "PCI device_id: {:#x}",
+            num_host_mem_ch_per_mmio_device,
             logical_device_id,
             pci_device->get_device_num(),
-            pci_device->get_device_num(),
-            pci_device->revision_id);
+            pci_device->get_pci_device_id());
 
         // TODO: This will be moved to a dedicated Locking class.
         initialize_interprocess_mutexes(logical_device_id, clean_system_resources);
 
         if (!skip_driver_allocs) {
-            pci_device->init_hugepage(num_host_mem_channels);
+            pci_device->init_hugepage(num_host_mem_ch_per_mmio_device);
 
             // Large writes to remote chips require at least one hugepage.
             bool no_hugepages = (pci_device->get_hugepage_mapping(0).mapping == nullptr);

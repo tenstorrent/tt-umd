@@ -92,6 +92,11 @@ public:
     const PciDeviceInfo get_device_info() const { return info; }
 
     /**
+     * @return PCI character device path
+     */
+    const std::string &get_device_path() const { return device_path; }
+
+    /**
      * @return which NUMA node this device is associated with, or -1 if non-NUMA
      */
     int get_numa_node() const { return numa_node; }

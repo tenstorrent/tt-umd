@@ -483,13 +483,13 @@ void PCIDevice::init_hugepage(uint32_t num_host_mem_channels) {
 
         hugepage_mapping_per_channel[ch] = {mapping, hugepage_size, pin_pages.out.physical_address};
 
-        log_debug(
+        log_info(
             LogSiliconDriver,
-            "init_hugepage: physical_device_id: {} ch: {} mapping_size: {} physical address 0x{:x}",
-            physical_device_id,
+            "init_hugepage: {} ch: {} mapping_size: {} physical address 0x{:x}",
+            device_path,
             ch,
             hugepage_size,
-            (unsigned long long)hugepage_mappings.at(device_id).at(ch).physical_address);
+            pin_pages.out.physical_address);
     }
 
     if (!success) {

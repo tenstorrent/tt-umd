@@ -213,14 +213,12 @@ void Cluster::create_device(
     for (const chip_id_t& logical_device_id : target_mmio_device_ids) {
         auto pci_device = get_tt_device(logical_device_id)->get_pci_device();
 
-        log_debug(
+        log_info(
             LogSiliconDriver,
-            "Using {} Host Memory Channels for PCIDevice (logical_device_id: {} pci_interface_id: {} "
-            "PCI device_id: {:#x}",
+            "Using {} Host Memory Channels for {} (logical id: {})",
             num_host_mem_ch_per_mmio_device,
-            logical_device_id,
-            pci_device->get_device_num(),
-            pci_device->get_pci_device_id());
+            pci_device->get_device_path(),
+            logical_device_id);
 
         // TODO: This will be moved to a dedicated Locking class.
         initialize_interprocess_mutexes(logical_device_id, clean_system_resources);

@@ -26,17 +26,28 @@ public:
         const size_t dram_harvesting_mask,
         const tt_xy_pair& eth_grid_size,
         const std::vector<tt_xy_pair>& eth_cores,
+        const size_t eth_harvesting_mask,
         const tt_xy_pair& arc_grid_size,
         const std::vector<tt_xy_pair>& arc_cores,
         const tt_xy_pair& pcie_grid_size,
         const std::vector<tt_xy_pair>& pcie_cores);
 
     static std::shared_ptr<CoordinateManager> create_coordinate_manager(
-        tt::ARCH arch, const size_t tensix_harvesting_mask = 0, const size_t dram_harvesting_mask = 0);
+        tt::ARCH arch,
+        const size_t tensix_harvesting_mask = 0,
+        const size_t dram_harvesting_mask = 0,
+        const size_t eth_harvesting_mask = 0);
 
     static size_t get_num_harvested(const size_t harvesting_mask);
 
     static std::vector<size_t> get_harvested_indices(const size_t harvesting_mask);
+
+    // Harvesting mask is reported by hardware in the order of physical layout. This function returns a more suitable
+    // representation in logical order: Bit 0 being set means the first row in NOC0 coords is harvested.
+    static uint32_t shuffle_tensix_harvesting_mask(tt::ARCH arch, uint32_t tensix_harvesting_physical_layout);
+    // TODO: This function should be removed once the corresponding API is removed from Cluster.
+    static uint32_t shuffle_tensix_harvesting_mask_to_noc0_coords(
+        tt::ARCH arch, uint32_t tensix_harvesting_logical_layout);
 
     CoordinateManager(CoordinateManager& other) = default;
 
@@ -54,10 +65,9 @@ public:
 
     size_t get_dram_harvesting_mask() const;
 
-private:
-    static void assert_create_coordinate_manager(
-        const tt::ARCH arch, const size_t tensix_harvesting_mask, const size_t dram_harvesting_mask);
+    size_t get_eth_harvesting_mask() const;
 
+private:
     const std::vector<tt_xy_pair>& get_physical_pairs(const CoreType core_type) const;
     std::vector<tt::umd::CoreCoord> get_all_physical_cores(const CoreType core_type) const;
 
@@ -78,6 +88,7 @@ protected:
         const size_t dram_harvesting_mask,
         const tt_xy_pair& eth_grid_size,
         const std::vector<tt_xy_pair>& eth_cores,
+        const size_t eth_harvesting_mask,
         const tt_xy_pair& arc_grid_size,
         const std::vector<tt_xy_pair>& arc_cores,
         const tt_xy_pair& pcie_grid_size,
@@ -85,7 +96,7 @@ protected:
 
     void initialize();
 
-    virtual void shuffle_tensix_harvesting_mask(const std::vector<uint32_t>& harvesting_locations);
+    virtual void assert_coordinate_manager_constructor();
 
     virtual void translate_tensix_coords();
     virtual void translate_dram_coords();
@@ -100,10 +111,14 @@ protected:
     virtual std::vector<tt::umd::CoreCoord> get_harvested_tensix_cores() const;
     virtual std::vector<tt::umd::CoreCoord> get_dram_cores() const;
     virtual std::vector<tt::umd::CoreCoord> get_harvested_dram_cores() const;
+    virtual std::vector<tt::umd::CoreCoord> get_eth_cores() const;
+    virtual std::vector<tt::umd::CoreCoord> get_harvested_eth_cores() const;
     virtual tt_xy_pair get_tensix_grid_size() const;
     virtual tt_xy_pair get_dram_grid_size() const;
+    virtual tt_xy_pair get_eth_grid_size() const;
     virtual tt_xy_pair get_harvested_tensix_grid_size() const;
     virtual tt_xy_pair get_harvested_dram_grid_size() const;
+    virtual tt_xy_pair get_harvested_eth_grid_size() const;
 
     /*
      * Fills the logical to translated mapping for the tensix cores.
@@ -163,6 +178,7 @@ protected:
 
     tt_xy_pair eth_grid_size;
     const std::vector<tt_xy_pair> eth_cores;
+    const size_t eth_harvesting_mask;
 
     tt_xy_pair arc_grid_size;
     const std::vector<tt_xy_pair> arc_cores;

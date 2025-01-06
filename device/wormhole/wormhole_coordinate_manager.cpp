@@ -16,6 +16,7 @@ WormholeCoordinateManager::WormholeCoordinateManager(
     const size_t dram_harvesting_mask,
     const tt_xy_pair& eth_grid_size,
     const std::vector<tt_xy_pair>& eth_cores,
+    const size_t eth_harvesting_mask,
     const tt_xy_pair& arc_grid_size,
     const std::vector<tt_xy_pair>& arc_cores,
     const tt_xy_pair& pcie_grid_size,
@@ -29,11 +30,11 @@ WormholeCoordinateManager::WormholeCoordinateManager(
         dram_harvesting_mask,
         eth_grid_size,
         eth_cores,
+        eth_harvesting_mask,
         arc_grid_size,
         arc_cores,
         pcie_grid_size,
         pcie_cores) {
-    this->shuffle_tensix_harvesting_mask(wormhole::HARVESTING_NOC_LOCATIONS);
     initialize();
 }
 

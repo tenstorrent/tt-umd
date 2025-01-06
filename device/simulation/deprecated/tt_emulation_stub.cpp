@@ -27,7 +27,7 @@ void tt_emulation_device::assert_risc_reset() {}
 
 void tt_emulation_device::deassert_risc_reset_at_core(tt_cxy_pair core, const TensixSoftResetOptions& soft_resets) {}
 
-void tt_emulation_device::assert_risc_reset_at_core(tt_cxy_pair core) {}
+void tt_emulation_device::assert_risc_reset_at_core(tt_cxy_pair core, const TensixSoftResetOptions& soft_resets) {}
 
 void tt_emulation_device::close_device() {}
 

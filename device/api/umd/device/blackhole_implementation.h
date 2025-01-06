@@ -304,9 +304,20 @@ public:
 
     const std::vector<uint32_t>& get_t6_y_locations() const override { return blackhole::T6_Y_LOCATIONS; }
 
+    std::pair<uint32_t, uint32_t> get_tlb_1m_base_and_count() const override { return {0, 0}; }
+
+    std::pair<uint32_t, uint32_t> get_tlb_2m_base_and_count() const override {
+        return {blackhole::TLB_BASE_2M, blackhole::TLB_COUNT_2M};
+    }
+
+    std::pair<uint32_t, uint32_t> get_tlb_16m_base_and_count() const override { return {0, 0}; }
+
+    std::pair<uint32_t, uint32_t> get_tlb_4g_base_and_count() const override {
+        return {blackhole::TLB_BASE_4G, blackhole::TLB_COUNT_4G};
+    }
+
     std::tuple<xy_pair, xy_pair> multicast_workaround(xy_pair start, xy_pair end) const override;
     tlb_configuration get_tlb_configuration(uint32_t tlb_index) const override;
-    std::optional<std::tuple<std::uint64_t, std::uint64_t>> describe_tlb(std::int32_t tlb_index) const override;
     std::pair<std::uint64_t, std::uint64_t> get_tlb_data(std::uint32_t tlb_index, const tlb_data& data) const override;
 
     tt_device_l1_address_params get_l1_address_params() const override;

@@ -34,6 +34,8 @@ tlb_configuration blackhole_implementation::get_tlb_configuration(uint32_t tlb_i
             .base = blackhole::DYNAMIC_TLB_4G_BASE,
             .cfg_addr = blackhole::DYNAMIC_TLB_4G_CFG_ADDR,
             .index_offset = tlb_index - blackhole::TLB_BASE_INDEX_4G,
+            .tlb_offset = blackhole::DYNAMIC_TLB_4G_BASE +
+                          (tlb_index - blackhole::TLB_BASE_INDEX_4G) * blackhole::DYNAMIC_TLB_4G_SIZE,
             .offset = blackhole::TLB_4G_OFFSET,
         };
     }
@@ -43,32 +45,10 @@ tlb_configuration blackhole_implementation::get_tlb_configuration(uint32_t tlb_i
         .base = blackhole::DYNAMIC_TLB_2M_BASE,
         .cfg_addr = blackhole::DYNAMIC_TLB_2M_CFG_ADDR,
         .index_offset = tlb_index - blackhole::TLB_BASE_INDEX_2M,
+        .tlb_offset = blackhole::DYNAMIC_TLB_2M_BASE +
+                      (tlb_index - blackhole::TLB_BASE_INDEX_2M) * blackhole::DYNAMIC_TLB_2M_SIZE,
         .offset = blackhole::TLB_2M_OFFSET,
     };
-}
-
-std::optional<std::tuple<std::uint64_t, std::uint64_t>> blackhole_implementation::describe_tlb(
-    std::int32_t tlb_index) const {
-    std::uint32_t TLB_COUNT_2M = 202;
-
-    std::uint32_t TLB_BASE_2M = 0;
-    if (tlb_index < 0) {
-        return std::nullopt;
-    }
-
-    if (tlb_index >= TLB_COUNT_2M && tlb_index < TLB_COUNT_2M + blackhole::TLB_COUNT_4G) {
-        auto tlb_offset = tlb_index - TLB_COUNT_2M;
-        auto size = blackhole::TLB_4G_SIZE;
-        return std::tuple(blackhole::TLB_BASE_4G + tlb_offset * size, size);
-    }
-
-    if (tlb_index >= 0 && tlb_index < TLB_COUNT_2M) {
-        auto tlb_offset = tlb_index;
-        auto size = 1 << 21;
-        return std::tuple(TLB_BASE_2M + tlb_offset * size, size);
-    }
-
-    return std::nullopt;
 }
 
 std::pair<std::uint64_t, std::uint64_t> blackhole_implementation::get_tlb_data(

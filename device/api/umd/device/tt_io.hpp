@@ -23,7 +23,7 @@ class Cluster;
  * It is the caller's responsibility to manage the lifetime of Writer objects.
  */
 class Writer {
-    friend class tt::umd::Cluster;
+    friend class tt::umd::TLBManager;
 
 public:
     /**

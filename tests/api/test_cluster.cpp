@@ -178,7 +178,7 @@ TEST(ApiClusterTest, SimpleIOSpecificChips) {
         GTEST_SKIP() << "No chips present on the system. Skipping test.";
     }
 
-    std::unique_ptr<Cluster> umd_cluster = std::make_unique<Cluster>(1u);
+    std::unique_ptr<Cluster> umd_cluster = std::make_unique<Cluster>(0u);
 
     const tt_ClusterDescriptor* cluster_desc = umd_cluster->get_cluster_description();
 

@@ -883,6 +883,8 @@ private:
     tt::umd::CoreCoord translate_chip_coord(
         const chip_id_t chip, const tt::umd::CoreCoord core_coord, const CoordSystem coord_system) const;
 
+    void remote_io_sysmem_sanity_check(chip_id_t logical_device_id) const;
+
     // State variables
     tt_device_dram_address_params dram_address_params;
     tt_device_l1_address_params l1_address_params;

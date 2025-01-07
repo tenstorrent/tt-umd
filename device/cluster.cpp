@@ -211,26 +211,19 @@ void Cluster::create_device(
         target_mmio_device_ids.size() > 0, "Must provide set of target_mmio_device_ids to Cluster constructor now.");
 
     for (const chip_id_t& logical_device_id : target_mmio_device_ids) {
-        auto pci_device = get_tt_device(logical_device_id)->get_pci_device();
-
-        log_info(
-            LogSiliconDriver,
-            "Using {} Host Memory Channels for {} (logical id: {})",
-            num_host_mem_ch_per_mmio_device,
-            pci_device->get_device_path(),
-            logical_device_id);
-
         // TODO: This will be moved to a dedicated Locking class.
         initialize_interprocess_mutexes(logical_device_id, clean_system_resources);
 
-        if (!skip_driver_allocs) {
+        // Host memory channel (i.e. hugepage or equivalent) allocation/setup:
+        if (!skip_driver_allocs && num_host_mem_ch_per_mmio_device > 0) {
+            auto pci_device = get_tt_device(logical_device_id)->get_pci_device();
+            log_info(
+                LogSiliconDriver,
+                "Using {} Host Memory Channels for {} (logical id: {})",
+                num_host_mem_ch_per_mmio_device,
+                pci_device->get_device_path(),
+                logical_device_id);
             pci_device->init_hugepage(num_host_mem_ch_per_mmio_device);
-
-            // Large writes to remote chips require at least one hugepage.
-            bool no_hugepages = (pci_device->get_hugepage_mapping(0).mapping == nullptr);
-            if (remote_chip_ids_.size() && no_hugepages) {
-                log_assert(false, "Hugepages must be successfully initialized if workload contains remote chips!");
-            }
         }
 
         // translation layer for harvested coords. Default is identity map
@@ -1827,6 +1820,11 @@ void Cluster::write_to_non_mmio_device(
     use_dram = broadcast || (size_in_bytes > 256 * DATA_WORD_SIZE);
     max_block_size = use_dram ? host_address_params.eth_routing_block_size : eth_interface_params.max_block_size;
 
+    // See the remark in the equivalent read function about this sanity check.
+    if (use_dram) {
+        remote_io_sysmem_sanity_check(mmio_capable_chip_logical);
+    }
+
     //
     //                    MUTEX ACQUIRE (NON-MMIO)
     //  do not locate any ethernet core reads/writes before this acquire
@@ -2083,11 +2081,20 @@ void Cluster::read_from_non_mmio_device(void* mem_ptr, tt_cxy_pair core, uint64_
     erisc_q_rptr.resize(1);
     erisc_q_rptr[0] = erisc_q_ptrs[4];
 
-    bool use_dram;
-    uint32_t max_block_size;
+    bool use_dram = size_in_bytes > 1024;
+    uint32_t max_block_size =
+        use_dram ? host_address_params.eth_routing_block_size : eth_interface_params.max_block_size;
 
-    use_dram = size_in_bytes > 1024;
-    max_block_size = use_dram ? host_address_params.eth_routing_block_size : eth_interface_params.max_block_size;
+    // DRAM in this case is the host memory, not the device memory.  Elsewhere
+    // in the code we refer to this memory as sysmem.  So if use_dram is true,
+    // make sure that we actually have some sysmem to use.
+    //
+    // If you are wondering how the application knows which chunk of sysmem is
+    // used for remote IO so that it can avoid stepping on it, the answer is
+    // that it doesn't.
+    if (use_dram) {
+        remote_io_sysmem_sanity_check(mmio_capable_chip_logical);
+    }
 
     uint32_t offset = 0;
     uint32_t block_size;
@@ -3345,6 +3352,21 @@ void Cluster::set_barrier_address_params(const barrier_address_params& barrier_a
 tt::umd::CoreCoord Cluster::translate_chip_coord(
     const chip_id_t chip, const tt::umd::CoreCoord core_coord, const CoordSystem coord_system) const {
     return get_soc_descriptor(chip).translate_coord_to(core_coord, coord_system);
+}
+
+/**
+ * The remote IO logic has an implicit dependency on the first host memory
+ * channel for the local, PCIe-attached device that is initiating the transfer.
+ * This function ensures that the first host memory channel exists.
+ */
+void Cluster::remote_io_sysmem_sanity_check(chip_id_t logical_device_id) const {
+    auto* tt_device = get_tt_device(logical_device_id);
+    auto* pci_device = tt_device->get_pci_device();
+    auto channel_0 = pci_device->get_hugepage_mapping(0);
+    if (channel_0.mapping == nullptr) {
+        log_error("No sysmem is configured for logical chip id {}", logical_device_id);
+        throw std::runtime_error("One or more host memory channels (sysmem) must exist for large remote IO");
+    }
 }
 
 }  // namespace tt::umd

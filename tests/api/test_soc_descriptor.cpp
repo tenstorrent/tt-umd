@@ -165,7 +165,7 @@ TEST(SocDescriptor, SocDescriptorBlackholeETHHarvesting) {
         }
 
         tt_SocDescriptor soc_desc(
-            test_utils::GetAbsPath("tests/soc_descs/blackhole_140_arch.yaml"), 0, 0, eth_harvesting_mask);
+            test_utils::GetAbsPath("tests/soc_descs/blackhole_140_arch_local.yaml"), 0, 0, eth_harvesting_mask);
 
         const std::vector<CoreCoord> eth_cores = soc_desc.get_cores(CoreType::ETH);
 

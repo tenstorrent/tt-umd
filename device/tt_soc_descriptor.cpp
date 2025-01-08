@@ -275,7 +275,8 @@ bool tt_SocDescriptor::is_ethernet_core(const tt_xy_pair &core) const {
     return this->ethernet_core_channel_map.find(core) != ethernet_core_channel_map.end();
 }
 
-std::string tt_SocDescriptor::get_soc_descriptor_path(tt::ARCH arch) {
+std::string tt_SocDescriptor::get_soc_descriptor_path(
+    tt::ARCH arch, const BoardType board_type, const bool is_chip_remote) {
     switch (arch) {
         case tt::ARCH::GRAYSKULL:
             // TODO: this path needs to be changed to point to soc descriptors outside of tests directory.
@@ -283,9 +284,25 @@ std::string tt_SocDescriptor::get_soc_descriptor_path(tt::ARCH arch) {
         case tt::ARCH::WORMHOLE_B0:
             // TODO: this path needs to be changed to point to soc descriptors outside of tests directory.
             return tt::umd::utils::get_abs_path("tests/soc_descs/wormhole_b0_8x10.yaml");
-        case tt::ARCH::BLACKHOLE:
-            // TODO: this path needs to be changed to point to soc descriptors outside of tests directory.
-            return tt::umd::utils::get_abs_path("tests/soc_descs/blackhole_140_arch_no_eth.yaml");
+        case tt::ARCH::BLACKHOLE: {
+            if (board_type == BoardType::P100 || board_type == BoardType::UNKNOWN) {
+                // TODO: this path needs to be changed to point to soc descriptors outside of tests directory.
+                return tt::umd::utils::get_abs_path("tests/soc_descs/blackhole_140_arch_no_eth.yaml");
+            } else if (board_type == BoardType::P150A) {
+                // TODO: this path needs to be changed to point to soc descriptors outside of tests directory.
+                return tt::umd::utils::get_abs_path("tests/soc_descs/blackhole_140_arch_local.yaml");
+            } else if (board_type == BoardType::P300) {
+                if (is_chip_remote) {
+                    // TODO: this path needs to be changed to point to soc descriptors outside of tests directory.
+                    return tt::umd::utils::get_abs_path("tests/soc_descs/blackhole_140_arch_remote.yaml");
+                } else {
+                    // TODO: this path needs to be changed to point to soc descriptors outside of tests directory.
+                    return tt::umd::utils::get_abs_path("tests/soc_descs/blackhole_140_arch_local.yaml");
+                }
+            } else {
+                throw std::runtime_error("Invalid board type for Blackhole architecture.");
+            }
+        }
         default:
             throw std::runtime_error("Invalid architecture");
     }

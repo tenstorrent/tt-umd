@@ -10,6 +10,7 @@
 #include <stdexcept>
 
 #include "umd/device/architecture_implementation.h"
+#include "umd/device/types/cluster_descriptor_types.h"
 #include "umd/device/types/tlb.h"
 
 namespace tt::umd {
@@ -99,8 +100,9 @@ static const std::vector<tt_xy_pair> ARC_CORES = {{8, 0}};
 static const std::vector<tt_xy_pair> ARC_LOCATIONS = ARC_CORES;
 
 static const tt_xy_pair PCIE_GRID_SIZE = {1, 1};
-static const std::vector<tt_xy_pair> PCIE_CORES = {{{11, 0}}};
-static const std::vector<tt_xy_pair> PCI_LOCATIONS = PCIE_CORES;
+static const std::vector<tt_xy_pair> PCIE_CORES_TYPE2 = {{{2, 0}}};
+static const std::vector<tt_xy_pair> PCI_LOCATIONS = PCIE_CORES_TYPE2;
+static const std::vector<tt_xy_pair> PCIE_CORES_TYPE1 = {{{11, 0}}};
 
 static const tt_xy_pair ETH_GRID_SIZE = {14, 1};
 static const std::vector<tt_xy_pair> ETH_CORES = {
@@ -194,6 +196,13 @@ static const size_t pcie_translated_coordinate_start_y = 24;
 
 static const size_t dram_translated_coordinate_start_x = 17;
 static const size_t dram_translated_coordinate_start_y = 12;
+
+/*
+ * Ge the PCIE core that can be used for communication with host
+ * based on the board type and whether the chip is remote or not.
+ * Information on remote chip is used only if the board type is P300.
+ */
+std::vector<tt_xy_pair> get_pcie_cores(const BoardType board_type, const bool is_chip_remote);
 
 }  // namespace blackhole
 

@@ -823,9 +823,15 @@ private:
         const uint32_t barrier_addr,
         const std::string& fallback_tlb);
     void init_membars();
-    uint64_t get_sys_addr(uint32_t chip_x, uint32_t chip_y, uint32_t noc_x, uint32_t noc_y, uint64_t offset);
-    uint16_t get_sys_rack(uint32_t rack_x, uint32_t rack_y);
-    bool is_non_mmio_cmd_q_full(uint32_t curr_wptr, uint32_t curr_rptr);
+    uint64_t get_sys_addr(
+        const tt_driver_noc_params& noc_params,
+        uint32_t chip_x,
+        uint32_t chip_y,
+        uint32_t noc_x,
+        uint32_t noc_y,
+        uint64_t offset);
+    uint16_t get_sys_rack(const tt_driver_eth_interface_params& eth_interface_params, uint32_t rack_x, uint32_t rack_y);
+    bool is_non_mmio_cmd_q_full(chip_id_t chip_id, uint32_t curr_wptr, uint32_t curr_rptr);
     int pcie_arc_msg(
         int logical_device_id,
         uint32_t msg_code,
@@ -884,11 +890,6 @@ private:
         const chip_id_t chip, const tt::umd::CoreCoord core_coord, const CoordSystem coord_system) const;
 
     // State variables
-    tt_device_dram_address_params dram_address_params;
-    tt_device_l1_address_params l1_address_params;
-    tt_driver_host_address_params host_address_params;
-    tt_driver_noc_params noc_params;
-    tt_driver_eth_interface_params eth_interface_params;
     std::vector<tt::ARCH> archs_in_cluster = {};
     std::set<chip_id_t> all_chip_ids_ = {};
     std::set<chip_id_t> remote_chip_ids_ = {};

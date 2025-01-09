@@ -676,13 +676,12 @@ void Cluster::populate_cores() {
     std::uint32_t count = 0;
     for (const auto& [chip_id, chip] : chips_) {
         auto& soc_desc = chip->get_soc_descriptor();
+        auto tensix_core_vector = soc_desc.get_cores(CoreType::TENSIX);
         workers_per_chip.insert(
-            {chip_id,
-             std::unordered_set<tt_xy_pair>(
-                 soc_desc.get_cores(CoreType::TENSIX).begin(), soc_desc.get_cores(CoreType::TENSIX).end())});
+            {chip_id, std::unordered_set<tt_xy_pair>(tensix_core_vector.begin(), tensix_core_vector.end())});
         if (count == 0) {
-            eth_cores = std::unordered_set<tt_xy_pair>(
-                soc_desc.get_cores(CoreType::ETH).begin(), soc_desc.get_cores(CoreType::ETH).end());
+            auto eth_core_vector = soc_desc.get_cores(CoreType::ETH);
+            eth_cores = std::unordered_set<tt_xy_pair>(eth_core_vector.begin(), eth_core_vector.end());
             for (std::uint32_t dram_idx = 0; dram_idx < soc_desc.get_num_dram_channels(); dram_idx++) {
                 dram_cores.insert(soc_desc.get_core_for_dram_channel(dram_idx, 0));
             }
@@ -749,11 +748,11 @@ void Cluster::remove_worker_row_from_descriptor(
 }
 
 void Cluster::harvest_rows_in_soc_descriptor(tt::ARCH arch, tt_SocDescriptor& sdesc, uint32_t harvested_rows) {
-    std::uint32_t max_row_to_remove = (*std::max_element(
-                                           (sdesc.get_cores(CoreType::TENSIX)).begin(),
-                                           (sdesc.get_cores(CoreType::TENSIX)).end(),
-                                           [](const auto& a, const auto& b) { return a.y < b.y; }))
-                                          .y;
+    auto tensix_core_vector = sdesc.get_cores(CoreType::TENSIX);
+    std::uint32_t max_row_to_remove =
+        (*std::max_element(tensix_core_vector.begin(), tensix_core_vector.end(), [](const auto& a, const auto& b) {
+            return a.y < b.y;
+        })).y;
     std::vector<int> row_coordinates_to_remove = extract_rows_to_remove(arch, max_row_to_remove, harvested_rows);
     remove_worker_row_from_descriptor(sdesc, row_coordinates_to_remove);
 }
@@ -972,15 +971,11 @@ void Cluster::deassert_risc_reset() { broadcast_tensix_risc_reset_to_cluster(TEN
 void Cluster::deassert_risc_reset_at_core(tt_cxy_pair core, const TensixSoftResetOptions& soft_resets) {
     // Get Target Device to query soc descriptor and determine location in cluster
     std::uint32_t target_device = core.chip;
+    auto tensix_core_vector = get_soc_descriptor(target_device).get_cores(CoreType::TENSIX);
+    auto eth_core_vector = get_soc_descriptor(target_device).get_cores(CoreType::ETH);
     log_assert(
-        std::find(
-            get_soc_descriptor(target_device).get_cores(CoreType::TENSIX).begin(),
-            get_soc_descriptor(target_device).get_cores(CoreType::TENSIX).end(),
-            core) != get_soc_descriptor(target_device).get_cores(CoreType::TENSIX).end() ||
-            std::find(
-                get_soc_descriptor(target_device).get_cores(CoreType::ETH).begin(),
-                get_soc_descriptor(target_device).get_cores(CoreType::ETH).end(),
-                core) != get_soc_descriptor(target_device).get_cores(CoreType::ETH).end(),
+        std::find(tensix_core_vector.begin(), tensix_core_vector.end(), core) != tensix_core_vector.end() ||
+            std::find(eth_core_vector.begin(), eth_core_vector.end(), core) != eth_core_vector.end(),
         "Cannot deassert reset on a non-tensix or harvested core");
     bool target_is_mmio_capable = cluster_desc->is_chip_mmio_capable(target_device);
     if (target_is_mmio_capable) {
@@ -1000,15 +995,11 @@ void Cluster::deassert_risc_reset_at_core(
 void Cluster::assert_risc_reset_at_core(tt_cxy_pair core, const TensixSoftResetOptions& soft_resets) {
     // Get Target Device to query soc descriptor and determine location in cluster
     std::uint32_t target_device = core.chip;
+    auto tensix_core_vector = get_soc_descriptor(target_device).get_cores(CoreType::TENSIX);
+    auto eth_core_vector = get_soc_descriptor(target_device).get_cores(CoreType::ETH);
     log_assert(
-        std::find(
-            get_soc_descriptor(target_device).get_cores(CoreType::TENSIX).begin(),
-            get_soc_descriptor(target_device).get_cores(CoreType::TENSIX).end(),
-            core) != get_soc_descriptor(target_device).get_cores(CoreType::TENSIX).end() ||
-            std::find(
-                get_soc_descriptor(target_device).get_cores(CoreType::ETH).begin(),
-                get_soc_descriptor(target_device).get_cores(CoreType::ETH).end(),
-                core) != get_soc_descriptor(target_device).get_cores(CoreType::ETH).end(),
+        std::find(tensix_core_vector.begin(), tensix_core_vector.end(), core) != tensix_core_vector.end() ||
+            std::find(eth_core_vector.begin(), eth_core_vector.end(), core) != eth_core_vector.end(),
         "Cannot assert reset on a non-tensix or harvested core");
     bool target_is_mmio_capable = cluster_desc->is_chip_mmio_capable(target_device);
     if (target_is_mmio_capable) {

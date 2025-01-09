@@ -495,7 +495,7 @@ public:
      * The ones defined by the devices itself have to be used, they will be merged with the ones passed here.
      */
     Cluster(
-        const uint32_t& num_host_mem_ch_per_mmio_device = 1,
+        const uint32_t num_host_mem_ch_per_mmio_device = 1,
         const bool skip_driver_allocs = false,
         const bool clean_system_resources = false,
         bool perform_harvesting = true,
@@ -515,7 +515,7 @@ public:
      */
     Cluster(
         const std::set<chip_id_t>& target_devices,
-        const uint32_t& num_host_mem_ch_per_mmio_device = 1,
+        const uint32_t num_host_mem_ch_per_mmio_device = 1,
         const bool skip_driver_allocs = false,
         const bool clean_system_resources = false,
         bool perform_harvesting = true,
@@ -539,7 +539,7 @@ public:
     Cluster(
         const std::string& sdesc_path,
         const std::set<chip_id_t>& target_devices,
-        const uint32_t& num_host_mem_ch_per_mmio_device = 1,
+        const uint32_t num_host_mem_ch_per_mmio_device = 1,
         const bool skip_driver_allocs = false,
         const bool clean_system_resources = false,
         bool perform_harvesting = true,
@@ -561,7 +561,7 @@ public:
      */
     Cluster(
         std::unordered_map<chip_id_t, std::unique_ptr<Chip>>& chips,
-        const uint32_t& num_host_mem_ch_per_mmio_device = 1,
+        const uint32_t num_host_mem_ch_per_mmio_device = 1,
         const bool skip_driver_allocs = false,
         const bool clean_system_resources = false,
         bool perform_harvesting = true,
@@ -738,7 +738,7 @@ private:
     // Startup + teardown
     void create_device(
         const std::set<chip_id_t>& target_mmio_device_ids,
-        const uint32_t& num_host_mem_ch_per_mmio_device,
+        const uint32_t num_host_mem_ch_per_mmio_device,
         const bool skip_driver_allocs,
         const bool clean_system_resources);
     void initialize_interprocess_mutexes(int logical_device_id, bool cleanup_mutexes_in_shm);
@@ -882,13 +882,15 @@ private:
         bool perform_harvesting,
         std::unordered_map<chip_id_t, uint32_t>& simulated_harvesting_masks);
     void construct_cluster(
-        const uint32_t& num_host_mem_ch_per_mmio_device,
+        const uint32_t num_host_mem_ch_per_mmio_device,
         const bool skip_driver_allocs,
         const bool clean_system_resources,
         bool perform_harvesting,
         std::unordered_map<chip_id_t, uint32_t> simulated_harvesting_masks);
     tt::umd::CoreCoord translate_chip_coord(
         const chip_id_t chip, const tt::umd::CoreCoord core_coord, const CoordSystem coord_system) const;
+
+    void remote_io_sysmem_sanity_check(chip_id_t logical_device_id) const;
 
     // State variables
     std::vector<tt::ARCH> archs_in_cluster = {};

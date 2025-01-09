@@ -7,7 +7,7 @@ UMD requires Tenstorrent's [kernel-mode driver](https://github.com/tenstorrent/t
 
 Required Ubuntu dependencies:
 ```
-sudo apt install -y libhwloc-dev cmake ninja-build
+sudo apt install -y cmake ninja-build libnuma-dev
 ```
 
 Suggested third-party dependency is Clang 17:

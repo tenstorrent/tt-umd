@@ -29,7 +29,6 @@ target_sources(
         tt_device/tlb_manager.cpp
         cluster.cpp
         coordinate_manager.cpp
-        cpuset_lib.cpp
         grayskull/grayskull_implementation.cpp
         wormhole/wormhole_implementation.cpp
         blackhole/blackhole_implementation.cpp
@@ -72,7 +71,7 @@ target_link_libraries(
     PRIVATE
         umd::Common
         umd::Firmware
-        hwloc
+        numa
         nng
         rt
         uv_a

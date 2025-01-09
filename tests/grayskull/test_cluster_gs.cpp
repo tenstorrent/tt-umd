@@ -64,10 +64,18 @@ TEST(SiliconDriverGS, Harvesting) {
             << "Expected SOC descriptor with harvesting to have less than or equal to 96 workers for chip "
             << chip.first;
     }
-    ASSERT_EQ(cluster.get_harvesting_masks_for_soc_descriptors().at(0) & simulated_harvesting_masks[0], 6)
+    // harvesting info stored in soc descriptor is in logical coordinates.
+    ASSERT_EQ(
+        cluster.get_soc_descriptor(0).tensix_harvesting_mask & simulated_harvesting_masks[0],
+        simulated_harvesting_masks[0])
         << "Expected first chip to include simulated harvesting mask of 6";
-    // ASSERT_EQ(cluster.get_harvesting_masks_for_soc_descriptors().at(1), 12) << "Expected second chip to have
-    // harvesting mask of 12";
+    // get_harvesting_masks_for_soc_descriptors will return harvesting info in noc0 coordinates.
+    simulated_harvesting_masks[0] = CoordinateManager::shuffle_tensix_harvesting_mask_to_noc0_coords(
+        tt::ARCH::GRAYSKULL, simulated_harvesting_masks[0]);
+    ASSERT_EQ(
+        cluster.get_harvesting_masks_for_soc_descriptors().at(0) & simulated_harvesting_masks[0],
+        simulated_harvesting_masks[0])
+        << "Expected first chip to include simulated harvesting mask of 6";
     cluster.close_device();
 }
 

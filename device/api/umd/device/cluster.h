@@ -160,11 +160,15 @@ public:
      *
      * @param core Chip and core being targeted.
      */
-    virtual void assert_risc_reset_at_core(tt_cxy_pair core) {
+    virtual void assert_risc_reset_at_core(
+        tt_cxy_pair core, const TensixSoftResetOptions& soft_resets = TENSIX_ASSERT_SOFT_RESET) {
         throw std::runtime_error("---- tt_device::assert_risc_reset_at_core is not implemented\n");
     }
 
-    virtual void assert_risc_reset_at_core(const chip_id_t chip, const tt::umd::CoreCoord core) {
+    virtual void assert_risc_reset_at_core(
+        const chip_id_t chip,
+        const tt::umd::CoreCoord core,
+        const TensixSoftResetOptions& soft_resets = TENSIX_ASSERT_SOFT_RESET) {
         throw std::runtime_error("---- tt_device::assert_risc_reset_at_core is not implemented\n");
     }
 
@@ -636,7 +640,8 @@ public:
         chip_id_t mmio_chip, const std::unordered_set<tt_xy_pair>& active_eth_cores_per_chip);
     virtual void deassert_risc_reset_at_core(
         tt_cxy_pair core, const TensixSoftResetOptions& soft_resets = TENSIX_DEASSERT_SOFT_RESET);
-    virtual void assert_risc_reset_at_core(tt_cxy_pair core);
+    virtual void assert_risc_reset_at_core(
+        tt_cxy_pair core, const TensixSoftResetOptions& soft_resets = TENSIX_ASSERT_SOFT_RESET);
     virtual void write_to_device(
         const void* mem_ptr, uint32_t size_in_bytes, tt_cxy_pair core, uint64_t addr, const std::string& tlb_to_use);
     // TODO: Add CoreCoord API for this function.
@@ -695,7 +700,10 @@ public:
         const chip_id_t chip,
         const tt::umd::CoreCoord core,
         const TensixSoftResetOptions& soft_resets = TENSIX_DEASSERT_SOFT_RESET);
-    virtual void assert_risc_reset_at_core(const chip_id_t chip, const tt::umd::CoreCoord core);
+    virtual void assert_risc_reset_at_core(
+        const chip_id_t chip,
+        const tt::umd::CoreCoord core,
+        const TensixSoftResetOptions& soft_resets = TENSIX_ASSERT_SOFT_RESET);
     virtual void write_to_device(
         const void* mem_ptr,
         uint32_t size_in_bytes,
@@ -861,8 +869,17 @@ private:
     void wait_for_connected_non_mmio_flush(chip_id_t chip_id);
     std::unique_ptr<Chip> construct_chip_from_cluster(
         chip_id_t chip_id, tt_ClusterDescriptor* cluster_desc, tt_SocDescriptor& soc_desc);
-    std::unique_ptr<Chip> construct_chip_from_cluster(chip_id_t logical_device_id, tt_ClusterDescriptor* cluster_desc);
+    std::unique_ptr<Chip> construct_chip_from_cluster(
+        chip_id_t logical_device_id,
+        tt_ClusterDescriptor* cluster_desc,
+        bool perform_harvesting,
+        std::unordered_map<chip_id_t, uint32_t>& simulated_harvesting_masks);
     void add_chip(chip_id_t chip_id, std::unique_ptr<Chip> chip);
+    uint32_t get_tensix_harvesting_mask(
+        chip_id_t chip_id,
+        tt_ClusterDescriptor* cluster_desc,
+        bool perform_harvesting,
+        std::unordered_map<chip_id_t, uint32_t>& simulated_harvesting_masks);
     void construct_cluster(
         const uint32_t& num_host_mem_ch_per_mmio_device,
         const bool skip_driver_allocs,

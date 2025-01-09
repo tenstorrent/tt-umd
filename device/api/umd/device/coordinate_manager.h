@@ -13,9 +13,15 @@
 #include "umd/device/tt_core_coordinates.h"
 #include "umd/device/tt_xy_pair.h"
 #include "umd/device/types/arch.h"
+#include "umd/device/types/cluster_descriptor_types.h"
 
 class CoordinateManager {
 public:
+    /*
+     * Creates a Coordinate Manager object.
+     * Board type and is_chip_remote are used only for Blackhole, since PCIe cores are different
+     * for different boards and whether the chip is remote or not.
+     */
     static std::shared_ptr<CoordinateManager> create_coordinate_manager(
         tt::ARCH arch,
         const tt_xy_pair& tensix_grid_size,
@@ -36,11 +42,20 @@ public:
         tt::ARCH arch,
         const size_t tensix_harvesting_mask = 0,
         const size_t dram_harvesting_mask = 0,
-        const size_t eth_harvesting_mask = 0);
+        const size_t eth_harvesting_mask = 0,
+        const BoardType board_type = BoardType::UNKNOWN,
+        const bool is_chip_remote = false);
 
     static size_t get_num_harvested(const size_t harvesting_mask);
 
     static std::vector<size_t> get_harvested_indices(const size_t harvesting_mask);
+
+    // Harvesting mask is reported by hardware in the order of physical layout. This function returns a more suitable
+    // representation in logical order: Bit 0 being set means the first row in NOC0 coords is harvested.
+    static uint32_t shuffle_tensix_harvesting_mask(tt::ARCH arch, uint32_t tensix_harvesting_physical_layout);
+    // TODO: This function should be removed once the corresponding API is removed from Cluster.
+    static uint32_t shuffle_tensix_harvesting_mask_to_noc0_coords(
+        tt::ARCH arch, uint32_t tensix_harvesting_logical_layout);
 
     CoordinateManager(CoordinateManager& other) = default;
 
@@ -90,8 +105,6 @@ protected:
     void initialize();
 
     virtual void assert_coordinate_manager_constructor();
-
-    virtual void shuffle_tensix_harvesting_mask(const std::vector<uint32_t>& harvesting_locations);
 
     virtual void translate_tensix_coords();
     virtual void translate_dram_coords();

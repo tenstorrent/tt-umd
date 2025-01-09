@@ -294,24 +294,46 @@ size_t CoordinateManager::get_tensix_harvesting_mask() const { return physical_l
 
 size_t CoordinateManager::get_dram_harvesting_mask() const { return dram_harvesting_mask; }
 
-void CoordinateManager::shuffle_tensix_harvesting_mask(const std::vector<uint32_t>& harvesting_locations) {
+uint32_t CoordinateManager::shuffle_tensix_harvesting_mask(tt::ARCH arch, uint32_t tensix_harvesting_physical_layout) {
+    std::vector<uint32_t> harvesting_locations =
+        tt::umd::architecture_implementation::create(arch)->get_harvesting_noc_locations();
+
     std::vector<uint32_t> sorted_harvesting_locations = harvesting_locations;
     std::sort(sorted_harvesting_locations.begin(), sorted_harvesting_locations.end());
     size_t new_harvesting_mask = 0;
     uint32_t pos = 0;
-    while (tensix_harvesting_mask > 0) {
-        if (tensix_harvesting_mask & 1) {
+    while (tensix_harvesting_physical_layout > 0) {
+        if (tensix_harvesting_physical_layout & 1) {
             uint32_t sorted_position =
                 std::find(
                     sorted_harvesting_locations.begin(), sorted_harvesting_locations.end(), harvesting_locations[pos]) -
                 sorted_harvesting_locations.begin();
             new_harvesting_mask |= (1 << sorted_position);
         }
-        tensix_harvesting_mask >>= 1;
+        tensix_harvesting_physical_layout >>= 1;
         pos++;
     }
 
-    tensix_harvesting_mask = new_harvesting_mask;
+    return new_harvesting_mask;
+}
+
+uint32_t CoordinateManager::shuffle_tensix_harvesting_mask_to_noc0_coords(
+    tt::ARCH arch, uint32_t tensix_harvesting_logical_layout) {
+    std::vector<uint32_t> sorted_harvesting_locations =
+        tt::umd::architecture_implementation::create(arch)->get_harvesting_noc_locations();
+
+    std::sort(sorted_harvesting_locations.begin(), sorted_harvesting_locations.end());
+    size_t new_harvesting_mask = 0;
+    uint32_t pos = 0;
+    while (tensix_harvesting_logical_layout > 0) {
+        if (tensix_harvesting_logical_layout & 1) {
+            new_harvesting_mask |= (1 << sorted_harvesting_locations[pos]);
+        }
+        tensix_harvesting_logical_layout >>= 1;
+        pos++;
+    }
+
+    return new_harvesting_mask;
 }
 
 const std::vector<tt_xy_pair>& CoordinateManager::get_physical_pairs(const CoreType core_type) const {
@@ -431,6 +453,9 @@ std::vector<tt::umd::CoreCoord> CoordinateManager::get_harvested_cores(const Cor
             return get_harvested_dram_cores();
         case CoreType::ETH:
             return get_harvested_eth_cores();
+        case CoreType::ARC:
+        case CoreType::PCIE:
+            return {};
         default:
             throw std::runtime_error("Core type is not supported for getting harvested cores");
     }
@@ -452,6 +477,9 @@ tt_xy_pair CoordinateManager::get_harvested_grid_size(const CoreType core_type) 
             return get_harvested_dram_grid_size();
         case CoreType::ETH:
             return get_harvested_eth_grid_size();
+        case CoreType::ARC:
+        case CoreType::PCIE:
+            return {0, 0};
         default:
             throw std::runtime_error("Core type is not supported for getting harvested grid size");
     }
@@ -461,7 +489,9 @@ std::shared_ptr<CoordinateManager> CoordinateManager::create_coordinate_manager(
     tt::ARCH arch,
     const size_t tensix_harvesting_mask,
     const size_t dram_harvesting_mask,
-    const size_t eth_harvesting_mask) {
+    const size_t eth_harvesting_mask,
+    const BoardType board_type,
+    bool is_chip_remote) {
     switch (arch) {
         case tt::ARCH::GRAYSKULL:
             return create_coordinate_manager(
@@ -495,7 +525,8 @@ std::shared_ptr<CoordinateManager> CoordinateManager::create_coordinate_manager(
                 tt::umd::wormhole::ARC_CORES,
                 tt::umd::wormhole::PCIE_GRID_SIZE,
                 tt::umd::wormhole::PCIE_CORES);
-        case tt::ARCH::BLACKHOLE:
+        case tt::ARCH::BLACKHOLE: {
+            const std::vector<tt_xy_pair> pcie_cores = tt::umd::blackhole::get_pcie_cores(board_type, is_chip_remote);
             return create_coordinate_manager(
                 arch,
                 tt::umd::blackhole::TENSIX_GRID_SIZE,
@@ -510,7 +541,8 @@ std::shared_ptr<CoordinateManager> CoordinateManager::create_coordinate_manager(
                 tt::umd::blackhole::ARC_GRID_SIZE,
                 tt::umd::blackhole::ARC_CORES,
                 tt::umd::blackhole::PCIE_GRID_SIZE,
-                tt::umd::blackhole::PCIE_CORES);
+                pcie_cores);
+        }
         case tt::ARCH::Invalid:
             throw std::runtime_error("Invalid architecture for creating coordinate manager");
         default:

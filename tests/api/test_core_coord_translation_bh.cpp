@@ -35,7 +35,7 @@ TEST(CoordinateManager, CoordinateManagerBlackholeNoHarvesting) {
 // the logical coordinates if the first row is harvested.
 TEST(CoordinateManager, CoordinateManagerBlackholeTopLeftCore) {
     // This is targeting first row of Tensix cores on NOC layout.
-    const size_t harvesting_mask = (1 << tt::umd::blackhole::LOGICAL_HARVESTING_LAYOUT[0]);
+    const size_t harvesting_mask = (1 << 0);
     std::shared_ptr<CoordinateManager> coordinate_manager =
         CoordinateManager::create_coordinate_manager(tt::ARCH::BLACKHOLE, harvesting_mask);
     tt_xy_pair tensix_grid_size = tt::umd::blackhole::TENSIX_GRID_SIZE;
@@ -208,8 +208,7 @@ TEST(CoordinateManager, CoordinateManagerBlackholeVirtualEqualTranslated) {
 
 // Test mapping of the coordinates for harvested DRAM bank.
 TEST(CoordinateManager, CoordinateManagerBlackholeTransltedMappingHarvested) {
-    const size_t harvesting_mask = (1 << tt::umd::blackhole::LOGICAL_HARVESTING_LAYOUT[0]) |
-                                   (1 << tt::umd::blackhole::LOGICAL_HARVESTING_LAYOUT[1]);
+    const size_t harvesting_mask = (1 << 0) | (1 << 1);
     std::shared_ptr<CoordinateManager> coordinate_manager =
         CoordinateManager::create_coordinate_manager(tt::ARCH::BLACKHOLE, harvesting_mask);
 
@@ -496,19 +495,47 @@ TEST(CoordinateManager, CoordinateManagerBlackholeDRAMPMoreThanOneDRAMBankHarves
 }
 
 // Test that virtual, physical and translated coordinates are the same for all logical PCIE coordinates.
-TEST(CoordinateManager, CoordinateManagerBlackholePCIETranslation) {
+TEST(CoordinateManager, CoordinateManagerBlackholePCIETranslationLocal) {
     std::shared_ptr<CoordinateManager> coordinate_manager =
-        CoordinateManager::create_coordinate_manager(tt::ARCH::BLACKHOLE);
+        CoordinateManager::create_coordinate_manager(tt::ARCH::BLACKHOLE, 0, 0, 0, BoardType::P300, false);
     const tt_xy_pair pcie_grid_size = tt::umd::blackhole::PCIE_GRID_SIZE;
+    const std::vector<tt_xy_pair> pcie_cores = tt::umd::blackhole::PCIE_CORES_TYPE2;
 
     for (size_t x = 0; x < pcie_grid_size.x; x++) {
         for (size_t y = 0; y < pcie_grid_size.y; y++) {
-            const CoreCoord arc_logical = CoreCoord(x, y, CoreType::PCIE, CoordSystem::LOGICAL);
-            const CoreCoord arc_virtual = coordinate_manager->translate_coord_to(arc_logical, CoordSystem::VIRTUAL);
-            const CoreCoord arc_physical = coordinate_manager->translate_coord_to(arc_logical, CoordSystem::PHYSICAL);
+            const CoreCoord pcie_logical = CoreCoord(x, y, CoreType::PCIE, CoordSystem::LOGICAL);
+            const CoreCoord pcie_virtual = coordinate_manager->translate_coord_to(pcie_logical, CoordSystem::VIRTUAL);
+            const CoreCoord pcie_physical = coordinate_manager->translate_coord_to(pcie_logical, CoordSystem::PHYSICAL);
+            const tt_xy_pair pcie_core = pcie_cores[y * pcie_grid_size.x + x];
 
-            EXPECT_EQ(arc_virtual.x, arc_physical.x);
-            EXPECT_EQ(arc_virtual.y, arc_physical.y);
+            EXPECT_EQ(pcie_virtual.x, pcie_physical.x);
+            EXPECT_EQ(pcie_virtual.y, pcie_physical.y);
+
+            EXPECT_EQ(pcie_core.x, pcie_physical.x);
+            EXPECT_EQ(pcie_core.y, pcie_physical.y);
+        }
+    }
+}
+
+// Test that virtual, physical and translated coordinates are the same for all logical PCIE coordinates.
+TEST(CoordinateManager, CoordinateManagerBlackholePCIETranslationRemote) {
+    std::shared_ptr<CoordinateManager> coordinate_manager =
+        CoordinateManager::create_coordinate_manager(tt::ARCH::BLACKHOLE, 0, 0, 0, BoardType::P300, true);
+    const tt_xy_pair pcie_grid_size = tt::umd::blackhole::PCIE_GRID_SIZE;
+    const std::vector<tt_xy_pair> pcie_cores = tt::umd::blackhole::PCIE_CORES_TYPE1;
+
+    for (size_t x = 0; x < pcie_grid_size.x; x++) {
+        for (size_t y = 0; y < pcie_grid_size.y; y++) {
+            const CoreCoord pcie_logical = CoreCoord(x, y, CoreType::PCIE, CoordSystem::LOGICAL);
+            const CoreCoord pcie_virtual = coordinate_manager->translate_coord_to(pcie_logical, CoordSystem::VIRTUAL);
+            const CoreCoord pcie_physical = coordinate_manager->translate_coord_to(pcie_logical, CoordSystem::PHYSICAL);
+            const tt_xy_pair pcie_core = pcie_cores[y * pcie_grid_size.x + x];
+
+            EXPECT_EQ(pcie_virtual.x, pcie_physical.x);
+            EXPECT_EQ(pcie_virtual.y, pcie_physical.y);
+
+            EXPECT_EQ(pcie_core.x, pcie_physical.x);
+            EXPECT_EQ(pcie_core.y, pcie_physical.y);
         }
     }
 }
@@ -619,5 +646,16 @@ TEST(CoordinateManager, CoordinateManagerBlackholePhysicalLayoutTensixHarvesting
             CoordinateManager::create_coordinate_manager(tt::ARCH::BLACKHOLE, harvesting_mask);
 
         EXPECT_EQ(coordinate_manager->get_tensix_harvesting_mask(), harvesting_mask);
+    }
+}
+
+// Test whether we properly shuffle the harvesting mask based on the physical layout of the chip.
+TEST(CoordinateManager, CoordinateManagerBlackholeHarvestingShuffle) {
+    for (size_t i = 0; i < tt::umd::blackhole::LOGICAL_HARVESTING_LAYOUT.size(); i++) {
+        const size_t harvesting_mask_physical_layout = (1 << tt::umd::blackhole::LOGICAL_HARVESTING_LAYOUT[i]);
+        const size_t harvesting_mask =
+            CoordinateManager::shuffle_tensix_harvesting_mask(tt::ARCH::BLACKHOLE, harvesting_mask_physical_layout);
+
+        EXPECT_EQ(harvesting_mask, 1 << i);
     }
 }

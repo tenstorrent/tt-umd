@@ -10,7 +10,9 @@
 
 namespace tt::umd {
 
-Chip::Chip(tt_SocDescriptor soc_descriptor) : soc_descriptor_(soc_descriptor) {}
+Chip::Chip(tt_SocDescriptor soc_descriptor) : soc_descriptor_(soc_descriptor) {
+    set_default_params(soc_descriptor.arch);
+}
 
 tt_SocDescriptor& Chip::get_soc_descriptor() { return soc_descriptor_; }
 

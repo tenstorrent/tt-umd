@@ -31,8 +31,6 @@ TEST(BlackholeArcMessages, BlackholeArcMessagesBasic) {
 
     for (int i = 0; i < num_loops; i++) {
         uint32_t response = blackhole_arc_msg_queue->send_message(ArcMessageType::TEST);
-        if (response != 0) {
-            ASSERT_TRUE(false);
-        }
+        ASSERT_EQ(response, 0);
     }
 }

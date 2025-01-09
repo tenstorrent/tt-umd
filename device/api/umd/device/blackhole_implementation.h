@@ -197,7 +197,7 @@ constexpr uint32_t ARC_QUEUE_ENTRY_SIZE = 32;
 
 // ARC firmware interrupt address and value to write in order
 // to make an interrupt request.
-constexpr uint32_t ARC_FW_INT_ADDR = 2147680512;
+constexpr uint32_t ARC_FW_INT_ADDR = 0x80030100;
 constexpr uint32_t ARC_FW_INT_VAL = 65536;
 
 static const size_t eth_translated_coordinate_start_x = 20;

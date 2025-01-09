@@ -7,8 +7,6 @@
 
 #include "umd/device/cluster.h"
 
-using namespace tt::umd;
-
 namespace tt::umd {
 
 BlackholeArcMessageQueue::BlackholeArcMessageQueue(
@@ -38,13 +36,6 @@ void BlackholeArcMessageQueue::write_words(uint32_t* data, size_t num_words, siz
         arc_core,
         base_address + offset * sizeof(uint32_t),
         "LARGE_WRITE_TLB");
-}
-
-void BlackholeArcMessageQueue::create_request(
-    uint32_t* request, ArcMessageType message_type, uint32_t* data, size_t num_words) {
-    request[0] = (uint32_t)message_type;
-    memcpy(request + 1, data, num_words * sizeof(uint32_t));
-    memset(request + 1 + num_words, 0, (BlackholeArcMessageQueue::entry_len - (1 + num_words)) * sizeof(uint32_t));
 }
 
 void BlackholeArcMessageQueue::trigger_fw_int() {

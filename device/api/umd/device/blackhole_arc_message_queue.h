@@ -51,8 +51,6 @@ private:
 
     void write_words(uint32_t* data, size_t num_words, size_t offset);
 
-    void create_request(uint32_t* request, ArcMessageType message_type, uint32_t* data, size_t num_words);
-
     void trigger_fw_int();
 
     const uint64_t base_address;

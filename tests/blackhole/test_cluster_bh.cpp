@@ -444,7 +444,7 @@ TEST(SiliconDriverBH, DynamicTLB_RW) {
         for (int loop = 0; loop < 100;
              loop++) {  // Write to each core a 100 times at different statically mapped addresses
             for (int ch = 0; ch < NUM_CHANNELS; ch++) {
-                std::vector<tt_xy_pair> chan = cluster.get_soc_descriptor(i).get_dram_cores().at(ch);
+                std::vector<CoreCoord> chan = cluster.get_soc_descriptor(i).get_dram_cores().at(ch);
                 tt_xy_pair subchan = chan.at(0);
                 cluster.write_to_device(
                     vector_to_write.data(),

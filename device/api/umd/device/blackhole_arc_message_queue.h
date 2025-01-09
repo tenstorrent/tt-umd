@@ -30,6 +30,8 @@ class Cluster;
  *
  * The read and write pointers are double-wrapping, meaning that they wrap at twice queue size. The number of occupied
  * entries in a queue is (wptr – rptr) % (2*size).
+ *
+ * Usage of this class is not thread-safe, this synchronization is going to be implemented, similar to Wormhole.
  */
 class BlackholeArcMessageQueue {
 private:
@@ -55,7 +57,7 @@ public:
      */
     uint32_t send_message(const ArcMessageType message_type, uint16_t arg0 = 0, uint16_t arg1 = 0);
 
-    static std::shared_ptr<BlackholeArcMessageQueue> get_blackhole_arc_message_queue(
+    static std::unique_ptr<BlackholeArcMessageQueue> get_blackhole_arc_message_queue(
         Cluster* cluster, const chip_id_t chip, const size_t queue_index);
 
 private:

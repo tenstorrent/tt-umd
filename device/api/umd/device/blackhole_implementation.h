@@ -200,6 +200,8 @@ constexpr uint32_t ARC_QUEUE_ENTRY_SIZE = 32;
 constexpr uint32_t ARC_FW_INT_ADDR = 0x80030100;
 constexpr uint32_t ARC_FW_INT_VAL = 65536;
 
+constexpr uint32_t ARC_MSG_RESPONSE_OK_LIMIT = 240;
+
 static const size_t eth_translated_coordinate_start_x = 20;
 static const size_t eth_translated_coordinate_start_y = 25;
 

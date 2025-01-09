@@ -25,7 +25,7 @@ TEST(BlackholeArcMessages, BlackholeArcMessagesBasic) {
 
     std::unique_ptr<Cluster> cluster = get_cluster();
 
-    std::shared_ptr<BlackholeArcMessageQueue> blackhole_arc_msg_queue =
+    std::unique_ptr<BlackholeArcMessageQueue> blackhole_arc_msg_queue =
         BlackholeArcMessageQueue::get_blackhole_arc_message_queue(
             cluster.get(), 0, BlackholeArcMessageQueueIndex::APPLICATION);
 

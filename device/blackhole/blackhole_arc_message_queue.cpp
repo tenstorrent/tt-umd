@@ -98,7 +98,8 @@ uint32_t BlackholeArcMessageQueue::send_message(const ArcMessageType message_typ
 
     uint32_t status = response[0] & 0xFF;
 
-    if (status < 240) {
+    // Response is packed in high 16 bits of the message.
+    if (status < blackhole::ARC_MSG_RESPONSE_OK_LIMIT) {
         return response[0] >> 16;
     } else if (status == 0xFF) {
         throw std::runtime_error(fmt::format("Message code {} not recognized by ARC fw.", (uint32_t)message_type));
@@ -109,13 +110,13 @@ uint32_t BlackholeArcMessageQueue::send_message(const ArcMessageType message_typ
     }
 }
 
-std::shared_ptr<BlackholeArcMessageQueue> BlackholeArcMessageQueue::get_blackhole_arc_message_queue(
+std::unique_ptr<BlackholeArcMessageQueue> BlackholeArcMessageQueue::get_blackhole_arc_message_queue(
     Cluster* cluster, const chip_id_t chip, const size_t queue_index) {
     const CoreCoord arc_core = cluster->get_soc_descriptor(chip).get_cores(CoreType::ARC)[0];
 
     uint32_t queue_control_block_addr;
     cluster->read_from_device(
-        &queue_control_block_addr, chip, arc_core, blackhole::SCRATCH_RAM_11, sizeof(uint32_t), "LARGE_READ_TLB");
+        &queue_control_block_addr, chip, arc_core, blackhole::SCRATCH_RAM_11, sizeof(uint32_t), "REG_TLB");
 
     uint64_t queue_control_block;
     cluster->read_from_device(
@@ -128,7 +129,7 @@ std::shared_ptr<BlackholeArcMessageQueue> BlackholeArcMessageQueue::get_blackhol
     uint32_t msg_queue_size = 2 * num_entries_per_queue * ARC_QUEUE_ENTRY_SIZE + ARC_MSG_QUEUE_HEADER_SIZE;
     uint32_t msg_queue_base = queue_base_addr + queue_index * msg_queue_size;
 
-    return std::make_shared<tt::umd::BlackholeArcMessageQueue>(
+    return std::make_unique<tt::umd::BlackholeArcMessageQueue>(
         cluster, chip, msg_queue_base, num_entries_per_queue, arc_core);
 }
 

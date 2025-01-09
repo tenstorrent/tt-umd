@@ -16,6 +16,21 @@ namespace tt::umd {
 
 class Cluster;
 
+/* On Blackhole there are few ARC message queues that can be used to communicate with ARC FW.
+ * ARC message queues are simple circular queues. There are read/write pointers both for requests and responses.
+ * Reading from SCRATCH_RAM[11] gives the address of the ARC message queuse descriptor.
+ *
+ * | Purpose                  | Start bit offset | Length in bits |
+ * ----------------------------------------------------------------
+ * ARC address of first queue |                0 |             32 |
+ * # of entries in each queue |               32 |              8 |
+ * # of queues                |               40 |              8 |
+ *
+ * Each queue starts with a header followed by the request queue then the response queue.
+ *
+ * The read and write pointers are double-wrapping, meaning that they wrap at twice queue size. The number of occupied
+ * entries in a queue is (wptr – rptr) % (2*size).
+ */
 class BlackholeArcMessageQueue {
 private:
     // Header length and entry length in words.
@@ -35,6 +50,9 @@ public:
         const uint64_t size,
         const CoreCoord arc_core);
 
+    /*
+     * Send ARC message. The call of send_message is blocking, timeout is to be implemented.
+     */
     uint32_t send_message(const ArcMessageType message_type, uint16_t arg0 = 0, uint16_t arg1 = 0);
 
     static std::shared_ptr<BlackholeArcMessageQueue> get_blackhole_arc_message_queue(

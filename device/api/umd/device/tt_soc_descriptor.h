@@ -102,10 +102,22 @@ public:
     uint64_t dram_bank_size;
     uint32_t tensix_harvesting_mask;
 
-    // TODO: Move to private when remove_worker_row_from_descriptor is removed.
+    // TODO: Remove remove_worker_row_from_descriptor to unblock the removal of worker_grid_size, workers and
+    // harvested_workers from public API
+    // TODO: Remove usages of this structures in tt_metal.
+    // TODO: Move to private once previous TODOs are resolved.
+    // Internal structures filled from soc descriptor yaml
     tt_xy_pair worker_grid_size;
     std::vector<tt_xy_pair> workers;
     std::vector<tt_xy_pair> harvested_workers;
+    tt_xy_pair grid_size;
+    std::vector<tt_xy_pair> arc_cores;
+    std::vector<tt_xy_pair> pcie_cores;
+    std::vector<std::vector<tt_xy_pair>> dram_cores;                             // per channel list of dram cores
+    std::unordered_map<tt_xy_pair, std::tuple<int, int>> dram_core_channel_map;  // map dram core to chan/subchan
+    std::vector<tt_xy_pair> ethernet_cores;                                      // ethernet cores (index == channel id)
+    std::unordered_map<tt_xy_pair, int> ethernet_core_channel_map;
+    std::vector<tt_xy_pair> router_cores;
 
 private:
     void create_coordinate_manager(
@@ -131,16 +143,6 @@ private:
     // has multiple NOC endpoints, so some UMD clients prefer vector of vectors returned.
     std::vector<std::vector<tt::umd::CoreCoord>> dram_cores_core_coord;
     std::vector<std::vector<tt::umd::CoreCoord>> harvested_dram_cores_core_coord;
-
-    // Internal structures filled from soc descriptor yaml
-    tt_xy_pair grid_size;
-    std::vector<tt_xy_pair> arc_cores;
-    std::vector<tt_xy_pair> pcie_cores;
-    std::vector<std::vector<tt_xy_pair>> dram_cores;                             // per channel list of dram cores
-    std::unordered_map<tt_xy_pair, std::tuple<int, int>> dram_core_channel_map;  // map dram core to chan/subchan
-    std::vector<tt_xy_pair> ethernet_cores;                                      // ethernet cores (index == channel id)
-    std::unordered_map<tt_xy_pair, int> ethernet_core_channel_map;
-    std::vector<tt_xy_pair> router_cores;
 };
 
 // Allocates a new soc descriptor on the heap. Returns an owning pointer.

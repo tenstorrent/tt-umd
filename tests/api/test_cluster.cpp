@@ -102,7 +102,7 @@ TEST(ApiClusterTest, SimpleIOAllChips) {
     for (auto chip_id : umd_cluster->get_target_device_ids()) {
         const tt_SocDescriptor& soc_desc = umd_cluster->get_soc_descriptor(chip_id);
 
-        CoreCoord any_core = soc_desc.get_cores(CoreType::TENSIX, CoordSystem::VIRTUAL)[0];
+        CoreCoord any_core = soc_desc.get_cores(CoreType::TENSIX)[0];
 
         std::cout << "Writing to chip " << chip_id << " core " << any_core.str() << std::endl;
 
@@ -115,7 +115,7 @@ TEST(ApiClusterTest, SimpleIOAllChips) {
     for (auto chip_id : umd_cluster->get_target_device_ids()) {
         const tt_SocDescriptor& soc_desc = umd_cluster->get_soc_descriptor(chip_id);
 
-        CoreCoord any_core = soc_desc.get_cores(CoreType::TENSIX, CoordSystem::VIRTUAL)[0];
+        CoreCoord any_core = soc_desc.get_cores(CoreType::TENSIX)[0];
 
         std::cout << "Reading from chip " << chip_id << " core " << any_core.str() << std::endl;
 
@@ -145,7 +145,7 @@ TEST(ApiClusterTest, RemoteFlush) {
     for (auto chip_id : umd_cluster->get_target_remote_device_ids()) {
         const tt_SocDescriptor& soc_desc = umd_cluster->get_soc_descriptor(chip_id);
 
-        const CoreCoord any_core = soc_desc.get_cores(CoreType::TENSIX, CoordSystem::VIRTUAL)[0];
+        const CoreCoord any_core = soc_desc.get_cores(CoreType::TENSIX)[0];
 
         if (!cluster_desc->is_chip_remote(chip_id)) {
             std::cout << "Chip " << chip_id << " skipped because it is not a remote chip." << std::endl;
@@ -196,7 +196,7 @@ TEST(ApiClusterTest, SimpleIOSpecificChips) {
     for (auto chip_id : umd_cluster->get_target_device_ids()) {
         const tt_SocDescriptor& soc_desc = umd_cluster->get_soc_descriptor(chip_id);
 
-        const CoreCoord any_core = soc_desc.get_cores(CoreType::TENSIX, CoordSystem::VIRTUAL)[0];
+        const CoreCoord any_core = soc_desc.get_cores(CoreType::TENSIX)[0];
 
         std::cout << "Writing to chip " << chip_id << " core " << any_core.str() << std::endl;
 
@@ -209,7 +209,7 @@ TEST(ApiClusterTest, SimpleIOSpecificChips) {
     for (auto chip_id : umd_cluster->get_target_device_ids()) {
         const tt_SocDescriptor& soc_desc = umd_cluster->get_soc_descriptor(chip_id);
 
-        const CoreCoord any_core = soc_desc.get_cores(CoreType::TENSIX, CoordSystem::VIRTUAL)[0];
+        const CoreCoord any_core = soc_desc.get_cores(CoreType::TENSIX)[0];
 
         std::cout << "Reading from chip " << chip_id << " core " << any_core.str() << std::endl;
 
@@ -247,7 +247,7 @@ TEST(ClusterAPI, DynamicTLB_RW) {
         std::uint32_t address = l1_mem::address_map::NCRISC_FIRMWARE_BASE;
         // Write to each core a 100 times at different statically mapped addresses
         const tt_SocDescriptor& soc_desc = cluster->get_soc_descriptor(chip);
-        std::vector<CoreCoord> tensix_cores = soc_desc.get_cores(CoreType::TENSIX, CoordSystem::VIRTUAL);
+        std::vector<CoreCoord> tensix_cores = soc_desc.get_cores(CoreType::TENSIX);
         for (int loop = 0; loop < num_loops; loop++) {
             for (auto& core : tensix_cores) {
                 cluster->write_to_device(

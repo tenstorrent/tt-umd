@@ -213,14 +213,21 @@ void Cluster::create_device(
     for (const chip_id_t& logical_device_id : target_mmio_device_ids) {
         auto pci_device = get_tt_device(logical_device_id)->get_pci_device();
 
-        uint16_t pcie_device_id = pci_device->get_pci_device_id();
-        uint32_t pcie_revision = pci_device->get_pci_revision();
-        // TODO: get rid of this, it doesn't make any sense.
-        // Update: I did get rid of it and it broke Metal CI, which is passing
-        // tests that ask for more hugepages than exist.  That's wrong, but it
-        // isn't fixed yet, so until then...
-        int num_host_mem_channels =
-            get_available_num_host_mem_channels(num_host_mem_ch_per_mmio_device, pcie_device_id, pcie_revision);
+        int num_host_mem_channels = num_host_mem_ch_per_mmio_device;
+
+        // TODO: get rid of this when the following Metal CI issue is resolved.
+        // https://github.com/tenstorrent/tt-metal/issues/15675
+        // The notion that we should clamp the number of host mem channels to
+        // what we have available and emit a warning is wrong, since the
+        // application might try to use the channels it asked for.  We should
+        // just fail early since the error message will be actionable instead of
+        // a segfault or memory corruption.
+        if (!pci_device->is_iommu_enabled()) {
+            uint16_t pcie_device_id = pci_device->get_pci_device_id();
+            uint32_t pcie_revision = pci_device->get_pci_revision();
+            num_host_mem_channels =
+                get_available_num_host_mem_channels(num_host_mem_ch_per_mmio_device, pcie_device_id, pcie_revision);
+        }
 
         log_debug(
             LogSiliconDriver,

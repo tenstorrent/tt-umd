@@ -344,7 +344,7 @@ TEST(SocDescriptor, CustomSocDescriptor) {
 }
 
 TEST(SocDescriptor, SocDescriptorGrayskullMultipleCoordinateSystems) {
-    tt_SocDescriptor soc_desc(test_utils::GetAbsPath("tests/soc_descs/grayskull_10x12.yaml"));
+    tt_SocDescriptor soc_desc(test_utils::GetAbsPath("tests/soc_descs/grayskull_10x12.yaml"), false);
 
     const std::vector<tt_xy_pair> cores_physical = tt::umd::grayskull::TENSIX_CORES;
 
@@ -369,7 +369,7 @@ TEST(SocDescriptor, SocDescriptorGrayskullMultipleCoordinateSystems) {
 }
 
 TEST(SocDescriptor, SocDescriptorWormholeMultipleCoordinateSystems) {
-    tt_SocDescriptor soc_desc(test_utils::GetAbsPath("tests/soc_descs/wormhole_b0_8x10.yaml"));
+    tt_SocDescriptor soc_desc(test_utils::GetAbsPath("tests/soc_descs/wormhole_b0_8x10.yaml"), true);
 
     const std::vector<tt_xy_pair> cores_physical = tt::umd::wormhole::TENSIX_CORES;
 
@@ -394,7 +394,7 @@ TEST(SocDescriptor, SocDescriptorWormholeMultipleCoordinateSystems) {
 }
 
 TEST(SocDescriptor, SocDescriptorBlackholeMultipleCoordinateSystems) {
-    tt_SocDescriptor soc_desc(test_utils::GetAbsPath("tests/soc_descs/blackhole_140_arch_no_eth.yaml"));
+    tt_SocDescriptor soc_desc(test_utils::GetAbsPath("tests/soc_descs/blackhole_140_arch_no_eth.yaml"), true);
 
     const std::vector<tt_xy_pair> cores_physical = tt::umd::blackhole::TENSIX_CORES;
 
@@ -419,7 +419,7 @@ TEST(SocDescriptor, SocDescriptorBlackholeMultipleCoordinateSystems) {
 }
 
 TEST(SocDescriptor, SocDescriptorGrayskullNoLogicalForHarvestedCores) {
-    tt_SocDescriptor soc_desc(test_utils::GetAbsPath("tests/soc_descs/grayskull_10x12.yaml"), 1);
+    tt_SocDescriptor soc_desc(test_utils::GetAbsPath("tests/soc_descs/grayskull_10x12.yaml"), false, 1);
 
     EXPECT_THROW(soc_desc.get_harvested_cores(CoreType::TENSIX, CoordSystem::LOGICAL), std::runtime_error);
 
@@ -429,7 +429,7 @@ TEST(SocDescriptor, SocDescriptorGrayskullNoLogicalForHarvestedCores) {
 }
 
 TEST(SocDescriptor, SocDescriptorWormholeNoLogicalForHarvestedCores) {
-    tt_SocDescriptor soc_desc(test_utils::GetAbsPath("tests/soc_descs/wormhole_b0_8x10.yaml"), 1);
+    tt_SocDescriptor soc_desc(test_utils::GetAbsPath("tests/soc_descs/wormhole_b0_8x10.yaml"), true, 1);
 
     EXPECT_THROW(soc_desc.get_harvested_cores(CoreType::TENSIX, CoordSystem::LOGICAL), std::runtime_error);
 
@@ -439,7 +439,7 @@ TEST(SocDescriptor, SocDescriptorWormholeNoLogicalForHarvestedCores) {
 }
 
 TEST(SocDescriptor, SocDescriptorBlackholeNoLogicalForHarvestedCores) {
-    tt_SocDescriptor soc_desc(test_utils::GetAbsPath("tests/soc_descs/blackhole_140_arch.yaml"), 1);
+    tt_SocDescriptor soc_desc(test_utils::GetAbsPath("tests/soc_descs/blackhole_140_arch.yaml"), true, 1);
 
     EXPECT_THROW(soc_desc.get_harvested_cores(CoreType::TENSIX, CoordSystem::LOGICAL), std::runtime_error);
 

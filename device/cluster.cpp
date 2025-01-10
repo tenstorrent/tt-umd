@@ -441,9 +441,6 @@ std::unique_ptr<Chip> Cluster::construct_chip_from_cluster(
     tt_ClusterDescriptor* cluster_desc,
     bool perform_harvesting,
     std::unordered_map<chip_id_t, uint32_t>& simulated_harvesting_masks) {
-    tt::ARCH arch = cluster_desc->get_arch(chip_id);
-    const BoardType chip_board_type = cluster_desc->get_board_type(chip_id);
-    std::string soc_desc_path = tt_SocDescriptor::get_soc_descriptor_path(arch, chip_board_type);
     uint32_t tensix_harvesting_mask =
         get_tensix_harvesting_mask(chip_id, cluster_desc, perform_harvesting, simulated_harvesting_masks);
     tt_SocDescriptor soc_desc = tt_SocDescriptor(
@@ -457,7 +454,8 @@ std::unique_ptr<Chip> Cluster::construct_chip_from_cluster(
     bool perform_harvesting,
     std::unordered_map<chip_id_t, uint32_t>& simulated_harvesting_masks) {
     tt::ARCH arch = cluster_desc->get_arch(chip_id);
-    std::string soc_desc_path = tt_SocDescriptor::get_soc_descriptor_path(arch);
+    const BoardType chip_board_type = cluster_desc->get_board_type(chip_id);
+    std::string soc_desc_path = tt_SocDescriptor::get_soc_descriptor_path(arch, chip_board_type);
     return construct_chip_from_cluster(
         soc_desc_path, chip_id, cluster_desc, perform_harvesting, simulated_harvesting_masks);
 }
@@ -636,7 +634,8 @@ Cluster::Cluster(
     // rather than ClusterDescriptor.
     tt::ARCH arch = tt::ARCH::GRAYSKULL;
     chip_id_t mock_chip_id = 0;
-    tt_SocDescriptor soc_desc = tt_SocDescriptor(tt_SocDescriptor::get_soc_descriptor_path(arch, BoardType::UNKNOWN), false);
+    tt_SocDescriptor soc_desc =
+        tt_SocDescriptor(tt_SocDescriptor::get_soc_descriptor_path(arch, BoardType::UNKNOWN), false);
     std::unique_ptr<Chip> chip = std::make_unique<MockChip>(soc_desc);
 
     std::unordered_map<chip_id_t, std::unique_ptr<Chip>> chips;

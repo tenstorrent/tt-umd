@@ -188,10 +188,10 @@ protected:
     std::map<tt::umd::CoreCoord, tt_xy_pair> to_physical_map;
     std::map<std::pair<tt_xy_pair, CoordSystem>, tt::umd::CoreCoord> from_physical_map;
 
-    // Whether NOC translation is enabled.
-    // Effectivelly, when this is enabled, we can interface NOC with Virtual coordinates (on wormhole, translated by
-    // some constant). If not, Physical should be used. This will be implemented through Translated coordinates, so the
-    // user can always use those to interface with NOC.
+    // Whether NOC translation is enabled on chip.
+    // This flag affects how Translated coords are calculated. If translation is enabled on the chip, than we can
+    // interface it with a coordinate system which abstracts away harvested cores. If it is not enabled, then we need to
+    // interface it with noc0 coordinates.
     bool noc_translation_enabled;
 
     tt_xy_pair tensix_grid_size;

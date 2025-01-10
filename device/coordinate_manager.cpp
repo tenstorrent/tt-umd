@@ -13,6 +13,7 @@
 using namespace tt::umd;
 
 CoordinateManager::CoordinateManager(
+    const bool noc_translation_enabled,
     const tt_xy_pair& tensix_grid_size,
     const std::vector<tt_xy_pair>& tensix_cores,
     const size_t tensix_harvesting_mask,
@@ -26,6 +27,7 @@ CoordinateManager::CoordinateManager(
     const std::vector<tt_xy_pair>& arc_cores,
     const tt_xy_pair& pcie_grid_size,
     const std::vector<tt_xy_pair>& pcie_cores) :
+    noc_translation_enabled(noc_translation_enabled),
     tensix_grid_size(tensix_grid_size),
     tensix_cores(tensix_cores),
     tensix_harvesting_mask(tensix_harvesting_mask),
@@ -130,10 +132,14 @@ void CoordinateManager::translate_tensix_coords() {
         }
     }
 
-    this->fill_tensix_physical_translated_mapping();
+    if (noc_translation_enabled) {
+        fill_tensix_physical_translated_mapping();
+    } else {
+        fill_tensix_default_physical_translated_mapping();
+    }
 }
 
-void CoordinateManager::fill_tensix_physical_translated_mapping() {
+void CoordinateManager::fill_tensix_default_physical_translated_mapping() {
     size_t num_harvested_y = CoordinateManager::get_num_harvested(tensix_harvesting_mask);
 
     for (size_t x = 0; x < tensix_grid_size.x; x++) {
@@ -180,7 +186,11 @@ void CoordinateManager::translate_dram_coords() {
         }
     }
 
-    fill_dram_physical_translated_mapping();
+    if (noc_translation_enabled) {
+        fill_dram_physical_translated_mapping();
+    } else {
+        fill_dram_default_physical_translated_mapping();
+    }
 }
 
 void CoordinateManager::translate_eth_coords() {
@@ -196,7 +206,11 @@ void CoordinateManager::translate_eth_coords() {
         }
     }
 
-    fill_eth_physical_translated_mapping();
+    if (noc_translation_enabled) {
+        fill_eth_physical_translated_mapping();
+    } else {
+        fill_eth_default_physical_translated_mapping();
+    }
 }
 
 void CoordinateManager::translate_arc_coords() {
@@ -212,7 +226,11 @@ void CoordinateManager::translate_arc_coords() {
         }
     }
 
-    fill_arc_physical_translated_mapping();
+    if (noc_translation_enabled) {
+        fill_arc_physical_translated_mapping();
+    } else {
+        fill_arc_default_physical_translated_mapping();
+    }
 }
 
 void CoordinateManager::translate_pcie_coords() {
@@ -227,10 +245,14 @@ void CoordinateManager::translate_pcie_coords() {
         }
     }
 
-    fill_pcie_physical_translated_mapping();
+    if (noc_translation_enabled) {
+        fill_pcie_physical_translated_mapping();
+    } else {
+        fill_pcie_default_physical_translated_mapping();
+    }
 }
 
-void CoordinateManager::fill_eth_physical_translated_mapping() {
+void CoordinateManager::fill_eth_default_physical_translated_mapping() {
     for (size_t x = 0; x < eth_grid_size.x; x++) {
         for (size_t y = 0; y < eth_grid_size.y; y++) {
             CoreCoord logical_coord = CoreCoord(x, y, CoreType::ETH, CoordSystem::LOGICAL);
@@ -245,7 +267,7 @@ void CoordinateManager::fill_eth_physical_translated_mapping() {
     }
 }
 
-void CoordinateManager::fill_dram_physical_translated_mapping() {
+void CoordinateManager::fill_dram_default_physical_translated_mapping() {
     for (size_t x = 0; x < dram_grid_size.x; x++) {
         for (size_t y = 0; y < dram_grid_size.y; y++) {
             CoreCoord logical_coord = CoreCoord(x, y, CoreType::DRAM, CoordSystem::LOGICAL);
@@ -260,7 +282,7 @@ void CoordinateManager::fill_dram_physical_translated_mapping() {
     }
 }
 
-void CoordinateManager::fill_pcie_physical_translated_mapping() {
+void CoordinateManager::fill_pcie_default_physical_translated_mapping() {
     for (size_t x = 0; x < pcie_grid_size.x; x++) {
         for (size_t y = 0; y < pcie_grid_size.y; y++) {
             CoreCoord logical_coord = CoreCoord(x, y, CoreType::PCIE, CoordSystem::LOGICAL);
@@ -275,7 +297,7 @@ void CoordinateManager::fill_pcie_physical_translated_mapping() {
     }
 }
 
-void CoordinateManager::fill_arc_physical_translated_mapping() {
+void CoordinateManager::fill_arc_default_physical_translated_mapping() {
     for (size_t x = 0; x < arc_grid_size.x; x++) {
         for (size_t y = 0; y < arc_grid_size.y; y++) {
             CoreCoord logical_coord = CoreCoord(x, y, CoreType::ARC, CoordSystem::LOGICAL);
@@ -487,6 +509,7 @@ tt_xy_pair CoordinateManager::get_harvested_grid_size(const CoreType core_type) 
 
 std::shared_ptr<CoordinateManager> CoordinateManager::create_coordinate_manager(
     tt::ARCH arch,
+    const bool noc_translation_enabled,
     const size_t tensix_harvesting_mask,
     const size_t dram_harvesting_mask,
     const size_t eth_harvesting_mask,
@@ -496,6 +519,7 @@ std::shared_ptr<CoordinateManager> CoordinateManager::create_coordinate_manager(
         case tt::ARCH::GRAYSKULL:
             return create_coordinate_manager(
                 arch,
+                noc_translation_enabled,
                 tt::umd::grayskull::TENSIX_GRID_SIZE,
                 tt::umd::grayskull::TENSIX_CORES,
                 tensix_harvesting_mask,
@@ -512,6 +536,7 @@ std::shared_ptr<CoordinateManager> CoordinateManager::create_coordinate_manager(
         case tt::ARCH::WORMHOLE_B0:
             return create_coordinate_manager(
                 arch,
+                noc_translation_enabled,
                 tt::umd::wormhole::TENSIX_GRID_SIZE,
                 tt::umd::wormhole::TENSIX_CORES,
                 tensix_harvesting_mask,
@@ -529,6 +554,7 @@ std::shared_ptr<CoordinateManager> CoordinateManager::create_coordinate_manager(
             const std::vector<tt_xy_pair> pcie_cores = tt::umd::blackhole::get_pcie_cores(board_type, is_chip_remote);
             return create_coordinate_manager(
                 arch,
+                noc_translation_enabled,
                 tt::umd::blackhole::TENSIX_GRID_SIZE,
                 tt::umd::blackhole::TENSIX_CORES,
                 tensix_harvesting_mask,
@@ -552,6 +578,7 @@ std::shared_ptr<CoordinateManager> CoordinateManager::create_coordinate_manager(
 
 std::shared_ptr<CoordinateManager> CoordinateManager::create_coordinate_manager(
     tt::ARCH arch,
+    const bool noc_translation_enabled,
     const tt_xy_pair& tensix_grid_size,
     const std::vector<tt_xy_pair>& tensix_cores,
     const size_t tensix_harvesting_mask,
@@ -567,6 +594,7 @@ std::shared_ptr<CoordinateManager> CoordinateManager::create_coordinate_manager(
     const std::vector<tt_xy_pair>& pcie_cores) {
     switch (arch) {
         case tt::ARCH::GRAYSKULL:
+            log_assert(!noc_translation_enabled, "NOC translation is not supported for Grayskull");
             return std::make_shared<GrayskullCoordinateManager>(
                 tensix_grid_size,
                 tensix_cores,
@@ -583,6 +611,7 @@ std::shared_ptr<CoordinateManager> CoordinateManager::create_coordinate_manager(
                 pcie_cores);
         case tt::ARCH::WORMHOLE_B0:
             return std::make_shared<WormholeCoordinateManager>(
+                noc_translation_enabled,
                 tensix_grid_size,
                 tensix_cores,
                 tensix_harvesting_mask,
@@ -598,6 +627,7 @@ std::shared_ptr<CoordinateManager> CoordinateManager::create_coordinate_manager(
                 pcie_cores);
         case tt::ARCH::BLACKHOLE:
             return std::make_shared<BlackholeCoordinateManager>(
+                noc_translation_enabled,
                 tensix_grid_size,
                 tensix_cores,
                 tensix_harvesting_mask,

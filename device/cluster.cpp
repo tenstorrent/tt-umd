@@ -436,6 +436,19 @@ std::unique_ptr<Chip> Cluster::construct_chip_from_cluster(
 }
 
 std::unique_ptr<Chip> Cluster::construct_chip_from_cluster(
+    const std::string& soc_desc_path,
+    chip_id_t chip_id,
+    tt_ClusterDescriptor* cluster_desc,
+    bool perform_harvesting,
+    std::unordered_map<chip_id_t, uint32_t>& simulated_harvesting_masks) {
+    uint32_t tensix_harvesting_mask =
+        get_tensix_harvesting_mask(chip_id, cluster_desc, perform_harvesting, simulated_harvesting_masks);
+    tt_SocDescriptor soc_desc = tt_SocDescriptor(
+        soc_desc_path, cluster_desc->get_noc_translation_table_en().at(chip_id), tensix_harvesting_mask);
+    return construct_chip_from_cluster(chip_id, cluster_desc, soc_desc);
+}
+
+std::unique_ptr<Chip> Cluster::construct_chip_from_cluster(
     chip_id_t chip_id,
     tt_ClusterDescriptor* cluster_desc,
     bool perform_harvesting,
@@ -443,10 +456,8 @@ std::unique_ptr<Chip> Cluster::construct_chip_from_cluster(
     tt::ARCH arch = cluster_desc->get_arch(chip_id);
     const BoardType chip_board_type = cluster_desc->get_board_type(chip_id);
     std::string soc_desc_path = tt_SocDescriptor::get_soc_descriptor_path(arch, chip_board_type);
-    uint32_t tensix_harvesting_mask =
-        get_tensix_harvesting_mask(chip_id, cluster_desc, perform_harvesting, simulated_harvesting_masks);
-    tt_SocDescriptor soc_desc = tt_SocDescriptor(soc_desc_path, tensix_harvesting_mask);
-    return construct_chip_from_cluster(chip_id, cluster_desc, soc_desc);
+    return construct_chip_from_cluster(
+        soc_desc_path, chip_id, cluster_desc, perform_harvesting, simulated_harvesting_masks);
 }
 
 void Cluster::add_chip(chip_id_t chip_id, std::unique_ptr<Chip> chip) {
@@ -567,16 +578,16 @@ Cluster::Cluster(
             cluster_desc->get_all_chips().find(chip_id) != cluster_desc->get_all_chips().end(),
             "Target device {} not present in current cluster!",
             chip_id);
-        size_t tensix_harvesting_mask =
-            get_tensix_harvesting_mask(chip_id, cluster_desc.get(), perform_harvesting, simulated_harvesting_masks);
-        tt_SocDescriptor soc_desc = tt_SocDescriptor(sdesc_path, tensix_harvesting_mask);
+        add_chip(
+            chip_id,
+            construct_chip_from_cluster(
+                sdesc_path, chip_id, cluster_desc.get(), perform_harvesting, simulated_harvesting_masks));
         log_assert(
-            cluster_desc->get_arch(chip_id) == soc_desc.arch,
+            cluster_desc->get_arch(chip_id) == chips_.at(chip_id)->get_soc_descriptor().arch,
             "Passed soc descriptor has {} arch, but for chip id {} has arch {}",
-            arch_to_str(soc_desc.arch),
+            arch_to_str(chips_.at(chip_id)->get_soc_descriptor().arch),
             chip_id,
             arch_to_str(cluster_desc->get_arch(chip_id)));
-        add_chip(chip_id, construct_chip_from_cluster(chip_id, cluster_desc.get(), soc_desc));
     }
 
     // TODO: work on removing this member altogether. Currently assumes all have the same arch.
@@ -623,7 +634,8 @@ Cluster::Cluster(
     // rather than ClusterDescriptor.
     tt::ARCH arch = tt::ARCH::GRAYSKULL;
     chip_id_t mock_chip_id = 0;
-    tt_SocDescriptor soc_desc = tt_SocDescriptor(tt_SocDescriptor::get_soc_descriptor_path(arch, BoardType::UNKNOWN));
+    tt_SocDescriptor soc_desc =
+        tt_SocDescriptor(tt_SocDescriptor::get_soc_descriptor_path(arch, BoardType::UNKNOWN), false);
     std::unique_ptr<Chip> chip = std::make_unique<MockChip>(soc_desc);
 
     std::unordered_map<chip_id_t, std::unique_ptr<Chip>> chips;

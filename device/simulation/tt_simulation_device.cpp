@@ -53,7 +53,7 @@ void print_flatbuffer(const DeviceRequestResponse* buf) {
 
 tt_SimulationDevice::tt_SimulationDevice(const std::string& sdesc_path) : tt_device() {
     log_info(tt::LogEmulationDriver, "Instantiating simulation device");
-    soc_descriptor_per_chip.emplace(0, tt_SocDescriptor(sdesc_path));
+    soc_descriptor_per_chip.emplace(0, tt_SocDescriptor(sdesc_path, false));
     std::set<chip_id_t> target_devices = {0};
 
     // Start VCS simulator in a separate process

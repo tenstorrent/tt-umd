@@ -52,6 +52,7 @@ public:
     // Constructor used to build object from device descriptor file.
     tt_SocDescriptor(
         std::string device_descriptor_path,
+        const bool noc_translation_enabled,
         const size_t tensix_harvesting_mask = 0,
         const size_t dram_harvesting_mask = 0,
         const size_t eth_harvesting_mask = 0);
@@ -114,7 +115,10 @@ public:
 
 private:
     void create_coordinate_manager(
-        const size_t tensix_harvesting_mask, const size_t dram_harvesting_mask, const size_t eth_harvesting_mask);
+        const bool noc_translation_enabled,
+        const size_t tensix_harvesting_mask,
+        const size_t dram_harvesting_mask,
+        const size_t eth_harvesting_mask);
     void load_core_descriptors_from_device_descriptor(YAML::Node &device_descriptor_yaml);
     void load_soc_features_from_device_descriptor(YAML::Node &device_descriptor_yaml);
     void get_cores_and_grid_size_from_coordinate_manager();

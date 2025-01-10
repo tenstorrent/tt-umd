@@ -29,7 +29,8 @@ TEST(ApiTLBManager, ManualTLBConfiguration) {
     }
 
     TLBManager* tlb_manager = tt_device->get_tlb_manager();
-    tt_SocDescriptor soc_desc = tt_SocDescriptor::get_soc_descriptor_path(tt_device->get_arch());
+    tt_SocDescriptor soc_desc = tt_SocDescriptor(
+        tt_SocDescriptor::get_soc_descriptor_path(tt_device->get_arch()), tt_device->get_arch() != tt::ARCH::GRAYSKULL);
 
     // TODO: This should be part of TTDevice interface, not Cluster or Chip.
     // Configure TLBs.

@@ -868,8 +868,16 @@ private:
 
     // This functions has to be called for local chip, and then it will wait for all connected remote chips to flush.
     void wait_for_connected_non_mmio_flush(chip_id_t chip_id);
+
+    // Helper functions for constructing the chips from the cluster descriptor.
     std::unique_ptr<Chip> construct_chip_from_cluster(
         chip_id_t chip_id, tt_ClusterDescriptor* cluster_desc, tt_SocDescriptor& soc_desc);
+    std::unique_ptr<Chip> construct_chip_from_cluster(
+        const std::string& soc_desc_path,
+        chip_id_t chip_id,
+        tt_ClusterDescriptor* cluster_desc,
+        bool perform_harvesting,
+        std::unordered_map<chip_id_t, uint32_t>& simulated_harvesting_masks);
     std::unique_ptr<Chip> construct_chip_from_cluster(
         chip_id_t logical_device_id,
         tt_ClusterDescriptor* cluster_desc,
@@ -887,6 +895,8 @@ private:
         const bool clean_system_resources,
         bool perform_harvesting,
         std::unordered_map<chip_id_t, uint32_t> simulated_harvesting_masks);
+
+    // Helper function for translating chip coordinates.
     tt::umd::CoreCoord translate_chip_coord(
         const chip_id_t chip, const tt::umd::CoreCoord core_coord, const CoordSystem coord_system) const;
 

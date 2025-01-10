@@ -61,6 +61,8 @@ inline std::string &trim(std::string &s, const char *t = ws) { return ltrim(rtri
 
 void tt_SocDescriptor::load_soc_features_from_device_descriptor(YAML::Node &device_descriptor_yaml) {
     overlay_version = device_descriptor_yaml["features"]["overlay"]["version"].as<int>();
+    // TODO: Check whether this is a valid value, and whether it is used.
+    // Also check if this is the same thing as noc_translation in cluster descriptor.
     noc_translation_id_enabled =
         device_descriptor_yaml["features"]["noc"] && device_descriptor_yaml["features"]["noc"]["translation_id_enabled"]
             ? device_descriptor_yaml["features"]["noc"]["translation_id_enabled"].as<bool>()
@@ -183,7 +185,10 @@ tt_xy_pair tt_SocDescriptor::calculate_grid_size(const std::vector<tt_xy_pair> &
 }
 
 void tt_SocDescriptor::create_coordinate_manager(
-    const size_t tensix_harvesting_mask, const size_t dram_harvesting_mask, const size_t eth_harvesting_mask) {
+    const bool noc_translation_enabled,
+    const size_t tensix_harvesting_mask,
+    const size_t dram_harvesting_mask,
+    const size_t eth_harvesting_mask) {
     const tt_xy_pair dram_grid_size = tt_xy_pair(dram_cores.size(), dram_cores.empty() ? 0 : dram_cores[0].size());
     const tt_xy_pair arc_grid_size = tt_SocDescriptor::calculate_grid_size(arc_cores);
     const tt_xy_pair pcie_grid_size = tt_SocDescriptor::calculate_grid_size(pcie_cores);
@@ -198,6 +203,7 @@ void tt_SocDescriptor::create_coordinate_manager(
 
     coordinate_manager = CoordinateManager::create_coordinate_manager(
         arch,
+        noc_translation_enabled,
         worker_grid_size,
         workers,
         tensix_harvesting_mask,
@@ -221,6 +227,7 @@ tt::umd::CoreCoord tt_SocDescriptor::translate_coord_to(
 
 tt_SocDescriptor::tt_SocDescriptor(
     std::string device_descriptor_path,
+    const bool noc_translation_enabled,
     const size_t tensix_harvesting_mask,
     const size_t dram_harvesting_mask,
     const size_t eth_harvesting_mask) :
@@ -243,7 +250,8 @@ tt_SocDescriptor::tt_SocDescriptor(
     arch_name_value = trim(arch_name_value);
     arch = tt::arch_from_str(arch_name_value);
     load_soc_features_from_device_descriptor(device_descriptor_yaml);
-    create_coordinate_manager(tensix_harvesting_mask, dram_harvesting_mask, eth_harvesting_mask);
+    create_coordinate_manager(
+        noc_translation_enabled, tensix_harvesting_mask, dram_harvesting_mask, eth_harvesting_mask);
 }
 
 int tt_SocDescriptor::get_num_dram_channels() const {

@@ -77,6 +77,19 @@ TEST(ApiChipTest, ManualTLBConfiguration) {
     // Each MMIO chip has it's own set of TLBs, so needs its own configuration.
     for (chip_id_t mmio_chip : umd_cluster->get_target_mmio_device_ids()) {
         const tt_SocDescriptor& soc_desc = umd_cluster->get_soc_descriptor(mmio_chip);
+
+        // print to stdout whole soc_desc.workers and soc_desc.get_cores
+        std::cout << "Workers: ";
+        for (tt_xy_pair worker : soc_desc.get_cores(CoreType::TENSIX, CoordSystem::VIRTUAL)) {
+            std::cout << worker.x << " " << worker.y << ", ";
+        }
+        std::cout << std::endl;
+        std::cout << "Workers at .workers: ";
+        for (tt_xy_pair worker : soc_desc.workers) {
+            std::cout << worker.x << " " << worker.y << ", ";
+        }
+        std::cout << std::endl;
+
         for (tt_xy_pair core : soc_desc.get_cores(CoreType::TENSIX, CoordSystem::VIRTUAL)) {
             umd_cluster->configure_tlb(mmio_chip, core, get_static_tlb_index(core), c_zero_address);
         }

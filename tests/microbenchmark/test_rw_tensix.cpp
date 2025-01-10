@@ -27,7 +27,7 @@ TEST_F(uBenchmarkFixture, WriteAllCores32Bytes) {
 
     ankerl::nanobench::Bench bench_static;
     ankerl::nanobench::Bench bench_dynamic;
-    for (auto& core : device->get_soc_descriptor(0).get_cores(CoreType::TENSIX)) {
+    for (auto& core : device->get_soc_descriptor(0).get_cores(CoreType::TENSIX, CoordSystem::VIRTUAL)) {
         std::stringstream wname;
         wname << "Write to device core (" << core.x << ", " << core.y << ")";
         // Write 32 bytes through static tlbs

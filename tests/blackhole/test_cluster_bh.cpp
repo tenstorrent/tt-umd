@@ -125,7 +125,7 @@ TEST(SiliconDriverBH, CreateDestroy) {
 //     ASSERT_EQ(cluster.using_harvested_soc_descriptors(), true) << "Expected Driver to have performed harvesting";
 
 //     for (const auto& chip : sdesc_per_chip) {
-//         ASSERT_EQ(chip.second.get_cores(CoreType::TENSIX).size(), 48)
+//         ASSERT_EQ(chip.second.get_cores(CoreType::TENSIX, CoordSystem::VIRTUAL).size(), 48)
 //             << "Expected SOC descriptor with harvesting to have 48 workers for chip" << chip.first;
 //     }
 //     ASSERT_EQ(cluster.get_harvesting_masks_for_soc_descriptors().at(0), 30)
@@ -161,8 +161,8 @@ TEST(SiliconDriverBH, CreateDestroy) {
 //     ASSERT_EQ(cluster.using_harvested_soc_descriptors(), false)
 //         << "SOC descriptors should not be modified when harvesting is disabled";
 //     for (const auto& chip : sdesc_per_chip) {
-//         ASSERT_EQ(chip.second.get_cores(CoreType::TENSIX).size(), 1) << "Expected 1x1 SOC descriptor to be unmodified
-//         by driver";
+//         ASSERT_EQ(chip.second.get_cores(CoreType::TENSIX, CoordSystem::VIRTUAL).size(), 1) << "Expected 1x1 SOC
+//         descriptor to be unmodified by driver";
 //     }
 // }
 
@@ -197,7 +197,7 @@ TEST(SiliconDriverBH, CreateDestroy) {
 //         // Iterate over MMIO devices and only setup static TLBs for worker cores
 //         if (std::find(mmio_devices.begin(), mmio_devices.end(), i) != mmio_devices.end()) {
 //             auto& sdesc = cluster.get_soc_descriptor(i);
-//             for (auto& core : sdesc.get_cores(CoreType::TENSIX)) {
+//             for (auto& core : sdesc.get_cores(CoreType::TENSIX, CoordSystem::VIRTUAL)) {
 //                 // Statically mapping a 1MB TLB to this core, starting from address NCRISC_FIRMWARE_BASE.
 //                 cluster.configure_tlb(
 //                     i, core, get_static_tlb_index_callback(core), l1_mem::address_map::NCRISC_FIRMWARE_BASE);
@@ -218,7 +218,7 @@ TEST(SiliconDriverBH, CreateDestroy) {
 //         std::uint32_t dynamic_write_address = 0x40000000;
 //         for (int loop = 0; loop < 100;
 //              loop++) {  // Write to each core a 100 times at different statically mapped addresses
-//             for (auto& core : cluster.get_soc_descriptor(i).get_cores(CoreType::TENSIX)) {
+//             for (auto& core : cluster.get_soc_descriptor(i).get_cores(CoreType::TENSIX, CoordSystem::VIRTUAL)) {
 //                 cluster.write_to_device(
 //                     vector_to_write.data(),
 //                     vector_to_write.size() * sizeof(std::uint32_t),
@@ -285,7 +285,7 @@ TEST(SiliconDriverBH, UnalignedStaticTLB_RW) {
         // Iterate over MMIO devices and only setup static TLBs for worker cores
         if (std::find(mmio_devices.begin(), mmio_devices.end(), i) != mmio_devices.end()) {
             auto& sdesc = cluster.get_soc_descriptor(i);
-            for (auto& core : sdesc.get_cores(CoreType::TENSIX)) {
+            for (auto& core : sdesc.get_cores(CoreType::TENSIX, CoordSystem::VIRTUAL)) {
                 // Statically mapping a 1MB TLB to this core, starting from address NCRISC_FIRMWARE_BASE.
                 cluster.configure_tlb(
                     i, core, get_static_tlb_index_callback(core), l1_mem::address_map::NCRISC_FIRMWARE_BASE);
@@ -306,7 +306,7 @@ TEST(SiliconDriverBH, UnalignedStaticTLB_RW) {
             std::vector<uint8_t> readback_vec(size, 0);
             std::uint32_t address = l1_mem::address_map::NCRISC_FIRMWARE_BASE;
             for (int loop = 0; loop < 50; loop++) {
-                for (auto& core : cluster.get_soc_descriptor(i).get_cores(CoreType::TENSIX)) {
+                for (auto& core : cluster.get_soc_descriptor(i).get_cores(CoreType::TENSIX, CoordSystem::VIRTUAL)) {
                     cluster.write_to_device(write_vec.data(), size, tt_cxy_pair(i, core), address, "");
                     cluster.wait_for_non_mmio_flush();
                     cluster.read_from_device(readback_vec.data(), tt_cxy_pair(i, core), address, size, "");
@@ -340,7 +340,7 @@ TEST(SiliconDriverBH, StaticTLB_RW) {
         // Iterate over MMIO devices and only setup static TLBs for worker cores
         if (std::find(mmio_devices.begin(), mmio_devices.end(), i) != mmio_devices.end()) {
             auto& sdesc = cluster.get_soc_descriptor(i);
-            for (auto& core : sdesc.get_cores(CoreType::TENSIX)) {
+            for (auto& core : sdesc.get_cores(CoreType::TENSIX, CoordSystem::VIRTUAL)) {
                 // Statically mapping a 2MB TLB to this core, starting from address NCRISC_FIRMWARE_BASE.
                 cluster.configure_tlb(
                     i, core, get_static_tlb_index_callback(core), l1_mem::address_map::NCRISC_FIRMWARE_BASE);
@@ -361,7 +361,7 @@ TEST(SiliconDriverBH, StaticTLB_RW) {
         std::uint32_t address = l1_mem::address_map::NCRISC_FIRMWARE_BASE;
         for (int loop = 0; loop < 1;
              loop++) {  // Write to each core a 100 times at different statically mapped addresses
-            for (auto& core : cluster.get_soc_descriptor(i).get_cores(CoreType::TENSIX)) {
+            for (auto& core : cluster.get_soc_descriptor(i).get_cores(CoreType::TENSIX, CoordSystem::VIRTUAL)) {
                 cluster.write_to_device(
                     vector_to_write.data(),
                     vector_to_write.size() * sizeof(std::uint32_t),
@@ -409,7 +409,7 @@ TEST(SiliconDriverBH, DynamicTLB_RW) {
         std::uint32_t address = l1_mem::address_map::NCRISC_FIRMWARE_BASE;
         for (int loop = 0; loop < 100;
              loop++) {  // Write to each core a 100 times at different statically mapped addresses
-            for (auto& core : cluster.get_soc_descriptor(i).get_cores(CoreType::TENSIX)) {
+            for (auto& core : cluster.get_soc_descriptor(i).get_cores(CoreType::TENSIX, CoordSystem::VIRTUAL)) {
                 cluster.write_to_device(
                     vector_to_write.data(),
                     vector_to_write.size() * sizeof(std::uint32_t),
@@ -494,7 +494,7 @@ TEST(SiliconDriverBH, MultiThreadedDevice) {
         std::vector<uint32_t> readback_vec = {};
         std::uint32_t address = l1_mem::address_map::NCRISC_FIRMWARE_BASE;
         for (int loop = 0; loop < 100; loop++) {
-            for (auto& core : cluster.get_soc_descriptor(0).get_cores(CoreType::TENSIX)) {
+            for (auto& core : cluster.get_soc_descriptor(0).get_cores(CoreType::TENSIX, CoordSystem::VIRTUAL)) {
                 cluster.write_to_device(
                     vector_to_write.data(),
                     vector_to_write.size() * sizeof(std::uint32_t),
@@ -557,7 +557,7 @@ TEST(SiliconDriverBH, MultiThreadedMemBar) {
     for (int i = 0; i < target_devices.size(); i++) {
         // Iterate over devices and only setup static TLBs for functional worker cores
         auto& sdesc = cluster.get_soc_descriptor(i);
-        for (auto& core : sdesc.get_cores(CoreType::TENSIX)) {
+        for (auto& core : sdesc.get_cores(CoreType::TENSIX, CoordSystem::VIRTUAL)) {
             // Statically mapping a 1MB TLB to this core, starting from address DATA_BUFFER_SPACE_BASE.
             cluster.configure_tlb(i, core, get_static_tlb_index_callback(core), base_addr);
         }
@@ -567,7 +567,7 @@ TEST(SiliconDriverBH, MultiThreadedMemBar) {
     cluster.start_device(default_params);
 
     std::vector<uint32_t> readback_membar_vec = {};
-    for (auto& core : cluster.get_soc_descriptor(0).get_cores(CoreType::TENSIX)) {
+    for (auto& core : cluster.get_soc_descriptor(0).get_cores(CoreType::TENSIX, CoordSystem::VIRTUAL)) {
         test_utils::read_data_from_device(
             cluster,
             readback_membar_vec,
@@ -589,7 +589,7 @@ TEST(SiliconDriverBH, MultiThreadedMemBar) {
         readback_membar_vec = {};
     }
 
-    for (auto& core : cluster.get_soc_descriptor(0).get_cores(CoreType::ETH)) {
+    for (auto& core : cluster.get_soc_descriptor(0).get_cores(CoreType::ETH, CoordSystem::VIRTUAL)) {
         test_utils::read_data_from_device(
             cluster,
             readback_membar_vec,
@@ -618,7 +618,7 @@ TEST(SiliconDriverBH, MultiThreadedMemBar) {
     std::thread th1 = std::thread([&] {
         std::uint32_t address = base_addr;
         for (int loop = 0; loop < 50; loop++) {
-            for (auto& core : cluster.get_soc_descriptor(0).get_cores(CoreType::TENSIX)) {
+            for (auto& core : cluster.get_soc_descriptor(0).get_cores(CoreType::TENSIX, CoordSystem::VIRTUAL)) {
                 std::vector<uint32_t> readback_vec = {};
                 cluster.write_to_device(
                     vec1.data(), vec1.size() * sizeof(std::uint32_t), tt_cxy_pair(0, core), address, "");
@@ -636,7 +636,7 @@ TEST(SiliconDriverBH, MultiThreadedMemBar) {
     std::thread th2 = std::thread([&] {
         std::uint32_t address = base_addr + vec1.size() * 4;
         for (int loop = 0; loop < 50; loop++) {
-            for (auto& core : cluster.get_soc_descriptor(0).get_cores(CoreType::TENSIX)) {
+            for (auto& core : cluster.get_soc_descriptor(0).get_cores(CoreType::TENSIX, CoordSystem::VIRTUAL)) {
                 std::vector<uint32_t> readback_vec = {};
                 cluster.write_to_device(
                     vec2.data(), vec2.size() * sizeof(std::uint32_t), tt_cxy_pair(0, core), address, "");
@@ -654,7 +654,7 @@ TEST(SiliconDriverBH, MultiThreadedMemBar) {
     th1.join();
     th2.join();
 
-    for (auto& core : cluster.get_soc_descriptor(0).get_cores(CoreType::TENSIX)) {
+    for (auto& core : cluster.get_soc_descriptor(0).get_cores(CoreType::TENSIX, CoordSystem::VIRTUAL)) {
         test_utils::read_data_from_device(
             cluster,
             readback_membar_vec,
@@ -667,7 +667,7 @@ TEST(SiliconDriverBH, MultiThreadedMemBar) {
         readback_membar_vec = {};
     }
 
-    for (auto& core : cluster.get_soc_descriptor(0).get_cores(CoreType::ETH)) {
+    for (auto& core : cluster.get_soc_descriptor(0).get_cores(CoreType::ETH, CoordSystem::VIRTUAL)) {
         test_utils::read_data_from_device(
             cluster,
             readback_membar_vec,
@@ -733,7 +733,7 @@ TEST(SiliconDriverBH, DISABLED_BroadcastWrite) {  // Cannot broadcast to tensix/
         cluster.wait_for_non_mmio_flush();
 
         for (const auto i : target_devices) {
-            for (const auto& core : cluster.get_soc_descriptor(i).get_cores(CoreType::TENSIX)) {
+            for (const auto& core : cluster.get_soc_descriptor(i).get_cores(CoreType::TENSIX, CoordSystem::VIRTUAL)) {
                 if (rows_to_exclude.find(core.y) != rows_to_exclude.end()) {
                     continue;
                 }
@@ -828,7 +828,7 @@ TEST(SiliconDriverBH, DISABLED_VirtualCoordinateBroadcast) {  // same problem as
         cluster.wait_for_non_mmio_flush();
 
         for (const auto i : target_devices) {
-            for (const auto& core : cluster.get_soc_descriptor(i).get_cores(CoreType::TENSIX)) {
+            for (const auto& core : cluster.get_soc_descriptor(i).get_cores(CoreType::TENSIX, CoordSystem::VIRTUAL)) {
                 if (rows_to_exclude.find(core.y) != rows_to_exclude.end()) {
                     continue;
                 }
@@ -882,7 +882,7 @@ TEST(SiliconDriverBH, SysmemTestWithPcie) {
     cluster.start_device(tt_device_params{});  // no special parameters
 
     const chip_id_t mmio_chip_id = 0;
-    const auto PCIE = cluster.get_soc_descriptor(mmio_chip_id).get_cores(CoreType::PCIE).at(0);
+    const auto PCIE = cluster.get_soc_descriptor(mmio_chip_id).get_cores(CoreType::PCIE, CoordSystem::VIRTUAL).at(0);
     const tt_cxy_pair PCIE_CORE(mmio_chip_id, PCIE.x, PCIE.y);
     const size_t test_size_bytes = 0x4000;  // Arbitrarilly chosen, but small size so the test runs quickly.
 
@@ -952,7 +952,7 @@ TEST(SiliconDriverBH, RandomSysmemTestWithPcie) {
     cluster.start_device(tt_device_params{});  // no special parameters
 
     const chip_id_t mmio_chip_id = 0;
-    const auto PCIE = cluster.get_soc_descriptor(mmio_chip_id).get_cores(CoreType::PCIE).at(0);
+    const auto PCIE = cluster.get_soc_descriptor(mmio_chip_id).get_cores(CoreType::PCIE, CoordSystem::VIRTUAL).at(0);
     const tt_cxy_pair PCIE_CORE(mmio_chip_id, PCIE.x, PCIE.y);
     const size_t ONE_GIG = 1 << 30;
     const size_t num_tests = 0x20000;  // runs in a reasonable amount of time

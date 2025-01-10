@@ -60,7 +60,7 @@ TEST(SiliconDriverGS, Harvesting) {
 
     ASSERT_EQ(cluster.using_harvested_soc_descriptors(), true) << "Expected Driver to have performed harvesting";
     for (const auto& chip : sdesc_per_chip) {
-        ASSERT_LE(chip.second.get_cores(CoreType::TENSIX).size(), 96)
+        ASSERT_LE(chip.second.get_cores(CoreType::TENSIX, CoordSystem::VIRTUAL).size(), 96)
             << "Expected SOC descriptor with harvesting to have less than or equal to 96 workers for chip "
             << chip.first;
     }
@@ -96,7 +96,7 @@ TEST(SiliconDriverGS, CustomSocDesc) {
     ASSERT_EQ(cluster.using_harvested_soc_descriptors(), false)
         << "SOC descriptors should not be modified when harvesting is disabled";
     for (const auto& chip : sdesc_per_chip) {
-        ASSERT_EQ(chip.second.get_cores(CoreType::TENSIX).size(), 1)
+        ASSERT_EQ(chip.second.get_cores(CoreType::TENSIX, CoordSystem::VIRTUAL).size(), 1)
             << "Expected 1x1 SOC descriptor to be unmodified by driver";
     }
 }
@@ -118,7 +118,7 @@ TEST(SiliconDriverGS, HarvestingRuntime) {
     for (int i = 0; i < target_devices.size(); i++) {
         // Iterate over devices and only setup static TLBs for functional worker cores
         auto& sdesc = cluster.get_soc_descriptor(i);
-        for (auto& core : sdesc.get_cores(CoreType::TENSIX)) {
+        for (auto& core : sdesc.get_cores(CoreType::TENSIX, CoordSystem::VIRTUAL)) {
             // Statically mapping a 1MB TLB to this core, starting from address DATA_BUFFER_SPACE_BASE.
             cluster.configure_tlb(i, core, get_static_tlb_index(core), l1_mem::address_map::DATA_BUFFER_SPACE_BASE);
         }
@@ -139,7 +139,7 @@ TEST(SiliconDriverGS, HarvestingRuntime) {
         std::uint32_t dynamic_write_address = 0x30000000;
         for (int loop = 0; loop < 100;
              loop++) {  // Write to each core a 100 times at different statically mapped addresses
-            for (auto& core : cluster.get_soc_descriptor(i).get_cores(CoreType::TENSIX)) {
+            for (auto& core : cluster.get_soc_descriptor(i).get_cores(CoreType::TENSIX, CoordSystem::VIRTUAL)) {
                 cluster.write_to_device(
                     vector_to_write.data(),
                     vector_to_write.size() * sizeof(std::uint32_t),
@@ -208,7 +208,7 @@ TEST(SiliconDriverGS, StaticTLB_RW) {
     for (int i = 0; i < target_devices.size(); i++) {
         // Iterate over devices and only setup static TLBs for worker cores
         auto& sdesc = cluster.get_soc_descriptor(i);
-        for (auto& core : sdesc.get_cores(CoreType::TENSIX)) {
+        for (auto& core : sdesc.get_cores(CoreType::TENSIX, CoordSystem::VIRTUAL)) {
             // Statically mapping a 1MB TLB to this core, starting from address DATA_BUFFER_SPACE_BASE.
             cluster.configure_tlb(
                 i, core, get_static_tlb_index(core), l1_mem::address_map::DATA_BUFFER_SPACE_BASE, TLB_DATA::Posted);
@@ -227,7 +227,7 @@ TEST(SiliconDriverGS, StaticTLB_RW) {
         std::uint32_t address = l1_mem::address_map::DATA_BUFFER_SPACE_BASE;
         for (int loop = 0; loop < 100;
              loop++) {  // Write to each core a 100 times at different statically mapped addresses
-            for (auto& core : cluster.get_soc_descriptor(i).get_cores(CoreType::TENSIX)) {
+            for (auto& core : cluster.get_soc_descriptor(i).get_cores(CoreType::TENSIX, CoordSystem::VIRTUAL)) {
                 cluster.write_to_device(
                     vector_to_write.data(),
                     vector_to_write.size() * sizeof(std::uint32_t),
@@ -281,7 +281,7 @@ TEST(SiliconDriverGS, DynamicTLB_RW) {
         std::uint32_t address = l1_mem::address_map::DATA_BUFFER_SPACE_BASE;
         for (int loop = 0; loop < 100;
              loop++) {  // Write to each core a 100 times at different statically mapped addresses
-            for (auto& core : cluster.get_soc_descriptor(i).get_cores(CoreType::TENSIX)) {
+            for (auto& core : cluster.get_soc_descriptor(i).get_cores(CoreType::TENSIX, CoordSystem::VIRTUAL)) {
                 cluster.write_to_device(
                     vector_to_write.data(),
                     vector_to_write.size() * sizeof(std::uint32_t),
@@ -334,7 +334,7 @@ TEST(SiliconDriverGS, MultiThreadedDevice) {
         float timeout_in_seconds = 10;
         std::uint32_t address = l1_mem::address_map::DATA_BUFFER_SPACE_BASE;
         for (int loop = 0; loop < 100; loop++) {
-            for (auto& core : cluster.get_soc_descriptor(0).get_cores(CoreType::TENSIX)) {
+            for (auto& core : cluster.get_soc_descriptor(0).get_cores(CoreType::TENSIX, CoordSystem::VIRTUAL)) {
                 cluster.write_to_device(
                     vector_to_write.data(),
                     vector_to_write.size() * sizeof(std::uint32_t),
@@ -423,7 +423,7 @@ TEST(SiliconDriverGS, MultiThreadedMemBar) {  // this tests takes ~5 mins to run
     for (int i = 0; i < target_devices.size(); i++) {
         // Iterate over devices and only setup static TLBs for functional worker cores
         auto& sdesc = cluster.get_soc_descriptor(i);
-        for (auto& core : sdesc.get_cores(CoreType::TENSIX)) {
+        for (auto& core : sdesc.get_cores(CoreType::TENSIX, CoordSystem::VIRTUAL)) {
             // Statically mapping a 1MB TLB to this core, starting from address DATA_BUFFER_SPACE_BASE.
             cluster.configure_tlb(i, core, get_static_tlb_index(core), base_addr);
         }
@@ -432,7 +432,7 @@ TEST(SiliconDriverGS, MultiThreadedMemBar) {  // this tests takes ~5 mins to run
     tt_device_params default_params;
     cluster.start_device(default_params);
     std::vector<uint32_t> readback_membar_vec = {};
-    for (auto& core : cluster.get_soc_descriptor(0).get_cores(CoreType::TENSIX)) {
+    for (auto& core : cluster.get_soc_descriptor(0).get_cores(CoreType::TENSIX, CoordSystem::VIRTUAL)) {
         test_utils::read_data_from_device(
             cluster,
             readback_membar_vec,
@@ -445,7 +445,7 @@ TEST(SiliconDriverGS, MultiThreadedMemBar) {  // this tests takes ~5 mins to run
         readback_membar_vec = {};
     }
 
-    for (auto& core : cluster.get_soc_descriptor(0).get_cores(CoreType::TENSIX)) {
+    for (auto& core : cluster.get_soc_descriptor(0).get_cores(CoreType::TENSIX, CoordSystem::VIRTUAL)) {
         test_utils::read_data_from_device(
             cluster,
             readback_membar_vec,
@@ -482,7 +482,7 @@ TEST(SiliconDriverGS, MultiThreadedMemBar) {  // this tests takes ~5 mins to run
     std::thread th1 = std::thread([&] {
         std::uint32_t address = base_addr;
         for (int loop = 0; loop < 100; loop++) {
-            for (auto& core : cluster.get_soc_descriptor(0).get_cores(CoreType::TENSIX)) {
+            for (auto& core : cluster.get_soc_descriptor(0).get_cores(CoreType::TENSIX, CoordSystem::VIRTUAL)) {
                 std::vector<uint32_t> readback_vec = {};
                 cluster.write_to_device(
                     vec1.data(), vec1.size() * sizeof(std::uint32_t), tt_cxy_pair(0, core), address, "");
@@ -500,7 +500,7 @@ TEST(SiliconDriverGS, MultiThreadedMemBar) {  // this tests takes ~5 mins to run
     std::thread th2 = std::thread([&] {
         std::uint32_t address = base_addr + vec1.size() * 4;
         for (int loop = 0; loop < 100; loop++) {
-            for (auto& core : cluster.get_soc_descriptor(0).get_cores(CoreType::TENSIX)) {
+            for (auto& core : cluster.get_soc_descriptor(0).get_cores(CoreType::TENSIX, CoordSystem::VIRTUAL)) {
                 std::vector<uint32_t> readback_vec = {};
                 cluster.write_to_device(
                     vec2.data(), vec2.size() * sizeof(std::uint32_t), tt_cxy_pair(0, core), address, "");
@@ -518,7 +518,7 @@ TEST(SiliconDriverGS, MultiThreadedMemBar) {  // this tests takes ~5 mins to run
     th1.join();
     th2.join();
 
-    for (auto& core : cluster.get_soc_descriptor(0).get_cores(CoreType::TENSIX)) {
+    for (auto& core : cluster.get_soc_descriptor(0).get_cores(CoreType::TENSIX, CoordSystem::VIRTUAL)) {
         test_utils::read_data_from_device(
             cluster,
             readback_membar_vec,
@@ -548,7 +548,7 @@ TEST(SiliconDriverGS, SysmemTestWithPcie) {
     cluster.start_device(tt_device_params{});  // no special parameters
 
     const chip_id_t mmio_chip_id = 0;
-    const auto PCIE = cluster.get_soc_descriptor(mmio_chip_id).get_cores(CoreType::PCIE).at(0);
+    const auto PCIE = cluster.get_soc_descriptor(mmio_chip_id).get_cores(CoreType::PCIE, CoordSystem::VIRTUAL).at(0);
     const tt_cxy_pair PCIE_CORE(mmio_chip_id, PCIE.x, PCIE.y);
     const size_t test_size_bytes = 0x4000;  // Arbitrarilly chosen, but small size so the test runs quickly.
 

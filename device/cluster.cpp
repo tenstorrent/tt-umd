@@ -420,9 +420,7 @@ void Cluster::construct_cluster(
                 }
                 remote_transfer_ethernet_cores.at(logical_mmio_chip_id)
                     .push_back(tt_cxy_pair(
-                        logical_mmio_chip_id,
-                        soc_desc.get_cores(CoreType::ETH).at(i).x,
-                        soc_desc.get_cores(CoreType::ETH).at(i).y));
+                        logical_mmio_chip_id, soc_desc.get_cores(CoreType::ETH, CoordSystem::VIRTUAL).at(i)));
             }
         }
     }
@@ -643,7 +641,7 @@ void Cluster::configure_active_ethernet_cores_for_mmio_device(
         get_soc_descriptor(mmio_chip).arch == tt::ARCH::WORMHOLE_B0,
         "{} can only be called for Wormhole arch",
         __FUNCTION__);
-    auto eth_cores = get_soc_descriptor(mmio_chip).get_cores(CoreType::ETH);
+    auto eth_cores = get_soc_descriptor(mmio_chip).get_cores(CoreType::ETH, CoordSystem::VIRTUAL);
     // Cores 0, 1, 6, 7 are only available if in the active set
     static std::unordered_set<tt_xy_pair> eth_cores_available_if_active = {
         eth_cores.at(0), eth_cores.at(1), eth_cores.at(6), eth_cores.at(7)};
@@ -676,11 +674,11 @@ void Cluster::populate_cores() {
     std::uint32_t count = 0;
     for (const auto& [chip_id, chip] : chips_) {
         auto& soc_desc = chip->get_soc_descriptor();
-        auto tensix_core_vector = soc_desc.get_cores(CoreType::TENSIX);
+        auto tensix_core_vector = soc_desc.get_cores(CoreType::TENSIX, CoordSystem::VIRTUAL);
         workers_per_chip.insert(
             {chip_id, std::unordered_set<tt_xy_pair>(tensix_core_vector.begin(), tensix_core_vector.end())});
         if (count == 0) {
-            auto eth_core_vector = soc_desc.get_cores(CoreType::ETH);
+            auto eth_core_vector = soc_desc.get_cores(CoreType::ETH, CoordSystem::VIRTUAL);
             eth_cores = std::unordered_set<tt_xy_pair>(eth_core_vector.begin(), eth_core_vector.end());
             for (std::uint32_t dram_idx = 0; dram_idx < soc_desc.get_num_dram_channels(); dram_idx++) {
                 dram_cores.insert(soc_desc.get_core_for_dram_channel(dram_idx, 0));
@@ -748,9 +746,8 @@ void Cluster::remove_worker_row_from_descriptor(
 }
 
 void Cluster::harvest_rows_in_soc_descriptor(tt::ARCH arch, tt_SocDescriptor& sdesc, uint32_t harvested_rows) {
-    auto tensix_core_vector = sdesc.get_cores(CoreType::TENSIX);
     std::uint32_t max_row_to_remove =
-        (*std::max_element(tensix_core_vector.begin(), tensix_core_vector.end(), [](const auto& a, const auto& b) {
+        (*std::max_element((sdesc.workers).begin(), (sdesc.workers).end(), [](const auto& a, const auto& b) {
             return a.y < b.y;
         })).y;
     std::vector<int> row_coordinates_to_remove = extract_rows_to_remove(arch, max_row_to_remove, harvested_rows);
@@ -971,8 +968,8 @@ void Cluster::deassert_risc_reset() { broadcast_tensix_risc_reset_to_cluster(TEN
 void Cluster::deassert_risc_reset_at_core(tt_cxy_pair core, const TensixSoftResetOptions& soft_resets) {
     // Get Target Device to query soc descriptor and determine location in cluster
     std::uint32_t target_device = core.chip;
-    auto tensix_core_vector = get_soc_descriptor(target_device).get_cores(CoreType::TENSIX);
-    auto eth_core_vector = get_soc_descriptor(target_device).get_cores(CoreType::ETH);
+    auto tensix_core_vector = get_soc_descriptor(target_device).get_cores(CoreType::TENSIX, CoordSystem::VIRTUAL);
+    auto eth_core_vector = get_soc_descriptor(target_device).get_cores(CoreType::ETH, CoordSystem::VIRTUAL);
     log_assert(
         std::find(tensix_core_vector.begin(), tensix_core_vector.end(), core) != tensix_core_vector.end() ||
             std::find(eth_core_vector.begin(), eth_core_vector.end(), core) != eth_core_vector.end(),
@@ -995,8 +992,8 @@ void Cluster::deassert_risc_reset_at_core(
 void Cluster::assert_risc_reset_at_core(tt_cxy_pair core, const TensixSoftResetOptions& soft_resets) {
     // Get Target Device to query soc descriptor and determine location in cluster
     std::uint32_t target_device = core.chip;
-    auto tensix_core_vector = get_soc_descriptor(target_device).get_cores(CoreType::TENSIX);
-    auto eth_core_vector = get_soc_descriptor(target_device).get_cores(CoreType::ETH);
+    auto tensix_core_vector = get_soc_descriptor(target_device).get_cores(CoreType::TENSIX, CoordSystem::VIRTUAL);
+    auto eth_core_vector = get_soc_descriptor(target_device).get_cores(CoreType::ETH, CoordSystem::VIRTUAL);
     log_assert(
         std::find(tensix_core_vector.begin(), tensix_core_vector.end(), core) != tensix_core_vector.end() ||
             std::find(eth_core_vector.begin(), eth_core_vector.end(), core) != eth_core_vector.end(),
@@ -2761,7 +2758,7 @@ int Cluster::remote_arc_msg(
     constexpr uint64_t ARC_RESET_SCRATCH_ADDR = 0x880030060;
     constexpr uint64_t ARC_RESET_MISC_CNTL_ADDR = 0x880030100;
 
-    auto core = tt_cxy_pair(chip, get_soc_descriptor(chip).get_cores(CoreType::ARC).at(0));
+    auto core = tt_cxy_pair(chip, get_soc_descriptor(chip).get_cores(CoreType::ARC, CoordSystem::VIRTUAL).at(0));
 
     if ((msg_code & 0xff00) != 0xaa00) {
         log_error("Malformed message. msg_code is 0x{:x} but should be 0xaa..", msg_code);
@@ -3016,7 +3013,8 @@ void Cluster::write_to_device(
     } else {
         log_assert(arch_name != tt::ARCH::BLACKHOLE, "Non-MMIO targets not supported in Blackhole");
         log_assert(
-            (get_soc_descriptor(core.chip).get_cores(CoreType::ETH)).size() > 0 && chips_.size() > 1,
+            (get_soc_descriptor(core.chip).get_cores(CoreType::ETH, CoordSystem::VIRTUAL)).size() > 0 &&
+                chips_.size() > 1,
             "Cannot issue ethernet writes to a single chip cluster!");
         write_to_non_mmio_device(mem_ptr, size, core, addr);
     }
@@ -3086,7 +3084,8 @@ void Cluster::read_from_device(
             arch_name != tt::ARCH::BLACKHOLE,
             "Non-MMIO targets not supported in Blackhole");  // MT: Use only dynamic TLBs and never program static
         log_assert(
-            (get_soc_descriptor(core.chip).get_cores(CoreType::ETH)).size() > 0 && chips_.size() > 1,
+            (get_soc_descriptor(core.chip).get_cores(CoreType::ETH, CoordSystem::VIRTUAL)).size() > 0 &&
+                chips_.size() > 1,
             "Cannot issue ethernet reads from a single chip cluster!");
         read_from_non_mmio_device(mem_ptr, core, addr, size);
     }
@@ -3267,7 +3266,7 @@ void Cluster::verify_eth_fw() {
     for (const auto& chip : all_chip_ids_) {
         uint32_t fw_version;
         std::vector<uint32_t> fw_versions;
-        for (const tt_xy_pair& eth_core : get_soc_descriptor(chip).get_cores(CoreType::ETH)) {
+        for (const tt_xy_pair& eth_core : get_soc_descriptor(chip).get_cores(CoreType::ETH, CoordSystem::VIRTUAL)) {
             read_from_device(
                 &fw_version,
                 tt_cxy_pair(chip, eth_core),

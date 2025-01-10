@@ -107,7 +107,7 @@ public:
     std::vector<tt_xy_pair> workers;
     std::vector<tt_xy_pair> harvested_workers;
 
-private:
+protected:
     void create_coordinate_manager(
         const size_t tensix_harvesting_mask, const size_t dram_harvesting_mask, const size_t eth_harvesting_mask);
     void load_core_descriptors_from_device_descriptor(YAML::Node &device_descriptor_yaml);

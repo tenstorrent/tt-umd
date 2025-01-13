@@ -53,7 +53,7 @@ TEST(SiliconDriverGS, CreateMultipleInstance) {
 
 TEST(SiliconDriverGS, Harvesting) {
     std::set<chip_id_t> target_devices = {0};
-    std::unordered_map<chip_id_t, uint32_t> simulated_harvesting_masks = {{0, 6}, {1, 12}};
+    std::unordered_map<chip_id_t, SoftwareHarvesting> simulated_harvesting_masks = {{0, {6, 0, 0}}, {1, {12, 0, 0}}};
     uint32_t num_host_mem_ch_per_mmio_device = 1;
     Cluster cluster = Cluster(num_host_mem_ch_per_mmio_device, false, true, true, simulated_harvesting_masks);
     auto sdesc_per_chip = cluster.get_virtual_soc_descriptors();
@@ -66,22 +66,23 @@ TEST(SiliconDriverGS, Harvesting) {
     }
     // harvesting info stored in soc descriptor is in logical coordinates.
     ASSERT_EQ(
-        cluster.get_soc_descriptor(0).tensix_harvesting_mask & simulated_harvesting_masks[0],
-        simulated_harvesting_masks[0])
+        cluster.get_soc_descriptor(0).tensix_harvesting_mask & simulated_harvesting_masks[0].tensix_harvesting_mask,
+        simulated_harvesting_masks[0].tensix_harvesting_mask)
         << "Expected first chip to include simulated harvesting mask of 6";
     // get_harvesting_masks_for_soc_descriptors will return harvesting info in noc0 coordinates.
-    simulated_harvesting_masks[0] = CoordinateManager::shuffle_tensix_harvesting_mask_to_noc0_coords(
-        tt::ARCH::GRAYSKULL, simulated_harvesting_masks[0]);
+    simulated_harvesting_masks[0].tensix_harvesting_mask =
+        CoordinateManager::shuffle_tensix_harvesting_mask_to_noc0_coords(
+            tt::ARCH::GRAYSKULL, simulated_harvesting_masks[0].tensix_harvesting_mask);
     ASSERT_EQ(
-        cluster.get_harvesting_masks_for_soc_descriptors().at(0) & simulated_harvesting_masks[0],
-        simulated_harvesting_masks[0])
+        cluster.get_harvesting_masks_for_soc_descriptors().at(0) & simulated_harvesting_masks[0].tensix_harvesting_mask,
+        simulated_harvesting_masks[0].tensix_harvesting_mask)
         << "Expected first chip to include simulated harvesting mask of 6";
     cluster.close_device();
 }
 
 TEST(SiliconDriverGS, CustomSocDesc) {
     std::set<chip_id_t> target_devices = {0};
-    std::unordered_map<chip_id_t, uint32_t> simulated_harvesting_masks = {{0, 6}, {1, 12}};
+    std::unordered_map<chip_id_t, SoftwareHarvesting> simulated_harvesting_masks = {{0, {6, 0, 0}}, {1, {12, 0, 0}}};
     uint32_t num_host_mem_ch_per_mmio_device = 1;
     // Initialize the driver with a 1x1 descriptor and explictly do not perform harvesting
     Cluster cluster = Cluster(
@@ -110,7 +111,7 @@ TEST(SiliconDriverGS, HarvestingRuntime) {
     };
 
     std::set<chip_id_t> target_devices = {0};
-    std::unordered_map<chip_id_t, uint32_t> simulated_harvesting_masks = {{0, 6}, {1, 12}};
+    std::unordered_map<chip_id_t, SoftwareHarvesting> simulated_harvesting_masks = {{0, {6, 0, 0}}, {1, {12, 0, 0}}};
     uint32_t num_host_mem_ch_per_mmio_device = 1;
     Cluster cluster = Cluster(num_host_mem_ch_per_mmio_device, false, true, true, simulated_harvesting_masks);
 

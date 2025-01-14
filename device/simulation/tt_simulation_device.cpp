@@ -49,15 +49,17 @@ void print_flatbuffer(const DeviceRequestResponse* buf) {
     log_debug(tt::LogEmulationDriver, "Data: {}", data_hex);
 }
 
-tt_SimulationDevice::tt_SimulationDevice(const std::filesystem::path& simulator_directory) : tt_device() {
+tt_SimulationDeviceInit::tt_SimulationDeviceInit(const std::filesystem::path& simulator_directory) :
+    simulator_directory(simulator_directory), soc_descriptor(simulator_directory / "soc_descriptor.yaml", false) {}
+
+tt_SimulationDevice::tt_SimulationDevice(const tt_SimulationDeviceInit& init) : tt_device() {
     log_info(tt::LogEmulationDriver, "Instantiating simulation device");
-    std::string soc_descriptor_path = simulator_directory / "soc_descriptor.yaml";
-    soc_descriptor_per_chip.emplace(0, tt_SocDescriptor(soc_descriptor_path, false));
-    arch_name = soc_descriptor_per_chip[0].arch;
+    soc_descriptor_per_chip.emplace(0, init.get_soc_descriptor());
+    arch_name = init.get_arch_name();
     std::set<chip_id_t> target_devices = {0};
 
     // Start VCS simulator in a separate process
-    std::filesystem::path simulator_path = simulator_directory / "run.sh";
+    std::filesystem::path simulator_path = init.get_simulator_path();
     if (!std::filesystem::exists(simulator_path)) {
         TT_THROW("Simulator binary not found at: ", simulator_path);
     }

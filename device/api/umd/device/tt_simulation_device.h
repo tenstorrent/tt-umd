@@ -13,9 +13,27 @@
 #include "umd/device/cluster.h"
 #include "umd/device/tt_simulation_host.hpp"
 
+class tt_SimulationDeviceInit {
+public:
+    tt_SimulationDeviceInit(const std::filesystem::path& simulator_directory);
+
+    tt::ARCH get_arch_name() const { return soc_descriptor.arch; }
+
+    const tt_SocDescriptor& get_soc_descriptor() const { return soc_descriptor; }
+
+    std::filesystem::path get_simulator_path() const { return simulator_directory / "run.sh"; }
+
+private:
+    std::filesystem::path simulator_directory;
+    tt_SocDescriptor soc_descriptor;
+};
+
 class tt_SimulationDevice : public tt_device {
 public:
-    tt_SimulationDevice(const std::filesystem::path& simulator_directory);
+    tt_SimulationDevice(const std::filesystem::path& simulator_directory) :
+        tt_SimulationDevice(tt_SimulationDeviceInit(simulator_directory)) {}
+
+    tt_SimulationDevice(const tt_SimulationDeviceInit& init);
     ~tt_SimulationDevice();
 
     tt_SimulationHost host;

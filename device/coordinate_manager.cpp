@@ -550,7 +550,7 @@ std::shared_ptr<CoordinateManager> CoordinateManager::create_coordinate_manager(
                 tt::umd::wormhole::ARC_CORES,
                 tt::umd::wormhole::PCIE_GRID_SIZE,
                 tt::umd::wormhole::PCIE_CORES);
-        case tt::ARCH::QUASAR:  // TODO: Add Quasar configuration
+        case tt::ARCH::QUASAR:  // TODO (#450): Add Quasar configuration
         case tt::ARCH::BLACKHOLE: {
             const std::vector<tt_xy_pair> pcie_cores = tt::umd::blackhole::get_pcie_cores(board_type, is_chip_remote);
             return create_coordinate_manager(
@@ -575,8 +575,6 @@ std::shared_ptr<CoordinateManager> CoordinateManager::create_coordinate_manager(
         default:
             throw std::runtime_error("Unexpected ARCH value " + std::to_string((int)arch));
     }
-
-    throw std::runtime_error("Invalid architecture for creating coordinate manager 2");
 }
 
 std::shared_ptr<CoordinateManager> CoordinateManager::create_coordinate_manager(
@@ -628,8 +626,8 @@ std::shared_ptr<CoordinateManager> CoordinateManager::create_coordinate_manager(
                 arc_cores,
                 pcie_grid_size,
                 pcie_cores);
+        case tt::ARCH::QUASAR:  // TODO (#450): Add Quasar configuration
         case tt::ARCH::BLACKHOLE:
-        case tt::ARCH::QUASAR:
             return std::make_shared<BlackholeCoordinateManager>(
                 noc_translation_enabled,
                 tensix_grid_size,

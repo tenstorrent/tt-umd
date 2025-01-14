@@ -14,6 +14,7 @@
 
 #include "api/umd/device/tt_soc_descriptor.h"
 #include "fmt/core.h"
+#include "logger.hpp"
 #include "utils.hpp"
 #include "yaml-cpp/yaml.h"
 
@@ -60,6 +61,8 @@ inline std::string &trim(std::string &s, const char *t = ws) { return ltrim(rtri
 
 void tt_SocDescriptor::load_soc_features_from_device_descriptor(YAML::Node &device_descriptor_yaml) {
     overlay_version = device_descriptor_yaml["features"]["overlay"]["version"].as<int>();
+    // TODO: Check whether this is a valid value, and whether it is used.
+    // Also check if this is the same thing as noc_translation in cluster descriptor.
     noc_translation_id_enabled =
         device_descriptor_yaml["features"]["noc"] && device_descriptor_yaml["features"]["noc"]["translation_id_enabled"]
             ? device_descriptor_yaml["features"]["noc"]["translation_id_enabled"].as<bool>()
@@ -182,7 +185,10 @@ tt_xy_pair tt_SocDescriptor::calculate_grid_size(const std::vector<tt_xy_pair> &
 }
 
 void tt_SocDescriptor::create_coordinate_manager(
-    const std::size_t tensix_harvesting_mask, const std::size_t dram_harvesting_mask) {
+    const bool noc_translation_enabled,
+    const size_t tensix_harvesting_mask,
+    const size_t dram_harvesting_mask,
+    const size_t eth_harvesting_mask) {
     const tt_xy_pair dram_grid_size = tt_xy_pair(dram_cores.size(), dram_cores.empty() ? 0 : dram_cores[0].size());
     const tt_xy_pair arc_grid_size = tt_SocDescriptor::calculate_grid_size(arc_cores);
     const tt_xy_pair pcie_grid_size = tt_SocDescriptor::calculate_grid_size(pcie_cores);
@@ -194,8 +200,10 @@ void tt_SocDescriptor::create_coordinate_manager(
             dram_cores_unpacked.push_back(core);
         }
     }
+
     coordinate_manager = CoordinateManager::create_coordinate_manager(
         arch,
+        noc_translation_enabled,
         worker_grid_size,
         workers,
         tensix_harvesting_mask,
@@ -204,6 +212,7 @@ void tt_SocDescriptor::create_coordinate_manager(
         dram_harvesting_mask,
         eth_grid_size,
         ethernet_cores,
+        eth_harvesting_mask,
         arc_grid_size,
         arc_cores,
         pcie_grid_size,
@@ -218,8 +227,11 @@ tt::umd::CoreCoord tt_SocDescriptor::translate_coord_to(
 
 tt_SocDescriptor::tt_SocDescriptor(
     std::string device_descriptor_path,
-    const std::size_t tensix_harvesting_mask,
-    const std::size_t dram_harvesting_mask) {
+    const bool noc_translation_enabled,
+    const size_t tensix_harvesting_mask,
+    const size_t dram_harvesting_mask,
+    const size_t eth_harvesting_mask) :
+    tensix_harvesting_mask(tensix_harvesting_mask) {
     std::ifstream fdesc(device_descriptor_path);
     if (fdesc.fail()) {
         throw std::runtime_error(
@@ -231,21 +243,15 @@ tt_SocDescriptor::tt_SocDescriptor(
 
     auto grid_size_x = device_descriptor_yaml["grid"]["x_size"].as<int>();
     auto grid_size_y = device_descriptor_yaml["grid"]["y_size"].as<int>();
-    int physical_grid_size_x = device_descriptor_yaml["physical"] && device_descriptor_yaml["physical"]["x_size"]
-                                   ? device_descriptor_yaml["physical"]["x_size"].as<int>()
-                                   : grid_size_x;
-    int physical_grid_size_y = device_descriptor_yaml["physical"] && device_descriptor_yaml["physical"]["y_size"]
-                                   ? device_descriptor_yaml["physical"]["y_size"].as<int>()
-                                   : grid_size_y;
     load_core_descriptors_from_device_descriptor(device_descriptor_yaml);
     grid_size = tt_xy_pair(grid_size_x, grid_size_y);
-    physical_grid_size = tt_xy_pair(physical_grid_size_x, physical_grid_size_y);
     device_descriptor_file_path = device_descriptor_path;
     std::string arch_name_value = device_descriptor_yaml["arch_name"].as<std::string>();
     arch_name_value = trim(arch_name_value);
     arch = tt::arch_from_str(arch_name_value);
     load_soc_features_from_device_descriptor(device_descriptor_yaml);
-    create_coordinate_manager(tensix_harvesting_mask, dram_harvesting_mask);
+    create_coordinate_manager(
+        noc_translation_enabled, tensix_harvesting_mask, dram_harvesting_mask, eth_harvesting_mask);
 }
 
 int tt_SocDescriptor::get_num_dram_channels() const {
@@ -277,7 +283,8 @@ bool tt_SocDescriptor::is_ethernet_core(const tt_xy_pair &core) const {
     return this->ethernet_core_channel_map.find(core) != ethernet_core_channel_map.end();
 }
 
-std::string tt_SocDescriptor::get_soc_descriptor_path(tt::ARCH arch) {
+std::string tt_SocDescriptor::get_soc_descriptor_path(
+    tt::ARCH arch, const BoardType board_type, const bool is_chip_remote) {
     switch (arch) {
         case tt::ARCH::GRAYSKULL:
             // TODO: this path needs to be changed to point to soc descriptors outside of tests directory.
@@ -285,9 +292,25 @@ std::string tt_SocDescriptor::get_soc_descriptor_path(tt::ARCH arch) {
         case tt::ARCH::WORMHOLE_B0:
             // TODO: this path needs to be changed to point to soc descriptors outside of tests directory.
             return tt::umd::utils::get_abs_path("tests/soc_descs/wormhole_b0_8x10.yaml");
-        case tt::ARCH::BLACKHOLE:
-            // TODO: this path needs to be changed to point to soc descriptors outside of tests directory.
-            return tt::umd::utils::get_abs_path("tests/soc_descs/blackhole_140_arch_no_eth.yaml");
+        case tt::ARCH::BLACKHOLE: {
+            if (board_type == BoardType::P100 || board_type == BoardType::UNKNOWN) {
+                // TODO: this path needs to be changed to point to soc descriptors outside of tests directory.
+                return tt::umd::utils::get_abs_path("tests/soc_descs/blackhole_140_arch_no_eth.yaml");
+            } else if (board_type == BoardType::P150A) {
+                // TODO: this path needs to be changed to point to soc descriptors outside of tests directory.
+                return tt::umd::utils::get_abs_path("tests/soc_descs/blackhole_140_arch_local.yaml");
+            } else if (board_type == BoardType::P300) {
+                if (is_chip_remote) {
+                    // TODO: this path needs to be changed to point to soc descriptors outside of tests directory.
+                    return tt::umd::utils::get_abs_path("tests/soc_descs/blackhole_140_arch_remote.yaml");
+                } else {
+                    // TODO: this path needs to be changed to point to soc descriptors outside of tests directory.
+                    return tt::umd::utils::get_abs_path("tests/soc_descs/blackhole_140_arch_local.yaml");
+                }
+            } else {
+                throw std::runtime_error("Invalid board type for Blackhole architecture.");
+            }
+        }
         default:
             throw std::runtime_error("Invalid architecture");
     }
@@ -314,32 +337,74 @@ void tt_SocDescriptor::get_cores_and_grid_size_from_coordinate_manager() {
 
     harvested_cores_map.insert({CoreType::DRAM, coordinate_manager->get_harvested_cores(CoreType::DRAM)});
     harvested_grid_size_map.insert({CoreType::DRAM, coordinate_manager->get_harvested_grid_size(CoreType::DRAM)});
+
+    harvested_cores_map.insert({CoreType::ETH, coordinate_manager->get_harvested_cores(CoreType::ETH)});
+    harvested_grid_size_map.insert({CoreType::ETH, coordinate_manager->get_harvested_grid_size(CoreType::ETH)});
+
+    harvested_cores_map.insert({CoreType::ARC, coordinate_manager->get_harvested_cores(CoreType::ARC)});
+    harvested_grid_size_map.insert({CoreType::ARC, coordinate_manager->get_harvested_grid_size(CoreType::ARC)});
+
+    harvested_cores_map.insert({CoreType::PCIE, coordinate_manager->get_harvested_cores(CoreType::PCIE)});
+    harvested_grid_size_map.insert({CoreType::PCIE, coordinate_manager->get_harvested_grid_size(CoreType::PCIE)});
+
+    const std::vector<CoreCoord> dram_cores = cores_map.at(CoreType::DRAM);
+    const tt_xy_pair dram_grid_size = grid_size_map.at(CoreType::DRAM);
+
+    dram_cores_core_coord.resize(dram_grid_size.x);
+    for (size_t bank = 0; bank < dram_grid_size.x; bank++) {
+        for (size_t noc_port = 0; noc_port < dram_grid_size.y; noc_port++) {
+            dram_cores_core_coord[bank].push_back(dram_cores[bank * dram_grid_size.y + noc_port]);
+        }
+    }
+
+    const std::vector<CoreCoord> harvested_dram_cores = harvested_cores_map.at(CoreType::DRAM);
+    const tt_xy_pair harvested_dram_grid_size = harvested_grid_size_map.at(CoreType::DRAM);
+
+    harvested_dram_cores_core_coord.resize(harvested_dram_grid_size.x);
+    for (size_t bank = 0; bank < harvested_dram_grid_size.x; bank++) {
+        for (size_t noc_port = 0; noc_port < harvested_dram_grid_size.y; noc_port++) {
+            harvested_dram_cores_core_coord[bank].push_back(
+                harvested_dram_cores[bank * harvested_dram_grid_size.y + noc_port]);
+        }
+    }
 }
 
-std::vector<tt::umd::CoreCoord> tt_SocDescriptor::get_cores(const CoreType core_type) const {
-    if (cores_map.find(core_type) == cores_map.end()) {
-        return {};
+std::vector<CoreCoord> tt_SocDescriptor::translate_coordinates(
+    const std::vector<CoreCoord> &physical_cores, const CoordSystem coord_system) const {
+    std::vector<CoreCoord> translated_cores;
+    for (const auto &core : physical_cores) {
+        translated_cores.push_back(translate_coord_to(core, coord_system));
     }
-    return cores_map.at(core_type);
+    return translated_cores;
 }
 
-std::vector<tt::umd::CoreCoord> tt_SocDescriptor::get_harvested_cores(const CoreType core_type) const {
-    if (harvested_cores_map.find(core_type) == harvested_cores_map.end()) {
-        return {};
+std::vector<tt::umd::CoreCoord> tt_SocDescriptor::get_cores(
+    const CoreType core_type, const CoordSystem coord_system) const {
+    auto cores_map_it = cores_map.find(core_type);
+    if (coord_system != CoordSystem::PHYSICAL) {
+        return translate_coordinates(cores_map_it->second, coord_system);
     }
-    return harvested_cores_map.at(core_type);
+    return cores_map_it->second;
 }
 
-tt_xy_pair tt_SocDescriptor::get_grid_size(const CoreType core_type) const {
-    if (grid_size_map.find(core_type) == grid_size_map.end()) {
-        return {0, 0};
+std::vector<tt::umd::CoreCoord> tt_SocDescriptor::get_harvested_cores(
+    const CoreType core_type, const CoordSystem coord_system) const {
+    log_assert(coord_system != CoordSystem::LOGICAL, "Harvested cores are not supported for logical coordinates");
+    auto harvested_cores_map_it = harvested_cores_map.find(core_type);
+    if (coord_system != CoordSystem::PHYSICAL) {
+        return translate_coordinates(harvested_cores_map_it->second, coord_system);
     }
-    return grid_size_map.at(core_type);
+    return harvested_cores_map_it->second;
 }
+
+tt_xy_pair tt_SocDescriptor::get_grid_size(const CoreType core_type) const { return grid_size_map.at(core_type); }
 
 tt_xy_pair tt_SocDescriptor::get_harvested_grid_size(const CoreType core_type) const {
-    if (harvested_grid_size_map.find(core_type) == harvested_grid_size_map.end()) {
-        return {0, 0};
-    }
     return harvested_grid_size_map.at(core_type);
+}
+
+std::vector<std::vector<CoreCoord>> tt_SocDescriptor::get_dram_cores() const { return dram_cores_core_coord; }
+
+std::vector<std::vector<CoreCoord>> tt_SocDescriptor::get_harvested_dram_cores() const {
+    return harvested_dram_cores_core_coord;
 }

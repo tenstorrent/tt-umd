@@ -15,7 +15,7 @@
 class tt_MockupDevice : public tt_device {
 public:
     tt_MockupDevice(const std::string& sdesc_path) : tt_device() {
-        soc_descriptor_per_chip.emplace(0, tt_SocDescriptor(sdesc_path));
+        soc_descriptor_per_chip.emplace(0, tt_SocDescriptor(sdesc_path, false));
         std::set<chip_id_t> target_devices = {0};
     }
 
@@ -32,7 +32,8 @@ public:
     void deassert_risc_reset_at_core(
         tt_cxy_pair core, const TensixSoftResetOptions& soft_resets = TENSIX_DEASSERT_SOFT_RESET) override {}
 
-    void assert_risc_reset_at_core(tt_cxy_pair core) override {}
+    void assert_risc_reset_at_core(
+        tt_cxy_pair core, const TensixSoftResetOptions& soft_resets = TENSIX_ASSERT_SOFT_RESET) override {}
 
     void close_device() override {}
 

@@ -11,7 +11,6 @@ on:
         type: number
         default: 15
   pull_request:
-    branches: ["main"]
   push:
     branches: ["main"]
 

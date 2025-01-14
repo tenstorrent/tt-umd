@@ -52,7 +52,7 @@ void print_flatbuffer(const DeviceRequestResponse* buf) {
 tt_SimulationDevice::tt_SimulationDevice(const std::filesystem::path& simulator_directory) : tt_device() {
     log_info(tt::LogEmulationDriver, "Instantiating simulation device");
     std::string soc_descriptor_path = simulator_directory / "soc_descriptor.yaml";
-    soc_descriptor_per_chip.emplace(0, tt_SocDescriptor(soc_descriptor_path));
+    soc_descriptor_per_chip.emplace(0, tt_SocDescriptor(soc_descriptor_path, false));
     arch_name = soc_descriptor_per_chip[0].arch;
     std::set<chip_id_t> target_devices = {0};
 
@@ -126,7 +126,7 @@ void tt_SimulationDevice::deassert_risc_reset_at_core(tt_cxy_pair core, const Te
     deassert_risc_reset();
 }
 
-void tt_SimulationDevice::assert_risc_reset_at_core(tt_cxy_pair core) {
+void tt_SimulationDevice::assert_risc_reset_at_core(tt_cxy_pair core, const TensixSoftResetOptions& soft_resets) {
     log_info(
         tt::LogEmulationDriver,
         "Sending 'assert_risc_reset_at_core'.. (Not implemented, defaulting to 'assert_risc_reset' instead)");

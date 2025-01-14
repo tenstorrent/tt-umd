@@ -67,7 +67,7 @@ TEST(ApiClusterTest, DifferentConstructors) {
     // 3. Constructor taking a custom soc descriptor in addition.
     tt::ARCH device_arch = tt_ClusterDescriptor::detect_arch(logical_device_id);
     // You can add a custom soc descriptor here.
-    std::string sdesc_path = tt_SocDescriptor::get_soc_descriptor_path(device_arch);
+    std::string sdesc_path = tt_SocDescriptor::get_soc_descriptor_path(device_arch, BoardType::UNKNOWN);
     umd_cluster = std::make_unique<Cluster>(sdesc_path, target_devices);
     umd_cluster = nullptr;
 
@@ -223,6 +223,12 @@ TEST(ApiClusterTest, SimpleIOSpecificChips) {
 TEST(ClusterAPI, DynamicTLB_RW) {
     // Don't use any static TLBs in this test. All writes go through a dynamic TLB that needs to be reconfigured for
     // each transaction
+
+    std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
+    // TODO: Make this test work on a host system without any tt devices.
+    if (pci_device_ids.empty()) {
+        GTEST_SKIP() << "No chips present on the system. Skipping test.";
+    }
 
     std::unique_ptr<Cluster> cluster = get_cluster();
 

@@ -10,6 +10,7 @@
 #include <stdexcept>
 
 #include "umd/device/architecture_implementation.h"
+#include "umd/device/types/cluster_descriptor_types.h"
 #include "umd/device/types/tlb.h"
 
 namespace tt::umd {
@@ -99,8 +100,9 @@ static const std::vector<tt_xy_pair> ARC_CORES = {{8, 0}};
 static const std::vector<tt_xy_pair> ARC_LOCATIONS = ARC_CORES;
 
 static const tt_xy_pair PCIE_GRID_SIZE = {1, 1};
-static const std::vector<tt_xy_pair> PCIE_CORES = {{{11, 0}}};
-static const std::vector<tt_xy_pair> PCI_LOCATIONS = PCIE_CORES;
+static const std::vector<tt_xy_pair> PCIE_CORES_TYPE2 = {{{2, 0}}};
+static const std::vector<tt_xy_pair> PCI_LOCATIONS = PCIE_CORES_TYPE2;
+static const std::vector<tt_xy_pair> PCIE_CORES_TYPE1 = {{{11, 0}}};
 
 static const tt_xy_pair ETH_GRID_SIZE = {14, 1};
 static const std::vector<tt_xy_pair> ETH_CORES = {
@@ -186,6 +188,20 @@ static constexpr uint32_t MSG_TYPE_SETUP_IATU_FOR_PEER_TO_PEER = 0x97;
 
 static const uint32_t BH_NOC_NODE_ID_OFFSET = 0x1FD04044;
 
+// Register from which address of the ARC queue control block is read.
+constexpr uint64_t SCRATCH_RAM_11 = 0x8003042C;
+
+// ARC message queue header and entry size in bytes.
+constexpr uint32_t ARC_MSG_QUEUE_HEADER_SIZE = 32;
+constexpr uint32_t ARC_QUEUE_ENTRY_SIZE = 32;
+
+// ARC firmware interrupt address and value to write in order
+// to make an interrupt request.
+constexpr uint32_t ARC_FW_INT_ADDR = 0x80030100;
+constexpr uint32_t ARC_FW_INT_VAL = 65536;
+
+constexpr uint32_t ARC_MSG_RESPONSE_OK_LIMIT = 240;
+
 static const size_t eth_translated_coordinate_start_x = 20;
 static const size_t eth_translated_coordinate_start_y = 25;
 
@@ -194,6 +210,13 @@ static const size_t pcie_translated_coordinate_start_y = 24;
 
 static const size_t dram_translated_coordinate_start_x = 17;
 static const size_t dram_translated_coordinate_start_y = 12;
+
+/*
+ * Ge the PCIE core that can be used for communication with host
+ * based on the board type and whether the chip is remote or not.
+ * Information on remote chip is used only if the board type is P300.
+ */
+std::vector<tt_xy_pair> get_pcie_cores(const BoardType board_type, const bool is_chip_remote);
 
 }  // namespace blackhole
 
@@ -304,9 +327,20 @@ public:
 
     const std::vector<uint32_t>& get_t6_y_locations() const override { return blackhole::T6_Y_LOCATIONS; }
 
+    std::pair<uint32_t, uint32_t> get_tlb_1m_base_and_count() const override { return {0, 0}; }
+
+    std::pair<uint32_t, uint32_t> get_tlb_2m_base_and_count() const override {
+        return {blackhole::TLB_BASE_2M, blackhole::TLB_COUNT_2M};
+    }
+
+    std::pair<uint32_t, uint32_t> get_tlb_16m_base_and_count() const override { return {0, 0}; }
+
+    std::pair<uint32_t, uint32_t> get_tlb_4g_base_and_count() const override {
+        return {blackhole::TLB_BASE_4G, blackhole::TLB_COUNT_4G};
+    }
+
     std::tuple<xy_pair, xy_pair> multicast_workaround(xy_pair start, xy_pair end) const override;
     tlb_configuration get_tlb_configuration(uint32_t tlb_index) const override;
-    std::optional<std::tuple<std::uint64_t, std::uint64_t>> describe_tlb(std::int32_t tlb_index) const override;
     std::pair<std::uint64_t, std::uint64_t> get_tlb_data(std::uint32_t tlb_index, const tlb_data& data) const override;
 
     tt_device_l1_address_params get_l1_address_params() const override;

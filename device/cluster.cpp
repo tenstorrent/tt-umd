@@ -46,6 +46,7 @@
 #include "umd/device/hugepage.h"
 #include "umd/device/tt_cluster_descriptor.h"
 #include "umd/device/tt_core_coordinates.h"
+#include "umd/device/tt_device/tlb_manager.h"
 #include "umd/device/tt_soc_descriptor.h"
 #include "umd/device/types/arch.h"
 #include "umd/device/types/tlb.h"
@@ -143,42 +144,6 @@ std::unordered_map<chip_id_t, tt_SocDescriptor> Cluster::get_virtual_soc_descrip
     return soc_descs;
 }
 
-bool Cluster::address_in_tlb_space(
-    uint64_t address, uint32_t size_in_bytes, int32_t tlb_index, uint64_t tlb_size, std::uint32_t chip) {
-    const auto& tlb_map = tlb_config_map.at(chip);
-    const auto it = tlb_map.find(tlb_index);
-    if (it != tlb_map.end()) {
-        auto mapped_address = it->second;
-        return address >= mapped_address && (address + size_in_bytes <= mapped_address + tlb_size);
-    }
-    return false;
-}
-
-bool Cluster::is_tlb_mapped(tt_cxy_pair target) {
-    if (map_core_to_tlb_per_chip.find(target.chip) == map_core_to_tlb_per_chip.end()) {
-        return false;
-    }
-
-    auto& map_core_to_tlb = map_core_to_tlb_per_chip.at(target.chip);
-    tt_xy_pair target_core = tt_xy_pair(target.x, target.y);
-
-    return map_core_to_tlb.find(target_core) != map_core_to_tlb.end();
-}
-
-bool Cluster::is_tlb_mapped(tt_cxy_pair target, uint64_t address, uint32_t size_in_bytes) {
-    if (!is_tlb_mapped(target)) {
-        return false;
-    }
-
-    auto* dev = get_tt_device(target.chip);
-
-    int32_t tlb_index = map_core_to_tlb_per_chip.at(target.chip).at(tt_xy_pair(target.x, target.y));
-    auto tlb_description = dev->get_architecture_implementation()->describe_tlb(tlb_index);
-
-    return tlb_description.has_value() &&
-           address_in_tlb_space(address, size_in_bytes, tlb_index, std::get<1>(tlb_description.value()), target.chip);
-}
-
 void Cluster::initialize_interprocess_mutexes(int logical_device_id, bool cleanup_mutexes_in_shm) {
     // These mutexes are intended to be based on physical devices/pci-intf not logical. Set these up ahead of time here
     // (during device init) since its unsafe to modify shared state during multithreaded runtime. cleanup_mutexes_in_shm
@@ -192,7 +157,7 @@ void Cluster::initialize_interprocess_mutexes(int logical_device_id, bool cleanu
     std::string mutex_name = "";
 
     // Initialize Dynamic TLB mutexes
-    for (auto& tlb : dynamic_tlb_config) {
+    for (auto& tlb : get_tlb_manager(logical_device_id)->dynamic_tlb_config_) {
         mutex_name = tlb.first + std::to_string(logical_device_id);
         if (cleanup_mutexes_in_shm) {
             named_mutex::remove(mutex_name.c_str());
@@ -267,6 +232,7 @@ void Cluster::create_device(
             pci_device->get_device_num(),
             pci_device->revision_id);
 
+        // TODO: This will be moved to a dedicated Locking class.
         initialize_interprocess_mutexes(logical_device_id, clean_system_resources);
 
         // MT: Initial BH - hugepages will fail init
@@ -301,14 +267,13 @@ void Cluster::create_device(
 bool Cluster::using_harvested_soc_descriptors() { return perform_harvesting_on_sdesc && performed_harvesting; }
 
 std::unordered_map<chip_id_t, uint32_t> Cluster::get_harvesting_masks_for_soc_descriptors() {
-    if (using_harvested_soc_descriptors()) {
-        return harvested_rows_per_target;
+    std::unordered_map<chip_id_t, uint32_t> harvesting_masks = {};
+    for (const auto& [chip_id, chip] : chips_) {
+        uint32_t noc0_harvesting_mask = CoordinateManager::shuffle_tensix_harvesting_mask_to_noc0_coords(
+            chip->get_soc_descriptor().arch, chip->get_soc_descriptor().tensix_harvesting_mask);
+        harvesting_masks.insert({chip_id, noc0_harvesting_mask});
     }
-    std::unordered_map<chip_id_t, uint32_t> default_harvesting_masks = {};
-    for (const auto chip : all_chip_ids_) {
-        default_harvesting_masks.insert({chip, 0});
-    }
-    return default_harvesting_masks;
+    return harvesting_masks;
 }
 
 void Cluster::construct_cluster(
@@ -331,18 +296,6 @@ void Cluster::construct_cluster(
 
     perform_harvesting_on_sdesc = perform_harvesting;
 
-    // It is mandatory for all devices to have these TLBs set aside, as the driver needs them to issue remote reads and
-    // writes.
-    auto architecture_implementation = tt::umd::architecture_implementation::create(arch_name);
-    dynamic_tlb_config["LARGE_READ_TLB"] = architecture_implementation->get_mem_large_read_tlb();
-    dynamic_tlb_config["LARGE_WRITE_TLB"] = architecture_implementation->get_mem_large_write_tlb();
-    dynamic_tlb_config["REG_TLB"] = architecture_implementation->get_reg_tlb();
-    dynamic_tlb_config["SMALL_READ_WRITE_TLB"] = architecture_implementation->get_small_read_write_tlb();
-
-    // All dynamic TLBs use Relaxed Ordering by default
-    for (const auto& tlb : dynamic_tlb_config) {
-        dynamic_tlb_ordering_modes.insert({tlb.first, TLB_DATA::Relaxed});
-    }
     create_device(local_chip_ids_, num_host_mem_ch_per_mmio_device, skip_driver_allocs, clean_system_resources);
 
     // MT: Initial BH - Disable dependency to ethernet firmware
@@ -471,21 +424,6 @@ void Cluster::construct_cluster(
             }
         }
     }
-
-    // Default initialize l1_address_params based on detected arch
-    l1_address_params = architecture_implementation->get_l1_address_params();
-
-    // Default initialize dram_address_params.
-    dram_address_params = {0u};
-
-    // Default initialize host_address_params based on detected arch
-    host_address_params = architecture_implementation->get_host_address_params();
-
-    // Default initialize eth_interface_params based on detected arch
-    eth_interface_params = architecture_implementation->get_eth_interface_params();
-
-    // Default initialize noc_params based on detected arch
-    noc_params = architecture_implementation->get_noc_params();
 }
 
 std::unique_ptr<Chip> Cluster::construct_chip_from_cluster(
@@ -497,16 +435,29 @@ std::unique_ptr<Chip> Cluster::construct_chip_from_cluster(
     }
 }
 
-std::unique_ptr<Chip> Cluster::construct_chip_from_cluster(chip_id_t chip_id, tt_ClusterDescriptor* cluster_desc) {
-    tt::ARCH arch = cluster_desc->get_arch(chip_id);
-    std::string soc_desc_path = tt_SocDescriptor::get_soc_descriptor_path(arch);
-    // Note that initially soc_descriptors are not harvested, but will be harvested later if perform_harvesting is
-    // true.
-    // TODO: This should be changed, harvesting should be done in tt_socdescriptor's constructor and not as part of
-    // cluster class.
-    uint32_t tensix_harvesting_mask = cluster_desc->get_harvesting_info().at(chip_id);
-    tt_SocDescriptor soc_desc = tt_SocDescriptor(soc_desc_path, tensix_harvesting_mask /*, harvesting_info*/);
+std::unique_ptr<Chip> Cluster::construct_chip_from_cluster(
+    const std::string& soc_desc_path,
+    chip_id_t chip_id,
+    tt_ClusterDescriptor* cluster_desc,
+    bool perform_harvesting,
+    std::unordered_map<chip_id_t, uint32_t>& simulated_harvesting_masks) {
+    uint32_t tensix_harvesting_mask =
+        get_tensix_harvesting_mask(chip_id, cluster_desc, perform_harvesting, simulated_harvesting_masks);
+    tt_SocDescriptor soc_desc = tt_SocDescriptor(
+        soc_desc_path, cluster_desc->get_noc_translation_table_en().at(chip_id), tensix_harvesting_mask);
     return construct_chip_from_cluster(chip_id, cluster_desc, soc_desc);
+}
+
+std::unique_ptr<Chip> Cluster::construct_chip_from_cluster(
+    chip_id_t chip_id,
+    tt_ClusterDescriptor* cluster_desc,
+    bool perform_harvesting,
+    std::unordered_map<chip_id_t, uint32_t>& simulated_harvesting_masks) {
+    tt::ARCH arch = cluster_desc->get_arch(chip_id);
+    const BoardType chip_board_type = cluster_desc->get_board_type(chip_id);
+    std::string soc_desc_path = tt_SocDescriptor::get_soc_descriptor_path(arch, chip_board_type);
+    return construct_chip_from_cluster(
+        soc_desc_path, chip_id, cluster_desc, perform_harvesting, simulated_harvesting_masks);
 }
 
 void Cluster::add_chip(chip_id_t chip_id, std::unique_ptr<Chip> chip) {
@@ -523,6 +474,40 @@ void Cluster::add_chip(chip_id_t chip_id, std::unique_ptr<Chip> chip) {
     chips_.emplace(chip_id, std::move(chip));
 }
 
+uint32_t Cluster::get_tensix_harvesting_mask(
+    chip_id_t chip_id,
+    tt_ClusterDescriptor* cluster_desc,
+    bool perform_harvesting,
+    std::unordered_map<chip_id_t, uint32_t>& simulated_harvesting_masks) {
+    if (!perform_harvesting) {
+        log_info(LogSiliconDriver, "Skipping harvesting for chip {}.", chip_id);
+        return 0;
+    }
+    uint32_t tensix_harvesting_mask_physical_layout = cluster_desc->get_harvesting_info().at(chip_id);
+    uint32_t tensix_harvesting_mask = CoordinateManager::shuffle_tensix_harvesting_mask(
+        cluster_desc->get_arch(chip_id), tensix_harvesting_mask_physical_layout);
+    uint32_t simulated_harvesting_mask = (simulated_harvesting_masks.find(chip_id) != simulated_harvesting_masks.end())
+                                             ? simulated_harvesting_masks.at(chip_id)
+                                             : 0;
+    if (simulated_harvesting_mask != 0) {
+        log_info(
+            LogSiliconDriver,
+            "Adding simulated harvesting mask {} for chip {} which has real harvesting mask {}.",
+            simulated_harvesting_mask,
+            chip_id,
+            tensix_harvesting_mask);
+    }
+    log_debug(
+        LogSiliconDriver,
+        "Harvesting mask for chip {} is {} (physical layout: {}, logical: {}, simulated harvesting mask: {}).",
+        chip_id,
+        tensix_harvesting_mask | simulated_harvesting_mask,
+        tensix_harvesting_mask_physical_layout,
+        tensix_harvesting_mask,
+        simulated_harvesting_mask);
+    return tensix_harvesting_mask | simulated_harvesting_mask;
+}
+
 Cluster::Cluster(
     const uint32_t& num_host_mem_ch_per_mmio_device,
     const bool skip_driver_allocs,
@@ -532,7 +517,9 @@ Cluster::Cluster(
     cluster_desc = tt_ClusterDescriptor::create();
 
     for (auto& chip_id : cluster_desc->get_all_chips()) {
-        add_chip(chip_id, construct_chip_from_cluster(chip_id, cluster_desc.get()));
+        add_chip(
+            chip_id,
+            construct_chip_from_cluster(chip_id, cluster_desc.get(), perform_harvesting, simulated_harvesting_masks));
     }
 
     // TODO: work on removing this member altogether. Currently assumes all have the same arch.
@@ -560,7 +547,9 @@ Cluster::Cluster(
             cluster_desc->get_all_chips().find(chip_id) != cluster_desc->get_all_chips().end(),
             "Target device {} not present in current cluster!",
             chip_id);
-        add_chip(chip_id, construct_chip_from_cluster(chip_id, cluster_desc.get()));
+        add_chip(
+            chip_id,
+            construct_chip_from_cluster(chip_id, cluster_desc.get(), perform_harvesting, simulated_harvesting_masks));
     }
 
     // TODO: work on removing this member altogether. Currently assumes all have the same arch.
@@ -589,16 +578,16 @@ Cluster::Cluster(
             cluster_desc->get_all_chips().find(chip_id) != cluster_desc->get_all_chips().end(),
             "Target device {} not present in current cluster!",
             chip_id);
-
-        size_t tensix_harvesting_mask = cluster_desc->get_harvesting_info().at(chip_id);
-        tt_SocDescriptor soc_desc = tt_SocDescriptor(sdesc_path, tensix_harvesting_mask);
+        add_chip(
+            chip_id,
+            construct_chip_from_cluster(
+                sdesc_path, chip_id, cluster_desc.get(), perform_harvesting, simulated_harvesting_masks));
         log_assert(
-            cluster_desc->get_arch(chip_id) == soc_desc.arch,
+            cluster_desc->get_arch(chip_id) == chips_.at(chip_id)->get_soc_descriptor().arch,
             "Passed soc descriptor has {} arch, but for chip id {} has arch {}",
-            arch_to_str(soc_desc.arch),
+            arch_to_str(chips_.at(chip_id)->get_soc_descriptor().arch),
             chip_id,
             arch_to_str(cluster_desc->get_arch(chip_id)));
-        add_chip(chip_id, construct_chip_from_cluster(chip_id, cluster_desc.get(), soc_desc));
     }
 
     // TODO: work on removing this member altogether. Currently assumes all have the same arch.
@@ -645,7 +634,8 @@ Cluster::Cluster(
     // rather than ClusterDescriptor.
     tt::ARCH arch = tt::ARCH::GRAYSKULL;
     chip_id_t mock_chip_id = 0;
-    tt_SocDescriptor soc_desc = tt_SocDescriptor(tt_SocDescriptor::get_soc_descriptor_path(arch));
+    tt_SocDescriptor soc_desc =
+        tt_SocDescriptor(tt_SocDescriptor::get_soc_descriptor_path(arch, BoardType::UNKNOWN), false);
     std::unique_ptr<Chip> chip = std::make_unique<MockChip>(soc_desc);
 
     std::unordered_map<chip_id_t, std::unique_ptr<Chip>> chips;
@@ -1011,7 +1001,7 @@ void Cluster::deassert_risc_reset_at_core(
     deassert_risc_reset_at_core({(size_t)chip, virtual_coord}, soft_resets);
 }
 
-void Cluster::assert_risc_reset_at_core(tt_cxy_pair core) {
+void Cluster::assert_risc_reset_at_core(tt_cxy_pair core, const TensixSoftResetOptions& soft_resets) {
     // Get Target Device to query soc descriptor and determine location in cluster
     std::uint32_t target_device = core.chip;
     log_assert(
@@ -1025,15 +1015,16 @@ void Cluster::assert_risc_reset_at_core(tt_cxy_pair core) {
         "Cannot assert reset on a non-tensix or harvested core");
     bool target_is_mmio_capable = cluster_desc->is_chip_mmio_capable(target_device);
     if (target_is_mmio_capable) {
-        send_tensix_risc_reset_to_core(core, TENSIX_ASSERT_SOFT_RESET);
+        send_tensix_risc_reset_to_core(core, soft_resets);
     } else {
-        send_remote_tensix_risc_reset_to_core(core, TENSIX_ASSERT_SOFT_RESET);
+        send_remote_tensix_risc_reset_to_core(core, soft_resets);
     }
 }
 
-void Cluster::assert_risc_reset_at_core(const chip_id_t chip, const CoreCoord core) {
+void Cluster::assert_risc_reset_at_core(
+    const chip_id_t chip, const CoreCoord core, const TensixSoftResetOptions& soft_resets) {
     const CoreCoord virtual_coord = translate_chip_coord(chip, core, CoordSystem::VIRTUAL);
-    assert_risc_reset_at_core({(size_t)chip, virtual_coord});
+    assert_risc_reset_at_core({(size_t)chip, virtual_coord}, soft_resets);
 }
 
 // Free memory during teardown, and remove (clean/unlock) from any leftover mutexes.
@@ -1076,26 +1067,7 @@ std::function<void(uint32_t, uint32_t, const uint8_t*)> Cluster::get_fast_pcie_s
 }
 
 tt::Writer Cluster::get_static_tlb_writer(tt_cxy_pair target) {
-    if (!cluster_desc->is_chip_mmio_capable(target.chip)) {
-        throw std::runtime_error(fmt::format("Target not in MMIO chip: {}", target.str()));
-    }
-
-    if (!is_tlb_mapped(target)) {
-        throw std::runtime_error(fmt::format("TLBs not initialized for core: {}", target.str()));
-    }
-
-    auto* dev = get_tt_device(target.chip);
-    if (!dev->get_pci_device()->bar0_wc) {
-        throw std::runtime_error("No write-combined mapping for BAR0");
-    }
-
-    auto tlb_index = map_core_to_tlb_per_chip.at(target.chip).at(tt_xy_pair(target.x, target.y));
-    auto tlb_data = dev->get_architecture_implementation()->describe_tlb(tlb_index);
-
-    auto [tlb_offset, tlb_size] = tlb_data.value();
-    auto* base = reinterpret_cast<uint8_t*>(dev->get_pci_device()->bar0_wc);
-
-    return tt::Writer(base + tlb_offset, tlb_size);
+    return get_tlb_manager(target.chip)->get_static_tlb_writer({target.x, target.y});
 }
 
 tt::Writer Cluster::get_static_tlb_writer(const chip_id_t chip, const CoreCoord target) {
@@ -1122,19 +1094,20 @@ void Cluster::write_device_memory(
         size_in_bytes,
         small_access);
 
-    if (is_tlb_mapped(target, address, size_in_bytes)) {
-        auto tlb_description = dev->get_architecture_implementation()->describe_tlb(
-            map_core_to_tlb_per_chip.at(target.chip).at(tt_xy_pair(target.x, target.y)));
-        auto [tlb_offset, tlb_size] = tlb_description.value();
-        if (dev->get_pci_device()->bar4_wc != nullptr && tlb_size == BH_4GB_TLB_SIZE) {
+    if (get_tlb_manager(target.chip)->is_tlb_mapped({target.x, target.y}, address, size_in_bytes)) {
+        tlb_configuration tlb_description = get_tlb_manager(target.chip)->get_tlb_configuration({target.x, target.y});
+        if (dev->get_pci_device()->bar4_wc != nullptr && tlb_description.size == BH_4GB_TLB_SIZE) {
             // This is only for Blackhole. If we want to  write to DRAM (BAR4 space), we add offset
             // to which we write so write_block knows it needs to target BAR4
-            dev->write_block((tlb_offset + address % tlb_size) + BAR0_BH_SIZE, size_in_bytes, buffer_addr);
+            dev->write_block(
+                (tlb_description.tlb_offset + address % tlb_description.size) + BAR0_BH_SIZE,
+                size_in_bytes,
+                buffer_addr);
         } else {
-            dev->write_block(tlb_offset + address % tlb_size, size_in_bytes, buffer_addr);
+            dev->write_block(tlb_description.tlb_offset + address % tlb_description.size, size_in_bytes, buffer_addr);
         }
     } else {
-        const auto tlb_index = dynamic_tlb_config.at(fallback_tlb);
+        const auto tlb_index = get_tlb_manager(target.chip)->dynamic_tlb_config_.at(fallback_tlb);
         const scoped_lock<named_mutex> lock(*get_mutex(fallback_tlb, target.chip));
 
         while (size_in_bytes > 0) {
@@ -1142,7 +1115,7 @@ void Cluster::write_device_memory(
                 tlb_index,
                 harvested_coord_translation.at(target.chip).at(target),
                 address,
-                dynamic_tlb_ordering_modes.at(fallback_tlb));
+                get_tlb_manager(target.chip)->dynamic_tlb_ordering_modes_.at(fallback_tlb));
             uint32_t transfer_size = std::min((uint64_t)size_in_bytes, tlb_size);
             dev->write_block(mapped_address, transfer_size, buffer_addr);
 
@@ -1169,20 +1142,25 @@ void Cluster::read_device_memory(
 
     log_debug(LogSiliconDriver, "  tlb_index: {}, tlb_data.has_value(): {}", tlb_index, tlb_data.has_value());
 
-    if (is_tlb_mapped(target, address, size_in_bytes)) {
-        auto tlb_description = dev->get_architecture_implementation()->describe_tlb(
-            map_core_to_tlb_per_chip.at(target.chip).at(tt_xy_pair(target.x, target.y)));
-        auto [tlb_offset, tlb_size] = tlb_description.value();
-        if (dev->get_pci_device()->bar4_wc != nullptr && tlb_size == BH_4GB_TLB_SIZE) {
+    if (get_tlb_manager(target.chip)->is_tlb_mapped({target.x, target.y}, address, size_in_bytes)) {
+        tlb_configuration tlb_description = get_tlb_manager(target.chip)->get_tlb_configuration({target.x, target.y});
+        if (dev->get_pci_device()->bar4_wc != nullptr && tlb_description.size == BH_4GB_TLB_SIZE) {
             // This is only for Blackhole. If we want to  read from DRAM (BAR4 space), we add offset
             // from which we read so read_block knows it needs to target BAR4
-            dev->read_block((tlb_offset + address % tlb_size) + BAR0_BH_SIZE, size_in_bytes, buffer_addr);
+            dev->read_block(
+                (tlb_description.tlb_offset + address % tlb_description.size) + BAR0_BH_SIZE,
+                size_in_bytes,
+                buffer_addr);
         } else {
-            dev->read_block(tlb_offset + address % tlb_size, size_in_bytes, buffer_addr);
+            dev->read_block(tlb_description.tlb_offset + address % tlb_description.size, size_in_bytes, buffer_addr);
         }
-        log_debug(LogSiliconDriver, "  read_block called with tlb_offset: {}, tlb_size: {}", tlb_offset, tlb_size);
+        log_debug(
+            LogSiliconDriver,
+            "  read_block called with tlb_offset: {}, tlb_size: {}",
+            tlb_description.tlb_offset,
+            tlb_description.size);
     } else {
-        const auto tlb_index = dynamic_tlb_config.at(fallback_tlb);
+        const auto tlb_index = get_tlb_manager(target.chip)->dynamic_tlb_config_.at(fallback_tlb);
         const scoped_lock<named_mutex> lock(*get_mutex(fallback_tlb, target.chip));
         log_debug(LogSiliconDriver, "  dynamic tlb_index: {}", tlb_index);
         while (size_in_bytes > 0) {
@@ -1190,7 +1168,7 @@ void Cluster::read_device_memory(
                 tlb_index,
                 harvested_coord_translation.at(target.chip).at(target),
                 address,
-                dynamic_tlb_ordering_modes.at(fallback_tlb));
+                get_tlb_manager(target.chip)->dynamic_tlb_ordering_modes_.at(fallback_tlb));
             uint32_t transfer_size = std::min((uint64_t)size_in_bytes, tlb_size);
             dev->read_block(mapped_address, transfer_size, buffer_addr);
 
@@ -1334,18 +1312,15 @@ Cluster::~Cluster() {
     cleanup_shared_host_state();
 
     cluster_desc.reset();
-    dynamic_tlb_config.clear();
-    tlb_config_map.clear();
-    dynamic_tlb_ordering_modes.clear();
 }
 
 std::optional<std::tuple<uint32_t, uint32_t>> Cluster::get_tlb_data_from_target(const tt_cxy_pair& target) {
-    if (!is_tlb_mapped(target)) {
-        return std::nullopt;
-    }
+    tlb_configuration tlb_configuration = get_tlb_configuration(target);
+    return std::tuple((uint32_t)tlb_configuration.tlb_offset, (uint32_t)tlb_configuration.size);
+}
 
-    int tlb_index = map_core_to_tlb_per_chip.at(target.chip).at(tt_xy_pair(target.x, target.y));
-    return get_tt_device(target.chip)->get_architecture_implementation()->describe_tlb(tlb_index);
+tlb_configuration Cluster::get_tlb_configuration(const tt_cxy_pair& target) {
+    return get_tlb_manager(target.chip)->get_tlb_configuration({target.x, target.y});
 }
 
 std::optional<std::tuple<uint32_t, uint32_t>> Cluster::get_tlb_data_from_target(const chip_id_t chip, CoreCoord core) {
@@ -1353,34 +1328,15 @@ std::optional<std::tuple<uint32_t, uint32_t>> Cluster::get_tlb_data_from_target(
     return get_tlb_data_from_target({(size_t)chip, virtual_coord});
 }
 
+tlb_configuration Cluster::get_tlb_configuration(const chip_id_t chip, CoreCoord core) {
+    const CoreCoord virtual_coord = translate_chip_coord(chip, core, CoordSystem::VIRTUAL);
+    return get_tlb_configuration({(size_t)chip, virtual_coord});
+}
+
 void Cluster::configure_tlb(
     chip_id_t logical_device_id, tt_xy_pair core, int32_t tlb_index, uint64_t address, uint64_t ordering) {
-    log_assert(
-        ordering == TLB_DATA::Strict || ordering == TLB_DATA::Posted || ordering == TLB_DATA::Relaxed,
-        "Invalid ordering specified in Cluster::configure_tlb");
-    if (tlb_config_map.find(logical_device_id) == tlb_config_map.end()) {
-        tlb_config_map.insert({logical_device_id, {}});
-        map_core_to_tlb_per_chip.insert({logical_device_id, {}});
-    }
-    log_debug(
-        LogSiliconDriver,
-        "Configuring TLB for chip: {} core: {} tlb_index: {} address: {} ordering: {}",
-        logical_device_id,
-        core.str(),
-        tlb_index,
-        address,
-        ordering);
-    log_assert(
-        tlb_config_map.at(logical_device_id).find(tlb_index) == tlb_config_map.at(logical_device_id).end(),
-        "TLB index already configured {}",
-        tlb_index);
-
-    TTDevice* tt_device = get_tt_device(logical_device_id);
-    tt_device->set_dynamic_tlb(
-        tlb_index, harvested_coord_translation.at(logical_device_id).at(core), address, ordering);
-    auto tlb_size = std::get<1>(tt_device->get_architecture_implementation()->describe_tlb(tlb_index).value());
-    tlb_config_map.at(logical_device_id).insert({tlb_index, (address / tlb_size) * tlb_size});
-    map_core_to_tlb_per_chip.at(logical_device_id).insert({core, tlb_index});
+    get_tlb_manager(logical_device_id)
+        ->configure_tlb(core, harvested_coord_translation.at(logical_device_id).at(core), tlb_index, address, ordering);
 }
 
 void Cluster::configure_tlb(
@@ -1390,16 +1346,9 @@ void Cluster::configure_tlb(
 }
 
 void Cluster::set_fallback_tlb_ordering_mode(const std::string& fallback_tlb, uint64_t ordering) {
-    log_assert(
-        ordering == TLB_DATA::Strict || ordering == TLB_DATA::Posted || ordering == TLB_DATA::Relaxed,
-        "Invalid ordering specified in Cluster::configure_tlb.");
-    log_assert(
-        dynamic_tlb_ordering_modes.find(fallback_tlb) != dynamic_tlb_ordering_modes.end(),
-        "Invalid TLB specified in Cluster::set_fallback_tlb_ordering_mode.");
-    log_assert(
-        fallback_tlb != "LARGE_READ_TLB" && fallback_tlb != "LARGE_WRITE_TLB",
-        "Ordering modes for LARGE_READ_TLB and LARGE_WRITE_TLB cannot be modified.");
-    dynamic_tlb_ordering_modes.at(fallback_tlb) = ordering;
+    for (auto& chip_id : local_chip_ids_) {
+        get_tlb_manager(chip_id)->set_dynamic_tlb_config_ordering(fallback_tlb, ordering);
+    }
 }
 
 // TODO: this is in the wrong place, it should be in the TTDevice.
@@ -1745,12 +1694,18 @@ void* Cluster::host_dma_address(std::uint64_t offset, chip_id_t src_device_id, u
     }
 }
 
-// Wrapper for throwing more helpful exception when not-enabled pci intf is accessed.
+// Wrapper for throwing a more helpful exception when trying to access non pci enabled interface.
 inline TTDevice* Cluster::get_tt_device(chip_id_t device_id) const {
-    log_assert(chips_.find(device_id) != chips_.end(), "Device id {} not found in cluster.", device_id);
-    auto tt_device = chips_.at(device_id)->get_tt_device();
+    auto chip_it = chips_.find(device_id);
+    log_assert(chip_it != chips_.end(), "Device id {} not found in cluster.", device_id);
+    auto tt_device = chip_it->second->get_tt_device();
     log_assert(tt_device != nullptr, "TTDevice not found for device: {}", device_id);
     return tt_device;
+}
+
+// Wrapper for throwing a more helpful exception when trying to access non pci enabled interface.
+inline TLBManager* Cluster::get_tlb_manager(chip_id_t device_id) const {
+    return get_tt_device(device_id)->get_tlb_manager();
 }
 
 std::shared_ptr<boost::interprocess::named_mutex> Cluster::get_mutex(
@@ -1759,7 +1714,13 @@ std::shared_ptr<boost::interprocess::named_mutex> Cluster::get_mutex(
     return hardware_resource_mutex_map.at(mutex_name);
 }
 
-uint64_t Cluster::get_sys_addr(uint32_t chip_x, uint32_t chip_y, uint32_t noc_x, uint32_t noc_y, uint64_t offset) {
+uint64_t Cluster::get_sys_addr(
+    const tt_driver_noc_params& noc_params,
+    uint32_t chip_x,
+    uint32_t chip_y,
+    uint32_t noc_x,
+    uint32_t noc_y,
+    uint64_t offset) {
     uint64_t result = chip_y;
     uint64_t noc_addr_local_bits_mask = (1UL << noc_params.noc_addr_local_bits) - 1;
     result <<= noc_params.noc_addr_node_id_bits;
@@ -1773,7 +1734,8 @@ uint64_t Cluster::get_sys_addr(uint32_t chip_x, uint32_t chip_y, uint32_t noc_x,
     return result;
 }
 
-uint16_t Cluster::get_sys_rack(uint32_t rack_x, uint32_t rack_y) {
+uint16_t Cluster::get_sys_rack(
+    const tt_driver_eth_interface_params& eth_interface_params, uint32_t rack_x, uint32_t rack_y) {
     uint32_t result = rack_y;
     result <<= eth_interface_params.eth_rack_coord_width;
     result |= rack_x;
@@ -1781,9 +1743,9 @@ uint16_t Cluster::get_sys_rack(uint32_t rack_x, uint32_t rack_y) {
     return result;
 }
 
-bool Cluster::is_non_mmio_cmd_q_full(uint32_t curr_wptr, uint32_t curr_rptr) {
-    return (curr_wptr != curr_rptr) && ((curr_wptr & eth_interface_params.cmd_buf_size_mask) ==
-                                        (curr_rptr & eth_interface_params.cmd_buf_size_mask));
+bool Cluster::is_non_mmio_cmd_q_full(chip_id_t chip_id, uint32_t curr_wptr, uint32_t curr_rptr) {
+    return (curr_wptr != curr_rptr) && ((curr_wptr & chips_.at(chip_id)->eth_interface_params.cmd_buf_size_mask) ==
+                                        (curr_rptr & chips_.at(chip_id)->eth_interface_params.cmd_buf_size_mask));
 }
 
 /*
@@ -1865,6 +1827,11 @@ void Cluster::write_to_non_mmio_device(
     constexpr int BROADCAST_HEADER_SIZE = sizeof(data_word_t) * 8;  // Broadcast header is 8 words
     const auto target_chip = cluster_desc->get_chip_locations().at(core.chip);
 
+    // TODO: To be removed when this is moved to Chip classes.
+    auto host_address_params = chips_.at(mmio_capable_chip_logical)->host_address_params;
+    auto eth_interface_params = chips_.at(mmio_capable_chip_logical)->eth_interface_params;
+    auto noc_params = chips_.at(mmio_capable_chip_logical)->noc_params;
+
     std::string write_tlb = "LARGE_WRITE_TLB";
     std::string read_tlb = "LARGE_READ_TLB";
     std::string empty_tlb = "";
@@ -1910,7 +1877,7 @@ void Cluster::write_to_non_mmio_device(
     uint32_t offset = 0;
     uint32_t block_size;
 
-    bool full = is_non_mmio_cmd_q_full(erisc_q_ptrs[0], erisc_q_ptrs[4]);
+    bool full = is_non_mmio_cmd_q_full(mmio_capable_chip_logical, erisc_q_ptrs[0], erisc_q_ptrs[4]);
     erisc_q_rptr.resize(1);
     erisc_q_rptr[0] = erisc_q_ptrs[4];
     while (offset < size_in_bytes) {
@@ -1922,7 +1889,7 @@ void Cluster::write_to_non_mmio_device(
                     eth_interface_params.remote_update_ptr_size_bytes,
                 DATA_WORD_SIZE,
                 read_tlb);
-            full = is_non_mmio_cmd_q_full(erisc_q_ptrs[0], erisc_q_rptr[0]);
+            full = is_non_mmio_cmd_q_full(mmio_capable_chip_logical, erisc_q_ptrs[0], erisc_q_rptr[0]);
             full_count++;
         }
         // full = true;
@@ -2012,8 +1979,9 @@ void Cluster::write_to_non_mmio_device(
             // Only specify endpoint local address for broadcast
             new_cmd->sys_addr = address + offset;
         } else {
-            new_cmd->sys_addr = get_sys_addr(target_chip.x, target_chip.y, core.x, core.y, address + offset);
-            new_cmd->rack = get_sys_rack(target_chip.rack, target_chip.shelf);
+            new_cmd->sys_addr =
+                get_sys_addr(noc_params, target_chip.x, target_chip.y, core.x, core.y, address + offset);
+            new_cmd->rack = get_sys_rack(eth_interface_params, target_chip.rack, target_chip.shelf);
         }
 
         if (req_flags & eth_interface_params.cmd_data_block) {
@@ -2060,7 +2028,10 @@ void Cluster::write_to_non_mmio_device(
         // As long as current command push does not fill up the queue completely, we do not want
         // to poll rd pointer in every iteration.
 
-        if (is_non_mmio_cmd_q_full((erisc_q_ptrs[0]) & eth_interface_params.cmd_buf_ptr_mask, erisc_q_rptr[0])) {
+        if (is_non_mmio_cmd_q_full(
+                mmio_capable_chip_logical,
+                (erisc_q_ptrs[0]) & eth_interface_params.cmd_buf_ptr_mask,
+                erisc_q_rptr[0])) {
             active_core_for_txn++;
             uint32_t update_mask_for_chip = remote_transfer_ethernet_cores[mmio_capable_chip_logical].size() - 1;
             active_core_for_txn =
@@ -2076,7 +2047,7 @@ void Cluster::write_to_non_mmio_device(
                 eth_interface_params.request_cmd_queue_base + eth_interface_params.cmd_counters_size_bytes,
                 eth_interface_params.remote_update_ptr_size_bytes * 2,
                 read_tlb);
-            full = is_non_mmio_cmd_q_full(erisc_q_ptrs[0], erisc_q_ptrs[4]);
+            full = is_non_mmio_cmd_q_full(mmio_capable_chip_logical, erisc_q_ptrs[0], erisc_q_ptrs[4]);
             erisc_q_rptr[0] = erisc_q_ptrs[4];
         }
     }
@@ -2097,6 +2068,11 @@ void Cluster::read_from_non_mmio_device(void* mem_ptr, tt_cxy_pair core, uint64_
 
     const auto& mmio_capable_chip_logical = cluster_desc->get_closest_mmio_capable_chip(core.chip);
     const eth_coord_t target_chip = cluster_desc->get_chip_locations().at(core.chip);
+
+    // TODO: To be removed when this is moved to Chip classes.
+    auto host_address_params = chips_.at(mmio_capable_chip_logical)->host_address_params;
+    auto eth_interface_params = chips_.at(mmio_capable_chip_logical)->eth_interface_params;
+    auto noc_params = chips_.at(mmio_capable_chip_logical)->noc_params;
 
     std::vector<std::uint32_t> erisc_command;
     std::vector<std::uint32_t> erisc_q_rptr;
@@ -2139,7 +2115,7 @@ void Cluster::read_from_non_mmio_device(void* mem_ptr, tt_cxy_pair core, uint64_
         DATA_WORD_SIZE,
         read_tlb);
 
-    bool full = is_non_mmio_cmd_q_full(erisc_q_ptrs[0], erisc_q_ptrs[4]);
+    bool full = is_non_mmio_cmd_q_full(mmio_capable_chip_logical, erisc_q_ptrs[0], erisc_q_ptrs[4]);
     erisc_q_rptr.resize(1);
     erisc_q_rptr[0] = erisc_q_ptrs[4];
 
@@ -2162,7 +2138,7 @@ void Cluster::read_from_non_mmio_device(void* mem_ptr, tt_cxy_pair core, uint64_
                     eth_interface_params.remote_update_ptr_size_bytes,
                 DATA_WORD_SIZE,
                 read_tlb);
-            full = is_non_mmio_cmd_q_full(erisc_q_ptrs[0], erisc_q_rptr[0]);
+            full = is_non_mmio_cmd_q_full(mmio_capable_chip_logical, erisc_q_ptrs[0], erisc_q_rptr[0]);
         }
 
         uint32_t req_wr_ptr = erisc_q_ptrs[0] & eth_interface_params.cmd_buf_size_mask;
@@ -2193,8 +2169,8 @@ void Cluster::read_from_non_mmio_device(void* mem_ptr, tt_cxy_pair core, uint64_
         log_assert(
             (req_flags == eth_interface_params.cmd_rd_req) || (((address + offset) & 0x1F) == 0),
             "Block mode offset must be 32-byte aligned.");  // Block mode offset must be 32-byte aligned.
-        new_cmd->sys_addr = get_sys_addr(target_chip.x, target_chip.y, core.x, core.y, address + offset);
-        new_cmd->rack = get_sys_rack(target_chip.rack, target_chip.shelf);
+        new_cmd->sys_addr = get_sys_addr(noc_params, target_chip.x, target_chip.y, core.x, core.y, address + offset);
+        new_cmd->rack = get_sys_rack(eth_interface_params, target_chip.rack, target_chip.shelf);
         new_cmd->data = block_size;
         new_cmd->flags = req_flags;
         if (use_dram) {
@@ -2225,14 +2201,14 @@ void Cluster::read_from_non_mmio_device(void* mem_ptr, tt_cxy_pair core, uint64_
         // As long as current command push does not fill up the queue completely, we do not want
         // to poll rd pointer in every iteration.
 
-        if (is_non_mmio_cmd_q_full((erisc_q_ptrs[0]), erisc_q_rptr[0])) {
+        if (is_non_mmio_cmd_q_full(mmio_capable_chip_logical, (erisc_q_ptrs[0]), erisc_q_rptr[0])) {
             read_device_memory(
                 erisc_q_ptrs.data(),
                 remote_transfer_ethernet_core,
                 eth_interface_params.request_cmd_queue_base + eth_interface_params.cmd_counters_size_bytes,
                 eth_interface_params.remote_update_ptr_size_bytes * 2,
                 read_tlb);
-            full = is_non_mmio_cmd_q_full(erisc_q_ptrs[0], erisc_q_ptrs[4]);
+            full = is_non_mmio_cmd_q_full(mmio_capable_chip_logical, erisc_q_ptrs[0], erisc_q_ptrs[4]);
             erisc_q_rptr[0] = erisc_q_ptrs[4];
         }
 
@@ -2339,6 +2315,9 @@ void Cluster::wait_for_connected_non_mmio_flush(const chip_id_t chip_id) {
         }
 
         if (arch_name == tt::ARCH::WORMHOLE_B0) {
+            // TODO: To be removed when this is moved to Chip classes.
+            auto eth_interface_params = chips_.at(chip_id)->eth_interface_params;
+
             std::vector<std::uint32_t> erisc_txn_counters = std::vector<uint32_t>(2);
             std::vector<std::uint32_t> erisc_q_ptrs =
                 std::vector<uint32_t>(eth_interface_params.remote_update_ptr_size_bytes * 2 / sizeof(uint32_t));
@@ -2367,13 +2346,13 @@ void Cluster::wait_for_connected_non_mmio_flush(const chip_id_t chip_id) {
 }
 
 void Cluster::wait_for_non_mmio_flush(const chip_id_t chip_id) {
-    log_assert(arch_name != tt::ARCH::BLACKHOLE, "Non-MMIO flush not supported in Blackhole");
-    std::string read_tlb = "LARGE_READ_TLB";
-
     if (!this->cluster_desc->is_chip_remote(chip_id)) {
         log_debug(LogSiliconDriver, "Chip {} is not a remote chip, skipping wait_for_non_mmio_flush", chip_id);
         return;
     }
+
+    std::string read_tlb = "LARGE_READ_TLB";
+    log_assert(arch_name != tt::ARCH::BLACKHOLE, "Non-MMIO flush not supported in Blackhole");
 
     chip_id_t mmio_connected_chip = cluster_desc->get_closest_mmio_capable_chip(chip_id);
     wait_for_connected_non_mmio_flush(mmio_connected_chip);
@@ -2543,7 +2522,7 @@ void Cluster::pcie_broadcast_write(
     // Use the specified TLB to broadcast data to all cores included in the [start, end] grid -> GS Only. Use Ethernet
     // Broadcast for WH.
     TTDevice* tt_device = get_tt_device(chip);
-    const auto tlb_index = dynamic_tlb_config.at(fallback_tlb);
+    const auto tlb_index = get_tlb_manager(chip)->dynamic_tlb_config_.at(fallback_tlb);
     const uint8_t* buffer_addr = static_cast<const uint8_t*>(mem_ptr);
     const scoped_lock<named_mutex> lock(*get_mutex(fallback_tlb, chip));
     while (size_in_bytes > 0) {
@@ -2552,7 +2531,7 @@ void Cluster::pcie_broadcast_write(
             addr,
             harvested_coord_translation.at(chip).at(start),
             harvested_coord_translation.at(chip).at(end),
-            dynamic_tlb_ordering_modes.at(fallback_tlb));
+            get_tlb_manager(chip)->dynamic_tlb_ordering_modes_.at(fallback_tlb));
         uint64_t transfer_size = std::min((uint64_t)size_in_bytes, tlb_size);
         tt_device->write_block(mapped_address, transfer_size, buffer_addr);
 
@@ -2922,6 +2901,10 @@ void Cluster::insert_host_to_device_barrier(
 void Cluster::init_membars() {
     for (const auto& chip : all_chip_ids_) {
         if (cluster_desc->is_chip_mmio_capable(chip)) {
+            // TODO: To be removed when this is moved to Chip classes.
+            const auto& l1_address_params = chips_.at(chip)->l1_address_params;
+            const auto& dram_address_params = chips_.at(chip)->dram_address_params;
+
             set_membar_flag(
                 chip,
                 workers_per_chip.at(chip),
@@ -2941,6 +2924,10 @@ void Cluster::l1_membar(
     if (cluster_desc->is_chip_mmio_capable(chip)) {
         const auto& all_workers = workers_per_chip.at(chip);
         const auto& all_eth = eth_cores;
+
+        // TODO: To be removed when this is moved to Chip classes.
+        const auto& l1_address_params = chips_.at(chip)->l1_address_params;
+
         if (cores.size()) {
             // Insert barrier on specific cores with L1
             std::unordered_set<tt_xy_pair> workers_to_sync = {};
@@ -2981,6 +2968,7 @@ void Cluster::l1_membar(
 void Cluster::dram_membar(
     const chip_id_t chip, const std::string& fallback_tlb, const std::unordered_set<tt_xy_pair>& cores) {
     if (cluster_desc->is_chip_mmio_capable(chip)) {
+        const auto& dram_address_params = chips_.at(chip)->dram_address_params;
         if (cores.size()) {
             for (const auto& core : cores) {
                 log_assert(
@@ -3009,6 +2997,9 @@ void Cluster::dram_membar(
 void Cluster::dram_membar(
     const chip_id_t chip, const std::string& fallback_tlb, const std::unordered_set<uint32_t>& channels) {
     if (cluster_desc->is_chip_mmio_capable(chip)) {
+        // TODO: To be removed when this is moved to Chip classes.
+        const auto& dram_address_params = chips_.at(chip)->dram_address_params;
+
         if (channels.size()) {
             std::unordered_set<tt_xy_pair> dram_cores_to_sync = {};
             for (const auto& chan : channels) {
@@ -3058,7 +3049,7 @@ void Cluster::read_mmio_device_register(
     void* mem_ptr, tt_cxy_pair core, uint64_t addr, uint32_t size, const std::string& fallback_tlb) {
     TTDevice* tt_device = get_tt_device(core.chip);
 
-    const auto tlb_index = dynamic_tlb_config.at(fallback_tlb);
+    const auto tlb_index = get_tlb_manager(core.chip)->dynamic_tlb_config_.at(fallback_tlb);
     const scoped_lock<named_mutex> lock(*get_mutex(fallback_tlb, core.chip));
     log_debug(LogSiliconDriver, "  dynamic tlb_index: {}", tlb_index);
 
@@ -3078,7 +3069,7 @@ void Cluster::write_mmio_device_register(
     const void* mem_ptr, tt_cxy_pair core, uint64_t addr, uint32_t size, const std::string& fallback_tlb) {
     TTDevice* tt_device = get_tt_device(core.chip);
 
-    const auto tlb_index = dynamic_tlb_config.at(fallback_tlb);
+    const auto tlb_index = get_tlb_manager(core.chip)->dynamic_tlb_config_.at(fallback_tlb);
     const scoped_lock<named_mutex> lock(*get_mutex(fallback_tlb, core.chip));
     log_debug(LogSiliconDriver, "  dynamic tlb_index: {}", tlb_index);
 
@@ -3292,7 +3283,7 @@ void Cluster::verify_eth_fw() {
             read_from_device(
                 &fw_version,
                 tt_cxy_pair(chip, eth_core),
-                l1_address_params.fw_version_addr,
+                chips_.at(chip)->l1_address_params.fw_version_addr,
                 sizeof(uint32_t),
                 "LARGE_READ_TLB");
             fw_versions.push_back(fw_version);
@@ -3397,9 +3388,9 @@ tt_version Cluster::get_ethernet_fw_version() const {
 }
 
 void Cluster::set_barrier_address_params(const barrier_address_params& barrier_address_params_) {
-    l1_address_params.tensix_l1_barrier_base = barrier_address_params_.tensix_l1_barrier_base;
-    l1_address_params.eth_l1_barrier_base = barrier_address_params_.eth_l1_barrier_base;
-    dram_address_params.DRAM_BARRIER_BASE = barrier_address_params_.dram_barrier_base;
+    for (auto chip_id : local_chip_ids_) {
+        chips_.at(chip_id)->set_barrier_address_params(barrier_address_params_);
+    }
 }
 
 tt::umd::CoreCoord Cluster::translate_chip_coord(

@@ -8,6 +8,7 @@
 using namespace tt::umd;
 
 WormholeCoordinateManager::WormholeCoordinateManager(
+    const bool noc_translation_enabled,
     const tt_xy_pair& tensix_grid_size,
     const std::vector<tt_xy_pair>& tensix_cores,
     const size_t tensix_harvesting_mask,
@@ -16,11 +17,13 @@ WormholeCoordinateManager::WormholeCoordinateManager(
     const size_t dram_harvesting_mask,
     const tt_xy_pair& eth_grid_size,
     const std::vector<tt_xy_pair>& eth_cores,
+    const size_t eth_harvesting_mask,
     const tt_xy_pair& arc_grid_size,
     const std::vector<tt_xy_pair>& arc_cores,
     const tt_xy_pair& pcie_grid_size,
     const std::vector<tt_xy_pair>& pcie_cores) :
     CoordinateManager(
+        noc_translation_enabled,
         tensix_grid_size,
         tensix_cores,
         tensix_harvesting_mask,
@@ -29,11 +32,11 @@ WormholeCoordinateManager::WormholeCoordinateManager(
         dram_harvesting_mask,
         eth_grid_size,
         eth_cores,
+        eth_harvesting_mask,
         arc_grid_size,
         arc_cores,
         pcie_grid_size,
         pcie_cores) {
-    this->shuffle_tensix_harvesting_mask(wormhole::HARVESTING_NOC_LOCATIONS);
     initialize();
 }
 
@@ -71,6 +74,11 @@ void WormholeCoordinateManager::fill_tensix_physical_translated_mapping() {
     }
 }
 
+void WormholeCoordinateManager::fill_dram_physical_translated_mapping() {
+    // DRAM cores are not translated in Wormhole.
+    fill_dram_default_physical_translated_mapping();
+}
+
 void WormholeCoordinateManager::fill_eth_physical_translated_mapping() {
     for (size_t x = 0; x < eth_grid_size.x; x++) {
         for (size_t y = 0; y < eth_grid_size.y; y++) {
@@ -83,4 +91,14 @@ void WormholeCoordinateManager::fill_eth_physical_translated_mapping() {
             add_core_translation(translated_coord, physical_pair);
         }
     }
+}
+
+void WormholeCoordinateManager::fill_pcie_physical_translated_mapping() {
+    // PCIE cores are not translated in Wormhole.
+    fill_pcie_default_physical_translated_mapping();
+}
+
+void WormholeCoordinateManager::fill_arc_physical_translated_mapping() {
+    // ARC cores are not translated in Wormhole.
+    fill_arc_default_physical_translated_mapping();
 }

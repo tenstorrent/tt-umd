@@ -26,6 +26,7 @@ target_sources(
         chip/local_chip.cpp
         chip/mock_chip.cpp
         chip/remote_chip.cpp
+        tt_device/tlb_manager.cpp
         cluster.cpp
         coordinate_manager.cpp
         cpuset_lib.cpp
@@ -47,6 +48,7 @@ target_sources(
         grayskull/grayskull_coordinate_manager.cpp
         wormhole/wormhole_coordinate_manager.cpp
         blackhole/blackhole_coordinate_manager.cpp
+        blackhole/blackhole_arc_message_queue.cpp
         xy_pair.cpp
         ${FBS_GENERATED_HEADER}
 )

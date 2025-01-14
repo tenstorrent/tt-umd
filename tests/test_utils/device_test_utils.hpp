@@ -34,6 +34,18 @@ static void read_data_from_device(
     device.read_from_device(vec.data(), core, addr, size, tlb_to_use);
 }
 
+static void read_data_from_device(
+    tt_device& device,
+    std::vector<uint32_t>& vec,
+    chip_id_t chip_id,
+    tt::umd::CoreCoord core,
+    uint64_t addr,
+    uint32_t size,
+    const std::string& tlb_to_use) {
+    size_buffer_to_capacity(vec, size);
+    device.read_from_device(vec.data(), chip_id, core, addr, size, tlb_to_use);
+}
+
 inline void fill_with_random_bytes(uint8_t* data, size_t n) {
     static std::random_device rd;
     static std::mt19937_64 gen(rd());

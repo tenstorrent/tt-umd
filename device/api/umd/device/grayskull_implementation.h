@@ -123,7 +123,7 @@ const std::size_t NUM_NOC_PORTS_PER_DRAM_BANK = 1;
 static const tt_xy_pair DRAM_GRID_SIZE = {NUM_DRAM_BANKS, NUM_NOC_PORTS_PER_DRAM_BANK};
 static const std::vector<tt_xy_pair> DRAM_CORES = {{{1, 0}, {1, 6}, {4, 0}, {4, 6}, {7, 0}, {7, 6}, {10, 0}, {10, 6}}};
 
-static const tt_xy_pair ETH_GRID_SIZE = {0, 0};
+static const size_t NUM_ETH_CHANNELS = 0;
 static const std::vector<tt_xy_pair> ETH_CORES = {};
 // TODO: DRAM locations should be deleted. We keep it for compatibility with
 // the existing code in clients which rely on DRAM_LOCATIONS.

@@ -104,22 +104,22 @@ static const std::vector<tt_xy_pair> PCIE_CORES_TYPE2 = {{{2, 0}}};
 static const std::vector<tt_xy_pair> PCI_LOCATIONS = PCIE_CORES_TYPE2;
 static const std::vector<tt_xy_pair> PCIE_CORES_TYPE1 = {{{11, 0}}};
 
-static const tt_xy_pair ETH_GRID_SIZE = {14, 1};
+static const size_t NUM_ETH_CHANNELS = 14;
 static const std::vector<tt_xy_pair> ETH_CORES = {
     {{1, 1},
+     {16, 1},
      {2, 1},
-     {3, 1},
-     {4, 1},
-     {5, 1},
-     {6, 1},
-     {7, 1},
-     {10, 1},
-     {11, 1},
-     {12, 1},
-     {13, 1},
-     {14, 1},
      {15, 1},
-     {16, 1}}};
+     {3, 1},
+     {14, 1},
+     {4, 1},
+     {13, 1},
+     {5, 1},
+     {12, 1},
+     {6, 1},
+     {11, 1},
+     {7, 1},
+     {10, 1}}};
 static const std::vector<tt_xy_pair> ETH_LOCATIONS = ETH_CORES;
 // Return to std::array instead of std::vector once we get std::span support in C++20
 static const std::vector<uint32_t> T6_X_LOCATIONS = {1, 2, 3, 4, 5, 6, 7, 10, 11, 12, 13, 14, 15, 16};

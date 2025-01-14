@@ -193,7 +193,6 @@ void tt_SocDescriptor::create_coordinate_manager(
     const tt_xy_pair dram_grid_size = tt_xy_pair(dram_cores.size(), dram_cores.empty() ? 0 : dram_cores[0].size());
     const tt_xy_pair arc_grid_size = tt_SocDescriptor::calculate_grid_size(arc_cores);
     const tt_xy_pair pcie_grid_size = tt_SocDescriptor::calculate_grid_size(pcie_cores);
-    const tt_xy_pair eth_grid_size = tt_SocDescriptor::calculate_grid_size(ethernet_cores);
 
     std::vector<tt_xy_pair> dram_cores_unpacked;
     for (const auto &vec : dram_cores) {
@@ -211,7 +210,6 @@ void tt_SocDescriptor::create_coordinate_manager(
         dram_grid_size,
         dram_cores_unpacked,
         dram_harvesting_mask,
-        eth_grid_size,
         ethernet_cores,
         eth_harvesting_mask,
         arc_grid_size,
@@ -300,14 +298,14 @@ std::string tt_SocDescriptor::get_soc_descriptor_path(
                 return tt::umd::utils::get_abs_path("tests/soc_descs/blackhole_140_arch_no_eth.yaml");
             } else if (board_type == BoardType::P150A) {
                 // TODO: this path needs to be changed to point to soc descriptors outside of tests directory.
-                return tt::umd::utils::get_abs_path("tests/soc_descs/blackhole_140_arch_local.yaml");
+                return tt::umd::utils::get_abs_path("tests/soc_descs/blackhole_140_arch_type2.yaml");
             } else if (board_type == BoardType::P300) {
                 if (is_chip_remote) {
                     // TODO: this path needs to be changed to point to soc descriptors outside of tests directory.
-                    return tt::umd::utils::get_abs_path("tests/soc_descs/blackhole_140_arch_remote.yaml");
+                    return tt::umd::utils::get_abs_path("tests/soc_descs/blackhole_140_arch_type1.yaml");
                 } else {
                     // TODO: this path needs to be changed to point to soc descriptors outside of tests directory.
-                    return tt::umd::utils::get_abs_path("tests/soc_descs/blackhole_140_arch_local.yaml");
+                    return tt::umd::utils::get_abs_path("tests/soc_descs/blackhole_140_arch_type2.yaml");
                 }
             } else {
                 throw std::runtime_error("Invalid board type for Blackhole architecture.");

@@ -134,24 +134,24 @@ static const std::vector<tt_xy_pair> DRAM_CORES = {
 // the existing code in clients which rely on DRAM_LOCATIONS.
 static const std::vector<tt_xy_pair> DRAM_LOCATIONS = DRAM_CORES;
 
-static const tt_xy_pair ETH_GRID_SIZE = {8, 2};
+static const size_t NUM_ETH_CHANNELS = 16;
 static const std::vector<tt_xy_pair> ETH_CORES = {
-    {{1, 0},
-     {2, 0},
-     {3, 0},
-     {4, 0},
-     {6, 0},
-     {7, 0},
+    {{9, 0},
+     {1, 0},
      {8, 0},
-     {9, 0},
+     {2, 0},
+     {7, 0},
+     {3, 0},
+     {6, 0},
+     {4, 0},
+     {9, 6},
      {1, 6},
-     {2, 6},
-     {3, 6},
-     {4, 6},
-     {6, 6},
-     {7, 6},
      {8, 6},
-     {9, 6}}};
+     {2, 6},
+     {7, 6},
+     {3, 6},
+     {6, 6},
+     {4, 6}}};
 static const std::vector<tt_xy_pair> ETH_LOCATIONS = ETH_CORES;
 
 static const tt_xy_pair ARC_GRID_SIZE = {1, 1};

@@ -20,7 +20,6 @@ CoordinateManager::CoordinateManager(
     const tt_xy_pair& dram_grid_size,
     const std::vector<tt_xy_pair>& dram_cores,
     const size_t dram_harvesting_mask,
-    const tt_xy_pair& eth_grid_size,
     const std::vector<tt_xy_pair>& eth_cores,
     const size_t eth_harvesting_mask,
     const tt_xy_pair& arc_grid_size,
@@ -36,7 +35,7 @@ CoordinateManager::CoordinateManager(
     dram_grid_size(dram_grid_size),
     dram_cores(dram_cores),
     dram_harvesting_mask(dram_harvesting_mask),
-    eth_grid_size(eth_grid_size),
+    num_eth_channels(eth_cores.size()),
     eth_cores(eth_cores),
     eth_harvesting_mask(eth_harvesting_mask),
     arc_grid_size(arc_grid_size),
@@ -221,16 +220,14 @@ void CoordinateManager::translate_dram_coords() {
 }
 
 void CoordinateManager::translate_eth_coords() {
-    for (size_t x = 0; x < eth_grid_size.x; x++) {
-        for (size_t y = 0; y < eth_grid_size.y; y++) {
-            const tt_xy_pair eth_core = eth_cores[y * eth_grid_size.x + x];
+    for (size_t eth_channel = 0; eth_channel < eth_cores.size(); eth_channel++) {
+        const tt_xy_pair eth_core = eth_cores[eth_channel];
 
-            CoreCoord logical_coord = CoreCoord(x, y, CoreType::ETH, CoordSystem::LOGICAL);
-            CoreCoord virtual_coord = CoreCoord(eth_core.x, eth_core.y, CoreType::ETH, CoordSystem::VIRTUAL);
+        CoreCoord logical_coord = CoreCoord(0, eth_channel, CoreType::ETH, CoordSystem::LOGICAL);
+        CoreCoord virtual_coord = CoreCoord(eth_core.x, eth_core.y, CoreType::ETH, CoordSystem::VIRTUAL);
 
-            add_core_translation(logical_coord, eth_core);
-            add_core_translation(virtual_coord, eth_core);
-        }
+        add_core_translation(logical_coord, eth_core);
+        add_core_translation(virtual_coord, eth_core);
     }
 
     if (noc_translation_enabled) {
@@ -292,17 +289,15 @@ void CoordinateManager::translate_router_coords() {
 }
 
 void CoordinateManager::fill_eth_default_physical_translated_mapping() {
-    for (size_t x = 0; x < eth_grid_size.x; x++) {
-        for (size_t y = 0; y < eth_grid_size.y; y++) {
-            CoreCoord logical_coord = CoreCoord(x, y, CoreType::ETH, CoordSystem::LOGICAL);
-            const tt_xy_pair physical_pair = to_physical_map[logical_coord];
-            const size_t translated_x = physical_pair.x;
-            const size_t translated_y = physical_pair.y;
+    for (size_t eth_channel = 0; eth_channel < num_eth_channels; eth_channel++) {
+        CoreCoord logical_coord = CoreCoord(0, eth_channel, CoreType::ETH, CoordSystem::LOGICAL);
+        const tt_xy_pair physical_pair = to_physical_map[logical_coord];
+        const size_t translated_x = physical_pair.x;
+        const size_t translated_y = physical_pair.y;
 
-            CoreCoord translated_coord = CoreCoord(translated_x, translated_y, CoreType::ETH, CoordSystem::TRANSLATED);
+        CoreCoord translated_coord = CoreCoord(translated_x, translated_y, CoreType::ETH, CoordSystem::TRANSLATED);
 
-            add_core_translation(translated_coord, physical_pair);
-        }
+        add_core_translation(translated_coord, physical_pair);
     }
 }
 
@@ -487,7 +482,7 @@ tt_xy_pair CoordinateManager::get_tensix_grid_size() const {
 
 tt_xy_pair CoordinateManager::get_dram_grid_size() const { return dram_grid_size; }
 
-tt_xy_pair CoordinateManager::get_eth_grid_size() const { return eth_grid_size; }
+tt_xy_pair CoordinateManager::get_eth_grid_size() const { return {1, num_eth_channels}; }
 
 tt_xy_pair CoordinateManager::get_grid_size(const CoreType core_type) const {
     switch (core_type) {
@@ -565,7 +560,6 @@ std::shared_ptr<CoordinateManager> CoordinateManager::create_coordinate_manager(
                 tt::umd::grayskull::DRAM_GRID_SIZE,
                 tt::umd::grayskull::DRAM_CORES,
                 dram_harvesting_mask,
-                tt::umd::grayskull::ETH_GRID_SIZE,
                 tt::umd::grayskull::ETH_CORES,
                 eth_harvesting_mask,
                 tt::umd::grayskull::ARC_GRID_SIZE,
@@ -583,7 +577,6 @@ std::shared_ptr<CoordinateManager> CoordinateManager::create_coordinate_manager(
                 tt::umd::wormhole::DRAM_GRID_SIZE,
                 tt::umd::wormhole::DRAM_CORES,
                 dram_harvesting_mask,
-                tt::umd::wormhole::ETH_GRID_SIZE,
                 tt::umd::wormhole::ETH_CORES,
                 eth_harvesting_mask,
                 tt::umd::wormhole::ARC_GRID_SIZE,
@@ -603,7 +596,6 @@ std::shared_ptr<CoordinateManager> CoordinateManager::create_coordinate_manager(
                 tt::umd::blackhole::DRAM_GRID_SIZE,
                 tt::umd::blackhole::DRAM_CORES,
                 dram_harvesting_mask,
-                tt::umd::blackhole::ETH_GRID_SIZE,
                 tt::umd::blackhole::ETH_CORES,
                 eth_harvesting_mask,
                 tt::umd::blackhole::ARC_GRID_SIZE,
@@ -628,7 +620,6 @@ std::shared_ptr<CoordinateManager> CoordinateManager::create_coordinate_manager(
     const tt_xy_pair& dram_grid_size,
     const std::vector<tt_xy_pair>& dram_cores,
     const size_t dram_harvesting_mask,
-    const tt_xy_pair& eth_grid_size,
     const std::vector<tt_xy_pair>& eth_cores,
     const size_t eth_harvesting_mask,
     const tt_xy_pair& arc_grid_size,
@@ -646,7 +637,6 @@ std::shared_ptr<CoordinateManager> CoordinateManager::create_coordinate_manager(
                 dram_grid_size,
                 dram_cores,
                 dram_harvesting_mask,
-                eth_grid_size,
                 eth_cores,
                 eth_harvesting_mask,
                 arc_grid_size,
@@ -663,7 +653,6 @@ std::shared_ptr<CoordinateManager> CoordinateManager::create_coordinate_manager(
                 dram_grid_size,
                 dram_cores,
                 dram_harvesting_mask,
-                eth_grid_size,
                 eth_cores,
                 eth_harvesting_mask,
                 arc_grid_size,
@@ -681,7 +670,6 @@ std::shared_ptr<CoordinateManager> CoordinateManager::create_coordinate_manager(
                 dram_grid_size,
                 dram_cores,
                 dram_harvesting_mask,
-                eth_grid_size,
                 eth_cores,
                 eth_harvesting_mask,
                 arc_grid_size,

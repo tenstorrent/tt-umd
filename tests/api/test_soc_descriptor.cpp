@@ -157,7 +157,7 @@ TEST(SocDescriptor, SocDescriptorWormholeETHLogicalToPhysical) {
 TEST(SocDescriptor, SocDescriptorBlackholeETHHarvesting) {
     const size_t num_eth_cores = tt::umd::blackhole::ETH_CORES.size();
     const size_t num_harvested_eth_cores = 2;
-    const tt_xy_pair eth_grid_size = tt::umd::blackhole::ETH_GRID_SIZE;
+    const size_t num_eth_channels = tt::umd::blackhole::NUM_ETH_CHANNELS;
     const std::vector<tt_xy_pair> blackhole_eth_cores = tt::umd::blackhole::ETH_CORES;
     for (size_t eth_harvesting_mask = 0; eth_harvesting_mask < (1 << num_eth_cores); eth_harvesting_mask++) {
         if (CoordinateManager::get_num_harvested(eth_harvesting_mask) != num_harvested_eth_cores) {
@@ -165,11 +165,11 @@ TEST(SocDescriptor, SocDescriptorBlackholeETHHarvesting) {
         }
 
         tt_SocDescriptor soc_desc(
-            test_utils::GetAbsPath("tests/soc_descs/blackhole_140_arch_local.yaml"), true, 0, 0, eth_harvesting_mask);
+            test_utils::GetAbsPath("tests/soc_descs/blackhole_140_arch_type2.yaml"), true, 0, 0, eth_harvesting_mask);
 
         const std::vector<CoreCoord> eth_cores = soc_desc.get_cores(CoreType::ETH);
 
-        EXPECT_EQ(eth_cores.size(), (eth_grid_size.x - num_harvested_eth_cores) * eth_grid_size.y);
+        EXPECT_EQ(eth_cores.size(), num_eth_channels - num_harvested_eth_cores);
 
         const std::vector<CoreCoord> harvested_eth_cores = soc_desc.get_harvested_cores(CoreType::ETH);
 
@@ -177,7 +177,9 @@ TEST(SocDescriptor, SocDescriptorBlackholeETHHarvesting) {
 
         size_t index_harvested = 0;
         size_t index_unharvested = 0;
-        for (size_t x = 0; x < eth_grid_size.x; x++) {
+        const size_t eth_grid_size_x = num_eth_channels;
+        const size_t eth_grid_size_y = 1;
+        for (size_t x = 0; x < eth_grid_size_x; x++) {
             if (eth_harvesting_mask & (1 << x)) {
                 EXPECT_EQ(harvested_eth_cores[index_harvested].x, blackhole_eth_cores[x].x);
                 EXPECT_EQ(harvested_eth_cores[index_harvested].y, blackhole_eth_cores[x].y);
@@ -439,7 +441,7 @@ TEST(SocDescriptor, SocDescriptorWormholeNoLogicalForHarvestedCores) {
 }
 
 TEST(SocDescriptor, SocDescriptorBlackholeNoLogicalForHarvestedCores) {
-    tt_SocDescriptor soc_desc(test_utils::GetAbsPath("tests/soc_descs/blackhole_140_arch.yaml"), true, 1);
+    tt_SocDescriptor soc_desc(test_utils::GetAbsPath("tests/soc_descs/blackhole_140_arch_no_eth.yaml"), true, 1);
 
     EXPECT_THROW(soc_desc.get_harvested_cores(CoreType::TENSIX, CoordSystem::LOGICAL), std::runtime_error);
 

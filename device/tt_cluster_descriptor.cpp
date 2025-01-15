@@ -447,6 +447,9 @@ std::unique_ptr<tt_ClusterDescriptor> tt_ClusterDescriptor::create_mock_cluster(
 
     BoardType board_type;
     switch (arch) {
+        case tt::ARCH::GRAYSKULL:
+            board_type = BoardType::E150;
+            break;
         case tt::ARCH::WORMHOLE_B0:
             board_type = BoardType::N150;
             break;

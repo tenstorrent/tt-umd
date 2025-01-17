@@ -3,20 +3,11 @@ set(POSITION_INDEPENDENT_CODE ON)
 set(FBS_FILE ${PROJECT_SOURCE_DIR}/device/simulation/tt_simulation_device.fbs)
 get_filename_component(FBS_FILE_NAME ${FBS_FILE} NAME_WLE)
 set(FBS_GENERATED_HEADER "${CMAKE_CURRENT_BINARY_DIR}/${FBS_FILE_NAME}_generated.h")
-add_custom_command(
-    OUTPUT
-        ${FBS_GENERATED_HEADER}
-    COMMAND
-        flatc --cpp -o "${CMAKE_CURRENT_BINARY_DIR}/" ${FBS_FILE}
-    DEPENDS
-        flatc
-        ${FBS_FILE}
-    COMMENT "Generating FlatBuffers header ${FBS_GENERATED_HEADER}"
-    VERBATIM
-)
 
 add_library(device SHARED)
 add_library(${PROJECT_NAME}::device ALIAS device)
+
+add_dependencies(device generated_flatbuffers_headers)
 
 target_sources(
     device
@@ -50,7 +41,6 @@ target_sources(
         blackhole/blackhole_coordinate_manager.cpp
         blackhole/blackhole_arc_message_queue.cpp
         xy_pair.cpp
-        ${FBS_GENERATED_HEADER}
 )
 
 target_include_directories(
@@ -61,7 +51,7 @@ target_include_directories(
         $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}/${PROJECT_NAME}/device>
     PRIVATE
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
-        $<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}>
+        $<BUILD_INTERFACE:${PROJECT_BINARY_DIR}>
 )
 
 # flatbuffers is public - exposed to tt_metal by tt_simulation_device_generated.h

@@ -51,7 +51,7 @@ endif()
 
 message(STATUS "UMD build type: ${CMAKE_BUILD_TYPE}")
 
-include(dependencies)
+add_subdirectory(dependencies)
 
 # Enable all warnings and treat them as errors
 # Ignore unused variables and functions since there is no harm.

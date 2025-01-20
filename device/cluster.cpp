@@ -675,8 +675,7 @@ void Cluster::configure_active_ethernet_cores_for_mmio_device(
     const std::unordered_set<CoreCoord>& active_eth_cores_per_chip, chip_id_t mmio_chip) {
     std::unordered_set<tt_xy_pair> active_eth_cores_xy;
     for (const auto& core : active_eth_cores_per_chip) {
-        CoreCoord virtual_coord = translate_chip_coord(mmio_chip, core, CoordSystem::VIRTUAL);
-        active_eth_cores_xy.insert(virtual_coord);
+        active_eth_cores_xy.insert(translate_to_api_coords(mmio_chip, core));
     }
 
     configure_active_ethernet_cores_for_mmio_device(mmio_chip, active_eth_cores_xy);
@@ -997,8 +996,7 @@ void Cluster::deassert_risc_reset_at_core(tt_cxy_pair core, const TensixSoftRese
 
 void Cluster::deassert_risc_reset_at_core(
     const chip_id_t chip, const CoreCoord core, const TensixSoftResetOptions& soft_resets) {
-    const CoreCoord virtual_coord = translate_chip_coord(chip, core, CoordSystem::VIRTUAL);
-    deassert_risc_reset_at_core({(size_t)chip, virtual_coord}, soft_resets);
+    deassert_risc_reset_at_core({(size_t)chip, translate_to_api_coords(chip, core)}, soft_resets);
 }
 
 void Cluster::assert_risc_reset_at_core(tt_cxy_pair core, const TensixSoftResetOptions& soft_resets) {
@@ -1023,8 +1021,7 @@ void Cluster::assert_risc_reset_at_core(tt_cxy_pair core, const TensixSoftResetO
 
 void Cluster::assert_risc_reset_at_core(
     const chip_id_t chip, const CoreCoord core, const TensixSoftResetOptions& soft_resets) {
-    const CoreCoord virtual_coord = translate_chip_coord(chip, core, CoordSystem::VIRTUAL);
-    assert_risc_reset_at_core({(size_t)chip, virtual_coord}, soft_resets);
+    assert_risc_reset_at_core({(size_t)chip, translate_to_api_coords(chip, core)}, soft_resets);
 }
 
 // Free memory during teardown, and remove (clean/unlock) from any leftover mutexes.
@@ -1071,8 +1068,7 @@ tt::Writer Cluster::get_static_tlb_writer(tt_cxy_pair target) {
 }
 
 tt::Writer Cluster::get_static_tlb_writer(const chip_id_t chip, const CoreCoord target) {
-    const CoreCoord virtual_coord = translate_chip_coord(chip, target, CoordSystem::VIRTUAL);
-    return get_static_tlb_writer({(size_t)chip, virtual_coord});
+    return get_static_tlb_writer({(size_t)chip, translate_to_api_coords(chip, target)});
 }
 
 void Cluster::write_device_memory(
@@ -1324,13 +1320,11 @@ tlb_configuration Cluster::get_tlb_configuration(const tt_cxy_pair& target) {
 }
 
 std::optional<std::tuple<uint32_t, uint32_t>> Cluster::get_tlb_data_from_target(const chip_id_t chip, CoreCoord core) {
-    const CoreCoord virtual_coord = translate_chip_coord(chip, core, CoordSystem::VIRTUAL);
-    return get_tlb_data_from_target({(size_t)chip, virtual_coord});
+    return get_tlb_data_from_target({(size_t)chip, translate_to_api_coords(chip, core)});
 }
 
 tlb_configuration Cluster::get_tlb_configuration(const chip_id_t chip, CoreCoord core) {
-    const CoreCoord virtual_coord = translate_chip_coord(chip, core, CoordSystem::VIRTUAL);
-    return get_tlb_configuration({(size_t)chip, virtual_coord});
+    return get_tlb_configuration({(size_t)chip, translate_to_api_coords(chip, core)});
 }
 
 void Cluster::configure_tlb(
@@ -1341,8 +1335,7 @@ void Cluster::configure_tlb(
 
 void Cluster::configure_tlb(
     chip_id_t logical_device_id, tt::umd::CoreCoord core, int32_t tlb_index, uint64_t address, uint64_t ordering) {
-    const CoreCoord virtual_coord = translate_chip_coord(logical_device_id, core, CoordSystem::VIRTUAL);
-    configure_tlb(logical_device_id, {virtual_coord.x, virtual_coord.y}, tlb_index, address, ordering);
+    configure_tlb(logical_device_id, translate_to_api_coords(logical_device_id, core), tlb_index, address, ordering);
 }
 
 void Cluster::set_fallback_tlb_ordering_mode(const std::string& fallback_tlb, uint64_t ordering) {
@@ -2959,8 +2952,7 @@ void Cluster::l1_membar(
     const chip_id_t chip, const std::unordered_set<tt::umd::CoreCoord>& cores, const std::string& fallback_tlb) {
     std::unordered_set<tt_xy_pair> cores_xy;
     for (const auto& core : cores) {
-        const CoreCoord virtual_core = translate_chip_coord(chip, core, CoordSystem::VIRTUAL);
-        cores_xy.insert({virtual_core.x, virtual_core.y});
+        cores_xy.insert(translate_to_api_coords(chip, core));
     }
     l1_membar(chip, fallback_tlb, cores_xy);
 }
@@ -2988,8 +2980,7 @@ void Cluster::dram_membar(
     const chip_id_t chip, const std::unordered_set<tt::umd::CoreCoord>& cores, const std::string& fallback_tlb) {
     std::unordered_set<tt_xy_pair> cores_xy;
     for (const auto& core : cores) {
-        const CoreCoord virtual_core = translate_chip_coord(chip, core, CoordSystem::VIRTUAL);
-        cores_xy.insert({virtual_core.x, virtual_core.y});
+        cores_xy.insert(translate_to_api_coords(chip, core));
     }
     dram_membar(chip, fallback_tlb, cores_xy);
 }
@@ -3041,8 +3032,7 @@ void Cluster::write_to_device(
     CoreCoord core,
     uint64_t addr,
     const std::string& tlb_to_use) {
-    CoreCoord virtual_coord = translate_chip_coord(chip, core, CoordSystem::VIRTUAL);
-    write_to_device(mem_ptr, size_in_bytes, {(size_t)chip, virtual_coord}, addr, tlb_to_use);
+    write_to_device(mem_ptr, size_in_bytes, {(size_t)chip, translate_to_api_coords(chip, core)}, addr, tlb_to_use);
 }
 
 void Cluster::read_mmio_device_register(
@@ -3106,8 +3096,7 @@ void Cluster::read_from_device(
 
 void Cluster::read_from_device(
     void* mem_ptr, chip_id_t chip, CoreCoord core, uint64_t addr, uint32_t size, const std::string& fallback_tlb) {
-    CoreCoord virtual_coord = translate_chip_coord(chip, core, CoordSystem::VIRTUAL);
-    read_from_device(mem_ptr, {(size_t)chip, virtual_coord}, addr, size, fallback_tlb);
+    read_from_device(mem_ptr, {(size_t)chip, translate_to_api_coords(chip, core)}, addr, size, fallback_tlb);
 }
 
 int Cluster::arc_msg(
@@ -3393,8 +3382,10 @@ void Cluster::set_barrier_address_params(const barrier_address_params& barrier_a
     }
 }
 
-tt::umd::CoreCoord Cluster::translate_chip_coord(
-    const chip_id_t chip, const tt::umd::CoreCoord core_coord, const CoordSystem coord_system) const {
+// TODO: This is a temporary function while we're switching between the old and the new API.
+// Eventually, this function should be so small it would be obvioud to remove.
+tt_xy_pair Cluster::translate_to_api_coords(const chip_id_t chip, const tt::umd::CoreCoord core_coord) const {
+    CoordSystem coord_system = arch_name == tt::ARCH::GRAYSKULL ? CoordSystem::PHYSICAL : CoordSystem::VIRTUAL;
     return get_soc_descriptor(chip).translate_coord_to(core_coord, coord_system);
 }
 

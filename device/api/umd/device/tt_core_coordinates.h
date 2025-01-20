@@ -125,11 +125,11 @@ struct CoreCoord : public tt_xy_pair {
         }
         return coord_system < o.coord_system;
     }
-};
 
-static inline std::string to_str(const CoreCoord& core_coord) {
-    return "CoreCoord: (" + std::to_string(core_coord.x) + ", " + std::to_string(core_coord.y) + ", " +
-           to_str(core_coord.core_type) + ", " + to_str(core_coord.coord_system) + ")";
+    std::string to_str() const {
+        return "CoreCoord: (" + std::to_string(x) + ", " + std::to_string(y) + ", " + ::to_str(core_type) + ", " +
+               ::to_str(coord_system) + ")";
+    }
 };
 
 }  // namespace tt::umd

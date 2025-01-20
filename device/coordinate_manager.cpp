@@ -65,6 +65,9 @@ void CoordinateManager::assert_coordinate_manager_constructor() {
 void CoordinateManager::add_core_translation(const CoreCoord& core_coord, const tt_xy_pair& physical_pair) {
     to_physical_map.insert({core_coord, physical_pair});
     from_physical_map.insert({{{physical_pair.x, physical_pair.y}, core_coord.coord_system}, core_coord});
+    if (core_coord.coord_system != CoordSystem::LOGICAL) {
+        to_core_type_map.insert({{{core_coord.x, core_coord.y}, core_coord.coord_system}, core_coord});
+    }
 }
 
 void CoordinateManager::identity_map_physical_cores() {
@@ -99,27 +102,23 @@ void CoordinateManager::identity_map_physical_cores() {
     }
 }
 
-CoreCoord CoordinateManager::translate_coord_to(const CoreCoord core_coord, const CoordSystem coord_system) {
-    return from_physical_map.at({to_physical_map.at(core_coord), coord_system});
+CoreCoord CoordinateManager::translate_coord_to(const CoreCoord core_coord, const CoordSystem target_coord_system) {
+    return from_physical_map.at({to_physical_map.at(core_coord), target_coord_system});
 }
 
-CoreCoord CoordinateManager::get_coord_at(const tt_xy_pair& core_location, const CoordSystem coord_system) {
-    log_assert(coord_system != CoordSystem::LOGICAL, "Coordinate is ambiguous for logical system.");
+CoreCoord CoordinateManager::translate_coord_to(
+    const tt_xy_pair core, const CoordSystem input_coord_system, const CoordSystem target_coord_system) {
+    log_assert(input_coord_system != CoordSystem::LOGICAL, "Coordinate is ambiguous for logical system.");
 
-    for (CoreType core_type :
-         {CoreType::ARC, CoreType::DRAM, CoreType::PCIE, CoreType::TENSIX, CoreType::ETH, CoreType::ROUTER_ONLY}) {
-        CoreCoord potential_core = CoreCoord(core_location, core_type, coord_system);
-        if (to_physical_map.find(potential_core) != to_physical_map.end()) {
-            return potential_core;
-        }
-    }
-
+    auto coord_it = to_core_type_map.find({core, input_coord_system});
     log_assert(
-        false,
-        "No core found for system {} at location: ({}, {})",
-        to_str(coord_system),
-        core_location.x,
-        core_location.y);
+        coord_it != to_core_type_map.end(),
+        "No core type found for system {} at location: ({}, {})",
+        to_str(input_coord_system),
+        core.x,
+        core.y);
+
+    return translate_coord_to(coord_it->second, target_coord_system);
 }
 
 void CoordinateManager::translate_tensix_coords() {

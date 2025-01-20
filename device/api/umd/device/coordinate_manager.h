@@ -63,7 +63,8 @@ public:
         tt::ARCH arch, uint32_t tensix_harvesting_logical_layout);
 
     tt::umd::CoreCoord translate_coord_to(const tt::umd::CoreCoord core_coord, const CoordSystem coord_system);
-    tt::umd::CoreCoord get_coord_at(const tt_xy_pair& physical_pair, const CoordSystem coord_system);
+    tt::umd::CoreCoord translate_coord_to(
+        const tt_xy_pair core, const CoordSystem input_coord_system, const CoordSystem target_coord_system);
 
     std::vector<tt::umd::CoreCoord> get_cores(const CoreType core_type) const;
     tt_xy_pair get_grid_size(const CoreType core_type) const;
@@ -186,8 +187,13 @@ protected:
      */
     virtual void fill_arc_physical_translated_mapping() = 0;
 
+    // Maps full CoreCoord from any CoordSystem to physical coordinates.
     std::map<tt::umd::CoreCoord, tt_xy_pair> to_physical_map;
+    // Maps physical coordinates given a target CoordSystem to full CoreCoord.
     std::map<std::pair<tt_xy_pair, CoordSystem>, tt::umd::CoreCoord> from_physical_map;
+    // Maps coordinates in the designated CoordSystem to a full CoreCoord at that location holding the right CoreType.
+    // Doesn't include logical CoordSystem.
+    std::map<std::pair<tt_xy_pair, CoordSystem>, tt::umd::CoreCoord> to_core_type_map;
 
     // Whether NOC translation is enabled on chip.
     // This flag affects how Translated coords are calculated. If translation is enabled on the chip, than we can

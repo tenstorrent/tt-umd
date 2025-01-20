@@ -36,6 +36,7 @@
 #include <utility>
 #include <vector>
 
+#include "api/umd/device/cluster.h"
 #include "api/umd/device/tt_core_coordinates.h"
 #include "logger.hpp"
 #include "umd/device/architecture_implementation.h"
@@ -508,18 +509,56 @@ uint32_t Cluster::get_tensix_harvesting_mask(
     return tensix_harvesting_mask | simulated_harvesting_mask;
 }
 
+void Cluster::create_cluster_descriptor() {
+    std::map<int, PciDeviceInfo> pci_device_info = PCIDevice::enumerate_devices_info();
+    if (pci_device_info.begin()->second.get_arch() == tt::ARCH::BLACKHOLE) {
+        std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
+
+        std::vector<std::unique_ptr<TTDevice>> tt_devices;
+        for (auto& device_id : pci_device_ids) {
+            std::unique_ptr<TTDevice> tt_device = TTDevice::create(device_id);
+            tt_devices.push_back(std::move(tt_device));
+        }
+
+        std::vector<ChipInfo> chip_info_vec = tt_ClusterDescriptor::get_cluster_chip_info(tt_devices);
+
+        for (uint32_t chip_id = 0; chip_id < tt_devices.size(); chip_id++) {
+            const ChipInfo& chip_info = chip_info_vec[chip_id];
+            std::unique_ptr<TTDevice>& tt_device = tt_devices[chip_id];
+            tt_SocDescriptor soc_descriptor = tt_SocDescriptor(
+                tt_SocDescriptor::get_soc_descriptor_path(
+                    tt_device->get_arch(), chip_info.board_type, chip_info.asic_location),
+                chip_info.noc_translation_enabled,
+                chip_info.tensix_harvesting_mask,
+                chip_info.dram_harvesting_mask,
+                chip_info.eth_harvesting_mask);
+            std::unique_ptr<LocalChip> chip =
+                std::make_unique<LocalChip>(soc_descriptor, std::move(tt_device), chip_info);
+            chips_.emplace(chip_id, std::move(chip));
+            local_chip_ids_.insert(chip_id);
+        }
+
+        cluster_desc = tt_ClusterDescriptor::create_cluster_descriptor(chips_);
+    } else {
+        cluster_desc = tt_ClusterDescriptor::create();
+    }
+}
+
 Cluster::Cluster(
     const uint32_t& num_host_mem_ch_per_mmio_device,
     const bool skip_driver_allocs,
     const bool clean_system_resources,
     bool perform_harvesting,
     std::unordered_map<chip_id_t, uint32_t> simulated_harvesting_masks) {
-    cluster_desc = tt_ClusterDescriptor::create();
+    create_cluster_descriptor();
 
-    for (auto& chip_id : cluster_desc->get_all_chips()) {
-        add_chip(
-            chip_id,
-            construct_chip_from_cluster(chip_id, cluster_desc.get(), perform_harvesting, simulated_harvesting_masks));
+    if (cluster_desc->get_arch() != tt::ARCH::BLACKHOLE) {
+        for (auto& chip_id : cluster_desc->get_all_chips()) {
+            add_chip(
+                chip_id,
+                construct_chip_from_cluster(
+                    chip_id, cluster_desc.get(), perform_harvesting, simulated_harvesting_masks));
+        }
     }
 
     // TODO: work on removing this member altogether. Currently assumes all have the same arch.
@@ -540,16 +579,19 @@ Cluster::Cluster(
     const bool clean_system_resources,
     bool perform_harvesting,
     std::unordered_map<chip_id_t, uint32_t> simulated_harvesting_masks) {
-    cluster_desc = tt_ClusterDescriptor::create();
+    create_cluster_descriptor();
 
     for (auto& chip_id : target_devices) {
         log_assert(
             cluster_desc->get_all_chips().find(chip_id) != cluster_desc->get_all_chips().end(),
             "Target device {} not present in current cluster!",
             chip_id);
-        add_chip(
-            chip_id,
-            construct_chip_from_cluster(chip_id, cluster_desc.get(), perform_harvesting, simulated_harvesting_masks));
+        if (cluster_desc->get_arch() != tt::ARCH::BLACKHOLE) {
+            add_chip(
+                chip_id,
+                construct_chip_from_cluster(
+                    chip_id, cluster_desc.get(), perform_harvesting, simulated_harvesting_masks));
+        }
     }
 
     // TODO: work on removing this member altogether. Currently assumes all have the same arch.
@@ -571,17 +613,19 @@ Cluster::Cluster(
     const bool clean_system_resources,
     bool perform_harvesting,
     std::unordered_map<chip_id_t, uint32_t> simulated_harvesting_masks) {
-    cluster_desc = tt_ClusterDescriptor::create();
+    create_cluster_descriptor();
 
     for (auto& chip_id : target_devices) {
         log_assert(
             cluster_desc->get_all_chips().find(chip_id) != cluster_desc->get_all_chips().end(),
             "Target device {} not present in current cluster!",
             chip_id);
-        add_chip(
-            chip_id,
-            construct_chip_from_cluster(
-                sdesc_path, chip_id, cluster_desc.get(), perform_harvesting, simulated_harvesting_masks));
+        if (cluster_desc->get_arch() != tt::ARCH::BLACKHOLE) {
+            add_chip(
+                chip_id,
+                construct_chip_from_cluster(
+                    sdesc_path, chip_id, cluster_desc.get(), perform_harvesting, simulated_harvesting_masks));
+        }
         log_assert(
             cluster_desc->get_arch(chip_id) == chips_.at(chip_id)->get_soc_descriptor().arch,
             "Passed soc descriptor has {} arch, but for chip id {} has arch {}",
@@ -608,7 +652,12 @@ Cluster::Cluster(
     const bool clean_system_resources,
     bool perform_harvesting,
     std::unordered_map<chip_id_t, uint32_t> simulated_harvesting_masks) {
-    cluster_desc = tt_ClusterDescriptor::create();
+    std::map<int, PciDeviceInfo> pci_device_info = PCIDevice::enumerate_devices_info();
+    if (pci_device_info.begin()->second.get_arch() == tt::ARCH::BLACKHOLE) {
+        cluster_desc = tt_ClusterDescriptor::create_cluster_descriptor(chips);
+    } else {
+        cluster_desc = tt_ClusterDescriptor::create();
+    }
 
     for (auto& [chip_id, chip] : chips) {
         add_chip(chip_id, std::move(chip));

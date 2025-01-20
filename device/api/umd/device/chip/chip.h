@@ -19,11 +19,15 @@ class Chip {
 public:
     Chip(tt_SocDescriptor soc_descriptor);
 
+    Chip(tt_SocDescriptor soc_descriptor, const ChipInfo chip_info);
+
     virtual ~Chip() = default;
 
     tt_SocDescriptor& get_soc_descriptor();
 
     virtual TTDevice* get_tt_device();
+
+    const ChipInfo& get_chip_info();
 
     virtual bool is_mmio_capable() const = 0;
 
@@ -41,6 +45,8 @@ private:
     void set_default_params(ARCH arch);
 
     tt_SocDescriptor soc_descriptor_;
+
+    ChipInfo chip_info_;
 };
 
 }  // namespace tt::umd

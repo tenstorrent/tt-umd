@@ -16,8 +16,11 @@
 #include <unordered_set>
 #include <vector>
 
+#include "api/umd/device/chip/chip.h"
+#include "umd/device/tt_device/tt_device.h"
 #include "umd/device/tt_xy_pair.h"
 #include "umd/device/types/arch.h"
+#include "umd/device/types/blackhole_eth.h"
 #include "umd/device/types/cluster_descriptor_types.h"
 
 namespace YAML {
@@ -45,6 +48,7 @@ protected:
     std::unordered_map<chip_id_t, BoardType> chip_board_type = {};
     std::unordered_map<chip_id_t, std::unordered_set<chip_id_t>> chips_grouped_by_closest_mmio;
     std::unordered_map<chip_id_t, tt::ARCH> chip_arch = {};
+    std::map<std::pair<uint64_t, uint32_t>, chip_id_t> board_type_asic_location_to_chip_id;
 
     // one-to-many chip connections
     struct Chip2ChipConnection {
@@ -69,6 +73,8 @@ protected:
     static void load_harvesting_information(YAML::Node &yaml, tt_ClusterDescriptor &desc);
 
     void fill_chips_grouped_by_closest_mmio();
+
+    chip_id_t get_chip_id(const tt::umd::blackhole::chip_info_t chip_info);
 
 public:
     /*
@@ -109,10 +115,17 @@ public:
 
     BoardType get_board_type(chip_id_t chip_id) const;
     tt::ARCH get_arch(chip_id_t chip_id) const;
+    tt::ARCH get_arch() const;
 
     bool ethernet_core_has_active_ethernet_link(chip_id_t local_chip, ethernet_channel_t local_ethernet_channel) const;
     std::tuple<chip_id_t, ethernet_channel_t> get_chip_and_channel_of_remote_ethernet_core(
         chip_id_t local_chip, ethernet_channel_t local_ethernet_channel) const;
 
     void enable_all_devices();
+
+    static std::vector<ChipInfo> get_cluster_chip_info(
+        const std::vector<std::unique_ptr<tt::umd::TTDevice>> &tt_devices);
+
+    static std::unique_ptr<tt_ClusterDescriptor> create_cluster_descriptor(
+        const std::unordered_map<chip_id_t, std::unique_ptr<tt::umd::Chip>> &chips);
 };

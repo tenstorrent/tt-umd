@@ -8,13 +8,18 @@
 #include <memory>
 #include <sstream>
 
+#include "api/umd/device/pci_device.hpp"
 #include "disjoint_set.hpp"
 #include "fmt/core.h"
 #include "libs/create_ethernet_map.h"
 #include "logger.hpp"
+#include "umd/device/blackhole_implementation.h"
+#include "umd/device/types/blackhole_telemetry.h"
 #include "yaml-cpp/yaml.h"
 
 using namespace tt;
+using namespace tt::umd;
+using namespace tt::umd::blackhole;
 
 bool tt_ClusterDescriptor::ethernet_core_has_active_ethernet_link(
     chip_id_t local_chip, ethernet_channel_t local_ethernet_channel) const {
@@ -878,6 +883,8 @@ BoardType tt_ClusterDescriptor::get_board_type(chip_id_t chip_id) const {
     return chip_board_type.at(chip_id);
 }
 
+tt::ARCH tt_ClusterDescriptor::get_arch() const { return get_arch(*get_all_chips().begin()); }
+
 tt::ARCH tt_ClusterDescriptor::get_arch(chip_id_t chip_id) const {
     log_assert(
         chip_arch.find(chip_id) != chip_arch.end(),
@@ -893,4 +900,156 @@ tt::ARCH tt_ClusterDescriptor::get_arch(chip_id_t chip_id) const {
 const std::unordered_map<chip_id_t, std::unordered_set<chip_id_t>> &
 tt_ClusterDescriptor::get_chips_grouped_by_closest_mmio() const {
     return chips_grouped_by_closest_mmio;
+}
+
+std::vector<ChipInfo> tt_ClusterDescriptor::get_cluster_chip_info(
+    const std::vector<std::unique_ptr<TTDevice>> &tt_devices) {
+    std::vector<tt_xy_pair> eth_cores = tt::umd::blackhole::ETH_CORES;
+    const auto tlb_index = tt::umd::blackhole::MEM_LARGE_READ_TLB;
+
+    tt_xy_pair arc_core = tt::umd::blackhole::ARC_CORES[0];
+    std::vector<ChipInfo> chip_info_vec;
+    for (auto &tt_device : tt_devices) {
+        uint32_t tensix_harvesting_mask = 0;
+        uint32_t dram_harvesting_mask = 0;
+        uint32_t eth_harvesting_mask = 0;
+        uint64_t board_id = 0;
+        uint32_t telemetry_table;
+        tt_device->read_from_device(
+            &telemetry_table, arc_core, tt::umd::blackhole::SCRATCH_RAM_13, sizeof(uint32_t), tlb_index);
+
+        uint32_t version;
+        tt_device->read_from_device(&version, arc_core, telemetry_table, sizeof(uint32_t), tlb_index);
+
+        uint32_t entry_count;
+        tt_device->read_from_device(
+            &entry_count, arc_core, telemetry_table + sizeof(uint32_t), sizeof(uint32_t), tlb_index);
+
+        uint32_t telemetry;
+        tt_device->read_from_device(
+            &telemetry, arc_core, tt::umd::blackhole::SCRATCH_RAM_12, sizeof(uint32_t), tlb_index);
+
+        uint32_t count = entry_count;
+        uint32_t tag_table_index = telemetry_table + 2 * sizeof(uint32_t);
+        for (uint32_t entry = 0; entry < entry_count; entry++) {
+            uint16_t tag_val;
+            tt_device->read_from_device(&tag_val, arc_core, tag_table_index, sizeof(uint16_t), tlb_index);
+            uint16_t offset_val;
+            tt_device->read_from_device(
+                &offset_val, arc_core, tag_table_index + sizeof(uint16_t), sizeof(uint16_t), tlb_index);
+
+            uint32_t telemetry_val;
+            tt_device->read_from_device(
+                &telemetry_val, arc_core, telemetry + offset_val * sizeof(uint32_t), sizeof(uint32_t), tlb_index);
+
+            tag_table_index += sizeof(uint32_t);
+
+            if (tag_val == tt::umd::blackhole::TAG_BOARD_ID_HIGH) {
+                board_id |= ((uint64_t)telemetry_val << 32);
+            } else if (tag_val == tt::umd::blackhole::TAG_BOARD_ID_LOW) {
+                board_id |= telemetry_val;
+            } else if (tag_val == tt::umd::blackhole::TAG_ENABLED_TENSIX_COL) {
+                tensix_harvesting_mask = telemetry_val & ((1 << 14) - 1);
+            } else if (tag_val == tt::umd::blackhole::TAG_ENABLED_ETH) {
+                dram_harvesting_mask = telemetry_val & ((1 << 8) - 1);
+            } else if (tag_val == tt::umd::blackhole::TAG_ENABLED_GDDR) {
+                eth_harvesting_mask = telemetry_val & ((1 << 13) - 1);
+            }
+        }
+
+        BoardType board_type = get_board_type_from_board_id(board_id);
+
+        chip_info_vec.push_back(ChipInfo{
+            .tensix_harvesting_mask = tensix_harvesting_mask,
+            .dram_harvesting_mask = dram_harvesting_mask,
+            .eth_harvesting_mask = eth_harvesting_mask,
+            .board_type = board_type,
+            .board_id = board_id,
+            .noc_translation_enabled = false});
+    }
+
+    return chip_info_vec;
+}
+
+chip_id_t tt_ClusterDescriptor::get_chip_id(const chip_info_t chip_info) {
+    uint64_t board_id = ((uint64_t)chip_info.board_id_hi << 32) | chip_info.board_id_lo;
+    auto it = board_type_asic_location_to_chip_id.find({board_id, chip_info.asic_location});
+    if (it == board_type_asic_location_to_chip_id.end()) {
+        // What to do here?
+        // TODO(pjanevski): we are getting out of cluster here, how to save this?
+        throw std::runtime_error(fmt::format(
+            "Board id {} and asic location {} not in the cluster descriptor", board_id, chip_info.asic_location));
+    }
+    return it->second;
+}
+
+std::unique_ptr<tt_ClusterDescriptor> tt_ClusterDescriptor::create_cluster_descriptor(
+    const std::unordered_map<chip_id_t, std::unique_ptr<Chip>> &chips) {
+    std::unique_ptr<tt_ClusterDescriptor> desc = std::unique_ptr<tt_ClusterDescriptor>(new tt_ClusterDescriptor());
+
+    const auto tlb_index = tt::umd::blackhole::MEM_LARGE_READ_TLB;
+
+    for (auto &it : chips) {
+        const chip_id_t chip_id = it.first;
+        const std::unique_ptr<Chip> &chip = it.second;
+        desc->board_type_asic_location_to_chip_id.insert(
+            {{chip->get_chip_info().board_id, chip->get_chip_info().asic_location}, it.first});
+    }
+
+    for (auto &it : chips) {
+        const chip_id_t chip_id = it.first;
+        const std::unique_ptr<Chip> &chip = it.second;
+
+        desc->all_chips.insert(chip_id);
+        desc->chip_arch.insert({chip_id, chip->get_tt_device()->get_arch()});
+
+        desc->chips_with_mmio.insert({chip_id, chip_id});
+
+        desc->chip_board_type.insert({chip_id, chip->get_chip_info().board_type});
+
+        desc->noc_translation_enabled.insert({chip_id, chip->get_chip_info().noc_translation_enabled});
+        desc->harvesting_masks.insert({chip_id, chip->get_chip_info().tensix_harvesting_mask});
+
+        const std::vector<CoreCoord> eth_cores = chip->get_soc_descriptor().get_cores(CoreType::ETH);
+
+        for (size_t eth_channel = 0; eth_channel < eth_cores.size(); eth_channel++) {
+            const CoreCoord &eth_core = eth_cores[eth_channel];
+            TTDevice *tt_device = chip->get_tt_device();
+            boot_results_t boot_results;
+
+            tt_device->read_from_device(
+                (uint8_t *)&boot_results,
+                tt_xy_pair(eth_core.x, eth_core.y),
+                tt::umd::blackhole::BOOT_RESULTS_ADDR,
+                sizeof(boot_results),
+                tlb_index);
+
+            if (boot_results.eth_status.port_status == port_status_e::PORT_UP) {
+                // active eth core
+                const chip_info_t &local_info = boot_results.local_info;
+                const chip_info_t &remote_info = boot_results.remote_info;
+
+                chip_id_t local_chip_id = desc->get_chip_id(local_info);
+                chip_id_t remote_chip_id = desc->get_chip_id(remote_info);
+
+                // Adding a connection only one way, the other chip should add it another way
+                desc->ethernet_connections[local_chip_id][local_info.eth_id] = {remote_chip_id, remote_info.eth_id};
+
+            } else if (boot_results.eth_status.port_status == port_status_e::PORT_DOWN) {
+                // what is this?
+                // TODO(pjanevski): add code for this
+            } else if (boot_results.eth_status.port_status == port_status_e::PORT_UNUSED) {
+                // idle core
+            } else if (boot_results.eth_status.port_status == port_status_e::PORT_UNKNOWN) {
+                // what is this?
+                // TODO(pjanevski): add code for this
+            }
+        }
+    }
+
+    desc->enable_all_devices();
+
+    desc->fill_chips_grouped_by_closest_mmio();
+
+    return desc;
 }

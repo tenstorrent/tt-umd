@@ -4,6 +4,7 @@
 #include "umd/device/tt_device/tt_device.h"
 
 #include "logger.hpp"
+#include "umd/device/architecture_implementation.h"
 #include "umd/device/driver_atomics.h"
 #include "umd/device/tt_device/blackhole_tt_device.h"
 #include "umd/device/tt_device/grayskull_tt_device.h"
@@ -204,6 +205,20 @@ void TTDevice::read_block(uint64_t byte_addr, uint64_t num_bytes, uint8_t *buffe
 
     if (num_bytes >= sizeof(std::uint32_t)) {
         detect_hang_read(*reinterpret_cast<std::uint32_t *>(dest));
+    }
+}
+
+void TTDevice::read_from_device(
+    void *mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size, const uint32_t tlb_index) {
+    uint8_t *buffer_addr = static_cast<uint8_t *>(mem_ptr);
+    while (size > 0) {
+        auto [mapped_address, tlb_size] = set_dynamic_tlb(tlb_index, core, addr, tt::umd::tlb_data::Strict);
+        uint32_t transfer_size = std::min((uint64_t)size, tlb_size);
+        read_block(mapped_address, transfer_size, buffer_addr);
+
+        size -= transfer_size;
+        addr += transfer_size;
+        buffer_addr += transfer_size;
     }
 }
 

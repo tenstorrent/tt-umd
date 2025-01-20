@@ -8,6 +8,7 @@
 
 #include <cstdint>
 #include <functional>
+#include <iostream>
 
 // Small performant hash combiner taken from boost library.
 // Not using boost::hash_combine due to dependency complications.
@@ -46,6 +47,32 @@ enum BoardType : uint32_t {
     GALAXY,
     UNKNOWN,
 };
+
+struct ChipInfo {
+    uint32_t tensix_harvesting_mask;
+    uint32_t dram_harvesting_mask;
+    uint32_t eth_harvesting_mask;
+    BoardType board_type;
+    uint64_t board_id;
+    uint8_t asic_location;
+    bool noc_translation_enabled;
+};
+
+inline BoardType get_board_type_from_board_id(const uint64_t board_id) {
+    uint64_t upi = (board_id >> 36) & 0xFFFFF;
+
+    if (upi == 0x36) {
+        return BoardType::P100;
+    } else if (upi == 0x43) {
+        return BoardType::P100;
+    } else if (upi == 0x40) {
+        return BoardType::P150A;
+    } else if (upi == 0x41) {
+        return BoardType::P150A;
+    }
+
+    throw std::runtime_error("Wrong board type");
+}
 
 namespace std {
 template <>

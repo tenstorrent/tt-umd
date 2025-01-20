@@ -64,6 +64,7 @@ public:
     void write_regs(volatile uint32_t *dest, const uint32_t *src, uint32_t word_len);
     void write_regs(uint32_t byte_addr, uint32_t word_len, const void *data);
     void read_regs(uint32_t byte_addr, uint32_t word_len, void *data);
+    void read_from_device(void *mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size, const uint32_t tlb_index);
 
     // TLB related functions.
     // TODO: These are architecture specific, and will be moved out of the class.

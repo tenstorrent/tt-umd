@@ -11,8 +11,7 @@
 
 namespace tt::umd {
 
-LocalChip::LocalChip(tt_SocDescriptor soc_descriptor, int pci_device_id) :
-    Chip(soc_descriptor), tt_device_(TTDevice::create(pci_device_id)) {
+void LocalChip::initialize_tlb_manager() {
     auto tlb_manager = tt_device_->get_tlb_manager();
     // Setup default dynamic tlbs.
     tlb_manager->set_dynamic_tlb_config(
@@ -22,6 +21,16 @@ LocalChip::LocalChip(tt_SocDescriptor soc_descriptor, int pci_device_id) :
     tlb_manager->set_dynamic_tlb_config("REG_TLB", tt_device_->get_architecture_implementation()->get_reg_tlb());
     tlb_manager->set_dynamic_tlb_config(
         "SMALL_READ_WRITE_TLB", tt_device_->get_architecture_implementation()->get_small_read_write_tlb());
+}
+
+LocalChip::LocalChip(tt_SocDescriptor soc_descriptor, int pci_device_id) :
+    Chip(soc_descriptor), tt_device_(TTDevice::create(pci_device_id)) {
+    initialize_tlb_manager();
+}
+
+LocalChip::LocalChip(tt_SocDescriptor soc_descriptor, std::unique_ptr<TTDevice> tt_device, const ChipInfo chip_info) :
+    Chip(soc_descriptor, chip_info), tt_device_(std::move(tt_device)) {
+    initialize_tlb_manager();
 }
 
 TTDevice* LocalChip::get_tt_device() { return tt_device_.get(); }

@@ -9,6 +9,7 @@
 #include <nng/protocol/pair1/pair.h>
 #include <nng/protocol/pipeline0/pull.h>
 #include <nng/protocol/pipeline0/push.h>
+
 #include <stdexcept>
 
 #include "common/logger.hpp"
@@ -21,8 +22,10 @@ protected:
         // default_params and yaml path are both dummy and won't change test behavior
         tt_device_params default_params;
         const char* simulator_path = getenv("TT_UMD_SIMULATOR");
-        if (simulator_path == nullptr)
-            throw std::runtime_error("You need to define TT_UMD_SIMULATOR that will point to simulator path. eg. build/versim-wormhole-b0");
+        if (simulator_path == nullptr) {
+            throw std::runtime_error(
+                "You need to define TT_UMD_SIMULATOR that will point to simulator path. eg. build/versim-wormhole-b0");
+        }
         device = std::make_unique<tt_SimulationDevice>(simulator_path);
         device->start_device(default_params);
     }

@@ -390,3 +390,26 @@ TEST(CoordinateManager, CoordinateManagerWormholeHarvestingShuffle) {
         EXPECT_EQ(harvesting_mask, 1 << i);
     }
 }
+
+TEST(CoordinateManager, CoordinateManagerWormholeTranslationWithoutCoreType) {
+    std::shared_ptr<CoordinateManager> coordinate_manager =
+        CoordinateManager::create_coordinate_manager(tt::ARCH::WORMHOLE_B0, true);
+
+    EXPECT_EQ(
+        coordinate_manager->translate_coord_to({0, 0}, CoordSystem::PHYSICAL, CoordSystem::PHYSICAL).core_type,
+        CoreType::DRAM);
+    EXPECT_EQ(
+        coordinate_manager->translate_coord_to({0, 0}, CoordSystem::VIRTUAL, CoordSystem::PHYSICAL).core_type,
+        CoreType::DRAM);
+    EXPECT_EQ(
+        coordinate_manager->translate_coord_to({2, 2}, CoordSystem::PHYSICAL, CoordSystem::PHYSICAL).core_type,
+        CoreType::TENSIX);
+    // Not allowed for logical coord system.
+    EXPECT_THROW(
+        coordinate_manager->translate_coord_to({0, 0}, CoordSystem::LOGICAL, CoordSystem::PHYSICAL),
+        std::runtime_error);
+    // Throws if nothing is located at this coordinate.
+    EXPECT_THROW(
+        coordinate_manager->translate_coord_to({100, 100}, CoordSystem::PHYSICAL, CoordSystem::PHYSICAL),
+        std::runtime_error);
+}

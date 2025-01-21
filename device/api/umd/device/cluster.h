@@ -897,8 +897,7 @@ private:
         std::unordered_map<chip_id_t, uint32_t> simulated_harvesting_masks);
 
     // Helper function for translating chip coordinates.
-    tt::umd::CoreCoord translate_chip_coord(
-        const chip_id_t chip, const tt::umd::CoreCoord core_coord, const CoordSystem coord_system) const;
+    tt_xy_pair translate_to_api_coords(const chip_id_t chip, const tt::umd::CoreCoord core_coord) const;
 
     // State variables
     std::vector<tt::ARCH> archs_in_cluster = {};

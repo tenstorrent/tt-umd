@@ -21,11 +21,15 @@ namespace tt::umd {
 
 class semver_t {
 public:
-    const uint64_t major;
-    const uint64_t minor;
-    const uint64_t patch;
+    uint64_t major;
+    uint64_t minor;
+    uint64_t patch;
 
-    semver_t(uint64_t major, uint64_t minor, uint64_t patch) : major(major), minor(minor), patch(patch) {}
+    semver_t(uint64_t major, uint64_t minor, uint64_t patch) {
+        this->major = major;
+        this->minor = minor;
+        this->patch = patch;
+    }
 
     semver_t(const std::string& version_str) : semver_t(parse(version_str)) {}
 

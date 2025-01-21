@@ -70,7 +70,7 @@ static inline std::string to_str(const CoreType core_type) {
     }
 }
 
-static inline std::string to_str(CoordSystem coord_system) {
+static inline std::string to_str(const CoordSystem coord_system) {
     switch (coord_system) {
         case CoordSystem::LOGICAL:
             return "LOGICAL";

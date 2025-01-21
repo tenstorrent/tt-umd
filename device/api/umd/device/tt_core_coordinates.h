@@ -43,7 +43,7 @@ enum class CoordSystem : std::uint8_t {
     TRANSLATED,
 };
 
-static inline std::string to_str(CoreType core_type) {
+static inline std::string to_str(const CoreType core_type) {
     switch (core_type) {
         case CoreType::ARC:
             return "ARC";
@@ -93,7 +93,7 @@ struct CoreCoord : public tt_xy_pair {
     CoreCoord(const size_t x, const size_t y, const CoreType type, const CoordSystem coord_system) :
         tt_xy_pair(x, y), core_type(type), coord_system(coord_system) {}
 
-    CoreCoord(tt_xy_pair core, const CoreType type, const CoordSystem coord_system) :
+    CoreCoord(const tt_xy_pair core, const CoreType type, const CoordSystem coord_system) :
         tt_xy_pair(core), core_type(type), coord_system(coord_system) {}
 
     CoreType core_type;

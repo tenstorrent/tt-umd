@@ -62,9 +62,9 @@ public:
     static uint32_t shuffle_tensix_harvesting_mask_to_noc0_coords(
         tt::ARCH arch, uint32_t tensix_harvesting_logical_layout);
 
-    tt::umd::CoreCoord translate_coord_to(const tt::umd::CoreCoord core_coord, const CoordSystem coord_system);
+    tt::umd::CoreCoord translate_coord_to(const tt::umd::CoreCoord core_coord, const CoordSystem coord_system) const;
     tt::umd::CoreCoord translate_coord_to(
-        const tt_xy_pair core, const CoordSystem input_coord_system, const CoordSystem target_coord_system);
+        const tt_xy_pair core, const CoordSystem input_coord_system, const CoordSystem target_coord_system) const;
 
     std::vector<tt::umd::CoreCoord> get_cores(const CoreType core_type) const;
     tt_xy_pair get_grid_size(const CoreType core_type) const;

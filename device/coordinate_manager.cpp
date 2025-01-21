@@ -102,12 +102,13 @@ void CoordinateManager::identity_map_physical_cores() {
     }
 }
 
-CoreCoord CoordinateManager::translate_coord_to(const CoreCoord core_coord, const CoordSystem target_coord_system) {
+CoreCoord CoordinateManager::translate_coord_to(
+    const CoreCoord core_coord, const CoordSystem target_coord_system) const {
     return from_physical_map.at({to_physical_map.at(core_coord), target_coord_system});
 }
 
 CoreCoord CoordinateManager::translate_coord_to(
-    const tt_xy_pair core, const CoordSystem input_coord_system, const CoordSystem target_coord_system) {
+    const tt_xy_pair core, const CoordSystem input_coord_system, const CoordSystem target_coord_system) const {
     log_assert(input_coord_system != CoordSystem::LOGICAL, "Coordinate is ambiguous for logical system.");
 
     auto coord_it = to_core_type_map.find({core, input_coord_system});

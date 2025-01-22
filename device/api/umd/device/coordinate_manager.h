@@ -34,7 +34,6 @@ public:
         const tt_xy_pair& dram_grid_size,
         const std::vector<tt_xy_pair>& dram_cores,
         const size_t dram_harvesting_mask,
-        const tt_xy_pair& eth_grid_size,
         const std::vector<tt_xy_pair>& eth_cores,
         const size_t eth_harvesting_mask,
         const tt_xy_pair& arc_grid_size,
@@ -76,6 +75,10 @@ public:
     size_t get_dram_harvesting_mask() const;
     size_t get_eth_harvesting_mask() const;
 
+    uint32_t get_num_eth_channels() const;
+
+    uint32_t get_num_harvested_eth_channels() const;
+
 private:
     const std::vector<tt_xy_pair>& get_physical_pairs(const CoreType core_type) const;
     std::vector<tt::umd::CoreCoord> get_all_physical_cores(const CoreType core_type) const;
@@ -97,7 +100,6 @@ protected:
         const tt_xy_pair& dram_grid_size,
         const std::vector<tt_xy_pair>& dram_cores,
         const size_t dram_harvesting_mask,
-        const tt_xy_pair& eth_grid_size,
         const std::vector<tt_xy_pair>& eth_cores,
         const size_t eth_harvesting_mask,
         const tt_xy_pair& arc_grid_size,
@@ -128,10 +130,8 @@ protected:
     virtual std::vector<tt::umd::CoreCoord> get_harvested_eth_cores() const;
     virtual tt_xy_pair get_tensix_grid_size() const;
     virtual tt_xy_pair get_dram_grid_size() const;
-    virtual tt_xy_pair get_eth_grid_size() const;
     virtual tt_xy_pair get_harvested_tensix_grid_size() const;
     virtual tt_xy_pair get_harvested_dram_grid_size() const;
-    virtual tt_xy_pair get_harvested_eth_grid_size() const;
 
     /*
      * By default, translated coordinates are the same as physical coordinates.
@@ -210,7 +210,7 @@ protected:
     const std::vector<tt_xy_pair> dram_cores;
     size_t dram_harvesting_mask;
 
-    tt_xy_pair eth_grid_size;
+    const size_t num_eth_channels;
     const std::vector<tt_xy_pair> eth_cores;
     const size_t eth_harvesting_mask;
 

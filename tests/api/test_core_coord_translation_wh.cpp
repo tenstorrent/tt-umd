@@ -279,17 +279,15 @@ TEST(CoordinateManager, CoordinateManagerWormholeDRAMNoHarvesting) {
 TEST(CoordinateManager, CoordinateManagerWormholeETHPhysicalEqualVirtual) {
     std::shared_ptr<CoordinateManager> coordinate_manager =
         CoordinateManager::create_coordinate_manager(tt::ARCH::WORMHOLE_B0, true);
-    const tt_xy_pair eth_grid_size = tt::umd::wormhole::ETH_GRID_SIZE;
+    const size_t num_eth_channels = tt::umd::wormhole::NUM_ETH_CHANNELS;
 
-    for (size_t x = 0; x < eth_grid_size.x; x++) {
-        for (size_t y = 0; y < eth_grid_size.y; y++) {
-            const CoreCoord eth_logical = CoreCoord(x, y, CoreType::ETH, CoordSystem::LOGICAL);
-            const CoreCoord eth_virtual = coordinate_manager->translate_coord_to(eth_logical, CoordSystem::VIRTUAL);
-            const CoreCoord eth_physical = coordinate_manager->translate_coord_to(eth_logical, CoordSystem::PHYSICAL);
+    for (size_t eth_channel = 0; eth_channel < num_eth_channels; eth_channel++) {
+        const CoreCoord eth_logical = CoreCoord(0, eth_channel, CoreType::ETH, CoordSystem::LOGICAL);
+        const CoreCoord eth_virtual = coordinate_manager->translate_coord_to(eth_logical, CoordSystem::VIRTUAL);
+        const CoreCoord eth_physical = coordinate_manager->translate_coord_to(eth_logical, CoordSystem::PHYSICAL);
 
-            EXPECT_EQ(eth_virtual.x, eth_physical.x);
-            EXPECT_EQ(eth_virtual.y, eth_physical.y);
-        }
+        EXPECT_EQ(eth_virtual.x, eth_physical.x);
+        EXPECT_EQ(eth_virtual.y, eth_physical.y);
     }
 }
 
@@ -297,17 +295,18 @@ TEST(CoordinateManager, CoordinateManagerWormholeETHPhysicalEqualVirtual) {
 TEST(CoordinateManager, CoordinateManagerWormholeETHLogicalToTranslated) {
     std::shared_ptr<CoordinateManager> coordinate_manager =
         CoordinateManager::create_coordinate_manager(tt::ARCH::WORMHOLE_B0, true);
-    const tt_xy_pair eth_grid_size = tt::umd::wormhole::ETH_GRID_SIZE;
 
-    for (size_t x = 0; x < eth_grid_size.x; x++) {
-        for (size_t y = 0; y < eth_grid_size.y; y++) {
-            const CoreCoord eth_logical = CoreCoord(x, y, CoreType::ETH, CoordSystem::LOGICAL);
-            const CoreCoord eth_translated =
-                coordinate_manager->translate_coord_to(eth_logical, CoordSystem::TRANSLATED);
+    const size_t num_eth_channels = tt::umd::wormhole::NUM_ETH_CHANNELS;
 
-            EXPECT_EQ(eth_translated.x, x + 18);
-            EXPECT_EQ(eth_translated.y, y + 16);
-        }
+    for (size_t eth_channel = 0; eth_channel < num_eth_channels; eth_channel++) {
+        const CoreCoord eth_logical = CoreCoord(0, eth_channel, CoreType::ETH, CoordSystem::LOGICAL);
+        const CoreCoord eth_translated = coordinate_manager->translate_coord_to(eth_logical, CoordSystem::TRANSLATED);
+        EXPECT_EQ(
+            eth_translated.x,
+            tt::umd::wormhole::eth_translated_coordinate_start_x + eth_channel % (num_eth_channels / 2));
+        EXPECT_EQ(
+            eth_translated.y,
+            tt::umd::wormhole::eth_translated_coordinate_start_y + eth_channel / (num_eth_channels / 2));
     }
 }
 

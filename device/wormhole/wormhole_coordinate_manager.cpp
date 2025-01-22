@@ -15,7 +15,6 @@ WormholeCoordinateManager::WormholeCoordinateManager(
     const tt_xy_pair& dram_grid_size,
     const std::vector<tt_xy_pair>& dram_cores,
     const size_t dram_harvesting_mask,
-    const tt_xy_pair& eth_grid_size,
     const std::vector<tt_xy_pair>& eth_cores,
     const size_t eth_harvesting_mask,
     const tt_xy_pair& arc_grid_size,
@@ -31,7 +30,6 @@ WormholeCoordinateManager::WormholeCoordinateManager(
         dram_grid_size,
         dram_cores,
         dram_harvesting_mask,
-        eth_grid_size,
         eth_cores,
         eth_harvesting_mask,
         arc_grid_size,
@@ -82,11 +80,13 @@ void WormholeCoordinateManager::fill_dram_physical_translated_mapping() {
 }
 
 void WormholeCoordinateManager::fill_eth_physical_translated_mapping() {
-    for (size_t x = 0; x < eth_grid_size.x; x++) {
-        for (size_t y = 0; y < eth_grid_size.y; y++) {
+    const size_t eth_grid_size_x = (num_eth_channels + 1) / 2;
+    const size_t eth_grid_size_y = num_eth_channels / eth_grid_size_x;
+    for (size_t x = 0; x < eth_grid_size_x; x++) {
+        for (size_t y = 0; y < eth_grid_size_y; y++) {
             const size_t translated_x = x + wormhole::eth_translated_coordinate_start_x;
             const size_t translated_y = y + wormhole::eth_translated_coordinate_start_y;
-            CoreCoord logical_coord = CoreCoord(x, y, CoreType::ETH, CoordSystem::LOGICAL);
+            CoreCoord logical_coord = CoreCoord(0, y * eth_grid_size_x + x, CoreType::ETH, CoordSystem::LOGICAL);
             const tt_xy_pair physical_pair = to_physical_map[logical_coord];
             CoreCoord translated_coord = CoreCoord(translated_x, translated_y, CoreType::ETH, CoordSystem::TRANSLATED);
 

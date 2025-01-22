@@ -75,6 +75,9 @@ public:
 
     int get_num_dram_channels() const;
 
+    uint32_t get_num_eth_channels() const;
+    uint32_t get_num_harvested_eth_channels() const;
+
     bool is_worker_core(const tt_xy_pair &core) const;
 
     tt_xy_pair get_core_for_dram_channel(int dram_chan, int subchannel) const;

@@ -910,6 +910,12 @@ std::vector<ChipInfo> tt_ClusterDescriptor::get_cluster_chip_info(
     tt_xy_pair arc_core = tt::umd::blackhole::ARC_CORES[0];
     std::vector<ChipInfo> chip_info_vec;
     for (auto &tt_device : tt_devices) {
+        uint32_t arc_boot_status;
+        do {
+            tt_device->read_from_device(
+                &arc_boot_status, arc_core, tt::umd::blackhole::SCRATCH_RAM_2, sizeof(uint32_t), tlb_index);
+        } while ((arc_boot_status & 0x7) != 0x5);
+
         uint32_t tensix_harvesting_mask = 0;
         uint32_t dram_harvesting_mask = 0;
         uint32_t eth_harvesting_mask = 0;

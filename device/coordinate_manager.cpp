@@ -5,6 +5,7 @@
  */
 #include "umd/device/coordinate_manager.h"
 
+#include "api/umd/device/coordinate_manager.h"
 #include "logger.hpp"
 #include "umd/device/blackhole_coordinate_manager.h"
 #include "umd/device/grayskull_coordinate_manager.h"
@@ -482,16 +483,12 @@ tt_xy_pair CoordinateManager::get_tensix_grid_size() const {
 
 tt_xy_pair CoordinateManager::get_dram_grid_size() const { return dram_grid_size; }
 
-tt_xy_pair CoordinateManager::get_eth_grid_size() const { return {1, num_eth_channels}; }
-
 tt_xy_pair CoordinateManager::get_grid_size(const CoreType core_type) const {
     switch (core_type) {
         case CoreType::TENSIX:
             return get_tensix_grid_size();
         case CoreType::DRAM:
             return get_dram_grid_size();
-        case CoreType::ETH:
-            return get_eth_grid_size();
         case CoreType::ARC:
             return arc_grid_size;
         case CoreType::PCIE:
@@ -523,22 +520,26 @@ tt_xy_pair CoordinateManager::get_harvested_tensix_grid_size() const {
 
 tt_xy_pair CoordinateManager::get_harvested_dram_grid_size() const { return {0, 0}; }
 
-tt_xy_pair CoordinateManager::get_harvested_eth_grid_size() const { return {0, 0}; }
-
 tt_xy_pair CoordinateManager::get_harvested_grid_size(const CoreType core_type) const {
     switch (core_type) {
         case CoreType::TENSIX:
             return get_harvested_tensix_grid_size();
         case CoreType::DRAM:
             return get_harvested_dram_grid_size();
-        case CoreType::ETH:
-            return get_harvested_eth_grid_size();
         case CoreType::ARC:
         case CoreType::PCIE:
             return {0, 0};
         default:
             throw std::runtime_error("Core type is not supported for getting harvested grid size");
     }
+}
+
+uint32_t CoordinateManager::get_num_eth_channels() const {
+    return num_eth_channels - CoordinateManager::get_num_harvested(eth_harvesting_mask);
+}
+
+uint32_t CoordinateManager::get_num_harvested_eth_channels() const {
+    return CoordinateManager::get_num_harvested(eth_harvesting_mask);
 }
 
 std::shared_ptr<CoordinateManager> CoordinateManager::create_coordinate_manager(

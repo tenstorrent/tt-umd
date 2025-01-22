@@ -48,10 +48,8 @@ protected:
     std::vector<tt::umd::CoreCoord> get_harvested_eth_cores() const override;
     tt_xy_pair get_tensix_grid_size() const override;
     tt_xy_pair get_dram_grid_size() const override;
-    tt_xy_pair get_eth_grid_size() const override;
     tt_xy_pair get_harvested_tensix_grid_size() const override;
     tt_xy_pair get_harvested_dram_grid_size() const override;
-    tt_xy_pair get_harvested_eth_grid_size() const override;
 
 private:
     void map_column_of_dram_banks(const size_t start_bank, const size_t end_bank, const size_t x_coord);

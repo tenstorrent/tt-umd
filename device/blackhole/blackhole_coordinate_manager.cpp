@@ -425,18 +425,10 @@ tt_xy_pair BlackholeCoordinateManager::get_harvested_dram_grid_size() const {
     return {CoordinateManager::get_num_harvested(dram_harvesting_mask), dram_grid_size.y};
 }
 
-tt_xy_pair BlackholeCoordinateManager::get_harvested_eth_grid_size() const {
-    return {CoordinateManager::get_num_harvested(eth_harvesting_mask), 1};
-}
-
 tt_xy_pair BlackholeCoordinateManager::get_tensix_grid_size() const {
     return {tensix_grid_size.x - CoordinateManager::get_num_harvested(tensix_harvesting_mask), tensix_grid_size.y};
 }
 
 tt_xy_pair BlackholeCoordinateManager::get_dram_grid_size() const {
     return {dram_grid_size.x - CoordinateManager::get_num_harvested(dram_harvesting_mask), dram_grid_size.y};
-}
-
-tt_xy_pair BlackholeCoordinateManager::get_eth_grid_size() const {
-    return {1, num_eth_channels - CoordinateManager::get_num_harvested(eth_harvesting_mask)};
 }

@@ -126,30 +126,28 @@ TEST(SocDescriptor, SocDescriptorWormholeOneRowHarvesting) {
 
 // Test ETH translation from logical to physical coordinates.
 TEST(SocDescriptor, SocDescriptorWormholeETHLogicalToPhysical) {
-    tt_SocDescriptor soc_desc(test_utils::GetAbsPath("tests/soc_descs/wormhole_b0_8x10.yaml"), true);
+    const tt_SocDescriptor soc_desc(test_utils::GetAbsPath("tests/soc_descs/wormhole_b0_8x10.yaml"), true);
 
     const std::vector<tt_xy_pair>& wormhole_eth_cores = tt::umd::wormhole::ETH_CORES;
-    const tt_xy_pair eth_grid_size = soc_desc.get_grid_size(CoreType::ETH);
+    const uint32_t num_eth_channels = soc_desc.get_num_eth_channels();
     const std::vector<CoreCoord> eth_cores = soc_desc.get_cores(CoreType::ETH);
 
     size_t index = 0;
-    for (size_t y = 0; y < eth_grid_size.y; y++) {
-        for (size_t x = 0; x < eth_grid_size.x; x++) {
-            const CoreCoord eth_logical = CoreCoord(x, y, CoreType::ETH, CoordSystem::LOGICAL);
-            const CoreCoord eth_physical = soc_desc.translate_coord_to(eth_logical, CoordSystem::PHYSICAL);
-            const CoreCoord eth_virtual = soc_desc.translate_coord_to(eth_logical, CoordSystem::VIRTUAL);
+    for (size_t eth_channel = 0; eth_channel < num_eth_channels; eth_channel++) {
+        const CoreCoord eth_logical = CoreCoord(0, eth_channel, CoreType::ETH, CoordSystem::LOGICAL);
+        const CoreCoord eth_physical = soc_desc.translate_coord_to(eth_logical, CoordSystem::PHYSICAL);
+        const CoreCoord eth_virtual = soc_desc.translate_coord_to(eth_logical, CoordSystem::VIRTUAL);
 
-            EXPECT_EQ(eth_physical.x, wormhole_eth_cores[index].x);
-            EXPECT_EQ(eth_physical.y, wormhole_eth_cores[index].y);
+        EXPECT_EQ(eth_physical.x, wormhole_eth_cores[index].x);
+        EXPECT_EQ(eth_physical.y, wormhole_eth_cores[index].y);
 
-            EXPECT_EQ(eth_virtual.x, wormhole_eth_cores[index].x);
-            EXPECT_EQ(eth_virtual.y, wormhole_eth_cores[index].y);
+        EXPECT_EQ(eth_virtual.x, wormhole_eth_cores[index].x);
+        EXPECT_EQ(eth_virtual.y, wormhole_eth_cores[index].y);
 
-            EXPECT_EQ(eth_cores[index].x, wormhole_eth_cores[index].x);
-            EXPECT_EQ(eth_cores[index].y, wormhole_eth_cores[index].y);
+        EXPECT_EQ(eth_cores[index].x, wormhole_eth_cores[index].x);
+        EXPECT_EQ(eth_cores[index].y, wormhole_eth_cores[index].y);
 
-            index++;
-        }
+        index++;
     }
 }
 
@@ -177,9 +175,7 @@ TEST(SocDescriptor, SocDescriptorBlackholeETHHarvesting) {
 
         size_t index_harvested = 0;
         size_t index_unharvested = 0;
-        const size_t eth_grid_size_x = num_eth_channels;
-        const size_t eth_grid_size_y = 1;
-        for (size_t x = 0; x < eth_grid_size_x; x++) {
+        for (size_t x = 0; x < num_eth_channels; x++) {
             if (eth_harvesting_mask & (1 << x)) {
                 EXPECT_EQ(harvested_eth_cores[index_harvested].x, blackhole_eth_cores[x].x);
                 EXPECT_EQ(harvested_eth_cores[index_harvested].y, blackhole_eth_cores[x].y);

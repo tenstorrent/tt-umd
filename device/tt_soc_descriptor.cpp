@@ -324,7 +324,6 @@ void tt_SocDescriptor::get_cores_and_grid_size_from_coordinate_manager() {
     grid_size_map.insert({CoreType::DRAM, coordinate_manager->get_grid_size(CoreType::DRAM)});
 
     cores_map.insert({CoreType::ETH, coordinate_manager->get_cores(CoreType::ETH)});
-    grid_size_map.insert({CoreType::ETH, coordinate_manager->get_grid_size(CoreType::ETH)});
 
     cores_map.insert({CoreType::ARC, coordinate_manager->get_cores(CoreType::ARC)});
     grid_size_map.insert({CoreType::ARC, coordinate_manager->get_grid_size(CoreType::ARC)});
@@ -339,7 +338,6 @@ void tt_SocDescriptor::get_cores_and_grid_size_from_coordinate_manager() {
     harvested_grid_size_map.insert({CoreType::DRAM, coordinate_manager->get_harvested_grid_size(CoreType::DRAM)});
 
     harvested_cores_map.insert({CoreType::ETH, coordinate_manager->get_harvested_cores(CoreType::ETH)});
-    harvested_grid_size_map.insert({CoreType::ETH, coordinate_manager->get_harvested_grid_size(CoreType::ETH)});
 
     harvested_cores_map.insert({CoreType::ARC, coordinate_manager->get_harvested_cores(CoreType::ARC)});
     harvested_grid_size_map.insert({CoreType::ARC, coordinate_manager->get_harvested_grid_size(CoreType::ARC)});
@@ -407,4 +405,10 @@ std::vector<std::vector<CoreCoord>> tt_SocDescriptor::get_dram_cores() const { r
 
 std::vector<std::vector<CoreCoord>> tt_SocDescriptor::get_harvested_dram_cores() const {
     return harvested_dram_cores_core_coord;
+}
+
+uint32_t tt_SocDescriptor::get_num_eth_channels() const { return coordinate_manager->get_num_eth_channels(); }
+
+uint32_t tt_SocDescriptor::get_num_harvested_eth_channels() const {
+    return coordinate_manager->get_num_harvested_eth_channels();
 }

@@ -59,6 +59,10 @@ public:
 
     // CoreCoord conversions.
     tt::umd::CoreCoord translate_coord_to(const tt::umd::CoreCoord core_coord, const CoordSystem coord_system) const;
+    tt::umd::CoreCoord translate_coord_to(
+        const tt_xy_pair core_location,
+        const CoordSystem input_coord_system,
+        const CoordSystem target_coord_system) const;
 
     static std::string get_soc_descriptor_path(
         tt::ARCH arch, const BoardType board_type = BoardType::UNKNOWN, const bool is_chip_remote = false);

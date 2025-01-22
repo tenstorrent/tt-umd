@@ -104,7 +104,26 @@ void CoordinateManager::identity_map_physical_cores() {
 
 CoreCoord CoordinateManager::translate_coord_to(
     const CoreCoord core_coord, const CoordSystem target_coord_system) const {
-    return from_physical_map.at({to_physical_map.at(core_coord), target_coord_system});
+    auto physical_coord_it = to_physical_map.find(core_coord);
+    log_assert(
+        physical_coord_it != to_physical_map.end(),
+        "No core coordinate found at location: ({}, {}, {}, {})",
+        core_coord.x,
+        core_coord.y,
+        to_str(core_coord.core_type),
+        to_str(core_coord.coord_system));
+
+    tt_xy_pair physical_coord = physical_coord_it->second;
+    auto coord_it = from_physical_map.find({physical_coord, target_coord_system});
+    log_assert(
+        coord_it != from_physical_map.end(),
+        "No core coordinate found for system {} at location: ({}, {}, {}, {})",
+        to_str(target_coord_system),
+        core_coord.x,
+        core_coord.y,
+        to_str(core_coord.core_type),
+        to_str(core_coord.coord_system));
+    return coord_it->second;
 }
 
 CoreCoord CoordinateManager::translate_coord_to(

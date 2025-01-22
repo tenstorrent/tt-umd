@@ -55,6 +55,48 @@ TEST(CoordinateManager, CoordinateManagerWormholeTopLeftCore) {
     EXPECT_EQ(physical_cords, CoreCoord(1, 2, CoreType::TENSIX, CoordSystem::PHYSICAL));
 }
 
+// Test basic translation to virtual and physical noc coordinates.
+// We expect that the top right core will have virtual and physical coordinates (10, 1) and (10, 2) for
+// the logical coordinates (9, 0) if the first row is harvested.
+TEST(CoordinateManager, CoordinateManagerWormholeTopRightCore) {
+    std::shared_ptr<CoordinateManager> coordinate_manager =
+        CoordinateManager::create_coordinate_manager(tt::ARCH::WORMHOLE_B0, true, 1);
+
+    tt_xy_pair tensix_grid_size = tt::umd::wormhole::TENSIX_GRID_SIZE;
+    size_t max_x = tensix_grid_size.x - 1;
+    EXPECT_EQ(max_x, 9);
+    CoreCoord logical_coords = CoreCoord(max_x, 0, CoreType::TENSIX, CoordSystem::LOGICAL);
+
+    // Always expect same virtual coordinate for (0, 0) logical coordinate.
+    CoreCoord virtual_cords = coordinate_manager->translate_coord_to(logical_coords, CoordSystem::VIRTUAL);
+    EXPECT_EQ(virtual_cords, CoreCoord(10, 1, CoreType::TENSIX, CoordSystem::VIRTUAL));
+
+    // This depends on harvesting mask. So expected physical coord is specific to this test and Wormhole arch.
+    CoreCoord physical_cords = coordinate_manager->translate_coord_to(logical_coords, CoordSystem::PHYSICAL);
+    EXPECT_EQ(physical_cords, CoreCoord(10, 2, CoreType::TENSIX, CoordSystem::PHYSICAL));
+}
+
+// Test basic translation to virtual and physical noc coordinates.
+// We expect that the bottom left core will have virtual and physical coordinates (1, 8) and (1, 9) for
+// the logical coordinates (0, 6) if the first row is harvested.
+TEST(CoordinateManager, CoordinateManagerWormholeBottomLeftCore) {
+    std::shared_ptr<CoordinateManager> coordinate_manager =
+        CoordinateManager::create_coordinate_manager(tt::ARCH::WORMHOLE_B0, true, 1);
+
+    tt_xy_pair tensix_grid_size = tt::umd::wormhole::TENSIX_GRID_SIZE;
+    size_t max_y = tensix_grid_size.y - 2;
+    EXPECT_EQ(max_y, 6);
+    CoreCoord logical_coords = CoreCoord(0, max_y, CoreType::TENSIX, CoordSystem::LOGICAL);
+
+    // Always expect same virtual coordinate for (0, 0) logical coordinate.
+    CoreCoord virtual_cords = coordinate_manager->translate_coord_to(logical_coords, CoordSystem::VIRTUAL);
+    EXPECT_EQ(virtual_cords, CoreCoord(1, 8, CoreType::TENSIX, CoordSystem::VIRTUAL));
+
+    // This depends on harvesting mask. So expected physical coord is specific to this test and Wormhole arch.
+    CoreCoord physical_cords = coordinate_manager->translate_coord_to(logical_coords, CoordSystem::PHYSICAL);
+    EXPECT_EQ(physical_cords, CoreCoord(1, 9, CoreType::TENSIX, CoordSystem::PHYSICAL));
+}
+
 // Test logical to physical coordinate translation.
 // For the full grid of logical coordinates we expect that there are no duplicates of physical coordinates.
 // For the reverse mapping back of physical to logical coordinates we expect that same logical coordinates are returned

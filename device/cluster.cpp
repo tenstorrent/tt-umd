@@ -525,15 +525,7 @@ void Cluster::create_cluster_descriptor() {
         for (uint32_t chip_id = 0; chip_id < tt_devices.size(); chip_id++) {
             const ChipInfo& chip_info = chip_info_vec[chip_id];
             std::unique_ptr<TTDevice>& tt_device = tt_devices[chip_id];
-            tt_SocDescriptor soc_descriptor = tt_SocDescriptor(
-                tt_SocDescriptor::get_soc_descriptor_path(
-                    tt_device->get_arch(), chip_info.board_type, chip_info.asic_location),
-                chip_info.noc_translation_enabled,
-                chip_info.tensix_harvesting_mask,
-                chip_info.dram_harvesting_mask,
-                chip_info.eth_harvesting_mask);
-            std::unique_ptr<LocalChip> chip =
-                std::make_unique<LocalChip>(soc_descriptor, std::move(tt_device), chip_info);
+            std::unique_ptr<LocalChip> chip = std::make_unique<LocalChip>(std::move(tt_device), chip_info);
             chips_.emplace(chip_id, std::move(chip));
             local_chip_ids_.insert(chip_id);
         }

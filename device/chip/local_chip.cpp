@@ -28,8 +28,17 @@ LocalChip::LocalChip(tt_SocDescriptor soc_descriptor, int pci_device_id) :
     initialize_tlb_manager();
 }
 
-LocalChip::LocalChip(tt_SocDescriptor soc_descriptor, std::unique_ptr<TTDevice> tt_device, const ChipInfo chip_info) :
-    Chip(soc_descriptor, chip_info), tt_device_(std::move(tt_device)) {
+LocalChip::LocalChip(std::unique_ptr<TTDevice> tt_device, const ChipInfo chip_info) :
+    Chip(
+        tt_SocDescriptor(
+            tt_SocDescriptor::get_soc_descriptor_path(
+                tt_device->get_arch(), chip_info.board_type, chip_info.asic_location),
+            chip_info.noc_translation_enabled,
+            chip_info.tensix_harvesting_mask,
+            chip_info.dram_harvesting_mask,
+            chip_info.eth_harvesting_mask),
+        chip_info),
+    tt_device_(std::move(tt_device)) {
     initialize_tlb_manager();
 }
 

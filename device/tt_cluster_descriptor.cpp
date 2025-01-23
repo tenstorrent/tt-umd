@@ -955,11 +955,17 @@ std::vector<ChipInfo> tt_ClusterDescriptor::get_cluster_chip_info(
             } else if (tag_val == tt::umd::blackhole::TAG_BOARD_ID_LOW) {
                 board_id |= telemetry_val;
             } else if (tag_val == tt::umd::blackhole::TAG_ENABLED_TENSIX_COL) {
-                tensix_harvesting_mask = telemetry_val & ((1 << 14) - 1);
+                // Tensix harvesting mask on Blackhole has 1 for enabled tensix columns, so mask
+                // needs to be complemented to fit previous harvesting masks (1 for harvested).
+                tensix_harvesting_mask = ~(telemetry_val & ((1 << 14) - 1));
             } else if (tag_val == tt::umd::blackhole::TAG_ENABLED_ETH) {
-                dram_harvesting_mask = telemetry_val & ((1 << 8) - 1);
+                // DRAM harvesting mask on Blackhole has 1 for enabled dram banks, so mask
+                // needs to be complemented to fit previous harvesting masks (1 for harvested).
+                dram_harvesting_mask = ~(telemetry_val & ((1 << 8) - 1));
             } else if (tag_val == tt::umd::blackhole::TAG_ENABLED_GDDR) {
-                eth_harvesting_mask = telemetry_val & ((1 << 13) - 1);
+                // ETH harvesting mask on Blackhole has 1 for enabled eth channels, so mask
+                // needs to be complemented to fit previous harvesting masks (1 for harvested).
+                eth_harvesting_mask = ~(telemetry_val & ((1 << 13) - 1));
             }
         }
 
@@ -981,8 +987,8 @@ chip_id_t tt_ClusterDescriptor::get_chip_id(const chip_info_t chip_info) {
     uint64_t board_id = ((uint64_t)chip_info.board_id_hi << 32) | chip_info.board_id_lo;
     auto it = board_type_asic_location_to_chip_id.find({board_id, chip_info.asic_location});
     if (it == board_type_asic_location_to_chip_id.end()) {
-        // What to do here?
-        // TODO(pjanevski): we are getting out of cluster here, how to save this?
+        // TODO: we are getting out of cluster here, save that information in cluster descriptor.
+        // Usec case for this is the ethernet link getting out of the galaxy cluster.
         throw std::runtime_error(fmt::format(
             "Board id {} and asic location {} not in the cluster descriptor", board_id, chip_info.asic_location));
     }
@@ -1031,6 +1037,7 @@ std::unique_ptr<tt_ClusterDescriptor> tt_ClusterDescriptor::create_cluster_descr
                 tlb_index);
 
             if (boot_results.eth_status.port_status == port_status_e::PORT_UP) {
+                log_debug(LogSiliconDriver, "Eth core ({}, {}) on chip {} is active", eth_core.x, eth_core.y, chip_id);
                 // active eth core
                 const chip_info_t &local_info = boot_results.local_info;
                 const chip_info_t &remote_info = boot_results.remote_info;
@@ -1038,17 +1045,22 @@ std::unique_ptr<tt_ClusterDescriptor> tt_ClusterDescriptor::create_cluster_descr
                 chip_id_t local_chip_id = desc->get_chip_id(local_info);
                 chip_id_t remote_chip_id = desc->get_chip_id(remote_info);
 
-                // Adding a connection only one way, the other chip should add it another way
+                // Adding a connection only one way, the other chip should add it another way.
                 desc->ethernet_connections[local_chip_id][local_info.eth_id] = {remote_chip_id, remote_info.eth_id};
 
             } else if (boot_results.eth_status.port_status == port_status_e::PORT_DOWN) {
-                // what is this?
-                // TODO(pjanevski): add code for this
+                log_debug(
+                    LogSiliconDriver, "Port on eth core ({}, {}) on chip {} is down", eth_core.x, eth_core.y, chip_id);
             } else if (boot_results.eth_status.port_status == port_status_e::PORT_UNUSED) {
                 // idle core
+                log_debug(LogSiliconDriver, "Eth core ({}, {}) on chip {} is idle");
             } else if (boot_results.eth_status.port_status == port_status_e::PORT_UNKNOWN) {
-                // what is this?
-                // TODO(pjanevski): add code for this
+                log_debug(
+                    LogSiliconDriver,
+                    "Port on eth core ({}, {}) on chip {} is in unknown state",
+                    eth_core.x,
+                    eth_core.y,
+                    chip_id);
             }
         }
     }

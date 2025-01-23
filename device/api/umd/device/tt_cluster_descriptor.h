@@ -16,7 +16,7 @@
 #include <unordered_set>
 #include <vector>
 
-#include "api/umd/device/chip/chip.h"
+#include "umd/device/chip/chip.h"
 #include "umd/device/tt_device/tt_device.h"
 #include "umd/device/tt_xy_pair.h"
 #include "umd/device/types/arch.h"

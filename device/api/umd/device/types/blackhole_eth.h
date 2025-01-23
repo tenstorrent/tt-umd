@@ -13,30 +13,6 @@ namespace blackhole {
 static constexpr uint32_t NUM_SERDES_LANES = 8;
 
 typedef enum {
-    LOOPBACK_NONE,
-    LOOPBACK_NEAR_END_MAC,
-    LOOPBACK_NEAR_END_FIFO,
-    LOOPBACK_NEAR_END_PMA,
-    LOOPBACK_FAR_END_FIFO,
-    LOOPBACK_SERDES_NEP,
-    LOOPBACK_SERDES_NES_PREDRIVER,
-} loopback_mode_e;
-
-typedef enum {
-    AW_MANUAL_EQ,
-    AW_ANLT_MODE,
-    AW_LT_MODE,
-} link_train_mode_e;
-
-typedef enum {
-    ORION,
-    P100,
-    P150,
-    P300,
-    UBB,
-} pcb_type_e;
-
-typedef enum {
     LINK_TRAIN_TRAINING,
     LINK_TRAIN_SKIP,
     LINK_TRAIN_PASS,
@@ -56,61 +32,6 @@ typedef enum {
     PORT_DOWN,
     PORT_UNUSED,
 } port_status_e;
-
-typedef enum {
-    NRZ_1p25,
-    NRZ_10p3125,
-    NRZ_25p78125,
-    NRZ_26p5625,
-    NRZ_53p125,
-    PAM4_53p125,
-    PAM4_106p25,
-    NUM_RATES,
-} serdes_rate_e;
-
-typedef enum {
-    AW_128W = 7,
-    AW_64W = 6,
-    AW_40W = 5,
-    AW_32W = 4,
-    AW_20W = 3,
-    AW_16W = 2,
-    AW_10W = 1,
-} serdes_width_e;
-
-typedef enum {
-    AW_TIMER,
-    AW_DWELL,
-} serdes_bist_mode_e;
-
-typedef enum {
-    AW_PRBS7,
-    AW_PRBS9,
-    AW_PRBS11,
-    AW_PRBS13,
-    AW_PRBS15,
-    AW_PRBS23,
-    AW_PRBS31,
-    AW_QPRBS13,
-    AW_JP03A,
-    AW_JP03B,
-    AW_LINEARITY_PATTERN,
-    AW_USER_DEFINED_PATTERN,
-    AW_FULL_RATE_CLOCK,
-    AW_HALF_RATE_CLOCK,
-    AW_QUARTER_RATE_CLOCK,
-    AW_PATT_32_1S_32_0S,
-    AW_BIST_PATTERN_MAX,
-} serdes_bist_pattern_e;
-
-typedef enum {
-    AW_FULL_EQ,
-    AW_EVAL_ONLY,
-    AW_INIT_EVAL,
-    AW_CLEAR_EVAL,
-    AW_FULL_EQ_FOM,
-    AW_EVAL_ONLY_FOM,
-} serdes_eq_type_e;
 
 typedef struct {
     uint32_t patch : 8;

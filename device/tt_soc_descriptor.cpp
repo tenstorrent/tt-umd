@@ -326,33 +326,17 @@ std::string tt_SocDescriptor::get_soc_descriptor_path(
 }
 
 void tt_SocDescriptor::get_cores_and_grid_size_from_coordinate_manager() {
-    cores_map.insert({CoreType::TENSIX, coordinate_manager->get_cores(CoreType::TENSIX)});
-    grid_size_map.insert({CoreType::TENSIX, coordinate_manager->get_grid_size(CoreType::TENSIX)});
-
-    cores_map.insert({CoreType::DRAM, coordinate_manager->get_cores(CoreType::DRAM)});
-    grid_size_map.insert({CoreType::DRAM, coordinate_manager->get_grid_size(CoreType::DRAM)});
-
-    cores_map.insert({CoreType::ETH, coordinate_manager->get_cores(CoreType::ETH)});
-
-    cores_map.insert({CoreType::ARC, coordinate_manager->get_cores(CoreType::ARC)});
-    grid_size_map.insert({CoreType::ARC, coordinate_manager->get_grid_size(CoreType::ARC)});
-
-    cores_map.insert({CoreType::PCIE, coordinate_manager->get_cores(CoreType::PCIE)});
-    grid_size_map.insert({CoreType::PCIE, coordinate_manager->get_grid_size(CoreType::PCIE)});
-
-    harvested_cores_map.insert({CoreType::TENSIX, coordinate_manager->get_harvested_cores(CoreType::TENSIX)});
-    harvested_grid_size_map.insert({CoreType::TENSIX, coordinate_manager->get_harvested_grid_size(CoreType::TENSIX)});
-
-    harvested_cores_map.insert({CoreType::DRAM, coordinate_manager->get_harvested_cores(CoreType::DRAM)});
-    harvested_grid_size_map.insert({CoreType::DRAM, coordinate_manager->get_harvested_grid_size(CoreType::DRAM)});
-
-    harvested_cores_map.insert({CoreType::ETH, coordinate_manager->get_harvested_cores(CoreType::ETH)});
-
-    harvested_cores_map.insert({CoreType::ARC, coordinate_manager->get_harvested_cores(CoreType::ARC)});
-    harvested_grid_size_map.insert({CoreType::ARC, coordinate_manager->get_harvested_grid_size(CoreType::ARC)});
-
-    harvested_cores_map.insert({CoreType::PCIE, coordinate_manager->get_harvested_cores(CoreType::PCIE)});
-    harvested_grid_size_map.insert({CoreType::PCIE, coordinate_manager->get_harvested_grid_size(CoreType::PCIE)});
+    for (const auto &core_type :
+         {CoreType::TENSIX, CoreType::DRAM, CoreType::ETH, CoreType::ARC, CoreType::PCIE, CoreType::ROUTER_ONLY}) {
+        cores_map.insert({core_type, coordinate_manager->get_cores(core_type)});
+        harvested_cores_map.insert({core_type, coordinate_manager->get_harvested_cores(core_type)});
+        if (core_type == CoreType::ETH || core_type == CoreType::ROUTER_ONLY) {
+            // Ethernet and Router cores aren't arranged in a grid.
+            continue;
+        }
+        grid_size_map.insert({core_type, coordinate_manager->get_grid_size(core_type)});
+        harvested_grid_size_map.insert({core_type, coordinate_manager->get_harvested_grid_size(core_type)});
+    }
 
     const std::vector<CoreCoord> dram_cores = cores_map.at(CoreType::DRAM);
     const tt_xy_pair dram_grid_size = grid_size_map.at(CoreType::DRAM);
@@ -402,6 +386,26 @@ std::vector<tt::umd::CoreCoord> tt_SocDescriptor::get_harvested_cores(
         return translate_coordinates(harvested_cores_map_it->second, coord_system);
     }
     return harvested_cores_map_it->second;
+}
+
+std::vector<tt::umd::CoreCoord> tt_SocDescriptor::get_all_cores(const CoordSystem coord_system) const {
+    std::vector<tt::umd::CoreCoord> all_cores;
+    for (const auto &core_type :
+         {CoreType::TENSIX, CoreType::DRAM, CoreType::ETH, CoreType::ARC, CoreType::PCIE, CoreType::ROUTER_ONLY}) {
+        auto cores = get_cores(core_type, coord_system);
+        all_cores.insert(all_cores.end(), cores.begin(), cores.end());
+    }
+    return all_cores;
+}
+
+std::vector<tt::umd::CoreCoord> tt_SocDescriptor::get_all_harvested_cores(const CoordSystem coord_system) const {
+    std::vector<tt::umd::CoreCoord> all_harvested_cores;
+    for (const auto &core_type :
+         {CoreType::TENSIX, CoreType::DRAM, CoreType::ETH, CoreType::ARC, CoreType::PCIE, CoreType::ROUTER_ONLY}) {
+        auto harvested_cores = get_harvested_cores(core_type, coord_system);
+        all_harvested_cores.insert(all_harvested_cores.end(), harvested_cores.begin(), harvested_cores.end());
+    }
+    return all_harvested_cores;
 }
 
 tt_xy_pair tt_SocDescriptor::get_grid_size(const CoreType core_type) const { return grid_size_map.at(core_type); }

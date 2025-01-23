@@ -428,6 +428,8 @@ const std::vector<tt_xy_pair>& CoordinateManager::get_physical_pairs(const CoreT
             return arc_cores;
         case CoreType::PCIE:
             return pcie_cores;
+        case CoreType::ROUTER_ONLY:
+            return router_cores;
         default:
             throw std::runtime_error("Core type is not supported for getting physical pairs");
     }
@@ -492,9 +494,9 @@ std::vector<tt::umd::CoreCoord> CoordinateManager::get_cores(const CoreType core
         case CoreType::ETH:
             return get_eth_cores();
         case CoreType::ARC:
-            return get_all_physical_cores(CoreType::ARC);
         case CoreType::PCIE:
-            return get_all_physical_cores(CoreType::PCIE);
+        case CoreType::ROUTER_ONLY:
+            return get_all_physical_cores(core_type);
         default:
             throw std::runtime_error("Core type is not supported for getting cores");
     }
@@ -531,6 +533,7 @@ std::vector<tt::umd::CoreCoord> CoordinateManager::get_harvested_cores(const Cor
             return get_harvested_eth_cores();
         case CoreType::ARC:
         case CoreType::PCIE:
+        case CoreType::ROUTER_ONLY:
             return {};
         default:
             throw std::runtime_error("Core type is not supported for getting harvested cores");

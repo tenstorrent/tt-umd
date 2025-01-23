@@ -292,21 +292,18 @@ TEST(CoordinateManager, CoordinateManagerWormholeETHPhysicalEqualVirtual) {
 }
 
 // Test translation of logical to translated ethernet coordinates.
-TEST(CoordinateManager, CoordinateManagerWormholeETHLogicalToTranslated) {
+TEST(CoordinateManager, CoordinateManagerWormholeETHTranslated) {
     std::shared_ptr<CoordinateManager> coordinate_manager =
         CoordinateManager::create_coordinate_manager(tt::ARCH::WORMHOLE_B0, true);
 
-    const size_t num_eth_channels = tt::umd::wormhole::NUM_ETH_CHANNELS;
+    // Check translation for all corners of eth cores.
+    std::vector<std::pair<tt_xy_pair, tt_xy_pair>> input_output_eth_pairs = {
+        {{1, 0}, {18, 16}}, {{9, 0}, {25, 16}}, {{1, 6}, {18, 17}}, {{9, 6}, {25, 17}}};
 
-    for (size_t eth_channel = 0; eth_channel < num_eth_channels; eth_channel++) {
-        const CoreCoord eth_logical = CoreCoord(0, eth_channel, CoreType::ETH, CoordSystem::LOGICAL);
-        const CoreCoord eth_translated = coordinate_manager->translate_coord_to(eth_logical, CoordSystem::TRANSLATED);
-        EXPECT_EQ(
-            eth_translated.x,
-            tt::umd::wormhole::eth_translated_coordinate_start_x + eth_channel % (num_eth_channels / 2));
-        EXPECT_EQ(
-            eth_translated.y,
-            tt::umd::wormhole::eth_translated_coordinate_start_y + eth_channel / (num_eth_channels / 2));
+    for (auto& [input_pair, output_pair] : input_output_eth_pairs) {
+        const CoreCoord eth_physical = CoreCoord(input_pair, CoreType::ETH, CoordSystem::PHYSICAL);
+        const CoreCoord eth_translated = coordinate_manager->translate_coord_to(eth_physical, CoordSystem::TRANSLATED);
+        EXPECT_EQ((tt_xy_pair)eth_translated, output_pair);
     }
 }
 

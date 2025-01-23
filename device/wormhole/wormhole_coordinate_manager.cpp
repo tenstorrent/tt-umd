@@ -80,18 +80,24 @@ void WormholeCoordinateManager::fill_dram_physical_translated_mapping() {
 }
 
 void WormholeCoordinateManager::fill_eth_physical_translated_mapping() {
-    const size_t eth_grid_size_x = (num_eth_channels + 1) / 2;
-    const size_t eth_grid_size_y = num_eth_channels / eth_grid_size_x;
-    for (size_t x = 0; x < eth_grid_size_x; x++) {
-        for (size_t y = 0; y < eth_grid_size_y; y++) {
-            const size_t translated_x = x + wormhole::eth_translated_coordinate_start_x;
-            const size_t translated_y = y + wormhole::eth_translated_coordinate_start_y;
-            CoreCoord logical_coord = CoreCoord(0, y * eth_grid_size_x + x, CoreType::ETH, CoordSystem::LOGICAL);
-            const tt_xy_pair physical_pair = to_physical_map[logical_coord];
-            CoreCoord translated_coord = CoreCoord(translated_x, translated_y, CoreType::ETH, CoordSystem::TRANSLATED);
+    for (auto eth_core : eth_cores) {
+        CoreCoord translated_coord = CoreCoord(eth_core, CoreType::ETH, CoordSystem::TRANSLATED);
 
-            add_core_translation(translated_coord, physical_pair);
+        // X coordinate is in range [1-4], [6-9], but it should be consecutive in translated coordinates.
+        if (translated_coord.x > 5) {
+            translated_coord.x -= 1;
         }
+        // Since the translated coordinates start from 1, we need to subtract 1 to the translated X coordinate.
+        translated_coord.x -= 1;
+        translated_coord.x += wormhole::eth_translated_coordinate_start_x;
+
+        // Y coordinate is either 0 or 6, but it should be consecutive in translated coordinates.
+        if (translated_coord.y == 6) {
+            translated_coord.y = 1;
+        }
+        translated_coord.y += wormhole::eth_translated_coordinate_start_y;
+
+        add_core_translation(translated_coord, eth_core);
     }
 }
 

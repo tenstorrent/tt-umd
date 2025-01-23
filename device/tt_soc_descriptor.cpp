@@ -225,6 +225,10 @@ tt::umd::CoreCoord tt_SocDescriptor::translate_coord_to(
     return coordinate_manager->translate_coord_to(core_coord, coord_system);
 }
 
+CoreType tt_SocDescriptor::get_coord_type(const tt_xy_pair core, const CoordSystem coord_system) const {
+    return coordinate_manager->get_coord_type(core, coord_system);
+}
+
 tt::umd::CoreCoord tt_SocDescriptor::translate_coord_to(
     const tt_xy_pair core_location, const CoordSystem input_coord_system, const CoordSystem target_coord_system) const {
     return coordinate_manager->translate_coord_to(core_location, input_coord_system, target_coord_system);

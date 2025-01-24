@@ -59,6 +59,10 @@ public:
 
     // CoreCoord conversions.
     tt::umd::CoreCoord translate_coord_to(const tt::umd::CoreCoord core_coord, const CoordSystem coord_system) const;
+    tt::umd::CoreCoord translate_coord_to(
+        const tt_xy_pair core_location,
+        const CoordSystem input_coord_system,
+        const CoordSystem target_coord_system) const;
 
     static std::string get_soc_descriptor_path(
         tt::ARCH arch, const BoardType board_type = BoardType::UNKNOWN, const bool is_chip_remote = false);
@@ -74,6 +78,9 @@ public:
     std::vector<std::vector<tt::umd::CoreCoord>> get_harvested_dram_cores() const;
 
     int get_num_dram_channels() const;
+
+    uint32_t get_num_eth_channels() const;
+    uint32_t get_num_harvested_eth_channels() const;
 
     bool is_worker_core(const tt_xy_pair &core) const;
 
@@ -102,6 +109,7 @@ public:
     std::unordered_map<tt_xy_pair, int> ethernet_core_channel_map;
     std::vector<std::size_t> trisc_sizes;  // Most of software stack assumes same trisc size for whole chip..
     std::string device_descriptor_file_path = std::string("");
+    std::vector<tt_xy_pair> router_cores;
 
     int overlay_version;
     int unpacker_version;

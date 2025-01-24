@@ -16,13 +16,13 @@ GrayskullCoordinateManager::GrayskullCoordinateManager(
     const tt_xy_pair& dram_grid_size,
     const std::vector<tt_xy_pair>& dram_cores,
     const size_t dram_harvesting_mask,
-    const tt_xy_pair& eth_grid_size,
     const std::vector<tt_xy_pair>& eth_cores,
     const size_t eth_harvesting_mask,
     const tt_xy_pair& arc_grid_size,
     const std::vector<tt_xy_pair>& arc_cores,
     const tt_xy_pair& pcie_grid_size,
-    const std::vector<tt_xy_pair>& pcie_cores) :
+    const std::vector<tt_xy_pair>& pcie_cores,
+    const std::vector<tt_xy_pair>& router_cores) :
     CoordinateManager(
         false,
         tensix_grid_size,
@@ -31,13 +31,13 @@ GrayskullCoordinateManager::GrayskullCoordinateManager(
         dram_grid_size,
         dram_cores,
         dram_harvesting_mask,
-        eth_grid_size,
         eth_cores,
         eth_harvesting_mask,
         arc_grid_size,
         arc_cores,
         pcie_grid_size,
-        pcie_cores) {
+        pcie_cores,
+        router_cores) {
     initialize();
 }
 

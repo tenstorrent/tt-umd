@@ -43,6 +43,48 @@ enum class CoordSystem : std::uint8_t {
     TRANSLATED,
 };
 
+static inline std::string to_str(const CoreType core_type) {
+    switch (core_type) {
+        case CoreType::ARC:
+            return "ARC";
+        case CoreType::DRAM:
+            return "DRAM";
+        case CoreType::ACTIVE_ETH:
+            return "ACTIVE_ETH";
+        case CoreType::IDLE_ETH:
+            return "IDLE_ETH";
+        case CoreType::PCIE:
+            return "PCIE";
+        case CoreType::TENSIX:
+            return "TENSIX";
+        case CoreType::ROUTER_ONLY:
+            return "ROUTER_ONLY";
+        case CoreType::HARVESTED:
+            return "HARVESTED";
+        case CoreType::ETH:
+            return "ETH";
+        case CoreType::WORKER:
+            return "WORKER";
+        default:
+            return "UNKNOWN";
+    }
+}
+
+static inline std::string to_str(const CoordSystem coord_system) {
+    switch (coord_system) {
+        case CoordSystem::LOGICAL:
+            return "LOGICAL";
+        case CoordSystem::PHYSICAL:
+            return "PHYSICAL";
+        case CoordSystem::VIRTUAL:
+            return "VIRTUAL";
+        case CoordSystem::TRANSLATED:
+            return "TRANSLATED";
+        default:
+            return "UNKNOWN";
+    }
+}
+
 namespace tt::umd {
 
 struct CoreCoord : public tt_xy_pair {
@@ -50,6 +92,9 @@ struct CoreCoord : public tt_xy_pair {
 
     CoreCoord(const size_t x, const size_t y, const CoreType type, const CoordSystem coord_system) :
         tt_xy_pair(x, y), core_type(type), coord_system(coord_system) {}
+
+    CoreCoord(const tt_xy_pair core, const CoreType type, const CoordSystem coord_system) :
+        tt_xy_pair(core), core_type(type), coord_system(coord_system) {}
 
     CoreType core_type;
     CoordSystem coord_system;
@@ -79,6 +124,11 @@ struct CoreCoord : public tt_xy_pair {
             return false;
         }
         return coord_system < o.coord_system;
+    }
+
+    std::string to_str() const {
+        return "CoreCoord: (" + std::to_string(x) + ", " + std::to_string(y) + ", " + ::to_str(core_type) + ", " +
+               ::to_str(coord_system) + ")";
     }
 };
 

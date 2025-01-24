@@ -568,25 +568,22 @@ TEST(CoordinateManager, CoordinateManagerBlackholeARCTranslation) {
 TEST(CoordinateManager, CoordinateManagerBlackholeETHTranslation) {
     std::shared_ptr<CoordinateManager> coordinate_manager =
         CoordinateManager::create_coordinate_manager(tt::ARCH::BLACKHOLE, true);
-    const tt_xy_pair eth_grid_size = tt::umd::blackhole::ETH_GRID_SIZE;
+    const size_t num_eth_channels = tt::umd::blackhole::NUM_ETH_CHANNELS;
 
     const size_t eth_translated_coordinate_start_x = 20;
     const size_t eth_translated_coordinate_start_y = 25;
 
-    for (size_t x = 0; x < eth_grid_size.x; x++) {
-        for (size_t y = 0; y < eth_grid_size.y; y++) {
-            const CoreCoord eth_logical = CoreCoord(x, y, CoreType::ETH, CoordSystem::LOGICAL);
-            const CoreCoord eth_virtual = coordinate_manager->translate_coord_to(eth_logical, CoordSystem::VIRTUAL);
-            const CoreCoord eth_physical = coordinate_manager->translate_coord_to(eth_logical, CoordSystem::PHYSICAL);
-            const CoreCoord eth_translated =
-                coordinate_manager->translate_coord_to(eth_logical, CoordSystem::TRANSLATED);
+    for (size_t eth_channel = 0; eth_channel < num_eth_channels; eth_channel++) {
+        const CoreCoord eth_logical = CoreCoord(0, eth_channel, CoreType::ETH, CoordSystem::LOGICAL);
+        const CoreCoord eth_virtual = coordinate_manager->translate_coord_to(eth_logical, CoordSystem::VIRTUAL);
+        const CoreCoord eth_physical = coordinate_manager->translate_coord_to(eth_logical, CoordSystem::PHYSICAL);
+        const CoreCoord eth_translated = coordinate_manager->translate_coord_to(eth_logical, CoordSystem::TRANSLATED);
 
-            EXPECT_EQ(eth_virtual.x, eth_physical.x);
-            EXPECT_EQ(eth_virtual.y, eth_physical.y);
+        EXPECT_EQ(eth_virtual.x, eth_physical.x);
+        EXPECT_EQ(eth_virtual.y, eth_physical.y);
 
-            EXPECT_EQ(eth_translated.x, x + eth_translated_coordinate_start_x);
-            EXPECT_EQ(eth_translated.y, eth_translated_coordinate_start_y);
-        }
+        EXPECT_EQ(eth_translated.x, eth_translated_coordinate_start_x + eth_channel);
+        EXPECT_EQ(eth_translated.y, eth_translated_coordinate_start_y);
     }
 }
 
@@ -594,8 +591,8 @@ TEST(CoordinateManager, CoordinateManagerBlackholeETHTranslation) {
 TEST(CoordinateManager, CoordinateManagerBlackholeETHHarvesting) {
     const size_t num_harvested_cores = 2;
     const std::vector<tt_xy_pair> eth_cores = tt::umd::blackhole::ETH_CORES;
-    const tt_xy_pair eth_grid_size = tt::umd::blackhole::ETH_GRID_SIZE;
-    for (size_t harvesting_mask = 0; harvesting_mask < 1 << tt::umd::blackhole::DRAM_GRID_SIZE.x; harvesting_mask++) {
+    const size_t num_eth_channels = tt::umd::blackhole::NUM_ETH_CHANNELS;
+    for (size_t harvesting_mask = 0; harvesting_mask < (1 << num_eth_channels); harvesting_mask++) {
         // We should have exactly 2 harvested ETH cores.
         if (CoordinateManager::get_num_harvested(harvesting_mask) != num_harvested_cores) {
             continue;
@@ -604,31 +601,24 @@ TEST(CoordinateManager, CoordinateManagerBlackholeETHHarvesting) {
         std::shared_ptr<CoordinateManager> coordinate_manager =
             CoordinateManager::create_coordinate_manager(tt::ARCH::BLACKHOLE, true, 0, 0, harvesting_mask);
 
-        size_t index = 0;
+        for (size_t eth_channel = 0; eth_channel < num_eth_channels - num_harvested_cores; eth_channel++) {
+            const CoreCoord eth_logical = CoreCoord(0, eth_channel, CoreType::ETH, CoordSystem::LOGICAL);
+            const CoreCoord eth_virtual = coordinate_manager->translate_coord_to(eth_logical, CoordSystem::VIRTUAL);
+            const CoreCoord eth_translated =
+                coordinate_manager->translate_coord_to(eth_logical, CoordSystem::TRANSLATED);
 
-        for (size_t x = 0; x < eth_grid_size.x - num_harvested_cores; x++) {
-            for (size_t y = 0; y < eth_grid_size.y; y++) {
-                const CoreCoord eth_logical = CoreCoord(x, y, CoreType::ETH, CoordSystem::LOGICAL);
-                const CoreCoord eth_virtual = coordinate_manager->translate_coord_to(eth_logical, CoordSystem::VIRTUAL);
-                const CoreCoord eth_translated =
-                    coordinate_manager->translate_coord_to(eth_logical, CoordSystem::TRANSLATED);
+            EXPECT_EQ(eth_virtual.x, eth_cores[eth_channel].x);
+            EXPECT_EQ(eth_virtual.y, eth_cores[eth_channel].y);
 
-                EXPECT_EQ(eth_virtual.x, eth_cores[index].x);
-                EXPECT_EQ(eth_virtual.y, eth_cores[index].y);
-
-                EXPECT_EQ(eth_translated.x, tt::umd::blackhole::eth_translated_coordinate_start_x + x);
-                EXPECT_EQ(eth_translated.y, tt::umd::blackhole::eth_translated_coordinate_start_y);
-
-                index++;
-            }
+            EXPECT_EQ(eth_translated.x, tt::umd::blackhole::eth_translated_coordinate_start_x + eth_channel);
+            EXPECT_EQ(eth_translated.y, tt::umd::blackhole::eth_translated_coordinate_start_y);
         }
 
         // Verify that translated coordinates for harvested cores are same as physical coordinates.
-        for (size_t x = 0; x < eth_grid_size.x; x++) {
-            if (harvesting_mask & (1 << x)) {
-                size_t index = x;
+        for (size_t eth_channel = 0; eth_channel < num_eth_channels; eth_channel++) {
+            if (harvesting_mask & (1 << eth_channel)) {
                 const CoreCoord physical_core =
-                    CoreCoord(eth_cores[index].x, eth_cores[index].y, CoreType::ETH, CoordSystem::PHYSICAL);
+                    CoreCoord(eth_cores[eth_channel].x, eth_cores[eth_channel].y, CoreType::ETH, CoordSystem::PHYSICAL);
                 const CoreCoord translated_core =
                     coordinate_manager->translate_coord_to(physical_core, CoordSystem::TRANSLATED);
                 EXPECT_EQ(translated_core.x, physical_core.x);
@@ -659,4 +649,27 @@ TEST(CoordinateManager, CoordinateManagerBlackholeHarvestingShuffle) {
 
         EXPECT_EQ(harvesting_mask, 1 << i);
     }
+}
+
+TEST(CoordinateManager, CoordinateManagerBlackholeTranslationWithoutCoreType) {
+    std::shared_ptr<CoordinateManager> coordinate_manager =
+        CoordinateManager::create_coordinate_manager(tt::ARCH::BLACKHOLE, true);
+
+    EXPECT_EQ(
+        coordinate_manager->translate_coord_to({0, 0}, CoordSystem::PHYSICAL, CoordSystem::PHYSICAL).core_type,
+        CoreType::DRAM);
+    EXPECT_EQ(
+        coordinate_manager->translate_coord_to({0, 0}, CoordSystem::VIRTUAL, CoordSystem::PHYSICAL).core_type,
+        CoreType::DRAM);
+    EXPECT_EQ(
+        coordinate_manager->translate_coord_to({2, 2}, CoordSystem::PHYSICAL, CoordSystem::PHYSICAL).core_type,
+        CoreType::TENSIX);
+    // Not allowed for logical coord system.
+    EXPECT_THROW(
+        coordinate_manager->translate_coord_to({0, 0}, CoordSystem::LOGICAL, CoordSystem::PHYSICAL),
+        std::runtime_error);
+    // Throws if nothing is located at this coordinate.
+    EXPECT_THROW(
+        coordinate_manager->translate_coord_to({100, 100}, CoordSystem::PHYSICAL, CoordSystem::PHYSICAL),
+        std::runtime_error);
 }

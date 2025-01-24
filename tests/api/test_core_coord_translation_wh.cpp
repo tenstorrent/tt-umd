@@ -279,35 +279,31 @@ TEST(CoordinateManager, CoordinateManagerWormholeDRAMNoHarvesting) {
 TEST(CoordinateManager, CoordinateManagerWormholeETHPhysicalEqualVirtual) {
     std::shared_ptr<CoordinateManager> coordinate_manager =
         CoordinateManager::create_coordinate_manager(tt::ARCH::WORMHOLE_B0, true);
-    const tt_xy_pair eth_grid_size = tt::umd::wormhole::ETH_GRID_SIZE;
+    const size_t num_eth_channels = tt::umd::wormhole::NUM_ETH_CHANNELS;
 
-    for (size_t x = 0; x < eth_grid_size.x; x++) {
-        for (size_t y = 0; y < eth_grid_size.y; y++) {
-            const CoreCoord eth_logical = CoreCoord(x, y, CoreType::ETH, CoordSystem::LOGICAL);
-            const CoreCoord eth_virtual = coordinate_manager->translate_coord_to(eth_logical, CoordSystem::VIRTUAL);
-            const CoreCoord eth_physical = coordinate_manager->translate_coord_to(eth_logical, CoordSystem::PHYSICAL);
+    for (size_t eth_channel = 0; eth_channel < num_eth_channels; eth_channel++) {
+        const CoreCoord eth_logical = CoreCoord(0, eth_channel, CoreType::ETH, CoordSystem::LOGICAL);
+        const CoreCoord eth_virtual = coordinate_manager->translate_coord_to(eth_logical, CoordSystem::VIRTUAL);
+        const CoreCoord eth_physical = coordinate_manager->translate_coord_to(eth_logical, CoordSystem::PHYSICAL);
 
-            EXPECT_EQ(eth_virtual.x, eth_physical.x);
-            EXPECT_EQ(eth_virtual.y, eth_physical.y);
-        }
+        EXPECT_EQ(eth_virtual.x, eth_physical.x);
+        EXPECT_EQ(eth_virtual.y, eth_physical.y);
     }
 }
 
 // Test translation of logical to translated ethernet coordinates.
-TEST(CoordinateManager, CoordinateManagerWormholeETHLogicalToTranslated) {
+TEST(CoordinateManager, CoordinateManagerWormholeETHTranslated) {
     std::shared_ptr<CoordinateManager> coordinate_manager =
         CoordinateManager::create_coordinate_manager(tt::ARCH::WORMHOLE_B0, true);
-    const tt_xy_pair eth_grid_size = tt::umd::wormhole::ETH_GRID_SIZE;
 
-    for (size_t x = 0; x < eth_grid_size.x; x++) {
-        for (size_t y = 0; y < eth_grid_size.y; y++) {
-            const CoreCoord eth_logical = CoreCoord(x, y, CoreType::ETH, CoordSystem::LOGICAL);
-            const CoreCoord eth_translated =
-                coordinate_manager->translate_coord_to(eth_logical, CoordSystem::TRANSLATED);
+    // Check translation for all corners of eth cores.
+    std::vector<std::pair<tt_xy_pair, tt_xy_pair>> input_output_eth_pairs = {
+        {{1, 0}, {18, 16}}, {{9, 0}, {25, 16}}, {{1, 6}, {18, 17}}, {{9, 6}, {25, 17}}};
 
-            EXPECT_EQ(eth_translated.x, x + 18);
-            EXPECT_EQ(eth_translated.y, y + 16);
-        }
+    for (auto& [input_pair, output_pair] : input_output_eth_pairs) {
+        const CoreCoord eth_physical = CoreCoord(input_pair, CoreType::ETH, CoordSystem::PHYSICAL);
+        const CoreCoord eth_translated = coordinate_manager->translate_coord_to(eth_physical, CoordSystem::TRANSLATED);
+        EXPECT_EQ((tt_xy_pair)eth_translated, output_pair);
     }
 }
 
@@ -389,4 +385,27 @@ TEST(CoordinateManager, CoordinateManagerWormholeHarvestingShuffle) {
 
         EXPECT_EQ(harvesting_mask, 1 << i);
     }
+}
+
+TEST(CoordinateManager, CoordinateManagerWormholeTranslationWithoutCoreType) {
+    std::shared_ptr<CoordinateManager> coordinate_manager =
+        CoordinateManager::create_coordinate_manager(tt::ARCH::WORMHOLE_B0, true);
+
+    EXPECT_EQ(
+        coordinate_manager->translate_coord_to({0, 0}, CoordSystem::PHYSICAL, CoordSystem::PHYSICAL).core_type,
+        CoreType::DRAM);
+    EXPECT_EQ(
+        coordinate_manager->translate_coord_to({0, 0}, CoordSystem::VIRTUAL, CoordSystem::PHYSICAL).core_type,
+        CoreType::DRAM);
+    EXPECT_EQ(
+        coordinate_manager->translate_coord_to({2, 2}, CoordSystem::PHYSICAL, CoordSystem::PHYSICAL).core_type,
+        CoreType::TENSIX);
+    // Not allowed for logical coord system.
+    EXPECT_THROW(
+        coordinate_manager->translate_coord_to({0, 0}, CoordSystem::LOGICAL, CoordSystem::PHYSICAL),
+        std::runtime_error);
+    // Throws if nothing is located at this coordinate.
+    EXPECT_THROW(
+        coordinate_manager->translate_coord_to({100, 100}, CoordSystem::PHYSICAL, CoordSystem::PHYSICAL),
+        std::runtime_error);
 }

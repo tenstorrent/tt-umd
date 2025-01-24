@@ -17,13 +17,13 @@ BlackholeCoordinateManager::BlackholeCoordinateManager(
     const tt_xy_pair& dram_grid_size,
     const std::vector<tt_xy_pair>& dram_cores,
     const size_t dram_harvesting_mask,
-    const tt_xy_pair& eth_grid_size,
     const std::vector<tt_xy_pair>& eth_cores,
     const size_t eth_harvesting_mask,
     const tt_xy_pair& arc_grid_size,
     const std::vector<tt_xy_pair>& arc_cores,
     const tt_xy_pair& pcie_grid_size,
-    const std::vector<tt_xy_pair>& pcie_cores) :
+    const std::vector<tt_xy_pair>& pcie_cores,
+    const std::vector<tt_xy_pair>& router_cores) :
     CoordinateManager(
         noc_translation_enabled,
         tensix_grid_size,
@@ -32,13 +32,13 @@ BlackholeCoordinateManager::BlackholeCoordinateManager(
         dram_grid_size,
         dram_cores,
         dram_harvesting_mask,
-        eth_grid_size,
         eth_cores,
         eth_harvesting_mask,
         arc_grid_size,
         arc_cores,
         pcie_grid_size,
-        pcie_cores) {
+        pcie_cores,
+        router_cores) {
     initialize();
 }
 
@@ -160,37 +160,29 @@ void BlackholeCoordinateManager::translate_dram_coords() {
 }
 
 void BlackholeCoordinateManager::translate_eth_coords() {
-    size_t num_harvested_x = CoordinateManager::get_num_harvested(eth_harvesting_mask);
-    size_t grid_size_x = eth_grid_size.x;
-    size_t grid_size_y = eth_grid_size.y;
+    size_t num_harvested_channels = CoordinateManager::get_num_harvested(eth_harvesting_mask);
 
-    size_t logical_x = 0;
-    size_t x_index = grid_size_x - num_harvested_x;
-    for (size_t x = 0; x < grid_size_x; x++) {
-        if (eth_harvesting_mask & (1 << x)) {
-            for (size_t y = 0; y < grid_size_y; y++) {
-                const tt_xy_pair& physical_core = eth_cores[x + y * grid_size_x];
-                const tt_xy_pair& virtual_core = eth_cores[x_index + y * grid_size_x];
+    size_t harvested_eth_channel_start = eth_cores.size() - num_harvested_channels;
+    size_t unharvested_logical_eth_channel = 0;
+    for (size_t eth_channel = 0; eth_channel < eth_cores.size(); eth_channel++) {
+        if (eth_harvesting_mask & (1 << eth_channel)) {
+            const tt_xy_pair& physical_core = eth_cores[eth_channel];
+            const tt_xy_pair& virtual_core = eth_cores[harvested_eth_channel_start++];
 
-                CoreCoord virtual_coord =
-                    CoreCoord(virtual_core.x, virtual_core.y, CoreType::ETH, CoordSystem::VIRTUAL);
+            CoreCoord virtual_coord = CoreCoord(virtual_core.x, virtual_core.y, CoreType::ETH, CoordSystem::VIRTUAL);
 
-                add_core_translation(virtual_coord, physical_core);
-            }
-            x_index++;
+            add_core_translation(virtual_coord, physical_core);
         } else {
-            for (size_t y = 0; y < grid_size_y; y++) {
-                const tt_xy_pair& tensix_core = eth_cores[x + y * grid_size_x];
-                const tt_xy_pair& virtual_core = eth_cores[logical_x + y * grid_size_x];
+            const tt_xy_pair& tensix_core = eth_cores[eth_channel];
+            const tt_xy_pair& virtual_core = eth_cores[unharvested_logical_eth_channel];
 
-                CoreCoord logical_coord = CoreCoord(logical_x, y, CoreType::ETH, CoordSystem::LOGICAL);
-                add_core_translation(logical_coord, tensix_core);
+            CoreCoord logical_coord =
+                CoreCoord(0, unharvested_logical_eth_channel, CoreType::ETH, CoordSystem::LOGICAL);
+            add_core_translation(logical_coord, tensix_core);
 
-                CoreCoord virtual_coord =
-                    CoreCoord(virtual_core.x, virtual_core.y, CoreType::ETH, CoordSystem::VIRTUAL);
-                add_core_translation(virtual_coord, tensix_core);
-            }
-            logical_x++;
+            CoreCoord virtual_coord = CoreCoord(virtual_core.x, virtual_core.y, CoreType::ETH, CoordSystem::VIRTUAL);
+            add_core_translation(virtual_coord, tensix_core);
+            unharvested_logical_eth_channel++;
         }
     }
 
@@ -202,31 +194,27 @@ void BlackholeCoordinateManager::translate_eth_coords() {
 }
 
 void BlackholeCoordinateManager::fill_eth_physical_translated_mapping() {
-    const size_t num_harvested_x = CoordinateManager::get_num_harvested(eth_harvesting_mask);
-    for (size_t x = 0; x < eth_grid_size.x - num_harvested_x; x++) {
-        for (size_t y = 0; y < eth_grid_size.y; y++) {
-            const size_t translated_x = x + blackhole::eth_translated_coordinate_start_x;
-            const size_t translated_y = y + blackhole::eth_translated_coordinate_start_y;
+    const size_t num_harvested_channels = CoordinateManager::get_num_harvested(eth_harvesting_mask);
+    for (size_t eth_channel = 0; eth_channel < eth_cores.size() - num_harvested_channels; eth_channel++) {
+        const size_t translated_x = eth_channel + blackhole::eth_translated_coordinate_start_x;
+        const size_t translated_y = blackhole::eth_translated_coordinate_start_y;
 
-            CoreCoord logical_coord = CoreCoord(x, y, CoreType::ETH, CoordSystem::LOGICAL);
-            const tt_xy_pair physical_pair = to_physical_map[logical_coord];
+        CoreCoord logical_coord = CoreCoord(0, eth_channel, CoreType::ETH, CoordSystem::LOGICAL);
+        const tt_xy_pair physical_pair = to_physical_map[logical_coord];
 
-            CoreCoord translated_coord = CoreCoord(translated_x, translated_y, CoreType::ETH, CoordSystem::TRANSLATED);
+        CoreCoord translated_coord = CoreCoord(translated_x, translated_y, CoreType::ETH, CoordSystem::TRANSLATED);
 
-            add_core_translation(translated_coord, physical_pair);
-        }
+        add_core_translation(translated_coord, physical_pair);
     }
 
     // Harvested ETH cores should be mapped to the same physical coordinates.
-    for (size_t y = 0; y < eth_grid_size.y; y++) {
-        for (size_t x = 0; x < eth_grid_size.x; x++) {
-            if (eth_harvesting_mask & (1 << x)) {
-                const tt_xy_pair& physical_pair = eth_cores[x + y * eth_grid_size.x];
-                const CoreCoord translated_coord =
-                    CoreCoord(physical_pair.x, physical_pair.y, CoreType::ETH, CoordSystem::TRANSLATED);
+    for (size_t eth_channel = 0; eth_channel < eth_cores.size(); eth_channel++) {
+        if (eth_harvesting_mask & (1 << eth_channel)) {
+            const tt_xy_pair& physical_pair = eth_cores[eth_channel];
+            const CoreCoord translated_coord =
+                CoreCoord(physical_pair.x, physical_pair.y, CoreType::ETH, CoordSystem::TRANSLATED);
 
-                add_core_translation(translated_coord, physical_pair);
-            }
+            add_core_translation(translated_coord, physical_pair);
         }
     }
 }
@@ -403,32 +391,29 @@ std::vector<CoreCoord> BlackholeCoordinateManager::get_harvested_dram_cores() co
 }
 
 std::vector<CoreCoord> BlackholeCoordinateManager::get_eth_cores() const {
-    std::vector<size_t> harvested_x_coords = get_harvested_indices(eth_harvesting_mask);
+    std::vector<size_t> harvested_channels = get_harvested_indices(eth_harvesting_mask);
     std::vector<CoreCoord> unharvested_eth_cores;
-    for (size_t y = 0; y < eth_grid_size.y; y++) {
-        for (size_t x = 0; x < eth_grid_size.x; x++) {
-            const tt_xy_pair core = eth_cores[y * eth_grid_size.x + x];
-            CoreCoord core_coord(core.x, core.y, CoreType::ETH, CoordSystem::PHYSICAL);
-            if (std::find(harvested_x_coords.begin(), harvested_x_coords.end(), x) == harvested_x_coords.end()) {
-                unharvested_eth_cores.push_back(core_coord);
-            }
+    for (size_t eth_channel = 0; eth_channel < num_eth_channels; eth_channel++) {
+        const tt_xy_pair core = eth_cores[eth_channel];
+        CoreCoord core_coord(core.x, core.y, CoreType::ETH, CoordSystem::PHYSICAL);
+        if (std::find(harvested_channels.begin(), harvested_channels.end(), eth_channel) == harvested_channels.end()) {
+            unharvested_eth_cores.push_back(core_coord);
         }
     }
     return unharvested_eth_cores;
 }
 
 std::vector<CoreCoord> BlackholeCoordinateManager::get_harvested_eth_cores() const {
-    std::vector<size_t> harvested_x_coords = get_harvested_indices(eth_harvesting_mask);
+    std::vector<size_t> harvested_channels = get_harvested_indices(eth_harvesting_mask);
     std::vector<CoreCoord> harvested_eth_cores;
-    for (size_t y = 0; y < eth_grid_size.y; y++) {
-        for (size_t x = 0; x < eth_grid_size.x; x++) {
-            const tt_xy_pair core = eth_cores[y * eth_grid_size.x + x];
-            CoreCoord core_coord(core.x, core.y, CoreType::ETH, CoordSystem::PHYSICAL);
-            if (std::find(harvested_x_coords.begin(), harvested_x_coords.end(), x) != harvested_x_coords.end()) {
-                harvested_eth_cores.push_back(core_coord);
-            }
+    for (size_t eth_channel = 0; eth_channel < num_eth_channels; eth_channel++) {
+        const tt_xy_pair core = eth_cores[eth_channel];
+        CoreCoord core_coord(core.x, core.y, CoreType::ETH, CoordSystem::PHYSICAL);
+        if (std::find(harvested_channels.begin(), harvested_channels.end(), eth_channel) != harvested_channels.end()) {
+            harvested_eth_cores.push_back(core_coord);
         }
     }
+
     return harvested_eth_cores;
 }
 
@@ -440,18 +425,10 @@ tt_xy_pair BlackholeCoordinateManager::get_harvested_dram_grid_size() const {
     return {CoordinateManager::get_num_harvested(dram_harvesting_mask), dram_grid_size.y};
 }
 
-tt_xy_pair BlackholeCoordinateManager::get_harvested_eth_grid_size() const {
-    return {CoordinateManager::get_num_harvested(eth_harvesting_mask), eth_grid_size.y};
-}
-
 tt_xy_pair BlackholeCoordinateManager::get_tensix_grid_size() const {
     return {tensix_grid_size.x - CoordinateManager::get_num_harvested(tensix_harvesting_mask), tensix_grid_size.y};
 }
 
 tt_xy_pair BlackholeCoordinateManager::get_dram_grid_size() const {
     return {dram_grid_size.x - CoordinateManager::get_num_harvested(dram_harvesting_mask), dram_grid_size.y};
-}
-
-tt_xy_pair BlackholeCoordinateManager::get_eth_grid_size() const {
-    return {eth_grid_size.x - CoordinateManager::get_num_harvested(eth_harvesting_mask), eth_grid_size.y};
 }

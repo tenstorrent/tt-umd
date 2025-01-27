@@ -126,7 +126,7 @@ CoreCoord CoordinateManager::translate_coord_to(
     return coord_it->second;
 }
 
-CoreType CoordinateManager::get_coord_type(const tt_xy_pair core, const CoordSystem coord_system) const {
+CoreCoord CoordinateManager::get_coord_at(const tt_xy_pair core, const CoordSystem coord_system) const {
     log_assert(coord_system != CoordSystem::LOGICAL, "Coordinate is ambiguous for logical system.");
 
     auto coord_it = to_core_type_map.find({core, coord_system});
@@ -136,12 +136,12 @@ CoreType CoordinateManager::get_coord_type(const tt_xy_pair core, const CoordSys
         to_str(coord_system),
         core.x,
         core.y);
-    return coord_it->second.core_type;
+    return coord_it->second;
 }
 
 CoreCoord CoordinateManager::translate_coord_to(
     const tt_xy_pair core, const CoordSystem input_coord_system, const CoordSystem target_coord_system) const {
-    CoreCoord core_coord(core, get_coord_type(core, input_coord_system), input_coord_system);
+    CoreCoord core_coord = get_coord_at(core, input_coord_system);
     return translate_coord_to(core_coord, target_coord_system);
 }
 

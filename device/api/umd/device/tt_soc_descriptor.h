@@ -59,7 +59,7 @@ public:
 
     // CoreCoord conversions.
     tt::umd::CoreCoord translate_coord_to(const tt::umd::CoreCoord core_coord, const CoordSystem coord_system) const;
-    CoreType get_coord_type(const tt_xy_pair core, const CoordSystem coord_system) const;
+    tt::umd::CoreCoord get_coord_at(const tt_xy_pair core, const CoordSystem coord_system) const;
     tt::umd::CoreCoord translate_coord_to(
         const tt_xy_pair core_location,
         const CoordSystem input_coord_system,

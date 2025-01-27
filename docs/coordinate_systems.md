@@ -105,7 +105,7 @@ Translated coordinates can be used to interface UMD and other things that are us
 
 ### Grayskull translated coordinates
 
-Translated coordinates are not supported on Grayskull. Physical coordiantes must be used on Grayskull for targeting NOC endpoints.
+Translated coordinates are equal to physical coordinates on Grayskull. There is no programmable coordinate translation, translated to physical coordinate translation is always 1-1 mapping.
 
 ### Wormhole translated coordinates
 
@@ -222,10 +222,21 @@ cluster.write_to_device(physical_coord, ...);
 
 UMD offers certain guarantees when using different coordinate systems.
 
-- Logical coordinates - IO with logical coordinates is always safe to use. It is guaranteed to hit unharvested cores.
+- Physical coordinates:
+   - These coordinates require the most knowledge about the exact chip layout. Usage depends on harvesting so it can turn out slightly different from chip to chip.
+   - This coordinate system preserves exact NOC0 proximity information between cores. The data will flow the fastest between consecutive nodes.
+   - IO with physical coordinates is not always safe to use. UMD is not blocking the client to use physical coordinates if it knows what to do, but by using physical coordinates UMD might hit harvested core which might not work.
 
-- Physical coordinates - IO with physical coordinates is not always safe to use. UMD is not blocking the client to use physical coordinates if it knows what to do, but by using physical coordinates UMD might hit harvested core.
+- Virtual coordinates:
+   - Requires more knowledge about chip layout than the logical coordinates, but programming is consistent on all chips (however they are harvested).
+   - This coordinate system somewhat preserves NOC0 proximity information, but this might not be exact due to harvesting.
+   - IO with virtual coordinates is always safe to use. It is guaranteed to hit unharvested cores.
 
-- Virtual coordinates - IO with virtual coordinates is always safe to use. It is guaranteed to hit unharvested cores.
+- Translated coordinates:
+   - Same in all aspects as virtual coordinates.
+   - These ones are actually used to interface with the chip (specifically the NOC). These ones are also used by kernels running on nodes
 
-- Translated coordinates - IO with translated coordinates is always safe to use. It is guaranteed to hit unharvested cores.
+- Logical coordinates:
+   - Easiest to use, coordinates go from 0 to size - 1.
+   - This coordinate system does not preserve any NOC0 proximity information between the different types of cores, but also sometimes even between the cores of the same type in the same grid.
+   - IO with logical coordinates is always safe to use. It is guaranteed to hit unharvested cores.

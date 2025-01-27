@@ -11,7 +11,7 @@ This document describes coordinate systems of the chip cores and harvesting in t
 
 Prior to reading this document, it is recommended the reader is familiar with following concepts
 - General architecture of the current generation of Tenstorrent chips (Grayskull, Wormhole, Blackhole)
-- Difference between different core types (Tensix, DRAM, PCIe, ARC, Ethernet)
+- Difference between different core types (Tensix, DRAM, PCIe, ARC, Ethernet, Router)
 
 ## Important notes for further reading
 
@@ -27,7 +27,7 @@ Harvesting refers to cores being disabled due to binning. Workloads cannot be ru
 
 On Grayskull, harvesting of tensix rows is supported. That means that on the tensix grid (12x10) there will always be 12 columns of chips, but number of rows can decrease. In practice, Grayskull chips have one or two rows harvested.
 
-Harvesting of non-tensix cores (DRAM, PCIe, ARC, Ethernet) is  not supported.
+Harvesting of non-tensix cores (DRAM, PCIe, ARC, Ethernet, Router) is  not supported.
 
 ### Wormhole harvesting
 
@@ -35,7 +35,7 @@ On wormhole, harvesting of tensix rows is supported. That means that on the tens
 
 Note that there is no limitation on which specific rows can be harvested.
 
-Harvesting of non-tensix cores (DRAM, PCIe, ARC, Ethernet) is not supported on Wormhole.
+Harvesting of non-tensix cores (DRAM, PCIe, ARC, Ethernet, Router) is not supported on Wormhole.
 
 ### Blackhole harvesting
 
@@ -43,7 +43,7 @@ On Blackhole, harvesting of tensix columns is supported. That means that on the 
 
 Note that there is no limitation on which specific columns can be harvested.
 
-Harvesting of other cores (PCIe, ARC, Ethernet) is not supported on Blackhole.
+Harvesting of other cores (PCIe, ARC, Ethernet, Router) is not supported on Blackhole.
 
 TODO: link more detailed explanation of blackhole harvesting
 
@@ -56,6 +56,71 @@ To keep everything consistent, example of 8x10 grid, which represents Wormhole c
 In order to illustrate harvesting effect on coordinate systems, example with two harvested rows of Tensix cores (image below) is going to be used. Not that full grid size iz 8x10, and 2 rows have been harvested so there are 8 rows and 8 columns.
 
 ![Tensix harvested rows](images/tensix_harvested_rows.png)
+
+## Physical Coordinates
+
+These are the NOC coordinates that the hardware understands, there are two distinct variations for NOC0 and NOC1. In hardware, each node is given an ID (which is different for each NOC), represented as x-y pair, which can be used to identify this node. In the SOC descriptor ([example Wormhole soc descriptor](../tests/soc_descs/wormhole_b0_8x10.yaml)), physical coordinates are specified for NOC0.
+
+![Tensix physical coordinates](images/tensix_physical_coordinates.png)
+
+### Physical coordinates for different core types
+
+Physical coordinates can be used for all core types:
+
+- All core types
+   - X coordinate -> NOC0 X coordinate from SOC descriptor
+   - Y coordinate -> NOC0 Y coordinate from SOC descriptor
+
+TODO: add the documentation for other cores
+
+### Harvesting effect on physical coordinates
+
+Using harvesting example, the effect on physical coordinates for two harvested configuration is on the image below
+
+![Tensix physical coordinates harvested](images/tensix_phyiscal_coordinates_harvested.png)
+
+Note that physical coordinates stay the same, coordinates are not changed, some coordinates simply become unavailable. The user of UMD needs to be careful when using physical coordinate system.
+
+## Virtual coordinates
+
+Virtual coordinates are a subset of the full chip physical coordinates shown above. When there is no harvesting virtual coordinates are equal to physical coordinates.
+
+### Harvesting effect on virtual coordinates
+
+Using harvesting example, the effect on virtual coordinates for two harvested configuration is on the image below.
+
+![Tensix virtual coordinates harvested](images/tensix_virtual_coordinates_harvested.png)
+
+When using virtual coordinates, it is same as that the N harvested rows/columns have been moved to the last N rows/columns (same for DRAM banks and ETH channels).
+
+## Translated Coordinates
+
+**Motivation: Allow binaries to be compatible across different devices, as long as their number of harvested tensix/dram/eth cores are same.**
+
+Wormhole and later architectures implement a programmable coordinate translation table in hardware for each row and column. Programming is done ahead of time by ARC firmware. The coordinates are dynamically mapped to each physical node through hardware LUTs, which depend on the harvesting configuration.
+
+This coordinate system aims to abstract away the effects of harvesting (see below) by relying on a convex grid of cores. This allows each layer to be oblivious to the effects of harvesting.
+
+Translated coordinates can be used to interface UMD and other things that are used for targeting NOC endpoints.
+
+### Grayskull translated coordinates
+
+Translated coordinates are not supported on Grayskull. Physical coordiantes must be used on Grayskull for targeting NOC endpoints.
+
+### Wormhole translated coordinates
+
+Translated coordinates on Wormhole are supported for Ethernet and Tensix cores. Translated coordinates on Wormhole start at 16-16 (due to hardware design features) and go through a hardware based LUT to access physical tensix endpoints. Example mapping for Tensix and Ethernet cores to translated coordinates are below
+
+![Tensix translated coordinates](images/tensix_translated_coordinates.png)
+
+Harvesting some number of rows would have the same effect as for logical coordinates, range of coordinates still stays contigouous, there are just less cores on the harvested axis. 
+
+![Tensix translated coordinates harvested](images/tensix_translated_coordinates_harvested.png)
+
+
+### Blachkole translated coordinates
+
+(TODO write a doc about translated coordinates on Blackhole)
 
 ## Logical coordinates
 
@@ -91,71 +156,6 @@ Using harvesting example, the effect on logical coordinates for two harvested co
 
 Note that range on X axis stays the same (no harvested columns), but the range on Y axis is smaller by two (number of harvested rows).
 
-## Physical Coordinates
-
-These are the NOC coordinates that the hardware understands, there are two distinct variations for NOC0 and NOC1. In hardware, each node is given an ID (which is different for each NOC), represented as x-y pair, which can be used to identify this node. In the SOC descriptor, physical coordinates are specified for NOC0.
-
-![Tensix physical coordinates](images/tensix_physical_coordinates.png)
-
-### Physical coordinates for different core types
-
-Logical coordinates can be used for all core types:
-
-- All core types
-   - X coordinate -> NOC0 X coordinate from SOC descriptor
-   - Y coordinate -> NOC0 Y coordinate from SOC descriptor
-
-TODO: add the documentation for other cores
-
-### Harvesting effect on physical coordinates
-
-Using harvesting example, the effect on physical coordinates for two harvested configuration is on the image below
-
-![Tensix physical coordinates harvested](images/tensix_phyiscal_coordinates_harvested.png)
-
-Note that physical coordinates stay the same, coordinates are not changed, some coordinates simply become unavailable. The user of UMD needs to be careful not to hit harvested coordinates, or the chip is going to hang.
-
-## Virtual coordinates
-
-Virtual coordinates are a subset of the full chip physical coordinates shown above. When there is no harvesting virtual coordinates are equal to physical coordinates. Harvesting effect on virtual coordinates are described in the next section.
-
-### Harvesting effect on virtual coordinates
-
-Using harvesting example, the effect on virtual coordinates for two harvested configuration is on the image below.
-
-![Tensix virtual coordinates harvested](images/tensix_virtual_coordinates_harvested.png)
-
-When using virtual coordinates, it is same as that the N harvested rows/columns have been moved to the last N rows/columns (same for DRAM banks and ETH channels).
-
-## Translated Coordinates
-
-**Motivation: Allow binaries to be compatible across different devices, as long as their number of harvested tensix/dram/eth cores are same.**
-
-Wormhole and later architectures implement a programmable coordinate translation table in hardware for each row and column. Programming is done ahead of time by ARC firmware. The coordinates are dynamically mapped to each physical node through hardware LUTs, which depend on the harvesting configuration.
-
-This coordinate system aims to abstract away the effects of harvesting (see below) by relying on a convex grid of cores. This allows each layer to be oblivious to the effects of harvesting.
-
-Translated coordinates can be used to program TLBs and other things that are used for targeting NOC endpoints.
-
-### Grayskull translated coordinates
-
-Translated coordinates are not supported on Grayskull. Physical coordiantes must be used on Grayskull for targeting NOC endpoints.
-
-### Wormhole translated coordinates
-
-Translated coordinates on Wormhole are supported for Ethernet and Tensix cores. Translated coordinates on Wormhole start at 16-16 (due to hardware design features) and go through a hardware based LUT to access physical tensix endpoints. Example mapping for Tensix and Ethernet cores to translated coordinates are below
-
-![Tensix translated coordinates](images/tensix_translated_coordinates.png)
-
-Harvesting some number of rows would have the same effect as for logical coordinates, range of coordinates still stays contigouous, there are just less cores on the harvested axis. 
-
-![Tensix translated coordinates harvested](images/tensix_translated_coordinates_harvested.png)
-
-
-### Blachkole translated coordinates
-
-(TODO write a doc about translated coordinates on Blackhole)
-
 ## Coordinate systems relations
 
 ### Grayskull
@@ -167,10 +167,10 @@ Harvesting some number of rows would have the same effect as for logical coordin
 When no harvesting has taken place (chip has full grid size):
 * Virtual Coordinates == Physical Coordinates for all cores
 * Virtual Coordinates != Translated Coordinates for Tensix and Ethernet
-* Virtual Coordinates == Translated Coordinates for ARC/PCIE/DRAM
+* Virtual Coordinates == Translated Coordinates for ARC/PCIE/DRAM/Router
 
 When harvesting is perfomed on a chip:
-* Virtual Coordinates == Physical Coordinates == Translated Coordinates for ARC/PCIE/DRAM
+* Virtual Coordinates == Physical Coordinates == Translated Coordinates for ARC/PCIE/DRAM/Router
 * Virtual Coordinates != Translated Coordinates for Tensix and Ethernet
 * Virtual Coordinates != Physical Coordinates for Tensix and Ethernet
 

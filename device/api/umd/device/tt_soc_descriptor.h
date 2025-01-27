@@ -59,6 +59,7 @@ public:
 
     // CoreCoord conversions.
     tt::umd::CoreCoord translate_coord_to(const tt::umd::CoreCoord core_coord, const CoordSystem coord_system) const;
+    tt::umd::CoreCoord get_coord_at(const tt_xy_pair core, const CoordSystem coord_system) const;
     tt::umd::CoreCoord translate_coord_to(
         const tt_xy_pair core_location,
         const CoordSystem input_coord_system,
@@ -71,6 +72,10 @@ public:
         const CoreType core_type, const CoordSystem coord_system = CoordSystem::PHYSICAL) const;
     std::vector<tt::umd::CoreCoord> get_harvested_cores(
         const CoreType core_type, const CoordSystem coord_system = CoordSystem::PHYSICAL) const;
+    std::vector<tt::umd::CoreCoord> get_all_cores(const CoordSystem coord_system = CoordSystem::PHYSICAL) const;
+    std::vector<tt::umd::CoreCoord> get_all_harvested_cores(
+        const CoordSystem coord_system = CoordSystem::PHYSICAL) const;
+
     tt_xy_pair get_grid_size(const CoreType core_type) const;
     tt_xy_pair get_harvested_grid_size(const CoreType core_type) const;
 

@@ -27,6 +27,8 @@ TEST(SocDescriptor, SocDescriptorGrayskullNoHarvesting) {
 
     ASSERT_TRUE(soc_desc.get_harvested_cores(CoreType::TENSIX).empty());
     ASSERT_TRUE(soc_desc.get_harvested_cores(CoreType::DRAM).empty());
+    ASSERT_EQ(soc_desc.get_all_cores().size(), grayskull::GRID_SIZE_X * grayskull::GRID_SIZE_Y);
+    ASSERT_EQ(soc_desc.get_all_harvested_cores().size(), 0);
 }
 
 // Test soc descriptor API for Grayskull when there is tensix harvesting.
@@ -54,6 +56,11 @@ TEST(SocDescriptor, SocDescriptorGrayskullOneRowHarvesting) {
     ASSERT_FALSE(harvested_cores.empty());
 
     ASSERT_TRUE(soc_desc.get_harvested_cores(CoreType::DRAM).empty());
+
+    ASSERT_EQ(
+        soc_desc.get_all_cores().size(),
+        grayskull::GRID_SIZE_X * grayskull::GRID_SIZE_Y - grayskull::TENSIX_GRID_SIZE.x);
+    ASSERT_EQ(soc_desc.get_all_harvested_cores().size(), grayskull::TENSIX_GRID_SIZE.x);
 }
 
 // Test soc descriptor API for getting DRAM cores.
@@ -83,6 +90,8 @@ TEST(SocDescriptor, SocDescriptorWormholeNoHarvesting) {
 
     ASSERT_TRUE(soc_desc.get_harvested_cores(CoreType::TENSIX).empty());
     ASSERT_TRUE(soc_desc.get_harvested_cores(CoreType::DRAM).empty());
+    ASSERT_EQ(soc_desc.get_all_cores().size(), wormhole::GRID_SIZE_X * wormhole::GRID_SIZE_Y);
+    ASSERT_EQ(soc_desc.get_all_harvested_cores().size(), 0);
 }
 
 // Test soc descriptor API for getting DRAM cores.
@@ -122,6 +131,10 @@ TEST(SocDescriptor, SocDescriptorWormholeOneRowHarvesting) {
     ASSERT_FALSE(harvested_cores.empty());
 
     ASSERT_TRUE(soc_desc.get_harvested_cores(CoreType::DRAM).empty());
+
+    ASSERT_EQ(
+        soc_desc.get_all_cores().size(), wormhole::GRID_SIZE_X * wormhole::GRID_SIZE_Y - wormhole::TENSIX_GRID_SIZE.x);
+    ASSERT_EQ(soc_desc.get_all_harvested_cores().size(), wormhole::TENSIX_GRID_SIZE.x);
 }
 
 // Test ETH translation from logical to physical coordinates.
@@ -167,6 +180,9 @@ TEST(SocDescriptor, SocDescriptorBlackholeETHHarvesting) {
 
         const std::vector<CoreCoord> eth_cores = soc_desc.get_cores(CoreType::ETH);
 
+        ASSERT_EQ(soc_desc.get_all_cores().size(), blackhole::GRID_SIZE_X * blackhole::GRID_SIZE_Y - 2);
+        ASSERT_EQ(soc_desc.get_all_harvested_cores().size(), 2);
+
         EXPECT_EQ(eth_cores.size(), num_eth_channels - num_harvested_eth_cores);
 
         const std::vector<CoreCoord> harvested_eth_cores = soc_desc.get_harvested_cores(CoreType::ETH);
@@ -204,6 +220,8 @@ TEST(SocDescriptor, SocDescriptorBlackholeNoHarvesting) {
 
     ASSERT_TRUE(soc_desc.get_harvested_cores(CoreType::TENSIX).empty());
     ASSERT_TRUE(soc_desc.get_harvested_cores(CoreType::DRAM).empty());
+    ASSERT_EQ(soc_desc.get_all_cores().size(), blackhole::GRID_SIZE_X * blackhole::GRID_SIZE_Y);
+    ASSERT_EQ(soc_desc.get_all_harvested_cores().size(), 0);
 }
 
 // Test soc descriptor API for Blackhole when there is tensix harvesting.
@@ -233,6 +251,11 @@ TEST(SocDescriptor, SocDescriptorBlackholeOneRowHarvesting) {
     ASSERT_FALSE(harvested_cores.empty());
 
     ASSERT_TRUE(soc_desc.get_harvested_cores(CoreType::DRAM).empty());
+
+    ASSERT_EQ(
+        soc_desc.get_all_cores().size(),
+        blackhole::GRID_SIZE_X * blackhole::GRID_SIZE_Y - blackhole::TENSIX_GRID_SIZE.y);
+    ASSERT_EQ(soc_desc.get_all_harvested_cores().size(), blackhole::TENSIX_GRID_SIZE.y);
 }
 
 // Test soc descriptor API for getting DRAM cores.
@@ -269,6 +292,8 @@ TEST(SocDescriptor, SocDescriptorBlackholeDRAMHarvesting) {
     }
 
     ASSERT_TRUE(soc_desc.get_harvested_cores(CoreType::TENSIX).empty());
+    ASSERT_EQ(soc_desc.get_all_cores().size(), blackhole::GRID_SIZE_X * blackhole::GRID_SIZE_Y - 3);
+    ASSERT_EQ(soc_desc.get_all_harvested_cores().size(), 3);
 
     const std::vector<CoreCoord> dram_cores = soc_desc.get_cores(CoreType::DRAM);
 

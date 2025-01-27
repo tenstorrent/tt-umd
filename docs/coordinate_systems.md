@@ -39,13 +39,17 @@ Harvesting of non-tensix cores (DRAM, PCIe, ARC, Ethernet, Router) is not suppor
 
 ### Blackhole harvesting
 
-On Blackhole, harvesting of tensix columns is supported. That means that on the tensix grid (14x10), there will always be 10 rows of tensix cores, but number of columns may decrease. In practice, Blackhole chips have (TODO: how many columns) columns harvested.
+On Blackhole, harvesting of tensix columns is supported. That means that on the tensix grid (14x10), there will always be 10 rows of tensix cores, but number of columns may decrease.
 
 Note that there is no limitation on which specific columns can be harvested.
 
-Harvesting of other cores (PCIe, ARC, Ethernet, Router) is not supported on Blackhole.
+Additionaly, DRAM and Ethernet harvesting is supported on Blackhole.
 
-TODO: link more detailed explanation of blackhole harvesting
+Harvesting of DRAM banks is supported on Blackhole, meaning that on DRAM-harvested chips there is less DRAM space to be used. In practice, maximally one DRAM bank can be harvested.
+
+Harvesting of Ethernet cores is supported on Blackhole. In practice, exactly 2 Ethernet cores are harvested on Blackhole chips.
+
+Harvesting of other cores (PCIe, ARC, Router) is not supported on Blackhole.
 
 # Coordinate systems
 
@@ -103,6 +107,8 @@ This coordinate system aims to abstract away the effects of harvesting (see belo
 
 Translated coordinates can be used to interface UMD and other things that are used for targeting NOC endpoints.
 
+Translated coordinates should be used in binaries that are loaded on device cores. This makes device binaries portable between devices with same harvesting configurations.
+
 ### Grayskull translated coordinates
 
 Translated coordinates are equal to physical coordinates on Grayskull. There is no programmable coordinate translation, translated to physical coordinate translation is always 1-1 mapping.
@@ -116,7 +122,6 @@ Translated coordinates on Wormhole are supported for Ethernet and Tensix cores. 
 Harvesting some number of rows would have the same effect as for logical coordinates, range of coordinates still stays contigouous, there are just less cores on the harvested axis. 
 
 ![Tensix translated coordinates harvested](images/tensix_translated_coordinates_harvested.png)
-
 
 ### Blachkole translated coordinates
 
@@ -146,7 +151,7 @@ Logical coordinates can be used for all core types:
    - X coordinate -> always 0
    - Y coordinate -> represents ETH ID (TODO: add ETH ID to core mapping)
 
-TODO: add the documentation for other cores
+Using logical coordinates for other cores should follow the scheme same as Tensix cores (grid size in X/Y direction).
 
 ### Harvesting effect on logical coordinates
 
@@ -165,14 +170,12 @@ Note that range on X axis stays the same (no harvested columns), but the range o
 ### Wormhole
 
 When no harvesting has taken place (chip has full grid size):
-* Virtual Coordinates == Physical Coordinates for all cores
-* Virtual Coordinates != Translated Coordinates for Tensix and Ethernet
-* Virtual Coordinates == Translated Coordinates for ARC/PCIE/DRAM/Router
+* Physical Coordinates == Virtual Coordinates == Translated Coordinates for ARC/PCIE/DRAM
+* Physical Coordinates == Virtual Coordinates != Translated Coordinates for Tensix and Ethernet
 
-When harvesting is perfomed on a chip:
-* Virtual Coordinates == Physical Coordinates == Translated Coordinates for ARC/PCIE/DRAM/Router
-* Virtual Coordinates != Translated Coordinates for Tensix and Ethernet
-* Virtual Coordinates != Physical Coordinates for Tensix and Ethernet
+When harvesting is performed on a chip:
+* Physical Coordinates == Virtual Coordinates == Translated Coordinates for ARC/PCIE/DRAM
+* Physical Coordinates != Virtual Coordinates != Translated Coordinates for Tensix and Ethernet
 
 ### Blackhole
 

@@ -16,8 +16,6 @@
 
 #include "fmt/core.h"
 #include "tt_silicon_driver_common.hpp"
-#include "tt_soc_descriptor.h"
-#include "tt_xy_pair.h"
 #include "umd/device/blackhole_arc_message_queue.h"
 #include "umd/device/chip/chip.h"
 #include "umd/device/tt_device/tt_device.h"
@@ -25,7 +23,6 @@
 #include "umd/device/types/arch.h"
 #include "umd/device/types/cluster_descriptor_types.h"
 #include "umd/device/types/cluster_types.h"
-#include "umd/device/types/harvesting.h"
 #include "umd/device/types/tlb.h"
 
 using TLB_DATA = tt::umd::tlb_data;
@@ -500,7 +497,7 @@ public:
         const bool skip_driver_allocs = false,
         const bool clean_system_resources = false,
         bool perform_harvesting = true,
-        std::unordered_map<chip_id_t, SoftwareHarvesting> simulated_harvesting_masks = {});
+        std::unordered_map<chip_id_t, HarvestingMasks> simulated_harvesting_masks = {});
 
     /**
      * Cluster constructor.
@@ -520,7 +517,7 @@ public:
         const bool skip_driver_allocs = false,
         const bool clean_system_resources = false,
         bool perform_harvesting = true,
-        std::unordered_map<chip_id_t, SoftwareHarvesting> simulated_harvesting_masks = {});
+        std::unordered_map<chip_id_t, HarvestingMasks> simulated_harvesting_masks = {});
 
     /**
      * Cluster constructor.
@@ -544,7 +541,7 @@ public:
         const bool skip_driver_allocs = false,
         const bool clean_system_resources = false,
         bool perform_harvesting = true,
-        std::unordered_map<chip_id_t, SoftwareHarvesting> simulated_harvesting_masks = {});
+        std::unordered_map<chip_id_t, HarvestingMasks> simulated_harvesting_masks = {});
 
     /**
      * Cluster constructor.
@@ -566,7 +563,7 @@ public:
         const bool skip_driver_allocs = false,
         const bool clean_system_resources = false,
         bool perform_harvesting = true,
-        std::unordered_map<chip_id_t, SoftwareHarvesting> simulated_harvesting_masks = {});
+        std::unordered_map<chip_id_t, HarvestingMasks> simulated_harvesting_masks = {});
 
     /**
      * Cluster constructor which creates a cluster with Mock chips.
@@ -878,36 +875,41 @@ private:
         chip_id_t chip_id,
         tt_ClusterDescriptor* cluster_desc,
         bool perform_harvesting,
-        std::unordered_map<chip_id_t, SoftwareHarvesting>& simulated_harvesting_masks);
+        std::unordered_map<chip_id_t, HarvestingMasks>& simulated_harvesting_masks);
     std::unique_ptr<Chip> construct_chip_from_cluster(
         chip_id_t logical_device_id,
         tt_ClusterDescriptor* cluster_desc,
         bool perform_harvesting,
-        std::unordered_map<chip_id_t, SoftwareHarvesting>& simulated_harvesting_masks);
+        std::unordered_map<chip_id_t, HarvestingMasks>& simulated_harvesting_masks);
     void add_chip(chip_id_t chip_id, std::unique_ptr<Chip> chip);
+    HarvestingMasks get_harvesting_masks(
+        chip_id_t chip_id,
+        tt_ClusterDescriptor* cluster_desc,
+        bool perfrom_harvesting,
+        std::unordered_map<chip_id_t, HarvestingMasks>& simulated_harvesting_masks);
     uint32_t get_tensix_harvesting_mask(
         chip_id_t chip_id,
         tt_ClusterDescriptor* cluster_desc,
         bool perform_harvesting,
-        std::unordered_map<chip_id_t, SoftwareHarvesting>& simulated_harvesting_masks);
+        std::unordered_map<chip_id_t, HarvestingMasks>& simulated_harvesting_masks);
     // TODO: this function returns only software harvesting mask for DRAM.
     // Combine this with silicon harvesting mask once gathering silicon harvesting mask is implemented.
     uint32_t get_dram_harvesting_mask(
         chip_id_t chip_id,
         bool perform_harvesting,
-        std::unordered_map<chip_id_t, SoftwareHarvesting>& simulated_harvesting_masks);
+        std::unordered_map<chip_id_t, HarvestingMasks>& simulated_harvesting_masks);
     // TODO: this function returns only software harvesting mask for ETH.
     // Combine this with silicon harvesting mask once gathering silicon harvesting mask is implemented.
     uint32_t get_eth_harvesting_mask(
         chip_id_t chip_id,
         bool perform_harvesting,
-        std::unordered_map<chip_id_t, SoftwareHarvesting>& simulated_harvesting_masks);
+        std::unordered_map<chip_id_t, HarvestingMasks>& simulated_harvesting_masks);
     void construct_cluster(
         const uint32_t& num_host_mem_ch_per_mmio_device,
         const bool skip_driver_allocs,
         const bool clean_system_resources,
         bool perform_harvesting,
-        std::unordered_map<chip_id_t, SoftwareHarvesting> simulated_harvesting_masks);
+        std::unordered_map<chip_id_t, HarvestingMasks> simulated_harvesting_masks);
     // Helper function for translating chip coordinates.
     tt_xy_pair translate_to_api_coords(const chip_id_t chip, const tt::umd::CoreCoord core_coord) const;
 

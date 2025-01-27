@@ -270,7 +270,7 @@ std::unordered_map<chip_id_t, uint32_t> Cluster::get_harvesting_masks_for_soc_de
     std::unordered_map<chip_id_t, uint32_t> harvesting_masks = {};
     for (const auto& [chip_id, chip] : chips_) {
         uint32_t noc0_harvesting_mask = CoordinateManager::shuffle_tensix_harvesting_mask_to_noc0_coords(
-            chip->get_soc_descriptor().arch, chip->get_soc_descriptor().tensix_harvesting_mask);
+            chip->get_soc_descriptor().arch, chip->get_soc_descriptor().harvesting_masks.tensix_harvesting_mask);
         harvesting_masks.insert({chip_id, noc0_harvesting_mask});
     }
     return harvesting_masks;
@@ -281,7 +281,7 @@ void Cluster::construct_cluster(
     const bool skip_driver_allocs,
     const bool clean_system_resources,
     bool perform_harvesting,
-    std::unordered_map<chip_id_t, SoftwareHarvesting> simulated_harvesting_masks) {
+    std::unordered_map<chip_id_t, HarvestingMasks> simulated_harvesting_masks) {
     if (!skip_driver_allocs) {
         auto available_device_ids = detect_available_device_ids();
         log_info(LogSiliconDriver, "Detected PCI devices: {}", available_device_ids);
@@ -442,17 +442,11 @@ std::unique_ptr<Chip> Cluster::construct_chip_from_cluster(
     chip_id_t chip_id,
     tt_ClusterDescriptor* cluster_desc,
     bool perform_harvesting,
-    std::unordered_map<chip_id_t, SoftwareHarvesting>& simulated_harvesting_masks) {
-    uint32_t tensix_harvesting_mask =
-        get_tensix_harvesting_mask(chip_id, cluster_desc, perform_harvesting, simulated_harvesting_masks);
-    size_t dram_harvesting_mask = get_dram_harvesting_mask(chip_id, perform_harvesting, simulated_harvesting_masks);
-    size_t eth_harvesting_mask = get_eth_harvesting_mask(chip_id, perform_harvesting, simulated_harvesting_masks);
-    tt_SocDescriptor soc_desc = tt_SocDescriptor(
-        soc_desc_path,
-        cluster_desc->get_noc_translation_table_en().at(chip_id),
-        tensix_harvesting_mask,
-        dram_harvesting_mask,
-        eth_harvesting_mask);
+    std::unordered_map<chip_id_t, HarvestingMasks>& simulated_harvesting_masks) {
+    HarvestingMasks harvesting_masks =
+        get_harvesting_masks(chip_id, cluster_desc, perform_harvesting, simulated_harvesting_masks);
+    tt_SocDescriptor soc_desc =
+        tt_SocDescriptor(soc_desc_path, cluster_desc->get_noc_translation_table_en().at(chip_id), harvesting_masks);
     return construct_chip_from_cluster(chip_id, cluster_desc, soc_desc);
 }
 
@@ -460,7 +454,7 @@ std::unique_ptr<Chip> Cluster::construct_chip_from_cluster(
     chip_id_t chip_id,
     tt_ClusterDescriptor* cluster_desc,
     bool perform_harvesting,
-    std::unordered_map<chip_id_t, SoftwareHarvesting>& simulated_harvesting_masks) {
+    std::unordered_map<chip_id_t, HarvestingMasks>& simulated_harvesting_masks) {
     tt::ARCH arch = cluster_desc->get_arch(chip_id);
     const BoardType chip_board_type = cluster_desc->get_board_type(chip_id);
     std::string soc_desc_path = tt_SocDescriptor::get_soc_descriptor_path(arch, chip_board_type);
@@ -486,7 +480,7 @@ uint32_t Cluster::get_tensix_harvesting_mask(
     chip_id_t chip_id,
     tt_ClusterDescriptor* cluster_desc,
     bool perform_harvesting,
-    std::unordered_map<chip_id_t, SoftwareHarvesting>& simulated_harvesting_masks) {
+    std::unordered_map<chip_id_t, HarvestingMasks>& simulated_harvesting_masks) {
     if (!perform_harvesting) {
         log_info(LogSiliconDriver, "Skipping harvesting for chip {}.", chip_id);
         return 0;
@@ -519,7 +513,7 @@ uint32_t Cluster::get_tensix_harvesting_mask(
 uint32_t Cluster::get_dram_harvesting_mask(
     chip_id_t chip_id,
     bool perform_harvesting,
-    std::unordered_map<chip_id_t, SoftwareHarvesting>& simulated_harvesting_masks) {
+    std::unordered_map<chip_id_t, HarvestingMasks>& simulated_harvesting_masks) {
     if (!perform_harvesting) {
         log_info(LogSiliconDriver, "Skipping DRAM harvesting for chip {}.", chip_id);
         return 0;
@@ -533,7 +527,7 @@ uint32_t Cluster::get_dram_harvesting_mask(
 uint32_t Cluster::get_eth_harvesting_mask(
     chip_id_t chip_id,
     bool perform_harvesting,
-    std::unordered_map<chip_id_t, SoftwareHarvesting>& simulated_harvesting_masks) {
+    std::unordered_map<chip_id_t, HarvestingMasks>& simulated_harvesting_masks) {
     if (!perform_harvesting) {
         log_info(LogSiliconDriver, "Skipping ETH harvesting for chip {}.", chip_id);
         return 0;
@@ -544,12 +538,24 @@ uint32_t Cluster::get_eth_harvesting_mask(
                : 0;
 }
 
+HarvestingMasks Cluster::get_harvesting_masks(
+    chip_id_t chip_id,
+    tt_ClusterDescriptor* cluster_desc,
+    bool perfrom_harvesting,
+    std::unordered_map<chip_id_t, HarvestingMasks>& simulated_harvesting_masks) {
+    return HarvestingMasks{
+        .tensix_harvesting_mask =
+            get_tensix_harvesting_mask(chip_id, cluster_desc, perfrom_harvesting, simulated_harvesting_masks),
+        .dram_harvesting_mask = get_dram_harvesting_mask(chip_id, perfrom_harvesting, simulated_harvesting_masks),
+        .eth_harvesting_mask = get_eth_harvesting_mask(chip_id, perfrom_harvesting, simulated_harvesting_masks)};
+}
+
 Cluster::Cluster(
     const uint32_t& num_host_mem_ch_per_mmio_device,
     const bool skip_driver_allocs,
     const bool clean_system_resources,
     bool perform_harvesting,
-    std::unordered_map<chip_id_t, SoftwareHarvesting> simulated_harvesting_masks) {
+    std::unordered_map<chip_id_t, HarvestingMasks> simulated_harvesting_masks) {
     cluster_desc = tt_ClusterDescriptor::create();
 
     for (auto& chip_id : cluster_desc->get_all_chips()) {
@@ -575,7 +581,7 @@ Cluster::Cluster(
     const bool skip_driver_allocs,
     const bool clean_system_resources,
     bool perform_harvesting,
-    std::unordered_map<chip_id_t, SoftwareHarvesting> simulated_harvesting_masks) {
+    std::unordered_map<chip_id_t, HarvestingMasks> simulated_harvesting_masks) {
     cluster_desc = tt_ClusterDescriptor::create();
 
     for (auto& chip_id : target_devices) {
@@ -606,7 +612,7 @@ Cluster::Cluster(
     const bool skip_driver_allocs,
     const bool clean_system_resources,
     bool perform_harvesting,
-    std::unordered_map<chip_id_t, SoftwareHarvesting> simulated_harvesting_masks) {
+    std::unordered_map<chip_id_t, HarvestingMasks> simulated_harvesting_masks) {
     cluster_desc = tt_ClusterDescriptor::create();
 
     for (auto& chip_id : target_devices) {
@@ -643,7 +649,7 @@ Cluster::Cluster(
     const bool skip_driver_allocs,
     const bool clean_system_resources,
     bool perform_harvesting,
-    const std::unordered_map<chip_id_t, SoftwareHarvesting> simulated_harvesting_masks) {
+    const std::unordered_map<chip_id_t, HarvestingMasks> simulated_harvesting_masks) {
     cluster_desc = tt_ClusterDescriptor::create();
 
     for (auto& [chip_id, chip] : chips) {

@@ -53,9 +53,7 @@ public:
     tt_SocDescriptor(
         std::string device_descriptor_path,
         const bool noc_translation_enabled,
-        const size_t tensix_harvesting_mask = 0,
-        const size_t dram_harvesting_mask = 0,
-        const size_t eth_harvesting_mask = 0);
+        const tt::umd::HarvestingMasks harvesting_masks = {0, 0, 0});
 
     // CoreCoord conversions.
     tt::umd::CoreCoord translate_coord_to(const tt::umd::CoreCoord core_coord, const CoordSystem coord_system) const;
@@ -124,14 +122,10 @@ public:
     int eth_l1_size;
     bool noc_translation_id_enabled;
     uint64_t dram_bank_size;
-    uint32_t tensix_harvesting_mask;
+    tt::umd::HarvestingMasks harvesting_masks;
 
 private:
-    void create_coordinate_manager(
-        const bool noc_translation_enabled,
-        const size_t tensix_harvesting_mask,
-        const size_t dram_harvesting_mask,
-        const size_t eth_harvesting_mask);
+    void create_coordinate_manager(const bool noc_translation_enabled, const tt::umd::HarvestingMasks harvesting_masks);
     void load_core_descriptors_from_device_descriptor(YAML::Node &device_descriptor_yaml);
     void load_soc_features_from_device_descriptor(YAML::Node &device_descriptor_yaml);
     void get_cores_and_grid_size_from_coordinate_manager();

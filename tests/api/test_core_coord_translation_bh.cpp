@@ -37,7 +37,7 @@ TEST(CoordinateManager, CoordinateManagerBlackholeTopLeftCore) {
     // This is targeting first row of Tensix cores on NOC layout.
     const size_t harvesting_mask = (1 << 0);
     std::shared_ptr<CoordinateManager> coordinate_manager =
-        CoordinateManager::create_coordinate_manager(tt::ARCH::BLACKHOLE, true, harvesting_mask);
+        CoordinateManager::create_coordinate_manager(tt::ARCH::BLACKHOLE, true, {harvesting_mask});
     tt_xy_pair tensix_grid_size = tt::umd::blackhole::TENSIX_GRID_SIZE;
 
     CoreCoord logical_coords = CoreCoord(0, 0, CoreType::TENSIX, CoordSystem::LOGICAL);
@@ -60,7 +60,7 @@ TEST(CoordinateManager, CoordinateManagerBlackholeLogicalPhysicalMapping) {
 
     for (size_t harvesting_mask = 0; harvesting_mask < (1 << max_num_harvested_x); harvesting_mask++) {
         std::shared_ptr<CoordinateManager> coordinate_manager =
-            CoordinateManager::create_coordinate_manager(tt::ARCH::BLACKHOLE, true, harvesting_mask);
+            CoordinateManager::create_coordinate_manager(tt::ARCH::BLACKHOLE, true, {harvesting_mask});
 
         std::map<CoreCoord, CoreCoord> logical_to_physical;
         std::set<CoreCoord> physical_coords_set;
@@ -103,7 +103,7 @@ TEST(CoordinateManager, CoordinateManagerBlackholeLogicalVirtualMapping) {
 
     for (size_t harvesting_mask = 0; harvesting_mask < (1 << max_num_harvested_x); harvesting_mask++) {
         std::shared_ptr<CoordinateManager> coordinate_manager =
-            CoordinateManager::create_coordinate_manager(tt::ARCH::BLACKHOLE, true, harvesting_mask);
+            CoordinateManager::create_coordinate_manager(tt::ARCH::BLACKHOLE, true, {harvesting_mask});
 
         std::map<CoreCoord, CoreCoord> logical_to_virtual;
         std::set<CoreCoord> virtual_coords_set;
@@ -145,7 +145,7 @@ TEST(CoordinateManager, CoordinateManagerBlackholeLogicalTranslatedMapping) {
 
     for (size_t harvesting_mask = 0; harvesting_mask < (1 << max_num_harvested_x); harvesting_mask++) {
         std::shared_ptr<CoordinateManager> coordinate_manager =
-            CoordinateManager::create_coordinate_manager(tt::ARCH::BLACKHOLE, true, harvesting_mask);
+            CoordinateManager::create_coordinate_manager(tt::ARCH::BLACKHOLE, true, {harvesting_mask});
 
         std::map<CoreCoord, CoreCoord> logical_to_translated;
         std::set<CoreCoord> translated_coords_set;
@@ -187,7 +187,7 @@ TEST(CoordinateManager, CoordinateManagerBlackholeVirtualEqualTranslated) {
 
     for (size_t harvesting_mask = 0; harvesting_mask < (1 << max_num_harvested_x); harvesting_mask++) {
         std::shared_ptr<CoordinateManager> coordinate_manager =
-            CoordinateManager::create_coordinate_manager(tt::ARCH::BLACKHOLE, true, harvesting_mask);
+            CoordinateManager::create_coordinate_manager(tt::ARCH::BLACKHOLE, true, {harvesting_mask});
 
         size_t num_harvested_x = CoordinateManager::get_num_harvested(harvesting_mask);
 
@@ -210,7 +210,7 @@ TEST(CoordinateManager, CoordinateManagerBlackholeVirtualEqualTranslated) {
 TEST(CoordinateManager, CoordinateManagerBlackholeTransltedMappingHarvested) {
     const size_t harvesting_mask = (1 << 0) | (1 << 1);
     std::shared_ptr<CoordinateManager> coordinate_manager =
-        CoordinateManager::create_coordinate_manager(tt::ARCH::BLACKHOLE, true, harvesting_mask);
+        CoordinateManager::create_coordinate_manager(tt::ARCH::BLACKHOLE, true, {harvesting_mask});
 
     const tt_xy_pair tensix_grid_size = tt::umd::blackhole::TENSIX_GRID_SIZE;
     const std::vector<tt_xy_pair> tensix_cores = tt::umd::blackhole::TENSIX_CORES;
@@ -281,7 +281,7 @@ TEST(CoordinateManager, CoordinateManagerBlackholeDRAMNoHarvesting) {
 // Test top left corner translation from logical to physical coordinates.
 TEST(CoordinateManager, CoordinateManagerBlackholeDRAMTopLeft) {
     std::shared_ptr<CoordinateManager> coordinate_manager =
-        CoordinateManager::create_coordinate_manager(tt::ARCH::BLACKHOLE, true, 0, 1);
+        CoordinateManager::create_coordinate_manager(tt::ARCH::BLACKHOLE, true, {0, 1});
 
     const CoreCoord top_left_dram_logical = CoreCoord(0, 0, CoreType::DRAM, CoordSystem::LOGICAL);
     const CoreCoord expected_top_left_physical = CoreCoord(0, 2, CoreType::DRAM, CoordSystem::PHYSICAL);
@@ -308,7 +308,7 @@ TEST(CoordinateManager, CoordinateManagerBlackholeDRAMLogicalPhysicalMapping) {
         }
 
         std::shared_ptr<CoordinateManager> coordinate_manager =
-            CoordinateManager::create_coordinate_manager(tt::ARCH::BLACKHOLE, true, 0, harvesting_mask);
+            CoordinateManager::create_coordinate_manager(tt::ARCH::BLACKHOLE, true, {0, harvesting_mask});
 
         std::map<CoreCoord, CoreCoord> logical_to_physical;
         std::set<CoreCoord> physical_coords_set;
@@ -357,7 +357,7 @@ TEST(CoordinateManager, CoordinateManagerBlackholeDRAMLogicalVirtualMapping) {
         }
 
         std::shared_ptr<CoordinateManager> coordinate_manager =
-            CoordinateManager::create_coordinate_manager(tt::ARCH::BLACKHOLE, true, 0, harvesting_mask);
+            CoordinateManager::create_coordinate_manager(tt::ARCH::BLACKHOLE, true, {0, harvesting_mask});
 
         std::map<CoreCoord, CoreCoord> logical_to_virtual;
         std::set<CoreCoord> virtual_coords_set;
@@ -399,7 +399,7 @@ TEST(CoordinateManager, CoordinateManagerBlackholeDRAMTranslatedMapping) {
         }
 
         std::shared_ptr<CoordinateManager> coordinate_manager =
-            CoordinateManager::create_coordinate_manager(tt::ARCH::BLACKHOLE, true, 0, harvesting_mask);
+            CoordinateManager::create_coordinate_manager(tt::ARCH::BLACKHOLE, true, {0, harvesting_mask});
 
         std::map<CoreCoord, CoreCoord> logical_to_translated;
         std::set<CoreCoord> translated_coord_set;
@@ -446,8 +446,9 @@ TEST(CoordinateManager, CoordinateManagerBlackholeDRAMVirtualPhysicalMapping) {
 
     const size_t dram_harvesting_mask = 1;
 
+    const HarvestingMasks harvesting_masks = {.dram_harvesting_mask = dram_harvesting_mask};
     std::shared_ptr<CoordinateManager> coordinate_manager =
-        CoordinateManager::create_coordinate_manager(tt::ARCH::BLACKHOLE, true, 0, dram_harvesting_mask);
+        CoordinateManager::create_coordinate_manager(tt::ARCH::BLACKHOLE, true, harvesting_masks);
 
     const size_t physical_index = 0;
     const size_t virtual_index = (num_dram_banks - 1) * num_noc_ports_per_bank;
@@ -489,8 +490,9 @@ TEST(CoordinateManager, CoordinateManagerBlackholeDRAMPMoreThanOneDRAMBankHarves
             continue;
         }
 
+        const HarvestingMasks harvesting_masks = {.dram_harvesting_mask = harvesting_mask};
         EXPECT_THROW(
-            CoordinateManager::create_coordinate_manager(tt::ARCH::BLACKHOLE, true, 0, harvesting_mask),
+            CoordinateManager::create_coordinate_manager(tt::ARCH::BLACKHOLE, true, harvesting_masks),
             std::runtime_error);
     }
 }
@@ -498,7 +500,7 @@ TEST(CoordinateManager, CoordinateManagerBlackholeDRAMPMoreThanOneDRAMBankHarves
 // Test that virtual, physical and translated coordinates are the same for all logical PCIE coordinates.
 TEST(CoordinateManager, CoordinateManagerBlackholePCIETranslationLocal) {
     std::shared_ptr<CoordinateManager> coordinate_manager =
-        CoordinateManager::create_coordinate_manager(tt::ARCH::BLACKHOLE, true, 0, 0, 0, BoardType::P300, false);
+        CoordinateManager::create_coordinate_manager(tt::ARCH::BLACKHOLE, true, {0, 0, 0}, BoardType::P300, false);
     const tt_xy_pair pcie_grid_size = tt::umd::blackhole::PCIE_GRID_SIZE;
     const std::vector<tt_xy_pair> pcie_cores = tt::umd::blackhole::PCIE_CORES_TYPE2;
 
@@ -598,8 +600,10 @@ TEST(CoordinateManager, CoordinateManagerBlackholeETHHarvesting) {
             continue;
         }
 
+        const HarvestingMasks harvesting_masks = {.eth_harvesting_mask = harvesting_mask};
+
         std::shared_ptr<CoordinateManager> coordinate_manager =
-            CoordinateManager::create_coordinate_manager(tt::ARCH::BLACKHOLE, true, 0, 0, harvesting_mask);
+            CoordinateManager::create_coordinate_manager(tt::ARCH::BLACKHOLE, true, harvesting_masks);
 
         for (size_t eth_channel = 0; eth_channel < num_eth_channels - num_harvested_cores; eth_channel++) {
             const CoreCoord eth_logical = CoreCoord(0, eth_channel, CoreType::ETH, CoordSystem::LOGICAL);
@@ -633,10 +637,11 @@ TEST(CoordinateManager, CoordinateManagerBlackholePhysicalLayoutTensixHarvesting
     const size_t max_num_harvested_x = 14;
 
     for (size_t harvesting_mask = 0; harvesting_mask < (1 << max_num_harvested_x); harvesting_mask++) {
+        const HarvestingMasks harvesting_masks = {.tensix_harvesting_mask = harvesting_mask};
         std::shared_ptr<CoordinateManager> coordinate_manager =
-            CoordinateManager::create_coordinate_manager(tt::ARCH::BLACKHOLE, true, harvesting_mask);
+            CoordinateManager::create_coordinate_manager(tt::ARCH::BLACKHOLE, true, harvesting_masks);
 
-        EXPECT_EQ(coordinate_manager->get_tensix_harvesting_mask(), harvesting_mask);
+        EXPECT_EQ(coordinate_manager->get_harvesting_masks().tensix_harvesting_mask, harvesting_mask);
     }
 }
 

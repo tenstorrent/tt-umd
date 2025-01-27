@@ -10,10 +10,10 @@
 
 namespace tt::umd {
 
-struct SoftwareHarvesting {
-    uint32_t tensix_harvesting_mask;
-    uint32_t eth_harvesting_mask;
-    uint32_t dram_harvesting_mask;
+struct HarvestingMasks {
+    size_t tensix_harvesting_mask = 0;
+    size_t dram_harvesting_mask = 0;
+    size_t eth_harvesting_mask = 0;
 };
 
 }  // namespace tt::umd

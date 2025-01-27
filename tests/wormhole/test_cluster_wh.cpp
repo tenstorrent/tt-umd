@@ -102,7 +102,7 @@ TEST(SiliconDriverWH, CreateDestroy) {
 TEST(SiliconDriverWH, Harvesting) {
     std::set<chip_id_t> target_devices = get_target_devices();
     int num_devices = target_devices.size();
-    std::unordered_map<chip_id_t, SoftwareHarvesting> simulated_harvesting_masks = {{0, {30, 0, 0}}, {1, {60, 0, 0}}};
+    std::unordered_map<chip_id_t, HarvestingMasks> simulated_harvesting_masks = {{0, {30, 0, 0}}, {1, {60, 0, 0}}};
 
     uint32_t num_host_mem_ch_per_mmio_device = 1;
     Cluster cluster = Cluster(num_host_mem_ch_per_mmio_device, false, true, true, simulated_harvesting_masks);
@@ -126,7 +126,7 @@ TEST(SiliconDriverWH, Harvesting) {
     for (int i = 0; i < num_devices; i++) {
         // harvesting info stored in soc descriptor is in logical coordinates.
         ASSERT_EQ(
-            cluster.get_soc_descriptor(i).tensix_harvesting_mask,
+            cluster.get_soc_descriptor(i).harvesting_masks.tensix_harvesting_mask,
             simulated_harvesting_masks.at(i).tensix_harvesting_mask)
             << "Expecting chip " << i << " to have harvesting mask of "
             << simulated_harvesting_masks.at(i).tensix_harvesting_mask;
@@ -146,7 +146,7 @@ TEST(SiliconDriverWH, Harvesting) {
 
 TEST(SiliconDriverWH, CustomSocDesc) {
     std::set<chip_id_t> target_devices = get_target_devices();
-    std::unordered_map<chip_id_t, SoftwareHarvesting> simulated_harvesting_masks = {{0, {30, 0, 0}}, {1, {60, 0, 0}}};
+    std::unordered_map<chip_id_t, HarvestingMasks> simulated_harvesting_masks = {{0, {30, 0, 0}}, {1, {60, 0, 0}}};
 
     uint32_t num_host_mem_ch_per_mmio_device = 1;
     // Initialize the driver with a 1x1 descriptor and explictly do not perform harvesting
@@ -171,7 +171,7 @@ TEST(SiliconDriverWH, HarvestingRuntime) {
     auto get_static_tlb_index_callback = [](tt_xy_pair target) { return get_static_tlb_index(target); };
 
     std::set<chip_id_t> target_devices = get_target_devices();
-    std::unordered_map<chip_id_t, SoftwareHarvesting> simulated_harvesting_masks = {{0, {30, 0, 0}}, {1, {60, 0, 0}}};
+    std::unordered_map<chip_id_t, HarvestingMasks> simulated_harvesting_masks = {{0, {30, 0, 0}}, {1, {60, 0, 0}}};
 
     uint32_t num_host_mem_ch_per_mmio_device = 1;
 

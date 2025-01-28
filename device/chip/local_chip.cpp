@@ -47,6 +47,17 @@ void LocalChip::initialize_tlb_manager() {
         "SMALL_READ_WRITE_TLB", tt_device_->get_architecture_implementation()->get_small_read_write_tlb());
 }
 
+LocalChip::LocalChip(std::unique_ptr<TTDevice> tt_device, const ChipInfo chip_info) :
+    Chip(
+        chip_info,
+        tt_SocDescriptor(
+            tt_SocDescriptor::get_soc_descriptor_path(tt_device->get_arch()),
+            chip_info.noc_translation_enabled,
+            chip_info.harvesting_masks)),
+    tt_device_(std::move(tt_device)) {
+    initialize_tlb_manager();
+}
+
 TTDevice* LocalChip::get_tt_device() { return tt_device_.get(); }
 
 bool LocalChip::is_mmio_capable() const { return true; }

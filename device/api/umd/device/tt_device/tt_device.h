@@ -29,6 +29,10 @@ struct dynamic_tlb {
     uint64_t remaining_size;  // Bytes remaining between bar_offset and end of the TLB.
 };
 
+namespace boost::interprocess {
+class named_mutex;
+}
+
 namespace tt::umd {
 
 class TLBManager;

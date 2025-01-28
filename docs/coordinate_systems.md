@@ -27,6 +27,8 @@ Harvesting refers to cores being disabled due to binning. Workloads cannot be ru
 
 On Grayskull, harvesting of tensix rows is supported. That means that on the tensix grid (12x10) there will always be 12 columns of chips, but number of rows can decrease. In practice, Grayskull chips have one or two rows harvested.
 
+Note that there is no limitation on which specific rows can be harvested.
+
 Harvesting of non-tensix cores (DRAM, PCIe, ARC, Ethernet, Router) is  not supported.
 
 ### Wormhole harvesting
@@ -101,7 +103,7 @@ When using virtual coordinates, it is same as that the N harvested rows/columns 
 
 **Motivation: Allow binaries to be compatible across different devices, as long as their number of harvested tensix/dram/eth cores are same.**
 
-Wormhole and later architectures implement a programmable coordinate translation table in hardware for each row and column. Programming is done ahead of time by ARC firmware. The coordinates are dynamically mapped to each physical node through hardware LUTs, which depend on the harvesting configuration.
+Wormhole and later architectures implement a programmable coordinate translation table in hardware for each row and column. Programming is done ahead of time by ARC firmware. The coordinates are dynamically mapped to each physical node through hardware translation process, which depend on the harvesting configuration.
 
 This coordinate system aims to abstract away the effects of harvesting (see below) by relying on a convex grid of cores. This allows each layer to be oblivious to the effects of harvesting.
 
@@ -113,13 +115,15 @@ Translated coordinates should be used in binaries that are loaded on device core
 
 Translated coordinates are equal to physical coordinates on Grayskull. There is no programmable coordinate translation, translated to physical coordinate translation is always 1-1 mapping.
 
+As a consequence, firmware for two chips with different harvested rows is not compatible for grayskull. This was the motivation for different translated coordinate schemes on Wormhole and beyond.
+
 ### Wormhole translated coordinates
 
-Translated coordinates on Wormhole are supported for Ethernet and Tensix cores. Translated coordinates on Wormhole start at 16-16 (due to hardware design features) and go through a hardware based LUT to access physical tensix endpoints. Example mapping for Tensix and Ethernet cores to translated coordinates are below
+Translated coordinates on Wormhole are supported for Ethernet and Tensix cores. Translated coordinates on Wormhole start at 16-16 (due to hardware design features) and go through a hardware translation process to access physical tensix endpoints. Example mapping for Tensix and Ethernet cores to translated coordinates are below
 
 ![Tensix translated coordinates](images/tensix_translated_coordinates.png)
 
-Harvesting some number of rows would have the same effect as for logical coordinates, range of coordinates still stays contigouous, there are just less cores on the harvested axis. 
+When harvesting some number of rows, range of translated coordinates coordinates still stays contigouous, there are just less cores on the harvested axis. 
 
 ![Tensix translated coordinates harvested](images/tensix_translated_coordinates_harvested.png)
 

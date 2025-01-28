@@ -103,6 +103,11 @@ function(fetch_dependencies)
     ####################################################################################################################
     # spdlog
     ####################################################################################################################
-    CPMAddPackage(NAME spdlog GITHUB_REPOSITORY gabime/spdlog GIT_TAG v1.14.1 VERSION v1.14.1)
+    CPMAddPackage(
+        NAME spdlog
+        GITHUB_REPOSITORY gabime/spdlog
+        GIT_TAG
+            96a8f6250cbf4e8c76387c614f666710a2fa9bad # Version v 1.15+fmtlib fixes
+    )
 endfunction()
 fetch_dependencies()

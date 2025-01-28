@@ -3,11 +3,17 @@
 // SPDX-License-Identifier: Apache-2.0
 #include "umd/device/tt_device/tt_device.h"
 
+#include <boost/interprocess/permissions.hpp>
+#include <boost/interprocess/sync/named_mutex.hpp>
+#include <boost/interprocess/sync/scoped_lock.hpp>
+
 #include "logger.hpp"
 #include "umd/device/driver_atomics.h"
 #include "umd/device/tt_device/blackhole_tt_device.h"
 #include "umd/device/tt_device/grayskull_tt_device.h"
 #include "umd/device/tt_device/wormhole_tt_device.h"
+
+using namespace boost::interprocess;
 
 namespace tt::umd {
 
@@ -16,7 +22,9 @@ TTDevice::TTDevice(
     pci_device_(std::move(pci_device)),
     architecture_impl_(std::move(architecture_impl)),
     tlb_manager_(std::make_unique<TLBManager>(this)),
-    arch(architecture_impl_->get_architecture()) {}
+    arch(architecture_impl_->get_architecture()) {
+    create_read_write_mutex();
+}
 
 /* static */ std::unique_ptr<TTDevice> TTDevice::create(int pci_device_number) {
     auto pci_device = std::make_unique<PCIDevice>(pci_device_number);
@@ -207,6 +215,38 @@ void TTDevice::read_block(uint64_t byte_addr, uint64_t num_bytes, uint8_t *buffe
     }
 }
 
+void TTDevice::read_from_device(void *mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size) {
+    const scoped_lock<named_mutex> lock(*read_write_mutex);
+    uint8_t *buffer_addr = static_cast<uint8_t *>(mem_ptr);
+    const uint32_t tlb_index = get_architecture_implementation()->get_small_read_write_tlb();
+    while (size > 0) {
+        auto [mapped_address, tlb_size] = set_dynamic_tlb(tlb_index, core, addr, tt::umd::tlb_data::Strict);
+        uint32_t transfer_size = std::min((uint64_t)size, tlb_size);
+        read_block(mapped_address, transfer_size, buffer_addr);
+
+        size -= transfer_size;
+        addr += transfer_size;
+        buffer_addr += transfer_size;
+    }
+}
+
+void TTDevice::write_to_device(void *mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size) {
+    const scoped_lock<named_mutex> lock(*read_write_mutex);
+    uint8_t *buffer_addr = static_cast<uint8_t *>(mem_ptr);
+    const uint32_t tlb_index = get_architecture_implementation()->get_small_read_write_tlb();
+    // const scoped_lock<named_mutex> lock(*get_mutex(fallback_tlb, target.chip));
+
+    while (size > 0) {
+        auto [mapped_address, tlb_size] = set_dynamic_tlb(tlb_index, core, addr, tt::umd::tlb_data::Strict);
+        uint32_t transfer_size = std::min((uint64_t)size, tlb_size);
+        write_block(mapped_address, transfer_size, buffer_addr);
+
+        size -= transfer_size;
+        addr += transfer_size;
+        buffer_addr += transfer_size;
+    }
+}
+
 void TTDevice::write_tlb_reg(
     uint32_t byte_addr, uint64_t value_lower, uint64_t value_upper, uint32_t tlb_cfg_reg_size) {
     log_assert(
@@ -310,6 +350,12 @@ void TTDevice::configure_iatu_region(size_t region, uint64_t base, uint64_t targ
     //
     // For now, just throw an exception.
     throw std::runtime_error("configure_iatu_region is not implemented for this device");
+}
+
+void TTDevice::create_read_write_mutex() {
+    permissions unrestricted_permissions;
+    unrestricted_permissions.set_unrestricted();
+    read_write_mutex = std::make_shared<named_mutex>(open_or_create, "read_write_mutex", unrestricted_permissions);
 }
 
 }  // namespace tt::umd

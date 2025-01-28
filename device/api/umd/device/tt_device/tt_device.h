@@ -27,6 +27,10 @@ struct dynamic_tlb {
     uint64_t remaining_size;  // Bytes remaining between bar_offset and end of the TLB.
 };
 
+namespace boost::interprocess {
+class named_mutex;
+}
+
 namespace tt::umd {
 
 class TLBManager;
@@ -64,6 +68,8 @@ public:
     void write_regs(volatile uint32_t *dest, const uint32_t *src, uint32_t word_len);
     void write_regs(uint32_t byte_addr, uint32_t word_len, const void *data);
     void read_regs(uint32_t byte_addr, uint32_t word_len, void *data);
+    void read_from_device(void *mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size);
+    void write_to_device(void *mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size);
 
     // TLB related functions.
     // TODO: These are architecture specific, and will be moved out of the class.
@@ -137,5 +143,9 @@ protected:
     // to 2-byte writes. We avoid ever performing a 1-byte write to the device. This only affects to device.
     void memcpy_to_device(void *dest, const void *src, std::size_t num_bytes);
     void memcpy_from_device(void *dest, const void *src, std::size_t num_bytes);
+
+    void create_read_write_mutex();
+
+    std::shared_ptr<boost::interprocess::named_mutex> read_write_mutex = nullptr;
 };
 }  // namespace tt::umd

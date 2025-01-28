@@ -186,10 +186,7 @@ tt_xy_pair tt_SocDescriptor::calculate_grid_size(const std::vector<tt_xy_pair> &
 }
 
 void tt_SocDescriptor::create_coordinate_manager(
-    const bool noc_translation_enabled,
-    const size_t tensix_harvesting_mask,
-    const size_t dram_harvesting_mask,
-    const size_t eth_harvesting_mask) {
+    const bool noc_translation_enabled, const HarvestingMasks harvesting_masks) {
     const tt_xy_pair dram_grid_size = tt_xy_pair(dram_cores.size(), dram_cores.empty() ? 0 : dram_cores[0].size());
     const tt_xy_pair arc_grid_size = tt_SocDescriptor::calculate_grid_size(arc_cores);
     const tt_xy_pair pcie_grid_size = tt_SocDescriptor::calculate_grid_size(pcie_cores);
@@ -204,14 +201,12 @@ void tt_SocDescriptor::create_coordinate_manager(
     coordinate_manager = CoordinateManager::create_coordinate_manager(
         arch,
         noc_translation_enabled,
+        harvesting_masks,
         worker_grid_size,
         workers,
-        tensix_harvesting_mask,
         dram_grid_size,
         dram_cores_unpacked,
-        dram_harvesting_mask,
         ethernet_cores,
-        eth_harvesting_mask,
         arc_grid_size,
         arc_cores,
         pcie_grid_size,
@@ -235,12 +230,8 @@ tt::umd::CoreCoord tt_SocDescriptor::translate_coord_to(
 }
 
 tt_SocDescriptor::tt_SocDescriptor(
-    std::string device_descriptor_path,
-    const bool noc_translation_enabled,
-    const size_t tensix_harvesting_mask,
-    const size_t dram_harvesting_mask,
-    const size_t eth_harvesting_mask) :
-    tensix_harvesting_mask(tensix_harvesting_mask) {
+    std::string device_descriptor_path, const bool noc_translation_enabled, const HarvestingMasks harvesting_masks) :
+    harvesting_masks(harvesting_masks) {
     std::ifstream fdesc(device_descriptor_path);
     if (fdesc.fail()) {
         throw std::runtime_error(
@@ -259,8 +250,7 @@ tt_SocDescriptor::tt_SocDescriptor(
     arch_name_value = trim(arch_name_value);
     arch = tt::arch_from_str(arch_name_value);
     load_soc_features_from_device_descriptor(device_descriptor_yaml);
-    create_coordinate_manager(
-        noc_translation_enabled, tensix_harvesting_mask, dram_harvesting_mask, eth_harvesting_mask);
+    create_coordinate_manager(noc_translation_enabled, harvesting_masks);
 }
 
 int tt_SocDescriptor::get_num_dram_channels() const {

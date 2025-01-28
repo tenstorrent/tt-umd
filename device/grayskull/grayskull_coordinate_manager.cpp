@@ -10,14 +10,12 @@
 using namespace tt::umd;
 
 GrayskullCoordinateManager::GrayskullCoordinateManager(
+    HarvestingMasks harvesting_masks,
     const tt_xy_pair& tensix_grid_size,
     const std::vector<tt_xy_pair>& tensix_cores,
-    const size_t tensix_harvesting_mask,
     const tt_xy_pair& dram_grid_size,
     const std::vector<tt_xy_pair>& dram_cores,
-    const size_t dram_harvesting_mask,
     const std::vector<tt_xy_pair>& eth_cores,
-    const size_t eth_harvesting_mask,
     const tt_xy_pair& arc_grid_size,
     const std::vector<tt_xy_pair>& arc_cores,
     const tt_xy_pair& pcie_grid_size,
@@ -25,14 +23,12 @@ GrayskullCoordinateManager::GrayskullCoordinateManager(
     const std::vector<tt_xy_pair>& router_cores) :
     CoordinateManager(
         false,
+        harvesting_masks,
         tensix_grid_size,
         tensix_cores,
-        tensix_harvesting_mask,
         dram_grid_size,
         dram_cores,
-        dram_harvesting_mask,
         eth_cores,
-        eth_harvesting_mask,
         arc_grid_size,
         arc_cores,
         pcie_grid_size,

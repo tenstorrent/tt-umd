@@ -3,6 +3,10 @@
 // SPDX-License-Identifier: Apache-2.0
 #include "umd/device/tt_device/tt_device.h"
 
+#include <boost/interprocess/permissions.hpp>
+#include <boost/interprocess/sync/named_mutex.hpp>
+#include <boost/interprocess/sync/scoped_lock.hpp>
+
 #include "logger.hpp"
 #include "umd/device/driver_atomics.h"
 #include "umd/device/tt_device/blackhole_tt_device.h"
@@ -21,7 +25,8 @@ TTDevice::TTDevice(
     pci_device_(std::move(pci_device)),
     architecture_impl_(std::move(architecture_impl)),
     tlb_manager_(std::make_unique<TLBManager>(this)),
-    arch(architecture_impl_->get_architecture()) {}
+    arch(architecture_impl_->get_architecture()) {
+}
 
 /* static */ std::unique_ptr<TTDevice> TTDevice::create(int pci_device_number) {
     auto pci_device = std::make_unique<PCIDevice>(pci_device_number);

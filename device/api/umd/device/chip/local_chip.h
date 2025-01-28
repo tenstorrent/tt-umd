@@ -16,6 +16,8 @@ public:
 
     LocalChip(std::string sdesc_path, std::unique_ptr<TTDevice> tt_device);
 
+    LocalChip(std::unique_ptr<TTDevice> tt_device, const ChipInfo chip_info);
+
     TTDevice* get_tt_device() override;
 
     bool is_mmio_capable() const override;

@@ -14,6 +14,11 @@ Chip::Chip(tt_SocDescriptor soc_descriptor) : soc_descriptor_(soc_descriptor) {
     set_default_params(soc_descriptor.arch);
 }
 
+Chip::Chip(tt_SocDescriptor soc_descriptor, const ChipInfo chip_info) :
+    soc_descriptor_(soc_descriptor), chip_info_(chip_info) {
+    set_default_params(soc_descriptor.arch);
+}
+
 tt_SocDescriptor& Chip::get_soc_descriptor() { return soc_descriptor_; }
 
 TTDevice* Chip::get_tt_device() { return nullptr; }
@@ -42,6 +47,12 @@ void Chip::set_barrier_address_params(const barrier_address_params& barrier_addr
     l1_address_params.tensix_l1_barrier_base = barrier_address_params_.tensix_l1_barrier_base;
     l1_address_params.eth_l1_barrier_base = barrier_address_params_.eth_l1_barrier_base;
     dram_address_params.DRAM_BARRIER_BASE = barrier_address_params_.dram_barrier_base;
+}
+
+const ChipInfo& Chip::get_chip_info() { return chip_info_; }
+
+void Chip::wait_eth_cores_training(const uint32_t timeout_per_core) {
+    throw std::runtime_error("Waiting for training of ETH cores is supported only for Blackhole LocalChip.");
 }
 
 }  // namespace tt::umd

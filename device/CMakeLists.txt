@@ -49,6 +49,7 @@ target_sources(
         wormhole/wormhole_coordinate_manager.cpp
         blackhole/blackhole_coordinate_manager.cpp
         blackhole/blackhole_arc_message_queue.cpp
+        blackhole/blackhole_arc_telemetry_reader.cpp
         xy_pair.cpp
         ${FBS_GENERATED_HEADER}
 )

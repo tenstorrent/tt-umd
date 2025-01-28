@@ -12,5 +12,8 @@ namespace tt::umd {
 class GrayskullTTDevice : public TTDevice {
 public:
     GrayskullTTDevice(std::unique_ptr<PCIDevice> pci_device);
+
+protected:
+    ChipInfo get_chip_info() override;
 };
 }  // namespace tt::umd

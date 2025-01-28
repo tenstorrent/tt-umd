@@ -11,6 +11,7 @@
 #include <cstdint>
 #include <functional>
 
+#include "fmt/core.h"
 #include "umd/device/types/harvesting.h"
 
 // Small performant hash combiner taken from boost library.
@@ -50,6 +51,33 @@ enum BoardType : uint32_t {
     GALAXY,
     UNKNOWN,
 };
+
+inline std::string board_type_to_string(const BoardType board_type) {
+    switch (board_type) {
+        case BoardType::E75:
+            return "e75";
+        case BoardType::E150:
+            return "e150";
+        case BoardType::E300:
+            return "e300";
+        case BoardType::N150:
+            return "n150";
+        case BoardType::N300:
+            return "n300";
+        case BoardType::P100:
+            return "p100";
+        case BoardType::P150A:
+            return "p150";
+        case BoardType::P300:
+            return "p300";
+        case BoardType::GALAXY:
+            return "galaxy";
+        case BoardType::UNKNOWN:
+            return "unknown";
+    }
+
+    throw std::runtime_error("Unknown board type passed for conversion to string.");
+}
 
 // TODO: add Wormhole and Grayskull board types to this function
 inline BoardType get_board_type_from_board_id(const uint64_t board_id) {

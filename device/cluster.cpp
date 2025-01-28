@@ -36,6 +36,7 @@
 #include <utility>
 #include <vector>
 
+#include "api/umd/device/cluster.h"
 #include "api/umd/device/tt_core_coordinates.h"
 #include "logger.hpp"
 #include "umd/device/architecture_implementation.h"
@@ -427,7 +428,11 @@ void Cluster::construct_cluster(
 }
 
 std::unique_ptr<Chip> Cluster::construct_chip_from_cluster(
-    chip_id_t chip_id, tt_ClusterDescriptor* cluster_desc, tt_SocDescriptor& soc_desc) {
+    chip_id_t chip_id, tt_ClusterDescriptor* cluster_desc, tt_SocDescriptor& soc_desc, const bool create_mock_chip) {
+    if (create_mock_chip) {
+        return std::make_unique<MockChip>(soc_desc);
+    }
+
     if (cluster_desc->is_chip_mmio_capable(chip_id)) {
         return std::make_unique<LocalChip>(soc_desc, cluster_desc->get_chips_with_mmio().at(chip_id));
     } else {
@@ -440,7 +445,8 @@ std::unique_ptr<Chip> Cluster::construct_chip_from_cluster(
     chip_id_t chip_id,
     tt_ClusterDescriptor* cluster_desc,
     bool perform_harvesting,
-    std::unordered_map<chip_id_t, HarvestingMasks>& simulated_harvesting_masks) {
+    std::unordered_map<chip_id_t, HarvestingMasks>& simulated_harvesting_masks,
+    const bool create_mock_chip) {
     HarvestingMasks harvesting_masks =
         get_harvesting_masks(chip_id, cluster_desc, perform_harvesting, simulated_harvesting_masks);
     tt_SocDescriptor soc_desc =
@@ -452,7 +458,8 @@ std::unique_ptr<Chip> Cluster::construct_chip_from_cluster(
     chip_id_t chip_id,
     tt_ClusterDescriptor* cluster_desc,
     bool perform_harvesting,
-    std::unordered_map<chip_id_t, HarvestingMasks>& simulated_harvesting_masks) {
+    std::unordered_map<chip_id_t, HarvestingMasks>& simulated_harvesting_masks,
+    const bool create_mock_chip) {
     tt::ARCH arch = cluster_desc->get_arch(chip_id);
     const BoardType chip_board_type = cluster_desc->get_board_type(chip_id);
     std::string soc_desc_path = tt_SocDescriptor::get_soc_descriptor_path(arch, chip_board_type);
@@ -553,13 +560,15 @@ Cluster::Cluster(
     const bool skip_driver_allocs,
     const bool clean_system_resources,
     bool perform_harvesting,
-    std::unordered_map<chip_id_t, HarvestingMasks> simulated_harvesting_masks) {
+    std::unordered_map<chip_id_t, HarvestingMasks> simulated_harvesting_masks,
+    const bool create_mock_chips) {
     cluster_desc = Cluster::create_cluster_descriptor();
 
     for (auto& chip_id : cluster_desc->get_all_chips()) {
         add_chip(
             chip_id,
-            construct_chip_from_cluster(chip_id, cluster_desc.get(), perform_harvesting, simulated_harvesting_masks));
+            construct_chip_from_cluster(
+                chip_id, cluster_desc.get(), perform_harvesting, simulated_harvesting_masks, create_mock_chips));
     }
 
     // TODO: work on removing this member altogether. Currently assumes all have the same arch.
@@ -579,7 +588,8 @@ Cluster::Cluster(
     const bool skip_driver_allocs,
     const bool clean_system_resources,
     bool perform_harvesting,
-    std::unordered_map<chip_id_t, HarvestingMasks> simulated_harvesting_masks) {
+    std::unordered_map<chip_id_t, HarvestingMasks> simulated_harvesting_masks,
+    const bool create_mock_chips) {
     cluster_desc = Cluster::create_cluster_descriptor();
 
     for (auto& chip_id : target_devices) {
@@ -589,7 +599,8 @@ Cluster::Cluster(
             chip_id);
         add_chip(
             chip_id,
-            construct_chip_from_cluster(chip_id, cluster_desc.get(), perform_harvesting, simulated_harvesting_masks));
+            construct_chip_from_cluster(
+                chip_id, cluster_desc.get(), perform_harvesting, simulated_harvesting_masks, create_mock_chips));
     }
 
     // TODO: work on removing this member altogether. Currently assumes all have the same arch.
@@ -610,7 +621,8 @@ Cluster::Cluster(
     const bool skip_driver_allocs,
     const bool clean_system_resources,
     bool perform_harvesting,
-    std::unordered_map<chip_id_t, HarvestingMasks> simulated_harvesting_masks) {
+    std::unordered_map<chip_id_t, HarvestingMasks> simulated_harvesting_masks,
+    const bool create_mock_chips) {
     cluster_desc = Cluster::create_cluster_descriptor();
 
     for (auto& chip_id : target_devices) {
@@ -621,7 +633,12 @@ Cluster::Cluster(
         add_chip(
             chip_id,
             construct_chip_from_cluster(
-                sdesc_path, chip_id, cluster_desc.get(), perform_harvesting, simulated_harvesting_masks));
+                sdesc_path,
+                chip_id,
+                cluster_desc.get(),
+                perform_harvesting,
+                simulated_harvesting_masks,
+                create_mock_chips));
         log_assert(
             cluster_desc->get_arch(chip_id) == chips_.at(chip_id)->get_soc_descriptor().arch,
             "Passed soc descriptor has {} arch, but for chip id {} has arch {}",
@@ -642,16 +659,20 @@ Cluster::Cluster(
 }
 
 Cluster::Cluster(
-    std::unordered_map<chip_id_t, std::unique_ptr<Chip>>& chips,
+    std::unique_ptr<tt_ClusterDescriptor> cluster_descriptor,
     const uint32_t& num_host_mem_ch_per_mmio_device,
     const bool skip_driver_allocs,
     const bool clean_system_resources,
     bool perform_harvesting,
-    const std::unordered_map<chip_id_t, HarvestingMasks> simulated_harvesting_masks) {
-    cluster_desc = Cluster::create_cluster_descriptor();
+    std::unordered_map<chip_id_t, HarvestingMasks> simulated_harvesting_masks,
+    const bool create_mock_chips) {
+    cluster_desc = std::move(cluster_descriptor);
 
-    for (auto& [chip_id, chip] : chips) {
-        add_chip(chip_id, std::move(chip));
+    for (auto& chip_id : cluster_desc->get_all_chips()) {
+        add_chip(
+            chip_id,
+            construct_chip_from_cluster(
+                chip_id, cluster_desc.get(), perform_harvesting, simulated_harvesting_masks, create_mock_chips));
     }
 
     // TODO: work on removing this member altogether. Currently assumes all have the same arch.
@@ -663,24 +684,6 @@ Cluster::Cluster(
         clean_system_resources,
         perform_harvesting,
         simulated_harvesting_masks);
-}
-
-// TODO:This likely won't work well as long as cluster_descriptor is used throughout the code.
-/* static */ std::unique_ptr<Cluster> Cluster::create_mock_cluster() {
-    // TBD how this would look like for simulated cluster.
-    // Arbitrary arch used for mock cluster.
-    // Note that this arch currently has an impact on some stuff in Cluster class, based on the produced cluster
-    // descriptor on the system. This should not be true in the future when we start taking stuff in Cluster from Chip
-    // rather than ClusterDescriptor.
-    tt::ARCH arch = tt::ARCH::GRAYSKULL;
-    chip_id_t mock_chip_id = 0;
-    tt_SocDescriptor soc_desc =
-        tt_SocDescriptor(tt_SocDescriptor::get_soc_descriptor_path(arch, BoardType::UNKNOWN), false);
-    std::unique_ptr<Chip> chip = std::make_unique<MockChip>(soc_desc);
-
-    std::unordered_map<chip_id_t, std::unique_ptr<Chip>> chips;
-    chips.emplace(mock_chip_id, std::move(chip));
-    return std::make_unique<Cluster>(chips);
 }
 
 void Cluster::configure_active_ethernet_cores_for_mmio_device(
@@ -3536,5 +3539,7 @@ std::unique_ptr<tt_ClusterDescriptor> Cluster::create_cluster_descriptor(
 
     return desc;
 }
+
+std::string Cluster::serialize() { return Cluster::create_cluster_descriptor()->serialize(); }
 
 }  // namespace tt::umd

@@ -700,7 +700,8 @@ public:
         const bool skip_driver_allocs = false,
         const bool clean_system_resources = false,
         bool perform_harvesting = true,
-        std::unordered_map<chip_id_t, HarvestingMasks> simulated_harvesting_masks = {});
+        std::unordered_map<chip_id_t, HarvestingMasks> simulated_harvesting_masks = {},
+        const bool create_mock_chips = false);
 
     /**
      * Cluster constructor.
@@ -720,7 +721,8 @@ public:
         const bool skip_driver_allocs = false,
         const bool clean_system_resources = false,
         bool perform_harvesting = true,
-        std::unordered_map<chip_id_t, HarvestingMasks> simulated_harvesting_masks = {});
+        std::unordered_map<chip_id_t, HarvestingMasks> simulated_harvesting_masks = {},
+        const bool create_mock_chips = false);
 
     /**
      * Cluster constructor.
@@ -744,34 +746,17 @@ public:
         const bool skip_driver_allocs = false,
         const bool clean_system_resources = false,
         bool perform_harvesting = true,
-        std::unordered_map<chip_id_t, HarvestingMasks> simulated_harvesting_masks = {});
+        std::unordered_map<chip_id_t, HarvestingMasks> simulated_harvesting_masks = {},
+        const bool create_mock_chips = false);
 
-    /**
-     * Cluster constructor.
-     * This constructor offers maximal flexibility, allowing the user to pass manually created Chips.
-     * The user has to know what they are doing.
-     * TODO: Could fail if logical_ids not match the ones in cluster descriptor, while Cluster still uses cluster
-     * descriptor.
-     *
-     * @param chips Map of logical device ids to Chip instances.
-     * @param num_host_mem_ch_per_mmio_device Requested number of host channels (hugepages).
-     * @param skip_driver_allocs
-     * @param clean_system_resource Specifies if host state from previous runs needs to be cleaned up.
-     * @param perform_harvesting Allow the driver to modify the SOC descriptors per chip.
-     * @param simulated_harvesting_masks
-     */
     Cluster(
-        std::unordered_map<chip_id_t, std::unique_ptr<Chip>>& chips,
+        std::unique_ptr<tt_ClusterDescriptor> cluster_descriptor,
         const uint32_t& num_host_mem_ch_per_mmio_device = 1,
         const bool skip_driver_allocs = false,
         const bool clean_system_resources = false,
         bool perform_harvesting = true,
-        std::unordered_map<chip_id_t, HarvestingMasks> simulated_harvesting_masks = {});
-
-    /**
-     * Cluster constructor which creates a cluster with Mock chips.
-     */
-    static std::unique_ptr<Cluster> create_mock_cluster();
+        std::unordered_map<chip_id_t, HarvestingMasks> simulated_harvesting_masks = {},
+        const bool create_mock_chips = false);
 
     // Existing API we want to keep. UMD is transitioning to use CoreCoord instead of tt_xy_pair.
     // This set of function shouldn't be removed even after the transition.
@@ -996,6 +981,9 @@ public:
         const chip_id_t chip, const std::unordered_set<tt::umd::CoreCoord>& cores, const std::string& fallback_tlb);
 
     static std::unique_ptr<tt_ClusterDescriptor> create_cluster_descriptor();
+
+    static std::string serialize();
+
     // Destructor
     virtual ~Cluster();
 
@@ -1137,18 +1125,23 @@ private:
 
     // Helper functions for constructing the chips from the cluster descriptor.
     std::unique_ptr<Chip> construct_chip_from_cluster(
-        chip_id_t chip_id, tt_ClusterDescriptor* cluster_desc, tt_SocDescriptor& soc_desc);
+        chip_id_t chip_id,
+        tt_ClusterDescriptor* cluster_desc,
+        tt_SocDescriptor& soc_desc,
+        const bool create_mock_chip = false);
     std::unique_ptr<Chip> construct_chip_from_cluster(
         const std::string& soc_desc_path,
         chip_id_t chip_id,
         tt_ClusterDescriptor* cluster_desc,
         bool perform_harvesting,
-        std::unordered_map<chip_id_t, HarvestingMasks>& simulated_harvesting_masks);
+        std::unordered_map<chip_id_t, HarvestingMasks>& simulated_harvesting_masks,
+        const bool create_mock_chip = false);
     std::unique_ptr<Chip> construct_chip_from_cluster(
         chip_id_t logical_device_id,
         tt_ClusterDescriptor* cluster_desc,
         bool perform_harvesting,
-        std::unordered_map<chip_id_t, HarvestingMasks>& simulated_harvesting_masks);
+        std::unordered_map<chip_id_t, HarvestingMasks>& simulated_harvesting_masks,
+        const bool create_mock_chip = false);
     void add_chip(chip_id_t chip_id, std::unique_ptr<Chip> chip);
     HarvestingMasks get_harvesting_masks(
         chip_id_t chip_id,

@@ -1373,11 +1373,13 @@ uint32_t Cluster::get_harvested_noc_rows(uint32_t harvesting_mask) {
 }
 
 uint32_t Cluster::get_harvested_rows(int logical_device_id) {
+    std::cout << "getting harvested rows" << std::endl;
     const char* harv_override = std::getenv("T6PY_HARVESTING_OVERRIDE");
     uint32_t harv = 0xffffffff;
     if (harv_override) {
         harv = std::stoul(harv_override, nullptr, 16);
     } else {
+        std::cout << "calling arc message" << std::endl;
         auto mmio_capable_chip_logical = cluster_desc->get_closest_mmio_capable_chip(logical_device_id);
         TTDevice* tt_device = get_tt_device(mmio_capable_chip_logical);
         int harvesting_msg_code = arc_msg(
@@ -1388,6 +1390,7 @@ uint32_t Cluster::get_harvested_rows(int logical_device_id) {
             0,
             1,
             &harv);
+        std::cout << "harv " << harv << std::endl;
         log_assert(
             harvesting_msg_code != MSG_ERROR_REPLY, "Failed to read harvested rows from device {}", logical_device_id);
     }
@@ -3165,6 +3168,23 @@ tt_xy_pair Cluster::translate_chip_coord_virtual_to_translated(const chip_id_t c
     auto translated_coord = get_soc_descriptor(chip_id).translate_coord_to(
         core_coord, umd_use_noc1 ? CoordSystem::PHYSICAL : CoordSystem::TRANSLATED);
     return translated_coord;
+}
+
+std::vector<ChipInfo> Cluster::get_cluster_chip_info(
+    const std::vector<std::unique_ptr<tt::umd::TTDevice>>& tt_devices) {
+    std::vector<tt_xy_pair> eth_cores = tt::umd::blackhole::ETH_CORES;
+    const auto tlb_index = tt::umd::blackhole::MEM_LARGE_READ_TLB;
+
+    // TODO: make this generic when this code is used for other architectures.
+    tt_xy_pair arc_core = tt::umd::blackhole::ARC_CORES[0];
+
+    std::vector<ChipInfo> chip_info_vec;
+    for (auto& tt_device : tt_devices) {
+        tt_device->wait_arc_core_start(arc_core);
+        chip_info_vec.push_back(tt_device->get_chip_info());
+    }
+
+    return chip_info_vec;
 }
 
 std::unique_ptr<tt_ClusterDescriptor> Cluster::create_cluster_descriptor(std::string sdesc_path) {

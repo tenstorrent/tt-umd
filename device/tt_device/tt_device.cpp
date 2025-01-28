@@ -3,6 +3,10 @@
 // SPDX-License-Identifier: Apache-2.0
 #include "umd/device/tt_device/tt_device.h"
 
+#include <boost/interprocess/permissions.hpp>
+#include <boost/interprocess/sync/named_mutex.hpp>
+#include <boost/interprocess/sync/scoped_lock.hpp>
+
 #include "logger.hpp"
 #include "umd/device/arc_messenger.h"
 #include "umd/device/driver_atomics.h"

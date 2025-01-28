@@ -954,6 +954,8 @@ public:
 
     static std::filesystem::path serialize_to_file();
 
+    void ubb_eth_connections();
+
     // Destructor
     virtual ~Cluster();
 
@@ -1151,6 +1153,9 @@ private:
         std::unique_ptr<tt_ClusterDescriptor>& cluster_desc);
 
     void initialize_arc_communication();
+
+    static std::vector<ChipInfo> get_cluster_chip_info(
+        const std::vector<std::unique_ptr<tt::umd::TTDevice>>& tt_devices);
 
     // State variables
     std::vector<tt::ARCH> archs_in_cluster = {};

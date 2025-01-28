@@ -3,6 +3,9 @@
 // SPDX-License-Identifier: Apache-2.0
 #include "umd/device/tt_device/wormhole_tt_device.h"
 
+#include <iostream>
+
+#include "logger.hpp"
 #include "umd/device/wormhole_implementation.h"
 
 namespace tt::umd {

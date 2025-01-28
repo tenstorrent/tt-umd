@@ -9,14 +9,12 @@ using namespace tt::umd;
 
 WormholeCoordinateManager::WormholeCoordinateManager(
     const bool noc_translation_enabled,
+    const HarvestingMasks harvesting_masks,
     const tt_xy_pair& tensix_grid_size,
     const std::vector<tt_xy_pair>& tensix_cores,
-    const size_t tensix_harvesting_mask,
     const tt_xy_pair& dram_grid_size,
     const std::vector<tt_xy_pair>& dram_cores,
-    const size_t dram_harvesting_mask,
     const std::vector<tt_xy_pair>& eth_cores,
-    const size_t eth_harvesting_mask,
     const tt_xy_pair& arc_grid_size,
     const std::vector<tt_xy_pair>& arc_cores,
     const tt_xy_pair& pcie_grid_size,
@@ -24,14 +22,12 @@ WormholeCoordinateManager::WormholeCoordinateManager(
     const std::vector<tt_xy_pair>& router_cores) :
     CoordinateManager(
         noc_translation_enabled,
+        harvesting_masks,
         tensix_grid_size,
         tensix_cores,
-        tensix_harvesting_mask,
         dram_grid_size,
         dram_cores,
-        dram_harvesting_mask,
         eth_cores,
-        eth_harvesting_mask,
         arc_grid_size,
         arc_cores,
         pcie_grid_size,
@@ -41,7 +37,7 @@ WormholeCoordinateManager::WormholeCoordinateManager(
 }
 
 void WormholeCoordinateManager::fill_tensix_physical_translated_mapping() {
-    size_t num_harvested_y = CoordinateManager::get_num_harvested(tensix_harvesting_mask);
+    size_t num_harvested_y = CoordinateManager::get_num_harvested(harvesting_masks.tensix_harvesting_mask);
 
     for (size_t y = 0; y < tensix_grid_size.y - num_harvested_y; y++) {
         for (size_t x = 0; x < tensix_grid_size.x; x++) {
@@ -60,7 +56,7 @@ void WormholeCoordinateManager::fill_tensix_physical_translated_mapping() {
     size_t harvested_index = (tensix_grid_size.y - num_harvested_y) * tensix_grid_size.x;
     size_t translated_y = wormhole::tensix_translated_coordinate_start_y + tensix_grid_size.y - num_harvested_y;
     for (size_t y = 0; y < tensix_grid_size.y; y++) {
-        if (tensix_harvesting_mask & (1 << y)) {
+        if (harvesting_masks.tensix_harvesting_mask & (1 << y)) {
             for (size_t x = 0; x < tensix_grid_size.x; x++) {
                 const tt_xy_pair physical_core = tensix_cores[y * tensix_grid_size.x + x];
                 const size_t translated_x = x + wormhole::tensix_translated_coordinate_start_x;

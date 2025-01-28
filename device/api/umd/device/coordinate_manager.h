@@ -14,6 +14,7 @@
 #include "umd/device/tt_xy_pair.h"
 #include "umd/device/types/arch.h"
 #include "umd/device/types/cluster_descriptor_types.h"
+#include "umd/device/types/harvesting.h"
 
 class CoordinateManager {
 public:
@@ -28,14 +29,12 @@ public:
     static std::shared_ptr<CoordinateManager> create_coordinate_manager(
         tt::ARCH arch,
         const bool noc_translation_enabled,
+        tt::umd::HarvestingMasks harvesting_masks,
         const tt_xy_pair& tensix_grid_size,
         const std::vector<tt_xy_pair>& tensix_cores,
-        const size_t tensix_harvesting_mask,
         const tt_xy_pair& dram_grid_size,
         const std::vector<tt_xy_pair>& dram_cores,
-        const size_t dram_harvesting_mask,
         const std::vector<tt_xy_pair>& eth_cores,
-        const size_t eth_harvesting_mask,
         const tt_xy_pair& arc_grid_size,
         const std::vector<tt_xy_pair>& arc_cores,
         const tt_xy_pair& pcie_grid_size,
@@ -45,9 +44,7 @@ public:
     static std::shared_ptr<CoordinateManager> create_coordinate_manager(
         tt::ARCH arch,
         const bool noc_translation_enabled,
-        const size_t tensix_harvesting_mask = 0,
-        const size_t dram_harvesting_mask = 0,
-        const size_t eth_harvesting_mask = 0,
+        const tt::umd::HarvestingMasks harvesting_masks = {0, 0, 0},
         const BoardType board_type = BoardType::UNKNOWN,
         const bool is_chip_remote = false);
 
@@ -62,6 +59,7 @@ public:
         tt::ARCH arch, uint32_t tensix_harvesting_logical_layout);
 
     tt::umd::CoreCoord translate_coord_to(const tt::umd::CoreCoord core_coord, const CoordSystem coord_system) const;
+    tt::umd::CoreCoord get_coord_at(const tt_xy_pair core, const CoordSystem coord_system) const;
     tt::umd::CoreCoord translate_coord_to(
         const tt_xy_pair core, const CoordSystem input_coord_system, const CoordSystem target_coord_system) const;
 
@@ -71,9 +69,7 @@ public:
     std::vector<tt::umd::CoreCoord> get_harvested_cores(const CoreType core_type) const;
     tt_xy_pair get_harvested_grid_size(const CoreType core_type) const;
 
-    size_t get_tensix_harvesting_mask() const;
-    size_t get_dram_harvesting_mask() const;
-    size_t get_eth_harvesting_mask() const;
+    tt::umd::HarvestingMasks get_harvesting_masks() const;
 
     uint32_t get_num_eth_channels() const;
 
@@ -94,14 +90,12 @@ protected:
      */
     CoordinateManager(
         const bool noc_translation_enabled,
+        const tt::umd::HarvestingMasks harvesting_masks,
         const tt_xy_pair& tensix_grid_size,
         const std::vector<tt_xy_pair>& tensix_cores,
-        const size_t tensix_harvesting_mask,
         const tt_xy_pair& dram_grid_size,
         const std::vector<tt_xy_pair>& dram_cores,
-        const size_t dram_harvesting_mask,
         const std::vector<tt_xy_pair>& eth_cores,
-        const size_t eth_harvesting_mask,
         const tt_xy_pair& arc_grid_size,
         const std::vector<tt_xy_pair>& arc_cores,
         const tt_xy_pair& pcie_grid_size,
@@ -200,19 +194,16 @@ protected:
     // interface it with a coordinate system which abstracts away harvested cores. If it is not enabled, then we need to
     // interface it with noc0 coordinates.
     bool noc_translation_enabled;
+    tt::umd::HarvestingMasks harvesting_masks;
 
     tt_xy_pair tensix_grid_size;
     const std::vector<tt_xy_pair> tensix_cores;
-    size_t tensix_harvesting_mask;
-    const size_t physical_layout_tensix_harvesting_mask;
 
     tt_xy_pair dram_grid_size;
     const std::vector<tt_xy_pair> dram_cores;
-    size_t dram_harvesting_mask;
 
     const size_t num_eth_channels;
     const std::vector<tt_xy_pair> eth_cores;
-    const size_t eth_harvesting_mask;
 
     tt_xy_pair arc_grid_size;
     const std::vector<tt_xy_pair> arc_cores;

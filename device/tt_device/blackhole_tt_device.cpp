@@ -111,4 +111,24 @@ ChipInfo BlackholeTTDevice::get_chip_info() {
     return chip_info;
 }
 
+void BlackholeTTDevice::wait_arc_core_start(const tt_xy_pair arc_core, const uint32_t timeout_ms) {
+    auto start = std::chrono::system_clock::now();
+    uint32_t arc_boot_status;
+    while (true) {
+        read_from_device(&arc_boot_status, arc_core, tt::umd::blackhole::SCRATCH_RAM_2, sizeof(arc_boot_status));
+
+        // ARC started successfully.
+        if ((arc_boot_status & 0x7) == 0x5) {
+            return;
+        }
+
+        auto end = std::chrono::system_clock::now();  // End time
+        auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
+        if (duration.count() > timeout_ms) {
+            log_error(
+                "Timed out after waiting {} ms for arc core ({}, {}) to start", timeout_ms, arc_core.x, arc_core.y);
+        }
+    }
+}
+
 }  // namespace tt::umd

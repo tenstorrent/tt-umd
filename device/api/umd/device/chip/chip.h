@@ -19,6 +19,8 @@ class Chip {
 public:
     Chip(tt_SocDescriptor soc_descriptor);
 
+    Chip(const ChipInfo chip_info, tt_SocDescriptor soc_descriptor);
+
     virtual ~Chip() = default;
 
     tt_SocDescriptor& get_soc_descriptor();
@@ -28,6 +30,8 @@ public:
     virtual bool is_mmio_capable() const = 0;
 
     void set_barrier_address_params(const barrier_address_params& barrier_address_params_);
+
+    const ChipInfo& get_chip_info();
 
     // TODO: This should be private, once enough stuff is moved inside chip.
     // Probably also moved to LocalChip.
@@ -40,7 +44,14 @@ public:
 private:
     void set_default_params(ARCH arch);
 
+    ChipInfo chip_info_;
+
     tt_SocDescriptor soc_descriptor_;
+
+protected:
+    void wait_chip_to_be_ready();
+
+    virtual void wait_eth_cores_training(const uint32_t timeout_per_core_ms = 1000);
 };
 
 }  // namespace tt::umd

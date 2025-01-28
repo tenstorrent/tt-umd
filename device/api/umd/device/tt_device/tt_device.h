@@ -126,6 +126,8 @@ public:
 
     virtual ChipInfo get_chip_info() = 0;
 
+    virtual void wait_arc_core_start(const tt_xy_pair arc_core, const uint32_t timeout_ms = 1000);
+
 protected:
     std::unique_ptr<PCIDevice> pci_device_;
     std::unique_ptr<architecture_implementation> architecture_impl_;

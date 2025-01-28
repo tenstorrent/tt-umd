@@ -69,6 +69,14 @@ inline BoardType get_board_type_from_board_id(const uint64_t board_id) {
 struct ChipUID {
     uint64_t board_id;
     uint8_t asic_location;
+
+    bool operator<(const ChipUID &other) const {
+        return std::tie(board_id, asic_location) < std::tie(other.board_id, other.asic_location);
+    }
+
+    bool const operator==(const ChipUID &other) const {
+        return board_id == other.board_id && asic_location == other.asic_location;
+    }
 };
 
 struct ChipInfo {

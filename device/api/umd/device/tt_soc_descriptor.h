@@ -20,6 +20,7 @@
 #include "umd/device/tt_core_coordinates.h"
 #include "umd/device/tt_xy_pair.h"
 #include "umd/device/types/arch.h"
+#include "umd/device/types/cluster_descriptor_types.h"
 
 namespace YAML {
 class Node;
@@ -51,19 +52,28 @@ public:
     // Constructor used to build object from device descriptor file.
     tt_SocDescriptor(
         std::string device_descriptor_path,
-        const size_t tensix_harvesting_mask = 0,
-        const size_t dram_harvesting_mask = 0,
-        const size_t eth_harvesting_mask = 0);
+        const bool noc_translation_enabled,
+        const tt::umd::HarvestingMasks harvesting_masks = {0, 0, 0});
 
     // CoreCoord conversions.
     tt::umd::CoreCoord translate_coord_to(const tt::umd::CoreCoord core_coord, const CoordSystem coord_system) const;
+    tt::umd::CoreCoord get_coord_at(const tt_xy_pair core, const CoordSystem coord_system) const;
+    tt::umd::CoreCoord translate_coord_to(
+        const tt_xy_pair core_location,
+        const CoordSystem input_coord_system,
+        const CoordSystem target_coord_system) const;
 
-    static std::string get_soc_descriptor_path(tt::ARCH arch);
+    static std::string get_soc_descriptor_path(
+        tt::ARCH arch, const BoardType board_type = BoardType::UNKNOWN, const bool is_chip_remote = false);
 
     std::vector<tt::umd::CoreCoord> get_cores(
         const CoreType core_type, const CoordSystem coord_system = CoordSystem::PHYSICAL) const;
     std::vector<tt::umd::CoreCoord> get_harvested_cores(
         const CoreType core_type, const CoordSystem coord_system = CoordSystem::PHYSICAL) const;
+    std::vector<tt::umd::CoreCoord> get_all_cores(const CoordSystem coord_system = CoordSystem::PHYSICAL) const;
+    std::vector<tt::umd::CoreCoord> get_all_harvested_cores(
+        const CoordSystem coord_system = CoordSystem::PHYSICAL) const;
+
     tt_xy_pair get_grid_size(const CoreType core_type) const;
     tt_xy_pair get_harvested_grid_size(const CoreType core_type) const;
 
@@ -71,6 +81,9 @@ public:
     std::vector<std::vector<tt::umd::CoreCoord>> get_harvested_dram_cores() const;
 
     int get_num_dram_channels() const;
+
+    uint32_t get_num_eth_channels() const;
+    uint32_t get_num_harvested_eth_channels() const;
 
     bool is_worker_core(const tt_xy_pair &core) const;
 
@@ -99,6 +112,7 @@ public:
     std::unordered_map<tt_xy_pair, int> ethernet_core_channel_map;
     std::vector<std::size_t> trisc_sizes;  // Most of software stack assumes same trisc size for whole chip..
     std::string device_descriptor_file_path = std::string("");
+    std::vector<tt_xy_pair> router_cores;
 
     int overlay_version;
     int unpacker_version;
@@ -108,11 +122,10 @@ public:
     int eth_l1_size;
     bool noc_translation_id_enabled;
     uint64_t dram_bank_size;
-    uint32_t tensix_harvesting_mask;
+    tt::umd::HarvestingMasks harvesting_masks;
 
 private:
-    void create_coordinate_manager(
-        const size_t tensix_harvesting_mask, const size_t dram_harvesting_mask, const size_t eth_harvesting_mask);
+    void create_coordinate_manager(const bool noc_translation_enabled, const tt::umd::HarvestingMasks harvesting_masks);
     void load_core_descriptors_from_device_descriptor(YAML::Node &device_descriptor_yaml);
     void load_soc_features_from_device_descriptor(YAML::Node &device_descriptor_yaml);
     void get_cores_and_grid_size_from_coordinate_manager();

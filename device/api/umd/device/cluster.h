@@ -16,8 +16,7 @@
 
 #include "fmt/core.h"
 #include "tt_silicon_driver_common.hpp"
-#include "tt_soc_descriptor.h"
-#include "tt_xy_pair.h"
+#include "umd/device/blackhole_arc_message_queue.h"
 #include "umd/device/chip/chip.h"
 #include "umd/device/tt_device/tt_device.h"
 #include "umd/device/tt_io.hpp"
@@ -498,7 +497,7 @@ public:
         const bool skip_driver_allocs = false,
         const bool clean_system_resources = false,
         bool perform_harvesting = true,
-        std::unordered_map<chip_id_t, uint32_t> simulated_harvesting_masks = {});
+        std::unordered_map<chip_id_t, HarvestingMasks> simulated_harvesting_masks = {});
 
     /**
      * Cluster constructor.
@@ -518,7 +517,7 @@ public:
         const bool skip_driver_allocs = false,
         const bool clean_system_resources = false,
         bool perform_harvesting = true,
-        std::unordered_map<chip_id_t, uint32_t> simulated_harvesting_masks = {});
+        std::unordered_map<chip_id_t, HarvestingMasks> simulated_harvesting_masks = {});
 
     /**
      * Cluster constructor.
@@ -542,7 +541,7 @@ public:
         const bool skip_driver_allocs = false,
         const bool clean_system_resources = false,
         bool perform_harvesting = true,
-        std::unordered_map<chip_id_t, uint32_t> simulated_harvesting_masks = {});
+        std::unordered_map<chip_id_t, HarvestingMasks> simulated_harvesting_masks = {});
 
     /**
      * Cluster constructor.
@@ -564,7 +563,7 @@ public:
         const bool skip_driver_allocs = false,
         const bool clean_system_resources = false,
         bool perform_harvesting = true,
-        std::unordered_map<chip_id_t, uint32_t> simulated_harvesting_masks = {});
+        std::unordered_map<chip_id_t, HarvestingMasks> simulated_harvesting_masks = {});
 
     /**
      * Cluster constructor which creates a cluster with Mock chips.
@@ -823,9 +822,15 @@ private:
         const uint32_t barrier_addr,
         const std::string& fallback_tlb);
     void init_membars();
-    uint64_t get_sys_addr(uint32_t chip_x, uint32_t chip_y, uint32_t noc_x, uint32_t noc_y, uint64_t offset);
-    uint16_t get_sys_rack(uint32_t rack_x, uint32_t rack_y);
-    bool is_non_mmio_cmd_q_full(uint32_t curr_wptr, uint32_t curr_rptr);
+    uint64_t get_sys_addr(
+        const tt_driver_noc_params& noc_params,
+        uint32_t chip_x,
+        uint32_t chip_y,
+        uint32_t noc_x,
+        uint32_t noc_y,
+        uint64_t offset);
+    uint16_t get_sys_rack(const tt_driver_eth_interface_params& eth_interface_params, uint32_t rack_x, uint32_t rack_y);
+    bool is_non_mmio_cmd_q_full(chip_id_t chip_id, uint32_t curr_wptr, uint32_t curr_rptr);
     int pcie_arc_msg(
         int logical_device_id,
         uint32_t msg_code,
@@ -861,34 +866,54 @@ private:
 
     // This functions has to be called for local chip, and then it will wait for all connected remote chips to flush.
     void wait_for_connected_non_mmio_flush(chip_id_t chip_id);
+
+    // Helper functions for constructing the chips from the cluster descriptor.
     std::unique_ptr<Chip> construct_chip_from_cluster(
         chip_id_t chip_id, tt_ClusterDescriptor* cluster_desc, tt_SocDescriptor& soc_desc);
+    std::unique_ptr<Chip> construct_chip_from_cluster(
+        const std::string& soc_desc_path,
+        chip_id_t chip_id,
+        tt_ClusterDescriptor* cluster_desc,
+        bool perform_harvesting,
+        std::unordered_map<chip_id_t, HarvestingMasks>& simulated_harvesting_masks);
     std::unique_ptr<Chip> construct_chip_from_cluster(
         chip_id_t logical_device_id,
         tt_ClusterDescriptor* cluster_desc,
         bool perform_harvesting,
-        std::unordered_map<chip_id_t, uint32_t>& simulated_harvesting_masks);
+        std::unordered_map<chip_id_t, HarvestingMasks>& simulated_harvesting_masks);
     void add_chip(chip_id_t chip_id, std::unique_ptr<Chip> chip);
+    HarvestingMasks get_harvesting_masks(
+        chip_id_t chip_id,
+        tt_ClusterDescriptor* cluster_desc,
+        bool perfrom_harvesting,
+        std::unordered_map<chip_id_t, HarvestingMasks>& simulated_harvesting_masks);
     uint32_t get_tensix_harvesting_mask(
         chip_id_t chip_id,
         tt_ClusterDescriptor* cluster_desc,
         bool perform_harvesting,
-        std::unordered_map<chip_id_t, uint32_t>& simulated_harvesting_masks);
+        std::unordered_map<chip_id_t, HarvestingMasks>& simulated_harvesting_masks);
+    // TODO: this function returns only software harvesting mask for DRAM.
+    // Combine this with silicon harvesting mask once gathering silicon harvesting mask is implemented.
+    uint32_t get_dram_harvesting_mask(
+        chip_id_t chip_id,
+        bool perform_harvesting,
+        std::unordered_map<chip_id_t, HarvestingMasks>& simulated_harvesting_masks);
+    // TODO: this function returns only software harvesting mask for ETH.
+    // Combine this with silicon harvesting mask once gathering silicon harvesting mask is implemented.
+    uint32_t get_eth_harvesting_mask(
+        chip_id_t chip_id,
+        bool perform_harvesting,
+        std::unordered_map<chip_id_t, HarvestingMasks>& simulated_harvesting_masks);
     void construct_cluster(
         const uint32_t& num_host_mem_ch_per_mmio_device,
         const bool skip_driver_allocs,
         const bool clean_system_resources,
         bool perform_harvesting,
-        std::unordered_map<chip_id_t, uint32_t> simulated_harvesting_masks);
-    tt::umd::CoreCoord translate_chip_coord(
-        const chip_id_t chip, const tt::umd::CoreCoord core_coord, const CoordSystem coord_system) const;
+        std::unordered_map<chip_id_t, HarvestingMasks> simulated_harvesting_masks);
+    // Helper function for translating chip coordinates.
+    tt_xy_pair translate_to_api_coords(const chip_id_t chip, const tt::umd::CoreCoord core_coord) const;
 
     // State variables
-    tt_device_dram_address_params dram_address_params;
-    tt_device_l1_address_params l1_address_params;
-    tt_driver_host_address_params host_address_params;
-    tt_driver_noc_params noc_params;
-    tt_driver_eth_interface_params eth_interface_params;
     std::vector<tt::ARCH> archs_in_cluster = {};
     std::set<chip_id_t> all_chip_ids_ = {};
     std::set<chip_id_t> remote_chip_ids_ = {};

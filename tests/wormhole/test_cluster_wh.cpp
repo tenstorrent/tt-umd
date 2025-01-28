@@ -102,7 +102,7 @@ TEST(SiliconDriverWH, CreateDestroy) {
 TEST(SiliconDriverWH, Harvesting) {
     std::set<chip_id_t> target_devices = get_target_devices();
     int num_devices = target_devices.size();
-    std::unordered_map<chip_id_t, uint32_t> simulated_harvesting_masks = {{0, 30}, {1, 60}};
+    std::unordered_map<chip_id_t, HarvestingMasks> simulated_harvesting_masks = {{0, {30, 0, 0}}, {1, {60, 0, 0}}};
 
     uint32_t num_host_mem_ch_per_mmio_device = 1;
     Cluster cluster = Cluster(num_host_mem_ch_per_mmio_device, false, true, true, simulated_harvesting_masks);
@@ -114,7 +114,7 @@ TEST(SiliconDriverWH, Harvesting) {
     for (int i = 0; i < num_devices; i++) {
         uint32_t harvesting_mask_logical =
             CoordinateManager::shuffle_tensix_harvesting_mask(tt::ARCH::WORMHOLE_B0, harvesting_info.at(i));
-        simulated_harvesting_masks[i] |= harvesting_mask_logical;
+        simulated_harvesting_masks[i].tensix_harvesting_mask |= harvesting_mask_logical;
     }
 
     ASSERT_EQ(cluster.using_harvested_soc_descriptors(), true) << "Expected Driver to have performed harvesting";
@@ -125,22 +125,28 @@ TEST(SiliconDriverWH, Harvesting) {
     }
     for (int i = 0; i < num_devices; i++) {
         // harvesting info stored in soc descriptor is in logical coordinates.
-        ASSERT_EQ(cluster.get_soc_descriptor(i).tensix_harvesting_mask, simulated_harvesting_masks.at(i))
-            << "Expecting chip " << i << " to have harvesting mask of " << simulated_harvesting_masks.at(i);
+        ASSERT_EQ(
+            cluster.get_soc_descriptor(i).harvesting_masks.tensix_harvesting_mask,
+            simulated_harvesting_masks.at(i).tensix_harvesting_mask)
+            << "Expecting chip " << i << " to have harvesting mask of "
+            << simulated_harvesting_masks.at(i).tensix_harvesting_mask;
 
         // get_harvesting_masks_for_soc_descriptors will return harvesting info in noc0 coordinates.
-        simulated_harvesting_masks[i] = CoordinateManager::shuffle_tensix_harvesting_mask_to_noc0_coords(
-            tt::ARCH::WORMHOLE_B0, simulated_harvesting_masks[i]);
+        simulated_harvesting_masks[i].tensix_harvesting_mask =
+            CoordinateManager::shuffle_tensix_harvesting_mask_to_noc0_coords(
+                tt::ARCH::WORMHOLE_B0, simulated_harvesting_masks[i].tensix_harvesting_mask);
         ASSERT_EQ(
-            cluster.get_harvesting_masks_for_soc_descriptors().at(i) & simulated_harvesting_masks.at(i),
-            simulated_harvesting_masks.at(i))
-            << "Expecting chip " << i << " to give noc0 harvesting mask of " << simulated_harvesting_masks.at(i);
+            cluster.get_harvesting_masks_for_soc_descriptors().at(i) &
+                simulated_harvesting_masks.at(i).tensix_harvesting_mask,
+            simulated_harvesting_masks.at(i).tensix_harvesting_mask)
+            << "Expecting chip " << i << " to give noc0 harvesting mask of "
+            << simulated_harvesting_masks.at(i).tensix_harvesting_mask;
     }
 }
 
 TEST(SiliconDriverWH, CustomSocDesc) {
     std::set<chip_id_t> target_devices = get_target_devices();
-    std::unordered_map<chip_id_t, uint32_t> simulated_harvesting_masks = {{0, 30}, {1, 60}};
+    std::unordered_map<chip_id_t, HarvestingMasks> simulated_harvesting_masks = {{0, {30, 0, 0}}, {1, {60, 0, 0}}};
 
     uint32_t num_host_mem_ch_per_mmio_device = 1;
     // Initialize the driver with a 1x1 descriptor and explictly do not perform harvesting
@@ -165,7 +171,7 @@ TEST(SiliconDriverWH, HarvestingRuntime) {
     auto get_static_tlb_index_callback = [](tt_xy_pair target) { return get_static_tlb_index(target); };
 
     std::set<chip_id_t> target_devices = get_target_devices();
-    std::unordered_map<chip_id_t, uint32_t> simulated_harvesting_masks = {{0, 30}, {1, 60}};
+    std::unordered_map<chip_id_t, HarvestingMasks> simulated_harvesting_masks = {{0, {30, 0, 0}}, {1, {60, 0, 0}}};
 
     uint32_t num_host_mem_ch_per_mmio_device = 1;
 

@@ -68,6 +68,8 @@ public:
     void write_regs(volatile uint32_t *dest, const uint32_t *src, uint32_t word_len);
     void write_regs(uint32_t byte_addr, uint32_t word_len, const void *data);
     void read_regs(uint32_t byte_addr, uint32_t word_len, void *data);
+    void read_from_device(void *mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size);
+    void write_to_device(void *mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size);
 
     // Read/write functions that always use same TLB entry. This is not supposed to be used
     // on any code path that is performance critical. It is used to read/write the data needed

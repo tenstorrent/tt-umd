@@ -9,4 +9,9 @@ namespace tt::umd {
 
 WormholeTTDevice::WormholeTTDevice(std::unique_ptr<PCIDevice> pci_device) :
     TTDevice(std::move(pci_device), std::make_unique<wormhole_implementation>()) {}
+
+ChipInfo WormholeTTDevice::get_chip_info() {
+    throw std::runtime_error("Reading ChipInfo is not supported for Wormhole.");
+}
+
 }  // namespace tt::umd

@@ -444,6 +444,161 @@ HarvestingMasks Cluster::get_harvesting_masks(
             get_eth_harvesting_mask(chip_id, cluster_desc, perfrom_harvesting, simulated_harvesting_masks)};
 }
 
+void Cluster::ubb_eth_connections() {
+    const uint64_t conn_info = 0x1200;
+    const uint64_t node_info = 0x1100;
+    const uint32_t eth_unknown = 0;
+    const uint32_t eth_unconnected = 1;
+    const uint32_t shelf_offset = 9;
+    const uint32_t rack_offset = 10;
+    const uint32_t base_addr = 0x1ec0;
+
+    std::unordered_map<uint64_t, chip_id_t> chip_uid_to_local_chip_id = {};
+
+    for (const auto& [chip_id, chip] : chips_) {
+        // std::cout << "chip id " << chip_id << std::endl;
+
+        // if (chip_id != 0) {
+        //     continue;
+        // }
+
+        std::vector<CoreCoord> eth_cores = chip->get_soc_descriptor().get_cores(CoreType::ETH);
+
+        uint32_t channel = 0;
+        for (const CoreCoord& eth_core : eth_cores) {
+            // std::cout << "channel " << channel << std::endl;
+            // std::cout << "eth core " << eth_core.x << " " << eth_core.y << std::endl;
+            uint32_t port_status;
+            chip->get_tt_device()->read_from_device(
+                &port_status, tt_xy_pair(eth_core.x, eth_core.y), conn_info + (channel * 4), sizeof(uint32_t));
+
+            // std::cout << "port status " << port_status << std::endl;
+
+            if (port_status == eth_unknown || port_status == eth_unconnected) {
+                std::cout << "continuing " << std::endl;
+                channel++;
+                continue;
+            }
+
+            uint64_t our_board_type;
+            chip->get_tt_device()->read_from_device(
+                &our_board_type, tt_xy_pair(eth_core.x, eth_core.y), base_addr + (64 * 4), sizeof(uint64_t));
+
+            uint64_t neighbour_board_type;
+            read_from_device(
+                &neighbour_board_type,
+                tt_cxy_pair(chip_id, eth_core.x, eth_core.y),
+                base_addr + (72 * 4),
+                sizeof(uint64_t),
+                "SMALL_READ_WRITE_TLB");
+
+            std::cout << std::hex;
+            // std::cout << "our_board_type " << our_board_type << std::endl;
+            // std::cout << std::dec;
+
+            // std::cout << std::hex;
+            // std::cout << "neighbour_board_type " << neighbour_board_type << std::endl;
+            std::cout << std::dec;
+
+            chip_uid_to_local_chip_id.insert({our_board_type, chip_id});
+
+            channel++;
+        }
+    }
+
+    // return;
+
+    for (const auto& [chip_id, chip] : chips_) {
+        // std::cout << "chip id " << chip_id << std::endl;
+
+        std::vector<CoreCoord> eth_cores = chip->get_soc_descriptor().get_cores(CoreType::ETH);
+
+        uint32_t channel = 0;
+        for (const CoreCoord& eth_core : eth_cores) {
+            // const tt_xy_pair eth_core_pair = {eth_core.x, eth_core.y};
+
+            // std::cout << "eth core " << eth_core.x << " " << eth_core.y << std::endl;
+
+            uint32_t port_status;
+            read_from_device(
+                &port_status,
+                tt_cxy_pair(chip_id, eth_core.x, eth_core.y),
+                conn_info + (channel * 4),
+                sizeof(uint32_t),
+                "SMALL_READ_WRITE_TLB");
+
+            // std::cout << "port status " << port_status << std::endl;
+
+            if (port_status == eth_unknown || port_status == eth_unconnected) {
+                channel++;
+                continue;
+            }
+
+            // TODO(pjanevski): This may work for UBB
+            uint64_t neighbour_board_type;
+            read_from_device(
+                &neighbour_board_type,
+                tt_cxy_pair(chip_id, eth_core.x, eth_core.y),
+                base_addr + (72 * 4),
+                sizeof(uint64_t),
+                "SMALL_READ_WRITE_TLB");
+
+            // std::cout << "neighbour board type " << neighbour_board_type << std::endl;
+
+            uint64_t our_board_type;
+            read_from_device(
+                &our_board_type,
+                tt_cxy_pair(chip_id, eth_core.x, eth_core.y),
+                base_addr + (64 * 4),
+                sizeof(uint64_t),
+                "SMALL_READ_WRITE_TLB");
+
+            // std::cout << "our board type " << our_board_type << std::endl;
+
+            std::cout << std::hex;
+            uint32_t remote_id;
+            read_from_device(
+                &remote_id,
+                tt_cxy_pair(chip_id, eth_core.x, eth_core.y),
+                node_info + (rack_offset * 4),
+                sizeof(uint32_t),
+                "SMALL_READ_WRITE_TLB");
+
+            uint32_t remote_rack_x = remote_id & 0xFF;
+            uint32_t remote_rack_y = (remote_id >> 8) & 0xFF;
+            read_from_device(
+                &remote_id,
+                tt_cxy_pair(chip_id, eth_core.x, eth_core.y),
+                node_info + (shelf_offset * 4),
+                sizeof(uint32_t),
+                "SMALL_READ_WRITE_TLB");
+
+            uint32_t remote_shelf_x = (remote_id >> 16) & 0x3F;
+            uint32_t remote_shelf_y = (remote_id >> 22) & 0x3F;
+
+            uint32_t remote_noc_x = (remote_id >> 4) & 0x3F;
+            uint32_t remote_noc_y = (remote_id >> 10) & 0x3F;
+
+            // std::cout << "remote rack " << remote_rack_x << " " << remote_rack_y << std::endl;
+            // std::cout << "remote shelf " << remote_shelf_x << " " << remote_shelf_y << std::endl;
+            // std::cout << "remote noc " << remote_noc_x << " " << remote_noc_y << std::endl;
+
+            std::cout << std::dec;
+
+            // std::cout << std::hex;
+            // std::cout << "connection " << our_board_type << " " << channel << " " << neighbour_board_type <<
+            // std::endl; std::cout << std::dec;
+
+            chip_id_t remote_chip_id = chip_uid_to_local_chip_id.at(neighbour_board_type);
+            cluster_desc->ethernet_connections[chip_id][channel] = {remote_chip_id, channel};
+
+            std::cout << "adding connection " << chip_id << " " << channel << " " << remote_chip_id << std::endl;
+
+            channel++;
+        }
+    }
+}
+
 Cluster::Cluster(
     const uint32_t& num_host_mem_ch_per_mmio_device,
     const bool create_mock_chips,
@@ -463,6 +618,8 @@ Cluster::Cluster(
     arch_name = chips_.begin()->second->get_soc_descriptor().arch;
 
     construct_cluster(num_host_mem_ch_per_mmio_device, create_mock_chips, clean_system_resources);
+
+    ubb_eth_connections();
 }
 
 Cluster::Cluster(
@@ -489,6 +646,8 @@ Cluster::Cluster(
     arch_name = chips_.begin()->second->get_soc_descriptor().arch;
 
     construct_cluster(num_host_mem_ch_per_mmio_device, create_mock_chips, clean_system_resources);
+
+    ubb_eth_connections();
 }
 
 Cluster::Cluster(
@@ -527,6 +686,8 @@ Cluster::Cluster(
     arch_name = chips_.begin()->second->get_soc_descriptor().arch;
 
     construct_cluster(num_host_mem_ch_per_mmio_device, create_mock_chips, clean_system_resources);
+
+    ubb_eth_connections();
 }
 
 Cluster::Cluster(
@@ -1291,11 +1452,13 @@ uint32_t Cluster::get_harvested_noc_rows(uint32_t harvesting_mask) {
 }
 
 uint32_t Cluster::get_harvested_rows(int logical_device_id) {
+    std::cout << "getting harvested rows" << std::endl;
     const char* harv_override = std::getenv("T6PY_HARVESTING_OVERRIDE");
     uint32_t harv = 0xffffffff;
     if (harv_override) {
         harv = std::stoul(harv_override, nullptr, 16);
     } else {
+        std::cout << "calling arc message" << std::endl;
         auto mmio_capable_chip_logical = cluster_desc->get_closest_mmio_capable_chip(logical_device_id);
         TTDevice* tt_device = get_tt_device(mmio_capable_chip_logical);
         int harvesting_msg_code = arc_msg(
@@ -1306,6 +1469,7 @@ uint32_t Cluster::get_harvested_rows(int logical_device_id) {
             0,
             1,
             &harv);
+        std::cout << "harv " << harv << std::endl;
         log_assert(
             harvesting_msg_code != MSG_ERROR_REPLY, "Failed to read harvested rows from device {}", logical_device_id);
     }
@@ -3085,6 +3249,23 @@ tt_xy_pair Cluster::translate_chip_coord_virtual_to_translated(const chip_id_t c
     return translated_coord;
 }
 
+std::vector<ChipInfo> Cluster::get_cluster_chip_info(
+    const std::vector<std::unique_ptr<tt::umd::TTDevice>>& tt_devices) {
+    std::vector<tt_xy_pair> eth_cores = tt::umd::blackhole::ETH_CORES;
+    const auto tlb_index = tt::umd::blackhole::MEM_LARGE_READ_TLB;
+
+    // TODO: make this generic when this code is used for other architectures.
+    tt_xy_pair arc_core = tt::umd::blackhole::ARC_CORES[0];
+
+    std::vector<ChipInfo> chip_info_vec;
+    for (auto& tt_device : tt_devices) {
+        tt_device->wait_arc_core_start(arc_core);
+        chip_info_vec.push_back(tt_device->get_chip_info());
+    }
+
+    return chip_info_vec;
+}
+
 std::unique_ptr<tt_ClusterDescriptor> Cluster::create_cluster_descriptor(std::string sdesc_path) {
     std::map<int, PciDeviceInfo> pci_device_info = PCIDevice::enumerate_devices_info();
     if (pci_device_info.begin()->second.get_arch() == tt::ARCH::BLACKHOLE) {
@@ -3104,7 +3285,25 @@ std::unique_ptr<tt_ClusterDescriptor> Cluster::create_cluster_descriptor(std::st
 
         return Cluster::create_cluster_descriptor(chips);
     } else {
-        return tt_ClusterDescriptor::create();
+        std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
+
+        std::vector<std::unique_ptr<TTDevice>> tt_devices;
+        for (auto& device_id : pci_device_ids) {
+            std::unique_ptr<TTDevice> tt_device = TTDevice::create(device_id);
+            tt_devices.push_back(std::move(tt_device));
+        }
+
+        std::vector<ChipInfo> chip_info_vec = Cluster::get_cluster_chip_info(tt_devices);
+
+        std::unordered_map<chip_id_t, std::unique_ptr<Chip>> chips;
+        for (uint32_t chip_id = 0; chip_id < tt_devices.size(); chip_id++) {
+            const ChipInfo& chip_info = chip_info_vec[chip_id];
+            std::unique_ptr<TTDevice>& tt_device = tt_devices[chip_id];
+            std::unique_ptr<LocalChip> chip = std::make_unique<LocalChip>(std::move(tt_device), chip_info);
+            chips.emplace(chip_id, std::move(chip));
+        }
+
+        return Cluster::create_cluster_descriptor(chips);
     }
 }
 

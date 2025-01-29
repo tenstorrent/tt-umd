@@ -19,6 +19,7 @@ install(
         ${PROJECT_BINARY_DIR}/${PROJECT_NAME}Config.cmake
         ${PROJECT_BINARY_DIR}/${PROJECT_NAME}ConfigVersion.cmake
     DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/${PROJECT_NAME}
+    COMPONENT umd-dev
 )
 
 set(CPACK_PACKAGE_NAME "${PROJECT_NAME}-dev")

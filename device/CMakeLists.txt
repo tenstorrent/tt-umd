@@ -53,12 +53,59 @@ target_sources(
         ${FBS_GENERATED_HEADER}
 )
 
+if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.23)
+    target_sources(
+        device
+        PUBLIC
+            FILE_SET api
+            TYPE HEADERS
+            BASE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/api
+            FILES
+                api/umd/device/architecture_implementation.h
+                api/umd/device/blackhole_arc_message_queue.h
+                api/umd/device/blackhole_coordinate_manager.h
+                api/umd/device/blackhole_implementation.h
+                api/umd/device/chip/chip.h
+                api/umd/device/chip/local_chip.h
+                api/umd/device/chip/mock_chip.h
+                api/umd/device/chip/remote_chip.h
+                api/umd/device/cluster.h
+                api/umd/device/coordinate_manager.h
+                api/umd/device/device_api_metal.h
+                api/umd/device/driver_atomics.h
+                api/umd/device/grayskull_coordinate_manager.h
+                api/umd/device/grayskull_implementation.h
+                api/umd/device/hugepage.h
+                api/umd/device/pci_device.hpp
+                api/umd/device/semver.hpp
+                api/umd/device/tt_cluster_descriptor.h
+                api/umd/device/tt_core_coordinates.h
+                api/umd/device/tt_device/blackhole_tt_device.h
+                api/umd/device/tt_device/grayskull_tt_device.h
+                api/umd/device/tt_device/tlb_manager.h
+                api/umd/device/tt_device/tt_device.h
+                api/umd/device/tt_device/wormhole_tt_device.h
+                api/umd/device/tt_io.hpp
+                api/umd/device/tt_silicon_driver_common.hpp
+                api/umd/device/tt_simulation_device.h
+                api/umd/device/tt_simulation_host.hpp
+                api/umd/device/tt_soc_descriptor.h
+                api/umd/device/tt_xy_pair.h
+                api/umd/device/types/arch.h
+                api/umd/device/types/blackhole_arc.h
+                api/umd/device/types/cluster_descriptor_types.h
+                api/umd/device/types/cluster_types.h
+                api/umd/device/types/tlb.h
+                api/umd/device/types/xy_pair.h
+                api/umd/device/wormhole_coordinate_manager.h
+                api/umd/device/wormhole_implementation.h
+    )
+endif()
+
 target_include_directories(
     device
     PUBLIC
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/api>
-        $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}/${PROJECT_NAME}>
-        $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}/${PROJECT_NAME}/device>
     PRIVATE
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
         $<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}>
@@ -82,23 +129,29 @@ target_link_libraries(
         ${CMAKE_CURRENT_SOURCE_DIR}/libs/${CMAKE_SYSTEM_PROCESSOR}/libcreate_ethernet_map.a
 )
 
-install(
-    TARGETS
-        device
-    EXPORT ${PROJECT_NAME}Targets
-    ARCHIVE
-        DESTINATION ${CMAKE_INSTALL_LIBDIR}
-    LIBRARY
-        DESTINATION ${CMAKE_INSTALL_LIBDIR}
-        COMPONENT dev
-)
+if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.23)
+    install(
+        TARGETS
+            device
+        EXPORT ${PROJECT_NAME}Targets
+        ARCHIVE
+            DESTINATION ${CMAKE_INSTALL_LIBDIR}
+        LIBRARY
+            DESTINATION ${CMAKE_INSTALL_LIBDIR}
+            COMPONENT umd-runtime
+        FILE_SET
+        api
+            COMPONENT umd-dev
+    )
 
-install(
-    EXPORT ${PROJECT_NAME}Targets
-    FILE ${PROJECT_NAME}Targets.cmake
-    DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/${PROJECT_NAME}
-    NAMESPACE ${PROJECT_NAME}::
-)
+    install(
+        EXPORT ${PROJECT_NAME}Targets
+        FILE ${PROJECT_NAME}Targets.cmake
+        DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/${PROJECT_NAME}
+        NAMESPACE ${PROJECT_NAME}::
+        COMPONENT umd-dev
+    )
+endif()
 
 # Add a custom command to copy the library to build/lib
 add_custom_command(

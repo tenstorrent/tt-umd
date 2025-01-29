@@ -67,9 +67,8 @@ target_include_directories(
 # flatbuffers is public - exposed to tt_metal by tt_simulation_device_generated.h
 target_link_libraries(
     device
-    PUBLIC
-        flatbuffers
     PRIVATE
+        flatbuffers
         umd::Common
         umd::Firmware
         hwloc

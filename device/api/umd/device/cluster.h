@@ -57,6 +57,7 @@ public:
 
     /**
      * Configure a TLB to point to a specific core and an address within that core. Should be done for Static TLBs.
+     * This API is going to be deprecated when all UMD clients transition to CoreCoord API.
      *
      * @param logical_device_id Logical Device being targeted.
      * @param core The TLB will be programmed to point to this core.
@@ -73,6 +74,15 @@ public:
         throw std::runtime_error("---- tt_device::configure_tlb is not implemented\n");
     }
 
+    /**
+     * Configure a TLB to point to a specific core and an address within that core. Should be done for Static TLBs.
+     *
+     * @param logical_device_id Logical Device being targeted.
+     * @param core The TLB will be programmed to point to this core.
+     * @param tlb_index TLB id that will be programmed.
+     * @param address Start address TLB is mapped to.
+     * @param ordering Ordering mode for the TLB.
+     */
     virtual void configure_tlb(
         chip_id_t logical_device_id,
         tt::umd::CoreCoord core,
@@ -107,6 +117,16 @@ public:
             "---- tt_device::configure_active_ethernet_cores_for_mmio_device is not implemented\n");
     }
 
+    /**
+     * Pass in ethernet cores with active links for a specific MMIO chip. When called, this function will force UMD to
+     * use a subset of cores from the active_eth_cores_per_chip set for all host->cluster non-MMIO transfers. If this
+     * function is not called, UMD will use a default set of ethernet core indices for these transfers (0 through 5). If
+     * default behaviour is not desired, this function must be called for all MMIO devices.
+     * This API is going to be deprecated when all UMD clients transition to CoreCoord API.
+     *
+     * @param active_eth_cores_per_chip The active ethernet cores for this chip.
+     * @param mmio_chip Device being targeted.
+     */
     virtual void configure_active_ethernet_cores_for_mmio_device(
         const std::unordered_set<tt::umd::CoreCoord>& active_eth_cores_per_chip, chip_id_t mmio_chip) {
         throw std::runtime_error(
@@ -133,13 +153,23 @@ public:
     /**
      * Send a soft deassert reset signal to a single tensix core.
      *
-     * @param core Chip and core being targeted.
+     * This API is going to be deprecated when all UMD clients transition to CoreCoord API.
+     *
+     * @param core Chip and Core to target.
+     * @param sof_resets Specifies which RISCV cores on Tensix to deassert.
      */
     virtual void deassert_risc_reset_at_core(
         tt_cxy_pair core, const TensixSoftResetOptions& soft_resets = TENSIX_DEASSERT_SOFT_RESET) {
         throw std::runtime_error("---- tt_device::deassert_risc_reset_at_core is not implemented\n");
     }
 
+    /**
+     * Send a soft deassert reset signal to a single tensix core.
+     *
+     * @param chip Chip to target.
+     * @param core Core to target.
+     * @param sof_resets Specifies which RISCV cores on Tensix to deassert.
+     */
     virtual void deassert_risc_reset_at_core(
         const chip_id_t chip,
         const tt::umd::CoreCoord core,
@@ -157,13 +187,24 @@ public:
     /**
      * Send a soft assert reset signal to a single tensix core.
      *
-     * @param core Chip and core being targeted.
+     * This API is going to be deprecated when all UMD clients transition to CoreCoord API.
+     *
+     * @param core Chip and Core to target.
+     * @param sof_resets Specifies which RISCV cores on Tensix to deassert.
      */
     virtual void assert_risc_reset_at_core(
         tt_cxy_pair core, const TensixSoftResetOptions& soft_resets = TENSIX_ASSERT_SOFT_RESET) {
         throw std::runtime_error("---- tt_device::assert_risc_reset_at_core is not implemented\n");
     }
 
+    /**
+     * Send a soft assert reset signal to a single tensix core.
+     *
+     *
+     * @param core Chip to target.
+     * @param core Core to target.
+     * @param sof_resets Specifies which RISCV cores on Tensix to deassert.
+     */
     virtual void assert_risc_reset_at_core(
         const chip_id_t chip,
         const tt::umd::CoreCoord core,
@@ -190,6 +231,8 @@ public:
     /**
      * Non-MMIO (ethernet) barrier.
      * This function should be called for a remote chip. If called for local chip, it will be a no-op.
+     *
+     * @param chip_id Chip to target.
      */
     virtual void wait_for_non_mmio_flush(const chip_id_t chip_id) {
         throw std::runtime_error("---- tt_device::wait_for_non_mmio_flush is not implemented\n");
@@ -198,9 +241,11 @@ public:
     /**
      * Write uint32_t data (as specified by ptr + len pair) to specified device, core and address (defined for Silicon).
      *
+     * This API is going to be deprecated when all UMD clients transition to CoreCoord API.
+     *
      * @param mem_ptr Source data address.
-     * @param len Source data size.
-     * @param core Device and core being targeted.
+     * @param size_in_bytes Source data size.
+     * @param core Device and Core to target.
      * @param addr Address to write to.
      * @param tlb_to_use Specifies fallback/dynamic TLB to use.
      */
@@ -210,6 +255,17 @@ public:
         throw std::runtime_error("---- tt_device::write_to_device is not implemented\n");
     }
 
+    /**
+     * Write uint32_t data (as specified by ptr + len pair) to specified device, core and address (defined for Silicon).
+     *
+     *
+     * @param mem_ptr Source data address.
+     * @param size_in_bytes Source data size.
+     * @param chip Chip to target.
+     * @param core Core to target.
+     * @param addr Address to write to.
+     * @param tlb_to_use Specifies fallback/dynamic TLB to use.
+     */
     virtual void write_to_device(
         const void* mem_ptr,
         uint32_t size_in_bytes,
@@ -220,6 +276,19 @@ public:
         throw std::runtime_error("---- tt_device::write_to_device is not implemented\n");
     }
 
+    /**
+     * Broadcast write to multiple chips in the cluster.
+     *
+     * This API is going to be deprecated when all UMD clients transition to CoreCoord API.
+     *
+     * @param mem_ptr Data to write.
+     * @param size_in_bytes Size of data to write.
+     * @param address Address to write to.
+     * @param chips_to_exclude Chips to exclude from the broadcast.
+     * @param rows_to_exclude  NOC0 rows to exclude from the broadcast.
+     * @param columns_to_exclude NOC0 columns to exclude from the broadcast.
+     * @param fallback_tlb Specifies fallback/dynamic TLB to use.
+     */
     virtual void broadcast_write_to_cluster(
         const void* mem_ptr,
         uint32_t size_in_bytes,
@@ -234,8 +303,10 @@ public:
     /**
      * Read uint32_t data from a specified device, core and address to host memory (defined for Silicon).
      *
+     * This API is going to be deprecated when all UMD clients transition to CoreCoord API.
+     *
      * @param mem_ptr Data pointer to read the data into.
-     * @param core Chip and core being targeted.
+     * @param core Chip and Core to target.
      * @param addr Address to read from.
      * @param size Number of bytes to read.
      * @param fallback_tlb Specifies fallback/dynamic TLB to use.
@@ -246,6 +317,16 @@ public:
         throw std::runtime_error("---- tt_device::read_from_device is not implemented\n");
     }
 
+    /**
+     * Read uint32_t data from a specified device, core and address to host memory (defined for Silicon).
+     *
+     * @param mem_ptr Data pointer to read the data into.
+     * @param chip Chip to target.
+     * @param core Core to target.
+     * @param addr Address to read from.
+     * @param size Number of bytes to read.
+     * @param fallback_tlb Specifies fallback/dynamic TLB to use.
+     */
     virtual void read_from_device(
         void* mem_ptr,
         chip_id_t chip,
@@ -257,9 +338,10 @@ public:
     }
 
     /**
-     * Write uint32_t vector to specified address and channel on host (defined for Silicon).
+     * Write data to specified address and channel on host (defined for Silicon).
      *
-     * @param vec Data to write.
+     * @param mem_ptr Data to write.
+     * @param size Number of bytes to write.
      * @param addr Address to write to.
      * @param channel Host channel to target.
      * @param src_device_id Chip to target.
@@ -269,31 +351,80 @@ public:
         throw std::runtime_error("---- tt_device::write_to_sysmem is not implemented\n");
     }
 
+    /**
+     * Read data from specified address and channel on host (defined for Silicon).
+     *
+     * @param vec Data to write.
+     * @param addr Address to write to.
+     * @param channel Host channel to target.
+     * @param size Number of bytes to read.
+     * @param src_device_id Chip to target.
+     */
     virtual void read_from_sysmem(
         void* mem_ptr, uint64_t addr, uint16_t channel, uint32_t size, chip_id_t src_device_id) {
         throw std::runtime_error("---- tt_device::read_from_sysmem is not implemented\n");
     }
 
+    /**
+     * L1 memory barrier. Wait for all transactions on L1 of the specified cores to complete.
+     *
+     * This API is going to be deprecated when all UMD clients transition to CoreCoord API.
+     *
+     * @param chip Chip to target.
+     * @param flackback_tlb Specifies fallback/dynamic TLB to use.
+     * @param cores Cores being targeted.
+     */
     virtual void l1_membar(
         const chip_id_t chip, const std::string& fallback_tlb, const std::unordered_set<tt_xy_pair>& cores = {}) {
         throw std::runtime_error("---- tt_device::l1_membar is not implemented\n");
     }
 
+    /**
+     * L1 memory barrier. Wait for all transactions on L1 of the specified cores to complete.
+     *
+     * @param chip Chip to target.
+     * @param cores Cores being targeted.
+     * @param flackback_tlb Specifies fallback/dynamic TLB to use.
+     */
     virtual void l1_membar(
         const chip_id_t chip, const std::unordered_set<tt::umd::CoreCoord>& cores, const std::string& fallback_tlb) {
         throw std::runtime_error("---- tt_device::l1_membar is not implemented\n");
     }
 
+    /**
+     * L1 memory barrier. Wait for all transactions on L1 of the specified channels to complete.
+     *
+     *
+     * @param chip Chip to target.
+     * @param flackback_tlb Specifies fallback/dynamic TLB to use.
+     * @param channels Channels being targeted.
+     */
     virtual void dram_membar(
         const chip_id_t chip, const std::string& fallback_tlb, const std::unordered_set<uint32_t>& channels = {}) {
         throw std::runtime_error("---- tt_device::dram_membar is not implemented\n");
     }
 
+    /**
+     * L1 memory barrier. Wait for all transactions on L1 of the specified cores to complete.
+     *
+     * This API is going to be deprecated when all UMD clients transition to CoreCoord API.
+     *
+     * @param chip Chip to target.
+     * @param flackback_tlb Specifies fallback/dynamic TLB to use.
+     * @param cores Cores being targeted.
+     */
     virtual void dram_membar(
         const chip_id_t chip, const std::string& fallback_tlb, const std::unordered_set<tt_xy_pair>& cores = {}) {
         throw std::runtime_error("---- tt_device::dram_membar is not implemented\n");
     }
 
+    /**
+     * DRAM memory barrier. Wait for all transactions on DRAM on specified cores to complete.
+     *
+     * @param chip Chip being targeted.
+     * @param cores Cores being targeted.
+     * @param flackback_tlb Specifies fallback/dynamic TLB to use.
+     */
     virtual void dram_membar(
         const chip_id_t chip, const std::unordered_set<tt::umd::CoreCoord>& cores, const std::string& fallback_tlb) {
         throw std::runtime_error("---- tt_device::dram_membar is not implemented\n");
@@ -388,6 +519,10 @@ public:
         return std::map<int, int>();
     }
 
+    /**
+     * Get which NUMA node this device is associated with, or -1 if non-NUMA
+     * @param device_id Logical device id to query.
+     */
     virtual std::uint32_t get_numa_node_for_pcie_device(std::uint32_t device_id) {
         throw std::runtime_error("---- tt_device::get_numa_node_for_pcie_device is not implemented\n");
     }
@@ -454,11 +589,21 @@ public:
         return nullptr;
     }
 
+    /**
+     * Get base PCIe address that is used to access the device.
+     *
+     * @param chip_id Chip to target.
+     */
     virtual std::uint64_t get_pcie_base_addr_from_device(const chip_id_t chip_id) const {
         throw std::runtime_error("---- tt_device::get_pcie_base_addr_from_device is not implemented\n");
         return 0;
     }
 
+    /**
+     * Get soc descriptor for specified chip.
+     *
+     * @param chip_id Chip to get soc descriptor for.
+     */
     virtual const tt_SocDescriptor& get_soc_descriptor(chip_id_t chip_id) const {
         return soc_descriptor_per_chip.at(chip_id);
     }
@@ -587,12 +732,29 @@ public:
     virtual void wait_for_non_mmio_flush(const chip_id_t chip_id);
     void dram_membar(
         const chip_id_t chip, const std::string& fallback_tlb, const std::unordered_set<uint32_t>& channels);
-    void bar_write32(int logical_device_id, uint32_t addr, uint32_t data);
-    uint32_t bar_read32(int logical_device_id, uint32_t addr);
+
     /**
-     * This API allows you to write directly to device memory that is addressable by a static TLB
+     * Write data to specified address on the BAR space of the device.
+     *
+     * @param logical_device_id Device to target.
+     * @param addr Address to write to.
+     * @param data Data to write.
+     */
+    void bar_write32(int logical_device_id, uint32_t addr, uint32_t data);
+
+    /**
+     * Read data from specified address on the BAR space of the device.
+     *
+     * @param logical_device_id Device to target.
+     * @param addr Address to read from.
+     */
+    uint32_t bar_read32(int logical_device_id, uint32_t addr);
+
+    /**
+     * This API allows you to write directly to device memory that is addressable by a static TLB.
      */
     std::function<void(uint32_t, uint32_t, const uint8_t*)> get_fast_pcie_static_tlb_write_callable(int device_id);
+
     // Misc. Functions to Query/Set Device State
     virtual int arc_msg(
         int logical_device_id,
@@ -605,11 +767,32 @@ public:
         uint32_t* return_4 = nullptr);
     virtual std::unordered_map<chip_id_t, uint32_t> get_harvesting_masks_for_soc_descriptors();
     virtual tt_ClusterDescriptor* get_cluster_description();
+
+    /**
+     * Get number of MMIO chips detected on the system.
+     */
     static int detect_number_of_chips();
+
+    /**
+     * Get vector of available MMIO device ids on the system.
+     */
     static std::vector<chip_id_t> detect_available_device_ids();
+
+    /**
+     * Get vector of chip ids for MMIO devices in the cluster.
+     */
     virtual std::set<chip_id_t> get_target_mmio_device_ids();
+
+    /**
+     * Get vector of chip ids for remote devices in the cluster.
+     */
     virtual std::set<chip_id_t> get_target_remote_device_ids();
+
+    /**
+     * Get set of chip ids for all chips in the cluster.
+     */
     virtual std::set<chip_id_t> get_target_device_ids();
+
     virtual std::map<int, int> get_clocks();
     virtual void* host_dma_address(std::uint64_t offset, chip_id_t src_device_id, uint16_t channel) const;
     virtual std::uint64_t get_pcie_base_addr_from_device(const chip_id_t chip_id) const;
@@ -620,9 +803,33 @@ public:
     virtual std::uint32_t get_numa_node_for_pcie_device(std::uint32_t device_id);
     virtual tt_version get_ethernet_fw_version() const;
     // TODO: This should be accessible through public API, probably to be moved to tt_device.
+
+    /**
+     * Get PCI device for specified logical device id.
+     *
+     * @param device_id Device to target.
+     */
     PCIDevice* get_pci_device(int device_id) const;
+
+    /**
+     * Get TTDevice for specified logical device id.
+     *
+     * @param device_id Device to target.
+     */
     TTDevice* get_tt_device(chip_id_t device_id) const;
+
+    /**
+     * Get TLBManager for specified logical device id.
+     *
+     * @param device_id Device to target.
+     */
     TLBManager* get_tlb_manager(chip_id_t device_id) const;
+
+    /**
+     * Get Soc descriptor for specified logical device id.
+     *
+     * @param device_id Device to target.
+     */
     const tt_SocDescriptor& get_soc_descriptor(chip_id_t chip_id) const;
 
     // Existing API we want to remove. UMD is transitioning to use CoreCoord instead of tt_xy_pair.
@@ -658,14 +865,17 @@ public:
         const chip_id_t chip, const std::string& fallback_tlb, const std::unordered_set<tt_xy_pair>& cores = {});
     void dram_membar(
         const chip_id_t chip, const std::string& fallback_tlb, const std::unordered_set<tt_xy_pair>& cores = {});
+
     /**
      * If the tlbs are initialized, returns a tuple with the TLB base address and its size
      */
     std::optional<std::tuple<uint32_t, uint32_t>> get_tlb_data_from_target(const tt_cxy_pair& target);
+
     /**
      * Returns a struct with the TLB configuration, or throws an exception if the target does not have a static TLB.
      */
     tlb_configuration get_tlb_configuration(const tt_cxy_pair& target);
+
     /**
      * Provide fast write access to a statically-mapped TLB.
      * It is the caller's responsibility to ensure that

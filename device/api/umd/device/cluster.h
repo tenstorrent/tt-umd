@@ -42,12 +42,33 @@ class tt_ClusterDescriptor;
  */
 class tt_device {
 public:
+    /**
+     * The constructor of the derived tt_device should perform everything important for initializing the device
+     * properly. This can include, but is not limited to:
+     * - Getting the base address for the Device which is to be used when accessing it through the API, including memory
+     * mapping the device address space.
+     * - Setting up security access (if any).
+     * - Establishing a link to the kernel module driver (if any).
+     * - Additional setup needed for read/write operation from the device. DMA setup (if any).
+     * - Allocating system memory that the device has access to.
+     * - Setup access to DRAM module.
+     * - Create SoCDescriptors from passed custom soc descriptor yaml path.
+     * - Perform this for each of the chips connected to the system.
+     */
     tt_device(){};
+
+    /**
+     * Closing the device. Should undo everything that was done in the constructor. Break created links, free memory,
+     * leave the device in a state where it can be re-initialized.
+     */
     virtual ~tt_device(){};
 
     // Setup/Teardown Functions
     /**
      * Set Barrier Address Map parameters used by UMD to communicate with the TT Device.
+     * This function should be called right after the device is created. This sets up barrier addresses for tensix L1,
+     * eth L1, and DRAM. Barrier addresses are used when calling l1_membar, dram_membar and wait_for_non_mmio_flush.
+     * These need to be setup only for the synchronisation purposes between the host and the device.
      *
      * @param barrier_address_params_  All the barrier parameters required by UMD
      */
@@ -134,8 +155,13 @@ public:
     }
 
     /**
-     * On Silicon: Assert soft Tensix reset, deassert RiscV reset, set power state to busy (ramp up AICLK), initialize
-     * iATUs for PCIe devices and ethernet queues for remote chips.
+     * This function puts the device in a state so that it is ready for loading kernels to the tensix cores.
+     * Can include, but is not limited to:
+     * - Assert soft Tensix reset
+     * - Deassert RiscV reset
+     * - Set power state to busy (ramp up AICLK)
+     * - Initialize iATUs for PCIe devices
+     * - Initialize ethernet queues for remote chips.
      *
      * @param device_params Object specifying initialization configuration.
      */
@@ -144,14 +170,17 @@ public:
     }
 
     /**
-     * Broadcast deassert soft Tensix Reset to the entire device (to be done after start_device is called).
+     * Broadcast deassert BRISC soft Tensix Reset to the entire device.
+     * This function needs to be called after start_device.
+     * It writes to TENSIX register 0xFFB121B0 to deassert the soft reset.
      */
     virtual void deassert_risc_reset() {
         throw std::runtime_error("---- tt_device::deassert_risc_reset is not implemented\n");
     }
 
     /**
-     * Send a soft deassert reset signal to a single tensix core.
+     * Send a BRISC soft deassert reset signal to a single tensix core.
+     * Similar to the broadcast deassert_risc_reset API function, but done only on a single core.
      *
      * This API is going to be deprecated when all UMD clients transition to CoreCoord API.
      *
@@ -164,7 +193,8 @@ public:
     }
 
     /**
-     * Send a soft deassert reset signal to a single tensix core.
+     * Send a BRISC soft deassert reset signal to a single tensix core.
+     * Similar to the broadcast deassert_risc_reset API function, but done only on a single core.
      *
      * @param chip Chip to target.
      * @param core Core to target.
@@ -178,14 +208,16 @@ public:
     }
 
     /**
-     * Broadcast assert soft Tensix Reset to the entire device.
+     * Broadcast BRISC assert BRISC soft Tensix Reset to the entire device.
+     * It writes to TENSIX register 0xFFB121B0 to assert the soft reset.
      */
     virtual void assert_risc_reset() {
         throw std::runtime_error("---- tt_device::assert_risc_reset is not implemented\n");
     }
 
     /**
-     * Send a soft assert reset signal to a single tensix core.
+     * Send a BRSIC soft assert reset signal to a single tensix core.
+     * It writes to TENSIX register 0xFFB121B0 to assert the soft reset.
      *
      * This API is going to be deprecated when all UMD clients transition to CoreCoord API.
      *
@@ -198,8 +230,8 @@ public:
     }
 
     /**
-     * Send a soft assert reset signal to a single tensix core.
-     *
+     * Send a BRISC soft assert reset signal to a single tensix core.
+     * It writes to TENSIX register 0xFFB121B0 to assert the soft reset.
      *
      * @param core Chip to target.
      * @param core Core to target.
@@ -214,7 +246,9 @@ public:
 
     /**
      * To be called at the end of a run.
-     * Set power state to idle, assert tensix reset at all cores.
+     * Can include, but not limited to:
+     * - Setting power state to idle
+     * - Assert tensix reset at all cores.
      */
     virtual void close_device() { throw std::runtime_error("---- tt_device::close_device is not implemented\n"); }
 
@@ -223,6 +257,8 @@ public:
      * Non-MMIO (ethernet) barrier.
      * Similar to an mfence for host -> host transfers. Will flush all in-flight ethernet transactions before proceeding
      * with the next one. This will be applied to all chips in the cluster.
+     *
+     * This function is only used in context of remote (ethernet connected) chips in the cluster.
      */
     virtual void wait_for_non_mmio_flush() {
         throw std::runtime_error("---- tt_device::wait_for_non_mmio_flush is not implemented\n");
@@ -231,6 +267,7 @@ public:
     /**
      * Non-MMIO (ethernet) barrier.
      * This function should be called for a remote chip. If called for local chip, it will be a no-op.
+     * This function is only used in context of remote (ethernet connected) chips in the cluster.
      *
      * @param chip_id Chip to target.
      */
@@ -240,6 +277,8 @@ public:
 
     /**
      * Write uint32_t data (as specified by ptr + len pair) to specified device, core and address (defined for Silicon).
+     * This API is used for writing to both TENSIX and DRAM cores. The internal SocDescriptor can be used to determine
+     * which type of the core is being targeted.
      *
      * This API is going to be deprecated when all UMD clients transition to CoreCoord API.
      *
@@ -257,7 +296,8 @@ public:
 
     /**
      * Write uint32_t data (as specified by ptr + len pair) to specified device, core and address (defined for Silicon).
-     *
+     * This API is used for writing to both TENSIX and DRAM cores. The internal SocDescriptor can be used to determine
+     * which type of the core is being targeted.
      *
      * @param mem_ptr Source data address.
      * @param size_in_bytes Source data size.
@@ -277,7 +317,9 @@ public:
     }
 
     /**
-     * Broadcast write to multiple chips in the cluster.
+     * This function writes to multiple chips and cores in the cluster. A set of chips, rows and columns can be excluded
+     * from the broadcast. The function has to be called either only for Tensix cores or only for DRAM cores.
+     *
      *
      * This API is going to be deprecated when all UMD clients transition to CoreCoord API.
      *
@@ -302,6 +344,8 @@ public:
 
     /**
      * Read uint32_t data from a specified device, core and address to host memory (defined for Silicon).
+     * This API is used for reading from both TENSIX and DRAM cores. The internal SocDescriptor can be used to determine
+     * which type of the core is being targeted.
      *
      * This API is going to be deprecated when all UMD clients transition to CoreCoord API.
      *
@@ -319,6 +363,8 @@ public:
 
     /**
      * Read uint32_t data from a specified device, core and address to host memory (defined for Silicon).
+     * This API is used for reading from both TENSIX and DRAM cores. The internal SocDescriptor can be used to determine
+     * which type of the core is being targeted.
      *
      * @param mem_ptr Data pointer to read the data into.
      * @param chip Chip to target.
@@ -339,6 +385,10 @@ public:
 
     /**
      * Write data to specified address and channel on host (defined for Silicon).
+     * This API is used to write to the host memory location that is made available to the device through
+     * initialization. During the initialization the user should be able to specify how many "channels" are available to
+     * the device, and that is what the channel argument refers to. This API can be directed to memory on the device
+     * itself if needed. That would imply some performance considerations.
      *
      * @param mem_ptr Data to write.
      * @param size Number of bytes to write.
@@ -353,6 +403,7 @@ public:
 
     /**
      * Read data from specified address and channel on host (defined for Silicon).
+     * Similar as write_to_sysmem, but for reading.
      *
      * @param vec Data to write.
      * @param addr Address to write to.
@@ -366,7 +417,9 @@ public:
     }
 
     /**
-     * L1 memory barrier. Wait for all transactions on L1 of the specified cores to complete.
+     * Tensix L1 memory barrier.
+     * This should be called when the client wants to ensure that all transactions on the L1 of the specified cores have
+     * completed.
      *
      * This API is going to be deprecated when all UMD clients transition to CoreCoord API.
      *
@@ -380,7 +433,9 @@ public:
     }
 
     /**
-     * L1 memory barrier. Wait for all transactions on L1 of the specified cores to complete.
+     * Tensix L1 memory barrier.
+     * This should be called when the client wants to ensure that all transactions on the L1 of the specified cores have
+     * completed.
      *
      * @param chip Chip to target.
      * @param cores Cores being targeted.
@@ -392,8 +447,9 @@ public:
     }
 
     /**
-     * L1 memory barrier. Wait for all transactions on L1 of the specified channels to complete.
-     *
+     * DRAM memory barrier.
+     * This should be called when the client wants to ensure that all transactions on the specified dram bank have
+     * completed.
      *
      * @param chip Chip to target.
      * @param flackback_tlb Specifies fallback/dynamic TLB to use.
@@ -405,7 +461,9 @@ public:
     }
 
     /**
-     * L1 memory barrier. Wait for all transactions on L1 of the specified cores to complete.
+     * DRAM memory barrier.
+     * This should be called when the client wants to ensure that all transactions on the specified dram bank have
+     * completed.
      *
      * This API is going to be deprecated when all UMD clients transition to CoreCoord API.
      *
@@ -419,7 +477,9 @@ public:
     }
 
     /**
-     * DRAM memory barrier. Wait for all transactions on DRAM on specified cores to complete.
+     * DRAM memory barrier.
+     * This should be called when the client wants to ensure that all transactions on the specified dram bank have
+     * completed.
      *
      * @param chip Chip being targeted.
      * @param cores Cores being targeted.
@@ -433,6 +493,7 @@ public:
     // Misc. Functions to Query/Set Device State
     /**
      * Query post harvesting SOC descriptors from UMD in virtual coordinates.
+     * It should just return the SoCDescriptors that were created during construction.
      * These descriptors should be used for looking up cores that are passed into UMD APIs.
      */
     virtual std::unordered_map<chip_id_t, tt_SocDescriptor> get_virtual_soc_descriptors() {
@@ -440,7 +501,8 @@ public:
     }
 
     /**
-     * Determine if UMD performed harvesting on SOC descriptors.
+     * Determine if UMD performed harvesting on SOC descriptors. Returns false if there is no harvesting for the
+     * devices.
      */
     virtual bool using_harvested_soc_descriptors() {
         throw std::runtime_error("---- tt_device:using_harvested_soc_descriptors is not implemented\n");
@@ -450,6 +512,7 @@ public:
     /**
      * Get harvesting masks for all chips/SOC Descriptors in the cluster.
      * Each mask represents a map of enabled (0) and disabled (1) rows on a specific chip (in NOC0 Coordinateds).
+     * Returns a map which has all zeros if there is no harvesting for these devices.
      */
     virtual std::unordered_map<chip_id_t, uint32_t> get_harvesting_masks_for_soc_descriptors() {
         throw std::runtime_error("---- tt_device:get_harvesting_masks_for_soc_descriptors is not implemented\n");
@@ -481,6 +544,7 @@ public:
 
     /**
      * Translate between virtual coordinates (from UMD SOC Descriptor) and translated coordinates.
+     * This function is a no-op if no harvesting or translation are available on the device.
      *
      * @param device_id Chip to target.
      * @param r Row coordinate.
@@ -498,7 +562,7 @@ public:
     }
 
     /**
-     * Get all logical ids for all MMIO chips targeted by UMD.
+     * Get all logical ids for all local chips targeted by UMD.
      */
     virtual std::set<chip_id_t> get_target_mmio_device_ids() {
         throw std::runtime_error("---- tt_device::get_target_mmio_device_ids is not implemented\n");
@@ -506,6 +570,7 @@ public:
 
     /**
      * Get all logical ids for all Ethernet Mapped chips targeted by UMD.
+     * Returns an empty set if no remote chips exist in the cluster.
      */
     virtual std::set<chip_id_t> get_target_remote_device_ids() {
         throw std::runtime_error("---- tt_device::get_target_remote_device_ids is not implemented\n");
@@ -521,6 +586,7 @@ public:
 
     /**
      * Get which NUMA node this device is associated with, or -1 if non-NUMA
+     *
      * @param device_id Logical device id to query.
      */
     virtual std::uint32_t get_numa_node_for_pcie_device(std::uint32_t device_id) {
@@ -529,6 +595,7 @@ public:
 
     /**
      * Get the ethernet firmware version used by the physical cluster (only implemented for Silicon Backend).
+     * Will return a bogus version if no remote chips are supported for the device.
      */
     virtual tt_version get_ethernet_fw_version() const {
         throw std::runtime_error("---- tt_device::get_ethernet_fw_version is not implemented \n");
@@ -556,7 +623,7 @@ public:
     }
 
     /**
-     * Query number of Host channels (hugepages) allocated for a specific device.
+     * Query number of memory channels on Host device allocated for a specific device during initialization.
      *
      * @param device_id Logical device id to target.
      */

@@ -78,6 +78,7 @@ public:
 
     /**
      * Configure a TLB to point to a specific core and an address within that core. Should be done for Static TLBs.
+     * If the device uses another mechanism for providing access to the host, this can be ignored.
      * This API is going to be deprecated when all UMD clients transition to CoreCoord API.
      *
      * @param logical_device_id Logical Device being targeted.
@@ -97,6 +98,7 @@ public:
 
     /**
      * Configure a TLB to point to a specific core and an address within that core. Should be done for Static TLBs.
+     * If the device uses another mechanism for providing access to the host, this can be ignored.
      *
      * @param logical_device_id Logical Device being targeted.
      * @param core The TLB will be programmed to point to this core.
@@ -185,7 +187,7 @@ public:
      * This API is going to be deprecated when all UMD clients transition to CoreCoord API.
      *
      * @param core Chip and Core to target.
-     * @param sof_resets Specifies which RISCV cores on Tensix to deassert.
+     * @param soft_resets Specifies which RISCV cores on Tensix to deassert.
      */
     virtual void deassert_risc_reset_at_core(
         tt_cxy_pair core, const TensixSoftResetOptions& soft_resets = TENSIX_DEASSERT_SOFT_RESET) {
@@ -198,7 +200,7 @@ public:
      *
      * @param chip Chip to target.
      * @param core Core to target.
-     * @param sof_resets Specifies which RISCV cores on Tensix to deassert.
+     * @param soft_resets Specifies which RISCV cores on Tensix to deassert.
      */
     virtual void deassert_risc_reset_at_core(
         const chip_id_t chip,
@@ -222,7 +224,7 @@ public:
      * This API is going to be deprecated when all UMD clients transition to CoreCoord API.
      *
      * @param core Chip and Core to target.
-     * @param sof_resets Specifies which RISCV cores on Tensix to deassert.
+     * @param soft_resets Specifies which RISCV cores on Tensix to deassert.
      */
     virtual void assert_risc_reset_at_core(
         tt_cxy_pair core, const TensixSoftResetOptions& soft_resets = TENSIX_ASSERT_SOFT_RESET) {
@@ -235,7 +237,7 @@ public:
      *
      * @param core Chip to target.
      * @param core Core to target.
-     * @param sof_resets Specifies which RISCV cores on Tensix to deassert.
+     * @param soft_resets Specifies which RISCV cores on Tensix to deassert.
      */
     virtual void assert_risc_reset_at_core(
         const chip_id_t chip,

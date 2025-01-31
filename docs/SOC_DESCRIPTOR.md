@@ -32,7 +32,10 @@ resources configured in a very specific way in our silicon devices.
 4. In the DRAM section, set the coordinates of your NoC2AXI components. DRAM section is two dimensional, where the first dimension (channel) should
 be 1-1 mapping with a DRAM bank, and the second dimension (subchannel) lists all the coordinates on the NOC grid which have protocol in place to
 communicate with this bank. For example, if one dram is present such that it is connected to two noc ports on the noc grid, the field could look
-like: dram: [[0-0], [0-1]].
+like: dram: [[0-0], [0-1]]. Different channels are used to access different DRAM address space, e.g. in two channels, address 0x0 will should refer
+to two different memory locations. Different subchannels within the same channel are used to access the same DRAM address space, these should be
+used for parallelization purposes on the NOC grid, e.g within the same channel, accessing address 0x0 on two subchannels should refer to the
+same memory location.
 5. Set the dram_bank_size to the desired size to be allocated on the device, where the software stack
 can store input command/data queues, output command/data queues, epoch data/command binaries
 queues, etc.

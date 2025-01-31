@@ -174,7 +174,8 @@ public:
     /**
      * Broadcast deassert BRISC soft Tensix Reset to the entire device.
      * This function needs to be called after start_device.
-     * It writes to TENSIX register SOFT_RESET
+     * It writes to TENSIX register SOFT_RESET, the address of
+     * which is architecture dependant. please consult the desiredarchitecture specs to fins the exact address
      */
     virtual void deassert_risc_reset() {
         throw std::runtime_error("---- tt_device::deassert_risc_reset is not implemented\n");
@@ -211,16 +212,18 @@ public:
 
     /**
      * Broadcast BRISC assert BRISC soft Tensix Reset to the entire device.
-     * It writes to TENSIX register SOFT_RESET
-     */
+     * It writes to TENSIX register SOFT_RESET, the address of
+     * which is architecture dependant. please consult the desiredarchitecture specs to fins the exact address
+          */
     virtual void assert_risc_reset() {
         throw std::runtime_error("---- tt_device::assert_risc_reset is not implemented\n");
     }
 
     /**
      * Send a BRSIC soft assert reset signal to a single tensix core.
-     * It writes to TENSIX register SOFT_RESET
-     *
+     * It writes to TENSIX register SOFT_RESET, the address of
+     * which is architecture dependant. please consult the desiredarchitecture specs to fins the exact address
+          *
      * This API is going to be deprecated when all UMD clients transition to CoreCoord API.
      *
      * @param core Chip and Core to target.
@@ -233,8 +236,9 @@ public:
 
     /**
      * Send a BRISC soft assert reset signal to a single tensix core.
-     * It writes to TENSIX register SOFT_RESET
-     *
+     * It writes to TENSIX register SOFT_RESET, the address of
+     * which is architecture dependant. please consult the desiredarchitecture specs to fins the exact address
+          *
      * @param core Chip to target.
      * @param core Core to target.
      * @param soft_resets Specifies which RISCV cores on Tensix to deassert.

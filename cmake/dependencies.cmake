@@ -69,6 +69,7 @@ function(fetch_dependencies)
         GITHUB_REPOSITORY nanomsg/nng
         GIT_TAG v1.8.0
         OPTIONS
+            "CMAKE_MESSAGE_LOG_LEVEL NOTICE"
             "BUILD_SHARED_LIBS OFF"
             "NNG_TESTS OFF"
             "NNG_TOOLS OFF"
@@ -82,6 +83,7 @@ function(fetch_dependencies)
         GITHUB_REPOSITORY google/flatbuffers
         GIT_TAG v24.3.25
         OPTIONS
+            "CMAKE_MESSAGE_LOG_LEVEL NOTICE"
             "FLATBUFFERS_BUILD_FLATC ON"
             "FLATBUFFERS_BUILD_TESTS OFF"
             "FLATBUFFERS_SKIP_MONSTER_EXTRA ON"
@@ -96,6 +98,7 @@ function(fetch_dependencies)
         GITHUB_REPOSITORY libuv/libuv
         GIT_TAG v1.48.0
         OPTIONS
+            "CMAKE_MESSAGE_LOG_LEVEL NOTICE"
             "LIBUV_BUILD_TESTS OFF"
             "LIBUV_BUILD_SHARED OFF"
     )
@@ -116,6 +119,13 @@ function(fetch_dependencies)
     ####################################################################################################################
     # spdlog
     ####################################################################################################################
-    CPMAddPackage(NAME spdlog GITHUB_REPOSITORY gabime/spdlog GIT_TAG v1.14.1 VERSION v1.14.1)
+    CPMAddPackage(
+        NAME spdlog
+        GITHUB_REPOSITORY gabime/spdlog
+        GIT_TAG
+            96a8f6250cbf4e8c76387c614f666710a2fa9bad # Version v 1.15+fmtlib fixes
+        OPTIONS
+            "CMAKE_MESSAGE_LOG_LEVEL NOTICE"
+    )
 endfunction()
 fetch_dependencies()

@@ -126,7 +126,7 @@ struct CoreCoord : public tt_xy_pair {
         return coord_system < o.coord_system;
     }
 
-    std::string to_str() const {
+    std::string str() const {
         return "CoreCoord: (" + std::to_string(x) + ", " + std::to_string(y) + ", " + ::to_str(core_type) + ", " +
                ::to_str(coord_system) + ")";
     }

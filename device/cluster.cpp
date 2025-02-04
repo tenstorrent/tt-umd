@@ -1007,12 +1007,10 @@ void Cluster::broadcast_pcie_tensix_risc_reset(chip_id_t chip_id, const TensixSo
     auto [soft_reset_reg, _] = tt_device->set_dynamic_tlb_broadcast(
         architecture_implementation->get_reg_tlb(),
         architecture_implementation->get_tensix_soft_reset_addr(),
-        translate_chip_coord_virtual_to_translated(chip_id, tt_xy_pair(0, 0)),
-        translate_chip_coord_virtual_to_translated(
-            chip_id,
-            tt_xy_pair(
-                architecture_implementation->get_grid_size_x() - 1,
-                architecture_implementation->get_grid_size_y() - 1 - num_rows_harvested.at(chip_id))),
+        harvested_coord_translation.at(chip_id).at(tt_xy_pair(0, 0)),
+        harvested_coord_translation.at(chip_id).at(tt_xy_pair(
+            architecture_implementation->get_grid_size_x() - 1,
+            architecture_implementation->get_grid_size_y() - 1 - num_rows_harvested.at(chip_id))),
         TLB_DATA::Posted);
     tt_device->write_regs(soft_reset_reg, 1, &valid);
     tt_driver_atomics::sfence();

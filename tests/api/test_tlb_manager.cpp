@@ -34,14 +34,13 @@ TEST(ApiTLBManager, ManualTLBConfiguration) {
 
     // TODO: This should be part of TTDevice interface, not Cluster or Chip.
     // Configure TLBs.
-    std::function<int(tt_xy_pair)> get_static_tlb_index = [&](tt_xy_pair core) -> int {
+    std::function<int(CoreCoord)> get_static_tlb_index = [&](CoreCoord core) -> int {
         // TODO: Make this per arch.
-        bool is_worker_core = soc_desc.is_worker_core(core);
-        if (!is_worker_core) {
+        if (core.core_type != CoreType::TENSIX) {
             return -1;
         }
-
-        auto tlb_index = core.x + core.y * tt_device->get_architecture_implementation()->get_grid_size_x();
+        core = soc_desc.translate_coord_to(core, CoordSystem::LOGICAL);
+        auto tlb_index = core.x + core.y * soc_desc.get_grid_size(CoreType::TENSIX).x;
 
         auto tlb_1m_base_and_count = tt_device->get_architecture_implementation()->get_tlb_1m_base_and_count();
         auto tlb_2m_base_and_count = tt_device->get_architecture_implementation()->get_tlb_2m_base_and_count();
@@ -62,7 +61,7 @@ TEST(ApiTLBManager, ManualTLBConfiguration) {
 
     std::int32_t c_zero_address = 0;
 
-    for (tt_xy_pair core : soc_desc.get_cores(CoreType::TENSIX)) {
+    for (CoreCoord core : soc_desc.get_cores(CoreType::TENSIX)) {
         tlb_manager->configure_tlb(core, core, get_static_tlb_index(core), c_zero_address, tlb_data::Relaxed);
     }
 

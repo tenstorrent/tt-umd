@@ -21,13 +21,6 @@
 
 using namespace tt::umd;
 
-// inline tt_cxy_pair get_tensix_chip_core_coord(const std::unique_ptr<Cluster>& umd_cluster) {
-//     chip_id_t any_mmio_chip = *umd_cluster->get_target_mmio_device_ids().begin();
-//     const tt_SocDescriptor& soc_desc = umd_cluster->get_soc_descriptor(any_mmio_chip);
-//     tt_xy_pair core = soc_desc.workers[0];
-//     return tt_cxy_pair(any_mmio_chip, core);
-// }
-
 inline std::unique_ptr<Cluster> get_cluster() {
     std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
     // TODO: Make this test work on a host system without any tt devices.

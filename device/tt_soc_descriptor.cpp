@@ -275,7 +275,12 @@ tt_xy_pair tt_SocDescriptor::get_core_for_dram_channel(int dram_chan, int subcha
 
 CoreCoord tt_SocDescriptor::get_dram_core_for_channel(int dram_chan, int subchannel) const {
     const CoreCoord logical_dram_coord = CoreCoord(dram_chan, subchannel, CoreType::DRAM, CoordSystem::LOGICAL);
-    return translate_coord_to(logical_dram_coord, CoordSystem::PHYSICAL);
+    return translate_coord_to(logical_dram_coord, CoordSystem::VIRTUAL);
+}
+
+CoreCoord tt_SocDescriptor::get_eth_core_for_channel(int eth_chan) const {
+    const CoreCoord logical_eth_coord = CoreCoord(0, eth_chan, CoreType::ETH, CoordSystem::LOGICAL);
+    return translate_coord_to(logical_eth_coord, CoordSystem::VIRTUAL);
 }
 
 bool tt_SocDescriptor::is_ethernet_core(const tt_xy_pair &core) const {

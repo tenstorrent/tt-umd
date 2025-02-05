@@ -64,8 +64,6 @@ public:
         const chip_id_t chip, const std::string& fallback_tlb, const std::unordered_set<tt_xy_pair>& cores = {});
 
     // Misc. Functions to Query/Set Device State
-    // virtual bool using_harvested_soc_descriptors();
-    virtual std::unordered_map<chip_id_t, uint32_t> get_harvesting_masks_for_soc_descriptors();
     static std::vector<chip_id_t> detect_available_device_ids();
     virtual std::set<chip_id_t> get_target_device_ids();
     virtual std::set<chip_id_t> get_target_mmio_device_ids();

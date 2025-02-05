@@ -69,15 +69,6 @@ TEST(SiliconDriverGS, Harvesting) {
                 simulated_harvesting_masks.at(chip_id).tensix_harvesting_mask,
             simulated_harvesting_masks.at(chip_id).tensix_harvesting_mask)
             << "Expected first chip to include simulated harvesting mask of 6";
-        // get_harvesting_masks_for_soc_descriptors will return harvesting info in noc0 coordinates.
-        simulated_harvesting_masks.at(chip_id).tensix_harvesting_mask =
-            CoordinateManager::shuffle_tensix_harvesting_mask_to_noc0_coords(
-                tt::ARCH::GRAYSKULL, simulated_harvesting_masks.at(chip_id).tensix_harvesting_mask);
-        ASSERT_EQ(
-            cluster.get_harvesting_masks_for_soc_descriptors().at(chip_id) &
-                simulated_harvesting_masks.at(chip_id).tensix_harvesting_mask,
-            simulated_harvesting_masks.at(chip_id).tensix_harvesting_mask)
-            << "Expected first chip to include simulated harvesting mask of 6";
     }
     cluster.close_device();
 }

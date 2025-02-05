@@ -33,6 +33,14 @@ private:
     // Number of entries in the telemetry table.
     uint32_t entry_count;
 
+    // After entry_count the telemetry contains entry_count structs of TelemetryTagEntry.
+    // Each struct contains tag and offset. Tag represents what is represented by the value.
+    // Offset is the index of the telemetry value in the telemetry_values array.
+    struct TelemetryTagEntry {
+        uint16_t tag;
+        uint16_t offset;
+    };
+
     // Address of the telemetry data on ARC core.
     uint32_t telemetry_values_addr;
 

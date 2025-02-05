@@ -51,20 +51,6 @@ constexpr uint8_t TAG_ENABLED_GDDR = 36;
 constexpr uint8_t TAG_ENABLED_L2CPU = 37;
 constexpr uint8_t TAG_PCIE_USAGE = 38;
 
-struct telemetry_entry {
-    uint16_t tag;
-    uint16_t offset;
-};
-
-// telemetry_table struct is going to be represented as a BlackholeArctelemetryReader class.
-// It is not possible to statically create this struct becase number of entries is not know at compile time.
-// struct telemetry_table {
-//   uint32_t version;
-//   uint32_t entry_count;
-//   struct telemetry_entry tag_table[TELEM_ENUM_COUNT];
-//   uint32_t telemetry[TELEM_ENUM_COUNT];
-// };
-
 }  // namespace blackhole
 
 }  // namespace tt::umd

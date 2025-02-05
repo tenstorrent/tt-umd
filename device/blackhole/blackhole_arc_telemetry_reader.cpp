@@ -38,12 +38,12 @@ void BlackholeArcTelemetryReader::initialize_telemetry() {
     // We offset the tag_table_address by 2 * sizeof(uint32_t) to skip the first two uint32_t values,
     // which are version and entry count. For representaiton look at blackhole_telemetry.h
     uint32_t tag_table_address = telemetry_table_addr + 2 * sizeof(uint32_t);
-    std::vector<blackhole::telemetry_entry> telemetry_tag_entries(entry_count);
+    std::vector<TelemetryTagEntry> telemetry_tag_entries(entry_count);
     tt_device->read_from_device(
         telemetry_tag_entries.data(),
         BlackholeArcTelemetryReader::arc_core,
         tag_table_address,
-        entry_count * sizeof(blackhole::telemetry_entry));
+        entry_count * sizeof(TelemetryTagEntry));
 
     std::vector<uint32_t> telemetry_data(entry_count);
     tt_device->read_from_device(
@@ -52,7 +52,7 @@ void BlackholeArcTelemetryReader::initialize_telemetry() {
         telemetry_values_addr,
         entry_count * sizeof(uint32_t));
 
-    for (const blackhole::telemetry_entry& tag_entry : telemetry_tag_entries) {
+    for (const TelemetryTagEntry& tag_entry : telemetry_tag_entries) {
         const uint16_t tag_val = tag_entry.tag;
         const uint16_t offset_val = tag_entry.offset;
 

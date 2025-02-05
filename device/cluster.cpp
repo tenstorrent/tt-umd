@@ -993,6 +993,7 @@ void Cluster::initialize_pcie_devices() {
 
 void Cluster::broadcast_pcie_tensix_risc_reset(chip_id_t chip_id, const TensixSoftResetOptions& soft_resets) {
     log_debug(LogSiliconDriver, "Cluster::broadcast_tensix_risc_reset");
+    log_assert(arch_name == tt::ARCH::GRAYSKULL, "broadcast_pcie_tensix_risc_reset works only for Grayskull.");
 
     TTDevice* tt_device = get_tt_device(chip_id);
 
@@ -1009,10 +1010,10 @@ void Cluster::broadcast_pcie_tensix_risc_reset(chip_id_t chip_id, const TensixSo
     auto [soft_reset_reg, _] = tt_device->set_dynamic_tlb_broadcast(
         architecture_implementation->get_reg_tlb(),
         architecture_implementation->get_tensix_soft_reset_addr(),
-        harvested_coord_translation.at(chip_id).at(tt_xy_pair(0, 0)),
-        harvested_coord_translation.at(chip_id).at(tt_xy_pair(
+        tt_xy_pair(0, 0),
+        tt_xy_pair(
             architecture_implementation->get_grid_size_x() - 1,
-            architecture_implementation->get_grid_size_y() - 1 - num_rows_harvested.at(chip_id))),
+            architecture_implementation->get_grid_size_y() - 1 - num_rows_harvested.at(chip_id)),
         TLB_DATA::Posted);
     tt_device->write_regs(soft_reset_reg, 1, &valid);
     tt_driver_atomics::sfence();

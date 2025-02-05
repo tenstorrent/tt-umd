@@ -1193,7 +1193,8 @@ private:
         const bool clean_system_resources,
         bool perform_harvesting,
         std::unordered_map<chip_id_t, HarvestingMasks> simulated_harvesting_masks);
-    // Helper functions for translating chip coordinates.
+    // TODO: These functions should be removed once the transition to CoreCoord is complete.
+    CoordSystem get_coord_system_used() const;
     tt_xy_pair translate_to_api_coords(const chip_id_t chip, const tt::umd::CoreCoord core_coord) const;
     // Most of the old APIs accept virtual coordinates, but we communicate with the device through translated
     // coordinates. This is an internal helper function, until we switch the API to accept translated coordinates.

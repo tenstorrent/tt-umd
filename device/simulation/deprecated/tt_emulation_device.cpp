@@ -87,7 +87,7 @@ void tt_emulation_device::broadcast_write_to_cluster(
     std::set<uint32_t>& rows_to_exclude,
     std::set<uint32_t>& cols_to_exclude,
     const std::string& fallback_tlb) {
-    for (const auto& core : get_soc_descriptor(0)->cores) {
+    for (const auto& core : get_soc_descriptor(0)->get_all_cores()) {
         // if(cols_to_exclude.find(core.first.x) == cols_to_exclude.end() and rows_to_exclude.find(core.first.y) ==
         // rows_to_exclude.end() and core.second.type != CoreType::HARVESTED) {
         //     write_to_device(mem_ptr, size_in_bytes, tt_cxy_pair(0, core.first.x, core.first.y), address, "");
@@ -100,11 +100,11 @@ void tt_emulation_device::broadcast_write_to_cluster(
         // differentiate which bcast pattern to use based on exclude columns
         if (cols_to_exclude.find(0) == cols_to_exclude.end()) {
             // Detect DRAM bcast
-            if (get_soc_descriptor(0)->is_dram_core(core.first)) {
+            if (core.core_type == CoreType::DRAM) {
                 write_to_device(mem_ptr, size_in_bytes, tt_cxy_pair(0, core.first.x, core.first.y), address, "");
             }
         } else {
-            if (get_soc_descriptor(0)->is_worker_core(core.first)) {
+            if (core.core_type == CoreType::TENSIX) {
                 write_to_device(mem_ptr, size_in_bytes, tt_cxy_pair(0, core.first.x, core.first.y), address, "");
             }
         }

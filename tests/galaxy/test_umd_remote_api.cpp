@@ -57,7 +57,7 @@ void run_remote_read_write_test(uint32_t vector_size, bool dram_write) {
             } else {
                 target_cores = sdesc_per_chip.at(chip).get_cores(CoreType::TENSIX);
             }
-            for (const CoreCoord core : target_cores) {
+            for (const CoreCoord& core : target_cores) {
                 auto start = std::chrono::high_resolution_clock::now();
                 device.write_to_device(
                     vector_to_write.data(),
@@ -331,7 +331,7 @@ TEST(GalaxyDataMovement, BroadcastData1) {
     tt_multichip_core_addr sender_core(4, CoreCoord(1, 1, CoreType::TENSIX, CoordSystem::VIRTUAL), 0x5000);
     std::vector<tt_multichip_core_addr> receiver_cores;
 
-    for (const CoreCoord core : sdesc.get_cores(CoreType::TENSIX)) {
+    for (const CoreCoord& core : sdesc.get_cores(CoreType::TENSIX)) {
         receiver_cores.push_back(tt_multichip_core_addr(5, core, 0x6000));
     }
     run_data_broadcast_test(100, sender_core, receiver_cores);

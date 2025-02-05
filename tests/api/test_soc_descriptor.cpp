@@ -12,7 +12,7 @@
 
 using namespace tt::umd;
 
-// Test soc descriptor API for Wormhole when there is no harvesting.
+// Test soc descriptor API for Grayskull when there is no harvesting.
 TEST(SocDescriptor, SocDescriptorGrayskullNoHarvesting) {
     tt_SocDescriptor soc_desc(test_utils::GetAbsPath("tests/soc_descs/grayskull_10x12.yaml"), false);
 
@@ -21,8 +21,8 @@ TEST(SocDescriptor, SocDescriptorGrayskullNoHarvesting) {
     ASSERT_EQ(soc_desc.get_num_dram_channels(), tt::umd::grayskull::NUM_DRAM_BANKS);
 
     for (const tt_xy_pair& tensix_core : grayskull_tensix_cores) {
-        ASSERT_TRUE(soc_desc.is_worker_core(tensix_core));
-        ASSERT_FALSE(soc_desc.is_ethernet_core(tensix_core));
+        CoreCoord core_coord = soc_desc.get_coord_at(tensix_core, CoordSystem::PHYSICAL);
+        ASSERT_TRUE(core_coord.core_type == CoreType::TENSIX);
     }
 
     ASSERT_TRUE(soc_desc.get_harvested_cores(CoreType::TENSIX).empty());
@@ -84,8 +84,8 @@ TEST(SocDescriptor, SocDescriptorWormholeNoHarvesting) {
     ASSERT_EQ(soc_desc.get_num_dram_channels(), tt::umd::wormhole::NUM_DRAM_BANKS);
 
     for (const tt_xy_pair& tensix_core : wormhole_tensix_cores) {
-        ASSERT_TRUE(soc_desc.is_worker_core(tensix_core));
-        ASSERT_FALSE(soc_desc.is_ethernet_core(tensix_core));
+        CoreCoord core_coord = soc_desc.get_coord_at(tensix_core, CoordSystem::PHYSICAL);
+        ASSERT_TRUE(core_coord.core_type == CoreType::TENSIX);
     }
 
     ASSERT_TRUE(soc_desc.get_harvested_cores(CoreType::TENSIX).empty());
@@ -216,8 +216,8 @@ TEST(SocDescriptor, SocDescriptorBlackholeNoHarvesting) {
     ASSERT_EQ(soc_desc.get_num_dram_channels(), tt::umd::blackhole::NUM_DRAM_BANKS);
 
     for (const tt_xy_pair& tensix_core : blackhole_tensix_cores) {
-        ASSERT_TRUE(soc_desc.is_worker_core(tensix_core));
-        ASSERT_FALSE(soc_desc.is_ethernet_core(tensix_core));
+        CoreCoord core_coord = soc_desc.get_coord_at(tensix_core, CoordSystem::PHYSICAL);
+        ASSERT_TRUE(core_coord.core_type == CoreType::TENSIX);
     }
 
     ASSERT_TRUE(soc_desc.get_harvested_cores(CoreType::TENSIX).empty());

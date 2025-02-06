@@ -263,28 +263,19 @@ int tt_SocDescriptor::get_num_dram_channels() const {
     return num_channels;
 }
 
-bool tt_SocDescriptor::is_worker_core(const tt_xy_pair &core) const {
-    return (
-        routing_x_to_worker_x.find(core.x) != routing_x_to_worker_x.end() &&
-        routing_y_to_worker_y.find(core.y) != routing_y_to_worker_y.end());
-}
-
 tt_xy_pair tt_SocDescriptor::get_core_for_dram_channel(int dram_chan, int subchannel) const {
     return this->dram_cores.at(dram_chan).at(subchannel);
 }
 
-CoreCoord tt_SocDescriptor::get_dram_core_for_channel(int dram_chan, int subchannel) const {
+CoreCoord tt_SocDescriptor::get_dram_core_for_channel(
+    int dram_chan, int subchannel, const CoordSystem coord_system) const {
     const CoreCoord logical_dram_coord = CoreCoord(dram_chan, subchannel, CoreType::DRAM, CoordSystem::LOGICAL);
-    return translate_coord_to(logical_dram_coord, CoordSystem::VIRTUAL);
+    return translate_coord_to(logical_dram_coord, coord_system);
 }
 
-CoreCoord tt_SocDescriptor::get_eth_core_for_channel(int eth_chan) const {
+CoreCoord tt_SocDescriptor::get_eth_core_for_channel(int eth_chan, const CoordSystem coord_system) const {
     const CoreCoord logical_eth_coord = CoreCoord(0, eth_chan, CoreType::ETH, CoordSystem::LOGICAL);
-    return translate_coord_to(logical_eth_coord, CoordSystem::VIRTUAL);
-}
-
-bool tt_SocDescriptor::is_ethernet_core(const tt_xy_pair &core) const {
-    return this->ethernet_core_channel_map.find(core) != ethernet_core_channel_map.end();
+    return translate_coord_to(logical_eth_coord, coord_system);
 }
 
 std::string tt_SocDescriptor::get_soc_descriptor_path(

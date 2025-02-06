@@ -85,15 +85,14 @@ public:
     uint32_t get_num_eth_channels() const;
     uint32_t get_num_harvested_eth_channels() const;
 
-    bool is_worker_core(const tt_xy_pair &core) const;
-
     tt_xy_pair get_core_for_dram_channel(int dram_chan, int subchannel) const;
 
-    // Effectively translates between LOGICAL and VIRTUAL coordinates for DRAM and ETH cores.
-    tt::umd::CoreCoord get_dram_core_for_channel(int dram_chan, int subchannel) const;
-    tt::umd::CoreCoord get_eth_core_for_channel(int eth_chan) const;
-
-    bool is_ethernet_core(const tt_xy_pair &core) const;
+    // LOGICAL coordinates for DRAM and ETH are tightly coupled with channels, so this code is very similar to what
+    // would translate_coord_to do for a coord with LOGICAL coords.
+    tt::umd::CoreCoord get_dram_core_for_channel(
+        int dram_chan, int subchannel, const CoordSystem coord_system = CoordSystem::PHYSICAL) const;
+    tt::umd::CoreCoord get_eth_core_for_channel(
+        int eth_chan, const CoordSystem coord_system = CoordSystem::PHYSICAL) const;
 
     tt::ARCH arch;
     tt_xy_pair grid_size;

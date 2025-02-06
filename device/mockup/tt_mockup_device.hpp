@@ -76,9 +76,9 @@ public:
 
     static std::vector<chip_id_t> detect_available_device_ids() { return {0}; };
 
-    std::set<chip_id_t> get_target_device_ids() { return target_devices_in_cluster; }
+    std::set<chip_id_t> get_target_device_ids() override { return target_devices_in_cluster; }
 
-    std::set<chip_id_t> get_target_mmio_device_ids() { return target_devices_in_cluster; }
+    std::set<chip_id_t> get_target_mmio_device_ids() override { return target_devices_in_cluster; }
 
     std::set<chip_id_t> get_target_remote_device_ids() override { return target_remote_chips; }
 

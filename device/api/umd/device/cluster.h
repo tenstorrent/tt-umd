@@ -512,7 +512,6 @@ public:
      */
     virtual bool using_harvested_soc_descriptors() {
         throw std::runtime_error("---- tt_device:using_harvested_soc_descriptors is not implemented\n");
-        return 0;
     }
 
     /**
@@ -568,6 +567,13 @@ public:
     }
 
     /**
+     * Get set of chip ids for all chips in the cluster.
+     */
+    virtual std::set<chip_id_t> get_target_device_ids() {
+        throw std::runtime_error("---- tt_device::get_target_device_ids is not implemented\n");
+    }
+
+    /**
      * Get all logical ids for all local chips targeted by UMD.
      */
     virtual std::set<chip_id_t> get_target_mmio_device_ids() {
@@ -587,7 +593,6 @@ public:
      */
     virtual std::map<int, int> get_clocks() {
         throw std::runtime_error("---- tt_device::get_clocks is not implemented\n");
-        return std::map<int, int>();
     }
 
     /**
@@ -614,7 +619,6 @@ public:
      */
     virtual std::uint32_t get_num_dram_channels(std::uint32_t device_id) {
         throw std::runtime_error("---- tt_device::get_num_dram_channels is not implemented\n");
-        return 0;
     }
 
     /**
@@ -625,7 +629,6 @@ public:
      */
     virtual std::uint64_t get_dram_channel_size(std::uint32_t device_id, std::uint32_t channel) {
         throw std::runtime_error("---- tt_device::get_dram_channel_size is not implemented\n");
-        return 0;
     }
 
     /**
@@ -635,7 +638,6 @@ public:
      */
     virtual std::uint32_t get_num_host_channels(std::uint32_t device_id) {
         throw std::runtime_error("---- tt_device::get_num_host_channels is not implemented\n");
-        return 0;
     }
 
     /**
@@ -646,7 +648,6 @@ public:
      */
     virtual std::uint32_t get_host_channel_size(std::uint32_t device_id, std::uint32_t channel) {
         throw std::runtime_error("---- tt_device::get_host_channel_size is not implemented\n");
-        return 0;
     }
 
     /**
@@ -659,7 +660,6 @@ public:
      */
     virtual void* host_dma_address(std::uint64_t offset, chip_id_t src_device_id, uint16_t channel) const {
         throw std::runtime_error("---- tt_device::host_dma_address is not implemented\n");
-        return nullptr;
     }
 
     /**
@@ -669,7 +669,6 @@ public:
      */
     virtual std::uint64_t get_pcie_base_addr_from_device(const chip_id_t chip_id) const {
         throw std::runtime_error("---- tt_device::get_pcie_base_addr_from_device is not implemented\n");
-        return 0;
     }
 
     /**
@@ -852,6 +851,11 @@ public:
     static std::vector<chip_id_t> detect_available_device_ids();
 
     /**
+     * Get set of chip ids for all chips in the cluster.
+     */
+    virtual std::set<chip_id_t> get_target_device_ids();
+
+    /**
      * Get vector of chip ids for MMIO devices in the cluster.
      */
     virtual std::set<chip_id_t> get_target_mmio_device_ids();
@@ -860,11 +864,6 @@ public:
      * Get vector of chip ids for remote devices in the cluster.
      */
     virtual std::set<chip_id_t> get_target_remote_device_ids();
-
-    /**
-     * Get set of chip ids for all chips in the cluster.
-     */
-    virtual std::set<chip_id_t> get_target_device_ids();
 
     virtual std::map<int, int> get_clocks();
     virtual void* host_dma_address(std::uint64_t offset, chip_id_t src_device_id, uint16_t channel) const;

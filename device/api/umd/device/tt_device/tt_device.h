@@ -75,12 +75,6 @@ public:
     void read_from_device(void *mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size);
     void write_to_device(void *mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size);
 
-    // Read/write functions that always use same TLB entry. This is not supposed to be used
-    // on any code path that is performance critical. It is used to read/write the data needed
-    // to get the information to form cluster of chips, or just use base TTDevice functions.
-    void read_from_device(void *mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size);
-    void write_to_device(void *mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size);
-
     // TLB related functions.
     // TODO: These are architecture specific, and will be moved out of the class.
     void write_tlb_reg(

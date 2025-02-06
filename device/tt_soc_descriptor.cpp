@@ -134,7 +134,7 @@ void tt_SocDescriptor::load_core_descriptors_from_device_descriptor(YAML::Node &
     for (const auto &core_string : worker_cores) {
         CoreDescriptor core_descriptor;
         core_descriptor.coord = format_node(core_string);
-        core_descriptor.type = CoreType::WORKER;
+        core_descriptor.type = CoreType::TENSIX;
         core_descriptor.l1_size = worker_l1_size;
         cores.insert({core_descriptor.coord, core_descriptor});
         workers.push_back(core_descriptor.coord);

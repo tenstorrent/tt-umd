@@ -9,4 +9,9 @@ namespace tt::umd {
 
 GrayskullTTDevice::GrayskullTTDevice(std::unique_ptr<PCIDevice> pci_device) :
     TTDevice(std::move(pci_device), std::make_unique<grayskull_implementation>()) {}
+
+ChipInfo GrayskullTTDevice::get_chip_info() {
+    throw std::runtime_error("Reading ChipInfo is not supported for Grayskull.");
+}
+
 }  // namespace tt::umd

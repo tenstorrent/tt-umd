@@ -9,6 +9,7 @@
 #include "umd/device/architecture_implementation.h"
 #include "umd/device/pci_device.hpp"
 #include "umd/device/tt_device/tlb_manager.h"
+#include "umd/device/types/cluster_descriptor_types.h"
 
 // TODO: Should be moved to blackhole_architecture_implementation.h
 // See /vendor_ip/synopsys/052021/bh_pcie_ctl_gen5/export/configuration/DWC_pcie_ctl.h
@@ -127,6 +128,8 @@ public:
      */
     virtual void configure_iatu_region(size_t region, uint64_t base, uint64_t target, size_t size);
 
+    virtual ChipInfo get_chip_info() = 0;
+
 protected:
     std::unique_ptr<PCIDevice> pci_device_;
     std::unique_ptr<architecture_implementation> architecture_impl_;
@@ -151,5 +154,7 @@ protected:
     void create_read_write_mutex();
 
     std::shared_ptr<boost::interprocess::named_mutex> read_write_mutex = nullptr;
+
+    ChipInfo chip_info;
 };
 }  // namespace tt::umd

@@ -6,8 +6,12 @@
 
 #pragma once
 
+#include <fmt/core.h>
+
 #include <cstdint>
 #include <functional>
+
+#include "umd/device/types/harvesting.h"
 
 // Small performant hash combiner taken from boost library.
 // Not using boost::hash_combine due to dependency complications.
@@ -45,6 +49,33 @@ enum BoardType : uint32_t {
     P300,
     GALAXY,
     UNKNOWN,
+};
+
+// TODO: add Wormhole and Grayskull board types to this function
+inline BoardType get_board_type_from_board_id(const uint64_t board_id) {
+    uint64_t upi = (board_id >> 36) & 0xFFFFF;
+
+    if (upi == 0x36) {
+        return BoardType::P100;
+    } else if (upi == 0x43) {
+        return BoardType::P100;
+    } else if (upi == 0x40 || upi == 0x41) {
+        return BoardType::P150A;
+    }
+
+    throw std::runtime_error(fmt::format("No existing board type for board id {}", board_id));
+}
+
+struct ChipUID {
+    uint64_t board_id;
+    uint8_t asic_location;
+};
+
+struct ChipInfo {
+    tt::umd::HarvestingMasks harvesting_masks;
+    BoardType board_type;
+    ChipUID chip_uid;
+    bool noc_translation_enabled;
 };
 
 namespace std {

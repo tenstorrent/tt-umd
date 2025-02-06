@@ -234,7 +234,6 @@ TEST(ClusterAPI, DynamicTLB_RW) {
 
     tt_device_params default_params;
     cluster->start_device(default_params);
-    cluster->deassert_risc_reset();
 
     std::vector<uint32_t> vector_to_write = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9};
     std::vector<uint32_t> zeros = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0};

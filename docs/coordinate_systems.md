@@ -21,7 +21,7 @@ Prior to reading this document, it is recommended the reader is familiar with fo
 
 # Harvesting basics
 
-Harvesting refers to cores being disabled due to binning. Workloads cannot be run on these cores and they can only be used for data routing. In this doc, it is discussed how different coordinate systems can be used to program Tenstorrent chip with custom harvesting spec. Only certain types of cores are harvested on Tenstorrent chips, based on the chip architecture.
+Harvesting refers to cores being disabled due to binning (a chip classifying process after manufacturing based on their quality and performance). Workloads cannot be run on these cores and they can only be used for data routing. In this doc, it is discussed how different coordinate systems can be used to program Tenstorrent chip with custom harvesting spec. Only certain types of cores are harvested on Tenstorrent chips, based on the chip architecture.
 
 ### Grayskull harvesting
 
@@ -29,7 +29,7 @@ On Grayskull, harvesting of tensix rows is supported. That means that on the ten
 
 Note that there is no limitation on which specific rows can be harvested.
 
-Harvesting of non-tensix cores (DRAM, PCIe, ARC, Ethernet, Router) is  not supported.
+Harvesting of non-tensix cores (DRAM, PCIe, ARC, Router) is  not supported.
 
 ### Wormhole harvesting
 
@@ -133,7 +133,7 @@ When harvesting some number of rows, range of translated coordinates coordinates
 
 ## Logical coordinates
 
-This coordinate system is mostly used to reference cores on the chip, since this cores are most frequently accessed. This coordinate system hides the details of physical coordinates and allows upper layers of the stack to access endpoints through a set of traditional Cartesian Coordinates. This coordinate systems has very simple indexing, it starts from `0-0` and ends at `(X-1)-(Y-1)` where X and Y is number of cores on x-axis and y-axis, respectively. Example on logical coordinate indexing is one the image below
+This coordinate system is mostly used to reference tensix cores on the chip, since this cores are most frequently accessed. This coordinate system hides the details of physical coordinates and allows upper layers of the stack to access endpoints through a set of traditional Cartesian Coordinates. This coordinate systems has very simple indexing, it starts from `0-0` and ends at `(X-1)-(Y-1)` where X and Y is number of cores on x-axis and y-axis, respectively. Example on logical coordinate indexing is one the image below
 
 ![Tensix logical coordinates](images/tensix_logical_coordinates.png)
 
@@ -141,7 +141,7 @@ Logical coordinates are used in a same way for Grayskull, Wormhole and Blackhole
 
 ### Logical coordinates for different core types
 
-Logical coordinates can be used for all core types:
+Logical coordinates can be used for all core types. Each core type has a logical coordinate scheme that exists independent of the other types.
 
 - Tensix cores
    - X coordinate -> in range [0, number of tensix columns on the X axis - 1]

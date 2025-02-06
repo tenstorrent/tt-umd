@@ -16,7 +16,7 @@ class tt_MockupDevice : public tt_device {
 public:
     tt_MockupDevice(const std::string& sdesc_path) : tt_device() {
         soc_descriptor_per_chip.emplace(0, tt_SocDescriptor(sdesc_path, false));
-        std::set<chip_id_t> target_devices = {0};
+        target_devices_in_cluster = {0};
     }
 
     virtual ~tt_MockupDevice() {}
@@ -75,6 +75,10 @@ public:
     std::unordered_map<chip_id_t, uint32_t> get_harvesting_masks_for_soc_descriptors() override { return {{0, 0}}; }
 
     static std::vector<chip_id_t> detect_available_device_ids() { return {0}; };
+
+    std::set<chip_id_t> get_target_device_ids() { return target_devices_in_cluster; }
+
+    std::set<chip_id_t> get_target_mmio_device_ids() { return target_devices_in_cluster; }
 
     std::set<chip_id_t> get_target_remote_device_ids() override { return target_remote_chips; }
 

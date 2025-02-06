@@ -87,11 +87,12 @@ public:
 
     tt_xy_pair get_core_for_dram_channel(int dram_chan, int subchannel) const;
 
-    // Effectively translates between LOGICAL and VIRTUAL coordinates for DRAM and ETH cores.
+    // LOGICAL coordinates for DRAM and ETH are tightly coupled with channels, so this code is very similar to what
+    // would translate_coord_to do for a coord with LOGICAL coords.
     tt::umd::CoreCoord get_dram_core_for_channel(
-        int dram_chan, int subchannel, const CoordSystem coord_system = CoordSystem::VIRTUAL) const;
+        int dram_chan, int subchannel, const CoordSystem coord_system = CoordSystem::PHYSICAL) const;
     tt::umd::CoreCoord get_eth_core_for_channel(
-        int eth_chan, const CoordSystem coord_system = CoordSystem::VIRTUAL) const;
+        int eth_chan, const CoordSystem coord_system = CoordSystem::PHYSICAL) const;
 
     tt::ARCH arch;
     tt_xy_pair grid_size;

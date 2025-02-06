@@ -529,7 +529,7 @@ TEST(SiliconDriverWH, MultiThreadedMemBar) {
     }
 
     for (int chan = 0; chan < cluster.get_soc_descriptor(0).get_num_dram_channels(); chan++) {
-        CoreCoord core = cluster.get_soc_descriptor(0).get_dram_core_for_channel(chan, 0);
+        CoreCoord core = cluster.get_soc_descriptor(0).get_dram_core_for_channel(chan, 0, CoordSystem::VIRTUAL);
         test_utils::read_data_from_device(
             cluster, readback_membar_vec, tt_cxy_pair(0, core), 0, 4, "SMALL_READ_WRITE_TLB");
         ASSERT_EQ(
@@ -688,7 +688,8 @@ TEST(SiliconDriverWH, BroadcastWrite) {
                 readback_vec = {};
             }
             for (int chan = 0; chan < cluster.get_soc_descriptor(i).get_num_dram_channels(); chan++) {
-                const CoreCoord core = cluster.get_soc_descriptor(i).get_dram_core_for_channel(chan, 0);
+                const CoreCoord core =
+                    cluster.get_soc_descriptor(i).get_dram_core_for_channel(chan, 0, CoordSystem::VIRTUAL);
                 test_utils::read_data_from_device(
                     cluster, readback_vec, i, core, address, vector_to_write.size() * 4, "LARGE_READ_TLB");
                 ASSERT_EQ(vector_to_write, readback_vec) << "Vector read back from DRAM core " << i << " " << core.str()
@@ -788,7 +789,8 @@ TEST(SiliconDriverWH, VirtualCoordinateBroadcast) {
                 readback_vec = {};
             }
             for (int chan = 0; chan < cluster.get_soc_descriptor(i).get_num_dram_channels(); chan++) {
-                const CoreCoord core = cluster.get_soc_descriptor(i).get_dram_core_for_channel(chan, 0);
+                const CoreCoord core =
+                    cluster.get_soc_descriptor(i).get_dram_core_for_channel(chan, 0, CoordSystem::VIRTUAL);
                 test_utils::read_data_from_device(
                     cluster, readback_vec, i, core, address, vector_to_write.size() * 4, "LARGE_READ_TLB");
                 ASSERT_EQ(vector_to_write, readback_vec) << "Vector read back from DRAM core " << i << " " << core.str()

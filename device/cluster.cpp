@@ -428,7 +428,7 @@ void Cluster::construct_cluster(
                 if (remote_transfer_ethernet_cores.size() <= logical_mmio_chip_id) {
                     remote_transfer_ethernet_cores.resize(logical_mmio_chip_id + 1);
                 }
-                CoreCoord ethernet_core = soc_desc.get_eth_core_for_channel(i);
+                CoreCoord ethernet_core = soc_desc.get_eth_core_for_channel(i, get_coord_system_used());
                 remote_transfer_ethernet_cores.at(logical_mmio_chip_id)
                     .push_back(tt_cxy_pair(logical_mmio_chip_id, ethernet_core));
             }
@@ -703,14 +703,14 @@ void Cluster::configure_active_ethernet_cores_for_mmio_device(
     log_assert(soc_desc.arch == tt::ARCH::WORMHOLE_B0, "{} can only be called for Wormhole arch", __FUNCTION__);
     // Cores 0, 1, 6, 7 are only available if in the active set
     static std::unordered_set<tt_xy_pair> eth_cores_available_if_active = {
-        soc_desc.get_eth_core_for_channel(0),
-        soc_desc.get_eth_core_for_channel(1),
-        soc_desc.get_eth_core_for_channel(6),
-        soc_desc.get_eth_core_for_channel(7)};
+        soc_desc.get_eth_core_for_channel(0, get_coord_system_used()),
+        soc_desc.get_eth_core_for_channel(1, get_coord_system_used()),
+        soc_desc.get_eth_core_for_channel(6, get_coord_system_used()),
+        soc_desc.get_eth_core_for_channel(7, get_coord_system_used())};
     // Eth cores 8 and 9 are always available
     std::vector<tt_cxy_pair> non_mmio_access_cores_for_chip = {
-        {(size_t)mmio_chip, soc_desc.get_eth_core_for_channel(8)},
-        {(size_t)mmio_chip, soc_desc.get_eth_core_for_channel(9)}};
+        {(size_t)mmio_chip, soc_desc.get_eth_core_for_channel(8, get_coord_system_used())},
+        {(size_t)mmio_chip, soc_desc.get_eth_core_for_channel(9, get_coord_system_used())}};
     for (const auto& active_eth_core : active_eth_cores_per_chip) {
         if (eth_cores_available_if_active.find(active_eth_core) != eth_cores_available_if_active.end()) {
             non_mmio_access_cores_for_chip.push_back(tt_cxy_pair(mmio_chip, active_eth_core));
@@ -742,7 +742,7 @@ void Cluster::populate_cores() {
             auto ethernet_cores = soc_desc.get_cores(CoreType::ETH, get_coord_system_used());
             eth_cores = std::unordered_set<tt_xy_pair>(ethernet_cores.begin(), ethernet_cores.end());
             for (std::uint32_t dram_idx = 0; dram_idx < soc_desc.get_num_dram_channels(); dram_idx++) {
-                dram_cores.insert(soc_desc.get_dram_core_for_channel(dram_idx, 0));
+                dram_cores.insert(soc_desc.get_dram_core_for_channel(dram_idx, 0, get_coord_system_used()));
             }
         }
         count++;
@@ -3037,7 +3037,8 @@ void Cluster::dram_membar(
         if (channels.size()) {
             std::unordered_set<tt_xy_pair> dram_cores_to_sync = {};
             for (const auto& chan : channels) {
-                dram_cores_to_sync.insert(get_soc_descriptor(chip).get_dram_core_for_channel(chan, 0));
+                dram_cores_to_sync.insert(
+                    get_soc_descriptor(chip).get_dram_core_for_channel(chan, 0, get_coord_system_used()));
             }
             insert_host_to_device_barrier(
                 chip, dram_cores_to_sync, dram_address_params.DRAM_BARRIER_BASE, fallback_tlb);

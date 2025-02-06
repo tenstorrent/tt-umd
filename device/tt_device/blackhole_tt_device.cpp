@@ -7,11 +7,14 @@
 
 #include "logger.hpp"
 #include "umd/device/blackhole_implementation.h"
+#include "umd/device/types/blackhole_telemetry.h"
 
 namespace tt::umd {
 
 BlackholeTTDevice::BlackholeTTDevice(std::unique_ptr<PCIDevice> pci_device) :
-    TTDevice(std::move(pci_device), std::make_unique<blackhole_implementation>()) {}
+    TTDevice(std::move(pci_device), std::make_unique<blackhole_implementation>()) {
+    telemetry = std::make_unique<blackhole::BlackholeArcTelemetryReader>(this);
+}
 
 BlackholeTTDevice::~BlackholeTTDevice() {
     // Turn off iATU for the regions we programmed.  This won't happen if the
@@ -78,6 +81,34 @@ void BlackholeTTDevice::configure_iatu_region(size_t region, uint64_t base, uint
         base,
         limit,
         target);
+}
+
+ChipInfo BlackholeTTDevice::get_chip_info() {
+    chip_info.harvesting_masks.tensix_harvesting_mask =
+        telemetry->is_entry_available(blackhole::TAG_ENABLED_TENSIX_COL)
+            ? (~telemetry->read_entry(blackhole::TAG_ENABLED_TENSIX_COL) & 0x3FFF)
+            : 0;
+    chip_info.harvesting_masks.dram_harvesting_mask = telemetry->is_entry_available(blackhole::TAG_ENABLED_GDDR)
+                                                          ? (~telemetry->read_entry(blackhole::TAG_ENABLED_GDDR) & 0xFF)
+                                                          : 0;
+    chip_info.harvesting_masks.eth_harvesting_mask = telemetry->is_entry_available(blackhole::TAG_ENABLED_ETH)
+                                                         ? (~telemetry->read_entry(blackhole::TAG_ENABLED_ETH) & 0x3FFF)
+                                                         : 0;
+
+    // It is expected that this entry is always available.
+    chip_info.chip_uid.asic_location = telemetry->read_entry(blackhole::TAG_ASIC_ID);
+
+    // For now, NOC translation is disabled on all Blackhole boards.
+    // TODO: read this information when it becomes available.
+    chip_info.noc_translation_enabled = false;
+
+    // It is expected that these entries are always available.
+    chip_info.chip_uid.board_id = ((uint64_t)telemetry->read_entry(blackhole::TAG_BOARD_ID_HIGH) << 32) |
+                                  (telemetry->read_entry(blackhole::TAG_BOARD_ID_LOW));
+
+    chip_info.board_type = get_board_type_from_board_id(chip_info.chip_uid.board_id);
+
+    return chip_info;
 }
 
 }  // namespace tt::umd

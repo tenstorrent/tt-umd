@@ -11,6 +11,8 @@
 #include <cstdint>
 #include <functional>
 
+#include "umd/device/types/harvesting.h"
+
 // Small performant hash combiner taken from boost library.
 // Not using boost::hash_combine due to dependency complications.
 inline void boost_hash_combine(std::size_t &seed, const int value) {
@@ -63,6 +65,18 @@ inline BoardType get_board_type_from_board_id(const uint64_t board_id) {
 
     throw std::runtime_error(fmt::format("No existing board type for board id {}", board_id));
 }
+
+struct ChipUID {
+    uint64_t board_id;
+    uint8_t asic_location;
+};
+
+struct ChipInfo {
+    tt::umd::HarvestingMasks harvesting_masks;
+    BoardType board_type;
+    ChipUID chip_uid;
+    bool noc_translation_enabled;
+};
 
 namespace std {
 template <>

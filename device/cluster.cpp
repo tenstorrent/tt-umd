@@ -1019,9 +1019,11 @@ void Cluster::broadcast_pcie_tensix_risc_reset(chip_id_t chip_id, const TensixSo
     tt_driver_atomics::sfence();
 }
 
+std::set<chip_id_t> Cluster::get_target_device_ids() { return all_chip_ids_; }
+
 std::set<chip_id_t> Cluster::get_target_mmio_device_ids() { return local_chip_ids_; }
 
-std::set<chip_id_t> Cluster::get_target_device_ids() { return all_chip_ids_; }
+std::set<chip_id_t> Cluster::get_target_remote_device_ids() { return remote_chip_ids_; }
 
 void Cluster::assert_risc_reset() { broadcast_tensix_risc_reset_to_cluster(TENSIX_ASSERT_SOFT_RESET); }
 
@@ -3266,8 +3268,6 @@ void Cluster::enable_ethernet_queue(int timeout) {
         }
     }
 }
-
-std::set<chip_id_t> Cluster::get_target_remote_device_ids() { return remote_chip_ids_; }
 
 void Cluster::deassert_resets_and_set_power_state() {
     // Assert tensix resets on all chips in cluster

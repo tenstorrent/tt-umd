@@ -56,7 +56,7 @@ tt_SimulationDevice::tt_SimulationDevice(const tt_SimulationDeviceInit& init) : 
     log_info(tt::LogEmulationDriver, "Instantiating simulation device");
     soc_descriptor_per_chip.emplace(0, init.get_soc_descriptor());
     arch_name = init.get_arch_name();
-    std::set<chip_id_t> target_devices = {0};
+    target_devices_in_cluster = {0};
 
     // Start VCS simulator in a separate process
     std::filesystem::path simulator_path = init.get_simulator_path();
@@ -201,6 +201,10 @@ std::unordered_map<chip_id_t, uint32_t> tt_SimulationDevice::get_harvesting_mask
 }
 
 std::vector<chip_id_t> tt_SimulationDevice::detect_available_device_ids() { return {0}; }
+
+std::set<chip_id_t> tt_SimulationDevice::get_target_device_ids() { return target_devices_in_cluster; }
+
+std::set<chip_id_t> tt_SimulationDevice::get_target_mmio_device_ids() { return target_devices_in_cluster; }
 
 std::set<chip_id_t> tt_SimulationDevice::get_target_remote_device_ids() { return target_remote_chips; }
 

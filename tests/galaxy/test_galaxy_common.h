@@ -23,13 +23,13 @@ using namespace tt::umd;
 struct tt_multichip_core_addr {
     tt_multichip_core_addr() : core{}, chip{}, addr{} {}
 
-    tt_multichip_core_addr(chip_id_t chip, tt_xy_pair core, std::uint64_t addr) : core(core), chip(chip), addr(addr) {}
+    tt_multichip_core_addr(chip_id_t chip, CoreCoord core, std::uint64_t addr) : core(core), chip(chip), addr(addr) {}
 
-    tt_xy_pair core;
+    CoreCoord core;
     chip_id_t chip;
     std::uint64_t addr;
 
-    std::string str() const { return fmt::format("(chip={},x={},y={},addr=0x{:x})", chip, core.x, core.y, addr); }
+    std::string str() const { return fmt::format("(chip={},core={},addr=0x{:x})", chip, core.str(), addr); }
 };
 
 // SIMPLE DATAMOVEMENT API BASED ON UMD

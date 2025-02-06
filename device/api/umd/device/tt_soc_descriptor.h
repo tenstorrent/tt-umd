@@ -89,8 +89,9 @@ public:
 
     tt_xy_pair get_core_for_dram_channel(int dram_chan, int subchannel) const;
 
+    // Effectively translates between LOGICAL and VIRTUAL coordinates for DRAM and ETH cores.
     tt::umd::CoreCoord get_dram_core_for_channel(int dram_chan, int subchannel) const;
-    tt::umd::CoreCoord get_dram_core(uint32_t dram_chan, uint32_t subchannel) const;
+    tt::umd::CoreCoord get_eth_core_for_channel(int eth_chan) const;
 
     bool is_ethernet_core(const tt_xy_pair &core) const;
 

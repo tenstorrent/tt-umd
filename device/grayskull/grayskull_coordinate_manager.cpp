@@ -38,21 +38,21 @@ GrayskullCoordinateManager::GrayskullCoordinateManager(
 }
 
 void GrayskullCoordinateManager::fill_tensix_physical_translated_mapping() {
-    log_assert(false, "NOC translation is not supported for Grayskull.");
+    throw std::runtime_error("NOC translation is not supported for Grayskull.");
 }
 
 void GrayskullCoordinateManager::fill_eth_physical_translated_mapping() {
-    log_assert(false, "NOC translation is not supported for Grayskull.");
+    throw std::runtime_error("NOC translation is not supported for Grayskull.");
 }
 
 void GrayskullCoordinateManager::fill_dram_physical_translated_mapping() {
-    log_assert(false, "NOC translation is not supported for Grayskull.");
+    throw std::runtime_error("NOC translation is not supported for Grayskull.");
 }
 
 void GrayskullCoordinateManager::fill_pcie_physical_translated_mapping() {
-    log_assert(false, "NOC translation is not supported for Grayskull.");
+    throw std::runtime_error("NOC translation is not supported for Grayskull.");
 }
 
 void GrayskullCoordinateManager::fill_arc_physical_translated_mapping() {
-    log_assert(false, "NOC translation is not supported for Grayskull.");
+    throw std::runtime_error("NOC translation is not supported for Grayskull.");
 }

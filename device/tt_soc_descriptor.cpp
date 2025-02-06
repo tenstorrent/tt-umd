@@ -366,7 +366,9 @@ std::vector<tt::umd::CoreCoord> tt_SocDescriptor::get_cores(
 
 std::vector<tt::umd::CoreCoord> tt_SocDescriptor::get_harvested_cores(
     const CoreType core_type, const CoordSystem coord_system) const {
-    log_assert(coord_system != CoordSystem::LOGICAL, "Harvested cores are not supported for logical coordinates");
+    if (coord_system == CoordSystem::LOGICAL) {
+        throw std::runtime_error("Harvested cores are not supported for logical coordinates");
+    }
     auto harvested_cores_map_it = harvested_cores_map.find(core_type);
     if (coord_system != CoordSystem::PHYSICAL) {
         return translate_coordinates(harvested_cores_map_it->second, coord_system);

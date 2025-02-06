@@ -5,6 +5,8 @@
  */
 #include "umd/device/coordinate_manager.h"
 
+#include <stdexcept>
+
 #include "api/umd/device/coordinate_manager.h"
 #include "logger.hpp"
 #include "umd/device/blackhole_coordinate_manager.h"
@@ -52,9 +54,13 @@ void CoordinateManager::initialize() {
 }
 
 void CoordinateManager::assert_coordinate_manager_constructor() {
-    log_assert(harvesting_masks.dram_harvesting_mask == 0, "DRAM harvesting is supported only for Blackhole");
+    if (harvesting_masks.dram_harvesting_mask != 0) {
+        throw std::runtime_error("DRAM harvesting is supported only for Blackhole");
+    }
 
-    log_assert(harvesting_masks.eth_harvesting_mask == 0, "ETH harvesting is supported only for Blackhole");
+    if (harvesting_masks.eth_harvesting_mask != 0) {
+        throw std::runtime_error("ETH harvesting is supported only for Blackhole");
+    }
 }
 
 void CoordinateManager::add_core_translation(const CoreCoord& core_coord, const tt_xy_pair& physical_pair) {
@@ -100,37 +106,39 @@ void CoordinateManager::identity_map_physical_cores() {
 CoreCoord CoordinateManager::translate_coord_to(
     const CoreCoord core_coord, const CoordSystem target_coord_system) const {
     auto physical_coord_it = to_physical_map.find(core_coord);
-    log_assert(
-        physical_coord_it != to_physical_map.end(),
-        "No core coordinate found at location: ({}, {}, {}, {})",
-        core_coord.x,
-        core_coord.y,
-        to_str(core_coord.core_type),
-        to_str(core_coord.coord_system));
+    if (physical_coord_it == to_physical_map.end()) {
+        throw std::runtime_error(fmt::format(
+            "No core coordinate found at location: ({}, {}, {}, {})",
+            core_coord.x,
+            core_coord.y,
+            to_str(core_coord.core_type),
+            to_str(core_coord.coord_system)));
+    }
 
     tt_xy_pair physical_coord = physical_coord_it->second;
     auto coord_it = from_physical_map.find({physical_coord, target_coord_system});
-    log_assert(
-        coord_it != from_physical_map.end(),
-        "No core coordinate found for system {} at location: ({}, {}, {}, {})",
-        to_str(target_coord_system),
-        core_coord.x,
-        core_coord.y,
-        to_str(core_coord.core_type),
-        to_str(core_coord.coord_system));
+    if (coord_it == from_physical_map.end()) {
+        throw std::runtime_error(fmt::format(
+            "No core coordinate found for system {} at location: ({}, {}, {}, {})",
+            to_str(target_coord_system),
+            core_coord.x,
+            core_coord.y,
+            to_str(core_coord.core_type),
+            to_str(core_coord.coord_system)));
+    }
     return coord_it->second;
 }
 
 CoreCoord CoordinateManager::get_coord_at(const tt_xy_pair core, const CoordSystem coord_system) const {
-    log_assert(coord_system != CoordSystem::LOGICAL, "Coordinate is ambiguous for logical system.");
+    if (coord_system == CoordSystem::LOGICAL) {
+        throw std::runtime_error("Coordinate is ambiguous for logical system.");
+    }
 
     auto coord_it = to_core_type_map.find({core, coord_system});
-    log_assert(
-        coord_it != to_core_type_map.end(),
-        "No core type found for system {} at location: ({}, {})",
-        to_str(coord_system),
-        core.x,
-        core.y);
+    if (coord_it == to_core_type_map.end()) {
+        throw std::runtime_error(fmt::format(
+            "No core type found for system {} at location: ({}, {})", to_str(coord_system), core.x, core.y));
+    }
     return coord_it->second;
 }
 
@@ -641,7 +649,9 @@ std::shared_ptr<CoordinateManager> CoordinateManager::create_coordinate_manager(
     const std::vector<tt_xy_pair>& router_cores) {
     switch (arch) {
         case tt::ARCH::GRAYSKULL:
-            log_assert(!noc_translation_enabled, "NOC translation is not supported for Grayskull");
+            if (noc_translation_enabled) {
+                throw std::runtime_error("NOC translation is not supported for Grayskull");
+            }
             return std::make_shared<GrayskullCoordinateManager>(
                 harvesting_masks,
                 tensix_grid_size,

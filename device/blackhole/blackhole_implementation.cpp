@@ -108,7 +108,9 @@ tt_driver_noc_params blackhole_implementation::get_noc_params() const {
 namespace blackhole {
 std::vector<tt_xy_pair> get_pcie_cores(const BoardType board_type, const bool is_chip_remote) {
     if (is_chip_remote) {
-        log_assert(board_type == BoardType::P300, "Remote chip is supported only for Blackhole P300 board.");
+        if (board_type != BoardType::P300) {
+            throw std::runtime_error("Remote chip is supported only for Blackhole P300 board.");
+        }
     }
 
     if (board_type == BoardType::UNKNOWN || board_type == BoardType::P100) {

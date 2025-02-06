@@ -39,9 +39,9 @@ BlackholeCoordinateManager::BlackholeCoordinateManager(
 }
 
 void BlackholeCoordinateManager::assert_coordinate_manager_constructor() {
-    log_assert(
-        get_num_harvested(harvesting_masks.dram_harvesting_mask) <= 1,
-        "Only one DRAM bank can be harvested on Blackhole");
+    if (get_num_harvested(harvesting_masks.dram_harvesting_mask) > 1) {
+        throw std::runtime_error("Only one DRAM bank can be harvested on Blackhole");
+    }
 
     // TODO: assert that exactly 2 or all 14 (P100) ETH cores are harvested for Blackhole. This is
     // going to be true both for all Blackhole products.

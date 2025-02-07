@@ -70,6 +70,13 @@ TEST(ApiClusterTest, DifferentConstructors) {
     std::string sdesc_path = tt_SocDescriptor::get_soc_descriptor_path(device_arch, BoardType::UNKNOWN);
     umd_cluster = std::make_unique<Cluster>(sdesc_path, target_devices);
     umd_cluster = nullptr;
+
+    // 4. Constructor taking cluster descriptor based on which to create cluster.
+    // Create mock chips is set to true in order to create mock chips for the devices in the cluster descriptor.
+    std::filesystem::path cluster_path = tt::umd::Cluster::serialize_to_file();
+    std::unordered_map<chip_id_t, HarvestingMasks> simulated_harvesting_masks = {};
+    std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>(
+        tt_ClusterDescriptor::create_from_yaml(cluster_path), 1, false, false, true, simulated_harvesting_masks, true);
 }
 
 TEST(ApiClusterTest, SimpleIOAllChips) {
@@ -270,11 +277,4 @@ TEST(ClusterAPI, DynamicTLB_RW) {
         }
     }
     cluster->close_device();
-}
-
-TEST(ClusterAPI, TestClusterSerialize) {
-    std::string cluster_path = tt::umd::Cluster::serialize();
-    std::unordered_map<chip_id_t, HarvestingMasks> simulated_harvesting_masks = {};
-    std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>(
-        tt_ClusterDescriptor::create_from_yaml(cluster_path), 1, false, false, true, simulated_harvesting_masks, true);
 }

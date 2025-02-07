@@ -123,5 +123,7 @@ public:
 
     void enable_all_devices();
 
-    std::string serialize();
+    std::string serialize() const;
+
+    std::filesystem::path serialize_to_file() const;
 };

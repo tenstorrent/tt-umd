@@ -7,6 +7,7 @@
 #pragma once
 #include <cassert>
 #include <cstdint>
+#include <filesystem>
 #include <memory>
 #include <set>
 #include <stdexcept>
@@ -694,6 +695,7 @@ public:
      * @param perform_harvesting Allow the driver to modify the SOC descriptors per chip.
      * @param simulated_harvesting_masks Manually specify additional harvesting masks for the devices in the cluster.
      * The ones defined by the devices itself have to be used, they will be merged with the ones passed here.
+     * @param create_mock_chips Create mock chips for the devices in the cluster descriptor.
      */
     Cluster(
         const uint32_t& num_host_mem_ch_per_mmio_device = 1,
@@ -714,6 +716,7 @@ public:
      * @param perform_harvesting Allow the driver to modify the SOC descriptors per chip.
      * @param simulated_harvesting_masks Manually specify additional harvesting masks for the devices in the cluster.
      * The ones defined by the devices itself have to be used, they will be merged with the ones passed here.
+     * @param create_mock_chips Create mock chips for the devices in the cluster descriptor.
      */
     Cluster(
         const std::set<chip_id_t>& target_devices,
@@ -738,6 +741,7 @@ public:
      * @param perform_harvesting Allow the driver to modify the SOC descriptors per chip.
      * @param simulated_harvesting_masks Manually specify additional harvesting masks for the devices in the cluster.
      * The ones defined by the devices itself have to be used, they will be merged with the ones passed here.
+     * @param create_mock_chips Create mock chips for the devices in the cluster descriptor.
      */
     Cluster(
         const std::string& sdesc_path,
@@ -749,6 +753,21 @@ public:
         std::unordered_map<chip_id_t, HarvestingMasks> simulated_harvesting_masks = {},
         const bool create_mock_chips = false);
 
+    /**
+     * Cluster constructor.
+     * This constructor can be used with custom cluster descriptor. If the cluster descriptor does not match the
+     * actual devices on the system, the constructor will throw an exception. If create_mock_chips is set to true,
+     * the constructor will create mock chips for the devices in the cluster descriptor.
+     *
+     * @param cluster_descriptor Cluster descriptor object based on which Cluster is going to be created.
+     * @param num_host_mem_ch_per_mmio_device Requested number of host channels (hugepages).
+     * @param skip_driver_allocs
+     * @param clean_system_resource Specifies if host state from previous runs needs to be cleaned up.
+     * @param perform_harvesting Allow the driver to modify the SOC descriptors per chip.
+     * @param simulated_harvesting_masks Manually specify additional harvesting masks for the devices in the cluster.
+     * The ones defined by the devices itself have to be used, they will be merged with the ones passed here.
+     * @param create_mock_chips Create mock chips for the devices in the cluster descriptor.
+     */
     Cluster(
         std::unique_ptr<tt_ClusterDescriptor> cluster_descriptor,
         const uint32_t& num_host_mem_ch_per_mmio_device = 1,
@@ -983,6 +1002,8 @@ public:
     static std::unique_ptr<tt_ClusterDescriptor> create_cluster_descriptor();
 
     static std::string serialize();
+
+    static std::filesystem::path serialize_to_file();
 
     // Destructor
     virtual ~Cluster();

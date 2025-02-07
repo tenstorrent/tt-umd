@@ -451,7 +451,7 @@ std::unique_ptr<Chip> Cluster::construct_chip_from_cluster(
         get_harvesting_masks(chip_id, cluster_desc, perform_harvesting, simulated_harvesting_masks);
     tt_SocDescriptor soc_desc =
         tt_SocDescriptor(soc_desc_path, cluster_desc->get_noc_translation_table_en().at(chip_id), harvesting_masks);
-    return construct_chip_from_cluster(chip_id, cluster_desc, soc_desc);
+    return construct_chip_from_cluster(chip_id, cluster_desc, soc_desc, create_mock_chip);
 }
 
 std::unique_ptr<Chip> Cluster::construct_chip_from_cluster(
@@ -464,7 +464,7 @@ std::unique_ptr<Chip> Cluster::construct_chip_from_cluster(
     const BoardType chip_board_type = cluster_desc->get_board_type(chip_id);
     std::string soc_desc_path = tt_SocDescriptor::get_soc_descriptor_path(arch, chip_board_type);
     return construct_chip_from_cluster(
-        soc_desc_path, chip_id, cluster_desc, perform_harvesting, simulated_harvesting_masks);
+        soc_desc_path, chip_id, cluster_desc, perform_harvesting, simulated_harvesting_masks, create_mock_chip);
 }
 
 void Cluster::add_chip(chip_id_t chip_id, std::unique_ptr<Chip> chip) {
@@ -3541,5 +3541,7 @@ std::unique_ptr<tt_ClusterDescriptor> Cluster::create_cluster_descriptor(
 }
 
 std::string Cluster::serialize() { return Cluster::create_cluster_descriptor()->serialize(); }
+
+std::filesystem::path Cluster::serialize_to_file() { return Cluster::create_cluster_descriptor()->serialize_to_file(); }
 
 }  // namespace tt::umd

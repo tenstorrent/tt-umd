@@ -904,7 +904,7 @@ tt_ClusterDescriptor::get_chips_grouped_by_closest_mmio() const {
 
 chip_id_t tt_ClusterDescriptor::get_chip_id(const ChipUID &chip_uid) const { return chip_uid_to_chip_id.at(chip_uid); }
 
-std::string tt_ClusterDescriptor::serialize() {
+std::string tt_ClusterDescriptor::serialize() const {
     YAML::Emitter out;
 
     out << YAML::BeginMap;
@@ -964,13 +964,16 @@ std::string tt_ClusterDescriptor::serialize() {
 
     out << YAML::EndMap;
 
-    // Output YAML to file
+    return out.c_str();
+}
+
+std::filesystem::path tt_ClusterDescriptor::serialize_to_file() const {
     std::filesystem::path temp_path = std::filesystem::temp_directory_path();
     std::string cluster_path_dir_template = temp_path / "umd_XXXXXX";
     std::filesystem::path cluster_path_dir = mkdtemp(cluster_path_dir_template.data());
     std::filesystem::path cluster_path = cluster_path_dir / "cluster_descriptor.yaml";
     std::ofstream file(cluster_path);
-    file << out.c_str();
+    file << serialize();
     file.close();
 
     return cluster_path;

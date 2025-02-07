@@ -64,8 +64,6 @@ public:
         const chip_id_t chip, const std::string& fallback_tlb, const std::unordered_set<tt_xy_pair>& cores = {});
 
     // Misc. Functions to Query/Set Device State
-    // virtual bool using_harvested_soc_descriptors();
-    virtual std::unordered_map<chip_id_t, uint32_t> get_harvesting_masks_for_soc_descriptors();
     static std::vector<chip_id_t> detect_available_device_ids();
     virtual std::set<chip_id_t> get_target_device_ids();
     virtual std::set<chip_id_t> get_target_mmio_device_ids();
@@ -78,6 +76,7 @@ public:
     virtual std::uint32_t get_num_host_channels(std::uint32_t device_id);
     virtual std::uint32_t get_host_channel_size(std::uint32_t device_id, std::uint32_t channel);
     virtual std::uint32_t get_numa_node_for_pcie_device(std::uint32_t device_id);
+    virtual const tt_SocDescriptor& get_soc_descriptor(chip_id_t chip_id) const;
 
 private:
     // State variables
@@ -87,4 +86,5 @@ private:
     std::set<chip_id_t> target_remote_chips = {};
     tt::ARCH arch_name;
     std::shared_ptr<tt_ClusterDescriptor> cluster_descriptor;
+    std::unordered_map<chip_id_t, tt_SocDescriptor> soc_descriptor_per_chip = {};
 };

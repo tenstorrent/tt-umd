@@ -106,7 +106,6 @@ TEST(SiliconDriverWH, Harvesting) {
 
     uint32_t num_host_mem_ch_per_mmio_device = 1;
     Cluster cluster = Cluster(num_host_mem_ch_per_mmio_device, false, true, true, simulated_harvesting_masks);
-    auto sdesc_per_chip = cluster.get_virtual_soc_descriptors();
 
     // Real harvesting info on this system will be forcefully included in the harvesting mask.
     std::unordered_map<chip_id_t, std::uint32_t> harvesting_info =
@@ -117,11 +116,9 @@ TEST(SiliconDriverWH, Harvesting) {
         simulated_harvesting_masks[i].tensix_harvesting_mask |= harvesting_mask_logical;
     }
 
-    ASSERT_EQ(cluster.using_harvested_soc_descriptors(), true) << "Expected Driver to have performed harvesting";
-
-    for (const auto& chip : sdesc_per_chip) {
-        ASSERT_LE(chip.second.get_cores(CoreType::TENSIX).size(), 48)
-            << "Expected SOC descriptor with harvesting to have 48 workers or less for chip" << chip.first;
+    for (const auto& chip : cluster.get_target_device_ids()) {
+        ASSERT_LE(cluster.get_soc_descriptor(chip).get_cores(CoreType::TENSIX).size(), 48)
+            << "Expected SOC descriptor with harvesting to have 48 workers or less for chip" << chip;
     }
     for (int i = 0; i < num_devices; i++) {
         // harvesting info stored in soc descriptor is in logical coordinates.
@@ -129,17 +126,6 @@ TEST(SiliconDriverWH, Harvesting) {
             cluster.get_soc_descriptor(i).harvesting_masks.tensix_harvesting_mask,
             simulated_harvesting_masks.at(i).tensix_harvesting_mask)
             << "Expecting chip " << i << " to have harvesting mask of "
-            << simulated_harvesting_masks.at(i).tensix_harvesting_mask;
-
-        // get_harvesting_masks_for_soc_descriptors will return harvesting info in noc0 coordinates.
-        simulated_harvesting_masks[i].tensix_harvesting_mask =
-            CoordinateManager::shuffle_tensix_harvesting_mask_to_noc0_coords(
-                tt::ARCH::WORMHOLE_B0, simulated_harvesting_masks[i].tensix_harvesting_mask);
-        ASSERT_EQ(
-            cluster.get_harvesting_masks_for_soc_descriptors().at(i) &
-                simulated_harvesting_masks.at(i).tensix_harvesting_mask,
-            simulated_harvesting_masks.at(i).tensix_harvesting_mask)
-            << "Expecting chip " << i << " to give noc0 harvesting mask of "
             << simulated_harvesting_masks.at(i).tensix_harvesting_mask;
     }
 }
@@ -158,12 +144,9 @@ TEST(SiliconDriverWH, CustomSocDesc) {
         true,
         false,
         simulated_harvesting_masks);
-    auto sdesc_per_chip = cluster.get_virtual_soc_descriptors();
 
-    ASSERT_EQ(cluster.using_harvested_soc_descriptors(), false)
-        << "SOC descriptors should not be modified when harvesting is disabled";
-    for (const auto& chip : sdesc_per_chip) {
-        ASSERT_EQ(chip.second.get_cores(CoreType::TENSIX).size(), 1)
+    for (const auto& chip : cluster.get_target_device_ids()) {
+        ASSERT_EQ(cluster.get_soc_descriptor(chip).get_cores(CoreType::TENSIX).size(), 1)
             << "Expected 1x1 SOC descriptor to be unmodified by driver";
     }
 }
@@ -723,8 +706,8 @@ TEST(SiliconDriverWH, VirtualCoordinateBroadcast) {
     tt_device_params default_params;
     cluster.start_device(default_params);
     auto eth_version = cluster.get_ethernet_fw_version();
-    bool virtual_bcast_supported =
-        (eth_version >= tt_version(6, 8, 0) || eth_version == tt_version(6, 7, 241)) && cluster.translation_tables_en;
+    bool virtual_bcast_supported = (eth_version >= tt_version(6, 8, 0) || eth_version == tt_version(6, 7, 241)) &&
+                                   cluster.get_soc_descriptor(*target_devices.begin()).noc_translation_id_enabled;
     if (!virtual_bcast_supported) {
         cluster.close_device();
         GTEST_SKIP() << "SiliconDriverWH.VirtualCoordinateBroadcast skipped since ethernet version does not support "

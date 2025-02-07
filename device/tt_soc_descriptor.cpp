@@ -129,8 +129,6 @@ void tt_SocDescriptor::load_core_descriptors_from_device_descriptor(YAML::Node &
     std::vector<std::string> worker_cores = device_descriptor_yaml["functional_workers"].as<std::vector<std::string>>();
     std::set<int> worker_routing_coords_x;
     std::set<int> worker_routing_coords_y;
-    std::unordered_map<int, int> routing_coord_worker_x;
-    std::unordered_map<int, int> routing_coord_worker_y;
     for (const auto &core_string : worker_cores) {
         CoreDescriptor core_descriptor;
         core_descriptor.coord = format_node(core_string);
@@ -142,21 +140,7 @@ void tt_SocDescriptor::load_core_descriptors_from_device_descriptor(YAML::Node &
         worker_routing_coords_y.insert(core_descriptor.coord.y);
     }
 
-    int func_x_start = 0;
-    int func_y_start = 0;
-    std::set<int>::iterator it;
-    for (it = worker_routing_coords_x.begin(); it != worker_routing_coords_x.end(); ++it) {
-        worker_log_to_routing_x[func_x_start] = *it;
-        routing_x_to_worker_x[*it] = func_x_start;
-        func_x_start++;
-    }
-    for (it = worker_routing_coords_y.begin(); it != worker_routing_coords_y.end(); ++it) {
-        worker_log_to_routing_y[func_y_start] = *it;
-        routing_y_to_worker_y[*it] = func_y_start;
-        func_y_start++;
-    }
-
-    worker_grid_size = tt_xy_pair(func_x_start, func_y_start);
+    worker_grid_size = tt_xy_pair(worker_routing_coords_x.size(), worker_routing_coords_y.size());
 
     auto harvested_cores = device_descriptor_yaml["harvested_workers"].as<std::vector<std::string>>();
     for (const auto &core_string : harvested_cores) {
@@ -185,8 +169,7 @@ tt_xy_pair tt_SocDescriptor::calculate_grid_size(const std::vector<tt_xy_pair> &
     return {x.size(), y.size()};
 }
 
-void tt_SocDescriptor::create_coordinate_manager(
-    const bool noc_translation_enabled, const HarvestingMasks harvesting_masks) {
+void tt_SocDescriptor::create_coordinate_manager() {
     const tt_xy_pair dram_grid_size = tt_xy_pair(dram_cores.size(), dram_cores.empty() ? 0 : dram_cores[0].size());
     const tt_xy_pair arc_grid_size = tt_SocDescriptor::calculate_grid_size(arc_cores);
     const tt_xy_pair pcie_grid_size = tt_SocDescriptor::calculate_grid_size(pcie_cores);
@@ -231,7 +214,7 @@ tt::umd::CoreCoord tt_SocDescriptor::translate_coord_to(
 
 tt_SocDescriptor::tt_SocDescriptor(
     std::string device_descriptor_path, const bool noc_translation_enabled, const HarvestingMasks harvesting_masks) :
-    harvesting_masks(harvesting_masks) {
+    noc_translation_enabled(noc_translation_enabled), harvesting_masks(harvesting_masks) {
     std::ifstream fdesc(device_descriptor_path);
     if (fdesc.fail()) {
         throw std::runtime_error(
@@ -250,7 +233,7 @@ tt_SocDescriptor::tt_SocDescriptor(
     arch_name_value = trim(arch_name_value);
     arch = tt::arch_from_str(arch_name_value);
     load_soc_features_from_device_descriptor(device_descriptor_yaml);
-    create_coordinate_manager(noc_translation_enabled, harvesting_masks);
+    create_coordinate_manager();
 }
 
 int tt_SocDescriptor::get_num_dram_channels() const {
@@ -261,10 +244,6 @@ int tt_SocDescriptor::get_num_dram_channels() const {
         }
     }
     return num_channels;
-}
-
-tt_xy_pair tt_SocDescriptor::get_core_for_dram_channel(int dram_chan, int subchannel) const {
-    return this->dram_cores.at(dram_chan).at(subchannel);
 }
 
 CoreCoord tt_SocDescriptor::get_dram_core_for_channel(

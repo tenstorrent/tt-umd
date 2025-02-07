@@ -72,8 +72,6 @@ public:
     void wait_for_non_mmio_flush() override {}
 
     // Misc. Functions to Query/Set Device State
-    std::unordered_map<chip_id_t, uint32_t> get_harvesting_masks_for_soc_descriptors() override { return {{0, 0}}; }
-
     static std::vector<chip_id_t> detect_available_device_ids() { return {0}; };
 
     std::set<chip_id_t> get_target_device_ids() override { return target_devices_in_cluster; }
@@ -104,9 +102,14 @@ public:
 
     std::uint32_t get_numa_node_for_pcie_device(std::uint32_t device_id) override { return 0; }
 
+    const tt_SocDescriptor& get_soc_descriptor(chip_id_t chip_id) const override {
+        return soc_descriptor_per_chip.at(chip_id);
+    };
+
 private:
     std::vector<tt::ARCH> archs_in_cluster = {};
     std::set<chip_id_t> target_devices_in_cluster = {};
     std::set<chip_id_t> target_remote_chips = {};
     std::shared_ptr<tt_ClusterDescriptor> cluster_descriptor;
+    std::unordered_map<chip_id_t, tt_SocDescriptor> soc_descriptor_per_chip = {};
 };

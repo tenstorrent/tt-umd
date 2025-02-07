@@ -31,7 +31,6 @@ void run_remote_read_write_test(uint32_t vector_size, bool dram_write) {
 
     Cluster device =
         Cluster(test_utils::GetAbsPath(SOC_DESC_PATH), target_devices, num_host_mem_ch_per_mmio_device, false, true);
-    const auto sdesc_per_chip = device.get_virtual_soc_descriptors();
 
     tt::umd::test::utils::set_barrier_params(device);
 
@@ -53,9 +52,9 @@ void run_remote_read_write_test(uint32_t vector_size, bool dram_write) {
         for (int loop = 0; loop < 10; loop++) {
             std::vector<CoreCoord> target_cores;
             if (dram_write) {
-                target_cores = sdesc_per_chip.at(chip).get_cores(CoreType::DRAM);
+                target_cores = device.get_soc_descriptor(chip).get_cores(CoreType::DRAM);
             } else {
-                target_cores = sdesc_per_chip.at(chip).get_cores(CoreType::TENSIX);
+                target_cores = device.get_soc_descriptor(chip).get_cores(CoreType::TENSIX);
             }
             for (const CoreCoord& core : target_cores) {
                 auto start = std::chrono::high_resolution_clock::now();

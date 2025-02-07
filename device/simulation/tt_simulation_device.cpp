@@ -196,10 +196,6 @@ void tt_SimulationDevice::dram_membar(
     const chip_id_t chip, const std::string& fallback_tlb, const std::unordered_set<tt_xy_pair>& cores) {}
 
 // Misc. Functions to Query/Set Device State
-std::unordered_map<chip_id_t, uint32_t> tt_SimulationDevice::get_harvesting_masks_for_soc_descriptors() {
-    return {{0, 0}};
-}
-
 std::vector<chip_id_t> tt_SimulationDevice::detect_available_device_ids() { return {0}; }
 
 std::set<chip_id_t> tt_SimulationDevice::get_target_device_ids() { return target_devices_in_cluster; }
@@ -238,3 +234,7 @@ std::uint32_t tt_SimulationDevice::get_num_host_channels(std::uint32_t device_id
 std::uint32_t tt_SimulationDevice::get_host_channel_size(std::uint32_t device_id, std::uint32_t channel) { return 0; }
 
 std::uint32_t tt_SimulationDevice::get_numa_node_for_pcie_device(std::uint32_t device_id) { return 0; }
+
+const tt_SocDescriptor& tt_SimulationDevice::get_soc_descriptor(chip_id_t chip_id) const {
+    return soc_descriptor_per_chip.at(chip_id);
+};

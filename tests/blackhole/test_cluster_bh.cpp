@@ -120,9 +120,6 @@ TEST(SiliconDriverBH, CreateDestroy) {
 //         true,
 //         true,
 //         simulated_harvesting_masks);
-//     auto sdesc_per_chip = cluster.get_virtual_soc_descriptors();
-
-//     ASSERT_EQ(cluster.using_harvested_soc_descriptors(), true) << "Expected Driver to have performed harvesting";
 
 //     for (const auto& chip : sdesc_per_chip) {
 //         ASSERT_EQ(chip.second.workers.size(), 48)
@@ -156,10 +153,7 @@ TEST(SiliconDriverBH, CreateDestroy) {
 //         true,
 //         false,
 //         simulated_harvesting_masks);
-//     auto sdesc_per_chip = cluster.get_virtual_soc_descriptors();
 
-//     ASSERT_EQ(cluster.using_harvested_soc_descriptors(), false)
-//         << "SOC descriptors should not be modified when harvesting is disabled";
 //     for (const auto& chip : sdesc_per_chip) {
 //         ASSERT_EQ(chip.second.workers.size(), 1) << "Expected 1x1 SOC descriptor to be unmodified by driver";
 //     }
@@ -769,8 +763,8 @@ TEST(SiliconDriverBH, DISABLED_VirtualCoordinateBroadcast) {  // same problem as
     tt_device_params default_params;
     cluster.start_device(default_params);
     auto eth_version = cluster.get_ethernet_fw_version();
-    bool virtual_bcast_supported =
-        (eth_version >= tt_version(6, 8, 0) || eth_version == tt_version(6, 7, 241)) && cluster.translation_tables_en;
+    bool virtual_bcast_supported = (eth_version >= tt_version(6, 8, 0) || eth_version == tt_version(6, 7, 241)) &&
+                                   cluster.get_soc_descriptor(*target_devices.begin()).noc_translation_id_enabled;
     if (!virtual_bcast_supported) {
         cluster.close_device();
         GTEST_SKIP() << "SiliconDriverWH.VirtualCoordinateBroadcast skipped since ethernet version does not support "

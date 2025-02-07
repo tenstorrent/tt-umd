@@ -85,8 +85,6 @@ public:
     uint32_t get_num_eth_channels() const;
     uint32_t get_num_harvested_eth_channels() const;
 
-    tt_xy_pair get_core_for_dram_channel(int dram_chan, int subchannel) const;
-
     // LOGICAL coordinates for DRAM and ETH are tightly coupled with channels, so this code is very similar to what
     // would translate_coord_to do for a coord with LOGICAL coords.
     tt::umd::CoreCoord get_dram_core_for_channel(
@@ -96,23 +94,8 @@ public:
 
     tt::ARCH arch;
     tt_xy_pair grid_size;
-    tt_xy_pair worker_grid_size;
-    std::unordered_map<tt_xy_pair, CoreDescriptor> cores;
-    std::vector<tt_xy_pair> arc_cores;
-    std::vector<tt_xy_pair> workers;
-    std::vector<tt_xy_pair> harvested_workers;
-    std::vector<tt_xy_pair> pcie_cores;
-    std::unordered_map<int, int> worker_log_to_routing_x;
-    std::unordered_map<int, int> worker_log_to_routing_y;
-    std::unordered_map<int, int> routing_x_to_worker_x;
-    std::unordered_map<int, int> routing_y_to_worker_y;
-    std::vector<std::vector<tt_xy_pair>> dram_cores;                             // per channel list of dram cores
-    std::unordered_map<tt_xy_pair, std::tuple<int, int>> dram_core_channel_map;  // map dram core to chan/subchan
-    std::vector<tt_xy_pair> ethernet_cores;                                      // ethernet cores (index == channel id)
-    std::unordered_map<tt_xy_pair, int> ethernet_core_channel_map;
     std::vector<std::size_t> trisc_sizes;  // Most of software stack assumes same trisc size for whole chip..
     std::string device_descriptor_file_path = std::string("");
-    std::vector<tt_xy_pair> router_cores;
 
     int overlay_version;
     int unpacker_version;
@@ -122,10 +105,13 @@ public:
     int eth_l1_size;
     bool noc_translation_id_enabled;
     uint64_t dram_bank_size;
+
+    // Passed through constructor.
+    bool noc_translation_enabled;
     tt::umd::HarvestingMasks harvesting_masks;
 
 private:
-    void create_coordinate_manager(const bool noc_translation_enabled, const tt::umd::HarvestingMasks harvesting_masks);
+    void create_coordinate_manager();
     void load_core_descriptors_from_device_descriptor(YAML::Node &device_descriptor_yaml);
     void load_soc_features_from_device_descriptor(YAML::Node &device_descriptor_yaml);
     void get_cores_and_grid_size_from_coordinate_manager();
@@ -133,6 +119,19 @@ private:
     static tt_xy_pair calculate_grid_size(const std::vector<tt_xy_pair> &cores);
     std::vector<tt::umd::CoreCoord> translate_coordinates(
         const std::vector<tt::umd::CoreCoord> &physical_cores, const CoordSystem coord_system) const;
+
+    // Internal structures, read from yaml.
+    tt_xy_pair worker_grid_size;
+    std::unordered_map<tt_xy_pair, CoreDescriptor> cores;
+    std::vector<tt_xy_pair> arc_cores;
+    std::vector<tt_xy_pair> workers;
+    std::vector<tt_xy_pair> harvested_workers;
+    std::vector<tt_xy_pair> pcie_cores;
+    std::vector<std::vector<tt_xy_pair>> dram_cores;                             // per channel list of dram cores
+    std::unordered_map<tt_xy_pair, std::tuple<int, int>> dram_core_channel_map;  // map dram core to chan/subchan
+    std::vector<tt_xy_pair> ethernet_cores;                                      // ethernet cores (index == channel id)
+    std::unordered_map<tt_xy_pair, int> ethernet_core_channel_map;
+    std::vector<tt_xy_pair> router_cores;
 
     // TODO: change this to unique pointer as soon as copying of tt_SocDescriptor
     // is not needed anymore. Soc descriptor and coordinate manager should be

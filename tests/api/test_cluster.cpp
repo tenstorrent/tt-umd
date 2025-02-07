@@ -76,7 +76,7 @@ TEST(ApiClusterTest, DifferentConstructors) {
     std::filesystem::path cluster_path = tt::umd::Cluster::serialize_to_file();
     std::unordered_map<chip_id_t, HarvestingMasks> simulated_harvesting_masks = {};
     std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>(
-        tt_ClusterDescriptor::create_from_yaml(cluster_path), 1, false, false, true, simulated_harvesting_masks, true);
+        tt_ClusterDescriptor::create_from_yaml(cluster_path), 1, true, false, true, simulated_harvesting_masks);
 }
 
 TEST(ApiClusterTest, SimpleIOAllChips) {

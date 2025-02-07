@@ -690,7 +690,7 @@ public:
      * Simplest form, creates a cluster of all available devices on the system.
      *
      * @param num_host_mem_ch_per_mmio_device Requested number of host channels (hugepages).
-     * @param skip_driver_allocs
+     * @param create_mock_chips Create mock chips for the devices in the cluster descriptor.
      * @param clean_system_resource Specifies if host state from previous runs needs to be cleaned up.
      * @param perform_harvesting Allow the driver to modify the SOC descriptors per chip.
      * @param simulated_harvesting_masks Manually specify additional harvesting masks for the devices in the cluster.
@@ -699,11 +699,10 @@ public:
      */
     Cluster(
         const uint32_t& num_host_mem_ch_per_mmio_device = 1,
-        const bool skip_driver_allocs = false,
+        const bool create_mock_chips = false,
         const bool clean_system_resources = false,
         bool perform_harvesting = true,
-        std::unordered_map<chip_id_t, HarvestingMasks> simulated_harvesting_masks = {},
-        const bool create_mock_chips = false);
+        std::unordered_map<chip_id_t, HarvestingMasks> simulated_harvesting_masks = {});
 
     /**
      * Cluster constructor.
@@ -711,21 +710,19 @@ public:
      *
      * @param target_devices Devices to target.
      * @param num_host_mem_ch_per_mmio_device Requested number of host channels (hugepages).
-     * @param skip_driver_allocs
+     * @param create_mock_chips Create mock chips for the devices in the cluster descriptor.
      * @param clean_system_resource Specifies if host state from previous runs needs to be cleaned up.
      * @param perform_harvesting Allow the driver to modify the SOC descriptors per chip.
      * @param simulated_harvesting_masks Manually specify additional harvesting masks for the devices in the cluster.
      * The ones defined by the devices itself have to be used, they will be merged with the ones passed here.
-     * @param create_mock_chips Create mock chips for the devices in the cluster descriptor.
      */
     Cluster(
         const std::set<chip_id_t>& target_devices,
         const uint32_t& num_host_mem_ch_per_mmio_device = 1,
-        const bool skip_driver_allocs = false,
+        const bool create_mock_chips = false,
         const bool clean_system_resources = false,
         bool perform_harvesting = true,
-        std::unordered_map<chip_id_t, HarvestingMasks> simulated_harvesting_masks = {},
-        const bool create_mock_chips = false);
+        std::unordered_map<chip_id_t, HarvestingMasks> simulated_harvesting_masks = {});
 
     /**
      * Cluster constructor.
@@ -736,22 +733,20 @@ public:
      * harvesting info of the devices in the cluster.
      * @param target_devices Devices to target.
      * @param num_host_mem_ch_per_mmio_device Requested number of host channels (hugepages).
-     * @param skip_driver_allocs
+     * @param create_mock_chips Create mock chips for the devices in the cluster descriptor.
      * @param clean_system_resource Specifies if host state from previous runs needs to be cleaned up.
      * @param perform_harvesting Allow the driver to modify the SOC descriptors per chip.
      * @param simulated_harvesting_masks Manually specify additional harvesting masks for the devices in the cluster.
      * The ones defined by the devices itself have to be used, they will be merged with the ones passed here.
-     * @param create_mock_chips Create mock chips for the devices in the cluster descriptor.
      */
     Cluster(
         const std::string& sdesc_path,
         const std::set<chip_id_t>& target_devices,
         const uint32_t& num_host_mem_ch_per_mmio_device = 1,
-        const bool skip_driver_allocs = false,
+        const bool create_mock_chips = false,
         const bool clean_system_resources = false,
         bool perform_harvesting = true,
-        std::unordered_map<chip_id_t, HarvestingMasks> simulated_harvesting_masks = {},
-        const bool create_mock_chips = false);
+        std::unordered_map<chip_id_t, HarvestingMasks> simulated_harvesting_masks = {});
 
     /**
      * Cluster constructor.
@@ -761,21 +756,19 @@ public:
      *
      * @param cluster_descriptor Cluster descriptor object based on which Cluster is going to be created.
      * @param num_host_mem_ch_per_mmio_device Requested number of host channels (hugepages).
-     * @param skip_driver_allocs
+     * @param create_mock_chips Create mock chips for the devices in the cluster descriptor.
      * @param clean_system_resource Specifies if host state from previous runs needs to be cleaned up.
      * @param perform_harvesting Allow the driver to modify the SOC descriptors per chip.
      * @param simulated_harvesting_masks Manually specify additional harvesting masks for the devices in the cluster.
      * The ones defined by the devices itself have to be used, they will be merged with the ones passed here.
-     * @param create_mock_chips Create mock chips for the devices in the cluster descriptor.
      */
     Cluster(
         std::unique_ptr<tt_ClusterDescriptor> cluster_descriptor,
         const uint32_t& num_host_mem_ch_per_mmio_device = 1,
-        const bool skip_driver_allocs = false,
+        const bool create_mock_chips = false,
         const bool clean_system_resources = false,
         bool perform_harvesting = true,
-        std::unordered_map<chip_id_t, HarvestingMasks> simulated_harvesting_masks = {},
-        const bool create_mock_chips = false);
+        std::unordered_map<chip_id_t, HarvestingMasks> simulated_harvesting_masks = {});
 
     // Existing API we want to keep. UMD is transitioning to use CoreCoord instead of tt_xy_pair.
     // This set of function shouldn't be removed even after the transition.
@@ -1014,7 +1007,7 @@ private:
     void create_device(
         const std::set<chip_id_t>& target_mmio_device_ids,
         const uint32_t& num_host_mem_ch_per_mmio_device,
-        const bool skip_driver_allocs,
+        const bool create_mock_chips,
         const bool clean_system_resources);
     void initialize_interprocess_mutexes(int logical_device_id, bool cleanup_mutexes_in_shm);
     void cleanup_shared_host_state();
@@ -1188,7 +1181,7 @@ private:
         std::unordered_map<chip_id_t, HarvestingMasks>& simulated_harvesting_masks);
     void construct_cluster(
         const uint32_t& num_host_mem_ch_per_mmio_device,
-        const bool skip_driver_allocs,
+        const bool create_mock_chips,
         const bool clean_system_resources,
         bool perform_harvesting,
         std::unordered_map<chip_id_t, HarvestingMasks> simulated_harvesting_masks);

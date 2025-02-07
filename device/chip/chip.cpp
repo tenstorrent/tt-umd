@@ -53,6 +53,6 @@ const ChipInfo& Chip::get_chip_info() { return chip_info_; }
 
 void Chip::wait_chip_to_be_ready() { wait_eth_cores_training(); }
 
-void Chip::wait_eth_cores_training(const uint32_t timeout_per_core) {}
+void Chip::wait_eth_cores_training(const uint32_t timeout_ms) {}
 
 }  // namespace tt::umd

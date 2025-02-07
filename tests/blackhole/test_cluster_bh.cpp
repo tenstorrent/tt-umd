@@ -120,7 +120,6 @@ TEST(SiliconDriverBH, CreateDestroy) {
 //         true,
 //         true,
 //         simulated_harvesting_masks);
-//     auto sdesc_per_chip = cluster.get_virtual_soc_descriptors();
 
 //     ASSERT_EQ(cluster.using_harvested_soc_descriptors(), true) << "Expected Driver to have performed harvesting";
 
@@ -156,7 +155,6 @@ TEST(SiliconDriverBH, CreateDestroy) {
 //         true,
 //         false,
 //         simulated_harvesting_masks);
-//     auto sdesc_per_chip = cluster.get_virtual_soc_descriptors();
 
 //     ASSERT_EQ(cluster.using_harvested_soc_descriptors(), false)
 //         << "SOC descriptors should not be modified when harvesting is disabled";

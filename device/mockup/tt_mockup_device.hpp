@@ -104,9 +104,14 @@ public:
 
     std::uint32_t get_numa_node_for_pcie_device(std::uint32_t device_id) override { return 0; }
 
+    const tt_SocDescriptor& get_soc_descriptor(chip_id_t chip_id) const override {
+        return soc_descriptor_per_chip.at(chip_id);
+    };
+
 private:
     std::vector<tt::ARCH> archs_in_cluster = {};
     std::set<chip_id_t> target_devices_in_cluster = {};
     std::set<chip_id_t> target_remote_chips = {};
     std::shared_ptr<tt_ClusterDescriptor> cluster_descriptor;
+    std::unordered_map<chip_id_t, tt_SocDescriptor> soc_descriptor_per_chip = {};
 };

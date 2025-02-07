@@ -106,7 +106,6 @@ TEST(SiliconDriverWH, Harvesting) {
 
     uint32_t num_host_mem_ch_per_mmio_device = 1;
     Cluster cluster = Cluster(num_host_mem_ch_per_mmio_device, false, true, true, simulated_harvesting_masks);
-    auto sdesc_per_chip = cluster.get_virtual_soc_descriptors();
 
     // Real harvesting info on this system will be forcefully included in the harvesting mask.
     std::unordered_map<chip_id_t, std::uint32_t> harvesting_info =
@@ -119,9 +118,9 @@ TEST(SiliconDriverWH, Harvesting) {
 
     ASSERT_EQ(cluster.using_harvested_soc_descriptors(), true) << "Expected Driver to have performed harvesting";
 
-    for (const auto& chip : sdesc_per_chip) {
-        ASSERT_LE(chip.second.get_cores(CoreType::TENSIX).size(), 48)
-            << "Expected SOC descriptor with harvesting to have 48 workers or less for chip" << chip.first;
+    for (const auto& chip : cluster.get_target_device_ids()) {
+        ASSERT_LE(cluster.get_soc_descriptor(chip).get_cores(CoreType::TENSIX).size(), 48)
+            << "Expected SOC descriptor with harvesting to have 48 workers or less for chip " << chip;
     }
     for (int i = 0; i < num_devices; i++) {
         // harvesting info stored in soc descriptor is in logical coordinates.
@@ -158,12 +157,11 @@ TEST(SiliconDriverWH, CustomSocDesc) {
         true,
         false,
         simulated_harvesting_masks);
-    auto sdesc_per_chip = cluster.get_virtual_soc_descriptors();
 
     ASSERT_EQ(cluster.using_harvested_soc_descriptors(), false)
         << "SOC descriptors should not be modified when harvesting is disabled";
-    for (const auto& chip : sdesc_per_chip) {
-        ASSERT_EQ(chip.second.get_cores(CoreType::TENSIX).size(), 1)
+    for (const auto& chip : cluster.get_target_device_ids()) {
+        ASSERT_EQ(cluster.get_soc_descriptor(chip).get_cores(CoreType::TENSIX).size(), 1)
             << "Expected 1x1 SOC descriptor to be unmodified by driver";
     }
 }

@@ -496,16 +496,6 @@ public:
         throw std::runtime_error("---- tt_device::dram_membar is not implemented\n");
     }
 
-    // Misc. Functions to Query/Set Device State
-    /**
-     * Query post harvesting SOC descriptors from UMD in virtual coordinates.
-     * It should just return the SoCDescriptors that were created during construction.
-     * These descriptors should be used for looking up cores that are passed into UMD APIs.
-     */
-    virtual std::unordered_map<chip_id_t, tt_SocDescriptor> get_virtual_soc_descriptors() {
-        return soc_descriptor_per_chip;
-    }
-
     /**
      * Determine if UMD performed harvesting on SOC descriptors. Returns false if there is no harvesting for the
      * devices.
@@ -677,16 +667,12 @@ public:
      * @param chip_id Chip to get soc descriptor for.
      */
     virtual const tt_SocDescriptor& get_soc_descriptor(chip_id_t chip_id) const {
-        return soc_descriptor_per_chip.at(chip_id);
+        throw std::runtime_error("---- tt_device::get_soc_descriptor is not implemented\n");
     }
 
     bool performed_harvesting = false;
     std::unordered_map<chip_id_t, uint32_t> harvested_rows_per_target = {};
     bool translation_tables_en = false;
-
-protected:
-    // TODO: Remove this once get_virtual_soc_descriptors can be removed.
-    std::unordered_map<chip_id_t, tt_SocDescriptor> soc_descriptor_per_chip = {};
 };
 
 namespace tt::umd {
@@ -907,7 +893,6 @@ public:
     // Existing API we want to remove. UMD is transitioning to use CoreCoord instead of tt_xy_pair.
     // This set of functions is supposed to be removed one the transition for clients (tt-metal, tt-lens) is complete.
     // TODO: remove this set of functions once the transition for clients is completed.
-    std::unordered_map<chip_id_t, tt_SocDescriptor> get_virtual_soc_descriptors();
     virtual void configure_tlb(
         chip_id_t logical_device_id,
         tt_xy_pair core,

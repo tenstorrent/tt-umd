@@ -358,4 +358,7 @@ void TTDevice::create_read_write_mutex() {
     read_write_mutex = std::make_shared<named_mutex>(open_or_create, "read_write_mutex", unrestricted_permissions);
 }
 
+void TTDevice::wait_arc_core_start(const tt_xy_pair arc_core, const uint32_t timeout_ms) {
+    throw std::runtime_error("Waiting for ARC core to start is supported only for Blackhole TTDevice.");
+}
 }  // namespace tt::umd

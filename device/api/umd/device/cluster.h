@@ -1010,6 +1010,7 @@ public:
     virtual void dram_membar(
         const chip_id_t chip, const std::unordered_set<tt::umd::CoreCoord>& cores, const std::string& fallback_tlb);
 
+    static std::unique_ptr<tt_ClusterDescriptor> create_cluster_descriptor();
     // Destructor
     virtual ~Cluster();
 
@@ -1198,6 +1199,9 @@ private:
     // Most of the old APIs accept virtual coordinates, but we communicate with the device through translated
     // coordinates. This is an internal helper function, until we switch the API to accept translated coordinates.
     tt_xy_pair translate_chip_coord_virtual_to_translated(const chip_id_t chip_id, const tt_xy_pair core) const;
+
+    static std::unique_ptr<tt_ClusterDescriptor> create_cluster_descriptor(
+        const std::unordered_map<chip_id_t, std::unique_ptr<tt::umd::Chip>>& chips);
 
     // State variables
     std::vector<tt::ARCH> archs_in_cluster = {};

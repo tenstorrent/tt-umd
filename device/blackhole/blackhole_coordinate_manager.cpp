@@ -192,7 +192,10 @@ void BlackholeCoordinateManager::translate_eth_coords() {
 }
 
 void BlackholeCoordinateManager::fill_eth_physical_translated_mapping() {
-    const size_t num_harvested_channels = CoordinateManager::get_num_harvested(harvesting_masks.eth_harvesting_mask);
+    size_t num_harvested_channels = CoordinateManager::get_num_harvested(harvesting_masks.eth_harvesting_mask);
+    if (eth_cores.size() == 0) {
+        num_harvested_channels = 0;
+    }
     for (size_t eth_channel = 0; eth_channel < eth_cores.size() - num_harvested_channels; eth_channel++) {
         const size_t translated_x = eth_channel + blackhole::eth_translated_coordinate_start_x;
         const size_t translated_y = blackhole::eth_translated_coordinate_start_y;

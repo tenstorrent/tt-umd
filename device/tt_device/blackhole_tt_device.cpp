@@ -98,9 +98,13 @@ ChipInfo BlackholeTTDevice::get_chip_info() {
     // It is expected that this entry is always available.
     chip_info.chip_uid.asic_location = telemetry->read_entry(blackhole::TAG_ASIC_ID);
 
-    const uint64_t niu_cfg_addr = 0x80050100;
+    const uint64_t addr = blackhole::NIU_CFG_NOC0_BAR_ADDR;
     uint32_t niu_cfg;
-    read_from_device(&niu_cfg, tt_xy_pair{8, 0}, niu_cfg_addr, sizeof(uint32_t));
+    if (addr < get_pci_device()->bar0_uc_offset) {
+        read_block(addr, sizeof(niu_cfg), reinterpret_cast<uint8_t *>(&niu_cfg));
+    } else {
+        read_regs(addr, 1, &niu_cfg);
+    }
 
     chip_info.noc_translation_enabled = ((niu_cfg >> 14) & 0x1) != 0;
 

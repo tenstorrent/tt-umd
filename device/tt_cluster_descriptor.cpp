@@ -894,3 +894,5 @@ const std::unordered_map<chip_id_t, std::unordered_set<chip_id_t>> &
 tt_ClusterDescriptor::get_chips_grouped_by_closest_mmio() const {
     return chips_grouped_by_closest_mmio;
 }
+
+chip_id_t tt_ClusterDescriptor::get_chip_id(const ChipUID &chip_uid) const { return chip_uid_to_chip_id.at(chip_uid); }

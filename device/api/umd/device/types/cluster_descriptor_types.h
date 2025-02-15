@@ -51,6 +51,31 @@ enum BoardType : uint32_t {
     UNKNOWN,
 };
 
+// We have two ways BH chips are connected to the rest of the system, either one of the two PCI cores can be active.
+enum BlackholeChipType : uint32_t {
+    Type1,
+    Type2,
+};
+
+inline BlackholeChipType get_blackhole_chip_type(const BoardType board_type, const bool is_chip_remote) {
+    if (is_chip_remote) {
+        if (board_type != BoardType::P300) {
+            throw std::runtime_error("Remote chip is supported only for Blackhole P300 board.");
+        }
+    }
+
+    switch (board_type) {
+        case BoardType::P100:
+            return BlackholeChipType::Type1;
+        case BoardType::P150A:
+            return BlackholeChipType::Type2;
+        case BoardType::P300:
+            return is_chip_remote ? BlackholeChipType::Type1 : BlackholeChipType::Type2;
+        default:
+            throw std::runtime_error("Invalid board type for Blackhole architecture.");
+    }
+}
+
 // TODO: add Wormhole and Grayskull board types to this function
 inline BoardType get_board_type_from_board_id(const uint64_t board_id) {
     uint64_t upi = (board_id >> 36) & 0xFFFFF;

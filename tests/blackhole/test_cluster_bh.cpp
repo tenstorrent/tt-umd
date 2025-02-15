@@ -939,8 +939,9 @@ TEST(SiliconDriverBH, RandomSysmemTestWithPcie) {
     cluster.start_device(tt_device_params{});  // no special parameters
 
     const chip_id_t mmio_chip_id = 0;
-    const auto PCIE = cluster.get_soc_descriptor(mmio_chip_id).get_cores(CoreType::PCIE).at(0);
-    const tt_cxy_pair PCIE_CORE(mmio_chip_id, PCIE.x, PCIE.y);
+    const auto pci_cores = cluster.get_soc_descriptor(mmio_chip_id).get_cores(CoreType::PCIE);
+    ASSERT_EQ(pci_cores.size(), 1);
+    const auto pcie_core = pci_cores.at(0);
     const size_t ONE_GIG = 1 << 30;
     const size_t num_tests = 0x20000;  // runs in a reasonable amount of time
 
@@ -972,7 +973,7 @@ TEST(SiliconDriverBH, RandomSysmemTestWithPcie) {
             ASSERT_EQ(address % ALIGNMENT, 0) << "Address not properly aligned";
 
             uint32_t value = 0;
-            cluster.read_from_device(&value, PCIE_CORE, noc_addr, sizeof(uint32_t), "LARGE_READ_TLB");
+            cluster.read_from_device(&value, mmio_chip_id, pcie_core, noc_addr, sizeof(uint32_t), "LARGE_READ_TLB");
 
             uint32_t expected = *reinterpret_cast<uint32_t*>(&sysmem[sysmem_address]);
             ASSERT_EQ(value, expected) << fmt::format("Mismatch at address {:#x}", address);

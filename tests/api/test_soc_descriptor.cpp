@@ -511,3 +511,41 @@ TEST(SocDescriptor, NocTranslation) {
         EXPECT_EQ((tt_xy_pair)tensix_core_translated, (tt_xy_pair)tensix_core_virtual);
     }
 }
+
+TEST(SocDescriptor, BoardBasedPCIE) {
+    // Expect invalid configuration to throw an exception.
+    EXPECT_ANY_THROW(tt_SocDescriptor soc_desc(
+        test_utils::GetAbsPath("tests/soc_descs/blackhole_140_arch.yaml"), true, {0, 0, 0}, BoardType::P100, true));
+    EXPECT_ANY_THROW(tt_SocDescriptor soc_desc(
+        test_utils::GetAbsPath("tests/soc_descs/blackhole_140_arch.yaml"), true, {0, 0, 0}, BoardType::P150A, true));
+    EXPECT_ANY_THROW(tt_SocDescriptor soc_desc(
+        test_utils::GetAbsPath("tests/soc_descs/blackhole_140_arch.yaml"), true, {0, 0, 0}, BoardType::E300, false));
+
+    // Verify expected PCI cores.
+    std::map<std::pair<BoardType, bool>, uint32_t> board_configuration_to_pcie_x_location = {
+        {{BoardType::P100, false}, 2},
+        {{BoardType::P150A, false}, 10},
+        {{BoardType::P300, false}, 2},
+        {{BoardType::P300, true}, 10},
+    };
+
+    for (const auto& [board_configuration, expected_pcie_x_location] : board_configuration_to_pcie_x_location) {
+        tt_SocDescriptor soc_desc(
+            test_utils::GetAbsPath("tests/soc_descs/blackhole_140_arch.yaml"),
+            true,
+            {0, 0, 0},
+            board_configuration.first,
+            board_configuration.second);
+
+        const std::vector<CoreCoord> pcie_cores = soc_desc.get_cores(CoreType::PCIE);
+        ASSERT_EQ(pcie_cores.size(), 1);
+        EXPECT_EQ(pcie_cores[0].x, expected_pcie_x_location);
+    }
+
+    // If board type is not provided, just pass through what was described by the soc descriptor.
+    EXPECT_EQ(
+        tt_SocDescriptor(test_utils::GetAbsPath("tests/soc_descs/blackhole_140_arch.yaml"), true)
+            .get_cores(CoreType::PCIE)
+            .size(),
+        2);
+}

@@ -320,6 +320,7 @@ std::string tt_SocDescriptor::get_soc_descriptor_path(
             return tt::umd::utils::get_abs_path("tests/soc_descs/wormhole_b0_8x10.yaml");
         case tt::ARCH::BLACKHOLE: {
             auto chip_type = get_blackhole_chip_type(board_type, is_chip_remote);
+            std::cout << "yeah get_soc_descriptor_path was called" << std::endl;
             return tt::umd::utils::get_abs_path(
                 chip_type == BlackholeChipType::Type1 ? "tests/soc_descs/blackhole_140_arch_type1.yaml"
                                                       : "tests/soc_descs/blackhole_140_arch_type2.yaml");

@@ -40,8 +40,7 @@ jobs:
           {arch: grayskull, card: e300, timeout: 10},
           {arch: wormhole_b0, card: n150, timeout: 5},
           {arch: wormhole_b0, card: n300, timeout: 15},
-          # Enable once we have functional cards.
-          # {arch: blackhole},
+          {arch: blackhole, card: p150, timeout: 10},
         ]
         ubuntu-version: [
           # Running tests on ubuntu-20.04 should be sufficient. Reduce load on CI.

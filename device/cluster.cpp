@@ -3516,14 +3516,20 @@ std::unique_ptr<tt_ClusterDescriptor> Cluster::create_cluster_descriptor(
                 std::cout << "so code goes here? 53" << std::endl;
                 log_debug(LogSiliconDriver, "Eth core ({}, {}) on chip {} is active", eth_core.x, eth_core.y, chip_id);
                 // active eth core
+                std::cout << "so code goes here? 531" << std::endl;
                 const chip_info_t& local_info = boot_results.local_info;
+                std::cout << "so code goes here? 532" << std::endl;
                 const chip_info_t& remote_info = boot_results.remote_info;
+                std::cout << "so code goes here? 533" << std::endl;
 
                 chip_id_t local_chip_id = desc->get_chip_id(local_info.get_chip_uid());
+                std::cout << "so code goes here? 534" << std::endl;
                 chip_id_t remote_chip_id = desc->get_chip_id(remote_info.get_chip_uid());
+                std::cout << "so code goes here? 535" << std::endl;
 
                 // Adding a connection only one way, the other chip should add it another way.
                 desc->ethernet_connections[local_chip_id][local_info.eth_id] = {remote_chip_id, remote_info.eth_id};
+                std::cout << "so code goes here? 536" << std::endl;
 
             } else if (boot_results.eth_status.port_status == port_status_e::PORT_DOWN) {
                 std::cout << "so code goes here? 54" << std::endl;

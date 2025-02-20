@@ -290,7 +290,7 @@ void Cluster::construct_cluster(
     const bool clean_system_resources,
     bool perform_harvesting,
     std::unordered_map<chip_id_t, HarvestingMasks> simulated_harvesting_masks) {
-        std::cout << "udjog u construct cluster" << std::endl;
+    std::cout << "udjog u construct cluster" << std::endl;
     if (!skip_driver_allocs) {
         auto available_device_ids = detect_available_device_ids();
         log_info(LogSiliconDriver, "Detected PCI devices: {}", available_device_ids);
@@ -573,9 +573,11 @@ Cluster::Cluster(
             chip_id,
             construct_chip_from_cluster(chip_id, cluster_desc.get(), perform_harvesting, simulated_harvesting_masks));
     }
+    std::cout << "add chip after" << std::endl;
 
     // TODO: work on removing this member altogether. Currently assumes all have the same arch.
     arch_name = chips_.begin()->second->get_soc_descriptor().arch;
+    std::cout << "add chip after2" << std::endl;
 
     construct_cluster(
         num_host_mem_ch_per_mmio_device,
@@ -583,6 +585,7 @@ Cluster::Cluster(
         clean_system_resources,
         perform_harvesting,
         simulated_harvesting_masks);
+        std::cout << "add chip after3" << std::endl;
 }
 
 Cluster::Cluster(

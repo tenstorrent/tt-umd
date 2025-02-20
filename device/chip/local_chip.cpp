@@ -30,6 +30,7 @@ LocalChip::LocalChip(std::unique_ptr<TTDevice> tt_device) :
             tt_device->get_chip_info().harvesting_masks)),
     tt_device_(std::move(tt_device)) {
     initialize_local_chip();
+    std::cout << "Finished creating local chip." << std::endl;
 }
 
 void LocalChip::initialize_local_chip() {

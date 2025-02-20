@@ -290,6 +290,7 @@ void Cluster::construct_cluster(
     const bool clean_system_resources,
     bool perform_harvesting,
     std::unordered_map<chip_id_t, HarvestingMasks> simulated_harvesting_masks) {
+        std::cout << "udjog u construct cluster" << std::endl;
     if (!skip_driver_allocs) {
         auto available_device_ids = detect_available_device_ids();
         log_info(LogSiliconDriver, "Detected PCI devices: {}", available_device_ids);

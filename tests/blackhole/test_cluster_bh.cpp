@@ -276,7 +276,9 @@ TEST(SiliconDriverBH, UnalignedStaticTLB_RW) {
 
     uint32_t num_host_mem_ch_per_mmio_device = 1;
 
+    std::cout << "preconstructor" << std::endl;
     Cluster cluster = Cluster(num_host_mem_ch_per_mmio_device, false, true, true);
+    std::cout << "preconstructor after" << std::endl;
     set_barrier_params(cluster);
     auto mmio_devices = cluster.get_target_mmio_device_ids();
 

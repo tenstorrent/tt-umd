@@ -92,6 +92,7 @@ void LocalChip::wait_eth_cores_training(const uint32_t timeout_ms) {
                 break;
             }
         }
+        std::cout << "breaking" << std::endl;
     }
 }
 

@@ -3479,6 +3479,7 @@ std::unique_ptr<tt_ClusterDescriptor> Cluster::create_cluster_descriptor(
         const std::unique_ptr<Chip>& chip = it.second;
         std::cout << "so code goes here? 3" << std::endl;
         desc->chip_uid_to_chip_id.insert({chip->get_chip_info().chip_uid, it.first});
+        std::cout << "Added chip_uid_to_chip_id " << chip->get_chip_info().chip_uid << " " << it.first << std::endl;
     }
 
     for (auto& it : chips) {
@@ -3524,6 +3525,8 @@ std::unique_ptr<tt_ClusterDescriptor> Cluster::create_cluster_descriptor(
 
                 chip_id_t local_chip_id = desc->get_chip_id(local_info.get_chip_uid());
                 std::cout << "so code goes here? 534" << std::endl;
+                std::cout << "local board id " << local_info.get_chip_uid().board_id << " " << local_info.get_chip_uid().asic_location << std::endl;
+                std::cout << "remote board id " << remote_info.get_chip_uid().board_id << " " << remote_info.get_chip_uid().asic_location << std::endl;
                 chip_id_t remote_chip_id = desc->get_chip_id(remote_info.get_chip_uid());
                 std::cout << "so code goes here? 535" << std::endl;
 

@@ -3499,18 +3499,21 @@ std::unique_ptr<tt_ClusterDescriptor> Cluster::create_cluster_descriptor(
         const std::vector<CoreCoord> eth_cores = chip->get_soc_descriptor().get_cores(CoreType::ETH);
 
         for (size_t eth_channel = 0; eth_channel < eth_cores.size(); eth_channel++) {
-            std::cout << "so code goes here? 5" << std::endl;
+            std::cout << "so code goes here? 5 " << eth_channel << std::endl;
             const CoreCoord& eth_core = eth_cores[eth_channel];
             TTDevice* tt_device = chip->get_tt_device();
             boot_results_t boot_results;
+            std::cout << "so code goes here? 51" << std::endl;
 
             tt_device->read_from_device(
                 (uint8_t*)&boot_results,
                 tt_xy_pair(eth_core.x, eth_core.y),
                 blackhole::BOOT_RESULTS_ADDR,
                 sizeof(boot_results));
+                std::cout << "so code goes here? 52" << std::endl;
 
             if (boot_results.eth_status.port_status == port_status_e::PORT_UP) {
+                std::cout << "so code goes here? 53" << std::endl;
                 log_debug(LogSiliconDriver, "Eth core ({}, {}) on chip {} is active", eth_core.x, eth_core.y, chip_id);
                 // active eth core
                 const chip_info_t& local_info = boot_results.local_info;
@@ -3523,12 +3526,15 @@ std::unique_ptr<tt_ClusterDescriptor> Cluster::create_cluster_descriptor(
                 desc->ethernet_connections[local_chip_id][local_info.eth_id] = {remote_chip_id, remote_info.eth_id};
 
             } else if (boot_results.eth_status.port_status == port_status_e::PORT_DOWN) {
+                std::cout << "so code goes here? 54" << std::endl;
                 log_debug(
                     LogSiliconDriver, "Port on eth core ({}, {}) on chip {} is down", eth_core.x, eth_core.y, chip_id);
             } else if (boot_results.eth_status.port_status == port_status_e::PORT_UNUSED) {
+                std::cout << "so code goes here? 55" << std::endl;
                 // idle core
                 log_debug(LogSiliconDriver, "Eth core ({}, {}) on chip {} is idle");
             } else if (boot_results.eth_status.port_status == port_status_e::PORT_UNKNOWN) {
+                std::cout << "so code goes here? 56" << std::endl;
                 log_debug(
                     LogSiliconDriver,
                     "Port on eth core ({}, {}) on chip {} is in unknown state",
@@ -3538,6 +3544,7 @@ std::unique_ptr<tt_ClusterDescriptor> Cluster::create_cluster_descriptor(
             }
         }
     }
+    std::cout << "so code goes here? 6" << std::endl;
 
     desc->enable_all_devices();
 

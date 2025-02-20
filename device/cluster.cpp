@@ -3457,6 +3457,7 @@ std::unique_ptr<tt_ClusterDescriptor> Cluster::create_cluster_descriptor() {
         chip_id_t chip_id = 0;
         for (auto& device_id : pci_device_ids) {
             std::unique_ptr<LocalChip> chip = std::make_unique<LocalChip>(TTDevice::create(device_id));
+            std::cout << "localchip created in create_cluster_descriptor" << std::endl;
             chips.emplace(chip_id, std::move(chip));
             chip_id++;
         }
@@ -3469,15 +3470,19 @@ std::unique_ptr<tt_ClusterDescriptor> Cluster::create_cluster_descriptor() {
 
 std::unique_ptr<tt_ClusterDescriptor> Cluster::create_cluster_descriptor(
     const std::unordered_map<chip_id_t, std::unique_ptr<tt::umd::Chip>>& chips) {
+        std::cout << "so code goes here? 1" << std::endl;
     std::unique_ptr<tt_ClusterDescriptor> desc = std::unique_ptr<tt_ClusterDescriptor>(new tt_ClusterDescriptor());
+    std::cout << "so code goes here? 2" << std::endl;
 
     for (auto& it : chips) {
         const chip_id_t chip_id = it.first;
         const std::unique_ptr<Chip>& chip = it.second;
+        std::cout << "so code goes here? 3" << std::endl;
         desc->chip_uid_to_chip_id.insert({chip->get_chip_info().chip_uid, it.first});
     }
 
     for (auto& it : chips) {
+        std::cout << "so code goes here? 4" << std::endl;
         const chip_id_t chip_id = it.first;
         const std::unique_ptr<Chip>& chip = it.second;
 
@@ -3494,6 +3499,7 @@ std::unique_ptr<tt_ClusterDescriptor> Cluster::create_cluster_descriptor(
         const std::vector<CoreCoord> eth_cores = chip->get_soc_descriptor().get_cores(CoreType::ETH);
 
         for (size_t eth_channel = 0; eth_channel < eth_cores.size(); eth_channel++) {
+            std::cout << "so code goes here? 5" << std::endl;
             const CoreCoord& eth_core = eth_cores[eth_channel];
             TTDevice* tt_device = chip->get_tt_device();
             boot_results_t boot_results;

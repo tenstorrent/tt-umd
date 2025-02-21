@@ -13,9 +13,15 @@
 #include "umd/device/tt_device/grayskull_tt_device.h"
 #include "umd/device/tt_device/wormhole_tt_device.h"
 
+bool umd_use_noc1 = false;
+
 using namespace boost::interprocess;
 
 namespace tt::umd {
+
+void TTDevice::use_noc1(bool use_noc1) {
+    umd_use_noc1 = use_noc1;
+}
 
 TTDevice::TTDevice(
     std::unique_ptr<PCIDevice> pci_device, std::unique_ptr<architecture_implementation> architecture_impl) :
@@ -309,6 +315,7 @@ dynamic_tlb TTDevice::set_dynamic_tlb(
             .y_end = static_cast<uint64_t>(end.y),
             .x_start = static_cast<uint64_t>(start.x),
             .y_start = static_cast<uint64_t>(start.y),
+            .noc_sel = umd_use_noc1 ? 1U : 0,
             .mcast = multicast,
             .ordering = ordering,
             // TODO #2715: hack for Blackhole A0, will potentially be fixed in B0.

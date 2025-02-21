@@ -38,6 +38,8 @@ class TLBManager;
 
 class TTDevice {
 public:
+    static void use_noc1(bool use_noc1);
+
     /**
      * Creates a proper TTDevice object for the given PCI device number.
      */

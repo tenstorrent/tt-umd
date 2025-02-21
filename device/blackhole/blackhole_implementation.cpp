@@ -54,6 +54,7 @@ tlb_configuration blackhole_implementation::get_tlb_configuration(uint32_t tlb_i
 
 std::pair<std::uint64_t, std::uint64_t> blackhole_implementation::get_tlb_data(
     std::uint32_t tlb_index, const tlb_data& data) const {
+    throw std::runtime_error("This is never called!");
     if (tlb_index < blackhole::TLB_COUNT_2M) {
         return data.apply_offset(blackhole::TLB_2M_OFFSET);
     } else {

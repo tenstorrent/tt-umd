@@ -54,6 +54,7 @@ tlb_configuration grayskull_implementation::get_tlb_configuration(uint32_t tlb_i
 
 std::pair<std::uint64_t, std::uint64_t> grayskull_implementation::get_tlb_data(
     std::uint32_t tlb_index, const tlb_data &data) const {
+    throw std::runtime_error("This is never called!");
     if (tlb_index < grayskull::TLB_COUNT_1M) {
         return data.apply_offset(grayskull::TLB_1M_OFFSET);
     } else if (tlb_index < grayskull::TLB_COUNT_1M + grayskull::TLB_COUNT_2M) {

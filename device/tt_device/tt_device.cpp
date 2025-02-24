@@ -14,9 +14,7 @@ bool umd_use_noc1 = false;
 
 namespace tt::umd {
 
-void TTDevice::use_noc1(bool use_noc1) {
-    umd_use_noc1 = use_noc1;
-}
+void TTDevice::use_noc1(bool use_noc1) { umd_use_noc1 = use_noc1; }
 
 TTDevice::TTDevice(
     std::unique_ptr<PCIDevice> pci_device, std::unique_ptr<architecture_implementation> architecture_impl) :

@@ -524,9 +524,9 @@ TEST(SocDescriptor, BoardBasedPCIE) {
     // Verify expected PCI cores.
     std::map<std::pair<BoardType, bool>, uint32_t> board_configuration_to_pcie_x_location = {
         {{BoardType::P100, false}, 2},
-        {{BoardType::P150, false}, 10},
-        {{BoardType::P300, false}, 2},
-        {{BoardType::P300, true}, 10},
+        {{BoardType::P150, false}, 11},
+        {{BoardType::P300, true}, 2},
+        {{BoardType::P300, false}, 11},
     };
 
     for (const auto& [board_configuration, expected_pcie_x_location] : board_configuration_to_pcie_x_location) {

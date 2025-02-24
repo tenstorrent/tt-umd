@@ -3510,10 +3510,21 @@ std::unique_ptr<tt_ClusterDescriptor> Cluster::create_cluster_descriptor(
                 const chip_info_t& remote_info = boot_results.remote_info;
 
                 chip_id_t local_chip_id = desc->get_chip_id(local_info.get_chip_uid());
-                chip_id_t remote_chip_id = desc->get_chip_id(remote_info.get_chip_uid());
+                if (desc->chip_uid_to_chip_id.find(remote_info.get_chip_uid()) == desc->chip_uid_to_chip_id.end()) {
+                    log_debug(
+                        LogSiliconDriver,
+                        "Eth core ({}, {}) on chip {} is connected to an chip with board_id {} not present in the "
+                        "target devices opened by this driver.",
+                        eth_core.x,
+                        eth_core.y,
+                        chip_id,
+                        remote_info.get_chip_uid().board_id);
+                } else {
+                    chip_id_t remote_chip_id = desc->get_chip_id(remote_info.get_chip_uid());
 
-                // Adding a connection only one way, the other chip should add it another way.
-                desc->ethernet_connections[local_chip_id][local_info.eth_id] = {remote_chip_id, remote_info.eth_id};
+                    // Adding a connection only one way, the other chip should add it another way.
+                    desc->ethernet_connections[local_chip_id][local_info.eth_id] = {remote_chip_id, remote_info.eth_id};
+                }
 
             } else if (boot_results.eth_status.port_status == port_status_e::PORT_DOWN) {
                 log_debug(

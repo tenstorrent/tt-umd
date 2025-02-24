@@ -98,9 +98,15 @@ ChipInfo BlackholeTTDevice::get_chip_info() {
     // It is expected that this entry is always available.
     chip_info.chip_uid.asic_location = telemetry->read_entry(blackhole::TAG_ASIC_ID);
 
-    // For now, NOC translation is disabled on all Blackhole boards.
-    // TODO: read this information when it becomes available.
-    chip_info.noc_translation_enabled = false;
+    const uint64_t addr = blackhole::NIU_CFG_NOC0_BAR_ADDR;
+    uint32_t niu_cfg;
+    if (addr < get_pci_device()->bar0_uc_offset) {
+        read_block(addr, sizeof(niu_cfg), reinterpret_cast<uint8_t *>(&niu_cfg));
+    } else {
+        read_regs(addr, 1, &niu_cfg);
+    }
+
+    chip_info.noc_translation_enabled = ((niu_cfg >> 14) & 0x1) != 0;
 
     // It is expected that these entries are always available.
     chip_info.chip_uid.board_id = ((uint64_t)telemetry->read_entry(blackhole::TAG_BOARD_ID_HIGH) << 32) |
@@ -108,7 +114,31 @@ ChipInfo BlackholeTTDevice::get_chip_info() {
 
     chip_info.board_type = get_board_type_from_board_id(chip_info.chip_uid.board_id);
 
+    if (chip_info.board_type == BoardType::P100) {
+        chip_info.harvesting_masks.eth_harvesting_mask = 0;
+    }
+
     return chip_info;
+}
+
+void BlackholeTTDevice::wait_arc_core_start(const tt_xy_pair arc_core, const uint32_t timeout_ms) {
+    auto start = std::chrono::system_clock::now();
+    uint32_t arc_boot_status;
+    while (true) {
+        read_from_device(&arc_boot_status, arc_core, tt::umd::blackhole::SCRATCH_RAM_2, sizeof(arc_boot_status));
+
+        // ARC started successfully.
+        if ((arc_boot_status & 0x7) == 0x5) {
+            return;
+        }
+
+        auto end = std::chrono::system_clock::now();  // End time
+        auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
+        if (duration.count() > timeout_ms) {
+            log_error(
+                "Timed out after waiting {} ms for arc core ({}, {}) to start", timeout_ms, arc_core.x, arc_core.y);
+        }
+    }
 }
 
 }  // namespace tt::umd

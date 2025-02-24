@@ -28,10 +28,6 @@ struct dynamic_tlb {
     uint64_t remaining_size;  // Bytes remaining between bar_offset and end of the TLB.
 };
 
-namespace boost::interprocess {
-class named_mutex;
-}
-
 namespace tt::umd {
 
 class TLBManager;
@@ -133,6 +129,8 @@ public:
 
     virtual ChipInfo get_chip_info() = 0;
 
+    virtual void wait_arc_core_start(const tt_xy_pair arc_core, const uint32_t timeout_ms = 1000);
+
 protected:
     std::unique_ptr<PCIDevice> pci_device_;
     std::unique_ptr<architecture_implementation> architecture_impl_;
@@ -153,10 +151,6 @@ protected:
     // to 2-byte writes. We avoid ever performing a 1-byte write to the device. This only affects to device.
     void memcpy_to_device(void *dest, const void *src, std::size_t num_bytes);
     void memcpy_from_device(void *dest, const void *src, std::size_t num_bytes);
-
-    void create_read_write_mutex();
-
-    std::shared_ptr<boost::interprocess::named_mutex> read_write_mutex = nullptr;
 
     ChipInfo chip_info;
 };

@@ -64,7 +64,6 @@ std::pair<std::uint64_t, std::uint64_t> wormhole_implementation::get_tlb_data(
     std::uint32_t TLB_COUNT_2M = 10;
     std::uint32_t TLB_COUNT_16M = 20;
 
-    throw std::runtime_error("This is never called!");
     if (tlb_index < TLB_COUNT_1M) {
         return data.apply_offset(wormhole::TLB_1M_OFFSET);
     } else if (tlb_index < TLB_COUNT_1M + TLB_COUNT_2M) {

@@ -13,6 +13,7 @@
 #include "umd/device/tt_device/grayskull_tt_device.h"
 #include "umd/device/tt_device/wormhole_tt_device.h"
 
+// TODO #526: This is a hack to allow UMD to use the NOC1 TLB.
 bool umd_use_noc1 = false;
 
 using namespace boost::interprocess;

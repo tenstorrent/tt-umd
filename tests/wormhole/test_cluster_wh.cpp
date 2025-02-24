@@ -104,6 +104,12 @@ TEST(SiliconDriverWH, Harvesting) {
     int num_devices = target_devices.size();
     std::unordered_map<chip_id_t, HarvestingMasks> simulated_harvesting_masks = {{0, {30, 0, 0}}, {1, {60, 0, 0}}};
 
+    for (auto chip : target_devices) {
+        if (!simulated_harvesting_masks.count(chip)) {
+            simulated_harvesting_masks[chip] = {60, 0, 0};
+        }
+    }
+
     uint32_t num_host_mem_ch_per_mmio_device = 1;
     Cluster cluster = Cluster(num_host_mem_ch_per_mmio_device, false, true, true, simulated_harvesting_masks);
     auto sdesc_per_chip = cluster.get_virtual_soc_descriptors();
@@ -148,6 +154,12 @@ TEST(SiliconDriverWH, CustomSocDesc) {
     std::set<chip_id_t> target_devices = get_target_devices();
     std::unordered_map<chip_id_t, HarvestingMasks> simulated_harvesting_masks = {{0, {30, 0, 0}}, {1, {60, 0, 0}}};
 
+    for (auto chip : target_devices) {
+        if (!simulated_harvesting_masks.count(chip)) {
+            simulated_harvesting_masks[chip] = {60, 0, 0};
+        }
+    }
+
     uint32_t num_host_mem_ch_per_mmio_device = 1;
     // Initialize the driver with a 1x1 descriptor and explictly do not perform harvesting
     Cluster cluster = Cluster(
@@ -173,6 +185,12 @@ TEST(SiliconDriverWH, HarvestingRuntime) {
 
     std::set<chip_id_t> target_devices = get_target_devices();
     std::unordered_map<chip_id_t, HarvestingMasks> simulated_harvesting_masks = {{0, {30, 0, 0}}, {1, {60, 0, 0}}};
+
+    for (auto chip : target_devices) {
+        if (!simulated_harvesting_masks.count(chip)) {
+            simulated_harvesting_masks[chip] = {60, 0, 0};
+        }
+    }
 
     uint32_t num_host_mem_ch_per_mmio_device = 1;
 

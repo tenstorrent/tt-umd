@@ -585,7 +585,7 @@ Cluster::Cluster(
         clean_system_resources,
         perform_harvesting,
         simulated_harvesting_masks);
-        std::cout << "add chip after3" << std::endl;
+    std::cout << "add chip after3" << std::endl;
 }
 
 Cluster::Cluster(
@@ -3470,7 +3470,7 @@ std::unique_ptr<tt_ClusterDescriptor> Cluster::create_cluster_descriptor() {
 
 std::unique_ptr<tt_ClusterDescriptor> Cluster::create_cluster_descriptor(
     const std::unordered_map<chip_id_t, std::unique_ptr<tt::umd::Chip>>& chips) {
-        std::cout << "so code goes here? 1" << std::endl;
+    std::cout << "so code goes here? 1" << std::endl;
     std::unique_ptr<tt_ClusterDescriptor> desc = std::unique_ptr<tt_ClusterDescriptor>(new tt_ClusterDescriptor());
     std::cout << "so code goes here? 2" << std::endl;
 
@@ -3479,7 +3479,8 @@ std::unique_ptr<tt_ClusterDescriptor> Cluster::create_cluster_descriptor(
         const std::unique_ptr<Chip>& chip = it.second;
         std::cout << "so code goes here? 3" << std::endl;
         desc->chip_uid_to_chip_id.insert({chip->get_chip_info().chip_uid, it.first});
-        std::cout << "Added chip_uid_to_chip_id " << chip->get_chip_info().chip_uid << " " << it.first << std::endl;
+        std::cout << "Added chip_uid_to_chip_id " << chip->get_chip_info().chip_uid.board_id << " "
+                  << chip->get_chip_info().chip_uid.asic_location << " " << it.first << std::endl;
     }
 
     for (auto& it : chips) {
@@ -3511,7 +3512,7 @@ std::unique_ptr<tt_ClusterDescriptor> Cluster::create_cluster_descriptor(
                 tt_xy_pair(eth_core.x, eth_core.y),
                 blackhole::BOOT_RESULTS_ADDR,
                 sizeof(boot_results));
-                std::cout << "so code goes here? 52" << std::endl;
+            std::cout << "so code goes here? 52" << std::endl;
 
             if (boot_results.eth_status.port_status == port_status_e::PORT_UP) {
                 std::cout << "so code goes here? 53" << std::endl;
@@ -3525,8 +3526,10 @@ std::unique_ptr<tt_ClusterDescriptor> Cluster::create_cluster_descriptor(
 
                 chip_id_t local_chip_id = desc->get_chip_id(local_info.get_chip_uid());
                 std::cout << "so code goes here? 534" << std::endl;
-                std::cout << "local board id " << local_info.get_chip_uid().board_id << " " << local_info.get_chip_uid().asic_location << std::endl;
-                std::cout << "remote board id " << remote_info.get_chip_uid().board_id << " " << remote_info.get_chip_uid().asic_location << std::endl;
+                std::cout << "local board id " << local_info.get_chip_uid().board_id << " "
+                          << local_info.get_chip_uid().asic_location << std::endl;
+                std::cout << "remote board id " << remote_info.get_chip_uid().board_id << " "
+                          << remote_info.get_chip_uid().asic_location << std::endl;
                 chip_id_t remote_chip_id = desc->get_chip_id(remote_info.get_chip_uid());
                 std::cout << "so code goes here? 535" << std::endl;
 

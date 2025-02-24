@@ -3530,12 +3530,23 @@ std::unique_ptr<tt_ClusterDescriptor> Cluster::create_cluster_descriptor(
                           << local_info.get_chip_uid().asic_location << std::endl;
                 std::cout << "remote board id " << remote_info.get_chip_uid().board_id << " "
                           << remote_info.get_chip_uid().asic_location << std::endl;
-                chip_id_t remote_chip_id = desc->get_chip_id(remote_info.get_chip_uid());
-                std::cout << "so code goes here? 535" << std::endl;
+                if (desc->chip_uid_to_chip_id.find(remote_info.get_chip_uid()) == desc->chip_uid_to_chip_id.end()) {
+                    log_debug(
+                        LogSiliconDriver,
+                        "Eth core ({}, {}) on chip {} is connected to an chip with board_id {} not present in the "
+                        "target devices opened by this driver.",
+                        eth_core.x,
+                        eth_core.y,
+                        chip_id,
+                        remote_info.get_chip_uid().board_id);
+                } else {
+                    chip_id_t remote_chip_id = desc->get_chip_id(remote_info.get_chip_uid());
+                    std::cout << "so code goes here? 535" << std::endl;
 
-                // Adding a connection only one way, the other chip should add it another way.
-                desc->ethernet_connections[local_chip_id][local_info.eth_id] = {remote_chip_id, remote_info.eth_id};
-                std::cout << "so code goes here? 536" << std::endl;
+                    // Adding a connection only one way, the other chip should add it another way.
+                    desc->ethernet_connections[local_chip_id][local_info.eth_id] = {remote_chip_id, remote_info.eth_id};
+                    std::cout << "so code goes here? 536" << std::endl;
+                }
 
             } else if (boot_results.eth_status.port_status == port_status_e::PORT_DOWN) {
                 std::cout << "so code goes here? 54" << std::endl;

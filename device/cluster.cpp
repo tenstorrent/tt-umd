@@ -290,7 +290,6 @@ void Cluster::construct_cluster(
     const bool clean_system_resources,
     bool perform_harvesting,
     std::unordered_map<chip_id_t, HarvestingMasks> simulated_harvesting_masks) {
-    std::cout << "udjog u construct cluster" << std::endl;
     if (!skip_driver_allocs) {
         auto available_device_ids = detect_available_device_ids();
         log_info(LogSiliconDriver, "Detected PCI devices: {}", available_device_ids);
@@ -573,11 +572,9 @@ Cluster::Cluster(
             chip_id,
             construct_chip_from_cluster(chip_id, cluster_desc.get(), perform_harvesting, simulated_harvesting_masks));
     }
-    std::cout << "add chip after" << std::endl;
 
     // TODO: work on removing this member altogether. Currently assumes all have the same arch.
     arch_name = chips_.begin()->second->get_soc_descriptor().arch;
-    std::cout << "add chip after2" << std::endl;
 
     construct_cluster(
         num_host_mem_ch_per_mmio_device,
@@ -585,7 +582,6 @@ Cluster::Cluster(
         clean_system_resources,
         perform_harvesting,
         simulated_harvesting_masks);
-    std::cout << "add chip after3" << std::endl;
 }
 
 Cluster::Cluster(
@@ -3457,7 +3453,6 @@ std::unique_ptr<tt_ClusterDescriptor> Cluster::create_cluster_descriptor() {
         chip_id_t chip_id = 0;
         for (auto& device_id : pci_device_ids) {
             std::unique_ptr<LocalChip> chip = std::make_unique<LocalChip>(TTDevice::create(device_id));
-            std::cout << "localchip created in create_cluster_descriptor" << std::endl;
             chips.emplace(chip_id, std::move(chip));
             chip_id++;
         }
@@ -3470,21 +3465,15 @@ std::unique_ptr<tt_ClusterDescriptor> Cluster::create_cluster_descriptor() {
 
 std::unique_ptr<tt_ClusterDescriptor> Cluster::create_cluster_descriptor(
     const std::unordered_map<chip_id_t, std::unique_ptr<tt::umd::Chip>>& chips) {
-    std::cout << "so code goes here? 1" << std::endl;
     std::unique_ptr<tt_ClusterDescriptor> desc = std::unique_ptr<tt_ClusterDescriptor>(new tt_ClusterDescriptor());
-    std::cout << "so code goes here? 2" << std::endl;
 
     for (auto& it : chips) {
         const chip_id_t chip_id = it.first;
         const std::unique_ptr<Chip>& chip = it.second;
-        std::cout << "so code goes here? 3" << std::endl;
         desc->chip_uid_to_chip_id.insert({chip->get_chip_info().chip_uid, it.first});
-        std::cout << "Added chip_uid_to_chip_id " << chip->get_chip_info().chip_uid.board_id << " "
-                  << chip->get_chip_info().chip_uid.asic_location << " " << it.first << std::endl;
     }
 
     for (auto& it : chips) {
-        std::cout << "so code goes here? 4" << std::endl;
         const chip_id_t chip_id = it.first;
         const std::unique_ptr<Chip>& chip = it.second;
 
@@ -3501,35 +3490,23 @@ std::unique_ptr<tt_ClusterDescriptor> Cluster::create_cluster_descriptor(
         const std::vector<CoreCoord> eth_cores = chip->get_soc_descriptor().get_cores(CoreType::ETH);
 
         for (size_t eth_channel = 0; eth_channel < eth_cores.size(); eth_channel++) {
-            std::cout << "so code goes here? 5 " << eth_channel << std::endl;
             const CoreCoord& eth_core = eth_cores[eth_channel];
             TTDevice* tt_device = chip->get_tt_device();
             boot_results_t boot_results;
-            std::cout << "so code goes here? 51" << std::endl;
 
             tt_device->read_from_device(
                 (uint8_t*)&boot_results,
                 tt_xy_pair(eth_core.x, eth_core.y),
                 blackhole::BOOT_RESULTS_ADDR,
                 sizeof(boot_results));
-            std::cout << "so code goes here? 52" << std::endl;
 
             if (boot_results.eth_status.port_status == port_status_e::PORT_UP) {
-                std::cout << "so code goes here? 53" << std::endl;
                 log_debug(LogSiliconDriver, "Eth core ({}, {}) on chip {} is active", eth_core.x, eth_core.y, chip_id);
                 // active eth core
-                std::cout << "so code goes here? 531" << std::endl;
                 const chip_info_t& local_info = boot_results.local_info;
-                std::cout << "so code goes here? 532" << std::endl;
                 const chip_info_t& remote_info = boot_results.remote_info;
-                std::cout << "so code goes here? 533" << std::endl;
 
                 chip_id_t local_chip_id = desc->get_chip_id(local_info.get_chip_uid());
-                std::cout << "so code goes here? 534" << std::endl;
-                std::cout << "local board id " << local_info.get_chip_uid().board_id << " "
-                          << local_info.get_chip_uid().asic_location << std::endl;
-                std::cout << "remote board id " << remote_info.get_chip_uid().board_id << " "
-                          << remote_info.get_chip_uid().asic_location << std::endl;
                 if (desc->chip_uid_to_chip_id.find(remote_info.get_chip_uid()) == desc->chip_uid_to_chip_id.end()) {
                     log_debug(
                         LogSiliconDriver,
@@ -3541,23 +3518,18 @@ std::unique_ptr<tt_ClusterDescriptor> Cluster::create_cluster_descriptor(
                         remote_info.get_chip_uid().board_id);
                 } else {
                     chip_id_t remote_chip_id = desc->get_chip_id(remote_info.get_chip_uid());
-                    std::cout << "so code goes here? 535" << std::endl;
 
                     // Adding a connection only one way, the other chip should add it another way.
                     desc->ethernet_connections[local_chip_id][local_info.eth_id] = {remote_chip_id, remote_info.eth_id};
-                    std::cout << "so code goes here? 536" << std::endl;
                 }
 
             } else if (boot_results.eth_status.port_status == port_status_e::PORT_DOWN) {
-                std::cout << "so code goes here? 54" << std::endl;
                 log_debug(
                     LogSiliconDriver, "Port on eth core ({}, {}) on chip {} is down", eth_core.x, eth_core.y, chip_id);
             } else if (boot_results.eth_status.port_status == port_status_e::PORT_UNUSED) {
-                std::cout << "so code goes here? 55" << std::endl;
                 // idle core
                 log_debug(LogSiliconDriver, "Eth core ({}, {}) on chip {} is idle");
             } else if (boot_results.eth_status.port_status == port_status_e::PORT_UNKNOWN) {
-                std::cout << "so code goes here? 56" << std::endl;
                 log_debug(
                     LogSiliconDriver,
                     "Port on eth core ({}, {}) on chip {} is in unknown state",
@@ -3567,7 +3539,6 @@ std::unique_ptr<tt_ClusterDescriptor> Cluster::create_cluster_descriptor(
             }
         }
     }
-    std::cout << "so code goes here? 6" << std::endl;
 
     desc->enable_all_devices();
 

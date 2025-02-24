@@ -52,19 +52,6 @@ tlb_configuration grayskull_implementation::get_tlb_configuration(uint32_t tlb_i
     }
 }
 
-std::pair<std::uint64_t, std::uint64_t> grayskull_implementation::get_tlb_data(
-    std::uint32_t tlb_index, const tlb_data &data) const {
-    if (tlb_index < grayskull::TLB_COUNT_1M) {
-        return data.apply_offset(grayskull::TLB_1M_OFFSET);
-    } else if (tlb_index < grayskull::TLB_COUNT_1M + grayskull::TLB_COUNT_2M) {
-        return data.apply_offset(grayskull::TLB_2M_OFFSET);
-    } else if (tlb_index < grayskull::TLB_COUNT_1M + grayskull::TLB_COUNT_2M + grayskull::TLB_COUNT_16M) {
-        return data.apply_offset(grayskull::TLB_16M_OFFSET);
-    } else {
-        throw std::runtime_error("Invalid TLB index for Grayskull arch");
-    }
-}
-
 tt_device_l1_address_params grayskull_implementation::get_l1_address_params() const {
     // L1 barrier base should be explicitly set by the client.
     // Setting some default value here, but it should be ultimately overridden by the client.

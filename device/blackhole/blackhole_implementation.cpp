@@ -52,15 +52,6 @@ tlb_configuration blackhole_implementation::get_tlb_configuration(uint32_t tlb_i
     };
 }
 
-std::pair<std::uint64_t, std::uint64_t> blackhole_implementation::get_tlb_data(
-    std::uint32_t tlb_index, const tlb_data& data) const {
-    if (tlb_index < blackhole::TLB_COUNT_2M) {
-        return data.apply_offset(blackhole::TLB_2M_OFFSET);
-    } else {
-        throw std::runtime_error("Invalid TLB index for Blackhole arch");
-    }
-}
-
 tt_device_l1_address_params blackhole_implementation::get_l1_address_params() const {
     // L1 barrier base and erisc barrier base should be explicitly set by the client.
     // Setting some default values here, but it should be ultimately overridden by the client.

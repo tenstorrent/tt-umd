@@ -78,6 +78,8 @@ protected:
 
     virtual void wait_eth_cores_training(const uint32_t timeout_ms = 60000);
 
+    virtual void wait_dram_cores_training(const uint32_t timeout_ms = 60000);
+
     void set_default_params(ARCH arch);
 
     ChipInfo chip_info_;

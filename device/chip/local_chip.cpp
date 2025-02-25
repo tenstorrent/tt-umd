@@ -7,6 +7,7 @@
 #include "umd/device/chip/local_chip.h"
 
 #include "logger.hpp"
+#include "umd/device/blackhole_implementation.h"
 #include "umd/device/chip_helpers/tlb_manager.h"
 #include "umd/device/tt_device/tt_device.h"
 #include "umd/device/types/blackhole_eth.h"
@@ -357,4 +358,53 @@ std::unique_lock<boost::interprocess::named_mutex> LocalChip::get_mutex(std::str
 std::unique_lock<boost::interprocess::named_mutex> LocalChip::get_mutex(MutexType mutex_type, int pci_device_id) {
     return lock_manager_.get_mutex(mutex_type, pci_device_id);
 }
+
+void LocalChip::wait_dram_cores_training(const uint32_t timeout_ms) {
+    if (get_tt_device()->get_arch() != tt::ARCH::BLACKHOLE) {
+        return;
+    }
+
+    TTDevice* tt_device = get_tt_device();
+
+    auto start = std::chrono::system_clock::now();
+    while (true) {
+        std::vector<DramTrainingStatus> dram_training_status = tt_device->get_dram_training_status();
+
+        if (dram_training_status.empty()) {
+            // DRAM training status is not available, breaking the wait for DRAM training.
+            break;
+        }
+
+        bool all_dram_channels_trained = true;
+        const uint32_t chip_num_dram_channels =
+            std::min(dram_training_status.size(), get_soc_descriptor().get_dram_cores().size());
+        const uint32_t dram_harvesting_mask = get_soc_descriptor().harvesting_masks.dram_harvesting_mask;
+        for (uint32_t dram_channel = 0; dram_channel < chip_num_dram_channels; dram_channel++) {
+            // Skip the check for harvested channels.
+            if (dram_harvesting_mask & (1 << dram_channel)) {
+                continue;
+            }
+
+            // Check if there is an error in training for the channel.
+            if (dram_training_status[dram_channel] == DramTrainingStatus::FAIL) {
+                throw std::runtime_error("DRAM training failed");
+            }
+
+            // Verify whether the channel is trained.
+            all_dram_channels_trained &= (dram_training_status[dram_channel] == DramTrainingStatus::SUCCESS);
+        }
+
+        if (all_dram_channels_trained) {
+            break;
+        }
+
+        auto end = std::chrono::system_clock::now();
+        auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
+        if (duration.count() > timeout_ms) {
+            throw std::runtime_error(fmt::format("DRAM training timed out after {} ms", timeout_ms));
+            break;
+        }
+    }
+}
+
 }  // namespace tt::umd

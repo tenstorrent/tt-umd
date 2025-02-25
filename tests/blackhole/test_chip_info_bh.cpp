@@ -14,7 +14,7 @@ TEST(BlackholeChipInfo, BasicChipInfo) {
 
         const ChipInfo chip_info = tt_device->get_chip_info();
 
-        EXPECT_TRUE(chip_info.board_type == BoardType::P100 || chip_info.board_type == BoardType::P150A);
+        EXPECT_TRUE(chip_info.board_type == BoardType::P100 || chip_info.board_type == BoardType::P150);
 
         EXPECT_TRUE(chip_info.chip_uid.asic_location == 0 || chip_info.chip_uid.asic_location == 1);
     }

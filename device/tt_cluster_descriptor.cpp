@@ -454,7 +454,7 @@ std::unique_ptr<tt_ClusterDescriptor> tt_ClusterDescriptor::create_mock_cluster(
             board_type = BoardType::N150;
             break;
         case tt::ARCH::BLACKHOLE:
-            board_type = BoardType::P150A;
+            board_type = BoardType::P150;
             break;
         default:
             board_type = BoardType::UNKNOWN;
@@ -752,8 +752,8 @@ void tt_ClusterDescriptor::load_chips_from_connectivity_descriptor(YAML::Node &y
                 board_type = BoardType::N300;
             } else if (chip_board_type.second == "p100") {
                 board_type = BoardType::P100;
-            } else if (chip_board_type.second == "p150A") {
-                board_type = BoardType::P150A;
+            } else if (chip_board_type.second == "p150A" || chip_board_type.second == "p150") {
+                board_type = BoardType::P150;
             } else if (chip_board_type.second == "p300") {
                 board_type = BoardType::P300;
             } else if (chip_board_type.second == "GALAXY") {

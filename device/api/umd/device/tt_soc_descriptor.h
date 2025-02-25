@@ -122,6 +122,15 @@ public:
     int eth_l1_size;
     bool noc_translation_id_enabled;
     uint64_t dram_bank_size;
+
+    // Harvesting mask is reported in logical coordinates, meaning the index of a bit that is set corresponds to the
+    // index of the row (in case of Tensix), or the index of the channel (in case of DRAM), or the index of the core
+    // (in case of ETH) as reported in the soc descriptor. Examples:
+    //   - Tensix harvesting mask "2" would mean the second row/column from soc descriptor is harvested, and not
+    //     NOC0 row.
+    //   - Eth harvesting mask "2" would mean that the second core in eth_cores in soc descriptor is harvested, which
+    //     is the same one that would be reported as channel 1 and would have logical coords (0, 1). This mask doesn't
+    //     mean that the second core in NOC0 chain is harvested.
     tt::umd::HarvestingMasks harvesting_masks;
 
 private:

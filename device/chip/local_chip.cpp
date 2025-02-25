@@ -7,6 +7,7 @@
 #include "umd/device/chip/local_chip.h"
 
 #include "logger.hpp"
+#include "umd/device/blackhole_implementation.h"
 #include "umd/device/tt_device/tlb_manager.h"
 #include "umd/device/tt_device/tt_device.h"
 #include "umd/device/types/blackhole_eth.h"
@@ -78,6 +79,58 @@ void LocalChip::wait_eth_cores_training(const uint32_t timeout_ms) {
                 log_error("ETH training timed out after {} ms", timeout_ms);
                 break;
             }
+        }
+    }
+}
+
+void LocalChip::wait_dram_cores_training(const uint32_t timeout_ms) {
+    if (get_tt_device()->get_arch() != tt::ARCH::BLACKHOLE) {
+        return;
+    }
+
+    TTDevice* tt_device = get_tt_device();
+
+    auto start = std::chrono::system_clock::now();
+    while (true) {
+        const auto [dram_training_info_available, dram_training_status] = tt_device->get_dram_training_status();
+
+        if (!dram_training_info_available) {
+            // DRAM training status is not available, breaking the wait for DRAM training.
+            break;
+        }
+
+        bool all_dram_channels_trained = true;
+        // Format of the dram training status is as follows:
+        // Each channel gets two bits in the 32-bit value (16 bits used). The lower bits are for lower channels.
+        // Lower of the two bits is for training error and higher of the two bits is for training status.
+        // Example: 0b 00 00 00 00 00 00 01 10
+        // would mean that only channel 0 is trained, channel 1 has the error and other are not trained and don't have
+        // errors. If some channel is harvested the bits are always going to be zero.
+        const uint32_t dram_harvesting_mask = get_soc_descriptor().harvesting_masks.dram_harvesting_mask;
+        for (uint32_t dram_channel = 0; dram_channel < blackhole::NUM_DRAM_BANKS; dram_channel++) {
+            // Skip the check for harvested channels.
+            if (dram_harvesting_mask & (1 << dram_channel)) {
+                continue;
+            }
+
+            // Check if there is an error in training for the channel.
+            if (dram_training_status & (1 << (2 * dram_channel))) {
+                throw std::runtime_error("DRAM training failed");
+            }
+
+            // Verify whether the channel is trained.
+            all_dram_channels_trained &= (dram_training_status & (1 << (2 * dram_channel + 1)));
+        }
+
+        if (all_dram_channels_trained) {
+            break;
+        }
+
+        auto end = std::chrono::system_clock::now();
+        auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
+        if (duration.count() > timeout_ms) {
+            throw std::runtime_error(fmt::format("DRAM training timed out after {} ms", timeout_ms));
+            break;
         }
     }
 }

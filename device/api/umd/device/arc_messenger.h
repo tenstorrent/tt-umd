@@ -1,0 +1,40 @@
+/*
+ * SPDX-FileCopyrightText: (c) 2025 Tenstorrent Inc.
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ */
+#pragma once
+
+#include "umd/device/tt_device/tt_device.h"
+
+namespace tt::umd {
+
+class ArcMessenger {
+public:
+    static std::unique_ptr<ArcMessenger> create_arc_messenger(TTDevice* tt_device);
+
+    /**
+     * Send ARC message. The call of send_message is blocking, timeout is to be implemented.
+     *
+     * @param msg_code ARC messsage type.
+     * @param arg0 arg0 for the message.
+     * @param arg1 arg1 for the message.
+     */
+    virtual uint32_t send_message(
+        const uint32_t msg_code, std::vector<uint32_t>& return_values, uint16_t arg0 = 0, uint16_t arg1 = 0) = 0;
+
+    uint32_t send_message(const uint32_t msg_code, uint16_t arg0 = 0, uint16_t arg1 = 0);
+
+    virtual ~ArcMessenger() = default;
+
+protected:
+    /**
+     * Constructor for ArcMessenger.
+     *
+     * @param tt_device TTDevice object used to communicate with the ARC of the device.
+     */
+    ArcMessenger(TTDevice* tt_device);
+
+    TTDevice* tt_device;
+};
+}  // namespace tt::umd

@@ -1,0 +1,89 @@
+/*
+ * SPDX-FileCopyrightText: (c) 2025 Tenstorrent Inc.
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ */
+#include "umd/device/wormhole_arc_messenger.h"
+
+#include <iostream>
+
+#include "logger.hpp"
+
+namespace tt::umd {
+
+namespace wormhole {
+
+WormholeArcMessenger::WormholeArcMessenger(TTDevice* tt_device) : ArcMessenger(tt_device) {}
+
+uint32_t WormholeArcMessenger::send_message(
+    const uint32_t msg_code, std::vector<uint32_t>& return_values, uint16_t arg0, uint16_t arg1) {
+    int timeout = 2000;
+
+    static const uint32_t MSG_ERROR_REPLY = 0xFFFFFFFF;
+    if ((msg_code & 0xff00) != 0xaa00) {
+        log_error("Malformed message. msg_code is 0x{:x} but should be 0xaa..", msg_code);
+    }
+
+    log_assert(arg0 <= 0xffff and arg1 <= 0xffff, "Only 16 bits allowed in arc_msg args");
+
+    auto architecture_implementation = tt_device->get_architecture_implementation();
+
+    // TODO: add synchronization mechanisam for exclusive access to ARC
+    // // Exclusive access for a single process at a time. Based on physical pci interface id.
+    // std::string msg_type = "ARC_MSG";
+    // const scoped_lock<named_mutex> lock(*get_mutex(msg_type, logical_device_id));
+    uint32_t fw_arg = arg0 | (arg1 << 16);
+    int exit_code = 0;
+
+    tt_device->bar_write32(architecture_implementation->get_arc_reset_scratch_offset() + 3 * 4, fw_arg);
+    tt_device->bar_write32(architecture_implementation->get_arc_reset_scratch_offset() + 5 * 4, msg_code);
+
+    uint32_t misc = tt_device->bar_read32(architecture_implementation->get_arc_reset_arc_misc_cntl_offset());
+    if (misc & (1 << 16)) {
+        log_error("trigger_fw_int failed on device {}", 0);
+        return 1;
+    } else {
+        tt_device->bar_write32(architecture_implementation->get_arc_reset_arc_misc_cntl_offset(), misc | (1 << 16));
+    }
+
+    // if (wait_for_done) {
+    if (true) {
+        uint32_t status = 0xbadbad;
+        auto timeout_seconds = std::chrono::seconds(timeout);
+        auto start = std::chrono::system_clock::now();
+        while (true) {
+            if (std::chrono::system_clock::now() - start > timeout_seconds) {
+                throw std::runtime_error(
+                    fmt::format("Timed out after waiting {} seconds for device {} ARC to respond", timeout, 0));
+            }
+
+            status = tt_device->bar_read32(architecture_implementation->get_arc_reset_scratch_offset() + 5 * 4);
+
+            if ((status & 0xffff) == (msg_code & 0xff)) {
+                if (return_values.size() >= 1) {
+                    return_values[0] =
+                        tt_device->bar_read32(architecture_implementation->get_arc_reset_scratch_offset() + 3 * 4);
+                }
+
+                if (return_values.size() >= 2) {
+                    return_values[1] =
+                        tt_device->bar_read32(architecture_implementation->get_arc_reset_scratch_offset() + 4 * 4);
+                }
+
+                exit_code = (status & 0xffff0000) >> 16;
+                break;
+            } else if (status == MSG_ERROR_REPLY) {
+                log_warning(LogSiliconDriver, "On device {}, message code 0x{:x} not recognized by FW", 0, msg_code);
+                exit_code = MSG_ERROR_REPLY;
+                break;
+            }
+        }
+    }
+
+    tt_device->detect_hang_read();
+    return exit_code;
+}
+
+}  // namespace wormhole
+
+}  // namespace tt::umd

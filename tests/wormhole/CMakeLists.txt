@@ -1,6 +1,7 @@
 set(UNIT_TESTS_WH_SRCS
     test_cluster_wh.cpp
     test_umd_remote_api_stability.cpp
+    test_arc_messages_wh.cpp
 )
 
 add_executable(unit_tests_wormhole ${UNIT_TESTS_WH_SRCS})

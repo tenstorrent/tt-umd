@@ -230,6 +230,13 @@ static constexpr uint32_t TENSIX_SOFT_RESET_ADDR = 0xFFB121B0;
 
 static constexpr uint32_t ARC_SCRATCH_6_OFFSET = 0x1FF30078;
 
+static constexpr uint32_t ARC_SCRATCH_RES0_OFFSET = 3;
+static constexpr uint32_t ARC_SCRATCH_RES1_OFFSET = 4;
+static constexpr uint32_t ARC_SCRATCH_STATUS_OFFSET = 5;
+
+static constexpr uint32_t AICLK_BUSY_VAL = 1000;
+static constexpr uint32_t AICLK_IDLE_VAL = 500;
+
 static const size_t tensix_translated_coordinate_start_x = 18;
 static const size_t tensix_translated_coordinate_start_y = 18;
 

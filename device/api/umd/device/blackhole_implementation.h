@@ -204,12 +204,17 @@ constexpr uint32_t ARC_FW_INT_VAL = 65536;
 
 constexpr uint32_t ARC_MSG_RESPONSE_OK_LIMIT = 240;
 
+static constexpr uint32_t ARC_MSG_COMMON_PREFIX = 0xAA00;
+
 static const uint32_t SCRATCH_RAM_2 = 0x80030408;
 static const uint32_t SCRATCH_RAM_12 = 0x80030430;
 static const uint32_t SCRATCH_RAM_13 = 0x80030434;
 
 static const uint32_t NIU_CFG_NOC0_BAR_ADDR = 0x1FD04100;
 static const uint32_t NIU_CFG_NOC1_BAR_ADDR = 0x1FD14100;
+
+static constexpr uint32_t AICLK_BUSY_VAL = 1350;
+static constexpr uint32_t AICLK_IDLE_VAL = 800;
 
 static const size_t eth_translated_coordinate_start_x = 20;
 static const size_t eth_translated_coordinate_start_y = 25;

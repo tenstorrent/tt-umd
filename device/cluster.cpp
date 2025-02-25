@@ -36,6 +36,7 @@
 #include <utility>
 #include <vector>
 
+#include "api/umd/device/cluster.h"
 #include "api/umd/device/tt_core_coordinates.h"
 #include "logger.hpp"
 #include "umd/device/architecture_implementation.h"
@@ -195,7 +196,7 @@ void Cluster::initialize_interprocess_mutexes(int logical_device_id, bool cleanu
 void Cluster::create_device(
     const std::set<chip_id_t>& target_mmio_device_ids,
     const uint32_t& num_host_mem_ch_per_mmio_device,
-    const bool skip_driver_allocs,
+    const bool create_mock_chips,
     const bool clean_system_resources) {
     log_debug(LogSiliconDriver, "Cluster::Cluster");
 
@@ -206,40 +207,38 @@ void Cluster::create_device(
         target_mmio_device_ids.size() > 0, "Must provide set of target_mmio_device_ids to Cluster constructor now.");
 
     for (const chip_id_t& logical_device_id : target_mmio_device_ids) {
-        auto pci_device = get_tt_device(logical_device_id)->get_pci_device();
+        if (!create_mock_chips) {
+            auto pci_device = get_tt_device(logical_device_id)->get_pci_device();
 
-        int num_host_mem_channels = num_host_mem_ch_per_mmio_device;
+            int num_host_mem_channels = num_host_mem_ch_per_mmio_device;
 
-        // TODO: get rid of this when the following Metal CI issue is resolved.
-        // https://github.com/tenstorrent/tt-metal/issues/15675
-        // The notion that we should clamp the number of host mem channels to
-        // what we have available and emit a warning is wrong, since the
-        // application might try to use the channels it asked for.  We should
-        // just fail early since the error message will be actionable instead of
-        // a segfault or memory corruption.
-        if (!pci_device->is_iommu_enabled()) {
-            uint16_t pcie_device_id = pci_device->get_pci_device_id();
-            uint32_t pcie_revision = pci_device->get_pci_revision();
-            num_host_mem_channels =
-                get_available_num_host_mem_channels(num_host_mem_ch_per_mmio_device, pcie_device_id, pcie_revision);
-        }
+            // TODO: get rid of this when the following Metal CI issue is resolved.
+            // https://github.com/tenstorrent/tt-metal/issues/15675
+            // The notion that we should clamp the number of host mem channels to
+            // what we have available and emit a warning is wrong, since the
+            // application might try to use the channels it asked for.  We should
+            // just fail early since the error message will be actionable instead of
+            // a segfault or memory corruption.
+            if (!pci_device->is_iommu_enabled()) {
+                uint16_t pcie_device_id = pci_device->get_pci_device_id();
+                uint32_t pcie_revision = pci_device->get_pci_revision();
+                num_host_mem_channels =
+                    get_available_num_host_mem_channels(num_host_mem_ch_per_mmio_device, pcie_device_id, pcie_revision);
+            }
 
-        log_debug(
-            LogSiliconDriver,
-            "Using {} Hugepages/NumHostMemChannels for PCIDevice (logical_device_id: {} pci_interface_id: {} "
-            "device_id: 0x{:x} revision: {})",
-            num_host_mem_channels,
-            logical_device_id,
-            pci_device->get_device_num(),
-            pci_device->get_device_num(),
-            pci_device->revision_id);
+            log_debug(
+                LogSiliconDriver,
+                "Using {} Hugepages/NumHostMemChannels for PCIDevice (logical_device_id: {} pci_interface_id: {} "
+                "device_id: 0x{:x} revision: {})",
+                num_host_mem_channels,
+                logical_device_id,
+                pci_device->get_device_num(),
+                pci_device->get_device_num(),
+                pci_device->revision_id);
 
-        // TODO: This will be moved to a dedicated Locking class.
-        initialize_interprocess_mutexes(logical_device_id, clean_system_resources);
+            // TODO: This will be moved to a dedicated Locking class.
+            initialize_interprocess_mutexes(logical_device_id, clean_system_resources);
 
-        // MT: Initial BH - hugepages will fail init
-        // For using silicon driver without workload to query mission mode params, no need for hugepage.
-        if (!skip_driver_allocs) {
             bool hugepages_initialized = pci_device->init_hugepage(num_host_mem_channels);
             // Large writes to remote chips require hugepages to be initialized.
             // Conservative assert - end workload if remote chips present but hugepages not initialized (failures caused
@@ -253,6 +252,7 @@ void Cluster::create_device(
                 log_warning(LogSiliconDriver, "No hugepage mapping at device {}.", logical_device_id);
             }
         }
+
         // translation layer for harvested coords. Default is identity map
         harvested_coord_translation.insert({logical_device_id, create_harvested_coord_translation(arch_name, true)});
     }
@@ -280,11 +280,11 @@ std::unordered_map<chip_id_t, uint32_t> Cluster::get_harvesting_masks_for_soc_de
 
 void Cluster::construct_cluster(
     const uint32_t& num_host_mem_ch_per_mmio_device,
-    const bool skip_driver_allocs,
+    const bool create_mock_chips,
     const bool clean_system_resources,
     bool perform_harvesting,
     std::unordered_map<chip_id_t, HarvestingMasks> simulated_harvesting_masks) {
-    if (!skip_driver_allocs) {
+    if (!create_mock_chips) {
         auto available_device_ids = detect_available_device_ids();
         log_info(LogSiliconDriver, "Detected PCI devices: {}", available_device_ids);
         log_info(
@@ -293,7 +293,7 @@ void Cluster::construct_cluster(
 
     perform_harvesting_on_sdesc = perform_harvesting;
 
-    create_device(local_chip_ids_, num_host_mem_ch_per_mmio_device, skip_driver_allocs, clean_system_resources);
+    create_device(local_chip_ids_, num_host_mem_ch_per_mmio_device, create_mock_chips, clean_system_resources);
 
     // Disable dependency to ethernet firmware for all BH devices and WH devices with all chips having MMIO (e.g. UBB
     // Galaxy), do not disable for N150, was seeing some issues in CI
@@ -355,7 +355,12 @@ void Cluster::construct_cluster(
     } else if (arch_name == tt::ARCH::GRAYSKULL) {
         // Multichip harvesting is supported for GS.
         for (auto chip_id = all_chip_ids_.begin(); chip_id != all_chip_ids_.end(); chip_id++) {
-            harvested_rows_per_target[*chip_id] = get_harvested_noc_rows_for_chip(*chip_id);
+            if (create_mock_chips) {
+                harvested_rows_per_target[*chip_id] =
+                    get_harvested_noc_rows((uint32_t)(cluster_desc->get_harvesting_info().at(*chip_id)));
+            } else {
+                harvested_rows_per_target[*chip_id] = get_harvested_noc_rows_for_chip(*chip_id);
+            }
             num_rows_harvested.insert({*chip_id, 0});  // Only set for broadcast TLB to get RISCS out of reset. We want
                                                        // all rows to have a reset signal sent.
             if (harvested_rows_per_target[*chip_id]) {
@@ -427,7 +432,11 @@ void Cluster::construct_cluster(
 }
 
 std::unique_ptr<Chip> Cluster::construct_chip_from_cluster(
-    chip_id_t chip_id, tt_ClusterDescriptor* cluster_desc, tt_SocDescriptor& soc_desc) {
+    chip_id_t chip_id, tt_ClusterDescriptor* cluster_desc, tt_SocDescriptor& soc_desc, const bool create_mock_chip) {
+    if (create_mock_chip) {
+        return std::make_unique<MockChip>(soc_desc);
+    }
+
     if (cluster_desc->is_chip_mmio_capable(chip_id)) {
         return std::make_unique<LocalChip>(soc_desc, cluster_desc->get_chips_with_mmio().at(chip_id));
     } else {
@@ -440,24 +449,26 @@ std::unique_ptr<Chip> Cluster::construct_chip_from_cluster(
     chip_id_t chip_id,
     tt_ClusterDescriptor* cluster_desc,
     bool perform_harvesting,
-    std::unordered_map<chip_id_t, HarvestingMasks>& simulated_harvesting_masks) {
+    std::unordered_map<chip_id_t, HarvestingMasks>& simulated_harvesting_masks,
+    const bool create_mock_chip) {
     HarvestingMasks harvesting_masks =
         get_harvesting_masks(chip_id, cluster_desc, perform_harvesting, simulated_harvesting_masks);
     tt_SocDescriptor soc_desc =
         tt_SocDescriptor(soc_desc_path, cluster_desc->get_noc_translation_table_en().at(chip_id), harvesting_masks);
-    return construct_chip_from_cluster(chip_id, cluster_desc, soc_desc);
+    return construct_chip_from_cluster(chip_id, cluster_desc, soc_desc, create_mock_chip);
 }
 
 std::unique_ptr<Chip> Cluster::construct_chip_from_cluster(
     chip_id_t chip_id,
     tt_ClusterDescriptor* cluster_desc,
     bool perform_harvesting,
-    std::unordered_map<chip_id_t, HarvestingMasks>& simulated_harvesting_masks) {
+    std::unordered_map<chip_id_t, HarvestingMasks>& simulated_harvesting_masks,
+    const bool create_mock_chip) {
     tt::ARCH arch = cluster_desc->get_arch(chip_id);
     const BoardType chip_board_type = cluster_desc->get_board_type(chip_id);
     std::string soc_desc_path = tt_SocDescriptor::get_soc_descriptor_path(arch, chip_board_type);
     return construct_chip_from_cluster(
-        soc_desc_path, chip_id, cluster_desc, perform_harvesting, simulated_harvesting_masks);
+        soc_desc_path, chip_id, cluster_desc, perform_harvesting, simulated_harvesting_masks, create_mock_chip);
 }
 
 void Cluster::add_chip(chip_id_t chip_id, std::unique_ptr<Chip> chip) {
@@ -466,7 +477,7 @@ void Cluster::add_chip(chip_id_t chip_id, std::unique_ptr<Chip> chip) {
         "Chip with id {} already exists in cluster. Cannot add another chip with the same id.",
         chip_id);
     all_chip_ids_.insert(chip_id);
-    if (chip->is_mmio_capable()) {
+    if (cluster_desc->is_chip_mmio_capable(chip_id)) {
         local_chip_ids_.insert(chip_id);
     } else {
         remote_chip_ids_.insert(chip_id);
@@ -550,7 +561,7 @@ HarvestingMasks Cluster::get_harvesting_masks(
 
 Cluster::Cluster(
     const uint32_t& num_host_mem_ch_per_mmio_device,
-    const bool skip_driver_allocs,
+    const bool create_mock_chips,
     const bool clean_system_resources,
     bool perform_harvesting,
     std::unordered_map<chip_id_t, HarvestingMasks> simulated_harvesting_masks) {
@@ -559,7 +570,8 @@ Cluster::Cluster(
     for (auto& chip_id : cluster_desc->get_all_chips()) {
         add_chip(
             chip_id,
-            construct_chip_from_cluster(chip_id, cluster_desc.get(), perform_harvesting, simulated_harvesting_masks));
+            construct_chip_from_cluster(
+                chip_id, cluster_desc.get(), perform_harvesting, simulated_harvesting_masks, create_mock_chips));
     }
 
     // TODO: work on removing this member altogether. Currently assumes all have the same arch.
@@ -567,7 +579,7 @@ Cluster::Cluster(
 
     construct_cluster(
         num_host_mem_ch_per_mmio_device,
-        skip_driver_allocs,
+        create_mock_chips,
         clean_system_resources,
         perform_harvesting,
         simulated_harvesting_masks);
@@ -576,38 +588,7 @@ Cluster::Cluster(
 Cluster::Cluster(
     const std::set<chip_id_t>& target_devices,
     const uint32_t& num_host_mem_ch_per_mmio_device,
-    const bool skip_driver_allocs,
-    const bool clean_system_resources,
-    bool perform_harvesting,
-    std::unordered_map<chip_id_t, HarvestingMasks> simulated_harvesting_masks) {
-    cluster_desc = Cluster::create_cluster_descriptor();
-
-    for (auto& chip_id : target_devices) {
-        log_assert(
-            cluster_desc->get_all_chips().find(chip_id) != cluster_desc->get_all_chips().end(),
-            "Target device {} not present in current cluster!",
-            chip_id);
-        add_chip(
-            chip_id,
-            construct_chip_from_cluster(chip_id, cluster_desc.get(), perform_harvesting, simulated_harvesting_masks));
-    }
-
-    // TODO: work on removing this member altogether. Currently assumes all have the same arch.
-    arch_name = chips_.begin()->second->get_soc_descriptor().arch;
-
-    construct_cluster(
-        num_host_mem_ch_per_mmio_device,
-        skip_driver_allocs,
-        clean_system_resources,
-        perform_harvesting,
-        simulated_harvesting_masks);
-}
-
-Cluster::Cluster(
-    const std::string& sdesc_path,
-    const std::set<chip_id_t>& target_devices,
-    const uint32_t& num_host_mem_ch_per_mmio_device,
-    const bool skip_driver_allocs,
+    const bool create_mock_chips,
     const bool clean_system_resources,
     bool perform_harvesting,
     std::unordered_map<chip_id_t, HarvestingMasks> simulated_harvesting_masks) {
@@ -621,7 +602,44 @@ Cluster::Cluster(
         add_chip(
             chip_id,
             construct_chip_from_cluster(
-                sdesc_path, chip_id, cluster_desc.get(), perform_harvesting, simulated_harvesting_masks));
+                chip_id, cluster_desc.get(), perform_harvesting, simulated_harvesting_masks, create_mock_chips));
+    }
+
+    // TODO: work on removing this member altogether. Currently assumes all have the same arch.
+    arch_name = chips_.begin()->second->get_soc_descriptor().arch;
+
+    construct_cluster(
+        num_host_mem_ch_per_mmio_device,
+        create_mock_chips,
+        clean_system_resources,
+        perform_harvesting,
+        simulated_harvesting_masks);
+}
+
+Cluster::Cluster(
+    const std::string& sdesc_path,
+    const std::set<chip_id_t>& target_devices,
+    const uint32_t& num_host_mem_ch_per_mmio_device,
+    const bool create_mock_chips,
+    const bool clean_system_resources,
+    bool perform_harvesting,
+    std::unordered_map<chip_id_t, HarvestingMasks> simulated_harvesting_masks) {
+    cluster_desc = Cluster::create_cluster_descriptor();
+
+    for (auto& chip_id : target_devices) {
+        log_assert(
+            cluster_desc->get_all_chips().find(chip_id) != cluster_desc->get_all_chips().end(),
+            "Target device {} not present in current cluster!",
+            chip_id);
+        add_chip(
+            chip_id,
+            construct_chip_from_cluster(
+                sdesc_path,
+                chip_id,
+                cluster_desc.get(),
+                perform_harvesting,
+                simulated_harvesting_masks,
+                create_mock_chips));
         log_assert(
             cluster_desc->get_arch(chip_id) == chips_.at(chip_id)->get_soc_descriptor().arch,
             "Passed soc descriptor has {} arch, but for chip id {} has arch {}",
@@ -635,23 +653,26 @@ Cluster::Cluster(
 
     construct_cluster(
         num_host_mem_ch_per_mmio_device,
-        skip_driver_allocs,
+        create_mock_chips,
         clean_system_resources,
         perform_harvesting,
         simulated_harvesting_masks);
 }
 
 Cluster::Cluster(
-    std::unordered_map<chip_id_t, std::unique_ptr<Chip>>& chips,
+    std::unique_ptr<tt_ClusterDescriptor> cluster_descriptor,
     const uint32_t& num_host_mem_ch_per_mmio_device,
-    const bool skip_driver_allocs,
+    const bool create_mock_chips,
     const bool clean_system_resources,
     bool perform_harvesting,
-    const std::unordered_map<chip_id_t, HarvestingMasks> simulated_harvesting_masks) {
-    cluster_desc = Cluster::create_cluster_descriptor();
+    std::unordered_map<chip_id_t, HarvestingMasks> simulated_harvesting_masks) {
+    cluster_desc = std::move(cluster_descriptor);
 
-    for (auto& [chip_id, chip] : chips) {
-        add_chip(chip_id, std::move(chip));
+    for (auto& chip_id : cluster_desc->get_all_chips()) {
+        add_chip(
+            chip_id,
+            construct_chip_from_cluster(
+                chip_id, cluster_desc.get(), perform_harvesting, simulated_harvesting_masks, create_mock_chips));
     }
 
     // TODO: work on removing this member altogether. Currently assumes all have the same arch.
@@ -659,28 +680,10 @@ Cluster::Cluster(
 
     construct_cluster(
         num_host_mem_ch_per_mmio_device,
-        skip_driver_allocs,
+        create_mock_chips,
         clean_system_resources,
         perform_harvesting,
         simulated_harvesting_masks);
-}
-
-// TODO:This likely won't work well as long as cluster_descriptor is used throughout the code.
-/* static */ std::unique_ptr<Cluster> Cluster::create_mock_cluster() {
-    // TBD how this would look like for simulated cluster.
-    // Arbitrary arch used for mock cluster.
-    // Note that this arch currently has an impact on some stuff in Cluster class, based on the produced cluster
-    // descriptor on the system. This should not be true in the future when we start taking stuff in Cluster from Chip
-    // rather than ClusterDescriptor.
-    tt::ARCH arch = tt::ARCH::GRAYSKULL;
-    chip_id_t mock_chip_id = 0;
-    tt_SocDescriptor soc_desc =
-        tt_SocDescriptor(tt_SocDescriptor::get_soc_descriptor_path(arch, BoardType::UNKNOWN), false);
-    std::unique_ptr<Chip> chip = std::make_unique<MockChip>(soc_desc);
-
-    std::unordered_map<chip_id_t, std::unique_ptr<Chip>> chips;
-    chips.emplace(mock_chip_id, std::move(chip));
-    return std::make_unique<Cluster>(chips);
 }
 
 void Cluster::configure_active_ethernet_cores_for_mmio_device(
@@ -3536,5 +3539,9 @@ std::unique_ptr<tt_ClusterDescriptor> Cluster::create_cluster_descriptor(
 
     return desc;
 }
+
+std::string Cluster::serialize() { return Cluster::create_cluster_descriptor()->serialize(); }
+
+std::filesystem::path Cluster::serialize_to_file() { return Cluster::create_cluster_descriptor()->serialize_to_file(); }
 
 }  // namespace tt::umd

@@ -122,4 +122,8 @@ public:
         chip_id_t local_chip, ethernet_channel_t local_ethernet_channel) const;
 
     void enable_all_devices();
+
+    std::string serialize() const;
+
+    std::filesystem::path serialize_to_file() const;
 };

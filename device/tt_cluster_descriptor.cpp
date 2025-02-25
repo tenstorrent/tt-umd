@@ -789,6 +789,13 @@ void tt_ClusterDescriptor::load_harvesting_information(YAML::Node &yaml, tt_Clus
 void tt_ClusterDescriptor::enable_all_devices() { this->enabled_active_chips = this->all_chips; }
 
 void tt_ClusterDescriptor::fill_chips_grouped_by_closest_mmio() {
+    // TODO: remote ethernet coordinates if new eth fw is ported for back Wormhole.
+    // For newer topologies every chip will have a direct connection to MMIO chip, so there won't be
+    // ethernet coordinates, represented by chip locations, to calculate the closest MMIO chip.
+    if (this->chip_locations.empty()) {
+        return;
+    }
+
     for (const auto &chip : this->all_chips) {
         // This will also fill up the closest_mmio_chip_cache
         chip_id_t closest_mmio_chip = get_closest_mmio_capable_chip(chip);
@@ -896,3 +903,78 @@ tt_ClusterDescriptor::get_chips_grouped_by_closest_mmio() const {
 }
 
 chip_id_t tt_ClusterDescriptor::get_chip_id(const ChipUID &chip_uid) const { return chip_uid_to_chip_id.at(chip_uid); }
+
+std::string tt_ClusterDescriptor::serialize() const {
+    YAML::Emitter out;
+
+    out << YAML::BeginMap;
+
+    // Section: arch
+    out << YAML::Key << "arch" << YAML::Value << YAML::BeginMap;
+    for (const auto &[chip_id, arch] : chip_arch) {
+        out << YAML::Key << chip_id << YAML::Value << tt::arch_to_str(arch);
+    }
+    out << YAML::EndMap;
+
+    // Section: ethernet_connections
+    out << YAML::Key << "ethernet_connections" << YAML::Value << YAML::BeginSeq;
+    std::set<std::pair<chip_id_t, int>> serialized_connections;
+    for (const auto &[src_chip, channels] : ethernet_connections) {
+        for (const auto &[src_chan, dest] : channels) {
+            if (serialized_connections.find({src_chip, src_chan}) != serialized_connections.end()) {
+                continue;
+            }
+            auto [dest_chip, dest_chan] = dest;
+            serialized_connections.insert({dest_chip, dest_chan});
+            out << YAML::BeginSeq;
+            out << YAML::BeginMap << YAML::Key << "chip" << YAML::Value << src_chip << YAML::Key << "chan"
+                << YAML::Value << src_chan << YAML::EndMap;
+            out << YAML::BeginMap << YAML::Key << "chip" << YAML::Value << dest_chip << YAML::Key << "chan"
+                << YAML::Value << dest_chan << YAML::EndMap;
+            out << YAML::EndSeq;
+        }
+    }
+
+    out << YAML::EndSeq;
+
+    // Section: chips_with_mmio
+    out << YAML::Key << "chips_with_mmio" << YAML::Value << YAML::BeginSeq;
+    for (const auto &chip_with_mmio : chips_with_mmio) {
+        out << YAML::BeginMap << YAML::Key << chip_with_mmio.first << YAML::Value << chip_with_mmio.second
+            << YAML::EndMap;
+    }
+    out << YAML::EndSeq;
+
+    // Section: harvesting
+    out << YAML::Key << "harvesting" << YAML::Value << YAML::BeginMap;
+    for (const int &chip : all_chips) {
+        out << YAML::Key << chip << YAML::Value << YAML::BeginMap;
+        out << YAML::Key << "noc_translation" << YAML::Value << noc_translation_enabled.at(chip);
+        out << YAML::Key << "harvest_mask" << YAML::Value << harvesting_masks.at(chip);
+        out << YAML::EndMap;
+    }
+    out << YAML::EndMap;
+
+    // Section: boardtype
+    out << YAML::Key << "boardtype" << YAML::Value << YAML::BeginMap;
+    for (const int &chip : all_chips) {
+        out << YAML::Key << chip << YAML::Value << board_type_to_string(chip_board_type.at(chip));
+    }
+    out << YAML::EndMap;
+
+    out << YAML::EndMap;
+
+    return out.c_str();
+}
+
+std::filesystem::path tt_ClusterDescriptor::serialize_to_file() const {
+    std::filesystem::path temp_path = std::filesystem::temp_directory_path();
+    std::string cluster_path_dir_template = temp_path / "umd_XXXXXX";
+    std::filesystem::path cluster_path_dir = mkdtemp(cluster_path_dir_template.data());
+    std::filesystem::path cluster_path = cluster_path_dir / "cluster_descriptor.yaml";
+    std::ofstream file(cluster_path);
+    file << serialize();
+    file.close();
+
+    return cluster_path;
+}

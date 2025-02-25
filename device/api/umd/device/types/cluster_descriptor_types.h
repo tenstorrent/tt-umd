@@ -66,7 +66,7 @@ inline std::string board_type_to_string(const BoardType board_type) {
             return "n300";
         case BoardType::P100:
             return "p100";
-        case BoardType::P150A:
+        case BoardType::P150:
             return "p150";
         case BoardType::P300:
             return "p300";

@@ -27,36 +27,35 @@ TEST(BlackholeArcMessages, BlackholeArcMessagesBasic) {
     }
 }
 
-// TODO: enable this test once 80.15 fw is flashed to CI machines
-// TEST(BlackholeArcMessages, BlackholeArcMessageHigherAIClock) {
-//     const uint32_t ms_sleep = 2000;
+TEST(BlackholeArcMessages, BlackholeArcMessageHigherAIClock) {
+    const uint32_t ms_sleep = 2000;
 
-//     std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
+    std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
 
-//     for (int pci_device_id : pci_device_ids) {
-//         std::unique_ptr<TTDevice> tt_device = TTDevice::create(pci_device_id);
+    for (int pci_device_id : pci_device_ids) {
+        std::unique_ptr<TTDevice> tt_device = TTDevice::create(pci_device_id);
 
-//         std::unique_ptr<ArcMessenger> bh_arc_messenger = ArcMessenger::create_arc_messenger(tt_device.get());
+        std::unique_ptr<ArcMessenger> bh_arc_messenger = ArcMessenger::create_arc_messenger(tt_device.get());
 
-//         uint32_t response = bh_arc_messenger->send_message((uint32_t)ArcMessageType::AICLK_GO_BUSY);
+        uint32_t response = bh_arc_messenger->send_message((uint32_t)ArcMessageType::AICLK_GO_BUSY);
 
-//         // Wait for telemetry to update AICLK.
-//         std::this_thread::sleep_for(std::chrono::milliseconds(ms_sleep));
+        // Wait for telemetry to update AICLK.
+        std::this_thread::sleep_for(std::chrono::milliseconds(ms_sleep));
 
-//         std::unique_ptr<blackhole::BlackholeArcTelemetryReader> blackhole_arc_telemetry_reader =
-//             std::make_unique<blackhole::BlackholeArcTelemetryReader>(tt_device.get());
+        std::unique_ptr<blackhole::BlackholeArcTelemetryReader> blackhole_arc_telemetry_reader =
+            std::make_unique<blackhole::BlackholeArcTelemetryReader>(tt_device.get());
 
-//         uint32_t aiclk = blackhole_arc_telemetry_reader->read_entry(blackhole::TAG_AICLK);
+        uint32_t aiclk = blackhole_arc_telemetry_reader->read_entry(blackhole::TAG_AICLK);
 
-//         EXPECT_EQ(aiclk, blackhole::AICLK_BUSY_VAL);
+        EXPECT_EQ(aiclk, blackhole::AICLK_BUSY_VAL);
 
-//         response = bh_arc_messenger->send_message((uint32_t)ArcMessageType::AICLK_GO_LONG_IDLE);
+        response = bh_arc_messenger->send_message((uint32_t)ArcMessageType::AICLK_GO_LONG_IDLE);
 
-//         // Wait for telemetry to update AICLK.
-//         std::this_thread::sleep_for(std::chrono::milliseconds(ms_sleep));
+        // Wait for telemetry to update AICLK.
+        std::this_thread::sleep_for(std::chrono::milliseconds(ms_sleep));
 
-//         aiclk = blackhole_arc_telemetry_reader->read_entry(blackhole::TAG_AICLK);
+        aiclk = blackhole_arc_telemetry_reader->read_entry(blackhole::TAG_AICLK);
 
-//         EXPECT_EQ(aiclk, blackhole::AICLK_IDLE_VAL);
-//     }
-// }
+        EXPECT_EQ(aiclk, blackhole::AICLK_IDLE_VAL);
+    }
+}

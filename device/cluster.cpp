@@ -139,14 +139,6 @@ const tt_SocDescriptor& Cluster::get_soc_descriptor(chip_id_t chip_id) const {
     return chips_.at(chip_id)->get_soc_descriptor();
 }
 
-std::unordered_map<chip_id_t, tt_SocDescriptor> Cluster::get_virtual_soc_descriptors() {
-    std::unordered_map<chip_id_t, tt_SocDescriptor> soc_descs;
-    for (const auto& chip : chips_) {
-        soc_descs[chip.first] = chip.second->get_soc_descriptor();
-    }
-    return soc_descs;
-}
-
 void Cluster::initialize_interprocess_mutexes(int logical_device_id, bool cleanup_mutexes_in_shm) {
     // These mutexes are intended to be based on physical devices/pci-intf not logical. Set these up ahead of time here
     // (during device init) since its unsafe to modify shared state during multithreaded runtime. cleanup_mutexes_in_shm
@@ -297,11 +289,6 @@ void Cluster::construct_cluster(
         log_info(LogSiliconDriver, "Detected PCI devices: {}", available_device_ids);
         log_info(
             LogSiliconDriver, "Using local chip ids: {} and remote chip ids {}", local_chip_ids_, remote_chip_ids_);
-    }
-
-    // Prefill the soc_descriptor_per_chip
-    for (const auto& [chip_id, chip] : chips_) {
-        soc_descriptor_per_chip.emplace(chip_id, chip->get_soc_descriptor());
     }
 
     perform_harvesting_on_sdesc = perform_harvesting;

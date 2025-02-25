@@ -311,7 +311,7 @@ CoreCoord tt_SocDescriptor::get_eth_core_for_channel(int eth_chan, const CoordSy
 
 std::string tt_SocDescriptor::get_soc_descriptor_path(
     tt::ARCH arch, const BoardType board_type, const bool is_chip_remote) {
-    std::cout << "return get_soc_descriptor_path " << std::endl;
+    std::cout << "BOJAN return get_soc_descriptor_path " << std::endl;
     switch (arch) {
         case tt::ARCH::GRAYSKULL:
             // TODO: this path needs to be changed to point to soc descriptors outside of tests directory.

@@ -15,6 +15,7 @@ namespace tt::umd {
 
 LocalChip::LocalChip(tt_SocDescriptor soc_descriptor, int pci_device_id) :
     Chip(soc_descriptor), tt_device_(TTDevice::create(pci_device_id)) {
+    std::cout << "BOJAN LocalChip with provided soc desc, this one is fine" << std::endl;
     initialize_local_chip();
 }
 
@@ -29,6 +30,7 @@ LocalChip::LocalChip(std::unique_ptr<TTDevice> tt_device) :
             tt_device->get_chip_info().noc_translation_enabled,
             tt_device->get_chip_info().harvesting_masks)),
     tt_device_(std::move(tt_device)) {
+    std::cout << "BOJAN LocalChip with soc desc" << std::endl;
     initialize_local_chip();
 }
 

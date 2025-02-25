@@ -122,9 +122,9 @@ TEST(SiliconDriverWH, Harvesting) {
         simulated_harvesting_masks[i].tensix_harvesting_mask |= harvesting_mask_logical;
     }
 
-    for (const auto& chip : sdesc_per_chip) {
-        ASSERT_LE(chip.second.get_cores(CoreType::TENSIX).size(), 48)
-            << "Expected SOC descriptor with harvesting to have 48 workers or less for chip " << chip.first;
+    for (const auto& chip : cluster.get_target_device_ids()) {
+        ASSERT_EQ(cluster.get_soc_descriptor(chip).get_cores(CoreType::TENSIX).size(), 48)
+            << "Expected SOC descriptor with harvesting to have 48 workers or less for chip " << chip;
     }
     for (int i = 0; i < num_devices; i++) {
         // harvesting info stored in soc descriptor is in logical coordinates.

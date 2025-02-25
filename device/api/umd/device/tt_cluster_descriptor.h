@@ -51,6 +51,8 @@ protected:
     std::unordered_map<chip_id_t, tt::ARCH> chip_arch = {};
     std::map<ChipUID, chip_id_t> chip_uid_to_chip_id = {};
     std::map<chip_id_t, ChipUID> chip_id_to_chip_uid = {};
+    std::map<chip_id_t, std::set<uint32_t>> active_eth_channels = {};
+    std::map<chip_id_t, std::set<uint32_t>> idle_eth_channels = {};
 
     // one-to-many chip connections
     struct Chip2ChipConnection {
@@ -129,4 +131,7 @@ public:
     std::string serialize() const;
 
     std::filesystem::path serialize_to_file() const;
+
+    std::set<uint32_t> get_active_eth_channels(chip_id_t chip_id);
+    std::set<uint32_t> get_idle_eth_channels(chip_id_t chip_id);
 };

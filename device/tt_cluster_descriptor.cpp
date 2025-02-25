@@ -997,3 +997,21 @@ std::filesystem::path tt_ClusterDescriptor::serialize_to_file() const {
 
     return cluster_path;
 }
+
+std::set<uint32_t> tt_ClusterDescriptor::get_active_eth_channels(chip_id_t chip_id) {
+    auto it = active_eth_channels.find(chip_id);
+    if (it == active_eth_channels.end()) {
+        return {};
+    }
+
+    return it->second;
+}
+
+std::set<uint32_t> tt_ClusterDescriptor::get_idle_eth_channels(chip_id_t chip_id) {
+    auto it = idle_eth_channels.find(chip_id);
+    if (it == idle_eth_channels.end()) {
+        return {};
+    }
+
+    return it->second;
+}

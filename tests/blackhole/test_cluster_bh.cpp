@@ -978,3 +978,16 @@ TEST(SiliconDriverBH, RandomSysmemTestWithPcie) {
         }
     }
 }
+
+// Verifies that all ETH channels are classified as either active/idle.
+TEST(ClusterBH, TotalNumberOfEthCores) {
+    std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
+
+    const uint32_t num_eth_cores = cluster->get_soc_descriptor(0).get_cores(CoreType::ETH).size();
+
+    tt_ClusterDescriptor* cluster_desc = cluster->get_cluster_description();
+    const uint32_t num_active_channels = cluster_desc->get_active_eth_channels(0).size();
+    const uint32_t num_idle_channels = cluster_desc->get_idle_eth_channels(0).size();
+
+    EXPECT_EQ(num_eth_cores, num_active_channels + num_idle_channels);
+}

@@ -115,7 +115,7 @@ std::vector<tt_xy_pair> get_pcie_cores(const BoardType board_type, const bool is
 
     if (board_type == BoardType::UNKNOWN || board_type == BoardType::P100) {
         return PCIE_CORES_TYPE1;
-    } else if (board_type == BoardType::P150A) {
+    } else if (board_type == BoardType::P150) {
         return PCIE_CORES_TYPE2;
     } else if (board_type == BoardType::P300) {
         return is_chip_remote ? PCIE_CORES_TYPE1 : PCIE_CORES_TYPE2;

@@ -291,7 +291,7 @@ std::string tt_SocDescriptor::get_soc_descriptor_path(
             if (board_type == BoardType::P100 || board_type == BoardType::UNKNOWN) {
                 // TODO: this path needs to be changed to point to soc descriptors outside of tests directory.
                 return tt::umd::utils::get_abs_path("tests/soc_descs/blackhole_140_arch_no_eth.yaml");
-            } else if (board_type == BoardType::P150A) {
+            } else if (board_type == BoardType::P150) {
                 // TODO: this path needs to be changed to point to soc descriptors outside of tests directory.
                 return tt::umd::utils::get_abs_path("tests/soc_descs/blackhole_140_arch_type2.yaml");
             } else if (board_type == BoardType::P300) {

@@ -471,9 +471,7 @@ std::unique_ptr<Chip> Cluster::construct_chip_from_cluster(
     std::unordered_map<chip_id_t, HarvestingMasks>& simulated_harvesting_masks,
     const bool create_mock_chip) {
     tt::ARCH arch = cluster_desc->get_arch(chip_id);
-    BoardType chip_board_type = cluster_desc->get_board_type(chip_id);
-    bool is_chip_remote = cluster_desc->is_chip_remote(chip_id);
-    std::string soc_desc_path = tt_SocDescriptor::get_soc_descriptor_path(arch, chip_board_type, is_chip_remote);
+    std::string soc_desc_path = tt_SocDescriptor::get_soc_descriptor_path(arch);
     return construct_chip_from_cluster(
         soc_desc_path, chip_id, cluster_desc, perform_harvesting, simulated_harvesting_masks, create_mock_chip);
 }
@@ -631,7 +629,7 @@ Cluster::Cluster(
     const bool clean_system_resources,
     bool perform_harvesting,
     std::unordered_map<chip_id_t, HarvestingMasks> simulated_harvesting_masks) {
-    cluster_desc = Cluster::create_cluster_descriptor();
+    cluster_desc = Cluster::create_cluster_descriptor(sdesc_path);
 
     for (auto& chip_id : target_devices) {
         log_assert(
@@ -3444,15 +3442,19 @@ tt_xy_pair Cluster::translate_chip_coord_virtual_to_translated(const chip_id_t c
     return translated_coord;
 }
 
-std::unique_ptr<tt_ClusterDescriptor> Cluster::create_cluster_descriptor() {
+std::unique_ptr<tt_ClusterDescriptor> Cluster::create_cluster_descriptor(std::string sdesc_path) {
     std::map<int, PciDeviceInfo> pci_device_info = PCIDevice::enumerate_devices_info();
     if (pci_device_info.begin()->second.get_arch() == tt::ARCH::BLACKHOLE) {
         std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
 
+        if (sdesc_path.empty()) {
+            sdesc_path = tt_SocDescriptor::get_soc_descriptor_path(tt::ARCH::BLACKHOLE);
+        }
+
         std::unordered_map<chip_id_t, std::unique_ptr<Chip>> chips;
         chip_id_t chip_id = 0;
         for (auto& device_id : pci_device_ids) {
-            std::unique_ptr<LocalChip> chip = std::make_unique<LocalChip>(TTDevice::create(device_id));
+            std::unique_ptr<LocalChip> chip = std::make_unique<LocalChip>(sdesc_path, TTDevice::create(device_id));
             chips.emplace(chip_id, std::move(chip));
             chip_id++;
         }

@@ -65,8 +65,7 @@ public:
         const CoordSystem input_coord_system,
         const CoordSystem target_coord_system) const;
 
-    static std::string get_soc_descriptor_path(
-        tt::ARCH arch, const BoardType board_type = BoardType::UNKNOWN, const bool is_chip_remote = false);
+    static std::string get_soc_descriptor_path(tt::ARCH arch);
 
     std::vector<tt::umd::CoreCoord> get_cores(
         const CoreType core_type, const CoordSystem coord_system = CoordSystem::PHYSICAL) const;

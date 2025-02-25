@@ -18,14 +18,11 @@ LocalChip::LocalChip(tt_SocDescriptor soc_descriptor, int pci_device_id) :
     initialize_local_chip();
 }
 
-LocalChip::LocalChip(std::unique_ptr<TTDevice> tt_device) :
+LocalChip::LocalChip(std::string sdesc_path, std::unique_ptr<TTDevice> tt_device) :
     Chip(
         tt_device->get_chip_info(),
         tt_SocDescriptor(
-            tt_SocDescriptor::get_soc_descriptor_path(
-                tt_device->get_arch(),
-                tt_device->get_chip_info().board_type,
-                tt_device->get_chip_info().chip_uid.asic_location),
+            sdesc_path,
             tt_device->get_chip_info().noc_translation_enabled,
             tt_device->get_chip_info().harvesting_masks)),
     tt_device_(std::move(tt_device)) {

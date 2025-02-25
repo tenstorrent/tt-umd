@@ -311,6 +311,7 @@ CoreCoord tt_SocDescriptor::get_eth_core_for_channel(int eth_chan, const CoordSy
 
 std::string tt_SocDescriptor::get_soc_descriptor_path(
     tt::ARCH arch, const BoardType board_type, const bool is_chip_remote) {
+    std::cout << "return get_soc_descriptor_path " << std::endl;
     switch (arch) {
         case tt::ARCH::GRAYSKULL:
             // TODO: this path needs to be changed to point to soc descriptors outside of tests directory.
@@ -320,6 +321,7 @@ std::string tt_SocDescriptor::get_soc_descriptor_path(
             return tt::umd::utils::get_abs_path("tests/soc_descs/wormhole_b0_8x10.yaml");
         case tt::ARCH::BLACKHOLE: {
             auto chip_type = get_blackhole_chip_type(board_type, is_chip_remote);
+            std::cout << "return blackhole " << chip_type << std::endl;
             return tt::umd::utils::get_abs_path(
                 chip_type == BlackholeChipType::Type1 ? "tests/soc_descs/blackhole_140_arch_type1.yaml"
                                                       : "tests/soc_descs/blackhole_140_arch_type2.yaml");

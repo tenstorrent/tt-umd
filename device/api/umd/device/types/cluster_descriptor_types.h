@@ -159,6 +159,12 @@ struct ChipInfo {
     bool noc_translation_enabled;
 };
 
+enum class DramTrainingStatus : uint8_t {
+    IN_PROGRESS = 0,
+    FAIL = 1,
+    SUCCESS = 2,
+};
+
 namespace std {
 template <>
 struct hash<eth_coord_t> {

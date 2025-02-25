@@ -49,7 +49,10 @@ void Chip::set_barrier_address_params(const barrier_address_params& barrier_addr
 
 const ChipInfo& Chip::get_chip_info() { return chip_info_; }
 
-void Chip::wait_chip_to_be_ready() { wait_eth_cores_training(); }
+void Chip::wait_chip_to_be_ready() {
+    wait_eth_cores_training();
+    wait_dram_cores_training();
+}
 
 void Chip::wait_eth_cores_training(const uint32_t timeout_ms) {}
 
@@ -75,5 +78,7 @@ void Chip::write_to_sysmem(uint16_t channel, const void* src, uint64_t sysmem_de
 void Chip::read_from_sysmem(uint16_t channel, void* dest, uint64_t sysmem_src, uint32_t size) {
     throw std::runtime_error("Chip::read_from_sysmem is not available for this chip.");
 }
+
+void Chip::wait_dram_cores_training(const uint32_t timeout_ms) {}
 
 }  // namespace tt::umd

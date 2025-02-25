@@ -401,4 +401,6 @@ void TTDevice::clean_tt_device_mutex() {
 
 TTDevice::~TTDevice() { clean_tt_device_mutex(); }
 
+std::vector<DramTrainingStatus> TTDevice::get_dram_training_status() { return {}; }
+
 }  // namespace tt::umd

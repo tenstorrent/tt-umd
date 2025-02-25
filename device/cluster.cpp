@@ -49,12 +49,15 @@
 #include "umd/device/tt_device/tlb_manager.h"
 #include "umd/device/tt_soc_descriptor.h"
 #include "umd/device/types/arch.h"
+#include "umd/device/types/blackhole_eth.h"
 #include "umd/device/types/tlb.h"
 #include "yaml-cpp/yaml.h"
 
 using namespace boost::interprocess;
 using namespace tt;
 using namespace tt::umd;
+
+extern bool umd_use_noc1;
 
 static const uint32_t MSG_ERROR_REPLY = 0xFFFFFFFF;
 
@@ -551,7 +554,7 @@ Cluster::Cluster(
     const bool clean_system_resources,
     bool perform_harvesting,
     std::unordered_map<chip_id_t, HarvestingMasks> simulated_harvesting_masks) {
-    cluster_desc = tt_ClusterDescriptor::create();
+    cluster_desc = Cluster::create_cluster_descriptor();
 
     for (auto& chip_id : cluster_desc->get_all_chips()) {
         add_chip(
@@ -577,7 +580,7 @@ Cluster::Cluster(
     const bool clean_system_resources,
     bool perform_harvesting,
     std::unordered_map<chip_id_t, HarvestingMasks> simulated_harvesting_masks) {
-    cluster_desc = tt_ClusterDescriptor::create();
+    cluster_desc = Cluster::create_cluster_descriptor();
 
     for (auto& chip_id : target_devices) {
         log_assert(
@@ -608,7 +611,7 @@ Cluster::Cluster(
     const bool clean_system_resources,
     bool perform_harvesting,
     std::unordered_map<chip_id_t, HarvestingMasks> simulated_harvesting_masks) {
-    cluster_desc = tt_ClusterDescriptor::create();
+    cluster_desc = Cluster::create_cluster_descriptor();
 
     for (auto& chip_id : target_devices) {
         log_assert(
@@ -645,7 +648,7 @@ Cluster::Cluster(
     const bool clean_system_resources,
     bool perform_harvesting,
     const std::unordered_map<chip_id_t, HarvestingMasks> simulated_harvesting_masks) {
-    cluster_desc = tt_ClusterDescriptor::create();
+    cluster_desc = Cluster::create_cluster_descriptor();
 
     for (auto& [chip_id, chip] : chips) {
         add_chip(chip_id, std::move(chip));
@@ -3426,8 +3429,112 @@ tt_xy_pair Cluster::translate_to_api_coords(const chip_id_t chip, const tt::umd:
 
 tt_xy_pair Cluster::translate_chip_coord_virtual_to_translated(const chip_id_t chip_id, const tt_xy_pair core) const {
     CoreCoord core_coord = get_soc_descriptor(chip_id).get_coord_at(core, get_coord_system_used());
-    auto translated_coord = get_soc_descriptor(chip_id).translate_coord_to(core_coord, CoordSystem::TRANSLATED);
+    auto translated_coord = get_soc_descriptor(chip_id).translate_coord_to(
+        core_coord, umd_use_noc1 ? CoordSystem::PHYSICAL : CoordSystem::TRANSLATED);
     return translated_coord;
+}
+
+std::unique_ptr<tt_ClusterDescriptor> Cluster::create_cluster_descriptor() {
+    std::map<int, PciDeviceInfo> pci_device_info = PCIDevice::enumerate_devices_info();
+    if (pci_device_info.begin()->second.get_arch() == tt::ARCH::BLACKHOLE) {
+        std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
+
+        std::unordered_map<chip_id_t, std::unique_ptr<Chip>> chips;
+        chip_id_t chip_id = 0;
+        for (auto& device_id : pci_device_ids) {
+            std::unique_ptr<LocalChip> chip = std::make_unique<LocalChip>(TTDevice::create(device_id));
+            chips.emplace(chip_id, std::move(chip));
+            chip_id++;
+        }
+
+        return Cluster::create_cluster_descriptor(chips);
+    } else {
+        return tt_ClusterDescriptor::create();
+    }
+}
+
+std::unique_ptr<tt_ClusterDescriptor> Cluster::create_cluster_descriptor(
+    const std::unordered_map<chip_id_t, std::unique_ptr<tt::umd::Chip>>& chips) {
+    std::unique_ptr<tt_ClusterDescriptor> desc = std::unique_ptr<tt_ClusterDescriptor>(new tt_ClusterDescriptor());
+
+    for (auto& it : chips) {
+        const chip_id_t chip_id = it.first;
+        const std::unique_ptr<Chip>& chip = it.second;
+        desc->chip_uid_to_chip_id.insert({chip->get_chip_info().chip_uid, it.first});
+    }
+
+    for (auto& it : chips) {
+        const chip_id_t chip_id = it.first;
+        const std::unique_ptr<Chip>& chip = it.second;
+
+        desc->all_chips.insert(chip_id);
+        desc->chip_arch.insert({chip_id, chip->get_tt_device()->get_arch()});
+
+        desc->chips_with_mmio.insert({chip_id, chip->get_tt_device()->get_pci_device()->get_device_num()});
+
+        desc->chip_board_type.insert({chip_id, chip->get_chip_info().board_type});
+
+        desc->noc_translation_enabled.insert({chip_id, chip->get_chip_info().noc_translation_enabled});
+        desc->harvesting_masks.insert({chip_id, chip->get_chip_info().harvesting_masks.tensix_harvesting_mask});
+
+        const std::vector<CoreCoord> eth_cores = chip->get_soc_descriptor().get_cores(CoreType::ETH);
+
+        for (size_t eth_channel = 0; eth_channel < eth_cores.size(); eth_channel++) {
+            const CoreCoord& eth_core = eth_cores[eth_channel];
+            TTDevice* tt_device = chip->get_tt_device();
+            boot_results_t boot_results;
+
+            tt_device->read_from_device(
+                (uint8_t*)&boot_results,
+                tt_xy_pair(eth_core.x, eth_core.y),
+                blackhole::BOOT_RESULTS_ADDR,
+                sizeof(boot_results));
+
+            if (boot_results.eth_status.port_status == port_status_e::PORT_UP) {
+                log_debug(LogSiliconDriver, "Eth core ({}, {}) on chip {} is active", eth_core.x, eth_core.y, chip_id);
+                // active eth core
+                const chip_info_t& local_info = boot_results.local_info;
+                const chip_info_t& remote_info = boot_results.remote_info;
+
+                chip_id_t local_chip_id = desc->get_chip_id(local_info.get_chip_uid());
+                if (desc->chip_uid_to_chip_id.find(remote_info.get_chip_uid()) == desc->chip_uid_to_chip_id.end()) {
+                    log_debug(
+                        LogSiliconDriver,
+                        "Eth core ({}, {}) on chip {} is connected to an chip with board_id {} not present in the "
+                        "target devices opened by this driver.",
+                        eth_core.x,
+                        eth_core.y,
+                        chip_id,
+                        remote_info.get_chip_uid().board_id);
+                } else {
+                    chip_id_t remote_chip_id = desc->get_chip_id(remote_info.get_chip_uid());
+
+                    // Adding a connection only one way, the other chip should add it another way.
+                    desc->ethernet_connections[local_chip_id][local_info.eth_id] = {remote_chip_id, remote_info.eth_id};
+                }
+
+            } else if (boot_results.eth_status.port_status == port_status_e::PORT_DOWN) {
+                log_debug(
+                    LogSiliconDriver, "Port on eth core ({}, {}) on chip {} is down", eth_core.x, eth_core.y, chip_id);
+            } else if (boot_results.eth_status.port_status == port_status_e::PORT_UNUSED) {
+                // idle core
+                log_debug(LogSiliconDriver, "Eth core ({}, {}) on chip {} is idle");
+            } else if (boot_results.eth_status.port_status == port_status_e::PORT_UNKNOWN) {
+                log_debug(
+                    LogSiliconDriver,
+                    "Port on eth core ({}, {}) on chip {} is in unknown state",
+                    eth_core.x,
+                    eth_core.y,
+                    chip_id);
+            }
+        }
+    }
+
+    desc->enable_all_devices();
+
+    desc->fill_chips_grouped_by_closest_mmio();
+
+    return desc;
 }
 
 }  // namespace tt::umd

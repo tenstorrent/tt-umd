@@ -3,28 +3,25 @@
 // SPDX-License-Identifier: Apache-2.0
 #include "umd/device/tt_device/tt_device.h"
 
-#include <boost/interprocess/permissions.hpp>
-#include <boost/interprocess/sync/named_mutex.hpp>
-#include <boost/interprocess/sync/scoped_lock.hpp>
-
 #include "logger.hpp"
 #include "umd/device/driver_atomics.h"
 #include "umd/device/tt_device/blackhole_tt_device.h"
 #include "umd/device/tt_device/grayskull_tt_device.h"
 #include "umd/device/tt_device/wormhole_tt_device.h"
 
-using namespace boost::interprocess;
+// TODO #526: This is a hack to allow UMD to use the NOC1 TLB.
+bool umd_use_noc1 = false;
 
 namespace tt::umd {
+
+void TTDevice::use_noc1(bool use_noc1) { umd_use_noc1 = use_noc1; }
 
 TTDevice::TTDevice(
     std::unique_ptr<PCIDevice> pci_device, std::unique_ptr<architecture_implementation> architecture_impl) :
     pci_device_(std::move(pci_device)),
     architecture_impl_(std::move(architecture_impl)),
     tlb_manager_(std::make_unique<TLBManager>(this)),
-    arch(architecture_impl_->get_architecture()) {
-    create_read_write_mutex();
-}
+    arch(architecture_impl_->get_architecture()) {}
 
 /* static */ std::unique_ptr<TTDevice> TTDevice::create(int pci_device_number) {
     auto pci_device = std::make_unique<PCIDevice>(pci_device_number);
@@ -216,7 +213,6 @@ void TTDevice::read_block(uint64_t byte_addr, uint64_t num_bytes, uint8_t *buffe
 }
 
 void TTDevice::read_from_device(void *mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size) {
-    const scoped_lock<named_mutex> lock(*read_write_mutex);
     uint8_t *buffer_addr = static_cast<uint8_t *>(mem_ptr);
     const uint32_t tlb_index = get_architecture_implementation()->get_small_read_write_tlb();
     while (size > 0) {
@@ -231,10 +227,8 @@ void TTDevice::read_from_device(void *mem_ptr, tt_xy_pair core, uint64_t addr, u
 }
 
 void TTDevice::write_to_device(void *mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size) {
-    const scoped_lock<named_mutex> lock(*read_write_mutex);
     uint8_t *buffer_addr = static_cast<uint8_t *>(mem_ptr);
     const uint32_t tlb_index = get_architecture_implementation()->get_small_read_write_tlb();
-    // const scoped_lock<named_mutex> lock(*get_mutex(fallback_tlb, target.chip));
 
     while (size > 0) {
         auto [mapped_address, tlb_size] = set_dynamic_tlb(tlb_index, core, addr, tt::umd::tlb_data::Strict);
@@ -309,6 +303,7 @@ dynamic_tlb TTDevice::set_dynamic_tlb(
             .y_end = static_cast<uint64_t>(end.y),
             .x_start = static_cast<uint64_t>(start.x),
             .y_start = static_cast<uint64_t>(start.y),
+            .noc_sel = umd_use_noc1 ? 1U : 0,
             .mcast = multicast,
             .ordering = ordering,
             // TODO #2715: hack for Blackhole A0, will potentially be fixed in B0.
@@ -352,10 +347,8 @@ void TTDevice::configure_iatu_region(size_t region, uint64_t base, uint64_t targ
     throw std::runtime_error("configure_iatu_region is not implemented for this device");
 }
 
-void TTDevice::create_read_write_mutex() {
-    permissions unrestricted_permissions;
-    unrestricted_permissions.set_unrestricted();
-    read_write_mutex = std::make_shared<named_mutex>(open_or_create, "read_write_mutex", unrestricted_permissions);
+void TTDevice::wait_arc_core_start(const tt_xy_pair arc_core, const uint32_t timeout_ms) {
+    throw std::runtime_error("Waiting for ARC core to start is supported only for Blackhole TTDevice.");
 }
 
 }  // namespace tt::umd

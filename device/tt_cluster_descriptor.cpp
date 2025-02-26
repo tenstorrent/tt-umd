@@ -908,17 +908,19 @@ void tt_ClusterDescriptor::add_chip_uid(const chip_id_t chip_id, const ChipUID &
 }
 
 std::optional<chip_id_t> tt_ClusterDescriptor::get_chip_id(const ChipUID &chip_uid) const {
-    if (chip_uid_to_chip_id.find(chip_uid) == chip_uid_to_chip_id.end()) {
+    auto chip_id_it = chip_uid_to_chip_id.find(chip_uid);
+    if (chip_id_it == chip_uid_to_chip_id.end()) {
         return std::nullopt;
     }
-    return chip_uid_to_chip_id.at(chip_uid);
+    return chip_id_it->second;
 }
 
 std::optional<ChipUID> tt_ClusterDescriptor::get_chip_uid(chip_id_t chip_id) const {
-    if (chip_id_to_chip_uid.find(chip_id) == chip_id_to_chip_uid.end()) {
+    auto chip_uid_it = chip_id_to_chip_uid.find(chip_id);
+    if (chip_uid_it == chip_id_to_chip_uid.end()) {
         return std::nullopt;
     }
-    return chip_id_to_chip_uid.at(chip_id);
+    return chip_uid_it->second;
 }
 
 std::string tt_ClusterDescriptor::serialize() const {

@@ -576,7 +576,7 @@ std::shared_ptr<CoordinateManager> CoordinateManager::create_coordinate_manager(
     const bool noc_translation_enabled,
     const HarvestingMasks harvesting_masks,
     const BoardType board_type,
-    bool is_chip_remote) {
+    uint8_t asic_location) {
     switch (arch) {
         case tt::ARCH::GRAYSKULL:
             return create_coordinate_manager(
@@ -610,7 +610,7 @@ std::shared_ptr<CoordinateManager> CoordinateManager::create_coordinate_manager(
                 tt::umd::wormhole::ROUTER_CORES);
         case tt::ARCH::QUASAR:  // TODO (#450): Add Quasar configuration
         case tt::ARCH::BLACKHOLE: {
-            const std::vector<tt_xy_pair> pcie_cores = tt::umd::blackhole::get_pcie_cores(board_type, is_chip_remote);
+            const std::vector<tt_xy_pair> pcie_cores = tt::umd::blackhole::get_pcie_cores(board_type, asic_location);
             return create_coordinate_manager(
                 arch,
                 noc_translation_enabled,

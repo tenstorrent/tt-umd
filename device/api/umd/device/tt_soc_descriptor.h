@@ -53,7 +53,9 @@ public:
     tt_SocDescriptor(
         std::string device_descriptor_path,
         const bool noc_translation_enabled,
-        const tt::umd::HarvestingMasks harvesting_masks = {0, 0, 0});
+        const tt::umd::HarvestingMasks harvesting_masks = {0, 0, 0},
+        const BoardType board_type = BoardType::UNKNOWN,
+        const uint8_t asic_location = 0);
 
     // CoreCoord conversions.
     tt::umd::CoreCoord translate_coord_to(const tt::umd::CoreCoord core_coord, const CoordSystem coord_system) const;
@@ -63,8 +65,7 @@ public:
         const CoordSystem input_coord_system,
         const CoordSystem target_coord_system) const;
 
-    static std::string get_soc_descriptor_path(
-        tt::ARCH arch, const BoardType board_type = BoardType::UNKNOWN, const bool is_chip_remote = false);
+    static std::string get_soc_descriptor_path(tt::ARCH arch);
 
     std::vector<tt::umd::CoreCoord> get_cores(
         const CoreType core_type, const CoordSystem coord_system = CoordSystem::PHYSICAL) const;
@@ -125,7 +126,11 @@ public:
     tt::umd::HarvestingMasks harvesting_masks;
 
 private:
-    void create_coordinate_manager(const bool noc_translation_enabled, const tt::umd::HarvestingMasks harvesting_masks);
+    void create_coordinate_manager(
+        const bool noc_translation_enabled,
+        const tt::umd::HarvestingMasks harvesting_masks,
+        const BoardType board_type,
+        const uint8_t asic_location);
     void load_core_descriptors_from_device_descriptor(YAML::Node &device_descriptor_yaml);
     void load_soc_features_from_device_descriptor(YAML::Node &device_descriptor_yaml);
     void get_cores_and_grid_size_from_coordinate_manager();

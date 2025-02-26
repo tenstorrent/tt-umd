@@ -453,8 +453,15 @@ std::unique_ptr<Chip> Cluster::construct_chip_from_cluster(
     const bool create_mock_chip) {
     HarvestingMasks harvesting_masks =
         get_harvesting_masks(chip_id, cluster_desc, perform_harvesting, simulated_harvesting_masks);
-    tt_SocDescriptor soc_desc =
-        tt_SocDescriptor(soc_desc_path, cluster_desc->get_noc_translation_table_en().at(chip_id), harvesting_masks);
+    const BoardType chip_board_type = cluster_desc->get_board_type(chip_id);
+    std::optional<ChipUID> chip_uid = cluster_desc->get_chip_uid(chip_id);
+    uint8_t asic_location = chip_uid.has_value() ? chip_uid.value().asic_location : 0;
+    tt_SocDescriptor soc_desc = tt_SocDescriptor(
+        soc_desc_path,
+        cluster_desc->get_noc_translation_table_en().at(chip_id),
+        harvesting_masks,
+        chip_board_type,
+        asic_location);
     return construct_chip_from_cluster(chip_id, cluster_desc, soc_desc, create_mock_chip);
 }
 
@@ -465,8 +472,7 @@ std::unique_ptr<Chip> Cluster::construct_chip_from_cluster(
     std::unordered_map<chip_id_t, HarvestingMasks>& simulated_harvesting_masks,
     const bool create_mock_chip) {
     tt::ARCH arch = cluster_desc->get_arch(chip_id);
-    const BoardType chip_board_type = cluster_desc->get_board_type(chip_id);
-    std::string soc_desc_path = tt_SocDescriptor::get_soc_descriptor_path(arch, chip_board_type);
+    std::string soc_desc_path = tt_SocDescriptor::get_soc_descriptor_path(arch);
     return construct_chip_from_cluster(
         soc_desc_path, chip_id, cluster_desc, perform_harvesting, simulated_harvesting_masks, create_mock_chip);
 }
@@ -624,7 +630,7 @@ Cluster::Cluster(
     const bool clean_system_resources,
     bool perform_harvesting,
     std::unordered_map<chip_id_t, HarvestingMasks> simulated_harvesting_masks) {
-    cluster_desc = Cluster::create_cluster_descriptor();
+    cluster_desc = Cluster::create_cluster_descriptor(sdesc_path);
 
     for (auto& chip_id : target_devices) {
         log_assert(
@@ -3437,15 +3443,19 @@ tt_xy_pair Cluster::translate_chip_coord_virtual_to_translated(const chip_id_t c
     return translated_coord;
 }
 
-std::unique_ptr<tt_ClusterDescriptor> Cluster::create_cluster_descriptor() {
+std::unique_ptr<tt_ClusterDescriptor> Cluster::create_cluster_descriptor(std::string sdesc_path) {
     std::map<int, PciDeviceInfo> pci_device_info = PCIDevice::enumerate_devices_info();
     if (pci_device_info.begin()->second.get_arch() == tt::ARCH::BLACKHOLE) {
         std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
 
+        if (sdesc_path.empty()) {
+            sdesc_path = tt_SocDescriptor::get_soc_descriptor_path(tt::ARCH::BLACKHOLE);
+        }
+
         std::unordered_map<chip_id_t, std::unique_ptr<Chip>> chips;
         chip_id_t chip_id = 0;
         for (auto& device_id : pci_device_ids) {
-            std::unique_ptr<LocalChip> chip = std::make_unique<LocalChip>(TTDevice::create(device_id));
+            std::unique_ptr<LocalChip> chip = std::make_unique<LocalChip>(sdesc_path, TTDevice::create(device_id));
             chips.emplace(chip_id, std::move(chip));
             chip_id++;
         }
@@ -3463,7 +3473,7 @@ std::unique_ptr<tt_ClusterDescriptor> Cluster::create_cluster_descriptor(
     for (auto& it : chips) {
         const chip_id_t chip_id = it.first;
         const std::unique_ptr<Chip>& chip = it.second;
-        desc->chip_uid_to_chip_id.insert({chip->get_chip_info().chip_uid, it.first});
+        desc->add_chip_uid(chip_id, chip->get_chip_info().chip_uid);
     }
 
     for (auto& it : chips) {
@@ -3499,8 +3509,9 @@ std::unique_ptr<tt_ClusterDescriptor> Cluster::create_cluster_descriptor(
                 const chip_info_t& local_info = boot_results.local_info;
                 const chip_info_t& remote_info = boot_results.remote_info;
 
-                chip_id_t local_chip_id = desc->get_chip_id(local_info.get_chip_uid());
-                if (desc->chip_uid_to_chip_id.find(remote_info.get_chip_uid()) == desc->chip_uid_to_chip_id.end()) {
+                chip_id_t local_chip_id = desc->get_chip_id(local_info.get_chip_uid()).value();
+                std::optional<chip_id_t> remote_chip_id = desc->get_chip_id(remote_info.get_chip_uid());
+                if (!remote_chip_id.has_value()) {
                     log_debug(
                         LogSiliconDriver,
                         "Eth core ({}, {}) on chip {} is connected to an chip with board_id {} not present in the "
@@ -3510,10 +3521,9 @@ std::unique_ptr<tt_ClusterDescriptor> Cluster::create_cluster_descriptor(
                         chip_id,
                         remote_info.get_chip_uid().board_id);
                 } else {
-                    chip_id_t remote_chip_id = desc->get_chip_id(remote_info.get_chip_uid());
-
                     // Adding a connection only one way, the other chip should add it another way.
-                    desc->ethernet_connections[local_chip_id][local_info.eth_id] = {remote_chip_id, remote_info.eth_id};
+                    desc->ethernet_connections[local_chip_id][local_info.eth_id] = {
+                        remote_chip_id.value(), remote_info.eth_id};
                 }
 
             } else if (boot_results.eth_status.port_status == port_status_e::PORT_DOWN) {

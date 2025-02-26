@@ -14,7 +14,7 @@ class LocalChip : public Chip {
 public:
     LocalChip(tt_SocDescriptor soc_descriptor, int pci_device_id);
 
-    LocalChip(std::unique_ptr<TTDevice> tt_device);
+    LocalChip(std::string sdesc_path, std::unique_ptr<TTDevice> tt_device);
 
     TTDevice* get_tt_device() override;
 

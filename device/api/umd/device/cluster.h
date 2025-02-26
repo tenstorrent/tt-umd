@@ -992,7 +992,7 @@ public:
     virtual void dram_membar(
         const chip_id_t chip, const std::unordered_set<tt::umd::CoreCoord>& cores, const std::string& fallback_tlb);
 
-    static std::unique_ptr<tt_ClusterDescriptor> create_cluster_descriptor();
+    static std::unique_ptr<tt_ClusterDescriptor> create_cluster_descriptor(std::string sdesc_path = "");
 
     static std::string serialize();
 

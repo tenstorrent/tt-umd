@@ -79,6 +79,39 @@ inline std::string board_type_to_string(const BoardType board_type) {
     throw std::runtime_error("Unknown board type passed for conversion to string.");
 }
 
+// We have two ways BH chips are connected to the rest of the system, either one of the two PCI cores can be active.
+enum BlackholeChipType : uint32_t {
+    Type1,
+    Type2,
+};
+
+inline BlackholeChipType get_blackhole_chip_type(const BoardType board_type, const uint8_t asic_location) {
+    if (asic_location != 0) {
+        if (board_type != BoardType::P300) {
+            throw std::runtime_error("Remote chip is supported only for Blackhole P300 board.");
+        }
+    }
+
+    switch (board_type) {
+        case BoardType::P100:
+            return BlackholeChipType::Type1;
+        case BoardType::P150:
+            return BlackholeChipType::Type2;
+        case BoardType::P300:
+            switch (asic_location) {
+                case 0:
+                    return BlackholeChipType::Type2;
+                case 1:
+                    return BlackholeChipType::Type1;
+                default:
+                    throw std::runtime_error(
+                        "Invalid asic location for Blackhole P300 board: " + std::to_string(asic_location));
+            }
+        default:
+            throw std::runtime_error("Invalid board type for Blackhole architecture.");
+    }
+}
+
 // TODO: add Wormhole and Grayskull board types to this function
 inline BoardType get_board_type_from_board_id(const uint64_t board_id) {
     uint64_t upi = (board_id >> 36) & 0xFFFFF;

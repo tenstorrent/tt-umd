@@ -46,7 +46,7 @@ public:
         const bool noc_translation_enabled,
         const tt::umd::HarvestingMasks harvesting_masks = {0, 0, 0},
         const BoardType board_type = BoardType::UNKNOWN,
-        const bool is_chip_remote = false);
+        const uint8_t asic_location = 0);
 
     static size_t get_num_harvested(const size_t harvesting_mask);
     static std::vector<size_t> get_harvested_indices(const size_t harvesting_mask);

@@ -190,7 +190,7 @@ void tt_SocDescriptor::create_coordinate_manager(
     const bool noc_translation_enabled,
     const HarvestingMasks harvesting_masks,
     const BoardType board_type,
-    const bool is_chip_remote) {
+    const uint8_t asic_location) {
     const tt_xy_pair dram_grid_size = tt_xy_pair(dram_cores.size(), dram_cores.empty() ? 0 : dram_cores[0].size());
     const tt_xy_pair arc_grid_size = tt_SocDescriptor::calculate_grid_size(arc_cores);
     tt_xy_pair pcie_grid_size = tt_SocDescriptor::calculate_grid_size(pcie_cores);
@@ -206,7 +206,7 @@ void tt_SocDescriptor::create_coordinate_manager(
     // enabling only one of the two pci cores. This is currently a unique case, and if another similar case shows up, we
     // can figure out a better abstraction.
     if (arch == tt::ARCH::BLACKHOLE && board_type != BoardType::UNKNOWN) {
-        auto pcie_cores_for_type = blackhole::get_pcie_cores(board_type, is_chip_remote);
+        auto pcie_cores_for_type = blackhole::get_pcie_cores(board_type, asic_location);
         // Verify that the required pcie core was already mentioned in the device descriptor.
         for (const auto &core : pcie_cores_for_type) {
             if (std::find(pcie_cores.begin(), pcie_cores.end(), core) == pcie_cores.end()) {
@@ -261,7 +261,7 @@ tt_SocDescriptor::tt_SocDescriptor(
     const bool noc_translation_enabled,
     const HarvestingMasks harvesting_masks,
     const BoardType board_type,
-    const bool is_chip_remote) :
+    const uint8_t asic_location) :
     harvesting_masks(harvesting_masks) {
     std::ifstream fdesc(device_descriptor_path);
     if (fdesc.fail()) {
@@ -281,7 +281,7 @@ tt_SocDescriptor::tt_SocDescriptor(
     arch_name_value = trim(arch_name_value);
     arch = tt::arch_from_str(arch_name_value);
     load_soc_features_from_device_descriptor(device_descriptor_yaml);
-    create_coordinate_manager(noc_translation_enabled, harvesting_masks, board_type, is_chip_remote);
+    create_coordinate_manager(noc_translation_enabled, harvesting_masks, board_type, asic_location);
 }
 
 int tt_SocDescriptor::get_num_dram_channels() const {

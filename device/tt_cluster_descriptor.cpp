@@ -902,7 +902,14 @@ tt_ClusterDescriptor::get_chips_grouped_by_closest_mmio() const {
     return chips_grouped_by_closest_mmio;
 }
 
+void tt_ClusterDescriptor::add_chip_uid(const chip_id_t chip_id, const ChipUID &chip_uid) {
+    chip_id_to_chip_uid[chip_id] = chip_uid;
+    chip_uid_to_chip_id[chip_uid] = chip_id;
+}
+
 chip_id_t tt_ClusterDescriptor::get_chip_id(const ChipUID &chip_uid) const { return chip_uid_to_chip_id.at(chip_uid); }
+
+const ChipUID &tt_ClusterDescriptor::get_chip_uid(chip_id_t chip_id) const { return chip_id_to_chip_uid.at(chip_id); }
 
 std::string tt_ClusterDescriptor::serialize() const {
     YAML::Emitter out;

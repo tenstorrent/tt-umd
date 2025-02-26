@@ -454,13 +454,13 @@ std::unique_ptr<Chip> Cluster::construct_chip_from_cluster(
     HarvestingMasks harvesting_masks =
         get_harvesting_masks(chip_id, cluster_desc, perform_harvesting, simulated_harvesting_masks);
     const BoardType chip_board_type = cluster_desc->get_board_type(chip_id);
-    bool is_chip_remote = cluster_desc->is_chip_remote(chip_id);
+    auto asic_location = cluster_desc->get_chip_uid(chip_id).asic_location;
     tt_SocDescriptor soc_desc = tt_SocDescriptor(
         soc_desc_path,
         cluster_desc->get_noc_translation_table_en().at(chip_id),
         harvesting_masks,
         chip_board_type,
-        is_chip_remote);
+        asic_location);
     return construct_chip_from_cluster(chip_id, cluster_desc, soc_desc, create_mock_chip);
 }
 
@@ -3472,7 +3472,7 @@ std::unique_ptr<tt_ClusterDescriptor> Cluster::create_cluster_descriptor(
     for (auto& it : chips) {
         const chip_id_t chip_id = it.first;
         const std::unique_ptr<Chip>& chip = it.second;
-        desc->chip_uid_to_chip_id.insert({chip->get_chip_info().chip_uid, it.first});
+        desc->add_chip_uid(chip_id, chip->get_chip_info().chip_uid);
     }
 
     for (auto& it : chips) {

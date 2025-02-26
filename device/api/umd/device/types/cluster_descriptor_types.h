@@ -85,8 +85,8 @@ enum BlackholeChipType : uint32_t {
     Type2,
 };
 
-inline BlackholeChipType get_blackhole_chip_type(const BoardType board_type, const bool is_chip_remote) {
-    if (is_chip_remote) {
+inline BlackholeChipType get_blackhole_chip_type(const BoardType board_type, const uint8_t asic_location) {
+    if (asic_location != 0) {
         if (board_type != BoardType::P300) {
             throw std::runtime_error("Remote chip is supported only for Blackhole P300 board.");
         }
@@ -98,7 +98,15 @@ inline BlackholeChipType get_blackhole_chip_type(const BoardType board_type, con
         case BoardType::P150:
             return BlackholeChipType::Type2;
         case BoardType::P300:
-            return is_chip_remote ? BlackholeChipType::Type1 : BlackholeChipType::Type2;
+            switch (asic_location) {
+                case 0:
+                    return BlackholeChipType::Type2;
+                case 1:
+                    return BlackholeChipType::Type1;
+                default:
+                    throw std::runtime_error(
+                        "Invalid asic location for Blackhole P300 board: " + std::to_string(asic_location));
+            }
         default:
             throw std::runtime_error("Invalid board type for Blackhole architecture.");
     }

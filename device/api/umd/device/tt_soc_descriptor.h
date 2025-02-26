@@ -55,7 +55,7 @@ public:
         const bool noc_translation_enabled,
         const tt::umd::HarvestingMasks harvesting_masks = {0, 0, 0},
         const BoardType board_type = BoardType::UNKNOWN,
-        const bool is_chip_remote = false);
+        const uint8_t asic_location = 0);
 
     // CoreCoord conversions.
     tt::umd::CoreCoord translate_coord_to(const tt::umd::CoreCoord core_coord, const CoordSystem coord_system) const;
@@ -130,7 +130,7 @@ private:
         const bool noc_translation_enabled,
         const tt::umd::HarvestingMasks harvesting_masks,
         const BoardType board_type,
-        const bool is_chip_remote);
+        const uint8_t asic_location);
     void load_core_descriptors_from_device_descriptor(YAML::Node &device_descriptor_yaml);
     void load_soc_features_from_device_descriptor(YAML::Node &device_descriptor_yaml);
     void get_cores_and_grid_size_from_coordinate_manager();

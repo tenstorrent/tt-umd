@@ -123,7 +123,7 @@ TEST(SiliconDriverWH, Harvesting) {
     }
 
     for (const auto& chip : cluster.get_target_device_ids()) {
-        ASSERT_LT(cluster.get_soc_descriptor(chip).get_cores(CoreType::TENSIX).size(), 48)
+        ASSERT_LE(cluster.get_soc_descriptor(chip).get_cores(CoreType::TENSIX).size(), 48)
             << "Expected SOC descriptor with harvesting to have 48 workers or less for chip " << chip;
     }
     for (int i = 0; i < num_devices; i++) {

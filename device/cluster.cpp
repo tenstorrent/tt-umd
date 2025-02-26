@@ -676,9 +676,6 @@ void Cluster::broadcast_pcie_tensix_risc_reset(chip_id_t chip_id, const TensixSo
 
     auto architecture_implementation = tt_device->get_architecture_implementation();
 
-    std::cout << " REMOVE MEEEE, BUT HARVESTED GRID IS "
-              << get_soc_descriptor(chip_id).get_harvested_grid_size(CoreType::TENSIX).str() << std::endl;
-
     // TODO: this is clumsy and difficult to read
     auto [soft_reset_reg, _] = tt_device->set_dynamic_tlb_broadcast(
         architecture_implementation->get_reg_tlb(),

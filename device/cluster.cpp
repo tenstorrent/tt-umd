@@ -454,7 +454,8 @@ std::unique_ptr<Chip> Cluster::construct_chip_from_cluster(
     HarvestingMasks harvesting_masks =
         get_harvesting_masks(chip_id, cluster_desc, perform_harvesting, simulated_harvesting_masks);
     const BoardType chip_board_type = cluster_desc->get_board_type(chip_id);
-    auto asic_location = cluster_desc->get_chip_uid(chip_id).asic_location;
+    std::optional<ChipUID> chip_uid = cluster_desc->get_chip_uid(chip_id);
+    uint8_t asic_location = chip_uid.has_value() ? chip_uid.value().asic_location : 0;
     tt_SocDescriptor soc_desc = tt_SocDescriptor(
         soc_desc_path,
         cluster_desc->get_noc_translation_table_en().at(chip_id),
@@ -3508,8 +3509,9 @@ std::unique_ptr<tt_ClusterDescriptor> Cluster::create_cluster_descriptor(
                 const chip_info_t& local_info = boot_results.local_info;
                 const chip_info_t& remote_info = boot_results.remote_info;
 
-                chip_id_t local_chip_id = desc->get_chip_id(local_info.get_chip_uid());
-                if (desc->chip_uid_to_chip_id.find(remote_info.get_chip_uid()) == desc->chip_uid_to_chip_id.end()) {
+                chip_id_t local_chip_id = desc->get_chip_id(local_info.get_chip_uid()).value();
+                std::optional<chip_id_t> remote_chip_id = desc->get_chip_id(remote_info.get_chip_uid());
+                if (!remote_chip_id.has_value()) {
                     log_debug(
                         LogSiliconDriver,
                         "Eth core ({}, {}) on chip {} is connected to an chip with board_id {} not present in the "
@@ -3519,10 +3521,9 @@ std::unique_ptr<tt_ClusterDescriptor> Cluster::create_cluster_descriptor(
                         chip_id,
                         remote_info.get_chip_uid().board_id);
                 } else {
-                    chip_id_t remote_chip_id = desc->get_chip_id(remote_info.get_chip_uid());
-
                     // Adding a connection only one way, the other chip should add it another way.
-                    desc->ethernet_connections[local_chip_id][local_info.eth_id] = {remote_chip_id, remote_info.eth_id};
+                    desc->ethernet_connections[local_chip_id][local_info.eth_id] = {
+                        remote_chip_id.value(), remote_info.eth_id};
                 }
 
             } else if (boot_results.eth_status.port_status == port_status_e::PORT_DOWN) {

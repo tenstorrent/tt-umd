@@ -117,8 +117,8 @@ public:
     tt::ARCH get_arch(chip_id_t chip_id) const;
 
     void add_chip_uid(const chip_id_t chip_id, const ChipUID &chip_uid);
-    chip_id_t get_chip_id(const ChipUID &chip_uid) const;
-    const ChipUID &get_chip_uid(chip_id_t chip_id) const;
+    std::optional<chip_id_t> get_chip_id(const ChipUID &chip_uid) const;
+    std::optional<ChipUID> get_chip_uid(chip_id_t chip_id) const;
 
     bool ethernet_core_has_active_ethernet_link(chip_id_t local_chip, ethernet_channel_t local_ethernet_channel) const;
     std::tuple<chip_id_t, ethernet_channel_t> get_chip_and_channel_of_remote_ethernet_core(

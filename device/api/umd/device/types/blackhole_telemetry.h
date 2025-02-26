@@ -10,7 +10,10 @@ namespace tt::umd {
 
 namespace blackhole {
 
-constexpr uint8_t NUMBER_TELEMETRY_TAGS = 38;
+// TODO: this is resized to push the release of the 80.15 firmware version.
+// Rewrite the Blackhole telemetry class to support any tag or if the spec for Blackhole
+// becomes fixed just set this number to the proper size.
+constexpr uint8_t NUMBER_TELEMETRY_TAGS = 64;
 
 constexpr uint8_t TAG_BOARD_ID_HIGH = 1;
 constexpr uint8_t TAG_BOARD_ID_LOW = 2;

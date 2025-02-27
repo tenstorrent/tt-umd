@@ -29,7 +29,11 @@ public:
      * @param arg1 arg1 for the message.
      */
     uint32_t send_message(
-        const uint32_t msg_code, std::vector<uint32_t>& return_values, uint16_t arg0 = 0, uint16_t arg1 = 0) override;
+        const uint32_t msg_code,
+        std::vector<uint32_t>& return_values,
+        uint16_t arg0 = 0,
+        uint16_t arg1 = 0,
+        uint32_t timeout_ms = 1000) override;
 
 private:
     std::unique_ptr<BlackholeArcMessageQueue> blackhole_arc_msg_queue = nullptr;

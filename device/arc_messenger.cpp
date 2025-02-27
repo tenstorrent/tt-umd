@@ -27,9 +27,9 @@ std::unique_ptr<ArcMessenger> ArcMessenger::create_arc_messenger(TTDevice* tt_de
 
 ArcMessenger::ArcMessenger(TTDevice* tt_device) : tt_device(tt_device) {}
 
-uint32_t ArcMessenger::send_message(const uint32_t msg_code, uint16_t arg0, uint16_t arg1) {
+uint32_t ArcMessenger::send_message(const uint32_t msg_code, uint16_t arg0, uint16_t arg1, uint32_t timeout_ms) {
     std::vector<uint32_t> return_values;
-    return send_message(msg_code, return_values, arg0, arg1);
+    return send_message(msg_code, return_values, arg0, arg1, timeout_ms);
 }
 
 }  // namespace tt::umd

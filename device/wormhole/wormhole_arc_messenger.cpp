@@ -16,9 +16,7 @@ namespace wormhole {
 WormholeArcMessenger::WormholeArcMessenger(TTDevice* tt_device) : ArcMessenger(tt_device) {}
 
 uint32_t WormholeArcMessenger::send_message(
-    const uint32_t msg_code, std::vector<uint32_t>& return_values, uint16_t arg0, uint16_t arg1) {
-    int timeout = 2000;
-
+    const uint32_t msg_code, std::vector<uint32_t>& return_values, uint16_t arg0, uint16_t arg1, uint32_t timeout_ms) {
     static const uint32_t MSG_ERROR_REPLY = 0xFFFFFFFF;
     if ((msg_code & 0xff00) != 0xaa00) {
         log_error("Malformed message. msg_code is 0x{:x} but should be 0xaa..", msg_code);
@@ -46,37 +44,34 @@ uint32_t WormholeArcMessenger::send_message(
         tt_device->bar_write32(architecture_implementation->get_arc_reset_arc_misc_cntl_offset(), misc | (1 << 16));
     }
 
-    // if (wait_for_done) {
-    if (true) {
-        uint32_t status = 0xbadbad;
-        auto timeout_seconds = std::chrono::seconds(timeout);
-        auto start = std::chrono::system_clock::now();
-        while (true) {
-            if (std::chrono::system_clock::now() - start > timeout_seconds) {
-                throw std::runtime_error(
-                    fmt::format("Timed out after waiting {} seconds for device {} ARC to respond", timeout, 0));
+    uint32_t status = 0xbadbad;
+    auto start = std::chrono::system_clock::now();
+    while (true) {
+        auto end = std::chrono::system_clock::now();
+        auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
+        if (duration.count() > timeout_ms) {
+            throw std::runtime_error(fmt::format("Timed out after waiting {} seconds for ARC to respond", timeout_ms));
+        }
+
+        status = tt_device->bar_read32(architecture_implementation->get_arc_reset_scratch_offset() + 5 * 4);
+
+        if ((status & 0xffff) == (msg_code & 0xff)) {
+            if (return_values.size() >= 1) {
+                return_values[0] =
+                    tt_device->bar_read32(architecture_implementation->get_arc_reset_scratch_offset() + 3 * 4);
             }
 
-            status = tt_device->bar_read32(architecture_implementation->get_arc_reset_scratch_offset() + 5 * 4);
-
-            if ((status & 0xffff) == (msg_code & 0xff)) {
-                if (return_values.size() >= 1) {
-                    return_values[0] =
-                        tt_device->bar_read32(architecture_implementation->get_arc_reset_scratch_offset() + 3 * 4);
-                }
-
-                if (return_values.size() >= 2) {
-                    return_values[1] =
-                        tt_device->bar_read32(architecture_implementation->get_arc_reset_scratch_offset() + 4 * 4);
-                }
-
-                exit_code = (status & 0xffff0000) >> 16;
-                break;
-            } else if (status == MSG_ERROR_REPLY) {
-                log_warning(LogSiliconDriver, "On device {}, message code 0x{:x} not recognized by FW", 0, msg_code);
-                exit_code = MSG_ERROR_REPLY;
-                break;
+            if (return_values.size() >= 2) {
+                return_values[1] =
+                    tt_device->bar_read32(architecture_implementation->get_arc_reset_scratch_offset() + 4 * 4);
             }
+
+            exit_code = (status & 0xffff0000) >> 16;
+            break;
+        } else if (status == MSG_ERROR_REPLY) {
+            log_warning(LogSiliconDriver, "On device {}, message code 0x{:x} not recognized by FW", 0, msg_code);
+            exit_code = MSG_ERROR_REPLY;
+            break;
         }
     }
 

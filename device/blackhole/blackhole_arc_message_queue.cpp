@@ -77,7 +77,8 @@ std::array<uint32_t, BlackholeArcMessageQueue::entry_len> BlackholeArcMessageQue
     return response;
 }
 
-uint32_t BlackholeArcMessageQueue::send_message(const ArcMessageType message_type, uint16_t arg0, uint16_t arg1) {
+uint32_t BlackholeArcMessageQueue::send_message(
+    const ArcMessageType message_type, uint16_t arg0, uint16_t arg1, uint32_t timeout_ms) {
     uint32_t arg = arg0 | (arg1 << 16);
 
     std::array<uint32_t, BlackholeArcMessageQueue::entry_len> request = {(uint32_t)message_type, arg, 0, 0, 0, 0, 0, 0};

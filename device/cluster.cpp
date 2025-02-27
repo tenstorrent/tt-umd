@@ -298,6 +298,8 @@ void Cluster::construct_cluster(
             }
         }
     }
+
+    initialize_arc_communication();
 }
 
 std::unique_ptr<Chip> Cluster::construct_chip_from_cluster(
@@ -2909,6 +2911,17 @@ void Cluster::broadcast_tensix_risc_reset_to_cluster(const TensixSoftResetOption
     }
 }
 
+void Cluster::initialize_arc_communication() {
+    if (arch_name == tt::ARCH::BLACKHOLE) {
+        for (auto& chip : all_chip_ids_) {
+            bh_arc_msg_queues.insert(
+                {chip,
+                 BlackholeArcMessageQueue::get_blackhole_arc_message_queue(
+                     this, chip, BlackholeArcMessageQueueIndex::APPLICATION)});
+        }
+    }
+}
+
 void Cluster::set_power_state(tt_DevicePowerState device_state) {
     // MT Initial BH - ARC messages not supported in Blackhole
     if (arch_name != tt::ARCH::BLACKHOLE) {
@@ -2919,6 +2932,16 @@ void Cluster::set_power_state(tt_DevicePowerState device_state) {
                 int exit_code = set_remote_power_state(chip, device_state);
                 log_assert(
                     exit_code == 0, "Failed to set power state to {} with exit code: {}", (int)device_state, exit_code);
+            }
+        }
+    } else {
+        for (auto& chip : all_chip_ids_) {
+            std::unique_ptr<BlackholeArcMessageQueue>& bh_arc_msg_queue = bh_arc_msg_queues.at(chip);
+
+            if (device_state == tt_DevicePowerState::BUSY) {
+                bh_arc_msg_queue->send_message(tt::umd::blackhole::ArcMessageType::AICLK_GO_BUSY);
+            } else {
+                bh_arc_msg_queue->send_message(tt::umd::blackhole::ArcMessageType::AICLK_GO_LONG_IDLE);
             }
         }
     }
@@ -2981,9 +3004,10 @@ void Cluster::deassert_resets_and_set_power_state() {
             }
             enable_ethernet_queue(30);
         }
-        // Set power state to busy
-        set_power_state(tt_DevicePowerState::BUSY);
     }
+
+    // Set power state to busy
+    set_power_state(tt_DevicePowerState::BUSY);
 }
 
 void Cluster::verify_eth_fw() {

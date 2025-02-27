@@ -1546,7 +1546,11 @@ void Cluster::write_to_non_mmio_device(
     std::string write_tlb = "LARGE_WRITE_TLB";
     std::string read_tlb = "LARGE_READ_TLB";
     std::string empty_tlb = "";
-    translate_chip_coord_virtual_to_translated(core.chip, core);
+
+    tt_xy_pair translated_core = translate_chip_coord_virtual_to_translated(core.chip, core);
+    core.x = translated_core.x;
+    core.y = translated_core.y;
+
     std::vector<std::uint32_t> erisc_command;
     std::vector<std::uint32_t> erisc_q_rptr = std::vector<uint32_t>(1);
     std::vector<std::uint32_t> erisc_q_ptrs =
@@ -1775,7 +1779,10 @@ void Cluster::read_from_non_mmio_device(void* mem_ptr, tt_cxy_pair core, uint64_
     std::string write_tlb = "LARGE_WRITE_TLB";
     std::string read_tlb = "LARGE_READ_TLB";
     std::string empty_tlb = "";
-    translate_chip_coord_virtual_to_translated(core.chip, core);
+
+    tt_xy_pair translated_core = translate_chip_coord_virtual_to_translated(core.chip, core);
+    core.x = translated_core.x;
+    core.y = translated_core.y;
 
     const auto& mmio_capable_chip_logical = cluster_desc->get_closest_mmio_capable_chip(core.chip);
     const eth_coord_t target_chip = cluster_desc->get_chip_locations().at(core.chip);

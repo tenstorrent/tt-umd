@@ -72,8 +72,6 @@ public:
     void wait_for_non_mmio_flush() override {}
 
     // Misc. Functions to Query/Set Device State
-    std::unordered_map<chip_id_t, uint32_t> get_harvesting_masks_for_soc_descriptors() override { return {{0, 0}}; }
-
     static std::vector<chip_id_t> detect_available_device_ids() { return {0}; };
 
     std::set<chip_id_t> get_target_device_ids() override { return target_devices_in_cluster; }

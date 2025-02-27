@@ -50,7 +50,7 @@ private:
     bool telemetry_entry_available[NUMBER_TELEMETRY_TAGS];
     uint32_t telemetry_offset[NUMBER_TELEMETRY_TAGS];
 
-    const tt_xy_pair arc_core = !umd_use_noc1 ? tt::umd::blackhole::ARC_CORES[0] : tt_xy_pair(8,11);
+    const tt_xy_pair arc_core = !umd_use_noc1 ? tt::umd::blackhole::ARC_CORES[0] : tt_xy_pair(8, 11);
 };
 
 }  // namespace blackhole

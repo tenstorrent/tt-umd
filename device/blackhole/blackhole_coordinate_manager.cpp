@@ -221,17 +221,20 @@ void BlackholeCoordinateManager::fill_eth_physical_translated_mapping() {
 }
 
 void BlackholeCoordinateManager::fill_pcie_physical_translated_mapping() {
-    CoreCoord logical_coord = CoreCoord(0, 0, CoreType::PCIE, CoordSystem::LOGICAL);
+    for (size_t x = 0; x < pcie_grid_size.x; x++) {
+        for (size_t y = 0; y < pcie_grid_size.y; y++) {
+            CoreCoord logical_coord = CoreCoord(x, y, CoreType::PCIE, CoordSystem::LOGICAL);
+            const tt_xy_pair physical_pair = to_physical_map[logical_coord];
 
-    const tt_xy_pair physical_pair = to_physical_map[logical_coord];
+            CoreCoord translated_coord = CoreCoord(
+                blackhole::pcie_translated_coordinate_start_x,
+                blackhole::pcie_translated_coordinate_start_y,
+                CoreType::PCIE,
+                CoordSystem::TRANSLATED);
 
-    CoreCoord translated_coord = CoreCoord(
-        blackhole::pcie_translated_coordinate_start_x,
-        blackhole::pcie_translated_coordinate_start_y,
-        CoreType::PCIE,
-        CoordSystem::TRANSLATED);
-
-    add_core_translation(translated_coord, physical_pair);
+            add_core_translation(translated_coord, physical_pair);
+        }
+    }
 }
 
 void BlackholeCoordinateManager::fill_arc_physical_translated_mapping() {

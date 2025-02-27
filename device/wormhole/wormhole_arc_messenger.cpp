@@ -26,10 +26,6 @@ uint32_t WormholeArcMessenger::send_message(
 
     auto architecture_implementation = tt_device->get_architecture_implementation();
 
-    // TODO: add synchronization mechanisam for exclusive access to ARC
-    // // Exclusive access for a single process at a time. Based on physical pci interface id.
-    // std::string msg_type = "ARC_MSG";
-    // const scoped_lock<named_mutex> lock(*get_mutex(msg_type, logical_device_id));
     uint32_t fw_arg = arg0 | (arg1 << 16);
     int exit_code = 0;
 

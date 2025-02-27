@@ -5,7 +5,6 @@
  */
 #include "umd/device/blackhole_arc_message_queue.h"
 
-#include "umd/device/cluster.h"
 #include "umd/device/tt_device/tt_device.h"
 
 namespace tt::umd {
@@ -33,7 +32,6 @@ void BlackholeArcMessageQueue::trigger_fw_int() {
 }
 
 void BlackholeArcMessageQueue::push_request(std::array<uint32_t, BlackholeArcMessageQueue::entry_len>& request) {
-    // cluster->l1_membar(chip, "LARGE_READ_TLB");
     uint32_t request_queue_wptr = read_word(request_wptr_offset);
 
     while (true) {
@@ -54,7 +52,6 @@ void BlackholeArcMessageQueue::push_request(std::array<uint32_t, BlackholeArcMes
 }
 
 std::array<uint32_t, BlackholeArcMessageQueue::entry_len> BlackholeArcMessageQueue::pop_response() {
-    // cluster->l1_membar(chip, "LARGE_READ_TLB");
     uint32_t response_queue_rptr = read_word(response_rptr_offset);
 
     while (true) {
@@ -68,7 +65,6 @@ std::array<uint32_t, BlackholeArcMessageQueue::entry_len> BlackholeArcMessageQue
     uint32_t response_entry_offset =
         header_len + (size + (response_queue_rptr % size)) * BlackholeArcMessageQueue::entry_len;
     std::array<uint32_t, BlackholeArcMessageQueue::entry_len> response;
-    // cluster->l1_membar(chip, "LARGE_READ_TLB");
     read_words(response.data(), BlackholeArcMessageQueue::entry_len, response_entry_offset);
 
     response_queue_rptr = (response_queue_rptr + 1) % (2 * size);
@@ -103,7 +99,6 @@ uint32_t BlackholeArcMessageQueue::send_message(
 
 std::unique_ptr<BlackholeArcMessageQueue> BlackholeArcMessageQueue::get_blackhole_arc_message_queue(
     TTDevice* tt_device, const size_t queue_index) {
-    // // const CoreCoord arc_core = cluster->get_soc_descriptor(chip).get_cores(CoreType::ARC)[0];
     const CoreCoord arc_core = CoreCoord(8, 0, CoreType::ARC, CoordSystem::PHYSICAL);
 
     uint32_t queue_control_block_addr;

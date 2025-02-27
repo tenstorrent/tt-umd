@@ -564,6 +564,8 @@ void Cluster::ubb_eth_connections() {
                 sizeof(uint32_t),
                 "SMALL_READ_WRITE_TLB");
 
+            std::cout << "remote id " << remote_id << std::endl;
+
             uint32_t remote_rack_x = remote_id & 0xFF;
             uint32_t remote_rack_y = (remote_id >> 8) & 0xFF;
             read_from_device(
@@ -573,11 +575,16 @@ void Cluster::ubb_eth_connections() {
                 sizeof(uint32_t),
                 "SMALL_READ_WRITE_TLB");
 
+            std::cout << "remote id " << remote_id << std::endl;
+
             uint32_t remote_shelf_x = (remote_id >> 16) & 0x3F;
             uint32_t remote_shelf_y = (remote_id >> 22) & 0x3F;
 
             uint32_t remote_noc_x = (remote_id >> 4) & 0x3F;
             uint32_t remote_noc_y = (remote_id >> 10) & 0x3F;
+
+            std::cout << "remote noc x " << remote_noc_x  << std::endl;
+            std::cout << "remote noc y " << remote_noc_y << std::endl;
 
             // std::cout << "remote rack " << remote_rack_x << " " << remote_rack_y << std::endl;
             // std::cout << "remote shelf " << remote_shelf_x << " " << remote_shelf_y << std::endl;
@@ -590,6 +597,12 @@ void Cluster::ubb_eth_connections() {
             // std::endl; std::cout << std::dec;
 
             chip_id_t remote_chip_id = chip_uid_to_local_chip_id.at(neighbour_board_type);
+
+            // CoreCoord physical_eth_core = CoreCoord(remote_noc_x, remote_noc_y, CoreType::ETH, CoordSystem::PHYSICAL);
+            // CoreCoord logical_core = get_soc_descriptor(remote_chip_id).translate_coord_to(physical_eth_core, CoordSystem::LOGICAL);
+
+            // std::cout << "logical core " << logical_core.x << " " << logical_core.y << std::endl;
+
             cluster_desc->ethernet_connections[chip_id][channel] = {remote_chip_id, channel};
 
             std::cout << "adding connection " << chip_id << " " << channel << " " << remote_chip_id << std::endl;

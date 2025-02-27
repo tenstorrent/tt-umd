@@ -3176,8 +3176,9 @@ std::unique_ptr<tt_ClusterDescriptor> Cluster::create_cluster_descriptor(
                 sizeof(boot_results));
 
             if (boot_results.eth_status.port_status == port_status_e::PORT_UP) {
-                log_debug(LogSiliconDriver, "Eth core ({}, {}) on chip {} is active", eth_core.x, eth_core.y, chip_id);
                 // active eth core
+                desc->active_eth_channels[chip_id].insert(eth_channel);
+                log_debug(LogSiliconDriver, "Eth core ({}, {}) on chip {} is active", eth_core.x, eth_core.y, chip_id);
                 const chip_info_t& local_info = boot_results.local_info;
                 const chip_info_t& remote_info = boot_results.remote_info;
 
@@ -3197,12 +3198,14 @@ std::unique_ptr<tt_ClusterDescriptor> Cluster::create_cluster_descriptor(
                     desc->ethernet_connections[local_chip_id][local_info.eth_id] = {
                         remote_chip_id.value(), remote_info.eth_id};
                 }
-
             } else if (boot_results.eth_status.port_status == port_status_e::PORT_DOWN) {
+                // active eth core, just with link being down.
+                desc->active_eth_channels[chip_id].insert(eth_channel);
                 log_debug(
                     LogSiliconDriver, "Port on eth core ({}, {}) on chip {} is down", eth_core.x, eth_core.y, chip_id);
             } else if (boot_results.eth_status.port_status == port_status_e::PORT_UNUSED) {
                 // idle core
+                desc->idle_eth_channels[chip_id].insert(eth_channel);
                 log_debug(LogSiliconDriver, "Eth core ({}, {}) on chip {} is idle");
             } else if (boot_results.eth_status.port_status == port_status_e::PORT_UNKNOWN) {
                 log_debug(

@@ -28,6 +28,6 @@ private:
     void initialize_tlb_manager();
 
 protected:
-    void wait_eth_cores_training(const uint32_t timeout_ms = 5000) override;
+    void wait_eth_cores_training(const uint32_t timeout_ms = 60000) override;
 };
 }  // namespace tt::umd

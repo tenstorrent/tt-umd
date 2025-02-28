@@ -83,7 +83,6 @@ std::set<chip_id_t> get_target_devices() {
 TEST(SiliconDriverWH, ClusterUBB) {
     // std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
 
-
     std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
     for (auto& device_id : pci_device_ids) {
         std::unique_ptr<TTDevice> tt_device = TTDevice::create(device_id);

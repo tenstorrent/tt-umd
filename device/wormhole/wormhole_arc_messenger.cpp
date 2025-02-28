@@ -8,6 +8,7 @@
 #include <iostream>
 
 #include "logger.hpp"
+#include "umd/device/wormhole_implementation.h"
 
 namespace tt::umd {
 
@@ -27,8 +28,14 @@ uint32_t WormholeArcMessenger::send_message(
     uint32_t fw_arg = arg0 | (arg1 << 16);
     int exit_code = 0;
 
-    tt_device->bar_write32(architecture_implementation->get_arc_reset_scratch_offset() + 3 * 4, fw_arg);
-    tt_device->bar_write32(architecture_implementation->get_arc_reset_scratch_offset() + 5 * 4, msg_code);
+    tt_device->bar_write32(
+        architecture_implementation->get_arc_reset_scratch_offset() +
+            wormhole::ARC_SCRATCH_RES0_OFFSET * sizeof(uint32_t),
+        fw_arg);
+    tt_device->bar_write32(
+        architecture_implementation->get_arc_reset_scratch_offset() +
+            wormhole::ARC_SCRATCH_STATUS_OFFSET * sizeof(uint32_t),
+        msg_code);
 
     uint32_t misc = tt_device->bar_read32(architecture_implementation->get_arc_reset_arc_misc_cntl_offset());
     if (misc & (1 << 16)) {
@@ -47,17 +54,21 @@ uint32_t WormholeArcMessenger::send_message(
             throw std::runtime_error(fmt::format("Timed out after waiting {} seconds for ARC to respond", timeout_ms));
         }
 
-        status = tt_device->bar_read32(architecture_implementation->get_arc_reset_scratch_offset() + 5 * 4);
+        status = tt_device->bar_read32(
+            architecture_implementation->get_arc_reset_scratch_offset() +
+            wormhole::ARC_SCRATCH_STATUS_OFFSET * sizeof(uint32_t));
 
         if ((status & 0xffff) == (msg_code & 0xff)) {
             if (return_values.size() >= 1) {
-                return_values[0] =
-                    tt_device->bar_read32(architecture_implementation->get_arc_reset_scratch_offset() + 3 * 4);
+                return_values[0] = tt_device->bar_read32(
+                    architecture_implementation->get_arc_reset_scratch_offset() +
+                    wormhole::ARC_SCRATCH_RES0_OFFSET * sizeof(uint32_t));
             }
 
             if (return_values.size() >= 2) {
-                return_values[1] =
-                    tt_device->bar_read32(architecture_implementation->get_arc_reset_scratch_offset() + 4 * 4);
+                return_values[1] = tt_device->bar_read32(
+                    architecture_implementation->get_arc_reset_scratch_offset() +
+                    wormhole::ARC_SCRATCH_RES1_OFFSET * sizeof(uint32_t));
             }
 
             exit_code = (status & 0xffff0000) >> 16;

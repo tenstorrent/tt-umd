@@ -456,23 +456,13 @@ void Cluster::ubb_eth_connections() {
     std::unordered_map<uint64_t, chip_id_t> chip_uid_to_local_chip_id = {};
 
     for (const auto& [chip_id, chip] : chips_) {
-        // std::cout << "chip id " << chip_id << std::endl;
-
-        // if (chip_id != 0) {
-        //     continue;
-        // }
-
         std::vector<CoreCoord> eth_cores = chip->get_soc_descriptor().get_cores(CoreType::ETH);
 
         uint32_t channel = 0;
         for (const CoreCoord& eth_core : eth_cores) {
-            // std::cout << "channel " << channel << std::endl;
-            // std::cout << "eth core " << eth_core.x << " " << eth_core.y << std::endl;
             uint32_t port_status;
             chip->get_tt_device()->read_from_device(
                 &port_status, tt_xy_pair(eth_core.x, eth_core.y), conn_info + (channel * 4), sizeof(uint32_t));
-
-            // std::cout << "port status " << port_status << std::endl;
 
             if (port_status == eth_unknown || port_status == eth_unconnected) {
                 std::cout << "continuing " << std::endl;
@@ -492,33 +482,17 @@ void Cluster::ubb_eth_connections() {
                 sizeof(uint64_t),
                 "SMALL_READ_WRITE_TLB");
 
-            std::cout << std::hex;
-            // std::cout << "our_board_type " << our_board_type << std::endl;
-            // std::cout << std::dec;
-
-            // std::cout << std::hex;
-            // std::cout << "neighbour_board_type " << neighbour_board_type << std::endl;
-            std::cout << std::dec;
-
             chip_uid_to_local_chip_id.insert({our_board_type, chip_id});
 
             channel++;
         }
     }
 
-    // return;
-
     for (const auto& [chip_id, chip] : chips_) {
-        // std::cout << "chip id " << chip_id << std::endl;
-
         std::vector<CoreCoord> eth_cores = chip->get_soc_descriptor().get_cores(CoreType::ETH);
 
         uint32_t channel = 0;
         for (const CoreCoord& eth_core : eth_cores) {
-            // const tt_xy_pair eth_core_pair = {eth_core.x, eth_core.y};
-
-            // std::cout << "eth core " << eth_core.x << " " << eth_core.y << std::endl;
-
             uint32_t port_status;
             read_from_device(
                 &port_status,
@@ -527,14 +501,11 @@ void Cluster::ubb_eth_connections() {
                 sizeof(uint32_t),
                 "SMALL_READ_WRITE_TLB");
 
-            // std::cout << "port status " << port_status << std::endl;
-
             if (port_status == eth_unknown || port_status == eth_unconnected) {
                 channel++;
                 continue;
             }
 
-            // TODO(pjanevski): This may work for UBB
             uint64_t neighbour_board_type;
             read_from_device(
                 &neighbour_board_type,
@@ -543,8 +514,6 @@ void Cluster::ubb_eth_connections() {
                 sizeof(uint64_t),
                 "SMALL_READ_WRITE_TLB");
 
-            // std::cout << "neighbour board type " << neighbour_board_type << std::endl;
-
             uint64_t our_board_type;
             read_from_device(
                 &our_board_type,
@@ -552,8 +521,6 @@ void Cluster::ubb_eth_connections() {
                 base_addr + (64 * 4),
                 sizeof(uint64_t),
                 "SMALL_READ_WRITE_TLB");
-
-            // std::cout << "our board type " << our_board_type << std::endl;
 
             std::cout << std::hex;
             uint32_t remote_id;
@@ -564,49 +531,17 @@ void Cluster::ubb_eth_connections() {
                 sizeof(uint32_t),
                 "SMALL_READ_WRITE_TLB");
 
-            std::cout << "remote id " << remote_id << std::endl;
-
-            uint32_t remote_rack_x = remote_id & 0xFF;
-            uint32_t remote_rack_y = (remote_id >> 8) & 0xFF;
+            uint32_t remote_eth_id;
             read_from_device(
-                &remote_id,
+                &remote_eth_id,
                 tt_cxy_pair(chip_id, eth_core.x, eth_core.y),
-                node_info + (shelf_offset * 4),
+                base_addr + 76 * 4,
                 sizeof(uint32_t),
                 "SMALL_READ_WRITE_TLB");
 
-            std::cout << "remote id " << remote_id << std::endl;
-
-            uint32_t remote_shelf_x = (remote_id >> 16) & 0x3F;
-            uint32_t remote_shelf_y = (remote_id >> 22) & 0x3F;
-
-            uint32_t remote_noc_x = (remote_id >> 4) & 0x3F;
-            uint32_t remote_noc_y = (remote_id >> 10) & 0x3F;
-
-            std::cout << "remote noc x " << remote_noc_x << std::endl;
-            std::cout << "remote noc y " << remote_noc_y << std::endl;
-
-            // std::cout << "remote rack " << remote_rack_x << " " << remote_rack_y << std::endl;
-            // std::cout << "remote shelf " << remote_shelf_x << " " << remote_shelf_y << std::endl;
-            // std::cout << "remote noc " << remote_noc_x << " " << remote_noc_y << std::endl;
-
-            std::cout << std::dec;
-
-            // std::cout << std::hex;
-            // std::cout << "connection " << our_board_type << " " << channel << " " << neighbour_board_type <<
-            // std::endl; std::cout << std::dec;
-
             chip_id_t remote_chip_id = chip_uid_to_local_chip_id.at(neighbour_board_type);
 
-            // CoreCoord physical_eth_core = CoreCoord(remote_noc_x, remote_noc_y, CoreType::ETH,
-            // CoordSystem::PHYSICAL); CoreCoord logical_core =
-            // get_soc_descriptor(remote_chip_id).translate_coord_to(physical_eth_core, CoordSystem::LOGICAL);
-
-            // std::cout << "logical core " << logical_core.x << " " << logical_core.y << std::endl;
-
-            cluster_desc->ethernet_connections[chip_id][channel] = {remote_chip_id, channel};
-
-            std::cout << "adding connection " << chip_id << " " << channel << " " << remote_chip_id << std::endl;
+            cluster_desc->ethernet_connections[chip_id][channel] = {remote_chip_id, remote_eth_id};
 
             channel++;
         }

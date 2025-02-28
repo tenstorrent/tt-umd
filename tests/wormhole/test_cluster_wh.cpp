@@ -81,29 +81,29 @@ std::set<chip_id_t> get_target_devices() {
 }
 
 TEST(SiliconDriverWH, ClusterUBB) {
-    // std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
+    std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
 
-    std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
-    for (auto& device_id : pci_device_ids) {
-        std::unique_ptr<TTDevice> tt_device = TTDevice::create(device_id);
-        
-        for (tt_xy_pair eth_core : tt::umd::wormhole::ETH_CORES) {
-            uint32_t remote_id;
-            
-            tt_device->read_from_device(
-                &remote_id,
-                eth_core,
-                0x1100 + 4 * 9,
-                sizeof(uint32_t));
+    // std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
+    // for (auto& device_id : pci_device_ids) {
+    //     std::unique_ptr<TTDevice> tt_device = TTDevice::create(device_id);
 
-            uint32_t remote_noc_x = (remote_id >> 4) & 0x3F;
-            uint32_t remote_noc_y = (remote_id >> 10) & 0x3F;
+    //     for (tt_xy_pair eth_core : tt::umd::wormhole::ETH_CORES) {
+    //         uint32_t remote_id;
 
-            std::cout << "eth core " << eth_core.x << " " << eth_core.y << std::endl;
-            std::cout << "remote noc x " << remote_noc_x  << std::endl;
-            std::cout << "remote noc y " << remote_noc_y << std::endl;
-        }
-    }
+    //         tt_device->read_from_device(
+    //             &remote_id,
+    //             eth_core,
+    //             0x1100 + 4 * 9,
+    //             sizeof(uint32_t));
+
+    //         uint32_t remote_noc_x = (remote_id >> 4) & 0x3F;
+    //         uint32_t remote_noc_y = (remote_id >> 10) & 0x3F;
+
+    //         std::cout << "eth core " << eth_core.x << " " << eth_core.y << std::endl;
+    //         std::cout << "remote noc x " << remote_noc_x  << std::endl;
+    //         std::cout << "remote noc y " << remote_noc_y << std::endl;
+    //     }
+    // }
 }
 
 // TEST(SiliconDriverWH, CreateDestroy) {

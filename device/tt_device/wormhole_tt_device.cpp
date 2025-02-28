@@ -23,30 +23,12 @@ ChipInfo WormholeTTDevice::get_chip_info() {
 
     bool noc_translation_enabled = (niu_cfg & (1 << 14)) != 0;
 
-    std::cout << "noc translation enabled " << noc_translation_enabled << std::endl;
-
     chip_info.noc_translation_enabled = noc_translation_enabled;
 
     uint32_t harv;
     arc_msg(0xaa00 | get_architecture_implementation()->get_arc_message_arc_get_harvesting(), true, 0, 0, 1, &harv);
 
-    std::cout << "harv " << harv << std::endl;
-
     chip_info.harvesting_masks.tensix_harvesting_mask = harv;
-
-    // uint32_t telemetry_addr;
-    // arc_msg(0xaa2c, true, 0, 0, 1, &telemetry_addr);
-
-    // std::cout << std::hex;
-    // std::cout << "telemetry addr " << telemetry_addr << std::endl;
-    // std::cout << std::dec;
-
-    // uint32_t eth_fw_version;
-    // read_from_device(&eth_fw_version, {0, 10}, telemetry_addr + 44, sizeof(uint32_t));
-
-    // std::cout << std::hex;
-    // std::cout << "eth fw version " << eth_fw_version << std::endl;
-    // std::cout << std::dec;
 
     return chip_info;
 }

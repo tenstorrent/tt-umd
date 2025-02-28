@@ -141,14 +141,12 @@ void BlackholeTTDevice::wait_arc_core_start(const tt_xy_pair arc_core, const uin
     }
 }
 
-std::pair<bool, uint32_t> BlackholeTTDevice::get_dram_training_status() {
+std::optional<uint32_t> BlackholeTTDevice::get_dram_training_status() {
     if (telemetry->is_entry_available(tt::umd::blackhole::TAG_DDR_STATUS)) {
-        uint32_t ddr_status = telemetry->read_entry(tt::umd::blackhole::TAG_DDR_STATUS);
-
-        return {true, ddr_status};
+        return telemetry->read_entry(tt::umd::blackhole::TAG_DDR_STATUS);
     }
 
-    return {false, 0};
+    return std::nullopt;
 }
 
 }  // namespace tt::umd

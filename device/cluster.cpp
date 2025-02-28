@@ -583,7 +583,7 @@ void Cluster::ubb_eth_connections() {
             uint32_t remote_noc_x = (remote_id >> 4) & 0x3F;
             uint32_t remote_noc_y = (remote_id >> 10) & 0x3F;
 
-            std::cout << "remote noc x " << remote_noc_x  << std::endl;
+            std::cout << "remote noc x " << remote_noc_x << std::endl;
             std::cout << "remote noc y " << remote_noc_y << std::endl;
 
             // std::cout << "remote rack " << remote_rack_x << " " << remote_rack_y << std::endl;
@@ -598,8 +598,9 @@ void Cluster::ubb_eth_connections() {
 
             chip_id_t remote_chip_id = chip_uid_to_local_chip_id.at(neighbour_board_type);
 
-            // CoreCoord physical_eth_core = CoreCoord(remote_noc_x, remote_noc_y, CoreType::ETH, CoordSystem::PHYSICAL);
-            // CoreCoord logical_core = get_soc_descriptor(remote_chip_id).translate_coord_to(physical_eth_core, CoordSystem::LOGICAL);
+            // CoreCoord physical_eth_core = CoreCoord(remote_noc_x, remote_noc_y, CoreType::ETH,
+            // CoordSystem::PHYSICAL); CoreCoord logical_core =
+            // get_soc_descriptor(remote_chip_id).translate_coord_to(physical_eth_core, CoordSystem::LOGICAL);
 
             // std::cout << "logical core " << logical_core.x << " " << logical_core.y << std::endl;
 

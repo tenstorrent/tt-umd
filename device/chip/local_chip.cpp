@@ -92,9 +92,9 @@ void LocalChip::wait_dram_cores_training(const uint32_t timeout_ms) {
 
     auto start = std::chrono::system_clock::now();
     while (true) {
-        const auto [dram_training_info_available, dram_training_status] = tt_device->get_dram_training_status();
+        std::optional<uint32_t> dram_training_status = tt_device->get_dram_training_status();
 
-        if (!dram_training_info_available) {
+        if (!dram_training_status) {
             // DRAM training status is not available, breaking the wait for DRAM training.
             break;
         }
@@ -114,12 +114,12 @@ void LocalChip::wait_dram_cores_training(const uint32_t timeout_ms) {
             }
 
             // Check if there is an error in training for the channel.
-            if (dram_training_status & (1 << (2 * dram_channel))) {
+            if (dram_training_status.value() & (1 << (2 * dram_channel))) {
                 throw std::runtime_error("DRAM training failed");
             }
 
             // Verify whether the channel is trained.
-            all_dram_channels_trained &= (dram_training_status & (1 << (2 * dram_channel + 1)));
+            all_dram_channels_trained &= (dram_training_status.value() & (1 << (2 * dram_channel + 1)));
         }
 
         if (all_dram_channels_trained) {

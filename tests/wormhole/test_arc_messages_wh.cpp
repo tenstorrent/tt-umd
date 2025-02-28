@@ -24,13 +24,11 @@ TEST(WormholeArcMessages, WormholeArcMessagesHarvesting) {
 
         std::vector<uint32_t> arc_msg_return_values = {0};
         uint32_t response = arc_messenger->send_message(
-            0xaa00 | tt_device->get_architecture_implementation()->get_arc_message_arc_get_harvesting(),
+            wormhole::ARC_MSG_COMMON_PREFIX |
+                tt_device->get_architecture_implementation()->get_arc_message_arc_get_harvesting(),
             arc_msg_return_values,
             0,
             0);
-
-        std::cout << "harvesting mask arc msg " << arc_msg_return_values[0] << std::endl;
-        std::cout << "harvesting_mask_cluster_desc: " << harvesting_mask_cluster_desc << std::endl;
 
         EXPECT_EQ(arc_msg_return_values[0], harvesting_mask_cluster_desc);
     }
@@ -38,8 +36,6 @@ TEST(WormholeArcMessages, WormholeArcMessagesHarvesting) {
 
 TEST(WormholeArcMessages, WormholeArcMessagesAICLK) {
     const uint32_t ms_sleep = 2000;
-    const uint32_t aiclk_idle_val = 500;
-    const uint32_t aiclk_busy_val = 1000;
 
     std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
 
@@ -49,33 +45,37 @@ TEST(WormholeArcMessages, WormholeArcMessagesAICLK) {
         std::unique_ptr<ArcMessenger> arc_messenger = ArcMessenger::create_arc_messenger(tt_device);
 
         uint32_t response = arc_messenger->send_message(
-            0xaa00 | tt_device->get_architecture_implementation()->get_arc_message_arc_go_busy(), 0, 0);
+            wormhole::ARC_MSG_COMMON_PREFIX |
+                tt_device->get_architecture_implementation()->get_arc_message_arc_go_busy(),
+            0,
+            0);
 
         std::this_thread::sleep_for(std::chrono::milliseconds(ms_sleep));
 
         std::vector<uint32_t> arc_msg_return_values = {0};
         response = arc_messenger->send_message(
-            0xaa00 | tt_device->get_architecture_implementation()->get_arc_message_get_aiclk(),
+            wormhole::ARC_MSG_COMMON_PREFIX | tt_device->get_architecture_implementation()->get_arc_message_get_aiclk(),
             arc_msg_return_values,
             0,
             0);
 
-        std::cout << "busy aiclk: " << arc_msg_return_values[0] << std::endl;
         EXPECT_EQ(arc_msg_return_values[0], aiclk_busy_val);
 
         response = arc_messenger->send_message(
-            0xaa00 | tt_device->get_architecture_implementation()->get_arc_message_arc_go_long_idle(), 0, 0);
+            wormhole::ARC_MSG_COMMON_PREFIX |
+                tt_device->get_architecture_implementation()->get_arc_message_arc_go_long_idle(),
+            0,
+            0);
 
         std::this_thread::sleep_for(std::chrono::milliseconds(ms_sleep));
 
         arc_msg_return_values = {0};
         response = arc_messenger->send_message(
-            0xaa00 | tt_device->get_architecture_implementation()->get_arc_message_get_aiclk(),
+            wormhole::ARC_MSG_COMMON_PREFIX | tt_device->get_architecture_implementation()->get_arc_message_get_aiclk(),
             arc_msg_return_values,
             0,
             0);
 
-        std::cout << "idle aiclk: " << arc_msg_return_values[0] << std::endl;
         EXPECT_EQ(arc_msg_return_values[0], aiclk_idle_val);
     }
 }

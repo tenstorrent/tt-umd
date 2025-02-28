@@ -9,8 +9,6 @@
 
 namespace tt::umd {
 
-namespace wormhole {
-
 class WormholeArcMessenger : public ArcMessenger {
 public:
     /**
@@ -34,5 +32,5 @@ public:
         uint16_t arg1 = 0,
         uint32_t timeout_ms = 1000) override;
 };
-}  // namespace wormhole
+
 }  // namespace tt::umd

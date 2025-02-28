@@ -10,8 +10,6 @@
 
 namespace tt::umd {
 
-namespace blackhole {
-
 class BlackholeArcMessenger : public ArcMessenger {
 public:
     /**
@@ -38,5 +36,5 @@ public:
 private:
     std::unique_ptr<BlackholeArcMessageQueue> blackhole_arc_msg_queue = nullptr;
 };
-}  // namespace blackhole
+
 }  // namespace tt::umd

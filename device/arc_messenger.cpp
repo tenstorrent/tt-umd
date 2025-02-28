@@ -15,10 +15,10 @@ std::unique_ptr<ArcMessenger> ArcMessenger::create_arc_messenger(TTDevice* tt_de
 
     switch (arch) {
         case tt::ARCH::WORMHOLE_B0:
-            return std::make_unique<wormhole::WormholeArcMessenger>(tt_device);
+            return std::make_unique<WormholeArcMessenger>(tt_device);
             break;
         case tt::ARCH::BLACKHOLE:
-            return std::make_unique<blackhole::BlackholeArcMessenger>(tt_device);
+            return std::make_unique<BlackholeArcMessenger>(tt_device);
             break;
         default:
             throw std::runtime_error("Unsupported architecture for creating ArcMessenger.");

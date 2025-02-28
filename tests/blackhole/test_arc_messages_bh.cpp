@@ -29,8 +29,6 @@ TEST(BlackholeArcMessages, BlackholeArcMessagesBasic) {
 
 TEST(BlackholeArcMessages, BlackholeArcMessageHigherAIClock) {
     const uint32_t ms_sleep = 2000;
-    const uint32_t aiclk_idle_val = 800;
-    const uint32_t aiclk_busy_val = 1350;
 
     std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
 
@@ -49,9 +47,7 @@ TEST(BlackholeArcMessages, BlackholeArcMessageHigherAIClock) {
 
         uint32_t aiclk = blackhole_arc_telemetry_reader->read_entry(blackhole::TAG_AICLK);
 
-        std::cout << "busy aiclk: " << aiclk << std::endl;
-
-        EXPECT_EQ(aiclk, aiclk_busy_val);
+        EXPECT_EQ(aiclk, blackhole::AICLK_BUSY_VAL);
 
         response = bh_arc_messenger->send_message((uint32_t)ArcMessageType::AICLK_GO_LONG_IDLE);
 
@@ -60,8 +56,6 @@ TEST(BlackholeArcMessages, BlackholeArcMessageHigherAIClock) {
 
         aiclk = blackhole_arc_telemetry_reader->read_entry(blackhole::TAG_AICLK);
 
-        std::cout << "idle aiclk: " << aiclk << std::endl;
-
-        EXPECT_EQ(aiclk, aiclk_idle_val);
+        EXPECT_EQ(aiclk, blackhole::AICLK_IDLE_VAL);
     }
 }

@@ -11,8 +11,6 @@
 
 namespace tt::umd {
 
-namespace wormhole {
-
 WormholeArcMessenger::WormholeArcMessenger(TTDevice* tt_device) : ArcMessenger(tt_device) {}
 
 uint32_t WormholeArcMessenger::send_message(
@@ -74,7 +72,5 @@ uint32_t WormholeArcMessenger::send_message(
     tt_device->detect_hang_read();
     return exit_code;
 }
-
-}  // namespace wormhole
 
 }  // namespace tt::umd

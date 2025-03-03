@@ -34,6 +34,9 @@ target_sources(
         chip/remote_chip.cpp
         chip_helpers/sysmem_manager.cpp
         chip_helpers/tlb_manager.cpp
+        tt_device/tlb_allocator.cpp
+        tt_device/tlb_window.cpp
+        tt_device/tlb_handle.cpp
         cluster.cpp
         coordinate_manager.cpp
         cpuset_lib.cpp

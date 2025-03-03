@@ -139,6 +139,8 @@ public:
 
     ArcMessenger *get_arc_messenger() const;
 
+    virtual uint32_t get_clock();
+
 protected:
     std::unique_ptr<PCIDevice> pci_device_;
     std::unique_ptr<architecture_implementation> architecture_impl_;

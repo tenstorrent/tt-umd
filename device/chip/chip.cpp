@@ -51,8 +51,13 @@ void Chip::set_barrier_address_params(const barrier_address_params& barrier_addr
 
 const ChipInfo& Chip::get_chip_info() { return chip_info_; }
 
-void Chip::wait_chip_to_be_ready() { wait_eth_cores_training(); }
+void Chip::wait_chip_to_be_ready() {
+    wait_eth_cores_training();
+    wait_dram_cores_training();
+}
 
 void Chip::wait_eth_cores_training(const uint32_t timeout_ms) {}
+
+void Chip::wait_dram_cores_training(const uint32_t timeout_ms) {}
 
 }  // namespace tt::umd

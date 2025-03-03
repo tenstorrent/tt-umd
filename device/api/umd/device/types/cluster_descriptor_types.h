@@ -120,7 +120,7 @@ inline BoardType get_board_type_from_board_id(const uint64_t board_id) {
         return BoardType::P100;
     } else if (upi == 0x43) {
         return BoardType::P100;
-    } else if (upi == 0x40 || upi == 0x41) {
+    } else if (upi == 0x40 || upi == 0x41 || upi == 0x42) {
         return BoardType::P150;
     }
 

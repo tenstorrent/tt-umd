@@ -57,4 +57,19 @@ struct tlb_configuration {
     tlb_offsets offset;
 };
 
+// struct TlbNocConfig {
+//     uint64_t size;
+//     uint64_t addr;
+//     uint32_t x_end;
+//     uint32_t y_end;
+//     uint32_t x_start;
+//     uint32_t y_start;
+//     uint8_t noc;
+//     uint8_t mcast;
+//     uint8_t ordering;
+//     // TODO(pjanevksi): what is this
+//     uint8_t linked;
+//     uint8_t static_vc;
+// };
+
 }  // namespace tt::umd

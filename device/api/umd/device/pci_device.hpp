@@ -13,6 +13,7 @@
 #include <vector>
 
 #include "fmt/format.h"
+#include "ioctl.h"
 #include "umd/device/semver.hpp"
 #include "umd/device/tt_xy_pair.h"
 #include "umd/device/types/arch.h"
@@ -143,6 +144,12 @@ public:
      * @return uint64_t PA (no IOMMU) or IOVA (with IOMMU) for use by the device
      */
     uint64_t map_for_dma(void *buffer, size_t size);
+
+    tenstorrent_allocate_tlb_out allocate_tlb(tenstorrent_allocate_tlb_in in);
+
+    tenstorrent_free_tlb_out free_tlb(tenstorrent_free_tlb_in in);
+
+    tenstorrent_configure_tlb_out configure_tlb(tenstorrent_configure_tlb_in in);
 
 public:
     // TODO: we can and should make all of these private.

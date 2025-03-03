@@ -367,3 +367,44 @@ TEST(TestCluster, TestClusterAICLKControl) {
         EXPECT_EQ(clock.second, go_idle_aiclk_val);
     }
 }
+
+#include "umd/device/tt_device/tlb_allocator.h"
+
+TEST(TestKmd, TestKmdBasic) {
+    static std::vector<int> devices = PCIDevice::enumerate_devices();
+
+    std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
+
+    uint32_t val = 0;
+    std::vector<CoreCoord> tensix_cores =
+        cluster->get_soc_descriptor(0).get_cores(CoreType::TENSIX, CoordSystem::TRANSLATED);
+    for (CoreCoord core : tensix_cores) {
+        cluster->write_to_device(&val, sizeof(uint32_t), 0, core, 0, "LARGE_WRITE_TLB");
+        val++;
+    }
+
+    for (int pci_dev_id : devices) {
+        std::unique_ptr<PCIDevice> pci_device = std::make_unique<PCIDevice>(pci_dev_id);
+        std::unique_ptr<TlbAllocator> tlb_allocator = std::make_unique<TlbAllocator>(pci_device.get());
+
+        for (CoreCoord core : tensix_cores) {
+            tenstorrent_noc_tlb_config config;
+            config.addr = 0;
+            config.x_end = core.x;
+            config.y_end = core.y;
+            config.x_start = 0;
+            config.y_start = 0;
+            config.noc = 0;
+            config.mcast = 0;
+            config.ordering = 0;
+            config.linked = 0;
+            config.static_vc = 1;
+
+            std::unique_ptr<TlbWindow> tlb_window = tlb_allocator->get_tlb((1 << 20), config);
+
+            uint32_t x = tlb_window->read32(0);
+
+            std::cout << "x " << std::hex << x << std::dec << std::endl;
+        }
+    }
+}

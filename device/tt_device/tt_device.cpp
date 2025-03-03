@@ -373,4 +373,10 @@ uint32_t TTDevice::bar_read32(uint32_t addr) {
 
 tt::umd::ArcMessenger *TTDevice::get_arc_messenger() const { return arc_messenger_.get(); }
 
+uint32_t TTDevice::get_clock() {
+    throw std::runtime_error(
+        "Base TTDevice class does not have get_clock implemented. Move this to abstract function once Grayskull "
+        "TTDevice is deleted.");
+}
+
 }  // namespace tt::umd

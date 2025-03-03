@@ -52,15 +52,9 @@ TEST(WormholeArcMessages, WormholeArcMessagesAICLK) {
 
         std::this_thread::sleep_for(std::chrono::milliseconds(ms_sleep));
 
-        std::vector<uint32_t> arc_msg_return_values = {0};
-        response = arc_messenger->send_message(
-            tt::umd::wormhole::ARC_MSG_COMMON_PREFIX |
-                tt_device->get_architecture_implementation()->get_arc_message_get_aiclk(),
-            arc_msg_return_values,
-            0,
-            0);
+        uint32_t aiclk = tt_device->get_clock();
 
-        EXPECT_EQ(arc_msg_return_values[0], tt::umd::wormhole::AICLK_BUSY_VAL);
+        EXPECT_EQ(aiclk, tt::umd::wormhole::AICLK_BUSY_VAL);
 
         response = arc_messenger->send_message(
             tt::umd::wormhole::ARC_MSG_COMMON_PREFIX |
@@ -70,14 +64,8 @@ TEST(WormholeArcMessages, WormholeArcMessagesAICLK) {
 
         std::this_thread::sleep_for(std::chrono::milliseconds(ms_sleep));
 
-        arc_msg_return_values = {0};
-        response = arc_messenger->send_message(
-            tt::umd::wormhole::ARC_MSG_COMMON_PREFIX |
-                tt_device->get_architecture_implementation()->get_arc_message_get_aiclk(),
-            arc_msg_return_values,
-            0,
-            0);
+        aiclk = tt_device->get_clock();
 
-        EXPECT_EQ(arc_msg_return_values[0], tt::umd::wormhole::AICLK_IDLE_VAL);
+        EXPECT_EQ(aiclk, tt::umd::wormhole::AICLK_IDLE_VAL);
     }
 }

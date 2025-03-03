@@ -204,8 +204,6 @@ constexpr uint32_t ARC_FW_INT_VAL = 65536;
 
 constexpr uint32_t ARC_MSG_RESPONSE_OK_LIMIT = 240;
 
-static constexpr uint32_t ARC_MSG_COMMON_PREFIX = 0xAA00;
-
 static const uint32_t SCRATCH_RAM_2 = 0x80030408;
 static const uint32_t SCRATCH_RAM_12 = 0x80030430;
 static const uint32_t SCRATCH_RAM_13 = 0x80030434;

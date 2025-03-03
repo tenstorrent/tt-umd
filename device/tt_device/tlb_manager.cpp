@@ -106,5 +106,84 @@ tlb_configuration TLBManager::get_tlb_configuration(tt_xy_pair core) {
     int tlb_index = map_core_to_tlb_.at(core);
     return tt_device_->get_architecture_implementation()->get_tlb_configuration(tlb_index);
 }
+// struct tenstorrent_allocate_tlb_in {
+// 	__u64 size;
+// };
+
+// struct tenstorrent_allocate_tlb_out {
+// 	__u32 id;
+// 	__u64 mmap_offset_uc;
+// 	__u64 mmap_offset_wc;
+// };
+
+// struct tenstorrent_allocate_tlb {
+// 	struct tenstorrent_allocate_tlb_in in;
+// 	struct tenstorrent_allocate_tlb_out out;
+// };
+
+// struct tenstorrent_free_tlb_in {
+// 	__u32 id;
+// };
+
+// struct tenstorrent_free_tlb_out {
+// };
+
+// struct tenstorrent_free_tlb {
+// 	struct tenstorrent_free_tlb_in in;
+// 	struct tenstorrent_free_tlb_out out;
+// };
+
+// struct tenstorrent_noc_tlb_config {
+// 	__u64 addr;
+// 	__u32 x_end;
+// 	__u32 y_end;
+// 	__u32 x_start;
+// 	__u32 y_start;
+// 	__u8 noc;
+// 	__u8 mcast;
+// 	__u8 ordering;
+// 	__u8 linked;
+// 	__u8 static_vc;
+// };
+
+// struct tenstorrent_configure_tlb_in {
+// 	__u32 id;
+// 	struct tenstorrent_noc_tlb_config config;
+// };
+
+// struct tenstorrent_configure_tlb_out {
+// };
+
+// struct tenstorrent_configure_tlb {
+// 	struct tenstorrent_configure_tlb_in in;
+// 	struct tenstorrent_configure_tlb_out out;
+// };
+
+void* TLBManager::allocate_tlb() {
+    tenstorrent_allocate_tlb tlb;
+    
+    if (ioctl(&tt_device->get_pci_device()->get_fd(), TENSTORRENT_IOCTL_ALLOCATE_TLB, &tlb) < 0) {
+        log_error("Failed to allocate TLB");
+        return nullptr;
+    }
+
+    return nullptr;
+}
+
+void TLBManager::free_tlb(TLBWindow* tlb) {
+
+    tenstorrent_free_tlb free_tlb;
+
+    free_tlb.id = tlb->get_id();
+
+    if (ioctl(&tt_device->get_pci_device()->get_fd(), TENSTORRENT_IOCTL_FREE_TLB, &free_tlb) < 0) {
+        log_error("Failed to free TLB");
+    }
+}
+
+void TLBManager::program_tlb(TLBWindow* tlb) {
+    
+    
+}
 
 };  // namespace tt::umd

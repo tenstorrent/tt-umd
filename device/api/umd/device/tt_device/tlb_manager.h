@@ -44,6 +44,12 @@ public:
     std::unordered_map<std::string, std::int32_t> dynamic_tlb_config_;
     std::unordered_map<std::string, uint64_t> dynamic_tlb_ordering_modes_;
 
+    void* allocate_tlb();
+
+    void free_tlb(void* tlb);
+
+    void program_tlb();
+
 private:
     TTDevice* tt_device_;
 };

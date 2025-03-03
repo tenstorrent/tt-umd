@@ -5,6 +5,8 @@
  */
 #include "umd/device/blackhole_arc_messenger.h"
 
+#include "umd/device/tt_device/tt_device.h"
+
 namespace tt::umd {
 
 BlackholeArcMessenger::BlackholeArcMessenger(TTDevice* tt_device) : ArcMessenger(tt_device) {

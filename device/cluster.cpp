@@ -1220,70 +1220,28 @@ int Cluster::pcie_arc_msg(
     int timeout,
     uint32_t* return_3,
     uint32_t* return_4) {
-    if ((msg_code & 0xff00) != 0xaa00) {
-        log_error("Malformed message. msg_code is 0x{:x} but should be 0xaa..", msg_code);
-    }
-    log_assert(arg0 <= 0xffff and arg1 <= 0xffff, "Only 16 bits allowed in arc_msg args");  // Only 16 bits are allowed
+    std::vector<uint32_t> arc_msg_return_values;
 
-    TTDevice* tt_device = get_tt_device(logical_device_id);
-    auto architecture_implementation = tt_device->get_architecture_implementation();
-
-    // Exclusive access for a single process at a time. Based on physical pci interface id.
-    std::string msg_type = "ARC_MSG";
-    const scoped_lock<named_mutex> lock(*get_mutex(msg_type, logical_device_id));
-    uint32_t fw_arg = arg0 | (arg1 << 16);
-    int exit_code = 0;
-
-    bar_write32(logical_device_id, architecture_implementation->get_arc_reset_scratch_offset() + 3 * 4, fw_arg);
-    bar_write32(logical_device_id, architecture_implementation->get_arc_reset_scratch_offset() + 5 * 4, msg_code);
-
-    uint32_t misc = bar_read32(logical_device_id, architecture_implementation->get_arc_reset_arc_misc_cntl_offset());
-    if (misc & (1 << 16)) {
-        log_error("trigger_fw_int failed on device {}", logical_device_id);
-        return 1;
-    } else {
-        bar_write32(
-            logical_device_id, architecture_implementation->get_arc_reset_arc_misc_cntl_offset(), misc | (1 << 16));
+    if (return_3 != nullptr) {
+        arc_msg_return_values.push_back(0);
     }
 
-    if (wait_for_done) {
-        uint32_t status = 0xbadbad;
-        auto timeout_seconds = std::chrono::seconds(timeout);
-        auto start = std::chrono::system_clock::now();
-        while (true) {
-            if (std::chrono::system_clock::now() - start > timeout_seconds) {
-                throw std::runtime_error(fmt::format(
-                    "Timed out after waiting {} seconds for device {} ARC to respond", timeout, logical_device_id));
-            }
-
-            status = bar_read32(logical_device_id, architecture_implementation->get_arc_reset_scratch_offset() + 5 * 4);
-
-            if ((status & 0xffff) == (msg_code & 0xff)) {
-                if (return_3 != nullptr) {
-                    *return_3 = bar_read32(
-                        logical_device_id, architecture_implementation->get_arc_reset_scratch_offset() + 3 * 4);
-                }
-
-                if (return_4 != nullptr) {
-                    *return_4 = bar_read32(
-                        logical_device_id, architecture_implementation->get_arc_reset_scratch_offset() + 4 * 4);
-                }
-
-                exit_code = (status & 0xffff0000) >> 16;
-                break;
-            } else if (status == MSG_ERROR_REPLY) {
-                log_warning(
-                    LogSiliconDriver,
-                    "On device {}, message code 0x{:x} not recognized by FW",
-                    logical_device_id,
-                    msg_code);
-                exit_code = MSG_ERROR_REPLY;
-                break;
-            }
-        }
+    if (return_4 != nullptr) {
+        arc_msg_return_values.push_back(0);
     }
 
-    tt_device->detect_hang_read();
+    uint32_t exit_code = get_tt_device(logical_device_id)
+                             ->get_arc_messenger()
+                             ->send_message(msg_code, arc_msg_return_values, arg0, arg1, timeout);
+
+    if (return_3 != nullptr) {
+        *return_3 = arc_msg_return_values[0];
+    }
+
+    if (return_4 != nullptr) {
+        *return_4 = arc_msg_return_values[1];
+    }
+
     return exit_code;
 }
 

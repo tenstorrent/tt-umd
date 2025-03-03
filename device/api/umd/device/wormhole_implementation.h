@@ -220,6 +220,8 @@ static constexpr uint32_t DRAM_CHANNEL_0_PEER2PEER_REGION_START = 0x30000000;  /
 static constexpr uint32_t GRID_SIZE_X = 10;
 static constexpr uint32_t GRID_SIZE_Y = 12;
 
+static constexpr uint32_t ARC_MSG_COMMON_PREFIX = 0xAA00;
+
 static constexpr uint32_t ARC_RESET_SCRATCH_OFFSET = 0x1FF30060;
 static constexpr uint32_t ARC_RESET_ARC_MISC_CNTL_OFFSET = 0x1FF30100;
 
@@ -229,6 +231,13 @@ static constexpr uint32_t ARC_CSM_MAILBOX_SIZE_OFFSET = 0x1FEF84C4;
 static constexpr uint32_t TENSIX_SOFT_RESET_ADDR = 0xFFB121B0;
 
 static constexpr uint32_t ARC_SCRATCH_6_OFFSET = 0x1FF30078;
+
+static constexpr uint32_t ARC_SCRATCH_RES0_OFFSET = 3;
+static constexpr uint32_t ARC_SCRATCH_RES1_OFFSET = 4;
+static constexpr uint32_t ARC_SCRATCH_STATUS_OFFSET = 5;
+
+static constexpr uint32_t AICLK_BUSY_VAL = 1000;
+static constexpr uint32_t AICLK_IDLE_VAL = 500;
 
 static const size_t tensix_translated_coordinate_start_x = 18;
 static const size_t tensix_translated_coordinate_start_y = 18;

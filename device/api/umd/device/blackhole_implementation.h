@@ -211,6 +211,9 @@ static const uint32_t SCRATCH_RAM_13 = 0x80030434;
 static const uint32_t NIU_CFG_NOC0_BAR_ADDR = 0x1FD04100;
 static const uint32_t NIU_CFG_NOC1_BAR_ADDR = 0x1FD14100;
 
+static constexpr uint32_t AICLK_BUSY_VAL = 1350;
+static constexpr uint32_t AICLK_IDLE_VAL = 800;
+
 static const size_t eth_translated_coordinate_start_x = 20;
 static const size_t eth_translated_coordinate_start_y = 25;
 

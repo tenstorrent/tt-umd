@@ -142,4 +142,12 @@ void BlackholeTTDevice::wait_arc_core_start(const tt_xy_pair arc_core, const uin
     }
 }
 
+uint32_t BlackholeTTDevice::get_clock() {
+    if (telemetry->is_entry_available(blackhole::TAG_AICLK)) {
+        return telemetry->read_entry(blackhole::TAG_AICLK);
+    }
+
+    throw std::runtime_error("AICLK telemetry not available for Blackhole device.");
+}
+
 }  // namespace tt::umd

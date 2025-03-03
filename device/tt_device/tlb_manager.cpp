@@ -107,4 +107,40 @@ tlb_configuration TLBManager::get_tlb_configuration(tt_xy_pair core) {
     return tt_device_->get_architecture_implementation()->get_tlb_configuration(tlb_index);
 }
 
+// __u64 addr;
+// 	__u32 x_end;
+// 	__u32 y_end;
+// 	__u32 x_start;
+// 	__u32 y_start;
+// 	__u8 noc;
+// 	__u8 mcast;
+// 	__u8 ordering;
+// 	__u8 linked;
+// 	__u8 static_vc;
+TlbWindow TLBManager::get_tlb(TlbNocConfig tlb_noc_config) {
+    tenstorrent_allocate_tlb_in allocate_tlb_in;
+    allocate_tlb_in.size = tlb_noc_config.size;
+
+    tenstorrent_allocate_tlb_out allocate_out = tt_device_->get_pci_device()->allocate_tlb(allocate_tlb_in);
+
+    tenstorrent_configure_tlb_in configure_tlb_in;
+    configure_tlb_in.id = allocate_out.id;
+    configure_tlb_in.config.addr = tlb_noc_config.addr;
+    configure_tlb_in.config.x_end = tlb_noc_config.x_end;
+    configure_tlb_in.config.y_end = tlb_noc_config.y_end;
+    configure_tlb_in.config.x_start = tlb_noc_config.x_start;
+    configure_tlb_in.config.y_start = tlb_noc_config.y_start;
+    configure_tlb_in.config.noc = tlb_noc_config.noc;
+    configure_tlb_in.config.mcast = tlb_noc_config.mcast;
+    configure_tlb_in.config.ordering = tlb_noc_config.ordering;
+    configure_tlb_in.config.linked = tlb_noc_config.linked;
+    configure_tlb_in.config.static_vc = tlb_noc_config.static_vc;
+
+    tenstorrent_configure_tlb_out configure_out = tt_device_->get_pci_device()->configure_tlb(configure_tlb_in);
+
+    return TlbWindow(tlb_noc_config, allocate_out.id, nullptr);
+}
+
+void TLBManager::release_tlb(TlbWindow* tlb_window) {}
+
 };  // namespace tt::umd

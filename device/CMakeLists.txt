@@ -43,6 +43,7 @@ target_sources(
         tt_device/grayskull_tt_device.cpp
         tt_device/tt_device.cpp
         tt_device/wormhole_tt_device.cpp
+        tt_device/tlb_window.cpp
         tt_silicon_driver_common.cpp
         tt_soc_descriptor.cpp
         wormhole/wormhole_coordinate_manager.cpp

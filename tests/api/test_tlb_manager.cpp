@@ -80,3 +80,13 @@ TEST(ApiTLBManager, ManualTLBConfiguration) {
     tt::Writer writer = tlb_manager->get_static_tlb_writer(any_worker_core);
     writer.write(address_l1_to_write, buffer_to_write[0]);
 }
+
+TEST(ApiTLBManager, KMDTLB) {
+    std::unique_ptr<TTDevice> tt_device = get_tt_device();
+
+    if (tt_device == nullptr) {
+        GTEST_SKIP() << "No chips present on the system. Skipping test.";
+    }
+
+    TLBManager* tlb_manager = tt_device->get_tlb_manager();
+}

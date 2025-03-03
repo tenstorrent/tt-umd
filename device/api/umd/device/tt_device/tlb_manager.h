@@ -7,6 +7,7 @@
 
 #include <unordered_map>
 
+#include "umd/device/tt_device/tlb_window.h"
 #include "umd/device/tt_xy_pair.h"
 #include "umd/device/types/tlb.h"
 
@@ -43,6 +44,10 @@ public:
 
     std::unordered_map<std::string, std::int32_t> dynamic_tlb_config_;
     std::unordered_map<std::string, uint64_t> dynamic_tlb_ordering_modes_;
+
+    TlbWindow get_tlb(TlbNocConfig tlb_noc_config);
+
+    void release_tlb(TlbWindow* tlb_window);
 
 private:
     TTDevice* tt_device_;

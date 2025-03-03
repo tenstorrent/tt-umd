@@ -2919,7 +2919,7 @@ void Cluster::initialize_arc_communication() {
             bh_arc_msg_queues.insert(
                 {chip,
                  BlackholeArcMessageQueue::get_blackhole_arc_message_queue(
-                     this, chip, BlackholeArcMessageQueueIndex::APPLICATION)});
+                     get_tt_device(chip), BlackholeArcMessageQueueIndex::APPLICATION)});
         }
     }
 }

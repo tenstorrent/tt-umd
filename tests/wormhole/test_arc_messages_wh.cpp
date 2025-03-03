@@ -24,8 +24,7 @@ TEST(WormholeArcMessages, WormholeArcMessagesHarvesting) {
 
         std::vector<uint32_t> arc_msg_return_values = {0};
         uint32_t response = arc_messenger->send_message(
-            wormhole::ARC_MSG_COMMON_PREFIX |
-                tt_device->get_architecture_implementation()->get_arc_message_arc_get_harvesting(),
+            ARC_MSG_COMMON_PREFIX | tt_device->get_architecture_implementation()->get_arc_message_arc_get_harvesting(),
             arc_msg_return_values,
             0,
             0);
@@ -45,25 +44,21 @@ TEST(WormholeArcMessages, WormholeArcMessagesAICLK) {
         std::unique_ptr<ArcMessenger> arc_messenger = ArcMessenger::create_arc_messenger(tt_device);
 
         uint32_t response = arc_messenger->send_message(
-            wormhole::ARC_MSG_COMMON_PREFIX |
-                tt_device->get_architecture_implementation()->get_arc_message_arc_go_busy(),
-            0,
-            0);
+            ARC_MSG_COMMON_PREFIX | tt_device->get_architecture_implementation()->get_arc_message_arc_go_busy(), 0, 0);
 
         std::this_thread::sleep_for(std::chrono::milliseconds(ms_sleep));
 
         std::vector<uint32_t> arc_msg_return_values = {0};
         response = arc_messenger->send_message(
-            wormhole::ARC_MSG_COMMON_PREFIX | tt_device->get_architecture_implementation()->get_arc_message_get_aiclk(),
+            ARC_MSG_COMMON_PREFIX | tt_device->get_architecture_implementation()->get_arc_message_get_aiclk(),
             arc_msg_return_values,
             0,
             0);
 
-        EXPECT_EQ(arc_msg_return_values[0], aiclk_busy_val);
+        EXPECT_EQ(arc_msg_return_values[0], AICLK_BUSY_VAL);
 
         response = arc_messenger->send_message(
-            wormhole::ARC_MSG_COMMON_PREFIX |
-                tt_device->get_architecture_implementation()->get_arc_message_arc_go_long_idle(),
+            ARC_MSG_COMMON_PREFIX | tt_device->get_architecture_implementation()->get_arc_message_arc_go_long_idle(),
             0,
             0);
 
@@ -71,11 +66,11 @@ TEST(WormholeArcMessages, WormholeArcMessagesAICLK) {
 
         arc_msg_return_values = {0};
         response = arc_messenger->send_message(
-            wormhole::ARC_MSG_COMMON_PREFIX | tt_device->get_architecture_implementation()->get_arc_message_get_aiclk(),
+            ARC_MSG_COMMON_PREFIX | tt_device->get_architecture_implementation()->get_arc_message_get_aiclk(),
             arc_msg_return_values,
             0,
             0);
 
-        EXPECT_EQ(arc_msg_return_values[0], aiclk_idle_val);
+        EXPECT_EQ(arc_msg_return_values[0], AICLK_IDLE_VAL);
     }
 }

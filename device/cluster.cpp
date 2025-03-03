@@ -299,7 +299,9 @@ void Cluster::construct_cluster(
         }
     }
 
-    initialize_arc_communication();
+    if (!create_mock_chips) {
+        initialize_arc_communication();
+    }
 }
 
 std::unique_ptr<Chip> Cluster::construct_chip_from_cluster(

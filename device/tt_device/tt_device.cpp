@@ -351,6 +351,6 @@ void TTDevice::wait_arc_core_start(const tt_xy_pair arc_core, const uint32_t tim
     throw std::runtime_error("Waiting for ARC core to start is supported only for Blackhole TTDevice.");
 }
 
-std::optional<uint32_t> TTDevice::get_dram_training_status() { return std::nullopt; }
+std::vector<DramTrainingStatus> TTDevice::get_dram_training_status() { return {}; }
 
 }  // namespace tt::umd

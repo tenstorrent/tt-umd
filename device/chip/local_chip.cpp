@@ -92,34 +92,30 @@ void LocalChip::wait_dram_cores_training(const uint32_t timeout_ms) {
 
     auto start = std::chrono::system_clock::now();
     while (true) {
-        std::optional<uint32_t> dram_training_status = tt_device->get_dram_training_status();
+        std::vector<DramTrainingStatus> dram_training_status = tt_device->get_dram_training_status();
 
-        if (!dram_training_status) {
+        if (dram_training_status.empty()) {
             // DRAM training status is not available, breaking the wait for DRAM training.
             break;
         }
 
         bool all_dram_channels_trained = true;
-        // Format of the dram training status is as follows:
-        // Each channel gets two bits in the 32-bit value (16 bits used). The lower bits are for lower channels.
-        // Lower of the two bits is for training error and higher of the two bits is for training status.
-        // Example: 0b 00 00 00 00 00 00 01 10
-        // would mean that only channel 0 is trained, channel 1 has the error and other are not trained and don't have
-        // errors. If some channel is harvested the bits are always going to be zero.
+        const uint32_t chip_num_dram_channels =
+            std::min(dram_training_status.size(), get_soc_descriptor().get_dram_cores().size());
         const uint32_t dram_harvesting_mask = get_soc_descriptor().harvesting_masks.dram_harvesting_mask;
-        for (uint32_t dram_channel = 0; dram_channel < blackhole::NUM_DRAM_BANKS; dram_channel++) {
+        for (uint32_t dram_channel = 0; dram_channel < chip_num_dram_channels; dram_channel++) {
             // Skip the check for harvested channels.
             if (dram_harvesting_mask & (1 << dram_channel)) {
                 continue;
             }
 
             // Check if there is an error in training for the channel.
-            if (dram_training_status.value() & (1 << (2 * dram_channel))) {
+            if (dram_training_status[dram_channel] == DramTrainingStatus::FAIL) {
                 throw std::runtime_error("DRAM training failed");
             }
 
             // Verify whether the channel is trained.
-            all_dram_channels_trained &= (dram_training_status.value() & (1 << (2 * dram_channel + 1)));
+            all_dram_channels_trained &= (dram_training_status[dram_channel] == DramTrainingStatus::SUCCESS);
         }
 
         if (all_dram_channels_trained) {

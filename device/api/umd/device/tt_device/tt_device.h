@@ -6,6 +6,7 @@
 
 #pragma once
 
+#include "umd/device/arc_messenger.h"
 #include "umd/device/architecture_implementation.h"
 #include "umd/device/pci_device.hpp"
 #include "umd/device/tt_device/tlb_manager.h"
@@ -31,6 +32,7 @@ struct dynamic_tlb {
 namespace tt::umd {
 
 class TLBManager;
+class ArcMessenger;
 
 class TTDevice {
 public:
@@ -135,11 +137,14 @@ public:
 
     uint32_t bar_read32(uint32_t addr);
 
+    ArcMessenger *get_arc_messenger() const;
+
 protected:
     std::unique_ptr<PCIDevice> pci_device_;
     std::unique_ptr<architecture_implementation> architecture_impl_;
     std::unique_ptr<TLBManager> tlb_manager_;
     tt::ARCH arch;
+    std::unique_ptr<ArcMessenger> arc_messenger_;
 
     bool is_hardware_hung();
 

@@ -14,7 +14,6 @@ jobs:
       fail-fast: false
       matrix:
         test-group: [
-          {arch: grayskull},
           {arch: wormhole_b0},
           {arch: blackhole},
         ]
@@ -35,9 +34,6 @@ jobs:
       fail-fast: false
       matrix:
         test-group: [
-          {arch: grayskull, card: e75, timeout: 10},
-          {arch: grayskull, card: e150, timeout: 10},
-          {arch: grayskull, card: e300, timeout: 10},
           {arch: wormhole_b0, card: n150, timeout: 5},
           {arch: wormhole_b0, card: n300, timeout: 15},
           {arch: blackhole, card: p150, timeout: 15},

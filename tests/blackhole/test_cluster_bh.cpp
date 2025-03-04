@@ -91,7 +91,7 @@ TEST(SiliconDriverBH, CreateDestroy) {
             num_host_mem_ch_per_mmio_device,
             false,
             true,
-            false);
+            true);
         set_barrier_params(cluster);
         cluster.start_device(default_params);
         cluster.close_device();
@@ -429,10 +429,10 @@ TEST(SiliconDriverBH, DynamicTLB_RW) {
     printf("Target Tensix cores completed\n");
 
     // Target DRAM channel 0
-    constexpr int NUM_CHANNELS = 8;
     std::vector<uint32_t> dram_vector_to_write = {10, 11, 12, 13, 14, 15, 16, 17, 18, 19};
     std::uint32_t address = 0x400;
     for (int i = 0; i < target_devices.size(); i++) {
+        int NUM_CHANNELS = cluster.get_soc_descriptor(i).get_num_dram_channels();
         for (int loop = 0; loop < 100;
              loop++) {  // Write to each core a 100 times at different statically mapped addresses
             for (int ch = 0; ch < NUM_CHANNELS; ch++) {
@@ -610,7 +610,7 @@ TEST(SiliconDriverBH, MultiThreadedMemBar) {
             for (const CoreCoord& core : cluster.get_soc_descriptor(0).get_cores(CoreType::TENSIX)) {
                 std::vector<uint32_t> readback_vec = {};
                 cluster.write_to_device(vec1.data(), vec1.size() * sizeof(std::uint32_t), 0, core, address, "");
-                cluster.l1_membar(0, "SMALL_READ_WRITE_TLB", {core});
+                cluster.l1_membar(0, {core}, "SMALL_READ_WRITE_TLB");
                 test_utils::read_data_from_device(cluster, readback_vec, 0, core, address, 4 * vec1.size(), "");
                 ASSERT_EQ(readback_vec, vec1);
                 cluster.write_to_device(zeros.data(), zeros.size() * sizeof(std::uint32_t), 0, core, address, "");
@@ -625,7 +625,7 @@ TEST(SiliconDriverBH, MultiThreadedMemBar) {
             for (const CoreCoord& core : cluster.get_soc_descriptor(0).get_cores(CoreType::TENSIX)) {
                 std::vector<uint32_t> readback_vec = {};
                 cluster.write_to_device(vec2.data(), vec2.size() * sizeof(std::uint32_t), 0, core, address, "");
-                cluster.l1_membar(0, "SMALL_READ_WRITE_TLB", {core});
+                cluster.l1_membar(0, {core}, "SMALL_READ_WRITE_TLB");
                 test_utils::read_data_from_device(cluster, readback_vec, 0, core, address, 4 * vec2.size(), "");
                 ASSERT_EQ(readback_vec, vec2);
                 cluster.write_to_device(zeros.data(), zeros.size() * sizeof(std::uint32_t), 0, core, address, "");

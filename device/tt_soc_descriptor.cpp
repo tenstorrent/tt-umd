@@ -265,13 +265,7 @@ tt_SocDescriptor::tt_SocDescriptor(
 }
 
 int tt_SocDescriptor::get_num_dram_channels() const {
-    int num_channels = 0;
-    for (auto &dram_core : dram_cores) {
-        if (dram_core.size() > 0) {
-            num_channels++;
-        }
-    }
-    return num_channels;
+    return get_grid_size(CoreType::DRAM).x;
 }
 
 CoreCoord tt_SocDescriptor::get_dram_core_for_channel(

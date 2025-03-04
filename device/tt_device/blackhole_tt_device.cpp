@@ -114,8 +114,9 @@ ChipInfo BlackholeTTDevice::get_chip_info() {
 
     chip_info.board_type = get_board_type_from_board_id(chip_info.chip_uid.board_id);
 
+    // TODO: likely not needed anymore. Firware on P100 will give 0 for TAG_ENABLED_ETH
     if (chip_info.board_type == BoardType::P100) {
-        chip_info.harvesting_masks.eth_harvesting_mask = 0;
+        chip_info.harvesting_masks.eth_harvesting_mask = 0x3FFF;
     }
 
     return chip_info;

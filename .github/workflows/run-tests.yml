@@ -90,6 +90,11 @@ jobs:
         shell: bash
         run: tar xvf artifact.tar
 
+      - name: Reset the card and read the card info
+        run: |
+          tt-smi -r 0
+          tt-smi -s -f smi.log && cat smi.log
+
       - name: Run API tests
         run: |
           ${{ env.TEST_OUTPUT_DIR }}/umd/api/api_tests

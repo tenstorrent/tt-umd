@@ -400,6 +400,7 @@ uint32_t Cluster::get_tensix_harvesting_mask(
 
 uint32_t Cluster::get_dram_harvesting_mask(
     chip_id_t chip_id,
+    tt_ClusterDescriptor* cluster_desc,
     bool perform_harvesting,
     std::unordered_map<chip_id_t, HarvestingMasks>& simulated_harvesting_masks) {
     if (!perform_harvesting) {
@@ -408,12 +409,14 @@ uint32_t Cluster::get_dram_harvesting_mask(
     }
 
     return simulated_harvesting_masks.find(chip_id) != simulated_harvesting_masks.end()
-               ? simulated_harvesting_masks.at(chip_id).dram_harvesting_mask
-               : 0;
+               ? cluster_desc->get_dram_harvesting_mask(chip_id) |
+                     simulated_harvesting_masks.at(chip_id).dram_harvesting_mask
+               : cluster_desc->get_dram_harvesting_mask(chip_id);
 }
 
 uint32_t Cluster::get_eth_harvesting_mask(
     chip_id_t chip_id,
+    tt_ClusterDescriptor* cluster_desc,
     bool perform_harvesting,
     std::unordered_map<chip_id_t, HarvestingMasks>& simulated_harvesting_masks) {
     if (!perform_harvesting) {
@@ -422,8 +425,9 @@ uint32_t Cluster::get_eth_harvesting_mask(
     }
 
     return simulated_harvesting_masks.find(chip_id) != simulated_harvesting_masks.end()
-               ? simulated_harvesting_masks.at(chip_id).eth_harvesting_mask
-               : 0;
+               ? cluster_desc->get_eth_harvesting_mask(chip_id) |
+                     simulated_harvesting_masks.at(chip_id).eth_harvesting_mask
+               : cluster_desc->get_eth_harvesting_mask(chip_id);
 }
 
 HarvestingMasks Cluster::get_harvesting_masks(
@@ -434,8 +438,10 @@ HarvestingMasks Cluster::get_harvesting_masks(
     return HarvestingMasks{
         .tensix_harvesting_mask =
             get_tensix_harvesting_mask(chip_id, cluster_desc, perfrom_harvesting, simulated_harvesting_masks),
-        .dram_harvesting_mask = get_dram_harvesting_mask(chip_id, perfrom_harvesting, simulated_harvesting_masks),
-        .eth_harvesting_mask = get_eth_harvesting_mask(chip_id, perfrom_harvesting, simulated_harvesting_masks)};
+        .dram_harvesting_mask =
+            get_dram_harvesting_mask(chip_id, cluster_desc, perfrom_harvesting, simulated_harvesting_masks),
+        .eth_harvesting_mask =
+            get_eth_harvesting_mask(chip_id, cluster_desc, perfrom_harvesting, simulated_harvesting_masks)};
 }
 
 Cluster::Cluster(
@@ -3194,6 +3200,8 @@ std::unique_ptr<tt_ClusterDescriptor> Cluster::create_cluster_descriptor(
 
         desc->noc_translation_enabled.insert({chip_id, chip->get_chip_info().noc_translation_enabled});
         desc->harvesting_masks.insert({chip_id, chip->get_chip_info().harvesting_masks.tensix_harvesting_mask});
+        desc->dram_harvesting_masks.insert({chip_id, chip->get_chip_info().harvesting_masks.dram_harvesting_mask});
+        desc->eth_harvesting_masks.insert({chip_id, chip->get_chip_info().harvesting_masks.eth_harvesting_mask});
 
         const std::vector<CoreCoord> eth_cores = chip->get_soc_descriptor().get_cores(CoreType::ETH);
 

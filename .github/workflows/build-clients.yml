@@ -19,9 +19,9 @@ jobs:
     timeout-minutes: ${{ fromJSON(inputs.timeout || '90') }}
 
     name: Build tt-metal with newest UMD
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-22.04
     container:
-      image: ghcr.io/tenstorrent/tt-metal/tt-metalium/ubuntu-20.04-amd64:latest
+      image: ghcr.io/tenstorrent/tt-metal/tt-metalium/ubuntu-22.04-amd64:latest
       options: --user root
 
     steps:

@@ -19,7 +19,7 @@ jobs:
         ]
         ubuntu-version: [
           'ubuntu-22.04',
-          'ubuntu-20.04',
+          # 'ubuntu-20.04',
         ]
     uses: ./.github/workflows/build-tests.yml
     with:
@@ -39,9 +39,9 @@ jobs:
           {arch: blackhole, card: p150, timeout: 15},
         ]
         ubuntu-version: [
-          # Running tests on ubuntu-20.04 should be sufficient. Reduce load on CI.
-          # 'ubuntu-22.04',
-          'ubuntu-20.04',
+          # Running tests on ubuntu-22.04 should be sufficient. Reduce load on CI.
+          'ubuntu-22.04',
+          # 'ubuntu-20.04',
         ]
     uses: ./.github/workflows/run-tests.yml
     with:

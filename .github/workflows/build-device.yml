@@ -31,9 +31,6 @@ jobs:
       fail-fast: false
       matrix:
         image: [
-          {runs-on: ubuntu-20.04, docker-image: tt-umd-ci-ubuntu-20.04, compiler: clang},
-          {runs-on: ubuntu-20.04, docker-image: tt-umd-ci-ubuntu-20.04,
-           compiler: gcc, c: /usr/bin/gcc, cpp: /usr/bin/g++},
           {runs-on: ubuntu-22.04, docker-image: tt-umd-ci-ubuntu-22.04, compiler: clang},
           {runs-on: ubuntu-22.04, docker-image: tt-umd-ci-ubuntu-22.04,
            compiler: gcc-12, c: /usr/bin/gcc-12, cpp: /usr/bin/g++-12},

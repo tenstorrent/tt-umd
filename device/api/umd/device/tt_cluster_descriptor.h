@@ -78,6 +78,9 @@ protected:
 
     void fill_chips_grouped_by_closest_mmio();
 
+    std::map<chip_id_t, uint32_t> dram_harvesting_masks = {};
+    std::map<chip_id_t, uint32_t> eth_harvesting_masks = {};
+
 public:
     /*
      * Returns the pairs of channels that are connected where the first entry in the pair corresponds to the argument
@@ -134,4 +137,7 @@ public:
 
     std::set<uint32_t> get_active_eth_channels(chip_id_t chip_id);
     std::set<uint32_t> get_idle_eth_channels(chip_id_t chip_id);
+
+    uint32_t get_dram_harvesting_mask(chip_id_t chip_id) const;
+    uint32_t get_eth_harvesting_mask(chip_id_t chip_id) const;
 };

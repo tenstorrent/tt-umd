@@ -1122,16 +1122,14 @@ private:
         tt_ClusterDescriptor* cluster_desc,
         bool perform_harvesting,
         std::unordered_map<chip_id_t, HarvestingMasks>& simulated_harvesting_masks);
-    // TODO: this function returns only software harvesting mask for DRAM.
-    // Combine this with silicon harvesting mask once gathering silicon harvesting mask is implemented.
     uint32_t get_dram_harvesting_mask(
         chip_id_t chip_id,
+        tt_ClusterDescriptor* cluster_desc,
         bool perform_harvesting,
         std::unordered_map<chip_id_t, HarvestingMasks>& simulated_harvesting_masks);
-    // TODO: this function returns only software harvesting mask for ETH.
-    // Combine this with silicon harvesting mask once gathering silicon harvesting mask is implemented.
     uint32_t get_eth_harvesting_mask(
         chip_id_t chip_id,
+        tt_ClusterDescriptor* cluster_desc,
         bool perform_harvesting,
         std::unordered_map<chip_id_t, HarvestingMasks>& simulated_harvesting_masks);
     void construct_cluster(

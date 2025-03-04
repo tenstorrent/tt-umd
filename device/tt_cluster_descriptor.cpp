@@ -1017,3 +1017,21 @@ std::set<uint32_t> tt_ClusterDescriptor::get_idle_eth_channels(chip_id_t chip_id
 
     return it->second;
 }
+
+uint32_t tt_ClusterDescriptor::get_dram_harvesting_mask(chip_id_t chip_id) const {
+    auto it = dram_harvesting_masks.find(chip_id);
+    if (it == dram_harvesting_masks.end()) {
+        return 0;
+    }
+
+    return it->second;
+}
+
+uint32_t tt_ClusterDescriptor::get_eth_harvesting_mask(chip_id_t chip_id) const {
+    auto it = eth_harvesting_masks.find(chip_id);
+    if (it == eth_harvesting_masks.end()) {
+        return 0;
+    }
+
+    return it->second;
+}

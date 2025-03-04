@@ -2,7 +2,6 @@ set(API_TESTS_SRCS
     test_chip.cpp
     test_cluster_descriptor.cpp
     test_cluster.cpp
-    test_core_coord_translation_gs.cpp
     test_core_coord_translation_wh.cpp
     test_core_coord_translation_bh.cpp
     test_mockup_device.cpp

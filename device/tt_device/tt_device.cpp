@@ -351,4 +351,22 @@ void TTDevice::wait_arc_core_start(const tt_xy_pair arc_core, const uint32_t tim
     throw std::runtime_error("Waiting for ARC core to start is supported only for Blackhole TTDevice.");
 }
 
+void TTDevice::bar_write32(uint32_t addr, uint32_t data) {
+    if (addr < get_pci_device()->bar0_uc_offset) {
+        write_block(addr, sizeof(data), reinterpret_cast<const uint8_t *>(&data));  // do we have to reinterpret_cast?
+    } else {
+        write_regs(addr, 1, &data);
+    }
+}
+
+uint32_t TTDevice::bar_read32(uint32_t addr) {
+    uint32_t data;
+    if (addr < get_pci_device()->bar0_uc_offset) {
+        read_block(addr, sizeof(data), reinterpret_cast<uint8_t *>(&data));
+    } else {
+        read_regs(addr, 1, &data);
+    }
+    return data;
+}
+
 }  // namespace tt::umd

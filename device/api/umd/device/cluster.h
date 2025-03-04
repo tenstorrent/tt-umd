@@ -1148,6 +1148,8 @@ private:
     static std::unique_ptr<tt_ClusterDescriptor> create_cluster_descriptor(
         const std::unordered_map<chip_id_t, std::unique_ptr<tt::umd::Chip>>& chips);
 
+    void initialize_arc_communication();
+
     // State variables
     std::vector<tt::ARCH> archs_in_cluster = {};
     std::set<chip_id_t> all_chip_ids_ = {};
@@ -1157,6 +1159,8 @@ private:
     tt::ARCH arch_name;
 
     std::shared_ptr<tt_ClusterDescriptor> cluster_desc;
+
+    std::unique_ptr<tt::umd::BlackholeArcMessageQueue> bh_arc_msg_queue = nullptr;
 
     // remote eth transfer setup
     static constexpr std::uint32_t NUM_ETH_CORES_FOR_NON_MMIO_TRANSFERS = 6;
@@ -1179,6 +1183,7 @@ private:
     std::unordered_map<chip_id_t, std::unordered_set<tt_xy_pair>> workers_per_chip = {};
     std::unordered_set<tt_xy_pair> eth_cores = {};
     std::unordered_set<tt_xy_pair> dram_cores = {};
+    std::unordered_map<chip_id_t, std::unique_ptr<BlackholeArcMessageQueue>> bh_arc_msg_queues = {};
 
     std::map<std::set<chip_id_t>, std::unordered_map<chip_id_t, std::vector<std::vector<int>>>> bcast_header_cache = {};
     bool perform_harvesting_on_sdesc = false;

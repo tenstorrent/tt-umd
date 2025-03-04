@@ -21,7 +21,6 @@ on:
         description: 'The architecture to build for'
         type: choice
         options:
-          - grayskull
           - wormhole_b0
           - blackhole
       ubuntu-version:

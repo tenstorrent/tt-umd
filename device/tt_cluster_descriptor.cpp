@@ -752,7 +752,9 @@ void tt_ClusterDescriptor::load_chips_from_connectivity_descriptor(YAML::Node &y
                 board_type = BoardType::N300;
             } else if (chip_board_type.second == "p100") {
                 board_type = BoardType::P100;
-            } else if (chip_board_type.second == "p150A" || chip_board_type.second == "p150") {
+            } else if (
+                chip_board_type.second == "p150" || chip_board_type.second == "p150A" ||
+                chip_board_type.second == "p150C") {
                 board_type = BoardType::P150;
             } else if (chip_board_type.second == "p300") {
                 board_type = BoardType::P300;

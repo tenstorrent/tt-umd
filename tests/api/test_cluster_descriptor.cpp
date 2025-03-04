@@ -183,4 +183,17 @@ TEST(ApiClusterDescriptorTest, EthernetConnectivity) {
                       << std::endl;
         }
     }
+
+    for (auto chip : cluster_desc->get_all_chips()) {
+        std::cout << "Chip " << chip << " has the following active ethernet channels: ";
+        for (auto eth_chan : cluster_desc->get_active_eth_channels(chip)) {
+            std::cout << eth_chan << " ";
+        }
+        std::cout << std::endl;
+        std::cout << " and following idle ethernet channels: ";
+        for (auto eth_chan : cluster_desc->get_idle_eth_channels(chip)) {
+            std::cout << eth_chan << " ";
+        }
+        std::cout << std::endl;
+    }
 }

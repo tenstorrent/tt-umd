@@ -482,6 +482,17 @@ std::unique_ptr<tt_ClusterDescriptor> tt_ClusterDescriptor::create_mock_cluster(
 void tt_ClusterDescriptor::load_ethernet_connections_from_connectivity_descriptor(
     YAML::Node &yaml, tt_ClusterDescriptor &desc) {
     log_assert(yaml["ethernet_connections"].IsSequence(), "Invalid YAML");
+
+    // Preload idle eth channels.
+    for (const auto &chip : desc.all_chips) {
+        int num_channels = desc.chip_arch.at(chip) == tt::ARCH::BLACKHOLE
+                               ? 14
+                               : (desc.chip_arch.at(chip) == tt::ARCH::WORMHOLE_B0 ? 16 : 0);
+        for (int i = 0; i < num_channels; i++) {
+            desc.idle_eth_channels[chip].insert(i);
+        }
+    }
+
     for (YAML::Node &connected_endpoints : yaml["ethernet_connections"].as<std::vector<YAML::Node>>()) {
         log_assert(connected_endpoints.IsSequence(), "Invalid YAML");
 
@@ -508,6 +519,10 @@ void tt_ClusterDescriptor::load_ethernet_connections_from_connectivity_descripto
         } else {
             desc.ethernet_connections[chip_1][channel_1] = {chip_0, channel_0};
         }
+        desc.active_eth_channels[chip_0].insert(channel_0);
+        desc.idle_eth_channels[chip_0].erase(channel_0);
+        desc.active_eth_channels[chip_1].insert(channel_1);
+        desc.idle_eth_channels[chip_1].erase(channel_1);
     }
 
     log_debug(LogSiliconDriver, "Ethernet Connectivity Descriptor:");

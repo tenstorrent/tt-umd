@@ -91,9 +91,10 @@ jobs:
         run: tar xvf artifact.tar
 
       - name: Reset the card and read the card info
+        if: ${{ inputs.card == 'tt-ubuntu-2204-n300-large-stable' }}
         run: |
-          tt-smi -r 0
-          tt-smi -s -f smi.log && cat smi.log
+          /home/software/syseng/wh/tt-smi -r 0
+          /home/software/syseng/wh/tt-smi -s -f smi.log && cat smi.log
 
       - name: Run API tests
         run: |

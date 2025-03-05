@@ -956,6 +956,9 @@ public:
 
     void ubb_eth_connections();
 
+    // Get the architecture of the cluster. This function assumes all devices in the cluster have the same architecture.
+    static tt::ARCH get_cluster_arch();
+
     // Destructor
     virtual ~Cluster();
 

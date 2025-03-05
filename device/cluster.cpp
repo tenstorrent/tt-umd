@@ -3349,4 +3349,14 @@ std::string Cluster::serialize() { return Cluster::create_cluster_descriptor()->
 
 std::filesystem::path Cluster::serialize_to_file() { return Cluster::create_cluster_descriptor()->serialize_to_file(); }
 
+tt::ARCH Cluster::get_cluster_arch() {
+    std::map<int, PciDeviceInfo> pci_device_info = PCIDevice::enumerate_devices_info();
+
+    if (pci_device_info.empty()) {
+        throw std::runtime_error("Calling get_cluster_arch on the machine without any Tenstorrent cards.");
+    }
+
+    return pci_device_info.begin()->second.get_arch();
+}
+
 }  // namespace tt::umd

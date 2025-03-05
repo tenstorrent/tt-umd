@@ -4,6 +4,7 @@
 #include "umd/device/tt_device/tt_device.h"
 
 #include "logger.hpp"
+#include "umd/device/arc_messenger.h"
 #include "umd/device/driver_atomics.h"
 #include "umd/device/tt_device/blackhole_tt_device.h"
 #include "umd/device/tt_device/grayskull_tt_device.h"
@@ -21,7 +22,8 @@ TTDevice::TTDevice(
     pci_device_(std::move(pci_device)),
     architecture_impl_(std::move(architecture_impl)),
     tlb_manager_(std::make_unique<TLBManager>(this)),
-    arch(architecture_impl_->get_architecture()) {}
+    arch(architecture_impl_->get_architecture()),
+    arc_messenger_(ArcMessenger::create_arc_messenger(this)) {}
 
 /* static */ std::unique_ptr<TTDevice> TTDevice::create(int pci_device_number) {
     auto pci_device = std::make_unique<PCIDevice>(pci_device_number);
@@ -368,5 +370,7 @@ uint32_t TTDevice::bar_read32(uint32_t addr) {
     }
     return data;
 }
+
+tt::umd::ArcMessenger *TTDevice::get_arc_messenger() const { return arc_messenger_.get(); }
 
 }  // namespace tt::umd

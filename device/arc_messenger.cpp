@@ -6,6 +6,7 @@
 #include "umd/device/arc_messenger.h"
 
 #include "umd/device/blackhole_arc_messenger.h"
+#include "umd/device/tt_device/tt_device.h"
 #include "umd/device/wormhole_arc_messenger.h"
 
 namespace tt::umd {

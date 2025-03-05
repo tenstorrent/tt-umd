@@ -5,9 +5,8 @@
  */
 #include "umd/device/wormhole_arc_messenger.h"
 
-#include <iostream>
-
 #include "logger.hpp"
+#include "umd/device/tt_device/tt_device.h"
 #include "umd/device/wormhole_implementation.h"
 
 namespace tt::umd {

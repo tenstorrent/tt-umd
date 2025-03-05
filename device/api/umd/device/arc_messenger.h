@@ -5,9 +5,13 @@
  */
 #pragma once
 
-#include "umd/device/tt_device/tt_device.h"
+#include <cstdint>
+#include <memory>
+#include <vector>
 
 namespace tt::umd {
+
+class TTDevice;
 
 class ArcMessenger {
 public:

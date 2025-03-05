@@ -73,7 +73,7 @@ std::int32_t get_static_tlb_index(tt_xy_pair target) {
 
 std::set<chip_id_t> get_target_devices() {
     std::set<chip_id_t> target_devices;
-    std::unique_ptr<tt_ClusterDescriptor> cluster_desc_uniq = tt_ClusterDescriptor::create();
+    std::unique_ptr<tt_ClusterDescriptor> cluster_desc_uniq = Cluster::create_cluster_descriptor();
     for (int i = 0; i < cluster_desc_uniq->get_number_of_chips(); i++) {
         target_devices.insert(i);
     }

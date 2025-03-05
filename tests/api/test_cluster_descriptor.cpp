@@ -10,11 +10,14 @@
 
 #include "disjoint_set.hpp"
 #include "tests/test_utils/generate_cluster_desc.hpp"
+#include "umd/device/cluster.h"
 #include "umd/device/pci_device.hpp"
 #include "umd/device/tt_cluster_descriptor.h"
 
+using namespace tt::umd;
+
 TEST(ApiClusterDescriptorTest, DetectArch) {
-    std::unique_ptr<tt_ClusterDescriptor> cluster_desc = tt_ClusterDescriptor::create();
+    std::unique_ptr<tt_ClusterDescriptor> cluster_desc = Cluster::create_cluster_descriptor();
 
     if (cluster_desc->get_number_of_chips() == 0) {
         // Expect it to be invalid if no devices are found.
@@ -46,7 +49,7 @@ TEST(ApiClusterDescriptorTest, DetectArch) {
 }
 
 TEST(ApiClusterDescriptorTest, BasicFunctionality) {
-    std::unique_ptr<tt_ClusterDescriptor> cluster_desc = tt_ClusterDescriptor::create();
+    std::unique_ptr<tt_ClusterDescriptor> cluster_desc = Cluster::create_cluster_descriptor();
 
     if (cluster_desc == nullptr) {
         GTEST_SKIP() << "No chips present on the system. Skipping test.";

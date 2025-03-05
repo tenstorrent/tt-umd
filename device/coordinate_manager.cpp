@@ -316,15 +316,17 @@ void CoordinateManager::translate_router_coords() {
 }
 
 void CoordinateManager::fill_eth_default_physical_translated_mapping() {
+    std::cout << "num_eth_channels: " << num_eth_channels << std::endl;
     for (size_t eth_channel = 0; eth_channel < num_eth_channels; eth_channel++) {
-        CoreCoord logical_coord = CoreCoord(0, eth_channel, CoreType::ETH, CoordSystem::LOGICAL);
-        const tt_xy_pair physical_pair = to_physical_map[logical_coord];
+        const tt_xy_pair physical_pair = eth_cores[eth_channel];
         const size_t translated_x = physical_pair.x;
         const size_t translated_y = physical_pair.y;
 
         CoreCoord translated_coord = CoreCoord(translated_x, translated_y, CoreType::ETH, CoordSystem::TRANSLATED);
 
         add_core_translation(translated_coord, physical_pair);
+
+        std::cout << "translated_x: " << translated_x << " translated_y: " << translated_y << std::endl;
     }
 }
 

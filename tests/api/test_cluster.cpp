@@ -75,8 +75,12 @@ TEST(ApiClusterTest, DifferentConstructors) {
     // Create mock chips is set to true in order to create mock chips for the devices in the cluster descriptor.
     std::filesystem::path cluster_path = tt::umd::Cluster::serialize_to_file();
     std::unordered_map<chip_id_t, HarvestingMasks> simulated_harvesting_masks = {};
-    std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>(
-        tt_ClusterDescriptor::create_from_yaml(cluster_path), 1, true, false, true, simulated_harvesting_masks);
+    std::unique_ptr<tt_ClusterDescriptor> cluster_desc = tt_ClusterDescriptor::create_from_yaml(cluster_path);
+    for (chip_id_t chip_id : cluster_desc->get_all_chips()) {
+        simulated_harvesting_masks[chip_id] = {.eth_harvesting_mask = blackhole::DEFAULT_ETH_HARVESTING_MASK};
+    }
+    std::unique_ptr<Cluster> cluster =
+        std::make_unique<Cluster>(std::move(cluster_desc), 1, true, false, true, simulated_harvesting_masks);
 }
 
 TEST(ApiClusterTest, SimpleIOAllChips) {

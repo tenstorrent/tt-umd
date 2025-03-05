@@ -42,10 +42,7 @@ TEST(BlackholeArcMessages, BlackholeArcMessageHigherAIClock) {
         // Wait for telemetry to update AICLK.
         std::this_thread::sleep_for(std::chrono::milliseconds(ms_sleep));
 
-        std::unique_ptr<blackhole::BlackholeArcTelemetryReader> blackhole_arc_telemetry_reader =
-            std::make_unique<blackhole::BlackholeArcTelemetryReader>(tt_device.get());
-
-        uint32_t aiclk = blackhole_arc_telemetry_reader->read_entry(blackhole::TAG_AICLK);
+        uint32_t aiclk = tt_device->get_clock();
 
         EXPECT_EQ(aiclk, blackhole::AICLK_BUSY_VAL);
 
@@ -54,7 +51,7 @@ TEST(BlackholeArcMessages, BlackholeArcMessageHigherAIClock) {
         // Wait for telemetry to update AICLK.
         std::this_thread::sleep_for(std::chrono::milliseconds(ms_sleep));
 
-        aiclk = blackhole_arc_telemetry_reader->read_entry(blackhole::TAG_AICLK);
+        aiclk = tt_device->get_clock();
 
         EXPECT_EQ(aiclk, blackhole::AICLK_IDLE_VAL);
     }

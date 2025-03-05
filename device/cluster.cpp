@@ -990,35 +990,8 @@ void Cluster::set_pcie_power_state(tt_DevicePowerState state) {
 }
 
 int Cluster::get_clock(int logical_device_id) {
-    // TODO: remove this once ARC messages work.
-    // This is currently used only for testing and bringing up Blackhole on Buda.
-    if (arch_name == tt::ARCH::BLACKHOLE) {
-        char* clk_env_var = getenv("TT_SILICON_DRIVER_AICLK");
-        if (clk_env_var != nullptr) {
-            log_warning(
-                LogSiliconDriver,
-                "ARC messages are not enabled on Blackhole. "
-                "Using AICLK value from environment variable TT_SILICON_DRIVER_AICLK: {}",
-                clk_env_var);
-            return std::stoi(clk_env_var);
-        }
-    }
-
-    uint32_t clock;
     auto mmio_capable_chip_logical = cluster_desc->get_closest_mmio_capable_chip(logical_device_id);
-    TTDevice* tt_device = get_tt_device(mmio_capable_chip_logical);
-    auto exit_code = arc_msg(
-        logical_device_id,
-        0xaa00 | tt_device->get_architecture_implementation()->get_arc_message_get_aiclk(),
-        true,
-        0xFFFF,
-        0xFFFF,
-        1,
-        &clock);
-    if (exit_code != 0) {
-        throw std::runtime_error(fmt::format("Failed to get aiclk value with exit code {}", exit_code));
-    }
-    return clock;
+    return get_tt_device(mmio_capable_chip_logical)->get_clock();
 }
 
 std::map<int, int> Cluster::get_clocks() {

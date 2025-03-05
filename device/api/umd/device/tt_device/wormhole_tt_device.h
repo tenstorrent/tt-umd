@@ -14,5 +14,7 @@ public:
     WormholeTTDevice(std::unique_ptr<PCIDevice> pci_device);
 
     ChipInfo get_chip_info() override;
+
+    uint32_t get_clock() override;
 };
 }  // namespace tt::umd

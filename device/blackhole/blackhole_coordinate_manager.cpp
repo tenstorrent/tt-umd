@@ -43,12 +43,12 @@ void BlackholeCoordinateManager::assert_coordinate_manager_constructor() {
         throw std::runtime_error("Only one DRAM bank can be harvested on Blackhole");
     }
 
-    // TODO: assert that exactly 2 or all 14 (P100) ETH cores are harvested for Blackhole. This is
-    // going to be true both for all Blackhole products.
-    // const size_t num_harvested_eth_cores = get_num_harvested(harvesting_masks.eth_harvesting_mask);
-    // log_assert(
-    //     num_harvested_eth_cores == 2 || num_harvested_eth_cores == blackhole::ETH_GRID_SIZE.x, "Exactly 2 or 14 ETH
-    //     cores should be harvested on Blackhole");
+    const size_t num_harvested_eth_cores = get_num_harvested(harvesting_masks.eth_harvesting_mask);
+
+    // Each Blackhole product is going to have either 2 or all (14) harvested ETH cores.
+    if (num_harvested_eth_cores != 2 && num_harvested_eth_cores != tt::umd::blackhole::ETH_CORES.size()) {
+        throw std::runtime_error("Exactly 2 or 14 ETH cores should be harvested on Blackhole");
+    }
 }
 
 void BlackholeCoordinateManager::translate_tensix_coords() {

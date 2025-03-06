@@ -381,7 +381,8 @@ uint32_t Cluster::get_tensix_harvesting_mask(
                                              : 0;
     log_info(
         LogSiliconDriver,
-        "Harvesting mask for chip {} is {:x} (physical layout: {:x}, logical: {:x}, simulated harvesting mask: {:x}).",
+        "Harvesting mask for chip {} is 0x{:x} (physical layout: 0x{:x}, logical: 0x{:x}, simulated harvesting mask: "
+        "0x{:x}).",
         chip_id,
         tensix_harvesting_mask | simulated_harvesting_mask,
         tensix_harvesting_mask_physical_layout,

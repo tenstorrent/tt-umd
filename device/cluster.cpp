@@ -3108,6 +3108,16 @@ std::unique_ptr<tt_ClusterDescriptor> Cluster::create_cluster_descriptor(std::st
     }
 }
 
+uint32_t get_harvesting_up_to_not_including(uint32_t original_harvest, uint32_t index) {
+    int cnt = 0;
+    for (int idx = 0; idx < index; idx++) {
+        if ((original_harvest & (1 << idx)) != 0) {
+            cnt++;
+        }
+    }
+    return cnt;
+}
+
 std::unique_ptr<tt_ClusterDescriptor> Cluster::create_cluster_descriptor(
     const std::unordered_map<chip_id_t, std::unique_ptr<tt::umd::Chip>>& chips) {
     std::unique_ptr<tt_ClusterDescriptor> desc = std::unique_ptr<tt_ClusterDescriptor>(new tt_ClusterDescriptor());
@@ -3116,6 +3126,13 @@ std::unique_ptr<tt_ClusterDescriptor> Cluster::create_cluster_descriptor(
         const chip_id_t chip_id = it.first;
         const std::unique_ptr<Chip>& chip = it.second;
         desc->add_chip_uid(chip_id, chip->get_chip_info().chip_uid);
+    }
+
+    std::map<chip_id_t, uint32_t> eth_harvestings;
+    for (auto& it : chips) {
+        const chip_id_t chip_id = it.first;
+        const std::unique_ptr<Chip>& chip = it.second;
+        eth_harvestings[chip_id] = chip->get_chip_info().harvesting_masks.eth_harvesting_mask;
     }
 
     for (auto& it : chips) {
@@ -3167,8 +3184,12 @@ std::unique_ptr<tt_ClusterDescriptor> Cluster::create_cluster_descriptor(
                         remote_info.get_chip_uid().board_id);
                 } else {
                     // Adding a connection only one way, the other chip should add it another way.
-                    desc->ethernet_connections[local_chip_id][local_info.eth_id] = {
-                        remote_chip_id.value(), remote_info.eth_id};
+                    desc->ethernet_connections[local_chip_id]
+                                              [local_info.eth_id - get_harvesting_up_to_not_including(
+                                                                       eth_harvestings[chip_id], local_info.eth_id)] = {
+                        remote_chip_id.value(),
+                        remote_info.eth_id - get_harvesting_up_to_not_including(
+                                                 eth_harvestings[remote_chip_id.value()], remote_info.eth_id)};
                 }
             } else if (boot_results.eth_status.port_status == port_status_e::PORT_DOWN) {
                 // active eth core, just with link being down.

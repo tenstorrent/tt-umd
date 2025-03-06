@@ -150,4 +150,10 @@ uint32_t BlackholeTTDevice::get_clock() {
     throw std::runtime_error("AICLK telemetry not available for Blackhole device.");
 }
 
+BoardType BlackholeTTDevice::get_board_type() {
+    return get_board_type_from_board_id(
+        ((uint64_t)telemetry->read_entry(blackhole::TAG_BOARD_ID_HIGH) << 32) |
+        (telemetry->read_entry(blackhole::TAG_BOARD_ID_LOW)));
+}
+
 }  // namespace tt::umd

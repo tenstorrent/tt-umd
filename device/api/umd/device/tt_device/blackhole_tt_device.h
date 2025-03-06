@@ -25,6 +25,8 @@ public:
 
     uint32_t get_clock() override;
 
+    BoardType get_board_type() override;
+
 private:
     static constexpr uint64_t ATU_OFFSET_IN_BH_BAR2 = 0x1200;
     std::set<size_t> iatu_regions_;

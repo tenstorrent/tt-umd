@@ -62,4 +62,22 @@ uint32_t WormholeTTDevice::get_clock() {
     return arc_msg_return_values[0];
 }
 
+BoardType WormholeTTDevice::get_board_type() {
+    ::std::vector<uint32_t> arc_msg_return_values = {0};
+    static const uint32_t timeout_ms = 1000;
+    uint32_t exit_code = get_arc_messenger()->send_message(
+        tt::umd::wormhole::ARC_MSG_COMMON_PREFIX | 0x2C, arc_msg_return_values, 0, 0, timeout_ms);
+
+    static constexpr uint64_t noc_telemetry_offset = 0x810000000;
+    uint64_t telemetry_struct_offset = arc_msg_return_values[0] + noc_telemetry_offset;
+
+    uint32_t board_id_lo;
+    uint32_t board_id_hi;
+    tt_xy_pair arc_core = tt::umd::wormhole::ARC_CORES[0];
+    read_from_device(&board_id_hi, arc_core, telemetry_struct_offset + 16, sizeof(uint32_t));
+    read_from_device(&board_id_lo, arc_core, telemetry_struct_offset + 20, sizeof(uint32_t));
+
+    return get_board_type_from_board_id(((uint64_t)board_id_hi << 32) | board_id_lo);
+}
+
 }  // namespace tt::umd

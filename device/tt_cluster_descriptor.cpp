@@ -428,10 +428,10 @@ std::unique_ptr<tt_ClusterDescriptor> tt_ClusterDescriptor::create_from_yaml(
 
     YAML::Node yaml = YAML::LoadFile(cluster_descriptor_file_path);
     tt_ClusterDescriptor::load_chips_from_connectivity_descriptor(yaml, *desc);
+    tt_ClusterDescriptor::load_harvesting_information(yaml, *desc);
     tt_ClusterDescriptor::load_ethernet_connections_from_connectivity_descriptor(yaml, *desc);
     tt_ClusterDescriptor::merge_cluster_ids(*desc);
     tt_ClusterDescriptor::fill_galaxy_connections(*desc);
-    tt_ClusterDescriptor::load_harvesting_information(yaml, *desc);
     desc->enable_all_devices();
 
     desc->fill_chips_grouped_by_closest_mmio();
@@ -487,8 +487,10 @@ void tt_ClusterDescriptor::load_ethernet_connections_from_connectivity_descripto
 
     // Preload idle eth channels.
     for (const auto &chip : desc.all_chips) {
+        int num_harvested_channels = CoordinateManager::get_num_harvested(desc.eth_harvesting_masks.at(chip));
         int num_channels =
-            tt::umd::architecture_implementation::create(desc.chip_arch.at(chip))->get_num_eth_channels();
+            tt::umd::architecture_implementation::create(desc.chip_arch.at(chip))->get_num_eth_channels() -
+            num_harvested_channels;
         for (int i = 0; i < num_channels; i++) {
             desc.idle_eth_channels[chip].insert(i);
         }

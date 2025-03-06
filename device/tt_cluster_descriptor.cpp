@@ -487,7 +487,9 @@ void tt_ClusterDescriptor::load_ethernet_connections_from_connectivity_descripto
 
     // Preload idle eth channels.
     for (const auto &chip : desc.all_chips) {
-        int num_harvested_channels = CoordinateManager::get_num_harvested(desc.eth_harvesting_masks.at(chip));
+        int num_harvested_channels = desc.eth_harvesting_masks.empty()
+                                         ? 0
+                                         : CoordinateManager::get_num_harvested(desc.eth_harvesting_masks.at(chip));
         int num_channels =
             tt::umd::architecture_implementation::create(desc.chip_arch.at(chip))->get_num_eth_channels() -
             num_harvested_channels;

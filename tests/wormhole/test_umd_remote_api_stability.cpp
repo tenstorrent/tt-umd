@@ -219,7 +219,8 @@
 //     assert(cluster != nullptr);
 //     std::vector<remote_transfer_sample_t> command_history;
 
-//     auto write_size_generator = ConstrainedTemplateTemplateGenerator<transfer_size_t, double, std::normal_distribution>(
+//     auto write_size_generator = ConstrainedTemplateTemplateGenerator<transfer_size_t, double,
+//     std::normal_distribution>(
 //         seed, std::normal_distribution<>(10000, 3000), [](double x) -> transfer_size_t {
 //             return size_aligner_32B(static_cast<transfer_size_t>((x >= 4) ? x : 4));
 //         });
@@ -358,7 +359,8 @@
 //             });
 //     auto read_size_generator =
 //         ConstrainedTemplateTemplateGenerator<transfer_size_t, transfer_size_t, std::uniform_int_distribution>(
-//             seed, std::uniform_int_distribution<transfer_size_t>(16, 4096), [](transfer_size_t x) -> transfer_size_t {
+//             seed, std::uniform_int_distribution<transfer_size_t>(16, 4096), [](transfer_size_t x) -> transfer_size_t
+//             {
 //                 return size_aligner_32B(static_cast<transfer_size_t>((x >= 4) ? x : 4));
 //             });
 

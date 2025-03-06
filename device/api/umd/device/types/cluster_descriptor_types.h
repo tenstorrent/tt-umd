@@ -124,6 +124,12 @@ inline BoardType get_board_type_from_board_id(const uint64_t board_id) {
         return BoardType::P150;
     } else if (upi == 0x44 || upi == 0x45 || upi == 0x46) {
         return BoardType::P300;
+    } else if (upi == 0x14) {
+        return BoardType::N300;
+    } else if (upi == 0x18) {
+        return BoardType::N150;
+    } else if (upi == 0xB) {
+        return BoardType::GALAXY;
     }
 
     throw std::runtime_error(fmt::format("No existing board type for board id {}", board_id));

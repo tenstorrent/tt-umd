@@ -14,7 +14,7 @@
 #include "umd/device/tt_cluster_descriptor.h"
 
 TEST(ApiClusterDescriptorTest, DetectArch) {
-    std::unique_ptr<tt_ClusterDescriptor> cluster_desc = tt_ClusterDescriptor::create();
+    std::unique_ptr<tt_ClusterDescriptor> cluster_desc = tt::umd::Cluster::create_cluster_descriptor();
 
     if (cluster_desc->get_number_of_chips() == 0) {
         // Expect it to be invalid if no devices are found.
@@ -46,7 +46,7 @@ TEST(ApiClusterDescriptorTest, DetectArch) {
 }
 
 TEST(ApiClusterDescriptorTest, BasicFunctionality) {
-    std::unique_ptr<tt_ClusterDescriptor> cluster_desc = tt_ClusterDescriptor::create();
+    std::unique_ptr<tt_ClusterDescriptor> cluster_desc = tt::umd::Cluster::create_cluster_descriptor();
 
     if (cluster_desc == nullptr) {
         GTEST_SKIP() << "No chips present on the system. Skipping test.";

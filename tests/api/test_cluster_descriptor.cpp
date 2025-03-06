@@ -168,7 +168,10 @@ TEST(ApiClusterDescriptorTest, EthernetConnectivity) {
 
     for (auto chip : cluster_desc->get_all_chips()) {
         // Wormhole has 16 and Blackhole has 14 ethernet channels.
-        for (int eth_chan = 0; eth_chan < 16; eth_chan++) {
+        for (int eth_chan = 0;
+             eth_chan <
+             tt::umd::architecture_implementation::create(cluster_desc->get_arch(chip))->get_num_eth_channels();
+             eth_chan++) {
             bool has_active_link = cluster_desc->ethernet_core_has_active_ethernet_link(chip, eth_chan);
             std::cout << "Chip " << chip << " channel " << eth_chan << " has active link: " << has_active_link
                       << std::endl;

@@ -311,6 +311,8 @@ public:
 
     uint32_t get_mem_large_write_tlb() const override { return wormhole::MEM_LARGE_WRITE_TLB; }
 
+    uint32_t get_num_eth_channels() const override { return wormhole::NUM_ETH_CHANNELS; }
+
     uint32_t get_static_tlb_cfg_addr() const override { return wormhole::STATIC_TLB_CFG_ADDR; }
 
     uint32_t get_read_checking_offset() const override { return wormhole::ARC_SCRATCH_6_OFFSET; }

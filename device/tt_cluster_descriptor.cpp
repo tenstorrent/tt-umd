@@ -8,6 +8,8 @@
 #include <memory>
 #include <sstream>
 
+#include "api/umd/device/blackhole_implementation.h"
+#include "api/umd/device/wormhole_implementation.h"
 #include "disjoint_set.hpp"
 #include "fmt/core.h"
 #include "libs/create_ethernet_map.h"
@@ -485,9 +487,8 @@ void tt_ClusterDescriptor::load_ethernet_connections_from_connectivity_descripto
 
     // Preload idle eth channels.
     for (const auto &chip : desc.all_chips) {
-        int num_channels = desc.chip_arch.at(chip) == tt::ARCH::BLACKHOLE
-                               ? 14
-                               : (desc.chip_arch.at(chip) == tt::ARCH::WORMHOLE_B0 ? 16 : 0);
+        int num_channels =
+            tt::umd::architecture_implementation::create(desc.chip_arch.at(chip))->get_num_eth_channels();
         for (int i = 0; i < num_channels; i++) {
             desc.idle_eth_channels[chip].insert(i);
         }

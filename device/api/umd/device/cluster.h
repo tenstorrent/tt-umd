@@ -954,9 +954,6 @@ public:
 
     static std::filesystem::path serialize_to_file();
 
-    // Get the architecture of the cluster. This function assumes all devices in the cluster have the same architecture.
-    static tt::ARCH get_cluster_arch();
-
     // Destructor
     virtual ~Cluster();
 

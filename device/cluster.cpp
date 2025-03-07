@@ -1373,13 +1373,11 @@ uint32_t Cluster::get_harvested_noc_rows(uint32_t harvesting_mask) {
 }
 
 uint32_t Cluster::get_harvested_rows(int logical_device_id) {
-    std::cout << "getting harvested rows" << std::endl;
     const char* harv_override = std::getenv("T6PY_HARVESTING_OVERRIDE");
     uint32_t harv = 0xffffffff;
     if (harv_override) {
         harv = std::stoul(harv_override, nullptr, 16);
     } else {
-        std::cout << "calling arc message" << std::endl;
         auto mmio_capable_chip_logical = cluster_desc->get_closest_mmio_capable_chip(logical_device_id);
         TTDevice* tt_device = get_tt_device(mmio_capable_chip_logical);
         int harvesting_msg_code = arc_msg(
@@ -1390,7 +1388,6 @@ uint32_t Cluster::get_harvested_rows(int logical_device_id) {
             0,
             1,
             &harv);
-        std::cout << "harv " << harv << std::endl;
         log_assert(
             harvesting_msg_code != MSG_ERROR_REPLY, "Failed to read harvested rows from device {}", logical_device_id);
     }
@@ -3346,15 +3343,5 @@ std::unique_ptr<tt_ClusterDescriptor> Cluster::create_cluster_descriptor(
 std::string Cluster::serialize() { return Cluster::create_cluster_descriptor()->serialize(); }
 
 std::filesystem::path Cluster::serialize_to_file() { return Cluster::create_cluster_descriptor()->serialize_to_file(); }
-
-tt::ARCH Cluster::get_cluster_arch() {
-    std::map<int, PciDeviceInfo> pci_device_info = PCIDevice::enumerate_devices_info();
-
-    if (pci_device_info.empty()) {
-        throw std::runtime_error("Calling get_cluster_arch on the machine without any Tenstorrent cards.");
-    }
-
-    return pci_device_info.begin()->second.get_arch();
-}
 
 }  // namespace tt::umd

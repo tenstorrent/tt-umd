@@ -383,16 +383,4 @@ uint32_t TTDevice::get_clock() {
         "TTDevice is deleted.");
 }
 
-BoardType TTDevice::get_board_type() {
-    throw std::runtime_error(
-        "Base TTDevice class does not have get_board_type implemented. Move this to abstract function once Grayskull "
-        "TTDevice is deleted.");
-}
-
-BoardType TTDevice::get_board_type() {
-    throw std::runtime_error(
-        "Base TTDevice class does not have get_board_type implemented. Move this to abstract function once Grayskull "
-        "TTDevice is deleted.");
-}
-
 }  // namespace tt::umd

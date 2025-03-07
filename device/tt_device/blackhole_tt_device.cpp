@@ -95,8 +95,9 @@ ChipInfo BlackholeTTDevice::get_chip_info() {
                                                          ? (~telemetry->read_entry(blackhole::TAG_ENABLED_ETH) & 0x3FFF)
                                                          : 0;
 
-    // It is expected that this entry is always available.
-    chip_info.chip_uid.asic_location = telemetry->read_entry(blackhole::TAG_ASIC_ID);
+    // TODO: Read asic location of the chip from telemetry when it is available.
+    // Until then we have to read it from ETH core, it happens during topology exploration.
+    // chip_info.chip_uid.asic_location = telemetry->read_entry(blackhole::TAG_ASIC_LOCATION);
 
     const uint64_t addr = blackhole::NIU_CFG_NOC0_BAR_ADDR;
     uint32_t niu_cfg;

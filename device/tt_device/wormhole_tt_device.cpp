@@ -3,9 +3,6 @@
 // SPDX-License-Identifier: Apache-2.0
 #include "umd/device/tt_device/wormhole_tt_device.h"
 
-#include <iostream>
-
-#include "logger.hpp"
 #include "umd/device/wormhole_implementation.h"
 
 namespace tt::umd {
@@ -76,10 +73,6 @@ BoardType WormholeTTDevice::get_board_type() {
     tt_xy_pair arc_core = tt::umd::wormhole::ARC_CORES[0];
     static constexpr uint64_t noc_telemetry_offset = 0x810000000;
     uint64_t telemetry_struct_offset = arc_msg_return_values[0] + noc_telemetry_offset;
-
-    uint32_t vendor_id;
-    read_from_device(&vendor_id, arc_core, telemetry_struct_offset + 4, sizeof(uint32_t));
-    std::cout << "vendor id " << std::hex << vendor_id << std::dec << std::endl;
 
     uint32_t board_id_lo;
     uint32_t board_id_hi;

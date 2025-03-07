@@ -93,8 +93,7 @@ jobs:
       - name: Reset the card and read the card info
         if: ${{ inputs.card == 'tt-beta-ubuntu-2204-n300-large-stable' }}
         run: |
-          /home/software/syseng/wh/tt-smi -r 0
-          /home/software/syseng/wh/tt-smi -s -f smi.log && cat smi.log
+          /opt/tt_metal_infra/scripts/ci/wormhole_b0/reset.sh
 
       - name: Run API tests
         run: |

@@ -46,9 +46,8 @@ private:
     // Address of the telemetry data on ARC core.
     uint32_t telemetry_values_addr;
 
-    uint32_t telemetry_values[NUMBER_TELEMETRY_TAGS];
-    bool telemetry_entry_available[NUMBER_TELEMETRY_TAGS];
-    uint32_t telemetry_offset[NUMBER_TELEMETRY_TAGS];
+    std::map<uint32_t, uint32_t> telemetry_values;
+    std::map<uint32_t, uint32_t> telemetry_offset;
 
     const tt_xy_pair arc_core =
         !umd_use_noc1 ? tt::umd::blackhole::ARC_CORES[0] : tt_xy_pair(8, 11);  // ARC coordinates in NOC1 are 8-11

@@ -3242,6 +3242,12 @@ std::unique_ptr<tt_ClusterDescriptor> Cluster::create_cluster_descriptor(std::st
             tt_devices.push_back(std::move(tt_device));
         }
 
+        // Topology discovery from source is supported for Wormhole UBB at the moment,
+        // other Wormhole specs need to go through a legacy create-ethernet-map.
+        if (!tt_devices.empty() && tt_devices[0]->get_board_type() != BoardType::UBB) {
+            return tt_ClusterDescriptor::create();
+        }
+
         std::vector<ChipInfo> chip_info_vec = Cluster::get_cluster_chip_info(tt_devices);
 
         std::unordered_map<chip_id_t, std::unique_ptr<Chip>> chips;

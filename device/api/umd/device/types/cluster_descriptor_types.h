@@ -112,7 +112,6 @@ inline BlackholeChipType get_blackhole_chip_type(const BoardType board_type, con
     }
 }
 
-// TODO: add Wormhole and Grayskull board types to this function
 inline BoardType get_board_type_from_board_id(const uint64_t board_id) {
     uint64_t upi = (board_id >> 36) & 0xFFFFF;
 

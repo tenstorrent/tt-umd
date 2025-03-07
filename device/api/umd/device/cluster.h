@@ -1146,6 +1146,10 @@ private:
     static std::unique_ptr<tt_ClusterDescriptor> create_cluster_descriptor(
         const std::unordered_map<chip_id_t, std::unique_ptr<tt::umd::Chip>>& chips);
 
+    static void ubb_eth_connections(
+        const std::unordered_map<chip_id_t, std::unique_ptr<tt::umd::Chip>>& chips,
+        std::unique_ptr<tt_ClusterDescriptor>& cluster_desc);
+
     void initialize_arc_communication();
 
     // State variables

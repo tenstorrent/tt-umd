@@ -3167,23 +3167,6 @@ tt_xy_pair Cluster::translate_chip_coord_virtual_to_translated(const chip_id_t c
     return translated_coord;
 }
 
-std::vector<ChipInfo> Cluster::get_cluster_chip_info(
-    const std::vector<std::unique_ptr<tt::umd::TTDevice>>& tt_devices) {
-    std::vector<tt_xy_pair> eth_cores = tt::umd::blackhole::ETH_CORES;
-    const auto tlb_index = tt::umd::blackhole::MEM_LARGE_READ_TLB;
-
-    // TODO: make this generic when this code is used for other architectures.
-    tt_xy_pair arc_core = tt::umd::blackhole::ARC_CORES[0];
-
-    std::vector<ChipInfo> chip_info_vec;
-    for (auto& tt_device : tt_devices) {
-        tt_device->wait_arc_core_start(arc_core);
-        chip_info_vec.push_back(tt_device->get_chip_info());
-    }
-
-    return chip_info_vec;
-}
-
 std::unique_ptr<tt_ClusterDescriptor> Cluster::create_cluster_descriptor(std::string sdesc_path) {
     std::map<int, PciDeviceInfo> pci_device_info = PCIDevice::enumerate_devices_info();
     if (pci_device_info.begin()->second.get_arch() == tt::ARCH::BLACKHOLE) {
@@ -3205,6 +3188,10 @@ std::unique_ptr<tt_ClusterDescriptor> Cluster::create_cluster_descriptor(std::st
     } else {
         std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
 
+        if (sdesc_path.empty()) {
+            sdesc_path = tt_SocDescriptor::get_soc_descriptor_path(tt::ARCH::WORMHOLE_B0);
+        }
+
         std::vector<std::unique_ptr<TTDevice>> tt_devices;
         for (auto& device_id : pci_device_ids) {
             std::unique_ptr<TTDevice> tt_device = TTDevice::create(device_id);
@@ -3217,14 +3204,12 @@ std::unique_ptr<tt_ClusterDescriptor> Cluster::create_cluster_descriptor(std::st
             return tt_ClusterDescriptor::create();
         }
 
-        std::vector<ChipInfo> chip_info_vec = Cluster::get_cluster_chip_info(tt_devices);
-
         std::unordered_map<chip_id_t, std::unique_ptr<Chip>> chips;
-        for (uint32_t chip_id = 0; chip_id < tt_devices.size(); chip_id++) {
-            const ChipInfo& chip_info = chip_info_vec[chip_id];
-            std::unique_ptr<TTDevice>& tt_device = tt_devices[chip_id];
-            std::unique_ptr<LocalChip> chip = std::make_unique<LocalChip>(std::move(tt_device), chip_info);
+        chip_id_t chip_id = 0;
+        for (auto& device_id : pci_device_ids) {
+            std::unique_ptr<LocalChip> chip = std::make_unique<LocalChip>(sdesc_path, TTDevice::create(device_id));
             chips.emplace(chip_id, std::move(chip));
+            chip_id++;
         }
 
         return Cluster::create_cluster_descriptor(chips);

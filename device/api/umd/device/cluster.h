@@ -954,10 +954,6 @@ public:
 
     static std::filesystem::path serialize_to_file();
 
-    static void ubb_eth_connections(
-        const std::unordered_map<chip_id_t, std::unique_ptr<tt::umd::Chip>>& chips,
-        std::unique_ptr<tt_ClusterDescriptor>& cluster_desc);
-
     // Destructor
     virtual ~Cluster();
 
@@ -1150,10 +1146,11 @@ private:
     static std::unique_ptr<tt_ClusterDescriptor> create_cluster_descriptor(
         const std::unordered_map<chip_id_t, std::unique_ptr<tt::umd::Chip>>& chips);
 
-    void initialize_arc_communication();
+    static void ubb_eth_connections(
+        const std::unordered_map<chip_id_t, std::unique_ptr<tt::umd::Chip>>& chips,
+        std::unique_ptr<tt_ClusterDescriptor>& cluster_desc);
 
-    static std::vector<ChipInfo> get_cluster_chip_info(
-        const std::vector<std::unique_ptr<tt::umd::TTDevice>>& tt_devices);
+    void initialize_arc_communication();
 
     // State variables
     std::vector<tt::ARCH> archs_in_cluster = {};

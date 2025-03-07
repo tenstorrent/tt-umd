@@ -1150,11 +1150,6 @@ private:
         const std::unordered_map<chip_id_t, std::unique_ptr<tt::umd::Chip>>& chips,
         std::unique_ptr<tt_ClusterDescriptor>& cluster_desc);
 
-    void initialize_arc_communication();
-
-    static std::vector<ChipInfo> get_cluster_chip_info(
-        const std::vector<std::unique_ptr<tt::umd::TTDevice>>& tt_devices);
-
     // State variables
     std::vector<tt::ARCH> archs_in_cluster = {};
     std::set<chip_id_t> all_chip_ids_ = {};

@@ -298,10 +298,6 @@ void Cluster::construct_cluster(
             }
         }
     }
-
-    if (!create_mock_chips) {
-        initialize_arc_communication();
-    }
 }
 
 std::unique_ptr<Chip> Cluster::construct_chip_from_cluster(
@@ -2932,17 +2928,6 @@ void Cluster::broadcast_tensix_risc_reset_to_cluster(const TensixSoftResetOption
     }
 }
 
-void Cluster::initialize_arc_communication() {
-    if (arch_name == tt::ARCH::BLACKHOLE) {
-        for (auto& chip : all_chip_ids_) {
-            bh_arc_msg_queues.insert(
-                {chip,
-                 BlackholeArcMessageQueue::get_blackhole_arc_message_queue(
-                     get_tt_device(chip), BlackholeArcMessageQueueIndex::APPLICATION)});
-        }
-    }
-}
-
 void Cluster::set_power_state(tt_DevicePowerState device_state) {
     // MT Initial BH - ARC messages not supported in Blackhole
     if (arch_name != tt::ARCH::BLACKHOLE) {
@@ -3165,23 +3150,6 @@ tt_xy_pair Cluster::translate_chip_coord_virtual_to_translated(const chip_id_t c
     auto translated_coord = get_soc_descriptor(chip_id).translate_coord_to(
         core_coord, umd_use_noc1 ? CoordSystem::PHYSICAL : CoordSystem::TRANSLATED);
     return translated_coord;
-}
-
-std::vector<ChipInfo> Cluster::get_cluster_chip_info(
-    const std::vector<std::unique_ptr<tt::umd::TTDevice>>& tt_devices) {
-    std::vector<tt_xy_pair> eth_cores = tt::umd::blackhole::ETH_CORES;
-    const auto tlb_index = tt::umd::blackhole::MEM_LARGE_READ_TLB;
-
-    // TODO: make this generic when this code is used for other architectures.
-    tt_xy_pair arc_core = tt::umd::blackhole::ARC_CORES[0];
-
-    std::vector<ChipInfo> chip_info_vec;
-    for (auto& tt_device : tt_devices) {
-        tt_device->wait_arc_core_start(arc_core);
-        chip_info_vec.push_back(tt_device->get_chip_info());
-    }
-
-    return chip_info_vec;
 }
 
 std::unique_ptr<tt_ClusterDescriptor> Cluster::create_cluster_descriptor(std::string sdesc_path) {

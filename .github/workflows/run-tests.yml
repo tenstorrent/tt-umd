@@ -56,7 +56,6 @@ jobs:
 
     name: Run tests for ${{ inputs.arch }} on ${{ inputs.card }} on ${{ inputs.ubuntu-version }}
     runs-on:
-      - self-hosted
       - ${{ inputs.card }}
     container:
       image: ghcr.io/${{ github.repository }}/tt-umd-ci-${{ inputs.ubuntu-version }}:latest
@@ -90,6 +89,11 @@ jobs:
       - name: 'Untar build artifacts'
         shell: bash
         run: tar xvf artifact.tar
+
+      - name: Reset the card and read the card info
+        if: ${{ inputs.card == 'tt-beta-ubuntu-2204-n300-large-stable' }}
+        run: |
+          /opt/tt_metal_infra/scripts/ci/wormhole_b0/reset.sh
 
       - name: Run arch-specific UMD unit tests
         run: |

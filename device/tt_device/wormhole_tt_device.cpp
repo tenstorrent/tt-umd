@@ -68,12 +68,16 @@ BoardType WormholeTTDevice::get_board_type() {
     uint32_t exit_code = get_arc_messenger()->send_message(
         tt::umd::wormhole::ARC_MSG_COMMON_PREFIX | 0x2C, arc_msg_return_values, 0, 0, timeout_ms);
 
+    tt_xy_pair arc_core = tt::umd::wormhole::ARC_CORES[0];
     static constexpr uint64_t noc_telemetry_offset = 0x810000000;
     uint64_t telemetry_struct_offset = arc_msg_return_values[0] + noc_telemetry_offset;
 
+    uint32_t vendor_id;
+    read_from_device(&vendor_id, arc_core, telemetry_struct_offset + 4, sizeof(uint32_t));
+    std::cout << "vendor id " << std::hex << vendor_id << std::dec << std::endl;
+
     uint32_t board_id_lo;
     uint32_t board_id_hi;
-    tt_xy_pair arc_core = tt::umd::wormhole::ARC_CORES[0];
     read_from_device(&board_id_hi, arc_core, telemetry_struct_offset + 16, sizeof(uint32_t));
     read_from_device(&board_id_lo, arc_core, telemetry_struct_offset + 20, sizeof(uint32_t));
 

@@ -954,7 +954,7 @@ public:
 
     static std::filesystem::path serialize_to_file();
 
-    void ubb_eth_connections();
+    static void ubb_eth_connections(const std::unordered_map<chip_id_t, std::unique_ptr<tt::umd::Chip>>& chips, std::unique_ptr<tt_ClusterDescriptor>& cluster_desc);
 
     // Get the architecture of the cluster. This function assumes all devices in the cluster have the same architecture.
     static tt::ARCH get_cluster_arch();

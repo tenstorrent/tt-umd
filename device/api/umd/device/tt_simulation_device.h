@@ -46,13 +46,37 @@ public:
         tt_cxy_pair core, const TensixSoftResetOptions& soft_resets = TENSIX_DEASSERT_SOFT_RESET);
     virtual void assert_risc_reset_at_core(
         tt_cxy_pair core, const TensixSoftResetOptions& soft_resets = TENSIX_ASSERT_SOFT_RESET);
+
+    virtual void deassert_risc_reset_at_core(
+        const chip_id_t chip,
+        const tt::umd::CoreCoord core,
+        const TensixSoftResetOptions& soft_resets = TENSIX_DEASSERT_SOFT_RESET);
+    virtual void assert_risc_reset_at_core(
+        const chip_id_t chip,
+        const tt::umd::CoreCoord core,
+        const TensixSoftResetOptions& soft_resets = TENSIX_ASSERT_SOFT_RESET);
+
     virtual void close_device();
 
     // Runtime Functions
     virtual void write_to_device(
         const void* mem_ptr, uint32_t size_in_bytes, tt_cxy_pair core, uint64_t addr, const std::string& tlb_to_use);
+    virtual void write_to_device(
+        const void* mem_ptr,
+        uint32_t size_in_bytes,
+        chip_id_t chip,
+        tt::umd::CoreCoord core,
+        uint64_t addr,
+        const std::string& tlb_to_use);
     virtual void read_from_device(
         void* mem_ptr, tt_cxy_pair core, uint64_t addr, uint32_t size, const std::string& fallback_tlb);
+    virtual void read_from_device(
+        void* mem_ptr,
+        chip_id_t chip,
+        tt::umd::CoreCoord core,
+        uint64_t addr,
+        uint32_t size,
+        const std::string& fallback_tlb);
 
     virtual void wait_for_non_mmio_flush();
     virtual void wait_for_non_mmio_flush(const chip_id_t chip);
@@ -77,6 +101,14 @@ public:
     virtual std::uint32_t get_host_channel_size(std::uint32_t device_id, std::uint32_t channel);
     virtual std::uint32_t get_numa_node_for_pcie_device(std::uint32_t device_id);
     virtual const tt_SocDescriptor& get_soc_descriptor(chip_id_t chip_id) const;
+
+    virtual void configure_active_ethernet_cores_for_mmio_device(
+        chip_id_t mmio_chip, const std::unordered_set<tt_xy_pair>& active_eth_cores_per_chip);
+    virtual void configure_active_ethernet_cores_for_mmio_device(
+        const std::unordered_set<tt::umd::CoreCoord>& active_eth_cores_per_chip, chip_id_t mmio_chip);
+
+    CoordSystem get_coord_system_used() const;
+    tt_xy_pair translate_to_api_coords(const chip_id_t chip, const tt::umd::CoreCoord core_coord) const;
 
 private:
     // State variables

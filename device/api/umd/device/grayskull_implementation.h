@@ -272,6 +272,8 @@ public:
 
     uint32_t get_mem_large_write_tlb() const override { return grayskull::MEM_LARGE_WRITE_TLB; }
 
+    uint32_t get_num_eth_channels() const override { return 0; }
+
     uint32_t get_static_tlb_cfg_addr() const override { return grayskull::STATIC_TLB_CFG_ADDR; }
 
     uint32_t get_static_tlb_size() const override { return grayskull::STATIC_TLB_SIZE; }

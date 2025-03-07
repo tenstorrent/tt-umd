@@ -54,6 +54,6 @@ TEST(ApiTTDeviceTest, TTDeviceGetBoardType) {
 
         EXPECT_TRUE(
             board_type == BoardType::N150 || board_type == BoardType::N300 || board_type == BoardType::P100 ||
-            board_type == BoardType::P150 || board_type == BoardType::P300 || board_type == BoardType::GALAXY);
+            board_type == BoardType::P150 || board_type == BoardType::P300 || board_type == BoardType::GALAXY || board_type == BoardType::UBB);
     }
 }

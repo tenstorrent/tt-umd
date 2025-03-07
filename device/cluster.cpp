@@ -469,29 +469,24 @@ void Cluster::ubb_eth_connections(
                 &port_status, tt_xy_pair(eth_core.x, eth_core.y), conn_info + (channel * 4), sizeof(uint32_t));
 
             if (port_status == eth_unknown || port_status == eth_unconnected) {
-                std::cout << "continuing " << std::endl;
                 channel++;
                 continue;
             }
 
-            uint64_t our_board_type;
+            uint64_t local_chip_id;
             tt_device->read_from_device(
-                &our_board_type, tt_xy_pair(eth_core.x, eth_core.y), base_addr + (64 * 4), sizeof(uint64_t));
+                &local_chip_id, tt_xy_pair(eth_core.x, eth_core.y), base_addr + (64 * 4), sizeof(uint64_t));
 
-            uint64_t neighbour_board_type;
+            uint64_t remote_chip_id;
             tt_device->read_from_device(
-                &neighbour_board_type,
-                tt_cxy_pair(chip_id, eth_core.x, eth_core.y),
-                base_addr + (72 * 4),
-                sizeof(uint64_t));
+                &remote_chip_id, tt_cxy_pair(chip_id, eth_core.x, eth_core.y), base_addr + (72 * 4), sizeof(uint64_t));
 
-            chip_uid_to_local_chip_id.insert({our_board_type, chip_id});
+            chip_uid_to_local_chip_id.insert({local_chip_id, chip_id});
 
             channel++;
         }
     }
 
-    int cnt = 0;
     for (const auto& [chip_id, chip] : chips) {
         std::vector<CoreCoord> eth_cores = chip->get_soc_descriptor().get_cores(CoreType::ETH);
         TTDevice* tt_device = chip->get_tt_device();
@@ -510,41 +505,25 @@ void Cluster::ubb_eth_connections(
                 continue;
             }
 
-            uint64_t neighbour_board_type;
+            uint64_t remote_chip_id;
             tt_device->read_from_device(
-                &neighbour_board_type,
-                tt_cxy_pair(chip_id, eth_core.x, eth_core.y),
-                base_addr + (72 * 4),
-                sizeof(uint64_t));
+                &remote_chip_id, tt_cxy_pair(chip_id, eth_core.x, eth_core.y), base_addr + (72 * 4), sizeof(uint64_t));
 
-            uint64_t our_board_type;
+            uint64_t local_chip_id;
             tt_device->read_from_device(
-                &our_board_type, tt_cxy_pair(chip_id, eth_core.x, eth_core.y), base_addr + (64 * 4), sizeof(uint64_t));
-
-            uint32_t remote_id;
-            tt_device->read_from_device(
-                &remote_id,
-                tt_cxy_pair(chip_id, eth_core.x, eth_core.y),
-                node_info + (rack_offset * 4),
-                sizeof(uint32_t));
+                &local_chip_id, tt_cxy_pair(chip_id, eth_core.x, eth_core.y), base_addr + (64 * 4), sizeof(uint64_t));
 
             uint32_t remote_eth_id;
             tt_device->read_from_device(
                 &remote_eth_id, tt_cxy_pair(chip_id, eth_core.x, eth_core.y), base_addr + 76 * 4, sizeof(uint32_t));
 
-            chip_id_t remote_chip_id = chip_uid_to_local_chip_id.at(neighbour_board_type);
+            chip_id_t remote_logical_chip_id = chip_uid_to_local_chip_id.at(remote_chip_id);
 
-            cluster_desc->ethernet_connections[chip_id][channel] = {remote_chip_id, remote_eth_id};
-
-            std::cout << "adding connection " << chip_id << " " << channel << " " << remote_chip_id << " "
-                      << remote_eth_id << std::endl;
-            cnt++;
+            cluster_desc->ethernet_connections[chip_id][channel] = {remote_logical_chip_id, remote_eth_id};
 
             channel++;
         }
     }
-
-    std::cout << "cnt " << cnt << std::endl;
 }
 
 Cluster::Cluster(
@@ -1394,13 +1373,11 @@ uint32_t Cluster::get_harvested_noc_rows(uint32_t harvesting_mask) {
 }
 
 uint32_t Cluster::get_harvested_rows(int logical_device_id) {
-    std::cout << "getting harvested rows" << std::endl;
     const char* harv_override = std::getenv("T6PY_HARVESTING_OVERRIDE");
     uint32_t harv = 0xffffffff;
     if (harv_override) {
         harv = std::stoul(harv_override, nullptr, 16);
     } else {
-        std::cout << "calling arc message" << std::endl;
         auto mmio_capable_chip_logical = cluster_desc->get_closest_mmio_capable_chip(logical_device_id);
         TTDevice* tt_device = get_tt_device(mmio_capable_chip_logical);
         int harvesting_msg_code = arc_msg(
@@ -1411,7 +1388,6 @@ uint32_t Cluster::get_harvested_rows(int logical_device_id) {
             0,
             1,
             &harv);
-        std::cout << "harv " << harv << std::endl;
         log_assert(
             harvesting_msg_code != MSG_ERROR_REPLY, "Failed to read harvested rows from device {}", logical_device_id);
     }
@@ -3365,15 +3341,5 @@ std::unique_ptr<tt_ClusterDescriptor> Cluster::create_cluster_descriptor(
 std::string Cluster::serialize() { return Cluster::create_cluster_descriptor()->serialize(); }
 
 std::filesystem::path Cluster::serialize_to_file() { return Cluster::create_cluster_descriptor()->serialize_to_file(); }
-
-tt::ARCH Cluster::get_cluster_arch() {
-    std::map<int, PciDeviceInfo> pci_device_info = PCIDevice::enumerate_devices_info();
-
-    if (pci_device_info.empty()) {
-        throw std::runtime_error("Calling get_cluster_arch on the machine without any Tenstorrent cards.");
-    }
-
-    return pci_device_info.begin()->second.get_arch();
-}
 
 }  // namespace tt::umd

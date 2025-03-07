@@ -90,6 +90,7 @@ static constexpr auto TLB_16M_OFFSET = tlb_offsets{
 
 enum class arc_message_type {
     NOP = 0x11,  // Do nothing
+    GET_SMBUS_TELEMETRY_ADDR = 0x2C,
     GET_AICLK = 0x34,
     ARC_GO_BUSY = 0x52,
     ARC_GO_SHORT_IDLE = 0x53,

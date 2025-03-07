@@ -65,7 +65,12 @@ BoardType WormholeTTDevice::get_board_type() {
     ::std::vector<uint32_t> arc_msg_return_values = {0};
     static const uint32_t timeout_ms = 1000;
     uint32_t exit_code = get_arc_messenger()->send_message(
-        tt::umd::wormhole::ARC_MSG_COMMON_PREFIX | 0x2C, arc_msg_return_values, 0, 0, timeout_ms);
+        tt::umd::wormhole::ARC_MSG_COMMON_PREFIX |
+            (uint32_t)tt::umd::wormhole::arc_message_type::GET_SMBUS_TELEMETRY_ADDR,
+        arc_msg_return_values,
+        0,
+        0,
+        timeout_ms);
 
     tt_xy_pair arc_core = tt::umd::wormhole::ARC_CORES[0];
     static constexpr uint64_t noc_telemetry_offset = 0x810000000;
@@ -73,8 +78,10 @@ BoardType WormholeTTDevice::get_board_type() {
 
     uint32_t board_id_lo;
     uint32_t board_id_hi;
-    read_from_device(&board_id_hi, arc_core, telemetry_struct_offset + 16, sizeof(uint32_t));
-    read_from_device(&board_id_lo, arc_core, telemetry_struct_offset + 20, sizeof(uint32_t));
+    static uint64_t board_id_hi_telemetry_offset = 16;
+    static uint64_t board_id_lo_telemetry_offset = 20;
+    read_from_device(&board_id_hi, arc_core, telemetry_struct_offset + board_id_hi_telemetry_offset, sizeof(uint32_t));
+    read_from_device(&board_id_lo, arc_core, telemetry_struct_offset + board_id_lo_telemetry_offset, sizeof(uint32_t));
 
     return get_board_type_from_board_id(((uint64_t)board_id_hi << 32) | board_id_lo);
 }

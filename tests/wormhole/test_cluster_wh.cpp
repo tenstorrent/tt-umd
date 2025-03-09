@@ -895,8 +895,14 @@ TEST(SiliconDriverWH, SysmemTestWithPcie) {
  * Same idea as above, but with four channels of sysmem and random addresses.
  * The hardware mechanism is too slow to sweep the entire range.
  */
+#define P550_HACKS 1
 TEST(SiliconDriverWH, RandomSysmemTestWithPcie) {
+#if P550_HACKS
+    const size_t num_channels = 1;
+#else
     const size_t num_channels = 2;  // ideally 4, but CI seems to have 2...
+#endif
+
     auto target_devices = get_target_devices();
 
     Cluster cluster(

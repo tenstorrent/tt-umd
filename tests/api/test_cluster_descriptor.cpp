@@ -144,3 +144,59 @@ TEST(ApiClusterDescriptorTest, SeparateClusters) {
         EXPECT_TRUE(chip_clusters.are_same_set(chip, closest_mmio_chip));
     }
 }
+
+TEST(ApiClusterDescriptorTest, EthernetConnectivity) {
+    std::unique_ptr<tt_ClusterDescriptor> cluster_desc = tt::umd::Cluster::create_cluster_descriptor();
+
+    if (cluster_desc == nullptr) {
+        GTEST_SKIP() << "No chips present on the system. Skipping test.";
+    }
+
+    auto ethernet_connections = cluster_desc->get_ethernet_connections();
+    for (auto [chip, connections] : ethernet_connections) {
+        for (auto [channel, remote_chip_and_channel] : connections) {
+            std::cout << "Ethernet connection from chip " << chip << " channel " << channel << " to chip "
+                      << std::get<0>(remote_chip_and_channel) << " channel " << std::get<1>(remote_chip_and_channel)
+                      << std::endl;
+        }
+    }
+
+    auto chips_with_mmio = cluster_desc->get_chips_with_mmio();
+    for (auto [chip, mmio_chip] : chips_with_mmio) {
+        std::cout << "Chip " << chip << " has MMIO on PCI id " << mmio_chip << std::endl;
+    }
+
+    for (auto chip : cluster_desc->get_all_chips()) {
+        // Wormhole has 16 and Blackhole has 14 ethernet channels.
+        for (int eth_chan = 0;
+             eth_chan <
+             tt::umd::architecture_implementation::create(cluster_desc->get_arch(chip))->get_num_eth_channels();
+             eth_chan++) {
+            bool has_active_link = cluster_desc->ethernet_core_has_active_ethernet_link(chip, eth_chan);
+            std::cout << "Chip " << chip << " channel " << eth_chan << " has active link: " << has_active_link
+                      << std::endl;
+
+            if (!has_active_link) {
+                continue;
+            }
+            std::tuple<chip_id_t, ethernet_channel_t> remote_chip_and_channel =
+                cluster_desc->get_chip_and_channel_of_remote_ethernet_core(chip, eth_chan);
+            std::cout << "Chip " << chip << " channel " << eth_chan << " has remote chip "
+                      << std::get<0>(remote_chip_and_channel) << " channel " << std::get<1>(remote_chip_and_channel)
+                      << std::endl;
+        }
+    }
+
+    for (auto chip : cluster_desc->get_all_chips()) {
+        std::cout << "Chip " << chip << " has the following active ethernet channels: ";
+        for (auto eth_chan : cluster_desc->get_active_eth_channels(chip)) {
+            std::cout << eth_chan << " ";
+        }
+        std::cout << std::endl;
+        std::cout << " and following idle ethernet channels: ";
+        for (auto eth_chan : cluster_desc->get_idle_eth_channels(chip)) {
+            std::cout << eth_chan << " ";
+        }
+        std::cout << std::endl;
+    }
+}

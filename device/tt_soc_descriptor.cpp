@@ -264,15 +264,7 @@ tt_SocDescriptor::tt_SocDescriptor(
     create_coordinate_manager(board_type, asic_location);
 }
 
-int tt_SocDescriptor::get_num_dram_channels() const {
-    int num_channels = 0;
-    for (auto &dram_core : dram_cores) {
-        if (dram_core.size() > 0) {
-            num_channels++;
-        }
-    }
-    return num_channels;
-}
+int tt_SocDescriptor::get_num_dram_channels() const { return get_grid_size(CoreType::DRAM).x; }
 
 CoreCoord tt_SocDescriptor::get_dram_core_for_channel(
     int dram_chan, int subchannel, const CoordSystem coord_system) const {

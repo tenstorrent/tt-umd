@@ -5,32 +5,54 @@
 #include <thread>
 
 #include "gtest/gtest.h"
-#include "umd/device/blackhole_arc_message_queue.h"
-#include "umd/device/cluster.h"
+#include "umd/device/arc_messenger.h"
+#include "umd/device/blackhole_arc_telemetry_reader.h"
 #include "umd/device/tt_cluster_descriptor.h"
 
 using namespace tt::umd;
 
-inline std::unique_ptr<Cluster> get_cluster() {
+TEST(BlackholeArcMessages, BlackholeArcMessagesBasic) {
     std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
-    // TODO: Make this test work on a host system without any tt devices.
-    if (pci_device_ids.empty()) {
-        return nullptr;
+
+    for (int pci_device_id : pci_device_ids) {
+        std::unique_ptr<TTDevice> tt_device = TTDevice::create(pci_device_id);
+
+        std::unique_ptr<ArcMessenger> bh_arc_messenger = ArcMessenger::create_arc_messenger(tt_device.get());
+
+        const uint32_t num_loops = 100;
+        for (int i = 0; i < num_loops; i++) {
+            uint32_t response = bh_arc_messenger->send_message((uint32_t)ArcMessageType::TEST);
+            ASSERT_EQ(response, 0);
+        }
     }
-    return std::unique_ptr<Cluster>(new Cluster());
 }
 
-TEST(BlackholeArcMessages, BlackholeArcMessagesBasic) {
-    const uint32_t num_loops = 100;
+TEST(BlackholeArcMessages, BlackholeArcMessageHigherAIClock) {
+    const uint32_t ms_sleep = 2000;
 
-    std::unique_ptr<Cluster> cluster = get_cluster();
+    std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
 
-    std::unique_ptr<BlackholeArcMessageQueue> blackhole_arc_msg_queue =
-        BlackholeArcMessageQueue::get_blackhole_arc_message_queue(
-            cluster.get(), 0, BlackholeArcMessageQueueIndex::APPLICATION);
+    for (int pci_device_id : pci_device_ids) {
+        std::unique_ptr<TTDevice> tt_device = TTDevice::create(pci_device_id);
 
-    for (int i = 0; i < num_loops; i++) {
-        uint32_t response = blackhole_arc_msg_queue->send_message(ArcMessageType::TEST);
-        ASSERT_EQ(response, 0);
+        std::unique_ptr<ArcMessenger> bh_arc_messenger = ArcMessenger::create_arc_messenger(tt_device.get());
+
+        uint32_t response = bh_arc_messenger->send_message((uint32_t)ArcMessageType::AICLK_GO_BUSY);
+
+        // Wait for telemetry to update AICLK.
+        std::this_thread::sleep_for(std::chrono::milliseconds(ms_sleep));
+
+        uint32_t aiclk = tt_device->get_clock();
+
+        EXPECT_EQ(aiclk, blackhole::AICLK_BUSY_VAL);
+
+        response = bh_arc_messenger->send_message((uint32_t)ArcMessageType::AICLK_GO_LONG_IDLE);
+
+        // Wait for telemetry to update AICLK.
+        std::this_thread::sleep_for(std::chrono::milliseconds(ms_sleep));
+
+        aiclk = tt_device->get_clock();
+
+        EXPECT_EQ(aiclk, blackhole::AICLK_IDLE_VAL);
     }
 }

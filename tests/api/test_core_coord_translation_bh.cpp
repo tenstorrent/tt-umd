@@ -687,3 +687,17 @@ TEST(CoordinateManager, CoordinateManagerBlackholeTranslationWithoutCoreType) {
         coordinate_manager->translate_coord_to({100, 100}, CoordSystem::PHYSICAL, CoordSystem::PHYSICAL),
         std::runtime_error);
 }
+
+TEST(CoordinateManager, CoordinateManagerBlackholeETHNoNocTranslationMapping) {
+    std::shared_ptr<CoordinateManager> coordinate_manager =
+        CoordinateManager::create_coordinate_manager(tt::ARCH::BLACKHOLE, false);
+
+    const std::vector<tt_xy_pair> eth_pairs = tt::umd::blackhole::ETH_CORES;
+    for (const tt_xy_pair& eth_pair : eth_pairs) {
+        const CoreCoord eth_core = CoreCoord(eth_pair.x, eth_pair.y, CoreType::ETH, CoordSystem::PHYSICAL);
+        const CoreCoord eth_translated = coordinate_manager->translate_coord_to(eth_core, CoordSystem::TRANSLATED);
+
+        EXPECT_EQ(eth_translated.x, eth_pair.x);
+        EXPECT_EQ(eth_translated.y, eth_pair.y);
+    }
+}

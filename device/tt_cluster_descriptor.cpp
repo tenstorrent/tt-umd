@@ -8,6 +8,8 @@
 #include <memory>
 #include <sstream>
 
+#include "api/umd/device/blackhole_implementation.h"
+#include "api/umd/device/wormhole_implementation.h"
 #include "disjoint_set.hpp"
 #include "fmt/core.h"
 #include "libs/create_ethernet_map.h"
@@ -426,10 +428,10 @@ std::unique_ptr<tt_ClusterDescriptor> tt_ClusterDescriptor::create_from_yaml(
 
     YAML::Node yaml = YAML::LoadFile(cluster_descriptor_file_path);
     tt_ClusterDescriptor::load_chips_from_connectivity_descriptor(yaml, *desc);
+    tt_ClusterDescriptor::load_harvesting_information(yaml, *desc);
     tt_ClusterDescriptor::load_ethernet_connections_from_connectivity_descriptor(yaml, *desc);
     tt_ClusterDescriptor::merge_cluster_ids(*desc);
     tt_ClusterDescriptor::fill_galaxy_connections(*desc);
-    tt_ClusterDescriptor::load_harvesting_information(yaml, *desc);
     desc->enable_all_devices();
 
     desc->fill_chips_grouped_by_closest_mmio();
@@ -482,6 +484,20 @@ std::unique_ptr<tt_ClusterDescriptor> tt_ClusterDescriptor::create_mock_cluster(
 void tt_ClusterDescriptor::load_ethernet_connections_from_connectivity_descriptor(
     YAML::Node &yaml, tt_ClusterDescriptor &desc) {
     log_assert(yaml["ethernet_connections"].IsSequence(), "Invalid YAML");
+
+    // Preload idle eth channels.
+    for (const auto &chip : desc.all_chips) {
+        int num_harvested_channels = desc.eth_harvesting_masks.empty()
+                                         ? 0
+                                         : CoordinateManager::get_num_harvested(desc.eth_harvesting_masks.at(chip));
+        int num_channels =
+            tt::umd::architecture_implementation::create(desc.chip_arch.at(chip))->get_num_eth_channels() -
+            num_harvested_channels;
+        for (int i = 0; i < num_channels; i++) {
+            desc.idle_eth_channels[chip].insert(i);
+        }
+    }
+
     for (YAML::Node &connected_endpoints : yaml["ethernet_connections"].as<std::vector<YAML::Node>>()) {
         log_assert(connected_endpoints.IsSequence(), "Invalid YAML");
 
@@ -508,6 +524,10 @@ void tt_ClusterDescriptor::load_ethernet_connections_from_connectivity_descripto
         } else {
             desc.ethernet_connections[chip_1][channel_1] = {chip_0, channel_0};
         }
+        desc.active_eth_channels[chip_0].insert(channel_0);
+        desc.idle_eth_channels[chip_0].erase(channel_0);
+        desc.active_eth_channels[chip_1].insert(channel_1);
+        desc.idle_eth_channels[chip_1].erase(channel_1);
     }
 
     log_debug(LogSiliconDriver, "Ethernet Connectivity Descriptor:");
@@ -752,9 +772,13 @@ void tt_ClusterDescriptor::load_chips_from_connectivity_descriptor(YAML::Node &y
                 board_type = BoardType::N300;
             } else if (chip_board_type.second == "p100") {
                 board_type = BoardType::P100;
-            } else if (chip_board_type.second == "p150A" || chip_board_type.second == "p150") {
+            } else if (
+                chip_board_type.second == "p150" || chip_board_type.second == "p150A" ||
+                chip_board_type.second == "p150C") {
                 board_type = BoardType::P150;
-            } else if (chip_board_type.second == "p300") {
+            } else if (
+                chip_board_type.second == "p300" || chip_board_type.second == "p300A" ||
+                chip_board_type.second == "p300C") {
                 board_type = BoardType::P300;
             } else if (chip_board_type.second == "GALAXY") {
                 board_type = BoardType::GALAXY;
@@ -1011,6 +1035,24 @@ std::set<uint32_t> tt_ClusterDescriptor::get_idle_eth_channels(chip_id_t chip_id
     auto it = idle_eth_channels.find(chip_id);
     if (it == idle_eth_channels.end()) {
         return {};
+    }
+
+    return it->second;
+}
+
+uint32_t tt_ClusterDescriptor::get_dram_harvesting_mask(chip_id_t chip_id) const {
+    auto it = dram_harvesting_masks.find(chip_id);
+    if (it == dram_harvesting_masks.end()) {
+        return 0;
+    }
+
+    return it->second;
+}
+
+uint32_t tt_ClusterDescriptor::get_eth_harvesting_mask(chip_id_t chip_id) const {
+    auto it = eth_harvesting_masks.find(chip_id);
+    if (it == eth_harvesting_masks.end()) {
+        return 0;
     }
 
     return it->second;

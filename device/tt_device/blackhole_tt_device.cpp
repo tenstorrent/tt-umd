@@ -114,8 +114,9 @@ ChipInfo BlackholeTTDevice::get_chip_info() {
 
     chip_info.board_type = get_board_type_from_board_id(chip_info.chip_uid.board_id);
 
+    // TODO: likely not needed anymore. Firware on P100 will give 0 for TAG_ENABLED_ETH
     if (chip_info.board_type == BoardType::P100) {
-        chip_info.harvesting_masks.eth_harvesting_mask = 0;
+        chip_info.harvesting_masks.eth_harvesting_mask = 0x3FFF;
     }
 
     return chip_info;
@@ -139,6 +140,20 @@ void BlackholeTTDevice::wait_arc_core_start(const tt_xy_pair arc_core, const uin
                 "Timed out after waiting {} ms for arc core ({}, {}) to start", timeout_ms, arc_core.x, arc_core.y);
         }
     }
+}
+
+uint32_t BlackholeTTDevice::get_clock() {
+    if (telemetry->is_entry_available(blackhole::TAG_AICLK)) {
+        return telemetry->read_entry(blackhole::TAG_AICLK);
+    }
+
+    throw std::runtime_error("AICLK telemetry not available for Blackhole device.");
+}
+
+BoardType BlackholeTTDevice::get_board_type() {
+    return get_board_type_from_board_id(
+        ((uint64_t)telemetry->read_entry(blackhole::TAG_BOARD_ID_HIGH) << 32) |
+        (telemetry->read_entry(blackhole::TAG_BOARD_ID_LOW)));
 }
 
 }  // namespace tt::umd

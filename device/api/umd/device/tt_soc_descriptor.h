@@ -95,7 +95,6 @@ public:
 
     tt::ARCH arch;
     tt_xy_pair grid_size;
-    tt_xy_pair worker_grid_size;
     std::vector<std::size_t> trisc_sizes;  // Most of software stack assumes same trisc size for whole chip..
     std::string device_descriptor_file_path = std::string("");
 
@@ -123,6 +122,7 @@ private:
         const std::vector<tt::umd::CoreCoord> &physical_cores, const CoordSystem coord_system) const;
 
     // Internal structures, read from yaml.
+    tt_xy_pair worker_grid_size;
     std::unordered_map<tt_xy_pair, CoreDescriptor> cores;
     std::vector<tt_xy_pair> arc_cores;
     std::vector<tt_xy_pair> workers;

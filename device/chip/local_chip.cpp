@@ -24,7 +24,8 @@ LocalChip::LocalChip(std::string sdesc_path, std::unique_ptr<TTDevice> tt_device
         tt_SocDescriptor(
             sdesc_path,
             tt_device->get_chip_info().noc_translation_enabled,
-            tt_device->get_chip_info().harvesting_masks)),
+            tt_device->get_chip_info().harvesting_masks,
+            tt_device->get_chip_info().board_type)),
     tt_device_(std::move(tt_device)) {
     initialize_local_chip();
 }

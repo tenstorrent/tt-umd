@@ -19,7 +19,7 @@ jobs:
       matrix:
         build: [
           {name: ubuntu-22.04},
-          {name: ubuntu-20.04},
+          # {name: ubuntu-20.04},
         ]
 
     name: Building docker image ${{ matrix.build.name }}

@@ -298,6 +298,10 @@ void Cluster::construct_cluster(
             }
         }
     }
+
+    if (!create_mock_chips) {
+        initialize_arc_communication();
+    }
 }
 
 std::unique_ptr<Chip> Cluster::construct_chip_from_cluster(
@@ -396,6 +400,7 @@ uint32_t Cluster::get_tensix_harvesting_mask(
 
 uint32_t Cluster::get_dram_harvesting_mask(
     chip_id_t chip_id,
+    tt_ClusterDescriptor* cluster_desc,
     bool perform_harvesting,
     std::unordered_map<chip_id_t, HarvestingMasks>& simulated_harvesting_masks) {
     if (!perform_harvesting) {
@@ -404,12 +409,14 @@ uint32_t Cluster::get_dram_harvesting_mask(
     }
 
     return simulated_harvesting_masks.find(chip_id) != simulated_harvesting_masks.end()
-               ? simulated_harvesting_masks.at(chip_id).dram_harvesting_mask
-               : 0;
+               ? cluster_desc->get_dram_harvesting_mask(chip_id) |
+                     simulated_harvesting_masks.at(chip_id).dram_harvesting_mask
+               : cluster_desc->get_dram_harvesting_mask(chip_id);
 }
 
 uint32_t Cluster::get_eth_harvesting_mask(
     chip_id_t chip_id,
+    tt_ClusterDescriptor* cluster_desc,
     bool perform_harvesting,
     std::unordered_map<chip_id_t, HarvestingMasks>& simulated_harvesting_masks) {
     if (!perform_harvesting) {
@@ -418,8 +425,9 @@ uint32_t Cluster::get_eth_harvesting_mask(
     }
 
     return simulated_harvesting_masks.find(chip_id) != simulated_harvesting_masks.end()
-               ? simulated_harvesting_masks.at(chip_id).eth_harvesting_mask
-               : 0;
+               ? cluster_desc->get_eth_harvesting_mask(chip_id) |
+                     simulated_harvesting_masks.at(chip_id).eth_harvesting_mask
+               : cluster_desc->get_eth_harvesting_mask(chip_id);
 }
 
 HarvestingMasks Cluster::get_harvesting_masks(
@@ -430,8 +438,10 @@ HarvestingMasks Cluster::get_harvesting_masks(
     return HarvestingMasks{
         .tensix_harvesting_mask =
             get_tensix_harvesting_mask(chip_id, cluster_desc, perfrom_harvesting, simulated_harvesting_masks),
-        .dram_harvesting_mask = get_dram_harvesting_mask(chip_id, perfrom_harvesting, simulated_harvesting_masks),
-        .eth_harvesting_mask = get_eth_harvesting_mask(chip_id, perfrom_harvesting, simulated_harvesting_masks)};
+        .dram_harvesting_mask =
+            get_dram_harvesting_mask(chip_id, cluster_desc, perfrom_harvesting, simulated_harvesting_masks),
+        .eth_harvesting_mask =
+            get_eth_harvesting_mask(chip_id, cluster_desc, perfrom_harvesting, simulated_harvesting_masks)};
 }
 
 Cluster::Cluster(
@@ -980,35 +990,8 @@ void Cluster::set_pcie_power_state(tt_DevicePowerState state) {
 }
 
 int Cluster::get_clock(int logical_device_id) {
-    // TODO: remove this once ARC messages work.
-    // This is currently used only for testing and bringing up Blackhole on Buda.
-    if (arch_name == tt::ARCH::BLACKHOLE) {
-        char* clk_env_var = getenv("TT_SILICON_DRIVER_AICLK");
-        if (clk_env_var != nullptr) {
-            log_warning(
-                LogSiliconDriver,
-                "ARC messages are not enabled on Blackhole. "
-                "Using AICLK value from environment variable TT_SILICON_DRIVER_AICLK: {}",
-                clk_env_var);
-            return std::stoi(clk_env_var);
-        }
-    }
-
-    uint32_t clock;
     auto mmio_capable_chip_logical = cluster_desc->get_closest_mmio_capable_chip(logical_device_id);
-    TTDevice* tt_device = get_tt_device(mmio_capable_chip_logical);
-    auto exit_code = arc_msg(
-        logical_device_id,
-        0xaa00 | tt_device->get_architecture_implementation()->get_arc_message_get_aiclk(),
-        true,
-        0xFFFF,
-        0xFFFF,
-        1,
-        &clock);
-    if (exit_code != 0) {
-        throw std::runtime_error(fmt::format("Failed to get aiclk value with exit code {}", exit_code));
-    }
-    return clock;
+    return get_tt_device(mmio_capable_chip_logical)->get_clock();
 }
 
 std::map<int, int> Cluster::get_clocks() {
@@ -1210,70 +1193,28 @@ int Cluster::pcie_arc_msg(
     int timeout,
     uint32_t* return_3,
     uint32_t* return_4) {
-    if ((msg_code & 0xff00) != 0xaa00) {
-        log_error("Malformed message. msg_code is 0x{:x} but should be 0xaa..", msg_code);
-    }
-    log_assert(arg0 <= 0xffff and arg1 <= 0xffff, "Only 16 bits allowed in arc_msg args");  // Only 16 bits are allowed
+    std::vector<uint32_t> arc_msg_return_values;
 
-    TTDevice* tt_device = get_tt_device(logical_device_id);
-    auto architecture_implementation = tt_device->get_architecture_implementation();
-
-    // Exclusive access for a single process at a time. Based on physical pci interface id.
-    std::string msg_type = "ARC_MSG";
-    const scoped_lock<named_mutex> lock(*get_mutex(msg_type, logical_device_id));
-    uint32_t fw_arg = arg0 | (arg1 << 16);
-    int exit_code = 0;
-
-    bar_write32(logical_device_id, architecture_implementation->get_arc_reset_scratch_offset() + 3 * 4, fw_arg);
-    bar_write32(logical_device_id, architecture_implementation->get_arc_reset_scratch_offset() + 5 * 4, msg_code);
-
-    uint32_t misc = bar_read32(logical_device_id, architecture_implementation->get_arc_reset_arc_misc_cntl_offset());
-    if (misc & (1 << 16)) {
-        log_error("trigger_fw_int failed on device {}", logical_device_id);
-        return 1;
-    } else {
-        bar_write32(
-            logical_device_id, architecture_implementation->get_arc_reset_arc_misc_cntl_offset(), misc | (1 << 16));
+    if (return_3 != nullptr) {
+        arc_msg_return_values.push_back(0);
     }
 
-    if (wait_for_done) {
-        uint32_t status = 0xbadbad;
-        auto timeout_seconds = std::chrono::seconds(timeout);
-        auto start = std::chrono::system_clock::now();
-        while (true) {
-            if (std::chrono::system_clock::now() - start > timeout_seconds) {
-                throw std::runtime_error(fmt::format(
-                    "Timed out after waiting {} seconds for device {} ARC to respond", timeout, logical_device_id));
-            }
-
-            status = bar_read32(logical_device_id, architecture_implementation->get_arc_reset_scratch_offset() + 5 * 4);
-
-            if ((status & 0xffff) == (msg_code & 0xff)) {
-                if (return_3 != nullptr) {
-                    *return_3 = bar_read32(
-                        logical_device_id, architecture_implementation->get_arc_reset_scratch_offset() + 3 * 4);
-                }
-
-                if (return_4 != nullptr) {
-                    *return_4 = bar_read32(
-                        logical_device_id, architecture_implementation->get_arc_reset_scratch_offset() + 4 * 4);
-                }
-
-                exit_code = (status & 0xffff0000) >> 16;
-                break;
-            } else if (status == MSG_ERROR_REPLY) {
-                log_warning(
-                    LogSiliconDriver,
-                    "On device {}, message code 0x{:x} not recognized by FW",
-                    logical_device_id,
-                    msg_code);
-                exit_code = MSG_ERROR_REPLY;
-                break;
-            }
-        }
+    if (return_4 != nullptr) {
+        arc_msg_return_values.push_back(0);
     }
 
-    tt_device->detect_hang_read();
+    uint32_t exit_code = get_tt_device(logical_device_id)
+                             ->get_arc_messenger()
+                             ->send_message(msg_code, arc_msg_return_values, arg0, arg1, timeout);
+
+    if (return_3 != nullptr) {
+        *return_3 = arc_msg_return_values[0];
+    }
+
+    if (return_4 != nullptr) {
+        *return_4 = arc_msg_return_values[1];
+    }
+
     return exit_code;
 }
 
@@ -2909,6 +2850,17 @@ void Cluster::broadcast_tensix_risc_reset_to_cluster(const TensixSoftResetOption
     }
 }
 
+void Cluster::initialize_arc_communication() {
+    if (arch_name == tt::ARCH::BLACKHOLE) {
+        for (auto& chip : all_chip_ids_) {
+            bh_arc_msg_queues.insert(
+                {chip,
+                 BlackholeArcMessageQueue::get_blackhole_arc_message_queue(
+                     get_tt_device(chip), BlackholeArcMessageQueueIndex::APPLICATION)});
+        }
+    }
+}
+
 void Cluster::set_power_state(tt_DevicePowerState device_state) {
     // MT Initial BH - ARC messages not supported in Blackhole
     if (arch_name != tt::ARCH::BLACKHOLE) {
@@ -2919,6 +2871,16 @@ void Cluster::set_power_state(tt_DevicePowerState device_state) {
                 int exit_code = set_remote_power_state(chip, device_state);
                 log_assert(
                     exit_code == 0, "Failed to set power state to {} with exit code: {}", (int)device_state, exit_code);
+            }
+        }
+    } else {
+        for (auto& chip : all_chip_ids_) {
+            std::unique_ptr<BlackholeArcMessageQueue>& bh_arc_msg_queue = bh_arc_msg_queues.at(chip);
+
+            if (device_state == tt_DevicePowerState::BUSY) {
+                bh_arc_msg_queue->send_message(tt::umd::blackhole::ArcMessageType::AICLK_GO_BUSY);
+            } else {
+                bh_arc_msg_queue->send_message(tt::umd::blackhole::ArcMessageType::AICLK_GO_LONG_IDLE);
             }
         }
     }
@@ -2981,9 +2943,10 @@ void Cluster::deassert_resets_and_set_power_state() {
             }
             enable_ethernet_queue(30);
         }
-        // Set power state to busy
-        set_power_state(tt_DevicePowerState::BUSY);
     }
+
+    // Set power state to busy
+    set_power_state(tt_DevicePowerState::BUSY);
 }
 
 void Cluster::verify_eth_fw() {
@@ -3168,6 +3131,8 @@ std::unique_ptr<tt_ClusterDescriptor> Cluster::create_cluster_descriptor(
 
         desc->noc_translation_enabled.insert({chip_id, chip->get_chip_info().noc_translation_enabled});
         desc->harvesting_masks.insert({chip_id, chip->get_chip_info().harvesting_masks.tensix_harvesting_mask});
+        desc->dram_harvesting_masks.insert({chip_id, chip->get_chip_info().harvesting_masks.dram_harvesting_mask});
+        desc->eth_harvesting_masks.insert({chip_id, chip->get_chip_info().harvesting_masks.eth_harvesting_mask});
 
         const std::vector<CoreCoord> eth_cores = chip->get_soc_descriptor().get_cores(CoreType::ETH);
 

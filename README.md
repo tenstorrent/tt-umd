@@ -163,3 +163,7 @@ You can also manually auto format the whole repo using mentioned pre-commit:
 ```bash
    pre-commit run --all-files
 ```
+
+# Grayskull End of Life
+
+Grayskull is no longer actively supported by Tenstorrent. [Last UMD commit](https://github.com/tenstorrent/tt-umd/commit/a5b4719b7d44f0c7c953542803faf6851574329a) supporting Grayskull.

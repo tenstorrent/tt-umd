@@ -17,7 +17,6 @@
 
 #include "fmt/core.h"
 #include "tt_silicon_driver_common.hpp"
-#include "umd/device/blackhole_arc_message_queue.h"
 #include "umd/device/chip/chip.h"
 #include "umd/device/tt_device/tt_device.h"
 #include "umd/device/tt_io.hpp"
@@ -1160,8 +1159,6 @@ private:
 
     std::shared_ptr<tt_ClusterDescriptor> cluster_desc;
 
-    std::unique_ptr<tt::umd::BlackholeArcMessageQueue> bh_arc_msg_queue = nullptr;
-
     // remote eth transfer setup
     static constexpr std::uint32_t NUM_ETH_CORES_FOR_NON_MMIO_TRANSFERS = 6;
     static constexpr std::uint32_t NON_EPOCH_ETH_CORES_FOR_NON_MMIO_TRANSFERS = 4;
@@ -1183,7 +1180,6 @@ private:
     std::unordered_map<chip_id_t, std::unordered_set<tt_xy_pair>> workers_per_chip = {};
     std::unordered_set<tt_xy_pair> eth_cores = {};
     std::unordered_set<tt_xy_pair> dram_cores = {};
-    std::unordered_map<chip_id_t, std::unique_ptr<BlackholeArcMessageQueue>> bh_arc_msg_queues = {};
 
     std::map<std::set<chip_id_t>, std::unordered_map<chip_id_t, std::vector<std::vector<int>>>> bcast_header_cache = {};
     bool perform_harvesting_on_sdesc = false;

@@ -50,6 +50,7 @@
 #include "umd/device/tt_device/tlb_manager.h"
 #include "umd/device/tt_soc_descriptor.h"
 #include "umd/device/types/arch.h"
+#include "umd/device/types/blackhole_arc.h"
 #include "umd/device/types/blackhole_eth.h"
 #include "umd/device/types/tlb.h"
 #include "yaml-cpp/yaml.h"
@@ -2941,13 +2942,18 @@ void Cluster::set_power_state(tt_DevicePowerState device_state) {
             }
         }
     } else {
+        uint32_t exit_code;
         for (auto& chip : all_chip_ids_) {
-            std::unique_ptr<BlackholeArcMessageQueue>& bh_arc_msg_queue = bh_arc_msg_queues.at(chip);
-
             if (device_state == tt_DevicePowerState::BUSY) {
-                bh_arc_msg_queue->send_message(tt::umd::blackhole::ArcMessageType::AICLK_GO_BUSY);
+                exit_code = get_tt_device(chip)->get_arc_messenger()->send_message(
+                    (uint32_t)tt::umd::blackhole::ArcMessageType::AICLK_GO_BUSY);
             } else {
-                bh_arc_msg_queue->send_message(tt::umd::blackhole::ArcMessageType::AICLK_GO_LONG_IDLE);
+                exit_code = get_tt_device(chip)->get_arc_messenger()->send_message(
+                    (uint32_t)tt::umd::blackhole::ArcMessageType::AICLK_GO_LONG_IDLE);
+            }
+
+            if (exit_code != 0) {
+                throw std::runtime_error(fmt::format("Setting power state for chip {} failed.", chip));
             }
         }
     }
@@ -3242,7 +3248,7 @@ std::unique_ptr<tt_ClusterDescriptor> Cluster::create_cluster_descriptor(
             for (size_t eth_channel = 0; eth_channel < eth_cores.size(); eth_channel++) {
                 const CoreCoord& eth_core = eth_cores[eth_channel];
                 TTDevice* tt_device = chip->get_tt_device();
-                boot_results_t boot_results;
+                blackhole::boot_results_t boot_results;
 
                 tt_device->read_from_device(
                     (uint8_t*)&boot_results,
@@ -3250,13 +3256,13 @@ std::unique_ptr<tt_ClusterDescriptor> Cluster::create_cluster_descriptor(
                     blackhole::BOOT_RESULTS_ADDR,
                     sizeof(boot_results));
 
-                if (boot_results.eth_status.port_status == port_status_e::PORT_UP) {
+                if (boot_results.eth_status.port_status == blackhole::port_status_e::PORT_UP) {
                     // active eth core
                     desc->active_eth_channels[chip_id].insert(eth_channel);
                     log_debug(
                         LogSiliconDriver, "Eth core ({}, {}) on chip {} is active", eth_core.x, eth_core.y, chip_id);
-                    const chip_info_t& local_info = boot_results.local_info;
-                    const chip_info_t& remote_info = boot_results.remote_info;
+                    const blackhole::chip_info_t& local_info = boot_results.local_info;
+                    const blackhole::chip_info_t& remote_info = boot_results.remote_info;
 
                     chip_id_t local_chip_id = desc->get_chip_id(local_info.get_chip_uid()).value();
                     std::optional<chip_id_t> remote_chip_id = desc->get_chip_id(remote_info.get_chip_uid());
@@ -3274,7 +3280,7 @@ std::unique_ptr<tt_ClusterDescriptor> Cluster::create_cluster_descriptor(
                         desc->ethernet_connections[local_chip_id][local_info.eth_id] = {
                             remote_chip_id.value(), remote_info.eth_id};
                     }
-                } else if (boot_results.eth_status.port_status == port_status_e::PORT_DOWN) {
+                } else if (boot_results.eth_status.port_status == blackhole::port_status_e::PORT_DOWN) {
                     // active eth core, just with link being down.
                     desc->active_eth_channels[chip_id].insert(eth_channel);
                     log_debug(
@@ -3283,11 +3289,11 @@ std::unique_ptr<tt_ClusterDescriptor> Cluster::create_cluster_descriptor(
                         eth_core.x,
                         eth_core.y,
                         chip_id);
-                } else if (boot_results.eth_status.port_status == port_status_e::PORT_UNUSED) {
+                } else if (boot_results.eth_status.port_status == blackhole::port_status_e::PORT_UNUSED) {
                     // idle core
                     desc->idle_eth_channels[chip_id].insert(eth_channel);
                     log_debug(LogSiliconDriver, "Eth core ({}, {}) on chip {} is idle");
-                } else if (boot_results.eth_status.port_status == port_status_e::PORT_UNKNOWN) {
+                } else if (boot_results.eth_status.port_status == blackhole::port_status_e::PORT_UNKNOWN) {
                     log_debug(
                         LogSiliconDriver,
                         "Port on eth core ({}, {}) on chip {} is in unknown state",

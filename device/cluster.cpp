@@ -376,17 +376,10 @@ uint32_t Cluster::get_tensix_harvesting_mask(
     uint32_t simulated_harvesting_mask = (simulated_harvesting_masks.find(chip_id) != simulated_harvesting_masks.end())
                                              ? simulated_harvesting_masks.at(chip_id).tensix_harvesting_mask
                                              : 0;
-    if (simulated_harvesting_mask != 0) {
-        log_info(
-            LogSiliconDriver,
-            "Adding simulated harvesting mask {} for chip {} which has real harvesting mask {}.",
-            simulated_harvesting_mask,
-            chip_id,
-            tensix_harvesting_mask);
-    }
-    log_debug(
+    log_info(
         LogSiliconDriver,
-        "Harvesting mask for chip {} is {} (physical layout: {}, logical: {}, simulated harvesting mask: {}).",
+        "Harvesting mask for chip {} is 0x{:x} (physical layout: 0x{:x}, logical: 0x{:x}, simulated harvesting mask: "
+        "0x{:x}).",
         chip_id,
         tensix_harvesting_mask | simulated_harvesting_mask,
         tensix_harvesting_mask_physical_layout,

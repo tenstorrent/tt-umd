@@ -14,7 +14,7 @@ using namespace tt::umd::blackhole;
 
 namespace tt::umd {
 
-class Cluster;
+class TTDevice;
 
 /* On Blackhole there are few ARC message queues that can be used to communicate with ARC FW.
  * ARC message queues are simple circular queues. There are read/write pointers both for requests and responses.
@@ -46,19 +46,16 @@ private:
 
 public:
     BlackholeArcMessageQueue(
-        Cluster* cluster,
-        const chip_id_t chip,
-        const uint64_t base_address,
-        const uint64_t size,
-        const CoreCoord arc_core);
+        TTDevice* tt_device, const uint64_t base_address, const uint64_t size, const CoreCoord arc_core);
 
     /*
      * Send ARC message. The call of send_message is blocking, timeout is to be implemented.
      */
-    uint32_t send_message(const ArcMessageType message_type, uint16_t arg0 = 0, uint16_t arg1 = 0);
+    uint32_t send_message(
+        const ArcMessageType message_type, uint16_t arg0 = 0, uint16_t arg1 = 0, uint32_t timeout_ms = 1000);
 
     static std::unique_ptr<BlackholeArcMessageQueue> get_blackhole_arc_message_queue(
-        Cluster* cluster, const chip_id_t chip, const size_t queue_index);
+        TTDevice* tt_device, const size_t queue_index);
 
 private:
     void push_request(std::array<uint32_t, BlackholeArcMessageQueue::entry_len>& request);
@@ -75,8 +72,7 @@ private:
 
     const uint64_t base_address;
     const uint64_t size;
-    Cluster* cluster;
-    const chip_id_t chip;
+    TTDevice* tt_device;
     const CoreCoord arc_core;
 };
 

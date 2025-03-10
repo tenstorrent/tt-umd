@@ -7,6 +7,7 @@
 #pragma once
 #include <cassert>
 #include <cstdint>
+#include <filesystem>
 #include <memory>
 #include <set>
 #include <stdexcept>
@@ -496,33 +497,6 @@ public:
         throw std::runtime_error("---- tt_device::dram_membar is not implemented\n");
     }
 
-    // Misc. Functions to Query/Set Device State
-    /**
-     * Query post harvesting SOC descriptors from UMD in virtual coordinates.
-     * It should just return the SoCDescriptors that were created during construction.
-     * These descriptors should be used for looking up cores that are passed into UMD APIs.
-     */
-    virtual std::unordered_map<chip_id_t, tt_SocDescriptor> get_virtual_soc_descriptors() {
-        return soc_descriptor_per_chip;
-    }
-
-    /**
-     * Determine if UMD performed harvesting on SOC descriptors. Returns false if there is no harvesting for the
-     * devices.
-     */
-    virtual bool using_harvested_soc_descriptors() {
-        throw std::runtime_error("---- tt_device:using_harvested_soc_descriptors is not implemented\n");
-    }
-
-    /**
-     * Get harvesting masks for all chips/SOC Descriptors in the cluster.
-     * Each mask represents a map of enabled (0) and disabled (1) rows on a specific chip (in NOC0 Coordinateds).
-     * Returns a map which has all zeros if there is no harvesting for these devices.
-     */
-    virtual std::unordered_map<chip_id_t, uint32_t> get_harvesting_masks_for_soc_descriptors() {
-        throw std::runtime_error("---- tt_device:get_harvesting_masks_for_soc_descriptors is not implemented\n");
-    }
-
     /**
      * Issue message to device, meant to be picked up by ARC firmware.
      *
@@ -545,18 +519,6 @@ public:
         uint32_t* return_3 = nullptr,
         uint32_t* return_4 = nullptr) {
         throw std::runtime_error("---- tt_device::arc_msg is not implemented\n");
-    }
-
-    /**
-     * Translate between virtual coordinates (from UMD SOC Descriptor) and translated coordinates.
-     * This function is a no-op if no harvesting or translation are available on the device.
-     *
-     * @param device_id Chip to target.
-     * @param r Row coordinate.
-     * @param c Column coordinate.
-     */
-    virtual void translate_to_noc_table_coords(chip_id_t device_id, std::size_t& r, std::size_t& c) {
-        throw std::runtime_error("---- tt_device::translate_to_noc_table_coords is not implemented\n");
     }
 
     /**
@@ -677,16 +639,8 @@ public:
      * @param chip_id Chip to get soc descriptor for.
      */
     virtual const tt_SocDescriptor& get_soc_descriptor(chip_id_t chip_id) const {
-        return soc_descriptor_per_chip.at(chip_id);
+        throw std::runtime_error("---- tt_device::get_soc_descriptor is not implemented\n");
     }
-
-    bool performed_harvesting = false;
-    std::unordered_map<chip_id_t, uint32_t> harvested_rows_per_target = {};
-    bool translation_tables_en = false;
-
-protected:
-    // TODO: Remove this once get_virtual_soc_descriptors can be removed.
-    std::unordered_map<chip_id_t, tt_SocDescriptor> soc_descriptor_per_chip = {};
 };
 
 namespace tt::umd {
@@ -703,7 +657,7 @@ public:
      * Simplest form, creates a cluster of all available devices on the system.
      *
      * @param num_host_mem_ch_per_mmio_device Requested number of host channels (hugepages).
-     * @param skip_driver_allocs
+     * @param create_mock_chips Create mock chips for the devices in the cluster descriptor.
      * @param clean_system_resource Specifies if host state from previous runs needs to be cleaned up.
      * @param perform_harvesting Allow the driver to modify the SOC descriptors per chip.
      * @param simulated_harvesting_masks Manually specify additional harvesting masks for the devices in the cluster.
@@ -711,7 +665,7 @@ public:
      */
     Cluster(
         const uint32_t& num_host_mem_ch_per_mmio_device = 1,
-        const bool skip_driver_allocs = false,
+        const bool create_mock_chips = false,
         const bool clean_system_resources = false,
         bool perform_harvesting = true,
         std::unordered_map<chip_id_t, HarvestingMasks> simulated_harvesting_masks = {});
@@ -722,7 +676,7 @@ public:
      *
      * @param target_devices Devices to target.
      * @param num_host_mem_ch_per_mmio_device Requested number of host channels (hugepages).
-     * @param skip_driver_allocs
+     * @param create_mock_chips Create mock chips for the devices in the cluster descriptor.
      * @param clean_system_resource Specifies if host state from previous runs needs to be cleaned up.
      * @param perform_harvesting Allow the driver to modify the SOC descriptors per chip.
      * @param simulated_harvesting_masks Manually specify additional harvesting masks for the devices in the cluster.
@@ -731,7 +685,7 @@ public:
     Cluster(
         const std::set<chip_id_t>& target_devices,
         const uint32_t& num_host_mem_ch_per_mmio_device = 1,
-        const bool skip_driver_allocs = false,
+        const bool create_mock_chips = false,
         const bool clean_system_resources = false,
         bool perform_harvesting = true,
         std::unordered_map<chip_id_t, HarvestingMasks> simulated_harvesting_masks = {});
@@ -745,7 +699,7 @@ public:
      * harvesting info of the devices in the cluster.
      * @param target_devices Devices to target.
      * @param num_host_mem_ch_per_mmio_device Requested number of host channels (hugepages).
-     * @param skip_driver_allocs
+     * @param create_mock_chips Create mock chips for the devices in the cluster descriptor.
      * @param clean_system_resource Specifies if host state from previous runs needs to be cleaned up.
      * @param perform_harvesting Allow the driver to modify the SOC descriptors per chip.
      * @param simulated_harvesting_masks Manually specify additional harvesting masks for the devices in the cluster.
@@ -755,37 +709,32 @@ public:
         const std::string& sdesc_path,
         const std::set<chip_id_t>& target_devices,
         const uint32_t& num_host_mem_ch_per_mmio_device = 1,
-        const bool skip_driver_allocs = false,
+        const bool create_mock_chips = false,
         const bool clean_system_resources = false,
         bool perform_harvesting = true,
         std::unordered_map<chip_id_t, HarvestingMasks> simulated_harvesting_masks = {});
 
     /**
      * Cluster constructor.
-     * This constructor offers maximal flexibility, allowing the user to pass manually created Chips.
-     * The user has to know what they are doing.
-     * TODO: Could fail if logical_ids not match the ones in cluster descriptor, while Cluster still uses cluster
-     * descriptor.
+     * This constructor can be used with custom cluster descriptor. If the cluster descriptor does not match the
+     * actual devices on the system, the constructor will throw an exception. If create_mock_chips is set to true,
+     * the constructor will create mock chips for the devices in the cluster descriptor.
      *
-     * @param chips Map of logical device ids to Chip instances.
+     * @param cluster_descriptor Cluster descriptor object based on which Cluster is going to be created.
      * @param num_host_mem_ch_per_mmio_device Requested number of host channels (hugepages).
-     * @param skip_driver_allocs
+     * @param create_mock_chips Create mock chips for the devices in the cluster descriptor.
      * @param clean_system_resource Specifies if host state from previous runs needs to be cleaned up.
      * @param perform_harvesting Allow the driver to modify the SOC descriptors per chip.
-     * @param simulated_harvesting_masks
+     * @param simulated_harvesting_masks Manually specify additional harvesting masks for the devices in the cluster.
+     * The ones defined by the devices itself have to be used, they will be merged with the ones passed here.
      */
     Cluster(
-        std::unordered_map<chip_id_t, std::unique_ptr<Chip>>& chips,
+        std::unique_ptr<tt_ClusterDescriptor> cluster_descriptor,
         const uint32_t& num_host_mem_ch_per_mmio_device = 1,
-        const bool skip_driver_allocs = false,
+        const bool create_mock_chips = false,
         const bool clean_system_resources = false,
         bool perform_harvesting = true,
         std::unordered_map<chip_id_t, HarvestingMasks> simulated_harvesting_masks = {});
-
-    /**
-     * Cluster constructor which creates a cluster with Mock chips.
-     */
-    static std::unique_ptr<Cluster> create_mock_cluster();
 
     // Existing API we want to keep. UMD is transitioning to use CoreCoord instead of tt_xy_pair.
     // This set of function shouldn't be removed even after the transition.
@@ -837,7 +786,6 @@ public:
         int timeout = 1,
         uint32_t* return_3 = nullptr,
         uint32_t* return_4 = nullptr);
-    virtual std::unordered_map<chip_id_t, uint32_t> get_harvesting_masks_for_soc_descriptors();
     virtual tt_ClusterDescriptor* get_cluster_description();
 
     /**
@@ -907,7 +855,6 @@ public:
     // Existing API we want to remove. UMD is transitioning to use CoreCoord instead of tt_xy_pair.
     // This set of functions is supposed to be removed one the transition for clients (tt-metal, tt-lens) is complete.
     // TODO: remove this set of functions once the transition for clients is completed.
-    std::unordered_map<chip_id_t, tt_SocDescriptor> get_virtual_soc_descriptors();
     virtual void configure_tlb(
         chip_id_t logical_device_id,
         tt_xy_pair core,
@@ -959,15 +906,6 @@ public:
      * @param target The target chip and core to write to.
      */
     tt::Writer get_static_tlb_writer(tt_cxy_pair target);
-    virtual bool using_harvested_soc_descriptors();
-    virtual void translate_to_noc_table_coords(chip_id_t device_id, std::size_t& r, std::size_t& c);
-    static std::vector<int> extract_rows_to_remove(
-        const tt::ARCH& arch, const int worker_grid_rows, const int harvested_rows);
-    static void remove_worker_row_from_descriptor(
-        tt_SocDescriptor& full_soc_descriptor, const std::vector<int>& row_coordinates_to_remove);
-    static void harvest_rows_in_soc_descriptor(tt::ARCH arch, tt_SocDescriptor& sdesc, uint32_t harvested_rows);
-    static std::unordered_map<tt_xy_pair, tt_xy_pair> create_harvested_coord_translation(
-        const tt::ARCH arch, bool identity_map);
 
     // New API. UMD is transitioning to use CoreCoord instead of tt_xy_pair.
     // This is new set of functions that should be used once the transition for clients (tt-metal, tt-lens) is complete.
@@ -1010,7 +948,12 @@ public:
     virtual void dram_membar(
         const chip_id_t chip, const std::unordered_set<tt::umd::CoreCoord>& cores, const std::string& fallback_tlb);
 
-    static std::unique_ptr<tt_ClusterDescriptor> create_cluster_descriptor();
+    static std::unique_ptr<tt_ClusterDescriptor> create_cluster_descriptor(std::string sdesc_path = "");
+
+    static std::string serialize();
+
+    static std::filesystem::path serialize_to_file();
+
     // Destructor
     virtual ~Cluster();
 
@@ -1020,7 +963,7 @@ private:
     void create_device(
         const std::set<chip_id_t>& target_mmio_device_ids,
         const uint32_t& num_host_mem_ch_per_mmio_device,
-        const bool skip_driver_allocs,
+        const bool create_mock_chips,
         const bool clean_system_resources);
     void initialize_interprocess_mutexes(int logical_device_id, bool cleanup_mutexes_in_shm);
     void cleanup_shared_host_state();
@@ -1029,7 +972,6 @@ private:
     void broadcast_tensix_risc_reset_to_cluster(const TensixSoftResetOptions& soft_resets);
     void send_remote_tensix_risc_reset_to_core(const tt_cxy_pair& core, const TensixSoftResetOptions& soft_resets);
     void send_tensix_risc_reset_to_core(const tt_cxy_pair& core, const TensixSoftResetOptions& soft_resets);
-    void perform_harvesting_on_soc_descriptors();
     void populate_cores();
     void init_pcie_iatus();  // No more p2p support.
     void check_pcie_device_initialized(int device_id);
@@ -1152,18 +1094,23 @@ private:
 
     // Helper functions for constructing the chips from the cluster descriptor.
     std::unique_ptr<Chip> construct_chip_from_cluster(
-        chip_id_t chip_id, tt_ClusterDescriptor* cluster_desc, tt_SocDescriptor& soc_desc);
+        chip_id_t chip_id,
+        tt_ClusterDescriptor* cluster_desc,
+        tt_SocDescriptor& soc_desc,
+        const bool create_mock_chip = false);
     std::unique_ptr<Chip> construct_chip_from_cluster(
         const std::string& soc_desc_path,
         chip_id_t chip_id,
         tt_ClusterDescriptor* cluster_desc,
         bool perform_harvesting,
-        std::unordered_map<chip_id_t, HarvestingMasks>& simulated_harvesting_masks);
+        std::unordered_map<chip_id_t, HarvestingMasks>& simulated_harvesting_masks,
+        const bool create_mock_chip = false);
     std::unique_ptr<Chip> construct_chip_from_cluster(
         chip_id_t logical_device_id,
         tt_ClusterDescriptor* cluster_desc,
         bool perform_harvesting,
-        std::unordered_map<chip_id_t, HarvestingMasks>& simulated_harvesting_masks);
+        std::unordered_map<chip_id_t, HarvestingMasks>& simulated_harvesting_masks,
+        const bool create_mock_chip = false);
     void add_chip(chip_id_t chip_id, std::unique_ptr<Chip> chip);
     HarvestingMasks get_harvesting_masks(
         chip_id_t chip_id,
@@ -1175,24 +1122,20 @@ private:
         tt_ClusterDescriptor* cluster_desc,
         bool perform_harvesting,
         std::unordered_map<chip_id_t, HarvestingMasks>& simulated_harvesting_masks);
-    // TODO: this function returns only software harvesting mask for DRAM.
-    // Combine this with silicon harvesting mask once gathering silicon harvesting mask is implemented.
     uint32_t get_dram_harvesting_mask(
         chip_id_t chip_id,
+        tt_ClusterDescriptor* cluster_desc,
         bool perform_harvesting,
         std::unordered_map<chip_id_t, HarvestingMasks>& simulated_harvesting_masks);
-    // TODO: this function returns only software harvesting mask for ETH.
-    // Combine this with silicon harvesting mask once gathering silicon harvesting mask is implemented.
     uint32_t get_eth_harvesting_mask(
         chip_id_t chip_id,
+        tt_ClusterDescriptor* cluster_desc,
         bool perform_harvesting,
         std::unordered_map<chip_id_t, HarvestingMasks>& simulated_harvesting_masks);
     void construct_cluster(
         const uint32_t& num_host_mem_ch_per_mmio_device,
-        const bool skip_driver_allocs,
-        const bool clean_system_resources,
-        bool perform_harvesting,
-        std::unordered_map<chip_id_t, HarvestingMasks> simulated_harvesting_masks);
+        const bool create_mock_chips,
+        const bool clean_system_resources);
     // TODO: These functions should be removed once the transition to CoreCoord is complete.
     CoordSystem get_coord_system_used() const;
     tt_xy_pair translate_to_api_coords(const chip_id_t chip, const tt::umd::CoreCoord core_coord) const;
@@ -1203,6 +1146,10 @@ private:
     static std::unique_ptr<tt_ClusterDescriptor> create_cluster_descriptor(
         const std::unordered_map<chip_id_t, std::unique_ptr<tt::umd::Chip>>& chips);
 
+    static void ubb_eth_connections(
+        const std::unordered_map<chip_id_t, std::unique_ptr<tt::umd::Chip>>& chips,
+        std::unique_ptr<tt_ClusterDescriptor>& cluster_desc);
+
     // State variables
     std::vector<tt::ARCH> archs_in_cluster = {};
     std::set<chip_id_t> all_chip_ids_ = {};
@@ -1212,6 +1159,8 @@ private:
     tt::ARCH arch_name;
 
     std::shared_ptr<tt_ClusterDescriptor> cluster_desc;
+
+    std::unique_ptr<tt::umd::BlackholeArcMessageQueue> bh_arc_msg_queue = nullptr;
 
     // remote eth transfer setup
     static constexpr std::uint32_t NUM_ETH_CORES_FOR_NON_MMIO_TRANSFERS = 6;
@@ -1230,13 +1179,11 @@ private:
     std::unordered_map<chip_id_t, bool> flush_non_mmio_per_chip = {};
     bool non_mmio_transfer_cores_customized = false;
     std::unordered_map<chip_id_t, int> active_eth_core_idx_per_chip = {};
-    std::unordered_map<chip_id_t, bool> noc_translation_enabled_for_chip = {};
     std::map<std::string, std::shared_ptr<boost::interprocess::named_mutex>> hardware_resource_mutex_map = {};
-    std::unordered_map<chip_id_t, std::unordered_map<tt_xy_pair, tt_xy_pair>> harvested_coord_translation = {};
-    std::unordered_map<chip_id_t, std::uint32_t> num_rows_harvested = {};
     std::unordered_map<chip_id_t, std::unordered_set<tt_xy_pair>> workers_per_chip = {};
     std::unordered_set<tt_xy_pair> eth_cores = {};
     std::unordered_set<tt_xy_pair> dram_cores = {};
+    std::unordered_map<chip_id_t, std::unique_ptr<BlackholeArcMessageQueue>> bh_arc_msg_queues = {};
 
     std::map<std::set<chip_id_t>, std::unordered_map<chip_id_t, std::vector<std::vector<int>>>> bcast_header_cache = {};
     bool perform_harvesting_on_sdesc = false;

@@ -4,19 +4,26 @@
 #include "umd/device/tt_device/tt_device.h"
 
 #include "logger.hpp"
+#include "umd/device/arc_messenger.h"
 #include "umd/device/driver_atomics.h"
 #include "umd/device/tt_device/blackhole_tt_device.h"
 #include "umd/device/tt_device/grayskull_tt_device.h"
 #include "umd/device/tt_device/wormhole_tt_device.h"
 
+// TODO #526: This is a hack to allow UMD to use the NOC1 TLB.
+bool umd_use_noc1 = false;
+
 namespace tt::umd {
+
+void TTDevice::use_noc1(bool use_noc1) { umd_use_noc1 = use_noc1; }
 
 TTDevice::TTDevice(
     std::unique_ptr<PCIDevice> pci_device, std::unique_ptr<architecture_implementation> architecture_impl) :
     pci_device_(std::move(pci_device)),
     architecture_impl_(std::move(architecture_impl)),
     tlb_manager_(std::make_unique<TLBManager>(this)),
-    arch(architecture_impl_->get_architecture()) {}
+    arch(architecture_impl_->get_architecture()),
+    arc_messenger_(ArcMessenger::create_arc_messenger(this)) {}
 
 /* static */ std::unique_ptr<TTDevice> TTDevice::create(int pci_device_number) {
     auto pci_device = std::make_unique<PCIDevice>(pci_device_number);
@@ -298,6 +305,7 @@ dynamic_tlb TTDevice::set_dynamic_tlb(
             .y_end = static_cast<uint64_t>(end.y),
             .x_start = static_cast<uint64_t>(start.x),
             .y_start = static_cast<uint64_t>(start.y),
+            .noc_sel = umd_use_noc1 ? 1U : 0,
             .mcast = multicast,
             .ordering = ordering,
             // TODO #2715: hack for Blackhole A0, will potentially be fixed in B0.
@@ -343,6 +351,32 @@ void TTDevice::configure_iatu_region(size_t region, uint64_t base, uint64_t targ
 
 void TTDevice::wait_arc_core_start(const tt_xy_pair arc_core, const uint32_t timeout_ms) {
     throw std::runtime_error("Waiting for ARC core to start is supported only for Blackhole TTDevice.");
+}
+
+void TTDevice::bar_write32(uint32_t addr, uint32_t data) {
+    if (addr < get_pci_device()->bar0_uc_offset) {
+        write_block(addr, sizeof(data), reinterpret_cast<const uint8_t *>(&data));  // do we have to reinterpret_cast?
+    } else {
+        write_regs(addr, 1, &data);
+    }
+}
+
+uint32_t TTDevice::bar_read32(uint32_t addr) {
+    uint32_t data;
+    if (addr < get_pci_device()->bar0_uc_offset) {
+        read_block(addr, sizeof(data), reinterpret_cast<uint8_t *>(&data));
+    } else {
+        read_regs(addr, 1, &data);
+    }
+    return data;
+}
+
+tt::umd::ArcMessenger *TTDevice::get_arc_messenger() const { return arc_messenger_.get(); }
+
+uint32_t TTDevice::get_clock() {
+    throw std::runtime_error(
+        "Base TTDevice class does not have get_clock implemented. Move this to abstract function once Grayskull "
+        "TTDevice is deleted.");
 }
 
 }  // namespace tt::umd

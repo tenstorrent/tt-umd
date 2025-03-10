@@ -18,16 +18,14 @@ LocalChip::LocalChip(tt_SocDescriptor soc_descriptor, int pci_device_id) :
     initialize_local_chip();
 }
 
-LocalChip::LocalChip(std::unique_ptr<TTDevice> tt_device) :
+LocalChip::LocalChip(std::string sdesc_path, std::unique_ptr<TTDevice> tt_device) :
     Chip(
         tt_device->get_chip_info(),
         tt_SocDescriptor(
-            tt_SocDescriptor::get_soc_descriptor_path(
-                tt_device->get_arch(),
-                tt_device->get_chip_info().board_type,
-                tt_device->get_chip_info().chip_uid.asic_location),
+            sdesc_path,
             tt_device->get_chip_info().noc_translation_enabled,
-            tt_device->get_chip_info().harvesting_masks)),
+            tt_device->get_chip_info().harvesting_masks,
+            tt_device->get_chip_info().board_type)),
     tt_device_(std::move(tt_device)) {
     initialize_local_chip();
 }
@@ -64,23 +62,14 @@ void LocalChip::wait_eth_cores_training(const uint32_t timeout_ms) {
     for (const CoreCoord& eth_core : eth_cores) {
         const tt_xy_pair eth_core_pair = {eth_core.x, eth_core.y};
 
-        uint32_t postcode;
+        uint32_t port_status_addr = blackhole::BOOT_RESULTS_ADDR + offsetof(blackhole::eth_status_t, port_status);
+        uint32_t port_status_val;
+        tt_device->read_from_device(&port_status_val, eth_core_pair, port_status_addr, sizeof(port_status_val));
 
-        while (true) {
-            tt_device->read_from_device(&postcode, eth_core_pair, blackhole::BOOT_RESULTS_ADDR, sizeof(postcode));
-
-            if (postcode == blackhole::POSTCODE_ETH_INIT_PASS) {
-                break;
-            }
-
-            if (postcode == blackhole::POSTCODE_ETH_INIT_FAIL) {
-                // TODO: Exception should be thrown here. ETH connections are very flaky
-                // on Blackhole right now. When this is fixed we can throw the exception here.
-                // Since we are not going to do any remote IO at the moment it is fine to just log the error.
-                log_error("Eth core ({}, {}) failed to initialize", eth_core_pair.x, eth_core_pair.y);
-                break;
-            }
-
+        // Port status should be last state to settle during the eth training sequence
+        // PORT_UNKNOWN means that eth is still training
+        while (port_status_val == blackhole::port_status_e::PORT_UNKNOWN) {
+            tt_device->read_from_device(&port_status_val, eth_core_pair, port_status_addr, sizeof(port_status_val));
             auto end = std::chrono::system_clock::now();
             auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
             if (duration.count() > timeout_ms) {

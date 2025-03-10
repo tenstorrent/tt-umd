@@ -16,10 +16,6 @@ BlackholeArcTelemetryReader::BlackholeArcTelemetryReader(TTDevice* tt_device) : 
 }
 
 void BlackholeArcTelemetryReader::initialize_telemetry() {
-    for (uint8_t i = 0; i < NUMBER_TELEMETRY_TAGS; i++) {
-        telemetry_entry_available[i] = false;
-    }
-
     tt_device->read_from_device(
         &telemetry_table_addr,
         BlackholeArcTelemetryReader::arc_core,
@@ -56,24 +52,19 @@ void BlackholeArcTelemetryReader::initialize_telemetry() {
         const uint16_t tag_val = tag_entry.tag;
         const uint16_t offset_val = tag_entry.offset;
 
-        telemetry_values[tag_val - 1] = telemetry_data[offset_val];
-        telemetry_entry_available[tag_val - 1] = true;
-        telemetry_offset[tag_val - 1] = offset_val;
+        telemetry_values.insert({tag_val, telemetry_data[offset_val]});
+        telemetry_offset.insert({tag_val, offset_val});
     }
 }
 
 uint32_t BlackholeArcTelemetryReader::read_entry(const uint8_t telemetry_tag) {
-    if (telemetry_tag == 0 || telemetry_tag > NUMBER_TELEMETRY_TAGS) {
-        throw std::runtime_error(fmt::format("Invalid telemtry tag {}", telemetry_tag));
-    }
-
-    if (!telemetry_entry_available[telemetry_tag - 1]) {
+    if (!is_entry_available(telemetry_tag)) {
         throw std::runtime_error(fmt::format(
             "Telemetry entry {} not available. You can use is_entry_available() to check if the entry is available.",
             telemetry_tag));
     }
 
-    const uint32_t offset = telemetry_offset[telemetry_tag - 1];
+    const uint32_t offset = telemetry_offset.at(telemetry_tag);
     uint32_t telemetry_val;
     tt_device->read_from_device(
         &telemetry_val,
@@ -81,12 +72,12 @@ uint32_t BlackholeArcTelemetryReader::read_entry(const uint8_t telemetry_tag) {
         telemetry_values_addr + offset * sizeof(uint32_t),
         sizeof(uint32_t));
 
-    telemetry_values[telemetry_tag - 1] = telemetry_val;
-    return telemetry_values[telemetry_tag - 1];
+    telemetry_values[telemetry_tag] = telemetry_val;
+    return telemetry_values[telemetry_tag];
 }
 
 bool BlackholeArcTelemetryReader::is_entry_available(const uint8_t telemetry_tag) {
-    return telemetry_entry_available[telemetry_tag - 1];
+    return telemetry_values.find(telemetry_tag) != telemetry_values.end();
 }
 
 }  // namespace blackhole

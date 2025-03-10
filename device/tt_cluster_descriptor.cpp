@@ -8,6 +8,8 @@
 #include <memory>
 #include <sstream>
 
+#include "api/umd/device/blackhole_implementation.h"
+#include "api/umd/device/wormhole_implementation.h"
 #include "disjoint_set.hpp"
 #include "fmt/core.h"
 #include "libs/create_ethernet_map.h"
@@ -426,10 +428,10 @@ std::unique_ptr<tt_ClusterDescriptor> tt_ClusterDescriptor::create_from_yaml(
 
     YAML::Node yaml = YAML::LoadFile(cluster_descriptor_file_path);
     tt_ClusterDescriptor::load_chips_from_connectivity_descriptor(yaml, *desc);
+    tt_ClusterDescriptor::load_harvesting_information(yaml, *desc);
     tt_ClusterDescriptor::load_ethernet_connections_from_connectivity_descriptor(yaml, *desc);
     tt_ClusterDescriptor::merge_cluster_ids(*desc);
     tt_ClusterDescriptor::fill_galaxy_connections(*desc);
-    tt_ClusterDescriptor::load_harvesting_information(yaml, *desc);
     desc->enable_all_devices();
 
     desc->fill_chips_grouped_by_closest_mmio();
@@ -454,7 +456,7 @@ std::unique_ptr<tt_ClusterDescriptor> tt_ClusterDescriptor::create_mock_cluster(
             board_type = BoardType::N150;
             break;
         case tt::ARCH::BLACKHOLE:
-            board_type = BoardType::P150A;
+            board_type = BoardType::P150;
             break;
         default:
             board_type = BoardType::UNKNOWN;
@@ -482,6 +484,20 @@ std::unique_ptr<tt_ClusterDescriptor> tt_ClusterDescriptor::create_mock_cluster(
 void tt_ClusterDescriptor::load_ethernet_connections_from_connectivity_descriptor(
     YAML::Node &yaml, tt_ClusterDescriptor &desc) {
     log_assert(yaml["ethernet_connections"].IsSequence(), "Invalid YAML");
+
+    // Preload idle eth channels.
+    for (const auto &chip : desc.all_chips) {
+        int num_harvested_channels = desc.eth_harvesting_masks.empty()
+                                         ? 0
+                                         : CoordinateManager::get_num_harvested(desc.eth_harvesting_masks.at(chip));
+        int num_channels =
+            tt::umd::architecture_implementation::create(desc.chip_arch.at(chip))->get_num_eth_channels() -
+            num_harvested_channels;
+        for (int i = 0; i < num_channels; i++) {
+            desc.idle_eth_channels[chip].insert(i);
+        }
+    }
+
     for (YAML::Node &connected_endpoints : yaml["ethernet_connections"].as<std::vector<YAML::Node>>()) {
         log_assert(connected_endpoints.IsSequence(), "Invalid YAML");
 
@@ -508,6 +524,10 @@ void tt_ClusterDescriptor::load_ethernet_connections_from_connectivity_descripto
         } else {
             desc.ethernet_connections[chip_1][channel_1] = {chip_0, channel_0};
         }
+        desc.active_eth_channels[chip_0].insert(channel_0);
+        desc.idle_eth_channels[chip_0].erase(channel_0);
+        desc.active_eth_channels[chip_1].insert(channel_1);
+        desc.idle_eth_channels[chip_1].erase(channel_1);
     }
 
     log_debug(LogSiliconDriver, "Ethernet Connectivity Descriptor:");
@@ -752,12 +772,18 @@ void tt_ClusterDescriptor::load_chips_from_connectivity_descriptor(YAML::Node &y
                 board_type = BoardType::N300;
             } else if (chip_board_type.second == "p100") {
                 board_type = BoardType::P100;
-            } else if (chip_board_type.second == "p150A") {
-                board_type = BoardType::P150A;
-            } else if (chip_board_type.second == "p300") {
+            } else if (
+                chip_board_type.second == "p150" || chip_board_type.second == "p150A" ||
+                chip_board_type.second == "p150C") {
+                board_type = BoardType::P150;
+            } else if (
+                chip_board_type.second == "p300" || chip_board_type.second == "p300A" ||
+                chip_board_type.second == "p300C") {
                 board_type = BoardType::P300;
             } else if (chip_board_type.second == "GALAXY") {
                 board_type = BoardType::GALAXY;
+            } else if (chip_board_type.second == "ubb") {
+                board_type = BoardType::UBB;
             } else {
                 log_warning(
                     LogSiliconDriver,
@@ -789,6 +815,13 @@ void tt_ClusterDescriptor::load_harvesting_information(YAML::Node &yaml, tt_Clus
 void tt_ClusterDescriptor::enable_all_devices() { this->enabled_active_chips = this->all_chips; }
 
 void tt_ClusterDescriptor::fill_chips_grouped_by_closest_mmio() {
+    // TODO: remote ethernet coordinates if new eth fw is ported for back Wormhole.
+    // For newer topologies every chip will have a direct connection to MMIO chip, so there won't be
+    // ethernet coordinates, represented by chip locations, to calculate the closest MMIO chip.
+    if (this->chip_locations.empty()) {
+        return;
+    }
+
     for (const auto &chip : this->all_chips) {
         // This will also fill up the closest_mmio_chip_cache
         chip_id_t closest_mmio_chip = get_closest_mmio_capable_chip(chip);
@@ -895,4 +928,134 @@ tt_ClusterDescriptor::get_chips_grouped_by_closest_mmio() const {
     return chips_grouped_by_closest_mmio;
 }
 
-chip_id_t tt_ClusterDescriptor::get_chip_id(const ChipUID &chip_uid) const { return chip_uid_to_chip_id.at(chip_uid); }
+void tt_ClusterDescriptor::add_chip_uid(const chip_id_t chip_id, const ChipUID &chip_uid) {
+    chip_id_to_chip_uid[chip_id] = chip_uid;
+    chip_uid_to_chip_id[chip_uid] = chip_id;
+}
+
+std::optional<chip_id_t> tt_ClusterDescriptor::get_chip_id(const ChipUID &chip_uid) const {
+    auto chip_id_it = chip_uid_to_chip_id.find(chip_uid);
+    if (chip_id_it == chip_uid_to_chip_id.end()) {
+        return std::nullopt;
+    }
+    return chip_id_it->second;
+}
+
+std::optional<ChipUID> tt_ClusterDescriptor::get_chip_uid(chip_id_t chip_id) const {
+    auto chip_uid_it = chip_id_to_chip_uid.find(chip_id);
+    if (chip_uid_it == chip_id_to_chip_uid.end()) {
+        return std::nullopt;
+    }
+    return chip_uid_it->second;
+}
+
+std::string tt_ClusterDescriptor::serialize() const {
+    YAML::Emitter out;
+
+    out << YAML::BeginMap;
+
+    // Section: arch
+    out << YAML::Key << "arch" << YAML::Value << YAML::BeginMap;
+    for (const auto &[chip_id, arch] : chip_arch) {
+        out << YAML::Key << chip_id << YAML::Value << tt::arch_to_str(arch);
+    }
+    out << YAML::EndMap;
+
+    // Section: ethernet_connections
+    out << YAML::Key << "ethernet_connections" << YAML::Value << YAML::BeginSeq;
+    std::set<std::pair<chip_id_t, int>> serialized_connections;
+    for (const auto &[src_chip, channels] : ethernet_connections) {
+        for (const auto &[src_chan, dest] : channels) {
+            if (serialized_connections.find({src_chip, src_chan}) != serialized_connections.end()) {
+                continue;
+            }
+            auto [dest_chip, dest_chan] = dest;
+            serialized_connections.insert({dest_chip, dest_chan});
+            out << YAML::BeginSeq;
+            out << YAML::BeginMap << YAML::Key << "chip" << YAML::Value << src_chip << YAML::Key << "chan"
+                << YAML::Value << src_chan << YAML::EndMap;
+            out << YAML::BeginMap << YAML::Key << "chip" << YAML::Value << dest_chip << YAML::Key << "chan"
+                << YAML::Value << dest_chan << YAML::EndMap;
+            out << YAML::EndSeq;
+        }
+    }
+
+    out << YAML::EndSeq;
+
+    // Section: chips_with_mmio
+    out << YAML::Key << "chips_with_mmio" << YAML::Value << YAML::BeginSeq;
+    for (const auto &chip_with_mmio : chips_with_mmio) {
+        out << YAML::BeginMap << YAML::Key << chip_with_mmio.first << YAML::Value << chip_with_mmio.second
+            << YAML::EndMap;
+    }
+    out << YAML::EndSeq;
+
+    // Section: harvesting
+    out << YAML::Key << "harvesting" << YAML::Value << YAML::BeginMap;
+    for (const int &chip : all_chips) {
+        out << YAML::Key << chip << YAML::Value << YAML::BeginMap;
+        out << YAML::Key << "noc_translation" << YAML::Value << noc_translation_enabled.at(chip);
+        out << YAML::Key << "harvest_mask" << YAML::Value << harvesting_masks.at(chip);
+        out << YAML::EndMap;
+    }
+    out << YAML::EndMap;
+
+    // Section: boardtype
+    out << YAML::Key << "boardtype" << YAML::Value << YAML::BeginMap;
+    for (const int &chip : all_chips) {
+        out << YAML::Key << chip << YAML::Value << board_type_to_string(chip_board_type.at(chip));
+    }
+    out << YAML::EndMap;
+
+    out << YAML::EndMap;
+
+    return out.c_str();
+}
+
+std::filesystem::path tt_ClusterDescriptor::serialize_to_file() const {
+    std::filesystem::path temp_path = std::filesystem::temp_directory_path();
+    std::string cluster_path_dir_template = temp_path / "umd_XXXXXX";
+    std::filesystem::path cluster_path_dir = mkdtemp(cluster_path_dir_template.data());
+    std::filesystem::path cluster_path = cluster_path_dir / "cluster_descriptor.yaml";
+    std::ofstream file(cluster_path);
+    file << serialize();
+    file.close();
+
+    return cluster_path;
+}
+
+std::set<uint32_t> tt_ClusterDescriptor::get_active_eth_channels(chip_id_t chip_id) {
+    auto it = active_eth_channels.find(chip_id);
+    if (it == active_eth_channels.end()) {
+        return {};
+    }
+
+    return it->second;
+}
+
+std::set<uint32_t> tt_ClusterDescriptor::get_idle_eth_channels(chip_id_t chip_id) {
+    auto it = idle_eth_channels.find(chip_id);
+    if (it == idle_eth_channels.end()) {
+        return {};
+    }
+
+    return it->second;
+}
+
+uint32_t tt_ClusterDescriptor::get_dram_harvesting_mask(chip_id_t chip_id) const {
+    auto it = dram_harvesting_masks.find(chip_id);
+    if (it == dram_harvesting_masks.end()) {
+        return 0;
+    }
+
+    return it->second;
+}
+
+uint32_t tt_ClusterDescriptor::get_eth_harvesting_mask(chip_id_t chip_id) const {
+    auto it = eth_harvesting_masks.find(chip_id);
+    if (it == eth_harvesting_masks.end()) {
+        return 0;
+    }
+
+    return it->second;
+}

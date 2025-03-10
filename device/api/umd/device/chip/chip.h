@@ -51,7 +51,7 @@ private:
 protected:
     void wait_chip_to_be_ready();
 
-    virtual void wait_eth_cores_training(const uint32_t timeout_ms = 5000);
+    virtual void wait_eth_cores_training(const uint32_t timeout_ms = 60000);
 };
 
 }  // namespace tt::umd

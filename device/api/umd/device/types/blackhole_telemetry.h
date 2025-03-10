@@ -10,8 +10,6 @@ namespace tt::umd {
 
 namespace blackhole {
 
-constexpr uint8_t NUMBER_TELEMETRY_TAGS = 38;
-
 constexpr uint8_t TAG_BOARD_ID_HIGH = 1;
 constexpr uint8_t TAG_BOARD_ID_LOW = 2;
 constexpr uint8_t TAG_ASIC_ID = 3;

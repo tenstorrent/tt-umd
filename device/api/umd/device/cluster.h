@@ -7,6 +7,7 @@
 #pragma once
 #include <cassert>
 #include <cstdint>
+#include <filesystem>
 #include <memory>
 #include <set>
 #include <stdexcept>
@@ -16,8 +17,6 @@
 
 #include "fmt/core.h"
 #include "tt_silicon_driver_common.hpp"
-#include "tt_soc_descriptor.h"
-#include "tt_xy_pair.h"
 #include "umd/device/blackhole_arc_message_queue.h"
 #include "umd/device/chip/chip.h"
 #include "umd/device/tt_device/tt_device.h"
@@ -44,12 +43,33 @@ class tt_ClusterDescriptor;
  */
 class tt_device {
 public:
+    /**
+     * The constructor of the derived tt_device should perform everything important for initializing the device
+     * properly. This can include, but is not limited to:
+     * - Getting the base address for the Device which is to be used when accessing it through the API, including memory
+     * mapping the device address space.
+     * - Setting up security access (if any).
+     * - Establishing a link to the kernel module driver (if any).
+     * - Additional setup needed for read/write operation from the device. DMA setup (if any).
+     * - Allocating system memory that the device has access to.
+     * - Setup access to DRAM module.
+     * - Create SoCDescriptors from passed custom soc descriptor yaml path.
+     * - Perform this for each of the chips connected to the system.
+     */
     tt_device(){};
+
+    /**
+     * Closing the device. Should undo everything that was done in the constructor. Break created links, free memory,
+     * leave the device in a state where it can be re-initialized.
+     */
     virtual ~tt_device(){};
 
     // Setup/Teardown Functions
     /**
      * Set Barrier Address Map parameters used by UMD to communicate with the TT Device.
+     * This function should be called right after the device is created. This sets up barrier addresses for tensix L1,
+     * eth L1, and DRAM. Barrier addresses are used when calling l1_membar, dram_membar and wait_for_non_mmio_flush.
+     * These need to be setup only for the synchronisation purposes between the host and the device.
      *
      * @param barrier_address_params_  All the barrier parameters required by UMD
      */
@@ -59,6 +79,8 @@ public:
 
     /**
      * Configure a TLB to point to a specific core and an address within that core. Should be done for Static TLBs.
+     * If the device uses another mechanism for providing access to the host, this can be ignored.
+     * This API is going to be deprecated when all UMD clients transition to CoreCoord API.
      *
      * @param logical_device_id Logical Device being targeted.
      * @param core The TLB will be programmed to point to this core.
@@ -75,6 +97,16 @@ public:
         throw std::runtime_error("---- tt_device::configure_tlb is not implemented\n");
     }
 
+    /**
+     * Configure a TLB to point to a specific core and an address within that core. Should be done for Static TLBs.
+     * If the device uses another mechanism for providing access to the host, this can be ignored.
+     *
+     * @param logical_device_id Logical Device being targeted.
+     * @param core The TLB will be programmed to point to this core.
+     * @param tlb_index TLB id that will be programmed.
+     * @param address Start address TLB is mapped to.
+     * @param ordering Ordering mode for the TLB.
+     */
     virtual void configure_tlb(
         chip_id_t logical_device_id,
         tt::umd::CoreCoord core,
@@ -109,6 +141,16 @@ public:
             "---- tt_device::configure_active_ethernet_cores_for_mmio_device is not implemented\n");
     }
 
+    /**
+     * Pass in ethernet cores with active links for a specific MMIO chip. When called, this function will force UMD to
+     * use a subset of cores from the active_eth_cores_per_chip set for all host->cluster non-MMIO transfers. If this
+     * function is not called, UMD will use a default set of ethernet core indices for these transfers (0 through 5). If
+     * default behaviour is not desired, this function must be called for all MMIO devices.
+     * This API is going to be deprecated when all UMD clients transition to CoreCoord API.
+     *
+     * @param active_eth_cores_per_chip The active ethernet cores for this chip.
+     * @param mmio_chip Device being targeted.
+     */
     virtual void configure_active_ethernet_cores_for_mmio_device(
         const std::unordered_set<tt::umd::CoreCoord>& active_eth_cores_per_chip, chip_id_t mmio_chip) {
         throw std::runtime_error(
@@ -116,8 +158,13 @@ public:
     }
 
     /**
-     * On Silicon: Assert soft Tensix reset, deassert RiscV reset, set power state to busy (ramp up AICLK), initialize
-     * iATUs for PCIe devices and ethernet queues for remote chips.
+     * This function puts the device in a state so that it is ready for loading kernels to the tensix cores.
+     * Can include, but is not limited to:
+     * - Assert soft Tensix reset
+     * - Deassert RiscV reset
+     * - Set power state to busy (ramp up AICLK)
+     * - Initialize iATUs for PCIe devices
+     * - Initialize ethernet queues for remote chips.
      *
      * @param device_params Object specifying initialization configuration.
      */
@@ -126,22 +173,37 @@ public:
     }
 
     /**
-     * Broadcast deassert soft Tensix Reset to the entire device (to be done after start_device is called).
+     * Broadcast deassert BRISC soft Tensix Reset to the entire device.
+     * This function needs to be called after start_device.
+     * It writes to TENSIX register SOFT_RESET, the address of
+     * which is architecture dependant. Please consult the desired architecture specs to find the exact address
      */
     virtual void deassert_risc_reset() {
         throw std::runtime_error("---- tt_device::deassert_risc_reset is not implemented\n");
     }
 
     /**
-     * Send a soft deassert reset signal to a single tensix core.
+     * Send a BRISC soft deassert reset signal to a single tensix core.
+     * Similar to the broadcast deassert_risc_reset API function, but done only on a single core.
      *
-     * @param core Chip and core being targeted.
+     * This API is going to be deprecated when all UMD clients transition to CoreCoord API.
+     *
+     * @param core Chip and Core to target.
+     * @param soft_resets Specifies which RISCV cores on Tensix to deassert.
      */
     virtual void deassert_risc_reset_at_core(
         tt_cxy_pair core, const TensixSoftResetOptions& soft_resets = TENSIX_DEASSERT_SOFT_RESET) {
         throw std::runtime_error("---- tt_device::deassert_risc_reset_at_core is not implemented\n");
     }
 
+    /**
+     * Send a BRISC soft deassert reset signal to a single tensix core.
+     * Similar to the broadcast deassert_risc_reset API function, but done only on a single core.
+     *
+     * @param chip Chip to target.
+     * @param core Core to target.
+     * @param soft_resets Specifies which RISCV cores on Tensix to deassert.
+     */
     virtual void deassert_risc_reset_at_core(
         const chip_id_t chip,
         const tt::umd::CoreCoord core,
@@ -150,22 +212,38 @@ public:
     }
 
     /**
-     * Broadcast assert soft Tensix Reset to the entire device.
+     * Broadcast BRISC assert BRISC soft Tensix Reset to the entire device.
+     * It writes to TENSIX register SOFT_RESET, the address of
+     * which is architecture dependant. Please consult the desired architecture specs to find the exact address
      */
     virtual void assert_risc_reset() {
         throw std::runtime_error("---- tt_device::assert_risc_reset is not implemented\n");
     }
 
     /**
-     * Send a soft assert reset signal to a single tensix core.
+     * Send a BRISC soft assert reset signal to a single tensix core.
+     * It writes to TENSIX register SOFT_RESET, the address of
+     * which is architecture dependant. Please consult the desired architecture specs to find the exact address
      *
-     * @param core Chip and core being targeted.
+     * This API is going to be deprecated when all UMD clients transition to CoreCoord API.
+     *
+     * @param core Chip and Core to target.
+     * @param soft_resets Specifies which RISCV cores on Tensix to deassert.
      */
     virtual void assert_risc_reset_at_core(
         tt_cxy_pair core, const TensixSoftResetOptions& soft_resets = TENSIX_ASSERT_SOFT_RESET) {
         throw std::runtime_error("---- tt_device::assert_risc_reset_at_core is not implemented\n");
     }
 
+    /**
+     * Send a BRISC soft assert reset signal to a single tensix core.
+     * It writes to TENSIX register SOFT_RESET, the address of
+     * which is architecture dependant. Please consult the desired architecture specs to find the exact address
+     *
+     * @param core Chip to target.
+     * @param core Core to target.
+     * @param soft_resets Specifies which RISCV cores on Tensix to deassert.
+     */
     virtual void assert_risc_reset_at_core(
         const chip_id_t chip,
         const tt::umd::CoreCoord core,
@@ -175,7 +253,9 @@ public:
 
     /**
      * To be called at the end of a run.
-     * Set power state to idle, assert tensix reset at all cores.
+     * Can include, but not limited to:
+     * - Setting power state to idle
+     * - Assert tensix reset at all cores.
      */
     virtual void close_device() { throw std::runtime_error("---- tt_device::close_device is not implemented\n"); }
 
@@ -184,6 +264,8 @@ public:
      * Non-MMIO (ethernet) barrier.
      * Similar to an mfence for host -> host transfers. Will flush all in-flight ethernet transactions before proceeding
      * with the next one. This will be applied to all chips in the cluster.
+     *
+     * This function is only used in context of remote (ethernet connected) chips in the cluster.
      */
     virtual void wait_for_non_mmio_flush() {
         throw std::runtime_error("---- tt_device::wait_for_non_mmio_flush is not implemented\n");
@@ -192,6 +274,9 @@ public:
     /**
      * Non-MMIO (ethernet) barrier.
      * This function should be called for a remote chip. If called for local chip, it will be a no-op.
+     * This function is only used in context of remote (ethernet connected) chips in the cluster.
+     *
+     * @param chip_id Chip to target.
      */
     virtual void wait_for_non_mmio_flush(const chip_id_t chip_id) {
         throw std::runtime_error("---- tt_device::wait_for_non_mmio_flush is not implemented\n");
@@ -199,10 +284,14 @@ public:
 
     /**
      * Write uint32_t data (as specified by ptr + len pair) to specified device, core and address (defined for Silicon).
+     * This API is used for writing to both TENSIX and DRAM cores. The internal SocDescriptor can be used to determine
+     * which type of the core is being targeted.
+     *
+     * This API is going to be deprecated when all UMD clients transition to CoreCoord API.
      *
      * @param mem_ptr Source data address.
-     * @param len Source data size.
-     * @param core Device and core being targeted.
+     * @param size_in_bytes Source data size.
+     * @param core Device and Core to target.
      * @param addr Address to write to.
      * @param tlb_to_use Specifies fallback/dynamic TLB to use.
      */
@@ -212,6 +301,18 @@ public:
         throw std::runtime_error("---- tt_device::write_to_device is not implemented\n");
     }
 
+    /**
+     * Write uint32_t data (as specified by ptr + len pair) to specified device, core and address (defined for Silicon).
+     * This API is used for writing to both TENSIX and DRAM cores. The internal SocDescriptor can be used to determine
+     * which type of the core is being targeted.
+     *
+     * @param mem_ptr Source data address.
+     * @param size_in_bytes Source data size.
+     * @param chip Chip to target.
+     * @param core Core to target.
+     * @param addr Address to write to.
+     * @param tlb_to_use Specifies fallback/dynamic TLB to use.
+     */
     virtual void write_to_device(
         const void* mem_ptr,
         uint32_t size_in_bytes,
@@ -222,6 +323,21 @@ public:
         throw std::runtime_error("---- tt_device::write_to_device is not implemented\n");
     }
 
+    /**
+     * This function writes to multiple chips and cores in the cluster. A set of chips, rows and columns can be excluded
+     * from the broadcast. The function has to be called either only for Tensix cores or only for DRAM cores.
+     *
+     *
+     * This API is going to be deprecated when all UMD clients transition to CoreCoord API.
+     *
+     * @param mem_ptr Data to write.
+     * @param size_in_bytes Size of data to write.
+     * @param address Address to write to.
+     * @param chips_to_exclude Chips to exclude from the broadcast.
+     * @param rows_to_exclude  NOC0 rows to exclude from the broadcast.
+     * @param columns_to_exclude NOC0 columns to exclude from the broadcast.
+     * @param fallback_tlb Specifies fallback/dynamic TLB to use.
+     */
     virtual void broadcast_write_to_cluster(
         const void* mem_ptr,
         uint32_t size_in_bytes,
@@ -235,9 +351,13 @@ public:
 
     /**
      * Read uint32_t data from a specified device, core and address to host memory (defined for Silicon).
+     * This API is used for reading from both TENSIX and DRAM cores. The internal SocDescriptor can be used to determine
+     * which type of the core is being targeted.
+     *
+     * This API is going to be deprecated when all UMD clients transition to CoreCoord API.
      *
      * @param mem_ptr Data pointer to read the data into.
-     * @param core Chip and core being targeted.
+     * @param core Chip and Core to target.
      * @param addr Address to read from.
      * @param size Number of bytes to read.
      * @param fallback_tlb Specifies fallback/dynamic TLB to use.
@@ -248,6 +368,18 @@ public:
         throw std::runtime_error("---- tt_device::read_from_device is not implemented\n");
     }
 
+    /**
+     * Read uint32_t data from a specified device, core and address to host memory (defined for Silicon).
+     * This API is used for reading from both TENSIX and DRAM cores. The internal SocDescriptor can be used to determine
+     * which type of the core is being targeted.
+     *
+     * @param mem_ptr Data pointer to read the data into.
+     * @param chip Chip to target.
+     * @param core Core to target.
+     * @param addr Address to read from.
+     * @param size Number of bytes to read.
+     * @param fallback_tlb Specifies fallback/dynamic TLB to use.
+     */
     virtual void read_from_device(
         void* mem_ptr,
         chip_id_t chip,
@@ -259,9 +391,14 @@ public:
     }
 
     /**
-     * Write uint32_t vector to specified address and channel on host (defined for Silicon).
+     * Write data to specified address and channel on host (defined for Silicon).
+     * This API is used to write to the host memory location that is made available to the device through
+     * initialization. During the initialization the user should be able to specify how many "channels" are available to
+     * the device, and that is what the channel argument refers to. This API can be directed to memory on the device
+     * itself if needed. That would imply some performance considerations.
      *
-     * @param vec Data to write.
+     * @param mem_ptr Data to write.
+     * @param size Number of bytes to write.
      * @param addr Address to write to.
      * @param channel Host channel to target.
      * @param src_device_id Chip to target.
@@ -271,59 +408,93 @@ public:
         throw std::runtime_error("---- tt_device::write_to_sysmem is not implemented\n");
     }
 
+    /**
+     * Read data from specified address and channel on host (defined for Silicon).
+     * Similar as write_to_sysmem, but for reading.
+     *
+     * @param vec Data to write.
+     * @param addr Address to write to.
+     * @param channel Host channel to target.
+     * @param size Number of bytes to read.
+     * @param src_device_id Chip to target.
+     */
     virtual void read_from_sysmem(
         void* mem_ptr, uint64_t addr, uint16_t channel, uint32_t size, chip_id_t src_device_id) {
         throw std::runtime_error("---- tt_device::read_from_sysmem is not implemented\n");
     }
 
+    /**
+     * Tensix L1 memory barrier.
+     * This should be called when the client wants to ensure that all transactions on the L1 of the specified cores have
+     * completed.
+     *
+     * This API is going to be deprecated when all UMD clients transition to CoreCoord API.
+     *
+     * @param chip Chip to target.
+     * @param flackback_tlb Specifies fallback/dynamic TLB to use.
+     * @param cores Cores being targeted.
+     */
     virtual void l1_membar(
         const chip_id_t chip, const std::string& fallback_tlb, const std::unordered_set<tt_xy_pair>& cores = {}) {
         throw std::runtime_error("---- tt_device::l1_membar is not implemented\n");
     }
 
+    /**
+     * Tensix L1 memory barrier.
+     * This should be called when the client wants to ensure that all transactions on the L1 of the specified cores have
+     * completed.
+     *
+     * @param chip Chip to target.
+     * @param cores Cores being targeted.
+     * @param flackback_tlb Specifies fallback/dynamic TLB to use.
+     */
     virtual void l1_membar(
         const chip_id_t chip, const std::unordered_set<tt::umd::CoreCoord>& cores, const std::string& fallback_tlb) {
         throw std::runtime_error("---- tt_device::l1_membar is not implemented\n");
     }
 
+    /**
+     * DRAM memory barrier.
+     * This should be called when the client wants to ensure that all transactions on the specified dram bank have
+     * completed.
+     *
+     * @param chip Chip to target.
+     * @param flackback_tlb Specifies fallback/dynamic TLB to use.
+     * @param channels Channels being targeted.
+     */
     virtual void dram_membar(
         const chip_id_t chip, const std::string& fallback_tlb, const std::unordered_set<uint32_t>& channels = {}) {
         throw std::runtime_error("---- tt_device::dram_membar is not implemented\n");
     }
 
+    /**
+     * DRAM memory barrier.
+     * This should be called when the client wants to ensure that all transactions on the specified dram bank have
+     * completed.
+     *
+     * This API is going to be deprecated when all UMD clients transition to CoreCoord API.
+     *
+     * @param chip Chip to target.
+     * @param flackback_tlb Specifies fallback/dynamic TLB to use.
+     * @param cores Cores being targeted.
+     */
     virtual void dram_membar(
         const chip_id_t chip, const std::string& fallback_tlb, const std::unordered_set<tt_xy_pair>& cores = {}) {
         throw std::runtime_error("---- tt_device::dram_membar is not implemented\n");
     }
 
+    /**
+     * DRAM memory barrier.
+     * This should be called when the client wants to ensure that all transactions on the specified dram bank have
+     * completed.
+     *
+     * @param chip Chip being targeted.
+     * @param cores Cores being targeted.
+     * @param flackback_tlb Specifies fallback/dynamic TLB to use.
+     */
     virtual void dram_membar(
         const chip_id_t chip, const std::unordered_set<tt::umd::CoreCoord>& cores, const std::string& fallback_tlb) {
         throw std::runtime_error("---- tt_device::dram_membar is not implemented\n");
-    }
-
-    // Misc. Functions to Query/Set Device State
-    /**
-     * Query post harvesting SOC descriptors from UMD in virtual coordinates.
-     * These descriptors should be used for looking up cores that are passed into UMD APIs.
-     */
-    virtual std::unordered_map<chip_id_t, tt_SocDescriptor> get_virtual_soc_descriptors() {
-        return soc_descriptor_per_chip;
-    }
-
-    /**
-     * Determine if UMD performed harvesting on SOC descriptors.
-     */
-    virtual bool using_harvested_soc_descriptors() {
-        throw std::runtime_error("---- tt_device:using_harvested_soc_descriptors is not implemented\n");
-        return 0;
-    }
-
-    /**
-     * Get harvesting masks for all chips/SOC Descriptors in the cluster.
-     * Each mask represents a map of enabled (0) and disabled (1) rows on a specific chip (in NOC0 Coordinateds).
-     */
-    virtual std::unordered_map<chip_id_t, uint32_t> get_harvesting_masks_for_soc_descriptors() {
-        throw std::runtime_error("---- tt_device:get_harvesting_masks_for_soc_descriptors is not implemented\n");
     }
 
     /**
@@ -351,17 +522,6 @@ public:
     }
 
     /**
-     * Translate between virtual coordinates (from UMD SOC Descriptor) and translated coordinates.
-     *
-     * @param device_id Chip to target.
-     * @param r Row coordinate.
-     * @param c Column coordinate.
-     */
-    virtual void translate_to_noc_table_coords(chip_id_t device_id, std::size_t& r, std::size_t& c) {
-        throw std::runtime_error("---- tt_device::translate_to_noc_table_coords is not implemented\n");
-    }
-
-    /**
      * Get cluster descriptor object being used in UMD instance.
      */
     virtual tt_ClusterDescriptor* get_cluster_description() {
@@ -369,7 +529,14 @@ public:
     }
 
     /**
-     * Get all logical ids for all MMIO chips targeted by UMD.
+     * Get set of chip ids for all chips in the cluster.
+     */
+    virtual std::set<chip_id_t> get_target_device_ids() {
+        throw std::runtime_error("---- tt_device::get_target_device_ids is not implemented\n");
+    }
+
+    /**
+     * Get all logical ids for all local chips targeted by UMD.
      */
     virtual std::set<chip_id_t> get_target_mmio_device_ids() {
         throw std::runtime_error("---- tt_device::get_target_mmio_device_ids is not implemented\n");
@@ -377,6 +544,7 @@ public:
 
     /**
      * Get all logical ids for all Ethernet Mapped chips targeted by UMD.
+     * Returns an empty set if no remote chips exist in the cluster.
      */
     virtual std::set<chip_id_t> get_target_remote_device_ids() {
         throw std::runtime_error("---- tt_device::get_target_remote_device_ids is not implemented\n");
@@ -387,15 +555,20 @@ public:
      */
     virtual std::map<int, int> get_clocks() {
         throw std::runtime_error("---- tt_device::get_clocks is not implemented\n");
-        return std::map<int, int>();
     }
 
+    /**
+     * Get which NUMA node this device is associated with, or -1 if non-NUMA
+     *
+     * @param device_id Logical device id to query.
+     */
     virtual std::uint32_t get_numa_node_for_pcie_device(std::uint32_t device_id) {
         throw std::runtime_error("---- tt_device::get_numa_node_for_pcie_device is not implemented\n");
     }
 
     /**
      * Get the ethernet firmware version used by the physical cluster (only implemented for Silicon Backend).
+     * Will return a bogus version if no remote chips are supported for the device.
      */
     virtual tt_version get_ethernet_fw_version() const {
         throw std::runtime_error("---- tt_device::get_ethernet_fw_version is not implemented \n");
@@ -408,7 +581,6 @@ public:
      */
     virtual std::uint32_t get_num_dram_channels(std::uint32_t device_id) {
         throw std::runtime_error("---- tt_device::get_num_dram_channels is not implemented\n");
-        return 0;
     }
 
     /**
@@ -419,17 +591,15 @@ public:
      */
     virtual std::uint64_t get_dram_channel_size(std::uint32_t device_id, std::uint32_t channel) {
         throw std::runtime_error("---- tt_device::get_dram_channel_size is not implemented\n");
-        return 0;
     }
 
     /**
-     * Query number of Host channels (hugepages) allocated for a specific device.
+     * Query number of memory channels on Host device allocated for a specific device during initialization.
      *
      * @param device_id Logical device id to target.
      */
     virtual std::uint32_t get_num_host_channels(std::uint32_t device_id) {
         throw std::runtime_error("---- tt_device::get_num_host_channels is not implemented\n");
-        return 0;
     }
 
     /**
@@ -440,7 +610,6 @@ public:
      */
     virtual std::uint32_t get_host_channel_size(std::uint32_t device_id, std::uint32_t channel) {
         throw std::runtime_error("---- tt_device::get_host_channel_size is not implemented\n");
-        return 0;
     }
 
     /**
@@ -453,25 +622,25 @@ public:
      */
     virtual void* host_dma_address(std::uint64_t offset, chip_id_t src_device_id, uint16_t channel) const {
         throw std::runtime_error("---- tt_device::host_dma_address is not implemented\n");
-        return nullptr;
     }
 
+    /**
+     * Get base PCIe address that is used to access the device.
+     *
+     * @param chip_id Chip to target.
+     */
     virtual std::uint64_t get_pcie_base_addr_from_device(const chip_id_t chip_id) const {
         throw std::runtime_error("---- tt_device::get_pcie_base_addr_from_device is not implemented\n");
-        return 0;
     }
 
+    /**
+     * Get soc descriptor for specified chip.
+     *
+     * @param chip_id Chip to get soc descriptor for.
+     */
     virtual const tt_SocDescriptor& get_soc_descriptor(chip_id_t chip_id) const {
-        return soc_descriptor_per_chip.at(chip_id);
+        throw std::runtime_error("---- tt_device::get_soc_descriptor is not implemented\n");
     }
-
-    bool performed_harvesting = false;
-    std::unordered_map<chip_id_t, uint32_t> harvested_rows_per_target = {};
-    bool translation_tables_en = false;
-
-protected:
-    // TODO: Remove this once get_virtual_soc_descriptors can be removed.
-    std::unordered_map<chip_id_t, tt_SocDescriptor> soc_descriptor_per_chip = {};
 };
 
 namespace tt::umd {
@@ -488,7 +657,7 @@ public:
      * Simplest form, creates a cluster of all available devices on the system.
      *
      * @param num_host_mem_ch_per_mmio_device Requested number of host channels (hugepages).
-     * @param skip_driver_allocs
+     * @param create_mock_chips Create mock chips for the devices in the cluster descriptor.
      * @param clean_system_resource Specifies if host state from previous runs needs to be cleaned up.
      * @param perform_harvesting Allow the driver to modify the SOC descriptors per chip.
      * @param simulated_harvesting_masks Manually specify additional harvesting masks for the devices in the cluster.
@@ -496,10 +665,10 @@ public:
      */
     Cluster(
         const uint32_t& num_host_mem_ch_per_mmio_device = 1,
-        const bool skip_driver_allocs = false,
+        const bool create_mock_chips = false,
         const bool clean_system_resources = false,
         bool perform_harvesting = true,
-        std::unordered_map<chip_id_t, uint32_t> simulated_harvesting_masks = {});
+        std::unordered_map<chip_id_t, HarvestingMasks> simulated_harvesting_masks = {});
 
     /**
      * Cluster constructor.
@@ -507,7 +676,7 @@ public:
      *
      * @param target_devices Devices to target.
      * @param num_host_mem_ch_per_mmio_device Requested number of host channels (hugepages).
-     * @param skip_driver_allocs
+     * @param create_mock_chips Create mock chips for the devices in the cluster descriptor.
      * @param clean_system_resource Specifies if host state from previous runs needs to be cleaned up.
      * @param perform_harvesting Allow the driver to modify the SOC descriptors per chip.
      * @param simulated_harvesting_masks Manually specify additional harvesting masks for the devices in the cluster.
@@ -516,10 +685,10 @@ public:
     Cluster(
         const std::set<chip_id_t>& target_devices,
         const uint32_t& num_host_mem_ch_per_mmio_device = 1,
-        const bool skip_driver_allocs = false,
+        const bool create_mock_chips = false,
         const bool clean_system_resources = false,
         bool perform_harvesting = true,
-        std::unordered_map<chip_id_t, uint32_t> simulated_harvesting_masks = {});
+        std::unordered_map<chip_id_t, HarvestingMasks> simulated_harvesting_masks = {});
 
     /**
      * Cluster constructor.
@@ -530,7 +699,7 @@ public:
      * harvesting info of the devices in the cluster.
      * @param target_devices Devices to target.
      * @param num_host_mem_ch_per_mmio_device Requested number of host channels (hugepages).
-     * @param skip_driver_allocs
+     * @param create_mock_chips Create mock chips for the devices in the cluster descriptor.
      * @param clean_system_resource Specifies if host state from previous runs needs to be cleaned up.
      * @param perform_harvesting Allow the driver to modify the SOC descriptors per chip.
      * @param simulated_harvesting_masks Manually specify additional harvesting masks for the devices in the cluster.
@@ -540,37 +709,32 @@ public:
         const std::string& sdesc_path,
         const std::set<chip_id_t>& target_devices,
         const uint32_t& num_host_mem_ch_per_mmio_device = 1,
-        const bool skip_driver_allocs = false,
+        const bool create_mock_chips = false,
         const bool clean_system_resources = false,
         bool perform_harvesting = true,
-        std::unordered_map<chip_id_t, uint32_t> simulated_harvesting_masks = {});
+        std::unordered_map<chip_id_t, HarvestingMasks> simulated_harvesting_masks = {});
 
     /**
      * Cluster constructor.
-     * This constructor offers maximal flexibility, allowing the user to pass manually created Chips.
-     * The user has to know what they are doing.
-     * TODO: Could fail if logical_ids not match the ones in cluster descriptor, while Cluster still uses cluster
-     * descriptor.
+     * This constructor can be used with custom cluster descriptor. If the cluster descriptor does not match the
+     * actual devices on the system, the constructor will throw an exception. If create_mock_chips is set to true,
+     * the constructor will create mock chips for the devices in the cluster descriptor.
      *
-     * @param chips Map of logical device ids to Chip instances.
+     * @param cluster_descriptor Cluster descriptor object based on which Cluster is going to be created.
      * @param num_host_mem_ch_per_mmio_device Requested number of host channels (hugepages).
-     * @param skip_driver_allocs
+     * @param create_mock_chips Create mock chips for the devices in the cluster descriptor.
      * @param clean_system_resource Specifies if host state from previous runs needs to be cleaned up.
      * @param perform_harvesting Allow the driver to modify the SOC descriptors per chip.
-     * @param simulated_harvesting_masks
+     * @param simulated_harvesting_masks Manually specify additional harvesting masks for the devices in the cluster.
+     * The ones defined by the devices itself have to be used, they will be merged with the ones passed here.
      */
     Cluster(
-        std::unordered_map<chip_id_t, std::unique_ptr<Chip>>& chips,
+        std::unique_ptr<tt_ClusterDescriptor> cluster_descriptor,
         const uint32_t& num_host_mem_ch_per_mmio_device = 1,
-        const bool skip_driver_allocs = false,
+        const bool create_mock_chips = false,
         const bool clean_system_resources = false,
         bool perform_harvesting = true,
-        std::unordered_map<chip_id_t, uint32_t> simulated_harvesting_masks = {});
-
-    /**
-     * Cluster constructor which creates a cluster with Mock chips.
-     */
-    static std::unique_ptr<Cluster> create_mock_cluster();
+        std::unordered_map<chip_id_t, HarvestingMasks> simulated_harvesting_masks = {});
 
     // Existing API we want to keep. UMD is transitioning to use CoreCoord instead of tt_xy_pair.
     // This set of function shouldn't be removed even after the transition.
@@ -589,12 +753,29 @@ public:
     virtual void wait_for_non_mmio_flush(const chip_id_t chip_id);
     void dram_membar(
         const chip_id_t chip, const std::string& fallback_tlb, const std::unordered_set<uint32_t>& channels);
-    void bar_write32(int logical_device_id, uint32_t addr, uint32_t data);
-    uint32_t bar_read32(int logical_device_id, uint32_t addr);
+
     /**
-     * This API allows you to write directly to device memory that is addressable by a static TLB
+     * Write data to specified address on the BAR space of the device.
+     *
+     * @param logical_device_id Device to target.
+     * @param addr Address to write to.
+     * @param data Data to write.
+     */
+    void bar_write32(int logical_device_id, uint32_t addr, uint32_t data);
+
+    /**
+     * Read data from specified address on the BAR space of the device.
+     *
+     * @param logical_device_id Device to target.
+     * @param addr Address to read from.
+     */
+    uint32_t bar_read32(int logical_device_id, uint32_t addr);
+
+    /**
+     * This API allows you to write directly to device memory that is addressable by a static TLB.
      */
     std::function<void(uint32_t, uint32_t, const uint8_t*)> get_fast_pcie_static_tlb_write_callable(int device_id);
+
     // Misc. Functions to Query/Set Device State
     virtual int arc_msg(
         int logical_device_id,
@@ -605,13 +786,33 @@ public:
         int timeout = 1,
         uint32_t* return_3 = nullptr,
         uint32_t* return_4 = nullptr);
-    virtual std::unordered_map<chip_id_t, uint32_t> get_harvesting_masks_for_soc_descriptors();
     virtual tt_ClusterDescriptor* get_cluster_description();
+
+    /**
+     * Get number of MMIO chips detected on the system.
+     */
     static int detect_number_of_chips();
+
+    /**
+     * Get vector of available MMIO device ids on the system.
+     */
     static std::vector<chip_id_t> detect_available_device_ids();
-    virtual std::set<chip_id_t> get_target_mmio_device_ids();
-    virtual std::set<chip_id_t> get_target_remote_device_ids();
+
+    /**
+     * Get set of chip ids for all chips in the cluster.
+     */
     virtual std::set<chip_id_t> get_target_device_ids();
+
+    /**
+     * Get vector of chip ids for MMIO devices in the cluster.
+     */
+    virtual std::set<chip_id_t> get_target_mmio_device_ids();
+
+    /**
+     * Get vector of chip ids for remote devices in the cluster.
+     */
+    virtual std::set<chip_id_t> get_target_remote_device_ids();
+
     virtual std::map<int, int> get_clocks();
     virtual void* host_dma_address(std::uint64_t offset, chip_id_t src_device_id, uint16_t channel) const;
     virtual std::uint64_t get_pcie_base_addr_from_device(const chip_id_t chip_id) const;
@@ -622,15 +823,38 @@ public:
     virtual std::uint32_t get_numa_node_for_pcie_device(std::uint32_t device_id);
     virtual tt_version get_ethernet_fw_version() const;
     // TODO: This should be accessible through public API, probably to be moved to tt_device.
+
+    /**
+     * Get PCI device for specified logical device id.
+     *
+     * @param device_id Device to target.
+     */
     PCIDevice* get_pci_device(int device_id) const;
+
+    /**
+     * Get TTDevice for specified logical device id.
+     *
+     * @param device_id Device to target.
+     */
     TTDevice* get_tt_device(chip_id_t device_id) const;
+
+    /**
+     * Get TLBManager for specified logical device id.
+     *
+     * @param device_id Device to target.
+     */
     TLBManager* get_tlb_manager(chip_id_t device_id) const;
+
+    /**
+     * Get Soc descriptor for specified logical device id.
+     *
+     * @param device_id Device to target.
+     */
     const tt_SocDescriptor& get_soc_descriptor(chip_id_t chip_id) const;
 
     // Existing API we want to remove. UMD is transitioning to use CoreCoord instead of tt_xy_pair.
     // This set of functions is supposed to be removed one the transition for clients (tt-metal, tt-lens) is complete.
     // TODO: remove this set of functions once the transition for clients is completed.
-    std::unordered_map<chip_id_t, tt_SocDescriptor> get_virtual_soc_descriptors();
     virtual void configure_tlb(
         chip_id_t logical_device_id,
         tt_xy_pair core,
@@ -660,14 +884,17 @@ public:
         const chip_id_t chip, const std::string& fallback_tlb, const std::unordered_set<tt_xy_pair>& cores = {});
     void dram_membar(
         const chip_id_t chip, const std::string& fallback_tlb, const std::unordered_set<tt_xy_pair>& cores = {});
+
     /**
      * If the tlbs are initialized, returns a tuple with the TLB base address and its size
      */
     std::optional<std::tuple<uint32_t, uint32_t>> get_tlb_data_from_target(const tt_cxy_pair& target);
+
     /**
      * Returns a struct with the TLB configuration, or throws an exception if the target does not have a static TLB.
      */
     tlb_configuration get_tlb_configuration(const tt_cxy_pair& target);
+
     /**
      * Provide fast write access to a statically-mapped TLB.
      * It is the caller's responsibility to ensure that
@@ -679,15 +906,6 @@ public:
      * @param target The target chip and core to write to.
      */
     tt::Writer get_static_tlb_writer(tt_cxy_pair target);
-    virtual bool using_harvested_soc_descriptors();
-    virtual void translate_to_noc_table_coords(chip_id_t device_id, std::size_t& r, std::size_t& c);
-    static std::vector<int> extract_rows_to_remove(
-        const tt::ARCH& arch, const int worker_grid_rows, const int harvested_rows);
-    static void remove_worker_row_from_descriptor(
-        tt_SocDescriptor& full_soc_descriptor, const std::vector<int>& row_coordinates_to_remove);
-    static void harvest_rows_in_soc_descriptor(tt::ARCH arch, tt_SocDescriptor& sdesc, uint32_t harvested_rows);
-    static std::unordered_map<tt_xy_pair, tt_xy_pair> create_harvested_coord_translation(
-        const tt::ARCH arch, bool identity_map);
 
     // New API. UMD is transitioning to use CoreCoord instead of tt_xy_pair.
     // This is new set of functions that should be used once the transition for clients (tt-metal, tt-lens) is complete.
@@ -730,6 +948,12 @@ public:
     virtual void dram_membar(
         const chip_id_t chip, const std::unordered_set<tt::umd::CoreCoord>& cores, const std::string& fallback_tlb);
 
+    static std::unique_ptr<tt_ClusterDescriptor> create_cluster_descriptor(std::string sdesc_path = "");
+
+    static std::string serialize();
+
+    static std::filesystem::path serialize_to_file();
+
     // Destructor
     virtual ~Cluster();
 
@@ -739,7 +963,7 @@ private:
     void create_device(
         const std::set<chip_id_t>& target_mmio_device_ids,
         const uint32_t& num_host_mem_ch_per_mmio_device,
-        const bool skip_driver_allocs,
+        const bool create_mock_chips,
         const bool clean_system_resources);
     void initialize_interprocess_mutexes(int logical_device_id, bool cleanup_mutexes_in_shm);
     void cleanup_shared_host_state();
@@ -748,7 +972,6 @@ private:
     void broadcast_tensix_risc_reset_to_cluster(const TensixSoftResetOptions& soft_resets);
     void send_remote_tensix_risc_reset_to_core(const tt_cxy_pair& core, const TensixSoftResetOptions& soft_resets);
     void send_tensix_risc_reset_to_core(const tt_cxy_pair& core, const TensixSoftResetOptions& soft_resets);
-    void perform_harvesting_on_soc_descriptors();
     void populate_cores();
     void init_pcie_iatus();  // No more p2p support.
     void check_pcie_device_initialized(int device_id);
@@ -871,33 +1094,61 @@ private:
 
     // Helper functions for constructing the chips from the cluster descriptor.
     std::unique_ptr<Chip> construct_chip_from_cluster(
-        chip_id_t chip_id, tt_ClusterDescriptor* cluster_desc, tt_SocDescriptor& soc_desc);
+        chip_id_t chip_id,
+        tt_ClusterDescriptor* cluster_desc,
+        tt_SocDescriptor& soc_desc,
+        const bool create_mock_chip = false);
     std::unique_ptr<Chip> construct_chip_from_cluster(
         const std::string& soc_desc_path,
         chip_id_t chip_id,
         tt_ClusterDescriptor* cluster_desc,
         bool perform_harvesting,
-        std::unordered_map<chip_id_t, uint32_t>& simulated_harvesting_masks);
+        std::unordered_map<chip_id_t, HarvestingMasks>& simulated_harvesting_masks,
+        const bool create_mock_chip = false);
     std::unique_ptr<Chip> construct_chip_from_cluster(
         chip_id_t logical_device_id,
         tt_ClusterDescriptor* cluster_desc,
         bool perform_harvesting,
-        std::unordered_map<chip_id_t, uint32_t>& simulated_harvesting_masks);
+        std::unordered_map<chip_id_t, HarvestingMasks>& simulated_harvesting_masks,
+        const bool create_mock_chip = false);
     void add_chip(chip_id_t chip_id, std::unique_ptr<Chip> chip);
+    HarvestingMasks get_harvesting_masks(
+        chip_id_t chip_id,
+        tt_ClusterDescriptor* cluster_desc,
+        bool perfrom_harvesting,
+        std::unordered_map<chip_id_t, HarvestingMasks>& simulated_harvesting_masks);
     uint32_t get_tensix_harvesting_mask(
         chip_id_t chip_id,
         tt_ClusterDescriptor* cluster_desc,
         bool perform_harvesting,
-        std::unordered_map<chip_id_t, uint32_t>& simulated_harvesting_masks);
+        std::unordered_map<chip_id_t, HarvestingMasks>& simulated_harvesting_masks);
+    uint32_t get_dram_harvesting_mask(
+        chip_id_t chip_id,
+        tt_ClusterDescriptor* cluster_desc,
+        bool perform_harvesting,
+        std::unordered_map<chip_id_t, HarvestingMasks>& simulated_harvesting_masks);
+    uint32_t get_eth_harvesting_mask(
+        chip_id_t chip_id,
+        tt_ClusterDescriptor* cluster_desc,
+        bool perform_harvesting,
+        std::unordered_map<chip_id_t, HarvestingMasks>& simulated_harvesting_masks);
     void construct_cluster(
         const uint32_t& num_host_mem_ch_per_mmio_device,
-        const bool skip_driver_allocs,
-        const bool clean_system_resources,
-        bool perform_harvesting,
-        std::unordered_map<chip_id_t, uint32_t> simulated_harvesting_masks);
-
-    // Helper function for translating chip coordinates.
+        const bool create_mock_chips,
+        const bool clean_system_resources);
+    // TODO: These functions should be removed once the transition to CoreCoord is complete.
+    CoordSystem get_coord_system_used() const;
     tt_xy_pair translate_to_api_coords(const chip_id_t chip, const tt::umd::CoreCoord core_coord) const;
+    // Most of the old APIs accept virtual coordinates, but we communicate with the device through translated
+    // coordinates. This is an internal helper function, until we switch the API to accept translated coordinates.
+    tt_xy_pair translate_chip_coord_virtual_to_translated(const chip_id_t chip_id, const tt_xy_pair core) const;
+
+    static std::unique_ptr<tt_ClusterDescriptor> create_cluster_descriptor(
+        const std::unordered_map<chip_id_t, std::unique_ptr<tt::umd::Chip>>& chips);
+
+    static void ubb_eth_connections(
+        const std::unordered_map<chip_id_t, std::unique_ptr<tt::umd::Chip>>& chips,
+        std::unique_ptr<tt_ClusterDescriptor>& cluster_desc);
 
     // State variables
     std::vector<tt::ARCH> archs_in_cluster = {};
@@ -908,6 +1159,8 @@ private:
     tt::ARCH arch_name;
 
     std::shared_ptr<tt_ClusterDescriptor> cluster_desc;
+
+    std::unique_ptr<tt::umd::BlackholeArcMessageQueue> bh_arc_msg_queue = nullptr;
 
     // remote eth transfer setup
     static constexpr std::uint32_t NUM_ETH_CORES_FOR_NON_MMIO_TRANSFERS = 6;
@@ -926,13 +1179,11 @@ private:
     std::unordered_map<chip_id_t, bool> flush_non_mmio_per_chip = {};
     bool non_mmio_transfer_cores_customized = false;
     std::unordered_map<chip_id_t, int> active_eth_core_idx_per_chip = {};
-    std::unordered_map<chip_id_t, bool> noc_translation_enabled_for_chip = {};
     std::map<std::string, std::shared_ptr<boost::interprocess::named_mutex>> hardware_resource_mutex_map = {};
-    std::unordered_map<chip_id_t, std::unordered_map<tt_xy_pair, tt_xy_pair>> harvested_coord_translation = {};
-    std::unordered_map<chip_id_t, std::uint32_t> num_rows_harvested = {};
     std::unordered_map<chip_id_t, std::unordered_set<tt_xy_pair>> workers_per_chip = {};
     std::unordered_set<tt_xy_pair> eth_cores = {};
     std::unordered_set<tt_xy_pair> dram_cores = {};
+    std::unordered_map<chip_id_t, std::unique_ptr<BlackholeArcMessageQueue>> bh_arc_msg_queues = {};
 
     std::map<std::set<chip_id_t>, std::unordered_map<chip_id_t, std::vector<std::vector<int>>>> bcast_header_cache = {};
     bool perform_harvesting_on_sdesc = false;

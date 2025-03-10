@@ -4,7 +4,6 @@ function(fetch_dependencies)
     # their own .clang-tidy within themselves and still not be clean against it <cough>flatbuffers</cough>
     set(CMAKE_C_CLANG_TIDY "")
     set(CMAKE_CXX_CLANG_TIDY "")
-    set(ENV{CPM_SOURCE_CACHE} "${PROJECT_SOURCE_DIR}/.cpmcache")
 
     include(${PROJECT_SOURCE_DIR}/cmake/CPM.cmake)
 
@@ -45,8 +44,19 @@ function(fetch_dependencies)
     ###################################################################################################################
     # boost::interprocess
     ###################################################################################################################
-    include(${PROJECT_SOURCE_DIR}/cmake/fetch_boost.cmake)
-    fetch_boost_library(interprocess)
+    CPMAddPackage(
+        NAME Boost
+        VERSION 1.86.0
+        URL
+            https://github.com/boostorg/boost/releases/download/boost-1.86.0/boost-1.86.0-cmake.tar.xz
+            URL_HASH
+            SHA256=2c5ec5edcdff47ff55e27ed9560b0a0b94b07bd07ed9928b476150e16b0efc57
+        OPTIONS
+            "BOOST_ENABLE_CMAKE ON"
+            "BOOST_SKIP_INSTALL_RULES ON"
+            "BUILD_SHARED_LIBS OFF"
+            "BOOST_INCLUDE_LIBRARIES interprocess"
+    )
 
     ###################################################################################################################
     # Nanomsg
@@ -56,6 +66,7 @@ function(fetch_dependencies)
         GITHUB_REPOSITORY nanomsg/nng
         GIT_TAG v1.8.0
         OPTIONS
+            "CMAKE_MESSAGE_LOG_LEVEL NOTICE"
             "BUILD_SHARED_LIBS OFF"
             "NNG_TESTS OFF"
             "NNG_TOOLS OFF"
@@ -69,6 +80,7 @@ function(fetch_dependencies)
         GITHUB_REPOSITORY google/flatbuffers
         GIT_TAG v24.3.25
         OPTIONS
+            "CMAKE_MESSAGE_LOG_LEVEL NOTICE"
             "FLATBUFFERS_BUILD_FLATC ON"
             "FLATBUFFERS_BUILD_TESTS OFF"
             "FLATBUFFERS_SKIP_MONSTER_EXTRA ON"
@@ -83,6 +95,7 @@ function(fetch_dependencies)
         GITHUB_REPOSITORY libuv/libuv
         GIT_TAG v1.48.0
         OPTIONS
+            "CMAKE_MESSAGE_LOG_LEVEL NOTICE"
             "LIBUV_BUILD_TESTS OFF"
             "LIBUV_BUILD_SHARED OFF"
     )
@@ -103,6 +116,13 @@ function(fetch_dependencies)
     ####################################################################################################################
     # spdlog
     ####################################################################################################################
-    CPMAddPackage(NAME spdlog GITHUB_REPOSITORY gabime/spdlog GIT_TAG v1.14.1 VERSION v1.14.1)
+    CPMAddPackage(
+        NAME spdlog
+        GITHUB_REPOSITORY gabime/spdlog
+        GIT_TAG
+            96a8f6250cbf4e8c76387c614f666710a2fa9bad # Version v 1.15+fmtlib fixes
+        OPTIONS
+            "CMAKE_MESSAGE_LOG_LEVEL NOTICE"
+    )
 endfunction()
 fetch_dependencies()

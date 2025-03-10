@@ -6,9 +6,11 @@
 
 #pragma once
 
+#include "umd/device/arc_messenger.h"
 #include "umd/device/architecture_implementation.h"
 #include "umd/device/pci_device.hpp"
 #include "umd/device/tt_device/tlb_manager.h"
+#include "umd/device/types/cluster_descriptor_types.h"
 
 // TODO: Should be moved to blackhole_architecture_implementation.h
 // See /vendor_ip/synopsys/052021/bh_pcie_ctl_gen5/export/configuration/DWC_pcie_ctl.h
@@ -30,9 +32,13 @@ struct dynamic_tlb {
 namespace tt::umd {
 
 class TLBManager;
+class ArcMessenger;
 
 class TTDevice {
 public:
+    // TODO #526: This is a hack to allow UMD to use the NOC1 TLB. Don't use this function.
+    static void use_noc1(bool use_noc1);
+
     /**
      * Creates a proper TTDevice object for the given PCI device number.
      */
@@ -64,6 +70,12 @@ public:
     void write_regs(volatile uint32_t *dest, const uint32_t *src, uint32_t word_len);
     void write_regs(uint32_t byte_addr, uint32_t word_len, const void *data);
     void read_regs(uint32_t byte_addr, uint32_t word_len, void *data);
+
+    // Read/write functions that always use same TLB entry. This is not supposed to be used
+    // on any code path that is performance critical. It is used to read/write the data needed
+    // to get the information to form cluster of chips, or just use base TTDevice functions.
+    void read_from_device(void *mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size);
+    void write_to_device(void *mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size);
 
     // TLB related functions.
     // TODO: These are architecture specific, and will be moved out of the class.
@@ -117,11 +129,26 @@ public:
      */
     virtual void configure_iatu_region(size_t region, uint64_t base, uint64_t target, size_t size);
 
+    virtual ChipInfo get_chip_info() = 0;
+
+    virtual void wait_arc_core_start(const tt_xy_pair arc_core, const uint32_t timeout_ms = 1000);
+
+    void bar_write32(uint32_t addr, uint32_t data);
+
+    uint32_t bar_read32(uint32_t addr);
+
+    ArcMessenger *get_arc_messenger() const;
+
+    virtual uint32_t get_clock();
+
+    virtual BoardType get_board_type() = 0;
+
 protected:
     std::unique_ptr<PCIDevice> pci_device_;
     std::unique_ptr<architecture_implementation> architecture_impl_;
     std::unique_ptr<TLBManager> tlb_manager_;
     tt::ARCH arch;
+    std::unique_ptr<ArcMessenger> arc_messenger_;
 
     bool is_hardware_hung();
 
@@ -137,5 +164,7 @@ protected:
     // to 2-byte writes. We avoid ever performing a 1-byte write to the device. This only affects to device.
     void memcpy_to_device(void *dest, const void *src, std::size_t num_bytes);
     void memcpy_from_device(void *dest, const void *src, std::size_t num_bytes);
+
+    ChipInfo chip_info;
 };
 }  // namespace tt::umd

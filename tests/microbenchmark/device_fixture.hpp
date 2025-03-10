@@ -31,21 +31,7 @@ protected:
         };
         std::set<chip_id_t> target_devices = {0};
         uint32_t num_host_mem_ch_per_mmio_device = 1;
-        device = std::make_shared<Cluster>(
-            test_utils::GetAbsPath("tests/soc_descs/grayskull_10x12.yaml"),
-            target_devices,
-            num_host_mem_ch_per_mmio_device,
-            false,
-            true);
-
-        for (int i = 0; i < target_devices.size(); i++) {
-            // Iterate over devices and only setup static TLBs for functional worker cores
-            auto& sdesc = device->get_soc_descriptor(i);
-            for (auto& core : sdesc.workers) {
-                // Statically mapping a 1MB TLB to this core, starting from address DATA_BUFFER_SPACE_BASE.
-                device->configure_tlb(i, core, get_static_tlb_index(core), l1_mem::address_map::DATA_BUFFER_SPACE_BASE);
-            }
-        }
+        device = std::make_shared<Cluster>(target_devices);
     }
 
     void TearDown() override {

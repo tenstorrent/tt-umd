@@ -12,5 +12,9 @@ namespace tt::umd {
 class GrayskullTTDevice : public TTDevice {
 public:
     GrayskullTTDevice(std::unique_ptr<PCIDevice> pci_device);
+
+    ChipInfo get_chip_info() override;
+
+    BoardType get_board_type() override;
 };
 }  // namespace tt::umd

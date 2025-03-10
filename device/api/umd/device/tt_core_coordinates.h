@@ -126,7 +126,7 @@ struct CoreCoord : public tt_xy_pair {
         return coord_system < o.coord_system;
     }
 
-    std::string to_str() const {
+    std::string str() const {
         return "CoreCoord: (" + std::to_string(x) + ", " + std::to_string(y) + ", " + ::to_str(core_type) + ", " +
                ::to_str(coord_system) + ")";
     }
@@ -137,6 +137,13 @@ struct CoreCoord : public tt_xy_pair {
 namespace std {
 template <>
 struct hash<tt::umd::CoreCoord> {
-    size_t operator()(const tt::umd::CoreCoord& core_coord) const;
+    size_t operator()(const tt::umd::CoreCoord& core_coord) const {
+        size_t seed = 0;
+        seed = std::hash<size_t>{}(core_coord.x) + 0x9e3779b9 + (seed << 6) + (seed >> 2);
+        seed = std::hash<size_t>{}(core_coord.y) + 0x9e3779b9 + (seed << 6) + (seed >> 2);
+        seed = std::hash<CoreType>{}(core_coord.core_type) + 0x9e3779b9 + (seed << 6) + (seed >> 2);
+        seed = std::hash<CoordSystem>{}(core_coord.coord_system) + 0x9e3779b9 + (seed << 6) + (seed >> 2);
+        return seed;
+    }
 };
 }  // namespace std

@@ -2941,13 +2941,18 @@ void Cluster::set_power_state(tt_DevicePowerState device_state) {
             }
         }
     } else {
+        uint32_t exit_code;
         for (auto& chip : all_chip_ids_) {
-            std::unique_ptr<BlackholeArcMessageQueue>& bh_arc_msg_queue = bh_arc_msg_queues.at(chip);
-
             if (device_state == tt_DevicePowerState::BUSY) {
-                bh_arc_msg_queue->send_message(tt::umd::blackhole::ArcMessageType::AICLK_GO_BUSY);
+                exit_code = get_tt_device(chip)->get_arc_messenger()->send_message(
+                    (uint32_t)tt::umd::blackhole::ArcMessageType::AICLK_GO_BUSY);
             } else {
-                bh_arc_msg_queue->send_message(tt::umd::blackhole::ArcMessageType::AICLK_GO_LONG_IDLE);
+                exit_code = get_tt_device(chip)->get_arc_messenger()->send_message(
+                    (uint32_t)tt::umd::blackhole::ArcMessageType::AICLK_GO_LONG_IDLE);
+            }
+
+            if (exit_code != 0) {
+                throw std::runtime_error(fmt::format("Setting power state for chip {} failed.", chip));
             }
         }
     }

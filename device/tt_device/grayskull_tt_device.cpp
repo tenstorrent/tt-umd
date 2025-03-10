@@ -14,4 +14,10 @@ ChipInfo GrayskullTTDevice::get_chip_info() {
     throw std::runtime_error("Reading ChipInfo is not supported for Grayskull.");
 }
 
+BoardType GrayskullTTDevice::get_board_type() {
+    throw std::runtime_error(
+        "Base TTDevice class does not have get_board_type implemented. Move this to abstract function once Grayskull "
+        "TTDevice is deleted.");
+}
+
 }  // namespace tt::umd

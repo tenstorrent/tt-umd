@@ -72,7 +72,7 @@ std::int32_t get_static_tlb_index(tt_xy_pair target) {
 
 std::set<chip_id_t> get_target_devices() {
     std::set<chip_id_t> target_devices;
-    std::unique_ptr<tt_ClusterDescriptor> cluster_desc_uniq = tt_ClusterDescriptor::create();
+    std::unique_ptr<tt_ClusterDescriptor> cluster_desc_uniq = Cluster::create_cluster_descriptor();
     for (int i = 0; i < cluster_desc_uniq->get_number_of_chips(); i++) {
         target_devices.insert(i);
     }
@@ -86,12 +86,12 @@ TEST(SiliconDriverBH, CreateDestroy) {
     // Initialize the driver with a 1x1 descriptor and explictly do not perform harvesting
     for (int i = 0; i < 50; i++) {
         Cluster cluster = Cluster(
-            test_utils::GetAbsPath("tests/soc_descs/blackhole_140_arch_no_eth.yaml"),
+            test_utils::GetAbsPath("tests/soc_descs/blackhole_140_arch.yaml"),
             target_devices,
             num_host_mem_ch_per_mmio_device,
             false,
             true,
-            false);
+            true);
         set_barrier_params(cluster);
         cluster.start_device(default_params);
         cluster.close_device();
@@ -104,7 +104,7 @@ TEST(SiliconDriverBH, CreateDestroy) {
 
 //     {
 //         std::unique_ptr<tt_ClusterDescriptor> cluster_desc_uniq =
-//             tt_ClusterDescriptor::create();
+//             Cluster::create_cluster_descriptor();
 //         if (cluster_desc_uniq->get_number_of_chips() != target_devices.size()) {
 //             GTEST_SKIP() << "SiliconDriverWH.Harvesting skipped because it can only be run on a two chip nebula
 //             system";
@@ -120,9 +120,6 @@ TEST(SiliconDriverBH, CreateDestroy) {
 //         true,
 //         true,
 //         simulated_harvesting_masks);
-//     auto sdesc_per_chip = cluster.get_virtual_soc_descriptors();
-
-//     ASSERT_EQ(cluster.using_harvested_soc_descriptors(), true) << "Expected Driver to have performed harvesting";
 
 //     for (const auto& chip : sdesc_per_chip) {
 //         ASSERT_EQ(chip.second.workers.size(), 48)
@@ -139,7 +136,7 @@ TEST(SiliconDriverBH, CreateDestroy) {
 //     std::unordered_map<chip_id_t, uint32_t> simulated_harvesting_masks = {{0, 30}, {1, 60}};
 //     {
 //         std::unique_ptr<tt_ClusterDescriptor> cluster_desc_uniq =
-//             tt_ClusterDescriptor::create();
+//             Cluster::create_cluster_descriptor();
 //         if (cluster_desc_uniq->get_number_of_chips() != target_devices.size()) {
 //             GTEST_SKIP() << "SiliconDriverWH.Harvesting skipped because it can only be run on a two chip nebula
 //             system";
@@ -156,10 +153,7 @@ TEST(SiliconDriverBH, CreateDestroy) {
 //         true,
 //         false,
 //         simulated_harvesting_masks);
-//     auto sdesc_per_chip = cluster.get_virtual_soc_descriptors();
 
-//     ASSERT_EQ(cluster.using_harvested_soc_descriptors(), false)
-//         << "SOC descriptors should not be modified when harvesting is disabled";
 //     for (const auto& chip : sdesc_per_chip) {
 //         ASSERT_EQ(chip.second.workers.size(), 1) << "Expected 1x1 SOC descriptor to be unmodified by driver";
 //     }
@@ -172,7 +166,7 @@ TEST(SiliconDriverBH, CreateDestroy) {
 //     std::unordered_map<chip_id_t, uint32_t> simulated_harvesting_masks = {{0, 30}, {1, 60}};
 //     {
 //         std::unique_ptr<tt_ClusterDescriptor> cluster_desc_uniq =
-//             tt_ClusterDescriptor::create();
+//             Cluster::create_cluster_descriptor();
 //         if (cluster_desc_uniq->get_number_of_chips() != target_devices.size()) {
 //             GTEST_SKIP() << "SiliconDriverWH.Harvesting skipped because it can only be run on a two chip nebula
 //             system";
@@ -435,10 +429,10 @@ TEST(SiliconDriverBH, DynamicTLB_RW) {
     printf("Target Tensix cores completed\n");
 
     // Target DRAM channel 0
-    constexpr int NUM_CHANNELS = 8;
     std::vector<uint32_t> dram_vector_to_write = {10, 11, 12, 13, 14, 15, 16, 17, 18, 19};
     std::uint32_t address = 0x400;
     for (int i = 0; i < target_devices.size(); i++) {
+        int NUM_CHANNELS = cluster.get_soc_descriptor(i).get_num_dram_channels();
         for (int loop = 0; loop < 100;
              loop++) {  // Write to each core a 100 times at different statically mapped addresses
             for (int ch = 0; ch < NUM_CHANNELS; ch++) {
@@ -616,7 +610,7 @@ TEST(SiliconDriverBH, MultiThreadedMemBar) {
             for (const CoreCoord& core : cluster.get_soc_descriptor(0).get_cores(CoreType::TENSIX)) {
                 std::vector<uint32_t> readback_vec = {};
                 cluster.write_to_device(vec1.data(), vec1.size() * sizeof(std::uint32_t), 0, core, address, "");
-                cluster.l1_membar(0, "SMALL_READ_WRITE_TLB", {core});
+                cluster.l1_membar(0, {core}, "SMALL_READ_WRITE_TLB");
                 test_utils::read_data_from_device(cluster, readback_vec, 0, core, address, 4 * vec1.size(), "");
                 ASSERT_EQ(readback_vec, vec1);
                 cluster.write_to_device(zeros.data(), zeros.size() * sizeof(std::uint32_t), 0, core, address, "");
@@ -631,7 +625,7 @@ TEST(SiliconDriverBH, MultiThreadedMemBar) {
             for (const CoreCoord& core : cluster.get_soc_descriptor(0).get_cores(CoreType::TENSIX)) {
                 std::vector<uint32_t> readback_vec = {};
                 cluster.write_to_device(vec2.data(), vec2.size() * sizeof(std::uint32_t), 0, core, address, "");
-                cluster.l1_membar(0, "SMALL_READ_WRITE_TLB", {core});
+                cluster.l1_membar(0, {core}, "SMALL_READ_WRITE_TLB");
                 test_utils::read_data_from_device(cluster, readback_vec, 0, core, address, 4 * vec2.size(), "");
                 ASSERT_EQ(readback_vec, vec2);
                 cluster.write_to_device(zeros.data(), zeros.size() * sizeof(std::uint32_t), 0, core, address, "");
@@ -769,8 +763,8 @@ TEST(SiliconDriverBH, DISABLED_VirtualCoordinateBroadcast) {  // same problem as
     tt_device_params default_params;
     cluster.start_device(default_params);
     auto eth_version = cluster.get_ethernet_fw_version();
-    bool virtual_bcast_supported =
-        (eth_version >= tt_version(6, 8, 0) || eth_version == tt_version(6, 7, 241)) && cluster.translation_tables_en;
+    bool virtual_bcast_supported = (eth_version >= tt_version(6, 8, 0) || eth_version == tt_version(6, 7, 241)) &&
+                                   cluster.get_soc_descriptor(*target_devices.begin()).noc_translation_id_enabled;
     if (!virtual_bcast_supported) {
         cluster.close_device();
         GTEST_SKIP() << "SiliconDriverWH.VirtualCoordinateBroadcast skipped since ethernet version does not support "
@@ -909,7 +903,7 @@ static bool is_iommu_available() {
     const size_t num_channels = 1;
     auto target_devices = get_target_devices();
     Cluster cluster(
-        test_utils::GetAbsPath("tests/soc_descs/blackhole_140_arch_no_eth.yaml"),
+        test_utils::GetAbsPath("tests/soc_descs/blackhole_140_arch.yaml"),
         target_devices,
         num_channels,
         false,  // skip driver allocs - no (don't skip)
@@ -939,8 +933,9 @@ TEST(SiliconDriverBH, RandomSysmemTestWithPcie) {
     cluster.start_device(tt_device_params{});  // no special parameters
 
     const chip_id_t mmio_chip_id = 0;
-    const auto PCIE = cluster.get_soc_descriptor(mmio_chip_id).get_cores(CoreType::PCIE).at(0);
-    const tt_cxy_pair PCIE_CORE(mmio_chip_id, PCIE.x, PCIE.y);
+    const auto pci_cores = cluster.get_soc_descriptor(mmio_chip_id).get_cores(CoreType::PCIE);
+    ASSERT_EQ(pci_cores.size(), 1);
+    const auto pcie_core = pci_cores.at(0);
     const size_t ONE_GIG = 1 << 30;
     const size_t num_tests = 0x20000;  // runs in a reasonable amount of time
 
@@ -972,10 +967,23 @@ TEST(SiliconDriverBH, RandomSysmemTestWithPcie) {
             ASSERT_EQ(address % ALIGNMENT, 0) << "Address not properly aligned";
 
             uint32_t value = 0;
-            cluster.read_from_device(&value, PCIE_CORE, noc_addr, sizeof(uint32_t), "LARGE_READ_TLB");
+            cluster.read_from_device(&value, mmio_chip_id, pcie_core, noc_addr, sizeof(uint32_t), "LARGE_READ_TLB");
 
             uint32_t expected = *reinterpret_cast<uint32_t*>(&sysmem[sysmem_address]);
             ASSERT_EQ(value, expected) << fmt::format("Mismatch at address {:#x}", address);
         }
     }
+}
+
+// Verifies that all ETH channels are classified as either active/idle.
+TEST(ClusterBH, TotalNumberOfEthCores) {
+    std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
+
+    const uint32_t num_eth_cores = cluster->get_soc_descriptor(0).get_cores(CoreType::ETH).size();
+
+    tt_ClusterDescriptor* cluster_desc = cluster->get_cluster_description();
+    const uint32_t num_active_channels = cluster_desc->get_active_eth_channels(0).size();
+    const uint32_t num_idle_channels = cluster_desc->get_idle_eth_channels(0).size();
+
+    EXPECT_EQ(num_eth_cores, num_active_channels + num_idle_channels);
 }

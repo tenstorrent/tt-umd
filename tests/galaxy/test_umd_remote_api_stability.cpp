@@ -33,7 +33,7 @@ protected:
     static uint32_t scale_number_of_tests;
 
     static void SetUpTestSuite() {
-        std::unique_ptr<tt_ClusterDescriptor> cluster_desc = tt_ClusterDescriptor::create();
+        std::unique_ptr<tt_ClusterDescriptor> cluster_desc = Cluster::create_cluster_descriptor();
         detected_num_chips = cluster_desc->get_number_of_chips();
         if (detected_num_chips < EXPECTED_MIN_CHIPS) {
             skip_tests = true;

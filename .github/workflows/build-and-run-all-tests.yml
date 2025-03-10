@@ -14,13 +14,12 @@ jobs:
       fail-fast: false
       matrix:
         test-group: [
-          {arch: grayskull},
           {arch: wormhole_b0},
           {arch: blackhole},
         ]
         ubuntu-version: [
           'ubuntu-22.04',
-          'ubuntu-20.04',
+          # 'ubuntu-20.04',
         ]
     uses: ./.github/workflows/build-tests.yml
     with:
@@ -35,18 +34,14 @@ jobs:
       fail-fast: false
       matrix:
         test-group: [
-          {arch: grayskull, card: e75, timeout: 10},
-          {arch: grayskull, card: e150, timeout: 10},
-          {arch: grayskull, card: e300, timeout: 10},
           {arch: wormhole_b0, card: n150, timeout: 5},
           {arch: wormhole_b0, card: n300, timeout: 15},
-          # Enable once we have functional cards.
-          # {arch: blackhole},
+          {arch: blackhole, card: p150, timeout: 15},
         ]
         ubuntu-version: [
-          # Running tests on ubuntu-20.04 should be sufficient. Reduce load on CI.
-          # 'ubuntu-22.04',
-          'ubuntu-20.04',
+          # Running tests on ubuntu-22.04 should be sufficient. Reduce load on CI.
+          'ubuntu-22.04',
+          # 'ubuntu-20.04',
         ]
     uses: ./.github/workflows/run-tests.yml
     with:

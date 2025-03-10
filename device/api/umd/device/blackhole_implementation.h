@@ -211,6 +211,9 @@ static const uint32_t SCRATCH_RAM_13 = 0x80030434;
 static const uint32_t NIU_CFG_NOC0_BAR_ADDR = 0x1FD04100;
 static const uint32_t NIU_CFG_NOC1_BAR_ADDR = 0x1FD14100;
 
+static constexpr uint32_t AICLK_BUSY_VAL = 1350;
+static constexpr uint32_t AICLK_IDLE_VAL = 800;
+
 static const size_t eth_translated_coordinate_start_x = 20;
 static const size_t eth_translated_coordinate_start_y = 25;
 
@@ -222,10 +225,10 @@ static const size_t dram_translated_coordinate_start_y = 12;
 
 /*
  * Ge the PCIE core that can be used for communication with host
- * based on the board type and whether the chip is remote or not.
+ * based on the board type and asic location of the chip.
  * Information on remote chip is used only if the board type is P300.
  */
-std::vector<tt_xy_pair> get_pcie_cores(const BoardType board_type, const bool is_chip_remote);
+std::vector<tt_xy_pair> get_pcie_cores(const BoardType board_type, const uint8_t asic_location);
 
 }  // namespace blackhole
 
@@ -304,6 +307,8 @@ public:
     uint32_t get_mem_large_read_tlb() const override { return blackhole::MEM_LARGE_READ_TLB; }
 
     uint32_t get_mem_large_write_tlb() const override { return blackhole::MEM_LARGE_WRITE_TLB; }
+
+    uint32_t get_num_eth_channels() const override { return blackhole::NUM_ETH_CHANNELS; }
 
     uint32_t get_static_tlb_cfg_addr() const override { return blackhole::STATIC_TLB_CFG_ADDR; }
 

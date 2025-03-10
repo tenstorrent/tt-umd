@@ -12,6 +12,7 @@
 #include <string>
 #include <unordered_set>
 
+#include "api/umd/device/blackhole_implementation.h"
 #include "api/umd/device/tt_soc_descriptor.h"
 #include "fmt/core.h"
 #include "logger.hpp"
@@ -129,8 +130,6 @@ void tt_SocDescriptor::load_core_descriptors_from_device_descriptor(YAML::Node &
     std::vector<std::string> worker_cores = device_descriptor_yaml["functional_workers"].as<std::vector<std::string>>();
     std::set<int> worker_routing_coords_x;
     std::set<int> worker_routing_coords_y;
-    std::unordered_map<int, int> routing_coord_worker_x;
-    std::unordered_map<int, int> routing_coord_worker_y;
     for (const auto &core_string : worker_cores) {
         CoreDescriptor core_descriptor;
         core_descriptor.coord = format_node(core_string);
@@ -142,21 +141,7 @@ void tt_SocDescriptor::load_core_descriptors_from_device_descriptor(YAML::Node &
         worker_routing_coords_y.insert(core_descriptor.coord.y);
     }
 
-    int func_x_start = 0;
-    int func_y_start = 0;
-    std::set<int>::iterator it;
-    for (it = worker_routing_coords_x.begin(); it != worker_routing_coords_x.end(); ++it) {
-        worker_log_to_routing_x[func_x_start] = *it;
-        routing_x_to_worker_x[*it] = func_x_start;
-        func_x_start++;
-    }
-    for (it = worker_routing_coords_y.begin(); it != worker_routing_coords_y.end(); ++it) {
-        worker_log_to_routing_y[func_y_start] = *it;
-        routing_y_to_worker_y[*it] = func_y_start;
-        func_y_start++;
-    }
-
-    worker_grid_size = tt_xy_pair(func_x_start, func_y_start);
+    worker_grid_size = tt_xy_pair(worker_routing_coords_x.size(), worker_routing_coords_y.size());
 
     auto harvested_cores = device_descriptor_yaml["harvested_workers"].as<std::vector<std::string>>();
     for (const auto &core_string : harvested_cores) {
@@ -185,17 +170,39 @@ tt_xy_pair tt_SocDescriptor::calculate_grid_size(const std::vector<tt_xy_pair> &
     return {x.size(), y.size()};
 }
 
-void tt_SocDescriptor::create_coordinate_manager(
-    const bool noc_translation_enabled, const HarvestingMasks harvesting_masks) {
+void tt_SocDescriptor::create_coordinate_manager(const BoardType board_type, const uint8_t asic_location) {
     const tt_xy_pair dram_grid_size = tt_xy_pair(dram_cores.size(), dram_cores.empty() ? 0 : dram_cores[0].size());
     const tt_xy_pair arc_grid_size = tt_SocDescriptor::calculate_grid_size(arc_cores);
-    const tt_xy_pair pcie_grid_size = tt_SocDescriptor::calculate_grid_size(pcie_cores);
+    tt_xy_pair pcie_grid_size = tt_SocDescriptor::calculate_grid_size(pcie_cores);
 
     std::vector<tt_xy_pair> dram_cores_unpacked;
     for (const auto &vec : dram_cores) {
         for (const auto &core : vec) {
             dram_cores_unpacked.push_back(core);
         }
+    }
+
+    // We have a specific case where we have a fixed soc, but differently wired based on the board type, effectively
+    // enabling only one of the two pci cores. This is currently a unique case, and if another similar case shows up, we
+    // can figure out a better abstraction.
+    if (arch == tt::ARCH::BLACKHOLE && board_type != BoardType::UNKNOWN) {
+        auto pcie_cores_for_type = blackhole::get_pcie_cores(board_type, asic_location);
+        // Verify that the required pcie core was already mentioned in the device descriptor.
+        for (const auto &core : pcie_cores_for_type) {
+            if (std::find(pcie_cores.begin(), pcie_cores.end(), core) == pcie_cores.end()) {
+                throw std::runtime_error(
+                    fmt::format("Error: Required pcie core {} not found in the device descriptor!", format_node(core)));
+            }
+        }
+        // Add the unused pcie cores as router cores.
+        for (const auto &core : pcie_cores) {
+            if (std::find(pcie_cores_for_type.begin(), pcie_cores_for_type.end(), core) == pcie_cores_for_type.end()) {
+                router_cores.push_back(core);
+            }
+        }
+
+        pcie_cores = pcie_cores_for_type;
+        pcie_grid_size = tt_SocDescriptor::calculate_grid_size(pcie_cores);
     }
 
     coordinate_manager = CoordinateManager::create_coordinate_manager(
@@ -230,8 +237,12 @@ tt::umd::CoreCoord tt_SocDescriptor::translate_coord_to(
 }
 
 tt_SocDescriptor::tt_SocDescriptor(
-    std::string device_descriptor_path, const bool noc_translation_enabled, const HarvestingMasks harvesting_masks) :
-    harvesting_masks(harvesting_masks) {
+    std::string device_descriptor_path,
+    const bool noc_translation_enabled,
+    const HarvestingMasks harvesting_masks,
+    const BoardType board_type,
+    const uint8_t asic_location) :
+    noc_translation_enabled(noc_translation_enabled), harvesting_masks(harvesting_masks) {
     std::ifstream fdesc(device_descriptor_path);
     if (fdesc.fail()) {
         throw std::runtime_error(
@@ -250,22 +261,10 @@ tt_SocDescriptor::tt_SocDescriptor(
     arch_name_value = trim(arch_name_value);
     arch = tt::arch_from_str(arch_name_value);
     load_soc_features_from_device_descriptor(device_descriptor_yaml);
-    create_coordinate_manager(noc_translation_enabled, harvesting_masks);
+    create_coordinate_manager(board_type, asic_location);
 }
 
-int tt_SocDescriptor::get_num_dram_channels() const {
-    int num_channels = 0;
-    for (auto &dram_core : dram_cores) {
-        if (dram_core.size() > 0) {
-            num_channels++;
-        }
-    }
-    return num_channels;
-}
-
-tt_xy_pair tt_SocDescriptor::get_core_for_dram_channel(int dram_chan, int subchannel) const {
-    return this->dram_cores.at(dram_chan).at(subchannel);
-}
+int tt_SocDescriptor::get_num_dram_channels() const { return get_grid_size(CoreType::DRAM).x; }
 
 CoreCoord tt_SocDescriptor::get_dram_core_for_channel(
     int dram_chan, int subchannel, const CoordSystem coord_system) const {
@@ -278,8 +277,7 @@ CoreCoord tt_SocDescriptor::get_eth_core_for_channel(int eth_chan, const CoordSy
     return translate_coord_to(logical_eth_coord, coord_system);
 }
 
-std::string tt_SocDescriptor::get_soc_descriptor_path(
-    tt::ARCH arch, const BoardType board_type, const bool is_chip_remote) {
+std::string tt_SocDescriptor::get_soc_descriptor_path(tt::ARCH arch) {
     switch (arch) {
         case tt::ARCH::GRAYSKULL:
             // TODO: this path needs to be changed to point to soc descriptors outside of tests directory.
@@ -288,23 +286,8 @@ std::string tt_SocDescriptor::get_soc_descriptor_path(
             // TODO: this path needs to be changed to point to soc descriptors outside of tests directory.
             return tt::umd::utils::get_abs_path("tests/soc_descs/wormhole_b0_8x10.yaml");
         case tt::ARCH::BLACKHOLE: {
-            if (board_type == BoardType::P100 || board_type == BoardType::UNKNOWN) {
-                // TODO: this path needs to be changed to point to soc descriptors outside of tests directory.
-                return tt::umd::utils::get_abs_path("tests/soc_descs/blackhole_140_arch_no_eth.yaml");
-            } else if (board_type == BoardType::P150A) {
-                // TODO: this path needs to be changed to point to soc descriptors outside of tests directory.
-                return tt::umd::utils::get_abs_path("tests/soc_descs/blackhole_140_arch_type2.yaml");
-            } else if (board_type == BoardType::P300) {
-                if (is_chip_remote) {
-                    // TODO: this path needs to be changed to point to soc descriptors outside of tests directory.
-                    return tt::umd::utils::get_abs_path("tests/soc_descs/blackhole_140_arch_type1.yaml");
-                } else {
-                    // TODO: this path needs to be changed to point to soc descriptors outside of tests directory.
-                    return tt::umd::utils::get_abs_path("tests/soc_descs/blackhole_140_arch_type2.yaml");
-                }
-            } else {
-                throw std::runtime_error("Invalid board type for Blackhole architecture.");
-            }
+            // TODO: this path needs to be changed to point to soc descriptors outside of tests directory.
+            return tt::umd::utils::get_abs_path("tests/soc_descs/blackhole_140_arch.yaml");
         }
         default:
             throw std::runtime_error("Invalid architecture");

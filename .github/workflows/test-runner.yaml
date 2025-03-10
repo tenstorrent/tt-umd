@@ -16,7 +16,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        machine: [ubuntu-20.04, ubuntu-22.04, e75, e150, e300, n150, n300]
+        machine: [ubuntu-22.04, n150, n300]
 
     name: Check runner
     runs-on: ${{ matrix.machine }}
@@ -64,8 +64,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        machine: [ubuntu-20.04, ubuntu-22.04, e75, e150, e300, n150, n300]
-        image: [tt-umd-ci-ubuntu-22.04, tt-umd-ci-ubuntu-20.04]
+        machine: [ubuntu-22.04, n150, n300]
+        image: [tt-umd-ci-ubuntu-22.04]
 
     name: Check runner docker
     needs: check-runners-host

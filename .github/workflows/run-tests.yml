@@ -23,7 +23,6 @@ on:
         description: 'The architecture to build for'
         type: choice
         options:
-          - grayskull
           - wormhole_b0
           - blackhole
       ubuntu-version:
@@ -38,9 +37,6 @@ on:
         description: 'The card to run tests on'
         type: choice
         options:
-          - e75
-          - e150
-          - e300
           - n150
           - n300
       timeout:

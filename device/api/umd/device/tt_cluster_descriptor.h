@@ -50,6 +50,9 @@ protected:
     std::unordered_map<chip_id_t, std::unordered_set<chip_id_t>> chips_grouped_by_closest_mmio;
     std::unordered_map<chip_id_t, tt::ARCH> chip_arch = {};
     std::map<ChipUID, chip_id_t> chip_uid_to_chip_id = {};
+    std::map<chip_id_t, ChipUID> chip_id_to_chip_uid = {};
+    std::map<chip_id_t, std::set<uint32_t>> active_eth_channels = {};
+    std::map<chip_id_t, std::set<uint32_t>> idle_eth_channels = {};
 
     // one-to-many chip connections
     struct Chip2ChipConnection {
@@ -75,6 +78,11 @@ protected:
 
     void fill_chips_grouped_by_closest_mmio();
 
+    static std::unique_ptr<tt_ClusterDescriptor> create();
+
+    std::map<chip_id_t, uint32_t> dram_harvesting_masks = {};
+    std::map<chip_id_t, uint32_t> eth_harvesting_masks = {};
+
 public:
     /*
      * Returns the pairs of channels that are connected where the first entry in the pair corresponds to the argument
@@ -92,7 +100,6 @@ public:
     // get_cluster_descriptor_file_path will create ethernet map in the background.
     static std::string get_cluster_descriptor_file_path();
     static std::unique_ptr<tt_ClusterDescriptor> create_from_yaml(const std::string &cluster_descriptor_file_path);
-    static std::unique_ptr<tt_ClusterDescriptor> create();
     static tt::ARCH detect_arch(const chip_id_t chip_id);
 
     // This function is used to create mock cluster descriptor yaml files, for example for simulation.
@@ -115,11 +122,23 @@ public:
     BoardType get_board_type(chip_id_t chip_id) const;
     tt::ARCH get_arch(chip_id_t chip_id) const;
 
-    chip_id_t get_chip_id(const ChipUID &chip_uid) const;
+    void add_chip_uid(const chip_id_t chip_id, const ChipUID &chip_uid);
+    std::optional<chip_id_t> get_chip_id(const ChipUID &chip_uid) const;
+    std::optional<ChipUID> get_chip_uid(chip_id_t chip_id) const;
 
     bool ethernet_core_has_active_ethernet_link(chip_id_t local_chip, ethernet_channel_t local_ethernet_channel) const;
     std::tuple<chip_id_t, ethernet_channel_t> get_chip_and_channel_of_remote_ethernet_core(
         chip_id_t local_chip, ethernet_channel_t local_ethernet_channel) const;
 
     void enable_all_devices();
+
+    std::string serialize() const;
+
+    std::filesystem::path serialize_to_file() const;
+
+    std::set<uint32_t> get_active_eth_channels(chip_id_t chip_id);
+    std::set<uint32_t> get_idle_eth_channels(chip_id_t chip_id);
+
+    uint32_t get_dram_harvesting_mask(chip_id_t chip_id) const;
+    uint32_t get_eth_harvesting_mask(chip_id_t chip_id) const;
 };

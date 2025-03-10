@@ -14,7 +14,7 @@ class LocalChip : public Chip {
 public:
     LocalChip(tt_SocDescriptor soc_descriptor, int pci_device_id);
 
-    LocalChip(std::unique_ptr<TTDevice> tt_device);
+    LocalChip(std::string sdesc_path, std::unique_ptr<TTDevice> tt_device);
 
     TTDevice* get_tt_device() override;
 
@@ -28,6 +28,6 @@ private:
     void initialize_tlb_manager();
 
 protected:
-    void wait_eth_cores_training(const uint32_t timeout_ms = 5000) override;
+    void wait_eth_cores_training(const uint32_t timeout_ms = 60000) override;
 };
 }  // namespace tt::umd

@@ -65,18 +65,18 @@ TEST(ApiClusterTest, DifferentConstructors) {
     umd_cluster = nullptr;
 
     // 3. Constructor taking a custom soc descriptor in addition.
-    tt::ARCH device_arch = tt_ClusterDescriptor::detect_arch(logical_device_id);
+    tt::ARCH device_arch = Cluster::create_cluster_descriptor()->get_arch(logical_device_id);
     // You can add a custom soc descriptor here.
-    std::string sdesc_path = tt_SocDescriptor::get_soc_descriptor_path(device_arch, BoardType::UNKNOWN);
+    std::string sdesc_path = tt_SocDescriptor::get_soc_descriptor_path(device_arch);
     umd_cluster = std::make_unique<Cluster>(sdesc_path, target_devices);
     umd_cluster = nullptr;
 
-    // TODO: This doesn't work at the moment.
-    // It will start working when we move enough stuff to the chips. At the moment this was disabled, it was mostly due
-    // to harvesting info.
-    // // 4. Constructor for creating a cluster with mock chip.
-    // umd_cluster = Cluster::create_mock_cluster();
-    // umd_cluster = nullptr;
+    // 4. Constructor taking cluster descriptor based on which to create cluster.
+    // Create mock chips is set to true in order to create mock chips for the devices in the cluster descriptor.
+    std::filesystem::path cluster_path = tt::umd::Cluster::serialize_to_file();
+    std::unordered_map<chip_id_t, HarvestingMasks> simulated_harvesting_masks = {};
+    std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>(
+        tt_ClusterDescriptor::create_from_yaml(cluster_path), 1, true, false, true, simulated_harvesting_masks);
 }
 
 TEST(ApiClusterTest, SimpleIOAllChips) {

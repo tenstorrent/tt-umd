@@ -17,15 +17,11 @@ jobs:
     # Due to parsing bug, fromJSON is used to convert string to number.
     # In pull_request or push events, the input context is not available, stating the default again here.
     timeout-minutes: ${{ fromJSON(inputs.timeout || '90') }}
-    strategy:
-      fail-fast: false
-      matrix:
-        arch_name: [grayskull, wormhole_b0, blackhole]
 
-    name: Build tt-metal for ${{ matrix.arch_name }} with newest UMD
-    runs-on: ubuntu-20.04
+    name: Build tt-metal with newest UMD
+    runs-on: ubuntu-22.04
     container:
-      image: ghcr.io/tenstorrent/tt-metal/tt-metalium/ubuntu-20.04-amd64:latest
+      image: ghcr.io/tenstorrent/tt-metal/tt-metalium/ubuntu-22.04-amd64:latest
       options: --user root
 
     steps:
@@ -47,7 +43,6 @@ jobs:
       - name: Build tt-metal
         run: |
           cd tt-metal
-          export ARCH_NAME=${{ matrix.arch_name }}
           export TT_METAL_HOME=$(pwd)
           export PYTHONPATH=$(pwd)
           ./build_metal.sh --build-all --enable-ccache --enable-profiler

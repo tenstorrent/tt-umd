@@ -23,7 +23,7 @@ tt_xy_pair get_any_tensix_core(tt::ARCH arch) {
     }
 }
 
-TEST(TTDeviceTest, BasicTTDeviceIO) {
+TEST(ApiTTDeviceTest, BasicTTDeviceIO) {
     std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
 
     uint64_t address = l1_mem::address_map::NCRISC_FIRMWARE_BASE;
@@ -42,5 +42,19 @@ TEST(TTDeviceTest, BasicTTDeviceIO) {
         ASSERT_EQ(data_write, data_read);
 
         data_read = std::vector<uint32_t>(data_write.size(), 0);
+    }
+}
+
+TEST(ApiTTDeviceTest, TTDeviceGetBoardType) {
+    std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
+    for (int pci_device_id : pci_device_ids) {
+        std::unique_ptr<TTDevice> tt_device = TTDevice::create(pci_device_id);
+
+        BoardType board_type = tt_device->get_board_type();
+
+        EXPECT_TRUE(
+            board_type == BoardType::N150 || board_type == BoardType::N300 || board_type == BoardType::P100 ||
+            board_type == BoardType::P150 || board_type == BoardType::P300 || board_type == BoardType::GALAXY ||
+            board_type == BoardType::UBB);
     }
 }

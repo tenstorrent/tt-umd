@@ -124,8 +124,8 @@ public:
     uint64_t dram_bank_size;
 
     // Harvesting mask is reported in logical coordinates, meaning the index of a bit that is set corresponds to the
-    // index of the row (in case of Tensix), or the index of the channel (in case of DRAM), or the index of the core
-    // (in case of ETH) as reported in the soc descriptor. Examples:
+    // index of the TENSIX row (Wormhole) or column (Blackhole), or the index of the DRAM channel, or the index of the
+    // ETH channel as reported in the soc descriptor. Examples:
     //   - Tensix harvesting mask "2" would mean the second row/column from soc descriptor is harvested, and not
     //     NOC0 row.
     //   - Eth harvesting mask "2" would mean that the second core in eth_cores in soc descriptor is harvested, which

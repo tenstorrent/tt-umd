@@ -94,6 +94,10 @@ TEST(SiliconDriverWH, CreateDestroy) {
             true,
             false);
         set_barrier_params(cluster);
+
+        // TODO: this test fails on new UBB galaxy if the two lines are uncommented.
+        // Generally we don't want to call start_device and close_device in tests.
+        // Implement loading ebreak code before each test.
         // cluster.start_device(default_params);
         // cluster.close_device();
     }
@@ -891,6 +895,7 @@ TEST(SiliconDriverWH, SysmemTestWithPcie) {
     ASSERT_EQ(buffer, std::vector<uint8_t>(sysmem, sysmem + test_size_bytes));
 }
 
+// TODO: the following test is failing on UBB. Figure out why and fix it.
 /**
  * Same idea as above, but with four channels of sysmem and random addresses.
  * The hardware mechanism is too slow to sweep the entire range.

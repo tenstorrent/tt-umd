@@ -56,7 +56,7 @@ TEST(CoordinateManager, CoordinateManagerBlackholeTopLeftCore) {
 // the logical coordinates (13, 0) if the first row is harvested.
 TEST(CoordinateManager, CoordinateManagerBlackholeTopRightCore) {
     std::shared_ptr<CoordinateManager> coordinate_manager =
-        6 CoordinateManager::create_coordinate_manager(tt::ARCH::BLACKHOLE, true, 1);
+        CoordinateManager::create_coordinate_manager(tt::ARCH::BLACKHOLE, true, 1);
 
     tt_xy_pair tensix_grid_size = tt::umd::blackhole::TENSIX_GRID_SIZE;
     size_t max_x = tensix_grid_size.x - 1;

@@ -3341,10 +3341,6 @@ std::unique_ptr<tt_ClusterDescriptor> Cluster::create_cluster_descriptor(
 
     // This is a way to verify that cluster descriptor does not have logical eth connections
     // that has the value bigger than number of non-harvested ETH cores for the chip.
-
-    // iterate over
-    // std::unordered_map<chip_id_t, std::unordered_map<ethernet_channel_t, std::tuple<chip_id_t, ethernet_channel_t>>>
-    //     ethernet_connections;
     for (auto& [local_chip_id, eth_connections] : desc->ethernet_connections) {
         size_t local_chip_eth_cores_size =
             chips.at(local_chip_id)->get_soc_descriptor().get_cores(CoreType::ETH).size();

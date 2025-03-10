@@ -141,6 +141,8 @@ public:
 
     virtual uint32_t get_clock();
 
+    virtual BoardType get_board_type() = 0;
+
 protected:
     std::unique_ptr<PCIDevice> pci_device_;
     std::unique_ptr<architecture_implementation> architecture_impl_;

@@ -49,6 +49,7 @@ enum BoardType : uint32_t {
     P150,
     P300,
     GALAXY,
+    UBB,
     UNKNOWN,
 };
 
@@ -72,6 +73,8 @@ inline std::string board_type_to_string(const BoardType board_type) {
             return "p300";
         case BoardType::GALAXY:
             return "galaxy";
+        case BoardType::UBB:
+            return "ubb";
         case BoardType::UNKNOWN:
             return "unknown";
     }
@@ -112,7 +115,6 @@ inline BlackholeChipType get_blackhole_chip_type(const BoardType board_type, con
     }
 }
 
-// TODO: add Wormhole and Grayskull board types to this function
 inline BoardType get_board_type_from_board_id(const uint64_t board_id) {
     uint64_t upi = (board_id >> 36) & 0xFFFFF;
 
@@ -124,6 +126,14 @@ inline BoardType get_board_type_from_board_id(const uint64_t board_id) {
         return BoardType::P150;
     } else if (upi == 0x44 || upi == 0x45 || upi == 0x46) {
         return BoardType::P300;
+    } else if (upi == 0x14) {
+        return BoardType::N300;
+    } else if (upi == 0x18) {
+        return BoardType::N150;
+    } else if (upi == 0xB) {
+        return BoardType::GALAXY;
+    } else if (upi == 0x35) {
+        return BoardType::UBB;
     }
 
     throw std::runtime_error(fmt::format("No existing board type for board id {}", board_id));

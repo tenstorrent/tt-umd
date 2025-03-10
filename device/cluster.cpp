@@ -298,10 +298,6 @@ void Cluster::construct_cluster(
             }
         }
     }
-
-    if (!create_mock_chips) {
-        initialize_arc_communication();
-    }
 }
 
 std::unique_ptr<Chip> Cluster::construct_chip_from_cluster(
@@ -435,6 +431,88 @@ HarvestingMasks Cluster::get_harvesting_masks(
             get_dram_harvesting_mask(chip_id, cluster_desc, perfrom_harvesting, simulated_harvesting_masks),
         .eth_harvesting_mask =
             get_eth_harvesting_mask(chip_id, cluster_desc, perfrom_harvesting, simulated_harvesting_masks)};
+}
+
+void Cluster::ubb_eth_connections(
+    const std::unordered_map<chip_id_t, std::unique_ptr<tt::umd::Chip>>& chips,
+    std::unique_ptr<tt_ClusterDescriptor>& cluster_desc) {
+    const uint64_t conn_info = 0x1200;
+    const uint64_t node_info = 0x1100;
+    const uint32_t eth_unknown = 0;
+    const uint32_t eth_unconnected = 1;
+    const uint32_t shelf_offset = 9;
+    const uint32_t rack_offset = 10;
+    const uint32_t base_addr = 0x1ec0;
+
+    std::unordered_map<uint64_t, chip_id_t> chip_uid_to_local_chip_id = {};
+
+    for (const auto& [chip_id, chip] : chips) {
+        std::vector<CoreCoord> eth_cores = chip->get_soc_descriptor().get_cores(CoreType::ETH);
+        TTDevice* tt_device = chip->get_tt_device();
+
+        uint32_t channel = 0;
+        for (const CoreCoord& eth_core : eth_cores) {
+            uint32_t port_status;
+
+            tt_device->read_from_device(
+                &port_status, tt_xy_pair(eth_core.x, eth_core.y), conn_info + (channel * 4), sizeof(uint32_t));
+
+            if (port_status == eth_unknown || port_status == eth_unconnected) {
+                channel++;
+                continue;
+            }
+
+            uint64_t local_chip_id;
+            tt_device->read_from_device(
+                &local_chip_id, tt_xy_pair(eth_core.x, eth_core.y), base_addr + (64 * 4), sizeof(uint64_t));
+
+            uint64_t remote_chip_id;
+            tt_device->read_from_device(
+                &remote_chip_id, tt_cxy_pair(chip_id, eth_core.x, eth_core.y), base_addr + (72 * 4), sizeof(uint64_t));
+
+            chip_uid_to_local_chip_id.insert({local_chip_id, chip_id});
+
+            channel++;
+        }
+    }
+
+    for (const auto& [chip_id, chip] : chips) {
+        std::vector<CoreCoord> eth_cores = chip->get_soc_descriptor().get_cores(CoreType::ETH);
+        TTDevice* tt_device = chip->get_tt_device();
+
+        uint32_t channel = 0;
+        for (const CoreCoord& eth_core : eth_cores) {
+            uint32_t port_status;
+            tt_device->read_from_device(
+                &port_status,
+                tt_cxy_pair(chip_id, eth_core.x, eth_core.y),
+                conn_info + (channel * 4),
+                sizeof(uint32_t));
+
+            if (port_status == eth_unknown || port_status == eth_unconnected) {
+                channel++;
+                continue;
+            }
+
+            uint64_t remote_chip_id;
+            tt_device->read_from_device(
+                &remote_chip_id, tt_cxy_pair(chip_id, eth_core.x, eth_core.y), base_addr + (72 * 4), sizeof(uint64_t));
+
+            uint64_t local_chip_id;
+            tt_device->read_from_device(
+                &local_chip_id, tt_cxy_pair(chip_id, eth_core.x, eth_core.y), base_addr + (64 * 4), sizeof(uint64_t));
+
+            uint32_t remote_eth_id;
+            tt_device->read_from_device(
+                &remote_eth_id, tt_cxy_pair(chip_id, eth_core.x, eth_core.y), base_addr + 76 * 4, sizeof(uint32_t));
+
+            chip_id_t remote_logical_chip_id = chip_uid_to_local_chip_id.at(remote_chip_id);
+
+            cluster_desc->ethernet_connections[chip_id][channel] = {remote_logical_chip_id, remote_eth_id};
+
+            channel++;
+        }
+    }
 }
 
 Cluster::Cluster(
@@ -2843,17 +2921,6 @@ void Cluster::broadcast_tensix_risc_reset_to_cluster(const TensixSoftResetOption
     }
 }
 
-void Cluster::initialize_arc_communication() {
-    if (arch_name == tt::ARCH::BLACKHOLE) {
-        for (auto& chip : all_chip_ids_) {
-            bh_arc_msg_queues.insert(
-                {chip,
-                 BlackholeArcMessageQueue::get_blackhole_arc_message_queue(
-                     get_tt_device(chip), BlackholeArcMessageQueueIndex::APPLICATION)});
-        }
-    }
-}
-
 void Cluster::set_power_state(tt_DevicePowerState device_state) {
     // MT Initial BH - ARC messages not supported in Blackhole
     if (arch_name != tt::ARCH::BLACKHOLE) {
@@ -3097,13 +3164,43 @@ std::unique_ptr<tt_ClusterDescriptor> Cluster::create_cluster_descriptor(std::st
 
         return Cluster::create_cluster_descriptor(chips);
     } else {
-        return tt_ClusterDescriptor::create();
+        std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
+
+        if (sdesc_path.empty()) {
+            sdesc_path = tt_SocDescriptor::get_soc_descriptor_path(tt::ARCH::WORMHOLE_B0);
+        }
+
+        std::vector<std::unique_ptr<TTDevice>> tt_devices;
+        for (auto& device_id : pci_device_ids) {
+            std::unique_ptr<TTDevice> tt_device = TTDevice::create(device_id);
+            tt_devices.push_back(std::move(tt_device));
+        }
+
+        // Topology discovery from source is supported for Wormhole UBB at the moment,
+        // other Wormhole specs need to go through a legacy create-ethernet-map.
+        if (!tt_devices.empty() && tt_devices[0]->get_board_type() != BoardType::UBB) {
+            return tt_ClusterDescriptor::create();
+        }
+
+        std::unordered_map<chip_id_t, std::unique_ptr<Chip>> chips;
+        chip_id_t chip_id = 0;
+        for (auto& device_id : pci_device_ids) {
+            std::unique_ptr<LocalChip> chip = std::make_unique<LocalChip>(sdesc_path, TTDevice::create(device_id));
+            chips.emplace(chip_id, std::move(chip));
+            chip_id++;
+        }
+
+        return Cluster::create_cluster_descriptor(chips);
     }
 }
 
 std::unique_ptr<tt_ClusterDescriptor> Cluster::create_cluster_descriptor(
     const std::unordered_map<chip_id_t, std::unique_ptr<tt::umd::Chip>>& chips) {
     std::unique_ptr<tt_ClusterDescriptor> desc = std::unique_ptr<tt_ClusterDescriptor>(new tt_ClusterDescriptor());
+
+    if (chips.empty()) {
+        return desc;
+    }
 
     for (auto& it : chips) {
         const chip_id_t chip_id = it.first;
@@ -3126,61 +3223,75 @@ std::unique_ptr<tt_ClusterDescriptor> Cluster::create_cluster_descriptor(
         desc->harvesting_masks.insert({chip_id, chip->get_chip_info().harvesting_masks.tensix_harvesting_mask});
         desc->dram_harvesting_masks.insert({chip_id, chip->get_chip_info().harvesting_masks.dram_harvesting_mask});
         desc->eth_harvesting_masks.insert({chip_id, chip->get_chip_info().harvesting_masks.eth_harvesting_mask});
+    }
 
-        const std::vector<CoreCoord> eth_cores = chip->get_soc_descriptor().get_cores(CoreType::ETH);
+    if (chips.begin()->second->get_tt_device()->get_arch() == tt::ARCH::BLACKHOLE) {
+        for (auto& it : chips) {
+            const chip_id_t chip_id = it.first;
+            const std::unique_ptr<Chip>& chip = it.second;
 
-        for (size_t eth_channel = 0; eth_channel < eth_cores.size(); eth_channel++) {
-            const CoreCoord& eth_core = eth_cores[eth_channel];
-            TTDevice* tt_device = chip->get_tt_device();
-            boot_results_t boot_results;
+            const std::vector<CoreCoord> eth_cores = chip->get_soc_descriptor().get_cores(CoreType::ETH);
 
-            tt_device->read_from_device(
-                (uint8_t*)&boot_results,
-                tt_xy_pair(eth_core.x, eth_core.y),
-                blackhole::BOOT_RESULTS_ADDR,
-                sizeof(boot_results));
+            for (size_t eth_channel = 0; eth_channel < eth_cores.size(); eth_channel++) {
+                const CoreCoord& eth_core = eth_cores[eth_channel];
+                TTDevice* tt_device = chip->get_tt_device();
+                boot_results_t boot_results;
 
-            if (boot_results.eth_status.port_status == port_status_e::PORT_UP) {
-                // active eth core
-                desc->active_eth_channels[chip_id].insert(eth_channel);
-                log_debug(LogSiliconDriver, "Eth core ({}, {}) on chip {} is active", eth_core.x, eth_core.y, chip_id);
-                const chip_info_t& local_info = boot_results.local_info;
-                const chip_info_t& remote_info = boot_results.remote_info;
+                tt_device->read_from_device(
+                    (uint8_t*)&boot_results,
+                    tt_xy_pair(eth_core.x, eth_core.y),
+                    blackhole::BOOT_RESULTS_ADDR,
+                    sizeof(boot_results));
 
-                chip_id_t local_chip_id = desc->get_chip_id(local_info.get_chip_uid()).value();
-                std::optional<chip_id_t> remote_chip_id = desc->get_chip_id(remote_info.get_chip_uid());
-                if (!remote_chip_id.has_value()) {
+                if (boot_results.eth_status.port_status == port_status_e::PORT_UP) {
+                    // active eth core
+                    desc->active_eth_channels[chip_id].insert(eth_channel);
+                    log_debug(
+                        LogSiliconDriver, "Eth core ({}, {}) on chip {} is active", eth_core.x, eth_core.y, chip_id);
+                    const chip_info_t& local_info = boot_results.local_info;
+                    const chip_info_t& remote_info = boot_results.remote_info;
+
+                    chip_id_t local_chip_id = desc->get_chip_id(local_info.get_chip_uid()).value();
+                    std::optional<chip_id_t> remote_chip_id = desc->get_chip_id(remote_info.get_chip_uid());
+                    if (!remote_chip_id.has_value()) {
+                        log_debug(
+                            LogSiliconDriver,
+                            "Eth core ({}, {}) on chip {} is connected to an chip with board_id {} not present in the "
+                            "target devices opened by this driver.",
+                            eth_core.x,
+                            eth_core.y,
+                            chip_id,
+                            remote_info.get_chip_uid().board_id);
+                    } else {
+                        // Adding a connection only one way, the other chip should add it another way.
+                        desc->ethernet_connections[local_chip_id][local_info.eth_id] = {
+                            remote_chip_id.value(), remote_info.eth_id};
+                    }
+                } else if (boot_results.eth_status.port_status == port_status_e::PORT_DOWN) {
+                    // active eth core, just with link being down.
+                    desc->active_eth_channels[chip_id].insert(eth_channel);
                     log_debug(
                         LogSiliconDriver,
-                        "Eth core ({}, {}) on chip {} is connected to an chip with board_id {} not present in the "
-                        "target devices opened by this driver.",
+                        "Port on eth core ({}, {}) on chip {} is down",
                         eth_core.x,
                         eth_core.y,
-                        chip_id,
-                        remote_info.get_chip_uid().board_id);
-                } else {
-                    // Adding a connection only one way, the other chip should add it another way.
-                    desc->ethernet_connections[local_chip_id][local_info.eth_id] = {
-                        remote_chip_id.value(), remote_info.eth_id};
+                        chip_id);
+                } else if (boot_results.eth_status.port_status == port_status_e::PORT_UNUSED) {
+                    // idle core
+                    desc->idle_eth_channels[chip_id].insert(eth_channel);
+                    log_debug(LogSiliconDriver, "Eth core ({}, {}) on chip {} is idle");
+                } else if (boot_results.eth_status.port_status == port_status_e::PORT_UNKNOWN) {
+                    log_debug(
+                        LogSiliconDriver,
+                        "Port on eth core ({}, {}) on chip {} is in unknown state",
+                        eth_core.x,
+                        eth_core.y,
+                        chip_id);
                 }
-            } else if (boot_results.eth_status.port_status == port_status_e::PORT_DOWN) {
-                // active eth core, just with link being down.
-                desc->active_eth_channels[chip_id].insert(eth_channel);
-                log_debug(
-                    LogSiliconDriver, "Port on eth core ({}, {}) on chip {} is down", eth_core.x, eth_core.y, chip_id);
-            } else if (boot_results.eth_status.port_status == port_status_e::PORT_UNUSED) {
-                // idle core
-                desc->idle_eth_channels[chip_id].insert(eth_channel);
-                log_debug(LogSiliconDriver, "Eth core ({}, {}) on chip {} is idle");
-            } else if (boot_results.eth_status.port_status == port_status_e::PORT_UNKNOWN) {
-                log_debug(
-                    LogSiliconDriver,
-                    "Port on eth core ({}, {}) on chip {} is in unknown state",
-                    eth_core.x,
-                    eth_core.y,
-                    chip_id);
             }
         }
+    } else {
+        ubb_eth_connections(chips, desc);
     }
 
     desc->enable_all_devices();

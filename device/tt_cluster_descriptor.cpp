@@ -782,6 +782,8 @@ void tt_ClusterDescriptor::load_chips_from_connectivity_descriptor(YAML::Node &y
                 board_type = BoardType::P300;
             } else if (chip_board_type.second == "GALAXY") {
                 board_type = BoardType::GALAXY;
+            } else if (chip_board_type.second == "ubb") {
+                board_type = BoardType::UBB;
             } else {
                 log_warning(
                     LogSiliconDriver,

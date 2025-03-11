@@ -504,31 +504,30 @@ bool PCIDevice::init_iommu(size_t size) {
     }
 
 #ifdef P550_HACK
-    if (size > (1ULL << 30)) {
-        // At least, > 1GB didn't work for me.
-        TT_THROW("P550 DMA is limited to 1GB allocations.");
-    }
-
+    size_t chunk_size = HUGEPAGE_REGION_SIZE;
+    hugepage_mapping_per_channel.resize(num_fake_mem_channels);
     // Get the driver to allocate a DMA buffer instead of us allocating memory
     // and pinning it.  The main difference between this and the #else case
     // below is that the kernel ensures the memory is uncached by the CPU.
     // This avoids the need for cache maintenance operations on the CPU side.
-    int fd = get_fd();
-    tenstorrent_allocate_dma_buf dma_buf{};
-    dma_buf.in.requested_size = size;
-    dma_buf.in.buf_index = 0;
+    for (size_t ch = 0; ch < num_fake_mem_channels; ch++) {
+        int fd = get_fd();
+        tenstorrent_allocate_dma_buf dma_buf{};
+        dma_buf.in.requested_size = chunk_size;
+        dma_buf.in.buf_index = ch;
+        if (ioctl(fd, TENSTORRENT_IOCTL_ALLOCATE_DMA_BUF, &dma_buf) != 0) {
+            TT_THROW("Failed to allocate memory for device/host shared buffer (size: {} errno: {}).", chunk_size, strerror(errno));
+        }
 
-    if (ioctl(fd, TENSTORRENT_IOCTL_ALLOCATE_DMA_BUF, &dma_buf) != 0) {
-        TT_THROW("Failed to allocate memory for device/host shared buffer (size: {} errno: {}).", size, strerror(errno));
+        void *mapping = mmap(nullptr, chunk_size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, dma_buf.out.mapping_offset);
+        if (mapping == MAP_FAILED) {
+            TT_THROW("Failed to map memory for device/host shared buffer (size: {} errno: {}).", chunk_size, strerror(errno));
+        }
+
+        uint64_t iova = dma_buf.out.physical_address;
+        uint8_t *base = static_cast<uint8_t *>(mapping);
+        hugepage_mapping_per_channel[ch] = {base, HUGEPAGE_REGION_SIZE, iova};
     }
-
-    void *mapping = mmap(nullptr, size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, dma_buf.out.mapping_offset);
-    if (mapping == MAP_FAILED) {
-        TT_THROW("Failed to map memory for device/host shared buffer (size: {} errno: {}).", size, strerror(errno));
-    }
-
-    uint64_t iova = dma_buf.out.physical_address;
-
 #else
     log_info(LogSiliconDriver, "Allocating sysmem without hugepages (size: {:#x}).", size);
     void *mapping = mmap(nullptr, size, PROT_READ | PROT_WRITE, MAP_ANONYMOUS | MAP_PRIVATE | MAP_POPULATE, -1, 0);
@@ -542,7 +541,6 @@ bool PCIDevice::init_iommu(size_t size) {
 
     uint64_t iova = map_for_dma(mapping, size);
     log_info(LogSiliconDriver, "Mapped sysmem without hugepages to IOVA {:#x}.", iova);
-#endif
 
     hugepage_mapping_per_channel.resize(num_fake_mem_channels);
 
@@ -551,6 +549,7 @@ bool PCIDevice::init_iommu(size_t size) {
         uint8_t *base = static_cast<uint8_t *>(mapping) + ch * HUGEPAGE_REGION_SIZE;
         hugepage_mapping_per_channel[ch] = {base, HUGEPAGE_REGION_SIZE, iova + ch * HUGEPAGE_REGION_SIZE};
     }
+#endif
 
     return true;
 }

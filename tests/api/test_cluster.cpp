@@ -303,3 +303,25 @@ TEST(TestCluster, PrintAllChipsAllCores) {
         }
     }
 }
+
+// It is expected that logical ETH channel numbers are in the range [0, num_channels) for each
+// chip. This is needed because of eth id readouts for Blackhole that don't take harvesting into
+// acount. This test verifies that both for Wormhole and Blackhole.
+TEST(TestCluster, TestClusterLogicalETHChannelsConnectivity) {
+    std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
+
+    tt_ClusterDescriptor* cluster_desc = cluster->get_cluster_description();
+
+    for (auto [chip, connections] : cluster_desc->get_ethernet_connections()) {
+        const uint32_t num_channels_local_chip = cluster->get_soc_descriptor(chip).get_cores(CoreType::ETH).size();
+        for (auto [channel, remote_chip_and_channel] : connections) {
+            auto [remote_chip, remote_channel] = remote_chip_and_channel;
+
+            const uint32_t num_channels_remote_chip =
+                cluster->get_soc_descriptor(remote_chip).get_cores(CoreType::ETH).size();
+
+            EXPECT_TRUE(channel < num_channels_local_chip);
+            EXPECT_TRUE(remote_channel < num_channels_remote_chip);
+        }
+    }
+}

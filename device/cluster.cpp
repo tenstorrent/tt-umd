@@ -40,6 +40,7 @@
 #include "api/umd/device/tt_core_coordinates.h"
 #include "logger.hpp"
 #include "umd/device/architecture_implementation.h"
+#include "umd/device/blackhole_implementation.h"
 #include "umd/device/chip/local_chip.h"
 #include "umd/device/chip/mock_chip.h"
 #include "umd/device/chip/remote_chip.h"
@@ -3293,9 +3294,15 @@ std::unique_ptr<tt_ClusterDescriptor> Cluster::create_cluster_descriptor(
                             chip_id,
                             remote_info.get_chip_uid().board_id);
                     } else {
+                        const CoreCoord logical_remote_coord = chips.at(remote_chip_id.value())
+                                                                   ->get_soc_descriptor()
+                                                                   .translate_coord_to(
+                                                                       blackhole::ETH_CORES[remote_info.eth_id],
+                                                                       CoordSystem::PHYSICAL,
+                                                                       CoordSystem::LOGICAL);
                         // Adding a connection only one way, the other chip should add it another way.
-                        desc->ethernet_connections[local_chip_id][local_info.eth_id] = {
-                            remote_chip_id.value(), remote_info.eth_id};
+                        desc->ethernet_connections[local_chip_id][eth_channel] = {
+                            remote_chip_id.value(), logical_remote_coord.y};
                     }
                 } else if (boot_results.eth_status.port_status == blackhole::port_status_e::PORT_DOWN) {
                     // active eth core, just with link being down.

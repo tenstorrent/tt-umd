@@ -3331,38 +3331,6 @@ std::unique_ptr<tt_ClusterDescriptor> Cluster::create_cluster_descriptor(
         ubb_eth_connections(chips, desc);
     }
 
-    // This is a way to verify that cluster descriptor does not have logical eth connections
-    // that has the value bigger than number of non-harvested ETH cores for the chip.
-    for (auto& [local_chip_id, eth_connections] : desc->ethernet_connections) {
-        size_t local_chip_eth_cores_size =
-            chips.at(local_chip_id)->get_soc_descriptor().get_cores(CoreType::ETH).size();
-
-        for (auto& [local_eth, connection] : eth_connections) {
-            auto [remote_chip_id, remote_eth] = connection;
-            // chip_id_t remote_chip_id = connection.first;
-            // size_t remote_eth = connection.second;
-
-            size_t remote_chip_eth_cores_size =
-                chips.at(remote_chip_id)->get_soc_descriptor().get_cores(CoreType::ETH).size();
-
-            if (local_eth >= local_chip_eth_cores_size) {
-                throw std::runtime_error(fmt::format(
-                    "ETH channel {} on chip {} has higher channel number than number of non-harvested ETH cores - {}.",
-                    local_eth,
-                    local_chip_id,
-                    local_chip_eth_cores_size));
-            }
-
-            if (remote_eth >= remote_chip_eth_cores_size) {
-                throw std::runtime_error(fmt::format(
-                    "ETH channel {} on chip {} has higher channel number than number of non-harvested ETH cores - {}.",
-                    remote_eth,
-                    remote_chip_id,
-                    remote_chip_eth_cores_size));
-            }
-        }
-    }
-
     desc->enable_all_devices();
 
     desc->fill_chips_grouped_by_closest_mmio();

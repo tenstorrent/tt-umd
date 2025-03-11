@@ -38,10 +38,10 @@ TEST(CoordinateManager, CoordinateManagerWormholeNoHarvesting) {
 // the logical coordinates if the first row is harvested.
 TEST(CoordinateManager, CoordinateManagerWormholeTopLeftCore) {
     // This harvesting mask if targeting first row in NOC layout.
-    const size_t harvesting_mask = (1 << 0);
+    const size_t tensix_harvesting_mask = (1 << 0);
 
     std::shared_ptr<CoordinateManager> coordinate_manager =
-        CoordinateManager::create_coordinate_manager(tt::ARCH::WORMHOLE_B0, true, {harvesting_mask});
+        CoordinateManager::create_coordinate_manager(tt::ARCH::WORMHOLE_B0, true, {tensix_harvesting_mask});
     tt_xy_pair tensix_grid_size = tt::umd::wormhole::TENSIX_GRID_SIZE;
 
     CoreCoord logical_coords = CoreCoord(0, 0, CoreType::TENSIX, CoordSystem::LOGICAL);
@@ -59,8 +59,11 @@ TEST(CoordinateManager, CoordinateManagerWormholeTopLeftCore) {
 // We expect that the top right core will have virtual and physical coordinates (10, 1) and (10, 2) for
 // the logical coordinates (9, 0) if the first row is harvested.
 TEST(CoordinateManager, CoordinateManagerWormholeTopRightCore) {
+    // This harvesting mask if targeting first row in NOC layout.
+    const size_t tensix_harvesting_mask = (1 << 0);
+
     std::shared_ptr<CoordinateManager> coordinate_manager =
-        CoordinateManager::create_coordinate_manager(tt::ARCH::WORMHOLE_B0, true, 1);
+        CoordinateManager::create_coordinate_manager(tt::ARCH::WORMHOLE_B0, true, {tensix_harvesting_mask});
 
     tt_xy_pair tensix_grid_size = tt::umd::wormhole::TENSIX_GRID_SIZE;
     size_t max_x = tensix_grid_size.x - 1;
@@ -80,8 +83,11 @@ TEST(CoordinateManager, CoordinateManagerWormholeTopRightCore) {
 // We expect that the bottom left core will have virtual and physical coordinates (1, 8) and (1, 9) for
 // the logical coordinates (0, 6) if the first row is harvested.
 TEST(CoordinateManager, CoordinateManagerWormholeBottomLeftCore) {
+    // This harvesting mask if targeting first row in NOC layout.
+    const size_t tensix_harvesting_mask = (1 << 0);
+
     std::shared_ptr<CoordinateManager> coordinate_manager =
-        CoordinateManager::create_coordinate_manager(tt::ARCH::WORMHOLE_B0, true, 1);
+        CoordinateManager::create_coordinate_manager(tt::ARCH::WORMHOLE_B0, true, {tensix_harvesting_mask});
 
     tt_xy_pair tensix_grid_size = tt::umd::wormhole::TENSIX_GRID_SIZE;
     size_t max_y = tensix_grid_size.y - 2;

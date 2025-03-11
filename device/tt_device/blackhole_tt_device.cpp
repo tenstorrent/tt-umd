@@ -109,6 +109,8 @@ ChipInfo BlackholeTTDevice::get_chip_info() {
 
     chip_info.noc_translation_enabled = ((niu_cfg >> 14) & 0x1) != 0;
 
+    std::cout << "noc translation enabled " << (uint32_t)chip_info.noc_translation_enabled << std::endl;
+
     // It is expected that these entries are always available.
     chip_info.chip_uid.board_id = ((uint64_t)telemetry->read_entry(blackhole::TAG_BOARD_ID_HIGH) << 32) |
                                   (telemetry->read_entry(blackhole::TAG_BOARD_ID_LOW));

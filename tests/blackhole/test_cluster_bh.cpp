@@ -72,7 +72,7 @@ std::int32_t get_static_tlb_index(tt_xy_pair target) {
 
 std::set<chip_id_t> get_target_devices() {
     std::set<chip_id_t> target_devices;
-    std::unique_ptr<tt_ClusterDescriptor> cluster_desc_uniq = Cluster::create_cluster_descriptor();
+    std::unique_ptr<tt_ClusterDescriptor> cluster_desc_uniq = tt::umd::Cluster::create_cluster_descriptor();
     for (int i = 0; i < cluster_desc_uniq->get_number_of_chips(); i++) {
         target_devices.insert(i);
     }
@@ -104,7 +104,7 @@ TEST(SiliconDriverBH, CreateDestroy) {
 
 //     {
 //         std::unique_ptr<tt_ClusterDescriptor> cluster_desc_uniq =
-//             Cluster::create_cluster_descriptor();
+//             tt::umd::Cluster::create_cluster_descriptor();
 //         if (cluster_desc_uniq->get_number_of_chips() != target_devices.size()) {
 //             GTEST_SKIP() << "SiliconDriverWH.Harvesting skipped because it can only be run on a two chip nebula
 //             system";
@@ -136,7 +136,7 @@ TEST(SiliconDriverBH, CreateDestroy) {
 //     std::unordered_map<chip_id_t, uint32_t> simulated_harvesting_masks = {{0, 30}, {1, 60}};
 //     {
 //         std::unique_ptr<tt_ClusterDescriptor> cluster_desc_uniq =
-//             Cluster::create_cluster_descriptor();
+//             tt::umd::Cluster::create_cluster_descriptor();
 //         if (cluster_desc_uniq->get_number_of_chips() != target_devices.size()) {
 //             GTEST_SKIP() << "SiliconDriverWH.Harvesting skipped because it can only be run on a two chip nebula
 //             system";
@@ -166,7 +166,7 @@ TEST(SiliconDriverBH, CreateDestroy) {
 //     std::unordered_map<chip_id_t, uint32_t> simulated_harvesting_masks = {{0, 30}, {1, 60}};
 //     {
 //         std::unique_ptr<tt_ClusterDescriptor> cluster_desc_uniq =
-//             Cluster::create_cluster_descriptor();
+//             tt::umd::Cluster::create_cluster_descriptor();
 //         if (cluster_desc_uniq->get_number_of_chips() != target_devices.size()) {
 //             GTEST_SKIP() << "SiliconDriverWH.Harvesting skipped because it can only be run on a two chip nebula
 //             system";

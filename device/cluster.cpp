@@ -3211,7 +3211,31 @@ std::unique_ptr<tt_ClusterDescriptor> Cluster::create_cluster_descriptor(
     for (auto& it : chips) {
         const chip_id_t chip_id = it.first;
         const std::unique_ptr<Chip>& chip = it.second;
-        desc->add_chip_uid(chip_id, chip->get_chip_info().chip_uid);
+
+        // TODO: Use the line below when we can read asic location from the Blackhole telemetry.
+        // Until then we have to read it from ETH core.
+        // desc->add_chip_uid(chip_id, chip->get_chip_info().chip_uid);
+
+        // TODO: Remove this when we can read asic location from the Blackhole telemetry.
+        // Until then we have to read it from ETH core.
+        const std::vector<CoreCoord> eth_cores = chip->get_soc_descriptor().get_cores(CoreType::ETH);
+        for (size_t eth_channel = 0; eth_channel < eth_cores.size(); eth_channel++) {
+            const CoreCoord& eth_core = eth_cores[eth_channel];
+            TTDevice* tt_device = chip->get_tt_device();
+            blackhole::boot_results_t boot_results;
+
+            tt_device->read_from_device(
+                (uint8_t*)&boot_results,
+                tt_xy_pair(eth_core.x, eth_core.y),
+                blackhole::BOOT_RESULTS_ADDR,
+                sizeof(boot_results));
+
+            // We can read the asic location only from active ETH cores.
+            if (boot_results.eth_status.port_status == blackhole::port_status_e::PORT_UP) {
+                const blackhole::chip_info_t& local_info = boot_results.local_info;
+                desc->add_chip_uid(chip_id, ChipUID{chip->get_chip_info().chip_uid.board_id, local_info.asic_location});
+            }
+        }
     }
 
     for (auto& it : chips) {

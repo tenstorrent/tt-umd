@@ -67,8 +67,7 @@ TEST(CoordinateManager, CoordinateManagerWormholeTopRightCore) {
     tt_xy_pair tensix_grid_size = coordinate_manager->get_grid_size(CoreType::TENSIX);
     EXPECT_EQ(tensix_grid_size.x, 8);
     EXPECT_EQ(tensix_grid_size.y, 9);
-    size_t max_x = tensix_grid_size.x - 1;
-    CoreCoord logical_coords = CoreCoord(max_x, 0, CoreType::TENSIX, CoordSystem::LOGICAL);
+    CoreCoord logical_coords = CoreCoord(tensix_grid_size.x - 1, 0, CoreType::TENSIX, CoordSystem::LOGICAL);
 
     CoreCoord virtual_cords = coordinate_manager->translate_coord_to(logical_coords, CoordSystem::VIRTUAL);
     EXPECT_EQ(virtual_cords, CoreCoord(9, 1, CoreType::TENSIX, CoordSystem::VIRTUAL));
@@ -90,8 +89,7 @@ TEST(CoordinateManager, CoordinateManagerWormholeBottomLeftCore) {
     tt_xy_pair tensix_grid_size = coordinate_manager->get_grid_size(CoreType::TENSIX);
     EXPECT_EQ(tensix_grid_size.x, 8);
     EXPECT_EQ(tensix_grid_size.y, 9);
-    size_t max_y = tensix_grid_size.y - 1;
-    CoreCoord logical_coords = CoreCoord(0, max_y, CoreType::TENSIX, CoordSystem::LOGICAL);
+    CoreCoord logical_coords = CoreCoord(0, tensix_grid_size.y - 1, CoreType::TENSIX, CoordSystem::LOGICAL);
 
     CoreCoord virtual_cords = coordinate_manager->translate_coord_to(logical_coords, CoordSystem::VIRTUAL);
     EXPECT_EQ(virtual_cords, CoreCoord(1, 10, CoreType::TENSIX, CoordSystem::VIRTUAL));

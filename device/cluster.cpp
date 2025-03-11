@@ -40,6 +40,7 @@
 #include "api/umd/device/tt_core_coordinates.h"
 #include "logger.hpp"
 #include "umd/device/architecture_implementation.h"
+#include "umd/device/blackhole_implementation.h"
 #include "umd/device/chip/local_chip.h"
 #include "umd/device/chip/mock_chip.h"
 #include "umd/device/chip/remote_chip.h"
@@ -3238,7 +3239,6 @@ std::unique_ptr<tt_ClusterDescriptor> Cluster::create_cluster_descriptor(
         }
     }
 
-    std::map<chip_id_t, std::map<size_t, size_t>> map_eth_id_to_logical_core;
     for (auto& it : chips) {
         const chip_id_t chip_id = it.first;
         const std::unique_ptr<Chip>& chip = it.second;
@@ -3254,18 +3254,6 @@ std::unique_ptr<tt_ClusterDescriptor> Cluster::create_cluster_descriptor(
         desc->harvesting_masks.insert({chip_id, chip->get_chip_info().harvesting_masks.tensix_harvesting_mask});
         desc->dram_harvesting_masks.insert({chip_id, chip->get_chip_info().harvesting_masks.dram_harvesting_mask});
         desc->eth_harvesting_masks.insert({chip_id, chip->get_chip_info().harvesting_masks.eth_harvesting_mask});
-
-        const std::vector<CoreCoord> eth_cores = chip->get_soc_descriptor().get_cores(CoreType::ETH);
-        for (size_t eth_channel = 0; eth_channel < eth_cores.size(); eth_channel++) {
-            tt_xy_pair physical_pair = eth_cores[eth_channel];
-
-            // ETH id corresponds to the index of the pair in ETH_CORES array.
-            size_t eth_id =
-                std::find(tt::umd::blackhole::ETH_CORES.begin(), tt::umd::blackhole::ETH_CORES.end(), physical_pair) -
-                tt::umd::blackhole::ETH_CORES.begin();
-
-            map_eth_id_to_logical_core[chip_id][eth_id] = eth_channel;
-        }
     }
 
     if (chips.begin()->second->get_tt_device()->get_arch() == tt::ARCH::BLACKHOLE) {
@@ -3306,11 +3294,15 @@ std::unique_ptr<tt_ClusterDescriptor> Cluster::create_cluster_descriptor(
                             chip_id,
                             remote_info.get_chip_uid().board_id);
                     } else {
+                        const CoreCoord logical_remote_coord = chips.at(remote_chip_id.value())
+                                                                   ->get_soc_descriptor()
+                                                                   .translate_coord_to(
+                                                                       blackhole::ETH_CORES[remote_info.eth_id],
+                                                                       CoordSystem::PHYSICAL,
+                                                                       CoordSystem::LOGICAL);
                         // Adding a connection only one way, the other chip should add it another way.
-                        desc->ethernet_connections[local_chip_id]
-                                                  [map_eth_id_to_logical_core[local_chip_id][local_info.eth_id]] = {
-                            remote_chip_id.value(),
-                            map_eth_id_to_logical_core[remote_chip_id.value()][remote_info.eth_id]};
+                        desc->ethernet_connections[local_chip_id][eth_channel] = {
+                            remote_chip_id.value(), logical_remote_coord.y};
                     }
                 } else if (boot_results.eth_status.port_status == blackhole::port_status_e::PORT_DOWN) {
                     // active eth core, just with link being down.

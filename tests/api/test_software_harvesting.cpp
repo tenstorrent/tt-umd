@@ -6,21 +6,13 @@
 #include <thread>
 
 #include "gtest/gtest.h"
+#include "tests/test_utils/device_test_utils.hpp"
 #include "umd/device/blackhole_implementation.h"
 #include "umd/device/cluster.h"
 #include "umd/device/tt_cluster_descriptor.h"
 #include "umd/device/wormhole_implementation.h"
 
 using namespace tt::umd;
-
-std::set<chip_id_t> get_target_devices() {
-    std::set<chip_id_t> target_devices;
-    std::unique_ptr<tt_ClusterDescriptor> cluster_desc_uniq = Cluster::create_cluster_descriptor();
-    for (int i = 0; i < cluster_desc_uniq->get_number_of_chips(); i++) {
-        target_devices.insert(i);
-    }
-    return target_devices;
-}
 
 static uint32_t get_expected_upper_limit_tensix_number(tt::ARCH arch, uint32_t sw_harvesting_mask) {
     uint32_t harvested_rows_or_columns = CoordinateManager::get_num_harvested(sw_harvesting_mask);
@@ -46,7 +38,7 @@ static uint32_t get_expected_upper_limit_tensix_number(tt::ARCH arch, uint32_t s
 }
 
 TEST(SoftwareHarvesting, TensixSoftwareHarvestingAllChips) {
-    std::set<chip_id_t> target_devices = get_target_devices();
+    std::set<chip_id_t> target_devices = test_utils::get_target_devices();
     int num_devices = target_devices.size();
     std::unordered_map<chip_id_t, HarvestingMasks> software_harvesting_masks;
 

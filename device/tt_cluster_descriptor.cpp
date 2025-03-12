@@ -173,8 +173,8 @@ int tt_ClusterDescriptor::get_ethernet_link_coord_distance(
             shelf_to_shelf_connection.destination_chip_coords.size(),
             "Expecting at least one shelf-to-shelf connection, possibly one-to-many");
 
-            // for each shelf-to-shelf connection at location_b.y, find the distance to location_a, take min
-            int distance = std::numeric_limits<int>::max();
+        // for each shelf-to-shelf connection at location_b.y, find the distance to location_a, take min
+        int distance = std::numeric_limits<int>::max();
         eth_coord_t exit_shelf = shelf_to_shelf_connection.source_chip_coord;
         for (eth_coord_t next_shelf : shelf_to_shelf_connection.destination_chip_coords) {
             log_assert(

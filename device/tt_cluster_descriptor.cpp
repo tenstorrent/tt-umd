@@ -171,7 +171,7 @@ int tt_ClusterDescriptor::get_ethernet_link_coord_distance(
             galaxy_shelves_exit_chip_coords_per_y_dim.at(location_b.shelf).at(location_b.y);
         log_assert(
             shelf_to_shelf_connection.destination_chip_coords.size(),
-            "Expecting at least one shelf-to-shelf connection, possibly one-to-many")
+            "Expecting at least one shelf-to-shelf connection, possibly one-to-many");
 
             // for each shelf-to-shelf connection at location_b.y, find the distance to location_a, take min
             int distance = std::numeric_limits<int>::max();

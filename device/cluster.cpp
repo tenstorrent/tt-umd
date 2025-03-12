@@ -934,8 +934,6 @@ void Cluster::read_device_memory(
     TTDevice* dev = get_tt_device(target.chip);
     uint8_t* buffer_addr = static_cast<uint8_t*>(mem_ptr);
 
-    log_debug(LogSiliconDriver, "  tlb_index: {}, tlb_data.has_value(): {}", tlb_index, tlb_data.has_value());
-
     if (get_tlb_manager(target.chip)->is_tlb_mapped({target.x, target.y}, address, size_in_bytes)) {
         tlb_configuration tlb_description = get_tlb_manager(target.chip)->get_tlb_configuration({target.x, target.y});
         if (dev->get_pci_device()->bar4_wc != nullptr && tlb_description.size == BH_4GB_TLB_SIZE) {

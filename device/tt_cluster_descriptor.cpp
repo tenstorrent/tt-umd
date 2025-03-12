@@ -530,6 +530,8 @@ void tt_ClusterDescriptor::load_ethernet_connections_from_connectivity_descripto
         desc.idle_eth_channels[chip_1].erase(channel_1);
     }
 
+    // std::unordered_map<ethernet_channel_t, std::tuple<chip_id_t, ethernet_channel_t>>> ethernet_connections;
+
     log_debug(LogSiliconDriver, "Ethernet Connectivity Descriptor:");
     for (const auto &[chip, chan_to_chip_chan_map] : desc.ethernet_connections) {
         for (const auto &[chan, chip_and_chan] : chan_to_chip_chan_map) {
@@ -538,8 +540,8 @@ void tt_ClusterDescriptor::load_ethernet_connections_from_connectivity_descripto
                 "\tchip: {}, chan: {}  <-->  chip: {}, chan: {}",
                 chip,
                 chan,
-                chip_and_chan.x,
-                chip_and_chan.y);
+                std::get<0>(chip_and_chan),
+                std::get<1>(chip_and_chan));
         }
     }
 

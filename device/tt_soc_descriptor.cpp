@@ -12,10 +12,11 @@
 #include <string>
 #include <unordered_set>
 
-#include "api/umd/device/blackhole_implementation.h"
-#include "api/umd/device/tt_soc_descriptor.h"
 #include "fmt/core.h"
 #include "logger.hpp"
+#include "umd/device/blackhole_implementation.h"
+#include "umd/device/tt_soc_descriptor.h"
+#include "umd/device/wormhole_implementation.h"
 #include "utils.hpp"
 #include "yaml-cpp/yaml.h"
 
@@ -60,105 +61,106 @@ inline std::string &ltrim(std::string &s, const char *t = ws) {
 // trim from both ends of string (right then left)
 inline std::string &trim(std::string &s, const char *t = ws) { return ltrim(rtrim(s, t), t); }
 
-void tt_SocDescriptor::load_soc_features_from_device_descriptor(YAML::Node &device_descriptor_yaml) {
-    overlay_version = device_descriptor_yaml["features"]["overlay"]["version"].as<int>();
-    // TODO: Check whether this is a valid value, and whether it is used.
-    // Also check if this is the same thing as noc_translation in cluster descriptor.
-    noc_translation_id_enabled =
-        device_descriptor_yaml["features"]["noc"] && device_descriptor_yaml["features"]["noc"]["translation_id_enabled"]
-            ? device_descriptor_yaml["features"]["noc"]["translation_id_enabled"].as<bool>()
-            : false;
-    packer_version = device_descriptor_yaml["features"]["packer"]["version"].as<int>();
-    unpacker_version = device_descriptor_yaml["features"]["unpacker"]["version"].as<int>();
-    dst_size_alignment = device_descriptor_yaml["features"]["math"]["dst_size_alignment"].as<int>();
-    worker_l1_size = device_descriptor_yaml["worker_l1_size"].as<int>();
-    eth_l1_size = device_descriptor_yaml["eth_l1_size"].as<int>();
-    dram_bank_size = device_descriptor_yaml["dram_bank_size"].as<uint64_t>();
-}
+// void tt_SocDescriptor::load_soc_features_from_device_descriptor(YAML::Node &device_descriptor_yaml) {
+//     overlay_version = device_descriptor_yaml["features"]["overlay"]["version"].as<int>();
+//     // TODO: Check whether this is a valid value, and whether it is used.
+//     // Also check if this is the same thing as noc_translation in cluster descriptor.
+//     noc_translation_id_enabled =
+//         device_descriptor_yaml["features"]["noc"] &&
+//         device_descriptor_yaml["features"]["noc"]["translation_id_enabled"]
+//             ? device_descriptor_yaml["features"]["noc"]["translation_id_enabled"].as<bool>()
+//             : false;
+//     packer_version = device_descriptor_yaml["features"]["packer"]["version"].as<int>();
+//     unpacker_version = device_descriptor_yaml["features"]["unpacker"]["version"].as<int>();
+//     dst_size_alignment = device_descriptor_yaml["features"]["math"]["dst_size_alignment"].as<int>();
+//     worker_l1_size = device_descriptor_yaml["worker_l1_size"].as<int>();
+//     eth_l1_size = device_descriptor_yaml["eth_l1_size"].as<int>();
+//     dram_bank_size = device_descriptor_yaml["dram_bank_size"].as<uint64_t>();
+// }
 
-void tt_SocDescriptor::load_core_descriptors_from_device_descriptor(YAML::Node &device_descriptor_yaml) {
-    auto worker_l1_size = device_descriptor_yaml["worker_l1_size"].as<int>();
-    auto eth_l1_size = device_descriptor_yaml["eth_l1_size"].as<int>();
+// void tt_SocDescriptor::load_core_descriptors_from_device_descriptor(YAML::Node &device_descriptor_yaml) {
+//     auto worker_l1_size = device_descriptor_yaml["worker_l1_size"].as<int>();
+//     auto eth_l1_size = device_descriptor_yaml["eth_l1_size"].as<int>();
 
-    auto arc_cores_yaml = device_descriptor_yaml["arc"].as<std::vector<std::string>>();
-    for (const auto &core_string : arc_cores_yaml) {
-        CoreDescriptor core_descriptor;
-        core_descriptor.coord = format_node(core_string);
-        core_descriptor.type = CoreType::ARC;
-        cores.insert({core_descriptor.coord, core_descriptor});
-        arc_cores.push_back(core_descriptor.coord);
-    }
-    auto pcie_cores_yaml = device_descriptor_yaml["pcie"].as<std::vector<std::string>>();
-    for (const auto &core_string : pcie_cores_yaml) {
-        CoreDescriptor core_descriptor;
-        core_descriptor.coord = format_node(core_string);
-        core_descriptor.type = CoreType::PCIE;
-        cores.insert({core_descriptor.coord, core_descriptor});
-        pcie_cores.push_back(core_descriptor.coord);
-    }
+//     auto arc_cores_yaml = device_descriptor_yaml["arc"].as<std::vector<std::string>>();
+//     for (const auto &core_string : arc_cores_yaml) {
+//         CoreDescriptor core_descriptor;
+//         core_descriptor.coord = format_node(core_string);
+//         core_descriptor.type = CoreType::ARC;
+//         cores.insert({core_descriptor.coord, core_descriptor});
+//         arc_cores.push_back(core_descriptor.coord);
+//     }
+//     auto pcie_cores_yaml = device_descriptor_yaml["pcie"].as<std::vector<std::string>>();
+//     for (const auto &core_string : pcie_cores_yaml) {
+//         CoreDescriptor core_descriptor;
+//         core_descriptor.coord = format_node(core_string);
+//         core_descriptor.type = CoreType::PCIE;
+//         cores.insert({core_descriptor.coord, core_descriptor});
+//         pcie_cores.push_back(core_descriptor.coord);
+//     }
 
-    int current_dram_channel = 0;
-    for (auto channel_it = device_descriptor_yaml["dram"].begin(); channel_it != device_descriptor_yaml["dram"].end();
-         ++channel_it) {
-        dram_cores.push_back({});
-        auto &soc_dram_cores = dram_cores.at(dram_cores.size() - 1);
-        const auto &dram_cores = (*channel_it).as<std::vector<std::string>>();
-        for (unsigned int i = 0; i < dram_cores.size(); i++) {
-            const auto &dram_core = dram_cores.at(i);
-            CoreDescriptor core_descriptor;
-            core_descriptor.coord = format_node(dram_core);
-            core_descriptor.type = CoreType::DRAM;
-            cores.insert({core_descriptor.coord, core_descriptor});
-            soc_dram_cores.push_back(core_descriptor.coord);
-            dram_core_channel_map[core_descriptor.coord] = {current_dram_channel, i};
-        }
-        current_dram_channel++;
-    }
-    auto eth_cores = device_descriptor_yaml["eth"].as<std::vector<std::string>>();
-    int current_ethernet_channel = 0;
-    for (const auto &core_string : eth_cores) {
-        CoreDescriptor core_descriptor;
-        core_descriptor.coord = format_node(core_string);
-        core_descriptor.type = CoreType::ETH;
-        core_descriptor.l1_size = eth_l1_size;
-        cores.insert({core_descriptor.coord, core_descriptor});
-        ethernet_cores.push_back(core_descriptor.coord);
+//     int current_dram_channel = 0;
+//     for (auto channel_it = device_descriptor_yaml["dram"].begin(); channel_it !=
+//     device_descriptor_yaml["dram"].end();
+//          ++channel_it) {
+//         dram_cores.push_back({});
+//         auto &soc_dram_cores = dram_cores.at(dram_cores.size() - 1);
+//         const auto &dram_cores = (*channel_it).as<std::vector<std::string>>();
+//         for (unsigned int i = 0; i < dram_cores.size(); i++) {
+//             const auto &dram_core = dram_cores.at(i);
+//             CoreDescriptor core_descriptor;
+//             core_descriptor.coord = format_node(dram_core);
+//             core_descriptor.type = CoreType::DRAM;
+//             cores.insert({core_descriptor.coord, core_descriptor});
+//             soc_dram_cores.push_back(core_descriptor.coord);
+//             dram_core_channel_map[core_descriptor.coord] = {current_dram_channel, i};
+//         }
+//         current_dram_channel++;
+//     }
+//     auto eth_cores = device_descriptor_yaml["eth"].as<std::vector<std::string>>();
+//     int current_ethernet_channel = 0;
+//     for (const auto &core_string : eth_cores) {
+//         CoreDescriptor core_descriptor;
+//         core_descriptor.coord = format_node(core_string);
+//         core_descriptor.type = CoreType::ETH;
+//         core_descriptor.l1_size = eth_l1_size;
+//         cores.insert({core_descriptor.coord, core_descriptor});
+//         ethernet_cores.push_back(core_descriptor.coord);
 
-        ethernet_core_channel_map[core_descriptor.coord] = current_ethernet_channel;
-        current_ethernet_channel++;
-    }
-    std::vector<std::string> worker_cores = device_descriptor_yaml["functional_workers"].as<std::vector<std::string>>();
-    std::set<int> worker_routing_coords_x;
-    std::set<int> worker_routing_coords_y;
-    for (const auto &core_string : worker_cores) {
-        CoreDescriptor core_descriptor;
-        core_descriptor.coord = format_node(core_string);
-        core_descriptor.type = CoreType::WORKER;
-        core_descriptor.l1_size = worker_l1_size;
-        cores.insert({core_descriptor.coord, core_descriptor});
-        workers.push_back(core_descriptor.coord);
-        worker_routing_coords_x.insert(core_descriptor.coord.x);
-        worker_routing_coords_y.insert(core_descriptor.coord.y);
-    }
+//         ethernet_core_channel_map[core_descriptor.coord] = current_ethernet_channel;
+//         current_ethernet_channel++;
+//     }
+//     std::vector<std::string> worker_cores =
+//     device_descriptor_yaml["functional_workers"].as<std::vector<std::string>>(); std::set<int>
+//     worker_routing_coords_x; std::set<int> worker_routing_coords_y; for (const auto &core_string : worker_cores) {
+//         CoreDescriptor core_descriptor;
+//         core_descriptor.coord = format_node(core_string);
+//         core_descriptor.type = CoreType::WORKER;
+//         core_descriptor.l1_size = worker_l1_size;
+//         cores.insert({core_descriptor.coord, core_descriptor});
+//         workers.push_back(core_descriptor.coord);
+//         worker_routing_coords_x.insert(core_descriptor.coord.x);
+//         worker_routing_coords_y.insert(core_descriptor.coord.y);
+//     }
 
-    worker_grid_size = tt_xy_pair(worker_routing_coords_x.size(), worker_routing_coords_y.size());
+//     worker_grid_size = tt_xy_pair(worker_routing_coords_x.size(), worker_routing_coords_y.size());
 
-    auto harvested_cores = device_descriptor_yaml["harvested_workers"].as<std::vector<std::string>>();
-    for (const auto &core_string : harvested_cores) {
-        CoreDescriptor core_descriptor;
-        core_descriptor.coord = format_node(core_string);
-        core_descriptor.type = CoreType::HARVESTED;
-        cores.insert({core_descriptor.coord, core_descriptor});
-    }
-    auto router_only_cores = device_descriptor_yaml["router_only"].as<std::vector<std::string>>();
-    for (const auto &core_string : router_only_cores) {
-        CoreDescriptor core_descriptor;
-        core_descriptor.coord = format_node(core_string);
-        core_descriptor.type = CoreType::ROUTER_ONLY;
-        cores.insert({core_descriptor.coord, core_descriptor});
-        router_cores.push_back(core_descriptor.coord);
-    }
-}
+//     auto harvested_cores = device_descriptor_yaml["harvested_workers"].as<std::vector<std::string>>();
+//     for (const auto &core_string : harvested_cores) {
+//         CoreDescriptor core_descriptor;
+//         core_descriptor.coord = format_node(core_string);
+//         core_descriptor.type = CoreType::HARVESTED;
+//         cores.insert({core_descriptor.coord, core_descriptor});
+//     }
+//     auto router_only_cores = device_descriptor_yaml["router_only"].as<std::vector<std::string>>();
+//     for (const auto &core_string : router_only_cores) {
+//         CoreDescriptor core_descriptor;
+//         core_descriptor.coord = format_node(core_string);
+//         core_descriptor.type = CoreType::ROUTER_ONLY;
+//         cores.insert({core_descriptor.coord, core_descriptor});
+//         router_cores.push_back(core_descriptor.coord);
+//     }
+// }
 
 tt_xy_pair tt_SocDescriptor::calculate_grid_size(const std::vector<tt_xy_pair> &cores) {
     std::unordered_set<size_t> x;
@@ -236,6 +238,193 @@ tt::umd::CoreCoord tt_SocDescriptor::translate_coord_to(
     return coordinate_manager->translate_coord_to(core_location, input_coord_system, target_coord_system);
 }
 
+void tt_SocDescriptor::load_core_descriptors_from_soc_desc_info(const SocDescriptorInfo &soc_desc_info) {
+    auto worker_l1_size = soc_desc_info.worker_l1_size;
+    auto eth_l1_size = soc_desc_info.eth_l1_size;
+
+    for (const auto &arc_core : soc_desc_info.arc_cores) {
+        CoreDescriptor core_descriptor;
+        core_descriptor.coord = arc_core;
+        core_descriptor.type = CoreType::ARC;
+        cores.insert({core_descriptor.coord, core_descriptor});
+        arc_cores.push_back(core_descriptor.coord);
+    }
+
+    for (const auto &pcie_core : soc_desc_info.pcie_cores) {
+        CoreDescriptor core_descriptor;
+        core_descriptor.coord = pcie_core;
+        core_descriptor.type = CoreType::PCIE;
+        cores.insert({core_descriptor.coord, core_descriptor});
+        pcie_cores.push_back(core_descriptor.coord);
+    }
+
+    int current_dram_channel = 0;
+    for (auto channel_it = soc_desc_info.dram_cores.begin(); channel_it != soc_desc_info.dram_cores.end();
+         ++channel_it) {
+        dram_cores.push_back({});
+        auto &soc_dram_cores = dram_cores.at(dram_cores.size() - 1);
+        const auto &dram_cores = (*channel_it);
+        for (unsigned int i = 0; i < dram_cores.size(); i++) {
+            const auto &dram_core = dram_cores.at(i);
+            CoreDescriptor core_descriptor;
+            core_descriptor.coord = dram_core;
+            core_descriptor.type = CoreType::DRAM;
+            cores.insert({core_descriptor.coord, core_descriptor});
+            soc_dram_cores.push_back(core_descriptor.coord);
+            dram_core_channel_map[core_descriptor.coord] = {current_dram_channel, i};
+        }
+        current_dram_channel++;
+    }
+
+    int current_ethernet_channel = 0;
+    for (const auto &eth_core : soc_desc_info.eth_cores) {
+        CoreDescriptor core_descriptor;
+        core_descriptor.coord = eth_core;
+        core_descriptor.type = CoreType::ETH;
+        core_descriptor.l1_size = eth_l1_size;
+        cores.insert({core_descriptor.coord, core_descriptor});
+        ethernet_cores.push_back(core_descriptor.coord);
+
+        ethernet_core_channel_map[core_descriptor.coord] = current_ethernet_channel;
+        current_ethernet_channel++;
+    }
+
+    std::set<int> worker_routing_coords_x;
+    std::set<int> worker_routing_coords_y;
+    for (const auto &tensix_core : soc_desc_info.tensix_cores) {
+        CoreDescriptor core_descriptor;
+        core_descriptor.coord = tensix_core;
+        core_descriptor.type = CoreType::WORKER;
+        core_descriptor.l1_size = worker_l1_size;
+        cores.insert({core_descriptor.coord, core_descriptor});
+        workers.push_back(core_descriptor.coord);
+        worker_routing_coords_x.insert(core_descriptor.coord.x);
+        worker_routing_coords_y.insert(core_descriptor.coord.y);
+    }
+
+    worker_grid_size = tt_xy_pair(worker_routing_coords_x.size(), worker_routing_coords_y.size());
+
+    for (const auto &router_core : soc_desc_info.router_cores) {
+        CoreDescriptor core_descriptor;
+        core_descriptor.coord = router_core;
+        core_descriptor.type = CoreType::ROUTER_ONLY;
+        cores.insert({core_descriptor.coord, core_descriptor});
+        router_cores.push_back(core_descriptor.coord);
+    }
+}
+
+void tt_SocDescriptor::load_soc_features_from_soc_desc_info(const SocDescriptorInfo &soc_desc_info) {
+    worker_l1_size = soc_desc_info.worker_l1_size;
+    eth_l1_size = soc_desc_info.eth_l1_size;
+    dram_bank_size = soc_desc_info.dram_bank_size;
+}
+
+SocDescriptorInfo tt_SocDescriptor::get_soc_descriptor_info(tt::ARCH arch) {
+    switch (arch) {
+        case tt::ARCH::WORMHOLE_B0: {
+            return SocDescriptorInfo{
+                .arch = tt::ARCH::WORMHOLE_B0,
+                .grid_size = tt::umd::wormhole::GRID_SIZE,
+                .tensix_cores = tt::umd::wormhole::TENSIX_CORES,
+                .dram_cores = tt::umd::wormhole::DRAM_CORES_SOC,
+                .eth_cores = tt::umd::wormhole::ETH_CORES,
+                .arc_cores = tt::umd::wormhole::ARC_CORES,
+                .pcie_cores = tt::umd::wormhole::PCIE_CORES,
+                .router_cores = tt::umd::wormhole::ROUTER_CORES,
+                .worker_l1_size = tt::umd::wormhole::TENSIX_L1_SIZE,
+                .eth_l1_size = tt::umd::wormhole::ETH_L1_SIZE,
+                .dram_bank_size = tt::umd::wormhole::DRAM_BANK_SIZE};
+            break;
+        }
+        case tt::ARCH::BLACKHOLE: {
+            return SocDescriptorInfo{
+                .arch = tt::ARCH::BLACKHOLE,
+                .grid_size = tt::umd::blackhole::GRID_SIZE,
+                .tensix_cores = tt::umd::blackhole::TENSIX_CORES,
+                .dram_cores = tt::umd::blackhole::DRAM_CORES_SOC,
+                .eth_cores = tt::umd::blackhole::ETH_CORES,
+                .arc_cores = tt::umd::blackhole::ARC_CORES,
+                .pcie_cores = tt::umd::blackhole::PCIE_CORES,
+                .router_cores = tt::umd::blackhole::ROUTER_CORES,
+                .worker_l1_size = tt::umd::blackhole::TENSIX_L1_SIZE,
+                .eth_l1_size = tt::umd::blackhole::ETH_L1_SIZE,
+                .dram_bank_size = tt::umd::blackhole::DRAM_BANK_SIZE};
+            break;
+        }
+        default:
+            throw std::runtime_error("Invalid architecture for creating SocDescriptorInfo.");
+    }
+}
+
+tt_SocDescriptor::tt_SocDescriptor(
+    const tt::ARCH arch_soc,
+    const bool noc_translation_enabled,
+    const HarvestingMasks harvesting_masks,
+    const BoardType board_type,
+    const uint8_t asic_location) :
+    noc_translation_enabled(noc_translation_enabled), harvesting_masks(harvesting_masks) {
+    SocDescriptorInfo soc_desc_info = tt_SocDescriptor::get_soc_descriptor_info(arch_soc);
+    grid_size = soc_desc_info.grid_size;
+    load_core_descriptors_from_soc_desc_info(soc_desc_info);
+    arch = soc_desc_info.arch;
+    load_soc_features_from_soc_desc_info(soc_desc_info);
+    create_coordinate_manager(board_type, asic_location);
+}
+
+void tt_SocDescriptor::load_from_soc_desc_info(const SocDescriptorInfo &soc_desc_info) {
+    load_core_descriptors_from_soc_desc_info(soc_desc_info);
+    load_soc_features_from_soc_desc_info(soc_desc_info);
+}
+
+std::vector<tt_xy_pair> tt_SocDescriptor::convert_to_tt_xy_pair(const std::vector<std::string> &core_strings) {
+    std::vector<tt_xy_pair> core_pairs;
+    for (const auto &core_string : core_strings) {
+        core_pairs.push_back(format_node(core_string));
+    }
+
+    return core_pairs;
+}
+
+std::vector<std::vector<tt_xy_pair>> tt_SocDescriptor::convert_dram_cores_from_yaml(
+    YAML::Node &device_descriptor_yaml) {
+    std::vector<std::vector<tt_xy_pair>> dram_cores;
+    for (auto channel_it = device_descriptor_yaml["dram"].begin(); channel_it != device_descriptor_yaml["dram"].end();
+         ++channel_it) {
+        dram_cores.push_back(convert_to_tt_xy_pair((*channel_it).as<std::vector<std::string>>()));
+    }
+
+    return dram_cores;
+}
+
+void tt_SocDescriptor::load_from_yaml(YAML::Node &device_descriptor_yaml) {
+    SocDescriptorInfo soc_desc_info;
+
+    soc_desc_info.grid_size = tt_xy_pair(
+        device_descriptor_yaml["grid"]["x_size"].as<int>(), device_descriptor_yaml["grid"]["y_size"].as<int>());
+
+    std::string arch_name_value = device_descriptor_yaml["arch_name"].as<std::string>();
+    arch_name_value = trim(arch_name_value);
+    arch = tt::arch_from_str(arch_name_value);
+    soc_desc_info.arch = arch;
+
+    soc_desc_info.tensix_cores = tt_SocDescriptor::convert_to_tt_xy_pair(
+        device_descriptor_yaml["functional_workers"].as<std::vector<std::string>>());
+    soc_desc_info.dram_cores = tt_SocDescriptor::convert_dram_cores_from_yaml(device_descriptor_yaml);
+    soc_desc_info.pcie_cores =
+        tt_SocDescriptor::convert_to_tt_xy_pair(device_descriptor_yaml["pcie"].as<std::vector<std::string>>());
+    soc_desc_info.eth_cores =
+        tt_SocDescriptor::convert_to_tt_xy_pair(device_descriptor_yaml["eth"].as<std::vector<std::string>>());
+    soc_desc_info.arc_cores =
+        tt_SocDescriptor::convert_to_tt_xy_pair(device_descriptor_yaml["arc"].as<std::vector<std::string>>());
+    soc_desc_info.router_cores =
+        tt_SocDescriptor::convert_to_tt_xy_pair(device_descriptor_yaml["router_only"].as<std::vector<std::string>>());
+    soc_desc_info.worker_l1_size = device_descriptor_yaml["worker_l1_size"].as<uint32_t>();
+    soc_desc_info.eth_l1_size = device_descriptor_yaml["eth_l1_size"].as<uint32_t>();
+    soc_desc_info.dram_bank_size = device_descriptor_yaml["dram_bank_size"].as<uint64_t>();
+
+    load_from_soc_desc_info(soc_desc_info);
+}
+
 tt_SocDescriptor::tt_SocDescriptor(
     std::string device_descriptor_path,
     const bool noc_translation_enabled,
@@ -252,15 +441,9 @@ tt_SocDescriptor::tt_SocDescriptor(
 
     YAML::Node device_descriptor_yaml = YAML::LoadFile(device_descriptor_path);
 
-    auto grid_size_x = device_descriptor_yaml["grid"]["x_size"].as<int>();
-    auto grid_size_y = device_descriptor_yaml["grid"]["y_size"].as<int>();
-    load_core_descriptors_from_device_descriptor(device_descriptor_yaml);
-    grid_size = tt_xy_pair(grid_size_x, grid_size_y);
     device_descriptor_file_path = device_descriptor_path;
-    std::string arch_name_value = device_descriptor_yaml["arch_name"].as<std::string>();
-    arch_name_value = trim(arch_name_value);
-    arch = tt::arch_from_str(arch_name_value);
-    load_soc_features_from_device_descriptor(device_descriptor_yaml);
+    load_from_yaml(device_descriptor_yaml);
+
     create_coordinate_manager(board_type, asic_location);
 }
 

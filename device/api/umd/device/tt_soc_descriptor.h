@@ -41,6 +41,20 @@ struct CoreDescriptor {
     std::size_t l1_size = 0;
 };
 
+struct SocDescriptorInfo {
+    tt::ARCH arch;
+    tt_xy_pair grid_size;
+    std::vector<tt_xy_pair> tensix_cores;
+    std::vector<std::vector<tt_xy_pair>> dram_cores;
+    std::vector<tt_xy_pair> eth_cores;
+    std::vector<tt_xy_pair> arc_cores;
+    std::vector<tt_xy_pair> pcie_cores;
+    std::vector<tt_xy_pair> router_cores;
+    uint32_t worker_l1_size;
+    uint32_t eth_l1_size;
+    uint64_t dram_bank_size;
+};
+
 //! tt_SocDescriptor contains information regarding the SOC configuration targetted.
 /*!
     Should only contain relevant configuration for SOC
@@ -52,6 +66,13 @@ public:
     // Constructor used to build object from device descriptor file.
     tt_SocDescriptor(
         std::string device_descriptor_path,
+        const bool noc_translation_enabled,
+        const tt::umd::HarvestingMasks harvesting_masks = {0, 0, 0},
+        const BoardType board_type = BoardType::UNKNOWN,
+        const uint8_t asic_location = 0);
+
+    tt_SocDescriptor(
+        const tt::ARCH arch,
         const bool noc_translation_enabled,
         const tt::umd::HarvestingMasks harvesting_masks = {0, 0, 0},
         const BoardType board_type = BoardType::UNKNOWN,
@@ -122,9 +143,18 @@ public:
 
 private:
     void create_coordinate_manager(const BoardType board_type, const uint8_t asic_location);
-    void load_core_descriptors_from_device_descriptor(YAML::Node &device_descriptor_yaml);
-    void load_soc_features_from_device_descriptor(YAML::Node &device_descriptor_yaml);
+    // void load_core_descriptors_from_device_descriptor(YAML::Node &device_descriptor_yaml);
+    // void load_soc_features_from_device_descriptor(YAML::Node &device_descriptor_yaml);
     void get_cores_and_grid_size_from_coordinate_manager();
+    void load_from_yaml(YAML::Node &device_descriptor_yaml);
+    void load_from_soc_desc_info(const SocDescriptorInfo &soc_desc_info);
+    void load_core_descriptors_from_soc_desc_info(const SocDescriptorInfo &soc_desc_info);
+    void load_soc_features_from_soc_desc_info(const SocDescriptorInfo &soc_desc_info);
+
+    static std::vector<tt_xy_pair> convert_to_tt_xy_pair(const std::vector<std::string> &core_strings);
+    static std::vector<std::vector<tt_xy_pair>> convert_dram_cores_from_yaml(YAML::Node &device_descriptor_yaml);
+
+    static SocDescriptorInfo get_soc_descriptor_info(tt::ARCH arch);
 
     static tt_xy_pair calculate_grid_size(const std::vector<tt_xy_pair> &cores);
     std::vector<tt::umd::CoreCoord> translate_coordinates(

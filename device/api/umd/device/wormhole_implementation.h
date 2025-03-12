@@ -103,6 +103,7 @@ enum class arc_message_type {
 };
 
 // DEVICE_DATA
+static const tt_xy_pair GRID_SIZE = {10, 12};
 static const tt_xy_pair TENSIX_GRID_SIZE = {8, 10};
 // clang-format off
 static const std::vector<tt_xy_pair> TENSIX_CORES = {
@@ -123,6 +124,13 @@ static const std::size_t NUM_DRAM_BANKS = 6;
 static const std::size_t NUM_NOC_PORTS_PER_DRAM_BANK = 3;
 static const tt_xy_pair DRAM_GRID_SIZE = {NUM_DRAM_BANKS, NUM_NOC_PORTS_PER_DRAM_BANK};
 // clang-format off
+static const std::vector<std::vector<tt_xy_pair>> DRAM_CORES_SOC = {
+    {{{0, 0}, {0, 1}, {0, 11}}},
+    {{{0, 5}, {0, 6},  {0, 7}}},
+    {{{5, 0}, {5, 1}, {5, 11}}},
+    {{{5, 2}, {5, 9}, {5, 10}}},
+    {{{5, 3}, {5, 4},  {5, 8}}},
+    {{{5, 5}, {5, 6},  {5, 7}}}};
 static const std::vector<tt_xy_pair> DRAM_CORES = {
     {0, 0}, {0, 1}, {0, 11},
     {0, 5}, {0, 6},  {0, 7},
@@ -239,6 +247,10 @@ static constexpr uint32_t ARC_SCRATCH_STATUS_OFFSET = 5;
 
 static constexpr uint32_t AICLK_BUSY_VAL = 1000;
 static constexpr uint32_t AICLK_IDLE_VAL = 500;
+
+static constexpr uint32_t TENSIX_L1_SIZE = 1499136;
+static constexpr uint32_t ETH_L1_SIZE = 262144;
+static constexpr uint64_t DRAM_BANK_SIZE = 2147483648;
 
 static const size_t tensix_translated_coordinate_start_x = 18;
 static const size_t tensix_translated_coordinate_start_y = 18;

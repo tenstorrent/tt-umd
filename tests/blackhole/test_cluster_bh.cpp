@@ -70,17 +70,8 @@ std::int32_t get_static_tlb_index(tt_xy_pair target) {
     }
 }
 
-std::set<chip_id_t> get_target_devices() {
-    std::set<chip_id_t> target_devices;
-    std::unique_ptr<tt_ClusterDescriptor> cluster_desc_uniq = tt::umd::Cluster::create_cluster_descriptor();
-    for (int i = 0; i < cluster_desc_uniq->get_number_of_chips(); i++) {
-        target_devices.insert(i);
-    }
-    return target_devices;
-}
-
 TEST(SiliconDriverBH, CreateDestroy) {
-    std::set<chip_id_t> target_devices = get_target_devices();
+    std::set<chip_id_t> target_devices = test_utils::get_target_devices();
     uint32_t num_host_mem_ch_per_mmio_device = 1;
     tt_device_params default_params;
     // Initialize the driver with a 1x1 descriptor and explictly do not perform harvesting
@@ -97,39 +88,6 @@ TEST(SiliconDriverBH, CreateDestroy) {
         cluster.close_device();
     }
 }
-
-// TEST(SiliconDriverWH, Harvesting) {
-//     std::set<chip_id_t> target_devices = {0, 1};
-//     std::unordered_map<chip_id_t, uint32_t> simulated_harvesting_masks = {{0, 30}, {1, 60}};
-
-//     {
-//         std::unique_ptr<tt_ClusterDescriptor> cluster_desc_uniq =
-//             tt::umd::Cluster::create_cluster_descriptor();
-//         if (cluster_desc_uniq->get_number_of_chips() != target_devices.size()) {
-//             GTEST_SKIP() << "SiliconDriverWH.Harvesting skipped because it can only be run on a two chip nebula
-//             system";
-//         }
-//     }
-
-//     uint32_t num_host_mem_ch_per_mmio_device = 1;
-//     Cluster cluster = Cluster(
-//         "./tests/soc_descs/wormhole_b0_8x10.yaml",
-//         target_devices,
-//         num_host_mem_ch_per_mmio_device,
-//         false,
-//         true,
-//         true,
-//         simulated_harvesting_masks);
-
-//     for (const auto& chip : sdesc_per_chip) {
-//         ASSERT_EQ(chip.second.workers.size(), 48)
-//             << "Expected SOC descriptor with harvesting to have 48 workers for chip" << chip.first;
-//     }
-//     ASSERT_EQ(cluster.get_harvesting_masks_for_soc_descriptors().at(0), 30)
-//         << "Expected first chip to have harvesting mask of 30";
-//     ASSERT_EQ(cluster.get_harvesting_masks_for_soc_descriptors().at(1), 60)
-//         << "Expected second chip to have harvesting mask of 60";
-// }
 
 // TEST(SiliconDriverWH, CustomSocDesc) {
 //     std::set<chip_id_t> target_devices = {0, 1};
@@ -266,7 +224,7 @@ TEST(SiliconDriverBH, CreateDestroy) {
 TEST(SiliconDriverBH, UnalignedStaticTLB_RW) {
     auto get_static_tlb_index_callback = [](tt_xy_pair target) { return get_static_tlb_index(target); };
 
-    std::set<chip_id_t> target_devices = get_target_devices();
+    std::set<chip_id_t> target_devices = test_utils::get_target_devices();
 
     uint32_t num_host_mem_ch_per_mmio_device = 1;
 
@@ -324,7 +282,7 @@ TEST(SiliconDriverBH, UnalignedStaticTLB_RW) {
 TEST(SiliconDriverBH, StaticTLB_RW) {
     auto get_static_tlb_index_callback = [](tt_xy_pair target) { return get_static_tlb_index(target); };
 
-    std::set<chip_id_t> target_devices = get_target_devices();
+    std::set<chip_id_t> target_devices = test_utils::get_target_devices();
 
     uint32_t num_host_mem_ch_per_mmio_device = 1;
 
@@ -387,7 +345,7 @@ TEST(SiliconDriverBH, StaticTLB_RW) {
 TEST(SiliconDriverBH, DynamicTLB_RW) {
     // Don't use any static TLBs in this test. All writes go through a dynamic TLB that needs to be reconfigured for
     // each transaction
-    std::set<chip_id_t> target_devices = get_target_devices();
+    std::set<chip_id_t> target_devices = test_utils::get_target_devices();
 
     uint32_t num_host_mem_ch_per_mmio_device = 1;
     Cluster cluster = Cluster(num_host_mem_ch_per_mmio_device, false, true, true);
@@ -468,7 +426,7 @@ TEST(SiliconDriverBH, MultiThreadedDevice) {
     // Have 2 threads read and write from a single device concurrently
     // All transactions go through a single Dynamic TLB. We want to make sure this is thread/process safe
 
-    std::set<chip_id_t> target_devices = get_target_devices();
+    std::set<chip_id_t> target_devices = test_utils::get_target_devices();
 
     uint32_t num_host_mem_ch_per_mmio_device = 1;
     Cluster cluster = Cluster(num_host_mem_ch_per_mmio_device, false, true, true);
@@ -538,7 +496,7 @@ TEST(SiliconDriverBH, MultiThreadedMemBar) {
     // Memory barrier flags get sent to address 0 for all channels in this test
     auto get_static_tlb_index_callback = [](tt_xy_pair target) { return get_static_tlb_index(target); };
 
-    std::set<chip_id_t> target_devices = get_target_devices();
+    std::set<chip_id_t> target_devices = test_utils::get_target_devices();
     uint32_t base_addr = l1_mem::address_map::DATA_BUFFER_SPACE_BASE;
     uint32_t num_host_mem_ch_per_mmio_device = 1;
 
@@ -665,7 +623,7 @@ TEST(SiliconDriverBH, MultiThreadedMemBar) {
 TEST(SiliconDriverBH, DISABLED_BroadcastWrite) {  // Cannot broadcast to tensix/ethernet and DRAM simultaneously on
                                                   // Blackhole .. wait_for_non_mmio_flush() is not working as expected?
     // Broadcast multiple vectors to tensix and dram grid. Verify broadcasted data is read back correctly
-    std::set<chip_id_t> target_devices = get_target_devices();
+    std::set<chip_id_t> target_devices = test_utils::get_target_devices();
 
     uint32_t num_host_mem_ch_per_mmio_device = 1;
 
@@ -752,7 +710,7 @@ TEST(SiliconDriverBH, DISABLED_BroadcastWrite) {  // Cannot broadcast to tensix/
 
 TEST(SiliconDriverBH, DISABLED_VirtualCoordinateBroadcast) {  // same problem as above..
     // Broadcast multiple vectors to tensix and dram grid. Verify broadcasted data is read back correctly
-    std::set<chip_id_t> target_devices = get_target_devices();
+    std::set<chip_id_t> target_devices = test_utils::get_target_devices();
 
     uint32_t num_host_mem_ch_per_mmio_device = 1;
 
@@ -851,7 +809,7 @@ TEST(SiliconDriverBH, DISABLED_VirtualCoordinateBroadcast) {  // same problem as
  * Copied from the Wormhole test.
  */
 TEST(SiliconDriverBH, SysmemTestWithPcie) {
-    auto target_devices = get_target_devices();
+    auto target_devices = test_utils::get_target_devices();
 
     Cluster cluster(
         1,      // one "host memory channel",
@@ -901,7 +859,7 @@ TEST(SiliconDriverBH, SysmemTestWithPcie) {
 
 static bool is_iommu_available() {
     const size_t num_channels = 1;
-    auto target_devices = get_target_devices();
+    auto target_devices = test_utils::get_target_devices();
     Cluster cluster(
         test_utils::GetAbsPath("tests/soc_descs/blackhole_140_arch.yaml"),
         target_devices,
@@ -920,7 +878,7 @@ TEST(SiliconDriverBH, RandomSysmemTestWithPcie) {
     // How many hugepages will Blackhole CI systems allocate?  Hopefully zero,
     // and they'll have IOMMU instead.  But if not, let's assume 2.
     const size_t num_channels = is_iommu_available() ? 4 : 2;
-    auto target_devices = get_target_devices();
+    auto target_devices = test_utils::get_target_devices();
 
     Cluster cluster(
         target_devices,

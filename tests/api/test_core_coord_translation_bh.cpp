@@ -258,7 +258,7 @@ TEST(CoordinateManager, CoordinateManagerBlackholeTransltedMappingHarvested) {
         CoordinateManager::create_coordinate_manager(tt::ARCH::BLACKHOLE, true, {tensix_harvesting_mask});
 
     const tt_xy_pair tensix_grid_size = tt::umd::blackhole::TENSIX_GRID_SIZE;
-    const std::vector<tt_xy_pair> tensix_cores = tt::umd::blackhole::TENSIX_CORES;
+    const std::vector<tt_xy_pair> tensix_cores = tt::umd::blackhole::TENSIX_CORES_NOC0;
 
     size_t num_harvested_x = CoordinateManager::get_num_harvested(tensix_harvesting_mask);
 
@@ -304,7 +304,7 @@ TEST(CoordinateManager, CoordinateManagerBlackholeDRAMNoHarvesting) {
 
     const size_t num_dram_banks = tt::umd::blackhole::NUM_DRAM_BANKS;
     const size_t num_noc_ports_per_bank = tt::umd::blackhole::NUM_NOC_PORTS_PER_DRAM_BANK;
-    const std::vector<tt_xy_pair>& dram_cores = flatten_vector(tt::umd::blackhole::DRAM_CORES);
+    const std::vector<tt_xy_pair>& dram_cores = flatten_vector(tt::umd::blackhole::DRAM_CORES_NOC0);
 
     for (size_t dram_bank = 0; dram_bank < num_dram_banks; dram_bank++) {
         for (size_t noc_port = 0; noc_port < num_noc_ports_per_bank; noc_port++) {
@@ -345,7 +345,7 @@ TEST(CoordinateManager, CoordinateManagerBlackholeDRAMLogicalPhysicalMapping) {
     const size_t max_num_banks_harvested = tt::umd::blackhole::NUM_DRAM_BANKS;
     const size_t num_dram_banks = tt::umd::blackhole::NUM_DRAM_BANKS;
     const size_t num_noc_ports_per_bank = tt::umd::blackhole::NUM_NOC_PORTS_PER_DRAM_BANK;
-    const std::vector<tt_xy_pair>& dram_cores = flatten_vector(tt::umd::blackhole::DRAM_CORES);
+    const std::vector<tt_xy_pair>& dram_cores = flatten_vector(tt::umd::blackhole::DRAM_CORES_NOC0);
 
     for (size_t dram_harvesting_mask = 0; dram_harvesting_mask < (1 << max_num_banks_harvested);
          dram_harvesting_mask++) {
@@ -490,7 +490,7 @@ TEST(CoordinateManager, CoordinateManagerBlackholeDRAMVirtualPhysicalMapping) {
     const size_t num_dram_banks = tt::umd::blackhole::NUM_DRAM_BANKS;
     const size_t num_noc_ports_per_bank = tt::umd::blackhole::NUM_NOC_PORTS_PER_DRAM_BANK;
 
-    const std::vector<tt_xy_pair> dram_cores = flatten_vector(tt::umd::blackhole::DRAM_CORES);
+    const std::vector<tt_xy_pair> dram_cores = flatten_vector(tt::umd::blackhole::DRAM_CORES_NOC0);
 
     const size_t dram_harvesting_mask = 1;
 
@@ -641,7 +641,7 @@ TEST(CoordinateManager, CoordinateManagerBlackholeETHTranslation) {
 // Test ETH harvesting and coordinate translation for Blackhole.
 TEST(CoordinateManager, CoordinateManagerBlackholeETHHarvesting) {
     const size_t num_harvested_cores = 2;
-    const std::vector<tt_xy_pair> eth_cores = tt::umd::blackhole::ETH_CORES;
+    const std::vector<tt_xy_pair> eth_cores = tt::umd::blackhole::ETH_CORES_NOC0;
     const size_t num_eth_channels = tt::umd::blackhole::NUM_ETH_CHANNELS;
     for (size_t eth_harvesting_mask = 0; eth_harvesting_mask < (1 << num_eth_channels); eth_harvesting_mask++) {
         // We should have exactly 2 harvested ETH cores.
@@ -733,7 +733,7 @@ TEST(CoordinateManager, CoordinateManagerBlackholeETHNoNocTranslationMapping) {
     std::shared_ptr<CoordinateManager> coordinate_manager =
         CoordinateManager::create_coordinate_manager(tt::ARCH::BLACKHOLE, false);
 
-    const std::vector<tt_xy_pair> eth_pairs = tt::umd::blackhole::ETH_CORES;
+    const std::vector<tt_xy_pair> eth_pairs = tt::umd::blackhole::ETH_CORES_NOC0;
     for (const tt_xy_pair& eth_pair : eth_pairs) {
         const CoreCoord eth_core = CoreCoord(eth_pair.x, eth_pair.y, CoreType::ETH, CoordSystem::PHYSICAL);
         const CoreCoord eth_translated = coordinate_manager->translate_coord_to(eth_core, CoordSystem::TRANSLATED);

@@ -231,12 +231,11 @@ void Cluster::create_device(
             log_debug(
                 LogSiliconDriver,
                 "Using {} Hugepages/NumHostMemChannels for PCIDevice (logical_device_id: {} pci_interface_id: {} "
-                "device_id: 0x{:x} revision: {})",
+                "device_id: 0x{:x})",
                 num_host_mem_channels,
                 logical_device_id,
                 pci_device->get_device_num(),
-                pci_device->get_device_num(),
-                pci_device->revision_id);
+                pci_device->get_device_num());
 
             // TODO: This will be moved to a dedicated Locking class.
             initialize_interprocess_mutexes(logical_device_id, clean_system_resources);
@@ -882,13 +881,12 @@ void Cluster::write_device_memory(
 
     log_debug(
         LogSiliconDriver,
-        "Cluster::write_device_memory to chip:{} {}-{} at 0x{:x} size_in_bytes: {} small_access: {}",
+        "Cluster::write_device_memory to chip:{} {}-{} at 0x{:x} size_in_bytes: {}",
         target.chip,
         target.x,
         target.y,
         address,
-        size_in_bytes,
-        small_access);
+        size_in_bytes);
 
     if (get_tlb_manager(target.chip)->is_tlb_mapped({target.x, target.y}, address, size_in_bytes)) {
         tlb_configuration tlb_description = get_tlb_manager(target.chip)->get_tlb_configuration({target.x, target.y});
@@ -935,8 +933,6 @@ void Cluster::read_device_memory(
         size_in_bytes);
     TTDevice* dev = get_tt_device(target.chip);
     uint8_t* buffer_addr = static_cast<uint8_t*>(mem_ptr);
-
-    log_debug(LogSiliconDriver, "  tlb_index: {}, tlb_data.has_value(): {}", tlb_index, tlb_data.has_value());
 
     if (get_tlb_manager(target.chip)->is_tlb_mapped({target.x, target.y}, address, size_in_bytes)) {
         tlb_configuration tlb_description = get_tlb_manager(target.chip)->get_tlb_configuration({target.x, target.y});

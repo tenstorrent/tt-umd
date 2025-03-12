@@ -25,7 +25,7 @@ void TLBManager::configure_tlb(
     log_debug(
         LogSiliconDriver,
         "Configuring TLB for chip: {} core: {} tlb_index: {} address: {} ordering: {}",
-        logical_device_id,
+        tt_device_->get_pci_device()->get_device_num(),
         core.str(),
         tlb_index,
         address,

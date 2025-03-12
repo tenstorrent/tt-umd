@@ -231,12 +231,11 @@ void Cluster::create_device(
             log_debug(
                 LogSiliconDriver,
                 "Using {} Hugepages/NumHostMemChannels for PCIDevice (logical_device_id: {} pci_interface_id: {} "
-                "device_id: 0x{:x} revision: {})",
+                "device_id: 0x{:x})",
                 num_host_mem_channels,
                 logical_device_id,
                 pci_device->get_device_num(),
-                pci_device->get_device_num(),
-                pci_device->revision_id);
+                pci_device->get_device_num());
 
             // TODO: This will be moved to a dedicated Locking class.
             initialize_interprocess_mutexes(logical_device_id, clean_system_resources);

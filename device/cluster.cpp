@@ -881,13 +881,12 @@ void Cluster::write_device_memory(
 
     log_debug(
         LogSiliconDriver,
-        "Cluster::write_device_memory to chip:{} {}-{} at 0x{:x} size_in_bytes: {} small_access: {}",
+        "Cluster::write_device_memory to chip:{} {}-{} at 0x{:x} size_in_bytes: {}",
         target.chip,
         target.x,
         target.y,
         address,
-        size_in_bytes,
-        small_access);
+        size_in_bytes);
 
     if (get_tlb_manager(target.chip)->is_tlb_mapped({target.x, target.y}, address, size_in_bytes)) {
         tlb_configuration tlb_description = get_tlb_manager(target.chip)->get_tlb_configuration({target.x, target.y});

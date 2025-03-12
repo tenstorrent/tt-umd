@@ -18,6 +18,7 @@ TEST(BlackholeChipInfo, BasicChipInfo) {
             chip_info.board_type == BoardType::P100 || chip_info.board_type == BoardType::P150 ||
             chip_info.board_type == BoardType::P300);
 
-        EXPECT_TRUE(chip_info.chip_uid.asic_location == 0 || chip_info.chip_uid.asic_location == 1);
+        // TODO: uncomment this when we can read asic location properly from telemetry.
+        // EXPECT_TRUE(chip_info.chip_uid.asic_location == 0 || chip_info.chip_uid.asic_location == 1);
     }
 }

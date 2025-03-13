@@ -271,6 +271,7 @@ tt_SocDescriptor::tt_SocDescriptor(
 }
 
 void tt_SocDescriptor::load_from_soc_desc_info(const SocDescriptorInfo &soc_desc_info) {
+    arch = soc_desc_info.arch;
     load_core_descriptors_from_soc_desc_info(soc_desc_info);
     load_soc_features_from_soc_desc_info(soc_desc_info);
 }

@@ -11,6 +11,7 @@
 #include <vector>
 
 #include "umd/device/cluster.h"
+#include "umd/device/tt_cluster_descriptor.h"
 
 namespace test_utils {
 
@@ -56,6 +57,15 @@ inline void fill_with_random_bytes(uint8_t* data, size_t n) {
     for (size_t i = (n / 8) * 8; i < n; ++i) {
         data[i] = static_cast<uint8_t>(gen());
     }
+}
+
+static std::set<chip_id_t> get_target_devices() {
+    std::set<chip_id_t> target_devices;
+    std::unique_ptr<tt_ClusterDescriptor> cluster_desc_uniq = tt::umd::Cluster::create_cluster_descriptor();
+    for (int i = 0; i < cluster_desc_uniq->get_number_of_chips(); i++) {
+        target_devices.insert(i);
+    }
+    return target_devices;
 }
 
 }  // namespace test_utils

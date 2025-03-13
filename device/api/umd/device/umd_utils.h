@@ -10,7 +10,7 @@
 
 #include "umd/device/types/xy_pair.h"
 
-static std::vector<tt_xy_pair> flatten_vector(const std::vector<std::vector<tt_xy_pair>>& vector_of_vectors) {
+static inline std::vector<tt_xy_pair> flatten_vector(const std::vector<std::vector<tt_xy_pair>>& vector_of_vectors) {
     std::vector<tt_xy_pair> flat_vector;
     for (const auto& single_vector : vector_of_vectors) {
         flat_vector.insert(flat_vector.end(), single_vector.begin(), single_vector.end());

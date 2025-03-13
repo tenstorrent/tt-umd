@@ -124,12 +124,13 @@ static const std::vector<tt_xy_pair> ARC_CORES_NOC1 = {{8, 11}};
 static const std::vector<tt_xy_pair> ARC_LOCATIONS = ARC_CORES_NOC0;
 
 static const tt_xy_pair PCIE_GRID_SIZE = {1, 1};
-static const std::vector<tt_xy_pair> PCIE_CORES_TYPE2 = {{{2, 0}}};
-static const std::vector<tt_xy_pair> PCI_LOCATIONS = PCIE_CORES_TYPE2;
-static const std::vector<tt_xy_pair> PCIE_CORES_TYPE1 = {{{11, 0}}};
-static const std::vector<tt_xy_pair> PCIE_CORES = {{2, 0}, {11, 0}};
+static const std::vector<tt_xy_pair> PCIE_CORES_TYPE2_NOC0 = {{{2, 0}}};
+static const std::vector<tt_xy_pair> PCI_LOCATIONS = PCIE_CORES_TYPE2_NOC0;
+static const std::vector<tt_xy_pair> PCIE_CORES_TYPE1_NOC0 = {{{11, 0}}};
+static const std::vector<tt_xy_pair> PCIE_CORES_NOC0 = {{2, 0}, {11, 0}};
 static const std::vector<tt_xy_pair> PCIE_CORES_TYPE1_NOC1 = {{{5, 11}}};
 static const std::vector<tt_xy_pair> PCIE_CORES_TYPE2_NOC1 = {{{14, 11}}};
+static const std::vector<tt_xy_pair> PCIE_CORES_NOC1 = {{14, 11}, {5, 11}};
 
 static const std::vector<tt_xy_pair> ROUTER_CORES = {
     {1, 0},  {2, 0}, {3, 0}, {4, 0}, {5, 0}, {6, 0}, {7, 0}, {10, 0}, {12, 0}, {13, 0}, {14, 0}, {15, 0},
@@ -276,7 +277,8 @@ static const size_t dram_translated_coordinate_start_y = 12;
  * based on the board type and asic location of the chip.
  * Information on remote chip is used only if the board type is P300.
  */
-std::vector<tt_xy_pair> get_pcie_cores(const BoardType board_type, const uint8_t asic_location);
+std::pair<std::vector<tt_xy_pair>, std::vector<tt_xy_pair>> get_pcie_cores(
+    const BoardType board_type, const uint8_t asic_location);
 
 }  // namespace blackhole
 

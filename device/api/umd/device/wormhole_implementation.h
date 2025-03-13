@@ -10,6 +10,7 @@
 
 #include "architecture_implementation.h"
 #include "umd/device/types/tlb.h"
+#include "umd/device/umd_utils.h"
 
 namespace tt::umd {
 
@@ -124,24 +125,17 @@ static const std::size_t NUM_DRAM_BANKS = 6;
 static const std::size_t NUM_NOC_PORTS_PER_DRAM_BANK = 3;
 static const tt_xy_pair DRAM_GRID_SIZE = {NUM_DRAM_BANKS, NUM_NOC_PORTS_PER_DRAM_BANK};
 // clang-format off
-static const std::vector<std::vector<tt_xy_pair>> DRAM_CORES_SOC = {
+static const std::vector<std::vector<tt_xy_pair>> DRAM_CORES = {
     {{{0, 0}, {0, 1}, {0, 11}}},
     {{{0, 5}, {0, 6},  {0, 7}}},
     {{{5, 0}, {5, 1}, {5, 11}}},
     {{{5, 2}, {5, 9}, {5, 10}}},
     {{{5, 3}, {5, 4},  {5, 8}}},
     {{{5, 5}, {5, 6},  {5, 7}}}};
-static const std::vector<tt_xy_pair> DRAM_CORES = {
-    {0, 0}, {0, 1}, {0, 11},
-    {0, 5}, {0, 6},  {0, 7},
-    {5, 0}, {5, 1}, {5, 11},
-    {5, 2}, {5, 9}, {5, 10},
-    {5, 3}, {5, 4},  {5, 8},
-    {5, 5}, {5, 6},  {5, 7}};
 // clang-format on
 // TODO: DRAM locations should be deleted. We keep it for compatibility with
 // the existing code in clients which rely on DRAM_LOCATIONS.
-static const std::vector<tt_xy_pair> DRAM_LOCATIONS = DRAM_CORES;
+static const std::vector<tt_xy_pair> DRAM_LOCATIONS = flatten_vector(DRAM_CORES);
 
 static const size_t NUM_ETH_CHANNELS = 16;
 static const std::vector<tt_xy_pair> ETH_CORES = {

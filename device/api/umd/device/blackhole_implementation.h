@@ -12,6 +12,7 @@
 #include "umd/device/architecture_implementation.h"
 #include "umd/device/types/cluster_descriptor_types.h"
 #include "umd/device/types/tlb.h"
+#include "umd/device/umd_utils.h"
 
 namespace tt::umd {
 
@@ -80,7 +81,7 @@ const std::size_t NUM_DRAM_BANKS = 8;
 const std::size_t NUM_NOC_PORTS_PER_DRAM_BANK = 3;
 static const tt_xy_pair DRAM_GRID_SIZE = {NUM_DRAM_BANKS, NUM_NOC_PORTS_PER_DRAM_BANK};
 // clang-format off
-static const std::vector<std::vector<tt_xy_pair>> DRAM_CORES_SOC = {
+static const std::vector<std::vector<tt_xy_pair>> DRAM_CORES = {
     {{0, 0},  {0, 1}, {0, 11}},
     {{0, 2}, {0, 10},  {0, 3}},
     {{0, 9},  {0, 4},  {0, 8}},
@@ -89,19 +90,10 @@ static const std::vector<std::vector<tt_xy_pair>> DRAM_CORES_SOC = {
     {{9, 2}, {9, 10},  {9, 3}},
     {{9, 9},  {9, 4},  {9, 8}},
     {{9, 5},  {9, 7},  {9, 6}}};
-static const std::vector<tt_xy_pair> DRAM_CORES = {
-    {0, 0},  {0, 1}, {0, 11},
-    {0, 2}, {0, 10},  {0, 3},
-    {0, 9},  {0, 4},  {0, 8},
-    {0, 5},  {0, 7},  {0, 6},
-    {9, 0},  {9, 1}, {9, 11},
-    {9, 2}, {9, 10},  {9, 3},
-    {9, 9},  {9, 4},  {9, 8},
-    {9, 5},  {9, 7},  {9, 6}};
 // clang-format on
 // TODO: DRAM locations should be deleted. We keep it for compatibility with
 // the existing code in clients which rely on DRAM_LOCATIONS.
-static const std::vector<tt_xy_pair> DRAM_LOCATIONS = DRAM_CORES;
+static const std::vector<tt_xy_pair> DRAM_LOCATIONS = flatten_vector(DRAM_CORES);
 
 static const tt_xy_pair ARC_GRID_SIZE = {1, 1};
 static const std::vector<tt_xy_pair> ARC_CORES = {{8, 0}};

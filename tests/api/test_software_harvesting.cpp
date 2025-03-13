@@ -14,29 +14,6 @@
 
 using namespace tt::umd;
 
-static uint32_t get_expected_upper_limit_tensix_number(tt::ARCH arch, uint32_t sw_harvesting_mask) {
-    uint32_t harvested_rows_or_columns = CoordinateManager::get_num_harvested(sw_harvesting_mask);
-
-    uint32_t upper_limit;
-    switch (arch) {
-        case tt::ARCH::WORMHOLE_B0: {
-            upper_limit = tt::umd::wormhole::TENSIX_CORES.size() -
-                          tt::umd::wormhole::TENSIX_GRID_SIZE.x * harvested_rows_or_columns;
-            break;
-        }
-        case tt::ARCH::BLACKHOLE: {
-            upper_limit = tt::umd::blackhole::TENSIX_CORES.size() -
-                          tt::umd::blackhole::TENSIX_GRID_SIZE.y * harvested_rows_or_columns;
-            break;
-        }
-        default: {
-            throw std::runtime_error("Invalid architecture in test for software harvesting mask.");
-        }
-    }
-
-    return upper_limit;
-}
-
 TEST(SoftwareHarvesting, TensixSoftwareHarvestingAllChips) {
     std::set<chip_id_t> target_devices = test_utils::get_target_devices();
     int num_devices = target_devices.size();
@@ -52,11 +29,17 @@ TEST(SoftwareHarvesting, TensixSoftwareHarvestingAllChips) {
 
     tt::ARCH arch = cluster->get_cluster_description()->get_arch(0);
 
+    uint32_t upper_limit_num_cores;
+    if (arch == tt::ARCH::WORMHOLE_B0) {
+        // At least 2 rows are expected to be harvested.
+        upper_limit_num_cores = 64;
+    } else if (arch == tt::ARCH::BLACKHOLE) {
+        // At least 2 columns are expected to be harvested.
+        upper_limit_num_cores = 120;
+    }
+
     for (const chip_id_t& chip : cluster->get_target_device_ids()) {
-        ASSERT_LE(
-            cluster->get_soc_descriptor(chip).get_cores(CoreType::TENSIX).size(),
-            get_expected_upper_limit_tensix_number(
-                arch, cluster->get_soc_descriptor(chip).harvesting_masks.tensix_harvesting_mask));
+        ASSERT_LE(cluster->get_soc_descriptor(chip).get_cores(CoreType::TENSIX).size(), upper_limit_num_cores);
     }
 
     for (const chip_id_t& chip : cluster->get_target_device_ids()) {

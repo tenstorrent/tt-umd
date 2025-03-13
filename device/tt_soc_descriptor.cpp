@@ -263,15 +263,13 @@ tt_SocDescriptor::tt_SocDescriptor(
     const uint8_t asic_location) :
     noc_translation_enabled(noc_translation_enabled), harvesting_masks(harvesting_masks) {
     SocDescriptorInfo soc_desc_info = tt_SocDescriptor::get_soc_descriptor_info(arch_soc);
-    grid_size = soc_desc_info.grid_size;
-    load_core_descriptors_from_soc_desc_info(soc_desc_info);
-    arch = soc_desc_info.arch;
-    load_soc_features_from_soc_desc_info(soc_desc_info);
+    load_from_soc_desc_info(soc_desc_info);
     create_coordinate_manager(board_type, asic_location);
 }
 
 void tt_SocDescriptor::load_from_soc_desc_info(const SocDescriptorInfo &soc_desc_info) {
     arch = soc_desc_info.arch;
+    grid_size = soc_desc_info.grid_size;
     load_core_descriptors_from_soc_desc_info(soc_desc_info);
     load_soc_features_from_soc_desc_info(soc_desc_info);
 }

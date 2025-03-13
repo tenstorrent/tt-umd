@@ -39,7 +39,13 @@ public:
         const std::vector<tt_xy_pair>& arc_cores,
         const tt_xy_pair& pcie_grid_size,
         const std::vector<tt_xy_pair>& pcie_cores,
-        const std::vector<tt_xy_pair>& router_cores);
+        const std::vector<tt_xy_pair>& router_cores,
+        const std::vector<tt_xy_pair>& tensix_cores_noc1 = {},
+        const std::vector<tt_xy_pair>& dram_cores_noc1 = {},
+        const std::vector<tt_xy_pair>& eth_cores_noc1 = {},
+        const std::vector<tt_xy_pair>& arc_cores_noc1 = {},
+        const std::vector<tt_xy_pair>& pcie_cores_noc1 = {},
+        const std::vector<tt_xy_pair>& router_cores_noc1 = {});
 
     static std::shared_ptr<CoordinateManager> create_coordinate_manager(
         tt::ARCH arch,
@@ -100,7 +106,13 @@ protected:
         const std::vector<tt_xy_pair>& arc_cores,
         const tt_xy_pair& pcie_grid_size,
         const std::vector<tt_xy_pair>& pcie_cores,
-        const std::vector<tt_xy_pair>& router_cores);
+        const std::vector<tt_xy_pair>& router_cores,
+        const std::vector<tt_xy_pair>& tensix_cores_noc1 = {},
+        const std::vector<tt_xy_pair>& dram_cores_noc1 = {},
+        const std::vector<tt_xy_pair>& eth_cores_noc1 = {},
+        const std::vector<tt_xy_pair>& arc_cores_noc1 = {},
+        const std::vector<tt_xy_pair>& pcie_cores_noc1 = {},
+        const std::vector<tt_xy_pair>& router_cores_noc1 = {});
 
     void initialize();
 
@@ -115,6 +127,7 @@ protected:
 
     void identity_map_physical_cores();
     void add_core_translation(const tt::umd::CoreCoord& core_coord, const tt_xy_pair& physical_pair);
+    void add_noc1_to_noc0_mapping();
 
     virtual std::vector<tt::umd::CoreCoord> get_tensix_cores() const;
     virtual std::vector<tt::umd::CoreCoord> get_harvested_tensix_cores() const;
@@ -213,4 +226,11 @@ protected:
 
     // Router cores don't have a grid size, since they are not layed out in a regular fashion.
     const std::vector<tt_xy_pair> router_cores;
+
+    const std::vector<tt_xy_pair> tensix_cores_noc1;
+    const std::vector<tt_xy_pair> dram_cores_noc1;
+    const std::vector<tt_xy_pair> eth_cores_noc1;
+    const std::vector<tt_xy_pair> arc_cores_noc1;
+    const std::vector<tt_xy_pair> pcie_cores_noc1;
+    const std::vector<tt_xy_pair> router_cores_noc1;
 };

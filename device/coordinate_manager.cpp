@@ -26,7 +26,13 @@ CoordinateManager::CoordinateManager(
     const std::vector<tt_xy_pair>& arc_cores,
     const tt_xy_pair& pcie_grid_size,
     const std::vector<tt_xy_pair>& pcie_cores,
-    const std::vector<tt_xy_pair>& router_cores) :
+    const std::vector<tt_xy_pair>& router_cores,
+    const std::vector<tt_xy_pair>& tensix_cores_noc1,
+    const std::vector<tt_xy_pair>& dram_cores_noc1,
+    const std::vector<tt_xy_pair>& eth_cores_noc1,
+    const std::vector<tt_xy_pair>& arc_cores_noc1,
+    const std::vector<tt_xy_pair>& pcie_cores_noc1,
+    const std::vector<tt_xy_pair>& router_cores_noc1) :
     noc_translation_enabled(noc_translation_enabled),
     harvesting_masks(harvesting_masks),
     tensix_grid_size(tensix_grid_size),
@@ -39,7 +45,13 @@ CoordinateManager::CoordinateManager(
     arc_cores(arc_cores),
     pcie_grid_size(pcie_grid_size),
     pcie_cores(pcie_cores),
-    router_cores(router_cores) {}
+    router_cores(router_cores),
+    tensix_cores_noc1(tensix_cores_noc1),
+    dram_cores_noc1(dram_cores_noc1),
+    eth_cores_noc1(eth_cores_noc1),
+    arc_cores_noc1(arc_cores_noc1),
+    pcie_cores_noc1(pcie_cores_noc1),
+    router_cores_noc1(router_cores_noc1) {}
 
 void CoordinateManager::initialize() {
     this->assert_coordinate_manager_constructor();
@@ -50,6 +62,7 @@ void CoordinateManager::initialize() {
     this->translate_arc_coords();
     this->translate_pcie_coords();
     this->translate_router_coords();
+    this->add_noc1_to_noc0_mapping();
 }
 
 void CoordinateManager::assert_coordinate_manager_constructor() {
@@ -590,10 +603,17 @@ std::shared_ptr<CoordinateManager> CoordinateManager::create_coordinate_manager(
                 tt::umd::wormhole::ARC_CORES_NOC0,
                 tt::umd::wormhole::PCIE_GRID_SIZE,
                 tt::umd::wormhole::PCIE_CORES_NOC0,
-                tt::umd::wormhole::ROUTER_CORES_NOC0);
+                tt::umd::wormhole::ROUTER_CORES_NOC0,
+                tt::umd::wormhole::TENSIX_CORES_NOC1,
+                flatten_vector(tt::umd::wormhole::DRAM_CORES_NOC1),
+                tt::umd::wormhole::ETH_CORES_NOC1,
+                tt::umd::wormhole::ARC_CORES_NOC1,
+                tt::umd::wormhole::PCIE_CORES_NOC1,
+                tt::umd::wormhole::ROUTER_CORES_NOC1);
         case tt::ARCH::QUASAR:  // TODO (#450): Add Quasar configuration
         case tt::ARCH::BLACKHOLE: {
-            const std::vector<tt_xy_pair> pcie_cores = tt::umd::blackhole::get_pcie_cores(board_type, asic_location);
+            const auto [pcie_cores_noc0, pcie_cores_noc1] =
+                tt::umd::blackhole::get_pcie_cores(board_type, asic_location);
             return create_coordinate_manager(
                 arch,
                 noc_translation_enabled,
@@ -606,8 +626,14 @@ std::shared_ptr<CoordinateManager> CoordinateManager::create_coordinate_manager(
                 tt::umd::blackhole::ARC_GRID_SIZE,
                 tt::umd::blackhole::ARC_CORES_NOC0,
                 tt::umd::blackhole::PCIE_GRID_SIZE,
-                pcie_cores,
-                tt::umd::blackhole::ROUTER_CORES_NOC0);
+                pcie_cores_noc0,
+                tt::umd::blackhole::ROUTER_CORES_NOC0,
+                tt::umd::blackhole::TENSIX_CORES_NOC1,
+                flatten_vector(tt::umd::blackhole::DRAM_CORES_NOC1),
+                tt::umd::blackhole::ETH_CORES_NOC1,
+                tt::umd::blackhole::ARC_CORES_NOC1,
+                pcie_cores_noc1,
+                tt::umd::blackhole::ROUTER_CORES_NOC1);
         }
         case tt::ARCH::Invalid:
             throw std::runtime_error("Invalid architecture for creating coordinate manager");
@@ -629,7 +655,13 @@ std::shared_ptr<CoordinateManager> CoordinateManager::create_coordinate_manager(
     const std::vector<tt_xy_pair>& arc_cores,
     const tt_xy_pair& pcie_grid_size,
     const std::vector<tt_xy_pair>& pcie_cores,
-    const std::vector<tt_xy_pair>& router_cores) {
+    const std::vector<tt_xy_pair>& router_cores,
+    const std::vector<tt_xy_pair>& tensix_cores_noc1,
+    const std::vector<tt_xy_pair>& dram_cores_noc1,
+    const std::vector<tt_xy_pair>& eth_cores_noc1,
+    const std::vector<tt_xy_pair>& arc_cores_noc1,
+    const std::vector<tt_xy_pair>& pcie_cores_noc1,
+    const std::vector<tt_xy_pair>& router_cores_noc1) {
     switch (arch) {
         case tt::ARCH::WORMHOLE_B0:
             return std::make_shared<WormholeCoordinateManager>(
@@ -644,7 +676,13 @@ std::shared_ptr<CoordinateManager> CoordinateManager::create_coordinate_manager(
                 arc_cores,
                 pcie_grid_size,
                 pcie_cores,
-                router_cores);
+                router_cores,
+                tensix_cores_noc1,
+                dram_cores_noc1,
+                eth_cores_noc1,
+                arc_cores_noc1,
+                pcie_cores_noc1,
+                router_cores_noc1);
         case tt::ARCH::QUASAR:  // TODO (#450): Add Quasar configuration
         case tt::ARCH::BLACKHOLE:
             return std::make_shared<BlackholeCoordinateManager>(
@@ -659,7 +697,13 @@ std::shared_ptr<CoordinateManager> CoordinateManager::create_coordinate_manager(
                 arc_cores,
                 pcie_grid_size,
                 pcie_cores,
-                router_cores);
+                router_cores,
+                tensix_cores_noc1,
+                dram_cores_noc1,
+                eth_cores_noc1,
+                arc_cores_noc1,
+                pcie_cores_noc1,
+                router_cores_noc1);
         case tt::ARCH::Invalid:
             throw std::runtime_error("Invalid architecture for creating coordinate manager");
         default:
@@ -692,4 +736,42 @@ std::vector<size_t> CoordinateManager::get_harvested_indices(const size_t harves
     }
 
     return indices;
+}
+
+void CoordinateManager::add_noc1_to_noc0_mapping() {
+    for (uint32_t noc1_index = 0; noc1_index < tensix_cores_noc1.size(); noc1_index++) {
+        const tt_xy_pair noc1_core = tensix_cores_noc1[noc1_index];
+        CoreCoord core_coord = CoreCoord(noc1_core.x, noc1_core.y, CoreType::TENSIX, CoordSystem::NOC1);
+        add_core_translation(core_coord, tensix_cores[noc1_index]);
+    }
+
+    for (uint32_t noc1_index = 0; noc1_index < dram_cores_noc1.size(); noc1_index++) {
+        const tt_xy_pair noc1_core = dram_cores_noc1[noc1_index];
+        CoreCoord core_coord = CoreCoord(noc1_core.x, noc1_core.y, CoreType::DRAM, CoordSystem::NOC1);
+        add_core_translation(core_coord, dram_cores[noc1_index]);
+    }
+
+    for (uint32_t noc1_index = 0; noc1_index < eth_cores_noc1.size(); noc1_index++) {
+        const tt_xy_pair noc1_core = eth_cores_noc1[noc1_index];
+        CoreCoord core_coord = CoreCoord(noc1_core.x, noc1_core.y, CoreType::ETH, CoordSystem::NOC1);
+        add_core_translation(core_coord, eth_cores[noc1_index]);
+    }
+
+    for (uint32_t noc1_index = 0; noc1_index < arc_cores_noc1.size(); noc1_index++) {
+        const tt_xy_pair noc1_core = arc_cores_noc1[noc1_index];
+        CoreCoord core_coord = CoreCoord(noc1_core.x, noc1_core.y, CoreType::ARC, CoordSystem::NOC1);
+        add_core_translation(core_coord, arc_cores[noc1_index]);
+    }
+
+    for (uint32_t noc1_index = 0; noc1_index < pcie_cores_noc1.size(); noc1_index++) {
+        const tt_xy_pair noc1_core = pcie_cores_noc1[noc1_index];
+        CoreCoord core_coord = CoreCoord(noc1_core.x, noc1_core.y, CoreType::PCIE, CoordSystem::NOC1);
+        add_core_translation(core_coord, pcie_cores[noc1_index]);
+    }
+
+    for (uint32_t noc1_index = 0; noc1_index < router_cores_noc1.size(); noc1_index++) {
+        const tt_xy_pair noc1_core = router_cores_noc1[noc1_index];
+        CoreCoord core_coord = CoreCoord(noc1_core.x, noc1_core.y, CoreType::ROUTER_ONLY, CoordSystem::NOC1);
+        add_core_translation(core_coord, router_cores[noc1_index]);
+    }
 }

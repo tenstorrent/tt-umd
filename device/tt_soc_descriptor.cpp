@@ -87,9 +87,10 @@ void tt_SocDescriptor::create_coordinate_manager(const BoardType board_type, con
     // enabling only one of the two pci cores. This is currently a unique case, and if another similar case shows up, we
     // can figure out a better abstraction.
     if (arch == tt::ARCH::BLACKHOLE && board_type != BoardType::UNKNOWN) {
-        auto pcie_cores_for_type = blackhole::get_pcie_cores(board_type, asic_location);
+        auto [pcie_cores_for_type_noc0, pcie_cores_for_type_noc1] =
+            blackhole::get_pcie_cores(board_type, asic_location);
         // Verify that the required pcie core was already mentioned in the device descriptor.
-        for (const auto &core : pcie_cores_for_type) {
+        for (const auto &core : pcie_cores_for_type_noc0) {
             if (std::find(pcie_cores.begin(), pcie_cores.end(), core) == pcie_cores.end()) {
                 throw std::runtime_error(
                     fmt::format("Error: Required pcie core {} not found in the device descriptor!", format_node(core)));
@@ -97,12 +98,13 @@ void tt_SocDescriptor::create_coordinate_manager(const BoardType board_type, con
         }
         // Add the unused pcie cores as router cores.
         for (const auto &core : pcie_cores) {
-            if (std::find(pcie_cores_for_type.begin(), pcie_cores_for_type.end(), core) == pcie_cores_for_type.end()) {
+            if (std::find(pcie_cores_for_type_noc0.begin(), pcie_cores_for_type_noc0.end(), core) ==
+                pcie_cores_for_type_noc0.end()) {
                 router_cores.push_back(core);
             }
         }
 
-        pcie_cores = pcie_cores_for_type;
+        pcie_cores = pcie_cores_for_type_noc0;
         pcie_grid_size = tt_SocDescriptor::calculate_grid_size(pcie_cores);
     }
 

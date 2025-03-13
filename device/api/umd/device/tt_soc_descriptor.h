@@ -143,8 +143,6 @@ public:
 
 private:
     void create_coordinate_manager(const BoardType board_type, const uint8_t asic_location);
-    // void load_core_descriptors_from_device_descriptor(YAML::Node &device_descriptor_yaml);
-    // void load_soc_features_from_device_descriptor(YAML::Node &device_descriptor_yaml);
     void get_cores_and_grid_size_from_coordinate_manager();
     void load_from_yaml(YAML::Node &device_descriptor_yaml);
     void load_from_soc_desc_info(const SocDescriptorInfo &soc_desc_info);

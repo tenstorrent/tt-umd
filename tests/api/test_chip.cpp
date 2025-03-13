@@ -69,6 +69,7 @@ TEST(ApiChipTest, ManualTLBConfiguration) {
 
     // Each MMIO chip has it's own set of TLBs, so needs its own configuration.
     for (chip_id_t mmio_chip : umd_cluster->get_target_mmio_device_ids()) {
+        any_mmio_chip = mmio_chip;
         const tt_SocDescriptor& soc_desc = umd_cluster->get_soc_descriptor(mmio_chip);
         for (CoreCoord core : soc_desc.get_cores(CoreType::TENSIX)) {
             umd_cluster->configure_tlb(mmio_chip, core, get_static_tlb_index(core), c_zero_address);

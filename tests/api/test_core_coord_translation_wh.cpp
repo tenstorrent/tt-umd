@@ -38,11 +38,10 @@ TEST(CoordinateManager, CoordinateManagerWormholeNoHarvesting) {
 // the logical coordinates if the first row is harvested.
 TEST(CoordinateManager, CoordinateManagerWormholeTopLeftCore) {
     // This harvesting mask if targeting first row in NOC layout.
-    const size_t harvesting_mask = (1 << 0);
+    const size_t tensix_harvesting_mask = (1 << 0);
 
     std::shared_ptr<CoordinateManager> coordinate_manager =
-        CoordinateManager::create_coordinate_manager(tt::ARCH::WORMHOLE_B0, true, {harvesting_mask});
-    tt_xy_pair tensix_grid_size = tt::umd::wormhole::TENSIX_GRID_SIZE;
+        CoordinateManager::create_coordinate_manager(tt::ARCH::WORMHOLE_B0, true, {tensix_harvesting_mask});
 
     CoreCoord logical_coords = CoreCoord(0, 0, CoreType::TENSIX, CoordSystem::LOGICAL);
 
@@ -53,6 +52,50 @@ TEST(CoordinateManager, CoordinateManagerWormholeTopLeftCore) {
     // This depends on harvesting mask. So expected physical coord is specific to this test and Wormhole arch.
     CoreCoord physical_cords = coordinate_manager->translate_coord_to(logical_coords, CoordSystem::PHYSICAL);
     EXPECT_EQ(physical_cords, CoreCoord(1, 2, CoreType::TENSIX, CoordSystem::PHYSICAL));
+}
+
+// Test basic translation to virtual and physical noc coordinates.
+// We expect that the bottom left core will have virtual and physical coordinates (9, 1) and (9, 2) for
+// the logical coordinates (7, 0) if the first row is harvested.
+TEST(CoordinateManager, CoordinateManagerWormholeTopRightCore) {
+    // This harvesting mask if targeting first row in NOC layout.
+    const size_t tensix_harvesting_mask = (1 << 0);
+
+    std::shared_ptr<CoordinateManager> coordinate_manager =
+        CoordinateManager::create_coordinate_manager(tt::ARCH::WORMHOLE_B0, true, {tensix_harvesting_mask});
+
+    tt_xy_pair tensix_grid_size = coordinate_manager->get_grid_size(CoreType::TENSIX);
+    EXPECT_EQ(tensix_grid_size.x, 8);
+    EXPECT_EQ(tensix_grid_size.y, 9);
+    CoreCoord logical_coords = CoreCoord(tensix_grid_size.x - 1, 0, CoreType::TENSIX, CoordSystem::LOGICAL);
+
+    CoreCoord virtual_cords = coordinate_manager->translate_coord_to(logical_coords, CoordSystem::VIRTUAL);
+    EXPECT_EQ(virtual_cords, CoreCoord(9, 1, CoreType::TENSIX, CoordSystem::VIRTUAL));
+
+    CoreCoord physical_cords = coordinate_manager->translate_coord_to(logical_coords, CoordSystem::PHYSICAL);
+    EXPECT_EQ(physical_cords, CoreCoord(9, 2, CoreType::TENSIX, CoordSystem::PHYSICAL));
+}
+
+// Test basic translation to virtual and physical noc coordinates.
+// We expect that the top right core will have virtual and physical coordinates (1, 10) and (1, 11) for
+// the logical coordinates (0, 8) if the first row is harvested.
+TEST(CoordinateManager, CoordinateManagerWormholeBottomLeftCore) {
+    // This harvesting mask if targeting first row in NOC layout.
+    const size_t tensix_harvesting_mask = (1 << 0);
+
+    std::shared_ptr<CoordinateManager> coordinate_manager =
+        CoordinateManager::create_coordinate_manager(tt::ARCH::WORMHOLE_B0, true, {tensix_harvesting_mask});
+
+    tt_xy_pair tensix_grid_size = coordinate_manager->get_grid_size(CoreType::TENSIX);
+    EXPECT_EQ(tensix_grid_size.x, 8);
+    EXPECT_EQ(tensix_grid_size.y, 9);
+    CoreCoord logical_coords = CoreCoord(0, tensix_grid_size.y - 1, CoreType::TENSIX, CoordSystem::LOGICAL);
+
+    CoreCoord virtual_cords = coordinate_manager->translate_coord_to(logical_coords, CoordSystem::VIRTUAL);
+    EXPECT_EQ(virtual_cords, CoreCoord(1, 10, CoreType::TENSIX, CoordSystem::VIRTUAL));
+
+    CoreCoord physical_cords = coordinate_manager->translate_coord_to(logical_coords, CoordSystem::PHYSICAL);
+    EXPECT_EQ(physical_cords, CoreCoord(1, 11, CoreType::TENSIX, CoordSystem::PHYSICAL));
 }
 
 // Test logical to physical coordinate translation.

@@ -489,7 +489,7 @@ bool PCIDevice::init_hugepage(uint32_t num_host_mem_channels) {
             physical_device_id,
             ch,
             hugepage_size,
-            (unsigned long long)hugepage_mappings.at(device_id).at(ch).physical_address);
+            pin_pages.out.physical_address);
     }
 
     return success;

@@ -171,10 +171,10 @@ int tt_ClusterDescriptor::get_ethernet_link_coord_distance(
             galaxy_shelves_exit_chip_coords_per_y_dim.at(location_b.shelf).at(location_b.y);
         log_assert(
             shelf_to_shelf_connection.destination_chip_coords.size(),
-            "Expecting at least one shelf-to-shelf connection, possibly one-to-many")
+            "Expecting at least one shelf-to-shelf connection, possibly one-to-many");
 
-            // for each shelf-to-shelf connection at location_b.y, find the distance to location_a, take min
-            int distance = std::numeric_limits<int>::max();
+        // for each shelf-to-shelf connection at location_b.y, find the distance to location_a, take min
+        int distance = std::numeric_limits<int>::max();
         eth_coord_t exit_shelf = shelf_to_shelf_connection.source_chip_coord;
         for (eth_coord_t next_shelf : shelf_to_shelf_connection.destination_chip_coords) {
             log_assert(
@@ -530,6 +530,8 @@ void tt_ClusterDescriptor::load_ethernet_connections_from_connectivity_descripto
         desc.idle_eth_channels[chip_1].erase(channel_1);
     }
 
+    // std::unordered_map<ethernet_channel_t, std::tuple<chip_id_t, ethernet_channel_t>>> ethernet_connections;
+
     log_debug(LogSiliconDriver, "Ethernet Connectivity Descriptor:");
     for (const auto &[chip, chan_to_chip_chan_map] : desc.ethernet_connections) {
         for (const auto &[chan, chip_and_chan] : chan_to_chip_chan_map) {
@@ -538,8 +540,8 @@ void tt_ClusterDescriptor::load_ethernet_connections_from_connectivity_descripto
                 "\tchip: {}, chan: {}  <-->  chip: {}, chan: {}",
                 chip,
                 chan,
-                chip_and_chan.x,
-                chip_and_chan.y);
+                std::get<0>(chip_and_chan),
+                std::get<1>(chip_and_chan));
         }
     }
 

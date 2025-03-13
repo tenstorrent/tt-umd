@@ -40,6 +40,7 @@
 #include "api/umd/device/tt_core_coordinates.h"
 #include "logger.hpp"
 #include "umd/device/architecture_implementation.h"
+#include "umd/device/blackhole_implementation.h"
 #include "umd/device/chip/local_chip.h"
 #include "umd/device/chip/mock_chip.h"
 #include "umd/device/chip/remote_chip.h"
@@ -230,12 +231,11 @@ void Cluster::create_device(
             log_debug(
                 LogSiliconDriver,
                 "Using {} Hugepages/NumHostMemChannels for PCIDevice (logical_device_id: {} pci_interface_id: {} "
-                "device_id: 0x{:x} revision: {})",
+                "device_id: 0x{:x})",
                 num_host_mem_channels,
                 logical_device_id,
                 pci_device->get_device_num(),
-                pci_device->get_device_num(),
-                pci_device->revision_id);
+                pci_device->get_device_num());
 
             // TODO: This will be moved to a dedicated Locking class.
             initialize_interprocess_mutexes(logical_device_id, clean_system_resources);
@@ -376,17 +376,10 @@ uint32_t Cluster::get_tensix_harvesting_mask(
     uint32_t simulated_harvesting_mask = (simulated_harvesting_masks.find(chip_id) != simulated_harvesting_masks.end())
                                              ? simulated_harvesting_masks.at(chip_id).tensix_harvesting_mask
                                              : 0;
-    if (simulated_harvesting_mask != 0) {
-        log_info(
-            LogSiliconDriver,
-            "Adding simulated harvesting mask {} for chip {} which has real harvesting mask {}.",
-            simulated_harvesting_mask,
-            chip_id,
-            tensix_harvesting_mask);
-    }
-    log_debug(
+    log_info(
         LogSiliconDriver,
-        "Harvesting mask for chip {} is {} (physical layout: {}, logical: {}, simulated harvesting mask: {}).",
+        "Harvesting mask for chip {} is 0x{:x} (physical layout: 0x{:x}, logical: 0x{:x}, simulated harvesting mask: "
+        "0x{:x}).",
         chip_id,
         tensix_harvesting_mask | simulated_harvesting_mask,
         tensix_harvesting_mask_physical_layout,
@@ -888,13 +881,12 @@ void Cluster::write_device_memory(
 
     log_debug(
         LogSiliconDriver,
-        "Cluster::write_device_memory to chip:{} {}-{} at 0x{:x} size_in_bytes: {} small_access: {}",
+        "Cluster::write_device_memory to chip:{} {}-{} at 0x{:x} size_in_bytes: {}",
         target.chip,
         target.x,
         target.y,
         address,
-        size_in_bytes,
-        small_access);
+        size_in_bytes);
 
     if (get_tlb_manager(target.chip)->is_tlb_mapped({target.x, target.y}, address, size_in_bytes)) {
         tlb_configuration tlb_description = get_tlb_manager(target.chip)->get_tlb_configuration({target.x, target.y});
@@ -941,8 +933,6 @@ void Cluster::read_device_memory(
         size_in_bytes);
     TTDevice* dev = get_tt_device(target.chip);
     uint8_t* buffer_addr = static_cast<uint8_t*>(mem_ptr);
-
-    log_debug(LogSiliconDriver, "  tlb_index: {}, tlb_data.has_value(): {}", tlb_index, tlb_data.has_value());
 
     if (get_tlb_manager(target.chip)->is_tlb_mapped({target.x, target.y}, address, size_in_bytes)) {
         tlb_configuration tlb_description = get_tlb_manager(target.chip)->get_tlb_configuration({target.x, target.y});
@@ -3218,7 +3208,31 @@ std::unique_ptr<tt_ClusterDescriptor> Cluster::create_cluster_descriptor(
     for (auto& it : chips) {
         const chip_id_t chip_id = it.first;
         const std::unique_ptr<Chip>& chip = it.second;
-        desc->add_chip_uid(chip_id, chip->get_chip_info().chip_uid);
+
+        // TODO: Use the line below when we can read asic location from the Blackhole telemetry.
+        // Until then we have to read it from ETH core.
+        // desc->add_chip_uid(chip_id, chip->get_chip_info().chip_uid);
+
+        // TODO: Remove this when we can read asic location from the Blackhole telemetry.
+        // Until then we have to read it from ETH core.
+        const std::vector<CoreCoord> eth_cores = chip->get_soc_descriptor().get_cores(CoreType::ETH);
+        for (size_t eth_channel = 0; eth_channel < eth_cores.size(); eth_channel++) {
+            const CoreCoord& eth_core = eth_cores[eth_channel];
+            TTDevice* tt_device = chip->get_tt_device();
+            blackhole::boot_results_t boot_results;
+
+            tt_device->read_from_device(
+                (uint8_t*)&boot_results,
+                tt_xy_pair(eth_core.x, eth_core.y),
+                blackhole::BOOT_RESULTS_ADDR,
+                sizeof(boot_results));
+
+            // We can read the asic location only from active ETH cores.
+            if (boot_results.eth_status.port_status == blackhole::port_status_e::PORT_UP) {
+                const blackhole::chip_info_t& local_info = boot_results.local_info;
+                desc->add_chip_uid(chip_id, ChipUID{chip->get_chip_info().chip_uid.board_id, local_info.asic_location});
+            }
+        }
     }
 
     for (auto& it : chips) {
@@ -3276,9 +3290,15 @@ std::unique_ptr<tt_ClusterDescriptor> Cluster::create_cluster_descriptor(
                             chip_id,
                             remote_info.get_chip_uid().board_id);
                     } else {
+                        const CoreCoord logical_remote_coord = chips.at(remote_chip_id.value())
+                                                                   ->get_soc_descriptor()
+                                                                   .translate_coord_to(
+                                                                       blackhole::ETH_CORES[remote_info.eth_id],
+                                                                       CoordSystem::PHYSICAL,
+                                                                       CoordSystem::LOGICAL);
                         // Adding a connection only one way, the other chip should add it another way.
-                        desc->ethernet_connections[local_chip_id][local_info.eth_id] = {
-                            remote_chip_id.value(), remote_info.eth_id};
+                        desc->ethernet_connections[local_chip_id][eth_channel] = {
+                            remote_chip_id.value(), logical_remote_coord.y};
                     }
                 } else if (boot_results.eth_status.port_status == blackhole::port_status_e::PORT_DOWN) {
                     // active eth core, just with link being down.

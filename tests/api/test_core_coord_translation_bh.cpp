@@ -32,13 +32,12 @@ TEST(CoordinateManager, CoordinateManagerBlackholeNoHarvesting) {
 
 // Test basic translation to virtual and physical noc coordinates.
 // We expect that the top left core will have virtual and physical coordinates (1, 2) and (2, 2) for
-// the logical coordinates if the first row is harvested.
+// the logical coordinates (0, 0) if the first column is harvested.
 TEST(CoordinateManager, CoordinateManagerBlackholeTopLeftCore) {
-    // This is targeting first row of Tensix cores on NOC layout.
+    // This is targeting first column of Tensix cores on NOC layout.
     const size_t tensix_harvesting_mask = (1 << 0);
     std::shared_ptr<CoordinateManager> coordinate_manager =
         CoordinateManager::create_coordinate_manager(tt::ARCH::BLACKHOLE, true, {tensix_harvesting_mask});
-    tt_xy_pair tensix_grid_size = tt::umd::blackhole::TENSIX_GRID_SIZE;
 
     CoreCoord logical_coords = CoreCoord(0, 0, CoreType::TENSIX, CoordSystem::LOGICAL);
 
@@ -49,6 +48,48 @@ TEST(CoordinateManager, CoordinateManagerBlackholeTopLeftCore) {
     // This depends on harvesting mask. So expected physical coord is specific to this test and Blackhole arch.
     CoreCoord physical_cords = coordinate_manager->translate_coord_to(logical_coords, CoordSystem::PHYSICAL);
     EXPECT_EQ(physical_cords, CoreCoord(2, 2, CoreType::TENSIX, CoordSystem::PHYSICAL));
+}
+
+// Test basic translation to virtual and physical noc coordinates.
+// We expect that the top right core will have virtual and physical coordinates (15, 2) and (16, 2) for
+// the logical coordinates (12, 0) if the first column is harvested.
+TEST(CoordinateManager, CoordinateManagerBlackholeTopRightCore) {
+    // This is targeting first column of Tensix cores on NOC layout.
+    const size_t tensix_harvesting_mask = (1 << 0);
+    std::shared_ptr<CoordinateManager> coordinate_manager =
+        CoordinateManager::create_coordinate_manager(tt::ARCH::BLACKHOLE, true, {tensix_harvesting_mask});
+
+    tt_xy_pair tensix_grid_size = coordinate_manager->get_grid_size(CoreType::TENSIX);
+    EXPECT_EQ(tensix_grid_size.x, 13);
+    EXPECT_EQ(tensix_grid_size.y, 10);
+    CoreCoord logical_coords = CoreCoord(tensix_grid_size.x - 1, 0, CoreType::TENSIX, CoordSystem::LOGICAL);
+
+    CoreCoord virtual_cords = coordinate_manager->translate_coord_to(logical_coords, CoordSystem::VIRTUAL);
+    EXPECT_EQ(virtual_cords, CoreCoord(15, 2, CoreType::TENSIX, CoordSystem::VIRTUAL));
+
+    CoreCoord physical_cords = coordinate_manager->translate_coord_to(logical_coords, CoordSystem::PHYSICAL);
+    EXPECT_EQ(physical_cords, CoreCoord(16, 2, CoreType::TENSIX, CoordSystem::PHYSICAL));
+}
+
+// Test basic translation to virtual and physical noc coordinates.
+// We expect that the bottom left core will have virtual and physical coordinates (1, 11) and (2, 11) for
+// the logical coordinates (0, 9) if the first column is harvested.
+TEST(CoordinateManager, CoordinateManagerBlackholeBottomLeftCore) {
+    // This is targeting first column of Tensix cores on NOC layout.
+    const size_t tensix_harvesting_mask = (1 << 0);
+    std::shared_ptr<CoordinateManager> coordinate_manager =
+        CoordinateManager::create_coordinate_manager(tt::ARCH::BLACKHOLE, true, {tensix_harvesting_mask});
+
+    tt_xy_pair tensix_grid_size = coordinate_manager->get_grid_size(CoreType::TENSIX);
+    EXPECT_EQ(tensix_grid_size.x, 13);
+    EXPECT_EQ(tensix_grid_size.y, 10);
+    CoreCoord logical_coords = CoreCoord(0, tensix_grid_size.y - 1, CoreType::TENSIX, CoordSystem::LOGICAL);
+
+    CoreCoord virtual_cords = coordinate_manager->translate_coord_to(logical_coords, CoordSystem::VIRTUAL);
+    EXPECT_EQ(virtual_cords, CoreCoord(1, 11, CoreType::TENSIX, CoordSystem::VIRTUAL));
+
+    CoreCoord physical_cords = coordinate_manager->translate_coord_to(logical_coords, CoordSystem::PHYSICAL);
+    EXPECT_EQ(physical_cords, CoreCoord(2, 11, CoreType::TENSIX, CoordSystem::PHYSICAL));
 }
 
 // Test logical to physical coordinate translation.

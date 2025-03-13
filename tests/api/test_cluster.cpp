@@ -278,3 +278,50 @@ TEST(ClusterAPI, DynamicTLB_RW) {
     }
     cluster->close_device();
 }
+
+TEST(TestCluster, PrintAllChipsAllCores) {
+    std::unique_ptr<Cluster> umd_cluster = get_cluster();
+
+    for (chip_id_t chip : umd_cluster->get_target_device_ids()) {
+        std::cout << "Chip " << chip << std::endl;
+
+        const tt_SocDescriptor& soc_desc = umd_cluster->get_soc_descriptor(chip);
+
+        const std::vector<CoreCoord>& tensix_cores = soc_desc.get_cores(CoreType::TENSIX);
+        for (const CoreCoord& core : tensix_cores) {
+            std::cout << "Tensix core " << core.str() << std::endl;
+        }
+
+        const std::vector<CoreCoord>& dram_cores = soc_desc.get_cores(CoreType::DRAM);
+        for (const CoreCoord& core : dram_cores) {
+            std::cout << "DRAM core " << core.str() << std::endl;
+        }
+
+        const std::vector<CoreCoord>& eth_cores = soc_desc.get_cores(CoreType::ETH);
+        for (const CoreCoord& core : eth_cores) {
+            std::cout << "ETH core " << core.str() << std::endl;
+        }
+    }
+}
+
+// It is expected that logical ETH channel numbers are in the range [0, num_channels) for each
+// chip. This is needed because of eth id readouts for Blackhole that don't take harvesting into
+// acount. This test verifies that both for Wormhole and Blackhole.
+TEST(TestCluster, TestClusterLogicalETHChannelsConnectivity) {
+    std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
+
+    tt_ClusterDescriptor* cluster_desc = cluster->get_cluster_description();
+
+    for (auto [chip, connections] : cluster_desc->get_ethernet_connections()) {
+        const uint32_t num_channels_local_chip = cluster->get_soc_descriptor(chip).get_cores(CoreType::ETH).size();
+        for (auto [channel, remote_chip_and_channel] : connections) {
+            auto [remote_chip, remote_channel] = remote_chip_and_channel;
+
+            const uint32_t num_channels_remote_chip =
+                cluster->get_soc_descriptor(remote_chip).get_cores(CoreType::ETH).size();
+
+            EXPECT_TRUE(channel < num_channels_local_chip);
+            EXPECT_TRUE(remote_channel < num_channels_remote_chip);
+        }
+    }
+}

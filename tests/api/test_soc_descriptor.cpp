@@ -215,7 +215,7 @@ TEST(SocDescriptor, SocDescriptorBlackholeDRAM) {
 TEST(SocDescriptor, SocDescriptorBlackholeDRAMHarvesting) {
     const tt_xy_pair blackhole_tensix_grid_size = tt::umd::blackhole::TENSIX_GRID_SIZE;
     const std::vector<tt_xy_pair> blackhole_tensix_cores = tt::umd::blackhole::TENSIX_CORES;
-    const std::vector<tt_xy_pair> blackhole_dram_cores = tt::umd::blackhole::DRAM_CORES;
+    const std::vector<tt_xy_pair> blackhole_dram_cores = flatten_vector(tt::umd::blackhole::DRAM_CORES);
     const size_t num_dram_banks = tt::umd::blackhole::NUM_DRAM_BANKS;
     const size_t num_noc_ports_per_bank = tt::umd::blackhole::NUM_NOC_PORTS_PER_DRAM_BANK;
 

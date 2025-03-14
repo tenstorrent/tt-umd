@@ -91,6 +91,10 @@ jobs:
         shell: bash
         run: tar xvf artifact.tar
 
+      - name: Run API tests
+        run: |
+          ${{ env.TEST_OUTPUT_DIR }}/umd/api/api_tests
+
       - name: Run arch-specific UMD unit tests
         run: |
           ${{ env.TEST_OUTPUT_DIR }}/umd/${{ inputs.arch }}/unit_tests
@@ -98,10 +102,6 @@ jobs:
       - name: Run PCI tests
         run: |
           ${{ env.TEST_OUTPUT_DIR }}/umd/test_pcie_device/test_pcie_device
-
-      - name: Run API tests
-        run: |
-          ${{ env.TEST_OUTPUT_DIR }}/umd/api/api_tests
 
       - name: Run MISC tests
         run: |

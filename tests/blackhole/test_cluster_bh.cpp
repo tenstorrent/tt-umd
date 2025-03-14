@@ -83,15 +83,8 @@ TEST(SiliconDriverBH, CreateDestroy) {
     std::set<chip_id_t> target_devices = get_target_devices();
     uint32_t num_host_mem_ch_per_mmio_device = 1;
     tt_device_params default_params;
-    // Initialize the driver with a 1x1 descriptor and explictly do not perform harvesting
     for (int i = 0; i < 50; i++) {
-        Cluster cluster = Cluster(
-            test_utils::GetAbsPath("tests/soc_descs/blackhole_140_arch.yaml"),
-            target_devices,
-            num_host_mem_ch_per_mmio_device,
-            false,
-            true,
-            true);
+        Cluster cluster = Cluster(target_devices, num_host_mem_ch_per_mmio_device, false, true, true);
         set_barrier_params(cluster);
         cluster.start_device(default_params);
         cluster.close_device();
@@ -113,7 +106,7 @@ TEST(SiliconDriverBH, CreateDestroy) {
 
 //     uint32_t num_host_mem_ch_per_mmio_device = 1;
 //     Cluster cluster = Cluster(
-//         "./tests/soc_descs/wormhole_b0_8x10.yaml",
+//         tt:ARCH::BLACKHOLE,
 //         target_devices,
 //         num_host_mem_ch_per_mmio_device,
 //         false,
@@ -176,7 +169,7 @@ TEST(SiliconDriverBH, CreateDestroy) {
 //     uint32_t num_host_mem_ch_per_mmio_device = 1;
 
 //     Cluster cluster = Cluster(
-//         "./tests/soc_descs/wormhole_b0_8x10.yaml",
+//         tt::ARCH::BLACKHOLE,
 //         target_devices,
 //         num_host_mem_ch_per_mmio_device,
 //         false,
@@ -903,7 +896,6 @@ static bool is_iommu_available() {
     const size_t num_channels = 1;
     auto target_devices = get_target_devices();
     Cluster cluster(
-        test_utils::GetAbsPath("tests/soc_descs/blackhole_140_arch.yaml"),
         target_devices,
         num_channels,
         false,  // skip driver allocs - no (don't skip)

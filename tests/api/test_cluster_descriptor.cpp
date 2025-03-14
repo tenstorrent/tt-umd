@@ -205,6 +205,19 @@ TEST(ApiClusterDescriptorTest, EthernetConnectivity) {
 }
 
 TEST(ApiClusterDescriptorTest, PrintClusterDescriptor) {
+
+    std::string filepath = tt_ClusterDescriptor::get_cluster_descriptor_file_path();
+
+    std::cout << "Cluster descriptor file path: " << filepath << std::endl;
+    std::cout << "Contents:" << std::endl;
+    std::ifstream
+        file1(filepath);  // open the file
+    std::string line1;
+    while (std::getline(file1, line1)) {
+        std::cout << line1 << std::endl;
+    }
+    file1.close();
+
     std::filesystem::path cluster_path = tt::umd::Cluster::serialize_to_file();
 
     std::cout << "Cluster descriptor file path: " << cluster_path << std::endl;

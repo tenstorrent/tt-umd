@@ -10,7 +10,6 @@
 #include "api/umd/device/coordinate_manager.h"
 #include "logger.hpp"
 #include "umd/device/blackhole_coordinate_manager.h"
-#include "umd/device/grayskull_coordinate_manager.h"
 #include "umd/device/wormhole_coordinate_manager.h"
 
 using namespace tt::umd;
@@ -577,21 +576,6 @@ std::shared_ptr<CoordinateManager> CoordinateManager::create_coordinate_manager(
     const BoardType board_type,
     uint8_t asic_location) {
     switch (arch) {
-        case tt::ARCH::GRAYSKULL:
-            return create_coordinate_manager(
-                arch,
-                noc_translation_enabled,
-                harvesting_masks,
-                tt::umd::grayskull::TENSIX_GRID_SIZE,
-                tt::umd::grayskull::TENSIX_CORES,
-                tt::umd::grayskull::DRAM_GRID_SIZE,
-                tt::umd::grayskull::DRAM_CORES,
-                tt::umd::grayskull::ETH_CORES,
-                tt::umd::grayskull::ARC_GRID_SIZE,
-                tt::umd::grayskull::ARC_CORES,
-                tt::umd::grayskull::PCIE_GRID_SIZE,
-                tt::umd::grayskull::PCIE_CORES,
-                tt::umd::grayskull::ROUTER_CORES);
         case tt::ARCH::WORMHOLE_B0:
             return create_coordinate_manager(
                 arch,
@@ -647,22 +631,6 @@ std::shared_ptr<CoordinateManager> CoordinateManager::create_coordinate_manager(
     const std::vector<tt_xy_pair>& pcie_cores,
     const std::vector<tt_xy_pair>& router_cores) {
     switch (arch) {
-        case tt::ARCH::GRAYSKULL:
-            if (noc_translation_enabled) {
-                throw std::runtime_error("NOC translation is not supported for Grayskull");
-            }
-            return std::make_shared<GrayskullCoordinateManager>(
-                harvesting_masks,
-                tensix_grid_size,
-                tensix_cores,
-                dram_grid_size,
-                dram_cores,
-                eth_cores,
-                arc_grid_size,
-                arc_cores,
-                pcie_grid_size,
-                pcie_cores,
-                router_cores);
         case tt::ARCH::WORMHOLE_B0:
             return std::make_shared<WormholeCoordinateManager>(
                 noc_translation_enabled,

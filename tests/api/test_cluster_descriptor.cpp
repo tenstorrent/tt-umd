@@ -205,7 +205,20 @@ TEST(ApiClusterDescriptorTest, EthernetConnectivity) {
 }
 
 TEST(ApiClusterDescriptorTest, PrintClusterDescriptor) {
-    std::filesystem::path cluster_path = tt::umd::Cluster::serialize_to_file();
+    std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
+    if (pci_device_ids.size() == 0) {
+        GTEST_SKIP() << "No chips present on the system. Skipping test.";
+    }
+    std::unique_ptr<TTDevice> tt_device = TTDevice::create(pci_device_ids.at(0));
+
+    // In case of u6 galaxy and blackhole, we generate the cluster descriptor.
+    // For wormhole we still use create-ethernet-map.
+    std::filesystem::path cluster_path;
+    if (tt_device->get_arch() == tt::ARCH::BLACKHOLE || tt_device->get_board_type() == BoardType::UBB) {
+        cluster_path = tt::umd::Cluster::serialize_to_file();
+    } else {
+        cluster_path = tt_ClusterDescriptor::get_cluster_descriptor_file_path();
+    }
 
     std::cout << "Cluster descriptor file path: " << cluster_path << std::endl;
     std::cout << "Contents:" << std::endl;

@@ -285,6 +285,9 @@ static constexpr uint32_t TENSIX_L1_SIZE = 1499136;
 static constexpr uint32_t ETH_L1_SIZE = 262144;
 static constexpr uint64_t DRAM_BANK_SIZE = 2147483648;
 
+static constexpr uint64_t NOC_CONTROL_REG_ADDR_BASE = 0xFFB20000;
+static constexpr uint64_t NOC_NODE_ID_OFFSET = 0x2C;
+
 static const size_t tensix_translated_coordinate_start_x = 18;
 static const size_t tensix_translated_coordinate_start_y = 18;
 

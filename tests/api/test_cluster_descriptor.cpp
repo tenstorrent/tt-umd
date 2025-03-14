@@ -4,10 +4,10 @@
 
 #include <gtest/gtest.h>
 
+#include <fstream>
 #include <string>
 #include <unordered_map>
 #include <vector>
-#include <fstream>
 
 #include "disjoint_set.hpp"
 #include "tests/test_utils/generate_cluster_desc.hpp"
@@ -222,8 +222,7 @@ TEST(ApiClusterDescriptorTest, PrintClusterDescriptor) {
 
     std::cout << "Cluster descriptor file path: " << cluster_path << std::endl;
     std::cout << "Contents:" << std::endl;
-    std::ifstream
-        file(cluster_path);  // open the file
+    std::ifstream file(cluster_path);  // open the file
     std::string line;
     while (std::getline(file, line)) {
         std::cout << line << std::endl;

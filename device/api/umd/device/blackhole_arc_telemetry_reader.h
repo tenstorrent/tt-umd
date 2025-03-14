@@ -50,7 +50,7 @@ private:
     std::map<uint32_t, uint32_t> telemetry_offset;
 
     const tt_xy_pair arc_core =
-        !umd_use_noc1 ? tt::umd::blackhole::ARC_CORES[0] : tt_xy_pair(8, 11);  // ARC coordinates in NOC1 are 8-11
+        !umd_use_noc1 ? tt::umd::blackhole::ARC_CORES_NOC0[0] : tt::umd::blackhole::ARC_CORES_NOC1[0];
 };
 
 }  // namespace blackhole

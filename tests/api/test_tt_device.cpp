@@ -13,11 +13,11 @@ using namespace tt::umd;
 tt_xy_pair get_any_tensix_core(tt::ARCH arch) {
     switch (arch) {
         case tt::ARCH::BLACKHOLE:
-            return blackhole::TENSIX_CORES[0];
+            return blackhole::TENSIX_CORES_NOC0[0];
         case tt::ARCH::WORMHOLE_B0:
-            return wormhole::TENSIX_CORES[0];
+            return wormhole::TENSIX_CORES_NOC0[0];
         case tt::ARCH::GRAYSKULL:
-            return grayskull::TENSIX_CORES[0];
+            return grayskull::TENSIX_CORES_NOC0[0];
         default:
             throw std::runtime_error("Invalid architecture");
     }

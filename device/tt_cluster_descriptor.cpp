@@ -502,7 +502,11 @@ void tt_ClusterDescriptor::load_ethernet_connections_from_connectivity_descripto
         log_assert(connected_endpoints.IsSequence(), "Invalid YAML");
 
         std::vector<YAML::Node> endpoints = connected_endpoints.as<std::vector<YAML::Node>>();
-        log_assert(endpoints.size() == 2, "Currently ethernet cores can only connect to one other ethernet endpoint");
+        log_assert(
+            endpoints.size() <= 3,
+            "Ethernet connections in YAML should always contatin information on connected endpoints and optionally "
+            "information on whether "
+            "routing is enabled.");
 
         int chip_0 = endpoints.at(0)["chip"].as<int>();
         int channel_0 = endpoints.at(0)["chan"].as<int>();

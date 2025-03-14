@@ -2851,7 +2851,6 @@ int Cluster::arc_msg(
     int timeout,
     uint32_t* return_3,
     uint32_t* return_4) {
-    log_assert(arch_name != tt::ARCH::BLACKHOLE, "ARC messages not supported in Blackhole");
     if (cluster_desc->is_chip_mmio_capable(logical_device_id)) {
         return pcie_arc_msg(logical_device_id, msg_code, wait_for_done, arg0, arg1, timeout, return_3, return_4);
     } else {

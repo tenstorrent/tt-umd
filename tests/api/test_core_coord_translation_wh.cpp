@@ -298,7 +298,7 @@ TEST(CoordinateManager, CoordinateManagerWormholeDRAMNoHarvesting) {
 
     const size_t num_dram_banks = tt::umd::wormhole::NUM_DRAM_BANKS;
     const size_t num_noc_ports_per_bank = tt::umd::wormhole::NUM_NOC_PORTS_PER_DRAM_BANK;
-    const std::vector<tt_xy_pair>& dram_cores = tt::umd::wormhole::DRAM_CORES;
+    const std::vector<tt_xy_pair>& dram_cores = flatten_vector(tt::umd::wormhole::DRAM_CORES);
 
     for (size_t dram_bank = 0; dram_bank < num_dram_banks; dram_bank++) {
         for (size_t noc_port = 0; noc_port < num_noc_ports_per_bank; noc_port++) {

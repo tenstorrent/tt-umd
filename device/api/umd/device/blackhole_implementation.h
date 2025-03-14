@@ -12,6 +12,7 @@
 #include "umd/device/architecture_implementation.h"
 #include "umd/device/types/cluster_descriptor_types.h"
 #include "umd/device/types/tlb.h"
+#include "umd/device/umd_utils.h"
 
 namespace tt::umd {
 
@@ -59,6 +60,7 @@ enum class arc_message_type {
 };
 
 // DEVICE_DATA
+static const tt_xy_pair GRID_SIZE = {17, 12};
 const static tt_xy_pair TENSIX_GRID_SIZE = {14, 10};
 // clang-format off
 const static std::vector<tt_xy_pair> TENSIX_CORES = {
@@ -79,19 +81,19 @@ const std::size_t NUM_DRAM_BANKS = 8;
 const std::size_t NUM_NOC_PORTS_PER_DRAM_BANK = 3;
 static const tt_xy_pair DRAM_GRID_SIZE = {NUM_DRAM_BANKS, NUM_NOC_PORTS_PER_DRAM_BANK};
 // clang-format off
-static const std::vector<tt_xy_pair> DRAM_CORES = {
-    {0, 0},  {0, 1}, {0, 11},
-    {0, 2}, {0, 10},  {0, 3},
-    {0, 9},  {0, 4},  {0, 8},
-    {0, 5},  {0, 7},  {0, 6},
-    {9, 0},  {9, 1}, {9, 11},
-    {9, 2}, {9, 10},  {9, 3},
-    {9, 9},  {9, 4},  {9, 8},
-    {9, 5},  {9, 7},  {9, 6}};
+static const std::vector<std::vector<tt_xy_pair>> DRAM_CORES = {
+    {{0, 0},  {0, 1}, {0, 11}},
+    {{0, 2}, {0, 10},  {0, 3}},
+    {{0, 9},  {0, 4},  {0, 8}},
+    {{0, 5},  {0, 7},  {0, 6}},
+    {{9, 0},  {9, 1}, {9, 11}},
+    {{9, 2}, {9, 10},  {9, 3}},
+    {{9, 9},  {9, 4},  {9, 8}},
+    {{9, 5},  {9, 7},  {9, 6}}};
 // clang-format on
 // TODO: DRAM locations should be deleted. We keep it for compatibility with
 // the existing code in clients which rely on DRAM_LOCATIONS.
-static const std::vector<tt_xy_pair> DRAM_LOCATIONS = DRAM_CORES;
+static const std::vector<tt_xy_pair> DRAM_LOCATIONS = flatten_vector(DRAM_CORES);
 
 static const tt_xy_pair ARC_GRID_SIZE = {1, 1};
 static const std::vector<tt_xy_pair> ARC_CORES = {{8, 0}};
@@ -101,6 +103,7 @@ static const tt_xy_pair PCIE_GRID_SIZE = {1, 1};
 static const std::vector<tt_xy_pair> PCIE_CORES_TYPE2 = {{{2, 0}}};
 static const std::vector<tt_xy_pair> PCI_LOCATIONS = PCIE_CORES_TYPE2;
 static const std::vector<tt_xy_pair> PCIE_CORES_TYPE1 = {{{11, 0}}};
+static const std::vector<tt_xy_pair> PCIE_CORES = {{2, 0}, {11, 0}};
 
 static const std::vector<tt_xy_pair> ROUTER_CORES = {
     {1, 0},  {2, 0}, {3, 0}, {4, 0}, {5, 0}, {6, 0}, {7, 0}, {10, 0}, {12, 0}, {13, 0}, {14, 0}, {15, 0},
@@ -213,6 +216,10 @@ static const uint32_t NIU_CFG_NOC1_BAR_ADDR = 0x1FD14100;
 
 static constexpr uint32_t AICLK_BUSY_VAL = 1350;
 static constexpr uint32_t AICLK_IDLE_VAL = 800;
+
+static constexpr uint32_t TENSIX_L1_SIZE = 1499136;
+static constexpr uint32_t ETH_L1_SIZE = 262144;
+static constexpr uint64_t DRAM_BANK_SIZE = 4294967296;
 
 static const size_t eth_translated_coordinate_start_x = 20;
 static const size_t eth_translated_coordinate_start_y = 25;

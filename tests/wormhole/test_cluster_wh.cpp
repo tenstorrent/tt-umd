@@ -905,7 +905,6 @@ TEST(SiliconDriverWH, RandomSysmemTestWithPcie) {
     auto target_devices = get_target_devices();
 
     Cluster cluster(
-        test_utils::GetAbsPath("tests/soc_descs/wormhole_b0_8x10.yaml"),
         target_devices,
         num_channels,
         false,  // skip driver allocs - no (don't skip)
@@ -974,7 +973,6 @@ TEST(SiliconDriverWH, LargeAddressTlb) {
     auto target_devices = get_target_devices();
 
     Cluster cluster(
-        test_utils::GetAbsPath("tests/soc_descs/wormhole_b0_8x10.yaml"),
         target_devices,
         num_channels,
         false,  // skip driver allocs - no (don't skip)

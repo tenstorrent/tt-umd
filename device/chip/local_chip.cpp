@@ -30,6 +30,18 @@ LocalChip::LocalChip(std::string sdesc_path, std::unique_ptr<TTDevice> tt_device
     initialize_local_chip();
 }
 
+LocalChip::LocalChip(std::unique_ptr<TTDevice> tt_device) :
+    Chip(
+        tt_device->get_chip_info(),
+        tt_SocDescriptor(
+            tt_device->get_arch(),
+            tt_device->get_chip_info().noc_translation_enabled,
+            tt_device->get_chip_info().harvesting_masks,
+            tt_device->get_chip_info().board_type)),
+    tt_device_(std::move(tt_device)) {
+    initialize_local_chip();
+}
+
 void LocalChip::initialize_local_chip() {
     initialize_tlb_manager();
     wait_chip_to_be_ready();

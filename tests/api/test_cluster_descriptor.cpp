@@ -5,9 +5,6 @@
 #include <gtest/gtest.h>
 
 #include <fstream>
-#include <string>
-#include <unordered_map>
-#include <vector>
 
 #include "disjoint_set.hpp"
 #include "tests/test_utils/generate_cluster_desc.hpp"
@@ -84,6 +81,7 @@ TEST(ApiClusterDescriptorTest, TestAllOfflineClusterDescriptors) {
              "wormhole_2xN300_unconnected.yaml",
              "wormhole_N150.yaml",
              "wormhole_N300.yaml",
+             "wormhole_N300_routing_info.yaml",
          }) {
         std::cout << "Testing " << cluster_desc_yaml << std::endl;
         std::unique_ptr<tt_ClusterDescriptor> cluster_desc = tt_ClusterDescriptor::create_from_yaml(

@@ -45,7 +45,6 @@ target_sources(
         tt_device/wormhole_tt_device.cpp
         tt_silicon_driver_common.cpp
         tt_soc_descriptor.cpp
-        grayskull/grayskull_coordinate_manager.cpp
         wormhole/wormhole_coordinate_manager.cpp
         blackhole/blackhole_coordinate_manager.cpp
         blackhole/blackhole_arc_telemetry_reader.cpp
@@ -77,7 +76,6 @@ if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.23)
                 api/umd/device/coordinate_manager.h
                 api/umd/device/device_api_metal.h
                 api/umd/device/driver_atomics.h
-                api/umd/device/grayskull_coordinate_manager.h
                 api/umd/device/grayskull_implementation.h
                 api/umd/device/hugepage.h
                 api/umd/device/pci_device.hpp

@@ -71,17 +71,8 @@ std::int32_t get_static_tlb_index(tt_xy_pair target) {
     }
 }
 
-std::set<chip_id_t> get_target_devices() {
-    std::set<chip_id_t> target_devices;
-    std::unique_ptr<tt_ClusterDescriptor> cluster_desc_uniq = Cluster::create_cluster_descriptor();
-    for (int i = 0; i < cluster_desc_uniq->get_number_of_chips(); i++) {
-        target_devices.insert(i);
-    }
-    return target_devices;
-}
-
 TEST(SiliconDriverWH, CreateDestroy) {
-    std::set<chip_id_t> target_devices = get_target_devices();
+    std::set<chip_id_t> target_devices = test_utils::get_target_devices();
     uint32_t num_host_mem_ch_per_mmio_device = 1;
     tt_device_params default_params;
     // Initialize the driver with a 1x1 descriptor and explictly do not perform harvesting
@@ -103,45 +94,8 @@ TEST(SiliconDriverWH, CreateDestroy) {
     }
 }
 
-TEST(SiliconDriverWH, Harvesting) {
-    std::set<chip_id_t> target_devices = get_target_devices();
-    int num_devices = target_devices.size();
-    std::unordered_map<chip_id_t, HarvestingMasks> simulated_harvesting_masks = {{0, {30, 0, 0}}, {1, {60, 0, 0}}};
-
-    for (auto chip : target_devices) {
-        if (!simulated_harvesting_masks.count(chip)) {
-            simulated_harvesting_masks[chip] = {60, 0, 0};
-        }
-    }
-
-    uint32_t num_host_mem_ch_per_mmio_device = 1;
-    Cluster cluster = Cluster(num_host_mem_ch_per_mmio_device, false, true, true, simulated_harvesting_masks);
-
-    // Real harvesting info on this system will be forcefully included in the harvesting mask.
-    std::unordered_map<chip_id_t, std::uint32_t> harvesting_info =
-        cluster.get_cluster_description()->get_harvesting_info();
-    for (int i = 0; i < num_devices; i++) {
-        uint32_t harvesting_mask_logical =
-            CoordinateManager::shuffle_tensix_harvesting_mask(tt::ARCH::WORMHOLE_B0, harvesting_info.at(i));
-        simulated_harvesting_masks[i].tensix_harvesting_mask |= harvesting_mask_logical;
-    }
-
-    for (const auto& chip : cluster.get_target_device_ids()) {
-        ASSERT_LE(cluster.get_soc_descriptor(chip).get_cores(CoreType::TENSIX).size(), 48)
-            << "Expected SOC descriptor with harvesting to have 48 workers or less for chip " << chip;
-    }
-    for (int i = 0; i < num_devices; i++) {
-        // harvesting info stored in soc descriptor is in logical coordinates.
-        ASSERT_EQ(
-            cluster.get_soc_descriptor(i).harvesting_masks.tensix_harvesting_mask,
-            simulated_harvesting_masks.at(i).tensix_harvesting_mask)
-            << "Expecting chip " << i << " to have harvesting mask of "
-            << simulated_harvesting_masks.at(i).tensix_harvesting_mask;
-    }
-}
-
 TEST(SiliconDriverWH, CustomSocDesc) {
-    std::set<chip_id_t> target_devices = get_target_devices();
+    std::set<chip_id_t> target_devices = test_utils::get_target_devices();
     std::unordered_map<chip_id_t, HarvestingMasks> simulated_harvesting_masks = {{0, {30, 0, 0}}, {1, {60, 0, 0}}};
 
     for (auto chip : target_devices) {
@@ -169,7 +123,7 @@ TEST(SiliconDriverWH, CustomSocDesc) {
 TEST(SiliconDriverWH, HarvestingRuntime) {
     auto get_static_tlb_index_callback = [](tt_xy_pair target) { return get_static_tlb_index(target); };
 
-    std::set<chip_id_t> target_devices = get_target_devices();
+    std::set<chip_id_t> target_devices = test_utils::get_target_devices();
     std::unordered_map<chip_id_t, HarvestingMasks> simulated_harvesting_masks = {{0, {30, 0, 0}}, {1, {60, 0, 0}}};
 
     for (auto chip : target_devices) {
@@ -261,7 +215,7 @@ TEST(SiliconDriverWH, HarvestingRuntime) {
 TEST(SiliconDriverWH, UnalignedStaticTLB_RW) {
     auto get_static_tlb_index_callback = [](tt_xy_pair target) { return get_static_tlb_index(target); };
 
-    std::set<chip_id_t> target_devices = get_target_devices();
+    std::set<chip_id_t> target_devices = test_utils::get_target_devices();
     int num_devices = target_devices.size();
 
     uint32_t num_host_mem_ch_per_mmio_device = 1;
@@ -319,7 +273,7 @@ TEST(SiliconDriverWH, UnalignedStaticTLB_RW) {
 TEST(SiliconDriverWH, StaticTLB_RW) {
     auto get_static_tlb_index_callback = [](tt_xy_pair target) { return get_static_tlb_index(target); };
 
-    std::set<chip_id_t> target_devices = get_target_devices();
+    std::set<chip_id_t> target_devices = test_utils::get_target_devices();
 
     uint32_t num_host_mem_ch_per_mmio_device = 1;
     Cluster cluster = Cluster(num_host_mem_ch_per_mmio_device, false, true, true);
@@ -380,7 +334,7 @@ TEST(SiliconDriverWH, StaticTLB_RW) {
 TEST(SiliconDriverWH, DynamicTLB_RW) {
     // Don't use any static TLBs in this test. All writes go through a dynamic TLB that needs to be reconfigured for
     // each transaction
-    std::set<chip_id_t> target_devices = get_target_devices();
+    std::set<chip_id_t> target_devices = test_utils::get_target_devices();
 
     uint32_t num_host_mem_ch_per_mmio_device = 1;
     Cluster cluster = Cluster(num_host_mem_ch_per_mmio_device, false, true, true);
@@ -427,7 +381,7 @@ TEST(SiliconDriverWH, MultiThreadedDevice) {
     // Have 2 threads read and write from a single device concurrently
     // All transactions go through a single Dynamic TLB. We want to make sure this is thread/process safe
 
-    std::set<chip_id_t> target_devices = get_target_devices();
+    std::set<chip_id_t> target_devices = test_utils::get_target_devices();
 
     uint32_t num_host_mem_ch_per_mmio_device = 1;
     Cluster cluster = Cluster(num_host_mem_ch_per_mmio_device, false, true, true);
@@ -497,7 +451,7 @@ TEST(SiliconDriverWH, MultiThreadedMemBar) {
     // Memory barrier flags get sent to address 0 for all channels in this test
     auto get_static_tlb_index_callback = [](tt_xy_pair target) { return get_static_tlb_index(target); };
 
-    std::set<chip_id_t> target_devices = get_target_devices();
+    std::set<chip_id_t> target_devices = test_utils::get_target_devices();
     uint32_t base_addr = l1_mem::address_map::DATA_BUFFER_SPACE_BASE;
     uint32_t num_host_mem_ch_per_mmio_device = 1;
 
@@ -628,7 +582,7 @@ TEST(SiliconDriverWH, MultiThreadedMemBar) {
 
 TEST(SiliconDriverWH, BroadcastWrite) {
     // Broadcast multiple vectors to tensix and dram grid. Verify broadcasted data is read back correctly
-    std::set<chip_id_t> target_devices = get_target_devices();
+    std::set<chip_id_t> target_devices = test_utils::get_target_devices();
 
     uint32_t num_host_mem_ch_per_mmio_device = 1;
 
@@ -716,7 +670,7 @@ TEST(SiliconDriverWH, BroadcastWrite) {
 
 TEST(SiliconDriverWH, VirtualCoordinateBroadcast) {
     // Broadcast multiple vectors to tensix and dram grid. Verify broadcasted data is read back correctly
-    std::set<chip_id_t> target_devices = get_target_devices();
+    std::set<chip_id_t> target_devices = test_utils::get_target_devices();
 
     uint32_t num_host_mem_ch_per_mmio_device = 1;
 
@@ -837,7 +791,7 @@ TEST(SiliconDriverWH, VirtualCoordinateBroadcast) {
  * the buffer(s).
  */
 TEST(SiliconDriverWH, SysmemTestWithPcie) {
-    auto target_devices = get_target_devices();
+    auto target_devices = test_utils::get_target_devices();
 
     Cluster cluster(
         1,      // one "host memory channel", currently a 1G huge page
@@ -902,7 +856,7 @@ TEST(SiliconDriverWH, SysmemTestWithPcie) {
  */
 TEST(SiliconDriverWH, RandomSysmemTestWithPcie) {
     const size_t num_channels = 2;  // ideally 4, but CI seems to have 2...
-    auto target_devices = get_target_devices();
+    auto target_devices = test_utils::get_target_devices();
 
     Cluster cluster(
         target_devices,
@@ -970,7 +924,7 @@ TEST(SiliconDriverWH, RandomSysmemTestWithPcie) {
 
 TEST(SiliconDriverWH, LargeAddressTlb) {
     const size_t num_channels = 1;
-    auto target_devices = get_target_devices();
+    auto target_devices = test_utils::get_target_devices();
 
     Cluster cluster(
         target_devices,

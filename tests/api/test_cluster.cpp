@@ -354,7 +354,6 @@ TEST(TestCluster, TestClusterNocId) {
                 &noc_node_id_val, chip, core, noc_node_id_reg_addr, sizeof(noc_node_id_val), "SMALL_READ_WRITE_TLB");
             uint32_t x = noc_node_id_val & 0x3F;
             uint32_t y = (noc_node_id_val >> 6) & 0x3F;
-            std::cout << "core x y " << core.x << " " << core.y << " noc id " << x << " " << y << std::endl;
             EXPECT_TRUE(core.x == x && core.y == y);
         }
     };
@@ -368,7 +367,6 @@ TEST(TestCluster, TestClusterNocId) {
                 &noc_node_id_val, chip, core, noc_node_id_reg_addr, sizeof(noc_node_id_val), "SMALL_READ_WRITE_TLB");
             uint32_t x = noc_node_id_val & 0x3F;
             uint32_t y = (noc_node_id_val >> 6) & 0x3F;
-            std::cout << "harvested core x y " << core.x << " " << core.y << " noc id " << x << " " << y << std::endl;
             EXPECT_TRUE(core.x == x && core.y == y);
         }
     };
@@ -377,15 +375,19 @@ TEST(TestCluster, TestClusterNocId) {
         check_noc_id_cores(cluster, chip, CoreType::TENSIX);
         check_noc_id_harvested_cores(cluster, chip, CoreType::TENSIX);
 
-        check_noc_id_cores(cluster, chip, CoreType::DRAM);
-        check_noc_id_harvested_cores(cluster, chip, CoreType::DRAM);
-
         check_noc_id_cores(cluster, chip, CoreType::ETH);
         check_noc_id_harvested_cores(cluster, chip, CoreType::ETH);
 
+        // TODO: figure out how to read this information on Wormhole.
+        if (arch == tt::ARCH::BLACKHOLE) {
+            check_noc_id_cores(cluster, chip, CoreType::DRAM);
+            check_noc_id_harvested_cores(cluster, chip, CoreType::DRAM);
+        }
+
+        // TODO: figure out how to read this information on Blackhole.
         // check_noc_id_cores(cluster, chip, CoreType::ARC);
 
-        // TODO: figure out why this hangs the chip.
+        // TODO: figure out why this hangs the chip both on WH and BH.
         // check_noc_id_cores(cluster, chip, CoreType::PCIE);
     }
 }

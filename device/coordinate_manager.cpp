@@ -582,15 +582,15 @@ std::shared_ptr<CoordinateManager> CoordinateManager::create_coordinate_manager(
                 noc_translation_enabled,
                 harvesting_masks,
                 tt::umd::wormhole::TENSIX_GRID_SIZE,
-                tt::umd::wormhole::TENSIX_CORES,
+                tt::umd::wormhole::TENSIX_CORES_NOC0,
                 tt::umd::wormhole::DRAM_GRID_SIZE,
-                flatten_vector(tt::umd::wormhole::DRAM_CORES),
-                tt::umd::wormhole::ETH_CORES,
+                flatten_vector(tt::umd::wormhole::DRAM_CORES_NOC0),
+                tt::umd::wormhole::ETH_CORES_NOC0,
                 tt::umd::wormhole::ARC_GRID_SIZE,
-                tt::umd::wormhole::ARC_CORES,
+                tt::umd::wormhole::ARC_CORES_NOC0,
                 tt::umd::wormhole::PCIE_GRID_SIZE,
-                tt::umd::wormhole::PCIE_CORES,
-                tt::umd::wormhole::ROUTER_CORES);
+                tt::umd::wormhole::PCIE_CORES_NOC0,
+                tt::umd::wormhole::ROUTER_CORES_NOC0);
         case tt::ARCH::QUASAR:  // TODO (#450): Add Quasar configuration
         case tt::ARCH::BLACKHOLE: {
             const std::vector<tt_xy_pair> pcie_cores = tt::umd::blackhole::get_pcie_cores(board_type, asic_location);
@@ -599,15 +599,15 @@ std::shared_ptr<CoordinateManager> CoordinateManager::create_coordinate_manager(
                 noc_translation_enabled,
                 harvesting_masks,
                 tt::umd::blackhole::TENSIX_GRID_SIZE,
-                tt::umd::blackhole::TENSIX_CORES,
+                tt::umd::blackhole::TENSIX_CORES_NOC0,
                 tt::umd::blackhole::DRAM_GRID_SIZE,
-                flatten_vector(tt::umd::blackhole::DRAM_CORES),
-                tt::umd::blackhole::ETH_CORES,
+                flatten_vector(tt::umd::blackhole::DRAM_CORES_NOC0),
+                tt::umd::blackhole::ETH_CORES_NOC0,
                 tt::umd::blackhole::ARC_GRID_SIZE,
-                tt::umd::blackhole::ARC_CORES,
+                tt::umd::blackhole::ARC_CORES_NOC0,
                 tt::umd::blackhole::PCIE_GRID_SIZE,
                 pcie_cores,
-                tt::umd::blackhole::ROUTER_CORES);
+                tt::umd::blackhole::ROUTER_CORES_NOC0);
         }
         case tt::ARCH::Invalid:
             throw std::runtime_error("Invalid architecture for creating coordinate manager");

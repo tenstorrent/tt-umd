@@ -72,7 +72,7 @@ BoardType WormholeTTDevice::get_board_type() {
         0,
         timeout_ms);
 
-    tt_xy_pair arc_core = tt::umd::wormhole::ARC_CORES[0];
+    tt_xy_pair arc_core = tt::umd::wormhole::ARC_CORES_NOC0[0];
     static constexpr uint64_t noc_telemetry_offset = 0x810000000;
     uint64_t telemetry_struct_offset = arc_msg_return_values[0] + noc_telemetry_offset;
 

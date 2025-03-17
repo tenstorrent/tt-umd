@@ -880,6 +880,10 @@ void Cluster::write_device_memory(
     TTDevice* dev = get_tt_device(target.chip);
     const uint8_t* buffer_addr = static_cast<const uint8_t*>(mem_ptr);
 
+    bool size_ok_for_dma = size_in_bytes % 4 == 0 && size_in_bytes >= 64;
+    bool dma_is_possible = dev->get_pci_device()->get_dma_buffer().size != 0;
+    bool should_use_dma = size_ok_for_dma && dma_is_possible && tt_device::dma_enabled_;
+
     log_debug(
         LogSiliconDriver,
         "Cluster::write_device_memory to chip:{} {}-{} at 0x{:x} size_in_bytes: {}",
@@ -889,7 +893,10 @@ void Cluster::write_device_memory(
         address,
         size_in_bytes);
 
-    if (get_tlb_manager(target.chip)->is_tlb_mapped({target.x, target.y}, address, size_in_bytes)) {
+    // No DMA for this first case... it's possible and I tested it but the code does not support the case where the
+    // DMA buffer isn't large enough but the TLB window is.  Figuring out how to deal with this does not seem worth the
+    // complexity cost: if you want DMA, use a dynamic TLB window.
+    if (!should_use_dma && get_tlb_manager(target.chip)->is_tlb_mapped({target.x, target.y}, address, size_in_bytes)) {
         tlb_configuration tlb_description = get_tlb_manager(target.chip)->get_tlb_configuration({target.x, target.y});
         if (dev->get_pci_device()->bar4_wc != nullptr && tlb_description.size == BH_4GB_TLB_SIZE) {
             // This is only for Blackhole. If we want to  write to DRAM (BAR4 space), we add offset
@@ -912,7 +919,13 @@ void Cluster::write_device_memory(
                 address,
                 get_tlb_manager(target.chip)->dynamic_tlb_ordering_modes_.at(fallback_tlb));
             uint32_t transfer_size = std::min((uint64_t)size_in_bytes, tlb_size);
-            dev->write_block(mapped_address, transfer_size, buffer_addr);
+            if (should_use_dma) {
+                size_t max_size = std::min(dev->get_pci_device()->get_dma_buffer().size, tlb_size);
+                transfer_size = std::min((uint64_t)size_in_bytes, max_size);
+                dev->dma_h2d(mapped_address, buffer_addr, transfer_size);
+            } else {
+                dev->write_block(mapped_address, transfer_size, buffer_addr);
+            }
 
             size_in_bytes -= transfer_size;
             address += transfer_size;
@@ -935,7 +948,12 @@ void Cluster::read_device_memory(
     TTDevice* dev = get_tt_device(target.chip);
     uint8_t* buffer_addr = static_cast<uint8_t*>(mem_ptr);
 
-    if (get_tlb_manager(target.chip)->is_tlb_mapped({target.x, target.y}, address, size_in_bytes)) {
+    // >= 64 selected somewhat arbitrarily, but since it costs us at least 10 register writes to set up the engine...
+    bool size_ok_for_dma = size_in_bytes % 4 == 0 && size_in_bytes >= 64;
+    bool dma_is_possible = dev->get_pci_device()->get_dma_buffer().size != 0;
+    bool should_use_dma = size_ok_for_dma && dma_is_possible && tt_device::dma_enabled_;
+
+    if (!should_use_dma && get_tlb_manager(target.chip)->is_tlb_mapped({target.x, target.y}, address, size_in_bytes)) {
         tlb_configuration tlb_description = get_tlb_manager(target.chip)->get_tlb_configuration({target.x, target.y});
         if (dev->get_pci_device()->bar4_wc != nullptr && tlb_description.size == BH_4GB_TLB_SIZE) {
             // This is only for Blackhole. If we want to  read from DRAM (BAR4 space), we add offset
@@ -963,7 +981,13 @@ void Cluster::read_device_memory(
                 address,
                 get_tlb_manager(target.chip)->dynamic_tlb_ordering_modes_.at(fallback_tlb));
             uint32_t transfer_size = std::min((uint64_t)size_in_bytes, tlb_size);
-            dev->read_block(mapped_address, transfer_size, buffer_addr);
+            if (should_use_dma) {
+                size_t max_size = std::min(dev->get_pci_device()->get_dma_buffer().size, tlb_size);
+                transfer_size = std::min((uint64_t)size_in_bytes, max_size);
+                dev->dma_d2h(buffer_addr, mapped_address, transfer_size);
+            } else {
+                dev->read_block(mapped_address, transfer_size, buffer_addr);
+            }
 
             size_in_bytes -= transfer_size;
             address += transfer_size;

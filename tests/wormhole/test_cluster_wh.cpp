@@ -13,6 +13,7 @@
 #include "umd/device/cluster.h"
 #include "umd/device/tt_cluster_descriptor.h"
 #include "umd/device/wormhole_implementation.h"
+#include "timestamp.hpp"
 
 using namespace tt::umd;
 
@@ -1022,4 +1023,110 @@ TEST(SiliconDriverWH, LargeAddressTlb) {
     // Check that the values are the same:
     EXPECT_EQ(value1, value0);
     EXPECT_EQ(value2, value0);
+}
+
+double calculate_mib_per_sec(uint64_t bytes, uint64_t nanoseconds) {
+    double seconds = nanoseconds / 1e9;
+    double megabytes = static_cast<double>(bytes) / (1024.0 * 1024.0);
+    return megabytes / seconds;
+}
+
+TEST(SiliconDriverWH, DMA) {
+    const size_t num_channels = 1;
+    auto target_devices = get_target_devices();
+    Cluster cluster(
+        test_utils::GetAbsPath("tests/soc_descs/wormhole_b0_8x10.yaml"),
+        target_devices,
+        num_channels,
+        false,  // skip driver allocs - no (don't skip)
+        true,   // clean system resources - yes
+        true);  // perform harvesting - yes
+
+    set_barrier_params(cluster);
+    cluster.start_device(tt_device_params{});
+
+    const chip_id_t mmio_chip_id = 0;
+    // This seems to return 3 cores for each controller.. ugh.
+    // const auto drams = cluster.get_soc_descriptor(mmio_chip_id).get_cores(CoreType::DRAM);
+    // So instead...
+    std::vector<tt_xy_pair> drams = {
+        { 0, 6 },
+        { 0, 1 },
+        { 5, 6 },
+        { 5, 9 },
+        { 5, 4 },
+        { 5, 1 }
+    };
+
+    std::vector<std::vector<uint8_t>> patterns;
+    // 16.5 MiB: Larger than the largest WH TLB Window.
+    size_t buf_size = 0x1080000;
+
+    auto print_speed = [&](std::string direction, size_t bytes, uint64_t ns) {
+        auto rate = calculate_mib_per_sec(bytes, ns);
+        std::string type = cluster.dma_enabled() ? " DMA" : "MMIO";
+        std::cout << type << " " << direction << ": " << bytes << " bytes in " << ns << " ns (" << rate << " MiB/s)"
+                  << std::endl;
+    };
+
+    cluster.set_dma_enabled(false);
+    for (size_t i = 0; i < drams.size() / 2; ++i) {
+        auto dram = drams[i];
+        std::vector<uint8_t> pattern(buf_size);
+        tt_cxy_pair core(mmio_chip_id, dram.x, dram.y);
+        test_utils::fill_with_random_bytes(&pattern[0], pattern.size());
+        tt::umd::util::Timestamp ts;
+        cluster.write_to_device(&pattern[0], pattern.size(), core, 0x0, "LARGE_WRITE_TLB");
+        auto nanoseconds = ts.nanoseconds();
+        auto mib_per_sec = calculate_mib_per_sec(pattern.size(), nanoseconds);
+        patterns.push_back(pattern);
+
+        print_speed("H2D", pattern.size(), nanoseconds);
+    }
+
+    cluster.set_dma_enabled(true);
+    for (size_t i = drams.size() / 2; i < drams.size(); ++i) {
+        auto dram = drams[i];
+        std::vector<uint8_t> pattern(buf_size);
+        tt_cxy_pair core(mmio_chip_id, dram.x, dram.y);
+        test_utils::fill_with_random_bytes(&pattern[0], pattern.size());
+        tt::umd::util::Timestamp ts;
+        cluster.write_to_device(&pattern[0], pattern.size(), core, 0x0, "LARGE_WRITE_TLB");
+        auto nanoseconds = ts.nanoseconds();
+        auto mib_per_sec = calculate_mib_per_sec(pattern.size(), nanoseconds);
+        patterns.push_back(pattern);
+        print_speed("H2D", pattern.size(), nanoseconds);
+    }
+
+    for (size_t i = 0; i < drams.size(); ++i) {
+        auto dram = drams[i];
+        tt_cxy_pair core(mmio_chip_id, dram.x, dram.y);
+        std::vector<uint8_t> pattern(patterns[0].size());
+        tt::umd::util::Timestamp ts;
+        cluster.read_from_device(&pattern[0], core, 0x0, pattern.size(), "LARGE_READ_TLB");
+        auto nanoseconds = ts.nanoseconds();
+        auto mib_per_sec = calculate_mib_per_sec(pattern.size(), nanoseconds);
+        ASSERT_EQ(pattern, patterns[i]);
+
+        print_speed("D2H", pattern.size(), nanoseconds);
+    }
+
+#define SLOW_TEST 1
+#if SLOW_TEST
+    cluster.set_dma_enabled(false);
+    for (size_t i = 0; i < drams.size(); ++i) {
+        auto dram = drams[i];
+        tt_cxy_pair core(mmio_chip_id, dram.x, dram.y);
+        std::vector<uint8_t> pattern(patterns[0].size());
+        tt::umd::util::Timestamp ts;
+        cluster.read_from_device(&pattern[0], core, 0x0, pattern.size(), "LARGE_READ_TLB");
+
+        ASSERT_EQ(pattern, patterns[i]);
+
+        auto nanoseconds = ts.nanoseconds();
+        auto mib_per_sec = calculate_mib_per_sec(pattern.size(), nanoseconds);
+        ASSERT_EQ(pattern, patterns[i]);
+        print_speed("D2H", pattern.size(), nanoseconds);
+    }
+#endif
 }

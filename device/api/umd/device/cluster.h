@@ -640,6 +640,21 @@ public:
     virtual const tt_SocDescriptor& get_soc_descriptor(chip_id_t chip_id) const {
         throw std::runtime_error("---- tt_device::get_soc_descriptor is not implemented\n");
     }
+
+    /**
+     * Set/get flag indicating that the implementation is free to use the PCIe
+     * DMA controller for data transfers.
+     *
+     * One Wormhole, this should be enabled only if the application can
+     * guarantee NOC DMA is idle, i.e. no core on the chip is using the NOC to
+     * access the host system bus via PCIe.
+     */
+    void set_dma_enabled(bool enabled) { dma_enabled_ = enabled; }
+
+    bool dma_enabled() const { return dma_enabled_; }
+
+protected:
+    bool dma_enabled_{false};
 };
 
 namespace tt::umd {

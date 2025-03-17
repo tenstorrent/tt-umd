@@ -24,6 +24,7 @@
 #include "umd/device/hugepage.h"
 #include "umd/device/types/arch.h"
 
+
 static const uint16_t GS_PCIE_DEVICE_ID = 0xfaca;
 static const uint16_t WH_PCIE_DEVICE_ID = 0x401e;
 static const uint16_t BH_PCIE_DEVICE_ID = 0xb140;
@@ -304,6 +305,19 @@ PCIDevice::PCIDevice(int pci_device_number) :
 
         system_reg_start_offset = (512 - 16) * 1024 * 1024;
         system_reg_offset_adjust = (512 - 32) * 1024 * 1024;
+
+        bar2_uc_size = bar2_uc_mapping.mapping_size;
+        bar2_uc = mmap(
+            NULL,
+            bar2_uc_mapping.mapping_size,
+            PROT_READ | PROT_WRITE,
+            MAP_SHARED,
+            pci_device_file_desc,
+            bar2_uc_mapping.mapping_base);
+
+        if (bar2_uc == MAP_FAILED) {
+            throw std::runtime_error(fmt::format("BAR2 UC mapping failed for device {}.", pci_device_num));
+        }
     } else if (arch == tt::ARCH::BLACKHOLE) {
         if (bar2_uc_mapping.mapping_id != TENSTORRENT_MAPPING_RESOURCE1_UC) {
             throw std::runtime_error(fmt::format("Device {} has no BAR2 UC mapping.", pci_device_num));
@@ -341,6 +355,35 @@ PCIDevice::PCIDevice(int pci_device_number) :
         if (bar4_wc == MAP_FAILED) {
             throw std::runtime_error(fmt::format("BAR4 WC mapping failed for device {}.", pci_device_num));
         }
+    }
+
+    if (arch == tt::ARCH::WORMHOLE_B0) {
+        uint32_t buf_size = (1 << 20); // 1MB
+        tenstorrent_allocate_dma_buf dma_buf{
+            .in = {
+                .requested_size = buf_size + 0x1000,
+                .buf_index = 0
+            }
+        };
+
+        int fd = pci_device_file_desc;
+        if (ioctl(fd, TENSTORRENT_IOCTL_ALLOCATE_DMA_BUF, &dma_buf)) {
+            throw std::system_error(errno, std::generic_category(), "Failed to allocate DMA buffer");
+        }
+
+        printf("Allocated DMA buffer: %p\n", (void*)dma_buf.out.physical_address);
+        printf("Completion address:   %p\n", (void*)(dma_buf.out.physical_address + buf_size));
+
+        void * buffer = mmap(nullptr, buf_size + 0x1000, PROT_READ | PROT_WRITE, MAP_SHARED, fd, dma_buf.out.mapping_offset);
+        if (buffer == MAP_FAILED) {
+            throw std::system_error(errno, std::generic_category(), "Failed to map DMA buffer");
+        }
+
+        dma_buffer.buffer = (uint8_t*)buffer;
+        dma_buffer.completion = (uint8_t*)buffer + buf_size;
+        dma_buffer.buffer_pa = dma_buf.out.physical_address;
+        dma_buffer.completion_pa = dma_buf.out.physical_address + buf_size;
+        dma_buffer.size = buf_size;
     }
 }
 

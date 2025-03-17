@@ -4,6 +4,7 @@
 #include "umd/device/tt_device/wormhole_tt_device.h"
 
 #include "umd/device/wormhole_implementation.h"
+#include "timestamp.hpp"
 
 namespace tt::umd {
 
@@ -84,6 +85,155 @@ BoardType WormholeTTDevice::get_board_type() {
     read_from_device(&board_id_lo, arc_core, telemetry_struct_offset + board_id_lo_telemetry_offset, sizeof(uint32_t));
 
     return get_board_type_from_board_id(((uint64_t)board_id_hi << 32) | board_id_lo);
+}
+
+typedef struct {
+    uint32_t  chip_addr;
+    uint32_t  host_phys_addr;
+    uint32_t  completion_flag_phys_addr;
+    uint32_t  size_bytes                  : 28;
+    uint32_t  write                       : 1;
+    uint32_t  pcie_msi_on_done            : 1;
+    uint32_t  pcie_write_on_done          : 1;
+    uint32_t  trigger                     : 1;
+    uint32_t  repeat;
+} arc_pcie_ctrl_dma_request_t; // 5 * 4 = 20B
+
+void WormholeTTDevice::dma_d2h(void *dst, uint32_t src, size_t size) {
+    std::scoped_lock lock(dma_mutex_);
+    DmaBuffer &dma_buffer = pci_device_->get_dma_buffer();
+
+    if (size > dma_buffer.size) {
+        throw std::runtime_error("DMA size exceeds buffer size");
+    }
+
+    // Reset completion flag
+    *reinterpret_cast<volatile uint32_t*>(dma_buffer.completion) = 0;
+
+// Via BAR2 is weirdly broken sometimes, I do not understand why.  Symptoms are:
+// - No completion flag ever written
+// - Register reads yield 0xffffffff (this symptom is inconsistent)
+// Things to examine:
+// - Whether any data is actually written to the DMA buffer
+// - Relationship between `tt-smi -r0` and the all-ones register reads
+// - Why my different development machines exhibit different behaviors
+#if DO_IT_THE_BAR_2_WAY
+    volatile uint8_t *bar2 = reinterpret_cast<volatile uint8_t*>(pci_device_->bar2_uc);
+
+    auto write_dma_reg = [&](uint32_t offset, uint32_t value) {
+        *reinterpret_cast<volatile uint32_t*>(bar2 + offset) = value;
+    };
+
+    const uint64_t DMA_WRITE_ENGINE_EN_OFF = 0xc;
+    const uint64_t DMA_WRITE_INT_MASK_OFF = 0x54;
+    const uint64_t DMA_CH_CONTROL1_OFF_WRCH_0 = 0x200;
+    const uint64_t DMA_WRITE_DONE_IMWR_LOW_OFF = 0x60;
+    const uint64_t DMA_WRITE_CH01_IMWR_DATA_OFF = 0xdc;
+    const uint64_t DMA_WRITE_DONE_IMWR_HIGH_OFF = 0x64;
+    const uint64_t DMA_WRITE_ABORT_IMWR_LOW_OFF = 0x68;
+    const uint64_t DMA_WRITE_ABORT_IMWR_HIGH_OFF = 0x6c;
+    const uint64_t DMA_TRANSFER_SIZE_OFF_WRCH_0 = 0x208;
+    const uint64_t DMA_SAR_LOW_OFF_WRCH_0 = 0x20c;
+    const uint64_t DMA_SAR_HIGH_OFF_WRCH_0 = 0x210;
+    const uint64_t DMA_DAR_LOW_OFF_WRCH_0 = 0x214;
+    const uint64_t DMA_DAR_HIGH_OFF_WRCH_0 = 0x218;
+    const uint64_t DMA_WRITE_DOORBELL_OFF = 0x10;
+
+    write_dma_reg(DMA_WRITE_ENGINE_EN_OFF, 0x1);
+    write_dma_reg(DMA_WRITE_INT_MASK_OFF, 0);
+    write_dma_reg(DMA_CH_CONTROL1_OFF_WRCH_0, 0x04000010);
+    write_dma_reg(DMA_WRITE_DONE_IMWR_LOW_OFF, dma_buffer.completion_pa);
+    write_dma_reg(DMA_WRITE_CH01_IMWR_DATA_OFF, 0xfaca);
+    write_dma_reg(DMA_WRITE_DONE_IMWR_HIGH_OFF, 0);
+    write_dma_reg(DMA_WRITE_ABORT_IMWR_LOW_OFF, 0);
+    write_dma_reg(DMA_WRITE_ABORT_IMWR_HIGH_OFF, 0);
+    write_dma_reg(DMA_TRANSFER_SIZE_OFF_WRCH_0, size);
+    write_dma_reg(DMA_SAR_LOW_OFF_WRCH_0, src);
+    write_dma_reg(DMA_SAR_HIGH_OFF_WRCH_0, 0);
+    write_dma_reg(DMA_DAR_LOW_OFF_WRCH_0, dma_buffer.buffer_pa);
+    write_dma_reg(DMA_DAR_HIGH_OFF_WRCH_0, 0);
+    write_dma_reg(DMA_WRITE_DOORBELL_OFF, 0);
+
+#else // the ARC way
+
+    arc_pcie_ctrl_dma_request_t req = {
+        .chip_addr           = src,
+        .host_phys_addr      = dma_buffer.buffer_pa,
+        .completion_flag_phys_addr = dma_buffer.completion_pa,
+        .size_bytes          = (uint32_t)size,
+        .write               = 0,
+        .pcie_msi_on_done    = 0,
+        .pcie_write_on_done  = 1,
+        .trigger             = 1,
+        .repeat              = 1
+    };
+
+    static constexpr uint64_t CSM_PCIE_CTRL_DMA_REQUEST_OFFSET = 0x1fef84c8;
+    static constexpr uint64_t ARC_MISC_CNTL_ADDRESS = 0x1ff30100;
+    write_regs(CSM_PCIE_CTRL_DMA_REQUEST_OFFSET, sizeof(req) / sizeof(uint32_t), &req);
+
+    uint32_t go = 1 << 16;
+    write_regs(ARC_MISC_CNTL_ADDRESS, 1, &go);
+
+#endif
+
+    util::Timestamp ts;
+    for (;;) {
+        if (*(volatile uint32_t*)dma_buffer.completion == 0xfaca) {
+            break;
+        }
+
+        if (ts.seconds() > 1) {
+            throw std::runtime_error("DMA timeout");
+        }
+    }
+
+    memcpy(dst, dma_buffer.buffer, size);
+}
+
+void WormholeTTDevice::dma_h2d(uint32_t dst, const void *src, size_t size) {
+    std::scoped_lock lock(dma_mutex_);
+    DmaBuffer &dma_buffer = pci_device_->get_dma_buffer();
+
+    memcpy(dma_buffer.buffer, src, size);
+
+    if (size > dma_buffer.size) {
+        throw std::runtime_error("DMA size exceeds buffer size");
+    }
+
+    // Reset completion flag
+    *reinterpret_cast<volatile uint32_t*>(dma_buffer.completion) = 0;
+
+    arc_pcie_ctrl_dma_request_t req = {
+        .chip_addr           = dst,
+        .host_phys_addr      = dma_buffer.buffer_pa,
+        .completion_flag_phys_addr = dma_buffer.completion_pa,
+        .size_bytes          = (uint32_t)size,
+        .write               = 1,
+        .pcie_msi_on_done    = 0,
+        .pcie_write_on_done  = 1,
+        .trigger             = 1,
+        .repeat              = 1
+    };
+
+    static constexpr uint64_t CSM_PCIE_CTRL_DMA_REQUEST_OFFSET = 0x1fef84c8;
+    static constexpr uint64_t ARC_MISC_CNTL_ADDRESS = 0x1ff30100;
+    write_regs(CSM_PCIE_CTRL_DMA_REQUEST_OFFSET, sizeof(req) / sizeof(uint32_t), &req);
+
+    uint32_t go = 1 << 16;
+    write_regs(ARC_MISC_CNTL_ADDRESS, 1, &go);
+
+    util::Timestamp ts;
+    for (;;) {
+        if (*(volatile uint32_t*)dma_buffer.completion == 0xfaca) {
+            break;
+        }
+
+        if (ts.seconds() > 1) {
+            throw std::runtime_error("DMA timeout");
+        }
+    }
+
 }
 
 }  // namespace tt::umd

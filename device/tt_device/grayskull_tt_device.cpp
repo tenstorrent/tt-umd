@@ -20,4 +20,12 @@ BoardType GrayskullTTDevice::get_board_type() {
         "TTDevice is deleted.");
 }
 
+void GrayskullTTDevice::dma_d2h(void *dst, uint32_t src, size_t size) {
+    throw std::runtime_error("D2H DMA is not supported on Grayskull.");
+}
+
+void GrayskullTTDevice::dma_h2d(uint32_t dst, const void *src, size_t size) {
+    throw std::runtime_error("H2D DMA is not supported on Grayskull.");
+}
+
 }  // namespace tt::umd

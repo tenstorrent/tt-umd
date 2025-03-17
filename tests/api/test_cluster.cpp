@@ -383,7 +383,6 @@ TEST(TestCluster, TestClusterNocId) {
     };
 
     for (chip_id_t chip : cluster->get_target_device_ids()) {
-        std::cout << "chip " << chip << std::endl;
         check_noc_id_cores(cluster, chip, CoreType::TENSIX);
         check_noc_id_harvested_cores(cluster, chip, CoreType::TENSIX);
 

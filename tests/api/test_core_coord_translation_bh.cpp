@@ -756,6 +756,9 @@ TEST(CoordinateManager, CoordinateManagerBlackholeNoc1Noc0Mapping) {
                 CoreCoord(noc0_cores[index].x, noc0_cores[index].y, core_type, CoordSystem::PHYSICAL);
             const CoreCoord noc1_core = coordinate_manager->translate_coord_to(noc0_core, CoordSystem::NOC1);
 
+            std::cout << "noc0 core " << noc0_core.x << " " << noc0_core.y << " noc1 core " << noc1_core.x << " "
+                      << noc1_core.y << std::endl;
+
             EXPECT_EQ(noc1_core.x, noc1_cores[index].x);
             EXPECT_EQ(noc1_core.y, noc1_cores[index].y);
 

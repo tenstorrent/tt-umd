@@ -40,12 +40,8 @@ public:
         const tt_xy_pair& pcie_grid_size,
         const std::vector<tt_xy_pair>& pcie_cores,
         const std::vector<tt_xy_pair>& router_cores,
-        const std::vector<tt_xy_pair>& tensix_cores_noc1 = {},
-        const std::vector<tt_xy_pair>& dram_cores_noc1 = {},
-        const std::vector<tt_xy_pair>& eth_cores_noc1 = {},
-        const std::vector<tt_xy_pair>& arc_cores_noc1 = {},
-        const std::vector<tt_xy_pair>& pcie_cores_noc1 = {},
-        const std::vector<tt_xy_pair>& router_cores_noc1 = {});
+        const std::vector<uint32_t>& noc0_x_to_noc1_x = {},
+        const std::vector<uint32_t>& noc0_y_to_noc1_y = {});
 
     static std::shared_ptr<CoordinateManager> create_coordinate_manager(
         tt::ARCH arch,
@@ -107,12 +103,8 @@ protected:
         const tt_xy_pair& pcie_grid_size,
         const std::vector<tt_xy_pair>& pcie_cores,
         const std::vector<tt_xy_pair>& router_cores,
-        const std::vector<tt_xy_pair>& tensix_cores_noc1 = {},
-        const std::vector<tt_xy_pair>& dram_cores_noc1 = {},
-        const std::vector<tt_xy_pair>& eth_cores_noc1 = {},
-        const std::vector<tt_xy_pair>& arc_cores_noc1 = {},
-        const std::vector<tt_xy_pair>& pcie_cores_noc1 = {},
-        const std::vector<tt_xy_pair>& router_cores_noc1 = {});
+        const std::vector<uint32_t>& noc0_x_to_noc1_x = {},
+        const std::vector<uint32_t>& noc0_y_to_noc1_y = {});
 
     void initialize();
 
@@ -227,10 +219,6 @@ protected:
     // Router cores don't have a grid size, since they are not layed out in a regular fashion.
     const std::vector<tt_xy_pair> router_cores;
 
-    const std::vector<tt_xy_pair> tensix_cores_noc1;
-    const std::vector<tt_xy_pair> dram_cores_noc1;
-    const std::vector<tt_xy_pair> eth_cores_noc1;
-    const std::vector<tt_xy_pair> arc_cores_noc1;
-    const std::vector<tt_xy_pair> pcie_cores_noc1;
-    const std::vector<tt_xy_pair> router_cores_noc1;
+    const std::vector<uint32_t> noc0_x_to_noc1_x;
+    const std::vector<uint32_t> noc0_y_to_noc1_y;
 };

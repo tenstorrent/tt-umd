@@ -24,12 +24,8 @@ public:
         const tt_xy_pair& pcie_grid_size,
         const std::vector<tt_xy_pair>& pcie_cores,
         const std::vector<tt_xy_pair>& router_cores,
-        const std::vector<tt_xy_pair>& tensix_cores_noc1 = {},
-        const std::vector<tt_xy_pair>& dram_cores_noc1 = {},
-        const std::vector<tt_xy_pair>& eth_cores_noc1 = {},
-        const std::vector<tt_xy_pair>& arc_cores_noc1 = {},
-        const std::vector<tt_xy_pair>& pcie_cores_noc1 = {},
-        const std::vector<tt_xy_pair>& router_cores_noc1 = {});
+        const std::vector<uint32_t>& noc0_x_to_noc1_x = {},
+        const std::vector<uint32_t>& noc0_y_to_noc1_y = {});
 
 protected:
     void fill_tensix_physical_translated_mapping() override;

@@ -337,9 +337,17 @@ TEST(TestCluster, TestClusterNocId) {
 
     tt::ARCH arch = cluster->get_cluster_description()->get_arch(0);
 
+    // All chips in the cluster have the same noc_translation_enabled value.
+    bool noc_translation_enabled = cluster->get_cluster_description()->get_noc_translation_table_en().at(0);
+
     uint64_t noc_node_id_reg_addr = 0;
     if (arch == tt::ARCH::WORMHOLE_B0) {
-        noc_node_id_reg_addr = tt::umd::wormhole::NOC_CONTROL_REG_ADDR_BASE + tt::umd::wormhole::NOC_NODE_ID_OFFSET;
+        if (noc_translation_enabled) {
+            noc_node_id_reg_addr = tt::umd::wormhole::NOC_CONTROL_REG_ADDR_BASE + tt::umd::wormhole::NOC_CFG_OFFSET +
+                                   tt::umd::wormhole::NOC_REG_WORD_SIZE * tt::umd::wormhole::NOC_CFG_NOC_ID_LOGICAL;
+        } else {
+            noc_node_id_reg_addr = tt::umd::wormhole::NOC_CONTROL_REG_ADDR_BASE + tt::umd::wormhole::NOC_NODE_ID_OFFSET;
+        }
     } else if (arch == tt::ARCH::BLACKHOLE) {
         noc_node_id_reg_addr = tt::umd::blackhole::NOC_CONTROL_REG_ADDR_BASE + tt::umd::blackhole::NOC_NODE_ID_OFFSET;
     }
@@ -353,7 +361,9 @@ TEST(TestCluster, TestClusterNocId) {
                 &noc_node_id_val, chip, core, noc_node_id_reg_addr, sizeof(noc_node_id_val), "SMALL_READ_WRITE_TLB");
             uint32_t x = noc_node_id_val & 0x3F;
             uint32_t y = (noc_node_id_val >> 6) & 0x3F;
-            EXPECT_TRUE(core.x == x && core.y == y);
+            CoreCoord translated_coord =
+                cluster->get_soc_descriptor(chip).translate_coord_to(core, CoordSystem::TRANSLATED);
+            EXPECT_TRUE(translated_coord.x == x && translated_coord.y == y);
         }
     };
 
@@ -366,11 +376,14 @@ TEST(TestCluster, TestClusterNocId) {
                 &noc_node_id_val, chip, core, noc_node_id_reg_addr, sizeof(noc_node_id_val), "SMALL_READ_WRITE_TLB");
             uint32_t x = noc_node_id_val & 0x3F;
             uint32_t y = (noc_node_id_val >> 6) & 0x3F;
-            EXPECT_TRUE(core.x == x && core.y == y);
+            CoreCoord translated_coord =
+                cluster->get_soc_descriptor(chip).translate_coord_to(core, CoordSystem::TRANSLATED);
+            EXPECT_TRUE(translated_coord.x == x && translated_coord.y == y);
         }
     };
 
     for (chip_id_t chip : cluster->get_target_device_ids()) {
+        std::cout << "chip " << chip << std::endl;
         check_noc_id_cores(cluster, chip, CoreType::TENSIX);
         check_noc_id_harvested_cores(cluster, chip, CoreType::TENSIX);
 

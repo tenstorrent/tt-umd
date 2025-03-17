@@ -337,8 +337,7 @@ TEST(TestCluster, TestClusterNocId) {
 
     tt::ARCH arch = cluster->get_cluster_description()->get_arch(0);
 
-    uint64_t noc_node_id_reg_addr;
-
+    uint64_t noc_node_id_reg_addr = 0;
     if (arch == tt::ARCH::WORMHOLE_B0) {
         noc_node_id_reg_addr = tt::umd::wormhole::NOC_CONTROL_REG_ADDR_BASE + tt::umd::wormhole::NOC_NODE_ID_OFFSET;
     } else if (arch == tt::ARCH::BLACKHOLE) {

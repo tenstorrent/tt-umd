@@ -551,7 +551,7 @@ TEST(CoordinateManager, CoordinateManagerBlackholePCIETranslationLocal) {
     std::shared_ptr<CoordinateManager> coordinate_manager =
         CoordinateManager::create_coordinate_manager(tt::ARCH::BLACKHOLE, true, {0, 0, 0}, BoardType::P300, false);
     const tt_xy_pair pcie_grid_size = tt::umd::blackhole::PCIE_GRID_SIZE;
-    const std::vector<tt_xy_pair> pcie_cores = tt::umd::blackhole::PCIE_CORES_TYPE2;
+    const std::vector<tt_xy_pair> pcie_cores = tt::umd::blackhole::PCIE_CORES_TYPE2_NOC0;
 
     for (size_t x = 0; x < pcie_grid_size.x; x++) {
         for (size_t y = 0; y < pcie_grid_size.y; y++) {
@@ -574,7 +574,7 @@ TEST(CoordinateManager, CoordinateManagerBlackholePCIETranslationRemote) {
     std::shared_ptr<CoordinateManager> coordinate_manager =
         CoordinateManager::create_coordinate_manager(tt::ARCH::BLACKHOLE, true);
     const tt_xy_pair pcie_grid_size = tt::umd::blackhole::PCIE_GRID_SIZE;
-    const std::vector<tt_xy_pair> pcie_cores = tt::umd::blackhole::PCIE_CORES_TYPE1;
+    const std::vector<tt_xy_pair> pcie_cores = tt::umd::blackhole::PCIE_CORES_TYPE1_NOC0;
 
     for (size_t x = 0; x < pcie_grid_size.x; x++) {
         for (size_t y = 0; y < pcie_grid_size.y; y++) {

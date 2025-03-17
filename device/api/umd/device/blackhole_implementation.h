@@ -124,9 +124,9 @@ static const std::vector<tt_xy_pair> ARC_CORES_NOC1 = {{8, 11}};
 static const std::vector<tt_xy_pair> ARC_LOCATIONS = ARC_CORES_NOC0;
 
 static const tt_xy_pair PCIE_GRID_SIZE = {1, 1};
-static const std::vector<tt_xy_pair> PCIE_CORES_TYPE2 = {{{2, 0}}};
-static const std::vector<tt_xy_pair> PCI_LOCATIONS = PCIE_CORES_TYPE2;
-static const std::vector<tt_xy_pair> PCIE_CORES_TYPE1 = {{{11, 0}}};
+static const std::vector<tt_xy_pair> PCIE_CORES_TYPE2_NOC0 = {{{2, 0}}};
+static const std::vector<tt_xy_pair> PCI_LOCATIONS = PCIE_CORES_TYPE2_NOC0;
+static const std::vector<tt_xy_pair> PCIE_CORES_TYPE1_NOC0 = {{{11, 0}}};
 static const std::vector<tt_xy_pair> PCIE_CORES_NOC0 = {{2, 0}, {11, 0}};
 static const std::vector<tt_xy_pair> PCIE_CORES_TYPE1_NOC1 = {{{5, 11}}};
 static const std::vector<tt_xy_pair> PCIE_CORES_TYPE2_NOC1 = {{{14, 11}}};

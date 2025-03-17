@@ -280,6 +280,12 @@ TEST(ClusterAPI, DynamicTLB_RW) {
 }
 
 TEST(TestCluster, PrintAllChipsAllCores) {
+    std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
+    // TODO: Make this test work on a host system without any tt devices.
+    if (pci_device_ids.empty()) {
+        GTEST_SKIP() << "No chips present on the system. Skipping test.";
+    }
+
     std::unique_ptr<Cluster> umd_cluster = get_cluster();
 
     for (chip_id_t chip : umd_cluster->get_target_device_ids()) {
@@ -308,6 +314,11 @@ TEST(TestCluster, PrintAllChipsAllCores) {
 // chip. This is needed because of eth id readouts for Blackhole that don't take harvesting into
 // acount. This test verifies that both for Wormhole and Blackhole.
 TEST(TestCluster, TestClusterLogicalETHChannelsConnectivity) {
+    std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
+    // TODO: Make this test work on a host system without any tt devices.
+    if (pci_device_ids.empty()) {
+        GTEST_SKIP() << "No chips present on the system. Skipping test.";
+    }
     std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
 
     tt_ClusterDescriptor* cluster_desc = cluster->get_cluster_description();

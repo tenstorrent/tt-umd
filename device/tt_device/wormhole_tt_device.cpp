@@ -195,11 +195,11 @@ void WormholeTTDevice::dma_h2d(uint32_t dst, const void *src, size_t size) {
     std::scoped_lock lock(dma_mutex_);
     DmaBuffer &dma_buffer = pci_device_->get_dma_buffer();
 
-    memcpy(dma_buffer.buffer, src, size);
-
     if (size > dma_buffer.size) {
         throw std::runtime_error("DMA size exceeds buffer size");
     }
+
+    memcpy(dma_buffer.buffer, src, size);
 
     // Reset completion flag
     *reinterpret_cast<volatile uint32_t*>(dma_buffer.completion) = 0;

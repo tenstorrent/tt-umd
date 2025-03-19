@@ -40,7 +40,6 @@ void test_read_write_all_tensix_cores(Cluster* cluster, int thread_id) {
                 core,
                 address,
                 "SMALL_READ_WRITE_TLB");
-            // std::cout << "thread id read addr " << thread_id << " " << std::hex << address << std::dec << std::endl;
             test_utils::read_data_from_device(*cluster, readback_vec, 0, core, address, 40, "SMALL_READ_WRITE_TLB");
             ASSERT_EQ(vector_to_write, readback_vec)
                 << "Vector read back from core " << core.str() << " does not match what was written";
@@ -51,7 +50,7 @@ void test_read_write_all_tensix_cores(Cluster* cluster, int thread_id) {
         // If we are inside other bucket can't guarantee the order of read/writes.
         if (address + vector_to_write.size() * sizeof(uint32_t) > address_next_thread) {
             address = address_next_thread;
-        } 
+        }
     }
     std::cout << "Completed test_read_write_all_tensix_cores for cluster " << (uint64_t)cluster << " thread_id "
               << thread_id << std::endl;

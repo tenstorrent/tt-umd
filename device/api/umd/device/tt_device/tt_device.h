@@ -177,6 +177,9 @@ private:
 
     std::shared_ptr<boost::interprocess::named_mutex> read_write_mutex = nullptr;
 
+    // Name of the mutex is SMALL_READ_WRITE_TLB because we need to be able to
+    // sync this TTDevice mutex with Cluster mutex for this same TLB. So final name
+    // of the mutex will be SMALL_READ_WRITE_TLB{pci_device_id} both in Cluster and TTDevice.
     static constexpr char MUTEX_NAME[] = "SMALL_READ_WRITE_TLB";
 };
 }  // namespace tt::umd

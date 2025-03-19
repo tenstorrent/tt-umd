@@ -154,9 +154,11 @@ void Cluster::initialize_interprocess_mutexes(int logical_device_id, bool cleanu
     unrestricted_permissions.set_unrestricted();
     std::string mutex_name = "";
 
+    uint32_t pci_device_id = get_tt_device(logical_device_id)->get_pci_device()->get_device_num();
+
     // Initialize Dynamic TLB mutexes
     for (auto& tlb : get_tlb_manager(logical_device_id)->dynamic_tlb_config_) {
-        mutex_name = tlb.first + std::to_string(logical_device_id);
+        mutex_name = tlb.first + std::to_string(pci_device_id);
         if (cleanup_mutexes_in_shm) {
             named_mutex::remove(mutex_name.c_str());
         }
@@ -165,7 +167,7 @@ void Cluster::initialize_interprocess_mutexes(int logical_device_id, bool cleanu
     }
 
     // Initialize ARC core mutex
-    mutex_name = fmt::format("ARC_MSG{}", logical_device_id);
+    mutex_name = fmt::format("ARC_MSG{}", pci_device_id);
     if (cleanup_mutexes_in_shm) {
         named_mutex::remove(mutex_name.c_str());
     }
@@ -173,7 +175,7 @@ void Cluster::initialize_interprocess_mutexes(int logical_device_id, bool cleanu
         std::make_shared<named_mutex>(open_or_create, mutex_name.c_str(), unrestricted_permissions);
 
     if (arch_name == tt::ARCH::WORMHOLE_B0) {
-        mutex_name = NON_MMIO_MUTEX_NAME + std::to_string(logical_device_id);
+        mutex_name = NON_MMIO_MUTEX_NAME + std::to_string(pci_device_id);
         // Initialize non-MMIO mutexes for WH devices regardless of number of chips, since these may be used for
         // ethernet broadcast
         if (cleanup_mutexes_in_shm) {
@@ -184,7 +186,7 @@ void Cluster::initialize_interprocess_mutexes(int logical_device_id, bool cleanu
     }
 
     // Initialize interprocess mutexes to make host -> device memory barriers atomic
-    mutex_name = MEM_BARRIER_MUTEX_NAME + std::to_string(logical_device_id);
+    mutex_name = MEM_BARRIER_MUTEX_NAME + std::to_string(pci_device_id);
     if (cleanup_mutexes_in_shm) {
         named_mutex::remove(mutex_name.c_str());
     }
@@ -1271,8 +1273,11 @@ int Cluster::pcie_arc_msg(
     int timeout,
     uint32_t* return_3,
     uint32_t* return_4) {
-    std::vector<uint32_t> arc_msg_return_values;
+    // Exclusive access for a single process at a time. Based on physical pci interface id.
+    std::string msg_type = "ARC_MSG";
+    const scoped_lock<named_mutex> lock(*get_mutex(msg_type, logical_device_id));
 
+    std::vector<uint32_t> arc_msg_return_values;
     if (return_3 != nullptr) {
         arc_msg_return_values.push_back(0);
     }
@@ -1440,7 +1445,8 @@ inline TLBManager* Cluster::get_tlb_manager(chip_id_t device_id) const {
 
 std::shared_ptr<boost::interprocess::named_mutex> Cluster::get_mutex(
     const std::string& tlb_name, int logical_device_id) {
-    std::string mutex_name = tlb_name + std::to_string(logical_device_id);
+    std::string mutex_name =
+        tlb_name + std::to_string(get_tt_device(logical_device_id)->get_pci_device()->get_device_num());
     return hardware_resource_mutex_map.at(mutex_name);
 }
 

@@ -600,8 +600,7 @@ std::shared_ptr<CoordinateManager> CoordinateManager::create_coordinate_manager(
                 tt::umd::wormhole::NOC0_Y_TO_NOC1_Y);
         case tt::ARCH::QUASAR:  // TODO (#450): Add Quasar configuration
         case tt::ARCH::BLACKHOLE: {
-            const auto [pcie_cores_noc0, pcie_cores_noc1] =
-                tt::umd::blackhole::get_pcie_cores(board_type, asic_location);
+            std::vector<tt_xy_pair> pcie_cores_noc0 = tt::umd::blackhole::get_pcie_cores(board_type, asic_location);
             return create_coordinate_manager(
                 arch,
                 noc_translation_enabled,

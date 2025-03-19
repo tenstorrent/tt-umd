@@ -87,8 +87,7 @@ void tt_SocDescriptor::create_coordinate_manager(const BoardType board_type, con
     // enabling only one of the two pci cores. This is currently a unique case, and if another similar case shows up, we
     // can figure out a better abstraction.
     if (arch == tt::ARCH::BLACKHOLE && board_type != BoardType::UNKNOWN) {
-        auto [pcie_cores_for_type_noc0, pcie_cores_for_type_noc1] =
-            blackhole::get_pcie_cores(board_type, asic_location);
+        std::vector<tt_xy_pair> pcie_cores_for_type_noc0 = blackhole::get_pcie_cores(board_type, asic_location);
         // Verify that the required pcie core was already mentioned in the device descriptor.
         for (const auto &core : pcie_cores_for_type_noc0) {
             if (std::find(pcie_cores.begin(), pcie_cores.end(), core) == pcie_cores.end()) {

@@ -97,15 +97,13 @@ tt_driver_noc_params blackhole_implementation::get_noc_params() const {
 }
 
 namespace blackhole {
-std::pair<std::vector<tt_xy_pair>, std::vector<tt_xy_pair>> get_pcie_cores(
-    const BoardType board_type, const uint8_t asic_location) {
+std::vector<tt_xy_pair> get_pcie_cores(const BoardType board_type, const uint8_t asic_location) {
     // Default to type 1 chip.
     if (board_type == BoardType::UNKNOWN) {
-        return {PCIE_CORES_TYPE1_NOC0, PCIE_CORES_TYPE1_NOC1};
+        return PCIE_CORES_TYPE1_NOC0;
     }
     auto chip_type = get_blackhole_chip_type(board_type, asic_location);
-    return chip_type == BlackholeChipType::Type1 ? std::make_pair(PCIE_CORES_TYPE1_NOC0, PCIE_CORES_TYPE1_NOC1)
-                                                 : std::make_pair(PCIE_CORES_TYPE2_NOC0, PCIE_CORES_TYPE2_NOC1);
+    return chip_type == BlackholeChipType::Type1 ? PCIE_CORES_TYPE1_NOC0 : PCIE_CORES_TYPE2_NOC0;
 }
 }  // namespace blackhole
 

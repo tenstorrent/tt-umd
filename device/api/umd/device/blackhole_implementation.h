@@ -286,8 +286,7 @@ static const size_t dram_translated_coordinate_start_y = 12;
  * based on the board type and asic location of the chip.
  * Information on remote chip is used only if the board type is P300.
  */
-std::pair<std::vector<tt_xy_pair>, std::vector<tt_xy_pair>> get_pcie_cores(
-    const BoardType board_type, const uint8_t asic_location);
+std::vector<tt_xy_pair> get_pcie_cores(const BoardType board_type, const uint8_t asic_location);
 
 }  // namespace blackhole
 

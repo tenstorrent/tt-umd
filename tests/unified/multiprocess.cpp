@@ -25,7 +25,11 @@ void test_read_write_all_tensix_cores(Cluster* cluster, int thread_id) {
 
     std::vector<uint32_t> vector_to_write = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9};
     std::vector<uint32_t> readback_vec = {};
-    std::uint32_t address = chunk_size * thread_id;
+    uint32_t address = chunk_size * thread_id;
+    uint32_t start_address = address;
+    uint32_t address_next_thread = chunk_size * (thread_id + 1);
+
+    // std::cout << "address for thread id " << thread_id << " " << std::hex << address << std::dec << std::endl;
 
     for (int loop = 0; loop < NUM_LOOPS; loop++) {
         for (const CoreCoord& core : cluster->get_soc_descriptor(0).get_cores(CoreType::TENSIX)) {
@@ -36,12 +40,18 @@ void test_read_write_all_tensix_cores(Cluster* cluster, int thread_id) {
                 core,
                 address,
                 "SMALL_READ_WRITE_TLB");
+            // std::cout << "thread id read addr " << thread_id << " " << std::hex << address << std::dec << std::endl;
             test_utils::read_data_from_device(*cluster, readback_vec, 0, core, address, 40, "SMALL_READ_WRITE_TLB");
             ASSERT_EQ(vector_to_write, readback_vec)
                 << "Vector read back from core " << core.str() << " does not match what was written";
             readback_vec = {};
         }
         address += 0x20;
+        // If we get into the bucket of the next thread, return to start address of this thread's bucket.
+        // If we are inside other bucket can't guarantee the order of read/writes.
+        if (address + vector_to_write.size() * sizeof(uint32_t) > address_next_thread) {
+            address = address_next_thread;
+        }
     }
     std::cout << "Completed test_read_write_all_tensix_cores for cluster " << (uint64_t)cluster << " thread_id "
               << thread_id << std::endl;
@@ -69,7 +79,7 @@ TEST(Multiprocess, MultipleThreadsSingleCluster) {
     std::unique_ptr<Cluster> cluster = std::unique_ptr<Cluster>(new Cluster());
     std::vector<std::thread> threads;
     for (int i = 0; i < NUM_PARALLEL; i++) {
-        threads.push_back(std::thread([&] {
+        threads.push_back(std::thread([&, i] {
             std::cout << "Start device for cluster " << i << std::endl;
             cluster->start_device({});
             std::cout << "Running IO for cluster " << i << std::endl;
@@ -87,7 +97,7 @@ TEST(Multiprocess, MultipleThreadsSingleCluster) {
 TEST(Multiprocess, MultipleThreadsMultipleClustersCreation) {
     std::vector<std::thread> threads;
     for (int i = 0; i < NUM_PARALLEL; i++) {
-        threads.push_back(std::thread([&] {
+        threads.push_back(std::thread([&, i] {
             std::cout << "Create cluster " << i << std::endl;
             std::unique_ptr<Cluster> cluster = std::unique_ptr<Cluster>(new Cluster());
             cluster = nullptr;
@@ -102,7 +112,7 @@ TEST(Multiprocess, MultipleThreadsMultipleClustersCreation) {
 TEST(Multiprocess, MultipleThreadsMultipleClustersRunning) {
     std::vector<std::thread> threads;
     for (int i = 0; i < NUM_PARALLEL; i++) {
-        threads.push_back(std::thread([&] {
+        threads.push_back(std::thread([&, i] {
             std::unique_ptr<Cluster> cluster = std::unique_ptr<Cluster>(new Cluster());
             std::cout << "Start device for cluster " << i << std::endl;
             cluster->start_device({});
@@ -118,6 +128,8 @@ TEST(Multiprocess, MultipleThreadsMultipleClustersRunning) {
 }
 
 // Simulation of one device running a full workload, while others use low level TTDevice functionality.
+// TODO(pjanevski): I think this test is incorrect. monitor_thread is going to clash with workload_thread
+// because these are going to use same memory to write things
 TEST(Multiprocess, WorkloadVSMonitor) {
     std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
 
@@ -136,14 +148,14 @@ TEST(Multiprocess, WorkloadVSMonitor) {
         cluster->close_device();
     });
 
-    auto monitor_thread = std::thread([&] {
-        std::cout << "Creating monitor cluster" << std::endl;
-        std::unique_ptr<Cluster> cluster = std::unique_ptr<Cluster>(new Cluster());
-        // for loop?
-        std::cout << "Running only reads for monitor cluster, without device start " << std::endl;
-        test_read_write_all_tensix_cores(cluster.get(), 0);
-        std::cout << "Destroying monitor cluster" << std::endl;
-    });
+    // auto monitor_thread = std::thread([&] {
+    //     std::cout << "Creating monitor cluster" << std::endl;
+    //     std::unique_ptr<Cluster> cluster = std::unique_ptr<Cluster>(new Cluster());
+    //     // for loop?
+    //     std::cout << "Running only reads for monitor cluster, without device start " << std::endl;
+    //     test_read_write_all_tensix_cores(cluster.get(), 0);
+    //     std::cout << "Destroying monitor cluster" << std::endl;
+    // });
 
     auto low_level_monitor_thread = std::thread([&] {
         std::cout << "Creating low level monitor cluster" << std::endl;
@@ -160,7 +172,7 @@ TEST(Multiprocess, WorkloadVSMonitor) {
     });
 
     workload_thread.join();
-    monitor_thread.join();
+    // monitor_thread.join();
     low_level_monitor_thread.join();
 }
 

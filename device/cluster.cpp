@@ -1154,8 +1154,11 @@ int Cluster::pcie_arc_msg(
     int timeout,
     uint32_t* return_3,
     uint32_t* return_4) {
-    std::vector<uint32_t> arc_msg_return_values;
+    // Exclusive access for a single process at a time. Based on physical pci interface id.
+    std::string msg_type = "ARC_MSG";
+    const scoped_lock<named_mutex> lock(*get_mutex(msg_type, logical_device_id));
 
+    std::vector<uint32_t> arc_msg_return_values;
     if (return_3 != nullptr) {
         arc_msg_return_values.push_back(0);
     }

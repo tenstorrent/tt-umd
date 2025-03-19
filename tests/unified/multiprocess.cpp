@@ -40,7 +40,6 @@ void test_read_write_all_tensix_cores(Cluster* cluster, int thread_id) {
                 core,
                 address,
                 "SMALL_READ_WRITE_TLB");
-            // std::cout << "thread id read addr " << thread_id << " " << std::hex << address << std::dec << std::endl;
             test_utils::read_data_from_device(*cluster, readback_vec, 0, core, address, 40, "SMALL_READ_WRITE_TLB");
             ASSERT_EQ(vector_to_write, readback_vec)
                 << "Vector read back from core " << core.str() << " does not match what was written";

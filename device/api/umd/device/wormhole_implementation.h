@@ -105,6 +105,11 @@ enum class arc_message_type {
 
 // DEVICE_DATA
 static const tt_xy_pair GRID_SIZE = {10, 12};
+// Vectors for mapping NOC0 x and y coordinates to NOC1 x and y coordinates.
+// NOC0_X_TO_NOC1_X[noc0_x] is the NOC1 x coordinate corresponding to NOC0 x coordinate noc0_x.
+// NOC0_Y_TO_NOC1_Y[noc0_y] is the NOC1 y coordinate corresponding to NOC0 y coordinate noc0_y.
+static const std::vector<uint32_t> NOC0_X_TO_NOC1_X = {9, 8, 7, 6, 5, 4, 3, 2, 1, 0};
+static const std::vector<uint32_t> NOC0_Y_TO_NOC1_Y = {11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0};
 static const tt_xy_pair TENSIX_GRID_SIZE = {8, 10};
 // clang-format off
 static const std::vector<tt_xy_pair> TENSIX_CORES_NOC0 = {

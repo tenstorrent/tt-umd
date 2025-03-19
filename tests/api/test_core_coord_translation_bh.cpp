@@ -742,3 +742,39 @@ TEST(CoordinateManager, CoordinateManagerBlackholeETHNoNocTranslationMapping) {
         EXPECT_EQ(eth_translated.y, eth_pair.y);
     }
 }
+
+TEST(CoordinateManager, CoordinateManagerBlackholeNoc1Noc0Mapping) {
+    std::shared_ptr<CoordinateManager> coordinate_manager =
+        CoordinateManager::create_coordinate_manager(tt::ARCH::BLACKHOLE, true);
+
+    auto check_noc0_noc1_mapping = [coordinate_manager](
+                                       const std::vector<tt_xy_pair> noc0_cores,
+                                       const std::vector<tt_xy_pair> noc1_cores,
+                                       const CoreType core_type) {
+        for (uint32_t index = 0; index < noc0_cores.size(); index++) {
+            const CoreCoord noc0_core =
+                CoreCoord(noc0_cores[index].x, noc0_cores[index].y, core_type, CoordSystem::PHYSICAL);
+            const CoreCoord noc1_core = coordinate_manager->translate_coord_to(noc0_core, CoordSystem::NOC1);
+
+            EXPECT_EQ(noc1_core.x, noc1_cores[index].x);
+            EXPECT_EQ(noc1_core.y, noc1_cores[index].y);
+
+            const CoreCoord noc0_core_from_noc1 =
+                coordinate_manager->translate_coord_to(noc1_core, CoordSystem::PHYSICAL);
+
+            EXPECT_EQ(noc0_core_from_noc1.x, noc0_cores[index].x);
+            EXPECT_EQ(noc0_core_from_noc1.y, noc0_cores[index].y);
+        }
+    };
+
+    check_noc0_noc1_mapping(
+        tt::umd::blackhole::TENSIX_CORES_NOC0, tt::umd::blackhole::TENSIX_CORES_NOC1, CoreType::TENSIX);
+    check_noc0_noc1_mapping(
+        flatten_vector(tt::umd::blackhole::DRAM_CORES_NOC0),
+        flatten_vector(tt::umd::blackhole::DRAM_CORES_NOC1),
+        CoreType::DRAM);
+    check_noc0_noc1_mapping(tt::umd::blackhole::ETH_CORES_NOC0, tt::umd::blackhole::ETH_CORES_NOC1, CoreType::ETH);
+    check_noc0_noc1_mapping(tt::umd::blackhole::ARC_CORES_NOC0, tt::umd::blackhole::ARC_CORES_NOC1, CoreType::ARC);
+    check_noc0_noc1_mapping(
+        {tt::umd::blackhole::PCIE_CORES_NOC0[1]}, {tt::umd::blackhole::PCIE_CORES_NOC1[1]}, CoreType::PCIE);
+}

@@ -39,8 +39,10 @@ enum class CoreType {
 enum class CoordSystem : std::uint8_t {
     LOGICAL,
     PHYSICAL,
+    NOC0 = PHYSICAL,
     VIRTUAL,
     TRANSLATED,
+    NOC1,
 };
 
 static inline std::string to_str(const CoreType core_type) {

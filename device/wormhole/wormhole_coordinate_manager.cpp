@@ -19,7 +19,9 @@ WormholeCoordinateManager::WormholeCoordinateManager(
     const std::vector<tt_xy_pair>& arc_cores,
     const tt_xy_pair& pcie_grid_size,
     const std::vector<tt_xy_pair>& pcie_cores,
-    const std::vector<tt_xy_pair>& router_cores) :
+    const std::vector<tt_xy_pair>& router_cores,
+    const std::vector<uint32_t>& noc0_x_to_noc1_x,
+    const std::vector<uint32_t>& noc0_y_to_noc1_y) :
     CoordinateManager(
         noc_translation_enabled,
         harvesting_masks,
@@ -32,7 +34,9 @@ WormholeCoordinateManager::WormholeCoordinateManager(
         arc_cores,
         pcie_grid_size,
         pcie_cores,
-        router_cores) {
+        router_cores,
+        noc0_x_to_noc1_x,
+        noc0_y_to_noc1_y) {
     initialize();
 }
 

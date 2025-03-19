@@ -23,7 +23,9 @@ public:
         const std::vector<tt_xy_pair>& arc_cores,
         const tt_xy_pair& pcie_grid_size,
         const std::vector<tt_xy_pair>& pcie_cores,
-        const std::vector<tt_xy_pair>& router_cores);
+        const std::vector<tt_xy_pair>& router_cores,
+        const std::vector<uint32_t>& noc0_x_to_noc1_x = {},
+        const std::vector<uint32_t>& noc0_y_to_noc1_y = {});
 
 protected:
     void assert_coordinate_manager_constructor() override;

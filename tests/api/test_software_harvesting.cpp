@@ -15,7 +15,14 @@
 using namespace tt::umd;
 
 TEST(SoftwareHarvesting, TensixSoftwareHarvestingAllChips) {
+    std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
+    // TODO: Make this test work on a host system without any tt devices.
+    if (pci_device_ids.empty()) {
+        GTEST_SKIP() << "No chips present on the system. Skipping test.";
+    }
+
     std::set<chip_id_t> target_devices = test_utils::get_target_devices();
+
     int num_devices = target_devices.size();
     std::unordered_map<chip_id_t, HarvestingMasks> software_harvesting_masks;
 

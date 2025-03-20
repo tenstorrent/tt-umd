@@ -1154,10 +1154,6 @@ int Cluster::pcie_arc_msg(
     int timeout,
     uint32_t* return_3,
     uint32_t* return_4) {
-    // Exclusive access for a single process at a time. Based on physical pci interface id.
-    std::string msg_type = "ARC_MSG";
-    const scoped_lock<named_mutex> lock(*get_mutex(msg_type, logical_device_id));
-
     std::vector<uint32_t> arc_msg_return_values;
     if (return_3 != nullptr) {
         arc_msg_return_values.push_back(0);
@@ -3038,7 +3034,20 @@ std::unique_ptr<tt_ClusterDescriptor> Cluster::create_cluster_descriptor(std::st
         // Topology discovery from source is supported for Wormhole UBB at the moment,
         // other Wormhole specs need to go through a legacy create-ethernet-map.
         if (!tt_devices.empty() && tt_devices[0]->get_board_type() != BoardType::UBB) {
-            return tt_ClusterDescriptor::create();
+            // named_mutex::remove(Cluster::CREATE_ETH_MAP_MUTEX_NAME);
+            permissions unrestricted_permissions;
+            unrestricted_permissions.set_unrestricted();
+            std::shared_ptr<boost::interprocess::named_mutex> create_eth_map_mx = std::make_shared<named_mutex>(
+                open_or_create, std::string(Cluster::CREATE_ETH_MAP_MUTEX_NAME).c_str(), unrestricted_permissions);
+            std::unique_ptr<tt_ClusterDescriptor> cluster_desc = nullptr;
+            {
+                const scoped_lock<named_mutex> lock(*create_eth_map_mx);
+                cluster_desc = tt_ClusterDescriptor::create();
+            }
+            create_eth_map_mx.reset();
+            create_eth_map_mx = nullptr;
+            named_mutex::remove(std::string(Cluster::CREATE_ETH_MAP_MUTEX_NAME).c_str());
+            return cluster_desc;
         }
 
         std::unordered_map<chip_id_t, std::unique_ptr<Chip>> chips;

@@ -48,8 +48,9 @@ void test_read_write_all_tensix_cores(Cluster* cluster, int thread_id) {
         address += 0x20;
         // If we get into the bucket of the next thread, return to start address of this thread's bucket.
         // If we are inside other bucket can't guarantee the order of read/writes.
-        if (address + vector_to_write.size() * sizeof(uint32_t) > address_next_thread) {
-            address = address_next_thread;
+        if (address + vector_to_write.size() * sizeof(uint32_t) > address_next_thread ||
+            address + vector_to_write.size() * sizeof(uint32_t) > l1_size) {
+            address = start_address;
         }
     }
     std::cout << "Completed test_read_write_all_tensix_cores for cluster " << (uint64_t)cluster << " thread_id "
@@ -112,12 +113,13 @@ TEST(Multiprocess, MultipleThreadsMultipleClustersRunning) {
     std::vector<std::thread> threads;
     for (int i = 0; i < NUM_PARALLEL; i++) {
         threads.push_back(std::thread([&, i] {
+            std::cout << "creating cluster for " << i << std::endl;
             std::unique_ptr<Cluster> cluster = std::unique_ptr<Cluster>(new Cluster());
-            std::cout << "Start device for cluster " << i << std::endl;
+            // std::cout << "Start device for cluster " << i << std::endl;
             // cluster->start_device({});
-            std::cout << "Running IO for cluster " << i << std::endl;
+            // std::cout << "Running IO for cluster " << i << std::endl;
             test_read_write_all_tensix_cores(cluster.get(), i);
-            std::cout << "Close device for cluster " << i << std::endl;
+            // std::cout << "Close device for cluster " << i << std::endl;
             // cluster->close_device();
         }));
     }

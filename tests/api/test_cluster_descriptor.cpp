@@ -75,9 +75,6 @@ TEST(ApiClusterDescriptorTest, TestAllOfflineClusterDescriptors) {
     for (std::string cluster_desc_yaml : {
              "blackhole_P100.yaml",
              "galaxy.yaml",
-             "grayskull_e75.yaml",
-             "grayskull_E150.yaml",
-             "grayskull_E300.yaml",
              "wormhole_2xN300_unconnected.yaml",
              "wormhole_N150.yaml",
              "wormhole_N300.yaml",

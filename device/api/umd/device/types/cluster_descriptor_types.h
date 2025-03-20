@@ -136,7 +136,7 @@ inline BoardType get_board_type_from_board_id(const uint64_t board_id) {
         return BoardType::UBB;
     }
 
-    throw std::runtime_error(fmt::format("No existing board type for board id {}", board_id));
+    throw std::runtime_error(fmt::format("No existing board type for board id 0x{:x}", board_id));
 }
 
 struct ChipUID {

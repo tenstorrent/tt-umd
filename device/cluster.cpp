@@ -164,14 +164,6 @@ void Cluster::initialize_interprocess_mutexes(int logical_device_id, bool cleanu
             std::make_shared<named_mutex>(open_or_create, mutex_name.c_str(), unrestricted_permissions);
     }
 
-    // Initialize ARC core mutex
-    mutex_name = fmt::format("ARC_MSG{}", logical_device_id);
-    if (cleanup_mutexes_in_shm) {
-        named_mutex::remove(mutex_name.c_str());
-    }
-    hardware_resource_mutex_map[mutex_name] =
-        std::make_shared<named_mutex>(open_or_create, mutex_name.c_str(), unrestricted_permissions);
-
     if (arch_name == tt::ARCH::WORMHOLE_B0) {
         mutex_name = NON_MMIO_MUTEX_NAME + std::to_string(logical_device_id);
         // Initialize non-MMIO mutexes for WH devices regardless of number of chips, since these may be used for
@@ -1271,10 +1263,6 @@ int Cluster::pcie_arc_msg(
     int timeout,
     uint32_t* return_3,
     uint32_t* return_4) {
-    // Exclusive access for a single process at a time.
-    std::string msg_type = "ARC_MSG";
-    const scoped_lock<named_mutex> lock(*get_mutex(msg_type, logical_device_id));
-
     std::vector<uint32_t> arc_msg_return_values;
 
     if (return_3 != nullptr) {

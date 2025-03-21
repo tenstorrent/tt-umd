@@ -9,6 +9,10 @@
 #include <memory>
 #include <vector>
 
+namespace boost::interprocess {
+class named_mutex;
+}
+
 namespace tt::umd {
 
 class TTDevice;
@@ -52,7 +56,7 @@ public:
      */
     uint32_t send_message(const uint32_t msg_code, uint16_t arg0 = 0, uint16_t arg1 = 0, uint32_t timeout_ms = 1000);
 
-    virtual ~ArcMessenger() = default;
+    virtual ~ArcMessenger();
 
 protected:
     /**
@@ -63,5 +67,13 @@ protected:
     ArcMessenger(TTDevice* tt_device);
 
     TTDevice* tt_device;
+
+    std::shared_ptr<boost::interprocess::named_mutex> arc_msg_mutex = nullptr;
+
+    static constexpr char MUTEX_NAME[] = "ARC_MSG";
+
+private:
+    void initialize_arc_msg_mutex();
+    void clean_arc_msg_mutex();
 };
 }  // namespace tt::umd

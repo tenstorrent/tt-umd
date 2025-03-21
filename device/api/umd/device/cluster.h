@@ -1189,7 +1189,6 @@ private:
     tt_version eth_fw_version;  // Ethernet FW the driver is interfacing with
     // Named Mutexes
     static constexpr char NON_MMIO_MUTEX_NAME[] = "NON_MMIO";
-    static constexpr char ARC_MSG_MUTEX_NAME[] = "ARC_MSG";
     static constexpr char MEM_BARRIER_MUTEX_NAME[] = "MEM_BAR";
     // ERISC FW Version Required by UMD
     static constexpr std::uint32_t SW_VERSION = 0x06060000;

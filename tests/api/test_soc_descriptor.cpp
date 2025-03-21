@@ -419,7 +419,7 @@ TEST(SocDescriptor, BoardBasedPCIE) {
     EXPECT_ANY_THROW(tt_SocDescriptor soc_desc(
         test_utils::GetAbsPath("tests/soc_descs/blackhole_140_arch.yaml"), true, {0, 0, 0}, BoardType::P150, true));
     EXPECT_ANY_THROW(tt_SocDescriptor soc_desc(
-        test_utils::GetAbsPath("tests/soc_descs/blackhole_140_arch.yaml"), true, {0, 0, 0}, BoardType::E300, false));
+        test_utils::GetAbsPath("tests/soc_descs/blackhole_140_arch.yaml"), true, {0, 0, 0}, BoardType::N300, false));
 
     // Verify expected PCI cores.
     std::map<std::pair<BoardType, bool>, uint32_t> board_configuration_to_pcie_x_location = {

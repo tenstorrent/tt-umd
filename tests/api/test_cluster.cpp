@@ -25,7 +25,6 @@
 using namespace tt::umd;
 
 // These tests are intended to be run with the same code on all kinds of systems:
-// E75, E150, E300
 // N150. N300
 // Galaxy
 

@@ -3,12 +3,18 @@
 // SPDX-License-Identifier: Apache-2.0
 #include "umd/device/tt_device/tt_device.h"
 
+#include <boost/interprocess/permissions.hpp>
+#include <boost/interprocess/sync/named_mutex.hpp>
+#include <boost/interprocess/sync/scoped_lock.hpp>
+
 #include "logger.hpp"
 #include "umd/device/arc_messenger.h"
 #include "umd/device/driver_atomics.h"
 #include "umd/device/tt_device/blackhole_tt_device.h"
 #include "umd/device/tt_device/grayskull_tt_device.h"
 #include "umd/device/tt_device/wormhole_tt_device.h"
+
+using namespace boost::interprocess;
 
 // TODO #526: This is a hack to allow UMD to use the NOC1 TLB.
 bool umd_use_noc1 = false;
@@ -22,8 +28,10 @@ TTDevice::TTDevice(
     pci_device_(std::move(pci_device)),
     architecture_impl_(std::move(architecture_impl)),
     tlb_manager_(std::make_unique<TLBManager>(this)),
-    arch(architecture_impl_->get_architecture()),
-    arc_messenger_(ArcMessenger::create_arc_messenger(this)) {}
+    arch(architecture_impl_->get_architecture()) {
+    initialize_tt_device_mutex();
+    arc_messenger_ = ArcMessenger::create_arc_messenger(this);
+}
 
 /* static */ std::unique_ptr<TTDevice> TTDevice::create(int pci_device_number) {
     auto pci_device = std::make_unique<PCIDevice>(pci_device_number);
@@ -215,6 +223,7 @@ void TTDevice::read_block(uint64_t byte_addr, uint64_t num_bytes, uint8_t *buffe
 }
 
 void TTDevice::read_from_device(void *mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size) {
+    const scoped_lock<named_mutex> lock(*read_write_mutex);
     uint8_t *buffer_addr = static_cast<uint8_t *>(mem_ptr);
     const uint32_t tlb_index = get_architecture_implementation()->get_small_read_write_tlb();
     while (size > 0) {
@@ -229,6 +238,7 @@ void TTDevice::read_from_device(void *mem_ptr, tt_xy_pair core, uint64_t addr, u
 }
 
 void TTDevice::write_to_device(void *mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size) {
+    const scoped_lock<named_mutex> lock(*read_write_mutex);
     uint8_t *buffer_addr = static_cast<uint8_t *>(mem_ptr);
     const uint32_t tlb_index = get_architecture_implementation()->get_small_read_write_tlb();
 
@@ -378,5 +388,21 @@ uint32_t TTDevice::get_clock() {
         "Base TTDevice class does not have get_clock implemented. Move this to abstract function once Grayskull "
         "TTDevice is deleted.");
 }
+
+void TTDevice::initialize_tt_device_mutex() {
+    permissions unrestricted_permissions;
+    unrestricted_permissions.set_unrestricted();
+    std::string mutex_name = TTDevice::MUTEX_NAME + std::to_string(get_pci_device()->get_device_num());
+    read_write_mutex = std::make_shared<named_mutex>(open_or_create, mutex_name.c_str(), unrestricted_permissions);
+}
+
+void TTDevice::clean_tt_device_mutex() {
+    std::string mutex_name = TTDevice::MUTEX_NAME + std::to_string(get_pci_device()->get_device_num());
+    read_write_mutex.reset();
+    read_write_mutex = nullptr;
+    named_mutex::remove(mutex_name.c_str());
+}
+
+TTDevice::~TTDevice() { clean_tt_device_mutex(); }
 
 }  // namespace tt::umd

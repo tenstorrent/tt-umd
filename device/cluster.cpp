@@ -1209,6 +1209,9 @@ void Cluster::write_to_non_mmio_device(
     constexpr int BROADCAST_HEADER_SIZE = sizeof(data_word_t) * 8;  // Broadcast header is 8 words
     const auto target_chip = cluster_desc->get_chip_locations().at(core.chip);
 
+    std::cout << "target chip " << target_chip.cluster_id << " " << target_chip.x << " " << target_chip.y << " "
+              << target_chip.rack << " " << target_chip.shelf << std::endl;
+
     // TODO: To be removed when this is moved to Chip classes.
     auto host_address_params = get_local_chip(mmio_capable_chip_logical)->host_address_params;
     auto eth_interface_params = get_local_chip(mmio_capable_chip_logical)->eth_interface_params;

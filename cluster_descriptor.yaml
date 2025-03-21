@@ -1,0 +1,37 @@
+arch:
+  0: wormhole_b0
+  1: wormhole_b0
+chips:
+  0:
+    - 0
+    - 0
+    - 0
+    - 0
+  1:
+    - 1
+    - 0
+    - 0
+    - 0
+ethernet_connections:
+  -
+    - chip: 1
+      chan: 1
+    - chip: 0
+      chan: 9
+  -
+    - chip: 1
+      chan: 0
+    - chip: 0
+      chan: 8
+chips_with_mmio:
+  - 0: 2
+harvesting:
+  0:
+    noc_translation: true
+    harvest_mask: 3
+  1:
+    noc_translation: true
+    harvest_mask: 65
+boardtype:
+  0: n300
+  1: n300

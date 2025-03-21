@@ -57,6 +57,7 @@ target_sources(
         blackhole/blackhole_arc_message_queue.cpp
         xy_pair.cpp
         lock_manager.cpp
+        topology_discovery.cpp
         remote_communication.cpp
         ${FBS_GENERATED_HEADER}
 )

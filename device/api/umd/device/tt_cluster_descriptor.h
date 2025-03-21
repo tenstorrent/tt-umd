@@ -18,6 +18,7 @@
 
 #include "umd/device/chip/chip.h"
 #include "umd/device/cluster.h"
+#include "umd/device/topology_discovery.h"
 #include "umd/device/tt_xy_pair.h"
 #include "umd/device/types/arch.h"
 #include "umd/device/types/cluster_descriptor_types.h"
@@ -29,12 +30,13 @@ class Node;
 class tt_ClusterDescriptor {
     friend class tt::umd::Cluster;
 
-private:
+public:
     tt_ClusterDescriptor() = default;
 
+    // private:
     int get_ethernet_link_coord_distance(const eth_coord_t &location_a, const eth_coord_t &location_b) const;
 
-protected:
+    // protected:
     std::unordered_map<chip_id_t, std::unordered_map<ethernet_channel_t, std::tuple<chip_id_t, ethernet_channel_t>>>
         ethernet_connections;
     std::unordered_map<chip_id_t, eth_coord_t> chip_locations;

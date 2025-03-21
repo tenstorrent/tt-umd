@@ -51,6 +51,7 @@ protected:
     std::unordered_map<chip_id_t, tt::ARCH> chip_arch = {};
     std::map<ChipUID, chip_id_t> chip_uid_to_chip_id = {};
     std::map<chip_id_t, ChipUID> chip_id_to_chip_uid = {};
+    std::unordered_map<chip_id_t, uint64_t> chip_unique_ids = {};
     std::map<chip_id_t, std::set<uint32_t>> active_eth_channels = {};
     std::map<chip_id_t, std::set<uint32_t>> idle_eth_channels = {};
 
@@ -110,6 +111,7 @@ public:
     const std::unordered_map<chip_id_t, std::uint32_t> &get_harvesting_info() const;
     const std::unordered_map<chip_id_t, bool> &get_noc_translation_table_en() const;
     const std::unordered_map<chip_id_t, eth_coord_t> &get_chip_locations() const;
+    const std::unordered_map<chip_id_t, uint64_t> &get_chip_unique_ids() const;
     const std::
         unordered_map<chip_id_t, std::unordered_map<ethernet_channel_t, std::tuple<chip_id_t, ethernet_channel_t>>>
         get_ethernet_connections() const;

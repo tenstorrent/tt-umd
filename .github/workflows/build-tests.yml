@@ -14,6 +14,10 @@ on:
       timeout:
         required: true
         type: number
+      build-type:
+        required: false
+        type: string
+        default: Release
   workflow_dispatch:
     inputs:
       arch:
@@ -67,7 +71,8 @@ jobs:
       - name: Build ${{ env.BUILD_TARGETS }}
         run: |
           echo "Compiling the code..."
-          cmake -B ${{ env.BUILD_OUTPUT_DIR }} -G Ninja -DTT_UMD_BUILD_TESTS=ON
+          cmake -B ${{ env.BUILD_OUTPUT_DIR }} -G Ninja -DTT_UMD_BUILD_TESTS=ON \
+            -DCMAKE_BUILD_TYPE=${{ inputs.build-type || 'Release' }}
           cmake --build ${{ env.BUILD_OUTPUT_DIR }} --target ${{ env.BUILD_TARGETS }}
           echo "Compile complete."
 

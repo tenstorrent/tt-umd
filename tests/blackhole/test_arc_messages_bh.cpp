@@ -66,7 +66,7 @@ TEST(BlackholeArcMessages, MultipleThreadsArcMessages) {
     for (uint32_t chip_id : cluster->get_target_mmio_device_ids()) {
         TTDevice* tt_device = cluster->get_tt_device(chip_id);
 
-        std::thread thread0([tt_device, harvesting_mask_cluster_desc]() {
+        std::thread thread0([&]() {
             std::unique_ptr<ArcMessenger> arc_messenger = ArcMessenger::create_arc_messenger(tt_device);
 
             for (uint32_t loop = 0; loop < num_loops; loop++) {
@@ -75,7 +75,7 @@ TEST(BlackholeArcMessages, MultipleThreadsArcMessages) {
             }
         });
 
-        std::thread thread1([tt_device, harvesting_mask_cluster_desc]() {
+        std::thread thread1([&]() {
             std::unique_ptr<ArcMessenger> arc_messenger = ArcMessenger::create_arc_messenger(tt_device);
 
             for (uint32_t loop = 0; loop < num_loops; loop++) {

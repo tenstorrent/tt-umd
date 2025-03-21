@@ -80,7 +80,7 @@ TEST(WormholeArcMessages, MultipleThreadsArcMessages) {
 
         uint32_t harvesting_mask_cluster_desc = cluster->get_cluster_description()->get_harvesting_info().at(chip_id);
 
-        std::thread thread0([tt_device, harvesting_mask_cluster_desc]() {
+        std::thread thread0([&]() {
             std::unique_ptr<ArcMessenger> arc_messenger = ArcMessenger::create_arc_messenger(tt_device);
 
             for (uint32_t loop = 0; loop < num_loops; loop++) {
@@ -96,7 +96,7 @@ TEST(WormholeArcMessages, MultipleThreadsArcMessages) {
             }
         });
 
-        std::thread thread1([tt_device, harvesting_mask_cluster_desc]() {
+        std::thread thread1([&]() {
             std::unique_ptr<ArcMessenger> arc_messenger = ArcMessenger::create_arc_messenger(tt_device);
 
             for (uint32_t loop = 0; loop < num_loops; loop++) {

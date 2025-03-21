@@ -57,3 +57,34 @@ TEST(BlackholeArcMessages, BlackholeArcMessageHigherAIClock) {
         EXPECT_EQ(aiclk, blackhole::AICLK_IDLE_VAL);
     }
 }
+
+TEST(BlackholeArcMessages, MultipleThreadsArcMessages) {
+    std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
+
+    const uint32_t num_loops = 1000;
+
+    for (uint32_t chip_id : cluster->get_target_mmio_device_ids()) {
+        TTDevice* tt_device = cluster->get_tt_device(chip_id);
+
+        std::thread thread0([tt_device, harvesting_mask_cluster_desc]() {
+            std::unique_ptr<ArcMessenger> arc_messenger = ArcMessenger::create_arc_messenger(tt_device);
+
+            for (uint32_t loop = 0; loop < num_loops; loop++) {
+                uint32_t response = arc_messenger->send_message((uint32_t)blackhole::ArcMessageType::TEST);
+                ASSERT_EQ(response, 0);
+            }
+        });
+
+        std::thread thread1([tt_device, harvesting_mask_cluster_desc]() {
+            std::unique_ptr<ArcMessenger> arc_messenger = ArcMessenger::create_arc_messenger(tt_device);
+
+            for (uint32_t loop = 0; loop < num_loops; loop++) {
+                uint32_t response = arc_messenger->send_message((uint32_t)blackhole::ArcMessageType::TEST);
+                ASSERT_EQ(response, 0);
+            }
+        });
+
+        thread0.join();
+        thread1.join();
+    }
+}

@@ -959,6 +959,14 @@ std::string tt_ClusterDescriptor::serialize() const {
     out << YAML::EndMap;
 
     // Section: ethernet_connections
+    out << YAML::Key << "chips" << YAML::Value << YAML::BeginMap;
+    for (const auto &[chip_id, chip_location] : chip_locations) {
+        out << YAML::Key << chip_id << YAML::Value << YAML::BeginSeq << chip_location.x << chip_location.y
+            << chip_location.rack << chip_location.shelf << YAML::EndSeq;
+    }
+    out << YAML::EndMap;
+
+    // Section: ethernet_connections
     out << YAML::Key << "ethernet_connections" << YAML::Value << YAML::BeginSeq;
     std::set<std::pair<chip_id_t, int>> serialized_connections;
     for (const auto &[src_chip, channels] : ethernet_connections) {
@@ -1013,7 +1021,7 @@ std::filesystem::path tt_ClusterDescriptor::serialize_to_file() const {
     std::filesystem::path temp_path = std::filesystem::temp_directory_path();
     std::string cluster_path_dir_template = temp_path / "umd_XXXXXX";
     std::filesystem::path cluster_path_dir = mkdtemp(cluster_path_dir_template.data());
-    std::filesystem::path cluster_path = cluster_path_dir / "cluster_descriptor.yaml";
+    std::filesystem::path cluster_path = "cluster_descriptor.yaml";
     std::ofstream file(cluster_path);
     file << serialize();
     file.close();

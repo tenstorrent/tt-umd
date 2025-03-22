@@ -46,7 +46,7 @@ if(MASTER_PROJECT)
         set(CMAKE_BUILD_TYPE "Release" CACHE STRING "Release build is the default" FORCE)
     endif()
 
-    include(sanitizer_options)
+    include(sanitizers)
 endif()
 
 message(STATUS "UMD build type: ${CMAKE_BUILD_TYPE}")

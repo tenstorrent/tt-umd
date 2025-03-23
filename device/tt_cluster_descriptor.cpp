@@ -443,11 +443,20 @@ std::unique_ptr<tt_ClusterDescriptor> tt_ClusterDescriptor::create_from_yaml(
     return desc;
 }
 
+// foo
+// bar
+// baz
+
 std::unique_ptr<tt_ClusterDescriptor> tt_ClusterDescriptor::create() {
-    auto desc = tt_ClusterDescriptor::get_cluster_descriptor_file_path();
+    // empty
+    std::string desc;
+    // fill it
+    desc = tt_ClusterDescriptor::get_cluster_descriptor_file_path();
+    // check it
     if (desc.empty()) {
         return nullptr;
     }
+    // send it
     return tt_ClusterDescriptor::create_from_yaml(desc);
 }
 

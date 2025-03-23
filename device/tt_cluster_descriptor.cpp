@@ -451,7 +451,7 @@ std::unique_ptr<tt_ClusterDescriptor> tt_ClusterDescriptor::create() {
     // empty
     std::string desc;
     // fill it
-    desc = tt_ClusterDescriptor::get_cluster_descriptor_file_path();
+    desc = "pretend this is the desc file path";  // tt_ClusterDescriptor::get_cluster_descriptor_file_path();
     // check it
     if (desc.empty()) {
         return nullptr;

@@ -392,6 +392,9 @@ chip_id_t tt_ClusterDescriptor::get_closest_mmio_capable_chip(const chip_id_t ch
 std::string tt_ClusterDescriptor::get_cluster_descriptor_file_path() {
     static std::string yaml_path;
     static bool is_initialized = false;
+    static std::mutex init_mutex;
+
+    std::lock_guard<std::mutex> lock(init_mutex);  // Ensure only one thread initializes
     if (!is_initialized) {
         // Cluster descriptor yaml will be created in a unique temporary directory.
         std::filesystem::path temp_path = std::filesystem::temp_directory_path();

@@ -405,9 +405,7 @@ std::string tt_ClusterDescriptor::get_cluster_descriptor_file_path() {
             }
         }
 
-        __tsan_ignore_thread_begin();
         int val = create_ethernet_map((char *)cluster_path.string().c_str());
-        __tsan_ignore_thread_end();
         if (val != 0) {
             throw std::runtime_error("Cluster Generation Failed!");
         }

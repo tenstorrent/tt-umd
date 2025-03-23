@@ -390,11 +390,12 @@ chip_id_t tt_ClusterDescriptor::get_closest_mmio_capable_chip(const chip_id_t ch
 }
 
 std::string tt_ClusterDescriptor::get_cluster_descriptor_file_path() {
+    static std::mutex init_mutex;
+    std::lock_guard<std::mutex> lock(init_mutex);  // Ensure only one thread initializes
+
     static std::string yaml_path;
     static bool is_initialized = false;
-    static std::mutex init_mutex;
 
-    std::lock_guard<std::mutex> lock(init_mutex);  // Ensure only one thread initializes
     if (!is_initialized) {
         // Cluster descriptor yaml will be created in a unique temporary directory.
         std::filesystem::path temp_path = std::filesystem::temp_directory_path();
@@ -443,7 +444,11 @@ std::unique_ptr<tt_ClusterDescriptor> tt_ClusterDescriptor::create_from_yaml(
 }
 
 std::unique_ptr<tt_ClusterDescriptor> tt_ClusterDescriptor::create() {
-    return tt_ClusterDescriptor::create_from_yaml(tt_ClusterDescriptor::get_cluster_descriptor_file_path());
+    auto desc = tt_ClusterDescriptor::get_cluster_descriptor_file_path();
+    if (desc.empty()) {
+        return nullptr;
+    }
+    return tt_ClusterDescriptor::create_from_yaml(desc);
 }
 
 std::unique_ptr<tt_ClusterDescriptor> tt_ClusterDescriptor::create_mock_cluster(

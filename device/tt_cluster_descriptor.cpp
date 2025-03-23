@@ -416,7 +416,7 @@ std::string tt_ClusterDescriptor::get_cluster_descriptor_file_path() {
 }
 
 std::unique_ptr<tt_ClusterDescriptor> tt_ClusterDescriptor::create_from_yaml(
-    const std::string &cluster_descriptor_file_path) {
+    const std::string &cluster_descriptor_file_path) __attribute__((no_sanitize("thread"))) {
     std::unique_ptr<tt_ClusterDescriptor> desc = std::unique_ptr<tt_ClusterDescriptor>(new tt_ClusterDescriptor());
 
     std::ifstream fdesc(cluster_descriptor_file_path);
@@ -439,7 +439,7 @@ std::unique_ptr<tt_ClusterDescriptor> tt_ClusterDescriptor::create_from_yaml(
     return desc;
 }
 
-std::unique_ptr<tt_ClusterDescriptor> tt_ClusterDescriptor::create() {
+std::unique_ptr<tt_ClusterDescriptor> tt_ClusterDescriptor::create() __attribute__((no_sanitize("thread"))) {
     return tt_ClusterDescriptor::create_from_yaml(tt_ClusterDescriptor::get_cluster_descriptor_file_path());
 }
 

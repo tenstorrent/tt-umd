@@ -449,3 +449,65 @@ TEST(SocDescriptor, BoardBasedPCIE) {
             .size(),
         2);
 }
+
+TEST(SocDescriptor, WormholeNOC1Cores) {
+    const size_t max_num_harvested_y = 10;
+
+    for (size_t harvesting_mask = 0; harvesting_mask < (1 << max_num_harvested_y); harvesting_mask++) {
+        HarvestingMasks harvesting_masks = {.tensix_harvesting_mask = harvesting_mask};
+
+        tt_SocDescriptor soc_desc_yaml(
+            test_utils::GetAbsPath("tests/soc_descs/wormhole_b0_8x10.yaml"), true, harvesting_masks);
+
+        tt_SocDescriptor soc_desc_arch(tt::ARCH::WORMHOLE_B0, true, harvesting_masks);
+
+        const std::vector<CoreCoord> tensix_cores_noc1_yaml =
+            soc_desc_yaml.get_cores(CoreType::TENSIX, CoordSystem::NOC1);
+        const std::vector<CoreCoord> tensix_cores_noc1_arch =
+            soc_desc_arch.get_cores(CoreType::TENSIX, CoordSystem::NOC1);
+
+        EXPECT_EQ(tensix_cores_noc1_yaml.size(), tensix_cores_noc1_arch.size());
+
+        EXPECT_EQ(
+            tensix_cores_noc1_yaml.size(),
+            tt::umd::wormhole::TENSIX_GRID_SIZE.x *
+                (tt::umd::wormhole::TENSIX_GRID_SIZE.y - CoordinateManager::get_num_harvested(harvesting_mask)));
+
+        for (size_t i = 0; i < tensix_cores_noc1_yaml.size(); i++) {
+            EXPECT_EQ(tensix_cores_noc1_yaml[i], tensix_cores_noc1_arch[i]);
+        }
+    }
+}
+
+TEST(SocDescriptor, BlackholeNOC1Cores) {
+    const size_t max_num_harvested_x = 14;
+
+    for (size_t harvesting_mask = 0; harvesting_mask < (1 << max_num_harvested_x); harvesting_mask++) {
+        if (CoordinateManager::get_num_harvested(harvesting_mask) > 2) {
+            continue;
+        }
+
+        HarvestingMasks harvesting_masks = {.tensix_harvesting_mask = harvesting_mask};
+
+        tt_SocDescriptor soc_desc_yaml(
+            test_utils::GetAbsPath("tests/soc_descs/blackhole_140_arch.yaml"), true, harvesting_masks);
+
+        tt_SocDescriptor soc_desc_arch(tt::ARCH::BLACKHOLE, true, harvesting_masks);
+
+        const std::vector<CoreCoord> tensix_cores_noc1_yaml =
+            soc_desc_yaml.get_cores(CoreType::TENSIX, CoordSystem::NOC1);
+        const std::vector<CoreCoord> tensix_cores_noc1_arch =
+            soc_desc_arch.get_cores(CoreType::TENSIX, CoordSystem::NOC1);
+
+        EXPECT_EQ(tensix_cores_noc1_yaml.size(), tensix_cores_noc1_arch.size());
+
+        EXPECT_EQ(
+            tensix_cores_noc1_yaml.size(),
+            tt::umd::blackhole::TENSIX_GRID_SIZE.y *
+                (tt::umd::blackhole::TENSIX_GRID_SIZE.x - CoordinateManager::get_num_harvested(harvesting_mask)));
+
+        for (size_t i = 0; i < tensix_cores_noc1_yaml.size(); i++) {
+            EXPECT_EQ(tensix_cores_noc1_yaml[i], tensix_cores_noc1_arch[i]);
+        }
+    }
+}

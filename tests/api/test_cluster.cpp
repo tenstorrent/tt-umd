@@ -362,15 +362,19 @@ TEST(TestCluster, TestClusterNocId) {
         noc_node_id_reg_addr = tt::umd::blackhole::NOC_CONTROL_REG_ADDR_BASE + tt::umd::blackhole::NOC_NODE_ID_OFFSET;
     }
 
-    auto check_noc_id_cores = [noc_node_id_reg_addr](
-                                  std::unique_ptr<Cluster>& cluster, chip_id_t chip, CoreType core_type) {
+    auto read_noc_id_reg = [noc_node_id_reg_addr](std::unique_ptr<Cluster>& cluster, chip_id_t chip, CoreCoord core) {
+        uint32_t noc_node_id_val;
+        cluster->read_from_device(
+            &noc_node_id_val, chip, core, noc_node_id_reg_addr, sizeof(noc_node_id_val), "REG_TLB");
+        uint32_t x = noc_node_id_val & 0x3F;
+        uint32_t y = (noc_node_id_val >> 6) & 0x3F;
+        return tt_xy_pair(x, y);
+    };
+
+    auto check_noc_id_cores = [read_noc_id_reg](std::unique_ptr<Cluster>& cluster, chip_id_t chip, CoreType core_type) {
         const std::vector<CoreCoord>& cores = cluster->get_soc_descriptor(chip).get_cores(core_type);
         for (const CoreCoord& core : cores) {
-            uint32_t noc_node_id_val;
-            cluster->read_from_device(
-                &noc_node_id_val, chip, core, noc_node_id_reg_addr, sizeof(noc_node_id_val), "REG_TLB");
-            uint32_t x = noc_node_id_val & 0x3F;
-            uint32_t y = (noc_node_id_val >> 6) & 0x3F;
+            const auto [x, y] = read_noc_id_reg(cluster, chip, core);
             CoreCoord translated_coord =
                 cluster->get_soc_descriptor(chip).translate_coord_to(core, CoordSystem::TRANSLATED);
             EXPECT_EQ(translated_coord.x, x);
@@ -378,15 +382,11 @@ TEST(TestCluster, TestClusterNocId) {
         }
     };
 
-    auto check_noc_id_harvested_cores = [noc_node_id_reg_addr](
+    auto check_noc_id_harvested_cores = [read_noc_id_reg](
                                             std::unique_ptr<Cluster>& cluster, chip_id_t chip, CoreType core_type) {
         const std::vector<CoreCoord>& cores = cluster->get_soc_descriptor(chip).get_harvested_cores(core_type);
         for (const CoreCoord& core : cores) {
-            uint32_t noc_node_id_val;
-            cluster->read_from_device(
-                &noc_node_id_val, chip, core, noc_node_id_reg_addr, sizeof(noc_node_id_val), "REG_TLB");
-            uint32_t x = noc_node_id_val & 0x3F;
-            uint32_t y = (noc_node_id_val >> 6) & 0x3F;
+            const auto [x, y] = read_noc_id_reg(cluster, chip, core);
             CoreCoord translated_coord =
                 cluster->get_soc_descriptor(chip).translate_coord_to(core, CoordSystem::TRANSLATED);
             EXPECT_EQ(translated_coord.x, x);

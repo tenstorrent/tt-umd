@@ -70,10 +70,11 @@ protected:
 
     std::shared_ptr<boost::interprocess::named_mutex> arc_msg_mutex = nullptr;
 
-    static constexpr char MUTEX_NAME[] = "ARC_MSG";
+    static constexpr std::string_view MUTEX_NAME = "TT_ARC_MSG";
 
 private:
     void initialize_arc_msg_mutex();
     void clean_arc_msg_mutex();
 };
+
 }  // namespace tt::umd

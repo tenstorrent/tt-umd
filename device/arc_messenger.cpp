@@ -41,14 +41,15 @@ uint32_t ArcMessenger::send_message(const uint32_t msg_code, uint16_t arg0, uint
 void ArcMessenger::initialize_arc_msg_mutex() {
     permissions unrestricted_permissions;
     unrestricted_permissions.set_unrestricted();
-    std::string mutex_name = ArcMessenger::MUTEX_NAME + std::to_string(tt_device->get_pci_device()->get_device_num());
+    std::string mutex_name =
+        std::string(ArcMessenger::MUTEX_NAME) + std::to_string(tt_device->get_pci_device()->get_device_num());
     arc_msg_mutex = std::make_shared<named_mutex>(open_or_create, mutex_name.c_str(), unrestricted_permissions);
 }
 
 void ArcMessenger::clean_arc_msg_mutex() {
-    std::string mutex_name = ArcMessenger::MUTEX_NAME + std::to_string(tt_device->get_pci_device()->get_device_num());
+    std::string mutex_name =
+        std::string(ArcMessenger::MUTEX_NAME) + std::to_string(tt_device->get_pci_device()->get_device_num());
     arc_msg_mutex.reset();
-    arc_msg_mutex = nullptr;
     named_mutex::remove(mutex_name.c_str());
 }
 

@@ -6,9 +6,14 @@
 
 #pragma once
 
+#include <memory>
 #include <vector>
 
-#include "umd/device/types/xy_pair.h"
+#include "umd/device/tt_xy_pair.h"
+
+namespace boost::interprocess {
+class named_mutex;
+}
 
 static inline std::vector<tt_xy_pair> flatten_vector(const std::vector<std::vector<tt_xy_pair>>& vector_of_vectors) {
     std::vector<tt_xy_pair> flat_vector;
@@ -17,3 +22,8 @@ static inline std::vector<tt_xy_pair> flatten_vector(const std::vector<std::vect
     }
     return flat_vector;
 }
+
+std::shared_ptr<boost::interprocess::named_mutex> initialize_mutex(
+    const std::string& mutex_name, const bool clear_mutex);
+
+void clear_mutex(const std::string& mutex_name);

@@ -10,6 +10,7 @@
 
 #include "umd/device/blackhole_arc_messenger.h"
 #include "umd/device/tt_device/tt_device.h"
+#include "umd/device/umd_utils.h"
 #include "umd/device/wormhole_arc_messenger.h"
 
 using namespace boost::interprocess;
@@ -39,18 +40,13 @@ uint32_t ArcMessenger::send_message(const uint32_t msg_code, uint16_t arg0, uint
 }
 
 void ArcMessenger::initialize_arc_msg_mutex() {
-    permissions unrestricted_permissions;
-    unrestricted_permissions.set_unrestricted();
-    std::string mutex_name =
-        std::string(ArcMessenger::MUTEX_NAME) + std::to_string(tt_device->get_pci_device()->get_device_num());
-    arc_msg_mutex = std::make_shared<named_mutex>(open_or_create, mutex_name.c_str(), unrestricted_permissions);
+    arc_msg_mutex = initialize_mutex(
+        std::string(ArcMessenger::MUTEX_NAME) + std::to_string(tt_device->get_pci_device()->get_device_num()), false);
 }
 
 void ArcMessenger::clean_arc_msg_mutex() {
-    std::string mutex_name =
-        std::string(ArcMessenger::MUTEX_NAME) + std::to_string(tt_device->get_pci_device()->get_device_num());
     arc_msg_mutex.reset();
-    named_mutex::remove(mutex_name.c_str());
+    clear_mutex(std::string(ArcMessenger::MUTEX_NAME) + std::to_string(tt_device->get_pci_device()->get_device_num()));
 }
 
 ArcMessenger::~ArcMessenger() { clean_arc_msg_mutex(); }

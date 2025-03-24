@@ -476,6 +476,21 @@ TEST(SocDescriptor, WormholeNOC1Cores) {
         for (size_t i = 0; i < tensix_cores_noc1_yaml.size(); i++) {
             EXPECT_EQ(tensix_cores_noc1_yaml[i], tensix_cores_noc1_arch[i]);
         }
+
+        size_t core_coord_index = 0;
+        for (size_t y = 0; y < tt::umd::wormhole::TENSIX_GRID_SIZE.y; y++) {
+            if (harvesting_masks.tensix_harvesting_mask & (1 << y)) {
+                continue;
+            }
+
+            for (size_t x = 0; x < tt::umd::wormhole::TENSIX_GRID_SIZE.x; x++) {
+                const tt_xy_pair noc1_pair =
+                    tt::umd::wormhole::TENSIX_CORES_NOC1[y * tt::umd::wormhole::TENSIX_GRID_SIZE.x + x];
+                EXPECT_EQ(tensix_cores_noc1_yaml[core_coord_index].x, noc1_pair.x);
+                EXPECT_EQ(tensix_cores_noc1_yaml[core_coord_index].y, noc1_pair.y);
+                core_coord_index++;
+            }
+        }
     }
 }
 
@@ -508,6 +523,23 @@ TEST(SocDescriptor, BlackholeNOC1Cores) {
 
         for (size_t i = 0; i < tensix_cores_noc1_yaml.size(); i++) {
             EXPECT_EQ(tensix_cores_noc1_yaml[i], tensix_cores_noc1_arch[i]);
+        }
+
+        size_t core_coord_index_start = 0;
+        for (size_t x = 0; x < tt::umd::blackhole::TENSIX_GRID_SIZE.x; x++) {
+            if (harvesting_masks.tensix_harvesting_mask & (1 << x)) {
+                continue;
+            }
+            size_t core_coord_index = core_coord_index_start;
+            for (size_t y = 0; y < tt::umd::blackhole::TENSIX_GRID_SIZE.y; y++) {
+                const tt_xy_pair noc1_pair =
+                    tt::umd::blackhole::TENSIX_CORES_NOC1[y * tt::umd::blackhole::TENSIX_GRID_SIZE.x + x];
+                EXPECT_EQ(tensix_cores_noc1_yaml[core_coord_index].x, noc1_pair.x);
+                EXPECT_EQ(tensix_cores_noc1_yaml[core_coord_index].y, noc1_pair.y);
+                core_coord_index +=
+                    tt::umd::blackhole::TENSIX_GRID_SIZE.x - CoordinateManager::get_num_harvested(harvesting_mask);
+            }
+            core_coord_index_start++;
         }
     }
 }

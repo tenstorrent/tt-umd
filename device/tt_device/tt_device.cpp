@@ -392,14 +392,13 @@ uint32_t TTDevice::get_clock() {
 void TTDevice::initialize_tt_device_mutex() {
     permissions unrestricted_permissions;
     unrestricted_permissions.set_unrestricted();
-    std::string mutex_name = TTDevice::MUTEX_NAME + std::to_string(get_pci_device()->get_device_num());
+    std::string mutex_name = std::string(TTDevice::MUTEX_NAME) + std::to_string(get_pci_device()->get_device_num());
     read_write_mutex = std::make_shared<named_mutex>(open_or_create, mutex_name.c_str(), unrestricted_permissions);
 }
 
 void TTDevice::clean_tt_device_mutex() {
-    std::string mutex_name = TTDevice::MUTEX_NAME + std::to_string(get_pci_device()->get_device_num());
+    std::string mutex_name = std::string(TTDevice::MUTEX_NAME) + std::to_string(get_pci_device()->get_device_num());
     read_write_mutex.reset();
-    read_write_mutex = nullptr;
     named_mutex::remove(mutex_name.c_str());
 }
 

@@ -5,9 +5,14 @@
  */
 #include "umd/device/wormhole_arc_messenger.h"
 
+#include <boost/interprocess/sync/named_mutex.hpp>
+#include <boost/interprocess/sync/scoped_lock.hpp>
+
 #include "logger.hpp"
 #include "umd/device/tt_device/tt_device.h"
 #include "umd/device/wormhole_implementation.h"
+
+using namespace boost::interprocess;
 
 namespace tt::umd {
 
@@ -21,6 +26,8 @@ uint32_t WormholeArcMessenger::send_message(
     }
 
     log_assert(arg0 <= 0xffff and arg1 <= 0xffff, "Only 16 bits allowed in arc_msg args");
+
+    const scoped_lock<named_mutex> lock(*arc_msg_mutex);
 
     auto architecture_implementation = tt_device->get_architecture_implementation();
 

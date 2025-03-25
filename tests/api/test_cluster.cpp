@@ -14,10 +14,12 @@
 #include "fmt/xchar.h"
 #include "l1_address_map.h"
 #include "tests/test_utils/generate_cluster_desc.hpp"
+#include "umd/device/blackhole_implementation.h"
 #include "umd/device/chip/local_chip.h"
 #include "umd/device/chip/mock_chip.h"
 #include "umd/device/cluster.h"
 #include "umd/device/tt_cluster_descriptor.h"
+#include "umd/device/wormhole_implementation.h"
 
 // TODO: obviously we need some other way to set this up
 #include "noc/noc_parameters.h"
@@ -333,5 +335,82 @@ TEST(TestCluster, TestClusterLogicalETHChannelsConnectivity) {
             EXPECT_TRUE(channel < num_channels_local_chip);
             EXPECT_TRUE(remote_channel < num_channels_remote_chip);
         }
+    }
+}
+
+TEST(TestCluster, TestClusterNocId) {
+    std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
+
+    // Setup memory barrier addresses.
+    // Some default values are set during construction of UMD, but you can override them.
+    cluster->set_barrier_address_params({L1_BARRIER_BASE, ETH_BARRIER_BASE, DRAM_BARRIER_BASE});
+
+    tt::ARCH arch = cluster->get_cluster_description()->get_arch(0);
+
+    // All chips in the cluster have the same noc_translation_enabled value.
+    bool noc_translation_enabled = cluster->get_cluster_description()->get_noc_translation_table_en().at(0);
+
+    uint64_t noc_node_id_reg_addr = 0;
+    if (arch == tt::ARCH::WORMHOLE_B0) {
+        if (noc_translation_enabled) {
+            noc_node_id_reg_addr = tt::umd::wormhole::NOC_CONTROL_REG_ADDR_BASE + tt::umd::wormhole::NOC_CFG_OFFSET +
+                                   tt::umd::wormhole::NOC_REG_WORD_SIZE * tt::umd::wormhole::NOC_CFG_NOC_ID_LOGICAL;
+        } else {
+            noc_node_id_reg_addr = tt::umd::wormhole::NOC_CONTROL_REG_ADDR_BASE + tt::umd::wormhole::NOC_NODE_ID_OFFSET;
+        }
+    } else if (arch == tt::ARCH::BLACKHOLE) {
+        noc_node_id_reg_addr = tt::umd::blackhole::NOC_CONTROL_REG_ADDR_BASE + tt::umd::blackhole::NOC_NODE_ID_OFFSET;
+    }
+
+    auto read_noc_id_reg = [noc_node_id_reg_addr](std::unique_ptr<Cluster>& cluster, chip_id_t chip, CoreCoord core) {
+        uint32_t noc_node_id_val;
+        cluster->read_from_device(
+            &noc_node_id_val, chip, core, noc_node_id_reg_addr, sizeof(noc_node_id_val), "REG_TLB");
+        uint32_t x = noc_node_id_val & 0x3F;
+        uint32_t y = (noc_node_id_val >> 6) & 0x3F;
+        return tt_xy_pair(x, y);
+    };
+
+    auto check_noc_id_cores = [read_noc_id_reg](std::unique_ptr<Cluster>& cluster, chip_id_t chip, CoreType core_type) {
+        const std::vector<CoreCoord>& cores = cluster->get_soc_descriptor(chip).get_cores(core_type);
+        for (const CoreCoord& core : cores) {
+            const auto [x, y] = read_noc_id_reg(cluster, chip, core);
+            CoreCoord translated_coord =
+                cluster->get_soc_descriptor(chip).translate_coord_to(core, CoordSystem::TRANSLATED);
+            EXPECT_EQ(translated_coord.x, x);
+            EXPECT_EQ(translated_coord.y, y);
+        }
+    };
+
+    auto check_noc_id_harvested_cores = [read_noc_id_reg](
+                                            std::unique_ptr<Cluster>& cluster, chip_id_t chip, CoreType core_type) {
+        const std::vector<CoreCoord>& cores = cluster->get_soc_descriptor(chip).get_harvested_cores(core_type);
+        for (const CoreCoord& core : cores) {
+            const auto [x, y] = read_noc_id_reg(cluster, chip, core);
+            CoreCoord translated_coord =
+                cluster->get_soc_descriptor(chip).translate_coord_to(core, CoordSystem::TRANSLATED);
+            EXPECT_EQ(translated_coord.x, x);
+            EXPECT_EQ(translated_coord.y, y);
+        }
+    };
+
+    for (chip_id_t chip : cluster->get_target_device_ids()) {
+        check_noc_id_cores(cluster, chip, CoreType::TENSIX);
+        check_noc_id_harvested_cores(cluster, chip, CoreType::TENSIX);
+
+        check_noc_id_cores(cluster, chip, CoreType::ETH);
+        check_noc_id_harvested_cores(cluster, chip, CoreType::ETH);
+
+        // TODO: figure out how to read this information on Wormhole.
+        if (arch == tt::ARCH::BLACKHOLE) {
+            check_noc_id_cores(cluster, chip, CoreType::DRAM);
+            check_noc_id_harvested_cores(cluster, chip, CoreType::DRAM);
+        }
+
+        // TODO: figure out how to read this information on WH and BH.
+        // check_noc_id_cores(cluster, chip, CoreType::ARC);
+
+        // TODO: figure out why this hangs the chip both on WH and BH.
+        // check_noc_id_cores(cluster, chip, CoreType::PCIE);
     }
 }

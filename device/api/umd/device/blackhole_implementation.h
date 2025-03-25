@@ -80,19 +80,6 @@ const static std::vector<tt_xy_pair> TENSIX_CORES_NOC0 = {
     {1, 10}, {2, 10}, {3, 10}, {4, 10}, {5, 10}, {6, 10}, {7, 10}, {10, 10}, {11, 10}, {12, 10}, {13, 10}, {14, 10}, {15, 10}, {16, 10},
     {1, 11}, {2, 11}, {3, 11}, {4, 11}, {5, 11}, {6, 11}, {7, 11}, {10, 11}, {11, 11}, {12, 11}, {13, 11}, {14, 11}, {15, 11}, {16, 11},
 };
-
-const static std::vector<tt_xy_pair> TENSIX_CORES_NOC1 = {
-    {15, 9}, {14, 9}, {13, 9}, {12, 9}, {11, 9}, {10, 9}, {9, 9}, {6, 9}, {5, 9}, {4, 9}, {3, 9}, {2, 9}, {1, 9}, {0, 9},
-    {15, 8}, {14, 8}, {13, 8}, {12, 8}, {11, 8}, {10, 8}, {9, 8}, {6, 8}, {5, 8}, {4, 8}, {3, 8}, {2, 8}, {1, 8}, {0, 8},
-    {15, 7}, {14, 7}, {13, 7}, {12, 7}, {11, 7}, {10, 7}, {9, 7}, {6, 7}, {5, 7}, {4, 7}, {3, 7}, {2, 7}, {1, 7}, {0, 7},
-    {15, 6}, {14, 6}, {13, 6}, {12, 6}, {11, 6}, {10, 6}, {9, 6}, {6, 6}, {5, 6}, {4, 6}, {3, 6}, {2, 6}, {1, 6}, {0, 6},
-    {15, 5}, {14, 5}, {13, 5}, {12, 5}, {11, 5}, {10, 5}, {9, 5}, {6, 5}, {5, 5}, {4, 5}, {3, 5}, {2, 5}, {1, 5}, {0, 5},
-    {15, 4}, {14, 4}, {13, 4}, {12, 4}, {11, 4}, {10, 4}, {9, 4}, {6, 4}, {5, 4}, {4, 4}, {3, 4}, {2, 4}, {1, 4}, {0, 4},
-    {15, 3}, {14, 3}, {13, 3}, {12, 3}, {11, 3}, {10, 3}, {9, 3}, {6, 3}, {5, 3}, {4, 3}, {3, 3}, {2, 3}, {1, 3}, {0, 3},
-    {15, 2}, {14, 2}, {13, 2}, {12, 2}, {11, 2}, {10, 2}, {9, 2}, {6, 2}, {5, 2}, {4, 2}, {3, 2}, {2, 2}, {1, 2}, {0, 2},
-    {15, 1}, {14, 1}, {13, 1}, {12, 1}, {11, 1}, {10, 1}, {9, 1}, {6, 1}, {5, 1}, {4, 1}, {3, 1}, {2, 1}, {1, 1}, {0, 1},
-    {15, 0}, {14, 0}, {13, 0}, {12, 0}, {11, 0}, {10, 0}, {9, 0}, {6, 0}, {5, 0}, {4, 0}, {3, 0}, {2, 0}, {1, 0}, {0, 0}
-};
 // clang-format on
 
 const std::size_t NUM_DRAM_BANKS = 8;
@@ -108,16 +95,6 @@ static const std::vector<std::vector<tt_xy_pair>> DRAM_CORES_NOC0 = {
     {{9, 2}, {9, 10},  {9, 3}},
     {{9, 9},  {9, 4},  {9, 8}},
     {{9, 5},  {9, 7},  {9, 6}}};
-
-static const std::vector<std::vector<tt_xy_pair>> DRAM_CORES_NOC1 = {
-    {{16, 11}, {16, 10}, {16, 0}},
-    { {16, 9},  {16, 1}, {16, 8}},
-    { {16, 2},  {16, 7}, {16, 3}},
-    { {16, 6},  {16, 4}, {16, 5}},
-    { {7, 11},  {7, 10},  {7, 0}},
-    {  {7, 9},   {7, 1},  {7, 8}},
-    {  {7, 2},   {7, 7},  {7, 3}},
-    {  {7, 6},   {7, 4},  {7, 5}}};
 // clang-format on
 // TODO: DRAM locations should be deleted. We keep it for compatibility with
 // the existing code in clients which rely on DRAM_LOCATIONS.
@@ -125,7 +102,6 @@ static const std::vector<tt_xy_pair> DRAM_LOCATIONS = flatten_vector(DRAM_CORES_
 
 static const tt_xy_pair ARC_GRID_SIZE = {1, 1};
 static const std::vector<tt_xy_pair> ARC_CORES_NOC0 = {{8, 0}};
-static const std::vector<tt_xy_pair> ARC_CORES_NOC1 = {{8, 11}};
 static const std::vector<tt_xy_pair> ARC_LOCATIONS = ARC_CORES_NOC0;
 
 static const tt_xy_pair PCIE_GRID_SIZE = {1, 1};
@@ -133,17 +109,10 @@ static const std::vector<tt_xy_pair> PCIE_CORES_TYPE2_NOC0 = {{{2, 0}}};
 static const std::vector<tt_xy_pair> PCI_LOCATIONS = PCIE_CORES_TYPE2_NOC0;
 static const std::vector<tt_xy_pair> PCIE_CORES_TYPE1_NOC0 = {{{11, 0}}};
 static const std::vector<tt_xy_pair> PCIE_CORES_NOC0 = {{2, 0}, {11, 0}};
-static const std::vector<tt_xy_pair> PCIE_CORES_TYPE1_NOC1 = {{{5, 11}}};
-static const std::vector<tt_xy_pair> PCIE_CORES_TYPE2_NOC1 = {{{14, 11}}};
-static const std::vector<tt_xy_pair> PCIE_CORES_NOC1 = {{14, 11}, {5, 11}};
 
 static const std::vector<tt_xy_pair> ROUTER_CORES_NOC0 = {
     {1, 0}, {3, 0}, {4, 0}, {5, 0}, {6, 0}, {7, 0}, {10, 0}, {12, 0}, {13, 0}, {14, 0}, {15, 0}, {16, 0},
     {8, 1}, {8, 2}, {8, 3}, {8, 4}, {8, 5}, {8, 6}, {8, 7},  {8, 8},  {8, 9},  {8, 10}, {8, 11}};
-
-static const std::vector<tt_xy_pair> ROUTER_CORES_NOC1 = {
-    {15, 11}, {13, 11}, {12, 11}, {11, 11}, {10, 11}, {9, 11}, {6, 11}, {4, 11}, {3, 11}, {2, 11}, {1, 11}, {0, 11},
-    {8, 10},  {8, 9},   {8, 8},   {8, 7},   {8, 6},   {8, 5},  {8, 4},  {8, 3},  {8, 2},  {8, 1},  {8, 0}};
 
 static const size_t NUM_ETH_CHANNELS = 14;
 static const std::vector<tt_xy_pair> ETH_CORES_NOC0 = {
@@ -161,21 +130,7 @@ static const std::vector<tt_xy_pair> ETH_CORES_NOC0 = {
      {11, 1},
      {7, 1},
      {10, 1}}};
-static const std::vector<tt_xy_pair> ETH_CORES_NOC1 = {
-    {{15, 10},
-     {0, 10},
-     {14, 10},
-     {1, 10},
-     {13, 10},
-     {2, 10},
-     {12, 10},
-     {3, 10},
-     {11, 10},
-     {4, 10},
-     {10, 10},
-     {5, 10},
-     {9, 10},
-     {6, 10}}};
+
 static const std::vector<tt_xy_pair> ETH_LOCATIONS = ETH_CORES_NOC0;
 // Return to std::array instead of std::vector once we get std::span support in C++20
 static const std::vector<uint32_t> T6_X_LOCATIONS = {1, 2, 3, 4, 5, 6, 7, 10, 11, 12, 13, 14, 15, 16};

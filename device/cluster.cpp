@@ -2814,7 +2814,6 @@ void Cluster::enable_remote_ethernet_queue(const chip_id_t& chip, int timeout) {
 }
 
 void Cluster::broadcast_tensix_risc_reset_to_cluster(const TensixSoftResetOptions& soft_resets) {
-
     auto valid = soft_resets & ALL_TENSIX_SOFT_RESET;
     uint32_t valid_val = (std::underlying_type<TensixSoftResetOptions>::type)valid;
     std::set<chip_id_t> chips_to_exclude = {};
@@ -2829,13 +2828,7 @@ void Cluster::broadcast_tensix_risc_reset_to_cluster(const TensixSoftResetOption
     }
     std::string fallback_tlb = "LARGE_WRITE_TLB";
     broadcast_write_to_cluster(
-        &valid_val,
-        sizeof(uint32_t),
-        0xFFB121B0,
-        chips_to_exclude,
-        rows_to_exclude,
-        columns_to_exclude,
-        fallback_tlb);
+        &valid_val, sizeof(uint32_t), 0xFFB121B0, chips_to_exclude, rows_to_exclude, columns_to_exclude, fallback_tlb);
     // Ensure that reset signal is globally visible
     wait_for_non_mmio_flush();
 }

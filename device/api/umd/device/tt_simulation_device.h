@@ -107,7 +107,6 @@ public:
     virtual void configure_active_ethernet_cores_for_mmio_device(
         const std::unordered_set<tt::umd::CoreCoord>& active_eth_cores_per_chip, chip_id_t mmio_chip);
 
-    CoordSystem get_coord_system_used() const;
     tt_xy_pair translate_to_api_coords(const chip_id_t chip, const tt::umd::CoreCoord core_coord) const;
 
 private:

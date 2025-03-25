@@ -125,7 +125,6 @@ public:
     int packer_version;
     int worker_l1_size;
     int eth_l1_size;
-    bool noc_translation_id_enabled;
     uint64_t dram_bank_size;
 
     // Passed through constructor.

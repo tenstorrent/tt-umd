@@ -715,7 +715,7 @@ TEST(SiliconDriverBH, DISABLED_VirtualCoordinateBroadcast) {  // same problem as
     cluster.start_device(default_params);
     auto eth_version = cluster.get_ethernet_fw_version();
     bool virtual_bcast_supported = (eth_version >= tt_version(6, 8, 0) || eth_version == tt_version(6, 7, 241)) &&
-                                   cluster.get_soc_descriptor(*target_devices.begin()).noc_translation_id_enabled;
+                                   cluster.get_soc_descriptor(*target_devices.begin()).noc_translation_enabled;
     if (!virtual_bcast_supported) {
         cluster.close_device();
         GTEST_SKIP() << "SiliconDriverWH.VirtualCoordinateBroadcast skipped since ethernet version does not support "

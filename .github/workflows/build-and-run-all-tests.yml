@@ -36,11 +36,10 @@ jobs:
         # catching bugs and it runs Debug asserts.
         # We run both ASan and TSan build on push events to main since it is a more thorough test.
         # When workflow is requested, only the requested build-type is run, with the default being Release.
-        build-type: ${{ fromJson(github.event_name == 'pull_request' && '["ASan"]' ||
-                                 github.event_name == 'push' && '["ASan", "TSan"]' ||
-                                 github.event_name == 'workflow_dispatch' &&
-                                 '["' + github.event.inputs.build-type + '"]' ||
-                                 '["Release"]') }}
+        build-type: ${{ github.event_name == 'pull_request' && fromJson('["ASan"]') ||
+                        github.event_name == 'push' && fromJson('["ASan", "TSan"]') ||
+                        github.event_name == 'workflow_dispatch' && github.event.inputs.build-type ||
+                        fromJson('["Release"]') }}
     uses: ./.github/workflows/build-tests.yml
     with:
       arch: ${{ matrix.test-group.arch}}

@@ -57,7 +57,9 @@ jobs:
       matrix:
         test-group: [
           {arch: wormhole_b0, card: n150},
+          {arch: wormhole_b0, card: tt-beta-ubuntu-2204-n150-large-stable},
           {arch: wormhole_b0, card: n300},
+          {arch: wormhole_b0, card: tt-beta-ubuntu-2204-n300-large-stable},
           {arch: blackhole, card: p150},
         ]
         ubuntu-version: [

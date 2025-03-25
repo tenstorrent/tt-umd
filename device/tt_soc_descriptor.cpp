@@ -120,7 +120,9 @@ void tt_SocDescriptor::create_coordinate_manager(const BoardType board_type, con
         arc_cores,
         pcie_grid_size,
         pcie_cores,
-        router_cores);
+        router_cores,
+        noc0_x_to_noc1_x,
+        noc0_y_to_noc1_y);
     get_cores_and_grid_size_from_coordinate_manager();
 }
 
@@ -211,6 +213,9 @@ void tt_SocDescriptor::load_core_descriptors_from_soc_desc_info(const SocDescrip
         cores.insert({core_descriptor.coord, core_descriptor});
         router_cores.push_back(core_descriptor.coord);
     }
+
+    noc0_x_to_noc1_x = soc_desc_info.noc0_x_to_noc1_x;
+    noc0_y_to_noc1_y = soc_desc_info.noc0_y_to_noc1_y;
 }
 
 void tt_SocDescriptor::load_soc_features_from_soc_desc_info(const SocDescriptorInfo &soc_desc_info) {
@@ -233,7 +238,9 @@ SocDescriptorInfo tt_SocDescriptor::get_soc_descriptor_info(tt::ARCH arch) {
                 .router_cores = tt::umd::wormhole::ROUTER_CORES_NOC0,
                 .worker_l1_size = tt::umd::wormhole::TENSIX_L1_SIZE,
                 .eth_l1_size = tt::umd::wormhole::ETH_L1_SIZE,
-                .dram_bank_size = tt::umd::wormhole::DRAM_BANK_SIZE};
+                .dram_bank_size = tt::umd::wormhole::DRAM_BANK_SIZE,
+                .noc0_x_to_noc1_x = tt::umd::wormhole::NOC0_X_TO_NOC1_X,
+                .noc0_y_to_noc1_y = tt::umd::wormhole::NOC0_Y_TO_NOC1_Y};
             break;
         }
         case tt::ARCH::BLACKHOLE: {
@@ -248,7 +255,9 @@ SocDescriptorInfo tt_SocDescriptor::get_soc_descriptor_info(tt::ARCH arch) {
                 .router_cores = tt::umd::blackhole::ROUTER_CORES_NOC0,
                 .worker_l1_size = tt::umd::blackhole::TENSIX_L1_SIZE,
                 .eth_l1_size = tt::umd::blackhole::ETH_L1_SIZE,
-                .dram_bank_size = tt::umd::blackhole::DRAM_BANK_SIZE};
+                .dram_bank_size = tt::umd::blackhole::DRAM_BANK_SIZE,
+                .noc0_x_to_noc1_x = tt::umd::blackhole::NOC0_X_TO_NOC1_X,
+                .noc0_y_to_noc1_y = tt::umd::blackhole::NOC0_Y_TO_NOC1_Y};
             break;
         }
         default:
@@ -317,6 +326,10 @@ void tt_SocDescriptor::load_from_yaml(YAML::Node &device_descriptor_yaml) {
         tt_SocDescriptor::convert_to_tt_xy_pair(device_descriptor_yaml["arc"].as<std::vector<std::string>>());
     soc_desc_info.router_cores =
         tt_SocDescriptor::convert_to_tt_xy_pair(device_descriptor_yaml["router_only"].as<std::vector<std::string>>());
+
+    soc_desc_info.noc0_x_to_noc1_x = device_descriptor_yaml["noc0_x_to_noc1_x"].as<std::vector<uint32_t>>();
+    soc_desc_info.noc0_y_to_noc1_y = device_descriptor_yaml["noc0_y_to_noc1_y"].as<std::vector<uint32_t>>();
+
     soc_desc_info.worker_l1_size = device_descriptor_yaml["worker_l1_size"].as<uint32_t>();
     soc_desc_info.eth_l1_size = device_descriptor_yaml["eth_l1_size"].as<uint32_t>();
     soc_desc_info.dram_bank_size = device_descriptor_yaml["dram_bank_size"].as<uint64_t>();

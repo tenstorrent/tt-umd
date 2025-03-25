@@ -455,6 +455,48 @@ TEST(CoordinateManager, CoordinateManagerWormholeTranslationWithoutCoreType) {
 }
 
 TEST(CoordinateManager, CoordinateManagerWormholeNoc1Noc0Mapping) {
+    // clang-format off
+    static const std::vector<tt_xy_pair> TENSIX_CORES_NOC1 = {
+        {8, 10}, {7, 10}, {6, 10}, {5, 10}, {3, 10}, {2, 10}, {1, 10}, {0, 10},
+        {8, 9},   {7, 9},  {6, 9},  {5, 9},  {3, 9},  {2, 9},  {1, 9},  {0, 9},
+        {8, 8},   {7, 8},  {6, 8},  {5, 8},  {3, 8},  {2, 8},  {1, 8},  {0, 8},
+        {8, 7},   {7, 7},  {6, 7},  {5, 7},  {3, 7},  {2, 7},  {1, 7},  {0, 7},
+        {8, 6},   {7, 6},  {6, 6},  {5, 6},  {3, 6},  {2, 6},  {1, 6},  {0, 6},
+        {8, 4},   {7, 4},  {6, 4},  {5, 4},  {3, 4},  {2, 4},  {1, 4},  {0, 4},
+        {8, 3},   {7, 3},  {6, 3},  {5, 3},  {3, 3},  {2, 3},  {1, 3},  {0, 3},
+        {8, 2},   {7, 2},  {6, 2},  {5, 2},  {3, 2},  {2, 2},  {1, 2},  {0, 2},
+        {8, 1},   {7, 1},  {6, 1},  {5, 1},  {3, 1},  {2, 1},  {1, 1},  {0, 1},
+        {8, 0},   {7, 0},  {6, 0},  {5, 0},  {3, 0},  {2, 0},  {1, 0},  {0, 0},
+    };
+    static const std::vector<std::vector<tt_xy_pair>> DRAM_CORES_NOC1 = {
+        {{9, 11}, {9, 10}, {9, 0}},
+        { {9, 6},  {9, 5}, {9, 4}},
+        {{4, 11}, {4, 10}, {4, 0}},
+        { {4, 9},  {4, 2}, {4, 1}},
+        { {4, 8},  {4, 7}, {4, 3}},
+        { {4, 6},  {4, 5}, {4, 4}}
+    };
+    static const std::vector<tt_xy_pair> ETH_CORES_NOC1 = {
+       {{0, 11},
+        {8, 11},
+        {1, 11},
+        {7, 11},
+        {2, 11},
+        {6, 11},
+        {3, 11},
+        {5, 11},
+        {0, 5},
+        {8, 5},
+        {1, 5},
+        {7, 5},
+        {2, 5},
+        {6, 5},
+        {3, 5},
+        {5, 5}}};
+    static const std::vector<tt_xy_pair> ARC_CORES_NOC1 = {{9, 1}};
+    static const std::vector<tt_xy_pair> PCIE_CORES_NOC1 = {{{9, 8}}};
+    // clang-format on
+
     std::shared_ptr<CoordinateManager> coordinate_manager =
         CoordinateManager::create_coordinate_manager(tt::ARCH::WORMHOLE_B0, true);
 
@@ -478,13 +520,10 @@ TEST(CoordinateManager, CoordinateManagerWormholeNoc1Noc0Mapping) {
         }
     };
 
+    check_noc0_noc1_mapping(tt::umd::wormhole::TENSIX_CORES_NOC0, TENSIX_CORES_NOC1, CoreType::TENSIX);
     check_noc0_noc1_mapping(
-        tt::umd::wormhole::TENSIX_CORES_NOC0, tt::umd::wormhole::TENSIX_CORES_NOC1, CoreType::TENSIX);
-    check_noc0_noc1_mapping(
-        flatten_vector(tt::umd::wormhole::DRAM_CORES_NOC0),
-        flatten_vector(tt::umd::wormhole::DRAM_CORES_NOC1),
-        CoreType::DRAM);
-    check_noc0_noc1_mapping(tt::umd::wormhole::ETH_CORES_NOC0, tt::umd::wormhole::ETH_CORES_NOC1, CoreType::ETH);
-    check_noc0_noc1_mapping(tt::umd::wormhole::ARC_CORES_NOC0, tt::umd::wormhole::ARC_CORES_NOC1, CoreType::ARC);
-    check_noc0_noc1_mapping(tt::umd::wormhole::PCIE_CORES_NOC0, tt::umd::wormhole::PCIE_CORES_NOC1, CoreType::PCIE);
+        flatten_vector(tt::umd::wormhole::DRAM_CORES_NOC0), flatten_vector(DRAM_CORES_NOC1), CoreType::DRAM);
+    check_noc0_noc1_mapping(tt::umd::wormhole::ETH_CORES_NOC0, ETH_CORES_NOC1, CoreType::ETH);
+    check_noc0_noc1_mapping(tt::umd::wormhole::ARC_CORES_NOC0, ARC_CORES_NOC1, CoreType::ARC);
+    check_noc0_noc1_mapping(tt::umd::wormhole::PCIE_CORES_NOC0, PCIE_CORES_NOC1, CoreType::PCIE);
 }

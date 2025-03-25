@@ -53,6 +53,8 @@ struct SocDescriptorInfo {
     uint32_t worker_l1_size;
     uint32_t eth_l1_size;
     uint64_t dram_bank_size;
+    std::vector<uint32_t> noc0_x_to_noc1_x;
+    std::vector<uint32_t> noc0_y_to_noc1_y;
 };
 
 //! tt_SocDescriptor contains information regarding the SOC configuration targetted.
@@ -169,6 +171,8 @@ private:
     std::vector<tt_xy_pair> ethernet_cores;                                      // ethernet cores (index == channel id)
     std::unordered_map<tt_xy_pair, int> ethernet_core_channel_map;
     std::vector<tt_xy_pair> router_cores;
+    std::vector<uint32_t> noc0_x_to_noc1_x;
+    std::vector<uint32_t> noc0_y_to_noc1_y;
 
     // TODO: change this to unique pointer as soon as copying of tt_SocDescriptor
     // is not needed anymore. Soc descriptor and coordinate manager should be

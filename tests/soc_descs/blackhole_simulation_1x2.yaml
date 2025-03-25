@@ -36,6 +36,16 @@ harvested_workers:
 router_only:
   [0-0]
 
+noc0_x_to_noc1_x:
+  [
+   1, 0
+  ]
+
+noc0_y_to_noc1_y:
+  [
+    1, 0
+  ]
+
 worker_l1_size:
   1499136
 

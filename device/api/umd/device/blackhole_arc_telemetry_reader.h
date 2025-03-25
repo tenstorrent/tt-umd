@@ -49,8 +49,12 @@ private:
     std::map<uint32_t, uint32_t> telemetry_values;
     std::map<uint32_t, uint32_t> telemetry_offset;
 
+    // During initialization of telemetry, if the NOC0 is hung then we need to read the telemetry values from NOC1.
     const tt_xy_pair arc_core =
-        !umd_use_noc1 ? tt::umd::blackhole::ARC_CORES_NOC0[0] : tt::umd::blackhole::ARC_CORES_NOC1[0];
+        !umd_use_noc1 ? tt::umd::blackhole::ARC_CORES_NOC0[0]
+                      : tt_xy_pair(
+                            tt::umd::blackhole::NOC0_X_TO_NOC1_X[tt::umd::blackhole::ARC_CORES_NOC0[0].x],
+                            tt::umd::blackhole::NOC0_Y_TO_NOC1_Y[tt::umd::blackhole::ARC_CORES_NOC0[0].y]);
 };
 
 }  // namespace blackhole

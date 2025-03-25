@@ -449,3 +449,100 @@ TEST(SocDescriptor, BoardBasedPCIE) {
             .size(),
         2);
 }
+
+TEST(SocDescriptor, WormholeNOC1Cores) {
+    // Harvesting mask should harvest first 2 Tensix rows.
+    const uint32_t num_harvested_rows = 2;
+    HarvestingMasks harvesting_masks = {.tensix_harvesting_mask = 0x3};
+    // Wormhole tensix noc1 cores with first 2 harvested rows so we can just iterate
+    // over the cores without the need to calculate the index.
+    // clang-format off
+    static const std::vector<tt_xy_pair> TENSIX_CORES_NOC1 = {
+        // {8, 10}, {7, 10}, {6, 10}, {5, 10}, {3, 10}, {2, 10}, {1, 10}, {0, 10},
+        // {8, 9},   {7, 9},  {6, 9},  {5, 9},  {3, 9},  {2, 9},  {1, 9},  {0, 9},
+        {8, 8},   {7, 8},  {6, 8},  {5, 8},  {3, 8},  {2, 8},  {1, 8},  {0, 8},
+        {8, 7},   {7, 7},  {6, 7},  {5, 7},  {3, 7},  {2, 7},  {1, 7},  {0, 7},
+        {8, 6},   {7, 6},  {6, 6},  {5, 6},  {3, 6},  {2, 6},  {1, 6},  {0, 6},
+        {8, 4},   {7, 4},  {6, 4},  {5, 4},  {3, 4},  {2, 4},  {1, 4},  {0, 4},
+        {8, 3},   {7, 3},  {6, 3},  {5, 3},  {3, 3},  {2, 3},  {1, 3},  {0, 3},
+        {8, 2},   {7, 2},  {6, 2},  {5, 2},  {3, 2},  {2, 2},  {1, 2},  {0, 2},
+        {8, 1},   {7, 1},  {6, 1},  {5, 1},  {3, 1},  {2, 1},  {1, 1},  {0, 1},
+        {8, 0},   {7, 0},  {6, 0},  {5, 0},  {3, 0},  {2, 0},  {1, 0},  {0, 0},
+    };
+    // clang-format on
+
+    tt_SocDescriptor soc_desc_yaml(
+        test_utils::GetAbsPath("tests/soc_descs/wormhole_b0_8x10.yaml"), true, harvesting_masks);
+
+    tt_SocDescriptor soc_desc_arch(tt::ARCH::WORMHOLE_B0, true, harvesting_masks);
+
+    const std::vector<CoreCoord> tensix_cores_noc1_yaml = soc_desc_yaml.get_cores(CoreType::TENSIX, CoordSystem::NOC1);
+    const std::vector<CoreCoord> tensix_cores_noc1_arch = soc_desc_arch.get_cores(CoreType::TENSIX, CoordSystem::NOC1);
+
+    EXPECT_EQ(tensix_cores_noc1_yaml.size(), tensix_cores_noc1_arch.size());
+
+    EXPECT_EQ(
+        tensix_cores_noc1_yaml.size(),
+        tt::umd::wormhole::TENSIX_GRID_SIZE.x * (tt::umd::wormhole::TENSIX_GRID_SIZE.y - num_harvested_rows));
+
+    for (size_t i = 0; i < tensix_cores_noc1_yaml.size(); i++) {
+        EXPECT_EQ(tensix_cores_noc1_yaml[i], tensix_cores_noc1_arch[i]);
+    }
+
+    // Move the index for the first 2 harvested rows.
+    size_t core_coord_index = 0;
+    for (const CoreCoord& tensix_core : tensix_cores_noc1_yaml) {
+        const tt_xy_pair noc1_pair = TENSIX_CORES_NOC1[core_coord_index];
+        EXPECT_EQ(tensix_core.x, noc1_pair.x);
+        EXPECT_EQ(tensix_core.y, noc1_pair.y);
+        core_coord_index++;
+    }
+}
+
+TEST(SocDescriptor, BlackholeNOC1Cores) {
+    // Harvesting mask should harvest first 2 Tensix columns.
+    const uint32_t num_harvested_columns = 2;
+    HarvestingMasks harvesting_masks = {.tensix_harvesting_mask = 0x3};
+    // Blackhole tensix noc1 cores with first 2 harvested columns so we can just iterate
+    // over the cores without the need to calculate the index.
+    // clang-format off
+    const static std::vector<tt_xy_pair> TENSIX_CORES_NOC1 = {
+        /*{15, 9}, {14, 9},*/ {13, 9}, {12, 9}, {11, 9}, {10, 9}, {9, 9}, {6, 9}, {5, 9}, {4, 9}, {3, 9}, {2, 9}, {1, 9}, {0, 9},
+        /*{15, 8}, {14, 8},*/ {13, 8}, {12, 8}, {11, 8}, {10, 8}, {9, 8}, {6, 8}, {5, 8}, {4, 8}, {3, 8}, {2, 8}, {1, 8}, {0, 8},
+        /*{15, 7}, {14, 7},*/ {13, 7}, {12, 7}, {11, 7}, {10, 7}, {9, 7}, {6, 7}, {5, 7}, {4, 7}, {3, 7}, {2, 7}, {1, 7}, {0, 7},
+        /*{15, 6}, {14, 6},*/ {13, 6}, {12, 6}, {11, 6}, {10, 6}, {9, 6}, {6, 6}, {5, 6}, {4, 6}, {3, 6}, {2, 6}, {1, 6}, {0, 6},
+        /*{15, 5}, {14, 5},*/ {13, 5}, {12, 5}, {11, 5}, {10, 5}, {9, 5}, {6, 5}, {5, 5}, {4, 5}, {3, 5}, {2, 5}, {1, 5}, {0, 5},
+        /*{15, 4}, {14, 4},*/ {13, 4}, {12, 4}, {11, 4}, {10, 4}, {9, 4}, {6, 4}, {5, 4}, {4, 4}, {3, 4}, {2, 4}, {1, 4}, {0, 4},
+        /*{15, 3}, {14, 3},*/ {13, 3}, {12, 3}, {11, 3}, {10, 3}, {9, 3}, {6, 3}, {5, 3}, {4, 3}, {3, 3}, {2, 3}, {1, 3}, {0, 3},
+        /*{15, 2}, {14, 2},*/ {13, 2}, {12, 2}, {11, 2}, {10, 2}, {9, 2}, {6, 2}, {5, 2}, {4, 2}, {3, 2}, {2, 2}, {1, 2}, {0, 2},
+        /*{15, 1}, {14, 1},*/ {13, 1}, {12, 1}, {11, 1}, {10, 1}, {9, 1}, {6, 1}, {5, 1}, {4, 1}, {3, 1}, {2, 1}, {1, 1}, {0, 1},
+        /*{15, 0}, {14, 0},*/ {13, 0}, {12, 0}, {11, 0}, {10, 0}, {9, 0}, {6, 0}, {5, 0}, {4, 0}, {3, 0}, {2, 0}, {1, 0}, {0, 0}
+    };
+    // clang-format on
+
+    tt_SocDescriptor soc_desc_yaml(
+        test_utils::GetAbsPath("tests/soc_descs/blackhole_140_arch.yaml"), true, harvesting_masks);
+
+    tt_SocDescriptor soc_desc_arch(tt::ARCH::BLACKHOLE, true, harvesting_masks);
+
+    const std::vector<CoreCoord> tensix_cores_noc1_yaml = soc_desc_yaml.get_cores(CoreType::TENSIX, CoordSystem::NOC1);
+    const std::vector<CoreCoord> tensix_cores_noc1_arch = soc_desc_arch.get_cores(CoreType::TENSIX, CoordSystem::NOC1);
+
+    EXPECT_EQ(tensix_cores_noc1_yaml.size(), tensix_cores_noc1_arch.size());
+
+    EXPECT_EQ(
+        tensix_cores_noc1_yaml.size(),
+        tt::umd::blackhole::TENSIX_GRID_SIZE.y * (tt::umd::blackhole::TENSIX_GRID_SIZE.x - num_harvested_columns));
+
+    for (size_t i = 0; i < tensix_cores_noc1_yaml.size(); i++) {
+        EXPECT_EQ(tensix_cores_noc1_yaml[i], tensix_cores_noc1_arch[i]);
+    }
+
+    size_t core_coord_index = 0;
+    for (const CoreCoord& tensix_core : tensix_cores_noc1_yaml) {
+        const tt_xy_pair noc1_pair = TENSIX_CORES_NOC1[core_coord_index];
+        EXPECT_EQ(tensix_core.x, noc1_pair.x);
+        EXPECT_EQ(tensix_core.y, noc1_pair.y);
+        core_coord_index++;
+    }
+}

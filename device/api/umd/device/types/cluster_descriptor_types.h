@@ -40,6 +40,9 @@ struct eth_coord_t {
 };
 
 enum BoardType : uint32_t {
+    E75,
+    E150,
+    E300,
     N150,
     N300,
     P100,
@@ -52,6 +55,12 @@ enum BoardType : uint32_t {
 
 inline std::string board_type_to_string(const BoardType board_type) {
     switch (board_type) {
+        case BoardType::E75:
+            return "e75";
+        case BoardType::E150:
+            return "e150";
+        case BoardType::E300:
+            return "e300";
         case BoardType::N150:
             return "n150";
         case BoardType::N300:

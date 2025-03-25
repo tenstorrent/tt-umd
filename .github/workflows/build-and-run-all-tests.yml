@@ -2,10 +2,18 @@
 name: Build and run all tests
 
 on:
+  workflow_call:
+    inputs:
+      build-type:
+        required: true
+        type: string
+      timeout:
+        required: true
+        type: number
   workflow_dispatch:
     inputs:
       build-type:
-        required: false
+        required: true
         default: Release
         type: choice
         options:
@@ -14,9 +22,11 @@ on:
           - Debug
           - ASan
           - TSan
-  pull_request:
-  push:
-    branches: ["main"]
+      timeout:
+        required: true
+        description: 'The timeout for the test run in minutes'
+        type: number
+        default: 15
 
 jobs:
   build-tests:
@@ -32,21 +42,12 @@ jobs:
           'ubuntu-22.04',
           # 'ubuntu-20.04',
         ]
-        # By default we run ASan build on PRs since it adds a marginal perf hit but is very useful in
-        # catching bugs and it runs Debug asserts.
-        # We run both ASan and TSan build on push events to main since it is a more thorough test.
-        # When workflow is requested, only the requested build-type is run, with the default being Release.
-        build-type: ${{ fromJson(github.event_name == 'pull_request' && '["ASan"]' ||
-                                 github.event_name == 'push' && '["ASan", "TSan"]' ||
-                                 github.event_name == 'workflow_dispatch' &&
-                                 format('["{0}"]', github.event.inputs['build-type']) ||
-                                 '["Release"]') }}
     uses: ./.github/workflows/build-tests.yml
     with:
       arch: ${{ matrix.test-group.arch}}
       ubuntu-version: ${{ matrix.ubuntu-version}}
       timeout: 15
-      build-type: ${{ matrix.build-type }}
+      build-type: ${{ inputs.build-type }}
 
   test-all:
     secrets: inherit
@@ -55,9 +56,9 @@ jobs:
       fail-fast: false
       matrix:
         test-group: [
-          {arch: wormhole_b0, card: n150, timeout: 10},
-          {arch: wormhole_b0, card: n300, timeout: 15},
-          {arch: blackhole, card: p150, timeout: 15},
+          {arch: wormhole_b0, card: n150},
+          {arch: wormhole_b0, card: n300},
+          {arch: blackhole, card: p150},
         ]
         ubuntu-version: [
           # Running tests on ubuntu-22.04 should be sufficient. Reduce load on CI.
@@ -69,4 +70,4 @@ jobs:
       arch: ${{ matrix.test-group.arch}}
       ubuntu-version: ${{ matrix.ubuntu-version}}
       card: ${{ matrix.test-group.card}}
-      timeout: ${{ matrix.test-group.timeout}}
+      timeout: ${{ inputs.timeout }}

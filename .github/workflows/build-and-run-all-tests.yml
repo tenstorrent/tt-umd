@@ -3,6 +3,17 @@ name: Build and run all tests
 
 on:
   workflow_dispatch:
+    inputs:
+      build-type:
+        required: false
+        default: Release
+        type: choice
+        options:
+          - Release
+          - RelWithDebInfo
+          - Debug
+          - ASan
+          - TSan
   pull_request:
   push:
     branches: ["main"]
@@ -26,6 +37,7 @@ jobs:
       arch: ${{ matrix.test-group.arch}}
       ubuntu-version: ${{ matrix.ubuntu-version}}
       timeout: 15
+      build-type: ${{ inputs.build-type || 'Release' }}
 
   test-all:
     secrets: inherit
@@ -34,8 +46,8 @@ jobs:
       fail-fast: false
       matrix:
         test-group: [
-          {arch: wormhole_b0, card: n150, timeout: 5},
-          {arch: wormhole_b0, card: tt-beta-ubuntu-2204-n150-large-stable, timeout: 5},
+          {arch: wormhole_b0, card: n150, timeout: 10},
+          {arch: wormhole_b0, card: tt-beta-ubuntu-2204-n150-large-stable, timeout: 10},
           {arch: wormhole_b0, card: n300, timeout: 15},
           {arch: wormhole_b0, card: tt-beta-ubuntu-2204-n300-large-stable, timeout: 15},
           {arch: blackhole, card: p150, timeout: 15},

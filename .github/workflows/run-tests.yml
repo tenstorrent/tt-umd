@@ -16,33 +16,10 @@ on:
       timeout:
         required: true
         type: number
-  workflow_dispatch:
-    inputs:
-      arch:
+      build-type:
         required: true
-        description: 'The architecture to build for'
-        type: choice
-        options:
-          - wormhole_b0
-          - blackhole
-      ubuntu-version:
-        required: true
-        description: 'The version of Ubuntu to build on'
-        type: choice
-        options:
-          - ubuntu-22.04
-          - ubuntu-20.04
-      card:
-        required: true
-        description: 'The card to run tests on'
-        type: choice
-        options:
-          - n150
-          - n300
-      timeout:
-        required: true
-        description: 'The timeout for the build job in minutes'
-        type: number
+        type: string
+        default: Release
 
 env:
   BUILD_OUTPUT_DIR: ./build
@@ -81,7 +58,7 @@ jobs:
       - name: Use build artifacts
         uses: actions/download-artifact@v4
         with:
-          name: build-artifacts-${{ inputs.arch }}-${{ inputs.ubuntu-version }}
+          name: build-artifacts-${{ inputs.arch }}-${{ inputs.ubuntu-version }}-${{ inputs.build-type }}
           path: ./
 
       # This is needed to preserve file permissions

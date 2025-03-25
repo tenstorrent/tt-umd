@@ -73,3 +73,4 @@ jobs:
       ubuntu-version: ${{ matrix.ubuntu-version}}
       card: ${{ matrix.test-group.card}}
       timeout: ${{ inputs.timeout }}
+      build-type: ${{ inputs.build-type }}

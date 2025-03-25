@@ -3054,7 +3054,7 @@ void Cluster::verify_sw_fw_versions(int device_id, std::uint32_t sw_version, std
     // Temporarily enable this feature for 6.7.241 as well for testing.
     use_virtual_coords_for_eth_broadcast &=
         (fw_first_eth_core >= tt_version(6, 8, 0) || fw_first_eth_core == tt_version(6, 7, 241)) &&
-        get_soc_descriptor(device_id).noc_translation_id_enabled;
+        get_soc_descriptor(device_id).noc_translation_enabled;
 }
 
 void Cluster::start_device(const tt_device_params& device_params) {

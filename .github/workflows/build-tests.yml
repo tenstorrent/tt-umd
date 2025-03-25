@@ -38,6 +38,16 @@ on:
         required: true
         description: 'The timeout for the build job in minutes'
         type: number
+      build-type:
+        required: true
+        default: Release
+        type: choice
+        options:
+          - Release
+          - RelWithDebInfo
+          - Debug
+          - ASan
+          - TSan
 
 
 env:
@@ -54,7 +64,7 @@ jobs:
     # Due to parsing bug, fromJSON is used to convert string to number
     timeout-minutes: ${{ fromJSON(inputs.timeout) }}
 
-    name: Build umd_tests for ${{ inputs.arch }} on ${{ inputs.ubuntu-version }}
+    name: Build umd_tests ${{ inputs.build-type }} build for ${{ inputs.arch }} on ${{ inputs.ubuntu-version }}
     runs-on: ${{ inputs.ubuntu-version }}
     container:
       image: ghcr.io/${{ github.repository }}/tt-umd-ci-${{ inputs.ubuntu-version }}:latest

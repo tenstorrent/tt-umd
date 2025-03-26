@@ -49,6 +49,10 @@ constexpr uint8_t TAG_ENABLED_GDDR = 36;
 constexpr uint8_t TAG_ENABLED_L2CPU = 37;
 constexpr uint8_t TAG_PCIE_USAGE = 38;
 
+// TODO: set proper value to the tag for ASIC location
+// when it is released in the CMFW.
+constexpr uint8_t TAG_ASIC_LOCATION = 0;
+
 }  // namespace blackhole
 
 }  // namespace tt::umd

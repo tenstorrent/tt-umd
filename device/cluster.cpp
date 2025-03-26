@@ -139,7 +139,7 @@ struct tt_4_byte_aligned_buffer {
 namespace tt::umd {
 
 const tt_SocDescriptor& Cluster::get_soc_descriptor(chip_id_t chip_id) const {
-    return chips_.at(chip_id)->get_soc_descriptor();
+    return get_chip(chip_id)->get_soc_descriptor();
 }
 
 void Cluster::initialize_interprocess_mutexes(int logical_device_id, bool cleanup_mutexes_in_shm) {
@@ -577,9 +577,9 @@ Cluster::Cluster(
                 simulated_harvesting_masks,
                 create_mock_chips));
         log_assert(
-            cluster_desc->get_arch(chip_id) == chips_.at(chip_id)->get_soc_descriptor().arch,
+            cluster_desc->get_arch(chip_id) == get_chip(chip_id)->get_soc_descriptor().arch,
             "Passed soc descriptor has {} arch, but for chip id {} has arch {}",
-            arch_to_str(chips_.at(chip_id)->get_soc_descriptor().arch),
+            arch_to_str(get_chip(chip_id)->get_soc_descriptor().arch),
             chip_id,
             arch_to_str(cluster_desc->get_arch(chip_id)));
     }
@@ -1307,18 +1307,26 @@ void* Cluster::host_dma_address(std::uint64_t offset, chip_id_t src_device_id, u
     }
 }
 
-// Wrapper for throwing a more helpful exception when trying to access non pci enabled interface.
 inline TTDevice* Cluster::get_tt_device(chip_id_t device_id) const {
-    auto chip_it = chips_.find(device_id);
-    log_assert(chip_it != chips_.end(), "Device id {} not found in cluster.", device_id);
-    auto tt_device = chip_it->second->get_tt_device();
+    auto tt_device = get_local_chip(device_id)->get_tt_device();
     log_assert(tt_device != nullptr, "TTDevice not found for device: {}", device_id);
     return tt_device;
 }
 
-// Wrapper for throwing a more helpful exception when trying to access non pci enabled interface.
 inline TLBManager* Cluster::get_tlb_manager(chip_id_t device_id) const {
     return get_tt_device(device_id)->get_tlb_manager();
+}
+
+inline Chip* Cluster::get_chip(chip_id_t device_id) const {
+    auto chip_it = chips_.find(device_id);
+    log_assert(chip_it != chips_.end(), "Device id {} not found in cluster.", device_id);
+    return chip_it->second.get();
+}
+
+inline Chip* Cluster::get_local_chip(chip_id_t device_id) const {
+    log_assert(
+        local_chip_ids_.find(device_id) != local_chip_ids_.end(), "Device id {} is not a local chip.", device_id);
+    return get_chip(device_id);
 }
 
 std::shared_ptr<boost::interprocess::named_mutex> Cluster::get_mutex(
@@ -1358,8 +1366,8 @@ uint16_t Cluster::get_sys_rack(
 }
 
 bool Cluster::is_non_mmio_cmd_q_full(chip_id_t chip_id, uint32_t curr_wptr, uint32_t curr_rptr) {
-    return (curr_wptr != curr_rptr) && ((curr_wptr & chips_.at(chip_id)->eth_interface_params.cmd_buf_size_mask) ==
-                                        (curr_rptr & chips_.at(chip_id)->eth_interface_params.cmd_buf_size_mask));
+    return (curr_wptr != curr_rptr) && ((curr_wptr & get_chip(chip_id)->eth_interface_params.cmd_buf_size_mask) ==
+                                        (curr_rptr & get_chip(chip_id)->eth_interface_params.cmd_buf_size_mask));
 }
 
 /*
@@ -1442,9 +1450,9 @@ void Cluster::write_to_non_mmio_device(
     const auto target_chip = cluster_desc->get_chip_locations().at(core.chip);
 
     // TODO: To be removed when this is moved to Chip classes.
-    auto host_address_params = chips_.at(mmio_capable_chip_logical)->host_address_params;
-    auto eth_interface_params = chips_.at(mmio_capable_chip_logical)->eth_interface_params;
-    auto noc_params = chips_.at(mmio_capable_chip_logical)->noc_params;
+    auto host_address_params = get_local_chip(mmio_capable_chip_logical)->host_address_params;
+    auto eth_interface_params = get_local_chip(mmio_capable_chip_logical)->eth_interface_params;
+    auto noc_params = get_local_chip(mmio_capable_chip_logical)->noc_params;
 
     std::string write_tlb = "LARGE_WRITE_TLB";
     std::string read_tlb = "LARGE_READ_TLB";
@@ -1691,9 +1699,9 @@ void Cluster::read_from_non_mmio_device(void* mem_ptr, tt_cxy_pair core, uint64_
     const eth_coord_t target_chip = cluster_desc->get_chip_locations().at(core.chip);
 
     // TODO: To be removed when this is moved to Chip classes.
-    auto host_address_params = chips_.at(mmio_capable_chip_logical)->host_address_params;
-    auto eth_interface_params = chips_.at(mmio_capable_chip_logical)->eth_interface_params;
-    auto noc_params = chips_.at(mmio_capable_chip_logical)->noc_params;
+    auto host_address_params = get_local_chip(mmio_capable_chip_logical)->host_address_params;
+    auto eth_interface_params = get_local_chip(mmio_capable_chip_logical)->eth_interface_params;
+    auto noc_params = get_local_chip(mmio_capable_chip_logical)->noc_params;
 
     std::vector<std::uint32_t> erisc_command;
     std::vector<std::uint32_t> erisc_q_rptr;
@@ -1937,7 +1945,7 @@ void Cluster::wait_for_connected_non_mmio_flush(const chip_id_t chip_id) {
 
         if (arch_name == tt::ARCH::WORMHOLE_B0) {
             // TODO: To be removed when this is moved to Chip classes.
-            auto eth_interface_params = chips_.at(chip_id)->eth_interface_params;
+            auto eth_interface_params = get_chip(chip_id)->eth_interface_params;
 
             std::vector<std::uint32_t> erisc_txn_counters = std::vector<uint32_t>(2);
             std::vector<std::uint32_t> erisc_q_ptrs =
@@ -2430,11 +2438,11 @@ int Cluster::remote_arc_msg(
 
 void Cluster::write_to_sysmem(
     const void* mem_ptr, std::uint32_t size, uint64_t addr, uint16_t channel, chip_id_t src_device_id) {
-    chips_.at(src_device_id)->write_to_sysmem(channel, mem_ptr, addr, size);
+    get_local_chip(src_device_id)->write_to_sysmem(channel, mem_ptr, addr, size);
 }
 
 void Cluster::read_from_sysmem(void* mem_ptr, uint64_t addr, uint16_t channel, uint32_t size, chip_id_t src_device_id) {
-    chips_.at(src_device_id)->read_from_sysmem(channel, mem_ptr, addr, size);
+    get_local_chip(src_device_id)->read_from_sysmem(channel, mem_ptr, addr, size);
 }
 
 void Cluster::set_membar_flag(
@@ -2493,8 +2501,8 @@ void Cluster::init_membars() {
     for (const auto& chip : all_chip_ids_) {
         if (cluster_desc->is_chip_mmio_capable(chip)) {
             // TODO: To be removed when this is moved to Chip classes.
-            const auto& l1_address_params = chips_.at(chip)->l1_address_params;
-            const auto& dram_address_params = chips_.at(chip)->dram_address_params;
+            const auto& l1_address_params = get_local_chip(chip)->l1_address_params;
+            const auto& dram_address_params = get_local_chip(chip)->dram_address_params;
 
             set_membar_flag(
                 chip,
@@ -2517,7 +2525,7 @@ void Cluster::l1_membar(
         const auto& all_eth = eth_cores;
 
         // TODO: To be removed when this is moved to Chip classes.
-        const auto& l1_address_params = chips_.at(chip)->l1_address_params;
+        const auto& l1_address_params = get_local_chip(chip)->l1_address_params;
 
         if (cores.size()) {
             // Insert barrier on specific cores with L1
@@ -2558,7 +2566,7 @@ void Cluster::l1_membar(
 void Cluster::dram_membar(
     const chip_id_t chip, const std::string& fallback_tlb, const std::unordered_set<tt_xy_pair>& cores) {
     if (cluster_desc->is_chip_mmio_capable(chip)) {
-        const auto& dram_address_params = chips_.at(chip)->dram_address_params;
+        const auto& dram_address_params = get_local_chip(chip)->dram_address_params;
         if (cores.size()) {
             for (const auto& core : cores) {
                 log_assert(
@@ -2587,7 +2595,7 @@ void Cluster::dram_membar(
     const chip_id_t chip, const std::string& fallback_tlb, const std::unordered_set<uint32_t>& channels) {
     if (cluster_desc->is_chip_mmio_capable(chip)) {
         // TODO: To be removed when this is moved to Chip classes.
-        const auto& dram_address_params = chips_.at(chip)->dram_address_params;
+        const auto& dram_address_params = get_local_chip(chip)->dram_address_params;
 
         if (channels.size()) {
             std::unordered_set<tt_xy_pair> dram_cores_to_sync = {};
@@ -2873,7 +2881,7 @@ void Cluster::verify_eth_fw() {
                 &fw_version,
                 chip,
                 eth_core,
-                chips_.at(chip)->l1_address_params.fw_version_addr,
+                get_chip(chip)->l1_address_params.fw_version_addr,
                 sizeof(uint32_t),
                 "LARGE_READ_TLB");
             fw_versions.push_back(fw_version);
@@ -2979,7 +2987,7 @@ tt_version Cluster::get_ethernet_fw_version() const {
 
 void Cluster::set_barrier_address_params(const barrier_address_params& barrier_address_params_) {
     for (auto chip_id : local_chip_ids_) {
-        chips_.at(chip_id)->set_barrier_address_params(barrier_address_params_);
+        get_local_chip(chip_id)->set_barrier_address_params(barrier_address_params_);
     }
 }
 

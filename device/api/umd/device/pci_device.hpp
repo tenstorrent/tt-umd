@@ -22,13 +22,6 @@ namespace tt::umd {
 class semver_t;
 }  // namespace tt::umd
 
-// These are not necessarily hugepages if IOMMU is enabled.
-struct hugepage_mapping {
-    void *mapping = nullptr;
-    size_t mapping_size = 0;
-    uint64_t physical_address = 0;  // or IOVA, if IOMMU is enabled
-};
-
 struct PciDeviceInfo {
     uint16_t vendor_id;
     uint16_t device_id;
@@ -130,20 +123,14 @@ public:
      */
     bool is_iommu_enabled() const { return iommu_enabled; }
 
-    // TODO: this also probably has more sense to live in the future TTDevice class.
-    bool init_hugepage(uint32_t num_host_mem_channels);
-
     /**
-     * Allocate sysmem without hugepages and map it through IOMMU.
-     * This is used when the system is protected by an IOMMU.  The mappings will
-     * still appear as hugepages to the caller.
-     * @param size sysmem size in bytes; size % (1UL << 30) == 0
-     * @return whether allocation/mapping succeeded.
+     * Map a buffer for hugepage access.
+     *
+     * @param buffer must be page-aligned
+     * @param size must be a multiple of the page size
+     * @return uint64_t Physical Address of hugepage.
      */
-    bool init_iommu(size_t size);
-
-    size_t get_num_host_mem_channels() const;
-    hugepage_mapping get_hugepage_mapping(size_t channel) const;
+    uint64_t map_for_hugepage(void *buffer, size_t size);
 
     /**
      * Map a buffer for DMA access by the device.
@@ -200,10 +187,5 @@ public:
     }
 
 private:
-    // For debug purposes when various stages fails.
-    void print_file_contents(std::string filename, std::string hint = "");
-
     semver_t read_kmd_version();
-
-    std::vector<hugepage_mapping> hugepage_mapping_per_channel;
 };

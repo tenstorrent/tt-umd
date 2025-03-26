@@ -939,57 +939,6 @@ void Cluster::read_device_memory(
     }
 }
 
-void Cluster::read_buffer(
-    void* mem_ptr, std::uint32_t address, std::uint16_t channel, std::uint32_t size_in_bytes, chip_id_t src_device_id) {
-    log_assert(src_device_id != -1, "Must provide src_device_id for host_resident read/write");
-
-    hugepage_mapping hugepage_map = get_tt_device(src_device_id)->get_pci_device()->get_hugepage_mapping(channel);
-    log_assert(
-        hugepage_map.mapping,
-        "read_buffer: Hugepages are not allocated for src_device_id: {} ch: {}."
-        " - Ensure sufficient number of Hugepages installed per device (1 per host mem ch, per device)",
-        src_device_id,
-        channel);
-
-    void* user_scratchspace = static_cast<char*>(hugepage_map.mapping) + (address % hugepage_map.mapping_size);
-
-    log_debug(
-        LogSiliconDriver,
-        "Cluster::read_buffer (src_device_id: {}, ch: {}) from 0x{:x}",
-        src_device_id,
-        channel,
-        user_scratchspace);
-
-    memcpy(mem_ptr, user_scratchspace, size_in_bytes);
-}
-
-void Cluster::write_buffer(
-    const void* mem_ptr, std::uint32_t size, std::uint32_t address, std::uint16_t channel, chip_id_t src_device_id) {
-    hugepage_mapping hugepage_map = get_tt_device(src_device_id)->get_pci_device()->get_hugepage_mapping(channel);
-    log_assert(
-        hugepage_map.mapping,
-        "write_buffer: Hugepages are not allocated for src_device_id: {} ch: {}."
-        " - Ensure sufficient number of Hugepages installed per device (1 per host mem ch, per device)",
-        src_device_id,
-        channel);
-
-    log_assert(
-        size <= hugepage_map.mapping_size,
-        "write_buffer data has larger size {} than destination buffer {}",
-        size,
-        hugepage_map.mapping_size);
-    log_debug(
-        LogSiliconDriver,
-        "Using hugepage mapping at address {} offset {} chan {} size {}",
-        hugepage_map.mapping,
-        (address % hugepage_map.mapping_size),
-        channel,
-        size);
-    void* user_scratchspace = static_cast<char*>(hugepage_map.mapping) + (address % hugepage_map.mapping_size);
-
-    memcpy(user_scratchspace, mem_ptr, size);
-}
-
 uint32_t Cluster::get_power_state_arc_msg(chip_id_t chip_id, tt_DevicePowerState state) {
     TTDevice* tt_device = get_tt_device(chip_id);
     uint32_t msg = 0xaa00;
@@ -2492,11 +2441,11 @@ int Cluster::remote_arc_msg(
 
 void Cluster::write_to_sysmem(
     const void* mem_ptr, std::uint32_t size, uint64_t addr, uint16_t channel, chip_id_t src_device_id) {
-    write_buffer(mem_ptr, size, addr, channel, src_device_id);
+    chips_.at(src_device_id)->write_to_sysmem(mem_ptr, size, addr, channel);
 }
 
 void Cluster::read_from_sysmem(void* mem_ptr, uint64_t addr, uint16_t channel, uint32_t size, chip_id_t src_device_id) {
-    read_buffer(mem_ptr, addr, channel, size, src_device_id);
+    chips_.at(src_device_id)->read_from_sysmem(mem_ptr, addr, channel, size);
 }
 
 void Cluster::set_membar_flag(

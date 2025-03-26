@@ -21,8 +21,6 @@ Chip::Chip(const ChipInfo chip_info, tt_SocDescriptor soc_descriptor) :
 
 tt_SocDescriptor& Chip::get_soc_descriptor() { return soc_descriptor_; }
 
-TTDevice* Chip::get_tt_device() { return nullptr; }
-
 // TODO: This will be moved to LocalChip.
 void Chip::set_default_params(ARCH arch) {
     auto architecture_implementation = tt::umd::architecture_implementation::create(arch);
@@ -54,5 +52,15 @@ const ChipInfo& Chip::get_chip_info() { return chip_info_; }
 void Chip::wait_chip_to_be_ready() { wait_eth_cores_training(); }
 
 void Chip::wait_eth_cores_training(const uint32_t timeout_ms) {}
+
+TTDevice* Chip::get_tt_device() { throw std::runtime_error("Chip::get_tt_device is not available for this chip."); }
+
+void Chip::write_to_sysmem(const void* mem_ptr, std::uint32_t size, uint64_t addr, uint16_t channel) {
+    throw std::runtime_error("Chip::write_to_sysmem is not available for this chip.");
+}
+
+void Chip::read_from_sysmem(void* mem_ptr, uint64_t addr, uint16_t channel, uint32_t size) {
+    throw std::runtime_error("Chip::read_from_sysmem is not available for this chip.");
+}
 
 }  // namespace tt::umd

@@ -25,13 +25,16 @@ public:
 
     tt_SocDescriptor& get_soc_descriptor();
 
-    virtual TTDevice* get_tt_device();
-
     virtual bool is_mmio_capable() const = 0;
 
     void set_barrier_address_params(const barrier_address_params& barrier_address_params_);
 
     const ChipInfo& get_chip_info();
+
+    virtual TTDevice* get_tt_device();
+
+    virtual void write_to_sysmem(const void* mem_ptr, std::uint32_t size, uint64_t addr, uint16_t channel);
+    virtual void read_from_sysmem(void* mem_ptr, uint64_t addr, uint16_t channel, uint32_t size);
 
     // TODO: This should be private, once enough stuff is moved inside chip.
     // Probably also moved to LocalChip.

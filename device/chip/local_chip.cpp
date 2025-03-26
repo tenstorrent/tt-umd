@@ -13,12 +13,12 @@
 
 namespace tt::umd {
 
-LocalChip::LocalChip(tt_SocDescriptor soc_descriptor, int pci_device_id) :
+LocalChip::LocalChip(tt_SocDescriptor soc_descriptor, int pci_device_id, int num_host_mem_channels) :
     Chip(soc_descriptor),
     tt_device_(TTDevice::create(pci_device_id)),
     sysmem_manager_(std::make_unique<SysmemManager>(tt_device_.get())),
     tlb_manager_(std::make_unique<TLBManager>(tt_device_.get())) {
-    initialize_local_chip();
+    initialize_local_chip(num_host_mem_channels);
 }
 
 LocalChip::LocalChip(std::string sdesc_path, std::unique_ptr<TTDevice> tt_device) :
@@ -47,8 +47,11 @@ LocalChip::LocalChip(std::unique_ptr<TTDevice> tt_device) :
     initialize_local_chip();
 }
 
-void LocalChip::initialize_local_chip() {
+void LocalChip::initialize_local_chip(int num_host_mem_channels) {
     initialize_tlb_manager();
+    if (num_host_mem_channels > 0) {
+        sysmem_manager_->init_hugepage(num_host_mem_channels);
+    }
     wait_chip_to_be_ready();
 }
 
@@ -110,5 +113,11 @@ void LocalChip::write_to_sysmem(uint16_t channel, const void* src, uint64_t sysm
 void LocalChip::read_from_sysmem(uint16_t channel, void* dest, uint64_t sysmem_src, uint32_t size) {
     sysmem_manager_->read_from_sysmem(channel, dest, sysmem_src, size);
 }
+
+hugepage_mapping LocalChip::get_hugepage_mapping(size_t channel) const {
+    return sysmem_manager_->get_hugepage_mapping(channel);
+}
+
+size_t LocalChip::get_num_host_mem_channels() const { return sysmem_manager_->get_num_host_mem_channels(); }
 
 }  // namespace tt::umd

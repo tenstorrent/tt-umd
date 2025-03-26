@@ -76,4 +76,12 @@ void Chip::read_from_sysmem(uint16_t channel, void* dest, uint64_t sysmem_src, u
     throw std::runtime_error("Chip::read_from_sysmem is not available for this chip.");
 }
 
+hugepage_mapping Chip::get_hugepage_mapping(size_t channel) const {
+    throw std::runtime_error("Chip::get_hugepage_mapping is not available for this chip.");
+}
+
+size_t Chip::get_num_host_mem_channels() const {
+    throw std::runtime_error("Chip::get_num_host_mem_channels is not available for this chip.");
+}
+
 }  // namespace tt::umd

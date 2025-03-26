@@ -39,6 +39,8 @@ public:
 
     virtual void write_to_sysmem(uint16_t channel, const void* src, uint64_t sysmem_dest, uint32_t size);
     virtual void read_from_sysmem(uint16_t channel, void* dest, uint64_t sysmem_src, uint32_t size);
+    virtual hugepage_mapping get_hugepage_mapping(size_t channel) const;
+    virtual size_t get_num_host_mem_channels() const;
 
     // TODO: This should be private, once enough stuff is moved inside chip.
     // Probably also moved to LocalChip.

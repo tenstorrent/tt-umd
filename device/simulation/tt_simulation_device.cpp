@@ -275,13 +275,9 @@ void tt_SimulationDevice::configure_active_ethernet_cores_for_mmio_device(
 void tt_SimulationDevice::configure_active_ethernet_cores_for_mmio_device(
     const std::unordered_set<tt::umd::CoreCoord>& active_eth_cores_per_chip, chip_id_t mmio_chip) {}
 
-CoordSystem tt_SimulationDevice::get_coord_system_used() const {
-    return arch_name == tt::ARCH::GRAYSKULL ? CoordSystem::PHYSICAL : CoordSystem::VIRTUAL;
-}
-
 // TODO: This is a temporary function while we're switching between the old and the new API.
 // Eventually, this function should be so small it would be obvioud to remove.
 tt_xy_pair tt_SimulationDevice::translate_to_api_coords(
     const chip_id_t chip, const tt::umd::CoreCoord core_coord) const {
-    return get_soc_descriptor(chip).translate_coord_to(core_coord, get_coord_system_used());
+    return get_soc_descriptor(chip).translate_coord_to(core_coord, CoordSystem::VIRTUAL);
 }

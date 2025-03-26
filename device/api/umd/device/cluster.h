@@ -967,7 +967,6 @@ private:
     void initialize_interprocess_mutexes(int logical_device_id, bool cleanup_mutexes_in_shm);
     void cleanup_shared_host_state();
     void initialize_pcie_devices();
-    void broadcast_pcie_tensix_risc_reset(chip_id_t chip_id, const TensixSoftResetOptions& cores);
     void broadcast_tensix_risc_reset_to_cluster(const TensixSoftResetOptions& soft_resets);
     void send_remote_tensix_risc_reset_to_core(const tt_cxy_pair& core, const TensixSoftResetOptions& soft_resets);
     void send_tensix_risc_reset_to_core(const tt_cxy_pair& core, const TensixSoftResetOptions& soft_resets);
@@ -1135,8 +1134,6 @@ private:
         const uint32_t& num_host_mem_ch_per_mmio_device,
         const bool create_mock_chips,
         const bool clean_system_resources);
-    // TODO: These functions should be removed once the transition to CoreCoord is complete.
-    CoordSystem get_coord_system_used() const;
     tt_xy_pair translate_to_api_coords(const chip_id_t chip, const tt::umd::CoreCoord core_coord) const;
     // Most of the old APIs accept virtual coordinates, but we communicate with the device through translated
     // coordinates. This is an internal helper function, until we switch the API to accept translated coordinates.

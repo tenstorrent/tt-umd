@@ -285,7 +285,7 @@ void Cluster::construct_cluster(
                 if (remote_transfer_ethernet_cores.size() <= logical_mmio_chip_id) {
                     remote_transfer_ethernet_cores.resize(logical_mmio_chip_id + 1);
                 }
-                CoreCoord ethernet_core = soc_desc.get_eth_core_for_channel(i, get_coord_system_used());
+                CoreCoord ethernet_core = soc_desc.get_eth_core_for_channel(i, CoordSystem::VIRTUAL);
                 remote_transfer_ethernet_cores.at(logical_mmio_chip_id)
                     .push_back(tt_cxy_pair(logical_mmio_chip_id, ethernet_core));
             }
@@ -634,14 +634,14 @@ void Cluster::configure_active_ethernet_cores_for_mmio_device(
     log_assert(soc_desc.arch == tt::ARCH::WORMHOLE_B0, "{} can only be called for Wormhole arch", __FUNCTION__);
     // Cores 0, 1, 6, 7 are only available if in the active set
     static std::unordered_set<tt_xy_pair> eth_cores_available_if_active = {
-        soc_desc.get_eth_core_for_channel(0, get_coord_system_used()),
-        soc_desc.get_eth_core_for_channel(1, get_coord_system_used()),
-        soc_desc.get_eth_core_for_channel(6, get_coord_system_used()),
-        soc_desc.get_eth_core_for_channel(7, get_coord_system_used())};
+        soc_desc.get_eth_core_for_channel(0, CoordSystem::VIRTUAL),
+        soc_desc.get_eth_core_for_channel(1, CoordSystem::VIRTUAL),
+        soc_desc.get_eth_core_for_channel(6, CoordSystem::VIRTUAL),
+        soc_desc.get_eth_core_for_channel(7, CoordSystem::VIRTUAL)};
     // Eth cores 8 and 9 are always available
     std::vector<tt_cxy_pair> non_mmio_access_cores_for_chip = {
-        {(size_t)mmio_chip, soc_desc.get_eth_core_for_channel(8, get_coord_system_used())},
-        {(size_t)mmio_chip, soc_desc.get_eth_core_for_channel(9, get_coord_system_used())}};
+        {(size_t)mmio_chip, soc_desc.get_eth_core_for_channel(8, CoordSystem::VIRTUAL)},
+        {(size_t)mmio_chip, soc_desc.get_eth_core_for_channel(9, CoordSystem::VIRTUAL)}};
     for (const auto& active_eth_core : active_eth_cores_per_chip) {
         if (eth_cores_available_if_active.find(active_eth_core) != eth_cores_available_if_active.end()) {
             non_mmio_access_cores_for_chip.push_back(tt_cxy_pair(mmio_chip, active_eth_core));
@@ -667,13 +667,13 @@ void Cluster::populate_cores() {
     std::uint32_t count = 0;
     for (const auto& [chip_id, chip] : chips_) {
         auto& soc_desc = chip->get_soc_descriptor();
-        auto workers = soc_desc.get_cores(CoreType::TENSIX, get_coord_system_used());
+        auto workers = soc_desc.get_cores(CoreType::TENSIX, CoordSystem::VIRTUAL);
         workers_per_chip.insert({chip_id, std::unordered_set<tt_xy_pair>(workers.begin(), workers.end())});
         if (count == 0) {
-            auto ethernet_cores = soc_desc.get_cores(CoreType::ETH, get_coord_system_used());
+            auto ethernet_cores = soc_desc.get_cores(CoreType::ETH, CoordSystem::VIRTUAL);
             eth_cores = std::unordered_set<tt_xy_pair>(ethernet_cores.begin(), ethernet_cores.end());
             for (std::uint32_t dram_idx = 0; dram_idx < soc_desc.get_num_dram_channels(); dram_idx++) {
-                dram_cores.insert(soc_desc.get_dram_core_for_channel(dram_idx, 0, get_coord_system_used()));
+                dram_cores.insert(soc_desc.get_dram_core_for_channel(dram_idx, 0, CoordSystem::VIRTUAL));
             }
         }
         count++;
@@ -683,12 +683,7 @@ void Cluster::populate_cores() {
 void Cluster::check_pcie_device_initialized(int device_id) {
     TTDevice* tt_device = get_tt_device(device_id);
     tt::ARCH device_arch = tt_device->get_pci_device()->get_arch();
-    if (arch_name == tt::ARCH::GRAYSKULL) {
-        if (device_arch != tt::ARCH::GRAYSKULL) {
-            throw std::runtime_error(
-                fmt::format("Attempted to run grayskull configured tt_device on {}", arch_to_str(device_arch)));
-        }
-    } else if (arch_name == tt::ARCH::WORMHOLE_B0) {
+    if (arch_name == tt::ARCH::WORMHOLE_B0) {
         if (device_arch != tt::ARCH::WORMHOLE_B0) {
             throw std::runtime_error(
                 fmt::format("Attempted to run wormhole configured tt_device on {}", arch_to_str(device_arch)));
@@ -744,35 +739,6 @@ void Cluster::initialize_pcie_devices() {
     init_membars();
 }
 
-void Cluster::broadcast_pcie_tensix_risc_reset(chip_id_t chip_id, const TensixSoftResetOptions& soft_resets) {
-    log_debug(LogSiliconDriver, "Cluster::broadcast_tensix_risc_reset");
-    log_assert(arch_name == tt::ARCH::GRAYSKULL, "broadcast_pcie_tensix_risc_reset works only for Grayskull.");
-
-    TTDevice* tt_device = get_tt_device(chip_id);
-
-    auto valid = soft_resets & ALL_TENSIX_SOFT_RESET;
-
-    log_debug(
-        LogSiliconDriver,
-        "== For all tensix set soft-reset for {} risc cores.",
-        TensixSoftResetOptionsToString(valid).c_str());
-
-    auto architecture_implementation = tt_device->get_architecture_implementation();
-
-    // TODO: this is clumsy and difficult to read
-    auto [soft_reset_reg, _] = tt_device->set_dynamic_tlb_broadcast(
-        architecture_implementation->get_reg_tlb(),
-        architecture_implementation->get_tensix_soft_reset_addr(),
-        tt_xy_pair(0, 0),
-        tt_xy_pair(
-            architecture_implementation->get_grid_size_x() - 1,
-            architecture_implementation->get_grid_size_y() - 1 -
-                get_soc_descriptor(chip_id).get_harvested_grid_size(CoreType::TENSIX).y),
-        TLB_DATA::Posted);
-    tt_device->write_regs(soft_reset_reg, 1, &valid);
-    tt_driver_atomics::sfence();
-}
-
 std::set<chip_id_t> Cluster::get_target_device_ids() { return all_chip_ids_; }
 
 std::set<chip_id_t> Cluster::get_target_mmio_device_ids() { return local_chip_ids_; }
@@ -786,7 +752,7 @@ void Cluster::deassert_risc_reset() { broadcast_tensix_risc_reset_to_cluster(TEN
 void Cluster::deassert_risc_reset_at_core(tt_cxy_pair core, const TensixSoftResetOptions& soft_resets) {
     // Get Target Device to query soc descriptor and determine location in cluster
     std::uint32_t target_device = core.chip;
-    CoreCoord core_coord = get_soc_descriptor(target_device).get_coord_at(core, get_coord_system_used());
+    CoreCoord core_coord = get_soc_descriptor(target_device).get_coord_at(core, CoordSystem::VIRTUAL);
     log_assert(
         core_coord.core_type == CoreType::TENSIX || core_coord.core_type == CoreType::ETH,
         "Cannot deassert reset on a non-tensix or harvested core");
@@ -807,7 +773,7 @@ void Cluster::deassert_risc_reset_at_core(
 void Cluster::assert_risc_reset_at_core(tt_cxy_pair core, const TensixSoftResetOptions& soft_resets) {
     // Get Target Device to query soc descriptor and determine location in cluster
     std::uint32_t target_device = core.chip;
-    CoreCoord core_coord = get_soc_descriptor(target_device).get_coord_at(core, get_coord_system_used());
+    CoreCoord core_coord = get_soc_descriptor(target_device).get_coord_at(core, CoordSystem::VIRTUAL);
     log_assert(
         core_coord.core_type == CoreType::TENSIX || core_coord.core_type == CoreType::ETH,
         "Cannot assert reset on a non-tensix or harvested core");
@@ -1186,19 +1152,7 @@ int Cluster::test_setup_interface() {
     int ret_val = 0;
     int chip_id = *local_chip_ids_.begin();
     TTDevice* tt_device = get_tt_device(chip_id);
-    if (arch_name == tt::ARCH::GRAYSKULL) {
-        uint32_t mapped_reg = tt_device
-                                  ->set_dynamic_tlb(
-                                      tt_device->get_architecture_implementation()->get_reg_tlb(),
-                                      translate_chip_coord_virtual_to_translated(chip_id, tt_xy_pair(0, 0)),
-                                      0xffb20108)
-                                  .bar_offset;
-
-        uint32_t regval = 0;
-        tt_device->read_regs(mapped_reg, 1, &regval);
-        ret_val = (regval != 0xffffffff && ((regval & 0x1) == 1)) ? 0 : 1;
-        return ret_val;
-    } else if (arch_name == tt::ARCH::WORMHOLE_B0) {
+    if (arch_name == tt::ARCH::WORMHOLE_B0) {
         uint32_t mapped_reg = tt_device
                                   ->set_dynamic_tlb(
                                       tt_device->get_architecture_implementation()->get_reg_tlb(),
@@ -2336,7 +2290,7 @@ void Cluster::ethernet_broadcast_write(
             if (chips_to_exclude.find(chip) != chips_to_exclude.end()) {
                 continue;
             }
-            for (const CoreCoord core : get_soc_descriptor(chip).get_all_cores(get_coord_system_used())) {
+            for (const CoreCoord core : get_soc_descriptor(chip).get_all_cores(CoordSystem::VIRTUAL)) {
                 if (cols_to_exclude.find(core.x) == cols_to_exclude.end() &&
                     rows_to_exclude.find(core.y) == rows_to_exclude.end()) {
                     write_to_device(mem_ptr, size_in_bytes, chip, core, address, fallback_tlb);
@@ -2354,35 +2308,7 @@ void Cluster::broadcast_write_to_cluster(
     std::set<uint32_t>& rows_to_exclude,
     std::set<uint32_t>& cols_to_exclude,
     const std::string& fallback_tlb) {
-    if (arch_name == tt::ARCH::GRAYSKULL) {
-        // Device FW disables broadcasts to all non tensix cores.
-        std::vector<tt_xy_pair> dram_cores_to_write = {};
-        std::vector<uint32_t> dram_rows = {0, 6};
-        std::vector<uint32_t> dram_cols = {1, 4, 7, 10};
-
-        for (const auto& row : dram_rows) {
-            for (const auto& col : dram_cols) {
-                if (rows_to_exclude.find(row) == rows_to_exclude.end() and
-                    cols_to_exclude.find(col) == cols_to_exclude.end()) {
-                    dram_cores_to_write.push_back(tt_xy_pair(col, row));
-                }
-            }
-        }
-
-        std::set<std::pair<tt_xy_pair, tt_xy_pair>> broadcast_grids = {};
-        generate_tensix_broadcast_grids_for_grayskull(broadcast_grids, rows_to_exclude, cols_to_exclude);
-        for (const auto& chip : all_chip_ids_) {
-            if (chips_to_exclude.find(chip) != chips_to_exclude.end()) {
-                continue;
-            }
-            for (const auto& dram : dram_cores_to_write) {
-                write_device_memory(mem_ptr, size_in_bytes, tt_cxy_pair(chip, dram), address, fallback_tlb);
-            }
-            for (const auto& grid : broadcast_grids) {
-                pcie_broadcast_write(chip, mem_ptr, size_in_bytes, address, grid.first, grid.second, fallback_tlb);
-            }
-        }
-    } else if (arch_name == tt::ARCH::BLACKHOLE) {
+    if (arch_name == tt::ARCH::BLACKHOLE) {
         auto architecture_implementation = tt::umd::architecture_implementation::create(arch_name);
         if (cols_to_exclude.find(0) == cols_to_exclude.end() or cols_to_exclude.find(9) == cols_to_exclude.end()) {
             log_assert(
@@ -2729,7 +2655,7 @@ void Cluster::dram_membar(
             std::unordered_set<tt_xy_pair> dram_cores_to_sync = {};
             for (const auto& chan : channels) {
                 dram_cores_to_sync.insert(
-                    get_soc_descriptor(chip).get_dram_core_for_channel(chan, 0, get_coord_system_used()));
+                    get_soc_descriptor(chip).get_dram_core_for_channel(chan, 0, CoordSystem::VIRTUAL));
             }
             insert_host_to_device_barrier(
                 chip, dram_cores_to_sync, dram_address_params.DRAM_BARRIER_BASE, fallback_tlb);
@@ -2888,35 +2814,23 @@ void Cluster::enable_remote_ethernet_queue(const chip_id_t& chip, int timeout) {
 }
 
 void Cluster::broadcast_tensix_risc_reset_to_cluster(const TensixSoftResetOptions& soft_resets) {
-    if (arch_name == tt::ARCH::GRAYSKULL) {
-        for (auto& chip_id : local_chip_ids_) {
-            broadcast_pcie_tensix_risc_reset(chip_id, soft_resets);
-        }
+    auto valid = soft_resets & ALL_TENSIX_SOFT_RESET;
+    uint32_t valid_val = (std::underlying_type<TensixSoftResetOptions>::type)valid;
+    std::set<chip_id_t> chips_to_exclude = {};
+    std::set<uint32_t> rows_to_exclude;
+    std::set<uint32_t> columns_to_exclude;
+    if (arch_name == tt::ARCH::BLACKHOLE) {
+        rows_to_exclude = {0, 1};
+        columns_to_exclude = {0, 8, 9};
     } else {
-        auto valid = soft_resets & ALL_TENSIX_SOFT_RESET;
-        uint32_t valid_val = (std::underlying_type<TensixSoftResetOptions>::type)valid;
-        std::set<chip_id_t> chips_to_exclude = {};
-        std::set<uint32_t> rows_to_exclude;
-        std::set<uint32_t> columns_to_exclude;
-        if (arch_name == tt::ARCH::BLACKHOLE) {
-            rows_to_exclude = {0, 1};
-            columns_to_exclude = {0, 8, 9};
-        } else {
-            rows_to_exclude = {0, 6};
-            columns_to_exclude = {0, 5};
-        }
-        std::string fallback_tlb = "LARGE_WRITE_TLB";
-        broadcast_write_to_cluster(
-            &valid_val,
-            sizeof(uint32_t),
-            0xFFB121B0,
-            chips_to_exclude,
-            rows_to_exclude,
-            columns_to_exclude,
-            fallback_tlb);
-        // Ensure that reset signal is globally visible
-        wait_for_non_mmio_flush();
+        rows_to_exclude = {0, 6};
+        columns_to_exclude = {0, 5};
     }
+    std::string fallback_tlb = "LARGE_WRITE_TLB";
+    broadcast_write_to_cluster(
+        &valid_val, sizeof(uint32_t), 0xFFB121B0, chips_to_exclude, rows_to_exclude, columns_to_exclude, fallback_tlb);
+    // Ensure that reset signal is globally visible
+    wait_for_non_mmio_flush();
 }
 
 void Cluster::set_power_state(tt_DevicePowerState device_state) {
@@ -3131,18 +3045,14 @@ void Cluster::set_barrier_address_params(const barrier_address_params& barrier_a
     }
 }
 
-CoordSystem Cluster::get_coord_system_used() const {
-    return arch_name == tt::ARCH::GRAYSKULL ? CoordSystem::PHYSICAL : CoordSystem::VIRTUAL;
-}
-
 // TODO: This is a temporary function while we're switching between the old and the new API.
 // Eventually, this function should be so small it would be obvioud to remove.
 tt_xy_pair Cluster::translate_to_api_coords(const chip_id_t chip, const tt::umd::CoreCoord core_coord) const {
-    return get_soc_descriptor(chip).translate_coord_to(core_coord, get_coord_system_used());
+    return get_soc_descriptor(chip).translate_coord_to(core_coord, CoordSystem::VIRTUAL);
 }
 
 tt_xy_pair Cluster::translate_chip_coord_virtual_to_translated(const chip_id_t chip_id, const tt_xy_pair core) const {
-    CoreCoord core_coord = get_soc_descriptor(chip_id).get_coord_at(core, get_coord_system_used());
+    CoreCoord core_coord = get_soc_descriptor(chip_id).get_coord_at(core, CoordSystem::VIRTUAL);
     auto translated_coord = get_soc_descriptor(chip_id).translate_coord_to(
         core_coord, umd_use_noc1 ? CoordSystem::PHYSICAL : CoordSystem::TRANSLATED);
     return translated_coord;

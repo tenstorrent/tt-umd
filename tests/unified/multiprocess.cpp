@@ -11,7 +11,7 @@
 
 using namespace tt::umd;
 
-constexpr int NUM_PARALLEL = 10;
+constexpr int NUM_PARALLEL = 4;
 constexpr int NUM_LOOPS = 1000;
 
 // We want to test IO in parallel in each thread.

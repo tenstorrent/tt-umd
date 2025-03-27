@@ -984,14 +984,19 @@ std::string tt_ClusterDescriptor::serialize() const {
 
     out << YAML::BeginMap;
 
-    // Section: arch
     out << YAML::Key << "arch" << YAML::Value << YAML::BeginMap;
     for (const auto &[chip_id, arch] : chip_arch) {
         out << YAML::Key << chip_id << YAML::Value << tt::arch_to_str(arch);
     }
     out << YAML::EndMap;
 
-    // Section: ethernet_connections
+    out << YAML::Key << "chips" << YAML::Value << YAML::BeginMap;
+    for (const auto &[chip_id, chip_location] : chip_locations) {
+        out << YAML::Key << chip_id << YAML::Value << YAML::BeginSeq << chip_location.x << chip_location.y
+            << chip_location.rack << chip_location.shelf << YAML::EndSeq;
+    }
+    out << YAML::EndMap;
+
     out << YAML::Key << "ethernet_connections" << YAML::Value << YAML::BeginSeq;
     std::set<std::pair<chip_id_t, int>> serialized_connections;
     for (const auto &[src_chip, channels] : ethernet_connections) {
@@ -1009,10 +1014,8 @@ std::string tt_ClusterDescriptor::serialize() const {
             out << YAML::EndSeq;
         }
     }
-
     out << YAML::EndSeq;
 
-    // Section: chips_with_mmio
     out << YAML::Key << "chips_with_mmio" << YAML::Value << YAML::BeginSeq;
     for (const auto &chip_with_mmio : chips_with_mmio) {
         out << YAML::BeginMap << YAML::Key << chip_with_mmio.first << YAML::Value << chip_with_mmio.second
@@ -1020,7 +1023,6 @@ std::string tt_ClusterDescriptor::serialize() const {
     }
     out << YAML::EndSeq;
 
-    // Section: harvesting
     out << YAML::Key << "harvesting" << YAML::Value << YAML::BeginMap;
     for (const int &chip : all_chips) {
         out << YAML::Key << chip << YAML::Value << YAML::BeginMap;
@@ -1033,7 +1035,6 @@ std::string tt_ClusterDescriptor::serialize() const {
     }
     out << YAML::EndMap;
 
-    // Section: boardtype
     out << YAML::Key << "boardtype" << YAML::Value << YAML::BeginMap;
     for (const int &chip : all_chips) {
         out << YAML::Key << chip << YAML::Value << board_type_to_string(chip_board_type.at(chip));

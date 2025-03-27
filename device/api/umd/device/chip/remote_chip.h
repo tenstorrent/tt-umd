@@ -15,6 +15,9 @@ class LocalChip;
 class RemoteChip : public Chip {
 public:
     RemoteChip(tt_SocDescriptor soc_descriptor, eth_coord_t eth_chip_location, LocalChip* local_chip);
+
+    RemoteChip(tt_SocDescriptor soc_descriptor, ChipInfo chip_info);
+
     bool is_mmio_capable() const override;
 
     void start_device() override;

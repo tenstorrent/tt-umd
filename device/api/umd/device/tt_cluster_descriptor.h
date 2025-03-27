@@ -18,6 +18,7 @@
 
 #include "umd/device/chip/chip.h"
 #include "umd/device/cluster.h"
+#include "umd/device/topology_discovery.h"
 #include "umd/device/tt_xy_pair.h"
 #include "umd/device/types/arch.h"
 #include "umd/device/types/cluster_descriptor_types.h"
@@ -28,6 +29,7 @@ class Node;
 
 class tt_ClusterDescriptor {
     friend class tt::umd::Cluster;
+    friend class tt::umd::TopologyDiscovery;
 
 private:
     tt_ClusterDescriptor() = default;

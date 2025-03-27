@@ -29,8 +29,6 @@ void test_read_write_all_tensix_cores(Cluster* cluster, int thread_id) {
     uint32_t start_address = address;
     uint32_t address_next_thread = chunk_size * (thread_id + 1);
 
-    // std::cout << "address for thread id " << thread_id << " " << std::hex << address << std::dec << std::endl;
-
     for (int loop = 0; loop < NUM_LOOPS; loop++) {
         for (const CoreCoord& core : cluster->get_soc_descriptor(0).get_cores(CoreType::TENSIX)) {
             cluster->write_to_device(

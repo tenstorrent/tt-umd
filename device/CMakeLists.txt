@@ -54,6 +54,7 @@ target_sources(
         blackhole/blackhole_arc_messenger.cpp
         blackhole/blackhole_arc_message_queue.cpp
         xy_pair.cpp
+        umd_utils.cpp
         ${FBS_GENERATED_HEADER}
 )
 

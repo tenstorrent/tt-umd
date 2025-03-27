@@ -150,38 +150,26 @@ void Cluster::initialize_interprocess_mutexes(int logical_device_id, bool cleanu
 
     // Store old mask and clear processes umask
     auto old_umask = umask(0);
-    permissions unrestricted_permissions;
-    unrestricted_permissions.set_unrestricted();
     std::string mutex_name = "";
+
+    uint32_t pci_device_id = get_tt_device(logical_device_id)->get_pci_device()->get_device_num();
 
     // Initialize Dynamic TLB mutexes
     for (auto& tlb : get_tlb_manager(logical_device_id)->dynamic_tlb_config_) {
-        mutex_name = tlb.first + std::to_string(logical_device_id);
-        if (cleanup_mutexes_in_shm) {
-            named_mutex::remove(mutex_name.c_str());
-        }
-        hardware_resource_mutex_map[mutex_name] =
-            std::make_shared<named_mutex>(open_or_create, mutex_name.c_str(), unrestricted_permissions);
+        mutex_name = tlb.first + std::to_string(pci_device_id);
+        hardware_resource_mutex_map[mutex_name] = initialize_mutex(mutex_name, cleanup_mutexes_in_shm);
     }
 
     if (arch_name == tt::ARCH::WORMHOLE_B0) {
-        mutex_name = NON_MMIO_MUTEX_NAME + std::to_string(logical_device_id);
         // Initialize non-MMIO mutexes for WH devices regardless of number of chips, since these may be used for
         // ethernet broadcast
-        if (cleanup_mutexes_in_shm) {
-            named_mutex::remove(mutex_name.c_str());
-        }
-        hardware_resource_mutex_map[mutex_name] =
-            std::make_shared<named_mutex>(open_or_create, mutex_name.c_str(), unrestricted_permissions);
+        mutex_name = std::string(NON_MMIO_MUTEX_NAME) + std::to_string(pci_device_id);
+        hardware_resource_mutex_map[mutex_name] = initialize_mutex(mutex_name, cleanup_mutexes_in_shm);
     }
 
     // Initialize interprocess mutexes to make host -> device memory barriers atomic
-    mutex_name = MEM_BARRIER_MUTEX_NAME + std::to_string(logical_device_id);
-    if (cleanup_mutexes_in_shm) {
-        named_mutex::remove(mutex_name.c_str());
-    }
-    hardware_resource_mutex_map[mutex_name] =
-        std::make_shared<named_mutex>(open_or_create, mutex_name.c_str(), unrestricted_permissions);
+    mutex_name = std::string(MEM_BARRIER_MUTEX_NAME) + std::to_string(pci_device_id);
+    hardware_resource_mutex_map[mutex_name] = initialize_mutex(mutex_name, cleanup_mutexes_in_shm);
 
     // Restore old mask
     umask(old_umask);
@@ -1335,7 +1323,8 @@ inline TLBManager* Cluster::get_tlb_manager(chip_id_t device_id) const {
 
 std::shared_ptr<boost::interprocess::named_mutex> Cluster::get_mutex(
     const std::string& tlb_name, int logical_device_id) {
-    std::string mutex_name = tlb_name + std::to_string(logical_device_id);
+    std::string mutex_name =
+        tlb_name + std::to_string(get_tt_device(logical_device_id)->get_pci_device()->get_device_num());
     return hardware_resource_mutex_map.at(mutex_name);
 }
 
@@ -1487,7 +1476,7 @@ void Cluster::write_to_non_mmio_device(
     //                    MUTEX ACQUIRE (NON-MMIO)
     //  do not locate any ethernet core reads/writes before this acquire
     //
-    const scoped_lock<named_mutex> lock(*get_mutex(NON_MMIO_MUTEX_NAME, mmio_capable_chip_logical));
+    const scoped_lock<named_mutex> lock(*get_mutex(std::string(NON_MMIO_MUTEX_NAME), mmio_capable_chip_logical));
 
     int& active_core_for_txn =
         non_mmio_transfer_cores_customized ? active_eth_core_idx_per_chip.at(mmio_capable_chip_logical) : active_core;
@@ -1724,7 +1713,7 @@ void Cluster::read_from_non_mmio_device(void* mem_ptr, tt_cxy_pair core, uint64_
     //                    MUTEX ACQUIRE (NON-MMIO)
     //  do not locate any ethernet core reads/writes before this acquire
     //
-    const scoped_lock<named_mutex> lock(*get_mutex(NON_MMIO_MUTEX_NAME, mmio_capable_chip_logical));
+    const scoped_lock<named_mutex> lock(*get_mutex(std::string(NON_MMIO_MUTEX_NAME), mmio_capable_chip_logical));
     const tt_cxy_pair remote_transfer_ethernet_core = remote_transfer_ethernet_cores[mmio_capable_chip_logical].at(0);
 
     read_device_memory(
@@ -2495,7 +2484,7 @@ void Cluster::insert_host_to_device_barrier(
     const uint32_t barrier_addr,
     const std::string& fallback_tlb) {
     // Ensure that this memory barrier is atomic across processes/threads
-    const scoped_lock<named_mutex> lock(*get_mutex(MEM_BARRIER_MUTEX_NAME, chip));
+    const scoped_lock<named_mutex> lock(*get_mutex(std::string(MEM_BARRIER_MUTEX_NAME), chip));
     set_membar_flag(chip, cores, tt_MemBarFlag::SET, barrier_addr, fallback_tlb);
     set_membar_flag(chip, cores, tt_MemBarFlag::RESET, barrier_addr, fallback_tlb);
 }

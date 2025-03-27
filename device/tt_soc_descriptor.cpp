@@ -327,8 +327,10 @@ void tt_SocDescriptor::load_from_yaml(YAML::Node &device_descriptor_yaml) {
     soc_desc_info.router_cores =
         tt_SocDescriptor::convert_to_tt_xy_pair(device_descriptor_yaml["router_only"].as<std::vector<std::string>>());
 
-    soc_desc_info.noc0_x_to_noc1_x = device_descriptor_yaml["noc0_x_to_noc1_x"].as<std::vector<uint32_t>>();
-    soc_desc_info.noc0_y_to_noc1_y = device_descriptor_yaml["noc0_y_to_noc1_y"].as<std::vector<uint32_t>>();
+    if (device_descriptor_yaml["noc0_x_to_noc1_x"].IsDefined()) {
+        soc_desc_info.noc0_x_to_noc1_x = device_descriptor_yaml["noc0_x_to_noc1_x"].as<std::vector<uint32_t>>();
+        soc_desc_info.noc0_y_to_noc1_y = device_descriptor_yaml["noc0_y_to_noc1_y"].as<std::vector<uint32_t>>();
+    }
 
     soc_desc_info.worker_l1_size = device_descriptor_yaml["worker_l1_size"].as<uint32_t>();
     soc_desc_info.eth_l1_size = device_descriptor_yaml["eth_l1_size"].as<uint32_t>();

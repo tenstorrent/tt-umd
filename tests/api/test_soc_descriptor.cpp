@@ -114,7 +114,7 @@ TEST(SocDescriptor, SocDescriptorBlackholeETHHarvesting) {
         const HarvestingMasks harvesting_masks = {.eth_harvesting_mask = eth_harvesting_mask};
 
         tt_SocDescriptor soc_desc(
-            test_utils::GetAbsPath("tests/soc_descs/blackhole_140_arch_type2.yaml"), true, harvesting_masks);
+            test_utils::GetAbsPath("tests/soc_descs/blackhole_140_arch.yaml"), true, harvesting_masks);
 
         const std::vector<CoreCoord> eth_cores = soc_desc.get_cores(CoreType::ETH);
 
@@ -544,5 +544,20 @@ TEST(SocDescriptor, BlackholeNOC1Cores) {
         EXPECT_EQ(tensix_core.x, noc1_pair.x);
         EXPECT_EQ(tensix_core.y, noc1_pair.y);
         core_coord_index++;
+    }
+}
+
+TEST(SocDescriptor, AllSocDescriptors) {
+    for (std::string soc_desc_yaml : {
+             "blackhole_140_arch_no_eth.yaml",
+             "blackhole_140_arch_no_noc1.yaml",
+             "blackhole_140_arch.yaml",
+             "blackhole_simulation_1x2.yaml",
+             "wormhole_b0_1x1.yaml",
+             "wormhole_b0_8x10.yaml",
+         }) {
+        std::cout << "Testing " << soc_desc_yaml << std::endl;
+
+        tt_SocDescriptor soc_desc(test_utils::GetAbsPath("tests/soc_descs/" + soc_desc_yaml), true);
     }
 }

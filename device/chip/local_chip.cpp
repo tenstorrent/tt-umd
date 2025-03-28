@@ -14,7 +14,9 @@
 namespace tt::umd {
 
 LocalChip::LocalChip(tt_SocDescriptor soc_descriptor, int pci_device_id) :
-    Chip(soc_descriptor), tt_device_(TTDevice::create(pci_device_id)) {
+    Chip(soc_descriptor),
+    tt_device_(TTDevice::create(pci_device_id)),
+    sysmem_manager_(std::make_unique<SysmemManager>(tt_device_.get())) {
     initialize_local_chip();
 }
 
@@ -26,7 +28,8 @@ LocalChip::LocalChip(std::string sdesc_path, std::unique_ptr<TTDevice> tt_device
             tt_device->get_chip_info().noc_translation_enabled,
             tt_device->get_chip_info().harvesting_masks,
             tt_device->get_chip_info().board_type)),
-    tt_device_(std::move(tt_device)) {
+    tt_device_(std::move(tt_device)),
+    sysmem_manager_(std::make_unique<SysmemManager>(tt_device_.get())) {
     initialize_local_chip();
 }
 
@@ -38,7 +41,8 @@ LocalChip::LocalChip(std::unique_ptr<TTDevice> tt_device) :
             tt_device->get_chip_info().noc_translation_enabled,
             tt_device->get_chip_info().harvesting_masks,
             tt_device->get_chip_info().board_type)),
-    tt_device_(std::move(tt_device)) {
+    tt_device_(std::move(tt_device)),
+    sysmem_manager_(std::make_unique<SysmemManager>(tt_device_.get())) {
     initialize_local_chip();
 }
 
@@ -60,6 +64,8 @@ void LocalChip::initialize_tlb_manager() {
 }
 
 TTDevice* LocalChip::get_tt_device() { return tt_device_.get(); }
+
+SysmemManager* LocalChip::get_sysmem_manager() { return sysmem_manager_.get(); }
 
 bool LocalChip::is_mmio_capable() const { return true; }
 
@@ -93,6 +99,14 @@ void LocalChip::wait_eth_cores_training(const uint32_t timeout_ms) {
             }
         }
     }
+}
+
+void LocalChip::write_to_sysmem(uint16_t channel, const void* src, uint64_t sysmem_dest, uint32_t size) {
+    sysmem_manager_->write_to_sysmem(channel, src, sysmem_dest, size);
+}
+
+void LocalChip::read_from_sysmem(uint16_t channel, void* dest, uint64_t sysmem_src, uint32_t size) {
+    sysmem_manager_->read_from_sysmem(channel, dest, sysmem_src, size);
 }
 
 }  // namespace tt::umd

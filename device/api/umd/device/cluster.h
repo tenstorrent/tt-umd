@@ -989,14 +989,6 @@ private:
     int get_clock(int logical_device_id);
 
     // Communication Functions
-    void read_buffer(
-        void* mem_ptr,
-        std::uint32_t address,
-        std::uint16_t channel,
-        std::uint32_t size_in_bytes,
-        chip_id_t src_device_id);
-    void write_buffer(
-        const void* mem_ptr, std::uint32_t size, std::uint32_t address, std::uint16_t channel, chip_id_t src_device_id);
     void write_device_memory(
         const void* mem_ptr,
         uint32_t size_in_bytes,

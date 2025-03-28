@@ -62,6 +62,7 @@ add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/api)
 add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/misc)
 add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/pcie)
 add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/simulation)
+add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/unified)
 if($ENV{ARCH_NAME} STREQUAL "wormhole_b0")
     add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/wormhole)
     add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/galaxy)
@@ -83,4 +84,5 @@ add_custom_target(
         test_pcie_device
         api_tests
         umd_misc_tests
+        unified_tests
 )

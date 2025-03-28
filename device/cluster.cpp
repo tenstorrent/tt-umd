@@ -54,6 +54,7 @@
 #include "umd/device/types/blackhole_arc.h"
 #include "umd/device/types/blackhole_eth.h"
 #include "umd/device/types/tlb.h"
+#include "umd/device/umd_utils.h"
 #include "yaml-cpp/yaml.h"
 
 using namespace boost::interprocess;
@@ -1155,7 +1156,6 @@ int Cluster::pcie_arc_msg(
     uint32_t* return_3,
     uint32_t* return_4) {
     std::vector<uint32_t> arc_msg_return_values;
-
     if (return_3 != nullptr) {
         arc_msg_return_values.push_back(0);
     }
@@ -3035,7 +3035,16 @@ std::unique_ptr<tt_ClusterDescriptor> Cluster::create_cluster_descriptor(std::st
         // Topology discovery from source is supported for Wormhole UBB at the moment,
         // other Wormhole specs need to go through a legacy create-ethernet-map.
         if (!tt_devices.empty() && tt_devices[0]->get_board_type() != BoardType::UBB) {
-            return tt_ClusterDescriptor::create();
+            std::shared_ptr<boost::interprocess::named_mutex> create_eth_map_mx =
+                initialize_mutex(std::string(Cluster::CREATE_ETH_MAP_MUTEX_NAME), false);
+            std::unique_ptr<tt_ClusterDescriptor> cluster_desc = nullptr;
+            {
+                const scoped_lock<named_mutex> lock(*create_eth_map_mx);
+                cluster_desc = tt_ClusterDescriptor::create();
+            }
+            create_eth_map_mx.reset();
+            clear_mutex(std::string(Cluster::CREATE_ETH_MAP_MUTEX_NAME));
+            return cluster_desc;
         }
 
         std::unordered_map<chip_id_t, std::unique_ptr<Chip>> chips;

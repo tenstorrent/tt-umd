@@ -1194,6 +1194,7 @@ private:
     // Named Mutexes
     static constexpr std::string_view NON_MMIO_MUTEX_NAME = "NON_MMIO";
     static constexpr std::string_view MEM_BARRIER_MUTEX_NAME = "MEM_BAR";
+    static constexpr std::string_view CREATE_ETH_MAP_MUTEX_NAME = "CREATE_ETH_MAP";
     // ERISC FW Version Required by UMD
     static constexpr std::uint32_t SW_VERSION = 0x06060000;
 };

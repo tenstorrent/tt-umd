@@ -1052,15 +1052,6 @@ private:
         const uint32_t barrier_addr,
         const std::string& fallback_tlb);
     void init_membars();
-    uint64_t get_sys_addr(
-        const tt_driver_noc_params& noc_params,
-        uint32_t chip_x,
-        uint32_t chip_y,
-        uint32_t noc_x,
-        uint32_t noc_y,
-        uint64_t offset);
-    uint16_t get_sys_rack(const tt_driver_eth_interface_params& eth_interface_params, uint32_t rack_x, uint32_t rack_y);
-    bool is_non_mmio_cmd_q_full(chip_id_t chip_id, uint32_t curr_wptr, uint32_t curr_rptr);
     int pcie_arc_msg(
         int logical_device_id,
         uint32_t msg_code,

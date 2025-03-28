@@ -22,6 +22,7 @@ public:
     bool is_mmio_capable() const override;
 
     TTDevice* get_tt_device() override;
+    SysmemManager* get_sysmem_manager() override;
 
     void write_to_sysmem(const void* mem_ptr, std::uint32_t size, uint64_t addr, uint16_t channel) override;
     void read_from_sysmem(void* mem_ptr, uint64_t addr, uint16_t channel, uint32_t size) override;

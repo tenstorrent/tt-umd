@@ -65,6 +65,8 @@ void LocalChip::initialize_tlb_manager() {
 
 TTDevice* LocalChip::get_tt_device() { return tt_device_.get(); }
 
+SysmemManager* LocalChip::get_sysmem_manager() { return sysmem_manager_.get(); }
+
 bool LocalChip::is_mmio_capable() const { return true; }
 
 void LocalChip::wait_eth_cores_training(const uint32_t timeout_ms) {

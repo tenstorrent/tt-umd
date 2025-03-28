@@ -53,7 +53,15 @@ void Chip::wait_chip_to_be_ready() { wait_eth_cores_training(); }
 
 void Chip::wait_eth_cores_training(const uint32_t timeout_ms) {}
 
-TTDevice* Chip::get_tt_device() { throw std::runtime_error("Chip::get_tt_device is not available for this chip."); }
+TTDevice* Chip::get_tt_device() {
+    throw std::runtime_error(
+        "Chip::get_tt_device is not available for this chip, it is only available for LocalChips.");
+}
+
+SysmemManager* Chip::get_sysmem_manager() {
+    throw std::runtime_error(
+        "Chip::get_sysmem_manager is not available for this chip, it is only available for LocalChips.");
+}
 
 void Chip::write_to_sysmem(const void* mem_ptr, std::uint32_t size, uint64_t addr, uint16_t channel) {
     throw std::runtime_error("Chip::write_to_sysmem is not available for this chip.");

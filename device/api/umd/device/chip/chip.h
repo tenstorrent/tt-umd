@@ -13,6 +13,7 @@
 namespace tt::umd {
 
 class TTDevice;
+class SysmemManager;
 
 // An abstract class that represents a chip.
 class Chip {
@@ -32,6 +33,7 @@ public:
     const ChipInfo& get_chip_info();
 
     virtual TTDevice* get_tt_device();
+    virtual SysmemManager* get_sysmem_manager();
 
     virtual void write_to_sysmem(const void* mem_ptr, std::uint32_t size, uint64_t addr, uint16_t channel);
     virtual void read_from_sysmem(void* mem_ptr, uint64_t addr, uint16_t channel, uint32_t size);

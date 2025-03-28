@@ -213,3 +213,9 @@ constexpr inline bool operator>=(const tt_version& a, const tt_version& b) {
     bool patch_greater_or_equal = (a.major == b.major) && (a.minor == b.minor) && (a.patch >= b.patch);
     return fw_major_greater || fw_minor_greater || patch_greater_or_equal;
 }
+
+struct hugepage_mapping {
+    void* mapping = nullptr;
+    size_t mapping_size = 0;
+    uint64_t physical_address = 0;  // or IOVA, if IOMMU is enabled
+};

@@ -5,9 +5,15 @@
  */
 #include "umd/device/remote_communication.h"
 
+#include <boost/interprocess/sync/named_mutex.hpp>
+#include <boost/interprocess/sync/scoped_lock.hpp>
+
 #include "logger.hpp"
 #include "umd/device/driver_atomics.h"
 #include "umd/device/topology_utils.h"
+#include "umd/device/umd_utils.h"
+
+using namespace boost::interprocess;
 
 struct remote_update_ptr_t {
     uint32_t ptr;
@@ -29,7 +35,12 @@ struct routing_cmd_t {
 
 namespace tt::umd {
 
-RemoteCommunication::RemoteCommunication(TTDevice* tt_device) : tt_device(tt_device) {}
+RemoteCommunication::RemoteCommunication(TTDevice* tt_device) : tt_device(tt_device) {
+    non_mmio_mutex = initialize_mutex(
+        std::string(RemoteCommunication::NON_MMIO_MUTEX_NAME) +
+            std::to_string(tt_device->get_pci_device()->get_device_num()),
+        false);
+}
 
 void RemoteCommunication::read_non_mmio(
     uint8_t* mem_ptr,
@@ -67,9 +78,7 @@ void RemoteCommunication::read_non_mmio(
     //                    MUTEX ACQUIRE (NON-MMIO)
     //  do not locate any ethernet core reads/writes before this acquire
     //
-    // const scoped_lock<named_mutex> lock(*get_mutex(NON_MMIO_MUTEX_NAME, mmio_capable_chip_logical));
-    // const tt_cxy_pair remote_transfer_ethernet_core =
-    // remote_transfer_ethernet_cores[mmio_capable_chip_logical].at(0);
+    const scoped_lock<named_mutex> lock(*non_mmio_mutex);
 
     const tt_xy_pair remote_transfer_ethernet_core = eth_core;
 
@@ -306,14 +315,11 @@ void RemoteCommunication::write_to_non_mmio(
     //                    MUTEX ACQUIRE (NON-MMIO)
     //  do not locate any ethernet core reads/writes before this acquire
     //
-    // const scoped_lock<named_mutex> lock(*get_mutex(NON_MMIO_MUTEX_NAME, mmio_capable_chip_logical));
 
-    // int& active_core_for_txn =
-    // non_mmio_transfer_cores_customized ? active_eth_core_idx_per_chip.at(mmio_capable_chip_logical) : active_core;
+    const scoped_lock<named_mutex> lock(*non_mmio_mutex);
+
     bool non_mmio_transfer_cores_customized = false;
     int active_core_for_txn = 0;
-    // tt_cxy_pair remote_transfer_ethernet_core =
-    // remote_transfer_ethernet_cores.at(mmio_capable_chip_logical)[active_core_for_txn];
 
     tt_xy_pair remote_transfer_ethernet_core = eth_core;
 

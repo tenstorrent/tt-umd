@@ -32,6 +32,9 @@ TEST(RemoteCommunicationWormhole, BasicRemoteCommunicationIO) {
     std::vector<uint32_t> data_read(10, 0);
 
     std::vector<tt_xy_pair> active_eth_cores = {};
+    if (cluster_desc->get_ethernet_connections().find(mmio_chip_id) == cluster_desc->get_ethernet_connections().end()) {
+        GTEST_SKIP() << "No ethernet connections found for MMIO chip " << mmio_chip_id << ". Skipping the test.";
+    }
     auto eth_connections_chip = cluster_desc->get_ethernet_connections().at(mmio_chip_id);
     for (const auto& [eth_channel, eth_connection] : eth_connections_chip) {
         CoreCoord logical_eth_core = CoreCoord(0, eth_channel, CoreType::ETH, CoordSystem::LOGICAL);

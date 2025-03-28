@@ -2,10 +2,18 @@
 name: Build and run all tests
 
 on:
+  workflow_call:
+    inputs:
+      build-type:
+        required: true
+        type: string
+      timeout:
+        required: true
+        type: number
   workflow_dispatch:
     inputs:
       build-type:
-        required: false
+        required: true
         default: Release
         type: choice
         options:
@@ -14,9 +22,11 @@ on:
           - Debug
           - ASan
           - TSan
-  pull_request:
-  push:
-    branches: ["main"]
+      timeout:
+        required: true
+        description: 'The timeout for the test run in minutes'
+        type: number
+        default: 15
 
 jobs:
   build-tests:
@@ -37,7 +47,7 @@ jobs:
       arch: ${{ matrix.test-group.arch}}
       ubuntu-version: ${{ matrix.ubuntu-version}}
       timeout: 15
-      build-type: ${{ inputs.build-type || 'Release' }}
+      build-type: ${{ inputs.build-type }}
 
   test-all:
     secrets: inherit
@@ -46,11 +56,11 @@ jobs:
       fail-fast: false
       matrix:
         test-group: [
-          {arch: wormhole_b0, card: n150, timeout: 10},
-          {arch: wormhole_b0, card: tt-beta-ubuntu-2204-n150-large-stable, timeout: 10},
-          {arch: wormhole_b0, card: n300, timeout: 15},
-          {arch: wormhole_b0, card: tt-beta-ubuntu-2204-n300-large-stable, timeout: 15},
-          {arch: blackhole, card: p150, timeout: 15},
+          {arch: wormhole_b0, card: n150},
+          {arch: wormhole_b0, card: tt-beta-ubuntu-2204-n150-large-stable},
+          {arch: wormhole_b0, card: n300},
+          {arch: wormhole_b0, card: tt-beta-ubuntu-2204-n300-large-stable},
+          {arch: blackhole, card: p150},
         ]
         ubuntu-version: [
           # Running tests on ubuntu-22.04 should be sufficient. Reduce load on CI.
@@ -62,4 +72,5 @@ jobs:
       arch: ${{ matrix.test-group.arch}}
       ubuntu-version: ${{ matrix.ubuntu-version}}
       card: ${{ matrix.test-group.card}}
-      timeout: ${{ matrix.test-group.timeout}}
+      timeout: ${{ inputs.timeout }}
+      build-type: ${{ inputs.build-type }}

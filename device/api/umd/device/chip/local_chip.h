@@ -24,8 +24,8 @@ public:
     TTDevice* get_tt_device() override;
     SysmemManager* get_sysmem_manager() override;
 
-    void write_to_sysmem(const void* mem_ptr, std::uint32_t size, uint64_t addr, uint16_t channel) override;
-    void read_from_sysmem(void* mem_ptr, uint64_t addr, uint16_t channel, uint32_t size) override;
+    void write_to_sysmem(uint16_t channel, const void* src, uint64_t sysmem_dest, uint32_t size) override;
+    void read_from_sysmem(uint16_t channel, void* dest, uint64_t sysmem_src, uint32_t size) override;
 
 private:
     std::unique_ptr<TTDevice> tt_device_;

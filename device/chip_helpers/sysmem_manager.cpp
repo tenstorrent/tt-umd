@@ -12,7 +12,7 @@ namespace tt::umd {
 
 SysmemManager::SysmemManager(TTDevice* tt_device) : tt_device_(tt_device) {}
 
-void SysmemManager::write_to_sysmem(const void* mem_ptr, std::uint32_t size, uint64_t addr, uint16_t channel) {
+void SysmemManager::write_to_sysmem(uint16_t channel, const void* src, uint64_t sysmem_dest, uint32_t size) {
     hugepage_mapping hugepage_map = tt_device_->get_pci_device()->get_hugepage_mapping(channel);
     log_assert(
         hugepage_map.mapping,
@@ -30,15 +30,15 @@ void SysmemManager::write_to_sysmem(const void* mem_ptr, std::uint32_t size, uin
         LogSiliconDriver,
         "Using hugepage mapping at address {} offset {} chan {} size {}",
         hugepage_map.mapping,
-        (addr % hugepage_map.mapping_size),
+        (sysmem_dest % hugepage_map.mapping_size),
         channel,
         size);
-    void* user_scratchspace = static_cast<char*>(hugepage_map.mapping) + (addr % hugepage_map.mapping_size);
+    void* user_scratchspace = static_cast<char*>(hugepage_map.mapping) + (sysmem_dest % hugepage_map.mapping_size);
 
-    memcpy(user_scratchspace, mem_ptr, size);
+    memcpy(user_scratchspace, src, size);
 }
 
-void SysmemManager::read_from_sysmem(void* mem_ptr, uint64_t addr, uint16_t channel, uint32_t size) {
+void SysmemManager::read_from_sysmem(uint16_t channel, void* dest, uint64_t sysmem_src, uint32_t size) {
     hugepage_mapping hugepage_map = tt_device_->get_pci_device()->get_hugepage_mapping(channel);
     log_assert(
         hugepage_map.mapping,
@@ -47,7 +47,7 @@ void SysmemManager::read_from_sysmem(void* mem_ptr, uint64_t addr, uint16_t chan
         tt_device_->get_pci_device()->get_device_num(),
         channel);
 
-    void* user_scratchspace = static_cast<char*>(hugepage_map.mapping) + (addr % hugepage_map.mapping_size);
+    void* user_scratchspace = static_cast<char*>(hugepage_map.mapping) + (sysmem_src % hugepage_map.mapping_size);
 
     log_debug(
         LogSiliconDriver,
@@ -56,7 +56,7 @@ void SysmemManager::read_from_sysmem(void* mem_ptr, uint64_t addr, uint16_t chan
         channel,
         user_scratchspace);
 
-    memcpy(mem_ptr, user_scratchspace, size);
+    memcpy(dest, user_scratchspace, size);
 }
 
 }  // namespace tt::umd

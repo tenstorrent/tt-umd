@@ -35,8 +35,8 @@ public:
     virtual TTDevice* get_tt_device();
     virtual SysmemManager* get_sysmem_manager();
 
-    virtual void write_to_sysmem(const void* mem_ptr, std::uint32_t size, uint64_t addr, uint16_t channel);
-    virtual void read_from_sysmem(void* mem_ptr, uint64_t addr, uint16_t channel, uint32_t size);
+    virtual void write_to_sysmem(uint16_t channel, const void* src, uint64_t sysmem_dest, uint32_t size);
+    virtual void read_from_sysmem(uint16_t channel, void* dest, uint64_t sysmem_src, uint32_t size);
 
     // TODO: This should be private, once enough stuff is moved inside chip.
     // Probably also moved to LocalChip.

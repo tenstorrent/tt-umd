@@ -101,12 +101,12 @@ void LocalChip::wait_eth_cores_training(const uint32_t timeout_ms) {
     }
 }
 
-void LocalChip::write_to_sysmem(const void* mem_ptr, std::uint32_t size, uint64_t addr, uint16_t channel) {
-    sysmem_manager_->write_to_sysmem(mem_ptr, addr, channel, size);
+void LocalChip::write_to_sysmem(uint16_t channel, const void* src, uint64_t sysmem_dest, uint32_t size) {
+    sysmem_manager_->write_to_sysmem(channel, src, sysmem_dest, size);
 }
 
-void LocalChip::read_from_sysmem(void* mem_ptr, uint64_t addr, uint16_t channel, uint32_t size) {
-    sysmem_manager_->read_from_sysmem(mem_ptr, addr, channel, size);
+void LocalChip::read_from_sysmem(uint16_t channel, void* dest, uint64_t sysmem_src, uint32_t size) {
+    sysmem_manager_->read_from_sysmem(channel, dest, sysmem_src, size);
 }
 
 }  // namespace tt::umd

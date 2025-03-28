@@ -2430,11 +2430,11 @@ int Cluster::remote_arc_msg(
 
 void Cluster::write_to_sysmem(
     const void* mem_ptr, std::uint32_t size, uint64_t addr, uint16_t channel, chip_id_t src_device_id) {
-    chips_.at(src_device_id)->write_to_sysmem(mem_ptr, size, addr, channel);
+    chips_.at(src_device_id)->write_to_sysmem(channel, mem_ptr, addr, size);
 }
 
 void Cluster::read_from_sysmem(void* mem_ptr, uint64_t addr, uint16_t channel, uint32_t size, chip_id_t src_device_id) {
-    chips_.at(src_device_id)->read_from_sysmem(mem_ptr, addr, channel, size);
+    chips_.at(src_device_id)->read_from_sysmem(channel, mem_ptr, addr, size);
 }
 
 void Cluster::set_membar_flag(

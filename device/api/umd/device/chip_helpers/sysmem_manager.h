@@ -12,9 +12,9 @@ namespace tt::umd {
 class SysmemManager {
 public:
     SysmemManager(TTDevice* tt_device);
-    void write_to_sysmem(const void* mem_ptr, std::uint32_t size, uint64_t addr, uint16_t channel);
 
-    void read_from_sysmem(void* mem_ptr, uint64_t addr, uint16_t channel, uint32_t size);
+    void write_to_sysmem(uint16_t channel, const void* src, uint64_t sysmem_dest, uint32_t size);
+    void read_from_sysmem(uint16_t channel, void* dest, uint64_t sysmem_src, uint32_t size);
 
     // hugepage and iommu init to be defined here.
 

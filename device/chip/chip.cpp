@@ -63,11 +63,11 @@ SysmemManager* Chip::get_sysmem_manager() {
         "Chip::get_sysmem_manager is not available for this chip, it is only available for LocalChips.");
 }
 
-void Chip::write_to_sysmem(const void* mem_ptr, std::uint32_t size, uint64_t addr, uint16_t channel) {
+void Chip::write_to_sysmem(uint16_t channel, const void* src, uint64_t sysmem_dest, uint32_t size) {
     throw std::runtime_error("Chip::write_to_sysmem is not available for this chip.");
 }
 
-void Chip::read_from_sysmem(void* mem_ptr, uint64_t addr, uint16_t channel, uint32_t size) {
+void Chip::read_from_sysmem(uint16_t channel, void* dest, uint64_t sysmem_src, uint32_t size) {
     throw std::runtime_error("Chip::read_from_sysmem is not available for this chip.");
 }
 

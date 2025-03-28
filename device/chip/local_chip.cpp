@@ -113,11 +113,4 @@ void LocalChip::write_to_sysmem(uint16_t channel, const void* src, uint64_t sysm
 void LocalChip::read_from_sysmem(uint16_t channel, void* dest, uint64_t sysmem_src, uint32_t size) {
     sysmem_manager_->read_from_sysmem(channel, dest, sysmem_src, size);
 }
-
-hugepage_mapping LocalChip::get_hugepage_mapping(size_t channel) const {
-    return sysmem_manager_->get_hugepage_mapping(channel);
-}
-
-size_t LocalChip::get_num_host_mem_channels() const { return sysmem_manager_->get_num_host_mem_channels(); }
-
 }  // namespace tt::umd

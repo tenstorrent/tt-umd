@@ -28,8 +28,6 @@ public:
 
     void write_to_sysmem(uint16_t channel, const void* src, uint64_t sysmem_dest, uint32_t size) override;
     void read_from_sysmem(uint16_t channel, void* dest, uint64_t sysmem_src, uint32_t size) override;
-    hugepage_mapping get_hugepage_mapping(size_t channel) const override;
-    size_t get_num_host_mem_channels() const override;
 
 private:
     std::unique_ptr<TTDevice> tt_device_;

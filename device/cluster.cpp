@@ -187,7 +187,7 @@ void Cluster::create_device(
             initialize_interprocess_mutexes(logical_device_id, clean_system_resources);
 
             bool hugepages_initialized =
-                (get_local_chip(logical_device_id)->get_hugepage_mapping(0).mapping != nullptr);
+                (get_local_chip(logical_device_id)->get_sysmem_manager()->get_hugepage_mapping(0).mapping != nullptr);
             // Large writes to remote chips require hugepages to be initialized.
             // Conservative assert - end workload if remote chips present but hugepages not initialized (failures caused
             // if using remote only for small transactions)
@@ -1045,8 +1045,10 @@ void Cluster::init_pcie_iatus() {
         // For every 1GB channel of memory mapped for DMA, program an iATU
         // region to map it to the underlying buffer's IOVA (IOMMU case) or PA
         // (non-IOMMU case).
-        for (size_t channel = 0; channel < get_local_chip(chip_id)->get_num_host_mem_channels(); channel++) {
-            hugepage_mapping hugepage_map = get_local_chip(chip_id)->get_hugepage_mapping(channel);
+        for (size_t channel = 0; channel < get_local_chip(chip_id)->get_sysmem_manager()->get_num_host_mem_channels();
+             channel++) {
+            hugepage_mapping hugepage_map =
+                get_local_chip(chip_id)->get_sysmem_manager()->get_hugepage_mapping(channel);
             size_t region_size = hugepage_map.mapping_size;
 
             if (!hugepage_map.mapping) {
@@ -1288,7 +1290,7 @@ void Cluster::enable_local_ethernet_queue(const chip_id_t& device_id, int timeou
 }
 
 void* Cluster::host_dma_address(std::uint64_t offset, chip_id_t src_device_id, uint16_t channel) const {
-    hugepage_mapping hugepage_map = get_local_chip(src_device_id)->get_hugepage_mapping(channel);
+    hugepage_mapping hugepage_map = get_local_chip(src_device_id)->get_sysmem_manager()->get_hugepage_mapping(channel);
     if (hugepage_map.mapping != nullptr) {
         return static_cast<std::byte*>(hugepage_map.mapping) + offset;
     } else {
@@ -2912,12 +2914,12 @@ std::uint32_t Cluster::get_num_host_channels(std::uint32_t device_id) {
     log_assert(
         devices.find(device_id) != devices.end(),
         "Querying Host Address parameters for a non-mmio device or a device does not exist.");
-    return get_local_chip(device_id)->get_num_host_mem_channels();
+    return get_local_chip(device_id)->get_sysmem_manager()->get_num_host_mem_channels();
 }
 
 std::uint32_t Cluster::get_host_channel_size(std::uint32_t device_id, std::uint32_t channel) {
     log_assert(channel < get_num_host_channels(device_id), "Querying size for a host channel that does not exist.");
-    hugepage_mapping hugepage_map = get_local_chip(device_id)->get_hugepage_mapping(channel);
+    hugepage_mapping hugepage_map = get_local_chip(device_id)->get_sysmem_manager()->get_hugepage_mapping(channel);
     log_assert(hugepage_map.mapping_size, "Host channel size can only be queried after the device has been started.");
     return hugepage_map.mapping_size;
 }

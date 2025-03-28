@@ -5,10 +5,16 @@
  */
 #include "umd/device/remote_communication.h"
 
+#include <boost/interprocess/sync/named_mutex.hpp>
+#include <boost/interprocess/sync/scoped_lock.hpp>
+
 #include "logger.hpp"
 #include "umd/device/driver_atomics.h"
 #include "umd/device/lock_manager.h"
 #include "umd/device/topology_utils.h"
+#include "umd/device/umd_utils.h"
+
+using namespace boost::interprocess;
 
 using namespace boost::interprocess;
 

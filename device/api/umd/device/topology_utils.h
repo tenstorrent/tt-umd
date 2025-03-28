@@ -8,6 +8,8 @@
 
 #include "umd/device/types/cluster_types.h"
 
+namespace tt::umd {
+
 template <typename T>
 void size_buffer_to_capacity(std::vector<T>& data_buf, std::size_t size_in_bytes) {
     std::size_t target_size = 0;
@@ -51,3 +53,5 @@ static inline bool is_non_mmio_cmd_q_full(
     return (curr_wptr != curr_rptr) && ((curr_wptr & eth_interface_params.cmd_buf_size_mask) ==
                                         (curr_rptr & eth_interface_params.cmd_buf_size_mask));
 }
+
+}  // namespace tt::umd

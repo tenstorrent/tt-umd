@@ -1,11 +1,6 @@
 // SPDX-FileCopyrightText: (c) 2025 Tenstorrent Inc.
 //
 // SPDX-License-Identifier: Apache-2.0
-
-#include <memory>
-#include <thread>
-
-#include "eth_l1_address_map.h"
 #include "gtest/gtest.h"
 #include "host_mem_address_map.h"
 #include "l1_address_map.h"
@@ -14,20 +9,18 @@
 #include "umd/device/cluster.h"
 #include "umd/device/remote_communication.h"
 #include "umd/device/tt_cluster_descriptor.h"
+#include "umd/device/types/cluster_types.h"
 #include "umd/device/wormhole_implementation.h"
 
 using namespace tt::umd;
 
-constexpr std::uint32_t DRAM_BARRIER_BASE = 0;
+constexpr uint32_t DRAM_BARRIER_BASE = 0;
 
 TEST(RemoteCommunicationWormhole, BasicRemoteCommunicationIO) {
     const uint64_t address0 = 0x1000;
     const uint64_t address1 = 0x2000;
 
     std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
-
-    cluster->set_barrier_address_params(
-        {l1_mem::address_map::L1_BARRIER_BASE, eth_l1_mem::address_map::ERISC_BARRIER_BASE, DRAM_BARRIER_BASE});
 
     chip_id_t mmio_chip_id = *cluster->get_target_mmio_device_ids().begin();
     std::unique_ptr<RemoteCommunication> remote_comm =

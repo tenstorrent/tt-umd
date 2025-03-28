@@ -7,6 +7,10 @@
 
 #include "umd/device/tt_device/tt_device.h"
 
+namespace boost::interprocess {
+class named_mutex;
+}
+
 namespace tt::umd {
 
 class RemoteCommunication {
@@ -35,6 +39,10 @@ public:
 
 private:
     TTDevice* tt_device;
+
+    std::shared_ptr<boost::interprocess::named_mutex> non_mmio_mutex = nullptr;
+
+    static constexpr std::string_view NON_MMIO_MUTEX_NAME = "NON_MMIO";
 };
 
 }  // namespace tt::umd

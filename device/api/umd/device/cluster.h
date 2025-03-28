@@ -846,6 +846,20 @@ public:
     TLBManager* get_tlb_manager(chip_id_t device_id) const;
 
     /**
+     * Get Chip for specified logical device id.
+     *
+     * @param device_id Device to target.
+     */
+    Chip* get_chip(chip_id_t device_id) const;
+
+    /**
+     * Get Chip for specified logical device id, verify it is local.
+     *
+     * @param device_id Device to target.
+     */
+    Chip* get_local_chip(chip_id_t device_id) const;
+
+    /**
      * Get Soc descriptor for specified logical device id.
      *
      * @param device_id Device to target.

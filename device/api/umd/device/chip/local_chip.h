@@ -8,6 +8,7 @@
 
 #include "umd/device/chip/chip.h"
 #include "umd/device/chip_helpers/sysmem_manager.h"
+#include "umd/device/chip_helpers/tlb_manager.h"
 
 namespace tt::umd {
 
@@ -23,6 +24,7 @@ public:
 
     TTDevice* get_tt_device() override;
     SysmemManager* get_sysmem_manager() override;
+    TLBManager* get_tlb_manager() override;
 
     void write_to_sysmem(uint16_t channel, const void* src, uint64_t sysmem_dest, uint32_t size) override;
     void read_from_sysmem(uint16_t channel, void* dest, uint64_t sysmem_src, uint32_t size) override;
@@ -30,6 +32,7 @@ public:
 private:
     std::unique_ptr<TTDevice> tt_device_;
     std::unique_ptr<SysmemManager> sysmem_manager_;
+    std::unique_ptr<TLBManager> tlb_manager_;
 
     void initialize_local_chip();
 

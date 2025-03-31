@@ -27,7 +27,6 @@ TTDevice::TTDevice(
     std::unique_ptr<PCIDevice> pci_device, std::unique_ptr<architecture_implementation> architecture_impl) :
     pci_device_(std::move(pci_device)),
     architecture_impl_(std::move(architecture_impl)),
-    tlb_manager_(std::make_unique<TLBManager>(this)),
     arch(architecture_impl_->get_architecture()) {
     initialize_tt_device_mutex();
     arc_messenger_ = ArcMessenger::create_arc_messenger(this);
@@ -51,8 +50,6 @@ TTDevice::TTDevice(
 architecture_implementation *TTDevice::get_architecture_implementation() { return architecture_impl_.get(); }
 
 PCIDevice *TTDevice::get_pci_device() { return pci_device_.get(); }
-
-TLBManager *TTDevice::get_tlb_manager() { return tlb_manager_.get(); }
 
 tt::ARCH TTDevice::get_arch() { return arch; }
 

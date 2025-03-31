@@ -10,6 +10,8 @@
 #include <string_view>
 #include <vector>
 
+#include "umd/device/lock_manager.h"
+
 namespace boost::interprocess {
 class named_mutex;
 }
@@ -68,14 +70,6 @@ protected:
     ArcMessenger(TTDevice* tt_device);
 
     TTDevice* tt_device;
-
-    std::shared_ptr<boost::interprocess::named_mutex> arc_msg_mutex = nullptr;
-
-    static constexpr std::string_view MUTEX_NAME = "TT_ARC_MSG";
-
-private:
-    void initialize_arc_msg_mutex();
-    void clean_arc_msg_mutex();
 };
 
 }  // namespace tt::umd

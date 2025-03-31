@@ -53,6 +53,7 @@
 #include "umd/device/types/blackhole_eth.h"
 #include "umd/device/types/tlb.h"
 #include "umd/device/umd_utils.h"
+#include "umd/device/wormhole_implementation.h"
 #include "yaml-cpp/yaml.h"
 
 using namespace boost::interprocess;
@@ -831,6 +832,40 @@ std::map<int, int> Cluster::get_clocks() {
         clock_freq_map.insert({chip_id, get_clock(chip_id)});
     }
     return clock_freq_map;
+}
+
+uint32_t Cluster::get_target_aiclk_value(tt::ARCH arch, tt_DevicePowerState device_state) {
+    if (arch == tt::ARCH::WORMHOLE_B0) {
+        if (device_state == tt_DevicePowerState::BUSY) {
+            return tt::umd::wormhole::AICLK_BUSY_VAL;
+        } else if (device_state == tt_DevicePowerState::LONG_IDLE) {
+            return tt::umd::wormhole::AICLK_IDLE_VAL;
+        }
+    } else if (arch == tt::ARCH::BLACKHOLE) {
+        if (device_state == tt_DevicePowerState::BUSY) {
+            return tt::umd::blackhole::AICLK_BUSY_VAL;
+        } else if (device_state == tt_DevicePowerState::LONG_IDLE) {
+            return tt::umd::blackhole::AICLK_IDLE_VAL;
+        }
+    }
+
+    throw std::runtime_error("Unsupported architecture for getting AICLK value.");
+}
+
+void Cluster::wait_for_aiclk_value(const uint32_t aiclk_val, const uint32_t timeout_ms) {
+    auto start = std::chrono::system_clock::now();
+    for (auto& chip_id : local_chip_ids_) {
+        uint32_t aiclk = get_clock(chip_id);
+        while (aiclk != aiclk_val) {
+            auto end = std::chrono::system_clock::now();
+            auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
+            if (duration.count() > timeout_ms) {
+                throw std::runtime_error(
+                    fmt::format("Waiting for AICLK value to settle failed on timeout after {}.", timeout_ms));
+            }
+            aiclk = get_clock(chip_id);
+        }
+    }
 }
 
 Cluster::~Cluster() {
@@ -2637,6 +2672,7 @@ void Cluster::set_power_state(tt_DevicePowerState device_state) {
             }
         }
     }
+    wait_for_aiclk_value(Cluster::get_target_aiclk_value(arch_name, device_state));
 }
 
 void Cluster::enable_ethernet_queue(int timeout) {
@@ -2662,7 +2698,7 @@ void Cluster::enable_ethernet_queue(int timeout) {
     }
 }
 
-void Cluster::deassert_resets_and_set_power_state() {
+void Cluster::deassert_resets() {
     // Assert tensix resets on all chips in cluster
     broadcast_tensix_risc_reset_to_cluster(TENSIX_ASSERT_SOFT_RESET);
 
@@ -2697,9 +2733,6 @@ void Cluster::deassert_resets_and_set_power_state() {
             enable_ethernet_queue(30);
         }
     }
-
-    // Set power state to busy
-    set_power_state(tt_DevicePowerState::BUSY);
 }
 
 void Cluster::verify_eth_fw() {
@@ -2754,14 +2787,11 @@ void Cluster::start_device(const tt_device_params& device_params) {
         if (arch_name == tt::ARCH::WORMHOLE_B0) {
             verify_eth_fw();
         }
-        deassert_resets_and_set_power_state();
+        deassert_resets();
     }
 }
 
-void Cluster::close_device() {
-    set_power_state(tt_DevicePowerState::LONG_IDLE);
-    broadcast_tensix_risc_reset_to_cluster(TENSIX_ASSERT_SOFT_RESET);
-}
+void Cluster::close_device() { broadcast_tensix_risc_reset_to_cluster(TENSIX_ASSERT_SOFT_RESET); }
 
 std::uint32_t Cluster::get_num_dram_channels(std::uint32_t device_id) {
     log_assert(

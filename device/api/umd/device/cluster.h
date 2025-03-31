@@ -961,6 +961,7 @@ public:
         const chip_id_t chip, const std::unordered_set<tt::umd::CoreCoord>& cores, const std::string& fallback_tlb);
     virtual void dram_membar(
         const chip_id_t chip, const std::unordered_set<tt::umd::CoreCoord>& cores, const std::string& fallback_tlb);
+    void set_power_state(tt_DevicePowerState state);
 
     static std::unique_ptr<tt_ClusterDescriptor> create_cluster_descriptor(std::string sdesc_path = "");
 
@@ -987,17 +988,18 @@ private:
     void check_pcie_device_initialized(int device_id);
     void set_pcie_power_state(tt_DevicePowerState state);
     int set_remote_power_state(const chip_id_t& chip, tt_DevicePowerState device_state);
-    void set_power_state(tt_DevicePowerState state);
     uint32_t get_power_state_arc_msg(chip_id_t chip_id, tt_DevicePowerState state);
     void enable_local_ethernet_queue(const chip_id_t& chip, int timeout);
     void enable_ethernet_queue(int timeout);
     void enable_remote_ethernet_queue(const chip_id_t& chip, int timeout);
-    void deassert_resets_and_set_power_state();
+    void deassert_resets();
     int iatu_configure_peer_region(
         int logical_device_id, uint32_t peer_region_id, uint64_t bar_addr_64, uint32_t region_size);
     uint32_t get_harvested_noc_rows(uint32_t harvesting_mask);
     uint32_t get_harvested_rows(int logical_device_id);
     int get_clock(int logical_device_id);
+    void wait_for_aiclk_value(const uint32_t aiclk_val, const uint32_t timeout_ms = 5000);
+    static uint32_t get_target_aiclk_value(tt::ARCH arch, tt_DevicePowerState device_state);
 
     // Communication Functions
     void write_device_memory(

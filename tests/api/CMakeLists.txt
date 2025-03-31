@@ -8,6 +8,7 @@ set(API_TESTS_SRCS
     test_soc_descriptor.cpp
     test_tlb_manager.cpp
     test_software_harvesting.cpp
+    test_tt_device.cpp
 )
 
 add_executable(api_tests ${API_TESTS_SRCS})

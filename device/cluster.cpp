@@ -44,12 +44,12 @@
 #include "umd/device/chip/local_chip.h"
 #include "umd/device/chip/mock_chip.h"
 #include "umd/device/chip/remote_chip.h"
+#include "umd/device/chip_helpers/tlb_manager.h"
 #include "umd/device/driver_atomics.h"
 #include "umd/device/hugepage.h"
 #include "umd/device/topology_utils.h"
 #include "umd/device/tt_cluster_descriptor.h"
 #include "umd/device/tt_core_coordinates.h"
-#include "umd/device/tt_device/tlb_manager.h"
 #include "umd/device/tt_soc_descriptor.h"
 #include "umd/device/types/arch.h"
 #include "umd/device/types/blackhole_arc.h"
@@ -1306,7 +1306,7 @@ inline TTDevice* Cluster::get_tt_device(chip_id_t device_id) const {
 }
 
 inline TLBManager* Cluster::get_tlb_manager(chip_id_t device_id) const {
-    return get_tt_device(device_id)->get_tlb_manager();
+    return get_local_chip(device_id)->get_tlb_manager();
 }
 
 inline Chip* Cluster::get_chip(chip_id_t device_id) const {

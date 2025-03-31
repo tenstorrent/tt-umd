@@ -63,6 +63,11 @@ SysmemManager* Chip::get_sysmem_manager() {
         "Chip::get_sysmem_manager is not available for this chip, it is only available for LocalChips.");
 }
 
+TLBManager* Chip::get_tlb_manager() {
+    throw std::runtime_error(
+        "Chip::get_tlb_manager is not available for this chip, it is only available for LocalChips.");
+}
+
 void Chip::write_to_sysmem(uint16_t channel, const void* src, uint64_t sysmem_dest, uint32_t size) {
     throw std::runtime_error("Chip::write_to_sysmem is not available for this chip.");
 }

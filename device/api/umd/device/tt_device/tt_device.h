@@ -10,8 +10,8 @@
 
 #include "umd/device/arc_messenger.h"
 #include "umd/device/architecture_implementation.h"
+#include "umd/device/chip_helpers/tlb_manager.h"
 #include "umd/device/pci_device.hpp"
-#include "umd/device/tt_device/tlb_manager.h"
 #include "umd/device/types/cluster_descriptor_types.h"
 
 // TODO: Should be moved to blackhole_architecture_implementation.h
@@ -37,7 +37,6 @@ class named_mutex;
 
 namespace tt::umd {
 
-class TLBManager;
 class ArcMessenger;
 
 class TTDevice {
@@ -54,7 +53,6 @@ public:
 
     architecture_implementation *get_architecture_implementation();
     PCIDevice *get_pci_device();
-    TLBManager *get_tlb_manager();
 
     tt::ARCH get_arch();
 
@@ -152,7 +150,6 @@ public:
 protected:
     std::unique_ptr<PCIDevice> pci_device_;
     std::unique_ptr<architecture_implementation> architecture_impl_;
-    std::unique_ptr<TLBManager> tlb_manager_;
     tt::ARCH arch;
     std::unique_ptr<ArcMessenger> arc_messenger_ = nullptr;
 

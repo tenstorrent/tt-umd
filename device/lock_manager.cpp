@@ -24,6 +24,13 @@ const std::unordered_map<MutexType, std::string> LockManager::MutexTypeToString 
 
 std::unordered_map<std::string, std::unique_ptr<boost::interprocess::named_mutex>> LockManager::mutexes;
 
+LockManager::~LockManager() {
+    // Clear out all mutexes and unlock them.
+    while (!mutexes.empty()) {
+        clear_mutex_internal(mutexes.begin()->first);
+    }
+}
+
 void LockManager::initialize_mutex(MutexType mutex_type, TTDevice* tt_device, const bool clear_mutex) {
     int device_num = tt_device->get_pci_device()->get_device_num();
     std::string mutex_name = MutexTypeToString.at(mutex_type) + std::to_string(device_num);

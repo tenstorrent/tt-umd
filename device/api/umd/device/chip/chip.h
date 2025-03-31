@@ -13,6 +13,7 @@
 namespace tt::umd {
 
 class TTDevice;
+class SysmemManager;
 
 // An abstract class that represents a chip.
 class Chip {
@@ -25,13 +26,17 @@ public:
 
     tt_SocDescriptor& get_soc_descriptor();
 
-    virtual TTDevice* get_tt_device();
-
     virtual bool is_mmio_capable() const = 0;
 
     void set_barrier_address_params(const barrier_address_params& barrier_address_params_);
 
     const ChipInfo& get_chip_info();
+
+    virtual TTDevice* get_tt_device();
+    virtual SysmemManager* get_sysmem_manager();
+
+    virtual void write_to_sysmem(uint16_t channel, const void* src, uint64_t sysmem_dest, uint32_t size);
+    virtual void read_from_sysmem(uint16_t channel, void* dest, uint64_t sysmem_src, uint32_t size);
 
     // TODO: This should be private, once enough stuff is moved inside chip.
     // Probably also moved to LocalChip.

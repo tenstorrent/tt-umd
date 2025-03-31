@@ -26,6 +26,7 @@ target_sources(
         chip/local_chip.cpp
         chip/mock_chip.cpp
         chip/remote_chip.cpp
+        chip_helpers/sysmem_manager.cpp
         tt_device/tlb_manager.cpp
         cluster.cpp
         coordinate_manager.cpp
@@ -53,6 +54,7 @@ target_sources(
         blackhole/blackhole_arc_messenger.cpp
         blackhole/blackhole_arc_message_queue.cpp
         xy_pair.cpp
+        umd_utils.cpp
         ${FBS_GENERATED_HEADER}
 )
 

@@ -12,6 +12,7 @@
 #include <set>
 #include <stdexcept>
 #include <string>
+#include <string_view>
 #include <unordered_set>
 #include <vector>
 
@@ -845,6 +846,20 @@ public:
     TLBManager* get_tlb_manager(chip_id_t device_id) const;
 
     /**
+     * Get Chip for specified logical device id.
+     *
+     * @param device_id Device to target.
+     */
+    Chip* get_chip(chip_id_t device_id) const;
+
+    /**
+     * Get Chip for specified logical device id, verify it is local.
+     *
+     * @param device_id Device to target.
+     */
+    Chip* get_local_chip(chip_id_t device_id) const;
+
+    /**
      * Get Soc descriptor for specified logical device id.
      *
      * @param device_id Device to target.
@@ -967,7 +982,6 @@ private:
     void initialize_interprocess_mutexes(int logical_device_id, bool cleanup_mutexes_in_shm);
     void cleanup_shared_host_state();
     void initialize_pcie_devices();
-    void broadcast_pcie_tensix_risc_reset(chip_id_t chip_id, const TensixSoftResetOptions& cores);
     void broadcast_tensix_risc_reset_to_cluster(const TensixSoftResetOptions& soft_resets);
     void send_remote_tensix_risc_reset_to_core(const tt_cxy_pair& core, const TensixSoftResetOptions& soft_resets);
     void send_tensix_risc_reset_to_core(const tt_cxy_pair& core, const TensixSoftResetOptions& soft_resets);
@@ -989,14 +1003,6 @@ private:
     int get_clock(int logical_device_id);
 
     // Communication Functions
-    void read_buffer(
-        void* mem_ptr,
-        std::uint32_t address,
-        std::uint16_t channel,
-        std::uint32_t size_in_bytes,
-        chip_id_t src_device_id);
-    void write_buffer(
-        const void* mem_ptr, std::uint32_t size, std::uint32_t address, std::uint16_t channel, chip_id_t src_device_id);
     void write_device_memory(
         const void* mem_ptr,
         uint32_t size_in_bytes,
@@ -1135,8 +1141,6 @@ private:
         const uint32_t& num_host_mem_ch_per_mmio_device,
         const bool create_mock_chips,
         const bool clean_system_resources);
-    // TODO: These functions should be removed once the transition to CoreCoord is complete.
-    CoordSystem get_coord_system_used() const;
     tt_xy_pair translate_to_api_coords(const chip_id_t chip, const tt::umd::CoreCoord core_coord) const;
     // Most of the old APIs accept virtual coordinates, but we communicate with the device through translated
     // coordinates. This is an internal helper function, until we switch the API to accept translated coordinates.
@@ -1188,8 +1192,9 @@ private:
     bool use_virtual_coords_for_eth_broadcast = true;
     tt_version eth_fw_version;  // Ethernet FW the driver is interfacing with
     // Named Mutexes
-    static constexpr char NON_MMIO_MUTEX_NAME[] = "NON_MMIO";
-    static constexpr char MEM_BARRIER_MUTEX_NAME[] = "MEM_BAR";
+    static constexpr std::string_view NON_MMIO_MUTEX_NAME = "NON_MMIO";
+    static constexpr std::string_view MEM_BARRIER_MUTEX_NAME = "MEM_BAR";
+    static constexpr std::string_view CREATE_ETH_MAP_MUTEX_NAME = "CREATE_ETH_MAP";
     // ERISC FW Version Required by UMD
     static constexpr std::uint32_t SW_VERSION = 0x06060000;
 };

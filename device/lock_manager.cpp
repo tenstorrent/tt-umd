@@ -20,6 +20,7 @@ const std::unordered_map<MutexType, std::string> LockManager::MutexTypeToString 
     {MutexType::TT_DEVICE_IO, "SMALL_READ_WRITE_TLB"},
     {MutexType::NON_MMIO, "TT_NON_MMIO"},
     {MutexType::MEM_BARRIER, "TT_MEM_BARRIER"},
+    {MutexType::CREATE_ETH_MAP, "CREATE_ETH_MAP"},
 };
 
 std::unordered_map<std::string, std::unique_ptr<boost::interprocess::named_mutex>> LockManager::mutexes;
@@ -29,6 +30,16 @@ LockManager::~LockManager() {
     while (!mutexes.empty()) {
         clear_mutex_internal(mutexes.begin()->first);
     }
+}
+
+void LockManager::initialize_mutex(MutexType mutex_type, const bool clear_mutex) {
+    initialize_mutex_internal(MutexTypeToString.at(mutex_type), clear_mutex);
+}
+
+void LockManager::clear_mutex(MutexType mutex_type) { clear_mutex_internal(MutexTypeToString.at(mutex_type)); }
+
+std::unique_lock<named_mutex> LockManager::get_mutex(MutexType mutex_type) {
+    return get_mutex_internal(MutexTypeToString.at(mutex_type));
 }
 
 void LockManager::initialize_mutex(MutexType mutex_type, TTDevice* tt_device, const bool clear_mutex) {

@@ -5,11 +5,9 @@
  */
 #include "umd/device/remote_communication.h"
 
-#include <boost/interprocess/sync/named_mutex.hpp>
-#include <boost/interprocess/sync/scoped_lock.hpp>
-
 #include "logger.hpp"
 #include "umd/device/driver_atomics.h"
+#include "umd/device/lock_manager.h"
 #include "umd/device/topology_utils.h"
 #include "umd/device/umd_utils.h"
 
@@ -36,11 +34,10 @@ struct routing_cmd_t {
 namespace tt::umd {
 
 RemoteCommunication::RemoteCommunication(TTDevice* tt_device) : tt_device(tt_device) {
-    non_mmio_mutex = initialize_mutex(
-        std::string(RemoteCommunication::NON_MMIO_MUTEX_NAME) +
-            std::to_string(tt_device->get_pci_device()->get_device_num()),
-        false);
+    LockManager::initialize_mutex(MutexType::NON_MMIO, tt_device, false);
 }
+
+RemoteCommunication::~RemoteCommunication() { LockManager::clear_mutex(MutexType::NON_MMIO, tt_device); }
 
 void RemoteCommunication::read_non_mmio(
     uint8_t* mem_ptr,
@@ -78,7 +75,7 @@ void RemoteCommunication::read_non_mmio(
     //                    MUTEX ACQUIRE (NON-MMIO)
     //  do not locate any ethernet core reads/writes before this acquire
     //
-    const scoped_lock<named_mutex> lock(*non_mmio_mutex);
+    auto lock = LockManager::get_mutex(MutexType::NON_MMIO, tt_device);
 
     const tt_xy_pair remote_transfer_ethernet_core = eth_core;
 
@@ -316,7 +313,7 @@ void RemoteCommunication::write_to_non_mmio(
     //  do not locate any ethernet core reads/writes before this acquire
     //
 
-    const scoped_lock<named_mutex> lock(*non_mmio_mutex);
+    auto lock = LockManager::get_mutex(MutexType::NON_MMIO, tt_device);
 
     bool non_mmio_transfer_cores_customized = false;
     int active_core_for_txn = 0;

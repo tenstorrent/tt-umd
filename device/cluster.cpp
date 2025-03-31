@@ -2950,15 +2950,13 @@ std::unique_ptr<tt_ClusterDescriptor> Cluster::create_cluster_descriptor(std::st
         // Topology discovery from source is supported for Wormhole UBB at the moment,
         // other Wormhole specs need to go through a legacy create-ethernet-map.
         if (!tt_devices.empty() && tt_devices[0]->get_board_type() != BoardType::UBB) {
-            std::shared_ptr<boost::interprocess::named_mutex> create_eth_map_mx =
-                initialize_mutex(std::string(Cluster::CREATE_ETH_MAP_MUTEX_NAME), false);
+            LockManager::initialize_mutex(MutexType::CREATE_ETH_MAP, false);
             std::unique_ptr<tt_ClusterDescriptor> cluster_desc = nullptr;
             {
-                const scoped_lock<named_mutex> lock(*create_eth_map_mx);
+                auto lock = LockManager::get_mutex(MutexType::CREATE_ETH_MAP);
                 cluster_desc = tt_ClusterDescriptor::create();
             }
-            create_eth_map_mx.reset();
-            clear_mutex(std::string(Cluster::CREATE_ETH_MAP_MUTEX_NAME));
+            LockManager::clear_mutex(MutexType::CREATE_ETH_MAP);
             return cluster_desc;
         }
 

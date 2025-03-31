@@ -26,6 +26,8 @@ enum class MutexType {
     NON_MMIO,
     // Used to serialize memory barrier operations.
     MEM_BARRIER,
+    // Used for calling CEM tool.
+    CREATE_ETH_MAP,
 };
 
 class TLBManager;
@@ -34,24 +36,32 @@ class TTDevice;
 class LockManager {
 public:
     LockManager();
+    ~LockManager();
 
+    // This set of functions is used to manage mutexes which are system wide and not chip specific.
+    static void initialize_mutex(MutexType mutex_type, const bool clear_mutex);
+    static void clear_mutex(MutexType mutex_type);
+    static std::unique_lock<boost::interprocess::named_mutex> get_mutex(MutexType mutex_type);
+
+    // This set of functions is used to manage mutexes which are chip specific.
     static void initialize_mutex(MutexType mutex_type, TTDevice* tt_device, const bool clear_mutex);
     static void clear_mutex(MutexType mutex_type, TTDevice* tt_device);
     static std::unique_lock<boost::interprocess::named_mutex> get_mutex(MutexType mutex_type, TTDevice* tt_device);
 
+    // This set of functions is used to manage mutexes which are chip specific. This variant accepts custom mutex name.
     static void initialize_mutex(std::string mutex_prefix, TTDevice* tt_device, const bool clear_mutex);
     static void clear_mutex(std::string mutex_prefix, TTDevice* tt_device);
     static std::unique_lock<boost::interprocess::named_mutex> get_mutex(std::string mutex_prefix, TTDevice* tt_device);
 
+    // Commonly used set of mutexes for a chip.
     static void initialize_default_chip_mutexes(TTDevice* tt_device, TLBManager* tlb_manager, const bool clear_mutex);
 
 private:
     static void initialize_mutex_internal(const std::string& mutex_name, const bool clear_mutex);
-
     static void clear_mutex_internal(const std::string& mutex_name);
-
     static std::unique_lock<boost::interprocess::named_mutex> get_mutex_internal(const std::string& mutex_name);
 
+    // Const map of mutex names for each of the types listed in the enum.
     static const std::unordered_map<MutexType, std::string> MutexTypeToString;
 
     // Maps from mutex name to an initialized mutex.

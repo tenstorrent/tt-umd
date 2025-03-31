@@ -1178,7 +1178,6 @@ private:
     bool use_ethernet_broadcast = true;
     bool use_virtual_coords_for_eth_broadcast = true;
     tt_version eth_fw_version;  // Ethernet FW the driver is interfacing with
-    static constexpr std::string_view CREATE_ETH_MAP_MUTEX_NAME = "CREATE_ETH_MAP";
     // ERISC FW Version Required by UMD
     static constexpr std::uint32_t SW_VERSION = 0x06060000;
 };

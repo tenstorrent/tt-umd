@@ -6,6 +6,7 @@
 #include "gtest/gtest.h"
 #include "l1_address_map.h"
 #include "umd/device/blackhole_implementation.h"
+#include "umd/device/cluster.h"
 #include "umd/device/grayskull_implementation.h"
 #include "umd/device/tt_device/tt_device.h"
 #include "umd/device/wormhole_implementation.h"
@@ -13,16 +14,7 @@
 using namespace tt::umd;
 
 tt_xy_pair get_any_tensix_core(tt::ARCH arch) {
-    switch (arch) {
-        case tt::ARCH::BLACKHOLE:
-            return blackhole::TENSIX_CORES_NOC0[0];
-        case tt::ARCH::WORMHOLE_B0:
-            return wormhole::TENSIX_CORES_NOC0[0];
-        case tt::ARCH::GRAYSKULL:
-            return grayskull::TENSIX_CORES_NOC0[0];
-        default:
-            throw std::runtime_error("Invalid architecture");
-    }
+    return std::make_unique<Cluster>()->get_soc_descriptor(0).get_cores(CoreType::TENSIX)[0];
 }
 
 TEST(ApiTTDeviceTest, BasicTTDeviceIO) {

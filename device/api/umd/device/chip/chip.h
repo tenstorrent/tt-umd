@@ -41,6 +41,12 @@ public:
     virtual void write_to_sysmem(uint16_t channel, const void* src, uint64_t sysmem_dest, uint32_t size);
     virtual void read_from_sysmem(uint16_t channel, void* dest, uint64_t sysmem_src, uint32_t size);
 
+    // TODO: Currently works only for Local and not for Remote.
+    virtual void write_to_device(
+        tt_xy_pair core, const void* src, uint64_t l1_dest, uint32_t size, const std::string& fallback_tlb);
+    virtual void read_from_device(
+        tt_xy_pair core, void* dest, uint64_t l1_src, uint32_t size, const std::string& fallback_tlb);
+
     // TODO: To be removed once all usages are moved inside local chip.
     virtual std::unique_lock<boost::interprocess::named_mutex> get_mutex(std::string mutex_name, int pci_device_id);
     virtual std::unique_lock<boost::interprocess::named_mutex> get_mutex(MutexType mutex_type, int pci_device_id);
@@ -53,17 +59,16 @@ public:
     tt_driver_noc_params noc_params;
     tt_driver_eth_interface_params eth_interface_params;
 
-private:
+protected:
+    void wait_chip_to_be_ready();
+
+    virtual void wait_eth_cores_training(const uint32_t timeout_ms = 60000);
+
     void set_default_params(ARCH arch);
 
     ChipInfo chip_info_;
 
     tt_SocDescriptor soc_descriptor_;
-
-protected:
-    void wait_chip_to_be_ready();
-
-    virtual void wait_eth_cores_training(const uint32_t timeout_ms = 60000);
 };
 
 }  // namespace tt::umd

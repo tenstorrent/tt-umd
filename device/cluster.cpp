@@ -63,9 +63,6 @@ extern bool umd_use_noc1;
 
 static const uint32_t MSG_ERROR_REPLY = 0xFFFFFFFF;
 
-// TLB size for DRAM on blackhole - 4GB
-const uint64_t BH_4GB_TLB_SIZE = 4ULL * 1024 * 1024 * 1024;
-
 // Remove 256MB from full 1GB for channel 3 (iATU limitation)
 static constexpr uint32_t HUGEPAGE_CHANNEL_3_SIZE_LIMIT = 805306368;
 
@@ -780,100 +777,12 @@ void Cluster::write_device_memory(
     tt_cxy_pair target,
     uint64_t address,
     const std::string& fallback_tlb) {
-    TTDevice* dev = get_tt_device(target.chip);
-    const uint8_t* buffer_addr = static_cast<const uint8_t*>(mem_ptr);
-
-    log_debug(
-        LogSiliconDriver,
-        "Cluster::write_device_memory to chip:{} {}-{} at 0x{:x} size_in_bytes: {}",
-        target.chip,
-        target.x,
-        target.y,
-        address,
-        size_in_bytes);
-
-    if (get_tlb_manager(target.chip)->is_tlb_mapped({target.x, target.y}, address, size_in_bytes)) {
-        tlb_configuration tlb_description = get_tlb_manager(target.chip)->get_tlb_configuration({target.x, target.y});
-        if (dev->get_pci_device()->bar4_wc != nullptr && tlb_description.size == BH_4GB_TLB_SIZE) {
-            // This is only for Blackhole. If we want to  write to DRAM (BAR4 space), we add offset
-            // to which we write so write_block knows it needs to target BAR4
-            dev->write_block(
-                (tlb_description.tlb_offset + address % tlb_description.size) + BAR0_BH_SIZE,
-                size_in_bytes,
-                buffer_addr);
-        } else {
-            dev->write_block(tlb_description.tlb_offset + address % tlb_description.size, size_in_bytes, buffer_addr);
-        }
-    } else {
-        const auto tlb_index = get_tlb_manager(target.chip)->dynamic_tlb_config_.at(fallback_tlb);
-        auto lock = get_local_chip(target.chip)->get_mutex(fallback_tlb, dev->get_pci_device()->get_device_num());
-
-        while (size_in_bytes > 0) {
-            auto [mapped_address, tlb_size] = dev->set_dynamic_tlb(
-                tlb_index,
-                translate_chip_coord_virtual_to_translated(target.chip, target),
-                address,
-                get_tlb_manager(target.chip)->dynamic_tlb_ordering_modes_.at(fallback_tlb));
-            uint32_t transfer_size = std::min((uint64_t)size_in_bytes, tlb_size);
-            dev->write_block(mapped_address, transfer_size, buffer_addr);
-
-            size_in_bytes -= transfer_size;
-            address += transfer_size;
-            buffer_addr += transfer_size;
-        }
-        log_debug(LogSiliconDriver, "Write done Dynamic TLB with pid={}", (long)getpid());
-    }
+    get_local_chip(target.chip)->write_to_device({target.x, target.y}, mem_ptr, address, size_in_bytes, fallback_tlb);
 }
 
 void Cluster::read_device_memory(
     void* mem_ptr, tt_cxy_pair target, uint64_t address, uint32_t size_in_bytes, const std::string& fallback_tlb) {
-    log_debug(
-        LogSiliconDriver,
-        "Cluster::read_device_memory to chip:{} {}-{} at 0x{:x} size_in_bytes: {}",
-        target.chip,
-        target.x,
-        target.y,
-        address,
-        size_in_bytes);
-    TTDevice* dev = get_tt_device(target.chip);
-    uint8_t* buffer_addr = static_cast<uint8_t*>(mem_ptr);
-
-    if (get_tlb_manager(target.chip)->is_tlb_mapped({target.x, target.y}, address, size_in_bytes)) {
-        tlb_configuration tlb_description = get_tlb_manager(target.chip)->get_tlb_configuration({target.x, target.y});
-        if (dev->get_pci_device()->bar4_wc != nullptr && tlb_description.size == BH_4GB_TLB_SIZE) {
-            // This is only for Blackhole. If we want to  read from DRAM (BAR4 space), we add offset
-            // from which we read so read_block knows it needs to target BAR4
-            dev->read_block(
-                (tlb_description.tlb_offset + address % tlb_description.size) + BAR0_BH_SIZE,
-                size_in_bytes,
-                buffer_addr);
-        } else {
-            dev->read_block(tlb_description.tlb_offset + address % tlb_description.size, size_in_bytes, buffer_addr);
-        }
-        log_debug(
-            LogSiliconDriver,
-            "  read_block called with tlb_offset: {}, tlb_size: {}",
-            tlb_description.tlb_offset,
-            tlb_description.size);
-    } else {
-        const auto tlb_index = get_tlb_manager(target.chip)->dynamic_tlb_config_.at(fallback_tlb);
-        auto lock = get_local_chip(target.chip)->get_mutex(fallback_tlb, dev->get_pci_device()->get_device_num());
-        log_debug(LogSiliconDriver, "  dynamic tlb_index: {}", tlb_index);
-        while (size_in_bytes > 0) {
-            auto [mapped_address, tlb_size] = dev->set_dynamic_tlb(
-                tlb_index,
-                translate_chip_coord_virtual_to_translated(target.chip, target),
-                address,
-                get_tlb_manager(target.chip)->dynamic_tlb_ordering_modes_.at(fallback_tlb));
-            uint32_t transfer_size = std::min((uint64_t)size_in_bytes, tlb_size);
-            dev->read_block(mapped_address, transfer_size, buffer_addr);
-
-            size_in_bytes -= transfer_size;
-            address += transfer_size;
-            buffer_addr += transfer_size;
-        }
-        log_debug(LogSiliconDriver, "Read done Dynamic TLB with pid={}", (long)getpid());
-    }
+    get_local_chip(target.chip)->read_from_device({target.x, target.y}, mem_ptr, address, size_in_bytes, fallback_tlb);
 }
 
 uint32_t Cluster::get_power_state_arc_msg(chip_id_t chip_id, tt_DevicePowerState state) {

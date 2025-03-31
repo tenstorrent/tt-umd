@@ -48,6 +48,8 @@ target_sources(
         tt_soc_descriptor.cpp
         wormhole/wormhole_coordinate_manager.cpp
         blackhole/blackhole_coordinate_manager.cpp
+        arc_telemetry_reader.cpp
+        wormhole/wormhole_arc_telemetry_reader.cpp
         blackhole/blackhole_arc_telemetry_reader.cpp
         arc_messenger.cpp
         wormhole/wormhole_arc_messenger.cpp

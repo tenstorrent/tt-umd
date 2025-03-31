@@ -12,9 +12,7 @@
 namespace tt::umd {
 
 BlackholeTTDevice::BlackholeTTDevice(std::unique_ptr<PCIDevice> pci_device) :
-    TTDevice(std::move(pci_device), std::make_unique<blackhole_implementation>()) {
-    telemetry = std::make_unique<blackhole::BlackholeArcTelemetryReader>(this);
-}
+    TTDevice(std::move(pci_device), std::make_unique<blackhole_implementation>()) {}
 
 BlackholeTTDevice::~BlackholeTTDevice() {
     // Turn off iATU for the regions we programmed.  This won't happen if the

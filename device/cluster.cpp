@@ -820,7 +820,7 @@ void Cluster::write_device_memory(
     uint32_t size_in_bytes,
     tt_cxy_pair target,
     uint64_t address,
-    const std::string& fallback_tlb) {
+    const std::string& fallback_tlb, uint32_t thread_d) {
     TTDevice* dev = get_tt_device(target.chip);
     const uint8_t* buffer_addr = static_cast<const uint8_t*>(mem_ptr);
 
@@ -834,6 +834,7 @@ void Cluster::write_device_memory(
         size_in_bytes);
 
     if (get_tlb_manager(target.chip)->is_tlb_mapped({target.x, target.y}, address, size_in_bytes)) {
+        throw std::runtime_error("static tlb setup error.");
         tlb_configuration tlb_description = get_tlb_manager(target.chip)->get_tlb_configuration({target.x, target.y});
         if (dev->get_pci_device()->bar4_wc != nullptr && tlb_description.size == BH_4GB_TLB_SIZE) {
             // This is only for Blackhole. If we want to  write to DRAM (BAR4 space), we add offset
@@ -847,7 +848,16 @@ void Cluster::write_device_memory(
         }
     } else {
         const auto tlb_index = get_tlb_manager(target.chip)->dynamic_tlb_config_.at(fallback_tlb);
+        // std::cout << "tlb index write" << tlb_index << std::endl;
+        if (tlb_index != 157) {
+            std::cout << "tlb index " << tlb_index << std::endl;
+            throw std::runtime_error("Dynamic TLB index is not 157");
+        }
         const scoped_lock<named_mutex> lock(*get_mutex(fallback_tlb, target.chip));
+
+        if (thread_d == 13) {
+            std::this_thread::sleep_for(std::chrono::milliseconds(50));
+        }
 
         while (size_in_bytes > 0) {
             auto [mapped_address, tlb_size] = dev->set_dynamic_tlb(
@@ -867,7 +877,7 @@ void Cluster::write_device_memory(
 }
 
 void Cluster::read_device_memory(
-    void* mem_ptr, tt_cxy_pair target, uint64_t address, uint32_t size_in_bytes, const std::string& fallback_tlb) {
+    void* mem_ptr, tt_cxy_pair target, uint64_t address, uint32_t size_in_bytes, const std::string& fallback_tlb, uint32_t thread_d) {
     log_debug(
         LogSiliconDriver,
         "Cluster::read_device_memory to chip:{} {}-{} at 0x{:x} size_in_bytes: {}",
@@ -880,6 +890,7 @@ void Cluster::read_device_memory(
     uint8_t* buffer_addr = static_cast<uint8_t*>(mem_ptr);
 
     if (get_tlb_manager(target.chip)->is_tlb_mapped({target.x, target.y}, address, size_in_bytes)) {
+        throw std::runtime_error("static tlb setup error.");
         tlb_configuration tlb_description = get_tlb_manager(target.chip)->get_tlb_configuration({target.x, target.y});
         if (dev->get_pci_device()->bar4_wc != nullptr && tlb_description.size == BH_4GB_TLB_SIZE) {
             // This is only for Blackhole. If we want to  read from DRAM (BAR4 space), we add offset
@@ -898,7 +909,14 @@ void Cluster::read_device_memory(
             tlb_description.size);
     } else {
         const auto tlb_index = get_tlb_manager(target.chip)->dynamic_tlb_config_.at(fallback_tlb);
+         if (tlb_index != 157) {
+            std::cout << "tlb index " << tlb_index << std::endl;
+            throw std::runtime_error("Dynamic TLB index is not 157");
+        }
         const scoped_lock<named_mutex> lock(*get_mutex(fallback_tlb, target.chip));
+        if (thread_d == 13) {
+            std::this_thread::sleep_for(std::chrono::milliseconds(50));
+        }
         log_debug(LogSiliconDriver, "  dynamic tlb_index: {}", tlb_index);
         while (size_in_bytes > 0) {
             auto [mapped_address, tlb_size] = dev->set_dynamic_tlb(
@@ -2579,13 +2597,13 @@ void Cluster::dram_membar(
 }
 
 void Cluster::write_to_device(
-    const void* mem_ptr, uint32_t size, tt_cxy_pair core, uint64_t addr, const std::string& fallback_tlb) {
+    const void* mem_ptr, uint32_t size, tt_cxy_pair core, uint64_t addr, const std::string& fallback_tlb, uint32_t thread_d) {
     bool target_is_mmio_capable = cluster_desc->is_chip_mmio_capable(core.chip);
     if (target_is_mmio_capable) {
         if (fallback_tlb == "REG_TLB") {
             write_mmio_device_register(mem_ptr, core, addr, size, fallback_tlb);
         } else {
-            write_device_memory(mem_ptr, size, core, addr, fallback_tlb);
+            write_device_memory(mem_ptr, size, core, addr, fallback_tlb, thread_d);
         }
     } else {
         log_assert(arch_name != tt::ARCH::BLACKHOLE, "Non-MMIO targets not supported in Blackhole");
@@ -2602,8 +2620,8 @@ void Cluster::write_to_device(
     chip_id_t chip,
     CoreCoord core,
     uint64_t addr,
-    const std::string& tlb_to_use) {
-    write_to_device(mem_ptr, size_in_bytes, {(size_t)chip, translate_to_api_coords(chip, core)}, addr, tlb_to_use);
+    const std::string& tlb_to_use, uint32_t thread_d) {
+    write_to_device(mem_ptr, size_in_bytes, {(size_t)chip, translate_to_api_coords(chip, core)}, addr, tlb_to_use, thread_d);
 }
 
 void Cluster::read_mmio_device_register(
@@ -2646,13 +2664,14 @@ void Cluster::write_mmio_device_register(
 }
 
 void Cluster::read_from_device(
-    void* mem_ptr, tt_cxy_pair core, uint64_t addr, uint32_t size, const std::string& fallback_tlb) {
+    void* mem_ptr, tt_cxy_pair core, uint64_t addr, uint32_t size, const std::string& fallback_tlb, uint32_t thread_d
+    ) {
     bool target_is_mmio_capable = cluster_desc->is_chip_mmio_capable(core.chip);
     if (target_is_mmio_capable) {
         if (fallback_tlb == "REG_TLB") {
             read_mmio_device_register(mem_ptr, core, addr, size, fallback_tlb);
         } else {
-            read_device_memory(mem_ptr, core, addr, size, fallback_tlb);
+            read_device_memory(mem_ptr, core, addr, size, fallback_tlb, thread_d);
         }
     } else {
         log_assert(
@@ -2666,8 +2685,8 @@ void Cluster::read_from_device(
 }
 
 void Cluster::read_from_device(
-    void* mem_ptr, chip_id_t chip, CoreCoord core, uint64_t addr, uint32_t size, const std::string& fallback_tlb) {
-    read_from_device(mem_ptr, {(size_t)chip, translate_to_api_coords(chip, core)}, addr, size, fallback_tlb);
+    void* mem_ptr, chip_id_t chip, CoreCoord core, uint64_t addr, uint32_t size, const std::string& fallback_tlb, uint32_t thread_d) {
+    read_from_device(mem_ptr, {(size_t)chip, translate_to_api_coords(chip, core)}, addr, size, fallback_tlb, thread_d);
 }
 
 int Cluster::arc_msg(

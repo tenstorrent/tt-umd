@@ -43,10 +43,10 @@ public:
         uint32_t size_in_bytes,
         tt_cxy_pair core,
         uint64_t addr,
-        const std::string& tlb_to_use) override {}
+        const std::string& tlb_to_use,uint32_t thread_d = 0) override {}
 
     void read_from_device(
-        void* mem_ptr, tt_cxy_pair core, uint64_t addr, uint32_t size, const std::string& fallback_tlb) override {}
+        void* mem_ptr, tt_cxy_pair core, uint64_t addr, uint32_t size, const std::string& fallback_tlb, uint32_t thread_d = 0) override {}
 
     void write_to_sysmem(
         const void* mem_ptr, std::uint32_t size, uint64_t addr, uint16_t channel, chip_id_t src_device_id) override {}

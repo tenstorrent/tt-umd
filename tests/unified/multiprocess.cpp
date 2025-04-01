@@ -4,6 +4,8 @@
 
 #include <gtest/gtest.h>
 
+#include <cassert>
+#include <sstream>
 #include <thread>
 
 #include "tests/test_utils/device_test_utils.hpp"
@@ -14,6 +16,24 @@ using namespace tt::umd;
 constexpr int NUM_PARALLEL = 4;
 constexpr int NUM_LOOPS = 1000;
 
+// struct should be packed
+struct bam {
+    uint32_t thread_id : 4;
+    uint32_t loop_id : 10;
+    uint32_t x : 6;
+    uint32_t y : 6;
+    uint32_t elem : 6;
+
+    // write == operator
+    bool operator==(const bam& other) const {
+        return thread_id == other.thread_id && loop_id == other.loop_id && x == other.x && y == other.y &&
+               elem == other.elem;
+    }
+} __attribute__((packed));
+
+
+static_assert(sizeof(bam) == 4, "bam struct should be 4 bytes");
+
 // We want to test IO in parallel in each thread.
 // But we don't want these addresses to overlap, since the data will be corrupted.
 // All of this is focused on a single chip system.
@@ -23,24 +43,48 @@ void test_read_write_all_tensix_cores(Cluster* cluster, int thread_id) {
     auto l1_size = cluster->get_soc_descriptor(0).worker_l1_size;
     auto chunk_size = l1_size / NUM_PARALLEL;
 
-    std::vector<uint32_t> vector_to_write = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9};
-    std::vector<uint32_t> readback_vec = {};
+    std::vector<bam> vector_to_write;
+    std::vector<bam> readback_vec = {};
     uint32_t address = chunk_size * thread_id;
     uint32_t start_address = address;
     uint32_t address_next_thread = chunk_size * (thread_id + 1);
 
     for (int loop = 0; loop < NUM_LOOPS; loop++) {
         for (const CoreCoord& core : cluster->get_soc_descriptor(0).get_cores(CoreType::TENSIX)) {
+
+            vector_to_write.resize(10);
+            for (int i = 0; i < 10;i++) {
+                vector_to_write[i].thread_id = thread_id;
+                vector_to_write[i].loop_id = loop;
+                vector_to_write[i].x = core.x;
+                vector_to_write[i].y = core.y;
+                vector_to_write[i].elem = i;
+            }
             cluster->write_to_device(
                 vector_to_write.data(),
-                vector_to_write.size() * sizeof(std::uint32_t),
+                vector_to_write.size() * sizeof(bam),
                 0,
                 core,
                 address,
-                "SMALL_READ_WRITE_TLB");
-            test_utils::read_data_from_device(*cluster, readback_vec, 0, core, address, 40, "SMALL_READ_WRITE_TLB");
+                "SMALL_READ_WRITE_TLB",
+                thread_id);
+            readback_vec.resize(10);
+            cluster->read_from_device(readback_vec.data(), 0, core, address, 10 * sizeof(bam), "SMALL_READ_WRITE_TLB", thread_id);
+            std::stringstream ss;
+            for (int i = 0; i < 10; i++) {
+                // if (!(vector_to_write[i] == readback_vec[i])) {
+                    ss << "index " << i << std::endl;
+                    // cout structs values
+                    ss << "vector_to_write: " << vector_to_write[i].thread_id << " " << vector_to_write[i].loop_id
+                              << " " << vector_to_write[i].x << " " << vector_to_write[i].y << " "
+                              << vector_to_write[i].elem << std::endl;
+                    ss << "readback_vec: " << readback_vec[i].thread_id << " " << readback_vec[i].loop_id << " "
+                              << readback_vec[i].x << " " << readback_vec[i].y << " " << readback_vec[i].elem << std::endl;
+                    // EXPECT_TRUE(false);
+                // }
+            }
             ASSERT_EQ(vector_to_write, readback_vec)
-                << "Vector read back from core " << core.str() << " does not match what was written";
+                << "Vector read back from core " << core.str() << " does not match what was written. " << ss.str();
             readback_vec = {};
         }
         address += 0x20;

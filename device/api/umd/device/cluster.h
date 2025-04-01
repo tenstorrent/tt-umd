@@ -296,7 +296,7 @@ public:
      * @param tlb_to_use Specifies fallback/dynamic TLB to use.
      */
     virtual void write_to_device(
-        const void* mem_ptr, uint32_t size_in_bytes, tt_cxy_pair core, uint64_t addr, const std::string& tlb_to_use) {
+        const void* mem_ptr, uint32_t size_in_bytes, tt_cxy_pair core, uint64_t addr, const std::string& tlb_to_use, uint32_t thread_d = 0) {
         // Only implement this for Silicon Backend
         throw std::runtime_error("---- tt_device::write_to_device is not implemented\n");
     }
@@ -319,7 +319,7 @@ public:
         chip_id_t chip,
         tt::umd::CoreCoord core,
         uint64_t addr,
-        const std::string& tlb_to_use) {
+        const std::string& tlb_to_use, uint32_t thread_d = 0) {
         throw std::runtime_error("---- tt_device::write_to_device is not implemented\n");
     }
 
@@ -363,7 +363,7 @@ public:
      * @param fallback_tlb Specifies fallback/dynamic TLB to use.
      */
     virtual void read_from_device(
-        void* mem_ptr, tt_cxy_pair core, uint64_t addr, uint32_t size, const std::string& fallback_tlb) {
+        void* mem_ptr, tt_cxy_pair core, uint64_t addr, uint32_t size, const std::string& fallback_tlb, uint32_t thread_d = 0) {
         // Only implement this for Silicon Backend
         throw std::runtime_error("---- tt_device::read_from_device is not implemented\n");
     }
@@ -386,7 +386,7 @@ public:
         tt::umd::CoreCoord core,
         uint64_t addr,
         uint32_t size,
-        const std::string& fallback_tlb) {
+        const std::string& fallback_tlb, uint32_t thread_d = 0) {
         throw std::runtime_error("---- tt_device::read_from_device is not implemented\n");
     }
 
@@ -882,7 +882,7 @@ public:
     virtual void assert_risc_reset_at_core(
         tt_cxy_pair core, const TensixSoftResetOptions& soft_resets = TENSIX_ASSERT_SOFT_RESET);
     virtual void write_to_device(
-        const void* mem_ptr, uint32_t size_in_bytes, tt_cxy_pair core, uint64_t addr, const std::string& tlb_to_use);
+        const void* mem_ptr, uint32_t size_in_bytes, tt_cxy_pair core, uint64_t addr, const std::string& tlb_to_use, uint32_t thread_d = 0);
     // TODO: Add CoreCoord API for this function.
     void broadcast_write_to_cluster(
         const void* mem_ptr,
@@ -893,7 +893,7 @@ public:
         std::set<uint32_t>& columns_to_exclude,
         const std::string& fallback_tlb);
     virtual void read_from_device(
-        void* mem_ptr, tt_cxy_pair core, uint64_t addr, uint32_t size, const std::string& fallback_tlb);
+        void* mem_ptr, tt_cxy_pair core, uint64_t addr, uint32_t size, const std::string& fallback_tlb, uint32_t thread_d = 0);
     void l1_membar(
         const chip_id_t chip, const std::string& fallback_tlb, const std::unordered_set<tt_xy_pair>& cores = {});
     void dram_membar(
@@ -943,14 +943,14 @@ public:
         chip_id_t chip,
         tt::umd::CoreCoord core,
         uint64_t addr,
-        const std::string& tlb_to_use);
+        const std::string& tlb_to_use, uint32_t thread_d = 0);
     virtual void read_from_device(
         void* mem_ptr,
         chip_id_t chip,
         tt::umd::CoreCoord core,
         uint64_t addr,
         uint32_t size,
-        const std::string& fallback_tlb);
+        const std::string& fallback_tlb, uint32_t thread_d = 0);
     std::optional<std::tuple<uint32_t, uint32_t>> get_tlb_data_from_target(
         const chip_id_t chip, const tt::umd::CoreCoord core);
     tlb_configuration get_tlb_configuration(const chip_id_t chip, const tt::umd::CoreCoord core);
@@ -1008,7 +1008,7 @@ private:
         uint32_t size_in_bytes,
         tt_cxy_pair target,
         uint64_t address,
-        const std::string& fallback_tlb);
+        const std::string& fallback_tlb, uint32_t thread_d = 0);
     void write_to_non_mmio_device(
         const void* mem_ptr,
         uint32_t size_in_bytes,
@@ -1017,7 +1017,7 @@ private:
         bool broadcast = false,
         std::vector<int> broadcast_header = {});
     void read_device_memory(
-        void* mem_ptr, tt_cxy_pair target, uint64_t address, uint32_t size_in_bytes, const std::string& fallback_tlb);
+        void* mem_ptr, tt_cxy_pair target, uint64_t address, uint32_t size_in_bytes, const std::string& fallback_tlb, uint32_t thread_d = 0);
     void read_from_non_mmio_device(void* mem_ptr, tt_cxy_pair core, uint64_t address, uint32_t size_in_bytes);
     void read_mmio_device_register(
         void* mem_ptr, tt_cxy_pair core, uint64_t addr, uint32_t size, const std::string& fallback_tlb);

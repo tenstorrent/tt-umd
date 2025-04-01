@@ -179,7 +179,8 @@ TEST(ApiClusterTest, SimpleIOSpecificChips) {
         GTEST_SKIP() << "No chips present on the system. Skipping test.";
     }
 
-    std::unique_ptr<Cluster> umd_cluster = std::make_unique<Cluster>(0u);
+    std::set<chip_id_t> target_devices = {0};
+    std::unique_ptr<Cluster> umd_cluster = std::make_unique<Cluster>(target_devices);
 
     const tt_ClusterDescriptor* cluster_desc = umd_cluster->get_cluster_description();
 
@@ -197,7 +198,7 @@ TEST(ApiClusterTest, SimpleIOSpecificChips) {
     for (auto chip_id : umd_cluster->get_target_device_ids()) {
         const tt_SocDescriptor& soc_desc = umd_cluster->get_soc_descriptor(chip_id);
 
-        const CoreCoord any_core = soc_desc.get_cores(CoreType::TENSIX)[0];
+        CoreCoord any_core = soc_desc.get_cores(CoreType::TENSIX)[0];
 
         std::cout << "Writing to chip " << chip_id << " core " << any_core.str() << std::endl;
 

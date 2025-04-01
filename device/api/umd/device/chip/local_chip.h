@@ -14,7 +14,7 @@ namespace tt::umd {
 
 class LocalChip : public Chip {
 public:
-    LocalChip(tt_SocDescriptor soc_descriptor, int pci_device_id);
+    LocalChip(tt_SocDescriptor soc_descriptor, int pci_device_id, int num_host_mem_channels = 0);
 
     LocalChip(std::string sdesc_path, std::unique_ptr<TTDevice> tt_device);
 
@@ -34,7 +34,7 @@ private:
     std::unique_ptr<SysmemManager> sysmem_manager_;
     std::unique_ptr<TLBManager> tlb_manager_;
 
-    void initialize_local_chip();
+    void initialize_local_chip(int num_host_mem_channels = 0);
 
     void initialize_tlb_manager();
 

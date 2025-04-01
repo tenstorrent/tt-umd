@@ -183,37 +183,11 @@ void Cluster::create_device(
 
     for (const chip_id_t& logical_device_id : target_mmio_device_ids) {
         if (!create_mock_chips) {
-            auto pci_device = get_tt_device(logical_device_id)->get_pci_device();
-
-            int num_host_mem_channels = num_host_mem_ch_per_mmio_device;
-
-            // TODO: get rid of this when the following Metal CI issue is resolved.
-            // https://github.com/tenstorrent/tt-metal/issues/15675
-            // The notion that we should clamp the number of host mem channels to
-            // what we have available and emit a warning is wrong, since the
-            // application might try to use the channels it asked for.  We should
-            // just fail early since the error message will be actionable instead of
-            // a segfault or memory corruption.
-            if (!pci_device->is_iommu_enabled()) {
-                uint16_t pcie_device_id = pci_device->get_pci_device_id();
-                uint32_t pcie_revision = pci_device->get_pci_revision();
-                num_host_mem_channels =
-                    get_available_num_host_mem_channels(num_host_mem_ch_per_mmio_device, pcie_device_id, pcie_revision);
-            }
-
-            log_debug(
-                LogSiliconDriver,
-                "Using {} Hugepages/NumHostMemChannels for PCIDevice (logical_device_id: {} pci_interface_id: {} "
-                "device_id: 0x{:x})",
-                num_host_mem_channels,
-                logical_device_id,
-                pci_device->get_device_num(),
-                pci_device->get_device_num());
-
             // TODO: This will be moved to a dedicated Locking class.
             initialize_interprocess_mutexes(logical_device_id, clean_system_resources);
 
-            bool hugepages_initialized = pci_device->init_hugepage(num_host_mem_channels);
+            bool hugepages_initialized =
+                (get_local_chip(logical_device_id)->get_sysmem_manager()->get_hugepage_mapping(0).mapping != nullptr);
             // Large writes to remote chips require hugepages to be initialized.
             // Conservative assert - end workload if remote chips present but hugepages not initialized (failures caused
             // if using remote only for small transactions)
@@ -222,7 +196,7 @@ void Cluster::create_device(
                     hugepages_initialized,
                     "Hugepages must be successfully initialized if workload contains remote chips!");
             }
-            if (not pci_device->get_hugepage_mapping(0).mapping) {
+            if (!hugepages_initialized) {
                 log_warning(LogSiliconDriver, "No hugepage mapping at device {}.", logical_device_id);
             }
         }
@@ -275,13 +249,18 @@ void Cluster::construct_cluster(
 }
 
 std::unique_ptr<Chip> Cluster::construct_chip_from_cluster(
-    chip_id_t chip_id, tt_ClusterDescriptor* cluster_desc, tt_SocDescriptor& soc_desc, const bool create_mock_chip) {
+    chip_id_t chip_id,
+    tt_ClusterDescriptor* cluster_desc,
+    tt_SocDescriptor& soc_desc,
+    int num_host_mem_channels,
+    const bool create_mock_chip) {
     if (create_mock_chip) {
         return std::make_unique<MockChip>(soc_desc);
     }
 
     if (cluster_desc->is_chip_mmio_capable(chip_id)) {
-        return std::make_unique<LocalChip>(soc_desc, cluster_desc->get_chips_with_mmio().at(chip_id));
+        return std::make_unique<LocalChip>(
+            soc_desc, cluster_desc->get_chips_with_mmio().at(chip_id), num_host_mem_channels);
     } else {
         return std::make_unique<RemoteChip>(soc_desc);
     }
@@ -293,6 +272,7 @@ std::unique_ptr<Chip> Cluster::construct_chip_from_cluster(
     tt_ClusterDescriptor* cluster_desc,
     bool perform_harvesting,
     std::unordered_map<chip_id_t, HarvestingMasks>& simulated_harvesting_masks,
+    int num_host_mem_channels,
     const bool create_mock_chip) {
     HarvestingMasks harvesting_masks =
         get_harvesting_masks(chip_id, cluster_desc, perform_harvesting, simulated_harvesting_masks);
@@ -305,7 +285,7 @@ std::unique_ptr<Chip> Cluster::construct_chip_from_cluster(
         harvesting_masks,
         chip_board_type,
         asic_location);
-    return construct_chip_from_cluster(chip_id, cluster_desc, soc_desc, create_mock_chip);
+    return construct_chip_from_cluster(chip_id, cluster_desc, soc_desc, num_host_mem_channels, create_mock_chip);
 }
 
 std::unique_ptr<Chip> Cluster::construct_chip_from_cluster(
@@ -313,6 +293,7 @@ std::unique_ptr<Chip> Cluster::construct_chip_from_cluster(
     tt_ClusterDescriptor* cluster_desc,
     bool perform_harvesting,
     std::unordered_map<chip_id_t, HarvestingMasks>& simulated_harvesting_masks,
+    int num_host_mem_channels,
     const bool create_mock_chip) {
     tt::ARCH arch = cluster_desc->get_arch(chip_id);
     HarvestingMasks harvesting_masks =
@@ -326,7 +307,7 @@ std::unique_ptr<Chip> Cluster::construct_chip_from_cluster(
         harvesting_masks,
         chip_board_type,
         asic_location);
-    return construct_chip_from_cluster(chip_id, cluster_desc, soc_desc, create_mock_chip);
+    return construct_chip_from_cluster(chip_id, cluster_desc, soc_desc, num_host_mem_channels, create_mock_chip);
 }
 
 void Cluster::add_chip(chip_id_t chip_id, std::unique_ptr<Chip> chip) {
@@ -510,7 +491,12 @@ Cluster::Cluster(
         add_chip(
             chip_id,
             construct_chip_from_cluster(
-                chip_id, cluster_desc.get(), perform_harvesting, simulated_harvesting_masks, create_mock_chips));
+                chip_id,
+                cluster_desc.get(),
+                perform_harvesting,
+                simulated_harvesting_masks,
+                num_host_mem_ch_per_mmio_device,
+                create_mock_chips));
     }
 
     // TODO: work on removing this member altogether. Currently assumes all have the same arch.
@@ -536,7 +522,12 @@ Cluster::Cluster(
         add_chip(
             chip_id,
             construct_chip_from_cluster(
-                chip_id, cluster_desc.get(), perform_harvesting, simulated_harvesting_masks, create_mock_chips));
+                chip_id,
+                cluster_desc.get(),
+                perform_harvesting,
+                simulated_harvesting_masks,
+                num_host_mem_ch_per_mmio_device,
+                create_mock_chips));
     }
 
     // TODO: work on removing this member altogether. Currently assumes all have the same arch.
@@ -568,6 +559,7 @@ Cluster::Cluster(
                 cluster_desc.get(),
                 perform_harvesting,
                 simulated_harvesting_masks,
+                num_host_mem_ch_per_mmio_device,
                 create_mock_chips));
         log_assert(
             cluster_desc->get_arch(chip_id) == get_chip(chip_id)->get_soc_descriptor().arch,
@@ -596,7 +588,12 @@ Cluster::Cluster(
         add_chip(
             chip_id,
             construct_chip_from_cluster(
-                chip_id, cluster_desc.get(), perform_harvesting, simulated_harvesting_masks, create_mock_chips));
+                chip_id,
+                cluster_desc.get(),
+                perform_harvesting,
+                simulated_harvesting_masks,
+                num_host_mem_ch_per_mmio_device,
+                create_mock_chips));
     }
 
     // TODO: work on removing this member altogether. Currently assumes all have the same arch.
@@ -1048,8 +1045,10 @@ void Cluster::init_pcie_iatus() {
         // For every 1GB channel of memory mapped for DMA, program an iATU
         // region to map it to the underlying buffer's IOVA (IOMMU case) or PA
         // (non-IOMMU case).
-        for (size_t channel = 0; channel < tt_device->get_pci_device()->get_num_host_mem_channels(); channel++) {
-            hugepage_mapping hugepage_map = tt_device->get_pci_device()->get_hugepage_mapping(channel);
+        for (size_t channel = 0; channel < get_local_chip(chip_id)->get_sysmem_manager()->get_num_host_mem_channels();
+             channel++) {
+            hugepage_mapping hugepage_map =
+                get_local_chip(chip_id)->get_sysmem_manager()->get_hugepage_mapping(channel);
             size_t region_size = hugepage_map.mapping_size;
 
             if (!hugepage_map.mapping) {
@@ -1291,7 +1290,7 @@ void Cluster::enable_local_ethernet_queue(const chip_id_t& device_id, int timeou
 }
 
 void* Cluster::host_dma_address(std::uint64_t offset, chip_id_t src_device_id, uint16_t channel) const {
-    hugepage_mapping hugepage_map = get_tt_device(src_device_id)->get_pci_device()->get_hugepage_mapping(channel);
+    hugepage_mapping hugepage_map = get_local_chip(src_device_id)->get_sysmem_manager()->get_hugepage_mapping(channel);
     if (hugepage_map.mapping != nullptr) {
         return static_cast<std::byte*>(hugepage_map.mapping) + offset;
     } else {
@@ -2915,12 +2914,12 @@ std::uint32_t Cluster::get_num_host_channels(std::uint32_t device_id) {
     log_assert(
         devices.find(device_id) != devices.end(),
         "Querying Host Address parameters for a non-mmio device or a device does not exist.");
-    return get_tt_device(device_id)->get_pci_device()->get_num_host_mem_channels();
+    return get_local_chip(device_id)->get_sysmem_manager()->get_num_host_mem_channels();
 }
 
 std::uint32_t Cluster::get_host_channel_size(std::uint32_t device_id, std::uint32_t channel) {
     log_assert(channel < get_num_host_channels(device_id), "Querying size for a host channel that does not exist.");
-    hugepage_mapping hugepage_map = get_tt_device(device_id)->get_pci_device()->get_hugepage_mapping(channel);
+    hugepage_mapping hugepage_map = get_local_chip(device_id)->get_sysmem_manager()->get_hugepage_mapping(channel);
     log_assert(hugepage_map.mapping_size, "Host channel size can only be queried after the device has been started.");
     return hugepage_map.mapping_size;
 }

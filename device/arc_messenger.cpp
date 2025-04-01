@@ -30,7 +30,7 @@ std::unique_ptr<ArcMessenger> ArcMessenger::create_arc_messenger(TTDevice* tt_de
 }
 
 ArcMessenger::ArcMessenger(TTDevice* tt_device) : tt_device(tt_device) {
-    LockManager::initialize_mutex(MutexType::ARC_MSG, tt_device, false);
+    LockManager::initialize_mutex(MutexType::ARC_MSG, tt_device->get_pci_device()->get_device_num(), false);
 }
 
 uint32_t ArcMessenger::send_message(const uint32_t msg_code, uint16_t arg0, uint16_t arg1, uint32_t timeout_ms) {
@@ -38,6 +38,8 @@ uint32_t ArcMessenger::send_message(const uint32_t msg_code, uint16_t arg0, uint
     return send_message(msg_code, return_values, arg0, arg1, timeout_ms);
 }
 
-ArcMessenger::~ArcMessenger() { LockManager::clear_mutex(MutexType::ARC_MSG, tt_device); }
+ArcMessenger::~ArcMessenger() {
+    LockManager::clear_mutex(MutexType::ARC_MSG, tt_device->get_pci_device()->get_device_num());
+}
 
 }  // namespace tt::umd

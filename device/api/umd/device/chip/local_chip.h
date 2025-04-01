@@ -14,7 +14,7 @@ namespace tt::umd {
 
 class LocalChip : public Chip {
 public:
-    LocalChip(tt_SocDescriptor soc_descriptor, int pci_device_id);
+    LocalChip(tt_SocDescriptor soc_descriptor, int pci_device_id, const bool clear_mutex = false);
 
     LocalChip(std::string sdesc_path, std::unique_ptr<TTDevice> tt_device);
 
@@ -34,9 +34,9 @@ private:
     std::unique_ptr<SysmemManager> sysmem_manager_;
     std::unique_ptr<TLBManager> tlb_manager_;
 
-    void initialize_local_chip();
-
+    void initialize_local_chip(const bool clear_mutex = false);
     void initialize_tlb_manager();
+    void initialize_default_chip_mutexes(const bool clear_mutex);
 
 protected:
     void wait_eth_cores_training(const uint32_t timeout_ms = 60000) override;

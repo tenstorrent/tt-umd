@@ -13,12 +13,12 @@
 
 namespace tt::umd {
 
-LocalChip::LocalChip(tt_SocDescriptor soc_descriptor, int pci_device_id) :
+LocalChip::LocalChip(tt_SocDescriptor soc_descriptor, int pci_device_id, const bool clear_mutex) :
     Chip(soc_descriptor),
     tt_device_(TTDevice::create(pci_device_id)),
     sysmem_manager_(std::make_unique<SysmemManager>(tt_device_.get())),
     tlb_manager_(std::make_unique<TLBManager>(tt_device_.get())) {
-    initialize_local_chip();
+    initialize_local_chip(clear_mutex);
 }
 
 LocalChip::LocalChip(std::string sdesc_path, std::unique_ptr<TTDevice> tt_device) :
@@ -47,9 +47,10 @@ LocalChip::LocalChip(std::unique_ptr<TTDevice> tt_device) :
     initialize_local_chip();
 }
 
-void LocalChip::initialize_local_chip() {
+void LocalChip::initialize_local_chip(const bool clear_mutex) {
     initialize_tlb_manager();
     wait_chip_to_be_ready();
+    initialize_default_chip_mutexes(clear_mutex);
 }
 
 void LocalChip::initialize_tlb_manager() {
@@ -61,6 +62,27 @@ void LocalChip::initialize_tlb_manager() {
     tlb_manager_->set_dynamic_tlb_config("REG_TLB", tt_device_->get_architecture_implementation()->get_reg_tlb());
     tlb_manager_->set_dynamic_tlb_config(
         "SMALL_READ_WRITE_TLB", tt_device_->get_architecture_implementation()->get_small_read_write_tlb());
+}
+
+void LocalChip::initialize_default_chip_mutexes(const bool clear_mutex) {
+    // These mutexes are intended to be based on physical devices/pci-intf not logical. Set these up ahead of
+    // time here (during device init) since it's unsafe to modify shared state during multithreaded runtime.
+    // cleanup_mutexes_in_shm is tied to clean_system_resources from the constructor. The main process is
+    // responsible for initializing the driver with this field set to cleanup after an aborted process.
+    int pci_device_id = tt_device_->get_pci_device()->get_device_num();
+    // Initialize Dynamic TLB mutexes
+    for (auto& tlb : tlb_manager_->dynamic_tlb_config_) {
+        LockManager::initialize_mutex(tlb.first, pci_device_id, clear_mutex);
+    }
+
+    // Initialize non-MMIO mutexes for WH devices regardless of number of chips, since these may be used for
+    // ethernet broadcast
+    if (tt_device_->get_arch() == tt::ARCH::WORMHOLE_B0) {
+        LockManager::initialize_mutex(MutexType::NON_MMIO, pci_device_id, clear_mutex);
+    }
+
+    // Initialize interprocess mutexes to make host -> device memory barriers atomic
+    LockManager::initialize_mutex(MutexType::MEM_BARRIER, pci_device_id, clear_mutex);
 }
 
 TTDevice* LocalChip::get_tt_device() { return tt_device_.get(); }

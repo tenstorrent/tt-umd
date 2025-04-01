@@ -135,8 +135,7 @@ const tt_SocDescriptor& Cluster::get_soc_descriptor(chip_id_t chip_id) const {
 void Cluster::create_device(
     const std::set<chip_id_t>& target_mmio_device_ids,
     const uint32_t& num_host_mem_ch_per_mmio_device,
-    const bool create_mock_chips,
-    const bool clean_system_resources) {
+    const bool create_mock_chips) {
     log_debug(LogSiliconDriver, "Cluster::Cluster");
 
     // Don't buffer stdout.
@@ -174,13 +173,6 @@ void Cluster::create_device(
                 pci_device->get_device_num(),
                 pci_device->get_device_num());
 
-            // These mutexes are intended to be based on physical devices/pci-intf not logical. Set these up ahead of
-            // time here (during device init) since its unsafe to modify shared state during multithreaded runtime.
-            // cleanup_mutexes_in_shm is tied to clean_system_resources from the constructor. The main process is
-            // responsible for initializing the driver with this field set to cleanup after an aborted process.
-            LockManager::initialize_default_chip_mutexes(
-                get_tt_device(logical_device_id), get_tlb_manager(logical_device_id), clean_system_resources);
-
             bool hugepages_initialized = pci_device->init_hugepage(num_host_mem_channels);
             // Large writes to remote chips require hugepages to be initialized.
             // Conservative assert - end workload if remote chips present but hugepages not initialized (failures caused
@@ -203,8 +195,7 @@ void Cluster::create_device(
     }
 }
 
-void Cluster::construct_cluster(
-    const uint32_t& num_host_mem_ch_per_mmio_device, const bool create_mock_chips, const bool clean_system_resources) {
+void Cluster::construct_cluster(const uint32_t& num_host_mem_ch_per_mmio_device, const bool create_mock_chips) {
     if (!create_mock_chips) {
         auto available_device_ids = detect_available_device_ids();
         log_info(LogSiliconDriver, "Detected PCI devices: {}", available_device_ids);
@@ -212,7 +203,7 @@ void Cluster::construct_cluster(
             LogSiliconDriver, "Using local chip ids: {} and remote chip ids {}", local_chip_ids_, remote_chip_ids_);
     }
 
-    create_device(local_chip_ids_, num_host_mem_ch_per_mmio_device, create_mock_chips, clean_system_resources);
+    create_device(local_chip_ids_, num_host_mem_ch_per_mmio_device, create_mock_chips);
 
     // Disable dependency to ethernet firmware for all BH devices and WH devices with all chips having MMIO (e.g. UBB
     // Galaxy), do not disable for N150, was seeing some issues in CI
@@ -243,13 +234,18 @@ void Cluster::construct_cluster(
 }
 
 std::unique_ptr<Chip> Cluster::construct_chip_from_cluster(
-    chip_id_t chip_id, tt_ClusterDescriptor* cluster_desc, tt_SocDescriptor& soc_desc, const bool create_mock_chip) {
+    chip_id_t chip_id,
+    tt_ClusterDescriptor* cluster_desc,
+    tt_SocDescriptor& soc_desc,
+    const bool clean_system_resources,
+    const bool create_mock_chip) {
     if (create_mock_chip) {
         return std::make_unique<MockChip>(soc_desc);
     }
 
     if (cluster_desc->is_chip_mmio_capable(chip_id)) {
-        return std::make_unique<LocalChip>(soc_desc, cluster_desc->get_chips_with_mmio().at(chip_id));
+        return std::make_unique<LocalChip>(
+            soc_desc, cluster_desc->get_chips_with_mmio().at(chip_id), clean_system_resources);
     } else {
         return std::make_unique<RemoteChip>(soc_desc);
     }
@@ -261,6 +257,7 @@ std::unique_ptr<Chip> Cluster::construct_chip_from_cluster(
     tt_ClusterDescriptor* cluster_desc,
     bool perform_harvesting,
     std::unordered_map<chip_id_t, HarvestingMasks>& simulated_harvesting_masks,
+    const bool clean_system_resources,
     const bool create_mock_chip) {
     HarvestingMasks harvesting_masks =
         get_harvesting_masks(chip_id, cluster_desc, perform_harvesting, simulated_harvesting_masks);
@@ -273,7 +270,7 @@ std::unique_ptr<Chip> Cluster::construct_chip_from_cluster(
         harvesting_masks,
         chip_board_type,
         asic_location);
-    return construct_chip_from_cluster(chip_id, cluster_desc, soc_desc, create_mock_chip);
+    return construct_chip_from_cluster(chip_id, cluster_desc, soc_desc, clean_system_resources, create_mock_chip);
 }
 
 std::unique_ptr<Chip> Cluster::construct_chip_from_cluster(
@@ -281,6 +278,7 @@ std::unique_ptr<Chip> Cluster::construct_chip_from_cluster(
     tt_ClusterDescriptor* cluster_desc,
     bool perform_harvesting,
     std::unordered_map<chip_id_t, HarvestingMasks>& simulated_harvesting_masks,
+    const bool clean_system_resources,
     const bool create_mock_chip) {
     tt::ARCH arch = cluster_desc->get_arch(chip_id);
     HarvestingMasks harvesting_masks =
@@ -294,7 +292,7 @@ std::unique_ptr<Chip> Cluster::construct_chip_from_cluster(
         harvesting_masks,
         chip_board_type,
         asic_location);
-    return construct_chip_from_cluster(chip_id, cluster_desc, soc_desc, create_mock_chip);
+    return construct_chip_from_cluster(chip_id, cluster_desc, soc_desc, clean_system_resources, create_mock_chip);
 }
 
 void Cluster::add_chip(chip_id_t chip_id, std::unique_ptr<Chip> chip) {
@@ -478,13 +476,18 @@ Cluster::Cluster(
         add_chip(
             chip_id,
             construct_chip_from_cluster(
-                chip_id, cluster_desc.get(), perform_harvesting, simulated_harvesting_masks, create_mock_chips));
+                chip_id,
+                cluster_desc.get(),
+                perform_harvesting,
+                simulated_harvesting_masks,
+                clean_system_resources,
+                create_mock_chips));
     }
 
     // TODO: work on removing this member altogether. Currently assumes all have the same arch.
     arch_name = chips_.begin()->second->get_soc_descriptor().arch;
 
-    construct_cluster(num_host_mem_ch_per_mmio_device, create_mock_chips, clean_system_resources);
+    construct_cluster(num_host_mem_ch_per_mmio_device, create_mock_chips);
 }
 
 Cluster::Cluster(
@@ -504,13 +507,18 @@ Cluster::Cluster(
         add_chip(
             chip_id,
             construct_chip_from_cluster(
-                chip_id, cluster_desc.get(), perform_harvesting, simulated_harvesting_masks, create_mock_chips));
+                chip_id,
+                cluster_desc.get(),
+                perform_harvesting,
+                simulated_harvesting_masks,
+                clean_system_resources,
+                create_mock_chips));
     }
 
     // TODO: work on removing this member altogether. Currently assumes all have the same arch.
     arch_name = chips_.begin()->second->get_soc_descriptor().arch;
 
-    construct_cluster(num_host_mem_ch_per_mmio_device, create_mock_chips, clean_system_resources);
+    construct_cluster(num_host_mem_ch_per_mmio_device, create_mock_chips);
 }
 
 Cluster::Cluster(
@@ -536,6 +544,7 @@ Cluster::Cluster(
                 cluster_desc.get(),
                 perform_harvesting,
                 simulated_harvesting_masks,
+                clean_system_resources,
                 create_mock_chips));
         log_assert(
             cluster_desc->get_arch(chip_id) == get_chip(chip_id)->get_soc_descriptor().arch,
@@ -548,7 +557,7 @@ Cluster::Cluster(
     // TODO: work on removing this member altogether. Currently assumes all have the same arch.
     arch_name = chips_.begin()->second->get_soc_descriptor().arch;
 
-    construct_cluster(num_host_mem_ch_per_mmio_device, create_mock_chips, clean_system_resources);
+    construct_cluster(num_host_mem_ch_per_mmio_device, create_mock_chips);
 }
 
 Cluster::Cluster(
@@ -564,13 +573,18 @@ Cluster::Cluster(
         add_chip(
             chip_id,
             construct_chip_from_cluster(
-                chip_id, cluster_desc.get(), perform_harvesting, simulated_harvesting_masks, create_mock_chips));
+                chip_id,
+                cluster_desc.get(),
+                perform_harvesting,
+                simulated_harvesting_masks,
+                clean_system_resources,
+                create_mock_chips));
     }
 
     // TODO: work on removing this member altogether. Currently assumes all have the same arch.
     arch_name = chips_.begin()->second->get_soc_descriptor().arch;
 
-    construct_cluster(num_host_mem_ch_per_mmio_device, create_mock_chips, clean_system_resources);
+    construct_cluster(num_host_mem_ch_per_mmio_device, create_mock_chips);
 }
 
 void Cluster::configure_active_ethernet_cores_for_mmio_device(
@@ -809,7 +823,7 @@ void Cluster::write_device_memory(
         }
     } else {
         const auto tlb_index = get_tlb_manager(target.chip)->dynamic_tlb_config_.at(fallback_tlb);
-        auto lock = LockManager::get_mutex(fallback_tlb, dev);
+        auto lock = LockManager::get_mutex(fallback_tlb, dev->get_pci_device()->get_device_num());
 
         while (size_in_bytes > 0) {
             auto [mapped_address, tlb_size] = dev->set_dynamic_tlb(
@@ -860,7 +874,7 @@ void Cluster::read_device_memory(
             tlb_description.size);
     } else {
         const auto tlb_index = get_tlb_manager(target.chip)->dynamic_tlb_config_.at(fallback_tlb);
-        auto lock = LockManager::get_mutex(fallback_tlb, dev);
+        auto lock = LockManager::get_mutex(fallback_tlb, dev->get_pci_device()->get_device_num());
         log_debug(LogSiliconDriver, "  dynamic tlb_index: {}", tlb_index);
         while (size_in_bytes > 0) {
             auto [mapped_address, tlb_size] = dev->set_dynamic_tlb(
@@ -1392,7 +1406,8 @@ void Cluster::write_to_non_mmio_device(
     //                    MUTEX ACQUIRE (NON-MMIO)
     //  do not locate any ethernet core reads/writes before this acquire
     //
-    auto lock = LockManager::get_mutex(MutexType::NON_MMIO, get_tt_device(mmio_capable_chip_logical));
+    auto lock = LockManager::get_mutex(
+        MutexType::NON_MMIO, get_tt_device(mmio_capable_chip_logical)->get_pci_device()->get_device_num());
 
     int& active_core_for_txn =
         non_mmio_transfer_cores_customized ? active_eth_core_idx_per_chip.at(mmio_capable_chip_logical) : active_core;
@@ -1632,7 +1647,8 @@ void Cluster::read_from_non_mmio_device(void* mem_ptr, tt_cxy_pair core, uint64_
     //                    MUTEX ACQUIRE (NON-MMIO)
     //  do not locate any ethernet core reads/writes before this acquire
     //
-    auto lock = LockManager::get_mutex(MutexType::NON_MMIO, get_tt_device(mmio_capable_chip_logical));
+    auto lock = LockManager::get_mutex(
+        MutexType::NON_MMIO, get_tt_device(mmio_capable_chip_logical)->get_pci_device()->get_device_num());
     const tt_cxy_pair remote_transfer_ethernet_core = remote_transfer_ethernet_cores[mmio_capable_chip_logical].at(0);
 
     read_device_memory(
@@ -2068,7 +2084,7 @@ void Cluster::pcie_broadcast_write(
     TTDevice* tt_device = get_tt_device(chip);
     const auto tlb_index = get_tlb_manager(chip)->dynamic_tlb_config_.at(fallback_tlb);
     const uint8_t* buffer_addr = static_cast<const uint8_t*>(mem_ptr);
-    auto lock = LockManager::get_mutex(fallback_tlb, tt_device);
+    auto lock = LockManager::get_mutex(fallback_tlb, tt_device->get_pci_device()->get_device_num());
     while (size_in_bytes > 0) {
         auto [mapped_address, tlb_size] = tt_device->set_dynamic_tlb_broadcast(
             tlb_index,
@@ -2407,7 +2423,7 @@ void Cluster::insert_host_to_device_barrier(
     const uint32_t barrier_addr,
     const std::string& fallback_tlb) {
     // Ensure that this memory barrier is atomic across processes/threads
-    auto lock = LockManager::get_mutex(MutexType::MEM_BARRIER, get_tt_device(chip));
+    auto lock = LockManager::get_mutex(MutexType::MEM_BARRIER, get_tt_device(chip)->get_pci_device()->get_device_num());
     set_membar_flag(chip, cores, tt_MemBarFlag::SET, barrier_addr, fallback_tlb);
     set_membar_flag(chip, cores, tt_MemBarFlag::RESET, barrier_addr, fallback_tlb);
 }
@@ -2562,7 +2578,7 @@ void Cluster::read_mmio_device_register(
     TTDevice* tt_device = get_tt_device(core.chip);
 
     const auto tlb_index = get_tlb_manager(core.chip)->dynamic_tlb_config_.at(fallback_tlb);
-    auto lock = LockManager::get_mutex(fallback_tlb, tt_device);
+    auto lock = LockManager::get_mutex(fallback_tlb, tt_device->get_pci_device()->get_device_num());
     log_debug(LogSiliconDriver, "  dynamic tlb_index: {}", tlb_index);
 
     auto [mapped_address, tlb_size] = tt_device->set_dynamic_tlb(
@@ -2582,7 +2598,7 @@ void Cluster::write_mmio_device_register(
     TTDevice* tt_device = get_tt_device(core.chip);
 
     const auto tlb_index = get_tlb_manager(core.chip)->dynamic_tlb_config_.at(fallback_tlb);
-    auto lock = LockManager::get_mutex(fallback_tlb, tt_device);
+    auto lock = LockManager::get_mutex(fallback_tlb, tt_device->get_pci_device()->get_device_num());
     log_debug(LogSiliconDriver, "  dynamic tlb_index: {}", tlb_index);
 
     auto [mapped_address, tlb_size] = tt_device->set_dynamic_tlb(

@@ -977,8 +977,7 @@ private:
     void create_device(
         const std::set<chip_id_t>& target_mmio_device_ids,
         const uint32_t& num_host_mem_ch_per_mmio_device,
-        const bool create_mock_chips,
-        const bool clean_system_resources);
+        const bool create_mock_chips);
     void initialize_pcie_devices();
     void broadcast_tensix_risc_reset_to_cluster(const TensixSoftResetOptions& soft_resets);
     void send_remote_tensix_risc_reset_to_core(const tt_cxy_pair& core, const TensixSoftResetOptions& soft_resets);
@@ -1090,6 +1089,7 @@ private:
         chip_id_t chip_id,
         tt_ClusterDescriptor* cluster_desc,
         tt_SocDescriptor& soc_desc,
+        const bool clean_system_resources,
         const bool create_mock_chip = false);
     std::unique_ptr<Chip> construct_chip_from_cluster(
         const std::string& soc_desc_path,
@@ -1097,12 +1097,14 @@ private:
         tt_ClusterDescriptor* cluster_desc,
         bool perform_harvesting,
         std::unordered_map<chip_id_t, HarvestingMasks>& simulated_harvesting_masks,
+        const bool clean_system_resources,
         const bool create_mock_chip = false);
     std::unique_ptr<Chip> construct_chip_from_cluster(
         chip_id_t logical_device_id,
         tt_ClusterDescriptor* cluster_desc,
         bool perform_harvesting,
         std::unordered_map<chip_id_t, HarvestingMasks>& simulated_harvesting_masks,
+        const bool clean_system_resources,
         const bool create_mock_chip = false);
     void add_chip(chip_id_t chip_id, std::unique_ptr<Chip> chip);
     HarvestingMasks get_harvesting_masks(
@@ -1125,10 +1127,7 @@ private:
         tt_ClusterDescriptor* cluster_desc,
         bool perform_harvesting,
         std::unordered_map<chip_id_t, HarvestingMasks>& simulated_harvesting_masks);
-    void construct_cluster(
-        const uint32_t& num_host_mem_ch_per_mmio_device,
-        const bool create_mock_chips,
-        const bool clean_system_resources);
+    void construct_cluster(const uint32_t& num_host_mem_ch_per_mmio_device, const bool create_mock_chips);
     tt_xy_pair translate_to_api_coords(const chip_id_t chip, const tt::umd::CoreCoord core_coord) const;
     // Most of the old APIs accept virtual coordinates, but we communicate with the device through translated
     // coordinates. This is an internal helper function, until we switch the API to accept translated coordinates.

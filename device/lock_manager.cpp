@@ -69,7 +69,8 @@ std::unique_lock<named_mutex> LockManager::get_mutex(std::string mutex_prefix, i
 
 void LockManager::initialize_mutex_internal(const std::string& mutex_name, const bool clear_mutex) {
     if (mutexes.find(mutex_name) != mutexes.end()) {
-        throw std::runtime_error("Mutex already initialized: " + mutex_name);
+        log_warning("Mutex already initialized: " + mutex_name);
+        return;
     }
 
     // Store old mask and clear processes umask.
@@ -91,7 +92,8 @@ void LockManager::initialize_mutex_internal(const std::string& mutex_name, const
 
 void LockManager::clear_mutex_internal(const std::string& mutex_name) {
     if (mutexes.find(mutex_name) == mutexes.end()) {
-        throw std::runtime_error("Mutex not initialized: " + mutex_name);
+        log_warning("Mutex not initialized or already cleared: " + mutex_name);
+        return;
     }
     mutexes.erase(mutex_name);
     named_mutex::remove(mutex_name.c_str());

@@ -6,6 +6,7 @@
 
 #pragma once
 
+#include "umd/device/lock_manager.h"
 #include "umd/device/tt_soc_descriptor.h"
 #include "umd/device/types/cluster_descriptor_types.h"
 #include "umd/device/types/cluster_types.h"
@@ -14,6 +15,7 @@ namespace tt::umd {
 
 class TTDevice;
 class SysmemManager;
+class TLBManager;
 
 // An abstract class that represents a chip.
 class Chip {
@@ -34,9 +36,14 @@ public:
 
     virtual TTDevice* get_tt_device();
     virtual SysmemManager* get_sysmem_manager();
+    virtual TLBManager* get_tlb_manager();
 
     virtual void write_to_sysmem(uint16_t channel, const void* src, uint64_t sysmem_dest, uint32_t size);
     virtual void read_from_sysmem(uint16_t channel, void* dest, uint64_t sysmem_src, uint32_t size);
+
+    // TODO: To be removed once all usages are moved inside local chip.
+    virtual std::unique_lock<boost::interprocess::named_mutex> get_mutex(std::string mutex_name, int pci_device_id);
+    virtual std::unique_lock<boost::interprocess::named_mutex> get_mutex(MutexType mutex_type, int pci_device_id);
 
     // TODO: This should be private, once enough stuff is moved inside chip.
     // Probably also moved to LocalChip.

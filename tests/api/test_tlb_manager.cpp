@@ -28,7 +28,7 @@ TEST(ApiTLBManager, ManualTLBConfiguration) {
         GTEST_SKIP() << "No chips present on the system. Skipping test.";
     }
 
-    TLBManager* tlb_manager = tt_device->get_tlb_manager();
+    std::unique_ptr<TLBManager> tlb_manager = std::make_unique<TLBManager>(tt_device.get());
     tt_SocDescriptor soc_desc = tt_SocDescriptor(
         tt_SocDescriptor::get_soc_descriptor_path(tt_device->get_arch()), tt_device->get_arch() != tt::ARCH::GRAYSKULL);
 

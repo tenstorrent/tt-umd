@@ -18,7 +18,7 @@ std::uint32_t generate_random_address(std::uint32_t max, std::uint32_t min = 0) 
 
 TEST_F(uBenchmarkFixture, WriteAllCores32Bytes) {
     std::vector<uint32_t> vector_to_write = {0, 1, 2, 3, 4, 5, 6, 7};
-    std::uint64_t address = l1_mem::address_map::DATA_BUFFER_SPACE_BASE;
+    std::uint64_t address = 0x100;
     std::uint64_t bad_address = 0x30000000;  // this address is not mapped, should trigger fallback write/read path
 
     ankerl::nanobench::Bench bench_static;
@@ -48,7 +48,7 @@ TEST_F(uBenchmarkFixture, WriteAllCores32Bytes) {
 
 TEST_F(uBenchmarkFixture, ReadAllCores32Bytes) {
     std::vector<uint32_t> readback_vec = {};
-    std::uint64_t address = l1_mem::address_map::DATA_BUFFER_SPACE_BASE;
+    std::uint64_t address = 0x100;
     std::uint64_t bad_address = 0x30000000;  // this address is not mapped, should trigger fallback write/read path
 
     ankerl::nanobench::Bench bench_static;

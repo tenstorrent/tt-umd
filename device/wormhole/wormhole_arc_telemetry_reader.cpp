@@ -11,15 +11,14 @@ namespace tt::umd {
 
 namespace wormhole {
 
-WormholeArcTelemetryReader::WormholeArcTelemetryReader(TTDevice* tt_device) :
-    ArcTelemetryReader(tt_device), arc_messenger(ArcMessenger::create_arc_messenger(tt_device)) {
+WormholeArcTelemetryReader::WormholeArcTelemetryReader(TTDevice* tt_device) : ArcTelemetryReader(tt_device) {
     initialize_telemetry();
 }
 
 void WormholeArcTelemetryReader::initialize_telemetry() {
     std::vector<uint32_t> arc_msg_return_values = {0};
     static const uint32_t timeout_ms = 1000;
-    uint32_t exit_code = arc_messenger->send_message(
+    uint32_t exit_code = tt_device->get_arc_messenger()->send_message(
         tt::umd::wormhole::ARC_MSG_COMMON_PREFIX |
             (uint32_t)tt::umd::wormhole::arc_message_type::GET_SMBUS_TELEMETRY_ADDR,
         arc_msg_return_values,

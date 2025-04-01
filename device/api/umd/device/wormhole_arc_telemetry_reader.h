@@ -28,8 +28,6 @@ private:
 
     void verify_telemetry();
 
-    std::unique_ptr<ArcMessenger> arc_messenger;
-
     uint64_t telemetry_base_noc_addr;
 
     // During initialization of telemetry, if the NOC0 is hung then we need to read the telemetry values from NOC1.

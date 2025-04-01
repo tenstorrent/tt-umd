@@ -11,8 +11,6 @@ namespace tt::umd {
 
 class ArcTelemetryReader {
 public:
-    ArcTelemetryReader(TTDevice* tt_device);
-
     virtual ~ArcTelemetryReader() = default;
 
     virtual uint32_t read_entry(const uint8_t telemetry_tag) = 0;
@@ -22,6 +20,8 @@ public:
     static std::unique_ptr<ArcTelemetryReader> create_arc_telemetry_reader(TTDevice* tt_device);
 
 protected:
+    ArcTelemetryReader(TTDevice* tt_device);
+
     TTDevice* tt_device;
 };
 

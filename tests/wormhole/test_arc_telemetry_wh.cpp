@@ -22,3 +22,19 @@ TEST(WormholeTelemetry, BasicWormholeTelemetry) {
         EXPECT_NO_THROW(get_board_type_from_board_id(board_id));
     }
 }
+
+TEST(WormholeTelemetry, WormholeTelemetryEntryAvailable) {
+    std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
+
+    for (int pci_device_id : pci_device_ids) {
+        std::unique_ptr<TTDevice> tt_device = TTDevice::create(pci_device_id);
+        std::unique_ptr<ArcTelemetryReader> telemetry =
+            ArcTelemetryReader::create_arc_telemetry_reader(tt_device.get());
+
+        for (uint32_t telem_tag = 0; telem_tag < wormhole::TELEMETRY_NUMBER_OF_TAGS; telem_tag++) {
+            EXPECT_TRUE(telemetry->is_entry_available(telem_tag));
+        }
+
+        EXPECT_FALSE(telemetry->is_entry_available(wormhole::TELEMETRY_NUMBER_OF_TAGS));
+    }
+}

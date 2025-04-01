@@ -74,8 +74,6 @@ if [ "${APPTAINER_NAME}" == "emulation_rocky8.sif" ]; then
     module load python
     source /opt/rh/gcc-toolset-10/enable     # for gcc 10
 	export LD_LIBRARY_PATH="/usr/local/lib:$LD_LIBRARY_PATH"
-
-    export ARCH_NAME=grayskull
 fi
 ```
 

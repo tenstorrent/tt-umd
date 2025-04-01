@@ -10,17 +10,17 @@
 #include <thread>
 
 #include "common/logger.hpp"
-#include "eth_interface.h"
 #include "filesystem"
 #include "gtest/gtest.h"
-#include "host_mem_address_map.h"
-#include "l1_address_map.h"
 #include "test_wh_common.h"
 #include "tests/test_utils/generate_cluster_desc.hpp"
 #include "tests/test_utils/stimulus_generators.hpp"
 #include "umd/device/cluster.h"
 #include "umd/device/tt_cluster_descriptor.h"
 #include "umd/device/tt_soc_descriptor.h"
+#include "wormhole/eth_interface.h"
+#include "wormhole/host_mem_address_map.h"
+#include "wormhole/l1_address_map.h"
 
 namespace tt::umd::test::utils {
 class WormholeNebulaX2TestFixture : public WormholeTestFixture {

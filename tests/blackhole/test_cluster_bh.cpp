@@ -7,10 +7,10 @@
 #include <memory>
 #include <thread>
 
-#include "eth_l1_address_map.h"
+#include "blackhole/eth_l1_address_map.h"
+#include "blackhole/host_mem_address_map.h"
+#include "blackhole/l1_address_map.h"
 #include "gtest/gtest.h"
-#include "host_mem_address_map.h"
-#include "l1_address_map.h"
 #include "tests/test_utils/device_test_utils.hpp"
 #include "tests/test_utils/generate_cluster_desc.hpp"
 #include "umd/device/blackhole_implementation.h"

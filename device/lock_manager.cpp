@@ -7,6 +7,8 @@
 
 #include <boost/interprocess/permissions.hpp>
 
+#include "logger.hpp"
+
 using namespace boost::interprocess;
 
 namespace tt::umd {
@@ -69,7 +71,7 @@ std::unique_lock<named_mutex> LockManager::get_mutex(std::string mutex_prefix, i
 
 void LockManager::initialize_mutex_internal(const std::string& mutex_name, const bool clear_mutex) {
     if (mutexes.find(mutex_name) != mutexes.end()) {
-        log_warning("Mutex already initialized: " + mutex_name);
+        log_warning(LogSiliconDriver, "Mutex already initialized: {}", mutex_name);
         return;
     }
 
@@ -92,7 +94,7 @@ void LockManager::initialize_mutex_internal(const std::string& mutex_name, const
 
 void LockManager::clear_mutex_internal(const std::string& mutex_name) {
     if (mutexes.find(mutex_name) == mutexes.end()) {
-        log_warning("Mutex not initialized or already cleared: " + mutex_name);
+        log_warning(LogSiliconDriver, "Mutex not initialized or already cleared: {}", mutex_name);
         return;
     }
     mutexes.erase(mutex_name);

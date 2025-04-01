@@ -14,7 +14,11 @@ namespace tt::umd {
 
 class LocalChip : public Chip {
 public:
-    LocalChip(tt_SocDescriptor soc_descriptor, int pci_device_id, int num_host_mem_channels = 0);
+    LocalChip(
+        tt_SocDescriptor soc_descriptor,
+        int pci_device_id,
+        int num_host_mem_channels = 0,
+        const bool clear_mutex = false);
 
     LocalChip(std::string sdesc_path, std::unique_ptr<TTDevice> tt_device);
 
@@ -29,14 +33,18 @@ public:
     void write_to_sysmem(uint16_t channel, const void* src, uint64_t sysmem_dest, uint32_t size) override;
     void read_from_sysmem(uint16_t channel, void* dest, uint64_t sysmem_src, uint32_t size) override;
 
+    std::unique_lock<boost::interprocess::named_mutex> get_mutex(std::string mutex_name, int pci_device_id) override;
+    std::unique_lock<boost::interprocess::named_mutex> get_mutex(MutexType mutex_type, int pci_device_id) override;
+
 private:
     std::unique_ptr<TTDevice> tt_device_;
     std::unique_ptr<SysmemManager> sysmem_manager_;
     std::unique_ptr<TLBManager> tlb_manager_;
+    LockManager lock_manager;
 
-    void initialize_local_chip(int num_host_mem_channels = 0);
-
+    void initialize_local_chip(int num_host_mem_channels = 0, const bool clear_mutex = false);
     void initialize_tlb_manager();
+    void initialize_default_chip_mutexes(const bool clear_mutex);
 
 protected:
     void wait_eth_cores_training(const uint32_t timeout_ms = 60000) override;

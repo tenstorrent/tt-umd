@@ -68,4 +68,8 @@ BoardType WormholeTTDevice::get_board_type() {
     return get_board_type_from_board_id(((uint64_t)board_id_hi << 32) | board_id_lo);
 }
 
+std::vector<DramTrainingStatus> WormholeTTDevice::get_dram_training_status() {
+    return {};
+}
+
 }  // namespace tt::umd

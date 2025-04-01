@@ -16,6 +16,7 @@ namespace tt::umd {
 class RemoteCommunication {
 public:
     RemoteCommunication(TTDevice* tt_device);
+    virtual ~RemoteCommunication();
 
     void read_non_mmio(
         uint8_t* mem_ptr,
@@ -35,14 +36,9 @@ public:
 
     void wait_for_non_mmio_flush(std::vector<tt_xy_pair> remote_transfer_eth_cores);
 
-    virtual ~RemoteCommunication() = default;
-
 private:
     TTDevice* tt_device;
-
-    std::shared_ptr<boost::interprocess::named_mutex> non_mmio_mutex = nullptr;
-
-    static constexpr std::string_view NON_MMIO_MUTEX_NAME = "NON_MMIO";
+    LockManager lock_manager;
 };
 
 }  // namespace tt::umd

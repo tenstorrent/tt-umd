@@ -3,10 +3,6 @@
 // SPDX-License-Identifier: Apache-2.0
 #include "umd/device/tt_device/tt_device.h"
 
-#include <boost/interprocess/permissions.hpp>
-#include <boost/interprocess/sync/named_mutex.hpp>
-#include <boost/interprocess/sync/scoped_lock.hpp>
-
 #include "logger.hpp"
 #include "umd/device/arc_messenger.h"
 #include "umd/device/driver_atomics.h"
@@ -28,7 +24,7 @@ TTDevice::TTDevice(
     pci_device_(std::move(pci_device)),
     architecture_impl_(std::move(architecture_impl)),
     arch(architecture_impl_->get_architecture()) {
-    initialize_tt_device_mutex();
+    lock_manager.initialize_mutex(MutexType::TT_DEVICE_IO, get_pci_device()->get_device_num(), false);
     arc_messenger_ = ArcMessenger::create_arc_messenger(this);
 }
 
@@ -220,7 +216,7 @@ void TTDevice::read_block(uint64_t byte_addr, uint64_t num_bytes, uint8_t *buffe
 }
 
 void TTDevice::read_from_device(void *mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size) {
-    const scoped_lock<named_mutex> lock(*read_write_mutex);
+    auto lock = lock_manager.get_mutex(MutexType::TT_DEVICE_IO, get_pci_device()->get_device_num());
     uint8_t *buffer_addr = static_cast<uint8_t *>(mem_ptr);
     const uint32_t tlb_index = get_architecture_implementation()->get_small_read_write_tlb();
     while (size > 0) {
@@ -235,7 +231,7 @@ void TTDevice::read_from_device(void *mem_ptr, tt_xy_pair core, uint64_t addr, u
 }
 
 void TTDevice::write_to_device(void *mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size) {
-    const scoped_lock<named_mutex> lock(*read_write_mutex);
+    auto lock = lock_manager.get_mutex(MutexType::TT_DEVICE_IO, get_pci_device()->get_device_num());
     uint8_t *buffer_addr = static_cast<uint8_t *>(mem_ptr);
     const uint32_t tlb_index = get_architecture_implementation()->get_small_read_write_tlb();
 
@@ -386,19 +382,6 @@ uint32_t TTDevice::get_clock() {
         "TTDevice is deleted.");
 }
 
-void TTDevice::initialize_tt_device_mutex() {
-    permissions unrestricted_permissions;
-    unrestricted_permissions.set_unrestricted();
-    std::string mutex_name = std::string(TTDevice::MUTEX_NAME) + std::to_string(get_pci_device()->get_device_num());
-    read_write_mutex = std::make_shared<named_mutex>(open_or_create, mutex_name.c_str(), unrestricted_permissions);
-}
-
-void TTDevice::clean_tt_device_mutex() {
-    std::string mutex_name = std::string(TTDevice::MUTEX_NAME) + std::to_string(get_pci_device()->get_device_num());
-    read_write_mutex.reset();
-    named_mutex::remove(mutex_name.c_str());
-}
-
-TTDevice::~TTDevice() { clean_tt_device_mutex(); }
+TTDevice::~TTDevice() { lock_manager.clear_mutex(MutexType::TT_DEVICE_IO, get_pci_device()->get_device_num()); }
 
 }  // namespace tt::umd

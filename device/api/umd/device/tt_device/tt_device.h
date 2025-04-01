@@ -152,6 +152,7 @@ protected:
     std::unique_ptr<architecture_implementation> architecture_impl_;
     tt::ARCH arch;
     std::unique_ptr<ArcMessenger> arc_messenger_ = nullptr;
+    LockManager lock_manager;
 
     bool is_hardware_hung();
 
@@ -169,13 +170,5 @@ protected:
     void memcpy_from_device(void *dest, const void *src, std::size_t num_bytes);
 
     ChipInfo chip_info;
-
-private:
-    void initialize_tt_device_mutex();
-    void clean_tt_device_mutex();
-
-    std::shared_ptr<boost::interprocess::named_mutex> read_write_mutex = nullptr;
-
-    static constexpr std::string_view MUTEX_NAME = "SMALL_READ_WRITE_TLB";
 };
 }  // namespace tt::umd

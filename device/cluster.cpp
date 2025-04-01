@@ -247,8 +247,8 @@ void Cluster::construct_cluster(
     create_device(local_chip_ids_, num_host_mem_ch_per_mmio_device, create_mock_chips, clean_system_resources);
 
     // Disable dependency to ethernet firmware for all BH devices and WH devices with all chips having MMIO (e.g. UBB
-    // Galaxy), do not disable for N150, was seeing some issues in CI
-    if (remote_chip_ids_.empty() and cluster_desc->get_board_type(*local_chip_ids_.begin()) != BoardType::N150) {
+    // Galaxy, or P300).
+    if (remote_chip_ids_.empty()) {
         use_ethernet_ordered_writes = false;
         use_ethernet_broadcast = false;
         use_virtual_coords_for_eth_broadcast = false;

@@ -11,6 +11,7 @@
 #include "umd/device/tt_cluster_descriptor.h"
 #include "umd/device/tt_xy_pair.h"
 #include "wormhole/eth_l1_address_map.h"
+#include "wormhole/l1_address_map.h"
 
 constexpr std::uint32_t DRAM_BARRIER_BASE = 0;
 

@@ -27,8 +27,6 @@ public:
 
     BoardType get_board_type() override;
 
-    std::vector<DramTrainingStatus> get_dram_training_status() override;
-
 private:
     static constexpr uint64_t ATU_OFFSET_IN_BH_BAR2 = 0x1200;
     std::set<size_t> iatu_regions_;

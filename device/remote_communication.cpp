@@ -34,11 +34,11 @@ struct routing_cmd_t {
 namespace tt::umd {
 
 RemoteCommunication::RemoteCommunication(TTDevice* tt_device) : tt_device(tt_device) {
-    LockManager::initialize_mutex(MutexType::NON_MMIO, tt_device->get_pci_device()->get_device_num(), false);
+    lock_manager.initialize_mutex(MutexType::NON_MMIO, tt_device->get_pci_device()->get_device_num(), false);
 }
 
 RemoteCommunication::~RemoteCommunication() {
-    LockManager::clear_mutex(MutexType::NON_MMIO, tt_device->get_pci_device()->get_device_num());
+    lock_manager.clear_mutex(MutexType::NON_MMIO, tt_device->get_pci_device()->get_device_num());
 }
 
 void RemoteCommunication::read_non_mmio(
@@ -77,7 +77,7 @@ void RemoteCommunication::read_non_mmio(
     //                    MUTEX ACQUIRE (NON-MMIO)
     //  do not locate any ethernet core reads/writes before this acquire
     //
-    auto lock = LockManager::get_mutex(MutexType::NON_MMIO, tt_device->get_pci_device()->get_device_num());
+    auto lock = lock_manager.get_mutex(MutexType::NON_MMIO, tt_device->get_pci_device()->get_device_num());
 
     const tt_xy_pair remote_transfer_ethernet_core = eth_core;
 
@@ -315,7 +315,7 @@ void RemoteCommunication::write_to_non_mmio(
     //  do not locate any ethernet core reads/writes before this acquire
     //
 
-    auto lock = LockManager::get_mutex(MutexType::NON_MMIO, tt_device->get_pci_device()->get_device_num());
+    auto lock = lock_manager.get_mutex(MutexType::NON_MMIO, tt_device->get_pci_device()->get_device_num());
 
     bool non_mmio_transfer_cores_customized = false;
     int active_core_for_txn = 0;

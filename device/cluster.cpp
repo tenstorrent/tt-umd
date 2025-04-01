@@ -806,7 +806,7 @@ void Cluster::write_device_memory(
         }
     } else {
         const auto tlb_index = get_tlb_manager(target.chip)->dynamic_tlb_config_.at(fallback_tlb);
-        auto lock = LockManager::get_mutex(fallback_tlb, dev->get_pci_device()->get_device_num());
+        auto lock = get_local_chip(target.chip)->get_mutex(fallback_tlb, dev->get_pci_device()->get_device_num());
 
         while (size_in_bytes > 0) {
             auto [mapped_address, tlb_size] = dev->set_dynamic_tlb(
@@ -857,7 +857,7 @@ void Cluster::read_device_memory(
             tlb_description.size);
     } else {
         const auto tlb_index = get_tlb_manager(target.chip)->dynamic_tlb_config_.at(fallback_tlb);
-        auto lock = LockManager::get_mutex(fallback_tlb, dev->get_pci_device()->get_device_num());
+        auto lock = get_local_chip(target.chip)->get_mutex(fallback_tlb, dev->get_pci_device()->get_device_num());
         log_debug(LogSiliconDriver, "  dynamic tlb_index: {}", tlb_index);
         while (size_in_bytes > 0) {
             auto [mapped_address, tlb_size] = dev->set_dynamic_tlb(
@@ -1391,8 +1391,10 @@ void Cluster::write_to_non_mmio_device(
     //                    MUTEX ACQUIRE (NON-MMIO)
     //  do not locate any ethernet core reads/writes before this acquire
     //
-    auto lock = LockManager::get_mutex(
-        MutexType::NON_MMIO, get_tt_device(mmio_capable_chip_logical)->get_pci_device()->get_device_num());
+    auto lock =
+        get_local_chip(mmio_capable_chip_logical)
+            ->get_mutex(
+                MutexType::NON_MMIO, get_tt_device(mmio_capable_chip_logical)->get_pci_device()->get_device_num());
 
     int& active_core_for_txn =
         non_mmio_transfer_cores_customized ? active_eth_core_idx_per_chip.at(mmio_capable_chip_logical) : active_core;
@@ -1632,8 +1634,10 @@ void Cluster::read_from_non_mmio_device(void* mem_ptr, tt_cxy_pair core, uint64_
     //                    MUTEX ACQUIRE (NON-MMIO)
     //  do not locate any ethernet core reads/writes before this acquire
     //
-    auto lock = LockManager::get_mutex(
-        MutexType::NON_MMIO, get_tt_device(mmio_capable_chip_logical)->get_pci_device()->get_device_num());
+    auto lock =
+        get_local_chip(mmio_capable_chip_logical)
+            ->get_mutex(
+                MutexType::NON_MMIO, get_tt_device(mmio_capable_chip_logical)->get_pci_device()->get_device_num());
     const tt_cxy_pair remote_transfer_ethernet_core = remote_transfer_ethernet_cores[mmio_capable_chip_logical].at(0);
 
     read_device_memory(
@@ -2069,7 +2073,7 @@ void Cluster::pcie_broadcast_write(
     TTDevice* tt_device = get_tt_device(chip);
     const auto tlb_index = get_tlb_manager(chip)->dynamic_tlb_config_.at(fallback_tlb);
     const uint8_t* buffer_addr = static_cast<const uint8_t*>(mem_ptr);
-    auto lock = LockManager::get_mutex(fallback_tlb, tt_device->get_pci_device()->get_device_num());
+    auto lock = get_local_chip(chip)->get_mutex(fallback_tlb, tt_device->get_pci_device()->get_device_num());
     while (size_in_bytes > 0) {
         auto [mapped_address, tlb_size] = tt_device->set_dynamic_tlb_broadcast(
             tlb_index,
@@ -2408,7 +2412,8 @@ void Cluster::insert_host_to_device_barrier(
     const uint32_t barrier_addr,
     const std::string& fallback_tlb) {
     // Ensure that this memory barrier is atomic across processes/threads
-    auto lock = LockManager::get_mutex(MutexType::MEM_BARRIER, get_tt_device(chip)->get_pci_device()->get_device_num());
+    auto lock = get_local_chip(chip)->get_mutex(
+        MutexType::MEM_BARRIER, get_tt_device(chip)->get_pci_device()->get_device_num());
     set_membar_flag(chip, cores, tt_MemBarFlag::SET, barrier_addr, fallback_tlb);
     set_membar_flag(chip, cores, tt_MemBarFlag::RESET, barrier_addr, fallback_tlb);
 }
@@ -2563,7 +2568,7 @@ void Cluster::read_mmio_device_register(
     TTDevice* tt_device = get_tt_device(core.chip);
 
     const auto tlb_index = get_tlb_manager(core.chip)->dynamic_tlb_config_.at(fallback_tlb);
-    auto lock = LockManager::get_mutex(fallback_tlb, tt_device->get_pci_device()->get_device_num());
+    auto lock = get_local_chip(core.chip)->get_mutex(fallback_tlb, tt_device->get_pci_device()->get_device_num());
     log_debug(LogSiliconDriver, "  dynamic tlb_index: {}", tlb_index);
 
     auto [mapped_address, tlb_size] = tt_device->set_dynamic_tlb(
@@ -2583,7 +2588,7 @@ void Cluster::write_mmio_device_register(
     TTDevice* tt_device = get_tt_device(core.chip);
 
     const auto tlb_index = get_tlb_manager(core.chip)->dynamic_tlb_config_.at(fallback_tlb);
-    auto lock = LockManager::get_mutex(fallback_tlb, tt_device->get_pci_device()->get_device_num());
+    auto lock = get_local_chip(core.chip)->get_mutex(fallback_tlb, tt_device->get_pci_device()->get_device_num());
     log_debug(LogSiliconDriver, "  dynamic tlb_index: {}", tlb_index);
 
     auto [mapped_address, tlb_size] = tt_device->set_dynamic_tlb(
@@ -2951,13 +2956,14 @@ std::unique_ptr<tt_ClusterDescriptor> Cluster::create_cluster_descriptor(std::st
         // Topology discovery from source is supported for Wormhole UBB at the moment,
         // other Wormhole specs need to go through a legacy create-ethernet-map.
         if (!tt_devices.empty() && tt_devices[0]->get_board_type() != BoardType::UBB) {
-            LockManager::initialize_mutex(MutexType::CREATE_ETH_MAP, false);
+            LockManager lock_manager;
+            lock_manager.initialize_mutex(MutexType::CREATE_ETH_MAP, false);
             std::unique_ptr<tt_ClusterDescriptor> cluster_desc = nullptr;
             {
-                auto lock = LockManager::get_mutex(MutexType::CREATE_ETH_MAP);
+                auto lock = lock_manager.get_mutex(MutexType::CREATE_ETH_MAP);
                 cluster_desc = tt_ClusterDescriptor::create();
             }
-            LockManager::clear_mutex(MutexType::CREATE_ETH_MAP);
+            lock_manager.clear_mutex(MutexType::CREATE_ETH_MAP);
             return cluster_desc;
         }
 

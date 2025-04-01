@@ -76,4 +76,11 @@ void Chip::read_from_sysmem(uint16_t channel, void* dest, uint64_t sysmem_src, u
     throw std::runtime_error("Chip::read_from_sysmem is not available for this chip.");
 }
 
+std::unique_lock<boost::interprocess::named_mutex> Chip::get_mutex(std::string mutex_name, int pci_device_id) {
+    throw std::runtime_error("LockManager::get_mutex is not available for this chip.");
+}
+
+std::unique_lock<boost::interprocess::named_mutex> Chip::get_mutex(MutexType mutex_type, int pci_device_id) {
+    throw std::runtime_error("LockManager::get_mutex is not available for this chip.");
+}
 }  // namespace tt::umd

@@ -76,17 +76,17 @@ void LocalChip::initialize_default_chip_mutexes(const bool clear_mutex) {
     int pci_device_id = tt_device_->get_pci_device()->get_device_num();
     // Initialize Dynamic TLB mutexes
     for (auto& tlb : tlb_manager_->dynamic_tlb_config_) {
-        LockManager::initialize_mutex(tlb.first, pci_device_id, clear_mutex);
+        lock_manager.initialize_mutex(tlb.first, pci_device_id, clear_mutex);
     }
 
     // Initialize non-MMIO mutexes for WH devices regardless of number of chips, since these may be used for
     // ethernet broadcast
     if (tt_device_->get_arch() == tt::ARCH::WORMHOLE_B0) {
-        LockManager::initialize_mutex(MutexType::NON_MMIO, pci_device_id, clear_mutex);
+        lock_manager.initialize_mutex(MutexType::NON_MMIO, pci_device_id, clear_mutex);
     }
 
     // Initialize interprocess mutexes to make host -> device memory barriers atomic
-    LockManager::initialize_mutex(MutexType::MEM_BARRIER, pci_device_id, clear_mutex);
+    lock_manager.initialize_mutex(MutexType::MEM_BARRIER, pci_device_id, clear_mutex);
 }
 
 TTDevice* LocalChip::get_tt_device() { return tt_device_.get(); }
@@ -135,5 +135,13 @@ void LocalChip::write_to_sysmem(uint16_t channel, const void* src, uint64_t sysm
 
 void LocalChip::read_from_sysmem(uint16_t channel, void* dest, uint64_t sysmem_src, uint32_t size) {
     sysmem_manager_->read_from_sysmem(channel, dest, sysmem_src, size);
+}
+
+std::unique_lock<boost::interprocess::named_mutex> LocalChip::get_mutex(std::string mutex_name, int pci_device_id) {
+    return lock_manager.get_mutex(mutex_name, pci_device_id);
+}
+
+std::unique_lock<boost::interprocess::named_mutex> LocalChip::get_mutex(MutexType mutex_type, int pci_device_id) {
+    return lock_manager.get_mutex(mutex_type, pci_device_id);
 }
 }  // namespace tt::umd

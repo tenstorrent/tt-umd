@@ -152,6 +152,7 @@ protected:
     std::unique_ptr<architecture_implementation> architecture_impl_;
     tt::ARCH arch;
     std::unique_ptr<ArcMessenger> arc_messenger_ = nullptr;
+    LockManager lock_manager;
 
     bool is_hardware_hung();
 

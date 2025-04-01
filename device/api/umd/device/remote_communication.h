@@ -38,6 +38,7 @@ public:
 
 private:
     TTDevice* tt_device;
+    LockManager lock_manager;
 };
 
 }  // namespace tt::umd

@@ -70,6 +70,7 @@ protected:
     ArcMessenger(TTDevice* tt_device);
 
     TTDevice* tt_device;
+    LockManager lock_manager;
 };
 
 }  // namespace tt::umd

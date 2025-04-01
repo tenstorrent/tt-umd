@@ -24,10 +24,13 @@ const std::unordered_map<MutexType, std::string> LockManager::MutexTypeToString 
     {MutexType::CREATE_ETH_MAP, "CREATE_ETH_MAP"},
 };
 
-// Note that calling named_mutex::remove is unnecessary, and the default destructor of these objects should
-// automatically remove the mutexes from the system. So on regular program shutdown, these mutexes in statically
-// allocated map should get cleaned up.
-std::unordered_map<std::string, std::unique_ptr<boost::interprocess::named_mutex>> LockManager::mutexes;
+LockManager::LockManager() {}
+
+LockManager::~LockManager() {
+    for (const auto& [mutex_name, _] : mutexes) {
+        named_mutex::remove(mutex_name.c_str());
+    }
+}
 
 void LockManager::initialize_mutex(MutexType mutex_type, const bool clear_mutex) {
     initialize_mutex_internal(MutexTypeToString.at(mutex_type), clear_mutex);

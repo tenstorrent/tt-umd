@@ -961,6 +961,7 @@ public:
         const chip_id_t chip, const std::unordered_set<tt::umd::CoreCoord>& cores, const std::string& fallback_tlb);
     virtual void dram_membar(
         const chip_id_t chip, const std::unordered_set<tt::umd::CoreCoord>& cores, const std::string& fallback_tlb);
+    void init_membars();
 
     static std::unique_ptr<tt_ClusterDescriptor> create_cluster_descriptor(std::string sdesc_path = "");
 
@@ -1051,7 +1052,7 @@ private:
         const std::unordered_set<tt_xy_pair>& cores,
         const uint32_t barrier_addr,
         const std::string& fallback_tlb);
-    void init_membars();
+
     int pcie_arc_msg(
         int logical_device_id,
         uint32_t msg_code,

@@ -360,9 +360,11 @@ std::unique_lock<boost::interprocess::named_mutex> LocalChip::get_mutex(MutexTyp
 }
 
 void LocalChip::wait_dram_cores_training(const uint32_t timeout_ms) {
-    if (get_tt_device()->get_arch() != tt::ARCH::BLACKHOLE) {
-        return;
-    }
+    // if (get_tt_device()->get_arch() != tt::ARCH::BLACKHOLE) {
+    //     return;
+    // }
+
+    std::cout << "Started waiting for DRAM training" << std::endl;
 
     TTDevice* tt_device = get_tt_device();
 

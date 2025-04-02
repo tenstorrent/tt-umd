@@ -36,7 +36,8 @@ LocalChip::LocalChip(std::string sdesc_path, std::unique_ptr<TTDevice> tt_device
             tt_device->get_chip_info().harvesting_masks,
             tt_device->get_chip_info().board_type)),
     tt_device_(std::move(tt_device)),
-    sysmem_manager_(std::make_unique<SysmemManager>(tt_device_.get())) {
+    sysmem_manager_(std::make_unique<SysmemManager>(tt_device_.get())),
+    tlb_manager_(std::make_unique<TLBManager>(tt_device_.get())) {
     initialize_local_chip();
 }
 
@@ -49,7 +50,8 @@ LocalChip::LocalChip(std::unique_ptr<TTDevice> tt_device) :
             tt_device->get_chip_info().harvesting_masks,
             tt_device->get_chip_info().board_type)),
     tt_device_(std::move(tt_device)),
-    sysmem_manager_(std::make_unique<SysmemManager>(tt_device_.get())) {
+    sysmem_manager_(std::make_unique<SysmemManager>(tt_device_.get())),
+    tlb_manager_(std::make_unique<TLBManager>(tt_device_.get())) {
     initialize_local_chip();
 }
 

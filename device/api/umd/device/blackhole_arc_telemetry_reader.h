@@ -25,8 +25,6 @@ public:
 private:
     void initialize_telemetry();
 
-    TTDevice* tt_device;
-
     // Address of the telemetry table struct on ARC core.
     uint32_t telemetry_table_addr;
 

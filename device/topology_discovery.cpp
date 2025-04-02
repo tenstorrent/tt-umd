@@ -225,8 +225,6 @@ void TopologyDiscovery::discover_remote_chips() {
     std::unordered_set<eth_coord_t> discovered_chips = {};
     std::unordered_set<eth_coord_t> remote_chips_to_discover = {};
 
-    std::cout << "chips size before remote " << chips.size() << std::endl;
-
     for (const auto& [chip_id, chip] : chips) {
         std::vector<CoreCoord> eth_cores = chip->get_soc_descriptor().get_cores(CoreType::ETH);
         TTDevice* tt_device = chip->get_tt_device();
@@ -245,9 +243,6 @@ void TopologyDiscovery::discover_remote_chips() {
         eth_coord_to_chip_id.emplace(current_chip_eth_coord, chip_id);
 
         discovered_chips.insert(current_chip_eth_coord);
-
-        std::cout << "current eth coord " << current_chip_eth_coord.x << " " << current_chip_eth_coord.y << " "
-                  << current_chip_eth_coord.rack << " " << current_chip_eth_coord.shelf << std::endl;
     }
 
     for (const auto& [chip_id, chip] : chips) {
@@ -306,12 +301,9 @@ void TopologyDiscovery::discover_remote_chips() {
 
             if (discovered_chips.find(eth_coord) == discovered_chips.end()) {
                 remote_chips_to_discover.insert(eth_coord);
-                std::cout << "remote chips to discover " << eth_coord.x << " " << eth_coord.y << " " << eth_coord.rack
-                          << " " << eth_coord.shelf << std::endl;
             } else {
                 chip_id_t current_chip_id = eth_coord_to_chip_id.at(current_chip_eth_coord);
                 chip_id_t remote_chip_id = eth_coord_to_chip_id.at(eth_coord);
-                std::cout << "current chip id " << current_chip_id << " remote chip id " << remote_chip_id << std::endl;
                 Chip* remote_chip = chips.at(remote_chip_id).get();
                 CoreCoord physical_remote_eth =
                     CoreCoord(remote_noc_x, remote_noc_y, CoreType::ETH, CoordSystem::PHYSICAL);
@@ -324,9 +316,6 @@ void TopologyDiscovery::discover_remote_chips() {
         }
     }
 
-    std::cout << "discovering remote chips " << std::endl;
-    std::cout << "remote chips to discover " << remote_chips_to_discover.size() << std::endl;
-
     Chip* mmio_chip = chips.at(0).get();
     TTDevice* tt_device = mmio_chip->get_tt_device();
     std::unique_ptr<RemoteCommunication> remote_comm = std::make_unique<RemoteCommunication>(tt_device);
@@ -336,7 +325,6 @@ void TopologyDiscovery::discover_remote_chips() {
         std::unordered_set<eth_coord_t> new_remote_chips = {};
 
         for (const eth_coord_t& eth_coord : remote_chips_to_discover) {
-            // std::vector<CoreCoord> eth_cores = chip->get_soc_descriptor().get_cores(CoreType::ETH);
             std::vector<CoreCoord> eth_cores = mmio_chip->get_soc_descriptor().get_cores(CoreType::ETH);
 
             uint32_t current_chip_eth_coord_info;
@@ -426,14 +414,9 @@ void TopologyDiscovery::discover_remote_chips() {
 
                 if (discovered_chips.find(new_eth_coord) == discovered_chips.end()) {
                     if (remote_chips_to_discover.find(new_eth_coord) == remote_chips_to_discover.end()) {
-                        std::cout << "new remote chip " << new_eth_coord.x << " " << new_eth_coord.y << " "
-                                  << new_eth_coord.rack << " " << new_eth_coord.shelf << std::endl;
                         new_remote_chips.insert(new_eth_coord);
                     }
-                    // new_remote_chips.insert(new_eth_coord);
                 } else {
-                    std::cout << "old remote chip " << new_eth_coord.x << " " << new_eth_coord.y << " "
-                              << new_eth_coord.rack << " " << new_eth_coord.shelf << std::endl;
                     chip_id_t current_chip_id = eth_coord_to_chip_id.at(current_chip_eth_coord);
                     chip_id_t remote_chip_id = eth_coord_to_chip_id.at(new_eth_coord);
                     Chip* remote_chip = chips.at(remote_chip_id).get();

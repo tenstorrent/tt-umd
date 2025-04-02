@@ -1,37 +1,190 @@
 arch:
   0: wormhole_b0
   1: wormhole_b0
+  2: wormhole_b0
+  3: wormhole_b0
+  4: wormhole_b0
+  5: wormhole_b0
+  6: wormhole_b0
+  7: wormhole_b0
 chips:
   0:
-    - 0
+    - 1
     - 0
     - 0
     - 0
   1:
     - 1
+    - 1
+    - 0
+    - 0
+  2:
+    - 2
+    - 1
+    - 0
+    - 0
+  3:
+    - 2
+    - 0
+    - 0
+    - 0
+  4:
+    - 0
+    - 0
+    - 0
+    - 0
+  5:
+    - 0
+    - 1
+    - 0
+    - 0
+  6:
+    - 3
+    - 1
+    - 0
+    - 0
+  7:
+    - 3
     - 0
     - 0
     - 0
 ethernet_connections:
   -
+    - chip: 7
+      chan: 7
+    - chip: 6
+      chan: 7
+  -
+    - chip: 7
+      chan: 6
+    - chip: 6
+      chan: 6
+  -
+    - chip: 7
+      chan: 1
+    - chip: 3
+      chan: 9
+  -
+    - chip: 7
+      chan: 0
+    - chip: 3
+      chan: 8
+  -
+    - chip: 6
+      chan: 1
+    - chip: 2
+      chan: 9
+  -
+    - chip: 6
+      chan: 0
+    - chip: 2
+      chan: 8
+  -
+    - chip: 5
+      chan: 7
+    - chip: 4
+      chan: 7
+  -
+    - chip: 5
+      chan: 6
+    - chip: 4
+      chan: 6
+  -
+    - chip: 5
+      chan: 1
     - chip: 1
+      chan: 9
+  -
+    - chip: 5
+      chan: 0
+    - chip: 1
+      chan: 8
+  -
+    - chip: 4
       chan: 1
     - chip: 0
       chan: 9
   -
-    - chip: 1
+    - chip: 4
       chan: 0
     - chip: 0
       chan: 8
+  -
+    - chip: 0
+      chan: 15
+    - chip: 1
+      chan: 15
+  -
+    - chip: 0
+      chan: 14
+    - chip: 1
+      chan: 14
+  -
+    - chip: 0
+      chan: 7
+    - chip: 3
+      chan: 7
+  -
+    - chip: 0
+      chan: 6
+    - chip: 3
+      chan: 6
+  -
+    - chip: 1
+      chan: 1
+    - chip: 2
+      chan: 1
+  -
+    - chip: 1
+      chan: 0
+    - chip: 2
+      chan: 0
+  -
+    - chip: 2
+      chan: 15
+    - chip: 3
+      chan: 15
+  -
+    - chip: 2
+      chan: 14
+    - chip: 3
+      chan: 14
 chips_with_mmio:
   - 0: 0
+  - 1: 1
+  - 2: 2
+  - 3: 3
 harvesting:
   0:
     noc_translation: true
-    harvest_mask: 17
+    harvest_mask: 129
   1:
     noc_translation: true
+    harvest_mask: 33
+  2:
+    noc_translation: true
     harvest_mask: 3
+  3:
+    noc_translation: true
+    harvest_mask: 513
+  4:
+    noc_translation: true
+    harvest_mask: 3
+  5:
+    noc_translation: true
+    harvest_mask: 3
+  6:
+    noc_translation: true
+    harvest_mask: 5
+  7:
+    noc_translation: true
+    harvest_mask: 129
 boardtype:
   0: n300
   1: n300
+  2: n300
+  3: n300
+  4: n300
+  5: n300
+  6: n300
+  7: n300

@@ -4,6 +4,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 #include "umd/device/topology_discovery.h"
+#include <new>
 
 #include "logger.hpp"
 #include "umd/device/chip/local_chip.h"
@@ -223,6 +224,8 @@ void TopologyDiscovery::discover_remote_chips() {
     std::unordered_set<eth_coord_t> discovered_chips = {};
     std::unordered_set<eth_coord_t> remote_chips_to_discover = {};
 
+    std::cout << "chips size before remote " << chips.size() << std::endl;
+    
     for (const auto& [chip_id, chip] : chips) {
         std::vector<CoreCoord> eth_cores = chip->get_soc_descriptor().get_cores(CoreType::ETH);
         TTDevice* tt_device = chip->get_tt_device();
@@ -241,6 +244,24 @@ void TopologyDiscovery::discover_remote_chips() {
         eth_coord_to_chip_id.emplace(current_chip_eth_coord, chip_id);
 
         discovered_chips.insert(current_chip_eth_coord);
+
+        std::cout << "current eth coord " << current_chip_eth_coord.x << " " << current_chip_eth_coord.y << " "
+                  << current_chip_eth_coord.rack << " " << current_chip_eth_coord.shelf << std::endl;
+    }
+
+    for (const auto& [chip_id, chip] : chips) {
+        std::vector<CoreCoord> eth_cores = chip->get_soc_descriptor().get_cores(CoreType::ETH);
+        TTDevice* tt_device = chip->get_tt_device();
+
+        uint32_t current_chip_eth_coord_info;
+        tt_device->read_from_device(&current_chip_eth_coord_info, eth_cores[0], node_info + 8, sizeof(uint32_t));
+
+        eth_coord_t current_chip_eth_coord;
+        current_chip_eth_coord.cluster_id = 0;
+        current_chip_eth_coord.x = (current_chip_eth_coord_info >> 16) & 0xFF;
+        current_chip_eth_coord.y = (current_chip_eth_coord_info >> 24) & 0xFF;
+        current_chip_eth_coord.rack = current_chip_eth_coord_info & 0xFF;
+        current_chip_eth_coord.shelf = (current_chip_eth_coord_info >> 8) & 0xFF;
 
         uint32_t channel = 0;
         for (const CoreCoord& eth_core : eth_cores) {
@@ -284,11 +305,27 @@ void TopologyDiscovery::discover_remote_chips() {
 
             if (discovered_chips.find(eth_coord) == discovered_chips.end()) {
                 remote_chips_to_discover.insert(eth_coord);
+                std::cout << "remote chips to discover " << eth_coord.x << " " << eth_coord.y << " " << eth_coord.rack
+                          << " " << eth_coord.shelf << std::endl;
+            } else {
+                chip_id_t current_chip_id = eth_coord_to_chip_id.at(current_chip_eth_coord);
+                chip_id_t remote_chip_id = eth_coord_to_chip_id.at(eth_coord);
+                std::cout << "current chip id " << current_chip_id << " remote chip id " << remote_chip_id << std::endl;
+                Chip* remote_chip = chips.at(remote_chip_id).get();
+                CoreCoord physical_remote_eth =
+                    CoreCoord(remote_noc_x, remote_noc_y, CoreType::ETH, CoordSystem::PHYSICAL);
+                CoreCoord logical_remote_eth =
+                    remote_chip->get_soc_descriptor().translate_coord_to(physical_remote_eth, CoordSystem::LOGICAL);
+                ethernet_connections.push_back(
+                    {{current_chip_id, channel}, {remote_chip_id, logical_remote_eth.y}});
             }
 
             channel++;
         }
     }
+
+    std::cout << "discovering remote chips " << std::endl;
+    std::cout << "remote chips to discover " << remote_chips_to_discover.size() << std::endl;
 
     Chip* mmio_chip = chips.at(0).get();
     TTDevice* tt_device = mmio_chip->get_tt_device();
@@ -388,8 +425,16 @@ void TopologyDiscovery::discover_remote_chips() {
                 new_eth_coord.shelf = remote_rack_y;
 
                 if (discovered_chips.find(new_eth_coord) == discovered_chips.end()) {
-                    new_remote_chips.insert(new_eth_coord);
+                    
+                    if (remote_chips_to_discover.find(new_eth_coord) == remote_chips_to_discover.end()) {
+                        std::cout << "new remote chip " << new_eth_coord.x << " " << new_eth_coord.y << " " << new_eth_coord.rack
+                              << " " << new_eth_coord.shelf << std::endl;
+                        new_remote_chips.insert(new_eth_coord);
+                    }
+                    // new_remote_chips.insert(new_eth_coord);
                 } else {
+                    std::cout << "old remote chip " << new_eth_coord.x << " " << new_eth_coord.y << " " << new_eth_coord.rack
+                              << " " << new_eth_coord.shelf << std::endl;
                     chip_id_t current_chip_id = eth_coord_to_chip_id.at(current_chip_eth_coord);
                     chip_id_t remote_chip_id = eth_coord_to_chip_id.at(new_eth_coord);
                     Chip* remote_chip = chips.at(remote_chip_id).get();

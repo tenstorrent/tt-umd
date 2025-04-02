@@ -60,7 +60,8 @@ jobs:
           {arch: wormhole_b0, card: tt-beta-ubuntu-2204-n150-large-stable},
           {arch: wormhole_b0, card: n300},
           {arch: wormhole_b0, card: tt-beta-ubuntu-2204-n300-large-stable},
-          {arch: blackhole, card: p150},
+          # TODO: Re-enable when we have a stable card.
+          # {arch: blackhole, card: p150},
         ]
         ubuntu-version: [
           # Running tests on ubuntu-22.04 should be sufficient. Reduce load on CI.

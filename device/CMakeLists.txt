@@ -27,7 +27,7 @@ target_sources(
         chip/mock_chip.cpp
         chip/remote_chip.cpp
         chip_helpers/sysmem_manager.cpp
-        tt_device/tlb_manager.cpp
+        chip_helpers/tlb_manager.cpp
         cluster.cpp
         coordinate_manager.cpp
         cpuset_lib.cpp
@@ -54,7 +54,8 @@ target_sources(
         blackhole/blackhole_arc_messenger.cpp
         blackhole/blackhole_arc_message_queue.cpp
         xy_pair.cpp
-        umd_utils.cpp
+        lock_manager.cpp
+        remote_communication.cpp
         ${FBS_GENERATED_HEADER}
 )
 
@@ -74,6 +75,8 @@ if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.23)
                 api/umd/device/chip/local_chip.h
                 api/umd/device/chip/mock_chip.h
                 api/umd/device/chip/remote_chip.h
+                api/umd/device/chip_helpers/sysmem_manager.h
+                api/umd/device/chip_helpers/tlb_manager.h
                 api/umd/device/cluster.h
                 api/umd/device/coordinate_manager.h
                 api/umd/device/device_api_metal.h
@@ -86,7 +89,6 @@ if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.23)
                 api/umd/device/tt_core_coordinates.h
                 api/umd/device/tt_device/blackhole_tt_device.h
                 api/umd/device/tt_device/grayskull_tt_device.h
-                api/umd/device/tt_device/tlb_manager.h
                 api/umd/device/tt_device/tt_device.h
                 api/umd/device/tt_device/wormhole_tt_device.h
                 api/umd/device/tt_io.hpp

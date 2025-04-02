@@ -5,9 +5,6 @@
  */
 #include "umd/device/blackhole_arc_messenger.h"
 
-#include <boost/interprocess/sync/named_mutex.hpp>
-#include <boost/interprocess/sync/scoped_lock.hpp>
-
 #include "umd/device/tt_device/tt_device.h"
 
 using namespace boost::interprocess;
@@ -21,7 +18,7 @@ BlackholeArcMessenger::BlackholeArcMessenger(TTDevice* tt_device) : ArcMessenger
 
 uint32_t BlackholeArcMessenger::send_message(
     const uint32_t msg_code, std::vector<uint32_t>& return_values, uint16_t arg0, uint16_t arg1, uint32_t timeout_ms) {
-    const scoped_lock<named_mutex> lock(*arc_msg_mutex);
+    auto lock = lock_manager.get_mutex(MutexType::ARC_MSG, tt_device->get_pci_device()->get_device_num());
     return blackhole_arc_msg_queue->send_message((ArcMessageType)msg_code, arg0, arg1, timeout_ms);
 }
 

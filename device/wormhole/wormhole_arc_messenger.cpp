@@ -5,9 +5,6 @@
  */
 #include "umd/device/wormhole_arc_messenger.h"
 
-#include <boost/interprocess/sync/named_mutex.hpp>
-#include <boost/interprocess/sync/scoped_lock.hpp>
-
 #include "logger.hpp"
 #include "umd/device/tt_device/tt_device.h"
 #include "umd/device/wormhole_implementation.h"
@@ -27,7 +24,7 @@ uint32_t WormholeArcMessenger::send_message(
 
     log_assert(arg0 <= 0xffff and arg1 <= 0xffff, "Only 16 bits allowed in arc_msg args");
 
-    const scoped_lock<named_mutex> lock(*arc_msg_mutex);
+    auto lock = lock_manager.get_mutex(MutexType::ARC_MSG, tt_device->get_pci_device()->get_device_num());
 
     auto architecture_implementation = tt_device->get_architecture_implementation();
 

@@ -5,9 +5,6 @@
  */
 #include "umd/device/arc_messenger.h"
 
-#include <boost/interprocess/permissions.hpp>
-#include <boost/interprocess/sync/named_mutex.hpp>
-
 #include "umd/device/blackhole_arc_messenger.h"
 #include "umd/device/tt_device/tt_device.h"
 #include "umd/device/umd_utils.h"
@@ -32,23 +29,17 @@ std::unique_ptr<ArcMessenger> ArcMessenger::create_arc_messenger(TTDevice* tt_de
     }
 }
 
-ArcMessenger::ArcMessenger(TTDevice* tt_device) : tt_device(tt_device) { initialize_arc_msg_mutex(); }
+ArcMessenger::ArcMessenger(TTDevice* tt_device) : tt_device(tt_device) {
+    lock_manager.initialize_mutex(MutexType::ARC_MSG, tt_device->get_pci_device()->get_device_num(), false);
+}
 
 uint32_t ArcMessenger::send_message(const uint32_t msg_code, uint16_t arg0, uint16_t arg1, uint32_t timeout_ms) {
     std::vector<uint32_t> return_values;
     return send_message(msg_code, return_values, arg0, arg1, timeout_ms);
 }
 
-void ArcMessenger::initialize_arc_msg_mutex() {
-    arc_msg_mutex = initialize_mutex(
-        std::string(ArcMessenger::MUTEX_NAME) + std::to_string(tt_device->get_pci_device()->get_device_num()), false);
+ArcMessenger::~ArcMessenger() {
+    lock_manager.clear_mutex(MutexType::ARC_MSG, tt_device->get_pci_device()->get_device_num());
 }
-
-void ArcMessenger::clean_arc_msg_mutex() {
-    arc_msg_mutex.reset();
-    clear_mutex(std::string(ArcMessenger::MUTEX_NAME) + std::to_string(tt_device->get_pci_device()->get_device_num()));
-}
-
-ArcMessenger::~ArcMessenger() { clean_arc_msg_mutex(); }
 
 }  // namespace tt::umd

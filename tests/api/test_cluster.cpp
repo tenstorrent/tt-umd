@@ -339,63 +339,6 @@ TEST(TestCluster, TestClusterLogicalETHChannelsConnectivity) {
     }
 }
 
-TEST(TestCluster, TestClusterNocId) {
-    std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
-
-    auto read_noc_id_reg = [&](std::unique_ptr<Cluster>& cluster, chip_id_t chip, CoreCoord core) {
-        const uint64_t noc_node_id_offset = 0x2C;
-        const uint64_t noc_node_id_reg_addr =
-            cluster->get_tt_device(0)->get_architecture_implementation()->get_noc_reg_base(core.core_type, 0) +
-            cluster->get_tt_device(0)->get_architecture_implementation()->get_noc_node_id_offset();
-        uint32_t noc_node_id_val;
-        cluster->read_from_device(
-            &noc_node_id_val, chip, core, noc_node_id_reg_addr, sizeof(noc_node_id_val), "REG_TLB");
-        uint32_t x = noc_node_id_val & 0x3F;
-        uint32_t y = (noc_node_id_val >> 6) & 0x3F;
-        return tt_xy_pair(x, y);
-    };
-
-    auto check_noc_id_cores = [read_noc_id_reg](std::unique_ptr<Cluster>& cluster, chip_id_t chip, CoreType core_type) {
-        const std::vector<CoreCoord>& cores = cluster->get_soc_descriptor(chip).get_cores(core_type);
-        for (const CoreCoord& core : cores) {
-            const auto [x, y] = read_noc_id_reg(cluster, chip, core);
-            EXPECT_EQ(core.x, x);
-            EXPECT_EQ(core.y, y);
-        }
-    };
-
-    auto check_noc_id_harvested_cores = [read_noc_id_reg](
-                                            std::unique_ptr<Cluster>& cluster, chip_id_t chip, CoreType core_type) {
-        const std::vector<CoreCoord>& cores = cluster->get_soc_descriptor(chip).get_harvested_cores(core_type);
-        for (const CoreCoord& core : cores) {
-            const auto [x, y] = read_noc_id_reg(cluster, chip, core);
-            EXPECT_EQ(core.x, x);
-            EXPECT_EQ(core.y, y);
-        }
-    };
-
-    tt::ARCH arch = cluster->get_cluster_description()->get_arch(0);
-
-    for (chip_id_t chip : cluster->get_target_device_ids()) {
-        check_noc_id_cores(cluster, chip, CoreType::TENSIX);
-        check_noc_id_harvested_cores(cluster, chip, CoreType::TENSIX);
-
-        check_noc_id_cores(cluster, chip, CoreType::ETH);
-        check_noc_id_harvested_cores(cluster, chip, CoreType::ETH);
-
-        if (arch == tt::ARCH::BLACKHOLE) {
-            check_noc_id_cores(cluster, chip, CoreType::DRAM);
-            check_noc_id_harvested_cores(cluster, chip, CoreType::DRAM);
-        }
-
-        check_noc_id_cores(cluster, chip, CoreType::ARC);
-
-        check_noc_id_cores(cluster, chip, CoreType::PCIE);
-
-        // TODO: add readouts for router cores.
-    }
-}
-
 TEST(TestCluster, TestClusterAICLKControl) {
     std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
 

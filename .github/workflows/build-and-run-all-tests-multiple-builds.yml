@@ -44,4 +44,5 @@ jobs:
     uses: ./.github/workflows/build-and-run-all-tests.yml
     with:
       build-type: ${{ matrix.build-type }}
-      timeout: 15
+      # Debug and TSan builds are slower, so give them more time to run.
+      timeout: ${{ (matrix.build-type == 'Debug' || matrix.build-type == 'TSan') && 30 || 15 }}

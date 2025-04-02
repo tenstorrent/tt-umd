@@ -34,7 +34,7 @@ TEST(BlackholeTelemetry, BlackholeTelemetryEntryAvailable) {
         EXPECT_TRUE(blackhole_arc_telemetry_reader->is_entry_available(blackhole::TAG_BOARD_ID_HIGH));
         EXPECT_TRUE(blackhole_arc_telemetry_reader->is_entry_available(blackhole::TAG_BOARD_ID_LOW));
 
-        // Blackhole tag table is still not finalized, but we are probably never going to have 1000 tags.
-        EXPECT_FALSE(blackhole_arc_telemetry_reader->is_entry_available(1000));
+        // Blackhole tag table is still not finalized, but we are probably never going to have 200 tags.
+        EXPECT_FALSE(blackhole_arc_telemetry_reader->is_entry_available(200));
     }
 }

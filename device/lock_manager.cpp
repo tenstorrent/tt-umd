@@ -26,14 +26,8 @@ const std::unordered_map<MutexType, std::string> LockManager::MutexTypeToString 
 
 LockManager::LockManager() {}
 
-LockManager::~LockManager() {
-    for (const auto& [mutex_name, _] : mutexes) {
-        named_mutex::remove(mutex_name.c_str());
-    }
-}
-
-void LockManager::initialize_mutex(MutexType mutex_type, const bool clear_mutex) {
-    initialize_mutex_internal(MutexTypeToString.at(mutex_type), clear_mutex);
+void LockManager::initialize_mutex(MutexType mutex_type) {
+    initialize_mutex_internal(MutexTypeToString.at(mutex_type));
 }
 
 void LockManager::clear_mutex(MutexType mutex_type) { clear_mutex_internal(MutexTypeToString.at(mutex_type)); }
@@ -42,9 +36,9 @@ std::unique_lock<named_mutex> LockManager::get_mutex(MutexType mutex_type) {
     return get_mutex_internal(MutexTypeToString.at(mutex_type));
 }
 
-void LockManager::initialize_mutex(MutexType mutex_type, int pci_device_id, const bool clear_mutex) {
+void LockManager::initialize_mutex(MutexType mutex_type, int pci_device_id) {
     std::string mutex_name = MutexTypeToString.at(mutex_type) + std::to_string(pci_device_id);
-    initialize_mutex_internal(mutex_name, clear_mutex);
+    initialize_mutex_internal(mutex_name);
 }
 
 void LockManager::clear_mutex(MutexType mutex_type, int pci_device_id) {
@@ -57,9 +51,9 @@ std::unique_lock<named_mutex> LockManager::get_mutex(MutexType mutex_type, int p
     return get_mutex_internal(mutex_name);
 }
 
-void LockManager::initialize_mutex(std::string mutex_prefix, int pci_device_id, const bool clear_mutex) {
+void LockManager::initialize_mutex(std::string mutex_prefix, int pci_device_id) {
     std::string mutex_name = mutex_prefix + std::to_string(pci_device_id);
-    initialize_mutex_internal(mutex_name, clear_mutex);
+    initialize_mutex_internal(mutex_name);
 }
 
 void LockManager::clear_mutex(std::string mutex_prefix, int pci_device_id) {
@@ -72,7 +66,7 @@ std::unique_lock<named_mutex> LockManager::get_mutex(std::string mutex_prefix, i
     return get_mutex_internal(mutex_name);
 }
 
-void LockManager::initialize_mutex_internal(const std::string& mutex_name, const bool clear_mutex) {
+void LockManager::initialize_mutex_internal(const std::string& mutex_name) {
     if (mutexes.find(mutex_name) != mutexes.end()) {
         log_warning(LogSiliconDriver, "Mutex already initialized: {}", mutex_name);
         return;
@@ -83,9 +77,6 @@ void LockManager::initialize_mutex_internal(const std::string& mutex_name, const
     // important to avoid permission issues between processes.
     auto old_umask = umask(0);
 
-    if (clear_mutex) {
-        named_mutex::remove(mutex_name.c_str());
-    }
     permissions unrestricted_permissions;
     unrestricted_permissions.set_unrestricted();
     mutexes.emplace(
@@ -101,7 +92,6 @@ void LockManager::clear_mutex_internal(const std::string& mutex_name) {
         return;
     }
     mutexes.erase(mutex_name);
-    named_mutex::remove(mutex_name.c_str());
 }
 
 std::unique_lock<named_mutex> LockManager::get_mutex_internal(const std::string& mutex_name) {

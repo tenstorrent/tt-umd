@@ -34,7 +34,7 @@ struct routing_cmd_t {
 namespace tt::umd {
 
 RemoteCommunication::RemoteCommunication(TTDevice* tt_device) : tt_device(tt_device) {
-    lock_manager.initialize_mutex(MutexType::NON_MMIO, tt_device->get_pci_device()->get_device_num(), false);
+    lock_manager.initialize_mutex(MutexType::NON_MMIO, tt_device->get_pci_device()->get_device_num());
 }
 
 RemoteCommunication::~RemoteCommunication() {

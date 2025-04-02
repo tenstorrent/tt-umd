@@ -18,13 +18,12 @@ namespace tt::umd {
 // TLB size for DRAM on blackhole - 4GB
 const uint64_t BH_4GB_TLB_SIZE = 4ULL * 1024 * 1024 * 1024;
 
-LocalChip::LocalChip(
-    tt_SocDescriptor soc_descriptor, int pci_device_id, int num_host_mem_channels, const bool clear_mutex) :
+LocalChip::LocalChip(tt_SocDescriptor soc_descriptor, int pci_device_id, int num_host_mem_channels) :
     Chip(soc_descriptor),
     tt_device_(TTDevice::create(pci_device_id)),
     sysmem_manager_(std::make_unique<SysmemManager>(tt_device_.get())),
     tlb_manager_(std::make_unique<TLBManager>(tt_device_.get())) {
-    initialize_local_chip(num_host_mem_channels, clear_mutex);
+    initialize_local_chip(num_host_mem_channels);
 }
 
 LocalChip::LocalChip(std::string sdesc_path, std::unique_ptr<TTDevice> tt_device) :
@@ -55,13 +54,13 @@ LocalChip::LocalChip(std::unique_ptr<TTDevice> tt_device) :
     initialize_local_chip();
 }
 
-void LocalChip::initialize_local_chip(int num_host_mem_channels, const bool clear_mutex) {
+void LocalChip::initialize_local_chip(int num_host_mem_channels) {
     initialize_tlb_manager();
     if (num_host_mem_channels > 0) {
         sysmem_manager_->init_hugepage(num_host_mem_channels);
     }
     wait_chip_to_be_ready();
-    initialize_default_chip_mutexes(clear_mutex);
+    initialize_default_chip_mutexes();
 }
 
 void LocalChip::initialize_tlb_manager() {
@@ -75,7 +74,7 @@ void LocalChip::initialize_tlb_manager() {
         "SMALL_READ_WRITE_TLB", tt_device_->get_architecture_implementation()->get_small_read_write_tlb());
 }
 
-void LocalChip::initialize_default_chip_mutexes(const bool clear_mutex) {
+void LocalChip::initialize_default_chip_mutexes() {
     // These mutexes are intended to be based on physical devices/pci-intf not logical. Set these up ahead of
     // time here (during device init) since it's unsafe to modify shared state during multithreaded runtime.
     // cleanup_mutexes_in_shm is tied to clean_system_resources from the constructor. The main process is
@@ -83,17 +82,17 @@ void LocalChip::initialize_default_chip_mutexes(const bool clear_mutex) {
     int pci_device_id = tt_device_->get_pci_device()->get_device_num();
     // Initialize Dynamic TLB mutexes
     for (auto& tlb : tlb_manager_->dynamic_tlb_config_) {
-        lock_manager.initialize_mutex(tlb.first, pci_device_id, clear_mutex);
+        lock_manager.initialize_mutex(tlb.first, pci_device_id);
     }
 
     // Initialize non-MMIO mutexes for WH devices regardless of number of chips, since these may be used for
     // ethernet broadcast
     if (tt_device_->get_arch() == tt::ARCH::WORMHOLE_B0) {
-        lock_manager.initialize_mutex(MutexType::NON_MMIO, pci_device_id, clear_mutex);
+        lock_manager.initialize_mutex(MutexType::NON_MMIO, pci_device_id);
     }
 
     // Initialize interprocess mutexes to make host -> device memory barriers atomic
-    lock_manager.initialize_mutex(MutexType::MEM_BARRIER, pci_device_id, clear_mutex);
+    lock_manager.initialize_mutex(MutexType::MEM_BARRIER, pci_device_id);
 }
 
 TTDevice* LocalChip::get_tt_device() { return tt_device_.get(); }

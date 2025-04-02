@@ -24,17 +24,12 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        test-group: [
-          {arch: wormhole_b0},
-          {arch: blackhole},
-        ]
         ubuntu-version: [
           'ubuntu-22.04',
           # 'ubuntu-20.04',
         ]
     uses: ./.github/workflows/build-tests.yml
     with:
-      arch: ${{ matrix.test-group.arch}}
       ubuntu-version: ${{ matrix.ubuntu-version}}
       timeout: 15
       build-type: ${{ inputs.build-type || 'Release' }}

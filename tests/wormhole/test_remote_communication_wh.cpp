@@ -2,8 +2,6 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 #include "gtest/gtest.h"
-#include "host_mem_address_map.h"
-#include "l1_address_map.h"
 #include "tests/test_utils/device_test_utils.hpp"
 #include "tests/test_utils/generate_cluster_desc.hpp"
 #include "umd/device/cluster.h"
@@ -11,6 +9,8 @@
 #include "umd/device/tt_cluster_descriptor.h"
 #include "umd/device/types/cluster_types.h"
 #include "umd/device/wormhole_implementation.h"
+#include "wormhole/host_mem_address_map.h"
+#include "wormhole/l1_address_map.h"
 
 using namespace tt::umd;
 

@@ -12,7 +12,6 @@
 #include <vector>
 
 #include "fmt/xchar.h"
-#include "l1_address_map.h"
 #include "tests/test_utils/generate_cluster_desc.hpp"
 #include "umd/device/blackhole_implementation.h"
 #include "umd/device/chip/local_chip.h"
@@ -245,7 +244,8 @@ TEST(ClusterAPI, DynamicTLB_RW) {
 
     std::set<chip_id_t> target_devices = cluster->get_target_device_ids();
     for (const chip_id_t chip : target_devices) {
-        std::uint32_t address = l1_mem::address_map::NCRISC_FIRMWARE_BASE;
+        // Just make sure to skip L1_BARRIER_BASE
+        std::uint32_t address = 0x100;
         // Write to each core a 100 times at different statically mapped addresses
         const tt_SocDescriptor& soc_desc = cluster->get_soc_descriptor(chip);
         std::vector<CoreCoord> tensix_cores = soc_desc.get_cores(CoreType::TENSIX);

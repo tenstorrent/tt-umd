@@ -45,8 +45,6 @@ cmake -B build -G Ninja
 cmake --build build
 ```
 
-Tests are build separatelly for each architecture.
-Specify the `ARCH_NAME` environment variable as `grayskull`,  `wormhole_b0` or `blackhole` before building.
 You also need to configure cmake to enable tests, hence the need to run cmake configuration step again.
 To build tests:
 ```

@@ -42,10 +42,6 @@ public:
     virtual void start_device(const tt_device_params& device_params);
     virtual void assert_risc_reset();
     virtual void deassert_risc_reset();
-    virtual void deassert_risc_reset_at_core(
-        tt_cxy_pair core, const TensixSoftResetOptions& soft_resets = TENSIX_DEASSERT_SOFT_RESET);
-    virtual void assert_risc_reset_at_core(
-        tt_cxy_pair core, const TensixSoftResetOptions& soft_resets = TENSIX_ASSERT_SOFT_RESET);
 
     virtual void deassert_risc_reset_at_core(
         const chip_id_t chip,
@@ -81,11 +77,15 @@ public:
     virtual void wait_for_non_mmio_flush();
     virtual void wait_for_non_mmio_flush(const chip_id_t chip);
     void l1_membar(
-        const chip_id_t chip, const std::string& fallback_tlb, const std::unordered_set<tt_xy_pair>& cores = {});
+        const chip_id_t chip,
+        const std::string& fallback_tlb,
+        const std::unordered_set<tt::umd::CoreCoord>& cores = {});
     void dram_membar(
         const chip_id_t chip, const std::string& fallback_tlb, const std::unordered_set<uint32_t>& channels);
     void dram_membar(
-        const chip_id_t chip, const std::string& fallback_tlb, const std::unordered_set<tt_xy_pair>& cores = {});
+        const chip_id_t chip,
+        const std::string& fallback_tlb,
+        const std::unordered_set<tt::umd::CoreCoord>& cores = {});
 
     // Misc. Functions to Query/Set Device State
     static std::vector<chip_id_t> detect_available_device_ids();
@@ -103,9 +103,7 @@ public:
     virtual const tt_SocDescriptor& get_soc_descriptor(chip_id_t chip_id) const;
 
     virtual void configure_active_ethernet_cores_for_mmio_device(
-        chip_id_t mmio_chip, const std::unordered_set<tt_xy_pair>& active_eth_cores_per_chip);
-    virtual void configure_active_ethernet_cores_for_mmio_device(
-        const std::unordered_set<tt::umd::CoreCoord>& active_eth_cores_per_chip, chip_id_t mmio_chip);
+        chip_id_t mmio_chip, const std::unordered_set<tt::umd::CoreCoord>& active_eth_cores_per_chip);
 
     tt_xy_pair translate_to_api_coords(const chip_id_t chip, const tt::umd::CoreCoord core_coord) const;
 

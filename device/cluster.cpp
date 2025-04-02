@@ -568,7 +568,7 @@ Cluster::Cluster(
 }
 
 void Cluster::configure_active_ethernet_cores_for_mmio_device(
-    chip_id_t mmio_chip, const std::unordered_set<tt_xy_pair>& active_eth_cores_per_chip) {
+    chip_id_t mmio_chip, const std::unordered_set<CoreCoord>& active_eth_cores_per_chip) {
     // Makes UMD aware of which ethernet cores have active links.
     // Based on this information, UMD determines which ethernet cores can be used for host->cluster non-MMIO transfers.
     // This overrides the default ethernet cores tagged for host to cluster routing in the constructor and must be
@@ -576,7 +576,7 @@ void Cluster::configure_active_ethernet_cores_for_mmio_device(
     auto& soc_desc = get_soc_descriptor(mmio_chip);
     log_assert(soc_desc.arch == tt::ARCH::WORMHOLE_B0, "{} can only be called for Wormhole arch", __FUNCTION__);
     // Cores 0, 1, 6, 7 are only available if in the active set
-    static std::unordered_set<tt_xy_pair> eth_cores_available_if_active = {
+    static std::unordered_set<CoreCoord> eth_cores_available_if_active = {
         soc_desc.get_eth_core_for_channel(0, CoordSystem::VIRTUAL),
         soc_desc.get_eth_core_for_channel(1, CoordSystem::VIRTUAL),
         soc_desc.get_eth_core_for_channel(6, CoordSystem::VIRTUAL),
@@ -586,24 +586,16 @@ void Cluster::configure_active_ethernet_cores_for_mmio_device(
         {(size_t)mmio_chip, soc_desc.get_eth_core_for_channel(8, CoordSystem::VIRTUAL)},
         {(size_t)mmio_chip, soc_desc.get_eth_core_for_channel(9, CoordSystem::VIRTUAL)}};
     for (const auto& active_eth_core : active_eth_cores_per_chip) {
-        if (eth_cores_available_if_active.find(active_eth_core) != eth_cores_available_if_active.end()) {
-            non_mmio_access_cores_for_chip.push_back(tt_cxy_pair(mmio_chip, active_eth_core));
+        const auto virtual_active_eth_core =
+            get_soc_descriptor(mmio_chip).translate_coord_to(active_eth_core, CoordSystem::VIRTUAL);
+        if (eth_cores_available_if_active.find(virtual_active_eth_core) != eth_cores_available_if_active.end()) {
+            non_mmio_access_cores_for_chip.push_back(tt_cxy_pair(mmio_chip, virtual_active_eth_core));
         }
     }
 
     remote_transfer_ethernet_cores[mmio_chip] = non_mmio_access_cores_for_chip;
     active_eth_core_idx_per_chip.insert({mmio_chip, 0});
     non_mmio_transfer_cores_customized = true;
-}
-
-void Cluster::configure_active_ethernet_cores_for_mmio_device(
-    const std::unordered_set<CoreCoord>& active_eth_cores_per_chip, chip_id_t mmio_chip) {
-    std::unordered_set<tt_xy_pair> active_eth_cores_xy;
-    for (const auto& core : active_eth_cores_per_chip) {
-        active_eth_cores_xy.insert(translate_to_api_coords(mmio_chip, core));
-    }
-
-    configure_active_ethernet_cores_for_mmio_device(mmio_chip, active_eth_cores_xy);
 }
 
 void Cluster::populate_cores() {
@@ -2313,7 +2305,12 @@ void Cluster::init_membars() {
 }
 
 void Cluster::l1_membar(
-    const chip_id_t chip, const std::string& fallback_tlb, const std::unordered_set<tt_xy_pair>& cores) {
+    const chip_id_t chip, const std::string& fallback_tlb, const std::unordered_set<tt::umd::CoreCoord>& cores) {
+    std::unordered_set<tt_xy_pair> cores_xy;
+    for (const auto& core : cores) {
+        cores_xy.insert(translate_to_api_coords(chip, core));
+    }
+
     if (cluster_desc->is_chip_mmio_capable(chip)) {
         const auto& all_workers = workers_per_chip.at(chip);
         const auto& all_eth = eth_cores;
@@ -2321,12 +2318,12 @@ void Cluster::l1_membar(
         // TODO: To be removed when this is moved to Chip classes.
         const auto& l1_address_params = get_local_chip(chip)->l1_address_params;
 
-        if (cores.size()) {
+        if (cores_xy.size()) {
             // Insert barrier on specific cores with L1
             std::unordered_set<tt_xy_pair> workers_to_sync = {};
             std::unordered_set<tt_xy_pair> eth_to_sync = {};
 
-            for (const auto& core : cores) {
+            for (const auto& core : cores_xy) {
                 if (all_workers.find(core) != all_workers.end()) {
                     workers_to_sync.insert(core);
                 } else if (all_eth.find(core) != all_eth.end()) {
@@ -2348,25 +2345,20 @@ void Cluster::l1_membar(
     }
 }
 
-void Cluster::l1_membar(
-    const chip_id_t chip, const std::unordered_set<tt::umd::CoreCoord>& cores, const std::string& fallback_tlb) {
+void Cluster::dram_membar(
+    const chip_id_t chip, const std::string& fallback_tlb, const std::unordered_set<tt::umd::CoreCoord>& cores) {
     std::unordered_set<tt_xy_pair> cores_xy;
     for (const auto& core : cores) {
         cores_xy.insert(translate_to_api_coords(chip, core));
     }
-    l1_membar(chip, fallback_tlb, cores_xy);
-}
-
-void Cluster::dram_membar(
-    const chip_id_t chip, const std::string& fallback_tlb, const std::unordered_set<tt_xy_pair>& cores) {
     if (cluster_desc->is_chip_mmio_capable(chip)) {
         const auto& dram_address_params = get_local_chip(chip)->dram_address_params;
-        if (cores.size()) {
-            for (const auto& core : cores) {
+        if (cores_xy.size()) {
+            for (const auto& core : cores_xy) {
                 log_assert(
                     dram_cores.find(core) != dram_cores.end(), "Can only insert a DRAM Memory barrier on DRAM cores.");
             }
-            insert_host_to_device_barrier(chip, cores, dram_address_params.DRAM_BARRIER_BASE, fallback_tlb);
+            insert_host_to_device_barrier(chip, cores_xy, dram_address_params.DRAM_BARRIER_BASE, fallback_tlb);
         } else {
             // Insert Barrier on all DRAM Cores
             insert_host_to_device_barrier(chip, dram_cores, dram_address_params.DRAM_BARRIER_BASE, fallback_tlb);
@@ -2374,15 +2366,6 @@ void Cluster::dram_membar(
     } else {
         wait_for_non_mmio_flush();
     }
-}
-
-void Cluster::dram_membar(
-    const chip_id_t chip, const std::unordered_set<tt::umd::CoreCoord>& cores, const std::string& fallback_tlb) {
-    std::unordered_set<tt_xy_pair> cores_xy;
-    for (const auto& core : cores) {
-        cores_xy.insert(translate_to_api_coords(chip, core));
-    }
-    dram_membar(chip, fallback_tlb, cores_xy);
 }
 
 void Cluster::dram_membar(

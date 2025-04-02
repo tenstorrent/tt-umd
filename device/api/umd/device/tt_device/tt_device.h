@@ -9,6 +9,7 @@
 #include <string_view>
 
 #include "umd/device/arc_messenger.h"
+#include "umd/device/arc_telemetry_reader.h"
 #include "umd/device/architecture_implementation.h"
 #include "umd/device/chip_helpers/tlb_manager.h"
 #include "umd/device/pci_device.hpp"
@@ -38,6 +39,7 @@ class named_mutex;
 namespace tt::umd {
 
 class ArcMessenger;
+class ArcTelemetryReader;
 
 class TTDevice {
 public:
@@ -153,6 +155,7 @@ protected:
     tt::ARCH arch;
     std::unique_ptr<ArcMessenger> arc_messenger_ = nullptr;
     LockManager lock_manager;
+    std::unique_ptr<ArcTelemetryReader> telemetry = nullptr;
 
     bool is_hardware_hung();
 

@@ -5,10 +5,8 @@
  */
 #pragma once
 
+#include "umd/device/arc_telemetry_reader.h"
 #include "umd/device/blackhole_implementation.h"
-#include "umd/device/tt_core_coordinates.h"
-#include "umd/device/tt_device/tt_device.h"
-#include "umd/device/types/blackhole_telemetry.h"
 
 extern bool umd_use_noc1;
 
@@ -16,18 +14,16 @@ namespace tt::umd {
 
 namespace blackhole {
 
-class BlackholeArcTelemetryReader {
+class BlackholeArcTelemetryReader : public ArcTelemetryReader {
 public:
     BlackholeArcTelemetryReader(TTDevice* tt_device);
 
-    uint32_t read_entry(const uint8_t telemetry_tag);
+    uint32_t read_entry(const uint8_t telemetry_tag) override;
 
-    bool is_entry_available(const uint8_t telemetry_tag);
+    bool is_entry_available(const uint8_t telemetry_tag) override;
 
 private:
     void initialize_telemetry();
-
-    TTDevice* tt_device;
 
     // Address of the telemetry table struct on ARC core.
     uint32_t telemetry_table_addr;

@@ -7,11 +7,13 @@
 
 #include <fmt/core.h>
 
+#include "umd/device/types/blackhole_telemetry.h"
+
 namespace tt::umd {
 
 namespace blackhole {
 
-BlackholeArcTelemetryReader::BlackholeArcTelemetryReader(TTDevice* tt_device) : tt_device(tt_device) {
+BlackholeArcTelemetryReader::BlackholeArcTelemetryReader(TTDevice* tt_device) : ArcTelemetryReader(tt_device) {
     initialize_telemetry();
 }
 

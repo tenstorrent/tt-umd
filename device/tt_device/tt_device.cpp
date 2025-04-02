@@ -26,6 +26,7 @@ TTDevice::TTDevice(
     arch(architecture_impl_->get_architecture()) {
     lock_manager.initialize_mutex(MutexType::TT_DEVICE_IO, get_pci_device()->get_device_num(), false);
     arc_messenger_ = ArcMessenger::create_arc_messenger(this);
+    telemetry = ArcTelemetryReader::create_arc_telemetry_reader(this);
 }
 
 /* static */ std::unique_ptr<TTDevice> TTDevice::create(int pci_device_number) {

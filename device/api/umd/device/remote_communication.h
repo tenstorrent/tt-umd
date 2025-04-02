@@ -15,7 +15,7 @@ namespace tt::umd {
 
 class RemoteCommunication {
 public:
-    RemoteCommunication(TTDevice* tt_device);
+    RemoteCommunication(LocalChip* local_chip);
     virtual ~RemoteCommunication();
 
     void read_non_mmio(
@@ -36,8 +36,10 @@ public:
 
     void wait_for_non_mmio_flush(std::vector<tt_xy_pair> remote_transfer_eth_cores);
 
+    tt_xy_pair translate_chip_coord_virtual_to_translated(const tt_xy_pair core) const;
+
 private:
-    TTDevice* tt_device;
+    LocalChip* local_chip_;
     LockManager lock_manager;
 };
 

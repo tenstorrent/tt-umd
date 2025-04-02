@@ -868,12 +868,6 @@ void Cluster::configure_tlb(
     configure_tlb(logical_device_id, translate_to_api_coords(logical_device_id, core), tlb_index, address, ordering);
 }
 
-void Cluster::set_fallback_tlb_ordering_mode(const std::string& fallback_tlb, uint64_t ordering) {
-    for (auto& chip_id : local_chip_ids_) {
-        get_tlb_manager(chip_id)->set_dynamic_tlb_config_ordering(fallback_tlb, ordering);
-    }
-}
-
 // TODO: this is in the wrong place, it should be in the TTDevice.
 // It should also happen at the same time the huge pages or sysmem buffers are
 // allocated/pinned/mapped.
@@ -1967,36 +1961,6 @@ std::unordered_map<chip_id_t, std::vector<std::vector<int>>>& Cluster::get_ether
         }
     }
     return bcast_header_cache[chips_to_exclude];
-}
-
-void Cluster::pcie_broadcast_write(
-    chip_id_t chip,
-    const void* mem_ptr,
-    uint32_t size_in_bytes,
-    std::uint32_t addr,
-    const tt_xy_pair& start,
-    const tt_xy_pair& end,
-    const std::string& fallback_tlb) {
-    // Use the specified TLB to broadcast data to all cores included in the [start, end] grid -> GS Only. Use Ethernet
-    // Broadcast for WH.
-    TTDevice* tt_device = get_tt_device(chip);
-    const auto tlb_index = get_tlb_manager(chip)->dynamic_tlb_config_.at(fallback_tlb);
-    const uint8_t* buffer_addr = static_cast<const uint8_t*>(mem_ptr);
-    auto lock = get_local_chip(chip)->get_mutex(fallback_tlb, tt_device->get_pci_device()->get_device_num());
-    while (size_in_bytes > 0) {
-        auto [mapped_address, tlb_size] = tt_device->set_dynamic_tlb_broadcast(
-            tlb_index,
-            addr,
-            translate_chip_coord_virtual_to_translated(chip, start),
-            translate_chip_coord_virtual_to_translated(chip, end),
-            get_tlb_manager(chip)->dynamic_tlb_ordering_modes_.at(fallback_tlb));
-        uint64_t transfer_size = std::min((uint64_t)size_in_bytes, tlb_size);
-        tt_device->write_block(mapped_address, transfer_size, buffer_addr);
-
-        size_in_bytes -= transfer_size;
-        addr += transfer_size;
-        buffer_addr += transfer_size;
-    }
 }
 
 inline bool tensix_or_eth_in_broadcast(

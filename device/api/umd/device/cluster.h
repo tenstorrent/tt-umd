@@ -117,16 +117,6 @@ public:
     }
 
     /**
-     * Set ordering mode for dynamic/fallback TLBs (passed into driver constructor).
-     *
-     * @param fallback_tlb Dynamic TLB being targeted.
-     * @param ordering Ordering mode for the TLB.
-     */
-    virtual void set_fallback_tlb_ordering_mode(const std::string& fallback_tlb, uint64_t ordering = TLB_DATA::Posted) {
-        throw std::runtime_error("---- tt_device::set_fallback_tlb_ordering_mode is not implemented\n");
-    }
-
-    /**
      * Pass in ethernet cores with active links for a specific MMIO chip. When called, this function will force UMD to
      * use a subset of cores from the active_eth_cores_per_chip set for all host->cluster non-MMIO transfers. If this
      * function is not called, UMD will use a default set of ethernet core indices for these transfers (0 through 5). If
@@ -740,7 +730,6 @@ public:
     // This set of function shouldn't be removed even after the transition.
     // TODO: regroup the functions from this set into setup/teardown, runtime, and misc functions.
     virtual void set_barrier_address_params(const barrier_address_params& barrier_address_params_);
-    virtual void set_fallback_tlb_ordering_mode(const std::string& fallback_tlb, uint64_t ordering = TLB_DATA::Posted);
     virtual void start_device(const tt_device_params& device_params);
     virtual void assert_risc_reset();
     virtual void deassert_risc_reset();
@@ -1020,14 +1009,6 @@ private:
         void* mem_ptr, tt_cxy_pair core, uint64_t addr, uint32_t size, const std::string& fallback_tlb);
     void write_mmio_device_register(
         const void* mem_ptr, tt_cxy_pair core, uint64_t addr, uint32_t size, const std::string& fallback_tlb);
-    void pcie_broadcast_write(
-        chip_id_t chip,
-        const void* mem_ptr,
-        uint32_t size_in_bytes,
-        std::uint32_t addr,
-        const tt_xy_pair& start,
-        const tt_xy_pair& end,
-        const std::string& fallback_tlb);
     void ethernet_broadcast_write(
         const void* mem_ptr,
         uint32_t size_in_bytes,

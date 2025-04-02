@@ -141,9 +141,6 @@ void Cluster::create_device(
     // Don't buffer stdout.
     setbuf(stdout, NULL);
 
-    log_assert(
-        target_mmio_device_ids.size() > 0, "Must provide set of target_mmio_device_ids to Cluster constructor now.");
-
     for (const chip_id_t& logical_device_id : target_mmio_device_ids) {
         if (!create_mock_chips) {
             bool hugepages_initialized =
@@ -170,6 +167,9 @@ void Cluster::create_device(
 }
 
 void Cluster::construct_cluster(const uint32_t& num_host_mem_ch_per_mmio_device, const bool create_mock_chips) {
+    // TODO: work on removing this member altogether. Currently assumes all have the same arch.
+    arch_name = chips_.empty() ? tt::ARCH::Invalid : chips_.begin()->second->get_soc_descriptor().arch;
+
     if (!create_mock_chips) {
         auto available_device_ids = detect_available_device_ids();
         log_info(LogSiliconDriver, "Detected PCI devices: {}", available_device_ids);
@@ -181,7 +181,7 @@ void Cluster::construct_cluster(const uint32_t& num_host_mem_ch_per_mmio_device,
 
     // Disable dependency to ethernet firmware for all BH devices and WH devices with all chips having MMIO (e.g. UBB
     // Galaxy), do not disable for N150, was seeing some issues in CI
-    if (remote_chip_ids_.empty() and cluster_desc->get_board_type(*local_chip_ids_.begin()) != BoardType::N150) {
+    if (remote_chip_ids_.empty()) {
         use_ethernet_ordered_writes = false;
         use_ethernet_broadcast = false;
         use_virtual_coords_for_eth_broadcast = false;
@@ -464,9 +464,6 @@ Cluster::Cluster(
                 create_mock_chips));
     }
 
-    // TODO: work on removing this member altogether. Currently assumes all have the same arch.
-    arch_name = chips_.begin()->second->get_soc_descriptor().arch;
-
     construct_cluster(num_host_mem_ch_per_mmio_device, create_mock_chips);
 }
 
@@ -495,9 +492,6 @@ Cluster::Cluster(
                 clean_system_resources,
                 create_mock_chips));
     }
-
-    // TODO: work on removing this member altogether. Currently assumes all have the same arch.
-    arch_name = chips_.begin()->second->get_soc_descriptor().arch;
 
     construct_cluster(num_host_mem_ch_per_mmio_device, create_mock_chips);
 }
@@ -536,9 +530,6 @@ Cluster::Cluster(
             arch_to_str(cluster_desc->get_arch(chip_id)));
     }
 
-    // TODO: work on removing this member altogether. Currently assumes all have the same arch.
-    arch_name = chips_.begin()->second->get_soc_descriptor().arch;
-
     construct_cluster(num_host_mem_ch_per_mmio_device, create_mock_chips);
 }
 
@@ -563,9 +554,6 @@ Cluster::Cluster(
                 clean_system_resources,
                 create_mock_chips));
     }
-
-    // TODO: work on removing this member altogether. Currently assumes all have the same arch.
-    arch_name = chips_.begin()->second->get_soc_descriptor().arch;
 
     construct_cluster(num_host_mem_ch_per_mmio_device, create_mock_chips);
 }
@@ -2681,6 +2669,10 @@ void Cluster::enable_remote_ethernet_queue(const chip_id_t& chip, int timeout) {
 }
 
 void Cluster::broadcast_tensix_risc_reset_to_cluster(const TensixSoftResetOptions& soft_resets) {
+    if (chips_.empty()) {
+        // Nowhere to broadcast to.
+        return;
+    }
     auto valid = soft_resets & ALL_TENSIX_SOFT_RESET;
     uint32_t valid_val = (std::underlying_type<TensixSoftResetOptions>::type)valid;
     std::set<chip_id_t> chips_to_exclude = {};

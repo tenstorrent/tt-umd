@@ -350,13 +350,14 @@ TEST(TestCluster, TestClusterNoc0Id) {
     uint64_t noc_node_id_reg_addr = 0;
     if (arch == tt::ARCH::WORMHOLE_B0) {
         if (noc_translation_enabled) {
-            noc_node_id_reg_addr = tt::umd::wormhole::NOC_CONTROL_REG_ADDR_BASE + tt::umd::wormhole::NOC_CFG_OFFSET +
+            noc_node_id_reg_addr = tt::umd::wormhole::NOC0_CONTROL_REG_ADDR_BASE + tt::umd::wormhole::NOC_CFG_OFFSET +
                                    tt::umd::wormhole::NOC_REG_WORD_SIZE * tt::umd::wormhole::NOC_CFG_NOC_ID_LOGICAL;
         } else {
-            noc_node_id_reg_addr = tt::umd::wormhole::NOC_CONTROL_REG_ADDR_BASE + tt::umd::wormhole::NOC_NODE_ID_OFFSET;
+            noc_node_id_reg_addr =
+                tt::umd::wormhole::NOC0_CONTROL_REG_ADDR_BASE + tt::umd::wormhole::NOC_NODE_ID_OFFSET;
         }
     } else if (arch == tt::ARCH::BLACKHOLE) {
-        noc_node_id_reg_addr = tt::umd::blackhole::NOC_CONTROL_REG_ADDR_BASE + tt::umd::blackhole::NOC_NODE_ID_OFFSET;
+        noc_node_id_reg_addr = tt::umd::blackhole::NOC0_CONTROL_REG_ADDR_BASE + tt::umd::blackhole::NOC_NODE_ID_OFFSET;
     }
 
     auto read_noc_id_reg = [noc_node_id_reg_addr](std::unique_ptr<Cluster>& cluster, chip_id_t chip, CoreCoord core) {
@@ -425,14 +426,14 @@ TEST(TestCluster, TestClusterNoc1Id) {
     uint64_t noc_node_id_reg_addr = 0;
     if (arch == tt::ARCH::WORMHOLE_B0) {
         if (noc_translation_enabled) {
-            noc_node_id_reg_addr = tt::umd::wormhole::NOC_CONTROL_REG_ADDR_BASE + tt::umd::wormhole::NOC_CFG_OFFSET +
+            noc_node_id_reg_addr = tt::umd::wormhole::NOC1_CONTROL_REG_ADDR_BASE + tt::umd::wormhole::NOC_CFG_OFFSET +
                                    tt::umd::wormhole::NOC_REG_WORD_SIZE * tt::umd::wormhole::NOC_CFG_NOC_ID_LOGICAL;
         } else {
-            noc_node_id_reg_addr = tt::umd::wormhole::NOC_CONTROL_REG_ADDR_BASE + tt::umd::wormhole::NOC_NODE_ID_OFFSET;
+            noc_node_id_reg_addr =
+                tt::umd::wormhole::NOC1_CONTROL_REG_ADDR_BASE + tt::umd::wormhole::NOC_NODE_ID_OFFSET;
         }
     } else if (arch == tt::ARCH::BLACKHOLE) {
-        noc_node_id_reg_addr = tt::umd::blackhole::NOC_CONTROL_REG_ADDR_BASE + tt::umd::blackhole::NOC_NODE_ID_OFFSET;
-        noc_node_id_reg_addr |= (1 << 16);
+        noc_node_id_reg_addr = tt::umd::blackhole::NOC1_CONTROL_REG_ADDR_BASE + tt::umd::blackhole::NOC_NODE_ID_OFFSET;
     }
 
     auto read_noc_id_reg = [noc_node_id_reg_addr](std::unique_ptr<Cluster>& cluster, chip_id_t chip, CoreCoord core) {

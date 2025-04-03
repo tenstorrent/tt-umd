@@ -30,8 +30,8 @@ TEST_P(LoopbackAllCoresParam, LoopbackSingleTensix) {
     std::vector<uint32_t> rdata(wdata.size(), 0);
     tt_cxy_pair core = {0, GetParam()};
 
-    device->write_to_device(wdata.data(), wdata.size() * sizeof(uint32_t), core, 0x100, "");
-    device->read_from_device(rdata.data(), core, 0x100, rdata.size() * sizeof(uint32_t), "");
+    device->write_to_device(wdata.data(), wdata.size() * sizeof(uint32_t), core, 0x100);
+    device->read_from_device(rdata.data(), core, 0x100, rdata.size() * sizeof(uint32_t));
 
     ASSERT_EQ(wdata, rdata);
 }
@@ -42,8 +42,8 @@ bool loopback_stress_size(std::unique_ptr<tt_SimulationDevice> &device, tt_xy_pa
     std::vector<uint32_t> wdata = generate_data(1 << byte_shift);
     std::vector<uint32_t> rdata(wdata.size(), 0);
 
-    device->write_to_device(wdata.data(), wdata.size() * sizeof(uint32_t), tt_cxy_pair{0, core}, addr, "");
-    device->read_from_device(rdata.data(), tt_cxy_pair{0, core}, addr, rdata.size() * sizeof(uint32_t), "");
+    device->write_to_device(wdata.data(), wdata.size() * sizeof(uint32_t), tt_cxy_pair{0, core}, addr);
+    device->read_from_device(rdata.data(), tt_cxy_pair{0, core}, addr, rdata.size() * sizeof(uint32_t));
 
     return wdata == rdata;
 }
@@ -70,11 +70,11 @@ TEST_F(SimulationDeviceFixture, LoopbackTwoTensix) {
     tt_cxy_pair core1 = {0, 0, 1};
     tt_cxy_pair core2 = {0, 1, 1};
 
-    device->write_to_device(wdata1.data(), wdata1.size() * sizeof(uint32_t), core1, 0x100, "");
-    device->write_to_device(wdata2.data(), wdata2.size() * sizeof(uint32_t), core2, 0x100, "");
+    device->write_to_device(wdata1.data(), wdata1.size() * sizeof(uint32_t), core1, 0x100);
+    device->write_to_device(wdata2.data(), wdata2.size() * sizeof(uint32_t), core2, 0x100);
 
-    device->read_from_device(rdata1.data(), core1, 0x100, rdata1.size() * sizeof(uint32_t), "");
-    device->read_from_device(rdata2.data(), core2, 0x100, rdata2.size() * sizeof(uint32_t), "");
+    device->read_from_device(rdata1.data(), core1, 0x100, rdata1.size() * sizeof(uint32_t));
+    device->read_from_device(rdata2.data(), core2, 0x100, rdata2.size() * sizeof(uint32_t));
 
     ASSERT_EQ(wdata1, rdata1);
     ASSERT_EQ(wdata2, rdata2);

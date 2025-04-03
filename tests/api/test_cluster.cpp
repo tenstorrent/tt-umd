@@ -106,7 +106,7 @@ TEST(ApiClusterTest, SimpleIOAllChips) {
 
         std::cout << "Writing to chip " << chip_id << " core " << any_core.str() << std::endl;
 
-        umd_cluster->write_to_device(data.data(), data_size, chip_id, any_core, 0, "LARGE_WRITE_TLB");
+        umd_cluster->write_to_device(data.data(), data_size, chip_id, any_core, 0);
 
         umd_cluster->wait_for_non_mmio_flush(chip_id);
     }
@@ -120,7 +120,7 @@ TEST(ApiClusterTest, SimpleIOAllChips) {
         std::cout << "Reading from chip " << chip_id << " core " << any_core.str() << std::endl;
 
         std::vector<uint8_t> readback_data(data_size, 0);
-        umd_cluster->read_from_device(readback_data.data(), chip_id, any_core, 0, data_size, "LARGE_READ_TLB");
+        umd_cluster->read_from_device(readback_data.data(), chip_id, any_core, 0, data_size);
 
         ASSERT_EQ(data, readback_data);
     }
@@ -158,14 +158,14 @@ TEST(ApiClusterTest, RemoteFlush) {
         }
 
         std::cout << "Writing to chip " << chip_id << " core " << any_core.str() << std::endl;
-        umd_cluster->write_to_device(data.data(), data_size, chip_id, any_core, 0, "LARGE_WRITE_TLB");
+        umd_cluster->write_to_device(data.data(), data_size, chip_id, any_core, 0);
 
         std::cout << "Waiting for remote chip flush " << chip_id << std::endl;
         umd_cluster->wait_for_non_mmio_flush(chip_id);
 
         std::cout << "Reading from chip " << chip_id << " core " << any_core.str() << std::endl;
         std::vector<uint8_t> readback_data(data_size, 0);
-        umd_cluster->read_from_device(readback_data.data(), chip_id, any_core, 0, data_size, "LARGE_READ_TLB");
+        umd_cluster->read_from_device(readback_data.data(), chip_id, any_core, 0, data_size);
 
         ASSERT_EQ(data, readback_data);
     }
@@ -201,7 +201,7 @@ TEST(ApiClusterTest, SimpleIOSpecificChips) {
 
         std::cout << "Writing to chip " << chip_id << " core " << any_core.str() << std::endl;
 
-        umd_cluster->write_to_device(data.data(), data_size, chip_id, any_core, 0, "LARGE_WRITE_TLB");
+        umd_cluster->write_to_device(data.data(), data_size, chip_id, any_core, 0);
 
         umd_cluster->wait_for_non_mmio_flush(chip_id);
     }
@@ -215,7 +215,7 @@ TEST(ApiClusterTest, SimpleIOSpecificChips) {
         std::cout << "Reading from chip " << chip_id << " core " << any_core.str() << std::endl;
 
         std::vector<uint8_t> readback_data(data_size, 0);
-        umd_cluster->read_from_device(readback_data.data(), chip_id, any_core, 0, data_size, "LARGE_READ_TLB");
+        umd_cluster->read_from_device(readback_data.data(), chip_id, any_core, 0, data_size);
 
         ASSERT_EQ(data, readback_data);
     }
@@ -252,24 +252,18 @@ TEST(ClusterAPI, DynamicTLB_RW) {
         for (int loop = 0; loop < num_loops; loop++) {
             for (auto& core : tensix_cores) {
                 cluster->write_to_device(
-                    vector_to_write.data(),
-                    vector_to_write.size() * sizeof(std::uint32_t),
-                    chip,
-                    core,
-                    address,
-                    "SMALL_READ_WRITE_TLB");
+                    vector_to_write.data(), vector_to_write.size() * sizeof(std::uint32_t), chip, core, address);
 
                 // Barrier to ensure that all writes over ethernet were commited
                 cluster->wait_for_non_mmio_flush();
-                cluster->read_from_device(readback_vec.data(), chip, core, address, 40, "SMALL_READ_WRITE_TLB");
+                cluster->read_from_device(readback_vec.data(), chip, core, address, 40);
 
                 ASSERT_EQ(vector_to_write, readback_vec)
                     << "Vector read back from core " << core.x << "-" << core.y << "does not match what was written";
 
                 cluster->wait_for_non_mmio_flush();
 
-                cluster->write_to_device(
-                    zeros.data(), zeros.size() * sizeof(std::uint32_t), chip, core, address, "SMALL_READ_WRITE_TLB");
+                cluster->write_to_device(zeros.data(), zeros.size() * sizeof(std::uint32_t), chip, core, address);
 
                 cluster->wait_for_non_mmio_flush();
 
@@ -365,8 +359,7 @@ TEST(TestCluster, TestClusterNocId) {
 
     auto read_noc_id_reg = [noc_node_id_reg_addr](std::unique_ptr<Cluster>& cluster, chip_id_t chip, CoreCoord core) {
         uint32_t noc_node_id_val;
-        cluster->read_from_device(
-            &noc_node_id_val, chip, core, noc_node_id_reg_addr, sizeof(noc_node_id_val), "REG_TLB");
+        cluster->read_from_device_reg(&noc_node_id_val, chip, core, noc_node_id_reg_addr, sizeof(noc_node_id_val));
         uint32_t x = noc_node_id_val & 0x3F;
         uint32_t y = (noc_node_id_val >> 6) & 0x3F;
         return tt_xy_pair(x, y);

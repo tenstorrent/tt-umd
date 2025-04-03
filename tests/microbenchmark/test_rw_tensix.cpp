@@ -37,8 +37,7 @@ TEST_F(uBenchmarkFixture, WriteAllCores32Bytes) {
                     vector_to_write.data(),
                     vector_to_write.size() * sizeof(std::uint32_t),
                     tt_cxy_pair(0, core),
-                    bad_address,
-                    "SMALL_READ_WRITE_TLB");
+                    bad_address);
             });
         wname.clear();
     }
@@ -63,8 +62,7 @@ TEST_F(uBenchmarkFixture, ReadAllCores32Bytes) {
             .minEpochIterations(50)
             .output(nullptr)
             .run(rname.str(), [&] {
-                test_utils::read_data_from_device(
-                    *device, readback_vec, tt_cxy_pair(0, core), bad_address, 0x20, "SMALL_READ_WRITE_TLB");
+                test_utils::read_data_from_device(*device, readback_vec, tt_cxy_pair(0, core), bad_address, 0x20);
             });
         rname.clear();
     }
@@ -92,8 +90,7 @@ TEST_F(uBenchmarkFixture, Write32BytesRandomAddr) {
                     vector_to_write.data(),
                     vector_to_write.size() * sizeof(std::uint32_t),
                     tt_cxy_pair(0, core),
-                    address,
-                    "SMALL_READ_WRITE_TLB");
+                    address);
             });
         wname.clear();
     }
@@ -116,8 +113,7 @@ TEST_F(uBenchmarkFixture, Read32BytesRandomAddr) {
             .minEpochIterations(50)
             .output(nullptr)
             .run(rname.str(), [&] {
-                test_utils::read_data_from_device(
-                    *device, readback_vec, tt_cxy_pair(0, core), address, 0x20, "SMALL_READ_WRITE_TLB");
+                test_utils::read_data_from_device(*device, readback_vec, tt_cxy_pair(0, core), address, 0x20);
             });
         rname.clear();
     }

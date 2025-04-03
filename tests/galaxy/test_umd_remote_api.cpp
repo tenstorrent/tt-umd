@@ -59,12 +59,7 @@ void run_remote_read_write_test(uint32_t vector_size, bool dram_write) {
             for (const CoreCoord& core : target_cores) {
                 auto start = std::chrono::high_resolution_clock::now();
                 device.write_to_device(
-                    vector_to_write.data(),
-                    vector_to_write.size() * sizeof(std::uint32_t),
-                    chip,
-                    core,
-                    address,
-                    "SMALL_READ_WRITE_TLB");
+                    vector_to_write.data(), vector_to_write.size() * sizeof(std::uint32_t), chip, core, address);
                 device.wait_for_non_mmio_flush();  // Barrier to ensure that all writes over ethernet were commited
                 auto end = std::chrono::high_resolution_clock::now();
                 auto duration = double(std::chrono::duration_cast<std::chrono::microseconds>(end - start).count());
@@ -72,8 +67,7 @@ void run_remote_read_write_test(uint32_t vector_size, bool dram_write) {
                 // std::cout << "  chip " << chip << " core " << target_core.str() << " " << duration << std::endl;
 
                 start = std::chrono::high_resolution_clock::now();
-                test_utils::read_data_from_device(
-                    device, readback_vec, chip, core, address, write_size, "SMALL_READ_WRITE_TLB");
+                test_utils::read_data_from_device(device, readback_vec, chip, core, address, write_size);
                 end = std::chrono::high_resolution_clock::now();
                 duration = double(std::chrono::duration_cast<std::chrono::microseconds>(end - start).count());
                 // std::cout << " read chip " << chip << " core " << target_core.str()<< " " << duration << std::endl;
@@ -166,8 +160,7 @@ void run_data_mover_test(
         vector_to_write.size() * sizeof(std::uint32_t),
         sender_core.chip,
         sender_core.core,
-        sender_core.addr,
-        "SMALL_READ_WRITE_TLB");
+        sender_core.addr);
     device.wait_for_non_mmio_flush();  // Barrier to ensure that all writes over ethernet were commited
 
     // Send data from sender core to receiver core
@@ -180,13 +173,7 @@ void run_data_mover_test(
 
     // Verify data is correct in receiver core
     test_utils::read_data_from_device(
-        device,
-        readback_vec,
-        receiver_core.chip,
-        receiver_core.core,
-        receiver_core.addr,
-        write_size,
-        "SMALL_READ_WRITE_TLB");
+        device, readback_vec, receiver_core.chip, receiver_core.core, receiver_core.addr, write_size);
     EXPECT_EQ(vector_to_write, readback_vec)
         << "Vector read back from core " << receiver_core.str() << " does not match what was written";
 
@@ -287,8 +274,7 @@ void run_data_broadcast_test(
         vector_to_write.size() * sizeof(std::uint32_t),
         sender_core.chip,
         sender_core.core,
-        sender_core.addr,
-        "SMALL_READ_WRITE_TLB");
+        sender_core.addr);
     device.wait_for_non_mmio_flush();  // Barrier to ensure that all writes over ethernet were commited
 
     // Send data from sender core to receiver core
@@ -302,13 +288,7 @@ void run_data_broadcast_test(
     // Verify data is correct in receiver core
     for (const auto& receiver_core : receiver_cores) {
         test_utils::read_data_from_device(
-            device,
-            readback_vec,
-            receiver_core.chip,
-            receiver_core.core,
-            receiver_core.addr,
-            write_size,
-            "SMALL_READ_WRITE_TLB");
+            device, readback_vec, receiver_core.chip, receiver_core.core, receiver_core.addr, write_size);
         EXPECT_EQ(vector_to_write, readback_vec)
             << "Vector read back from core " << receiver_core.str() << " does not match what was written";
         readback_vec = {};

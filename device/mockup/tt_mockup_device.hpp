@@ -38,15 +38,13 @@ public:
     void close_device() override {}
 
     // Runtime Functions
-    void write_to_device(
-        const void* mem_ptr,
-        uint32_t size_in_bytes,
-        tt_cxy_pair core,
-        uint64_t addr,
-        const std::string& tlb_to_use) override {}
+    void write_to_device(const void* mem_ptr, uint32_t size_in_bytes, tt_cxy_pair core, uint64_t addr) override {}
 
-    void read_from_device(
-        void* mem_ptr, tt_cxy_pair core, uint64_t addr, uint32_t size, const std::string& fallback_tlb) override {}
+    void write_to_device_reg(const void* mem_ptr, uint32_t size_in_bytes, tt_cxy_pair core, uint64_t addr) override {}
+
+    void read_from_device(void* mem_ptr, tt_cxy_pair core, uint64_t addr, uint32_t size) override {}
+
+    void read_from_device_reg(void* mem_ptr, tt_cxy_pair core, uint64_t addr, uint32_t size) override {}
 
     void write_to_sysmem(
         const void* mem_ptr, std::uint32_t size, uint64_t addr, uint16_t channel, chip_id_t src_device_id) override {}
@@ -54,20 +52,11 @@ public:
     void read_from_sysmem(
         void* mem_ptr, uint64_t addr, uint16_t channel, uint32_t size, chip_id_t src_device_id) override {}
 
-    void l1_membar(
-        const chip_id_t chip,
-        const std::string& fallback_tlb,
-        const std::unordered_set<tt_xy_pair>& cores = {}) override {}
+    void l1_membar(const chip_id_t chip, const std::unordered_set<tt::umd::CoreCoord>& cores = {}) override {}
 
-    void dram_membar(
-        const chip_id_t chip,
-        const std::string& fallback_tlb,
-        const std::unordered_set<uint32_t>& channels = {}) override {}
+    void dram_membar(const chip_id_t chip, const std::unordered_set<uint32_t>& channels = {}) override {}
 
-    void dram_membar(
-        const chip_id_t chip,
-        const std::string& fallback_tlb,
-        const std::unordered_set<tt_xy_pair>& cores = {}) override {}
+    void dram_membar(const chip_id_t chip, const std::unordered_set<tt::umd::CoreCoord>& cores = {}) override {}
 
     void wait_for_non_mmio_flush() override {}
 

@@ -95,16 +95,14 @@ struct write_transfer_sample_t {
     destination_t destination;
     address_t address;
     transfer_size_t size_in_bytes;
-    std::string tlb_to_use;
-    // (payload.data(), size, destination, address, tlb_to_use, false, false);
+    // (payload.data(), size, destination, address, false, false);
 };
 
 struct read_transfer_sample_t {
     destination_t destination;
     address_t address;
     transfer_size_t size_in_bytes;
-    std::string tlb_to_use;
-    // (payload.data(), destination, address, size, tlb_to_use);
+    // (payload.data(), destination, address, size);
 };
 
 using remote_transfer_sample_t =
@@ -292,10 +290,7 @@ public:
                 return {
                     transfer_type,
                     write_transfer_sample_t{
-                        .destination = destination,
-                        .address = address,
-                        .size_in_bytes = size_in_bytes,
-                        .tlb_to_use = "LARGE_WRITE_TLB"}};
+                        .destination = destination, .address = address, .size_in_bytes = size_in_bytes}};
             } break;
 
             case RemoteTransferType::READ: {
@@ -305,10 +300,7 @@ public:
                 return {
                     transfer_type,
                     read_transfer_sample_t{
-                        .destination = destination,
-                        .address = address,
-                        .size_in_bytes = size_in_bytes,
-                        .tlb_to_use = "LARGE_READ_TLB"}};
+                        .destination = destination, .address = address, .size_in_bytes = size_in_bytes}};
             } break;
 
             default:
@@ -411,19 +403,14 @@ static inline void dispatch_remote_transfer_command(
                 payload.data(),
                 bytes_to_words<uint32_t>(command_args.size_in_bytes),
                 command_args.destination,
-                command_args.address,
-                command_args.tlb_to_use);
+                command_args.address);
         } break;
         case RemoteTransferType::READ: {
             read_transfer_sample_t const& command_args = std::get<read_transfer_sample_t>(std::get<1>(command));
             assert(command_args.size_in_bytes >= sizeof(uint32_t));
             resize_payload(payload, command_args.size_in_bytes);
             driver.read_from_device(
-                payload.data(),
-                command_args.destination,
-                command_args.address,
-                command_args.size_in_bytes,
-                command_args.tlb_to_use);
+                payload.data(), command_args.destination, command_args.address, command_args.size_in_bytes);
         } break;
         default:
             throw std::runtime_error("Invalid transfer type");
@@ -449,8 +436,8 @@ static void print_command_executable_code(remote_transfer_sample_t const& comman
             std::cout << "assert(" << command_args.size_in_bytes << " >= sizeof(uint32_t));" << std::endl;
             emit_bytes_to_words_len_string("len", command_args.size_in_bytes, sizeof(uint32_t));
             emit_payload_resize_string(command_args.size_in_bytes, sizeof(uint32_t));
-            std::cout << "cluster->write_to_device(payload.data(), len, destination, " << command_args.address << ", \""
-                      << command_args.tlb_to_use << "\");" << std::endl;
+            std::cout << "cluster->write_to_device(payload.data(), len, destination, " << command_args.address << "\");"
+                      << std::endl;
             // driver.write_to_device(payload.data(), command_args.size, command_args.destination, command_args.address,
             // command_args.tlb_to_use, false, false);
         } break;
@@ -460,7 +447,7 @@ static void print_command_executable_code(remote_transfer_sample_t const& comman
                       << command_args.destination.x << ", " << command_args.destination.y << ");" << std::endl;
             emit_payload_resize_string(command_args.size_in_bytes, sizeof(uint32_t));
             std::cout << "cluster->read_from_device(payload.data(), destination, " << command_args.address << ", "
-                      << command_args.size_in_bytes << ", \"" << command_args.tlb_to_use << "\");" << std::endl;
+                      << command_args.size_in_bytes << "\");" << std::endl;
             // driver.read_from_device(payload.data(), command_args.destination, command_args.address,
             // command_args.size, command_args.tlb_to_use);
         } break;

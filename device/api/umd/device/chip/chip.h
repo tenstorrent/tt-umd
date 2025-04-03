@@ -42,10 +42,10 @@ public:
     virtual void read_from_sysmem(uint16_t channel, void* dest, uint64_t sysmem_src, uint32_t size);
 
     // TODO: Currently works only for Local and not for Remote.
-    virtual void write_to_device(
-        tt_xy_pair core, const void* src, uint64_t l1_dest, uint32_t size, const std::string& fallback_tlb);
-    virtual void read_from_device(
-        tt_xy_pair core, void* dest, uint64_t l1_src, uint32_t size, const std::string& fallback_tlb);
+    virtual void write_to_device(tt_xy_pair core, const void* src, uint64_t l1_dest, uint32_t size);
+    virtual void write_to_device_reg(tt_xy_pair core, const void* src, uint64_t reg_dest, uint32_t size);
+    virtual void read_from_device(tt_xy_pair core, void* dest, uint64_t l1_src, uint32_t size);
+    virtual void read_from_device_reg(tt_xy_pair core, void* dest, uint64_t reg_src, uint32_t size);
 
     // TODO: To be removed once all usages are moved inside local chip.
     virtual std::unique_lock<boost::interprocess::named_mutex> get_mutex(std::string mutex_name, int pci_device_id);

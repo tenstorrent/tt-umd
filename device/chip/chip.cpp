@@ -76,14 +76,20 @@ void Chip::read_from_sysmem(uint16_t channel, void* dest, uint64_t sysmem_src, u
     throw std::runtime_error("Chip::read_from_sysmem is not available for this chip.");
 }
 
-void Chip::write_to_device(
-    tt_xy_pair core, const void* src, uint64_t l1_dest, uint32_t size, const std::string& fallback_tlb) {
+void Chip::write_to_device(tt_xy_pair core, const void* src, uint64_t l1_dest, uint32_t size) {
     throw std::runtime_error("Chip::write_to_device is not available for this chip.");
 }
 
-void Chip::read_from_device(
-    tt_xy_pair core, void* dest, uint64_t l1_src, uint32_t size, const std::string& fallback_tlb) {
+void Chip::write_to_device_reg(tt_xy_pair core, const void* src, uint64_t reg_dest, uint32_t size) {
+    throw std::runtime_error("Chip::write_to_device_reg is not available for this chip.");
+}
+
+void Chip::read_from_device(tt_xy_pair core, void* dest, uint64_t l1_src, uint32_t size) {
     throw std::runtime_error("Chip::read_from_device is not available for this chip.");
+}
+
+void Chip::read_from_device_reg(tt_xy_pair core, void* dest, uint64_t reg_src, uint32_t size) {
+    throw std::runtime_error("Chip::read_from_device_reg is not available for this chip.");
 }
 
 std::unique_lock<boost::interprocess::named_mutex> Chip::get_mutex(std::string mutex_name, int pci_device_id) {

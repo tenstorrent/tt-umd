@@ -168,19 +168,17 @@ TEST(SiliconDriverWH, HarvestingRuntime) {
              loop++) {  // Write to each core a 100 times at different statically mapped addresses
             for (const CoreCoord& core : cluster.get_soc_descriptor(i).get_cores(CoreType::TENSIX)) {
                 cluster.write_to_device(
-                    vector_to_write.data(), vector_to_write.size() * sizeof(std::uint32_t), i, core, address, "");
+                    vector_to_write.data(), vector_to_write.size() * sizeof(std::uint32_t), i, core, address);
                 cluster.write_to_device(
                     vector_to_write.data(),
                     vector_to_write.size() * sizeof(std::uint32_t),
                     i,
                     core,
-                    dynamic_write_address,
-                    "SMALL_READ_WRITE_TLB");
+                    dynamic_write_address);
                 cluster.wait_for_non_mmio_flush();  // Barrier to ensure that all writes over ethernet were commited
 
-                test_utils::read_data_from_device(cluster, readback_vec, i, core, address, 40, "");
-                test_utils::read_data_from_device(
-                    cluster, dynamic_readback_vec, i, core, dynamic_write_address, 40, "SMALL_READ_WRITE_TLB");
+                test_utils::read_data_from_device(cluster, readback_vec, i, core, address, 40);
+                test_utils::read_data_from_device(cluster, dynamic_readback_vec, i, core, dynamic_write_address, 40);
                 ASSERT_EQ(vector_to_write, readback_vec)
                     << "Vector read back from core " << core.str() << " does not match what was written";
                 ASSERT_EQ(vector_to_write, dynamic_readback_vec)
@@ -192,15 +190,13 @@ TEST(SiliconDriverWH, HarvestingRuntime) {
                     zeros.size() * sizeof(std::uint32_t),
                     i,
                     core,
-                    dynamic_write_address,
-                    "SMALL_READ_WRITE_TLB");  // Clear any written data
+                    dynamic_write_address);  // Clear any written data
                 cluster.write_to_device(
                     zeros.data(),
                     zeros.size() * sizeof(std::uint32_t),
                     i,
                     core,
-                    address,
-                    "");  // Clear any written data
+                    address);  // Clear any written data
                 cluster.wait_for_non_mmio_flush();
                 readback_vec = {};
                 dynamic_readback_vec = {};
@@ -252,9 +248,9 @@ TEST(SiliconDriverWH, UnalignedStaticTLB_RW) {
             std::uint32_t address = l1_mem::address_map::NCRISC_FIRMWARE_BASE;
             for (int loop = 0; loop < 50; loop++) {
                 for (const CoreCoord& core : cluster.get_soc_descriptor(i).get_cores(CoreType::TENSIX)) {
-                    cluster.write_to_device(write_vec.data(), size, i, core, address, "");
+                    cluster.write_to_device(write_vec.data(), size, i, core, address);
                     cluster.wait_for_non_mmio_flush();
-                    cluster.read_from_device(readback_vec.data(), i, core, address, size, "");
+                    cluster.read_from_device(readback_vec.data(), i, core, address, size);
                     ASSERT_EQ(readback_vec, write_vec);
                     readback_vec = std::vector<uint8_t>(size, 0);
                     cluster.write_to_sysmem(write_vec.data(), size, 0, 0, 0);
@@ -308,10 +304,10 @@ TEST(SiliconDriverWH, StaticTLB_RW) {
         for (int loop = 0; loop < 100; loop++) {
             for (const CoreCoord& core : cluster.get_soc_descriptor(i).get_cores(CoreType::TENSIX)) {
                 cluster.write_to_device(
-                    vector_to_write.data(), vector_to_write.size() * sizeof(std::uint32_t), i, core, address, "");
+                    vector_to_write.data(), vector_to_write.size() * sizeof(std::uint32_t), i, core, address);
                 // Barrier to ensure that all writes over ethernet were commited
                 cluster.wait_for_non_mmio_flush();
-                test_utils::read_data_from_device(cluster, readback_vec, i, core, address, 40, "");
+                test_utils::read_data_from_device(cluster, readback_vec, i, core, address, 40);
                 ASSERT_EQ(vector_to_write, readback_vec)
                     << "Vector read back from core " << core.str() << " does not match what was written";
                 cluster.wait_for_non_mmio_flush();
@@ -320,8 +316,7 @@ TEST(SiliconDriverWH, StaticTLB_RW) {
                     zeros.size() * sizeof(std::uint32_t),
                     i,
                     core,
-                    address,
-                    "SMALL_READ_WRITE_TLB");  // Clear any written data
+                    address);  // Clear any written data
                 cluster.wait_for_non_mmio_flush();
                 readback_vec = {};
             }
@@ -354,20 +349,14 @@ TEST(SiliconDriverWH, DynamicTLB_RW) {
         for (int loop = 0; loop < 100; loop++) {
             for (const CoreCoord& core : cluster.get_soc_descriptor(i).get_cores(CoreType::TENSIX)) {
                 cluster.write_to_device(
-                    vector_to_write.data(),
-                    vector_to_write.size() * sizeof(std::uint32_t),
-                    i,
-                    core,
-                    address,
-                    "SMALL_READ_WRITE_TLB");
+                    vector_to_write.data(), vector_to_write.size() * sizeof(std::uint32_t), i, core, address);
                 // Barrier to ensure that all writes over ethernet were commited
                 cluster.wait_for_non_mmio_flush();
-                test_utils::read_data_from_device(cluster, readback_vec, i, core, address, 40, "SMALL_READ_WRITE_TLB");
+                test_utils::read_data_from_device(cluster, readback_vec, i, core, address, 40);
                 ASSERT_EQ(vector_to_write, readback_vec)
                     << "Vector read back from core " << core.str() << " does not match what was written";
                 cluster.wait_for_non_mmio_flush();
-                cluster.write_to_device(
-                    zeros.data(), zeros.size() * sizeof(std::uint32_t), i, core, address, "SMALL_READ_WRITE_TLB");
+                cluster.write_to_device(zeros.data(), zeros.size() * sizeof(std::uint32_t), i, core, address);
                 cluster.wait_for_non_mmio_flush();
                 readback_vec = {};
             }
@@ -398,13 +387,8 @@ TEST(SiliconDriverWH, MultiThreadedDevice) {
         for (int loop = 0; loop < 100; loop++) {
             for (const CoreCoord& core : cluster.get_soc_descriptor(0).get_cores(CoreType::TENSIX)) {
                 cluster.write_to_device(
-                    vector_to_write.data(),
-                    vector_to_write.size() * sizeof(std::uint32_t),
-                    0,
-                    core,
-                    address,
-                    "SMALL_READ_WRITE_TLB");
-                test_utils::read_data_from_device(cluster, readback_vec, 0, core, address, 40, "SMALL_READ_WRITE_TLB");
+                    vector_to_write.data(), vector_to_write.size() * sizeof(std::uint32_t), 0, core, address);
+                test_utils::read_data_from_device(cluster, readback_vec, 0, core, address, 40);
                 ASSERT_EQ(vector_to_write, readback_vec)
                     << "Vector read back from core " << core.str() << " does not match what was written";
                 readback_vec = {};
@@ -421,14 +405,8 @@ TEST(SiliconDriverWH, MultiThreadedDevice) {
             for (int loop = 0; loop < 100; loop++) {
                 for (const CoreCoord& core : core_ls) {
                     cluster.write_to_device(
-                        vector_to_write.data(),
-                        vector_to_write.size() * sizeof(std::uint32_t),
-                        0,
-                        core,
-                        address,
-                        "SMALL_READ_WRITE_TLB");
-                    test_utils::read_data_from_device(
-                        cluster, readback_vec, 0, core, address, 40, "SMALL_READ_WRITE_TLB");
+                        vector_to_write.data(), vector_to_write.size() * sizeof(std::uint32_t), 0, core, address);
+                    test_utils::read_data_from_device(cluster, readback_vec, 0, core, address, 40);
                     ASSERT_EQ(vector_to_write, readback_vec)
                         << "Vector read back from core " << core.str() << " does not match what was written";
                     readback_vec = {};
@@ -480,7 +458,7 @@ TEST(SiliconDriverWH, MultiThreadedMemBar) {
     std::vector<uint32_t> readback_membar_vec = {};
     for (const CoreCoord& core : cluster.get_soc_descriptor(0).get_cores(CoreType::TENSIX)) {
         test_utils::read_data_from_device(
-            cluster, readback_membar_vec, 0, core, l1_mem::address_map::L1_BARRIER_BASE, 4, "SMALL_READ_WRITE_TLB");
+            cluster, readback_membar_vec, 0, core, l1_mem::address_map::L1_BARRIER_BASE, 4);
         ASSERT_EQ(
             readback_membar_vec.at(0), 187);  // Ensure that memory barriers were correctly initialized on all workers
         readback_membar_vec = {};
@@ -488,8 +466,7 @@ TEST(SiliconDriverWH, MultiThreadedMemBar) {
 
     for (int chan = 0; chan < cluster.get_soc_descriptor(0).get_num_dram_channels(); chan++) {
         CoreCoord core = cluster.get_soc_descriptor(0).get_dram_core_for_channel(chan, 0, CoordSystem::VIRTUAL);
-        test_utils::read_data_from_device(
-            cluster, readback_membar_vec, tt_cxy_pair(0, core), 0, 4, "SMALL_READ_WRITE_TLB");
+        test_utils::read_data_from_device(cluster, readback_membar_vec, tt_cxy_pair(0, core), 0, 4);
         ASSERT_EQ(
             readback_membar_vec.at(0), 187);  // Ensure that memory barriers were correctly initialized on all DRAM
         readback_membar_vec = {};
@@ -497,13 +474,7 @@ TEST(SiliconDriverWH, MultiThreadedMemBar) {
 
     for (const CoreCoord& core : cluster.get_soc_descriptor(0).get_cores(CoreType::ETH)) {
         test_utils::read_data_from_device(
-            cluster,
-            readback_membar_vec,
-            0,
-            core,
-            eth_l1_mem::address_map::ERISC_BARRIER_BASE,
-            4,
-            "SMALL_READ_WRITE_TLB");
+            cluster, readback_membar_vec, 0, core, eth_l1_mem::address_map::ERISC_BARRIER_BASE, 4);
         ASSERT_EQ(
             readback_membar_vec.at(0),
             187);  // Ensure that memory barriers were correctly initialized on all ethernet cores
@@ -527,11 +498,11 @@ TEST(SiliconDriverWH, MultiThreadedMemBar) {
         for (int loop = 0; loop < 50; loop++) {
             for (const CoreCoord& core : cluster.get_soc_descriptor(0).get_cores(CoreType::TENSIX)) {
                 std::vector<uint32_t> readback_vec = {};
-                cluster.write_to_device(vec1.data(), vec1.size() * sizeof(std::uint32_t), 0, core, address, "");
-                cluster.l1_membar(0, {core}, "SMALL_READ_WRITE_TLB");
-                test_utils::read_data_from_device(cluster, readback_vec, 0, core, address, 4 * vec1.size(), "");
+                cluster.write_to_device(vec1.data(), vec1.size() * sizeof(std::uint32_t), 0, core, address);
+                cluster.l1_membar(0, {core});
+                test_utils::read_data_from_device(cluster, readback_vec, 0, core, address, 4 * vec1.size());
                 ASSERT_EQ(readback_vec, vec1);
-                cluster.write_to_device(zeros.data(), zeros.size() * sizeof(std::uint32_t), 0, core, address, "");
+                cluster.write_to_device(zeros.data(), zeros.size() * sizeof(std::uint32_t), 0, core, address);
                 readback_vec = {};
             }
         }
@@ -542,11 +513,11 @@ TEST(SiliconDriverWH, MultiThreadedMemBar) {
         for (int loop = 0; loop < 50; loop++) {
             for (const CoreCoord& core : cluster.get_soc_descriptor(0).get_cores(CoreType::TENSIX)) {
                 std::vector<uint32_t> readback_vec = {};
-                cluster.write_to_device(vec2.data(), vec2.size() * sizeof(std::uint32_t), 0, core, address, "");
-                cluster.l1_membar(0, {core}, "SMALL_READ_WRITE_TLB");
-                test_utils::read_data_from_device(cluster, readback_vec, 0, core, address, 4 * vec2.size(), "");
+                cluster.write_to_device(vec2.data(), vec2.size() * sizeof(std::uint32_t), 0, core, address);
+                cluster.l1_membar(0, {core});
+                test_utils::read_data_from_device(cluster, readback_vec, 0, core, address, 4 * vec2.size());
                 ASSERT_EQ(readback_vec, vec2);
-                cluster.write_to_device(zeros.data(), zeros.size() * sizeof(std::uint32_t), 0, core, address, "");
+                cluster.write_to_device(zeros.data(), zeros.size() * sizeof(std::uint32_t), 0, core, address);
                 readback_vec = {};
             }
         }
@@ -557,7 +528,7 @@ TEST(SiliconDriverWH, MultiThreadedMemBar) {
 
     for (const CoreCoord& core : cluster.get_soc_descriptor(0).get_cores(CoreType::TENSIX)) {
         test_utils::read_data_from_device(
-            cluster, readback_membar_vec, 0, core, l1_mem::address_map::L1_BARRIER_BASE, 4, "SMALL_READ_WRITE_TLB");
+            cluster, readback_membar_vec, 0, core, l1_mem::address_map::L1_BARRIER_BASE, 4);
         ASSERT_EQ(
             readback_membar_vec.at(0), 187);  // Ensure that memory barriers end up in the correct sate for workers
         readback_membar_vec = {};
@@ -565,13 +536,7 @@ TEST(SiliconDriverWH, MultiThreadedMemBar) {
 
     for (const CoreCoord& core : cluster.get_soc_descriptor(0).get_cores(CoreType::ETH)) {
         test_utils::read_data_from_device(
-            cluster,
-            readback_membar_vec,
-            0,
-            core,
-            eth_l1_mem::address_map::ERISC_BARRIER_BASE,
-            4,
-            "SMALL_READ_WRITE_TLB");
+            cluster, readback_membar_vec, 0, core, eth_l1_mem::address_map::ERISC_BARRIER_BASE, 4);
         ASSERT_EQ(
             readback_membar_vec.at(0),
             187);  // Ensure that memory barriers end up in the correct sate for ethernet cores
@@ -609,13 +574,7 @@ TEST(SiliconDriverWH, BroadcastWrite) {
         }
         // Broadcast to Tensix
         cluster.broadcast_write_to_cluster(
-            vector_to_write.data(),
-            vector_to_write.size() * 4,
-            address,
-            {},
-            rows_to_exclude,
-            cols_to_exclude,
-            "LARGE_WRITE_TLB");
+            vector_to_write.data(), vector_to_write.size() * 4, address, {}, rows_to_exclude, cols_to_exclude);
         // Broadcast to DRAM
         cluster.broadcast_write_to_cluster(
             vector_to_write.data(),
@@ -623,8 +582,7 @@ TEST(SiliconDriverWH, BroadcastWrite) {
             address,
             {},
             rows_to_exclude_for_dram_broadcast,
-            cols_to_exclude_for_dram_broadcast,
-            "LARGE_WRITE_TLB");
+            cols_to_exclude_for_dram_broadcast);
         cluster.wait_for_non_mmio_flush();
 
         for (const auto i : target_devices) {
@@ -632,8 +590,7 @@ TEST(SiliconDriverWH, BroadcastWrite) {
                 if (rows_to_exclude.find(core.y) != rows_to_exclude.end()) {
                     continue;
                 }
-                test_utils::read_data_from_device(
-                    cluster, readback_vec, i, core, address, vector_to_write.size() * 4, "LARGE_READ_TLB");
+                test_utils::read_data_from_device(cluster, readback_vec, i, core, address, vector_to_write.size() * 4);
                 ASSERT_EQ(vector_to_write, readback_vec)
                     << "Vector read back from core " << core.str() << " does not match what was broadcasted";
                 cluster.write_to_device(
@@ -641,15 +598,13 @@ TEST(SiliconDriverWH, BroadcastWrite) {
                     zeros.size() * sizeof(std::uint32_t),
                     i,
                     core,
-                    address,
-                    "LARGE_WRITE_TLB");  // Clear any written data
+                    address);  // Clear any written data
                 readback_vec = {};
             }
             for (int chan = 0; chan < cluster.get_soc_descriptor(i).get_num_dram_channels(); chan++) {
                 const CoreCoord core =
                     cluster.get_soc_descriptor(i).get_dram_core_for_channel(chan, 0, CoordSystem::VIRTUAL);
-                test_utils::read_data_from_device(
-                    cluster, readback_vec, i, core, address, vector_to_write.size() * 4, "LARGE_READ_TLB");
+                test_utils::read_data_from_device(cluster, readback_vec, i, core, address, vector_to_write.size() * 4);
                 ASSERT_EQ(vector_to_write, readback_vec) << "Vector read back from DRAM core " << i << " " << core.str()
                                                          << " does not match what was broadcasted " << size;
                 cluster.write_to_device(
@@ -657,8 +612,7 @@ TEST(SiliconDriverWH, BroadcastWrite) {
                     zeros.size() * sizeof(std::uint32_t),
                     i,
                     core,
-                    address,
-                    "LARGE_WRITE_TLB");  // Clear any written data
+                    address);  // Clear any written data
                 readback_vec = {};
             }
         }
@@ -706,13 +660,7 @@ TEST(SiliconDriverWH, VirtualCoordinateBroadcast) {
         }
         // Broadcast to Tensix
         cluster.broadcast_write_to_cluster(
-            vector_to_write.data(),
-            vector_to_write.size() * 4,
-            address,
-            {},
-            rows_to_exclude,
-            cols_to_exclude,
-            "LARGE_WRITE_TLB");
+            vector_to_write.data(), vector_to_write.size() * 4, address, {}, rows_to_exclude, cols_to_exclude);
         // Broadcast to DRAM
         cluster.broadcast_write_to_cluster(
             vector_to_write.data(),
@@ -720,8 +668,7 @@ TEST(SiliconDriverWH, VirtualCoordinateBroadcast) {
             address,
             {},
             rows_to_exclude_for_dram_broadcast,
-            cols_to_exclude_for_dram_broadcast,
-            "LARGE_WRITE_TLB");
+            cols_to_exclude_for_dram_broadcast);
         cluster.wait_for_non_mmio_flush();
 
         for (const auto i : target_devices) {
@@ -733,8 +680,7 @@ TEST(SiliconDriverWH, VirtualCoordinateBroadcast) {
                 if (rows_to_exclude.find(virtual_core.y) != rows_to_exclude.end()) {
                     continue;
                 }
-                test_utils::read_data_from_device(
-                    cluster, readback_vec, i, core, address, vector_to_write.size() * 4, "LARGE_READ_TLB");
+                test_utils::read_data_from_device(cluster, readback_vec, i, core, address, vector_to_write.size() * 4);
                 ASSERT_EQ(vector_to_write, readback_vec)
                     << "Vector read back from core " << core.str() << " does not match what was broadcasted";
                 cluster.write_to_device(
@@ -742,15 +688,13 @@ TEST(SiliconDriverWH, VirtualCoordinateBroadcast) {
                     zeros.size() * sizeof(std::uint32_t),
                     i,
                     core,
-                    address,
-                    "LARGE_WRITE_TLB");  // Clear any written data
+                    address);  // Clear any written data
                 readback_vec = {};
             }
             for (int chan = 0; chan < cluster.get_soc_descriptor(i).get_num_dram_channels(); chan++) {
                 const CoreCoord core =
                     cluster.get_soc_descriptor(i).get_dram_core_for_channel(chan, 0, CoordSystem::VIRTUAL);
-                test_utils::read_data_from_device(
-                    cluster, readback_vec, i, core, address, vector_to_write.size() * 4, "LARGE_READ_TLB");
+                test_utils::read_data_from_device(cluster, readback_vec, i, core, address, vector_to_write.size() * 4);
                 ASSERT_EQ(vector_to_write, readback_vec) << "Vector read back from DRAM core " << i << " " << core.str()
                                                          << " does not match what was broadcasted " << size;
                 cluster.write_to_device(
@@ -758,8 +702,7 @@ TEST(SiliconDriverWH, VirtualCoordinateBroadcast) {
                     zeros.size() * sizeof(std::uint32_t),
                     i,
                     core,
-                    address,
-                    "LARGE_WRITE_TLB");  // Clear any written data
+                    address);  // Clear any written data
                 readback_vec = {};
             }
         }
@@ -829,7 +772,7 @@ TEST(SiliconDriverWH, SysmemTestWithPcie) {
     test_utils::fill_with_random_bytes(sysmem, test_size_bytes);
 
     // Step 2: Read sysmem into buffer.
-    cluster.read_from_device(&buffer[0], PCIE_CORE, base_address, buffer.size(), "REG_TLB");
+    cluster.read_from_device_reg(&buffer[0], PCIE_CORE, base_address, buffer.size());
 
     // Step 3: Verify that buffer matches sysmem.
     ASSERT_EQ(buffer, std::vector<uint8_t>(sysmem, sysmem + test_size_bytes));
@@ -838,12 +781,12 @@ TEST(SiliconDriverWH, SysmemTestWithPcie) {
     test_utils::fill_with_random_bytes(&buffer[0], test_size_bytes);
 
     // Step 5: Write buffer into sysmem, overwriting what was there.
-    cluster.write_to_device(&buffer[0], buffer.size(), PCIE_CORE, base_address, "REG_TLB");
+    cluster.write_to_device_reg(&buffer[0], buffer.size(), PCIE_CORE, base_address);
 
     // Step 5b: Read back sysmem into a throwaway buffer.  The intent is to
     // ensure the write has completed before we check sysmem against buffer.
     std::vector<uint8_t> throwaway(test_size_bytes, 0x0);
-    cluster.read_from_device(&throwaway[0], PCIE_CORE, base_address, throwaway.size(), "REG_TLB");
+    cluster.read_from_device_reg(&throwaway[0], PCIE_CORE, base_address, throwaway.size());
 
     // Step 6: Verify that sysmem matches buffer.
     ASSERT_EQ(buffer, std::vector<uint8_t>(sysmem, sysmem + test_size_bytes));
@@ -914,7 +857,7 @@ TEST(SiliconDriverWH, RandomSysmemTestWithPcie) {
             ASSERT_EQ(address % ALIGNMENT, 0) << "Address not properly aligned";
 
             uint32_t value = 0;
-            cluster.read_from_device(&value, PCIE_CORE, noc_addr, sizeof(uint32_t), "LARGE_READ_TLB");
+            cluster.read_from_device(&value, PCIE_CORE, noc_addr, sizeof(uint32_t));
 
             uint32_t expected = *reinterpret_cast<uint32_t*>(&sysmem[sysmem_address]);
             ASSERT_EQ(value, expected) << fmt::format("Mismatch at address {:#x}", address);
@@ -961,10 +904,10 @@ TEST(SiliconDriverWH, LargeAddressTlb) {
     value0 = cluster.bar_read32(0, 0x1ff30060);
 
     // Read the scratch register via the TLB:
-    cluster.read_from_device(&value1, ARC_CORE_CHIP, addr, sizeof(uint32_t), "LARGE_READ_TLB");
+    cluster.read_from_device(&value1, ARC_CORE_CHIP, addr, sizeof(uint32_t));
 
     // Read the scratch register via a different TLB, different code path:
-    cluster.read_from_device(&value2, ARC_CORE_CHIP, addr, sizeof(uint32_t), "REG_TLB");
+    cluster.read_from_device_reg(&value2, ARC_CORE_CHIP, addr, sizeof(uint32_t));
 
     // Mask off lower 16 bits; FW changes these dynamically:
     value0 &= 0xffff0000;

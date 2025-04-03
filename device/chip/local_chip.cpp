@@ -13,6 +13,32 @@
 
 extern bool umd_use_noc1;
 
+struct tt_4_byte_aligned_buffer {
+    // Stores a 4 byte aligned buffer
+    // If the input buffer is already 4 byte aligned, this is a nop
+    std::uint32_t* local_storage = nullptr;
+    std::uint32_t input_size = 0;
+    std::uint32_t block_size = 0;
+
+    tt_4_byte_aligned_buffer(const void* mem_ptr, uint32_t size_in_bytes) {
+        input_size = size_in_bytes;
+        local_storage = (uint32_t*)mem_ptr;
+        uint32_t alignment_mask = sizeof(uint32_t) - 1;
+        uint32_t aligned_size = (size_in_bytes + alignment_mask) & ~alignment_mask;
+
+        if (size_in_bytes < aligned_size) {
+            local_storage = new uint32_t[aligned_size / sizeof(uint32_t)];
+        }
+        block_size = aligned_size;
+    }
+
+    ~tt_4_byte_aligned_buffer() {
+        if (block_size > input_size) {
+            delete[] local_storage;
+        }
+    }
+};
+
 namespace tt::umd {
 
 // TLB size for DRAM on blackhole - 4GB
@@ -83,17 +109,17 @@ void LocalChip::initialize_default_chip_mutexes(const bool clear_mutex) {
     int pci_device_id = tt_device_->get_pci_device()->get_device_num();
     // Initialize Dynamic TLB mutexes
     for (auto& tlb : tlb_manager_->dynamic_tlb_config_) {
-        lock_manager.initialize_mutex(tlb.first, pci_device_id, clear_mutex);
+        lock_manager_.initialize_mutex(tlb.first, pci_device_id, clear_mutex);
     }
 
     // Initialize non-MMIO mutexes for WH devices regardless of number of chips, since these may be used for
     // ethernet broadcast
     if (tt_device_->get_arch() == tt::ARCH::WORMHOLE_B0) {
-        lock_manager.initialize_mutex(MutexType::NON_MMIO, pci_device_id, clear_mutex);
+        lock_manager_.initialize_mutex(MutexType::NON_MMIO, pci_device_id, clear_mutex);
     }
 
     // Initialize interprocess mutexes to make host -> device memory barriers atomic
-    lock_manager.initialize_mutex(MutexType::MEM_BARRIER, pci_device_id, clear_mutex);
+    lock_manager_.initialize_mutex(MutexType::MEM_BARRIER, pci_device_id, clear_mutex);
 }
 
 TTDevice* LocalChip::get_tt_device() { return tt_device_.get(); }
@@ -236,6 +262,41 @@ void LocalChip::read_from_device(
     }
 }
 
+void LocalChip::write_to_device_reg(
+    tt_xy_pair core, const void* src, uint64_t reg_dest, uint32_t size, const std::string& fallback_tlb) {
+    const auto tlb_index = tlb_manager_->dynamic_tlb_config_.at(fallback_tlb);
+    auto lock = lock_manager_.get_mutex(fallback_tlb, tt_device_->get_pci_device()->get_device_num());
+    log_debug(LogSiliconDriver, "  dynamic tlb_index: {}", tlb_index);
+
+    auto [mapped_address, tlb_size] = tt_device_->set_dynamic_tlb(
+        tlb_index, translate_chip_coord_virtual_to_translated(core), reg_dest, tt::umd::tlb_data::Strict);
+    // Align block to 4bytes if needed.
+    auto aligned_buf = tt_4_byte_aligned_buffer(src, size);
+    if (aligned_buf.input_size != aligned_buf.block_size) {
+        // Copy value from main buffer to aligned buffer
+        std::memcpy(aligned_buf.local_storage, src, size);
+    }
+    tt_device_->write_regs(mapped_address, aligned_buf.block_size / sizeof(uint32_t), aligned_buf.local_storage);
+}
+
+void LocalChip::read_from_device_reg(
+    tt_xy_pair core, void* dest, uint64_t reg_src, uint32_t size, const std::string& fallback_tlb) {
+    const auto tlb_index = tlb_manager_->dynamic_tlb_config_.at(fallback_tlb);
+    auto lock = lock_manager_.get_mutex(fallback_tlb, tt_device_->get_pci_device()->get_device_num());
+    log_debug(LogSiliconDriver, "  dynamic tlb_index: {}", tlb_index);
+
+    auto [mapped_address, tlb_size] = tt_device_->set_dynamic_tlb(
+        tlb_index, translate_chip_coord_virtual_to_translated(core), reg_src, tt::umd::tlb_data::Strict);
+    // Align block to 4bytes if needed.
+    auto aligned_buf = tt_4_byte_aligned_buffer(dest, size);
+    tt_device_->read_regs(mapped_address, aligned_buf.block_size / sizeof(std::uint32_t), aligned_buf.local_storage);
+
+    if (aligned_buf.input_size != aligned_buf.block_size) {
+        // Copy value from aligned buffer to main buffer.
+        std::memcpy(dest, aligned_buf.local_storage, size);
+    }
+}
+
 tt_xy_pair LocalChip::translate_chip_coord_virtual_to_translated(const tt_xy_pair core) const {
     CoreCoord core_coord = soc_descriptor_.get_coord_at(core, CoordSystem::VIRTUAL);
     auto translated_coord =
@@ -244,10 +305,10 @@ tt_xy_pair LocalChip::translate_chip_coord_virtual_to_translated(const tt_xy_pai
 }
 
 std::unique_lock<boost::interprocess::named_mutex> LocalChip::get_mutex(std::string mutex_name, int pci_device_id) {
-    return lock_manager.get_mutex(mutex_name, pci_device_id);
+    return lock_manager_.get_mutex(mutex_name, pci_device_id);
 }
 
 std::unique_lock<boost::interprocess::named_mutex> LocalChip::get_mutex(MutexType mutex_type, int pci_device_id) {
-    return lock_manager.get_mutex(mutex_type, pci_device_id);
+    return lock_manager_.get_mutex(mutex_type, pci_device_id);
 }
 }  // namespace tt::umd

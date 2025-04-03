@@ -38,6 +38,11 @@ public:
     void read_from_device(
         tt_xy_pair core, void* dest, uint64_t l1_src, uint32_t size, const std::string& fallback_tlb) override;
 
+    void write_to_device_reg(
+        tt_xy_pair core, const void* src, uint64_t reg_dest, uint32_t size, const std::string& fallback_tlb) override;
+    void read_from_device_reg(
+        tt_xy_pair core, void* dest, uint64_t reg_src, uint32_t size, const std::string& fallback_tlb) override;
+
     std::unique_lock<boost::interprocess::named_mutex> get_mutex(std::string mutex_name, int pci_device_id) override;
     std::unique_lock<boost::interprocess::named_mutex> get_mutex(MutexType mutex_type, int pci_device_id) override;
 
@@ -45,7 +50,7 @@ private:
     std::unique_ptr<TTDevice> tt_device_;
     std::unique_ptr<SysmemManager> sysmem_manager_;
     std::unique_ptr<TLBManager> tlb_manager_;
-    LockManager lock_manager;
+    LockManager lock_manager_;
 
     void initialize_local_chip(int num_host_mem_channels = 0, const bool clear_mutex = false);
     void initialize_tlb_manager();

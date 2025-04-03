@@ -95,34 +95,6 @@ struct remote_update_ptr_t {
     uint32_t pad[3];
 };
 
-namespace {
-struct tt_4_byte_aligned_buffer {
-    // Stores a 4 byte aligned buffer
-    // If the input buffer is already 4 byte aligned, this is a nop
-    std::uint32_t* local_storage = nullptr;
-    std::uint32_t input_size = 0;
-    std::uint32_t block_size = 0;
-
-    tt_4_byte_aligned_buffer(const void* mem_ptr, uint32_t size_in_bytes) {
-        input_size = size_in_bytes;
-        local_storage = (uint32_t*)mem_ptr;
-        uint32_t alignment_mask = sizeof(uint32_t) - 1;
-        uint32_t aligned_size = (size_in_bytes + alignment_mask) & ~alignment_mask;
-
-        if (size_in_bytes < aligned_size) {
-            local_storage = new uint32_t[aligned_size / sizeof(uint32_t)];
-        }
-        block_size = aligned_size;
-    }
-
-    ~tt_4_byte_aligned_buffer() {
-        if (block_size > input_size) {
-            delete[] local_storage;
-        }
-    }
-};
-}  // namespace
-
 namespace tt::umd {
 
 const tt_SocDescriptor& Cluster::get_soc_descriptor(chip_id_t chip_id) const {
@@ -2474,41 +2446,12 @@ void Cluster::write_to_device(
 
 void Cluster::read_mmio_device_register(
     void* mem_ptr, tt_cxy_pair core, uint64_t addr, uint32_t size, const std::string& fallback_tlb) {
-    TTDevice* tt_device = get_tt_device(core.chip);
-
-    const auto tlb_index = get_tlb_manager(core.chip)->dynamic_tlb_config_.at(fallback_tlb);
-    auto lock = get_local_chip(core.chip)->get_mutex(fallback_tlb, tt_device->get_pci_device()->get_device_num());
-    log_debug(LogSiliconDriver, "  dynamic tlb_index: {}", tlb_index);
-
-    auto [mapped_address, tlb_size] = tt_device->set_dynamic_tlb(
-        tlb_index, translate_chip_coord_virtual_to_translated(core.chip, core), addr, TLB_DATA::Strict);
-    // Align block to 4bytes if needed.
-    auto aligned_buf = tt_4_byte_aligned_buffer(mem_ptr, size);
-    tt_device->read_regs(mapped_address, aligned_buf.block_size / sizeof(std::uint32_t), aligned_buf.local_storage);
-
-    if (aligned_buf.input_size != aligned_buf.block_size) {
-        // Copy value from aligned buffer to main buffer.
-        std::memcpy(mem_ptr, aligned_buf.local_storage, size);
-    }
+    get_local_chip(core.chip)->read_from_device_reg(core, mem_ptr, addr, size, fallback_tlb);
 }
 
 void Cluster::write_mmio_device_register(
     const void* mem_ptr, tt_cxy_pair core, uint64_t addr, uint32_t size, const std::string& fallback_tlb) {
-    TTDevice* tt_device = get_tt_device(core.chip);
-
-    const auto tlb_index = get_tlb_manager(core.chip)->dynamic_tlb_config_.at(fallback_tlb);
-    auto lock = get_local_chip(core.chip)->get_mutex(fallback_tlb, tt_device->get_pci_device()->get_device_num());
-    log_debug(LogSiliconDriver, "  dynamic tlb_index: {}", tlb_index);
-
-    auto [mapped_address, tlb_size] = tt_device->set_dynamic_tlb(
-        tlb_index, translate_chip_coord_virtual_to_translated(core.chip, core), addr, TLB_DATA::Strict);
-    // Align block to 4bytes if needed.
-    auto aligned_buf = tt_4_byte_aligned_buffer(mem_ptr, size);
-    if (aligned_buf.input_size != aligned_buf.block_size) {
-        // Copy value from main buffer to aligned buffer
-        std::memcpy(aligned_buf.local_storage, mem_ptr, size);
-    }
-    tt_device->write_regs(mapped_address, aligned_buf.block_size / sizeof(uint32_t), aligned_buf.local_storage);
+    get_local_chip(core.chip)->write_to_device_reg(core, mem_ptr, addr, size, fallback_tlb);
 }
 
 void Cluster::read_from_device(

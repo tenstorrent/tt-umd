@@ -54,6 +54,13 @@ jobs:
           lscpu | grep 'Model name'
           lscpu | grep 'Architecture'
 
+          # Print number of CPU cores
+          echo "Number of CPU Cores: $(nproc)"
+
+          # Print CPU clock speed
+          echo "CPU Clock Speed:"
+          lscpu | grep 'MHz'
+
           # Print Memory information
           echo "Memory Information:"
           free -h
@@ -128,6 +135,13 @@ jobs:
           echo "CPU Information:"
           lscpu | grep 'Model name'
           lscpu | grep 'Architecture'
+
+          # Print number of CPU cores
+          echo "Number of CPU Cores: $(nproc)"
+
+          # Print CPU clock speed
+          echo "CPU Clock Speed:"
+          lscpu | grep 'MHz'
 
           # Print Memory information
           echo "Memory Information:"

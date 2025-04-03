@@ -45,7 +45,7 @@ jobs:
     timeout-minutes: ${{ fromJSON(inputs.timeout) }}
 
     name: Build umd_tests on ${{ inputs.ubuntu-docker-version }}
-    runs-on: tt-beta-ubuntu-2204-large
+    runs-on: ubuntu-22.04
     container:
       image: ghcr.io/${{ github.repository }}/tt-umd-ci-${{ inputs.ubuntu-docker-version }}:latest
       options: --user root

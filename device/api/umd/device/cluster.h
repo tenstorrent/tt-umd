@@ -992,7 +992,7 @@ private:
     void enable_local_ethernet_queue(const chip_id_t& chip, int timeout);
     void enable_ethernet_queue(int timeout);
     void enable_remote_ethernet_queue(const chip_id_t& chip, int timeout);
-    void deassert_resets();
+    void deassert_resets_and_set_power_state();
     int iatu_configure_peer_region(
         int logical_device_id, uint32_t peer_region_id, uint64_t bar_addr_64, uint32_t region_size);
     uint32_t get_harvested_noc_rows(uint32_t harvesting_mask);

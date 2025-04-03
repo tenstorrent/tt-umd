@@ -2698,7 +2698,7 @@ void Cluster::enable_ethernet_queue(int timeout) {
     }
 }
 
-void Cluster::deassert_resets() {
+void Cluster::deassert_resets_and_set_power_state() {
     // Assert tensix resets on all chips in cluster
     broadcast_tensix_risc_reset_to_cluster(TENSIX_ASSERT_SOFT_RESET);
 
@@ -2733,6 +2733,9 @@ void Cluster::deassert_resets() {
             enable_ethernet_queue(30);
         }
     }
+
+    // Set power state to busy
+    set_power_state(tt_DevicePowerState::BUSY);
 }
 
 void Cluster::verify_eth_fw() {
@@ -2787,11 +2790,14 @@ void Cluster::start_device(const tt_device_params& device_params) {
         if (arch_name == tt::ARCH::WORMHOLE_B0) {
             verify_eth_fw();
         }
-        deassert_resets();
+        deassert_resets_and_set_power_state();
     }
 }
 
-void Cluster::close_device() { broadcast_tensix_risc_reset_to_cluster(TENSIX_ASSERT_SOFT_RESET); }
+void Cluster::close_device() {
+    set_power_state(tt_DevicePowerState::LONG_IDLE);
+    broadcast_tensix_risc_reset_to_cluster(TENSIX_ASSERT_SOFT_RESET);
+}
 
 std::uint32_t Cluster::get_num_dram_channels(std::uint32_t device_id) {
     log_assert(

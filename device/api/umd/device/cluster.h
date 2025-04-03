@@ -834,6 +834,7 @@ public:
         const chip_id_t chip, const std::string& fallback_tlb, const std::unordered_set<CoreCoord>& cores = {});
     void dram_membar(
         const chip_id_t chip, const std::string& fallback_tlb, const std::unordered_set<CoreCoord>& cores = {});
+    void set_power_state(tt_DevicePowerState state);
 
     static std::unique_ptr<tt_ClusterDescriptor> create_cluster_descriptor(std::string sdesc_path = "");
 
@@ -860,7 +861,6 @@ private:
     void check_pcie_device_initialized(int device_id);
     void set_pcie_power_state(tt_DevicePowerState state);
     int set_remote_power_state(const chip_id_t& chip, tt_DevicePowerState device_state);
-    void set_power_state(tt_DevicePowerState state);
     uint32_t get_power_state_arc_msg(chip_id_t chip_id, tt_DevicePowerState state);
     void enable_local_ethernet_queue(const chip_id_t& chip, int timeout);
     void enable_ethernet_queue(int timeout);
@@ -871,6 +871,8 @@ private:
     uint32_t get_harvested_noc_rows(uint32_t harvesting_mask);
     uint32_t get_harvested_rows(int logical_device_id);
     int get_clock(int logical_device_id);
+    void wait_for_aiclk_value(const uint32_t aiclk_val, const uint32_t timeout_ms = 5000);
+    static uint32_t get_target_aiclk_value(tt::ARCH arch, tt_DevicePowerState device_state);
 
     // Communication Functions
     void write_device_memory(

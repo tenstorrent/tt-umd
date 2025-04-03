@@ -2702,7 +2702,7 @@ tt_xy_pair Cluster::translate_to_api_coords(const chip_id_t chip, const tt::umd:
 tt_xy_pair Cluster::translate_chip_coord_virtual_to_translated(const chip_id_t chip_id, const tt_xy_pair core) const {
     CoreCoord core_coord = get_soc_descriptor(chip_id).get_coord_at(core, CoordSystem::VIRTUAL);
     auto translated_coord = get_soc_descriptor(chip_id).translate_coord_to(
-        core_coord, umd_use_noc1 ? CoordSystem::PHYSICAL : CoordSystem::TRANSLATED);
+        core_coord, umd_use_noc1 ? CoordSystem::NOC1 : CoordSystem::TRANSLATED);
     return translated_coord;
 }
 

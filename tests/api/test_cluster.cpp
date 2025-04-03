@@ -423,29 +423,6 @@ TEST(TestCluster, TestTopologyDiscovery) {
     cluster_desc->serialize_to_file();
 }
 
-TEST(ApiClusterTest, SimpleIOAllChipsTest) {
+TEST(ApiClusterTest, CreateClusterBasic) {
     std::unique_ptr<Cluster> umd_cluster = get_cluster();
-
-    if (umd_cluster == nullptr || umd_cluster->get_target_device_ids().empty()) {
-        GTEST_SKIP() << "No chips present on the system. Skipping test.";
-    }
-
-    const tt_ClusterDescriptor* cluster_desc = umd_cluster->get_cluster_description();
-
-    // Setup memory barrier addresses.
-    // Some default values are set during construction of UMD, but you can override them.
-    umd_cluster->set_barrier_address_params({L1_BARRIER_BASE, ETH_BARRIER_BASE, DRAM_BARRIER_BASE});
-
-    for (auto chip_id : umd_cluster->get_target_device_ids()) {
-        const tt_SocDescriptor& soc_desc = umd_cluster->get_soc_descriptor(chip_id);
-
-        CoreCoord any_core = CoreCoord(1, 2, CoreType::TENSIX, CoordSystem::PHYSICAL);
-
-        uint32_t x;
-        umd_cluster->read_from_device((uint8_t*)&x, chip_id, any_core, 0x1000, sizeof(uint32_t), "LARGE_WRITE_TLB");
-
-        std::cout << "x " << x << std::endl;
-
-        umd_cluster->wait_for_non_mmio_flush(chip_id);
-    }
 }

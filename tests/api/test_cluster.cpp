@@ -342,10 +342,6 @@ TEST(TestCluster, TestClusterLogicalETHChannelsConnectivity) {
 TEST(TestCluster, TestClusterNoc0Id) {
     std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
 
-    // Setup memory barrier addresses.
-    // Some default values are set during construction of UMD, but you can override them.
-    cluster->set_barrier_address_params({L1_BARRIER_BASE, ETH_BARRIER_BASE, DRAM_BARRIER_BASE});
-
     tt::ARCH arch = cluster->get_cluster_description()->get_arch(0);
 
     // All chips in the cluster have the same noc_translation_enabled value.
@@ -359,11 +355,6 @@ TEST(TestCluster, TestClusterNoc0Id) {
         } else {
             noc_node_id_reg_addr = tt::umd::wormhole::NOC_CONTROL_REG_ADDR_BASE + tt::umd::wormhole::NOC_NODE_ID_OFFSET;
         }
-        // ffb30138
-
-        std::cout << "set or " << std::endl;
-        // noc_node_id_reg_addr |= (1 << 16);
-        std::cout << std::hex << "noc node id reg addr " << noc_node_id_reg_addr << std::dec << std::endl;
     } else if (arch == tt::ARCH::BLACKHOLE) {
         noc_node_id_reg_addr = tt::umd::blackhole::NOC_CONTROL_REG_ADDR_BASE + tt::umd::blackhole::NOC_NODE_ID_OFFSET;
     }
@@ -383,10 +374,8 @@ TEST(TestCluster, TestClusterNoc0Id) {
             const auto [x, y] = read_noc_id_reg(cluster, chip, core);
             CoreCoord translated_coord =
                 cluster->get_soc_descriptor(chip).translate_coord_to(core, CoordSystem::TRANSLATED);
-            std::cout << "translated coord " << translated_coord.x << " " << translated_coord.y << " x y " << x << " "
-                      << y << std::endl;
-            // EXPECT_EQ(translated_coord.x, x);
-            // EXPECT_EQ(translated_coord.y, y);
+            EXPECT_EQ(translated_coord.x, x);
+            EXPECT_EQ(translated_coord.y, y);
         }
     };
 
@@ -404,16 +393,16 @@ TEST(TestCluster, TestClusterNoc0Id) {
 
     for (chip_id_t chip : cluster->get_target_device_ids()) {
         check_noc_id_cores(cluster, chip, CoreType::TENSIX);
-        // check_noc_id_harvested_cores(cluster, chip, CoreType::TENSIX);
+        check_noc_id_harvested_cores(cluster, chip, CoreType::TENSIX);
 
-        // check_noc_id_cores(cluster, chip, CoreType::ETH);
-        // check_noc_id_harvested_cores(cluster, chip, CoreType::ETH);
+        check_noc_id_cores(cluster, chip, CoreType::ETH);
+        check_noc_id_harvested_cores(cluster, chip, CoreType::ETH);
 
-        // // TODO: figure out how to read this information on Wormhole.
-        // if (arch == tt::ARCH::BLACKHOLE) {
-        //     check_noc_id_cores(cluster, chip, CoreType::DRAM);
-        //     check_noc_id_harvested_cores(cluster, chip, CoreType::DRAM);
-        // }
+        // TODO: figure out how to read this information on Wormhole.
+        if (arch == tt::ARCH::BLACKHOLE) {
+            check_noc_id_cores(cluster, chip, CoreType::DRAM);
+            check_noc_id_harvested_cores(cluster, chip, CoreType::DRAM);
+        }
 
         // TODO: figure out how to read this information on WH and BH.
         // check_noc_id_cores(cluster, chip, CoreType::ARC);
@@ -441,10 +430,9 @@ TEST(TestCluster, TestClusterNoc1Id) {
         } else {
             noc_node_id_reg_addr = tt::umd::wormhole::NOC_CONTROL_REG_ADDR_BASE + tt::umd::wormhole::NOC_NODE_ID_OFFSET;
         }
-        // for reading noc1 coordinates.
-        noc_node_id_reg_addr |= (1 << 16);
     } else if (arch == tt::ARCH::BLACKHOLE) {
         noc_node_id_reg_addr = tt::umd::blackhole::NOC_CONTROL_REG_ADDR_BASE + tt::umd::blackhole::NOC_NODE_ID_OFFSET;
+        noc_node_id_reg_addr |= (1 << 16);
     }
 
     auto read_noc_id_reg = [noc_node_id_reg_addr](std::unique_ptr<Cluster>& cluster, chip_id_t chip, CoreCoord core) {
@@ -456,32 +444,38 @@ TEST(TestCluster, TestClusterNoc1Id) {
         return tt_xy_pair(x, y);
     };
 
-    auto check_noc_id_cores = [read_noc_id_reg](std::unique_ptr<Cluster>& cluster, chip_id_t chip, CoreType core_type) {
+    auto check_noc_id_cores = [read_noc_id_reg, noc_translation_enabled](
+                                  std::unique_ptr<Cluster>& cluster, chip_id_t chip, CoreType core_type) {
         const std::vector<CoreCoord>& cores = cluster->get_soc_descriptor(chip).get_cores(core_type, CoordSystem::NOC1);
         for (const CoreCoord& core : cores) {
             const auto [x, y] = read_noc_id_reg(cluster, chip, core);
-            CoreCoord translated_coord =
-                cluster->get_soc_descriptor(chip).translate_coord_to(core, CoordSystem::TRANSLATED);
-            EXPECT_EQ(translated_coord.x, x);
-            EXPECT_EQ(translated_coord.y, y);
-            // std::cout << "core " << core.x << " " << core.y << std::endl;
-            // std::cout << "translated coord " << translated_coord.x << " " << translated_coord.y << " x y " << x << " "
-            //           << y << std::endl;
+            CoreCoord core_coord_check;
+            if (noc_translation_enabled) {
+                core_coord_check = cluster->get_soc_descriptor(chip).translate_coord_to(core, CoordSystem::TRANSLATED);
+            } else {
+                core_coord_check = core;
+            }
+
+            EXPECT_EQ(core_coord_check.x, x);
+            EXPECT_EQ(core_coord_check.y, y);
         }
     };
 
-    auto check_noc_id_harvested_cores = [read_noc_id_reg](
+    auto check_noc_id_harvested_cores = [read_noc_id_reg, noc_translation_enabled](
                                             std::unique_ptr<Cluster>& cluster, chip_id_t chip, CoreType core_type) {
-        const std::vector<CoreCoord>& cores = cluster->get_soc_descriptor(chip).get_harvested_cores(core_type);
+        const std::vector<CoreCoord>& cores =
+            cluster->get_soc_descriptor(chip).get_harvested_cores(core_type, CoordSystem::NOC1);
         for (const CoreCoord& core : cores) {
             const auto [x, y] = read_noc_id_reg(cluster, chip, core);
-            CoreCoord translated_coord =
-                cluster->get_soc_descriptor(chip).translate_coord_to(core, CoordSystem::TRANSLATED);
-            // std::cout << "harvested core " << core.x << " " << core.y << std::endl;
-            // std::cout << "translated coord " << translated_coord.x << " " << translated_coord.y << " x y " << x << " "
-            //           << y << std::endl;
-            EXPECT_EQ(translated_coord.x, x);
-            EXPECT_EQ(translated_coord.y, y);
+            CoreCoord core_coord_check;
+            if (noc_translation_enabled) {
+                core_coord_check = cluster->get_soc_descriptor(chip).translate_coord_to(core, CoordSystem::TRANSLATED);
+            } else {
+                core_coord_check = core;
+            }
+
+            EXPECT_EQ(core_coord_check.x, x);
+            EXPECT_EQ(core_coord_check.y, y);
         }
     };
 
@@ -504,6 +498,8 @@ TEST(TestCluster, TestClusterNoc1Id) {
         // TODO: figure out why this hangs the chip both on WH and BH.
         // check_noc_id_cores(cluster, chip, CoreType::PCIE);
     }
+
+    TTDevice::use_noc1(false);
 }
 
 TEST(TestCluster, TestClusterAICLKControl) {

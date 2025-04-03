@@ -308,7 +308,7 @@ void LocalChip::read_from_device_reg(
 
 tt_xy_pair LocalChip::translate_chip_coord_virtual_to_translated(const tt_xy_pair core) const {
     CoreCoord core_coord = soc_descriptor_.get_coord_at(core, CoordSystem::VIRTUAL);
-   auto translated_coord =
+    auto translated_coord =
         soc_descriptor_.translate_coord_to(core_coord, umd_use_noc1 ? CoordSystem::NOC1 : CoordSystem::TRANSLATED);
     return translated_coord;
 }

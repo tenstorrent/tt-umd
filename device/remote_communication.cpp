@@ -269,10 +269,7 @@ void RemoteCommunication::write_to_non_mmio(
     uint32_t size_in_bytes,
     eth_coord_t target_chip,
     const tt_xy_pair eth_core) {
-    static constexpr std::uint32_t NUM_ETH_CORES_FOR_NON_MMIO_TRANSFERS = 6;
     static constexpr std::uint32_t NON_EPOCH_ETH_CORES_FOR_NON_MMIO_TRANSFERS = 4;
-    static constexpr std::uint32_t NON_EPOCH_ETH_CORES_START_ID = 0;
-    static constexpr std::uint32_t NON_EPOCH_ETH_CORES_MASK = (NON_EPOCH_ETH_CORES_FOR_NON_MMIO_TRANSFERS - 1);
 
     using data_word_t = uint32_t;
     constexpr int DATA_WORD_SIZE = sizeof(data_word_t);
@@ -315,7 +312,6 @@ void RemoteCommunication::write_to_non_mmio(
 
     auto lock = lock_manager.acquire_mutex(MutexType::NON_MMIO, tt_device->get_pci_device()->get_device_num());
 
-    bool non_mmio_transfer_cores_customized = false;
     int active_core_for_txn = 0;
 
     tt_xy_pair remote_transfer_ethernet_core = eth_core;
@@ -450,16 +446,7 @@ void RemoteCommunication::write_to_non_mmio(
 
         if (is_non_mmio_cmd_q_full(
                 eth_interface_params, (erisc_q_ptrs[0]) & eth_interface_params.cmd_buf_ptr_mask, erisc_q_rptr[0])) {
-            active_core_for_txn++;
-            // uint32_t update_mask_for_chip = remote_transfer_ethernet_cores[mmio_capable_chip_logical].size() - 1;
-            uint32_t update_mask_for_chip = 1;
-            active_core_for_txn =
-                non_mmio_transfer_cores_customized
-                    ? (active_core_for_txn & update_mask_for_chip)
-                    : ((active_core_for_txn & NON_EPOCH_ETH_CORES_MASK) + NON_EPOCH_ETH_CORES_START_ID);
-            // active_core = (active_core & NON_EPOCH_ETH_CORES_MASK) + NON_EPOCH_ETH_CORES_START_ID;
-            // remote_transfer_ethernet_core =
-            //     remote_transfer_ethernet_cores.at(mmio_capable_chip_logical)[active_core_for_txn];
+            active_core_for_txn = (active_core_for_txn + 1) % NON_EPOCH_ETH_CORES_FOR_NON_MMIO_TRANSFERS;
             remote_transfer_ethernet_core = eth_core;
             tt_device->read_from_device(
                 erisc_q_ptrs.data(),

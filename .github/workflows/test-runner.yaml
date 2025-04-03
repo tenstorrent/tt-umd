@@ -16,7 +16,15 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        machine: [ubuntu-22.04, n150, n300]
+        machine: [
+          ubuntu-22.04,
+          n150,
+          n300,
+          p150,
+          tt-beta-ubuntu-2204-large,
+          tt-beta-ubuntu-2204-small,
+          tt-beta-ubuntu-2204-n300-large-stable,
+          tt-beta-ubuntu-2204-n150-large-stable]
 
     name: Check runner
     runs-on: ${{ matrix.machine }}
@@ -64,7 +72,15 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        machine: [ubuntu-22.04, n150, n300]
+        machine: [
+          ubuntu-22.04,
+          n150,
+          n300,
+          p150,
+          tt-beta-ubuntu-2204-large,
+          tt-beta-ubuntu-2204-small,
+          tt-beta-ubuntu-2204-n300-large-stable,
+          tt-beta-ubuntu-2204-n150-large-stable]
         image: [tt-umd-ci-ubuntu-22.04]
 
     name: Check runner docker

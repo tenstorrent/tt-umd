@@ -36,7 +36,7 @@ TEST_F(uBenchmarkFixture, WriteAllCores32Bytes) {
                     vector_to_write.data(),
                     vector_to_write.size() * sizeof(std::uint32_t),
                     0,
-                    core,
+                    core_coord,
                     bad_address,
                     "SMALL_READ_WRITE_TLB");
             });
@@ -91,7 +91,7 @@ TEST_F(uBenchmarkFixture, Write32BytesRandomAddr) {
                     vector_to_write.data(),
                     vector_to_write.size() * sizeof(std::uint32_t),
                     0,
-                    core,
+                    core_coord,
                     address,
                     "SMALL_READ_WRITE_TLB");
             });
@@ -107,17 +107,17 @@ TEST_F(uBenchmarkFixture, Read32BytesRandomAddr) {
 
     ankerl::nanobench::Bench bench;
     for (auto& core_coord : device->get_soc_descriptor(0).get_cores(CoreType::TENSIX)) {
-        tt_xy_pair core = {core_coord.x, core_coord.y};
         address = generate_random_address(1 << 20);  // between 0 and 1MB
         std::stringstream rname;
-        rname << "Read from device core (" << core.x << ", " << core.y << ") @ address " << std::hex << address;
+        rname << "Read from device core (" << core_coord.x << ", " << core_coord.y << ") @ address " << std::hex
+              << address;
         bench.title("Read 32 bytes random address")
             .unit("reads")
             .minEpochIterations(50)
             .output(nullptr)
             .run(rname.str(), [&] {
                 test_utils::read_data_from_device(
-                    *device, readback_vec, tt_cxy_pair(0, core), address, 0x20, "SMALL_READ_WRITE_TLB");
+                    *device, readback_vec, 0, core_coord, address, 0x20, "SMALL_READ_WRITE_TLB");
             });
         rname.clear();
     }

@@ -24,7 +24,7 @@ TEST(RemoteCommunicationWormhole, BasicRemoteCommunicationIO) {
 
     chip_id_t mmio_chip_id = *cluster->get_target_mmio_device_ids().begin();
     std::unique_ptr<RemoteCommunication> remote_comm =
-        std::make_unique<RemoteCommunication>(cluster->get_tt_device(mmio_chip_id));
+        std::make_unique<RemoteCommunication>(cluster->get_local_chip(mmio_chip_id));
 
     tt_ClusterDescriptor* cluster_desc = cluster->get_cluster_description();
 
@@ -66,12 +66,7 @@ TEST(RemoteCommunicationWormhole, BasicRemoteCommunicationIO) {
             remote_comm->wait_for_non_mmio_flush(active_eth_cores);
 
             remote_comm->read_non_mmio(
-                (uint8_t*)data_read.data(),
-                core,
-                address1,
-                data_read.size() * sizeof(uint32_t),
-                remote_eth_coord,
-                active_eth_cores.at(0));
+                remote_eth_coord, core, (uint8_t*)data_read.data(), address1, data_read.size() * sizeof(uint32_t));
 
             ASSERT_EQ(data_to_write, data_read)
                 << "Vector read back from core " << core.str() << " does not match what was written";

@@ -521,6 +521,9 @@ public:
 
 namespace tt::umd {
 
+class LocalChip;
+class RemoteChip;
+
 /**
  * Silicon Driver Class, derived from the tt_device class
  * Implements APIs to communicate with a physical Tenstorrent Device.
@@ -732,7 +735,14 @@ public:
      *
      * @param device_id Device to target.
      */
-    Chip* get_local_chip(chip_id_t device_id) const;
+    LocalChip* get_local_chip(chip_id_t device_id) const;
+
+    /**
+     * Get Chip for specified logical device id, verify it is remote.
+     *
+     * @param device_id Device to target.
+     */
+    RemoteChip* get_remote_chip(chip_id_t device_id) const;
 
     /**
      * Get Soc descriptor for specified logical device id.

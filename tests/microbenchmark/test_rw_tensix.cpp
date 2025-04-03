@@ -24,9 +24,8 @@ TEST_F(uBenchmarkFixture, WriteAllCores32Bytes) {
     ankerl::nanobench::Bench bench_static;
     ankerl::nanobench::Bench bench_dynamic;
     for (auto& core_coord : device->get_soc_descriptor(0).get_cores(CoreType::TENSIX)) {
-        tt_xy_pair core = {core_coord.x, core_coord.y};
         std::stringstream wname;
-        wname << "Write to device core (" << core.x << ", " << core.y << ")";
+        wname << "Write to device core (" << core_coord.x << ", " << core_coord.y << ")";
         // Write through "fallback/dynamic" tlb
         bench_dynamic.title("Write 32 bytes fallback")
             .unit("writes")
@@ -36,7 +35,8 @@ TEST_F(uBenchmarkFixture, WriteAllCores32Bytes) {
                 device->write_to_device(
                     vector_to_write.data(),
                     vector_to_write.size() * sizeof(std::uint32_t),
-                    tt_cxy_pair(0, core),
+                    0,
+                    core,
                     bad_address,
                     "SMALL_READ_WRITE_TLB");
             });
@@ -55,7 +55,6 @@ TEST_F(uBenchmarkFixture, ReadAllCores32Bytes) {
     ankerl::nanobench::Bench bench_dynamic;
 
     for (auto& core_coord : device->get_soc_descriptor(0).get_cores(CoreType::TENSIX)) {
-        tt_xy_pair core = {core_coord.x, core_coord.y};
         std::stringstream rname;
         // Read through "fallback/dynamic" tlb
         bench_dynamic.title("Read 32 bytes fallback")
@@ -64,7 +63,7 @@ TEST_F(uBenchmarkFixture, ReadAllCores32Bytes) {
             .output(nullptr)
             .run(rname.str(), [&] {
                 test_utils::read_data_from_device(
-                    *device, readback_vec, 0, core, bad_address, 0x20, "SMALL_READ_WRITE_TLB");
+                    *device, readback_vec, 0, core_coord, bad_address, 0x20, "SMALL_READ_WRITE_TLB");
             });
         rname.clear();
     }
@@ -79,10 +78,10 @@ TEST_F(uBenchmarkFixture, Write32BytesRandomAddr) {
 
     ankerl::nanobench::Bench bench;
     for (auto& core_coord : device->get_soc_descriptor(0).get_cores(CoreType::TENSIX)) {
-        tt_xy_pair core = {core_coord.x, core_coord.y};
         address = generate_random_address(1 << 20);  // between 0 and 1MB
         std::stringstream wname;
-        wname << "Write to device core (" << core.x << ", " << core.y << ") @ address " << std::hex << address;
+        wname << "Write to device core (" << core_coord.x << ", " << core_coord.y << ") @ address " << std::hex
+              << address;
         bench.title("Write 32 bytes random address")
             .unit("writes")
             .minEpochIterations(50)
@@ -91,7 +90,8 @@ TEST_F(uBenchmarkFixture, Write32BytesRandomAddr) {
                 device->write_to_device(
                     vector_to_write.data(),
                     vector_to_write.size() * sizeof(std::uint32_t),
-                    tt_cxy_pair(0, core),
+                    0,
+                    core,
                     address,
                     "SMALL_READ_WRITE_TLB");
             });

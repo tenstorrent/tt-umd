@@ -488,8 +488,7 @@ TEST(SiliconDriverWH, MultiThreadedMemBar) {
 
     for (int chan = 0; chan < cluster.get_soc_descriptor(0).get_num_dram_channels(); chan++) {
         CoreCoord core = cluster.get_soc_descriptor(0).get_dram_core_for_channel(chan, 0, CoordSystem::VIRTUAL);
-        test_utils::read_data_from_device(
-            cluster, readback_membar_vec, tt_cxy_pair(0, core), 0, 4, "SMALL_READ_WRITE_TLB");
+        test_utils::read_data_from_device(cluster, readback_membar_vec, 0, core, 0, 4, "SMALL_READ_WRITE_TLB");
         ASSERT_EQ(
             readback_membar_vec.at(0), 187);  // Ensure that memory barriers were correctly initialized on all DRAM
         readback_membar_vec = {};
@@ -528,7 +527,7 @@ TEST(SiliconDriverWH, MultiThreadedMemBar) {
             for (const CoreCoord& core : cluster.get_soc_descriptor(0).get_cores(CoreType::TENSIX)) {
                 std::vector<uint32_t> readback_vec = {};
                 cluster.write_to_device(vec1.data(), vec1.size() * sizeof(std::uint32_t), 0, core, address, "");
-                cluster.l1_membar(0, {core}, "SMALL_READ_WRITE_TLB");
+                cluster.l1_membar(0, "SMALL_READ_WRITE_TLB", {core});
                 test_utils::read_data_from_device(cluster, readback_vec, 0, core, address, 4 * vec1.size(), "");
                 ASSERT_EQ(readback_vec, vec1);
                 cluster.write_to_device(zeros.data(), zeros.size() * sizeof(std::uint32_t), 0, core, address, "");
@@ -543,7 +542,7 @@ TEST(SiliconDriverWH, MultiThreadedMemBar) {
             for (const CoreCoord& core : cluster.get_soc_descriptor(0).get_cores(CoreType::TENSIX)) {
                 std::vector<uint32_t> readback_vec = {};
                 cluster.write_to_device(vec2.data(), vec2.size() * sizeof(std::uint32_t), 0, core, address, "");
-                cluster.l1_membar(0, {core}, "SMALL_READ_WRITE_TLB");
+                cluster.l1_membar(0, "SMALL_READ_WRITE_TLB", {core});
                 test_utils::read_data_from_device(cluster, readback_vec, 0, core, address, 4 * vec2.size(), "");
                 ASSERT_EQ(readback_vec, vec2);
                 cluster.write_to_device(zeros.data(), zeros.size() * sizeof(std::uint32_t), 0, core, address, "");

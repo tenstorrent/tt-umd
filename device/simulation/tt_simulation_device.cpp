@@ -121,28 +121,20 @@ void tt_SimulationDevice::deassert_risc_reset() {
     host.send_to_device(wr_buffer_ptr, wr_buffer_size);
 }
 
-void tt_SimulationDevice::deassert_risc_reset_at_core(tt_cxy_pair core, const TensixSoftResetOptions& soft_resets) {
+void tt_SimulationDevice::deassert_risc_reset_at_core(
+    const chip_id_t chip, const tt::umd::CoreCoord core, const TensixSoftResetOptions& soft_resets) {
     log_info(
         tt::LogEmulationDriver,
         "Sending 'deassert_risc_reset_at_core'.. (Not implemented, defaulting to 'deassert_risc_reset' instead)");
     deassert_risc_reset();
 }
 
-void tt_SimulationDevice::assert_risc_reset_at_core(tt_cxy_pair core, const TensixSoftResetOptions& soft_resets) {
+void tt_SimulationDevice::assert_risc_reset_at_core(
+    const chip_id_t chip, const tt::umd::CoreCoord core, const TensixSoftResetOptions& soft_resets) {
     log_info(
         tt::LogEmulationDriver,
         "Sending 'assert_risc_reset_at_core'.. (Not implemented, defaulting to 'assert_risc_reset' instead)");
     assert_risc_reset();
-}
-
-void tt_SimulationDevice::deassert_risc_reset_at_core(
-    const chip_id_t chip, const tt::umd::CoreCoord core, const TensixSoftResetOptions& soft_resets) {
-    deassert_risc_reset_at_core({(size_t)chip, translate_to_api_coords(chip, core)}, soft_resets);
-}
-
-void tt_SimulationDevice::assert_risc_reset_at_core(
-    const chip_id_t chip, const tt::umd::CoreCoord core, const TensixSoftResetOptions& soft_resets) {
-    assert_risc_reset_at_core({(size_t)chip, translate_to_api_coords(chip, core)}, soft_resets);
 }
 
 void tt_SimulationDevice::close_device() {
@@ -217,13 +209,13 @@ void tt_SimulationDevice::wait_for_non_mmio_flush() {}
 void tt_SimulationDevice::wait_for_non_mmio_flush(const chip_id_t chip) {}
 
 void tt_SimulationDevice::l1_membar(
-    const chip_id_t chip, const std::string& fallback_tlb, const std::unordered_set<tt_xy_pair>& cores) {}
+    const chip_id_t chip, const std::string& fallback_tlb, const std::unordered_set<tt::umd::CoreCoord>& cores) {}
 
 void tt_SimulationDevice::dram_membar(
     const chip_id_t chip, const std::string& fallback_tlb, const std::unordered_set<uint32_t>& channels) {}
 
 void tt_SimulationDevice::dram_membar(
-    const chip_id_t chip, const std::string& fallback_tlb, const std::unordered_set<tt_xy_pair>& cores) {}
+    const chip_id_t chip, const std::string& fallback_tlb, const std::unordered_set<tt::umd::CoreCoord>& cores) {}
 
 // Misc. Functions to Query/Set Device State
 std::vector<chip_id_t> tt_SimulationDevice::detect_available_device_ids() { return {0}; }
@@ -270,10 +262,7 @@ const tt_SocDescriptor& tt_SimulationDevice::get_soc_descriptor(chip_id_t chip_i
 };
 
 void tt_SimulationDevice::configure_active_ethernet_cores_for_mmio_device(
-    chip_id_t mmio_chip, const std::unordered_set<tt_xy_pair>& active_eth_cores_per_chip) {}
-
-void tt_SimulationDevice::configure_active_ethernet_cores_for_mmio_device(
-    const std::unordered_set<tt::umd::CoreCoord>& active_eth_cores_per_chip, chip_id_t mmio_chip) {}
+    chip_id_t mmio_chip, const std::unordered_set<tt::umd::CoreCoord>& active_eth_cores_per_chip) {}
 
 // TODO: This is a temporary function while we're switching between the old and the new API.
 // Eventually, this function should be so small it would be obvioud to remove.

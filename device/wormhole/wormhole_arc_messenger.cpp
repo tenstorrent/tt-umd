@@ -24,7 +24,7 @@ uint32_t WormholeArcMessenger::send_message(
 
     log_assert(arg0 <= 0xffff and arg1 <= 0xffff, "Only 16 bits allowed in arc_msg args");
 
-    auto lock = lock_manager.get_mutex(MutexType::ARC_MSG, tt_device->get_pci_device()->get_device_num());
+    auto lock = lock_manager.acquire_lock(MutexType::ARC_MSG, tt_device->get_pci_device()->get_device_num());
 
     auto architecture_implementation = tt_device->get_architecture_implementation();
 

@@ -38,8 +38,8 @@ void LockManager::initialize_mutex(MutexType mutex_type, const bool clear_mutex)
 
 void LockManager::clear_mutex(MutexType mutex_type) { clear_mutex_internal(MutexTypeToString.at(mutex_type)); }
 
-std::unique_lock<named_mutex> LockManager::get_mutex(MutexType mutex_type) {
-    return get_mutex_internal(MutexTypeToString.at(mutex_type));
+std::unique_lock<named_mutex> LockManager::acquire_lock(MutexType mutex_type) {
+    return acquire_lock_internal(MutexTypeToString.at(mutex_type));
 }
 
 void LockManager::initialize_mutex(MutexType mutex_type, int pci_device_id, const bool clear_mutex) {
@@ -52,9 +52,9 @@ void LockManager::clear_mutex(MutexType mutex_type, int pci_device_id) {
     clear_mutex_internal(mutex_name);
 }
 
-std::unique_lock<named_mutex> LockManager::get_mutex(MutexType mutex_type, int pci_device_id) {
+std::unique_lock<named_mutex> LockManager::acquire_lock(MutexType mutex_type, int pci_device_id) {
     std::string mutex_name = MutexTypeToString.at(mutex_type) + std::to_string(pci_device_id);
-    return get_mutex_internal(mutex_name);
+    return acquire_lock_internal(mutex_name);
 }
 
 void LockManager::initialize_mutex(std::string mutex_prefix, int pci_device_id, const bool clear_mutex) {
@@ -67,9 +67,9 @@ void LockManager::clear_mutex(std::string mutex_prefix, int pci_device_id) {
     clear_mutex_internal(mutex_name);
 }
 
-std::unique_lock<named_mutex> LockManager::get_mutex(std::string mutex_prefix, int pci_device_id) {
+std::unique_lock<named_mutex> LockManager::acquire_lock(std::string mutex_prefix, int pci_device_id) {
     std::string mutex_name = mutex_prefix + std::to_string(pci_device_id);
-    return get_mutex_internal(mutex_name);
+    return acquire_lock_internal(mutex_name);
 }
 
 void LockManager::initialize_mutex_internal(const std::string& mutex_name, const bool clear_mutex) {
@@ -104,7 +104,7 @@ void LockManager::clear_mutex_internal(const std::string& mutex_name) {
     named_mutex::remove(mutex_name.c_str());
 }
 
-std::unique_lock<named_mutex> LockManager::get_mutex_internal(const std::string& mutex_name) {
+std::unique_lock<named_mutex> LockManager::acquire_lock_internal(const std::string& mutex_name) {
     if (mutexes.find(mutex_name) == mutexes.end()) {
         throw std::runtime_error("Mutex not initialized: " + mutex_name);
     }

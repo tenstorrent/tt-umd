@@ -38,22 +38,22 @@ public:
     // This set of functions is used to manage mutexes which are system wide and not chip specific.
     void initialize_mutex(MutexType mutex_type, const bool clear_mutex);
     void clear_mutex(MutexType mutex_type);
-    std::unique_lock<boost::interprocess::named_mutex> get_mutex(MutexType mutex_type);
+    std::unique_lock<boost::interprocess::named_mutex> acquire_lock(MutexType mutex_type);
 
     // This set of functions is used to manage mutexes which are chip specific.
     void initialize_mutex(MutexType mutex_type, int pci_device_id, const bool clear_mutex);
     void clear_mutex(MutexType mutex_type, int pci_device_id);
-    std::unique_lock<boost::interprocess::named_mutex> get_mutex(MutexType mutex_type, int pci_device_id);
+    std::unique_lock<boost::interprocess::named_mutex> acquire_lock(MutexType mutex_type, int pci_device_id);
 
     // This set of functions is used to manage mutexes which are chip specific. This variant accepts custom mutex name.
     void initialize_mutex(std::string mutex_prefix, int pci_device_id, const bool clear_mutex);
     void clear_mutex(std::string mutex_prefix, int pci_device_id);
-    std::unique_lock<boost::interprocess::named_mutex> get_mutex(std::string mutex_prefix, int pci_device_id);
+    std::unique_lock<boost::interprocess::named_mutex> acquire_lock(std::string mutex_prefix, int pci_device_id);
 
 private:
     void initialize_mutex_internal(const std::string& mutex_name, const bool clear_mutex);
     void clear_mutex_internal(const std::string& mutex_name);
-    std::unique_lock<boost::interprocess::named_mutex> get_mutex_internal(const std::string& mutex_name);
+    std::unique_lock<boost::interprocess::named_mutex> acquire_lock_internal(const std::string& mutex_name);
 
     // Const map of mutex names for each of the types listed in the enum.
     static const std::unordered_map<MutexType, std::string> MutexTypeToString;

@@ -1449,7 +1449,8 @@ void Cluster::read_from_non_mmio_device(void* mem_ptr, tt_cxy_pair core, uint64_
     std::string read_tlb = "LARGE_READ_TLB";
     std::string empty_tlb = "";
 
-    tt_xy_pair translated_core = translate_chip_coord_virtual_to_translated(core.chip, core);
+    tt_xy_pair translated_core = get_soc_descriptor(core.chip).translate_coord_to(
+        get_soc_descriptor(core.chip).get_coord_at({core.x, core.y}, CoordSystem::PHYSICAL), CoordSystem::TRANSLATED);
     core.x = translated_core.x;
     core.y = translated_core.y;
 
@@ -2404,7 +2405,13 @@ void Cluster::read_from_device(
 
 void Cluster::read_from_device(
     void* mem_ptr, chip_id_t chip, CoreCoord core, uint64_t addr, uint32_t size, const std::string& fallback_tlb) {
-    read_from_device(mem_ptr, {(size_t)chip, translate_to_api_coords(chip, core)}, addr, size, fallback_tlb);
+    tt_xy_pair translated_pair;
+    if (get_cluster_description()->is_chip_remote(chip)) {
+        translated_pair = get_soc_descriptor(chip).translate_coord_to(core, CoordSystem::PHYSICAL);
+    } else {
+        translated_pair = translate_to_api_coords(chip, core);
+    }
+    read_from_device(mem_ptr, {(size_t)chip, translated_pair}, addr, size, fallback_tlb);
 }
 
 int Cluster::arc_msg(

@@ -447,7 +447,10 @@ TEST(TestCluster, TestClusterNoc1Id) {
 
     auto check_noc_id_cores = [read_noc_id_reg, noc_translation_enabled](
                                   std::unique_ptr<Cluster>& cluster, chip_id_t chip, CoreType core_type) {
-        const std::vector<CoreCoord>& cores = cluster->get_soc_descriptor(chip).get_cores(core_type, CoordSystem::NOC1);
+        std::vector<CoreCoord> cores = cluster->get_soc_descriptor(chip).get_cores(core_type, CoordSystem::NOC1);
+        if (cluster->get_cluster_description()->is_chip_remote(chip)) {
+            cores = cluster->get_soc_descriptor(chip).get_cores(core_type, CoordSystem::NOC0);
+        }
         for (const CoreCoord& core : cores) {
             const auto [x, y] = read_noc_id_reg(cluster, chip, core);
             CoreCoord core_coord_check;
@@ -475,12 +478,16 @@ TEST(TestCluster, TestClusterNoc1Id) {
                 core_coord_check = core;
             }
 
+            // std::cout << "harvested core coord check " << core_coord_check.x << " " << core_coord_check.y << " x y "
+            //           << x << " " << y << std::endl;
+
             EXPECT_EQ(core_coord_check.x, x);
             EXPECT_EQ(core_coord_check.y, y);
         }
     };
 
     for (chip_id_t chip : cluster->get_target_device_ids()) {
+        // std::cout << "chip " << chip << std::endl;
         check_noc_id_cores(cluster, chip, CoreType::TENSIX);
         check_noc_id_harvested_cores(cluster, chip, CoreType::TENSIX);
 

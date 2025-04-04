@@ -305,6 +305,14 @@ void LocalChip::read_from_device_reg(
     }
 }
 
+void LocalChip::wait_for_non_mmio_flush() {
+    // This is a local chip, so no need to flush remote communication.
+}
+
+void LocalChip::set_flush_non_mmio(bool flush_non_mmio) { flush_non_mmio_ = flush_non_mmio; }
+
+bool LocalChip::get_flush_non_mmio() const { return flush_non_mmio_; }
+
 tt_xy_pair LocalChip::translate_chip_coord_virtual_to_translated(const tt_xy_pair core) const {
     CoreCoord core_coord = soc_descriptor_.get_coord_at(core, CoordSystem::VIRTUAL);
     auto translated_coord =

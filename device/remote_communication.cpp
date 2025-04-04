@@ -48,11 +48,6 @@ void RemoteCommunication::read_non_mmio(
     std::string read_tlb = "LARGE_READ_TLB";
     std::string empty_tlb = "";
 
-    auto translated_coord = local_chip_->get_soc_descriptor().translate_coord_to(
-        target_core, CoordSystem::VIRTUAL, umd_use_noc1 ? CoordSystem::PHYSICAL : CoordSystem::TRANSLATED);
-    target_core.x = translated_coord.x;
-    target_core.y = translated_coord.y;
-
     // TODO: To be removed when this is moved to Chip classes.
     auto host_address_params = local_chip_->host_address_params;
     auto eth_interface_params = local_chip_->eth_interface_params;

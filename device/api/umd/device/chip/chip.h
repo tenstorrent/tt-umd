@@ -44,6 +44,7 @@ public:
     virtual void read_from_sysmem(uint16_t channel, void* dest, uint64_t sysmem_src, uint32_t size);
 
     // TODO: Currently works only for Local and not for Remote.
+    // Both write and read cores are defined in VIRTUAL coords.
     virtual void write_to_device(
         tt_xy_pair core, const void* src, uint64_t l1_dest, uint32_t size, const std::string& fallback_tlb);
     virtual void read_from_device(

@@ -9,8 +9,6 @@
 
 namespace tt::umd {
 
-namespace wormhole {
-
 WormholeArcTelemetryReader::WormholeArcTelemetryReader(TTDevice* tt_device) : ArcTelemetryReader(tt_device) {
     initialize_telemetry();
 }
@@ -58,5 +56,4 @@ bool WormholeArcTelemetryReader::is_entry_available(const uint8_t telemetry_tag)
     return telemetry_tag >= 0 && telemetry_tag < tt::umd::wormhole::TELEMETRY_NUMBER_OF_TAGS;
 }
 
-}  // namespace wormhole
 }  // namespace tt::umd

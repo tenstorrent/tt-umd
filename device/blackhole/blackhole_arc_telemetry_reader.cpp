@@ -11,8 +11,6 @@
 
 namespace tt::umd {
 
-namespace blackhole {
-
 BlackholeArcTelemetryReader::BlackholeArcTelemetryReader(TTDevice* tt_device) : ArcTelemetryReader(tt_device) {
     initialize_telemetry();
 }
@@ -82,5 +80,4 @@ bool BlackholeArcTelemetryReader::is_entry_available(const uint8_t telemetry_tag
     return telemetry_values.find(telemetry_tag) != telemetry_values.end();
 }
 
-}  // namespace blackhole
 }  // namespace tt::umd

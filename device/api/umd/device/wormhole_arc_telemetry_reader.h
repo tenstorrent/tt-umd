@@ -13,8 +13,6 @@ extern bool umd_use_noc1;
 
 namespace tt::umd {
 
-namespace wormhole {
-
 class WormholeArcTelemetryReader : public ArcTelemetryReader {
 public:
     WormholeArcTelemetryReader(TTDevice* tt_device);
@@ -37,7 +35,5 @@ private:
                                           tt::umd::wormhole::NOC0_X_TO_NOC1_X[tt::umd::wormhole::ARC_CORES_NOC0[0].x],
                                           tt::umd::wormhole::NOC0_Y_TO_NOC1_Y[tt::umd::wormhole::ARC_CORES_NOC0[0].y]);
 };
-
-}  // namespace wormhole
 
 }  // namespace tt::umd

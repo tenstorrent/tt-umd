@@ -122,6 +122,8 @@ target_include_directories(
 # flatbuffers is public - exposed to tt_metal by tt_simulation_device_generated.h
 target_link_libraries(
     device
+    PUBLIC
+        Boost::interprocess
     PRIVATE
         flatbuffers
         umd::Common
@@ -130,7 +132,6 @@ target_link_libraries(
         nng
         rt
         uv_a
-        Boost::interprocess
         spdlog::spdlog_header_only
         fmt::fmt-header-only
         yaml-cpp::yaml-cpp

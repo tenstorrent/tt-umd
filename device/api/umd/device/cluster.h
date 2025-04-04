@@ -993,9 +993,6 @@ private:
     void verify_sw_fw_versions(int device_id, std::uint32_t sw_version, std::vector<std::uint32_t>& fw_versions);
     int test_setup_interface();
 
-    // This functions has to be called for local chip, and then it will wait for all connected remote chips to flush.
-    void wait_for_connected_non_mmio_flush(chip_id_t chip_id);
-
     // Helper functions for constructing the chips from the cluster descriptor.
     std::unique_ptr<Chip> construct_chip_from_cluster(
         chip_id_t chip_id,
@@ -1065,7 +1062,6 @@ private:
 
     std::shared_ptr<tt_ClusterDescriptor> cluster_desc;
 
-    std::unordered_map<chip_id_t, bool> flush_non_mmio_per_chip = {};
     std::unordered_map<chip_id_t, std::unordered_set<tt_xy_pair>> workers_per_chip = {};
     std::unordered_set<tt_xy_pair> eth_cores = {};
     std::unordered_set<tt_xy_pair> dram_cores = {};

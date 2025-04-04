@@ -481,31 +481,40 @@ void RemoteCommunication::write_to_non_mmio(
     }
 }
 
-void RemoteCommunication::wait_for_non_mmio_flush(std::vector<tt_xy_pair> remote_transfer_eth_cores) {
-    auto eth_interface_params =
-        local_chip_->get_tt_device()->get_architecture_implementation()->get_eth_interface_params();
+void RemoteCommunication::wait_for_non_mmio_flush() {
+    if (local_chip_->get_flush_non_mmio()) {
+        log_assert(
+            local_chip_->get_soc_descriptor().arch != tt::ARCH::BLACKHOLE, "Non-MMIO flush not supported in Blackhole");
+        std::string read_tlb = "LARGE_READ_TLB";
 
-    std::vector<std::uint32_t> erisc_txn_counters = std::vector<uint32_t>(2);
-    std::vector<std::uint32_t> erisc_q_ptrs =
-        std::vector<uint32_t>(eth_interface_params.remote_update_ptr_size_bytes * 2 / sizeof(uint32_t));
+        if (local_chip_->get_soc_descriptor().arch == tt::ARCH::WORMHOLE_B0) {
+            // TODO: To be removed when this is moved to Chip classes.
+            auto eth_interface_params = local_chip_->eth_interface_params;
 
-    // wait for all queues to be empty.
-    std::vector<tt_xy_pair> active_eth_cores = remote_transfer_eth_cores;
-    for (tt_xy_pair& eth_core : active_eth_cores) {
-        do {
-            local_chip_->get_tt_device()->read_from_device(
-                erisc_q_ptrs.data(),
-                eth_core,
-                eth_interface_params.request_cmd_queue_base + eth_interface_params.cmd_counters_size_bytes,
-                eth_interface_params.remote_update_ptr_size_bytes * 2);
-        } while (erisc_q_ptrs[0] != erisc_q_ptrs[4]);
-    }
-    // wait for all write responses to come back.
-    for (tt_xy_pair& eth_core : active_eth_cores) {
-        do {
-            local_chip_->get_tt_device()->read_from_device(
-                erisc_txn_counters.data(), eth_core, eth_interface_params.request_cmd_queue_base, 8);
-        } while (erisc_txn_counters[0] != erisc_txn_counters[1]);
+            std::vector<std::uint32_t> erisc_txn_counters = std::vector<uint32_t>(2);
+            std::vector<std::uint32_t> erisc_q_ptrs =
+                std::vector<uint32_t>(eth_interface_params.remote_update_ptr_size_bytes * 2 / sizeof(uint32_t));
+
+            // wait for all queues to be empty.
+            for (tt_xy_pair& xy : local_chip_->get_remote_transfer_ethernet_cores()) {
+                do {
+                    local_chip_->read_from_device(
+                        xy,
+                        erisc_q_ptrs.data(),
+                        eth_interface_params.request_cmd_queue_base + eth_interface_params.cmd_counters_size_bytes,
+                        eth_interface_params.remote_update_ptr_size_bytes * 2,
+                        read_tlb);
+                } while (erisc_q_ptrs[0] != erisc_q_ptrs[4]);
+            }
+            // wait for all write responses to come back.
+            for (tt_xy_pair& xy : local_chip_->get_remote_transfer_ethernet_cores()) {
+                do {
+                    local_chip_->read_from_device(
+                        xy, erisc_txn_counters.data(), eth_interface_params.request_cmd_queue_base, 8, read_tlb);
+                } while (erisc_txn_counters[0] != erisc_txn_counters[1]);
+            }
+        }
+        local_chip_->set_flush_non_mmio(false);
     }
 }
 

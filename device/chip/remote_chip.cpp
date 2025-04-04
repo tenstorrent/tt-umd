@@ -6,6 +6,7 @@
 
 #include "umd/device/chip/remote_chip.h"
 
+#include "logger.hpp"
 #include "umd/device/chip/local_chip.h"
 
 extern bool umd_use_noc1;
@@ -49,4 +50,10 @@ tt_xy_pair RemoteChip::translate_chip_coord_virtual_to_translated(const tt_xy_pa
             core_coord, umd_use_noc1 ? CoordSystem::NOC1 : CoordSystem::TRANSLATED);
     }
 }
+
+void RemoteChip::wait_for_non_mmio_flush() {
+    log_assert(soc_descriptor_.arch != tt::ARCH::BLACKHOLE, "Non-MMIO flush not supported in Blackhole");
+    remote_communication_->wait_for_non_mmio_flush();
+}
+
 }  // namespace tt::umd

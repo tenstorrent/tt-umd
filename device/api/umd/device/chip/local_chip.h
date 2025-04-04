@@ -50,6 +50,10 @@ public:
     void read_from_device_reg(
         tt_xy_pair core, void* dest, uint64_t reg_src, uint32_t size, const std::string& fallback_tlb) override;
 
+    void wait_for_non_mmio_flush() override;
+    void set_flush_non_mmio(bool flush_non_mmio);
+    bool get_flush_non_mmio() const;
+
     std::unique_lock<RobustMutex> acquire_mutex(std::string mutex_name, int pci_device_id) override;
     std::unique_lock<RobustMutex> acquire_mutex(MutexType mutex_type, int pci_device_id) override;
 
@@ -61,6 +65,7 @@ private:
 
     std::vector<CoreCoord> remote_transfer_eth_cores_;
     int active_eth_core_idx = 0;
+    bool flush_non_mmio_ = false;
 
     void initialize_local_chip(int num_host_mem_channels = 0, const bool clear_mutex = false);
     void initialize_tlb_manager();

@@ -54,6 +54,8 @@ public:
     virtual void read_from_device_reg(
         tt_xy_pair core, void* dest, uint64_t reg_src, uint32_t size, const std::string& fallback_tlb);
 
+    virtual void wait_for_non_mmio_flush();
+
     // TODO: To be removed once all usages are moved inside local chip.
     virtual std::unique_lock<boost::interprocess::named_mutex> get_mutex(std::string mutex_name, int pci_device_id);
     virtual std::unique_lock<boost::interprocess::named_mutex> get_mutex(MutexType mutex_type, int pci_device_id);

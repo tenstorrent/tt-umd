@@ -6,6 +6,7 @@
 
 #include "umd/device/chip/remote_chip.h"
 
+#include "logger.hpp"
 #include "umd/device/chip/local_chip.h"
 
 namespace tt::umd {
@@ -22,4 +23,10 @@ void RemoteChip::read_from_device(
     // TODO: Fallback TLB is ignored for now, but it will be removed soon from the signature.
     remote_communication_->read_non_mmio(eth_chip_location_, core, dest, l1_src, size);
 }
+
+void RemoteChip::wait_for_non_mmio_flush() {
+    log_assert(soc_descriptor_.arch != tt::ARCH::BLACKHOLE, "Non-MMIO flush not supported in Blackhole");
+    remote_communication_->wait_for_non_mmio_flush();
+}
+
 }  // namespace tt::umd

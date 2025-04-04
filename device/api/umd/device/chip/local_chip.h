@@ -62,9 +62,6 @@ private:
     std::vector<CoreCoord> remote_transfer_eth_cores_;
     int active_eth_core_idx = 0;
 
-    std::vector<CoreCoord> remote_transfer_eth_cores_;
-    int active_eth_core_idx = 0;
-
     void initialize_local_chip(int num_host_mem_channels = 0, const bool clear_mutex = false);
     void initialize_tlb_manager();
     void initialize_default_chip_mutexes(const bool clear_mutex);

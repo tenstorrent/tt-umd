@@ -47,9 +47,11 @@ TEST(RemoteCommunicationWormhole, BasicRemoteCommunicationIO) {
         eth_coord_t remote_eth_coord = cluster_desc->get_chip_locations().at(remote_chip_id);
 
         for (const CoreCoord& core : cluster->get_soc_descriptor(remote_chip_id).get_cores(CoreType::TENSIX)) {
+            CoreCoord translated_core =
+                cluster->get_soc_descriptor(remote_chip_id).translate_coord_to(core, CoordSystem::TRANSLATED);
             remote_comm->write_to_non_mmio(
                 (uint8_t*)data_to_write.data(),
-                core,
+                translated_core,
                 address0,
                 data_to_write.size() * sizeof(uint32_t),
                 remote_eth_coord,
@@ -66,7 +68,11 @@ TEST(RemoteCommunicationWormhole, BasicRemoteCommunicationIO) {
             remote_comm->wait_for_non_mmio_flush(active_eth_cores);
 
             remote_comm->read_non_mmio(
-                remote_eth_coord, core, (uint8_t*)data_read.data(), address1, data_read.size() * sizeof(uint32_t));
+                remote_eth_coord,
+                translated_core,
+                (uint8_t*)data_read.data(),
+                address1,
+                data_read.size() * sizeof(uint32_t));
 
             ASSERT_EQ(data_to_write, data_read)
                 << "Vector read back from core " << core.str() << " does not match what was written";

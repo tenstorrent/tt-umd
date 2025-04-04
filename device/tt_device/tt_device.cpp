@@ -385,4 +385,6 @@ uint32_t TTDevice::get_clock() {
 
 TTDevice::~TTDevice() { lock_manager.clear_mutex(MutexType::TT_DEVICE_IO, get_pci_device()->get_device_num()); }
 
+std::vector<DramTrainingStatus> TTDevice::get_dram_training_status() { return {}; }
+
 }  // namespace tt::umd

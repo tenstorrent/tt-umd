@@ -60,5 +60,7 @@ private:
 
 protected:
     void wait_eth_cores_training(const uint32_t timeout_ms = 60000) override;
+
+    void wait_dram_cores_training(const uint32_t timeout_ms = 60000) override;
 };
 }  // namespace tt::umd

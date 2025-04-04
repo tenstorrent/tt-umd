@@ -325,3 +325,25 @@ TEST(TestCluster, TestClusterLogicalETHChannelsConnectivity) {
         }
     }
 }
+
+TEST(TestKmd, TestKmdBasic) {
+    static std::vector<int> devices = PCIDevice::enumerate_devices();
+
+    for (int device : devices) {
+
+        std::unique_ptr<PCIDevice> pci_device = std::make_unique<PCIDevice>(device);
+
+        tenstorrent_allocate_tlb_in in;
+        in.size = 1 << 21;
+        in.reserved = 0;
+        tenstorrent_allocate_tlb_out out = pci_device->allocate_tlb(in);
+
+        std::cout << "allocate tlb out " << (uint32_t)out.id << std::endl;
+        std::cout << "map w4c " << (uint64_t)out.mmap_offset_uc << std::endl;
+        std::cout << "map u4c " << (uint64_t)out.mmap_offset_wc << std::endl;
+
+        // pci_device->free_tlb()
+
+        
+    }
+}

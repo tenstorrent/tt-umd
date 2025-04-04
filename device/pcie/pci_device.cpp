@@ -614,6 +614,7 @@ tenstorrent_allocate_tlb_out PCIDevice::allocate_tlb(tenstorrent_allocate_tlb_in
     tenstorrent_allocate_tlb allocate_tlb;
     allocate_tlb.in = in;
     if (ioctl(get_fd(), TENSTORRENT_IOCTL_ALLOCATE_TLB, &allocate_tlb) < 0) {
+        std::cout << "error" << std::endl;
         return {};
     }
 

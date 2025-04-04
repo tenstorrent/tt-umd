@@ -162,6 +162,7 @@ struct tenstorrent_pin_pages {
 
 struct tenstorrent_allocate_tlb_in {
 	__u64 size;
+	__u64 reserved;
 };
 
 struct tenstorrent_allocate_tlb_out {

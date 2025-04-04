@@ -16,7 +16,7 @@
 #include <stdexcept>
 
 static constexpr int ALL_RW_PERMISSION = 0666;
-static constexpr std::string_view UMD_LOCK_PREFIX = "umdlock.";
+static constexpr std::string_view UMD_LOCK_PREFIX = "TT_UMD_LOCK.";
 
 using namespace tt::umd;
 

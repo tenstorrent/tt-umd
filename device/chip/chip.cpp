@@ -86,6 +86,16 @@ void Chip::read_from_device(
     throw std::runtime_error("Chip::read_from_device is not available for this chip.");
 }
 
+void Chip::write_to_device_reg(
+    tt_xy_pair core, const void* src, uint64_t reg_dest, uint32_t size, const std::string& fallback_tlb) {
+    throw std::runtime_error("Chip::write_to_device_reg is not available for this chip.");
+}
+
+void Chip::read_from_device_reg(
+    tt_xy_pair core, void* dest, uint64_t reg_src, uint32_t size, const std::string& fallback_tlb) {
+    throw std::runtime_error("Chip::read_from_device_reg is not available for this chip.");
+}
+
 void Chip::set_remote_transfer_ethernet_cores(const std::unordered_set<CoreCoord>& cores) {
     throw std::runtime_error("Chip::set_remote_transfer_ethernet_cores is not available for this chip.");
 }

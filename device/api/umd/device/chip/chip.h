@@ -55,8 +55,8 @@ public:
         tt_xy_pair core, void* dest, uint64_t reg_src, uint32_t size, const std::string& fallback_tlb);
 
     // TODO: To be removed once all usages are moved inside local chip.
-    virtual std::unique_ptr<RobustLock> acquire_lock(std::string mutex_name, int pci_device_id);
-    virtual std::unique_ptr<RobustLock> acquire_lock(MutexType mutex_type, int pci_device_id);
+    virtual std::unique_ptr<RAIIMutex> acquire_mutex(std::string mutex_name, int pci_device_id);
+    virtual std::unique_ptr<RAIIMutex> acquire_mutex(MutexType mutex_type, int pci_device_id);
 
     virtual void set_remote_transfer_ethernet_cores(const std::unordered_set<CoreCoord>& cores);
     // TODO: To be removed once all the usages are moved inside the class.

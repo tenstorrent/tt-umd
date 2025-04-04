@@ -1245,7 +1245,7 @@ void Cluster::write_to_non_mmio_device(
     //
     auto lock =
         get_local_chip(mmio_capable_chip_logical)
-            ->acquire_lock(
+            ->acquire_mutex(
                 MutexType::NON_MMIO, get_tt_device(mmio_capable_chip_logical)->get_pci_device()->get_device_num());
     tt_cxy_pair remote_transfer_ethernet_core = tt_cxy_pair(
         mmio_capable_chip_logical, get_local_chip(mmio_capable_chip_logical)->get_remote_transfer_ethernet_core());
@@ -1480,7 +1480,7 @@ void Cluster::read_from_non_mmio_device(void* mem_ptr, tt_cxy_pair core, uint64_
     //
     auto lock =
         get_local_chip(mmio_capable_chip_logical)
-            ->acquire_lock(
+            ->acquire_mutex(
                 MutexType::NON_MMIO, get_tt_device(mmio_capable_chip_logical)->get_pci_device()->get_device_num());
     const tt_cxy_pair remote_transfer_ethernet_core = tt_cxy_pair(
         mmio_capable_chip_logical, get_local_chip(mmio_capable_chip_logical)->get_remote_transfer_ethernet_core());
@@ -2229,7 +2229,7 @@ void Cluster::insert_host_to_device_barrier(
     const uint32_t barrier_addr,
     const std::string& fallback_tlb) {
     // Ensure that this memory barrier is atomic across processes/threads
-    auto lock = get_local_chip(chip)->acquire_lock(
+    auto lock = get_local_chip(chip)->acquire_mutex(
         MutexType::MEM_BARRIER, get_tt_device(chip)->get_pci_device()->get_device_num());
     set_membar_flag(chip, cores, tt_MemBarFlag::SET, barrier_addr, fallback_tlb);
     set_membar_flag(chip, cores, tt_MemBarFlag::RESET, barrier_addr, fallback_tlb);
@@ -2737,11 +2737,13 @@ std::unique_ptr<tt_ClusterDescriptor> Cluster::create_cluster_descriptor(std::st
         // other Wormhole specs need to go through a legacy create-ethernet-map.
         if (!tt_devices.empty() && tt_devices[0]->get_board_type() != BoardType::UBB) {
             LockManager lock_manager;
+            lock_manager.initialize_mutex(MutexType::CREATE_ETH_MAP, false);
             std::unique_ptr<tt_ClusterDescriptor> cluster_desc = nullptr;
             {
-                auto lock = lock_manager.acquire_lock(MutexType::CREATE_ETH_MAP);
+                auto lock = lock_manager.acquire_mutex(MutexType::CREATE_ETH_MAP);
                 cluster_desc = tt_ClusterDescriptor::create();
             }
+            lock_manager.clear_mutex(MutexType::CREATE_ETH_MAP);
             return cluster_desc;
         }
 

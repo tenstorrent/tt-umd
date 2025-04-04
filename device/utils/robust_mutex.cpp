@@ -3,11 +3,11 @@
  *
  * SPDX-License-Identifier: Apache-2.0
  */
+#include "umd/device/utils/robust_mutex.h"
+
 #include <sys/mman.h>  // shm_open, shm_unlink, mmap, munmap,
 #include <unistd.h>    // ftruncate, close
-
-#include "umd/device/utils/robust_mutex.h"
-// PROT_READ, PROT_WRITE, MAP_SHARED, MAP_FAILED
+                       // PROT_READ, PROT_WRITE, MAP_SHARED, MAP_FAILED
 #include <errno.h>     // errno, ENOENT
 #include <fcntl.h>     // O_RDWR, O_CREATE
 #include <pthread.h>   // pthread_mutexattr_init, pthread_mutexattr_setpshared, pthread_mutex_t

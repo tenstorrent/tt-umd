@@ -50,8 +50,8 @@ public:
     void read_from_device_reg(
         tt_xy_pair core, void* dest, uint64_t reg_src, uint32_t size, const std::string& fallback_tlb) override;
 
-    std::unique_ptr<RobustLock> acquire_lock(std::string mutex_name, int pci_device_id) override;
-    std::unique_ptr<RobustLock> acquire_lock(MutexType mutex_type, int pci_device_id) override;
+    std::unique_ptr<RAIIMutex> acquire_mutex(std::string mutex_name, int pci_device_id) override;
+    std::unique_ptr<RAIIMutex> acquire_mutex(MutexType mutex_type, int pci_device_id) override;
 
 private:
     std::unique_ptr<TTDevice> tt_device_;
@@ -64,6 +64,7 @@ private:
 
     void initialize_local_chip(int num_host_mem_channels = 0, const bool clear_mutex = false);
     void initialize_tlb_manager();
+    void initialize_default_chip_mutexes(const bool clear_mutex);
 
     tt_xy_pair translate_chip_coord_virtual_to_translated(const tt_xy_pair core) const;
 

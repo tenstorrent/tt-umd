@@ -1009,14 +1009,19 @@ std::string tt_ClusterDescriptor::serialize() const {
     return out.c_str();
 }
 
-std::filesystem::path tt_ClusterDescriptor::serialize_to_file() const {
+void tt_ClusterDescriptor::serialize_to_file(std::filesystem::path dest_file) const {
+    std::ofstream file(dest_file);
+    file << serialize();
+    file.close();
+
+    return cluster_path;
+}
+
+std::filesystem::path tt_ClusterDescriptor::get_default_cluster_descriptor_file_path() const {
     std::filesystem::path temp_path = std::filesystem::temp_directory_path();
     std::string cluster_path_dir_template = temp_path / "umd_XXXXXX";
     std::filesystem::path cluster_path_dir = mkdtemp(cluster_path_dir_template.data());
     std::filesystem::path cluster_path = cluster_path_dir / "cluster_descriptor.yaml";
-    std::ofstream file(cluster_path);
-    file << serialize();
-    file.close();
 
     return cluster_path;
 }

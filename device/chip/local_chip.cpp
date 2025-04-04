@@ -24,7 +24,8 @@ LocalChip::LocalChip(
     Chip(soc_descriptor),
     tt_device_(TTDevice::create(pci_device_id)),
     sysmem_manager_(std::make_unique<SysmemManager>(tt_device_.get())),
-    tlb_manager_(std::make_unique<TLBManager>(tt_device_.get())) {
+    tlb_manager_(std::make_unique<TLBManager>(tt_device_.get())),
+    remote_communication_(std::make_unique<RemoteCommunication>(this)) {
     initialize_local_chip(num_host_mem_channels, clear_mutex);
 }
 
@@ -274,6 +275,12 @@ void LocalChip::read_from_device_reg(
     auto [mapped_address, tlb_size] = tt_device_->set_dynamic_tlb(
         tlb_index, translate_chip_coord_virtual_to_translated(core), reg_src, tt::umd::tlb_data::Strict);
     tt_device_->read_regs(mapped_address, size / sizeof(uint32_t), dest);
+}
+
+void LocalChip::ethernet_broadcast_write(
+    const void* src, uint64_t core_dest, uint32_t size, std::vector<int> broadcast_header) {
+    // target_chip and target_core are ignored when broadcast is enabled.
+    remote_communication_->write_to_non_mmio({0, 0, 0, 0}, {0, 0}, src, core_dest, size, true, broadcast_header);
 }
 
 void LocalChip::wait_for_non_mmio_flush() {

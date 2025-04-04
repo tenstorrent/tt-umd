@@ -21,12 +21,13 @@ public:
         eth_coord_t target_chip, tt_xy_pair target_core, void* dest, uint64_t core_src, uint32_t size_in_bytes);
 
     void write_to_non_mmio(
-        uint8_t* mem_ptr,
-        tt_xy_pair core,
-        uint64_t address,
-        uint32_t size_in_bytes,
         eth_coord_t target_chip,
-        const tt_xy_pair eth_core);
+        tt_xy_pair target_core,
+        const void* src,
+        uint64_t core_dest,
+        uint32_t size_in_bytes,
+        bool broadcast = false,
+        std::vector<int> broadcast_header = {});
 
     void wait_for_non_mmio_flush();
 

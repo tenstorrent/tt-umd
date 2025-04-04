@@ -48,12 +48,11 @@ TEST(RemoteCommunicationWormhole, BasicRemoteCommunicationIO) {
 
         for (const CoreCoord& core : cluster->get_soc_descriptor(remote_chip_id).get_cores(CoreType::TENSIX)) {
             remote_comm->write_to_non_mmio(
-                (uint8_t*)data_to_write.data(),
-                core,
-                address0,
-                data_to_write.size() * sizeof(uint32_t),
                 remote_eth_coord,
-                active_eth_cores.at(0));
+                core,
+                (uint8_t*)data_to_write.data(),
+                address0,
+                data_to_write.size() * sizeof(uint32_t));
 
             cluster->write_to_device(
                 data_to_write.data(),

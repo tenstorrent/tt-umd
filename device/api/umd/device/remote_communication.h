@@ -16,6 +16,7 @@ public:
     RemoteCommunication(LocalChip* local_chip);
     virtual ~RemoteCommunication();
 
+    // Target core should be in translated coords.
     void read_non_mmio(
         eth_coord_t target_chip, tt_xy_pair target_core, void* dest, uint64_t core_src, uint32_t size_in_bytes);
 

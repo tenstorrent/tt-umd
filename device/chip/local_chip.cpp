@@ -87,7 +87,6 @@ void LocalChip::initialize_local_chip(int num_host_mem_channels, const bool clea
         sysmem_manager_->init_hugepage(num_host_mem_channels);
     }
     wait_chip_to_be_ready();
-    initialize_default_chip_mutexes(clear_mutex);
 
     if (tt_device_->get_arch() == tt::ARCH::WORMHOLE_B0) {
         std::unordered_set<CoreCoord> remote_transfer_cores;
@@ -107,27 +106,6 @@ void LocalChip::initialize_tlb_manager() {
     tlb_manager_->set_dynamic_tlb_config("REG_TLB", tt_device_->get_architecture_implementation()->get_reg_tlb());
     tlb_manager_->set_dynamic_tlb_config(
         "SMALL_READ_WRITE_TLB", tt_device_->get_architecture_implementation()->get_small_read_write_tlb());
-}
-
-void LocalChip::initialize_default_chip_mutexes(const bool clear_mutex) {
-    // These mutexes are intended to be based on physical devices/pci-intf not logical. Set these up ahead of
-    // time here (during device init) since it's unsafe to modify shared state during multithreaded runtime.
-    // cleanup_mutexes_in_shm is tied to clean_system_resources from the constructor. The main process is
-    // responsible for initializing the driver with this field set to cleanup after an aborted process.
-    int pci_device_id = tt_device_->get_pci_device()->get_device_num();
-    // Initialize Dynamic TLB mutexes
-    for (auto& tlb : tlb_manager_->dynamic_tlb_config_) {
-        lock_manager_.initialize_mutex(tlb.first, pci_device_id, clear_mutex);
-    }
-
-    // Initialize non-MMIO mutexes for WH devices regardless of number of chips, since these may be used for
-    // ethernet broadcast
-    if (tt_device_->get_arch() == tt::ARCH::WORMHOLE_B0) {
-        lock_manager_.initialize_mutex(MutexType::NON_MMIO, pci_device_id, clear_mutex);
-    }
-
-    // Initialize interprocess mutexes to make host -> device memory barriers atomic
-    lock_manager_.initialize_mutex(MutexType::MEM_BARRIER, pci_device_id, clear_mutex);
 }
 
 TTDevice* LocalChip::get_tt_device() { return tt_device_.get(); }
@@ -203,7 +181,10 @@ void LocalChip::write_to_device(
         }
     } else {
         const auto tlb_index = tlb_manager_->dynamic_tlb_config_.at(fallback_tlb);
-        auto lock = get_mutex(fallback_tlb, tt_device_->get_pci_device()->get_device_num());
+        auto lock = acquire_lock(fallback_tlb, tt_device_->get_pci_device()->get_device_num());
+
+        // std::cout << "Crash after mutex8" << std::endl;
+        // exit(555);
 
         while (size > 0) {
             auto [mapped_address, tlb_size] = tt_device_->set_dynamic_tlb(
@@ -251,7 +232,9 @@ void LocalChip::read_from_device(
             tlb_description.size);
     } else {
         const auto tlb_index = tlb_manager_->dynamic_tlb_config_.at(fallback_tlb);
-        auto lock = get_mutex(fallback_tlb, tt_device_->get_pci_device()->get_device_num());
+        auto lock = acquire_lock(fallback_tlb, tt_device_->get_pci_device()->get_device_num());
+        // std::cout << "Crash after mutex9" << std::endl;
+        // exit(555);
         log_debug(LogSiliconDriver, "  dynamic tlb_index: {}", tlb_index);
         while (size > 0) {
             auto [mapped_address, tlb_size] = tt_device_->set_dynamic_tlb(
@@ -273,7 +256,9 @@ void LocalChip::read_from_device(
 void LocalChip::write_to_device_reg(
     tt_xy_pair core, const void* src, uint64_t reg_dest, uint32_t size, const std::string& fallback_tlb) {
     const auto tlb_index = tlb_manager_->dynamic_tlb_config_.at(fallback_tlb);
-    auto lock = lock_manager_.get_mutex(fallback_tlb, tt_device_->get_pci_device()->get_device_num());
+    auto lock = lock_manager_.acquire_lock(fallback_tlb, tt_device_->get_pci_device()->get_device_num());
+    std::cout << "Crash after mutex10" << std::endl;
+    exit(555);
     log_debug(LogSiliconDriver, "  dynamic tlb_index: {}", tlb_index);
 
     auto [mapped_address, tlb_size] = tt_device_->set_dynamic_tlb(
@@ -290,7 +275,9 @@ void LocalChip::write_to_device_reg(
 void LocalChip::read_from_device_reg(
     tt_xy_pair core, void* dest, uint64_t reg_src, uint32_t size, const std::string& fallback_tlb) {
     const auto tlb_index = tlb_manager_->dynamic_tlb_config_.at(fallback_tlb);
-    auto lock = lock_manager_.get_mutex(fallback_tlb, tt_device_->get_pci_device()->get_device_num());
+    auto lock = lock_manager_.acquire_lock(fallback_tlb, tt_device_->get_pci_device()->get_device_num());
+    std::cout << "Crash after mutex11" << std::endl;
+    exit(555);
     log_debug(LogSiliconDriver, "  dynamic tlb_index: {}", tlb_index);
 
     auto [mapped_address, tlb_size] = tt_device_->set_dynamic_tlb(
@@ -350,11 +337,11 @@ int LocalChip::get_active_eth_core_idx() { return active_eth_core_idx; }
 
 std::vector<CoreCoord> LocalChip::get_remote_transfer_ethernet_cores() { return remote_transfer_eth_cores_; }
 
-std::unique_lock<boost::interprocess::named_mutex> LocalChip::get_mutex(std::string mutex_name, int pci_device_id) {
-    return lock_manager_.get_mutex(mutex_name, pci_device_id);
+std::unique_ptr<RobustLock> LocalChip::acquire_lock(std::string mutex_name, int pci_device_id) {
+    return lock_manager_.acquire_lock(mutex_name, pci_device_id);
 }
 
-std::unique_lock<boost::interprocess::named_mutex> LocalChip::get_mutex(MutexType mutex_type, int pci_device_id) {
-    return lock_manager_.get_mutex(mutex_type, pci_device_id);
+std::unique_ptr<RobustLock> LocalChip::acquire_lock(MutexType mutex_type, int pci_device_id) {
+    return lock_manager_.acquire_lock(mutex_type, pci_device_id);
 }
 }  // namespace tt::umd

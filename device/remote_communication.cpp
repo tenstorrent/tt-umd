@@ -7,11 +7,9 @@
 
 #include "logger.hpp"
 #include "umd/device/driver_atomics.h"
-#include "umd/device/lock_manager.h"
 #include "umd/device/topology_utils.h"
 #include "umd/device/umd_utils.h"
-
-using namespace boost::interprocess;
+#include "umd/device/utils/lock_manager.h"
 
 struct remote_update_ptr_t {
     uint32_t ptr;
@@ -33,13 +31,9 @@ struct routing_cmd_t {
 
 namespace tt::umd {
 
-RemoteCommunication::RemoteCommunication(TTDevice* tt_device) : tt_device(tt_device) {
-    lock_manager.initialize_mutex(MutexType::NON_MMIO, tt_device->get_pci_device()->get_device_num(), false);
-}
+RemoteCommunication::RemoteCommunication(TTDevice* tt_device) : tt_device(tt_device) {}
 
-RemoteCommunication::~RemoteCommunication() {
-    lock_manager.clear_mutex(MutexType::NON_MMIO, tt_device->get_pci_device()->get_device_num());
-}
+RemoteCommunication::~RemoteCommunication() {}
 
 void RemoteCommunication::read_non_mmio(
     uint8_t* mem_ptr,
@@ -77,7 +71,7 @@ void RemoteCommunication::read_non_mmio(
     //                    MUTEX ACQUIRE (NON-MMIO)
     //  do not locate any ethernet core reads/writes before this acquire
     //
-    auto lock = lock_manager.get_mutex(MutexType::NON_MMIO, tt_device->get_pci_device()->get_device_num());
+    auto lock = lock_manager.acquire_lock(MutexType::NON_MMIO, tt_device->get_pci_device()->get_device_num());
 
     const tt_xy_pair remote_transfer_ethernet_core = eth_core;
 
@@ -312,7 +306,7 @@ void RemoteCommunication::write_to_non_mmio(
     //  do not locate any ethernet core reads/writes before this acquire
     //
 
-    auto lock = lock_manager.get_mutex(MutexType::NON_MMIO, tt_device->get_pci_device()->get_device_num());
+    auto lock = lock_manager.acquire_lock(MutexType::NON_MMIO, tt_device->get_pci_device()->get_device_num());
 
     int active_core_for_txn = 0;
 

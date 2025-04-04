@@ -10,8 +10,6 @@
 #include "umd/device/tt_device/grayskull_tt_device.h"
 #include "umd/device/tt_device/wormhole_tt_device.h"
 
-using namespace boost::interprocess;
-
 // TODO #526: This is a hack to allow UMD to use the NOC1 TLB.
 bool umd_use_noc1 = false;
 
@@ -24,7 +22,6 @@ TTDevice::TTDevice(
     pci_device_(std::move(pci_device)),
     architecture_impl_(std::move(architecture_impl)),
     arch(architecture_impl_->get_architecture()) {
-    lock_manager.initialize_mutex(MutexType::TT_DEVICE_IO, get_pci_device()->get_device_num(), false);
     arc_messenger_ = ArcMessenger::create_arc_messenger(this);
     telemetry = ArcTelemetryReader::create_arc_telemetry_reader(this);
 }
@@ -217,7 +214,7 @@ void TTDevice::read_block(uint64_t byte_addr, uint64_t num_bytes, uint8_t *buffe
 }
 
 void TTDevice::read_from_device(void *mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size) {
-    auto lock = lock_manager.get_mutex(MutexType::TT_DEVICE_IO, get_pci_device()->get_device_num());
+    auto lock = lock_manager.acquire_lock(MutexType::TT_DEVICE_IO, get_pci_device()->get_device_num());
     uint8_t *buffer_addr = static_cast<uint8_t *>(mem_ptr);
     const uint32_t tlb_index = get_architecture_implementation()->get_small_read_write_tlb();
     while (size > 0) {
@@ -232,7 +229,7 @@ void TTDevice::read_from_device(void *mem_ptr, tt_xy_pair core, uint64_t addr, u
 }
 
 void TTDevice::write_to_device(void *mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size) {
-    auto lock = lock_manager.get_mutex(MutexType::TT_DEVICE_IO, get_pci_device()->get_device_num());
+    auto lock = lock_manager.acquire_lock(MutexType::TT_DEVICE_IO, get_pci_device()->get_device_num());
     uint8_t *buffer_addr = static_cast<uint8_t *>(mem_ptr);
     const uint32_t tlb_index = get_architecture_implementation()->get_small_read_write_tlb();
 
@@ -383,6 +380,6 @@ uint32_t TTDevice::get_clock() {
         "TTDevice is deleted.");
 }
 
-TTDevice::~TTDevice() { lock_manager.clear_mutex(MutexType::TT_DEVICE_IO, get_pci_device()->get_device_num()); }
+TTDevice::~TTDevice() {}
 
 }  // namespace tt::umd

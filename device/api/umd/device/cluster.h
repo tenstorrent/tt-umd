@@ -28,10 +28,6 @@
 
 using TLB_DATA = tt::umd::tlb_data;
 
-namespace boost::interprocess {
-class named_mutex;
-}
-
 class tt_ClusterDescriptor;
 
 // TODO: This class is to be removed once we move Simulation and Mockup devices to be Chips instead of Clusters.

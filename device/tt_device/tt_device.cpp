@@ -10,8 +10,6 @@
 #include "umd/device/tt_device/grayskull_tt_device.h"
 #include "umd/device/tt_device/wormhole_tt_device.h"
 
-using namespace boost::interprocess;
-
 // TODO #526: This is a hack to allow UMD to use the NOC1 TLB.
 bool umd_use_noc1 = false;
 
@@ -217,7 +215,7 @@ void TTDevice::read_block(uint64_t byte_addr, uint64_t num_bytes, uint8_t *buffe
 }
 
 void TTDevice::read_from_device(void *mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size) {
-    auto lock = lock_manager.get_mutex(MutexType::TT_DEVICE_IO, get_pci_device()->get_device_num());
+    auto lock = lock_manager.acquire_mutex(MutexType::TT_DEVICE_IO, get_pci_device()->get_device_num());
     uint8_t *buffer_addr = static_cast<uint8_t *>(mem_ptr);
     const uint32_t tlb_index = get_architecture_implementation()->get_small_read_write_tlb();
     while (size > 0) {
@@ -232,7 +230,7 @@ void TTDevice::read_from_device(void *mem_ptr, tt_xy_pair core, uint64_t addr, u
 }
 
 void TTDevice::write_to_device(void *mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size) {
-    auto lock = lock_manager.get_mutex(MutexType::TT_DEVICE_IO, get_pci_device()->get_device_num());
+    auto lock = lock_manager.acquire_mutex(MutexType::TT_DEVICE_IO, get_pci_device()->get_device_num());
     uint8_t *buffer_addr = static_cast<uint8_t *>(mem_ptr);
     const uint32_t tlb_index = get_architecture_implementation()->get_small_read_write_tlb();
 

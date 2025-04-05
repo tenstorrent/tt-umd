@@ -10,11 +10,7 @@
 #include <string_view>
 #include <vector>
 
-#include "umd/device/lock_manager.h"
-
-namespace boost::interprocess {
-class named_mutex;
-}
+#include "umd/device/utils/lock_manager.h"
 
 namespace tt::umd {
 

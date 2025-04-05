@@ -11,24 +11,37 @@ namespace tt::umd {
 
 // RobustMutex is a class that provides a robust locking mechanism using POSIX shared memory mutexes.
 // Robust means that it survives process crashes and can be used across multiple processes.
+// It meets BasicLockable requirement, so it can be used with C++ standard library RAII lock classes like lock_guard and
+// unique_lock.
 class RobustMutex {
 public:
-    RobustMutex(std::string mutex_name);
-    ~RobustMutex();
+    RobustMutex(std::string_view mutex_name);
+    ~RobustMutex() noexcept;
+
+    // Move constructor and assignment are defined so that this class can be used with c++ stl containers, like
+    // unordered_map.
+    RobustMutex(RobustMutex&& other) noexcept;
+    RobustMutex& operator=(RobustMutex&& other) noexcept;
+
+    // Copy constructor and assignment are not allowed.
+    RobustMutex(const RobustMutex&) = delete;
+    RobustMutex& operator=(const RobustMutex&) = delete;
 
     // Locks and unlocks the mutex.
-    void unlock_mutex();
-    void lock_mutex();
+    void unlock();
+    void lock();
 
 private:
+    static pthread_mutex_t multithread_mutex_;
+
     // Does everything related to initializing the mutex, even on first time creation.
-    void initialize_pthread_mutex(std::string mutex_name);
+    void initialize_pthread_mutex(std::string_view mutex_name);
 
     // Closes the mutex, doesn't remove the backing mutex file.
-    void close_mutex();
+    void close_mutex() noexcept;
 
     // Opens the shared memory file and creates it if it doesn't exist.
-    bool open_shm_file(std::string mutex_name);
+    bool open_shm_file(std::string_view mutex_name);
 
     // Opens the mutex in the shared memory file.
     void open_pthread_mutex(int shm_fd);
@@ -42,18 +55,6 @@ private:
     int shm_fd = -1;
     pthread_mutex_t* mutex_ptr = nullptr;
     std::string mutex_name_;
-};
-
-// This class implements RAII idiom, so on creation the mutex is locked, and on destruction it is unlocked.
-// Suggested way to use it is to create a unique_ptr to it, and let it go out of scope when done.
-// A constructor will block until another RAIIMutex which was passed the same RobustMutex gets deleted.
-class RAIIMutex {
-public:
-    RAIIMutex(RobustMutex* mutex);
-    ~RAIIMutex();
-
-private:
-    RobustMutex* mutex_ptr = nullptr;
 };
 
 }  // namespace tt::umd

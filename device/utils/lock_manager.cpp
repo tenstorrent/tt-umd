@@ -26,7 +26,7 @@ void LockManager::initialize_mutex(MutexType mutex_type, const bool clear_mutex)
 
 void LockManager::clear_mutex(MutexType mutex_type) { clear_mutex_internal(MutexTypeToString.at(mutex_type)); }
 
-std::unique_ptr<RAIIMutex> LockManager::acquire_mutex(MutexType mutex_type) {
+std::unique_lock<RobustMutex> LockManager::acquire_mutex(MutexType mutex_type) {
     return acquire_mutex_internal(MutexTypeToString.at(mutex_type));
 }
 
@@ -40,7 +40,7 @@ void LockManager::clear_mutex(MutexType mutex_type, int pci_device_id) {
     clear_mutex_internal(mutex_name);
 }
 
-std::unique_ptr<RAIIMutex> LockManager::acquire_mutex(MutexType mutex_type, int pci_device_id) {
+std::unique_lock<RobustMutex> LockManager::acquire_mutex(MutexType mutex_type, int pci_device_id) {
     std::string mutex_name = MutexTypeToString.at(mutex_type) + "_" + std::to_string(pci_device_id);
     return acquire_mutex_internal(mutex_name);
 }
@@ -55,7 +55,7 @@ void LockManager::clear_mutex(std::string mutex_prefix, int pci_device_id) {
     clear_mutex_internal(mutex_name);
 }
 
-std::unique_ptr<RAIIMutex> LockManager::acquire_mutex(std::string mutex_prefix, int pci_device_id) {
+std::unique_lock<RobustMutex> LockManager::acquire_mutex(std::string mutex_prefix, int pci_device_id) {
     std::string mutex_name = mutex_prefix + "_" + std::to_string(pci_device_id);
     return acquire_mutex_internal(mutex_name);
 }
@@ -66,7 +66,7 @@ void LockManager::initialize_mutex_internal(const std::string& mutex_name, const
         return;
     }
 
-    mutexes.emplace(mutex_name, std::make_unique<RobustMutex>(mutex_name));
+    mutexes.emplace(mutex_name, RobustMutex(mutex_name));
 }
 
 void LockManager::clear_mutex_internal(const std::string& mutex_name) {
@@ -78,11 +78,11 @@ void LockManager::clear_mutex_internal(const std::string& mutex_name) {
     mutexes.erase(mutex_name);
 }
 
-std::unique_ptr<RAIIMutex> LockManager::acquire_mutex_internal(const std::string& mutex_name) {
+std::unique_lock<RobustMutex> LockManager::acquire_mutex_internal(const std::string& mutex_name) {
     if (mutexes.find(mutex_name) == mutexes.end()) {
         throw std::runtime_error("Mutex not initialized: " + mutex_name);
     }
-    return std::make_unique<RAIIMutex>(mutexes.at(mutex_name).get());
+    return std::unique_lock(mutexes.at(mutex_name));
 }
 
 }  // namespace tt::umd

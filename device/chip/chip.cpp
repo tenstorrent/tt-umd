@@ -119,11 +119,11 @@ std::vector<CoreCoord> Chip::get_remote_transfer_ethernet_cores() {
     throw std::runtime_error("Chip::get_remote_transfer_ethernet_cores is not available for this chip.");
 }
 
-std::unique_ptr<RAIIMutex> Chip::acquire_mutex(std::string mutex_name, int pci_device_id) {
+std::unique_lock<RobustMutex> Chip::acquire_mutex(std::string mutex_name, int pci_device_id) {
     throw std::runtime_error("LockManager::acquire_mutex is not available for this chip.");
 }
 
-std::unique_ptr<RAIIMutex> Chip::acquire_mutex(MutexType mutex_type, int pci_device_id) {
+std::unique_lock<RobustMutex> Chip::acquire_mutex(MutexType mutex_type, int pci_device_id) {
     throw std::runtime_error("LockManager::acquire_mutex is not available for this chip.");
 }
 

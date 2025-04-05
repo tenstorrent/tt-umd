@@ -351,11 +351,11 @@ int LocalChip::get_active_eth_core_idx() { return active_eth_core_idx; }
 
 std::vector<CoreCoord> LocalChip::get_remote_transfer_ethernet_cores() { return remote_transfer_eth_cores_; }
 
-std::unique_ptr<RAIIMutex> LocalChip::acquire_mutex(std::string mutex_name, int pci_device_id) {
+std::unique_lock<RobustMutex> LocalChip::acquire_mutex(std::string mutex_name, int pci_device_id) {
     return lock_manager_.acquire_mutex(mutex_name, pci_device_id);
 }
 
-std::unique_ptr<RAIIMutex> LocalChip::acquire_mutex(MutexType mutex_type, int pci_device_id) {
+std::unique_lock<RobustMutex> LocalChip::acquire_mutex(MutexType mutex_type, int pci_device_id) {
     return lock_manager_.acquire_mutex(mutex_type, pci_device_id);
 }
 

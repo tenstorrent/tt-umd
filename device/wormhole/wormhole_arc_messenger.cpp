@@ -53,8 +53,8 @@ uint32_t WormholeArcMessenger::send_message(
     while (true) {
         auto end = std::chrono::system_clock::now();
         auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
-        if (duration.count() > timeout_ms) {
-            throw std::runtime_error(fmt::format("Timed out after waiting {} seconds for ARC to respond", timeout_ms));
+        if (duration.count() > timeout_ms && timeout_ms != 0) {
+            throw std::runtime_error(fmt::format("Timed out after waiting {} ms for ARC to respond", timeout_ms));
         }
 
         status = tt_device->bar_read32(

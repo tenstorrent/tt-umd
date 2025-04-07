@@ -23,7 +23,9 @@ bool RemoteChip::is_mmio_capable() const { return false; }
 void RemoteChip::write_to_device(
     tt_xy_pair core, const void* src, uint64_t l1_dest, uint32_t size, const std::string& fallback_tlb) {
     // TODO: Fallback TLB is ignored for now, but it will be removed soon from the signature.
-    remote_communication_->write_to_non_mmio(eth_chip_location_, core, src, l1_dest, size);
+    // TODO: This translation should go away when we start using CoreCoord everywhere.
+    auto translated_core = get_soc_descriptor().translate_coord_to(core, CoordSystem::VIRTUAL, CoordSystem::TRANSLATED);
+    remote_communication_->write_to_non_mmio(eth_chip_location_, translated_core, src, l1_dest, size);
 }
 
 void RemoteChip::read_from_device(

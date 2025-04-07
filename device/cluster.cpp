@@ -154,7 +154,6 @@ void Cluster::construct_cluster(const uint32_t& num_host_mem_ch_per_mmio_device,
     if (remote_chip_ids_.empty()) {
         use_ethernet_ordered_writes = false;
         use_ethernet_broadcast = false;
-        use_virtual_coords_for_eth_broadcast = false;
     }
 
     populate_cores();

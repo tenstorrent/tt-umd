@@ -220,7 +220,7 @@ size_t RobustMutex::get_file_size(int fd) {
 }
 
 void RobustMutex::close_mutex() noexcept {
-    if (mutex_wrapper_ptr_ == nullptr) {
+    if (mutex_wrapper_ptr_ != nullptr) {
         // Unmap the shared memory backed pthread_mutex object.
         if (munmap((void*)mutex_wrapper_ptr_, sizeof(pthread_mutex_wrapper)) != 0) {
             // This is on the destructor path, so we don't want to throw an exception.

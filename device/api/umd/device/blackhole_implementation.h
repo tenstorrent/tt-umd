@@ -227,9 +227,6 @@ static constexpr uint32_t TENSIX_L1_SIZE = 1499136;
 static constexpr uint32_t ETH_L1_SIZE = 262144;
 static constexpr uint64_t DRAM_BANK_SIZE = 4294967296;
 
-static constexpr uint64_t NOC_CONTROL_REG_ADDR_BASE = 0xFFB20000;
-static constexpr uint64_t NOC_NODE_ID_OFFSET = 0x44;
-
 static const size_t eth_translated_coordinate_start_x = 20;
 static const size_t eth_translated_coordinate_start_y = 25;
 
@@ -376,6 +373,8 @@ public:
     tt_driver_host_address_params get_host_address_params() const override;
     tt_driver_eth_interface_params get_eth_interface_params() const override;
     tt_driver_noc_params get_noc_params() const override;
+
+    uint64_t get_noc_reg_base(const CoreType core_type, const uint32_t noc, const uint32_t noc_port = 0) const override;
 };
 
 }  // namespace tt::umd

@@ -324,6 +324,11 @@ public:
     tt_driver_host_address_params get_host_address_params() const override;
     tt_driver_eth_interface_params get_eth_interface_params() const override;
     tt_driver_noc_params get_noc_params() const override;
+
+    uint64_t get_noc_reg_base(
+        const CoreType core_type, const uint32_t noc, const uint32_t dram_channel = 0) const override {
+        return 0;
+    }
 };
 
 }  // namespace tt::umd

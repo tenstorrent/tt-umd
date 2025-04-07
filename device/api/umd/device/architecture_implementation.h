@@ -11,6 +11,7 @@
 #include <tuple>
 #include <vector>
 
+#include "umd/device/tt_core_coordinates.h"
 #include "umd/device/tt_xy_pair.h"
 #include "umd/device/types/arch.h"
 #include "umd/device/types/tlb.h"
@@ -81,6 +82,9 @@ public:
     virtual tt_driver_noc_params get_noc_params() const = 0;
 
     static std::unique_ptr<architecture_implementation> create(tt::ARCH architecture);
+
+    virtual uint64_t get_noc_reg_base(
+        const CoreType core_type, const uint32_t noc, const uint32_t noc_port = 0) const = 0;
 };
 
 }  // namespace tt::umd

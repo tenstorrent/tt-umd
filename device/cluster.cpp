@@ -1439,7 +1439,7 @@ void Cluster::read_from_non_mmio_device(void* mem_ptr, tt_cxy_pair core, uint64_
     get_remote_chip(core.chip)->read_from_device(core, mem_ptr, address, size_in_bytes, "");
 }
 
-void Cluster::wait_for_non_mmio_flush(const chip_id_t chip_id) { get_remote_chip(chip_id)->wait_for_non_mmio_flush(); }
+void Cluster::wait_for_non_mmio_flush(const chip_id_t chip_id) { get_chip(chip_id)->wait_for_non_mmio_flush(); }
 
 void Cluster::wait_for_non_mmio_flush() {
     for (auto& [chip_id, chip] : chips_) {

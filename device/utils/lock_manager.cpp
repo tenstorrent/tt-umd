@@ -67,6 +67,7 @@ void LockManager::initialize_mutex_internal(const std::string& mutex_name, const
     }
 
     mutexes.emplace(mutex_name, RobustMutex(mutex_name));
+    mutexes.at(mutex_name).initialize();
 }
 
 void LockManager::clear_mutex_internal(const std::string& mutex_name) {

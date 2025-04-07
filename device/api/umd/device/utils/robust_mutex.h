@@ -18,6 +18,12 @@ public:
     RobustMutex(std::string_view mutex_name);
     ~RobustMutex() noexcept;
 
+    // Does everything related to initializing the mutex, even on first time creation.
+    // The initialization can fail and throw an exception. In case of failure we still want to clean up the resources.
+    // For easier handling of such case, the destructor cleans up the resources if they were taken. Having this code out
+    // of constructor will guarantee that the destructor is called in case of exception.
+    void initialize();
+
     // Move constructor and assignment are defined so that this class can be used with c++ stl containers, like
     // unordered_map.
     RobustMutex(RobustMutex&& other) noexcept;
@@ -32,10 +38,11 @@ public:
     void lock();
 
 private:
-    static pthread_mutex_t multithread_mutex_;
-
-    // Does everything related to initializing the mutex, even on first time creation.
-    void initialize_pthread_mutex(std::string_view mutex_name);
+    // A wrapper which holds the flag for whether the mutex has been initialized or not.
+    struct pthread_mutex_wrapper {
+        pthread_mutex_t mutex;
+        uint64_t initialized;
+    };
 
     // Closes the mutex, doesn't remove the backing mutex file.
     void close_mutex() noexcept;
@@ -52,8 +59,11 @@ private:
     // Performs initialization for the first time pthread mutex use.
     void initialize_pthread_mutex_first_use();
 
-    int shm_fd = -1;
-    pthread_mutex_t* mutex_ptr = nullptr;
+    // Used for critical section needed during initialization.
+    static pthread_mutex_t multithread_mutex_;
+
+    int shm_fd_ = -1;
+    pthread_mutex_wrapper* mutex_wrapper_ptr_ = nullptr;
     std::string mutex_name_;
 };
 

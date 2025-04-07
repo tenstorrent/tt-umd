@@ -496,11 +496,6 @@ void RemoteCommunication::write_to_non_mmio(
             // Only specify endpoint local address for broadcast
             new_cmd->sys_addr = core_dest + offset;
         } else {
-            auto translated_coord = local_chip_->get_soc_descriptor().translate_coord_to(
-                target_core, CoordSystem::VIRTUAL, umd_use_noc1 ? CoordSystem::PHYSICAL : CoordSystem::TRANSLATED);
-            target_core.x = translated_coord.x;
-            target_core.y = translated_coord.y;
-
             new_cmd->sys_addr = get_sys_addr(
                 noc_params, target_chip.x, target_chip.y, target_core.x, target_core.y, core_dest + offset);
             new_cmd->rack = get_sys_rack(eth_interface_params, target_chip.rack, target_chip.shelf);

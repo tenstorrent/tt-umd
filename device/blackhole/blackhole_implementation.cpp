@@ -98,35 +98,50 @@ tt_driver_noc_params blackhole_implementation::get_noc_params() const {
 
 uint64_t blackhole_implementation::get_noc_reg_base(
     const CoreType core_type, const uint32_t noc, const uint32_t noc_port) const {
-    switch (core_type) {
-        case CoreType::TENSIX:
-        case CoreType::ETH: {
-            if (noc == 0) {
-                return 0xFFB20000;
-            } else {
-                return 0xFFB30000;
+    if (noc == 0) {
+        for (const auto& noc_pair : blackhole::NOC0_CONTROL_REG_ADDR_BASE_MAP) {
+            if (noc_pair.first == core_type) {
+                return noc_pair.second;
             }
         }
-        case CoreType::DRAM: {
-            // TODO: add noc_port parameter to this function.
-            if (noc == 0) {
-                return 0xFFB20000;
-            } else {
-                return 0xFFB30000;
+    } else {
+        for (const auto& noc_pair : blackhole::NOC1_CONTROL_REG_ADDR_BASE_MAP) {
+            if (noc_pair.first == core_type) {
+                return noc_pair.second;
             }
-        }
-        case CoreType::ARC:
-        case CoreType::PCIE: {
-            if (noc == 0) {
-                return 0xFFFFFFFFFF000000ULL;
-            } else {
-                return 0xFFFFFFFFFF000000ULL;
-            }
-        }
-        default: {
-            throw std::runtime_error("Invalid core type for getting NOC register addr base.");
         }
     }
+
+    throw std::runtime_error("Invalid core type or NOC for getting NOC register addr base.");
+    // switch (core_type) {
+    //     case CoreType::TENSIX:
+    //     case CoreType::ETH: {
+    //         if (noc == 0) {
+    //             return 0xFFB20000;
+    //         } else {
+    //             return 0xFFB30000;
+    //         }
+    //     }
+    //     case CoreType::DRAM: {
+    //         // TODO: add noc_port parameter to this function.
+    //         if (noc == 0) {
+    //             return 0xFFB20000;
+    //         } else {
+    //             return 0xFFB30000;
+    //         }
+    //     }
+    //     case CoreType::ARC:
+    //     case CoreType::PCIE: {
+    //         if (noc == 0) {
+    //             return 0xFFFFFFFFFF000000ULL;
+    //         } else {
+    //             return 0xFFFFFFFFFF000000ULL;
+    //         }
+    //     }
+    //     default: {
+    //         throw std::runtime_error("Invalid core type for getting NOC register addr base.");
+    //     }
+    // }
 }
 
 namespace blackhole {

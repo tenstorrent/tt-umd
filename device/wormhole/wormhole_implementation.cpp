@@ -104,36 +104,24 @@ tt_driver_noc_params wormhole_implementation::get_noc_params() const {
     return {NOC_ADDR_LOCAL_BITS, NOC_ADDR_NODE_ID_BITS};
 }
 
+// TODO: integrate noc_port for DRAM core type inside the function.
 uint64_t wormhole_implementation::get_noc_reg_base(
     const CoreType core_type, const uint32_t noc, const uint32_t noc_port) const {
-    switch (core_type) {
-        case CoreType::TENSIX:
-        case CoreType::ETH: {
-            if (noc == 0) {
-                return 0xFFB20000;
-            } else {
-                return 0xFFB30000;
+    if (noc == 0) {
+        for (const auto& noc_pair : wormhole::NOC0_CONTROL_REG_ADDR_BASE_MAP) {
+            if (noc_pair.first == core_type) {
+                return noc_pair.second;
             }
         }
-        case CoreType::DRAM: {
-            if (noc == 0) {
-                return 0x100080000 + noc_port * 0x10000;
-            } else {
-                return 0x100088000 + noc_port * 0x10000;
+    } else {
+        for (const auto& noc_pair : wormhole::NOC1_CONTROL_REG_ADDR_BASE_MAP) {
+            if (noc_pair.first == core_type) {
+                return noc_pair.second;
             }
-        }
-        case CoreType::ARC:
-        case CoreType::PCIE: {
-            if (noc == 0) {
-                return 0xFFFB20000;
-            } else {
-                return 0xFFFB30000;
-            }
-        }
-        default: {
-            throw std::runtime_error("Invalid core type for getting NOC register addr base.");
         }
     }
+
+    throw std::runtime_error("Invalid core type or NOC for getting NOC register addr base.");
 }
 
 }  // namespace tt::umd

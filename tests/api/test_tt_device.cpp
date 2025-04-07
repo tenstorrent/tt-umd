@@ -4,8 +4,8 @@
 #include <thread>
 
 #include "gtest/gtest.h"
-#include "l1_address_map.h"
 #include "umd/device/blackhole_implementation.h"
+#include "umd/device/cluster.h"
 #include "umd/device/grayskull_implementation.h"
 #include "umd/device/tt_device/tt_device.h"
 #include "umd/device/wormhole_implementation.h"
@@ -13,22 +13,13 @@
 using namespace tt::umd;
 
 tt_xy_pair get_any_tensix_core(tt::ARCH arch) {
-    switch (arch) {
-        case tt::ARCH::BLACKHOLE:
-            return blackhole::TENSIX_CORES_NOC0[0];
-        case tt::ARCH::WORMHOLE_B0:
-            return wormhole::TENSIX_CORES_NOC0[0];
-        case tt::ARCH::GRAYSKULL:
-            return grayskull::TENSIX_CORES_NOC0[0];
-        default:
-            throw std::runtime_error("Invalid architecture");
-    }
+    return std::make_unique<Cluster>()->get_soc_descriptor(0).get_cores(CoreType::TENSIX)[0];
 }
 
 TEST(ApiTTDeviceTest, BasicTTDeviceIO) {
     std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
 
-    uint64_t address = l1_mem::address_map::NCRISC_FIRMWARE_BASE;
+    uint64_t address = 0x0;
     std::vector<uint32_t> data_write = {1, 2, 3, 4, 5, 6, 7, 8, 9, 10};
     std::vector<uint32_t> data_read(data_write.size(), 0);
 
@@ -66,7 +57,7 @@ TEST(ApiTTDeviceTest, TTDeviceMultipleThreadsIO) {
 
     std::vector<uint32_t> data_write = {1, 2, 3, 4, 5, 6, 7, 8, 9, 10};
 
-    const uint64_t address_thread0 = l1_mem::address_map::NCRISC_FIRMWARE_BASE;
+    const uint64_t address_thread0 = 0x0;
     const uint64_t address_thread1 = address_thread0 + data_write.size() * sizeof(uint32_t);
     const uint32_t num_loops = 1000;
 

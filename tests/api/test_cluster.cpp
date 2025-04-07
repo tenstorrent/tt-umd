@@ -12,7 +12,6 @@
 #include <vector>
 
 #include "fmt/xchar.h"
-#include "l1_address_map.h"
 #include "tests/test_utils/generate_cluster_desc.hpp"
 #include "umd/device/blackhole_implementation.h"
 #include "umd/device/chip/local_chip.h"
@@ -179,7 +178,8 @@ TEST(ApiClusterTest, SimpleIOSpecificChips) {
         GTEST_SKIP() << "No chips present on the system. Skipping test.";
     }
 
-    std::unique_ptr<Cluster> umd_cluster = std::make_unique<Cluster>(0u);
+    std::set<chip_id_t> target_devices = {0};
+    std::unique_ptr<Cluster> umd_cluster = std::make_unique<Cluster>(target_devices);
 
     const tt_ClusterDescriptor* cluster_desc = umd_cluster->get_cluster_description();
 
@@ -197,7 +197,7 @@ TEST(ApiClusterTest, SimpleIOSpecificChips) {
     for (auto chip_id : umd_cluster->get_target_device_ids()) {
         const tt_SocDescriptor& soc_desc = umd_cluster->get_soc_descriptor(chip_id);
 
-        const CoreCoord any_core = soc_desc.get_cores(CoreType::TENSIX)[0];
+        CoreCoord any_core = soc_desc.get_cores(CoreType::TENSIX)[0];
 
         std::cout << "Writing to chip " << chip_id << " core " << any_core.str() << std::endl;
 
@@ -244,7 +244,8 @@ TEST(ClusterAPI, DynamicTLB_RW) {
 
     std::set<chip_id_t> target_devices = cluster->get_target_device_ids();
     for (const chip_id_t chip : target_devices) {
-        std::uint32_t address = l1_mem::address_map::NCRISC_FIRMWARE_BASE;
+        // Just make sure to skip L1_BARRIER_BASE
+        std::uint32_t address = 0x100;
         // Write to each core a 100 times at different statically mapped addresses
         const tt_SocDescriptor& soc_desc = cluster->get_soc_descriptor(chip);
         std::vector<CoreCoord> tensix_cores = soc_desc.get_cores(CoreType::TENSIX);
@@ -412,5 +413,34 @@ TEST(TestCluster, TestClusterNocId) {
 
         // TODO: figure out why this hangs the chip both on WH and BH.
         // check_noc_id_cores(cluster, chip, CoreType::PCIE);
+    }
+}
+
+TEST(TestCluster, TestClusterAICLKControl) {
+    std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
+
+    uint32_t go_busy_aiclk_val;
+    uint32_t go_idle_aiclk_val;
+    tt::ARCH arch = cluster->get_cluster_description()->get_arch(0);
+    if (arch == tt::ARCH::WORMHOLE_B0) {
+        go_busy_aiclk_val = tt::umd::wormhole::AICLK_BUSY_VAL;
+        go_idle_aiclk_val = tt::umd::wormhole::AICLK_IDLE_VAL;
+    } else if (arch == tt::ARCH::BLACKHOLE) {
+        go_busy_aiclk_val = tt::umd::blackhole::AICLK_BUSY_VAL;
+        go_idle_aiclk_val = tt::umd::blackhole::AICLK_IDLE_VAL;
+    }
+
+    cluster->set_power_state(tt_DevicePowerState::BUSY);
+
+    auto clocks = cluster->get_clocks();
+    for (auto& clock : clocks) {
+        EXPECT_EQ(clock.second, go_busy_aiclk_val);
+    }
+
+    cluster->set_power_state(tt_DevicePowerState::LONG_IDLE);
+
+    clocks = cluster->get_clocks();
+    for (auto& clock : clocks) {
+        EXPECT_EQ(clock.second, go_idle_aiclk_val);
     }
 }

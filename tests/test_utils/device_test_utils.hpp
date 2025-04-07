@@ -27,17 +27,6 @@ static void size_buffer_to_capacity(std::vector<T>& data_buf, std::size_t size_i
 static void read_data_from_device(
     tt_device& device,
     std::vector<uint32_t>& vec,
-    tt_cxy_pair core,
-    uint64_t addr,
-    uint32_t size,
-    const std::string& tlb_to_use) {
-    size_buffer_to_capacity(vec, size);
-    device.read_from_device(vec.data(), core, addr, size, tlb_to_use);
-}
-
-static void read_data_from_device(
-    tt_device& device,
-    std::vector<uint32_t>& vec,
     chip_id_t chip_id,
     tt::umd::CoreCoord core,
     uint64_t addr,

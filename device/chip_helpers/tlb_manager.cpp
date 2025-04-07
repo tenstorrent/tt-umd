@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#include "umd/device/tt_device/tlb_manager.h"
+#include "umd/device/chip_helpers/tlb_manager.h"
 
 #include "logger.hpp"
 #include "umd/device/tt_device/tt_device.h"

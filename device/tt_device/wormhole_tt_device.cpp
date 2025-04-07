@@ -3,6 +3,10 @@
 // SPDX-License-Identifier: Apache-2.0
 #include "umd/device/tt_device/wormhole_tt_device.h"
 
+#include <iostream>
+
+#include "umd/device/types/wormhole_dram.h"
+#include "umd/device/types/wormhole_telemetry.h"
 #include "umd/device/wormhole_implementation.h"
 
 namespace tt::umd {
@@ -62,28 +66,36 @@ uint32_t WormholeTTDevice::get_clock() {
 }
 
 BoardType WormholeTTDevice::get_board_type() {
-    ::std::vector<uint32_t> arc_msg_return_values = {0};
-    static const uint32_t timeout_ms = 1000;
-    uint32_t exit_code = get_arc_messenger()->send_message(
-        tt::umd::wormhole::ARC_MSG_COMMON_PREFIX |
-            (uint32_t)tt::umd::wormhole::arc_message_type::GET_SMBUS_TELEMETRY_ADDR,
-        arc_msg_return_values,
-        0,
-        0,
-        timeout_ms);
-
-    tt_xy_pair arc_core = tt::umd::wormhole::ARC_CORES_NOC0[0];
-    static constexpr uint64_t noc_telemetry_offset = 0x810000000;
-    uint64_t telemetry_struct_offset = arc_msg_return_values[0] + noc_telemetry_offset;
-
-    uint32_t board_id_lo;
-    uint32_t board_id_hi;
-    static uint64_t board_id_hi_telemetry_offset = 16;
-    static uint64_t board_id_lo_telemetry_offset = 20;
-    read_from_device(&board_id_hi, arc_core, telemetry_struct_offset + board_id_hi_telemetry_offset, sizeof(uint32_t));
-    read_from_device(&board_id_lo, arc_core, telemetry_struct_offset + board_id_lo_telemetry_offset, sizeof(uint32_t));
-
+    uint32_t board_id_lo = telemetry->read_entry(tt::umd::wormhole::TAG_BOARD_ID_LOW);
+    uint32_t board_id_hi = telemetry->read_entry(tt::umd::wormhole::TAG_BOARD_ID_HIGH);
     return get_board_type_from_board_id(((uint64_t)board_id_hi << 32) | board_id_lo);
+}
+
+std::vector<DramTrainingStatus> WormholeTTDevice::get_dram_training_status() {
+    uint32_t dram_training_status_telemetry = telemetry->read_entry(tt::umd::wormhole::TAG_DDR_STATUS);
+    const uint32_t num_dram_channels = tt::umd::wormhole::NUM_DRAM_BANKS;
+    std::vector<DramTrainingStatus> dram_training_status;
+    for (uint32_t dram_channel = 0; dram_channel < num_dram_channels; dram_channel++) {
+        uint8_t status = (dram_training_status_telemetry >> (dram_channel * 4)) & 0xF;
+
+        switch (status) {
+            case wormhole::WormholeDramTrainingStatus::TrainingNone:
+                dram_training_status.push_back(DramTrainingStatus::IN_PROGRESS);
+                break;
+            case wormhole::WormholeDramTrainingStatus::TrainingFail:
+                dram_training_status.push_back(DramTrainingStatus::FAIL);
+                break;
+            case wormhole::WormholeDramTrainingStatus::TrainingPass:
+            case wormhole::WormholeDramTrainingStatus::TrainingSkip:
+                dram_training_status.push_back(DramTrainingStatus::SUCCESS);
+                break;
+            default:
+                dram_training_status.push_back(DramTrainingStatus::FAIL);
+                break;
+        }
+    }
+
+    return dram_training_status;
 }
 
 }  // namespace tt::umd

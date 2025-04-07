@@ -9,9 +9,10 @@
 #include <string_view>
 
 #include "umd/device/arc_messenger.h"
+#include "umd/device/arc_telemetry_reader.h"
 #include "umd/device/architecture_implementation.h"
+#include "umd/device/chip_helpers/tlb_manager.h"
 #include "umd/device/pci_device.hpp"
-#include "umd/device/tt_device/tlb_manager.h"
 #include "umd/device/types/cluster_descriptor_types.h"
 
 // TODO: Should be moved to blackhole_architecture_implementation.h
@@ -37,8 +38,8 @@ class named_mutex;
 
 namespace tt::umd {
 
-class TLBManager;
 class ArcMessenger;
+class ArcTelemetryReader;
 
 class TTDevice {
 public:
@@ -54,7 +55,6 @@ public:
 
     architecture_implementation *get_architecture_implementation();
     PCIDevice *get_pci_device();
-    TLBManager *get_tlb_manager();
 
     tt::ARCH get_arch();
 
@@ -149,12 +149,17 @@ public:
 
     virtual BoardType get_board_type() = 0;
 
+    // TODO: find a way to expose this in a better way, probably through getting telemetry reader and reading the
+    // required fields. Returns the information whether DRAM training status is available and the status value.
+    virtual std::vector<DramTrainingStatus> get_dram_training_status();
+
 protected:
     std::unique_ptr<PCIDevice> pci_device_;
     std::unique_ptr<architecture_implementation> architecture_impl_;
-    std::unique_ptr<TLBManager> tlb_manager_;
     tt::ARCH arch;
     std::unique_ptr<ArcMessenger> arc_messenger_ = nullptr;
+    LockManager lock_manager;
+    std::unique_ptr<ArcTelemetryReader> telemetry = nullptr;
 
     bool is_hardware_hung();
 
@@ -172,13 +177,5 @@ protected:
     void memcpy_from_device(void *dest, const void *src, std::size_t num_bytes);
 
     ChipInfo chip_info;
-
-private:
-    void initialize_tt_device_mutex();
-    void clean_tt_device_mutex();
-
-    std::shared_ptr<boost::interprocess::named_mutex> read_write_mutex = nullptr;
-
-    static constexpr std::string_view MUTEX_NAME = "SMALL_READ_WRITE_TLB";
 };
 }  // namespace tt::umd

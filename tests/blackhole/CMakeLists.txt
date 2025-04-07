@@ -15,5 +15,3 @@ set_target_properties(
         OUTPUT_NAME
             unit_tests
 )
-
-add_custom_target(umd_unit_tests DEPENDS unit_tests_blackhole)

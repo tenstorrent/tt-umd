@@ -10,7 +10,6 @@
 #include <linux/pci.h>  // for PCI_SLOT, PCI_FUNC
 #include <sys/ioctl.h>  // for ioctl
 #include <sys/mman.h>   // for mmap, munmap
-#include <sys/stat.h>   // for fstat
 #include <unistd.h>     // for ::close
 
 #include <cstdint>
@@ -18,10 +17,8 @@
 #include <vector>
 
 #include "assert.hpp"
-#include "cpuset_lib.hpp"
 #include "ioctl.h"
 #include "logger.hpp"
-#include "umd/device/hugepage.h"
 #include "umd/device/types/arch.h"
 
 static const uint16_t GS_PCIE_DEVICE_ID = 0xfaca;
@@ -34,9 +31,6 @@ static const uint32_t GS_BAR0_WC_MAPPING_SIZE = (156 << 20) + (10 << 21) + (18 <
 
 // Defines the address for WC region. addresses 0 to BH_BAR0_WC_MAPPING_SIZE are in WC, above that are UC
 static const uint32_t BH_BAR0_WC_MAPPING_SIZE = 188 << 21;
-
-// Hugepages must be 1GB in size
-const uint32_t HUGEPAGE_REGION_SIZE = 1 << 30;  // 1GB
 
 using namespace tt;
 using namespace tt::umd;
@@ -345,12 +339,6 @@ PCIDevice::PCIDevice(int pci_device_number) :
 }
 
 PCIDevice::~PCIDevice() {
-    for (const auto &hugepage_mapping : hugepage_mapping_per_channel) {
-        if (hugepage_mapping.mapping) {
-            munmap(hugepage_mapping.mapping, hugepage_mapping.mapping_size);
-        }
-    }
-
     close(pci_device_file_desc);
 
     if (bar0_wc != nullptr && bar0_wc != MAP_FAILED && bar0_wc != bar0_uc) {
@@ -374,166 +362,19 @@ PCIDevice::~PCIDevice() {
     }
 }
 
-bool PCIDevice::init_hugepage(uint32_t num_host_mem_channels) {
-    const size_t hugepage_size = HUGEPAGE_REGION_SIZE;
+uint64_t PCIDevice::map_for_hugepage(void *buffer, size_t size) {
+    tenstorrent_pin_pages pin_pages;
+    memset(&pin_pages, 0, sizeof(pin_pages));
+    pin_pages.in.output_size_bytes = sizeof(pin_pages.out);
+    pin_pages.in.flags = TENSTORRENT_PIN_PAGES_CONTIGUOUS;
+    pin_pages.in.virtual_address = reinterpret_cast<std::uintptr_t>(buffer);
+    pin_pages.in.size = size;
 
-    if (is_iommu_enabled()) {
-        size_t size = hugepage_size * num_host_mem_channels;
-        return init_iommu(size);
+    if (ioctl(pci_device_file_desc, TENSTORRENT_IOCTL_PIN_PAGES, &pin_pages) == -1) {
+        return 0;
     }
 
-    auto physical_device_id = get_device_num();
-
-    std::string hugepage_dir = find_hugepage_dir(hugepage_size);
-    if (hugepage_dir.empty()) {
-        log_warning(
-            LogSiliconDriver,
-            "ttSiliconDevice::init_hugepage: no huge page mount found for hugepage_size: {}.",
-            hugepage_size);
-        return false;
-    }
-
-    bool success = true;
-
-    hugepage_mapping_per_channel.resize(num_host_mem_channels);
-
-    // Support for more than 1GB host memory accessible per device, via channels.
-    for (int ch = 0; ch < num_host_mem_channels; ch++) {
-        int hugepage_fd = open_hugepage_file(hugepage_dir, physical_device_id, ch);
-        if (hugepage_fd == -1) {
-            // Probably a permissions problem.
-            log_warning(
-                LogSiliconDriver,
-                "ttSiliconDevice::init_hugepage: physical_device_id: {} ch: {} creating hugepage mapping file failed.",
-                physical_device_id,
-                ch);
-            success = false;
-            continue;
-        }
-
-        // Verify opened file size.
-        struct stat hugepage_st;
-        if (fstat(hugepage_fd, &hugepage_st) == -1) {
-            log_warning(LogSiliconDriver, "Error reading hugepage file size after opening.");
-        }
-
-        std::byte *mapping = static_cast<std::byte *>(
-            mmap(nullptr, hugepage_size, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_POPULATE, hugepage_fd, 0));
-
-        close(hugepage_fd);
-
-        if (mapping == MAP_FAILED) {
-            log_warning(
-                LogSiliconDriver,
-                "UMD: Mapping a hugepage failed. (device: {}, {}/{} errno: {}).",
-                physical_device_id,
-                ch,
-                num_host_mem_channels,
-                strerror(errno));
-            if (hugepage_st.st_size == 0) {
-                log_warning(
-                    LogSiliconDriver,
-                    "Opened hugepage file has zero size, mapping might've failed due to that. Verify that enough "
-                    "hugepages are provided.");
-            }
-            print_file_contents("/proc/cmdline");
-            print_file_contents(
-                "/sys/kernel/mm/hugepages/hugepages-1048576kB/nr_hugepages");  // Hardcoded for 1GB hugepage.
-            success = false;
-            continue;
-        }
-
-        // Beter performance if hugepage just allocated (populate flag to prevent lazy alloc) is migrated to same
-        // numanode as TT device.
-        if (!tt::cpuset::tt_cpuset_allocator::bind_area_to_memory_nodeset(physical_device_id, mapping, hugepage_size)) {
-            log_warning(
-                LogSiliconDriver,
-                "---- ttSiliconDevice::init_hugepage: bind_area_to_memory_nodeset() failed (physical_device_id: {} ch: "
-                "{}). "
-                "Hugepage allocation is not on NumaNode matching TT Device. Side-Effect is decreased Device->Host perf "
-                "(Issue #893).",
-                physical_device_id,
-                ch);
-        }
-
-        tenstorrent_pin_pages pin_pages;
-        memset(&pin_pages, 0, sizeof(pin_pages));
-        pin_pages.in.output_size_bytes = sizeof(pin_pages.out);
-        pin_pages.in.flags = TENSTORRENT_PIN_PAGES_CONTIGUOUS;
-        pin_pages.in.virtual_address = reinterpret_cast<std::uintptr_t>(mapping);
-        pin_pages.in.size = hugepage_size;
-
-        auto fd = get_fd();
-
-        if (ioctl(fd, TENSTORRENT_IOCTL_PIN_PAGES, &pin_pages) == -1) {
-            log_warning(
-                LogSiliconDriver,
-                "---- ttSiliconDevice::init_hugepage: physical_device_id: {} ch: {} TENSTORRENT_IOCTL_PIN_PAGES failed "
-                "(errno: {}). Common Issue: Requires TTMKD >= 1.11, see following file contents...",
-                physical_device_id,
-                ch,
-                strerror(errno));
-            munmap(mapping, hugepage_size);
-            print_file_contents("/sys/module/tenstorrent/version", "(TTKMD version)");
-            print_file_contents("/proc/meminfo");
-            print_file_contents("/proc/buddyinfo");
-            success = false;
-            continue;
-        }
-
-        hugepage_mapping_per_channel[ch] = {mapping, hugepage_size, pin_pages.out.physical_address};
-
-        log_debug(
-            LogSiliconDriver,
-            "ttSiliconDevice::init_hugepage: physical_device_id: {} ch: {} mapping_size: {} physical address 0x{:x}",
-            physical_device_id,
-            ch,
-            hugepage_size,
-            pin_pages.out.physical_address);
-    }
-
-    return success;
-}
-
-bool PCIDevice::init_iommu(size_t size) {
-    const size_t num_fake_mem_channels = size / HUGEPAGE_REGION_SIZE;
-
-    if (!is_iommu_enabled()) {
-        TT_THROW("IOMMU is required for sysmem without hugepages.");
-    }
-
-    log_info(LogSiliconDriver, "Allocating sysmem without hugepages (size: {:#x}).", size);
-    void *mapping = mmap(nullptr, size, PROT_READ | PROT_WRITE, MAP_ANONYMOUS | MAP_PRIVATE | MAP_POPULATE, -1, 0);
-
-    if (mapping == MAP_FAILED) {
-        TT_THROW(
-            "UMD: Failed to allocate memory for device/host shared buffer (size: {} errno: {}).",
-            size,
-            strerror(errno));
-    }
-
-    uint64_t iova = map_for_dma(mapping, size);
-    log_info(LogSiliconDriver, "Mapped sysmem without hugepages to IOVA {:#x}.", iova);
-
-    hugepage_mapping_per_channel.resize(num_fake_mem_channels);
-
-    // Support for more than 1GB host memory accessible per device, via channels.
-    for (size_t ch = 0; ch < num_fake_mem_channels; ch++) {
-        uint8_t *base = static_cast<uint8_t *>(mapping) + ch * HUGEPAGE_REGION_SIZE;
-        hugepage_mapping_per_channel[ch] = {base, HUGEPAGE_REGION_SIZE, iova + ch * HUGEPAGE_REGION_SIZE};
-    }
-
-    return true;
-}
-
-size_t PCIDevice::get_num_host_mem_channels() const { return hugepage_mapping_per_channel.size(); }
-
-hugepage_mapping PCIDevice::get_hugepage_mapping(size_t channel) const {
-    if (hugepage_mapping_per_channel.size() <= channel) {
-        return {nullptr, 0, 0};
-    } else {
-        return hugepage_mapping_per_channel[channel];
-    }
+    return pin_pages.out.physical_address;
 }
 
 uint64_t PCIDevice::map_for_dma(void *buffer, size_t size) {
@@ -583,16 +424,6 @@ uint64_t PCIDevice::map_for_dma(void *buffer, size_t size) {
     }
 
     return pin_pages.out.physical_address;
-}
-
-void PCIDevice::print_file_contents(std::string filename, std::string hint) {
-    if (std::filesystem::exists(filename)) {
-        std::ifstream meminfo(filename);
-        if (meminfo.is_open()) {
-            std::cout << std::endl << "File " << filename << " " << hint << " is: " << std::endl;
-            std::cout << meminfo.rdbuf();
-        }
-    }
 }
 
 semver_t PCIDevice::read_kmd_version() {

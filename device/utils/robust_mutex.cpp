@@ -21,7 +21,7 @@
 static constexpr int ALL_RW_PERMISSION = 0666;
 static constexpr std::string_view UMD_LOCK_PREFIX = "TT_UMD_LOCK.";
 // Any value which is unlikely to be found at random in the memory.
-static constexpr uint64_t INITIALIZED_FLAG = 0xDEADBEEFDEADBEEF;
+static constexpr uint64_t INITIALIZED_FLAG = 0x5454554d444d5458;  // TTUMDMTX
 
 using namespace tt::umd;
 
@@ -30,6 +30,11 @@ using namespace tt::umd;
 // multithread locking. Due to that, we need to use multithread_mutex_ which guarantees multithread locking but not
 // multiprocess locking. Note that flock is released automatically on process crash, and static multithread_mutex_
 // is not persistent, so we're safe even if the process crashes in the critical section.
+//
+// One might wonder, if this is already a guaranteed critical section, why do we need to go through all the pain
+// to setup pthread in shm? Quick benchmark gave this results averaged over 1 000 000 iterations:
+//   RobustMutex constructor + initialization + destructor: 40752 ns
+//   RobustMutex lock + unlock: 654 ns
 class CriticalSectionScopeGuard {
 public:
     CriticalSectionScopeGuard(int fd, pthread_mutex_t* pthread_mutex, std::string_view mutex_name) :
@@ -104,7 +109,7 @@ RobustMutex& RobustMutex::operator=(RobustMutex&& other) noexcept {
 
 void RobustMutex::initialize() {
     int err;
-    bool created = open_shm_file(mutex_name_);
+    open_shm_file();
 
     // We need a critical section here in which we test if the mutex has been initialized, and if not initialize it.
     // If we don't create a critical section for this, then two processes could race, one to initialize the mutex and
@@ -141,7 +146,7 @@ void RobustMutex::initialize() {
     }
 
     // We now open the mutex in the shared memory file.
-    open_pthread_mutex(shm_fd_);
+    open_pthread_mutex();
     if (should_initialize) {
         // We need to initialize the mutex here, since it is the first time it is being used.
         initialize_pthread_mutex_first_use();
@@ -155,9 +160,8 @@ void RobustMutex::initialize() {
     }
 }
 
-bool RobustMutex::open_shm_file(std::string_view mutex_name) {
-    std::string shm_file_name = std::string(UMD_LOCK_PREFIX) + std::string(mutex_name);
-    bool created = true;
+void RobustMutex::open_shm_file() {
+    std::string shm_file_name = std::string(UMD_LOCK_PREFIX) + std::string(mutex_name_);
     // The EXCL flag will cause the call to fail if the file already exists.
     // The order of operations is important here. If we try to first open the file then create it, then a race condition
     // can occur where two processes fail to open the file and they race to create it. This way, always only one process
@@ -165,15 +169,13 @@ bool RobustMutex::open_shm_file(std::string_view mutex_name) {
     shm_fd_ = shm_open(shm_file_name.c_str(), O_RDWR | O_CREAT | O_EXCL, ALL_RW_PERMISSION);
     if (shm_fd_ == -1 && errno == EEXIST) {
         shm_fd_ = shm_open(shm_file_name.c_str(), O_RDWR, ALL_RW_PERMISSION);
-        created = false;
     }
     if (shm_fd_ == -1) {
         log_fatal("shm_open failed for mutex {} errno: {}", mutex_name_, std::to_string(errno));
     }
-    return created;
 }
 
-void RobustMutex::open_pthread_mutex(int shm_fd_) {
+void RobustMutex::open_pthread_mutex() {
     // Create a pthread_mutex based on the shared memory file descriptor
     void* addr = mmap(NULL, sizeof(pthread_mutex_wrapper), PROT_READ | PROT_WRITE, MAP_SHARED, shm_fd_, 0);
     if (addr == MAP_FAILED) {

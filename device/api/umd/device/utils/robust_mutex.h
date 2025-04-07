@@ -48,10 +48,10 @@ private:
     void close_mutex() noexcept;
 
     // Opens the shared memory file and creates it if it doesn't exist.
-    bool open_shm_file(std::string_view mutex_name);
+    void open_shm_file();
 
     // Opens the mutex in the shared memory file.
-    void open_pthread_mutex(int shm_fd);
+    void open_pthread_mutex();
 
     // Gets the size of the file.
     size_t get_file_size(int fd);

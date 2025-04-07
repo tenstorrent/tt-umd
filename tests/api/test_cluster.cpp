@@ -346,7 +346,7 @@ TEST(TestCluster, TestClusterNocId) {
         const uint64_t noc_node_id_offset = 0x2C;
         const uint64_t noc_node_id_reg_addr =
             cluster->get_tt_device(0)->get_architecture_implementation()->get_noc_reg_base(core.core_type, 0) +
-            noc_node_id_offset;
+            cluster->get_tt_device(0)->get_architecture_implementation()->get_noc_node_id_offset();
         uint32_t noc_node_id_val;
         cluster->read_from_device(
             &noc_node_id_val, chip, core, noc_node_id_reg_addr, sizeof(noc_node_id_val), "REG_TLB");
@@ -391,6 +391,8 @@ TEST(TestCluster, TestClusterNocId) {
         check_noc_id_cores(cluster, chip, CoreType::ARC);
 
         check_noc_id_cores(cluster, chip, CoreType::PCIE);
+
+        // TODO: add readouts for router cores.
     }
 }
 

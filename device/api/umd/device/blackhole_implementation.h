@@ -374,6 +374,8 @@ public:
     tt_driver_eth_interface_params get_eth_interface_params() const override;
     tt_driver_noc_params get_noc_params() const override;
 
+    virtual uint64_t get_noc_node_id_offset() const override { return 0x44; }
+
     uint64_t get_noc_reg_base(const CoreType core_type, const uint32_t noc, const uint32_t noc_port = 0) const override;
 };
 

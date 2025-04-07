@@ -69,6 +69,19 @@ public:
         const std::string& fallback_tlb,
         const std::unordered_set<tt_xy_pair>& cores = {}) override {}
 
+    int arc_msg(
+        int logical_device_id,
+        uint32_t msg_code,
+        bool wait_for_done = true,
+        uint32_t arg0 = 0,
+        uint32_t arg1 = 0,
+        uint32_t timeout_ms = 1000,
+        uint32_t* return_3 = nullptr,
+        uint32_t* return_4 = nullptr) override {
+        return 0;
+    }
+
+    tt_ClusterDescriptor* get_cluster_description() override { return cluster_descriptor.get(); }
     void wait_for_non_mmio_flush() override {}
 
     // Misc. Functions to Query/Set Device State

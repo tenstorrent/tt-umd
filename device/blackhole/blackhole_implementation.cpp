@@ -113,35 +113,6 @@ uint64_t blackhole_implementation::get_noc_reg_base(
     }
 
     throw std::runtime_error("Invalid core type or NOC for getting NOC register addr base.");
-    // switch (core_type) {
-    //     case CoreType::TENSIX:
-    //     case CoreType::ETH: {
-    //         if (noc == 0) {
-    //             return 0xFFB20000;
-    //         } else {
-    //             return 0xFFB30000;
-    //         }
-    //     }
-    //     case CoreType::DRAM: {
-    //         // TODO: add noc_port parameter to this function.
-    //         if (noc == 0) {
-    //             return 0xFFB20000;
-    //         } else {
-    //             return 0xFFB30000;
-    //         }
-    //     }
-    //     case CoreType::ARC:
-    //     case CoreType::PCIE: {
-    //         if (noc == 0) {
-    //             return 0xFFFFFFFFFF000000ULL;
-    //         } else {
-    //             return 0xFFFFFFFFFF000000ULL;
-    //         }
-    //     }
-    //     default: {
-    //         throw std::runtime_error("Invalid core type for getting NOC register addr base.");
-    //     }
-    // }
 }
 
 namespace blackhole {
@@ -153,7 +124,6 @@ std::vector<tt_xy_pair> get_pcie_cores(const BoardType board_type, const uint8_t
     auto chip_type = get_blackhole_chip_type(board_type, asic_location);
     return chip_type == BlackholeChipType::Type1 ? PCIE_CORES_TYPE1_NOC0 : PCIE_CORES_TYPE2_NOC0;
 }
-
 }  // namespace blackhole
 
 }  // namespace tt::umd

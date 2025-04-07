@@ -48,11 +48,10 @@ RemoteCommunication::~RemoteCommunication() {}
  *  - write_to_non_mmio_device
  *  - read_from_non_mmio_device
  *
- * The non-MMIO read/write functions (excluding the `*_epoch_cmd` variants) are responsible for the
- * writes/reads to/from those wormhole chips that aren't memory mapped or directly host connected.
- * To get the data to or from those other chips, there is a memory transfer protocol - initiated on
- * the host side but carried out by any number of the ethernet cores (the ethernet core pool is dictated
- * by `this->NUM_ETH_CORES_FOR_NON_MMIO_TRANSFERS`) on the MMIO chips (e.g. typically just the one chip in a galaxy).
+ * The non-MMIO read/write functions are responsible for the writes/reads to/from those wormhole chips that aren't
+ * memory mapped or directly host connected. To get the data to or from those other chips, there is a memory
+ * transfer protocol - initiated on the host side but carried out by any number of the ethernet cores on the
+ * MMIO chips (e.g. typically just the one chip in a galaxy).
  *
  * There is a command queue structure in ethernet core FW to accept these read/write commands. However, there is no
  * atomic increment (from host side) for the write pointers of these queues, nor is there any sort of other hardware
@@ -67,7 +66,7 @@ RemoteCommunication::~RemoteCommunication() {}
  *    highest and based on completion of command writes.
  *
  * Stepping back a little bit, a sort of interprocess synchronization is required because the driver may be invoked
- * from several processes. Indeed from pybuda (python), we'd typically needs to spin up multiple processes:
+ * from several processes. We might need to spin up multiple processes:
  *   - 1 for pushing inputs
  *   - 1 for popping outputs
  *   - 1 for managing execution state

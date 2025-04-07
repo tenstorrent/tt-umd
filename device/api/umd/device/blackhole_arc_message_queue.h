@@ -58,9 +58,9 @@ public:
         TTDevice* tt_device, const size_t queue_index);
 
 private:
-    void push_request(std::array<uint32_t, BlackholeArcMessageQueue::entry_len>& request);
+    void push_request(std::array<uint32_t, BlackholeArcMessageQueue::entry_len>& request, uint32_t timeout_ms);
 
-    std::array<uint32_t, entry_len> pop_response();
+    std::array<uint32_t, entry_len> pop_response(uint32_t timeout_ms);
 
     void read_words(uint32_t* data, size_t num_words, size_t offset);
 

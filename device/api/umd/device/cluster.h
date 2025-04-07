@@ -385,7 +385,7 @@ public:
      * @param wait_for_done Block until ARC responds.
      * @param arg0 Message related argument.
      * @param arg1 Message related argument.
-     * @param timeout Timeout on ARC.
+     * @param timeout_ms Timeout in milliseconds.
      * @param return3 Return value from ARC.
      * @param return4 Return value from ARC.
      */
@@ -395,7 +395,7 @@ public:
         bool wait_for_done = true,
         uint32_t arg0 = 0,
         uint32_t arg1 = 0,
-        int timeout = 1,
+        uint32_t timeout_ms = 1000,
         uint32_t* return_3 = nullptr,
         uint32_t* return_4 = nullptr) {
         throw std::runtime_error("---- tt_device::arc_msg is not implemented\n");
@@ -662,7 +662,7 @@ public:
         bool wait_for_done = true,
         uint32_t arg0 = 0,
         uint32_t arg1 = 0,
-        int timeout = 1,
+        uint32_t timeout_ms = 1000,
         uint32_t* return_3 = nullptr,
         uint32_t* return_4 = nullptr);
     virtual tt_ClusterDescriptor* get_cluster_description();
@@ -922,7 +922,7 @@ private:
         bool wait_for_done = true,
         uint32_t arg0 = 0,
         uint32_t arg1 = 0,
-        int timeout = 1,
+        uint32_t timeout_ms = 1000,
         uint32_t* return_3 = nullptr,
         uint32_t* return_4 = nullptr);
     int remote_arc_msg(
@@ -931,7 +931,7 @@ private:
         bool wait_for_done = true,
         uint32_t arg0 = 0,
         uint32_t arg1 = 0,
-        int timeout = 1,
+        uint32_t timeout_ms = 1000,
         uint32_t* return_3 = nullptr,
         uint32_t* return_4 = nullptr);
 

@@ -29,8 +29,10 @@ TEST(ApiTLBManager, ManualTLBConfiguration) {
     }
 
     std::unique_ptr<TLBManager> tlb_manager = std::make_unique<TLBManager>(tt_device.get());
-    tt_SocDescriptor soc_desc = tt_SocDescriptor(
-        tt_SocDescriptor::get_soc_descriptor_path(tt_device->get_arch()), tt_device->get_arch() != tt::ARCH::GRAYSKULL);
+    ChipInfo chip_info = tt_device->get_chip_info();
+
+    tt_SocDescriptor soc_desc(
+        tt_device->get_arch(), chip_info.noc_translation_enabled, chip_info.harvesting_masks, chip_info.board_type);
 
     // TODO: This should be part of TTDevice interface, not Cluster or Chip.
     // Configure TLBs.

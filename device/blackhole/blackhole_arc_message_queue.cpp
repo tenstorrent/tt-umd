@@ -31,13 +31,21 @@ void BlackholeArcMessageQueue::trigger_fw_int() {
     tt_device->write_to_device((void*)&ARC_FW_INT_VAL, arc_core, ARC_FW_INT_ADDR, sizeof(uint32_t));
 }
 
-void BlackholeArcMessageQueue::push_request(std::array<uint32_t, BlackholeArcMessageQueue::entry_len>& request) {
+void BlackholeArcMessageQueue::push_request(
+    std::array<uint32_t, BlackholeArcMessageQueue::entry_len>& request, uint32_t timeout_ms) {
     uint32_t request_queue_wptr = read_word(request_wptr_offset);
 
+    auto start = std::chrono::steady_clock::now();
     while (true) {
         uint32_t request_queue_rptr = read_word(request_rptr_offset);
         if (abs((int)request_queue_rptr - (int)request_queue_wptr) % (2 * size) != size) {
             break;
+        }
+
+        auto now = std::chrono::steady_clock::now();
+        auto elapsed_ms = std::chrono::duration_cast<std::chrono::milliseconds>(now - start).count();
+        if (elapsed_ms > timeout_ms && timeout_ms != 0) {
+            throw std::runtime_error("Timeout waiting for ARC msg request queue.");
         }
     }
 
@@ -51,14 +59,21 @@ void BlackholeArcMessageQueue::push_request(std::array<uint32_t, BlackholeArcMes
     trigger_fw_int();
 }
 
-std::array<uint32_t, BlackholeArcMessageQueue::entry_len> BlackholeArcMessageQueue::pop_response() {
+std::array<uint32_t, BlackholeArcMessageQueue::entry_len> BlackholeArcMessageQueue::pop_response(uint32_t timeout_ms) {
     uint32_t response_queue_rptr = read_word(response_rptr_offset);
 
+    auto start = std::chrono::steady_clock::now();
     while (true) {
         uint32_t response_queue_wptr = read_word(response_wptr_offset);
 
         if (response_queue_rptr != response_queue_wptr) {
             break;
+        }
+
+        auto now = std::chrono::steady_clock::now();
+        auto elapsed_ms = std::chrono::duration_cast<std::chrono::milliseconds>(now - start).count();
+        if (elapsed_ms > timeout_ms && timeout_ms != 0) {
+            throw std::runtime_error("Timeout waiting for ARC msg response queue.");
         }
     }
 
@@ -79,9 +94,9 @@ uint32_t BlackholeArcMessageQueue::send_message(
 
     std::array<uint32_t, BlackholeArcMessageQueue::entry_len> request = {(uint32_t)message_type, arg, 0, 0, 0, 0, 0, 0};
 
-    push_request(request);
+    push_request(request, timeout_ms);
 
-    std::array<uint32_t, BlackholeArcMessageQueue::entry_len> response = pop_response();
+    std::array<uint32_t, BlackholeArcMessageQueue::entry_len> response = pop_response(timeout_ms);
 
     uint32_t status = response[0] & 0xFF;
 

@@ -132,6 +132,9 @@ static const std::vector<tt_xy_pair> ETH_CORES_NOC0 = {
      {10, 1}}};
 
 static const std::vector<tt_xy_pair> ETH_LOCATIONS = ETH_CORES_NOC0;
+
+static const std::vector<tt_xy_pair> L2CPU_CORES_NOC0 = {{{8, 3}, {8, 5}, {8, 7}, {8, 9}}};
+
 // Return to std::array instead of std::vector once we get std::span support in C++20
 static const std::vector<uint32_t> T6_X_LOCATIONS = {1, 2, 3, 4, 5, 6, 7, 10, 11, 12, 13, 14, 15, 16};
 static const std::vector<uint32_t> T6_Y_LOCATIONS = {2, 3, 4, 5, 6, 7, 8, 9, 10, 11};

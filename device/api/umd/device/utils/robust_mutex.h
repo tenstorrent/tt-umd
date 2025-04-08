@@ -13,6 +13,9 @@ namespace tt::umd {
 // Robust means that it survives process crashes and can be used across multiple processes.
 // It meets BasicLockable requirement, so it can be used with C++ standard library RAII lock classes like lock_guard and
 // unique_lock.
+// Note that the implementation relies on the client not deleting underlying /dev/shm files.
+// Also, if the pthread implementation changes, we can enter some weird states if one process is holding the old mutex,
+// and the new one tries to initialize it with the new pthread.
 class RobustMutex {
 public:
     RobustMutex(std::string_view mutex_name);
@@ -49,6 +52,10 @@ private:
 
     // Opens the shared memory file and creates it if it doesn't exist.
     void open_shm_file();
+
+    // Resizes the shared memory file to the size of the mutex wrapper.
+    // Returns whether the file was resized or not.
+    bool resize_shm_file();
 
     // Opens the mutex in the shared memory file.
     void open_pthread_mutex();

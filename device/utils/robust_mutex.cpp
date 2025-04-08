@@ -121,42 +121,34 @@ void RobustMutex::initialize() {
     // critical section will be released automatically.
     CriticalSectionScopeGuard critical_section(shm_fd_, &multithread_mutex_, mutex_name_);
 
-    size_t file_size = get_file_size(shm_fd_);
-    // This means the file was just created but nor file nor mutex were initialized.
-    bool should_initialize = (file_size == 0);
-
-    if (should_initialize) {
-        // File needs to be resized first time it is created.
-        if (ftruncate(shm_fd_, sizeof(pthread_mutex_wrapper)) != 0) {
-            log_fatal("ftruncate failed for mutex {} errno: {}", mutex_name_, std::to_string(errno));
-        }
-
-        // Get file size again, so that the check on the next line doesn't fail.
-        file_size = get_file_size(shm_fd_);
-    }
-
-    // Verify file size.
-    if (file_size != sizeof(pthread_mutex_wrapper)) {
-        log_fatal(
-            "File size {} is not as expected {} for mutex {}. This could be due to new pthread library version, or "
-            "some other external factor.",
-            std::to_string(file_size),
-            std::to_string(sizeof(pthread_mutex_wrapper)),
-            mutex_name_);
-    }
+    // Resize file if needed.
+    bool file_was_resized = resize_shm_file();
 
     // We now open the mutex in the shared memory file.
     open_pthread_mutex();
-    if (should_initialize) {
-        // We need to initialize the mutex here, since it is the first time it is being used.
-        initialize_pthread_mutex_first_use();
+
+    // Report warning in case:
+    //  - File was not resized, but the initialized flag is wrong.
+    //  - File was resized, but the initialized flag is correct (this is a bit unexpected, but theoretically possible).
+    if (mutex_wrapper_ptr_->initialized != INITIALIZED_FLAG && !file_was_resized) {
+        log_warning(
+            tt::LogSiliconDriver,
+            "The file was already of correct size, but the initialized flag is wrong. This could "
+            "be due to previously failed initialization, or some other external factor. Mutex name: {}",
+            mutex_name_);
+    }
+    if (mutex_wrapper_ptr_->initialized == INITIALIZED_FLAG && file_was_resized) {
+        log_warning(
+            tt::LogSiliconDriver,
+            "The file was resized, but the initialized flag is correct. This is an unexpected "
+            "case, the mutex might fail. Mutex name: {}",
+            mutex_name_);
     }
 
+    // Initialize the mutex if it wasn't properly initialized before.
     if (mutex_wrapper_ptr_->initialized != INITIALIZED_FLAG) {
-        log_fatal(
-            "Mutex {} was not initialized properly. This could happen due to underlying shared memory file corruption, "
-            "or some unexpected code issue. Try removing the file in /dev/shm and running the process again: ",
-            mutex_name_);
+        // We need to initialize the mutex here, since it is the first time it is being used.
+        initialize_pthread_mutex_first_use();
     }
 }
 
@@ -173,6 +165,44 @@ void RobustMutex::open_shm_file() {
     if (shm_fd_ == -1) {
         log_fatal("shm_open failed for mutex {} errno: {}", mutex_name_, std::to_string(errno));
     }
+}
+
+bool RobustMutex::resize_shm_file() {
+    size_t file_size = get_file_size(shm_fd_);
+    size_t target_file_size = sizeof(pthread_mutex_wrapper);
+    bool file_was_truncated = false;
+
+    // Report warning if the file size is not as expected, but continue with the initialization.
+    if (file_size != 0 && file_size != target_file_size) {
+        log_warning(
+            tt::LogSiliconDriver,
+            "File size {} is not as expected {} for mutex {}. This could be due to new pthread library version, or "
+            "some other external factor.",
+            std::to_string(file_size),
+            std::to_string(target_file_size),
+            mutex_name_);
+    }
+    // If file size is different from the needed size, we should resize it to proper size.
+    // This includes the case when file_size was just created and its size iz 0.
+    if (file_size != target_file_size) {
+        if (ftruncate(shm_fd_, target_file_size) != 0) {
+            log_fatal("ftruncate failed for mutex {} errno: {}", mutex_name_, std::to_string(errno));
+        }
+        file_was_truncated = true;
+
+        // Verify file size again. This time throw an exception.
+        file_size = get_file_size(shm_fd_);
+        if (file_size != target_file_size) {
+            log_fatal(
+                "File size {} is not as expected {} for mutex {}. This could be due to new pthread library version, or "
+                "some other external factor.",
+                std::to_string(file_size),
+                std::to_string(target_file_size),
+                mutex_name_);
+        }
+    }
+
+    return file_was_truncated;
 }
 
 void RobustMutex::open_pthread_mutex() {

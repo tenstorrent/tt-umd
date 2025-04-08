@@ -4,6 +4,8 @@
 
 #include "umd/device/wormhole_implementation.h"
 
+#include <stdexcept>
+
 #include "umd/device/cluster.h"
 #include "wormhole/eth_interface.h"
 #include "wormhole/eth_l1_address_map.h"
@@ -100,6 +102,26 @@ tt_driver_eth_interface_params wormhole_implementation::get_eth_interface_params
 
 tt_driver_noc_params wormhole_implementation::get_noc_params() const {
     return {NOC_ADDR_LOCAL_BITS, NOC_ADDR_NODE_ID_BITS};
+}
+
+// TODO: integrate noc_port for DRAM core type inside the function.
+uint64_t wormhole_implementation::get_noc_reg_base(
+    const CoreType core_type, const uint32_t noc, const uint32_t noc_port) const {
+    if (noc == 0) {
+        for (const auto& noc_pair : wormhole::NOC0_CONTROL_REG_ADDR_BASE_MAP) {
+            if (noc_pair.first == core_type) {
+                return noc_pair.second;
+            }
+        }
+    } else {
+        for (const auto& noc_pair : wormhole::NOC1_CONTROL_REG_ADDR_BASE_MAP) {
+            if (noc_pair.first == core_type) {
+                return noc_pair.second;
+            }
+        }
+    }
+
+    throw std::runtime_error("Invalid core type or NOC for getting NOC register addr base.");
 }
 
 }  // namespace tt::umd

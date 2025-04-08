@@ -96,6 +96,25 @@ tt_driver_noc_params blackhole_implementation::get_noc_params() const {
     return {NOC_ADDR_LOCAL_BITS, NOC_ADDR_NODE_ID_BITS};
 }
 
+uint64_t blackhole_implementation::get_noc_reg_base(
+    const CoreType core_type, const uint32_t noc, const uint32_t noc_port) const {
+    if (noc == 0) {
+        for (const auto& noc_pair : blackhole::NOC0_CONTROL_REG_ADDR_BASE_MAP) {
+            if (noc_pair.first == core_type) {
+                return noc_pair.second;
+            }
+        }
+    } else {
+        for (const auto& noc_pair : blackhole::NOC1_CONTROL_REG_ADDR_BASE_MAP) {
+            if (noc_pair.first == core_type) {
+                return noc_pair.second;
+            }
+        }
+    }
+
+    throw std::runtime_error("Invalid core type or NOC for getting NOC register addr base.");
+}
+
 namespace blackhole {
 std::vector<tt_xy_pair> get_pcie_cores(const BoardType board_type, const uint8_t asic_location) {
     // Default to type 1 chip.

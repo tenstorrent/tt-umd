@@ -149,11 +149,10 @@ void Cluster::construct_cluster(const uint32_t& num_host_mem_ch_per_mmio_device,
     create_device(local_chip_ids_, num_host_mem_ch_per_mmio_device, create_mock_chips);
 
     // Disable dependency to ethernet firmware for all BH devices and WH devices with all chips having MMIO (e.g. UBB
-    // Galaxy), do not disable for N150, was seeing some issues in CI
-    if (remote_chip_ids_.empty() and cluster_desc->get_board_type(*local_chip_ids_.begin()) != BoardType::N150) {
+    // Galaxy, or P300).
+    if (remote_chip_ids_.empty()) {
         use_ethernet_ordered_writes = false;
         use_ethernet_broadcast = false;
-        use_virtual_coords_for_eth_broadcast = false;
     }
 
     populate_cores();
@@ -570,7 +569,13 @@ void Cluster::check_pcie_device_initialized(int device_id) {
         uint32_t arg = bar_read_initial == 500 ? 325 : 500;
         uint32_t bar_read_again;
         uint32_t arc_msg_return = arc_msg(
-            device_id, 0xaa00 | architecture_implementation->get_arc_message_test(), true, arg, 0, 1, &bar_read_again);
+            device_id,
+            0xaa00 | architecture_implementation->get_arc_message_test(),
+            true,
+            arg,
+            0,
+            1000,
+            &bar_read_again);
         if (arc_msg_return != 0 || bar_read_again != arg + 1) {
             auto postcode = bar_read32(device_id, architecture_implementation->get_arc_reset_scratch_offset());
             throw std::runtime_error(fmt::format(
@@ -958,7 +963,7 @@ int Cluster::pcie_arc_msg(
     bool wait_for_done,
     uint32_t arg0,
     uint32_t arg1,
-    int timeout,
+    uint32_t timeout_ms,
     uint32_t* return_3,
     uint32_t* return_4) {
     std::vector<uint32_t> arc_msg_return_values;
@@ -972,7 +977,7 @@ int Cluster::pcie_arc_msg(
 
     uint32_t exit_code = get_tt_device(logical_device_id)
                              ->get_arc_messenger()
-                             ->send_message(msg_code, arc_msg_return_values, arg0, arg1, timeout);
+                             ->send_message(msg_code, arc_msg_return_values, arg0, arg1, timeout_ms);
 
     if (return_3 != nullptr) {
         *return_3 = arc_msg_return_values[0];
@@ -1071,7 +1076,7 @@ uint32_t Cluster::get_harvested_rows(int logical_device_id) {
             true,
             0,
             0,
-            1,
+            1000,
             &harv);
         log_assert(
             harvesting_msg_code != MSG_ERROR_REPLY, "Failed to read harvested rows from device {}", logical_device_id);
@@ -1098,7 +1103,7 @@ void Cluster::enable_local_ethernet_queue(const chip_id_t& device_id, int timeou
                 fmt::format("Timed out after waiting {} seconds for for DRAM to finish training", timeout));
         }
 
-        if (arc_msg(device_id, 0xaa58, true, 0xFFFF, 0xFFFF, 1, &msg_success) == MSG_ERROR_REPLY) {
+        if (arc_msg(device_id, 0xaa58, true, 0xFFFF, 0xFFFF, 1000, &msg_success) == MSG_ERROR_REPLY) {
             break;
         }
     }
@@ -2103,7 +2108,7 @@ int Cluster::remote_arc_msg(
     bool wait_for_done,
     uint32_t arg0,
     uint32_t arg1,
-    int timeout,
+    uint32_t timeout_ms,
     uint32_t* return_3,
     uint32_t* return_4) {
     constexpr uint64_t ARC_RESET_SCRATCH_ADDR = 0x880030060;
@@ -2137,15 +2142,16 @@ int Cluster::remote_arc_msg(
 
     if (wait_for_done) {
         uint32_t status = 0xbadbad;
-        auto timeout_seconds = std::chrono::seconds(timeout);
-        auto start = std::chrono::system_clock::now();
+        auto start = std::chrono::steady_clock::now();
         while (true) {
-            if (std::chrono::system_clock::now() - start > timeout_seconds) {
+            auto now = std::chrono::steady_clock::now();
+            auto elapsed_ms = std::chrono::duration_cast<std::chrono::milliseconds>(now - start).count();
+            if (elapsed_ms > timeout_ms && timeout_ms != 0) {
                 std::stringstream ss;
                 ss << std::hex << msg_code;
                 throw std::runtime_error(fmt::format(
-                    "Timed out after waiting {} seconds for device {} ARC to respond to message 0x{}",
-                    timeout,
+                    "Timed out after waiting {} ms for device {} ARC to respond to message 0x{}",
+                    timeout_ms,
                     chip,
                     ss.str()));
             }
@@ -2412,13 +2418,13 @@ int Cluster::arc_msg(
     bool wait_for_done,
     uint32_t arg0,
     uint32_t arg1,
-    int timeout,
+    uint32_t timeout_ms,
     uint32_t* return_3,
     uint32_t* return_4) {
     if (cluster_desc->is_chip_mmio_capable(logical_device_id)) {
-        return pcie_arc_msg(logical_device_id, msg_code, wait_for_done, arg0, arg1, timeout, return_3, return_4);
+        return pcie_arc_msg(logical_device_id, msg_code, wait_for_done, arg0, arg1, timeout_ms, return_3, return_4);
     } else {
-        return remote_arc_msg(logical_device_id, msg_code, wait_for_done, arg0, arg1, timeout, return_3, return_4);
+        return remote_arc_msg(logical_device_id, msg_code, wait_for_done, arg0, arg1, timeout_ms, return_3, return_4);
     }
 }
 
@@ -2700,9 +2706,25 @@ tt_xy_pair Cluster::translate_to_api_coords(const chip_id_t chip, const tt::umd:
 
 tt_xy_pair Cluster::translate_chip_coord_virtual_to_translated(const chip_id_t chip_id, const tt_xy_pair core) const {
     CoreCoord core_coord = get_soc_descriptor(chip_id).get_coord_at(core, CoordSystem::VIRTUAL);
-    auto translated_coord = get_soc_descriptor(chip_id).translate_coord_to(
-        core_coord, umd_use_noc1 ? CoordSystem::PHYSICAL : CoordSystem::TRANSLATED);
-    return translated_coord;
+    // Since NOC1 and translated coordinate space overlaps for Tensix cores on Blackhole,
+    // Tensix cores are always used in translated space. Other cores are used either in
+    // NOC1 or translated space depending on the umd_use_noc1 flag.
+    // On Wormhole Tensix can use NOC1 space if umd_use_noc1 is set to true.
+    if (get_soc_descriptor(chip_id).noc_translation_enabled) {
+        if (get_soc_descriptor(chip_id).arch == tt::ARCH::BLACKHOLE) {
+            if (core_coord.core_type == CoreType::TENSIX || !umd_use_noc1) {
+                return get_soc_descriptor(chip_id).translate_coord_to(core_coord, CoordSystem::TRANSLATED);
+            } else {
+                return get_soc_descriptor(chip_id).translate_coord_to(core_coord, CoordSystem::NOC1);
+            }
+        } else {
+            return get_soc_descriptor(chip_id).translate_coord_to(
+                core_coord, umd_use_noc1 ? CoordSystem::NOC1 : CoordSystem::TRANSLATED);
+        }
+    } else {
+        return get_soc_descriptor(chip_id).translate_coord_to(
+            core_coord, umd_use_noc1 ? CoordSystem::NOC1 : CoordSystem::TRANSLATED);
+    }
 }
 
 std::unique_ptr<tt_ClusterDescriptor> Cluster::create_cluster_descriptor(std::string sdesc_path) {

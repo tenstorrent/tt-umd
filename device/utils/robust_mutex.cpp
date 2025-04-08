@@ -108,7 +108,6 @@ RobustMutex& RobustMutex::operator=(RobustMutex&& other) noexcept {
 }
 
 void RobustMutex::initialize() {
-    int err;
     open_shm_file();
 
     // We need a critical section here in which we test if the mutex has been initialized, and if not initialize it.

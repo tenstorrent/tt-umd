@@ -1,4 +1,5 @@
 set(UMD_MISC_TESTS_SRCS
+    test_mutex.cpp
     test_semver.cpp
     test_logger.cpp
 )

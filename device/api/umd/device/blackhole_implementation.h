@@ -240,6 +240,7 @@ constexpr std::array<std::pair<CoreType, uint64_t>, 5> NOC1_CONTROL_REG_ADDR_BAS
      {CoreType::PCIE, 0xFFFFFFFFFF000000ULL},
      {CoreType::ARC, 0xFFFFFFFFFF000000ULL}}};
 static const uint64_t NOC_NODE_ID_OFFSET = 0x44;
+
 static const size_t eth_translated_coordinate_start_x = 20;
 static const size_t eth_translated_coordinate_start_y = 25;
 

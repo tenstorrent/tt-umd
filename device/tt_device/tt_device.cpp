@@ -322,12 +322,17 @@ dynamic_tlb TTDevice::set_dynamic_tlb(
     log_info(
         LogSiliconDriver,
         "set_dynamic_tlb() with tlb_index: {} tlb_index_offset: {} dynamic_tlb_size: {}MB tlb_base: 0x{:x} "
-        "tlb_cfg_reg: 0x{:x}",
+        "tlb_cfg_reg: 0x{:x} x_start: {} x_end: {} y_start: {} y_end: {} local_offset: {}",
         tlb_index,
         tlb_config.index_offset,
         tlb_config.size / (1024 * 1024),
         tlb_base,
-        tlb_cfg_reg);
+        tlb_cfg_reg,
+        start.x,
+        end.x,
+        start.y,
+        end.y,
+        tlb_address);
     write_tlb_reg(tlb_cfg_reg, tlb_data.first, tlb_data.second, TLB_CFG_REG_SIZE_BYTES);
 
     return {tlb_base + local_address, tlb_config.size - local_address};

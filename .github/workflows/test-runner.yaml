@@ -16,7 +16,15 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        machine: [ubuntu-22.04, n150, n300]
+        machine: [
+          ubuntu-22.04,
+          n150,
+          n300,
+          p150,
+          tt-beta-ubuntu-2204-large,
+          tt-beta-ubuntu-2204-small,
+          tt-beta-ubuntu-2204-n300-large-stable,
+          tt-beta-ubuntu-2204-n150-large-stable]
 
     name: Check runner
     runs-on: ${{ matrix.machine }}
@@ -41,10 +49,12 @@ jobs:
           # Print current user
           echo "Current User: $(whoami)"
 
+          # Print number of CPU cores
+          echo "Number of CPU Cores: $(nproc)"
+
           # Print CPU information
           echo "CPU Information:"
-          lscpu | grep 'Model name'
-          lscpu | grep 'Architecture'
+          lscpu
 
           # Print Memory information
           echo "Memory Information:"
@@ -64,7 +74,15 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        machine: [ubuntu-22.04, n150, n300]
+        machine: [
+          ubuntu-22.04,
+          n150,
+          n300,
+          p150,
+          tt-beta-ubuntu-2204-large,
+          tt-beta-ubuntu-2204-small,
+          tt-beta-ubuntu-2204-n300-large-stable,
+          tt-beta-ubuntu-2204-n150-large-stable]
         image: [tt-umd-ci-ubuntu-22.04]
 
     name: Check runner docker
@@ -108,10 +126,12 @@ jobs:
           # Print current user
           echo "Current User: $(whoami)"
 
+          # Print number of CPU cores
+          echo "Number of CPU Cores: $(nproc)"
+
           # Print CPU information
           echo "CPU Information:"
-          lscpu | grep 'Model name'
-          lscpu | grep 'Architecture'
+          lscpu
 
           # Print Memory information
           echo "Memory Information:"

@@ -5,8 +5,6 @@
  */
 #include "umd/device/wormhole_coordinate_manager.h"
 
-#include <iostream>
-
 using namespace tt::umd;
 
 WormholeCoordinateManager::WormholeCoordinateManager(

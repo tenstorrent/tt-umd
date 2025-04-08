@@ -2906,9 +2906,10 @@ std::string Cluster::serialize() { return Cluster::create_cluster_descriptor()->
 
 std::filesystem::path Cluster::serialize_to_file(std::filesystem::path dest_file) {
     if (dest_file.empty()) {
-        dest_file = ClusterDescriptor::get_default_cluster_descriptor_file_path();
+        dest_file = tt_ClusterDescriptor::get_default_cluster_descriptor_file_path();
     }
-    return Cluster::create_cluster_descriptor()->serialize_to_file(dest_file);
+    Cluster::create_cluster_descriptor()->serialize_to_file(dest_file);
+    return dest_file;
 }
 
 }  // namespace tt::umd

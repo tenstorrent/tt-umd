@@ -136,7 +136,7 @@ public:
 
     void serialize_to_file(std::filesystem::path dest_file) const;
 
-    static std::filesystem::path get_default_cluster_descriptor_file_path() const;
+    static std::filesystem::path get_default_cluster_descriptor_file_path();
 
     std::set<uint32_t> get_active_eth_channels(chip_id_t chip_id);
     std::set<uint32_t> get_idle_eth_channels(chip_id_t chip_id);

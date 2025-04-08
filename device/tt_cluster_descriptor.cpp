@@ -1013,11 +1013,9 @@ void tt_ClusterDescriptor::serialize_to_file(std::filesystem::path dest_file) co
     std::ofstream file(dest_file);
     file << serialize();
     file.close();
-
-    return cluster_path;
 }
 
-std::filesystem::path tt_ClusterDescriptor::get_default_cluster_descriptor_file_path() const {
+std::filesystem::path tt_ClusterDescriptor::get_default_cluster_descriptor_file_path() {
     std::filesystem::path temp_path = std::filesystem::temp_directory_path();
     std::string cluster_path_dir_template = temp_path / "umd_XXXXXX";
     std::filesystem::path cluster_path_dir = mkdtemp(cluster_path_dir_template.data());

@@ -25,6 +25,7 @@ public:
         const std::vector<tt_xy_pair>& pcie_cores,
         const std::vector<tt_xy_pair>& router_cores,
         const std::vector<tt_xy_pair>& security_cores,
+        const std::vector<tt_xy_pair>& l2cpu_cores,
         const std::vector<uint32_t>& noc0_x_to_noc1_x = {},
         const std::vector<uint32_t>& noc0_y_to_noc1_y = {});
 

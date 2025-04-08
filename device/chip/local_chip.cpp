@@ -308,6 +308,10 @@ void LocalChip::read_from_device_reg(
 
 tt_xy_pair LocalChip::translate_chip_coord_virtual_to_translated(const tt_xy_pair core) const {
     CoreCoord core_coord = soc_descriptor_.get_coord_at(core, CoordSystem::VIRTUAL);
+    // Since NOC1 and translated coordinate space overlaps for Tensix cores on Blackhole,
+    // Tensix cores are always used in translated space. Other cores are used either in
+    // NOC1 or translated space depending on the umd_use_noc1 flag.
+    // On Wormhole Tensix can use NOC1 space if umd_use_noc1 is set to true.
     if (soc_descriptor_.noc_translation_enabled) {
         if (soc_descriptor_.arch == tt::ARCH::BLACKHOLE) {
             if (core_coord.core_type == CoreType::TENSIX || !umd_use_noc1) {

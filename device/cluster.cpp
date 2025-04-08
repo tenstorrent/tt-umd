@@ -763,7 +763,7 @@ std::map<int, int> Cluster::get_clocks() {
 void Cluster::wait_for_aiclk_value(tt_DevicePowerState power_state, const uint32_t timeout_ms) {
     auto start = std::chrono::system_clock::now();
     for (auto& chip_id : local_chip_ids_) {
-        uint32_t target_aiclk;
+        uint32_t target_aiclk = 0;
         if (power_state == tt_DevicePowerState::BUSY) {
             target_aiclk = get_tt_device(chip_id)->get_max_clock_freq();
         } else if (power_state == tt_DevicePowerState::LONG_IDLE) {

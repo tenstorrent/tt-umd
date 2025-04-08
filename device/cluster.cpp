@@ -778,17 +778,23 @@ uint32_t Cluster::get_target_aiclk_value(tt::ARCH arch, tt_DevicePowerState devi
 }
 
 void Cluster::wait_for_aiclk_value(const uint32_t aiclk_val, const uint32_t timeout_ms) {
+    std::cout << "wait_for_aiclk_value " << aiclk_val << " " << timeout_ms << std::endl;
     auto start = std::chrono::system_clock::now();
     for (auto& chip_id : local_chip_ids_) {
+        std::cout << "  chip_id " << chip_id << std::endl;
         uint32_t aiclk = get_clock(chip_id);
+        std::cout << "  got aiclk " << aiclk << " for chip " << chip_id << std::endl;
         while (aiclk != aiclk_val) {
+            std::cout << "not the same" << std::endl;
             auto end = std::chrono::system_clock::now();
             auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
+            std::cout << " duration milliseconds " << duration.count() << std::endl;
             if (duration.count() > timeout_ms) {
                 throw std::runtime_error(
                     fmt::format("Waiting for AICLK value to settle failed on timeout after {}.", timeout_ms));
             }
             aiclk = get_clock(chip_id);
+            std::cout << "  got aiclk " << aiclk << " for chip " << chip_id << std::endl;
         }
     }
 }

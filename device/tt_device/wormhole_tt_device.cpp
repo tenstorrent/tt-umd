@@ -65,6 +65,13 @@ uint32_t WormholeTTDevice::get_clock() {
     return arc_msg_return_values[0];
 }
 
+uint32_t WormholeTTDevice::get_max_clock_freq() {
+    uint32_t aiclk_telemetry = telemetry->read_entry(tt::umd::wormhole::TAG_AICLK);
+    return (aiclk_telemetry >> 16) & 0xFFFF;
+}
+
+uint32_t WormholeTTDevice::get_min_clock_freq() { return tt::umd::wormhole::AICLK_IDLE_VAL; }
+
 BoardType WormholeTTDevice::get_board_type() {
     uint32_t board_id_lo = telemetry->read_entry(tt::umd::wormhole::TAG_BOARD_ID_LOW);
     uint32_t board_id_hi = telemetry->read_entry(tt::umd::wormhole::TAG_BOARD_ID_HIGH);

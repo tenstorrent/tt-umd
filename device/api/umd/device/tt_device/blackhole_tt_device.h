@@ -25,6 +25,10 @@ public:
 
     uint32_t get_clock() override;
 
+    uint32_t get_max_clock_freq() override;
+
+    uint32_t get_min_clock_freq() override;
+
     BoardType get_board_type() override;
 
 private:

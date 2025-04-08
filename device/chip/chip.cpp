@@ -49,7 +49,10 @@ void Chip::set_barrier_address_params(const barrier_address_params& barrier_addr
 
 const ChipInfo& Chip::get_chip_info() { return chip_info_; }
 
-void Chip::wait_chip_to_be_ready() { wait_eth_cores_training(); }
+void Chip::wait_chip_to_be_ready() {
+    wait_eth_cores_training();
+    wait_dram_cores_training();
+}
 
 void Chip::wait_eth_cores_training(const uint32_t timeout_ms) {}
 
@@ -86,6 +89,36 @@ void Chip::read_from_device(
     throw std::runtime_error("Chip::read_from_device is not available for this chip.");
 }
 
+void Chip::write_to_device_reg(
+    tt_xy_pair core, const void* src, uint64_t reg_dest, uint32_t size, const std::string& fallback_tlb) {
+    throw std::runtime_error("Chip::write_to_device_reg is not available for this chip.");
+}
+
+void Chip::read_from_device_reg(
+    tt_xy_pair core, void* dest, uint64_t reg_src, uint32_t size, const std::string& fallback_tlb) {
+    throw std::runtime_error("Chip::read_from_device_reg is not available for this chip.");
+}
+
+void Chip::set_remote_transfer_ethernet_cores(const std::unordered_set<CoreCoord>& cores) {
+    throw std::runtime_error("Chip::set_remote_transfer_ethernet_cores is not available for this chip.");
+}
+
+tt_xy_pair Chip::get_remote_transfer_ethernet_core() {
+    throw std::runtime_error("Chip::get_remote_transfer_ethernet_core is not available for this chip.");
+}
+
+void Chip::update_active_eth_core_idx() {
+    throw std::runtime_error("Chip::update_active_eth_core_idx is not available for this chip.");
+}
+
+int Chip::get_active_eth_core_idx() {
+    throw std::runtime_error("Chip::active_eth_core_idx is not available for this chip.");
+}
+
+std::vector<CoreCoord> Chip::get_remote_transfer_ethernet_cores() {
+    throw std::runtime_error("Chip::get_remote_transfer_ethernet_cores is not available for this chip.");
+}
+
 std::unique_lock<boost::interprocess::named_mutex> Chip::get_mutex(std::string mutex_name, int pci_device_id) {
     throw std::runtime_error("LockManager::get_mutex is not available for this chip.");
 }
@@ -93,4 +126,7 @@ std::unique_lock<boost::interprocess::named_mutex> Chip::get_mutex(std::string m
 std::unique_lock<boost::interprocess::named_mutex> Chip::get_mutex(MutexType mutex_type, int pci_device_id) {
     throw std::runtime_error("LockManager::get_mutex is not available for this chip.");
 }
+
+void Chip::wait_dram_cores_training(const uint32_t timeout_ms) {}
+
 }  // namespace tt::umd

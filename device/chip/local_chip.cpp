@@ -7,11 +7,38 @@
 #include "umd/device/chip/local_chip.h"
 
 #include "logger.hpp"
+#include "umd/device/blackhole_implementation.h"
 #include "umd/device/chip_helpers/tlb_manager.h"
 #include "umd/device/tt_device/tt_device.h"
 #include "umd/device/types/blackhole_eth.h"
 
 extern bool umd_use_noc1;
+
+struct tt_4_byte_aligned_buffer {
+    // Stores a 4 byte aligned buffer
+    // If the input buffer is already 4 byte aligned, this is a nop
+    std::uint32_t* local_storage = nullptr;
+    std::uint32_t input_size = 0;
+    std::uint32_t block_size = 0;
+
+    tt_4_byte_aligned_buffer(const void* mem_ptr, uint32_t size_in_bytes) {
+        input_size = size_in_bytes;
+        local_storage = (uint32_t*)mem_ptr;
+        uint32_t alignment_mask = sizeof(uint32_t) - 1;
+        uint32_t aligned_size = (size_in_bytes + alignment_mask) & ~alignment_mask;
+
+        if (size_in_bytes < aligned_size) {
+            local_storage = new uint32_t[aligned_size / sizeof(uint32_t)];
+        }
+        block_size = aligned_size;
+    }
+
+    ~tt_4_byte_aligned_buffer() {
+        if (block_size > input_size) {
+            delete[] local_storage;
+        }
+    }
+};
 
 namespace tt::umd {
 
@@ -62,6 +89,14 @@ void LocalChip::initialize_local_chip(int num_host_mem_channels, const bool clea
     }
     wait_chip_to_be_ready();
     initialize_default_chip_mutexes(clear_mutex);
+
+    if (tt_device_->get_arch() == tt::ARCH::WORMHOLE_B0) {
+        std::unordered_set<CoreCoord> remote_transfer_cores;
+        for (auto eth_core : soc_descriptor_.get_cores(CoreType::ETH, CoordSystem::VIRTUAL)) {
+            remote_transfer_cores.insert(eth_core);
+        }
+        set_remote_transfer_ethernet_cores(remote_transfer_cores);
+    }
 }
 
 void LocalChip::initialize_tlb_manager() {
@@ -83,17 +118,17 @@ void LocalChip::initialize_default_chip_mutexes(const bool clear_mutex) {
     int pci_device_id = tt_device_->get_pci_device()->get_device_num();
     // Initialize Dynamic TLB mutexes
     for (auto& tlb : tlb_manager_->dynamic_tlb_config_) {
-        lock_manager.initialize_mutex(tlb.first, pci_device_id, clear_mutex);
+        lock_manager_.initialize_mutex(tlb.first, pci_device_id, clear_mutex);
     }
 
     // Initialize non-MMIO mutexes for WH devices regardless of number of chips, since these may be used for
     // ethernet broadcast
     if (tt_device_->get_arch() == tt::ARCH::WORMHOLE_B0) {
-        lock_manager.initialize_mutex(MutexType::NON_MMIO, pci_device_id, clear_mutex);
+        lock_manager_.initialize_mutex(MutexType::NON_MMIO, pci_device_id, clear_mutex);
     }
 
     // Initialize interprocess mutexes to make host -> device memory barriers atomic
-    lock_manager.initialize_mutex(MutexType::MEM_BARRIER, pci_device_id, clear_mutex);
+    lock_manager_.initialize_mutex(MutexType::MEM_BARRIER, pci_device_id, clear_mutex);
 }
 
 TTDevice* LocalChip::get_tt_device() { return tt_device_.get(); }
@@ -236,18 +271,156 @@ void LocalChip::read_from_device(
     }
 }
 
-tt_xy_pair LocalChip::translate_chip_coord_virtual_to_translated(const tt_xy_pair core) const {
-    CoreCoord core_coord = soc_descriptor_.get_coord_at(core, CoordSystem::VIRTUAL);
-    auto translated_coord =
-        soc_descriptor_.translate_coord_to(core_coord, umd_use_noc1 ? CoordSystem::PHYSICAL : CoordSystem::TRANSLATED);
-    return translated_coord;
+void LocalChip::write_to_device_reg(
+    tt_xy_pair core, const void* src, uint64_t reg_dest, uint32_t size, const std::string& fallback_tlb) {
+    const auto tlb_index = tlb_manager_->dynamic_tlb_config_.at(fallback_tlb);
+    auto lock = lock_manager_.get_mutex(fallback_tlb, tt_device_->get_pci_device()->get_device_num());
+    log_debug(LogSiliconDriver, "  dynamic tlb_index: {}", tlb_index);
+
+    auto [mapped_address, tlb_size] = tt_device_->set_dynamic_tlb(
+        tlb_index, translate_chip_coord_virtual_to_translated(core), reg_dest, tt::umd::tlb_data::Strict);
+    // Align block to 4bytes if needed.
+    auto aligned_buf = tt_4_byte_aligned_buffer(src, size);
+    if (aligned_buf.input_size != aligned_buf.block_size) {
+        // Copy value from main buffer to aligned buffer
+        std::memcpy(aligned_buf.local_storage, src, size);
+    }
+    tt_device_->write_regs(mapped_address, aligned_buf.block_size / sizeof(uint32_t), aligned_buf.local_storage);
 }
 
+void LocalChip::read_from_device_reg(
+    tt_xy_pair core, void* dest, uint64_t reg_src, uint32_t size, const std::string& fallback_tlb) {
+    const auto tlb_index = tlb_manager_->dynamic_tlb_config_.at(fallback_tlb);
+    auto lock = lock_manager_.get_mutex(fallback_tlb, tt_device_->get_pci_device()->get_device_num());
+    log_debug(LogSiliconDriver, "  dynamic tlb_index: {}", tlb_index);
+
+    auto [mapped_address, tlb_size] = tt_device_->set_dynamic_tlb(
+        tlb_index, translate_chip_coord_virtual_to_translated(core), reg_src, tt::umd::tlb_data::Strict);
+    // Align block to 4bytes if needed.
+    auto aligned_buf = tt_4_byte_aligned_buffer(dest, size);
+    tt_device_->read_regs(mapped_address, aligned_buf.block_size / sizeof(std::uint32_t), aligned_buf.local_storage);
+
+    if (aligned_buf.input_size != aligned_buf.block_size) {
+        // Copy value from aligned buffer to main buffer.
+        std::memcpy(dest, aligned_buf.local_storage, size);
+    }
+}
+
+tt_xy_pair LocalChip::translate_chip_coord_virtual_to_translated(const tt_xy_pair core) const {
+    CoreCoord core_coord = soc_descriptor_.get_coord_at(core, CoordSystem::VIRTUAL);
+    // Since NOC1 and translated coordinate space overlaps for Tensix cores on Blackhole,
+    // Tensix cores are always used in translated space. Other cores are used either in
+    // NOC1 or translated space depending on the umd_use_noc1 flag.
+    // On Wormhole Tensix can use NOC1 space if umd_use_noc1 is set to true.
+    if (soc_descriptor_.noc_translation_enabled) {
+        if (soc_descriptor_.arch == tt::ARCH::BLACKHOLE) {
+            if (core_coord.core_type == CoreType::TENSIX || !umd_use_noc1) {
+                return soc_descriptor_.translate_coord_to(core_coord, CoordSystem::TRANSLATED);
+            } else {
+                return soc_descriptor_.translate_coord_to(core_coord, CoordSystem::NOC1);
+            }
+        } else {
+            return soc_descriptor_.translate_coord_to(
+                core_coord, umd_use_noc1 ? CoordSystem::NOC1 : CoordSystem::TRANSLATED);
+        }
+    } else {
+        return soc_descriptor_.translate_coord_to(
+            core_coord, umd_use_noc1 ? CoordSystem::NOC1 : CoordSystem::TRANSLATED);
+    }
+}
+
+void LocalChip::set_remote_transfer_ethernet_cores(const std::unordered_set<CoreCoord>& active_eth_cores_per_chip) {
+    // Makes UMD aware of which ethernet cores have active links.
+    // Based on this information, UMD determines which ethernet cores can be used for host->cluster non-MMIO transfers.
+    // This overrides the default ethernet cores tagged for host to cluster routing in the constructor and must be
+    // called for all MMIO devices, if default behaviour is not desired.
+    log_assert(soc_descriptor_.arch == tt::ARCH::WORMHOLE_B0, "{} can only be called for Wormhole arch", __FUNCTION__);
+    // Cores 0, 1, 6, 7 are only available if in the active set
+    static std::unordered_set<tt_xy_pair> eth_cores_available_if_active = {
+        soc_descriptor_.get_eth_core_for_channel(0, CoordSystem::VIRTUAL),
+        soc_descriptor_.get_eth_core_for_channel(1, CoordSystem::VIRTUAL),
+        soc_descriptor_.get_eth_core_for_channel(6, CoordSystem::VIRTUAL),
+        soc_descriptor_.get_eth_core_for_channel(7, CoordSystem::VIRTUAL)};
+    // Eth cores 8 and 9 are always available
+    remote_transfer_eth_cores_ = {
+        soc_descriptor_.get_eth_core_for_channel(8, CoordSystem::VIRTUAL),
+        soc_descriptor_.get_eth_core_for_channel(9, CoordSystem::VIRTUAL)};
+    for (const auto& active_eth_core : active_eth_cores_per_chip) {
+        auto virtual_coord = soc_descriptor_.translate_coord_to(active_eth_core, CoordSystem::VIRTUAL);
+        if (eth_cores_available_if_active.find(active_eth_core) != eth_cores_available_if_active.end()) {
+            remote_transfer_eth_cores_.push_back(active_eth_core);
+        }
+    }
+}
+
+tt_xy_pair LocalChip::get_remote_transfer_ethernet_core() {
+    return {remote_transfer_eth_cores_[active_eth_core_idx].x, remote_transfer_eth_cores_[active_eth_core_idx].y};
+}
+
+void LocalChip::update_active_eth_core_idx() {
+    active_eth_core_idx++;
+    uint32_t update_mask_for_chip = remote_transfer_eth_cores_.size() - 1;
+    active_eth_core_idx = active_eth_core_idx & update_mask_for_chip;
+}
+
+int LocalChip::get_active_eth_core_idx() { return active_eth_core_idx; }
+
+std::vector<CoreCoord> LocalChip::get_remote_transfer_ethernet_cores() { return remote_transfer_eth_cores_; }
+
 std::unique_lock<boost::interprocess::named_mutex> LocalChip::get_mutex(std::string mutex_name, int pci_device_id) {
-    return lock_manager.get_mutex(mutex_name, pci_device_id);
+    return lock_manager_.get_mutex(mutex_name, pci_device_id);
 }
 
 std::unique_lock<boost::interprocess::named_mutex> LocalChip::get_mutex(MutexType mutex_type, int pci_device_id) {
-    return lock_manager.get_mutex(mutex_type, pci_device_id);
+    return lock_manager_.get_mutex(mutex_type, pci_device_id);
 }
+
+void LocalChip::wait_dram_cores_training(const uint32_t timeout_ms) {
+    if (get_tt_device()->get_arch() == tt::ARCH::BLACKHOLE) {
+        return;
+    }
+
+    TTDevice* tt_device = get_tt_device();
+
+    auto start = std::chrono::system_clock::now();
+    while (true) {
+        std::vector<DramTrainingStatus> dram_training_status = tt_device->get_dram_training_status();
+
+        if (dram_training_status.empty()) {
+            // DRAM training status is not available, breaking the wait for DRAM training.
+            break;
+        }
+
+        bool all_dram_channels_trained = true;
+        const uint32_t chip_num_dram_channels =
+            std::min(dram_training_status.size(), get_soc_descriptor().get_dram_cores().size());
+        const uint32_t dram_harvesting_mask = get_soc_descriptor().harvesting_masks.dram_harvesting_mask;
+        for (uint32_t dram_channel = 0; dram_channel < chip_num_dram_channels; dram_channel++) {
+            // Skip the check for harvested channels.
+            if (dram_harvesting_mask & (1 << dram_channel)) {
+                continue;
+            }
+
+            // Check if there is an error in training for the channel.
+            if (dram_training_status[dram_channel] == DramTrainingStatus::FAIL) {
+                throw std::runtime_error("DRAM training failed");
+            }
+
+            // Verify whether the channel is trained.
+            all_dram_channels_trained &= (dram_training_status[dram_channel] == DramTrainingStatus::SUCCESS);
+        }
+
+        if (all_dram_channels_trained) {
+            break;
+        }
+
+        auto end = std::chrono::system_clock::now();
+        auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
+        if (duration.count() > timeout_ms) {
+            throw std::runtime_error(fmt::format("DRAM training timed out after {} ms", timeout_ms));
+            break;
+        }
+    }
+}
+
 }  // namespace tt::umd

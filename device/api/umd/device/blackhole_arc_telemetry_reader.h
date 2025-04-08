@@ -12,8 +12,6 @@ extern bool umd_use_noc1;
 
 namespace tt::umd {
 
-namespace blackhole {
-
 class BlackholeArcTelemetryReader : public ArcTelemetryReader {
 public:
     BlackholeArcTelemetryReader(TTDevice* tt_device);
@@ -52,7 +50,5 @@ private:
                             tt::umd::blackhole::NOC0_X_TO_NOC1_X[tt::umd::blackhole::ARC_CORES_NOC0[0].x],
                             tt::umd::blackhole::NOC0_Y_TO_NOC1_Y[tt::umd::blackhole::ARC_CORES_NOC0[0].y]);
 };
-
-}  // namespace blackhole
 
 }  // namespace tt::umd

@@ -134,7 +134,8 @@ static const std::vector<tt_xy_pair> ETH_CORES_NOC0 = {
 static const std::vector<tt_xy_pair> ETH_LOCATIONS = ETH_CORES_NOC0;
 
 static const std::vector<tt_xy_pair> SECURITY_CORES_NOC0 = {{8, 2}};
-static const std::vector<tt_xy_pair> L2CPU_CORES_NOC0 = {{{8, 3}, {8, 5}, {8, 7}, {8, 9}}};
+// We are using P0 on the NOC for all L2CPU cores.
+static const std::vector<tt_xy_pair> L2CPU_CORES_NOC0 = {{{8, 10}, {8, 4}, {8, 8}, {8, 6}}};
 
 // Return to std::array instead of std::vector once we get std::span support in C++20
 static const std::vector<uint32_t> T6_X_LOCATIONS = {1, 2, 3, 4, 5, 6, 7, 10, 11, 12, 13, 14, 15, 16};
@@ -231,20 +232,23 @@ static constexpr uint32_t TENSIX_L1_SIZE = 1499136;
 static constexpr uint32_t ETH_L1_SIZE = 262144;
 static constexpr uint64_t DRAM_BANK_SIZE = 4294967296;
 
-constexpr std::array<std::pair<CoreType, uint64_t>, 6> NOC0_CONTROL_REG_ADDR_BASE_MAP = {
+constexpr std::array<std::pair<CoreType, uint64_t>, 7> NOC0_CONTROL_REG_ADDR_BASE_MAP = {
     {{CoreType::TENSIX, 0xFFB20000},
      {CoreType::ETH, 0xFFB20000},
      {CoreType::DRAM, 0xFFB20000},
      {CoreType::PCIE, 0xFFFFFFFFFF000000ULL},
      {CoreType::ARC, 0xFFFFFFFFFF000000ULL},
-     {CoreType::SECURITY, 0xFFFFFFFFFF000000ULL}}};
-constexpr std::array<std::pair<CoreType, uint64_t>, 6> NOC1_CONTROL_REG_ADDR_BASE_MAP = {
+     {CoreType::SECURITY, 0xFFFFFFFFFF000000ULL},
+     {CoreType::L2CPU, 0xFF000000ULL}}};
+constexpr std::array<std::pair<CoreType, uint64_t>, 7> NOC1_CONTROL_REG_ADDR_BASE_MAP = {
     {{CoreType::TENSIX, 0xFFB30000},
      {CoreType::ETH, 0xFFB30000},
      {CoreType::DRAM, 0xFFB30000},
      {CoreType::PCIE, 0xFFFFFFFFFF000000ULL},
      {CoreType::ARC, 0xFFFFFFFFFF000000ULL},
-     {CoreType::SECURITY, 0xFFFFFFFFFF000000ULL}}};
+     {CoreType::SECURITY, 0xFFFFFFFFFF000000ULL},
+     {CoreType::L2CPU, 0xFF000000ULL}}};
+
 static const uint64_t NOC_NODE_ID_OFFSET = 0x44;
 
 static const size_t eth_translated_coordinate_start_x = 20;

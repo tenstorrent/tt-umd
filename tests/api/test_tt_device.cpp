@@ -27,7 +27,7 @@ TEST(ApiTTDeviceTest, BasicTTDeviceIO) {
         tt_SocDescriptor soc_desc(
             tt_device->get_arch(), chip_info.noc_translation_enabled, chip_info.harvesting_masks, chip_info.board_type);
 
-        tt_xy_pair tensix_core = soc_desc.get_cores(CoreType::TENSIX)[0];
+        tt_xy_pair tensix_core = soc_desc.get_cores(CoreType::TENSIX, CoordSystem::TRANSLATED)[0];
 
         tt_device->write_to_device(data_write.data(), tensix_core, address, data_write.size() * sizeof(uint32_t));
 
@@ -70,7 +70,7 @@ TEST(ApiTTDeviceTest, TTDeviceMultipleThreadsIO) {
         tt_SocDescriptor soc_desc(
             tt_device->get_arch(), chip_info.noc_translation_enabled, chip_info.harvesting_masks, chip_info.board_type);
 
-        tt_xy_pair tensix_core = soc_desc.get_cores(CoreType::TENSIX)[0];
+        tt_xy_pair tensix_core = soc_desc.get_cores(CoreType::TENSIX, CoordSystem::TRANSLATED)[0];
 
         std::thread thread0([&]() {
             std::vector<uint32_t> data_read(data_write.size(), 0);

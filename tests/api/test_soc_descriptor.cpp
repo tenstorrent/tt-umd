@@ -561,3 +561,37 @@ TEST(SocDescriptor, AllSocDescriptors) {
         tt_SocDescriptor soc_desc(test_utils::GetAbsPath("tests/soc_descs/" + soc_desc_yaml), true);
     }
 }
+
+TEST(SocDescriptor, SocDescriptorWormholeNoSecurityCores) {
+    HarvestingMasks harvesting_masks;
+
+    tt_SocDescriptor soc_desc_yaml(
+        test_utils::GetAbsPath("tests/soc_descs/wormhole_b0_8x10.yaml"), true, harvesting_masks);
+
+    EXPECT_EQ(soc_desc_yaml.get_cores(CoreType::SECURITY).size(), 0);
+
+    tt_SocDescriptor soc_desc_arch(tt::ARCH::WORMHOLE_B0, true, harvesting_masks);
+
+    EXPECT_EQ(soc_desc_arch.get_cores(CoreType::SECURITY).size(), 0);
+}
+
+TEST(SocDescriptor, SocDescriptorBlackholeSecurity) {
+    HarvestingMasks harvesting_masks;
+
+    tt_SocDescriptor soc_desc_yaml(
+        test_utils::GetAbsPath("tests/soc_descs/wormhole_b0_8x10.yaml"), true, harvesting_masks);
+
+    std::vector<CoreCoord> security_cores = soc_desc_yaml.get_cores(CoreType::SECURITY);
+    for (size_t index = 0; index < security_cores.size(); index++) {
+        EXPECT_EQ(security_cores[index].x, tt::umd::blackhole::SECURITY_CORES_NOC0[index].x);
+        EXPECT_EQ(security_cores[index].y, tt::umd::blackhole::SECURITY_CORES_NOC0[index].y);
+    }
+
+    tt_SocDescriptor soc_desc_arch(tt::ARCH::WORMHOLE_B0, true, harvesting_masks);
+
+    security_cores = soc_desc_arch.get_cores(CoreType::SECURITY);
+    for (size_t index = 0; index < security_cores.size(); index++) {
+        EXPECT_EQ(security_cores[index].x, tt::umd::blackhole::SECURITY_CORES_NOC0[index].x);
+        EXPECT_EQ(security_cores[index].y, tt::umd::blackhole::SECURITY_CORES_NOC0[index].y);
+    }
+}

@@ -172,6 +172,8 @@ static const std::vector<tt_xy_pair> PCI_LOCATIONS = PCIE_CORES_NOC0;
 
 static const std::vector<tt_xy_pair> ROUTER_CORES_NOC0 = {{0, 2}, {0, 4}, {0, 8}, {0, 9}};
 
+static const std::vector<tt_xy_pair> SECURITY_CORES_NOC0 = {};
+
 // Return to std::array instead of std::vector once we get std::span support in C++20
 static const std::vector<uint32_t> T6_X_LOCATIONS = {1, 2, 3, 4, 6, 7, 8, 9};
 static const std::vector<uint32_t> T6_Y_LOCATIONS = {1, 2, 3, 4, 5, 7, 8, 9, 10, 11};

@@ -2435,7 +2435,7 @@ void Cluster::send_remote_tensix_risc_reset_to_core(
 int Cluster::set_remote_power_state(const chip_id_t& chip, tt_DevicePowerState device_state) {
     auto mmio_capable_chip_logical = cluster_desc->get_closest_mmio_capable_chip(chip);
     return remote_arc_msg(
-        chip, get_power_state_arc_msg(mmio_capable_chip_logical, device_state), true, 0, 0, 1, NULL, NULL);
+        chip, get_power_state_arc_msg(mmio_capable_chip_logical, device_state), true, 0, 0, 1000, NULL, NULL);
 }
 
 void Cluster::enable_remote_ethernet_queue(const chip_id_t& chip, int timeout) {
@@ -2447,7 +2447,7 @@ void Cluster::enable_remote_ethernet_queue(const chip_id_t& chip, int timeout) {
             throw std::runtime_error(
                 fmt::format("Timed out after waiting {} seconds for DRAM to finish training", timeout));
         }
-        int msg_rt = remote_arc_msg(chip, 0xaa58, true, 0xFFFF, 0xFFFF, 1, &msg_success, NULL);
+        int msg_rt = remote_arc_msg(chip, 0xaa58, true, 0xFFFF, 0xFFFF, 1000, &msg_success, NULL);
         if (msg_rt == MSG_ERROR_REPLY) {
             break;
         }
@@ -2555,7 +2555,7 @@ void Cluster::deassert_resets_and_set_power_state() {
                         true,
                         0x0,
                         0x0,
-                        1,
+                        1000,
                         NULL,
                         NULL);
                 }

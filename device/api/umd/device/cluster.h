@@ -871,8 +871,7 @@ private:
     uint32_t get_harvested_noc_rows(uint32_t harvesting_mask);
     uint32_t get_harvested_rows(int logical_device_id);
     int get_clock(int logical_device_id);
-    void wait_for_aiclk_value(const uint32_t aiclk_val, const uint32_t timeout_ms = 5000);
-    static uint32_t get_target_aiclk_value(tt::ARCH arch, tt_DevicePowerState device_state);
+    void wait_for_aiclk_value(tt_DevicePowerState power_state, const uint32_t timeout_ms = 5000);
 
     // Communication Functions
     void write_device_memory(

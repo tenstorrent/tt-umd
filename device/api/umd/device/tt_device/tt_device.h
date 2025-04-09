@@ -143,6 +143,10 @@ public:
 
     virtual uint32_t get_clock();
 
+    virtual uint32_t get_max_clock_freq();
+
+    virtual uint32_t get_min_clock_freq();
+
     virtual BoardType get_board_type() = 0;
 
     // TODO: find a way to expose this in a better way, probably through getting telemetry reader and reading the

@@ -8,6 +8,7 @@
 
 #include <unordered_set>
 
+#include "umd/device/lock_manager.h"
 #include "umd/device/tt_soc_descriptor.h"
 #include "umd/device/types/cluster_descriptor_types.h"
 #include "umd/device/types/cluster_types.h"
@@ -57,13 +58,6 @@ public:
     // TODO: To be removed once all usages are moved inside local chip.
     virtual std::unique_lock<RobustMutex> acquire_mutex(std::string mutex_name, int pci_device_id);
     virtual std::unique_lock<RobustMutex> acquire_mutex(MutexType mutex_type, int pci_device_id);
-
-    virtual void set_remote_transfer_ethernet_cores(const std::unordered_set<CoreCoord>& cores);
-    // TODO: To be removed once all the usages are moved inside the class.
-    virtual tt_xy_pair get_remote_transfer_ethernet_core();
-    virtual void update_active_eth_core_idx();
-    virtual int get_active_eth_core_idx();
-    virtual std::vector<CoreCoord> get_remote_transfer_ethernet_cores();
 
     // TODO: This should be private, once enough stuff is moved inside chip.
     // Probably also moved to LocalChip.

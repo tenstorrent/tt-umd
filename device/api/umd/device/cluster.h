@@ -381,7 +381,7 @@ public:
      * @param wait_for_done Block until ARC responds.
      * @param arg0 Message related argument.
      * @param arg1 Message related argument.
-     * @param timeout Timeout on ARC.
+     * @param timeout_ms Timeout in milliseconds.
      * @param return3 Return value from ARC.
      * @param return4 Return value from ARC.
      */
@@ -391,7 +391,7 @@ public:
         bool wait_for_done = true,
         uint32_t arg0 = 0,
         uint32_t arg1 = 0,
-        int timeout = 1,
+        uint32_t timeout_ms = 1000,
         uint32_t* return_3 = nullptr,
         uint32_t* return_4 = nullptr) {
         throw std::runtime_error("---- tt_device::arc_msg is not implemented\n");
@@ -658,7 +658,7 @@ public:
         bool wait_for_done = true,
         uint32_t arg0 = 0,
         uint32_t arg1 = 0,
-        int timeout = 1,
+        uint32_t timeout_ms = 1000,
         uint32_t* return_3 = nullptr,
         uint32_t* return_4 = nullptr);
     virtual tt_ClusterDescriptor* get_cluster_description();
@@ -867,8 +867,7 @@ private:
     uint32_t get_harvested_noc_rows(uint32_t harvesting_mask);
     uint32_t get_harvested_rows(int logical_device_id);
     int get_clock(int logical_device_id);
-    void wait_for_aiclk_value(const uint32_t aiclk_val, const uint32_t timeout_ms = 5000);
-    static uint32_t get_target_aiclk_value(tt::ARCH arch, tt_DevicePowerState device_state);
+    void wait_for_aiclk_value(tt_DevicePowerState power_state, const uint32_t timeout_ms = 5000);
 
     // Communication Functions
     void write_device_memory(
@@ -918,7 +917,7 @@ private:
         bool wait_for_done = true,
         uint32_t arg0 = 0,
         uint32_t arg1 = 0,
-        int timeout = 1,
+        uint32_t timeout_ms = 1000,
         uint32_t* return_3 = nullptr,
         uint32_t* return_4 = nullptr);
     int remote_arc_msg(
@@ -927,7 +926,7 @@ private:
         bool wait_for_done = true,
         uint32_t arg0 = 0,
         uint32_t arg1 = 0,
-        int timeout = 1,
+        uint32_t timeout_ms = 1000,
         uint32_t* return_3 = nullptr,
         uint32_t* return_4 = nullptr);
 
@@ -1016,7 +1015,23 @@ private:
 
     std::shared_ptr<tt_ClusterDescriptor> cluster_desc;
 
+    // remote eth transfer setup
+    static constexpr std::uint32_t NUM_ETH_CORES_FOR_NON_MMIO_TRANSFERS = 6;
+    static constexpr std::uint32_t NON_EPOCH_ETH_CORES_FOR_NON_MMIO_TRANSFERS = 4;
+    static constexpr std::uint32_t NON_EPOCH_ETH_CORES_START_ID = 0;
+    static constexpr std::uint32_t NON_EPOCH_ETH_CORES_MASK = (NON_EPOCH_ETH_CORES_FOR_NON_MMIO_TRANSFERS - 1);
+
+    static constexpr std::uint32_t EPOCH_ETH_CORES_FOR_NON_MMIO_TRANSFERS =
+        NUM_ETH_CORES_FOR_NON_MMIO_TRANSFERS - NON_EPOCH_ETH_CORES_FOR_NON_MMIO_TRANSFERS;
+    static constexpr std::uint32_t EPOCH_ETH_CORES_START_ID =
+        NON_EPOCH_ETH_CORES_START_ID + NON_EPOCH_ETH_CORES_FOR_NON_MMIO_TRANSFERS;
+    static constexpr std::uint32_t EPOCH_ETH_CORES_MASK = (EPOCH_ETH_CORES_FOR_NON_MMIO_TRANSFERS - 1);
+
+    int active_core = NON_EPOCH_ETH_CORES_START_ID;
+    std::vector<std::vector<tt_cxy_pair>> remote_transfer_ethernet_cores;
     std::unordered_map<chip_id_t, bool> flush_non_mmio_per_chip = {};
+    bool non_mmio_transfer_cores_customized = false;
+    std::unordered_map<chip_id_t, int> active_eth_core_idx_per_chip = {};
     std::unordered_map<chip_id_t, std::unordered_set<tt_xy_pair>> workers_per_chip = {};
     std::unordered_set<tt_xy_pair> eth_cores = {};
     std::unordered_set<tt_xy_pair> dram_cores = {};

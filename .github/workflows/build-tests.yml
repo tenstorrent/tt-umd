@@ -5,7 +5,7 @@ name: Build Target
 on:
   workflow_call:
     inputs:
-      ubuntu-version:
+      ubuntu-docker-version:
         required: true
         type: string
       timeout:
@@ -17,7 +17,7 @@ on:
         default: Release
   workflow_dispatch:
     inputs:
-      ubuntu-version:
+      ubuntu-docker-version:
         required: true
         description: 'The version of Ubuntu to build on'
         type: choice
@@ -44,10 +44,10 @@ jobs:
     # Due to parsing bug, fromJSON is used to convert string to number
     timeout-minutes: ${{ fromJSON(inputs.timeout) }}
 
-    name: Build umd_tests on ${{ inputs.ubuntu-version }}
-    runs-on: ${{ inputs.ubuntu-version }}
+    name: Build umd_tests on ${{ inputs.ubuntu-docker-version }}
+    runs-on: ubuntu-22.04
     container:
-      image: ghcr.io/${{ github.repository }}/tt-umd-ci-${{ inputs.ubuntu-version }}:latest
+      image: ghcr.io/${{ github.repository }}/tt-umd-ci-${{ inputs.ubuntu-docker-version }}:latest
       options: --user root
 
     steps:
@@ -77,5 +77,5 @@ jobs:
       - name: Upload build artifacts archive
         uses: actions/upload-artifact@v4
         with:
-          name: build-artifacts-${{ inputs.ubuntu-version }}
+          name: build-artifacts-${{ inputs.ubuntu-docker-version }}
           path: artifact.tar

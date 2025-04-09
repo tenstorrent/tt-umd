@@ -7,7 +7,7 @@ on:
       arch:
         required: true
         type: string
-      ubuntu-version:
+      ubuntu-docker-version:
         required: true
         type: string
       card:
@@ -27,11 +27,11 @@ jobs:
     # Due to parsing bug, fromJSON is used to convert string to number
     timeout-minutes: ${{ fromJSON(inputs.timeout) }}
 
-    name: Run tests for ${{ inputs.arch }} on ${{ inputs.card }} on ${{ inputs.ubuntu-version }}
+    name: Run tests for ${{ inputs.arch }} on ${{ inputs.card }} on ${{ inputs.ubuntu-docker-version }}
     runs-on:
       - ${{ inputs.card }}
     container:
-      image: ghcr.io/${{ github.repository }}/tt-umd-ci-${{ inputs.ubuntu-version }}:latest
+      image: ghcr.io/${{ github.repository }}/tt-umd-ci-${{ inputs.ubuntu-docker-version }}:latest
       options: --user root ${{ inputs.arch != 'baremetal' && '--device /dev/tenstorrent/0' || '' }}
       volumes:
         - /dev/hugepages:/dev/hugepages
@@ -53,7 +53,7 @@ jobs:
       - name: Use build artifacts
         uses: actions/download-artifact@v4
         with:
-          name: build-artifacts-${{ inputs.ubuntu-version }}
+          name: build-artifacts-${{ inputs.ubuntu-docker-version }}
           path: ./
 
       # This is needed to preserve file permissions

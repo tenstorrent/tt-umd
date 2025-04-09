@@ -15,39 +15,279 @@
 
 #include "assert.hpp"
 #include "logger.hpp"
-#include "tt_simulation_device_generated.h"
 #include "umd/device/driver_atomics.h"
 
-flatbuffers::FlatBufferBuilder create_flatbuffer(
-    DEVICE_COMMAND rw, std::vector<uint32_t> vec, tt_cxy_pair core_, uint64_t addr, uint64_t size_ = 0) {
-    flatbuffers::FlatBufferBuilder builder;
-    auto data = builder.CreateVector(vec);
-    auto core = tt_vcs_core(core_.x, core_.y);
-    uint64_t size = (size_ == 0 ? vec.size() * sizeof(uint32_t) : size_);
-    auto device_cmd = CreateDeviceRequestResponse(builder, rw, data, &core, addr, size);
-    builder.Finish(device_cmd);
-    return builder;
+static bool is_big_endian() {
+    uint16_t v = 1;
+    return reinterpret_cast<uint8_t*>(&v)[0] == 0;
 }
 
-void print_flatbuffer(const DeviceRequestResponse* buf) {
-    std::vector<uint32_t> data_vec(buf->data()->begin(), buf->data()->end());
-    uint64_t addr = buf->address();
-    uint32_t size = buf->size();
-    tt_cxy_pair core = {0, buf->core()->x(), buf->core()->y()};
+template <typename T>
+static void mem_swap(T* a, T* b) {
+    T temp = *a;
+    *a = *b;
+    *b = temp;
+}
 
-    std::stringstream ss;
-    ss << std::hex << reinterpret_cast<uintptr_t>(addr);
-    std::string addr_hex = ss.str();
-
-    std::stringstream data_ss;
-    for (int i = 0; i < data_vec.size(); i++) {
-        data_ss << "0x" << std::hex << std::setw(8) << std::setfill('0') << data_vec[i] << " ";
+template <typename T>
+static void rev_arr(T* ptr, size_t elements) {
+    size_t bytes = elements * sizeof(T);
+    if (bytes == 0) return;
+    auto* uptr = reinterpret_cast<unsigned char *>(ptr);
+    size_t d = bytes - 1;
+    for (size_t i = 0; i < bytes / 2; i ++) {
+        mem_swap(&uptr[d--], &uptr[i]);
     }
-    std::string data_hex = data_ss.str();
-
-    log_debug(tt::LogEmulationDriver, "{} bytes @ address {} in core ({}, {})", size, addr_hex, core.x, core.y);
-    log_debug(tt::LogEmulationDriver, "Data: {}", data_hex);
 }
+
+template <typename T>
+static void fromto_little_endian(T* ptr) {
+    if (is_big_endian()) {
+        rev_arr(ptr, 1);
+    }
+}
+
+template <typename T>
+static T endian_scalar(void const* ptr) {
+    assert(ptr);
+    T val = *reinterpret_cast<T const*>(ptr);
+    fromto_little_endian(&val);
+    return val;
+}
+
+// returned pointer can be null
+static uint8_t const* table_get_fieldp(uint8_t const* table, size_t field) {
+    // the subtract here is NOT a mistake
+    uint8_t const* vtab = table - endian_scalar<int32_t>(table);
+    // size_t vtab_len = endian_scalar<uint16_t>(vtab);
+    // size_t tab_len = endian_scalar<uint16_t>(vtab + 2);
+    uint16_t off = endian_scalar<uint16_t>(vtab+4 + field*2);
+    if (off == 0) {
+        return nullptr;
+    } else {
+        return table + off;
+    }
+}
+
+struct FBVec {
+    size_t len;
+    uint8_t const* data;
+};
+
+static FBVec get_vec(void const* vec) {
+    auto* offp = reinterpret_cast<uint8_t const *>(vec);
+    auto* vecp = offp + endian_scalar<uint32_t>(offp);
+
+    uint32_t len = endian_scalar<uint32_t>(vecp);
+    auto* data = vecp + 4;
+    return FBVec { len, data };
+}
+
+template <typename T>
+static std::vector<T> read_scalar_vec(void const* vec) {
+    FBVec fv = get_vec(vec);
+    std::vector<T> out {};
+    for (size_t i = 0; i < fv.len; i ++) {
+        out.push_back(endian_scalar<T>(fv.data + i*sizeof(T)));
+    }
+    return out;
+}
+
+class FBWriter {
+    std::vector<uint8_t> _bytes {};
+
+    void overwrite_bytes_at(size_t pos, uint8_t const* ptr, size_t len) {
+        for (size_t i = 0; i < len; i ++) {
+            _bytes[pos + i] = ptr[i];
+        }
+    }
+
+public:
+    std::vector<uint8_t>&& drop() {
+        return std::move(_bytes);
+    }
+
+    void write_bytes(uint8_t const* ptr, size_t len) {
+        for (size_t i = 0; i < len; i ++) {
+            _bytes.push_back(ptr[i]);
+        }
+    }
+
+    template <typename T>
+    void write_scalar(T val) {
+        fromto_little_endian(&val);
+        write_bytes(reinterpret_cast<uint8_t const *>(&val), sizeof(T));
+    }
+
+    template <typename T>
+    void write_scalar_vec(std::vector<T> const& vec) {
+        _bytes.reserve(8 + vec.size() * sizeof(T));
+        write_scalar<uint32_t>(4);
+        write_scalar(static_cast<uint32_t>(vec.size()));
+        for (size_t i = 0; i < vec.size(); i ++) {
+            write_scalar(vec[i]);
+        }
+    }
+
+    size_t current_pos() {
+        return _bytes.size();
+    }
+
+    void write_vtab(size_t tab_pos, size_t tab_end_pos, uint16_t const* offsets_from_tab, size_t fields) {
+        size_t vtab_pos = current_pos();
+        size_t tab_len = tab_end_pos - tab_pos;
+        size_t vtab_len = fields * 2 + 4;
+
+        // the negate here is not a mistake!
+        auto off = - static_cast<int32_t>(vtab_pos - tab_pos);
+        fromto_little_endian(&off);
+        overwrite_bytes_at(tab_pos, reinterpret_cast<uint8_t const *>(&off), 4);
+
+        _bytes.reserve(vtab_len);
+        write_scalar<uint16_t>(vtab_len);
+        write_scalar<uint16_t>(tab_len);
+        for (size_t i = 0; i < fields; i ++) {
+            write_scalar<uint16_t>(offsets_from_tab[i]);
+        }
+    }
+};
+
+enum class DEVICE_COMMAND : uint8_t {
+    WRITE = 0,
+    READ = 1,
+    ALL_TENSIX_RESET_DEASSERT = 2,
+    ALL_TENSIX_RESET_ASSERT = 3,
+    START = 4,
+    EXIT = 5,
+};
+
+// table DeviceRequestResponse {
+//    command : DEVICE_COMMAND;
+//    data    : [uint32];
+//    core    : tt_vcs_core;
+//    address : uint64;
+//    size    : uint32;
+// }
+namespace DeviceRequestResponseFields {
+    constexpr size_t COMMAND = 0;
+    constexpr size_t DATA    = 1;
+    constexpr size_t CORE    = 2;
+    constexpr size_t ADDRESS = 3;
+    constexpr size_t SIZE    = 4;
+};
+
+static std::vector<uint8_t> DeviceRequestResponse_Create(
+        DEVICE_COMMAND command, std::vector<uint32_t> const& data, tt_xy_pair core, uint64_t addr, uint32_t size = 0)
+{
+    FBWriter writer;
+    writer.write_scalar<uint32_t>(4); // offset to root table
+
+    auto tab_pos = writer.current_pos();
+    writer.write_scalar<uint32_t>(0); // vtable location; will be overwritten later
+
+    // ========
+    auto command_tab_off = writer.current_pos() - tab_pos;
+    writer.write_scalar<uint8_t>(static_cast<uint8_t>(command));
+
+    auto data_tab_off = writer.current_pos() - tab_pos;
+    writer.write_scalar_vec(data);
+
+    auto core_tab_off = writer.current_pos() - tab_pos;
+    writer.write_scalar<uint64_t>(core.x);
+    writer.write_scalar<uint64_t>(core.y);
+
+    auto addr_tab_off = writer.current_pos() - tab_pos;
+    writer.write_scalar<uint64_t>(addr);
+
+    auto size_tab_off = writer.current_pos() - tab_pos;
+    writer.write_scalar<uint32_t>(size);
+    // ========
+
+    size_t tab_end_pos = writer.current_pos();
+
+    uint16_t offsets[] = {
+        static_cast<uint16_t>(command_tab_off),
+        static_cast<uint16_t>(data_tab_off),
+        static_cast<uint16_t>(core_tab_off),
+        static_cast<uint16_t>(addr_tab_off),
+        static_cast<uint16_t>(size_tab_off),
+    };
+
+    writer.write_vtab(tab_pos, tab_end_pos, offsets, sizeof(offsets) / sizeof(*offsets));
+
+    return writer.drop();
+}
+
+struct DeviceRequestResponse {
+    DeviceRequestResponse(void const* data_ptr):
+        // first u32le in blob is offset to root table
+        ptr(reinterpret_cast<uint8_t const*>(data_ptr) + endian_scalar<uint32_t>(data_ptr))
+    {}
+
+    std::optional<DEVICE_COMMAND> command() const {
+        constexpr size_t field = DeviceRequestResponseFields::COMMAND;
+
+        auto* p = table_get_fieldp(ptr, field);
+        if (!p) return std::nullopt;
+        return static_cast<DEVICE_COMMAND>(
+                endian_scalar<uint8_t>(p));
+    }
+
+    std::optional<std::vector<uint32_t>> data() const {
+        constexpr size_t field = DeviceRequestResponseFields::DATA;
+
+        auto* p = table_get_fieldp(ptr, field);
+        if (!p) return std::nullopt;
+        return read_scalar_vec<uint32_t>(p);
+    }
+
+    std::optional<tt_xy_pair> core() const {
+        constexpr size_t field = DeviceRequestResponseFields::CORE;
+
+        uint8_t const* xp = table_get_fieldp(ptr, field);
+        if (!xp) return std::nullopt;
+        size_t x = endian_scalar<uint64_t>(xp);
+        size_t y = endian_scalar<uint64_t>(xp + 8);
+        return tt_xy_pair { x, y };
+    }
+
+    std::optional<uint64_t> address() const {
+        constexpr size_t field = DeviceRequestResponseFields::ADDRESS;
+
+        auto* p = table_get_fieldp(ptr, field);
+        if (!p) return std::nullopt;
+        return endian_scalar<uint64_t>(p);
+    }
+
+    std::optional<uint32_t> size() const {
+        constexpr size_t field = DeviceRequestResponseFields::SIZE;
+
+        auto* p = table_get_fieldp(ptr, field);
+        if (!p) return std::nullopt;
+        return endian_scalar<uint64_t>(p);
+    }
+
+    void print() const {
+        auto c = *core();
+        std::stringstream ss;
+        ss << std::hex << reinterpret_cast<uintptr_t>(*address());
+        std::string addr_hex = ss.str();
+
+        std::stringstream data_ss;
+        auto data_vec = *data();
+        for (int i = 0; i < data_vec.size(); i++) {
+            data_ss << "0x" << std::hex << std::setw(8) << std::setfill('0') << data_vec[i] << " ";
+        }
+        std::string data_hex = data_ss.str();
+
+        log_debug(tt::LogEmulationDriver, "{} bytes @ address {} in core ({}, {})", *size(), addr_hex, c.x, c.y);
+        log_debug(tt::LogEmulationDriver, "Data: {}", data_hex);
+    }
+
+private:
+    // pointer to root table!
+    uint8_t const* ptr;
+};
 
 tt_SimulationDeviceInit::tt_SimulationDeviceInit(const std::filesystem::path& simulator_directory) :
     simulator_directory(simulator_directory), soc_descriptor(simulator_directory / "soc_descriptor.yaml", false) {}
@@ -94,31 +334,26 @@ void tt_SimulationDevice::start_device(const tt_device_params& device_params) {
 
     log_info(tt::LogEmulationDriver, "Waiting for ack msg from remote...");
     size_t buf_size = host.recv_from_device(&buf_ptr);
-    auto buf = GetDeviceRequestResponse(buf_ptr);
-    auto cmd = buf->command();
-    TT_ASSERT(cmd == DEVICE_COMMAND_EXIT, "Did not receive expected command from remote.");
+    auto buf = DeviceRequestResponse(buf_ptr);
+    auto cmd = buf.command();
+    TT_ASSERT(cmd == DEVICE_COMMAND::EXIT, "Did not receive expected command from remote.");
     nng_free(buf_ptr, buf_size);
 }
 
 void tt_SimulationDevice::assert_risc_reset() {
     log_info(tt::LogEmulationDriver, "Sending assert_risc_reset signal..");
     auto wr_buffer =
-        create_flatbuffer(DEVICE_COMMAND_ALL_TENSIX_RESET_ASSERT, std::vector<uint32_t>(1, 0), {0, 0, 0}, 0);
-    uint8_t* wr_buffer_ptr = wr_buffer.GetBufferPointer();
-    size_t wr_buffer_size = wr_buffer.GetSize();
+        DeviceRequestResponse_Create(DEVICE_COMMAND::ALL_TENSIX_RESET_ASSERT, std::vector<uint32_t>(1, 0), {0, 0}, 0);
 
-    print_flatbuffer(GetDeviceRequestResponse(wr_buffer_ptr));
-    host.send_to_device(wr_buffer_ptr, wr_buffer_size);
+    host.send_to_device(wr_buffer.data(), wr_buffer.size());
 }
 
 void tt_SimulationDevice::deassert_risc_reset() {
     log_info(tt::LogEmulationDriver, "Sending 'deassert_risc_reset' signal..");
     auto wr_buffer =
-        create_flatbuffer(DEVICE_COMMAND_ALL_TENSIX_RESET_DEASSERT, std::vector<uint32_t>(1, 0), {0, 0, 0}, 0);
-    uint8_t* wr_buffer_ptr = wr_buffer.GetBufferPointer();
-    size_t wr_buffer_size = wr_buffer.GetSize();
+        DeviceRequestResponse_Create(DEVICE_COMMAND::ALL_TENSIX_RESET_DEASSERT, std::vector<uint32_t>(1, 0), {0, 0}, 0);
 
-    host.send_to_device(wr_buffer_ptr, wr_buffer_size);
+    host.send_to_device(wr_buffer.data(), wr_buffer.size());
 }
 
 void tt_SimulationDevice::deassert_risc_reset_at_core(
@@ -140,8 +375,8 @@ void tt_SimulationDevice::assert_risc_reset_at_core(
 void tt_SimulationDevice::close_device() {
     // disconnect from remote connection
     log_info(tt::LogEmulationDriver, "Sending exit signal to remote...");
-    auto builder = create_flatbuffer(DEVICE_COMMAND_EXIT, std::vector<uint32_t>(1, 0), {0, 0, 0}, 0);
-    host.send_to_device(builder.GetBufferPointer(), builder.GetSize());
+    auto buf = DeviceRequestResponse_Create(DEVICE_COMMAND::EXIT, std::vector<uint32_t>(1, 0), {0, 0}, 0);
+    host.send_to_device(buf.data(), buf.size());
 }
 
 // Runtime Functions
@@ -155,12 +390,10 @@ void tt_SimulationDevice::write_to_device(
         core.x,
         core.y);
     std::vector<std::uint32_t> data((uint32_t*)mem_ptr, (uint32_t*)mem_ptr + size_in_bytes / sizeof(uint32_t));
-    auto wr_buffer = create_flatbuffer(DEVICE_COMMAND_WRITE, data, core, addr);
-    uint8_t* wr_buffer_ptr = wr_buffer.GetBufferPointer();
-    size_t wr_buffer_size = wr_buffer.GetSize();
+    auto wr_buffer = DeviceRequestResponse_Create(DEVICE_COMMAND::WRITE, data, {core.x, core.y}, addr);
 
-    print_flatbuffer(GetDeviceRequestResponse(wr_buffer_ptr));  // sanity print
-    host.send_to_device(wr_buffer_ptr, wr_buffer_size);
+    DeviceRequestResponse(wr_buffer.data()).print();  // sanity print
+    host.send_to_device(wr_buffer.data(), wr_buffer.size());
 }
 
 void tt_SimulationDevice::write_to_device(
@@ -178,19 +411,19 @@ void tt_SimulationDevice::read_from_device(
     void* rd_resp;
 
     // Send read request
-    auto rd_req_buf = create_flatbuffer(DEVICE_COMMAND_READ, {0}, core, addr, size);
-    host.send_to_device(rd_req_buf.GetBufferPointer(), rd_req_buf.GetSize());
+    auto rd_req_buf = DeviceRequestResponse_Create(DEVICE_COMMAND::READ, {0}, {core.x,core.y}, addr, size);
+    host.send_to_device(rd_req_buf.data(), rd_req_buf.size());
 
     // Get read response
     size_t rd_rsp_sz = host.recv_from_device(&rd_resp);
 
-    auto rd_resp_buf = GetDeviceRequestResponse(rd_resp);
+    auto rd_resp_buf = DeviceRequestResponse(rd_resp);
 
     // Debug level polling as Metal will constantly poll the device, spamming the logs
     log_debug(tt::LogEmulationDriver, "Device reading vec");
-    print_flatbuffer(rd_resp_buf);
+    rd_resp_buf.print();
 
-    std::memcpy(mem_ptr, rd_resp_buf->data()->data(), rd_resp_buf->data()->size() * sizeof(uint32_t));
+    std::memcpy(mem_ptr, rd_resp_buf.data()->data(), rd_resp_buf.data()->size() * sizeof(uint32_t));
     nng_free(rd_resp, rd_rsp_sz);
 }
 

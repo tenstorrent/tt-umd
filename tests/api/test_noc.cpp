@@ -125,6 +125,8 @@ TEST(TestNoc, TestNoc1NodeId) {
 
         check_noc_id_cores(cluster, chip, CoreType::SECURITY);
 
+        check_noc_id_cores(cluster, chip, CoreType::L2CPU);
+
         // TODO: add readouts for router cores.
     }
 

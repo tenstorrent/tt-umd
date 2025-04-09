@@ -73,21 +73,6 @@ function(fetch_dependencies)
     )
 
     ###################################################################################################################
-    # Flatbuffers
-    ###################################################################################################################
-    CPMAddPackage(
-        NAME flatbuffers
-        GITHUB_REPOSITORY google/flatbuffers
-        GIT_TAG v24.3.25
-        OPTIONS
-            "CMAKE_MESSAGE_LOG_LEVEL NOTICE"
-            "FLATBUFFERS_BUILD_FLATC ON"
-            "FLATBUFFERS_BUILD_TESTS OFF"
-            "FLATBUFFERS_SKIP_MONSTER_EXTRA ON"
-            "FLATBUFFERS_STRICT_MODE ON"
-    )
-
-    ###################################################################################################################
     # libuv (for process management)
     ###################################################################################################################
     CPMAddPackage(

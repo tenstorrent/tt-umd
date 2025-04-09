@@ -99,12 +99,12 @@ void Chip::read_from_device_reg(
     throw std::runtime_error("Chip::read_from_device_reg is not available for this chip.");
 }
 
-std::unique_lock<boost::interprocess::named_mutex> Chip::get_mutex(std::string mutex_name, int pci_device_id) {
-    throw std::runtime_error("LockManager::get_mutex is not available for this chip.");
+std::unique_lock<RobustMutex> Chip::acquire_mutex(std::string mutex_name, int pci_device_id) {
+    throw std::runtime_error("LockManager::acquire_mutex is not available for this chip.");
 }
 
-std::unique_lock<boost::interprocess::named_mutex> Chip::get_mutex(MutexType mutex_type, int pci_device_id) {
-    throw std::runtime_error("LockManager::get_mutex is not available for this chip.");
+std::unique_lock<RobustMutex> Chip::acquire_mutex(MutexType mutex_type, int pci_device_id) {
+    throw std::runtime_error("LockManager::acquire_mutex is not available for this chip.");
 }
 
 void Chip::wait_dram_cores_training(const uint32_t timeout_ms) {}

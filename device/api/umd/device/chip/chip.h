@@ -6,10 +6,12 @@
 
 #pragma once
 
-#include "umd/device/lock_manager.h"
+#include <unordered_set>
+
 #include "umd/device/tt_soc_descriptor.h"
 #include "umd/device/types/cluster_descriptor_types.h"
 #include "umd/device/types/cluster_types.h"
+#include "umd/device/utils/lock_manager.h"
 
 namespace tt::umd {
 
@@ -53,8 +55,8 @@ public:
         tt_xy_pair core, void* dest, uint64_t reg_src, uint32_t size, const std::string& fallback_tlb);
 
     // TODO: To be removed once all usages are moved inside local chip.
-    virtual std::unique_lock<boost::interprocess::named_mutex> get_mutex(std::string mutex_name, int pci_device_id);
-    virtual std::unique_lock<boost::interprocess::named_mutex> get_mutex(MutexType mutex_type, int pci_device_id);
+    virtual std::unique_lock<RobustMutex> acquire_mutex(std::string mutex_name, int pci_device_id);
+    virtual std::unique_lock<RobustMutex> acquire_mutex(MutexType mutex_type, int pci_device_id);
 
     // TODO: This should be private, once enough stuff is moved inside chip.
     // Probably also moved to LocalChip.

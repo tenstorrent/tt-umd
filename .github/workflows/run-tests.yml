@@ -79,9 +79,7 @@ jobs:
         run: |
           ${{ env.TEST_OUTPUT_DIR }}/umd/misc/umd_misc_tests
 
-      # TODO: Re-enable unified tests in CI once we solve the bugs
-      # we are seeing in the tests. Issues are tracked in issue
-      # https://github.com/tenstorrent/tt-umd/issues/654
-      # - name: Run unified tests
-      #   run: |
-      #     ${{ env.TEST_OUTPUT_DIR }}/umd/unified/unified_tests
+      - name: Run unified tests
+        if: ${{ inputs.arch != 'baremetal' }}
+        run: |
+          ${{ env.TEST_OUTPUT_DIR }}/umd/unified/unified_tests

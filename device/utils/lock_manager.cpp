@@ -3,13 +3,9 @@
  *
  * SPDX-License-Identifier: Apache-2.0
  */
-#include "umd/device/lock_manager.h"
-
-#include <boost/interprocess/permissions.hpp>
+#include "umd/device/utils/lock_manager.h"
 
 #include "logger.hpp"
-
-using namespace boost::interprocess;
 
 namespace tt::umd {
 
@@ -24,52 +20,44 @@ const std::unordered_map<MutexType, std::string> LockManager::MutexTypeToString 
     {MutexType::CREATE_ETH_MAP, "CREATE_ETH_MAP"},
 };
 
-LockManager::LockManager() {}
-
-LockManager::~LockManager() {
-    for (const auto& [mutex_name, _] : mutexes) {
-        named_mutex::remove(mutex_name.c_str());
-    }
-}
-
 void LockManager::initialize_mutex(MutexType mutex_type, const bool clear_mutex) {
     initialize_mutex_internal(MutexTypeToString.at(mutex_type), clear_mutex);
 }
 
 void LockManager::clear_mutex(MutexType mutex_type) { clear_mutex_internal(MutexTypeToString.at(mutex_type)); }
 
-std::unique_lock<named_mutex> LockManager::get_mutex(MutexType mutex_type) {
-    return get_mutex_internal(MutexTypeToString.at(mutex_type));
+std::unique_lock<RobustMutex> LockManager::acquire_mutex(MutexType mutex_type) {
+    return acquire_mutex_internal(MutexTypeToString.at(mutex_type));
 }
 
 void LockManager::initialize_mutex(MutexType mutex_type, int pci_device_id, const bool clear_mutex) {
-    std::string mutex_name = MutexTypeToString.at(mutex_type) + std::to_string(pci_device_id);
+    std::string mutex_name = MutexTypeToString.at(mutex_type) + "_" + std::to_string(pci_device_id);
     initialize_mutex_internal(mutex_name, clear_mutex);
 }
 
 void LockManager::clear_mutex(MutexType mutex_type, int pci_device_id) {
-    std::string mutex_name = MutexTypeToString.at(mutex_type) + std::to_string(pci_device_id);
+    std::string mutex_name = MutexTypeToString.at(mutex_type) + "_" + std::to_string(pci_device_id);
     clear_mutex_internal(mutex_name);
 }
 
-std::unique_lock<named_mutex> LockManager::get_mutex(MutexType mutex_type, int pci_device_id) {
-    std::string mutex_name = MutexTypeToString.at(mutex_type) + std::to_string(pci_device_id);
-    return get_mutex_internal(mutex_name);
+std::unique_lock<RobustMutex> LockManager::acquire_mutex(MutexType mutex_type, int pci_device_id) {
+    std::string mutex_name = MutexTypeToString.at(mutex_type) + "_" + std::to_string(pci_device_id);
+    return acquire_mutex_internal(mutex_name);
 }
 
 void LockManager::initialize_mutex(std::string mutex_prefix, int pci_device_id, const bool clear_mutex) {
-    std::string mutex_name = mutex_prefix + std::to_string(pci_device_id);
+    std::string mutex_name = mutex_prefix + "_" + std::to_string(pci_device_id);
     initialize_mutex_internal(mutex_name, clear_mutex);
 }
 
 void LockManager::clear_mutex(std::string mutex_prefix, int pci_device_id) {
-    std::string mutex_name = mutex_prefix + std::to_string(pci_device_id);
+    std::string mutex_name = mutex_prefix + "_" + std::to_string(pci_device_id);
     clear_mutex_internal(mutex_name);
 }
 
-std::unique_lock<named_mutex> LockManager::get_mutex(std::string mutex_prefix, int pci_device_id) {
-    std::string mutex_name = mutex_prefix + std::to_string(pci_device_id);
-    return get_mutex_internal(mutex_name);
+std::unique_lock<RobustMutex> LockManager::acquire_mutex(std::string mutex_prefix, int pci_device_id) {
+    std::string mutex_name = mutex_prefix + "_" + std::to_string(pci_device_id);
+    return acquire_mutex_internal(mutex_name);
 }
 
 void LockManager::initialize_mutex_internal(const std::string& mutex_name, const bool clear_mutex) {
@@ -78,21 +66,8 @@ void LockManager::initialize_mutex_internal(const std::string& mutex_name, const
         return;
     }
 
-    // Store old mask and clear processes umask.
-    // This will have an effect that the created files which back up named mutexes will have all permissions. This is
-    // important to avoid permission issues between processes.
-    auto old_umask = umask(0);
-
-    if (clear_mutex) {
-        named_mutex::remove(mutex_name.c_str());
-    }
-    permissions unrestricted_permissions;
-    unrestricted_permissions.set_unrestricted();
-    mutexes.emplace(
-        mutex_name, std::make_unique<named_mutex>(open_or_create, mutex_name.c_str(), unrestricted_permissions));
-
-    // Restore old mask.
-    umask(old_umask);
+    mutexes.emplace(mutex_name, RobustMutex(mutex_name));
+    mutexes.at(mutex_name).initialize();
 }
 
 void LockManager::clear_mutex_internal(const std::string& mutex_name) {
@@ -100,15 +75,15 @@ void LockManager::clear_mutex_internal(const std::string& mutex_name) {
         log_warning(LogSiliconDriver, "Mutex not initialized or already cleared: {}", mutex_name);
         return;
     }
+    // The destructor will automatically close the underlying mutex.
     mutexes.erase(mutex_name);
-    named_mutex::remove(mutex_name.c_str());
 }
 
-std::unique_lock<named_mutex> LockManager::get_mutex_internal(const std::string& mutex_name) {
+std::unique_lock<RobustMutex> LockManager::acquire_mutex_internal(const std::string& mutex_name) {
     if (mutexes.find(mutex_name) == mutexes.end()) {
         throw std::runtime_error("Mutex not initialized: " + mutex_name);
     }
-    return std::unique_lock<named_mutex>(*mutexes[mutex_name]);
+    return std::unique_lock(mutexes.at(mutex_name));
 }
 
 }  // namespace tt::umd

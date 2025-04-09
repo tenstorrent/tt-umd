@@ -43,8 +43,8 @@ public:
     void read_from_device_reg(
         tt_xy_pair core, void* dest, uint64_t reg_src, uint32_t size, const std::string& fallback_tlb) override;
 
-    std::unique_lock<boost::interprocess::named_mutex> get_mutex(std::string mutex_name, int pci_device_id) override;
-    std::unique_lock<boost::interprocess::named_mutex> get_mutex(MutexType mutex_type, int pci_device_id) override;
+    std::unique_lock<RobustMutex> acquire_mutex(std::string mutex_name, int pci_device_id) override;
+    std::unique_lock<RobustMutex> acquire_mutex(MutexType mutex_type, int pci_device_id) override;
 
 private:
     std::unique_ptr<TTDevice> tt_device_;

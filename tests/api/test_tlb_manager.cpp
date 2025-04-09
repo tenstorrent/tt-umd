@@ -77,3 +77,4 @@ TEST(ApiTLBManager, ManualTLBConfiguration) {
         tt::Writer writer = tlb_manager->get_static_tlb_writer(any_worker_virtual_core);
         writer.write(address_l1_to_write, buffer_to_write[0]);
     }
+}

@@ -45,8 +45,6 @@ TEST(TestCluster, TestClusterNoc0Id) {
         }
     };
 
-    tt::ARCH arch = cluster->get_cluster_description()->get_arch(0);
-
     for (chip_id_t chip : cluster->get_target_device_ids()) {
         check_noc_id_cores(cluster, chip, CoreType::TENSIX);
         check_noc_id_harvested_cores(cluster, chip, CoreType::TENSIX);
@@ -54,7 +52,7 @@ TEST(TestCluster, TestClusterNoc0Id) {
         check_noc_id_cores(cluster, chip, CoreType::ETH);
         check_noc_id_harvested_cores(cluster, chip, CoreType::ETH);
 
-        if (arch == tt::ARCH::BLACKHOLE) {
+        if (cluster->get_cluster_description()->get_arch(chip) == tt::ARCH::BLACKHOLE) {
             check_noc_id_cores(cluster, chip, CoreType::DRAM);
             check_noc_id_harvested_cores(cluster, chip, CoreType::DRAM);
         }
@@ -104,8 +102,6 @@ TEST(TestCluster, TestClusterNoc1Id) {
         }
     };
 
-    tt::ARCH arch = cluster->get_cluster_description()->get_arch(0);
-
     // TODO: add reads from remote chips as well. NOC1 traffic is not working
     // for remote read/writes on wormhole remote chips.
     for (chip_id_t chip : cluster->get_target_mmio_device_ids()) {
@@ -115,7 +111,7 @@ TEST(TestCluster, TestClusterNoc1Id) {
         check_noc_id_cores(cluster, chip, CoreType::ETH);
         check_noc_id_harvested_cores(cluster, chip, CoreType::ETH);
 
-        if (arch == tt::ARCH::BLACKHOLE) {
+        if (cluster->get_cluster_description()->get_arch(chip) == tt::ARCH::BLACKHOLE) {
             check_noc_id_cores(cluster, chip, CoreType::DRAM);
             check_noc_id_harvested_cores(cluster, chip, CoreType::DRAM);
         }

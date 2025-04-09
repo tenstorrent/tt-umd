@@ -504,7 +504,8 @@ std::vector<tt::umd::CoreCoord> tt_SocDescriptor::get_all_cores(const CoordSyste
           CoreType::ARC,
           CoreType::PCIE,
           CoreType::ROUTER_ONLY,
-          CoreType::SECURITY}) {
+          CoreType::SECURITY,
+          CoreType::L2CPU}) {
         auto cores = get_cores(core_type, coord_system);
         all_cores.insert(all_cores.end(), cores.begin(), cores.end());
     }
@@ -520,7 +521,8 @@ std::vector<tt::umd::CoreCoord> tt_SocDescriptor::get_all_harvested_cores(const 
           CoreType::ARC,
           CoreType::PCIE,
           CoreType::ROUTER_ONLY,
-          CoreType::SECURITY}) {
+          CoreType::SECURITY,
+          CoreType::L2CPU}) {
         auto harvested_cores = get_harvested_cores(core_type, coord_system);
         all_harvested_cores.insert(all_harvested_cores.end(), harvested_cores.begin(), harvested_cores.end());
     }

@@ -8,7 +8,6 @@
 
 #include <unordered_set>
 
-#include "umd/device/lock_manager.h"
 #include "umd/device/tt_soc_descriptor.h"
 #include "umd/device/types/cluster_descriptor_types.h"
 #include "umd/device/types/cluster_types.h"

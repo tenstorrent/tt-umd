@@ -355,15 +355,19 @@ TEST(TestCluster, TestClusterAICLKControl) {
 
     cluster->set_power_state(tt_DevicePowerState::BUSY);
 
-    auto clocks = cluster->get_clocks();
-    for (auto& clock : clocks) {
-        EXPECT_EQ(clock.second, go_busy_aiclk_val);
+    // TODO: check this for Wormhole as well if we can somehow hardcode set of values to check for
+    // go busy AICLK. It won't always be the same for Wormhole.
+    if (arch == tt::ARCH::BLACKHOLE) {
+        auto clocks_busy = cluster->get_clocks();
+        for (auto& clock : clocks_busy) {
+            EXPECT_EQ(clock.second, go_busy_aiclk_val);
+        }
     }
 
     cluster->set_power_state(tt_DevicePowerState::LONG_IDLE);
 
-    clocks = cluster->get_clocks();
-    for (auto& clock : clocks) {
+    auto clocks_idle = cluster->get_clocks();
+    for (auto& clock : clocks_idle) {
         EXPECT_EQ(clock.second, go_idle_aiclk_val);
     }
 }

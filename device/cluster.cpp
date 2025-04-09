@@ -803,29 +803,17 @@ std::map<int, int> Cluster::get_clocks() {
     return clock_freq_map;
 }
 
-uint32_t Cluster::get_target_aiclk_value(tt::ARCH arch, tt_DevicePowerState device_state) {
-    if (arch == tt::ARCH::WORMHOLE_B0) {
-        if (device_state == tt_DevicePowerState::BUSY) {
-            return tt::umd::wormhole::AICLK_BUSY_VAL;
-        } else if (device_state == tt_DevicePowerState::LONG_IDLE) {
-            return tt::umd::wormhole::AICLK_IDLE_VAL;
-        }
-    } else if (arch == tt::ARCH::BLACKHOLE) {
-        if (device_state == tt_DevicePowerState::BUSY) {
-            return tt::umd::blackhole::AICLK_BUSY_VAL;
-        } else if (device_state == tt_DevicePowerState::LONG_IDLE) {
-            return tt::umd::blackhole::AICLK_IDLE_VAL;
-        }
-    }
-
-    throw std::runtime_error("Unsupported architecture for getting AICLK value.");
-}
-
-void Cluster::wait_for_aiclk_value(const uint32_t aiclk_val, const uint32_t timeout_ms) {
+void Cluster::wait_for_aiclk_value(tt_DevicePowerState power_state, const uint32_t timeout_ms) {
     auto start = std::chrono::system_clock::now();
     for (auto& chip_id : local_chip_ids_) {
+        uint32_t target_aiclk = 0;
+        if (power_state == tt_DevicePowerState::BUSY) {
+            target_aiclk = get_tt_device(chip_id)->get_max_clock_freq();
+        } else if (power_state == tt_DevicePowerState::LONG_IDLE) {
+            target_aiclk = get_tt_device(chip_id)->get_min_clock_freq();
+        }
         uint32_t aiclk = get_clock(chip_id);
-        while (aiclk != aiclk_val) {
+        while (aiclk != target_aiclk) {
             auto end = std::chrono::system_clock::now();
             auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
             if (duration.count() > timeout_ms) {
@@ -2501,7 +2489,7 @@ void Cluster::send_remote_tensix_risc_reset_to_core(
 int Cluster::set_remote_power_state(const chip_id_t& chip, tt_DevicePowerState device_state) {
     auto mmio_capable_chip_logical = cluster_desc->get_closest_mmio_capable_chip(chip);
     return remote_arc_msg(
-        chip, get_power_state_arc_msg(mmio_capable_chip_logical, device_state), true, 0, 0, 1, NULL, NULL);
+        chip, get_power_state_arc_msg(mmio_capable_chip_logical, device_state), true, 0, 0, 1000, NULL, NULL);
 }
 
 void Cluster::enable_remote_ethernet_queue(const chip_id_t& chip, int timeout) {
@@ -2513,7 +2501,7 @@ void Cluster::enable_remote_ethernet_queue(const chip_id_t& chip, int timeout) {
             throw std::runtime_error(
                 fmt::format("Timed out after waiting {} seconds for DRAM to finish training", timeout));
         }
-        int msg_rt = remote_arc_msg(chip, 0xaa58, true, 0xFFFF, 0xFFFF, 1, &msg_success, NULL);
+        int msg_rt = remote_arc_msg(chip, 0xaa58, true, 0xFFFF, 0xFFFF, 1000, &msg_success, NULL);
         if (msg_rt == MSG_ERROR_REPLY) {
             break;
         }
@@ -2568,7 +2556,7 @@ void Cluster::set_power_state(tt_DevicePowerState device_state) {
             }
         }
     }
-    wait_for_aiclk_value(Cluster::get_target_aiclk_value(arch_name, device_state));
+    wait_for_aiclk_value(device_state);
 }
 
 void Cluster::enable_ethernet_queue(int timeout) {
@@ -2621,7 +2609,7 @@ void Cluster::deassert_resets_and_set_power_state() {
                         true,
                         0x0,
                         0x0,
-                        1,
+                        1000,
                         NULL,
                         NULL);
                 }

@@ -2560,7 +2560,9 @@ void Cluster::set_power_state(tt_DevicePowerState device_state) {
             }
         }
     }
-    wait_for_aiclk_value(Cluster::get_target_aiclk_value(arch_name, device_state));
+    if (!all_chip_ids_.empty()) {
+        wait_for_aiclk_value(Cluster::get_target_aiclk_value(arch_name, device_state));
+    }
 }
 
 void Cluster::enable_ethernet_queue(int timeout) {

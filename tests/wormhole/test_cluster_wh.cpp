@@ -82,7 +82,6 @@ TEST(SiliconDriverWH, CreateDestroy) {
             target_devices,
             num_host_mem_ch_per_mmio_device,
             false,
-            true,
             false);
         set_barrier_params(cluster);
 
@@ -111,7 +110,6 @@ TEST(SiliconDriverWH, CustomSocDesc) {
         target_devices,
         num_host_mem_ch_per_mmio_device,
         false,
-        true,
         false,
         simulated_harvesting_masks);
     for (const auto& chip : cluster.get_target_device_ids()) {
@@ -134,7 +132,7 @@ TEST(SiliconDriverWH, HarvestingRuntime) {
 
     uint32_t num_host_mem_ch_per_mmio_device = 1;
 
-    Cluster cluster = Cluster(num_host_mem_ch_per_mmio_device, false, true, true, simulated_harvesting_masks);
+    Cluster cluster = Cluster(num_host_mem_ch_per_mmio_device, false, true, simulated_harvesting_masks);
     set_barrier_params(cluster);
     auto mmio_devices = cluster.get_target_mmio_device_ids();
 
@@ -215,7 +213,7 @@ TEST(SiliconDriverWH, UnalignedStaticTLB_RW) {
     int num_devices = target_devices.size();
 
     uint32_t num_host_mem_ch_per_mmio_device = 1;
-    Cluster cluster = Cluster(num_host_mem_ch_per_mmio_device, false, true, true);
+    Cluster cluster = Cluster(num_host_mem_ch_per_mmio_device, false, true);
     set_barrier_params(cluster);
     auto mmio_devices = cluster.get_target_mmio_device_ids();
 
@@ -272,7 +270,7 @@ TEST(SiliconDriverWH, StaticTLB_RW) {
     std::set<chip_id_t> target_devices = test_utils::get_target_devices();
 
     uint32_t num_host_mem_ch_per_mmio_device = 1;
-    Cluster cluster = Cluster(num_host_mem_ch_per_mmio_device, false, true, true);
+    Cluster cluster = Cluster(num_host_mem_ch_per_mmio_device, false, true);
     set_barrier_params(cluster);
     auto mmio_devices = cluster.get_target_mmio_device_ids();
 
@@ -332,7 +330,7 @@ TEST(SiliconDriverWH, DynamicTLB_RW) {
     std::set<chip_id_t> target_devices = test_utils::get_target_devices();
 
     uint32_t num_host_mem_ch_per_mmio_device = 1;
-    Cluster cluster = Cluster(num_host_mem_ch_per_mmio_device, false, true, true);
+    Cluster cluster = Cluster(num_host_mem_ch_per_mmio_device, false, true);
 
     set_barrier_params(cluster);
 
@@ -373,7 +371,7 @@ TEST(SiliconDriverWH, MultiThreadedDevice) {
     std::set<chip_id_t> target_devices = test_utils::get_target_devices();
 
     uint32_t num_host_mem_ch_per_mmio_device = 1;
-    Cluster cluster = Cluster(num_host_mem_ch_per_mmio_device, false, true, true);
+    Cluster cluster = Cluster(num_host_mem_ch_per_mmio_device, false, true);
 
     set_barrier_params(cluster);
 
@@ -433,7 +431,7 @@ TEST(SiliconDriverWH, MultiThreadedMemBar) {
     uint32_t base_addr = l1_mem::address_map::DATA_BUFFER_SPACE_BASE;
     uint32_t num_host_mem_ch_per_mmio_device = 1;
 
-    Cluster cluster = Cluster(num_host_mem_ch_per_mmio_device, false, true, true);
+    Cluster cluster = Cluster(num_host_mem_ch_per_mmio_device, false, true);
     set_barrier_params(cluster);
     auto mmio_devices = cluster.get_target_mmio_device_ids();
 
@@ -551,7 +549,7 @@ TEST(SiliconDriverWH, BroadcastWrite) {
 
     uint32_t num_host_mem_ch_per_mmio_device = 1;
 
-    Cluster cluster = Cluster(num_host_mem_ch_per_mmio_device, false, true, true);
+    Cluster cluster = Cluster(num_host_mem_ch_per_mmio_device, false, true);
     set_barrier_params(cluster);
     auto mmio_devices = cluster.get_target_mmio_device_ids();
 
@@ -628,7 +626,7 @@ TEST(SiliconDriverWH, VirtualCoordinateBroadcast) {
 
     uint32_t num_host_mem_ch_per_mmio_device = 1;
 
-    Cluster cluster = Cluster(num_host_mem_ch_per_mmio_device, false, true, true);
+    Cluster cluster = Cluster(num_host_mem_ch_per_mmio_device, false, true);
     set_barrier_params(cluster);
     auto mmio_devices = cluster.get_target_mmio_device_ids();
 
@@ -739,7 +737,6 @@ TEST(SiliconDriverWH, SysmemTestWithPcie) {
     Cluster cluster(
         1,      // one "host memory channel", currently a 1G huge page
         false,  // skip driver allocs - no (don't skip)
-        true,   // clean system resources - yes
         true);  // perform harvesting - yes
 
     set_barrier_params(cluster);
@@ -804,7 +801,6 @@ TEST(SiliconDriverWH, RandomSysmemTestWithPcie) {
         target_devices,
         num_channels,
         false,  // skip driver allocs - no (don't skip)
-        true,   // clean system resources - yes
         true);  // perform harvesting - yes
 
     set_barrier_params(cluster);
@@ -871,7 +867,6 @@ TEST(SiliconDriverWH, LargeAddressTlb) {
         target_devices,
         num_channels,
         false,  // skip driver allocs - no (don't skip)
-        true,   // clean system resources - yes
         true);  // perform harvesting - yes
 
     const CoreCoord ARC_CORE = cluster.get_soc_descriptor(0).get_cores(CoreType::ARC).at(0);

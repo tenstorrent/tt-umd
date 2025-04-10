@@ -511,6 +511,11 @@ Cluster::Cluster(
 
 void Cluster::configure_active_ethernet_cores_for_mmio_device(
     chip_id_t mmio_chip, const std::unordered_set<CoreCoord>& active_eth_cores_per_chip) {
+    std::cout << "broskoprint --- active_eth_cores_per_chip: " << active_eth_cores_per_chip.size() << ": ";
+    for (const auto& core : active_eth_cores_per_chip) {
+        std::cout << "(" << core.x << "," << core.y << ") ";
+    }
+    std::cout << std::endl;
     get_local_chip(mmio_chip)->set_remote_transfer_ethernet_cores(active_eth_cores_per_chip);
 }
 
@@ -1231,6 +1236,8 @@ void Cluster::write_to_non_mmio_device(
     tt_cxy_pair remote_transfer_ethernet_core = tt_cxy_pair(
         mmio_capable_chip_logical, get_local_chip(mmio_capable_chip_logical)->get_remote_transfer_ethernet_core());
 
+    std::cout << "broskoprint --- remote_transfer_ethernet_core: " << remote_transfer_ethernet_core.str() << std::endl;
+
     erisc_command.resize(sizeof(routing_cmd_t) / DATA_WORD_SIZE);
     new_cmd = (routing_cmd_t*)&erisc_command[0];
     read_device_memory(
@@ -1293,6 +1300,8 @@ void Cluster::write_to_non_mmio_device(
             req_flags |= eth_interface_params.cmd_broadcast;
         }
 
+        std::cout << "broskoprint --- get_active_eth_core_idx: "
+                  << get_local_chip(mmio_capable_chip_logical)->get_active_eth_core_idx() << std::endl;
         uint32_t host_dram_block_addr =
             host_address_params.eth_routing_buffers_start +
             (get_local_chip(mmio_capable_chip_logical)->get_active_eth_core_idx() * eth_interface_params.cmd_buf_size +
@@ -1400,10 +1409,13 @@ void Cluster::write_to_non_mmio_device(
                 chips_.at(mmio_capable_chip_logical)->eth_interface_params,
                 (erisc_q_ptrs[0]) & eth_interface_params.cmd_buf_ptr_mask,
                 erisc_q_rptr[0])) {
+            std::cout << "broskoprint --- update_active_eth_core_idx: " << std::endl;
             get_local_chip(mmio_capable_chip_logical)->update_active_eth_core_idx();
             remote_transfer_ethernet_core = tt_cxy_pair(
                 mmio_capable_chip_logical,
                 get_local_chip(mmio_capable_chip_logical)->get_remote_transfer_ethernet_core());
+            std::cout << "broskoprint --- remote_transfer_ethernet_core: " << remote_transfer_ethernet_core.str()
+                      << std::endl;
             read_device_memory(
                 erisc_q_ptrs.data(),
                 remote_transfer_ethernet_core,
@@ -1465,6 +1477,7 @@ void Cluster::read_from_non_mmio_device(void* mem_ptr, tt_cxy_pair core, uint64_
                 MutexType::NON_MMIO, get_tt_device(mmio_capable_chip_logical)->get_pci_device()->get_device_num());
     const tt_cxy_pair remote_transfer_ethernet_core = tt_cxy_pair(
         mmio_capable_chip_logical, get_local_chip(mmio_capable_chip_logical)->get_remote_transfer_ethernet_core());
+    std::cout << "broskoprint --- remote_transfer_ethernet_core: " << remote_transfer_ethernet_core.str() << std::endl;
 
     read_device_memory(
         erisc_q_ptrs.data(),
@@ -1700,6 +1713,8 @@ void Cluster::wait_for_connected_non_mmio_flush(const chip_id_t chip_id) {
             // wait for all queues to be empty.
             for (tt_xy_pair& xy : get_local_chip(chip_id)->get_remote_transfer_ethernet_cores()) {
                 tt_cxy_pair cxy = tt_cxy_pair(chip_id, xy);
+                std::cout << "broskoprint --- wait_for_connected_non_mmio_flush wait for all queues to be empty cxy: "
+                          << cxy.str() << std::endl;
                 do {
                     read_device_memory(
                         erisc_q_ptrs.data(),
@@ -1712,6 +1727,8 @@ void Cluster::wait_for_connected_non_mmio_flush(const chip_id_t chip_id) {
             // wait for all write responses to come back.
             for (tt_xy_pair& xy : get_local_chip(chip_id)->get_remote_transfer_ethernet_cores()) {
                 tt_cxy_pair cxy = tt_cxy_pair(chip_id, xy);
+                std::cout << "broskoprint --- wait_for_connected_non_mmio_flush wait for all write responses cxy: "
+                          << cxy.str() << std::endl;
                 do {
                     read_device_memory(
                         erisc_txn_counters.data(), cxy, eth_interface_params.request_cmd_queue_base, 8, read_tlb);

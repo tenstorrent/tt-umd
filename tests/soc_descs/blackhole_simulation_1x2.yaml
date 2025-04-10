@@ -47,7 +47,7 @@ noc0_y_to_noc1_y:
   ]
 
 worker_l1_size:
-  1499136
+  1572864
 
 dram_bank_size:
   1073741824

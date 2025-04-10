@@ -180,7 +180,6 @@ std::unique_ptr<Chip> Cluster::construct_chip_from_cluster(
     tt_ClusterDescriptor* cluster_desc,
     tt_SocDescriptor& soc_desc,
     int num_host_mem_channels,
-    const bool clean_system_resources,
     const bool create_mock_chip) {
     if (create_mock_chip) {
         return std::make_unique<MockChip>(soc_desc);
@@ -188,7 +187,7 @@ std::unique_ptr<Chip> Cluster::construct_chip_from_cluster(
 
     if (cluster_desc->is_chip_mmio_capable(chip_id)) {
         return std::make_unique<LocalChip>(
-            soc_desc, cluster_desc->get_chips_with_mmio().at(chip_id), num_host_mem_channels, clean_system_resources);
+            soc_desc, cluster_desc->get_chips_with_mmio().at(chip_id), num_host_mem_channels);
     } else {
         return std::make_unique<RemoteChip>(soc_desc);
     }
@@ -201,7 +200,6 @@ std::unique_ptr<Chip> Cluster::construct_chip_from_cluster(
     bool perform_harvesting,
     std::unordered_map<chip_id_t, HarvestingMasks>& simulated_harvesting_masks,
     int num_host_mem_channels,
-    const bool clean_system_resources,
     const bool create_mock_chip) {
     HarvestingMasks harvesting_masks =
         get_harvesting_masks(chip_id, cluster_desc, perform_harvesting, simulated_harvesting_masks);
@@ -214,8 +212,7 @@ std::unique_ptr<Chip> Cluster::construct_chip_from_cluster(
         harvesting_masks,
         chip_board_type,
         asic_location);
-    return construct_chip_from_cluster(
-        chip_id, cluster_desc, soc_desc, num_host_mem_channels, clean_system_resources, create_mock_chip);
+    return construct_chip_from_cluster(chip_id, cluster_desc, soc_desc, num_host_mem_channels, create_mock_chip);
 }
 
 std::unique_ptr<Chip> Cluster::construct_chip_from_cluster(
@@ -224,7 +221,6 @@ std::unique_ptr<Chip> Cluster::construct_chip_from_cluster(
     bool perform_harvesting,
     std::unordered_map<chip_id_t, HarvestingMasks>& simulated_harvesting_masks,
     int num_host_mem_channels,
-    const bool clean_system_resources,
     const bool create_mock_chip) {
     tt::ARCH arch = cluster_desc->get_arch(chip_id);
     HarvestingMasks harvesting_masks =
@@ -238,8 +234,7 @@ std::unique_ptr<Chip> Cluster::construct_chip_from_cluster(
         harvesting_masks,
         chip_board_type,
         asic_location);
-    return construct_chip_from_cluster(
-        chip_id, cluster_desc, soc_desc, num_host_mem_channels, clean_system_resources, create_mock_chip);
+    return construct_chip_from_cluster(chip_id, cluster_desc, soc_desc, num_host_mem_channels, create_mock_chip);
 }
 
 void Cluster::add_chip(chip_id_t chip_id, std::unique_ptr<Chip> chip) {
@@ -414,7 +409,6 @@ void Cluster::ubb_eth_connections(
 Cluster::Cluster(
     const uint32_t& num_host_mem_ch_per_mmio_device,
     const bool create_mock_chips,
-    const bool clean_system_resources,
     bool perform_harvesting,
     std::unordered_map<chip_id_t, HarvestingMasks> simulated_harvesting_masks) {
     cluster_desc = Cluster::create_cluster_descriptor();
@@ -428,7 +422,6 @@ Cluster::Cluster(
                 perform_harvesting,
                 simulated_harvesting_masks,
                 num_host_mem_ch_per_mmio_device,
-                clean_system_resources,
                 create_mock_chips));
     }
 
@@ -439,7 +432,6 @@ Cluster::Cluster(
     const std::set<chip_id_t>& target_devices,
     const uint32_t& num_host_mem_ch_per_mmio_device,
     const bool create_mock_chips,
-    const bool clean_system_resources,
     bool perform_harvesting,
     std::unordered_map<chip_id_t, HarvestingMasks> simulated_harvesting_masks) {
     cluster_desc = Cluster::create_cluster_descriptor();
@@ -457,7 +449,6 @@ Cluster::Cluster(
                 perform_harvesting,
                 simulated_harvesting_masks,
                 num_host_mem_ch_per_mmio_device,
-                clean_system_resources,
                 create_mock_chips));
     }
 
@@ -469,7 +460,6 @@ Cluster::Cluster(
     const std::set<chip_id_t>& target_devices,
     const uint32_t& num_host_mem_ch_per_mmio_device,
     const bool create_mock_chips,
-    const bool clean_system_resources,
     bool perform_harvesting,
     std::unordered_map<chip_id_t, HarvestingMasks> simulated_harvesting_masks) {
     cluster_desc = Cluster::create_cluster_descriptor(sdesc_path);
@@ -488,7 +478,6 @@ Cluster::Cluster(
                 perform_harvesting,
                 simulated_harvesting_masks,
                 num_host_mem_ch_per_mmio_device,
-                clean_system_resources,
                 create_mock_chips));
         log_assert(
             cluster_desc->get_arch(chip_id) == get_chip(chip_id)->get_soc_descriptor().arch,
@@ -505,7 +494,6 @@ Cluster::Cluster(
     std::unique_ptr<tt_ClusterDescriptor> cluster_descriptor,
     const uint32_t& num_host_mem_ch_per_mmio_device,
     const bool create_mock_chips,
-    const bool clean_system_resources,
     bool perform_harvesting,
     std::unordered_map<chip_id_t, HarvestingMasks> simulated_harvesting_masks) {
     cluster_desc = std::move(cluster_descriptor);
@@ -519,7 +507,6 @@ Cluster::Cluster(
                 perform_harvesting,
                 simulated_harvesting_masks,
                 num_host_mem_ch_per_mmio_device,
-                clean_system_resources,
                 create_mock_chips));
     }
 

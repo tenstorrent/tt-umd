@@ -26,7 +26,7 @@ TEST(SoftwareHarvesting, TensixSoftwareHarvestingAllChips) {
 
     uint32_t num_host_mem_ch_per_mmio_device = 1;
     std::unique_ptr<Cluster> cluster =
-        std::make_unique<Cluster>(num_host_mem_ch_per_mmio_device, false, true, true, software_harvesting_masks);
+        std::make_unique<Cluster>(num_host_mem_ch_per_mmio_device, false, true, software_harvesting_masks);
 
     for (const chip_id_t& chip : cluster->get_target_device_ids()) {
         tt::ARCH arch = cluster->get_cluster_description()->get_arch(chip);

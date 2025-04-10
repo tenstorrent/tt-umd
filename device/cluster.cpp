@@ -532,6 +532,14 @@ void Cluster::configure_active_ethernet_cores_for_mmio_device(
     // Based on this information, UMD determines which ethernet cores can be used for host->cluster non-MMIO transfers.
     // This overrides the default ethernet cores tagged for host to cluster routing in the constructor and must be
     // called for all MMIO devices, if default behaviour is not desired.
+
+    std::cout << "broskoprint --- configure_active_ethernet_cores_for_mmio_device " << active_eth_cores_per_chip.size()
+              << ": ";
+    for (const auto& core : active_eth_cores_per_chip) {
+        std::cout << core.str() << " ";
+    }
+    std::cout << std::endl;
+
     auto& soc_desc = get_soc_descriptor(mmio_chip);
     log_assert(soc_desc.arch == tt::ARCH::WORMHOLE_B0, "{} can only be called for Wormhole arch", __FUNCTION__);
     // Cores 0, 1, 6, 7 are only available if in the active set
@@ -1282,6 +1290,7 @@ void Cluster::write_to_non_mmio_device(
         non_mmio_transfer_cores_customized ? active_eth_core_idx_per_chip.at(mmio_capable_chip_logical) : active_core;
     tt_cxy_pair remote_transfer_ethernet_core =
         remote_transfer_ethernet_cores.at(mmio_capable_chip_logical)[active_core_for_txn];
+    std::cout << "broskoprint --- remote_transfer_ethernet_core " << remote_transfer_ethernet_core.str() << std::endl;
 
     erisc_command.resize(sizeof(routing_cmd_t) / DATA_WORD_SIZE);
     new_cmd = (routing_cmd_t*)&erisc_command[0];
@@ -1347,6 +1356,7 @@ void Cluster::write_to_non_mmio_device(
             req_flags |= eth_interface_params.cmd_broadcast;
         }
 
+        std::cout << "broskoprint --- active_core_for_txn " << active_core_for_txn << std::endl;
         uint32_t host_dram_block_addr =
             host_address_params.eth_routing_buffers_start +
             (active_core_for_txn * eth_interface_params.cmd_buf_size + req_wr_ptr) * max_block_size;
@@ -1452,15 +1462,19 @@ void Cluster::write_to_non_mmio_device(
                 chips_.at(mmio_capable_chip_logical)->eth_interface_params,
                 (erisc_q_ptrs[0]) & eth_interface_params.cmd_buf_ptr_mask,
                 erisc_q_rptr[0])) {
+            std::cout << "broskoprint --- active_core_for_txn pre " << active_core_for_txn << std::endl;
             active_core_for_txn++;
             uint32_t update_mask_for_chip = remote_transfer_ethernet_cores[mmio_capable_chip_logical].size() - 1;
             active_core_for_txn =
                 non_mmio_transfer_cores_customized
                     ? (active_core_for_txn & update_mask_for_chip)
                     : ((active_core_for_txn & NON_EPOCH_ETH_CORES_MASK) + NON_EPOCH_ETH_CORES_START_ID);
+            std::cout << "broskoprint --- active_core_for_txn post " << active_core_for_txn << std::endl;
             // active_core = (active_core & NON_EPOCH_ETH_CORES_MASK) + NON_EPOCH_ETH_CORES_START_ID;
             remote_transfer_ethernet_core =
                 remote_transfer_ethernet_cores.at(mmio_capable_chip_logical)[active_core_for_txn];
+            std::cout << "broskoprint --- remote_transfer_ethernet_core " << remote_transfer_ethernet_core.str()
+                      << std::endl;
             read_device_memory(
                 erisc_q_ptrs.data(),
                 remote_transfer_ethernet_core,
@@ -1521,6 +1535,7 @@ void Cluster::read_from_non_mmio_device(void* mem_ptr, tt_cxy_pair core, uint64_
             ->acquire_mutex(
                 MutexType::NON_MMIO, get_tt_device(mmio_capable_chip_logical)->get_pci_device()->get_device_num());
     const tt_cxy_pair remote_transfer_ethernet_core = remote_transfer_ethernet_cores[mmio_capable_chip_logical].at(0);
+    std::cout << "broskoprint --- remote_transfer_ethernet_core " << remote_transfer_ethernet_core.str() << std::endl;
 
     read_device_memory(
         erisc_q_ptrs.data(),
@@ -1755,6 +1770,8 @@ void Cluster::wait_for_connected_non_mmio_flush(const chip_id_t chip_id) {
 
             // wait for all queues to be empty.
             for (tt_cxy_pair& cxy : remote_transfer_ethernet_cores.at(chip_id)) {
+                std::cout << "broskoprint --- wait_for_connected_non_mmio_flush wait for all queues to be empty cxy "
+                          << cxy.str() << std::endl;
                 do {
                     read_device_memory(
                         erisc_q_ptrs.data(),
@@ -1766,6 +1783,9 @@ void Cluster::wait_for_connected_non_mmio_flush(const chip_id_t chip_id) {
             }
             // wait for all write responses to come back.
             for (tt_cxy_pair& cxy : remote_transfer_ethernet_cores.at(chip_id)) {
+                std::cout << "broskoprint --- wait_for_connected_non_mmio_flush wait for all write responses to come "
+                             "back cxy "
+                          << cxy.str() << std::endl;
                 do {
                     read_device_memory(
                         erisc_txn_counters.data(), cxy, eth_interface_params.request_cmd_queue_base, 8, read_tlb);

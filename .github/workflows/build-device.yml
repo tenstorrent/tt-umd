@@ -34,6 +34,9 @@ jobs:
           {runs-on: ubuntu-22.04, docker-image: tt-umd-ci-ubuntu-22.04, compiler: clang},
           {runs-on: ubuntu-22.04, docker-image: tt-umd-ci-ubuntu-22.04,
            compiler: gcc-12, c: /usr/bin/gcc-12, cpp: /usr/bin/g++-12},
+          {runs-on: ubuntu-24.04, docker-image: tt-umd-ci-ubuntu-24.04, compiler: clang},
+          {runs-on: ubuntu-24.04, docker-image: tt-umd-ci-ubuntu-24.04,
+           compiler: gcc-12, c: /usr/bin/gcc-12, cpp: /usr/bin/g++-12},
         ]
 
     name: Build device for any arch on ${{ matrix.image.runs-on }} with ${{ matrix.image.compiler }}

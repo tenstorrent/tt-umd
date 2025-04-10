@@ -18,6 +18,7 @@ jobs:
       matrix:
         machine: [
           ubuntu-22.04,
+          ubuntu-24.04,
           n150,
           n300,
           p150,
@@ -76,6 +77,7 @@ jobs:
       matrix:
         machine: [
           ubuntu-22.04,
+          ubuntu-24.04,
           n150,
           n300,
           p150,
@@ -83,7 +85,7 @@ jobs:
           tt-beta-ubuntu-2204-small,
           tt-beta-ubuntu-2204-n300-large-stable,
           tt-beta-ubuntu-2204-n150-large-stable]
-        image: [tt-umd-ci-ubuntu-22.04]
+        image: [tt-umd-ci-ubuntu-22.04, tt-umd-ci-ubuntu-24.04]
 
     name: Check runner docker
     needs: check-runners-host

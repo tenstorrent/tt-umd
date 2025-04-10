@@ -133,7 +133,6 @@ target_link_libraries(
         nng
         rt
         uv_a
-        Boost::interprocess
         spdlog::spdlog_header_only
         fmt::fmt-header-only
         yaml-cpp::yaml-cpp

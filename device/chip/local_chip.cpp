@@ -358,9 +358,11 @@ tt_xy_pair LocalChip::get_remote_transfer_ethernet_core() {
 }
 
 void LocalChip::update_active_eth_core_idx() {
+    std::cout << "broskoprint --- update_active_eth_core_idx pre " << active_eth_core_idx << std::endl;
     active_eth_core_idx++;
     uint32_t update_mask_for_chip = remote_transfer_eth_cores_.size() - 1;
     active_eth_core_idx = active_eth_core_idx & update_mask_for_chip;
+    std::cout << "broskoprint --- update_active_eth_core_idx post " << active_eth_core_idx << std::endl;
 }
 
 int LocalChip::get_active_eth_core_idx() { return active_eth_core_idx; }

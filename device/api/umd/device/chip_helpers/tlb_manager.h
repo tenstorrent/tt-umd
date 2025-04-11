@@ -7,6 +7,7 @@
 
 #include <unordered_map>
 
+#include "umd/device/tt_device/tlb_window.h"
 #include "umd/device/tt_xy_pair.h"
 #include "umd/device/types/tlb.h"
 

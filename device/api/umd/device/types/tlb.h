@@ -55,6 +55,6 @@ struct tlb_configuration {
     uint64_t index_offset;
     uint64_t tlb_offset;
     tlb_offsets offset;
-};
+}; 
 
 }  // namespace tt::umd

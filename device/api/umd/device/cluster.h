@@ -225,9 +225,58 @@ public:
     }
 
     /**
-     * Write uint32_t data (as specified by ptr + len pair) to specified device, core and address (defined for Silicon).
-     * This API is used for writing to both TENSIX and DRAM cores. The internal SocDescriptor can be used to determine
-     * which type of the core is being targeted.
+     * Read data from a specified device, core, and address into host memory.
+     *
+     * This method handles reads from different target types/locations within the cluster, routing the request based on
+     * the target device's accessibility and the type of read.
+     *
+     * Key aspects of the implementation:
+     *
+     * - Target Location: it distinguishes between devices accessible via direct MMIO (local PCIe-attached chips) and
+     * remote devices accessed over the network fabric (Ethernet). Reads directed to remote devices use a network-based
+     * protocol implemented in ERISC firmware.
+     *
+     * - Target Type (for MMIO/local devices). For local devices, the fallback_tlb parameter determines access type
+     *      - Register Reads: if fallback_tlb is set to the string "REG_TLB" then the read targets a hardware register.
+     *        This path requires addr to be 4-byte aligned and size to be a multiple of 4 bytes. It ensures an uncached
+     *        read by dynamically configuring a TLB window specifically for register access.
+     *      - Memory Reads: if fallback_tlb is any other string, the read targets device memory (e.g L1 or DRAM). The
+     *        access mechanism depends on pre-configured TLB mappings:
+     *            - Static TLBs: if the requested address range falls entirely within a statically mapped TLB region,
+     *            that mapping is used directly. In this case, the string provided in fallback_tlb is ignored.
+     *            - Dynamic TLBs: if the requested address range is not covered by a static TLB, the fallback_tlb string
+     *            is used to select and configure a dynamic TLB window on-demand. This allows accessing arbitrary
+     *            memory locations. The implementation handles larger reads than the TLB window size by performing
+     *            multiple chunked transfers.
+     *
+     * @param mem_ptr Data pointer to read the data into.
+     * @param chip Chip to target.
+     * @param core Core to target.
+     * @param addr Address to read from.
+     * @param size Number of bytes to read.
+     * @param fallback_tlb Specifies fallback/dynamic TLB to use.
+     */
+    virtual void read_from_device(
+        void* mem_ptr,
+        chip_id_t chip,
+        tt::umd::CoreCoord core,
+        uint64_t addr,
+        uint32_t size,
+        const std::string& fallback_tlb) {
+        throw std::runtime_error("tt_device::read_from_device is not implemented");
+    }
+
+    /**
+     * Write data to a specified device, core, and address from host memory.
+     *
+     * This method handles writes to different target types/locations within the cluster, routing the request based on
+     * the target device's accessibility and the type of write.
+     *
+     * Similar to read_from_device, this method distinguishes between local and remote devices, and between register
+     * and memory writes for local devices. See the read_from_device method documentation for details.
+     *
+     * Writes to local (PCIe-attached) devices are write combined to improve performance. The exception is register
+     * writes using the "REG_TLB" mechanism, which uses an uncached mapping of the TLB window.
      *
      * @param mem_ptr Source data address.
      * @param size_in_bytes Source data size.

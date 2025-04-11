@@ -26,12 +26,6 @@ std::unique_ptr<tt_ClusterDescriptor> TopologyDiscovery::create_ethernet_map() {
 void TopologyDiscovery::get_pcie_connected_chips() {
     std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
 
-    std::vector<std::unique_ptr<TTDevice>> tt_devices;
-    for (auto& device_id : pci_device_ids) {
-        std::unique_ptr<TTDevice> tt_device = TTDevice::create(device_id);
-        tt_devices.push_back(std::move(tt_device));
-    }
-
     chip_id = 0;
     for (auto& device_id : pci_device_ids) {
         std::unique_ptr<LocalChip> chip = nullptr;
@@ -85,7 +79,6 @@ uint32_t TopologyDiscovery::remote_arc_msg(
         remote_comm->write_to_non_mmio(eth_coord, core, &misc, ARC_RESET_MISC_CNTL_ADDR, sizeof(misc));
     }
 
-    uint32_t status = 0xbadbad;
     auto start = std::chrono::system_clock::now();
     while (true) {
         auto end = std::chrono::system_clock::now();

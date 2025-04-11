@@ -12,6 +12,8 @@ class tt_ClusterDescriptor;
 
 namespace tt::umd {
 
+// TopologyDiscovery class creates cluster descriptor only for Wormhole configurations with old routing fw.
+// TODO: Move Blackhole and 6U topology discovery to this class.
 class TopologyDiscovery {
 public:
     std::unique_ptr<tt_ClusterDescriptor> create_ethernet_map();
@@ -23,6 +25,8 @@ private:
 
     void fill_cluster_descriptor_info();
 
+    // TODO: this should be moved to class similar to TTDevice for MMIO devices.
+    // Covered by the UMD issue https://github.com/tenstorrent/tt-umd/issues/730.
     uint32_t remote_arc_msg(
         eth_coord_t eth_coord,
         uint32_t msg_code,
@@ -33,8 +37,12 @@ private:
         Chip* mmio_chip,
         uint32_t timeout_ms = 5000);
 
+    // TODO: this should be moved to class similar to TTDevice for MMIO devices.
+    // Covered by the UMD issue https://github.com/tenstorrent/tt-umd/issues/730.
     ChipInfo read_non_mmio_chip_info(eth_coord_t eth_coord, Chip* mmio_chip);
 
+    // TODO: this should be moved to class similar to TTDevice for MMIO devices.
+    // Covered by the UMD issue https://github.com/tenstorrent/tt-umd/issues/730.
     BoardType get_board_type(eth_coord_t eth_coord, Chip* mmio_chip);
 
     std::unordered_map<chip_id_t, std::unique_ptr<Chip>> chips;

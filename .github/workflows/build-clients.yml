@@ -55,10 +55,10 @@ jobs:
   build-tt-exalens:
     timeout-minutes: ${{ fromJSON(inputs.timeout || '90') }}
 
-    name: Build tt-metal with newest UMD
+    name: Build tt-exalens with newest UMD
     runs-on: ubuntu-22.04
     container:
-      image: ghcr.io/tenstorrent/tt-metal/tt-metalium/ubuntu-22.04-dev-amd64:latest
+      image: ghcr.io/tenstorrent/tt-exalens/tt-exalens-ubuntu-22-04:latest
       options: --user root
 
     steps:

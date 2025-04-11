@@ -50,6 +50,7 @@ struct SocDescriptorInfo {
     std::vector<tt_xy_pair> arc_cores;
     std::vector<tt_xy_pair> pcie_cores;
     std::vector<tt_xy_pair> router_cores;
+    std::vector<tt_xy_pair> security_cores;
     uint32_t worker_l1_size;
     uint32_t eth_l1_size;
     uint64_t dram_bank_size;
@@ -171,6 +172,7 @@ private:
     std::vector<tt_xy_pair> ethernet_cores;                                      // ethernet cores (index == channel id)
     std::unordered_map<tt_xy_pair, int> ethernet_core_channel_map;
     std::vector<tt_xy_pair> router_cores;
+    std::vector<tt_xy_pair> security_cores;
     std::vector<uint32_t> noc0_x_to_noc1_x;
     std::vector<uint32_t> noc0_y_to_noc1_y;
 

@@ -40,6 +40,7 @@ public:
         const tt_xy_pair& pcie_grid_size,
         const std::vector<tt_xy_pair>& pcie_cores,
         const std::vector<tt_xy_pair>& router_cores,
+        const std::vector<tt_xy_pair>& security_cores,
         const std::vector<uint32_t>& noc0_x_to_noc1_x = {},
         const std::vector<uint32_t>& noc0_y_to_noc1_y = {});
 
@@ -103,6 +104,7 @@ protected:
         const tt_xy_pair& pcie_grid_size,
         const std::vector<tt_xy_pair>& pcie_cores,
         const std::vector<tt_xy_pair>& router_cores,
+        const std::vector<tt_xy_pair>& security_cores,
         const std::vector<uint32_t>& noc0_x_to_noc1_x = {},
         const std::vector<uint32_t>& noc0_y_to_noc1_y = {});
 
@@ -116,6 +118,7 @@ protected:
     virtual void translate_arc_coords();
     virtual void translate_pcie_coords();
     virtual void translate_router_coords();
+    virtual void translate_security_coords();
 
     void identity_map_physical_cores();
     void add_core_translation(const tt::umd::CoreCoord& core_coord, const tt_xy_pair& physical_pair);
@@ -218,6 +221,8 @@ protected:
 
     // Router cores don't have a grid size, since they are not layed out in a regular fashion.
     const std::vector<tt_xy_pair> router_cores;
+
+    const std::vector<tt_xy_pair> security_cores;
 
     const std::vector<uint32_t> noc0_x_to_noc1_x;
     const std::vector<uint32_t> noc0_y_to_noc1_y;

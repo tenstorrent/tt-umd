@@ -29,7 +29,7 @@ jobs:
       options: --user root
 
     steps:
-      - name: Checkout client repo
+      - name: Checkout tt-metal repo
         uses: actions/checkout@v4
         with:
           # Clone under tt-metal directory
@@ -50,3 +50,35 @@ jobs:
           export TT_METAL_HOME=$(pwd)
           export PYTHONPATH=$(pwd)
           ./build_metal.sh --build-all --enable-ccache --enable-profiler
+          cd ../
+
+  build-tt-exalens:
+    timeout-minutes: ${{ fromJSON(inputs.timeout || '90') }}
+
+    name: Build tt-metal with newest UMD
+    runs-on: ubuntu-22.04
+    container:
+      image: ghcr.io/tenstorrent/tt-metal/tt-metalium/ubuntu-22.04-dev-amd64:latest
+      options: --user root
+
+    steps:
+      - name: Checkout tt-exalens repo
+        uses: actions/checkout@v4
+        with:
+          # Clone under tt-exalens directory
+          path: tt-exalens
+          repository: tenstorrent/tt-exalens
+          submodules: recursive
+
+      - name: Checkout UMD
+        uses: actions/checkout@v4
+        with:
+          # Clone directly into tt-exalens directory for umd
+          path: tt-exalens/third_party/umd
+          submodules: recursive
+
+      - name: Build tt-exalens
+        run: |
+          cd tt-exalens
+          make build
+          cd ../

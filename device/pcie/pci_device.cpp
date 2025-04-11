@@ -442,7 +442,7 @@ semver_t PCIDevice::read_kmd_version() {
 }
 
 tenstorrent_allocate_tlb_out PCIDevice::allocate_tlb(tenstorrent_allocate_tlb_in in) {
-    tenstorrent_allocate_tlb allocate_tlb;
+    tenstorrent_allocate_tlb allocate_tlb{};
     allocate_tlb.in = in;
     if (ioctl(get_fd(), TENSTORRENT_IOCTL_ALLOCATE_TLB, &allocate_tlb) < 0) {
         std::cout << "error" << std::endl;
@@ -453,7 +453,7 @@ tenstorrent_allocate_tlb_out PCIDevice::allocate_tlb(tenstorrent_allocate_tlb_in
 }
 
 tenstorrent_free_tlb_out PCIDevice::free_tlb(tenstorrent_free_tlb_in in) {
-    tenstorrent_free_tlb free_tlb;
+    tenstorrent_free_tlb free_tlb{};
     free_tlb.in = in;
     if (ioctl(get_fd(), TENSTORRENT_IOCTL_FREE_TLB, &free_tlb) < 0) {
         return {};
@@ -463,7 +463,7 @@ tenstorrent_free_tlb_out PCIDevice::free_tlb(tenstorrent_free_tlb_in in) {
 }
 
 tenstorrent_configure_tlb_out PCIDevice::configure_tlb(tenstorrent_configure_tlb_in in) {
-    tenstorrent_configure_tlb configure_tlb;
+    tenstorrent_configure_tlb configure_tlb{};
     configure_tlb.in = in;
     if (ioctl(get_fd(), TENSTORRENT_IOCTL_CONFIGURE_TLB, &configure_tlb) < 0) {
         return {};

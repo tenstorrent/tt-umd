@@ -296,6 +296,30 @@ public:
     }
 
     /**
+     * Use PCIe DMA to write device memory (L1 or DRAM).
+     *
+     * @param src Source data address.
+     * @param size Size in bytes.
+     * @param chip Chip to target; must be local, i.e. attached via PCIe.
+     * @param core Core to target.
+     * @param addr Address to write to.
+     */
+    virtual void dma_write_to_device(
+        const void* src, size_t size, chip_id_t chip, tt::umd::CoreCoord core, uint64_t addr) = 0;
+
+    /**
+     * Use PCIe DMA to read device memory (L1 or DRAM).
+     *
+     * @param src Source data address.
+     * @param size Size in bytes.
+     * @param chip Chip to target; must be local, i.e. attached via PCIe.
+     * @param core Core to target.
+     * @param addr Address to read from.
+     */
+    virtual void dma_read_from_device(
+        void* dst, size_t size, chip_id_t chip, tt::umd::CoreCoord core, uint64_t addr) = 0;
+
+    /**
      * This function writes to multiple chips and cores in the cluster. A set of chips, rows and columns can be excluded
      * from the broadcast. The function has to be called either only for Tensix cores or only for DRAM cores.
      *

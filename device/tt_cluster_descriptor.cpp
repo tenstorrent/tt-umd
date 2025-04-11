@@ -1009,7 +1009,7 @@ std::string tt_ClusterDescriptor::serialize() const {
     return out.c_str();
 }
 
-void tt_ClusterDescriptor::serialize_to_file(std::filesystem::path dest_file) const {
+void tt_ClusterDescriptor::serialize_to_file(const std::filesystem::path dest_file) const {
     std::ofstream file(dest_file);
     file << serialize();
     file.close();

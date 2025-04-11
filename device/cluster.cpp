@@ -2910,7 +2910,7 @@ std::unique_ptr<tt_ClusterDescriptor> Cluster::create_cluster_descriptor(
 
 std::string Cluster::serialize() { return Cluster::create_cluster_descriptor()->serialize(); }
 
-std::filesystem::path Cluster::serialize_to_file(std::filesystem::path dest_file) {
+std::filesystem::path Cluster::serialize_to_file(const std::filesystem::path dest_file) {
     if (dest_file.empty()) {
         dest_file = tt_ClusterDescriptor::get_default_cluster_descriptor_file_path();
     }

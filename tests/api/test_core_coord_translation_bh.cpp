@@ -816,3 +816,21 @@ TEST(CoordinateManager, CoordinateManagerBlackholeNoc1Noc0Mapping) {
     check_noc0_noc1_mapping(tt::umd::blackhole::ARC_CORES_NOC0, ARC_CORES_NOC1, CoreType::ARC);
     check_noc0_noc1_mapping({tt::umd::blackhole::PCIE_CORES_NOC0[1]}, {PCIE_CORES_NOC1[1]}, CoreType::PCIE);
 }
+
+TEST(CoordinateManager, CoordinateManagerBlackholeL2CPUTranslation) {
+    std::shared_ptr<CoordinateManager> coordinate_manager =
+        CoordinateManager::create_coordinate_manager(tt::ARCH::BLACKHOLE, true);
+
+    const std::vector<tt_xy_pair> l2cpu_cores = tt::umd::blackhole::L2CPU_CORES_NOC0;
+    for (const auto& l2cpu_core : l2cpu_cores) {
+        const CoreCoord noc0_coord = CoreCoord(l2cpu_core.x, l2cpu_core.y, CoreType::L2CPU, CoordSystem::PHYSICAL);
+        const CoreCoord virtual_coord = coordinate_manager->translate_coord_to(noc0_coord, CoordSystem::VIRTUAL);
+        const CoreCoord translated_coord = coordinate_manager->translate_coord_to(noc0_coord, CoordSystem::TRANSLATED);
+
+        EXPECT_EQ(noc0_coord.x, virtual_coord.x);
+        EXPECT_EQ(noc0_coord.y, virtual_coord.y);
+
+        EXPECT_EQ(noc0_coord.x, translated_coord.x);
+        EXPECT_EQ(noc0_coord.y, translated_coord.y);
+    }
+}

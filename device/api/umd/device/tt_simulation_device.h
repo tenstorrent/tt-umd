@@ -69,6 +69,14 @@ public:
         throw std::runtime_error("DMA read not supported in simulation mode.");
     }
 
+    void dma_write_to_device(const void* src, size_t size, chip_id_t chip, tt::umd::CoreCoord core, uint64_t addr) {
+        throw std::runtime_error("DMA write not supported in simulation mode.");
+    }
+
+    void dma_read_from_device(void* dst, size_t size, chip_id_t chip, tt::umd::CoreCoord core, uint64_t addr) {
+        throw std::runtime_error("DMA read not supported in simulation mode.");
+    }
+
     virtual void wait_for_non_mmio_flush();
     virtual void wait_for_non_mmio_flush(const chip_id_t chip);
     void l1_membar(const chip_id_t chip, const std::unordered_set<tt::umd::CoreCoord>& cores = {});

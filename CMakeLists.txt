@@ -51,7 +51,6 @@ endif()
 
 message(STATUS "UMD build type: ${CMAKE_BUILD_TYPE}")
 
-
 option(TT_UMD_BUILD_TESTS "Enables build of tt_umd tests" OFF)
 option(TT_UMD_BUILD_SIMULATION "Enables build of tt_umd simulation harnessing" OFF)
 

@@ -12,7 +12,7 @@ if(TT_UMD_BUILD_SIMULATION)
         DEPENDS
             flatc
             ${FBS_FILE}
-            COMMENT "Generating FlatBuffers header ${FBS_GENERATED_HEADER}"
+        COMMENT "Generating FlatBuffers header ${FBS_GENERATED_HEADER}"
         VERBATIM
     )
 endif()

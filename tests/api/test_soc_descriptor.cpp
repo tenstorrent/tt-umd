@@ -605,19 +605,11 @@ TEST(SocDescriptor, SocDescriptorBlackholeL2CPU) {
     HarvestingMasks harvesting_masks;
 
     tt_SocDescriptor soc_desc_yaml(
-        test_utils::GetAbsPath("tests/soc_descs/wormhole_b0_8x10.yaml"), true, harvesting_masks);
+        test_utils::GetAbsPath("tests/soc_descs/blackhole_140_arch.yaml"), true, harvesting_masks);
 
-    std::vector<CoreCoord> l2cpu_cores = soc_desc_yaml.get_cores(CoreType::L2CPU);
-    for (size_t index = 0; index < l2cpu_cores.size(); index++) {
-        EXPECT_EQ(l2cpu_cores[index].x, tt::umd::blackhole::L2CPU_CORES_NOC0[index].x);
-        EXPECT_EQ(l2cpu_cores[index].y, tt::umd::blackhole::L2CPU_CORES_NOC0[index].y);
-    }
+    EXPECT_EQ(soc_desc_yaml.get_cores(CoreType::L2CPU).size(), 4);
 
-    tt_SocDescriptor soc_desc_arch(tt::ARCH::WORMHOLE_B0, true, harvesting_masks);
+    tt_SocDescriptor soc_desc_arch(tt::ARCH::BLACKHOLE, true, harvesting_masks);
 
-    l2cpu_cores = soc_desc_arch.get_cores(CoreType::L2CPU);
-    for (size_t index = 0; index < l2cpu_cores.size(); index++) {
-        EXPECT_EQ(l2cpu_cores[index].x, tt::umd::blackhole::L2CPU_CORES_NOC0[index].x);
-        EXPECT_EQ(l2cpu_cores[index].y, tt::umd::blackhole::L2CPU_CORES_NOC0[index].y);
-    }
+    EXPECT_EQ(soc_desc_arch.get_cores(CoreType::L2CPU).size(), 4);
 }

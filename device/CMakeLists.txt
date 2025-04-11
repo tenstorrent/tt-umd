@@ -56,7 +56,8 @@ target_sources(
         blackhole/blackhole_arc_messenger.cpp
         blackhole/blackhole_arc_message_queue.cpp
         xy_pair.cpp
-        lock_manager.cpp
+        utils/lock_manager.cpp
+        utils/robust_mutex.cpp
         remote_communication.cpp
         ${FBS_GENERATED_HEADER}
 )
@@ -85,8 +86,10 @@ if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.23)
                 api/umd/device/driver_atomics.h
                 api/umd/device/grayskull_implementation.h
                 api/umd/device/hugepage.h
+                api/umd/device/utils/lock_manager.h
                 api/umd/device/pci_device.hpp
                 api/umd/device/semver.hpp
+                api/umd/device/utils/robust_mutex.h
                 api/umd/device/tt_cluster_descriptor.h
                 api/umd/device/tt_core_coordinates.h
                 api/umd/device/tt_device/blackhole_tt_device.h
@@ -130,7 +133,6 @@ target_link_libraries(
         nng
         rt
         uv_a
-        Boost::interprocess
         spdlog::spdlog_header_only
         fmt::fmt-header-only
         yaml-cpp::yaml-cpp

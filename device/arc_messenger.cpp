@@ -10,8 +10,6 @@
 #include "umd/device/umd_utils.h"
 #include "umd/device/wormhole_arc_messenger.h"
 
-using namespace boost::interprocess;
-
 namespace tt::umd {
 
 std::unique_ptr<ArcMessenger> ArcMessenger::create_arc_messenger(TTDevice* tt_device) {

@@ -32,10 +32,6 @@ struct dynamic_tlb {
     uint64_t remaining_size;  // Bytes remaining between bar_offset and end of the TLB.
 };
 
-namespace boost::interprocess {
-class named_mutex;
-}
-
 namespace tt::umd {
 
 class ArcMessenger;
@@ -146,6 +142,10 @@ public:
     ArcMessenger *get_arc_messenger() const;
 
     virtual uint32_t get_clock();
+
+    virtual uint32_t get_max_clock_freq();
+
+    virtual uint32_t get_min_clock_freq();
 
     virtual BoardType get_board_type() = 0;
 

@@ -7,6 +7,7 @@
 #include "umd/device/chip/local_chip.h"
 
 #include "logger.hpp"
+#include "umd/device/blackhole_implementation.h"
 #include "umd/device/chip_helpers/tlb_manager.h"
 #include "umd/device/tt_device/tt_device.h"
 #include "umd/device/types/blackhole_eth.h"
@@ -83,17 +84,17 @@ void LocalChip::initialize_default_chip_mutexes(const bool clear_mutex) {
     int pci_device_id = tt_device_->get_pci_device()->get_device_num();
     // Initialize Dynamic TLB mutexes
     for (auto& tlb : tlb_manager_->dynamic_tlb_config_) {
-        lock_manager.initialize_mutex(tlb.first, pci_device_id, clear_mutex);
+        lock_manager_.initialize_mutex(tlb.first, pci_device_id, clear_mutex);
     }
 
     // Initialize non-MMIO mutexes for WH devices regardless of number of chips, since these may be used for
     // ethernet broadcast
     if (tt_device_->get_arch() == tt::ARCH::WORMHOLE_B0) {
-        lock_manager.initialize_mutex(MutexType::NON_MMIO, pci_device_id, clear_mutex);
+        lock_manager_.initialize_mutex(MutexType::NON_MMIO, pci_device_id, clear_mutex);
     }
 
     // Initialize interprocess mutexes to make host -> device memory barriers atomic
-    lock_manager.initialize_mutex(MutexType::MEM_BARRIER, pci_device_id, clear_mutex);
+    lock_manager_.initialize_mutex(MutexType::MEM_BARRIER, pci_device_id, clear_mutex);
 }
 
 TTDevice* LocalChip::get_tt_device() { return tt_device_.get(); }
@@ -169,7 +170,7 @@ void LocalChip::write_to_device(
         }
     } else {
         const auto tlb_index = tlb_manager_->dynamic_tlb_config_.at(fallback_tlb);
-        auto lock = get_mutex(fallback_tlb, tt_device_->get_pci_device()->get_device_num());
+        auto lock = acquire_mutex(fallback_tlb, tt_device_->get_pci_device()->get_device_num());
 
         while (size > 0) {
             auto [mapped_address, tlb_size] = tt_device_->set_dynamic_tlb(
@@ -217,7 +218,7 @@ void LocalChip::read_from_device(
             tlb_description.size);
     } else {
         const auto tlb_index = tlb_manager_->dynamic_tlb_config_.at(fallback_tlb);
-        auto lock = get_mutex(fallback_tlb, tt_device_->get_pci_device()->get_device_num());
+        auto lock = acquire_mutex(fallback_tlb, tt_device_->get_pci_device()->get_device_num());
         log_debug(LogSiliconDriver, "  dynamic tlb_index: {}", tlb_index);
         while (size > 0) {
             auto [mapped_address, tlb_size] = tt_device_->set_dynamic_tlb(
@@ -236,18 +237,121 @@ void LocalChip::read_from_device(
     }
 }
 
+void LocalChip::write_to_device_reg(
+    tt_xy_pair core, const void* src, uint64_t reg_dest, uint32_t size, const std::string& fallback_tlb) {
+    if (size % sizeof(uint32_t) != 0) {
+        throw std::runtime_error("Size must be a multiple of 4 bytes");
+    }
+
+    if (reg_dest % sizeof(uint32_t) != 0) {
+        throw std::runtime_error("Register address must be 4-byte aligned");
+    }
+
+    const auto tlb_index = tlb_manager_->dynamic_tlb_config_.at(fallback_tlb);
+    auto lock = lock_manager_.acquire_mutex(fallback_tlb, tt_device_->get_pci_device()->get_device_num());
+    log_debug(LogSiliconDriver, "  dynamic tlb_index: {}", tlb_index);
+
+    auto [mapped_address, tlb_size] = tt_device_->set_dynamic_tlb(
+        tlb_index, translate_chip_coord_virtual_to_translated(core), reg_dest, tt::umd::tlb_data::Strict);
+    tt_device_->write_regs(mapped_address, size / sizeof(uint32_t), src);
+}
+
+void LocalChip::read_from_device_reg(
+    tt_xy_pair core, void* dest, uint64_t reg_src, uint32_t size, const std::string& fallback_tlb) {
+    if (size % sizeof(uint32_t) != 0) {
+        throw std::runtime_error("Size must be a multiple of 4 bytes");
+    }
+
+    if (reg_src % sizeof(uint32_t) != 0) {
+        throw std::runtime_error("Register address must be 4-byte aligned");
+    }
+
+    const auto tlb_index = tlb_manager_->dynamic_tlb_config_.at(fallback_tlb);
+    auto lock = lock_manager_.acquire_mutex(fallback_tlb, tt_device_->get_pci_device()->get_device_num());
+    log_debug(LogSiliconDriver, "  dynamic tlb_index: {}", tlb_index);
+
+    auto [mapped_address, tlb_size] = tt_device_->set_dynamic_tlb(
+        tlb_index, translate_chip_coord_virtual_to_translated(core), reg_src, tt::umd::tlb_data::Strict);
+    tt_device_->read_regs(mapped_address, size / sizeof(uint32_t), dest);
+}
+
 tt_xy_pair LocalChip::translate_chip_coord_virtual_to_translated(const tt_xy_pair core) const {
     CoreCoord core_coord = soc_descriptor_.get_coord_at(core, CoordSystem::VIRTUAL);
-    auto translated_coord =
-        soc_descriptor_.translate_coord_to(core_coord, umd_use_noc1 ? CoordSystem::PHYSICAL : CoordSystem::TRANSLATED);
-    return translated_coord;
+    // Since NOC1 and translated coordinate space overlaps for Tensix cores on Blackhole,
+    // Tensix cores are always used in translated space. Other cores are used either in
+    // NOC1 or translated space depending on the umd_use_noc1 flag.
+    // On Wormhole Tensix can use NOC1 space if umd_use_noc1 is set to true.
+    if (soc_descriptor_.noc_translation_enabled) {
+        if (soc_descriptor_.arch == tt::ARCH::BLACKHOLE) {
+            if (core_coord.core_type == CoreType::TENSIX || !umd_use_noc1) {
+                return soc_descriptor_.translate_coord_to(core_coord, CoordSystem::TRANSLATED);
+            } else {
+                return soc_descriptor_.translate_coord_to(core_coord, CoordSystem::NOC1);
+            }
+        } else {
+            return soc_descriptor_.translate_coord_to(
+                core_coord, umd_use_noc1 ? CoordSystem::NOC1 : CoordSystem::TRANSLATED);
+        }
+    } else {
+        return soc_descriptor_.translate_coord_to(
+            core_coord, umd_use_noc1 ? CoordSystem::NOC1 : CoordSystem::TRANSLATED);
+    }
 }
 
-std::unique_lock<boost::interprocess::named_mutex> LocalChip::get_mutex(std::string mutex_name, int pci_device_id) {
-    return lock_manager.get_mutex(mutex_name, pci_device_id);
+std::unique_lock<RobustMutex> LocalChip::acquire_mutex(std::string mutex_name, int pci_device_id) {
+    return lock_manager_.acquire_mutex(mutex_name, pci_device_id);
 }
 
-std::unique_lock<boost::interprocess::named_mutex> LocalChip::get_mutex(MutexType mutex_type, int pci_device_id) {
-    return lock_manager.get_mutex(mutex_type, pci_device_id);
+std::unique_lock<RobustMutex> LocalChip::acquire_mutex(MutexType mutex_type, int pci_device_id) {
+    return lock_manager_.acquire_mutex(mutex_type, pci_device_id);
 }
+
+void LocalChip::wait_dram_cores_training(const uint32_t timeout_ms) {
+    if (get_tt_device()->get_arch() == tt::ARCH::BLACKHOLE) {
+        return;
+    }
+
+    TTDevice* tt_device = get_tt_device();
+
+    auto start = std::chrono::system_clock::now();
+    while (true) {
+        std::vector<DramTrainingStatus> dram_training_status = tt_device->get_dram_training_status();
+
+        if (dram_training_status.empty()) {
+            // DRAM training status is not available, breaking the wait for DRAM training.
+            break;
+        }
+
+        bool all_dram_channels_trained = true;
+        const uint32_t chip_num_dram_channels =
+            std::min(dram_training_status.size(), get_soc_descriptor().get_dram_cores().size());
+        const uint32_t dram_harvesting_mask = get_soc_descriptor().harvesting_masks.dram_harvesting_mask;
+        for (uint32_t dram_channel = 0; dram_channel < chip_num_dram_channels; dram_channel++) {
+            // Skip the check for harvested channels.
+            if (dram_harvesting_mask & (1 << dram_channel)) {
+                continue;
+            }
+
+            // Check if there is an error in training for the channel.
+            if (dram_training_status[dram_channel] == DramTrainingStatus::FAIL) {
+                throw std::runtime_error("DRAM training failed");
+            }
+
+            // Verify whether the channel is trained.
+            all_dram_channels_trained &= (dram_training_status[dram_channel] == DramTrainingStatus::SUCCESS);
+        }
+
+        if (all_dram_channels_trained) {
+            break;
+        }
+
+        auto end = std::chrono::system_clock::now();
+        auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
+        if (duration.count() > timeout_ms) {
+            throw std::runtime_error(fmt::format("DRAM training timed out after {} ms", timeout_ms));
+            break;
+        }
+    }
+}
+
 }  // namespace tt::umd

@@ -7,10 +7,6 @@
 
 #include "umd/device/tt_device/tt_device.h"
 
-namespace boost::interprocess {
-class named_mutex;
-}
-
 namespace tt::umd {
 
 class RemoteCommunication {

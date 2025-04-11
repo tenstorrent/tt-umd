@@ -19,6 +19,12 @@ public:
 
     uint32_t get_clock() override;
 
+    uint32_t get_max_clock_freq() override;
+
+    uint32_t get_min_clock_freq() override;
+
     BoardType get_board_type() override;
+
+    std::vector<DramTrainingStatus> get_dram_training_status() override;
 };
 }  // namespace tt::umd

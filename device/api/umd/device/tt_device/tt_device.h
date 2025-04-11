@@ -32,10 +32,6 @@ struct dynamic_tlb {
     uint64_t remaining_size;  // Bytes remaining between bar_offset and end of the TLB.
 };
 
-namespace boost::interprocess {
-class named_mutex;
-}
-
 namespace tt::umd {
 
 class ArcMessenger;
@@ -147,7 +143,15 @@ public:
 
     virtual uint32_t get_clock();
 
+    virtual uint32_t get_max_clock_freq();
+
+    virtual uint32_t get_min_clock_freq();
+
     virtual BoardType get_board_type() = 0;
+
+    // TODO: find a way to expose this in a better way, probably through getting telemetry reader and reading the
+    // required fields. Returns the information whether DRAM training status is available and the status value.
+    virtual std::vector<DramTrainingStatus> get_dram_training_status();
 
 protected:
     std::unique_ptr<PCIDevice> pci_device_;

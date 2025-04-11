@@ -172,6 +172,8 @@ static const std::vector<tt_xy_pair> PCI_LOCATIONS = PCIE_CORES_NOC0;
 
 static const std::vector<tt_xy_pair> ROUTER_CORES_NOC0 = {{0, 2}, {0, 4}, {0, 8}, {0, 9}};
 
+static const std::vector<tt_xy_pair> SECURITY_CORES_NOC0 = {};
+
 // Return to std::array instead of std::vector once we get std::span support in C++20
 static const std::vector<uint32_t> T6_X_LOCATIONS = {1, 2, 3, 4, 6, 7, 8, 9};
 static const std::vector<uint32_t> T6_Y_LOCATIONS = {1, 2, 3, 4, 5, 7, 8, 9, 10, 11};
@@ -251,13 +253,19 @@ static constexpr uint32_t TENSIX_L1_SIZE = 1499136;
 static constexpr uint32_t ETH_L1_SIZE = 262144;
 static constexpr uint64_t DRAM_BANK_SIZE = 2147483648;
 
-static constexpr uint64_t NOC_CONTROL_REG_ADDR_BASE = 0xFFB20000;
-static constexpr uint64_t NOC_NODE_ID_OFFSET = 0x2C;
-// Constants copied from noc_parameters.h which is removed from UMD.
-// TODO: think about bringing these files back to UMD for tests.
-static const uint32_t NOC_CFG_OFFSET = 0x100;
-static const uint32_t NOC_REG_WORD_SIZE = 4;
-static const uint32_t NOC_CFG_NOC_ID_LOGICAL = 0xE;
+constexpr std::array<std::pair<CoreType, uint64_t>, 5> NOC0_CONTROL_REG_ADDR_BASE_MAP = {
+    {{CoreType::TENSIX, 0xFFB20000},
+     {CoreType::ETH, 0xFFB20000},
+     {CoreType::DRAM, 0x100080000},
+     {CoreType::PCIE, 0xFFFB20000},
+     {CoreType::ARC, 0xFFFB20000}}};
+constexpr std::array<std::pair<CoreType, uint64_t>, 5> NOC1_CONTROL_REG_ADDR_BASE_MAP = {
+    {{CoreType::TENSIX, 0xFFB30000},
+     {CoreType::ETH, 0xFFB30000},
+     {CoreType::DRAM, 0x100088000},
+     {CoreType::PCIE, 0xFFFB30000},
+     {CoreType::ARC, 0xFFFB30000}}};
+static const uint64_t NOC_NODE_ID_OFFSET = 0x2C;
 
 static const size_t tensix_translated_coordinate_start_x = 18;
 static const size_t tensix_translated_coordinate_start_y = 18;
@@ -382,6 +390,10 @@ public:
     tt_driver_host_address_params get_host_address_params() const override;
     tt_driver_eth_interface_params get_eth_interface_params() const override;
     tt_driver_noc_params get_noc_params() const override;
+
+    virtual uint64_t get_noc_node_id_offset() const override { return wormhole::NOC_NODE_ID_OFFSET; }
+
+    uint64_t get_noc_reg_base(const CoreType core_type, const uint32_t noc, const uint32_t noc_port = 0) const override;
 };
 
 }  // namespace tt::umd

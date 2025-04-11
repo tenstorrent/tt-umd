@@ -33,43 +33,34 @@ constexpr std::uint32_t L1_BARRIER_BASE = 12;
 constexpr std::uint32_t ETH_BARRIER_BASE = 256 * 1024 - 32;
 constexpr std::uint32_t DRAM_BARRIER_BASE = 0;
 
-inline std::unique_ptr<Cluster> get_cluster() {
-    std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
-    // TODO: Make this test work on a host system without any tt devices.
-    if (pci_device_ids.empty()) {
-        return nullptr;
-    }
-    return std::unique_ptr<Cluster>(new Cluster());
-}
-
 // This test should be one line only.
-TEST(ApiClusterTest, OpenAllChips) { std::unique_ptr<Cluster> umd_cluster = get_cluster(); }
+TEST(ApiClusterTest, OpenAllChips) { std::unique_ptr<Cluster> umd_cluster = std::make_unique<Cluster>(); }
 
 TEST(ApiClusterTest, DifferentConstructors) {
-    std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
-    // TODO: Make this test work on a host system without any tt devices.
-    if (pci_device_ids.empty()) {
-        GTEST_SKIP() << "No chips present on the system. Skipping test.";
-    }
-
     std::unique_ptr<Cluster> umd_cluster;
 
     // 1. Simplest constructor. Creates Cluster with all the chips available.
     umd_cluster = std::make_unique<Cluster>();
+    bool chips_available = !umd_cluster->get_target_device_ids().empty();
     umd_cluster = nullptr;
 
     // 2. Constructor which allows choosing a subset of Chips to open.
     chip_id_t logical_device_id = 0;
-    std::set<chip_id_t> target_devices = {logical_device_id};
+    std::set<chip_id_t> target_devices = {};
+    if (chips_available) {
+        target_devices = {logical_device_id};
+    }
     umd_cluster = std::make_unique<Cluster>(target_devices);
     umd_cluster = nullptr;
 
-    // 3. Constructor taking a custom soc descriptor in addition.
-    tt::ARCH device_arch = Cluster::create_cluster_descriptor()->get_arch(logical_device_id);
-    // You can add a custom soc descriptor here.
-    std::string sdesc_path = tt_SocDescriptor::get_soc_descriptor_path(device_arch);
-    umd_cluster = std::make_unique<Cluster>(sdesc_path, target_devices);
-    umd_cluster = nullptr;
+    if (chips_available) {
+        // 3. Constructor taking a custom soc descriptor in addition.
+        tt::ARCH device_arch = Cluster::create_cluster_descriptor()->get_arch(logical_device_id);
+        // You can add a custom soc descriptor here.
+        std::string sdesc_path = tt_SocDescriptor::get_soc_descriptor_path(device_arch);
+        umd_cluster = std::make_unique<Cluster>(sdesc_path, target_devices);
+        umd_cluster = nullptr;
+    }
 
     // 4. Constructor taking cluster descriptor based on which to create cluster.
     // Create mock chips is set to true in order to create mock chips for the devices in the cluster descriptor.
@@ -80,11 +71,7 @@ TEST(ApiClusterTest, DifferentConstructors) {
 }
 
 TEST(ApiClusterTest, SimpleIOAllChips) {
-    std::unique_ptr<Cluster> umd_cluster = get_cluster();
-
-    if (umd_cluster == nullptr || umd_cluster->get_target_device_ids().empty()) {
-        GTEST_SKIP() << "No chips present on the system. Skipping test.";
-    }
+    std::unique_ptr<Cluster> umd_cluster = std::make_unique<Cluster>();
 
     const tt_ClusterDescriptor* cluster_desc = umd_cluster->get_cluster_description();
 
@@ -127,11 +114,7 @@ TEST(ApiClusterTest, SimpleIOAllChips) {
 }
 
 TEST(ApiClusterTest, RemoteFlush) {
-    std::unique_ptr<Cluster> umd_cluster = get_cluster();
-
-    if (umd_cluster == nullptr || umd_cluster->get_target_device_ids().empty()) {
-        GTEST_SKIP() << "No chips present on the system. Skipping test.";
-    }
+    std::unique_ptr<Cluster> umd_cluster = std::make_unique<Cluster>();
 
     const tt_ClusterDescriptor* cluster_desc = umd_cluster->get_cluster_description();
 
@@ -172,14 +155,14 @@ TEST(ApiClusterTest, RemoteFlush) {
 }
 
 TEST(ApiClusterTest, SimpleIOSpecificChips) {
-    std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
-    // TODO: Make this test work on a host system without any tt devices.
-    if (pci_device_ids.empty()) {
+    std::unique_ptr<Cluster> umd_cluster = std::make_unique<Cluster>();
+
+    if (umd_cluster->get_target_device_ids().empty()) {
         GTEST_SKIP() << "No chips present on the system. Skipping test.";
     }
 
     std::set<chip_id_t> target_devices = {0};
-    std::unique_ptr<Cluster> umd_cluster = std::make_unique<Cluster>(target_devices);
+    umd_cluster = std::make_unique<Cluster>(target_devices);
 
     const tt_ClusterDescriptor* cluster_desc = umd_cluster->get_cluster_description();
 
@@ -225,13 +208,7 @@ TEST(ClusterAPI, DynamicTLB_RW) {
     // Don't use any static TLBs in this test. All writes go through a dynamic TLB that needs to be reconfigured for
     // each transaction
 
-    std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
-    // TODO: Make this test work on a host system without any tt devices.
-    if (pci_device_ids.empty()) {
-        GTEST_SKIP() << "No chips present on the system. Skipping test.";
-    }
-
-    std::unique_ptr<Cluster> cluster = get_cluster();
+    std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
 
     tt_device_params default_params;
     cluster->start_device(default_params);
@@ -282,13 +259,7 @@ TEST(ClusterAPI, DynamicTLB_RW) {
 }
 
 TEST(TestCluster, PrintAllChipsAllCores) {
-    std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
-    // TODO: Make this test work on a host system without any tt devices.
-    if (pci_device_ids.empty()) {
-        GTEST_SKIP() << "No chips present on the system. Skipping test.";
-    }
-
-    std::unique_ptr<Cluster> umd_cluster = get_cluster();
+    std::unique_ptr<Cluster> umd_cluster = std::make_unique<Cluster>();
 
     for (chip_id_t chip : umd_cluster->get_target_device_ids()) {
         std::cout << "Chip " << chip << std::endl;
@@ -316,11 +287,6 @@ TEST(TestCluster, PrintAllChipsAllCores) {
 // chip. This is needed because of eth id readouts for Blackhole that don't take harvesting into
 // acount. This test verifies that both for Wormhole and Blackhole.
 TEST(TestCluster, TestClusterLogicalETHChannelsConnectivity) {
-    std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
-    // TODO: Make this test work on a host system without any tt devices.
-    if (pci_device_ids.empty()) {
-        GTEST_SKIP() << "No chips present on the system. Skipping test.";
-    }
     std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
 
     tt_ClusterDescriptor* cluster_desc = cluster->get_cluster_description();
@@ -339,79 +305,34 @@ TEST(TestCluster, TestClusterLogicalETHChannelsConnectivity) {
     }
 }
 
-TEST(TestCluster, TestClusterNocId) {
+TEST(TestCluster, TestClusterAICLKControl) {
     std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
 
-    // Setup memory barrier addresses.
-    // Some default values are set during construction of UMD, but you can override them.
-    cluster->set_barrier_address_params({L1_BARRIER_BASE, ETH_BARRIER_BASE, DRAM_BARRIER_BASE});
-
-    tt::ARCH arch = cluster->get_cluster_description()->get_arch(0);
-
-    // All chips in the cluster have the same noc_translation_enabled value.
-    bool noc_translation_enabled = cluster->get_cluster_description()->get_noc_translation_table_en().at(0);
-
-    uint64_t noc_node_id_reg_addr = 0;
-    if (arch == tt::ARCH::WORMHOLE_B0) {
-        if (noc_translation_enabled) {
-            noc_node_id_reg_addr = tt::umd::wormhole::NOC_CONTROL_REG_ADDR_BASE + tt::umd::wormhole::NOC_CFG_OFFSET +
-                                   tt::umd::wormhole::NOC_REG_WORD_SIZE * tt::umd::wormhole::NOC_CFG_NOC_ID_LOGICAL;
-        } else {
-            noc_node_id_reg_addr = tt::umd::wormhole::NOC_CONTROL_REG_ADDR_BASE + tt::umd::wormhole::NOC_NODE_ID_OFFSET;
+    auto get_expected_clock_val = [&cluster](chip_id_t chip_id, bool busy) {
+        tt::ARCH arch = cluster->get_cluster_description()->get_arch(chip_id);
+        if (arch == tt::ARCH::WORMHOLE_B0) {
+            return busy ? tt::umd::wormhole::AICLK_BUSY_VAL : tt::umd::wormhole::AICLK_IDLE_VAL;
+        } else if (arch == tt::ARCH::BLACKHOLE) {
+            return busy ? tt::umd::blackhole::AICLK_BUSY_VAL : tt::umd::blackhole::AICLK_IDLE_VAL;
         }
-    } else if (arch == tt::ARCH::BLACKHOLE) {
-        noc_node_id_reg_addr = tt::umd::blackhole::NOC_CONTROL_REG_ADDR_BASE + tt::umd::blackhole::NOC_NODE_ID_OFFSET;
+        return 0u;
+    };
+
+    cluster->set_power_state(tt_DevicePowerState::BUSY);
+
+    auto clocks_busy = cluster->get_clocks();
+    for (auto& clock : clocks_busy) {
+        // TODO: check this for Wormhole as well if we can somehow hardcode set of values to check for
+        // go busy AICLK. It won't always be the same for Wormhole.
+        if (cluster->get_cluster_description()->get_arch(clock.first) == tt::ARCH::BLACKHOLE) {
+            EXPECT_EQ(clock.second, get_expected_clock_val(clock.first, true));
+        }
     }
 
-    auto read_noc_id_reg = [noc_node_id_reg_addr](std::unique_ptr<Cluster>& cluster, chip_id_t chip, CoreCoord core) {
-        uint32_t noc_node_id_val;
-        cluster->read_from_device(
-            &noc_node_id_val, chip, core, noc_node_id_reg_addr, sizeof(noc_node_id_val), "REG_TLB");
-        uint32_t x = noc_node_id_val & 0x3F;
-        uint32_t y = (noc_node_id_val >> 6) & 0x3F;
-        return tt_xy_pair(x, y);
-    };
+    cluster->set_power_state(tt_DevicePowerState::LONG_IDLE);
 
-    auto check_noc_id_cores = [read_noc_id_reg](std::unique_ptr<Cluster>& cluster, chip_id_t chip, CoreType core_type) {
-        const std::vector<CoreCoord>& cores = cluster->get_soc_descriptor(chip).get_cores(core_type);
-        for (const CoreCoord& core : cores) {
-            const auto [x, y] = read_noc_id_reg(cluster, chip, core);
-            CoreCoord translated_coord =
-                cluster->get_soc_descriptor(chip).translate_coord_to(core, CoordSystem::TRANSLATED);
-            EXPECT_EQ(translated_coord.x, x);
-            EXPECT_EQ(translated_coord.y, y);
-        }
-    };
-
-    auto check_noc_id_harvested_cores = [read_noc_id_reg](
-                                            std::unique_ptr<Cluster>& cluster, chip_id_t chip, CoreType core_type) {
-        const std::vector<CoreCoord>& cores = cluster->get_soc_descriptor(chip).get_harvested_cores(core_type);
-        for (const CoreCoord& core : cores) {
-            const auto [x, y] = read_noc_id_reg(cluster, chip, core);
-            CoreCoord translated_coord =
-                cluster->get_soc_descriptor(chip).translate_coord_to(core, CoordSystem::TRANSLATED);
-            EXPECT_EQ(translated_coord.x, x);
-            EXPECT_EQ(translated_coord.y, y);
-        }
-    };
-
-    for (chip_id_t chip : cluster->get_target_device_ids()) {
-        check_noc_id_cores(cluster, chip, CoreType::TENSIX);
-        check_noc_id_harvested_cores(cluster, chip, CoreType::TENSIX);
-
-        check_noc_id_cores(cluster, chip, CoreType::ETH);
-        check_noc_id_harvested_cores(cluster, chip, CoreType::ETH);
-
-        // TODO: figure out how to read this information on Wormhole.
-        if (arch == tt::ARCH::BLACKHOLE) {
-            check_noc_id_cores(cluster, chip, CoreType::DRAM);
-            check_noc_id_harvested_cores(cluster, chip, CoreType::DRAM);
-        }
-
-        // TODO: figure out how to read this information on WH and BH.
-        // check_noc_id_cores(cluster, chip, CoreType::ARC);
-
-        // TODO: figure out why this hangs the chip both on WH and BH.
-        // check_noc_id_cores(cluster, chip, CoreType::PCIE);
+    auto clocks_idle = cluster->get_clocks();
+    for (auto& clock : clocks_idle) {
+        EXPECT_EQ(clock.second, get_expected_clock_val(clock.first, false));
     }
 }

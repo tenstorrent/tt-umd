@@ -24,13 +24,13 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        ubuntu-version: [
+        ubuntu-docker-version: [
           'ubuntu-22.04',
-          # 'ubuntu-20.04',
+          'ubuntu-24.04',
         ]
     uses: ./.github/workflows/build-tests.yml
     with:
-      ubuntu-version: ${{ matrix.ubuntu-version}}
+      ubuntu-docker-version: ${{ matrix.ubuntu-docker-version}}
       timeout: 15
       build-type: ${{ inputs.build-type || 'Release' }}
 
@@ -46,15 +46,14 @@ jobs:
           {arch: wormhole_b0, card: n300, timeout: 15},
           {arch: wormhole_b0, card: tt-beta-ubuntu-2204-n300-large-stable, timeout: 15},
           {arch: blackhole, card: p150, timeout: 15},
+          {arch: baremetal, card: ubuntu-22.04, timeout: 15},
         ]
-        ubuntu-version: [
-          # Running tests on ubuntu-22.04 should be sufficient. Reduce load on CI.
+        ubuntu-docker-version: [
           'ubuntu-22.04',
-          # 'ubuntu-20.04',
         ]
     uses: ./.github/workflows/run-tests.yml
     with:
       arch: ${{ matrix.test-group.arch}}
-      ubuntu-version: ${{ matrix.ubuntu-version}}
+      ubuntu-docker-version: ${{ matrix.ubuntu-docker-version}}
       card: ${{ matrix.test-group.card}}
       timeout: ${{ matrix.test-group.timeout}}

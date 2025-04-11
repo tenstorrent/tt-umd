@@ -11,10 +11,6 @@
 
 #include "umd/device/tt_xy_pair.h"
 
-namespace boost::interprocess {
-class named_mutex;
-}
-
 static inline std::vector<tt_xy_pair> flatten_vector(const std::vector<std::vector<tt_xy_pair>>& vector_of_vectors) {
     std::vector<tt_xy_pair> flat_vector;
     for (const auto& single_vector : vector_of_vectors) {

@@ -12,10 +12,6 @@
 
 using namespace tt::umd;
 
-tt_xy_pair get_any_tensix_core(tt::ARCH arch) {
-    return std::make_unique<Cluster>()->get_soc_descriptor(0).get_cores(CoreType::TENSIX)[0];
-}
-
 TEST(ApiTTDeviceTest, BasicTTDeviceIO) {
     std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
 
@@ -26,7 +22,12 @@ TEST(ApiTTDeviceTest, BasicTTDeviceIO) {
     for (int pci_device_id : pci_device_ids) {
         std::unique_ptr<TTDevice> tt_device = TTDevice::create(pci_device_id);
 
-        tt_xy_pair tensix_core = get_any_tensix_core(tt_device->get_arch());
+        ChipInfo chip_info = tt_device->get_chip_info();
+
+        tt_SocDescriptor soc_desc(
+            tt_device->get_arch(), chip_info.noc_translation_enabled, chip_info.harvesting_masks, chip_info.board_type);
+
+        tt_xy_pair tensix_core = soc_desc.get_cores(CoreType::TENSIX, CoordSystem::TRANSLATED)[0];
 
         tt_device->write_to_device(data_write.data(), tensix_core, address, data_write.size() * sizeof(uint32_t));
 
@@ -64,7 +65,12 @@ TEST(ApiTTDeviceTest, TTDeviceMultipleThreadsIO) {
     for (int pci_device_id : pci_device_ids) {
         std::unique_ptr<TTDevice> tt_device = TTDevice::create(pci_device_id);
 
-        tt_xy_pair tensix_core = get_any_tensix_core(tt_device->get_arch());
+        ChipInfo chip_info = tt_device->get_chip_info();
+
+        tt_SocDescriptor soc_desc(
+            tt_device->get_arch(), chip_info.noc_translation_enabled, chip_info.harvesting_masks, chip_info.board_type);
+
+        tt_xy_pair tensix_core = soc_desc.get_cores(CoreType::TENSIX, CoordSystem::TRANSLATED)[0];
 
         std::thread thread0([&]() {
             std::vector<uint32_t> data_read(data_write.size(), 0);

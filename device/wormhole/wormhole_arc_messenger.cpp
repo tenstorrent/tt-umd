@@ -9,8 +9,6 @@
 #include "umd/device/tt_device/tt_device.h"
 #include "umd/device/wormhole_implementation.h"
 
-using namespace boost::interprocess;
-
 namespace tt::umd {
 
 WormholeArcMessenger::WormholeArcMessenger(TTDevice* tt_device) : ArcMessenger(tt_device) {}
@@ -24,7 +22,7 @@ uint32_t WormholeArcMessenger::send_message(
 
     log_assert(arg0 <= 0xffff and arg1 <= 0xffff, "Only 16 bits allowed in arc_msg args");
 
-    auto lock = lock_manager.get_mutex(MutexType::ARC_MSG, tt_device->get_pci_device()->get_device_num());
+    auto lock = lock_manager.acquire_mutex(MutexType::ARC_MSG, tt_device->get_pci_device()->get_device_num());
 
     auto architecture_implementation = tt_device->get_architecture_implementation();
 
@@ -53,8 +51,8 @@ uint32_t WormholeArcMessenger::send_message(
     while (true) {
         auto end = std::chrono::system_clock::now();
         auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
-        if (duration.count() > timeout_ms) {
-            throw std::runtime_error(fmt::format("Timed out after waiting {} seconds for ARC to respond", timeout_ms));
+        if (duration.count() > timeout_ms && timeout_ms != 0) {
+            throw std::runtime_error(fmt::format("Timed out after waiting {} ms for ARC to respond", timeout_ms));
         }
 
         status = tt_device->bar_read32(

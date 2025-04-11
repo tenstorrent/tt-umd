@@ -134,7 +134,7 @@ public:
 
     std::string serialize() const;
 
-    void serialize_to_file(const std::filesystem::path dest_file) const;
+    void serialize_to_file(const std::filesystem::path &dest_file) const;
 
     static std::filesystem::path get_default_cluster_descriptor_file_path();
 

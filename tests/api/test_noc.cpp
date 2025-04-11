@@ -64,7 +64,7 @@ TEST(TestCluster, TestClusterNoc0Id) {
 
         check_noc_id_cores(cluster, chip, CoreType::SECURITY);
 
-        // TODO: add readouts for router cores.
+        check_noc_id_cores(cluster, chip, CoreType::ROUTER_ONLY);
     }
 }
 
@@ -124,7 +124,7 @@ TEST(TestCluster, TestClusterNoc1Id) {
 
         check_noc_id_cores(cluster, chip, CoreType::SECURITY);
 
-        // TODO: add readouts for router cores.
+        check_noc_id_cores(cluster, chip, CoreType::ROUTER_ONLY);
     }
 
     TTDevice::use_noc1(false);

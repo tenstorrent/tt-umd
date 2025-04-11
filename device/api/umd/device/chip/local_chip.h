@@ -65,6 +65,7 @@ private:
     void initialize_local_chip(int num_host_mem_channels = 0, const bool clear_mutex = false);
     void initialize_tlb_manager();
     void initialize_default_chip_mutexes(const bool clear_mutex);
+    void initialize_default_remote_transfer_ethernet_cores();
 
     tt_xy_pair translate_chip_coord_virtual_to_translated(const tt_xy_pair core) const;
 

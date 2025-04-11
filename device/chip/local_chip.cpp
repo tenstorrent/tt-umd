@@ -89,14 +89,7 @@ void LocalChip::initialize_local_chip(int num_host_mem_channels, const bool clea
     }
     wait_chip_to_be_ready();
     initialize_default_chip_mutexes(clear_mutex);
-
-    if (tt_device_->get_arch() == tt::ARCH::WORMHOLE_B0) {
-        std::unordered_set<CoreCoord> remote_transfer_cores;
-        for (auto eth_core : soc_descriptor_.get_cores(CoreType::ETH, CoordSystem::VIRTUAL)) {
-            remote_transfer_cores.insert(eth_core);
-        }
-        set_remote_transfer_ethernet_cores(remote_transfer_cores);
-    }
+    initialize_default_remote_transfer_ethernet_cores();
 }
 
 void LocalChip::initialize_tlb_manager() {
@@ -326,6 +319,18 @@ tt_xy_pair LocalChip::translate_chip_coord_virtual_to_translated(const tt_xy_pai
     } else {
         return soc_descriptor_.translate_coord_to(
             core_coord, umd_use_noc1 ? CoordSystem::NOC1 : CoordSystem::TRANSLATED);
+    }
+}
+
+void LocalChip::initialize_default_remote_transfer_ethernet_cores() {
+    if (tt_device_->get_arch() == tt::ARCH::WORMHOLE_B0) {
+        // By default, until set_remote_transfer_ethernet_cores is called, the remote transfer cores by default are set
+        // to the first 6 ones.
+        // TODO: Figure out why only 6. Figure out why other combination doesn't work on galaxy.
+        for (int channel = 0; channel < 6; channel++) {
+            remote_transfer_eth_cores_.push_back(
+                soc_descriptor_.get_eth_core_for_channel(channel, CoordSystem::VIRTUAL));
+        }
     }
 }
 

@@ -26,12 +26,6 @@ std::unique_ptr<tt_ClusterDescriptor> TopologyDiscovery::create_ethernet_map() {
 void TopologyDiscovery::get_pcie_connected_chips() {
     std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
 
-    std::vector<std::unique_ptr<TTDevice>> tt_devices;
-    for (auto& device_id : pci_device_ids) {
-        std::unique_ptr<TTDevice> tt_device = TTDevice::create(device_id);
-        tt_devices.push_back(std::move(tt_device));
-    }
-
     chip_id = 0;
     for (auto& device_id : pci_device_ids) {
         std::unique_ptr<LocalChip> chip = nullptr;
@@ -70,29 +64,27 @@ uint32_t TopologyDiscovery::remote_arc_msg(
 
     {
         remote_comm->write_to_non_mmio(
-            (uint8_t*)&fw_arg, core, ARC_RESET_SCRATCH_ADDR + 3 * 4, sizeof(fw_arg), eth_coord, eth_core);
+            &fw_arg, core, ARC_RESET_SCRATCH_ADDR + 3 * 4, sizeof(fw_arg), eth_coord, eth_core);
     }
 
     {
         remote_comm->write_to_non_mmio(
-            (uint8_t*)&msg_code, core, ARC_RESET_SCRATCH_ADDR + 5 * 4, sizeof(fw_arg), eth_coord, eth_core);
+            &msg_code, core, ARC_RESET_SCRATCH_ADDR + 5 * 4, sizeof(fw_arg), eth_coord, eth_core);
     }
 
     remote_comm->wait_for_non_mmio_flush(
         remote_transfer_ethernet_cores.at(tt_device->get_pci_device()->get_device_num()));
     uint32_t misc = 0;
-    remote_comm->read_non_mmio((uint8_t*)&misc, core, ARC_RESET_MISC_CNTL_ADDR, 4, eth_coord, eth_core);
+    remote_comm->read_non_mmio(&misc, core, ARC_RESET_MISC_CNTL_ADDR, 4, eth_coord, eth_core);
 
     if (misc & (1 << 16)) {
         log_error("trigger_fw_int failed on device {}", 0);
         return 1;
     } else {
         misc |= (1 << 16);
-        remote_comm->write_to_non_mmio(
-            (uint8_t*)&misc, core, ARC_RESET_MISC_CNTL_ADDR, sizeof(misc), eth_coord, eth_core);
+        remote_comm->write_to_non_mmio(&misc, core, ARC_RESET_MISC_CNTL_ADDR, sizeof(misc), eth_coord, eth_core);
     }
 
-    uint32_t status = 0xbadbad;
     auto start = std::chrono::system_clock::now();
     while (true) {
         auto end = std::chrono::system_clock::now();
@@ -105,17 +97,16 @@ uint32_t TopologyDiscovery::remote_arc_msg(
         }
 
         uint32_t status = 0;
-        remote_comm->read_non_mmio(
-            (uint8_t*)&status, core, ARC_RESET_SCRATCH_ADDR + 5 * 4, sizeof(status), eth_coord, eth_core);
+        remote_comm->read_non_mmio(&status, core, ARC_RESET_SCRATCH_ADDR + 5 * 4, sizeof(status), eth_coord, eth_core);
         if ((status & 0xffff) == (msg_code & 0xff)) {
             if (ret0 != nullptr) {
                 remote_comm->read_non_mmio(
-                    (uint8_t*)ret0, core, ARC_RESET_SCRATCH_ADDR + 3 * 4, sizeof(uint32_t), eth_coord, eth_core);
+                    ret0, core, ARC_RESET_SCRATCH_ADDR + 3 * 4, sizeof(uint32_t), eth_coord, eth_core);
             }
 
             if (ret1 != nullptr) {
                 remote_comm->read_non_mmio(
-                    (uint8_t*)ret1, core, ARC_RESET_SCRATCH_ADDR + 4 * 4, sizeof(uint32_t), eth_coord, eth_core);
+                    ret1, core, ARC_RESET_SCRATCH_ADDR + 4 * 4, sizeof(uint32_t), eth_coord, eth_core);
             }
 
             exit_code = (status & 0xffff0000) >> 16;
@@ -155,14 +146,14 @@ BoardType TopologyDiscovery::get_board_type(eth_coord_t eth_coord, Chip* mmio_ch
     static uint64_t board_id_hi_telemetry_offset = 16;
     static uint64_t board_id_lo_telemetry_offset = 20;
     remote_comm->read_non_mmio(
-        (uint8_t*)&board_id_hi,
+        &board_id_hi,
         arc_core,
         telemetry_struct_offset + board_id_hi_telemetry_offset,
         sizeof(uint32_t),
         eth_coord,
         eth_core);
     remote_comm->read_non_mmio(
-        (uint8_t*)&board_id_lo,
+        &board_id_lo,
         arc_core,
         telemetry_struct_offset + board_id_lo_telemetry_offset,
         sizeof(uint32_t),
@@ -181,7 +172,7 @@ ChipInfo TopologyDiscovery::read_non_mmio_chip_info(eth_coord_t eth_coord, Chip*
     uint32_t niu_cfg;
     const tt_xy_pair dram_core = {0, 0};
     const uint64_t niu_cfg_addr = 0x1000A0000 + 0x100;
-    remote_comm->read_non_mmio((uint8_t*)&niu_cfg, dram_core, niu_cfg_addr, sizeof(uint32_t), eth_coord, eth_core);
+    remote_comm->read_non_mmio(&niu_cfg, dram_core, niu_cfg_addr, sizeof(uint32_t), eth_coord, eth_core);
 
     bool noc_translation_enabled = (niu_cfg & (1 << 14)) != 0;
 
@@ -327,12 +318,7 @@ void TopologyDiscovery::discover_remote_chips() {
 
             uint32_t current_chip_eth_coord_info;
             remote_comm->read_non_mmio(
-                (uint8_t*)&current_chip_eth_coord_info,
-                eth_cores[0],
-                node_info + 8,
-                sizeof(uint32_t),
-                eth_coord,
-                eth_core);
+                &current_chip_eth_coord_info, eth_cores[0], node_info + 8, sizeof(uint32_t), eth_coord, eth_core);
 
             eth_coord_t current_chip_eth_coord;
             current_chip_eth_coord.cluster_id = 0;
@@ -365,7 +351,7 @@ void TopologyDiscovery::discover_remote_chips() {
             for (const CoreCoord& eth_core : eth_cores) {
                 uint32_t port_status;
                 remote_comm->read_non_mmio(
-                    (uint8_t*)&port_status,
+                    &port_status,
                     tt_xy_pair(eth_core.x, eth_core.y),
                     conn_info + (channel * 4),
                     sizeof(uint32_t),
@@ -379,7 +365,7 @@ void TopologyDiscovery::discover_remote_chips() {
 
                 uint32_t remote_id;
                 remote_comm->read_non_mmio(
-                    (uint8_t*)&remote_id,
+                    &remote_id,
                     {eth_core.x, eth_core.y},
                     node_info + (4 * rack_offset),
                     sizeof(uint32_t),
@@ -390,7 +376,7 @@ void TopologyDiscovery::discover_remote_chips() {
                 uint32_t remote_rack_y = (remote_id >> 8) & 0xFF;
 
                 remote_comm->read_non_mmio(
-                    (uint8_t*)&remote_id,
+                    &remote_id,
                     {eth_core.x, eth_core.y},
                     node_info + (4 * shelf_offset),
                     sizeof(uint32_t),

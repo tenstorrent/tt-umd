@@ -2962,6 +2962,13 @@ std::unique_ptr<tt_ClusterDescriptor> Cluster::create_cluster_descriptor(
 
 std::string Cluster::serialize() { return Cluster::create_cluster_descriptor()->serialize(); }
 
-std::filesystem::path Cluster::serialize_to_file() { return Cluster::create_cluster_descriptor()->serialize_to_file(); }
+std::filesystem::path Cluster::serialize_to_file(const std::filesystem::path& dest_file) {
+    std::filesystem::path file_path = dest_file;
+    if (file_path.empty()) {
+        file_path = tt_ClusterDescriptor::get_default_cluster_descriptor_file_path();
+    }
+    Cluster::create_cluster_descriptor()->serialize_to_file(file_path);
+    return file_path;
+}
 
 }  // namespace tt::umd

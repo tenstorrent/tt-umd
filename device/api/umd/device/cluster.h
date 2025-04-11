@@ -836,7 +836,7 @@ public:
 
     static std::string serialize();
 
-    static std::filesystem::path serialize_to_file();
+    static std::filesystem::path serialize_to_file(const std::filesystem::path& dest_file = "");
 
     // Destructor
     virtual ~Cluster();

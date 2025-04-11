@@ -7,10 +7,8 @@
 
 namespace tt::umd {
 
-TlbHandle::TlbHandle(PCIDevice* pci_device, size_t size, const tenstorrent_noc_tlb_config& config)
-    :
+TlbHandle::TlbHandle(PCIDevice* pci_device, size_t size, const tenstorrent_noc_tlb_config& config) :
     tlb_size(size), pci_device(pci_device) {
-
     tenstorrent_allocate_tlb_in allocate_tlb_in;
     allocate_tlb_in.size = size;
     tenstorrent_allocate_tlb_out allocate_tlb_out = pci_device->allocate_tlb(allocate_tlb_in);

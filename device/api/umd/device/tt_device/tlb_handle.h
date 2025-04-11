@@ -27,7 +27,6 @@ public:
 private:
     void free_tlb() noexcept;
 
-    // int fd;
     int tlb_id;
     uint8_t* tlb_base_uc;
     uint8_t* tlb_base_wc;

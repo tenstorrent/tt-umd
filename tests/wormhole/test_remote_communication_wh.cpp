@@ -48,7 +48,7 @@ TEST(RemoteCommunicationWormhole, BasicRemoteCommunicationIO) {
 
         for (const CoreCoord& core : cluster->get_soc_descriptor(remote_chip_id).get_cores(CoreType::TENSIX)) {
             remote_comm->write_to_non_mmio(
-                (uint8_t*)data_to_write.data(),
+                data_to_write.data(),
                 core,
                 address0,
                 data_to_write.size() * sizeof(uint32_t),
@@ -66,7 +66,7 @@ TEST(RemoteCommunicationWormhole, BasicRemoteCommunicationIO) {
             remote_comm->wait_for_non_mmio_flush(active_eth_cores);
 
             remote_comm->read_non_mmio(
-                (uint8_t*)data_read.data(),
+                data_read.data(),
                 core,
                 address1,
                 data_read.size() * sizeof(uint32_t),

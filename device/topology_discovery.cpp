@@ -153,6 +153,8 @@ ChipInfo TopologyDiscovery::read_non_mmio_chip_info(eth_coord_t eth_coord, Chip*
     ChipInfo chip_info;
 
     uint32_t niu_cfg;
+    // We read information about NOC translation from DRAM core just be on paar with Luwen implementation.
+    // TODO: change reading this information from PCIE BAR.
     const tt_xy_pair dram_core = {0, 0};
     const uint64_t niu_cfg_addr = 0x1000A0000 + 0x100;
     remote_comm->read_non_mmio(eth_coord, dram_core, &niu_cfg, niu_cfg_addr, sizeof(uint32_t));

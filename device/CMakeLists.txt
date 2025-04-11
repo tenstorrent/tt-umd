@@ -1,19 +1,21 @@
 set(POSITION_INDEPENDENT_CODE ON)
 
-set(FBS_FILE ${PROJECT_SOURCE_DIR}/device/simulation/tt_simulation_device.fbs)
-get_filename_component(FBS_FILE_NAME ${FBS_FILE} NAME_WLE)
-set(FBS_GENERATED_HEADER "${CMAKE_CURRENT_BINARY_DIR}/${FBS_FILE_NAME}_generated.h")
-add_custom_command(
-    OUTPUT
-        ${FBS_GENERATED_HEADER}
-    COMMAND
-        flatc --cpp -o "${CMAKE_CURRENT_BINARY_DIR}/" ${FBS_FILE}
-    DEPENDS
-        flatc
-        ${FBS_FILE}
-    COMMENT "Generating FlatBuffers header ${FBS_GENERATED_HEADER}"
-    VERBATIM
-)
+if(TT_UMD_BUILD_SIMULATION)
+    set(FBS_FILE ${PROJECT_SOURCE_DIR}/device/simulation/tt_simulation_device.fbs)
+    get_filename_component(FBS_FILE_NAME ${FBS_FILE} NAME_WLE)
+    set(FBS_GENERATED_HEADER "${CMAKE_CURRENT_BINARY_DIR}/${FBS_FILE_NAME}_generated.h")
+    add_custom_command(
+        OUTPUT
+            ${FBS_GENERATED_HEADER}
+        COMMAND
+            flatc --cpp -o "${CMAKE_CURRENT_BINARY_DIR}" ${FBS_FILE}
+        DEPENDS
+            flatc
+            ${FBS_FILE}
+            COMMENT "Generating FlatBuffers header ${FBS_GENERATED_HEADER}"
+        VERBATIM
+    )
+endif()
 
 add_library(device SHARED)
 add_library(${PROJECT_NAME}::device ALIAS device)
@@ -36,8 +38,6 @@ target_sources(
         blackhole/blackhole_implementation.cpp
         hugepage.cpp
         pcie/pci_device.cpp
-        simulation/tt_simulation_device.cpp
-        simulation/tt_simulation_host.cpp
         tlb.cpp
         tt_cluster_descriptor.cpp
         tt_device/blackhole_tt_device.cpp
@@ -59,8 +59,17 @@ target_sources(
         utils/lock_manager.cpp
         utils/robust_mutex.cpp
         remote_communication.cpp
-        ${FBS_GENERATED_HEADER}
 )
+
+if(TT_UMD_BUILD_SIMULATION)
+    target_sources(
+        device
+        PRIVATE
+            simulation/tt_simulation_device.cpp
+            simulation/tt_simulation_host.cpp
+            ${FBS_GENERATED_HEADER}
+    )
+endif()
 
 if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.23)
     target_sources(
@@ -122,22 +131,28 @@ target_include_directories(
         $<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}>
 )
 
-# flatbuffers is public - exposed to tt_metal by tt_simulation_device_generated.h
 target_link_libraries(
     device
     PRIVATE
-        flatbuffers
         umd::Common
         umd::Firmware
         hwloc
-        nng
         rt
-        uv_a
         spdlog::spdlog_header_only
         fmt::fmt-header-only
         yaml-cpp::yaml-cpp
         ${CMAKE_CURRENT_SOURCE_DIR}/libs/${CMAKE_SYSTEM_PROCESSOR}/libcreate_ethernet_map.a
 )
+
+if(TT_UMD_BUILD_SIMULATION)
+    target_link_libraries(
+        device
+        PRIVATE
+            flatbuffers
+            nng
+            uv_a
+    )
+endif()
 
 if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.23)
     install(
@@ -167,6 +182,8 @@ endif()
 add_custom_command(
     TARGET device
     POST_BUILD
+    COMMAND
+        ${CMAKE_COMMAND} -E make_directory ${CMAKE_BINARY_DIR}/lib
     COMMAND
         ${CMAKE_COMMAND} -E copy $<TARGET_FILE:device> ${CMAKE_BINARY_DIR}/lib/
     COMMENT "Copying device library to build/lib"

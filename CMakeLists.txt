@@ -51,7 +51,11 @@ endif()
 
 message(STATUS "UMD build type: ${CMAKE_BUILD_TYPE}")
 
-include(dependencies)
+
+option(TT_UMD_BUILD_TESTS "Enables build of tt_umd tests" OFF)
+option(TT_UMD_BUILD_SIMULATION "Enables build of tt_umd simulation harnessing" OFF)
+
+add_subdirectory(third_party)
 
 # Enable all warnings and treat them as errors
 # Ignore unused variables and functions since there is no harm.
@@ -77,7 +81,6 @@ add_subdirectory(common)
 add_subdirectory(device)
 add_subdirectory(src)
 
-option(TT_UMD_BUILD_TESTS "Enables build of tt_umd tests" OFF)
 if(TT_UMD_BUILD_TESTS)
     add_subdirectory(tests)
 endif(TT_UMD_BUILD_TESTS)

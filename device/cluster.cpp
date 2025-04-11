@@ -66,6 +66,8 @@ static const uint32_t MSG_ERROR_REPLY = 0xFFFFFFFF;
 // Remove 256MB from full 1GB for channel 3 (iATU limitation)
 static constexpr uint32_t HUGEPAGE_CHANNEL_3_SIZE_LIMIT = 805306368;
 
+static constexpr uint32_t REMOTE_CMD_NOC_BIT = 9;
+
 // --------------------------------------------------------------------------------------------------------------
 // --------------------------------------------------------------------------------------------------------------
 // --------------------------------------------------------------------------------------------------------------
@@ -1418,6 +1420,7 @@ void Cluster::write_to_non_mmio_device(
         }
 
         new_cmd->flags = req_flags;
+        new_cmd->flags |= (umd_use_noc1 ? 1 : 0) << REMOTE_CMD_NOC_BIT;
         if (use_dram) {
             new_cmd->src_addr_tag = host_dram_block_addr;
         }
@@ -1511,7 +1514,6 @@ void Cluster::read_from_non_mmio_device(void* mem_ptr, tt_cxy_pair core, uint64_
 
     erisc_command.resize(sizeof(routing_cmd_t) / DATA_WORD_SIZE);
     new_cmd = (routing_cmd_t*)&erisc_command[0];
-
     //
     //                    MUTEX ACQUIRE (NON-MMIO)
     //  do not locate any ethernet core reads/writes before this acquire
@@ -1602,6 +1604,7 @@ void Cluster::read_from_non_mmio_device(void* mem_ptr, tt_cxy_pair core, uint64_
         new_cmd->rack = get_sys_rack(eth_interface_params, target_chip.rack, target_chip.shelf);
         new_cmd->data = block_size;
         new_cmd->flags = req_flags;
+        new_cmd->flags |= (umd_use_noc1 ? 1 : 0) << REMOTE_CMD_NOC_BIT;
         if (use_dram) {
             new_cmd->src_addr_tag = host_dram_block_addr;
         }

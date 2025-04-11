@@ -481,7 +481,13 @@ std::vector<tt::umd::CoreCoord> tt_SocDescriptor::get_harvested_cores(
 std::vector<tt::umd::CoreCoord> tt_SocDescriptor::get_all_cores(const CoordSystem coord_system) const {
     std::vector<tt::umd::CoreCoord> all_cores;
     for (const auto &core_type :
-         {CoreType::TENSIX, CoreType::DRAM, CoreType::ETH, CoreType::ARC, CoreType::PCIE, CoreType::ROUTER_ONLY}) {
+         {CoreType::TENSIX,
+          CoreType::DRAM,
+          CoreType::ETH,
+          CoreType::ARC,
+          CoreType::PCIE,
+          CoreType::ROUTER_ONLY,
+          CoreType::SECURITY}) {
         auto cores = get_cores(core_type, coord_system);
         all_cores.insert(all_cores.end(), cores.begin(), cores.end());
     }
@@ -491,7 +497,13 @@ std::vector<tt::umd::CoreCoord> tt_SocDescriptor::get_all_cores(const CoordSyste
 std::vector<tt::umd::CoreCoord> tt_SocDescriptor::get_all_harvested_cores(const CoordSystem coord_system) const {
     std::vector<tt::umd::CoreCoord> all_harvested_cores;
     for (const auto &core_type :
-         {CoreType::TENSIX, CoreType::DRAM, CoreType::ETH, CoreType::ARC, CoreType::PCIE, CoreType::ROUTER_ONLY}) {
+         {CoreType::TENSIX,
+          CoreType::DRAM,
+          CoreType::ETH,
+          CoreType::ARC,
+          CoreType::PCIE,
+          CoreType::ROUTER_ONLY,
+          CoreType::SECURITY}) {
         auto harvested_cores = get_harvested_cores(core_type, coord_system);
         all_harvested_cores.insert(all_harvested_cores.end(), harvested_cores.begin(), harvested_cores.end());
     }

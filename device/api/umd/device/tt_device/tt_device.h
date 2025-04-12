@@ -73,6 +73,26 @@ public:
     void write_regs(uint32_t byte_addr, uint32_t word_len, const void *data);
     void read_regs(uint32_t byte_addr, uint32_t word_len, void *data);
 
+    /**
+     * DMA transfer from device to host.
+     *
+     * @param dst destination buffer
+     * @param src AXI address corresponding to inbound PCIe TLB window; src % 4 == 0
+     * @param size number of bytes
+     * @throws std::runtime_error if the DMA transfer fails
+     */
+    virtual void dma_d2h(void *dst, uint32_t src, size_t size) = 0;
+
+    /**
+     * DMA transfer from host to device.
+     *
+     * @param dst AXI address corresponding to inbound PCIe TLB window; dst % 4 == 0
+     * @param src source buffer
+     * @param size number of bytes
+     * @throws std::runtime_error if the DMA transfer fails
+     */
+    virtual void dma_h2d(uint32_t dst, const void *src, size_t size) = 0;
+
     // Read/write functions that always use same TLB entry. This is not supposed to be used
     // on any code path that is performance critical. It is used to read/write the data needed
     // to get the information to form cluster of chips, or just use base TTDevice functions.

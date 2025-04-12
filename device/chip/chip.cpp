@@ -89,6 +89,14 @@ void Chip::read_from_device(
     throw std::runtime_error("Chip::read_from_device is not available for this chip.");
 }
 
+void Chip::dma_write_to_device(const void* src, size_t size, tt_xy_pair core, uint64_t addr) {
+    throw std::runtime_error("Chip::dma_write_to_device is not available for this chip.");
+}
+
+void Chip::dma_read_from_device(void* dst, size_t size, tt_xy_pair core, uint64_t addr) {
+    throw std::runtime_error("Chip::dma_read_from_device is not available for this chip.");
+}
+
 void Chip::write_to_device_reg(
     tt_xy_pair core, const void* src, uint64_t reg_dest, uint32_t size, const std::string& fallback_tlb) {
     throw std::runtime_error("Chip::write_to_device_reg is not available for this chip.");

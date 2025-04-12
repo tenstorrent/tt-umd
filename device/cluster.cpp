@@ -2411,9 +2411,15 @@ void Cluster::write_to_device(
 }
 
 void Cluster::dma_write_to_device(
-    const void* src, size_t size, chip_id_t chip, tt::umd::CoreCoord core, uint64_t addr) {}
+    const void* src, size_t size, chip_id_t chip, tt::umd::CoreCoord core, uint64_t addr) {
+    auto api_coords = translate_to_api_coords(chip, core);
+    get_local_chip(chip)->dma_write_to_device(src, size, api_coords, addr);
+}
 
-void Cluster::dma_read_from_device(void* dst, size_t size, chip_id_t chip, tt::umd::CoreCoord core, uint64_t addr) {}
+void Cluster::dma_read_from_device(void* dst, size_t size, chip_id_t chip, tt::umd::CoreCoord core, uint64_t addr) {
+    auto api_coords = translate_to_api_coords(chip, core);
+    get_local_chip(chip)->dma_read_from_device(dst, size, api_coords, addr);
+}
 
 void Cluster::read_mmio_device_register(
     void* mem_ptr, tt_cxy_pair core, uint64_t addr, uint32_t size, const std::string& fallback_tlb) {

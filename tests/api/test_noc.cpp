@@ -61,6 +61,8 @@ TEST(TestCluster, TestClusterNoc0Id) {
 
         check_noc_id_cores(cluster, chip, CoreType::PCIE);
 
+        check_noc_id_cores(cluster, chip, CoreType::SECURITY);
+
         // TODO: add readouts for router cores.
     }
 }
@@ -102,9 +104,7 @@ TEST(TestCluster, TestClusterNoc1Id) {
         }
     };
 
-    // TODO: add reads from remote chips as well. NOC1 traffic is not working
-    // for remote read/writes on wormhole remote chips.
-    for (chip_id_t chip : cluster->get_target_mmio_device_ids()) {
+    for (chip_id_t chip : cluster->get_target_device_ids()) {
         check_noc_id_cores(cluster, chip, CoreType::TENSIX);
         check_noc_id_harvested_cores(cluster, chip, CoreType::TENSIX);
 
@@ -119,6 +119,8 @@ TEST(TestCluster, TestClusterNoc1Id) {
         check_noc_id_cores(cluster, chip, CoreType::ARC);
 
         check_noc_id_cores(cluster, chip, CoreType::PCIE);
+
+        check_noc_id_cores(cluster, chip, CoreType::SECURITY);
 
         // TODO: add readouts for router cores.
     }

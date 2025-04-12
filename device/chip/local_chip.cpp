@@ -239,6 +239,14 @@ void LocalChip::read_from_device(
     }
 }
 
+void LocalChip::dma_write_to_device(const void* src, size_t size, tt_xy_pair core, uint64_t addr) {
+    // TODO
+}
+
+void LocalChip::dma_read_from_device(void* dst, size_t size, tt_xy_pair core, uint64_t addr) {
+    // TODO
+}
+
 void LocalChip::write_to_device_reg(
     tt_xy_pair core, const void* src, uint64_t reg_dest, uint32_t size, const std::string& fallback_tlb) {
     if (size % sizeof(uint32_t) != 0) {

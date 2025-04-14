@@ -337,8 +337,12 @@ TEST(TestCluster, TestClusterAICLKControl) {
     }
 }
 
-TEST(TestCluster, TestClusterReadWriteL1) {
+TEST(TestCluster, ReadWriteL1) {
     std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
+
+    if (cluster->get_target_device_ids().empty()) {
+        GTEST_SKIP() << "No chips present on the system. Skipping test.";
+    }
 
     auto tensix_l1_size = cluster->get_soc_descriptor(0).worker_l1_size;
 
@@ -364,6 +368,8 @@ TEST(TestCluster, TestClusterReadWriteL1) {
 
         cluster->read_from_device(
             readback_data.data(), chip_id, tensix_core, 0, tensix_l1_size, "SMALL_READ_WRITE_TLB");
+
+        EXPECT_EQ(zero_data, readback_data);
 
         cluster->write_to_device(data.data(), data.size(), chip_id, tensix_core, 0, "SMALL_READ_WRITE_TLB");
 

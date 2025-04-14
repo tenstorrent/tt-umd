@@ -362,7 +362,7 @@ TEST(TestCluster, ReadWriteL1) {
         CoreCoord tensix_core = cluster->get_soc_descriptor(chip_id).get_cores(CoreType::TENSIX)[0];
 
         // Zero out L1.
-        cluster->write_to_device(data.data(), data.size(), chip_id, tensix_core, 0, "SMALL_READ_WRITE_TLB");
+        cluster->write_to_device(zero_data.data(), zero_data.size(), chip_id, tensix_core, 0, "SMALL_READ_WRITE_TLB");
 
         cluster->wait_for_non_mmio_flush(chip_id);
 

@@ -82,6 +82,7 @@ protected:
 
     std::map<chip_id_t, uint32_t> dram_harvesting_masks = {};
     std::map<chip_id_t, uint32_t> eth_harvesting_masks = {};
+    std::map<chip_id_t, uint32_t> pcie_harvesting_masks = {};
 
 public:
     /*
@@ -144,4 +145,5 @@ public:
 
     uint32_t get_dram_harvesting_mask(chip_id_t chip_id) const;
     uint32_t get_eth_harvesting_mask(chip_id_t chip_id) const;
+    uint32_t get_pcie_harvesting_mask(chip_id_t chip_id) const;
 };

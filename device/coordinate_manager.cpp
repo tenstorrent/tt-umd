@@ -387,17 +387,13 @@ void CoordinateManager::fill_dram_default_physical_translated_mapping() {
 }
 
 void CoordinateManager::fill_pcie_default_physical_translated_mapping() {
-    for (size_t x = 0; x < pcie_grid_size.x; x++) {
-        for (size_t y = 0; y < pcie_grid_size.y; y++) {
-            CoreCoord logical_coord = CoreCoord(x, y, CoreType::PCIE, CoordSystem::LOGICAL);
-            const tt_xy_pair physical_pair = to_physical_map[logical_coord];
-            const size_t translated_x = physical_pair.x;
-            const size_t translated_y = physical_pair.y;
+    for (auto physical_pair : pcie_cores) {
+        const size_t translated_x = physical_pair.x;
+        const size_t translated_y = physical_pair.y;
 
-            CoreCoord translated_coord = CoreCoord(translated_x, translated_y, CoreType::PCIE, CoordSystem::TRANSLATED);
+        CoreCoord translated_coord = CoreCoord(translated_x, translated_y, CoreType::PCIE, CoordSystem::TRANSLATED);
 
-            add_core_translation(translated_coord, physical_pair);
-        }
+        add_core_translation(translated_coord, physical_pair);
     }
 }
 
@@ -533,6 +529,10 @@ std::vector<CoreCoord> CoordinateManager::get_eth_cores() const { return get_all
 
 std::vector<CoreCoord> CoordinateManager::get_harvested_eth_cores() const { return {}; }
 
+std::vector<CoreCoord> CoordinateManager::get_pcie_cores() const { return get_all_physical_cores(CoreType::PCIE); }
+
+std::vector<CoreCoord> CoordinateManager::get_harvested_pcie_cores() const { return {}; }
+
 std::vector<tt::umd::CoreCoord> CoordinateManager::get_cores(const CoreType core_type) const {
     switch (core_type) {
         case CoreType::TENSIX:
@@ -541,8 +541,9 @@ std::vector<tt::umd::CoreCoord> CoordinateManager::get_cores(const CoreType core
             return get_dram_cores();
         case CoreType::ETH:
             return get_eth_cores();
-        case CoreType::ARC:
         case CoreType::PCIE:
+            return get_pcie_cores();
+        case CoreType::ARC:
         case CoreType::ROUTER_ONLY:
         case CoreType::SECURITY:
         case CoreType::L2CPU:
@@ -583,8 +584,9 @@ std::vector<tt::umd::CoreCoord> CoordinateManager::get_harvested_cores(const Cor
             return get_harvested_dram_cores();
         case CoreType::ETH:
             return get_harvested_eth_cores();
-        case CoreType::ARC:
         case CoreType::PCIE:
+            return get_harvested_pcie_cores();
+        case CoreType::ARC:
         case CoreType::ROUTER_ONLY:
         case CoreType::SECURITY:
         case CoreType::L2CPU:
@@ -650,7 +652,6 @@ std::shared_ptr<CoordinateManager> CoordinateManager::create_coordinate_manager(
                 tt::umd::wormhole::NOC0_Y_TO_NOC1_Y);
         case tt::ARCH::QUASAR:  // TODO (#450): Add Quasar configuration
         case tt::ARCH::BLACKHOLE: {
-            std::vector<tt_xy_pair> pcie_cores_noc0 = tt::umd::blackhole::get_pcie_cores(board_type, asic_location);
             return create_coordinate_manager(
                 arch,
                 noc_translation_enabled,
@@ -663,7 +664,7 @@ std::shared_ptr<CoordinateManager> CoordinateManager::create_coordinate_manager(
                 tt::umd::blackhole::ARC_GRID_SIZE,
                 tt::umd::blackhole::ARC_CORES_NOC0,
                 tt::umd::blackhole::PCIE_GRID_SIZE,
-                pcie_cores_noc0,
+                tt::umd::blackhole::PCIE_CORES_NOC0,
                 tt::umd::blackhole::ROUTER_CORES_NOC0,
                 tt::umd::blackhole::SECURITY_CORES_NOC0,
                 tt::umd::blackhole::L2CPU_CORES_NOC0,

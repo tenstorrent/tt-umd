@@ -11,10 +11,11 @@
 
 using namespace tt::umd;
 
-TEST(TestCluster, TestClusterNoc0Id) {
+TEST(TestNoc, TestNoc0NodeId) {
     std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
 
     auto read_noc_id_reg = [&](std::unique_ptr<Cluster>& cluster, chip_id_t chip, CoreCoord core) {
+        const uint64_t noc_node_id_offset = 0x2C;
         const uint64_t noc_node_id_reg_addr =
             cluster->get_tt_device(0)->get_architecture_implementation()->get_noc_reg_base(core.core_type, 0) +
             cluster->get_tt_device(0)->get_architecture_implementation()->get_noc_node_id_offset();
@@ -63,11 +64,13 @@ TEST(TestCluster, TestClusterNoc0Id) {
 
         check_noc_id_cores(cluster, chip, CoreType::SECURITY);
 
+        check_noc_id_cores(cluster, chip, CoreType::L2CPU);
+
         // TODO: add readouts for router cores.
     }
 }
 
-TEST(TestCluster, TestClusterNoc1Id) {
+TEST(TestNoc, TestNoc1NodeId) {
     TTDevice::use_noc1(true);
 
     std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
@@ -104,9 +107,7 @@ TEST(TestCluster, TestClusterNoc1Id) {
         }
     };
 
-    // TODO: add reads from remote chips as well. NOC1 traffic is not working
-    // for remote read/writes on wormhole remote chips.
-    for (chip_id_t chip : cluster->get_target_mmio_device_ids()) {
+    for (chip_id_t chip : cluster->get_target_device_ids()) {
         check_noc_id_cores(cluster, chip, CoreType::TENSIX);
         check_noc_id_harvested_cores(cluster, chip, CoreType::TENSIX);
 
@@ -123,6 +124,8 @@ TEST(TestCluster, TestClusterNoc1Id) {
         check_noc_id_cores(cluster, chip, CoreType::PCIE);
 
         check_noc_id_cores(cluster, chip, CoreType::SECURITY);
+
+        check_noc_id_cores(cluster, chip, CoreType::L2CPU);
 
         // TODO: add readouts for router cores.
     }

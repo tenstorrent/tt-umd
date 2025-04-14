@@ -932,10 +932,6 @@ private:
 
     virtual uint32_t get_harvested_noc_rows_for_chip(
         int logical_device_id);  // Returns one-hot encoded harvesting mask for PCIe mapped chips
-    void generate_tensix_broadcast_grids_for_grayskull(
-        std::set<std::pair<tt_xy_pair, tt_xy_pair>>& broadcast_grids,
-        std::set<uint32_t>& rows_to_exclude,
-        std::set<uint32_t>& cols_to_exclude);
     std::unordered_map<chip_id_t, std::vector<std::vector<int>>>& get_ethernet_broadcast_headers(
         const std::set<chip_id_t>& chips_to_exclude);
     // Test functions

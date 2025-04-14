@@ -1798,56 +1798,6 @@ void Cluster::wait_for_non_mmio_flush() {
     }
 }
 
-// Broadcast Functions
-void Cluster::generate_tensix_broadcast_grids_for_grayskull(
-    std::set<std::pair<tt_xy_pair, tt_xy_pair>>& broadcast_grids,
-    std::set<uint32_t>& rows_to_exclude,
-    std::set<uint32_t>& cols_to_exclude) {
-    // If row 0 is not explicitly excluded, exclude it here since its non-tensix
-    rows_to_exclude.insert(0);
-    // If row 11 is excluded, we can close the SOC grid. If not, exclude row 12 to close grid.
-    if (rows_to_exclude.find(11) == rows_to_exclude.end()) {
-        rows_to_exclude.insert(12);
-    }
-    // If col 0 is not explicitly excluded, exclude it here since its non-tensix
-    cols_to_exclude.insert(0);
-    // If col 12 is excluded, we can close the SOC grid. If not, exclude col 13 to close grid.
-    if (cols_to_exclude.find(12) == cols_to_exclude.end()) {
-        cols_to_exclude.insert(13);
-    }
-    std::vector<std::pair<int, int>> bb_x_coords = {};
-    std::vector<std::pair<int, int>> bb_y_coords = {};
-
-    // Generate starting and ending x coordinates of each bounding box/grid
-    for (auto x_it = cols_to_exclude.begin(); x_it != cols_to_exclude.end(); x_it++) {
-        if (x_it == std::prev(cols_to_exclude.end(), 1)) {
-            continue;
-        }
-        if (cols_to_exclude.find(*(x_it) + 1) == cols_to_exclude.end() and
-            cols_to_exclude.find(*(std::next(x_it, 1)) - 1) == cols_to_exclude.end()) {
-            bb_x_coords.push_back({*(x_it) + 1, *(std::next(x_it, 1)) - 1});
-        }
-    }
-
-    for (auto y_it = rows_to_exclude.begin(); y_it != rows_to_exclude.end(); y_it++) {
-        if (y_it == std::prev(rows_to_exclude.end(), 1)) {
-            continue;
-        }
-        if (rows_to_exclude.find((*y_it) + 1) == rows_to_exclude.end() and
-            rows_to_exclude.find(*std::next(y_it, 1) - 1) == rows_to_exclude.end()) {
-            bb_y_coords.push_back({*(y_it) + 1, *(std::next(y_it, 1)) - 1});
-        }
-    }
-    // Assemble x and y coordinates into bounding box vertices
-    for (const auto& x_pair : bb_x_coords) {
-        for (const auto& y_pair : bb_y_coords) {
-            tt_xy_pair top_left = tt_xy_pair(x_pair.first, y_pair.first);
-            tt_xy_pair bot_right = tt_xy_pair(x_pair.second, y_pair.second);
-            broadcast_grids.insert({top_left, bot_right});
-        }
-    }
-}
-
 std::unordered_map<chip_id_t, std::vector<std::vector<int>>>& Cluster::get_ethernet_broadcast_headers(
     const std::set<chip_id_t>& chips_to_exclude) {
     // Generate headers for Ethernet Broadcast (WH) only. Each header corresponds to a unique broadcast "grid".

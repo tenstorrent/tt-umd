@@ -35,6 +35,7 @@ void TopologyDiscovery::get_pcie_connected_chips() {
     }
 }
 
+// TODO: move this to "remote" TTDevice class. This code is copied from Cluster so far.
 uint32_t TopologyDiscovery::remote_arc_msg(
     eth_coord_t eth_coord,
     uint32_t msg_code,

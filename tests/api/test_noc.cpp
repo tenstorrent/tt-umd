@@ -60,6 +60,7 @@ TEST(TestCluster, TestClusterNoc0Id) {
         check_noc_id_cores(cluster, chip, CoreType::ARC);
 
         check_noc_id_cores(cluster, chip, CoreType::PCIE);
+        check_noc_id_harvested_cores(cluster, chip, CoreType::PCIE);
 
         check_noc_id_cores(cluster, chip, CoreType::SECURITY);
 
@@ -119,6 +120,7 @@ TEST(TestCluster, TestClusterNoc1Id) {
         check_noc_id_cores(cluster, chip, CoreType::ARC);
 
         check_noc_id_cores(cluster, chip, CoreType::PCIE);
+        check_noc_id_harvested_cores(cluster, chip, CoreType::PCIE);
 
         check_noc_id_cores(cluster, chip, CoreType::SECURITY);
 

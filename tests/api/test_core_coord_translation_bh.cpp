@@ -549,11 +549,11 @@ TEST(CoordinateManager, CoordinateManagerBlackholeDRAMPMoreThanOneDRAMBankHarves
 // Test that virtual, physical and translated coordinates are the same for all logical PCIE coordinates.
 TEST(CoordinateManager, CoordinateManagerBlackholePCIETranslationLocal) {
     std::shared_ptr<CoordinateManager> coordinate_manager =
-        CoordinateManager::create_coordinate_manager(tt::ARCH::BLACKHOLE, true, {0, 0, 0}, BoardType::P300, false);
+        CoordinateManager::create_coordinate_manager(tt::ARCH::BLACKHOLE, true, {0, 0, 0, 0x1}, BoardType::P300, false);
     const tt_xy_pair pcie_grid_size = tt::umd::blackhole::PCIE_GRID_SIZE;
-    const std::vector<tt_xy_pair> pcie_cores = tt::umd::blackhole::PCIE_CORES_TYPE2_NOC0;
+    const std::vector<tt_xy_pair> pcie_cores = tt::umd::blackhole::PCIE_CORES_NOC0;
 
-    for (size_t x = 0; x < pcie_grid_size.x; x++) {
+    for (size_t x = 0; x < pcie_grid_size.x - 1; x++) {
         for (size_t y = 0; y < pcie_grid_size.y; y++) {
             const CoreCoord pcie_logical = CoreCoord(x, y, CoreType::PCIE, CoordSystem::LOGICAL);
             const CoreCoord pcie_virtual = coordinate_manager->translate_coord_to(pcie_logical, CoordSystem::VIRTUAL);
@@ -572,11 +572,11 @@ TEST(CoordinateManager, CoordinateManagerBlackholePCIETranslationLocal) {
 // Test that virtual, physical and translated coordinates are the same for all logical PCIE coordinates.
 TEST(CoordinateManager, CoordinateManagerBlackholePCIETranslationRemote) {
     std::shared_ptr<CoordinateManager> coordinate_manager =
-        CoordinateManager::create_coordinate_manager(tt::ARCH::BLACKHOLE, true);
+        CoordinateManager::create_coordinate_manager(tt::ARCH::BLACKHOLE, true, {0, 0, 0, 0x1}, BoardType::P300, false);
     const tt_xy_pair pcie_grid_size = tt::umd::blackhole::PCIE_GRID_SIZE;
-    const std::vector<tt_xy_pair> pcie_cores = tt::umd::blackhole::PCIE_CORES_TYPE1_NOC0;
+    const std::vector<tt_xy_pair> pcie_cores = tt::umd::blackhole::PCIE_CORES_NOC0;
 
-    for (size_t x = 0; x < pcie_grid_size.x; x++) {
+    for (size_t x = 0; x < pcie_grid_size.x - 1; x++) {
         for (size_t y = 0; y < pcie_grid_size.y; y++) {
             const CoreCoord pcie_logical = CoreCoord(x, y, CoreType::PCIE, CoordSystem::LOGICAL);
             const CoreCoord pcie_virtual = coordinate_manager->translate_coord_to(pcie_logical, CoordSystem::VIRTUAL);
@@ -814,7 +814,7 @@ TEST(CoordinateManager, CoordinateManagerBlackholeNoc1Noc0Mapping) {
         flatten_vector(tt::umd::blackhole::DRAM_CORES_NOC0), flatten_vector(DRAM_CORES_NOC1), CoreType::DRAM);
     check_noc0_noc1_mapping(tt::umd::blackhole::ETH_CORES_NOC0, ETH_CORES_NOC1, CoreType::ETH);
     check_noc0_noc1_mapping(tt::umd::blackhole::ARC_CORES_NOC0, ARC_CORES_NOC1, CoreType::ARC);
-    check_noc0_noc1_mapping({tt::umd::blackhole::PCIE_CORES_NOC0[1]}, {PCIE_CORES_NOC1[1]}, CoreType::PCIE);
+    check_noc0_noc1_mapping(tt::umd::blackhole::PCIE_CORES_NOC0, PCIE_CORES_NOC1, CoreType::PCIE);
 }
 
 TEST(CoordinateManager, CoordinateManagerBlackholeSecurityTranslation) {

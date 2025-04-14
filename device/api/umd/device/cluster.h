@@ -630,23 +630,6 @@ public:
         const chip_id_t chip, const std::string& fallback_tlb, const std::unordered_set<uint32_t>& channels);
 
     /**
-     * Write data to specified address on the BAR space of the device.
-     *
-     * @param logical_device_id Device to target.
-     * @param addr Address to write to.
-     * @param data Data to write.
-     */
-    void bar_write32(int logical_device_id, uint32_t addr, uint32_t data);
-
-    /**
-     * Read data from specified address on the BAR space of the device.
-     *
-     * @param logical_device_id Device to target.
-     * @param addr Address to read from.
-     */
-    uint32_t bar_read32(int logical_device_id, uint32_t addr);
-
-    /**
      * This API allows you to write directly to device memory that is addressable by a static TLB.
      */
     std::function<void(uint32_t, uint32_t, const uint8_t*)> get_fast_pcie_static_tlb_write_callable(int device_id);

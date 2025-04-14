@@ -153,6 +153,12 @@ void RobustMutex::initialize() {
 
 void RobustMutex::open_shm_file() {
     std::string shm_file_name = std::string(UMD_LOCK_PREFIX) + std::string(mutex_name_);
+
+    // Store old mask and clear processes umask.
+    // This will have an effect that the created files which back up named mutexes will have all permissions. This is
+    // important to avoid permission issues between processes.
+    auto old_umask = umask(0);
+
     // The EXCL flag will cause the call to fail if the file already exists.
     // The order of operations is important here. If we try to first open the file then create it, then a race condition
     // can occur where two processes fail to open the file and they race to create it. This way, always only one process
@@ -161,6 +167,10 @@ void RobustMutex::open_shm_file() {
     if (shm_fd_ == -1 && errno == EEXIST) {
         shm_fd_ = shm_open(shm_file_name.c_str(), O_RDWR, ALL_RW_PERMISSION);
     }
+
+    // Restore old mask.
+    umask(old_umask);
+
     if (shm_fd_ == -1) {
         log_fatal("shm_open failed for mutex {} errno: {}", mutex_name_, std::to_string(errno));
     }

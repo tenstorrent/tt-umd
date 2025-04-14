@@ -150,8 +150,6 @@ void Cluster::construct_cluster(const uint32_t& num_host_mem_ch_per_mmio_device,
         use_ethernet_ordered_writes = false;
         use_ethernet_broadcast = false;
     }
-
-    populate_cores();
 }
 
 std::unique_ptr<Chip> Cluster::construct_chip_from_cluster(
@@ -514,23 +512,6 @@ Cluster::Cluster(
 void Cluster::configure_active_ethernet_cores_for_mmio_device(
     chip_id_t mmio_chip, const std::unordered_set<CoreCoord>& active_eth_cores_per_chip) {
     get_local_chip(mmio_chip)->set_remote_transfer_ethernet_cores(active_eth_cores_per_chip);
-}
-
-void Cluster::populate_cores() {
-    std::uint32_t count = 0;
-    for (const auto& [chip_id, chip] : chips_) {
-        auto& soc_desc = chip->get_soc_descriptor();
-        auto workers = soc_desc.get_cores(CoreType::TENSIX, CoordSystem::VIRTUAL);
-        workers_per_chip.insert({chip_id, std::unordered_set<tt_xy_pair>(workers.begin(), workers.end())});
-        if (count == 0) {
-            auto ethernet_cores = soc_desc.get_cores(CoreType::ETH, CoordSystem::VIRTUAL);
-            eth_cores = std::unordered_set<tt_xy_pair>(ethernet_cores.begin(), ethernet_cores.end());
-            for (std::uint32_t dram_idx = 0; dram_idx < soc_desc.get_num_dram_channels(); dram_idx++) {
-                dram_cores.insert(soc_desc.get_dram_core_for_channel(dram_idx, 0, CoordSystem::VIRTUAL));
-            }
-        }
-        count++;
-    }
 }
 
 void Cluster::check_pcie_device_initialized(int device_id) {
@@ -1529,28 +1510,23 @@ void Cluster::read_from_sysmem(void* mem_ptr, uint64_t addr, uint16_t channel, u
 
 void Cluster::set_membar_flag(
     const chip_id_t chip,
-    const std::unordered_set<tt_xy_pair>& cores,
+    const std::vector<CoreCoord>& cores,
     const uint32_t barrier_value,
     const uint32_t barrier_addr,
     const std::string& fallback_tlb) {
     tt_driver_atomics::sfence();  // Ensure that writes before this do not get reordered
-    std::unordered_set<tt_xy_pair> cores_synced = {};
+    std::unordered_set<CoreCoord> cores_synced = {};
     std::vector<uint32_t> barrier_val_vec = {barrier_value};
     for (const auto& core : cores) {
         write_to_device(
-            barrier_val_vec.data(),
-            barrier_val_vec.size() * sizeof(uint32_t),
-            tt_cxy_pair(chip, core),
-            barrier_addr,
-            fallback_tlb);
+            barrier_val_vec.data(), barrier_val_vec.size() * sizeof(uint32_t), chip, core, barrier_addr, fallback_tlb);
     }
     tt_driver_atomics::sfence();  // Ensure that all writes in the Host WC buffer are flushed
     while (cores_synced.size() != cores.size()) {
         for (const auto& core : cores) {
             if (cores_synced.find(core) == cores_synced.end()) {
                 uint32_t readback_val;
-                read_from_device(
-                    &readback_val, tt_cxy_pair(chip, core), barrier_addr, sizeof(std::uint32_t), fallback_tlb);
+                read_from_device(&readback_val, chip, core, barrier_addr, sizeof(std::uint32_t), fallback_tlb);
                 if (readback_val == barrier_value) {
                     cores_synced.insert(core);
                 } else {
@@ -1570,7 +1546,7 @@ void Cluster::set_membar_flag(
 
 void Cluster::insert_host_to_device_barrier(
     const chip_id_t chip,
-    const std::unordered_set<tt_xy_pair>& cores,
+    const std::vector<CoreCoord>& cores,
     const uint32_t barrier_addr,
     const std::string& fallback_tlb) {
     // Ensure that this memory barrier is atomic across processes/threads
@@ -1589,42 +1565,52 @@ void Cluster::init_membars() {
 
             set_membar_flag(
                 chip,
-                workers_per_chip.at(chip),
+                get_soc_descriptor(chip).get_cores(CoreType::TENSIX, CoordSystem::VIRTUAL),
                 tt_MemBarFlag::RESET,
                 l1_address_params.tensix_l1_barrier_base,
                 "LARGE_WRITE_TLB");
             set_membar_flag(
-                chip, eth_cores, tt_MemBarFlag::RESET, l1_address_params.eth_l1_barrier_base, "LARGE_WRITE_TLB");
+                chip,
+                get_soc_descriptor(chip).get_cores(CoreType::ETH, CoordSystem::VIRTUAL),
+                tt_MemBarFlag::RESET,
+                l1_address_params.eth_l1_barrier_base,
+                "LARGE_WRITE_TLB");
+
+            std::vector<CoreCoord> dram_cores_vector = {};
+            for (std::uint32_t dram_idx = 0; dram_idx < get_soc_descriptor(chip).get_num_dram_channels(); dram_idx++) {
+                dram_cores_vector.push_back(
+                    get_soc_descriptor(chip).get_dram_core_for_channel(dram_idx, 0, CoordSystem::VIRTUAL));
+            }
             set_membar_flag(
-                chip, dram_cores, tt_MemBarFlag::RESET, dram_address_params.DRAM_BARRIER_BASE, "LARGE_WRITE_TLB");
+                chip,
+                dram_cores_vector,
+                tt_MemBarFlag::RESET,
+                dram_address_params.DRAM_BARRIER_BASE,
+                "LARGE_WRITE_TLB");
         }
     }
 }
 
 void Cluster::l1_membar(
     const chip_id_t chip, const std::string& fallback_tlb, const std::unordered_set<tt::umd::CoreCoord>& cores) {
-    std::unordered_set<tt_xy_pair> cores_xy;
-    for (const auto& core : cores) {
-        cores_xy.insert(translate_to_api_coords(chip, core));
-    }
-
     if (cluster_desc->is_chip_mmio_capable(chip)) {
-        const auto& all_workers = workers_per_chip.at(chip);
-        const auto& all_eth = eth_cores;
+        const auto& all_workers = get_soc_descriptor(chip).get_cores(CoreType::TENSIX, CoordSystem::VIRTUAL);
+        const auto& all_eth = get_soc_descriptor(chip).get_cores(CoreType::ETH, CoordSystem::VIRTUAL);
 
         // TODO: To be removed when this is moved to Chip classes.
         const auto& l1_address_params = get_local_chip(chip)->l1_address_params;
 
-        if (cores_xy.size()) {
+        if (cores.size()) {
             // Insert barrier on specific cores with L1
-            std::unordered_set<tt_xy_pair> workers_to_sync = {};
-            std::unordered_set<tt_xy_pair> eth_to_sync = {};
+            std::vector<CoreCoord> workers_to_sync = {};
+            std::vector<CoreCoord> eth_to_sync = {};
 
-            for (const auto& core : cores_xy) {
-                if (all_workers.find(core) != all_workers.end()) {
-                    workers_to_sync.insert(core);
-                } else if (all_eth.find(core) != all_eth.end()) {
-                    eth_to_sync.insert(core);
+            for (const auto& core : cores) {
+                auto core_from_soc = get_soc_descriptor(chip).get_coord_at(core, core.coord_system);
+                if (core_from_soc.core_type == CoreType::TENSIX) {
+                    workers_to_sync.push_back(core);
+                } else if (core_from_soc.core_type == CoreType::ETH) {
+                    eth_to_sync.push_back(core);
                 } else {
                     log_fatal("Can only insert an L1 Memory barrier on Tensix or Ethernet cores.");
                 }
@@ -1644,21 +1630,24 @@ void Cluster::l1_membar(
 
 void Cluster::dram_membar(
     const chip_id_t chip, const std::string& fallback_tlb, const std::unordered_set<tt::umd::CoreCoord>& cores) {
-    std::unordered_set<tt_xy_pair> cores_xy;
-    for (const auto& core : cores) {
-        cores_xy.insert(translate_to_api_coords(chip, core));
-    }
     if (cluster_desc->is_chip_mmio_capable(chip)) {
         const auto& dram_address_params = get_local_chip(chip)->dram_address_params;
-        if (cores_xy.size()) {
-            for (const auto& core : cores_xy) {
+        if (cores.size()) {
+            for (const auto& core : cores) {
                 log_assert(
-                    dram_cores.find(core) != dram_cores.end(), "Can only insert a DRAM Memory barrier on DRAM cores.");
+                    get_soc_descriptor(chip).get_coord_at(core, core.coord_system).core_type == CoreType::DRAM,
+                    "Can only insert a DRAM Memory barrier on DRAM cores.");
             }
-            insert_host_to_device_barrier(chip, cores_xy, dram_address_params.DRAM_BARRIER_BASE, fallback_tlb);
+            std::vector<CoreCoord> dram_cores_vector = std::vector<CoreCoord>(cores.begin(), cores.end());
+            insert_host_to_device_barrier(chip, dram_cores_vector, dram_address_params.DRAM_BARRIER_BASE, fallback_tlb);
         } else {
             // Insert Barrier on all DRAM Cores
-            insert_host_to_device_barrier(chip, dram_cores, dram_address_params.DRAM_BARRIER_BASE, fallback_tlb);
+            std::vector<CoreCoord> dram_cores_vector = {};
+            for (std::uint32_t dram_idx = 0; dram_idx < get_soc_descriptor(chip).get_num_dram_channels(); dram_idx++) {
+                dram_cores_vector.push_back(
+                    get_soc_descriptor(chip).get_dram_core_for_channel(dram_idx, 0, CoordSystem::VIRTUAL));
+            }
+            insert_host_to_device_barrier(chip, dram_cores_vector, dram_address_params.DRAM_BARRIER_BASE, fallback_tlb);
         }
     } else {
         wait_for_non_mmio_flush();
@@ -1667,25 +1656,11 @@ void Cluster::dram_membar(
 
 void Cluster::dram_membar(
     const chip_id_t chip, const std::string& fallback_tlb, const std::unordered_set<uint32_t>& channels) {
-    if (cluster_desc->is_chip_mmio_capable(chip)) {
-        // TODO: To be removed when this is moved to Chip classes.
-        const auto& dram_address_params = get_local_chip(chip)->dram_address_params;
-
-        if (channels.size()) {
-            std::unordered_set<tt_xy_pair> dram_cores_to_sync = {};
-            for (const auto& chan : channels) {
-                dram_cores_to_sync.insert(
-                    get_soc_descriptor(chip).get_dram_core_for_channel(chan, 0, CoordSystem::VIRTUAL));
-            }
-            insert_host_to_device_barrier(
-                chip, dram_cores_to_sync, dram_address_params.DRAM_BARRIER_BASE, fallback_tlb);
-        } else {
-            // Insert Barrier on all DRAM Cores
-            insert_host_to_device_barrier(chip, dram_cores, dram_address_params.DRAM_BARRIER_BASE, fallback_tlb);
-        }
-    } else {
-        wait_for_non_mmio_flush();
+    std::unordered_set<CoreCoord> dram_cores_to_sync = {};
+    for (const auto& chan : channels) {
+        dram_cores_to_sync.insert(get_soc_descriptor(chip).get_dram_core_for_channel(chan, 0, CoordSystem::VIRTUAL));
     }
+    dram_membar(chip, fallback_tlb, dram_cores_to_sync);
 }
 
 void Cluster::write_to_device(

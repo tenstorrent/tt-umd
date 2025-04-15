@@ -814,8 +814,12 @@ void Cluster::wait_for_aiclk_value(tt_DevicePowerState power_state, const uint32
             auto end = std::chrono::system_clock::now();
             auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
             if (duration.count() > timeout_ms) {
-                throw std::runtime_error(
-                    fmt::format("Waiting for AICLK value to settle failed on timeout after {}.", timeout_ms));
+                throw std::runtime_error(fmt::format(
+                    "Waiting for AICLK value to settle failed on timeout after {}. Expected to see {}, last value "
+                    "observed {}",
+                    timeout_ms,
+                    target_aiclk,
+                    aiclk));
             }
             aiclk = get_clock(chip_id);
         }
@@ -2162,6 +2166,11 @@ void Cluster::write_to_device(
     write_to_device(mem_ptr, size_in_bytes, {(size_t)chip, translate_to_api_coords(chip, core)}, addr, tlb_to_use);
 }
 
+void Cluster::write_to_device_reg(
+    const void* mem_ptr, uint32_t size_in_bytes, chip_id_t chip, CoreCoord core, uint64_t addr) {
+    write_to_device(mem_ptr, size_in_bytes, {(size_t)chip, translate_to_api_coords(chip, core)}, addr, "REG_TLB");
+}
+
 void Cluster::read_mmio_device_register(
     void* mem_ptr, tt_cxy_pair core, uint64_t addr, uint32_t size, const std::string& fallback_tlb) {
     get_local_chip(core.chip)->read_from_device_reg(core, mem_ptr, addr, size, fallback_tlb);
@@ -2195,6 +2204,10 @@ void Cluster::read_from_device(
 void Cluster::read_from_device(
     void* mem_ptr, chip_id_t chip, CoreCoord core, uint64_t addr, uint32_t size, const std::string& fallback_tlb) {
     read_from_device(mem_ptr, {(size_t)chip, translate_to_api_coords(chip, core)}, addr, size, fallback_tlb);
+}
+
+void Cluster::read_from_device_reg(void* mem_ptr, chip_id_t chip, CoreCoord core, uint64_t addr, uint32_t size) {
+    read_from_device(mem_ptr, {(size_t)chip, translate_to_api_coords(chip, core)}, addr, size, "REG_TLB");
 }
 
 int Cluster::arc_msg(

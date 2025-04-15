@@ -122,6 +122,7 @@ void tt_SocDescriptor::create_coordinate_manager(const BoardType board_type, con
         pcie_cores,
         router_cores,
         security_cores,
+        l2cpu_cores,
         noc0_x_to_noc1_x,
         noc0_y_to_noc1_y);
     get_cores_and_grid_size_from_coordinate_manager();
@@ -223,6 +224,14 @@ void tt_SocDescriptor::load_core_descriptors_from_soc_desc_info(const SocDescrip
         security_cores.push_back(core_descriptor.coord);
     }
 
+    for (const auto &l2cpu_core : soc_desc_info.l2cpu_cores) {
+        CoreDescriptor core_descriptor;
+        core_descriptor.coord = l2cpu_core;
+        core_descriptor.type = CoreType::L2CPU;
+        cores.insert({core_descriptor.coord, core_descriptor});
+        l2cpu_cores.push_back(core_descriptor.coord);
+    }
+
     noc0_x_to_noc1_x = soc_desc_info.noc0_x_to_noc1_x;
     noc0_y_to_noc1_y = soc_desc_info.noc0_y_to_noc1_y;
 }
@@ -246,6 +255,7 @@ SocDescriptorInfo tt_SocDescriptor::get_soc_descriptor_info(tt::ARCH arch) {
                 .pcie_cores = tt::umd::wormhole::PCIE_CORES_NOC0,
                 .router_cores = tt::umd::wormhole::ROUTER_CORES_NOC0,
                 .security_cores = tt::umd::wormhole::SECURITY_CORES_NOC0,
+                .l2cpu_cores = tt::umd::wormhole::L2CPU_CORES_NOC0,
                 .worker_l1_size = tt::umd::wormhole::TENSIX_L1_SIZE,
                 .eth_l1_size = tt::umd::wormhole::ETH_L1_SIZE,
                 .dram_bank_size = tt::umd::wormhole::DRAM_BANK_SIZE,
@@ -264,6 +274,7 @@ SocDescriptorInfo tt_SocDescriptor::get_soc_descriptor_info(tt::ARCH arch) {
                 .pcie_cores = tt::umd::blackhole::PCIE_CORES_NOC0,
                 .router_cores = tt::umd::blackhole::ROUTER_CORES_NOC0,
                 .security_cores = tt::umd::blackhole::SECURITY_CORES_NOC0,
+                .l2cpu_cores = tt::umd::blackhole::L2CPU_CORES_NOC0,
                 .worker_l1_size = tt::umd::blackhole::TENSIX_L1_SIZE,
                 .eth_l1_size = tt::umd::blackhole::ETH_L1_SIZE,
                 .dram_bank_size = tt::umd::blackhole::DRAM_BANK_SIZE,
@@ -337,6 +348,10 @@ void tt_SocDescriptor::load_from_yaml(YAML::Node &device_descriptor_yaml) {
         tt_SocDescriptor::convert_to_tt_xy_pair(device_descriptor_yaml["arc"].as<std::vector<std::string>>());
     soc_desc_info.router_cores =
         tt_SocDescriptor::convert_to_tt_xy_pair(device_descriptor_yaml["router_only"].as<std::vector<std::string>>());
+    if (device_descriptor_yaml["l2cpu"].IsDefined()) {
+        soc_desc_info.l2cpu_cores =
+            tt_SocDescriptor::convert_to_tt_xy_pair(device_descriptor_yaml["l2cpu"].as<std::vector<std::string>>());
+    }
 
     if (device_descriptor_yaml["security"].IsDefined()) {
         soc_desc_info.security_cores =
@@ -415,10 +430,12 @@ void tt_SocDescriptor::get_cores_and_grid_size_from_coordinate_manager() {
           CoreType::ARC,
           CoreType::PCIE,
           CoreType::ROUTER_ONLY,
-          CoreType::SECURITY}) {
+          CoreType::SECURITY,
+          CoreType::L2CPU}) {
         cores_map.insert({core_type, coordinate_manager->get_cores(core_type)});
         harvested_cores_map.insert({core_type, coordinate_manager->get_harvested_cores(core_type)});
-        if (core_type == CoreType::ETH || core_type == CoreType::ROUTER_ONLY || core_type == CoreType::SECURITY) {
+        if (core_type == CoreType::ETH || core_type == CoreType::ROUTER_ONLY || core_type == CoreType::SECURITY ||
+            core_type == CoreType::L2CPU) {
             // Ethernet and Router cores aren't arranged in a grid.
             continue;
         }
@@ -487,7 +504,8 @@ std::vector<tt::umd::CoreCoord> tt_SocDescriptor::get_all_cores(const CoordSyste
           CoreType::ARC,
           CoreType::PCIE,
           CoreType::ROUTER_ONLY,
-          CoreType::SECURITY}) {
+          CoreType::SECURITY,
+          CoreType::L2CPU}) {
         auto cores = get_cores(core_type, coord_system);
         all_cores.insert(all_cores.end(), cores.begin(), cores.end());
     }
@@ -503,7 +521,8 @@ std::vector<tt::umd::CoreCoord> tt_SocDescriptor::get_all_harvested_cores(const 
           CoreType::ARC,
           CoreType::PCIE,
           CoreType::ROUTER_ONLY,
-          CoreType::SECURITY}) {
+          CoreType::SECURITY,
+          CoreType::L2CPU}) {
         auto harvested_cores = get_harvested_cores(core_type, coord_system);
         all_harvested_cores.insert(all_harvested_cores.end(), harvested_cores.begin(), harvested_cores.end());
     }

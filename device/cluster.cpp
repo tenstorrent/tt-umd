@@ -158,23 +158,6 @@ void Cluster::construct_cluster(const uint32_t& num_host_mem_ch_per_mmio_device,
     }
 
     populate_cores();
-
-    // MT: Initial BH - skip this for BH
-    if (arch_name == tt::ARCH::WORMHOLE_B0) {
-        remote_transfer_ethernet_cores.resize(local_chip_ids_.size());
-        for (const auto& logical_mmio_chip_id : local_chip_ids_) {
-            const tt_SocDescriptor& soc_desc = get_soc_descriptor(logical_mmio_chip_id);
-            // 4-5 is for send_epoch_commands, 0-3 are for everything else
-            for (std::uint32_t i = 0; i < NUM_ETH_CORES_FOR_NON_MMIO_TRANSFERS; i++) {
-                if (remote_transfer_ethernet_cores.size() <= logical_mmio_chip_id) {
-                    remote_transfer_ethernet_cores.resize(logical_mmio_chip_id + 1);
-                }
-                CoreCoord ethernet_core = soc_desc.get_eth_core_for_channel(i, CoordSystem::VIRTUAL);
-                remote_transfer_ethernet_cores.at(logical_mmio_chip_id)
-                    .push_back(tt_cxy_pair(logical_mmio_chip_id, ethernet_core));
-            }
-        }
-    }
 }
 
 std::unique_ptr<Chip> Cluster::construct_chip_from_cluster(
@@ -530,33 +513,7 @@ Cluster::Cluster(
 
 void Cluster::configure_active_ethernet_cores_for_mmio_device(
     chip_id_t mmio_chip, const std::unordered_set<CoreCoord>& active_eth_cores_per_chip) {
-    // Makes UMD aware of which ethernet cores have active links.
-    // Based on this information, UMD determines which ethernet cores can be used for host->cluster non-MMIO transfers.
-    // This overrides the default ethernet cores tagged for host to cluster routing in the constructor and must be
-    // called for all MMIO devices, if default behaviour is not desired.
-    auto& soc_desc = get_soc_descriptor(mmio_chip);
-    log_assert(soc_desc.arch == tt::ARCH::WORMHOLE_B0, "{} can only be called for Wormhole arch", __FUNCTION__);
-    // Cores 0, 1, 6, 7 are only available if in the active set
-    static std::unordered_set<CoreCoord> eth_cores_available_if_active = {
-        soc_desc.get_eth_core_for_channel(0, CoordSystem::VIRTUAL),
-        soc_desc.get_eth_core_for_channel(1, CoordSystem::VIRTUAL),
-        soc_desc.get_eth_core_for_channel(6, CoordSystem::VIRTUAL),
-        soc_desc.get_eth_core_for_channel(7, CoordSystem::VIRTUAL)};
-    // Eth cores 8 and 9 are always available
-    std::vector<tt_cxy_pair> non_mmio_access_cores_for_chip = {
-        {(size_t)mmio_chip, soc_desc.get_eth_core_for_channel(8, CoordSystem::VIRTUAL)},
-        {(size_t)mmio_chip, soc_desc.get_eth_core_for_channel(9, CoordSystem::VIRTUAL)}};
-    for (const auto& active_eth_core : active_eth_cores_per_chip) {
-        const auto virtual_active_eth_core =
-            get_soc_descriptor(mmio_chip).translate_coord_to(active_eth_core, CoordSystem::VIRTUAL);
-        if (eth_cores_available_if_active.find(virtual_active_eth_core) != eth_cores_available_if_active.end()) {
-            non_mmio_access_cores_for_chip.push_back(tt_cxy_pair(mmio_chip, virtual_active_eth_core));
-        }
-    }
-
-    remote_transfer_ethernet_cores[mmio_chip] = non_mmio_access_cores_for_chip;
-    active_eth_core_idx_per_chip.insert({mmio_chip, 0});
-    non_mmio_transfer_cores_customized = true;
+    get_local_chip(mmio_chip)->set_remote_transfer_ethernet_cores(active_eth_cores_per_chip);
 }
 
 void Cluster::populate_cores() {
@@ -1233,12 +1190,6 @@ void Cluster::write_to_non_mmio_device(
     }
     flush_non_mmio_per_chip[cluster_desc->get_closest_mmio_capable_chip(core.chip)] = true;
 
-    if (non_mmio_transfer_cores_customized) {
-        log_assert(
-            active_eth_core_idx_per_chip.find(mmio_capable_chip_logical) != active_eth_core_idx_per_chip.end(),
-            "Ethernet Cores for Host to Cluster communication were not initialized for all MMIO devices.");
-    }
-
     using data_word_t = uint32_t;
     constexpr int DATA_WORD_SIZE = sizeof(data_word_t);
     constexpr int BROADCAST_HEADER_SIZE = sizeof(data_word_t) * 8;  // Broadcast header is 8 words
@@ -1283,11 +1234,8 @@ void Cluster::write_to_non_mmio_device(
         get_local_chip(mmio_capable_chip_logical)
             ->acquire_mutex(
                 MutexType::NON_MMIO, get_tt_device(mmio_capable_chip_logical)->get_pci_device()->get_device_num());
-
-    int& active_core_for_txn =
-        non_mmio_transfer_cores_customized ? active_eth_core_idx_per_chip.at(mmio_capable_chip_logical) : active_core;
-    tt_cxy_pair remote_transfer_ethernet_core =
-        remote_transfer_ethernet_cores.at(mmio_capable_chip_logical)[active_core_for_txn];
+    tt_cxy_pair remote_transfer_ethernet_core = tt_cxy_pair(
+        mmio_capable_chip_logical, get_local_chip(mmio_capable_chip_logical)->get_remote_transfer_ethernet_core());
 
     erisc_command.resize(sizeof(routing_cmd_t) / DATA_WORD_SIZE);
     new_cmd = (routing_cmd_t*)&erisc_command[0];
@@ -1297,7 +1245,6 @@ void Cluster::write_to_non_mmio_device(
         eth_interface_params.request_cmd_queue_base + eth_interface_params.cmd_counters_size_bytes,
         eth_interface_params.remote_update_ptr_size_bytes * 2,
         read_tlb);
-    uint32_t full_count = 0;
     uint32_t offset = 0;
     uint32_t block_size;
 
@@ -1316,7 +1263,6 @@ void Cluster::write_to_non_mmio_device(
                 read_tlb);
             full = is_non_mmio_cmd_q_full(
                 chips_.at(mmio_capable_chip_logical)->eth_interface_params, erisc_q_ptrs[0], erisc_q_rptr[0]);
-            full_count++;
         }
         // full = true;
         //  set full only if this command will make the q full.
@@ -1355,7 +1301,9 @@ void Cluster::write_to_non_mmio_device(
 
         uint32_t host_dram_block_addr =
             host_address_params.eth_routing_buffers_start +
-            (active_core_for_txn * eth_interface_params.cmd_buf_size + req_wr_ptr) * max_block_size;
+            (get_local_chip(mmio_capable_chip_logical)->get_active_eth_core_idx() * eth_interface_params.cmd_buf_size +
+             req_wr_ptr) *
+                max_block_size;
         uint16_t host_dram_channel = 0;  // This needs to be 0, since WH can only map ETH buffers to chan 0.
 
         if (req_flags & eth_interface_params.cmd_data_block) {
@@ -1459,15 +1407,10 @@ void Cluster::write_to_non_mmio_device(
                 chips_.at(mmio_capable_chip_logical)->eth_interface_params,
                 (erisc_q_ptrs[0]) & eth_interface_params.cmd_buf_ptr_mask,
                 erisc_q_rptr[0])) {
-            active_core_for_txn++;
-            uint32_t update_mask_for_chip = remote_transfer_ethernet_cores[mmio_capable_chip_logical].size() - 1;
-            active_core_for_txn =
-                non_mmio_transfer_cores_customized
-                    ? (active_core_for_txn & update_mask_for_chip)
-                    : ((active_core_for_txn & NON_EPOCH_ETH_CORES_MASK) + NON_EPOCH_ETH_CORES_START_ID);
-            // active_core = (active_core & NON_EPOCH_ETH_CORES_MASK) + NON_EPOCH_ETH_CORES_START_ID;
-            remote_transfer_ethernet_core =
-                remote_transfer_ethernet_cores.at(mmio_capable_chip_logical)[active_core_for_txn];
+            get_local_chip(mmio_capable_chip_logical)->update_active_eth_core_idx();
+            remote_transfer_ethernet_core = tt_cxy_pair(
+                mmio_capable_chip_logical,
+                get_local_chip(mmio_capable_chip_logical)->get_remote_transfer_ethernet_core());
             read_device_memory(
                 erisc_q_ptrs.data(),
                 remote_transfer_ethernet_core,
@@ -1526,7 +1469,8 @@ void Cluster::read_from_non_mmio_device(void* mem_ptr, tt_cxy_pair core, uint64_
         get_local_chip(mmio_capable_chip_logical)
             ->acquire_mutex(
                 MutexType::NON_MMIO, get_tt_device(mmio_capable_chip_logical)->get_pci_device()->get_device_num());
-    const tt_cxy_pair remote_transfer_ethernet_core = remote_transfer_ethernet_cores[mmio_capable_chip_logical].at(0);
+    const tt_cxy_pair remote_transfer_ethernet_core = tt_cxy_pair(
+        mmio_capable_chip_logical, get_local_chip(mmio_capable_chip_logical)->get_remote_transfer_ethernet_core());
 
     read_device_memory(
         erisc_q_ptrs.data(),
@@ -1761,7 +1705,8 @@ void Cluster::wait_for_connected_non_mmio_flush(const chip_id_t chip_id) {
                 std::vector<uint32_t>(eth_interface_params.remote_update_ptr_size_bytes * 2 / sizeof(uint32_t));
 
             // wait for all queues to be empty.
-            for (tt_cxy_pair& cxy : remote_transfer_ethernet_cores.at(chip_id)) {
+            for (tt_xy_pair& xy : get_local_chip(chip_id)->get_remote_transfer_ethernet_cores()) {
+                tt_cxy_pair cxy = tt_cxy_pair(chip_id, xy);
                 do {
                     read_device_memory(
                         erisc_q_ptrs.data(),
@@ -1772,7 +1717,8 @@ void Cluster::wait_for_connected_non_mmio_flush(const chip_id_t chip_id) {
                 } while (erisc_q_ptrs[0] != erisc_q_ptrs[4]);
             }
             // wait for all write responses to come back.
-            for (tt_cxy_pair& cxy : remote_transfer_ethernet_cores.at(chip_id)) {
+            for (tt_xy_pair& xy : get_local_chip(chip_id)->get_remote_transfer_ethernet_cores()) {
+                tt_cxy_pair cxy = tt_cxy_pair(chip_id, xy);
                 do {
                     read_device_memory(
                         erisc_txn_counters.data(), cxy, eth_interface_params.request_cmd_queue_base, 8, read_tlb);
@@ -2414,6 +2360,11 @@ void Cluster::write_to_device(
     write_to_device(mem_ptr, size_in_bytes, {(size_t)chip, translate_to_api_coords(chip, core)}, addr, tlb_to_use);
 }
 
+void Cluster::write_to_device_reg(
+    const void* mem_ptr, uint32_t size_in_bytes, chip_id_t chip, CoreCoord core, uint64_t addr) {
+    write_to_device(mem_ptr, size_in_bytes, {(size_t)chip, translate_to_api_coords(chip, core)}, addr, "REG_TLB");
+}
+
 void Cluster::read_mmio_device_register(
     void* mem_ptr, tt_cxy_pair core, uint64_t addr, uint32_t size, const std::string& fallback_tlb) {
     get_local_chip(core.chip)->read_from_device_reg(core, mem_ptr, addr, size, fallback_tlb);
@@ -2447,6 +2398,10 @@ void Cluster::read_from_device(
 void Cluster::read_from_device(
     void* mem_ptr, chip_id_t chip, CoreCoord core, uint64_t addr, uint32_t size, const std::string& fallback_tlb) {
     read_from_device(mem_ptr, {(size_t)chip, translate_to_api_coords(chip, core)}, addr, size, fallback_tlb);
+}
+
+void Cluster::read_from_device_reg(void* mem_ptr, chip_id_t chip, CoreCoord core, uint64_t addr, uint32_t size) {
+    read_from_device(mem_ptr, {(size_t)chip, translate_to_api_coords(chip, core)}, addr, size, "REG_TLB");
 }
 
 int Cluster::arc_msg(

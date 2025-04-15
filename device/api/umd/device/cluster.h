@@ -242,8 +242,26 @@ public:
         chip_id_t chip,
         tt::umd::CoreCoord core,
         uint64_t addr,
-        const std::string& tlb_to_use) {
+        const std::string& tlb_to_use = "LARGE_WRITE_TLB") {
         throw std::runtime_error("---- tt_device::write_to_device is not implemented\n");
+    }
+
+    /**
+     * Write uint32_t data (as specified by ptr + len pair) to specified device, core and address (defined for Silicon).
+     * This API is used for writing to both TENSIX and DRAM cores. The internal SocDescriptor can be used to determine
+     * which type of the core is being targeted.
+     * This API is used for writing to registers in the device address space, reads are slower but are guaranteed to be
+     * done when this function returns.
+     *
+     * @param mem_ptr Source data address.
+     * @param size_in_bytes Source data size.
+     * @param chip Chip to target.
+     * @param core Core to target.
+     * @param addr Address to write to.
+     */
+    virtual void write_to_device_reg(
+        const void* mem_ptr, uint32_t size_in_bytes, chip_id_t chip, tt::umd::CoreCoord core, uint64_t addr) {
+        throw std::runtime_error("---- tt_device::write_to_device_reg is not implemented\n");
     }
 
     /**
@@ -290,8 +308,26 @@ public:
         tt::umd::CoreCoord core,
         uint64_t addr,
         uint32_t size,
-        const std::string& fallback_tlb) {
+        const std::string& fallback_tlb = "LARGE_READ_TLB") {
         throw std::runtime_error("---- tt_device::read_from_device is not implemented\n");
+    }
+
+    /**
+     * Read uint32_t data from a specified device, core and address to host memory (defined for Silicon).
+     * This API is used for reading from both TENSIX and DRAM cores. The internal SocDescriptor can be used to determine
+     * which type of the core is being targeted.
+     * This API is used for writing to registers in the device address space, reads are slower but are guaranteed to be
+     * done when this function returns.
+     *
+     * @param mem_ptr Data pointer to read the data into.
+     * @param chip Chip to target.
+     * @param core Core to target.
+     * @param addr Address to read from.
+     * @param size Number of bytes to read.
+     */
+    virtual void read_from_device_reg(
+        void* mem_ptr, chip_id_t chip, tt::umd::CoreCoord core, uint64_t addr, uint32_t size) {
+        throw std::runtime_error("---- tt_device::read_from_device_reg is not implemented\n");
     }
 
     /**
@@ -812,14 +848,18 @@ public:
         chip_id_t chip,
         tt::umd::CoreCoord core,
         uint64_t addr,
-        const std::string& tlb_to_use);
+        const std::string& tlb_to_use = "LARGE_WRITE_TLB");
+    virtual void write_to_device_reg(
+        const void* mem_ptr, uint32_t size_in_bytes, chip_id_t chip, tt::umd::CoreCoord core, uint64_t addr);
     virtual void read_from_device(
         void* mem_ptr,
         chip_id_t chip,
         tt::umd::CoreCoord core,
         uint64_t addr,
         uint32_t size,
-        const std::string& fallback_tlb);
+        const std::string& fallback_tlb = "LARGE_READ_TLB");
+    virtual void read_from_device_reg(
+        void* mem_ptr, chip_id_t chip, tt::umd::CoreCoord core, uint64_t addr, uint32_t size);
     std::optional<std::tuple<uint32_t, uint32_t>> get_tlb_data_from_target(
         const chip_id_t chip, const tt::umd::CoreCoord core);
     tlb_configuration get_tlb_configuration(const chip_id_t chip, const tt::umd::CoreCoord core);
@@ -1015,23 +1055,7 @@ private:
 
     std::shared_ptr<tt_ClusterDescriptor> cluster_desc;
 
-    // remote eth transfer setup
-    static constexpr std::uint32_t NUM_ETH_CORES_FOR_NON_MMIO_TRANSFERS = 6;
-    static constexpr std::uint32_t NON_EPOCH_ETH_CORES_FOR_NON_MMIO_TRANSFERS = 4;
-    static constexpr std::uint32_t NON_EPOCH_ETH_CORES_START_ID = 0;
-    static constexpr std::uint32_t NON_EPOCH_ETH_CORES_MASK = (NON_EPOCH_ETH_CORES_FOR_NON_MMIO_TRANSFERS - 1);
-
-    static constexpr std::uint32_t EPOCH_ETH_CORES_FOR_NON_MMIO_TRANSFERS =
-        NUM_ETH_CORES_FOR_NON_MMIO_TRANSFERS - NON_EPOCH_ETH_CORES_FOR_NON_MMIO_TRANSFERS;
-    static constexpr std::uint32_t EPOCH_ETH_CORES_START_ID =
-        NON_EPOCH_ETH_CORES_START_ID + NON_EPOCH_ETH_CORES_FOR_NON_MMIO_TRANSFERS;
-    static constexpr std::uint32_t EPOCH_ETH_CORES_MASK = (EPOCH_ETH_CORES_FOR_NON_MMIO_TRANSFERS - 1);
-
-    int active_core = NON_EPOCH_ETH_CORES_START_ID;
-    std::vector<std::vector<tt_cxy_pair>> remote_transfer_ethernet_cores;
     std::unordered_map<chip_id_t, bool> flush_non_mmio_per_chip = {};
-    bool non_mmio_transfer_cores_customized = false;
-    std::unordered_map<chip_id_t, int> active_eth_core_idx_per_chip = {};
     std::unordered_map<chip_id_t, std::unordered_set<tt_xy_pair>> workers_per_chip = {};
     std::unordered_set<tt_xy_pair> eth_cores = {};
     std::unordered_set<tt_xy_pair> dram_cores = {};

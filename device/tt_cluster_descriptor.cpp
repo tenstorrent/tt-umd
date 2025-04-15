@@ -883,7 +883,7 @@ const std::unordered_map<chip_id_t, chip_id_t> tt_ClusterDescriptor::get_chips_w
 
 const std::unordered_set<chip_id_t> &tt_ClusterDescriptor::get_all_chips() const { return this->enabled_active_chips; }
 
-const std::vector<chip_id_t> &tt_ClusterDescriptor::get_all_chips_local_first() const {
+const std::vector<chip_id_t> tt_ClusterDescriptor::get_all_chips_local_first() const {
     std::vector<chip_id_t> all_chips_local_first;
     for (const auto &chip : get_all_chips()) {
         if (is_chip_mmio_capable(chip)) {

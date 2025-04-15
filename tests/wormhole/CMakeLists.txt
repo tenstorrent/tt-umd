@@ -4,6 +4,7 @@ set(UNIT_TESTS_WH_SRCS
     test_arc_messages_wh.cpp
     test_remote_communication_wh.cpp
     test_arc_telemetry_wh.cpp
+    test_perf.cpp
 )
 
 add_executable(unit_tests_wormhole ${UNIT_TESTS_WH_SRCS})

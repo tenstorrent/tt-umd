@@ -15,7 +15,7 @@ public:
     virtual ~RemoteCommunication();
 
     void read_non_mmio(
-        uint8_t* mem_ptr,
+        void* mem_ptr,
         tt_xy_pair core,
         uint64_t address,
         uint32_t size_in_bytes,
@@ -23,7 +23,7 @@ public:
         const tt_xy_pair eth_core);
 
     void write_to_non_mmio(
-        uint8_t* mem_ptr,
+        void* mem_ptr,
         tt_xy_pair core,
         uint64_t address,
         uint32_t size_in_bytes,

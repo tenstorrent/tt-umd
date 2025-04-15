@@ -58,6 +58,7 @@ target_sources(
         xy_pair.cpp
         utils/lock_manager.cpp
         utils/robust_mutex.cpp
+        topology_discovery.cpp
         remote_communication.cpp
         ${FBS_GENERATED_HEADER}
 )

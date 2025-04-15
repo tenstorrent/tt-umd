@@ -44,7 +44,7 @@ RemoteCommunication::~RemoteCommunication() {
 }
 
 void RemoteCommunication::read_non_mmio(
-    uint8_t* mem_ptr,
+    void* mem_ptr,
     tt_xy_pair core,
     uint64_t address,
     uint32_t size_in_bytes,
@@ -267,7 +267,7 @@ void RemoteCommunication::read_non_mmio(
 }
 
 void RemoteCommunication::write_to_non_mmio(
-    uint8_t* mem_ptr,
+    void* mem_ptr,
     tt_xy_pair core,
     uint64_t address,
     uint32_t size_in_bytes,

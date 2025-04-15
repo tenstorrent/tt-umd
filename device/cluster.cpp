@@ -175,6 +175,9 @@ std::unique_ptr<Chip> Cluster::construct_chip_from_cluster(
         return std::make_unique<LocalChip>(
             soc_desc, cluster_desc->get_chips_with_mmio().at(chip_id), num_host_mem_channels, clean_system_resources);
     } else {
+        if (cluster_desc->get_arch(chip_id) != tt::ARCH::WORMHOLE_B0) {
+            throw std::runtime_error("Remote chips are supported only for wormhole.");
+        }
         return std::make_unique<RemoteChip>(
             soc_desc,
             cluster_desc->get_chip_locations().at(chip_id),
@@ -407,19 +410,7 @@ Cluster::Cluster(
     std::unordered_map<chip_id_t, HarvestingMasks> simulated_harvesting_masks) {
     cluster_desc = Cluster::create_cluster_descriptor();
 
-    std::vector<chip_id_t> all_chips_local_first;
-    for (const auto& chip : cluster_desc->get_all_chips()) {
-        if (cluster_desc->is_chip_mmio_capable(chip)) {
-            all_chips_local_first.push_back(chip);
-        }
-    }
-    for (const auto& chip : cluster_desc->get_all_chips()) {
-        if (cluster_desc->is_chip_remote(chip)) {
-            all_chips_local_first.push_back(chip);
-        }
-    }
-
-    for (auto& chip_id : all_chips_local_first) {
+    for (auto& chip_id : cluster_desc->get_all_chips_local_first()) {
         add_chip(
             chip_id,
             construct_chip_from_cluster(
@@ -444,19 +435,7 @@ Cluster::Cluster(
     std::unordered_map<chip_id_t, HarvestingMasks> simulated_harvesting_masks) {
     cluster_desc = Cluster::create_cluster_descriptor();
 
-    std::vector<chip_id_t> all_chips_local_first;
-    for (const auto& chip : target_devices) {
-        if (cluster_desc->is_chip_mmio_capable(chip)) {
-            all_chips_local_first.push_back(chip);
-        }
-    }
-    for (const auto& chip : target_devices) {
-        if (cluster_desc->is_chip_remote(chip)) {
-            all_chips_local_first.push_back(chip);
-        }
-    }
-
-    for (auto& chip_id : all_chips_local_first) {
+    for (auto& chip_id : cluster_desc->get_all_chips_local_first()) {
         log_assert(
             cluster_desc->get_all_chips().find(chip_id) != cluster_desc->get_all_chips().end(),
             "Target device {} not present in current cluster!",
@@ -486,19 +465,7 @@ Cluster::Cluster(
     std::unordered_map<chip_id_t, HarvestingMasks> simulated_harvesting_masks) {
     cluster_desc = Cluster::create_cluster_descriptor(sdesc_path);
 
-    std::vector<chip_id_t> all_chips_local_first;
-    for (const auto& chip : target_devices) {
-        if (cluster_desc->is_chip_mmio_capable(chip)) {
-            all_chips_local_first.push_back(chip);
-        }
-    }
-    for (const auto& chip : target_devices) {
-        if (cluster_desc->is_chip_remote(chip)) {
-            all_chips_local_first.push_back(chip);
-        }
-    }
-
-    for (auto& chip_id : all_chips_local_first) {
+    for (auto& chip_id : cluster_desc->get_all_chips_local_first()) {
         log_assert(
             cluster_desc->get_all_chips().find(chip_id) != cluster_desc->get_all_chips().end(),
             "Target device {} not present in current cluster!",
@@ -534,19 +501,7 @@ Cluster::Cluster(
     std::unordered_map<chip_id_t, HarvestingMasks> simulated_harvesting_masks) {
     cluster_desc = std::move(cluster_descriptor);
 
-    std::vector<chip_id_t> all_chips_local_first;
-    for (const auto& chip : cluster_desc->get_all_chips()) {
-        if (cluster_desc->is_chip_mmio_capable(chip)) {
-            all_chips_local_first.push_back(chip);
-        }
-    }
-    for (const auto& chip : cluster_desc->get_all_chips()) {
-        if (cluster_desc->is_chip_remote(chip)) {
-            all_chips_local_first.push_back(chip);
-        }
-    }
-
-    for (auto& chip_id : all_chips_local_first) {
+    for (auto& chip_id : cluster_desc->get_all_chips_local_first()) {
         add_chip(
             chip_id,
             construct_chip_from_cluster(

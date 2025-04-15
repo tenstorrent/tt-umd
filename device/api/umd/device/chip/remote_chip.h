@@ -21,6 +21,8 @@ public:
         tt_xy_pair core, void* dest, uint64_t l1_src, uint32_t size, const std::string& fallback_tlb) override;
 
 private:
+    tt_xy_pair translate_chip_coord_virtual_to_translated(const tt_xy_pair core);
+
     eth_coord_t eth_chip_location_;
     std::unique_ptr<RemoteCommunication> remote_communication_;
 };

@@ -308,6 +308,10 @@ void TopologyDiscovery::discover_remote_chips() {
         }
     }
 
+    if (remote_chips_to_discover.empty()) {
+        return;
+    }
+
     Chip* mmio_chip = chips.at(0).get();
     TTDevice* tt_device = mmio_chip->get_tt_device();
     std::unique_ptr<RemoteCommunication> remote_comm = std::make_unique<RemoteCommunication>(tt_device);

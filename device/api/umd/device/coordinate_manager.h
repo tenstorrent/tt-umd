@@ -41,6 +41,7 @@ public:
         const std::vector<tt_xy_pair>& pcie_cores,
         const std::vector<tt_xy_pair>& router_cores,
         const std::vector<tt_xy_pair>& security_cores,
+        const std::vector<tt_xy_pair>& l2cpu_cores,
         const std::vector<uint32_t>& noc0_x_to_noc1_x = {},
         const std::vector<uint32_t>& noc0_y_to_noc1_y = {});
 
@@ -105,6 +106,7 @@ protected:
         const std::vector<tt_xy_pair>& pcie_cores,
         const std::vector<tt_xy_pair>& router_cores,
         const std::vector<tt_xy_pair>& security_cores,
+        const std::vector<tt_xy_pair>& l2cpu_cores,
         const std::vector<uint32_t>& noc0_x_to_noc1_x = {},
         const std::vector<uint32_t>& noc0_y_to_noc1_y = {});
 
@@ -119,6 +121,7 @@ protected:
     virtual void translate_pcie_coords();
     virtual void translate_router_coords();
     virtual void translate_security_coords();
+    virtual void translate_l2cpu_coords();
 
     void identity_map_physical_cores();
     void add_core_translation(const tt::umd::CoreCoord& core_coord, const tt_xy_pair& physical_pair);
@@ -223,6 +226,8 @@ protected:
     const std::vector<tt_xy_pair> router_cores;
 
     const std::vector<tt_xy_pair> security_cores;
+
+    const std::vector<tt_xy_pair> l2cpu_cores;
 
     const std::vector<uint32_t> noc0_x_to_noc1_x;
     const std::vector<uint32_t> noc0_y_to_noc1_y;

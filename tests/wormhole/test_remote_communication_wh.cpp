@@ -65,7 +65,7 @@ TEST(RemoteCommunicationWormhole, BasicRemoteCommunicationIO) {
                 address1,
                 "SMALL_READ_WRITE_TLB");
 
-            remote_comm->wait_for_non_mmio_flush(active_eth_cores);
+            remote_comm->wait_for_non_mmio_flush();
 
             remote_comm->read_non_mmio(
                 remote_eth_coord,

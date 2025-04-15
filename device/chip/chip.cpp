@@ -99,6 +99,10 @@ void Chip::read_from_device_reg(
     throw std::runtime_error("Chip::read_from_device_reg is not available for this chip.");
 }
 
+void Chip::wait_for_non_mmio_flush() {
+    throw std::runtime_error("Chip::wait_for_non_mmio_flush is not available for this chip.");
+}
+
 void Chip::set_remote_transfer_ethernet_cores(const std::unordered_set<CoreCoord>& cores) {
     throw std::runtime_error("Chip::set_remote_transfer_ethernet_cores is not available for this chip.");
 }

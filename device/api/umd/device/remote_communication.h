@@ -28,7 +28,7 @@ public:
         eth_coord_t target_chip,
         const tt_xy_pair eth_core);
 
-    void wait_for_non_mmio_flush(std::vector<tt_xy_pair> remote_transfer_eth_cores);
+    void wait_for_non_mmio_flush();
 
 private:
     LocalChip* local_chip_;

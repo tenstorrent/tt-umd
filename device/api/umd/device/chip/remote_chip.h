@@ -20,6 +20,8 @@ public:
     void read_from_device(
         tt_xy_pair core, void* dest, uint64_t l1_src, uint32_t size, const std::string& fallback_tlb) override;
 
+    void wait_for_non_mmio_flush() override;
+
 private:
     tt_xy_pair translate_chip_coord_virtual_to_translated(const tt_xy_pair core);
 

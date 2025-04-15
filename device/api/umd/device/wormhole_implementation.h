@@ -336,6 +336,12 @@ public:
 
     uint32_t get_dynamic_tlb_16m_cfg_addr() const override { return wormhole::DYNAMIC_TLB_16M_CFG_ADDR; }
 
+    uint32_t get_tlb_4g_base_index() const override { throw std::runtime_error("No 4GB TLBs for Wormhole arch"); }
+
+    uint32_t get_dynamic_tlb_base_index() const override { return wormhole::DYNAMIC_TLB_BASE_INDEX; }
+
+    uint32_t get_dynamic_tlb_count() const override { return wormhole::DYNAMIC_TLB_COUNT; }
+
     uint32_t get_mem_large_read_tlb() const override { return wormhole::MEM_LARGE_READ_TLB; }
 
     uint32_t get_mem_large_write_tlb() const override { return wormhole::MEM_LARGE_WRITE_TLB; }

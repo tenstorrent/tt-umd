@@ -342,20 +342,19 @@ public:
 
     uint32_t get_dynamic_tlb_2m_size() const override { return blackhole::DYNAMIC_TLB_2M_SIZE; }
 
-    uint32_t get_dynamic_tlb_16m_base() const override {
-        throw std::runtime_error("No 16MB TLBs for Blackhole arch");
-        return 0;
-    }
+    uint32_t get_dynamic_tlb_16m_base() const override { throw std::runtime_error("No 16MB TLBs for Blackhole arch"); }
 
-    uint32_t get_dynamic_tlb_16m_size() const override {
-        throw std::runtime_error("No 16MB TLBs for Blackhole arch");
-        return 0;
-    }
+    uint32_t get_dynamic_tlb_16m_size() const override { throw std::runtime_error("No 16MB TLBs for Blackhole arch"); }
 
     uint32_t get_dynamic_tlb_16m_cfg_addr() const override {
         throw std::runtime_error("No 16MB TLBs for Blackhole arch");
-        return 0;
     }
+
+    uint32_t get_tlb_4g_base_index() const override { return blackhole::TLB_BASE_INDEX_4G; }
+
+    uint32_t get_dynamic_tlb_base_index() const override { return blackhole::DYNAMIC_TLB_BASE_INDEX; }
+
+    uint32_t get_dynamic_tlb_count() const override { return blackhole::DYNAMIC_TLB_COUNT; }
 
     uint32_t get_mem_large_read_tlb() const override { return blackhole::MEM_LARGE_READ_TLB; }
 

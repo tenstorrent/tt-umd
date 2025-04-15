@@ -49,6 +49,9 @@ public:
     virtual uint32_t get_dynamic_tlb_16m_base() const = 0;
     virtual uint32_t get_dynamic_tlb_16m_size() const = 0;
     virtual uint32_t get_dynamic_tlb_16m_cfg_addr() const = 0;
+    virtual uint32_t get_tlb_4g_base_index() const = 0;
+    virtual uint32_t get_dynamic_tlb_base_index() const = 0;
+    virtual uint32_t get_dynamic_tlb_count() const = 0;
     virtual uint32_t get_mem_large_read_tlb() const = 0;
     virtual uint32_t get_mem_large_write_tlb() const = 0;
     virtual uint32_t get_num_eth_channels() const = 0;

@@ -244,7 +244,7 @@ static const uint32_t NIU_CFG_NOC1_BAR_ADDR = 0x1FD14100;
 static constexpr uint32_t AICLK_BUSY_VAL = 1350;
 static constexpr uint32_t AICLK_IDLE_VAL = 800;
 
-static constexpr uint32_t TENSIX_L1_SIZE = 1499136;
+static constexpr uint32_t TENSIX_L1_SIZE = 1572864;
 static constexpr uint32_t ETH_L1_SIZE = 262144;
 static constexpr uint64_t DRAM_BANK_SIZE = 4294967296;
 

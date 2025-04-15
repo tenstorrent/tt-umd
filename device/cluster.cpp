@@ -1985,6 +1985,10 @@ void Cluster::l1_membar(
     }
 }
 
+void Cluster::l1_membar(const chip_id_t chip, const std::unordered_set<tt::umd::CoreCoord>& cores) {
+    l1_membar(chip, "LARGE_WRITE_TLB", cores);
+}
+
 void Cluster::dram_membar(
     const chip_id_t chip, const std::string& fallback_tlb, const std::unordered_set<tt::umd::CoreCoord>& cores) {
     std::unordered_set<tt_xy_pair> cores_xy;
@@ -2008,6 +2012,10 @@ void Cluster::dram_membar(
     }
 }
 
+void Cluster::dram_membar(const chip_id_t chip, const std::unordered_set<tt::umd::CoreCoord>& cores) {
+    dram_membar(chip, "LARGE_WRITE_TLB", cores);
+}
+
 void Cluster::dram_membar(
     const chip_id_t chip, const std::string& fallback_tlb, const std::unordered_set<uint32_t>& channels) {
     if (cluster_desc->is_chip_mmio_capable(chip)) {
@@ -2029,6 +2037,10 @@ void Cluster::dram_membar(
     } else {
         wait_for_non_mmio_flush();
     }
+}
+
+void Cluster::dram_membar(const chip_id_t chip, const std::unordered_set<uint32_t>& channels) {
+    dram_membar(chip, "LARGE_WRITE_TLB", channels);
 }
 
 void Cluster::write_to_device(

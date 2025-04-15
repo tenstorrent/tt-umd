@@ -11,6 +11,10 @@
 #include "umd/device/umd_utils.h"
 #include "umd/device/utils/lock_manager.h"
 
+extern bool umd_use_noc1;
+
+static constexpr uint32_t REMOTE_CMD_NOC_BIT = 9;
+
 struct remote_update_ptr_t {
     uint32_t ptr;
     uint32_t pad[3];
@@ -70,7 +74,6 @@ void RemoteCommunication::read_non_mmio(
 
     erisc_command.resize(sizeof(routing_cmd_t) / DATA_WORD_SIZE);
     new_cmd = (routing_cmd_t*)&erisc_command[0];
-
     //
     //                    MUTEX ACQUIRE (NON-MMIO)
     //  do not locate any ethernet core reads/writes before this acquire
@@ -154,6 +157,7 @@ void RemoteCommunication::read_non_mmio(
         new_cmd->rack = get_sys_rack(eth_interface_params, target_chip.rack, target_chip.shelf);
         new_cmd->data = block_size;
         new_cmd->flags = req_flags;
+        new_cmd->flags |= (umd_use_noc1 ? 1 : 0) << REMOTE_CMD_NOC_BIT;
         if (use_dram) {
             new_cmd->src_addr_tag = host_dram_block_addr;
         }
@@ -416,6 +420,7 @@ void RemoteCommunication::write_to_non_mmio(
         }
 
         new_cmd->flags = req_flags;
+        new_cmd->flags |= (umd_use_noc1 ? 1 : 0) << REMOTE_CMD_NOC_BIT;
         if (use_dram) {
             new_cmd->src_addr_tag = host_dram_block_addr;
         }

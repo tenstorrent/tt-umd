@@ -28,6 +28,7 @@ CoordinateManager::CoordinateManager(
     const std::vector<tt_xy_pair>& pcie_cores,
     const std::vector<tt_xy_pair>& router_cores,
     const std::vector<tt_xy_pair>& security_cores,
+    const std::vector<tt_xy_pair>& l2cpu_cores,
     const std::vector<uint32_t>& noc0_x_to_noc1_x,
     const std::vector<uint32_t>& noc0_y_to_noc1_y) :
     noc_translation_enabled(noc_translation_enabled),
@@ -44,6 +45,7 @@ CoordinateManager::CoordinateManager(
     pcie_cores(pcie_cores),
     router_cores(router_cores),
     security_cores(security_cores),
+    l2cpu_cores(l2cpu_cores),
     noc0_x_to_noc1_x(noc0_x_to_noc1_x),
     noc0_y_to_noc1_y(noc0_y_to_noc1_y) {}
 
@@ -57,6 +59,7 @@ void CoordinateManager::initialize() {
     this->translate_pcie_coords();
     this->translate_router_coords();
     this->translate_security_coords();
+    this->translate_l2cpu_coords();
     this->add_noc1_to_noc0_mapping();
 }
 
@@ -111,6 +114,11 @@ void CoordinateManager::identity_map_physical_cores() {
 
     for (auto& core : security_cores) {
         const CoreCoord core_coord = CoreCoord(core.x, core.y, CoreType::SECURITY, CoordSystem::PHYSICAL);
+        add_core_translation(core_coord, core);
+    }
+
+    for (auto& core : l2cpu_cores) {
+        const CoreCoord core_coord = CoreCoord(core.x, core.y, CoreType::L2CPU, CoordSystem::PHYSICAL);
         add_core_translation(core_coord, core);
     }
 }
@@ -339,6 +347,18 @@ void CoordinateManager::translate_security_coords() {
     }
 }
 
+void CoordinateManager::translate_l2cpu_coords() {
+    // Just do identity mapping for virtual and translated L2CPU coordinates.
+    // No logical coordinates available for L2CPU cores.
+    for (tt_xy_pair l2cpu_core : l2cpu_cores) {
+        CoreCoord virtual_coord = CoreCoord(l2cpu_core, CoreType::L2CPU, CoordSystem::VIRTUAL);
+        CoreCoord translated_coord = CoreCoord(l2cpu_core, CoreType::L2CPU, CoordSystem::TRANSLATED);
+
+        add_core_translation(virtual_coord, l2cpu_core);
+        add_core_translation(translated_coord, l2cpu_core);
+    }
+}
+
 void CoordinateManager::fill_eth_default_physical_translated_mapping() {
     for (size_t eth_channel = 0; eth_channel < num_eth_channels; eth_channel++) {
         const tt_xy_pair physical_pair = eth_cores[eth_channel];
@@ -456,6 +476,8 @@ const std::vector<tt_xy_pair>& CoordinateManager::get_physical_pairs(const CoreT
             return router_cores;
         case CoreType::SECURITY:
             return security_cores;
+        case CoreType::L2CPU:
+            return l2cpu_cores;
         default:
             throw std::runtime_error("Core type is not supported for getting physical pairs");
     }
@@ -523,6 +545,7 @@ std::vector<tt::umd::CoreCoord> CoordinateManager::get_cores(const CoreType core
         case CoreType::PCIE:
         case CoreType::ROUTER_ONLY:
         case CoreType::SECURITY:
+        case CoreType::L2CPU:
             return get_all_physical_cores(core_type);
         default:
             throw std::runtime_error("Core type is not supported for getting cores");
@@ -564,6 +587,7 @@ std::vector<tt::umd::CoreCoord> CoordinateManager::get_harvested_cores(const Cor
         case CoreType::PCIE:
         case CoreType::ROUTER_ONLY:
         case CoreType::SECURITY:
+        case CoreType::L2CPU:
             return {};
         default:
             throw std::runtime_error("Core type is not supported for getting harvested cores");
@@ -621,6 +645,7 @@ std::shared_ptr<CoordinateManager> CoordinateManager::create_coordinate_manager(
                 tt::umd::wormhole::PCIE_CORES_NOC0,
                 tt::umd::wormhole::ROUTER_CORES_NOC0,
                 tt::umd::wormhole::SECURITY_CORES_NOC0,
+                tt::umd::wormhole::L2CPU_CORES_NOC0,
                 tt::umd::wormhole::NOC0_X_TO_NOC1_X,
                 tt::umd::wormhole::NOC0_Y_TO_NOC1_Y);
         case tt::ARCH::QUASAR:  // TODO (#450): Add Quasar configuration
@@ -641,6 +666,7 @@ std::shared_ptr<CoordinateManager> CoordinateManager::create_coordinate_manager(
                 pcie_cores_noc0,
                 tt::umd::blackhole::ROUTER_CORES_NOC0,
                 tt::umd::blackhole::SECURITY_CORES_NOC0,
+                tt::umd::blackhole::L2CPU_CORES_NOC0,
                 tt::umd::blackhole::NOC0_X_TO_NOC1_X,
                 tt::umd::blackhole::NOC0_Y_TO_NOC1_Y);
         }
@@ -666,6 +692,7 @@ std::shared_ptr<CoordinateManager> CoordinateManager::create_coordinate_manager(
     const std::vector<tt_xy_pair>& pcie_cores,
     const std::vector<tt_xy_pair>& router_cores,
     const std::vector<tt_xy_pair>& security_cores,
+    const std::vector<tt_xy_pair>& l2cpu_cores,
     const std::vector<uint32_t>& noc0_x_to_noc1_x,
     const std::vector<uint32_t>& noc0_y_to_noc1_y) {
     switch (arch) {
@@ -684,6 +711,7 @@ std::shared_ptr<CoordinateManager> CoordinateManager::create_coordinate_manager(
                 pcie_cores,
                 router_cores,
                 security_cores,
+                l2cpu_cores,
                 noc0_x_to_noc1_x,
                 noc0_y_to_noc1_y);
         case tt::ARCH::QUASAR:  // TODO (#450): Add Quasar configuration
@@ -702,6 +730,7 @@ std::shared_ptr<CoordinateManager> CoordinateManager::create_coordinate_manager(
                 pcie_cores,
                 router_cores,
                 security_cores,
+                l2cpu_cores,
                 noc0_x_to_noc1_x,
                 noc0_y_to_noc1_y);
         case tt::ARCH::Invalid:
@@ -759,4 +788,5 @@ void CoordinateManager::add_noc1_to_noc0_mapping() {
     map_noc0_to_noc1_cores(pcie_cores, CoreType::PCIE);
     map_noc0_to_noc1_cores(router_cores, CoreType::ROUTER_ONLY);
     map_noc0_to_noc1_cores(security_cores, CoreType::SECURITY);
+    map_noc0_to_noc1_cores(l2cpu_cores, CoreType::L2CPU);
 }

@@ -239,6 +239,52 @@ void LocalChip::read_from_device(
     }
 }
 
+void LocalChip::dma_write_to_device(const void* src, size_t size, tt_xy_pair core, uint64_t addr) {
+    static const std::string tlb_name = "LARGE_WRITE_TLB";
+    const uint8_t* buffer = static_cast<const uint8_t*>(src);
+    auto tlb_index = tlb_manager_->dynamic_tlb_config_.at(tlb_name);
+    auto ordering = tlb_manager_->dynamic_tlb_ordering_modes_.at(tlb_name);
+    PCIDevice* pci_device = tt_device_->get_pci_device();
+    size_t dmabuf_size = pci_device->get_dma_buffer().size;
+
+    core = translate_chip_coord_virtual_to_translated(core);
+
+    auto lock = acquire_mutex(tlb_name, pci_device->get_device_num());
+    while (size > 0) {
+        auto [axi_address, tlb_size] = tt_device_->set_dynamic_tlb(tlb_index, core, addr, ordering);
+        size_t transfer_size = std::min({size, tlb_size, dmabuf_size});
+
+        tt_device_->dma_h2d(axi_address, buffer, transfer_size);
+
+        size -= transfer_size;
+        addr += transfer_size;
+        buffer += transfer_size;
+    }
+}
+
+void LocalChip::dma_read_from_device(void* dst, size_t size, tt_xy_pair core, uint64_t addr) {
+    static const std::string tlb_name = "LARGE_READ_TLB";
+    uint8_t* buffer = static_cast<uint8_t*>(dst);
+    auto tlb_index = tlb_manager_->dynamic_tlb_config_.at(tlb_name);
+    auto ordering = tlb_manager_->dynamic_tlb_ordering_modes_.at(tlb_name);
+    PCIDevice* pci_device = tt_device_->get_pci_device();
+    size_t dmabuf_size = pci_device->get_dma_buffer().size;
+
+    core = translate_chip_coord_virtual_to_translated(core);
+
+    auto lock = acquire_mutex(tlb_name, pci_device->get_device_num());
+    while (size > 0) {
+        auto [axi_address, tlb_size] = tt_device_->set_dynamic_tlb(tlb_index, core, addr, ordering);
+        size_t transfer_size = std::min({size, tlb_size, dmabuf_size});
+
+        tt_device_->dma_d2h(buffer, axi_address, transfer_size);
+
+        size -= transfer_size;
+        addr += transfer_size;
+        buffer += transfer_size;
+    }
+}
+
 void LocalChip::write_to_device_reg(
     tt_xy_pair core, const void* src, uint64_t reg_dest, uint32_t size, const std::string& fallback_tlb) {
     if (size % sizeof(uint32_t) != 0) {

@@ -243,14 +243,6 @@ std::uint64_t tt_SimulationDevice::get_pcie_base_addr_from_device(const chip_id_
     }
 }
 
-std::uint32_t tt_SimulationDevice::get_num_dram_channels(std::uint32_t device_id) {
-    return get_soc_descriptor(device_id).get_num_dram_channels();
-}
-
-std::uint64_t tt_SimulationDevice::get_dram_channel_size(std::uint32_t device_id, std::uint32_t channel) {
-    return get_soc_descriptor(device_id).dram_bank_size;  // Space per channel is identical for now
-}
-
 std::uint32_t tt_SimulationDevice::get_num_host_channels(std::uint32_t device_id) { return 1; }
 
 std::uint32_t tt_SimulationDevice::get_host_channel_size(std::uint32_t device_id, std::uint32_t channel) { return 0; }

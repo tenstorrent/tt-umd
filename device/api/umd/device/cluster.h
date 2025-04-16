@@ -331,6 +331,30 @@ public:
     }
 
     /**
+     * Use PCIe DMA to write device memory (L1 or DRAM).
+     *
+     * @param src Source data address.
+     * @param size Size in bytes.
+     * @param chip Chip to target; must be local, i.e. attached via PCIe.
+     * @param core Core to target.
+     * @param addr Address to write to.
+     */
+    virtual void dma_write_to_device(
+        const void* src, size_t size, chip_id_t chip, tt::umd::CoreCoord core, uint64_t addr) = 0;
+
+    /**
+     * Use PCIe DMA to read device memory (L1 or DRAM).
+     *
+     * @param src Source data address.
+     * @param size Size in bytes.
+     * @param chip Chip to target; must be local, i.e. attached via PCIe.
+     * @param core Core to target.
+     * @param addr Address to read from.
+     */
+    virtual void dma_read_from_device(
+        void* dst, size_t size, chip_id_t chip, tt::umd::CoreCoord core, uint64_t addr) = 0;
+
+    /**
      * Write data to specified address and channel on host (defined for Silicon).
      * This API is used to write to the host memory location that is made available to the device through
      * initialization. During the initialization the user should be able to specify how many "channels" are available to
@@ -380,6 +404,18 @@ public:
     }
 
     /**
+     * Tensix L1 memory barrier.
+     * This should be called when the client wants to ensure that all transactions on the L1 of the specified cores have
+     * completed.
+     *
+     * @param chip Chip to target.
+     * @param cores Cores being targeted.
+     */
+    virtual void l1_membar(const chip_id_t chip, const std::unordered_set<tt::umd::CoreCoord>& cores = {}) {
+        throw std::runtime_error("---- tt_device::l1_membar is not implemented\n");
+    }
+
+    /**
      * DRAM memory barrier.
      * This should be called when the client wants to ensure that all transactions on the specified dram bank have
      * completed.
@@ -398,6 +434,18 @@ public:
      * This should be called when the client wants to ensure that all transactions on the specified dram bank have
      * completed.
      *
+     * @param chip Chip to target.
+     * @param channels Channels being targeted.
+     */
+    virtual void dram_membar(const chip_id_t chip, const std::unordered_set<uint32_t>& channels = {}) {
+        throw std::runtime_error("---- tt_device::dram_membar is not implemented\n");
+    }
+
+    /**
+     * DRAM memory barrier.
+     * This should be called when the client wants to ensure that all transactions on the specified dram bank have
+     * completed.
+     *
      * @param chip Chip being targeted.
      * @param flackback_tlb Specifies fallback/dynamic TLB to use.
      * @param cores Cores being targeted.
@@ -406,6 +454,18 @@ public:
         const chip_id_t chip,
         const std::string& fallback_tlb,
         const std::unordered_set<tt::umd::CoreCoord>& cores = {}) {
+        throw std::runtime_error("---- tt_device::dram_membar is not implemented\n");
+    }
+
+    /**
+     * DRAM memory barrier.
+     * This should be called when the client wants to ensure that all transactions on the specified dram bank have
+     * completed.
+     *
+     * @param chip Chip being targeted.
+     * @param cores Cores being targeted.
+     */
+    virtual void dram_membar(const chip_id_t chip, const std::unordered_set<tt::umd::CoreCoord>& cores = {}) {
         throw std::runtime_error("---- tt_device::dram_membar is not implemented\n");
     }
 
@@ -484,25 +544,6 @@ public:
      */
     virtual tt_version get_ethernet_fw_version() const {
         throw std::runtime_error("---- tt_device::get_ethernet_fw_version is not implemented \n");
-    }
-
-    /**
-     * Query number of DRAM channels on a specific device.
-     *
-     * @param device_id Logical device id to query.
-     */
-    virtual std::uint32_t get_num_dram_channels(std::uint32_t device_id) {
-        throw std::runtime_error("---- tt_device::get_num_dram_channels is not implemented\n");
-    }
-
-    /**
-     * Get size for a specific DRAM channel on a device.
-     *
-     * @param device_id Device to target.
-     * @param channel DRAM channel to target.
-     */
-    virtual std::uint64_t get_dram_channel_size(std::uint32_t device_id, std::uint32_t channel) {
-        throw std::runtime_error("---- tt_device::get_dram_channel_size is not implemented\n");
     }
 
     /**
@@ -665,25 +706,6 @@ public:
         void* mem_ptr, uint64_t addr, uint16_t channel, uint32_t size, chip_id_t src_device_id);
     virtual void wait_for_non_mmio_flush();
     virtual void wait_for_non_mmio_flush(const chip_id_t chip_id);
-    void dram_membar(
-        const chip_id_t chip, const std::string& fallback_tlb, const std::unordered_set<uint32_t>& channels);
-
-    /**
-     * Write data to specified address on the BAR space of the device.
-     *
-     * @param logical_device_id Device to target.
-     * @param addr Address to write to.
-     * @param data Data to write.
-     */
-    void bar_write32(int logical_device_id, uint32_t addr, uint32_t data);
-
-    /**
-     * Read data from specified address on the BAR space of the device.
-     *
-     * @param logical_device_id Device to target.
-     * @param addr Address to read from.
-     */
-    uint32_t bar_read32(int logical_device_id, uint32_t addr);
 
     /**
      * This API allows you to write directly to device memory that is addressable by a static TLB.
@@ -703,16 +725,6 @@ public:
     virtual tt_ClusterDescriptor* get_cluster_description();
 
     /**
-     * Get number of MMIO chips detected on the system.
-     */
-    static int detect_number_of_chips();
-
-    /**
-     * Get vector of available MMIO device ids on the system.
-     */
-    static std::vector<chip_id_t> detect_available_device_ids();
-
-    /**
      * Get set of chip ids for all chips in the cluster.
      */
     virtual std::set<chip_id_t> get_target_device_ids();
@@ -730,8 +742,6 @@ public:
     virtual std::map<int, int> get_clocks();
     virtual void* host_dma_address(std::uint64_t offset, chip_id_t src_device_id, uint16_t channel) const;
     virtual std::uint64_t get_pcie_base_addr_from_device(const chip_id_t chip_id) const;
-    virtual std::uint32_t get_num_dram_channels(std::uint32_t device_id);
-    virtual std::uint64_t get_dram_channel_size(std::uint32_t device_id, std::uint32_t channel);
     virtual std::uint32_t get_num_host_channels(std::uint32_t device_id);
     virtual std::uint32_t get_host_channel_size(std::uint32_t device_id, std::uint32_t channel);
     virtual std::uint32_t get_numa_node_for_pcie_device(std::uint32_t device_id);
@@ -870,6 +880,9 @@ public:
         const std::string& fallback_tlb = "LARGE_READ_TLB");
     virtual void read_from_device_reg(
         void* mem_ptr, chip_id_t chip, tt::umd::CoreCoord core, uint64_t addr, uint32_t size);
+    virtual void dma_write_to_device(
+        const void* src, size_t size, chip_id_t chip, tt::umd::CoreCoord core, uint64_t addr);
+    virtual void dma_read_from_device(void* dst, size_t size, chip_id_t chip, tt::umd::CoreCoord core, uint64_t addr);
     std::optional<std::tuple<uint32_t, uint32_t>> get_tlb_data_from_target(
         const chip_id_t chip, const tt::umd::CoreCoord core);
     tlb_configuration get_tlb_configuration(const chip_id_t chip, const tt::umd::CoreCoord core);
@@ -878,8 +891,13 @@ public:
         chip_id_t mmio_chip, const std::unordered_set<CoreCoord>& active_eth_cores_per_chip);
     void l1_membar(
         const chip_id_t chip, const std::string& fallback_tlb, const std::unordered_set<CoreCoord>& cores = {});
+    void l1_membar(const chip_id_t chip, const std::unordered_set<CoreCoord>& cores = {});
     void dram_membar(
         const chip_id_t chip, const std::string& fallback_tlb, const std::unordered_set<CoreCoord>& cores = {});
+    void dram_membar(const chip_id_t chip, const std::unordered_set<CoreCoord>& cores = {});
+    void dram_membar(
+        const chip_id_t chip, const std::string& fallback_tlb, const std::unordered_set<uint32_t>& channels);
+    void dram_membar(const chip_id_t chip, const std::unordered_set<uint32_t>& channels);
     void set_power_state(tt_DevicePowerState state);
 
     static std::unique_ptr<tt_ClusterDescriptor> create_cluster_descriptor(std::string sdesc_path = "");
@@ -902,7 +920,6 @@ private:
     void broadcast_tensix_risc_reset_to_cluster(const TensixSoftResetOptions& soft_resets);
     void send_remote_tensix_risc_reset_to_core(const tt_cxy_pair& core, const TensixSoftResetOptions& soft_resets);
     void send_tensix_risc_reset_to_core(const tt_cxy_pair& core, const TensixSoftResetOptions& soft_resets);
-    void populate_cores();
     void init_pcie_iatus();  // No more p2p support.
     void check_pcie_device_initialized(int device_id);
     void set_pcie_power_state(tt_DevicePowerState state);
@@ -914,8 +931,6 @@ private:
     void deassert_resets_and_set_power_state();
     int iatu_configure_peer_region(
         int logical_device_id, uint32_t peer_region_id, uint64_t bar_addr_64, uint32_t region_size);
-    uint32_t get_harvested_noc_rows(uint32_t harvesting_mask);
-    uint32_t get_harvested_rows(int logical_device_id);
     int get_clock(int logical_device_id);
     void wait_for_aiclk_value(tt_DevicePowerState power_state, const uint32_t timeout_ms = 5000);
 
@@ -951,13 +966,13 @@ private:
         bool use_virtual_coords);
     void set_membar_flag(
         const chip_id_t chip,
-        const std::unordered_set<tt_xy_pair>& cores,
+        const std::vector<CoreCoord>& cores,
         const uint32_t barrier_value,
         const uint32_t barrier_addr,
         const std::string& fallback_tlb);
     void insert_host_to_device_barrier(
         const chip_id_t chip,
-        const std::unordered_set<tt_xy_pair>& cores,
+        const std::vector<CoreCoord>& cores,
         const uint32_t barrier_addr,
         const std::string& fallback_tlb);
     void init_membars();
@@ -980,8 +995,6 @@ private:
         uint32_t* return_3 = nullptr,
         uint32_t* return_4 = nullptr);
 
-    virtual uint32_t get_harvested_noc_rows_for_chip(
-        int logical_device_id);  // Returns one-hot encoded harvesting mask for PCIe mapped chips
     std::unordered_map<chip_id_t, std::vector<std::vector<int>>>& get_ethernet_broadcast_headers(
         const std::set<chip_id_t>& chips_to_exclude);
     // Test functions
@@ -1035,6 +1048,11 @@ private:
         tt_ClusterDescriptor* cluster_desc,
         bool perform_harvesting,
         std::unordered_map<chip_id_t, HarvestingMasks>& simulated_harvesting_masks);
+    uint32_t get_pcie_harvesting_mask(
+        chip_id_t chip_id,
+        tt_ClusterDescriptor* cluster_desc,
+        bool perform_harvesting,
+        std::unordered_map<chip_id_t, HarvestingMasks>& simulated_harvesting_masks);
     void construct_cluster(const uint32_t& num_host_mem_ch_per_mmio_device, const bool create_mock_chips);
     tt_xy_pair translate_to_api_coords(const chip_id_t chip, const tt::umd::CoreCoord core_coord) const;
     // Most of the old APIs accept virtual coordinates, but we communicate with the device through translated
@@ -1049,7 +1067,6 @@ private:
         std::unique_ptr<tt_ClusterDescriptor>& cluster_desc);
 
     // State variables
-    std::vector<tt::ARCH> archs_in_cluster = {};
     std::set<chip_id_t> all_chip_ids_ = {};
     std::set<chip_id_t> remote_chip_ids_ = {};
     std::set<chip_id_t> local_chip_ids_ = {};
@@ -1058,13 +1075,7 @@ private:
 
     std::shared_ptr<tt_ClusterDescriptor> cluster_desc;
 
-    std::unordered_map<chip_id_t, std::unordered_set<tt_xy_pair>> workers_per_chip = {};
-    std::unordered_set<tt_xy_pair> eth_cores = {};
-    std::unordered_set<tt_xy_pair> dram_cores = {};
-
     std::map<std::set<chip_id_t>, std::unordered_map<chip_id_t, std::vector<std::vector<int>>>> bcast_header_cache = {};
-    bool perform_harvesting_on_sdesc = false;
-    bool use_ethernet_ordered_writes = true;
     bool use_ethernet_broadcast = true;
     bool use_virtual_coords_for_eth_broadcast = true;
     tt_version eth_fw_version;  // Ethernet FW the driver is interfacing with

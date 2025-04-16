@@ -487,25 +487,6 @@ public:
     }
 
     /**
-     * Query number of DRAM channels on a specific device.
-     *
-     * @param device_id Logical device id to query.
-     */
-    virtual std::uint32_t get_num_dram_channels(std::uint32_t device_id) {
-        throw std::runtime_error("---- tt_device::get_num_dram_channels is not implemented\n");
-    }
-
-    /**
-     * Get size for a specific DRAM channel on a device.
-     *
-     * @param device_id Device to target.
-     * @param channel DRAM channel to target.
-     */
-    virtual std::uint64_t get_dram_channel_size(std::uint32_t device_id, std::uint32_t channel) {
-        throw std::runtime_error("---- tt_device::get_dram_channel_size is not implemented\n");
-    }
-
-    /**
      * Query number of memory channels on Host device allocated for a specific device during initialization.
      *
      * @param device_id Logical device id to target.
@@ -730,8 +711,6 @@ public:
     virtual std::map<int, int> get_clocks();
     virtual void* host_dma_address(std::uint64_t offset, chip_id_t src_device_id, uint16_t channel) const;
     virtual std::uint64_t get_pcie_base_addr_from_device(const chip_id_t chip_id) const;
-    virtual std::uint32_t get_num_dram_channels(std::uint32_t device_id);
-    virtual std::uint64_t get_dram_channel_size(std::uint32_t device_id, std::uint32_t channel);
     virtual std::uint32_t get_num_host_channels(std::uint32_t device_id);
     virtual std::uint32_t get_host_channel_size(std::uint32_t device_id, std::uint32_t channel);
     virtual std::uint32_t get_numa_node_for_pcie_device(std::uint32_t device_id);
@@ -915,7 +894,6 @@ private:
     int iatu_configure_peer_region(
         int logical_device_id, uint32_t peer_region_id, uint64_t bar_addr_64, uint32_t region_size);
     uint32_t get_harvested_noc_rows(uint32_t harvesting_mask);
-    uint32_t get_harvested_rows(int logical_device_id);
     int get_clock(int logical_device_id);
     void wait_for_aiclk_value(tt_DevicePowerState power_state, const uint32_t timeout_ms = 5000);
 
@@ -980,8 +958,6 @@ private:
         uint32_t* return_3 = nullptr,
         uint32_t* return_4 = nullptr);
 
-    virtual uint32_t get_harvested_noc_rows_for_chip(
-        int logical_device_id);  // Returns one-hot encoded harvesting mask for PCIe mapped chips
     std::unordered_map<chip_id_t, std::vector<std::vector<int>>>& get_ethernet_broadcast_headers(
         const std::set<chip_id_t>& chips_to_exclude);
     // Test functions

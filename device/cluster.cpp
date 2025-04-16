@@ -1044,37 +1044,6 @@ uint32_t Cluster::get_harvested_noc_rows(uint32_t harvesting_mask) {
     return harv_noc_rows;
 }
 
-uint32_t Cluster::get_harvested_rows(int logical_device_id) {
-    const char* harv_override = std::getenv("T6PY_HARVESTING_OVERRIDE");
-    uint32_t harv = 0xffffffff;
-    if (harv_override) {
-        harv = std::stoul(harv_override, nullptr, 16);
-    } else {
-        auto mmio_capable_chip_logical = cluster_desc->get_closest_mmio_capable_chip(logical_device_id);
-        TTDevice* tt_device = get_tt_device(mmio_capable_chip_logical);
-        int harvesting_msg_code = arc_msg(
-            logical_device_id,
-            0xaa00 | tt_device->get_architecture_implementation()->get_arc_message_arc_get_harvesting(),
-            true,
-            0,
-            0,
-            1000,
-            &harv);
-        log_assert(
-            harvesting_msg_code != MSG_ERROR_REPLY, "Failed to read harvested rows from device {}", logical_device_id);
-    }
-    log_assert(harv != 0xffffffff, "Readback 0xffffffff for harvesting info. Chip is fused incorrectly!");
-    log_debug(LogSiliconDriver, "HARVESTING {}, 0x{:x}", (harv == 0) ? "DISABLED" : "ENABLED", harv);
-
-    uint32_t memory = harv & 0x3ff;
-    uint32_t logic = (harv >> 10) & 0x3ff;
-    return (memory | logic);
-}
-
-uint32_t Cluster::get_harvested_noc_rows_for_chip(int logical_device_id) {
-    return get_harvested_noc_rows(get_harvested_rows(logical_device_id));
-}
-
 void Cluster::enable_local_ethernet_queue(const chip_id_t& device_id, int timeout) {
     uint32_t msg_success = 0x0;
     auto timeout_seconds = std::chrono::seconds(timeout);
@@ -1990,18 +1959,6 @@ void Cluster::start_device(const tt_device_params& device_params) {
 void Cluster::close_device() {
     set_power_state(tt_DevicePowerState::LONG_IDLE);
     broadcast_tensix_risc_reset_to_cluster(TENSIX_ASSERT_SOFT_RESET);
-}
-
-std::uint32_t Cluster::get_num_dram_channels(std::uint32_t device_id) {
-    log_assert(
-        all_chip_ids_.find(device_id) != all_chip_ids_.end(),
-        "Querying DRAM parameters for a device that does not exist.");
-    return get_soc_descriptor(device_id).get_num_dram_channels();
-}
-
-std::uint64_t Cluster::get_dram_channel_size(std::uint32_t device_id, std::uint32_t channel) {
-    log_assert(channel < get_num_dram_channels(device_id), "Querying size for a device channel that does not exist.");
-    return get_soc_descriptor(device_id).dram_bank_size;  // Space per channel is identical for now
 }
 
 std::uint32_t Cluster::get_num_host_channels(std::uint32_t device_id) {

@@ -957,7 +957,7 @@ TEST(SiliconDriverWH, LargeAddressTlb) {
     uint32_t value2 = 0;
 
     // Read the scratch register via BAR0:
-    value0 = cluster.bar_read32(0, 0x1ff30060);
+    value0 = cluster.get_chip(0)->get_tt_device()->bar_read32(0x1ff30060);
 
     // Read the scratch register via the TLB:
     cluster.read_from_device(&value1, ARC_CORE_CHIP, addr, sizeof(uint32_t), "LARGE_READ_TLB");

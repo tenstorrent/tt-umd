@@ -805,6 +805,18 @@ void tt_ClusterDescriptor::load_harvesting_information(YAML::Node &yaml, tt_Clus
             auto harvesting_info = chip_node.second;
             desc.noc_translation_enabled.insert({chip, harvesting_info["noc_translation"].as<bool>()});
             desc.harvesting_masks.insert({chip, harvesting_info["harvest_mask"].as<std::uint32_t>()});
+
+            if (harvesting_info["dram_harvesting_mask"].IsDefined()) {
+                desc.dram_harvesting_masks.insert({chip, harvesting_info["dram_harvesting_mask"].as<std::uint32_t>()});
+            }
+
+            if (harvesting_info["eth_harvesting_mask"].IsDefined()) {
+                desc.eth_harvesting_masks.insert({chip, harvesting_info["eth_harvesting_mask"].as<std::uint32_t>()});
+            }
+
+            if (harvesting_info["pcie_harvesting_mask"].IsDefined()) {
+                desc.pcie_harvesting_masks.insert({chip, harvesting_info["pcie_harvesting_mask"].as<std::uint32_t>()});
+            }
         }
     }
 }
@@ -1008,6 +1020,9 @@ std::string tt_ClusterDescriptor::serialize() const {
         out << YAML::Key << chip << YAML::Value << YAML::BeginMap;
         out << YAML::Key << "noc_translation" << YAML::Value << noc_translation_enabled.at(chip);
         out << YAML::Key << "harvest_mask" << YAML::Value << harvesting_masks.at(chip);
+        out << YAML::Key << "dram_harvesting_mask" << YAML::Value << get_dram_harvesting_mask(chip);
+        out << YAML::Key << "eth_harvesting_mask" << YAML::Value << get_eth_harvesting_mask(chip);
+        out << YAML::Key << "pcie_harvesting_mask" << YAML::Value << get_pcie_harvesting_mask(chip);
         out << YAML::EndMap;
     }
     out << YAML::EndMap;
@@ -1069,6 +1084,15 @@ uint32_t tt_ClusterDescriptor::get_dram_harvesting_mask(chip_id_t chip_id) const
 uint32_t tt_ClusterDescriptor::get_eth_harvesting_mask(chip_id_t chip_id) const {
     auto it = eth_harvesting_masks.find(chip_id);
     if (it == eth_harvesting_masks.end()) {
+        return 0;
+    }
+
+    return it->second;
+}
+
+uint32_t tt_ClusterDescriptor::get_pcie_harvesting_mask(chip_id_t chip_id) const {
+    auto it = pcie_harvesting_masks.find(chip_id);
+    if (it == pcie_harvesting_masks.end()) {
         return 0;
     }
 

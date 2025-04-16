@@ -35,6 +35,7 @@ protected:
     void translate_tensix_coords() override;
     void translate_dram_coords() override;
     void translate_eth_coords() override;
+    void translate_pcie_coords() override;
 
     void fill_tensix_physical_translated_mapping() override;
     void fill_dram_physical_translated_mapping() override;
@@ -48,6 +49,8 @@ protected:
     std::vector<tt::umd::CoreCoord> get_harvested_dram_cores() const override;
     std::vector<tt::umd::CoreCoord> get_eth_cores() const override;
     std::vector<tt::umd::CoreCoord> get_harvested_eth_cores() const override;
+    std::vector<tt::umd::CoreCoord> get_pcie_cores() const override;
+    std::vector<tt::umd::CoreCoord> get_harvested_pcie_cores() const override;
     tt_xy_pair get_tensix_grid_size() const override;
     tt_xy_pair get_dram_grid_size() const override;
     tt_xy_pair get_harvested_tensix_grid_size() const override;

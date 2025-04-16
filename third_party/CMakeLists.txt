@@ -94,7 +94,7 @@ endif()
 # fmt : https://github.com/fmtlib/fmt
 ###################################################################################################################
 
-CPMAddPackage(NAME fmt GITHUB_REPOSITORY fmtlib/fmt GIT_TAG 11.0.1)
+CPMAddPackage(NAME fmt GITHUB_REPOSITORY fmtlib/fmt GIT_TAG 11.1.4)
 
 ###################################################################################################################
 # nanobench (for uBenchmarking)

@@ -136,8 +136,11 @@ void Cluster::construct_cluster(const uint32_t& num_host_mem_ch_per_mmio_device,
     arch_name = chips_.empty() ? tt::ARCH::Invalid : chips_.begin()->second->get_soc_descriptor().arch;
 
     if (!create_mock_chips) {
-        auto available_device_ids = detect_available_device_ids();
-        log_info(LogSiliconDriver, "Detected PCI devices: {}", available_device_ids);
+        std::vector<int> pci_ids;
+        for (const auto& [logical_id, pci_id] : cluster_desc->get_chips_with_mmio()) {
+            pci_ids.push_back(pci_id);
+        }
+        log_info(LogSiliconDriver, "Detected PCI devices: {}", pci_ids);
         log_info(
             LogSiliconDriver, "Using local chip ids: {} and remote chip ids {}", local_chip_ids_, remote_chip_ids_);
     }
@@ -147,7 +150,6 @@ void Cluster::construct_cluster(const uint32_t& num_host_mem_ch_per_mmio_device,
     // Disable dependency to ethernet firmware for all BH devices and WH devices with all chips having MMIO (e.g. UBB
     // Galaxy, or P300).
     if (remote_chip_ids_.empty()) {
-        use_ethernet_ordered_writes = false;
         use_ethernet_broadcast = false;
     }
 }
@@ -632,23 +634,6 @@ void Cluster::assert_risc_reset_at_core(
 
 tt_ClusterDescriptor* Cluster::get_cluster_description() { return cluster_desc.get(); }
 
-// Can be used before instantiating a silicon device
-int Cluster::detect_number_of_chips() {
-    auto available_device_ids = detect_available_device_ids();
-    return available_device_ids.size();
-}
-
-// Can be used before instantiating a silicon device
-std::vector<chip_id_t> Cluster::detect_available_device_ids() {
-    // TODO: The chip_id_t type is used for two types of device id:
-    //  *   device id which is the N in /dev/tenstorrent/N
-    //  *   "logical" id which is the id of the chip in the YAML produced by
-    //      the create-ethernet-map tool
-    // Maybe these should be disambiguated.  Here, what is being returned is the
-    // former, the "device id" -- not to be confused with 16 bit PCI device id!
-    return PCIDevice::enumerate_devices();
-}
-
 std::function<void(uint32_t, uint32_t, const uint8_t*)> Cluster::get_fast_pcie_static_tlb_write_callable(
     int device_id) {
     TTDevice* dev = get_tt_device(device_id);
@@ -999,61 +984,6 @@ int Cluster::iatu_configure_peer_region(
         peer_region_end,
         bar_addr_64);
     return 0;
-}
-
-// Returns broken rows as bits set to 1 in 'memory' and 'logic'
-uint32_t Cluster::get_harvested_noc_rows(uint32_t harvesting_mask) {
-    auto architecture_implementation = tt::umd::architecture_implementation::create(arch_name);
-    const std::vector<uint32_t>& harv_to_noc_loc = architecture_implementation->get_harvesting_noc_locations();
-    uint32_t harv_noc_rows = 0;
-    std::string harv_noc_rows_str = "";
-
-    for (int pos = 0; pos < harv_to_noc_loc.size(); ++pos) {
-        bool is_row_harvested = harvesting_mask & 0x1;
-        if (is_row_harvested) {
-            harv_noc_rows |= (1 << harv_to_noc_loc[pos]);
-            if (harv_noc_rows_str != "") {
-                harv_noc_rows_str += ", ";
-            }
-            harv_noc_rows_str += std::to_string(harv_to_noc_loc[pos]);
-        }
-        harvesting_mask = harvesting_mask >> 1;
-    }
-    if (harv_noc_rows > 0) {
-        log_debug(LogSiliconDriver, "HARVESTING NOC Y-LOC 0x{:x} = {{}}", harv_noc_rows, harv_noc_rows_str.c_str());
-    }
-    return harv_noc_rows;
-}
-
-uint32_t Cluster::get_harvested_rows(int logical_device_id) {
-    const char* harv_override = std::getenv("T6PY_HARVESTING_OVERRIDE");
-    uint32_t harv = 0xffffffff;
-    if (harv_override) {
-        harv = std::stoul(harv_override, nullptr, 16);
-    } else {
-        auto mmio_capable_chip_logical = cluster_desc->get_closest_mmio_capable_chip(logical_device_id);
-        TTDevice* tt_device = get_tt_device(mmio_capable_chip_logical);
-        int harvesting_msg_code = arc_msg(
-            logical_device_id,
-            0xaa00 | tt_device->get_architecture_implementation()->get_arc_message_arc_get_harvesting(),
-            true,
-            0,
-            0,
-            1000,
-            &harv);
-        log_assert(
-            harvesting_msg_code != MSG_ERROR_REPLY, "Failed to read harvested rows from device {}", logical_device_id);
-    }
-    log_assert(harv != 0xffffffff, "Readback 0xffffffff for harvesting info. Chip is fused incorrectly!");
-    log_debug(LogSiliconDriver, "HARVESTING {}, 0x{:x}", (harv == 0) ? "DISABLED" : "ENABLED", harv);
-
-    uint32_t memory = harv & 0x3ff;
-    uint32_t logic = (harv >> 10) & 0x3ff;
-    return (memory | logic);
-}
-
-uint32_t Cluster::get_harvested_noc_rows_for_chip(int logical_device_id) {
-    return get_harvested_noc_rows(get_harvested_rows(logical_device_id));
 }
 
 void Cluster::enable_local_ethernet_queue(const chip_id_t& device_id, int timeout) {
@@ -1940,8 +1870,6 @@ void Cluster::verify_sw_fw_versions(int device_id, std::uint32_t sw_version, std
         log_assert(sw.minor <= fw.minor, "SW version is newer than FW version");
     }
 
-    // Min ERISC FW version required to support ordered writes is 6.4.0
-    use_ethernet_ordered_writes &= fw_first_eth_core >= tt_version(6, 4, 0);
     // Min ERISC FW version required to support ethernet broadcast is 6.5.0.
     use_ethernet_broadcast &= fw_first_eth_core >= tt_version(6, 5, 0);
     // Virtual coordinates can be used for broadcast headers if ERISC FW >= 6.8.0 and NOC translation is enabled
@@ -1965,18 +1893,6 @@ void Cluster::start_device(const tt_device_params& device_params) {
 void Cluster::close_device() {
     set_power_state(tt_DevicePowerState::LONG_IDLE);
     broadcast_tensix_risc_reset_to_cluster(TENSIX_ASSERT_SOFT_RESET);
-}
-
-std::uint32_t Cluster::get_num_dram_channels(std::uint32_t device_id) {
-    log_assert(
-        all_chip_ids_.find(device_id) != all_chip_ids_.end(),
-        "Querying DRAM parameters for a device that does not exist.");
-    return get_soc_descriptor(device_id).get_num_dram_channels();
-}
-
-std::uint64_t Cluster::get_dram_channel_size(std::uint32_t device_id, std::uint32_t channel) {
-    log_assert(channel < get_num_dram_channels(device_id), "Querying size for a device channel that does not exist.");
-    return get_soc_descriptor(device_id).dram_bank_size;  // Space per channel is identical for now
 }
 
 std::uint32_t Cluster::get_num_host_channels(std::uint32_t device_id) {

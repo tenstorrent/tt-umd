@@ -557,14 +557,8 @@ void Cluster::check_pcie_device_initialized(int device_id) {
             tt_device->bar_read32(architecture_implementation->get_arc_reset_scratch_offset() + 3 * 4);
         uint32_t arg = bar_read_initial == 500 ? 325 : 500;
         uint32_t bar_read_again;
-        uint32_t arc_msg_return = arc_msg(
-            device_id,
-            0xaa00 | architecture_implementation->get_arc_message_test(),
-            true,
-            arg,
-            0,
-            1000,
-            &bar_read_again);
+        uint32_t arc_msg_return = get_chip(device_id)->arc_msg(
+            0xaa00 | architecture_implementation->get_arc_message_test(), true, arg, 0, 1000, &bar_read_again);
         if (arc_msg_return != 0 || bar_read_again != arg + 1) {
             auto postcode = tt_device->bar_read32(architecture_implementation->get_arc_reset_scratch_offset());
             throw std::runtime_error(fmt::format(
@@ -710,7 +704,7 @@ void Cluster::set_pcie_power_state(tt_DevicePowerState state) {
         uint32_t msg = get_power_state_arc_msg(chip_id, state);
         std::stringstream ss;
         ss << state;
-        auto exit_code = arc_msg(chip_id, 0xaa00 | msg, true, 0, 0);
+        auto exit_code = get_chip(chip_id)->arc_msg(0xaa00 | msg, true, 0, 0);
         if (exit_code != 0) {
             throw std::runtime_error(
                 fmt::format("Failed to set power state to {} with exit code {}", ss.str(), exit_code));
@@ -925,12 +919,8 @@ int Cluster::iatu_configure_peer_region(
     tt_device->bar_write32(architecture_implementation->get_arc_csm_mailbox_offset() + 1 * 4, dest_bar_lo);
     tt_device->bar_write32(architecture_implementation->get_arc_csm_mailbox_offset() + 2 * 4, dest_bar_hi);
     tt_device->bar_write32(architecture_implementation->get_arc_csm_mailbox_offset() + 3 * 4, region_size);
-    arc_msg(
-        logical_device_id,
-        0xaa00 | architecture_implementation->get_arc_message_setup_iatu_for_peer_to_peer(),
-        true,
-        0,
-        0);
+    get_chip(logical_device_id)
+        ->arc_msg(0xaa00 | architecture_implementation->get_arc_message_setup_iatu_for_peer_to_peer(), true, 0, 0);
 
     // Print what just happened
     uint32_t peer_region_start = region_id_to_use * region_size;
@@ -1583,8 +1573,8 @@ void Cluster::send_remote_tensix_risc_reset_to_core(
 
 int Cluster::set_remote_power_state(const chip_id_t& chip, tt_DevicePowerState device_state) {
     auto mmio_capable_chip_logical = cluster_desc->get_closest_mmio_capable_chip(chip);
-    return arc_msg(
-        chip, get_power_state_arc_msg(mmio_capable_chip_logical, device_state), true, 0, 0, 1000, NULL, NULL);
+    return get_chip(chip)->arc_msg(
+        get_power_state_arc_msg(mmio_capable_chip_logical, device_state), true, 0, 0, 1000, NULL, NULL);
 }
 
 void Cluster::broadcast_tensix_risc_reset_to_cluster(const TensixSoftResetOptions& soft_resets) {
@@ -1656,8 +1646,7 @@ void Cluster::deassert_resets_and_set_power_state() {
     if (arch_name != tt::ARCH::BLACKHOLE) {
         // Send ARC Messages to deassert RISCV resets
         for (auto& chip_id : local_chip_ids_) {
-            arc_msg(
-                chip_id,
+            get_chip(chip_id)->arc_msg(
                 0xaa00 |
                     get_tt_device(chip_id)->get_architecture_implementation()->get_arc_message_deassert_riscv_reset(),
                 true,
@@ -1669,8 +1658,7 @@ void Cluster::deassert_resets_and_set_power_state() {
                 if (!cluster_desc->is_chip_mmio_capable(chip)) {
                     auto mmio_capable_chip_logical = cluster_desc->get_closest_mmio_capable_chip(chip);
                     auto tt_device = get_tt_device(mmio_capable_chip_logical);
-                    arc_msg(
-                        chip,
+                    get_chip(chip)->arc_msg(
                         0xaa00 | tt_device->get_architecture_implementation()->get_arc_message_deassert_riscv_reset(),
                         true,
                         0x0,

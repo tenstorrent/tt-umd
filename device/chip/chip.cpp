@@ -154,7 +154,7 @@ void Chip::enable_ethernet_queue(int timeout_s) {
             throw std::runtime_error(
                 fmt::format("Timed out after waiting {} seconds for for DRAM to finish training", timeout_s));
         }
-        if (arc_msg(0xaa58, true, 0xFFFF, 0xFFFF, 1000, &msg_success, nullptr) == HANG_READ_VALUE) {
+        if (arc_msg(0xaa58, true, 0xFFFF, 0xFFFF, 1000, &msg_success) == HANG_READ_VALUE) {
             break;
         }
     }

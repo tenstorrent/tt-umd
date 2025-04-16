@@ -67,12 +67,12 @@ public:
 
     virtual int arc_msg(
         uint32_t msg_code,
-        bool wait_for_done,
-        uint32_t arg0,
-        uint32_t arg1,
-        uint32_t timeout_ms,
-        uint32_t* return_3,
-        uint32_t* return_4) = 0;
+        bool wait_for_done = true,
+        uint32_t arg0 = 0,
+        uint32_t arg1 = 0,
+        uint32_t timeout_ms = 1000,
+        uint32_t* return_3 = nullptr,
+        uint32_t* return_4 = nullptr) = 0;
 
     virtual void set_remote_transfer_ethernet_cores(const std::unordered_set<CoreCoord>& cores);
     // TODO: To be removed once all the usages are moved inside the class.

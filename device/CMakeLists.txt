@@ -152,7 +152,7 @@ if(TT_UMD_BUILD_SIMULATION)
     target_link_libraries(
         device
         PRIVATE
-            flatbuffers
+            flatbuffers::flatbuffers
             nng
             uv_a
     )

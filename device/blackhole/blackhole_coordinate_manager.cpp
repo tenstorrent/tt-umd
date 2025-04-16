@@ -199,6 +199,37 @@ void BlackholeCoordinateManager::translate_eth_coords() {
     }
 }
 
+void BlackholeCoordinateManager::translate_pcie_coords() {
+    size_t logical_x = 0;
+    for (size_t x = 0; x < pcie_grid_size.x; x++) {
+        if (harvesting_masks.pcie_harvesting_mask & (1 << x)) {
+            for (size_t y = 0; y < pcie_grid_size.y; y++) {
+                const tt_xy_pair& pcie_core = pcie_cores[x * pcie_grid_size.y + y];
+
+                CoreCoord logical_coord = CoreCoord(logical_x, y, CoreType::PCIE, CoordSystem::LOGICAL);
+                add_core_translation(logical_coord, pcie_core);
+
+                CoreCoord virtual_coord = CoreCoord(pcie_core.x, pcie_core.y, CoreType::PCIE, CoordSystem::VIRTUAL);
+                add_core_translation(virtual_coord, pcie_core);
+            }
+            logical_x++;
+        } else {
+            for (size_t y = 0; y < pcie_grid_size.y; y++) {
+                const tt_xy_pair& pcie_core = pcie_cores[x * pcie_grid_size.y + y];
+
+                CoreCoord virtual_coord = CoreCoord(pcie_core.x, pcie_core.y, CoreType::PCIE, CoordSystem::VIRTUAL);
+                add_core_translation(virtual_coord, pcie_core);
+            }
+        }
+    }
+
+    if (noc_translation_enabled) {
+        fill_pcie_physical_translated_mapping();
+    } else {
+        fill_pcie_default_physical_translated_mapping();
+    }
+}
+
 void BlackholeCoordinateManager::fill_eth_physical_translated_mapping() {
     size_t num_harvested_channels = CoordinateManager::get_num_harvested(harvesting_masks.eth_harvesting_mask);
     if (eth_cores.size() == 0) {
@@ -229,17 +260,38 @@ void BlackholeCoordinateManager::fill_eth_physical_translated_mapping() {
 }
 
 void BlackholeCoordinateManager::fill_pcie_physical_translated_mapping() {
-    CoreCoord logical_coord = CoreCoord(0, 0, CoreType::PCIE, CoordSystem::LOGICAL);
+    for (size_t x = 0;
+         x < pcie_grid_size.x - CoordinateManager::get_num_harvested(harvesting_masks.pcie_harvesting_mask);
+         x++) {
+        CoreCoord logical_coord = CoreCoord(x, 0, CoreType::PCIE, CoordSystem::LOGICAL);
+        const tt_xy_pair physical_pair = to_physical_map[logical_coord];
+        size_t translated_x = physical_pair.x;
+        size_t translated_y = physical_pair.y;
 
-    const tt_xy_pair physical_pair = to_physical_map[logical_coord];
+        // Only the first PCIE core is mapped to the translated coordinates.
+        // This is in case pcie harvesting mask is set to 0.
+        // This should never happen on silicon.
+        if (x == 0) {
+            translated_x = blackhole::pcie_translated_coordinate_start_x;
+            translated_y = blackhole::pcie_translated_coordinate_start_y;
+        }
 
-    CoreCoord translated_coord = CoreCoord(
-        blackhole::pcie_translated_coordinate_start_x,
-        blackhole::pcie_translated_coordinate_start_y,
-        CoreType::PCIE,
-        CoordSystem::TRANSLATED);
+        CoreCoord translated_coord = CoreCoord(translated_x, translated_y, CoreType::PCIE, CoordSystem::TRANSLATED);
 
-    add_core_translation(translated_coord, physical_pair);
+        add_core_translation(translated_coord, physical_pair);
+    }
+
+    for (size_t x = 0; x < pcie_grid_size.x; x++) {
+        if (harvesting_masks.pcie_harvesting_mask & (1 << x)) {
+            const tt_xy_pair physical_pair = pcie_cores[x];
+            const size_t translated_x = physical_pair.x;
+            const size_t translated_y = physical_pair.y;
+
+            CoreCoord translated_coord = CoreCoord(translated_x, translated_y, CoreType::PCIE, CoordSystem::TRANSLATED);
+
+            add_core_translation(translated_coord, physical_pair);
+        }
+    }
 }
 
 void BlackholeCoordinateManager::fill_arc_physical_translated_mapping() {
@@ -425,6 +477,34 @@ std::vector<CoreCoord> BlackholeCoordinateManager::get_harvested_eth_cores() con
     }
 
     return harvested_eth_cores;
+}
+
+std::vector<CoreCoord> BlackholeCoordinateManager::get_pcie_cores() const {
+    std::vector<CoreCoord> unharvested_pcie_cores;
+    for (size_t x = 0; x < pcie_grid_size.x; x++) {
+        if (harvesting_masks.pcie_harvesting_mask & (1 << x)) {
+            continue;
+        }
+        const tt_xy_pair core = pcie_cores[x];
+        CoreCoord core_coord(core.x, core.y, CoreType::PCIE, CoordSystem::PHYSICAL);
+        unharvested_pcie_cores.push_back(core_coord);
+    }
+
+    return unharvested_pcie_cores;
+}
+
+std::vector<CoreCoord> BlackholeCoordinateManager::get_harvested_pcie_cores() const {
+    std::vector<CoreCoord> harvested_pcie_cores;
+    for (size_t x = 0; x < pcie_grid_size.x; x++) {
+        if (!(harvesting_masks.pcie_harvesting_mask & (1 << x))) {
+            continue;
+        }
+        const tt_xy_pair core = pcie_cores[x];
+        CoreCoord core_coord(core.x, core.y, CoreType::PCIE, CoordSystem::PHYSICAL);
+        harvested_pcie_cores.push_back(core_coord);
+    }
+
+    return harvested_pcie_cores;
 }
 
 tt_xy_pair BlackholeCoordinateManager::get_harvested_tensix_grid_size() const {

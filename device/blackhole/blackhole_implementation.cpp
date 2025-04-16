@@ -115,15 +115,4 @@ uint64_t blackhole_implementation::get_noc_reg_base(
     throw std::runtime_error("Invalid core type or NOC for getting NOC register addr base.");
 }
 
-namespace blackhole {
-std::vector<tt_xy_pair> get_pcie_cores(const BoardType board_type, const uint8_t asic_location) {
-    // Default to type 1 chip.
-    if (board_type == BoardType::UNKNOWN) {
-        return PCIE_CORES_TYPE1_NOC0;
-    }
-    auto chip_type = get_blackhole_chip_type(board_type, asic_location);
-    return chip_type == BlackholeChipType::Type1 ? PCIE_CORES_TYPE1_NOC0 : PCIE_CORES_TYPE2_NOC0;
-}
-}  // namespace blackhole
-
 }  // namespace tt::umd

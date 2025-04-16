@@ -854,7 +854,6 @@ private:
     void broadcast_tensix_risc_reset_to_cluster(const TensixSoftResetOptions& soft_resets);
     void send_remote_tensix_risc_reset_to_core(const tt_cxy_pair& core, const TensixSoftResetOptions& soft_resets);
     void send_tensix_risc_reset_to_core(const tt_cxy_pair& core, const TensixSoftResetOptions& soft_resets);
-    void populate_cores();
     void init_pcie_iatus();  // No more p2p support.
     void check_pcie_device_initialized(int device_id);
     void set_pcie_power_state(tt_DevicePowerState state);
@@ -901,13 +900,13 @@ private:
         bool use_virtual_coords);
     void set_membar_flag(
         const chip_id_t chip,
-        const std::unordered_set<tt_xy_pair>& cores,
+        const std::vector<CoreCoord>& cores,
         const uint32_t barrier_value,
         const uint32_t barrier_addr,
         const std::string& fallback_tlb);
     void insert_host_to_device_barrier(
         const chip_id_t chip,
-        const std::unordered_set<tt_xy_pair>& cores,
+        const std::vector<CoreCoord>& cores,
         const uint32_t barrier_addr,
         const std::string& fallback_tlb);
     void init_membars();
@@ -983,6 +982,11 @@ private:
         tt_ClusterDescriptor* cluster_desc,
         bool perform_harvesting,
         std::unordered_map<chip_id_t, HarvestingMasks>& simulated_harvesting_masks);
+    uint32_t get_pcie_harvesting_mask(
+        chip_id_t chip_id,
+        tt_ClusterDescriptor* cluster_desc,
+        bool perform_harvesting,
+        std::unordered_map<chip_id_t, HarvestingMasks>& simulated_harvesting_masks);
     void construct_cluster(const uint32_t& num_host_mem_ch_per_mmio_device, const bool create_mock_chips);
     tt_xy_pair translate_to_api_coords(const chip_id_t chip, const tt::umd::CoreCoord core_coord) const;
     // Most of the old APIs accept virtual coordinates, but we communicate with the device through translated
@@ -1004,10 +1008,6 @@ private:
     tt::ARCH arch_name;
 
     std::shared_ptr<tt_ClusterDescriptor> cluster_desc;
-
-    std::unordered_map<chip_id_t, std::unordered_set<tt_xy_pair>> workers_per_chip = {};
-    std::unordered_set<tt_xy_pair> eth_cores = {};
-    std::unordered_set<tt_xy_pair> dram_cores = {};
 
     std::map<std::set<chip_id_t>, std::unordered_map<chip_id_t, std::vector<std::vector<int>>>> bcast_header_cache = {};
     bool use_ethernet_broadcast = true;

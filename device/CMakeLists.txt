@@ -4,13 +4,17 @@ if(TT_UMD_BUILD_SIMULATION)
     set(FBS_FILE ${PROJECT_SOURCE_DIR}/device/simulation/tt_simulation_device.fbs)
     get_filename_component(FBS_FILE_NAME ${FBS_FILE} NAME_WLE)
     set(FBS_GENERATED_HEADER "${CMAKE_CURRENT_BINARY_DIR}/${FBS_FILE_NAME}_generated.h")
+    set(FBS_DEPENDS "")
+    if(TARGET flatc)
+        set(FBS_DEPENDS flatc)
+    endif()
     add_custom_command(
         OUTPUT
             ${FBS_GENERATED_HEADER}
         COMMAND
             flatc --cpp -o "${CMAKE_CURRENT_BINARY_DIR}" ${FBS_FILE}
         DEPENDS
-            flatc
+            ${FBS_DEPENDS}
             ${FBS_FILE}
         COMMENT "Generating FlatBuffers header ${FBS_GENERATED_HEADER}"
         VERBATIM

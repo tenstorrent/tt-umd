@@ -556,7 +556,7 @@ void Cluster::check_pcie_device_initialized(int device_id) {
     if (arch_name != tt::ARCH::BLACKHOLE) {
         log_debug(LogSiliconDriver, "== Check if device_id: {} is initialized", device_id);
         uint32_t bar_read_initial =
-            bar_read32(device_id, architecture_implementation->get_arc_reset_scratch_offset() + 3 * 4);
+            tt_device->bar_read32(architecture_implementation->get_arc_reset_scratch_offset() + 3 * 4);
         uint32_t arg = bar_read_initial == 500 ? 325 : 500;
         uint32_t bar_read_again;
         uint32_t arc_msg_return = arc_msg(
@@ -568,7 +568,7 @@ void Cluster::check_pcie_device_initialized(int device_id) {
             1000,
             &bar_read_again);
         if (arc_msg_return != 0 || bar_read_again != arg + 1) {
-            auto postcode = bar_read32(device_id, architecture_implementation->get_arc_reset_scratch_offset());
+            auto postcode = tt_device->bar_read32(architecture_implementation->get_arc_reset_scratch_offset());
             throw std::runtime_error(fmt::format(
                 "Device is not initialized: arc_fw postcode: {} arc_msg_return: {} arg: {} bar_read_initial: {} "
                 "bar_read_again: {}",
@@ -899,29 +899,6 @@ int Cluster::test_setup_interface() {
     }
 }
 
-void Cluster::bar_write32(int logical_device_id, uint32_t addr, uint32_t data) {
-    TTDevice* dev = get_tt_device(logical_device_id);
-
-    if (addr < dev->get_pci_device()->bar0_uc_offset) {
-        dev->write_block(
-            addr, sizeof(data), reinterpret_cast<const uint8_t*>(&data));  // do we have to reinterpret_cast?
-    } else {
-        dev->write_regs(addr, 1, &data);
-    }
-}
-
-uint32_t Cluster::bar_read32(int logical_device_id, uint32_t addr) {
-    TTDevice* dev = get_tt_device(logical_device_id);
-
-    uint32_t data;
-    if (addr < dev->get_pci_device()->bar0_uc_offset) {
-        dev->read_block(addr, sizeof(data), reinterpret_cast<uint8_t*>(&data));
-    } else {
-        dev->read_regs(addr, 1, &data);
-    }
-    return data;
-}
-
 // Returns 0 if everything was OK
 int Cluster::pcie_arc_msg(
     int logical_device_id,
@@ -980,10 +957,10 @@ int Cluster::iatu_configure_peer_region(
     PCIDevice* pci_device = tt_device->get_pci_device();
     auto architecture_implementation = tt_device->get_architecture_implementation();
 
-    bar_write32(logical_device_id, architecture_implementation->get_arc_csm_mailbox_offset() + 0 * 4, region_id_to_use);
-    bar_write32(logical_device_id, architecture_implementation->get_arc_csm_mailbox_offset() + 1 * 4, dest_bar_lo);
-    bar_write32(logical_device_id, architecture_implementation->get_arc_csm_mailbox_offset() + 2 * 4, dest_bar_hi);
-    bar_write32(logical_device_id, architecture_implementation->get_arc_csm_mailbox_offset() + 3 * 4, region_size);
+    tt_device->bar_write32(architecture_implementation->get_arc_csm_mailbox_offset() + 0 * 4, region_id_to_use);
+    tt_device->bar_write32(architecture_implementation->get_arc_csm_mailbox_offset() + 1 * 4, dest_bar_lo);
+    tt_device->bar_write32(architecture_implementation->get_arc_csm_mailbox_offset() + 2 * 4, dest_bar_hi);
+    tt_device->bar_write32(architecture_implementation->get_arc_csm_mailbox_offset() + 3 * 4, region_size);
     arc_msg(
         logical_device_id,
         0xaa00 | architecture_implementation->get_arc_message_setup_iatu_for_peer_to_peer(),

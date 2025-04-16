@@ -73,8 +73,8 @@ if(TT_UMD_BUILD_SIMULATION)
             "FLATBUFFERS_SKIP_MONSTER_EXTRA ON"
             "FLATBUFFERS_STRICT_MODE ON"
     )
-    if(flatbuffers_ADDED AND NOT TARGET flatbuffers::flatbuffers AND TARGET FlatBuffers::FlatBuffers)
-        add_library(flatbuffers::flatbuffers ALIAS FlatBuffers::FlatBuffers)
+    if(flatbuffers_ADDED AND NOT TARGET flatbuffers::flatbuffers AND TARGET flatbuffers)
+        add_library(flatbuffers::flatbuffers ALIAS flatbuffers)
     endif()
 endif()
 

@@ -1100,7 +1100,6 @@ TEST(SiliconDriverWH, DMA2) {
 
         // First, write a different random pattern to a random address on each DRAM core.
         for (const auto& core : dram_cores) {
-
             // Generate random size and address.
             size_t size = size_dist(rng) & ~0x3ULL;
             uint64_t addr = addr_dist(rng) & ~0x3ULL;
@@ -1146,7 +1145,6 @@ TEST(SiliconDriverWH, DMA2) {
 
         // First, write a different random pattern to a random address on each DRAM core.
         for (const auto& dram_core : dram_cores) {
-
             // Generate random size and address.
             size_t size = size_dist(rng) & ~0x3ULL;
             uint64_t addr = addr_dist(rng) & ~0x3ULL;

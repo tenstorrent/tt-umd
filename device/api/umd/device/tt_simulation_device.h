@@ -108,7 +108,6 @@ public:
 private:
     // State variables
     tt_driver_noc_params noc_params;
-    std::vector<tt::ARCH> archs_in_cluster = {};
     std::set<chip_id_t> target_devices_in_cluster = {};
     std::set<chip_id_t> target_remote_chips = {};
     tt::ARCH arch_name;

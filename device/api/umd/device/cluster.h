@@ -684,16 +684,6 @@ public:
     virtual tt_ClusterDescriptor* get_cluster_description();
 
     /**
-     * Get number of MMIO chips detected on the system.
-     */
-    static int detect_number_of_chips();
-
-    /**
-     * Get vector of available MMIO device ids on the system.
-     */
-    static std::vector<chip_id_t> detect_available_device_ids();
-
-    /**
      * Get set of chip ids for all chips in the cluster.
      */
     virtual std::set<chip_id_t> get_target_device_ids();
@@ -893,7 +883,6 @@ private:
     void deassert_resets_and_set_power_state();
     int iatu_configure_peer_region(
         int logical_device_id, uint32_t peer_region_id, uint64_t bar_addr_64, uint32_t region_size);
-    uint32_t get_harvested_noc_rows(uint32_t harvesting_mask);
     int get_clock(int logical_device_id);
     void wait_for_aiclk_value(tt_DevicePowerState power_state, const uint32_t timeout_ms = 5000);
 
@@ -1025,7 +1014,6 @@ private:
         std::unique_ptr<tt_ClusterDescriptor>& cluster_desc);
 
     // State variables
-    std::vector<tt::ARCH> archs_in_cluster = {};
     std::set<chip_id_t> all_chip_ids_ = {};
     std::set<chip_id_t> remote_chip_ids_ = {};
     std::set<chip_id_t> local_chip_ids_ = {};
@@ -1039,8 +1027,6 @@ private:
     std::unordered_set<tt_xy_pair> dram_cores = {};
 
     std::map<std::set<chip_id_t>, std::unordered_map<chip_id_t, std::vector<std::vector<int>>>> bcast_header_cache = {};
-    bool perform_harvesting_on_sdesc = false;
-    bool use_ethernet_ordered_writes = true;
     bool use_ethernet_broadcast = true;
     bool use_virtual_coords_for_eth_broadcast = true;
     tt_version eth_fw_version;  // Ethernet FW the driver is interfacing with

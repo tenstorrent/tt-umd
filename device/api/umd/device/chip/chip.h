@@ -44,6 +44,7 @@ public:
     virtual void read_from_sysmem(uint16_t channel, void* dest, uint64_t sysmem_src, uint32_t size);
 
     // TODO: Currently works only for Local and not for Remote.
+    // Both write and read cores are defined in VIRTUAL coords.
     virtual void write_to_device(
         tt_xy_pair core, const void* src, uint64_t l1_dest, uint32_t size, const std::string& fallback_tlb);
     virtual void read_from_device(
@@ -54,9 +55,18 @@ public:
     virtual void read_from_device_reg(
         tt_xy_pair core, void* dest, uint64_t reg_src, uint32_t size, const std::string& fallback_tlb);
 
+    virtual void wait_for_non_mmio_flush();
+
     // TODO: To be removed once all usages are moved inside local chip.
     virtual std::unique_lock<RobustMutex> acquire_mutex(std::string mutex_name, int pci_device_id);
     virtual std::unique_lock<RobustMutex> acquire_mutex(MutexType mutex_type, int pci_device_id);
+
+    virtual void set_remote_transfer_ethernet_cores(const std::unordered_set<CoreCoord>& cores);
+    // TODO: To be removed once all the usages are moved inside the class.
+    virtual tt_xy_pair get_remote_transfer_ethernet_core();
+    virtual void update_active_eth_core_idx();
+    virtual int get_active_eth_core_idx();
+    virtual std::vector<CoreCoord> get_remote_transfer_ethernet_cores();
 
     // TODO: This should be private, once enough stuff is moved inside chip.
     // Probably also moved to LocalChip.

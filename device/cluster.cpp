@@ -300,6 +300,22 @@ uint32_t Cluster::get_eth_harvesting_mask(
                : cluster_desc->get_eth_harvesting_mask(chip_id);
 }
 
+uint32_t Cluster::get_pcie_harvesting_mask(
+    chip_id_t chip_id,
+    tt_ClusterDescriptor* cluster_desc,
+    bool perform_harvesting,
+    std::unordered_map<chip_id_t, HarvestingMasks>& simulated_harvesting_masks) {
+    if (!perform_harvesting) {
+        log_info(LogSiliconDriver, "Skipping PCIE harvesting for chip {}.", chip_id);
+        return 0;
+    }
+
+    return simulated_harvesting_masks.find(chip_id) != simulated_harvesting_masks.end()
+               ? cluster_desc->get_pcie_harvesting_mask(chip_id) |
+                     simulated_harvesting_masks.at(chip_id).pcie_harvesting_mask
+               : cluster_desc->get_pcie_harvesting_mask(chip_id);
+}
+
 HarvestingMasks Cluster::get_harvesting_masks(
     chip_id_t chip_id,
     tt_ClusterDescriptor* cluster_desc,
@@ -311,7 +327,9 @@ HarvestingMasks Cluster::get_harvesting_masks(
         .dram_harvesting_mask =
             get_dram_harvesting_mask(chip_id, cluster_desc, perfrom_harvesting, simulated_harvesting_masks),
         .eth_harvesting_mask =
-            get_eth_harvesting_mask(chip_id, cluster_desc, perfrom_harvesting, simulated_harvesting_masks)};
+            get_eth_harvesting_mask(chip_id, cluster_desc, perfrom_harvesting, simulated_harvesting_masks),
+        .pcie_harvesting_mask =
+            get_pcie_harvesting_mask(chip_id, cluster_desc, perfrom_harvesting, simulated_harvesting_masks)};
 }
 
 void Cluster::ubb_eth_connections(
@@ -538,7 +556,7 @@ void Cluster::check_pcie_device_initialized(int device_id) {
     if (arch_name != tt::ARCH::BLACKHOLE) {
         log_debug(LogSiliconDriver, "== Check if device_id: {} is initialized", device_id);
         uint32_t bar_read_initial =
-            bar_read32(device_id, architecture_implementation->get_arc_reset_scratch_offset() + 3 * 4);
+            tt_device->bar_read32(architecture_implementation->get_arc_reset_scratch_offset() + 3 * 4);
         uint32_t arg = bar_read_initial == 500 ? 325 : 500;
         uint32_t bar_read_again;
         uint32_t arc_msg_return = arc_msg(
@@ -550,7 +568,7 @@ void Cluster::check_pcie_device_initialized(int device_id) {
             1000,
             &bar_read_again);
         if (arc_msg_return != 0 || bar_read_again != arg + 1) {
-            auto postcode = bar_read32(device_id, architecture_implementation->get_arc_reset_scratch_offset());
+            auto postcode = tt_device->bar_read32(architecture_implementation->get_arc_reset_scratch_offset());
             throw std::runtime_error(fmt::format(
                 "Device is not initialized: arc_fw postcode: {} arc_msg_return: {} arg: {} bar_read_initial: {} "
                 "bar_read_again: {}",
@@ -881,29 +899,6 @@ int Cluster::test_setup_interface() {
     }
 }
 
-void Cluster::bar_write32(int logical_device_id, uint32_t addr, uint32_t data) {
-    TTDevice* dev = get_tt_device(logical_device_id);
-
-    if (addr < dev->get_pci_device()->bar0_uc_offset) {
-        dev->write_block(
-            addr, sizeof(data), reinterpret_cast<const uint8_t*>(&data));  // do we have to reinterpret_cast?
-    } else {
-        dev->write_regs(addr, 1, &data);
-    }
-}
-
-uint32_t Cluster::bar_read32(int logical_device_id, uint32_t addr) {
-    TTDevice* dev = get_tt_device(logical_device_id);
-
-    uint32_t data;
-    if (addr < dev->get_pci_device()->bar0_uc_offset) {
-        dev->read_block(addr, sizeof(data), reinterpret_cast<uint8_t*>(&data));
-    } else {
-        dev->read_regs(addr, 1, &data);
-    }
-    return data;
-}
-
 // Returns 0 if everything was OK
 int Cluster::pcie_arc_msg(
     int logical_device_id,
@@ -962,10 +957,10 @@ int Cluster::iatu_configure_peer_region(
     PCIDevice* pci_device = tt_device->get_pci_device();
     auto architecture_implementation = tt_device->get_architecture_implementation();
 
-    bar_write32(logical_device_id, architecture_implementation->get_arc_csm_mailbox_offset() + 0 * 4, region_id_to_use);
-    bar_write32(logical_device_id, architecture_implementation->get_arc_csm_mailbox_offset() + 1 * 4, dest_bar_lo);
-    bar_write32(logical_device_id, architecture_implementation->get_arc_csm_mailbox_offset() + 2 * 4, dest_bar_hi);
-    bar_write32(logical_device_id, architecture_implementation->get_arc_csm_mailbox_offset() + 3 * 4, region_size);
+    tt_device->bar_write32(architecture_implementation->get_arc_csm_mailbox_offset() + 0 * 4, region_id_to_use);
+    tt_device->bar_write32(architecture_implementation->get_arc_csm_mailbox_offset() + 1 * 4, dest_bar_lo);
+    tt_device->bar_write32(architecture_implementation->get_arc_csm_mailbox_offset() + 2 * 4, dest_bar_hi);
+    tt_device->bar_write32(architecture_implementation->get_arc_csm_mailbox_offset() + 3 * 4, region_size);
     arc_msg(
         logical_device_id,
         0xaa00 | architecture_implementation->get_arc_message_setup_iatu_for_peer_to_peer(),
@@ -1558,6 +1553,10 @@ void Cluster::l1_membar(
     }
 }
 
+void Cluster::l1_membar(const chip_id_t chip, const std::unordered_set<tt::umd::CoreCoord>& cores) {
+    l1_membar(chip, "LARGE_WRITE_TLB", cores);
+}
+
 void Cluster::dram_membar(
     const chip_id_t chip, const std::string& fallback_tlb, const std::unordered_set<tt::umd::CoreCoord>& cores) {
     if (cluster_desc->is_chip_mmio_capable(chip)) {
@@ -1584,6 +1583,10 @@ void Cluster::dram_membar(
     }
 }
 
+void Cluster::dram_membar(const chip_id_t chip, const std::unordered_set<tt::umd::CoreCoord>& cores) {
+    dram_membar(chip, "LARGE_WRITE_TLB", cores);
+}
+
 void Cluster::dram_membar(
     const chip_id_t chip, const std::string& fallback_tlb, const std::unordered_set<uint32_t>& channels) {
     std::unordered_set<CoreCoord> dram_cores_to_sync = {};
@@ -1591,6 +1594,10 @@ void Cluster::dram_membar(
         dram_cores_to_sync.insert(get_soc_descriptor(chip).get_dram_core_for_channel(chan, 0, CoordSystem::VIRTUAL));
     }
     dram_membar(chip, fallback_tlb, dram_cores_to_sync);
+}
+
+void Cluster::dram_membar(const chip_id_t chip, const std::unordered_set<uint32_t>& channels) {
+    dram_membar(chip, "LARGE_WRITE_TLB", channels);
 }
 
 void Cluster::write_to_device(
@@ -2082,6 +2089,7 @@ std::unique_ptr<tt_ClusterDescriptor> Cluster::create_cluster_descriptor(
         desc->harvesting_masks.insert({chip_id, chip->get_chip_info().harvesting_masks.tensix_harvesting_mask});
         desc->dram_harvesting_masks.insert({chip_id, chip->get_chip_info().harvesting_masks.dram_harvesting_mask});
         desc->eth_harvesting_masks.insert({chip_id, chip->get_chip_info().harvesting_masks.eth_harvesting_mask});
+        desc->pcie_harvesting_masks.insert({chip_id, chip->get_chip_info().harvesting_masks.pcie_harvesting_mask});
     }
 
     if (chips.begin()->second->get_tt_device()->get_arch() == tt::ARCH::BLACKHOLE) {

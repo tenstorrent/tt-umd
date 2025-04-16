@@ -24,6 +24,8 @@ struct tt_driver_noc_params;
 
 namespace tt::umd {
 
+static const uint32_t HANG_READ_VALUE = 0xFFFFFFFFu;
+
 class architecture_implementation {
 public:
     virtual ~architecture_implementation() = default;

@@ -15,7 +15,6 @@ WormholeArcMessenger::WormholeArcMessenger(TTDevice* tt_device) : ArcMessenger(t
 
 uint32_t WormholeArcMessenger::send_message(
     const uint32_t msg_code, std::vector<uint32_t>& return_values, uint16_t arg0, uint16_t arg1, uint32_t timeout_ms) {
-    static const uint32_t MSG_ERROR_REPLY = 0xFFFFFFFF;
     if ((msg_code & 0xff00) != 0xaa00) {
         log_error("Malformed message. msg_code is 0x{:x} but should be 0xaa..", msg_code);
     }
@@ -74,9 +73,9 @@ uint32_t WormholeArcMessenger::send_message(
 
             exit_code = (status & 0xffff0000) >> 16;
             break;
-        } else if (status == MSG_ERROR_REPLY) {
+        } else if (status == HANG_READ_VALUE) {
             log_warning(LogSiliconDriver, "On device {}, message code 0x{:x} not recognized by FW", 0, msg_code);
-            exit_code = MSG_ERROR_REPLY;
+            exit_code = HANG_READ_VALUE;
             break;
         }
     }

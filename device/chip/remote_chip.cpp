@@ -63,4 +63,78 @@ void RemoteChip::wait_for_non_mmio_flush() {
     remote_communication_->wait_for_non_mmio_flush();
 }
 
+int RemoteChip::arc_msg(
+    uint32_t msg_code,
+    bool wait_for_done,
+    uint32_t arg0,
+    uint32_t arg1,
+    uint32_t timeout_ms,
+    uint32_t* return_3,
+    uint32_t* return_4) {
+    constexpr uint64_t ARC_RESET_SCRATCH_ADDR = 0x880030060;
+    constexpr uint64_t ARC_RESET_MISC_CNTL_ADDR = 0x880030100;
+
+    auto arc_core = soc_descriptor_.get_cores(CoreType::ARC).at(0);
+
+    if ((msg_code & 0xff00) != 0xaa00) {
+        log_error("Malformed message. msg_code is 0x{:x} but should be 0xaa..", msg_code);
+    }
+    log_assert(arg0 <= 0xffff and arg1 <= 0xffff, "Only 16 bits allowed in arc_msg args");  // Only 16 bits are allowed
+
+    uint32_t fw_arg = arg0 | (arg1 << 16);
+    int exit_code = 0;
+
+    { write_to_device(arc_core, &fw_arg, ARC_RESET_SCRATCH_ADDR + 3 * 4, sizeof(fw_arg), ""); }
+
+    { write_to_device(arc_core, &msg_code, ARC_RESET_SCRATCH_ADDR + 5 * 4, sizeof(fw_arg), ""); }
+
+    wait_for_non_mmio_flush();
+    uint32_t misc = 0;
+
+    read_from_device(arc_core, &misc, ARC_RESET_MISC_CNTL_ADDR, 4, "");
+
+    if (misc & (1 << 16)) {
+        log_error("trigger_fw_int failed on device");
+        return 1;
+    } else {
+        misc |= (1 << 16);
+        write_to_device(arc_core, &misc, ARC_RESET_MISC_CNTL_ADDR, sizeof(misc), "");
+    }
+
+    if (wait_for_done) {
+        uint32_t status = 0xbadbad;
+        auto start = std::chrono::steady_clock::now();
+        while (true) {
+            auto now = std::chrono::steady_clock::now();
+            auto elapsed_ms = std::chrono::duration_cast<std::chrono::milliseconds>(now - start).count();
+            if (elapsed_ms > timeout_ms && timeout_ms != 0) {
+                std::stringstream ss;
+                ss << std::hex << msg_code;
+                throw std::runtime_error(fmt::format(
+                    "Timed out after waiting {} ms for device ARC to respond to message 0x{}", timeout_ms, ss.str()));
+            }
+
+            uint32_t status = 0;
+            read_from_device(arc_core, &status, ARC_RESET_SCRATCH_ADDR + 5 * 4, sizeof(status), "");
+            if ((status & 0xffff) == (msg_code & 0xff)) {
+                if (return_3 != nullptr) {
+                    read_from_device(arc_core, return_3, ARC_RESET_SCRATCH_ADDR + 3 * 4, sizeof(uint32_t), "");
+                }
+
+                if (return_4 != nullptr) {
+                    read_from_device(arc_core, return_4, ARC_RESET_SCRATCH_ADDR + 4 * 4, sizeof(uint32_t), "");
+                }
+
+                exit_code = (status & 0xffff0000) >> 16;
+                break;
+            } else if (status == HANG_READ_VALUE) {
+                log_warning(LogSiliconDriver, "Message code 0x{:x} not recognized by FW", msg_code);
+                exit_code = HANG_READ_VALUE;
+                break;
+            }
+        }
+    }
+    return exit_code;
+}
+
 }  // namespace tt::umd

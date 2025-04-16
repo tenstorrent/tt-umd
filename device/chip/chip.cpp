@@ -6,6 +6,7 @@
 
 #include "umd/device/chip/chip.h"
 
+#include "logger.hpp"
 #include "umd/device/architecture_implementation.h"
 
 namespace tt::umd {
@@ -140,5 +141,23 @@ std::unique_lock<RobustMutex> Chip::acquire_mutex(MutexType mutex_type, int pci_
 }
 
 void Chip::wait_dram_cores_training(const uint32_t timeout_ms) {}
+
+void Chip::enable_ethernet_queue(int timeout_s) {
+    log_assert(
+        soc_descriptor_.arch != tt::ARCH::BLACKHOLE,
+        "enable_ethernet_queue is not supported on Blackhole architecture");
+    uint32_t msg_success = 0x0;
+    auto timeout_seconds = std::chrono::seconds(timeout_s);
+    auto start = std::chrono::system_clock::now();
+    while (msg_success != 1) {
+        if (std::chrono::system_clock::now() - start > timeout_seconds) {
+            throw std::runtime_error(
+                fmt::format("Timed out after waiting {} seconds for for DRAM to finish training", timeout_s));
+        }
+        if (arc_msg(0xaa58, true, 0xFFFF, 0xFFFF, 1000, &msg_success, nullptr) == HANG_READ_VALUE) {
+            break;
+        }
+    }
+}
 
 }  // namespace tt::umd

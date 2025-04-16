@@ -61,8 +61,6 @@ using namespace tt::umd;
 
 extern bool umd_use_noc1;
 
-static const uint32_t MSG_ERROR_REPLY = 0xFFFFFFFF;
-
 // Remove 256MB from full 1GB for channel 3 (iATU limitation)
 static constexpr uint32_t HUGEPAGE_CHANNEL_3_SIZE_LIMIT = 805306368;
 
@@ -877,7 +875,7 @@ int Cluster::test_setup_interface() {
 
         uint32_t regval = 0;
         tt_device->read_regs(mapped_reg, 1, &regval);
-        ret_val = (regval != 0xffffffff && (regval == 33)) ? 0 : 1;
+        ret_val = (regval != HANG_READ_VALUE && (regval == 33)) ? 0 : 1;
         return ret_val;
     } else if (arch_name == tt::ARCH::BLACKHOLE) {
         // MT Inital BH - Try to enable this, but double check "regval == 33"
@@ -891,46 +889,12 @@ int Cluster::test_setup_interface() {
 
         // uint32_t regval = 0;
         // tt_device->read_regs(dev, mapped_reg, 1, &regval);
-        // ret_val = (regval != 0xffffffff && (regval == 33)) ? 0 : 1;
+        // ret_val = (regval != HANG_READ_VALUE && (regval == 33)) ? 0 : 1;
         // return ret_val;
         return 0;
     } else {
         throw std::runtime_error(fmt::format("Unsupported architecture: {}", arch_to_str(arch_name)));
     }
-}
-
-// Returns 0 if everything was OK
-int Cluster::pcie_arc_msg(
-    int logical_device_id,
-    uint32_t msg_code,
-    bool wait_for_done,
-    uint32_t arg0,
-    uint32_t arg1,
-    uint32_t timeout_ms,
-    uint32_t* return_3,
-    uint32_t* return_4) {
-    std::vector<uint32_t> arc_msg_return_values;
-    if (return_3 != nullptr) {
-        arc_msg_return_values.push_back(0);
-    }
-
-    if (return_4 != nullptr) {
-        arc_msg_return_values.push_back(0);
-    }
-
-    uint32_t exit_code = get_tt_device(logical_device_id)
-                             ->get_arc_messenger()
-                             ->send_message(msg_code, arc_msg_return_values, arg0, arg1, timeout_ms);
-
-    if (return_3 != nullptr) {
-        *return_3 = arc_msg_return_values[0];
-    }
-
-    if (return_4 != nullptr) {
-        *return_4 = arc_msg_return_values[1];
-    }
-
-    return exit_code;
 }
 
 // TODO: this method should be lowered into TTDevice, where a common
@@ -979,22 +943,6 @@ int Cluster::iatu_configure_peer_region(
         peer_region_end,
         bar_addr_64);
     return 0;
-}
-
-void Cluster::enable_local_ethernet_queue(const chip_id_t& device_id, int timeout) {
-    uint32_t msg_success = 0x0;
-    auto timeout_seconds = std::chrono::seconds(timeout);
-    auto start = std::chrono::system_clock::now();
-    while (msg_success != 1) {
-        if (std::chrono::system_clock::now() - start > timeout_seconds) {
-            throw std::runtime_error(
-                fmt::format("Timed out after waiting {} seconds for for DRAM to finish training", timeout));
-        }
-
-        if (arc_msg(device_id, 0xaa58, true, 0xFFFF, 0xFFFF, 1000, &msg_success) == MSG_ERROR_REPLY) {
-            break;
-        }
-    }
 }
 
 void* Cluster::host_dma_address(std::uint64_t offset, chip_id_t src_device_id, uint16_t channel) const {
@@ -1347,83 +1295,6 @@ void Cluster::broadcast_write_to_cluster(
     }
 }
 
-int Cluster::remote_arc_msg(
-    int chip,
-    uint32_t msg_code,
-    bool wait_for_done,
-    uint32_t arg0,
-    uint32_t arg1,
-    uint32_t timeout_ms,
-    uint32_t* return_3,
-    uint32_t* return_4) {
-    constexpr uint64_t ARC_RESET_SCRATCH_ADDR = 0x880030060;
-    constexpr uint64_t ARC_RESET_MISC_CNTL_ADDR = 0x880030100;
-
-    auto core = tt_cxy_pair(chip, get_soc_descriptor(chip).get_cores(CoreType::ARC).at(0));
-
-    if ((msg_code & 0xff00) != 0xaa00) {
-        log_error("Malformed message. msg_code is 0x{:x} but should be 0xaa..", msg_code);
-    }
-    log_assert(arg0 <= 0xffff and arg1 <= 0xffff, "Only 16 bits allowed in arc_msg args");  // Only 16 bits are allowed
-
-    uint32_t fw_arg = arg0 | (arg1 << 16);
-    int exit_code = 0;
-
-    { write_to_non_mmio_device(&fw_arg, sizeof(fw_arg), core, ARC_RESET_SCRATCH_ADDR + 3 * 4); }
-
-    { write_to_non_mmio_device(&msg_code, sizeof(fw_arg), core, ARC_RESET_SCRATCH_ADDR + 5 * 4); }
-
-    wait_for_non_mmio_flush();
-    uint32_t misc = 0;
-    read_from_non_mmio_device(&misc, core, ARC_RESET_MISC_CNTL_ADDR, 4);
-
-    if (misc & (1 << 16)) {
-        log_error("trigger_fw_int failed on device {}", chip);
-        return 1;
-    } else {
-        misc |= (1 << 16);
-        write_to_non_mmio_device(&misc, sizeof(misc), core, ARC_RESET_MISC_CNTL_ADDR);
-    }
-
-    if (wait_for_done) {
-        uint32_t status = 0xbadbad;
-        auto start = std::chrono::steady_clock::now();
-        while (true) {
-            auto now = std::chrono::steady_clock::now();
-            auto elapsed_ms = std::chrono::duration_cast<std::chrono::milliseconds>(now - start).count();
-            if (elapsed_ms > timeout_ms && timeout_ms != 0) {
-                std::stringstream ss;
-                ss << std::hex << msg_code;
-                throw std::runtime_error(fmt::format(
-                    "Timed out after waiting {} ms for device {} ARC to respond to message 0x{}",
-                    timeout_ms,
-                    chip,
-                    ss.str()));
-            }
-
-            uint32_t status = 0;
-            read_from_non_mmio_device(&status, core, ARC_RESET_SCRATCH_ADDR + 5 * 4, sizeof(status));
-            if ((status & 0xffff) == (msg_code & 0xff)) {
-                if (return_3 != nullptr) {
-                    read_from_non_mmio_device(return_3, core, ARC_RESET_SCRATCH_ADDR + 3 * 4, sizeof(uint32_t));
-                }
-
-                if (return_4 != nullptr) {
-                    read_from_non_mmio_device(return_4, core, ARC_RESET_SCRATCH_ADDR + 4 * 4, sizeof(uint32_t));
-                }
-
-                exit_code = (status & 0xffff0000) >> 16;
-                break;
-            } else if (status == MSG_ERROR_REPLY) {
-                log_warning(LogSiliconDriver, "On device {}, message code 0x{:x} not recognized by FW", chip, msg_code);
-                exit_code = MSG_ERROR_REPLY;
-                break;
-            }
-        }
-    }
-    return exit_code;
-}
-
 void Cluster::write_to_sysmem(
     const void* mem_ptr, std::uint32_t size, uint64_t addr, uint16_t channel, chip_id_t src_device_id) {
     get_local_chip(src_device_id)->write_to_sysmem(channel, mem_ptr, addr, size);
@@ -1692,11 +1563,7 @@ int Cluster::arc_msg(
     uint32_t timeout_ms,
     uint32_t* return_3,
     uint32_t* return_4) {
-    if (cluster_desc->is_chip_mmio_capable(logical_device_id)) {
-        return pcie_arc_msg(logical_device_id, msg_code, wait_for_done, arg0, arg1, timeout_ms, return_3, return_4);
-    } else {
-        return remote_arc_msg(logical_device_id, msg_code, wait_for_done, arg0, arg1, timeout_ms, return_3, return_4);
-    }
+    return get_chip(logical_device_id)->arc_msg(msg_code, wait_for_done, arg0, arg1, timeout_ms, return_3, return_4);
 }
 
 void Cluster::send_tensix_risc_reset_to_core(const tt_cxy_pair& core, const TensixSoftResetOptions& soft_resets) {
@@ -1716,24 +1583,8 @@ void Cluster::send_remote_tensix_risc_reset_to_core(
 
 int Cluster::set_remote_power_state(const chip_id_t& chip, tt_DevicePowerState device_state) {
     auto mmio_capable_chip_logical = cluster_desc->get_closest_mmio_capable_chip(chip);
-    return remote_arc_msg(
+    return arc_msg(
         chip, get_power_state_arc_msg(mmio_capable_chip_logical, device_state), true, 0, 0, 1000, NULL, NULL);
-}
-
-void Cluster::enable_remote_ethernet_queue(const chip_id_t& chip, int timeout) {
-    uint32_t msg_success = 0x0;
-    auto timeout_seconds = std::chrono::seconds(timeout);
-    auto start = std::chrono::system_clock::now();
-    while (msg_success != 1) {
-        if (std::chrono::system_clock::now() - start > timeout_seconds) {
-            throw std::runtime_error(
-                fmt::format("Timed out after waiting {} seconds for DRAM to finish training", timeout));
-        }
-        int msg_rt = remote_arc_msg(chip, 0xaa58, true, 0xFFFF, 0xFFFF, 1000, &msg_success, NULL);
-        if (msg_rt == MSG_ERROR_REPLY) {
-            break;
-        }
-    }
 }
 
 void Cluster::broadcast_tensix_risc_reset_to_cluster(const TensixSoftResetOptions& soft_resets) {
@@ -1793,24 +1644,7 @@ void Cluster::set_power_state(tt_DevicePowerState device_state) {
 
 void Cluster::enable_ethernet_queue(int timeout) {
     for (const chip_id_t& chip : all_chip_ids_) {
-        auto arch = get_soc_descriptor(chip).arch;
-
-        switch (arch) {
-            case tt::ARCH::WORMHOLE_B0: {
-                if (cluster_desc->is_chip_mmio_capable(chip)) {
-                    enable_local_ethernet_queue(chip, timeout);
-                } else {
-                    enable_remote_ethernet_queue(chip, timeout);
-                }
-
-                break;
-                case tt::ARCH::BLACKHOLE:
-                    log_assert(false, "Arch BLACKHOLE doesn't support ethernet queues yet");
-            }
-            default: {
-                break;
-            }
-        }
+        get_chip(chip)->enable_ethernet_queue(timeout);
     }
 }
 
@@ -1835,7 +1669,7 @@ void Cluster::deassert_resets_and_set_power_state() {
                 if (!cluster_desc->is_chip_mmio_capable(chip)) {
                     auto mmio_capable_chip_logical = cluster_desc->get_closest_mmio_capable_chip(chip);
                     auto tt_device = get_tt_device(mmio_capable_chip_logical);
-                    remote_arc_msg(
+                    arc_msg(
                         chip,
                         0xaa00 | tt_device->get_architecture_implementation()->get_arc_message_deassert_riscv_reset(),
                         true,

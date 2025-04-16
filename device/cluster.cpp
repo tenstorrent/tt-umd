@@ -300,6 +300,22 @@ uint32_t Cluster::get_eth_harvesting_mask(
                : cluster_desc->get_eth_harvesting_mask(chip_id);
 }
 
+uint32_t Cluster::get_pcie_harvesting_mask(
+    chip_id_t chip_id,
+    tt_ClusterDescriptor* cluster_desc,
+    bool perform_harvesting,
+    std::unordered_map<chip_id_t, HarvestingMasks>& simulated_harvesting_masks) {
+    if (!perform_harvesting) {
+        log_info(LogSiliconDriver, "Skipping PCIE harvesting for chip {}.", chip_id);
+        return 0;
+    }
+
+    return simulated_harvesting_masks.find(chip_id) != simulated_harvesting_masks.end()
+               ? cluster_desc->get_pcie_harvesting_mask(chip_id) |
+                     simulated_harvesting_masks.at(chip_id).pcie_harvesting_mask
+               : cluster_desc->get_pcie_harvesting_mask(chip_id);
+}
+
 HarvestingMasks Cluster::get_harvesting_masks(
     chip_id_t chip_id,
     tt_ClusterDescriptor* cluster_desc,
@@ -311,7 +327,9 @@ HarvestingMasks Cluster::get_harvesting_masks(
         .dram_harvesting_mask =
             get_dram_harvesting_mask(chip_id, cluster_desc, perfrom_harvesting, simulated_harvesting_masks),
         .eth_harvesting_mask =
-            get_eth_harvesting_mask(chip_id, cluster_desc, perfrom_harvesting, simulated_harvesting_masks)};
+            get_eth_harvesting_mask(chip_id, cluster_desc, perfrom_harvesting, simulated_harvesting_masks),
+        .pcie_harvesting_mask =
+            get_pcie_harvesting_mask(chip_id, cluster_desc, perfrom_harvesting, simulated_harvesting_masks)};
 }
 
 void Cluster::ubb_eth_connections(
@@ -2082,6 +2100,7 @@ std::unique_ptr<tt_ClusterDescriptor> Cluster::create_cluster_descriptor(
         desc->harvesting_masks.insert({chip_id, chip->get_chip_info().harvesting_masks.tensix_harvesting_mask});
         desc->dram_harvesting_masks.insert({chip_id, chip->get_chip_info().harvesting_masks.dram_harvesting_mask});
         desc->eth_harvesting_masks.insert({chip_id, chip->get_chip_info().harvesting_masks.eth_harvesting_mask});
+        desc->pcie_harvesting_masks.insert({chip_id, chip->get_chip_info().harvesting_masks.pcie_harvesting_mask});
     }
 
     if (chips.begin()->second->get_tt_device()->get_arch() == tt::ARCH::BLACKHOLE) {

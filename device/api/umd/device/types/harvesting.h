@@ -14,6 +14,7 @@ struct HarvestingMasks {
     size_t tensix_harvesting_mask = 0;
     size_t dram_harvesting_mask = 0;
     size_t eth_harvesting_mask = 0;
+    size_t pcie_harvesting_mask = 0;
 };
 
 }  // namespace tt::umd

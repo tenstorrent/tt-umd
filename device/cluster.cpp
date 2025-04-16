@@ -1553,6 +1553,10 @@ void Cluster::l1_membar(
     }
 }
 
+void Cluster::l1_membar(const chip_id_t chip, const std::unordered_set<tt::umd::CoreCoord>& cores) {
+    l1_membar(chip, "LARGE_WRITE_TLB", cores);
+}
+
 void Cluster::dram_membar(
     const chip_id_t chip, const std::string& fallback_tlb, const std::unordered_set<tt::umd::CoreCoord>& cores) {
     if (cluster_desc->is_chip_mmio_capable(chip)) {
@@ -1579,6 +1583,10 @@ void Cluster::dram_membar(
     }
 }
 
+void Cluster::dram_membar(const chip_id_t chip, const std::unordered_set<tt::umd::CoreCoord>& cores) {
+    dram_membar(chip, "LARGE_WRITE_TLB", cores);
+}
+
 void Cluster::dram_membar(
     const chip_id_t chip, const std::string& fallback_tlb, const std::unordered_set<uint32_t>& channels) {
     std::unordered_set<CoreCoord> dram_cores_to_sync = {};
@@ -1586,6 +1594,10 @@ void Cluster::dram_membar(
         dram_cores_to_sync.insert(get_soc_descriptor(chip).get_dram_core_for_channel(chan, 0, CoordSystem::VIRTUAL));
     }
     dram_membar(chip, fallback_tlb, dram_cores_to_sync);
+}
+
+void Cluster::dram_membar(const chip_id_t chip, const std::unordered_set<uint32_t>& channels) {
+    dram_membar(chip, "LARGE_WRITE_TLB", channels);
 }
 
 void Cluster::write_to_device(

@@ -1001,10 +1001,10 @@ TEST(SiliconDriverWH, DMA1) {
 
     cluster.start_device(tt_device_params{});
 
-    size_t dram_count = cluster.get_num_dram_channels(chip);
+    auto& soc_descriptor = cluster.get_soc_descriptor(chip);
+    size_t dram_count = soc_descriptor.get_num_dram_channels();
     std::vector<CoreCoord> dram_cores;
     for (size_t i = 0; i < dram_count; ++i) {
-        auto& soc_descriptor = cluster.get_soc_descriptor(chip);
         dram_cores.push_back(soc_descriptor.get_dram_core_for_channel(i, 0, CoordSystem::NOC0));
     }
 
@@ -1067,10 +1067,10 @@ TEST(SiliconDriverWH, DMA2) {
     set_barrier_params(cluster);
     cluster.start_device(tt_device_params{});
 
-    size_t dram_count = cluster.get_num_dram_channels(chip);
+    auto& soc_descriptor = cluster.get_soc_descriptor(chip);
+    size_t dram_count = soc_descriptor.get_num_dram_channels();
     std::vector<CoreCoord> dram_cores;
     for (size_t i = 0; i < dram_count; ++i) {
-        auto& soc_descriptor = cluster.get_soc_descriptor(chip);
         dram_cores.push_back(soc_descriptor.get_dram_core_for_channel(i, 0, CoordSystem::NOC0));
     }
 

@@ -120,14 +120,6 @@ public:
 
     tt_version get_ethernet_fw_version() const override { return {0, 0, 0}; }
 
-    std::uint32_t get_num_dram_channels(std::uint32_t device_id) override {
-        return get_soc_descriptor(device_id).get_num_dram_channels();
-    };
-
-    std::uint64_t get_dram_channel_size(std::uint32_t device_id, std::uint32_t channel) override {
-        return get_soc_descriptor(device_id).dram_bank_size;
-    }
-
     std::uint32_t get_num_host_channels(std::uint32_t device_id) override { return 1; }
 
     std::uint32_t get_host_channel_size(std::uint32_t device_id, std::uint32_t channel) override { return 0; }
@@ -142,11 +134,7 @@ public:
         return soc_descriptor_per_chip.at(chip_id);
     };
 
-    // Misc. Functions to Query/Set Device State
-    static std::vector<chip_id_t> detect_available_device_ids() { return {0}; }
-
 private:
-    std::vector<tt::ARCH> archs_in_cluster = {};
     std::set<chip_id_t> target_devices_in_cluster = {};
     std::set<chip_id_t> target_remote_chips = {};
     std::shared_ptr<tt_ClusterDescriptor> cluster_descriptor;

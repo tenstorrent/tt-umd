@@ -39,12 +39,12 @@ struct PciDeviceInfo {
 using tt::umd::semver_t;
 
 struct DmaBuffer {
-    uint8_t *buffer{nullptr};
-    uint8_t *completion{nullptr};
-    size_t size{0};
+    uint8_t *buffer = nullptr;
+    uint8_t *completion = nullptr;
+    size_t size = 0;
 
-    uint32_t buffer_pa{0};
-    uint32_t completion_pa{0};
+    uint32_t buffer_pa = 0;
+    uint32_t completion_pa = 0;
 };
 
 class PCIDevice {

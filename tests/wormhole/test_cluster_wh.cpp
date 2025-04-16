@@ -1001,10 +1001,12 @@ TEST(SiliconDriverWH, DMA1) {
 
     cluster.start_device(tt_device_params{});
 
-    // This seems to return 3 cores for each controller -- not what we want.
-    /* const auto drams = cluster.get_soc_descriptor(mmio_chip_id).get_cores(CoreType::DRAM); */
-    // Instead, just hardcode the DRAM cores... they're not going to change.
-    std::vector<tt_xy_pair> drams = {{0, 6}, {0, 1}, {5, 6}, {5, 9}, {5, 4}, {5, 1}};
+    size_t dram_count = cluster.get_num_dram_channels(chip);
+    std::vector<CoreCoord> dram_cores;
+    for (size_t i = 0; i < dram_count; ++i) {
+        auto& soc_descriptor = cluster.get_soc_descriptor(chip);
+        dram_cores.push_back(soc_descriptor.get_dram_core_for_channel(i, 0, CoordSystem::NOC0));
+    }
 
     // 16.5 MiB: Larger than the largest WH TLB window; this forces chunking
     // and TLB reassignment.
@@ -1014,9 +1016,7 @@ TEST(SiliconDriverWH, DMA1) {
     std::vector<std::vector<uint8_t>> patterns;
 
     // First, write a different pattern to each of the DRAM cores.
-    for (size_t i = 0; i < drams.size(); ++i) {
-        CoreCoord core(drams[i].x, drams[i].y, CoreType::DRAM, CoordSystem::NOC0);
-
+    for (auto core : dram_cores) {
         std::vector<uint8_t> pattern(buf_size);
         test_utils::fill_with_random_bytes(&pattern[0], pattern.size());
 
@@ -1030,9 +1030,8 @@ TEST(SiliconDriverWH, DMA1) {
     }
 
     // Now, read back the patterns we wrote to DRAM and verify them.
-    for (size_t i = 0; i < drams.size(); ++i) {
-        CoreCoord core(drams[i].x, drams[i].y, CoreType::DRAM, CoordSystem::NOC0);
-
+    for (size_t i = 0; i < dram_cores.size(); ++i) {
+        auto core = dram_cores[i];
         std::vector<uint8_t> readback(buf_size, 0x0);
 
         auto now = std::chrono::steady_clock::now();
@@ -1041,7 +1040,7 @@ TEST(SiliconDriverWH, DMA1) {
         auto ns = std::chrono::duration_cast<std::chrono::nanoseconds>(end - now).count();
         print_speed(" DMA: Device -> Host", readback.size(), ns);
 
-        EXPECT_EQ(patterns[i], readback) << "Mismatch for core " << drams[i].str() << " addr=0x0"
+        EXPECT_EQ(patterns[i], readback) << "Mismatch for core " << core.str() << " addr=0x0"
                                          << " size=" << std::dec << readback.size();
     }
 }
@@ -1068,8 +1067,12 @@ TEST(SiliconDriverWH, DMA2) {
     set_barrier_params(cluster);
     cluster.start_device(tt_device_params{});
 
-    // Use the same hardcoded DRAM cores as the DMA1 test.
-    std::vector<tt_xy_pair> drams = {{0, 6}, {0, 1}, {5, 6}, {5, 9}, {5, 4}, {5, 1}};
+    size_t dram_count = cluster.get_num_dram_channels(chip);
+    std::vector<CoreCoord> dram_cores;
+    for (size_t i = 0; i < dram_count; ++i) {
+        auto& soc_descriptor = cluster.get_soc_descriptor(chip);
+        dram_cores.push_back(soc_descriptor.get_dram_core_for_channel(i, 0, CoordSystem::NOC0));
+    }
 
     // Constraints for random address/size generation.
     const size_t MIN_BUF_SIZE = 4;
@@ -1093,11 +1096,10 @@ TEST(SiliconDriverWH, DMA2) {
     const size_t ITERATIONS = 25;
     for (size_t i = 0; i < ITERATIONS; ++i) {
         std::vector<DmaOpInfo> write_ops;
-        write_ops.reserve(drams.size());
+        write_ops.reserve(dram_cores.size());
 
         // First, write a different random pattern to a random address on each DRAM core.
-        for (const auto& dram_coord : drams) {
-            CoreCoord core(dram_coord.x, dram_coord.y, CoreType::DRAM, CoordSystem::NOC0);
+        for (const auto& core : dram_cores) {
 
             // Generate random size and address.
             size_t size = size_dist(rng) & ~0x3ULL;
@@ -1140,11 +1142,10 @@ TEST(SiliconDriverWH, DMA2) {
     // MMIO for read) is omitted because of how slow MMIO reads are.
     for (size_t i = 0; i < ITERATIONS; ++i) {
         std::vector<DmaOpInfo> write_ops;
-        write_ops.reserve(drams.size());
+        write_ops.reserve(dram_cores.size());
 
         // First, write a different random pattern to a random address on each DRAM core.
-        for (const auto& dram_coord : drams) {
-            CoreCoord core(dram_coord.x, dram_coord.y, CoreType::DRAM, CoordSystem::NOC0);
+        for (const auto& dram_core : dram_cores) {
 
             // Generate random size and address.
             size_t size = size_dist(rng) & ~0x3ULL;
@@ -1156,13 +1157,13 @@ TEST(SiliconDriverWH, DMA2) {
 
             // Perform the DMA write.
             auto now = std::chrono::steady_clock::now();
-            cluster.write_to_device(pattern.data(), pattern.size(), chip, core, addr, "LARGE_WRITE_TLB");
+            cluster.write_to_device(pattern.data(), pattern.size(), chip, dram_core, addr, "LARGE_WRITE_TLB");
             auto end = std::chrono::steady_clock::now();
             auto ns = std::chrono::duration_cast<std::chrono::nanoseconds>(end - now).count();
             print_speed("MMIO: Host -> Device", pattern.size(), ns);
 
             // Store the operation details for verification.
-            write_ops.push_back({core, addr, pattern});
+            write_ops.push_back({dram_core, addr, pattern});
         }
 
         // Now, read back the patterns we wrote to DRAM and verify them.

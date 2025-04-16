@@ -38,6 +38,15 @@ struct PciDeviceInfo {
 // Do we want to put everything into this file into tt::umd namespace?
 using tt::umd::semver_t;
 
+struct DmaBuffer {
+    uint8_t *buffer = nullptr;
+    uint8_t *completion = nullptr;
+    size_t size = 0;
+
+    uint32_t buffer_pa = 0;
+    uint32_t completion_pa = 0;
+};
+
 class PCIDevice {
     const std::string device_path;   // Path to character device: /dev/tenstorrent/N
     const int pci_device_num;        // N in /dev/tenstorrent/N
@@ -48,6 +57,7 @@ class PCIDevice {
     const tt::ARCH arch;             // e.g. Grayskull, Wormhole, Blackhole
     const semver_t kmd_version;      // KMD version
     const bool iommu_enabled;        // Whether the system is protected from this device by an IOMMU
+    DmaBuffer dma_buffer{};
 
 public:
     /**
@@ -143,6 +153,13 @@ public:
      * @return uint64_t PA (no IOMMU) or IOVA (with IOMMU) for use by the device
      */
     uint64_t map_for_dma(void *buffer, size_t size);
+
+    /**
+     * Access the device's DMA buffer.  This buffer is not guaranteed to exist.
+     * It is the caller's responsibility to check if the buffer is valid and to
+     * chunk the desired transfer size to fit within it.
+     */
+    DmaBuffer &get_dma_buffer() { return dma_buffer; }
 
 public:
     // TODO: we can and should make all of these private.

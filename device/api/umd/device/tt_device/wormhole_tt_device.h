@@ -6,6 +6,8 @@
 
 #pragma once
 
+#include <mutex>
+
 #include "umd/device/tt_device/tt_device.h"
 
 namespace tt::umd {
@@ -26,5 +28,13 @@ public:
     BoardType get_board_type() override;
 
     std::vector<DramTrainingStatus> get_dram_training_status() override;
+
+    void dma_d2h(void *dst, uint32_t src, size_t size) override;
+    void dma_h2d(uint32_t dst, const void *src, size_t size) override;
+
+private:
+    // Enforce single-threaded access, even though there are more serious issues
+    // surrounding resource management as it relates to DMA.
+    std::mutex dma_mutex_;
 };
 }  // namespace tt::umd

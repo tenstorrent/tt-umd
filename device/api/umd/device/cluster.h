@@ -331,6 +331,30 @@ public:
     }
 
     /**
+     * Use PCIe DMA to write device memory (L1 or DRAM).
+     *
+     * @param src Source data address.
+     * @param size Size in bytes.
+     * @param chip Chip to target; must be local, i.e. attached via PCIe.
+     * @param core Core to target.
+     * @param addr Address to write to.
+     */
+    virtual void dma_write_to_device(
+        const void* src, size_t size, chip_id_t chip, tt::umd::CoreCoord core, uint64_t addr) = 0;
+
+    /**
+     * Use PCIe DMA to read device memory (L1 or DRAM).
+     *
+     * @param src Source data address.
+     * @param size Size in bytes.
+     * @param chip Chip to target; must be local, i.e. attached via PCIe.
+     * @param core Core to target.
+     * @param addr Address to read from.
+     */
+    virtual void dma_read_from_device(
+        void* dst, size_t size, chip_id_t chip, tt::umd::CoreCoord core, uint64_t addr) = 0;
+
+    /**
      * Write data to specified address and channel on host (defined for Silicon).
      * This API is used to write to the host memory location that is made available to the device through
      * initialization. During the initialization the user should be able to specify how many "channels" are available to
@@ -856,6 +880,9 @@ public:
         const std::string& fallback_tlb = "LARGE_READ_TLB");
     virtual void read_from_device_reg(
         void* mem_ptr, chip_id_t chip, tt::umd::CoreCoord core, uint64_t addr, uint32_t size);
+    virtual void dma_write_to_device(
+        const void* src, size_t size, chip_id_t chip, tt::umd::CoreCoord core, uint64_t addr);
+    virtual void dma_read_from_device(void* dst, size_t size, chip_id_t chip, tt::umd::CoreCoord core, uint64_t addr);
     std::optional<std::tuple<uint32_t, uint32_t>> get_tlb_data_from_target(
         const chip_id_t chip, const tt::umd::CoreCoord core);
     tlb_configuration get_tlb_configuration(const chip_id_t chip, const tt::umd::CoreCoord core);

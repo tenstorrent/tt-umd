@@ -73,6 +73,12 @@ public:
         uint32_t size,
         const std::string& fallback_tlb) override {}
 
+    void dma_write_to_device(
+        const void* src, size_t size, chip_id_t chip, tt::umd::CoreCoord core, uint64_t addr) override {}
+
+    void dma_read_from_device(void* dst, size_t size, chip_id_t chip, tt::umd::CoreCoord core, uint64_t addr) override {
+    }
+
     void write_to_sysmem(
         const void* mem_ptr, std::uint32_t size, uint64_t addr, uint16_t channel, chip_id_t src_device_id) override {}
 

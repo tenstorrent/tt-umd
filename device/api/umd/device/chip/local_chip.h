@@ -64,6 +64,15 @@ public:
     std::unique_lock<RobustMutex> acquire_mutex(std::string mutex_name, int pci_device_id) override;
     std::unique_lock<RobustMutex> acquire_mutex(MutexType mutex_type, int pci_device_id) override;
 
+    int arc_msg(
+        uint32_t msg_code,
+        bool wait_for_done = true,
+        uint32_t arg0 = 0,
+        uint32_t arg1 = 0,
+        uint32_t timeout_ms = 1000,
+        uint32_t* return_3 = nullptr,
+        uint32_t* return_4 = nullptr) override;
+
 private:
     std::unique_ptr<TTDevice> tt_device_;
     std::unique_ptr<SysmemManager> sysmem_manager_;

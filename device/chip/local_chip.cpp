@@ -466,4 +466,35 @@ void LocalChip::wait_dram_cores_training(const uint32_t timeout_ms) {
     }
 }
 
+int LocalChip::arc_msg(
+    uint32_t msg_code,
+    bool wait_for_done,
+    uint32_t arg0,
+    uint32_t arg1,
+    uint32_t timeout_ms,
+    uint32_t* return_3,
+    uint32_t* return_4) {
+    std::vector<uint32_t> arc_msg_return_values;
+    if (return_3 != nullptr) {
+        arc_msg_return_values.push_back(0);
+    }
+
+    if (return_4 != nullptr) {
+        arc_msg_return_values.push_back(0);
+    }
+
+    uint32_t exit_code =
+        get_tt_device()->get_arc_messenger()->send_message(msg_code, arc_msg_return_values, arg0, arg1, timeout_ms);
+
+    if (return_3 != nullptr) {
+        *return_3 = arc_msg_return_values[0];
+    }
+
+    if (return_4 != nullptr) {
+        *return_4 = arc_msg_return_values[1];
+    }
+
+    return exit_code;
+}
+
 }  // namespace tt::umd

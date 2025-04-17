@@ -24,6 +24,15 @@ public:
 
     void wait_for_non_mmio_flush() override;
 
+    int arc_msg(
+        uint32_t msg_code,
+        bool wait_for_done = true,
+        uint32_t arg0 = 0,
+        uint32_t arg1 = 0,
+        uint32_t timeout_ms = 1000,
+        uint32_t* return_3 = nullptr,
+        uint32_t* return_4 = nullptr) override;
+
 private:
     tt_xy_pair translate_chip_coord_virtual_to_translated(const tt_xy_pair core);
 

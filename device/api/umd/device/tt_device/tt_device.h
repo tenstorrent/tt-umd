@@ -25,8 +25,6 @@ static const uint64_t UNROLL_ATU_OFFSET_BAR = 0x1200;
 // BAR0 size for Blackhole, used to determine whether write block should use BAR0 or BAR4
 static const uint64_t BAR0_BH_SIZE = 512 * 1024 * 1024;
 
-constexpr unsigned int c_hang_read_value = 0xffffffffu;
-
 struct dynamic_tlb {
     uint64_t bar_offset;      // Offset that address is mapped to, within the PCI BAR.
     uint64_t remaining_size;  // Bytes remaining between bar_offset and end of the TLB.
@@ -54,7 +52,7 @@ public:
 
     tt::ARCH get_arch();
 
-    void detect_hang_read(uint32_t data_read = c_hang_read_value);
+    void detect_hang_read(uint32_t data_read = HANG_READ_VALUE);
 
     // Note: byte_addr is (mostly but not always) offset into BAR0.  This
     // interface assumes the caller knows what they are doing - but it's unclear

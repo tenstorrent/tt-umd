@@ -54,11 +54,11 @@ bool TTDevice::is_hardware_hung() {
                                 pci_device_->bar0_uc_offset;
     std::uint32_t scratch_data = *reinterpret_cast<const volatile std::uint32_t *>(addr);
 
-    return (scratch_data == c_hang_read_value);
+    return (scratch_data == HANG_READ_VALUE);
 }
 
 void TTDevice::detect_hang_read(std::uint32_t data_read) {
-    if (data_read == c_hang_read_value && is_hardware_hung()) {
+    if (data_read == HANG_READ_VALUE && is_hardware_hung()) {
         std::uint32_t scratch_data =
             *pci_device_->get_register_address<std::uint32_t>(architecture_impl_->get_read_checking_offset());
 

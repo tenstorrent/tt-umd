@@ -22,7 +22,7 @@
 using namespace tt::umd;
 
 // TODO: Once default auto TLB setup is in, check it is setup properly.
-TEST(ApiChipTest, ManualTLBConfiguration) {
+TEST(ApiChipTest, CheckStaticTLBConfiguration) {
     std::unique_ptr<Cluster> umd_cluster = std::make_unique<Cluster>();
 
     if (umd_cluster->get_target_device_ids().empty()) {
@@ -38,46 +38,20 @@ TEST(ApiChipTest, ManualTLBConfiguration) {
         EXPECT_THROW(umd_cluster->get_static_tlb_writer(any_remote_chip, core), std::runtime_error);
     }
 
-    // Expect to throw for non configured mmio chip.
     chip_id_t any_mmio_chip = *umd_cluster->get_target_mmio_device_ids().begin();
     const tt_SocDescriptor& soc_desc = umd_cluster->get_soc_descriptor(any_mmio_chip);
-    CoreCoord core = soc_desc.get_cores(CoreType::TENSIX)[0];
-    EXPECT_THROW(umd_cluster->get_static_tlb_writer(any_mmio_chip, core), std::runtime_error);
+    CoreCoord tensix_core = soc_desc.get_cores(CoreType::TENSIX).at(0);
+    CoreCoord dram_core = soc_desc.get_dram_cores()[0][0];
+    CoreCoord eth_core = soc_desc.get_cores(CoreType::ETH).at(0);
+    CoreCoord router_core = soc_desc.get_cores(CoreType::ROUTER_ONLY).at(0);
 
-    // TODO: This should be part of TTDevice interface, not Cluster or Chip.
-    // Configure TLBs.
-    std::function<int(CoreCoord)> get_static_tlb_index = [&](CoreCoord core) -> int {
-        // TODO: Make this per arch.
-        if (core.core_type != CoreType::TENSIX) {
-            return -1;
-        }
-        // LOGICAL system needs to be used for the correct calculation of tlb_index.
-        core = umd_cluster->get_soc_descriptor(any_mmio_chip).translate_coord_to(core, CoordSystem::LOGICAL);
-        return core.x + core.y * umd_cluster->get_soc_descriptor(any_mmio_chip).get_grid_size(CoreType::TENSIX).x;
-    };
-
-    std::int32_t c_zero_address = 0;
-
-    // Each MMIO chip has it's own set of TLBs, so needs its own configuration.
-    for (chip_id_t mmio_chip : umd_cluster->get_target_mmio_device_ids()) {
-        any_mmio_chip = mmio_chip;
-        const tt_SocDescriptor& soc_desc = umd_cluster->get_soc_descriptor(mmio_chip);
-        for (CoreCoord core : soc_desc.get_cores(CoreType::TENSIX)) {
-            umd_cluster->configure_tlb(mmio_chip, core, get_static_tlb_index(core), c_zero_address);
-        }
-    }
-
-    // Expect not to throw for now configured mmio chip, same one as before.
-    EXPECT_NO_THROW(umd_cluster->get_static_tlb_writer(tt_cxy_pair(any_mmio_chip, core)));
+    // Expect not to throw for configured cores, tensix, eth, dram.
+    EXPECT_NO_THROW(umd_cluster->get_static_tlb_writer(tt_cxy_pair(any_mmio_chip, tensix_core)));
+    EXPECT_NO_THROW(umd_cluster->get_static_tlb_writer(tt_cxy_pair(any_mmio_chip, dram_core)));
+    EXPECT_NO_THROW(umd_cluster->get_static_tlb_writer(tt_cxy_pair(any_mmio_chip, eth_core)));
 
     // Expect to throw for non worker cores.
-    CoreCoord dram_core = soc_desc.get_dram_cores()[0][0];
-    EXPECT_THROW(umd_cluster->get_static_tlb_writer(any_mmio_chip, dram_core), std::runtime_error);
-    auto eth_cores = soc_desc.get_cores(CoreType::ETH);
-    if (!eth_cores.empty()) {
-        CoreCoord eth_core = eth_cores[0];
-        EXPECT_THROW(umd_cluster->get_static_tlb_writer(tt_cxy_pair(any_mmio_chip, eth_core)), std::runtime_error);
-    }
+    EXPECT_THROW(umd_cluster->get_static_tlb_writer(tt_cxy_pair(any_mmio_chip, router_core)), std::runtime_error);
 }
 
 // TODO: Move to test_chip

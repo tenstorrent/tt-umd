@@ -75,16 +75,18 @@ void LocalChip::initialize_tlb_manager() {
     tlb_manager_->set_dynamic_tlb_config(
         "SMALL_READ_WRITE_TLB", tt_device_->get_architecture_implementation()->get_small_read_write_tlb());
 
-    auto eth_grid = soc_descriptor_.get_grid_size(CoreType::ETH);
+    size_t num_eth_cores = soc_descriptor_.get_num_eth_channels();
     auto tensix_grid = soc_descriptor_.get_grid_size(CoreType::TENSIX);
-    size_t num_eth_cores = eth_grid.x * eth_grid.y;
 
     // Setup static TLBs for all eth cores
     for (const CoreCoord& virtual_core : soc_descriptor_.get_cores(CoreType::ETH, CoordSystem::VIRTUAL)) {
         CoreCoord translated_core = soc_descriptor_.translate_coord_to(virtual_core, CoordSystem::TRANSLATED);
         CoreCoord logical_core = soc_descriptor_.translate_coord_to(virtual_core, CoordSystem::LOGICAL);
 
-        size_t tlb_index = logical_core.x + logical_core.y * eth_grid.x;
+        log_assert(
+            logical_core.x == 0, "Logical core x coord should be always 0 for ETH cores, but got {}", logical_core.x);
+
+        size_t tlb_index = logical_core.y;
         tlb_manager_->configure_tlb(virtual_core, translated_core, tlb_index, 0, tlb_data::Strict);
     }
 

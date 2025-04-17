@@ -529,7 +529,13 @@ std::vector<tt::umd::CoreCoord> tt_SocDescriptor::get_all_harvested_cores(const 
     return all_harvested_cores;
 }
 
-tt_xy_pair tt_SocDescriptor::get_grid_size(const CoreType core_type) const { return grid_size_map.at(core_type); }
+tt_xy_pair tt_SocDescriptor::get_grid_size(const CoreType core_type) const {
+    auto it = grid_size_map.find(core_type);
+    if (it == grid_size_map.end()) {
+        throw std::runtime_error(fmt::format("Core type {} is not arranged in a grid", to_str(core_type)));
+    }
+    return it->second;
+}
 
 tt_xy_pair tt_SocDescriptor::get_harvested_grid_size(const CoreType core_type) const {
     return harvested_grid_size_map.at(core_type);

@@ -868,6 +868,8 @@ const std::unordered_map<chip_id_t, eth_coord_t> &tt_ClusterDescriptor::get_chip
     return locations;
 }
 
+// Note: this API works only for Wormhole 6U galaxy at the moment.
+// TODO: implement this for Blackhole and old Wormhole configurations.
 const std::unordered_map<chip_id_t, uint64_t> &tt_ClusterDescriptor::get_chip_unique_ids() const {
     return chip_unique_ids;
 }

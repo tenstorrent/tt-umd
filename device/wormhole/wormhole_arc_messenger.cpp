@@ -15,7 +15,7 @@ WormholeArcMessenger::WormholeArcMessenger(TTDevice* tt_device) : ArcMessenger(t
 
 uint32_t WormholeArcMessenger::send_message(
     const uint32_t msg_code, std::vector<uint32_t>& return_values, uint16_t arg0, uint16_t arg1, uint32_t timeout_ms) {
-    if ((msg_code & 0xff00) != 0xaa00) {
+    if ((msg_code & 0xff00) != wormhole::ARC_MSG_COMMON_PREFIX) {
         log_error("Malformed message. msg_code is 0x{:x} but should be 0xaa..", msg_code);
     }
 

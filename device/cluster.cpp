@@ -558,7 +558,12 @@ void Cluster::check_pcie_device_initialized(int device_id) {
         uint32_t arg = bar_read_initial == 500 ? 325 : 500;
         uint32_t bar_read_again;
         uint32_t arc_msg_return = get_chip(device_id)->arc_msg(
-            0xaa00 | architecture_implementation->get_arc_message_test(), true, arg, 0, 1000, &bar_read_again);
+            wormhole::ARC_MSG_COMMON_PREFIX | architecture_implementation->get_arc_message_test(),
+            true,
+            arg,
+            0,
+            1000,
+            &bar_read_again);
         if (arc_msg_return != 0 || bar_read_again != arg + 1) {
             auto postcode = tt_device->bar_read32(architecture_implementation->get_arc_reset_scratch_offset());
             throw std::runtime_error(fmt::format(
@@ -679,7 +684,7 @@ void Cluster::read_device_memory(
 
 uint32_t Cluster::get_power_state_arc_msg(chip_id_t chip_id, tt_DevicePowerState state) {
     TTDevice* tt_device = get_tt_device(chip_id);
-    uint32_t msg = 0xaa00;
+    uint32_t msg = wormhole::ARC_MSG_COMMON_PREFIX;
     switch (state) {
         case BUSY: {
             msg |= tt_device->get_architecture_implementation()->get_arc_message_arc_go_busy();
@@ -704,7 +709,7 @@ void Cluster::set_pcie_power_state(tt_DevicePowerState state) {
         uint32_t msg = get_power_state_arc_msg(chip_id, state);
         std::stringstream ss;
         ss << state;
-        auto exit_code = get_chip(chip_id)->arc_msg(0xaa00 | msg, true, 0, 0);
+        auto exit_code = get_chip(chip_id)->arc_msg(wormhole::ARC_MSG_COMMON_PREFIX | msg, true, 0, 0);
         if (exit_code != 0) {
             throw std::runtime_error(
                 fmt::format("Failed to set power state to {} with exit code {}", ss.str(), exit_code));
@@ -920,7 +925,12 @@ int Cluster::iatu_configure_peer_region(
     tt_device->bar_write32(architecture_implementation->get_arc_csm_mailbox_offset() + 2 * 4, dest_bar_hi);
     tt_device->bar_write32(architecture_implementation->get_arc_csm_mailbox_offset() + 3 * 4, region_size);
     get_chip(logical_device_id)
-        ->arc_msg(0xaa00 | architecture_implementation->get_arc_message_setup_iatu_for_peer_to_peer(), true, 0, 0);
+        ->arc_msg(
+            wormhole::ARC_MSG_COMMON_PREFIX |
+                architecture_implementation->get_arc_message_setup_iatu_for_peer_to_peer(),
+            true,
+            0,
+            0);
 
     // Print what just happened
     uint32_t peer_region_start = region_id_to_use * region_size;
@@ -1647,7 +1657,7 @@ void Cluster::deassert_resets_and_set_power_state() {
         // Send ARC Messages to deassert RISCV resets
         for (auto& chip_id : local_chip_ids_) {
             get_chip(chip_id)->arc_msg(
-                0xaa00 |
+                wormhole::ARC_MSG_COMMON_PREFIX |
                     get_tt_device(chip_id)->get_architecture_implementation()->get_arc_message_deassert_riscv_reset(),
                 true,
                 0,
@@ -1659,7 +1669,8 @@ void Cluster::deassert_resets_and_set_power_state() {
                     auto mmio_capable_chip_logical = cluster_desc->get_closest_mmio_capable_chip(chip);
                     auto tt_device = get_tt_device(mmio_capable_chip_logical);
                     get_chip(chip)->arc_msg(
-                        0xaa00 | tt_device->get_architecture_implementation()->get_arc_message_deassert_riscv_reset(),
+                        wormhole::ARC_MSG_COMMON_PREFIX |
+                            tt_device->get_architecture_implementation()->get_arc_message_deassert_riscv_reset(),
                         true,
                         0x0,
                         0x0,

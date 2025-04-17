@@ -136,22 +136,6 @@ TEST(SiliconDriverWH, HarvestingRuntime) {
 
     Cluster cluster = Cluster(num_host_mem_ch_per_mmio_device, false, true, true, simulated_harvesting_masks);
     set_barrier_params(cluster);
-    auto mmio_devices = cluster.get_target_mmio_device_ids();
-
-    for (int i = 0; i < target_devices.size(); i++) {
-        // Iterate over MMIO devices and only setup static TLBs for worker cores
-        if (std::find(mmio_devices.begin(), mmio_devices.end(), i) != mmio_devices.end()) {
-            auto& sdesc = cluster.get_soc_descriptor(i);
-            for (const CoreCoord& core : sdesc.get_cores(CoreType::TENSIX)) {
-                // Statically mapping a 1MB TLB to this core, starting from address NCRISC_FIRMWARE_BASE.
-                cluster.configure_tlb(
-                    i,
-                    core,
-                    get_static_tlb_index_callback(sdesc.translate_coord_to(core, CoordSystem::VIRTUAL)),
-                    l1_mem::address_map::NCRISC_FIRMWARE_BASE);
-            }
-        }
-    }
 
     tt_device_params default_params;
     cluster.start_device(default_params);
@@ -221,22 +205,6 @@ TEST(SiliconDriverWH, UnalignedStaticTLB_RW) {
     uint32_t num_host_mem_ch_per_mmio_device = 1;
     Cluster cluster = Cluster(num_host_mem_ch_per_mmio_device, false, true, true);
     set_barrier_params(cluster);
-    auto mmio_devices = cluster.get_target_mmio_device_ids();
-
-    for (int i = 0; i < target_devices.size(); i++) {
-        // Iterate over MMIO devices and only setup static TLBs for worker cores
-        if (std::find(mmio_devices.begin(), mmio_devices.end(), i) != mmio_devices.end()) {
-            auto& sdesc = cluster.get_soc_descriptor(i);
-            for (const CoreCoord& core : sdesc.get_cores(CoreType::TENSIX)) {
-                // Statically mapping a 1MB TLB to this core, starting from address NCRISC_FIRMWARE_BASE.
-                cluster.configure_tlb(
-                    i,
-                    core,
-                    get_static_tlb_index_callback(sdesc.translate_coord_to(core, CoordSystem::VIRTUAL)),
-                    l1_mem::address_map::NCRISC_FIRMWARE_BASE);
-            }
-        }
-    }
 
     tt_device_params default_params;
     cluster.start_device(default_params);
@@ -278,22 +246,6 @@ TEST(SiliconDriverWH, StaticTLB_RW) {
     uint32_t num_host_mem_ch_per_mmio_device = 1;
     Cluster cluster = Cluster(num_host_mem_ch_per_mmio_device, false, true, true);
     set_barrier_params(cluster);
-    auto mmio_devices = cluster.get_target_mmio_device_ids();
-
-    for (int i = 0; i < target_devices.size(); i++) {
-        // Iterate over MMIO devices and only setup static TLBs for worker cores
-        if (std::find(mmio_devices.begin(), mmio_devices.end(), i) != mmio_devices.end()) {
-            auto& sdesc = cluster.get_soc_descriptor(i);
-            for (const CoreCoord& core : sdesc.get_cores(CoreType::TENSIX)) {
-                // Statically mapping a 1MB TLB to this core, starting from address NCRISC_FIRMWARE_BASE.
-                cluster.configure_tlb(
-                    i,
-                    core,
-                    get_static_tlb_index_callback(sdesc.translate_coord_to(core, CoordSystem::VIRTUAL)),
-                    l1_mem::address_map::NCRISC_FIRMWARE_BASE);
-            }
-        }
-    }
 
     tt_device_params default_params;
     cluster.start_device(default_params);
@@ -457,22 +409,6 @@ TEST(SiliconDriverWH, MultiThreadedMemBar) {
 
     Cluster cluster = Cluster(num_host_mem_ch_per_mmio_device, false, true, true);
     set_barrier_params(cluster);
-    auto mmio_devices = cluster.get_target_mmio_device_ids();
-
-    for (int i = 0; i < target_devices.size(); i++) {
-        // Iterate over devices and only setup static TLBs for functional worker cores
-        if (std::find(mmio_devices.begin(), mmio_devices.end(), i) != mmio_devices.end()) {
-            auto& sdesc = cluster.get_soc_descriptor(i);
-            for (const CoreCoord& core : sdesc.get_cores(CoreType::TENSIX)) {
-                // Statically mapping a 1MB TLB to this core, starting from address DATA_BUFFER_SPACE_BASE.
-                cluster.configure_tlb(
-                    i,
-                    core,
-                    get_static_tlb_index_callback(sdesc.translate_coord_to(core, CoordSystem::VIRTUAL)),
-                    base_addr);
-            }
-        }
-    }
 
     tt_device_params default_params;
     cluster.start_device(default_params);
@@ -945,9 +881,6 @@ TEST(SiliconDriverWH, LargeAddressTlb) {
 
     // Offset to the scratch registers in the reset unit:
     uint64_t scratch_offset = 0x60;
-
-    // Map a TLB to the reset unit in ARC core:
-    cluster.configure_tlb(0, ARC_CORE, 0, arc_reset_noc);
 
     // Address of the scratch register in the reset unit:
     uint64_t addr = arc_reset_noc + scratch_offset;

@@ -371,8 +371,8 @@ PCIDevice::PCIDevice(int pci_device_number) :
     // is a temporary hack until it's implemented in the driver, we'll need to
     // poll a completion page to know when the DMA is done instead of receiving
     // an interrupt.
-    if (arch == tt::ARCH::WORMHOLE_B0) {
-        const uint32_t buf_size = (1 << 20);  // 1 MiB
+    // if (arch == tt::ARCH::WORMHOLE_B0) {
+        const uint32_t buf_size = (1 << 21);  // 1 MiB
         tenstorrent_allocate_dma_buf dma_buf{};
 
         dma_buf.in.requested_size = buf_size + 0x1000;
@@ -409,7 +409,7 @@ PCIDevice::PCIDevice(int pci_device_number) :
                 dma_buffer.size = buf_size;
             }
         }
-    }
+    // }
 }
 
 PCIDevice::~PCIDevice() {

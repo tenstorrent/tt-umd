@@ -14,6 +14,7 @@
 
 #include <cstdint>
 #include <cstring>  // for memcpy
+#include <optional>
 #include <vector>
 
 #include "assert.hpp"
@@ -36,7 +37,7 @@ using namespace tt;
 using namespace tt::umd;
 
 template <typename T>
-static T read_sysfs(const PciDeviceInfo &device_info, const std::string &attribute_name) {
+static std::optional<T> try_read_sysfs(const PciDeviceInfo &device_info, const std::string &attribute_name) {
     const auto sysfs_path = fmt::format(
         "/sys/bus/pci/devices/{:04x}:{:02x}:{:02x}.{:x}/{}",
         device_info.pci_domain,
@@ -48,8 +49,8 @@ static T read_sysfs(const PciDeviceInfo &device_info, const std::string &attribu
     std::string value_str;
     T value;
 
-    if (!std::getline(attribute_file, value_str)) {
-        TT_THROW("Failed reading sysfs attribute: {}", sysfs_path);
+    if (!attribute_file.is_open() || !std::getline(attribute_file, value_str)) {
+        return std::nullopt;
     }
 
     std::istringstream iss(value_str);
@@ -62,28 +63,40 @@ static T read_sysfs(const PciDeviceInfo &device_info, const std::string &attribu
     }
 
     if (!(iss >> value)) {
-        TT_THROW("Failed to parse sysfs attribute value: {}", value_str);
+        return std::nullopt;
     }
 
     return value;
 }
 
 template <typename T>
-T read_sysfs(const PciDeviceInfo &device_info, const std::string &attribute_name, const T &default_value) {
-    try {
-        return read_sysfs<T>(device_info, attribute_name);
-    } catch (...) {
-        return default_value;
+static T read_sysfs(const PciDeviceInfo &device_info, const std::string &attribute_name) {
+    auto result = try_read_sysfs<T>(device_info, attribute_name);
+    if (!result) {
+        const auto sysfs_path = fmt::format(
+            "/sys/bus/pci/devices/{:04x}:{:02x}:{:02x}.{:x}/{}",
+            device_info.pci_domain,
+            device_info.pci_bus,
+            device_info.pci_device,
+            device_info.pci_function,
+            attribute_name);
+        TT_THROW("Failed reading or parsing sysfs attribute: {}", sysfs_path);
     }
+    return *result;
+}
+
+template <typename T>
+T read_sysfs(const PciDeviceInfo &device_info, const std::string &attribute_name, const T &default_value) {
+    auto result = try_read_sysfs<T>(device_info, attribute_name);
+    return result.value_or(default_value);
 }
 
 static bool detect_iommu(const PciDeviceInfo &device_info) {
-    try {
-        auto iommu_type = read_sysfs<std::string>(device_info, "iommu_group/type");
-        return iommu_type.substr(0, 3) == "DMA";  // DMA or DMA-FQ
-    } catch (...) {
-        return false;
+    auto iommu_type = try_read_sysfs<std::string>(device_info, "iommu_group/type");
+    if (iommu_type) {
+        return iommu_type->substr(0, 3) == "DMA";  // DMA or DMA-FQ
     }
+    return false;
 }
 
 static PciDeviceInfo read_device_info(int fd) {

@@ -289,7 +289,7 @@ TEST(TestPerf, StaticReadWriteTLBDram) {
 TEST(TestPerf, DMA1) {
     const chip_id_t chip = 0;
     const uint32_t one_mib = 1 << 20;
-    const size_t NUM_ITERATIONS = 10;
+    const size_t NUM_ITERATIONS = 1;
     const std::vector<tt_xy_pair> drams = {{0, 0}};
     const std::vector<uint32_t> sizes = {
         1 * one_mib,
@@ -301,6 +301,8 @@ TEST(TestPerf, DMA1) {
         64 * one_mib,
         128 * one_mib,
         256 * one_mib,
+        512 * one_mib,
+        1024 * one_mib,
     };
 
     std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();

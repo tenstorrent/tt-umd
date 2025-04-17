@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: Apache-2.0
 #include "umd/device/tt_device/wormhole_tt_device.h"
 
+#include "logger.hpp"
 #include "umd/device/types/wormhole_dram.h"
 #include "umd/device/types/wormhole_telemetry.h"
 #include "umd/device/wormhole_implementation.h"
@@ -104,6 +105,36 @@ std::vector<DramTrainingStatus> WormholeTTDevice::get_dram_training_status() {
     }
 
     return dram_training_status;
+}
+
+void WormholeTTDevice::configure_iatu_region(size_t region, uint64_t target, size_t region_size) {
+    uint32_t dest_bar_lo = target & 0xffffffff;
+    uint32_t dest_bar_hi = (target >> 32) & 0xffffffff;
+    std::uint32_t region_id_to_use = region;
+
+    // TODO: stop doing this.  It's related to HUGEPAGE_CHANNEL_3_SIZE_LIMIT.
+    if (region == 3) {
+        region_id_to_use = 4;  // Hack use region 4 for channel 3..this ensures that we have a smaller chan 3 address
+                               // space with the correct start offset
+    }
+
+    bar_write32(architecture_impl_->get_arc_csm_mailbox_offset() + 0 * 4, region_id_to_use);
+    bar_write32(architecture_impl_->get_arc_csm_mailbox_offset() + 1 * 4, dest_bar_lo);
+    bar_write32(architecture_impl_->get_arc_csm_mailbox_offset() + 2 * 4, dest_bar_hi);
+    bar_write32(architecture_impl_->get_arc_csm_mailbox_offset() + 3 * 4, region_size);
+    arc_messenger_->send_message(
+        wormhole::ARC_MSG_COMMON_PREFIX | architecture_impl_->get_arc_message_setup_iatu_for_peer_to_peer(), 0, 0);
+
+    // Print what just happened
+    uint32_t peer_region_start = region_id_to_use * region_size;
+    uint32_t peer_region_end = (region_id_to_use + 1) * region_size - 1;
+    log_debug(
+        LogSiliconDriver,
+        "    [region id {}] NOC to PCI address range 0x{:x}-0x{:x} mapped to addr 0x{:x}",
+        region,
+        peer_region_start,
+        peer_region_end,
+        target);
 }
 
 // TODO: This is a temporary implementation, and ought to be replaced with a

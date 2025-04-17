@@ -61,9 +61,6 @@ using namespace tt::umd;
 
 extern bool umd_use_noc1;
 
-// Remove 256MB from full 1GB for channel 3 (iATU limitation)
-static constexpr uint32_t HUGEPAGE_CHANNEL_3_SIZE_LIMIT = 805306368;
-
 static constexpr uint32_t REMOTE_CMD_NOC_BIT = 9;
 
 // --------------------------------------------------------------------------------------------------------------
@@ -540,8 +537,6 @@ void Cluster::initialize_pcie_devices() {
         get_chip(chip_id)->start_device();
     }
 
-    init_pcie_iatus();
-
     init_membars();
 }
 
@@ -738,124 +733,6 @@ void Cluster::configure_tlb(
 void Cluster::configure_tlb(
     chip_id_t logical_device_id, tt::umd::CoreCoord core, int32_t tlb_index, uint64_t address, uint64_t ordering) {
     configure_tlb(logical_device_id, translate_to_api_coords(logical_device_id, core), tlb_index, address, ordering);
-}
-
-// TODO: this is in the wrong place, it should be in the TTDevice.
-// It should also happen at the same time the huge pages or sysmem buffers are
-// allocated/pinned/mapped.
-void Cluster::init_pcie_iatus() {
-    int num_enabled_devices = local_chip_ids_.size();
-    log_debug(LogSiliconDriver, "Cluster::init_pcie_iatus() num_enabled_devices: {}", num_enabled_devices);
-
-    for (auto& chip_id : local_chip_ids_) {
-        TTDevice* tt_device = get_tt_device(chip_id);
-
-        // TODO: with the IOMMU case, I think we can get away with using just
-        // one iATU region for WH.  (On BH, we don't need iATU).  We can only
-        // cover slightly less than 4GB with WH, and the iATU can cover 4GB.
-        // Splitting it into multiple regions is fine, but it's not necessary.
-        //
-        // Update: unfortunately this turned out to be unrealistic.  For the
-        // IOMMU case, the easiest thing to do is fake that we have hugepages
-        // so we can support the hugepage-inspired API that the user application
-        // has come to rely on.  In that scenario, it's simpler to treat such
-        // fake hugepages the same way we treat real ones -- even if underneath
-        // there is only a single buffer.  Simple is good.
-        //
-        // With respect to BH: it turns out that Metal has hard-coded NOC
-        // addressing assumptions for sysmem access.  First step to fix this is
-        // have Metal ask us where sysmem is at runtime, and use that value in
-        // on-device code.  Until then, we're stuck programming iATU.  A more
-        // forward-looking solution is to abandon the sysmem API entirely, and
-        // have the application assume a more active role in managing the memory
-        // shared between host and device.  UMD would be relegated to assisting
-        // the application set up and tear down the mappings.  This is probably
-        // a unrealistic for GS/WH, but it's a good goal for BH.
-        //
-        // Until then...
-        //
-        // For every 1GB channel of memory mapped for DMA, program an iATU
-        // region to map it to the underlying buffer's IOVA (IOMMU case) or PA
-        // (non-IOMMU case).
-        for (size_t channel = 0; channel < get_local_chip(chip_id)->get_sysmem_manager()->get_num_host_mem_channels();
-             channel++) {
-            hugepage_mapping hugepage_map =
-                get_local_chip(chip_id)->get_sysmem_manager()->get_hugepage_mapping(channel);
-            size_t region_size = hugepage_map.mapping_size;
-
-            if (!hugepage_map.mapping) {
-                throw std::runtime_error(
-                    fmt::format("Hugepages are not allocated for logical device id: {} ch: {}", chip_id, channel));
-            }
-
-            if (arch_name == tt::ARCH::BLACKHOLE) {
-                uint64_t base = channel * region_size;
-                uint64_t target = hugepage_map.physical_address;
-                tt_device->configure_iatu_region(channel, base, target, region_size);
-            } else {
-                // TODO: stop doing this.  The intent was good, but it's not
-                // documented and nothing takes advantage of it.
-                if (channel == 3) {
-                    region_size = HUGEPAGE_CHANNEL_3_SIZE_LIMIT;
-                }
-
-                // TODO: remove this and the Blackhole special case after ARC
-                // messaging is lowered to the TTDevice layer and we have a
-                // configure_iatu_region that works for GS/WH.  Longer term it'd
-                // be nice to have KMD deal with iATU for us...
-                iatu_configure_peer_region(chip_id, channel, hugepage_map.physical_address, region_size);
-            }
-        }
-    }
-}
-
-// TODO: this method should be lowered into TTDevice, where a common
-// implementation can be shared between GS/WH.  The major obstacle to doing it
-// (and the reason I'm leaving it alone for now) is the lack of ARC messaging
-// support at that layer of abstraction.
-int Cluster::iatu_configure_peer_region(
-    int logical_device_id, uint32_t peer_region_id, uint64_t bar_addr_64, uint32_t region_size) {
-    if (arch_name == tt::ARCH::BLACKHOLE) {
-        throw std::runtime_error("Don't call this for Blackhole");
-    }
-
-    uint32_t dest_bar_lo = bar_addr_64 & 0xffffffff;
-    uint32_t dest_bar_hi = (bar_addr_64 >> 32) & 0xffffffff;
-    std::uint32_t region_id_to_use = peer_region_id;
-
-    // TODO: stop doing this.  It's related to HUGEPAGE_CHANNEL_3_SIZE_LIMIT.
-    if (peer_region_id == 3) {
-        region_id_to_use = 4;  // Hack use region 4 for channel 3..this ensures that we have a smaller chan 3 address
-                               // space with the correct start offset
-    }
-
-    TTDevice* tt_device = get_tt_device(logical_device_id);
-    PCIDevice* pci_device = tt_device->get_pci_device();
-    auto architecture_implementation = tt_device->get_architecture_implementation();
-
-    tt_device->bar_write32(architecture_implementation->get_arc_csm_mailbox_offset() + 0 * 4, region_id_to_use);
-    tt_device->bar_write32(architecture_implementation->get_arc_csm_mailbox_offset() + 1 * 4, dest_bar_lo);
-    tt_device->bar_write32(architecture_implementation->get_arc_csm_mailbox_offset() + 2 * 4, dest_bar_hi);
-    tt_device->bar_write32(architecture_implementation->get_arc_csm_mailbox_offset() + 3 * 4, region_size);
-    get_chip(logical_device_id)
-        ->arc_msg(
-            wormhole::ARC_MSG_COMMON_PREFIX |
-                architecture_implementation->get_arc_message_setup_iatu_for_peer_to_peer(),
-            true,
-            0,
-            0);
-
-    // Print what just happened
-    uint32_t peer_region_start = region_id_to_use * region_size;
-    uint32_t peer_region_end = (region_id_to_use + 1) * region_size - 1;
-    log_debug(
-        LogSiliconDriver,
-        "    [region id {}] NOC to PCI address range 0x{:x}-0x{:x} mapped to addr 0x{:x}",
-        peer_region_id,
-        peer_region_start,
-        peer_region_end,
-        bar_addr_64);
-    return 0;
 }
 
 void* Cluster::host_dma_address(std::uint64_t offset, chip_id_t src_device_id, uint16_t channel) const {

@@ -96,6 +96,7 @@ private:
 
     void check_pcie_device_initialized();
     int test_setup_interface();
+    void init_pcie_iatus();
 
 protected:
     void wait_eth_cores_training(const uint32_t timeout_ms = 60000) override;

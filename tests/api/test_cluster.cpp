@@ -941,3 +941,63 @@ INSTANTIATE_TEST_SUITE_P(
     }
 
 );
+
+// Helper for DMA performance characterization.
+static inline void print_speed(std::string direction, size_t bytes, uint64_t ns) {
+    double seconds = ns / 1e9;
+    double megabytes = static_cast<double>(bytes) / (1024.0 * 1024.0);
+    auto rate = megabytes / seconds;
+    std::cout << direction << ": 0x" << std::hex << bytes << std::dec << " bytes in " << ns << " ns (" << rate
+              << " MiB/s)" << std::endl;
+};
+
+TEST(TestCluster, DMA1) {
+    const chip_id_t chip = 0;
+    Cluster cluster;  // perform harvesting - yes
+
+    // cluster.start_device(tt_device_params{});
+
+    auto& soc_descriptor = cluster.get_soc_descriptor(chip);
+    size_t dram_count = soc_descriptor.get_num_dram_channels();
+
+    std::vector<CoreCoord> dram_cores;
+    dram_cores.push_back(soc_descriptor.get_cores(CoreType::DRAM)[0]);
+
+    // 16.5 MiB: Larger than the largest WH TLB window; this forces chunking
+    // and TLB reassignment.
+    size_t buf_size = 0x1080000;
+
+    // Keep track of the patterns we wrote to DRAM so we can verify them later.
+    std::vector<std::vector<uint8_t>> patterns;
+
+    // First, write a different pattern to each of the DRAM cores.
+    // for (auto core : dram_cores) {
+    //     std::vector<uint8_t> pattern(buf_size);
+    //     test_utils::fill_with_random_bytes(&pattern[0], pattern.size());
+
+    //     auto now = std::chrono::steady_clock::now();
+    //     cluster.dma_write_to_device(pattern.data(), pattern.size(), chip, core, 0x0);
+    //     auto end = std::chrono::steady_clock::now();
+    //     auto ns = std::chrono::duration_cast<std::chrono::nanoseconds>(end - now).count();
+    //     print_speed(" DMA: Host -> Device", pattern.size(), ns);
+
+    //     patterns.push_back(pattern);
+    // }
+
+    // Now, read back the patterns we wrote to DRAM and verify them.
+    for (size_t i = 0; i < dram_cores.size(); ++i) {
+        auto core = dram_cores[i];
+        std::vector<uint8_t> readback_dma(buf_size, 0x0);
+        std::vector<uint8_t> readback(buf_size, 0x0);
+
+        auto now = std::chrono::steady_clock::now();
+        cluster.dma_read_from_device(readback_dma.data(), readback_dma.size(), chip, core, 0x0);
+        cluster.read_from_device(readback.data(), chip, core, 0x0, readback.size());
+        auto end = std::chrono::steady_clock::now();
+        auto ns = std::chrono::duration_cast<std::chrono::nanoseconds>(end - now).count();
+        print_speed(" DMA: Device -> Host", readback.size(), ns);
+
+        EXPECT_EQ(readback_dma, readback) << "Mismatch for core " << core.str() << " addr=0x0"
+                                          << " size=" << std::dec << readback.size();
+    }
+}

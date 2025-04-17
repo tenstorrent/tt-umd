@@ -84,21 +84,21 @@ int RemoteChip::arc_msg(
     uint32_t fw_arg = arg0 | (arg1 << 16);
     int exit_code = 0;
 
-    { write_to_device(arc_core, &fw_arg, ARC_RESET_SCRATCH_ADDR + 3 * 4, sizeof(fw_arg), ""); }
+    { write_to_device(arc_core, &fw_arg, ARC_RESET_SCRATCH_ADDR + 3 * 4, sizeof(fw_arg)); }
 
-    { write_to_device(arc_core, &msg_code, ARC_RESET_SCRATCH_ADDR + 5 * 4, sizeof(fw_arg), ""); }
+    { write_to_device(arc_core, &msg_code, ARC_RESET_SCRATCH_ADDR + 5 * 4, sizeof(fw_arg)); }
 
     wait_for_non_mmio_flush();
     uint32_t misc = 0;
 
-    read_from_device(arc_core, &misc, ARC_RESET_MISC_CNTL_ADDR, 4, "");
+    read_from_device(arc_core, &misc, ARC_RESET_MISC_CNTL_ADDR, 4);
 
     if (misc & (1 << 16)) {
         log_error("trigger_fw_int failed on device");
         return 1;
     } else {
         misc |= (1 << 16);
-        write_to_device(arc_core, &misc, ARC_RESET_MISC_CNTL_ADDR, sizeof(misc), "");
+        write_to_device(arc_core, &misc, ARC_RESET_MISC_CNTL_ADDR, sizeof(misc));
     }
 
     if (wait_for_done) {
@@ -115,14 +115,14 @@ int RemoteChip::arc_msg(
             }
 
             uint32_t status = 0;
-            read_from_device(arc_core, &status, ARC_RESET_SCRATCH_ADDR + 5 * 4, sizeof(status), "");
+            read_from_device(arc_core, &status, ARC_RESET_SCRATCH_ADDR + 5 * 4, sizeof(status));
             if ((status & 0xffff) == (msg_code & 0xff)) {
                 if (return_3 != nullptr) {
-                    read_from_device(arc_core, return_3, ARC_RESET_SCRATCH_ADDR + 3 * 4, sizeof(uint32_t), "");
+                    read_from_device(arc_core, return_3, ARC_RESET_SCRATCH_ADDR + 3 * 4, sizeof(uint32_t));
                 }
 
                 if (return_4 != nullptr) {
-                    read_from_device(arc_core, return_4, ARC_RESET_SCRATCH_ADDR + 4 * 4, sizeof(uint32_t), "");
+                    read_from_device(arc_core, return_4, ARC_RESET_SCRATCH_ADDR + 4 * 4, sizeof(uint32_t));
                 }
 
                 exit_code = (status & 0xffff0000) >> 16;

@@ -11,6 +11,7 @@
 #include "umd/device/chip_helpers/tlb_manager.h"
 #include "umd/device/tt_device/tt_device.h"
 #include "umd/device/types/blackhole_eth.h"
+#include "umd/device/wormhole_implementation.h"
 
 extern bool umd_use_noc1;
 
@@ -106,6 +107,8 @@ SysmemManager* LocalChip::get_sysmem_manager() { return sysmem_manager_.get(); }
 TLBManager* LocalChip::get_tlb_manager() { return tlb_manager_.get(); }
 
 bool LocalChip::is_mmio_capable() const { return true; }
+
+void LocalChip::start_device() { check_pcie_device_initialized(); }
 
 void LocalChip::wait_eth_cores_training(const uint32_t timeout_ms) {
     if (get_tt_device()->get_arch() != tt::ARCH::BLACKHOLE) {
@@ -495,6 +498,72 @@ int LocalChip::arc_msg(
     }
 
     return exit_code;
+}
+
+void LocalChip::check_pcie_device_initialized() {
+    auto architecture_implementation = tt_device_->get_architecture_implementation();
+
+    // MT Initial BH - Add check for blackhole once access to ARC registers is setup through TLBs
+    if (soc_descriptor_.arch != tt::ARCH::BLACKHOLE) {
+        log_debug(LogSiliconDriver, "== Check if device_id: {} is initialized", device_id);
+        uint32_t bar_read_initial =
+            tt_device_->bar_read32(architecture_implementation->get_arc_reset_scratch_offset() + 3 * 4);
+        uint32_t arg = bar_read_initial == 500 ? 325 : 500;
+        uint32_t bar_read_again;
+        uint32_t arc_msg_return =
+            arc_msg(wormhole::ARC_MSG_COMMON_PREFIX | architecture_implementation->get_arc_message_test(), true, arg, 0, 1000, &bar_read_again);
+        if (arc_msg_return != 0 || bar_read_again != arg + 1) {
+            auto postcode = tt_device_->bar_read32(architecture_implementation->get_arc_reset_scratch_offset());
+            throw std::runtime_error(fmt::format(
+                "Device is not initialized: arc_fw postcode: {} arc_msg_return: {} arg: {} bar_read_initial: {} "
+                "bar_read_again: {}",
+                postcode,
+                arc_msg_return,
+                arg,
+                bar_read_initial,
+                bar_read_again));
+        }
+    }
+
+    if (test_setup_interface()) {
+        throw std::runtime_error(
+            "Device is incorrectly initialized. If this is a harvested Wormhole machine, it is likely that NOC "
+            "Translation Tables are not enabled on device. These need to be enabled for the silicon driver to run.");
+    }
+}
+
+int LocalChip::test_setup_interface() {
+    int ret_val = 0;
+    if (soc_descriptor_.arch == tt::ARCH::WORMHOLE_B0) {
+        uint32_t mapped_reg = tt_device_
+                                  ->set_dynamic_tlb(
+                                      tt_device_->get_architecture_implementation()->get_reg_tlb(),
+                                      translate_chip_coord_virtual_to_translated(tt_xy_pair(1, 0)),
+                                      0xffb20108)
+                                  .bar_offset;
+
+        uint32_t regval = 0;
+        tt_device_->read_regs(mapped_reg, 1, &regval);
+        ret_val = (regval != HANG_READ_VALUE && (regval == 33)) ? 0 : 1;
+        return ret_val;
+    } else if (soc_descriptor_.arch == tt::ARCH::BLACKHOLE) {
+        // MT Inital BH - Try to enable this, but double check "regval == 33"
+
+        // uint32_t mapped_reg = tt_device_
+        //                           ->set_dynamic_tlb(
+        //                               tt_device_->get_architecture_implementation()->get_reg_tlb(),
+        //                               translate_chip_coord_virtual_to_translated(tt_xy_pair(1, 0)),
+        //                               0xffb20108)
+        //                           .bar_offset;
+
+        // uint32_t regval = 0;
+        // tt_device_->read_regs(dev, mapped_reg, 1, &regval);
+        // ret_val = (regval != HANG_READ_VALUE && (regval == 33)) ? 0 : 1;
+        // return ret_val;
+        return 0;
+    } else {
+        throw std::runtime_error(fmt::format("Unsupported architecture: {}", arch_to_str(soc_descriptor_.arch)));
+    }
 }
 
 }  // namespace tt::umd

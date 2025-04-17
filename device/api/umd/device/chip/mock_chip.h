@@ -14,6 +14,8 @@ public:
     MockChip(tt_SocDescriptor soc_descriptor);
     bool is_mmio_capable() const override;
 
+    void start_device() override;
+
     int arc_msg(
         uint32_t msg_code,
         bool wait_for_done,

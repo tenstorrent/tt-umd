@@ -921,7 +921,6 @@ private:
     void send_remote_tensix_risc_reset_to_core(const tt_cxy_pair& core, const TensixSoftResetOptions& soft_resets);
     void send_tensix_risc_reset_to_core(const tt_cxy_pair& core, const TensixSoftResetOptions& soft_resets);
     void init_pcie_iatus();  // No more p2p support.
-    void check_pcie_device_initialized(int device_id);
     void set_pcie_power_state(tt_DevicePowerState state);
     int set_remote_power_state(const chip_id_t& chip, tt_DevicePowerState device_state);
     uint32_t get_power_state_arc_msg(chip_id_t chip_id, tt_DevicePowerState state);
@@ -980,7 +979,6 @@ private:
     // Test functions
     void verify_eth_fw();
     void verify_sw_fw_versions(int device_id, std::uint32_t sw_version, std::vector<std::uint32_t>& fw_versions);
-    int test_setup_interface();
 
     // Helper functions for constructing the chips from the cluster descriptor.
     std::unique_ptr<Chip> construct_chip_from_cluster(

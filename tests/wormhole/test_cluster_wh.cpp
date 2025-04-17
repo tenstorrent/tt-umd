@@ -747,7 +747,6 @@ TEST(SiliconDriverWH, SysmemTestWithPcie) {
 
     const chip_id_t mmio_chip_id = 0;
     const auto PCIE = cluster.get_soc_descriptor(mmio_chip_id).get_cores(CoreType::PCIE).at(0);
-    const tt_cxy_pair PCIE_CORE(mmio_chip_id, PCIE.x, PCIE.y);
     const size_t test_size_bytes = 0x4000;  // Arbitrarilly chosen, but small size so the test runs quickly.
 
     // PCIe core is at (x=0, y=3) on Wormhole NOC0.
@@ -772,7 +771,7 @@ TEST(SiliconDriverWH, SysmemTestWithPcie) {
     test_utils::fill_with_random_bytes(sysmem, test_size_bytes);
 
     // Step 2: Read sysmem into buffer.
-    cluster.read_from_device(&buffer[0], PCIE_CORE, base_address, buffer.size(), "REG_TLB");
+    cluster.read_from_device(&buffer[0], mmio_chip_id, PCIE, base_address, buffer.size());
 
     // Step 3: Verify that buffer matches sysmem.
     ASSERT_EQ(buffer, std::vector<uint8_t>(sysmem, sysmem + test_size_bytes));
@@ -781,12 +780,12 @@ TEST(SiliconDriverWH, SysmemTestWithPcie) {
     test_utils::fill_with_random_bytes(&buffer[0], test_size_bytes);
 
     // Step 5: Write buffer into sysmem, overwriting what was there.
-    cluster.write_to_device(&buffer[0], buffer.size(), PCIE_CORE, base_address, "REG_TLB");
+    cluster.write_to_device(&buffer[0], buffer.size(), mmio_chip_id, PCIE, base_address);
 
     // Step 5b: Read back sysmem into a throwaway buffer.  The intent is to
     // ensure the write has completed before we check sysmem against buffer.
     std::vector<uint8_t> throwaway(test_size_bytes, 0x0);
-    cluster.read_from_device(&throwaway[0], PCIE_CORE, base_address, throwaway.size(), "REG_TLB");
+    cluster.read_from_device(&throwaway[0], mmio_chip_id, PCIE, base_address, throwaway.size());
 
     // Step 6: Verify that sysmem matches buffer.
     ASSERT_EQ(buffer, std::vector<uint8_t>(sysmem, sysmem + test_size_bytes));

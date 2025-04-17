@@ -17,7 +17,7 @@ public:
     BlackholeTTDevice(std::unique_ptr<PCIDevice> pci_device);
     ~BlackholeTTDevice();
 
-    void configure_iatu_region(size_t region, uint64_t base, uint64_t target, size_t size) override;
+    void configure_iatu_region(size_t region, uint64_t target, size_t region_size) override;
 
     ChipInfo get_chip_info() override;
 

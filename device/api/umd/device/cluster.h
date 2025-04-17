@@ -920,17 +920,11 @@ private:
     void broadcast_tensix_risc_reset_to_cluster(const TensixSoftResetOptions& soft_resets);
     void send_remote_tensix_risc_reset_to_core(const tt_cxy_pair& core, const TensixSoftResetOptions& soft_resets);
     void send_tensix_risc_reset_to_core(const tt_cxy_pair& core, const TensixSoftResetOptions& soft_resets);
-    void init_pcie_iatus();  // No more p2p support.
-    void check_pcie_device_initialized(int device_id);
     void set_pcie_power_state(tt_DevicePowerState state);
     int set_remote_power_state(const chip_id_t& chip, tt_DevicePowerState device_state);
     uint32_t get_power_state_arc_msg(chip_id_t chip_id, tt_DevicePowerState state);
-    void enable_local_ethernet_queue(const chip_id_t& chip, int timeout);
     void enable_ethernet_queue(int timeout);
-    void enable_remote_ethernet_queue(const chip_id_t& chip, int timeout);
     void deassert_resets_and_set_power_state();
-    int iatu_configure_peer_region(
-        int logical_device_id, uint32_t peer_region_id, uint64_t bar_addr_64, uint32_t region_size);
     int get_clock(int logical_device_id);
     void wait_for_aiclk_value(tt_DevicePowerState power_state, const uint32_t timeout_ms = 5000);
 
@@ -976,31 +970,12 @@ private:
         const uint32_t barrier_addr,
         const std::string& fallback_tlb);
     void init_membars();
-    int pcie_arc_msg(
-        int logical_device_id,
-        uint32_t msg_code,
-        bool wait_for_done = true,
-        uint32_t arg0 = 0,
-        uint32_t arg1 = 0,
-        uint32_t timeout_ms = 1000,
-        uint32_t* return_3 = nullptr,
-        uint32_t* return_4 = nullptr);
-    int remote_arc_msg(
-        int logical_device_id,
-        uint32_t msg_code,
-        bool wait_for_done = true,
-        uint32_t arg0 = 0,
-        uint32_t arg1 = 0,
-        uint32_t timeout_ms = 1000,
-        uint32_t* return_3 = nullptr,
-        uint32_t* return_4 = nullptr);
 
     std::unordered_map<chip_id_t, std::vector<std::vector<int>>>& get_ethernet_broadcast_headers(
         const std::set<chip_id_t>& chips_to_exclude);
     // Test functions
     void verify_eth_fw();
     void verify_sw_fw_versions(int device_id, std::uint32_t sw_version, std::vector<std::uint32_t>& fw_versions);
-    int test_setup_interface();
 
     // Helper functions for constructing the chips from the cluster descriptor.
     std::unique_ptr<Chip> construct_chip_from_cluster(

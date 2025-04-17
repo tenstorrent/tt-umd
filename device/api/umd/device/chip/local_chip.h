@@ -27,6 +27,8 @@ public:
 
     bool is_mmio_capable() const override;
 
+    void start_device() override;
+
     TTDevice* get_tt_device() override;
     SysmemManager* get_sysmem_manager() override;
     TLBManager* get_tlb_manager() override;
@@ -91,6 +93,9 @@ private:
     void initialize_default_remote_transfer_ethernet_cores();
 
     tt_xy_pair translate_chip_coord_virtual_to_translated(const tt_xy_pair core) const;
+
+    void check_pcie_device_initialized();
+    int test_setup_interface();
 
 protected:
     void wait_eth_cores_training(const uint32_t timeout_ms = 60000) override;

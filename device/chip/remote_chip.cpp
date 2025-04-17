@@ -20,6 +20,8 @@ RemoteChip::RemoteChip(tt_SocDescriptor soc_descriptor, eth_coord_t eth_chip_loc
 
 bool RemoteChip::is_mmio_capable() const { return false; }
 
+void RemoteChip::start_device() {}
+
 void RemoteChip::write_to_device(
     tt_xy_pair core, const void* src, uint64_t l1_dest, uint32_t size, const std::string& fallback_tlb) {
     // TODO: Fallback TLB is ignored for now, but it will be removed soon from the signature.

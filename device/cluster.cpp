@@ -1230,7 +1230,7 @@ void Cluster::write_to_device(const void* mem_ptr, uint32_t size, tt_cxy_pair co
 
 void Cluster::write_to_device(
     const void* mem_ptr, uint32_t size_in_bytes, chip_id_t chip, CoreCoord core, uint64_t addr) {
-    get_local_chip(chip)->write_to_device(translate_to_api_coords(chip, core), mem_ptr, addr, size_in_bytes);
+    write_to_device(mem_ptr, size_in_bytes, {(size_t)chip, translate_to_api_coords(chip, core)}, addr);
 }
 
 void Cluster::write_to_device_reg(

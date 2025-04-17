@@ -368,6 +368,7 @@ void Cluster::ubb_eth_connections(
                 &remote_chip_id, tt_cxy_pair(chip_id, eth_core.x, eth_core.y), base_addr + (72 * 4), sizeof(uint64_t));
 
             chip_uid_to_local_chip_id.insert({local_chip_id, chip_id});
+            cluster_desc->chip_unique_ids.insert({chip_id, local_chip_id});
 
             channel++;
         }

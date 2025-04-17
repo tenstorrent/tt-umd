@@ -24,4 +24,10 @@ int MockChip::arc_msg(
     uint32_t* return_4) {
     return 0;
 }
+
+void MockChip::l1_membar(const std::unordered_set<tt::umd::CoreCoord>& cores) {}
+
+void MockChip::dram_membar(const std::unordered_set<tt::umd::CoreCoord>& cores) {}
+
+void MockChip::dram_membar(const std::unordered_set<uint32_t>& channels) {}
 }  // namespace tt::umd

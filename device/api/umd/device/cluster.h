@@ -836,7 +836,6 @@ private:
         const std::set<chip_id_t>& target_mmio_device_ids,
         const uint32_t& num_host_mem_ch_per_mmio_device,
         const bool create_mock_chips);
-    void initialize_pcie_devices();
     void broadcast_tensix_risc_reset_to_cluster(const TensixSoftResetOptions& soft_resets);
     void send_remote_tensix_risc_reset_to_core(const tt_cxy_pair& core, const TensixSoftResetOptions& soft_resets);
     void send_tensix_risc_reset_to_core(const tt_cxy_pair& core, const TensixSoftResetOptions& soft_resets);
@@ -869,14 +868,6 @@ private:
         const std::set<uint32_t>& rows_to_exclude,
         std::set<uint32_t>& cols_to_exclude,
         bool use_virtual_coords);
-    void set_membar_flag(
-        const chip_id_t chip,
-        const std::vector<CoreCoord>& cores,
-        const uint32_t barrier_value,
-        const uint32_t barrier_addr);
-    void insert_host_to_device_barrier(
-        const chip_id_t chip, const std::vector<CoreCoord>& cores, const uint32_t barrier_addr);
-    void init_membars();
 
     std::unordered_map<chip_id_t, std::vector<std::vector<int>>>& get_ethernet_broadcast_headers(
         const std::set<chip_id_t>& chips_to_exclude);

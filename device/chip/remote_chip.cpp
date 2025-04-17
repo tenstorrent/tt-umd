@@ -16,21 +16,21 @@ namespace tt::umd {
 RemoteChip::RemoteChip(tt_SocDescriptor soc_descriptor, eth_coord_t eth_chip_location, LocalChip* local_chip) :
     Chip(soc_descriptor),
     eth_chip_location_(eth_chip_location),
-    remote_communication_(std::make_unique<RemoteCommunication>(local_chip)) {}
+    remote_communication_(std::make_unique<RemoteCommunication>(local_chip)) {
+    log_assert(soc_descriptor_.arch != tt::ARCH::BLACKHOLE, "Non-MMIO targets not supported in Blackhole");
+}
 
 bool RemoteChip::is_mmio_capable() const { return false; }
 
 void RemoteChip::start_device() {}
 
-void RemoteChip::write_to_device(
-    tt_xy_pair core, const void* src, uint64_t l1_dest, uint32_t size, const std::string& fallback_tlb) {
+void RemoteChip::write_to_device(tt_xy_pair core, const void* src, uint64_t l1_dest, uint32_t size) {
     // TODO: Fallback TLB is ignored for now, but it will be removed soon from the signature.
     auto translated_core = translate_chip_coord_virtual_to_translated(core);
     remote_communication_->write_to_non_mmio(eth_chip_location_, translated_core, src, l1_dest, size);
 }
 
-void RemoteChip::read_from_device(
-    tt_xy_pair core, void* dest, uint64_t l1_src, uint32_t size, const std::string& fallback_tlb) {
+void RemoteChip::read_from_device(tt_xy_pair core, void* dest, uint64_t l1_src, uint32_t size) {
     // TODO: Fallback TLB is ignored for now, but it will be removed soon from the signature.
     auto translated_core = translate_chip_coord_virtual_to_translated(core);
     remote_communication_->read_non_mmio(eth_chip_location_, translated_core, dest, l1_src, size);

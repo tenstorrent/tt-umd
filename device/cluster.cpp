@@ -612,18 +612,8 @@ tt::Writer Cluster::get_static_tlb_writer(const chip_id_t chip, const CoreCoord 
     return get_static_tlb_writer({(size_t)chip, translate_to_api_coords(chip, target)});
 }
 
-void Cluster::write_device_memory(
-    const void* mem_ptr,
-    uint32_t size_in_bytes,
-    tt_cxy_pair target,
-    uint64_t address,
-    const std::string& fallback_tlb) {
-    get_local_chip(target.chip)->write_to_device({target.x, target.y}, mem_ptr, address, size_in_bytes, fallback_tlb);
-}
-
-void Cluster::read_device_memory(
-    void* mem_ptr, tt_cxy_pair target, uint64_t address, uint32_t size_in_bytes, const std::string& fallback_tlb) {
-    get_local_chip(target.chip)->read_from_device({target.x, target.y}, mem_ptr, address, size_in_bytes, fallback_tlb);
+void Cluster::read_device_memory(void* mem_ptr, tt_cxy_pair target, uint64_t address, uint32_t size_in_bytes) {
+    get_local_chip(target.chip)->read_from_device({target.x, target.y}, mem_ptr, address, size_in_bytes);
 }
 
 uint32_t Cluster::get_power_state_arc_msg(chip_id_t chip_id, tt_DevicePowerState state) {
@@ -782,12 +772,12 @@ void Cluster::write_to_non_mmio_device(
     if (broadcast) {
         get_local_chip(core.chip)->ethernet_broadcast_write(mem_ptr, address, size_in_bytes, broadcast_header);
     } else {
-        get_remote_chip(core.chip)->write_to_device(core, mem_ptr, address, size_in_bytes, "");
+        get_remote_chip(core.chip)->write_to_device(core, mem_ptr, address, size_in_bytes);
     }
 }
 
 void Cluster::read_from_non_mmio_device(void* mem_ptr, tt_cxy_pair core, uint64_t address, uint32_t size_in_bytes) {
-    get_remote_chip(core.chip)->read_from_device(core, mem_ptr, address, size_in_bytes, "");
+    get_remote_chip(core.chip)->read_from_device(core, mem_ptr, address, size_in_bytes);
 }
 
 void Cluster::wait_for_non_mmio_flush(const chip_id_t chip_id) { get_chip(chip_id)->wait_for_non_mmio_flush(); }
@@ -926,7 +916,6 @@ void Cluster::ethernet_broadcast_write(
     const std::set<chip_id_t>& chips_to_exclude,
     const std::set<uint32_t>& rows_to_exclude,
     std::set<uint32_t>& cols_to_exclude,
-    const std::string& fallback_tlb,
     bool use_virtual_coords) {
     if (use_ethernet_broadcast) {
         // Broadcast through ERISC core supported
@@ -964,7 +953,7 @@ void Cluster::ethernet_broadcast_write(
             for (const CoreCoord core : get_soc_descriptor(chip).get_all_cores(CoordSystem::VIRTUAL)) {
                 if (cols_to_exclude.find(core.x) == cols_to_exclude.end() &&
                     rows_to_exclude.find(core.y) == rows_to_exclude.end()) {
-                    write_to_device(mem_ptr, size_in_bytes, chip, core, address, fallback_tlb);
+                    write_to_device(mem_ptr, size_in_bytes, chip, core, address);
                 }
             }
         }
@@ -977,8 +966,7 @@ void Cluster::broadcast_write_to_cluster(
     uint64_t address,
     const std::set<chip_id_t>& chips_to_exclude,
     std::set<uint32_t>& rows_to_exclude,
-    std::set<uint32_t>& cols_to_exclude,
-    const std::string& fallback_tlb) {
+    std::set<uint32_t>& cols_to_exclude) {
     if (arch_name == tt::ARCH::BLACKHOLE) {
         auto architecture_implementation = tt::umd::architecture_implementation::create(arch_name);
         if (cols_to_exclude.find(0) == cols_to_exclude.end() or cols_to_exclude.find(9) == cols_to_exclude.end()) {
@@ -999,7 +987,6 @@ void Cluster::broadcast_write_to_cluster(
                     chips_to_exclude,
                     rows_to_exclude_for_col_0_bcast,
                     cols_to_exclude_for_col_0_bcast,
-                    fallback_tlb,
                     false);
             }
             if (cols_to_exclude.find(9) == cols_to_exclude.end()) {
@@ -1012,7 +999,6 @@ void Cluster::broadcast_write_to_cluster(
                     chips_to_exclude,
                     rows_to_exclude,
                     cols_to_exclude_for_col_9_bcast,
-                    fallback_tlb,
                     false);
             }
         } else {
@@ -1027,7 +1013,6 @@ void Cluster::broadcast_write_to_cluster(
                 chips_to_exclude,
                 rows_to_exclude,
                 cols_to_exclude,
-                fallback_tlb,
                 use_virtual_coords_for_eth_broadcast);
         }
     } else {
@@ -1051,7 +1036,6 @@ void Cluster::broadcast_write_to_cluster(
                     chips_to_exclude,
                     rows_to_exclude_for_col_0_bcast,
                     cols_to_exclude_for_col_0_bcast,
-                    fallback_tlb,
                     false);
             }
             if (cols_to_exclude.find(5) == cols_to_exclude.end()) {
@@ -1064,7 +1048,6 @@ void Cluster::broadcast_write_to_cluster(
                     chips_to_exclude,
                     rows_to_exclude,
                     cols_to_exclude_for_col_5_bcast,
-                    fallback_tlb,
                     false);
             }
         } else {
@@ -1079,7 +1062,6 @@ void Cluster::broadcast_write_to_cluster(
                 chips_to_exclude,
                 rows_to_exclude,
                 cols_to_exclude,
-                fallback_tlb,
                 use_virtual_coords_for_eth_broadcast);
         }
     }
@@ -1098,21 +1080,19 @@ void Cluster::set_membar_flag(
     const chip_id_t chip,
     const std::vector<CoreCoord>& cores,
     const uint32_t barrier_value,
-    const uint32_t barrier_addr,
-    const std::string& fallback_tlb) {
+    const uint32_t barrier_addr) {
     tt_driver_atomics::sfence();  // Ensure that writes before this do not get reordered
     std::unordered_set<CoreCoord> cores_synced = {};
     std::vector<uint32_t> barrier_val_vec = {barrier_value};
     for (const auto& core : cores) {
-        write_to_device(
-            barrier_val_vec.data(), barrier_val_vec.size() * sizeof(uint32_t), chip, core, barrier_addr, fallback_tlb);
+        write_to_device(barrier_val_vec.data(), barrier_val_vec.size() * sizeof(uint32_t), chip, core, barrier_addr);
     }
     tt_driver_atomics::sfence();  // Ensure that all writes in the Host WC buffer are flushed
     while (cores_synced.size() != cores.size()) {
         for (const auto& core : cores) {
             if (cores_synced.find(core) == cores_synced.end()) {
                 uint32_t readback_val;
-                read_from_device(&readback_val, chip, core, barrier_addr, sizeof(std::uint32_t), fallback_tlb);
+                read_from_device(&readback_val, chip, core, barrier_addr, sizeof(std::uint32_t));
                 if (readback_val == barrier_value) {
                     cores_synced.insert(core);
                 } else {
@@ -1131,15 +1111,12 @@ void Cluster::set_membar_flag(
 }
 
 void Cluster::insert_host_to_device_barrier(
-    const chip_id_t chip,
-    const std::vector<CoreCoord>& cores,
-    const uint32_t barrier_addr,
-    const std::string& fallback_tlb) {
+    const chip_id_t chip, const std::vector<CoreCoord>& cores, const uint32_t barrier_addr) {
     // Ensure that this memory barrier is atomic across processes/threads
     auto lock = get_local_chip(chip)->acquire_mutex(
         MutexType::MEM_BARRIER, get_tt_device(chip)->get_pci_device()->get_device_num());
-    set_membar_flag(chip, cores, tt_MemBarFlag::SET, barrier_addr, fallback_tlb);
-    set_membar_flag(chip, cores, tt_MemBarFlag::RESET, barrier_addr, fallback_tlb);
+    set_membar_flag(chip, cores, tt_MemBarFlag::SET, barrier_addr);
+    set_membar_flag(chip, cores, tt_MemBarFlag::RESET, barrier_addr);
 }
 
 void Cluster::init_membars() {
@@ -1153,32 +1130,24 @@ void Cluster::init_membars() {
                 chip,
                 get_soc_descriptor(chip).get_cores(CoreType::TENSIX, CoordSystem::VIRTUAL),
                 tt_MemBarFlag::RESET,
-                l1_address_params.tensix_l1_barrier_base,
-                "LARGE_WRITE_TLB");
+                l1_address_params.tensix_l1_barrier_base);
             set_membar_flag(
                 chip,
                 get_soc_descriptor(chip).get_cores(CoreType::ETH, CoordSystem::VIRTUAL),
                 tt_MemBarFlag::RESET,
-                l1_address_params.eth_l1_barrier_base,
-                "LARGE_WRITE_TLB");
+                l1_address_params.eth_l1_barrier_base);
 
             std::vector<CoreCoord> dram_cores_vector = {};
             for (std::uint32_t dram_idx = 0; dram_idx < get_soc_descriptor(chip).get_num_dram_channels(); dram_idx++) {
                 dram_cores_vector.push_back(
                     get_soc_descriptor(chip).get_dram_core_for_channel(dram_idx, 0, CoordSystem::VIRTUAL));
             }
-            set_membar_flag(
-                chip,
-                dram_cores_vector,
-                tt_MemBarFlag::RESET,
-                dram_address_params.DRAM_BARRIER_BASE,
-                "LARGE_WRITE_TLB");
+            set_membar_flag(chip, dram_cores_vector, tt_MemBarFlag::RESET, dram_address_params.DRAM_BARRIER_BASE);
         }
     }
 }
 
-void Cluster::l1_membar(
-    const chip_id_t chip, const std::string& fallback_tlb, const std::unordered_set<tt::umd::CoreCoord>& cores) {
+void Cluster::l1_membar(const chip_id_t chip, const std::unordered_set<tt::umd::CoreCoord>& cores) {
     if (cluster_desc->is_chip_mmio_capable(chip)) {
         const auto& all_workers = get_soc_descriptor(chip).get_cores(CoreType::TENSIX, CoordSystem::VIRTUAL);
         const auto& all_eth = get_soc_descriptor(chip).get_cores(CoreType::ETH, CoordSystem::VIRTUAL);
@@ -1201,25 +1170,19 @@ void Cluster::l1_membar(
                     log_fatal("Can only insert an L1 Memory barrier on Tensix or Ethernet cores.");
                 }
             }
-            insert_host_to_device_barrier(
-                chip, workers_to_sync, l1_address_params.tensix_l1_barrier_base, fallback_tlb);
-            insert_host_to_device_barrier(chip, eth_to_sync, l1_address_params.eth_l1_barrier_base, fallback_tlb);
+            insert_host_to_device_barrier(chip, workers_to_sync, l1_address_params.tensix_l1_barrier_base);
+            insert_host_to_device_barrier(chip, eth_to_sync, l1_address_params.eth_l1_barrier_base);
         } else {
             // Insert barrier on all cores with L1
-            insert_host_to_device_barrier(chip, all_workers, l1_address_params.tensix_l1_barrier_base, fallback_tlb);
-            insert_host_to_device_barrier(chip, all_eth, l1_address_params.eth_l1_barrier_base, fallback_tlb);
+            insert_host_to_device_barrier(chip, all_workers, l1_address_params.tensix_l1_barrier_base);
+            insert_host_to_device_barrier(chip, all_eth, l1_address_params.eth_l1_barrier_base);
         }
     } else {
         wait_for_non_mmio_flush();
     }
 }
 
-void Cluster::l1_membar(const chip_id_t chip, const std::unordered_set<tt::umd::CoreCoord>& cores) {
-    l1_membar(chip, "LARGE_WRITE_TLB", cores);
-}
-
-void Cluster::dram_membar(
-    const chip_id_t chip, const std::string& fallback_tlb, const std::unordered_set<tt::umd::CoreCoord>& cores) {
+void Cluster::dram_membar(const chip_id_t chip, const std::unordered_set<tt::umd::CoreCoord>& cores) {
     if (cluster_desc->is_chip_mmio_capable(chip)) {
         const auto& dram_address_params = get_local_chip(chip)->dram_address_params;
         if (cores.size()) {
@@ -1229,7 +1192,7 @@ void Cluster::dram_membar(
                     "Can only insert a DRAM Memory barrier on DRAM cores.");
             }
             std::vector<CoreCoord> dram_cores_vector = std::vector<CoreCoord>(cores.begin(), cores.end());
-            insert_host_to_device_barrier(chip, dram_cores_vector, dram_address_params.DRAM_BARRIER_BASE, fallback_tlb);
+            insert_host_to_device_barrier(chip, dram_cores_vector, dram_address_params.DRAM_BARRIER_BASE);
         } else {
             // Insert Barrier on all DRAM Cores
             std::vector<CoreCoord> dram_cores_vector = {};
@@ -1237,39 +1200,25 @@ void Cluster::dram_membar(
                 dram_cores_vector.push_back(
                     get_soc_descriptor(chip).get_dram_core_for_channel(dram_idx, 0, CoordSystem::VIRTUAL));
             }
-            insert_host_to_device_barrier(chip, dram_cores_vector, dram_address_params.DRAM_BARRIER_BASE, fallback_tlb);
+            insert_host_to_device_barrier(chip, dram_cores_vector, dram_address_params.DRAM_BARRIER_BASE);
         }
     } else {
         wait_for_non_mmio_flush();
     }
 }
 
-void Cluster::dram_membar(const chip_id_t chip, const std::unordered_set<tt::umd::CoreCoord>& cores) {
-    dram_membar(chip, "LARGE_WRITE_TLB", cores);
-}
-
-void Cluster::dram_membar(
-    const chip_id_t chip, const std::string& fallback_tlb, const std::unordered_set<uint32_t>& channels) {
+void Cluster::dram_membar(const chip_id_t chip, const std::unordered_set<uint32_t>& channels) {
     std::unordered_set<CoreCoord> dram_cores_to_sync = {};
     for (const auto& chan : channels) {
         dram_cores_to_sync.insert(get_soc_descriptor(chip).get_dram_core_for_channel(chan, 0, CoordSystem::VIRTUAL));
     }
-    dram_membar(chip, fallback_tlb, dram_cores_to_sync);
+    dram_membar(chip, dram_cores_to_sync);
 }
 
-void Cluster::dram_membar(const chip_id_t chip, const std::unordered_set<uint32_t>& channels) {
-    dram_membar(chip, "LARGE_WRITE_TLB", channels);
-}
-
-void Cluster::write_to_device(
-    const void* mem_ptr, uint32_t size, tt_cxy_pair core, uint64_t addr, const std::string& fallback_tlb) {
+void Cluster::write_to_device(const void* mem_ptr, uint32_t size, tt_cxy_pair core, uint64_t addr) {
     bool target_is_mmio_capable = cluster_desc->is_chip_mmio_capable(core.chip);
     if (target_is_mmio_capable) {
-        if (fallback_tlb == "REG_TLB") {
-            write_mmio_device_register(mem_ptr, core, addr, size, fallback_tlb);
-        } else {
-            write_device_memory(mem_ptr, size, core, addr, fallback_tlb);
-        }
+        get_local_chip(core.chip)->write_to_device({core.x, core.y}, mem_ptr, addr, size);
     } else {
         log_assert(arch_name != tt::ARCH::BLACKHOLE, "Non-MMIO targets not supported in Blackhole");
         log_assert(
@@ -1280,18 +1229,13 @@ void Cluster::write_to_device(
 }
 
 void Cluster::write_to_device(
-    const void* mem_ptr,
-    uint32_t size_in_bytes,
-    chip_id_t chip,
-    CoreCoord core,
-    uint64_t addr,
-    const std::string& tlb_to_use) {
-    write_to_device(mem_ptr, size_in_bytes, {(size_t)chip, translate_to_api_coords(chip, core)}, addr, tlb_to_use);
+    const void* mem_ptr, uint32_t size_in_bytes, chip_id_t chip, CoreCoord core, uint64_t addr) {
+    get_local_chip(chip)->write_to_device(translate_to_api_coords(chip, core), mem_ptr, addr, size_in_bytes);
 }
 
 void Cluster::write_to_device_reg(
     const void* mem_ptr, uint32_t size_in_bytes, chip_id_t chip, CoreCoord core, uint64_t addr) {
-    write_to_device(mem_ptr, size_in_bytes, {(size_t)chip, translate_to_api_coords(chip, core)}, addr, "REG_TLB");
+    write_mmio_device_register(mem_ptr, {(size_t)chip, translate_to_api_coords(chip, core)}, addr, size_in_bytes);
 }
 
 void Cluster::dma_write_to_device(
@@ -1305,25 +1249,18 @@ void Cluster::dma_read_from_device(void* dst, size_t size, chip_id_t chip, tt::u
     get_local_chip(chip)->dma_read_from_device(dst, size, api_coords, addr);
 }
 
-void Cluster::read_mmio_device_register(
-    void* mem_ptr, tt_cxy_pair core, uint64_t addr, uint32_t size, const std::string& fallback_tlb) {
-    get_local_chip(core.chip)->read_from_device_reg(core, mem_ptr, addr, size, fallback_tlb);
+void Cluster::read_mmio_device_register(void* mem_ptr, tt_cxy_pair core, uint64_t addr, uint32_t size) {
+    get_local_chip(core.chip)->read_from_device_reg(core, mem_ptr, addr, size);
 }
 
-void Cluster::write_mmio_device_register(
-    const void* mem_ptr, tt_cxy_pair core, uint64_t addr, uint32_t size, const std::string& fallback_tlb) {
-    get_local_chip(core.chip)->write_to_device_reg(core, mem_ptr, addr, size, fallback_tlb);
+void Cluster::write_mmio_device_register(const void* mem_ptr, tt_cxy_pair core, uint64_t addr, uint32_t size) {
+    get_local_chip(core.chip)->write_to_device_reg(core, mem_ptr, addr, size);
 }
 
-void Cluster::read_from_device(
-    void* mem_ptr, tt_cxy_pair core, uint64_t addr, uint32_t size, const std::string& fallback_tlb) {
+void Cluster::read_from_device(void* mem_ptr, tt_cxy_pair core, uint64_t addr, uint32_t size) {
     bool target_is_mmio_capable = cluster_desc->is_chip_mmio_capable(core.chip);
     if (target_is_mmio_capable) {
-        if (fallback_tlb == "REG_TLB") {
-            read_mmio_device_register(mem_ptr, core, addr, size, fallback_tlb);
-        } else {
-            read_device_memory(mem_ptr, core, addr, size, fallback_tlb);
-        }
+        read_device_memory(mem_ptr, core, addr, size);
     } else {
         log_assert(
             arch_name != tt::ARCH::BLACKHOLE,
@@ -1335,13 +1272,12 @@ void Cluster::read_from_device(
     }
 }
 
-void Cluster::read_from_device(
-    void* mem_ptr, chip_id_t chip, CoreCoord core, uint64_t addr, uint32_t size, const std::string& fallback_tlb) {
-    read_from_device(mem_ptr, {(size_t)chip, translate_to_api_coords(chip, core)}, addr, size, fallback_tlb);
+void Cluster::read_from_device(void* mem_ptr, chip_id_t chip, CoreCoord core, uint64_t addr, uint32_t size) {
+    read_from_device(mem_ptr, {(size_t)chip, translate_to_api_coords(chip, core)}, addr, size);
 }
 
 void Cluster::read_from_device_reg(void* mem_ptr, chip_id_t chip, CoreCoord core, uint64_t addr, uint32_t size) {
-    read_from_device(mem_ptr, {(size_t)chip, translate_to_api_coords(chip, core)}, addr, size, "REG_TLB");
+    read_mmio_device_register(mem_ptr, {(size_t)chip, translate_to_api_coords(chip, core)}, addr, size);
 }
 
 int Cluster::arc_msg(
@@ -1359,7 +1295,8 @@ int Cluster::arc_msg(
 void Cluster::send_tensix_risc_reset_to_core(const tt_cxy_pair& core, const TensixSoftResetOptions& soft_resets) {
     auto valid = soft_resets & ALL_TENSIX_SOFT_RESET;
     uint32_t valid_val = (std::underlying_type<TensixSoftResetOptions>::type)valid;
-    write_to_device(&valid_val, sizeof(uint32_t), core, 0xFFB121B0, "REG_TLB");
+    write_to_device_reg(
+        &valid_val, sizeof(uint32_t), core.chip, CoreCoord{core, CoreType::TENSIX, CoordSystem::VIRTUAL}, 0xFFB121B0);
     tt_driver_atomics::sfence();
 }
 
@@ -1394,9 +1331,8 @@ void Cluster::broadcast_tensix_risc_reset_to_cluster(const TensixSoftResetOption
         rows_to_exclude = {0, 6};
         columns_to_exclude = {0, 5};
     }
-    std::string fallback_tlb = "LARGE_WRITE_TLB";
     broadcast_write_to_cluster(
-        &valid_val, sizeof(uint32_t), 0xFFB121B0, chips_to_exclude, rows_to_exclude, columns_to_exclude, fallback_tlb);
+        &valid_val, sizeof(uint32_t), 0xFFB121B0, chips_to_exclude, rows_to_exclude, columns_to_exclude);
     // Ensure that reset signal is globally visible
     wait_for_non_mmio_flush();
 }
@@ -1483,12 +1419,7 @@ void Cluster::verify_eth_fw() {
         std::vector<uint32_t> fw_versions;
         for (const CoreCoord eth_core : get_soc_descriptor(chip).get_cores(CoreType::ETH)) {
             read_from_device(
-                &fw_version,
-                chip,
-                eth_core,
-                get_chip(chip)->l1_address_params.fw_version_addr,
-                sizeof(uint32_t),
-                "LARGE_READ_TLB");
+                &fw_version, chip, eth_core, get_chip(chip)->l1_address_params.fw_version_addr, sizeof(uint32_t));
             fw_versions.push_back(fw_version);
         }
         verify_sw_fw_versions(chip, SW_VERSION, fw_versions);

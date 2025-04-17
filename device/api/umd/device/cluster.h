@@ -286,7 +286,7 @@ public:
         const std::set<chip_id_t>& chips_to_exclude,
         std::set<uint32_t>& rows_to_exclude,
         std::set<uint32_t>& columns_to_exclude,
-        const std::string& fallback_tlb) {
+        const std::string& fallback_tlb = "LARGE_WRITE_TLB") {
         throw std::runtime_error("---- tt_device::broadcast_write_to_cluster is not implemented\n");
     }
 
@@ -820,7 +820,7 @@ public:
         const std::set<chip_id_t>& chips_to_exclude,
         std::set<uint32_t>& rows_to_exclude,
         std::set<uint32_t>& columns_to_exclude,
-        const std::string& fallback_tlb);
+        const std::string& fallback_tlb = "LARGE_WRITE_TLB");
     virtual void read_from_device(
         void* mem_ptr, tt_cxy_pair core, uint64_t addr, uint32_t size, const std::string& fallback_tlb);
 

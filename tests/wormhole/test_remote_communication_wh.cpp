@@ -57,12 +57,7 @@ TEST(RemoteCommunicationWormhole, BasicRemoteCommunicationIO) {
                 data_to_write.size() * sizeof(uint32_t));
 
             cluster->write_to_device(
-                data_to_write.data(),
-                data_to_write.size() * sizeof(uint32_t),
-                remote_chip_id,
-                core,
-                address1,
-                "SMALL_READ_WRITE_TLB");
+                data_to_write.data(), data_to_write.size() * sizeof(uint32_t), remote_chip_id, core, address1);
 
             remote_comm->wait_for_non_mmio_flush();
 
@@ -79,12 +74,7 @@ TEST(RemoteCommunicationWormhole, BasicRemoteCommunicationIO) {
             data_read = std::vector<uint32_t>(10, 0);
 
             cluster->read_from_device(
-                data_read.data(),
-                remote_chip_id,
-                core,
-                address0,
-                data_read.size() * sizeof(uint32_t),
-                "SMALL_READ_WRITE_TLB");
+                data_read.data(), remote_chip_id, core, address0, data_read.size() * sizeof(uint32_t));
 
             ASSERT_EQ(data_to_write, data_read)
                 << "Vector read back from core " << core.str() << " does not match what was written";

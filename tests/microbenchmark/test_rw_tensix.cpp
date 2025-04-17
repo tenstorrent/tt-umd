@@ -33,12 +33,7 @@ TEST_F(uBenchmarkFixture, WriteAllCores32Bytes) {
             .output(nullptr)
             .run(wname.str(), [&] {
                 device->write_to_device(
-                    vector_to_write.data(),
-                    vector_to_write.size() * sizeof(std::uint32_t),
-                    0,
-                    core_coord,
-                    bad_address,
-                    "SMALL_READ_WRITE_TLB");
+                    vector_to_write.data(), vector_to_write.size() * sizeof(std::uint32_t), 0, core_coord, bad_address);
             });
         wname.clear();
     }
@@ -62,8 +57,7 @@ TEST_F(uBenchmarkFixture, ReadAllCores32Bytes) {
             .minEpochIterations(50)
             .output(nullptr)
             .run(rname.str(), [&] {
-                test_utils::read_data_from_device(
-                    *device, readback_vec, 0, core_coord, bad_address, 0x20, "SMALL_READ_WRITE_TLB");
+                test_utils::read_data_from_device(*device, readback_vec, 0, core_coord, bad_address, 0x20);
             });
         rname.clear();
     }
@@ -88,12 +82,7 @@ TEST_F(uBenchmarkFixture, Write32BytesRandomAddr) {
             .output(nullptr)
             .run(wname.str(), [&] {
                 device->write_to_device(
-                    vector_to_write.data(),
-                    vector_to_write.size() * sizeof(std::uint32_t),
-                    0,
-                    core_coord,
-                    address,
-                    "SMALL_READ_WRITE_TLB");
+                    vector_to_write.data(), vector_to_write.size() * sizeof(std::uint32_t), 0, core_coord, address);
             });
         wname.clear();
     }
@@ -116,8 +105,7 @@ TEST_F(uBenchmarkFixture, Read32BytesRandomAddr) {
             .minEpochIterations(50)
             .output(nullptr)
             .run(rname.str(), [&] {
-                test_utils::read_data_from_device(
-                    *device, readback_vec, 0, core_coord, address, 0x20, "SMALL_READ_WRITE_TLB");
+                test_utils::read_data_from_device(*device, readback_vec, 0, core_coord, address, 0x20);
             });
         rname.clear();
     }

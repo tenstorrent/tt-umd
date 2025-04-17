@@ -63,7 +63,7 @@ public:
         chip_id_t chip,
         tt::umd::CoreCoord core,
         uint64_t addr,
-        const std::string& tlb_to_use);
+        const std::string& tlb_to_use = "LARGE_WRITE_TLB");
     virtual void read_from_device(
         void* mem_ptr, tt_cxy_pair core, uint64_t addr, uint32_t size, const std::string& fallback_tlb);
     virtual void read_from_device(
@@ -72,7 +72,7 @@ public:
         tt::umd::CoreCoord core,
         uint64_t addr,
         uint32_t size,
-        const std::string& fallback_tlb);
+        const std::string& fallback_tlb = "LARGE_READ_TLB");
 
     void dma_write_to_device(const void* src, size_t size, chip_id_t chip, tt::umd::CoreCoord core, uint64_t addr) {
         throw std::runtime_error("DMA write not supported in simulation mode.");

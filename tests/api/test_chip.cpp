@@ -108,9 +108,9 @@ TEST(ApiChipTest, SimpleAPIShowcase) {
 //     tt_cxy_pair chip_core_coord = get_tensix_chip_core_coord(umd_cluster);
 
 //     umd_cluster->assert_risc_reset_at_core(chip_core_coord);
-//     umd_cluster->l1_membar(chip_core_coord.chip, "LARGE_WRITE_TLB");
+//     umd_cluster->l1_membar(chip_core_coord.chip);
 //     umd_cluster->deassert_risc_reset_at_core(chip_core_coord);
-//     umd_cluster->l1_membar(chip_core_coord.chip, "LARGE_WRITE_TLB");
+//     umd_cluster->l1_membar(chip_core_coord.chip);
 
 //     uint32_t soft_reset_reg_addr = 0xFFB121B0;
 //     uint32_t expected_risc_reset_val = static_cast<uint32_t>(TENSIX_DEASSERT_SOFT_RESET);
@@ -133,7 +133,7 @@ TEST(ApiChipTest, SimpleAPIShowcase) {
 //     umd_cluster->assert_risc_reset_at_core(chip_core_coord);
 //     TensixSoftResetOptions deassert_val = ALL_TRISC_SOFT_RESET | TensixSoftResetOptions::STAGGERED_START;
 //     umd_cluster->deassert_risc_reset_at_core(chip_core_coord, deassert_val);
-//     umd_cluster->l1_membar(chip_core_coord.chip, "LARGE_WRITE_TLB");
+//     umd_cluster->l1_membar(chip_core_coord.chip);
 
 //     uint32_t soft_reset_reg_addr = 0xFFB121B0;
 //     uint32_t risc_reset_val;
@@ -156,7 +156,7 @@ TEST(ApiChipTest, SimpleAPIShowcase) {
 
 //     TensixSoftResetOptions deassert_val = static_cast<TensixSoftResetOptions>(0xDEADBEEF);
 //     umd_cluster->deassert_risc_reset_at_core(chip_core_coord, deassert_val);
-//     umd_cluster->l1_membar(chip_core_coord.chip, "LARGE_WRITE_TLB");
+//     umd_cluster->l1_membar(chip_core_coord.chip);
 
 //     uint32_t soft_reset_reg_addr = 0xFFB121B0;
 //     uint32_t risc_reset_val;

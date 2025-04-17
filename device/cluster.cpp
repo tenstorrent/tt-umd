@@ -61,11 +61,6 @@ using namespace tt::umd;
 
 extern bool umd_use_noc1;
 
-static const uint32_t MSG_ERROR_REPLY = 0xFFFFFFFF;
-
-// Remove 256MB from full 1GB for channel 3 (iATU limitation)
-static constexpr uint32_t HUGEPAGE_CHANNEL_3_SIZE_LIMIT = 805306368;
-
 static constexpr uint32_t REMOTE_CMD_NOC_BIT = 9;
 
 // --------------------------------------------------------------------------------------------------------------
@@ -370,6 +365,7 @@ void Cluster::ubb_eth_connections(
                 &remote_chip_id, tt_cxy_pair(chip_id, eth_core.x, eth_core.y), base_addr + (72 * 4), sizeof(uint64_t));
 
             chip_uid_to_local_chip_id.insert({local_chip_id, chip_id});
+            cluster_desc->chip_unique_ids.insert({chip_id, local_chip_id});
 
             channel++;
         }
@@ -534,67 +530,12 @@ void Cluster::configure_active_ethernet_cores_for_mmio_device(
     get_local_chip(mmio_chip)->set_remote_transfer_ethernet_cores(active_eth_cores_per_chip);
 }
 
-void Cluster::check_pcie_device_initialized(int device_id) {
-    TTDevice* tt_device = get_tt_device(device_id);
-    tt::ARCH device_arch = tt_device->get_pci_device()->get_arch();
-    if (arch_name == tt::ARCH::WORMHOLE_B0) {
-        if (device_arch != tt::ARCH::WORMHOLE_B0) {
-            throw std::runtime_error(
-                fmt::format("Attempted to run wormhole configured tt_device on {}", arch_to_str(device_arch)));
-        }
-    } else if (arch_name == tt::ARCH::BLACKHOLE) {
-        if (device_arch != tt::ARCH::BLACKHOLE) {
-            throw std::runtime_error(
-                fmt::format("Attempted to run blackhole configured tt_device on {}", arch_to_str(device_arch)));
-        }
-    } else {
-        throw std::runtime_error(fmt::format("Unsupported architecture: {}", arch_to_str(arch_name)));
-    }
-    auto architecture_implementation = tt_device->get_architecture_implementation();
-
-    // MT Initial BH - Add check for blackhole once access to ARC registers is setup through TLBs
-    if (arch_name != tt::ARCH::BLACKHOLE) {
-        log_debug(LogSiliconDriver, "== Check if device_id: {} is initialized", device_id);
-        uint32_t bar_read_initial =
-            tt_device->bar_read32(architecture_implementation->get_arc_reset_scratch_offset() + 3 * 4);
-        uint32_t arg = bar_read_initial == 500 ? 325 : 500;
-        uint32_t bar_read_again;
-        uint32_t arc_msg_return = arc_msg(
-            device_id,
-            0xaa00 | architecture_implementation->get_arc_message_test(),
-            true,
-            arg,
-            0,
-            1000,
-            &bar_read_again);
-        if (arc_msg_return != 0 || bar_read_again != arg + 1) {
-            auto postcode = tt_device->bar_read32(architecture_implementation->get_arc_reset_scratch_offset());
-            throw std::runtime_error(fmt::format(
-                "Device is not initialized: arc_fw postcode: {} arc_msg_return: {} arg: {} bar_read_initial: {} "
-                "bar_read_again: {}",
-                postcode,
-                arc_msg_return,
-                arg,
-                bar_read_initial,
-                bar_read_again));
-        }
-    }
-
-    if (test_setup_interface()) {
-        throw std::runtime_error(
-            "Device is incorrectly initialized. If this is a harvested Wormhole machine, it is likely that NOC "
-            "Translation Tables are not enabled on device. These need to be enabled for the silicon driver to run.");
-    }
-}
-
 void Cluster::initialize_pcie_devices() {
     log_debug(LogSiliconDriver, "Cluster::start");
 
-    for (auto chip_id : local_chip_ids_) {
-        check_pcie_device_initialized(chip_id);
+    for (auto chip_id : all_chip_ids_) {
+        get_chip(chip_id)->start_device();
     }
-
-    init_pcie_iatus();
 
     init_membars();
 }
@@ -687,7 +628,7 @@ void Cluster::read_device_memory(
 
 uint32_t Cluster::get_power_state_arc_msg(chip_id_t chip_id, tt_DevicePowerState state) {
     TTDevice* tt_device = get_tt_device(chip_id);
-    uint32_t msg = 0xaa00;
+    uint32_t msg = wormhole::ARC_MSG_COMMON_PREFIX;
     switch (state) {
         case BUSY: {
             msg |= tt_device->get_architecture_implementation()->get_arc_message_arc_go_busy();
@@ -712,7 +653,7 @@ void Cluster::set_pcie_power_state(tt_DevicePowerState state) {
         uint32_t msg = get_power_state_arc_msg(chip_id, state);
         std::stringstream ss;
         ss << state;
-        auto exit_code = arc_msg(chip_id, 0xaa00 | msg, true, 0, 0);
+        auto exit_code = get_chip(chip_id)->arc_msg(wormhole::ARC_MSG_COMMON_PREFIX | msg, true, 0, 0);
         if (exit_code != 0) {
             throw std::runtime_error(
                 fmt::format("Failed to set power state to {} with exit code {}", ss.str(), exit_code));
@@ -792,209 +733,6 @@ void Cluster::configure_tlb(
 void Cluster::configure_tlb(
     chip_id_t logical_device_id, tt::umd::CoreCoord core, int32_t tlb_index, uint64_t address, uint64_t ordering) {
     configure_tlb(logical_device_id, translate_to_api_coords(logical_device_id, core), tlb_index, address, ordering);
-}
-
-// TODO: this is in the wrong place, it should be in the TTDevice.
-// It should also happen at the same time the huge pages or sysmem buffers are
-// allocated/pinned/mapped.
-void Cluster::init_pcie_iatus() {
-    int num_enabled_devices = local_chip_ids_.size();
-    log_debug(LogSiliconDriver, "Cluster::init_pcie_iatus() num_enabled_devices: {}", num_enabled_devices);
-
-    for (auto& chip_id : local_chip_ids_) {
-        TTDevice* tt_device = get_tt_device(chip_id);
-
-        // TODO: with the IOMMU case, I think we can get away with using just
-        // one iATU region for WH.  (On BH, we don't need iATU).  We can only
-        // cover slightly less than 4GB with WH, and the iATU can cover 4GB.
-        // Splitting it into multiple regions is fine, but it's not necessary.
-        //
-        // Update: unfortunately this turned out to be unrealistic.  For the
-        // IOMMU case, the easiest thing to do is fake that we have hugepages
-        // so we can support the hugepage-inspired API that the user application
-        // has come to rely on.  In that scenario, it's simpler to treat such
-        // fake hugepages the same way we treat real ones -- even if underneath
-        // there is only a single buffer.  Simple is good.
-        //
-        // With respect to BH: it turns out that Metal has hard-coded NOC
-        // addressing assumptions for sysmem access.  First step to fix this is
-        // have Metal ask us where sysmem is at runtime, and use that value in
-        // on-device code.  Until then, we're stuck programming iATU.  A more
-        // forward-looking solution is to abandon the sysmem API entirely, and
-        // have the application assume a more active role in managing the memory
-        // shared between host and device.  UMD would be relegated to assisting
-        // the application set up and tear down the mappings.  This is probably
-        // a unrealistic for GS/WH, but it's a good goal for BH.
-        //
-        // Until then...
-        //
-        // For every 1GB channel of memory mapped for DMA, program an iATU
-        // region to map it to the underlying buffer's IOVA (IOMMU case) or PA
-        // (non-IOMMU case).
-        for (size_t channel = 0; channel < get_local_chip(chip_id)->get_sysmem_manager()->get_num_host_mem_channels();
-             channel++) {
-            hugepage_mapping hugepage_map =
-                get_local_chip(chip_id)->get_sysmem_manager()->get_hugepage_mapping(channel);
-            size_t region_size = hugepage_map.mapping_size;
-
-            if (!hugepage_map.mapping) {
-                throw std::runtime_error(
-                    fmt::format("Hugepages are not allocated for logical device id: {} ch: {}", chip_id, channel));
-            }
-
-            if (arch_name == tt::ARCH::BLACKHOLE) {
-                uint64_t base = channel * region_size;
-                uint64_t target = hugepage_map.physical_address;
-                tt_device->configure_iatu_region(channel, base, target, region_size);
-            } else {
-                // TODO: stop doing this.  The intent was good, but it's not
-                // documented and nothing takes advantage of it.
-                if (channel == 3) {
-                    region_size = HUGEPAGE_CHANNEL_3_SIZE_LIMIT;
-                }
-
-                // TODO: remove this and the Blackhole special case after ARC
-                // messaging is lowered to the TTDevice layer and we have a
-                // configure_iatu_region that works for GS/WH.  Longer term it'd
-                // be nice to have KMD deal with iATU for us...
-                iatu_configure_peer_region(chip_id, channel, hugepage_map.physical_address, region_size);
-            }
-        }
-    }
-}
-
-int Cluster::test_setup_interface() {
-    int ret_val = 0;
-    int chip_id = *local_chip_ids_.begin();
-    TTDevice* tt_device = get_tt_device(chip_id);
-    if (arch_name == tt::ARCH::WORMHOLE_B0) {
-        uint32_t mapped_reg = tt_device
-                                  ->set_dynamic_tlb(
-                                      tt_device->get_architecture_implementation()->get_reg_tlb(),
-                                      translate_chip_coord_virtual_to_translated(chip_id, tt_xy_pair(1, 0)),
-                                      0xffb20108)
-                                  .bar_offset;
-
-        uint32_t regval = 0;
-        tt_device->read_regs(mapped_reg, 1, &regval);
-        ret_val = (regval != 0xffffffff && (regval == 33)) ? 0 : 1;
-        return ret_val;
-    } else if (arch_name == tt::ARCH::BLACKHOLE) {
-        // MT Inital BH - Try to enable this, but double check "regval == 33"
-
-        // uint32_t mapped_reg = tt_device
-        //                           ->set_dynamic_tlb(
-        //                               tt_device->get_architecture_implementation()->get_reg_tlb(),
-        //                               translate_chip_coord_virtual_to_translated(chip_id, tt_xy_pair(1, 0)),
-        //                               0xffb20108)
-        //                           .bar_offset;
-
-        // uint32_t regval = 0;
-        // tt_device->read_regs(dev, mapped_reg, 1, &regval);
-        // ret_val = (regval != 0xffffffff && (regval == 33)) ? 0 : 1;
-        // return ret_val;
-        return 0;
-    } else {
-        throw std::runtime_error(fmt::format("Unsupported architecture: {}", arch_to_str(arch_name)));
-    }
-}
-
-// Returns 0 if everything was OK
-int Cluster::pcie_arc_msg(
-    int logical_device_id,
-    uint32_t msg_code,
-    bool wait_for_done,
-    uint32_t arg0,
-    uint32_t arg1,
-    uint32_t timeout_ms,
-    uint32_t* return_3,
-    uint32_t* return_4) {
-    std::vector<uint32_t> arc_msg_return_values;
-    if (return_3 != nullptr) {
-        arc_msg_return_values.push_back(0);
-    }
-
-    if (return_4 != nullptr) {
-        arc_msg_return_values.push_back(0);
-    }
-
-    uint32_t exit_code = get_tt_device(logical_device_id)
-                             ->get_arc_messenger()
-                             ->send_message(msg_code, arc_msg_return_values, arg0, arg1, timeout_ms);
-
-    if (return_3 != nullptr) {
-        *return_3 = arc_msg_return_values[0];
-    }
-
-    if (return_4 != nullptr) {
-        *return_4 = arc_msg_return_values[1];
-    }
-
-    return exit_code;
-}
-
-// TODO: this method should be lowered into TTDevice, where a common
-// implementation can be shared between GS/WH.  The major obstacle to doing it
-// (and the reason I'm leaving it alone for now) is the lack of ARC messaging
-// support at that layer of abstraction.
-int Cluster::iatu_configure_peer_region(
-    int logical_device_id, uint32_t peer_region_id, uint64_t bar_addr_64, uint32_t region_size) {
-    if (arch_name == tt::ARCH::BLACKHOLE) {
-        throw std::runtime_error("Don't call this for Blackhole");
-    }
-
-    uint32_t dest_bar_lo = bar_addr_64 & 0xffffffff;
-    uint32_t dest_bar_hi = (bar_addr_64 >> 32) & 0xffffffff;
-    std::uint32_t region_id_to_use = peer_region_id;
-
-    // TODO: stop doing this.  It's related to HUGEPAGE_CHANNEL_3_SIZE_LIMIT.
-    if (peer_region_id == 3) {
-        region_id_to_use = 4;  // Hack use region 4 for channel 3..this ensures that we have a smaller chan 3 address
-                               // space with the correct start offset
-    }
-
-    TTDevice* tt_device = get_tt_device(logical_device_id);
-    PCIDevice* pci_device = tt_device->get_pci_device();
-    auto architecture_implementation = tt_device->get_architecture_implementation();
-
-    tt_device->bar_write32(architecture_implementation->get_arc_csm_mailbox_offset() + 0 * 4, region_id_to_use);
-    tt_device->bar_write32(architecture_implementation->get_arc_csm_mailbox_offset() + 1 * 4, dest_bar_lo);
-    tt_device->bar_write32(architecture_implementation->get_arc_csm_mailbox_offset() + 2 * 4, dest_bar_hi);
-    tt_device->bar_write32(architecture_implementation->get_arc_csm_mailbox_offset() + 3 * 4, region_size);
-    arc_msg(
-        logical_device_id,
-        0xaa00 | architecture_implementation->get_arc_message_setup_iatu_for_peer_to_peer(),
-        true,
-        0,
-        0);
-
-    // Print what just happened
-    uint32_t peer_region_start = region_id_to_use * region_size;
-    uint32_t peer_region_end = (region_id_to_use + 1) * region_size - 1;
-    log_debug(
-        LogSiliconDriver,
-        "    [region id {}] NOC to PCI address range 0x{:x}-0x{:x} mapped to addr 0x{:x}",
-        peer_region_id,
-        peer_region_start,
-        peer_region_end,
-        bar_addr_64);
-    return 0;
-}
-
-void Cluster::enable_local_ethernet_queue(const chip_id_t& device_id, int timeout) {
-    uint32_t msg_success = 0x0;
-    auto timeout_seconds = std::chrono::seconds(timeout);
-    auto start = std::chrono::system_clock::now();
-    while (msg_success != 1) {
-        if (std::chrono::system_clock::now() - start > timeout_seconds) {
-            throw std::runtime_error(
-                fmt::format("Timed out after waiting {} seconds for for DRAM to finish training", timeout));
-        }
-
-        if (arc_msg(device_id, 0xaa58, true, 0xFFFF, 0xFFFF, 1000, &msg_success) == MSG_ERROR_REPLY) {
-            break;
-        }
-    }
 }
 
 void* Cluster::host_dma_address(std::uint64_t offset, chip_id_t src_device_id, uint16_t channel) const {
@@ -1347,83 +1085,6 @@ void Cluster::broadcast_write_to_cluster(
     }
 }
 
-int Cluster::remote_arc_msg(
-    int chip,
-    uint32_t msg_code,
-    bool wait_for_done,
-    uint32_t arg0,
-    uint32_t arg1,
-    uint32_t timeout_ms,
-    uint32_t* return_3,
-    uint32_t* return_4) {
-    constexpr uint64_t ARC_RESET_SCRATCH_ADDR = 0x880030060;
-    constexpr uint64_t ARC_RESET_MISC_CNTL_ADDR = 0x880030100;
-
-    auto core = tt_cxy_pair(chip, get_soc_descriptor(chip).get_cores(CoreType::ARC).at(0));
-
-    if ((msg_code & 0xff00) != 0xaa00) {
-        log_error("Malformed message. msg_code is 0x{:x} but should be 0xaa..", msg_code);
-    }
-    log_assert(arg0 <= 0xffff and arg1 <= 0xffff, "Only 16 bits allowed in arc_msg args");  // Only 16 bits are allowed
-
-    uint32_t fw_arg = arg0 | (arg1 << 16);
-    int exit_code = 0;
-
-    { write_to_non_mmio_device(&fw_arg, sizeof(fw_arg), core, ARC_RESET_SCRATCH_ADDR + 3 * 4); }
-
-    { write_to_non_mmio_device(&msg_code, sizeof(fw_arg), core, ARC_RESET_SCRATCH_ADDR + 5 * 4); }
-
-    wait_for_non_mmio_flush();
-    uint32_t misc = 0;
-    read_from_non_mmio_device(&misc, core, ARC_RESET_MISC_CNTL_ADDR, 4);
-
-    if (misc & (1 << 16)) {
-        log_error("trigger_fw_int failed on device {}", chip);
-        return 1;
-    } else {
-        misc |= (1 << 16);
-        write_to_non_mmio_device(&misc, sizeof(misc), core, ARC_RESET_MISC_CNTL_ADDR);
-    }
-
-    if (wait_for_done) {
-        uint32_t status = 0xbadbad;
-        auto start = std::chrono::steady_clock::now();
-        while (true) {
-            auto now = std::chrono::steady_clock::now();
-            auto elapsed_ms = std::chrono::duration_cast<std::chrono::milliseconds>(now - start).count();
-            if (elapsed_ms > timeout_ms && timeout_ms != 0) {
-                std::stringstream ss;
-                ss << std::hex << msg_code;
-                throw std::runtime_error(fmt::format(
-                    "Timed out after waiting {} ms for device {} ARC to respond to message 0x{}",
-                    timeout_ms,
-                    chip,
-                    ss.str()));
-            }
-
-            uint32_t status = 0;
-            read_from_non_mmio_device(&status, core, ARC_RESET_SCRATCH_ADDR + 5 * 4, sizeof(status));
-            if ((status & 0xffff) == (msg_code & 0xff)) {
-                if (return_3 != nullptr) {
-                    read_from_non_mmio_device(return_3, core, ARC_RESET_SCRATCH_ADDR + 3 * 4, sizeof(uint32_t));
-                }
-
-                if (return_4 != nullptr) {
-                    read_from_non_mmio_device(return_4, core, ARC_RESET_SCRATCH_ADDR + 4 * 4, sizeof(uint32_t));
-                }
-
-                exit_code = (status & 0xffff0000) >> 16;
-                break;
-            } else if (status == MSG_ERROR_REPLY) {
-                log_warning(LogSiliconDriver, "On device {}, message code 0x{:x} not recognized by FW", chip, msg_code);
-                exit_code = MSG_ERROR_REPLY;
-                break;
-            }
-        }
-    }
-    return exit_code;
-}
-
 void Cluster::write_to_sysmem(
     const void* mem_ptr, std::uint32_t size, uint64_t addr, uint16_t channel, chip_id_t src_device_id) {
     get_local_chip(src_device_id)->write_to_sysmem(channel, mem_ptr, addr, size);
@@ -1692,11 +1353,7 @@ int Cluster::arc_msg(
     uint32_t timeout_ms,
     uint32_t* return_3,
     uint32_t* return_4) {
-    if (cluster_desc->is_chip_mmio_capable(logical_device_id)) {
-        return pcie_arc_msg(logical_device_id, msg_code, wait_for_done, arg0, arg1, timeout_ms, return_3, return_4);
-    } else {
-        return remote_arc_msg(logical_device_id, msg_code, wait_for_done, arg0, arg1, timeout_ms, return_3, return_4);
-    }
+    return get_chip(logical_device_id)->arc_msg(msg_code, wait_for_done, arg0, arg1, timeout_ms, return_3, return_4);
 }
 
 void Cluster::send_tensix_risc_reset_to_core(const tt_cxy_pair& core, const TensixSoftResetOptions& soft_resets) {
@@ -1716,24 +1373,8 @@ void Cluster::send_remote_tensix_risc_reset_to_core(
 
 int Cluster::set_remote_power_state(const chip_id_t& chip, tt_DevicePowerState device_state) {
     auto mmio_capable_chip_logical = cluster_desc->get_closest_mmio_capable_chip(chip);
-    return remote_arc_msg(
-        chip, get_power_state_arc_msg(mmio_capable_chip_logical, device_state), true, 0, 0, 1000, NULL, NULL);
-}
-
-void Cluster::enable_remote_ethernet_queue(const chip_id_t& chip, int timeout) {
-    uint32_t msg_success = 0x0;
-    auto timeout_seconds = std::chrono::seconds(timeout);
-    auto start = std::chrono::system_clock::now();
-    while (msg_success != 1) {
-        if (std::chrono::system_clock::now() - start > timeout_seconds) {
-            throw std::runtime_error(
-                fmt::format("Timed out after waiting {} seconds for DRAM to finish training", timeout));
-        }
-        int msg_rt = remote_arc_msg(chip, 0xaa58, true, 0xFFFF, 0xFFFF, 1000, &msg_success, NULL);
-        if (msg_rt == MSG_ERROR_REPLY) {
-            break;
-        }
-    }
+    return get_chip(chip)->arc_msg(
+        get_power_state_arc_msg(mmio_capable_chip_logical, device_state), true, 0, 0, 1000, NULL, NULL);
 }
 
 void Cluster::broadcast_tensix_risc_reset_to_cluster(const TensixSoftResetOptions& soft_resets) {
@@ -1793,24 +1434,7 @@ void Cluster::set_power_state(tt_DevicePowerState device_state) {
 
 void Cluster::enable_ethernet_queue(int timeout) {
     for (const chip_id_t& chip : all_chip_ids_) {
-        auto arch = get_soc_descriptor(chip).arch;
-
-        switch (arch) {
-            case tt::ARCH::WORMHOLE_B0: {
-                if (cluster_desc->is_chip_mmio_capable(chip)) {
-                    enable_local_ethernet_queue(chip, timeout);
-                } else {
-                    enable_remote_ethernet_queue(chip, timeout);
-                }
-
-                break;
-                case tt::ARCH::BLACKHOLE:
-                    log_assert(false, "Arch BLACKHOLE doesn't support ethernet queues yet");
-            }
-            default: {
-                break;
-            }
-        }
+        get_chip(chip)->enable_ethernet_queue(timeout);
     }
 }
 
@@ -1822,9 +1446,8 @@ void Cluster::deassert_resets_and_set_power_state() {
     if (arch_name != tt::ARCH::BLACKHOLE) {
         // Send ARC Messages to deassert RISCV resets
         for (auto& chip_id : local_chip_ids_) {
-            arc_msg(
-                chip_id,
-                0xaa00 |
+            get_chip(chip_id)->arc_msg(
+                wormhole::ARC_MSG_COMMON_PREFIX |
                     get_tt_device(chip_id)->get_architecture_implementation()->get_arc_message_deassert_riscv_reset(),
                 true,
                 0,
@@ -1835,9 +1458,9 @@ void Cluster::deassert_resets_and_set_power_state() {
                 if (!cluster_desc->is_chip_mmio_capable(chip)) {
                     auto mmio_capable_chip_logical = cluster_desc->get_closest_mmio_capable_chip(chip);
                     auto tt_device = get_tt_device(mmio_capable_chip_logical);
-                    remote_arc_msg(
-                        chip,
-                        0xaa00 | tt_device->get_architecture_implementation()->get_arc_message_deassert_riscv_reset(),
+                    get_chip(chip)->arc_msg(
+                        wormhole::ARC_MSG_COMMON_PREFIX |
+                            tt_device->get_architecture_implementation()->get_arc_message_deassert_riscv_reset(),
                         true,
                         0x0,
                         0x0,

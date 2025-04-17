@@ -8,7 +8,7 @@ target_link_libraries(
         gtest
         pthread
         fmt::fmt-header-only
-        nng
+        $<$<BOOL:${TT_UMD_BUILD_SIMULATION}>:nng>
 )
 target_include_directories(
     test_common
@@ -57,10 +57,13 @@ add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/api)
 add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/blackhole)
 add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/misc)
 add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/pcie)
-add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/simulation)
 add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/unified)
 add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/wormhole)
 add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/galaxy)
+
+if(TT_UMD_BUILD_SIMULATION)
+    add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/simulation)
+endif()
 
 add_custom_target(
     umd_tests

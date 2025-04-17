@@ -298,6 +298,19 @@ PCIDevice::PCIDevice(int pci_device_number) :
 
         system_reg_start_offset = (512 - 16) * 1024 * 1024;
         system_reg_offset_adjust = (512 - 32) * 1024 * 1024;
+
+        bar2_uc_size = bar2_uc_mapping.mapping_size;
+        bar2_uc = mmap(
+            NULL,
+            bar2_uc_mapping.mapping_size,
+            PROT_READ | PROT_WRITE,
+            MAP_SHARED,
+            pci_device_file_desc,
+            bar2_uc_mapping.mapping_base);
+
+        if (bar2_uc == MAP_FAILED) {
+            throw std::runtime_error(fmt::format("BAR2 UC mapping failed for device {}.", pci_device_num));
+        }
     } else if (arch == tt::ARCH::BLACKHOLE) {
         if (bar2_uc_mapping.mapping_id != TENSTORRENT_MAPPING_RESOURCE1_UC) {
             throw std::runtime_error(fmt::format("Device {} has no BAR2 UC mapping.", pci_device_num));
@@ -334,6 +347,67 @@ PCIDevice::PCIDevice(int pci_device_number) :
 
         if (bar4_wc == MAP_FAILED) {
             throw std::runtime_error(fmt::format("BAR4 WC mapping failed for device {}.", pci_device_num));
+        }
+    }
+
+    // DMA buffer setup.  This is different than the hugepage-based buffers that
+    // are mapped to be accessible via the chip NOC.  This buffer is used by the
+    // PCIe DMA engine for transferring data between device and host.  A few
+    // things to note:
+    // 1. This is Wormhole-only.
+    // 2. Although the DMA engine could target the hugepages, the partitioning
+    // scheme for the hugepages is mostly up to the application.  Requiring the
+    // application to relinquish part of the hugepage memory and then coordinate
+    // with us about it sounds like a terrible idea.
+    // 3. Lack of current IOMMU support for Wormhole means that the buffer needs
+    // to be small enough that Linux will have a reasonable chance of being able
+    // to actually allocate it.
+    // 4. Longer-term, we could move to an IOMMU-based scheme where:
+    //    - Application allocates a buffer
+    //    - Driver pins it and maps it for DMA
+    //    - Application uses the buffer as an arena for DMA-able structures
+    //    - Driver initiates DMAs based on its knowledge of the buffer
+    // 5. + 0x1000 is for the completion page.  Since this entire implementation
+    // is a temporary hack until it's implemented in the driver, we'll need to
+    // poll a completion page to know when the DMA is done instead of receiving
+    // an interrupt.
+    if (arch == tt::ARCH::WORMHOLE_B0) {
+        const uint32_t buf_size = (1 << 20);  // 1 MiB
+        tenstorrent_allocate_dma_buf dma_buf{};
+
+        dma_buf.in.requested_size = buf_size + 0x1000;
+        dma_buf.in.buf_index = 0;
+
+        if (ioctl(pci_device_file_desc, TENSTORRENT_IOCTL_ALLOCATE_DMA_BUF, &dma_buf)) {
+            // There is a chance this will fail because we're not requiring
+            // IOMMU.  Linux might not have a contiguous chunk of memory to give
+            // us.  I'm not really sure what to do here.  PCIe DMA support is a
+            // new feature in UMD and the application might not care about it,
+            // so throwing our way out of here is wrong.  For now, we will log
+            // here and throw when PCIe DMA is attempted.  Maybe a higher layer
+            // in UMD can fall back to MMIO if that happens.
+            log_error("Failed to allocate DMA buffer: {}", strerror(errno));
+        } else {
+            // OK - we have a buffer.  Map it.
+            void *buffer = mmap(
+                nullptr,
+                buf_size + 0x1000,
+                PROT_READ | PROT_WRITE,
+                MAP_SHARED,
+                pci_device_file_desc,
+                dma_buf.out.mapping_offset);
+
+            if (buffer == MAP_FAILED) {
+                // Similar rationale to above, although this is worse because we
+                // can't deallocate it.  That only happens when we close the fd.
+                log_error("Failed to map DMA buffer: {}", strerror(errno));
+            } else {
+                dma_buffer.buffer = (uint8_t *)buffer;
+                dma_buffer.completion = (uint8_t *)buffer + buf_size;
+                dma_buffer.buffer_pa = dma_buf.out.physical_address;
+                dma_buffer.completion_pa = dma_buf.out.physical_address + buf_size;
+                dma_buffer.size = buf_size;
+            }
         }
     }
 }
@@ -409,7 +483,7 @@ uint64_t PCIDevice::map_for_dma(void *buffer, size_t size) {
     // 2. Use a larger value for the driver's dma_address_bits (currently 32;
     //    has implications for non-UMD based applications -- basically that any
     //    DMA buffer mapped beyond the 4GB boundary requires iATU configuration
-    //    for the hardware to be able to reach it).
+    //    for the hardware to be able to reach it via NOC).
     // 3. Use multiple mappings with small chunks (won't get us to 4GB; adds
     //    complexity).
     // 4. Modify the driver so that DMA allocations are in the low 4GB IOVA

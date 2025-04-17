@@ -24,7 +24,8 @@ LocalChip::LocalChip(
     Chip(soc_descriptor),
     tt_device_(TTDevice::create(pci_device_id)),
     sysmem_manager_(std::make_unique<SysmemManager>(tt_device_.get())),
-    tlb_manager_(std::make_unique<TLBManager>(tt_device_.get())) {
+    tlb_manager_(std::make_unique<TLBManager>(tt_device_.get())),
+    remote_communication_(std::make_unique<RemoteCommunication>(this)) {
     initialize_local_chip(num_host_mem_channels, clear_mutex);
 }
 
@@ -63,6 +64,7 @@ void LocalChip::initialize_local_chip(int num_host_mem_channels, const bool clea
     }
     wait_chip_to_be_ready();
     initialize_default_chip_mutexes(clear_mutex);
+    initialize_default_remote_transfer_ethernet_cores();
 }
 
 void LocalChip::initialize_tlb_manager() {
@@ -291,6 +293,52 @@ void LocalChip::read_from_device(
     }
 }
 
+void LocalChip::dma_write_to_device(const void* src, size_t size, tt_xy_pair core, uint64_t addr) {
+    static const std::string tlb_name = "LARGE_WRITE_TLB";
+    const uint8_t* buffer = static_cast<const uint8_t*>(src);
+    auto tlb_index = tlb_manager_->dynamic_tlb_config_.at(tlb_name);
+    auto ordering = tlb_manager_->dynamic_tlb_ordering_modes_.at(tlb_name);
+    PCIDevice* pci_device = tt_device_->get_pci_device();
+    size_t dmabuf_size = pci_device->get_dma_buffer().size;
+
+    core = translate_chip_coord_virtual_to_translated(core);
+
+    auto lock = acquire_mutex(tlb_name, pci_device->get_device_num());
+    while (size > 0) {
+        auto [axi_address, tlb_size] = tt_device_->set_dynamic_tlb(tlb_index, core, addr, ordering);
+        size_t transfer_size = std::min({size, tlb_size, dmabuf_size});
+
+        tt_device_->dma_h2d(axi_address, buffer, transfer_size);
+
+        size -= transfer_size;
+        addr += transfer_size;
+        buffer += transfer_size;
+    }
+}
+
+void LocalChip::dma_read_from_device(void* dst, size_t size, tt_xy_pair core, uint64_t addr) {
+    static const std::string tlb_name = "LARGE_READ_TLB";
+    uint8_t* buffer = static_cast<uint8_t*>(dst);
+    auto tlb_index = tlb_manager_->dynamic_tlb_config_.at(tlb_name);
+    auto ordering = tlb_manager_->dynamic_tlb_ordering_modes_.at(tlb_name);
+    PCIDevice* pci_device = tt_device_->get_pci_device();
+    size_t dmabuf_size = pci_device->get_dma_buffer().size;
+
+    core = translate_chip_coord_virtual_to_translated(core);
+
+    auto lock = acquire_mutex(tlb_name, pci_device->get_device_num());
+    while (size > 0) {
+        auto [axi_address, tlb_size] = tt_device_->set_dynamic_tlb(tlb_index, core, addr, ordering);
+        size_t transfer_size = std::min({size, tlb_size, dmabuf_size});
+
+        tt_device_->dma_d2h(buffer, axi_address, transfer_size);
+
+        size -= transfer_size;
+        addr += transfer_size;
+        buffer += transfer_size;
+    }
+}
+
 void LocalChip::write_to_device_reg(
     tt_xy_pair core, const void* src, uint64_t reg_dest, uint32_t size, const std::string& fallback_tlb) {
     if (size % sizeof(uint32_t) != 0) {
@@ -329,6 +377,20 @@ void LocalChip::read_from_device_reg(
     tt_device_->read_regs(mapped_address, size / sizeof(uint32_t), dest);
 }
 
+void LocalChip::ethernet_broadcast_write(
+    const void* src, uint64_t core_dest, uint32_t size, std::vector<int> broadcast_header) {
+    // target_chip and target_core are ignored when broadcast is enabled.
+    remote_communication_->write_to_non_mmio({0, 0, 0, 0}, {0, 0}, src, core_dest, size, true, broadcast_header);
+}
+
+void LocalChip::wait_for_non_mmio_flush() {
+    // This is a local chip, so no need to flush remote communication.
+}
+
+void LocalChip::set_flush_non_mmio(bool flush_non_mmio) { flush_non_mmio_ = flush_non_mmio; }
+
+bool LocalChip::get_flush_non_mmio() const { return flush_non_mmio_; }
+
 tt_xy_pair LocalChip::translate_chip_coord_virtual_to_translated(const tt_xy_pair core) const {
     CoreCoord core_coord = soc_descriptor_.get_coord_at(core, CoordSystem::VIRTUAL);
     // Since NOC1 and translated coordinate space overlaps for Tensix cores on Blackhole,
@@ -351,6 +413,56 @@ tt_xy_pair LocalChip::translate_chip_coord_virtual_to_translated(const tt_xy_pai
             core_coord, umd_use_noc1 ? CoordSystem::NOC1 : CoordSystem::TRANSLATED);
     }
 }
+
+void LocalChip::initialize_default_remote_transfer_ethernet_cores() {
+    if (tt_device_->get_arch() == tt::ARCH::WORMHOLE_B0) {
+        // By default, until set_remote_transfer_ethernet_cores is called, the remote transfer cores by default are set
+        // to the first 6 ones.
+        // TODO: Figure out why only 6. Figure out why other combination doesn't work on galaxy.
+        for (int channel = 0; channel < 6; channel++) {
+            remote_transfer_eth_cores_.push_back(
+                soc_descriptor_.get_eth_core_for_channel(channel, CoordSystem::VIRTUAL));
+        }
+    }
+}
+
+void LocalChip::set_remote_transfer_ethernet_cores(const std::unordered_set<CoreCoord>& active_eth_cores_per_chip) {
+    // Makes UMD aware of which ethernet cores have active links.
+    // Based on this information, UMD determines which ethernet cores can be used for host->cluster non-MMIO transfers.
+    // This overrides the default ethernet cores tagged for host to cluster routing in the constructor and must be
+    // called for all MMIO devices, if default behaviour is not desired.
+    log_assert(soc_descriptor_.arch == tt::ARCH::WORMHOLE_B0, "{} can only be called for Wormhole arch", __FUNCTION__);
+    // Cores 0, 1, 6, 7 are only available if in the active set
+    static std::unordered_set<tt_xy_pair> eth_cores_available_if_active = {
+        soc_descriptor_.get_eth_core_for_channel(0, CoordSystem::VIRTUAL),
+        soc_descriptor_.get_eth_core_for_channel(1, CoordSystem::VIRTUAL),
+        soc_descriptor_.get_eth_core_for_channel(6, CoordSystem::VIRTUAL),
+        soc_descriptor_.get_eth_core_for_channel(7, CoordSystem::VIRTUAL)};
+    // Eth cores 8 and 9 are always available
+    remote_transfer_eth_cores_ = {
+        soc_descriptor_.get_eth_core_for_channel(8, CoordSystem::VIRTUAL),
+        soc_descriptor_.get_eth_core_for_channel(9, CoordSystem::VIRTUAL)};
+    for (const auto& active_eth_core : active_eth_cores_per_chip) {
+        auto virtual_coord = soc_descriptor_.translate_coord_to(active_eth_core, CoordSystem::VIRTUAL);
+        if (eth_cores_available_if_active.find(active_eth_core) != eth_cores_available_if_active.end()) {
+            remote_transfer_eth_cores_.push_back(active_eth_core);
+        }
+    }
+}
+
+tt_xy_pair LocalChip::get_remote_transfer_ethernet_core() {
+    return {remote_transfer_eth_cores_[active_eth_core_idx].x, remote_transfer_eth_cores_[active_eth_core_idx].y};
+}
+
+void LocalChip::update_active_eth_core_idx() {
+    active_eth_core_idx++;
+    uint32_t update_mask_for_chip = remote_transfer_eth_cores_.size() - 1;
+    active_eth_core_idx = active_eth_core_idx & update_mask_for_chip;
+}
+
+int LocalChip::get_active_eth_core_idx() { return active_eth_core_idx; }
+
+std::vector<CoreCoord> LocalChip::get_remote_transfer_ethernet_cores() { return remote_transfer_eth_cores_; }
 
 std::unique_lock<RobustMutex> LocalChip::acquire_mutex(std::string mutex_name, int pci_device_id) {
     return lock_manager_.acquire_mutex(mutex_name, pci_device_id);
@@ -406,6 +518,37 @@ void LocalChip::wait_dram_cores_training(const uint32_t timeout_ms) {
             break;
         }
     }
+}
+
+int LocalChip::arc_msg(
+    uint32_t msg_code,
+    bool wait_for_done,
+    uint32_t arg0,
+    uint32_t arg1,
+    uint32_t timeout_ms,
+    uint32_t* return_3,
+    uint32_t* return_4) {
+    std::vector<uint32_t> arc_msg_return_values;
+    if (return_3 != nullptr) {
+        arc_msg_return_values.push_back(0);
+    }
+
+    if (return_4 != nullptr) {
+        arc_msg_return_values.push_back(0);
+    }
+
+    uint32_t exit_code =
+        get_tt_device()->get_arc_messenger()->send_message(msg_code, arc_msg_return_values, arg0, arg1, timeout_ms);
+
+    if (return_3 != nullptr) {
+        *return_3 = arc_msg_return_values[0];
+    }
+
+    if (return_4 != nullptr) {
+        *return_4 = arc_msg_return_values[1];
+    }
+
+    return exit_code;
 }
 
 }  // namespace tt::umd

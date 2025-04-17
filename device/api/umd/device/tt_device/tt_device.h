@@ -25,8 +25,6 @@ static const uint64_t UNROLL_ATU_OFFSET_BAR = 0x1200;
 // BAR0 size for Blackhole, used to determine whether write block should use BAR0 or BAR4
 static const uint64_t BAR0_BH_SIZE = 512 * 1024 * 1024;
 
-constexpr unsigned int c_hang_read_value = 0xffffffffu;
-
 struct dynamic_tlb {
     uint64_t bar_offset;      // Offset that address is mapped to, within the PCI BAR.
     uint64_t remaining_size;  // Bytes remaining between bar_offset and end of the TLB.
@@ -54,7 +52,7 @@ public:
 
     tt::ARCH get_arch();
 
-    void detect_hang_read(uint32_t data_read = c_hang_read_value);
+    void detect_hang_read(uint32_t data_read = HANG_READ_VALUE);
 
     // Note: byte_addr is (mostly but not always) offset into BAR0.  This
     // interface assumes the caller knows what they are doing - but it's unclear
@@ -72,6 +70,26 @@ public:
     void write_regs(volatile uint32_t *dest, const uint32_t *src, uint32_t word_len);
     void write_regs(uint32_t byte_addr, uint32_t word_len, const void *data);
     void read_regs(uint32_t byte_addr, uint32_t word_len, void *data);
+
+    /**
+     * DMA transfer from device to host.
+     *
+     * @param dst destination buffer
+     * @param src AXI address corresponding to inbound PCIe TLB window; src % 4 == 0
+     * @param size number of bytes
+     * @throws std::runtime_error if the DMA transfer fails
+     */
+    virtual void dma_d2h(void *dst, uint32_t src, size_t size) = 0;
+
+    /**
+     * DMA transfer from host to device.
+     *
+     * @param dst AXI address corresponding to inbound PCIe TLB window; dst % 4 == 0
+     * @param src source buffer
+     * @param size number of bytes
+     * @throws std::runtime_error if the DMA transfer fails
+     */
+    virtual void dma_h2d(uint32_t dst, const void *src, size_t size) = 0;
 
     // Read/write functions that always use same TLB entry. This is not supposed to be used
     // on any code path that is performance critical. It is used to read/write the data needed

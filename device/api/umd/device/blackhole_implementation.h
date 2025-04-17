@@ -104,7 +104,7 @@ static const tt_xy_pair ARC_GRID_SIZE = {1, 1};
 static const std::vector<tt_xy_pair> ARC_CORES_NOC0 = {{8, 0}};
 static const std::vector<tt_xy_pair> ARC_LOCATIONS = ARC_CORES_NOC0;
 
-static const tt_xy_pair PCIE_GRID_SIZE = {1, 1};
+static const tt_xy_pair PCIE_GRID_SIZE = {2, 1};
 static const std::vector<tt_xy_pair> PCIE_CORES_TYPE2_NOC0 = {{{2, 0}}};
 static const std::vector<tt_xy_pair> PCI_LOCATIONS = PCIE_CORES_TYPE2_NOC0;
 static const std::vector<tt_xy_pair> PCIE_CORES_TYPE1_NOC0 = {{{11, 0}}};
@@ -275,13 +275,6 @@ static const size_t pcie_translated_coordinate_start_y = 24;
 
 static const size_t dram_translated_coordinate_start_x = 17;
 static const size_t dram_translated_coordinate_start_y = 12;
-
-/*
- * Ge the PCIE core that can be used for communication with host
- * based on the board type and asic location of the chip.
- * Information on remote chip is used only if the board type is P300.
- */
-std::vector<tt_xy_pair> get_pcie_cores(const BoardType board_type, const uint8_t asic_location);
 
 }  // namespace blackhole
 

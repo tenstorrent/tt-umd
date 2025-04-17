@@ -93,6 +93,21 @@ ChipInfo BlackholeTTDevice::get_chip_info() {
                                                          ? (~telemetry->read_entry(blackhole::TAG_ENABLED_ETH) & 0x3FFF)
                                                          : 0;
 
+    uint32_t pcie_usage = telemetry->read_entry(blackhole::TAG_PCIE_USAGE);
+
+    uint32_t pcie0_usage = pcie_usage & 0x3;
+    uint32_t pcie1_usage = (pcie_usage >> 2) & 0x3;
+
+    const uint32_t pcie_usage_endpoint = 1;
+    chip_info.harvesting_masks.pcie_harvesting_mask = 0;
+    if (pcie0_usage != pcie_usage_endpoint) {
+        chip_info.harvesting_masks.pcie_harvesting_mask |= 0x1;
+    }
+
+    if (pcie1_usage != pcie_usage_endpoint) {
+        chip_info.harvesting_masks.pcie_harvesting_mask |= (1 << 1);
+    }
+
     // TODO: Read asic location of the chip from telemetry when it is available.
     // Until then we have to read it from ETH core, it happens during topology exploration.
     // chip_info.chip_uid.asic_location = telemetry->read_entry(blackhole::TAG_ASIC_LOCATION);
@@ -159,6 +174,14 @@ BoardType BlackholeTTDevice::get_board_type() {
     return get_board_type_from_board_id(
         ((uint64_t)telemetry->read_entry(blackhole::TAG_BOARD_ID_HIGH) << 32) |
         (telemetry->read_entry(blackhole::TAG_BOARD_ID_LOW)));
+}
+
+void BlackholeTTDevice::dma_d2h(void *dst, uint32_t src, size_t size) {
+    throw std::runtime_error("D2H DMA is not supported on Blackhole.");
+}
+
+void BlackholeTTDevice::dma_h2d(uint32_t dst, const void *src, size_t size) {
+    throw std::runtime_error("H2D DMA is not supported on Blackhole.");
 }
 
 }  // namespace tt::umd

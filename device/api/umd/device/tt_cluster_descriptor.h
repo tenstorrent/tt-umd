@@ -51,6 +51,7 @@ protected:
     std::unordered_map<chip_id_t, tt::ARCH> chip_arch = {};
     std::map<ChipUID, chip_id_t> chip_uid_to_chip_id = {};
     std::map<chip_id_t, ChipUID> chip_id_to_chip_uid = {};
+    std::unordered_map<chip_id_t, uint64_t> chip_unique_ids = {};
     std::map<chip_id_t, std::set<uint32_t>> active_eth_channels = {};
     std::map<chip_id_t, std::set<uint32_t>> idle_eth_channels = {};
 
@@ -82,6 +83,7 @@ protected:
 
     std::map<chip_id_t, uint32_t> dram_harvesting_masks = {};
     std::map<chip_id_t, uint32_t> eth_harvesting_masks = {};
+    std::map<chip_id_t, uint32_t> pcie_harvesting_masks = {};
 
 public:
     /*
@@ -109,11 +111,13 @@ public:
     const std::unordered_map<chip_id_t, std::uint32_t> &get_harvesting_info() const;
     const std::unordered_map<chip_id_t, bool> &get_noc_translation_table_en() const;
     const std::unordered_map<chip_id_t, eth_coord_t> &get_chip_locations() const;
+    const std::unordered_map<chip_id_t, uint64_t> &get_chip_unique_ids() const;
     const std::
         unordered_map<chip_id_t, std::unordered_map<ethernet_channel_t, std::tuple<chip_id_t, ethernet_channel_t>>>
         get_ethernet_connections() const;
     const std::unordered_map<chip_id_t, chip_id_t> get_chips_with_mmio() const;
     const std::unordered_set<chip_id_t> &get_all_chips() const;
+    const std::vector<chip_id_t> get_all_chips_local_first() const;
     const std::unordered_map<chip_id_t, std::unordered_set<chip_id_t>> &get_chips_grouped_by_closest_mmio() const;
     std::size_t get_number_of_chips() const;
 
@@ -143,4 +147,5 @@ public:
 
     uint32_t get_dram_harvesting_mask(chip_id_t chip_id) const;
     uint32_t get_eth_harvesting_mask(chip_id_t chip_id) const;
+    uint32_t get_pcie_harvesting_mask(chip_id_t chip_id) const;
 };

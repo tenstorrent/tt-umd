@@ -880,3 +880,19 @@ TEST(ClusterBH, TotalNumberOfEthCores) {
 
     EXPECT_EQ(num_eth_cores, num_active_channels + num_idle_channels);
 }
+
+TEST(ClusterBH, PCIECores) {
+    std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
+
+    for (chip_id_t chip : cluster->get_target_device_ids()) {
+        const auto& pcie_cores = cluster->get_soc_descriptor(chip).get_cores(CoreType::PCIE);
+
+        EXPECT_EQ(pcie_cores.size(), 1);
+
+        const auto& harvested_pcie_cores = cluster->get_soc_descriptor(chip).get_harvested_cores(CoreType::PCIE);
+
+        EXPECT_EQ(harvested_pcie_cores.size(), 1);
+
+        EXPECT_NE(pcie_cores.at(0).x, harvested_pcie_cores.at(0).x);
+    }
+}

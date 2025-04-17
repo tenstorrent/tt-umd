@@ -61,8 +61,6 @@ using namespace tt::umd;
 
 extern bool umd_use_noc1;
 
-static const uint32_t MSG_ERROR_REPLY = 0xFFFFFFFF;
-
 // Remove 256MB from full 1GB for channel 3 (iATU limitation)
 static constexpr uint32_t HUGEPAGE_CHANNEL_3_SIZE_LIMIT = 805306368;
 
@@ -129,12 +127,6 @@ void Cluster::create_device(
             }
         }
     }
-
-    for (const chip_id_t& chip : all_chip_ids_) {
-        if (!cluster_desc->is_chip_mmio_capable(chip)) {
-            flush_non_mmio_per_chip[chip] = false;
-        }
-    }
 }
 
 void Cluster::construct_cluster(const uint32_t& num_host_mem_ch_per_mmio_device, const bool create_mock_chips) {
@@ -142,8 +134,11 @@ void Cluster::construct_cluster(const uint32_t& num_host_mem_ch_per_mmio_device,
     arch_name = chips_.empty() ? tt::ARCH::Invalid : chips_.begin()->second->get_soc_descriptor().arch;
 
     if (!create_mock_chips) {
-        auto available_device_ids = detect_available_device_ids();
-        log_info(LogSiliconDriver, "Detected PCI devices: {}", available_device_ids);
+        std::vector<int> pci_ids;
+        for (const auto& [logical_id, pci_id] : cluster_desc->get_chips_with_mmio()) {
+            pci_ids.push_back(pci_id);
+        }
+        log_info(LogSiliconDriver, "Detected PCI devices: {}", pci_ids);
         log_info(
             LogSiliconDriver, "Using local chip ids: {} and remote chip ids {}", local_chip_ids_, remote_chip_ids_);
     }
@@ -153,27 +148,7 @@ void Cluster::construct_cluster(const uint32_t& num_host_mem_ch_per_mmio_device,
     // Disable dependency to ethernet firmware for all BH devices and WH devices with all chips having MMIO (e.g. UBB
     // Galaxy, or P300).
     if (remote_chip_ids_.empty()) {
-        use_ethernet_ordered_writes = false;
         use_ethernet_broadcast = false;
-    }
-
-    populate_cores();
-
-    // MT: Initial BH - skip this for BH
-    if (arch_name == tt::ARCH::WORMHOLE_B0) {
-        remote_transfer_ethernet_cores.resize(local_chip_ids_.size());
-        for (const auto& logical_mmio_chip_id : local_chip_ids_) {
-            const tt_SocDescriptor& soc_desc = get_soc_descriptor(logical_mmio_chip_id);
-            // 4-5 is for send_epoch_commands, 0-3 are for everything else
-            for (std::uint32_t i = 0; i < NUM_ETH_CORES_FOR_NON_MMIO_TRANSFERS; i++) {
-                if (remote_transfer_ethernet_cores.size() <= logical_mmio_chip_id) {
-                    remote_transfer_ethernet_cores.resize(logical_mmio_chip_id + 1);
-                }
-                CoreCoord ethernet_core = soc_desc.get_eth_core_for_channel(i, CoordSystem::VIRTUAL);
-                remote_transfer_ethernet_cores.at(logical_mmio_chip_id)
-                    .push_back(tt_cxy_pair(logical_mmio_chip_id, ethernet_core));
-            }
-        }
     }
 }
 
@@ -192,7 +167,13 @@ std::unique_ptr<Chip> Cluster::construct_chip_from_cluster(
         return std::make_unique<LocalChip>(
             soc_desc, cluster_desc->get_chips_with_mmio().at(chip_id), num_host_mem_channels, clean_system_resources);
     } else {
-        return std::make_unique<RemoteChip>(soc_desc);
+        if (cluster_desc->get_arch(chip_id) != tt::ARCH::WORMHOLE_B0) {
+            throw std::runtime_error("Remote chips are supported only for wormhole.");
+        }
+        return std::make_unique<RemoteChip>(
+            soc_desc,
+            cluster_desc->get_chip_locations().at(chip_id),
+            get_local_chip(cluster_desc->get_closest_mmio_capable_chip(chip_id)));
     }
 }
 
@@ -317,6 +298,22 @@ uint32_t Cluster::get_eth_harvesting_mask(
                : cluster_desc->get_eth_harvesting_mask(chip_id);
 }
 
+uint32_t Cluster::get_pcie_harvesting_mask(
+    chip_id_t chip_id,
+    tt_ClusterDescriptor* cluster_desc,
+    bool perform_harvesting,
+    std::unordered_map<chip_id_t, HarvestingMasks>& simulated_harvesting_masks) {
+    if (!perform_harvesting) {
+        log_info(LogSiliconDriver, "Skipping PCIE harvesting for chip {}.", chip_id);
+        return 0;
+    }
+
+    return simulated_harvesting_masks.find(chip_id) != simulated_harvesting_masks.end()
+               ? cluster_desc->get_pcie_harvesting_mask(chip_id) |
+                     simulated_harvesting_masks.at(chip_id).pcie_harvesting_mask
+               : cluster_desc->get_pcie_harvesting_mask(chip_id);
+}
+
 HarvestingMasks Cluster::get_harvesting_masks(
     chip_id_t chip_id,
     tt_ClusterDescriptor* cluster_desc,
@@ -328,7 +325,9 @@ HarvestingMasks Cluster::get_harvesting_masks(
         .dram_harvesting_mask =
             get_dram_harvesting_mask(chip_id, cluster_desc, perfrom_harvesting, simulated_harvesting_masks),
         .eth_harvesting_mask =
-            get_eth_harvesting_mask(chip_id, cluster_desc, perfrom_harvesting, simulated_harvesting_masks)};
+            get_eth_harvesting_mask(chip_id, cluster_desc, perfrom_harvesting, simulated_harvesting_masks),
+        .pcie_harvesting_mask =
+            get_pcie_harvesting_mask(chip_id, cluster_desc, perfrom_harvesting, simulated_harvesting_masks)};
 }
 
 void Cluster::ubb_eth_connections(
@@ -369,6 +368,7 @@ void Cluster::ubb_eth_connections(
                 &remote_chip_id, tt_cxy_pair(chip_id, eth_core.x, eth_core.y), base_addr + (72 * 4), sizeof(uint64_t));
 
             chip_uid_to_local_chip_id.insert({local_chip_id, chip_id});
+            cluster_desc->chip_unique_ids.insert({chip_id, local_chip_id});
 
             channel++;
         }
@@ -421,7 +421,7 @@ Cluster::Cluster(
     std::unordered_map<chip_id_t, HarvestingMasks> simulated_harvesting_masks) {
     cluster_desc = Cluster::create_cluster_descriptor();
 
-    for (auto& chip_id : cluster_desc->get_all_chips()) {
+    for (auto& chip_id : cluster_desc->get_all_chips_local_first()) {
         add_chip(
             chip_id,
             construct_chip_from_cluster(
@@ -446,7 +446,7 @@ Cluster::Cluster(
     std::unordered_map<chip_id_t, HarvestingMasks> simulated_harvesting_masks) {
     cluster_desc = Cluster::create_cluster_descriptor();
 
-    for (auto& chip_id : target_devices) {
+    for (auto& chip_id : cluster_desc->get_all_chips_local_first()) {
         log_assert(
             cluster_desc->get_all_chips().find(chip_id) != cluster_desc->get_all_chips().end(),
             "Target device {} not present in current cluster!",
@@ -476,7 +476,7 @@ Cluster::Cluster(
     std::unordered_map<chip_id_t, HarvestingMasks> simulated_harvesting_masks) {
     cluster_desc = Cluster::create_cluster_descriptor(sdesc_path);
 
-    for (auto& chip_id : target_devices) {
+    for (auto& chip_id : cluster_desc->get_all_chips_local_first()) {
         log_assert(
             cluster_desc->get_all_chips().find(chip_id) != cluster_desc->get_all_chips().end(),
             "Target device {} not present in current cluster!",
@@ -512,7 +512,7 @@ Cluster::Cluster(
     std::unordered_map<chip_id_t, HarvestingMasks> simulated_harvesting_masks) {
     cluster_desc = std::move(cluster_descriptor);
 
-    for (auto& chip_id : cluster_desc->get_all_chips()) {
+    for (auto& chip_id : cluster_desc->get_all_chips_local_first()) {
         add_chip(
             chip_id,
             construct_chip_from_cluster(
@@ -530,50 +530,7 @@ Cluster::Cluster(
 
 void Cluster::configure_active_ethernet_cores_for_mmio_device(
     chip_id_t mmio_chip, const std::unordered_set<CoreCoord>& active_eth_cores_per_chip) {
-    // Makes UMD aware of which ethernet cores have active links.
-    // Based on this information, UMD determines which ethernet cores can be used for host->cluster non-MMIO transfers.
-    // This overrides the default ethernet cores tagged for host to cluster routing in the constructor and must be
-    // called for all MMIO devices, if default behaviour is not desired.
-    auto& soc_desc = get_soc_descriptor(mmio_chip);
-    log_assert(soc_desc.arch == tt::ARCH::WORMHOLE_B0, "{} can only be called for Wormhole arch", __FUNCTION__);
-    // Cores 0, 1, 6, 7 are only available if in the active set
-    static std::unordered_set<CoreCoord> eth_cores_available_if_active = {
-        soc_desc.get_eth_core_for_channel(0, CoordSystem::VIRTUAL),
-        soc_desc.get_eth_core_for_channel(1, CoordSystem::VIRTUAL),
-        soc_desc.get_eth_core_for_channel(6, CoordSystem::VIRTUAL),
-        soc_desc.get_eth_core_for_channel(7, CoordSystem::VIRTUAL)};
-    // Eth cores 8 and 9 are always available
-    std::vector<tt_cxy_pair> non_mmio_access_cores_for_chip = {
-        {(size_t)mmio_chip, soc_desc.get_eth_core_for_channel(8, CoordSystem::VIRTUAL)},
-        {(size_t)mmio_chip, soc_desc.get_eth_core_for_channel(9, CoordSystem::VIRTUAL)}};
-    for (const auto& active_eth_core : active_eth_cores_per_chip) {
-        const auto virtual_active_eth_core =
-            get_soc_descriptor(mmio_chip).translate_coord_to(active_eth_core, CoordSystem::VIRTUAL);
-        if (eth_cores_available_if_active.find(virtual_active_eth_core) != eth_cores_available_if_active.end()) {
-            non_mmio_access_cores_for_chip.push_back(tt_cxy_pair(mmio_chip, virtual_active_eth_core));
-        }
-    }
-
-    remote_transfer_ethernet_cores[mmio_chip] = non_mmio_access_cores_for_chip;
-    active_eth_core_idx_per_chip.insert({mmio_chip, 0});
-    non_mmio_transfer_cores_customized = true;
-}
-
-void Cluster::populate_cores() {
-    std::uint32_t count = 0;
-    for (const auto& [chip_id, chip] : chips_) {
-        auto& soc_desc = chip->get_soc_descriptor();
-        auto workers = soc_desc.get_cores(CoreType::TENSIX, CoordSystem::VIRTUAL);
-        workers_per_chip.insert({chip_id, std::unordered_set<tt_xy_pair>(workers.begin(), workers.end())});
-        if (count == 0) {
-            auto ethernet_cores = soc_desc.get_cores(CoreType::ETH, CoordSystem::VIRTUAL);
-            eth_cores = std::unordered_set<tt_xy_pair>(ethernet_cores.begin(), ethernet_cores.end());
-            for (std::uint32_t dram_idx = 0; dram_idx < soc_desc.get_num_dram_channels(); dram_idx++) {
-                dram_cores.insert(soc_desc.get_dram_core_for_channel(dram_idx, 0, CoordSystem::VIRTUAL));
-            }
-        }
-        count++;
-    }
+    get_local_chip(mmio_chip)->set_remote_transfer_ethernet_cores(active_eth_cores_per_chip);
 }
 
 void Cluster::check_pcie_device_initialized(int device_id) {
@@ -598,19 +555,18 @@ void Cluster::check_pcie_device_initialized(int device_id) {
     if (arch_name != tt::ARCH::BLACKHOLE) {
         log_debug(LogSiliconDriver, "== Check if device_id: {} is initialized", device_id);
         uint32_t bar_read_initial =
-            bar_read32(device_id, architecture_implementation->get_arc_reset_scratch_offset() + 3 * 4);
+            tt_device->bar_read32(architecture_implementation->get_arc_reset_scratch_offset() + 3 * 4);
         uint32_t arg = bar_read_initial == 500 ? 325 : 500;
         uint32_t bar_read_again;
-        uint32_t arc_msg_return = arc_msg(
-            device_id,
-            0xaa00 | architecture_implementation->get_arc_message_test(),
+        uint32_t arc_msg_return = get_chip(device_id)->arc_msg(
+            wormhole::ARC_MSG_COMMON_PREFIX | architecture_implementation->get_arc_message_test(),
             true,
             arg,
             0,
             1000,
             &bar_read_again);
         if (arc_msg_return != 0 || bar_read_again != arg + 1) {
-            auto postcode = bar_read32(device_id, architecture_implementation->get_arc_reset_scratch_offset());
+            auto postcode = tt_device->bar_read32(architecture_implementation->get_arc_reset_scratch_offset());
             throw std::runtime_error(fmt::format(
                 "Device is not initialized: arc_fw postcode: {} arc_msg_return: {} arg: {} bar_read_initial: {} "
                 "bar_read_again: {}",
@@ -694,23 +650,6 @@ void Cluster::assert_risc_reset_at_core(
 
 tt_ClusterDescriptor* Cluster::get_cluster_description() { return cluster_desc.get(); }
 
-// Can be used before instantiating a silicon device
-int Cluster::detect_number_of_chips() {
-    auto available_device_ids = detect_available_device_ids();
-    return available_device_ids.size();
-}
-
-// Can be used before instantiating a silicon device
-std::vector<chip_id_t> Cluster::detect_available_device_ids() {
-    // TODO: The chip_id_t type is used for two types of device id:
-    //  *   device id which is the N in /dev/tenstorrent/N
-    //  *   "logical" id which is the id of the chip in the YAML produced by
-    //      the create-ethernet-map tool
-    // Maybe these should be disambiguated.  Here, what is being returned is the
-    // former, the "device id" -- not to be confused with 16 bit PCI device id!
-    return PCIDevice::enumerate_devices();
-}
-
 std::function<void(uint32_t, uint32_t, const uint8_t*)> Cluster::get_fast_pcie_static_tlb_write_callable(
     int device_id) {
     TTDevice* dev = get_tt_device(device_id);
@@ -746,7 +685,7 @@ void Cluster::read_device_memory(
 
 uint32_t Cluster::get_power_state_arc_msg(chip_id_t chip_id, tt_DevicePowerState state) {
     TTDevice* tt_device = get_tt_device(chip_id);
-    uint32_t msg = 0xaa00;
+    uint32_t msg = wormhole::ARC_MSG_COMMON_PREFIX;
     switch (state) {
         case BUSY: {
             msg |= tt_device->get_architecture_implementation()->get_arc_message_arc_go_busy();
@@ -771,7 +710,7 @@ void Cluster::set_pcie_power_state(tt_DevicePowerState state) {
         uint32_t msg = get_power_state_arc_msg(chip_id, state);
         std::stringstream ss;
         ss << state;
-        auto exit_code = arc_msg(chip_id, 0xaa00 | msg, true, 0, 0);
+        auto exit_code = get_chip(chip_id)->arc_msg(wormhole::ARC_MSG_COMMON_PREFIX | msg, true, 0, 0);
         if (exit_code != 0) {
             throw std::runtime_error(
                 fmt::format("Failed to set power state to {} with exit code {}", ss.str(), exit_code));
@@ -806,8 +745,12 @@ void Cluster::wait_for_aiclk_value(tt_DevicePowerState power_state, const uint32
             auto end = std::chrono::system_clock::now();
             auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
             if (duration.count() > timeout_ms) {
-                throw std::runtime_error(
-                    fmt::format("Waiting for AICLK value to settle failed on timeout after {}.", timeout_ms));
+                throw std::runtime_error(fmt::format(
+                    "Waiting for AICLK value to settle failed on timeout after {}. Expected to see {}, last value "
+                    "observed {}",
+                    timeout_ms,
+                    target_aiclk,
+                    aiclk));
             }
             aiclk = get_clock(chip_id);
         }
@@ -932,7 +875,7 @@ int Cluster::test_setup_interface() {
 
         uint32_t regval = 0;
         tt_device->read_regs(mapped_reg, 1, &regval);
-        ret_val = (regval != 0xffffffff && (regval == 33)) ? 0 : 1;
+        ret_val = (regval != HANG_READ_VALUE && (regval == 33)) ? 0 : 1;
         return ret_val;
     } else if (arch_name == tt::ARCH::BLACKHOLE) {
         // MT Inital BH - Try to enable this, but double check "regval == 33"
@@ -946,69 +889,12 @@ int Cluster::test_setup_interface() {
 
         // uint32_t regval = 0;
         // tt_device->read_regs(dev, mapped_reg, 1, &regval);
-        // ret_val = (regval != 0xffffffff && (regval == 33)) ? 0 : 1;
+        // ret_val = (regval != HANG_READ_VALUE && (regval == 33)) ? 0 : 1;
         // return ret_val;
         return 0;
     } else {
         throw std::runtime_error(fmt::format("Unsupported architecture: {}", arch_to_str(arch_name)));
     }
-}
-
-void Cluster::bar_write32(int logical_device_id, uint32_t addr, uint32_t data) {
-    TTDevice* dev = get_tt_device(logical_device_id);
-
-    if (addr < dev->get_pci_device()->bar0_uc_offset) {
-        dev->write_block(
-            addr, sizeof(data), reinterpret_cast<const uint8_t*>(&data));  // do we have to reinterpret_cast?
-    } else {
-        dev->write_regs(addr, 1, &data);
-    }
-}
-
-uint32_t Cluster::bar_read32(int logical_device_id, uint32_t addr) {
-    TTDevice* dev = get_tt_device(logical_device_id);
-
-    uint32_t data;
-    if (addr < dev->get_pci_device()->bar0_uc_offset) {
-        dev->read_block(addr, sizeof(data), reinterpret_cast<uint8_t*>(&data));
-    } else {
-        dev->read_regs(addr, 1, &data);
-    }
-    return data;
-}
-
-// Returns 0 if everything was OK
-int Cluster::pcie_arc_msg(
-    int logical_device_id,
-    uint32_t msg_code,
-    bool wait_for_done,
-    uint32_t arg0,
-    uint32_t arg1,
-    uint32_t timeout_ms,
-    uint32_t* return_3,
-    uint32_t* return_4) {
-    std::vector<uint32_t> arc_msg_return_values;
-    if (return_3 != nullptr) {
-        arc_msg_return_values.push_back(0);
-    }
-
-    if (return_4 != nullptr) {
-        arc_msg_return_values.push_back(0);
-    }
-
-    uint32_t exit_code = get_tt_device(logical_device_id)
-                             ->get_arc_messenger()
-                             ->send_message(msg_code, arc_msg_return_values, arg0, arg1, timeout_ms);
-
-    if (return_3 != nullptr) {
-        *return_3 = arc_msg_return_values[0];
-    }
-
-    if (return_4 != nullptr) {
-        *return_4 = arc_msg_return_values[1];
-    }
-
-    return exit_code;
 }
 
 // TODO: this method should be lowered into TTDevice, where a common
@@ -1035,16 +921,17 @@ int Cluster::iatu_configure_peer_region(
     PCIDevice* pci_device = tt_device->get_pci_device();
     auto architecture_implementation = tt_device->get_architecture_implementation();
 
-    bar_write32(logical_device_id, architecture_implementation->get_arc_csm_mailbox_offset() + 0 * 4, region_id_to_use);
-    bar_write32(logical_device_id, architecture_implementation->get_arc_csm_mailbox_offset() + 1 * 4, dest_bar_lo);
-    bar_write32(logical_device_id, architecture_implementation->get_arc_csm_mailbox_offset() + 2 * 4, dest_bar_hi);
-    bar_write32(logical_device_id, architecture_implementation->get_arc_csm_mailbox_offset() + 3 * 4, region_size);
-    arc_msg(
-        logical_device_id,
-        0xaa00 | architecture_implementation->get_arc_message_setup_iatu_for_peer_to_peer(),
-        true,
-        0,
-        0);
+    tt_device->bar_write32(architecture_implementation->get_arc_csm_mailbox_offset() + 0 * 4, region_id_to_use);
+    tt_device->bar_write32(architecture_implementation->get_arc_csm_mailbox_offset() + 1 * 4, dest_bar_lo);
+    tt_device->bar_write32(architecture_implementation->get_arc_csm_mailbox_offset() + 2 * 4, dest_bar_hi);
+    tt_device->bar_write32(architecture_implementation->get_arc_csm_mailbox_offset() + 3 * 4, region_size);
+    get_chip(logical_device_id)
+        ->arc_msg(
+            wormhole::ARC_MSG_COMMON_PREFIX |
+                architecture_implementation->get_arc_message_setup_iatu_for_peer_to_peer(),
+            true,
+            0,
+            0);
 
     // Print what just happened
     uint32_t peer_region_start = region_id_to_use * region_size;
@@ -1057,77 +944,6 @@ int Cluster::iatu_configure_peer_region(
         peer_region_end,
         bar_addr_64);
     return 0;
-}
-
-// Returns broken rows as bits set to 1 in 'memory' and 'logic'
-uint32_t Cluster::get_harvested_noc_rows(uint32_t harvesting_mask) {
-    auto architecture_implementation = tt::umd::architecture_implementation::create(arch_name);
-    const std::vector<uint32_t>& harv_to_noc_loc = architecture_implementation->get_harvesting_noc_locations();
-    uint32_t harv_noc_rows = 0;
-    std::string harv_noc_rows_str = "";
-
-    for (int pos = 0; pos < harv_to_noc_loc.size(); ++pos) {
-        bool is_row_harvested = harvesting_mask & 0x1;
-        if (is_row_harvested) {
-            harv_noc_rows |= (1 << harv_to_noc_loc[pos]);
-            if (harv_noc_rows_str != "") {
-                harv_noc_rows_str += ", ";
-            }
-            harv_noc_rows_str += std::to_string(harv_to_noc_loc[pos]);
-        }
-        harvesting_mask = harvesting_mask >> 1;
-    }
-    if (harv_noc_rows > 0) {
-        log_debug(LogSiliconDriver, "HARVESTING NOC Y-LOC 0x{:x} = {{}}", harv_noc_rows, harv_noc_rows_str.c_str());
-    }
-    return harv_noc_rows;
-}
-
-uint32_t Cluster::get_harvested_rows(int logical_device_id) {
-    const char* harv_override = std::getenv("T6PY_HARVESTING_OVERRIDE");
-    uint32_t harv = 0xffffffff;
-    if (harv_override) {
-        harv = std::stoul(harv_override, nullptr, 16);
-    } else {
-        auto mmio_capable_chip_logical = cluster_desc->get_closest_mmio_capable_chip(logical_device_id);
-        TTDevice* tt_device = get_tt_device(mmio_capable_chip_logical);
-        int harvesting_msg_code = arc_msg(
-            logical_device_id,
-            0xaa00 | tt_device->get_architecture_implementation()->get_arc_message_arc_get_harvesting(),
-            true,
-            0,
-            0,
-            1000,
-            &harv);
-        log_assert(
-            harvesting_msg_code != MSG_ERROR_REPLY, "Failed to read harvested rows from device {}", logical_device_id);
-    }
-    log_assert(harv != 0xffffffff, "Readback 0xffffffff for harvesting info. Chip is fused incorrectly!");
-    log_debug(LogSiliconDriver, "HARVESTING {}, 0x{:x}", (harv == 0) ? "DISABLED" : "ENABLED", harv);
-
-    uint32_t memory = harv & 0x3ff;
-    uint32_t logic = (harv >> 10) & 0x3ff;
-    return (memory | logic);
-}
-
-uint32_t Cluster::get_harvested_noc_rows_for_chip(int logical_device_id) {
-    return get_harvested_noc_rows(get_harvested_rows(logical_device_id));
-}
-
-void Cluster::enable_local_ethernet_queue(const chip_id_t& device_id, int timeout) {
-    uint32_t msg_success = 0x0;
-    auto timeout_seconds = std::chrono::seconds(timeout);
-    auto start = std::chrono::system_clock::now();
-    while (msg_success != 1) {
-        if (std::chrono::system_clock::now() - start > timeout_seconds) {
-            throw std::runtime_error(
-                fmt::format("Timed out after waiting {} seconds for for DRAM to finish training", timeout));
-        }
-
-        if (arc_msg(device_id, 0xaa58, true, 0xFFFF, 0xFFFF, 1000, &msg_success) == MSG_ERROR_REPLY) {
-            break;
-        }
-    }
 }
 
 void* Cluster::host_dma_address(std::uint64_t offset, chip_id_t src_device_id, uint16_t channel) const {
@@ -1155,63 +971,17 @@ inline Chip* Cluster::get_chip(chip_id_t device_id) const {
     return chip_it->second.get();
 }
 
-inline Chip* Cluster::get_local_chip(chip_id_t device_id) const {
+inline LocalChip* Cluster::get_local_chip(chip_id_t device_id) const {
     log_assert(
         local_chip_ids_.find(device_id) != local_chip_ids_.end(), "Device id {} is not a local chip.", device_id);
-    return get_chip(device_id);
+    return dynamic_cast<LocalChip*>(get_chip(device_id));
 }
 
-/*
- *
- *                                       NON_MMIO_MUTEX Usage
- *
- * Relevant functions:
- *  - write_to_non_mmio_device
- *  - read_from_non_mmio_device
- *
- * The non-MMIO read/write functions (excluding the `*_epoch_cmd` variants) are responsible for the
- * writes/reads to/from those wormhole chips that aren't memory mapped or directly host connected.
- * To get the data to or from those other chips, there is a memory transfer protocol - initiated on
- * the host side but carried out by any number of the ethernet cores (the ethernet core pool is dictated
- * by `this->NUM_ETH_CORES_FOR_NON_MMIO_TRANSFERS`) on the MMIO chips (e.g. typically just the one chip in a galaxy).
- *
- * There is a command queue structure in ethernet core FW to accept these read/write commands. However, there is no
- * atomic increment (from host side) for the write pointers of these queues, nor is there any sort of other hardware
- * mutual exclusion (as of WH) from host side when populating commands into the queue (as in when the host pushes a
- * write command into the ethernet core's queue).
- *
- * Therefore, any of these non_mmio commands from host side need to be synchronized so they don't accidentally corrupt
- * each other. The finest granularity possible to synchronize on would be the command slot and wrptr (per core),
- * but wrptr updates also need to be coordinated:
- *  - you can't increment wrptr unless you are writing to the next index and your write is complete
- *  - if two threads could guarantee separate command slots, they'd need to order their wrptr updates from lowest to
- *    highest and based on completion of command writes.
- *
- * Stepping back a little bit, a sort of interprocess synchronization is required because the driver may be invoked
- * from several processes. Indeed from pybuda (python), we'd typically needs to spin up multiple processes:
- *   - 1 for pushing inputs
- *   - 1 for popping outputs
- *   - 1 for managing execution state
- *  (or some variation along those lines).
- *
- * The interprocess mutex from measurements takes a while. While not seconds, it's non-trivial such that locking and
- * unlocking at fine granularity would be more detrimental to performance than acquiring it for a large block.
- *
- * Considering the above, the current chosen approach is to make each of these calls acquired a shared mutex:
- * `NON_MMIO_MUTEX_NAME`
- *  - They acquire at a relatively large granularity -> for the entire duration of the function where we interact
- *    with the ethernet core (read/write) and where we use `active_core` to choose a core.
- *    - Simplifies synchronization while we reach stability
- *  - We need to include any usage (read/modify) of `active_core` in the mutex acquisition scope.
- *
- * Other schemes may be more performant.
- */
-
-/*
- * Note that this function is required to acquire the `NON_MMIO_MUTEX_NAME` mutex for interacting with the
- * ethernet core (host) command queue DO NOT issue any pcie reads/writes to the ethernet core prior to acquiring the
- * mutex. For extra information, see the "NON_MMIO_MUTEX Usage" above
- */
+inline RemoteChip* Cluster::get_remote_chip(chip_id_t device_id) const {
+    log_assert(
+        remote_chip_ids_.find(device_id) != remote_chip_ids_.end(), "Device id {} is not a remote chip.", device_id);
+    return dynamic_cast<RemoteChip*>(get_chip(device_id));
+}
 
 void Cluster::write_to_non_mmio_device(
     const void* mem_ptr,
@@ -1220,631 +990,22 @@ void Cluster::write_to_non_mmio_device(
     uint64_t address,
     bool broadcast,
     std::vector<int> broadcast_header) {
-    chip_id_t mmio_capable_chip_logical;
-
     if (broadcast) {
-        mmio_capable_chip_logical = core.chip;
+        get_local_chip(core.chip)->ethernet_broadcast_write(mem_ptr, address, size_in_bytes, broadcast_header);
     } else {
-        mmio_capable_chip_logical = cluster_desc->get_closest_mmio_capable_chip(core.chip);
-    }
-    flush_non_mmio_per_chip[cluster_desc->get_closest_mmio_capable_chip(core.chip)] = true;
-
-    if (non_mmio_transfer_cores_customized) {
-        log_assert(
-            active_eth_core_idx_per_chip.find(mmio_capable_chip_logical) != active_eth_core_idx_per_chip.end(),
-            "Ethernet Cores for Host to Cluster communication were not initialized for all MMIO devices.");
-    }
-
-    using data_word_t = uint32_t;
-    constexpr int DATA_WORD_SIZE = sizeof(data_word_t);
-    constexpr int BROADCAST_HEADER_SIZE = sizeof(data_word_t) * 8;  // Broadcast header is 8 words
-    const auto target_chip = cluster_desc->get_chip_locations().at(core.chip);
-
-    // TODO: To be removed when this is moved to Chip classes.
-    auto host_address_params = get_local_chip(mmio_capable_chip_logical)->host_address_params;
-    auto eth_interface_params = get_local_chip(mmio_capable_chip_logical)->eth_interface_params;
-    auto noc_params = get_local_chip(mmio_capable_chip_logical)->noc_params;
-
-    std::string write_tlb = "LARGE_WRITE_TLB";
-    std::string read_tlb = "LARGE_READ_TLB";
-    std::string empty_tlb = "";
-
-    tt_xy_pair translated_core = translate_chip_coord_virtual_to_translated(core.chip, core);
-    core.x = translated_core.x;
-    core.y = translated_core.y;
-
-    std::vector<std::uint32_t> erisc_command;
-    std::vector<std::uint32_t> erisc_q_rptr = std::vector<uint32_t>(1);
-    std::vector<std::uint32_t> erisc_q_ptrs =
-        std::vector<uint32_t>(eth_interface_params.remote_update_ptr_size_bytes * 2 / sizeof(uint32_t));
-
-    std::vector<std::uint32_t> data_block;
-
-    routing_cmd_t* new_cmd;
-
-    uint32_t buffer_id = 0;
-    uint32_t timestamp = 0;  // CMD_TIMESTAMP;
-    bool use_dram;
-    uint32_t max_block_size;
-
-    // Broadcast requires block writes to host dram
-    use_dram = broadcast || (size_in_bytes > 256 * DATA_WORD_SIZE);
-    max_block_size = use_dram ? host_address_params.eth_routing_block_size : eth_interface_params.max_block_size;
-
-    //
-    //                    MUTEX ACQUIRE (NON-MMIO)
-    //  do not locate any ethernet core reads/writes before this acquire
-    //
-    auto lock =
-        get_local_chip(mmio_capable_chip_logical)
-            ->acquire_mutex(
-                MutexType::NON_MMIO, get_tt_device(mmio_capable_chip_logical)->get_pci_device()->get_device_num());
-
-    int& active_core_for_txn =
-        non_mmio_transfer_cores_customized ? active_eth_core_idx_per_chip.at(mmio_capable_chip_logical) : active_core;
-    tt_cxy_pair remote_transfer_ethernet_core =
-        remote_transfer_ethernet_cores.at(mmio_capable_chip_logical)[active_core_for_txn];
-
-    erisc_command.resize(sizeof(routing_cmd_t) / DATA_WORD_SIZE);
-    new_cmd = (routing_cmd_t*)&erisc_command[0];
-    read_device_memory(
-        erisc_q_ptrs.data(),
-        remote_transfer_ethernet_core,
-        eth_interface_params.request_cmd_queue_base + eth_interface_params.cmd_counters_size_bytes,
-        eth_interface_params.remote_update_ptr_size_bytes * 2,
-        read_tlb);
-    uint32_t full_count = 0;
-    uint32_t offset = 0;
-    uint32_t block_size;
-
-    bool full = is_non_mmio_cmd_q_full(
-        chips_.at(mmio_capable_chip_logical)->eth_interface_params, erisc_q_ptrs[0], erisc_q_ptrs[4]);
-    erisc_q_rptr.resize(1);
-    erisc_q_rptr[0] = erisc_q_ptrs[4];
-    while (offset < size_in_bytes) {
-        while (full) {
-            read_device_memory(
-                erisc_q_rptr.data(),
-                remote_transfer_ethernet_core,
-                eth_interface_params.request_cmd_queue_base + eth_interface_params.cmd_counters_size_bytes +
-                    eth_interface_params.remote_update_ptr_size_bytes,
-                DATA_WORD_SIZE,
-                read_tlb);
-            full = is_non_mmio_cmd_q_full(
-                chips_.at(mmio_capable_chip_logical)->eth_interface_params, erisc_q_ptrs[0], erisc_q_rptr[0]);
-            full_count++;
-        }
-        // full = true;
-        //  set full only if this command will make the q full.
-        //  otherwise full stays false so that we do not poll the rd pointer in next iteration.
-        //  As long as current command push does not fill up the queue completely, we do not want
-        //  to poll rd pointer in every iteration.
-        // full = is_non_mmio_cmd_q_full((erisc_q_ptrs[0] + 1) & CMD_BUF_PTR_MASK, erisc_q_rptr[0]);
-
-        uint32_t req_wr_ptr = erisc_q_ptrs[0] & eth_interface_params.cmd_buf_size_mask;
-        if ((address + offset) & 0x1F) {  // address not 32-byte aligned
-            block_size = DATA_WORD_SIZE;  // 4 byte aligned
-        } else {
-            // For broadcast we prepend a 32byte header. Decrease block size (size of payload) by this amount.
-            block_size = offset + max_block_size > size_in_bytes + 32 * broadcast ? size_in_bytes - offset
-                                                                                  : max_block_size - 32 * broadcast;
-            // Explictly align block_size to 4 bytes, in case the input buffer is not uint32_t aligned
-            uint32_t alignment_mask = sizeof(uint32_t) - 1;
-            block_size = (block_size + alignment_mask) & ~alignment_mask;
-        }
-        // For 4 byte aligned data, transfer_size always == block_size. For unaligned data, transfer_size < block_size
-        // in the last block
-        uint64_t transfer_size =
-            std::min(block_size, size_in_bytes - offset);  // Host side data size that needs to be copied
-        // Use block mode for broadcast
-        uint32_t req_flags = (broadcast || (block_size > DATA_WORD_SIZE))
-                                 ? (eth_interface_params.cmd_data_block | eth_interface_params.cmd_wr_req | timestamp)
-                                 : eth_interface_params.cmd_wr_req;
-        uint32_t resp_flags = block_size > DATA_WORD_SIZE
-                                  ? (eth_interface_params.cmd_data_block | eth_interface_params.cmd_wr_ack)
-                                  : eth_interface_params.cmd_wr_ack;
-        timestamp = 0;
-
-        if (broadcast) {
-            req_flags |= eth_interface_params.cmd_broadcast;
-        }
-
-        uint32_t host_dram_block_addr =
-            host_address_params.eth_routing_buffers_start +
-            (active_core_for_txn * eth_interface_params.cmd_buf_size + req_wr_ptr) * max_block_size;
-        uint16_t host_dram_channel = 0;  // This needs to be 0, since WH can only map ETH buffers to chan 0.
-
-        if (req_flags & eth_interface_params.cmd_data_block) {
-            // Copy data to sysmem or device DRAM for Block mode
-            if (use_dram) {
-                req_flags |= eth_interface_params.cmd_data_block_dram;
-                resp_flags |= eth_interface_params.cmd_data_block_dram;
-                size_buffer_to_capacity(data_block, block_size);
-                memcpy(&data_block[0], (uint8_t*)mem_ptr + offset, transfer_size);
-                if (broadcast) {
-                    // Write broadcast header to sysmem
-                    write_to_sysmem(
-                        broadcast_header.data(),
-                        broadcast_header.size() * sizeof(uint32_t),
-                        host_dram_block_addr,
-                        host_dram_channel,
-                        mmio_capable_chip_logical);
-                }
-                // Write payload to sysmem
-                write_to_sysmem(
-                    data_block.data(),
-                    data_block.size() * DATA_WORD_SIZE,
-                    host_dram_block_addr + BROADCAST_HEADER_SIZE * broadcast,
-                    host_dram_channel,
-                    mmio_capable_chip_logical);
-
-            } else {
-                uint32_t buf_address = eth_interface_params.eth_routing_data_buffer_addr + req_wr_ptr * max_block_size;
-                size_buffer_to_capacity(data_block, block_size);
-                memcpy(&data_block[0], (uint8_t*)mem_ptr + offset, transfer_size);
-                write_device_memory(
-                    data_block.data(),
-                    data_block.size() * DATA_WORD_SIZE,
-                    remote_transfer_ethernet_core,
-                    buf_address,
-                    write_tlb);
-            }
-            tt_driver_atomics::sfence();
-        }
-
-        // Send the read request
-        log_assert(
-            broadcast || (req_flags == eth_interface_params.cmd_wr_req) || (((address + offset) % 32) == 0),
-            "Block mode address must be 32-byte aligned.");  // Block mode address must be 32-byte aligned.
-
-        if (broadcast) {
-            // Only specify endpoint local address for broadcast
-            new_cmd->sys_addr = address + offset;
-        } else {
-            new_cmd->sys_addr =
-                get_sys_addr(noc_params, target_chip.x, target_chip.y, core.x, core.y, address + offset);
-            new_cmd->rack = get_sys_rack(eth_interface_params, target_chip.rack, target_chip.shelf);
-        }
-
-        if (req_flags & eth_interface_params.cmd_data_block) {
-            // Block mode
-            new_cmd->data = block_size + BROADCAST_HEADER_SIZE * broadcast;
-        } else {
-            if (size_in_bytes - offset < sizeof(uint32_t)) {
-                // Handle misalignment at the end of the buffer:
-                // Assemble a padded uint32_t from single bytes, in case we have less than 4 bytes remaining
-                memcpy(&new_cmd->data, static_cast<const uint8_t*>(mem_ptr) + offset, size_in_bytes - offset);
-            } else {
-                new_cmd->data = *((uint32_t*)mem_ptr + offset / DATA_WORD_SIZE);
-            }
-        }
-
-        new_cmd->flags = req_flags;
-        new_cmd->flags |= (umd_use_noc1 ? 1 : 0) << REMOTE_CMD_NOC_BIT;
-        if (use_dram) {
-            new_cmd->src_addr_tag = host_dram_block_addr;
-        }
-        write_device_memory(
-            erisc_command.data(),
-            erisc_command.size() * DATA_WORD_SIZE,
-            remote_transfer_ethernet_core,
-            eth_interface_params.request_routing_cmd_queue_base + (sizeof(routing_cmd_t) * req_wr_ptr),
-            write_tlb);
-        tt_driver_atomics::sfence();
-
-        erisc_q_ptrs[0] = (erisc_q_ptrs[0] + 1) & eth_interface_params.cmd_buf_ptr_mask;
-        std::vector<std::uint32_t> erisc_q_wptr;
-        erisc_q_wptr.resize(1);
-        erisc_q_wptr[0] = erisc_q_ptrs[0];
-        write_device_memory(
-            erisc_q_wptr.data(),
-            erisc_q_wptr.size() * DATA_WORD_SIZE,
-            remote_transfer_ethernet_core,
-            eth_interface_params.request_cmd_queue_base + eth_interface_params.cmd_counters_size_bytes,
-            write_tlb);
-        tt_driver_atomics::sfence();
-
-        offset += transfer_size;
-
-        // If there is more data to send and this command will make the q full, switch to next Q.
-        // otherwise full stays false so that we do not poll the rd pointer in next iteration.
-        // As long as current command push does not fill up the queue completely, we do not want
-        // to poll rd pointer in every iteration.
-
-        if (is_non_mmio_cmd_q_full(
-                chips_.at(mmio_capable_chip_logical)->eth_interface_params,
-                (erisc_q_ptrs[0]) & eth_interface_params.cmd_buf_ptr_mask,
-                erisc_q_rptr[0])) {
-            active_core_for_txn++;
-            uint32_t update_mask_for_chip = remote_transfer_ethernet_cores[mmio_capable_chip_logical].size() - 1;
-            active_core_for_txn =
-                non_mmio_transfer_cores_customized
-                    ? (active_core_for_txn & update_mask_for_chip)
-                    : ((active_core_for_txn & NON_EPOCH_ETH_CORES_MASK) + NON_EPOCH_ETH_CORES_START_ID);
-            // active_core = (active_core & NON_EPOCH_ETH_CORES_MASK) + NON_EPOCH_ETH_CORES_START_ID;
-            remote_transfer_ethernet_core =
-                remote_transfer_ethernet_cores.at(mmio_capable_chip_logical)[active_core_for_txn];
-            read_device_memory(
-                erisc_q_ptrs.data(),
-                remote_transfer_ethernet_core,
-                eth_interface_params.request_cmd_queue_base + eth_interface_params.cmd_counters_size_bytes,
-                eth_interface_params.remote_update_ptr_size_bytes * 2,
-                read_tlb);
-            full = is_non_mmio_cmd_q_full(
-                chips_.at(mmio_capable_chip_logical)->eth_interface_params, erisc_q_ptrs[0], erisc_q_ptrs[4]);
-            erisc_q_rptr[0] = erisc_q_ptrs[4];
-        }
+        get_remote_chip(core.chip)->write_to_device(core, mem_ptr, address, size_in_bytes, "");
     }
 }
 
-/*
- * Note that this function is required to acquire the `NON_MMIO_MUTEX_NAME` mutex for interacting with the ethernet core
- * (host) command queue DO NOT use `active_core` or issue any pcie reads/writes to the ethernet core prior to acquiring
- * the mutex. For extra information, see the "NON_MMIO_MUTEX Usage" above
- */
 void Cluster::read_from_non_mmio_device(void* mem_ptr, tt_cxy_pair core, uint64_t address, uint32_t size_in_bytes) {
-    using data_word_t = uint32_t;
-    constexpr int DATA_WORD_SIZE = sizeof(data_word_t);
-    std::string write_tlb = "LARGE_WRITE_TLB";
-    std::string read_tlb = "LARGE_READ_TLB";
-    std::string empty_tlb = "";
-
-    tt_xy_pair translated_core = translate_chip_coord_virtual_to_translated(core.chip, core);
-    core.x = translated_core.x;
-    core.y = translated_core.y;
-
-    const auto& mmio_capable_chip_logical = cluster_desc->get_closest_mmio_capable_chip(core.chip);
-    const eth_coord_t target_chip = cluster_desc->get_chip_locations().at(core.chip);
-
-    // TODO: To be removed when this is moved to Chip classes.
-    auto host_address_params = get_local_chip(mmio_capable_chip_logical)->host_address_params;
-    auto eth_interface_params = get_local_chip(mmio_capable_chip_logical)->eth_interface_params;
-    auto noc_params = get_local_chip(mmio_capable_chip_logical)->noc_params;
-
-    std::vector<std::uint32_t> erisc_command;
-    std::vector<std::uint32_t> erisc_q_rptr;
-    std::vector<std::uint32_t> erisc_q_ptrs =
-        std::vector<uint32_t>(eth_interface_params.remote_update_ptr_size_bytes * 2 / DATA_WORD_SIZE);
-    std::vector<std::uint32_t> erisc_resp_q_wptr = std::vector<uint32_t>(1);
-    std::vector<std::uint32_t> erisc_resp_q_rptr = std::vector<uint32_t>(1);
-
-    std::vector<std::uint32_t> data_block;
-
-    routing_cmd_t* new_cmd;
-
-    erisc_command.resize(sizeof(routing_cmd_t) / DATA_WORD_SIZE);
-    new_cmd = (routing_cmd_t*)&erisc_command[0];
-    //
-    //                    MUTEX ACQUIRE (NON-MMIO)
-    //  do not locate any ethernet core reads/writes before this acquire
-    //
-    auto lock =
-        get_local_chip(mmio_capable_chip_logical)
-            ->acquire_mutex(
-                MutexType::NON_MMIO, get_tt_device(mmio_capable_chip_logical)->get_pci_device()->get_device_num());
-    const tt_cxy_pair remote_transfer_ethernet_core = remote_transfer_ethernet_cores[mmio_capable_chip_logical].at(0);
-
-    read_device_memory(
-        erisc_q_ptrs.data(),
-        remote_transfer_ethernet_core,
-        eth_interface_params.request_cmd_queue_base + eth_interface_params.cmd_counters_size_bytes,
-        eth_interface_params.remote_update_ptr_size_bytes * 2,
-        read_tlb);
-    read_device_memory(
-        erisc_resp_q_wptr.data(),
-        remote_transfer_ethernet_core,
-        eth_interface_params.response_cmd_queue_base + eth_interface_params.cmd_counters_size_bytes,
-        DATA_WORD_SIZE,
-        read_tlb);
-    read_device_memory(
-        erisc_resp_q_rptr.data(),
-        remote_transfer_ethernet_core,
-        eth_interface_params.response_cmd_queue_base + eth_interface_params.cmd_counters_size_bytes +
-            eth_interface_params.remote_update_ptr_size_bytes,
-        DATA_WORD_SIZE,
-        read_tlb);
-
-    bool full = is_non_mmio_cmd_q_full(
-        chips_.at(mmio_capable_chip_logical)->eth_interface_params, erisc_q_ptrs[0], erisc_q_ptrs[4]);
-    erisc_q_rptr.resize(1);
-    erisc_q_rptr[0] = erisc_q_ptrs[4];
-
-    bool use_dram;
-    uint32_t max_block_size;
-
-    use_dram = size_in_bytes > 1024;
-    max_block_size = use_dram ? host_address_params.eth_routing_block_size : eth_interface_params.max_block_size;
-
-    uint32_t offset = 0;
-    uint32_t block_size;
-    uint32_t buffer_id = 0;
-
-    while (offset < size_in_bytes) {
-        while (full) {
-            read_device_memory(
-                erisc_q_rptr.data(),
-                remote_transfer_ethernet_core,
-                eth_interface_params.request_cmd_queue_base + eth_interface_params.cmd_counters_size_bytes +
-                    eth_interface_params.remote_update_ptr_size_bytes,
-                DATA_WORD_SIZE,
-                read_tlb);
-            full = is_non_mmio_cmd_q_full(
-                chips_.at(mmio_capable_chip_logical)->eth_interface_params, erisc_q_ptrs[0], erisc_q_rptr[0]);
-        }
-
-        uint32_t req_wr_ptr = erisc_q_ptrs[0] & eth_interface_params.cmd_buf_size_mask;
-        if ((address + offset) & 0x1F) {  // address not 32-byte aligned
-            block_size = DATA_WORD_SIZE;  // 4 byte aligned block
-        } else {
-            block_size = offset + max_block_size > size_in_bytes ? size_in_bytes - offset : max_block_size;
-            // Align up to 4 bytes.
-            uint32_t alignment_mask = sizeof(uint32_t) - 1;
-            block_size = (block_size + alignment_mask) & ~alignment_mask;
-        }
-        uint32_t req_flags = block_size > DATA_WORD_SIZE
-                                 ? (eth_interface_params.cmd_data_block | eth_interface_params.cmd_rd_req)
-                                 : eth_interface_params.cmd_rd_req;
-        uint32_t resp_flags = block_size > DATA_WORD_SIZE
-                                  ? (eth_interface_params.cmd_data_block | eth_interface_params.cmd_rd_data)
-                                  : eth_interface_params.cmd_rd_data;
-        uint32_t resp_rd_ptr = erisc_resp_q_rptr[0] & eth_interface_params.cmd_buf_size_mask;
-        uint32_t host_dram_block_addr = host_address_params.eth_routing_buffers_start + resp_rd_ptr * max_block_size;
-        uint16_t host_dram_channel = 0;  // This needs to be 0, since WH can only map ETH buffers to chan 0.
-
-        if (use_dram && block_size > DATA_WORD_SIZE) {
-            req_flags |= eth_interface_params.cmd_data_block_dram;
-            resp_flags |= eth_interface_params.cmd_data_block_dram;
-        }
-
-        // Send the read request
-        log_assert(
-            (req_flags == eth_interface_params.cmd_rd_req) || (((address + offset) & 0x1F) == 0),
-            "Block mode offset must be 32-byte aligned.");  // Block mode offset must be 32-byte aligned.
-        new_cmd->sys_addr = get_sys_addr(noc_params, target_chip.x, target_chip.y, core.x, core.y, address + offset);
-        new_cmd->rack = get_sys_rack(eth_interface_params, target_chip.rack, target_chip.shelf);
-        new_cmd->data = block_size;
-        new_cmd->flags = req_flags;
-        new_cmd->flags |= (umd_use_noc1 ? 1 : 0) << REMOTE_CMD_NOC_BIT;
-        if (use_dram) {
-            new_cmd->src_addr_tag = host_dram_block_addr;
-        }
-        write_device_memory(
-            erisc_command.data(),
-            erisc_command.size() * DATA_WORD_SIZE,
-            remote_transfer_ethernet_core,
-            eth_interface_params.request_routing_cmd_queue_base + (sizeof(routing_cmd_t) * req_wr_ptr),
-            write_tlb);
-        ;
-        tt_driver_atomics::sfence();
-
-        erisc_q_ptrs[0] = (erisc_q_ptrs[0] + 1) & eth_interface_params.cmd_buf_ptr_mask;
-        std::vector<std::uint32_t> erisc_q_wptr;
-        erisc_q_wptr.resize(1);
-        erisc_q_wptr[0] = erisc_q_ptrs[0];
-        write_device_memory(
-            erisc_q_wptr.data(),
-            erisc_q_wptr.size() * DATA_WORD_SIZE,
-            remote_transfer_ethernet_core,
-            eth_interface_params.request_cmd_queue_base + eth_interface_params.cmd_counters_size_bytes,
-            write_tlb);
-        tt_driver_atomics::sfence();
-        // If there is more data to read and this command will make the q full, set full to 1.
-        // otherwise full stays false so that we do not poll the rd pointer in next iteration.
-        // As long as current command push does not fill up the queue completely, we do not want
-        // to poll rd pointer in every iteration.
-
-        if (is_non_mmio_cmd_q_full(
-                chips_.at(mmio_capable_chip_logical)->eth_interface_params, (erisc_q_ptrs[0]), erisc_q_rptr[0])) {
-            read_device_memory(
-                erisc_q_ptrs.data(),
-                remote_transfer_ethernet_core,
-                eth_interface_params.request_cmd_queue_base + eth_interface_params.cmd_counters_size_bytes,
-                eth_interface_params.remote_update_ptr_size_bytes * 2,
-                read_tlb);
-            full = is_non_mmio_cmd_q_full(
-                chips_.at(mmio_capable_chip_logical)->eth_interface_params, erisc_q_ptrs[0], erisc_q_ptrs[4]);
-            erisc_q_rptr[0] = erisc_q_ptrs[4];
-        }
-
-        // Wait for read request completion and extract the data into the `mem_ptr`
-
-        // erisc firmware will:
-        // 1. clear response flags
-        // 2. start operation
-        // 3. advance response wrptr
-        // 4. complete operation and write data into response or buffer
-        // 5. set response flags
-        // So we have to wait for wrptr to advance, then wait for flags to be nonzero, then read data.
-
-        do {
-            read_device_memory(
-                erisc_resp_q_wptr.data(),
-                remote_transfer_ethernet_core,
-                eth_interface_params.response_cmd_queue_base + eth_interface_params.cmd_counters_size_bytes,
-                DATA_WORD_SIZE,
-                read_tlb);
-        } while (erisc_resp_q_rptr[0] == erisc_resp_q_wptr[0]);
-        tt_driver_atomics::lfence();
-        uint32_t flags_offset = 12 + sizeof(routing_cmd_t) * resp_rd_ptr;
-        std::vector<std::uint32_t> erisc_resp_flags = std::vector<uint32_t>(1);
-        do {
-            read_device_memory(
-                erisc_resp_flags.data(),
-                remote_transfer_ethernet_core,
-                eth_interface_params.response_routing_cmd_queue_base + flags_offset,
-                DATA_WORD_SIZE,
-                read_tlb);
-        } while (erisc_resp_flags[0] == 0);
-
-        if (erisc_resp_flags[0] == resp_flags) {
-            tt_driver_atomics::lfence();
-            uint32_t data_offset = 8 + sizeof(routing_cmd_t) * resp_rd_ptr;
-            if (block_size == DATA_WORD_SIZE) {
-                std::vector<std::uint32_t> erisc_resp_data = std::vector<uint32_t>(1);
-                read_device_memory(
-                    erisc_resp_data.data(),
-                    remote_transfer_ethernet_core,
-                    eth_interface_params.response_routing_cmd_queue_base + data_offset,
-                    DATA_WORD_SIZE,
-                    read_tlb);
-                if (size_in_bytes - offset < 4) {
-                    // Handle misaligned (4 bytes) data at the end of the block.
-                    // Only read remaining bytes into the host buffer, instead of reading the full uint32_t
-                    std::memcpy((uint8_t*)mem_ptr + offset, erisc_resp_data.data(), size_in_bytes - offset);
-                } else {
-                    *((uint32_t*)mem_ptr + offset / DATA_WORD_SIZE) = erisc_resp_data[0];
-                }
-            } else {
-                // Read 4 byte aligned block from device/sysmem
-                if (use_dram) {
-                    size_buffer_to_capacity(data_block, block_size);
-                    read_from_sysmem(
-                        data_block.data(),
-                        host_dram_block_addr,
-                        host_dram_channel,
-                        block_size,
-                        mmio_capable_chip_logical);
-                } else {
-                    uint32_t buf_address =
-                        eth_interface_params.eth_routing_data_buffer_addr + resp_rd_ptr * max_block_size;
-                    size_buffer_to_capacity(data_block, block_size);
-                    read_device_memory(
-                        data_block.data(), remote_transfer_ethernet_core, buf_address, block_size, read_tlb);
-                }
-                // assert(mem_ptr.size() - (offset/DATA_WORD_SIZE) >= (block_size * DATA_WORD_SIZE));
-                log_assert(
-                    (data_block.size() * DATA_WORD_SIZE) >= block_size,
-                    "Incorrect data size read back from sysmem/device");
-                // Account for misalignment by skipping any padding bytes in the copied data_block
-                memcpy((uint8_t*)mem_ptr + offset, data_block.data(), std::min(block_size, size_in_bytes - offset));
-            }
-        }
-
-        // Finally increment the rdptr for the response command q
-        erisc_resp_q_rptr[0] = (erisc_resp_q_rptr[0] + 1) & eth_interface_params.cmd_buf_ptr_mask;
-        write_device_memory(
-            erisc_resp_q_rptr.data(),
-            erisc_resp_q_rptr.size() * DATA_WORD_SIZE,
-            remote_transfer_ethernet_core,
-            eth_interface_params.response_cmd_queue_base + sizeof(remote_update_ptr_t) +
-                eth_interface_params.cmd_counters_size_bytes,
-            write_tlb);
-        tt_driver_atomics::sfence();
-        log_assert(erisc_resp_flags[0] == resp_flags, "Unexpected ERISC Response Flags.");
-
-        offset += block_size;
-    }
+    get_remote_chip(core.chip)->read_from_device(core, mem_ptr, address, size_in_bytes, "");
 }
 
-void Cluster::wait_for_connected_non_mmio_flush(const chip_id_t chip_id) {
-    if (flush_non_mmio_per_chip[chip_id]) {
-        log_assert(arch_name != tt::ARCH::BLACKHOLE, "Non-MMIO flush not supported in Blackhole");
-        std::string read_tlb = "LARGE_READ_TLB";
-        auto chips_with_mmio = this->get_target_mmio_device_ids();
-
-        if (chips_with_mmio.find(chip_id) == chips_with_mmio.end()) {
-            log_debug(
-                LogSiliconDriver, "Chip {} is not an MMIO chip, skipping wait_for_connected_non_mmio_flush", chip_id);
-            return;
-        }
-
-        if (arch_name == tt::ARCH::WORMHOLE_B0) {
-            // TODO: To be removed when this is moved to Chip classes.
-            auto eth_interface_params = get_chip(chip_id)->eth_interface_params;
-
-            std::vector<std::uint32_t> erisc_txn_counters = std::vector<uint32_t>(2);
-            std::vector<std::uint32_t> erisc_q_ptrs =
-                std::vector<uint32_t>(eth_interface_params.remote_update_ptr_size_bytes * 2 / sizeof(uint32_t));
-
-            // wait for all queues to be empty.
-            for (tt_cxy_pair& cxy : remote_transfer_ethernet_cores.at(chip_id)) {
-                do {
-                    read_device_memory(
-                        erisc_q_ptrs.data(),
-                        cxy,
-                        eth_interface_params.request_cmd_queue_base + eth_interface_params.cmd_counters_size_bytes,
-                        eth_interface_params.remote_update_ptr_size_bytes * 2,
-                        read_tlb);
-                } while (erisc_q_ptrs[0] != erisc_q_ptrs[4]);
-            }
-            // wait for all write responses to come back.
-            for (tt_cxy_pair& cxy : remote_transfer_ethernet_cores.at(chip_id)) {
-                do {
-                    read_device_memory(
-                        erisc_txn_counters.data(), cxy, eth_interface_params.request_cmd_queue_base, 8, read_tlb);
-                } while (erisc_txn_counters[0] != erisc_txn_counters[1]);
-            }
-        }
-        flush_non_mmio_per_chip[chip_id] = false;
-    }
-}
-
-void Cluster::wait_for_non_mmio_flush(const chip_id_t chip_id) {
-    if (!this->cluster_desc->is_chip_remote(chip_id)) {
-        log_debug(LogSiliconDriver, "Chip {} is not a remote chip, skipping wait_for_non_mmio_flush", chip_id);
-        return;
-    }
-
-    std::string read_tlb = "LARGE_READ_TLB";
-    log_assert(arch_name != tt::ARCH::BLACKHOLE, "Non-MMIO flush not supported in Blackhole");
-
-    chip_id_t mmio_connected_chip = cluster_desc->get_closest_mmio_capable_chip(chip_id);
-    wait_for_connected_non_mmio_flush(mmio_connected_chip);
-}
+void Cluster::wait_for_non_mmio_flush(const chip_id_t chip_id) { get_chip(chip_id)->wait_for_non_mmio_flush(); }
 
 void Cluster::wait_for_non_mmio_flush() {
-    for (auto& chip_id : get_target_mmio_device_ids()) {
-        wait_for_connected_non_mmio_flush(chip_id);
-    }
-}
-
-// Broadcast Functions
-void Cluster::generate_tensix_broadcast_grids_for_grayskull(
-    std::set<std::pair<tt_xy_pair, tt_xy_pair>>& broadcast_grids,
-    std::set<uint32_t>& rows_to_exclude,
-    std::set<uint32_t>& cols_to_exclude) {
-    // If row 0 is not explicitly excluded, exclude it here since its non-tensix
-    rows_to_exclude.insert(0);
-    // If row 11 is excluded, we can close the SOC grid. If not, exclude row 12 to close grid.
-    if (rows_to_exclude.find(11) == rows_to_exclude.end()) {
-        rows_to_exclude.insert(12);
-    }
-    // If col 0 is not explicitly excluded, exclude it here since its non-tensix
-    cols_to_exclude.insert(0);
-    // If col 12 is excluded, we can close the SOC grid. If not, exclude col 13 to close grid.
-    if (cols_to_exclude.find(12) == cols_to_exclude.end()) {
-        cols_to_exclude.insert(13);
-    }
-    std::vector<std::pair<int, int>> bb_x_coords = {};
-    std::vector<std::pair<int, int>> bb_y_coords = {};
-
-    // Generate starting and ending x coordinates of each bounding box/grid
-    for (auto x_it = cols_to_exclude.begin(); x_it != cols_to_exclude.end(); x_it++) {
-        if (x_it == std::prev(cols_to_exclude.end(), 1)) {
-            continue;
-        }
-        if (cols_to_exclude.find(*(x_it) + 1) == cols_to_exclude.end() and
-            cols_to_exclude.find(*(std::next(x_it, 1)) - 1) == cols_to_exclude.end()) {
-            bb_x_coords.push_back({*(x_it) + 1, *(std::next(x_it, 1)) - 1});
-        }
-    }
-
-    for (auto y_it = rows_to_exclude.begin(); y_it != rows_to_exclude.end(); y_it++) {
-        if (y_it == std::prev(rows_to_exclude.end(), 1)) {
-            continue;
-        }
-        if (rows_to_exclude.find((*y_it) + 1) == rows_to_exclude.end() and
-            rows_to_exclude.find(*std::next(y_it, 1) - 1) == rows_to_exclude.end()) {
-            bb_y_coords.push_back({*(y_it) + 1, *(std::next(y_it, 1)) - 1});
-        }
-    }
-    // Assemble x and y coordinates into bounding box vertices
-    for (const auto& x_pair : bb_x_coords) {
-        for (const auto& y_pair : bb_y_coords) {
-            tt_xy_pair top_left = tt_xy_pair(x_pair.first, y_pair.first);
-            tt_xy_pair bot_right = tt_xy_pair(x_pair.second, y_pair.second);
-            broadcast_grids.insert({top_left, bot_right});
-        }
+    for (auto& [chip_id, chip] : chips_) {
+        chip->wait_for_non_mmio_flush();
     }
 }
 
@@ -2135,83 +1296,6 @@ void Cluster::broadcast_write_to_cluster(
     }
 }
 
-int Cluster::remote_arc_msg(
-    int chip,
-    uint32_t msg_code,
-    bool wait_for_done,
-    uint32_t arg0,
-    uint32_t arg1,
-    uint32_t timeout_ms,
-    uint32_t* return_3,
-    uint32_t* return_4) {
-    constexpr uint64_t ARC_RESET_SCRATCH_ADDR = 0x880030060;
-    constexpr uint64_t ARC_RESET_MISC_CNTL_ADDR = 0x880030100;
-
-    auto core = tt_cxy_pair(chip, get_soc_descriptor(chip).get_cores(CoreType::ARC).at(0));
-
-    if ((msg_code & 0xff00) != 0xaa00) {
-        log_error("Malformed message. msg_code is 0x{:x} but should be 0xaa..", msg_code);
-    }
-    log_assert(arg0 <= 0xffff and arg1 <= 0xffff, "Only 16 bits allowed in arc_msg args");  // Only 16 bits are allowed
-
-    uint32_t fw_arg = arg0 | (arg1 << 16);
-    int exit_code = 0;
-
-    { write_to_non_mmio_device(&fw_arg, sizeof(fw_arg), core, ARC_RESET_SCRATCH_ADDR + 3 * 4); }
-
-    { write_to_non_mmio_device(&msg_code, sizeof(fw_arg), core, ARC_RESET_SCRATCH_ADDR + 5 * 4); }
-
-    wait_for_non_mmio_flush();
-    uint32_t misc = 0;
-    read_from_non_mmio_device(&misc, core, ARC_RESET_MISC_CNTL_ADDR, 4);
-
-    if (misc & (1 << 16)) {
-        log_error("trigger_fw_int failed on device {}", chip);
-        return 1;
-    } else {
-        misc |= (1 << 16);
-        write_to_non_mmio_device(&misc, sizeof(misc), core, ARC_RESET_MISC_CNTL_ADDR);
-    }
-
-    if (wait_for_done) {
-        uint32_t status = 0xbadbad;
-        auto start = std::chrono::steady_clock::now();
-        while (true) {
-            auto now = std::chrono::steady_clock::now();
-            auto elapsed_ms = std::chrono::duration_cast<std::chrono::milliseconds>(now - start).count();
-            if (elapsed_ms > timeout_ms && timeout_ms != 0) {
-                std::stringstream ss;
-                ss << std::hex << msg_code;
-                throw std::runtime_error(fmt::format(
-                    "Timed out after waiting {} ms for device {} ARC to respond to message 0x{}",
-                    timeout_ms,
-                    chip,
-                    ss.str()));
-            }
-
-            uint32_t status = 0;
-            read_from_non_mmio_device(&status, core, ARC_RESET_SCRATCH_ADDR + 5 * 4, sizeof(status));
-            if ((status & 0xffff) == (msg_code & 0xff)) {
-                if (return_3 != nullptr) {
-                    read_from_non_mmio_device(return_3, core, ARC_RESET_SCRATCH_ADDR + 3 * 4, sizeof(uint32_t));
-                }
-
-                if (return_4 != nullptr) {
-                    read_from_non_mmio_device(return_4, core, ARC_RESET_SCRATCH_ADDR + 4 * 4, sizeof(uint32_t));
-                }
-
-                exit_code = (status & 0xffff0000) >> 16;
-                break;
-            } else if (status == MSG_ERROR_REPLY) {
-                log_warning(LogSiliconDriver, "On device {}, message code 0x{:x} not recognized by FW", chip, msg_code);
-                exit_code = MSG_ERROR_REPLY;
-                break;
-            }
-        }
-    }
-    return exit_code;
-}
-
 void Cluster::write_to_sysmem(
     const void* mem_ptr, std::uint32_t size, uint64_t addr, uint16_t channel, chip_id_t src_device_id) {
     get_local_chip(src_device_id)->write_to_sysmem(channel, mem_ptr, addr, size);
@@ -2223,28 +1307,23 @@ void Cluster::read_from_sysmem(void* mem_ptr, uint64_t addr, uint16_t channel, u
 
 void Cluster::set_membar_flag(
     const chip_id_t chip,
-    const std::unordered_set<tt_xy_pair>& cores,
+    const std::vector<CoreCoord>& cores,
     const uint32_t barrier_value,
     const uint32_t barrier_addr,
     const std::string& fallback_tlb) {
     tt_driver_atomics::sfence();  // Ensure that writes before this do not get reordered
-    std::unordered_set<tt_xy_pair> cores_synced = {};
+    std::unordered_set<CoreCoord> cores_synced = {};
     std::vector<uint32_t> barrier_val_vec = {barrier_value};
     for (const auto& core : cores) {
         write_to_device(
-            barrier_val_vec.data(),
-            barrier_val_vec.size() * sizeof(uint32_t),
-            tt_cxy_pair(chip, core),
-            barrier_addr,
-            fallback_tlb);
+            barrier_val_vec.data(), barrier_val_vec.size() * sizeof(uint32_t), chip, core, barrier_addr, fallback_tlb);
     }
     tt_driver_atomics::sfence();  // Ensure that all writes in the Host WC buffer are flushed
     while (cores_synced.size() != cores.size()) {
         for (const auto& core : cores) {
             if (cores_synced.find(core) == cores_synced.end()) {
                 uint32_t readback_val;
-                read_from_device(
-                    &readback_val, tt_cxy_pair(chip, core), barrier_addr, sizeof(std::uint32_t), fallback_tlb);
+                read_from_device(&readback_val, chip, core, barrier_addr, sizeof(std::uint32_t), fallback_tlb);
                 if (readback_val == barrier_value) {
                     cores_synced.insert(core);
                 } else {
@@ -2264,7 +1343,7 @@ void Cluster::set_membar_flag(
 
 void Cluster::insert_host_to_device_barrier(
     const chip_id_t chip,
-    const std::unordered_set<tt_xy_pair>& cores,
+    const std::vector<CoreCoord>& cores,
     const uint32_t barrier_addr,
     const std::string& fallback_tlb) {
     // Ensure that this memory barrier is atomic across processes/threads
@@ -2283,42 +1362,52 @@ void Cluster::init_membars() {
 
             set_membar_flag(
                 chip,
-                workers_per_chip.at(chip),
+                get_soc_descriptor(chip).get_cores(CoreType::TENSIX, CoordSystem::VIRTUAL),
                 tt_MemBarFlag::RESET,
                 l1_address_params.tensix_l1_barrier_base,
                 "LARGE_WRITE_TLB");
             set_membar_flag(
-                chip, eth_cores, tt_MemBarFlag::RESET, l1_address_params.eth_l1_barrier_base, "LARGE_WRITE_TLB");
+                chip,
+                get_soc_descriptor(chip).get_cores(CoreType::ETH, CoordSystem::VIRTUAL),
+                tt_MemBarFlag::RESET,
+                l1_address_params.eth_l1_barrier_base,
+                "LARGE_WRITE_TLB");
+
+            std::vector<CoreCoord> dram_cores_vector = {};
+            for (std::uint32_t dram_idx = 0; dram_idx < get_soc_descriptor(chip).get_num_dram_channels(); dram_idx++) {
+                dram_cores_vector.push_back(
+                    get_soc_descriptor(chip).get_dram_core_for_channel(dram_idx, 0, CoordSystem::VIRTUAL));
+            }
             set_membar_flag(
-                chip, dram_cores, tt_MemBarFlag::RESET, dram_address_params.DRAM_BARRIER_BASE, "LARGE_WRITE_TLB");
+                chip,
+                dram_cores_vector,
+                tt_MemBarFlag::RESET,
+                dram_address_params.DRAM_BARRIER_BASE,
+                "LARGE_WRITE_TLB");
         }
     }
 }
 
 void Cluster::l1_membar(
     const chip_id_t chip, const std::string& fallback_tlb, const std::unordered_set<tt::umd::CoreCoord>& cores) {
-    std::unordered_set<tt_xy_pair> cores_xy;
-    for (const auto& core : cores) {
-        cores_xy.insert(translate_to_api_coords(chip, core));
-    }
-
     if (cluster_desc->is_chip_mmio_capable(chip)) {
-        const auto& all_workers = workers_per_chip.at(chip);
-        const auto& all_eth = eth_cores;
+        const auto& all_workers = get_soc_descriptor(chip).get_cores(CoreType::TENSIX, CoordSystem::VIRTUAL);
+        const auto& all_eth = get_soc_descriptor(chip).get_cores(CoreType::ETH, CoordSystem::VIRTUAL);
 
         // TODO: To be removed when this is moved to Chip classes.
         const auto& l1_address_params = get_local_chip(chip)->l1_address_params;
 
-        if (cores_xy.size()) {
+        if (cores.size()) {
             // Insert barrier on specific cores with L1
-            std::unordered_set<tt_xy_pair> workers_to_sync = {};
-            std::unordered_set<tt_xy_pair> eth_to_sync = {};
+            std::vector<CoreCoord> workers_to_sync = {};
+            std::vector<CoreCoord> eth_to_sync = {};
 
-            for (const auto& core : cores_xy) {
-                if (all_workers.find(core) != all_workers.end()) {
-                    workers_to_sync.insert(core);
-                } else if (all_eth.find(core) != all_eth.end()) {
-                    eth_to_sync.insert(core);
+            for (const auto& core : cores) {
+                auto core_from_soc = get_soc_descriptor(chip).get_coord_at(core, core.coord_system);
+                if (core_from_soc.core_type == CoreType::TENSIX) {
+                    workers_to_sync.push_back(core);
+                } else if (core_from_soc.core_type == CoreType::ETH) {
+                    eth_to_sync.push_back(core);
                 } else {
                     log_fatal("Can only insert an L1 Memory barrier on Tensix or Ethernet cores.");
                 }
@@ -2336,50 +1425,51 @@ void Cluster::l1_membar(
     }
 }
 
+void Cluster::l1_membar(const chip_id_t chip, const std::unordered_set<tt::umd::CoreCoord>& cores) {
+    l1_membar(chip, "LARGE_WRITE_TLB", cores);
+}
+
 void Cluster::dram_membar(
     const chip_id_t chip, const std::string& fallback_tlb, const std::unordered_set<tt::umd::CoreCoord>& cores) {
-    std::unordered_set<tt_xy_pair> cores_xy;
-    for (const auto& core : cores) {
-        cores_xy.insert(translate_to_api_coords(chip, core));
-    }
     if (cluster_desc->is_chip_mmio_capable(chip)) {
         const auto& dram_address_params = get_local_chip(chip)->dram_address_params;
-        if (cores_xy.size()) {
-            for (const auto& core : cores_xy) {
+        if (cores.size()) {
+            for (const auto& core : cores) {
                 log_assert(
-                    dram_cores.find(core) != dram_cores.end(), "Can only insert a DRAM Memory barrier on DRAM cores.");
+                    get_soc_descriptor(chip).get_coord_at(core, core.coord_system).core_type == CoreType::DRAM,
+                    "Can only insert a DRAM Memory barrier on DRAM cores.");
             }
-            insert_host_to_device_barrier(chip, cores_xy, dram_address_params.DRAM_BARRIER_BASE, fallback_tlb);
+            std::vector<CoreCoord> dram_cores_vector = std::vector<CoreCoord>(cores.begin(), cores.end());
+            insert_host_to_device_barrier(chip, dram_cores_vector, dram_address_params.DRAM_BARRIER_BASE, fallback_tlb);
         } else {
             // Insert Barrier on all DRAM Cores
-            insert_host_to_device_barrier(chip, dram_cores, dram_address_params.DRAM_BARRIER_BASE, fallback_tlb);
+            std::vector<CoreCoord> dram_cores_vector = {};
+            for (std::uint32_t dram_idx = 0; dram_idx < get_soc_descriptor(chip).get_num_dram_channels(); dram_idx++) {
+                dram_cores_vector.push_back(
+                    get_soc_descriptor(chip).get_dram_core_for_channel(dram_idx, 0, CoordSystem::VIRTUAL));
+            }
+            insert_host_to_device_barrier(chip, dram_cores_vector, dram_address_params.DRAM_BARRIER_BASE, fallback_tlb);
         }
     } else {
         wait_for_non_mmio_flush();
     }
 }
 
+void Cluster::dram_membar(const chip_id_t chip, const std::unordered_set<tt::umd::CoreCoord>& cores) {
+    dram_membar(chip, "LARGE_WRITE_TLB", cores);
+}
+
 void Cluster::dram_membar(
     const chip_id_t chip, const std::string& fallback_tlb, const std::unordered_set<uint32_t>& channels) {
-    if (cluster_desc->is_chip_mmio_capable(chip)) {
-        // TODO: To be removed when this is moved to Chip classes.
-        const auto& dram_address_params = get_local_chip(chip)->dram_address_params;
-
-        if (channels.size()) {
-            std::unordered_set<tt_xy_pair> dram_cores_to_sync = {};
-            for (const auto& chan : channels) {
-                dram_cores_to_sync.insert(
-                    get_soc_descriptor(chip).get_dram_core_for_channel(chan, 0, CoordSystem::VIRTUAL));
-            }
-            insert_host_to_device_barrier(
-                chip, dram_cores_to_sync, dram_address_params.DRAM_BARRIER_BASE, fallback_tlb);
-        } else {
-            // Insert Barrier on all DRAM Cores
-            insert_host_to_device_barrier(chip, dram_cores, dram_address_params.DRAM_BARRIER_BASE, fallback_tlb);
-        }
-    } else {
-        wait_for_non_mmio_flush();
+    std::unordered_set<CoreCoord> dram_cores_to_sync = {};
+    for (const auto& chan : channels) {
+        dram_cores_to_sync.insert(get_soc_descriptor(chip).get_dram_core_for_channel(chan, 0, CoordSystem::VIRTUAL));
     }
+    dram_membar(chip, fallback_tlb, dram_cores_to_sync);
+}
+
+void Cluster::dram_membar(const chip_id_t chip, const std::unordered_set<uint32_t>& channels) {
+    dram_membar(chip, "LARGE_WRITE_TLB", channels);
 }
 
 void Cluster::write_to_device(
@@ -2408,6 +1498,22 @@ void Cluster::write_to_device(
     uint64_t addr,
     const std::string& tlb_to_use) {
     write_to_device(mem_ptr, size_in_bytes, {(size_t)chip, translate_to_api_coords(chip, core)}, addr, tlb_to_use);
+}
+
+void Cluster::write_to_device_reg(
+    const void* mem_ptr, uint32_t size_in_bytes, chip_id_t chip, CoreCoord core, uint64_t addr) {
+    write_to_device(mem_ptr, size_in_bytes, {(size_t)chip, translate_to_api_coords(chip, core)}, addr, "REG_TLB");
+}
+
+void Cluster::dma_write_to_device(
+    const void* src, size_t size, chip_id_t chip, tt::umd::CoreCoord core, uint64_t addr) {
+    auto api_coords = translate_to_api_coords(chip, core);
+    get_local_chip(chip)->dma_write_to_device(src, size, api_coords, addr);
+}
+
+void Cluster::dma_read_from_device(void* dst, size_t size, chip_id_t chip, tt::umd::CoreCoord core, uint64_t addr) {
+    auto api_coords = translate_to_api_coords(chip, core);
+    get_local_chip(chip)->dma_read_from_device(dst, size, api_coords, addr);
 }
 
 void Cluster::read_mmio_device_register(
@@ -2445,6 +1551,10 @@ void Cluster::read_from_device(
     read_from_device(mem_ptr, {(size_t)chip, translate_to_api_coords(chip, core)}, addr, size, fallback_tlb);
 }
 
+void Cluster::read_from_device_reg(void* mem_ptr, chip_id_t chip, CoreCoord core, uint64_t addr, uint32_t size) {
+    read_from_device(mem_ptr, {(size_t)chip, translate_to_api_coords(chip, core)}, addr, size, "REG_TLB");
+}
+
 int Cluster::arc_msg(
     int logical_device_id,
     uint32_t msg_code,
@@ -2454,11 +1564,7 @@ int Cluster::arc_msg(
     uint32_t timeout_ms,
     uint32_t* return_3,
     uint32_t* return_4) {
-    if (cluster_desc->is_chip_mmio_capable(logical_device_id)) {
-        return pcie_arc_msg(logical_device_id, msg_code, wait_for_done, arg0, arg1, timeout_ms, return_3, return_4);
-    } else {
-        return remote_arc_msg(logical_device_id, msg_code, wait_for_done, arg0, arg1, timeout_ms, return_3, return_4);
-    }
+    return get_chip(logical_device_id)->arc_msg(msg_code, wait_for_done, arg0, arg1, timeout_ms, return_3, return_4);
 }
 
 void Cluster::send_tensix_risc_reset_to_core(const tt_cxy_pair& core, const TensixSoftResetOptions& soft_resets) {
@@ -2478,24 +1584,8 @@ void Cluster::send_remote_tensix_risc_reset_to_core(
 
 int Cluster::set_remote_power_state(const chip_id_t& chip, tt_DevicePowerState device_state) {
     auto mmio_capable_chip_logical = cluster_desc->get_closest_mmio_capable_chip(chip);
-    return remote_arc_msg(
-        chip, get_power_state_arc_msg(mmio_capable_chip_logical, device_state), true, 0, 0, 1000, NULL, NULL);
-}
-
-void Cluster::enable_remote_ethernet_queue(const chip_id_t& chip, int timeout) {
-    uint32_t msg_success = 0x0;
-    auto timeout_seconds = std::chrono::seconds(timeout);
-    auto start = std::chrono::system_clock::now();
-    while (msg_success != 1) {
-        if (std::chrono::system_clock::now() - start > timeout_seconds) {
-            throw std::runtime_error(
-                fmt::format("Timed out after waiting {} seconds for DRAM to finish training", timeout));
-        }
-        int msg_rt = remote_arc_msg(chip, 0xaa58, true, 0xFFFF, 0xFFFF, 1000, &msg_success, NULL);
-        if (msg_rt == MSG_ERROR_REPLY) {
-            break;
-        }
-    }
+    return get_chip(chip)->arc_msg(
+        get_power_state_arc_msg(mmio_capable_chip_logical, device_state), true, 0, 0, 1000, NULL, NULL);
 }
 
 void Cluster::broadcast_tensix_risc_reset_to_cluster(const TensixSoftResetOptions& soft_resets) {
@@ -2555,24 +1645,7 @@ void Cluster::set_power_state(tt_DevicePowerState device_state) {
 
 void Cluster::enable_ethernet_queue(int timeout) {
     for (const chip_id_t& chip : all_chip_ids_) {
-        auto arch = get_soc_descriptor(chip).arch;
-
-        switch (arch) {
-            case tt::ARCH::WORMHOLE_B0: {
-                if (cluster_desc->is_chip_mmio_capable(chip)) {
-                    enable_local_ethernet_queue(chip, timeout);
-                } else {
-                    enable_remote_ethernet_queue(chip, timeout);
-                }
-
-                break;
-                case tt::ARCH::BLACKHOLE:
-                    log_assert(false, "Arch BLACKHOLE doesn't support ethernet queues yet");
-            }
-            default: {
-                break;
-            }
-        }
+        get_chip(chip)->enable_ethernet_queue(timeout);
     }
 }
 
@@ -2584,9 +1657,8 @@ void Cluster::deassert_resets_and_set_power_state() {
     if (arch_name != tt::ARCH::BLACKHOLE) {
         // Send ARC Messages to deassert RISCV resets
         for (auto& chip_id : local_chip_ids_) {
-            arc_msg(
-                chip_id,
-                0xaa00 |
+            get_chip(chip_id)->arc_msg(
+                wormhole::ARC_MSG_COMMON_PREFIX |
                     get_tt_device(chip_id)->get_architecture_implementation()->get_arc_message_deassert_riscv_reset(),
                 true,
                 0,
@@ -2597,9 +1669,9 @@ void Cluster::deassert_resets_and_set_power_state() {
                 if (!cluster_desc->is_chip_mmio_capable(chip)) {
                     auto mmio_capable_chip_logical = cluster_desc->get_closest_mmio_capable_chip(chip);
                     auto tt_device = get_tt_device(mmio_capable_chip_logical);
-                    remote_arc_msg(
-                        chip,
-                        0xaa00 | tt_device->get_architecture_implementation()->get_arc_message_deassert_riscv_reset(),
+                    get_chip(chip)->arc_msg(
+                        wormhole::ARC_MSG_COMMON_PREFIX |
+                            tt_device->get_architecture_implementation()->get_arc_message_deassert_riscv_reset(),
                         true,
                         0x0,
                         0x0,
@@ -2650,8 +1722,6 @@ void Cluster::verify_sw_fw_versions(int device_id, std::uint32_t sw_version, std
         log_assert(sw.minor <= fw.minor, "SW version is newer than FW version");
     }
 
-    // Min ERISC FW version required to support ordered writes is 6.4.0
-    use_ethernet_ordered_writes &= fw_first_eth_core >= tt_version(6, 4, 0);
     // Min ERISC FW version required to support ethernet broadcast is 6.5.0.
     use_ethernet_broadcast &= fw_first_eth_core >= tt_version(6, 5, 0);
     // Virtual coordinates can be used for broadcast headers if ERISC FW >= 6.8.0 and NOC translation is enabled
@@ -2675,18 +1745,6 @@ void Cluster::start_device(const tt_device_params& device_params) {
 void Cluster::close_device() {
     set_power_state(tt_DevicePowerState::LONG_IDLE);
     broadcast_tensix_risc_reset_to_cluster(TENSIX_ASSERT_SOFT_RESET);
-}
-
-std::uint32_t Cluster::get_num_dram_channels(std::uint32_t device_id) {
-    log_assert(
-        all_chip_ids_.find(device_id) != all_chip_ids_.end(),
-        "Querying DRAM parameters for a device that does not exist.");
-    return get_soc_descriptor(device_id).get_num_dram_channels();
-}
-
-std::uint64_t Cluster::get_dram_channel_size(std::uint32_t device_id, std::uint32_t channel) {
-    log_assert(channel < get_num_dram_channels(device_id), "Querying size for a device channel that does not exist.");
-    return get_soc_descriptor(device_id).dram_bank_size;  // Space per channel is identical for now
 }
 
 std::uint32_t Cluster::get_num_host_channels(std::uint32_t device_id) {
@@ -2876,6 +1934,7 @@ std::unique_ptr<tt_ClusterDescriptor> Cluster::create_cluster_descriptor(
         desc->harvesting_masks.insert({chip_id, chip->get_chip_info().harvesting_masks.tensix_harvesting_mask});
         desc->dram_harvesting_masks.insert({chip_id, chip->get_chip_info().harvesting_masks.dram_harvesting_mask});
         desc->eth_harvesting_masks.insert({chip_id, chip->get_chip_info().harvesting_masks.eth_harvesting_mask});
+        desc->pcie_harvesting_masks.insert({chip_id, chip->get_chip_info().harvesting_masks.pcie_harvesting_mask});
     }
 
     if (chips.begin()->second->get_tt_device()->get_arch() == tt::ARCH::BLACKHOLE) {

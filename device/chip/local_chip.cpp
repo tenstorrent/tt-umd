@@ -132,6 +132,7 @@ bool LocalChip::is_mmio_capable() const { return true; }
 void LocalChip::start_device() {
     check_pcie_device_initialized();
     init_pcie_iatus();
+    initialize_membars();
 }
 
 void LocalChip::wait_eth_cores_training(const uint32_t timeout_ms) {

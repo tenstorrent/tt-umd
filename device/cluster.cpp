@@ -530,15 +530,6 @@ void Cluster::configure_active_ethernet_cores_for_mmio_device(
     get_local_chip(mmio_chip)->set_remote_transfer_ethernet_cores(active_eth_cores_per_chip);
 }
 
-void Cluster::initialize_pcie_devices() {
-    log_debug(LogSiliconDriver, "Cluster::start");
-
-    for (auto chip_id : all_chip_ids_) {
-        get_chip(chip_id)->start_device();
-    }
-    // TBD after rebase remove this function
-}
-
 std::set<chip_id_t> Cluster::get_target_device_ids() { return all_chip_ids_; }
 
 std::set<chip_id_t> Cluster::get_target_mmio_device_ids() { return local_chip_ids_; }
@@ -1335,7 +1326,10 @@ void Cluster::verify_sw_fw_versions(int device_id, std::uint32_t sw_version, std
 
 void Cluster::start_device(const tt_device_params& device_params) {
     if (device_params.init_device) {
-        initialize_pcie_devices();
+        for (auto chip_id : all_chip_ids_) {
+            get_chip(chip_id)->start_device();
+        }
+
         // MT Initial BH - Ethernet firmware not present in Blackhole
         if (arch_name == tt::ARCH::WORMHOLE_B0) {
             verify_eth_fw();

@@ -750,7 +750,6 @@ public:
         tt_cxy_pair core, const TensixSoftResetOptions& soft_resets = TENSIX_DEASSERT_SOFT_RESET);
     virtual void assert_risc_reset_at_core(
         tt_cxy_pair core, const TensixSoftResetOptions& soft_resets = TENSIX_ASSERT_SOFT_RESET);
-    virtual void write_to_device(const void* mem_ptr, uint32_t size_in_bytes, tt_cxy_pair core, uint64_t addr);
     // TODO: Add CoreCoord API for this function.
     void broadcast_write_to_cluster(
         const void* mem_ptr,
@@ -759,7 +758,6 @@ public:
         const std::set<chip_id_t>& chips_to_exclude,
         std::set<uint32_t>& rows_to_exclude,
         std::set<uint32_t>& columns_to_exclude);
-    virtual void read_from_device(void* mem_ptr, tt_cxy_pair core, uint64_t addr, uint32_t size);
 
     /**
      * If the tlbs are initialized, returns a tuple with the TLB base address and its size
@@ -849,18 +847,6 @@ private:
     void wait_for_aiclk_value(tt_DevicePowerState power_state, const uint32_t timeout_ms = 5000);
 
     // Communication Functions
-    void write_device_memory(const void* mem_ptr, uint32_t size_in_bytes, tt_cxy_pair target, uint64_t address);
-    void write_to_non_mmio_device(
-        const void* mem_ptr,
-        uint32_t size_in_bytes,
-        tt_cxy_pair core,
-        uint64_t address,
-        bool broadcast = false,
-        std::vector<int> broadcast_header = {});
-    void read_device_memory(void* mem_ptr, tt_cxy_pair target, uint64_t address, uint32_t size_in_bytes);
-    void read_from_non_mmio_device(void* mem_ptr, tt_cxy_pair core, uint64_t address, uint32_t size_in_bytes);
-    void read_mmio_device_register(void* mem_ptr, tt_cxy_pair core, uint64_t addr, uint32_t size);
-    void write_mmio_device_register(const void* mem_ptr, tt_cxy_pair core, uint64_t addr, uint32_t size);
     void ethernet_broadcast_write(
         const void* mem_ptr,
         uint32_t size_in_bytes,

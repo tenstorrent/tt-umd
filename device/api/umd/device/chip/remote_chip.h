@@ -22,6 +22,9 @@ public:
     void write_to_device(tt_xy_pair core, const void* src, uint64_t l1_dest, uint32_t size) override;
     void read_from_device(tt_xy_pair core, void* dest, uint64_t l1_src, uint32_t size) override;
 
+    void write_to_device_reg(tt_xy_pair core, const void* src, uint64_t reg_dest, uint32_t size) override;
+    void read_from_device_reg(tt_xy_pair core, void* dest, uint64_t reg_src, uint32_t size) override;
+
     void wait_for_non_mmio_flush() override;
 
     int arc_msg(

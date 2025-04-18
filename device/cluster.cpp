@@ -1235,7 +1235,12 @@ void Cluster::write_to_device(
 
 void Cluster::write_to_device_reg(
     const void* mem_ptr, uint32_t size_in_bytes, chip_id_t chip, CoreCoord core, uint64_t addr) {
-    write_mmio_device_register(mem_ptr, {(size_t)chip, translate_to_api_coords(chip, core)}, addr, size_in_bytes);
+    bool target_is_mmio_capable = cluster_desc->is_chip_mmio_capable(chip);
+    if (target_is_mmio_capable) {
+        write_mmio_device_register(mem_ptr, {(size_t)chip, translate_to_api_coords(chip, core)}, addr, size_in_bytes);
+    } else {
+        write_to_non_mmio_device(mem_ptr, size_in_bytes, {(size_t)chip, translate_to_api_coords(chip, core)}, addr);
+    }
 }
 
 void Cluster::dma_write_to_device(
@@ -1277,7 +1282,12 @@ void Cluster::read_from_device(void* mem_ptr, chip_id_t chip, CoreCoord core, ui
 }
 
 void Cluster::read_from_device_reg(void* mem_ptr, chip_id_t chip, CoreCoord core, uint64_t addr, uint32_t size) {
-    read_mmio_device_register(mem_ptr, {(size_t)chip, translate_to_api_coords(chip, core)}, addr, size);
+    bool target_is_mmio_capable = cluster_desc->is_chip_mmio_capable(chip);
+    if (target_is_mmio_capable) {
+        read_mmio_device_register(mem_ptr, {(size_t)chip, translate_to_api_coords(chip, core)}, addr, size);
+    } else {
+        read_from_non_mmio_device(mem_ptr, {(size_t)chip, translate_to_api_coords(chip, core)}, addr, size);
+    }
 }
 
 int Cluster::arc_msg(

@@ -58,6 +58,10 @@ public:
     void set_flush_non_mmio(bool flush_non_mmio);
     bool get_flush_non_mmio() const;
 
+    void l1_membar(const std::unordered_set<tt::umd::CoreCoord>& cores = {}) override;
+    void dram_membar(const std::unordered_set<tt::umd::CoreCoord>& cores = {}) override;
+    void dram_membar(const std::unordered_set<uint32_t>& channels = {}) override;
+
     std::unique_lock<RobustMutex> acquire_mutex(std::string mutex_name, int pci_device_id) override;
     std::unique_lock<RobustMutex> acquire_mutex(MutexType mutex_type, int pci_device_id) override;
 
@@ -86,12 +90,17 @@ private:
     void initialize_tlb_manager();
     void initialize_default_chip_mutexes(const bool clear_mutex);
     void initialize_default_remote_transfer_ethernet_cores();
+    void initialize_membars();
 
     tt_xy_pair translate_chip_coord_virtual_to_translated(const tt_xy_pair core) const;
 
     void check_pcie_device_initialized();
     int test_setup_interface();
     void init_pcie_iatus();
+
+    void set_membar_flag(
+        const std::vector<CoreCoord>& cores, const uint32_t barrier_value, const uint32_t barrier_addr);
+    void insert_host_to_device_barrier(const std::vector<CoreCoord>& cores, const uint32_t barrier_addr);
 
 protected:
     void wait_eth_cores_training(const uint32_t timeout_ms = 60000) override;

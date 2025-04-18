@@ -1198,7 +1198,7 @@ void Cluster::write_to_device(
 
 void Cluster::write_to_device_reg(
     const void* mem_ptr, uint32_t size_in_bytes, chip_id_t chip, CoreCoord core, uint64_t addr) {
-    get_local_chip(chip)->write_to_device_reg(translate_to_api_coords(chip, core), mem_ptr, addr, size_in_bytes);
+    get_chip(chip)->write_to_device_reg(translate_to_api_coords(chip, core), mem_ptr, addr, size_in_bytes);
 }
 
 void Cluster::dma_write_to_device(
@@ -1217,7 +1217,7 @@ void Cluster::read_from_device(void* mem_ptr, chip_id_t chip, CoreCoord core, ui
 }
 
 void Cluster::read_from_device_reg(void* mem_ptr, chip_id_t chip, CoreCoord core, uint64_t addr, uint32_t size) {
-    get_local_chip(chip)->read_from_device_reg(translate_to_api_coords(chip, core), mem_ptr, addr, size);
+    get_chip(chip)->read_from_device_reg(translate_to_api_coords(chip, core), mem_ptr, addr, size);
 }
 
 int Cluster::arc_msg(

@@ -19,10 +19,8 @@ public:
 
     void start_device() override;
 
-    void write_to_device(
-        tt_xy_pair core, const void* src, uint64_t l1_dest, uint32_t size, const std::string& fallback_tlb) override;
-    void read_from_device(
-        tt_xy_pair core, void* dest, uint64_t l1_src, uint32_t size, const std::string& fallback_tlb) override;
+    void write_to_device(tt_xy_pair core, const void* src, uint64_t l1_dest, uint32_t size) override;
+    void read_from_device(tt_xy_pair core, void* dest, uint64_t l1_src, uint32_t size) override;
 
     void wait_for_non_mmio_flush() override;
 

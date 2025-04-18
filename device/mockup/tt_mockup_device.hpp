@@ -49,12 +49,7 @@ public:
     void wait_for_non_mmio_flush(const chip_id_t chip_id) override {}
 
     void write_to_device(
-        const void* mem_ptr,
-        uint32_t size_in_bytes,
-        chip_id_t chip,
-        tt::umd::CoreCoord core,
-        uint64_t addr,
-        const std::string& tlb_to_use) override {}
+        const void* mem_ptr, uint32_t size_in_bytes, chip_id_t chip, tt::umd::CoreCoord core, uint64_t addr) override {}
 
     void broadcast_write_to_cluster(
         const void* mem_ptr,
@@ -62,16 +57,10 @@ public:
         uint64_t address,
         const std::set<chip_id_t>& chips_to_exclude,
         std::set<uint32_t>& rows_to_exclude,
-        std::set<uint32_t>& columns_to_exclude,
-        const std::string& fallback_tlb) override {}
+        std::set<uint32_t>& columns_to_exclude) override {}
 
     void read_from_device(
-        void* mem_ptr,
-        chip_id_t chip,
-        tt::umd::CoreCoord core,
-        uint64_t addr,
-        uint32_t size,
-        const std::string& fallback_tlb) override {}
+        void* mem_ptr, chip_id_t chip, tt::umd::CoreCoord core, uint64_t addr, uint32_t size) override {}
 
     void dma_write_to_device(
         const void* src, size_t size, chip_id_t chip, tt::umd::CoreCoord core, uint64_t addr) override {}
@@ -85,20 +74,11 @@ public:
     void read_from_sysmem(
         void* mem_ptr, uint64_t addr, uint16_t channel, uint32_t size, chip_id_t src_device_id) override {}
 
-    void l1_membar(
-        const chip_id_t chip,
-        const std::string& fallback_tlb,
-        const std::unordered_set<tt::umd::CoreCoord>& cores = {}) override {}
+    void l1_membar(const chip_id_t chip, const std::unordered_set<tt::umd::CoreCoord>& cores = {}) override {}
 
-    void dram_membar(
-        const chip_id_t chip,
-        const std::string& fallback_tlb,
-        const std::unordered_set<uint32_t>& channels = {}) override {}
+    void dram_membar(const chip_id_t chip, const std::unordered_set<uint32_t>& channels = {}) override {}
 
-    void dram_membar(
-        const chip_id_t chip,
-        const std::string& fallback_tlb,
-        const std::unordered_set<tt::umd::CoreCoord>& cores = {}) override {}
+    void dram_membar(const chip_id_t chip, const std::unordered_set<tt::umd::CoreCoord>& cores = {}) override {}
 
     int arc_msg(
         int logical_device_id,

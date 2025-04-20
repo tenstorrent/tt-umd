@@ -27,6 +27,8 @@ public:
 
     bool is_mmio_capable() const override;
 
+    void start_device() override;
+
     TTDevice* get_tt_device() override;
     SysmemManager* get_sysmem_manager() override;
     TLBManager* get_tlb_manager() override;
@@ -41,18 +43,13 @@ public:
     void write_to_sysmem(uint16_t channel, const void* src, uint64_t sysmem_dest, uint32_t size) override;
     void read_from_sysmem(uint16_t channel, void* dest, uint64_t sysmem_src, uint32_t size) override;
 
-    void write_to_device(
-        tt_xy_pair core, const void* src, uint64_t l1_dest, uint32_t size, const std::string& fallback_tlb) override;
-    void read_from_device(
-        tt_xy_pair core, void* dest, uint64_t l1_src, uint32_t size, const std::string& fallback_tlb) override;
+    void write_to_device(tt_xy_pair core, const void* src, uint64_t l1_dest, uint32_t size) override;
+    void read_from_device(tt_xy_pair core, void* dest, uint64_t l1_src, uint32_t size) override;
+    void write_to_device_reg(tt_xy_pair core, const void* src, uint64_t reg_dest, uint32_t size) override;
+    void read_from_device_reg(tt_xy_pair core, void* dest, uint64_t reg_src, uint32_t size) override;
 
     void dma_write_to_device(const void* src, size_t size, tt_xy_pair core, uint64_t addr) override;
     void dma_read_from_device(void* dst, size_t size, tt_xy_pair core, uint64_t addr) override;
-
-    void write_to_device_reg(
-        tt_xy_pair core, const void* src, uint64_t reg_dest, uint32_t size, const std::string& fallback_tlb) override;
-    void read_from_device_reg(
-        tt_xy_pair core, void* dest, uint64_t reg_src, uint32_t size, const std::string& fallback_tlb) override;
 
     void ethernet_broadcast_write(
         const void* src, uint64_t core_dest, uint32_t size, std::vector<int> broadcast_header);
@@ -63,6 +60,15 @@ public:
 
     std::unique_lock<RobustMutex> acquire_mutex(std::string mutex_name, int pci_device_id) override;
     std::unique_lock<RobustMutex> acquire_mutex(MutexType mutex_type, int pci_device_id) override;
+
+    int arc_msg(
+        uint32_t msg_code,
+        bool wait_for_done = true,
+        uint32_t arg0 = 0,
+        uint32_t arg1 = 0,
+        uint32_t timeout_ms = 1000,
+        uint32_t* return_3 = nullptr,
+        uint32_t* return_4 = nullptr) override;
 
 private:
     std::unique_ptr<TTDevice> tt_device_;
@@ -82,6 +88,10 @@ private:
     void initialize_default_remote_transfer_ethernet_cores();
 
     tt_xy_pair translate_chip_coord_virtual_to_translated(const tt_xy_pair core) const;
+
+    void check_pcie_device_initialized();
+    int test_setup_interface();
+    void init_pcie_iatus();
 
 protected:
     void wait_eth_cores_training(const uint32_t timeout_ms = 60000) override;

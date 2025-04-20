@@ -55,24 +55,11 @@ public:
     virtual void close_device();
 
     // Runtime Functions
+    virtual void write_to_device(const void* mem_ptr, uint32_t size_in_bytes, tt_cxy_pair core, uint64_t addr);
     virtual void write_to_device(
-        const void* mem_ptr, uint32_t size_in_bytes, tt_cxy_pair core, uint64_t addr, const std::string& tlb_to_use);
-    virtual void write_to_device(
-        const void* mem_ptr,
-        uint32_t size_in_bytes,
-        chip_id_t chip,
-        tt::umd::CoreCoord core,
-        uint64_t addr,
-        const std::string& tlb_to_use);
-    virtual void read_from_device(
-        void* mem_ptr, tt_cxy_pair core, uint64_t addr, uint32_t size, const std::string& fallback_tlb);
-    virtual void read_from_device(
-        void* mem_ptr,
-        chip_id_t chip,
-        tt::umd::CoreCoord core,
-        uint64_t addr,
-        uint32_t size,
-        const std::string& fallback_tlb);
+        const void* mem_ptr, uint32_t size_in_bytes, chip_id_t chip, tt::umd::CoreCoord core, uint64_t addr);
+    virtual void read_from_device(void* mem_ptr, tt_cxy_pair core, uint64_t addr, uint32_t size);
+    virtual void read_from_device(void* mem_ptr, chip_id_t chip, tt::umd::CoreCoord core, uint64_t addr, uint32_t size);
 
     void dma_write_to_device(const void* src, size_t size, chip_id_t chip, tt::umd::CoreCoord core, uint64_t addr) {
         throw std::runtime_error("DMA write not supported in simulation mode.");
@@ -84,16 +71,9 @@ public:
 
     virtual void wait_for_non_mmio_flush();
     virtual void wait_for_non_mmio_flush(const chip_id_t chip);
-    void l1_membar(
-        const chip_id_t chip,
-        const std::string& fallback_tlb,
-        const std::unordered_set<tt::umd::CoreCoord>& cores = {});
-    void dram_membar(
-        const chip_id_t chip, const std::string& fallback_tlb, const std::unordered_set<uint32_t>& channels);
-    void dram_membar(
-        const chip_id_t chip,
-        const std::string& fallback_tlb,
-        const std::unordered_set<tt::umd::CoreCoord>& cores = {});
+    void l1_membar(const chip_id_t chip, const std::unordered_set<tt::umd::CoreCoord>& cores = {});
+    void dram_membar(const chip_id_t chip, const std::unordered_set<uint32_t>& channels);
+    void dram_membar(const chip_id_t chip, const std::unordered_set<tt::umd::CoreCoord>& cores = {});
 
     // Misc. Functions to Query/Set Device State
     static std::vector<chip_id_t> detect_available_device_ids();

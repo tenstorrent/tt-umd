@@ -146,7 +146,7 @@ void tt_SimulationDevice::close_device() {
 
 // Runtime Functions
 void tt_SimulationDevice::write_to_device(
-    const void* mem_ptr, uint32_t size_in_bytes, tt_cxy_pair core, uint64_t addr, const std::string& tlb_to_use) {
+    const void* mem_ptr, uint32_t size_in_bytes, tt_cxy_pair core, uint64_t addr) {
     log_info(
         tt::LogEmulationDriver,
         "Device writing {} bytes to addr {} in core ({}, {})",
@@ -164,17 +164,11 @@ void tt_SimulationDevice::write_to_device(
 }
 
 void tt_SimulationDevice::write_to_device(
-    const void* mem_ptr,
-    uint32_t size_in_bytes,
-    chip_id_t chip,
-    tt::umd::CoreCoord core,
-    uint64_t addr,
-    const std::string& tlb_to_use) {
-    write_to_device(mem_ptr, size_in_bytes, {(size_t)chip, translate_to_api_coords(chip, core)}, addr, tlb_to_use);
+    const void* mem_ptr, uint32_t size_in_bytes, chip_id_t chip, tt::umd::CoreCoord core, uint64_t addr) {
+    write_to_device(mem_ptr, size_in_bytes, {(size_t)chip, translate_to_api_coords(chip, core)}, addr);
 }
 
-void tt_SimulationDevice::read_from_device(
-    void* mem_ptr, tt_cxy_pair core, uint64_t addr, uint32_t size, const std::string& fallback_tlb) {
+void tt_SimulationDevice::read_from_device(void* mem_ptr, tt_cxy_pair core, uint64_t addr, uint32_t size) {
     void* rd_resp;
 
     // Send read request
@@ -195,27 +189,19 @@ void tt_SimulationDevice::read_from_device(
 }
 
 void tt_SimulationDevice::read_from_device(
-    void* mem_ptr,
-    chip_id_t chip,
-    tt::umd::CoreCoord core,
-    uint64_t addr,
-    uint32_t size,
-    const std::string& fallback_tlb) {
-    read_from_device(mem_ptr, {(size_t)chip, translate_to_api_coords(chip, core)}, addr, size, fallback_tlb);
+    void* mem_ptr, chip_id_t chip, tt::umd::CoreCoord core, uint64_t addr, uint32_t size) {
+    read_from_device(mem_ptr, {(size_t)chip, translate_to_api_coords(chip, core)}, addr, size);
 }
 
 void tt_SimulationDevice::wait_for_non_mmio_flush() {}
 
 void tt_SimulationDevice::wait_for_non_mmio_flush(const chip_id_t chip) {}
 
-void tt_SimulationDevice::l1_membar(
-    const chip_id_t chip, const std::string& fallback_tlb, const std::unordered_set<tt::umd::CoreCoord>& cores) {}
+void tt_SimulationDevice::l1_membar(const chip_id_t chip, const std::unordered_set<tt::umd::CoreCoord>& cores) {}
 
-void tt_SimulationDevice::dram_membar(
-    const chip_id_t chip, const std::string& fallback_tlb, const std::unordered_set<uint32_t>& channels) {}
+void tt_SimulationDevice::dram_membar(const chip_id_t chip, const std::unordered_set<uint32_t>& channels) {}
 
-void tt_SimulationDevice::dram_membar(
-    const chip_id_t chip, const std::string& fallback_tlb, const std::unordered_set<tt::umd::CoreCoord>& cores) {}
+void tt_SimulationDevice::dram_membar(const chip_id_t chip, const std::unordered_set<tt::umd::CoreCoord>& cores) {}
 
 // Misc. Functions to Query/Set Device State
 std::vector<chip_id_t> tt_SimulationDevice::detect_available_device_ids() { return {0}; }

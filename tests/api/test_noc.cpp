@@ -20,8 +20,7 @@ TEST(TestNoc, TestNoc0NodeId) {
             cluster->get_tt_device(0)->get_architecture_implementation()->get_noc_reg_base(core.core_type, 0) +
             cluster->get_tt_device(0)->get_architecture_implementation()->get_noc_node_id_offset();
         uint32_t noc_node_id_val;
-        cluster->read_from_device(
-            &noc_node_id_val, chip, core, noc_node_id_reg_addr, sizeof(noc_node_id_val), "REG_TLB");
+        cluster->read_from_device_reg(&noc_node_id_val, chip, core, noc_node_id_reg_addr, sizeof(noc_node_id_val));
         uint32_t x = noc_node_id_val & 0x3F;
         uint32_t y = (noc_node_id_val >> 6) & 0x3F;
         return tt_xy_pair(x, y);
@@ -81,8 +80,7 @@ TEST(TestNoc, TestNoc1NodeId) {
             cluster->get_tt_device(0)->get_architecture_implementation()->get_noc_reg_base(core.core_type, 1) +
             cluster->get_tt_device(0)->get_architecture_implementation()->get_noc_node_id_offset();
         uint32_t noc_node_id_val;
-        cluster->read_from_device(
-            &noc_node_id_val, chip, core, noc_node_id_reg_addr, sizeof(noc_node_id_val), "REG_TLB");
+        cluster->read_from_device_reg(&noc_node_id_val, chip, core, noc_node_id_reg_addr, sizeof(noc_node_id_val));
         uint32_t x = noc_node_id_val & 0x3F;
         uint32_t y = (noc_node_id_val >> 6) & 0x3F;
         return tt_xy_pair(x, y);

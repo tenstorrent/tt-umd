@@ -32,13 +32,9 @@ void test_read_write_all_tensix_cores(Cluster* cluster, int thread_id) {
     for (int loop = 0; loop < NUM_LOOPS; loop++) {
         for (const CoreCoord& core : cluster->get_soc_descriptor(0).get_cores(CoreType::TENSIX)) {
             cluster->write_to_device(
-                vector_to_write.data(),
-                vector_to_write.size() * sizeof(std::uint32_t),
-                0,
-                core,
-                address,
-                "SMALL_READ_WRITE_TLB");
-            test_utils::read_data_from_device(*cluster, readback_vec, 0, core, address, 40, "SMALL_READ_WRITE_TLB");
+                vector_to_write.data(), vector_to_write.size() * sizeof(std::uint32_t), 0, core, address);
+            cluster->l1_membar(0, {core});
+            test_utils::read_data_from_device(*cluster, readback_vec, 0, core, address, 40);
             ASSERT_EQ(vector_to_write, readback_vec)
                 << "Vector read back from core " << core.str() << " does not match what was written";
             readback_vec = {};
@@ -144,8 +140,7 @@ TEST(Multiprocess, WorkloadVSMonitor) {
                 0,
                 cluster->get_soc_descriptor(0).get_cores(CoreType::ARC)[0],
                 0x8003042C,
-                sizeof(uint32_t),
-                "SMALL_READ_WRITE_TLB");
+                sizeof(uint32_t));
         }
         std::cout << "Destroying monitor cluster" << std::endl;
     });
@@ -234,20 +229,11 @@ TEST(Multiprocess, ClusterAndTTDeviceTest) {
             std::vector<uint32_t> data_read(data_write_t1.size(), 0);
             for (uint32_t loop = 0; loop < num_loops; loop++) {
                 cluster->write_to_device(
-                    data_write_t1.data(),
-                    data_write_t1.size() * sizeof(uint32_t),
-                    chip,
-                    tensix_core,
-                    address_thread1,
-                    "SMALL_READ_WRITE_TLB");
+                    data_write_t1.data(), data_write_t1.size() * sizeof(uint32_t), chip, tensix_core, address_thread1);
+                cluster->l1_membar(chip, {tensix_core});
 
                 cluster->read_from_device(
-                    data_read.data(),
-                    chip,
-                    tensix_core,
-                    address_thread1,
-                    data_read.size() * sizeof(uint32_t),
-                    "SMALL_READ_WRITE_TLB");
+                    data_read.data(), chip, tensix_core, address_thread1, data_read.size() * sizeof(uint32_t));
 
                 ASSERT_EQ(data_write_t1, data_read);
 

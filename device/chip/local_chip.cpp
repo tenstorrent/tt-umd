@@ -11,6 +11,7 @@
 #include "umd/device/chip_helpers/tlb_manager.h"
 #include "umd/device/tt_device/tt_device.h"
 #include "umd/device/types/blackhole_eth.h"
+#include "umd/device/wormhole_implementation.h"
 
 extern bool umd_use_noc1;
 
@@ -18,6 +19,9 @@ namespace tt::umd {
 
 // TLB size for DRAM on blackhole - 4GB
 const uint64_t BH_4GB_TLB_SIZE = 4ULL * 1024 * 1024 * 1024;
+
+// Remove 256MB from full 1GB for channel 3 (iATU limitation)
+static constexpr uint32_t HUGEPAGE_CHANNEL_3_SIZE_LIMIT = 805306368;
 
 LocalChip::LocalChip(
     tt_SocDescriptor soc_descriptor, int pci_device_id, int num_host_mem_channels, const bool clear_mutex) :
@@ -107,6 +111,11 @@ TLBManager* LocalChip::get_tlb_manager() { return tlb_manager_.get(); }
 
 bool LocalChip::is_mmio_capable() const { return true; }
 
+void LocalChip::start_device() {
+    check_pcie_device_initialized();
+    init_pcie_iatus();
+}
+
 void LocalChip::wait_eth_cores_training(const uint32_t timeout_ms) {
     if (get_tt_device()->get_arch() != tt::ARCH::BLACKHOLE) {
         return;
@@ -147,8 +156,7 @@ void LocalChip::read_from_sysmem(uint16_t channel, void* dest, uint64_t sysmem_s
     sysmem_manager_->read_from_sysmem(channel, dest, sysmem_src, size);
 }
 
-void LocalChip::write_to_device(
-    tt_xy_pair core, const void* src, uint64_t l1_dest, uint32_t size, const std::string& fallback_tlb) {
+void LocalChip::write_to_device(tt_xy_pair core, const void* src, uint64_t l1_dest, uint32_t size) {
     const uint8_t* buffer_addr = static_cast<const uint8_t*>(src);
 
     log_debug(
@@ -171,6 +179,7 @@ void LocalChip::write_to_device(
             tt_device_->write_block(tlb_description.tlb_offset + l1_dest % tlb_description.size, size, buffer_addr);
         }
     } else {
+        std::string fallback_tlb = "LARGE_WRITE_TLB";
         const auto tlb_index = tlb_manager_->dynamic_tlb_config_.at(fallback_tlb);
         auto lock = acquire_mutex(fallback_tlb, tt_device_->get_pci_device()->get_device_num());
 
@@ -191,8 +200,7 @@ void LocalChip::write_to_device(
     }
 }
 
-void LocalChip::read_from_device(
-    tt_xy_pair core, void* dest, uint64_t l1_src, uint32_t size, const std::string& fallback_tlb) {
+void LocalChip::read_from_device(tt_xy_pair core, void* dest, uint64_t l1_src, uint32_t size) {
     log_debug(
         LogSiliconDriver,
         "Chip::read_from_device from pci device {} core {}-{} at 0x{:x} size: {}",
@@ -219,6 +227,7 @@ void LocalChip::read_from_device(
             tlb_description.tlb_offset,
             tlb_description.size);
     } else {
+        std::string fallback_tlb = "LARGE_READ_TLB";
         const auto tlb_index = tlb_manager_->dynamic_tlb_config_.at(fallback_tlb);
         auto lock = acquire_mutex(fallback_tlb, tt_device_->get_pci_device()->get_device_num());
         log_debug(LogSiliconDriver, "  dynamic tlb_index: {}", tlb_index);
@@ -285,8 +294,7 @@ void LocalChip::dma_read_from_device(void* dst, size_t size, tt_xy_pair core, ui
     }
 }
 
-void LocalChip::write_to_device_reg(
-    tt_xy_pair core, const void* src, uint64_t reg_dest, uint32_t size, const std::string& fallback_tlb) {
+void LocalChip::write_to_device_reg(tt_xy_pair core, const void* src, uint64_t reg_dest, uint32_t size) {
     if (size % sizeof(uint32_t) != 0) {
         throw std::runtime_error("Size must be a multiple of 4 bytes");
     }
@@ -295,6 +303,7 @@ void LocalChip::write_to_device_reg(
         throw std::runtime_error("Register address must be 4-byte aligned");
     }
 
+    std::string fallback_tlb = "REG_TLB";
     const auto tlb_index = tlb_manager_->dynamic_tlb_config_.at(fallback_tlb);
     auto lock = lock_manager_.acquire_mutex(fallback_tlb, tt_device_->get_pci_device()->get_device_num());
     log_debug(LogSiliconDriver, "  dynamic tlb_index: {}", tlb_index);
@@ -304,8 +313,7 @@ void LocalChip::write_to_device_reg(
     tt_device_->write_regs(mapped_address, size / sizeof(uint32_t), src);
 }
 
-void LocalChip::read_from_device_reg(
-    tt_xy_pair core, void* dest, uint64_t reg_src, uint32_t size, const std::string& fallback_tlb) {
+void LocalChip::read_from_device_reg(tt_xy_pair core, void* dest, uint64_t reg_src, uint32_t size) {
     if (size % sizeof(uint32_t) != 0) {
         throw std::runtime_error("Size must be a multiple of 4 bytes");
     }
@@ -314,6 +322,7 @@ void LocalChip::read_from_device_reg(
         throw std::runtime_error("Register address must be 4-byte aligned");
     }
 
+    std::string fallback_tlb = "REG_TLB";
     const auto tlb_index = tlb_manager_->dynamic_tlb_config_.at(fallback_tlb);
     auto lock = lock_manager_.acquire_mutex(fallback_tlb, tt_device_->get_pci_device()->get_device_num());
     log_debug(LogSiliconDriver, "  dynamic tlb_index: {}", tlb_index);
@@ -463,6 +472,144 @@ void LocalChip::wait_dram_cores_training(const uint32_t timeout_ms) {
             throw std::runtime_error(fmt::format("DRAM training timed out after {} ms", timeout_ms));
             break;
         }
+    }
+}
+
+int LocalChip::arc_msg(
+    uint32_t msg_code,
+    bool wait_for_done,
+    uint32_t arg0,
+    uint32_t arg1,
+    uint32_t timeout_ms,
+    uint32_t* return_3,
+    uint32_t* return_4) {
+    std::vector<uint32_t> arc_msg_return_values;
+    if (return_3 != nullptr) {
+        arc_msg_return_values.push_back(0);
+    }
+
+    if (return_4 != nullptr) {
+        arc_msg_return_values.push_back(0);
+    }
+
+    uint32_t exit_code =
+        get_tt_device()->get_arc_messenger()->send_message(msg_code, arc_msg_return_values, arg0, arg1, timeout_ms);
+
+    if (return_3 != nullptr) {
+        *return_3 = arc_msg_return_values[0];
+    }
+
+    if (return_4 != nullptr) {
+        *return_4 = arc_msg_return_values[1];
+    }
+
+    return exit_code;
+}
+
+void LocalChip::check_pcie_device_initialized() {
+    auto architecture_implementation = tt_device_->get_architecture_implementation();
+
+    if (soc_descriptor_.arch == tt::ARCH::WORMHOLE_B0) {
+        log_debug(LogSiliconDriver, "== Check if device_id: {} is initialized", device_id);
+        uint32_t bar_read_initial =
+            tt_device_->bar_read32(architecture_implementation->get_arc_reset_scratch_offset() + 3 * 4);
+        uint32_t arg = bar_read_initial == 500 ? 325 : 500;
+        uint32_t bar_read_again;
+        uint32_t arc_msg_return = arc_msg(
+            wormhole::ARC_MSG_COMMON_PREFIX | architecture_implementation->get_arc_message_test(),
+            true,
+            arg,
+            0,
+            1000,
+            &bar_read_again);
+        if (arc_msg_return != 0 || bar_read_again != arg + 1) {
+            auto postcode = tt_device_->bar_read32(architecture_implementation->get_arc_reset_scratch_offset());
+            throw std::runtime_error(fmt::format(
+                "Device is not initialized: arc_fw postcode: {} arc_msg_return: {} arg: {} bar_read_initial: {} "
+                "bar_read_again: {}",
+                postcode,
+                arc_msg_return,
+                arg,
+                bar_read_initial,
+                bar_read_again));
+        }
+    } else {
+        // TODO #768 figure out BH implementation
+    }
+
+    if (test_setup_interface()) {
+        throw std::runtime_error(
+            "Device is incorrectly initialized. If this is a harvested Wormhole machine, it is likely that NOC "
+            "Translation Tables are not enabled on device. These need to be enabled for the silicon driver to run.");
+    }
+}
+
+int LocalChip::test_setup_interface() {
+    int ret_val = 0;
+    if (soc_descriptor_.arch == tt::ARCH::WORMHOLE_B0) {
+        uint32_t mapped_reg = tt_device_
+                                  ->set_dynamic_tlb(
+                                      tt_device_->get_architecture_implementation()->get_reg_tlb(),
+                                      translate_chip_coord_virtual_to_translated(tt_xy_pair(1, 0)),
+                                      0xffb20108)
+                                  .bar_offset;
+
+        uint32_t regval = 0;
+        tt_device_->read_regs(mapped_reg, 1, &regval);
+        ret_val = (regval != HANG_READ_VALUE && (regval == 33)) ? 0 : 1;
+        return ret_val;
+    } else if (soc_descriptor_.arch == tt::ARCH::BLACKHOLE) {
+        // TODO #768 figure out BH implementation
+        return 0;
+    } else {
+        throw std::runtime_error(fmt::format("Unsupported architecture: {}", arch_to_str(soc_descriptor_.arch)));
+    }
+}
+
+void LocalChip::init_pcie_iatus() {
+    // TODO: with the IOMMU case, I think we can get away with using just
+    // one iATU region for WH.  (On BH, we don't need iATU).  We can only
+    // cover slightly less than 4GB with WH, and the iATU can cover 4GB.
+    // Splitting it into multiple regions is fine, but it's not necessary.
+    //
+    // Update: unfortunately this turned out to be unrealistic.  For the
+    // IOMMU case, the easiest thing to do is fake that we have hugepages
+    // so we can support the hugepage-inspired API that the user application
+    // has come to rely on.  In that scenario, it's simpler to treat such
+    // fake hugepages the same way we treat real ones -- even if underneath
+    // there is only a single buffer.  Simple is good.
+    //
+    // With respect to BH: it turns out that Metal has hard-coded NOC
+    // addressing assumptions for sysmem access.  First step to fix this is
+    // have Metal ask us where sysmem is at runtime, and use that value in
+    // on-device code.  Until then, we're stuck programming iATU.  A more
+    // forward-looking solution is to abandon the sysmem API entirely, and
+    // have the application assume a more active role in managing the memory
+    // shared between host and device.  UMD would be relegated to assisting
+    // the application set up and tear down the mappings.  This is probably
+    // a unrealistic for GS/WH, but it's a good goal for BH.
+    //
+    // Until then...
+    //
+    // For every 1GB channel of memory mapped for DMA, program an iATU
+    // region to map it to the underlying buffer's IOVA (IOMMU case) or PA
+    // (non-IOMMU case).
+    for (size_t channel = 0; channel < sysmem_manager_->get_num_host_mem_channels(); channel++) {
+        hugepage_mapping hugepage_map = sysmem_manager_->get_hugepage_mapping(channel);
+        size_t region_size = hugepage_map.mapping_size;
+
+        if (!hugepage_map.mapping) {
+            throw std::runtime_error(fmt::format("Hugepages are not allocated for ch: {}", channel));
+        }
+
+        if (soc_descriptor_.arch == tt::ARCH::WORMHOLE_B0) {
+            // TODO: stop doing this.  The intent was good, but it's not
+            // documented and nothing takes advantage of it.
+            if (channel == 3) {
+                region_size = HUGEPAGE_CHANNEL_3_SIZE_LIMIT;
+            }
+        }
+        tt_device_->configure_iatu_region(channel, hugepage_map.physical_address, region_size);
     }
 }
 

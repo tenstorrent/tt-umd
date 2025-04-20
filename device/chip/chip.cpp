@@ -6,6 +6,7 @@
 
 #include "umd/device/chip/chip.h"
 
+#include "logger.hpp"
 #include "umd/device/architecture_implementation.h"
 
 namespace tt::umd {
@@ -79,32 +80,12 @@ void Chip::read_from_sysmem(uint16_t channel, void* dest, uint64_t sysmem_src, u
     throw std::runtime_error("Chip::read_from_sysmem is not available for this chip.");
 }
 
-void Chip::write_to_device(
-    tt_xy_pair core, const void* src, uint64_t l1_dest, uint32_t size, const std::string& fallback_tlb) {
-    throw std::runtime_error("Chip::write_to_device is not available for this chip.");
-}
-
-void Chip::read_from_device(
-    tt_xy_pair core, void* dest, uint64_t l1_src, uint32_t size, const std::string& fallback_tlb) {
-    throw std::runtime_error("Chip::read_from_device is not available for this chip.");
-}
-
 void Chip::dma_write_to_device(const void* src, size_t size, tt_xy_pair core, uint64_t addr) {
     throw std::runtime_error("Chip::dma_write_to_device is not available for this chip.");
 }
 
 void Chip::dma_read_from_device(void* dst, size_t size, tt_xy_pair core, uint64_t addr) {
     throw std::runtime_error("Chip::dma_read_from_device is not available for this chip.");
-}
-
-void Chip::write_to_device_reg(
-    tt_xy_pair core, const void* src, uint64_t reg_dest, uint32_t size, const std::string& fallback_tlb) {
-    throw std::runtime_error("Chip::write_to_device_reg is not available for this chip.");
-}
-
-void Chip::read_from_device_reg(
-    tt_xy_pair core, void* dest, uint64_t reg_src, uint32_t size, const std::string& fallback_tlb) {
-    throw std::runtime_error("Chip::read_from_device_reg is not available for this chip.");
 }
 
 void Chip::wait_for_non_mmio_flush() {
@@ -140,5 +121,23 @@ std::unique_lock<RobustMutex> Chip::acquire_mutex(MutexType mutex_type, int pci_
 }
 
 void Chip::wait_dram_cores_training(const uint32_t timeout_ms) {}
+
+void Chip::enable_ethernet_queue(int timeout_s) {
+    log_assert(
+        soc_descriptor_.arch != tt::ARCH::BLACKHOLE,
+        "enable_ethernet_queue is not supported on Blackhole architecture");
+    uint32_t msg_success = 0x0;
+    auto timeout_seconds = std::chrono::seconds(timeout_s);
+    auto start = std::chrono::system_clock::now();
+    while (msg_success != 1) {
+        if (std::chrono::system_clock::now() - start > timeout_seconds) {
+            throw std::runtime_error(
+                fmt::format("Timed out after waiting {} seconds for for DRAM to finish training", timeout_s));
+        }
+        if (arc_msg(0xaa58, true, 0xFFFF, 0xFFFF, 1000, &msg_success) == HANG_READ_VALUE) {
+            break;
+        }
+    }
+}
 
 }  // namespace tt::umd

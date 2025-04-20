@@ -73,6 +73,14 @@ if(TT_UMD_BUILD_SIMULATION)
             "FLATBUFFERS_SKIP_MONSTER_EXTRA ON"
             "FLATBUFFERS_STRICT_MODE ON"
     )
+
+    if(NOT TARGET flatbuffers::flatbuffers)
+        message(
+            INFO
+            "CPM Added flatbuffers, creating ALIAS flatbuffers::flatbuffers"
+        )
+        add_library(flatbuffers::flatbuffers ALIAS flatbuffers)
+    endif()
 endif()
 
 ###################################################################################################################

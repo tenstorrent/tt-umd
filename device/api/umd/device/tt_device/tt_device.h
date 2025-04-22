@@ -158,6 +158,8 @@ public:
 
     ArcMessenger *get_arc_messenger() const;
 
+    ArcTelemetryReader *get_arc_telemetry_reader() const;
+
     virtual uint32_t get_clock();
 
     virtual uint32_t get_max_clock_freq();

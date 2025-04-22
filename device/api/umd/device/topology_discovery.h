@@ -19,6 +19,25 @@ public:
     std::unique_ptr<tt_ClusterDescriptor> create_ethernet_map();
 
 private:
+    struct EthAddresses {
+        uint32_t masked_version;
+
+        uint64_t version;
+        uint64_t boot_params;
+        uint64_t node_info;
+        uint64_t eth_conn_info;
+        uint64_t debug_buf;
+        uint64_t results_buf;
+        bool shelf_rack_routing;
+        uint64_t heartbeat;
+        uint64_t erisc_app;
+        uint64_t erisc_app_config;
+        uint64_t erisc_remote_board_type_offset;
+        uint64_t erisc_local_board_type_offset;
+    };
+
+    static EthAddresses get_eth_addresses(uint32_t eth_fw_version);
+
     void get_pcie_connected_chips();
 
     void discover_remote_chips();
@@ -60,6 +79,8 @@ private:
     std::unique_ptr<tt_ClusterDescriptor> cluster_desc;
 
     chip_id_t chip_id = 0;
+
+    EthAddresses eth_addresses;
 };
 
 }  // namespace tt::umd

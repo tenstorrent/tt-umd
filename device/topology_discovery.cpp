@@ -11,6 +11,7 @@
 #include "umd/device/remote_communication.h"
 #include "umd/device/tt_cluster_descriptor.h"
 #include "umd/device/types/cluster_types.h"
+#include "umd/device/types/wormhole_telemetry.h"
 #include "umd/device/wormhole_implementation.h"
 
 namespace tt::umd {
@@ -18,9 +19,90 @@ namespace tt::umd {
 std::unique_ptr<tt_ClusterDescriptor> TopologyDiscovery::create_ethernet_map() {
     cluster_desc = std::unique_ptr<tt_ClusterDescriptor>(new tt_ClusterDescriptor());
     get_pcie_connected_chips();
+
+    if (!chips.empty()) {
+        eth_addresses = TopologyDiscovery::get_eth_addresses(
+            chips.at(0)->get_tt_device()->get_arc_telemetry_reader()->read_entry(wormhole::TAG_ETH_FW_VERSION));
+    }
+
     discover_remote_chips();
     fill_cluster_descriptor_info();
     return std::move(cluster_desc);
+}
+
+TopologyDiscovery::EthAddresses TopologyDiscovery::get_eth_addresses(uint32_t eth_fw_version) {
+    uint32_t masked_version = eth_fw_version & 0x00FFFFFF;
+
+    uint64_t version;
+    uint64_t boot_params;
+    uint64_t node_info;
+    uint64_t eth_conn_info;
+    uint64_t debug_buf;
+    uint64_t results_buf;
+    bool shelf_rack_routing;
+    uint64_t heartbeat;
+    uint64_t erisc_app;
+    uint64_t erisc_app_config;
+    uint64_t erisc_remote_board_type_offset;
+    uint64_t erisc_local_board_type_offset;
+
+    if (masked_version >= 0x050000) {
+        boot_params = 0x1000;
+        node_info = 0x1100;
+        eth_conn_info = 0x1200;
+        debug_buf = 0x12c0;
+        results_buf = 0x1ec0;
+        shelf_rack_routing = true;
+    } else if (masked_version >= 0x030000) {
+        boot_params = 0x1000;
+        node_info = 0x1100;
+        eth_conn_info = 0x1200;
+        debug_buf = 0x1240;
+        results_buf = 0x1e40;
+        shelf_rack_routing = false;
+    } else {
+        boot_params = 0x5000;
+        node_info = 0x5100;
+        eth_conn_info = 0x5200;
+        debug_buf = 0x5240;
+        results_buf = 0x5e40;
+        shelf_rack_routing = false;
+    }
+
+    if (masked_version >= 0x060000) {
+        version = 0x210;
+        heartbeat = 0x1c;
+        erisc_app = 0x9040;
+        erisc_app_config = 0x12000;
+    } else {
+        version = 0x210;
+        heartbeat = 0x1f80;
+        erisc_app = 0x8020;
+        erisc_app_config = 0x12000;
+    }
+
+    if (masked_version >= 0x06C000) {
+        erisc_remote_board_type_offset = 77;
+        erisc_local_board_type_offset = 69;
+    } else {
+        erisc_remote_board_type_offset = 72;
+        erisc_local_board_type_offset = 64;
+    }
+
+    return TopologyDiscovery::EthAddresses{
+        masked_version,
+        version,
+        boot_params,
+        node_info,
+        eth_conn_info,
+        debug_buf,
+        results_buf,
+        shelf_rack_routing,
+        heartbeat,
+        erisc_app,
+        erisc_app_config,
+        erisc_remote_board_type_offset,
+        erisc_local_board_type_offset};
 }
 
 void TopologyDiscovery::get_pcie_connected_chips() {
@@ -187,13 +269,10 @@ ChipInfo TopologyDiscovery::read_non_mmio_chip_info(eth_coord_t eth_coord, Chip*
 }
 
 void TopologyDiscovery::discover_remote_chips() {
-    const uint64_t conn_info = 0x1200;
-    const uint64_t node_info = 0x1100;
     const uint32_t eth_unknown = 0;
     const uint32_t eth_unconnected = 1;
     const uint32_t shelf_offset = 9;
     const uint32_t rack_offset = 10;
-    const uint32_t base_addr = 0x1ec0;
 
     std::unordered_map<uint64_t, chip_id_t> chip_uid_to_local_chip_id = {};
 
@@ -205,7 +284,8 @@ void TopologyDiscovery::discover_remote_chips() {
         TTDevice* tt_device = chip->get_tt_device();
 
         uint32_t current_chip_eth_coord_info;
-        tt_device->read_from_device(&current_chip_eth_coord_info, eth_cores[0], node_info + 8, sizeof(uint32_t));
+        tt_device->read_from_device(
+            &current_chip_eth_coord_info, eth_cores[0], eth_addresses.node_info + 8, sizeof(uint32_t));
 
         eth_coord_t current_chip_eth_coord;
         current_chip_eth_coord.cluster_id = 0;
@@ -225,7 +305,8 @@ void TopologyDiscovery::discover_remote_chips() {
         TTDevice* tt_device = chip->get_tt_device();
 
         uint32_t current_chip_eth_coord_info;
-        tt_device->read_from_device(&current_chip_eth_coord_info, eth_cores[0], node_info + 8, sizeof(uint32_t));
+        tt_device->read_from_device(
+            &current_chip_eth_coord_info, eth_cores[0], eth_addresses.node_info + 8, sizeof(uint32_t));
 
         eth_coord_t current_chip_eth_coord;
         current_chip_eth_coord.cluster_id = 0;
@@ -240,7 +321,7 @@ void TopologyDiscovery::discover_remote_chips() {
             tt_device->read_from_device(
                 &port_status,
                 tt_cxy_pair(chip_id, eth_core.x, eth_core.y),
-                conn_info + (channel * 4),
+                eth_addresses.eth_conn_info + (channel * 4),
                 sizeof(uint32_t));
 
             if (port_status == eth_unknown || port_status == eth_unconnected) {
@@ -253,13 +334,13 @@ void TopologyDiscovery::discover_remote_chips() {
 
             uint32_t remote_id;
             tt_device->read_from_device(
-                &remote_id, {eth_core.x, eth_core.y}, node_info + (4 * rack_offset), sizeof(uint32_t));
+                &remote_id, {eth_core.x, eth_core.y}, eth_addresses.node_info + (4 * rack_offset), sizeof(uint32_t));
 
             uint32_t remote_rack_x = remote_id & 0xFF;
             uint32_t remote_rack_y = (remote_id >> 8) & 0xFF;
 
             tt_device->read_from_device(
-                &remote_id, {eth_core.x, eth_core.y}, node_info + (4 * shelf_offset), sizeof(uint32_t));
+                &remote_id, {eth_core.x, eth_core.y}, eth_addresses.node_info + (4 * shelf_offset), sizeof(uint32_t));
 
             uint32_t remote_shelf_x = (remote_id >> 16) & 0x3F;
             uint32_t remote_shelf_y = (remote_id >> 22) & 0x3F;
@@ -309,7 +390,7 @@ void TopologyDiscovery::discover_remote_chips() {
 
             uint32_t current_chip_eth_coord_info;
             remote_comm->read_non_mmio(
-                eth_coord, eth_cores[0], &current_chip_eth_coord_info, node_info + 8, sizeof(uint32_t));
+                eth_coord, eth_cores[0], &current_chip_eth_coord_info, eth_addresses.node_info + 8, sizeof(uint32_t));
 
             eth_coord_t current_chip_eth_coord;
             current_chip_eth_coord.cluster_id = 0;
@@ -345,7 +426,7 @@ void TopologyDiscovery::discover_remote_chips() {
                     eth_coord,
                     tt_xy_pair(eth_core.x, eth_core.y),
                     &port_status,
-                    conn_info + (channel * 4),
+                    eth_addresses.eth_conn_info + (channel * 4),
                     sizeof(uint32_t));
 
                 if (port_status == eth_unknown || port_status == eth_unconnected) {
@@ -355,13 +436,21 @@ void TopologyDiscovery::discover_remote_chips() {
 
                 uint32_t remote_id;
                 remote_comm->read_non_mmio(
-                    eth_coord, {eth_core.x, eth_core.y}, &remote_id, node_info + (4 * rack_offset), sizeof(uint32_t));
+                    eth_coord,
+                    {eth_core.x, eth_core.y},
+                    &remote_id,
+                    eth_addresses.node_info + (4 * rack_offset),
+                    sizeof(uint32_t));
 
                 uint32_t remote_rack_x = remote_id & 0xFF;
                 uint32_t remote_rack_y = (remote_id >> 8) & 0xFF;
 
                 remote_comm->read_non_mmio(
-                    eth_coord, {eth_core.x, eth_core.y}, &remote_id, node_info + (4 * shelf_offset), sizeof(uint32_t));
+                    eth_coord,
+                    {eth_core.x, eth_core.y},
+                    &remote_id,
+                    eth_addresses.node_info + (4 * shelf_offset),
+                    sizeof(uint32_t));
 
                 uint32_t remote_shelf_x = (remote_id >> 16) & 0x3F;
                 uint32_t remote_shelf_y = (remote_id >> 22) & 0x3F;

@@ -418,7 +418,7 @@ Cluster::Cluster(
     std::unordered_map<chip_id_t, HarvestingMasks> simulated_harvesting_masks) {
     cluster_desc = Cluster::create_cluster_descriptor();
 
-    for (auto& chip_id : cluster_desc->get_all_chips_local_first()) {
+    for (auto& chip_id : cluster_desc->get_chips_local_first(cluster_desc->get_all_chips())) {
         add_chip(
             chip_id,
             construct_chip_from_cluster(
@@ -443,7 +443,8 @@ Cluster::Cluster(
     std::unordered_map<chip_id_t, HarvestingMasks> simulated_harvesting_masks) {
     cluster_desc = Cluster::create_cluster_descriptor();
 
-    for (auto& chip_id : cluster_desc->get_all_chips_local_first()) {
+    std::unordered_set<chip_id_t> target_devices_set(target_devices.begin(), target_devices.end());
+    for (auto& chip_id : cluster_desc->get_chips_local_first(target_devices_set)) {
         log_assert(
             cluster_desc->get_all_chips().find(chip_id) != cluster_desc->get_all_chips().end(),
             "Target device {} not present in current cluster!",
@@ -473,7 +474,8 @@ Cluster::Cluster(
     std::unordered_map<chip_id_t, HarvestingMasks> simulated_harvesting_masks) {
     cluster_desc = Cluster::create_cluster_descriptor(sdesc_path);
 
-    for (auto& chip_id : cluster_desc->get_all_chips_local_first()) {
+    std::unordered_set<chip_id_t> target_devices_set(target_devices.begin(), target_devices.end());
+    for (auto& chip_id : cluster_desc->get_chips_local_first(target_devices_set)) {
         log_assert(
             cluster_desc->get_all_chips().find(chip_id) != cluster_desc->get_all_chips().end(),
             "Target device {} not present in current cluster!",
@@ -509,7 +511,7 @@ Cluster::Cluster(
     std::unordered_map<chip_id_t, HarvestingMasks> simulated_harvesting_masks) {
     cluster_desc = std::move(cluster_descriptor);
 
-    for (auto& chip_id : cluster_desc->get_all_chips_local_first()) {
+    for (auto& chip_id : cluster_desc->get_chips_local_first(cluster_desc->get_all_chips())) {
         add_chip(
             chip_id,
             construct_chip_from_cluster(

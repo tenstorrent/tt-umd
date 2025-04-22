@@ -5,6 +5,8 @@
  */
 #pragma once
 
+#include <memory>
+
 #include "umd/device/tt_device/tlb_handle.h"
 
 namespace tt::umd {

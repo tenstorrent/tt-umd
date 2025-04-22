@@ -5,9 +5,10 @@
  */
 #pragma once
 
-#include <sys/mman.h>
+#include <cstddef>
+#include <cstdint>
 
-#include "umd/device/pci_device.hpp"
+#include "ioctl.h"
 
 namespace tt::umd {
 

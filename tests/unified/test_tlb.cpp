@@ -22,7 +22,7 @@ TEST(TestTlb, TestTlbWindowAllocateNew) {
     std::vector<CoreCoord> tensix_cores =
         cluster->get_soc_descriptor(chip).get_cores(CoreType::TENSIX, CoordSystem::TRANSLATED);
     for (CoreCoord core : tensix_cores) {
-        cluster->write_to_device(&val, sizeof(uint32_t), chip, core, tensix_addr, "LARGE_WRITE_TLB");
+        cluster->write_to_device(&val, sizeof(uint32_t), chip, core, tensix_addr);
         val++;
     }
 
@@ -65,7 +65,7 @@ TEST(TestTlb, TestTlbWindowReuse) {
     std::vector<CoreCoord> tensix_cores =
         cluster->get_soc_descriptor(chip).get_cores(CoreType::TENSIX, CoordSystem::TRANSLATED);
     for (CoreCoord core : tensix_cores) {
-        cluster->write_to_device(&val, sizeof(uint32_t), chip, core, tensix_addr, "LARGE_WRITE_TLB");
+        cluster->write_to_device(&val, sizeof(uint32_t), chip, core, tensix_addr);
         val++;
     }
 

@@ -5,6 +5,7 @@
  */
 #pragma once
 
+#include "umd/device/pci_device.hpp"
 #include "umd/device/tt_device/tlb_window.h"
 
 namespace tt::umd {

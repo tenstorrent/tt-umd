@@ -76,7 +76,7 @@ TEST(TestTlb, TestTlbWindowReuse) {
 
     // Here it's not important how we have configured the TLB. For every read we will
     // do the reconfigure of the TLB window.
-    tenstorrent_noc_tlb_config config;
+    tenstorrent_noc_tlb_config config{};
     std::unique_ptr<TlbWindow> tlb_window = tlb_allocator->get_tlb(two_mb_size, config);
 
     for (CoreCoord core : tensix_cores) {

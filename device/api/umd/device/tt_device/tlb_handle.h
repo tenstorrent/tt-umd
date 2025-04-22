@@ -13,7 +13,7 @@ namespace tt::umd {
 
 class TlbHandle {
 public:
-    TlbHandle(PCIDevice* pci_device, size_t size, const tenstorrent_noc_tlb_config& config);
+    TlbHandle(uint32_t fd, size_t size, const tenstorrent_noc_tlb_config& config);
 
     ~TlbHandle() noexcept;
 
@@ -30,6 +30,6 @@ private:
     uint8_t* tlb_base;
     size_t tlb_size;
     tenstorrent_noc_tlb_config tlb_config{};
-    PCIDevice* pci_device;
+    uint32_t fd;
 };
 }  // namespace tt::umd

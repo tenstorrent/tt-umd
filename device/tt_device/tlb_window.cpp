@@ -5,6 +5,8 @@
  */
 #include "umd/device/tt_device/tlb_window.h"
 
+#include <stdexcept>
+
 namespace tt::umd {
 
 TlbWindow::TlbWindow(std::unique_ptr<TlbHandle> handle) : handle(std::move(handle)) {}

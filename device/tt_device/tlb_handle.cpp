@@ -6,6 +6,9 @@
 #include "umd/device/tt_device/tlb_handle.h"
 
 #include <sys/ioctl.h>
+#include <sys/mman.h>
+
+#include <stdexcept>
 
 #include "ioctl.h"
 #include "logger.hpp"

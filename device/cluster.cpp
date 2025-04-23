@@ -1237,8 +1237,8 @@ int Cluster::arc_msg(
 void Cluster::send_tensix_risc_reset_to_core(const tt_cxy_pair& core, const TensixSoftResetOptions& soft_resets) {
     auto valid = soft_resets & ALL_TENSIX_SOFT_RESET;
     uint32_t valid_val = (std::underlying_type<TensixSoftResetOptions>::type)valid;
-    write_to_device_reg(
-        &valid_val, sizeof(uint32_t), core.chip, CoreCoord{core, CoreType::TENSIX, CoordSystem::VIRTUAL}, 0xFFB121B0);
+    CoreCoord virtual_core = get_soc_descriptor(core.chip).get_coord_at(core, CoordSystem::VIRTUAL);
+    write_to_device_reg(&valid_val, sizeof(uint32_t), core.chip, virtual_core, 0xFFB121B0);
     tt_driver_atomics::sfence();
 }
 
@@ -1246,8 +1246,8 @@ void Cluster::send_remote_tensix_risc_reset_to_core(
     const tt_cxy_pair& core, const TensixSoftResetOptions& soft_resets) {
     auto valid = soft_resets & ALL_TENSIX_SOFT_RESET;
     uint32_t valid_val = (std::underlying_type<TensixSoftResetOptions>::type)valid;
-    write_to_device(
-        &valid_val, sizeof(uint32_t), core.chip, {core, CoreType::TENSIX, CoordSystem::VIRTUAL}, 0xFFB121B0);
+    CoreCoord virtual_core = get_soc_descriptor(core.chip).get_coord_at(core, CoordSystem::VIRTUAL);
+    write_to_device(&valid_val, sizeof(uint32_t), core.chip, virtual_core, 0xFFB121B0);
     tt_driver_atomics::sfence();
 }
 

@@ -676,12 +676,14 @@ void Cluster::wait_for_aiclk_value(tt_DevicePowerState power_state, const uint32
             auto end = std::chrono::system_clock::now();
             auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
             if (duration.count() > timeout_ms) {
-                throw std::runtime_error(fmt::format(
+                log_warning(
+                    LogSiliconDriver,
                     "Waiting for AICLK value to settle failed on timeout after {}. Expected to see {}, last value "
                     "observed {}",
                     timeout_ms,
                     target_aiclk,
-                    aiclk));
+                    aiclk);
+                return;
             }
             aiclk = get_clock(chip_id);
         }

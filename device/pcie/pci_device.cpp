@@ -385,7 +385,7 @@ PCIDevice::PCIDevice(int pci_device_number) :
     // poll a completion page to know when the DMA is done instead of receiving
     // an interrupt.
     if (arch == tt::ARCH::WORMHOLE_B0) {
-        const uint32_t buf_size = (1 << 19);  // 1 MiB
+        const uint32_t buf_size = (1 << 20);  // 1 MiB
         tenstorrent_allocate_dma_buf dma_buf{};
 
         dma_buf.in.requested_size = buf_size + 0x1000;

@@ -3,11 +3,14 @@
  *
  * SPDX-License-Identifier: Apache-2.0
  */
+#include <thread>
+
 #include "gtest/gtest.h"
 #include "tests/test_utils/device_test_utils.hpp"
 #include "tests/test_utils/generate_cluster_desc.hpp"
 #include "umd/device/cluster.h"
 #include "umd/device/tt_cluster_descriptor.h"
+#include "umd/device/tt_device/wormhole_tt_device.h"
 #include "umd/device/wormhole_implementation.h"
 #include "wormhole/eth_l1_address_map.h"
 #include "wormhole/host_mem_address_map.h"
@@ -309,6 +312,8 @@ TEST(TestPerf, DMATensix) {
             std::vector<uint8_t> pattern(buf_size);
             test_utils::fill_with_random_bytes(&pattern[0], pattern.size());
 
+            WormholeTTDevice::total_ns = 0;
+            std::cout << "wormhole total_ns: " << WormholeTTDevice::total_ns << std::endl;
             auto now = std::chrono::steady_clock::now();
             for (int i = 0; i < NUM_ITERATIONS; i++) {
                 cluster->dma_write_to_device(pattern.data(), pattern.size(), chip, core, 0x0);
@@ -317,12 +322,17 @@ TEST(TestPerf, DMATensix) {
             auto ns = std::chrono::duration_cast<std::chrono::nanoseconds>(end - now).count();
             print_speed("DMA: Host -> Device", NUM_ITERATIONS * pattern.size(), ns);
 
+            std::cout << "wormhole total_ns: " << WormholeTTDevice::total_ns << std::endl;
+            print_speed("wormhole total_ns", NUM_ITERATIONS * pattern.size(), WormholeTTDevice::total_ns);
+
             patterns.push_back(pattern);
         }
 
         // Now, read back the patterns we wrote to tensix and verify them.
         {
             std::vector<uint8_t> readback(buf_size, 0x0);
+            WormholeTTDevice::total_ns = 0;
+            std::cout << "wormhole total_ns: " << WormholeTTDevice::total_ns << std::endl;
             auto now = std::chrono::steady_clock::now();
             for (int i = 0; i < NUM_ITERATIONS; i++) {
                 cluster->dma_read_from_device(readback.data(), readback.size(), chip, core, 0x0);
@@ -330,6 +340,8 @@ TEST(TestPerf, DMATensix) {
             auto end = std::chrono::steady_clock::now();
             auto ns = std::chrono::duration_cast<std::chrono::nanoseconds>(end - now).count();
             print_speed("DMA: Device -> Host", NUM_ITERATIONS * readback.size(), ns);
+
+            std::cout << "wormhole total_ns: " << WormholeTTDevice::total_ns << std::endl;
 
             EXPECT_EQ(patterns[0], readback) << "Mismatch for core " << core.str() << " addr=0x0"
                                              << " size=" << std::dec << readback.size();
@@ -461,5 +473,62 @@ TEST(TestPerf, DMADramInterleaved) {
 
             print_speed("DMA: Device -> Host", buf_size, total_ns);
         }
+    }
+}
+
+TEST(TestPerf, Memcpy) {
+    std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
+
+    PCIDevice* pci_device = cluster->get_tt_device(0)->get_pci_device();
+
+    const size_t NUM_ITERATIONS = 1000;
+
+    const uint32_t one_mib = (1 << 20);
+
+    std::vector<uint8_t> src_buffer(one_mib);
+    test_utils::fill_with_random_bytes(&src_buffer[0], src_buffer.size());
+
+    {
+        auto now = std::chrono::steady_clock::now();
+
+        for (int i = 0; i < NUM_ITERATIONS; i++) {
+            memcpy(pci_device->get_dma_buffer().buffer, src_buffer.data(), src_buffer.size());
+        }
+
+        auto end = std::chrono::steady_clock::now();
+        auto ns = std::chrono::duration_cast<std::chrono::nanoseconds>(end - now).count();
+
+        print_speed("Single thread memcpy: Host -> DMA buffer", NUM_ITERATIONS * src_buffer.size(), ns);
+    }
+    {
+        auto now = std::chrono::steady_clock::now();
+
+        void* s1 = (void*)((uint8_t*)src_buffer.data() + src_buffer.size() / 4);
+        void* s2 = (void*)((uint8_t*)src_buffer.data() + src_buffer.size() / 2);
+        void* s3 = (void*)((uint8_t*)src_buffer.data() + 3 * src_buffer.size() / 4);
+
+        void* p1 = (void*)((uint8_t*)pci_device->get_dma_buffer().buffer + src_buffer.size() / 4);
+        void* p2 = (void*)((uint8_t*)pci_device->get_dma_buffer().buffer + src_buffer.size() / 2);
+        void* p3 = (void*)((uint8_t*)pci_device->get_dma_buffer().buffer + 3 * src_buffer.size() / 4);
+
+        for (int i = 0; i < NUM_ITERATIONS; i++) {
+            auto memcpy0 = std::thread(
+                [&] { memcpy(pci_device->get_dma_buffer().buffer, src_buffer.data(), src_buffer.size() / 4); });
+
+            auto memcpy1 = std::thread([&] { memcpy(p1, s1, src_buffer.size() / 4); });
+
+            auto memcpy2 = std::thread([&] { memcpy(p2, s2, src_buffer.size() / 4); });
+
+            auto memcpy3 = std::thread([&] { memcpy(p3, s3, src_buffer.size() / 4); });
+
+            memcpy0.join();
+            memcpy1.join();
+            memcpy2.join();
+            memcpy3.join();
+        }
+
+        auto end = std::chrono::steady_clock::now();
+        auto ns = std::chrono::duration_cast<std::chrono::nanoseconds>(end - now).count();
+        print_speed("Multiple threads memcpy: Host -> DMA buffer", NUM_ITERATIONS * src_buffer.size(), ns);
     }
 }

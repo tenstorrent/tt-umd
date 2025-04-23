@@ -13,6 +13,8 @@ static constexpr uint32_t DMA_TIMEOUT_MS = 10000;  // 10 seconds
 
 namespace tt::umd {
 
+uint64_t WormholeTTDevice::total_ns = 0;
+
 WormholeTTDevice::WormholeTTDevice(std::unique_ptr<PCIDevice> pci_device) :
     TTDevice(std::move(pci_device), std::make_unique<wormhole_implementation>()) {}
 
@@ -218,8 +220,11 @@ void WormholeTTDevice::dma_d2h(void *dst, uint32_t src, size_t size) {
             throw std::runtime_error("DMA timeout");
         }
     }
-
+    auto now = std::chrono::steady_clock::now();
     memcpy(dst, dma_buffer.buffer, size);
+    auto end = std::chrono::steady_clock::now();
+    auto ns = std::chrono::duration_cast<std::chrono::nanoseconds>(end - now).count();
+    WormholeTTDevice::total_ns += ns;
 }
 
 void WormholeTTDevice::dma_h2d(uint32_t dst, const void *src, size_t size) {
@@ -264,7 +269,11 @@ void WormholeTTDevice::dma_h2d(uint32_t dst, const void *src, size_t size) {
     }
 
     // Prepare the DMA buffer.
+    auto now = std::chrono::steady_clock::now();
     memcpy(dma_buffer.buffer, src, size);
+    auto end = std::chrono::steady_clock::now();
+    auto ns = std::chrono::duration_cast<std::chrono::nanoseconds>(end - now).count();
+    WormholeTTDevice::total_ns += ns;
 
     // Reset completion flag.
     *completion = 0;

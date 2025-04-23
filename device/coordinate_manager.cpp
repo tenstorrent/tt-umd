@@ -213,36 +213,26 @@ void CoordinateManager::translate_tensix_coords() {
 }
 
 void CoordinateManager::fill_tensix_default_physical_translated_mapping() {
-    size_t num_harvested_y = CoordinateManager::get_num_harvested(harvesting_masks.tensix_harvesting_mask);
+    tt_xy_pair tensix_grid_unharvested = get_grid_size(CoreType::TENSIX);
 
-    for (size_t x = 0; x < tensix_grid_size.x; x++) {
-        for (size_t y = 0; y < tensix_grid_size.y - num_harvested_y; y++) {
-            CoreCoord logical_coord = CoreCoord(x, y, CoreType::TENSIX, CoordSystem::LOGICAL);
-            const tt_xy_pair physical_pair = to_physical_map[logical_coord];
-            const size_t translated_x = physical_pair.x;
-            const size_t translated_y = physical_pair.y;
+    for (CoreCoord physical_core : get_tensix_cores()) {
+        const size_t translated_x = physical_core.x;
+        const size_t translated_y = physical_core.y;
 
-            CoreCoord translated_coord =
-                CoreCoord(translated_x, translated_y, CoreType::TENSIX, CoordSystem::TRANSLATED);
+        CoreCoord translated_coord =
+            CoreCoord(translated_x, translated_y, CoreType::TENSIX, CoordSystem::TRANSLATED);
 
-            add_core_translation(translated_coord, physical_pair);
-        }
+        add_core_translation(translated_coord, (tt_xy_pair)physical_core);
     }
 
-    size_t harvested_index = (tensix_grid_size.y - num_harvested_y) * tensix_grid_size.x;
-    for (size_t y = 0; y < tensix_grid_size.y; y++) {
-        if (harvesting_masks.tensix_harvesting_mask & (1 << y)) {
-            for (size_t x = 0; x < tensix_grid_size.x; x++) {
-                const tt_xy_pair& physical_core = tensix_cores[y * tensix_grid_size.x + x];
-                const size_t translated_x = physical_core.x;
-                const size_t translated_y = physical_core.y;
+    for (CoreCoord physical_core : get_harvested_tensix_cores()) {
+        const size_t translated_x = physical_core.x;
+        const size_t translated_y = physical_core.y;
 
-                CoreCoord translated_coord =
-                    CoreCoord(translated_x, translated_y, CoreType::TENSIX, CoordSystem::TRANSLATED);
+        CoreCoord translated_coord =
+            CoreCoord(translated_x, translated_y, CoreType::TENSIX, CoordSystem::TRANSLATED);
 
-                add_core_translation(translated_coord, physical_core);
-            }
-        }
+        add_core_translation(translated_coord, (tt_xy_pair)physical_core);
     }
 }
 
@@ -551,12 +541,6 @@ std::vector<tt::umd::CoreCoord> CoordinateManager::get_cores(const CoreType core
         default:
             throw std::runtime_error("Core type is not supported for getting cores");
     }
-}
-
-tt_xy_pair CoordinateManager::get_tensix_grid_size() const {
-    return {
-        tensix_grid_size.x,
-        tensix_grid_size.y - CoordinateManager::get_num_harvested(harvesting_masks.tensix_harvesting_mask)};
 }
 
 tt_xy_pair CoordinateManager::get_dram_grid_size() const { return dram_grid_size; }

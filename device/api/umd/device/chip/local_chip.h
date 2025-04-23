@@ -89,6 +89,7 @@ private:
 
     tt_xy_pair translate_chip_coord_virtual_to_translated(const tt_xy_pair core) const;
 
+    void setup_static_tlbs();
     void check_pcie_device_initialized();
     int test_setup_interface();
     void init_pcie_iatus();

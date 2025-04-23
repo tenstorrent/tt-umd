@@ -80,7 +80,9 @@ void LocalChip::initialize_tlb_manager() {
     tlb_manager_->set_dynamic_tlb_config("REG_TLB", tt_device_->get_architecture_implementation()->get_reg_tlb());
     tlb_manager_->set_dynamic_tlb_config(
         "SMALL_READ_WRITE_TLB", tt_device_->get_architecture_implementation()->get_small_read_write_tlb());
+}
 
+void LocalChip::setup_static_tlbs() {
     size_t num_eth_cores = soc_descriptor_.get_num_eth_channels();
     auto tensix_grid = soc_descriptor_.get_grid_size(CoreType::TENSIX);
 
@@ -166,6 +168,7 @@ TLBManager* LocalChip::get_tlb_manager() { return tlb_manager_.get(); }
 bool LocalChip::is_mmio_capable() const { return true; }
 
 void LocalChip::start_device() {
+    setup_static_tlbs();
     check_pcie_device_initialized();
     init_pcie_iatus();
 }

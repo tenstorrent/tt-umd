@@ -219,8 +219,7 @@ void CoordinateManager::fill_tensix_default_physical_translated_mapping() {
         const size_t translated_x = physical_core.x;
         const size_t translated_y = physical_core.y;
 
-        CoreCoord translated_coord =
-            CoreCoord(translated_x, translated_y, CoreType::TENSIX, CoordSystem::TRANSLATED);
+        CoreCoord translated_coord = CoreCoord(translated_x, translated_y, CoreType::TENSIX, CoordSystem::TRANSLATED);
 
         add_core_translation(translated_coord, (tt_xy_pair)physical_core);
     }
@@ -229,8 +228,7 @@ void CoordinateManager::fill_tensix_default_physical_translated_mapping() {
         const size_t translated_x = physical_core.x;
         const size_t translated_y = physical_core.y;
 
-        CoreCoord translated_coord =
-            CoreCoord(translated_x, translated_y, CoreType::TENSIX, CoordSystem::TRANSLATED);
+        CoreCoord translated_coord = CoreCoord(translated_x, translated_y, CoreType::TENSIX, CoordSystem::TRANSLATED);
 
         add_core_translation(translated_coord, (tt_xy_pair)physical_core);
     }

@@ -418,7 +418,7 @@ Cluster::Cluster(
     std::unordered_map<chip_id_t, HarvestingMasks> simulated_harvesting_masks) {
     cluster_desc = Cluster::create_cluster_descriptor();
 
-    for (auto& chip_id : cluster_desc->get_all_chips_local_first()) {
+    for (auto& chip_id : cluster_desc->get_chips_local_first(cluster_desc->get_all_chips())) {
         add_chip(
             chip_id,
             construct_chip_from_cluster(
@@ -443,7 +443,8 @@ Cluster::Cluster(
     std::unordered_map<chip_id_t, HarvestingMasks> simulated_harvesting_masks) {
     cluster_desc = Cluster::create_cluster_descriptor();
 
-    for (auto& chip_id : cluster_desc->get_all_chips_local_first()) {
+    std::unordered_set<chip_id_t> target_devices_set(target_devices.begin(), target_devices.end());
+    for (auto& chip_id : cluster_desc->get_chips_local_first(target_devices_set)) {
         log_assert(
             cluster_desc->get_all_chips().find(chip_id) != cluster_desc->get_all_chips().end(),
             "Target device {} not present in current cluster!",
@@ -473,7 +474,8 @@ Cluster::Cluster(
     std::unordered_map<chip_id_t, HarvestingMasks> simulated_harvesting_masks) {
     cluster_desc = Cluster::create_cluster_descriptor(sdesc_path);
 
-    for (auto& chip_id : cluster_desc->get_all_chips_local_first()) {
+    std::unordered_set<chip_id_t> target_devices_set(target_devices.begin(), target_devices.end());
+    for (auto& chip_id : cluster_desc->get_chips_local_first(target_devices_set)) {
         log_assert(
             cluster_desc->get_all_chips().find(chip_id) != cluster_desc->get_all_chips().end(),
             "Target device {} not present in current cluster!",
@@ -509,7 +511,7 @@ Cluster::Cluster(
     std::unordered_map<chip_id_t, HarvestingMasks> simulated_harvesting_masks) {
     cluster_desc = std::move(cluster_descriptor);
 
-    for (auto& chip_id : cluster_desc->get_all_chips_local_first()) {
+    for (auto& chip_id : cluster_desc->get_chips_local_first(cluster_desc->get_all_chips())) {
         add_chip(
             chip_id,
             construct_chip_from_cluster(
@@ -602,10 +604,6 @@ tt::Writer Cluster::get_static_tlb_writer(const chip_id_t chip, const CoreCoord 
     return get_static_tlb_writer({(size_t)chip, translate_to_api_coords(chip, target)});
 }
 
-void Cluster::read_device_memory(void* mem_ptr, tt_cxy_pair target, uint64_t address, uint32_t size_in_bytes) {
-    get_local_chip(target.chip)->read_from_device({target.x, target.y}, mem_ptr, address, size_in_bytes);
-}
-
 uint32_t Cluster::get_power_state_arc_msg(chip_id_t chip_id, tt_DevicePowerState state) {
     TTDevice* tt_device = get_tt_device(chip_id);
     uint32_t msg = wormhole::ARC_MSG_COMMON_PREFIX;
@@ -668,12 +666,14 @@ void Cluster::wait_for_aiclk_value(tt_DevicePowerState power_state, const uint32
             auto end = std::chrono::system_clock::now();
             auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
             if (duration.count() > timeout_ms) {
-                throw std::runtime_error(fmt::format(
+                log_warning(
+                    LogSiliconDriver,
                     "Waiting for AICLK value to settle failed on timeout after {}. Expected to see {}, last value "
                     "observed {}",
                     timeout_ms,
                     target_aiclk,
-                    aiclk));
+                    aiclk);
+                return;
             }
             aiclk = get_clock(chip_id);
         }
@@ -750,24 +750,6 @@ inline RemoteChip* Cluster::get_remote_chip(chip_id_t device_id) const {
     log_assert(
         remote_chip_ids_.find(device_id) != remote_chip_ids_.end(), "Device id {} is not a remote chip.", device_id);
     return dynamic_cast<RemoteChip*>(get_chip(device_id));
-}
-
-void Cluster::write_to_non_mmio_device(
-    const void* mem_ptr,
-    uint32_t size_in_bytes,
-    tt_cxy_pair core,
-    uint64_t address,
-    bool broadcast,
-    std::vector<int> broadcast_header) {
-    if (broadcast) {
-        get_local_chip(core.chip)->ethernet_broadcast_write(mem_ptr, address, size_in_bytes, broadcast_header);
-    } else {
-        get_remote_chip(core.chip)->write_to_device(core, mem_ptr, address, size_in_bytes);
-    }
-}
-
-void Cluster::read_from_non_mmio_device(void* mem_ptr, tt_cxy_pair core, uint64_t address, uint32_t size_in_bytes) {
-    get_remote_chip(core.chip)->read_from_device(core, mem_ptr, address, size_in_bytes);
 }
 
 void Cluster::wait_for_non_mmio_flush(const chip_id_t chip_id) { get_chip(chip_id)->wait_for_non_mmio_flush(); }
@@ -928,9 +910,7 @@ void Cluster::ethernet_broadcast_write(
                 header.at(4) = use_virtual_coords * 0x8000;  // Reset row/col exclusion masks
                 header.at(4) |= row_exclusion_mask;
                 header.at(4) |= col_exclusion_mask;
-                // Write Target: x-y endpoint is a don't care. Initialize to tt_xy_pair(1, 1)
-                write_to_non_mmio_device(
-                    mem_ptr, size_in_bytes, tt_cxy_pair(mmio_group.first, tt_xy_pair(1, 1)), address, true, header);
+                get_local_chip(mmio_group.first)->ethernet_broadcast_write(mem_ptr, address, size_in_bytes, header);
             }
         }
     } else {
@@ -1078,32 +1058,14 @@ void Cluster::dram_membar(const chip_id_t chip, const std::unordered_set<uint32_
     get_chip(chip)->dram_membar(channels);
 }
 
-void Cluster::write_to_device(const void* mem_ptr, uint32_t size, tt_cxy_pair core, uint64_t addr) {
-    bool target_is_mmio_capable = cluster_desc->is_chip_mmio_capable(core.chip);
-    if (target_is_mmio_capable) {
-        get_local_chip(core.chip)->write_to_device({core.x, core.y}, mem_ptr, addr, size);
-    } else {
-        log_assert(arch_name != tt::ARCH::BLACKHOLE, "Non-MMIO targets not supported in Blackhole");
-        log_assert(
-            (get_soc_descriptor(core.chip).get_cores(CoreType::ETH)).size() > 0 && chips_.size() > 1,
-            "Cannot issue ethernet writes to a single chip cluster!");
-        write_to_non_mmio_device(mem_ptr, size, core, addr);
-    }
-}
-
 void Cluster::write_to_device(
     const void* mem_ptr, uint32_t size_in_bytes, chip_id_t chip, CoreCoord core, uint64_t addr) {
-    write_to_device(mem_ptr, size_in_bytes, {(size_t)chip, translate_to_api_coords(chip, core)}, addr);
+    get_chip(chip)->write_to_device(translate_to_api_coords(chip, core), mem_ptr, addr, size_in_bytes);
 }
 
 void Cluster::write_to_device_reg(
     const void* mem_ptr, uint32_t size_in_bytes, chip_id_t chip, CoreCoord core, uint64_t addr) {
-    bool target_is_mmio_capable = cluster_desc->is_chip_mmio_capable(chip);
-    if (target_is_mmio_capable) {
-        write_mmio_device_register(mem_ptr, {(size_t)chip, translate_to_api_coords(chip, core)}, addr, size_in_bytes);
-    } else {
-        write_to_non_mmio_device(mem_ptr, size_in_bytes, {(size_t)chip, translate_to_api_coords(chip, core)}, addr);
-    }
+    get_chip(chip)->write_to_device_reg(translate_to_api_coords(chip, core), mem_ptr, addr, size_in_bytes);
 }
 
 void Cluster::dma_write_to_device(
@@ -1117,40 +1079,12 @@ void Cluster::dma_read_from_device(void* dst, size_t size, chip_id_t chip, tt::u
     get_local_chip(chip)->dma_read_from_device(dst, size, api_coords, addr);
 }
 
-void Cluster::read_mmio_device_register(void* mem_ptr, tt_cxy_pair core, uint64_t addr, uint32_t size) {
-    get_local_chip(core.chip)->read_from_device_reg(core, mem_ptr, addr, size);
-}
-
-void Cluster::write_mmio_device_register(const void* mem_ptr, tt_cxy_pair core, uint64_t addr, uint32_t size) {
-    get_local_chip(core.chip)->write_to_device_reg(core, mem_ptr, addr, size);
-}
-
-void Cluster::read_from_device(void* mem_ptr, tt_cxy_pair core, uint64_t addr, uint32_t size) {
-    bool target_is_mmio_capable = cluster_desc->is_chip_mmio_capable(core.chip);
-    if (target_is_mmio_capable) {
-        read_device_memory(mem_ptr, core, addr, size);
-    } else {
-        log_assert(
-            arch_name != tt::ARCH::BLACKHOLE,
-            "Non-MMIO targets not supported in Blackhole");  // MT: Use only dynamic TLBs and never program static
-        log_assert(
-            (get_soc_descriptor(core.chip).get_cores(CoreType::TENSIX)).size() > 0 && chips_.size() > 1,
-            "Cannot issue ethernet reads from a single chip cluster!");
-        read_from_non_mmio_device(mem_ptr, core, addr, size);
-    }
-}
-
 void Cluster::read_from_device(void* mem_ptr, chip_id_t chip, CoreCoord core, uint64_t addr, uint32_t size) {
-    read_from_device(mem_ptr, {(size_t)chip, translate_to_api_coords(chip, core)}, addr, size);
+    get_chip(chip)->read_from_device(translate_to_api_coords(chip, core), mem_ptr, addr, size);
 }
 
 void Cluster::read_from_device_reg(void* mem_ptr, chip_id_t chip, CoreCoord core, uint64_t addr, uint32_t size) {
-    bool target_is_mmio_capable = cluster_desc->is_chip_mmio_capable(chip);
-    if (target_is_mmio_capable) {
-        read_mmio_device_register(mem_ptr, {(size_t)chip, translate_to_api_coords(chip, core)}, addr, size);
-    } else {
-        read_from_non_mmio_device(mem_ptr, {(size_t)chip, translate_to_api_coords(chip, core)}, addr, size);
-    }
+    get_chip(chip)->read_from_device_reg(translate_to_api_coords(chip, core), mem_ptr, addr, size);
 }
 
 int Cluster::arc_msg(
@@ -1168,8 +1102,8 @@ int Cluster::arc_msg(
 void Cluster::send_tensix_risc_reset_to_core(const tt_cxy_pair& core, const TensixSoftResetOptions& soft_resets) {
     auto valid = soft_resets & ALL_TENSIX_SOFT_RESET;
     uint32_t valid_val = (std::underlying_type<TensixSoftResetOptions>::type)valid;
-    write_to_device_reg(
-        &valid_val, sizeof(uint32_t), core.chip, CoreCoord{core, CoreType::TENSIX, CoordSystem::VIRTUAL}, 0xFFB121B0);
+    CoreCoord virtual_core = get_soc_descriptor(core.chip).get_coord_at(core, CoordSystem::VIRTUAL);
+    write_to_device_reg(&valid_val, sizeof(uint32_t), core.chip, virtual_core, 0xFFB121B0);
     tt_driver_atomics::sfence();
 }
 
@@ -1177,7 +1111,8 @@ void Cluster::send_remote_tensix_risc_reset_to_core(
     const tt_cxy_pair& core, const TensixSoftResetOptions& soft_resets) {
     auto valid = soft_resets & ALL_TENSIX_SOFT_RESET;
     uint32_t valid_val = (std::underlying_type<TensixSoftResetOptions>::type)valid;
-    write_to_non_mmio_device(&valid_val, sizeof(uint32_t), core, 0xFFB121B0);
+    CoreCoord virtual_core = get_soc_descriptor(core.chip).get_coord_at(core, CoordSystem::VIRTUAL);
+    write_to_device(&valid_val, sizeof(uint32_t), core.chip, virtual_core, 0xFFB121B0);
     tt_driver_atomics::sfence();
 }
 

@@ -45,17 +45,15 @@ public:
     virtual void write_to_sysmem(uint16_t channel, const void* src, uint64_t sysmem_dest, uint32_t size);
     virtual void read_from_sysmem(uint16_t channel, void* dest, uint64_t sysmem_src, uint32_t size);
 
-    // TODO: Currently works only for Local and not for Remote.
     // Both write and read cores are defined in VIRTUAL coords.
-    virtual void write_to_device(tt_xy_pair core, const void* src, uint64_t l1_dest, uint32_t size);
-    virtual void read_from_device(tt_xy_pair core, void* dest, uint64_t l1_src, uint32_t size);
+    virtual void write_to_device(tt_xy_pair core, const void* src, uint64_t l1_dest, uint32_t size) = 0;
+    virtual void read_from_device(tt_xy_pair core, void* dest, uint64_t l1_src, uint32_t size) = 0;
+    virtual void write_to_device_reg(tt_xy_pair core, const void* src, uint64_t reg_dest, uint32_t size) = 0;
+    virtual void read_from_device_reg(tt_xy_pair core, void* dest, uint64_t reg_src, uint32_t size) = 0;
 
     // Will only ever work for LocalChip.
     virtual void dma_write_to_device(const void* src, size_t size, tt_xy_pair core, uint64_t addr);
     virtual void dma_read_from_device(void* dst, size_t size, tt_xy_pair core, uint64_t addr);
-
-    virtual void write_to_device_reg(tt_xy_pair core, const void* src, uint64_t reg_dest, uint32_t size);
-    virtual void read_from_device_reg(tt_xy_pair core, void* dest, uint64_t reg_src, uint32_t size);
 
     virtual void wait_for_non_mmio_flush();
 

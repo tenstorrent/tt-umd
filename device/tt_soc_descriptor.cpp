@@ -83,10 +83,12 @@ void tt_SocDescriptor::create_coordinate_manager(const BoardType board_type, con
         }
     }
 
+    // TODO: P100 has two types of boards, each using different PCI core.
+    // Either have two separate enums or completely remove the check here.
     // PCIE harvesting mask 0x1 corresponds to (2, 0) and 0x2 corresponds to (11, 0).
-    if (board_type == BoardType::P100 && harvesting_masks.pcie_harvesting_mask != 0x1) {
-        throw std::runtime_error("P100 card should always have PCIE core (2, 0) harvested.");
-    }
+    // if (board_type == BoardType::P100 && harvesting_masks.pcie_harvesting_mask != 0x1) {
+    //     throw std::runtime_error("P100 card should always have PCIE core (2, 0) harvested.");
+    // }
 
     if (board_type == BoardType::P150 && harvesting_masks.pcie_harvesting_mask != 0x2) {
         throw std::runtime_error("P150 card should always have PCIE core (11, 0) harvested.");

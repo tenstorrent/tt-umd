@@ -51,6 +51,7 @@ TEST(ApiClusterTest, DifferentConstructors) {
         target_devices = {logical_device_id};
     }
     umd_cluster = std::make_unique<Cluster>(target_devices);
+    EXPECT_EQ(umd_cluster->get_target_device_ids().size(), target_devices.size());
     umd_cluster = nullptr;
 
     if (chips_available) {

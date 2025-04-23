@@ -206,6 +206,13 @@ void BlackholeCoordinateManager::translate_pcie_coords() {
             for (size_t y = 0; y < pcie_grid_size.y; y++) {
                 const tt_xy_pair& pcie_core = pcie_cores[x * pcie_grid_size.y + y];
 
+                CoreCoord virtual_coord = CoreCoord(pcie_core.x, pcie_core.y, CoreType::PCIE, CoordSystem::VIRTUAL);
+                add_core_translation(virtual_coord, pcie_core);
+            }
+        } else {
+            for (size_t y = 0; y < pcie_grid_size.y; y++) {
+                const tt_xy_pair& pcie_core = pcie_cores[x * pcie_grid_size.y + y];
+
                 CoreCoord logical_coord = CoreCoord(logical_x, y, CoreType::PCIE, CoordSystem::LOGICAL);
                 add_core_translation(logical_coord, pcie_core);
 
@@ -213,13 +220,6 @@ void BlackholeCoordinateManager::translate_pcie_coords() {
                 add_core_translation(virtual_coord, pcie_core);
             }
             logical_x++;
-        } else {
-            for (size_t y = 0; y < pcie_grid_size.y; y++) {
-                const tt_xy_pair& pcie_core = pcie_cores[x * pcie_grid_size.y + y];
-
-                CoreCoord virtual_coord = CoreCoord(pcie_core.x, pcie_core.y, CoreType::PCIE, CoordSystem::VIRTUAL);
-                add_core_translation(virtual_coord, pcie_core);
-            }
         }
     }
 

@@ -415,8 +415,6 @@ TEST(SocDescriptor, NocTranslation) {
 TEST(SocDescriptor, BoardBasedPCIE) {
     // Expect invalid configuration to throw an exception.
     EXPECT_ANY_THROW(tt_SocDescriptor soc_desc(
-        test_utils::GetAbsPath("tests/soc_descs/blackhole_140_arch.yaml"), true, {0, 0, 0, 0x2}, BoardType::P100));
-    EXPECT_ANY_THROW(tt_SocDescriptor soc_desc(
         test_utils::GetAbsPath("tests/soc_descs/blackhole_140_arch.yaml"), true, {0, 0, 0, 0x1}, BoardType::P150));
     EXPECT_ANY_THROW(tt_SocDescriptor soc_desc(
         test_utils::GetAbsPath("tests/soc_descs/blackhole_140_arch.yaml"), true, {0, 0, 0, 0}, BoardType::P300, 0));

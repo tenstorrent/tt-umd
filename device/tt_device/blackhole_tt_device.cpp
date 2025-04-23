@@ -30,14 +30,15 @@ BlackholeTTDevice::~BlackholeTTDevice() {
     }
 }
 
-void BlackholeTTDevice::configure_iatu_region(size_t region, uint64_t base, uint64_t target, size_t size) {
+void BlackholeTTDevice::configure_iatu_region(size_t region, uint64_t target, size_t region_size) {
+    uint64_t base = region * region_size;
     uint64_t iatu_base = ATU_OFFSET_IN_BH_BAR2 + (region * 0x200);
     auto *bar2 = static_cast<volatile uint8_t *>(pci_device_->bar2_uc);
 
-    if (size % (1ULL << 30) != 0 || size > (1ULL << 32)) {
+    if (region_size % (1ULL << 30) != 0 || region_size > (1ULL << 32)) {
         // If you hit this, the suggestion is to not use iATU: map your buffer
         // with the driver, and use the IOVA it provides in your device code.
-        throw std::runtime_error("Constraint: size % (1ULL << 30) == 0; size <= (1ULL <<32)");
+        throw std::runtime_error("Constraint: region_size % (1ULL << 30) == 0; region_size <= (1ULL <<32)");
     }
 
     if (bar2 == nullptr || bar2 == MAP_FAILED) {
@@ -48,7 +49,7 @@ void BlackholeTTDevice::configure_iatu_region(size_t region, uint64_t base, uint
         *reinterpret_cast<volatile uint32_t *>(bar2 + offset) = value;
     };
 
-    uint64_t limit = (base + (size - 1)) & 0xffff'ffff;
+    uint64_t limit = (base + (region_size - 1)) & 0xffff'ffff;
     uint32_t base_lo = (base >> 0x00) & 0xffff'ffff;
     uint32_t base_hi = (base >> 0x20) & 0xffff'ffff;
     uint32_t target_lo = (target >> 0x00) & 0xffff'ffff;

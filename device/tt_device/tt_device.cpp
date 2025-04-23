@@ -342,12 +342,7 @@ dynamic_tlb TTDevice::set_dynamic_tlb_broadcast(
     return set_dynamic_tlb(tlb_index, start, end, address, true, ordering);
 }
 
-void TTDevice::configure_iatu_region(size_t region, uint64_t base, uint64_t target, size_t size) {
-    // TODO: The code to do this is still up in cluster.cpp.  It should be moved
-    // here, but a prerequisite is to have an ARC messaging interface at this
-    // (TTDevice) level... it too is still up in cluster.cpp.
-    //
-    // For now, just throw an exception.
+void TTDevice::configure_iatu_region(size_t region, uint64_t target, size_t region_size) {
     throw std::runtime_error("configure_iatu_region is not implemented for this device");
 }
 
@@ -374,6 +369,8 @@ uint32_t TTDevice::bar_read32(uint32_t addr) {
 }
 
 tt::umd::ArcMessenger *TTDevice::get_arc_messenger() const { return arc_messenger_.get(); }
+
+tt::umd::ArcTelemetryReader *TTDevice::get_arc_telemetry_reader() const { return telemetry.get(); }
 
 uint32_t TTDevice::get_clock() {
     throw std::runtime_error(

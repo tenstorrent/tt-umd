@@ -88,23 +88,21 @@ using DefaultTransferTypeGenerator =
     ConstrainedTemplateTemplateGenerator<RemoteTransferType, int, std::discrete_distribution>;
 
 using address_t = uint32_t;
-using destination_t = tt_cxy_pair;
+using destination_t = std::pair<chip_id_t, CoreCoord>;
 using transfer_size_t = uint32_t;
 
 struct write_transfer_sample_t {
     destination_t destination;
     address_t address;
     transfer_size_t size_in_bytes;
-    std::string tlb_to_use;
-    // (payload.data(), size, destination, address, tlb_to_use, false, false);
+    // (payload.data(), size, destination, address, false, false);
 };
 
 struct read_transfer_sample_t {
     destination_t destination;
     address_t address;
     transfer_size_t size_in_bytes;
-    std::string tlb_to_use;
-    // (payload.data(), destination, address, size, tlb_to_use);
+    // (payload.data(), destination, address, size);
 };
 
 using remote_transfer_sample_t =
@@ -279,7 +277,7 @@ public:
         write_command_generator(write_command_generator),
         read_command_generator(read_command_generator) {}
 
-    // Generate a sample (transfer type, size, destination, address) based on custom distributions
+    // Generate a sample (transfer type, size, chip, destination, address) based on custom distributions
     remote_transfer_sample_t generate_sample() {
         // Randomly select a transfer type
         RemoteTransferType transfer_type = transfer_type_distribution.generate();
@@ -292,10 +290,7 @@ public:
                 return {
                     transfer_type,
                     write_transfer_sample_t{
-                        .destination = destination,
-                        .address = address,
-                        .size_in_bytes = size_in_bytes,
-                        .tlb_to_use = "LARGE_WRITE_TLB"}};
+                        .destination = destination, .address = address, .size_in_bytes = size_in_bytes}};
             } break;
 
             case RemoteTransferType::READ: {
@@ -305,10 +300,7 @@ public:
                 return {
                     transfer_type,
                     read_transfer_sample_t{
-                        .destination = destination,
-                        .address = address,
-                        .size_in_bytes = size_in_bytes,
-                        .tlb_to_use = "LARGE_READ_TLB"}};
+                        .destination = destination, .address = address, .size_in_bytes = size_in_bytes}};
             } break;
 
             default:
@@ -360,7 +352,7 @@ static inline std::vector<destination_t> generate_core_index_locations(
 
     for (chip_id_t chip : cluster_desc.get_all_chips()) {
         for (const CoreCoord dram_core : soc_desc.get_cores(CoreType::DRAM)) {
-            core_index_to_location.push_back(destination_t(chip, dram_core));
+            core_index_to_location.push_back({chip, dram_core});
         }
     }
 
@@ -373,17 +365,15 @@ static void print_command(remote_transfer_sample_t const& command) {
     switch (transfer_type) {
         case RemoteTransferType::WRITE: {
             write_transfer_sample_t const& command_args = std::get<write_transfer_sample_t>(std::get<1>(command));
-            std::cout << "Transfer type: WRITE, destination: (c=" << command_args.destination.chip
-                      << ", y=" << command_args.destination.y << ", x=" << command_args.destination.x
-                      << "), address: " << command_args.address << ", size_in_bytes: " << command_args.size_in_bytes
-                      << std::endl;
+            std::cout << "Transfer type: WRITE, chip: (c=" << command_args.destination.first
+                      << ", core: " << command_args.destination.second.str() << ", address: " << command_args.address
+                      << ", size_in_bytes: " << command_args.size_in_bytes << std::endl;
         } break;
         case RemoteTransferType::READ: {
             read_transfer_sample_t const& command_args = std::get<read_transfer_sample_t>(std::get<1>(command));
-            std::cout << "Transfer type: READ, destination: (c=" << command_args.destination.chip
-                      << ", y=" << command_args.destination.y << ", x=" << command_args.destination.x
-                      << "), address: " << command_args.address << ", size_in_bytes: " << command_args.size_in_bytes
-                      << std::endl;
+            std::cout << "Transfer type: READ, chip: (c=" << command_args.destination.first
+                      << ", core: " << command_args.destination.second.str() << ", address: " << command_args.address
+                      << ", size_in_bytes: " << command_args.size_in_bytes << std::endl;
         } break;
         default:
             throw std::runtime_error("Invalid transfer type");
@@ -410,9 +400,9 @@ static inline void dispatch_remote_transfer_command(
             driver.write_to_device(
                 payload.data(),
                 bytes_to_words<uint32_t>(command_args.size_in_bytes),
-                command_args.destination,
-                command_args.address,
-                command_args.tlb_to_use);
+                command_args.destination.first,
+                command_args.destination.second,
+                command_args.address);
         } break;
         case RemoteTransferType::READ: {
             read_transfer_sample_t const& command_args = std::get<read_transfer_sample_t>(std::get<1>(command));
@@ -420,10 +410,10 @@ static inline void dispatch_remote_transfer_command(
             resize_payload(payload, command_args.size_in_bytes);
             driver.read_from_device(
                 payload.data(),
-                command_args.destination,
+                command_args.destination.first,
+                command_args.destination.second,
                 command_args.address,
-                command_args.size_in_bytes,
-                command_args.tlb_to_use);
+                command_args.size_in_bytes);
         } break;
         default:
             throw std::runtime_error("Invalid transfer type");
@@ -444,25 +434,25 @@ static void print_command_executable_code(remote_transfer_sample_t const& comman
         case RemoteTransferType::WRITE: {
             write_transfer_sample_t const& command_args = std::get<write_transfer_sample_t>(std::get<1>(command));
             assert(command_args.size_in_bytes >= sizeof(uint32_t));
-            std::cout << "tt_cxy_pair const& destination = tt_cxy_pair(" << command_args.destination.chip << ", "
-                      << command_args.destination.x << ", " << command_args.destination.y << ");" << std::endl;
+            std::cout << "chip = " << command_args.destination.first
+                      << ", core = " << command_args.destination.second.str() << std::endl;
             std::cout << "assert(" << command_args.size_in_bytes << " >= sizeof(uint32_t));" << std::endl;
             emit_bytes_to_words_len_string("len", command_args.size_in_bytes, sizeof(uint32_t));
             emit_payload_resize_string(command_args.size_in_bytes, sizeof(uint32_t));
-            std::cout << "cluster->write_to_device(payload.data(), len, destination, " << command_args.address << ", \""
-                      << command_args.tlb_to_use << "\");" << std::endl;
+            std::cout << "cluster->write_to_device(payload.data(), len, destination, " << command_args.address << "\");"
+                      << std::endl;
             // driver.write_to_device(payload.data(), command_args.size, command_args.destination, command_args.address,
-            // command_args.tlb_to_use, false, false);
+            // false, false);
         } break;
         case RemoteTransferType::READ: {
             read_transfer_sample_t const& command_args = std::get<read_transfer_sample_t>(std::get<1>(command));
-            std::cout << "tt_cxy_pair const& destination = tt_cxy_pair(" << command_args.destination.chip << ", "
-                      << command_args.destination.x << ", " << command_args.destination.y << ");" << std::endl;
+            std::cout << "chip = " << command_args.destination.first
+                      << ", core = " << command_args.destination.second.str() << std::endl;
             emit_payload_resize_string(command_args.size_in_bytes, sizeof(uint32_t));
             std::cout << "cluster->read_from_device(payload.data(), destination, " << command_args.address << ", "
-                      << command_args.size_in_bytes << ", \"" << command_args.tlb_to_use << "\");" << std::endl;
+                      << command_args.size_in_bytes << "\");" << std::endl;
             // driver.read_from_device(payload.data(), command_args.destination, command_args.address,
-            // command_args.size, command_args.tlb_to_use);
+            // command_args.size);
         } break;
         default:
             throw std::runtime_error("Invalid transfer type");

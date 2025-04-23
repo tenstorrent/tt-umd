@@ -18,6 +18,7 @@
 
 #include "umd/device/chip/chip.h"
 #include "umd/device/cluster.h"
+#include "umd/device/topology_discovery.h"
 #include "umd/device/tt_xy_pair.h"
 #include "umd/device/types/arch.h"
 #include "umd/device/types/cluster_descriptor_types.h"
@@ -28,6 +29,7 @@ class Node;
 
 class tt_ClusterDescriptor {
     friend class tt::umd::Cluster;
+    friend class tt::umd::TopologyDiscovery;
 
 private:
     tt_ClusterDescriptor() = default;
@@ -117,7 +119,7 @@ public:
         get_ethernet_connections() const;
     const std::unordered_map<chip_id_t, chip_id_t> get_chips_with_mmio() const;
     const std::unordered_set<chip_id_t> &get_all_chips() const;
-    const std::vector<chip_id_t> get_all_chips_local_first() const;
+    const std::vector<chip_id_t> get_chips_local_first(std::unordered_set<chip_id_t> chips) const;
     const std::unordered_map<chip_id_t, std::unordered_set<chip_id_t>> &get_chips_grouped_by_closest_mmio() const;
     std::size_t get_number_of_chips() const;
 

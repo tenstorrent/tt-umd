@@ -1122,3 +1122,12 @@ TEST(SiliconDriverWH, DMA2) {
         }
     }
 }
+
+// Point of the test is to make sure that the topology discovery code works without errors on Wormhole
+// configurations. This should probably be skipped for 6U but since we still don't have it in CI it's ok.
+// It was manually tested on N150, N300, T3K and TG that cluster descriptors are same as what Luwen CEM gives us.
+TEST(TestClusterWormhole, TestTopologyDiscovery) {
+    std::unique_ptr<TopologyDiscovery> topology_discovery = std::make_unique<TopologyDiscovery>();
+
+    std::unique_ptr<tt_ClusterDescriptor> cluster_desc = topology_discovery->create_ethernet_map();
+}

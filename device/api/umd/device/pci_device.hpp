@@ -161,6 +161,11 @@ public:
      */
     DmaBuffer &get_dma_buffer() { return dma_buffer; }
 
+    /**
+     * Read KMD version installed on the system.
+     */
+    static semver_t read_kmd_version();
+
 public:
     // TODO: we can and should make all of these private.
     void *bar0_uc = nullptr;
@@ -202,7 +207,4 @@ public:
         }
         return reinterpret_cast<T *>(static_cast<uint8_t *>(reg_mapping) + register_offset);
     }
-
-private:
-    semver_t read_kmd_version();
 };

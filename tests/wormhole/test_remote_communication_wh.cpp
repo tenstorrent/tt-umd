@@ -52,7 +52,7 @@ TEST(RemoteCommunicationWormhole, BasicRemoteCommunicationIO) {
             remote_comm->write_to_non_mmio(
                 remote_eth_coord,
                 translated_core,
-                (uint8_t*)data_to_write.data(),
+                data_to_write.data(),
                 address0,
                 data_to_write.size() * sizeof(uint32_t));
 
@@ -62,11 +62,7 @@ TEST(RemoteCommunicationWormhole, BasicRemoteCommunicationIO) {
             remote_comm->wait_for_non_mmio_flush();
 
             remote_comm->read_non_mmio(
-                remote_eth_coord,
-                translated_core,
-                (uint8_t*)data_read.data(),
-                address1,
-                data_read.size() * sizeof(uint32_t));
+                remote_eth_coord, translated_core, data_read.data(), address1, data_read.size() * sizeof(uint32_t));
 
             ASSERT_EQ(data_to_write, data_read)
                 << "Vector read back from core " << core.str() << " does not match what was written";

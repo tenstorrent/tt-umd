@@ -95,9 +95,6 @@ void RemoteCommunication::read_non_mmio(
     eth_coord_t target_chip, tt_xy_pair target_core, void* dest, uint64_t core_src, uint32_t size_in_bytes) {
     using data_word_t = uint32_t;
     constexpr int DATA_WORD_SIZE = sizeof(data_word_t);
-    std::string write_tlb = "LARGE_WRITE_TLB";
-    std::string read_tlb = "LARGE_READ_TLB";
-    std::string empty_tlb = "";
 
     // TODO: To be removed when this is moved to Chip classes.
     auto host_address_params = local_chip_->host_address_params;
@@ -130,21 +127,18 @@ void RemoteCommunication::read_non_mmio(
         remote_transfer_ethernet_core,
         erisc_q_ptrs.data(),
         eth_interface_params.request_cmd_queue_base + eth_interface_params.cmd_counters_size_bytes,
-        eth_interface_params.remote_update_ptr_size_bytes * 2,
-        read_tlb);
+        eth_interface_params.remote_update_ptr_size_bytes * 2);
     local_chip_->read_from_device(
         remote_transfer_ethernet_core,
         erisc_resp_q_wptr.data(),
         eth_interface_params.response_cmd_queue_base + eth_interface_params.cmd_counters_size_bytes,
-        DATA_WORD_SIZE,
-        read_tlb);
+        DATA_WORD_SIZE);
     local_chip_->read_from_device(
         remote_transfer_ethernet_core,
         erisc_resp_q_rptr.data(),
         eth_interface_params.response_cmd_queue_base + eth_interface_params.cmd_counters_size_bytes +
             eth_interface_params.remote_update_ptr_size_bytes,
-        DATA_WORD_SIZE,
-        read_tlb);
+        DATA_WORD_SIZE);
 
     bool full = is_non_mmio_cmd_q_full(eth_interface_params, erisc_q_ptrs[0], erisc_q_ptrs[4]);
     erisc_q_rptr.resize(1);
@@ -167,8 +161,7 @@ void RemoteCommunication::read_non_mmio(
                 erisc_q_rptr.data(),
                 eth_interface_params.request_cmd_queue_base + eth_interface_params.cmd_counters_size_bytes +
                     eth_interface_params.remote_update_ptr_size_bytes,
-                DATA_WORD_SIZE,
-                read_tlb);
+                DATA_WORD_SIZE);
             full = is_non_mmio_cmd_q_full(eth_interface_params, erisc_q_ptrs[0], erisc_q_rptr[0]);
         }
 
@@ -213,8 +206,7 @@ void RemoteCommunication::read_non_mmio(
             remote_transfer_ethernet_core,
             erisc_command.data(),
             eth_interface_params.request_routing_cmd_queue_base + (sizeof(routing_cmd_t) * req_wr_ptr),
-            erisc_command.size() * DATA_WORD_SIZE,
-            write_tlb);
+            erisc_command.size() * DATA_WORD_SIZE);
         ;
         tt_driver_atomics::sfence();
 
@@ -226,8 +218,7 @@ void RemoteCommunication::read_non_mmio(
             remote_transfer_ethernet_core,
             erisc_q_wptr.data(),
             eth_interface_params.request_cmd_queue_base + eth_interface_params.cmd_counters_size_bytes,
-            erisc_q_wptr.size() * DATA_WORD_SIZE,
-            write_tlb);
+            erisc_q_wptr.size() * DATA_WORD_SIZE);
         tt_driver_atomics::sfence();
         // If there is more data to read and this command will make the q full, set full to 1.
         // otherwise full stays false so that we do not poll the rd pointer in next iteration.
@@ -239,8 +230,7 @@ void RemoteCommunication::read_non_mmio(
                 remote_transfer_ethernet_core,
                 erisc_q_ptrs.data(),
                 eth_interface_params.request_cmd_queue_base + eth_interface_params.cmd_counters_size_bytes,
-                eth_interface_params.remote_update_ptr_size_bytes * 2,
-                read_tlb);
+                eth_interface_params.remote_update_ptr_size_bytes * 2);
             full = is_non_mmio_cmd_q_full(eth_interface_params, erisc_q_ptrs[0], erisc_q_ptrs[4]);
             erisc_q_rptr[0] = erisc_q_ptrs[4];
         }
@@ -260,8 +250,7 @@ void RemoteCommunication::read_non_mmio(
                 remote_transfer_ethernet_core,
                 erisc_resp_q_wptr.data(),
                 eth_interface_params.response_cmd_queue_base + eth_interface_params.cmd_counters_size_bytes,
-                DATA_WORD_SIZE,
-                read_tlb);
+                DATA_WORD_SIZE);
         } while (erisc_resp_q_rptr[0] == erisc_resp_q_wptr[0]);
         tt_driver_atomics::lfence();
         uint32_t flags_offset = 12 + sizeof(routing_cmd_t) * resp_rd_ptr;
@@ -271,8 +260,7 @@ void RemoteCommunication::read_non_mmio(
                 remote_transfer_ethernet_core,
                 erisc_resp_flags.data(),
                 eth_interface_params.response_routing_cmd_queue_base + flags_offset,
-                DATA_WORD_SIZE,
-                read_tlb);
+                DATA_WORD_SIZE);
         } while (erisc_resp_flags[0] == 0);
 
         if (erisc_resp_flags[0] == resp_flags) {
@@ -284,8 +272,7 @@ void RemoteCommunication::read_non_mmio(
                     remote_transfer_ethernet_core,
                     erisc_resp_data.data(),
                     eth_interface_params.response_routing_cmd_queue_base + data_offset,
-                    DATA_WORD_SIZE,
-                    read_tlb);
+                    DATA_WORD_SIZE);
                 if (size_in_bytes - offset < 4) {
                     // Handle misaligned (4 bytes) data at the end of the block.
                     // Only read remaining bytes into the host buffer, instead of reading the full uint32_t
@@ -304,7 +291,7 @@ void RemoteCommunication::read_non_mmio(
                         eth_interface_params.eth_routing_data_buffer_addr + resp_rd_ptr * max_block_size;
                     size_buffer_to_capacity(data_block, block_size);
                     local_chip_->read_from_device(
-                        remote_transfer_ethernet_core, data_block.data(), buf_address, block_size, read_tlb);
+                        remote_transfer_ethernet_core, data_block.data(), buf_address, block_size);
                 }
                 // assert(dest.size() - (offset/DATA_WORD_SIZE) >= (block_size * DATA_WORD_SIZE));
                 log_assert(
@@ -322,8 +309,7 @@ void RemoteCommunication::read_non_mmio(
             erisc_resp_q_rptr.data(),
             eth_interface_params.response_cmd_queue_base + sizeof(remote_update_ptr_t) +
                 eth_interface_params.cmd_counters_size_bytes,
-            erisc_resp_q_rptr.size() * DATA_WORD_SIZE,
-            write_tlb);
+            erisc_resp_q_rptr.size() * DATA_WORD_SIZE);
         tt_driver_atomics::sfence();
         log_assert(erisc_resp_flags[0] == resp_flags, "Unexpected ERISC Response Flags.");
 
@@ -355,10 +341,6 @@ void RemoteCommunication::write_to_non_mmio(
     auto host_address_params = local_chip_->host_address_params;
     auto eth_interface_params = local_chip_->eth_interface_params;
     auto noc_params = local_chip_->noc_params;
-
-    std::string write_tlb = "LARGE_WRITE_TLB";
-    std::string read_tlb = "LARGE_READ_TLB";
-    std::string empty_tlb = "";
 
     std::vector<std::uint32_t> erisc_command;
     std::vector<std::uint32_t> erisc_q_rptr = std::vector<uint32_t>(1);
@@ -393,8 +375,7 @@ void RemoteCommunication::write_to_non_mmio(
         remote_transfer_ethernet_core,
         erisc_q_ptrs.data(),
         eth_interface_params.request_cmd_queue_base + eth_interface_params.cmd_counters_size_bytes,
-        eth_interface_params.remote_update_ptr_size_bytes * 2,
-        read_tlb);
+        eth_interface_params.remote_update_ptr_size_bytes * 2);
     uint32_t offset = 0;
     uint32_t block_size;
 
@@ -408,8 +389,7 @@ void RemoteCommunication::write_to_non_mmio(
                 erisc_q_rptr.data(),
                 eth_interface_params.request_cmd_queue_base + eth_interface_params.cmd_counters_size_bytes +
                     eth_interface_params.remote_update_ptr_size_bytes,
-                DATA_WORD_SIZE,
-                read_tlb);
+                DATA_WORD_SIZE);
             full = is_non_mmio_cmd_q_full(eth_interface_params, erisc_q_ptrs[0], erisc_q_rptr[0]);
         }
         // full = true;
@@ -479,11 +459,7 @@ void RemoteCommunication::write_to_non_mmio(
                 size_buffer_to_capacity(data_block, block_size);
                 memcpy(&data_block[0], (uint8_t*)src + offset, transfer_size);
                 local_chip_->write_to_device(
-                    remote_transfer_ethernet_core,
-                    data_block.data(),
-                    buf_address,
-                    data_block.size() * DATA_WORD_SIZE,
-                    write_tlb);
+                    remote_transfer_ethernet_core, data_block.data(), buf_address, data_block.size() * DATA_WORD_SIZE);
             }
             tt_driver_atomics::sfence();
         }
@@ -524,8 +500,7 @@ void RemoteCommunication::write_to_non_mmio(
             remote_transfer_ethernet_core,
             erisc_command.data(),
             eth_interface_params.request_routing_cmd_queue_base + (sizeof(routing_cmd_t) * req_wr_ptr),
-            erisc_command.size() * DATA_WORD_SIZE,
-            write_tlb);
+            erisc_command.size() * DATA_WORD_SIZE);
         tt_driver_atomics::sfence();
 
         erisc_q_ptrs[0] = (erisc_q_ptrs[0] + 1) & eth_interface_params.cmd_buf_ptr_mask;
@@ -536,8 +511,7 @@ void RemoteCommunication::write_to_non_mmio(
             remote_transfer_ethernet_core,
             erisc_q_wptr.data(),
             eth_interface_params.request_cmd_queue_base + eth_interface_params.cmd_counters_size_bytes,
-            erisc_q_wptr.size() * DATA_WORD_SIZE,
-            write_tlb);
+            erisc_q_wptr.size() * DATA_WORD_SIZE);
         tt_driver_atomics::sfence();
 
         offset += transfer_size;
@@ -555,8 +529,7 @@ void RemoteCommunication::write_to_non_mmio(
                 remote_transfer_ethernet_core,
                 erisc_q_ptrs.data(),
                 eth_interface_params.request_cmd_queue_base + eth_interface_params.cmd_counters_size_bytes,
-                eth_interface_params.remote_update_ptr_size_bytes * 2,
-                read_tlb);
+                eth_interface_params.remote_update_ptr_size_bytes * 2);
             full = is_non_mmio_cmd_q_full(eth_interface_params, erisc_q_ptrs[0], erisc_q_ptrs[4]);
             erisc_q_rptr[0] = erisc_q_ptrs[4];
         }
@@ -567,7 +540,6 @@ void RemoteCommunication::wait_for_non_mmio_flush() {
     if (local_chip_->get_flush_non_mmio()) {
         log_assert(
             local_chip_->get_soc_descriptor().arch != tt::ARCH::BLACKHOLE, "Non-MMIO flush not supported in Blackhole");
-        std::string read_tlb = "LARGE_READ_TLB";
 
         if (local_chip_->get_soc_descriptor().arch == tt::ARCH::WORMHOLE_B0) {
             // TODO: To be removed when this is moved to Chip classes.
@@ -584,15 +556,14 @@ void RemoteCommunication::wait_for_non_mmio_flush() {
                         xy,
                         erisc_q_ptrs.data(),
                         eth_interface_params.request_cmd_queue_base + eth_interface_params.cmd_counters_size_bytes,
-                        eth_interface_params.remote_update_ptr_size_bytes * 2,
-                        read_tlb);
+                        eth_interface_params.remote_update_ptr_size_bytes * 2);
                 } while (erisc_q_ptrs[0] != erisc_q_ptrs[4]);
             }
             // wait for all write responses to come back.
             for (tt_xy_pair& xy : local_chip_->get_remote_transfer_ethernet_cores()) {
                 do {
                     local_chip_->read_from_device(
-                        xy, erisc_txn_counters.data(), eth_interface_params.request_cmd_queue_base, 8, read_tlb);
+                        xy, erisc_txn_counters.data(), eth_interface_params.request_cmd_queue_base, 8);
                 } while (erisc_txn_counters[0] != erisc_txn_counters[1]);
             }
         }

@@ -16,24 +16,32 @@ namespace tt::umd {
 RemoteChip::RemoteChip(tt_SocDescriptor soc_descriptor, eth_coord_t eth_chip_location, LocalChip* local_chip) :
     Chip(soc_descriptor),
     eth_chip_location_(eth_chip_location),
-    remote_communication_(std::make_unique<RemoteCommunication>(local_chip)) {}
+    remote_communication_(std::make_unique<RemoteCommunication>(local_chip)) {
+    log_assert(soc_descriptor_.arch != tt::ARCH::BLACKHOLE, "Non-MMIO targets not supported in Blackhole");
+}
+
+RemoteChip::RemoteChip(tt_SocDescriptor soc_descriptor, ChipInfo chip_info) : Chip(chip_info, soc_descriptor) {}
 
 bool RemoteChip::is_mmio_capable() const { return false; }
 
 void RemoteChip::start_device() {}
 
-void RemoteChip::write_to_device(
-    tt_xy_pair core, const void* src, uint64_t l1_dest, uint32_t size, const std::string& fallback_tlb) {
-    // TODO: Fallback TLB is ignored for now, but it will be removed soon from the signature.
+void RemoteChip::write_to_device(tt_xy_pair core, const void* src, uint64_t l1_dest, uint32_t size) {
     auto translated_core = translate_chip_coord_virtual_to_translated(core);
     remote_communication_->write_to_non_mmio(eth_chip_location_, translated_core, src, l1_dest, size);
 }
 
-void RemoteChip::read_from_device(
-    tt_xy_pair core, void* dest, uint64_t l1_src, uint32_t size, const std::string& fallback_tlb) {
-    // TODO: Fallback TLB is ignored for now, but it will be removed soon from the signature.
+void RemoteChip::read_from_device(tt_xy_pair core, void* dest, uint64_t l1_src, uint32_t size) {
     auto translated_core = translate_chip_coord_virtual_to_translated(core);
     remote_communication_->read_non_mmio(eth_chip_location_, translated_core, dest, l1_src, size);
+}
+
+void RemoteChip::write_to_device_reg(tt_xy_pair core, const void* src, uint64_t reg_dest, uint32_t size) {
+    write_to_device(core, src, reg_dest, size);
+}
+
+void RemoteChip::read_from_device_reg(tt_xy_pair core, void* dest, uint64_t reg_src, uint32_t size) {
+    read_from_device(core, dest, reg_src, size);
 }
 
 // TODO: This translation should go away when we start using CoreCoord everywhere.
@@ -86,21 +94,21 @@ int RemoteChip::arc_msg(
     uint32_t fw_arg = arg0 | (arg1 << 16);
     int exit_code = 0;
 
-    { write_to_device(arc_core, &fw_arg, ARC_RESET_SCRATCH_ADDR + 3 * 4, sizeof(fw_arg), ""); }
+    { write_to_device(arc_core, &fw_arg, ARC_RESET_SCRATCH_ADDR + 3 * 4, sizeof(fw_arg)); }
 
-    { write_to_device(arc_core, &msg_code, ARC_RESET_SCRATCH_ADDR + 5 * 4, sizeof(fw_arg), ""); }
+    { write_to_device(arc_core, &msg_code, ARC_RESET_SCRATCH_ADDR + 5 * 4, sizeof(fw_arg)); }
 
     wait_for_non_mmio_flush();
     uint32_t misc = 0;
 
-    read_from_device(arc_core, &misc, ARC_RESET_MISC_CNTL_ADDR, 4, "");
+    read_from_device(arc_core, &misc, ARC_RESET_MISC_CNTL_ADDR, 4);
 
     if (misc & (1 << 16)) {
         log_error("trigger_fw_int failed on device");
         return 1;
     } else {
         misc |= (1 << 16);
-        write_to_device(arc_core, &misc, ARC_RESET_MISC_CNTL_ADDR, sizeof(misc), "");
+        write_to_device(arc_core, &misc, ARC_RESET_MISC_CNTL_ADDR, sizeof(misc));
     }
 
     if (wait_for_done) {
@@ -117,14 +125,14 @@ int RemoteChip::arc_msg(
             }
 
             uint32_t status = 0;
-            read_from_device(arc_core, &status, ARC_RESET_SCRATCH_ADDR + 5 * 4, sizeof(status), "");
+            read_from_device(arc_core, &status, ARC_RESET_SCRATCH_ADDR + 5 * 4, sizeof(status));
             if ((status & 0xffff) == (msg_code & 0xff)) {
                 if (return_3 != nullptr) {
-                    read_from_device(arc_core, return_3, ARC_RESET_SCRATCH_ADDR + 3 * 4, sizeof(uint32_t), "");
+                    read_from_device(arc_core, return_3, ARC_RESET_SCRATCH_ADDR + 3 * 4, sizeof(uint32_t));
                 }
 
                 if (return_4 != nullptr) {
-                    read_from_device(arc_core, return_4, ARC_RESET_SCRATCH_ADDR + 4 * 4, sizeof(uint32_t), "");
+                    read_from_device(arc_core, return_4, ARC_RESET_SCRATCH_ADDR + 4 * 4, sizeof(uint32_t));
                 }
 
                 exit_code = (status & 0xffff0000) >> 16;

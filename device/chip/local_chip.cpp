@@ -638,14 +638,22 @@ void LocalChip::set_membar_flag(
     std::unordered_set<CoreCoord> cores_synced = {};
     std::vector<uint32_t> barrier_val_vec = {barrier_value};
     for (const auto& core : cores) {
-        write_to_device(core, barrier_val_vec.data(), barrier_addr, barrier_val_vec.size() * sizeof(uint32_t));
+        write_to_device(
+            soc_descriptor_.translate_coord_to(core, CoordSystem::VIRTUAL),
+            barrier_val_vec.data(),
+            barrier_addr,
+            barrier_val_vec.size() * sizeof(uint32_t));
     }
     tt_driver_atomics::sfence();  // Ensure that all writes in the Host WC buffer are flushed
     while (cores_synced.size() != cores.size()) {
         for (const auto& core : cores) {
             if (cores_synced.find(core) == cores_synced.end()) {
                 uint32_t readback_val;
-                read_from_device(core, &readback_val, barrier_addr, sizeof(std::uint32_t));
+                read_from_device(
+                    soc_descriptor_.translate_coord_to(core, CoordSystem::VIRTUAL),
+                    &readback_val,
+                    barrier_addr,
+                    sizeof(std::uint32_t));
                 if (readback_val == barrier_value) {
                     cores_synced.insert(core);
                 } else {
@@ -671,9 +679,6 @@ void LocalChip::insert_host_to_device_barrier(const std::vector<CoreCoord>& core
 }
 
 void LocalChip::l1_membar(const std::unordered_set<tt::umd::CoreCoord>& cores) {
-    const auto& all_workers = soc_descriptor_.get_cores(CoreType::TENSIX, CoordSystem::VIRTUAL);
-    const auto& all_eth = soc_descriptor_.get_cores(CoreType::ETH, CoordSystem::VIRTUAL);
-
     if (cores.size()) {
         // Insert barrier on specific cores with L1
         std::vector<CoreCoord> workers_to_sync = {};
@@ -693,8 +698,11 @@ void LocalChip::l1_membar(const std::unordered_set<tt::umd::CoreCoord>& cores) {
         insert_host_to_device_barrier(eth_to_sync, l1_address_params.eth_l1_barrier_base);
     } else {
         // Insert barrier on all cores with L1
-        insert_host_to_device_barrier(all_workers, l1_address_params.tensix_l1_barrier_base);
-        insert_host_to_device_barrier(all_eth, l1_address_params.eth_l1_barrier_base);
+        insert_host_to_device_barrier(
+            soc_descriptor_.get_cores(CoreType::TENSIX, CoordSystem::VIRTUAL),
+            l1_address_params.tensix_l1_barrier_base);
+        insert_host_to_device_barrier(
+            soc_descriptor_.get_cores(CoreType::ETH, CoordSystem::VIRTUAL), l1_address_params.eth_l1_barrier_base);
     }
 }
 

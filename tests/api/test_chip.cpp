@@ -29,6 +29,11 @@ TEST(ApiChipTest, CheckStaticTLBConfiguration) {
         GTEST_SKIP() << "No chips present on the system. Skipping test.";
     }
 
+    // TODO: When we add asserts to tests, we can call cluster->start_device()
+    for (auto chip_id : umd_cluster->get_target_device_ids()) {
+        umd_cluster->get_chip(chip_id)->start_device();
+    }
+
     // Expect to throw for remote chip for any worker core
     auto remote_chips = umd_cluster->get_target_remote_device_ids();
     if (!remote_chips.empty()) {

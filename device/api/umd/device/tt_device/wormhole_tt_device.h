@@ -34,7 +34,8 @@ public:
     void dma_d2h(void *dst, uint32_t src, size_t size) override;
     void dma_h2d(uint32_t dst, const void *src, size_t size) override;
 
-    static uint64_t total_ns;
+    static uint64_t memcpy_total_ns;
+    static uint64_t dma_total_ns;
 
 private:
     // Enforce single-threaded access, even though there are more serious issues

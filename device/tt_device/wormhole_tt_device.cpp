@@ -13,7 +13,8 @@ static constexpr uint32_t DMA_TIMEOUT_MS = 10000;  // 10 seconds
 
 namespace tt::umd {
 
-uint64_t WormholeTTDevice::total_ns = 0;
+uint64_t WormholeTTDevice::memcpy_total_ns = 0;
+uint64_t WormholeTTDevice::dma_total_ns = 0;
 
 WormholeTTDevice::WormholeTTDevice(std::unique_ptr<PCIDevice> pci_device) :
     TTDevice(std::move(pci_device), std::make_unique<wormhole_implementation>()) {}
@@ -192,6 +193,7 @@ void WormholeTTDevice::dma_d2h(void *dst, uint32_t src, size_t size) {
         *reinterpret_cast<volatile uint32_t *>(bar2 + offset) = value;
     };
 
+    auto dma_start = std::chrono::steady_clock::now();
     write_reg(DMA_WRITE_ENGINE_EN_OFF, 0x1);
     write_reg(DMA_WRITE_INT_MASK_OFF, 0);
     write_reg(DMA_CH_CONTROL1_OFF_WRCH_0, 0x00000010);                 // Remote interrupt enable (for completion)
@@ -220,11 +222,15 @@ void WormholeTTDevice::dma_d2h(void *dst, uint32_t src, size_t size) {
             throw std::runtime_error("DMA timeout");
         }
     }
+    auto dma_end = std::chrono::steady_clock::now();
+    auto dma_ns = std::chrono::duration_cast<std::chrono::nanoseconds>(dma_end - dma_start).count();
+    WormholeTTDevice::dma_total_ns += dma_ns;
+
     auto now = std::chrono::steady_clock::now();
     memcpy(dst, dma_buffer.buffer, size);
     auto end = std::chrono::steady_clock::now();
     auto ns = std::chrono::duration_cast<std::chrono::nanoseconds>(end - now).count();
-    WormholeTTDevice::total_ns += ns;
+    WormholeTTDevice::memcpy_total_ns += ns;
 }
 
 void WormholeTTDevice::dma_h2d(uint32_t dst, const void *src, size_t size) {
@@ -273,7 +279,7 @@ void WormholeTTDevice::dma_h2d(uint32_t dst, const void *src, size_t size) {
     memcpy(dma_buffer.buffer, src, size);
     auto end = std::chrono::steady_clock::now();
     auto ns = std::chrono::duration_cast<std::chrono::nanoseconds>(end - now).count();
-    WormholeTTDevice::total_ns += ns;
+    WormholeTTDevice::memcpy_total_ns += ns;
 
     // Reset completion flag.
     *completion = 0;
@@ -282,6 +288,7 @@ void WormholeTTDevice::dma_h2d(uint32_t dst, const void *src, size_t size) {
         *reinterpret_cast<volatile uint32_t *>(bar2 + offset) = value;
     };
 
+    auto dma_start = std::chrono::steady_clock::now();
     write_reg(DMA_READ_ENGINE_EN_OFF, 0x1);
     write_reg(DMA_READ_INT_MASK_OFF, 0);
     write_reg(DMA_CH_CONTROL1_OFF_RDCH_0, 0x10);                      // Remote interrupt enable (for completion)
@@ -310,6 +317,10 @@ void WormholeTTDevice::dma_h2d(uint32_t dst, const void *src, size_t size) {
             throw std::runtime_error("DMA timeout");
         }
     }
+
+    auto dma_end = std::chrono::steady_clock::now();
+    auto dma_ns = std::chrono::duration_cast<std::chrono::nanoseconds>(dma_end - dma_start).count();
+    WormholeTTDevice::dma_total_ns += dma_ns;
 }
 
 }  // namespace tt::umd

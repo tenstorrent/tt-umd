@@ -312,8 +312,9 @@ TEST(TestPerf, DMATensix) {
             std::vector<uint8_t> pattern(buf_size);
             test_utils::fill_with_random_bytes(&pattern[0], pattern.size());
 
-            WormholeTTDevice::total_ns = 0;
-            std::cout << "wormhole total_ns: " << WormholeTTDevice::total_ns << std::endl;
+            WormholeTTDevice::memcpy_total_ns = 0;
+            WormholeTTDevice::dma_total_ns = 0;
+
             auto now = std::chrono::steady_clock::now();
             for (int i = 0; i < NUM_ITERATIONS; i++) {
                 cluster->dma_write_to_device(pattern.data(), pattern.size(), chip, core, 0x0);
@@ -322,17 +323,26 @@ TEST(TestPerf, DMATensix) {
             auto ns = std::chrono::duration_cast<std::chrono::nanoseconds>(end - now).count();
             print_speed("DMA: Host -> Device", NUM_ITERATIONS * pattern.size(), ns);
 
-            std::cout << "wormhole total_ns: " << WormholeTTDevice::total_ns << std::endl;
-            print_speed("wormhole total_ns", NUM_ITERATIONS * pattern.size(), WormholeTTDevice::total_ns);
+            print_speed("memcpy_total_ns", NUM_ITERATIONS * pattern.size(), WormholeTTDevice::memcpy_total_ns);
+            print_speed("dma_total_ns", NUM_ITERATIONS * pattern.size(), WormholeTTDevice::dma_total_ns);
+
+            std::cout << "Percentage of memcpy in all writes: " << (100.0 * WormholeTTDevice::memcpy_total_ns / ns)
+                      << "%" << std::endl;
+
+            std::cout << "Percentage of dma transaction time in all writes: "
+                      << (100.0 * WormholeTTDevice::dma_total_ns / ns) << "%" << std::endl;
 
             patterns.push_back(pattern);
         }
 
+        std::cout << std::endl;
+
         // Now, read back the patterns we wrote to tensix and verify them.
         {
             std::vector<uint8_t> readback(buf_size, 0x0);
-            WormholeTTDevice::total_ns = 0;
-            std::cout << "wormhole total_ns: " << WormholeTTDevice::total_ns << std::endl;
+            WormholeTTDevice::memcpy_total_ns = 0;
+            WormholeTTDevice::dma_total_ns = 0;
+
             auto now = std::chrono::steady_clock::now();
             for (int i = 0; i < NUM_ITERATIONS; i++) {
                 cluster->dma_read_from_device(readback.data(), readback.size(), chip, core, 0x0);
@@ -341,7 +351,14 @@ TEST(TestPerf, DMATensix) {
             auto ns = std::chrono::duration_cast<std::chrono::nanoseconds>(end - now).count();
             print_speed("DMA: Device -> Host", NUM_ITERATIONS * readback.size(), ns);
 
-            std::cout << "wormhole total_ns: " << WormholeTTDevice::total_ns << std::endl;
+            print_speed("memcpy_total_ns", NUM_ITERATIONS * readback.size(), WormholeTTDevice::memcpy_total_ns);
+            print_speed("dma_total_ns", NUM_ITERATIONS * readback.size(), WormholeTTDevice::dma_total_ns);
+
+            std::cout << "Percentage of memcpy in all reads: " << (100.0 * WormholeTTDevice::memcpy_total_ns / ns)
+                      << "%" << std::endl;
+
+            std::cout << "Percentage of dma transaction time in all reads: "
+                      << (100.0 * WormholeTTDevice::dma_total_ns / ns) << "%" << std::endl;
 
             EXPECT_EQ(patterns[0], readback) << "Mismatch for core " << core.str() << " addr=0x0"
                                              << " size=" << std::dec << readback.size();

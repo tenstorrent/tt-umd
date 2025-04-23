@@ -370,7 +370,7 @@ TEST(TestPerf, DMATensix) {
  * Test the PCIe DMA controller by using it to write random fixed-size pattern
  * to 0x0 tensix core, then reading them back and verifying.
  */
- TEST(TestPerf, DMADram) {
+TEST(TestPerf, DMADram) {
     const chip_id_t chip = 0;
     const uint32_t one_mib = 1 << 20;
     const size_t NUM_ITERATIONS = 5000;

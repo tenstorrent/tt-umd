@@ -8,6 +8,7 @@
 
 #include <unordered_set>
 
+#include "umd/device/tt_silicon_driver_common.hpp"
 #include "umd/device/tt_soc_descriptor.h"
 #include "umd/device/types/cluster_descriptor_types.h"
 #include "umd/device/types/cluster_types.h"
@@ -45,7 +46,7 @@ public:
     virtual void write_to_sysmem(uint16_t channel, const void* src, uint64_t sysmem_dest, uint32_t size);
     virtual void read_from_sysmem(uint16_t channel, void* dest, uint64_t sysmem_src, uint32_t size);
 
-    // Both write and read cores are defined in VIRTUAL coords.
+    // All tt_xy_pair cores in this class are defined in VIRTUAL coords.
     virtual void write_to_device(tt_xy_pair core, const void* src, uint64_t l1_dest, uint32_t size) = 0;
     virtual void read_from_device(tt_xy_pair core, void* dest, uint64_t l1_src, uint32_t size) = 0;
     virtual void write_to_device_reg(tt_xy_pair core, const void* src, uint64_t reg_dest, uint32_t size) = 0;
@@ -56,6 +57,8 @@ public:
     virtual void dma_read_from_device(void* dst, size_t size, tt_xy_pair core, uint64_t addr);
 
     virtual void wait_for_non_mmio_flush();
+
+    virtual void send_tensix_risc_reset(tt_xy_pair core, const TensixSoftResetOptions& soft_resets);
 
     // TODO: To be removed once all usages are moved inside local chip.
     virtual std::unique_lock<RobustMutex> acquire_mutex(std::string mutex_name, int pci_device_id);

@@ -8,6 +8,7 @@
 
 #include "logger.hpp"
 #include "umd/device/architecture_implementation.h"
+#include "umd/device/driver_atomics.h"
 
 namespace tt::umd {
 
@@ -140,4 +141,10 @@ void Chip::enable_ethernet_queue(int timeout_s) {
     }
 }
 
+void Chip::send_tensix_risc_reset(tt_xy_pair core, const TensixSoftResetOptions& soft_resets) {
+    auto valid = soft_resets & ALL_TENSIX_SOFT_RESET;
+    uint32_t valid_val = (std::underlying_type<TensixSoftResetOptions>::type)valid;
+    write_to_device_reg(core, &valid_val, 0xFFB121B0, sizeof(uint32_t));
+    tt_driver_atomics::sfence();
+}
 }  // namespace tt::umd

@@ -120,6 +120,7 @@ if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.23)
                 api/umd/device/types/blackhole_arc.h
                 api/umd/device/types/cluster_descriptor_types.h
                 api/umd/device/types/cluster_types.h
+                api/umd/device/types/harvesting.h
                 api/umd/device/types/tlb.h
                 api/umd/device/types/xy_pair.h
                 api/umd/device/wormhole_coordinate_manager.h

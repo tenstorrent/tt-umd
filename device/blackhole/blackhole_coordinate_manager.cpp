@@ -382,6 +382,7 @@ void BlackholeCoordinateManager::fill_dram_physical_translated_mapping() {
         map_dram_banks(
             mirror_west_bank + 1,
             blackhole::NUM_DRAM_BANKS / 2,
+            blackhole::dram_translated_coordinate_start_x,
             blackhole::dram_translated_coordinate_start_y + mirror_west_bank * blackhole::NUM_NOC_PORTS_PER_DRAM_BANK);
 
         map_dram_banks(

@@ -215,13 +215,9 @@ void CoordinateManager::translate_tensix_coords() {
 void CoordinateManager::fill_tensix_default_physical_translated_mapping() {
     tt_xy_pair tensix_grid_unharvested = get_grid_size(CoreType::TENSIX);
 
-    for (CoreCoord physical_core : tensix_cores) {
-        const size_t translated_x = physical_core.x;
-        const size_t translated_y = physical_core.y;
-
-        CoreCoord translated_coord = CoreCoord(translated_x, translated_y, CoreType::TENSIX, CoordSystem::TRANSLATED);
-
-        add_core_translation(translated_coord, (tt_xy_pair)physical_core);
+    for (tt_xy_pair physical_core : tensix_cores) {
+        CoreCoord translated_coord = CoreCoord(physical_core, CoreType::TENSIX, CoordSystem::TRANSLATED);
+        add_core_translation(translated_coord, physical_core);
     }
 }
 

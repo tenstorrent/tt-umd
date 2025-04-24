@@ -140,6 +140,29 @@ void WormholeTTDevice::configure_iatu_region(size_t region, uint64_t target, siz
         target);
 }
 
+#include <immintrin.h>
+#include <stdint.h>
+#include <stddef.h>
+
+__attribute__((target("avx")))
+static void simd_memcpy(void* dest, const void* src, size_t size) {
+    uint8_t* dst_ptr = (uint8_t*)dest;
+    const uint8_t* src_ptr = (const uint8_t*)src;
+
+    size_t i = 0;
+
+    // Use AVX2 256-bit registers (32 bytes at a time)
+    for (; i + 31 < size; i += 32) {
+        __m256i data = _mm256_loadu_si256((__m256i*)(src_ptr + i)); // unaligned load
+        _mm256_storeu_si256((__m256i*)(dst_ptr + i), data);         // unaligned store
+    }
+
+    // Handle the tail (any remaining bytes)
+    for (; i < size; ++i) {
+        dst_ptr[i] = src_ptr[i];
+    }
+}
+
 // TODO: This is a temporary implementation, and ought to be replaced with a
 // driver-based technique that can take advantage of multiple channels and
 // interrupts.  With a driver-based implementation we can also avoid the need to
@@ -227,13 +250,13 @@ void WormholeTTDevice::dma_d2h(void *dst, uint32_t src, size_t size) {
     WormholeTTDevice::dma_total_ns += dma_ns;
 
     auto now = std::chrono::steady_clock::now();
-    memcpy(dst, dma_buffer.buffer, size);
+    simd_memcpy(dst, dma_buffer.buffer, size);
     auto end = std::chrono::steady_clock::now();
     auto ns = std::chrono::duration_cast<std::chrono::nanoseconds>(end - now).count();
     WormholeTTDevice::memcpy_total_ns += ns;
 }
 
-void WormholeTTDevice::dma_h2d(uint32_t dst, const void *src, size_t size) {
+void WormholeTTDevice::dma_h2d(uint32_t dst, const void *src, size_t size, uint32_t offset_pa) {
     static constexpr uint64_t DMA_READ_ENGINE_EN_OFF = 0x2c;
     static constexpr uint64_t DMA_READ_INT_MASK_OFF = 0xa8;
     static constexpr uint64_t DMA_CH_CONTROL1_OFF_RDCH_0 = 0x300;
@@ -276,7 +299,7 @@ void WormholeTTDevice::dma_h2d(uint32_t dst, const void *src, size_t size) {
 
     // Prepare the DMA buffer.
     auto now = std::chrono::steady_clock::now();
-    memcpy(dma_buffer.buffer, src, size);
+    simd_memcpy(dma_buffer.buffer, src, size);
     auto end = std::chrono::steady_clock::now();
     auto ns = std::chrono::duration_cast<std::chrono::nanoseconds>(end - now).count();
     WormholeTTDevice::memcpy_total_ns += ns;
@@ -298,7 +321,7 @@ void WormholeTTDevice::dma_h2d(uint32_t dst, const void *src, size_t size) {
     write_reg(DMA_READ_ABORT_IMWR_LOW_OFF, 0);
     write_reg(DMA_READ_ABORT_IMWR_HIGH_OFF, 0);
     write_reg(DMA_TRANSFER_SIZE_OFF_RDCH_0, size);
-    write_reg(DMA_SAR_LOW_OFF_RDCH_0, dma_buffer.buffer_pa);
+    write_reg(DMA_SAR_LOW_OFF_RDCH_0, dma_buffer.buffer_pa + offset_pa);
     write_reg(DMA_SAR_HIGH_OFF_RDCH_0, 0);
     write_reg(DMA_DAR_LOW_OFF_RDCH_0, dst);
     write_reg(DMA_DAR_HIGH_OFF_RDCH_0, 0);

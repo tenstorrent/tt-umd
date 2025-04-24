@@ -26,6 +26,8 @@ static const uint16_t GS_PCIE_DEVICE_ID = 0xfaca;
 static const uint16_t WH_PCIE_DEVICE_ID = 0x401e;
 static const uint16_t BH_PCIE_DEVICE_ID = 0xb140;
 
+uint32_t PCIDevice::dma_buf_size = 0;
+
 // TODO: we'll have to rethink this when KMD takes control of the inbound PCIe
 // TLB windows and there is no longer a pre-defined WC/UC split.
 static const uint32_t GS_BAR0_WC_MAPPING_SIZE = (156 << 20) + (10 << 21) + (18 << 24);
@@ -385,7 +387,14 @@ PCIDevice::PCIDevice(int pci_device_number) :
     // poll a completion page to know when the DMA is done instead of receiving
     // an interrupt.
     if (arch == tt::ARCH::WORMHOLE_B0) {
-        const uint32_t buf_size = (1 << 20);  // 1 MiB
+        uint32_t buf_size = 0;
+
+        if (PCIDevice::dma_buf_size > 0) {
+            buf_size = PCIDevice::dma_buf_size;
+        } else {
+            buf_size = 1 << 20;  // 1MB
+        }
+
         tenstorrent_allocate_dma_buf dma_buf{};
 
         dma_buf.in.requested_size = buf_size + 0x1000;

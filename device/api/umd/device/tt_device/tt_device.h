@@ -89,7 +89,7 @@ public:
      * @param size number of bytes
      * @throws std::runtime_error if the DMA transfer fails
      */
-    virtual void dma_h2d(uint32_t dst, const void *src, size_t size) = 0;
+    virtual void dma_h2d(uint32_t dst, const void *src, size_t size, uint32_t offset_pa = 0) = 0;
 
     // Read/write functions that always use same TLB entry. This is not supposed to be used
     // on any code path that is performance critical. It is used to read/write the data needed

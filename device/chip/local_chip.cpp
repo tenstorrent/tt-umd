@@ -248,6 +248,29 @@ void LocalChip::read_from_device(tt_xy_pair core, void* dest, uint64_t l1_src, u
     }
 }
 
+#include <immintrin.h>
+#include <stdint.h>
+#include <stddef.h>
+
+__attribute__((target("avx")))
+static void simd_memcpy(void* dest, const void* src, size_t size) {
+    uint8_t* dst_ptr = (uint8_t*)dest;
+    const uint8_t* src_ptr = (const uint8_t*)src;
+
+    size_t i = 0;
+
+    // Use AVX2 256-bit registers (32 bytes at a time)
+    for (; i + 31 < size; i += 32) {
+        __m256i data = _mm256_loadu_si256((__m256i*)(src_ptr + i)); // unaligned load
+        _mm256_storeu_si256((__m256i*)(dst_ptr + i), data);         // unaligned store
+    }
+
+    // Handle the tail (any remaining bytes)
+    for (; i < size; ++i) {
+        dst_ptr[i] = src_ptr[i];
+    }
+}
+
 void LocalChip::dma_write_to_device(const void* src, size_t size, tt_xy_pair core, uint64_t addr) {
     static const std::string tlb_name = "LARGE_WRITE_TLB";
     const uint8_t* buffer = static_cast<const uint8_t*>(src);
@@ -262,6 +285,26 @@ void LocalChip::dma_write_to_device(const void* src, size_t size, tt_xy_pair cor
     while (size > 0) {
         auto [axi_address, tlb_size] = tt_device_->set_dynamic_tlb(tlb_index, core, addr, ordering);
         size_t transfer_size = std::min({size, tlb_size, dmabuf_size});
+        // size_t ax_addr = axi_address;
+        // auto dma_transfer_0 = std::thread(
+        //     [&, ax_addr] {
+        //         DmaBuffer &dma_buffer = tt_device_->get_pci_device()->get_dma_buffer();
+        //         simd_memcpy(dma_buffer.buffer, buffer, transfer_size / 2);
+        //         tt_device_->dma_h2d(ax_addr, buffer, transfer_size / 2);
+        //     });
+
+        // auto memcpy_thread = std::thread(
+        //     [&] {
+        //         DmaBuffer &dma_buffer = tt_device_->get_pci_device()->get_dma_buffer();
+        //         simd_memcpy(dma_buffer.buffer + transfer_size / 2, buffer + transfer_size / 2, transfer_size / 2);
+        //     });
+
+        // // tt_device_->dma_h2d(axi_address, buffer, transfer_size);
+
+        // dma_transfer_0.join();
+        // memcpy_thread.join();
+
+        // tt_device_->dma_h2d(axi_address + size / 2, buffer + size / 2 , transfer_size / 2, transfer_size / 2);
 
         tt_device_->dma_h2d(axi_address, buffer, transfer_size);
 

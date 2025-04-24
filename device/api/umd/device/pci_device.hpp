@@ -60,6 +60,8 @@ class PCIDevice {
     DmaBuffer dma_buffer{};
 
 public:
+    static uint32_t dma_buf_size;
+
     /**
      * @return a list of integers corresponding to character devices in /dev/tenstorrent/
      */

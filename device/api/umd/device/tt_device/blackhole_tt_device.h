@@ -32,7 +32,7 @@ public:
     BoardType get_board_type() override;
 
     void dma_d2h(void *dst, uint32_t src, size_t size) override;
-    void dma_h2d(uint32_t dst, const void *src, size_t size) override;
+    void dma_h2d(uint32_t dst, const void *src, size_t size, uint32_t offset_pa = 0) override;
 
 private:
     static constexpr uint64_t ATU_OFFSET_IN_BH_BAR2 = 0x1200;

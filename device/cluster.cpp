@@ -549,13 +549,7 @@ void Cluster::deassert_risc_reset_at_core(tt_cxy_pair core, const TensixSoftRese
     log_assert(
         core_coord.core_type == CoreType::TENSIX || core_coord.core_type == CoreType::ETH,
         "Cannot deassert reset on a non-tensix or harvested core");
-    bool target_is_mmio_capable = cluster_desc->is_chip_mmio_capable(target_device);
-    if (target_is_mmio_capable) {
-        send_tensix_risc_reset_to_core(core, soft_resets);
-    } else {
-        log_assert(arch_name != tt::ARCH::BLACKHOLE, "Can't issue access to remote core in BH");
-        send_remote_tensix_risc_reset_to_core(core, soft_resets);
-    }
+    get_chip(core.chip)->send_tensix_risc_reset(core, soft_resets);
 }
 
 void Cluster::deassert_risc_reset_at_core(
@@ -570,12 +564,7 @@ void Cluster::assert_risc_reset_at_core(tt_cxy_pair core, const TensixSoftResetO
     log_assert(
         core_coord.core_type == CoreType::TENSIX || core_coord.core_type == CoreType::ETH,
         "Cannot assert reset on a non-tensix or harvested core");
-    bool target_is_mmio_capable = cluster_desc->is_chip_mmio_capable(target_device);
-    if (target_is_mmio_capable) {
-        send_tensix_risc_reset_to_core(core, soft_resets);
-    } else {
-        send_remote_tensix_risc_reset_to_core(core, soft_resets);
-    }
+    get_chip(core.chip)->send_tensix_risc_reset(core, soft_resets);
 }
 
 void Cluster::assert_risc_reset_at_core(
@@ -1097,23 +1086,6 @@ int Cluster::arc_msg(
     uint32_t* return_3,
     uint32_t* return_4) {
     return get_chip(logical_device_id)->arc_msg(msg_code, wait_for_done, arg0, arg1, timeout_ms, return_3, return_4);
-}
-
-void Cluster::send_tensix_risc_reset_to_core(const tt_cxy_pair& core, const TensixSoftResetOptions& soft_resets) {
-    auto valid = soft_resets & ALL_TENSIX_SOFT_RESET;
-    uint32_t valid_val = (std::underlying_type<TensixSoftResetOptions>::type)valid;
-    CoreCoord virtual_core = get_soc_descriptor(core.chip).get_coord_at(core, CoordSystem::VIRTUAL);
-    write_to_device_reg(&valid_val, sizeof(uint32_t), core.chip, virtual_core, 0xFFB121B0);
-    tt_driver_atomics::sfence();
-}
-
-void Cluster::send_remote_tensix_risc_reset_to_core(
-    const tt_cxy_pair& core, const TensixSoftResetOptions& soft_resets) {
-    auto valid = soft_resets & ALL_TENSIX_SOFT_RESET;
-    uint32_t valid_val = (std::underlying_type<TensixSoftResetOptions>::type)valid;
-    CoreCoord virtual_core = get_soc_descriptor(core.chip).get_coord_at(core, CoordSystem::VIRTUAL);
-    write_to_device(&valid_val, sizeof(uint32_t), core.chip, virtual_core, 0xFFB121B0);
-    tt_driver_atomics::sfence();
 }
 
 int Cluster::set_remote_power_state(const chip_id_t& chip, tt_DevicePowerState device_state) {

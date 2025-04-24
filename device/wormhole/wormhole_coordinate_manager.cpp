@@ -114,3 +114,9 @@ void WormholeCoordinateManager::fill_arc_physical_translated_mapping() {
     // ARC cores are not translated in Wormhole.
     fill_arc_default_physical_translated_mapping();
 }
+
+tt_xy_pair WormholeCoordinateManager::get_tensix_grid_size() const {
+    return {
+        tensix_grid_size.x,
+        tensix_grid_size.y - CoordinateManager::get_num_harvested(harvesting_masks.tensix_harvesting_mask)};
+}

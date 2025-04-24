@@ -39,6 +39,10 @@ public:
         uint32_t* return_3 = nullptr,
         uint32_t* return_4 = nullptr) override;
 
+    void l1_membar(const std::unordered_set<tt::umd::CoreCoord>& cores = {}) override;
+    void dram_membar(const std::unordered_set<tt::umd::CoreCoord>& cores = {}) override;
+    void dram_membar(const std::unordered_set<uint32_t>& channels = {}) override;
+
 private:
     tt_xy_pair translate_chip_coord_virtual_to_translated(const tt_xy_pair core);
 

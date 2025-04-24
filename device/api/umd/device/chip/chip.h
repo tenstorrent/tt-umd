@@ -57,6 +57,10 @@ public:
 
     virtual void wait_for_non_mmio_flush();
 
+    virtual void l1_membar(const std::unordered_set<tt::umd::CoreCoord>& cores = {}) = 0;
+    virtual void dram_membar(const std::unordered_set<tt::umd::CoreCoord>& cores = {}) = 0;
+    virtual void dram_membar(const std::unordered_set<uint32_t>& channels = {}) = 0;
+
     // TODO: To be removed once all usages are moved inside local chip.
     virtual std::unique_lock<RobustMutex> acquire_mutex(std::string mutex_name, int pci_device_id);
     virtual std::unique_lock<RobustMutex> acquire_mutex(MutexType mutex_type, int pci_device_id);

@@ -532,16 +532,6 @@ void Cluster::configure_active_ethernet_cores_for_mmio_device(
     get_local_chip(mmio_chip)->set_remote_transfer_ethernet_cores(active_eth_cores_per_chip);
 }
 
-void Cluster::initialize_pcie_devices() {
-    log_debug(LogSiliconDriver, "Cluster::start");
-
-    for (auto chip_id : all_chip_ids_) {
-        get_chip(chip_id)->start_device();
-    }
-
-    init_membars();
-}
-
 std::set<chip_id_t> Cluster::get_target_device_ids() { return all_chip_ids_; }
 
 std::set<chip_id_t> Cluster::get_target_mmio_device_ids() { return local_chip_ids_; }
@@ -1056,143 +1046,16 @@ void Cluster::read_from_sysmem(void* mem_ptr, uint64_t addr, uint16_t channel, u
     get_local_chip(src_device_id)->read_from_sysmem(channel, mem_ptr, addr, size);
 }
 
-void Cluster::set_membar_flag(
-    const chip_id_t chip,
-    const std::vector<CoreCoord>& cores,
-    const uint32_t barrier_value,
-    const uint32_t barrier_addr) {
-    tt_driver_atomics::sfence();  // Ensure that writes before this do not get reordered
-    std::unordered_set<CoreCoord> cores_synced = {};
-    std::vector<uint32_t> barrier_val_vec = {barrier_value};
-    for (const auto& core : cores) {
-        write_to_device(barrier_val_vec.data(), barrier_val_vec.size() * sizeof(uint32_t), chip, core, barrier_addr);
-    }
-    tt_driver_atomics::sfence();  // Ensure that all writes in the Host WC buffer are flushed
-    while (cores_synced.size() != cores.size()) {
-        for (const auto& core : cores) {
-            if (cores_synced.find(core) == cores_synced.end()) {
-                uint32_t readback_val;
-                read_from_device(&readback_val, chip, core, barrier_addr, sizeof(std::uint32_t));
-                if (readback_val == barrier_value) {
-                    cores_synced.insert(core);
-                } else {
-                    log_trace(
-                        LogSiliconDriver,
-                        "Waiting for core {} to recieve mem bar flag {} in function",
-                        core.str(),
-                        barrier_value);
-                }
-            }
-        }
-    }
-    // Ensure that reads or writes after this do not get reordered.
-    // Reordering can cause races where data gets transferred before the barrier has returned
-    tt_driver_atomics::mfence();
-}
-
-void Cluster::insert_host_to_device_barrier(
-    const chip_id_t chip, const std::vector<CoreCoord>& cores, const uint32_t barrier_addr) {
-    // Ensure that this memory barrier is atomic across processes/threads
-    auto lock = get_local_chip(chip)->acquire_mutex(
-        MutexType::MEM_BARRIER, get_tt_device(chip)->get_pci_device()->get_device_num());
-    set_membar_flag(chip, cores, tt_MemBarFlag::SET, barrier_addr);
-    set_membar_flag(chip, cores, tt_MemBarFlag::RESET, barrier_addr);
-}
-
-void Cluster::init_membars() {
-    for (const auto& chip : all_chip_ids_) {
-        if (cluster_desc->is_chip_mmio_capable(chip)) {
-            // TODO: To be removed when this is moved to Chip classes.
-            const auto& l1_address_params = get_local_chip(chip)->l1_address_params;
-            const auto& dram_address_params = get_local_chip(chip)->dram_address_params;
-
-            set_membar_flag(
-                chip,
-                get_soc_descriptor(chip).get_cores(CoreType::TENSIX, CoordSystem::VIRTUAL),
-                tt_MemBarFlag::RESET,
-                l1_address_params.tensix_l1_barrier_base);
-            set_membar_flag(
-                chip,
-                get_soc_descriptor(chip).get_cores(CoreType::ETH, CoordSystem::VIRTUAL),
-                tt_MemBarFlag::RESET,
-                l1_address_params.eth_l1_barrier_base);
-
-            std::vector<CoreCoord> dram_cores_vector = {};
-            for (std::uint32_t dram_idx = 0; dram_idx < get_soc_descriptor(chip).get_num_dram_channels(); dram_idx++) {
-                dram_cores_vector.push_back(
-                    get_soc_descriptor(chip).get_dram_core_for_channel(dram_idx, 0, CoordSystem::VIRTUAL));
-            }
-            set_membar_flag(chip, dram_cores_vector, tt_MemBarFlag::RESET, dram_address_params.DRAM_BARRIER_BASE);
-        }
-    }
-}
-
 void Cluster::l1_membar(const chip_id_t chip, const std::unordered_set<tt::umd::CoreCoord>& cores) {
-    if (cluster_desc->is_chip_mmio_capable(chip)) {
-        const auto& all_workers = get_soc_descriptor(chip).get_cores(CoreType::TENSIX, CoordSystem::VIRTUAL);
-        const auto& all_eth = get_soc_descriptor(chip).get_cores(CoreType::ETH, CoordSystem::VIRTUAL);
-
-        // TODO: To be removed when this is moved to Chip classes.
-        const auto& l1_address_params = get_local_chip(chip)->l1_address_params;
-
-        if (cores.size()) {
-            // Insert barrier on specific cores with L1
-            std::vector<CoreCoord> workers_to_sync = {};
-            std::vector<CoreCoord> eth_to_sync = {};
-
-            for (const auto& core : cores) {
-                auto core_from_soc = get_soc_descriptor(chip).get_coord_at(core, core.coord_system);
-                if (core_from_soc.core_type == CoreType::TENSIX) {
-                    workers_to_sync.push_back(core);
-                } else if (core_from_soc.core_type == CoreType::ETH) {
-                    eth_to_sync.push_back(core);
-                } else {
-                    log_fatal("Can only insert an L1 Memory barrier on Tensix or Ethernet cores.");
-                }
-            }
-            insert_host_to_device_barrier(chip, workers_to_sync, l1_address_params.tensix_l1_barrier_base);
-            insert_host_to_device_barrier(chip, eth_to_sync, l1_address_params.eth_l1_barrier_base);
-        } else {
-            // Insert barrier on all cores with L1
-            insert_host_to_device_barrier(chip, all_workers, l1_address_params.tensix_l1_barrier_base);
-            insert_host_to_device_barrier(chip, all_eth, l1_address_params.eth_l1_barrier_base);
-        }
-    } else {
-        wait_for_non_mmio_flush();
-    }
+    get_chip(chip)->l1_membar(cores);
 }
 
 void Cluster::dram_membar(const chip_id_t chip, const std::unordered_set<tt::umd::CoreCoord>& cores) {
-    if (cluster_desc->is_chip_mmio_capable(chip)) {
-        const auto& dram_address_params = get_local_chip(chip)->dram_address_params;
-        if (cores.size()) {
-            for (const auto& core : cores) {
-                log_assert(
-                    get_soc_descriptor(chip).get_coord_at(core, core.coord_system).core_type == CoreType::DRAM,
-                    "Can only insert a DRAM Memory barrier on DRAM cores.");
-            }
-            std::vector<CoreCoord> dram_cores_vector = std::vector<CoreCoord>(cores.begin(), cores.end());
-            insert_host_to_device_barrier(chip, dram_cores_vector, dram_address_params.DRAM_BARRIER_BASE);
-        } else {
-            // Insert Barrier on all DRAM Cores
-            std::vector<CoreCoord> dram_cores_vector = {};
-            for (std::uint32_t dram_idx = 0; dram_idx < get_soc_descriptor(chip).get_num_dram_channels(); dram_idx++) {
-                dram_cores_vector.push_back(
-                    get_soc_descriptor(chip).get_dram_core_for_channel(dram_idx, 0, CoordSystem::VIRTUAL));
-            }
-            insert_host_to_device_barrier(chip, dram_cores_vector, dram_address_params.DRAM_BARRIER_BASE);
-        }
-    } else {
-        wait_for_non_mmio_flush();
-    }
+    get_chip(chip)->dram_membar(cores);
 }
 
 void Cluster::dram_membar(const chip_id_t chip, const std::unordered_set<uint32_t>& channels) {
-    std::unordered_set<CoreCoord> dram_cores_to_sync = {};
-    for (const auto& chan : channels) {
-        dram_cores_to_sync.insert(get_soc_descriptor(chip).get_dram_core_for_channel(chan, 0, CoordSystem::VIRTUAL));
-    }
-    dram_membar(chip, dram_cores_to_sync);
+    get_chip(chip)->dram_membar(channels);
 }
 
 void Cluster::write_to_device(
@@ -1398,7 +1261,10 @@ void Cluster::verify_sw_fw_versions(int device_id, std::uint32_t sw_version, std
 
 void Cluster::start_device(const tt_device_params& device_params) {
     if (device_params.init_device) {
-        initialize_pcie_devices();
+        for (auto chip_id : all_chip_ids_) {
+            get_chip(chip_id)->start_device();
+        }
+
         // MT Initial BH - Ethernet firmware not present in Blackhole
         if (arch_name == tt::ARCH::WORMHOLE_B0) {
             verify_eth_fw();

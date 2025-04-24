@@ -273,13 +273,15 @@ TEST(CoordinateManager, CoordinateManagerBlackholeTensixTranslatedMappingHarvest
     size_t virtual_index = tensix_grid_size.x - num_harvested_x;
 
     const CoreCoord tensix_column0 = CoreCoord(1, 2, CoreType::TENSIX, CoordSystem::NOC0);
-    const CoreCoord translated_column0 = coordinate_manager->translate_coord_to(tensix_column0, CoordSystem::TRANSLATED);
+    const CoreCoord translated_column0 =
+        coordinate_manager->translate_coord_to(tensix_column0, CoordSystem::TRANSLATED);
 
     EXPECT_EQ(translated_column0.x, 16);
     EXPECT_EQ(translated_column0.y, 2);
 
     const CoreCoord tensix_column1 = CoreCoord(2, 2, CoreType::TENSIX, CoordSystem::NOC0);
-    const CoreCoord translated_column1 = coordinate_manager->translate_coord_to(tensix_column1, CoordSystem::TRANSLATED);
+    const CoreCoord translated_column1 =
+        coordinate_manager->translate_coord_to(tensix_column1, CoordSystem::TRANSLATED);
 
     EXPECT_EQ(translated_column1.x, 15);
     EXPECT_EQ(translated_column1.y, 2);

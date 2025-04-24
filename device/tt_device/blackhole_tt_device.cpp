@@ -90,6 +90,7 @@ ChipInfo BlackholeTTDevice::get_chip_info() {
     chip_info.harvesting_masks.dram_harvesting_mask = telemetry->is_entry_available(blackhole::TAG_ENABLED_GDDR)
                                                           ? (~telemetry->read_entry(blackhole::TAG_ENABLED_GDDR) & 0xFF)
                                                           : 0;
+
     chip_info.harvesting_masks.eth_harvesting_mask = telemetry->is_entry_available(blackhole::TAG_ENABLED_ETH)
                                                          ? (~telemetry->read_entry(blackhole::TAG_ENABLED_ETH) & 0x3FFF)
                                                          : 0;
@@ -201,12 +202,12 @@ std::vector<DramTrainingStatus> BlackholeTTDevice::get_dram_training_status() {
     // errors. If some channel is harvested the bits are always going to be zero.
     for (uint32_t dram_channel = 0; dram_channel < num_dram_channels; dram_channel++) {
         if (telemetry_data & (1 << (2 * dram_channel))) {
-            dram_training_status.push_back(DramTrainingStatus::FAIL);
+            dram_training_status.push_back(DramTrainingStatus::SUCCESS);
             continue;
         }
 
         if (telemetry_data & (1 << (2 * dram_channel + 1))) {
-            dram_training_status.push_back(DramTrainingStatus::SUCCESS);
+            dram_training_status.push_back(DramTrainingStatus::FAIL);
             continue;
         }
 

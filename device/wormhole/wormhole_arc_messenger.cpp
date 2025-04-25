@@ -5,7 +5,8 @@
  */
 #include "umd/device/wormhole_arc_messenger.h"
 
-#include "logger.hpp"
+#include <tt-logger/tt-logger.hpp>
+
 #include "umd/device/tt_device/tt_device.h"
 #include "umd/device/wormhole_implementation.h"
 
@@ -16,10 +17,10 @@ WormholeArcMessenger::WormholeArcMessenger(TTDevice* tt_device) : ArcMessenger(t
 uint32_t WormholeArcMessenger::send_message(
     const uint32_t msg_code, std::vector<uint32_t>& return_values, uint16_t arg0, uint16_t arg1, uint32_t timeout_ms) {
     if ((msg_code & 0xff00) != wormhole::ARC_MSG_COMMON_PREFIX) {
-        log_error("Malformed message. msg_code is 0x{:x} but should be 0xaa..", msg_code);
+        TT_LOG_ERROR("Malformed message. msg_code is 0x{:x} but should be 0xaa..", msg_code);
     }
 
-    log_assert(arg0 <= 0xffff and arg1 <= 0xffff, "Only 16 bits allowed in arc_msg args");
+    TT_ASSERT(arg0 <= 0xffff and arg1 <= 0xffff, "Only 16 bits allowed in arc_msg args");
 
     auto lock = lock_manager.acquire_mutex(MutexType::ARC_MSG, tt_device->get_pci_device()->get_device_num());
 
@@ -39,7 +40,7 @@ uint32_t WormholeArcMessenger::send_message(
 
     uint32_t misc = tt_device->bar_read32(architecture_implementation->get_arc_reset_arc_misc_cntl_offset());
     if (misc & (1 << 16)) {
-        log_error("trigger_fw_int failed on device {}", 0);
+        TT_LOG_ERROR("trigger_fw_int failed on device {}", 0);
         return 1;
     } else {
         tt_device->bar_write32(architecture_implementation->get_arc_reset_arc_misc_cntl_offset(), misc | (1 << 16));
@@ -74,7 +75,7 @@ uint32_t WormholeArcMessenger::send_message(
             exit_code = (status & 0xffff0000) >> 16;
             break;
         } else if (status == HANG_READ_VALUE) {
-            log_warning(LogSiliconDriver, "On device {}, message code 0x{:x} not recognized by FW", 0, msg_code);
+            TT_LOG_WARNING_CAT(LogSiliconDriver, "On device {}, message code 0x{:x} not recognized by FW", 0, msg_code);
             exit_code = HANG_READ_VALUE;
             break;
         }

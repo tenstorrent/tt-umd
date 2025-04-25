@@ -6,7 +6,6 @@
 #include <numeric>
 #include <thread>
 
-#include "common/logger.hpp"
 #include "gtest/gtest.h"
 #include "test_galaxy_common.h"
 #include "tests/test_utils/device_test_utils.hpp"

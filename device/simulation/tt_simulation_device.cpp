@@ -11,10 +11,9 @@
 
 #include <iostream>
 #include <string>
+#include <tt-logger/tt-logger.hpp>
 #include <vector>
 
-#include "assert.hpp"
-#include "logger.hpp"
 #include "tt_simulation_device_generated.h"
 #include "umd/device/driver_atomics.h"
 
@@ -45,15 +44,15 @@ void print_flatbuffer(const DeviceRequestResponse* buf) {
     }
     std::string data_hex = data_ss.str();
 
-    log_debug(tt::LogEmulationDriver, "{} bytes @ address {} in core ({}, {})", size, addr_hex, core.x, core.y);
-    log_debug(tt::LogEmulationDriver, "Data: {}", data_hex);
+    TT_LOG_DEBUG_CAT(tt::LogEmulationDriver, "{} bytes @ address {} in core ({}, {})", size, addr_hex, core.x, core.y);
+    TT_LOG_DEBUG_CAT(tt::LogEmulationDriver, "Data: {}", data_hex);
 }
 
 tt_SimulationDeviceInit::tt_SimulationDeviceInit(const std::filesystem::path& simulator_directory) :
     simulator_directory(simulator_directory), soc_descriptor(simulator_directory / "soc_descriptor.yaml", false) {}
 
 tt_SimulationDevice::tt_SimulationDevice(const tt_SimulationDeviceInit& init) : tt_device() {
-    log_info(tt::LogEmulationDriver, "Instantiating simulation device");
+    TT_LOG_INFO_CAT(tt::LogEmulationDriver, "Instantiating simulation device");
     soc_descriptor_per_chip.emplace(0, init.get_soc_descriptor());
     arch_name = init.get_arch_name();
     target_devices_in_cluster = {0};
@@ -75,7 +74,7 @@ tt_SimulationDevice::tt_SimulationDevice(const tt_SimulationDeviceInit& init) : 
     if (rv) {
         TT_THROW("Failed to spawn simulator process: ", uv_strerror(rv));
     } else {
-        log_info(tt::LogEmulationDriver, "Simulator process spawned with PID: {}", child_p.pid);
+        TT_LOG_INFO_CAT(tt::LogEmulationDriver, "Simulator process spawned with PID: {}", child_p.pid);
     }
 
     uv_unref((uv_handle_t*)&child_p);
@@ -92,7 +91,7 @@ void tt_SimulationDevice::start_device(const tt_device_params& device_params) {
 
     host.start_host();
 
-    log_info(tt::LogEmulationDriver, "Waiting for ack msg from remote...");
+    TT_LOG_INFO_CAT(tt::LogEmulationDriver, "Waiting for ack msg from remote...");
     size_t buf_size = host.recv_from_device(&buf_ptr);
     auto buf = GetDeviceRequestResponse(buf_ptr);
     auto cmd = buf->command();
@@ -101,7 +100,7 @@ void tt_SimulationDevice::start_device(const tt_device_params& device_params) {
 }
 
 void tt_SimulationDevice::assert_risc_reset() {
-    log_info(tt::LogEmulationDriver, "Sending assert_risc_reset signal..");
+    TT_LOG_INFO_CAT(tt::LogEmulationDriver, "Sending assert_risc_reset signal..");
     auto wr_buffer =
         create_flatbuffer(DEVICE_COMMAND_ALL_TENSIX_RESET_ASSERT, std::vector<uint32_t>(1, 0), {0, 0, 0}, 0);
     uint8_t* wr_buffer_ptr = wr_buffer.GetBufferPointer();
@@ -112,7 +111,7 @@ void tt_SimulationDevice::assert_risc_reset() {
 }
 
 void tt_SimulationDevice::deassert_risc_reset() {
-    log_info(tt::LogEmulationDriver, "Sending 'deassert_risc_reset' signal..");
+    TT_LOG_INFO_CAT(tt::LogEmulationDriver, "Sending 'deassert_risc_reset' signal..");
     auto wr_buffer =
         create_flatbuffer(DEVICE_COMMAND_ALL_TENSIX_RESET_DEASSERT, std::vector<uint32_t>(1, 0), {0, 0, 0}, 0);
     uint8_t* wr_buffer_ptr = wr_buffer.GetBufferPointer();
@@ -123,7 +122,7 @@ void tt_SimulationDevice::deassert_risc_reset() {
 
 void tt_SimulationDevice::deassert_risc_reset_at_core(
     const chip_id_t chip, const tt::umd::CoreCoord core, const TensixSoftResetOptions& soft_resets) {
-    log_info(
+    TT_LOG_INFO_CAT(
         tt::LogEmulationDriver,
         "Sending 'deassert_risc_reset_at_core'.. (Not implemented, defaulting to 'deassert_risc_reset' instead)");
     deassert_risc_reset();
@@ -131,7 +130,7 @@ void tt_SimulationDevice::deassert_risc_reset_at_core(
 
 void tt_SimulationDevice::assert_risc_reset_at_core(
     const chip_id_t chip, const tt::umd::CoreCoord core, const TensixSoftResetOptions& soft_resets) {
-    log_info(
+    TT_LOG_INFO_CAT(
         tt::LogEmulationDriver,
         "Sending 'assert_risc_reset_at_core'.. (Not implemented, defaulting to 'assert_risc_reset' instead)");
     assert_risc_reset();
@@ -139,7 +138,7 @@ void tt_SimulationDevice::assert_risc_reset_at_core(
 
 void tt_SimulationDevice::close_device() {
     // disconnect from remote connection
-    log_info(tt::LogEmulationDriver, "Sending exit signal to remote...");
+    TT_LOG_INFO_CAT(tt::LogEmulationDriver, "Sending exit signal to remote...");
     auto builder = create_flatbuffer(DEVICE_COMMAND_EXIT, std::vector<uint32_t>(1, 0), {0, 0, 0}, 0);
     host.send_to_device(builder.GetBufferPointer(), builder.GetSize());
 }
@@ -147,7 +146,7 @@ void tt_SimulationDevice::close_device() {
 // Runtime Functions
 void tt_SimulationDevice::write_to_device(
     const void* mem_ptr, uint32_t size_in_bytes, tt_cxy_pair core, uint64_t addr) {
-    log_info(
+    TT_LOG_INFO_CAT(
         tt::LogEmulationDriver,
         "Device writing {} bytes to addr {} in core ({}, {})",
         size_in_bytes,
@@ -181,7 +180,7 @@ void tt_SimulationDevice::read_from_device(void* mem_ptr, tt_cxy_pair core, uint
     auto rd_resp_buf = GetDeviceRequestResponse(rd_resp);
 
     // Debug level polling as Metal will constantly poll the device, spamming the logs
-    log_debug(tt::LogEmulationDriver, "Device reading vec");
+    TT_LOG_DEBUG_CAT(tt::LogEmulationDriver, "Device reading vec");
     print_flatbuffer(rd_resp_buf);
 
     std::memcpy(mem_ptr, rd_resp_buf->data()->data(), rd_resp_buf->data()->size() * sizeof(uint32_t));

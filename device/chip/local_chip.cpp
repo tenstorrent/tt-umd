@@ -6,7 +6,8 @@
 
 #include "umd/device/chip/local_chip.h"
 
-#include "logger.hpp"
+#include <tt-logger/tt-logger.hpp>
+
 #include "umd/device/blackhole_implementation.h"
 #include "umd/device/chip_helpers/tlb_manager.h"
 #include "umd/device/tt_device/tt_device.h"
@@ -141,7 +142,7 @@ void LocalChip::wait_eth_cores_training(const uint32_t timeout_ms) {
                 // TODO: Exception should be thrown here. ETH connections are very flaky
                 // on Blackhole right now. When this is fixed we can throw the exception here.
                 // Since we are not going to do any remote IO at the moment it is fine to just log the error.
-                log_error("ETH training timed out after {} ms", timeout_ms);
+                TT_LOG_ERROR("ETH training timed out after {} ms", timeout_ms);
                 break;
             }
         }
@@ -159,7 +160,7 @@ void LocalChip::read_from_sysmem(uint16_t channel, void* dest, uint64_t sysmem_s
 void LocalChip::write_to_device(tt_xy_pair core, const void* src, uint64_t l1_dest, uint32_t size) {
     const uint8_t* buffer_addr = static_cast<const uint8_t*>(src);
 
-    log_debug(
+    TT_LOG_DEBUG_CAT(
         LogSiliconDriver,
         "Chip::write_to_device to pci dev {} core {}-{} at 0x{:x} size: {}",
         tt_device_->get_pci_device()->get_device_num(),
@@ -196,12 +197,12 @@ void LocalChip::write_to_device(tt_xy_pair core, const void* src, uint64_t l1_de
             l1_dest += transfer_size;
             buffer_addr += transfer_size;
         }
-        log_debug(LogSiliconDriver, "Write done Dynamic TLB with pid={}", (long)getpid());
+        TT_LOG_DEBUG_CAT(LogSiliconDriver, "Write done Dynamic TLB with pid={}", (long)getpid());
     }
 }
 
 void LocalChip::read_from_device(tt_xy_pair core, void* dest, uint64_t l1_src, uint32_t size) {
-    log_debug(
+    TT_LOG_DEBUG_CAT(
         LogSiliconDriver,
         "Chip::read_from_device from pci device {} core {}-{} at 0x{:x} size: {}",
         tt_device_->get_pci_device()->get_device_num(),
@@ -221,7 +222,7 @@ void LocalChip::read_from_device(tt_xy_pair core, void* dest, uint64_t l1_src, u
         } else {
             tt_device_->read_block(tlb_description.tlb_offset + l1_src % tlb_description.size, size, buffer_addr);
         }
-        log_debug(
+        TT_LOG_DEBUG_CAT(
             LogSiliconDriver,
             "  read_block called with tlb_offset: {}, tlb_size: {}",
             tlb_description.tlb_offset,
@@ -230,7 +231,7 @@ void LocalChip::read_from_device(tt_xy_pair core, void* dest, uint64_t l1_src, u
         std::string fallback_tlb = "LARGE_READ_TLB";
         const auto tlb_index = tlb_manager_->dynamic_tlb_config_.at(fallback_tlb);
         auto lock = acquire_mutex(fallback_tlb, tt_device_->get_pci_device()->get_device_num());
-        log_debug(LogSiliconDriver, "  dynamic tlb_index: {}", tlb_index);
+        TT_LOG_DEBUG_CAT(LogSiliconDriver, "  dynamic tlb_index: {}", tlb_index);
         while (size > 0) {
             auto [mapped_address, tlb_size] = tt_device_->set_dynamic_tlb(
                 tlb_index,
@@ -244,7 +245,7 @@ void LocalChip::read_from_device(tt_xy_pair core, void* dest, uint64_t l1_src, u
             l1_src += transfer_size;
             buffer_addr += transfer_size;
         }
-        log_debug(LogSiliconDriver, "Read done Dynamic TLB with pid={}", (long)getpid());
+        TT_LOG_DEBUG_CAT(LogSiliconDriver, "Read done Dynamic TLB with pid={}", (long)getpid());
     }
 }
 
@@ -306,7 +307,7 @@ void LocalChip::write_to_device_reg(tt_xy_pair core, const void* src, uint64_t r
     std::string fallback_tlb = "REG_TLB";
     const auto tlb_index = tlb_manager_->dynamic_tlb_config_.at(fallback_tlb);
     auto lock = lock_manager_.acquire_mutex(fallback_tlb, tt_device_->get_pci_device()->get_device_num());
-    log_debug(LogSiliconDriver, "  dynamic tlb_index: {}", tlb_index);
+    TT_LOG_DEBUG_CAT(LogSiliconDriver, "  dynamic tlb_index: {}", tlb_index);
 
     auto [mapped_address, tlb_size] = tt_device_->set_dynamic_tlb(
         tlb_index, translate_chip_coord_virtual_to_translated(core), reg_dest, tt::umd::tlb_data::Strict);
@@ -325,7 +326,7 @@ void LocalChip::read_from_device_reg(tt_xy_pair core, void* dest, uint64_t reg_s
     std::string fallback_tlb = "REG_TLB";
     const auto tlb_index = tlb_manager_->dynamic_tlb_config_.at(fallback_tlb);
     auto lock = lock_manager_.acquire_mutex(fallback_tlb, tt_device_->get_pci_device()->get_device_num());
-    log_debug(LogSiliconDriver, "  dynamic tlb_index: {}", tlb_index);
+    TT_LOG_DEBUG_CAT(LogSiliconDriver, "  dynamic tlb_index: {}", tlb_index);
 
     auto [mapped_address, tlb_size] = tt_device_->set_dynamic_tlb(
         tlb_index, translate_chip_coord_virtual_to_translated(core), reg_src, tt::umd::tlb_data::Strict);
@@ -386,7 +387,7 @@ void LocalChip::set_remote_transfer_ethernet_cores(const std::unordered_set<Core
     // Based on this information, UMD determines which ethernet cores can be used for host->cluster non-MMIO transfers.
     // This overrides the default ethernet cores tagged for host to cluster routing in the constructor and must be
     // called for all MMIO devices, if default behaviour is not desired.
-    log_assert(soc_descriptor_.arch == tt::ARCH::WORMHOLE_B0, "{} can only be called for Wormhole arch", __FUNCTION__);
+    TT_ASSERT(soc_descriptor_.arch == tt::ARCH::WORMHOLE_B0, "{} can only be called for Wormhole arch", __FUNCTION__);
     // Cores 0, 1, 6, 7 are only available if in the active set
     static std::unordered_set<tt_xy_pair> eth_cores_available_if_active = {
         soc_descriptor_.get_eth_core_for_channel(0, CoordSystem::VIRTUAL),
@@ -510,7 +511,7 @@ void LocalChip::check_pcie_device_initialized() {
     auto architecture_implementation = tt_device_->get_architecture_implementation();
 
     if (soc_descriptor_.arch == tt::ARCH::WORMHOLE_B0) {
-        log_debug(LogSiliconDriver, "== Check if device_id: {} is initialized", device_id);
+        TT_LOG_DEBUG_CAT(LogSiliconDriver, "== Check if device_id: {} is initialized", device_id);
         uint32_t bar_read_initial =
             tt_device_->bar_read32(architecture_implementation->get_arc_reset_scratch_offset() + 3 * 4);
         uint32_t arg = bar_read_initial == 500 ? 325 : 500;

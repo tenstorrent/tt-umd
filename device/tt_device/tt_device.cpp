@@ -3,7 +3,8 @@
 // SPDX-License-Identifier: Apache-2.0
 #include "umd/device/tt_device/tt_device.h"
 
-#include "logger.hpp"
+#include <tt-logger/tt-logger.hpp>
+
 #include "umd/device/arc_messenger.h"
 #include "umd/device/driver_atomics.h"
 #include "umd/device/tt_device/blackhole_tt_device.h"
@@ -247,7 +248,7 @@ void TTDevice::write_to_device(void *mem_ptr, tt_xy_pair core, uint64_t addr, ui
 
 void TTDevice::write_tlb_reg(
     uint32_t byte_addr, uint64_t value_lower, uint64_t value_upper, uint32_t tlb_cfg_reg_size) {
-    log_assert(
+    TT_ASSERT(
         (tlb_cfg_reg_size == 8) or (tlb_cfg_reg_size == 12),
         "Tenstorrent hardware supports only 64bit or 96bit TLB config regs");
 
@@ -280,7 +281,7 @@ dynamic_tlb TTDevice::set_dynamic_tlb(
         std::tie(start, end) = architecture_impl_->multicast_workaround(start, end);
     }
 
-    log_trace(
+    TT_LOG_TRACE_CAT(
         LogSiliconDriver,
         "set_dynamic_tlb with arguments: tlb_index = {}, start = ({}, {}), end = ({}, {}), address = 0x{:x}, multicast "
         "= {}, ordering = {}",
@@ -317,7 +318,7 @@ dynamic_tlb TTDevice::set_dynamic_tlb(
         }
             .apply_offset(tlb_config.offset);
 
-    log_debug(
+    TT_LOG_DEBUG_CAT(
         LogSiliconDriver,
         "set_dynamic_tlb() with tlb_index: {} tlb_index_offset: {} dynamic_tlb_size: {}MB tlb_base: 0x{:x} "
         "tlb_cfg_reg: 0x{:x}",

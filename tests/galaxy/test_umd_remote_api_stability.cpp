@@ -6,8 +6,8 @@
 #include <numeric>
 #include <random>
 #include <thread>
+#include <tt-logger/tt-logger.hpp>
 
-#include "common/logger.hpp"
 #include "filesystem"
 #include "gtest/gtest.h"
 #include "tests/galaxy/test_galaxy_common.h"
@@ -56,7 +56,7 @@ TEST_F(WormholeGalaxyStabilityTestFixture, MixedRemoteTransfers) {
     int seed = 0;
 
     assert(cluster != nullptr);
-    log_info(LogSiliconDriver, "Started MixedRemoteTransfers");
+    TT_LOG_INFO_CAT(LogSiliconDriver, "Started MixedRemoteTransfers");
     std::vector<remote_transfer_sample_t> command_history;
     try {
         RunMixedTransfersUniformDistributions(
@@ -85,7 +85,7 @@ TEST_F(WormholeGalaxyStabilityTestFixture, MixedRemoteTransfers) {
 TEST_F(WormholeGalaxyStabilityTestFixture, DISABLED_MultithreadedMixedRemoteTransfersMediumSmall) {
     int seed = 0;
 
-    log_info(LogSiliconDriver, "Started MultithreadedMixedRemoteTransfersMediumSmall");
+    TT_LOG_INFO_CAT(LogSiliconDriver, "Started MultithreadedMixedRemoteTransfersMediumSmall");
 
     assert(cluster != nullptr);
     std::thread t1([&]() {

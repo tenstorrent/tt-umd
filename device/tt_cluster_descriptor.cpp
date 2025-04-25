@@ -7,13 +7,13 @@
 #include <fstream>
 #include <memory>
 #include <sstream>
+#include <tt-logger/tt-logger.hpp>
 
 #include "api/umd/device/blackhole_implementation.h"
 #include "api/umd/device/wormhole_implementation.h"
 #include "disjoint_set.hpp"
 #include "fmt/core.h"
 #include "libs/create_ethernet_map.h"
-#include "logger.hpp"
 #include "yaml-cpp/yaml.h"
 
 using namespace tt;
@@ -78,7 +78,7 @@ bool tt_ClusterDescriptor::is_chip_remote(const chip_id_t chip_id) const { retur
 // the function returns the total distance of travelled between shelves and racks, plust the x&y dim difference
 int tt_ClusterDescriptor::get_ethernet_link_coord_distance(
     const eth_coord_t &location_a, const eth_coord_t &location_b) const {
-    log_trace(
+    TT_LOG_TRACE_CAT(
         LogSiliconDriver,
         "get_ethernet_link_coord_distance from ({}, {}, {}, {}, {}) to ({}, {}, {}, {}, {})",
         location_a.cluster_id,
@@ -102,7 +102,7 @@ int tt_ClusterDescriptor::get_ethernet_link_coord_distance(
     // move along y-dim to exit from the shelf to go to a higher shelf
     if (location_b.shelf > location_a.shelf) {
         // this is already verified where galaxy_shelves_exit_chip_coords_per_y_dim is populated, but just to be safe
-        log_assert(
+        TT_ASSERT(
             galaxy_shelves_exit_chip_coords_per_y_dim.find(location_a.shelf) !=
                 galaxy_shelves_exit_chip_coords_per_y_dim.end(),
             "Expected shelf-to-shelf connection");
@@ -114,7 +114,7 @@ int tt_ClusterDescriptor::get_ethernet_link_coord_distance(
 
         const Chip2ChipConnection &shelf_to_shelf_connection =
             galaxy_shelves_exit_chip_coords_per_y_dim.at(location_a.shelf).at(location_a.y);
-        log_assert(
+        TT_ASSERT(
             shelf_to_shelf_connection.destination_chip_coords.size(),
             "Expecting at least one shelf-to-shelf connection, possibly one-to-many");
 
@@ -122,13 +122,13 @@ int tt_ClusterDescriptor::get_ethernet_link_coord_distance(
         int distance = std::numeric_limits<int>::max();
         eth_coord_t exit_shelf = shelf_to_shelf_connection.source_chip_coord;
         for (eth_coord_t next_shelf : shelf_to_shelf_connection.destination_chip_coords) {
-            log_assert(
+            TT_ASSERT(
                 exit_shelf.y == location_a.y && exit_shelf.shelf == location_a.shelf &&
                     exit_shelf.rack == location_a.rack,
                 "Invalid shelf exit coordinates");
 
             // next shelf could be at a different y-dim in nebula->galaxy systems
-            log_assert(
+            TT_ASSERT(
                 next_shelf.shelf == (location_a.shelf + 1) && next_shelf.rack == location_a.rack,
                 "Invalid shelf entry coordinates");
 
@@ -142,7 +142,7 @@ int tt_ClusterDescriptor::get_ethernet_link_coord_distance(
             }
             distance = std::min(distance, distance_to_exit + distance_in_next_shelf + 1);
         }
-        log_trace(
+        TT_LOG_TRACE_CAT(
             LogSiliconDriver,
             "\tdistance from ({}, {}, {}, {}) to ({}, {}, {}, {}) is {}",
             location_a.x,
@@ -157,7 +157,7 @@ int tt_ClusterDescriptor::get_ethernet_link_coord_distance(
         return distance;
     } else if (location_a.shelf > location_b.shelf) {
         // this is already verified where galaxy_shelves_exit_chip_coords_per_y_dim is populated, but just to be safe
-        log_assert(
+        TT_ASSERT(
             galaxy_shelves_exit_chip_coords_per_y_dim.find(location_b.shelf) !=
                 galaxy_shelves_exit_chip_coords_per_y_dim.end(),
             "Expected shelf-to-shelf connection");
@@ -169,7 +169,7 @@ int tt_ClusterDescriptor::get_ethernet_link_coord_distance(
 
         const Chip2ChipConnection &shelf_to_shelf_connection =
             galaxy_shelves_exit_chip_coords_per_y_dim.at(location_b.shelf).at(location_b.y);
-        log_assert(
+        TT_ASSERT(
             shelf_to_shelf_connection.destination_chip_coords.size(),
             "Expecting at least one shelf-to-shelf connection, possibly one-to-many");
 
@@ -177,12 +177,12 @@ int tt_ClusterDescriptor::get_ethernet_link_coord_distance(
         int distance = std::numeric_limits<int>::max();
         eth_coord_t exit_shelf = shelf_to_shelf_connection.source_chip_coord;
         for (eth_coord_t next_shelf : shelf_to_shelf_connection.destination_chip_coords) {
-            log_assert(
+            TT_ASSERT(
                 exit_shelf.y == location_b.y && exit_shelf.shelf == location_b.shelf &&
                     exit_shelf.rack == location_b.rack,
                 "Invalid shelf exit coordinates");
             // next shelf could be at a different y-dim in nebula->galaxy systems
-            log_assert(
+            TT_ASSERT(
                 next_shelf.shelf == (location_b.shelf + 1) && next_shelf.rack == location_b.rack,
                 "Invalid shelf entry coordinates");
 
@@ -196,7 +196,7 @@ int tt_ClusterDescriptor::get_ethernet_link_coord_distance(
             }
             distance = std::min(distance, distance_to_exit + distance_in_next_shelf + 1);
         }
-        log_trace(
+        TT_LOG_TRACE_CAT(
             LogSiliconDriver,
             "\tdistance from ({}, {}, {}, {}) to ({}, {}, {}, {}) is {}",
             location_a.x,
@@ -214,7 +214,7 @@ int tt_ClusterDescriptor::get_ethernet_link_coord_distance(
     // move along y-dim to exit from the shelf to go to a higher shelf
     if (location_b.rack > location_a.rack) {
         // this is already verified where galaxy_racks_exit_chip_coords_per_x_dim is populated, but just to be safe
-        log_assert(
+        TT_ASSERT(
             galaxy_racks_exit_chip_coords_per_x_dim.find(location_a.rack) !=
                 galaxy_racks_exit_chip_coords_per_x_dim.end(),
             "Expected rack-to-rack connection");
@@ -227,7 +227,7 @@ int tt_ClusterDescriptor::get_ethernet_link_coord_distance(
 
         const Chip2ChipConnection &rack_to_rack_connection =
             galaxy_racks_exit_chip_coords_per_x_dim.at(location_a.rack).at(location_a.x);
-        log_assert(
+        TT_ASSERT(
             rack_to_rack_connection.destination_chip_coords.size(),
             "Expecting at least one rack-to-rack connection, possibly one-to-many");
 
@@ -235,10 +235,10 @@ int tt_ClusterDescriptor::get_ethernet_link_coord_distance(
         int distance = std::numeric_limits<int>::max();
         eth_coord_t exit_rack = rack_to_rack_connection.source_chip_coord;
         for (eth_coord_t next_rack : rack_to_rack_connection.destination_chip_coords) {
-            log_assert(
+            TT_ASSERT(
                 exit_rack.x == location_a.x && exit_rack.shelf == location_a.shelf && exit_rack.rack == location_a.rack,
                 "Invalid rack exit coordinates");
-            log_assert(
+            TT_ASSERT(
                 next_rack.x == location_a.x && next_rack.shelf == location_a.shelf &&
                     next_rack.rack == (location_a.rack + 1),
                 "Invalid rack entry coordinates");
@@ -253,7 +253,7 @@ int tt_ClusterDescriptor::get_ethernet_link_coord_distance(
             }
             distance = std::min(distance, distance_to_exit + distance_in_next_rack + 1);
         }
-        log_trace(
+        TT_LOG_TRACE_CAT(
             LogSiliconDriver,
             "\tdistance from ({}, {}, {}, {}) to ({}, {}, {}, {}) is {}",
             location_a.x,
@@ -269,7 +269,7 @@ int tt_ClusterDescriptor::get_ethernet_link_coord_distance(
         return distance;
     } else if (location_a.rack > location_b.rack) {
         // this is already verified where galaxy_racks_exit_chip_coords_per_x_dim is populated, but just to be safe
-        log_assert(
+        TT_ASSERT(
             galaxy_racks_exit_chip_coords_per_x_dim.find(location_b.rack) !=
                 galaxy_racks_exit_chip_coords_per_x_dim.end(),
             "Expected rack-to-rack connection");
@@ -282,7 +282,7 @@ int tt_ClusterDescriptor::get_ethernet_link_coord_distance(
 
         const Chip2ChipConnection &rack_to_rack_connection =
             galaxy_racks_exit_chip_coords_per_x_dim.at(location_b.rack).at(location_b.x);
-        log_assert(
+        TT_ASSERT(
             rack_to_rack_connection.destination_chip_coords.size(),
             "Expecting at least one rack-to-rack connection, possibly one-to-many");
 
@@ -290,10 +290,10 @@ int tt_ClusterDescriptor::get_ethernet_link_coord_distance(
         int distance = std::numeric_limits<int>::max();
         eth_coord_t exit_rack = rack_to_rack_connection.source_chip_coord;
         for (eth_coord_t next_rack : rack_to_rack_connection.destination_chip_coords) {
-            log_assert(
+            TT_ASSERT(
                 exit_rack.x == location_b.x && exit_rack.shelf == location_b.shelf && exit_rack.rack == location_b.rack,
                 "Invalid rack exit coordinates");
-            log_assert(
+            TT_ASSERT(
                 next_rack.x == location_b.x && next_rack.shelf == location_b.shelf &&
                     next_rack.rack == (location_b.rack + 1),
                 "Invalid rack entry coordinates");
@@ -308,7 +308,7 @@ int tt_ClusterDescriptor::get_ethernet_link_coord_distance(
             }
             distance = std::min(distance, distance_to_exit + distance_in_next_rack + 1);
         }
-        log_trace(
+        TT_LOG_TRACE_CAT(
             LogSiliconDriver,
             "\tdistance from ({}, {}, {}, {}) to ({}, {}, {}, {}) is {}",
             location_a.x,
@@ -324,7 +324,7 @@ int tt_ClusterDescriptor::get_ethernet_link_coord_distance(
         return distance;
     }
 
-    log_trace(
+    TT_LOG_TRACE_CAT(
         LogSiliconDriver,
         "\tdistance from ({}, {}, {}, {}) to ({}, {}, {}, {}) is {}",
         location_a.x,
@@ -343,7 +343,7 @@ int tt_ClusterDescriptor::get_ethernet_link_coord_distance(
 
 // Returns the closest mmio chip to the given chip
 chip_id_t tt_ClusterDescriptor::get_closest_mmio_capable_chip(const chip_id_t chip) {
-    log_debug(LogSiliconDriver, "get_closest_mmio_chip to chip{}", chip);
+    TT_LOG_DEBUG_CAT(LogSiliconDriver, "get_closest_mmio_chip to chip{}", chip);
 
     if (this->is_chip_mmio_capable(chip)) {
         return chip;
@@ -361,7 +361,7 @@ chip_id_t tt_ClusterDescriptor::get_closest_mmio_capable_chip(const chip_id_t ch
         const chip_id_t &mmio_chip = pair.first;
         eth_coord_t mmio_eth_coord = this->chip_locations.at(mmio_chip);
 
-        log_debug(
+        TT_LOG_DEBUG_CAT(
             LogSiliconDriver,
             "Checking chip{} at ({}, {}, {}, {})",
             mmio_chip,
@@ -371,18 +371,19 @@ chip_id_t tt_ClusterDescriptor::get_closest_mmio_capable_chip(const chip_id_t ch
             mmio_eth_coord.shelf);
 
         int distance = get_ethernet_link_coord_distance(mmio_eth_coord, chip_eth_coord);
-        log_debug(LogSiliconDriver, "Distance from chip{} to chip{} is {}", chip, mmio_chip, distance);
+        TT_LOG_DEBUG_CAT(LogSiliconDriver, "Distance from chip{} to chip{} is {}", chip, mmio_chip, distance);
         if (distance < min_distance) {
             min_distance = distance;
             closest_chip = mmio_chip;
         }
     }
-    log_assert(
+    TT_ASSERT(
         min_distance != std::numeric_limits<int>::max(), "Chip{} is not connected to any MMIO capable chip", chip);
 
-    log_assert(is_chip_mmio_capable(closest_chip), "Closest MMIO chip must be MMIO capable");
+    TT_ASSERT(is_chip_mmio_capable(closest_chip), "Closest MMIO chip must be MMIO capable");
 
-    log_debug(LogSiliconDriver, "closest_mmio_chip to chip{} is chip{} distance:{}", chip, closest_chip, min_distance);
+    TT_LOG_DEBUG_CAT(
+        LogSiliconDriver, "closest_mmio_chip to chip{} is chip{} distance:{}", chip, closest_chip, min_distance);
 
     closest_mmio_chip_cache[chip] = closest_chip;
 
@@ -457,7 +458,7 @@ std::unique_ptr<tt_ClusterDescriptor> tt_ClusterDescriptor::create_mock_cluster(
             break;
         default:
             board_type = BoardType::UNKNOWN;
-            log_error("Unsupported architecture for mock cluster");
+            TT_LOG_ERROR("Unsupported architecture for mock cluster");
             break;
     }
 
@@ -467,7 +468,7 @@ std::unique_ptr<tt_ClusterDescriptor> tt_ClusterDescriptor::create_mock_cluster(
         desc->chip_locations.insert({logical_id, chip_location});
         desc->coords_to_chip_ids[chip_location.rack][chip_location.shelf][chip_location.y][chip_location.x] =
             logical_id;
-        log_debug(tt::LogSiliconDriver, "{} - adding logical: {}", __FUNCTION__, logical_id);
+        TT_LOG_DEBUG_CAT(tt::LogSiliconDriver, "{} - adding logical: {}", __FUNCTION__, logical_id);
         desc->chip_board_type.insert({logical_id, board_type});
         desc->chips_with_mmio.insert({logical_id, logical_id});
         desc->chip_arch.insert({logical_id, arch});
@@ -480,7 +481,7 @@ std::unique_ptr<tt_ClusterDescriptor> tt_ClusterDescriptor::create_mock_cluster(
 
 void tt_ClusterDescriptor::load_ethernet_connections_from_connectivity_descriptor(
     YAML::Node &yaml, tt_ClusterDescriptor &desc) {
-    log_assert(yaml["ethernet_connections"].IsSequence(), "Invalid YAML");
+    TT_ASSERT(yaml["ethernet_connections"].IsSequence(), "Invalid YAML");
 
     // Preload idle eth channels.
     for (const auto &chip : desc.all_chips) {
@@ -496,10 +497,10 @@ void tt_ClusterDescriptor::load_ethernet_connections_from_connectivity_descripto
     }
 
     for (YAML::Node &connected_endpoints : yaml["ethernet_connections"].as<std::vector<YAML::Node>>()) {
-        log_assert(connected_endpoints.IsSequence(), "Invalid YAML");
+        TT_ASSERT(connected_endpoints.IsSequence(), "Invalid YAML");
 
         std::vector<YAML::Node> endpoints = connected_endpoints.as<std::vector<YAML::Node>>();
-        log_assert(
+        TT_ASSERT(
             endpoints.size() <= 3,
             "Ethernet connections in YAML should always contatin information on connected endpoints and optionally "
             "information on whether "
@@ -510,7 +511,7 @@ void tt_ClusterDescriptor::load_ethernet_connections_from_connectivity_descripto
         int chip_1 = endpoints.at(1)["chip"].as<int>();
         int channel_1 = endpoints.at(1)["chan"].as<int>();
         if (desc.ethernet_connections[chip_0].find(channel_0) != desc.ethernet_connections[chip_0].end()) {
-            log_assert(
+            TT_ASSERT(
                 (std::get<0>(desc.ethernet_connections[chip_0][channel_0]) == chip_1) &&
                     (std::get<1>(desc.ethernet_connections[chip_0][channel_0]) == channel_1),
                 "Duplicate eth connection found in cluster desc yaml");
@@ -518,7 +519,7 @@ void tt_ClusterDescriptor::load_ethernet_connections_from_connectivity_descripto
             desc.ethernet_connections[chip_0][channel_0] = {chip_1, channel_1};
         }
         if (desc.ethernet_connections[chip_1].find(channel_1) != desc.ethernet_connections[chip_0].end()) {
-            log_assert(
+            TT_ASSERT(
                 (std::get<0>(desc.ethernet_connections[chip_1][channel_1]) == chip_0) &&
                     (std::get<1>(desc.ethernet_connections[chip_1][channel_1]) == channel_0),
                 "Duplicate eth connection found in cluster desc yaml");
@@ -533,10 +534,10 @@ void tt_ClusterDescriptor::load_ethernet_connections_from_connectivity_descripto
 
     // std::unordered_map<ethernet_channel_t, std::tuple<chip_id_t, ethernet_channel_t>>> ethernet_connections;
 
-    log_debug(LogSiliconDriver, "Ethernet Connectivity Descriptor:");
+    TT_LOG_DEBUG_CAT(LogSiliconDriver, "Ethernet Connectivity Descriptor:");
     for (const auto &[chip, chan_to_chip_chan_map] : desc.ethernet_connections) {
         for (const auto &[chan, chip_and_chan] : chan_to_chip_chan_map) {
-            log_debug(
+            TT_LOG_DEBUG_CAT(
                 LogSiliconDriver,
                 "\tchip: {}, chan: {}  <-->  chip: {}, chan: {}",
                 chip,
@@ -546,16 +547,16 @@ void tt_ClusterDescriptor::load_ethernet_connections_from_connectivity_descripto
         }
     }
 
-    log_debug(LogSiliconDriver, "Chip Coordinates:");
+    TT_LOG_DEBUG_CAT(LogSiliconDriver, "Chip Coordinates:");
     for (const auto &[rack_id, rack_chip_map] : desc.coords_to_chip_ids) {
         for (const auto &[shelf_id, shelf_chip_map] : rack_chip_map) {
-            log_debug(LogSiliconDriver, "\tRack:{} Shelf:{}", rack_id, shelf_id);
+            TT_LOG_DEBUG_CAT(LogSiliconDriver, "\tRack:{} Shelf:{}", rack_id, shelf_id);
             for (const auto &[row, row_chip_map] : shelf_chip_map) {
                 std::stringstream row_chips;
                 for (const auto &[col, chip_id] : row_chip_map) {
                     row_chips << chip_id << "\t";
                 }
-                log_debug(LogSiliconDriver, "\t\t{}", row_chips.str());
+                TT_LOG_DEBUG_CAT(LogSiliconDriver, "\t\t{}", row_chips.str());
             }
         }
     }
@@ -591,7 +592,7 @@ void tt_ClusterDescriptor::fill_galaxy_connections(tt_ClusterDescriptor &desc) {
                 auto &galaxy_shelf_exit_chip_coords_per_y_dim =
                     desc.galaxy_shelves_exit_chip_coords_per_y_dim[lower_shelf_id];
 
-                log_assert(
+                TT_ASSERT(
                     galaxy_shelf_exit_chip_coords_per_y_dim.find(lower_shelf_y) ==
                             galaxy_shelf_exit_chip_coords_per_y_dim.end() ||
                         galaxy_shelf_exit_chip_coords_per_y_dim[lower_shelf_y].source_chip_coord == lower_shelf_coord,
@@ -613,7 +614,7 @@ void tt_ClusterDescriptor::fill_galaxy_connections(tt_ClusterDescriptor &desc) {
                 auto &galaxy_rack_exit_chip_coords_per_x_dim =
                     desc.galaxy_racks_exit_chip_coords_per_x_dim[lower_rack_id];
 
-                log_assert(
+                TT_ASSERT(
                     galaxy_rack_exit_chip_coords_per_x_dim.find(lower_rack_x) ==
                             galaxy_rack_exit_chip_coords_per_x_dim.end() ||
                         galaxy_rack_exit_chip_coords_per_x_dim[lower_rack_x].source_chip_coord == lower_rack_coord,
@@ -628,7 +629,7 @@ void tt_ClusterDescriptor::fill_galaxy_connections(tt_ClusterDescriptor &desc) {
     // this means that we expect the shelves to be connected linearly in a daisy-chain fashion.
     // shelf0->shelf1->shelf2->...->shelfN
     for (int shelf_id = 0; shelf_id < highest_shelf_id; shelf_id++) {
-        log_assert(
+        TT_ASSERT(
             desc.galaxy_shelves_exit_chip_coords_per_y_dim.find(shelf_id) !=
                 desc.galaxy_shelves_exit_chip_coords_per_y_dim.end(),
             "Expected shelf {} to be connected to the next shelf",
@@ -639,7 +640,7 @@ void tt_ClusterDescriptor::fill_galaxy_connections(tt_ClusterDescriptor &desc) {
     // this is used in get_ethernet_link_coord_distance to find the distance between two chips
     for (const auto &[shelf, shelf_exit_chip_coords_per_y_dim] : desc.galaxy_shelves_exit_chip_coords_per_y_dim) {
         for (const auto &[y_dim, shelf_exit_chip_coords] : shelf_exit_chip_coords_per_y_dim) {
-            log_debug(
+            TT_LOG_DEBUG_CAT(
                 LogSiliconDriver,
                 "shelf: {} y_dim: {} exit_coord:({}, {}, {}, {})",
                 shelf,
@@ -650,7 +651,7 @@ void tt_ClusterDescriptor::fill_galaxy_connections(tt_ClusterDescriptor &desc) {
                 shelf_exit_chip_coords.source_chip_coord.shelf);
             for (const auto &destination_chip_coord : shelf_exit_chip_coords.destination_chip_coords) {
                 // print shelf_exit_chip_coord in the format: (x, y, rack, shelf)
-                log_debug(
+                TT_LOG_DEBUG_CAT(
                     LogSiliconDriver,
                     "\tdestination_chip_coord: ({}, {}, {}, {})",
                     destination_chip_coord.x,
@@ -665,7 +666,7 @@ void tt_ClusterDescriptor::fill_galaxy_connections(tt_ClusterDescriptor &desc) {
     // this means that we expect the racks to be connected linearly in a daisy-chain fashion.
     // rack0->rack1->rack2->...->rackN
     for (int rack_id = 0; rack_id < highest_rack_id; rack_id++) {
-        log_assert(
+        TT_ASSERT(
             desc.galaxy_racks_exit_chip_coords_per_x_dim.find(rack_id) !=
                 desc.galaxy_racks_exit_chip_coords_per_x_dim.end(),
             "Expected rack {} to be connected to the next rack",
@@ -676,7 +677,7 @@ void tt_ClusterDescriptor::fill_galaxy_connections(tt_ClusterDescriptor &desc) {
     // this is used in get_ethernet_link_coord_distance to find the distance between two chips
     for (const auto &[rack, rack_exit_chip_coords_per_x_dim] : desc.galaxy_racks_exit_chip_coords_per_x_dim) {
         for (const auto &[x_dim, rack_exit_chip_coords] : rack_exit_chip_coords_per_x_dim) {
-            log_debug(
+            TT_LOG_DEBUG_CAT(
                 LogSiliconDriver,
                 "rack: {} x_dim: {} exit_coord:({}, {}, {}, {})",
                 rack,
@@ -686,7 +687,7 @@ void tt_ClusterDescriptor::fill_galaxy_connections(tt_ClusterDescriptor &desc) {
                 rack_exit_chip_coords.source_chip_coord.rack,
                 rack_exit_chip_coords.source_chip_coord.shelf);
             for (const auto &destination_chip_coord : rack_exit_chip_coords.destination_chip_coords) {
-                log_debug(
+                TT_LOG_DEBUG_CAT(
                     LogSiliconDriver,
                     "\tdestination_chip_coord: ({}, {}, {}, {})",
                     destination_chip_coord.x,
@@ -702,19 +703,19 @@ void tt_ClusterDescriptor::merge_cluster_ids(tt_ClusterDescriptor &desc) {
     DisjointSet<chip_id_t> chip_sets;
     for (const auto &[chip, _] : desc.chip_locations) {
         chip_sets.add_item(chip);
-        log_debug(LogSiliconDriver, "Adding chip {} to disjoint set", chip);
+        TT_LOG_DEBUG_CAT(LogSiliconDriver, "Adding chip {} to disjoint set", chip);
     }
 
     for (const auto &[chip, chan_to_chip_chan_map] : desc.ethernet_connections) {
         for (const auto &[chan, dest_chip_chan_tuple] : chan_to_chip_chan_map) {
             chip_sets.merge(chip, std::get<0>(dest_chip_chan_tuple));
-            log_debug(LogSiliconDriver, "Merging chip {} and chip {}", chip, std::get<0>(dest_chip_chan_tuple));
+            TT_LOG_DEBUG_CAT(LogSiliconDriver, "Merging chip {} and chip {}", chip, std::get<0>(dest_chip_chan_tuple));
         }
     }
 
     for (const auto &[chip, chip_eth_coords] : desc.chip_locations) {
         desc.chip_locations[chip].cluster_id = chip_sets.get_set(chip);
-        log_debug(LogSiliconDriver, "Chip {} belongs to cluster {}", chip, chip_sets.get_set(chip));
+        TT_LOG_DEBUG_CAT(LogSiliconDriver, "Chip {} belongs to cluster {}", chip, chip_sets.get_set(chip));
     }
 }
 
@@ -729,7 +730,7 @@ void tt_ClusterDescriptor::load_chips_from_connectivity_descriptor(YAML::Node &y
     for (YAML::const_iterator node = yaml["chips"].begin(); node != yaml["chips"].end(); ++node) {
         chip_id_t chip_id = node->first.as<int>();
         std::vector<int> chip_rack_coords = node->second.as<std::vector<int>>();
-        log_assert(chip_rack_coords.size() == 4, "Galaxy (x, y, rack, shelf) coords must be size 4");
+        TT_ASSERT(chip_rack_coords.size() == 4, "Galaxy (x, y, rack, shelf) coords must be size 4");
         eth_coord_t chip_location{
             chip_id, chip_rack_coords.at(0), chip_rack_coords.at(1), chip_rack_coords.at(2), chip_rack_coords.at(3)};
 
@@ -747,9 +748,9 @@ void tt_ClusterDescriptor::load_chips_from_connectivity_descriptor(YAML::Node &y
             desc.chips_with_mmio.insert({chip_val, chip_val});
         }
     }
-    log_debug(LogSiliconDriver, "Device IDs and Locations:");
+    TT_LOG_DEBUG_CAT(LogSiliconDriver, "Device IDs and Locations:");
     for (const auto &[chip_id, chip_location] : desc.chip_locations) {
-        log_debug(
+        TT_LOG_DEBUG_CAT(
             LogSiliconDriver,
             "\tchip: {},  EthCoord(x={}, y={}, rack={}, shelf={})",
             chip_id,
@@ -782,7 +783,7 @@ void tt_ClusterDescriptor::load_chips_from_connectivity_descriptor(YAML::Node &y
             } else if (chip_board_type.second == "ubb") {
                 board_type = BoardType::UBB;
             } else {
-                log_warning(
+                TT_LOG_WARNING_CAT(
                     LogSiliconDriver,
                     "Unknown board type for chip {}. This might happen because chip is running old firmware. "
                     "Defaulting to UNKNOWN",
@@ -875,7 +876,7 @@ const std::unordered_map<chip_id_t, uint64_t> &tt_ClusterDescriptor::get_chip_un
 }
 
 chip_id_t tt_ClusterDescriptor::get_shelf_local_physical_chip_coords(chip_id_t virtual_coord) {
-    log_assert(
+    TT_ASSERT(
         !this->chip_locations.empty(),
         "Getting physical chip coordinates is only valid for systems where chips have coordinates");
     // Physical cooridnates of chip inside a single rack. Calculated based on Galaxy topology.
@@ -927,14 +928,14 @@ const std::unordered_map<chip_id_t, bool> &tt_ClusterDescriptor::get_noc_transla
 std::size_t tt_ClusterDescriptor::get_number_of_chips() const { return this->enabled_active_chips.size(); }
 
 int tt_ClusterDescriptor::get_ethernet_link_distance(chip_id_t chip_a, chip_id_t chip_b) const {
-    log_assert(
+    TT_ASSERT(
         !this->chip_locations.empty(),
         "Getting physical chip coordinates is only valid for systems where chips have coordinates");
     return this->get_ethernet_link_coord_distance(chip_locations.at(chip_a), chip_locations.at(chip_b));
 }
 
 BoardType tt_ClusterDescriptor::get_board_type(chip_id_t chip_id) const {
-    log_assert(
+    TT_ASSERT(
         chip_board_type.find(chip_id) != chip_board_type.end(),
         "Chip {} does not have a board type in the cluster descriptor",
         chip_id);
@@ -942,7 +943,7 @@ BoardType tt_ClusterDescriptor::get_board_type(chip_id_t chip_id) const {
 }
 
 tt::ARCH tt_ClusterDescriptor::get_arch(chip_id_t chip_id) const {
-    log_assert(
+    TT_ASSERT(
         chip_arch.find(chip_id) != chip_arch.end(),
         "Chip {} does not have an architecture in the cluster descriptor",
         chip_id);

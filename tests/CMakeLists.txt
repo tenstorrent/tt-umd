@@ -7,7 +7,7 @@ target_link_libraries(
         gtest_main
         gtest
         pthread
-        fmt::fmt-header-only
+        tt-logger::tt-logger
         $<$<BOOL:${TT_UMD_BUILD_SIMULATION}>:nng>
 )
 target_include_directories(

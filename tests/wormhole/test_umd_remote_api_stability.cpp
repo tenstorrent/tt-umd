@@ -8,8 +8,8 @@
 #include <numeric>
 #include <random>
 #include <thread>
+#include <tt-logger/tt-logger.hpp>
 
-#include "common/logger.hpp"
 #include "filesystem"
 #include "gtest/gtest.h"
 #include "test_wh_common.h"
@@ -55,7 +55,7 @@ uint32_t WormholeNebulaX2TestFixture::scale_number_of_tests = 1;
 TEST_F(WormholeNebulaX2TestFixture, MixedRemoteTransfersMediumSmall) {
     int seed = 0;
 
-    log_info(LogSiliconDriver, "Started MixedRemoteTransfersMediumSmall");
+    TT_LOG_INFO_CAT(LogSiliconDriver, "Started MixedRemoteTransfersMediumSmall");
 
     std::vector<remote_transfer_sample_t> command_history;
     try {
@@ -86,7 +86,7 @@ TEST_F(WormholeNebulaX2TestFixture, MixedRemoteTransfersMediumSmall) {
 TEST_F(WormholeNebulaX2TestFixture, MultithreadedMixedRemoteTransfersMediumSmall) {
     int seed = 0;
 
-    log_info(LogSiliconDriver, "Started MultithreadedMixedRemoteTransfersMediumSmall");
+    TT_LOG_INFO_CAT(LogSiliconDriver, "Started MultithreadedMixedRemoteTransfersMediumSmall");
 
     assert(cluster != nullptr);
     std::vector<remote_transfer_sample_t> command_history0;
@@ -183,7 +183,7 @@ TEST_F(WormholeNebulaX2TestFixture, MultithreadedMixedRemoteTransfersMediumSmall
 TEST_F(WormholeNebulaX2TestFixture, MixedRemoteTransfersLarge) {
     int seed = 0;
 
-    log_info(LogSiliconDriver, "Started MixedRemoteTransfersLarge");
+    TT_LOG_INFO_CAT(LogSiliconDriver, "Started MixedRemoteTransfersLarge");
 
     assert(cluster != nullptr);
     std::vector<remote_transfer_sample_t> command_history;
@@ -214,7 +214,7 @@ TEST_F(WormholeNebulaX2TestFixture, MixedRemoteTransfersLarge) {
 TEST_F(WormholeNebulaX2TestFixture, WritesOnlyNormalDistributionMean10kStd3kMinSizeTruncate4) {
     int seed = 0;
 
-    log_info(LogSiliconDriver, "Started WritesOnlyNormalDistributionMean10kStd3kMinSizeTruncate4");
+    TT_LOG_INFO_CAT(LogSiliconDriver, "Started WritesOnlyNormalDistributionMean10kStd3kMinSizeTruncate4");
 
     assert(cluster != nullptr);
     std::vector<remote_transfer_sample_t> command_history;
@@ -246,7 +246,7 @@ TEST_F(WormholeNebulaX2TestFixture, WritesOnlyNormalDistributionMean10kStd3kMinS
 TEST_F(WormholeNebulaX2TestFixture, MultithreadedMixedRemoteTransfersLMS) {
     int seed = 0;
 
-    log_info(LogSiliconDriver, "Started MultithreadedMixedRemoteTransfersLMS");
+    TT_LOG_INFO_CAT(LogSiliconDriver, "Started MultithreadedMixedRemoteTransfersLMS");
 
     assert(cluster != nullptr);
     std::vector<remote_transfer_sample_t> command_history0;
@@ -343,7 +343,7 @@ TEST_F(WormholeNebulaX2TestFixture, MultithreadedMixedRemoteTransfersLMS) {
 TEST_F(WormholeNebulaX2TestFixture, MultithreadedMixedRemoteTransfersLargeWritesSmallReads) {
     int seed = 0;
 
-    log_info(LogSiliconDriver, "Started MultithreadedMixedRemoteTransfersLargeWritesSmallReads");
+    TT_LOG_INFO_CAT(LogSiliconDriver, "Started MultithreadedMixedRemoteTransfersLargeWritesSmallReads");
 
     assert(cluster != nullptr);
     std::vector<remote_transfer_sample_t> command_history0;

@@ -12,10 +12,8 @@
 #include <filesystem>
 #include <iomanip>
 #include <sstream>
+#include <tt-logger/tt-logger.hpp>
 #include <typeinfo>
-
-#include "assert.hpp"
-#include "logger.hpp"
 
 tt_SimulationHost::tt_SimulationHost() {
     // Initialize socket and dialer
@@ -39,7 +37,7 @@ tt_SimulationHost::tt_SimulationHost() {
     setenv("NNG_SOCKET_ADDR", nng_socket_addr, 1);  // pass NNG_SOCKET_ADDR to remote
 
     // Open socket and create dialer
-    log_info(tt::LogEmulationDriver, "Dialing: {}", nng_socket_addr);
+    TT_LOG_INFO_CAT(tt::LogEmulationDriver, "Dialing: {}", nng_socket_addr);
     nng_pair1_open(host_socket.get());
     int rv = nng_dialer_create(host_dialer.get(), *host_socket, nng_socket_addr);
     TT_ASSERT(rv == 0, "Failed to create dialer: {} {}", nng_strerror(rv), nng_socket_addr);
@@ -56,7 +54,7 @@ void tt_SimulationHost::start_host() {
     do {
         rv = nng_dialer_start(*host_dialer, 0);
         if (rv != 0) {
-            log_info(tt::LogEmulationDriver, "Waiting for remote: {}", nng_strerror(rv));
+            TT_LOG_INFO_CAT(tt::LogEmulationDriver, "Waiting for remote: {}", nng_strerror(rv));
             std::this_thread::sleep_for(std::chrono::seconds(1));
         }
     } while (rv != 0);
@@ -64,26 +62,26 @@ void tt_SimulationHost::start_host() {
 
 void tt_SimulationHost::send_to_device(uint8_t *buf, size_t buf_size) {
     int rv;
-    log_debug(tt::LogEmulationDriver, "Sending messsage to remote..");
+    TT_LOG_DEBUG_CAT(tt::LogEmulationDriver, "Sending messsage to remote..");
 
     void *msg = nng_alloc(buf_size);
     std::memcpy(msg, buf, buf_size);
 
     rv = nng_send(*host_socket, msg, buf_size, NNG_FLAG_ALLOC);
-    log_debug(tt::LogEmulationDriver, "Message sent.");
+    TT_LOG_DEBUG_CAT(tt::LogEmulationDriver, "Message sent.");
     if (rv != 0) {
-        log_info(tt::LogEmulationDriver, "Failed to send message to remote: {}", nng_strerror(rv));
+        TT_LOG_INFO_CAT(tt::LogEmulationDriver, "Failed to send message to remote: {}", nng_strerror(rv));
     }
 }
 
 size_t tt_SimulationHost::recv_from_device(void **data_ptr) {
     int rv;
     size_t data_size;
-    log_debug(tt::LogEmulationDriver, "Receiving messsage from remote..");
+    TT_LOG_DEBUG_CAT(tt::LogEmulationDriver, "Receiving messsage from remote..");
     rv = nng_recv(*host_socket, data_ptr, &data_size, NNG_FLAG_ALLOC);
-    log_debug(tt::LogEmulationDriver, "Message received.");
+    TT_LOG_DEBUG_CAT(tt::LogEmulationDriver, "Message received.");
     if (rv != 0) {
-        log_info(tt::LogEmulationDriver, "Failed to receive message from remote: {}", nng_strerror(rv));
+        TT_LOG_INFO_CAT(tt::LogEmulationDriver, "Failed to receive message from remote: {}", nng_strerror(rv));
     }
     return data_size;
 }

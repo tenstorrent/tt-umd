@@ -15,8 +15,7 @@
 #include <unistd.h>    // ftruncate, close
 
 #include <stdexcept>
-
-#include "logger.hpp"
+#include <tt-logger/tt-logger.hpp>
 
 static constexpr int ALL_RW_PERMISSION = 0666;
 static constexpr std::string_view UMD_LOCK_PREFIX = "TT_UMD_LOCK.";
@@ -40,13 +39,13 @@ public:
     CriticalSectionScopeGuard(int fd, pthread_mutex_t* pthread_mutex, std::string_view mutex_name) :
         fd_(fd), pthread_mutex_(pthread_mutex), mutex_name_(mutex_name) {
         if (flock(fd_, LOCK_EX) != 0) {
-            log_fatal("flock failed for mutex {} errno: {}", mutex_name_, std::to_string(errno));
+            TT_LOG_FATAL("flock failed for mutex {} errno: {}", mutex_name_, std::to_string(errno));
         }
         int err = pthread_mutex_lock(pthread_mutex_);
         if (err != 0) {
             // Try to unlock the flock without handling further exceptions.
             flock(fd_, LOCK_UN);
-            log_fatal("pthread_mutex_lock failed for mutex {} errno: {}", mutex_name_, std::to_string(err));
+            TT_LOG_FATAL("pthread_mutex_lock failed for mutex {} errno: {}", mutex_name_, std::to_string(err));
         }
     }
 
@@ -55,16 +54,16 @@ public:
         int err = pthread_mutex_unlock(pthread_mutex_);
         if (err != 0) {
             // This is on the destructor path, so we don't want to throw an exception.
-            log_warning(
-                tt::LogSiliconDriver,
+            TT_LOG_WARNING_CAT(
+                LogSiliconDriver,
                 "pthread_mutex_unlock failed for mutex {} errno: {}",
                 mutex_name_,
                 std::to_string(err));
         }
         if (flock(fd_, LOCK_UN) != 0) {
             // This is on the destructor path, so we don't want to throw an exception.
-            log_warning(
-                tt::LogSiliconDriver, "flock failed for mutex {} errno: {}", mutex_name_, std::to_string(errno));
+            TT_LOG_WARNING_CAT(
+                LogSiliconDriver, "flock failed for mutex {} errno: {}", mutex_name_, std::to_string(errno));
         }
     }
 
@@ -130,15 +129,15 @@ void RobustMutex::initialize() {
     //  - File was not resized, but the initialized flag is wrong.
     //  - File was resized, but the initialized flag is correct (this is a bit unexpected, but theoretically possible).
     if (mutex_wrapper_ptr_->initialized != INITIALIZED_FLAG && !file_was_resized) {
-        log_warning(
-            tt::LogSiliconDriver,
+        TT_LOG_WARNING_CAT(
+            LogSiliconDriver,
             "The file was already of correct size, but the initialized flag is wrong. This could "
             "be due to previously failed initialization, or some other external factor. Mutex name: {}",
             mutex_name_);
     }
     if (mutex_wrapper_ptr_->initialized == INITIALIZED_FLAG && file_was_resized) {
-        log_warning(
-            tt::LogSiliconDriver,
+        TT_LOG_WARNING_CAT(
+            LogSiliconDriver,
             "The file was resized, but the initialized flag is correct. This is an unexpected "
             "case, the mutex might fail. Mutex name: {}",
             mutex_name_);
@@ -172,7 +171,7 @@ void RobustMutex::open_shm_file() {
     umask(old_umask);
 
     if (shm_fd_ == -1) {
-        log_fatal("shm_open failed for mutex {} errno: {}", mutex_name_, std::to_string(errno));
+        TT_LOG_FATAL("shm_open failed for mutex {} errno: {}", mutex_name_, std::to_string(errno));
     }
 }
 
@@ -183,8 +182,8 @@ bool RobustMutex::resize_shm_file() {
 
     // Report warning if the file size is not as expected, but continue with the initialization.
     if (file_size != 0 && file_size != target_file_size) {
-        log_warning(
-            tt::LogSiliconDriver,
+        TT_LOG_WARNING_CAT(
+            LogSiliconDriver,
             "File size {} is not as expected {} for mutex {}. This could be due to new pthread library version, or "
             "some other external factor.",
             std::to_string(file_size),
@@ -195,14 +194,14 @@ bool RobustMutex::resize_shm_file() {
     // This includes the case when file_size was just created and its size iz 0.
     if (file_size != target_file_size) {
         if (ftruncate(shm_fd_, target_file_size) != 0) {
-            log_fatal("ftruncate failed for mutex {} errno: {}", mutex_name_, std::to_string(errno));
+            TT_LOG_FATAL("ftruncate failed for mutex {} errno: {}", mutex_name_, std::to_string(errno));
         }
         file_was_truncated = true;
 
         // Verify file size again. This time throw an exception.
         file_size = get_file_size(shm_fd_);
         if (file_size != target_file_size) {
-            log_fatal(
+            TT_LOG_FATAL(
                 "File size {} is not as expected {} for mutex {}. This could be due to new pthread library version, or "
                 "some other external factor.",
                 std::to_string(file_size),
@@ -218,7 +217,7 @@ void RobustMutex::open_pthread_mutex() {
     // Create a pthread_mutex based on the shared memory file descriptor
     void* addr = mmap(NULL, sizeof(pthread_mutex_wrapper), PROT_READ | PROT_WRITE, MAP_SHARED, shm_fd_, 0);
     if (addr == MAP_FAILED) {
-        log_fatal("mmap failed for mutex {} errno: {}", mutex_name_, std::to_string(errno));
+        TT_LOG_FATAL("mmap failed for mutex {} errno: {}", mutex_name_, std::to_string(errno));
     }
     mutex_wrapper_ptr_ = (pthread_mutex_wrapper*)addr;
 }
@@ -228,24 +227,24 @@ void RobustMutex::initialize_pthread_mutex_first_use() {
     pthread_mutexattr_t attr;
     err = pthread_mutexattr_init(&attr);
     if (err != 0) {
-        log_fatal("pthread_mutexattr_init failed for mutex {} errno: {}", mutex_name_, std::to_string(err));
+        TT_LOG_FATAL("pthread_mutexattr_init failed for mutex {} errno: {}", mutex_name_, std::to_string(err));
     }
     // This marks the mutex as being shared across processes. Not sure if this is necessary given that it resides in
     // shared memory.
     err = pthread_mutexattr_setpshared(&attr, PTHREAD_PROCESS_SHARED);
     if (err != 0) {
-        log_fatal("pthread_mutexattr_setpshared failed for mutex {} errno: {}", mutex_name_, std::to_string(err));
+        TT_LOG_FATAL("pthread_mutexattr_setpshared failed for mutex {} errno: {}", mutex_name_, std::to_string(err));
     }
     // This marks the mutex as robust. This will have the effect in the case of process crashing, another process
     // waiting on the mutex will get the signal and will get the flag that the previous owner of mutex died, so it can
     // recover the mutex state.
     err = pthread_mutexattr_setrobust(&attr, PTHREAD_MUTEX_ROBUST);
     if (err != 0) {
-        log_fatal("pthread_mutexattr_setrobust failed for mutex {} errno: {}", mutex_name_, std::to_string(err));
+        TT_LOG_FATAL("pthread_mutexattr_setrobust failed for mutex {} errno: {}", mutex_name_, std::to_string(err));
     }
     err = pthread_mutex_init(&(mutex_wrapper_ptr_->mutex), &attr);
     if (err != 0) {
-        log_fatal("pthread_mutex_init failed for mutex {} errno: {}", mutex_name_, std::to_string(err));
+        TT_LOG_FATAL("pthread_mutex_init failed for mutex {} errno: {}", mutex_name_, std::to_string(err));
     }
     // When we open an existing pthread in the future, there is no other way to check if it was initialized or not, so
     // we need to set this flag.
@@ -255,7 +254,7 @@ void RobustMutex::initialize_pthread_mutex_first_use() {
 size_t RobustMutex::get_file_size(int fd) {
     struct stat sb;
     if (fstat(fd, &sb) == -1) {
-        log_fatal("fstat failed for mutex {} errno: {}", mutex_name_, std::to_string(errno));
+        TT_LOG_FATAL("fstat failed for mutex {} errno: {}", mutex_name_, std::to_string(errno));
     }
     return sb.st_size;
 }
@@ -265,8 +264,8 @@ void RobustMutex::close_mutex() noexcept {
         // Unmap the shared memory backed pthread_mutex object.
         if (munmap((void*)mutex_wrapper_ptr_, sizeof(pthread_mutex_wrapper)) != 0) {
             // This is on the destructor path, so we don't want to throw an exception.
-            log_warning(
-                tt::LogSiliconDriver, "munmap failed for mutex {} errno: {}", mutex_name_, std::to_string(errno));
+            TT_LOG_WARNING_CAT(
+                LogSiliconDriver, "munmap failed for mutex {} errno: {}", mutex_name_, std::to_string(errno));
         }
         mutex_wrapper_ptr_ = nullptr;
     }
@@ -274,8 +273,8 @@ void RobustMutex::close_mutex() noexcept {
         // Close shared memory file.
         if (close(shm_fd_) != 0) {
             // This is on the destructor path, so we don't want to throw an exception.
-            log_warning(
-                tt::LogSiliconDriver, "close failed for mutex {} errno: {}", mutex_name_, std::to_string(errno));
+            TT_LOG_WARNING_CAT(
+                LogSiliconDriver, "close failed for mutex {} errno: {}", mutex_name_, std::to_string(errno));
         }
         shm_fd_ = -1;
     }
@@ -284,7 +283,7 @@ void RobustMutex::close_mutex() noexcept {
 void RobustMutex::unlock() {
     int err = pthread_mutex_unlock(&(mutex_wrapper_ptr_->mutex));
     if (err != 0) {
-        log_fatal("pthread_mutex_unlock failed for mutex {} errno: {}", mutex_name_, std::to_string(err));
+        TT_LOG_FATAL("pthread_mutex_unlock failed for mutex {} errno: {}", mutex_name_, std::to_string(err));
     }
 }
 
@@ -296,9 +295,9 @@ void RobustMutex::lock() {
         // We can recover the mutex state.
         int err = pthread_mutex_consistent(&(mutex_wrapper_ptr_->mutex));
         if (err != 0) {
-            log_fatal("pthread_mutex_consistent failed for mutex {} errno: {}", mutex_name_, std::to_string(err));
+            TT_LOG_FATAL("pthread_mutex_consistent failed for mutex {} errno: {}", mutex_name_, std::to_string(err));
         }
     } else if (lock_res != 0) {
-        log_fatal("pthread_mutex_lock failed for mutex {} errno: {}", mutex_name_, std::to_string(lock_res));
+        TT_LOG_FATAL("pthread_mutex_lock failed for mutex {} errno: {}", mutex_name_, std::to_string(lock_res));
     }
 }

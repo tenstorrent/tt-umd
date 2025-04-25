@@ -6,7 +6,8 @@
 
 #include "umd/device/chip/remote_chip.h"
 
-#include "logger.hpp"
+#include <tt-logger/tt-logger.hpp>
+
 #include "umd/device/chip/local_chip.h"
 
 extern bool umd_use_noc1;
@@ -17,7 +18,7 @@ RemoteChip::RemoteChip(tt_SocDescriptor soc_descriptor, eth_coord_t eth_chip_loc
     Chip(soc_descriptor),
     eth_chip_location_(eth_chip_location),
     remote_communication_(std::make_unique<RemoteCommunication>(local_chip)) {
-    log_assert(soc_descriptor_.arch != tt::ARCH::BLACKHOLE, "Non-MMIO targets not supported in Blackhole");
+    TT_ASSERT(soc_descriptor_.arch != tt::ARCH::BLACKHOLE, "Non-MMIO targets not supported in Blackhole");
 }
 
 RemoteChip::RemoteChip(tt_SocDescriptor soc_descriptor, ChipInfo chip_info) : Chip(chip_info, soc_descriptor) {}
@@ -69,7 +70,7 @@ tt_xy_pair RemoteChip::translate_chip_coord_virtual_to_translated(const tt_xy_pa
 }
 
 void RemoteChip::wait_for_non_mmio_flush() {
-    log_assert(soc_descriptor_.arch != tt::ARCH::BLACKHOLE, "Non-MMIO flush not supported in Blackhole");
+    TT_ASSERT(soc_descriptor_.arch != tt::ARCH::BLACKHOLE, "Non-MMIO flush not supported in Blackhole");
     remote_communication_->wait_for_non_mmio_flush();
 }
 
@@ -87,9 +88,9 @@ int RemoteChip::arc_msg(
     auto arc_core = soc_descriptor_.get_cores(CoreType::ARC).at(0);
 
     if ((msg_code & 0xff00) != 0xaa00) {
-        log_error("Malformed message. msg_code is 0x{:x} but should be 0xaa..", msg_code);
+        TT_LOG_ERROR("Malformed message. msg_code is 0x{:x} but should be 0xaa..", msg_code);
     }
-    log_assert(arg0 <= 0xffff and arg1 <= 0xffff, "Only 16 bits allowed in arc_msg args");  // Only 16 bits are allowed
+    TT_ASSERT(arg0 <= 0xffff and arg1 <= 0xffff, "Only 16 bits allowed in arc_msg args");  // Only 16 bits are allowed
 
     uint32_t fw_arg = arg0 | (arg1 << 16);
     int exit_code = 0;
@@ -104,7 +105,7 @@ int RemoteChip::arc_msg(
     read_from_device(arc_core, &misc, ARC_RESET_MISC_CNTL_ADDR, 4);
 
     if (misc & (1 << 16)) {
-        log_error("trigger_fw_int failed on device");
+        TT_LOG_ERROR("trigger_fw_int failed on device");
         return 1;
     } else {
         misc |= (1 << 16);
@@ -138,7 +139,7 @@ int RemoteChip::arc_msg(
                 exit_code = (status & 0xffff0000) >> 16;
                 break;
             } else if (status == HANG_READ_VALUE) {
-                log_warning(LogSiliconDriver, "Message code 0x{:x} not recognized by FW", msg_code);
+                TT_LOG_WARNING_CAT(LogSiliconDriver, "Message code 0x{:x} not recognized by FW", msg_code);
                 exit_code = HANG_READ_VALUE;
                 break;
             }

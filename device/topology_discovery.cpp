@@ -5,7 +5,8 @@
  */
 #include "umd/device/topology_discovery.h"
 
-#include "logger.hpp"
+#include <tt-logger/tt-logger.hpp>
+
 #include "umd/device/chip/local_chip.h"
 #include "umd/device/chip/remote_chip.h"
 #include "umd/device/remote_communication.h"
@@ -139,9 +140,9 @@ uint32_t TopologyDiscovery::remote_arc_msg(
     auto core = mmio_chip->get_soc_descriptor().get_cores(CoreType::ARC)[0];
 
     if ((msg_code & 0xff00) != 0xaa00) {
-        log_error("Malformed message. msg_code is 0x{:x} but should be 0xaa..", msg_code);
+        TT_LOG_ERROR("Malformed message. msg_code is 0x{:x} but should be 0xaa..", msg_code);
     }
-    log_assert(arg0 <= 0xffff and arg1 <= 0xffff, "Only 16 bits allowed in arc_msg args");  // Only 16 bits are allowed
+    TT_ASSERT(arg0 <= 0xffff and arg1 <= 0xffff, "Only 16 bits allowed in arc_msg args");  // Only 16 bits are allowed
 
     uint32_t fw_arg = arg0 | (arg1 << 16);
     int exit_code = 0;
@@ -155,7 +156,7 @@ uint32_t TopologyDiscovery::remote_arc_msg(
     remote_comm->read_non_mmio(eth_coord, core, &misc, ARC_RESET_MISC_CNTL_ADDR, 4);
 
     if (misc & (1 << 16)) {
-        log_error("trigger_fw_int failed on device {}", 0);
+        TT_LOG_ERROR("trigger_fw_int failed on device {}", 0);
         return 1;
     } else {
         misc |= (1 << 16);
@@ -187,7 +188,7 @@ uint32_t TopologyDiscovery::remote_arc_msg(
             exit_code = (status & 0xffff0000) >> 16;
             break;
         } else if (status == MSG_ERROR_REPLY) {
-            log_warning(LogSiliconDriver, "On device {}, message code 0x{:x} not recognized by FW", 0, msg_code);
+            TT_LOG_WARNING_CAT(LogSiliconDriver, "On device {}, message code 0x{:x} not recognized by FW", 0, msg_code);
             exit_code = MSG_ERROR_REPLY;
             break;
         }

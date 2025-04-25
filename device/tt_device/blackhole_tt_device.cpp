@@ -5,7 +5,8 @@
 
 #include <sys/mman.h>  // for MAP_FAILED
 
-#include "logger.hpp"
+#include <tt-logger/tt-logger.hpp>
+
 #include "umd/device/blackhole_implementation.h"
 #include "umd/device/types/blackhole_telemetry.h"
 
@@ -72,7 +73,7 @@ void BlackholeTTDevice::configure_iatu_region(size_t region, uint64_t target, si
 
     iatu_regions_.insert(region);
 
-    log_info(
+    TT_LOG_INFO_CAT(
         LogSiliconDriver,
         "Device: {} Mapped iATU region {} from 0x{:x} to 0x{:x} to 0x{:x}",
         this->pci_device_->get_device_num(),
@@ -151,7 +152,7 @@ void BlackholeTTDevice::wait_arc_core_start(const tt_xy_pair arc_core, const uin
         auto end = std::chrono::system_clock::now();  // End time
         auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
         if (duration.count() > timeout_ms) {
-            log_error(
+            TT_LOG_ERROR(
                 "Timed out after waiting {} ms for arc core ({}, {}) to start", timeout_ms, arc_core.x, arc_core.y);
         }
     }

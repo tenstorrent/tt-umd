@@ -14,12 +14,13 @@
 
 #include <cstdint>
 #include <cstring>  // for memcpy
+#include <filesystem>
+#include <fstream>
 #include <optional>
+#include <tt-logger/tt-logger.hpp>
 #include <vector>
 
-#include "assert.hpp"
 #include "ioctl.h"
-#include "logger.hpp"
 #include "umd/device/types/arch.h"
 
 static const uint16_t GS_PCIE_DEVICE_ID = 0xfaca;
@@ -180,14 +181,14 @@ PCIDevice::PCIDevice(int pci_device_number) :
         TT_THROW("Running with IOMMU support requires KMD version {} or newer", kmd_ver_for_iommu.to_string());
     }
 
-    log_info(
+    TT_LOG_INFO_CAT(
         LogSiliconDriver,
         "Opened PCI device {}; KMD version: {}, IOMMU: {}",
         pci_device_num,
         kmd_version.to_string(),
         iommu_enabled ? "enabled" : "disabled");
 
-    log_assert(arch != tt::ARCH::WORMHOLE_B0 || revision == 0x01, "Wormhole B0 must have revision 0x01");
+    TT_ASSERT(arch != tt::ARCH::WORMHOLE_B0 || revision == 0x01, "Wormhole B0 must have revision 0x01");
 
     struct {
         tenstorrent_query_mappings query_mappings;
@@ -237,7 +238,7 @@ PCIDevice::PCIDevice(int pci_device_number) :
             bar4_wc_mapping = mappings.mapping_array[i];
         }
 
-        log_debug(
+        TT_LOG_DEBUG_CAT(
             LogSiliconDriver,
             "BAR mapping id {} base {} size {}",
             mappings.mapping_array[i].mapping_id,
@@ -399,7 +400,7 @@ PCIDevice::PCIDevice(int pci_device_number) :
             // so throwing our way out of here is wrong.  For now, we will log
             // here and throw when PCIe DMA is attempted.  Maybe a higher layer
             // in UMD can fall back to MMIO if that happens.
-            log_error("Failed to allocate DMA buffer: {}", strerror(errno));
+            TT_LOG_ERROR("Failed to allocate DMA buffer: {}", strerror(errno));
         } else {
             // OK - we have a buffer.  Map it.
             void *buffer = mmap(
@@ -413,7 +414,7 @@ PCIDevice::PCIDevice(int pci_device_number) :
             if (buffer == MAP_FAILED) {
                 // Similar rationale to above, although this is worse because we
                 // can't deallocate it.  That only happens when we close the fd.
-                log_error("Failed to map DMA buffer: {}", strerror(errno));
+                TT_LOG_ERROR("Failed to map DMA buffer: {}", strerror(errno));
             } else {
                 dma_buffer.buffer = (uint8_t *)buffer;
                 dma_buffer.completion = (uint8_t *)buffer + buf_size;
@@ -518,7 +519,7 @@ semver_t PCIDevice::read_kmd_version() {
     std::ifstream file(path);
 
     if (!file.is_open()) {
-        log_warning(LogSiliconDriver, "Failed to open file: {}", path);
+        TT_LOG_WARNING_CAT(LogSiliconDriver, "Failed to open file: {}", path);
         return {0, 0, 0};
     }
 

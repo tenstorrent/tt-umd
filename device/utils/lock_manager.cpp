@@ -5,7 +5,7 @@
  */
 #include "umd/device/utils/lock_manager.h"
 
-#include "logger.hpp"
+#include <tt-logger/tt-logger.hpp>
 
 namespace tt::umd {
 
@@ -62,7 +62,7 @@ std::unique_lock<RobustMutex> LockManager::acquire_mutex(std::string mutex_prefi
 
 void LockManager::initialize_mutex_internal(const std::string& mutex_name, const bool clear_mutex) {
     if (mutexes.find(mutex_name) != mutexes.end()) {
-        log_warning(LogSiliconDriver, "Mutex already initialized: {}", mutex_name);
+        TT_LOG_WARNING_CAT(LogSiliconDriver, "Mutex already initialized: {}", mutex_name);
         return;
     }
 
@@ -72,7 +72,7 @@ void LockManager::initialize_mutex_internal(const std::string& mutex_name, const
 
 void LockManager::clear_mutex_internal(const std::string& mutex_name) {
     if (mutexes.find(mutex_name) == mutexes.end()) {
-        log_warning(LogSiliconDriver, "Mutex not initialized or already cleared: {}", mutex_name);
+        TT_LOG_WARNING_CAT(LogSiliconDriver, "Mutex not initialized or already cleared: {}", mutex_name);
         return;
     }
     // The destructor will automatically close the underlying mutex.

@@ -186,73 +186,80 @@ TEST(CoordinateManager, CoordinateManagerBlackholeLogicalVirtualMapping) {
 TEST(CoordinateManager, CoordinateManagerBlackholeLogicalTranslatedMapping) {
     const size_t max_num_harvested_x = 14;
 
-    for (size_t tensix_harvesting_mask = 0; tensix_harvesting_mask < (1 << max_num_harvested_x);
-         tensix_harvesting_mask++) {
-        std::shared_ptr<CoordinateManager> coordinate_manager =
-            CoordinateManager::create_coordinate_manager(tt::ARCH::BLACKHOLE, true, {tensix_harvesting_mask});
+    for (bool noc_translation_enabled : {true, false}) {
+        for (size_t tensix_harvesting_mask = 0; tensix_harvesting_mask < (1 << max_num_harvested_x);
+             tensix_harvesting_mask++) {
+            std::shared_ptr<CoordinateManager> coordinate_manager = CoordinateManager::create_coordinate_manager(
+                tt::ARCH::BLACKHOLE, noc_translation_enabled, {tensix_harvesting_mask});
 
-        std::map<CoreCoord, CoreCoord> logical_to_translated;
-        std::set<CoreCoord> translated_coords_set;
-        tt_xy_pair tensix_grid_size = tt::umd::blackhole::TENSIX_GRID_SIZE;
+            std::map<CoreCoord, CoreCoord> logical_to_translated;
+            std::set<CoreCoord> translated_coords_set;
+            tt_xy_pair tensix_grid_size = tt::umd::blackhole::TENSIX_GRID_SIZE;
 
-        size_t num_harvested_x = CoordinateManager::get_num_harvested(tensix_harvesting_mask);
+            size_t num_harvested_x = CoordinateManager::get_num_harvested(tensix_harvesting_mask);
 
-        for (size_t x = 0; x < tensix_grid_size.x - num_harvested_x; x++) {
-            for (size_t y = 0; y < tensix_grid_size.y; y++) {
-                CoreCoord logical_coords = CoreCoord(x, y, CoreType::TENSIX, CoordSystem::LOGICAL);
-                CoreCoord translated_coords =
-                    coordinate_manager->translate_coord_to(logical_coords, CoordSystem::TRANSLATED);
-                logical_to_translated[logical_coords] = translated_coords;
+            for (size_t x = 0; x < tensix_grid_size.x - num_harvested_x; x++) {
+                for (size_t y = 0; y < tensix_grid_size.y; y++) {
+                    CoreCoord logical_coords = CoreCoord(x, y, CoreType::TENSIX, CoordSystem::LOGICAL);
+                    CoreCoord translated_coords =
+                        coordinate_manager->translate_coord_to(logical_coords, CoordSystem::TRANSLATED);
+                    logical_to_translated[logical_coords] = translated_coords;
 
-                // Expect that logical to translated translation is 1-1 mapping. No duplicates for translated
-                // coordinates.
-                EXPECT_EQ(translated_coords_set.count(translated_coords), 0);
-                translated_coords_set.insert(translated_coords);
+                    // Expect that logical to translated translation is 1-1 mapping. No duplicates for translated
+                    // coordinates.
+                    EXPECT_EQ(translated_coords_set.count(translated_coords), 0);
+                    translated_coords_set.insert(translated_coords);
+                }
             }
-        }
 
-        EXPECT_EQ(translated_coords_set.size(), tensix_grid_size.y * (tensix_grid_size.x - num_harvested_x));
+            EXPECT_EQ(translated_coords_set.size(), tensix_grid_size.y * (tensix_grid_size.x - num_harvested_x));
 
-        for (auto it : logical_to_translated) {
-            CoreCoord translated_coords = it.second;
-            CoreCoord logical_coords = coordinate_manager->translate_coord_to(translated_coords, CoordSystem::LOGICAL);
+            for (auto it : logical_to_translated) {
+                CoreCoord translated_coords = it.second;
+                CoreCoord logical_coords =
+                    coordinate_manager->translate_coord_to(translated_coords, CoordSystem::LOGICAL);
 
-            // Expect that reverse mapping of translated coordinates gives the same logical coordinates
-            // using which we got the translated coordinates.
-            EXPECT_EQ(it.first, logical_coords);
+                // Expect that reverse mapping of translated coordinates gives the same logical coordinates
+                // using which we got the translated coordinates.
+                EXPECT_EQ(it.first, logical_coords);
+            }
         }
     }
 }
 
 // Test that virtual and translated coordinates are same for all logical coordinates.
-// This is expected for Blackhole way of harvesting.
+// This is expected for Blackhole way of harvesting when noc translation is enabled.
+// If noc translation is disabled then translated coordinates are same as physical coordinates.
 TEST(CoordinateManager, CoordinateManagerBlackholeVirtualEqualTranslated) {
     const size_t max_num_harvested_x = 14;
 
-    for (size_t tensix_harvesting_mask = 0; tensix_harvesting_mask < (1 << max_num_harvested_x);
-         tensix_harvesting_mask++) {
-        std::shared_ptr<CoordinateManager> coordinate_manager =
-            CoordinateManager::create_coordinate_manager(tt::ARCH::BLACKHOLE, true, {tensix_harvesting_mask});
+    for (bool noc_translation_enabled : {true, false}) {
+        for (size_t tensix_harvesting_mask = 0; tensix_harvesting_mask < (1 << max_num_harvested_x);
+             tensix_harvesting_mask++) {
+            std::shared_ptr<CoordinateManager> coordinate_manager = CoordinateManager::create_coordinate_manager(
+                tt::ARCH::BLACKHOLE, noc_translation_enabled, {tensix_harvesting_mask});
 
-        size_t num_harvested_x = CoordinateManager::get_num_harvested(tensix_harvesting_mask);
+            size_t num_harvested_x = CoordinateManager::get_num_harvested(tensix_harvesting_mask);
 
-        for (size_t x = 0; x < tt::umd::blackhole::TENSIX_GRID_SIZE.x - num_harvested_x; x++) {
-            for (size_t y = 0; y < tt::umd::blackhole::TENSIX_GRID_SIZE.y; y++) {
-                CoreCoord logical_coords = CoreCoord(x, y, CoreType::TENSIX, CoordSystem::LOGICAL);
-                CoreCoord translated_coords =
-                    coordinate_manager->translate_coord_to(logical_coords, CoordSystem::TRANSLATED);
-                CoreCoord virtual_coords = coordinate_manager->translate_coord_to(logical_coords, CoordSystem::VIRTUAL);
+            for (size_t x = 0; x < tt::umd::blackhole::TENSIX_GRID_SIZE.x - num_harvested_x; x++) {
+                for (size_t y = 0; y < tt::umd::blackhole::TENSIX_GRID_SIZE.y; y++) {
+                    CoreCoord logical_coords = CoreCoord(x, y, CoreType::TENSIX, CoordSystem::LOGICAL);
+                    CoreCoord translated_coords =
+                        coordinate_manager->translate_coord_to(logical_coords, CoordSystem::TRANSLATED);
+                    CoreCoord virtual_coords = coordinate_manager->translate_coord_to(
+                        logical_coords, noc_translation_enabled ? CoordSystem::VIRTUAL : CoordSystem::PHYSICAL);
 
-                // Expect that translated coordinates are same as virtual coordinates.
-                EXPECT_EQ(translated_coords.x, virtual_coords.x);
-                EXPECT_EQ(translated_coords.y, virtual_coords.y);
+                    // Expect that translated coordinates are same as virtual coordinates.
+                    EXPECT_EQ(translated_coords.x, virtual_coords.x);
+                    EXPECT_EQ(translated_coords.y, virtual_coords.y);
+                }
             }
         }
     }
 }
 
 // Test mapping of the coordinates for harvested DRAM bank.
-TEST(CoordinateManager, CoordinateManagerBlackholeTransltedMappingHarvested) {
+TEST(CoordinateManager, CoordinateManagerBlackholeTensixTranslatedMappingHarvested) {
     const size_t tensix_harvesting_mask = (1 << 0) | (1 << 1);
     std::shared_ptr<CoordinateManager> coordinate_manager =
         CoordinateManager::create_coordinate_manager(tt::ARCH::BLACKHOLE, true, {tensix_harvesting_mask});
@@ -265,35 +272,19 @@ TEST(CoordinateManager, CoordinateManagerBlackholeTransltedMappingHarvested) {
     size_t index = 0;
     size_t virtual_index = tensix_grid_size.x - num_harvested_x;
 
-    for (size_t cnt = 0; cnt < num_harvested_x * tensix_grid_size.y; cnt++) {
-        CoreCoord physical_core =
-            CoreCoord(tensix_cores[index].x, tensix_cores[index].y, CoreType::TENSIX, CoordSystem::PHYSICAL);
-        const CoreCoord translated_core =
-            coordinate_manager->translate_coord_to(physical_core, CoordSystem::TRANSLATED);
+    const CoreCoord tensix_column0 = CoreCoord(1, 2, CoreType::TENSIX, CoordSystem::NOC0);
+    const CoreCoord translated_column0 =
+        coordinate_manager->translate_coord_to(tensix_column0, CoordSystem::TRANSLATED);
 
-        const CoreCoord virtual_core = CoreCoord(
-            tensix_cores[virtual_index].x, tensix_cores[virtual_index].y, CoreType::TENSIX, CoordSystem::VIRTUAL);
-        const CoreCoord translated_core_from_virtual =
-            coordinate_manager->translate_coord_to(virtual_core, CoordSystem::TRANSLATED);
+    EXPECT_EQ(translated_column0.x, 16);
+    EXPECT_EQ(translated_column0.y, 2);
 
-        EXPECT_EQ(translated_core, translated_core_from_virtual);
+    const CoreCoord tensix_column1 = CoreCoord(2, 2, CoreType::TENSIX, CoordSystem::NOC0);
+    const CoreCoord translated_column1 =
+        coordinate_manager->translate_coord_to(tensix_column1, CoordSystem::TRANSLATED);
 
-        EXPECT_EQ(translated_core.x, tensix_cores[virtual_index].x);
-        EXPECT_EQ(translated_core.y, tensix_cores[virtual_index].y);
-
-        index += tensix_grid_size.x;
-        virtual_index += tensix_grid_size.x;
-
-        if (index >= tensix_cores.size()) {
-            index = index % tensix_cores.size();
-            index++;
-        }
-
-        if (virtual_index >= tensix_cores.size()) {
-            virtual_index = virtual_index % tensix_cores.size();
-            virtual_index++;
-        }
-    }
+    EXPECT_EQ(translated_column1.x, 15);
+    EXPECT_EQ(translated_column1.y, 2);
 }
 
 // Test mapping of DRAM coordinates from logical to physical. When there is no DRAM harvesting, logical

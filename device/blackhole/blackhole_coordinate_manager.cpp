@@ -68,7 +68,7 @@ void BlackholeCoordinateManager::translate_tensix_coords() {
     size_t grid_size_y = tensix_grid_size.y;
 
     size_t logical_x = 0;
-    size_t x_index = grid_size_x - num_harvested_x;
+    size_t x_index = grid_size_x - 1;
     for (size_t x = 0; x < grid_size_x; x++) {
         if (harvesting_masks.tensix_harvesting_mask & (1 << x)) {
             for (size_t y = 0; y < grid_size_y; y++) {
@@ -80,7 +80,7 @@ void BlackholeCoordinateManager::translate_tensix_coords() {
 
                 add_core_translation(virtual_coord, physical_core);
             }
-            x_index++;
+            x_index--;
         } else {
             for (size_t y = 0; y < grid_size_y; y++) {
                 const tt_xy_pair& tensix_core = tensix_cores[x + y * grid_size_x];
@@ -299,9 +299,9 @@ void BlackholeCoordinateManager::fill_arc_physical_translated_mapping() {
     fill_arc_default_physical_translated_mapping();
 }
 
-void BlackholeCoordinateManager::map_column_of_dram_banks(
-    const size_t start_bank, const size_t end_bank, const size_t x_coord) {
-    size_t translated_y = blackhole::dram_translated_coordinate_start_y;
+void BlackholeCoordinateManager::map_dram_banks(
+    const size_t start_bank, const size_t end_bank, const size_t x_coord, const size_t y_coord) {
+    size_t translated_y = y_coord;
     for (size_t bank = start_bank; bank < end_bank; bank++) {
         for (size_t port = 0; port < blackhole::NUM_NOC_PORTS_PER_DRAM_BANK; port++) {
             CoreCoord logical_coord = CoreCoord(bank, port, CoreType::DRAM, CoordSystem::LOGICAL);
@@ -340,8 +340,8 @@ void BlackholeCoordinateManager::fill_dram_physical_translated_mapping() {
         CoordinateManager::get_harvested_indices(harvesting_masks.dram_harvesting_mask);
 
     if (harvested_banks.empty()) {
-        map_column_of_dram_banks(0, blackhole::NUM_DRAM_BANKS / 2, blackhole::dram_translated_coordinate_start_x);
-        map_column_of_dram_banks(
+        map_dram_banks(0, blackhole::NUM_DRAM_BANKS / 2, blackhole::dram_translated_coordinate_start_x);
+        map_dram_banks(
             blackhole::NUM_DRAM_BANKS / 2,
             blackhole::NUM_DRAM_BANKS,
             blackhole::dram_translated_coordinate_start_x + 1);
@@ -351,17 +351,49 @@ void BlackholeCoordinateManager::fill_dram_physical_translated_mapping() {
     const size_t harvested_bank = harvested_banks[0];
 
     if (harvested_bank < blackhole::NUM_DRAM_BANKS / 2) {
-        const size_t mirror_east_bank = harvested_bank + blackhole::NUM_DRAM_BANKS / 2;
-        map_column_of_dram_banks(
-            0, blackhole::NUM_DRAM_BANKS / 2 - 1, blackhole::dram_translated_coordinate_start_x + 1);
-        map_column_of_dram_banks(
-            blackhole::NUM_DRAM_BANKS / 2 - 1,
+        const size_t mirror_east_bank = harvested_bank + blackhole::NUM_DRAM_BANKS / 2 - 1;
+
+        // Map west column of DRAM banks.
+        map_dram_banks(0, blackhole::NUM_DRAM_BANKS / 2 - 1, blackhole::dram_translated_coordinate_start_x + 1);
+
+        // Map east column of DRAM banks.
+        map_dram_banks(
+            blackhole::NUM_DRAM_BANKS / 2 - 1, mirror_east_bank, blackhole::dram_translated_coordinate_start_x);
+
+        map_dram_banks(
+            mirror_east_bank + 1,
             blackhole::NUM_DRAM_BANKS - 1,
-            blackhole::dram_translated_coordinate_start_x);
+            blackhole::dram_translated_coordinate_start_x,
+            blackhole::dram_translated_coordinate_start_y +
+                (mirror_east_bank - (blackhole::NUM_DRAM_BANKS / 2 - 1)) * blackhole::NUM_NOC_PORTS_PER_DRAM_BANK);
+
+        map_dram_banks(
+            mirror_east_bank,
+            mirror_east_bank + 1,
+            blackhole::dram_translated_coordinate_start_x,
+            blackhole::dram_translated_coordinate_start_y +
+                (blackhole::NUM_DRAM_BANKS / 2 - 1) * blackhole::NUM_NOC_PORTS_PER_DRAM_BANK);
     } else {
         const size_t mirror_west_bank = harvested_bank - blackhole::NUM_DRAM_BANKS / 2;
-        map_column_of_dram_banks(0, blackhole::NUM_DRAM_BANKS / 2, blackhole::dram_translated_coordinate_start_x);
-        map_column_of_dram_banks(
+
+        // Map west column of DRAM banks.
+        map_dram_banks(0, mirror_west_bank, blackhole::dram_translated_coordinate_start_x);
+
+        map_dram_banks(
+            mirror_west_bank + 1,
+            blackhole::NUM_DRAM_BANKS / 2,
+            blackhole::dram_translated_coordinate_start_x,
+            blackhole::dram_translated_coordinate_start_y + mirror_west_bank * blackhole::NUM_NOC_PORTS_PER_DRAM_BANK);
+
+        map_dram_banks(
+            mirror_west_bank,
+            mirror_west_bank + 1,
+            blackhole::dram_translated_coordinate_start_x,
+            blackhole::dram_translated_coordinate_start_y +
+                (blackhole::NUM_DRAM_BANKS / 2 - 1) * blackhole::NUM_NOC_PORTS_PER_DRAM_BANK);
+
+        // Map east column of DRAM banks.
+        map_dram_banks(
             blackhole::NUM_DRAM_BANKS / 2,
             blackhole::NUM_DRAM_BANKS - 1,
             blackhole::dram_translated_coordinate_start_x + 1);

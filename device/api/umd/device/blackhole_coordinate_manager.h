@@ -57,5 +57,9 @@ protected:
     tt_xy_pair get_harvested_dram_grid_size() const override;
 
 private:
-    void map_column_of_dram_banks(const size_t start_bank, const size_t end_bank, const size_t x_coord);
+    void map_dram_banks(
+        const size_t start_bank,
+        const size_t end_bank,
+        const size_t x_coord,
+        const size_t y_coord_start = tt::umd::blackhole::dram_translated_coordinate_start_y);
 };

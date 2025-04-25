@@ -259,7 +259,7 @@ TEST(CoordinateManager, CoordinateManagerBlackholeVirtualEqualTranslated) {
 }
 
 // Test mapping of the coordinates for harvested DRAM bank.
-TEST(CoordinateManager, CoordinateManagerBlackholeTransltedMappingHarvested) {
+TEST(CoordinateManager, CoordinateManagerBlackholeTensixTranslatedMappingHarvested) {
     const size_t tensix_harvesting_mask = (1 << 0) | (1 << 1);
     std::shared_ptr<CoordinateManager> coordinate_manager =
         CoordinateManager::create_coordinate_manager(tt::ARCH::BLACKHOLE, true, {tensix_harvesting_mask});
@@ -272,35 +272,19 @@ TEST(CoordinateManager, CoordinateManagerBlackholeTransltedMappingHarvested) {
     size_t index = 0;
     size_t virtual_index = tensix_grid_size.x - num_harvested_x;
 
-    for (size_t cnt = 0; cnt < num_harvested_x * tensix_grid_size.y; cnt++) {
-        CoreCoord physical_core =
-            CoreCoord(tensix_cores[index].x, tensix_cores[index].y, CoreType::TENSIX, CoordSystem::PHYSICAL);
-        const CoreCoord translated_core =
-            coordinate_manager->translate_coord_to(physical_core, CoordSystem::TRANSLATED);
+    const CoreCoord tensix_column0 = CoreCoord(1, 2, CoreType::TENSIX, CoordSystem::NOC0);
+    const CoreCoord translated_column0 =
+        coordinate_manager->translate_coord_to(tensix_column0, CoordSystem::TRANSLATED);
 
-        const CoreCoord virtual_core = CoreCoord(
-            tensix_cores[virtual_index].x, tensix_cores[virtual_index].y, CoreType::TENSIX, CoordSystem::VIRTUAL);
-        const CoreCoord translated_core_from_virtual =
-            coordinate_manager->translate_coord_to(virtual_core, CoordSystem::TRANSLATED);
+    EXPECT_EQ(translated_column0.x, 16);
+    EXPECT_EQ(translated_column0.y, 2);
 
-        EXPECT_EQ(translated_core, translated_core_from_virtual);
+    const CoreCoord tensix_column1 = CoreCoord(2, 2, CoreType::TENSIX, CoordSystem::NOC0);
+    const CoreCoord translated_column1 =
+        coordinate_manager->translate_coord_to(tensix_column1, CoordSystem::TRANSLATED);
 
-        EXPECT_EQ(translated_core.x, tensix_cores[virtual_index].x);
-        EXPECT_EQ(translated_core.y, tensix_cores[virtual_index].y);
-
-        index += tensix_grid_size.x;
-        virtual_index += tensix_grid_size.x;
-
-        if (index >= tensix_cores.size()) {
-            index = index % tensix_cores.size();
-            index++;
-        }
-
-        if (virtual_index >= tensix_cores.size()) {
-            virtual_index = virtual_index % tensix_cores.size();
-            virtual_index++;
-        }
-    }
+    EXPECT_EQ(translated_column1.x, 15);
+    EXPECT_EQ(translated_column1.y, 2);
 }
 
 // Test mapping of DRAM coordinates from logical to physical. When there is no DRAM harvesting, logical

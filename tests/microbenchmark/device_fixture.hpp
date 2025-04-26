@@ -29,7 +29,6 @@ protected:
             return flat_index;
         };
         std::set<chip_id_t> target_devices = {0};
-        uint32_t num_host_mem_ch_per_mmio_device = 1;
         device = std::make_shared<Cluster>(target_devices);
     }
 

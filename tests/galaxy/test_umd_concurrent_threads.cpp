@@ -18,8 +18,6 @@
 #include "wormhole/host_mem_address_map.h"
 #include "wormhole/l1_address_map.h"
 
-static const std::string SOC_DESC_PATH = "tests/soc_descs/wormhole_b0_8x10.yaml";
-
 // Have 2 threads read and write to all cores on the Galaxy
 TEST(GalaxyConcurrentThreads, WriteToAllChipsL1) {
     // Galaxy Setup
@@ -47,12 +45,7 @@ TEST(GalaxyConcurrentThreads, WriteToAllChipsL1) {
             << "Target chip on thread 2 " << chip << " is not in the Galaxy cluster";
     }
 
-    uint32_t num_host_mem_ch_per_mmio_device = 1;
-
     Cluster device(ClusterOptions{
-        .num_host_mem_ch_per_mmio_device = num_host_mem_ch_per_mmio_device,
-        .perform_harvesting = true,
-        .sdesc_path = test_utils::GetAbsPath(SOC_DESC_PATH),
         .target_devices = all_devices,
     });
 
@@ -145,12 +138,7 @@ TEST(GalaxyConcurrentThreads, WriteToAllChipsDram) {
             << "Target chip on thread 2 " << chip << " is not in the Galaxy cluster";
     }
 
-    uint32_t num_host_mem_ch_per_mmio_device = 1;
-
     Cluster device(ClusterOptions{
-        .num_host_mem_ch_per_mmio_device = num_host_mem_ch_per_mmio_device,
-        .perform_harvesting = true,
-        .sdesc_path = test_utils::GetAbsPath(SOC_DESC_PATH),
         .target_devices = all_devices,
     });
 
@@ -220,12 +208,7 @@ TEST(GalaxyConcurrentThreads, PushInputsWhileSignalingCluster) {
             << "Target chip " << chip << " is not in the Galaxy cluster";
     }
 
-    uint32_t num_host_mem_ch_per_mmio_device = 1;
-
     Cluster device(ClusterOptions{
-        .num_host_mem_ch_per_mmio_device = num_host_mem_ch_per_mmio_device,
-        .perform_harvesting = true,
-        .sdesc_path = test_utils::GetAbsPath(SOC_DESC_PATH),
         .target_devices = target_devices,
     });
 

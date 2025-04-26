@@ -44,42 +44,38 @@ TEST(ApiClusterTest, DifferentConstructors) {
     bool chips_available = !umd_cluster->get_target_device_ids().empty();
     umd_cluster = nullptr;
 
-    // 2. Constructor which allows choosing a subset of Chips to open.
-    chip_id_t logical_device_id = 0;
-    std::unordered_set<chip_id_t> target_devices = {};
     if (chips_available) {
-        target_devices = {logical_device_id};
-    }
-    umd_cluster = std::make_unique<Cluster>(ClusterOptions{
-        .target_devices = target_devices,
-    });
-    EXPECT_EQ(umd_cluster->get_target_device_ids().size(), target_devices.size());
-    umd_cluster = nullptr;
+        // 2. Constructor which allows choosing a subset of Chips to open.
+        umd_cluster = std::make_unique<Cluster>(ClusterOptions{
+            .target_devices = {0},
+        });
+        EXPECT_EQ(umd_cluster->get_target_device_ids().size(), 1);
+        umd_cluster = nullptr;
 
-    if (chips_available) {
         // 3. Constructor taking a custom soc descriptor in addition.
-        tt::ARCH device_arch = Cluster::create_cluster_descriptor()->get_arch(logical_device_id);
+        tt::ARCH device_arch = Cluster::create_cluster_descriptor()->get_arch(0);
         // You can add a custom soc descriptor here.
         std::string sdesc_path = tt_SocDescriptor::get_soc_descriptor_path(device_arch);
         umd_cluster = std::make_unique<Cluster>(ClusterOptions{
             .sdesc_path = sdesc_path,
-            .target_devices = target_devices,
         });
         umd_cluster = nullptr;
     }
 
     // 4. Constructor taking cluster descriptor based on which to create cluster.
-    // Create mock chips is set to true in order to create mock chips for the devices in the cluster descriptor.
+    // This could be cluster descriptor cached from previous runtime, or with some custom modifications.
     std::filesystem::path cluster_path = tt::umd::Cluster::serialize_to_file();
-    std::unordered_map<chip_id_t, HarvestingMasks> simulated_harvesting_masks = {};
-    std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>(ClusterOptions{
-        .chip_type = ChipType::MOCK,
-        .num_host_mem_ch_per_mmio_device = 1,
-        .perform_harvesting = true,
-        .simulated_harvesting_masks_per_chip = simulated_harvesting_masks,
+    umd_cluster = std::make_unique<Cluster>(ClusterOptions{
         .cluster_descriptor = tt_ClusterDescriptor::create_from_yaml(cluster_path),
-
     });
+    umd_cluster = nullptr;
+
+    // 5. Create mock chips is set to true in order to create mock chips for the devices in the cluster descriptor.
+    umd_cluster = std::make_unique<Cluster>(ClusterOptions{
+        .chip_type = ChipType::MOCK,
+        .target_devices = {0},
+    });
+    umd_cluster = nullptr;
 }
 
 TEST(ApiClusterTest, SimpleIOAllChips) {

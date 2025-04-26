@@ -54,11 +54,7 @@ protected:
         auto devices = std::vector<chip_id_t>(get_detected_num_chips());
         std::iota(devices.begin(), devices.end(), 0);
         std::set<chip_id_t> target_devices = {devices.begin(), devices.end()};
-        uint32_t num_host_mem_ch_per_mmio_device = 1;
-        cluster = std::make_unique<Cluster>(ClusterOptions{
-            .num_host_mem_ch_per_mmio_device = num_host_mem_ch_per_mmio_device,
-            .perform_harvesting = true,
-        });
+        cluster = std::make_unique<Cluster>();
         assert(cluster != nullptr);
         assert(cluster->get_cluster_description()->get_number_of_chips() == get_detected_num_chips());
 

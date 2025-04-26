@@ -15,20 +15,8 @@
 using namespace tt::umd;
 
 TEST(SoftwareHarvesting, TensixSoftwareHarvestingAllChips) {
-    std::unordered_set<chip_id_t> target_devices = test_utils::get_target_devices();
-
-    int num_devices = target_devices.size();
-    std::unordered_map<chip_id_t, HarvestingMasks> software_harvesting_masks;
-
-    for (auto chip : target_devices) {
-        software_harvesting_masks[chip] = {0x3, 0, 0};
-    }
-
-    uint32_t num_host_mem_ch_per_mmio_device = 1;
     std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>(ClusterOptions{
-        .num_host_mem_ch_per_mmio_device = num_host_mem_ch_per_mmio_device,
-        .simulated_harvesting_masks_per_chip = software_harvesting_masks,
-        .target_devices = target_devices,
+        .simulated_harvesting_masks = {0x3, 0, 0},
     });
 
     for (const chip_id_t& chip : cluster->get_target_device_ids()) {
@@ -46,9 +34,6 @@ TEST(SoftwareHarvesting, TensixSoftwareHarvestingAllChips) {
     }
 
     for (const chip_id_t& chip : cluster->get_target_device_ids()) {
-        EXPECT_TRUE(
-            (software_harvesting_masks.at(chip).tensix_harvesting_mask &
-             cluster->get_soc_descriptor(chip).harvesting_masks.tensix_harvesting_mask) ==
-            software_harvesting_masks.at(chip).tensix_harvesting_mask);
+        EXPECT_TRUE((0x3 & cluster->get_soc_descriptor(chip).harvesting_masks.tensix_harvesting_mask) == 0x3);
     }
 }

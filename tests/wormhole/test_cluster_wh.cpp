@@ -932,7 +932,6 @@ TEST(SiliconDriverWH, DMA1) {
         target_devices,
         1,      // one "host memory channel", unused
         false,  // skip driver allocs - no (don't skip)
-        true,   // clean system resources - yes
         true);  // perform harvesting - yes
 
     cluster.start_device(tt_device_params{});
@@ -997,7 +996,6 @@ TEST(SiliconDriverWH, DMA2) {
         target_devices,
         1,      // one "host memory channel", unused
         false,  // skip driver allocs - no (don't skip)
-        true,   // clean system resources - yes
         true);  // perform harvesting - yes
 
     set_barrier_params(cluster);

@@ -134,6 +134,8 @@ void LocalChip::start_device() {
     initialize_membars();
 }
 
+void LocalChip::close_device(){};
+
 void LocalChip::wait_eth_cores_training(const uint32_t timeout_ms) {
     if (get_tt_device()->get_arch() != tt::ARCH::BLACKHOLE) {
         return;

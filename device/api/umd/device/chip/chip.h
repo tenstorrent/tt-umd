@@ -30,6 +30,7 @@ public:
     virtual ~Chip() = default;
 
     virtual void start_device() = 0;
+    virtual void close_device() = 0;
 
     tt_SocDescriptor& get_soc_descriptor();
 

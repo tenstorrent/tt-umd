@@ -24,6 +24,7 @@ public:
     bool is_mmio_capable() const override;
 
     void start_device() override;
+    void close_device() override;
 
     TTDevice* get_tt_device() override;
     SysmemManager* get_sysmem_manager() override;

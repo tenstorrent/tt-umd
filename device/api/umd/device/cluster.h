@@ -869,42 +869,24 @@ private:
         chip_id_t chip_id,
         tt_ClusterDescriptor* cluster_desc,
         bool perform_harvesting,
-        std::unordered_map<chip_id_t, HarvestingMasks>& simulated_harvesting_masks,
+        HarvestingMasks& simulated_harvesting_masks,
         int num_host_mem_channels,
         const bool create_mock_chip = false);
     std::unique_ptr<Chip> construct_chip_from_cluster(
         chip_id_t logical_device_id,
         tt_ClusterDescriptor* cluster_desc,
         bool perform_harvesting,
-        std::unordered_map<chip_id_t, HarvestingMasks>& simulated_harvesting_masks,
+        HarvestingMasks& simulated_harvesting_masks,
         int num_host_mem_channels,
         const bool create_mock_chip = false);
     void add_chip(chip_id_t chip_id, std::unique_ptr<Chip> chip);
     HarvestingMasks get_harvesting_masks(
         chip_id_t chip_id,
         tt_ClusterDescriptor* cluster_desc,
-        bool perfrom_harvesting,
-        std::unordered_map<chip_id_t, HarvestingMasks>& simulated_harvesting_masks);
+        bool perform_harvesting,
+        HarvestingMasks& simulated_harvesting_masks);
     uint32_t get_tensix_harvesting_mask(
-        chip_id_t chip_id,
-        tt_ClusterDescriptor* cluster_desc,
-        bool perform_harvesting,
-        std::unordered_map<chip_id_t, HarvestingMasks>& simulated_harvesting_masks);
-    uint32_t get_dram_harvesting_mask(
-        chip_id_t chip_id,
-        tt_ClusterDescriptor* cluster_desc,
-        bool perform_harvesting,
-        std::unordered_map<chip_id_t, HarvestingMasks>& simulated_harvesting_masks);
-    uint32_t get_eth_harvesting_mask(
-        chip_id_t chip_id,
-        tt_ClusterDescriptor* cluster_desc,
-        bool perform_harvesting,
-        std::unordered_map<chip_id_t, HarvestingMasks>& simulated_harvesting_masks);
-    uint32_t get_pcie_harvesting_mask(
-        chip_id_t chip_id,
-        tt_ClusterDescriptor* cluster_desc,
-        bool perform_harvesting,
-        std::unordered_map<chip_id_t, HarvestingMasks>& simulated_harvesting_masks);
+        chip_id_t chip_id, tt_ClusterDescriptor* cluster_desc, HarvestingMasks& simulated_harvesting_masks);
     void construct_cluster(const uint32_t& num_host_mem_ch_per_mmio_device, const bool create_mock_chips);
     tt_xy_pair translate_to_api_coords(const chip_id_t chip, const tt::umd::CoreCoord core_coord) const;
     // Most of the old APIs accept virtual coordinates, but we communicate with the device through translated

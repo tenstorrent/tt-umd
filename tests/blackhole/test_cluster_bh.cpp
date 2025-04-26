@@ -71,11 +71,14 @@ std::int32_t get_static_tlb_index(tt_xy_pair target) {
 }
 
 TEST(SiliconDriverBH, CreateDestroy) {
-    std::set<chip_id_t> target_devices = test_utils::get_target_devices();
+    std::unordered_set<chip_id_t> target_devices = test_utils::get_target_devices();
     uint32_t num_host_mem_ch_per_mmio_device = 1;
     tt_device_params default_params;
     for (int i = 0; i < 50; i++) {
-        Cluster cluster = Cluster(target_devices, num_host_mem_ch_per_mmio_device, false, true);
+        Cluster cluster = Cluster(ClusterOptions{
+            .num_host_mem_ch_per_mmio_device = num_host_mem_ch_per_mmio_device,
+            .target_devices = target_devices,
+        });
         set_barrier_params(cluster);
         cluster.start_device(default_params);
         cluster.close_device();
@@ -212,11 +215,13 @@ TEST(SiliconDriverBH, CreateDestroy) {
 TEST(SiliconDriverBH, UnalignedStaticTLB_RW) {
     auto get_static_tlb_index_callback = [](tt_xy_pair target) { return get_static_tlb_index(target); };
 
-    std::set<chip_id_t> target_devices = test_utils::get_target_devices();
+    std::unordered_set<chip_id_t> target_devices = test_utils::get_target_devices();
 
     uint32_t num_host_mem_ch_per_mmio_device = 1;
 
-    Cluster cluster = Cluster(num_host_mem_ch_per_mmio_device, false, true);
+    Cluster cluster = Cluster(ClusterOptions{
+        .num_host_mem_ch_per_mmio_device = num_host_mem_ch_per_mmio_device,
+    });
     set_barrier_params(cluster);
     auto mmio_devices = cluster.get_target_mmio_device_ids();
 
@@ -270,11 +275,13 @@ TEST(SiliconDriverBH, UnalignedStaticTLB_RW) {
 TEST(SiliconDriverBH, StaticTLB_RW) {
     auto get_static_tlb_index_callback = [](tt_xy_pair target) { return get_static_tlb_index(target); };
 
-    std::set<chip_id_t> target_devices = test_utils::get_target_devices();
+    std::unordered_set<chip_id_t> target_devices = test_utils::get_target_devices();
 
     uint32_t num_host_mem_ch_per_mmio_device = 1;
 
-    Cluster cluster = Cluster(num_host_mem_ch_per_mmio_device, false, true);
+    Cluster cluster = Cluster(ClusterOptions{
+        .num_host_mem_ch_per_mmio_device = num_host_mem_ch_per_mmio_device,
+    });
     set_barrier_params(cluster);
     auto mmio_devices = cluster.get_target_mmio_device_ids();
 
@@ -332,10 +339,12 @@ TEST(SiliconDriverBH, StaticTLB_RW) {
 TEST(SiliconDriverBH, DynamicTLB_RW) {
     // Don't use any static TLBs in this test. All writes go through a dynamic TLB that needs to be reconfigured for
     // each transaction
-    std::set<chip_id_t> target_devices = test_utils::get_target_devices();
+    std::unordered_set<chip_id_t> target_devices = test_utils::get_target_devices();
 
     uint32_t num_host_mem_ch_per_mmio_device = 1;
-    Cluster cluster = Cluster(num_host_mem_ch_per_mmio_device, false, true);
+    Cluster cluster = Cluster(ClusterOptions{
+        .num_host_mem_ch_per_mmio_device = num_host_mem_ch_per_mmio_device,
+    });
 
     set_barrier_params(cluster);
 
@@ -400,10 +409,12 @@ TEST(SiliconDriverBH, MultiThreadedDevice) {
     // Have 2 threads read and write from a single device concurrently
     // All transactions go through a single Dynamic TLB. We want to make sure this is thread/process safe
 
-    std::set<chip_id_t> target_devices = test_utils::get_target_devices();
+    std::unordered_set<chip_id_t> target_devices = test_utils::get_target_devices();
 
     uint32_t num_host_mem_ch_per_mmio_device = 1;
-    Cluster cluster = Cluster(num_host_mem_ch_per_mmio_device, false, true);
+    Cluster cluster = Cluster(ClusterOptions{
+        .num_host_mem_ch_per_mmio_device = num_host_mem_ch_per_mmio_device,
+    });
 
     set_barrier_params(cluster);
 
@@ -459,11 +470,13 @@ TEST(SiliconDriverBH, MultiThreadedMemBar) {
     // Memory barrier flags get sent to address 0 for all channels in this test
     auto get_static_tlb_index_callback = [](tt_xy_pair target) { return get_static_tlb_index(target); };
 
-    std::set<chip_id_t> target_devices = test_utils::get_target_devices();
+    std::unordered_set<chip_id_t> target_devices = test_utils::get_target_devices();
     uint32_t base_addr = l1_mem::address_map::DATA_BUFFER_SPACE_BASE;
     uint32_t num_host_mem_ch_per_mmio_device = 1;
 
-    Cluster cluster = Cluster(num_host_mem_ch_per_mmio_device, false, true);
+    Cluster cluster = Cluster(ClusterOptions{
+        .num_host_mem_ch_per_mmio_device = num_host_mem_ch_per_mmio_device,
+    });
     set_barrier_params(cluster);
     for (int i = 0; i < target_devices.size(); i++) {
         // Iterate over devices and only setup static TLBs for functional worker cores
@@ -574,11 +587,13 @@ TEST(SiliconDriverBH, MultiThreadedMemBar) {
 TEST(SiliconDriverBH, DISABLED_BroadcastWrite) {  // Cannot broadcast to tensix/ethernet and DRAM simultaneously on
                                                   // Blackhole .. wait_for_non_mmio_flush() is not working as expected?
     // Broadcast multiple vectors to tensix and dram grid. Verify broadcasted data is read back correctly
-    std::set<chip_id_t> target_devices = test_utils::get_target_devices();
+    std::unordered_set<chip_id_t> target_devices = test_utils::get_target_devices();
 
     uint32_t num_host_mem_ch_per_mmio_device = 1;
 
-    Cluster cluster = Cluster(num_host_mem_ch_per_mmio_device, false, true);
+    Cluster cluster = Cluster(ClusterOptions{
+        .num_host_mem_ch_per_mmio_device = num_host_mem_ch_per_mmio_device,
+    });
     set_barrier_params(cluster);
     auto mmio_devices = cluster.get_target_mmio_device_ids();
 
@@ -652,11 +667,13 @@ TEST(SiliconDriverBH, DISABLED_BroadcastWrite) {  // Cannot broadcast to tensix/
 
 TEST(SiliconDriverBH, DISABLED_VirtualCoordinateBroadcast) {  // same problem as above..
     // Broadcast multiple vectors to tensix and dram grid. Verify broadcasted data is read back correctly
-    std::set<chip_id_t> target_devices = test_utils::get_target_devices();
+    std::unordered_set<chip_id_t> target_devices = test_utils::get_target_devices();
 
     uint32_t num_host_mem_ch_per_mmio_device = 1;
 
-    Cluster cluster = Cluster(num_host_mem_ch_per_mmio_device, false, true);
+    Cluster cluster = Cluster(ClusterOptions{
+        .num_host_mem_ch_per_mmio_device = num_host_mem_ch_per_mmio_device,
+    });
     set_barrier_params(cluster);
     auto mmio_devices = cluster.get_target_mmio_device_ids();
 
@@ -742,10 +759,10 @@ TEST(SiliconDriverBH, DISABLED_VirtualCoordinateBroadcast) {  // same problem as
 TEST(SiliconDriverBH, SysmemTestWithPcie) {
     auto target_devices = test_utils::get_target_devices();
 
-    Cluster cluster(
-        1,      // one "host memory channel",
-        false,  // skip driver allocs - no (don't skip)
-        true);  // perform harvesting - yes
+    Cluster cluster(ClusterOptions{
+        .num_host_mem_ch_per_mmio_device = 1,  // one "host memory channel",
+        .perform_harvesting = true,
+    });
 
     set_barrier_params(cluster);
     cluster.start_device(tt_device_params{});  // no special parameters
@@ -787,13 +804,13 @@ TEST(SiliconDriverBH, SysmemTestWithPcie) {
 }
 
 static bool is_iommu_available() {
-    const size_t num_channels = 1;
+    const uint32_t num_channels = 1;
     auto target_devices = test_utils::get_target_devices();
-    Cluster cluster(
-        target_devices,
-        num_channels,
-        false,  // skip driver allocs - no (don't skip)
-        true);  // perform harvesting - yes
+    Cluster cluster(ClusterOptions{
+        .num_host_mem_ch_per_mmio_device = num_channels,
+        .perform_harvesting = true,
+        .target_devices = target_devices,
+    });
     return cluster.get_tt_device(0)->get_pci_device()->is_iommu_enabled();
 }
 
@@ -804,14 +821,14 @@ static bool is_iommu_available() {
 TEST(SiliconDriverBH, RandomSysmemTestWithPcie) {
     // How many hugepages will Blackhole CI systems allocate?  Hopefully zero,
     // and they'll have IOMMU instead.  But if not, let's assume 2.
-    const size_t num_channels = is_iommu_available() ? 4 : 2;
+    const uint32_t num_channels = is_iommu_available() ? 4 : 2;
     auto target_devices = test_utils::get_target_devices();
 
-    Cluster cluster(
-        target_devices,
-        num_channels,
-        false,  // skip driver allocs - no (don't skip)
-        true);  // perform harvesting - yes
+    Cluster cluster(ClusterOptions{
+        .num_host_mem_ch_per_mmio_device = num_channels,
+        .perform_harvesting = true,
+        .target_devices = target_devices,
+    });
 
     set_barrier_params(cluster);
     cluster.start_device(tt_device_params{});  // no special parameters

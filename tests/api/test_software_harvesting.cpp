@@ -15,7 +15,7 @@
 using namespace tt::umd;
 
 TEST(SoftwareHarvesting, TensixSoftwareHarvestingAllChips) {
-    std::set<chip_id_t> target_devices = test_utils::get_target_devices();
+    std::unordered_set<chip_id_t> target_devices = test_utils::get_target_devices();
 
     int num_devices = target_devices.size();
     std::unordered_map<chip_id_t, HarvestingMasks> software_harvesting_masks;
@@ -25,8 +25,11 @@ TEST(SoftwareHarvesting, TensixSoftwareHarvestingAllChips) {
     }
 
     uint32_t num_host_mem_ch_per_mmio_device = 1;
-    std::unique_ptr<Cluster> cluster =
-        std::make_unique<Cluster>(num_host_mem_ch_per_mmio_device, false, true, software_harvesting_masks);
+    std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>(ClusterOptions{
+        .num_host_mem_ch_per_mmio_device = num_host_mem_ch_per_mmio_device,
+        .simulated_harvesting_masks_per_chip = software_harvesting_masks,
+        .target_devices = target_devices,
+    });
 
     for (const chip_id_t& chip : cluster->get_target_device_ids()) {
         tt::ARCH arch = cluster->get_cluster_description()->get_arch(chip);

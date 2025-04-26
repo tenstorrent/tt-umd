@@ -72,17 +72,17 @@ std::int32_t get_static_tlb_index(tt_xy_pair target) {
 }
 
 TEST(SiliconDriverWH, CreateDestroy) {
-    std::set<chip_id_t> target_devices = test_utils::get_target_devices();
+    std::unordered_set<chip_id_t> target_devices = test_utils::get_target_devices();
     uint32_t num_host_mem_ch_per_mmio_device = 1;
     tt_device_params default_params;
     // Initialize the driver with a 1x1 descriptor and explictly do not perform harvesting
     for (int i = 0; i < 50; i++) {
-        Cluster cluster = Cluster(
-            test_utils::GetAbsPath("tests/soc_descs/wormhole_b0_1x1.yaml"),
-            target_devices,
-            num_host_mem_ch_per_mmio_device,
-            false,
-            false);
+        Cluster cluster(ClusterOptions{
+            .num_host_mem_ch_per_mmio_device = num_host_mem_ch_per_mmio_device,
+            .perform_harvesting = false,
+            .sdesc_path = test_utils::GetAbsPath("tests/soc_descs/wormhole_b0_1x1.yaml"),
+            .target_devices = target_devices,
+        });
         set_barrier_params(cluster);
 
         // TODO: this test fails on new UBB galaxy if the two lines are uncommented.
@@ -94,7 +94,7 @@ TEST(SiliconDriverWH, CreateDestroy) {
 }
 
 TEST(SiliconDriverWH, CustomSocDesc) {
-    std::set<chip_id_t> target_devices = test_utils::get_target_devices();
+    std::unordered_set<chip_id_t> target_devices = test_utils::get_target_devices();
     std::unordered_map<chip_id_t, HarvestingMasks> simulated_harvesting_masks = {{0, {30, 0, 0}}, {1, {60, 0, 0}}};
 
     for (auto chip : target_devices) {
@@ -105,13 +105,13 @@ TEST(SiliconDriverWH, CustomSocDesc) {
 
     uint32_t num_host_mem_ch_per_mmio_device = 1;
     // Initialize the driver with a 1x1 descriptor and explictly do not perform harvesting
-    Cluster cluster = Cluster(
-        test_utils::GetAbsPath("tests/soc_descs/wormhole_b0_1x1.yaml"),
-        target_devices,
-        num_host_mem_ch_per_mmio_device,
-        false,
-        false,
-        simulated_harvesting_masks);
+    Cluster cluster = Cluster(ClusterOptions{
+        .num_host_mem_ch_per_mmio_device = num_host_mem_ch_per_mmio_device,
+        .perform_harvesting = false,
+        .simulated_harvesting_masks_per_chip = simulated_harvesting_masks,
+        .sdesc_path = test_utils::GetAbsPath("tests/soc_descs/wormhole_b0_1x1.yaml"),
+        .target_devices = target_devices,
+    });
     for (const auto& chip : cluster.get_target_device_ids()) {
         ASSERT_EQ(cluster.get_soc_descriptor(chip).get_cores(CoreType::TENSIX).size(), 1)
             << "Expected 1x1 SOC descriptor to be unmodified by driver";
@@ -121,7 +121,7 @@ TEST(SiliconDriverWH, CustomSocDesc) {
 TEST(SiliconDriverWH, HarvestingRuntime) {
     auto get_static_tlb_index_callback = [](tt_xy_pair target) { return get_static_tlb_index(target); };
 
-    std::set<chip_id_t> target_devices = test_utils::get_target_devices();
+    std::unordered_set<chip_id_t> target_devices = test_utils::get_target_devices();
     std::unordered_map<chip_id_t, HarvestingMasks> simulated_harvesting_masks = {{0, {30, 0, 0}}, {1, {60, 0, 0}}};
 
     for (auto chip : target_devices) {
@@ -132,7 +132,11 @@ TEST(SiliconDriverWH, HarvestingRuntime) {
 
     uint32_t num_host_mem_ch_per_mmio_device = 1;
 
-    Cluster cluster = Cluster(num_host_mem_ch_per_mmio_device, false, true, simulated_harvesting_masks);
+    Cluster cluster = Cluster(ClusterOptions{
+        .num_host_mem_ch_per_mmio_device = num_host_mem_ch_per_mmio_device,
+        .perform_harvesting = true,
+        .simulated_harvesting_masks_per_chip = simulated_harvesting_masks,
+    });
     set_barrier_params(cluster);
     auto mmio_devices = cluster.get_target_mmio_device_ids();
 
@@ -209,11 +213,14 @@ TEST(SiliconDriverWH, HarvestingRuntime) {
 TEST(SiliconDriverWH, UnalignedStaticTLB_RW) {
     auto get_static_tlb_index_callback = [](tt_xy_pair target) { return get_static_tlb_index(target); };
 
-    std::set<chip_id_t> target_devices = test_utils::get_target_devices();
+    std::unordered_set<chip_id_t> target_devices = test_utils::get_target_devices();
     int num_devices = target_devices.size();
 
     uint32_t num_host_mem_ch_per_mmio_device = 1;
-    Cluster cluster = Cluster(num_host_mem_ch_per_mmio_device, false, true);
+    Cluster cluster = Cluster(ClusterOptions{
+        .num_host_mem_ch_per_mmio_device = num_host_mem_ch_per_mmio_device,
+        .perform_harvesting = true,
+    });
     set_barrier_params(cluster);
     auto mmio_devices = cluster.get_target_mmio_device_ids();
 
@@ -267,10 +274,13 @@ TEST(SiliconDriverWH, UnalignedStaticTLB_RW) {
 TEST(SiliconDriverWH, StaticTLB_RW) {
     auto get_static_tlb_index_callback = [](tt_xy_pair target) { return get_static_tlb_index(target); };
 
-    std::set<chip_id_t> target_devices = test_utils::get_target_devices();
+    std::unordered_set<chip_id_t> target_devices = test_utils::get_target_devices();
 
     uint32_t num_host_mem_ch_per_mmio_device = 1;
-    Cluster cluster = Cluster(num_host_mem_ch_per_mmio_device, false, true);
+    Cluster cluster = Cluster(ClusterOptions{
+        .num_host_mem_ch_per_mmio_device = num_host_mem_ch_per_mmio_device,
+        .perform_harvesting = true,
+    });
     set_barrier_params(cluster);
     auto mmio_devices = cluster.get_target_mmio_device_ids();
 
@@ -327,10 +337,11 @@ TEST(SiliconDriverWH, StaticTLB_RW) {
 TEST(SiliconDriverWH, DynamicTLB_RW) {
     // Don't use any static TLBs in this test. All writes go through a dynamic TLB that needs to be reconfigured for
     // each transaction
-    std::set<chip_id_t> target_devices = test_utils::get_target_devices();
+    std::unordered_set<chip_id_t> target_devices = test_utils::get_target_devices();
 
     uint32_t num_host_mem_ch_per_mmio_device = 1;
-    Cluster cluster = Cluster(num_host_mem_ch_per_mmio_device, false, true);
+    Cluster cluster = Cluster(
+        ClusterOptions{.num_host_mem_ch_per_mmio_device = num_host_mem_ch_per_mmio_device, .perform_harvesting = true});
 
     set_barrier_params(cluster);
 
@@ -368,10 +379,13 @@ TEST(SiliconDriverWH, MultiThreadedDevice) {
     // Have 2 threads read and write from a single device concurrently
     // All transactions go through a single Dynamic TLB. We want to make sure this is thread/process safe
 
-    std::set<chip_id_t> target_devices = test_utils::get_target_devices();
+    std::unordered_set<chip_id_t> target_devices = test_utils::get_target_devices();
 
     uint32_t num_host_mem_ch_per_mmio_device = 1;
-    Cluster cluster = Cluster(num_host_mem_ch_per_mmio_device, false, true);
+    Cluster cluster = Cluster(ClusterOptions{
+        .num_host_mem_ch_per_mmio_device = num_host_mem_ch_per_mmio_device,
+        .perform_harvesting = true,
+    });
 
     set_barrier_params(cluster);
 
@@ -427,11 +441,14 @@ TEST(SiliconDriverWH, MultiThreadedMemBar) {
     // Memory barrier flags get sent to address 0 for all channels in this test
     auto get_static_tlb_index_callback = [](tt_xy_pair target) { return get_static_tlb_index(target); };
 
-    std::set<chip_id_t> target_devices = test_utils::get_target_devices();
+    std::unordered_set<chip_id_t> target_devices = test_utils::get_target_devices();
     uint32_t base_addr = l1_mem::address_map::DATA_BUFFER_SPACE_BASE;
     uint32_t num_host_mem_ch_per_mmio_device = 1;
 
-    Cluster cluster = Cluster(num_host_mem_ch_per_mmio_device, false, true);
+    Cluster cluster = Cluster(ClusterOptions{
+        .num_host_mem_ch_per_mmio_device = num_host_mem_ch_per_mmio_device,
+        .perform_harvesting = true,
+    });
     set_barrier_params(cluster);
     auto mmio_devices = cluster.get_target_mmio_device_ids();
 
@@ -545,11 +562,14 @@ TEST(SiliconDriverWH, MultiThreadedMemBar) {
 
 TEST(SiliconDriverWH, BroadcastWrite) {
     // Broadcast multiple vectors to tensix and dram grid. Verify broadcasted data is read back correctly
-    std::set<chip_id_t> target_devices = test_utils::get_target_devices();
+    std::unordered_set<chip_id_t> target_devices = test_utils::get_target_devices();
 
     uint32_t num_host_mem_ch_per_mmio_device = 1;
 
-    Cluster cluster = Cluster(num_host_mem_ch_per_mmio_device, false, true);
+    Cluster cluster = Cluster(ClusterOptions{
+        .num_host_mem_ch_per_mmio_device = num_host_mem_ch_per_mmio_device,
+        .perform_harvesting = true,
+    });
     set_barrier_params(cluster);
     auto mmio_devices = cluster.get_target_mmio_device_ids();
 
@@ -622,11 +642,14 @@ TEST(SiliconDriverWH, BroadcastWrite) {
 
 TEST(SiliconDriverWH, VirtualCoordinateBroadcast) {
     // Broadcast multiple vectors to tensix and dram grid. Verify broadcasted data is read back correctly
-    std::set<chip_id_t> target_devices = test_utils::get_target_devices();
+    std::unordered_set<chip_id_t> target_devices = test_utils::get_target_devices();
 
     uint32_t num_host_mem_ch_per_mmio_device = 1;
 
-    Cluster cluster = Cluster(num_host_mem_ch_per_mmio_device, false, true);
+    Cluster cluster = Cluster(ClusterOptions{
+        .num_host_mem_ch_per_mmio_device = num_host_mem_ch_per_mmio_device,
+        .perform_harvesting = true,
+    });
     set_barrier_params(cluster);
     auto mmio_devices = cluster.get_target_mmio_device_ids();
 
@@ -734,10 +757,10 @@ TEST(SiliconDriverWH, VirtualCoordinateBroadcast) {
 TEST(SiliconDriverWH, SysmemTestWithPcie) {
     auto target_devices = test_utils::get_target_devices();
 
-    Cluster cluster(
-        1,      // one "host memory channel", currently a 1G huge page
-        false,  // skip driver allocs - no (don't skip)
-        true);  // perform harvesting - yes
+    Cluster cluster = Cluster(ClusterOptions{
+        .num_host_mem_ch_per_mmio_device = 1,  // one "host memory channel", currently a 1G huge page
+        .perform_harvesting = true,
+    });
 
     set_barrier_params(cluster);
     cluster.start_device(tt_device_params{});  // no special parameters
@@ -794,14 +817,14 @@ TEST(SiliconDriverWH, SysmemTestWithPcie) {
  * The hardware mechanism is too slow to sweep the entire range.
  */
 TEST(SiliconDriverWH, RandomSysmemTestWithPcie) {
-    const size_t num_channels = 2;  // ideally 4, but CI seems to have 2...
+    const uint32_t num_channels = 2;  // ideally 4, but CI seems to have 2...
     auto target_devices = test_utils::get_target_devices();
 
-    Cluster cluster(
-        target_devices,
-        num_channels,
-        false,  // skip driver allocs - no (don't skip)
-        true);  // perform harvesting - yes
+    Cluster cluster = Cluster(ClusterOptions{
+        .num_host_mem_ch_per_mmio_device = num_channels,
+        .perform_harvesting = true,
+        .target_devices = target_devices,
+    });
 
     set_barrier_params(cluster);
     cluster.start_device(tt_device_params{});  // no special parameters
@@ -860,14 +883,14 @@ TEST(SiliconDriverWH, RandomSysmemTestWithPcie) {
 }
 
 TEST(SiliconDriverWH, LargeAddressTlb) {
-    const size_t num_channels = 1;
+    const uint32_t num_channels = 1;
     auto target_devices = test_utils::get_target_devices();
 
-    Cluster cluster(
-        target_devices,
-        num_channels,
-        false,  // skip driver allocs - no (don't skip)
-        true);  // perform harvesting - yes
+    Cluster cluster = Cluster(ClusterOptions{
+        .num_host_mem_ch_per_mmio_device = num_channels,
+        .perform_harvesting = true,
+        .target_devices = target_devices,
+    });
 
     const CoreCoord ARC_CORE = cluster.get_soc_descriptor(0).get_cores(CoreType::ARC).at(0);
 
@@ -927,12 +950,12 @@ static inline void print_speed(std::string direction, size_t bytes, uint64_t ns)
 TEST(SiliconDriverWH, DMA1) {
     const chip_id_t chip = 0;
     auto target_devices = test_utils::get_target_devices();
-    Cluster cluster(
-        test_utils::GetAbsPath("tests/soc_descs/wormhole_b0_8x10.yaml"),
-        target_devices,
-        1,      // one "host memory channel", unused
-        false,  // skip driver allocs - no (don't skip)
-        true);  // perform harvesting - yes
+    Cluster cluster = Cluster(ClusterOptions{
+        .num_host_mem_ch_per_mmio_device = 1,
+        .perform_harvesting = true,
+        .sdesc_path = test_utils::GetAbsPath("tests/soc_descs/wormhole_b0_8x10.yaml"),
+        .target_devices = target_devices,
+    });
 
     cluster.start_device(tt_device_params{});
 
@@ -991,12 +1014,12 @@ TEST(SiliconDriverWH, DMA1) {
 TEST(SiliconDriverWH, DMA2) {
     const chip_id_t chip = 0;
     auto target_devices = test_utils::get_target_devices();
-    Cluster cluster(
-        test_utils::GetAbsPath("tests/soc_descs/wormhole_b0_8x10.yaml"),
-        target_devices,
-        1,      // one "host memory channel", unused
-        false,  // skip driver allocs - no (don't skip)
-        true);  // perform harvesting - yes
+    Cluster cluster = Cluster(ClusterOptions{
+        .num_host_mem_ch_per_mmio_device = 1,
+        .perform_harvesting = true,
+        .sdesc_path = test_utils::GetAbsPath("tests/soc_descs/wormhole_b0_8x10.yaml"),
+        .target_devices = target_devices,
+    });
 
     set_barrier_params(cluster);
     cluster.start_device(tt_device_params{});

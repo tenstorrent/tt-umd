@@ -46,11 +46,13 @@ TEST(ApiClusterTest, DifferentConstructors) {
 
     // 2. Constructor which allows choosing a subset of Chips to open.
     chip_id_t logical_device_id = 0;
-    std::set<chip_id_t> target_devices = {};
+    std::unordered_set<chip_id_t> target_devices = {};
     if (chips_available) {
         target_devices = {logical_device_id};
     }
-    umd_cluster = std::make_unique<Cluster>(target_devices);
+    umd_cluster = std::make_unique<Cluster>(ClusterOptions{
+        .target_devices = target_devices,
+    });
     EXPECT_EQ(umd_cluster->get_target_device_ids().size(), target_devices.size());
     umd_cluster = nullptr;
 
@@ -59,7 +61,10 @@ TEST(ApiClusterTest, DifferentConstructors) {
         tt::ARCH device_arch = Cluster::create_cluster_descriptor()->get_arch(logical_device_id);
         // You can add a custom soc descriptor here.
         std::string sdesc_path = tt_SocDescriptor::get_soc_descriptor_path(device_arch);
-        umd_cluster = std::make_unique<Cluster>(sdesc_path, target_devices);
+        umd_cluster = std::make_unique<Cluster>(ClusterOptions{
+            .sdesc_path = sdesc_path,
+            .target_devices = target_devices,
+        });
         umd_cluster = nullptr;
     }
 
@@ -67,8 +72,14 @@ TEST(ApiClusterTest, DifferentConstructors) {
     // Create mock chips is set to true in order to create mock chips for the devices in the cluster descriptor.
     std::filesystem::path cluster_path = tt::umd::Cluster::serialize_to_file();
     std::unordered_map<chip_id_t, HarvestingMasks> simulated_harvesting_masks = {};
-    std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>(
-        tt_ClusterDescriptor::create_from_yaml(cluster_path), 1, true, true, simulated_harvesting_masks);
+    std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>(ClusterOptions{
+        .chip_type = ChipType::MOCK,
+        .num_host_mem_ch_per_mmio_device = 1,
+        .perform_harvesting = true,
+        .simulated_harvesting_masks_per_chip = simulated_harvesting_masks,
+        .cluster_descriptor = tt_ClusterDescriptor::create_from_yaml(cluster_path),
+
+    });
 }
 
 TEST(ApiClusterTest, SimpleIOAllChips) {
@@ -162,8 +173,9 @@ TEST(ApiClusterTest, SimpleIOSpecificChips) {
         GTEST_SKIP() << "No chips present on the system. Skipping test.";
     }
 
-    std::set<chip_id_t> target_devices = {0};
-    umd_cluster = std::make_unique<Cluster>(target_devices);
+    umd_cluster = std::make_unique<Cluster>(ClusterOptions{
+        .target_devices = {0},
+    });
 
     const tt_ClusterDescriptor* cluster_desc = umd_cluster->get_cluster_description();
 

@@ -28,8 +28,7 @@ protected:
             }
             return flat_index;
         };
-        std::set<chip_id_t> target_devices = {0};
-        device = std::make_shared<Cluster>(target_devices);
+        device = std::make_shared<Cluster>(ClusterOptions{.target_devices = {0}});
     }
 
     void TearDown() override {

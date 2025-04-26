@@ -228,8 +228,7 @@ TEST(ClusterAPI, DynamicTLB_RW) {
 
     static const uint32_t num_loops = 100;
 
-    std::set<chip_id_t> target_devices = cluster->get_target_device_ids();
-    for (const chip_id_t chip : target_devices) {
+    for (const chip_id_t chip : cluster->get_target_device_ids()) {
         // Just make sure to skip L1_BARRIER_BASE
         std::uint32_t address = 0x100;
         // Write to each core a 100 times at different statically mapped addresses

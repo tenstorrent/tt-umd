@@ -50,10 +50,6 @@ protected:
             GTEST_SKIP() << "Test is skipped due to incorrect number of chips";
         }
 
-        assert(get_detected_num_chips() > 0);
-        auto devices = std::vector<chip_id_t>(get_detected_num_chips());
-        std::iota(devices.begin(), devices.end(), 0);
-        std::set<chip_id_t> target_devices = {devices.begin(), devices.end()};
         cluster = std::make_unique<Cluster>();
         assert(cluster != nullptr);
         assert(cluster->get_cluster_description()->get_number_of_chips() == get_detected_num_chips());

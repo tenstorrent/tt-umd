@@ -589,7 +589,7 @@ public:
      * Cluster constructor. Construct chips per passed options.
      * @param options See documentation of ClusterOptions for explanation of specific arguments.
      */
-    Cluster(ClusterOptions options = {});
+    Cluster(ClusterOptions options);
 
     // TODO: The following constructors will be removed.
     /**

@@ -541,13 +541,57 @@ namespace tt::umd {
 class LocalChip;
 class RemoteChip;
 
+// Chip type to create under the Cluster class.
+//  - Silicon means that the chips under cluster will be connected to actual physical devices connected to the system.
+//  - Simulation is used for simulation runs.
+//  - Mock is used for testing purposes, which mocks all calls.
+enum ChipType {
+    SILICON,
+    SIMULATION,
+    MOCK,
+};
+
+// All options when creating a Cluster object.
+// Each of the options provides a default value, so in general any combination of overridden options can be used when
+// constructing Cluster objects. Having this struct saves us from having a lot of different constructor overloads.
+struct ClusterOptions {
+    // Chip type to create.
+    ChipType chip_type = ChipType::SILICON;
+    // Number of host memory channels (hugepages) per MMIO device.
+    uint32_t num_host_mem_ch_per_mmio_device = 1;
+    // If set to false, harvesting will be skipped for constructed soc descriptors.
+    bool perform_harvesting = true;
+    // simulated_harvesting_masks is applied on all chips, then additionally simulated_harvesting_masks_per_chip for
+    // each chip. This way, both scenarios are supported: using the simulated masks without knowing device ids and
+    // setting specific simulated masks per device.
+    HarvestingMasks simulated_harvesting_masks = {};
+    std::unordered_map<chip_id_t, HarvestingMasks> simulated_harvesting_masks_per_chip = {};
+    // If set, this soc descriptor will be used to construct devices on this cluster. If not set, the default soc
+    // descriptor based on architecture will be used.
+    std::string sdesc_path = "";
+    // If not set, all discovered target devices will be used. If set, in case of SILICON chip type, the target devices
+    // will be checked against the cluster descriptor. In case of MOCK and SIMULATION chip types, this check will be
+    // skipped, and you can create chips regardless of the devices on the system.
+    std::unordered_set<chip_id_t> target_devices = {};
+    // If not passed, topology discovery will be ran and tt_ClusterDescriptor will be constructed. If passed, and chip
+    // type is SILICON, the constructor will throw if cluster_descriptor configuration shows chips which don't exist on
+    // the system.
+    std::unique_ptr<tt_ClusterDescriptor> cluster_descriptor = nullptr;
+};
+
 /**
  * Silicon Driver Class, derived from the tt_device class
  * Implements APIs to communicate with a physical Tenstorrent Device.
  */
 class Cluster : public tt_device {
 public:
-    // Constructor
+    /**
+     * Cluster constructor. Construct chips per passed options.
+     * @param options See documentation of ClusterOptions for explanation of specific arguments.
+     */
+    Cluster(ClusterOptions options = {});
+
+    // TODO: The following constructors will be removed.
     /**
      * Cluster constructor.
      * Simplest form, creates a cluster of all available devices on the system.
@@ -860,10 +904,20 @@ private:
     // Helper functions for constructing the chips from the cluster descriptor.
     std::unique_ptr<Chip> construct_chip_from_cluster(
         chip_id_t chip_id,
+        const ChipType& chip_type,
         tt_ClusterDescriptor* cluster_desc,
         tt_SocDescriptor& soc_desc,
-        int num_host_mem_channels,
-        const bool create_mock_chip = false);
+        int num_host_mem_channels);
+    tt_SocDescriptor construct_soc_descriptor(
+        const std::string& soc_desc_path,
+        chip_id_t chip_id,
+        ChipType chip_type,
+        tt_ClusterDescriptor* cluster_desc,
+        bool perform_harvesting,
+        HarvestingMasks& simulated_harvesting_masks);
+
+    // TODO: The following two construct_chip_from_cluster are to be removed, it is used in context of deprecated
+    // constructors.
     std::unique_ptr<Chip> construct_chip_from_cluster(
         const std::string& soc_desc_path,
         chip_id_t chip_id,
@@ -907,7 +961,7 @@ private:
     std::unordered_map<chip_id_t, std::unique_ptr<Chip>> chips_;
     tt::ARCH arch_name;
 
-    std::shared_ptr<tt_ClusterDescriptor> cluster_desc;
+    std::unique_ptr<tt_ClusterDescriptor> cluster_desc;
 
     std::map<std::set<chip_id_t>, std::unordered_map<chip_id_t, std::vector<std::vector<int>>>> bcast_header_cache = {};
     bool use_ethernet_broadcast = true;

@@ -904,6 +904,12 @@ const std::unordered_set<chip_id_t> &tt_ClusterDescriptor::get_all_chips() const
 const std::vector<chip_id_t> tt_ClusterDescriptor::get_chips_local_first(std::unordered_set<chip_id_t> chips) const {
     std::vector<chip_id_t> chips_local_first;
     for (const auto &chip : chips) {
+        log_assert(
+            this->chip_locations.find(chip) != this->chip_locations.end(),
+            "Chip {} not found in cluster descriptor.",
+            chip);
+    }
+    for (const auto &chip : chips) {
         if (is_chip_mmio_capable(chip)) {
             chips_local_first.push_back(chip);
         }

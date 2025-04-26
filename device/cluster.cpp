@@ -151,12 +151,16 @@ void Cluster::construct_cluster(const uint32_t& num_host_mem_ch_per_mmio_device,
 
 std::unique_ptr<Chip> Cluster::construct_chip_from_cluster(
     chip_id_t chip_id,
+    const ChipType& chip_type,
     tt_ClusterDescriptor* cluster_desc,
     tt_SocDescriptor& soc_desc,
-    int num_host_mem_channels,
-    const bool create_mock_chip) {
-    if (create_mock_chip) {
+    int num_host_mem_channels) {
+    if (chip_type == ChipType::MOCK) {
         return std::make_unique<MockChip>(soc_desc);
+    }
+    if (chip_type == ChipType::SIMULATION) {
+        // TBD in following PRs
+        throw std::runtime_error("Simulation chip type is not supported yet.");
     }
 
     if (cluster_desc->is_chip_mmio_capable(chip_id)) {
@@ -170,6 +174,56 @@ std::unique_ptr<Chip> Cluster::construct_chip_from_cluster(
             soc_desc,
             cluster_desc->get_chip_locations().at(chip_id),
             get_local_chip(cluster_desc->get_closest_mmio_capable_chip(chip_id)));
+    }
+}
+
+tt_SocDescriptor Cluster::construct_soc_descriptor(
+    const std::string& soc_desc_path,
+    chip_id_t chip_id,
+    ChipType chip_type,
+    tt_ClusterDescriptor* cluster_desc,
+    bool perform_harvesting,
+    HarvestingMasks& simulated_harvesting_masks) {
+    bool chip_in_cluster_descriptor =
+        cluster_desc->get_all_chips().find(chip_id) != cluster_desc->get_all_chips().end();
+
+    // In case of SILICON chip type, this chip has to exist in the cluster descriptor. But it doesn't have to exist in
+    // case of Mock or Simulation chip type.
+    if (chip_type == ChipType::SILICON && !chip_in_cluster_descriptor) {
+        throw std::runtime_error(
+            fmt::format("Chip {} not found in cluster descriptor. Cannot create device.", chip_id));
+    }
+
+    bool noc_translation_table_en =
+        chip_in_cluster_descriptor ? cluster_desc->get_noc_translation_table_en().at(chip_id) : false;
+    HarvestingMasks harvesting_masks =
+        chip_in_cluster_descriptor
+            ? get_harvesting_masks(chip_id, cluster_desc, perform_harvesting, simulated_harvesting_masks)
+            : HarvestingMasks{};
+    BoardType chip_board_type = chip_in_cluster_descriptor ? cluster_desc->get_board_type(chip_id) : BoardType::UNKNOWN;
+    uint8_t asic_location =
+        chip_in_cluster_descriptor ? cluster_desc->get_chip_uid(chip_id).value_or(ChipUID{}).asic_location : 0;
+
+    if (soc_desc_path.empty()) {
+        tt::ARCH arch = chip_in_cluster_descriptor ? cluster_desc->get_arch(chip_id) : tt::ARCH::WORMHOLE_B0;
+
+        return tt_SocDescriptor(arch, noc_translation_table_en, harvesting_masks, chip_board_type, asic_location);
+
+    } else {
+        tt_SocDescriptor soc_desc =
+            tt_SocDescriptor(soc_desc_path, noc_translation_table_en, harvesting_masks, chip_board_type, asic_location);
+
+        // In this case, check that the passed soc descriptor architecture doesn't conflate with the one in the cluster
+        // descriptor.
+        if (chip_in_cluster_descriptor && soc_desc.arch != cluster_desc->get_arch(chip_id)) {
+            throw std::runtime_error(fmt::format(
+                "Passed soc descriptor has {} arch, but for chip id {} has arch {}",
+                arch_to_str(soc_desc.arch),
+                chip_id,
+                arch_to_str(cluster_desc->get_arch(chip_id))));
+        }
+
+        return soc_desc;
     }
 }
 
@@ -192,7 +246,8 @@ std::unique_ptr<Chip> Cluster::construct_chip_from_cluster(
         harvesting_masks,
         chip_board_type,
         asic_location);
-    return construct_chip_from_cluster(chip_id, cluster_desc, soc_desc, num_host_mem_channels, create_mock_chip);
+    return construct_chip_from_cluster(
+        chip_id, create_mock_chip ? ChipType::MOCK : ChipType::SILICON, cluster_desc, soc_desc, num_host_mem_channels);
 }
 
 std::unique_ptr<Chip> Cluster::construct_chip_from_cluster(
@@ -214,7 +269,8 @@ std::unique_ptr<Chip> Cluster::construct_chip_from_cluster(
         harvesting_masks,
         chip_board_type,
         asic_location);
-    return construct_chip_from_cluster(chip_id, cluster_desc, soc_desc, num_host_mem_channels, create_mock_chip);
+    return construct_chip_from_cluster(
+        chip_id, create_mock_chip ? ChipType::MOCK : ChipType::SILICON, cluster_desc, soc_desc, num_host_mem_channels);
 }
 
 void Cluster::add_chip(chip_id_t chip_id, std::unique_ptr<Chip> chip) {
@@ -348,6 +404,49 @@ void Cluster::ubb_eth_connections(
             channel++;
         }
     }
+}
+
+Cluster::Cluster(ClusterOptions options) {
+    // If the cluster descriptor is not provided, create a new one.
+    cluster_desc = std::move(options.cluster_descriptor);
+    if (cluster_desc == nullptr) {
+        cluster_desc = Cluster::create_cluster_descriptor();
+    }
+
+    std::unordered_set<chip_id_t> chips_to_construct = options.target_devices;
+    // If no target devices are passed, obtain them from the cluster descriptor.
+    if (chips_to_construct.empty()) {
+        chips_to_construct = cluster_desc->get_all_chips();
+    }
+    std::vector<chip_id_t> chips_to_construct_vec(chips_to_construct.begin(), chips_to_construct.end());
+    // Check target_devices against the cluster descriptor in case of silicon chips.
+    // We also have to sort them so that local chips are constructed first.
+    // For MOCK and SIMULATION chip types, passing target_devices which are not in cluster descriptor is allowed.
+    if (options.chip_type == ChipType::SILICON) {
+        chips_to_construct_vec = cluster_desc->get_chips_local_first(chips_to_construct);
+    }
+    for (auto& chip_id : chips_to_construct_vec) {
+        // Combine passed simulated_harvesting_masks
+        HarvestingMasks simulated_harvesting_masks =
+            options.simulated_harvesting_masks | ((options.simulated_harvesting_masks_per_chip.find(chip_id) !=
+                                                   options.simulated_harvesting_masks_per_chip.end())
+                                                      ? options.simulated_harvesting_masks_per_chip.at(chip_id)
+                                                      : HarvestingMasks{});
+        tt_SocDescriptor soc_desc = construct_soc_descriptor(
+            options.sdesc_path,
+            chip_id,
+            options.chip_type,
+            cluster_desc.get(),
+            options.perform_harvesting,
+            simulated_harvesting_masks);
+
+        add_chip(
+            chip_id,
+            construct_chip_from_cluster(
+                chip_id, options.chip_type, cluster_desc.get(), soc_desc, options.num_host_mem_ch_per_mmio_device));
+    }
+
+    construct_cluster(options.num_host_mem_ch_per_mmio_device, options.chip_type != ChipType::SILICON);
 }
 
 Cluster::Cluster(

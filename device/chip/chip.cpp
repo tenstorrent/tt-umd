@@ -97,30 +97,6 @@ void Chip::set_remote_transfer_ethernet_cores(const std::unordered_set<CoreCoord
     throw std::runtime_error("Chip::set_remote_transfer_ethernet_cores is not available for this chip.");
 }
 
-tt_xy_pair Chip::get_remote_transfer_ethernet_core() {
-    throw std::runtime_error("Chip::get_remote_transfer_ethernet_core is not available for this chip.");
-}
-
-void Chip::update_active_eth_core_idx() {
-    throw std::runtime_error("Chip::update_active_eth_core_idx is not available for this chip.");
-}
-
-int Chip::get_active_eth_core_idx() {
-    throw std::runtime_error("Chip::active_eth_core_idx is not available for this chip.");
-}
-
-std::vector<CoreCoord> Chip::get_remote_transfer_ethernet_cores() {
-    throw std::runtime_error("Chip::get_remote_transfer_ethernet_cores is not available for this chip.");
-}
-
-std::unique_lock<RobustMutex> Chip::acquire_mutex(std::string mutex_name, int pci_device_id) {
-    throw std::runtime_error("LockManager::acquire_mutex is not available for this chip.");
-}
-
-std::unique_lock<RobustMutex> Chip::acquire_mutex(MutexType mutex_type, int pci_device_id) {
-    throw std::runtime_error("LockManager::acquire_mutex is not available for this chip.");
-}
-
 void Chip::wait_dram_cores_training(const uint32_t timeout_ms) {}
 
 void Chip::enable_ethernet_queue(int timeout_s) {

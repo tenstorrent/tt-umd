@@ -64,6 +64,7 @@ public:
     virtual void dram_membar(const std::unordered_set<uint32_t>& channels = {}) = 0;
 
     virtual void send_tensix_risc_reset(tt_xy_pair core, const TensixSoftResetOptions& soft_resets);
+    virtual void send_tensix_risc_reset(const TensixSoftResetOptions& soft_resets);
 
     virtual int arc_msg(
         uint32_t msg_code,

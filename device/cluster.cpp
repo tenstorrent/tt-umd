@@ -1086,6 +1086,14 @@ void Cluster::broadcast_tensix_risc_reset_to_cluster(const TensixSoftResetOption
         // Nowhere to broadcast to.
         return;
     }
+    // If ethernet broadcast is not supported, do it one by one.
+    if (!use_ethernet_broadcast) {
+        for (auto& chip_id : all_chip_ids_) {
+            get_chip(chip_id)->send_tensix_risc_reset(soft_resets);
+        }
+        return;
+    }
+
     auto valid = soft_resets & ALL_TENSIX_SOFT_RESET;
     uint32_t valid_val = (std::underlying_type<TensixSoftResetOptions>::type)valid;
     std::set<chip_id_t> chips_to_exclude = {};

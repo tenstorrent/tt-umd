@@ -708,10 +708,6 @@ public:
         int32_t tlb_index,
         uint64_t address,
         uint64_t ordering = TLB_DATA::Posted);
-    virtual void deassert_risc_reset_at_core(
-        tt_cxy_pair core, const TensixSoftResetOptions& soft_resets = TENSIX_DEASSERT_SOFT_RESET);
-    virtual void assert_risc_reset_at_core(
-        tt_cxy_pair core, const TensixSoftResetOptions& soft_resets = TENSIX_ASSERT_SOFT_RESET);
     // TODO: Add CoreCoord API for this function.
     void broadcast_write_to_cluster(
         const void* mem_ptr,
@@ -722,16 +718,6 @@ public:
         std::set<uint32_t>& columns_to_exclude);
 
     /**
-     * If the tlbs are initialized, returns a tuple with the TLB base address and its size
-     */
-    std::optional<std::tuple<uint32_t, uint32_t>> get_tlb_data_from_target(const tt_cxy_pair& target);
-
-    /**
-     * Returns a struct with the TLB configuration, or throws an exception if the target does not have a static TLB.
-     */
-    tlb_configuration get_tlb_configuration(const tt_cxy_pair& target);
-
-    /**
      * Provide fast write access to a statically-mapped TLB.
      * It is the caller's responsibility to ensure that
      * - the target has a static TLB mapping configured.
@@ -739,9 +725,10 @@ public:
      * - the Cluster instance outlives the returned object.
      * - use of the returned object is congruent with the target's TLB setup.
      *
-     * @param target The target chip and core to write to.
+     * @param chip The target chip to write to.
+     * @param target The target core to write to.
      */
-    tt::Writer get_static_tlb_writer(tt_cxy_pair target);
+    tt::Writer get_static_tlb_writer(const chip_id_t chip, const tt::umd::CoreCoord target);
 
     // New API. UMD is transitioning to use CoreCoord instead of tt_xy_pair.
     // This is new set of functions that should be used once the transition for clients (tt-metal, tt-lens) is complete.
@@ -769,10 +756,7 @@ public:
     virtual void dma_write_to_device(
         const void* src, size_t size, chip_id_t chip, tt::umd::CoreCoord core, uint64_t addr);
     virtual void dma_read_from_device(void* dst, size_t size, chip_id_t chip, tt::umd::CoreCoord core, uint64_t addr);
-    std::optional<std::tuple<uint32_t, uint32_t>> get_tlb_data_from_target(
-        const chip_id_t chip, const tt::umd::CoreCoord core);
     tlb_configuration get_tlb_configuration(const chip_id_t chip, const tt::umd::CoreCoord core);
-    tt::Writer get_static_tlb_writer(const chip_id_t chip, const tt::umd::CoreCoord target);
     virtual void configure_active_ethernet_cores_for_mmio_device(
         chip_id_t mmio_chip, const std::unordered_set<CoreCoord>& active_eth_cores_per_chip);
     void l1_membar(const chip_id_t chip, const std::unordered_set<CoreCoord>& cores = {});

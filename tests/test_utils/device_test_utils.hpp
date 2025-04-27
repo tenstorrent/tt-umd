@@ -25,7 +25,7 @@ static void size_buffer_to_capacity(std::vector<T>& data_buf, std::size_t size_i
 }
 
 static void read_data_from_device(
-    tt_device& device,
+    tt::umd::Cluster& device,
     std::vector<uint32_t>& vec,
     chip_id_t chip_id,
     tt::umd::CoreCoord core,

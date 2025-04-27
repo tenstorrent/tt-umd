@@ -782,10 +782,6 @@ public:
 
     static std::unique_ptr<tt_ClusterDescriptor> create_cluster_descriptor(std::string sdesc_path = "");
 
-    static std::string serialize();
-
-    static std::filesystem::path serialize_to_file(const std::filesystem::path& dest_file = "");
-
     // Destructor
     virtual ~Cluster();
 

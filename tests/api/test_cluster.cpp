@@ -64,9 +64,15 @@ TEST(ApiClusterTest, DifferentConstructors) {
 
     // 4. Constructor taking cluster descriptor based on which to create cluster.
     // This could be cluster descriptor cached from previous runtime, or with some custom modifications.
-    std::filesystem::path cluster_path = tt::umd::Cluster::serialize_to_file();
+    // You can just create a cluster descriptor and serialize it to file, or fetch a cluster descriptor from already
+    // created Cluster class.
+    std::filesystem::path cluster_path1 = tt::umd::Cluster::create_cluster_descriptor()->serialize_to_file();
+    umd_cluster = std::make_unique<Cluster>();
+    std::filesystem::path cluster_path2 = umd_cluster->get_cluster_description()->serialize_to_file();
+    umd_cluster = nullptr;
+
     umd_cluster = std::make_unique<Cluster>(ClusterOptions{
-        .cluster_descriptor = tt_ClusterDescriptor::create_from_yaml(cluster_path),
+        .cluster_descriptor = tt_ClusterDescriptor::create_from_yaml(cluster_path1),
     });
     umd_cluster = nullptr;
 

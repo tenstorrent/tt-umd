@@ -1052,10 +1052,15 @@ std::string tt_ClusterDescriptor::serialize() const {
     return out.c_str();
 }
 
-void tt_ClusterDescriptor::serialize_to_file(const std::filesystem::path &dest_file) const {
+std::filesystem::path tt_ClusterDescriptor::serialize_to_file(const std::filesystem::path &dest_file) const {
+    std::filesystem::path file_path = dest_file;
+    if (file_path.empty()) {
+        file_path = get_default_cluster_descriptor_file_path();
+    }
     std::ofstream file(dest_file);
     file << serialize();
     file.close();
+    return file_path;
 }
 
 std::filesystem::path tt_ClusterDescriptor::get_default_cluster_descriptor_file_path() {

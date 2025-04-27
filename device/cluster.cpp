@@ -47,6 +47,7 @@
 #include "umd/device/topology_utils.h"
 #include "umd/device/tt_cluster_descriptor.h"
 #include "umd/device/tt_core_coordinates.h"
+#include "umd/device/tt_simulation_device.h"
 #include "umd/device/tt_soc_descriptor.h"
 #include "umd/device/types/arch.h"
 #include "umd/device/types/blackhole_arc.h"
@@ -154,13 +155,14 @@ std::unique_ptr<Chip> Cluster::construct_chip_from_cluster(
     const ChipType& chip_type,
     tt_ClusterDescriptor* cluster_desc,
     tt_SocDescriptor& soc_desc,
-    int num_host_mem_channels) {
+    int num_host_mem_channels,
+    const std::filesystem::path& simulator_directory) {
     if (chip_type == ChipType::MOCK) {
         return std::make_unique<MockChip>(soc_desc);
     }
     if (chip_type == ChipType::SIMULATION) {
-        // TBD in following PRs
-        throw std::runtime_error("Simulation chip type is not supported yet.");
+        // Note that passed soc descriptor is ignored in favor of soc descriptor from simulator_directory.
+        return std::make_unique<tt_SimulationDevice>(simulator_directory);
     }
 
     if (cluster_desc->is_chip_mmio_capable(chip_id)) {
@@ -247,7 +249,12 @@ std::unique_ptr<Chip> Cluster::construct_chip_from_cluster(
         chip_board_type,
         asic_location);
     return construct_chip_from_cluster(
-        chip_id, create_mock_chip ? ChipType::MOCK : ChipType::SILICON, cluster_desc, soc_desc, num_host_mem_channels);
+        chip_id,
+        create_mock_chip ? ChipType::MOCK : ChipType::SILICON,
+        cluster_desc,
+        soc_desc,
+        num_host_mem_channels,
+        "");
 }
 
 std::unique_ptr<Chip> Cluster::construct_chip_from_cluster(
@@ -270,7 +277,12 @@ std::unique_ptr<Chip> Cluster::construct_chip_from_cluster(
         chip_board_type,
         asic_location);
     return construct_chip_from_cluster(
-        chip_id, create_mock_chip ? ChipType::MOCK : ChipType::SILICON, cluster_desc, soc_desc, num_host_mem_channels);
+        chip_id,
+        create_mock_chip ? ChipType::MOCK : ChipType::SILICON,
+        cluster_desc,
+        soc_desc,
+        num_host_mem_channels,
+        "");
 }
 
 void Cluster::add_chip(chip_id_t chip_id, std::unique_ptr<Chip> chip) {
@@ -443,7 +455,12 @@ Cluster::Cluster(ClusterOptions options) {
         add_chip(
             chip_id,
             construct_chip_from_cluster(
-                chip_id, options.chip_type, cluster_desc.get(), soc_desc, options.num_host_mem_ch_per_mmio_device));
+                chip_id,
+                options.chip_type,
+                cluster_desc.get(),
+                soc_desc,
+                options.num_host_mem_ch_per_mmio_device,
+                options.simulator_directory));
     }
 
     construct_cluster(options.num_host_mem_ch_per_mmio_device, options.chip_type != ChipType::SILICON);

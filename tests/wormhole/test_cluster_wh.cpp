@@ -91,7 +91,7 @@ TEST(SiliconDriverWH, CreateDestroy) {
 
 TEST(SiliconDriverWH, CustomSocDesc) {
     // Initialize the driver with a 1x1 descriptor and explictly do not perform harvesting
-    Cluster cluster = Cluster(ClusterOptions{
+    Cluster cluster(ClusterOptions{
         .perform_harvesting = false,
         .simulated_harvesting_masks = {60, 0, 0},
         .simulated_harvesting_masks_per_chip = {{0, {30, 0, 0}}, {1, {60, 0, 0}}},
@@ -106,7 +106,7 @@ TEST(SiliconDriverWH, CustomSocDesc) {
 TEST(SiliconDriverWH, HarvestingRuntime) {
     auto get_static_tlb_index_callback = [](tt_xy_pair target) { return get_static_tlb_index(target); };
 
-    Cluster cluster = Cluster(ClusterOptions{
+    Cluster cluster(ClusterOptions{
         .simulated_harvesting_masks = {60, 0, 0},
         .simulated_harvesting_masks_per_chip = {{0, {30, 0, 0}}, {1, {60, 0, 0}}},
     });
@@ -741,7 +741,7 @@ TEST(SiliconDriverWH, SysmemTestWithPcie) {
 TEST(SiliconDriverWH, RandomSysmemTestWithPcie) {
     const uint32_t num_channels = 2;  // ideally 4, but CI seems to have 2...
 
-    Cluster cluster = Cluster(ClusterOptions{
+    Cluster cluster(ClusterOptions{
         .num_host_mem_ch_per_mmio_device = num_channels,
     });
 

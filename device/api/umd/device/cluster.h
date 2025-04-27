@@ -592,21 +592,12 @@ public:
      */
     TLBManager* get_tlb_manager(chip_id_t device_id) const;
 
-private:
     /**
-     * If the tlbs are initialized, returns a tuple with the TLB base address and its size
+     * Exposes how TLBs are configured for a specific device.
      */
-    std::optional<std::tuple<uint32_t, uint32_t>> get_tlb_data_from_target(const tt_cxy_pair& target);
-
-    /**
-     * Returns a struct with the TLB configuration, or throws an exception if the target does not have a static TLB.
-     */
-    tlb_configuration get_tlb_configuration(const tt_cxy_pair& target);
-
-    std::optional<std::tuple<uint32_t, uint32_t>> get_tlb_data_from_target(
-        const chip_id_t chip, const tt::umd::CoreCoord core);
     tlb_configuration get_tlb_configuration(const chip_id_t chip, const tt::umd::CoreCoord core);
 
+private:
     // Helper functions
     // Startup + teardown
     void create_device(

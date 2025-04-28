@@ -133,7 +133,7 @@ void Chip::send_tensix_risc_reset(tt_xy_pair core, const TensixSoftResetOptions&
 }
 
 void Chip::send_tensix_risc_reset(const TensixSoftResetOptions& soft_resets) {
-    for (const CoreCoord core : soc_descriptor_.get_all_cores(CoordSystem::VIRTUAL)) {
+    for (const CoreCoord core : soc_descriptor_.get_cores(CoreType::TENSIX, CoordSystem::VIRTUAL)) {
         send_tensix_risc_reset(core, soft_resets);
     }
 }

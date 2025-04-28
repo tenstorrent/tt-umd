@@ -19,6 +19,7 @@
 #include "fmt/core.h"
 #include "tt_silicon_driver_common.hpp"
 #include "umd/device/chip/chip.h"
+#include "umd/device/tt_cluster_descriptor.h"
 #include "umd/device/tt_device/tt_device.h"
 #include "umd/device/tt_io.hpp"
 #include "umd/device/types/arch.h"

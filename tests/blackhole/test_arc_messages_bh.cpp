@@ -7,7 +7,7 @@
 #include "gtest/gtest.h"
 #include "umd/device/arc_messenger.h"
 #include "umd/device/blackhole_arc_telemetry_reader.h"
-#include "umd/device/tt_cluster_descriptor.h"
+#include "umd/device/cluster.h"
 #include "umd/device/types/blackhole_arc.h"
 
 using namespace tt::umd;

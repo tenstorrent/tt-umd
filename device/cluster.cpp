@@ -161,8 +161,14 @@ std::unique_ptr<Chip> Cluster::construct_chip_from_cluster(
         return std::make_unique<MockChip>(soc_desc);
     }
     if (chip_type == ChipType::SIMULATION) {
+#ifdef TT_UMD_BUILD_SIMULATION
         // Note that passed soc descriptor is ignored in favor of soc descriptor from simulator_directory.
         return std::make_unique<tt_SimulationDevice>(simulator_directory);
+#else
+        throw std::runtime_error(
+            "Simulation device is not supported in this build. Set '-DTT_UMD_BUILD_SIMULATION=ON' during cmake "
+            "configuration to enable simulation device.");
+#endif
     }
 
     if (cluster_desc->is_chip_mmio_capable(chip_id)) {

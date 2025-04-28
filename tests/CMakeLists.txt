@@ -70,9 +70,12 @@ add_custom_target(
         unit_tests_blackhole
         unit_tests_wormhole
         unit_tests_glx
-        simulation_tests
         test_pcie_device
         api_tests
         umd_misc_tests
         unified_tests
 )
+
+if(TT_UMD_BUILD_SIMULATION)
+    add_dependencies(umd_tests simulation_tests)
+endif()

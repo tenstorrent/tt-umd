@@ -905,7 +905,7 @@ const std::vector<chip_id_t> tt_ClusterDescriptor::get_chips_local_first(std::un
     std::vector<chip_id_t> chips_local_first;
     for (const auto &chip : chips) {
         log_assert(
-            this->chip_locations.find(chip) != this->chip_locations.end(),
+            this->enabled_active_chips.find(chip) != this->enabled_active_chips.end(),
             "Chip {} not found in cluster descriptor.",
             chip);
     }

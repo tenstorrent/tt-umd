@@ -13,8 +13,6 @@
 #include "umd/device/cluster.h"
 #include "umd/device/tt_soc_descriptor.h"
 
-using tt::umd::Cluster;
-
 class uBenchmarkFixture : public ::testing::Test {
 protected:
     void SetUp() override {
@@ -28,7 +26,7 @@ protected:
             }
             return flat_index;
         };
-        device = std::make_shared<Cluster>(ClusterOptions{.target_devices = {0}});
+        device = std::make_shared<tt::umd::Cluster>(tt::umd::ClusterOptions{.target_devices = {0}});
     }
 
     void TearDown() override {
@@ -36,6 +34,6 @@ protected:
         results_csv.close();
     }
 
-    std::shared_ptr<Cluster> device;
+    std::shared_ptr<tt::umd::Cluster> device;
     std::ofstream results_csv;
 };

@@ -36,6 +36,8 @@ jobs:
           path: tt-metal
           repository: tenstorrent/tt-metal
           submodules: recursive
+          fetch-depth: 500 # Need enough history for `git describe`
+          fetch-tags: true # Need tags for `git describe`
 
       - name: Checkout UMD
         uses: actions/checkout@v4

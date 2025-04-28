@@ -1057,7 +1057,7 @@ std::filesystem::path tt_ClusterDescriptor::serialize_to_file(const std::filesys
     if (file_path.empty()) {
         file_path = get_default_cluster_descriptor_file_path();
     }
-    std::ofstream file(dest_file);
+    std::ofstream file(file_path);
     file << serialize();
     file.close();
     return file_path;

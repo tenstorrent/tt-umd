@@ -319,7 +319,7 @@ TEST(TestCluster, TestClusterAICLKControl) {
     for (auto& clock : clocks_busy) {
         // TODO #781: Figure out a proper mechanism to detect the right value. For now just check that Busy value is
         // larger than Idle value.
-        EXPECT_LT(clock.second, get_expected_clock_val(clock.first, false));
+        EXPECT_GT(clock.second, get_expected_clock_val(clock.first, false));
     }
 
     cluster->set_power_state(tt_DevicePowerState::LONG_IDLE);

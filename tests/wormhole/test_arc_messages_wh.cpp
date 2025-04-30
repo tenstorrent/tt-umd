@@ -55,7 +55,7 @@ TEST(WormholeArcMessages, WormholeArcMessagesAICLK) {
         uint32_t aiclk = tt_device->get_clock();
 
         // TODO #781: For now expect only that busy val is something larger than idle val.
-        EXPECT_LT(aiclk, tt::umd::wormhole::AICLK_IDLE_VAL);
+        EXPECT_GT(aiclk, tt::umd::wormhole::AICLK_IDLE_VAL);
 
         response = arc_messenger->send_message(
             tt::umd::wormhole::ARC_MSG_COMMON_PREFIX |

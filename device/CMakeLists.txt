@@ -145,7 +145,7 @@ target_link_libraries(
         hwloc
         rt
         spdlog::spdlog_header_only
-        fmt::fmt-header-only
+        fmt::fmt
         yaml-cpp::yaml-cpp
         ${CMAKE_CURRENT_SOURCE_DIR}/libs/${CMAKE_SYSTEM_PROCESSOR}/libcreate_ethernet_map.a
 )

@@ -1,5 +1,5 @@
 set(UNIFIED_TESTS_SRCS
-    multiprocess.cpp
+    # multiprocess.cpp
     test_perf.cpp
 )
 

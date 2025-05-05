@@ -14,19 +14,23 @@ static constexpr uint32_t DMA_TIMEOUT_MS = 10000;  // 10 seconds
 namespace tt::umd {
 
 WormholeTTDevice::WormholeTTDevice(std::unique_ptr<PCIDevice> pci_device) :
-    TTDevice(std::move(pci_device), std::make_unique<wormhole_implementation>()) {}
+    TTDevice(std::move(pci_device), std::make_unique<wormhole_implementation>()) {
+    init_tt_device();
+}
 
-ChipInfo WormholeTTDevice::get_chip_info() {
-    ChipInfo chip_info;
-
+bool WormholeTTDevice::get_noc_translation_enabled() {
     uint32_t niu_cfg;
     const tt_xy_pair dram_core = {0, 0};
     const uint64_t niu_cfg_addr = 0x1000A0000 + 0x100;
     read_from_device(&niu_cfg, dram_core, niu_cfg_addr, sizeof(uint32_t));
 
-    bool noc_translation_enabled = (niu_cfg & (1 << 14)) != 0;
+    return (niu_cfg & (1 << 14)) != 0;
+}
 
-    chip_info.noc_translation_enabled = noc_translation_enabled;
+ChipInfo WormholeTTDevice::get_chip_info() {
+    ChipInfo chip_info;
+
+    chip_info.noc_translation_enabled = get_noc_translation_enabled();
 
     std::vector<uint32_t> arc_msg_return_values = {0};
     const uint32_t timeout_ms = 1000;

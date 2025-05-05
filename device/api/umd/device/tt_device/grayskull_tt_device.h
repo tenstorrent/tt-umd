@@ -17,6 +17,8 @@ public:
 
     BoardType get_board_type() override;
 
+    bool get_noc_translation_enabled() override;
+
     void dma_d2h(void *dst, uint32_t src, size_t size) override;
     void dma_h2d(uint32_t dst, const void *src, size_t size) override;
 };

@@ -29,6 +29,8 @@ public:
 
     BoardType get_board_type() override;
 
+    bool get_noc_translation_enabled() override;
+
     std::vector<DramTrainingStatus> get_dram_training_status() override;
 
     void dma_d2h(void *dst, uint32_t src, size_t size) override;

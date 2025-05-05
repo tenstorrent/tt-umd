@@ -373,11 +373,7 @@ tt_xy_pair LocalChip::translate_chip_coord_virtual_to_translated(const tt_xy_pai
     // On Wormhole Tensix can use NOC1 space if umd_use_noc1 is set to true.
     if (soc_descriptor_.noc_translation_enabled) {
         if (soc_descriptor_.arch == tt::ARCH::BLACKHOLE) {
-            if (core_coord.core_type == CoreType::TENSIX || !umd_use_noc1) {
-                return soc_descriptor_.translate_coord_to(core_coord, CoordSystem::TRANSLATED);
-            } else {
-                return soc_descriptor_.translate_coord_to(core_coord, CoordSystem::NOC1);
-            }
+            return soc_descriptor_.translate_coord_to(core_coord, CoordSystem::TRANSLATED);
         } else {
             return soc_descriptor_.translate_coord_to(
                 core_coord, umd_use_noc1 ? CoordSystem::NOC1 : CoordSystem::TRANSLATED);

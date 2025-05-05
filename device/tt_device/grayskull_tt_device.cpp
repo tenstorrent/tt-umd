@@ -20,6 +20,10 @@ BoardType GrayskullTTDevice::get_board_type() {
         "TTDevice is deleted.");
 }
 
+bool GrayskullTTDevice::get_noc_translation_enabled() {
+    throw std::runtime_error("Gete noc translation enabled is not supported for Grayskull.");
+}
+
 void GrayskullTTDevice::dma_d2h(void *dst, uint32_t src, size_t size) {
     throw std::runtime_error("D2H DMA is not supported on Grayskull.");
 }

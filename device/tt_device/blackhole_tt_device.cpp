@@ -12,7 +12,9 @@
 namespace tt::umd {
 
 BlackholeTTDevice::BlackholeTTDevice(std::unique_ptr<PCIDevice> pci_device) :
-    TTDevice(std::move(pci_device), std::make_unique<blackhole_implementation>()) {}
+    TTDevice(std::move(pci_device), std::make_unique<blackhole_implementation>()) {
+    init_tt_device();
+}
 
 BlackholeTTDevice::~BlackholeTTDevice() {
     // Turn off iATU for the regions we programmed.  This won't happen if the
@@ -82,6 +84,18 @@ void BlackholeTTDevice::configure_iatu_region(size_t region, uint64_t target, si
         target);
 }
 
+bool BlackholeTTDevice::get_noc_translation_enabled() {
+    const uint64_t addr = blackhole::NIU_CFG_NOC0_BAR_ADDR;
+    uint32_t niu_cfg;
+    if (addr < get_pci_device()->bar0_uc_offset) {
+        read_block(addr, sizeof(niu_cfg), reinterpret_cast<uint8_t *>(&niu_cfg));
+    } else {
+        read_regs(addr, 1, &niu_cfg);
+    }
+
+    return ((niu_cfg >> 14) & 0x1) != 0;
+}
+
 ChipInfo BlackholeTTDevice::get_chip_info() {
     chip_info.harvesting_masks.tensix_harvesting_mask =
         telemetry->is_entry_available(blackhole::TAG_ENABLED_TENSIX_COL)
@@ -114,15 +128,7 @@ ChipInfo BlackholeTTDevice::get_chip_info() {
     // Until then we have to read it from ETH core, it happens during topology exploration.
     // chip_info.chip_uid.asic_location = telemetry->read_entry(blackhole::TAG_ASIC_LOCATION);
 
-    const uint64_t addr = blackhole::NIU_CFG_NOC0_BAR_ADDR;
-    uint32_t niu_cfg;
-    if (addr < get_pci_device()->bar0_uc_offset) {
-        read_block(addr, sizeof(niu_cfg), reinterpret_cast<uint8_t *>(&niu_cfg));
-    } else {
-        read_regs(addr, 1, &niu_cfg);
-    }
-
-    chip_info.noc_translation_enabled = ((niu_cfg >> 14) & 0x1) != 0;
+    chip_info.noc_translation_enabled = get_noc_translation_enabled();
 
     // It is expected that these entries are always available.
     chip_info.chip_uid.board_id = ((uint64_t)telemetry->read_entry(blackhole::TAG_BOARD_ID_HIGH) << 32) |

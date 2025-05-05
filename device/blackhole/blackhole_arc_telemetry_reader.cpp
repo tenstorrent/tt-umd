@@ -9,44 +9,32 @@
 
 #include "umd/device/types/blackhole_telemetry.h"
 
+extern bool umd_use_noc1;
+
 namespace tt::umd {
 
-BlackholeArcTelemetryReader::BlackholeArcTelemetryReader(TTDevice* tt_device) : ArcTelemetryReader(tt_device) {
+BlackholeArcTelemetryReader::BlackholeArcTelemetryReader(TTDevice* tt_device) :
+    ArcTelemetryReader(tt_device),
+    arc_core(blackhole::get_arc_core(tt_device->get_noc_translation_enabled(), umd_use_noc1)) {
     initialize_telemetry();
 }
 
 void BlackholeArcTelemetryReader::initialize_telemetry() {
-    tt_device->read_from_device(
-        &telemetry_table_addr,
-        BlackholeArcTelemetryReader::arc_core,
-        tt::umd::blackhole::SCRATCH_RAM_13,
-        sizeof(uint32_t));
+    tt_device->read_from_device(&telemetry_table_addr, arc_core, tt::umd::blackhole::SCRATCH_RAM_13, sizeof(uint32_t));
 
-    tt_device->read_from_device(
-        &entry_count, BlackholeArcTelemetryReader::arc_core, telemetry_table_addr + sizeof(uint32_t), sizeof(uint32_t));
+    tt_device->read_from_device(&entry_count, arc_core, telemetry_table_addr + sizeof(uint32_t), sizeof(uint32_t));
 
-    tt_device->read_from_device(
-        &telemetry_values_addr,
-        BlackholeArcTelemetryReader::arc_core,
-        tt::umd::blackhole::SCRATCH_RAM_12,
-        sizeof(uint32_t));
+    tt_device->read_from_device(&telemetry_values_addr, arc_core, tt::umd::blackhole::SCRATCH_RAM_12, sizeof(uint32_t));
 
     // We offset the tag_table_address by 2 * sizeof(uint32_t) to skip the first two uint32_t values,
     // which are version and entry count. For representaiton look at blackhole_telemetry.h
     uint32_t tag_table_address = telemetry_table_addr + 2 * sizeof(uint32_t);
     std::vector<TelemetryTagEntry> telemetry_tag_entries(entry_count);
     tt_device->read_from_device(
-        telemetry_tag_entries.data(),
-        BlackholeArcTelemetryReader::arc_core,
-        tag_table_address,
-        entry_count * sizeof(TelemetryTagEntry));
+        telemetry_tag_entries.data(), arc_core, tag_table_address, entry_count * sizeof(TelemetryTagEntry));
 
     std::vector<uint32_t> telemetry_data(entry_count);
-    tt_device->read_from_device(
-        telemetry_data.data(),
-        BlackholeArcTelemetryReader::arc_core,
-        telemetry_values_addr,
-        entry_count * sizeof(uint32_t));
+    tt_device->read_from_device(telemetry_data.data(), arc_core, telemetry_values_addr, entry_count * sizeof(uint32_t));
 
     for (const TelemetryTagEntry& tag_entry : telemetry_tag_entries) {
         const uint16_t tag_val = tag_entry.tag;

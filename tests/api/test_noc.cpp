@@ -140,3 +140,22 @@ TEST(TestNoc, TestNoc1NodeId) {
 
     TTDevice::use_noc1(false);
 }
+
+TEST(TestNoc, Debug) {
+    TTDevice::use_noc1(true);
+    std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
+
+    for (int pci_device_id : pci_device_ids) {
+        std::unique_ptr<TTDevice> tt_device = TTDevice::create(pci_device_id);
+
+        // for (size_t i = 1; i <= 7; i++) {
+            uint32_t noc_node_id_val;
+            tt_device->read_from_device(&noc_node_id_val, {5, 0}, 0xFFB30044, sizeof(uint32_t));
+            uint32_t x = noc_node_id_val & 0x3F;
+            uint32_t y = (noc_node_id_val >> 6) & 0x3F;
+            // std::cout << "i " << i << " x y " << x << " " << y << std::endl;
+            std::cout << " x y " << x << " " << y << std::endl;
+        // }
+    }
+    TTDevice::use_noc1(false);
+}

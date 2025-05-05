@@ -71,15 +71,8 @@ TEST(TestNoc, TestNoc0NodeId) {
 }
 
 TEST(TestNoc, TestNoc1NodeId) {
-    std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
-    if (pci_device_ids.empty()) {
-        GTEST_SKIP() << "No chips present on the system. Skipping test.";
-    }
-    if (PCIDevice(pci_device_ids[0]).get_arch() == tt::ARCH::BLACKHOLE) {
-        GTEST_SKIP() << "Skipping NOC1 test for Blackhole until coordinate translation is fixed.";
-    }
-
     TTDevice::use_noc1(true);
+
     std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
 
     auto read_noc_id_reg = [&](std::unique_ptr<Cluster>& cluster, chip_id_t chip, CoreCoord core) {
@@ -118,9 +111,11 @@ TEST(TestNoc, TestNoc1NodeId) {
         check_noc_id_harvested_cores(cluster, chip, CoreType::TENSIX);
 
         check_noc_id_cores(cluster, chip, CoreType::ETH);
-        check_noc_id_harvested_cores(cluster, chip, CoreType::ETH);
+        if (cluster->get_cluster_description()->get_arch(chip) != tt::ARCH::BLACKHOLE) {
+            check_noc_id_harvested_cores(cluster, chip, CoreType::ETH);
+        }
 
-        if (cluster->get_cluster_description()->get_arch(chip) == tt::ARCH::BLACKHOLE) {
+        if (cluster->get_cluster_description()->get_arch(chip) != tt::ARCH::WORMHOLE_B0) {
             check_noc_id_cores(cluster, chip, CoreType::DRAM);
             check_noc_id_harvested_cores(cluster, chip, CoreType::DRAM);
         }
@@ -128,7 +123,13 @@ TEST(TestNoc, TestNoc1NodeId) {
         check_noc_id_cores(cluster, chip, CoreType::ARC);
 
         check_noc_id_cores(cluster, chip, CoreType::PCIE);
-        check_noc_id_harvested_cores(cluster, chip, CoreType::PCIE);
+
+        // TODO: translated coordinate for harvested PCIE is not same on NOC0 and NOC1.
+        // This needs to be fixed in some way in order for this to work on Blackhole
+        // with enabled translation.
+        if (cluster->get_cluster_description()->get_arch(chip) != tt::ARCH::BLACKHOLE) {
+            check_noc_id_harvested_cores(cluster, chip, CoreType::PCIE);
+        }
 
         check_noc_id_cores(cluster, chip, CoreType::SECURITY);
 

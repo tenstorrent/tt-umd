@@ -46,7 +46,7 @@ private:
 
 public:
     BlackholeArcMessageQueue(
-        TTDevice* tt_device, const uint64_t base_address, const uint64_t size, const CoreCoord arc_core);
+        TTDevice* tt_device, const uint64_t base_address, const uint64_t size, const tt_xy_pair arc_core);
 
     /*
      * Send ARC message. The call of send_message is blocking, timeout is to be implemented.
@@ -73,7 +73,7 @@ private:
     const uint64_t base_address;
     const uint64_t size;
     TTDevice* tt_device;
-    const CoreCoord arc_core;
+    const tt_xy_pair arc_core;
 };
 
 }  // namespace tt::umd

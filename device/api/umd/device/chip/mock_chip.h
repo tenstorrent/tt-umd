@@ -30,5 +30,9 @@ public:
         uint32_t timeout_ms,
         uint32_t* return_3,
         uint32_t* return_4) override;
+
+    void l1_membar(const std::unordered_set<tt::umd::CoreCoord>& cores = {}) override;
+    void dram_membar(const std::unordered_set<tt::umd::CoreCoord>& cores = {}) override;
+    void dram_membar(const std::unordered_set<uint32_t>& channels = {}) override;
 };
 }  // namespace tt::umd

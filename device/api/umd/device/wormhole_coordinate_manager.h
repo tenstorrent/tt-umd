@@ -35,4 +35,6 @@ protected:
     void fill_eth_physical_translated_mapping() override;
     void fill_pcie_physical_translated_mapping() override;
     void fill_arc_physical_translated_mapping() override;
+
+    tt_xy_pair get_tensix_grid_size() const override;
 };

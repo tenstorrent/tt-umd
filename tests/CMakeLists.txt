@@ -23,7 +23,6 @@ target_include_directories(
 # It can slow down reconfigures
 # Here we skip downloading repeatedly
 set(ARCHS
-    grayskull
     wormhole
     blackhole
 )

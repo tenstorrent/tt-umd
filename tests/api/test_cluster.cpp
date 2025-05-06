@@ -317,11 +317,9 @@ TEST(TestCluster, TestClusterAICLKControl) {
 
     auto clocks_busy = cluster->get_clocks();
     for (auto& clock : clocks_busy) {
-        // TODO: check this for Wormhole as well if we can somehow hardcode set of values to check for
-        // go busy AICLK. It won't always be the same for Wormhole.
-        if (cluster->get_cluster_description()->get_arch(clock.first) == tt::ARCH::BLACKHOLE) {
-            EXPECT_EQ(clock.second, get_expected_clock_val(clock.first, true));
-        }
+        // TODO #781: Figure out a proper mechanism to detect the right value. For now just check that Busy value is
+        // larger than Idle value.
+        EXPECT_GT(clock.second, get_expected_clock_val(clock.first, false));
     }
 
     cluster->set_power_state(tt_DevicePowerState::LONG_IDLE);

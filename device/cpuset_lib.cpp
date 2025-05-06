@@ -416,7 +416,8 @@ bool tt_cpuset_allocator::bind_area_memory_nodeset(chip_id_t physical_device_id,
         tid);
 
     if (m_physical_device_id_to_numa_nodeset_map.count(physical_device_id) == 0) {
-        log_fatal(
+        log_warning(
+            LogSiliconDriver,
             "bind_area_memory_nodeset(): Did not find physical_device_id: {} in numanode_mask map, this is not "
             "expected.",
             physical_device_id);

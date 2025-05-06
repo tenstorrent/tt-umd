@@ -334,7 +334,7 @@ TEST(TestPerf, DMATensix) {
         PCIDevice::dma_buf_size = dma_buf_size_;
 
         std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
-        // cluster->start_device(tt_device_params{});
+        cluster->start_device(tt_device_params{});
 
         const uint32_t dma_buf_size = cluster->get_tt_device(0)->get_pci_device()->get_dma_buffer().size;
 
@@ -426,7 +426,7 @@ TEST(TestPerf, DMADram) {
     for (size_t dma_buf_size_ : dma_buf_sizes) {
         PCIDevice::dma_buf_size = dma_buf_size_;
         std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
-        // cluster->start_device(tt_device_params{});
+        cluster->start_device(tt_device_params{});
 
         const uint32_t dma_buf_size = cluster->get_tt_device(0)->get_pci_device()->get_dma_buffer().size;
 

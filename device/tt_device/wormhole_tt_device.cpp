@@ -249,12 +249,7 @@ void WormholeTTDevice::dma_d2h(void *dst, uint32_t src, size_t size) {
     WormholeTTDevice::dma_total_ns += dma_ns;
 
     auto now = std::chrono::steady_clock::now();
-    // if (size >= 1 << 20) {
-    //     memcpy(dst, dma_buffer.buffer, size / 2);
-    //     memcpy((uint8_t *)dst + size / 2, dma_buffer.buffer + size / 2, size / 2);
-    // } else {
-    // memcpy(dst, dma_buffer.buffer, size);
-    // }
+    memcpy(dst, dma_buffer.buffer, size);
     auto end = std::chrono::steady_clock::now();
     auto ns = std::chrono::duration_cast<std::chrono::nanoseconds>(end - now).count();
     WormholeTTDevice::memcpy_total_ns += ns;
@@ -303,12 +298,7 @@ void WormholeTTDevice::dma_h2d(uint32_t dst, const void *src, size_t size, uint3
 
     // Prepare the DMA buffer.
     auto now = std::chrono::steady_clock::now();
-    // if (size >= 1 << 20) {
-    //     memcpy(dma_buffer.buffer, src, size / 2);
-    //     memcpy(dma_buffer.buffer + size / 2, (uint8_t *)src + size / 2, size / 2);
-    // } else {
-    // memcpy(dma_buffer.buffer, src, size);
-    // }
+    memcpy(dma_buffer.buffer, src, size);
     auto end = std::chrono::steady_clock::now();
     auto ns = std::chrono::duration_cast<std::chrono::nanoseconds>(end - now).count();
     WormholeTTDevice::memcpy_total_ns += ns;

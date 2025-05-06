@@ -110,15 +110,3 @@ CPMAddPackage(NAME fmt GITHUB_REPOSITORY fmtlib/fmt GIT_TAG 11.1.4)
 if(MASTER_PROJECT)
     CPMAddPackage(NAME nanobench GITHUB_REPOSITORY martinus/nanobench GIT_TAG v4.3.11)
 endif()
-
-####################################################################################################################
-# spdlog
-####################################################################################################################
-CPMAddPackage(
-    NAME spdlog
-    GITHUB_REPOSITORY gabime/spdlog
-    GIT_TAG
-        96a8f6250cbf4e8c76387c614f666710a2fa9bad # Version v 1.15+fmtlib fixes
-    OPTIONS
-        "CMAKE_MESSAGE_LOG_LEVEL NOTICE"
-)

@@ -1,15 +1,7 @@
-set(UMD_MISC_TESTS_SRCS
-    test_semver.cpp
-    test_logger.cpp
-)
+set(UMD_MISC_TESTS_SRCS test_semver.cpp)
 
 add_executable(umd_misc_tests ${UMD_MISC_TESTS_SRCS})
-target_link_libraries(
-    umd_misc_tests
-    PRIVATE
-        test_common
-        spdlog::spdlog_header_only
-)
+target_link_libraries(umd_misc_tests PRIVATE test_common)
 set_target_properties(
     umd_misc_tests
     PROPERTIES

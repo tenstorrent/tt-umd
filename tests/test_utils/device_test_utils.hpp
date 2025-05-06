@@ -25,14 +25,14 @@ static void size_buffer_to_capacity(std::vector<T>& data_buf, std::size_t size_i
 }
 
 static void read_data_from_device(
-    tt::umd::Cluster& device,
+    tt::umd::Cluster& cluster,
     std::vector<uint32_t>& vec,
     chip_id_t chip_id,
     tt::umd::CoreCoord core,
     uint64_t addr,
     uint32_t size) {
     size_buffer_to_capacity(vec, size);
-    device.read_from_device(vec.data(), chip_id, core, addr, size);
+    cluster.read_from_device(vec.data(), chip_id, core, addr, size);
 }
 
 inline void fill_with_random_bytes(uint8_t* data, size_t n) {

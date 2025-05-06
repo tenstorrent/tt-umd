@@ -87,6 +87,9 @@ ChipInfo BlackholeTTDevice::get_chip_info() {
         telemetry->is_entry_available(blackhole::TAG_ENABLED_TENSIX_COL)
             ? (~telemetry->read_entry(blackhole::TAG_ENABLED_TENSIX_COL) & 0x3FFF)
             : 0;
+
+    std::cout << "tensix harvesting mask " << std::hex << chip_info.harvesting_masks.tensix_harvesting_mask << std::dec << std::endl;
+
     chip_info.harvesting_masks.dram_harvesting_mask = telemetry->is_entry_available(blackhole::TAG_ENABLED_GDDR)
                                                           ? (~telemetry->read_entry(blackhole::TAG_ENABLED_GDDR) & 0xFF)
                                                           : 0;
@@ -123,6 +126,8 @@ ChipInfo BlackholeTTDevice::get_chip_info() {
     }
 
     chip_info.noc_translation_enabled = ((niu_cfg >> 14) & 0x1) != 0;
+
+    std::cout << "noc translation enabled " << (uint32_t)chip_info.noc_translation_enabled << std::endl;
 
     // It is expected that these entries are always available.
     chip_info.chip_uid.board_id = ((uint64_t)telemetry->read_entry(blackhole::TAG_BOARD_ID_HIGH) << 32) |

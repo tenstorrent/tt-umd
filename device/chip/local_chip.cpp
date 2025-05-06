@@ -346,6 +346,9 @@ void LocalChip::read_from_device_reg(tt_xy_pair core, void* dest, uint64_t reg_s
     auto lock = lock_manager_.acquire_mutex(fallback_tlb, tt_device_->get_pci_device()->get_device_num());
     log_debug(LogSiliconDriver, "  dynamic tlb_index: {}", tlb_index);
 
+    auto tt_dev_core = translate_chip_coord_virtual_to_translated(core);
+    std::cout << "tt_dev core " << tt_dev_core.x << " " << tt_dev_core.y << std::endl;
+
     auto [mapped_address, tlb_size] = tt_device_->set_dynamic_tlb(
         tlb_index, translate_chip_coord_virtual_to_translated(core), reg_src, tt::umd::tlb_data::Strict);
     tt_device_->read_regs(mapped_address, size / sizeof(uint32_t), dest);

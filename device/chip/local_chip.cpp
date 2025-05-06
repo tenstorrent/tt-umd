@@ -249,11 +249,10 @@ void LocalChip::read_from_device(tt_xy_pair core, void* dest, uint64_t l1_src, u
 }
 
 #include <immintrin.h>
-#include <stdint.h>
 #include <stddef.h>
+#include <stdint.h>
 
-__attribute__((target("avx")))
-static void simd_memcpy(void* dest, const void* src, size_t size) {
+__attribute__((target("avx"))) static void simd_memcpy(void* dest, const void* src, size_t size) {
     uint8_t* dst_ptr = (uint8_t*)dest;
     const uint8_t* src_ptr = (const uint8_t*)src;
 
@@ -261,8 +260,8 @@ static void simd_memcpy(void* dest, const void* src, size_t size) {
 
     // Use AVX2 256-bit registers (32 bytes at a time)
     for (; i + 31 < size; i += 32) {
-        __m256i data = _mm256_loadu_si256((__m256i*)(src_ptr + i)); // unaligned load
-        _mm256_storeu_si256((__m256i*)(dst_ptr + i), data);         // unaligned store
+        __m256i data = _mm256_loadu_si256((__m256i*)(src_ptr + i));  // unaligned load
+        _mm256_storeu_si256((__m256i*)(dst_ptr + i), data);          // unaligned store
     }
 
     // Handle the tail (any remaining bytes)

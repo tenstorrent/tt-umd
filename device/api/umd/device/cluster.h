@@ -545,7 +545,7 @@ class RemoteChip;
 // Chip type to create under the Cluster class.
 //  - Silicon means that the chips under cluster will be connected to actual physical devices connected to the system.
 //  - Simulation is used for simulation runs.
-//  - Mock is used for testing purposes, which mocks all calls.
+//  - Mock is used for testing purposes, implementation of all functions is empty.
 enum ChipType {
     SILICON,
     SIMULATION,

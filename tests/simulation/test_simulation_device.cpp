@@ -28,7 +28,7 @@ INSTANTIATE_TEST_SUITE_P(
 TEST_P(LoopbackAllCoresParam, LoopbackSingleTensix) {
     std::vector<uint32_t> wdata = {1, 2, 3, 4, 5};
     std::vector<uint32_t> rdata(wdata.size(), 0);
-    auto &soc_desc = device->get_soc_descriptor(0);
+    auto &soc_desc = device->get_soc_descriptor();
     tt::umd::CoreCoord core = soc_desc.get_coord_at(GetParam(), CoordSystem::VIRTUAL);
 
     device->write_to_device(core, wdata.data(), 0x100, wdata.size() * sizeof(uint32_t));
@@ -50,7 +50,7 @@ bool loopback_stress_size(std::unique_ptr<tt_SimulationDevice> &device, tt::umd:
 }
 
 TEST_P(LoopbackAllCoresParam, LoopbackStressSize) {
-    auto &soc_desc = device->get_soc_descriptor(0);
+    auto &soc_desc = device->get_soc_descriptor();
     tt::umd::CoreCoord core = soc_desc.get_coord_at(GetParam(), CoordSystem::VIRTUAL);
     tt::umd::CoreCoord dram = soc_desc.get_coord_at({1, 0}, CoordSystem::VIRTUAL);
     if (core == dram) {
@@ -65,7 +65,7 @@ TEST_P(LoopbackAllCoresParam, LoopbackStressSize) {
 }
 
 TEST_F(SimulationDeviceFixture, LoopbackTwoTensix) {
-    auto &soc_desc = device->get_soc_descriptor(0);
+    auto &soc_desc = device->get_soc_descriptor();
     std::vector<uint32_t> wdata1 = {1, 2, 3, 4, 5};
     std::vector<uint32_t> wdata2 = {6, 7, 8, 9, 10};
     std::vector<uint32_t> rdata1(wdata1.size());

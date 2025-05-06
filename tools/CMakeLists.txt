@@ -4,6 +4,7 @@ target_link_libraries(
     INTERFACE
         umd::device
         umd::Firmware
+        fmt::fmt-header-only
 )
 target_include_directories(
     tools_common

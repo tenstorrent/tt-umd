@@ -248,22 +248,24 @@ static constexpr uint32_t TENSIX_L1_SIZE = 1572864;
 static constexpr uint32_t ETH_L1_SIZE = 262144;
 static constexpr uint64_t DRAM_BANK_SIZE = 4294967296;
 
-constexpr std::array<std::pair<CoreType, uint64_t>, 7> NOC0_CONTROL_REG_ADDR_BASE_MAP = {
+constexpr std::array<std::pair<CoreType, uint64_t>, 8> NOC0_CONTROL_REG_ADDR_BASE_MAP = {
     {{CoreType::TENSIX, 0xFFB20000},
      {CoreType::ETH, 0xFFB20000},
      {CoreType::DRAM, 0xFFB20000},
      {CoreType::PCIE, 0xFFFFFFFFFF000000ULL},
      {CoreType::ARC, 0xFFFFFFFFFF000000ULL},
      {CoreType::SECURITY, 0xFFFFFFFFFF000000ULL},
-     {CoreType::L2CPU, 0xFFFFFFFFFF000000ULL}}};
-constexpr std::array<std::pair<CoreType, uint64_t>, 7> NOC1_CONTROL_REG_ADDR_BASE_MAP = {
+     {CoreType::L2CPU, 0xFFFFFFFFFF000000ULL},
+     {CoreType::ROUTER_ONLY, 0xFF000000}}};
+constexpr std::array<std::pair<CoreType, uint64_t>, 8> NOC1_CONTROL_REG_ADDR_BASE_MAP = {
     {{CoreType::TENSIX, 0xFFB30000},
      {CoreType::ETH, 0xFFB30000},
      {CoreType::DRAM, 0xFFB30000},
      {CoreType::PCIE, 0xFFFFFFFFFF000000ULL},
      {CoreType::ARC, 0xFFFFFFFFFF000000ULL},
      {CoreType::SECURITY, 0xFFFFFFFFFF000000ULL},
-     {CoreType::L2CPU, 0xFFFFFFFFFF000000ULL}}};
+     {CoreType::L2CPU, 0xFFFFFFFFFF000000ULL},
+     {CoreType::ROUTER_ONLY, 0xFF000000}}};
 
 static const uint64_t NOC_NODE_ID_OFFSET = 0x44;
 

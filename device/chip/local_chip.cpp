@@ -284,6 +284,8 @@ void LocalChip::dma_write_to_device(const void* src, size_t size, tt_xy_pair cor
     while (size > 0) {
         auto [axi_address, tlb_size] = tt_device_->set_dynamic_tlb(tlb_index, core, addr, ordering);
         size_t transfer_size = std::min({size, tlb_size, dmabuf_size});
+        std::cout << "transfer size " << transfer_size << " size " << size << " tlb_size " << tlb_size
+                  << " dmabuf_size " << dmabuf_size << std::endl;
         // size_t ax_addr = axi_address;
         // auto dma_transfer_0 = std::thread(
         //     [&, ax_addr] {

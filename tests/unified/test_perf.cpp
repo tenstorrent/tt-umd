@@ -617,6 +617,129 @@ TEST(TestPerf, DMADramInterleaved) {
     }
 }
 
+/**
+ * Test the PCIe DMA controller by using it to write random tile-sized patterns
+ * to DRAM banks, in a same way Metal would write data for DRAM interleaved pattern.
+ */
+TEST(TestPerf, DMADramInterleavedbrosko) {
+    const chip_id_t chip = 0;
+    const uint64_t one_kb = 1 << 10;
+    const uint64_t tile_size = 32 * 32;
+    const std::vector<CoreCoord> dram_cores = {
+        CoreCoord(0, 0, CoreType::DRAM, CoordSystem::NOC0),
+        CoreCoord(0, 0, CoreType::DRAM, CoordSystem::NOC0),
+        CoreCoord(0, 5, CoreType::DRAM, CoordSystem::NOC0),
+        CoreCoord(0, 5, CoreType::DRAM, CoordSystem::NOC0),
+        CoreCoord(5, 0, CoreType::DRAM, CoordSystem::NOC0),
+        CoreCoord(5, 0, CoreType::DRAM, CoordSystem::NOC0),
+        CoreCoord(5, 2, CoreType::DRAM, CoordSystem::NOC0),
+        CoreCoord(5, 2, CoreType::DRAM, CoordSystem::NOC0),
+        CoreCoord(5, 3, CoreType::DRAM, CoordSystem::NOC0),
+        CoreCoord(5, 3, CoreType::DRAM, CoordSystem::NOC0),
+        CoreCoord(5, 5, CoreType::DRAM, CoordSystem::NOC0),
+        CoreCoord(5, 5, CoreType::DRAM, CoordSystem::NOC0),
+    };
+    const std::vector<uint64_t> dram_addrs = {
+        0,
+        1ULL << 30,
+        0,
+        1ULL << 30,
+        0,
+        1ULL << 30,
+        0,
+        1ULL << 30,
+        0,
+        1ULL << 30,
+        0,
+        1ULL << 30,
+    };
+    const std::vector<uint64_t> tensor_sizes = {
+        1 * 1 * tile_size,
+        2 * 2 * tile_size,
+        4 * 4 * tile_size,
+        8 * 8 * tile_size,
+        16 * 16 * tile_size,
+        32 * 32 * tile_size,
+        64 * 64 * tile_size,
+        128 * 128 * tile_size,
+        256 * 256 * tile_size,
+        512 * 512 * tile_size,
+        1024 * 1024 * tile_size,
+    };
+
+    std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
+    cluster->start_device(tt_device_params{});
+
+    for (uint32_t buf_size : tensor_sizes) {
+        std::cout << std::endl;
+        std::cout << "Reporting results for buffer size " << (buf_size / one_kb) << " KB" << std::endl;
+        std::cout << "--------------------------------------------------------" << std::endl;
+
+        std::vector<uint64_t> dram_addrs_io = dram_addrs;
+        uint32_t dram_core_index = 0;
+        uint32_t dram_addr_index = 0;
+
+        uint64_t total_ns = 0;
+
+        std::vector<uint8_t> buf(buf_size);
+        test_utils::fill_with_random_bytes(buf.data(), buf.size());
+
+        int transfer_size = tile_size;
+
+        // for (size_t i = 0; i < buf_size / transfer_size; i++) {
+        {
+            auto now = std::chrono::steady_clock::now();
+            cluster->dma_write_to_device(
+                buf.data(), buf.size(), chip, dram_cores[dram_core_index], dram_addrs_io[dram_addr_index]);
+            auto end = std::chrono::steady_clock::now();
+            auto ns = std::chrono::duration_cast<std::chrono::nanoseconds>(end - now).count();
+
+            total_ns += ns;
+
+            dram_addrs_io[dram_addr_index] += transfer_size;
+
+            dram_core_index = (dram_core_index + 1) % dram_cores.size();
+            dram_addr_index = (dram_addr_index + 1) % dram_addrs.size();
+        }
+        // }
+
+        print_speed("DMA: Host -> Device", buf_size, total_ns);
+
+        dram_addrs_io = dram_addrs;
+        dram_core_index = 0;
+        dram_addr_index = 0;
+        total_ns = 0;
+
+        // Now, read back the patterns we wrote to DRAM and verify them.
+        // for (size_t i = 0; i < buf_size / transfer_size; i++) {
+        {
+            std::vector<uint8_t> readback(buf_size, 0x0);
+
+            auto now = std::chrono::steady_clock::now();
+            cluster->dma_read_from_device(
+                readback.data(), readback.size(), chip, dram_cores[dram_core_index], dram_addrs_io[dram_addr_index]);
+            auto end = std::chrono::steady_clock::now();
+            auto ns = std::chrono::duration_cast<std::chrono::nanoseconds>(end - now).count();
+
+            total_ns += ns;
+
+            dram_addrs_io[dram_addr_index] += transfer_size;
+
+            for (int ind = 0; ind < readback.size(); ind++) {
+                EXPECT_EQ(buf[ind], readback[ind])
+                    << "Mismatch for core " << dram_cores[dram_core_index].str() << " addr=0x0"
+                    << " size=" << std::dec << readback.size();
+            }
+
+            dram_core_index = (dram_core_index + 1) % dram_cores.size();
+            dram_addr_index = (dram_addr_index + 1) % dram_addrs.size();
+        }
+        // }
+
+        print_speed("DMA: Device -> Host", buf_size, total_ns);
+    }
+}
+
 #include <immintrin.h>
 #include <stddef.h>
 #include <stdint.h>
@@ -737,5 +860,223 @@ TEST(TestPerf, Memcpy) {
         auto end = std::chrono::steady_clock::now();
         auto ns = std::chrono::duration_cast<std::chrono::nanoseconds>(end - now).count();
         print_speed("Multiple threads memcpy: Host -> DMA buffer", NUM_ITERATIONS * src_buffer.size(), ns);
+    }
+}
+
+TEST(TestPerf, Memcpybrosko) {
+    std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
+
+    PCIDevice* pci_device = cluster->get_tt_device(0)->get_pci_device();
+
+    const size_t NUM_ITERATIONS = 1000;
+
+    const uint32_t one_mib = (1 << 20);
+
+    {
+        std::vector<uint8_t> src_buffer(one_mib * NUM_ITERATIONS);
+        int transfer_size = one_mib;
+        test_utils::fill_with_random_bytes(&src_buffer[0], src_buffer.size());
+        auto now = std::chrono::steady_clock::now();
+
+        for (int i = 0; i < src_buffer.size() / transfer_size; i++) {
+            memcpy(
+                pci_device->get_dma_buffer().buffer + ((i * transfer_size) % pci_device->get_dma_buffer().size),
+                src_buffer.data() + i * transfer_size,
+                transfer_size);
+        }
+
+        auto end = std::chrono::steady_clock::now();
+        auto ns = std::chrono::duration_cast<std::chrono::nanoseconds>(end - now).count();
+
+        print_speed("Single thread memcpy - each memcpy 1MB: Host -> DMA buffer", src_buffer.size(), ns);
+    }
+    {
+        std::vector<uint8_t> src_buffer(one_mib * NUM_ITERATIONS);
+        int transfer_size = one_mib / 2;
+        auto now = std::chrono::steady_clock::now();
+
+        for (int i = 0; i < src_buffer.size() / transfer_size; i++) {
+            memcpy(
+                pci_device->get_dma_buffer().buffer + ((i * transfer_size) % pci_device->get_dma_buffer().size),
+                src_buffer.data() + i * transfer_size,
+                transfer_size);
+        }
+
+        auto end = std::chrono::steady_clock::now();
+        auto ns = std::chrono::duration_cast<std::chrono::nanoseconds>(end - now).count();
+
+        print_speed("Single thread memcpy - each memcpy 512KB: Host -> DMA buffer", src_buffer.size(), ns);
+    }
+    {
+        std::vector<uint8_t> src_buffer(one_mib * NUM_ITERATIONS);
+        int transfer_size = one_mib;
+        test_utils::fill_with_random_bytes(&src_buffer[0], src_buffer.size());
+        auto now = std::chrono::steady_clock::now();
+
+        for (int i = 0; i < src_buffer.size() / transfer_size; i++) {
+            simd_memcpy(
+                pci_device->get_dma_buffer().buffer + ((i * transfer_size) % pci_device->get_dma_buffer().size),
+                src_buffer.data() + i * transfer_size,
+                transfer_size);
+        }
+
+        auto end = std::chrono::steady_clock::now();
+        auto ns = std::chrono::duration_cast<std::chrono::nanoseconds>(end - now).count();
+
+        print_speed("SIMD memcpy - each memcpy 1MB: Host -> DMA buffer", src_buffer.size(), ns);
+    }
+    {
+        std::vector<uint8_t> src_buffer(one_mib * NUM_ITERATIONS);
+        int transfer_size = one_mib / 4;
+        auto now = std::chrono::steady_clock::now();
+
+        for (int i = 0; i < src_buffer.size() / transfer_size; i++) {
+            memcpy(
+                pci_device->get_dma_buffer().buffer + ((i * transfer_size) % pci_device->get_dma_buffer().size),
+                src_buffer.data() + i * transfer_size,
+                transfer_size);
+        }
+
+        auto end = std::chrono::steady_clock::now();
+        auto ns = std::chrono::duration_cast<std::chrono::nanoseconds>(end - now).count();
+
+        print_speed("Single thread memcpy - each memcpy 256KB: Host -> DMA buffer", src_buffer.size(), ns);
+    }
+    {
+        std::vector<uint8_t> src_buffer(one_mib);
+        test_utils::fill_with_random_bytes(&src_buffer[0], src_buffer.size());
+        auto now = std::chrono::steady_clock::now();
+
+        void* s1 = (void*)((uint8_t*)src_buffer.data() + src_buffer.size() / 4);
+        void* s2 = (void*)((uint8_t*)src_buffer.data() + src_buffer.size() / 2);
+        void* s3 = (void*)((uint8_t*)src_buffer.data() + 3 * src_buffer.size() / 4);
+
+        void* p1 = (void*)((uint8_t*)pci_device->get_dma_buffer().buffer + src_buffer.size() / 4);
+        void* p2 = (void*)((uint8_t*)pci_device->get_dma_buffer().buffer + src_buffer.size() / 2);
+        void* p3 = (void*)((uint8_t*)pci_device->get_dma_buffer().buffer + 3 * src_buffer.size() / 4);
+
+        for (int i = 0; i < NUM_ITERATIONS; i++) {
+            auto memcpy0 = std::thread(
+                [&] { memcpy(pci_device->get_dma_buffer().buffer, src_buffer.data(), src_buffer.size() / 4); });
+
+            auto memcpy1 = std::thread([&] { memcpy(p1, s1, src_buffer.size() / 4); });
+
+            auto memcpy2 = std::thread([&] { memcpy(p2, s2, src_buffer.size() / 4); });
+
+            auto memcpy3 = std::thread([&] { memcpy(p3, s3, src_buffer.size() / 4); });
+
+            memcpy0.join();
+            memcpy1.join();
+            memcpy2.join();
+            memcpy3.join();
+        }
+
+        auto end = std::chrono::steady_clock::now();
+        auto ns = std::chrono::duration_cast<std::chrono::nanoseconds>(end - now).count();
+        print_speed("Multiple threads memcpy: Host -> DMA buffer", NUM_ITERATIONS * src_buffer.size(), ns);
+    }
+}
+
+TEST(TestPerf, MemcpyOnly) {
+    const size_t NUM_ITERATIONS = 100;
+
+    const uint32_t one_mib = (1 << 20);
+
+    size_t buf_size = one_mib * 100;
+
+    size_t MULTITHREAD_NUM = 4;
+
+    for (auto transfer_size : std::vector<size_t>{one_mib * 2, one_mib, one_mib / 2, one_mib / 4}) {
+        for (bool use_simd : {false, true}) {
+            for (bool use_multithread : {false, true}) {
+                // std::cout << "starting test with transfer size " << transfer_size / 1024
+                //           << "KB use_simd " << use_simd << " use_multithread " << use_multithread << std::endl;
+                std::vector<uint8_t> src_buffer(buf_size);
+                test_utils::fill_with_random_bytes(src_buffer.data(), src_buffer.size());
+                std::vector<uint8_t> dst_buffer(buf_size);
+                auto now = std::chrono::steady_clock::now();
+
+                for (int i = 0; i < NUM_ITERATIONS; i++) {
+                    // std::cout << "iteration " << i << std::endl;
+                    if (use_multithread) {
+                        size_t size_left = buf_size;
+                        while (size_left > 0) {
+                            // std::cout << "while loop size left " << size_left << std::endl;
+                            size_t size_to_copy = std::min(transfer_size * MULTITHREAD_NUM, size_left);
+                            size_t size_to_copy_per_thread = size_to_copy / MULTITHREAD_NUM;
+                            std::vector<std::thread> threads;
+                            for (size_t thread_id = 0; thread_id < MULTITHREAD_NUM; thread_id++) {
+                                threads.push_back(std::thread([thread_id,
+                                                               use_simd,
+                                                               buf_size,
+                                                               size_to_copy_per_thread,
+                                                               size_left,
+                                                               &src_buffer,
+                                                               &dst_buffer] {
+                                    if (use_simd) {
+                                        // std::cout << "thread id " << thread_id << " simd memcpy ind al threads " <<
+                                        // buf_size - size_left << " ind this thread " << (buf_size - size_left) +
+                                        //         size_to_copy_per_thread * thread_id << " size " <<
+                                        //         size_to_copy_per_thread
+                                        //           << std::endl;
+                                        simd_memcpy(
+                                            dst_buffer.data() + (buf_size - size_left) +
+                                                size_to_copy_per_thread * thread_id,
+                                            src_buffer.data() + (buf_size - size_left) +
+                                                size_to_copy_per_thread * thread_id,
+                                            size_to_copy_per_thread);
+                                    } else {
+                                        // std::cout << "thread id " << thread_id << " reg memcpy ind al threads " <<
+                                        // buf_size - size_left << " ind this thread " << (buf_size - size_left) +
+                                        //         size_to_copy_per_thread * thread_id << " size " <<
+                                        //         size_to_copy_per_thread
+                                        //           << std::endl;
+                                        memcpy(
+                                            dst_buffer.data() + (buf_size - size_left) +
+                                                size_to_copy_per_thread * thread_id,
+                                            src_buffer.data() + (buf_size - size_left) +
+                                                size_to_copy_per_thread * thread_id,
+                                            size_to_copy_per_thread);
+                                    }
+                                }));
+                            }
+                            for (auto& thread : threads) {
+                                thread.join();
+                            }
+                            size_left -= size_to_copy;
+                        }
+
+                    } else {
+                        size_t size_left = buf_size;
+                        while (size_left > 0) {
+                            // std::cout << "while loop size left single thread " << size_left << std::endl;
+                            size_t size_to_copy = std::min(transfer_size, size_left);
+                            if (use_simd) {
+                                simd_memcpy(
+                                    dst_buffer.data() + (buf_size - size_left),
+                                    src_buffer.data() + (buf_size - size_left),
+                                    size_to_copy);
+                            } else {
+                                memcpy(
+                                    dst_buffer.data() + (buf_size - size_left),
+                                    src_buffer.data() + (buf_size - size_left),
+                                    size_to_copy);
+                            }
+                            size_left -= size_to_copy;
+                        }
+                    }
+                }
+
+                auto end = std::chrono::steady_clock::now();
+                auto ns = std::chrono::duration_cast<std::chrono::nanoseconds>(end - now).count();
+
+                print_speed(
+                    "Total buf size " + std::to_string(buf_size / 1024) + "KB transfer size " +
+                        std::to_string(transfer_size / 1024) + "KB use_simd " + std::to_string(use_simd) +
+                        " use multithread " + std::to_string(use_multithread),
+                    NUM_ITERATIONS * src_buffer.size(),
+                    ns);
+            }
+        }
     }
 }

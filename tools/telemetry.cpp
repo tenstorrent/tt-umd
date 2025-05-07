@@ -3,18 +3,20 @@
 // SPDX-License-Identifier: Apache-2.0
 #include <chrono>
 #include <cxxopts.hpp>
+#include <ostream>
 #include <sstream>
 #include <string>
 #include <thread>
 #include <vector>
 
+#include "fmt/core.h"
 #include "logger.hpp"
 #include "umd/device/arc_telemetry_reader.h"
 #include "umd/device/types/wormhole_telemetry.h"
 
 using namespace tt::umd;
 
-void run_default_telemetry(int pci_device, ArcTelemetryReader* telemetry_reader) {
+std::string run_default_telemetry(int pci_device, ArcTelemetryReader* telemetry_reader) {
     uint32_t aiclk_fmax = telemetry_reader->read_entry(wormhole::TAG_AICLK);
     uint32_t aiclk_current = aiclk_fmax & 0xFFFF;
     // uint32_t aiclk_fmax = aiclk_fmax >> 16;
@@ -22,9 +24,7 @@ void run_default_telemetry(int pci_device, ArcTelemetryReader* telemetry_reader)
     uint32_t tdp = telemetry_reader->read_entry(wormhole::TAG_TDP) & 0xFFFF;
     uint32_t asic_temperature = telemetry_reader->read_entry(wormhole::TAG_ASIC_TEMPERATURE);
     uint32_t current_temperature = (asic_temperature & 0xFFFF) / 16.0;
-
-    log_info(
-        tt::LogSiliconDriver,
+    return fmt::format(
         "Device id {} - AICLK: {} VCore: {} Power: {} Temp: {}",
         pci_device,
         aiclk_current,
@@ -45,7 +45,9 @@ int main(int argc, char* argv[]) {
         "power, temperature and vcore",
         cxxopts::value<int>()->default_value("-1"))(
         "f,freq", "Frequency of polling in microseconds.", cxxopts::value<int>()->default_value("1000"))(
-        "h,help", "Print usage");
+        "o,outfile",
+        "Output file to dump telemetry to. If omitted, will print out to stdout.",
+        cxxopts::value<std::string>())("h,help", "Print usage");
 
     auto result = options.parse(argc, argv);
 
@@ -74,6 +76,14 @@ int main(int argc, char* argv[]) {
         pci_device_ids = discovered_pci_device_ids;
     }
 
+    std::ofstream output_file;
+    if (result.count("outfile")) {
+        output_file.open(result["outfile"].as<std::string>());
+        if (!output_file.is_open()) {
+            std::cerr << "Failed to open output file: " << result["outfile"].as<std::string>() << std::endl;
+        }
+    }
+
     std::vector<std::pair<int, std::unique_ptr<ArcTelemetryReader>>> telemetry_readers;
     std::vector<std::unique_ptr<TTDevice>> tt_devices;
     for (int pci_device_id : pci_device_ids) {
@@ -90,11 +100,25 @@ int main(int argc, char* argv[]) {
             int device_id = telemetry_readers.at(i).first;
             auto& telemetry_reader = telemetry_readers.at(i).second;
 
+            std::string telemetry_message;
             if (telemetry_tag == -1) {
-                run_default_telemetry(device_id, telemetry_reader.get());
+                telemetry_message = run_default_telemetry(device_id, telemetry_reader.get());
             } else {
                 uint32_t telemetry_value = telemetry_reader->read_entry(telemetry_tag);
-                log_info(tt::LogSiliconDriver, "Device id {} - Telemetry value: 0x{:x}", device_id, telemetry_value);
+                telemetry_message = fmt::format("Device id {} - Telemetry value: 0x{:x}", device_id, telemetry_value);
+            }
+            if (output_file.is_open()) {
+                auto timestamp = std::chrono::system_clock::now();
+                auto time = std::chrono::system_clock::to_time_t(timestamp);
+                auto fractional_seconds =
+                    std::chrono::duration_cast<std::chrono::microseconds>(timestamp.time_since_epoch()) % 1000000;
+
+                std::stringstream ss;
+                ss << std::put_time(std::localtime(&time), "%F %T") << "." << std::setfill('0') << std::setw(6)
+                   << fractional_seconds.count() << " - " << telemetry_message;
+                output_file << ss.str() << std::endl;
+            } else {
+                log_info(tt::LogSiliconDriver, telemetry_message.c_str());
             }
         }
 

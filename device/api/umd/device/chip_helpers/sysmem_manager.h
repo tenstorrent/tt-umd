@@ -22,6 +22,14 @@ public:
     size_t get_num_host_mem_channels() const;
     hugepage_mapping get_hugepage_mapping(size_t channel) const;
 
+    void* get_buffer_for_dma(uint32_t size);
+
+    void map_buffer_for_dma(void* buffer, uint32_t size);
+
+    bool is_address_mapped_for_dma(void* buffer);
+
+    uint64_t get_device_io_address(void* buffer);
+
 private:
     /**
      * Allocate sysmem without hugepages and map it through IOMMU.
@@ -38,6 +46,9 @@ private:
     TTDevice* tt_device_;
 
     std::vector<hugepage_mapping> hugepage_mapping_per_channel;
+
+    // Map virtual address to (IOVA or PA) and size.
+    std::map<uint64_t, std::pair<uint32_t, uint64_t>> buffer_to_io_data_map;
 };
 
 }  // namespace tt::umd

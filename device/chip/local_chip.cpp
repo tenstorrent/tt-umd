@@ -63,9 +63,9 @@ LocalChip::LocalChip(std::unique_ptr<TTDevice> tt_device) :
 
 void LocalChip::initialize_local_chip(int num_host_mem_channels, const bool clear_mutex) {
     initialize_tlb_manager();
-    if (num_host_mem_channels > 0) {
-        sysmem_manager_->init_hugepage(num_host_mem_channels);
-    }
+    // if (num_host_mem_channels > 0) {
+    //     sysmem_manager_->init_hugepage(num_host_mem_channels);
+    // }
     wait_chip_to_be_ready();
     initialize_default_chip_mutexes(clear_mutex);
     initialize_default_remote_transfer_ethernet_cores();
@@ -270,9 +270,19 @@ __attribute__((target("avx"))) static void simd_memcpy(void* dest, const void* s
     }
 }
 
-void LocalChip::dma_write_to_device(const void* src, size_t size, tt_xy_pair core, uint64_t addr) {
+void LocalChip::dma_write_to_device(
+    const void* src, size_t size, tt_xy_pair core, uint64_t addr, bool src_mapped_for_dma) {
     static const std::string tlb_name = "LARGE_WRITE_TLB";
-    const uint8_t* buffer = static_cast<const uint8_t*>(src);
+
+    uint8_t* buffer = nullptr;
+
+    if (src_mapped_for_dma) {
+        buffer = (uint8_t*)(get_sysmem_manager()->get_device_io_address(const_cast<void*>(src)));
+    } else {
+        buffer = const_cast<uint8_t*>(static_cast<const uint8_t*>(src));
+    }
+
+    // const uint8_t* buffer = static_cast<const uint8_t*>(src);
     auto tlb_index = tlb_manager_->dynamic_tlb_config_.at(tlb_name);
     auto ordering = tlb_manager_->dynamic_tlb_ordering_modes_.at(tlb_name);
     PCIDevice* pci_device = tt_device_->get_pci_device();
@@ -283,29 +293,15 @@ void LocalChip::dma_write_to_device(const void* src, size_t size, tt_xy_pair cor
     auto lock = acquire_mutex(tlb_name, pci_device->get_device_num());
     while (size > 0) {
         auto [axi_address, tlb_size] = tt_device_->set_dynamic_tlb(tlb_index, core, addr, ordering);
-        size_t transfer_size = std::min({size, tlb_size, dmabuf_size});
-        // size_t ax_addr = axi_address;
-        // auto dma_transfer_0 = std::thread(
-        //     [&, ax_addr] {
-        //         DmaBuffer &dma_buffer = tt_device_->get_pci_device()->get_dma_buffer();
-        //         simd_memcpy(dma_buffer.buffer, buffer, transfer_size / 2);
-        //         tt_device_->dma_h2d(ax_addr, buffer, transfer_size / 2);
-        //     });
 
-        // auto memcpy_thread = std::thread(
-        //     [&] {
-        //         DmaBuffer &dma_buffer = tt_device_->get_pci_device()->get_dma_buffer();
-        //         simd_memcpy(dma_buffer.buffer + transfer_size / 2, buffer + transfer_size / 2, transfer_size / 2);
-        //     });
+        size_t transfer_size = 0;
+        if (src_mapped_for_dma) {
+            transfer_size = std::min({size, tlb_size});
+        } else {
+            transfer_size = std::min({size, tlb_size, dmabuf_size});
+        }
 
-        // // tt_device_->dma_h2d(axi_address, buffer, transfer_size);
-
-        // dma_transfer_0.join();
-        // memcpy_thread.join();
-
-        // tt_device_->dma_h2d(axi_address + size / 2, buffer + size / 2 , transfer_size / 2, transfer_size / 2);
-
-        tt_device_->dma_h2d(axi_address, buffer, transfer_size);
+        tt_device_->dma_h2d(axi_address, buffer, transfer_size, 0, src_mapped_for_dma);
 
         size -= transfer_size;
         addr += transfer_size;
@@ -313,9 +309,74 @@ void LocalChip::dma_write_to_device(const void* src, size_t size, tt_xy_pair cor
     }
 }
 
-void LocalChip::dma_read_from_device(void* dst, size_t size, tt_xy_pair core, uint64_t addr) {
+// void LocalChip::dma_write_to_device(
+//     const void* src, size_t size, tt_xy_pair core, uint64_t addr, bool src_mapped_for_dma) {
+//     static const std::string tlb_name = "LARGE_WRITE_TLB";
+//     const uint8_t* buffer = static_cast<const uint8_t*>(src);
+//     auto tlb_index = tlb_manager_->dynamic_tlb_config_.at(tlb_name);
+//     auto ordering = tlb_manager_->dynamic_tlb_ordering_modes_.at(tlb_name);
+//     PCIDevice* pci_device = tt_device_->get_pci_device();
+//     size_t dmabuf_size = pci_device->get_dma_buffer().size;
+
+//     core = translate_chip_coord_virtual_to_translated(core);
+
+//     auto lock = acquire_mutex(tlb_name, pci_device->get_device_num());
+//     while (size > 0) {
+//         auto [axi_address, tlb_size] = tt_device_->set_dynamic_tlb(tlb_index, core, addr, ordering);
+
+//         // size_t transfer_size = std::min({size, tlb_size, dmabuf_size});
+
+//         size_t transfer_size = 0;
+
+//         if (src_mapped_for_dma) {
+//             transfer_size = std::min({size, tlb_size});
+//         } else {
+//             transfer_size = std::min({size, tlb_size, dmabuf_size});
+//         }
+
+//         // size_t ax_addr = axi_address;
+//         // auto dma_transfer_0 = std::thread(
+//         //     [&, ax_addr] {
+//         //         DmaBuffer &dma_buffer = tt_device_->get_pci_device()->get_dma_buffer();
+//         //         simd_memcpy(dma_buffer.buffer, buffer, transfer_size / 2);
+//         //         tt_device_->dma_h2d(ax_addr, buffer, transfer_size / 2);
+//         //     });
+
+//         // auto memcpy_thread = std::thread(
+//         //     [&] {
+//         //         DmaBuffer &dma_buffer = tt_device_->get_pci_device()->get_dma_buffer();
+//         //         simd_memcpy(dma_buffer.buffer + transfer_size / 2, buffer + transfer_size / 2, transfer_size / 2);
+//         //     });
+
+//         // // tt_device_->dma_h2d(axi_address, buffer, transfer_size);
+
+//         // dma_transfer_0.join();
+//         // memcpy_thread.join();
+
+//         // tt_device_->dma_h2d(axi_address + size / 2, buffer + size / 2 , transfer_size / 2, transfer_size / 2);
+
+//         // std::cout << "src mapped for dma " << src_mapped_for_dma << std::endl;
+
+//         tt_device_->dma_h2d(axi_address, buffer, transfer_size, 0, src_mapped_for_dma);
+
+//         size -= transfer_size;
+//         addr += transfer_size;
+//         buffer += transfer_size;
+//     }
+// }
+
+void LocalChip::dma_read_from_device(void* dst, size_t size, tt_xy_pair core, uint64_t addr, bool dst_mapped_for_dma) {
     static const std::string tlb_name = "LARGE_READ_TLB";
-    uint8_t* buffer = static_cast<uint8_t*>(dst);
+
+    uint8_t* buffer = nullptr;
+
+    if (dst_mapped_for_dma) {
+        buffer = (uint8_t*)(get_sysmem_manager()->get_device_io_address(const_cast<void*>(dst)));
+    } else {
+        buffer = const_cast<uint8_t*>(static_cast<const uint8_t*>(dst));
+    }
+    // uint8_t* buffer = static_cast<uint8_t*>(dst);
+    
     auto tlb_index = tlb_manager_->dynamic_tlb_config_.at(tlb_name);
     auto ordering = tlb_manager_->dynamic_tlb_ordering_modes_.at(tlb_name);
     PCIDevice* pci_device = tt_device_->get_pci_device();
@@ -326,9 +387,16 @@ void LocalChip::dma_read_from_device(void* dst, size_t size, tt_xy_pair core, ui
     auto lock = acquire_mutex(tlb_name, pci_device->get_device_num());
     while (size > 0) {
         auto [axi_address, tlb_size] = tt_device_->set_dynamic_tlb(tlb_index, core, addr, ordering);
-        size_t transfer_size = std::min({size, tlb_size, dmabuf_size});
 
-        tt_device_->dma_d2h(buffer, axi_address, transfer_size);
+        size_t transfer_size = 0;
+
+        if (dst_mapped_for_dma) {
+            transfer_size = std::min({size, tlb_size});
+        } else {
+            transfer_size = std::min({size, tlb_size, dmabuf_size});
+        }
+
+        tt_device_->dma_d2h(buffer, axi_address, transfer_size, dst_mapped_for_dma);
 
         size -= transfer_size;
         addr += transfer_size;

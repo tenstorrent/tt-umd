@@ -712,6 +712,18 @@ TEST(SiliconDriverWH, VirtualCoordinateBroadcast) {
     cluster.close_device();
 }
 
+static bool is_iommu_available() {
+    const size_t num_channels = 1;
+    auto target_devices = test_utils::get_target_devices();
+    Cluster cluster(
+        target_devices,
+        num_channels,
+        false,  // skip driver allocs - no (don't skip)
+        true,   // clean system resources - yes
+        true);  // perform harvesting - yes
+    return cluster.get_tt_device(0)->get_pci_device()->is_iommu_enabled();
+}
+
 /**
  * This is a basic DMA test -- not using the PCIe controller's DMA engine, but
  * rather using the ability of the NOC to access the host system bus via traffic

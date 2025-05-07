@@ -48,8 +48,10 @@ public:
     void write_to_device_reg(tt_xy_pair core, const void* src, uint64_t reg_dest, uint32_t size) override;
     void read_from_device_reg(tt_xy_pair core, void* dest, uint64_t reg_src, uint32_t size) override;
 
-    void dma_write_to_device(const void* src, size_t size, tt_xy_pair core, uint64_t addr) override;
-    void dma_read_from_device(void* dst, size_t size, tt_xy_pair core, uint64_t addr) override;
+    void dma_write_to_device(
+        const void* src, size_t size, tt_xy_pair core, uint64_t addr, bool src_mapped_for_dma = false) override;
+    void dma_read_from_device(
+        void* dst, size_t size, tt_xy_pair core, uint64_t addr, bool dst_mapped_for_dma = false) override;
 
     void ethernet_broadcast_write(
         const void* src, uint64_t core_dest, uint32_t size, std::vector<int> broadcast_header);

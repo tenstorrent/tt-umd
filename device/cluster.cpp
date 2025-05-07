@@ -1204,14 +1204,15 @@ void Cluster::write_to_device_reg(
 }
 
 void Cluster::dma_write_to_device(
-    const void* src, size_t size, chip_id_t chip, tt::umd::CoreCoord core, uint64_t addr) {
+    const void* src, size_t size, chip_id_t chip, tt::umd::CoreCoord core, uint64_t addr, bool src_mapped_for_dma) {
     auto api_coords = translate_to_api_coords(chip, core);
-    get_local_chip(chip)->dma_write_to_device(src, size, api_coords, addr);
+    get_local_chip(chip)->dma_write_to_device(src, size, api_coords, addr, src_mapped_for_dma);
 }
 
-void Cluster::dma_read_from_device(void* dst, size_t size, chip_id_t chip, tt::umd::CoreCoord core, uint64_t addr) {
+void Cluster::dma_read_from_device(
+    void* dst, size_t size, chip_id_t chip, tt::umd::CoreCoord core, uint64_t addr, bool dst_mapped_for_dma) {
     auto api_coords = translate_to_api_coords(chip, core);
-    get_local_chip(chip)->dma_read_from_device(dst, size, api_coords, addr);
+    get_local_chip(chip)->dma_read_from_device(dst, size, api_coords, addr, dst_mapped_for_dma);
 }
 
 void Cluster::read_from_device(void* mem_ptr, chip_id_t chip, CoreCoord core, uint64_t addr, uint32_t size) {

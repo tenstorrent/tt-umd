@@ -224,7 +224,11 @@ bool SysmemManager::init_iommu(size_t size) {
             strerror(errno));
     }
 
+    auto now = std::chrono::steady_clock::now();
     uint64_t iova = tt_device_->get_pci_device()->map_for_dma(mapping, size);
+    auto end = std::chrono::steady_clock::now();
+    auto ns = std::chrono::duration_cast<std::chrono::nanoseconds>(end - now).count();
+
     log_info(LogSiliconDriver, "Mapped sysmem without hugepages to IOVA {:#x}.", iova);
 
     hugepage_mapping_per_channel.resize(num_fake_mem_channels);
@@ -257,4 +261,55 @@ void SysmemManager::print_file_contents(std::string filename, std::string hint) 
         }
     }
 }
+
+void *SysmemManager::get_buffer_for_dma(uint32_t size) {
+    void *mapping = mmap(nullptr, size, PROT_READ | PROT_WRITE, MAP_ANONYMOUS | MAP_PRIVATE | MAP_POPULATE, -1, 0);
+    map_buffer_for_dma(mapping, size);
+    return mapping;
+}
+
+void SysmemManager::map_buffer_for_dma(void *buffer, uint32_t size) {
+    uint64_t iova = tt_device_->get_pci_device()->map_for_dma(buffer, size);
+
+    uint64_t buffer_addr = reinterpret_cast<uint64_t>(buffer);
+
+    if (buffer_to_io_data_map.find(buffer_addr) != buffer_to_io_data_map.end()) {
+        log_warning(
+            LogSiliconDriver,
+            "Buffer {} is already mapped for DMA. Overwriting the mapping.",
+            reinterpret_cast<void *>(buffer_addr));
+    }
+
+    buffer_to_io_data_map[buffer_addr] = {size, iova};
+}
+
+bool SysmemManager::is_address_mapped_for_dma(void *buffer) {
+    uint64_t buffer_addr = reinterpret_cast<uint64_t>(buffer);
+
+    for (const auto &it : buffer_to_io_data_map) {
+        const uint32_t size = it.second.first;
+
+        if (buffer_addr >= it.first && buffer_addr < it.first + size) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+uint64_t SysmemManager::get_device_io_address(void *buffer) {
+    uint64_t buffer_addr = reinterpret_cast<uint64_t>(buffer);
+
+    for (const auto &it : buffer_to_io_data_map) {
+        const uint32_t size = it.second.first;
+
+        if (buffer_addr >= it.first && buffer_addr < it.first + size) {
+            return it.second.second + (buffer_addr - it.first);
+        }
+    }
+
+    // TODO(pjanevski): throw exception instead of returning 0.
+    return 0;
+}
+
 }  // namespace tt::umd

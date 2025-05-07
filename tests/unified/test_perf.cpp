@@ -15,6 +15,7 @@
 #include "wormhole/eth_l1_address_map.h"
 #include "wormhole/host_mem_address_map.h"
 #include "wormhole/l1_address_map.h"
+#include "umd/device/chip_helpers/sysmem_manager.h"
 
 using namespace tt::umd;
 
@@ -330,11 +331,11 @@ TEST(TestPerf, DMATensix) {
 
     const std::vector<uint32_t> dma_buf_sizes = {1 << 18, 1 << 19, 1 << 20, 1 << 21};
 
+    std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
+    cluster->start_device(tt_device_params{});
+
     for (size_t dma_buf_size_ : dma_buf_sizes) {
         PCIDevice::dma_buf_size = dma_buf_size_;
-
-        std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
-        cluster->start_device(tt_device_params{});
 
         const uint32_t dma_buf_size = cluster->get_tt_device(0)->get_pci_device()->get_dma_buffer().size;
 
@@ -402,6 +403,121 @@ TEST(TestPerf, DMATensix) {
  * Test the PCIe DMA controller by using it to write random fixed-size pattern
  * to 0x0 tensix core, then reading them back and verifying.
  */
+TEST(TestPerf, DMATensixIOMMU) {
+    const chip_id_t chip = 0;
+    const uint32_t one_mib = 1 << 20;
+    const size_t NUM_ITERATIONS = 5000;
+    const CoreCoord core = CoreCoord(18, 18, CoreType::TENSIX, CoordSystem::TRANSLATED);
+    const std::vector<uint32_t> sizes = {
+        1 * one_mib,
+    };
+
+    const std::vector<uint32_t> dma_buf_sizes = {1 << 18, 1 << 19, 1 << 20, 1 << 21};
+
+    std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
+    cluster->start_device(tt_device_params{});
+
+    uint8_t* sysmem = (uint8_t*)cluster->host_dma_address(0, 0, 0);
+
+    for (uint32_t buf_size : sizes) {
+        // std::cout << std::endl;
+        // std::cout << "Reporting results for buffer size " << (buf_size / one_mib) << " MiB" << std::endl;
+        // std::cout << "--------------------------------------------------------" << std::endl;
+
+        {
+            // std::vector<uint8_t> pattern(buf_size);
+            test_utils::fill_with_random_bytes(sysmem, buf_size);
+
+            WormholeTTDevice::memcpy_total_ns = 0;
+            WormholeTTDevice::dma_total_ns = 0;
+
+            auto now = std::chrono::steady_clock::now();
+            for (int i = 0; i < NUM_ITERATIONS; i++) {
+                cluster->dma_write_to_device(sysmem, buf_size, chip, core, 0x0, true);
+            }
+            auto end = std::chrono::steady_clock::now();
+            auto ns = std::chrono::duration_cast<std::chrono::nanoseconds>(end - now).count();
+            print_stats(
+                1 << 20,
+                "DMA: Host -> Device",
+                NUM_ITERATIONS * buf_size,
+                ns,
+                WormholeTTDevice::memcpy_total_ns,
+                WormholeTTDevice::dma_total_ns);
+
+            // patterns.push_back(pattern);
+        }
+
+        std::cout << std::endl;
+
+        // zero out sysmem
+        // for (int i = 0; i < buf_size; i++) {
+        //     sysmem[i] = 0;
+        // }
+
+        // Now, read back the patterns we wrote to tensix and verify them.
+        {
+            std::vector<uint8_t> readback(buf_size, 0x0);
+            WormholeTTDevice::memcpy_total_ns = 0;
+            WormholeTTDevice::dma_total_ns = 0;
+
+            auto now = std::chrono::steady_clock::now();
+            for (int i = 0; i < NUM_ITERATIONS; i++) {
+                cluster->dma_read_from_device(readback.data(), readback.size(), chip, core, 0x0, true);
+            }
+            auto end = std::chrono::steady_clock::now();
+            auto ns = std::chrono::duration_cast<std::chrono::nanoseconds>(end - now).count();
+            print_stats(
+                1 << 20,
+                "DMA: Device -> Host",
+                NUM_ITERATIONS * readback.size(),
+                ns,
+                WormholeTTDevice::memcpy_total_ns,
+                WormholeTTDevice::dma_total_ns);
+
+            // for (int i = 0; i < buf_size; i++) {
+            //     EXPECT_EQ(sysmem[i], readback[i]) << "Mismatch for core " << core.str() << " addr=0x0"
+            //                                       << " size=" << std::dec << readback.size();
+            // }
+
+            // EXPECT_EQ(, readback) << "Mismatch for core " << core.str() << " addr=0x0"
+            //                                     << " size=" << std::dec << readback.size();
+        }
+    }
+}
+
+TEST(TestPerf, SysmemManagement) {
+    std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
+
+    SysmemManager* sysmem_manager = cluster->get_chip(0)->get_sysmem_manager();
+
+    const CoreCoord core = CoreCoord(18, 18, CoreType::TENSIX, CoordSystem::TRANSLATED);
+
+    uint8_t* dma_buffer_va = (uint8_t*)sysmem_manager->get_buffer_for_dma(1ULL << 20);
+
+    for (int i = 0; i < (1 << 20); i++) {
+        dma_buffer_va[i] = i % 256;
+    }
+
+    uint64_t iova = sysmem_manager->get_device_io_address(dma_buffer_va);
+
+    std::cout << "iova: " << std::hex << iova << std::dec << std::endl;
+
+    cluster->dma_write_to_device(dma_buffer_va, 1ULL << 20, 0, core, 0x0, true);
+
+    std::vector<uint8_t> readback(1ULL << 20);
+
+    cluster->read_from_device(readback.data(), 0, core, 0x0, readback.size());
+
+    for (int i = 0; i < (1 << 20); i++) {
+        EXPECT_EQ(dma_buffer_va[i], readback[i]);
+    }
+}
+
+/**
+ * Test the PCIe DMA controller by using it to write random fixed-size pattern
+ * to 0x0 tensix core, then reading them back and verifying.
+ */
 TEST(TestPerf, DMADram) {
     const chip_id_t chip = 0;
     const uint32_t one_mib = 1 << 20;
@@ -423,10 +539,11 @@ TEST(TestPerf, DMADram) {
 
     const std::vector<uint32_t> dma_buf_sizes = {1 << 18, 1 << 19, 1 << 20, 1 << 21};
 
+    std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
+    cluster->start_device(tt_device_params{});
+
     for (size_t dma_buf_size_ : dma_buf_sizes) {
         PCIDevice::dma_buf_size = dma_buf_size_;
-        std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
-        cluster->start_device(tt_device_params{});
 
         const uint32_t dma_buf_size = cluster->get_tt_device(0)->get_pci_device()->get_dma_buffer().size;
 

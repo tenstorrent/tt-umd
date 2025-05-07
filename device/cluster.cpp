@@ -235,13 +235,14 @@ tt_SocDescriptor Cluster::construct_soc_descriptor(
     }
 }
 
-void Cluster::add_chip(chip_id_t chip_id, std::unique_ptr<Chip> chip) {
+void Cluster::add_chip(const chip_id_t& chip_id, const ChipType& chip_type, std::unique_ptr<Chip> chip) {
     log_assert(
         chips_.find(chip_id) == chips_.end(),
         "Chip with id {} already exists in cluster. Cannot add another chip with the same id.",
         chip_id);
     all_chip_ids_.insert(chip_id);
-    if (cluster_desc->is_chip_mmio_capable(chip_id)) {
+    // All non silicon chip types are considered local chips.
+    if (chip_type != ChipType::SILICON || cluster_desc->is_chip_mmio_capable(chip_id)) {
         local_chip_ids_.insert(chip_id);
     } else {
         remote_chip_ids_.insert(chip_id);
@@ -404,6 +405,7 @@ Cluster::Cluster(ClusterOptions options) {
 
         add_chip(
             chip_id,
+            options.chip_type,
             construct_chip_from_cluster(
                 chip_id,
                 options.chip_type,

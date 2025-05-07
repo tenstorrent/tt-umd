@@ -647,7 +647,7 @@ private:
         bool perform_harvesting,
         HarvestingMasks& simulated_harvesting_masks);
 
-    void add_chip(chip_id_t chip_id, std::unique_ptr<Chip> chip);
+    void add_chip(const chip_id_t& chip_id, const ChipType& chip_type, std::unique_ptr<Chip> chip);
     HarvestingMasks get_harvesting_masks(
         chip_id_t chip_id,
         tt_ClusterDescriptor* cluster_desc,

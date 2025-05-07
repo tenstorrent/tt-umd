@@ -25,7 +25,7 @@ void run_default_telemetry(int pci_device, ArcTelemetryReader* telemetry_reader)
 
     log_info(
         tt::LogSiliconDriver,
-        "Device id {} - AICLK: {} VCore: {} TDP: {} Temp: {}",
+        "Device id {} - AICLK: {} VCore: {} Power: {} Temp: {}",
         pci_device,
         aiclk_current,
         vcore,

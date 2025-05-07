@@ -7,7 +7,6 @@
 #include "umd/device/arc_messenger.h"
 #include "umd/device/driver_atomics.h"
 #include "umd/device/tt_device/blackhole_tt_device.h"
-#include "umd/device/tt_device/grayskull_tt_device.h"
 #include "umd/device/tt_device/wormhole_tt_device.h"
 
 // TODO #526: This is a hack to allow UMD to use the NOC1 TLB.
@@ -31,8 +30,6 @@ TTDevice::TTDevice(
     auto pci_device = std::make_unique<PCIDevice>(pci_device_number);
 
     switch (pci_device->get_arch()) {
-        case ARCH::GRAYSKULL:
-            return std::make_unique<GrayskullTTDevice>(std::move(pci_device));
         case ARCH::WORMHOLE_B0:
             return std::make_unique<WormholeTTDevice>(std::move(pci_device));
         case ARCH::BLACKHOLE:

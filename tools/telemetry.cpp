@@ -2,6 +2,7 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 #include <chrono>
+#include <cxxopts.hpp>
 #include <sstream>
 #include <string>
 #include <thread>
@@ -32,47 +33,35 @@ void run_default_telemetry(int pci_device, ArcTelemetryReader* telemetry_reader)
         current_temperature);
 }
 
-std::vector<std::string> split(const std::string& str, char delim) {
-    std::vector<std::string> tokens;
-    std::stringstream ss(str);
-    std::string token;
-
-    while (std::getline(ss, token, delim)) {
-        tokens.push_back(token);
-    }
-
-    return tokens;
-}
-
 int main(int argc, char* argv[]) {
-    if (argc == 2 && std::string(argv[1]) == "help") {
-        std::cerr << "Usage: telemetry <telemetry_tag> <frequency_ms> <device_ids>" << std::endl;
-        std::cerr << "Example: telemetry 0,1,2,3 4 2" << std::endl;
-        std::cerr << "First argument is the list of device ids. For example 0,1,2,3. This refer to pci_ids"
-                  << std::endl;
-        std::cerr << "Second argument is the telemetry tag value. See all values in "
-                     "device/api/umd/device/types/wormhole_telemetry.h or blackhole_telemetry.h"
-                  << std::endl;
-        std::cerr << "Third argument is the frequency of pooling the telemetry in milliseconds" << std::endl;
-        return 1;
+    cxxopts::Options options("telemetry", "Poll telemetry values from devices.");
+
+    options.add_options()(
+        "d,devices",
+        "List of device pci ids to read telemetry for. If empty, will poll on all available devices",
+        cxxopts::value<std::vector<std::string>>())(
+        "t,tag",
+        "Telemetry tag to read. If set to -1, will run default telemetry mode which works only for WH and reads aiclk, "
+        "power, temperature and vcore",
+        cxxopts::value<int>()->default_value("-1"))(
+        "f,freq", "Frequency of polling in microseconds.", cxxopts::value<int>()->default_value("1000"))(
+        "h,help", "Print usage");
+
+    auto result = options.parse(argc, argv);
+
+    if (result.count("help")) {
+        std::cout << options.help() << std::endl;
+        return 0;
     }
 
-    int frequency_ms = 1;
-    if (argc >= 4) {
-        frequency_ms = std::stoi(argv[3]);
-    }
-    int telemetry_tag = -1;
-    if (argc >= 3) {
-        telemetry_tag = std::stoi(argv[2]);
-    }
+    int frequency_us = result["freq"].as<int>();
+    int telemetry_tag = result["tag"].as<int>();
 
     std::vector<int> discovered_pci_device_ids = PCIDevice::enumerate_devices();
     std::vector<int> pci_device_ids;
-    if (argc >= 2) {
-        auto device_ids_str = split(argv[1], ',');
 
-        for (auto& device_id_str : device_ids_str) {
-            int device_id = std::stoi(device_id_str);
+    if (result.count("devices")) {
+        for (int device_id : result["devices"].as<std::vector<int>>()) {
             if (std::find(discovered_pci_device_ids.begin(), discovered_pci_device_ids.end(), device_id) ==
                 discovered_pci_device_ids.end()) {
                 std::cerr << "Device ID with pci id " << device_id << " not found in the system." << std::endl;
@@ -111,7 +100,7 @@ int main(int argc, char* argv[]) {
 
         auto end_time = std::chrono::steady_clock::now();
         auto time_passed = std::chrono::duration_cast<std::chrono::microseconds>(end_time - start_time).count();
-        uint64_t time_to_wait = frequency_ms * 1000 - time_passed;
+        uint64_t time_to_wait = frequency_us - time_passed;
         if (time_to_wait > 0) {
             std::this_thread::sleep_for(std::chrono::microseconds(time_to_wait));
         }

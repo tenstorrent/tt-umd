@@ -2,22 +2,17 @@ add_library(tools_common INTERFACE)
 target_link_libraries(
     tools_common
     INTERFACE
+        umd::Common
         umd::device
         umd::Firmware
         fmt::fmt-header-only
-)
-target_include_directories(
-    tools_common
-    INTERFACE
-        ${PROJECT_SOURCE_DIR}
-        ${CMAKE_CURRENT_SOURCE_DIR}
-        "$<TARGET_PROPERTY:umd::device,INCLUDE_DIRECTORIES>"
+        spdlog::spdlog_header_only
 )
 
-add_executable(tool_topology topology.cpp)
-target_link_libraries(tool_topology PRIVATE tools_common)
+add_executable(topology topology.cpp)
+target_link_libraries(topology PRIVATE tools_common)
 set_target_properties(
-    tool_topology
+    topology
     PROPERTIES
         RUNTIME_OUTPUT_DIRECTORY
             ${CMAKE_BINARY_DIR}/tools/umd/
@@ -25,4 +20,4 @@ set_target_properties(
             topology
 )
 
-add_custom_target(umd_tools DEPENDS tool_topology)
+add_custom_target(umd_tools DEPENDS topology)

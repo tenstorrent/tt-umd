@@ -16,6 +16,8 @@
 
 namespace tt::umd {
 
+uint64_t SysmemManager::total_ns = 0;
+
 SysmemManager::SysmemManager(TTDevice *tt_device) : tt_device_(tt_device) {}
 
 SysmemManager::~SysmemManager() {
@@ -269,7 +271,14 @@ void *SysmemManager::get_buffer_for_dma(uint32_t size) {
 }
 
 void SysmemManager::map_buffer_for_dma(void *buffer, uint32_t size) {
+    auto now = std::chrono::steady_clock::now();
     uint64_t iova = tt_device_->get_pci_device()->map_for_dma(buffer, size);
+    auto end = std::chrono::steady_clock::now();
+    auto ns = std::chrono::duration_cast<std::chrono::nanoseconds>(end - now).count();
+    SysmemManager::total_ns += ns;
+    std::cout << "ns " << ns << std::endl;
+
+    std::cout << "iova " << std::hex << iova << std::dec << std::endl;
 
     uint64_t buffer_addr = reinterpret_cast<uint64_t>(buffer);
 

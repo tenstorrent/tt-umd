@@ -376,7 +376,7 @@ void LocalChip::dma_read_from_device(void* dst, size_t size, tt_xy_pair core, ui
         buffer = const_cast<uint8_t*>(static_cast<const uint8_t*>(dst));
     }
     // uint8_t* buffer = static_cast<uint8_t*>(dst);
-    
+
     auto tlb_index = tlb_manager_->dynamic_tlb_config_.at(tlb_name);
     auto ordering = tlb_manager_->dynamic_tlb_ordering_modes_.at(tlb_name);
     PCIDevice* pci_device = tt_device_->get_pci_device();

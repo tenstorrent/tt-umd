@@ -8,6 +8,7 @@
 #include "gtest/gtest.h"
 #include "tests/test_utils/device_test_utils.hpp"
 #include "tests/test_utils/generate_cluster_desc.hpp"
+#include "umd/device/chip_helpers/sysmem_manager.h"
 #include "umd/device/cluster.h"
 #include "umd/device/tt_cluster_descriptor.h"
 #include "umd/device/tt_device/wormhole_tt_device.h"
@@ -15,7 +16,6 @@
 #include "wormhole/eth_l1_address_map.h"
 #include "wormhole/host_mem_address_map.h"
 #include "wormhole/l1_address_map.h"
-#include "umd/device/chip_helpers/sysmem_manager.h"
 
 using namespace tt::umd;
 
@@ -492,6 +492,18 @@ TEST(TestPerf, SysmemManagement) {
     SysmemManager* sysmem_manager = cluster->get_chip(0)->get_sysmem_manager();
 
     const CoreCoord core = CoreCoord(18, 18, CoreType::TENSIX, CoordSystem::TRANSLATED);
+
+    const uint32_t num_iterations = 10;
+    const uint32_t iommu_buf_size = 1ULL << 20;
+
+    SysmemManager::total_ns = 0;
+    for (int i = 0; i < num_iterations; i++) {
+        uint8_t* sysmem = (uint8_t*)sysmem_manager->get_buffer_for_dma(iommu_buf_size);
+    }
+    std::cout << "total ns " << SysmemManager::total_ns << std::endl;
+
+    std::cout << "Averate time to map " << std::hex << iommu_buf_size << std::dec << " is "
+              << (double)SysmemManager::total_ns / num_iterations << " ns" << std::endl;
 
     uint8_t* dma_buffer_va = (uint8_t*)sysmem_manager->get_buffer_for_dma(1ULL << 20);
 

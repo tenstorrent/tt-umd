@@ -30,6 +30,8 @@ public:
 
     uint64_t get_device_io_address(void* buffer);
 
+    static uint64_t total_ns;
+
 private:
     /**
      * Allocate sysmem without hugepages and map it through IOMMU.

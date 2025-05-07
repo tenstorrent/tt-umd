@@ -79,6 +79,7 @@ endif()
 add_subdirectory(common)
 add_subdirectory(device)
 add_subdirectory(src)
+add_subdirectory(tools)
 
 if(TT_UMD_BUILD_TESTS)
     add_subdirectory(tests)

@@ -15,7 +15,7 @@ on:
     branches: ["main"]
 
 env:
-  BUILD_TARGET: device
+  BUILD_TARGET: device umd_tools
   BUILD_OUTPUT_DIR: ./build
   LIB_OUTPUT_DIR: ./build/lib
   DEPS_OUTPUT_DIR: ./build/_deps

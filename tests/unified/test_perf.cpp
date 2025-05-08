@@ -493,17 +493,27 @@ TEST(TestPerf, SysmemManagement) {
 
     const CoreCoord core = CoreCoord(18, 18, CoreType::TENSIX, CoordSystem::TRANSLATED);
 
-    const uint32_t num_iterations = 10;
-    const uint32_t iommu_buf_size = 1ULL << 20;
+    const uint32_t num_iterations = 5;
+    uint32_t iommu_buf_size = 1ULL << 20;
 
-    SysmemManager::total_ns = 0;
-    for (int i = 0; i < num_iterations; i++) {
-        uint8_t* sysmem = (uint8_t*)sysmem_manager->get_buffer_for_dma(iommu_buf_size);
+    const uint32_t iommu_buf_size_limit = 64 * (1ULL << 20);
+
+    while (iommu_buf_size <= iommu_buf_size_limit) {
+        SysmemManager::total_ns = 0;
+        for (int i = 0; i < num_iterations; i++) {
+            uint8_t* sysmem = (uint8_t*)sysmem_manager->get_buffer_for_dma(iommu_buf_size);
+        }
+        // std::cout << "total ns " << SysmemManager::total_ns << std::endl;
+
+        std::cout << "Averate time to map " << (iommu_buf_size / (1 << 20)) << " MB is "
+                  << (double)SysmemManager::total_ns / num_iterations << " ns" << std::endl;
+
+        double ns_per_byte = (double)SysmemManager::total_ns / (num_iterations * iommu_buf_size);
+        std::cout << "Average time to map " << (iommu_buf_size / (1 << 20)) << " MB is " << ns_per_byte << " ns/byte"
+                  << std::endl;
+
+        iommu_buf_size *= 2;
     }
-    std::cout << "total ns " << SysmemManager::total_ns << std::endl;
-
-    std::cout << "Averate time to map " << std::hex << iommu_buf_size << std::dec << " is "
-              << (double)SysmemManager::total_ns / num_iterations << " ns" << std::endl;
 
     uint8_t* dma_buffer_va = (uint8_t*)sysmem_manager->get_buffer_for_dma(1ULL << 20);
 

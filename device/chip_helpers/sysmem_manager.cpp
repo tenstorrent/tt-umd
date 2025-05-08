@@ -226,11 +226,7 @@ bool SysmemManager::init_iommu(size_t size) {
             strerror(errno));
     }
 
-    auto now = std::chrono::steady_clock::now();
     uint64_t iova = tt_device_->get_pci_device()->map_for_dma(mapping, size);
-    auto end = std::chrono::steady_clock::now();
-    auto ns = std::chrono::duration_cast<std::chrono::nanoseconds>(end - now).count();
-
     log_info(LogSiliconDriver, "Mapped sysmem without hugepages to IOVA {:#x}.", iova);
 
     hugepage_mapping_per_channel.resize(num_fake_mem_channels);
@@ -276,9 +272,6 @@ void SysmemManager::map_buffer_for_dma(void *buffer, uint32_t size) {
     auto end = std::chrono::steady_clock::now();
     auto ns = std::chrono::duration_cast<std::chrono::nanoseconds>(end - now).count();
     SysmemManager::total_ns += ns;
-    std::cout << "ns " << ns << std::endl;
-
-    std::cout << "iova " << std::hex << iova << std::dec << std::endl;
 
     uint64_t buffer_addr = reinterpret_cast<uint64_t>(buffer);
 

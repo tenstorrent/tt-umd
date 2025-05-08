@@ -747,6 +747,17 @@ void LocalChip::dram_membar(const std::unordered_set<uint32_t>& channels) {
     dram_membar(dram_cores_to_sync);
 }
 
+void LocalChip::deassert_risc_resets() {
+    if (soc_descriptor_.arch != tt::ARCH::BLACKHOLE) {
+        arc_msg(
+            wormhole::ARC_MSG_COMMON_PREFIX |
+                tt_device_->get_architecture_implementation()->get_arc_message_deassert_riscv_reset(),
+            true,
+            0,
+            0);
+    }
+}
+
 int LocalChip::get_clock() { return tt_device_->get_clock(); }
 
 int LocalChip::get_numa_node() { return tt_device_->get_pci_device()->get_numa_node(); }

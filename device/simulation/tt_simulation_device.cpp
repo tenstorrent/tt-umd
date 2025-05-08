@@ -184,6 +184,8 @@ void tt_SimulationDevice::dram_membar(const std::unordered_set<uint32_t>& channe
 
 void tt_SimulationDevice::dram_membar(const std::unordered_set<tt::umd::CoreCoord>& cores) {}
 
+void tt_SimulationDevice::deassert_risc_resets() {}
+
 int tt_SimulationDevice::get_clock() { return 0; }
 
 int tt_SimulationDevice::arc_msg(

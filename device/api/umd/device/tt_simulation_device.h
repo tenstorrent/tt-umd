@@ -58,6 +58,7 @@ public:
 
     void send_tensix_risc_reset(tt_xy_pair core, const TensixSoftResetOptions& soft_resets) override;
     void send_tensix_risc_reset(const TensixSoftResetOptions& soft_resets) override;
+    void deassert_risc_resets() override;
 
     int get_clock() override;
 

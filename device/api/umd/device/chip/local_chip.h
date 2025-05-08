@@ -63,6 +63,7 @@ public:
     void dram_membar(const std::unordered_set<tt::umd::CoreCoord>& cores = {}) override;
     void dram_membar(const std::unordered_set<uint32_t>& channels = {}) override;
 
+    void deassert_risc_resets() override;
     int get_clock() override;
     int get_numa_node() override;
 

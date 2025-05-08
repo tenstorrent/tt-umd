@@ -148,6 +148,8 @@ void RemoteChip::dram_membar(const std::unordered_set<tt::umd::CoreCoord>& cores
 
 void RemoteChip::dram_membar(const std::unordered_set<uint32_t>& channels) { wait_for_non_mmio_flush(); }
 
+void RemoteChip::deassert_risc_resets() { local_chip_->deassert_risc_resets(); }
+
 int RemoteChip::get_clock() { return local_chip_->get_clock(); }
 
 }  // namespace tt::umd

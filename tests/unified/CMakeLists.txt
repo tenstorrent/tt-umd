@@ -1,6 +1,7 @@
 set(UNIFIED_TESTS_SRCS
     multiprocess.cpp
-    test_perf.cpp
+    test_perf_dma.cpp
+    test_perf_tlb.cpp
 )
 
 add_executable(unified_tests ${UNIFIED_TESTS_SRCS})

@@ -13,6 +13,7 @@
 #include <vector>
 
 #include "fmt/format.h"
+#include "ioctl.h"
 #include "umd/device/semver.hpp"
 #include "umd/device/tt_xy_pair.h"
 #include "umd/device/types/arch.h"

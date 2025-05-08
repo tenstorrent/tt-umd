@@ -63,10 +63,9 @@ LocalChip::LocalChip(std::unique_ptr<TTDevice> tt_device) :
 
 void LocalChip::initialize_local_chip(int num_host_mem_channels, const bool clear_mutex) {
     initialize_tlb_manager();
-    // TODO(pjanevski): revert this.
-    // if (num_host_mem_channels > 0) {
-    //     sysmem_manager_->init_hugepage(num_host_mem_channels);
-    // }
+    if (num_host_mem_channels > 0) {
+        sysmem_manager_->init_hugepage(num_host_mem_channels);
+    }
     wait_chip_to_be_ready();
     initialize_default_chip_mutexes(clear_mutex);
     initialize_default_remote_transfer_ethernet_cores();

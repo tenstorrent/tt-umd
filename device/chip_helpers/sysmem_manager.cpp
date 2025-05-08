@@ -235,6 +235,8 @@ bool SysmemManager::init_iommu(size_t size) {
     for (size_t ch = 0; ch < num_fake_mem_channels; ch++) {
         uint8_t *base = static_cast<uint8_t *>(mapping) + ch * HUGEPAGE_REGION_SIZE;
         hugepage_mapping_per_channel[ch] = {base, HUGEPAGE_REGION_SIZE, iova + ch * HUGEPAGE_REGION_SIZE};
+        buffer_to_io_data_map[reinterpret_cast<uint64_t>(base)] = {
+            HUGEPAGE_REGION_SIZE, iova + ch * HUGEPAGE_REGION_SIZE};
     }
 
     return true;

@@ -216,7 +216,7 @@ TEST(TestPerf, DMATensixIOMMU) {
 
             auto now = std::chrono::steady_clock::now();
             for (int i = 0; i < NUM_ITERATIONS; i++) {
-                cluster->dma_read_from_device(readback.data(), readback.size(), chip, core, 0x0, true);
+                cluster->dma_read_from_device(readback.data(), readback.size(), chip, core, 0x0, false);
             }
             auto end = std::chrono::steady_clock::now();
             auto ns = std::chrono::duration_cast<std::chrono::nanoseconds>(end - now).count();
@@ -228,10 +228,10 @@ TEST(TestPerf, DMATensixIOMMU) {
                 WormholeTTDevice::memcpy_total_ns,
                 WormholeTTDevice::dma_total_ns);
 
-            // for (int i = 0; i < buf_size; i++) {
-            //     EXPECT_EQ(sysmem[i], readback[i]) << "Mismatch for core " << core.str() << " addr=0x0"
-            //                                       << " size=" << std::dec << readback.size();
-            // }
+            for (int i = 0; i < buf_size; i++) {
+                EXPECT_EQ(sysmem[i], readback[i]) << "Mismatch for core " << core.str() << " addr=0x0"
+                                                  << " size=" << std::dec << readback.size();
+            }
 
             // EXPECT_EQ(, readback) << "Mismatch for core " << core.str() << " addr=0x0"
             //                                     << " size=" << std::dec << readback.size();
@@ -246,7 +246,7 @@ TEST(TestPerf, SysmemManagement) {
 
     const CoreCoord core = CoreCoord(18, 18, CoreType::TENSIX, CoordSystem::TRANSLATED);
 
-    const uint32_t num_iterations = 5;
+    const uint32_t num_iterations = 1;
     uint32_t iommu_buf_size = 1ULL << 20;
 
     const uint32_t iommu_buf_size_limit = 64 * (1ULL << 20);

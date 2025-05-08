@@ -256,7 +256,6 @@ TEST(TestPerf, SysmemManagement) {
         for (int i = 0; i < num_iterations; i++) {
             uint8_t* sysmem = (uint8_t*)sysmem_manager->get_buffer_for_dma(iommu_buf_size);
         }
-        // std::cout << "total ns " << SysmemManager::total_ns << std::endl;
 
         std::cout << "Averate time to map " << (iommu_buf_size / (1 << 20)) << " MB is "
                   << (double)SysmemManager::total_ns / num_iterations << " ns" << std::endl;

@@ -10,6 +10,17 @@ target_link_libraries(
         cxxopts::cxxopts
 )
 
+add_executable(telemetry telemetry.cpp)
+target_link_libraries(telemetry PRIVATE tools_common)
+set_target_properties(
+    telemetry
+    PROPERTIES
+        RUNTIME_OUTPUT_DIRECTORY
+            ${CMAKE_BINARY_DIR}/tools/umd/
+        OUTPUT_NAME
+            telemetry
+)
+
 add_executable(topology topology.cpp)
 target_link_libraries(topology PRIVATE tools_common)
 set_target_properties(
@@ -21,4 +32,9 @@ set_target_properties(
             topology
 )
 
-add_custom_target(umd_tools DEPENDS topology)
+add_custom_target(
+    umd_tools
+    DEPENDS
+        telemetry
+        topology
+)

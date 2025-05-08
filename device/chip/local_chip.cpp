@@ -83,6 +83,62 @@ void LocalChip::initialize_tlb_manager() {
         "SMALL_READ_WRITE_TLB", tt_device_->get_architecture_implementation()->get_small_read_write_tlb());
 }
 
+void LocalChip::setup_static_tlbs() {
+    size_t num_eth_cores = soc_descriptor_.get_num_eth_channels();
+    auto tensix_grid = soc_descriptor_.get_grid_size(CoreType::TENSIX);
+
+    // Setup static TLBs for all eth cores
+    for (const CoreCoord& virtual_core : soc_descriptor_.get_cores(CoreType::ETH, CoordSystem::VIRTUAL)) {
+        CoreCoord translated_core = soc_descriptor_.translate_coord_to(virtual_core, CoordSystem::TRANSLATED);
+        CoreCoord logical_core = soc_descriptor_.translate_coord_to(virtual_core, CoordSystem::LOGICAL);
+
+        log_assert(
+            logical_core.x == 0, "Logical core x coord should be always 0 for ETH cores, but got {}", logical_core.x);
+
+        size_t tlb_index = logical_core.y;
+        tlb_manager_->configure_tlb(virtual_core, translated_core, tlb_index, 0, tlb_data::Strict);
+    }
+
+    // Setup static TLBs for all worker cores
+    for (const CoreCoord& virtual_core : soc_descriptor_.get_cores(CoreType::TENSIX, CoordSystem::VIRTUAL)) {
+        CoreCoord translated_core = soc_descriptor_.translate_coord_to(virtual_core, CoordSystem::TRANSLATED);
+        CoreCoord logical_core = soc_descriptor_.translate_coord_to(virtual_core, CoordSystem::LOGICAL);
+
+        size_t tlb_index = num_eth_cores + logical_core.x + logical_core.y * tensix_grid.x;
+        // TODO
+        // Note: see tt_metal issue #10107
+        // Strict is less performant than Posted, however, metal doesn't presently
+        // use this on a perf path and the launch_msg "kernel config" needs to
+        // arrive prior to the "go" message during device init and slow dispatch
+        // Revisit this when we have a more flexible UMD api
+        tlb_manager_->configure_tlb(virtual_core, translated_core, tlb_index, 0, tlb_data::Strict);
+    }
+
+    if (tt_device_->get_arch() == tt::ARCH::WORMHOLE_B0) {
+        // Setup static TLBs for MMIO mapped data space in DRAM.
+        CoreCoord virtual_core = soc_descriptor_.get_dram_core_for_channel(0, 0, CoordSystem::VIRTUAL);
+        CoreCoord translated_core = soc_descriptor_.translate_coord_to(virtual_core, CoordSystem::TRANSLATED);
+        architecture_implementation* arch_impl = tt_device_->get_architecture_implementation();
+        uint64_t peer_dram_offset = arch_impl->get_dram_channel_0_peer2peer_region_start();
+        for (uint32_t tlb_id = arch_impl->get_dynamic_tlb_base_index();
+             tlb_id < arch_impl->get_dynamic_tlb_base_index() + arch_impl->get_dynamic_tlb_count();
+             tlb_id++) {
+            tlb_manager_->configure_tlb(virtual_core, translated_core, tlb_id, peer_dram_offset, tlb_data::Relaxed);
+            // Align address space of 16MB TLB to 16MB boundary
+            peer_dram_offset += arch_impl->get_dynamic_tlb_16m_size();
+        }
+    } else {
+        // Setup static 4GB tlbs for DRAM cores
+        for (uint32_t dram_channel = 0; dram_channel < soc_descriptor_.get_num_dram_channels(); dram_channel++) {
+            CoreCoord virtual_core = soc_descriptor_.get_dram_core_for_channel(dram_channel, 0, CoordSystem::VIRTUAL);
+            CoreCoord translated_core = soc_descriptor_.translate_coord_to(virtual_core, CoordSystem::TRANSLATED);
+
+            auto tlb_index = tt_device_->get_architecture_implementation()->get_tlb_4g_base_index() + dram_channel;
+            tlb_manager_->configure_tlb(virtual_core, translated_core, tlb_index, 0, tlb_data::Posted);
+        }
+    }
+}
+
 void LocalChip::initialize_default_chip_mutexes(const bool clear_mutex) {
     // These mutexes are intended to be based on physical devices/pci-intf not logical. Set these up ahead of
     // time here (during device init) since it's unsafe to modify shared state during multithreaded runtime.
@@ -130,6 +186,7 @@ TLBManager* LocalChip::get_tlb_manager() { return tlb_manager_.get(); }
 bool LocalChip::is_mmio_capable() const { return true; }
 
 void LocalChip::start_device() {
+    setup_static_tlbs();
     check_pcie_device_initialized();
     init_pcie_iatus();
     initialize_membars();

@@ -186,6 +186,8 @@ void tt_SimulationDevice::dram_membar(const std::unordered_set<tt::umd::CoreCoor
 
 void tt_SimulationDevice::deassert_risc_resets() {}
 
+void tt_SimulationDevice::set_power_state(tt_DevicePowerState state) {}
+
 int tt_SimulationDevice::get_clock() { return 0; }
 
 int tt_SimulationDevice::arc_msg(
@@ -196,5 +198,6 @@ int tt_SimulationDevice::arc_msg(
     uint32_t timeout_ms,
     uint32_t* return_3,
     uint32_t* return_4) {
+    *return_3 = 1;
     return 0;
 }

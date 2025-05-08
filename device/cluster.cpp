@@ -50,7 +50,6 @@
 #include "umd/device/tt_simulation_device.h"
 #include "umd/device/tt_soc_descriptor.h"
 #include "umd/device/types/arch.h"
-#include "umd/device/types/blackhole_arc.h"
 #include "umd/device/types/blackhole_eth.h"
 #include "umd/device/types/tlb.h"
 #include "umd/device/umd_utils.h"
@@ -462,41 +461,6 @@ tt::Writer Cluster::get_static_tlb_writer(const chip_id_t chip, const CoreCoord 
     return get_tlb_manager(chip)->get_static_tlb_writer(translate_to_api_coords(chip, target));
 }
 
-uint32_t Cluster::get_power_state_arc_msg(chip_id_t chip_id, tt_DevicePowerState state) {
-    TTDevice* tt_device = get_tt_device(chip_id);
-    uint32_t msg = wormhole::ARC_MSG_COMMON_PREFIX;
-    switch (state) {
-        case BUSY: {
-            msg |= tt_device->get_architecture_implementation()->get_arc_message_arc_go_busy();
-            break;
-        }
-        case LONG_IDLE: {
-            msg |= tt_device->get_architecture_implementation()->get_arc_message_arc_go_long_idle();
-            break;
-        }
-        case SHORT_IDLE: {
-            msg |= tt_device->get_architecture_implementation()->get_arc_message_arc_go_short_idle();
-            break;
-        }
-        default:
-            throw std::runtime_error("Unrecognized power state.");
-    }
-    return msg;
-}
-
-void Cluster::set_pcie_power_state(tt_DevicePowerState state) {
-    for (auto& chip_id : local_chip_ids_) {
-        uint32_t msg = get_power_state_arc_msg(chip_id, state);
-        std::stringstream ss;
-        ss << state;
-        auto exit_code = get_chip(chip_id)->arc_msg(wormhole::ARC_MSG_COMMON_PREFIX | msg, true, 0, 0);
-        if (exit_code != 0) {
-            throw std::runtime_error(
-                fmt::format("Failed to set power state to {} with exit code {}", ss.str(), exit_code));
-        }
-    }
-}
-
 int Cluster::get_clock(int logical_device_id) { return chips_.at(logical_device_id)->get_clock(); }
 
 std::map<int, int> Cluster::get_clocks() {
@@ -505,34 +469,6 @@ std::map<int, int> Cluster::get_clocks() {
         clock_freq_map.insert({chip_id, get_clock(chip_id)});
     }
     return clock_freq_map;
-}
-
-void Cluster::wait_for_aiclk_value(tt_DevicePowerState power_state, const uint32_t timeout_ms) {
-    auto start = std::chrono::system_clock::now();
-    for (auto& chip_id : local_chip_ids_) {
-        uint32_t target_aiclk = 0;
-        if (power_state == tt_DevicePowerState::BUSY) {
-            target_aiclk = get_tt_device(chip_id)->get_max_clock_freq();
-        } else if (power_state == tt_DevicePowerState::LONG_IDLE) {
-            target_aiclk = get_tt_device(chip_id)->get_min_clock_freq();
-        }
-        uint32_t aiclk = get_clock(chip_id);
-        while (aiclk != target_aiclk) {
-            auto end = std::chrono::system_clock::now();
-            auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
-            if (duration.count() > timeout_ms) {
-                log_warning(
-                    LogSiliconDriver,
-                    "Waiting for AICLK value to settle failed on timeout after {}. Expected to see {}, last value "
-                    "observed {}",
-                    timeout_ms,
-                    target_aiclk,
-                    aiclk);
-                return;
-            }
-            aiclk = get_clock(chip_id);
-        }
-    }
 }
 
 Cluster::~Cluster() {
@@ -566,29 +502,27 @@ void* Cluster::host_dma_address(std::uint64_t offset, chip_id_t src_device_id, u
     }
 }
 
-inline TTDevice* Cluster::get_tt_device(chip_id_t device_id) const {
+TTDevice* Cluster::get_tt_device(chip_id_t device_id) const {
     auto tt_device = get_local_chip(device_id)->get_tt_device();
     log_assert(tt_device != nullptr, "TTDevice not found for device: {}", device_id);
     return tt_device;
 }
 
-inline TLBManager* Cluster::get_tlb_manager(chip_id_t device_id) const {
-    return get_local_chip(device_id)->get_tlb_manager();
-}
+TLBManager* Cluster::get_tlb_manager(chip_id_t device_id) const { return get_local_chip(device_id)->get_tlb_manager(); }
 
-inline Chip* Cluster::get_chip(chip_id_t device_id) const {
+Chip* Cluster::get_chip(chip_id_t device_id) const {
     auto chip_it = chips_.find(device_id);
     log_assert(chip_it != chips_.end(), "Device id {} not found in cluster.", device_id);
     return chip_it->second.get();
 }
 
-inline LocalChip* Cluster::get_local_chip(chip_id_t device_id) const {
+LocalChip* Cluster::get_local_chip(chip_id_t device_id) const {
     log_assert(
         local_chip_ids_.find(device_id) != local_chip_ids_.end(), "Device id {} is not a local chip.", device_id);
     return dynamic_cast<LocalChip*>(get_chip(device_id));
 }
 
-inline RemoteChip* Cluster::get_remote_chip(chip_id_t device_id) const {
+RemoteChip* Cluster::get_remote_chip(chip_id_t device_id) const {
     log_assert(
         remote_chip_ids_.find(device_id) != remote_chip_ids_.end(), "Device id {} is not a remote chip.", device_id);
     return dynamic_cast<RemoteChip*>(get_chip(device_id));
@@ -941,12 +875,6 @@ int Cluster::arc_msg(
     return get_chip(logical_device_id)->arc_msg(msg_code, wait_for_done, arg0, arg1, timeout_ms, return_3, return_4);
 }
 
-int Cluster::set_remote_power_state(const chip_id_t& chip, tt_DevicePowerState device_state) {
-    auto mmio_capable_chip_logical = cluster_desc->get_closest_mmio_capable_chip(chip);
-    return get_chip(chip)->arc_msg(
-        get_power_state_arc_msg(mmio_capable_chip_logical, device_state), true, 0, 0, 1000, NULL, NULL);
-}
-
 void Cluster::broadcast_tensix_risc_reset_to_cluster(const TensixSoftResetOptions& soft_resets) {
     if (chips_.empty()) {
         // Nowhere to broadcast to.
@@ -979,34 +907,9 @@ void Cluster::broadcast_tensix_risc_reset_to_cluster(const TensixSoftResetOption
 }
 
 void Cluster::set_power_state(tt_DevicePowerState device_state) {
-    // MT Initial BH - ARC messages not supported in Blackhole
-    if (arch_name != tt::ARCH::BLACKHOLE) {
-        for (auto& chip : all_chip_ids_) {
-            if (cluster_desc->is_chip_mmio_capable(chip)) {
-                set_pcie_power_state(device_state);
-            } else {
-                int exit_code = set_remote_power_state(chip, device_state);
-                log_assert(
-                    exit_code == 0, "Failed to set power state to {} with exit code: {}", (int)device_state, exit_code);
-            }
-        }
-    } else {
-        uint32_t exit_code;
-        for (auto& chip : all_chip_ids_) {
-            if (device_state == tt_DevicePowerState::BUSY) {
-                exit_code = get_tt_device(chip)->get_arc_messenger()->send_message(
-                    (uint32_t)tt::umd::blackhole::ArcMessageType::AICLK_GO_BUSY);
-            } else {
-                exit_code = get_tt_device(chip)->get_arc_messenger()->send_message(
-                    (uint32_t)tt::umd::blackhole::ArcMessageType::AICLK_GO_LONG_IDLE);
-            }
-
-            if (exit_code != 0) {
-                throw std::runtime_error(fmt::format("Setting power state for chip {} failed.", chip));
-            }
-        }
+    for (auto& [_, chip] : chips_) {
+        chip->set_power_state(device_state);
     }
-    wait_for_aiclk_value(device_state);
 }
 
 void Cluster::enable_ethernet_queue(int timeout) {

@@ -34,6 +34,7 @@ public:
     void dram_membar(const std::unordered_set<uint32_t>& channels = {}) override;
 
     void deassert_risc_resets() override;
+    void set_power_state(tt_DevicePowerState state) override;
     int get_clock() override;
 };
 }  // namespace tt::umd

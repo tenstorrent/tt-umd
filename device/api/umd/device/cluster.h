@@ -607,13 +607,10 @@ private:
     void broadcast_tensix_risc_reset_to_cluster(const TensixSoftResetOptions& soft_resets);
     void send_remote_tensix_risc_reset_to_core(const tt_cxy_pair& core, const TensixSoftResetOptions& soft_resets);
     void send_tensix_risc_reset_to_core(const tt_cxy_pair& core, const TensixSoftResetOptions& soft_resets);
-    void set_pcie_power_state(tt_DevicePowerState state);
-    int set_remote_power_state(const chip_id_t& chip, tt_DevicePowerState device_state);
     uint32_t get_power_state_arc_msg(chip_id_t chip_id, tt_DevicePowerState state);
     void enable_ethernet_queue(int timeout);
     void deassert_resets_and_set_power_state();
     int get_clock(int logical_device_id);
-    void wait_for_aiclk_value(tt_DevicePowerState power_state, const uint32_t timeout_ms = 5000);
 
     // Communication Functions
     void ethernet_broadcast_write(

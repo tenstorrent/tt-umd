@@ -102,14 +102,14 @@ const tt_SocDescriptor& Cluster::get_soc_descriptor(chip_id_t chip_id) const {
 void Cluster::create_device(
     const std::set<chip_id_t>& target_mmio_device_ids,
     const uint32_t& num_host_mem_ch_per_mmio_device,
-    const bool create_mock_chips) {
+    const ChipType& chip_type) {
     log_debug(LogSiliconDriver, "Cluster::Cluster");
 
     // Don't buffer stdout.
     setbuf(stdout, NULL);
 
     for (const chip_id_t& logical_device_id : target_mmio_device_ids) {
-        if (!create_mock_chips) {
+        if (chip_type == ChipType::SILICON) {
             bool hugepages_initialized =
                 (get_local_chip(logical_device_id)->get_sysmem_manager()->get_hugepage_mapping(0).mapping != nullptr);
             // Large writes to remote chips require hugepages to be initialized.
@@ -127,11 +127,11 @@ void Cluster::create_device(
     }
 }
 
-void Cluster::construct_cluster(const uint32_t& num_host_mem_ch_per_mmio_device, const bool create_mock_chips) {
+void Cluster::construct_cluster(const uint32_t& num_host_mem_ch_per_mmio_device, const ChipType& chip_type) {
     // TODO: work on removing this member altogether. Currently assumes all have the same arch.
     arch_name = chips_.empty() ? tt::ARCH::Invalid : chips_.begin()->second->get_soc_descriptor().arch;
 
-    if (!create_mock_chips) {
+    if (chip_type == ChipType::SILICON) {
         std::vector<int> pci_ids;
         for (const auto& [logical_id, pci_id] : cluster_desc->get_chips_with_mmio()) {
             pci_ids.push_back(pci_id);
@@ -141,7 +141,7 @@ void Cluster::construct_cluster(const uint32_t& num_host_mem_ch_per_mmio_device,
             LogSiliconDriver, "Using local chip ids: {} and remote chip ids {}", local_chip_ids_, remote_chip_ids_);
     }
 
-    create_device(local_chip_ids_, num_host_mem_ch_per_mmio_device, create_mock_chips);
+    create_device(local_chip_ids_, num_host_mem_ch_per_mmio_device, chip_type);
 
     // Disable dependency to ethernet firmware for all BH devices and WH devices with all chips having MMIO (e.g. UBB
     // Galaxy, or P300).
@@ -415,7 +415,7 @@ Cluster::Cluster(ClusterOptions options) {
                 options.simulator_directory));
     }
 
-    construct_cluster(options.num_host_mem_ch_per_mmio_device, options.chip_type != ChipType::SILICON);
+    construct_cluster(options.num_host_mem_ch_per_mmio_device, options.chip_type);
 }
 
 void Cluster::configure_active_ethernet_cores_for_mmio_device(

@@ -602,7 +602,8 @@ private:
     // Startup + teardown
     void create_device(
         const std::set<chip_id_t>& target_mmio_device_ids,
-        const uint32_t& num_host_mem_ch_per_mmio_device, const ChipType& chip_type);
+        const uint32_t& num_host_mem_ch_per_mmio_device,
+        const ChipType& chip_type);
     void broadcast_tensix_risc_reset_to_cluster(const TensixSoftResetOptions& soft_resets);
     void send_remote_tensix_risc_reset_to_core(const tt_cxy_pair& core, const TensixSoftResetOptions& soft_resets);
     void send_tensix_risc_reset_to_core(const tt_cxy_pair& core, const TensixSoftResetOptions& soft_resets);

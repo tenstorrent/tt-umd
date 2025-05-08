@@ -16,7 +16,8 @@ namespace tt::umd {
 RemoteChip::RemoteChip(tt_SocDescriptor soc_descriptor, eth_coord_t eth_chip_location, LocalChip* local_chip) :
     Chip(soc_descriptor),
     eth_chip_location_(eth_chip_location),
-    remote_communication_(std::make_unique<RemoteCommunication>(local_chip)) {
+    remote_communication_(std::make_unique<RemoteCommunication>(local_chip)),
+    local_chip_(local_chip) {
     log_assert(soc_descriptor_.arch != tt::ARCH::BLACKHOLE, "Non-MMIO targets not supported in Blackhole");
 }
 
@@ -146,5 +147,7 @@ void RemoteChip::l1_membar(const std::unordered_set<tt::umd::CoreCoord>& cores) 
 void RemoteChip::dram_membar(const std::unordered_set<tt::umd::CoreCoord>& cores) { wait_for_non_mmio_flush(); }
 
 void RemoteChip::dram_membar(const std::unordered_set<uint32_t>& channels) { wait_for_non_mmio_flush(); }
+
+int RemoteChip::get_clock() { return local_chip_->get_clock(); }
 
 }  // namespace tt::umd

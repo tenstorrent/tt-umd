@@ -32,5 +32,7 @@ public:
     void l1_membar(const std::unordered_set<tt::umd::CoreCoord>& cores = {}) override;
     void dram_membar(const std::unordered_set<tt::umd::CoreCoord>& cores = {}) override;
     void dram_membar(const std::unordered_set<uint32_t>& channels = {}) override;
+
+    int get_clock() override;
 };
 }  // namespace tt::umd

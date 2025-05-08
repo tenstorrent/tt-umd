@@ -168,6 +168,15 @@ void LocalChip::wait_eth_cores_training(const uint32_t timeout_ms) {
     }
 }
 
+int LocalChip::get_num_host_channels() { return sysmem_manager_->get_num_host_mem_channels(); }
+
+int LocalChip::get_host_channel_size(std::uint32_t channel) {
+    log_assert(channel < get_num_host_channels(), "Querying size for a host channel that does not exist.");
+    hugepage_mapping hugepage_map = sysmem_manager_->get_hugepage_mapping(channel);
+    log_assert(hugepage_map.mapping_size, "Host channel size can only be queried after the device has been started.");
+    return hugepage_map.mapping_size;
+}
+
 void LocalChip::write_to_sysmem(uint16_t channel, const void* src, uint64_t sysmem_dest, uint32_t size) {
     sysmem_manager_->write_to_sysmem(channel, src, sysmem_dest, size);
 }
@@ -312,6 +321,14 @@ void LocalChip::dma_read_from_device(void* dst, size_t size, tt_xy_pair core, ui
         addr += transfer_size;
         buffer += transfer_size;
     }
+}
+
+std::function<void(uint32_t, uint32_t, const uint8_t*)> LocalChip::get_fast_pcie_static_tlb_write_callable() {
+    const auto callable = [this](uint32_t byte_addr, uint32_t num_bytes, const uint8_t* buffer_addr) {
+        tt_device_->write_block(byte_addr, num_bytes, buffer_addr);
+    };
+
+    return callable;
 }
 
 void LocalChip::write_to_device_reg(tt_xy_pair core, const void* src, uint64_t reg_dest, uint32_t size) {
@@ -730,4 +747,7 @@ void LocalChip::dram_membar(const std::unordered_set<uint32_t>& channels) {
     dram_membar(dram_cores_to_sync);
 }
 
+int LocalChip::get_clock() { return tt_device_->get_clock(); }
+
+int LocalChip::get_numa_node() { return tt_device_->get_pci_device()->get_numa_node(); }
 }  // namespace tt::umd

@@ -37,6 +37,8 @@ public:
     int get_active_eth_core_idx();
     std::vector<CoreCoord> get_remote_transfer_ethernet_cores();
 
+    int get_num_host_channels() override;
+    int get_host_channel_size(std::uint32_t channel) override;
     void write_to_sysmem(uint16_t channel, const void* src, uint64_t sysmem_dest, uint32_t size) override;
     void read_from_sysmem(uint16_t channel, void* dest, uint64_t sysmem_src, uint32_t size) override;
 
@@ -48,6 +50,8 @@ public:
     void dma_write_to_device(const void* src, size_t size, tt_xy_pair core, uint64_t addr) override;
     void dma_read_from_device(void* dst, size_t size, tt_xy_pair core, uint64_t addr) override;
 
+    std::function<void(uint32_t, uint32_t, const uint8_t*)> get_fast_pcie_static_tlb_write_callable() override;
+
     void ethernet_broadcast_write(
         const void* src, uint64_t core_dest, uint32_t size, std::vector<int> broadcast_header);
 
@@ -58,6 +62,9 @@ public:
     void l1_membar(const std::unordered_set<tt::umd::CoreCoord>& cores = {}) override;
     void dram_membar(const std::unordered_set<tt::umd::CoreCoord>& cores = {}) override;
     void dram_membar(const std::unordered_set<uint32_t>& channels = {}) override;
+
+    int get_clock() override;
+    int get_numa_node() override;
 
     std::unique_lock<RobustMutex> acquire_mutex(std::string mutex_name, int pci_device_id);
     std::unique_lock<RobustMutex> acquire_mutex(MutexType mutex_type, int pci_device_id);

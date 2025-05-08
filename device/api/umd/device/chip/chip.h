@@ -44,6 +44,8 @@ public:
     virtual SysmemManager* get_sysmem_manager();
     virtual TLBManager* get_tlb_manager();
 
+    virtual int get_num_host_channels();
+    virtual int get_host_channel_size(std::uint32_t channel);
     virtual void write_to_sysmem(uint16_t channel, const void* src, uint64_t sysmem_dest, uint32_t size);
     virtual void read_from_sysmem(uint16_t channel, void* dest, uint64_t sysmem_src, uint32_t size);
 
@@ -57,6 +59,8 @@ public:
     virtual void dma_write_to_device(const void* src, size_t size, tt_xy_pair core, uint64_t addr);
     virtual void dma_read_from_device(void* dst, size_t size, tt_xy_pair core, uint64_t addr);
 
+    virtual std::function<void(uint32_t, uint32_t, const uint8_t*)> get_fast_pcie_static_tlb_write_callable();
+
     virtual void wait_for_non_mmio_flush();
 
     virtual void l1_membar(const std::unordered_set<tt::umd::CoreCoord>& cores = {}) = 0;
@@ -65,6 +69,9 @@ public:
 
     virtual void send_tensix_risc_reset(tt_xy_pair core, const TensixSoftResetOptions& soft_resets);
     virtual void send_tensix_risc_reset(const TensixSoftResetOptions& soft_resets);
+
+    virtual int get_clock() = 0;
+    virtual int get_numa_node();
 
     virtual int arc_msg(
         uint32_t msg_code,

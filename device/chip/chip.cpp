@@ -73,6 +73,10 @@ TLBManager* Chip::get_tlb_manager() {
         "Chip::get_tlb_manager is not available for this chip, it is only available for LocalChips.");
 }
 
+int Chip::get_num_host_channels() { return 0; }
+
+int Chip::get_host_channel_size(std::uint32_t channel) { return 0; }
+
 void Chip::write_to_sysmem(uint16_t channel, const void* src, uint64_t sysmem_dest, uint32_t size) {
     throw std::runtime_error("Chip::write_to_sysmem is not available for this chip.");
 }
@@ -97,6 +101,10 @@ void Chip::dma_read_from_device(void* dst, size_t size, tt_xy_pair core, uint64_
     throw std::runtime_error("Chip::dma_read_from_device is not available for this chip.");
 }
 
+std::function<void(uint32_t, uint32_t, const uint8_t*)> Chip::get_fast_pcie_static_tlb_write_callable() {
+    throw std::runtime_error("Chip::get_fast_pcie_static_tlb_write_callable is not available for this chip.");
+}
+
 void Chip::wait_for_non_mmio_flush() {
     throw std::runtime_error("Chip::wait_for_non_mmio_flush is not available for this chip.");
 }
@@ -104,6 +112,8 @@ void Chip::wait_for_non_mmio_flush() {
 void Chip::set_remote_transfer_ethernet_cores(const std::unordered_set<CoreCoord>& cores) {
     throw std::runtime_error("Chip::set_remote_transfer_ethernet_cores is not available for this chip.");
 }
+
+int Chip::get_numa_node() { throw std::runtime_error("Chip::get_numa_node is not available for this chip."); }
 
 void Chip::wait_dram_cores_training(const uint32_t timeout_ms) {}
 

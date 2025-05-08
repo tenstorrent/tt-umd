@@ -41,10 +41,13 @@ public:
     void dram_membar(const std::unordered_set<tt::umd::CoreCoord>& cores = {}) override;
     void dram_membar(const std::unordered_set<uint32_t>& channels = {}) override;
 
+    int get_clock() override;
+
 private:
     tt_xy_pair translate_chip_coord_virtual_to_translated(const tt_xy_pair core);
 
     eth_coord_t eth_chip_location_;
     std::unique_ptr<RemoteCommunication> remote_communication_;
+    LocalChip* local_chip_;
 };
 }  // namespace tt::umd

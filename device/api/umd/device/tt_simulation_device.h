@@ -44,6 +44,8 @@ public:
 
     bool is_mmio_capable() const override { return false; }
 
+    void set_remote_transfer_ethernet_cores(const std::unordered_set<tt::umd::CoreCoord>& cores) override;
+
     // All tt_xy_pair cores in this class are defined in VIRTUAL coords.
     void write_to_device(tt_xy_pair core, const void* src, uint64_t l1_dest, uint32_t size) override;
     void read_from_device(tt_xy_pair core, void* dest, uint64_t l1_src, uint32_t size) override;
@@ -56,6 +58,8 @@ public:
 
     void send_tensix_risc_reset(tt_xy_pair core, const TensixSoftResetOptions& soft_resets) override;
     void send_tensix_risc_reset(const TensixSoftResetOptions& soft_resets) override;
+
+    int get_clock() override;
 
     int arc_msg(
         uint32_t msg_code,

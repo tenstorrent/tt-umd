@@ -431,34 +431,22 @@ void Cluster::assert_risc_reset() { broadcast_tensix_risc_reset_to_cluster(TENSI
 
 void Cluster::deassert_risc_reset() { broadcast_tensix_risc_reset_to_cluster(TENSIX_DEASSERT_SOFT_RESET); }
 
-void Cluster::deassert_risc_reset_at_core(tt_cxy_pair core, const TensixSoftResetOptions& soft_resets) {
-    // Get Target Device to query soc descriptor and determine location in cluster
-    std::uint32_t target_device = core.chip;
-    CoreCoord core_coord = get_soc_descriptor(target_device).get_coord_at(core, CoordSystem::VIRTUAL);
-    log_assert(
-        core_coord.core_type == CoreType::TENSIX || core_coord.core_type == CoreType::ETH,
-        "Cannot deassert reset on a non-tensix or harvested core");
-    get_chip(core.chip)->send_tensix_risc_reset(core, soft_resets);
-}
-
 void Cluster::deassert_risc_reset_at_core(
     const chip_id_t chip, const CoreCoord core, const TensixSoftResetOptions& soft_resets) {
-    deassert_risc_reset_at_core({(size_t)chip, translate_to_api_coords(chip, core)}, soft_resets);
-}
-
-void Cluster::assert_risc_reset_at_core(tt_cxy_pair core, const TensixSoftResetOptions& soft_resets) {
     // Get Target Device to query soc descriptor and determine location in cluster
-    std::uint32_t target_device = core.chip;
-    CoreCoord core_coord = get_soc_descriptor(target_device).get_coord_at(core, CoordSystem::VIRTUAL);
     log_assert(
-        core_coord.core_type == CoreType::TENSIX || core_coord.core_type == CoreType::ETH,
-        "Cannot assert reset on a non-tensix or harvested core");
-    get_chip(core.chip)->send_tensix_risc_reset(core, soft_resets);
+        core.core_type == CoreType::TENSIX || core.core_type == CoreType::ETH,
+        "Cannot deassert reset on a non-tensix or harvested core");
+    get_chip(chip)->send_tensix_risc_reset(translate_to_api_coords(chip, core), soft_resets);
 }
 
 void Cluster::assert_risc_reset_at_core(
     const chip_id_t chip, const CoreCoord core, const TensixSoftResetOptions& soft_resets) {
-    assert_risc_reset_at_core({(size_t)chip, translate_to_api_coords(chip, core)}, soft_resets);
+    // Get Target Device to query soc descriptor and determine location in cluster
+    log_assert(
+        core.core_type == CoreType::TENSIX || core.core_type == CoreType::ETH,
+        "Cannot assert reset on a non-tensix or harvested core");
+    get_chip(chip)->send_tensix_risc_reset(translate_to_api_coords(chip, core), soft_resets);
 }
 
 tt_ClusterDescriptor* Cluster::get_cluster_description() { return cluster_desc.get(); }
@@ -474,12 +462,8 @@ std::function<void(uint32_t, uint32_t, const uint8_t*)> Cluster::get_fast_pcie_s
     return callable;
 }
 
-tt::Writer Cluster::get_static_tlb_writer(tt_cxy_pair target) {
-    return get_tlb_manager(target.chip)->get_static_tlb_writer({target.x, target.y});
-}
-
 tt::Writer Cluster::get_static_tlb_writer(const chip_id_t chip, const CoreCoord target) {
-    return get_static_tlb_writer({(size_t)chip, translate_to_api_coords(chip, target)});
+    return get_tlb_manager(chip)->get_static_tlb_writer(translate_to_api_coords(chip, target));
 }
 
 uint32_t Cluster::get_power_state_arc_msg(chip_id_t chip_id, tt_DevicePowerState state) {
@@ -564,21 +548,8 @@ Cluster::~Cluster() {
     cluster_desc.reset();
 }
 
-std::optional<std::tuple<uint32_t, uint32_t>> Cluster::get_tlb_data_from_target(const tt_cxy_pair& target) {
-    tlb_configuration tlb_configuration = get_tlb_configuration(target);
-    return std::tuple((uint32_t)tlb_configuration.tlb_offset, (uint32_t)tlb_configuration.size);
-}
-
-tlb_configuration Cluster::get_tlb_configuration(const tt_cxy_pair& target) {
-    return get_tlb_manager(target.chip)->get_tlb_configuration({target.x, target.y});
-}
-
-std::optional<std::tuple<uint32_t, uint32_t>> Cluster::get_tlb_data_from_target(const chip_id_t chip, CoreCoord core) {
-    return get_tlb_data_from_target({(size_t)chip, translate_to_api_coords(chip, core)});
-}
-
 tlb_configuration Cluster::get_tlb_configuration(const chip_id_t chip, CoreCoord core) {
-    return get_tlb_configuration({(size_t)chip, translate_to_api_coords(chip, core)});
+    return get_tlb_manager(chip)->get_tlb_configuration(translate_to_api_coords(chip, core));
 }
 
 void Cluster::configure_tlb(

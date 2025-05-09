@@ -68,7 +68,7 @@ TEST(ApiChipTest, ManualTLBConfiguration) {
     }
 
     // Expect not to throw for now configured mmio chip, same one as before.
-    EXPECT_NO_THROW(umd_cluster->get_static_tlb_writer(tt_cxy_pair(any_mmio_chip, core)));
+    EXPECT_NO_THROW(umd_cluster->get_static_tlb_writer(any_mmio_chip, core));
 
     // Expect to throw for non worker cores.
     CoreCoord dram_core = soc_desc.get_dram_cores()[0][0];
@@ -76,7 +76,7 @@ TEST(ApiChipTest, ManualTLBConfiguration) {
     auto eth_cores = soc_desc.get_cores(CoreType::ETH);
     if (!eth_cores.empty()) {
         CoreCoord eth_core = eth_cores[0];
-        EXPECT_THROW(umd_cluster->get_static_tlb_writer(tt_cxy_pair(any_mmio_chip, eth_core)), std::runtime_error);
+        EXPECT_THROW(umd_cluster->get_static_tlb_writer(any_mmio_chip, eth_core), std::runtime_error);
     }
 }
 

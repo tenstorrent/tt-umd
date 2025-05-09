@@ -27,7 +27,7 @@ int main(int argc, char *argv[]) {
         cluster_descriptor_path = result["path"].as<std::string>();
     }
 
-    std::string output_path = Cluster::serialize_to_file(cluster_descriptor_path);
+    std::string output_path = tt::umd::Cluster::create_cluster_descriptor()->serialize_to_file(cluster_descriptor_path);
     log_info(tt::LogSiliconDriver, "Cluster descriptor serialized to {}", output_path);
     return 0;
 }

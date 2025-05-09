@@ -131,4 +131,10 @@ void Chip::send_tensix_risc_reset(tt_xy_pair core, const TensixSoftResetOptions&
     write_to_device_reg(core, &valid_val, 0xFFB121B0, sizeof(uint32_t));
     tt_driver_atomics::sfence();
 }
+
+void Chip::send_tensix_risc_reset(const TensixSoftResetOptions& soft_resets) {
+    for (const CoreCoord core : soc_descriptor_.get_cores(CoreType::TENSIX, CoordSystem::VIRTUAL)) {
+        send_tensix_risc_reset(core, soft_resets);
+    }
+}
 }  // namespace tt::umd

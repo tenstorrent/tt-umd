@@ -15,11 +15,7 @@ namespace tt::umd {
 
 class LocalChip : public Chip {
 public:
-    LocalChip(
-        tt_SocDescriptor soc_descriptor,
-        int pci_device_id,
-        int num_host_mem_channels = 0,
-        const bool clear_mutex = false);
+    LocalChip(tt_SocDescriptor soc_descriptor, int pci_device_id, int num_host_mem_channels = 0);
 
     LocalChip(std::string sdesc_path, std::unique_ptr<TTDevice> tt_device);
 
@@ -86,9 +82,9 @@ private:
     int active_eth_core_idx = 0;
     bool flush_non_mmio_ = false;
 
-    void initialize_local_chip(int num_host_mem_channels = 0, const bool clear_mutex = false);
+    void initialize_local_chip(int num_host_mem_channels = 0);
     void initialize_tlb_manager();
-    void initialize_default_chip_mutexes(const bool clear_mutex);
+    void initialize_default_chip_mutexes();
     void initialize_default_remote_transfer_ethernet_cores();
     void initialize_membars();
 

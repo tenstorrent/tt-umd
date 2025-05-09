@@ -14,6 +14,8 @@ bool MockChip::is_mmio_capable() const { return false; }
 
 void MockChip::start_device() {}
 
+void MockChip::close_device() {}
+
 void MockChip::write_to_device(tt_xy_pair core, const void* src, uint64_t l1_dest, uint32_t size) {}
 
 void MockChip::read_from_device(tt_xy_pair core, void* dest, uint64_t l1_src, uint32_t size) {}

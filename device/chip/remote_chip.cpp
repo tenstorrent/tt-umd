@@ -26,6 +26,8 @@ bool RemoteChip::is_mmio_capable() const { return false; }
 
 void RemoteChip::start_device() {}
 
+void RemoteChip::close_device() {}
+
 void RemoteChip::write_to_device(tt_xy_pair core, const void* src, uint64_t l1_dest, uint32_t size) {
     auto translated_core = translate_chip_coord_virtual_to_translated(core);
     remote_communication_->write_to_non_mmio(eth_chip_location_, translated_core, src, l1_dest, size);

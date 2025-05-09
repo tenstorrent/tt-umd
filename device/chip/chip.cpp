@@ -81,6 +81,14 @@ void Chip::read_from_sysmem(uint16_t channel, void* dest, uint64_t sysmem_src, u
     throw std::runtime_error("Chip::read_from_sysmem is not available for this chip.");
 }
 
+void Chip::write_to_device_reg(tt_xy_pair core, const void* src, uint64_t reg_dest, uint32_t size) {
+    write_to_device(core, src, reg_dest, size);
+}
+
+void Chip::read_from_device_reg(tt_xy_pair core, void* dest, uint64_t reg_src, uint32_t size) {
+    read_from_device(core, dest, reg_src, size);
+}
+
 void Chip::dma_write_to_device(const void* src, size_t size, tt_xy_pair core, uint64_t addr) {
     throw std::runtime_error("Chip::dma_write_to_device is not available for this chip.");
 }
@@ -95,30 +103,6 @@ void Chip::wait_for_non_mmio_flush() {
 
 void Chip::set_remote_transfer_ethernet_cores(const std::unordered_set<CoreCoord>& cores) {
     throw std::runtime_error("Chip::set_remote_transfer_ethernet_cores is not available for this chip.");
-}
-
-tt_xy_pair Chip::get_remote_transfer_ethernet_core() {
-    throw std::runtime_error("Chip::get_remote_transfer_ethernet_core is not available for this chip.");
-}
-
-void Chip::update_active_eth_core_idx() {
-    throw std::runtime_error("Chip::update_active_eth_core_idx is not available for this chip.");
-}
-
-int Chip::get_active_eth_core_idx() {
-    throw std::runtime_error("Chip::active_eth_core_idx is not available for this chip.");
-}
-
-std::vector<CoreCoord> Chip::get_remote_transfer_ethernet_cores() {
-    throw std::runtime_error("Chip::get_remote_transfer_ethernet_cores is not available for this chip.");
-}
-
-std::unique_lock<RobustMutex> Chip::acquire_mutex(std::string mutex_name, int pci_device_id) {
-    throw std::runtime_error("LockManager::acquire_mutex is not available for this chip.");
-}
-
-std::unique_lock<RobustMutex> Chip::acquire_mutex(MutexType mutex_type, int pci_device_id) {
-    throw std::runtime_error("LockManager::acquire_mutex is not available for this chip.");
 }
 
 void Chip::wait_dram_cores_training(const uint32_t timeout_ms) {}
@@ -146,5 +130,11 @@ void Chip::send_tensix_risc_reset(tt_xy_pair core, const TensixSoftResetOptions&
     uint32_t valid_val = (std::underlying_type<TensixSoftResetOptions>::type)valid;
     write_to_device_reg(core, &valid_val, 0xFFB121B0, sizeof(uint32_t));
     tt_driver_atomics::sfence();
+}
+
+void Chip::send_tensix_risc_reset(const TensixSoftResetOptions& soft_resets) {
+    for (const CoreCoord core : soc_descriptor_.get_cores(CoreType::TENSIX, CoordSystem::VIRTUAL)) {
+        send_tensix_risc_reset(core, soft_resets);
+    }
 }
 }  // namespace tt::umd

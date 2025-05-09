@@ -562,7 +562,6 @@ public:
     Cluster(
         const uint32_t& num_host_mem_ch_per_mmio_device = 1,
         const bool create_mock_chips = false,
-        const bool clean_system_resources = false,
         bool perform_harvesting = true,
         std::unordered_map<chip_id_t, HarvestingMasks> simulated_harvesting_masks = {});
 
@@ -582,7 +581,6 @@ public:
         const std::set<chip_id_t>& target_devices,
         const uint32_t& num_host_mem_ch_per_mmio_device = 1,
         const bool create_mock_chips = false,
-        const bool clean_system_resources = false,
         bool perform_harvesting = true,
         std::unordered_map<chip_id_t, HarvestingMasks> simulated_harvesting_masks = {});
 
@@ -606,7 +604,6 @@ public:
         const std::set<chip_id_t>& target_devices,
         const uint32_t& num_host_mem_ch_per_mmio_device = 1,
         const bool create_mock_chips = false,
-        const bool clean_system_resources = false,
         bool perform_harvesting = true,
         std::unordered_map<chip_id_t, HarvestingMasks> simulated_harvesting_masks = {});
 
@@ -628,7 +625,6 @@ public:
         std::unique_ptr<tt_ClusterDescriptor> cluster_descriptor,
         const uint32_t& num_host_mem_ch_per_mmio_device = 1,
         const bool create_mock_chips = false,
-        const bool clean_system_resources = false,
         bool perform_harvesting = true,
         std::unordered_map<chip_id_t, HarvestingMasks> simulated_harvesting_masks = {});
 
@@ -867,7 +863,6 @@ private:
         tt_ClusterDescriptor* cluster_desc,
         tt_SocDescriptor& soc_desc,
         int num_host_mem_channels,
-        const bool clean_system_resources,
         const bool create_mock_chip = false);
     std::unique_ptr<Chip> construct_chip_from_cluster(
         const std::string& soc_desc_path,
@@ -876,7 +871,6 @@ private:
         bool perform_harvesting,
         std::unordered_map<chip_id_t, HarvestingMasks>& simulated_harvesting_masks,
         int num_host_mem_channels,
-        const bool clean_system_resources,
         const bool create_mock_chip = false);
     std::unique_ptr<Chip> construct_chip_from_cluster(
         chip_id_t logical_device_id,
@@ -884,7 +878,6 @@ private:
         bool perform_harvesting,
         std::unordered_map<chip_id_t, HarvestingMasks>& simulated_harvesting_masks,
         int num_host_mem_channels,
-        const bool clean_system_resources,
         const bool create_mock_chip = false);
     void add_chip(chip_id_t chip_id, std::unique_ptr<Chip> chip);
     HarvestingMasks get_harvesting_masks(

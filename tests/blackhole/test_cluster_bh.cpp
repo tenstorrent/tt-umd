@@ -75,7 +75,7 @@ TEST(SiliconDriverBH, CreateDestroy) {
     uint32_t num_host_mem_ch_per_mmio_device = 1;
     tt_device_params default_params;
     for (int i = 0; i < 50; i++) {
-        Cluster cluster = Cluster(target_devices, num_host_mem_ch_per_mmio_device, false, true, true);
+        Cluster cluster = Cluster(target_devices, num_host_mem_ch_per_mmio_device, false, true);
         set_barrier_params(cluster);
         cluster.start_device(default_params);
         cluster.close_device();
@@ -101,7 +101,6 @@ TEST(SiliconDriverBH, CreateDestroy) {
 //         target_devices,
 //         num_host_mem_ch_per_mmio_device,
 //         false,
-//         true,
 //         false,
 //         simulated_harvesting_masks);
 
@@ -131,7 +130,6 @@ TEST(SiliconDriverBH, CreateDestroy) {
 //         target_devices,
 //         num_host_mem_ch_per_mmio_device,
 //         false,
-//         true,
 //         true,
 //         simulated_harvesting_masks);
 //     set_barrier_params(cluster);
@@ -218,7 +216,7 @@ TEST(SiliconDriverBH, UnalignedStaticTLB_RW) {
 
     uint32_t num_host_mem_ch_per_mmio_device = 1;
 
-    Cluster cluster = Cluster(num_host_mem_ch_per_mmio_device, false, true, true);
+    Cluster cluster = Cluster(num_host_mem_ch_per_mmio_device, false, true);
     set_barrier_params(cluster);
     auto mmio_devices = cluster.get_target_mmio_device_ids();
 
@@ -276,7 +274,7 @@ TEST(SiliconDriverBH, StaticTLB_RW) {
 
     uint32_t num_host_mem_ch_per_mmio_device = 1;
 
-    Cluster cluster = Cluster(num_host_mem_ch_per_mmio_device, false, true, true);
+    Cluster cluster = Cluster(num_host_mem_ch_per_mmio_device, false, true);
     set_barrier_params(cluster);
     auto mmio_devices = cluster.get_target_mmio_device_ids();
 
@@ -337,7 +335,7 @@ TEST(SiliconDriverBH, DynamicTLB_RW) {
     std::set<chip_id_t> target_devices = test_utils::get_target_devices();
 
     uint32_t num_host_mem_ch_per_mmio_device = 1;
-    Cluster cluster = Cluster(num_host_mem_ch_per_mmio_device, false, true, true);
+    Cluster cluster = Cluster(num_host_mem_ch_per_mmio_device, false, true);
 
     set_barrier_params(cluster);
 
@@ -405,7 +403,7 @@ TEST(SiliconDriverBH, MultiThreadedDevice) {
     std::set<chip_id_t> target_devices = test_utils::get_target_devices();
 
     uint32_t num_host_mem_ch_per_mmio_device = 1;
-    Cluster cluster = Cluster(num_host_mem_ch_per_mmio_device, false, true, true);
+    Cluster cluster = Cluster(num_host_mem_ch_per_mmio_device, false, true);
 
     set_barrier_params(cluster);
 
@@ -465,7 +463,7 @@ TEST(SiliconDriverBH, MultiThreadedMemBar) {
     uint32_t base_addr = l1_mem::address_map::DATA_BUFFER_SPACE_BASE;
     uint32_t num_host_mem_ch_per_mmio_device = 1;
 
-    Cluster cluster = Cluster(num_host_mem_ch_per_mmio_device, false, true, true);
+    Cluster cluster = Cluster(num_host_mem_ch_per_mmio_device, false, true);
     set_barrier_params(cluster);
     for (int i = 0; i < target_devices.size(); i++) {
         // Iterate over devices and only setup static TLBs for functional worker cores
@@ -580,7 +578,7 @@ TEST(SiliconDriverBH, DISABLED_BroadcastWrite) {  // Cannot broadcast to tensix/
 
     uint32_t num_host_mem_ch_per_mmio_device = 1;
 
-    Cluster cluster = Cluster(num_host_mem_ch_per_mmio_device, false, true, true);
+    Cluster cluster = Cluster(num_host_mem_ch_per_mmio_device, false, true);
     set_barrier_params(cluster);
     auto mmio_devices = cluster.get_target_mmio_device_ids();
 
@@ -658,7 +656,7 @@ TEST(SiliconDriverBH, DISABLED_VirtualCoordinateBroadcast) {  // same problem as
 
     uint32_t num_host_mem_ch_per_mmio_device = 1;
 
-    Cluster cluster = Cluster(num_host_mem_ch_per_mmio_device, false, true, true);
+    Cluster cluster = Cluster(num_host_mem_ch_per_mmio_device, false, true);
     set_barrier_params(cluster);
     auto mmio_devices = cluster.get_target_mmio_device_ids();
 
@@ -747,7 +745,6 @@ TEST(SiliconDriverBH, SysmemTestWithPcie) {
     Cluster cluster(
         1,      // one "host memory channel",
         false,  // skip driver allocs - no (don't skip)
-        true,   // clean system resources - yes
         true);  // perform harvesting - yes
 
     set_barrier_params(cluster);
@@ -796,7 +793,6 @@ static bool is_iommu_available() {
         target_devices,
         num_channels,
         false,  // skip driver allocs - no (don't skip)
-        true,   // clean system resources - yes
         true);  // perform harvesting - yes
     return cluster.get_tt_device(0)->get_pci_device()->is_iommu_enabled();
 }
@@ -815,7 +811,6 @@ TEST(SiliconDriverBH, RandomSysmemTestWithPcie) {
         target_devices,
         num_channels,
         false,  // skip driver allocs - no (don't skip)
-        true,   // clean system resources - yes
         true);  // perform harvesting - yes
 
     set_barrier_params(cluster);

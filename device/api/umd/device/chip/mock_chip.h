@@ -19,9 +19,6 @@ public:
     void write_to_device(tt_xy_pair core, const void* src, uint64_t l1_dest, uint32_t size) override;
     void read_from_device(tt_xy_pair core, void* dest, uint64_t l1_src, uint32_t size) override;
 
-    void write_to_device_reg(tt_xy_pair core, const void* src, uint64_t reg_dest, uint32_t size) override;
-    void read_from_device_reg(tt_xy_pair core, void* dest, uint64_t reg_src, uint32_t size) override;
-
     int arc_msg(
         uint32_t msg_code,
         bool wait_for_done,

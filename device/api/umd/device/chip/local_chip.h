@@ -30,11 +30,11 @@ public:
     TLBManager* get_tlb_manager() override;
 
     void set_remote_transfer_ethernet_cores(const std::unordered_set<CoreCoord>& cores) override;
-    // TODO: To be removed once all the usages are moved inside the class.
-    tt_xy_pair get_remote_transfer_ethernet_core() override;
-    void update_active_eth_core_idx() override;
-    int get_active_eth_core_idx() override;
-    std::vector<CoreCoord> get_remote_transfer_ethernet_cores() override;
+    // TODO: Figure out if this should remain public or used another way.
+    tt_xy_pair get_remote_transfer_ethernet_core();
+    void update_active_eth_core_idx();
+    int get_active_eth_core_idx();
+    std::vector<CoreCoord> get_remote_transfer_ethernet_cores();
 
     void write_to_sysmem(uint16_t channel, const void* src, uint64_t sysmem_dest, uint32_t size) override;
     void read_from_sysmem(uint16_t channel, void* dest, uint64_t sysmem_src, uint32_t size) override;
@@ -58,8 +58,8 @@ public:
     void dram_membar(const std::unordered_set<tt::umd::CoreCoord>& cores = {}) override;
     void dram_membar(const std::unordered_set<uint32_t>& channels = {}) override;
 
-    std::unique_lock<RobustMutex> acquire_mutex(std::string mutex_name, int pci_device_id) override;
-    std::unique_lock<RobustMutex> acquire_mutex(MutexType mutex_type, int pci_device_id) override;
+    std::unique_lock<RobustMutex> acquire_mutex(std::string mutex_name, int pci_device_id);
+    std::unique_lock<RobustMutex> acquire_mutex(MutexType mutex_type, int pci_device_id);
 
     int arc_msg(
         uint32_t msg_code,

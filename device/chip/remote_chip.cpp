@@ -36,14 +36,6 @@ void RemoteChip::read_from_device(tt_xy_pair core, void* dest, uint64_t l1_src, 
     remote_communication_->read_non_mmio(eth_chip_location_, translated_core, dest, l1_src, size);
 }
 
-void RemoteChip::write_to_device_reg(tt_xy_pair core, const void* src, uint64_t reg_dest, uint32_t size) {
-    write_to_device(core, src, reg_dest, size);
-}
-
-void RemoteChip::read_from_device_reg(tt_xy_pair core, void* dest, uint64_t reg_src, uint32_t size) {
-    read_from_device(core, dest, reg_src, size);
-}
-
 // TODO: This translation should go away when we start using CoreCoord everywhere.
 tt_xy_pair RemoteChip::translate_chip_coord_virtual_to_translated(const tt_xy_pair core) {
     CoreCoord core_coord = get_soc_descriptor().get_coord_at(core, CoordSystem::VIRTUAL);

@@ -578,6 +578,8 @@ struct ClusterOptions {
     // type is SILICON, the constructor will throw if cluster_descriptor configuration shows chips which don't exist on
     // the system.
     std::unique_ptr<tt_ClusterDescriptor> cluster_descriptor = nullptr;
+    // This parameter is used only for SIMULATION chip type.
+    std::filesystem::path simulator_directory = "";
 };
 
 /**
@@ -908,7 +910,8 @@ private:
         const ChipType& chip_type,
         tt_ClusterDescriptor* cluster_desc,
         tt_SocDescriptor& soc_desc,
-        int num_host_mem_channels);
+        int num_host_mem_channels,
+        const std::filesystem::path& simulator_directory);
     tt_SocDescriptor construct_soc_descriptor(
         const std::string& soc_desc_path,
         chip_id_t chip_id,

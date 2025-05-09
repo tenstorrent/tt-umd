@@ -73,6 +73,7 @@ if(TT_UMD_BUILD_SIMULATION)
             simulation/tt_simulation_host.cpp
             ${FBS_GENERATED_HEADER}
     )
+    target_compile_definitions(device PRIVATE TT_UMD_BUILD_SIMULATION)
 endif()
 
 if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.23)

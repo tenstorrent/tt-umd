@@ -7,6 +7,7 @@
 #pragma once
 
 #include <cstdint>
+#include <filesystem>
 #include <map>
 #include <memory>
 #include <set>
@@ -17,7 +18,6 @@
 #include <vector>
 
 #include "umd/device/chip/chip.h"
-#include "umd/device/cluster.h"
 #include "umd/device/topology_discovery.h"
 #include "umd/device/tt_xy_pair.h"
 #include "umd/device/types/arch.h"
@@ -25,6 +25,10 @@
 
 namespace YAML {
 class Node;
+}
+
+namespace tt::umd {
+class Cluster;
 }
 
 class tt_ClusterDescriptor {

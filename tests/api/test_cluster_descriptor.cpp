@@ -8,6 +8,7 @@
 
 #include "disjoint_set.hpp"
 #include "tests/test_utils/generate_cluster_desc.hpp"
+#include "umd/device/cluster.h"
 #include "umd/device/pci_device.hpp"
 #include "umd/device/tt_cluster_descriptor.h"
 

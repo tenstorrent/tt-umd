@@ -31,9 +31,8 @@ public:
 
     BoardType get_board_type() override;
 
-    void dma_d2h(void *dst, uint32_t src, size_t size) override;
-
-    void dma_h2d(uint32_t dst, const void *src, size_t size) override;
+    void dma_d2h(void *dst, uint32_t src, size_t size, bool dst_mapped_for_dma = false) override;
+    void dma_h2d(uint32_t dst, const void *src, size_t size, bool src_mapped_for_dma = false) override;
 
     std::vector<DramTrainingStatus> get_dram_training_status() override;
 

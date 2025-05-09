@@ -231,7 +231,9 @@ bool SysmemManager::init_iommu(size_t size) {
             strerror(errno));
     }
 
-    uint64_t iova = tt_device_->get_pci_device()->map_for_dma(mapping, map_size);
+    std::shared_ptr<SysmemBuffer> sysmem_buffer = allocate_sysmem_buffer(mapping, size);
+    uint64_t iova = sysmem_buffer->get_device_io_addr();
+
     log_info(LogSiliconDriver, "Mapped sysmem without hugepages to IOVA {:#x}.", iova);
 
     hugepage_mapping_per_channel.resize(num_fake_mem_channels);
@@ -264,4 +266,58 @@ void SysmemManager::print_file_contents(std::string filename, std::string hint) 
         }
     }
 }
+
+std::shared_ptr<SysmemBuffer> SysmemManager::allocate_sysmem_buffer(uint32_t sysmem_buffer_size) {
+    void *mapping =
+        mmap(nullptr, sysmem_buffer_size, PROT_READ | PROT_WRITE, MAP_ANONYMOUS | MAP_PRIVATE | MAP_POPULATE, -1, 0);
+    return allocate_sysmem_buffer(mapping, sysmem_buffer_size);
+}
+
+std::shared_ptr<SysmemBuffer> SysmemManager::allocate_sysmem_buffer(void *buffer, uint32_t sysmem_buffer_size) {
+    // TODO(pjanevski): round down base buffer addr and round up sysmem_buffer_size.
+
+    uint64_t device_io_addr = tt_device_->get_pci_device()->map_for_dma(buffer, sysmem_buffer_size);
+
+    uint64_t buffer_addr = reinterpret_cast<uint64_t>(buffer);
+
+    // uint64_t buffer_addr = reinterpret_cast<uint64_t>(buffer);
+    // if (buffer_to_io_data_map.find(buffer_addr) != buffer_to_io_data_map.end()) {
+    //     log_warning(
+    //         LogSiliconDriver,
+    //         "Buffer {} is already mapped for DMA. Overwriting the mapping.",
+    //         reinterpret_cast<void *>(buffer_addr));
+    // }
+
+    std::shared_ptr<SysmemBuffer> sysmem_buffer =
+        std::make_shared<SysmemBuffer>(buffer, sysmem_buffer_size, device_io_addr);
+
+    sysmem_buffers[buffer_addr] = sysmem_buffer;
+
+    return sysmem_buffer;
+}
+
+std::shared_ptr<SysmemBuffer> SysmemManager::get_sysmem_buffer(void *buffer) {
+    uint64_t buffer_addr = reinterpret_cast<uint64_t>(buffer);
+
+    for (auto it : sysmem_buffers) {
+        if (it.first <= buffer_addr && buffer_addr < it.first + it.second->get_buffer_size()) {
+            return it.second;
+        }
+    }
+
+    return nullptr;
+}
+
+uint64_t SysmemManager::get_device_io_address(void *buffer) {
+    std::shared_ptr<SysmemBuffer> sysmem_buffer = get_sysmem_buffer(buffer);
+    if (sysmem_buffer) {
+        return sysmem_buffer->get_device_io_addr() +
+               (reinterpret_cast<uint64_t>(buffer) - reinterpret_cast<uint64_t>(sysmem_buffer->get_buffer_va()));
+    }
+
+    throw std::runtime_error(fmt::format(
+        "Can't return device IO address. Buffer with virtual address {:#x} not found in sysmem manager.",
+        reinterpret_cast<uint64_t>(buffer)));
+}
+
 }  // namespace tt::umd

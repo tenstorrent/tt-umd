@@ -96,11 +96,11 @@ void Chip::read_from_device_reg(tt_xy_pair core, void* dest, uint64_t reg_src, u
     read_from_device(core, dest, reg_src, size);
 }
 
-void Chip::dma_write_to_device(const void* src, size_t size, tt_xy_pair core, uint64_t addr) {
+void Chip::dma_write_to_device(const void* src, size_t size, tt_xy_pair core, uint64_t addr, bool src_mapped_for_dma) {
     throw std::runtime_error("Chip::dma_write_to_device is not available for this chip.");
 }
 
-void Chip::dma_read_from_device(void* dst, size_t size, tt_xy_pair core, uint64_t addr) {
+void Chip::dma_read_from_device(void* dst, size_t size, tt_xy_pair core, uint64_t addr, bool dst_mapped_for_dma) {
     throw std::runtime_error("Chip::dma_read_from_device is not available for this chip.");
 }
 

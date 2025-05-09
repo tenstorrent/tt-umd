@@ -341,7 +341,13 @@ public:
      * @param core Core to target.
      * @param addr Address to write to.
      */
-    void dma_write_to_device(const void* src, size_t size, chip_id_t chip, tt::umd::CoreCoord core, uint64_t addr);
+    virtual void dma_write_to_device(
+        const void* src,
+        size_t size,
+        chip_id_t chip,
+        tt::umd::CoreCoord core,
+        uint64_t addr,
+        bool src_mapped_for_dma = false);
 
     /**
      * Use PCIe DMA to read device memory (L1 or DRAM).
@@ -352,7 +358,13 @@ public:
      * @param core Core to target.
      * @param addr Address to read from.
      */
-    void dma_read_from_device(void* dst, size_t size, chip_id_t chip, tt::umd::CoreCoord core, uint64_t addr);
+    virtual void dma_read_from_device(
+        void* dst,
+        size_t size,
+        chip_id_t chip,
+        tt::umd::CoreCoord core,
+        uint64_t addr,
+        bool dst_mapped_for_dma = false);
 
     /**
      * This function writes to multiple chips and cores in the cluster. A set of chips, rows and columns can be excluded

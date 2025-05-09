@@ -5,6 +5,8 @@
  */
 #pragma once
 
+#include "sysmem_buffer.h"
+#include "umd/device/chip_helpers/sysmem_buffer.h"
 #include "umd/device/tt_device/tt_device.h"
 #include "umd/device/types/cluster_types.h"
 
@@ -27,6 +29,14 @@ public:
     size_t get_num_host_mem_channels() const;
     hugepage_mapping get_hugepage_mapping(size_t channel) const;
 
+    std::shared_ptr<SysmemBuffer> allocate_sysmem_buffer(uint32_t sysmem_buffer_size);
+
+    std::shared_ptr<SysmemBuffer> allocate_sysmem_buffer(void* buffer, uint32_t sysmem_buffer_size);
+
+    std::shared_ptr<SysmemBuffer> get_sysmem_buffer(void* buffer);
+
+    uint64_t get_device_io_address(void* buffer);
+
 private:
     /**
      * Allocate sysmem without hugepages and map it through IOMMU.
@@ -43,6 +53,8 @@ private:
     TTDevice* tt_device_;
 
     std::vector<hugepage_mapping> hugepage_mapping_per_channel;
+
+    std::map<uint64_t, std::shared_ptr<SysmemBuffer>> sysmem_buffers;
 };
 
 }  // namespace tt::umd

@@ -47,13 +47,4 @@ inline void fill_with_random_bytes(uint8_t* data, size_t n) {
     }
 }
 
-static std::unordered_set<chip_id_t> get_target_devices() {
-    std::unordered_set<chip_id_t> target_devices;
-    std::unique_ptr<tt_ClusterDescriptor> cluster_desc_uniq = tt::umd::Cluster::create_cluster_descriptor();
-    for (int i = 0; i < cluster_desc_uniq->get_number_of_chips(); i++) {
-        target_devices.insert(i);
-    }
-    return target_devices;
-}
-
 }  // namespace test_utils

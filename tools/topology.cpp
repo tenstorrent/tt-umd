@@ -23,8 +23,8 @@ int main(int argc, char *argv[]) {
     }
 
     std::string cluster_descriptor_path = "";
-    if (result.count("bar")) {
-        cluster_descriptor_path = result["bar"].as<std::string>();
+    if (result.count("path")) {
+        cluster_descriptor_path = result["path"].as<std::string>();
     }
 
     std::string output_path = Cluster::serialize_to_file(cluster_descriptor_path);

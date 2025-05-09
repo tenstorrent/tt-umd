@@ -26,6 +26,8 @@ bool RemoteChip::is_mmio_capable() const { return false; }
 
 void RemoteChip::start_device() {}
 
+void RemoteChip::close_device() {}
+
 void RemoteChip::write_to_device(tt_xy_pair core, const void* src, uint64_t l1_dest, uint32_t size) {
     auto translated_core = translate_chip_coord_virtual_to_translated(core);
     remote_communication_->write_to_non_mmio(eth_chip_location_, translated_core, src, l1_dest, size);
@@ -34,14 +36,6 @@ void RemoteChip::write_to_device(tt_xy_pair core, const void* src, uint64_t l1_d
 void RemoteChip::read_from_device(tt_xy_pair core, void* dest, uint64_t l1_src, uint32_t size) {
     auto translated_core = translate_chip_coord_virtual_to_translated(core);
     remote_communication_->read_non_mmio(eth_chip_location_, translated_core, dest, l1_src, size);
-}
-
-void RemoteChip::write_to_device_reg(tt_xy_pair core, const void* src, uint64_t reg_dest, uint32_t size) {
-    write_to_device(core, src, reg_dest, size);
-}
-
-void RemoteChip::read_from_device_reg(tt_xy_pair core, void* dest, uint64_t reg_src, uint32_t size) {
-    read_from_device(core, dest, reg_src, size);
 }
 
 // TODO: This translation should go away when we start using CoreCoord everywhere.

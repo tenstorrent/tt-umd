@@ -30,6 +30,7 @@ public:
     virtual ~Chip() = default;
 
     virtual void start_device() = 0;
+    virtual void close_device() = 0;
 
     tt_SocDescriptor& get_soc_descriptor();
 
@@ -49,8 +50,8 @@ public:
     // All tt_xy_pair cores in this class are defined in VIRTUAL coords.
     virtual void write_to_device(tt_xy_pair core, const void* src, uint64_t l1_dest, uint32_t size) = 0;
     virtual void read_from_device(tt_xy_pair core, void* dest, uint64_t l1_src, uint32_t size) = 0;
-    virtual void write_to_device_reg(tt_xy_pair core, const void* src, uint64_t reg_dest, uint32_t size) = 0;
-    virtual void read_from_device_reg(tt_xy_pair core, void* dest, uint64_t reg_src, uint32_t size) = 0;
+    virtual void write_to_device_reg(tt_xy_pair core, const void* src, uint64_t reg_dest, uint32_t size);
+    virtual void read_from_device_reg(tt_xy_pair core, void* dest, uint64_t reg_src, uint32_t size);
 
     // Will only ever work for LocalChip.
     virtual void dma_write_to_device(const void* src, size_t size, tt_xy_pair core, uint64_t addr);
@@ -63,10 +64,7 @@ public:
     virtual void dram_membar(const std::unordered_set<uint32_t>& channels = {}) = 0;
 
     virtual void send_tensix_risc_reset(tt_xy_pair core, const TensixSoftResetOptions& soft_resets);
-
-    // TODO: To be removed once all usages are moved inside local chip.
-    virtual std::unique_lock<RobustMutex> acquire_mutex(std::string mutex_name, int pci_device_id);
-    virtual std::unique_lock<RobustMutex> acquire_mutex(MutexType mutex_type, int pci_device_id);
+    virtual void send_tensix_risc_reset(const TensixSoftResetOptions& soft_resets);
 
     virtual int arc_msg(
         uint32_t msg_code,
@@ -78,11 +76,6 @@ public:
         uint32_t* return_4 = nullptr) = 0;
 
     virtual void set_remote_transfer_ethernet_cores(const std::unordered_set<CoreCoord>& cores);
-    // TODO: To be removed once all the usages are moved inside the class.
-    virtual tt_xy_pair get_remote_transfer_ethernet_core();
-    virtual void update_active_eth_core_idx();
-    virtual int get_active_eth_core_idx();
-    virtual std::vector<CoreCoord> get_remote_transfer_ethernet_cores();
 
     // TODO: To be moved to private implementation once methods are moved to chip
     void enable_ethernet_queue(int timeout_s);

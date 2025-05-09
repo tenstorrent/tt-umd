@@ -178,7 +178,7 @@ std::unique_ptr<Chip> Cluster::construct_chip_from_cluster(
     chip_id_t chip_id,
     tt_ClusterDescriptor* cluster_desc,
     bool perform_harvesting,
-    std::unordered_map<chip_id_t, HarvestingMasks>& simulated_harvesting_masks,
+    HarvestingMasks& simulated_harvesting_masks,
     int num_host_mem_channels,
     const bool create_mock_chip) {
     HarvestingMasks harvesting_masks =
@@ -199,7 +199,7 @@ std::unique_ptr<Chip> Cluster::construct_chip_from_cluster(
     chip_id_t chip_id,
     tt_ClusterDescriptor* cluster_desc,
     bool perform_harvesting,
-    std::unordered_map<chip_id_t, HarvestingMasks>& simulated_harvesting_masks,
+    HarvestingMasks& simulated_harvesting_masks,
     int num_host_mem_channels,
     const bool create_mock_chip) {
     tt::ARCH arch = cluster_desc->get_arch(chip_id);
@@ -232,94 +232,39 @@ void Cluster::add_chip(chip_id_t chip_id, std::unique_ptr<Chip> chip) {
 }
 
 uint32_t Cluster::get_tensix_harvesting_mask(
-    chip_id_t chip_id,
-    tt_ClusterDescriptor* cluster_desc,
-    bool perform_harvesting,
-    std::unordered_map<chip_id_t, HarvestingMasks>& simulated_harvesting_masks) {
-    if (!perform_harvesting) {
-        log_info(LogSiliconDriver, "Skipping harvesting for chip {}.", chip_id);
-        return 0;
-    }
+    chip_id_t chip_id, tt_ClusterDescriptor* cluster_desc, HarvestingMasks& simulated_harvesting_masks) {
     uint32_t tensix_harvesting_mask_physical_layout = cluster_desc->get_harvesting_info().at(chip_id);
     uint32_t tensix_harvesting_mask = CoordinateManager::shuffle_tensix_harvesting_mask(
         cluster_desc->get_arch(chip_id), tensix_harvesting_mask_physical_layout);
-    uint32_t simulated_harvesting_mask = (simulated_harvesting_masks.find(chip_id) != simulated_harvesting_masks.end())
-                                             ? simulated_harvesting_masks.at(chip_id).tensix_harvesting_mask
-                                             : 0;
     log_info(
         LogSiliconDriver,
         "Harvesting mask for chip {} is 0x{:x} (physical layout: 0x{:x}, logical: 0x{:x}, simulated harvesting mask: "
         "0x{:x}).",
         chip_id,
-        tensix_harvesting_mask | simulated_harvesting_mask,
+        tensix_harvesting_mask | simulated_harvesting_masks.tensix_harvesting_mask,
         tensix_harvesting_mask_physical_layout,
         tensix_harvesting_mask,
-        simulated_harvesting_mask);
-    return tensix_harvesting_mask | simulated_harvesting_mask;
-}
-
-uint32_t Cluster::get_dram_harvesting_mask(
-    chip_id_t chip_id,
-    tt_ClusterDescriptor* cluster_desc,
-    bool perform_harvesting,
-    std::unordered_map<chip_id_t, HarvestingMasks>& simulated_harvesting_masks) {
-    if (!perform_harvesting) {
-        log_info(LogSiliconDriver, "Skipping DRAM harvesting for chip {}.", chip_id);
-        return 0;
-    }
-
-    return simulated_harvesting_masks.find(chip_id) != simulated_harvesting_masks.end()
-               ? cluster_desc->get_dram_harvesting_mask(chip_id) |
-                     simulated_harvesting_masks.at(chip_id).dram_harvesting_mask
-               : cluster_desc->get_dram_harvesting_mask(chip_id);
-}
-
-uint32_t Cluster::get_eth_harvesting_mask(
-    chip_id_t chip_id,
-    tt_ClusterDescriptor* cluster_desc,
-    bool perform_harvesting,
-    std::unordered_map<chip_id_t, HarvestingMasks>& simulated_harvesting_masks) {
-    if (!perform_harvesting) {
-        log_info(LogSiliconDriver, "Skipping ETH harvesting for chip {}.", chip_id);
-        return 0;
-    }
-
-    return simulated_harvesting_masks.find(chip_id) != simulated_harvesting_masks.end()
-               ? cluster_desc->get_eth_harvesting_mask(chip_id) |
-                     simulated_harvesting_masks.at(chip_id).eth_harvesting_mask
-               : cluster_desc->get_eth_harvesting_mask(chip_id);
-}
-
-uint32_t Cluster::get_pcie_harvesting_mask(
-    chip_id_t chip_id,
-    tt_ClusterDescriptor* cluster_desc,
-    bool perform_harvesting,
-    std::unordered_map<chip_id_t, HarvestingMasks>& simulated_harvesting_masks) {
-    if (!perform_harvesting) {
-        log_info(LogSiliconDriver, "Skipping PCIE harvesting for chip {}.", chip_id);
-        return 0;
-    }
-
-    return simulated_harvesting_masks.find(chip_id) != simulated_harvesting_masks.end()
-               ? cluster_desc->get_pcie_harvesting_mask(chip_id) |
-                     simulated_harvesting_masks.at(chip_id).pcie_harvesting_mask
-               : cluster_desc->get_pcie_harvesting_mask(chip_id);
+        simulated_harvesting_masks.tensix_harvesting_mask);
+    return tensix_harvesting_mask | simulated_harvesting_masks.tensix_harvesting_mask;
 }
 
 HarvestingMasks Cluster::get_harvesting_masks(
     chip_id_t chip_id,
     tt_ClusterDescriptor* cluster_desc,
-    bool perfrom_harvesting,
-    std::unordered_map<chip_id_t, HarvestingMasks>& simulated_harvesting_masks) {
+    bool perform_harvesting,
+    HarvestingMasks& simulated_harvesting_masks) {
+    if (!perform_harvesting) {
+        log_info(LogSiliconDriver, "Skipping harvesting for chip {}.", chip_id);
+        return HarvestingMasks{};
+    }
     return HarvestingMasks{
-        .tensix_harvesting_mask =
-            get_tensix_harvesting_mask(chip_id, cluster_desc, perfrom_harvesting, simulated_harvesting_masks),
+        .tensix_harvesting_mask = get_tensix_harvesting_mask(chip_id, cluster_desc, simulated_harvesting_masks),
         .dram_harvesting_mask =
-            get_dram_harvesting_mask(chip_id, cluster_desc, perfrom_harvesting, simulated_harvesting_masks),
+            cluster_desc->get_dram_harvesting_mask(chip_id) | simulated_harvesting_masks.dram_harvesting_mask,
         .eth_harvesting_mask =
-            get_eth_harvesting_mask(chip_id, cluster_desc, perfrom_harvesting, simulated_harvesting_masks),
+            cluster_desc->get_eth_harvesting_mask(chip_id) | simulated_harvesting_masks.eth_harvesting_mask,
         .pcie_harvesting_mask =
-            get_pcie_harvesting_mask(chip_id, cluster_desc, perfrom_harvesting, simulated_harvesting_masks)};
+            cluster_desc->get_pcie_harvesting_mask(chip_id) | simulated_harvesting_masks.pcie_harvesting_mask};
 }
 
 void Cluster::ubb_eth_connections(
@@ -413,13 +358,17 @@ Cluster::Cluster(
     cluster_desc = Cluster::create_cluster_descriptor();
 
     for (auto& chip_id : cluster_desc->get_chips_local_first(cluster_desc->get_all_chips())) {
+        HarvestingMasks harvesting_masks =
+            (simulated_harvesting_masks.find(chip_id) != simulated_harvesting_masks.end())
+                ? simulated_harvesting_masks.at(chip_id)
+                : HarvestingMasks{};
         add_chip(
             chip_id,
             construct_chip_from_cluster(
                 chip_id,
                 cluster_desc.get(),
                 perform_harvesting,
-                simulated_harvesting_masks,
+                harvesting_masks,
                 num_host_mem_ch_per_mmio_device,
                 create_mock_chips));
     }
@@ -441,13 +390,17 @@ Cluster::Cluster(
             cluster_desc->get_all_chips().find(chip_id) != cluster_desc->get_all_chips().end(),
             "Target device {} not present in current cluster!",
             chip_id);
+        HarvestingMasks harvesting_masks =
+            (simulated_harvesting_masks.find(chip_id) != simulated_harvesting_masks.end())
+                ? simulated_harvesting_masks.at(chip_id)
+                : HarvestingMasks{};
         add_chip(
             chip_id,
             construct_chip_from_cluster(
                 chip_id,
                 cluster_desc.get(),
                 perform_harvesting,
-                simulated_harvesting_masks,
+                harvesting_masks,
                 num_host_mem_ch_per_mmio_device,
                 create_mock_chips));
     }
@@ -470,6 +423,10 @@ Cluster::Cluster(
             cluster_desc->get_all_chips().find(chip_id) != cluster_desc->get_all_chips().end(),
             "Target device {} not present in current cluster!",
             chip_id);
+        HarvestingMasks harvesting_masks =
+            (simulated_harvesting_masks.find(chip_id) != simulated_harvesting_masks.end())
+                ? simulated_harvesting_masks.at(chip_id)
+                : HarvestingMasks{};
         add_chip(
             chip_id,
             construct_chip_from_cluster(
@@ -477,7 +434,7 @@ Cluster::Cluster(
                 chip_id,
                 cluster_desc.get(),
                 perform_harvesting,
-                simulated_harvesting_masks,
+                harvesting_masks,
                 num_host_mem_ch_per_mmio_device,
                 create_mock_chips));
         log_assert(
@@ -500,13 +457,17 @@ Cluster::Cluster(
     cluster_desc = std::move(cluster_descriptor);
 
     for (auto& chip_id : cluster_desc->get_chips_local_first(cluster_desc->get_all_chips())) {
+        HarvestingMasks harvesting_masks =
+            (simulated_harvesting_masks.find(chip_id) != simulated_harvesting_masks.end())
+                ? simulated_harvesting_masks.at(chip_id)
+                : HarvestingMasks{};
         add_chip(
             chip_id,
             construct_chip_from_cluster(
                 chip_id,
                 cluster_desc.get(),
                 perform_harvesting,
-                simulated_harvesting_masks,
+                harvesting_masks,
                 num_host_mem_ch_per_mmio_device,
                 create_mock_chips));
     }

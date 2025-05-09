@@ -63,10 +63,16 @@ public:
         void* mem_ptr, chip_id_t chip, tt::umd::CoreCoord core, uint64_t addr, uint32_t size) override {}
 
     void dma_write_to_device(
-        const void* src, size_t size, chip_id_t chip, tt::umd::CoreCoord core, uint64_t addr) override {}
+        const void* src,
+        size_t size,
+        chip_id_t chip,
+        tt::umd::CoreCoord core,
+        uint64_t addr,
+        bool src_mapped_for_dma = false) override {}
 
-    void dma_read_from_device(void* dst, size_t size, chip_id_t chip, tt::umd::CoreCoord core, uint64_t addr) override {
-    }
+    void dma_read_from_device(
+        void* dst, size_t size, chip_id_t chip, tt::umd::CoreCoord core, uint64_t addr, bool dst_mapped_for_dma = false)
+        override {}
 
     void write_to_sysmem(
         const void* mem_ptr, std::uint32_t size, uint64_t addr, uint16_t channel, chip_id_t src_device_id) override {}

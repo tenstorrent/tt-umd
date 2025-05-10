@@ -37,5 +37,7 @@ void MockChip::dram_membar(const std::unordered_set<tt::umd::CoreCoord>& cores) 
 
 void MockChip::dram_membar(const std::unordered_set<uint32_t>& channels) {}
 
+void MockChip::deassert_risc_resets() {}
+
 int MockChip::get_clock() { return 0; }
 }  // namespace tt::umd

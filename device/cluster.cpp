@@ -1019,35 +1019,13 @@ void Cluster::deassert_resets_and_set_power_state() {
     // Assert tensix resets on all chips in cluster
     broadcast_tensix_risc_reset_to_cluster(TENSIX_ASSERT_SOFT_RESET);
 
+    for (auto& [_, chip] : chips_) {
+        chip->deassert_risc_resets();
+    }
+
     // MT Initial BH - ARC messages not supported in Blackhole
     if (arch_name != tt::ARCH::BLACKHOLE) {
-        // Send ARC Messages to deassert RISCV resets
-        for (auto& chip_id : local_chip_ids_) {
-            get_chip(chip_id)->arc_msg(
-                wormhole::ARC_MSG_COMMON_PREFIX |
-                    get_tt_device(chip_id)->get_architecture_implementation()->get_arc_message_deassert_riscv_reset(),
-                true,
-                0,
-                0);
-        }
-        if (cluster_desc != nullptr) {
-            for (const chip_id_t& chip : all_chip_ids_) {
-                if (!cluster_desc->is_chip_mmio_capable(chip)) {
-                    auto mmio_capable_chip_logical = cluster_desc->get_closest_mmio_capable_chip(chip);
-                    auto tt_device = get_tt_device(mmio_capable_chip_logical);
-                    get_chip(chip)->arc_msg(
-                        wormhole::ARC_MSG_COMMON_PREFIX |
-                            tt_device->get_architecture_implementation()->get_arc_message_deassert_riscv_reset(),
-                        true,
-                        0x0,
-                        0x0,
-                        1000,
-                        NULL,
-                        NULL);
-                }
-            }
-            enable_ethernet_queue(30);
-        }
+        enable_ethernet_queue(30);
     }
 
     // Set power state to busy
@@ -1064,11 +1042,18 @@ void Cluster::verify_eth_fw() {
             fw_versions.push_back(fw_version);
         }
         verify_sw_fw_versions(chip, SW_VERSION, fw_versions);
-        eth_fw_version = tt_version(fw_versions.at(0));
+        eth_fw_version = fw_versions.empty() ? tt_version() : tt_version(fw_versions.at(0));
     }
 }
 
 void Cluster::verify_sw_fw_versions(int device_id, std::uint32_t sw_version, std::vector<std::uint32_t>& fw_versions) {
+    if (fw_versions.empty()) {
+        log_debug(
+            LogSiliconDriver,
+            "No ethernet cores found on device {}, skipped verification of software and firmware versions.",
+            device_id);
+        return;
+    }
     tt_version sw(sw_version), fw_first_eth_core(fw_versions.at(0));
     log_info(
         LogSiliconDriver,

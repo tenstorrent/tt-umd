@@ -420,7 +420,7 @@ Cluster::Cluster(ClusterOptions options) {
 
 void Cluster::configure_active_ethernet_cores_for_mmio_device(
     chip_id_t mmio_chip, const std::unordered_set<CoreCoord>& active_eth_cores_per_chip) {
-    get_local_chip(mmio_chip)->set_remote_transfer_ethernet_cores(active_eth_cores_per_chip);
+    chips_.at(mmio_chip)->set_remote_transfer_ethernet_cores(active_eth_cores_per_chip);
 }
 
 std::set<chip_id_t> Cluster::get_target_device_ids() { return all_chip_ids_; }
@@ -455,13 +455,7 @@ tt_ClusterDescriptor* Cluster::get_cluster_description() { return cluster_desc.g
 
 std::function<void(uint32_t, uint32_t, const uint8_t*)> Cluster::get_fast_pcie_static_tlb_write_callable(
     int device_id) {
-    TTDevice* dev = get_tt_device(device_id);
-
-    const auto callable = [dev](uint32_t byte_addr, uint32_t num_bytes, const uint8_t* buffer_addr) {
-        dev->write_block(byte_addr, num_bytes, buffer_addr);
-    };
-
-    return callable;
+    return chips_.at(device_id)->get_fast_pcie_static_tlb_write_callable();
 }
 
 tt::Writer Cluster::get_static_tlb_writer(const chip_id_t chip, const CoreCoord target) {
@@ -503,10 +497,7 @@ void Cluster::set_pcie_power_state(tt_DevicePowerState state) {
     }
 }
 
-int Cluster::get_clock(int logical_device_id) {
-    auto mmio_capable_chip_logical = cluster_desc->get_closest_mmio_capable_chip(logical_device_id);
-    return get_tt_device(mmio_capable_chip_logical)->get_clock();
-}
+int Cluster::get_clock(int logical_device_id) { return chips_.at(logical_device_id)->get_clock(); }
 
 std::map<int, int> Cluster::get_clocks() {
     std::map<int, int> clock_freq_map;
@@ -1124,22 +1115,15 @@ void Cluster::close_device() {
 }
 
 std::uint32_t Cluster::get_num_host_channels(std::uint32_t device_id) {
-    auto devices = get_target_mmio_device_ids();
-    log_assert(
-        devices.find(device_id) != devices.end(),
-        "Querying Host Address parameters for a non-mmio device or a device does not exist.");
-    return get_local_chip(device_id)->get_sysmem_manager()->get_num_host_mem_channels();
+    return chips_.at(device_id)->get_num_host_channels();
 }
 
 std::uint32_t Cluster::get_host_channel_size(std::uint32_t device_id, std::uint32_t channel) {
-    log_assert(channel < get_num_host_channels(device_id), "Querying size for a host channel that does not exist.");
-    hugepage_mapping hugepage_map = get_local_chip(device_id)->get_sysmem_manager()->get_hugepage_mapping(channel);
-    log_assert(hugepage_map.mapping_size, "Host channel size can only be queried after the device has been started.");
-    return hugepage_map.mapping_size;
+    return chips_.at(device_id)->get_host_channel_size(channel);
 }
 
 std::uint32_t Cluster::get_numa_node_for_pcie_device(std::uint32_t device_id) {
-    return get_tt_device(device_id)->get_pci_device()->get_numa_node();
+    return chips_.at(device_id)->get_numa_node();
 }
 
 std::uint64_t Cluster::get_pcie_base_addr_from_device(const chip_id_t chip_id) const {
@@ -1164,8 +1148,8 @@ tt_version Cluster::get_ethernet_fw_version() const {
 }
 
 void Cluster::set_barrier_address_params(const barrier_address_params& barrier_address_params_) {
-    for (auto chip_id : local_chip_ids_) {
-        get_local_chip(chip_id)->set_barrier_address_params(barrier_address_params_);
+    for (auto& [_, chip] : chips_) {
+        chip->set_barrier_address_params(barrier_address_params_);
     }
 }
 

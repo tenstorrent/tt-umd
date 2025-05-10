@@ -136,6 +136,8 @@ void tt_SimulationDevice::close_device() {
     host.send_to_device(builder.GetBufferPointer(), builder.GetSize());
 }
 
+void tt_SimulationDevice::set_remote_transfer_ethernet_cores(const std::unordered_set<tt::umd::CoreCoord>& cores) {}
+
 // Runtime Functions
 void tt_SimulationDevice::write_to_device(tt_xy_pair core, const void* src, uint64_t l1_dest, uint32_t size) {
     log_info(
@@ -181,6 +183,8 @@ void tt_SimulationDevice::l1_membar(const std::unordered_set<tt::umd::CoreCoord>
 void tt_SimulationDevice::dram_membar(const std::unordered_set<uint32_t>& channels) {}
 
 void tt_SimulationDevice::dram_membar(const std::unordered_set<tt::umd::CoreCoord>& cores) {}
+
+int tt_SimulationDevice::get_clock() { return 0; }
 
 int tt_SimulationDevice::arc_msg(
     uint32_t msg_code,

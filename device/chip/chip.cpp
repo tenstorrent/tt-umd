@@ -75,7 +75,9 @@ TLBManager* Chip::get_tlb_manager() {
 
 int Chip::get_num_host_channels() { return 0; }
 
-int Chip::get_host_channel_size(std::uint32_t channel) { return 0; }
+int Chip::get_host_channel_size(std::uint32_t channel) {
+    throw std::runtime_error("There are no host channels available.");
+}
 
 void Chip::write_to_sysmem(uint16_t channel, const void* src, uint64_t sysmem_dest, uint32_t size) {
     throw std::runtime_error("Chip::write_to_sysmem is not available for this chip.");

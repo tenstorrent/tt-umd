@@ -64,6 +64,7 @@ public:
     void dram_membar(const std::unordered_set<uint32_t>& channels = {}) override;
 
     void deassert_risc_resets() override;
+    void set_power_state(tt_DevicePowerState state) override;
     int get_clock() override;
     int get_numa_node() override;
 
@@ -106,6 +107,10 @@ private:
     void set_membar_flag(
         const std::vector<CoreCoord>& cores, const uint32_t barrier_value, const uint32_t barrier_addr);
     void insert_host_to_device_barrier(const std::vector<CoreCoord>& cores, const uint32_t barrier_addr);
+
+    void wait_for_aiclk_value(tt_DevicePowerState power_state, const uint32_t timeout_ms = 5000);
+
+    uint32_t get_power_state_arc_msg(tt_DevicePowerState state);
 
 protected:
     void wait_eth_cores_training(const uint32_t timeout_ms = 60000) override;

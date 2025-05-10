@@ -150,6 +150,8 @@ void RemoteChip::dram_membar(const std::unordered_set<uint32_t>& channels) { wai
 
 void RemoteChip::deassert_risc_resets() { local_chip_->deassert_risc_resets(); }
 
+void RemoteChip::set_power_state(tt_DevicePowerState state) { local_chip_->set_power_state(state); }
+
 int RemoteChip::get_clock() { return local_chip_->get_clock(); }
 
 }  // namespace tt::umd

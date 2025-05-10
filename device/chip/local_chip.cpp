@@ -11,6 +11,7 @@
 #include "umd/device/chip_helpers/tlb_manager.h"
 #include "umd/device/driver_atomics.h"
 #include "umd/device/tt_device/tt_device.h"
+#include "umd/device/types/blackhole_arc.h"
 #include "umd/device/types/blackhole_eth.h"
 #include "umd/device/wormhole_implementation.h"
 
@@ -756,6 +757,72 @@ void LocalChip::deassert_risc_resets() {
             0,
             0);
     }
+}
+
+void LocalChip::set_power_state(tt_DevicePowerState state) {
+    int exit_code = 0;
+    if (soc_descriptor_.arch == tt::ARCH::WORMHOLE_B0) {
+        uint32_t msg = get_power_state_arc_msg(state);
+        exit_code = arc_msg(wormhole::ARC_MSG_COMMON_PREFIX | msg, true, 0, 0);
+    } else if (soc_descriptor_.arch == tt::ARCH::BLACKHOLE) {
+        if (state == tt_DevicePowerState::BUSY) {
+            exit_code = tt_device_->get_arc_messenger()->send_message(
+                (uint32_t)tt::umd::blackhole::ArcMessageType::AICLK_GO_BUSY);
+        } else {
+            exit_code = tt_device_->get_arc_messenger()->send_message(
+                (uint32_t)tt::umd::blackhole::ArcMessageType::AICLK_GO_LONG_IDLE);
+        }
+    }
+    log_assert(exit_code == 0, "Failed to set power state to {} with exit code: {}", (int)state, exit_code);
+
+    wait_for_aiclk_value(state);
+}
+
+void LocalChip::wait_for_aiclk_value(tt_DevicePowerState power_state, const uint32_t timeout_ms) {
+    auto start = std::chrono::system_clock::now();
+    uint32_t target_aiclk = 0;
+    if (power_state == tt_DevicePowerState::BUSY) {
+        target_aiclk = tt_device_->get_max_clock_freq();
+    } else if (power_state == tt_DevicePowerState::LONG_IDLE) {
+        target_aiclk = tt_device_->get_min_clock_freq();
+    }
+    uint32_t aiclk = tt_device_->get_clock();
+    while (aiclk != target_aiclk) {
+        auto end = std::chrono::system_clock::now();
+        auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
+        if (duration.count() > timeout_ms) {
+            log_warning(
+                LogSiliconDriver,
+                "Waiting for AICLK value to settle failed on timeout after {}. Expected to see {}, last value "
+                "observed {}",
+                timeout_ms,
+                target_aiclk,
+                aiclk);
+            return;
+        }
+        aiclk = tt_device_->get_clock();
+    }
+}
+
+uint32_t LocalChip::get_power_state_arc_msg(tt_DevicePowerState state) {
+    uint32_t msg = wormhole::ARC_MSG_COMMON_PREFIX;
+    switch (state) {
+        case BUSY: {
+            msg |= architecture_implementation::create(soc_descriptor_.arch)->get_arc_message_arc_go_busy();
+            break;
+        }
+        case LONG_IDLE: {
+            msg |= architecture_implementation::create(soc_descriptor_.arch)->get_arc_message_arc_go_long_idle();
+            break;
+        }
+        case SHORT_IDLE: {
+            msg |= architecture_implementation::create(soc_descriptor_.arch)->get_arc_message_arc_go_short_idle();
+            break;
+        }
+        default:
+            throw std::runtime_error("Unrecognized power state.");
+    }
+    return msg;
 }
 
 int LocalChip::get_clock() { return tt_device_->get_clock(); }

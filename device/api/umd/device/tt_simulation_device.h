@@ -60,6 +60,7 @@ public:
     void send_tensix_risc_reset(const TensixSoftResetOptions& soft_resets) override;
     void deassert_risc_resets() override;
 
+    void set_power_state(tt_DevicePowerState state) override;
     int get_clock() override;
 
     int arc_msg(

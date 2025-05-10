@@ -760,11 +760,11 @@ void LocalChip::deassert_risc_resets() {
 }
 
 void LocalChip::set_power_state(tt_DevicePowerState state) {
-    int exit_code;
-    if (soc_descriptor_.arch != tt::ARCH::BLACKHOLE) {
+    int exit_code = 0;
+    if (soc_descriptor_.arch == tt::ARCH::WORMHOLE_B0) {
         uint32_t msg = get_power_state_arc_msg(state);
         exit_code = arc_msg(wormhole::ARC_MSG_COMMON_PREFIX | msg, true, 0, 0);
-    } else {
+    } else if (soc_descriptor_.arch == tt::ARCH::BLACKHOLE) {
         if (state == tt_DevicePowerState::BUSY) {
             exit_code = tt_device_->get_arc_messenger()->send_message(
                 (uint32_t)tt::umd::blackhole::ArcMessageType::AICLK_GO_BUSY);

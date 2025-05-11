@@ -6,7 +6,6 @@ target_link_libraries(
         umd::device
         umd::Firmware
         fmt::fmt-header-only
-        spdlog::spdlog_header_only
         cxxopts::cxxopts
 )
 

@@ -45,7 +45,6 @@ target_sources(
         tlb.cpp
         tt_cluster_descriptor.cpp
         tt_device/blackhole_tt_device.cpp
-        tt_device/grayskull_tt_device.cpp
         tt_device/tt_device.cpp
         tt_device/wormhole_tt_device.cpp
         tt_silicon_driver_common.cpp
@@ -74,6 +73,7 @@ if(TT_UMD_BUILD_SIMULATION)
             simulation/tt_simulation_host.cpp
             ${FBS_GENERATED_HEADER}
     )
+    target_compile_definitions(device PRIVATE TT_UMD_BUILD_SIMULATION)
 endif()
 
 if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.23)
@@ -107,7 +107,6 @@ if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.23)
                 api/umd/device/tt_cluster_descriptor.h
                 api/umd/device/tt_core_coordinates.h
                 api/umd/device/tt_device/blackhole_tt_device.h
-                api/umd/device/tt_device/grayskull_tt_device.h
                 api/umd/device/tt_device/tt_device.h
                 api/umd/device/tt_device/wormhole_tt_device.h
                 api/umd/device/tt_io.hpp

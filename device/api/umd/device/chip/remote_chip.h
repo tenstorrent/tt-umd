@@ -21,12 +21,10 @@ public:
     bool is_mmio_capable() const override;
 
     void start_device() override;
+    void close_device() override;
 
     void write_to_device(tt_xy_pair core, const void* src, uint64_t l1_dest, uint32_t size) override;
     void read_from_device(tt_xy_pair core, void* dest, uint64_t l1_src, uint32_t size) override;
-
-    void write_to_device_reg(tt_xy_pair core, const void* src, uint64_t reg_dest, uint32_t size) override;
-    void read_from_device_reg(tt_xy_pair core, void* dest, uint64_t reg_src, uint32_t size) override;
 
     void wait_for_non_mmio_flush() override;
 
@@ -43,10 +41,15 @@ public:
     void dram_membar(const std::unordered_set<tt::umd::CoreCoord>& cores = {}) override;
     void dram_membar(const std::unordered_set<uint32_t>& channels = {}) override;
 
+    void deassert_risc_resets() override;
+    void set_power_state(tt_DevicePowerState state) override;
+    int get_clock() override;
+
 private:
     tt_xy_pair translate_chip_coord_virtual_to_translated(const tt_xy_pair core);
 
     eth_coord_t eth_chip_location_;
     std::unique_ptr<RemoteCommunication> remote_communication_;
+    LocalChip* local_chip_;
 };
 }  // namespace tt::umd

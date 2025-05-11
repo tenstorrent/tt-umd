@@ -16,7 +16,8 @@ namespace tt::umd {
 RemoteChip::RemoteChip(tt_SocDescriptor soc_descriptor, eth_coord_t eth_chip_location, LocalChip* local_chip) :
     Chip(soc_descriptor),
     eth_chip_location_(eth_chip_location),
-    remote_communication_(std::make_unique<RemoteCommunication>(local_chip)) {
+    remote_communication_(std::make_unique<RemoteCommunication>(local_chip)),
+    local_chip_(local_chip) {
     log_assert(soc_descriptor_.arch != tt::ARCH::BLACKHOLE, "Non-MMIO targets not supported in Blackhole");
 }
 
@@ -26,6 +27,8 @@ bool RemoteChip::is_mmio_capable() const { return false; }
 
 void RemoteChip::start_device() {}
 
+void RemoteChip::close_device() {}
+
 void RemoteChip::write_to_device(tt_xy_pair core, const void* src, uint64_t l1_dest, uint32_t size) {
     auto translated_core = translate_chip_coord_virtual_to_translated(core);
     remote_communication_->write_to_non_mmio(eth_chip_location_, translated_core, src, l1_dest, size);
@@ -34,14 +37,6 @@ void RemoteChip::write_to_device(tt_xy_pair core, const void* src, uint64_t l1_d
 void RemoteChip::read_from_device(tt_xy_pair core, void* dest, uint64_t l1_src, uint32_t size) {
     auto translated_core = translate_chip_coord_virtual_to_translated(core);
     remote_communication_->read_non_mmio(eth_chip_location_, translated_core, dest, l1_src, size);
-}
-
-void RemoteChip::write_to_device_reg(tt_xy_pair core, const void* src, uint64_t reg_dest, uint32_t size) {
-    write_to_device(core, src, reg_dest, size);
-}
-
-void RemoteChip::read_from_device_reg(tt_xy_pair core, void* dest, uint64_t reg_src, uint32_t size) {
-    read_from_device(core, dest, reg_src, size);
 }
 
 // TODO: This translation should go away when we start using CoreCoord everywhere.
@@ -152,5 +147,11 @@ void RemoteChip::l1_membar(const std::unordered_set<tt::umd::CoreCoord>& cores) 
 void RemoteChip::dram_membar(const std::unordered_set<tt::umd::CoreCoord>& cores) { wait_for_non_mmio_flush(); }
 
 void RemoteChip::dram_membar(const std::unordered_set<uint32_t>& channels) { wait_for_non_mmio_flush(); }
+
+void RemoteChip::deassert_risc_resets() { local_chip_->deassert_risc_resets(); }
+
+void RemoteChip::set_power_state(tt_DevicePowerState state) { local_chip_->set_power_state(state); }
+
+int RemoteChip::get_clock() { return local_chip_->get_clock(); }
 
 }  // namespace tt::umd

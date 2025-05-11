@@ -904,6 +904,12 @@ const std::unordered_set<chip_id_t> &tt_ClusterDescriptor::get_all_chips() const
 const std::vector<chip_id_t> tt_ClusterDescriptor::get_chips_local_first(std::unordered_set<chip_id_t> chips) const {
     std::vector<chip_id_t> chips_local_first;
     for (const auto &chip : chips) {
+        log_assert(
+            this->enabled_active_chips.find(chip) != this->enabled_active_chips.end(),
+            "Chip {} not found in cluster descriptor.",
+            chip);
+    }
+    for (const auto &chip : chips) {
         if (is_chip_mmio_capable(chip)) {
             chips_local_first.push_back(chip);
         }
@@ -1046,10 +1052,15 @@ std::string tt_ClusterDescriptor::serialize() const {
     return out.c_str();
 }
 
-void tt_ClusterDescriptor::serialize_to_file(const std::filesystem::path &dest_file) const {
-    std::ofstream file(dest_file);
+std::filesystem::path tt_ClusterDescriptor::serialize_to_file(const std::filesystem::path &dest_file) const {
+    std::filesystem::path file_path = dest_file;
+    if (file_path.empty()) {
+        file_path = get_default_cluster_descriptor_file_path();
+    }
+    std::ofstream file(file_path);
     file << serialize();
     file.close();
+    return file_path;
 }
 
 std::filesystem::path tt_ClusterDescriptor::get_default_cluster_descriptor_file_path() {

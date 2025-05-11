@@ -7,6 +7,7 @@
 #pragma once
 
 #include <cstdint>
+#include <filesystem>
 #include <map>
 #include <memory>
 #include <set>
@@ -17,7 +18,6 @@
 #include <vector>
 
 #include "umd/device/chip/chip.h"
-#include "umd/device/cluster.h"
 #include "umd/device/topology_discovery.h"
 #include "umd/device/tt_xy_pair.h"
 #include "umd/device/types/arch.h"
@@ -25,6 +25,10 @@
 
 namespace YAML {
 class Node;
+}
+
+namespace tt::umd {
+class Cluster;
 }
 
 class tt_ClusterDescriptor {
@@ -138,10 +142,10 @@ public:
 
     void enable_all_devices();
 
+    // Serialize the cluster descriptor to a YAML string, or directly to a file.
+    // A default file in /tmp directory will be used if no path is passed.
     std::string serialize() const;
-
-    void serialize_to_file(const std::filesystem::path &dest_file) const;
-
+    std::filesystem::path serialize_to_file(const std::filesystem::path &dest_file = "") const;
     static std::filesystem::path get_default_cluster_descriptor_file_path();
 
     std::set<uint32_t> get_active_eth_channels(chip_id_t chip_id);

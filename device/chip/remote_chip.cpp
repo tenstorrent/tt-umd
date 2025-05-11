@@ -8,6 +8,7 @@
 
 #include "logger.hpp"
 #include "umd/device/chip/local_chip.h"
+#include "umd/device/wormhole_implementation.h"
 
 extern bool umd_use_noc1;
 
@@ -150,7 +151,15 @@ void RemoteChip::dram_membar(const std::unordered_set<uint32_t>& channels) { wai
 
 void RemoteChip::deassert_risc_resets() { local_chip_->deassert_risc_resets(); }
 
-void RemoteChip::set_power_state(tt_DevicePowerState state) { local_chip_->set_power_state(state); }
+void RemoteChip::set_power_state(tt_DevicePowerState state) {
+    if (soc_descriptor_.arch == tt::ARCH::WORMHOLE_B0) {
+        uint32_t msg = get_power_state_arc_msg(state);
+        int exit_code = arc_msg(wormhole::ARC_MSG_COMMON_PREFIX | msg, true, 0, 0);
+        log_assert(exit_code == 0, "Failed to set power state to {} with exit code: {}", (int)state, exit_code);
+    } else if (soc_descriptor_.arch == tt::ARCH::BLACKHOLE) {
+        throw std::runtime_error("set_power_state not supported for remote chips on Blackhole.");
+    }
+}
 
 int RemoteChip::get_clock() { return local_chip_->get_clock(); }
 

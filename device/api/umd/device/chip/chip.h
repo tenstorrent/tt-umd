@@ -106,6 +106,8 @@ protected:
 
     void set_default_params(ARCH arch);
 
+    uint32_t get_power_state_arc_msg(tt_DevicePowerState state);
+
     ChipInfo chip_info_;
 
     tt_SocDescriptor soc_descriptor_;

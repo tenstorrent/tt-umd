@@ -110,8 +110,6 @@ private:
 
     void wait_for_aiclk_value(tt_DevicePowerState power_state, const uint32_t timeout_ms = 5000);
 
-    uint32_t get_power_state_arc_msg(tt_DevicePowerState state);
-
 protected:
     void wait_eth_cores_training(const uint32_t timeout_ms = 60000) override;
 

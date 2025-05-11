@@ -804,27 +804,6 @@ void LocalChip::wait_for_aiclk_value(tt_DevicePowerState power_state, const uint
     }
 }
 
-uint32_t LocalChip::get_power_state_arc_msg(tt_DevicePowerState state) {
-    uint32_t msg = wormhole::ARC_MSG_COMMON_PREFIX;
-    switch (state) {
-        case BUSY: {
-            msg |= architecture_implementation::create(soc_descriptor_.arch)->get_arc_message_arc_go_busy();
-            break;
-        }
-        case LONG_IDLE: {
-            msg |= architecture_implementation::create(soc_descriptor_.arch)->get_arc_message_arc_go_long_idle();
-            break;
-        }
-        case SHORT_IDLE: {
-            msg |= architecture_implementation::create(soc_descriptor_.arch)->get_arc_message_arc_go_short_idle();
-            break;
-        }
-        default:
-            throw std::runtime_error("Unrecognized power state.");
-    }
-    return msg;
-}
-
 int LocalChip::get_clock() { return tt_device_->get_clock(); }
 
 int LocalChip::get_numa_node() { return tt_device_->get_pci_device()->get_numa_node(); }

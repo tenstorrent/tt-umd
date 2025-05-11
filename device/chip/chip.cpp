@@ -9,6 +9,7 @@
 #include "logger.hpp"
 #include "umd/device/architecture_implementation.h"
 #include "umd/device/driver_atomics.h"
+#include "umd/device/wormhole_implementation.h"
 
 namespace tt::umd {
 
@@ -148,5 +149,26 @@ void Chip::send_tensix_risc_reset(const TensixSoftResetOptions& soft_resets) {
     for (const CoreCoord core : soc_descriptor_.get_cores(CoreType::TENSIX, CoordSystem::VIRTUAL)) {
         send_tensix_risc_reset(core, soft_resets);
     }
+}
+
+uint32_t Chip::get_power_state_arc_msg(tt_DevicePowerState state) {
+    uint32_t msg = wormhole::ARC_MSG_COMMON_PREFIX;
+    switch (state) {
+        case BUSY: {
+            msg |= architecture_implementation::create(soc_descriptor_.arch)->get_arc_message_arc_go_busy();
+            break;
+        }
+        case LONG_IDLE: {
+            msg |= architecture_implementation::create(soc_descriptor_.arch)->get_arc_message_arc_go_long_idle();
+            break;
+        }
+        case SHORT_IDLE: {
+            msg |= architecture_implementation::create(soc_descriptor_.arch)->get_arc_message_arc_go_short_idle();
+            break;
+        }
+        default:
+            throw std::runtime_error("Unrecognized power state.");
+    }
+    return msg;
 }
 }  // namespace tt::umd

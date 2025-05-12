@@ -127,6 +127,10 @@ TEST(ApiClusterTest, SeparateClusters) {
 TEST(ApiClusterTest, OpenClusterByPCI) {
     std::unique_ptr<tt_ClusterDescriptor> cluster_desc = Cluster::create_cluster_descriptor();
 
+    if (cluster_desc->get_all_chips().empty()) {
+        GTEST_SKIP() << "No chips present on the system. Skipping test.";
+    }
+
     // Now you choose which PCI device you want to open. This might be hardcoded in your code, here we choose the first
     // available one.
     int desired_pci = cluster_desc->get_chips_with_mmio().begin()->second;

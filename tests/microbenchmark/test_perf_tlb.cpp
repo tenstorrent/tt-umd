@@ -19,6 +19,12 @@
 
 using namespace tt::umd;
 
+const chip_id_t chip = 0;
+const uint32_t one_mb = 1 << 20;
+const uint32_t NUM_ITERATIONS = 10;
+const uint32_t tlb_1m_index = 0;
+const uint32_t tlb_16m_index = 166;
+
 static inline void print_speed(std::string direction, size_t bytes, uint64_t ns) {
     double seconds = ns / 1e9;
     double megabytes = static_cast<double>(bytes) / (1024.0 * 1024.0);
@@ -27,11 +33,40 @@ static inline void print_speed(std::string direction, size_t bytes, uint64_t ns)
               << " MB/s)" << std::endl;
 }
 
+static inline void perf_read_write(
+    const uint32_t buf_size,
+    const uint32_t num_iterations,
+    const std::unique_ptr<Cluster>& cluster,
+    const CoreCoord core,
+    const std::string& direction_to_device,
+    const std::string& direction_from_device) {
+    std::cout << std::endl;
+    std::cout << "Reporting results for buffer size " << (buf_size / one_mb) << " MB being transfered "
+              << num_iterations << " number of times." << std::endl;
+    std::cout << "--------------------------------------------------------" << std::endl;
+
+    std::vector<uint8_t> pattern(buf_size);
+    test_utils::fill_with_random_bytes(&pattern[0], pattern.size());
+
+    auto now = std::chrono::steady_clock::now();
+    for (int i = 0; i < num_iterations; i++) {
+        cluster->write_to_device(pattern.data(), pattern.size(), chip, core, 0x0);
+    }
+    auto end = std::chrono::steady_clock::now();
+    auto ns = std::chrono::duration_cast<std::chrono::nanoseconds>(end - now).count();
+    print_speed(direction_to_device, num_iterations * pattern.size(), ns);
+
+    std::vector<uint8_t> readback(buf_size, 0x0);
+    now = std::chrono::steady_clock::now();
+    for (int i = 0; i < num_iterations; i++) {
+        cluster->read_from_device(readback.data(), chip, core, 0x0, readback.size());
+    }
+    end = std::chrono::steady_clock::now();
+    ns = std::chrono::duration_cast<std::chrono::nanoseconds>(end - now).count();
+    print_speed(direction_from_device, num_iterations * readback.size(), ns);
+}
+
 TEST(TestPerf, TLBDynamicDram) {
-    const chip_id_t chip = 0;
-    const uint32_t one_mb = 1 << 20;
-    const size_t NUM_ITERATIONS = 1;
-    const CoreCoord dram_core = CoreCoord(0, 0, CoreType::DRAM, CoordSystem::NOC0);
     const std::vector<uint32_t> sizes = {
         1 * one_mb,
         2 * one_mb,
@@ -45,134 +80,66 @@ TEST(TestPerf, TLBDynamicDram) {
     };
 
     std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
+    const CoreCoord dram_core = cluster->get_soc_descriptor(chip).get_cores(CoreType::DRAM)[0];
     cluster->start_device(tt_device_params{});
 
     for (uint32_t buf_size : sizes) {
-        CoreCoord core(dram_core.x, dram_core.y, CoreType::DRAM, CoordSystem::NOC0);
-
-        std::vector<uint8_t> pattern(buf_size);
-        test_utils::fill_with_random_bytes(&pattern[0], pattern.size());
-
-        {
-            auto now = std::chrono::steady_clock::now();
-            for (int i = 0; i < NUM_ITERATIONS; i++) {
-                cluster->write_to_device(pattern.data(), pattern.size(), chip, dram_core, 0x0);
-            }
-            auto end = std::chrono::steady_clock::now();
-            auto ns = std::chrono::duration_cast<std::chrono::nanoseconds>(end - now).count();
-            print_speed("Dynamic TLB: Host -> Device DRAM", NUM_ITERATIONS * pattern.size(), ns);
-        }
-
-        std::vector<uint8_t> readback(buf_size, 0x0);
-        auto now = std::chrono::steady_clock::now();
-        for (int i = 0; i < NUM_ITERATIONS; i++) {
-            cluster->read_from_device(readback.data(), chip, dram_core, 0x0, readback.size());
-        }
-        auto end = std::chrono::steady_clock::now();
-        auto ns = std::chrono::duration_cast<std::chrono::nanoseconds>(end - now).count();
-        print_speed("Dynamic TLB: Device DRAM -> Host", NUM_ITERATIONS * readback.size(), ns);
-
-        EXPECT_EQ(pattern, readback) << "Mismatch for core " << dram_core.str() << " addr=0x0"
-                                     << " size=" << std::dec << readback.size();
+        perf_read_write(
+            buf_size,
+            NUM_ITERATIONS,
+            cluster,
+            dram_core,
+            "Dynamic TLB: Host -> Device DRAM",
+            "Dynamic TLB: Device DRAM -> Host");
     }
 }
 
 TEST(TestPerf, TLBDynamicTensix) {
-    const chip_id_t chip = 0;
-    const uint32_t one_mb = 1 << 20;
-    const size_t NUM_ITERATIONS = 1;
-    const CoreCoord dram_core = CoreCoord(18, 18, CoreType::TENSIX, CoordSystem::NOC0);
     const std::vector<uint32_t> sizes = {
         1 * one_mb,
     };
 
     std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
+    const CoreCoord tensix_core = cluster->get_soc_descriptor(chip).get_cores(CoreType::TENSIX)[0];
     cluster->start_device(tt_device_params{});
 
     for (uint32_t buf_size : sizes) {
-        CoreCoord core(dram_core.x, dram_core.y, CoreType::DRAM, CoordSystem::NOC0);
-
-        std::vector<uint8_t> pattern(buf_size);
-        test_utils::fill_with_random_bytes(&pattern[0], pattern.size());
-
-        {
-            auto now = std::chrono::steady_clock::now();
-            for (int i = 0; i < NUM_ITERATIONS; i++) {
-                cluster->write_to_device(pattern.data(), pattern.size(), chip, dram_core, 0x0);
-            }
-            auto end = std::chrono::steady_clock::now();
-            auto ns = std::chrono::duration_cast<std::chrono::nanoseconds>(end - now).count();
-            print_speed("Dynamic TLB: Host -> Device DRAM", NUM_ITERATIONS * pattern.size(), ns);
-        }
-
-        std::vector<uint8_t> readback(buf_size, 0x0);
-        auto now = std::chrono::steady_clock::now();
-        for (int i = 0; i < NUM_ITERATIONS; i++) {
-            cluster->read_from_device(readback.data(), chip, dram_core, 0x0, readback.size());
-        }
-        auto end = std::chrono::steady_clock::now();
-        auto ns = std::chrono::duration_cast<std::chrono::nanoseconds>(end - now).count();
-        print_speed("Dynamic TLB: Device DRAM -> Host", NUM_ITERATIONS * readback.size(), ns);
-
-        EXPECT_EQ(pattern, readback) << "Mismatch for core " << dram_core.str() << " addr=0x0"
-                                     << " size=" << std::dec << readback.size();
+        perf_read_write(
+            buf_size,
+            NUM_ITERATIONS,
+            cluster,
+            tensix_core,
+            "Dynamic TLB: Host -> Device Tensix L1",
+            "Dynamic TLB: Device Tensix L1 -> Host");
     }
 }
 
 TEST(TestPerf, TLBStaticTensix) {
-    const chip_id_t chip = 0;
-    const uint32_t one_mb = 1 << 20;
-    const size_t one_mb_tlb_window_index = 0;
-    CoreCoord tensix_core = CoreCoord(18, 18, CoreType::TENSIX, CoordSystem::TRANSLATED);
+    const size_t tlb_1m_index = 0;
 
     std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
-
+    const CoreCoord tensix_core = cluster->get_soc_descriptor(chip).get_cores(CoreType::TENSIX)[0];
     cluster->start_device(tt_device_params{});
 
-    cluster->configure_tlb(0, tensix_core, one_mb_tlb_window_index, 0x0, TLB_DATA::Relaxed);
+    cluster->configure_tlb(0, tensix_core, tlb_1m_index, 0x0, TLB_DATA::Relaxed);
 
     const std::vector<uint32_t> sizes = {
         1 * one_mb,
     };
 
     for (uint32_t buf_size : sizes) {
-        std::cout << std::endl;
-        std::cout << "Reporting results for buffer size " << (buf_size / one_mb) << " MB" << std::endl;
-        std::cout << "--------------------------------------------------------" << std::endl;
-
         const uint32_t num_io = buf_size / one_mb;
-
-        std::vector<uint8_t> pattern(one_mb);
-        test_utils::fill_with_random_bytes(&pattern[0], pattern.size());
-        {
-            auto now = std::chrono::steady_clock::now();
-            for (int i = 0; i < num_io; i++) {
-                cluster->write_to_device(pattern.data(), pattern.size(), chip, tensix_core, 0x0);
-            }
-            auto end = std::chrono::steady_clock::now();
-            auto ns = std::chrono::duration_cast<std::chrono::nanoseconds>(end - now).count();
-            print_speed("Static TLB: Host -> Device Tensix L1", num_io * pattern.size(), ns);
-        }
-
-        std::vector<uint8_t> readback(one_mb, 0x0);
-        {
-            auto now = std::chrono::steady_clock::now();
-            for (int i = 0; i < num_io; i++) {
-                cluster->read_from_device(readback.data(), chip, tensix_core, 0x0, readback.size());
-            }
-            auto end = std::chrono::steady_clock::now();
-            auto ns = std::chrono::duration_cast<std::chrono::nanoseconds>(end - now).count();
-            print_speed("Static TLB: Device Tensix L1 -> Host", num_io * readback.size(), ns);
-        }
-
-        EXPECT_EQ(pattern, readback);
+        perf_read_write(
+            buf_size,
+            num_io,
+            cluster,
+            tensix_core,
+            "Static TLB: Host -> Device Tensix L1",
+            "Static TLB: Device Tensix L1 -> Host");
     }
 }
 
 TEST(TestPerf, TLBStaticDram) {
-    const chip_id_t chip = 0;
-    const uint32_t one_mb = 1 << 20;
-    const size_t tlb_window_index = 166;
     const std::vector<uint32_t> sizes = {
         16 * one_mb,
         32 * one_mb,
@@ -182,45 +149,17 @@ TEST(TestPerf, TLBStaticDram) {
         512 * one_mb,
         1024 * one_mb,
     };
-    CoreCoord dram_core = CoreCoord(0, 0, CoreType::DRAM, CoordSystem::NOC0);
 
     std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
-
+    const CoreCoord dram_core = cluster->get_soc_descriptor(chip).get_cores(CoreType::DRAM)[0];
     cluster->start_device(tt_device_params{});
 
-    cluster->configure_tlb(0, dram_core, tlb_window_index, 0x0, TLB_DATA::Relaxed);
+    cluster->configure_tlb(0, dram_core, tlb_16m_index, 0x0, TLB_DATA::Relaxed);
 
     for (uint32_t buf_size : sizes) {
-        std::cout << std::endl;
-        std::cout << "Reporting results for buffer size " << (buf_size / one_mb) << " MB" << std::endl;
-        std::cout << "--------------------------------------------------------" << std::endl;
-
         const uint32_t num_io = buf_size / (16 * one_mb);
 
-        std::vector<uint8_t> pattern(16 * one_mb);
-        test_utils::fill_with_random_bytes(&pattern[0], pattern.size());
-
-        {
-            auto now = std::chrono::steady_clock::now();
-            for (int i = 0; i < num_io; i++) {
-                cluster->write_to_device(pattern.data(), pattern.size(), chip, dram_core, 0x0);
-            }
-            auto end = std::chrono::steady_clock::now();
-            auto ns = std::chrono::duration_cast<std::chrono::nanoseconds>(end - now).count();
-            print_speed("Static TLB: Host -> Device DRAM", num_io * pattern.size(), ns);
-        }
-
-        std::vector<uint8_t> readback(16 * one_mb, 0x0);
-        {
-            auto now = std::chrono::steady_clock::now();
-            for (int i = 0; i < num_io; i++) {
-                cluster->read_from_device(readback.data(), chip, dram_core, 0x0, readback.size());
-            }
-            auto end = std::chrono::steady_clock::now();
-            auto ns = std::chrono::duration_cast<std::chrono::nanoseconds>(end - now).count();
-            print_speed("Static TLB: Device DRAM -> Host", num_io * readback.size(), ns);
-        }
-
-        EXPECT_EQ(pattern, readback);
+        perf_read_write(
+            buf_size, num_io, cluster, dram_core, "Static TLB: Host -> Device DRAM", "Static TLB: Device DRAM -> Host");
     }
 }

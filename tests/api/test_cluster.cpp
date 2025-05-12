@@ -102,7 +102,7 @@ TEST(ApiClusterTest, SeparateClusters) {
         GTEST_SKIP() << "No chips present on the system. Skipping test.";
     }
     // Now we can choose which chips to open. This can be hardcoded if you already have expected topology.
-    // The first cluster will open the first chip only, and the second cluster will open the rest of them
+    // The first cluster will open the first chip only, and the second cluster will open the rest of them.
     chip_id_t first_chip_only = *all_chips.begin();
     std::unique_ptr<Cluster> umd_cluster1 = std::make_unique<Cluster>(ClusterOptions{
         .target_devices = {first_chip_only},
@@ -112,7 +112,9 @@ TEST(ApiClusterTest, SeparateClusters) {
     std::unique_ptr<tt_ClusterDescriptor> cluster_desc2 = tt_ClusterDescriptor::create_from_yaml(cluster_path);
     std::unordered_set<chip_id_t> other_chips;
     for (auto chip : all_chips) {
-        if (chip != first_chip_only) {
+        // Skip the first chip, but also skip all remote chips so that we don't accidentally hit the one tied to the
+        // first local chip.
+        if (chip != first_chip_only && cluster_desc2->is_chip_mmio_capable(chip)) {
             other_chips.insert(chip);
         }
     }

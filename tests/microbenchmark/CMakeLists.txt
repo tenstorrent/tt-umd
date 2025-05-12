@@ -1,4 +1,4 @@
-set(UBENCH_SRC test_rw_tensix.cpp)
+set(UBENCH_SRC test_perf_tlb.cpp)
 add_executable(ubench ${UBENCH_SRC})
 target_link_libraries(
     ubench

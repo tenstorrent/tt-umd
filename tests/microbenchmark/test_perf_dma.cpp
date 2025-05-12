@@ -19,10 +19,7 @@ using namespace tt::umd;
 
 const chip_id_t chip = 0;
 const uint32_t one_mb = 1 << 20;
-const uint32_t one_kb = 1 << 10;
 const uint32_t NUM_ITERATIONS = 1000;
-const uint32_t tlb_1m_index = 0;
-const uint32_t tlb_16m_index = 166;
 
 static inline void print_speed(std::string direction, size_t bytes, uint64_t ns) {
     double seconds = ns / 1e9;

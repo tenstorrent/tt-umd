@@ -155,6 +155,14 @@ public:
     uint64_t map_for_dma(void *buffer, size_t size);
 
     /**
+     * Unmap a buffer that was previously mapped for DMA access.
+     *
+     * @param buffer must be page-aligned
+     * @param size must be a multiple of the page size
+     */
+    void unmap_for_dma(void *buffer, size_t size);
+
+    /**
      * Access the device's DMA buffer.  This buffer is not guaranteed to exist.
      * It is the caller's responsibility to check if the buffer is valid and to
      * chunk the desired transfer size to fit within it.

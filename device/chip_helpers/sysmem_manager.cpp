@@ -21,6 +21,10 @@ SysmemManager::SysmemManager(TTDevice *tt_device) : tt_device_(tt_device) {}
 SysmemManager::~SysmemManager() {
     for (const auto &hugepage_mapping : hugepage_mapping_per_channel) {
         if (hugepage_mapping.mapping) {
+            if (tt_device_->get_pci_device()->is_iommu_enabled()) {
+                tt_device_->get_pci_device()->unmap_for_dma(hugepage_mapping.mapping, hugepage_mapping.mapping_size);
+            }
+
             munmap(hugepage_mapping.mapping, hugepage_mapping.mapping_size);
         }
     }

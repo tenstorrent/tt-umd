@@ -513,6 +513,24 @@ uint64_t PCIDevice::map_for_dma(void *buffer, size_t size) {
     return pin_pages.out.physical_address;
 }
 
+void PCIDevice::unmap_for_dma(void *buffer, size_t size) {
+    static const auto page_size = sysconf(_SC_PAGESIZE);
+
+    const uint64_t vaddr = reinterpret_cast<uint64_t>(buffer);
+
+    if (vaddr % page_size != 0 || size % page_size != 0) {
+        TT_THROW("Buffer must be page-aligned with a size that is a multiple of the page size");
+    }
+
+    tenstorrent_unpin_pages unpin_pages{};
+    unpin_pages.in.virtual_address = vaddr;
+    unpin_pages.in.size = size;
+
+    if (ioctl(pci_device_file_desc, TENSTORRENT_IOCTL_UNPIN_PAGES, &unpin_pages) < 0) {
+        TT_THROW("Failed to unpin pages for DMA buffer: {}", strerror(errno));
+    }
+}
+
 semver_t PCIDevice::read_kmd_version() {
     static const std::string path = "/sys/module/tenstorrent/version";
     std::ifstream file(path);

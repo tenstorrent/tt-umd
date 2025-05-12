@@ -25,6 +25,7 @@
 #define TENSTORRENT_IOCTL_GET_DRIVER_INFO	_IO(TENSTORRENT_IOCTL_MAGIC, 5)
 #define TENSTORRENT_IOCTL_RESET_DEVICE		_IO(TENSTORRENT_IOCTL_MAGIC, 6)
 #define TENSTORRENT_IOCTL_PIN_PAGES		_IO(TENSTORRENT_IOCTL_MAGIC, 7)
+#define TENSTORRENT_IOCTL_UNPIN_PAGES		_IO(TENSTORRENT_IOCTL_MAGIC, 10)
 
 // For tenstorrent_mapping.mapping_id. These are not array indices.
 #define TENSTORRENT_MAPPING_UNUSED		0
@@ -156,6 +157,19 @@ struct tenstorrent_pin_pages {
 	struct tenstorrent_pin_pages_in in;
 	struct tenstorrent_pin_pages_out out;
 };
+struct tenstorrent_unpin_pages_in {
+	// original VA used to pin, not current VA if remapped
+	__u64 virtual_address;	
+	__u64 size;
+	__u64 reserved;
+};
 
+struct tenstorrent_unpin_pages_out {
+};
+
+struct tenstorrent_unpin_pages {
+	struct tenstorrent_unpin_pages_in in;
+	struct tenstorrent_unpin_pages_out out;
+};
 #endif
 // clang-format on

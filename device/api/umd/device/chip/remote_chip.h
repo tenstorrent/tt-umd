@@ -51,5 +51,6 @@ private:
     eth_coord_t eth_chip_location_;
     std::unique_ptr<RemoteCommunication> remote_communication_;
     LocalChip* local_chip_;
+    LockManager lock_manager_;
 };
 }  // namespace tt::umd

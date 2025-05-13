@@ -20,6 +20,9 @@ RemoteChip::RemoteChip(tt_SocDescriptor soc_descriptor, eth_coord_t eth_chip_loc
     remote_communication_(std::make_unique<RemoteCommunication>(local_chip)),
     local_chip_(local_chip) {
     log_assert(soc_descriptor_.arch != tt::ARCH::BLACKHOLE, "Non-MMIO targets not supported in Blackhole");
+
+    lock_manager_.initialize_mutex(
+        MutexType::NON_MMIO, local_chip->get_tt_device()->get_pci_device()->get_device_num(), false);
 }
 
 RemoteChip::RemoteChip(tt_SocDescriptor soc_descriptor, ChipInfo chip_info) : Chip(chip_info, soc_descriptor) {}
@@ -79,6 +82,9 @@ int RemoteChip::arc_msg(
     uint32_t* return_4) {
     constexpr uint64_t ARC_RESET_SCRATCH_ADDR = 0x880030060;
     constexpr uint64_t ARC_RESET_MISC_CNTL_ADDR = 0x880030100;
+
+    auto lock = lock_manager_.acquire_mutex(
+        MutexType::NON_MMIO, local_chip_->get_tt_device()->get_pci_device()->get_device_num());
 
     auto arc_core = soc_descriptor_.get_cores(CoreType::ARC).at(0);
 

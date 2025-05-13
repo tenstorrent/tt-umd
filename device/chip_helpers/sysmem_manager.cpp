@@ -280,14 +280,6 @@ std::shared_ptr<SysmemBuffer> SysmemManager::allocate_sysmem_buffer(void *buffer
 
     uint64_t buffer_addr = reinterpret_cast<uint64_t>(buffer);
 
-    // uint64_t buffer_addr = reinterpret_cast<uint64_t>(buffer);
-    // if (buffer_to_io_data_map.find(buffer_addr) != buffer_to_io_data_map.end()) {
-    //     log_warning(
-    //         LogSiliconDriver,
-    //         "Buffer {} is already mapped for DMA. Overwriting the mapping.",
-    //         reinterpret_cast<void *>(buffer_addr));
-    // }
-
     std::shared_ptr<SysmemBuffer> sysmem_buffer =
         std::make_shared<SysmemBuffer>(buffer, sysmem_buffer_size, device_io_addr);
 

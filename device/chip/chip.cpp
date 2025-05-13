@@ -9,6 +9,7 @@
 #include "logger.hpp"
 #include "umd/device/architecture_implementation.h"
 #include "umd/device/driver_atomics.h"
+#include "umd/device/wormhole_implementation.h"
 
 namespace tt::umd {
 
@@ -73,12 +74,26 @@ TLBManager* Chip::get_tlb_manager() {
         "Chip::get_tlb_manager is not available for this chip, it is only available for LocalChips.");
 }
 
+int Chip::get_num_host_channels() { return 0; }
+
+int Chip::get_host_channel_size(std::uint32_t channel) {
+    throw std::runtime_error("There are no host channels available.");
+}
+
 void Chip::write_to_sysmem(uint16_t channel, const void* src, uint64_t sysmem_dest, uint32_t size) {
     throw std::runtime_error("Chip::write_to_sysmem is not available for this chip.");
 }
 
 void Chip::read_from_sysmem(uint16_t channel, void* dest, uint64_t sysmem_src, uint32_t size) {
     throw std::runtime_error("Chip::read_from_sysmem is not available for this chip.");
+}
+
+void Chip::write_to_device_reg(tt_xy_pair core, const void* src, uint64_t reg_dest, uint32_t size) {
+    write_to_device(core, src, reg_dest, size);
+}
+
+void Chip::read_from_device_reg(tt_xy_pair core, void* dest, uint64_t reg_src, uint32_t size) {
+    read_from_device(core, dest, reg_src, size);
 }
 
 void Chip::dma_write_to_device(const void* src, size_t size, tt_xy_pair core, uint64_t addr) {
@@ -89,6 +104,10 @@ void Chip::dma_read_from_device(void* dst, size_t size, tt_xy_pair core, uint64_
     throw std::runtime_error("Chip::dma_read_from_device is not available for this chip.");
 }
 
+std::function<void(uint32_t, uint32_t, const uint8_t*)> Chip::get_fast_pcie_static_tlb_write_callable() {
+    throw std::runtime_error("Chip::get_fast_pcie_static_tlb_write_callable is not available for this chip.");
+}
+
 void Chip::wait_for_non_mmio_flush() {
     throw std::runtime_error("Chip::wait_for_non_mmio_flush is not available for this chip.");
 }
@@ -97,29 +116,7 @@ void Chip::set_remote_transfer_ethernet_cores(const std::unordered_set<CoreCoord
     throw std::runtime_error("Chip::set_remote_transfer_ethernet_cores is not available for this chip.");
 }
 
-tt_xy_pair Chip::get_remote_transfer_ethernet_core() {
-    throw std::runtime_error("Chip::get_remote_transfer_ethernet_core is not available for this chip.");
-}
-
-void Chip::update_active_eth_core_idx() {
-    throw std::runtime_error("Chip::update_active_eth_core_idx is not available for this chip.");
-}
-
-int Chip::get_active_eth_core_idx() {
-    throw std::runtime_error("Chip::active_eth_core_idx is not available for this chip.");
-}
-
-std::vector<CoreCoord> Chip::get_remote_transfer_ethernet_cores() {
-    throw std::runtime_error("Chip::get_remote_transfer_ethernet_cores is not available for this chip.");
-}
-
-std::unique_lock<RobustMutex> Chip::acquire_mutex(std::string mutex_name, int pci_device_id) {
-    throw std::runtime_error("LockManager::acquire_mutex is not available for this chip.");
-}
-
-std::unique_lock<RobustMutex> Chip::acquire_mutex(MutexType mutex_type, int pci_device_id) {
-    throw std::runtime_error("LockManager::acquire_mutex is not available for this chip.");
-}
+int Chip::get_numa_node() { throw std::runtime_error("Chip::get_numa_node is not available for this chip."); }
 
 void Chip::wait_dram_cores_training(const uint32_t timeout_ms) {}
 
@@ -146,5 +143,32 @@ void Chip::send_tensix_risc_reset(tt_xy_pair core, const TensixSoftResetOptions&
     uint32_t valid_val = (std::underlying_type<TensixSoftResetOptions>::type)valid;
     write_to_device_reg(core, &valid_val, 0xFFB121B0, sizeof(uint32_t));
     tt_driver_atomics::sfence();
+}
+
+void Chip::send_tensix_risc_reset(const TensixSoftResetOptions& soft_resets) {
+    for (const CoreCoord core : soc_descriptor_.get_cores(CoreType::TENSIX, CoordSystem::VIRTUAL)) {
+        send_tensix_risc_reset(core, soft_resets);
+    }
+}
+
+uint32_t Chip::get_power_state_arc_msg(tt_DevicePowerState state) {
+    uint32_t msg = wormhole::ARC_MSG_COMMON_PREFIX;
+    switch (state) {
+        case BUSY: {
+            msg |= architecture_implementation::create(soc_descriptor_.arch)->get_arc_message_arc_go_busy();
+            break;
+        }
+        case LONG_IDLE: {
+            msg |= architecture_implementation::create(soc_descriptor_.arch)->get_arc_message_arc_go_long_idle();
+            break;
+        }
+        case SHORT_IDLE: {
+            msg |= architecture_implementation::create(soc_descriptor_.arch)->get_arc_message_arc_go_short_idle();
+            break;
+        }
+        default:
+            throw std::runtime_error("Unrecognized power state.");
+    }
+    return msg;
 }
 }  // namespace tt::umd

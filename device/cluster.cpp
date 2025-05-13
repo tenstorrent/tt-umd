@@ -47,9 +47,9 @@
 #include "umd/device/topology_utils.h"
 #include "umd/device/tt_cluster_descriptor.h"
 #include "umd/device/tt_core_coordinates.h"
+#include "umd/device/tt_simulation_device.h"
 #include "umd/device/tt_soc_descriptor.h"
 #include "umd/device/types/arch.h"
-#include "umd/device/types/blackhole_arc.h"
 #include "umd/device/types/blackhole_eth.h"
 #include "umd/device/types/tlb.h"
 #include "umd/device/umd_utils.h"
@@ -101,14 +101,14 @@ const tt_SocDescriptor& Cluster::get_soc_descriptor(chip_id_t chip_id) const {
 void Cluster::create_device(
     const std::set<chip_id_t>& target_mmio_device_ids,
     const uint32_t& num_host_mem_ch_per_mmio_device,
-    const bool create_mock_chips) {
+    const ChipType& chip_type) {
     log_debug(LogSiliconDriver, "Cluster::Cluster");
 
     // Don't buffer stdout.
     setbuf(stdout, NULL);
 
     for (const chip_id_t& logical_device_id : target_mmio_device_ids) {
-        if (!create_mock_chips) {
+        if (chip_type == ChipType::SILICON) {
             bool hugepages_initialized =
                 (get_local_chip(logical_device_id)->get_sysmem_manager()->get_hugepage_mapping(0).mapping != nullptr);
             // Large writes to remote chips require hugepages to be initialized.
@@ -126,11 +126,11 @@ void Cluster::create_device(
     }
 }
 
-void Cluster::construct_cluster(const uint32_t& num_host_mem_ch_per_mmio_device, const bool create_mock_chips) {
+void Cluster::construct_cluster(const uint32_t& num_host_mem_ch_per_mmio_device, const ChipType& chip_type) {
     // TODO: work on removing this member altogether. Currently assumes all have the same arch.
     arch_name = chips_.empty() ? tt::ARCH::Invalid : chips_.begin()->second->get_soc_descriptor().arch;
 
-    if (!create_mock_chips) {
+    if (chip_type == ChipType::SILICON) {
         std::vector<int> pci_ids;
         for (const auto& [logical_id, pci_id] : cluster_desc->get_chips_with_mmio()) {
             pci_ids.push_back(pci_id);
@@ -140,7 +140,7 @@ void Cluster::construct_cluster(const uint32_t& num_host_mem_ch_per_mmio_device,
             LogSiliconDriver, "Using local chip ids: {} and remote chip ids {}", local_chip_ids_, remote_chip_ids_);
     }
 
-    create_device(local_chip_ids_, num_host_mem_ch_per_mmio_device, create_mock_chips);
+    create_device(local_chip_ids_, num_host_mem_ch_per_mmio_device, chip_type);
 
     // Disable dependency to ethernet firmware for all BH devices and WH devices with all chips having MMIO (e.g. UBB
     // Galaxy, or P300).
@@ -151,18 +151,28 @@ void Cluster::construct_cluster(const uint32_t& num_host_mem_ch_per_mmio_device,
 
 std::unique_ptr<Chip> Cluster::construct_chip_from_cluster(
     chip_id_t chip_id,
+    const ChipType& chip_type,
     tt_ClusterDescriptor* cluster_desc,
     tt_SocDescriptor& soc_desc,
     int num_host_mem_channels,
-    const bool clean_system_resources,
-    const bool create_mock_chip) {
-    if (create_mock_chip) {
+    const std::filesystem::path& simulator_directory) {
+    if (chip_type == ChipType::MOCK) {
         return std::make_unique<MockChip>(soc_desc);
+    }
+    if (chip_type == ChipType::SIMULATION) {
+#ifdef TT_UMD_BUILD_SIMULATION
+        // Note that passed soc descriptor is ignored in favor of soc descriptor from simulator_directory.
+        return std::make_unique<tt_SimulationDevice>(simulator_directory);
+#else
+        throw std::runtime_error(
+            "Simulation device is not supported in this build. Set '-DTT_UMD_BUILD_SIMULATION=ON' during cmake "
+            "configuration to enable simulation device.");
+#endif
     }
 
     if (cluster_desc->is_chip_mmio_capable(chip_id)) {
         return std::make_unique<LocalChip>(
-            soc_desc, cluster_desc->get_chips_with_mmio().at(chip_id), num_host_mem_channels, clean_system_resources);
+            soc_desc, cluster_desc->get_chips_with_mmio().at(chip_id), num_host_mem_channels);
     } else {
         if (cluster_desc->get_arch(chip_id) != tt::ARCH::WORMHOLE_B0) {
             throw std::runtime_error("Remote chips are supported only for wormhole.");
@@ -174,61 +184,64 @@ std::unique_ptr<Chip> Cluster::construct_chip_from_cluster(
     }
 }
 
-std::unique_ptr<Chip> Cluster::construct_chip_from_cluster(
+tt_SocDescriptor Cluster::construct_soc_descriptor(
     const std::string& soc_desc_path,
     chip_id_t chip_id,
+    ChipType chip_type,
     tt_ClusterDescriptor* cluster_desc,
     bool perform_harvesting,
-    std::unordered_map<chip_id_t, HarvestingMasks>& simulated_harvesting_masks,
-    int num_host_mem_channels,
-    const bool clean_system_resources,
-    const bool create_mock_chip) {
+    HarvestingMasks& simulated_harvesting_masks) {
+    bool chip_in_cluster_descriptor =
+        cluster_desc->get_all_chips().find(chip_id) != cluster_desc->get_all_chips().end();
+
+    // In case of SILICON chip type, this chip has to exist in the cluster descriptor. But it doesn't have to exist in
+    // case of Mock or Simulation chip type.
+    if (chip_type == ChipType::SILICON && !chip_in_cluster_descriptor) {
+        throw std::runtime_error(
+            fmt::format("Chip {} not found in cluster descriptor. Cannot create device.", chip_id));
+    }
+
+    bool noc_translation_table_en =
+        chip_in_cluster_descriptor ? cluster_desc->get_noc_translation_table_en().at(chip_id) : false;
     HarvestingMasks harvesting_masks =
-        get_harvesting_masks(chip_id, cluster_desc, perform_harvesting, simulated_harvesting_masks);
-    const BoardType chip_board_type = cluster_desc->get_board_type(chip_id);
-    std::optional<ChipUID> chip_uid = cluster_desc->get_chip_uid(chip_id);
-    uint8_t asic_location = chip_uid.has_value() ? chip_uid.value().asic_location : 0;
-    tt_SocDescriptor soc_desc = tt_SocDescriptor(
-        soc_desc_path,
-        cluster_desc->get_noc_translation_table_en().at(chip_id),
-        harvesting_masks,
-        chip_board_type,
-        asic_location);
-    return construct_chip_from_cluster(
-        chip_id, cluster_desc, soc_desc, num_host_mem_channels, clean_system_resources, create_mock_chip);
+        chip_in_cluster_descriptor
+            ? get_harvesting_masks(chip_id, cluster_desc, perform_harvesting, simulated_harvesting_masks)
+            : HarvestingMasks{};
+    BoardType chip_board_type = chip_in_cluster_descriptor ? cluster_desc->get_board_type(chip_id) : BoardType::UNKNOWN;
+    uint8_t asic_location =
+        chip_in_cluster_descriptor ? cluster_desc->get_chip_uid(chip_id).value_or(ChipUID{}).asic_location : 0;
+
+    if (soc_desc_path.empty()) {
+        tt::ARCH arch = chip_in_cluster_descriptor ? cluster_desc->get_arch(chip_id) : tt::ARCH::WORMHOLE_B0;
+
+        return tt_SocDescriptor(arch, noc_translation_table_en, harvesting_masks, chip_board_type, asic_location);
+
+    } else {
+        tt_SocDescriptor soc_desc =
+            tt_SocDescriptor(soc_desc_path, noc_translation_table_en, harvesting_masks, chip_board_type, asic_location);
+
+        // In this case, check that the passed soc descriptor architecture doesn't conflate with the one in the cluster
+        // descriptor.
+        if (chip_in_cluster_descriptor && soc_desc.arch != cluster_desc->get_arch(chip_id)) {
+            throw std::runtime_error(fmt::format(
+                "Passed soc descriptor has {} arch, but for chip id {} has arch {}",
+                arch_to_str(soc_desc.arch),
+                chip_id,
+                arch_to_str(cluster_desc->get_arch(chip_id))));
+        }
+
+        return soc_desc;
+    }
 }
 
-std::unique_ptr<Chip> Cluster::construct_chip_from_cluster(
-    chip_id_t chip_id,
-    tt_ClusterDescriptor* cluster_desc,
-    bool perform_harvesting,
-    std::unordered_map<chip_id_t, HarvestingMasks>& simulated_harvesting_masks,
-    int num_host_mem_channels,
-    const bool clean_system_resources,
-    const bool create_mock_chip) {
-    tt::ARCH arch = cluster_desc->get_arch(chip_id);
-    HarvestingMasks harvesting_masks =
-        get_harvesting_masks(chip_id, cluster_desc, perform_harvesting, simulated_harvesting_masks);
-    const BoardType chip_board_type = cluster_desc->get_board_type(chip_id);
-    std::optional<ChipUID> chip_uid = cluster_desc->get_chip_uid(chip_id);
-    uint8_t asic_location = chip_uid.has_value() ? chip_uid.value().asic_location : 0;
-    tt_SocDescriptor soc_desc = tt_SocDescriptor(
-        arch,
-        cluster_desc->get_noc_translation_table_en().at(chip_id),
-        harvesting_masks,
-        chip_board_type,
-        asic_location);
-    return construct_chip_from_cluster(
-        chip_id, cluster_desc, soc_desc, num_host_mem_channels, clean_system_resources, create_mock_chip);
-}
-
-void Cluster::add_chip(chip_id_t chip_id, std::unique_ptr<Chip> chip) {
+void Cluster::add_chip(const chip_id_t& chip_id, const ChipType& chip_type, std::unique_ptr<Chip> chip) {
     log_assert(
         chips_.find(chip_id) == chips_.end(),
         "Chip with id {} already exists in cluster. Cannot add another chip with the same id.",
         chip_id);
     all_chip_ids_.insert(chip_id);
-    if (cluster_desc->is_chip_mmio_capable(chip_id)) {
+    // All non silicon chip types are considered local chips.
+    if (chip_type != ChipType::SILICON || cluster_desc->is_chip_mmio_capable(chip_id)) {
         local_chip_ids_.insert(chip_id);
     } else {
         remote_chip_ids_.insert(chip_id);
@@ -237,94 +250,39 @@ void Cluster::add_chip(chip_id_t chip_id, std::unique_ptr<Chip> chip) {
 }
 
 uint32_t Cluster::get_tensix_harvesting_mask(
-    chip_id_t chip_id,
-    tt_ClusterDescriptor* cluster_desc,
-    bool perform_harvesting,
-    std::unordered_map<chip_id_t, HarvestingMasks>& simulated_harvesting_masks) {
-    if (!perform_harvesting) {
-        log_info(LogSiliconDriver, "Skipping harvesting for chip {}.", chip_id);
-        return 0;
-    }
+    chip_id_t chip_id, tt_ClusterDescriptor* cluster_desc, HarvestingMasks& simulated_harvesting_masks) {
     uint32_t tensix_harvesting_mask_physical_layout = cluster_desc->get_harvesting_info().at(chip_id);
     uint32_t tensix_harvesting_mask = CoordinateManager::shuffle_tensix_harvesting_mask(
         cluster_desc->get_arch(chip_id), tensix_harvesting_mask_physical_layout);
-    uint32_t simulated_harvesting_mask = (simulated_harvesting_masks.find(chip_id) != simulated_harvesting_masks.end())
-                                             ? simulated_harvesting_masks.at(chip_id).tensix_harvesting_mask
-                                             : 0;
     log_info(
         LogSiliconDriver,
         "Harvesting mask for chip {} is 0x{:x} (physical layout: 0x{:x}, logical: 0x{:x}, simulated harvesting mask: "
         "0x{:x}).",
         chip_id,
-        tensix_harvesting_mask | simulated_harvesting_mask,
+        tensix_harvesting_mask | simulated_harvesting_masks.tensix_harvesting_mask,
         tensix_harvesting_mask_physical_layout,
         tensix_harvesting_mask,
-        simulated_harvesting_mask);
-    return tensix_harvesting_mask | simulated_harvesting_mask;
-}
-
-uint32_t Cluster::get_dram_harvesting_mask(
-    chip_id_t chip_id,
-    tt_ClusterDescriptor* cluster_desc,
-    bool perform_harvesting,
-    std::unordered_map<chip_id_t, HarvestingMasks>& simulated_harvesting_masks) {
-    if (!perform_harvesting) {
-        log_info(LogSiliconDriver, "Skipping DRAM harvesting for chip {}.", chip_id);
-        return 0;
-    }
-
-    return simulated_harvesting_masks.find(chip_id) != simulated_harvesting_masks.end()
-               ? cluster_desc->get_dram_harvesting_mask(chip_id) |
-                     simulated_harvesting_masks.at(chip_id).dram_harvesting_mask
-               : cluster_desc->get_dram_harvesting_mask(chip_id);
-}
-
-uint32_t Cluster::get_eth_harvesting_mask(
-    chip_id_t chip_id,
-    tt_ClusterDescriptor* cluster_desc,
-    bool perform_harvesting,
-    std::unordered_map<chip_id_t, HarvestingMasks>& simulated_harvesting_masks) {
-    if (!perform_harvesting) {
-        log_info(LogSiliconDriver, "Skipping ETH harvesting for chip {}.", chip_id);
-        return 0;
-    }
-
-    return simulated_harvesting_masks.find(chip_id) != simulated_harvesting_masks.end()
-               ? cluster_desc->get_eth_harvesting_mask(chip_id) |
-                     simulated_harvesting_masks.at(chip_id).eth_harvesting_mask
-               : cluster_desc->get_eth_harvesting_mask(chip_id);
-}
-
-uint32_t Cluster::get_pcie_harvesting_mask(
-    chip_id_t chip_id,
-    tt_ClusterDescriptor* cluster_desc,
-    bool perform_harvesting,
-    std::unordered_map<chip_id_t, HarvestingMasks>& simulated_harvesting_masks) {
-    if (!perform_harvesting) {
-        log_info(LogSiliconDriver, "Skipping PCIE harvesting for chip {}.", chip_id);
-        return 0;
-    }
-
-    return simulated_harvesting_masks.find(chip_id) != simulated_harvesting_masks.end()
-               ? cluster_desc->get_pcie_harvesting_mask(chip_id) |
-                     simulated_harvesting_masks.at(chip_id).pcie_harvesting_mask
-               : cluster_desc->get_pcie_harvesting_mask(chip_id);
+        simulated_harvesting_masks.tensix_harvesting_mask);
+    return tensix_harvesting_mask | simulated_harvesting_masks.tensix_harvesting_mask;
 }
 
 HarvestingMasks Cluster::get_harvesting_masks(
     chip_id_t chip_id,
     tt_ClusterDescriptor* cluster_desc,
-    bool perfrom_harvesting,
-    std::unordered_map<chip_id_t, HarvestingMasks>& simulated_harvesting_masks) {
+    bool perform_harvesting,
+    HarvestingMasks& simulated_harvesting_masks) {
+    if (!perform_harvesting) {
+        log_info(LogSiliconDriver, "Skipping harvesting for chip {}.", chip_id);
+        return HarvestingMasks{};
+    }
     return HarvestingMasks{
-        .tensix_harvesting_mask =
-            get_tensix_harvesting_mask(chip_id, cluster_desc, perfrom_harvesting, simulated_harvesting_masks),
+        .tensix_harvesting_mask = get_tensix_harvesting_mask(chip_id, cluster_desc, simulated_harvesting_masks),
         .dram_harvesting_mask =
-            get_dram_harvesting_mask(chip_id, cluster_desc, perfrom_harvesting, simulated_harvesting_masks),
+            cluster_desc->get_dram_harvesting_mask(chip_id) | simulated_harvesting_masks.dram_harvesting_mask,
         .eth_harvesting_mask =
-            get_eth_harvesting_mask(chip_id, cluster_desc, perfrom_harvesting, simulated_harvesting_masks),
+            cluster_desc->get_eth_harvesting_mask(chip_id) | simulated_harvesting_masks.eth_harvesting_mask,
         .pcie_harvesting_mask =
-            get_pcie_harvesting_mask(chip_id, cluster_desc, perfrom_harvesting, simulated_harvesting_masks)};
+            cluster_desc->get_pcie_harvesting_mask(chip_id) | simulated_harvesting_masks.pcie_harvesting_mask};
 }
 
 void Cluster::ubb_eth_connections(
@@ -410,126 +368,58 @@ void Cluster::ubb_eth_connections(
     }
 }
 
-Cluster::Cluster(
-    const uint32_t& num_host_mem_ch_per_mmio_device,
-    const bool create_mock_chips,
-    const bool clean_system_resources,
-    bool perform_harvesting,
-    std::unordered_map<chip_id_t, HarvestingMasks> simulated_harvesting_masks) {
-    cluster_desc = Cluster::create_cluster_descriptor();
-
-    for (auto& chip_id : cluster_desc->get_chips_local_first(cluster_desc->get_all_chips())) {
-        add_chip(
-            chip_id,
-            construct_chip_from_cluster(
-                chip_id,
-                cluster_desc.get(),
-                perform_harvesting,
-                simulated_harvesting_masks,
-                num_host_mem_ch_per_mmio_device,
-                clean_system_resources,
-                create_mock_chips));
+Cluster::Cluster(ClusterOptions options) {
+    // If the cluster descriptor is not provided, create a new one.
+    cluster_desc = std::move(options.cluster_descriptor);
+    if (cluster_desc == nullptr) {
+        cluster_desc = Cluster::create_cluster_descriptor();
     }
 
-    construct_cluster(num_host_mem_ch_per_mmio_device, create_mock_chips);
-}
+    std::unordered_set<chip_id_t> chips_to_construct = options.target_devices;
+    // If no target devices are passed, obtain them from the cluster descriptor.
+    if (chips_to_construct.empty()) {
+        chips_to_construct = cluster_desc->get_all_chips();
+    }
+    std::vector<chip_id_t> chips_to_construct_vec(chips_to_construct.begin(), chips_to_construct.end());
+    // Check target_devices against the cluster descriptor in case of silicon chips.
+    // We also have to sort them so that local chips are constructed first.
+    // For MOCK and SIMULATION chip types, passing target_devices which are not in cluster descriptor is allowed.
+    if (options.chip_type == ChipType::SILICON) {
+        chips_to_construct_vec = cluster_desc->get_chips_local_first(chips_to_construct);
+    }
+    for (auto& chip_id : chips_to_construct_vec) {
+        // Combine passed simulated_harvesting_masks
+        HarvestingMasks simulated_harvesting_masks =
+            options.simulated_harvesting_masks | ((options.simulated_harvesting_masks_per_chip.find(chip_id) !=
+                                                   options.simulated_harvesting_masks_per_chip.end())
+                                                      ? options.simulated_harvesting_masks_per_chip.at(chip_id)
+                                                      : HarvestingMasks{});
+        tt_SocDescriptor soc_desc = construct_soc_descriptor(
+            options.sdesc_path,
+            chip_id,
+            options.chip_type,
+            cluster_desc.get(),
+            options.perform_harvesting,
+            simulated_harvesting_masks);
 
-Cluster::Cluster(
-    const std::set<chip_id_t>& target_devices,
-    const uint32_t& num_host_mem_ch_per_mmio_device,
-    const bool create_mock_chips,
-    const bool clean_system_resources,
-    bool perform_harvesting,
-    std::unordered_map<chip_id_t, HarvestingMasks> simulated_harvesting_masks) {
-    cluster_desc = Cluster::create_cluster_descriptor();
-
-    std::unordered_set<chip_id_t> target_devices_set(target_devices.begin(), target_devices.end());
-    for (auto& chip_id : cluster_desc->get_chips_local_first(target_devices_set)) {
-        log_assert(
-            cluster_desc->get_all_chips().find(chip_id) != cluster_desc->get_all_chips().end(),
-            "Target device {} not present in current cluster!",
-            chip_id);
         add_chip(
             chip_id,
+            options.chip_type,
             construct_chip_from_cluster(
                 chip_id,
+                options.chip_type,
                 cluster_desc.get(),
-                perform_harvesting,
-                simulated_harvesting_masks,
-                num_host_mem_ch_per_mmio_device,
-                clean_system_resources,
-                create_mock_chips));
+                soc_desc,
+                options.num_host_mem_ch_per_mmio_device,
+                options.simulator_directory));
     }
 
-    construct_cluster(num_host_mem_ch_per_mmio_device, create_mock_chips);
-}
-
-Cluster::Cluster(
-    const std::string& sdesc_path,
-    const std::set<chip_id_t>& target_devices,
-    const uint32_t& num_host_mem_ch_per_mmio_device,
-    const bool create_mock_chips,
-    const bool clean_system_resources,
-    bool perform_harvesting,
-    std::unordered_map<chip_id_t, HarvestingMasks> simulated_harvesting_masks) {
-    cluster_desc = Cluster::create_cluster_descriptor(sdesc_path);
-
-    std::unordered_set<chip_id_t> target_devices_set(target_devices.begin(), target_devices.end());
-    for (auto& chip_id : cluster_desc->get_chips_local_first(target_devices_set)) {
-        log_assert(
-            cluster_desc->get_all_chips().find(chip_id) != cluster_desc->get_all_chips().end(),
-            "Target device {} not present in current cluster!",
-            chip_id);
-        add_chip(
-            chip_id,
-            construct_chip_from_cluster(
-                sdesc_path,
-                chip_id,
-                cluster_desc.get(),
-                perform_harvesting,
-                simulated_harvesting_masks,
-                num_host_mem_ch_per_mmio_device,
-                clean_system_resources,
-                create_mock_chips));
-        log_assert(
-            cluster_desc->get_arch(chip_id) == get_chip(chip_id)->get_soc_descriptor().arch,
-            "Passed soc descriptor has {} arch, but for chip id {} has arch {}",
-            arch_to_str(get_chip(chip_id)->get_soc_descriptor().arch),
-            chip_id,
-            arch_to_str(cluster_desc->get_arch(chip_id)));
-    }
-
-    construct_cluster(num_host_mem_ch_per_mmio_device, create_mock_chips);
-}
-
-Cluster::Cluster(
-    std::unique_ptr<tt_ClusterDescriptor> cluster_descriptor,
-    const uint32_t& num_host_mem_ch_per_mmio_device,
-    const bool create_mock_chips,
-    const bool clean_system_resources,
-    bool perform_harvesting,
-    std::unordered_map<chip_id_t, HarvestingMasks> simulated_harvesting_masks) {
-    cluster_desc = std::move(cluster_descriptor);
-
-    for (auto& chip_id : cluster_desc->get_chips_local_first(cluster_desc->get_all_chips())) {
-        add_chip(
-            chip_id,
-            construct_chip_from_cluster(
-                chip_id,
-                cluster_desc.get(),
-                perform_harvesting,
-                simulated_harvesting_masks,
-                num_host_mem_ch_per_mmio_device,
-                clean_system_resources,
-                create_mock_chips));
-    }
-
-    construct_cluster(num_host_mem_ch_per_mmio_device, create_mock_chips);
+    construct_cluster(options.num_host_mem_ch_per_mmio_device, options.chip_type);
 }
 
 void Cluster::configure_active_ethernet_cores_for_mmio_device(
     chip_id_t mmio_chip, const std::unordered_set<CoreCoord>& active_eth_cores_per_chip) {
-    get_local_chip(mmio_chip)->set_remote_transfer_ethernet_cores(active_eth_cores_per_chip);
+    chips_.at(mmio_chip)->set_remote_transfer_ethernet_cores(active_eth_cores_per_chip);
 }
 
 std::set<chip_id_t> Cluster::get_target_device_ids() { return all_chip_ids_; }
@@ -542,96 +432,36 @@ void Cluster::assert_risc_reset() { broadcast_tensix_risc_reset_to_cluster(TENSI
 
 void Cluster::deassert_risc_reset() { broadcast_tensix_risc_reset_to_cluster(TENSIX_DEASSERT_SOFT_RESET); }
 
-void Cluster::deassert_risc_reset_at_core(tt_cxy_pair core, const TensixSoftResetOptions& soft_resets) {
-    // Get Target Device to query soc descriptor and determine location in cluster
-    std::uint32_t target_device = core.chip;
-    CoreCoord core_coord = get_soc_descriptor(target_device).get_coord_at(core, CoordSystem::VIRTUAL);
-    log_assert(
-        core_coord.core_type == CoreType::TENSIX || core_coord.core_type == CoreType::ETH,
-        "Cannot deassert reset on a non-tensix or harvested core");
-    get_chip(core.chip)->send_tensix_risc_reset(core, soft_resets);
-}
-
 void Cluster::deassert_risc_reset_at_core(
     const chip_id_t chip, const CoreCoord core, const TensixSoftResetOptions& soft_resets) {
-    deassert_risc_reset_at_core({(size_t)chip, translate_to_api_coords(chip, core)}, soft_resets);
-}
-
-void Cluster::assert_risc_reset_at_core(tt_cxy_pair core, const TensixSoftResetOptions& soft_resets) {
     // Get Target Device to query soc descriptor and determine location in cluster
-    std::uint32_t target_device = core.chip;
-    CoreCoord core_coord = get_soc_descriptor(target_device).get_coord_at(core, CoordSystem::VIRTUAL);
     log_assert(
-        core_coord.core_type == CoreType::TENSIX || core_coord.core_type == CoreType::ETH,
-        "Cannot assert reset on a non-tensix or harvested core");
-    get_chip(core.chip)->send_tensix_risc_reset(core, soft_resets);
+        core.core_type == CoreType::TENSIX || core.core_type == CoreType::ETH,
+        "Cannot deassert reset on a non-tensix or harvested core");
+    get_chip(chip)->send_tensix_risc_reset(translate_to_api_coords(chip, core), soft_resets);
 }
 
 void Cluster::assert_risc_reset_at_core(
     const chip_id_t chip, const CoreCoord core, const TensixSoftResetOptions& soft_resets) {
-    assert_risc_reset_at_core({(size_t)chip, translate_to_api_coords(chip, core)}, soft_resets);
+    // Get Target Device to query soc descriptor and determine location in cluster
+    log_assert(
+        core.core_type == CoreType::TENSIX || core.core_type == CoreType::ETH,
+        "Cannot assert reset on a non-tensix or harvested core");
+    get_chip(chip)->send_tensix_risc_reset(translate_to_api_coords(chip, core), soft_resets);
 }
 
 tt_ClusterDescriptor* Cluster::get_cluster_description() { return cluster_desc.get(); }
 
 std::function<void(uint32_t, uint32_t, const uint8_t*)> Cluster::get_fast_pcie_static_tlb_write_callable(
     int device_id) {
-    TTDevice* dev = get_tt_device(device_id);
-
-    const auto callable = [dev](uint32_t byte_addr, uint32_t num_bytes, const uint8_t* buffer_addr) {
-        dev->write_block(byte_addr, num_bytes, buffer_addr);
-    };
-
-    return callable;
-}
-
-tt::Writer Cluster::get_static_tlb_writer(tt_cxy_pair target) {
-    return get_tlb_manager(target.chip)->get_static_tlb_writer({target.x, target.y});
+    return chips_.at(device_id)->get_fast_pcie_static_tlb_write_callable();
 }
 
 tt::Writer Cluster::get_static_tlb_writer(const chip_id_t chip, const CoreCoord target) {
-    return get_static_tlb_writer({(size_t)chip, translate_to_api_coords(chip, target)});
+    return get_tlb_manager(chip)->get_static_tlb_writer(translate_to_api_coords(chip, target));
 }
 
-uint32_t Cluster::get_power_state_arc_msg(chip_id_t chip_id, tt_DevicePowerState state) {
-    TTDevice* tt_device = get_tt_device(chip_id);
-    uint32_t msg = wormhole::ARC_MSG_COMMON_PREFIX;
-    switch (state) {
-        case BUSY: {
-            msg |= tt_device->get_architecture_implementation()->get_arc_message_arc_go_busy();
-            break;
-        }
-        case LONG_IDLE: {
-            msg |= tt_device->get_architecture_implementation()->get_arc_message_arc_go_long_idle();
-            break;
-        }
-        case SHORT_IDLE: {
-            msg |= tt_device->get_architecture_implementation()->get_arc_message_arc_go_short_idle();
-            break;
-        }
-        default:
-            throw std::runtime_error("Unrecognized power state.");
-    }
-    return msg;
-}
-
-void Cluster::set_pcie_power_state(tt_DevicePowerState state) {
-    for (auto& chip_id : local_chip_ids_) {
-        uint32_t msg = get_power_state_arc_msg(chip_id, state);
-        std::stringstream ss;
-        ss << state;
-        auto exit_code = get_chip(chip_id)->arc_msg(wormhole::ARC_MSG_COMMON_PREFIX | msg, true, 0, 0);
-        if (exit_code != 0) {
-            throw std::runtime_error(
-                fmt::format("Failed to set power state to {} with exit code {}", ss.str(), exit_code));
-        }
-    }
-}
-
-int Cluster::get_clock(int logical_device_id) {
-    auto mmio_capable_chip_logical = cluster_desc->get_closest_mmio_capable_chip(logical_device_id);
-    return get_tt_device(mmio_capable_chip_logical)->get_clock();
-}
+int Cluster::get_clock(int logical_device_id) { return chips_.at(logical_device_id)->get_clock(); }
 
 std::map<int, int> Cluster::get_clocks() {
     std::map<int, int> clock_freq_map;
@@ -641,55 +471,14 @@ std::map<int, int> Cluster::get_clocks() {
     return clock_freq_map;
 }
 
-void Cluster::wait_for_aiclk_value(tt_DevicePowerState power_state, const uint32_t timeout_ms) {
-    auto start = std::chrono::system_clock::now();
-    for (auto& chip_id : local_chip_ids_) {
-        uint32_t target_aiclk = 0;
-        if (power_state == tt_DevicePowerState::BUSY) {
-            target_aiclk = get_tt_device(chip_id)->get_max_clock_freq();
-        } else if (power_state == tt_DevicePowerState::LONG_IDLE) {
-            target_aiclk = get_tt_device(chip_id)->get_min_clock_freq();
-        }
-        uint32_t aiclk = get_clock(chip_id);
-        while (aiclk != target_aiclk) {
-            auto end = std::chrono::system_clock::now();
-            auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
-            if (duration.count() > timeout_ms) {
-                log_warning(
-                    LogSiliconDriver,
-                    "Waiting for AICLK value to settle failed on timeout after {}. Expected to see {}, last value "
-                    "observed {}",
-                    timeout_ms,
-                    target_aiclk,
-                    aiclk);
-                return;
-            }
-            aiclk = get_clock(chip_id);
-        }
-    }
-}
-
 Cluster::~Cluster() {
     log_debug(LogSiliconDriver, "Cluster::~Cluster");
 
     cluster_desc.reset();
 }
 
-std::optional<std::tuple<uint32_t, uint32_t>> Cluster::get_tlb_data_from_target(const tt_cxy_pair& target) {
-    tlb_configuration tlb_configuration = get_tlb_configuration(target);
-    return std::tuple((uint32_t)tlb_configuration.tlb_offset, (uint32_t)tlb_configuration.size);
-}
-
-tlb_configuration Cluster::get_tlb_configuration(const tt_cxy_pair& target) {
-    return get_tlb_manager(target.chip)->get_tlb_configuration({target.x, target.y});
-}
-
-std::optional<std::tuple<uint32_t, uint32_t>> Cluster::get_tlb_data_from_target(const chip_id_t chip, CoreCoord core) {
-    return get_tlb_data_from_target({(size_t)chip, translate_to_api_coords(chip, core)});
-}
-
 tlb_configuration Cluster::get_tlb_configuration(const chip_id_t chip, CoreCoord core) {
-    return get_tlb_configuration({(size_t)chip, translate_to_api_coords(chip, core)});
+    return get_tlb_manager(chip)->get_tlb_configuration(translate_to_api_coords(chip, core));
 }
 
 void Cluster::configure_tlb(
@@ -713,29 +502,27 @@ void* Cluster::host_dma_address(std::uint64_t offset, chip_id_t src_device_id, u
     }
 }
 
-inline TTDevice* Cluster::get_tt_device(chip_id_t device_id) const {
+TTDevice* Cluster::get_tt_device(chip_id_t device_id) const {
     auto tt_device = get_local_chip(device_id)->get_tt_device();
     log_assert(tt_device != nullptr, "TTDevice not found for device: {}", device_id);
     return tt_device;
 }
 
-inline TLBManager* Cluster::get_tlb_manager(chip_id_t device_id) const {
-    return get_local_chip(device_id)->get_tlb_manager();
-}
+TLBManager* Cluster::get_tlb_manager(chip_id_t device_id) const { return get_local_chip(device_id)->get_tlb_manager(); }
 
-inline Chip* Cluster::get_chip(chip_id_t device_id) const {
+Chip* Cluster::get_chip(chip_id_t device_id) const {
     auto chip_it = chips_.find(device_id);
     log_assert(chip_it != chips_.end(), "Device id {} not found in cluster.", device_id);
     return chip_it->second.get();
 }
 
-inline LocalChip* Cluster::get_local_chip(chip_id_t device_id) const {
+LocalChip* Cluster::get_local_chip(chip_id_t device_id) const {
     log_assert(
         local_chip_ids_.find(device_id) != local_chip_ids_.end(), "Device id {} is not a local chip.", device_id);
     return dynamic_cast<LocalChip*>(get_chip(device_id));
 }
 
-inline RemoteChip* Cluster::get_remote_chip(chip_id_t device_id) const {
+RemoteChip* Cluster::get_remote_chip(chip_id_t device_id) const {
     log_assert(
         remote_chip_ids_.find(device_id) != remote_chip_ids_.end(), "Device id {} is not a remote chip.", device_id);
     return dynamic_cast<RemoteChip*>(get_chip(device_id));
@@ -1088,17 +875,19 @@ int Cluster::arc_msg(
     return get_chip(logical_device_id)->arc_msg(msg_code, wait_for_done, arg0, arg1, timeout_ms, return_3, return_4);
 }
 
-int Cluster::set_remote_power_state(const chip_id_t& chip, tt_DevicePowerState device_state) {
-    auto mmio_capable_chip_logical = cluster_desc->get_closest_mmio_capable_chip(chip);
-    return get_chip(chip)->arc_msg(
-        get_power_state_arc_msg(mmio_capable_chip_logical, device_state), true, 0, 0, 1000, NULL, NULL);
-}
-
 void Cluster::broadcast_tensix_risc_reset_to_cluster(const TensixSoftResetOptions& soft_resets) {
     if (chips_.empty()) {
         // Nowhere to broadcast to.
         return;
     }
+    // If ethernet broadcast is not supported, do it one by one.
+    if (!use_ethernet_broadcast) {
+        for (auto& chip_id : all_chip_ids_) {
+            get_chip(chip_id)->send_tensix_risc_reset(soft_resets);
+        }
+        return;
+    }
+
     auto valid = soft_resets & ALL_TENSIX_SOFT_RESET;
     uint32_t valid_val = (std::underlying_type<TensixSoftResetOptions>::type)valid;
     std::set<chip_id_t> chips_to_exclude = {};
@@ -1118,34 +907,9 @@ void Cluster::broadcast_tensix_risc_reset_to_cluster(const TensixSoftResetOption
 }
 
 void Cluster::set_power_state(tt_DevicePowerState device_state) {
-    // MT Initial BH - ARC messages not supported in Blackhole
-    if (arch_name != tt::ARCH::BLACKHOLE) {
-        for (auto& chip : all_chip_ids_) {
-            if (cluster_desc->is_chip_mmio_capable(chip)) {
-                set_pcie_power_state(device_state);
-            } else {
-                int exit_code = set_remote_power_state(chip, device_state);
-                log_assert(
-                    exit_code == 0, "Failed to set power state to {} with exit code: {}", (int)device_state, exit_code);
-            }
-        }
-    } else {
-        uint32_t exit_code;
-        for (auto& chip : all_chip_ids_) {
-            if (device_state == tt_DevicePowerState::BUSY) {
-                exit_code = get_tt_device(chip)->get_arc_messenger()->send_message(
-                    (uint32_t)tt::umd::blackhole::ArcMessageType::AICLK_GO_BUSY);
-            } else {
-                exit_code = get_tt_device(chip)->get_arc_messenger()->send_message(
-                    (uint32_t)tt::umd::blackhole::ArcMessageType::AICLK_GO_LONG_IDLE);
-            }
-
-            if (exit_code != 0) {
-                throw std::runtime_error(fmt::format("Setting power state for chip {} failed.", chip));
-            }
-        }
+    for (auto& [_, chip] : chips_) {
+        chip->set_power_state(device_state);
     }
-    wait_for_aiclk_value(device_state);
 }
 
 void Cluster::enable_ethernet_queue(int timeout) {
@@ -1158,35 +922,13 @@ void Cluster::deassert_resets_and_set_power_state() {
     // Assert tensix resets on all chips in cluster
     broadcast_tensix_risc_reset_to_cluster(TENSIX_ASSERT_SOFT_RESET);
 
+    for (auto& [_, chip] : chips_) {
+        chip->deassert_risc_resets();
+    }
+
     // MT Initial BH - ARC messages not supported in Blackhole
     if (arch_name != tt::ARCH::BLACKHOLE) {
-        // Send ARC Messages to deassert RISCV resets
-        for (auto& chip_id : local_chip_ids_) {
-            get_chip(chip_id)->arc_msg(
-                wormhole::ARC_MSG_COMMON_PREFIX |
-                    get_tt_device(chip_id)->get_architecture_implementation()->get_arc_message_deassert_riscv_reset(),
-                true,
-                0,
-                0);
-        }
-        if (cluster_desc != nullptr) {
-            for (const chip_id_t& chip : all_chip_ids_) {
-                if (!cluster_desc->is_chip_mmio_capable(chip)) {
-                    auto mmio_capable_chip_logical = cluster_desc->get_closest_mmio_capable_chip(chip);
-                    auto tt_device = get_tt_device(mmio_capable_chip_logical);
-                    get_chip(chip)->arc_msg(
-                        wormhole::ARC_MSG_COMMON_PREFIX |
-                            tt_device->get_architecture_implementation()->get_arc_message_deassert_riscv_reset(),
-                        true,
-                        0x0,
-                        0x0,
-                        1000,
-                        NULL,
-                        NULL);
-                }
-            }
-            enable_ethernet_queue(30);
-        }
+        enable_ethernet_queue(30);
     }
 
     // Set power state to busy
@@ -1203,11 +945,18 @@ void Cluster::verify_eth_fw() {
             fw_versions.push_back(fw_version);
         }
         verify_sw_fw_versions(chip, SW_VERSION, fw_versions);
-        eth_fw_version = tt_version(fw_versions.at(0));
+        eth_fw_version = fw_versions.empty() ? tt_version() : tt_version(fw_versions.at(0));
     }
 }
 
 void Cluster::verify_sw_fw_versions(int device_id, std::uint32_t sw_version, std::vector<std::uint32_t>& fw_versions) {
+    if (fw_versions.empty()) {
+        log_debug(
+            LogSiliconDriver,
+            "No ethernet cores found on device {}, skipped verification of software and firmware versions.",
+            device_id);
+        return;
+    }
     tt_version sw(sw_version), fw_first_eth_core(fw_versions.at(0));
     log_info(
         LogSiliconDriver,
@@ -1246,27 +995,23 @@ void Cluster::start_device(const tt_device_params& device_params) {
 }
 
 void Cluster::close_device() {
+    for (auto chip_id : all_chip_ids_) {
+        get_chip(chip_id)->close_device();
+    }
     set_power_state(tt_DevicePowerState::LONG_IDLE);
     broadcast_tensix_risc_reset_to_cluster(TENSIX_ASSERT_SOFT_RESET);
 }
 
 std::uint32_t Cluster::get_num_host_channels(std::uint32_t device_id) {
-    auto devices = get_target_mmio_device_ids();
-    log_assert(
-        devices.find(device_id) != devices.end(),
-        "Querying Host Address parameters for a non-mmio device or a device does not exist.");
-    return get_local_chip(device_id)->get_sysmem_manager()->get_num_host_mem_channels();
+    return chips_.at(device_id)->get_num_host_channels();
 }
 
 std::uint32_t Cluster::get_host_channel_size(std::uint32_t device_id, std::uint32_t channel) {
-    log_assert(channel < get_num_host_channels(device_id), "Querying size for a host channel that does not exist.");
-    hugepage_mapping hugepage_map = get_local_chip(device_id)->get_sysmem_manager()->get_hugepage_mapping(channel);
-    log_assert(hugepage_map.mapping_size, "Host channel size can only be queried after the device has been started.");
-    return hugepage_map.mapping_size;
+    return chips_.at(device_id)->get_host_channel_size(channel);
 }
 
 std::uint32_t Cluster::get_numa_node_for_pcie_device(std::uint32_t device_id) {
-    return get_tt_device(device_id)->get_pci_device()->get_numa_node();
+    return chips_.at(device_id)->get_numa_node();
 }
 
 std::uint64_t Cluster::get_pcie_base_addr_from_device(const chip_id_t chip_id) const {
@@ -1291,8 +1036,8 @@ tt_version Cluster::get_ethernet_fw_version() const {
 }
 
 void Cluster::set_barrier_address_params(const barrier_address_params& barrier_address_params_) {
-    for (auto chip_id : local_chip_ids_) {
-        get_local_chip(chip_id)->set_barrier_address_params(barrier_address_params_);
+    for (auto& [_, chip] : chips_) {
+        chip->set_barrier_address_params(barrier_address_params_);
     }
 }
 
@@ -1357,7 +1102,7 @@ std::unique_ptr<tt_ClusterDescriptor> Cluster::create_cluster_descriptor(std::st
         // other Wormhole specs need to go through a legacy create-ethernet-map.
         if (!tt_devices.empty() && tt_devices[0]->get_board_type() != BoardType::UBB) {
             LockManager lock_manager;
-            lock_manager.initialize_mutex(MutexType::CREATE_ETH_MAP, false);
+            lock_manager.initialize_mutex(MutexType::CREATE_ETH_MAP);
             std::unique_ptr<tt_ClusterDescriptor> cluster_desc = nullptr;
             {
                 auto lock = lock_manager.acquire_mutex(MutexType::CREATE_ETH_MAP);
@@ -1521,17 +1266,6 @@ std::unique_ptr<tt_ClusterDescriptor> Cluster::create_cluster_descriptor(
     desc->fill_chips_grouped_by_closest_mmio();
 
     return desc;
-}
-
-std::string Cluster::serialize() { return Cluster::create_cluster_descriptor()->serialize(); }
-
-std::filesystem::path Cluster::serialize_to_file(const std::filesystem::path& dest_file) {
-    std::filesystem::path file_path = dest_file;
-    if (file_path.empty()) {
-        file_path = tt_ClusterDescriptor::get_default_cluster_descriptor_file_path();
-    }
-    Cluster::create_cluster_descriptor()->serialize_to_file(file_path);
-    return file_path;
 }
 
 }  // namespace tt::umd

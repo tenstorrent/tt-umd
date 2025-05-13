@@ -11,6 +11,7 @@
 #include "umd/device/chip_helpers/tlb_manager.h"
 #include "umd/device/driver_atomics.h"
 #include "umd/device/tt_device/tt_device.h"
+#include "umd/device/types/blackhole_arc.h"
 #include "umd/device/types/blackhole_eth.h"
 #include "umd/device/wormhole_implementation.h"
 
@@ -24,14 +25,13 @@ const uint64_t BH_4GB_TLB_SIZE = 4ULL * 1024 * 1024 * 1024;
 // Remove 256MB from full 1GB for channel 3 (iATU limitation)
 static constexpr uint32_t HUGEPAGE_CHANNEL_3_SIZE_LIMIT = 805306368;
 
-LocalChip::LocalChip(
-    tt_SocDescriptor soc_descriptor, int pci_device_id, int num_host_mem_channels, const bool clear_mutex) :
+LocalChip::LocalChip(tt_SocDescriptor soc_descriptor, int pci_device_id, int num_host_mem_channels) :
     Chip(soc_descriptor),
     tt_device_(TTDevice::create(pci_device_id)),
     sysmem_manager_(std::make_unique<SysmemManager>(tt_device_.get())),
     tlb_manager_(std::make_unique<TLBManager>(tt_device_.get())),
     remote_communication_(std::make_unique<RemoteCommunication>(this)) {
-    initialize_local_chip(num_host_mem_channels, clear_mutex);
+    initialize_local_chip(num_host_mem_channels);
 }
 
 LocalChip::LocalChip(std::string sdesc_path, std::unique_ptr<TTDevice> tt_device) :
@@ -62,13 +62,13 @@ LocalChip::LocalChip(std::unique_ptr<TTDevice> tt_device) :
     initialize_local_chip();
 }
 
-void LocalChip::initialize_local_chip(int num_host_mem_channels, const bool clear_mutex) {
+void LocalChip::initialize_local_chip(int num_host_mem_channels) {
     initialize_tlb_manager();
     if (num_host_mem_channels > 0) {
         sysmem_manager_->init_hugepage(num_host_mem_channels);
     }
     wait_chip_to_be_ready();
-    initialize_default_chip_mutexes(clear_mutex);
+    initialize_default_chip_mutexes();
     initialize_default_remote_transfer_ethernet_cores();
 }
 
@@ -83,7 +83,7 @@ void LocalChip::initialize_tlb_manager() {
         "SMALL_READ_WRITE_TLB", tt_device_->get_architecture_implementation()->get_small_read_write_tlb());
 }
 
-void LocalChip::initialize_default_chip_mutexes(const bool clear_mutex) {
+void LocalChip::initialize_default_chip_mutexes() {
     // These mutexes are intended to be based on physical devices/pci-intf not logical. Set these up ahead of
     // time here (during device init) since it's unsafe to modify shared state during multithreaded runtime.
     // cleanup_mutexes_in_shm is tied to clean_system_resources from the constructor. The main process is
@@ -91,17 +91,17 @@ void LocalChip::initialize_default_chip_mutexes(const bool clear_mutex) {
     int pci_device_id = tt_device_->get_pci_device()->get_device_num();
     // Initialize Dynamic TLB mutexes
     for (auto& tlb : tlb_manager_->dynamic_tlb_config_) {
-        lock_manager_.initialize_mutex(tlb.first, pci_device_id, clear_mutex);
+        lock_manager_.initialize_mutex(tlb.first, pci_device_id);
     }
 
     // Initialize non-MMIO mutexes for WH devices regardless of number of chips, since these may be used for
     // ethernet broadcast
     if (tt_device_->get_arch() == tt::ARCH::WORMHOLE_B0) {
-        lock_manager_.initialize_mutex(MutexType::NON_MMIO, pci_device_id, clear_mutex);
+        lock_manager_.initialize_mutex(MutexType::NON_MMIO, pci_device_id);
     }
 
     // Initialize interprocess mutexes to make host -> device memory barriers atomic
-    lock_manager_.initialize_mutex(MutexType::MEM_BARRIER, pci_device_id, clear_mutex);
+    lock_manager_.initialize_mutex(MutexType::MEM_BARRIER, pci_device_id);
 }
 
 void LocalChip::initialize_membars() {
@@ -135,6 +135,8 @@ void LocalChip::start_device() {
     initialize_membars();
 }
 
+void LocalChip::close_device(){};
+
 void LocalChip::wait_eth_cores_training(const uint32_t timeout_ms) {
     if (get_tt_device()->get_arch() != tt::ARCH::BLACKHOLE) {
         return;
@@ -165,6 +167,15 @@ void LocalChip::wait_eth_cores_training(const uint32_t timeout_ms) {
             }
         }
     }
+}
+
+int LocalChip::get_num_host_channels() { return sysmem_manager_->get_num_host_mem_channels(); }
+
+int LocalChip::get_host_channel_size(std::uint32_t channel) {
+    log_assert(channel < get_num_host_channels(), "Querying size for a host channel that does not exist.");
+    hugepage_mapping hugepage_map = sysmem_manager_->get_hugepage_mapping(channel);
+    log_assert(hugepage_map.mapping_size, "Host channel size can only be queried after the device has been started.");
+    return hugepage_map.mapping_size;
 }
 
 void LocalChip::write_to_sysmem(uint16_t channel, const void* src, uint64_t sysmem_dest, uint32_t size) {
@@ -311,6 +322,14 @@ void LocalChip::dma_read_from_device(void* dst, size_t size, tt_xy_pair core, ui
         addr += transfer_size;
         buffer += transfer_size;
     }
+}
+
+std::function<void(uint32_t, uint32_t, const uint8_t*)> LocalChip::get_fast_pcie_static_tlb_write_callable() {
+    const auto callable = [this](uint32_t byte_addr, uint32_t num_bytes, const uint8_t* buffer_addr) {
+        tt_device_->write_block(byte_addr, num_bytes, buffer_addr);
+    };
+
+    return callable;
 }
 
 void LocalChip::write_to_device_reg(tt_xy_pair core, const void* src, uint64_t reg_dest, uint32_t size) {
@@ -729,4 +748,63 @@ void LocalChip::dram_membar(const std::unordered_set<uint32_t>& channels) {
     dram_membar(dram_cores_to_sync);
 }
 
+void LocalChip::deassert_risc_resets() {
+    if (soc_descriptor_.arch != tt::ARCH::BLACKHOLE) {
+        arc_msg(
+            wormhole::ARC_MSG_COMMON_PREFIX |
+                tt_device_->get_architecture_implementation()->get_arc_message_deassert_riscv_reset(),
+            true,
+            0,
+            0);
+    }
+}
+
+void LocalChip::set_power_state(tt_DevicePowerState state) {
+    int exit_code = 0;
+    if (soc_descriptor_.arch == tt::ARCH::WORMHOLE_B0) {
+        uint32_t msg = get_power_state_arc_msg(state);
+        exit_code = arc_msg(wormhole::ARC_MSG_COMMON_PREFIX | msg, true, 0, 0);
+    } else if (soc_descriptor_.arch == tt::ARCH::BLACKHOLE) {
+        if (state == tt_DevicePowerState::BUSY) {
+            exit_code = tt_device_->get_arc_messenger()->send_message(
+                (uint32_t)tt::umd::blackhole::ArcMessageType::AICLK_GO_BUSY);
+        } else {
+            exit_code = tt_device_->get_arc_messenger()->send_message(
+                (uint32_t)tt::umd::blackhole::ArcMessageType::AICLK_GO_LONG_IDLE);
+        }
+    }
+    log_assert(exit_code == 0, "Failed to set power state to {} with exit code: {}", (int)state, exit_code);
+
+    wait_for_aiclk_value(state);
+}
+
+void LocalChip::wait_for_aiclk_value(tt_DevicePowerState power_state, const uint32_t timeout_ms) {
+    auto start = std::chrono::system_clock::now();
+    uint32_t target_aiclk = 0;
+    if (power_state == tt_DevicePowerState::BUSY) {
+        target_aiclk = tt_device_->get_max_clock_freq();
+    } else if (power_state == tt_DevicePowerState::LONG_IDLE) {
+        target_aiclk = tt_device_->get_min_clock_freq();
+    }
+    uint32_t aiclk = tt_device_->get_clock();
+    while (aiclk != target_aiclk) {
+        auto end = std::chrono::system_clock::now();
+        auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
+        if (duration.count() > timeout_ms) {
+            log_warning(
+                LogSiliconDriver,
+                "Waiting for AICLK value to settle failed on timeout after {}. Expected to see {}, last value "
+                "observed {}",
+                timeout_ms,
+                target_aiclk,
+                aiclk);
+            return;
+        }
+        aiclk = tt_device_->get_clock();
+    }
+}
+
+int LocalChip::get_clock() { return tt_device_->get_clock(); }
+
+int LocalChip::get_numa_node() { return tt_device_->get_pci_device()->get_numa_node(); }
 }  // namespace tt::umd

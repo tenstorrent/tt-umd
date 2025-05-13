@@ -274,11 +274,14 @@ std::shared_ptr<SysmemBuffer> SysmemManager::allocate_sysmem_buffer(uint32_t sys
 }
 
 std::shared_ptr<SysmemBuffer> SysmemManager::allocate_sysmem_buffer(void *buffer, uint32_t sysmem_buffer_size) {
-    // TODO(pjanevski): round down base buffer addr and round up sysmem_buffer_size.
+    uint32_t page_size = sysconf(_SC_PAGESIZE);
+    uint64_t buffer_addr = reinterpret_cast<uint64_t>(buffer);
+
+    if (buffer_addr % page_size != 0 || sysmem_buffer_size % page_size != 0) {
+        throw std::runtime_error("Buffer must be page-aligned with a size that is a multiple of the page size");
+    }
 
     uint64_t device_io_addr = tt_device_->get_pci_device()->map_for_dma(buffer, sysmem_buffer_size);
-
-    uint64_t buffer_addr = reinterpret_cast<uint64_t>(buffer);
 
     std::shared_ptr<SysmemBuffer> sysmem_buffer =
         std::make_shared<SysmemBuffer>(buffer, sysmem_buffer_size, device_io_addr);

@@ -22,7 +22,7 @@ RemoteChip::RemoteChip(tt_SocDescriptor soc_descriptor, eth_coord_t eth_chip_loc
     log_assert(soc_descriptor_.arch != tt::ARCH::BLACKHOLE, "Non-MMIO targets not supported in Blackhole");
 
     lock_manager_.initialize_mutex(
-        MutexType::NON_MMIO, local_chip->get_tt_device()->get_pci_device()->get_device_num(), false);
+        MutexType::NON_MMIO, local_chip->get_tt_device()->get_pci_device()->get_device_num());
 }
 
 RemoteChip::RemoteChip(tt_SocDescriptor soc_descriptor, ChipInfo chip_info) : Chip(chip_info, soc_descriptor) {}

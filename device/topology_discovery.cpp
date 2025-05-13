@@ -136,7 +136,7 @@ uint32_t TopologyDiscovery::remote_arc_msg(
     // arc msgs.
     int pci_dev_num = tt_device->get_pci_device()->get_device_num();
     LockManager lock_manager;
-    lock_manager.initialize_mutex(MutexType::NON_MMIO, pci_dev_num, false);
+    lock_manager.initialize_mutex(MutexType::NON_MMIO, pci_dev_num);
     auto lock = lock_manager.acquire_mutex(MutexType::NON_MMIO, pci_dev_num);
 
     std::unique_ptr<RemoteCommunication> remote_comm =

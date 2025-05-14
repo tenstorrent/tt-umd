@@ -279,7 +279,7 @@ void LocalChip::read_from_device(tt_xy_pair core, void* dest, uint64_t l1_src, u
 void LocalChip::dma_write_to_device(const void* src, size_t size, tt_xy_pair core, uint64_t addr) {
     static const std::string tlb_name = "LARGE_WRITE_TLB";
 
-    const uint8_t* buffer = const_cast<uint8_t*>(static_cast<const uint8_t*>(src));
+    const uint8_t* buffer = static_cast<const uint8_t*>(src);
 
     auto tlb_index = tlb_manager_->dynamic_tlb_config_.at(tlb_name);
     auto ordering = tlb_manager_->dynamic_tlb_ordering_modes_.at(tlb_name);
@@ -304,7 +304,7 @@ void LocalChip::dma_write_to_device(const void* src, size_t size, tt_xy_pair cor
 
 void LocalChip::dma_read_from_device(void* dst, size_t size, tt_xy_pair core, uint64_t addr) {
     static const std::string tlb_name = "LARGE_READ_TLB";
-    uint8_t* buffer = const_cast<uint8_t*>(static_cast<const uint8_t*>(dst));
+    uint8_t* buffer = static_cast<uint8_t*>(dst);
     auto tlb_index = tlb_manager_->dynamic_tlb_config_.at(tlb_name);
     auto ordering = tlb_manager_->dynamic_tlb_ordering_modes_.at(tlb_name);
     PCIDevice* pci_device = tt_device_->get_pci_device();

@@ -47,10 +47,8 @@ public:
     void write_to_device_reg(tt_xy_pair core, const void* src, uint64_t reg_dest, uint32_t size) override;
     void read_from_device_reg(tt_xy_pair core, void* dest, uint64_t reg_src, uint32_t size) override;
 
-    void dma_write_to_device(
-        const void* src, size_t size, tt_xy_pair core, uint64_t addr, bool src_mapped_for_dma = false) override;
-    void dma_read_from_device(
-        void* dst, size_t size, tt_xy_pair core, uint64_t addr, bool dst_mapped_for_dma = false) override;
+    void dma_write_to_device(const void* src, size_t size, tt_xy_pair core, uint64_t addr) override;
+    void dma_read_from_device(void* dst, size_t size, tt_xy_pair core, uint64_t addr) override;
 
     std::function<void(uint32_t, uint32_t, const uint8_t*)> get_fast_pcie_static_tlb_write_callable() override;
 
@@ -84,8 +82,8 @@ public:
 
 private:
     std::unique_ptr<TTDevice> tt_device_;
-    std::unique_ptr<SysmemManager> sysmem_manager_;
     std::unique_ptr<TLBManager> tlb_manager_;
+    std::unique_ptr<SysmemManager> sysmem_manager_;
     LockManager lock_manager_;
     // Used only for ethernet broadcast to all remote chips.
     std::unique_ptr<RemoteCommunication> remote_communication_;

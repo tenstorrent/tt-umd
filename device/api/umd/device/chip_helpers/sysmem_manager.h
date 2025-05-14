@@ -19,7 +19,7 @@ static constexpr size_t HUGEPAGE_CHANNEL_3_SIZE_LIMIT = 768 * (1 << 20);
 
 class SysmemManager {
 public:
-    SysmemManager(TTDevice* tt_device);
+    SysmemManager(TLBManager* tlb_manager);
     ~SysmemManager();
 
     void write_to_sysmem(uint16_t channel, const void* src, uint64_t sysmem_dest, uint32_t size);
@@ -29,13 +29,9 @@ public:
     size_t get_num_host_mem_channels() const;
     hugepage_mapping get_hugepage_mapping(size_t channel) const;
 
-    std::shared_ptr<SysmemBuffer> allocate_sysmem_buffer(uint32_t sysmem_buffer_size);
+    std::unique_ptr<SysmemBuffer> allocate_sysmem_buffer(uint32_t sysmem_buffer_size);
 
-    std::shared_ptr<SysmemBuffer> allocate_sysmem_buffer(void* buffer, uint32_t sysmem_buffer_size);
-
-    std::shared_ptr<SysmemBuffer> get_sysmem_buffer(void* buffer);
-
-    uint64_t get_device_io_address(void* buffer);
+    std::unique_ptr<SysmemBuffer> map_sysmem_buffer(void* buffer, uint32_t sysmem_buffer_size);
 
 private:
     /**
@@ -50,11 +46,9 @@ private:
     // For debug purposes when various stages fails.
     void print_file_contents(std::string filename, std::string hint = "");
 
-    TTDevice* tt_device_;
+    TLBManager* tlb_manager_;
 
     std::vector<hugepage_mapping> hugepage_mapping_per_channel;
-
-    std::map<uint64_t, std::shared_ptr<SysmemBuffer>> sysmem_buffers;
 };
 
 }  // namespace tt::umd

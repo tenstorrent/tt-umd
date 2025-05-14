@@ -15,7 +15,9 @@ TEST(ApiSysmemManager, BasicIO) {
     for (int pci_device_id : pci_device_ids) {
         std::unique_ptr<TTDevice> tt_device = TTDevice::create(pci_device_id);
 
-        std::unique_ptr<SysmemManager> sysmem = std::make_unique<SysmemManager>(tt_device.get());
+        std::unique_ptr<TLBManager> tlb_manager = std::make_unique<TLBManager>(tt_device.get());
+
+        std::unique_ptr<SysmemManager> sysmem = std::make_unique<SysmemManager>(tlb_manager.get());
 
         // Initializes system memory with one channel.
         sysmem->init_hugepage(1);
@@ -67,7 +69,7 @@ TEST(ApiSysmemManager, SysmemBuffersAllocation) {
 
         while (true) {
             try {
-                std::shared_ptr<SysmemBuffer> sysmem_buffer = sysmem_manager->allocate_sysmem_buffer(one_page);
+                std::unique_ptr<SysmemBuffer> sysmem_buffer = sysmem_manager->allocate_sysmem_buffer(one_page);
             } catch (...) {
                 break;
             }
@@ -77,7 +79,7 @@ TEST(ApiSysmemManager, SysmemBuffersAllocation) {
 
         uint64_t sysmem_buffer_size = pages_allocated * one_page;
 
-        std::cout << "Allocated " << pages_allocated << " pages of sysmem buffers each begin one page size. Allocated "
+        std::cout << "Allocated " << pages_allocated << " pages of sysmem buffers each being one page size. Allocated "
                   << (double)sysmem_buffer_size / one_mb << " MB" << std::endl;
     }
 }
@@ -96,7 +98,7 @@ TEST(ApiSysmemManager, SysmemBuffers) {
     SysmemManager* sysmem_manager = cluster->get_chip(mmio_chip)->get_sysmem_manager();
 
     const uint32_t one_mb = 1 << 20;
-    std::shared_ptr<SysmemBuffer> sysmem_buffer = sysmem_manager->allocate_sysmem_buffer(2 * one_mb);
+    std::unique_ptr<SysmemBuffer> sysmem_buffer = sysmem_manager->allocate_sysmem_buffer(2 * one_mb);
 
     const CoreCoord tensix_core = cluster->get_soc_descriptor(mmio_chip).get_cores(CoreType::TENSIX)[0];
 
@@ -111,7 +113,7 @@ TEST(ApiSysmemManager, SysmemBuffers) {
     }
 
     // Write pattern to first 1MB of Tensix L1.
-    cluster->dma_write_to_device(sysmem_data, one_mb, mmio_chip, tensix_core, 0, true);
+    sysmem_buffer->dma_write_to_device(0, one_mb, tensix_core, 0);
 
     // Read regularly to check Tensix L1 matches the pattern.
     std::vector<uint8_t> readback(one_mb, 0);
@@ -129,7 +131,7 @@ TEST(ApiSysmemManager, SysmemBuffers) {
     }
 
     // Read data back from Tensix L1 to sysmem_data_readback.
-    cluster->dma_read_from_device(sysmem_data_readback, one_mb, mmio_chip, tensix_core, 0, true);
+    sysmem_buffer->dma_read_from_device(one_mb, one_mb, tensix_core, 0);
 
     for (uint32_t i = 0; i < one_mb; ++i) {
         EXPECT_EQ(sysmem_data[i], sysmem_data_readback[i]);

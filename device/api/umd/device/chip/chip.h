@@ -56,10 +56,8 @@ public:
     virtual void read_from_device_reg(tt_xy_pair core, void* dest, uint64_t reg_src, uint32_t size);
 
     // Will only ever work for LocalChip.
-    virtual void dma_write_to_device(
-        const void* src, size_t size, tt_xy_pair core, uint64_t addr, bool src_mapped_for_dma = false);
-    virtual void dma_read_from_device(
-        void* dst, size_t size, tt_xy_pair core, uint64_t addr, bool dst_mapped_for_dma = false);
+    virtual void dma_write_to_device(const void* src, size_t size, tt_xy_pair core, uint64_t addr);
+    virtual void dma_read_from_device(void* dst, size_t size, tt_xy_pair core, uint64_t addr);
 
     virtual std::function<void(uint32_t, uint32_t, const uint8_t*)> get_fast_pcie_static_tlb_write_callable();
 

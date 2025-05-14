@@ -98,6 +98,7 @@ void LocalChip::initialize_default_chip_mutexes() {
     // ethernet broadcast
     if (tt_device_->get_arch() == tt::ARCH::WORMHOLE_B0) {
         lock_manager_.initialize_mutex(MutexType::NON_MMIO, pci_device_id);
+        lock_manager_.initialize_mutex(MutexType::REMOTE_ARC_MSG, pci_device_id);
     }
 
     // Initialize interprocess mutexes to make host -> device memory barriers atomic

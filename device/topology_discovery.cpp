@@ -127,72 +127,12 @@ uint32_t TopologyDiscovery::remote_arc_msg(
     uint32_t* ret1,
     Chip* mmio_chip,
     uint32_t timeout_ms) {
-    constexpr uint64_t ARC_RESET_SCRATCH_ADDR = 0x880030060;
-    constexpr uint64_t ARC_RESET_MISC_CNTL_ADDR = 0x880030100;
-    static const uint32_t MSG_ERROR_REPLY = 0xFFFFFFFF;
-
     TTDevice* tt_device = mmio_chip->get_tt_device();
     std::unique_ptr<RemoteCommunication> remote_comm =
         std::make_unique<RemoteCommunication>(dynamic_cast<LocalChip*>(mmio_chip));
-    tt_xy_pair eth_core = remote_transfer_ethernet_cores.at(tt_device->get_pci_device()->get_device_num()).at(0);
 
-    auto core = mmio_chip->get_soc_descriptor().get_cores(CoreType::ARC)[0];
-
-    if ((msg_code & 0xff00) != 0xaa00) {
-        log_error("Malformed message. msg_code is 0x{:x} but should be 0xaa..", msg_code);
-    }
-    log_assert(arg0 <= 0xffff and arg1 <= 0xffff, "Only 16 bits allowed in arc_msg args");  // Only 16 bits are allowed
-
-    uint32_t fw_arg = arg0 | (arg1 << 16);
-    int exit_code = 0;
-
-    { remote_comm->write_to_non_mmio(eth_coord, core, &fw_arg, ARC_RESET_SCRATCH_ADDR + 3 * 4, sizeof(fw_arg)); }
-
-    { remote_comm->write_to_non_mmio(eth_coord, core, &msg_code, ARC_RESET_SCRATCH_ADDR + 5 * 4, sizeof(fw_arg)); }
-
-    remote_comm->wait_for_non_mmio_flush();
-    uint32_t misc = 0;
-    remote_comm->read_non_mmio(eth_coord, core, &misc, ARC_RESET_MISC_CNTL_ADDR, 4);
-
-    if (misc & (1 << 16)) {
-        log_error("trigger_fw_int failed on device {}", 0);
-        return 1;
-    } else {
-        misc |= (1 << 16);
-        remote_comm->write_to_non_mmio(eth_coord, core, &misc, ARC_RESET_MISC_CNTL_ADDR, sizeof(misc));
-    }
-
-    auto start = std::chrono::system_clock::now();
-    while (true) {
-        auto end = std::chrono::system_clock::now();
-        auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
-        if (duration.count() > timeout_ms) {
-            std::stringstream ss;
-            ss << std::hex << msg_code;
-            throw std::runtime_error(
-                fmt::format("Timed out after waiting {} seconds respond to message 0x{}", timeout_ms, ss.str()));
-        }
-
-        uint32_t status = 0;
-        remote_comm->read_non_mmio(eth_coord, core, &status, ARC_RESET_SCRATCH_ADDR + 5 * 4, sizeof(status));
-        if ((status & 0xffff) == (msg_code & 0xff)) {
-            if (ret0 != nullptr) {
-                remote_comm->read_non_mmio(eth_coord, core, ret0, ARC_RESET_SCRATCH_ADDR + 3 * 4, sizeof(uint32_t));
-            }
-
-            if (ret1 != nullptr) {
-                remote_comm->read_non_mmio(eth_coord, core, ret1, ARC_RESET_SCRATCH_ADDR + 4 * 4, sizeof(uint32_t));
-            }
-
-            exit_code = (status & 0xffff0000) >> 16;
-            break;
-        } else if (status == MSG_ERROR_REPLY) {
-            log_warning(LogSiliconDriver, "On device {}, message code 0x{:x} not recognized by FW", 0, msg_code);
-            exit_code = MSG_ERROR_REPLY;
-            break;
-        }
-    }
-    return exit_code;
+    auto arc_core = mmio_chip->get_soc_descriptor().get_cores(CoreType::ARC)[0];
+    return remote_comm->arc_msg(eth_coord, arc_core, msg_code, true, arg0, arg1, timeout_ms, ret0, ret1);
 }
 
 BoardType TopologyDiscovery::get_board_type(eth_coord_t eth_coord, Chip* mmio_chip) {

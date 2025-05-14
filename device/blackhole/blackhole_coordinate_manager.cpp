@@ -68,19 +68,16 @@ void BlackholeCoordinateManager::translate_tensix_coords() {
     size_t grid_size_y = tensix_grid_size.y;
 
     size_t logical_x = 0;
-    size_t x_index = grid_size_x - 1;
+    std::vector<std::pair<size_t, size_t>> die_harvested_tensix_columns;
     for (size_t x = 0; x < grid_size_x; x++) {
         if (harvesting_masks.tensix_harvesting_mask & (1 << x)) {
-            for (size_t y = 0; y < grid_size_y; y++) {
-                const tt_xy_pair& physical_core = tensix_cores[x + y * grid_size_x];
-                const tt_xy_pair& virtual_core = tensix_cores[x_index + y * grid_size_x];
-
-                CoreCoord virtual_coord =
-                    CoreCoord(virtual_core.x, virtual_core.y, CoreType::TENSIX, CoordSystem::VIRTUAL);
-
-                add_core_translation(virtual_coord, physical_core);
-            }
-            x_index--;
+            const tt_xy_pair& physical_core = tensix_cores[x];
+            const size_t die_x_index = std::find(
+                                           tt::umd::blackhole::HARVESTING_NOC_LOCATIONS.begin(),
+                                           tt::umd::blackhole::HARVESTING_NOC_LOCATIONS.end(),
+                                           physical_core.x) -
+                                       tt::umd::blackhole::HARVESTING_NOC_LOCATIONS.begin();
+            die_harvested_tensix_columns.push_back(std::make_pair(die_x_index, x));
         } else {
             for (size_t y = 0; y < grid_size_y; y++) {
                 const tt_xy_pair& tensix_core = tensix_cores[x + y * grid_size_x];
@@ -95,6 +92,20 @@ void BlackholeCoordinateManager::translate_tensix_coords() {
             }
             logical_x++;
         }
+    }
+
+    std::sort(die_harvested_tensix_columns.begin(), die_harvested_tensix_columns.end());
+    size_t x_index = grid_size_x - 1;
+    for (const auto& [die_x_coordinate, x_index_harvested] : die_harvested_tensix_columns) {
+        for (size_t y = 0; y < grid_size_y; y++) {
+            const tt_xy_pair& physical_core = tensix_cores[x_index_harvested + y * grid_size_x];
+            const tt_xy_pair& virtual_core = tensix_cores[x_index + y * grid_size_x];
+
+            CoreCoord virtual_coord = CoreCoord(virtual_core.x, virtual_core.y, CoreType::TENSIX, CoordSystem::VIRTUAL);
+
+            add_core_translation(virtual_coord, physical_core);
+        }
+        x_index--;
     }
 
     if (noc_translation_enabled) {

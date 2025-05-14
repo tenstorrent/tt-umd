@@ -22,9 +22,6 @@ namespace tt::umd {
 // TLB size for DRAM on blackhole - 4GB
 const uint64_t BH_4GB_TLB_SIZE = 4ULL * 1024 * 1024 * 1024;
 
-// Remove 256MB from full 1GB for channel 3 (iATU limitation)
-static constexpr uint32_t HUGEPAGE_CHANNEL_3_SIZE_LIMIT = 805306368;
-
 LocalChip::LocalChip(tt_SocDescriptor soc_descriptor, int pci_device_id, int num_host_mem_channels) :
     Chip(soc_descriptor),
     tt_device_(TTDevice::create(pci_device_id)),
@@ -602,33 +599,7 @@ int LocalChip::test_setup_interface() {
 }
 
 void LocalChip::init_pcie_iatus() {
-    // TODO: with the IOMMU case, I think we can get away with using just
-    // one iATU region for WH.  (On BH, we don't need iATU).  We can only
-    // cover slightly less than 4GB with WH, and the iATU can cover 4GB.
-    // Splitting it into multiple regions is fine, but it's not necessary.
-    //
-    // Update: unfortunately this turned out to be unrealistic.  For the
-    // IOMMU case, the easiest thing to do is fake that we have hugepages
-    // so we can support the hugepage-inspired API that the user application
-    // has come to rely on.  In that scenario, it's simpler to treat such
-    // fake hugepages the same way we treat real ones -- even if underneath
-    // there is only a single buffer.  Simple is good.
-    //
-    // With respect to BH: it turns out that Metal has hard-coded NOC
-    // addressing assumptions for sysmem access.  First step to fix this is
-    // have Metal ask us where sysmem is at runtime, and use that value in
-    // on-device code.  Until then, we're stuck programming iATU.  A more
-    // forward-looking solution is to abandon the sysmem API entirely, and
-    // have the application assume a more active role in managing the memory
-    // shared between host and device.  UMD would be relegated to assisting
-    // the application set up and tear down the mappings.  This is probably
-    // a unrealistic for GS/WH, but it's a good goal for BH.
-    //
-    // Until then...
-    //
-    // For every 1GB channel of memory mapped for DMA, program an iATU
-    // region to map it to the underlying buffer's IOVA (IOMMU case) or PA
-    // (non-IOMMU case).
+    // TODO: this should go away soon; KMD knows how to do this at page pinning time.
     for (size_t channel = 0; channel < sysmem_manager_->get_num_host_mem_channels(); channel++) {
         hugepage_mapping hugepage_map = sysmem_manager_->get_hugepage_mapping(channel);
         size_t region_size = hugepage_map.mapping_size;

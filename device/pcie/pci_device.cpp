@@ -480,32 +480,6 @@ uint64_t PCIDevice::map_for_dma(void *buffer, size_t size) {
     pin_pages.in.virtual_address = vaddr;
     pin_pages.in.size = size;
 
-    // With IOMMU, this will probably fail on you if you're mapping something
-    // large.  The situation today is that the kernel driver uses a 32-bit DMA
-    // address mask, so all DMA allocations and mappings show up in the IOVA
-    // range of 0x0 to 0xffff'ffff.  According to syseng, we can get up to 3GB
-    // on Intel, 3.75GB on AMD, but this requires multiple mappings with small
-    // chunks, down to 2MB.  It's possible to make such non-contiguous mappings
-    // appear both virtually contiguous (to the application) and physically
-    // contiguous (to the NOC, using iATU), but it's not clear that this is
-    // worth the effort...  the scheme this is intended to replace supports up
-    // to 4GB which is what application developers want.
-    //
-    // What can we do here?
-    // 1. Use hugepages (part of what we are trying to avoid here).
-    // 2. Use a larger value for the driver's dma_address_bits (currently 32;
-    //    has implications for non-UMD based applications -- basically that any
-    //    DMA buffer mapped beyond the 4GB boundary requires iATU configuration
-    //    for the hardware to be able to reach it via NOC).
-    // 3. Use multiple mappings with small chunks (won't get us to 4GB; adds
-    //    complexity).
-    // 4. Modify the driver so that DMA allocations are in the low 4GB IOVA
-    //    range but mappings from userspace can be further up (requires driver
-    //    changes).
-    // 5. ???
-    //
-    // If you need a quick workaround here, I suggest:
-    //   sudo insmod ./tenstorrent.ko dma_address_bits=48
     if (ioctl(pci_device_file_desc, TENSTORRENT_IOCTL_PIN_PAGES, &pin_pages) == -1) {
         TT_THROW("Failed to pin pages for DMA: {}", strerror(errno));
     }

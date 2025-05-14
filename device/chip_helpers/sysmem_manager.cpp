@@ -175,7 +175,10 @@ bool SysmemManager::init_hugepage(uint32_t num_host_mem_channels) {
                 ch);
         }
 
-        uint64_t physical_address = tt_device_->get_pci_device()->map_for_hugepage(mapping, hugepage_size);
+        size_t actual_size = (tt_device_->get_arch() == tt::ARCH::WORMHOLE_B0 && ch == 3)
+                                 ? HUGEPAGE_CHANNEL_3_SIZE_LIMIT
+                                 : hugepage_size;
+        uint64_t physical_address = tt_device_->get_pci_device()->map_for_hugepage(mapping, actual_size);
 
         if (physical_address == 0) {
             log_warning(
@@ -208,7 +211,11 @@ bool SysmemManager::init_hugepage(uint32_t num_host_mem_channels) {
 }
 
 bool SysmemManager::init_iommu(size_t size) {
+    constexpr size_t carveout_size = HUGEPAGE_REGION_SIZE - HUGEPAGE_CHANNEL_3_SIZE_LIMIT;  // 1GB - 768MB = 256MB
     const size_t num_fake_mem_channels = size / HUGEPAGE_REGION_SIZE;
+
+    size_t map_size =
+        (tt_device_->get_arch() == tt::ARCH::WORMHOLE_B0 && num_fake_mem_channels == 4) ? (size - carveout_size) : size;
 
     if (!tt_device_->get_pci_device()->is_iommu_enabled()) {
         TT_THROW("IOMMU is required for sysmem without hugepages.");
@@ -224,7 +231,7 @@ bool SysmemManager::init_iommu(size_t size) {
             strerror(errno));
     }
 
-    uint64_t iova = tt_device_->get_pci_device()->map_for_dma(mapping, size);
+    uint64_t iova = tt_device_->get_pci_device()->map_for_dma(mapping, map_size);
     log_info(LogSiliconDriver, "Mapped sysmem without hugepages to IOVA {:#x}.", iova);
 
     hugepage_mapping_per_channel.resize(num_fake_mem_channels);

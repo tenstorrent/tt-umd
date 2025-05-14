@@ -196,14 +196,9 @@ void WormholeTTDevice::dma_d2h_transfer(void *dst, uint32_t src, size_t size) {
     write_reg(DMA_TRANSFER_SIZE_OFF_WRCH_0, size);
     write_reg(DMA_SAR_LOW_OFF_WRCH_0, src);
     write_reg(DMA_SAR_HIGH_OFF_WRCH_0, 0);
-    // if (dst_mapped_for_dma) {
     uint64_t dst_addr = reinterpret_cast<uint64_t>(dst);
     write_reg(DMA_DAR_LOW_OFF_WRCH_0, (uint32_t)(dst_addr & 0xFFFFFFFF));
     write_reg(DMA_DAR_HIGH_OFF_WRCH_0, (uint32_t)((dst_addr >> 32) & 0xFFFFFFFF));
-    // } else {
-    //     write_reg(DMA_DAR_LOW_OFF_WRCH_0, dma_buffer.buffer_pa);
-    //     write_reg(DMA_DAR_HIGH_OFF_WRCH_0, 0);
-    // }
     write_reg(DMA_WRITE_DOORBELL_OFF, 0);
 
     auto start = std::chrono::steady_clock::now();
@@ -278,14 +273,9 @@ void WormholeTTDevice::dma_h2d_transfer(uint32_t dst, const void *src, size_t si
     write_reg(DMA_READ_ABORT_IMWR_LOW_OFF, 0);
     write_reg(DMA_READ_ABORT_IMWR_HIGH_OFF, 0);
     write_reg(DMA_TRANSFER_SIZE_OFF_RDCH_0, size);
-    // if (src_mapped_for_dma) {
     uint64_t src_addr = reinterpret_cast<uint64_t>(src);
     write_reg(DMA_SAR_LOW_OFF_RDCH_0, (uint32_t)(src_addr & 0xFFFFFFFF));
     write_reg(DMA_SAR_HIGH_OFF_RDCH_0, (uint32_t)((src_addr >> 32) & 0xFFFFFFFF));
-    // } else {
-    //     write_reg(DMA_SAR_LOW_OFF_RDCH_0, dma_buffer.buffer_pa);
-    //     write_reg(DMA_SAR_HIGH_OFF_RDCH_0, 0);
-    // }
     write_reg(DMA_DAR_LOW_OFF_RDCH_0, dst);
     write_reg(DMA_DAR_HIGH_OFF_RDCH_0, 0);
     write_reg(DMA_READ_DOORBELL_OFF, 0);

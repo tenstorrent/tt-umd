@@ -23,9 +23,11 @@ void SysmemBuffer::dma_write_to_device(size_t offset, size_t size, tt_xy_pair co
     auto ordering = tlb_manager_->dynamic_tlb_ordering_modes_.at(tlb_name);
     PCIDevice* pci_device = tt_device_->get_pci_device();
 
-    // // core = translate_chip_coord_virtual_to_translated(core);
-
-    // // auto lock = acquire_mutex(tlb_name, pci_device->get_device_num());
+    // TODO: these are chip functions, figure out how to have these
+    // inside sysmem buffer, or we keep API as it is and make application send
+    // proper coordinates.
+    // core = translate_chip_coord_virtual_to_translated(core);
+    // auto lock = acquire_mutex(tlb_name, pci_device->get_device_num());
     while (size > 0) {
         auto [axi_address, tlb_size] = tt_device_->set_dynamic_tlb(tlb_index, core, addr, ordering);
 
@@ -48,10 +50,12 @@ void SysmemBuffer::dma_read_from_device(size_t offset, size_t size, tt_xy_pair c
     PCIDevice* pci_device = tt_device_->get_pci_device();
     size_t dmabuf_size = pci_device->get_dma_buffer().size;
 
+    // TODO: these are chip functions, figure out how to have these
+    // inside sysmem buffer, or we keep API as it is and make application send
+    // proper coordinates.
     // core = translate_chip_coord_virtual_to_translated(core);
-
-    // TODO: acquire mutex
     // auto lock = acquire_mutex(tlb_name, pci_device->get_device_num());
+
     while (size > 0) {
         auto [axi_address, tlb_size] = tt_device_->set_dynamic_tlb(tlb_index, core, addr, ordering);
 

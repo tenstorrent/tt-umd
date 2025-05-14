@@ -128,13 +128,6 @@ uint32_t TopologyDiscovery::remote_arc_msg(
     Chip* mmio_chip,
     uint32_t timeout_ms) {
     TTDevice* tt_device = mmio_chip->get_tt_device();
-    // TODO: This initialization and this code should be removed once this class switches to using common code for doing
-    // arc msgs.
-    int pci_dev_num = tt_device->get_pci_device()->get_device_num();
-    LockManager lock_manager;
-    lock_manager.initialize_mutex(MutexType::NON_MMIO, pci_dev_num);
-    auto lock = lock_manager.acquire_mutex(MutexType::NON_MMIO, pci_dev_num);
-
     std::unique_ptr<RemoteCommunication> remote_comm =
         std::make_unique<RemoteCommunication>(dynamic_cast<LocalChip*>(mmio_chip));
 

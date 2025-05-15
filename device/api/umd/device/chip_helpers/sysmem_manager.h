@@ -10,6 +10,11 @@
 
 namespace tt::umd {
 
+// Don't use the top 256MB of the 4th hugepage region on WH.  Two reasons:
+// 1. There are PCIE PHY registers at the top
+// 2. Provision for platform software to have NOC-accessible host memory
+static constexpr size_t HUGEPAGE_CHANNEL_3_SIZE_LIMIT = 768 * (1 << 20);
+
 class SysmemManager {
 public:
     SysmemManager(TTDevice* tt_device);

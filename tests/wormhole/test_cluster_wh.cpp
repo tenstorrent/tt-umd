@@ -776,10 +776,7 @@ TEST(SiliconDriverWH, RandomSysmemTestWithPcie) {
         uint64_t hi = (lo + ONE_GIG) - 1;
 
         if (channel == 3) {
-            // TODO: I thought everything past 0xffff'dddd was registers or
-            // something, but a) I don't know what's actually there, and b)
-            // the unusable range seems to be bigger than that... so
-            // restricting to 0x8'f000'0000.
+            // Avoid the top 256MB of the 4th hugepage region on WH.
             hi &= ~0x0fff'ffffULL;
         }
 

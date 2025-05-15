@@ -1109,7 +1109,6 @@ std::unique_ptr<tt_ClusterDescriptor> Cluster::create_cluster_descriptor(std::st
                 cluster_desc = tt_ClusterDescriptor::create();
             }
             lock_manager.clear_mutex(MutexType::CREATE_ETH_MAP);
-            cluster_desc = TopologyDiscovery().create_ethernet_map();
             return cluster_desc;
         }
 

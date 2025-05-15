@@ -22,9 +22,13 @@ using namespace tt;
 
 bool tt_ClusterDescriptor::ethernet_core_has_active_ethernet_link(
     chip_id_t local_chip, ethernet_channel_t local_ethernet_channel) const {
-    return this->ethernet_connections.find(local_chip) != this->ethernet_connections.end() &&
-           this->ethernet_connections.at(local_chip).find(local_ethernet_channel) !=
-               this->ethernet_connections.at(local_chip).end();
+    return (this->ethernet_connections.find(local_chip) != this->ethernet_connections.end() &&
+            this->ethernet_connections.at(local_chip).find(local_ethernet_channel) !=
+                this->ethernet_connections.at(local_chip).end()) ||
+           (this->ethernet_connections_to_remote_mmio_devices.find(local_chip) !=
+                this->ethernet_connections_to_remote_mmio_devices.end() &&
+            this->ethernet_connections_to_remote_mmio_devices.at(local_chip).find(local_ethernet_channel) !=
+                this->ethernet_connections_to_remote_mmio_devices.at(local_chip).end());
 }
 
 std::tuple<chip_id_t, ethernet_channel_t> tt_ClusterDescriptor::get_chip_and_channel_of_remote_ethernet_core(
@@ -830,6 +834,11 @@ void tt_ClusterDescriptor::fill_chips_grouped_by_closest_mmio() {
 const std::unordered_map<chip_id_t, std::unordered_map<ethernet_channel_t, std::tuple<chip_id_t, ethernet_channel_t>>> &
 tt_ClusterDescriptor::get_ethernet_connections() const {
     return ethernet_connections;
+}
+
+const std::unordered_map<chip_id_t, std::unordered_map<ethernet_channel_t, std::tuple<uint64_t, ethernet_channel_t>>>
+tt_ClusterDescriptor::get_ethernet_connections_to_remote_mmio_devices() const {
+    return this->ethernet_connections_to_remote_mmio_devices;
 }
 
 const std::unordered_map<chip_id_t, eth_coord_t> &tt_ClusterDescriptor::get_chip_locations() const {

@@ -295,6 +295,7 @@ void Cluster::ubb_eth_connections(
     const uint64_t node_info = 0x1100;
     const uint32_t eth_unknown = 0;
     const uint32_t eth_unconnected = 1;
+    const uint32_t eth_connected = 2;
     const uint32_t shelf_offset = 9;
     const uint32_t rack_offset = 10;
     const uint32_t base_addr = 0x1ec0;
@@ -345,28 +346,57 @@ void Cluster::ubb_eth_connections(
                 conn_info + (channel * 4),
                 sizeof(uint32_t));
 
-            if (port_status == eth_unknown || port_status == eth_unconnected) {
+            auto start = std::chrono::steady_clock::now();
+            uint32_t timeout_ms = 1000;
+            while (port_status == eth_unknown) {
+                auto now = std::chrono::steady_clock::now();
+                auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(now - start).count();
+                if (elapsed > timeout_ms) {
+                    throw std::runtime_error(
+                        fmt::format("Device {} timed out waiting for ethernet channel {} to train", chip_id, channel));
+                }
+            }
+            if (port_status == eth_unconnected) {
                 channel++;
                 continue;
             }
+            if (port_status == eth_connected) {
+                uint64_t remote_chip_id;
+                tt_device->read_from_device(
+                    &remote_chip_id,
+                    tt_cxy_pair(chip_id, eth_core.x, eth_core.y),
+                    base_addr + (72 * 4),
+                    sizeof(uint64_t));
 
-            uint64_t remote_chip_id;
-            tt_device->read_from_device(
-                &remote_chip_id, tt_cxy_pair(chip_id, eth_core.x, eth_core.y), base_addr + (72 * 4), sizeof(uint64_t));
+                uint64_t local_chip_id;
+                tt_device->read_from_device(
+                    &local_chip_id,
+                    tt_cxy_pair(chip_id, eth_core.x, eth_core.y),
+                    base_addr + (64 * 4),
+                    sizeof(uint64_t));
 
-            uint64_t local_chip_id;
-            tt_device->read_from_device(
-                &local_chip_id, tt_cxy_pair(chip_id, eth_core.x, eth_core.y), base_addr + (64 * 4), sizeof(uint64_t));
+                uint32_t remote_eth_id;
+                tt_device->read_from_device(
+                    &remote_eth_id, tt_cxy_pair(chip_id, eth_core.x, eth_core.y), base_addr + 76 * 4, sizeof(uint32_t));
 
-            uint32_t remote_eth_id;
-            tt_device->read_from_device(
-                &remote_eth_id, tt_cxy_pair(chip_id, eth_core.x, eth_core.y), base_addr + 76 * 4, sizeof(uint32_t));
+                if (chip_uid_to_local_chip_id.find(remote_chip_id) == chip_uid_to_local_chip_id.end()) {
+                    cluster_desc->ethernet_connections_to_remote_mmio_devices[chip_id][channel] = {
+                        remote_chip_id, remote_eth_id};
+                    channel++;
+                } else {
+                    chip_id_t remote_logical_chip_id = chip_uid_to_local_chip_id.at(remote_chip_id);
 
-            chip_id_t remote_logical_chip_id = chip_uid_to_local_chip_id.at(remote_chip_id);
+                    cluster_desc->ethernet_connections[chip_id][channel] = {remote_logical_chip_id, remote_eth_id};
 
-            cluster_desc->ethernet_connections[chip_id][channel] = {remote_logical_chip_id, remote_eth_id};
-
-            channel++;
+                    channel++;
+                }
+            } else {
+                throw std::runtime_error(fmt::format(
+                    "6U Device {} ethernet channel {} has port status {}, routing FW should be disabled",
+                    chip_id,
+                    channel,
+                    port_status));
+            }
         }
     }
 }

@@ -10,10 +10,10 @@
 #include <iostream>
 #include <regex>
 #include <string>
+#include <tt-logger/tt-logger.hpp>
 #include <unordered_set>
 
 #include "fmt/core.h"
-#include "logger.hpp"
 #include "umd/device/blackhole_implementation.h"
 #include "umd/device/tt_soc_descriptor.h"
 #include "umd/device/wormhole_implementation.h"

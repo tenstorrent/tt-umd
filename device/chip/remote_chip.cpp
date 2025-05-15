@@ -6,7 +6,9 @@
 
 #include "umd/device/chip/remote_chip.h"
 
-#include "logger.hpp"
+#include <tt-logger/tt-logger.hpp>
+
+#include "assert.hpp"
 #include "umd/device/chip/local_chip.h"
 #include "umd/device/wormhole_implementation.h"
 
@@ -19,7 +21,7 @@ RemoteChip::RemoteChip(tt_SocDescriptor soc_descriptor, eth_coord_t eth_chip_loc
     eth_chip_location_(eth_chip_location),
     remote_communication_(std::make_unique<RemoteCommunication>(local_chip)),
     local_chip_(local_chip) {
-    log_assert(soc_descriptor_.arch != tt::ARCH::BLACKHOLE, "Non-MMIO targets not supported in Blackhole");
+    TT_ASSERT(soc_descriptor_.arch != tt::ARCH::BLACKHOLE, "Non-MMIO targets not supported in Blackhole");
 }
 
 RemoteChip::RemoteChip(tt_SocDescriptor soc_descriptor, ChipInfo chip_info) : Chip(chip_info, soc_descriptor) {}
@@ -65,7 +67,7 @@ tt_xy_pair RemoteChip::translate_chip_coord_virtual_to_translated(const tt_xy_pa
 }
 
 void RemoteChip::wait_for_non_mmio_flush() {
-    log_assert(soc_descriptor_.arch != tt::ARCH::BLACKHOLE, "Non-MMIO flush not supported in Blackhole");
+    TT_ASSERT(soc_descriptor_.arch != tt::ARCH::BLACKHOLE, "Non-MMIO flush not supported in Blackhole");
     remote_communication_->wait_for_non_mmio_flush();
 }
 
@@ -94,7 +96,7 @@ void RemoteChip::set_power_state(tt_DevicePowerState state) {
     if (soc_descriptor_.arch == tt::ARCH::WORMHOLE_B0) {
         uint32_t msg = get_power_state_arc_msg(state);
         int exit_code = arc_msg(wormhole::ARC_MSG_COMMON_PREFIX | msg, true, 0, 0);
-        log_assert(exit_code == 0, "Failed to set power state to {} with exit code: {}", (int)state, exit_code);
+        TT_ASSERT(exit_code == 0, "Failed to set power state to {} with exit code: {}", (int)state, exit_code);
     } else if (soc_descriptor_.arch == tt::ARCH::BLACKHOLE) {
         throw std::runtime_error("set_power_state not supported for remote chips on Blackhole.");
     }

@@ -6,9 +6,9 @@
 #include "umd/device/coordinate_manager.h"
 
 #include <stdexcept>
+#include <tt-logger/tt-logger.hpp>
 
 #include "api/umd/device/coordinate_manager.h"
-#include "logger.hpp"
 #include "umd/device/blackhole_coordinate_manager.h"
 #include "umd/device/wormhole_coordinate_manager.h"
 

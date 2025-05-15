@@ -9,9 +9,11 @@
 #include <sys/mman.h>  // for mmap, munmap
 #include <sys/stat.h>  // for fstat
 
+#include <fstream>
+#include <tt-logger/tt-logger.hpp>
+
 #include "assert.hpp"
 #include "cpuset_lib.hpp"
-#include "logger.hpp"
 #include "umd/device/hugepage.h"
 
 namespace tt::umd {
@@ -28,14 +30,14 @@ SysmemManager::~SysmemManager() {
 
 void SysmemManager::write_to_sysmem(uint16_t channel, const void *src, uint64_t sysmem_dest, uint32_t size) {
     hugepage_mapping hugepage_map = get_hugepage_mapping(channel);
-    log_assert(
+    TT_ASSERT(
         hugepage_map.mapping,
         "write_buffer: Hugepages are not allocated for pci device num: {} ch: {}."
         " - Ensure sufficient number of Hugepages installed per device (1 per host mem ch, per device)",
         tt_device_->get_pci_device()->get_device_num(),
         channel);
 
-    log_assert(
+    TT_ASSERT(
         size <= hugepage_map.mapping_size,
         "write_buffer data has larger size {} than destination buffer {}",
         size,
@@ -54,7 +56,7 @@ void SysmemManager::write_to_sysmem(uint16_t channel, const void *src, uint64_t 
 
 void SysmemManager::read_from_sysmem(uint16_t channel, void *dest, uint64_t sysmem_src, uint32_t size) {
     hugepage_mapping hugepage_map = get_hugepage_mapping(channel);
-    log_assert(
+    TT_ASSERT(
         hugepage_map.mapping,
         "read_buffer: Hugepages are not allocated for pci device num: {} ch: {}."
         " - Ensure sufficient number of Hugepages installed per device (1 per host mem ch, per device)",

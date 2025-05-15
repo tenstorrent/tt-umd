@@ -5,7 +5,8 @@
 
 #include <sys/mman.h>  // for MAP_FAILED
 
-#include "logger.hpp"
+#include <tt-logger/tt-logger.hpp>
+
 #include "umd/device/blackhole_implementation.h"
 #include "umd/device/types/blackhole_telemetry.h"
 

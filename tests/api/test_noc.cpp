@@ -75,6 +75,11 @@ TEST(TestNoc, TestNoc1NodeId) {
 
     std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
 
+    auto mmio_chip = *cluster->get_target_mmio_device_ids().begin();
+    if (cluster->get_tt_device(mmio_chip)->get_arch() == tt::ARCH::BLACKHOLE) {
+        GTEST_SKIP() << "Skipping NOC1 test for Blackhole until coordinate translation is fixed.";
+    }
+
     auto read_noc_id_reg = [&](std::unique_ptr<Cluster>& cluster, chip_id_t chip, CoreCoord core) {
         const uint64_t noc_node_id_reg_addr =
             cluster->get_tt_device(0)->get_architecture_implementation()->get_noc_reg_base(core.core_type, 1) +

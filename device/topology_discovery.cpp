@@ -14,6 +14,8 @@
 #include "umd/device/types/wormhole_telemetry.h"
 #include "umd/device/wormhole_implementation.h"
 
+extern bool umd_use_noc1;
+
 namespace tt::umd {
 
 std::unique_ptr<tt_ClusterDescriptor> TopologyDiscovery::create_ethernet_map() {
@@ -131,7 +133,8 @@ uint32_t TopologyDiscovery::remote_arc_msg(
     std::unique_ptr<RemoteCommunication> remote_comm =
         std::make_unique<RemoteCommunication>(dynamic_cast<LocalChip*>(mmio_chip));
 
-    auto arc_core = mmio_chip->get_soc_descriptor().get_cores(CoreType::ARC)[0];
+    auto arc_core = mmio_chip->get_soc_descriptor().get_cores(
+        CoreType::ARC, umd_use_noc1 ? CoordSystem::NOC1 : CoordSystem::NOC0)[0];
     return remote_comm->arc_msg(eth_coord, arc_core, msg_code, true, arg0, arg1, timeout_ms, ret0, ret1);
 }
 
@@ -220,7 +223,8 @@ void TopologyDiscovery::discover_remote_chips() {
     std::unordered_set<eth_coord_t> remote_chips_to_discover = {};
 
     for (const auto& [chip_id, chip] : chips) {
-        std::vector<CoreCoord> eth_cores = chip->get_soc_descriptor().get_cores(CoreType::ETH);
+        std::vector<CoreCoord> eth_cores =
+            chip->get_soc_descriptor().get_cores(CoreType::ETH, umd_use_noc1 ? CoordSystem::NOC1 : CoordSystem::NOC0);
         TTDevice* tt_device = chip->get_tt_device();
 
         uint32_t current_chip_eth_coord_info;
@@ -241,7 +245,8 @@ void TopologyDiscovery::discover_remote_chips() {
     }
 
     for (const auto& [chip_id, chip] : chips) {
-        std::vector<CoreCoord> eth_cores = chip->get_soc_descriptor().get_cores(CoreType::ETH);
+        std::vector<CoreCoord> eth_cores =
+            chip->get_soc_descriptor().get_cores(CoreType::ETH, umd_use_noc1 ? CoordSystem::NOC1 : CoordSystem::NOC0);
         TTDevice* tt_device = chip->get_tt_device();
 
         uint32_t current_chip_eth_coord_info;
@@ -326,7 +331,8 @@ void TopologyDiscovery::discover_remote_chips() {
         std::unordered_set<eth_coord_t> new_remote_chips = {};
 
         for (const eth_coord_t& eth_coord : remote_chips_to_discover) {
-            std::vector<CoreCoord> eth_cores = mmio_chip->get_soc_descriptor().get_cores(CoreType::ETH);
+            std::vector<CoreCoord> eth_cores = mmio_chip->get_soc_descriptor().get_cores(
+                CoreType::ETH, umd_use_noc1 ? CoordSystem::NOC1 : CoordSystem::NOC0);
 
             uint32_t current_chip_eth_coord_info;
             remote_comm->read_non_mmio(

@@ -70,7 +70,7 @@ TEST(TestNoc, TestNoc0NodeId) {
     }
 }
 
-TEST(TestNoc, DISABLED_TestNoc1NodeId) {
+TEST(TestNoc, TestNoc1NodeId) {
     TTDevice::use_noc1(true);
 
     std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();

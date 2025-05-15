@@ -100,13 +100,6 @@ public:
     int get_numa_node() const { return numa_node; }
 
     /**
-     * @return underlying file descriptor
-     * TODO: this is an abstraction violation to be removed when this class
-     * assumes control over hugepage/DMA mapping code.
-     */
-    int get_fd() const { return pci_device_file_desc; }
-
-    /**
      * @return N in /dev/tenstorrent/N
      * TODO: target for removal; upper layers should not care about this.
      */

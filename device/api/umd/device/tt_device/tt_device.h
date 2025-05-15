@@ -94,8 +94,8 @@ public:
     // Read/write functions that always use same TLB entry. This is not supposed to be used
     // on any code path that is performance critical. It is used to read/write the data needed
     // to get the information to form cluster of chips, or just use base TTDevice functions.
-    void read_from_device(void *mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size);
-    void write_to_device(void *mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size);
+    virtual void read_from_device(void *mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size);
+    virtual void write_to_device(void *mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size);
 
     // TLB related functions.
     // TODO: These are architecture specific, and will be moved out of the class.
@@ -194,6 +194,8 @@ protected:
     // to 2-byte writes. We avoid ever performing a 1-byte write to the device. This only affects to device.
     void memcpy_to_device(void *dest, const void *src, std::size_t num_bytes);
     void memcpy_from_device(void *dest, const void *src, std::size_t num_bytes);
+
+    TTDevice();
 
     ChipInfo chip_info;
 };

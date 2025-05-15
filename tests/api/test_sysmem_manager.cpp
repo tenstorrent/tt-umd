@@ -60,6 +60,10 @@ TEST(ApiSysmemManager, SysmemBuffersAllocation) {
         GTEST_SKIP() << "No chips present on the system. Skipping test.";
     }
 
+    if (!cluster->get_tt_device(0)->get_pci_device()->is_iommu_enabled()) {
+        GTEST_SKIP() << "IOMMU is not enabled. Skipping test.";
+    }
+
     for (const chip_id_t chip_id : cluster->get_target_device_ids()) {
         SysmemManager* sysmem_manager = cluster->get_chip(chip_id)->get_sysmem_manager();
 
@@ -91,6 +95,10 @@ TEST(ApiSysmemManager, SysmemBuffers) {
 
     if (cluster->get_target_device_ids().empty()) {
         GTEST_SKIP() << "No chips present on the system. Skipping test.";
+    }
+
+    if (!cluster->get_tt_device(0)->get_pci_device()->is_iommu_enabled()) {
+        GTEST_SKIP() << "IOMMU is not enabled. Skipping test.";
     }
 
     const chip_id_t mmio_chip = *cluster->get_target_mmio_device_ids().begin();

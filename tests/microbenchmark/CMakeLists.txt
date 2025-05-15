@@ -1,4 +1,7 @@
-set(UBENCH_SRC test_perf_tlb.cpp)
+set(UBENCH_SRC
+    test_perf_tlb.cpp
+    test_perf_dma.cpp
+)
 add_executable(ubench ${UBENCH_SRC})
 target_link_libraries(
     ubench

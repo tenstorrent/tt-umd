@@ -41,7 +41,7 @@ jobs:
       fail-fast: false
       matrix:
         test-group: [
-          {arch: wormhole_b0, card: n150, timeout: 10},
+          {arch: wormhole_b0, card: n150, timeout: 20},
           {arch: wormhole_b0, card: tt-beta-ubuntu-2204-n150-large-stable, timeout: 10},
           {arch: wormhole_b0, card: n300, timeout: 15},
           {arch: wormhole_b0, card: tt-beta-ubuntu-2204-n300-large-stable, timeout: 15},

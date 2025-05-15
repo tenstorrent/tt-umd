@@ -71,14 +71,16 @@ TEST(TestNoc, TestNoc0NodeId) {
 }
 
 TEST(TestNoc, TestNoc1NodeId) {
-    TTDevice::use_noc1(true);
-
-    std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
-
-    auto mmio_chip = *cluster->get_target_mmio_device_ids().begin();
-    if (cluster->get_tt_device(mmio_chip)->get_arch() == tt::ARCH::BLACKHOLE) {
+    std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
+    if (pci_device_ids.empty()) {
+        GTEST_SKIP() << "No chips present on the system. Skipping test.";
+    }
+    if (PCIDevice(pci_device_ids[0]).get_arch() == tt::ARCH::BLACKHOLE) {
         GTEST_SKIP() << "Skipping NOC1 test for Blackhole until coordinate translation is fixed.";
     }
+
+    TTDevice::use_noc1(true);
+    std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
 
     auto read_noc_id_reg = [&](std::unique_ptr<Cluster>& cluster, chip_id_t chip, CoreCoord core) {
         const uint64_t noc_node_id_reg_addr =

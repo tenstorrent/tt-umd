@@ -824,13 +824,6 @@ void tt_ClusterDescriptor::load_harvesting_information(YAML::Node &yaml, tt_Clus
 void tt_ClusterDescriptor::enable_all_devices() { this->enabled_active_chips = this->all_chips; }
 
 void tt_ClusterDescriptor::fill_chips_grouped_by_closest_mmio() {
-    // TODO: remote ethernet coordinates if new eth fw is ported for back Wormhole.
-    // For newer topologies every chip will have a direct connection to MMIO chip, so there won't be
-    // ethernet coordinates, represented by chip locations, to calculate the closest MMIO chip.
-    if (this->chip_locations.empty()) {
-        return;
-    }
-
     for (const auto &chip : this->all_chips) {
         // This will also fill up the closest_mmio_chip_cache
         chip_id_t closest_mmio_chip = get_closest_mmio_capable_chip(chip);

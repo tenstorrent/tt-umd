@@ -6,7 +6,9 @@
 
 #include "umd/device/chip_helpers/tlb_manager.h"
 
-#include "logger.hpp"
+#include <tt-logger/tt-logger.hpp>
+
+#include "assert.hpp"
 #include "umd/device/tt_device/tt_device.h"
 #include "umd/device/tt_io.hpp"
 #include "umd/device/types/tlb.h"
@@ -19,7 +21,7 @@ TLBManager::TLBManager(TTDevice* tt_device) : tt_device_(tt_device) {}
 
 void TLBManager::configure_tlb(
     tt_xy_pair core, tt_xy_pair translated_core, int32_t tlb_index, uint64_t address, uint64_t ordering) {
-    log_assert(
+    TT_ASSERT(
         ordering == tlb_data::Strict || ordering == tlb_data::Posted || ordering == tlb_data::Relaxed,
         "Invalid ordering specified in Cluster::configure_tlb");
     log_debug(
@@ -30,7 +32,7 @@ void TLBManager::configure_tlb(
         tlb_index,
         address,
         ordering);
-    log_assert(tlb_config_map_.find(tlb_index) == tlb_config_map_.end(), "TLB index already configured {}", tlb_index);
+    TT_ASSERT(tlb_config_map_.find(tlb_index) == tlb_config_map_.end(), "TLB index already configured {}", tlb_index);
 
     tt_device_->set_dynamic_tlb(tlb_index, translated_core, address, ordering);
     auto tlb_size = tt_device_->get_architecture_implementation()->get_tlb_configuration(tlb_index).size;
@@ -39,7 +41,7 @@ void TLBManager::configure_tlb(
 }
 
 void TLBManager::set_dynamic_tlb_config(std::string fallback_tlb_name, int32_t tlb_index) {
-    log_assert(
+    TT_ASSERT(
         dynamic_tlb_config_.find(fallback_tlb_name) == dynamic_tlb_config_.end(),
         "Dynamic TLB already configured for {}",
         fallback_tlb_name);
@@ -48,13 +50,13 @@ void TLBManager::set_dynamic_tlb_config(std::string fallback_tlb_name, int32_t t
 }
 
 void TLBManager::set_dynamic_tlb_config_ordering(std::string fallback_tlb_name, uint64_t ordering) {
-    log_assert(
+    TT_ASSERT(
         ordering == tlb_data::Strict || ordering == tlb_data::Posted || ordering == tlb_data::Relaxed,
         "Invalid ordering specified in set_dynamic_tlb_config_ordering.");
-    log_assert(
+    TT_ASSERT(
         fallback_tlb_name != "LARGE_READ_TLB" && fallback_tlb_name != "LARGE_WRITE_TLB",
         "Ordering modes for LARGE_READ_TLB and LARGE_WRITE_TLB cannot be modified.");
-    log_assert(
+    TT_ASSERT(
         dynamic_tlb_config_.find(fallback_tlb_name) != dynamic_tlb_config_.end(),
         "Dynamic TLB not configured {}",
         fallback_tlb_name);
@@ -101,7 +103,7 @@ tt::Writer TLBManager::get_static_tlb_writer(tt_xy_pair core) {
 }
 
 tlb_configuration TLBManager::get_tlb_configuration(tt_xy_pair core) {
-    log_assert(is_tlb_mapped(core), "TLB not mapped for core: {}", core.str());
+    TT_ASSERT(is_tlb_mapped(core), "TLB not mapped for core: {}", core.str());
 
     int tlb_index = map_core_to_tlb_.at(core);
     return tt_device_->get_architecture_implementation()->get_tlb_configuration(tlb_index);

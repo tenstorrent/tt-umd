@@ -117,11 +117,17 @@ endif()
 CPMAddPackage(
     NAME spdlog
     GITHUB_REPOSITORY gabime/spdlog
-    GIT_TAG
-        96a8f6250cbf4e8c76387c614f666710a2fa9bad # Version v 1.15+fmtlib fixes
+    VERSION 1.15.2
     OPTIONS
         "CMAKE_MESSAGE_LOG_LEVEL NOTICE"
+        "SPDLOG_FMT_EXTERNAL_HO ON"
+        "SPDLOG_INSTALL ON"
 )
+
+####################################################################################################################
+# tt-logger
+####################################################################################################################
+CPMAddPackage(NAME tt-logger GITHUB_REPOSITORY tenstorrent/tt-logger VERSION 1.0.1)
 
 ####################################################################################################################
 # cxxopts

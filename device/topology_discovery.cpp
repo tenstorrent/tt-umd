@@ -5,7 +5,8 @@
  */
 #include "umd/device/topology_discovery.h"
 
-#include "logger.hpp"
+#include <tt-logger/tt-logger.hpp>
+
 #include "umd/device/chip/local_chip.h"
 #include "umd/device/chip/remote_chip.h"
 #include "umd/device/remote_communication.h"

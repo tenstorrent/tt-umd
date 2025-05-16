@@ -3,14 +3,17 @@
 // SPDX-License-Identifier: Apache-2.0
 #include <chrono>
 #include <cxxopts.hpp>
+#include <fstream>
+#include <iomanip>
+#include <iostream>
 #include <ostream>
 #include <sstream>
 #include <string>
 #include <thread>
+#include <tt-logger/tt-logger.hpp>
 #include <vector>
 
 #include "fmt/core.h"
-#include "logger.hpp"
 #include "umd/device/arc_telemetry_reader.h"
 #include "umd/device/types/wormhole_telemetry.h"
 
@@ -119,7 +122,7 @@ int main(int argc, char* argv[]) {
                    << fractional_seconds.count() << " - " << telemetry_message;
                 output_file << ss.str() << std::endl;
             } else {
-                log_info(tt::LogSiliconDriver, telemetry_message.c_str());
+                log_info(tt::LogSiliconDriver, "{}", telemetry_message);
             }
         }
 

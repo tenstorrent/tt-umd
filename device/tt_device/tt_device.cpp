@@ -3,7 +3,9 @@
 // SPDX-License-Identifier: Apache-2.0
 #include "umd/device/tt_device/tt_device.h"
 
-#include "logger.hpp"
+#include <tt-logger/tt-logger.hpp>
+
+#include "assert.hpp"
 #include "umd/device/arc_messenger.h"
 #include "umd/device/driver_atomics.h"
 #include "umd/device/tt_device/blackhole_tt_device.h"
@@ -247,7 +249,7 @@ void TTDevice::write_to_device(void *mem_ptr, tt_xy_pair core, uint64_t addr, ui
 
 void TTDevice::write_tlb_reg(
     uint32_t byte_addr, uint64_t value_lower, uint64_t value_upper, uint32_t tlb_cfg_reg_size) {
-    log_assert(
+    TT_ASSERT(
         (tlb_cfg_reg_size == 8) or (tlb_cfg_reg_size == 12),
         "Tenstorrent hardware supports only 64bit or 96bit TLB config regs");
 

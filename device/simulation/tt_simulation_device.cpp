@@ -11,10 +11,10 @@
 
 #include <iostream>
 #include <string>
+#include <tt-logger/tt-logger.hpp>
 #include <vector>
 
 #include "assert.hpp"
-#include "logger.hpp"
 #include "tt_simulation_device_generated.h"
 #include "umd/device/driver_atomics.h"
 

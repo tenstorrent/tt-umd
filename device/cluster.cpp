@@ -6,6 +6,8 @@
 #include <assert.h>
 #include <dirent.h>
 #include <errno.h>
+#include <fmt/format.h>
+#include <fmt/ranges.h>  // Needed to format vectors
 #include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -30,12 +32,13 @@
 #include <regex>
 #include <stdexcept>
 #include <string>
+#include <tt-logger/tt-logger.hpp>
 #include <utility>
 #include <vector>
 
 #include "api/umd/device/cluster.h"
 #include "api/umd/device/tt_core_coordinates.h"
-#include "logger.hpp"
+#include "assert.hpp"
 #include "umd/device/architecture_implementation.h"
 #include "umd/device/blackhole_implementation.h"
 #include "umd/device/chip/local_chip.h"
@@ -115,7 +118,7 @@ void Cluster::create_device(
             // Conservative assert - end workload if remote chips present but hugepages not initialized (failures caused
             // if using remote only for small transactions)
             if (remote_chip_ids_.size()) {
-                log_assert(
+                TT_ASSERT(
                     hugepages_initialized,
                     "Hugepages must be successfully initialized if workload contains remote chips!");
             }
@@ -235,7 +238,7 @@ tt_SocDescriptor Cluster::construct_soc_descriptor(
 }
 
 void Cluster::add_chip(const chip_id_t& chip_id, const ChipType& chip_type, std::unique_ptr<Chip> chip) {
-    log_assert(
+    TT_ASSERT(
         chips_.find(chip_id) == chips_.end(),
         "Chip with id {} already exists in cluster. Cannot add another chip with the same id.",
         chip_id);
@@ -435,7 +438,7 @@ void Cluster::deassert_risc_reset() { broadcast_tensix_risc_reset_to_cluster(TEN
 void Cluster::deassert_risc_reset_at_core(
     const chip_id_t chip, const CoreCoord core, const TensixSoftResetOptions& soft_resets) {
     // Get Target Device to query soc descriptor and determine location in cluster
-    log_assert(
+    TT_ASSERT(
         core.core_type == CoreType::TENSIX || core.core_type == CoreType::ETH,
         "Cannot deassert reset on a non-tensix or harvested core");
     get_chip(chip)->send_tensix_risc_reset(translate_to_api_coords(chip, core), soft_resets);
@@ -444,7 +447,7 @@ void Cluster::deassert_risc_reset_at_core(
 void Cluster::assert_risc_reset_at_core(
     const chip_id_t chip, const CoreCoord core, const TensixSoftResetOptions& soft_resets) {
     // Get Target Device to query soc descriptor and determine location in cluster
-    log_assert(
+    TT_ASSERT(
         core.core_type == CoreType::TENSIX || core.core_type == CoreType::ETH,
         "Cannot assert reset on a non-tensix or harvested core");
     get_chip(chip)->send_tensix_risc_reset(translate_to_api_coords(chip, core), soft_resets);
@@ -504,7 +507,7 @@ void* Cluster::host_dma_address(std::uint64_t offset, chip_id_t src_device_id, u
 
 TTDevice* Cluster::get_tt_device(chip_id_t device_id) const {
     auto tt_device = get_local_chip(device_id)->get_tt_device();
-    log_assert(tt_device != nullptr, "TTDevice not found for device: {}", device_id);
+    TT_ASSERT(tt_device != nullptr, "TTDevice not found for device: {}", device_id);
     return tt_device;
 }
 
@@ -512,18 +515,17 @@ TLBManager* Cluster::get_tlb_manager(chip_id_t device_id) const { return get_loc
 
 Chip* Cluster::get_chip(chip_id_t device_id) const {
     auto chip_it = chips_.find(device_id);
-    log_assert(chip_it != chips_.end(), "Device id {} not found in cluster.", device_id);
+    TT_ASSERT(chip_it != chips_.end(), "Device id {} not found in cluster.", device_id);
     return chip_it->second.get();
 }
 
 LocalChip* Cluster::get_local_chip(chip_id_t device_id) const {
-    log_assert(
-        local_chip_ids_.find(device_id) != local_chip_ids_.end(), "Device id {} is not a local chip.", device_id);
+    TT_ASSERT(local_chip_ids_.find(device_id) != local_chip_ids_.end(), "Device id {} is not a local chip.", device_id);
     return dynamic_cast<LocalChip*>(get_chip(device_id));
 }
 
 RemoteChip* Cluster::get_remote_chip(chip_id_t device_id) const {
-    log_assert(
+    TT_ASSERT(
         remote_chip_ids_.find(device_id) != remote_chip_ids_.end(), "Device id {} is not a remote chip.", device_id);
     return dynamic_cast<RemoteChip*>(get_chip(device_id));
 }
@@ -716,7 +718,7 @@ void Cluster::broadcast_write_to_cluster(
     if (arch_name == tt::ARCH::BLACKHOLE) {
         auto architecture_implementation = tt::umd::architecture_implementation::create(arch_name);
         if (cols_to_exclude.find(0) == cols_to_exclude.end() or cols_to_exclude.find(9) == cols_to_exclude.end()) {
-            log_assert(
+            TT_ASSERT(
                 !tensix_or_eth_in_broadcast(cols_to_exclude, architecture_implementation.get()),
                 "Cannot broadcast to tensix/ethernet and DRAM simultaneously on Blackhole.");
             if (cols_to_exclude.find(0) == cols_to_exclude.end()) {
@@ -748,7 +750,7 @@ void Cluster::broadcast_write_to_cluster(
                     false);
             }
         } else {
-            log_assert(
+            TT_ASSERT(
                 use_virtual_coords_for_eth_broadcast or
                     valid_tensix_broadcast_grid(rows_to_exclude, cols_to_exclude, architecture_implementation.get()),
                 "Must broadcast to all tensix rows when ERISC FW is < 6.8.0.");
@@ -764,7 +766,7 @@ void Cluster::broadcast_write_to_cluster(
     } else {
         auto architecture_implementation = tt::umd::architecture_implementation::create(arch_name);
         if (cols_to_exclude.find(0) == cols_to_exclude.end() or cols_to_exclude.find(5) == cols_to_exclude.end()) {
-            log_assert(
+            TT_ASSERT(
                 !tensix_or_eth_in_broadcast(cols_to_exclude, architecture_implementation.get()),
                 "Cannot broadcast to tensix/ethernet and DRAM simultaneously on Wormhole.");
             if (cols_to_exclude.find(0) == cols_to_exclude.end()) {
@@ -797,7 +799,7 @@ void Cluster::broadcast_write_to_cluster(
                     false);
             }
         } else {
-            log_assert(
+            TT_ASSERT(
                 use_virtual_coords_for_eth_broadcast or
                     valid_tensix_broadcast_grid(rows_to_exclude, cols_to_exclude, architecture_implementation.get()),
                 "Must broadcast to all tensix rows when ERISC FW is < 6.8.0.");
@@ -966,9 +968,9 @@ void Cluster::verify_sw_fw_versions(int device_id, std::uint32_t sw_version, std
         device_id);
     for (std::uint32_t& fw_version : fw_versions) {
         tt_version fw(fw_version);
-        log_assert(fw == fw_first_eth_core, "FW versions are not the same across different ethernet cores");
-        log_assert(sw.major == fw.major, "SW/FW major version number out of sync");
-        log_assert(sw.minor <= fw.minor, "SW version is newer than FW version");
+        TT_ASSERT(fw == fw_first_eth_core, "FW versions are not the same across different ethernet cores");
+        TT_ASSERT(sw.major == fw.major, "SW/FW major version number out of sync");
+        TT_ASSERT(sw.minor <= fw.minor, "SW version is newer than FW version");
     }
 
     // Min ERISC FW version required to support ethernet broadcast is 6.5.0.
@@ -1028,8 +1030,8 @@ std::uint64_t Cluster::get_pcie_base_addr_from_device(const chip_id_t chip_id) c
 }
 
 tt_version Cluster::get_ethernet_fw_version() const {
-    log_assert(arch_name == tt::ARCH::WORMHOLE_B0, "Can only get Ethernet FW version for Wormhole architectures.");
-    log_assert(
+    TT_ASSERT(arch_name == tt::ARCH::WORMHOLE_B0, "Can only get Ethernet FW version for Wormhole architectures.");
+    TT_ASSERT(
         eth_fw_version.major != 0xffff and eth_fw_version.minor != 0xff and eth_fw_version.patch != 0xff,
         "Device must be started before querying Ethernet FW version.");
     return eth_fw_version;

@@ -6,7 +6,7 @@
 
 #include "umd/device/chip/chip.h"
 
-#include "logger.hpp"
+#include "assert.hpp"
 #include "umd/device/architecture_implementation.h"
 #include "umd/device/driver_atomics.h"
 #include "umd/device/wormhole_implementation.h"
@@ -121,7 +121,7 @@ int Chip::get_numa_node() { throw std::runtime_error("Chip::get_numa_node is not
 void Chip::wait_dram_cores_training(const uint32_t timeout_ms) {}
 
 void Chip::enable_ethernet_queue(int timeout_s) {
-    log_assert(
+    TT_ASSERT(
         soc_descriptor_.arch != tt::ARCH::BLACKHOLE,
         "enable_ethernet_queue is not supported on Blackhole architecture");
     uint32_t msg_success = 0x0;

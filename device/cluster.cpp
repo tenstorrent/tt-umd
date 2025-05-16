@@ -141,7 +141,6 @@ void Cluster::construct_cluster(const uint32_t& num_host_mem_ch_per_mmio_device,
             }
             pci_ids.push_back(it->second);
         }
-        log_info(LogSiliconDriver, "Detected PCI devices: {}", pci_ids);
         log_info(
             LogSiliconDriver,
             "Opening local chip ids/pci ids: {}/{} and remote chip ids {}",

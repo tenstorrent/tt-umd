@@ -16,7 +16,7 @@
 
 namespace tt::umd {
 
-SysmemManager::SysmemManager(TTDevice *tt_device) : tt_device_(tt_device) {}
+SysmemManager::SysmemManager(TLBManager *tlb_manager) : tlb_manager_(tlb_manager) {}
 
 SysmemManager::~SysmemManager() {
     for (const auto &hugepage_mapping : hugepage_mapping_per_channel) {
@@ -27,6 +27,7 @@ SysmemManager::~SysmemManager() {
 }
 
 void SysmemManager::write_to_sysmem(uint16_t channel, const void *src, uint64_t sysmem_dest, uint32_t size) {
+    TTDevice *tt_device_ = tlb_manager_->get_tt_device();
     hugepage_mapping hugepage_map = get_hugepage_mapping(channel);
     log_assert(
         hugepage_map.mapping,
@@ -53,6 +54,7 @@ void SysmemManager::write_to_sysmem(uint16_t channel, const void *src, uint64_t 
 }
 
 void SysmemManager::read_from_sysmem(uint16_t channel, void *dest, uint64_t sysmem_src, uint32_t size) {
+    TTDevice *tt_device_ = tlb_manager_->get_tt_device();
     hugepage_mapping hugepage_map = get_hugepage_mapping(channel);
     log_assert(
         hugepage_map.mapping,
@@ -74,6 +76,7 @@ void SysmemManager::read_from_sysmem(uint16_t channel, void *dest, uint64_t sysm
 }
 
 bool SysmemManager::init_hugepage(uint32_t num_host_mem_channels) {
+    TTDevice *tt_device_ = tlb_manager_->get_tt_device();
     // TODO: get rid of this when the following Metal CI issue is resolved.
     // https://github.com/tenstorrent/tt-metal/issues/15675
     // The notion that we should clamp the number of host mem channels to
@@ -214,6 +217,7 @@ bool SysmemManager::init_iommu(size_t size) {
     constexpr size_t carveout_size = HUGEPAGE_REGION_SIZE - HUGEPAGE_CHANNEL_3_SIZE_LIMIT;  // 1GB - 768MB = 256MB
     const size_t num_fake_mem_channels = size / HUGEPAGE_REGION_SIZE;
 
+    TTDevice *tt_device_ = tlb_manager_->get_tt_device();
     size_t map_size =
         (tt_device_->get_arch() == tt::ARCH::WORMHOLE_B0 && num_fake_mem_channels == 4) ? (size - carveout_size) : size;
 
@@ -231,7 +235,9 @@ bool SysmemManager::init_iommu(size_t size) {
             strerror(errno));
     }
 
-    uint64_t iova = tt_device_->get_pci_device()->map_for_dma(mapping, map_size);
+    std::shared_ptr<SysmemBuffer> sysmem_buffer = map_sysmem_buffer(mapping, size);
+    uint64_t iova = sysmem_buffer->get_device_io_addr();
+
     log_info(LogSiliconDriver, "Mapped sysmem without hugepages to IOVA {:#x}.", iova);
 
     hugepage_mapping_per_channel.resize(num_fake_mem_channels);
@@ -264,4 +270,28 @@ void SysmemManager::print_file_contents(std::string filename, std::string hint) 
         }
     }
 }
+
+std::unique_ptr<SysmemBuffer> SysmemManager::allocate_sysmem_buffer(uint32_t sysmem_buffer_size) {
+    void *mapping =
+        mmap(nullptr, sysmem_buffer_size, PROT_READ | PROT_WRITE, MAP_ANONYMOUS | MAP_PRIVATE | MAP_POPULATE, -1, 0);
+    return map_sysmem_buffer(mapping, sysmem_buffer_size);
+}
+
+std::unique_ptr<SysmemBuffer> SysmemManager::map_sysmem_buffer(void *buffer, uint32_t sysmem_buffer_size) {
+    TTDevice *tt_device_ = tlb_manager_->get_tt_device();
+    uint32_t page_size = sysconf(_SC_PAGESIZE);
+    uint64_t buffer_addr = reinterpret_cast<uint64_t>(buffer);
+
+    if (buffer_addr % page_size != 0 || sysmem_buffer_size % page_size != 0) {
+        throw std::runtime_error("Buffer must be page-aligned with a size that is a multiple of the page size");
+    }
+
+    uint64_t device_io_addr = tt_device_->get_pci_device()->map_for_dma(buffer, sysmem_buffer_size);
+
+    std::unique_ptr<SysmemBuffer> sysmem_buffer =
+        std::make_unique<SysmemBuffer>(tlb_manager_, buffer, sysmem_buffer_size, device_io_addr);
+
+    return sysmem_buffer;
+}
+
 }  // namespace tt::umd

@@ -309,7 +309,7 @@ void WormholeTTDevice::dma_d2h(void *dst, uint32_t src, size_t size) {
 void WormholeTTDevice::dma_h2d(uint32_t dst, const void *src, size_t size) {
     DmaBuffer &dma_buffer = pci_device_->get_dma_buffer();
     memcpy(dma_buffer.buffer, src, size);
-    dma_h2d_transfer(dst, dma_buffer.buffer, size);
+    dma_h2d_transfer(dst, (void *)(uintptr_t)dma_buffer.buffer_pa, size);
 }
 
 void WormholeTTDevice::dma_h2d_zero_copy(uint32_t dst, const void *src, size_t size) {

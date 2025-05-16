@@ -26,6 +26,9 @@ static const uint16_t GS_PCIE_DEVICE_ID = 0xfaca;
 static const uint16_t WH_PCIE_DEVICE_ID = 0x401e;
 static const uint16_t BH_PCIE_DEVICE_ID = 0xb140;
 
+static const size_t DMABUF_SIZE = (1 << 20);                   // 1 MiB
+static const size_t DMABUF_TOTAL_SIZE = DMABUF_SIZE + 0x1000;  // Extra page for completion
+
 // TODO: we'll have to rethink this when KMD takes control of the inbound PCIe
 // TLB windows and there is no longer a pre-defined WC/UC split.
 static const uint32_t GS_BAR0_WC_MAPPING_SIZE = (156 << 20) + (10 << 21) + (18 << 24);
@@ -385,10 +388,9 @@ PCIDevice::PCIDevice(int pci_device_number) :
     // poll a completion page to know when the DMA is done instead of receiving
     // an interrupt.
     if (arch == tt::ARCH::WORMHOLE_B0) {
-        const uint32_t buf_size = (1 << 20);  // 1 MiB
         tenstorrent_allocate_dma_buf dma_buf{};
 
-        dma_buf.in.requested_size = buf_size + 0x1000;
+        dma_buf.in.requested_size = DMABUF_TOTAL_SIZE;
         dma_buf.in.buf_index = 0;
 
         if (ioctl(pci_device_file_desc, TENSTORRENT_IOCTL_ALLOCATE_DMA_BUF, &dma_buf)) {
@@ -404,7 +406,7 @@ PCIDevice::PCIDevice(int pci_device_number) :
             // OK - we have a buffer.  Map it.
             void *buffer = mmap(
                 nullptr,
-                buf_size + 0x1000,
+                DMABUF_TOTAL_SIZE,
                 PROT_READ | PROT_WRITE,
                 MAP_SHARED,
                 pci_device_file_desc,
@@ -416,10 +418,10 @@ PCIDevice::PCIDevice(int pci_device_number) :
                 log_error("Failed to map DMA buffer: {}", strerror(errno));
             } else {
                 dma_buffer.buffer = (uint8_t *)buffer;
-                dma_buffer.completion = (uint8_t *)buffer + buf_size;
+                dma_buffer.completion = (uint8_t *)buffer + DMABUF_SIZE;
                 dma_buffer.buffer_pa = dma_buf.out.physical_address;
-                dma_buffer.completion_pa = dma_buf.out.physical_address + buf_size;
-                dma_buffer.size = buf_size;
+                dma_buffer.completion_pa = dma_buf.out.physical_address + DMABUF_SIZE;
+                dma_buffer.size = DMABUF_SIZE;
             }
         }
     }
@@ -446,6 +448,10 @@ PCIDevice::~PCIDevice() {
 
     if (system_reg_mapping != nullptr && system_reg_mapping != MAP_FAILED) {
         munmap(system_reg_mapping, system_reg_mapping_size);
+    }
+
+    if (dma_buffer.buffer != nullptr && dma_buffer.buffer != MAP_FAILED) {
+        munmap(dma_buffer.buffer, DMABUF_TOTAL_SIZE);
     }
 }
 
@@ -480,32 +486,6 @@ uint64_t PCIDevice::map_for_dma(void *buffer, size_t size) {
     pin_pages.in.virtual_address = vaddr;
     pin_pages.in.size = size;
 
-    // With IOMMU, this will probably fail on you if you're mapping something
-    // large.  The situation today is that the kernel driver uses a 32-bit DMA
-    // address mask, so all DMA allocations and mappings show up in the IOVA
-    // range of 0x0 to 0xffff'ffff.  According to syseng, we can get up to 3GB
-    // on Intel, 3.75GB on AMD, but this requires multiple mappings with small
-    // chunks, down to 2MB.  It's possible to make such non-contiguous mappings
-    // appear both virtually contiguous (to the application) and physically
-    // contiguous (to the NOC, using iATU), but it's not clear that this is
-    // worth the effort...  the scheme this is intended to replace supports up
-    // to 4GB which is what application developers want.
-    //
-    // What can we do here?
-    // 1. Use hugepages (part of what we are trying to avoid here).
-    // 2. Use a larger value for the driver's dma_address_bits (currently 32;
-    //    has implications for non-UMD based applications -- basically that any
-    //    DMA buffer mapped beyond the 4GB boundary requires iATU configuration
-    //    for the hardware to be able to reach it via NOC).
-    // 3. Use multiple mappings with small chunks (won't get us to 4GB; adds
-    //    complexity).
-    // 4. Modify the driver so that DMA allocations are in the low 4GB IOVA
-    //    range but mappings from userspace can be further up (requires driver
-    //    changes).
-    // 5. ???
-    //
-    // If you need a quick workaround here, I suggest:
-    //   sudo insmod ./tenstorrent.ko dma_address_bits=48
     if (ioctl(pci_device_file_desc, TENSTORRENT_IOCTL_PIN_PAGES, &pin_pages) == -1) {
         TT_THROW("Failed to pin pages for DMA: {}", strerror(errno));
     }

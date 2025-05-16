@@ -19,7 +19,6 @@
 #include "fmt/core.h"
 #include "tt_silicon_driver_common.hpp"
 #include "umd/device/chip/chip.h"
-#include "umd/device/tt_cluster_descriptor.h"
 #include "umd/device/tt_device/tt_device.h"
 #include "umd/device/tt_io.hpp"
 #include "umd/device/types/arch.h"
@@ -71,7 +70,7 @@ struct ClusterOptions {
     // If not passed, topology discovery will be ran and tt_ClusterDescriptor will be constructed. If passed, and chip
     // type is SILICON, the constructor will throw if cluster_descriptor configuration shows chips which don't exist on
     // the system.
-    std::unique_ptr<tt_ClusterDescriptor> cluster_descriptor = nullptr;
+    tt_ClusterDescriptor* cluster_descriptor = nullptr;
     // This parameter is used only for SIMULATION chip type.
     std::filesystem::path simulator_directory = "";
 };

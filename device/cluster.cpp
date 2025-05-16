@@ -132,12 +132,22 @@ void Cluster::construct_cluster(const uint32_t& num_host_mem_ch_per_mmio_device,
 
     if (chip_type == ChipType::SILICON) {
         std::vector<int> pci_ids;
-        for (const auto& [logical_id, pci_id] : cluster_desc->get_chips_with_mmio()) {
-            pci_ids.push_back(pci_id);
+        auto mmio_id_map = cluster_desc->get_chips_with_mmio();
+        for (chip_id_t local_chip_id : local_chip_ids_) {
+            auto it = mmio_id_map.find(local_chip_id);
+            if (it == mmio_id_map.end()) {
+                log_debug(LogSiliconDriver, "Chip {} is not MMIO capable. Skipping it.", local_chip_id);
+                continue;
+            }
+            pci_ids.push_back(it->second);
         }
         log_info(LogSiliconDriver, "Detected PCI devices: {}", pci_ids);
         log_info(
-            LogSiliconDriver, "Using local chip ids: {} and remote chip ids {}", local_chip_ids_, remote_chip_ids_);
+            LogSiliconDriver,
+            "Opening local chip ids/pci ids: {}/{} and remote chip ids {}",
+            local_chip_ids_,
+            pci_ids,
+            remote_chip_ids_);
     }
 
     create_device(local_chip_ids_, num_host_mem_ch_per_mmio_device, chip_type);
@@ -370,16 +380,21 @@ void Cluster::ubb_eth_connections(
 
 Cluster::Cluster(ClusterOptions options) {
     // If the cluster descriptor is not provided, create a new one.
-    cluster_desc = std::move(options.cluster_descriptor);
-    if (cluster_desc == nullptr) {
-        cluster_desc = Cluster::create_cluster_descriptor();
+    tt_ClusterDescriptor* temp_full_cluster_desc = options.cluster_descriptor;
+    std::unique_ptr<tt_ClusterDescriptor> temp_full_cluster_desc_ptr;
+    if (temp_full_cluster_desc == nullptr) {
+        temp_full_cluster_desc_ptr = Cluster::create_cluster_descriptor();
+        temp_full_cluster_desc = temp_full_cluster_desc_ptr.get();
     }
 
     std::unordered_set<chip_id_t> chips_to_construct = options.target_devices;
     // If no target devices are passed, obtain them from the cluster descriptor.
     if (chips_to_construct.empty()) {
-        chips_to_construct = cluster_desc->get_all_chips();
+        chips_to_construct = temp_full_cluster_desc->get_all_chips();
     }
+    // Create constrained cluster descriptor which only contains the chips to be in this Cluster.
+    cluster_desc =
+        tt_ClusterDescriptor::create_constrained_cluster_descriptor(temp_full_cluster_desc, chips_to_construct);
     std::vector<chip_id_t> chips_to_construct_vec(chips_to_construct.begin(), chips_to_construct.end());
     // Check target_devices against the cluster descriptor in case of silicon chips.
     // We also have to sort them so that local chips are constructed first.

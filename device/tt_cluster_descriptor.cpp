@@ -501,7 +501,7 @@ std::unique_ptr<tt_ClusterDescriptor> tt_ClusterDescriptor::create_constrained_c
     desc->all_chips = filter_chip_collection(full_cluster_desc->all_chips, target_chip_ids);
     desc->noc_translation_enabled = filter_chip_collection(full_cluster_desc->noc_translation_enabled, target_chip_ids);
     desc->harvesting_masks = filter_chip_collection(full_cluster_desc->harvesting_masks, target_chip_ids);
-    desc->closest_mmio_chip_cache = filter_chip_collection(full_cluster_desc->closest_mmio_chip_cache, target_chip_ids);
+    // desc->closest_mmio_chip_cache is not copied intentionally, it could hold wrong information.
     desc->chip_board_type = filter_chip_collection(full_cluster_desc->chip_board_type, target_chip_ids);
     desc->chip_arch = filter_chip_collection(full_cluster_desc->chip_arch, target_chip_ids);
     desc->chip_uid_to_chip_id = filter_chip_collection(full_cluster_desc->chip_uid_to_chip_id, target_chip_ids);

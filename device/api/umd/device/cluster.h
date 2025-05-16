@@ -71,7 +71,7 @@ struct ClusterOptions {
     // If not passed, topology discovery will be ran and tt_ClusterDescriptor will be constructed. If passed, and chip
     // type is SILICON, the constructor will throw if cluster_descriptor configuration shows chips which don't exist on
     // the system.
-    std::unique_ptr<tt_ClusterDescriptor> cluster_descriptor = nullptr;
+    tt_ClusterDescriptor* cluster_descriptor = nullptr;
     // This parameter is used only for SIMULATION chip type.
     std::filesystem::path simulator_directory = "";
 };

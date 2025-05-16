@@ -71,8 +71,9 @@ TEST(ApiClusterTest, DifferentConstructors) {
     std::filesystem::path cluster_path2 = umd_cluster->get_cluster_description()->serialize_to_file();
     umd_cluster = nullptr;
 
+    std::unique_ptr<tt_ClusterDescriptor> cluster_desc = tt_ClusterDescriptor::create_from_yaml(cluster_path1);
     umd_cluster = std::make_unique<Cluster>(ClusterOptions{
-        .cluster_descriptor = tt_ClusterDescriptor::create_from_yaml(cluster_path1),
+        .cluster_descriptor = cluster_desc.get(),
     });
     umd_cluster = nullptr;
 

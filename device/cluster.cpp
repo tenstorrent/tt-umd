@@ -1260,8 +1260,6 @@ std::unique_ptr<tt_ClusterDescriptor> Cluster::create_cluster_descriptor(
         ubb_eth_connections(chips, desc);
     }
 
-    desc->enable_all_devices();
-
     desc->fill_chips_grouped_by_closest_mmio();
 
     return desc;

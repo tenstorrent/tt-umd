@@ -188,6 +188,8 @@ public:
 
     virtual BoardType get_board_type() = 0;
 
+    virtual bool get_noc_translation_enabled() = 0;
+
     // TODO: find a way to expose this in a better way, probably through getting telemetry reader and reading the
     // required fields. Returns the information whether DRAM training status is available and the status value.
     virtual std::vector<DramTrainingStatus> get_dram_training_status();
@@ -214,6 +216,8 @@ protected:
     // to 2-byte writes. We avoid ever performing a 1-byte write to the device. This only affects to device.
     void memcpy_to_device(void *dest, const void *src, std::size_t num_bytes);
     void memcpy_from_device(void *dest, const void *src, std::size_t num_bytes);
+
+    virtual void init_tt_device();
 
     ChipInfo chip_info;
 };

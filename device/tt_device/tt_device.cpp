@@ -26,6 +26,8 @@ TTDevice::TTDevice(
     telemetry = ArcTelemetryReader::create_arc_telemetry_reader(this);
 }
 
+TTDevice::TTDevice() {}
+
 /* static */ std::unique_ptr<TTDevice> TTDevice::create(int pci_device_number) {
     auto pci_device = std::make_unique<PCIDevice>(pci_device_number);
 
@@ -387,7 +389,11 @@ uint32_t TTDevice::get_min_clock_freq() {
         "Grayskull TTDevice is deleted.");
 }
 
-TTDevice::~TTDevice() { lock_manager.clear_mutex(MutexType::TT_DEVICE_IO, get_pci_device()->get_device_num()); }
+TTDevice::~TTDevice() {
+    if (get_pci_device() != nullptr) {
+        lock_manager.clear_mutex(MutexType::TT_DEVICE_IO, get_pci_device()->get_device_num());
+    }
+}
 
 std::vector<DramTrainingStatus> TTDevice::get_dram_training_status() { return {}; }
 

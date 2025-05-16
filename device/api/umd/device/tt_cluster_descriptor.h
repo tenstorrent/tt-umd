@@ -43,6 +43,9 @@ private:
 protected:
     std::unordered_map<chip_id_t, std::unordered_map<ethernet_channel_t, std::tuple<chip_id_t, ethernet_channel_t>>>
         ethernet_connections;
+    // TODO: unify uint64_t with ChipUID
+    std::unordered_map<chip_id_t, std::unordered_map<ethernet_channel_t, std::tuple<uint64_t, ethernet_channel_t>>>
+        ethernet_connections_to_remote_mmio_devices;
     std::unordered_map<chip_id_t, eth_coord_t> chip_locations;
     // reverse map: rack/shelf/y/x -> chip_id
     std::map<int, std::map<int, std::map<int, std::map<int, chip_id_t>>>> coords_to_chip_ids;
@@ -120,6 +123,10 @@ public:
     const std::
         unordered_map<chip_id_t, std::unordered_map<ethernet_channel_t, std::tuple<chip_id_t, ethernet_channel_t>>> &
         get_ethernet_connections() const;
+    // TODO: unify uint64_t with ChipUID
+    const std::
+        unordered_map<chip_id_t, std::unordered_map<ethernet_channel_t, std::tuple<uint64_t, ethernet_channel_t>>>
+        get_ethernet_connections_to_remote_mmio_devices() const;
     const std::unordered_map<chip_id_t, chip_id_t> &get_chips_with_mmio() const;
     const std::unordered_set<chip_id_t> &get_all_chips() const;
     const std::vector<chip_id_t> get_chips_local_first(std::unordered_set<chip_id_t> chips) const;

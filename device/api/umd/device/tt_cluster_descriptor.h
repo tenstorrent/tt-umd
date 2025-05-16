@@ -118,7 +118,7 @@ public:
 
     const std::unordered_map<chip_id_t, std::uint32_t> &get_harvesting_info() const;
     const std::unordered_map<chip_id_t, bool> &get_noc_translation_table_en() const;
-    const std::unordered_map<chip_id_t, eth_coord_t> get_chip_locations() const;
+    const std::unordered_map<chip_id_t, eth_coord_t> &get_chip_locations() const;
     const std::unordered_map<chip_id_t, uint64_t> &get_chip_unique_ids() const;
     const std::
         unordered_map<chip_id_t, std::unordered_map<ethernet_channel_t, std::tuple<chip_id_t, ethernet_channel_t>>> &

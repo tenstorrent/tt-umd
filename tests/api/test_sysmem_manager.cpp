@@ -45,6 +45,14 @@ TEST(ApiSysmemManager, BasicIO) {
 }
 
 TEST(ApiSysmemManager, SysmemBuffersAllocation) {
+    std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
+    if (pci_device_ids.empty()) {
+        GTEST_SKIP() << "No chips present on the system. Skipping test.";
+    }
+    if (!PCIDevice(pci_device_ids[0]).is_iommu_enabled()) {
+        GTEST_SKIP() << "Skipping NOC1 test for Blackhole until coordinate translation is fixed.";
+    }
+
     const uint32_t one_page = sysconf(_SC_PAGESIZE);
     const uint32_t one_mb = 1 << 20;
 
@@ -55,14 +63,6 @@ TEST(ApiSysmemManager, SysmemBuffersAllocation) {
     std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>(tt::umd::ClusterOptions{
         .num_host_mem_ch_per_mmio_device = 0,
     });
-
-    if (cluster->get_target_device_ids().empty()) {
-        GTEST_SKIP() << "No chips present on the system. Skipping test.";
-    }
-
-    if (!cluster->get_tt_device(0)->get_pci_device()->is_iommu_enabled()) {
-        GTEST_SKIP() << "IOMMU is not enabled. Skipping test.";
-    }
 
     for (const chip_id_t chip_id : cluster->get_target_device_ids()) {
         SysmemManager* sysmem_manager = cluster->get_chip(chip_id)->get_sysmem_manager();
@@ -89,17 +89,17 @@ TEST(ApiSysmemManager, SysmemBuffersAllocation) {
 }
 
 TEST(ApiSysmemManager, SysmemBuffers) {
+    std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
+    if (pci_device_ids.empty()) {
+        GTEST_SKIP() << "No chips present on the system. Skipping test.";
+    }
+    if (!PCIDevice(pci_device_ids[0]).is_iommu_enabled()) {
+        GTEST_SKIP() << "Skipping NOC1 test for Blackhole until coordinate translation is fixed.";
+    }
+
     std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>(tt::umd::ClusterOptions{
         .num_host_mem_ch_per_mmio_device = 0,
     });
-
-    if (cluster->get_target_device_ids().empty()) {
-        GTEST_SKIP() << "No chips present on the system. Skipping test.";
-    }
-
-    if (!cluster->get_tt_device(0)->get_pci_device()->is_iommu_enabled()) {
-        GTEST_SKIP() << "IOMMU is not enabled. Skipping test.";
-    }
 
     const chip_id_t mmio_chip = *cluster->get_target_mmio_device_ids().begin();
 

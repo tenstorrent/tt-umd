@@ -30,7 +30,7 @@ bool tt_ClusterDescriptor::ethernet_core_has_active_ethernet_link(
 std::tuple<chip_id_t, ethernet_channel_t> tt_ClusterDescriptor::get_chip_and_channel_of_remote_ethernet_core(
     chip_id_t local_chip, ethernet_channel_t local_ethernet_channel) const {
     std::vector<std::tuple<ethernet_channel_t, ethernet_channel_t>> directly_connected_channels = {};
-    if (this->enabled_active_chips.find(local_chip) == this->enabled_active_chips.end() ||
+    if (this->all_chips.find(local_chip) == this->all_chips.end() ||
         this->ethernet_connections.at(local_chip).find(local_ethernet_channel) ==
             this->ethernet_connections.at(local_chip).end()) {
         return {};
@@ -38,7 +38,7 @@ std::tuple<chip_id_t, ethernet_channel_t> tt_ClusterDescriptor::get_chip_and_cha
 
     const auto &[connected_chip, connected_channel] =
         this->ethernet_connections.at(local_chip).at(local_ethernet_channel);
-    if (this->enabled_active_chips.find(connected_chip) == this->enabled_active_chips.end()) {
+    if (this->all_chips.find(connected_chip) == this->all_chips.end()) {
         return {};
     } else {
         return {connected_chip, connected_channel};
@@ -51,8 +51,7 @@ std::vector<std::tuple<ethernet_channel_t, ethernet_channel_t>>
 tt_ClusterDescriptor::get_directly_connected_ethernet_channels_between_chips(
     const chip_id_t &first, const chip_id_t &second) const {
     std::vector<std::tuple<ethernet_channel_t, ethernet_channel_t>> directly_connected_channels = {};
-    if (this->enabled_active_chips.find(first) == this->enabled_active_chips.end() ||
-        this->enabled_active_chips.find(second) == this->enabled_active_chips.end()) {
+    if (this->all_chips.find(first) == this->all_chips.end() || this->all_chips.find(second) == this->all_chips.end()) {
         return {};
     }
 
@@ -434,7 +433,6 @@ std::unique_ptr<tt_ClusterDescriptor> tt_ClusterDescriptor::create_from_yaml(
     tt_ClusterDescriptor::load_ethernet_connections_from_connectivity_descriptor(yaml, *desc);
     tt_ClusterDescriptor::merge_cluster_ids(*desc);
     tt_ClusterDescriptor::fill_galaxy_connections(*desc);
-    desc->enable_all_devices();
 
     desc->fill_chips_grouped_by_closest_mmio();
 
@@ -474,8 +472,6 @@ std::unique_ptr<tt_ClusterDescriptor> tt_ClusterDescriptor::create_mock_cluster(
         desc->chips_with_mmio.insert({logical_id, logical_id});
         desc->chip_arch.insert({logical_id, arch});
     }
-
-    desc->enable_all_devices();
 
     return desc;
 }
@@ -823,8 +819,6 @@ void tt_ClusterDescriptor::load_harvesting_information(YAML::Node &yaml, tt_Clus
     }
 }
 
-void tt_ClusterDescriptor::enable_all_devices() { this->enabled_active_chips = this->all_chips; }
-
 void tt_ClusterDescriptor::fill_chips_grouped_by_closest_mmio() {
     for (const auto &chip : this->all_chips) {
         // This will also fill up the closest_mmio_chip_cache
@@ -833,34 +827,13 @@ void tt_ClusterDescriptor::fill_chips_grouped_by_closest_mmio() {
     }
 }
 
-const std::unordered_map<chip_id_t, std::unordered_map<ethernet_channel_t, std::tuple<chip_id_t, ethernet_channel_t>>>
+const std::unordered_map<chip_id_t, std::unordered_map<ethernet_channel_t, std::tuple<chip_id_t, ethernet_channel_t>>> &
 tt_ClusterDescriptor::get_ethernet_connections() const {
-    auto eth_connections = std::
-        unordered_map<chip_id_t, std::unordered_map<ethernet_channel_t, std::tuple<chip_id_t, ethernet_channel_t>>>();
-
-    for (const auto &[chip, channel_mapping] : this->ethernet_connections) {
-        if (this->enabled_active_chips.find(chip) != this->enabled_active_chips.end()) {
-            eth_connections[chip] = {};
-            for (const auto &[src_channel, chip_channel] : channel_mapping) {
-                const auto &[dest_chip, dest_channel] = chip_channel;
-                if (this->enabled_active_chips.find(dest_chip) != this->enabled_active_chips.end()) {
-                    eth_connections[chip][src_channel] = chip_channel;
-                }
-            }
-        }
-    }
-    return eth_connections;
+    return ethernet_connections;
 }
 
 const std::unordered_map<chip_id_t, eth_coord_t> &tt_ClusterDescriptor::get_chip_locations() const {
-    static auto locations = std::unordered_map<chip_id_t, eth_coord_t>();
-    if (locations.empty() and !this->chip_locations.empty()) {
-        for (auto chip_id : this->enabled_active_chips) {
-            locations[chip_id] = chip_locations.at(chip_id);
-        }
-    }
-
-    return locations;
+    return chip_locations;
 }
 
 // Note: this API works only for Wormhole 6U galaxy at the moment.
@@ -882,27 +855,17 @@ chip_id_t tt_ClusterDescriptor::get_shelf_local_physical_chip_coords(chip_id_t v
 }
 
 // Return map, but filter by enabled active chips.
-const std::unordered_map<chip_id_t, chip_id_t> tt_ClusterDescriptor::get_chips_with_mmio() const {
-    auto chips_map = std::unordered_map<chip_id_t, chip_id_t>();
-    for (const auto &pair : chips_with_mmio) {
-        auto &chip_id = pair.first;
-        if (this->enabled_active_chips.find(chip_id) != this->enabled_active_chips.end()) {
-            chips_map.insert(pair);
-        }
-    }
-
-    return chips_map;
+const std::unordered_map<chip_id_t, chip_id_t> &tt_ClusterDescriptor::get_chips_with_mmio() const {
+    return chips_with_mmio;
 }
 
-const std::unordered_set<chip_id_t> &tt_ClusterDescriptor::get_all_chips() const { return this->enabled_active_chips; }
+const std::unordered_set<chip_id_t> &tt_ClusterDescriptor::get_all_chips() const { return this->all_chips; }
 
 const std::vector<chip_id_t> tt_ClusterDescriptor::get_chips_local_first(std::unordered_set<chip_id_t> chips) const {
     std::vector<chip_id_t> chips_local_first;
     for (const auto &chip : chips) {
         TT_ASSERT(
-            this->enabled_active_chips.find(chip) != this->enabled_active_chips.end(),
-            "Chip {} not found in cluster descriptor.",
-            chip);
+            this->all_chips.find(chip) != this->all_chips.end(), "Chip {} not found in cluster descriptor.", chip);
     }
     for (const auto &chip : chips) {
         if (is_chip_mmio_capable(chip)) {
@@ -925,7 +888,7 @@ const std::unordered_map<chip_id_t, bool> &tt_ClusterDescriptor::get_noc_transla
     return noc_translation_enabled;
 }
 
-std::size_t tt_ClusterDescriptor::get_number_of_chips() const { return this->enabled_active_chips.size(); }
+std::size_t tt_ClusterDescriptor::get_number_of_chips() const { return this->all_chips.size(); }
 
 int tt_ClusterDescriptor::get_ethernet_link_distance(chip_id_t chip_a, chip_id_t chip_b) const {
     TT_ASSERT(

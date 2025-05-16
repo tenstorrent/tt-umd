@@ -15,19 +15,22 @@ static constexpr uint32_t DMA_TIMEOUT_MS = 10000;  // 10 seconds
 namespace tt::umd {
 
 WormholeTTDevice::WormholeTTDevice(std::unique_ptr<PCIDevice> pci_device) :
-    TTDevice(std::move(pci_device), std::make_unique<wormhole_implementation>()) {}
+    TTDevice(std::move(pci_device), std::make_unique<wormhole_implementation>()) {
+    init_tt_device();
+}
 
-ChipInfo WormholeTTDevice::get_chip_info() {
-    ChipInfo chip_info;
-
+bool WormholeTTDevice::get_noc_translation_enabled() {
     uint32_t niu_cfg;
     const tt_xy_pair dram_core = {0, 0};
     const uint64_t niu_cfg_addr = 0x1000A0000 + 0x100;
     read_from_device(&niu_cfg, dram_core, niu_cfg_addr, sizeof(uint32_t));
 
-    bool noc_translation_enabled = (niu_cfg & (1 << 14)) != 0;
+    return (niu_cfg & (1 << 14)) != 0;
+}
 
-    chip_info.noc_translation_enabled = noc_translation_enabled;
+ChipInfo WormholeTTDevice::get_chip_info() {
+    ChipInfo chip_info;
+    chip_info.noc_translation_enabled = get_noc_translation_enabled();
 
     std::vector<uint32_t> arc_msg_return_values = {0};
     const uint32_t timeout_ms = 1000;
@@ -138,12 +141,7 @@ void WormholeTTDevice::configure_iatu_region(size_t region, uint64_t target, siz
         target);
 }
 
-// TODO: This is a temporary implementation, and ought to be replaced with a
-// driver-based technique that can take advantage of multiple channels and
-// interrupts.  With a driver-based implementation we can also avoid the need to
-// memcpy into/out of a buffer, although exposing zero-copy DMA functionality to
-// the application will require IOMMU support.  One day...
-void WormholeTTDevice::dma_d2h(void *dst, uint32_t src, size_t size) {
+void WormholeTTDevice::dma_d2h_transfer(void *dst, uint32_t src, size_t size) {
     static constexpr uint64_t DMA_WRITE_ENGINE_EN_OFF = 0xc;
     static constexpr uint64_t DMA_WRITE_INT_MASK_OFF = 0x54;
     static constexpr uint64_t DMA_CH_CONTROL1_OFF_WRCH_0 = 0x200;
@@ -202,8 +200,9 @@ void WormholeTTDevice::dma_d2h(void *dst, uint32_t src, size_t size) {
     write_reg(DMA_TRANSFER_SIZE_OFF_WRCH_0, size);
     write_reg(DMA_SAR_LOW_OFF_WRCH_0, src);
     write_reg(DMA_SAR_HIGH_OFF_WRCH_0, 0);
-    write_reg(DMA_DAR_LOW_OFF_WRCH_0, dma_buffer.buffer_pa);
-    write_reg(DMA_DAR_HIGH_OFF_WRCH_0, 0);
+    uint64_t dst_addr = reinterpret_cast<uint64_t>(dst);
+    write_reg(DMA_DAR_LOW_OFF_WRCH_0, (uint32_t)(dst_addr & 0xFFFFFFFF));
+    write_reg(DMA_DAR_HIGH_OFF_WRCH_0, (uint32_t)((dst_addr >> 32) & 0xFFFFFFFF));
     write_reg(DMA_WRITE_DOORBELL_OFF, 0);
 
     auto start = std::chrono::steady_clock::now();
@@ -219,11 +218,9 @@ void WormholeTTDevice::dma_d2h(void *dst, uint32_t src, size_t size) {
             throw std::runtime_error("DMA timeout");
         }
     }
-
-    memcpy(dst, dma_buffer.buffer, size);
 }
 
-void WormholeTTDevice::dma_h2d(uint32_t dst, const void *src, size_t size) {
+void WormholeTTDevice::dma_h2d_transfer(uint32_t dst, const void *src, size_t size) {
     static constexpr uint64_t DMA_READ_ENGINE_EN_OFF = 0x2c;
     static constexpr uint64_t DMA_READ_INT_MASK_OFF = 0xa8;
     static constexpr uint64_t DMA_CH_CONTROL1_OFF_RDCH_0 = 0x300;
@@ -264,9 +261,6 @@ void WormholeTTDevice::dma_h2d(uint32_t dst, const void *src, size_t size) {
         throw std::runtime_error("BAR2 is not mapped");
     }
 
-    // Prepare the DMA buffer.
-    memcpy(dma_buffer.buffer, src, size);
-
     // Reset completion flag.
     *completion = 0;
 
@@ -283,8 +277,9 @@ void WormholeTTDevice::dma_h2d(uint32_t dst, const void *src, size_t size) {
     write_reg(DMA_READ_ABORT_IMWR_LOW_OFF, 0);
     write_reg(DMA_READ_ABORT_IMWR_HIGH_OFF, 0);
     write_reg(DMA_TRANSFER_SIZE_OFF_RDCH_0, size);
-    write_reg(DMA_SAR_LOW_OFF_RDCH_0, dma_buffer.buffer_pa);
-    write_reg(DMA_SAR_HIGH_OFF_RDCH_0, 0);
+    uint64_t src_addr = reinterpret_cast<uint64_t>(src);
+    write_reg(DMA_SAR_LOW_OFF_RDCH_0, (uint32_t)(src_addr & 0xFFFFFFFF));
+    write_reg(DMA_SAR_HIGH_OFF_RDCH_0, (uint32_t)((src_addr >> 32) & 0xFFFFFFFF));
     write_reg(DMA_DAR_LOW_OFF_RDCH_0, dst);
     write_reg(DMA_DAR_HIGH_OFF_RDCH_0, 0);
     write_reg(DMA_READ_DOORBELL_OFF, 0);
@@ -303,5 +298,28 @@ void WormholeTTDevice::dma_h2d(uint32_t dst, const void *src, size_t size) {
         }
     }
 }
+
+// TODO: This is a temporary implementation, and ought to be replaced with a
+// driver-based technique that can take advantage of multiple channels and
+// interrupts.  With a driver-based implementation we can also avoid the need to
+// memcpy into/out of a buffer, although exposing zero-copy DMA functionality to
+// the application will require IOMMU support.  One day...
+void WormholeTTDevice::dma_d2h(void *dst, uint32_t src, size_t size) {
+    DmaBuffer &dma_buffer = pci_device_->get_dma_buffer();
+    dma_d2h_transfer((void *)(uintptr_t)dma_buffer.buffer_pa, src, size);
+    memcpy(dst, dma_buffer.buffer, size);
+}
+
+void WormholeTTDevice::dma_h2d(uint32_t dst, const void *src, size_t size) {
+    DmaBuffer &dma_buffer = pci_device_->get_dma_buffer();
+    memcpy(dma_buffer.buffer, src, size);
+    dma_h2d_transfer(dst, (void *)(uintptr_t)dma_buffer.buffer_pa, size);
+}
+
+void WormholeTTDevice::dma_h2d_zero_copy(uint32_t dst, const void *src, size_t size) {
+    dma_h2d_transfer(dst, src, size);
+}
+
+void WormholeTTDevice::dma_d2h_zero_copy(void *dst, uint32_t src, size_t size) { dma_d2h_transfer(dst, src, size); }
 
 }  // namespace tt::umd

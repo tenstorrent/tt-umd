@@ -82,8 +82,8 @@ public:
 
 private:
     std::unique_ptr<TTDevice> tt_device_;
-    std::unique_ptr<SysmemManager> sysmem_manager_;
     std::unique_ptr<TLBManager> tlb_manager_;
+    std::unique_ptr<SysmemManager> sysmem_manager_;
     LockManager lock_manager_;
     // Used only for ethernet broadcast to all remote chips.
     std::unique_ptr<RemoteCommunication> remote_communication_;

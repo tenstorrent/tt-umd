@@ -27,8 +27,8 @@ const uint64_t BH_4GB_TLB_SIZE = 4ULL * 1024 * 1024 * 1024;
 LocalChip::LocalChip(tt_SocDescriptor soc_descriptor, int pci_device_id, int num_host_mem_channels) :
     Chip(soc_descriptor),
     tt_device_(TTDevice::create(pci_device_id)),
-    sysmem_manager_(std::make_unique<SysmemManager>(tt_device_.get())),
     tlb_manager_(std::make_unique<TLBManager>(tt_device_.get())),
+    sysmem_manager_(std::make_unique<SysmemManager>(tlb_manager_.get())),
     remote_communication_(std::make_unique<RemoteCommunication>(this)) {
     initialize_local_chip(num_host_mem_channels);
 }
@@ -42,8 +42,8 @@ LocalChip::LocalChip(std::string sdesc_path, std::unique_ptr<TTDevice> tt_device
             tt_device->get_chip_info().harvesting_masks,
             tt_device->get_chip_info().board_type)),
     tt_device_(std::move(tt_device)),
-    sysmem_manager_(std::make_unique<SysmemManager>(tt_device_.get())),
-    tlb_manager_(std::make_unique<TLBManager>(tt_device_.get())) {
+    tlb_manager_(std::make_unique<TLBManager>(tt_device_.get())),
+    sysmem_manager_(std::make_unique<SysmemManager>(tlb_manager_.get())) {
     initialize_local_chip();
 }
 
@@ -56,8 +56,8 @@ LocalChip::LocalChip(std::unique_ptr<TTDevice> tt_device) :
             tt_device->get_chip_info().harvesting_masks,
             tt_device->get_chip_info().board_type)),
     tt_device_(std::move(tt_device)),
-    sysmem_manager_(std::make_unique<SysmemManager>(tt_device_.get())),
-    tlb_manager_(std::make_unique<TLBManager>(tt_device_.get())) {
+    tlb_manager_(std::make_unique<TLBManager>(tt_device_.get())),
+    sysmem_manager_(std::make_unique<SysmemManager>(tlb_manager_.get())) {
     initialize_local_chip();
 }
 
@@ -280,7 +280,9 @@ void LocalChip::read_from_device(tt_xy_pair core, void* dest, uint64_t l1_src, u
 
 void LocalChip::dma_write_to_device(const void* src, size_t size, tt_xy_pair core, uint64_t addr) {
     static const std::string tlb_name = "LARGE_WRITE_TLB";
+
     const uint8_t* buffer = static_cast<const uint8_t*>(src);
+
     auto tlb_index = tlb_manager_->dynamic_tlb_config_.at(tlb_name);
     auto ordering = tlb_manager_->dynamic_tlb_ordering_modes_.at(tlb_name);
     PCIDevice* pci_device = tt_device_->get_pci_device();
@@ -291,6 +293,7 @@ void LocalChip::dma_write_to_device(const void* src, size_t size, tt_xy_pair cor
     auto lock = acquire_mutex(tlb_name, pci_device->get_device_num());
     while (size > 0) {
         auto [axi_address, tlb_size] = tt_device_->set_dynamic_tlb(tlb_index, core, addr, ordering);
+
         size_t transfer_size = std::min({size, tlb_size, dmabuf_size});
 
         tt_device_->dma_h2d(axi_address, buffer, transfer_size);
@@ -314,6 +317,7 @@ void LocalChip::dma_read_from_device(void* dst, size_t size, tt_xy_pair core, ui
     auto lock = acquire_mutex(tlb_name, pci_device->get_device_num());
     while (size > 0) {
         auto [axi_address, tlb_size] = tt_device_->set_dynamic_tlb(tlb_index, core, addr, ordering);
+
         size_t transfer_size = std::min({size, tlb_size, dmabuf_size});
 
         tt_device_->dma_d2h(buffer, axi_address, transfer_size);
@@ -392,11 +396,7 @@ tt_xy_pair LocalChip::translate_chip_coord_virtual_to_translated(const tt_xy_pai
     // On Wormhole Tensix can use NOC1 space if umd_use_noc1 is set to true.
     if (soc_descriptor_.noc_translation_enabled) {
         if (soc_descriptor_.arch == tt::ARCH::BLACKHOLE) {
-            if (core_coord.core_type == CoreType::TENSIX || !umd_use_noc1) {
-                return soc_descriptor_.translate_coord_to(core_coord, CoordSystem::TRANSLATED);
-            } else {
-                return soc_descriptor_.translate_coord_to(core_coord, CoordSystem::NOC1);
-            }
+            return soc_descriptor_.translate_coord_to(core_coord, CoordSystem::TRANSLATED);
         } else {
             return soc_descriptor_.translate_coord_to(
                 core_coord, umd_use_noc1 ? CoordSystem::NOC1 : CoordSystem::TRANSLATED);

@@ -50,7 +50,6 @@ protected:
     std::unordered_set<chip_id_t> all_chips;
     std::unordered_map<chip_id_t, bool> noc_translation_enabled = {};
     std::unordered_map<chip_id_t, std::uint32_t> harvesting_masks = {};
-    std::unordered_set<chip_id_t> enabled_active_chips;
     std::unordered_map<chip_id_t, chip_id_t> closest_mmio_chip_cache = {};
     std::unordered_map<chip_id_t, BoardType> chip_board_type = {};
     std::unordered_map<chip_id_t, std::unordered_set<chip_id_t>> chips_grouped_by_closest_mmio;
@@ -119,9 +118,9 @@ public:
     const std::unordered_map<chip_id_t, eth_coord_t> &get_chip_locations() const;
     const std::unordered_map<chip_id_t, uint64_t> &get_chip_unique_ids() const;
     const std::
-        unordered_map<chip_id_t, std::unordered_map<ethernet_channel_t, std::tuple<chip_id_t, ethernet_channel_t>>>
+        unordered_map<chip_id_t, std::unordered_map<ethernet_channel_t, std::tuple<chip_id_t, ethernet_channel_t>>> &
         get_ethernet_connections() const;
-    const std::unordered_map<chip_id_t, chip_id_t> get_chips_with_mmio() const;
+    const std::unordered_map<chip_id_t, chip_id_t> &get_chips_with_mmio() const;
     const std::unordered_set<chip_id_t> &get_all_chips() const;
     const std::vector<chip_id_t> get_chips_local_first(std::unordered_set<chip_id_t> chips) const;
     const std::unordered_map<chip_id_t, std::unordered_set<chip_id_t>> &get_chips_grouped_by_closest_mmio() const;
@@ -139,8 +138,6 @@ public:
     bool ethernet_core_has_active_ethernet_link(chip_id_t local_chip, ethernet_channel_t local_ethernet_channel) const;
     std::tuple<chip_id_t, ethernet_channel_t> get_chip_and_channel_of_remote_ethernet_core(
         chip_id_t local_chip, ethernet_channel_t local_ethernet_channel) const;
-
-    void enable_all_devices();
 
     // Serialize the cluster descriptor to a YAML string, or directly to a file.
     // A default file in /tmp directory will be used if no path is passed.

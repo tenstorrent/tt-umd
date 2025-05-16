@@ -82,6 +82,16 @@ public:
     virtual void dma_d2h(void *dst, uint32_t src, size_t size) = 0;
 
     /**
+     * DMA transfer from device to host.
+     *
+     * @param dst destination buffer
+     * @param src AXI address corresponding to inbound PCIe TLB window; src % 4 == 0
+     * @param size number of bytes
+     * @throws std::runtime_error if the DMA transfer fails
+     */
+    virtual void dma_d2h_zero_copy(void *dst, uint32_t src, size_t size) = 0;
+
+    /**
      * DMA transfer from host to device.
      *
      * @param dst AXI address corresponding to inbound PCIe TLB window; dst % 4 == 0
@@ -90,6 +100,16 @@ public:
      * @throws std::runtime_error if the DMA transfer fails
      */
     virtual void dma_h2d(uint32_t dst, const void *src, size_t size) = 0;
+
+    /**
+     * DMA transfer from host to device.
+     *
+     * @param dst AXI address corresponding to inbound PCIe TLB window; dst % 4 == 0
+     * @param src source buffer
+     * @param size number of bytes
+     * @throws std::runtime_error if the DMA transfer fails
+     */
+    virtual void dma_h2d_zero_copy(uint32_t dst, const void *src, size_t size) = 0;
 
     // Read/write functions that always use same TLB entry. This is not supposed to be used
     // on any code path that is performance critical. It is used to read/write the data needed
@@ -168,6 +188,8 @@ public:
 
     virtual BoardType get_board_type() = 0;
 
+    virtual bool get_noc_translation_enabled() = 0;
+
     // TODO: find a way to expose this in a better way, probably through getting telemetry reader and reading the
     // required fields. Returns the information whether DRAM training status is available and the status value.
     virtual std::vector<DramTrainingStatus> get_dram_training_status();
@@ -194,6 +216,8 @@ protected:
     // to 2-byte writes. We avoid ever performing a 1-byte write to the device. This only affects to device.
     void memcpy_to_device(void *dest, const void *src, std::size_t num_bytes);
     void memcpy_from_device(void *dest, const void *src, std::size_t num_bytes);
+
+    virtual void init_tt_device();
 
     ChipInfo chip_info;
 };

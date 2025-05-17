@@ -14,6 +14,11 @@
 #include <tt-logger/tt-logger-initializer.hpp>
 
 namespace umd_logging {
+
+constexpr auto file_env_var = "TT_METAL_LOGGER_FILE";
+constexpr auto level_env_var = "TT_METAL_LOGGER_LEVEL";
+constexpr auto log_pattern = "[%Y-%m-%d %H:%M:%S.%e] [%l] [%s:%#] %v";
+
 /**
  * @brief Static instance of LoggerInitializer for UMD logging
  *
@@ -26,5 +31,5 @@ namespace umd_logging {
  * setting up either file-based or console-based logging depending on
  * the environment variable configuration.
  */
-static tt::LoggerInitializer loggerInitializer("TT_UMD_LOGGER_FILE", "TT_UMD_LOGGER_LEVEL");
+static tt::LoggerInitializer loggerInitializer(file_env_var, level_env_var, log_pattern);
 }  // namespace umd_logging

@@ -31,5 +31,8 @@ constexpr auto log_pattern = "[%Y-%m-%d %H:%M:%S.%e] [%l] [%s:%#] %v";
  * setting up either file-based or console-based logging depending on
  * the environment variable configuration.
  */
-static tt::LoggerInitializer loggerInitializer(file_env_var, level_env_var, log_pattern);
+static tt::LoggerInitializer loggerInitializer(file_env_var, level_env_var);
+
+// Note - Using default logger pattern, until source_location info can be fixed
+
 }  // namespace umd_logging

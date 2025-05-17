@@ -1,5 +1,7 @@
 set(POSITION_INDEPENDENT_CODE ON)
 
+add_subdirectory(logger_init)
+
 if(TT_UMD_BUILD_SIMULATION)
     set(FBS_FILE ${PROJECT_SOURCE_DIR}/device/simulation/tt_simulation_device.fbs)
     get_filename_component(FBS_FILE_NAME ${FBS_FILE} NAME_WLE)
@@ -143,6 +145,7 @@ target_link_libraries(
     PRIVATE
         umd::Common
         umd::Firmware
+        umd::Logger::Init
         hwloc
         rt
         spdlog::spdlog_header_only

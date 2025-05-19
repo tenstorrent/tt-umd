@@ -8,8 +8,8 @@
 #include <numeric>
 #include <random>
 #include <thread>
+#include <tt-logger/tt-logger.hpp>
 
-#include "common/logger.hpp"
 #include "filesystem"
 #include "gtest/gtest.h"
 #include "test_wh_common.h"

@@ -5,7 +5,7 @@
  */
 #include "umd/device/utils/lock_manager.h"
 
-#include "logger.hpp"
+#include <tt-logger/tt-logger.hpp>
 
 namespace tt::umd {
 

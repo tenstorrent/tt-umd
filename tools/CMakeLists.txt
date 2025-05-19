@@ -7,6 +7,7 @@ target_link_libraries(
         umd::Firmware
         fmt::fmt-header-only
         spdlog::spdlog_header_only
+        tt-logger::tt-logger
         cxxopts::cxxopts
 )
 

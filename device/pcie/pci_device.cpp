@@ -14,12 +14,14 @@
 
 #include <cstdint>
 #include <cstring>  // for memcpy
+#include <filesystem>
+#include <fstream>
 #include <optional>
+#include <tt-logger/tt-logger.hpp>
 #include <vector>
 
 #include "assert.hpp"
 #include "ioctl.h"
-#include "logger.hpp"
 #include "umd/device/types/arch.h"
 
 static const uint16_t GS_PCIE_DEVICE_ID = 0xfaca;
@@ -190,7 +192,7 @@ PCIDevice::PCIDevice(int pci_device_number) :
         kmd_version.to_string(),
         iommu_enabled ? "enabled" : "disabled");
 
-    log_assert(arch != tt::ARCH::WORMHOLE_B0 || revision == 0x01, "Wormhole B0 must have revision 0x01");
+    TT_ASSERT(arch != tt::ARCH::WORMHOLE_B0 || revision == 0x01, "Wormhole B0 must have revision 0x01");
 
     struct {
         tenstorrent_query_mappings query_mappings;

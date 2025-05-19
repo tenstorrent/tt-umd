@@ -124,10 +124,10 @@ static const std::vector<tt_xy_pair> ROUTER_CORES_NOC0 = {
     {15, 0},
     {16, 0},
     {8, 1},
-    {8, 3},
-    {8, 5},
-    {8, 7},
-    {8, 9},
+    {8, 10},
+    {8, 8},
+    {8, 6},
+    {8, 4},
     {8, 11}};
 
 static const size_t NUM_ETH_CHANNELS = 14;
@@ -151,7 +151,7 @@ static const std::vector<tt_xy_pair> ETH_LOCATIONS = ETH_CORES_NOC0;
 
 static const std::vector<tt_xy_pair> SECURITY_CORES_NOC0 = {{8, 2}};
 // We are using P0 on the NOC for all L2CPU cores.
-static const std::vector<tt_xy_pair> L2CPU_CORES_NOC0 = {{8, 10}, {8, 4}, {8, 8}, {8, 6}};
+static const std::vector<tt_xy_pair> L2CPU_CORES_NOC0 = {{8, 3}, {8, 9}, {8, 5}, {8, 7}};
 
 // Return to std::array instead of std::vector once we get std::span support in C++20
 static const std::vector<uint32_t> T6_X_LOCATIONS = {1, 2, 3, 4, 5, 6, 7, 10, 11, 12, 13, 14, 15, 16};
@@ -255,7 +255,7 @@ constexpr std::array<std::pair<CoreType, uint64_t>, 7> NOC0_CONTROL_REG_ADDR_BAS
      {CoreType::PCIE, 0xFFFFFFFFFF000000ULL},
      {CoreType::ARC, 0xFFFFFFFFFF000000ULL},
      {CoreType::SECURITY, 0xFFFFFFFFFF000000ULL},
-     {CoreType::L2CPU, 0xFF000000ULL}}};
+     {CoreType::L2CPU, 0xFFFFFFFFFF000000ULL}}};
 constexpr std::array<std::pair<CoreType, uint64_t>, 7> NOC1_CONTROL_REG_ADDR_BASE_MAP = {
     {{CoreType::TENSIX, 0xFFB30000},
      {CoreType::ETH, 0xFFB30000},
@@ -263,7 +263,7 @@ constexpr std::array<std::pair<CoreType, uint64_t>, 7> NOC1_CONTROL_REG_ADDR_BAS
      {CoreType::PCIE, 0xFFFFFFFFFF000000ULL},
      {CoreType::ARC, 0xFFFFFFFFFF000000ULL},
      {CoreType::SECURITY, 0xFFFFFFFFFF000000ULL},
-     {CoreType::L2CPU, 0xFF000000ULL}}};
+     {CoreType::L2CPU, 0xFFFFFFFFFF000000ULL}}};
 
 static const uint64_t NOC_NODE_ID_OFFSET = 0x44;
 
@@ -275,6 +275,10 @@ static const size_t pcie_translated_coordinate_start_y = 24;
 
 static const size_t dram_translated_coordinate_start_x = 17;
 static const size_t dram_translated_coordinate_start_y = 12;
+
+// Return arc core pair that can be used to access ARC core on the device. This depends on information
+// whether NOC translation is enabled and if we want to use NOC0 or NOC1.
+tt_xy_pair get_arc_core(const bool noc_translation_enabled, const bool umd_use_noc1);
 
 }  // namespace blackhole
 

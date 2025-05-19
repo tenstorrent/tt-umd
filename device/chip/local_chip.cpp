@@ -6,7 +6,9 @@
 
 #include "umd/device/chip/local_chip.h"
 
-#include "logger.hpp"
+#include <tt-logger/tt-logger.hpp>
+
+#include "assert.hpp"
 #include "umd/device/blackhole_implementation.h"
 #include "umd/device/chip_helpers/tlb_manager.h"
 #include "umd/device/driver_atomics.h"
@@ -25,8 +27,8 @@ const uint64_t BH_4GB_TLB_SIZE = 4ULL * 1024 * 1024 * 1024;
 LocalChip::LocalChip(tt_SocDescriptor soc_descriptor, int pci_device_id, int num_host_mem_channels) :
     Chip(soc_descriptor),
     tt_device_(TTDevice::create(pci_device_id)),
-    sysmem_manager_(std::make_unique<SysmemManager>(tt_device_.get())),
     tlb_manager_(std::make_unique<TLBManager>(tt_device_.get())),
+    sysmem_manager_(std::make_unique<SysmemManager>(tlb_manager_.get())),
     remote_communication_(std::make_unique<RemoteCommunication>(this)) {
     initialize_local_chip(num_host_mem_channels);
 }
@@ -40,8 +42,8 @@ LocalChip::LocalChip(std::string sdesc_path, std::unique_ptr<TTDevice> tt_device
             tt_device->get_chip_info().harvesting_masks,
             tt_device->get_chip_info().board_type)),
     tt_device_(std::move(tt_device)),
-    sysmem_manager_(std::make_unique<SysmemManager>(tt_device_.get())),
-    tlb_manager_(std::make_unique<TLBManager>(tt_device_.get())) {
+    tlb_manager_(std::make_unique<TLBManager>(tt_device_.get())),
+    sysmem_manager_(std::make_unique<SysmemManager>(tlb_manager_.get())) {
     initialize_local_chip();
 }
 
@@ -54,8 +56,8 @@ LocalChip::LocalChip(std::unique_ptr<TTDevice> tt_device) :
             tt_device->get_chip_info().harvesting_masks,
             tt_device->get_chip_info().board_type)),
     tt_device_(std::move(tt_device)),
-    sysmem_manager_(std::make_unique<SysmemManager>(tt_device_.get())),
-    tlb_manager_(std::make_unique<TLBManager>(tt_device_.get())) {
+    tlb_manager_(std::make_unique<TLBManager>(tt_device_.get())),
+    sysmem_manager_(std::make_unique<SysmemManager>(tlb_manager_.get())) {
     initialize_local_chip();
 }
 
@@ -170,9 +172,9 @@ void LocalChip::wait_eth_cores_training(const uint32_t timeout_ms) {
 int LocalChip::get_num_host_channels() { return sysmem_manager_->get_num_host_mem_channels(); }
 
 int LocalChip::get_host_channel_size(std::uint32_t channel) {
-    log_assert(channel < get_num_host_channels(), "Querying size for a host channel that does not exist.");
+    TT_ASSERT(channel < get_num_host_channels(), "Querying size for a host channel that does not exist.");
     hugepage_mapping hugepage_map = sysmem_manager_->get_hugepage_mapping(channel);
-    log_assert(hugepage_map.mapping_size, "Host channel size can only be queried after the device has been started.");
+    TT_ASSERT(hugepage_map.mapping_size, "Host channel size can only be queried after the device has been started.");
     return hugepage_map.mapping_size;
 }
 
@@ -278,7 +280,9 @@ void LocalChip::read_from_device(tt_xy_pair core, void* dest, uint64_t l1_src, u
 
 void LocalChip::dma_write_to_device(const void* src, size_t size, tt_xy_pair core, uint64_t addr) {
     static const std::string tlb_name = "LARGE_WRITE_TLB";
+
     const uint8_t* buffer = static_cast<const uint8_t*>(src);
+
     auto tlb_index = tlb_manager_->dynamic_tlb_config_.at(tlb_name);
     auto ordering = tlb_manager_->dynamic_tlb_ordering_modes_.at(tlb_name);
     PCIDevice* pci_device = tt_device_->get_pci_device();
@@ -289,6 +293,7 @@ void LocalChip::dma_write_to_device(const void* src, size_t size, tt_xy_pair cor
     auto lock = acquire_mutex(tlb_name, pci_device->get_device_num());
     while (size > 0) {
         auto [axi_address, tlb_size] = tt_device_->set_dynamic_tlb(tlb_index, core, addr, ordering);
+
         size_t transfer_size = std::min({size, tlb_size, dmabuf_size});
 
         tt_device_->dma_h2d(axi_address, buffer, transfer_size);
@@ -312,6 +317,7 @@ void LocalChip::dma_read_from_device(void* dst, size_t size, tt_xy_pair core, ui
     auto lock = acquire_mutex(tlb_name, pci_device->get_device_num());
     while (size > 0) {
         auto [axi_address, tlb_size] = tt_device_->set_dynamic_tlb(tlb_index, core, addr, ordering);
+
         size_t transfer_size = std::min({size, tlb_size, dmabuf_size});
 
         tt_device_->dma_d2h(buffer, axi_address, transfer_size);
@@ -390,11 +396,7 @@ tt_xy_pair LocalChip::translate_chip_coord_virtual_to_translated(const tt_xy_pai
     // On Wormhole Tensix can use NOC1 space if umd_use_noc1 is set to true.
     if (soc_descriptor_.noc_translation_enabled) {
         if (soc_descriptor_.arch == tt::ARCH::BLACKHOLE) {
-            if (core_coord.core_type == CoreType::TENSIX || !umd_use_noc1) {
-                return soc_descriptor_.translate_coord_to(core_coord, CoordSystem::TRANSLATED);
-            } else {
-                return soc_descriptor_.translate_coord_to(core_coord, CoordSystem::NOC1);
-            }
+            return soc_descriptor_.translate_coord_to(core_coord, CoordSystem::TRANSLATED);
         } else {
             return soc_descriptor_.translate_coord_to(
                 core_coord, umd_use_noc1 ? CoordSystem::NOC1 : CoordSystem::TRANSLATED);
@@ -422,7 +424,7 @@ void LocalChip::set_remote_transfer_ethernet_cores(const std::unordered_set<Core
     // Based on this information, UMD determines which ethernet cores can be used for host->cluster non-MMIO transfers.
     // This overrides the default ethernet cores tagged for host to cluster routing in the constructor and must be
     // called for all MMIO devices, if default behaviour is not desired.
-    log_assert(soc_descriptor_.arch == tt::ARCH::WORMHOLE_B0, "{} can only be called for Wormhole arch", __FUNCTION__);
+    TT_ASSERT(soc_descriptor_.arch == tt::ARCH::WORMHOLE_B0, "{} can only be called for Wormhole arch", __FUNCTION__);
     // Cores 0, 1, 6, 7 are only available if in the active set
     static std::unordered_set<tt_xy_pair> eth_cores_available_if_active = {
         soc_descriptor_.get_eth_core_for_channel(0, CoordSystem::VIRTUAL),
@@ -542,7 +544,6 @@ void LocalChip::check_pcie_device_initialized() {
     auto architecture_implementation = tt_device_->get_architecture_implementation();
 
     if (soc_descriptor_.arch == tt::ARCH::WORMHOLE_B0) {
-        log_debug(LogSiliconDriver, "== Check if device_id: {} is initialized", device_id);
         uint32_t bar_read_initial =
             tt_device_->bar_read32(architecture_implementation->get_arc_reset_scratch_offset() + 3 * 4);
         uint32_t arg = bar_read_initial == 500 ? 325 : 500;
@@ -696,7 +697,7 @@ void LocalChip::l1_membar(const std::unordered_set<tt::umd::CoreCoord>& cores) {
 void LocalChip::dram_membar(const std::unordered_set<tt::umd::CoreCoord>& cores) {
     if (cores.size()) {
         for (const auto& core : cores) {
-            log_assert(
+            TT_ASSERT(
                 soc_descriptor_.get_coord_at(core, core.coord_system).core_type == CoreType::DRAM,
                 "Can only insert a DRAM Memory barrier on DRAM cores.");
         }
@@ -745,7 +746,7 @@ void LocalChip::set_power_state(tt_DevicePowerState state) {
                 (uint32_t)tt::umd::blackhole::ArcMessageType::AICLK_GO_LONG_IDLE);
         }
     }
-    log_assert(exit_code == 0, "Failed to set power state to {} with exit code: {}", (int)state, exit_code);
+    TT_ASSERT(exit_code == 0, "Failed to set power state to {} with exit code: {}", (int)state, exit_code);
 
     wait_for_aiclk_value(state);
 }

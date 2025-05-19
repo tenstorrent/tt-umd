@@ -50,19 +50,20 @@ TEST(ApiSysmemManager, SysmemBuffersAllocation) {
         GTEST_SKIP() << "No chips present on the system. Skipping test.";
     }
     if (!PCIDevice(pci_device_ids[0]).is_iommu_enabled()) {
-        GTEST_SKIP() << "Skipping NOC1 test for Blackhole until coordinate translation is fixed.";
+        GTEST_SKIP() << "Skipping test since IOMMU is not enabled.";
     }
 
-    const uint32_t one_page = sysconf(_SC_PAGESIZE);
     const uint32_t one_mb = 1 << 20;
 
-    std::cout << "Sysmem buffer allocation test for page size 0x" << std::hex << one_page << std::dec << std::endl;
+    std::cout << "Sysmem buffer allocation test, each buffer is 1MB." << std::endl;
 
     uint32_t pages_allocated = 0;
 
     std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>(tt::umd::ClusterOptions{
         .num_host_mem_ch_per_mmio_device = 0,
     });
+
+    std::vector<std::unique_ptr<SysmemBuffer>> sysmem_buffers;
 
     for (const chip_id_t chip_id : cluster->get_target_device_ids()) {
         SysmemManager* sysmem_manager = cluster->get_chip(chip_id)->get_sysmem_manager();
@@ -73,18 +74,16 @@ TEST(ApiSysmemManager, SysmemBuffersAllocation) {
 
         while (true) {
             try {
-                std::unique_ptr<SysmemBuffer> sysmem_buffer = sysmem_manager->allocate_sysmem_buffer(one_page);
+                sysmem_buffers.push_back(sysmem_manager->allocate_sysmem_buffer(one_mb));
             } catch (...) {
                 break;
             }
-
-            pages_allocated++;
         }
 
-        uint64_t sysmem_buffer_size = pages_allocated * one_page;
+        uint64_t sysmem_buffer_size = sysmem_buffers.size() * one_mb;
 
-        std::cout << "Allocated " << pages_allocated << " pages of sysmem buffers each being one page size. Allocated "
-                  << (double)sysmem_buffer_size / one_mb << " MB" << std::endl;
+        std::cout << "Allocated " << (double)sysmem_buffer_size / one_mb
+                  << " MB of sysmem buffers each being 1MB in size." << std::endl;
     }
 }
 
@@ -94,7 +93,7 @@ TEST(ApiSysmemManager, SysmemBuffers) {
         GTEST_SKIP() << "No chips present on the system. Skipping test.";
     }
     if (!PCIDevice(pci_device_ids[0]).is_iommu_enabled()) {
-        GTEST_SKIP() << "Skipping NOC1 test for Blackhole until coordinate translation is fixed.";
+        GTEST_SKIP() << "Skipping test since IOMMU is not enabled.";
     }
 
     std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>(tt::umd::ClusterOptions{

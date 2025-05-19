@@ -42,8 +42,8 @@ public:
     ChipInfo get_chip_info() override;
 
 private:
-    void dma_d2h_transfer(void *dst, uint32_t src, size_t size);
-    void dma_h2d_transfer(uint32_t dst, const void *src, size_t size);
+    void dma_d2h_transfer(const uint64_t dst, const uint32_t src, const size_t size);
+    void dma_h2d_transfer(const uint32_t dst, const uint64_t src, const size_t size);
 
     // Enforce single-threaded access, even though there are more serious issues
     // surrounding resource management as it relates to DMA.

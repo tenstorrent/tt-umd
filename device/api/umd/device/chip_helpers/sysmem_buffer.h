@@ -13,10 +13,22 @@
 
 namespace tt::umd {
 
+/**
+ * SysmemBuffer class should represent the resource of the HOST memory that is visible to the device.
+ * Currently, there are two types of sysmem buffers:
+ * 1. Hugepage-based sysmem buffer, that represents old system memory scheme used, that we still want to support until
+ * transition to IOMMU is complete.
+ * 2. Sysmem buffer, that is used when the system is protected by an IOMMU. With IOMMU, the mappings can be requested at
+ * much finer granularity than hugepages.
+ *
+ * Traditionally, we have reffered to the sysmem buffer as something that is
+ * visible to device, has it's own NOC address. Without changes to KMD, this is still not fully supported for IOMMU
+ * buffers.
+ */
 class SysmemBuffer {
 public:
-    SysmemBuffer(TLBManager* tlb_manager, void* buffer_va, size_t buffer_size, uint64_t device_io_addr);
-    ~SysmemBuffer() = default;
+    SysmemBuffer(TLBManager* tlb_manager, void* buffer_va, size_t buffer_size);
+    ~SysmemBuffer();
 
     void* get_buffer_va() const { return buffer_va; }
 

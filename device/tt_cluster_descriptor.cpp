@@ -507,6 +507,9 @@ std::unique_ptr<tt_ClusterDescriptor> tt_ClusterDescriptor::create_constrained_c
     desc->chip_uid_to_chip_id = filter_chip_collection(full_cluster_desc->chip_uid_to_chip_id, target_chip_ids);
     desc->chip_id_to_chip_uid = filter_chip_collection(full_cluster_desc->chip_id_to_chip_uid, target_chip_ids);
     desc->chip_unique_ids = filter_chip_collection(full_cluster_desc->chip_unique_ids, target_chip_ids);
+    // Note that these preserve the full set of channels. So some channels will be reported as active
+    // even though their corresponding entries won't be found in ethernet_connections. We want this behavior
+    // so that the client doesn't try to do anything on these ETH cores which could break these links.
     desc->active_eth_channels = filter_chip_collection(full_cluster_desc->active_eth_channels, target_chip_ids);
     desc->idle_eth_channels = filter_chip_collection(full_cluster_desc->idle_eth_channels, target_chip_ids);
 

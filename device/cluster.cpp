@@ -134,12 +134,7 @@ void Cluster::construct_cluster(const uint32_t& num_host_mem_ch_per_mmio_device,
         std::vector<int> pci_ids;
         auto mmio_id_map = cluster_desc->get_chips_with_mmio();
         for (chip_id_t local_chip_id : local_chip_ids_) {
-            auto it = mmio_id_map.find(local_chip_id);
-            if (it == mmio_id_map.end()) {
-                log_debug(LogSiliconDriver, "Chip {} is not MMIO capable. Skipping it.", local_chip_id);
-                continue;
-            }
-            pci_ids.push_back(it->second);
+            pci_ids.push_back(mmio_id_map.at(local_chip_id));
         }
         log_info(
             LogSiliconDriver,

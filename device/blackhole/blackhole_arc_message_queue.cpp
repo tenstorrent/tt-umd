@@ -7,10 +7,12 @@
 
 #include "umd/device/tt_device/tt_device.h"
 
+extern bool umd_use_noc1;
+
 namespace tt::umd {
 
 BlackholeArcMessageQueue::BlackholeArcMessageQueue(
-    TTDevice* tt_device, const uint64_t base_address, const uint64_t size, const CoreCoord arc_core) :
+    TTDevice* tt_device, const uint64_t base_address, const uint64_t size, const tt_xy_pair arc_core) :
     base_address(base_address), size(size), tt_device(tt_device), arc_core(arc_core) {}
 
 void BlackholeArcMessageQueue::read_words(uint32_t* data, size_t num_words, size_t offset) {
@@ -114,7 +116,8 @@ uint32_t BlackholeArcMessageQueue::send_message(
 
 std::unique_ptr<BlackholeArcMessageQueue> BlackholeArcMessageQueue::get_blackhole_arc_message_queue(
     TTDevice* tt_device, const size_t queue_index) {
-    const CoreCoord arc_core = CoreCoord(8, 0, CoreType::ARC, CoordSystem::PHYSICAL);
+    const tt_xy_pair arc_core =
+        tt::umd::blackhole::get_arc_core(tt_device->get_noc_translation_enabled(), umd_use_noc1);
 
     uint32_t queue_control_block_addr;
     tt_device->read_from_device(&queue_control_block_addr, arc_core, blackhole::SCRATCH_RAM_11, sizeof(uint32_t));

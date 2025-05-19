@@ -4,11 +4,12 @@
 
 #include "umd/device/blackhole_implementation.h"
 
+#include <tt-logger/tt-logger.hpp>
+
 #include "blackhole/eth_interface.h"
 #include "blackhole/eth_l1_address_map.h"
 #include "blackhole/host_mem_address_map.h"
 #include "blackhole/l1_address_map.h"
-#include "logger.hpp"
 #include "umd/device/cluster.h"
 
 constexpr std::uint32_t NOC_ADDR_LOCAL_BITS = 36;   // source: noc_parameters.h, common for WH && BH
@@ -114,5 +115,15 @@ uint64_t blackhole_implementation::get_noc_reg_base(
 
     throw std::runtime_error("Invalid core type or NOC for getting NOC register addr base.");
 }
+
+namespace blackhole {
+tt_xy_pair get_arc_core(const bool noc_translation_enabled, const bool umd_use_noc1) {
+    return (noc_translation_enabled || !umd_use_noc1)
+               ? tt::umd::blackhole::ARC_CORES_NOC0[0]
+               : tt_xy_pair(
+                     tt::umd::blackhole::NOC0_X_TO_NOC1_X[tt::umd::blackhole::ARC_CORES_NOC0[0].x],
+                     tt::umd::blackhole::NOC0_Y_TO_NOC1_Y[tt::umd::blackhole::ARC_CORES_NOC0[0].y]);
+}
+}  // namespace blackhole
 
 }  // namespace tt::umd

@@ -19,8 +19,6 @@ public:
 
     void wait_arc_core_start(const tt_xy_pair arc_core, const uint32_t timeout_ms = 1000) override;
 
-    ChipInfo get_chip_info() override;
-
     uint32_t get_clock() override;
 
     uint32_t get_max_clock_freq() override;
@@ -29,12 +27,24 @@ public:
 
     BoardType get_board_type() override;
 
+    bool get_noc_translation_enabled() override;
+
     std::vector<DramTrainingStatus> get_dram_training_status() override;
 
     void dma_d2h(void *dst, uint32_t src, size_t size) override;
+
     void dma_h2d(uint32_t dst, const void *src, size_t size) override;
 
+    void dma_h2d_zero_copy(uint32_t dst, const void *src, size_t size) override;
+
+    void dma_d2h_zero_copy(void *dst, uint32_t src, size_t size) override;
+
+    ChipInfo get_chip_info() override;
+
 private:
+    void dma_d2h_transfer(void *dst, uint32_t src, size_t size);
+    void dma_h2d_transfer(uint32_t dst, const void *src, size_t size);
+
     // Enforce single-threaded access, even though there are more serious issues
     // surrounding resource management as it relates to DMA.
     std::mutex dma_mutex_;

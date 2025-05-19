@@ -5,7 +5,9 @@
  */
 #include "umd/device/wormhole_arc_messenger.h"
 
-#include "logger.hpp"
+#include <tt-logger/tt-logger.hpp>
+
+#include "assert.hpp"
 #include "umd/device/tt_device/tt_device.h"
 #include "umd/device/wormhole_implementation.h"
 
@@ -19,7 +21,7 @@ uint32_t WormholeArcMessenger::send_message(
         log_error("Malformed message. msg_code is 0x{:x} but should be 0xaa..", msg_code);
     }
 
-    log_assert(arg0 <= 0xffff and arg1 <= 0xffff, "Only 16 bits allowed in arc_msg args");
+    TT_ASSERT(arg0 <= 0xffff and arg1 <= 0xffff, "Only 16 bits allowed in arc_msg args");
 
     auto lock = lock_manager.acquire_mutex(MutexType::ARC_MSG, tt_device->get_pci_device()->get_device_num());
 

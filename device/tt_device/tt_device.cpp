@@ -3,7 +3,9 @@
 // SPDX-License-Identifier: Apache-2.0
 #include "umd/device/tt_device/tt_device.h"
 
-#include "logger.hpp"
+#include <tt-logger/tt-logger.hpp>
+
+#include "assert.hpp"
 #include "umd/device/arc_messenger.h"
 #include "umd/device/driver_atomics.h"
 #include "umd/device/tt_device/blackhole_tt_device.h"
@@ -22,6 +24,9 @@ TTDevice::TTDevice(
     architecture_impl_(std::move(architecture_impl)),
     arch(architecture_impl_->get_architecture()) {
     lock_manager.initialize_mutex(MutexType::TT_DEVICE_IO, get_pci_device()->get_device_num());
+}
+
+void TTDevice::init_tt_device() {
     arc_messenger_ = ArcMessenger::create_arc_messenger(this);
     telemetry = ArcTelemetryReader::create_arc_telemetry_reader(this);
 }
@@ -244,7 +249,7 @@ void TTDevice::write_to_device(void *mem_ptr, tt_xy_pair core, uint64_t addr, ui
 
 void TTDevice::write_tlb_reg(
     uint32_t byte_addr, uint64_t value_lower, uint64_t value_upper, uint32_t tlb_cfg_reg_size) {
-    log_assert(
+    TT_ASSERT(
         (tlb_cfg_reg_size == 8) or (tlb_cfg_reg_size == 12),
         "Tenstorrent hardware supports only 64bit or 96bit TLB config regs");
 
@@ -279,7 +284,8 @@ dynamic_tlb TTDevice::set_dynamic_tlb(
 
     log_trace(
         LogSiliconDriver,
-        "set_dynamic_tlb with arguments: tlb_index = {}, start = ({}, {}), end = ({}, {}), address = 0x{:x}, multicast "
+        "set_dynamic_tlb with arguments: tlb_index = {}, start = ({}, {}), end = ({}, {}), address = 0x{:x}, "
+        "multicast "
         "= {}, ordering = {}",
         tlb_index,
         start.x,
@@ -308,8 +314,9 @@ dynamic_tlb TTDevice::set_dynamic_tlb(
             .mcast = multicast,
             .ordering = ordering,
             // TODO #2715: hack for Blackhole A0, will potentially be fixed in B0.
-            // Using the same static vc for reads and writes through TLBs can hang the card. It doesn't even have to be
-            // the same TLB. Dynamic vc should not have this issue. There might be a perf impact with using dynamic vc.
+            // Using the same static vc for reads and writes through TLBs can hang the card. It doesn't even have to
+            // be the same TLB. Dynamic vc should not have this issue. There might be a perf impact with using
+            // dynamic vc.
             .static_vc = (arch == tt::ARCH::BLACKHOLE) ? false : true,
         }
             .apply_offset(tlb_config.offset);

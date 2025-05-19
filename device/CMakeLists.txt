@@ -33,6 +33,7 @@ target_sources(
         chip/mock_chip.cpp
         chip/remote_chip.cpp
         chip_helpers/sysmem_manager.cpp
+        chip_helpers/sysmem_buffer.cpp
         chip_helpers/tlb_manager.cpp
         cluster.cpp
         coordinate_manager.cpp
@@ -93,6 +94,7 @@ if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.23)
                 api/umd/device/chip/mock_chip.h
                 api/umd/device/chip/remote_chip.h
                 api/umd/device/chip_helpers/sysmem_manager.h
+                api/umd/device/chip_helpers/sysmem_buffer.h
                 api/umd/device/chip_helpers/tlb_manager.h
                 api/umd/device/cluster.h
                 api/umd/device/coordinate_manager.h
@@ -145,6 +147,7 @@ target_link_libraries(
         rt
         spdlog::spdlog_header_only
         fmt::fmt-header-only
+        tt-logger::tt-logger
         yaml-cpp::yaml-cpp
         ${CMAKE_CURRENT_SOURCE_DIR}/libs/${CMAKE_SYSTEM_PROCESSOR}/libcreate_ethernet_map.a
 )

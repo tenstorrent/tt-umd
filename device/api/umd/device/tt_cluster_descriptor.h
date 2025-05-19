@@ -43,6 +43,9 @@ private:
 protected:
     std::unordered_map<chip_id_t, std::unordered_map<ethernet_channel_t, std::tuple<chip_id_t, ethernet_channel_t>>>
         ethernet_connections;
+    // TODO: unify uint64_t with ChipUID
+    std::unordered_map<chip_id_t, std::unordered_map<ethernet_channel_t, std::tuple<uint64_t, ethernet_channel_t>>>
+        ethernet_connections_to_remote_mmio_devices;
     std::unordered_map<chip_id_t, eth_coord_t> chip_locations;
     // reverse map: rack/shelf/y/x -> chip_id
     std::map<int, std::map<int, std::map<int, std::map<int, chip_id_t>>>> coords_to_chip_ids;
@@ -50,7 +53,6 @@ protected:
     std::unordered_set<chip_id_t> all_chips;
     std::unordered_map<chip_id_t, bool> noc_translation_enabled = {};
     std::unordered_map<chip_id_t, std::uint32_t> harvesting_masks = {};
-    std::unordered_set<chip_id_t> enabled_active_chips;
     std::unordered_map<chip_id_t, chip_id_t> closest_mmio_chip_cache = {};
     std::unordered_map<chip_id_t, BoardType> chip_board_type = {};
     std::unordered_map<chip_id_t, std::unordered_set<chip_id_t>> chips_grouped_by_closest_mmio;
@@ -113,15 +115,22 @@ public:
     // This function is used to create mock cluster descriptor yaml files, for example for simulation.
     static std::unique_ptr<tt_ClusterDescriptor> create_mock_cluster(
         const std::vector<chip_id_t> &logical_device_ids, tt::ARCH arch);
+    // Used to create a subset of a cluster descriptor.
+    static std::unique_ptr<tt_ClusterDescriptor> create_constrained_cluster_descriptor(
+        const tt_ClusterDescriptor *full_cluster_desc, const std::unordered_set<chip_id_t> &target_chip_ids);
 
     const std::unordered_map<chip_id_t, std::uint32_t> &get_harvesting_info() const;
     const std::unordered_map<chip_id_t, bool> &get_noc_translation_table_en() const;
     const std::unordered_map<chip_id_t, eth_coord_t> &get_chip_locations() const;
     const std::unordered_map<chip_id_t, uint64_t> &get_chip_unique_ids() const;
     const std::
-        unordered_map<chip_id_t, std::unordered_map<ethernet_channel_t, std::tuple<chip_id_t, ethernet_channel_t>>>
+        unordered_map<chip_id_t, std::unordered_map<ethernet_channel_t, std::tuple<chip_id_t, ethernet_channel_t>>> &
         get_ethernet_connections() const;
-    const std::unordered_map<chip_id_t, chip_id_t> get_chips_with_mmio() const;
+    // TODO: unify uint64_t with ChipUID
+    const std::
+        unordered_map<chip_id_t, std::unordered_map<ethernet_channel_t, std::tuple<uint64_t, ethernet_channel_t>>>
+        get_ethernet_connections_to_remote_mmio_devices() const;
+    const std::unordered_map<chip_id_t, chip_id_t> &get_chips_with_mmio() const;
     const std::unordered_set<chip_id_t> &get_all_chips() const;
     const std::vector<chip_id_t> get_chips_local_first(std::unordered_set<chip_id_t> chips) const;
     const std::unordered_map<chip_id_t, std::unordered_set<chip_id_t>> &get_chips_grouped_by_closest_mmio() const;
@@ -139,8 +148,6 @@ public:
     bool ethernet_core_has_active_ethernet_link(chip_id_t local_chip, ethernet_channel_t local_ethernet_channel) const;
     std::tuple<chip_id_t, ethernet_channel_t> get_chip_and_channel_of_remote_ethernet_core(
         chip_id_t local_chip, ethernet_channel_t local_ethernet_channel) const;
-
-    void enable_all_devices();
 
     // Serialize the cluster descriptor to a YAML string, or directly to a file.
     // A default file in /tmp directory will be used if no path is passed.

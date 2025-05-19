@@ -2,8 +2,8 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 #include <cxxopts.hpp>
+#include <tt-logger/tt-logger.hpp>
 
-#include "logger.hpp"
 #include "umd/device/cluster.h"
 #include "umd/device/tt_cluster_descriptor.h"
 

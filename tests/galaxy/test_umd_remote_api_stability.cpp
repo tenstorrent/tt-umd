@@ -6,8 +6,8 @@
 #include <numeric>
 #include <random>
 #include <thread>
+#include <tt-logger/tt-logger.hpp>
 
-#include "common/logger.hpp"
 #include "filesystem"
 #include "gtest/gtest.h"
 #include "tests/galaxy/test_galaxy_common.h"

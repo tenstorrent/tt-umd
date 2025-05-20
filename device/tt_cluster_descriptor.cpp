@@ -447,6 +447,124 @@ std::unique_ptr<tt_ClusterDescriptor> tt_ClusterDescriptor::create() {
     return tt_ClusterDescriptor::create_from_yaml(tt_ClusterDescriptor::get_cluster_descriptor_file_path());
 }
 
+template <typename T>
+std::unordered_map<chip_id_t, T> filter_chip_collection(
+    const std::unordered_map<chip_id_t, T> &collection, const std::unordered_set<chip_id_t> chips) {
+    std::unordered_map<chip_id_t, T> filtered_collection;
+    for (const auto &[chip_id, val] : collection) {
+        auto it = chips.find(chip_id);
+        if (it != chips.end()) {
+            filtered_collection.emplace(chip_id, val);
+        }
+    }
+    return filtered_collection;
+}
+
+template <typename T>
+std::map<chip_id_t, T> filter_chip_collection(
+    const std::map<chip_id_t, T> &collection, const std::unordered_set<chip_id_t> chips) {
+    std::map<chip_id_t, T> filtered_collection;
+    for (const auto &[chip_id, val] : collection) {
+        auto it = chips.find(chip_id);
+        if (it != chips.end()) {
+            filtered_collection.emplace(chip_id, val);
+        }
+    }
+    return filtered_collection;
+}
+
+template <typename T>
+std::map<T, chip_id_t> filter_chip_collection(
+    const std::map<T, chip_id_t> &collection, const std::unordered_set<chip_id_t> chips) {
+    std::map<T, chip_id_t> filtered_collection;
+    for (const auto &[val, chip_id] : collection) {
+        auto it = chips.find(chip_id);
+        if (it != chips.end()) {
+            filtered_collection.emplace(val, chip_id);
+        }
+    }
+    return filtered_collection;
+}
+
+std::unordered_set<chip_id_t> filter_chip_collection(
+    const std::unordered_set<chip_id_t> &collection, const std::unordered_set<chip_id_t> chips) {
+    std::unordered_set<chip_id_t> filtered_collection;
+    for (const auto &chip_id : collection) {
+        auto it = chips.find(chip_id);
+        if (it != chips.end()) {
+            filtered_collection.emplace(chip_id);
+        }
+    }
+    return filtered_collection;
+}
+
+std::unique_ptr<tt_ClusterDescriptor> tt_ClusterDescriptor::create_constrained_cluster_descriptor(
+    const tt_ClusterDescriptor *full_cluster_desc, const std::unordered_set<chip_id_t> &target_chip_ids) {
+    std::unique_ptr<tt_ClusterDescriptor> desc = std::unique_ptr<tt_ClusterDescriptor>(new tt_ClusterDescriptor());
+
+    desc->chip_locations = filter_chip_collection(full_cluster_desc->chip_locations, target_chip_ids);
+    desc->chips_with_mmio = filter_chip_collection(full_cluster_desc->chips_with_mmio, target_chip_ids);
+    desc->all_chips = filter_chip_collection(full_cluster_desc->all_chips, target_chip_ids);
+    desc->noc_translation_enabled = filter_chip_collection(full_cluster_desc->noc_translation_enabled, target_chip_ids);
+    desc->harvesting_masks = filter_chip_collection(full_cluster_desc->harvesting_masks, target_chip_ids);
+    // desc->closest_mmio_chip_cache is not copied intentionally, it could hold wrong information.
+    desc->chip_board_type = filter_chip_collection(full_cluster_desc->chip_board_type, target_chip_ids);
+    desc->chip_arch = filter_chip_collection(full_cluster_desc->chip_arch, target_chip_ids);
+    desc->chip_uid_to_chip_id = filter_chip_collection(full_cluster_desc->chip_uid_to_chip_id, target_chip_ids);
+    desc->chip_id_to_chip_uid = filter_chip_collection(full_cluster_desc->chip_id_to_chip_uid, target_chip_ids);
+    desc->chip_unique_ids = filter_chip_collection(full_cluster_desc->chip_unique_ids, target_chip_ids);
+    // Note that these preserve the full set of channels. So some channels will be reported as active
+    // even though their corresponding entries won't be found in ethernet_connections. We want this behavior
+    // so that the client doesn't try to do anything on these ETH cores which could break these links.
+    desc->active_eth_channels = filter_chip_collection(full_cluster_desc->active_eth_channels, target_chip_ids);
+    desc->idle_eth_channels = filter_chip_collection(full_cluster_desc->idle_eth_channels, target_chip_ids);
+
+    desc->galaxy_shelves_exit_chip_coords_per_y_dim = full_cluster_desc->galaxy_shelves_exit_chip_coords_per_y_dim;
+    desc->galaxy_racks_exit_chip_coords_per_x_dim = full_cluster_desc->galaxy_racks_exit_chip_coords_per_x_dim;
+
+    desc->dram_harvesting_masks = filter_chip_collection(full_cluster_desc->dram_harvesting_masks, target_chip_ids);
+    desc->eth_harvesting_masks = filter_chip_collection(full_cluster_desc->eth_harvesting_masks, target_chip_ids);
+    desc->pcie_harvesting_masks = filter_chip_collection(full_cluster_desc->pcie_harvesting_masks, target_chip_ids);
+
+    // Write explicitly filters for more complex structures.
+    for (const auto &[chip_id, eth_connections] : full_cluster_desc->ethernet_connections) {
+        if (target_chip_ids.find(chip_id) == target_chip_ids.end()) {
+            continue;
+        }
+
+        for (const auto &[eth_id, connection] : eth_connections) {
+            const auto &[remote_chip_id, remote_eth_id] = connection;
+            if (target_chip_ids.find(remote_chip_id) == target_chip_ids.end()) {
+                continue;
+            }
+            desc->ethernet_connections[chip_id][eth_id] = {remote_chip_id, remote_eth_id};
+        }
+    }
+
+    for (const auto &[rack_id, shelf_map] : full_cluster_desc->coords_to_chip_ids) {
+        for (const auto &[shelf_id, y_map] : shelf_map) {
+            for (const auto &[y_dim, x_map] : y_map) {
+                for (const auto &[x_dim, chip_id] : x_map) {
+                    if (target_chip_ids.find(chip_id) == target_chip_ids.end()) {
+                        continue;
+                    }
+                    desc->coords_to_chip_ids[rack_id][shelf_id][y_dim][x_dim] = chip_id;
+                }
+            }
+        }
+    }
+
+    for (const auto &[chip_id, chip_group] : full_cluster_desc->chips_grouped_by_closest_mmio) {
+        if (target_chip_ids.find(chip_id) == target_chip_ids.end()) {
+            continue;
+        }
+
+        desc->chips_grouped_by_closest_mmio[chip_id] = filter_chip_collection(chip_group, target_chip_ids);
+    }
+
+    return desc;
+}
+
 std::unique_ptr<tt_ClusterDescriptor> tt_ClusterDescriptor::create_mock_cluster(
     const std::vector<chip_id_t> &logical_device_ids, tt::ARCH arch) {
     std::unique_ptr<tt_ClusterDescriptor> desc = std::unique_ptr<tt_ClusterDescriptor>(new tt_ClusterDescriptor());

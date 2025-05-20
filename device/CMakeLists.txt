@@ -40,7 +40,6 @@ target_sources(
         cluster.cpp
         coordinate_manager.cpp
         cpuset_lib.cpp
-        grayskull/grayskull_implementation.cpp
         wormhole/wormhole_implementation.cpp
         blackhole/blackhole_implementation.cpp
         hugepage.cpp
@@ -102,7 +101,6 @@ if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.23)
                 api/umd/device/coordinate_manager.h
                 api/umd/device/device_api_metal.h
                 api/umd/device/driver_atomics.h
-                api/umd/device/grayskull_implementation.h
                 api/umd/device/hugepage.h
                 api/umd/device/utils/lock_manager.h
                 api/umd/device/pci_device.hpp

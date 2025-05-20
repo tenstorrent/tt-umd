@@ -120,9 +120,7 @@ static PciDeviceInfo read_device_info(int fd) {
 }
 
 tt::ARCH PciDeviceInfo::get_arch() const {
-    if (this->device_id == GS_PCIE_DEVICE_ID) {
-        return tt::ARCH::GRAYSKULL;
-    } else if (this->device_id == WH_PCIE_DEVICE_ID) {
+    if (this->device_id == WH_PCIE_DEVICE_ID) {
         return tt::ARCH::WORMHOLE_B0;
     } else if (this->device_id == BH_PCIE_DEVICE_ID) {
         return tt::ARCH::BLACKHOLE;

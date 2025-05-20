@@ -6,7 +6,7 @@
 #include <gtest/gtest.h>
 
 #include "umd/device/cluster.h"
-#include "umd/device/tt_device/tlb_allocator.h"
+#include "umd/device/tt_device/tlb_window.h"
 #include "umd/device/types/tlb.h"
 
 using namespace tt::umd;
@@ -38,7 +38,6 @@ TEST(TestTlb, TestTlbWindowAllocateNew) {
     }
 
     PCIDevice* pci_device = cluster->get_tt_device(chip)->get_pci_device();
-    std::unique_ptr<TlbAllocator> tlb_allocator = std::make_unique<TlbAllocator>(pci_device);
 
     uint32_t value_check = 0;
 
@@ -55,7 +54,8 @@ TEST(TestTlb, TestTlbWindowAllocateNew) {
         config.linked = 0;
         config.static_vc = 1;
 
-        std::unique_ptr<TlbWindow> tlb_window = tlb_allocator->get_tlb(two_mb_size, config);
+        std::unique_ptr<TlbWindow> tlb_window =
+            std::make_unique<TlbWindow>(pci_device->allocate_tlb(two_mb_size), config);
 
         uint32_t readback_value = tlb_window->read32(0);
 
@@ -82,14 +82,13 @@ TEST(TestTlb, TestTlbWindowReuse) {
     }
 
     PCIDevice* pci_device = cluster->get_tt_device(chip)->get_pci_device();
-    std::unique_ptr<TlbAllocator> tlb_allocator = std::make_unique<TlbAllocator>(pci_device);
 
     uint32_t value_check = 0;
 
     // Here it's not important how we have configured the TLB. For every read we will
     // do the reconfigure of the TLB window.
     tenstorrent_noc_tlb_config config{};
-    std::unique_ptr<TlbWindow> tlb_window = tlb_allocator->get_tlb(two_mb_size, config);
+    std::unique_ptr<TlbWindow> tlb_window = std::make_unique<TlbWindow>(pci_device->allocate_tlb(two_mb_size), config);
 
     for (CoreCoord core : tensix_cores) {
         tenstorrent_noc_tlb_config config;
@@ -129,7 +128,6 @@ TEST(TestTlb, TestTlbWindowReadRegister) {
     std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
 
     PCIDevice* pci_device = cluster->get_tt_device(0)->get_pci_device();
-    std::unique_ptr<TlbAllocator> tlb_allocator = std::make_unique<TlbAllocator>(pci_device);
 
     const std::vector<CoreCoord> tensix_cores = cluster->get_soc_descriptor(chip).get_cores(CoreType::TENSIX);
     for (CoreCoord core : tensix_cores) {
@@ -145,7 +143,8 @@ TEST(TestTlb, TestTlbWindowReadRegister) {
         config.linked = 0;
         config.static_vc = 1;
 
-        std::unique_ptr<TlbWindow> tlb_window = tlb_allocator->get_tlb(two_mb_size, config);
+        std::unique_ptr<TlbWindow> tlb_window =
+            std::make_unique<TlbWindow>(pci_device->allocate_tlb(two_mb_size), config);
 
         tlb_window->configure(config);
 
@@ -169,7 +168,6 @@ TEST(TestTlb, TestTlbWindowReadWrite) {
 
     const std::vector<CoreCoord> tensix_cores = cluster->get_soc_descriptor(chip).get_cores(CoreType::TENSIX);
     PCIDevice* pci_device = cluster->get_tt_device(chip)->get_pci_device();
-    std::unique_ptr<TlbAllocator> tlb_allocator = std::make_unique<TlbAllocator>(pci_device);
 
     for (CoreCoord core : tensix_cores) {
         tenstorrent_noc_tlb_config config_write;
@@ -184,13 +182,15 @@ TEST(TestTlb, TestTlbWindowReadWrite) {
         config_write.linked = 0;
         config_write.static_vc = 1;
 
-        std::unique_ptr<TlbWindow> tlb_window_write = tlb_allocator->get_tlb(two_mb_size, config_write);
+        std::unique_ptr<TlbWindow> tlb_window_write =
+            std::make_unique<TlbWindow>(pci_device->allocate_tlb(two_mb_size), config_write);
 
         tlb_window_write->write32(0, 4);
         tlb_window_write->write32(4, 0);
 
         tenstorrent_noc_tlb_config config_read = config_write;
-        std::unique_ptr<TlbWindow> tlb_window_read = tlb_allocator->get_tlb(two_mb_size, config_read);
+        std::unique_ptr<TlbWindow> tlb_window_read =
+            std::make_unique<TlbWindow>(pci_device->allocate_tlb(two_mb_size), config_read);
 
         uint32_t expect4 = tlb_window_read->read32(0);
         uint32_t expect0 = tlb_window_read->read32(4);

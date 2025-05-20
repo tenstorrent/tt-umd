@@ -285,6 +285,10 @@ constexpr std::array<std::pair<CoreType, uint64_t>, 6> NOC1_CONTROL_REG_ADDR_BAS
      {CoreType::ROUTER_ONLY, 0xFFB20000}}};
 static const uint64_t NOC_NODE_ID_OFFSET = 0x2C;
 
+static const uint64_t ARC_RESET_UNIT_BASE_ADDR = 0x880030000;
+static const uint64_t NOC_NODEID_X_0 = 0x1D0;
+static const uint64_t NOC_NODEID_Y_0 = 0x1D4;
+
 static const size_t tensix_translated_coordinate_start_x = 18;
 static const size_t tensix_translated_coordinate_start_y = 18;
 
@@ -368,6 +372,8 @@ public:
     uint32_t get_mem_large_write_tlb() const override { return wormhole::MEM_LARGE_WRITE_TLB; }
 
     uint32_t get_num_eth_channels() const override { return wormhole::NUM_ETH_CHANNELS; }
+
+    uint32_t get_num_dram_banks() const override { return wormhole::NUM_DRAM_BANKS; }
 
     uint32_t get_static_tlb_cfg_addr() const override { return wormhole::STATIC_TLB_CFG_ADDR; }
 

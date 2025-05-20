@@ -11,8 +11,8 @@
 #include "umd/device/coordinate_manager.h"
 #include "umd/device/types/blackhole_arc.h"
 #include "umd/device/types/blackhole_eth.h"
-#include "umd/device/types/blackhole_telemetry.h"
 #include "umd/device/types/cluster_descriptor_types.h"
+#include "umd/device/types/telemetry.h"
 
 namespace tt::umd {
 
@@ -105,20 +105,18 @@ ChipInfo BlackholeTTDevice::get_chip_info() {
     ChipInfo chip_info;
     chip_info.harvesting_masks.tensix_harvesting_mask = CoordinateManager::shuffle_tensix_harvesting_mask(
         tt::ARCH::BLACKHOLE,
-        telemetry->is_entry_available(blackhole::TelemetryTag::ENABLED_TENSIX_COL)
-            ? (~telemetry->read_entry(blackhole::TelemetryTag::ENABLED_TENSIX_COL) & 0x3FFF)
+        telemetry->is_entry_available(TelemetryTag::ENABLED_TENSIX_COL)
+            ? (~telemetry->read_entry(TelemetryTag::ENABLED_TENSIX_COL) & 0x3FFF)
             : 0);
-    chip_info.harvesting_masks.dram_harvesting_mask =
-        telemetry->is_entry_available(blackhole::TelemetryTag::ENABLED_GDDR)
-            ? (~telemetry->read_entry(blackhole::TelemetryTag::ENABLED_GDDR) & 0xFF)
-            : 0;
+    chip_info.harvesting_masks.dram_harvesting_mask = telemetry->is_entry_available(TelemetryTag::ENABLED_GDDR)
+                                                          ? (~telemetry->read_entry(TelemetryTag::ENABLED_GDDR) & 0xFF)
+                                                          : 0;
 
-    chip_info.harvesting_masks.eth_harvesting_mask =
-        telemetry->is_entry_available(blackhole::TelemetryTag::ENABLED_ETH)
-            ? (~telemetry->read_entry(blackhole::TelemetryTag::ENABLED_ETH) & 0x3FFF)
-            : 0;
+    chip_info.harvesting_masks.eth_harvesting_mask = telemetry->is_entry_available(TelemetryTag::ENABLED_ETH)
+                                                         ? (~telemetry->read_entry(TelemetryTag::ENABLED_ETH) & 0x3FFF)
+                                                         : 0;
 
-    uint32_t pcie_usage = telemetry->read_entry(blackhole::TelemetryTag::PCIE_USAGE);
+    uint32_t pcie_usage = telemetry->read_entry(TelemetryTag::PCIE_USAGE);
 
     uint32_t pcie0_usage = pcie_usage & 0x3;
     uint32_t pcie1_usage = (pcie_usage >> 2) & 0x3;
@@ -135,7 +133,7 @@ ChipInfo BlackholeTTDevice::get_chip_info() {
 
     // TODO: Read asic location of the chip from telemetry when it is available.
     // Until then we have to read it from ETH core, it happens during topology exploration.
-    // chip_info.asic_location = telemetry->read_entry(blackhole::TelemetryTag::ASIC_LOCATION);
+    // chip_info.chip_uid.asic_location = telemetry->read_entry(TelemetryTag::ASIC_LOCATION);
 
     chip_info.noc_translation_enabled = get_noc_translation_enabled();
 
@@ -149,14 +147,14 @@ ChipInfo BlackholeTTDevice::get_chip_info() {
         chip_info.harvesting_masks.eth_harvesting_mask = 0x3FFF;
     }
 
-    chip_info.asic_location = telemetry->read_entry(blackhole::TelemetryTag::ASIC_LOCATION);
+    chip_info.asic_location = telemetry->read_entry(TelemetryTag::ASIC_LOCATION);
 
     return chip_info;
 }
 
 semver_t BlackholeTTDevice::get_firmware_version() {
-    return telemetry->is_entry_available(blackhole::TelemetryTag::FLASH_BUNDLE_VERSION)
-               ? fw_version_from_telemetry(telemetry->read_entry(blackhole::TelemetryTag::FLASH_BUNDLE_VERSION))
+    return telemetry->is_entry_available(TelemetryTag::FLASH_BUNDLE_VERSION)
+               ? fw_version_from_telemetry(telemetry->read_entry(TelemetryTag::FLASH_BUNDLE_VERSION))
                : semver_t(0, 0, 0);
 }
 
@@ -185,8 +183,8 @@ void BlackholeTTDevice::wait_arc_core_start(const uint32_t timeout_ms) {
 }
 
 uint32_t BlackholeTTDevice::get_clock() {
-    if (telemetry->is_entry_available(blackhole::TelemetryTag::AICLK)) {
-        return telemetry->read_entry(blackhole::TelemetryTag::AICLK);
+    if (telemetry->is_entry_available(TelemetryTag::AICLK)) {
+        return telemetry->read_entry(TelemetryTag::AICLK);
     }
 
     throw std::runtime_error("AICLK telemetry not available for Blackhole device.");
@@ -197,11 +195,6 @@ uint32_t BlackholeTTDevice::get_clock() {
 uint32_t BlackholeTTDevice::get_max_clock_freq() { return blackhole::AICLK_BUSY_VAL; }
 
 uint32_t BlackholeTTDevice::get_min_clock_freq() { return blackhole::AICLK_IDLE_VAL; }
-
-uint64_t BlackholeTTDevice::get_board_id() {
-    return ((uint64_t)telemetry->read_entry(blackhole::TelemetryTag::BOARD_ID_HIGH) << 32) |
-           (telemetry->read_entry(blackhole::TelemetryTag::BOARD_ID_LOW));
-}
 
 void BlackholeTTDevice::dma_d2h(void *dst, uint32_t src, size_t size) {
     throw std::runtime_error("D2H DMA is not supported on Blackhole.");
@@ -228,11 +221,11 @@ void BlackholeTTDevice::write_to_arc(const void *mem_ptr, uint64_t arc_addr_offs
 };
 
 std::vector<DramTrainingStatus> BlackholeTTDevice::get_dram_training_status() {
-    if (!telemetry->is_entry_available(blackhole::TelemetryTag::DDR_STATUS)) {
+    if (!telemetry->is_entry_available(TelemetryTag::DDR_STATUS)) {
         return {};
     }
 
-    uint32_t telemetry_data = telemetry->read_entry(blackhole::TelemetryTag::DDR_STATUS);
+    uint32_t telemetry_data = telemetry->read_entry(TelemetryTag::DDR_STATUS);
     std::vector<DramTrainingStatus> dram_training_status;
     const uint32_t num_dram_channels = architecture_impl_->get_dram_banks_number();
     // Format of the dram training status is as follows:
@@ -284,7 +277,7 @@ double BlackholeTTDevice::get_asic_temperature() {
     // Data stored in telemetry has temperature of ASIC stored in a way that high 16 bits
     // have integer part and lower 16 bits have fractional part.
     // It needs to be divided by 65536 to get temperature in Celsius.
-    return (double)telemetry->read_entry(blackhole::TelemetryTag::ASIC_TEMPERATURE) / 65536.0f;
+    return (double)telemetry->read_entry(TelemetryTag::ASIC_TEMPERATURE) / 65536.0f;
 }
 
 uint64_t BlackholeTTDevice::get_arc_noc_base_address() const { return blackhole::ARC_NOC_XBAR_ADDRESS_START; }

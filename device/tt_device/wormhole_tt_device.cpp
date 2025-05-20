@@ -138,17 +138,11 @@ uint32_t WormholeTTDevice::get_clock() {
 }
 
 uint32_t WormholeTTDevice::get_max_clock_freq() {
-    uint32_t aiclk_telemetry = telemetry->read_entry(wormhole::TelemetryTag::AICLK);
-    return (aiclk_telemetry >> 16) & 0xFFFF;
+    // TODO: figure out if this exists in new telemetry.
+    return tt::umd::wormhole::AICLK_BUSY_VAL;
 }
 
 uint32_t WormholeTTDevice::get_min_clock_freq() { return wormhole::AICLK_IDLE_VAL; }
-
-uint64_t WormholeTTDevice::get_board_id() {
-    uint32_t board_id_lo = telemetry->read_entry(wormhole::TelemetryTag::BOARD_ID_LOW);
-    uint32_t board_id_hi = telemetry->read_entry(wormhole::TelemetryTag::BOARD_ID_HIGH);
-    return ((uint64_t)board_id_hi << 32) | board_id_lo;
-}
 
 std::vector<DramTrainingStatus> WormholeTTDevice::get_dram_training_status() {
     uint32_t dram_training_status_telemetry = telemetry->read_entry(wormhole::TelemetryTag::DDR_STATUS);

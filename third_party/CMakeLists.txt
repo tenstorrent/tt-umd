@@ -18,6 +18,11 @@ if(TT_UMD_BUILD_TESTS)
         OPTIONS
             "INSTALL_GTEST OFF"
     )
+    if(googletest_ADDED AND CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+        # Suppress clang's -Wimplicit-int-float-conversion just for gtest targets
+        target_compile_options(gtest PRIVATE -Wno-implicit-int-float-conversion)
+        target_compile_options(gtest_main PRIVATE -Wno-implicit-int-float-conversion)
+    endif()
 endif()
 
 ####################################################################################################################

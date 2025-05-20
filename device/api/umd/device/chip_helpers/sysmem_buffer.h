@@ -21,8 +21,8 @@ namespace tt::umd {
  * 2. Sysmem buffer, that is used when the system is protected by an IOMMU. With IOMMU, the mappings can be requested at
  * much finer granularity than hugepages.
  *
- * Traditionally, we have reffered to the sysmem buffer as something that is
- * visible to device, has it's own NOC address. Without changes to KMD, this is still not fully supported for IOMMU
+ * Traditionally, we have referred to the sysmem buffer as something that is
+ * visible to device, has its own NOC address. Without changes to KMD, this is still not fully supported for IOMMU
  * buffers.
  */
 class SysmemBuffer {

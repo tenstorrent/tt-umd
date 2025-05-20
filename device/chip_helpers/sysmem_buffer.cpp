@@ -6,6 +6,8 @@
 
 #include "umd/device/chip_helpers/sysmem_buffer.h"
 
+#include <tt-logger/tt-logger.hpp>
+
 #include "umd/device/tt_device/tt_device.h"
 
 namespace tt::umd {
@@ -73,7 +75,12 @@ void SysmemBuffer::dma_read_from_device(size_t offset, size_t size, tt_xy_pair c
 }
 
 SysmemBuffer::~SysmemBuffer() {
-    tlb_manager_->get_tt_device()->get_pci_device()->unmap_for_dma(buffer_va, buffer_size);
+    try {
+        tlb_manager_->get_tt_device()->get_pci_device()->unmap_for_dma(buffer_va, buffer_size);
+    } catch (...) {
+        log_warning(
+            LogSiliconDriver, "Failed to unmap sysmem buffer (size: {:#x}, IOVA: {:#x}).", buffer_size, device_io_addr);
+    }
 }
 
 }  // namespace tt::umd

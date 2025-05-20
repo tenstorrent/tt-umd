@@ -104,7 +104,7 @@ TEST(TestTlb, TestTlbWindowReuse) {
         config.linked = 0;
         config.static_vc = 1;
 
-        tlb_window->handle_ref().configure(config);
+        tlb_window->configure(config);
 
         uint32_t readback_value = tlb_window->read32(0);
 
@@ -147,7 +147,7 @@ TEST(TestTlb, TestTlbWindowReadRegister) {
 
         std::unique_ptr<TlbWindow> tlb_window = tlb_allocator->get_tlb(two_mb_size, config);
 
-        tlb_window->handle_ref().configure(config);
+        tlb_window->configure(config);
 
         uint32_t noc_node_id_val = tlb_window->read_register(noc_node_id_tlb_offset & (two_mb_size - 1));
 

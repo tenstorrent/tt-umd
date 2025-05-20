@@ -31,6 +31,8 @@ public:
 
     size_t get_size() const;
 
+    void configure(const tenstorrent_noc_tlb_config& new_config);
+
 private:
     void validate(uint64_t offset, size_t size) const;
 

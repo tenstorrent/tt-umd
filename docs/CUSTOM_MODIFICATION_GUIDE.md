@@ -35,7 +35,7 @@ For the examples of how to implement other functions, you can view the current i
 ### Changes needed in tt-metal
 
 #### get_platform_architecture()
-The function [get_platform_architecture](https://github.com/tenstorrent/tt-metal/blob/9edf9a0cac90d4f89262165dbe3fc4f4feac18be/tt_metal/api/tt-metalium/get_platform_architecture.hpp#L50) can be reimplemented to return any architecture (for example tt::ARCH::GRAYSKULL, or a new ARCH type if one is added) instead of the current implementation.
+The function [get_platform_architecture](https://github.com/tenstorrent/tt-metal/blob/9edf9a0cac90d4f89262165dbe3fc4f4feac18be/tt_metal/api/tt-metalium/get_platform_architecture.hpp#L50) can be reimplemented to return any architecture (for example tt::ARCH::WORMHOLE_B0, or a new ARCH type if one is added) instead of the current implementation.
 
 #### tt_cluster.cpp
 

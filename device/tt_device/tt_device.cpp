@@ -376,24 +376,6 @@ tt::umd::ArcMessenger *TTDevice::get_arc_messenger() const { return arc_messenge
 
 tt::umd::ArcTelemetryReader *TTDevice::get_arc_telemetry_reader() const { return telemetry.get(); }
 
-uint32_t TTDevice::get_clock() {
-    throw std::runtime_error(
-        "Base TTDevice class does not have get_clock implemented. Move this to abstract function once Grayskull "
-        "TTDevice is deleted.");
-}
-
-uint32_t TTDevice::get_max_clock_freq() {
-    throw std::runtime_error(
-        "Base TTDevice class does not have get_max_clock_freq implemented. Move this to abstract function once "
-        "Grayskull TTDevice is deleted.");
-}
-
-uint32_t TTDevice::get_min_clock_freq() {
-    throw std::runtime_error(
-        "Base TTDevice class does not have get_min_clock_freq implemented. Move this to abstract function once "
-        "Grayskull TTDevice is deleted.");
-}
-
 TTDevice::~TTDevice() { lock_manager.clear_mutex(MutexType::TT_DEVICE_IO, get_pci_device()->get_device_num()); }
 
 std::vector<DramTrainingStatus> TTDevice::get_dram_training_status() { return {}; }

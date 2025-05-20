@@ -54,7 +54,7 @@ class PCIDevice {
     const PciDeviceInfo info;        // PCI device info
     const int numa_node;             // -1 if non-NUMA
     const int revision;              // PCI revision value from sysfs
-    const tt::ARCH arch;             // e.g. Grayskull, Wormhole, Blackhole
+    const tt::ARCH arch;             // e.g. Wormhole, Blackhole
     const semver_t kmd_version;      // KMD version
     const bool iommu_enabled;        // Whether the system is protected from this device by an IOMMU
     DmaBuffer dma_buffer{};

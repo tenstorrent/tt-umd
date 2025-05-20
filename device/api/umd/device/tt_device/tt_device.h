@@ -180,11 +180,11 @@ public:
 
     ArcTelemetryReader *get_arc_telemetry_reader() const;
 
-    virtual uint32_t get_clock();
+    virtual uint32_t get_clock() = 0;
 
-    virtual uint32_t get_max_clock_freq();
+    virtual uint32_t get_max_clock_freq() = 0;
 
-    virtual uint32_t get_min_clock_freq();
+    virtual uint32_t get_min_clock_freq() = 0;
 
     virtual BoardType get_board_type() = 0;
 

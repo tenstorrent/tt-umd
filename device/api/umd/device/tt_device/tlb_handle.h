@@ -14,7 +14,7 @@ namespace tt::umd {
 
 class TlbHandle {
 public:
-    TlbHandle(uint32_t fd, size_t size, const tenstorrent_noc_tlb_config& config);
+    TlbHandle(uint32_t fd, size_t size);
 
     ~TlbHandle() noexcept;
 

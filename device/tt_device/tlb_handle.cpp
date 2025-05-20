@@ -30,7 +30,7 @@ TlbHandle::TlbHandle(uint32_t fd, size_t size) : tlb_size(size), fd(fd) {
     if (uc == MAP_FAILED) {
         munmap(uc, size);
         free_tlb();
-        throw;
+        throw std::runtime_error("Failed to map the TLB.");
     }
 
     tlb_base = reinterpret_cast<uint8_t*>(uc);

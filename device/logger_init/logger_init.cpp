@@ -13,7 +13,7 @@
 
 #include <tt-logger/tt-logger-initializer.hpp>
 
-namespace umd_logging {
+namespace tt::umd::logging {
 
 constexpr auto file_env_var = "TT_METAL_LOGGER_FILE";
 constexpr auto level_env_var = "TT_METAL_LOGGER_LEVEL";
@@ -35,4 +35,4 @@ static tt::LoggerInitializer loggerInitializer(file_env_var, level_env_var);
 
 // Note - Using default logger pattern, until source_location info can be fixed
 
-}  // namespace umd_logging
+}  // namespace tt::umd::logging

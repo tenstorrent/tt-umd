@@ -24,7 +24,7 @@ TlbHandle::TlbHandle(uint32_t fd, size_t size, const tenstorrent_noc_tlb_config&
 
     tlb_id = allocate_tlb.out.id;
 
-    configure(config);
+    // configure(config);
 
     // mmap only UC offset for now.
     // TODO: add choice whether to map UC or WC mapping.

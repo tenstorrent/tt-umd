@@ -66,4 +66,6 @@ void TlbWindow::validate(uint64_t offset, size_t size) const {
     }
 }
 
+void TlbWindow::configure(const tenstorrent_noc_tlb_config& new_config) { handle->configure(new_config); }
+
 }  // namespace tt::umd

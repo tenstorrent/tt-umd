@@ -13,7 +13,7 @@ namespace tt::umd {
 
 class TlbWindow {
 public:
-    TlbWindow(std::unique_ptr<TlbHandle> handle);
+    TlbWindow(std::unique_ptr<TlbHandle> handle, const tenstorrent_noc_tlb_config config);
 
     void write32(uint64_t offset, uint32_t value);
 
@@ -36,7 +36,7 @@ public:
 private:
     void validate(uint64_t offset, size_t size) const;
 
-    std::unique_ptr<TlbHandle> handle;
+    std::unique_ptr<TlbHandle> tlb_handle;
 };
 
 }  // namespace tt::umd

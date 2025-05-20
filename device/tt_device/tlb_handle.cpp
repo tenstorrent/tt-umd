@@ -15,7 +15,7 @@
 
 namespace tt::umd {
 
-TlbHandle::TlbHandle(uint32_t fd, size_t size, const tenstorrent_noc_tlb_config& config) : tlb_size(size), fd(fd) {
+TlbHandle::TlbHandle(uint32_t fd, size_t size) : tlb_size(size), fd(fd) {
     tenstorrent_allocate_tlb allocate_tlb{};
     allocate_tlb.in.size = size;
     if (ioctl(fd, TENSTORRENT_IOCTL_ALLOCATE_TLB, &allocate_tlb) < 0) {
@@ -23,8 +23,6 @@ TlbHandle::TlbHandle(uint32_t fd, size_t size, const tenstorrent_noc_tlb_config&
     }
 
     tlb_id = allocate_tlb.out.id;
-
-    // configure(config);
 
     // mmap only UC offset for now.
     // TODO: add choice whether to map UC or WC mapping.

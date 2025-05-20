@@ -35,7 +35,6 @@ target_sources(
         chip_helpers/sysmem_manager.cpp
         chip_helpers/sysmem_buffer.cpp
         chip_helpers/tlb_manager.cpp
-        tt_device/tlb_allocator.cpp
         tt_device/tlb_window.cpp
         tt_device/tlb_handle.cpp
         cluster.cpp

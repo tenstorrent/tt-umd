@@ -156,7 +156,8 @@ BoardType TopologyDiscovery::get_board_type(eth_coord_t eth_coord, Chip* mmio_ch
         nullptr,
         mmio_chip);
 
-    tt_xy_pair arc_core = tt::umd::wormhole::ARC_CORES_NOC0[0];
+    tt_xy_pair arc_core = mmio_chip->get_soc_descriptor().get_cores(
+        CoreType::ARC, umd_use_noc1 ? CoordSystem::NOC1 : CoordSystem::PHYSICAL)[0];
     static constexpr uint64_t noc_telemetry_offset = 0x810000000;
     uint64_t telemetry_struct_offset = ret0 + noc_telemetry_offset;
 

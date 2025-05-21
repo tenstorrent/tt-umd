@@ -17,6 +17,7 @@ namespace tt::umd {
 WormholeTTDevice::WormholeTTDevice(std::unique_ptr<PCIDevice> pci_device) :
     TTDevice(std::move(pci_device), std::make_unique<wormhole_implementation>()) {
     init_tt_device();
+    wait_arc_core_start(wormhole::ARC_CORES_NOC0[0], 1000);
 }
 
 bool WormholeTTDevice::get_noc_translation_enabled() {
@@ -53,7 +54,27 @@ ChipInfo WormholeTTDevice::get_chip_info() {
     return chip_info;
 }
 
-void WormholeTTDevice::wait_arc_core_start(const tt_xy_pair arc_core, const uint32_t timeout_ms) {}
+void WormholeTTDevice::wait_arc_core_start(const tt_xy_pair arc_core, const uint32_t timeout_ms) {
+    uint32_t bar_read_initial = bar_read32(architecture_impl_->get_arc_reset_scratch_offset() + 3 * 4);
+    // TODO: figure out 325 and 500 constants meaning and put it in variable.
+    uint32_t arg = bar_read_initial == 500 ? 325 : 500;
+    uint32_t bar_read_again;
+    std::vector<uint32_t> ret_vals(1);
+    uint32_t arc_msg_return = get_arc_messenger()->send_message(
+        wormhole::ARC_MSG_COMMON_PREFIX | architecture_impl_->get_arc_message_test(), ret_vals, arg, 0, timeout_ms);
+    bar_read_again = ret_vals[0];
+    if (arc_msg_return != 0 || bar_read_again != arg + 1) {
+        auto postcode = bar_read32(architecture_impl_->get_arc_reset_scratch_offset());
+        throw std::runtime_error(fmt::format(
+            "Device is not initialized: arc_fw postcode: {} arc_msg_return: {} arg: {} bar_read_initial: {} "
+            "bar_read_again: {}",
+            postcode,
+            arc_msg_return,
+            arg,
+            bar_read_initial,
+            bar_read_again));
+    }
+}
 
 uint32_t WormholeTTDevice::get_clock() {
     const uint32_t timeouts_ms = 1000;
@@ -141,7 +162,7 @@ void WormholeTTDevice::configure_iatu_region(size_t region, uint64_t target, siz
         target);
 }
 
-void WormholeTTDevice::dma_d2h_transfer(void *dst, uint32_t src, size_t size) {
+void WormholeTTDevice::dma_d2h_transfer(const uint64_t dst, const uint32_t src, const size_t size) {
     static constexpr uint64_t DMA_WRITE_ENGINE_EN_OFF = 0xc;
     static constexpr uint64_t DMA_WRITE_INT_MASK_OFF = 0x54;
     static constexpr uint64_t DMA_CH_CONTROL1_OFF_WRCH_0 = 0x200;
@@ -174,10 +195,6 @@ void WormholeTTDevice::dma_d2h_transfer(void *dst, uint32_t src, size_t size) {
         throw std::runtime_error("DMA size must be a multiple of 4");
     }
 
-    if (size > dma_buffer.size) {
-        throw std::runtime_error("DMA size exceeds buffer size");
-    }
-
     if (!bar2) {
         throw std::runtime_error("BAR2 is not mapped");
     }
@@ -191,18 +208,18 @@ void WormholeTTDevice::dma_d2h_transfer(void *dst, uint32_t src, size_t size) {
 
     write_reg(DMA_WRITE_ENGINE_EN_OFF, 0x1);
     write_reg(DMA_WRITE_INT_MASK_OFF, 0);
-    write_reg(DMA_CH_CONTROL1_OFF_WRCH_0, 0x00000010);                 // Remote interrupt enable (for completion)
-    write_reg(DMA_WRITE_DONE_IMWR_LOW_OFF, dma_buffer.completion_pa);  // Write completion address
-    write_reg(DMA_WRITE_CH01_IMWR_DATA_OFF, DMA_COMPLETION_VALUE);     // Write completion value
-    write_reg(DMA_WRITE_DONE_IMWR_HIGH_OFF, 0);
+    write_reg(DMA_CH_CONTROL1_OFF_WRCH_0, 0x00000010);  // Remote interrupt enable (for completion)
+    write_reg(
+        DMA_WRITE_DONE_IMWR_LOW_OFF, (uint32_t)(dma_buffer.completion_pa & 0xFFFFFFFF));  // Write completion address
+    write_reg(DMA_WRITE_DONE_IMWR_HIGH_OFF, (uint32_t)((dma_buffer.completion_pa >> 32) & 0xFFFFFFFF));
+    write_reg(DMA_WRITE_CH01_IMWR_DATA_OFF, DMA_COMPLETION_VALUE);  // Write completion value
     write_reg(DMA_WRITE_ABORT_IMWR_LOW_OFF, 0);
     write_reg(DMA_WRITE_ABORT_IMWR_HIGH_OFF, 0);
     write_reg(DMA_TRANSFER_SIZE_OFF_WRCH_0, size);
     write_reg(DMA_SAR_LOW_OFF_WRCH_0, src);
     write_reg(DMA_SAR_HIGH_OFF_WRCH_0, 0);
-    uint64_t dst_addr = reinterpret_cast<uint64_t>(dst);
-    write_reg(DMA_DAR_LOW_OFF_WRCH_0, (uint32_t)(dst_addr & 0xFFFFFFFF));
-    write_reg(DMA_DAR_HIGH_OFF_WRCH_0, (uint32_t)((dst_addr >> 32) & 0xFFFFFFFF));
+    write_reg(DMA_DAR_LOW_OFF_WRCH_0, (uint32_t)(dst & 0xFFFFFFFF));
+    write_reg(DMA_DAR_HIGH_OFF_WRCH_0, (uint32_t)((dst >> 32) & 0xFFFFFFFF));
     write_reg(DMA_WRITE_DOORBELL_OFF, 0);
 
     auto start = std::chrono::steady_clock::now();
@@ -220,7 +237,7 @@ void WormholeTTDevice::dma_d2h_transfer(void *dst, uint32_t src, size_t size) {
     }
 }
 
-void WormholeTTDevice::dma_h2d_transfer(uint32_t dst, const void *src, size_t size) {
+void WormholeTTDevice::dma_h2d_transfer(const uint32_t dst, const uint64_t src, const size_t size) {
     static constexpr uint64_t DMA_READ_ENGINE_EN_OFF = 0x2c;
     static constexpr uint64_t DMA_READ_INT_MASK_OFF = 0xa8;
     static constexpr uint64_t DMA_CH_CONTROL1_OFF_RDCH_0 = 0x300;
@@ -253,10 +270,6 @@ void WormholeTTDevice::dma_h2d_transfer(uint32_t dst, const void *src, size_t si
         throw std::runtime_error("DMA size must be a multiple of 4");
     }
 
-    if (size > dma_buffer.size) {
-        throw std::runtime_error("DMA size exceeds buffer size");
-    }
-
     if (!bar2) {
         throw std::runtime_error("BAR2 is not mapped");
     }
@@ -270,16 +283,16 @@ void WormholeTTDevice::dma_h2d_transfer(uint32_t dst, const void *src, size_t si
 
     write_reg(DMA_READ_ENGINE_EN_OFF, 0x1);
     write_reg(DMA_READ_INT_MASK_OFF, 0);
-    write_reg(DMA_CH_CONTROL1_OFF_RDCH_0, 0x10);                      // Remote interrupt enable (for completion)
-    write_reg(DMA_READ_DONE_IMWR_LOW_OFF, dma_buffer.completion_pa);  // Read completion address
-    write_reg(DMA_READ_CH01_IMWR_DATA_OFF, DMA_COMPLETION_VALUE);     // Read completion value
-    write_reg(DMA_READ_DONE_IMWR_HIGH_OFF, 0);
+    write_reg(DMA_CH_CONTROL1_OFF_RDCH_0, 0x10);  // Remote interrupt enable (for completion)
+    write_reg(
+        DMA_READ_DONE_IMWR_LOW_OFF, (uint32_t)(dma_buffer.completion_pa & 0xFFFFFFFF));  // Read completion address
+    write_reg(DMA_READ_DONE_IMWR_HIGH_OFF, (uint32_t)((dma_buffer.completion_pa >> 32) & 0xFFFFFFFF));
+    write_reg(DMA_READ_CH01_IMWR_DATA_OFF, DMA_COMPLETION_VALUE);  // Read completion value
     write_reg(DMA_READ_ABORT_IMWR_LOW_OFF, 0);
     write_reg(DMA_READ_ABORT_IMWR_HIGH_OFF, 0);
     write_reg(DMA_TRANSFER_SIZE_OFF_RDCH_0, size);
-    uint64_t src_addr = reinterpret_cast<uint64_t>(src);
-    write_reg(DMA_SAR_LOW_OFF_RDCH_0, (uint32_t)(src_addr & 0xFFFFFFFF));
-    write_reg(DMA_SAR_HIGH_OFF_RDCH_0, (uint32_t)((src_addr >> 32) & 0xFFFFFFFF));
+    write_reg(DMA_SAR_LOW_OFF_RDCH_0, (uint32_t)(src & 0xFFFFFFFF));
+    write_reg(DMA_SAR_HIGH_OFF_RDCH_0, (uint32_t)((src >> 32) & 0xFFFFFFFF));
     write_reg(DMA_DAR_LOW_OFF_RDCH_0, dst);
     write_reg(DMA_DAR_HIGH_OFF_RDCH_0, 0);
     write_reg(DMA_READ_DOORBELL_OFF, 0);
@@ -306,20 +319,50 @@ void WormholeTTDevice::dma_h2d_transfer(uint32_t dst, const void *src, size_t si
 // the application will require IOMMU support.  One day...
 void WormholeTTDevice::dma_d2h(void *dst, uint32_t src, size_t size) {
     DmaBuffer &dma_buffer = pci_device_->get_dma_buffer();
-    dma_d2h_transfer((void *)(uintptr_t)dma_buffer.buffer_pa, src, size);
+
+    if (size > dma_buffer.size) {
+        throw std::runtime_error("DMA size exceeds buffer size");
+    }
+
+    dma_d2h_transfer(dma_buffer.buffer_pa, src, size);
     memcpy(dst, dma_buffer.buffer, size);
 }
 
 void WormholeTTDevice::dma_h2d(uint32_t dst, const void *src, size_t size) {
     DmaBuffer &dma_buffer = pci_device_->get_dma_buffer();
+
+    if (size > dma_buffer.size) {
+        throw std::runtime_error("DMA size exceeds buffer size");
+    }
+
     memcpy(dma_buffer.buffer, src, size);
-    dma_h2d_transfer(dst, (void *)(uintptr_t)dma_buffer.buffer_pa, size);
+    dma_h2d_transfer(dst, dma_buffer.buffer_pa, size);
 }
 
 void WormholeTTDevice::dma_h2d_zero_copy(uint32_t dst, const void *src, size_t size) {
-    dma_h2d_transfer(dst, src, size);
+    dma_h2d_transfer(dst, (uint64_t)(uintptr_t)src, size);
 }
 
-void WormholeTTDevice::dma_d2h_zero_copy(void *dst, uint32_t src, size_t size) { dma_d2h_transfer(dst, src, size); }
+void WormholeTTDevice::dma_d2h_zero_copy(void *dst, uint32_t src, size_t size) {
+    dma_d2h_transfer((uint64_t)(uintptr_t)dst, src, size);
+}
+
+void WormholeTTDevice::wait_eth_core_training(const tt_xy_pair eth_core, const uint32_t timeout_ms) {
+    constexpr uint64_t eth_core_heartbeat_addr = 0x1C;
+    auto start = std::chrono::system_clock::now();
+    uint32_t heartbeat_val;
+    read_from_device(&heartbeat_val, eth_core, eth_core_heartbeat_addr, sizeof(heartbeat_val));
+
+    uint32_t new_heartbeat_val = heartbeat_val;
+    while (new_heartbeat_val != heartbeat_val) {
+        read_from_device(&new_heartbeat_val, eth_core, eth_core_heartbeat_addr, sizeof(heartbeat_val));
+        auto end = std::chrono::system_clock::now();
+        auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
+        if (duration.count() > timeout_ms) {
+            throw std::runtime_error(fmt::format("ETH training timed out after {} ms", timeout_ms));
+            break;
+        }
+    }
+}
 
 }  // namespace tt::umd

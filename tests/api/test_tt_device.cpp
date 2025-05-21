@@ -4,8 +4,10 @@
 #include <thread>
 
 #include "gtest/gtest.h"
+#include "tests/test_utils/device_test_utils.hpp"
 #include "umd/device/blackhole_implementation.h"
 #include "umd/device/cluster.h"
+#include "umd/device/tt_device/remote_tt_device.h"
 #include "umd/device/tt_device/tt_device.h"
 #include "umd/device/wormhole_implementation.h"
 
@@ -103,5 +105,49 @@ TEST(ApiTTDeviceTest, TTDeviceMultipleThreadsIO) {
 
         thread0.join();
         thread1.join();
+    }
+}
+
+TEST(ApiTTDeviceTest, TestRemoteTTDevice) {
+    std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
+
+    tt_ClusterDescriptor* cluster_desc = cluster->get_cluster_description();
+
+    auto chip_locations = cluster_desc->get_chip_locations();
+
+    const uint32_t buf_size = 1 << 20;
+    std::vector<uint8_t> zero_out_buffer(buf_size, 0);
+
+    std::vector<uint8_t> pattern_buf(buf_size);
+    for (uint32_t i = 0; i < buf_size; i++) {
+        pattern_buf[i] = (uint8_t)(i % 256);
+    }
+
+    for (chip_id_t remote_chip_id : cluster->get_target_remote_device_ids()) {
+        const CoreCoord tensix_core =
+            cluster->get_chip(remote_chip_id)->get_soc_descriptor().get_cores(CoreType::TENSIX)[0];
+
+        eth_coord_t remote_eth_coord = chip_locations.at(remote_chip_id);
+
+        LocalChip* closest_local_chip =
+            cluster->get_local_chip(cluster_desc->get_closest_mmio_capable_chip(remote_chip_id));
+
+        std::unique_ptr<RemoteTTDevice> remote_tt_device =
+            std::make_unique<RemoteTTDevice>(closest_local_chip, remote_eth_coord);
+
+        remote_tt_device->write_to_device(zero_out_buffer.data(), tensix_core, 0, buf_size);
+
+        // Setting initial value of vector explicitly to 1, to be sure it's not 0 in any case.
+        std::vector<uint8_t> readback_buf(buf_size, 1);
+
+        remote_tt_device->read_from_device(readback_buf.data(), tensix_core, 0, buf_size);
+
+        EXPECT_EQ(zero_out_buffer, readback_buf);
+
+        remote_tt_device->write_to_device(pattern_buf.data(), tensix_core, 0, buf_size);
+
+        remote_tt_device->read_from_device(readback_buf.data(), tensix_core, 0, buf_size);
+
+        EXPECT_EQ(pattern_buf, readback_buf);
     }
 }

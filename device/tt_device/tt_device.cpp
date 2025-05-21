@@ -31,6 +31,8 @@ void TTDevice::init_tt_device() {
     telemetry = ArcTelemetryReader::create_arc_telemetry_reader(this);
 }
 
+TTDevice::TTDevice() {}
+
 /* static */ std::unique_ptr<TTDevice> TTDevice::create(int pci_device_number) {
     auto pci_device = std::make_unique<PCIDevice>(pci_device_number);
 
@@ -376,7 +378,11 @@ tt::umd::ArcMessenger *TTDevice::get_arc_messenger() const { return arc_messenge
 
 tt::umd::ArcTelemetryReader *TTDevice::get_arc_telemetry_reader() const { return telemetry.get(); }
 
-TTDevice::~TTDevice() { lock_manager.clear_mutex(MutexType::TT_DEVICE_IO, get_pci_device()->get_device_num()); }
+TTDevice::~TTDevice() {
+    if (get_pci_device() != nullptr) {
+        lock_manager.clear_mutex(MutexType::TT_DEVICE_IO, get_pci_device()->get_device_num());
+    }
+}
 
 std::vector<DramTrainingStatus> TTDevice::get_dram_training_status() { return {}; }
 

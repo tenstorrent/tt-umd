@@ -404,9 +404,6 @@ CoreCoord tt_SocDescriptor::get_eth_core_for_channel(int eth_chan, const CoordSy
 
 std::string tt_SocDescriptor::get_soc_descriptor_path(tt::ARCH arch) {
     switch (arch) {
-        case tt::ARCH::GRAYSKULL:
-            // TODO: this path needs to be changed to point to soc descriptors outside of tests directory.
-            return tt::umd::utils::get_abs_path("tests/soc_descs/grayskull_10x12.yaml");
         case tt::ARCH::WORMHOLE_B0:
             // TODO: this path needs to be changed to point to soc descriptors outside of tests directory.
             return tt::umd::utils::get_abs_path("tests/soc_descs/wormhole_b0_8x10.yaml");

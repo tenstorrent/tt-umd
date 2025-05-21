@@ -1,5 +1,7 @@
 set(POSITION_INDEPENDENT_CODE ON)
 
+add_subdirectory(logger_init)
+
 if(TT_UMD_BUILD_SIMULATION)
     set(FBS_FILE ${PROJECT_SOURCE_DIR}/device/simulation/tt_simulation_device.fbs)
     get_filename_component(FBS_FILE_NAME ${FBS_FILE} NAME_WLE)
@@ -38,7 +40,6 @@ target_sources(
         cluster.cpp
         coordinate_manager.cpp
         cpuset_lib.cpp
-        grayskull/grayskull_implementation.cpp
         wormhole/wormhole_implementation.cpp
         blackhole/blackhole_implementation.cpp
         hugepage.cpp
@@ -48,6 +49,7 @@ target_sources(
         tt_device/blackhole_tt_device.cpp
         tt_device/tt_device.cpp
         tt_device/wormhole_tt_device.cpp
+        tt_device/remote_tt_device.cpp
         tt_silicon_driver_common.cpp
         tt_soc_descriptor.cpp
         wormhole/wormhole_coordinate_manager.cpp
@@ -100,7 +102,6 @@ if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.23)
                 api/umd/device/coordinate_manager.h
                 api/umd/device/device_api_metal.h
                 api/umd/device/driver_atomics.h
-                api/umd/device/grayskull_implementation.h
                 api/umd/device/hugepage.h
                 api/umd/device/utils/lock_manager.h
                 api/umd/device/pci_device.hpp
@@ -111,6 +112,7 @@ if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.23)
                 api/umd/device/tt_device/blackhole_tt_device.h
                 api/umd/device/tt_device/tt_device.h
                 api/umd/device/tt_device/wormhole_tt_device.h
+                api/umd/device/tt_device/remote_tt_device.h
                 api/umd/device/tt_io.hpp
                 api/umd/device/tt_silicon_driver_common.hpp
                 api/umd/device/tt_simulation_device.h
@@ -143,6 +145,7 @@ target_link_libraries(
     PRIVATE
         umd::Common
         umd::Firmware
+        umd::Logger::Init
         hwloc
         rt
         spdlog::spdlog_header_only

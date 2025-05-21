@@ -18,6 +18,9 @@ if(TT_UMD_BUILD_TESTS)
         OPTIONS
             "INSTALL_GTEST OFF"
     )
+    if(googletest_ADDED)
+        target_compile_options(gtest PRIVATE -Wno-implicit-int-float-conversion)
+    endif()
 endif()
 
 ####################################################################################################################
@@ -128,7 +131,7 @@ CPMAddPackage(
 ####################################################################################################################
 # tt-logger
 ####################################################################################################################
-CPMAddPackage(NAME tt-logger GITHUB_REPOSITORY tenstorrent/tt-logger VERSION 1.0.1)
+CPMAddPackage(NAME tt-logger GITHUB_REPOSITORY tenstorrent/tt-logger VERSION 1.0.4)
 
 ####################################################################################################################
 # cxxopts

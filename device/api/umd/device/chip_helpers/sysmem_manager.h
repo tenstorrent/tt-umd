@@ -49,6 +49,8 @@ private:
     TLBManager* tlb_manager_;
 
     std::vector<hugepage_mapping> hugepage_mapping_per_channel;
+
+    std::unique_ptr<SysmemBuffer> sysmem_buffer_ = nullptr;
 };
 
 }  // namespace tt::umd

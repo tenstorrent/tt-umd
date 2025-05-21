@@ -43,8 +43,8 @@ struct DmaBuffer {
     uint8_t *completion = nullptr;
     size_t size = 0;
 
-    uint32_t buffer_pa = 0;
-    uint32_t completion_pa = 0;
+    uint64_t buffer_pa = 0;
+    uint64_t completion_pa = 0;
 };
 
 class PCIDevice {
@@ -54,7 +54,7 @@ class PCIDevice {
     const PciDeviceInfo info;        // PCI device info
     const int numa_node;             // -1 if non-NUMA
     const int revision;              // PCI revision value from sysfs
-    const tt::ARCH arch;             // e.g. Grayskull, Wormhole, Blackhole
+    const tt::ARCH arch;             // e.g. Wormhole, Blackhole
     const semver_t kmd_version;      // KMD version
     const bool iommu_enabled;        // Whether the system is protected from this device by an IOMMU
     DmaBuffer dma_buffer{};
@@ -153,6 +153,14 @@ public:
      * chunk the desired transfer size to fit within it.
      */
     DmaBuffer &get_dma_buffer() { return dma_buffer; }
+
+    /**
+     * Unmap a buffer that was previously mapped for DMA access.
+     *
+     * @param buffer must be page-aligned
+     * @param size must be a multiple of the page size
+     */
+    void unmap_for_dma(void *buffer, size_t size);
 
     /**
      * Read KMD version installed on the system.

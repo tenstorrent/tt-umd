@@ -114,8 +114,8 @@ public:
     // Read/write functions that always use same TLB entry. This is not supposed to be used
     // on any code path that is performance critical. It is used to read/write the data needed
     // to get the information to form cluster of chips, or just use base TTDevice functions.
-    void read_from_device(void *mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size);
-    void write_to_device(void *mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size);
+    virtual void read_from_device(void *mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size);
+    virtual void write_to_device(void *mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size);
 
     // TLB related functions.
     // TODO: These are architecture specific, and will be moved out of the class.
@@ -172,6 +172,8 @@ public:
 
     virtual void wait_arc_core_start(const tt_xy_pair arc_core, const uint32_t timeout_ms = 1000);
 
+    virtual void wait_eth_core_training(const tt_xy_pair eth_core, const uint32_t timeout_ms = 60000) = 0;
+
     void bar_write32(uint32_t addr, uint32_t data);
 
     uint32_t bar_read32(uint32_t addr);
@@ -180,11 +182,11 @@ public:
 
     ArcTelemetryReader *get_arc_telemetry_reader() const;
 
-    virtual uint32_t get_clock();
+    virtual uint32_t get_clock() = 0;
 
-    virtual uint32_t get_max_clock_freq();
+    virtual uint32_t get_max_clock_freq() = 0;
 
-    virtual uint32_t get_min_clock_freq();
+    virtual uint32_t get_min_clock_freq() = 0;
 
     virtual BoardType get_board_type() = 0;
 
@@ -218,6 +220,8 @@ protected:
     void memcpy_from_device(void *dest, const void *src, std::size_t num_bytes);
 
     virtual void init_tt_device();
+
+    TTDevice();
 
     ChipInfo chip_info;
 };

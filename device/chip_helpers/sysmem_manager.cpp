@@ -220,6 +220,7 @@ bool SysmemManager::init_iommu(size_t size) {
     const size_t num_fake_mem_channels = size / HUGEPAGE_REGION_SIZE;
 
     TTDevice *tt_device_ = tlb_manager_->get_tt_device();
+    // Caclulate the size of the mapping in order to avoid overlap with PCIE registers.
     size_t map_size =
         (tt_device_->get_arch() == tt::ARCH::WORMHOLE_B0 && num_fake_mem_channels == 4) ? (size - carveout_size) : size;
 
@@ -237,7 +238,7 @@ bool SysmemManager::init_iommu(size_t size) {
             strerror(errno));
     }
 
-    sysmem_buffer_ = map_sysmem_buffer(mapping, size);
+    sysmem_buffer_ = map_sysmem_buffer(mapping, map_size);
     uint64_t iova = sysmem_buffer_->get_device_io_addr();
 
     log_info(LogSiliconDriver, "Mapped sysmem without hugepages to IOVA {:#x}.", iova);

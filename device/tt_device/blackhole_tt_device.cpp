@@ -8,6 +8,7 @@
 #include <tt-logger/tt-logger.hpp>
 
 #include "umd/device/blackhole_implementation.h"
+#include "umd/device/types/blackhole_eth.h"
 #include "umd/device/types/blackhole_telemetry.h"
 
 namespace tt::umd {
@@ -231,6 +232,28 @@ std::vector<DramTrainingStatus> BlackholeTTDevice::get_dram_training_status() {
     }
 
     return dram_training_status;
+}
+
+void BlackholeTTDevice::wait_eth_core_training(const tt_xy_pair eth_core, const uint32_t timeout_ms) {
+    uint32_t port_status_addr = blackhole::BOOT_RESULTS_ADDR + offsetof(blackhole::eth_status_t, port_status);
+    uint32_t port_status_val;
+    read_from_device(&port_status_val, eth_core, port_status_addr, sizeof(port_status_val));
+
+    // Port status should be last state to settle during the eth training sequence
+    // PORT_UNKNOWN means that eth is still training
+    auto start = std::chrono::system_clock::now();
+    while (port_status_val == blackhole::port_status_e::PORT_UNKNOWN) {
+        read_from_device(&port_status_val, eth_core, port_status_addr, sizeof(port_status_val));
+        auto end = std::chrono::system_clock::now();
+        auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
+        if (duration.count() > timeout_ms) {
+            // TODO: Exception should be thrown here. ETH connections are very flaky
+            // on Blackhole right now. When this is fixed we can throw the exception here.
+            // Since we are not going to do any remote IO at the moment it is fine to just log the error.
+            log_error("ETH training timed out after {} ms", timeout_ms);
+            break;
+        }
+    }
 }
 
 }  // namespace tt::umd

@@ -40,6 +40,8 @@ public:
 
     bool get_noc_translation_enabled() override;
 
+    void wait_eth_core_training(const tt_xy_pair eth_core, const uint32_t timeout_ms = 60000) override;
+
 private:
     LocalChip* local_chip_;
     eth_coord_t target_chip_;

@@ -167,7 +167,8 @@ void LocalChip::bh_wait_eth_cores_training(const uint32_t timeout_ms) {
 
 void LocalChip::wh_wait_eth_cores_training(const uint32_t timeout_ms) {
     const uint64_t eth_core_heartbeat_addr = 0x1C;
-    const std::vector<CoreCoord> eth_cores = get_soc_descriptor().get_cores(CoreType::ETH);
+    const std::vector<CoreCoord> eth_cores =
+        get_soc_descriptor().get_cores(CoreType::ETH, umd_use_noc1 ? CoordSystem::NOC1 : CoordSystem::PHYSICAL);
     TTDevice* tt_device = get_tt_device();
     auto start = std::chrono::system_clock::now();
     for (const CoreCoord& eth_core : eth_cores) {

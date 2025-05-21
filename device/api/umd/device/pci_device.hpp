@@ -43,8 +43,8 @@ struct DmaBuffer {
     uint8_t *completion = nullptr;
     size_t size = 0;
 
-    uint32_t buffer_pa = 0;
-    uint32_t completion_pa = 0;
+    uint64_t buffer_pa = 0;
+    uint64_t completion_pa = 0;
 };
 
 class PCIDevice {
@@ -153,6 +153,14 @@ public:
      * chunk the desired transfer size to fit within it.
      */
     DmaBuffer &get_dma_buffer() { return dma_buffer; }
+
+    /**
+     * Unmap a buffer that was previously mapped for DMA access.
+     *
+     * @param buffer must be page-aligned
+     * @param size must be a multiple of the page size
+     */
+    void unmap_for_dma(void *buffer, size_t size);
 
     /**
      * Read KMD version installed on the system.

@@ -6,12 +6,17 @@
 
 #include "umd/device/chip_helpers/sysmem_buffer.h"
 
+#include <tt-logger/tt-logger.hpp>
+
 #include "umd/device/tt_device/tt_device.h"
 
 namespace tt::umd {
 
-SysmemBuffer::SysmemBuffer(TLBManager* tlb_manager, void* buffer_va, size_t buffer_size, uint64_t device_io_addr) :
-    tlb_manager_(tlb_manager), buffer_va(buffer_va), buffer_size(buffer_size), device_io_addr(device_io_addr) {}
+SysmemBuffer::SysmemBuffer(TLBManager* tlb_manager, void* buffer_va, size_t buffer_size) :
+    tlb_manager_(tlb_manager),
+    buffer_va(buffer_va),
+    buffer_size(buffer_size),
+    device_io_addr(tlb_manager->get_tt_device()->get_pci_device()->map_for_dma(buffer_va, buffer_size)) {}
 
 void SysmemBuffer::dma_write_to_device(size_t offset, size_t size, tt_xy_pair core, uint64_t addr) {
     static const std::string tlb_name = "LARGE_WRITE_TLB";
@@ -66,6 +71,15 @@ void SysmemBuffer::dma_read_from_device(size_t offset, size_t size, tt_xy_pair c
         size -= transfer_size;
         addr += transfer_size;
         buffer += transfer_size;
+    }
+}
+
+SysmemBuffer::~SysmemBuffer() {
+    try {
+        tlb_manager_->get_tt_device()->get_pci_device()->unmap_for_dma(buffer_va, buffer_size);
+    } catch (...) {
+        log_warning(
+            LogSiliconDriver, "Failed to unmap sysmem buffer (size: {:#x}, IOVA: {:#x}).", buffer_size, device_io_addr);
     }
 }
 

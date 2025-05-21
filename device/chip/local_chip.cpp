@@ -169,6 +169,7 @@ void LocalChip::wh_wait_eth_cores_training(const uint32_t timeout_ms) {
     const uint64_t eth_core_heartbeat_addr = 0x1C;
     const std::vector<CoreCoord> eth_cores = get_soc_descriptor().get_cores(CoreType::ETH);
     TTDevice* tt_device = get_tt_device();
+    auto start = std::chrono::system_clock::now();
     for (const CoreCoord& eth_core : eth_cores) {
         uint32_t heartbeat_val;
         tt_device->read_from_device(&heartbeat_val, eth_core, eth_core_heartbeat_addr, sizeof(heartbeat_val));
@@ -176,6 +177,15 @@ void LocalChip::wh_wait_eth_cores_training(const uint32_t timeout_ms) {
         uint32_t new_heartbeat_val = heartbeat_val;
         while (new_heartbeat_val <= heartbeat_val) {
             tt_device->read_from_device(&new_heartbeat_val, eth_core, eth_core_heartbeat_addr, sizeof(heartbeat_val));
+            auto end = std::chrono::system_clock::now();
+            auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
+            if (duration.count() > timeout_ms) {
+                // TODO: Exception should be thrown here. ETH connections are very flaky
+                // on Blackhole right now. When this is fixed we can throw the exception here.
+                // Since we are not going to do any remote IO at the moment it is fine to just log the error.
+                log_error("ETH training timed out after {} ms", timeout_ms);
+                break;
+            }
         }
     }
 }

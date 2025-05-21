@@ -17,6 +17,7 @@ namespace tt::umd {
 WormholeTTDevice::WormholeTTDevice(std::unique_ptr<PCIDevice> pci_device) :
     TTDevice(std::move(pci_device), std::make_unique<wormhole_implementation>()) {
     init_tt_device();
+    wait_arc_core_start(wormhole::ARC_CORES_NOC0[0], 1000);
 }
 
 bool WormholeTTDevice::get_noc_translation_enabled() {
@@ -53,7 +54,26 @@ ChipInfo WormholeTTDevice::get_chip_info() {
     return chip_info;
 }
 
-void WormholeTTDevice::wait_arc_core_start(const tt_xy_pair arc_core, const uint32_t timeout_ms) {}
+void WormholeTTDevice::wait_arc_core_start(const tt_xy_pair arc_core, const uint32_t timeout_ms) {
+    uint32_t bar_read_initial = bar_read32(architecture_impl_->get_arc_reset_scratch_offset() + 3 * 4);
+    uint32_t arg = bar_read_initial == 500 ? 325 : 500;
+    uint32_t bar_read_again;
+    std::vector<uint32_t> ret_vals(1);
+    uint32_t arc_msg_return = get_arc_messenger()->send_message(
+        wormhole::ARC_MSG_COMMON_PREFIX | architecture_impl_->get_arc_message_test(), ret_vals, arg, 0, timeout_ms);
+    bar_read_again = ret_vals[0];
+    if (arc_msg_return != 0 || bar_read_again != arg + 1) {
+        auto postcode = bar_read32(architecture_impl_->get_arc_reset_scratch_offset());
+        throw std::runtime_error(fmt::format(
+            "Device is not initialized: arc_fw postcode: {} arc_msg_return: {} arg: {} bar_read_initial: {} "
+            "bar_read_again: {}",
+            postcode,
+            arc_msg_return,
+            arg,
+            bar_read_initial,
+            bar_read_again));
+    }
+}
 
 uint32_t WormholeTTDevice::get_clock() {
     const uint32_t timeouts_ms = 1000;

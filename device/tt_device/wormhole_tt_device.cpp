@@ -174,10 +174,6 @@ void WormholeTTDevice::dma_d2h_transfer(void *dst, uint32_t src, size_t size) {
         throw std::runtime_error("DMA size must be a multiple of 4");
     }
 
-    if (size > dma_buffer.size) {
-        throw std::runtime_error("DMA size exceeds buffer size");
-    }
-
     if (!bar2) {
         throw std::runtime_error("BAR2 is not mapped");
     }
@@ -253,10 +249,6 @@ void WormholeTTDevice::dma_h2d_transfer(uint32_t dst, const void *src, size_t si
         throw std::runtime_error("DMA size must be a multiple of 4");
     }
 
-    if (size > dma_buffer.size) {
-        throw std::runtime_error("DMA size exceeds buffer size");
-    }
-
     if (!bar2) {
         throw std::runtime_error("BAR2 is not mapped");
     }
@@ -306,12 +298,22 @@ void WormholeTTDevice::dma_h2d_transfer(uint32_t dst, const void *src, size_t si
 // the application will require IOMMU support.  One day...
 void WormholeTTDevice::dma_d2h(void *dst, uint32_t src, size_t size) {
     DmaBuffer &dma_buffer = pci_device_->get_dma_buffer();
+
+    if (size > dma_buffer.size) {
+        throw std::runtime_error("DMA size exceeds buffer size");
+    }
+
     dma_d2h_transfer((void *)(uintptr_t)dma_buffer.buffer_pa, src, size);
     memcpy(dst, dma_buffer.buffer, size);
 }
 
 void WormholeTTDevice::dma_h2d(uint32_t dst, const void *src, size_t size) {
     DmaBuffer &dma_buffer = pci_device_->get_dma_buffer();
+
+    if (size > dma_buffer.size) {
+        throw std::runtime_error("DMA size exceeds buffer size");
+    }
+
     memcpy(dma_buffer.buffer, src, size);
     dma_h2d_transfer(dst, (void *)(uintptr_t)dma_buffer.buffer_pa, size);
 }

@@ -12,11 +12,16 @@
 
 namespace tt::umd {
 
-SysmemBuffer::SysmemBuffer(TLBManager* tlb_manager, void* buffer_va, size_t buffer_size) :
-    tlb_manager_(tlb_manager),
-    buffer_va(buffer_va),
-    buffer_size(buffer_size),
-    device_io_addr(tlb_manager->get_tt_device()->get_pci_device()->map_for_dma(buffer_va, buffer_size)) {}
+SysmemBuffer::SysmemBuffer(TLBManager* tlb_manager, void* buffer_va, size_t buffer_size, bool map_to_noc) :
+    tlb_manager_(tlb_manager), buffer_va(buffer_va), buffer_size(buffer_size) {
+    PCIDevice *pci_device = tlb_manager->get_tt_device()->get_pci_device();
+    if (map_to_noc) {
+        std::tie(noc_addr, device_io_addr) = pci_device->map_buffer_to_noc(buffer_va, buffer_size);
+    } else {
+        device_io_addr = pci_device->map_for_dma(buffer_va, buffer_size);
+        noc_addr = std::nullopt;
+    }
+}
 
 void SysmemBuffer::dma_write_to_device(size_t offset, size_t size, tt_xy_pair core, uint64_t addr) {
     static const std::string tlb_name = "LARGE_WRITE_TLB";

@@ -56,6 +56,7 @@ ChipInfo WormholeTTDevice::get_chip_info() {
 
 void WormholeTTDevice::wait_arc_core_start(const tt_xy_pair arc_core, const uint32_t timeout_ms) {
     uint32_t bar_read_initial = bar_read32(architecture_impl_->get_arc_reset_scratch_offset() + 3 * 4);
+    // TODO: figure out 325 and 500 constants meaning and put it in variable.
     uint32_t arg = bar_read_initial == 500 ? 325 : 500;
     uint32_t bar_read_again;
     std::vector<uint32_t> ret_vals(1);

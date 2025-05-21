@@ -211,11 +211,7 @@ TEST(ApiClusterDescriptorTest, PrintClusterDescriptor) {
     // In case of u6 galaxy and blackhole, we generate the cluster descriptor.
     // For wormhole we still use create-ethernet-map.
     std::filesystem::path cluster_path;
-    if (tt_device->get_arch() == tt::ARCH::BLACKHOLE || tt_device->get_board_type() == BoardType::UBB) {
-        cluster_path = tt::umd::Cluster::create_cluster_descriptor()->serialize_to_file();
-    } else {
-        cluster_path = tt_ClusterDescriptor::get_cluster_descriptor_file_path();
-    }
+    cluster_path = tt::umd::Cluster::create_cluster_descriptor()->serialize_to_file();
 
     std::cout << "Cluster descriptor file path: " << cluster_path << std::endl;
     std::cout << "Contents:" << std::endl;

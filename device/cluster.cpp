@@ -1142,15 +1142,7 @@ std::unique_ptr<tt_ClusterDescriptor> Cluster::create_cluster_descriptor(std::st
         // Topology discovery from source is supported for Wormhole UBB at the moment,
         // other Wormhole specs need to go through a legacy create-ethernet-map.
         if (!tt_devices.empty() && tt_devices[0]->get_board_type() != BoardType::UBB) {
-            LockManager lock_manager;
-            lock_manager.initialize_mutex(MutexType::CREATE_ETH_MAP);
-            std::unique_ptr<tt_ClusterDescriptor> cluster_desc = nullptr;
-            {
-                auto lock = lock_manager.acquire_mutex(MutexType::CREATE_ETH_MAP);
-                cluster_desc = tt_ClusterDescriptor::create();
-            }
-            lock_manager.clear_mutex(MutexType::CREATE_ETH_MAP);
-            return cluster_desc;
+            return TopologyDiscovery().create_ethernet_map();
         }
 
         std::unordered_map<chip_id_t, std::unique_ptr<Chip>> chips;

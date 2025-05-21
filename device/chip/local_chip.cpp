@@ -137,11 +137,7 @@ void LocalChip::start_device() {
 
 void LocalChip::close_device(){};
 
-void LocalChip::wait_eth_cores_training(const uint32_t timeout_ms) {
-    if (get_tt_device()->get_arch() != tt::ARCH::BLACKHOLE) {
-        return;
-    }
-
+void LocalChip::bh_wait_eth_cores_training(const uint32_t timeout_ms) {
     const std::vector<CoreCoord> eth_cores = get_soc_descriptor().get_cores(CoreType::ETH);
     TTDevice* tt_device = get_tt_device();
     auto start = std::chrono::system_clock::now();
@@ -166,6 +162,29 @@ void LocalChip::wait_eth_cores_training(const uint32_t timeout_ms) {
                 break;
             }
         }
+    }
+}
+
+void LocalChip::wh_wait_eth_cores_training(const uint32_t timeout_ms) {
+    const uint64_t eth_core_heartbeat_addr = 0x1C;
+    const std::vector<CoreCoord> eth_cores = get_soc_descriptor().get_cores(CoreType::ETH);
+    TTDevice* tt_device = get_tt_device();
+    for (const CoreCoord& eth_core : eth_cores) {
+        uint32_t heartbeat_val;
+        tt_device->read_from_device(&heartbeat_val, eth_core, eth_core_heartbeat_addr, sizeof(heartbeat_val));
+
+        uint32_t new_heartbeat_val = heartbeat_val;
+        while (new_heartbeat_val <= heartbeat_val) {
+            tt_device->read_from_device(&new_heartbeat_val, eth_core, eth_core_heartbeat_addr, sizeof(heartbeat_val));
+        }
+    }
+}
+
+void LocalChip::wait_eth_cores_training(const uint32_t timeout_ms) {
+    if (get_tt_device()->get_arch() == tt::ARCH::WORMHOLE_B0) {
+        wh_wait_eth_cores_training(timeout_ms);
+    } else if (get_tt_device()->get_arch() == tt::ARCH::BLACKHOLE) {
+        bh_wait_eth_cores_training(timeout_ms);
     }
 }
 

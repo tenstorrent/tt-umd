@@ -110,6 +110,10 @@ private:
 
     void wait_for_aiclk_value(tt_DevicePowerState power_state, const uint32_t timeout_ms = 5000);
 
+    void bh_wait_eth_cores_training(const uint32_t timeout_ms = 60000);
+
+    void wh_wait_eth_cores_training(const uint32_t timeout_ms = 60000);
+
 protected:
     void wait_eth_cores_training(const uint32_t timeout_ms = 60000) override;
 

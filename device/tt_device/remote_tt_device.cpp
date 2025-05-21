@@ -67,4 +67,6 @@ bool RemoteTTDevice::get_noc_translation_enabled() {
     throw std::runtime_error("get_noc_translation_enabled() not implemented for RemoteTTDevice.");
 }
 
+void RemoteTTDevice::wait_eth_core_training(const tt_xy_pair eth_core, const uint32_t timeout_ms) {}
+
 }  // namespace tt::umd

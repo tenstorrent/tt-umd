@@ -9,7 +9,6 @@
 #include <tt-logger/tt-logger.hpp>
 
 #include "assert.hpp"
-#include "umd/device/blackhole_implementation.h"
 #include "umd/device/chip_helpers/tlb_manager.h"
 #include "umd/device/driver_atomics.h"
 #include "umd/device/tt_device/tt_device.h"
@@ -138,34 +137,11 @@ void LocalChip::start_device() {
 void LocalChip::close_device(){};
 
 void LocalChip::wait_eth_cores_training(const uint32_t timeout_ms) {
-    if (get_tt_device()->get_arch() != tt::ARCH::BLACKHOLE) {
-        return;
-    }
-
-    const std::vector<CoreCoord> eth_cores = get_soc_descriptor().get_cores(CoreType::ETH);
+    const std::vector<CoreCoord> eth_cores =
+        get_soc_descriptor().get_cores(CoreType::ETH, umd_use_noc1 ? CoordSystem::NOC1 : CoordSystem::PHYSICAL);
     TTDevice* tt_device = get_tt_device();
-    auto start = std::chrono::system_clock::now();
     for (const CoreCoord& eth_core : eth_cores) {
-        const tt_xy_pair eth_core_pair = {eth_core.x, eth_core.y};
-
-        uint32_t port_status_addr = blackhole::BOOT_RESULTS_ADDR + offsetof(blackhole::eth_status_t, port_status);
-        uint32_t port_status_val;
-        tt_device->read_from_device(&port_status_val, eth_core_pair, port_status_addr, sizeof(port_status_val));
-
-        // Port status should be last state to settle during the eth training sequence
-        // PORT_UNKNOWN means that eth is still training
-        while (port_status_val == blackhole::port_status_e::PORT_UNKNOWN) {
-            tt_device->read_from_device(&port_status_val, eth_core_pair, port_status_addr, sizeof(port_status_val));
-            auto end = std::chrono::system_clock::now();
-            auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
-            if (duration.count() > timeout_ms) {
-                // TODO: Exception should be thrown here. ETH connections are very flaky
-                // on Blackhole right now. When this is fixed we can throw the exception here.
-                // Since we are not going to do any remote IO at the moment it is fine to just log the error.
-                log_error("ETH training timed out after {} ms", timeout_ms);
-                break;
-            }
-        }
+        tt_device->wait_eth_core_training(eth_core, timeout_ms);
     }
 }
 

@@ -43,6 +43,8 @@ public:
 
     ChipInfo get_chip_info() override;
 
+    void wait_eth_core_training(const tt_xy_pair eth_core, const uint32_t timeout_ms = 60000) override;
+
 private:
     static constexpr uint64_t ATU_OFFSET_IN_BH_BAR2 = 0x1200;
     std::set<size_t> iatu_regions_;

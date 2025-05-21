@@ -347,4 +347,22 @@ void WormholeTTDevice::dma_d2h_zero_copy(void *dst, uint32_t src, size_t size) {
     dma_d2h_transfer((uint64_t)(uintptr_t)dst, src, size);
 }
 
+void WormholeTTDevice::wait_eth_core_training(const tt_xy_pair eth_core, const uint32_t timeout_ms) {
+    constexpr uint64_t eth_core_heartbeat_addr = 0x1C;
+    auto start = std::chrono::system_clock::now();
+    uint32_t heartbeat_val;
+    read_from_device(&heartbeat_val, eth_core, eth_core_heartbeat_addr, sizeof(heartbeat_val));
+
+    uint32_t new_heartbeat_val = heartbeat_val;
+    while (new_heartbeat_val != heartbeat_val) {
+        read_from_device(&new_heartbeat_val, eth_core, eth_core_heartbeat_addr, sizeof(heartbeat_val));
+        auto end = std::chrono::system_clock::now();
+        auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
+        if (duration.count() > timeout_ms) {
+            throw std::runtime_error(fmt::format("ETH training timed out after {} ms", timeout_ms));
+            break;
+        }
+    }
+}
+
 }  // namespace tt::umd

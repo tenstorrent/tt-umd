@@ -18,7 +18,16 @@
 
 namespace tt::umd {
 
-SysmemManager::SysmemManager(TLBManager *tlb_manager) : tlb_manager_(tlb_manager) {}
+SysmemManager::SysmemManager(TLBManager *tlb_manager) : tlb_manager_(tlb_manager) {
+    auto arch = tlb_manager_->get_tt_device()->get_arch();
+
+    // TODO: I could only find these constants in cluster.cpp...
+    // Historically, the sysmem implementation has always placed the starting
+    // address of the hugepages/faked hugepages at the bottom of the device's
+    // PCIE address range that is mapped to the host system bus.  pcie_base_ is
+    // used to validate this behavior.
+    pcie_base_ = (arch == tt::ARCH::WORMHOLE_B0 ? 0x800000000 : (arch == tt::ARCH::BLACKHOLE ? 4ULL << 58 : 0));
+}
 
 SysmemManager::~SysmemManager() {
     for (const auto &hugepage_mapping : hugepage_mapping_per_channel) {
@@ -79,6 +88,8 @@ void SysmemManager::read_from_sysmem(uint16_t channel, void *dest, uint64_t sysm
 
 bool SysmemManager::init_hugepage(uint32_t num_host_mem_channels) {
     TTDevice *tt_device_ = tlb_manager_->get_tt_device();
+    auto arch = tt_device_->get_arch();
+
     // TODO: get rid of this when the following Metal CI issue is resolved.
     // https://github.com/tenstorrent/tt-metal/issues/15675
     // The notion that we should clamp the number of host mem channels to
@@ -102,8 +113,7 @@ bool SysmemManager::init_hugepage(uint32_t num_host_mem_channels) {
     const size_t hugepage_size = HUGEPAGE_REGION_SIZE;
 
     if (tt_device_->get_pci_device()->is_iommu_enabled()) {
-        size_t size = hugepage_size * num_host_mem_channels;
-        return init_iommu(size);
+        return init_iommu(num_host_mem_channels);
     }
 
     auto physical_device_id = tt_device_->get_pci_device()->get_device_num();
@@ -183,25 +193,21 @@ bool SysmemManager::init_hugepage(uint32_t num_host_mem_channels) {
         size_t actual_size = (tt_device_->get_arch() == tt::ARCH::WORMHOLE_B0 && ch == 3)
                                  ? HUGEPAGE_CHANNEL_3_SIZE_LIMIT
                                  : hugepage_size;
-        uint64_t physical_address = tt_device_->get_pci_device()->map_for_hugepage(mapping, actual_size);
+        auto [noc_address, physical_address] = tt_device_->get_pci_device()->map_hugepage_to_noc(mapping, actual_size);
+        uint64_t expected_noc_address = pcie_base_ + (ch * hugepage_size);
 
-        if (physical_address == 0) {
-            log_warning(
+        // Note that the truncated page is the final one, so there is no need to
+        // give expected_noc_address special treatment for a subsequent page.
+        if (noc_address != expected_noc_address) {
+            log_fatal(
                 LogSiliconDriver,
-                "---- ttSiliconDevice::init_hugepage: physical_device_id: {} ch: {} TENSTORRENT_IOCTL_PIN_PAGES failed "
-                "(errno: {}). Common Issue: Requires TTMKD >= 1.11, see following file contents...",
-                physical_device_id,
-                ch,
-                strerror(errno));
-            munmap(mapping, hugepage_size);
-            print_file_contents("/sys/module/tenstorrent/version", "(TTKMD version)");
-            print_file_contents("/proc/meminfo");
-            print_file_contents("/proc/buddyinfo");
-            success = false;
-            continue;
+                "NOC address of a hugepage does not match the expected address. Proceeding could lead to undefined "
+                "behavior");
+        } else {
+            log_info(LogSiliconDriver, "Mapped hugepage {:#x} to NOC address {:#x}", physical_address, noc_address);
         }
 
-        hugepage_mapping_per_channel[ch] = {mapping, hugepage_size, physical_address};
+        hugepage_mapping_per_channel[ch] = {mapping, hugepage_size};
 
         log_debug(
             LogSiliconDriver,
@@ -215,14 +221,20 @@ bool SysmemManager::init_hugepage(uint32_t num_host_mem_channels) {
     return success;
 }
 
-bool SysmemManager::init_iommu(size_t size) {
+bool SysmemManager::init_iommu(size_t num_fake_mem_channels) {
     constexpr size_t carveout_size = HUGEPAGE_REGION_SIZE - HUGEPAGE_CHANNEL_3_SIZE_LIMIT;  // 1GB - 768MB = 256MB
-    const size_t num_fake_mem_channels = size / HUGEPAGE_REGION_SIZE;
-
+    const size_t size = num_fake_mem_channels * HUGEPAGE_REGION_SIZE;
     TTDevice *tt_device_ = tlb_manager_->get_tt_device();
-    // Caclulate the size of the mapping in order to avoid overlap with PCIE registers.
-    size_t map_size =
-        (tt_device_->get_arch() == tt::ARCH::WORMHOLE_B0 && num_fake_mem_channels == 4) ? (size - carveout_size) : size;
+
+    if (num_fake_mem_channels > 4) {
+        TT_THROW("Max of 4 host memory channels per device are supported, got: {}", num_fake_mem_channels);
+    }
+
+    // Caclulate the size of the mapping in order to avoid overlap with PCIE registers on WH.
+    // This doesn't have to be applied on BH, but it is anyway for consistency.
+    size_t map_size = (num_fake_mem_channels == 4) ? (size - carveout_size) : size;
+
+    log_info(LogSiliconDriver, "Initializing iommu for sysmem (size: {:#x}).", map_size);
 
     if (!tt_device_->get_pci_device()->is_iommu_enabled()) {
         TT_THROW("IOMMU is required for sysmem without hugepages.");
@@ -240,15 +252,29 @@ bool SysmemManager::init_iommu(size_t size) {
 
     sysmem_buffer_ = map_sysmem_buffer(mapping, map_size);
     uint64_t iova = sysmem_buffer_->get_device_io_addr();
+    auto noc_address = sysmem_buffer_->get_noc_addr();
 
-    log_info(LogSiliconDriver, "Mapped sysmem without hugepages to IOVA {:#x}.", iova);
+    if (!noc_address.has_value()) {
+        TT_THROW("NOC address is not set for sysmem buffer.");
+    }
+
+    if (*noc_address != pcie_base_) {
+        // If this happens, it means that something else is using the address
+        // space that UMD typically uses.  Historically, this would have crashed
+        // or done something inscrutable.  Now it is just an error.
+        log_error(LogSiliconDriver, "Expected NOC address: {:#x}, but got {:#x}", pcie_base_, *noc_address);
+        TT_THROW("Proceeding could lead to undefined behavior");
+    }
+
+    log_info(LogSiliconDriver, "Mapped sysmem without hugepages to IOVA {:#x}; NOC address {:#x}", iova, *noc_address);
 
     hugepage_mapping_per_channel.resize(num_fake_mem_channels);
 
     // Support for more than 1GB host memory accessible per device, via channels.
     for (size_t ch = 0; ch < num_fake_mem_channels; ch++) {
         uint8_t *base = static_cast<uint8_t *>(mapping) + ch * HUGEPAGE_REGION_SIZE;
-        hugepage_mapping_per_channel[ch] = {base, HUGEPAGE_REGION_SIZE, iova + ch * HUGEPAGE_REGION_SIZE};
+        size_t actual_size = (ch == 3) ? HUGEPAGE_CHANNEL_3_SIZE_LIMIT : HUGEPAGE_REGION_SIZE;
+        hugepage_mapping_per_channel[ch] = {base, actual_size};
     }
 
     return true;
@@ -258,7 +284,7 @@ size_t SysmemManager::get_num_host_mem_channels() const { return hugepage_mappin
 
 hugepage_mapping SysmemManager::get_hugepage_mapping(size_t channel) const {
     if (hugepage_mapping_per_channel.size() <= channel) {
-        return {nullptr, 0, 0};
+        return {nullptr, 0};
     } else {
         return hugepage_mapping_per_channel[channel];
     }
@@ -281,7 +307,9 @@ std::unique_ptr<SysmemBuffer> SysmemManager::allocate_sysmem_buffer(size_t sysme
 }
 
 std::unique_ptr<SysmemBuffer> SysmemManager::map_sysmem_buffer(void *buffer, size_t sysmem_buffer_size) {
-    return std::make_unique<SysmemBuffer>(tlb_manager_, buffer, sysmem_buffer_size);
+    log_info(LogSiliconDriver, "Mapping sysmem buffer to NOC: {:#x}", sysmem_buffer_size);
+    const bool map_to_noc = true;
+    return std::make_unique<SysmemBuffer>(tlb_manager_, buffer, sysmem_buffer_size, map_to_noc);
 }
 
 }  // namespace tt::umd

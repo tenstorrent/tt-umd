@@ -797,6 +797,12 @@ TEST(SiliconDriverBH, RandomSysmemTestWithPcie) {
         uint64_t lo = (ONE_GIG * channel);
         uint64_t hi = (lo + ONE_GIG) - 1;
 
+        if (channel == 3) {
+            // Avoid the top 256MB of the 4th channel.
+            // TODO(joelsmithTT) - This is a hack.
+            hi &= ~0x0fff'ffffULL;
+        }
+
         for (size_t i = 0; i < num_tests; ++i) {
             uint64_t address = generate_aligned_address(lo, hi);
             uint64_t noc_addr = base_address + address;

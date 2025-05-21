@@ -137,6 +137,22 @@ public:
     uint64_t map_for_hugepage(void *buffer, size_t size);
 
     /**
+     * Map a buffer so it is accessible by the device NOC.
+     * @param buffer must be page-aligned
+     * @param size must be a multiple of the page size
+     * @return uint64_t NOC address, uint64_t PA or IOVA
+     */
+    std::pair<uint64_t, uint64_t> map_buffer_to_noc(void *buffer, size_t size);
+
+    /**
+     * Map a hugepage so it is accessible by the device NOC.
+     * @param hugepage 1G hugepage
+     * @param size in bytes (OK to be smaller than the hugepage size)
+     * @return uint64_t NOC address, uint64_t PA or IOVA
+     */
+    std::pair<uint64_t, uint64_t> map_hugepage_to_noc(void *hugepage, size_t size);
+
+    /**
      * Map a buffer for DMA access by the device.
      *
      * Supports mapping physically-contiguous buffers (e.g. hugepages) for the

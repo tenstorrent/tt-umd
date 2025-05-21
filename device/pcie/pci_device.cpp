@@ -183,12 +183,23 @@ PCIDevice::PCIDevice(int pci_device_number) :
         TT_THROW("Running with IOMMU support requires KMD version {} or newer", kmd_ver_for_iommu.to_string());
     }
 
+    tenstorrent_get_driver_info driver_info{};
+    driver_info.in.output_size_bytes = sizeof(driver_info.out);
+    if (ioctl(pci_device_file_desc, TENSTORRENT_IOCTL_GET_DRIVER_INFO, &driver_info) == -1) {
+        TT_THROW("TENSTORRENT_IOCTL_GET_DRIVER_INFO failed");
+    }
+
     log_info(
         LogSiliconDriver,
-        "Opened PCI device {}; KMD version: {}, IOMMU: {}",
+        "Opened PCI device {}; KMD version: {}; API: {}; IOMMU: {}",
         pci_device_num,
         kmd_version.to_string(),
+        driver_info.out.driver_version,
         iommu_enabled ? "enabled" : "disabled");
+
+    if (driver_info.out.driver_version < 2) {
+        TT_THROW("UMD requires a KMD version that supports APIv2 or greater.  Please update to the latest tt-kmd");
+    }
 
     TT_ASSERT(arch != tt::ARCH::WORMHOLE_B0 || revision == 0x01, "Wormhole B0 must have revision 0x01");
 
@@ -468,6 +479,71 @@ uint64_t PCIDevice::map_for_hugepage(void *buffer, size_t size) {
     }
 
     return pin_pages.out.physical_address;
+}
+
+std::pair<uint64_t, uint64_t> PCIDevice::map_buffer_to_noc(void *buffer, size_t size) {
+    static const auto page_size = sysconf(_SC_PAGESIZE);
+    const uint64_t vaddr = reinterpret_cast<uint64_t>(buffer);
+
+    if (vaddr % page_size != 0 || size % page_size != 0) {
+        TT_THROW("Buffer must be page-aligned with a size that is a multiple of the page size");
+    }
+
+    if (size > page_size && !is_iommu_enabled()) {
+        TT_THROW("Cannot map buffer of size {} to NOC with IOMMU disabled", size);
+    }
+
+    struct {
+        tenstorrent_pin_pages_in in;
+        tenstorrent_pin_pages_out_extended out;
+    } pin{};
+
+    pin.in.output_size_bytes = sizeof(pin.out);
+    pin.in.flags = TENSTORRENT_PIN_PAGES_NOC_DMA;
+    pin.in.virtual_address = vaddr;
+    pin.in.size = size;
+
+    log_info(LogSiliconDriver, "Pinning pages for DMA: {:#x} {:#x}", vaddr, size);
+
+    if (ioctl(pci_device_file_desc, TENSTORRENT_IOCTL_PIN_PAGES, &pin) == -1) {
+        TT_THROW("Failed to pin pages for DMA: {}", strerror(errno));
+    }
+
+    return {pin.out.noc_address, pin.out.physical_address};
+}
+
+std::pair<uint64_t, uint64_t> PCIDevice::map_hugepage_to_noc(void *hugepage, size_t size) {
+    static const auto page_size = sysconf(_SC_PAGESIZE);
+    const uint64_t vaddr = reinterpret_cast<uint64_t>(hugepage);
+
+    if (size > (1 << 30)) {
+        TT_THROW("Not a hugepage");
+    }
+
+    if (vaddr % page_size != 0 || size % page_size != 0) {
+        TT_THROW("Buffer must be page-aligned with a size that is a multiple of the page size");
+    }
+
+    if (is_iommu_enabled()) {
+        // IOMMU is enabled, so we don't need huge pages.
+        log_warning(LogSiliconDriver, "Mapping a hugepage with IOMMU enabled.");
+    }
+
+    struct {
+        tenstorrent_pin_pages_in in;
+        tenstorrent_pin_pages_out_extended out;
+    } pin{};
+
+    pin.in.output_size_bytes = sizeof(pin.out);
+    pin.in.flags = TENSTORRENT_PIN_PAGES_CONTIGUOUS | TENSTORRENT_PIN_PAGES_NOC_DMA;
+    pin.in.virtual_address = reinterpret_cast<std::uintptr_t>(hugepage);
+    pin.in.size = size;
+
+    if (ioctl(pci_device_file_desc, TENSTORRENT_IOCTL_PIN_PAGES, &pin) == -1) {
+        TT_THROW("Failed to pin pages for DMA: {} {}", strerror(errno), pin.in.flags);
+    }
+
+    return {pin.out.noc_address, pin.out.physical_address};
 }
 
 uint64_t PCIDevice::map_for_dma(void *buffer, size_t size) {

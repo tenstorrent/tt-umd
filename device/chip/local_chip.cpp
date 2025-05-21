@@ -541,35 +541,6 @@ int LocalChip::arc_msg(
 }
 
 void LocalChip::check_pcie_device_initialized() {
-    auto architecture_implementation = tt_device_->get_architecture_implementation();
-
-    if (soc_descriptor_.arch == tt::ARCH::WORMHOLE_B0) {
-        uint32_t bar_read_initial =
-            tt_device_->bar_read32(architecture_implementation->get_arc_reset_scratch_offset() + 3 * 4);
-        uint32_t arg = bar_read_initial == 500 ? 325 : 500;
-        uint32_t bar_read_again;
-        uint32_t arc_msg_return = arc_msg(
-            wormhole::ARC_MSG_COMMON_PREFIX | architecture_implementation->get_arc_message_test(),
-            true,
-            arg,
-            0,
-            1000,
-            &bar_read_again);
-        if (arc_msg_return != 0 || bar_read_again != arg + 1) {
-            auto postcode = tt_device_->bar_read32(architecture_implementation->get_arc_reset_scratch_offset());
-            throw std::runtime_error(fmt::format(
-                "Device is not initialized: arc_fw postcode: {} arc_msg_return: {} arg: {} bar_read_initial: {} "
-                "bar_read_again: {}",
-                postcode,
-                arc_msg_return,
-                arg,
-                bar_read_initial,
-                bar_read_again));
-        }
-    } else {
-        // TODO #768 figure out BH implementation
-    }
-
     if (test_setup_interface()) {
         throw std::runtime_error(
             "Device is incorrectly initialized. If this is a harvested Wormhole machine, it is likely that NOC "

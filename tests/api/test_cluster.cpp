@@ -280,14 +280,29 @@ TEST(TestCluster, PrintAllChipsAllCores) {
             std::cout << "Tensix core " << core.str() << std::endl;
         }
 
+        const std::vector<CoreCoord>& harvested_tensix_cores = soc_desc.get_harvested_cores(CoreType::TENSIX);
+        for (const CoreCoord& core : harvested_tensix_cores) {
+            std::cout << "Harvested Tensix core " << core.str() << std::endl;
+        }
+
         const std::vector<CoreCoord>& dram_cores = soc_desc.get_cores(CoreType::DRAM);
         for (const CoreCoord& core : dram_cores) {
             std::cout << "DRAM core " << core.str() << std::endl;
         }
 
+        const std::vector<CoreCoord>& harvested_dram_cores = soc_desc.get_harvested_cores(CoreType::DRAM);
+        for (const CoreCoord& core : harvested_dram_cores) {
+            std::cout << "Harvested DRAM core " << core.str() << std::endl;
+        }
+
         const std::vector<CoreCoord>& eth_cores = soc_desc.get_cores(CoreType::ETH);
         for (const CoreCoord& core : eth_cores) {
             std::cout << "ETH core " << core.str() << std::endl;
+        }
+
+        const std::vector<CoreCoord>& harvested_eth_cores = soc_desc.get_harvested_cores(CoreType::ETH);
+        for (const CoreCoord& core : harvested_eth_cores) {
+            std::cout << "Harvested ETH core " << core.str() << std::endl;
         }
     }
 }

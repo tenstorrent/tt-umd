@@ -418,10 +418,16 @@ Cluster::Cluster(ClusterOptions options) {
     // If no target devices are passed, obtain them from the cluster descriptor.
     if (chips_to_construct.empty()) {
         chips_to_construct = temp_full_cluster_desc->get_all_chips();
+        // If no target devices are passed and the cluster descriptor is not constrained, we can use the full cluster.
+        // Note that the pointer is being dereferenced below, that means that the default copy constructor will be
+        // called for tt_ClusterDescriptor to construct the object which will end up in the unique_ptr, note that the
+        // line below doesn't take ownership of already existing object pointed to by temp_full_cluster_desc.
+        cluster_desc = std::make_unique<tt_ClusterDescriptor>(*temp_full_cluster_desc);
+    } else {
+        // Create constrained cluster descriptor which only contains the chips to be in this Cluster.
+        cluster_desc =
+            tt_ClusterDescriptor::create_constrained_cluster_descriptor(temp_full_cluster_desc, chips_to_construct);
     }
-    // Create constrained cluster descriptor which only contains the chips to be in this Cluster.
-    cluster_desc =
-        tt_ClusterDescriptor::create_constrained_cluster_descriptor(temp_full_cluster_desc, chips_to_construct);
     std::vector<chip_id_t> chips_to_construct_vec(chips_to_construct.begin(), chips_to_construct.end());
     // Check target_devices against the cluster descriptor in case of silicon chips.
     // We also have to sort them so that local chips are constructed first.

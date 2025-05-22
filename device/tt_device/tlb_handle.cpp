@@ -9,9 +9,9 @@
 #include <sys/mman.h>
 
 #include <stdexcept>
+#include <tt-logger/tt-logger.hpp>
 
 #include "ioctl.h"
-#include "logger.hpp"
 
 namespace tt::umd {
 

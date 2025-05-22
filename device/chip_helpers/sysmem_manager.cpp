@@ -45,7 +45,7 @@ void SysmemManager::write_to_sysmem(uint16_t channel, const void *src, uint64_t 
         hugepage_map.mapping_size);
     log_debug(
         LogSiliconDriver,
-        "Using hugepage mapping at address {} offset {} chan {} size {}",
+        "Using hugepage mapping at address {:p} offset {} chan {} size {}",
         hugepage_map.mapping,
         (sysmem_dest % hugepage_map.mapping_size),
         channel,

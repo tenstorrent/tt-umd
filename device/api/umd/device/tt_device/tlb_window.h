@@ -13,7 +13,7 @@ namespace tt::umd {
 
 class TlbWindow {
 public:
-    TlbWindow(std::unique_ptr<TlbHandle> handle, const tenstorrent_noc_tlb_config config);
+    TlbWindow(std::unique_ptr<TlbHandle> handle, const tlb_data config);
 
     void write32(uint64_t offset, uint32_t value);
 
@@ -31,7 +31,7 @@ public:
 
     size_t get_size() const;
 
-    void configure(const tenstorrent_noc_tlb_config& new_config);
+    void configure(const tlb_data& new_config);
 
 private:
     void validate(uint64_t offset, size_t size) const;

@@ -41,10 +41,20 @@ TlbHandle::~TlbHandle() noexcept {
     free_tlb();
 }
 
-void TlbHandle::configure(const tenstorrent_noc_tlb_config& new_config) {
+void TlbHandle::configure(const tlb_data& new_config) {
     tenstorrent_configure_tlb configure_tlb{};
     configure_tlb.in.id = tlb_id;
-    configure_tlb.in.config = new_config;
+
+    configure_tlb.in.config.addr = new_config.local_offset;
+    configure_tlb.in.config.x_end = new_config.x_end;
+    configure_tlb.in.config.y_end = new_config.y_end;
+    configure_tlb.in.config.x_start = new_config.x_start;
+    configure_tlb.in.config.y_start = new_config.y_start;
+    configure_tlb.in.config.noc = new_config.noc_sel;
+    configure_tlb.in.config.mcast = new_config.mcast;
+    configure_tlb.in.config.ordering = new_config.ordering;
+    configure_tlb.in.config.linked = new_config.linked;
+    configure_tlb.in.config.static_vc = new_config.static_vc;
 
     if (std::memcmp(&new_config, &tlb_config, sizeof(new_config)) == 0) {
         return;
@@ -61,7 +71,7 @@ uint8_t* TlbHandle::get_base() { return tlb_base; }
 
 size_t TlbHandle::get_size() const { return tlb_size; }
 
-const tenstorrent_noc_tlb_config& TlbHandle::get_config() const { return tlb_config; }
+const tlb_data& TlbHandle::get_config() const { return tlb_config; }
 
 void TlbHandle::free_tlb() noexcept {
     tenstorrent_free_tlb free_tlb{};

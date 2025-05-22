@@ -9,8 +9,7 @@
 
 namespace tt::umd {
 
-TlbWindow::TlbWindow(std::unique_ptr<TlbHandle> handle, const tenstorrent_noc_tlb_config config) :
-    tlb_handle(std::move(handle)) {
+TlbWindow::TlbWindow(std::unique_ptr<TlbHandle> handle, const tlb_data config) : tlb_handle(std::move(handle)) {
     tlb_handle->configure(config);
 }
 
@@ -69,6 +68,6 @@ void TlbWindow::validate(uint64_t offset, size_t size) const {
     }
 }
 
-void TlbWindow::configure(const tenstorrent_noc_tlb_config& new_config) { tlb_handle->configure(new_config); }
+void TlbWindow::configure(const tlb_data& new_config) { tlb_handle->configure(new_config); }
 
 }  // namespace tt::umd

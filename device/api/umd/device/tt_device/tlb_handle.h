@@ -8,7 +8,7 @@
 #include <cstddef>
 #include <cstdint>
 
-#include "ioctl.h"
+#include "umd/device/types/tlb.h"
 
 namespace tt::umd {
 
@@ -18,11 +18,11 @@ public:
 
     ~TlbHandle() noexcept;
 
-    void configure(const tenstorrent_noc_tlb_config& new_config);
+    void configure(const tlb_data& new_config);
 
     uint8_t* get_base();
     size_t get_size() const;
-    const tenstorrent_noc_tlb_config& get_config() const;
+    const tlb_data& get_config() const;
 
 private:
     void free_tlb() noexcept;
@@ -30,7 +30,7 @@ private:
     int tlb_id;
     uint8_t* tlb_base;
     size_t tlb_size;
-    tenstorrent_noc_tlb_config tlb_config{};
+    tlb_data tlb_config;
     uint32_t fd;
 };
 }  // namespace tt::umd

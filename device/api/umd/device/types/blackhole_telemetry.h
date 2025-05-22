@@ -48,6 +48,7 @@ constexpr uint8_t TAG_ENABLED_ETH = 35;
 constexpr uint8_t TAG_ENABLED_GDDR = 36;
 constexpr uint8_t TAG_ENABLED_L2CPU = 37;
 constexpr uint8_t TAG_PCIE_USAGE = 38;
+constexpr uint8_t TAG_ASIC_LOCATION = 52;
 
 }  // namespace blackhole
 

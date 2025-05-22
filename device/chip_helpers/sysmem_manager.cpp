@@ -69,7 +69,7 @@ void SysmemManager::read_from_sysmem(uint16_t channel, void *dest, uint64_t sysm
 
     log_debug(
         LogSiliconDriver,
-        "Cluster::read_buffer (pci device num: {}, ch: {}) from 0x{:x}",
+        "Cluster::read_buffer (pci device num: {}, ch: {}) from {:p}",
         tt_device_->get_pci_device()->get_device_num(),
         channel,
         user_scratchspace);

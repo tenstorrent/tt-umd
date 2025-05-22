@@ -461,6 +461,8 @@ void TopologyDiscovery::fill_cluster_descriptor_info() {
     for (auto [ethernet_connection_logical, ethernet_connection_remote] : ethernet_connections) {
         cluster_desc->ethernet_connections[ethernet_connection_logical.first][ethernet_connection_logical.second] = {
             ethernet_connection_remote.first, ethernet_connection_remote.second};
+        cluster_desc->ethernet_connections[ethernet_connection_remote.first][ethernet_connection_remote.second] = {
+            ethernet_connection_logical.first, ethernet_connection_logical.second};
     }
 
     tt_ClusterDescriptor::fill_galaxy_connections(*cluster_desc.get());

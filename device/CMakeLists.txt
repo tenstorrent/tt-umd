@@ -102,6 +102,7 @@ if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.23)
                 api/umd/device/device_api_metal.h
                 api/umd/device/driver_atomics.h
                 api/umd/device/hugepage.h
+                api/umd/device/logging/config.h
                 api/umd/device/utils/lock_manager.h
                 api/umd/device/pci_device.hpp
                 api/umd/device/semver.hpp

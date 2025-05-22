@@ -11,18 +11,16 @@
 
 using namespace tt::umd;
 
-void guard_test_kmd_version() {
+bool is_kmd_version_good() {
     semver_t kmd_ver = PCIDevice::read_kmd_version();
 
-    if (kmd_ver.major < 1 || (kmd_ver.major == 1 && kmd_ver.minor < 32)) {
-        GTEST_SKIP() << "TLB test cannot run on old version of KMD. Minimal KMD version required is 1.32, current KMD "
-                        "version is "
-                     << kmd_ver.major << "." << kmd_ver.minor;
-    }
+    return kmd_ver.major > 1 || (kmd_ver.major == 1 && kmd_ver.minor >= 34);
 }
 
 TEST(TestTlb, TestTlbWindowAllocateNew) {
-    guard_test_kmd_version();
+    if (!is_kmd_version_good()) {
+        GTEST_SKIP() << "Skipping test because of old KMD version. Required version of KMD is 1.34 or higher.";
+    }
     const uint64_t tensix_addr = 0;
     const chip_id_t chip = 0;
     const uint64_t two_mb_size = 1 << 21;
@@ -66,7 +64,9 @@ TEST(TestTlb, TestTlbWindowAllocateNew) {
 }
 
 TEST(TestTlb, TestTlbWindowReuse) {
-    guard_test_kmd_version();
+    if (!is_kmd_version_good()) {
+        GTEST_SKIP() << "Skipping test because of old KMD version. Required version of KMD is 1.34 or higher.";
+    }
     const uint64_t tensix_addr = 0;
     const chip_id_t chip = 0;
     const uint64_t two_mb_size = 1 << 21;
@@ -114,7 +114,9 @@ TEST(TestTlb, TestTlbWindowReuse) {
 }
 
 TEST(TestTlb, TestTlbWindowReadRegister) {
-    guard_test_kmd_version();
+    if (!is_kmd_version_good()) {
+        GTEST_SKIP() << "Skipping test because of old KMD version. Required version of KMD is 1.34 or higher.";
+    }
     const uint64_t tensix_addr = 0;
     const chip_id_t chip = 0;
     const uint64_t two_mb_size = 1 << 21;
@@ -159,7 +161,9 @@ TEST(TestTlb, TestTlbWindowReadRegister) {
 }
 
 TEST(TestTlb, TestTlbWindowReadWrite) {
-    guard_test_kmd_version();
+    if (!is_kmd_version_good()) {
+        GTEST_SKIP() << "Skipping test because of old KMD version. Required version of KMD is 1.34 or higher.";
+    }
     const uint64_t tensix_addr = 0;
     const chip_id_t chip = 0;
     const uint64_t two_mb_size = 1 << 21;

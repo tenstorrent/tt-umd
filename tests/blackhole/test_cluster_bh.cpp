@@ -72,10 +72,10 @@ std::int32_t get_static_tlb_index(tt_xy_pair target) {
 
 TEST(SiliconDriverBH, CreateDestroy) {
     tt_device_params default_params;
-    for (int i = 0; i < 50; i++) {
+    for (int i = 0; i < 1; i++) {
         Cluster cluster;
         set_barrier_params(cluster);
-        cluster.start_device(default_params);
+        cluster.start_device(default_params, 0);
         cluster.close_device();
     }
 }

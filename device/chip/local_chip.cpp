@@ -401,21 +401,9 @@ void LocalChip::set_remote_transfer_ethernet_cores(const std::unordered_set<Core
     // This overrides the default ethernet cores tagged for host to cluster routing in the constructor and must be
     // called for all MMIO devices, if default behaviour is not desired.
     TT_ASSERT(soc_descriptor_.arch == tt::ARCH::WORMHOLE_B0, "{} can only be called for Wormhole arch", __FUNCTION__);
-    // Cores 0, 1, 6, 7 are only available if in the active set
-    static std::unordered_set<tt_xy_pair> eth_cores_available_if_active = {
-        soc_descriptor_.get_eth_core_for_channel(0, CoordSystem::VIRTUAL),
-        soc_descriptor_.get_eth_core_for_channel(1, CoordSystem::VIRTUAL),
-        soc_descriptor_.get_eth_core_for_channel(6, CoordSystem::VIRTUAL),
-        soc_descriptor_.get_eth_core_for_channel(7, CoordSystem::VIRTUAL)};
-    // Eth cores 8 and 9 are always available
-    remote_transfer_eth_cores_ = {
-        soc_descriptor_.get_eth_core_for_channel(8, CoordSystem::VIRTUAL),
-        soc_descriptor_.get_eth_core_for_channel(9, CoordSystem::VIRTUAL)};
     for (const auto& active_eth_core : active_eth_cores_per_chip) {
         auto virtual_coord = soc_descriptor_.translate_coord_to(active_eth_core, CoordSystem::VIRTUAL);
-        if (eth_cores_available_if_active.find(active_eth_core) != eth_cores_available_if_active.end()) {
-            remote_transfer_eth_cores_.push_back(active_eth_core);
-        }
+        remote_transfer_eth_cores_.push_back(active_eth_core);
     }
 }
 

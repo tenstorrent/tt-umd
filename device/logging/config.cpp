@@ -11,9 +11,9 @@
  * environment variable names for UMD logging configuration.
  */
 
-#include <spdlog/spdlog.h>
 #include "umd/device/logging/config.h"
 
+#include <spdlog/spdlog.h>
 #include <tt-logger/tt-logger-initializer.hpp>
 
 namespace tt::umd::logging {

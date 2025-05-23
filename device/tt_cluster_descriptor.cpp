@@ -629,21 +629,23 @@ void tt_ClusterDescriptor::load_ethernet_connections_from_connectivity_descripto
         int channel_0 = endpoints.at(0)["chan"].as<int>();
         int chip_1 = endpoints.at(1)["chip"].as<int>();
         int channel_1 = endpoints.at(1)["chan"].as<int>();
-        if (desc.ethernet_connections[chip_0].find(channel_0) != desc.ethernet_connections[chip_0].end()) {
+        auto &eth_conn_chip_0 = desc.ethernet_connections.at(chip_0);
+        if (eth_conn_chip_0.find(channel_0) != eth_conn_chip_0.end()) {
             TT_ASSERT(
-                (std::get<0>(desc.ethernet_connections[chip_0][channel_0]) == chip_1) &&
-                    (std::get<1>(desc.ethernet_connections[chip_0][channel_0]) == channel_1),
+                (std::get<0>(eth_conn_chip_0.at(channel_0)) == chip_1) &&
+                    (std::get<1>(eth_conn_chip_0.at(channel_0)) == channel_1),
                 "Duplicate eth connection found in cluster desc yaml");
         } else {
-            desc.ethernet_connections[chip_0][channel_0] = {chip_1, channel_1};
+            eth_conn_chip_0.insert({channel_0, {chip_1, channel_1}});
         }
-        if (desc.ethernet_connections[chip_1].find(channel_1) != desc.ethernet_connections[chip_0].end()) {
+        auto &eth_conn_chip_1 = desc.ethernet_connections.at(chip_1);
+        if (eth_conn_chip_1.find(channel_1) != eth_conn_chip_1.end()) {
             TT_ASSERT(
-                (std::get<0>(desc.ethernet_connections[chip_1][channel_1]) == chip_0) &&
-                    (std::get<1>(desc.ethernet_connections[chip_1][channel_1]) == channel_0),
+                (std::get<0>(eth_conn_chip_1.at(channel_1)) == chip_0) &&
+                    (std::get<1>(eth_conn_chip_1.at(channel_1)) == channel_0),
                 "Duplicate eth connection found in cluster desc yaml");
         } else {
-            desc.ethernet_connections[chip_1][channel_1] = {chip_0, channel_0};
+            eth_conn_chip_1.insert({channel_1, {chip_0, channel_0}});
         }
         desc.active_eth_channels[chip_0].insert(channel_0);
         desc.idle_eth_channels[chip_0].erase(channel_0);
@@ -844,6 +846,7 @@ void tt_ClusterDescriptor::load_chips_from_connectivity_descriptor(YAML::Node &y
         std::string arch_str = node->second.as<std::string>();
         desc.all_chips.insert(chip_id);
         desc.chip_arch.insert({chip_id, tt::arch_from_str(arch_str)});
+        desc.ethernet_connections.insert({chip_id, {}});
     }
 
     for (YAML::const_iterator node = yaml["chips"].begin(); node != yaml["chips"].end(); ++node) {

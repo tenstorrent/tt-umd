@@ -19,8 +19,8 @@ namespace tt::umd {
 void TTDevice::use_noc1(bool use_noc1) { umd_use_noc1 = use_noc1; }
 
 TTDevice::TTDevice(
-    std::unique_ptr<PCIDevice> pci_device, std::unique_ptr<architecture_implementation> architecture_impl) :
-    pci_device_(std::move(pci_device)),
+    std::shared_ptr<PCIDevice> pci_device, std::unique_ptr<architecture_implementation> architecture_impl) :
+    pci_device_(pci_device),
     architecture_impl_(std::move(architecture_impl)),
     arch(architecture_impl_->get_architecture()) {
     lock_manager.initialize_mutex(MutexType::TT_DEVICE_IO, get_pci_device()->get_device_num());
@@ -34,13 +34,13 @@ void TTDevice::init_tt_device() {
 TTDevice::TTDevice() {}
 
 /* static */ std::unique_ptr<TTDevice> TTDevice::create(int pci_device_number) {
-    auto pci_device = std::make_unique<PCIDevice>(pci_device_number);
+    auto pci_device = std::make_shared<PCIDevice>(pci_device_number);
 
     switch (pci_device->get_arch()) {
         case ARCH::WORMHOLE_B0:
-            return std::make_unique<WormholeTTDevice>(std::move(pci_device));
+            return std::make_unique<WormholeTTDevice>(pci_device);
         case ARCH::BLACKHOLE:
-            return std::make_unique<BlackholeTTDevice>(std::move(pci_device));
+            return std::make_unique<BlackholeTTDevice>(pci_device);
         default:
             return nullptr;
     }
@@ -48,7 +48,7 @@ TTDevice::TTDevice() {}
 
 architecture_implementation *TTDevice::get_architecture_implementation() { return architecture_impl_.get(); }
 
-PCIDevice *TTDevice::get_pci_device() { return pci_device_.get(); }
+std::shared_ptr<PCIDevice> TTDevice::get_pci_device() { return pci_device_; }
 
 tt::ARCH TTDevice::get_arch() { return arch; }
 
@@ -378,12 +378,12 @@ tt::umd::ArcMessenger *TTDevice::get_arc_messenger() const { return arc_messenge
 
 tt::umd::ArcTelemetryReader *TTDevice::get_arc_telemetry_reader() const { return telemetry.get(); }
 
-TTDevice::~TTDevice() {
-    if (get_pci_device() != nullptr) {
-        lock_manager.clear_mutex(MutexType::TT_DEVICE_IO, get_pci_device()->get_device_num());
-    }
-}
+TTDevice::~TTDevice() { lock_manager.clear_mutex(MutexType::TT_DEVICE_IO, get_pci_device()->get_device_num()); }
 
 std::vector<DramTrainingStatus> TTDevice::get_dram_training_status() { return {}; }
+
+void TTDevice::wait_for_non_mmio_flush() {}
+
+bool TTDevice::is_remote() { return is_remote_tt_device; }
 
 }  // namespace tt::umd

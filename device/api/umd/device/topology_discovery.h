@@ -60,10 +60,6 @@ private:
     // Covered by the UMD issue https://github.com/tenstorrent/tt-umd/issues/730.
     ChipInfo read_non_mmio_chip_info(eth_coord_t eth_coord, Chip* mmio_chip);
 
-    // TODO: this should be moved to class similar to TTDevice for MMIO devices.
-    // Covered by the UMD issue https://github.com/tenstorrent/tt-umd/issues/730.
-    BoardType get_board_type(eth_coord_t eth_coord, Chip* mmio_chip);
-
     std::unordered_map<chip_id_t, std::unique_ptr<Chip>> chips;
 
     std::unordered_map<eth_coord_t, chip_id_t> eth_coord_to_chip_id;

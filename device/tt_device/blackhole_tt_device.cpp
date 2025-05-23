@@ -13,8 +13,8 @@
 
 namespace tt::umd {
 
-BlackholeTTDevice::BlackholeTTDevice(std::unique_ptr<PCIDevice> pci_device) :
-    TTDevice(std::move(pci_device), std::make_unique<blackhole_implementation>()) {
+BlackholeTTDevice::BlackholeTTDevice(std::shared_ptr<PCIDevice> pci_device) :
+    TTDevice(pci_device, std::make_unique<blackhole_implementation>()) {
     init_tt_device();
 }
 

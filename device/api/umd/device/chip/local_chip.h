@@ -60,8 +60,8 @@ public:
     bool get_flush_non_mmio() const;
 
     void l1_membar(const std::unordered_set<tt::umd::CoreCoord>& cores = {}) override;
-    void dram_membar(const std::unordered_set<tt::umd::CoreCoord>& cores = {}) override;
-    void dram_membar(const std::unordered_set<uint32_t>& channels = {}) override;
+    void dram_membar(const std::unordered_set<tt::umd::CoreCoord>& cores = {}, const uint32_t noc_port = 0) override;
+    void dram_membar(const std::unordered_set<uint32_t>& channels = {}, const uint32_t noc_port = 0) override;
 
     void deassert_risc_resets() override;
     void set_power_state(tt_DevicePowerState state) override;
@@ -70,6 +70,8 @@ public:
 
     std::unique_lock<RobustMutex> acquire_mutex(std::string mutex_name, int pci_device_id);
     std::unique_lock<RobustMutex> acquire_mutex(MutexType mutex_type, int pci_device_id);
+
+    void initialize_membars(const uint32_t noc_port) override;
 
 private:
     std::unique_ptr<TLBManager> tlb_manager_;
@@ -85,7 +87,7 @@ private:
     void initialize_local_chip(int num_host_mem_channels = 0);
     void initialize_tlb_manager();
     void initialize_default_chip_mutexes();
-    void initialize_membars();
+    // void initialize_membars();
 
     tt_xy_pair translate_chip_coord_virtual_to_translated(const tt_xy_pair core) const;
 

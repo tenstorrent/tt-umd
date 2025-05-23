@@ -912,12 +912,13 @@ void Cluster::l1_membar(const chip_id_t chip, const std::unordered_set<tt::umd::
     get_chip(chip)->l1_membar(cores);
 }
 
-void Cluster::dram_membar(const chip_id_t chip, const std::unordered_set<tt::umd::CoreCoord>& cores) {
-    get_chip(chip)->dram_membar(cores);
+void Cluster::dram_membar(
+    const chip_id_t chip, const std::unordered_set<tt::umd::CoreCoord>& cores, const uint32_t noc_port) {
+    get_chip(chip)->dram_membar(cores, noc_port);
 }
 
-void Cluster::dram_membar(const chip_id_t chip, const std::unordered_set<uint32_t>& channels) {
-    get_chip(chip)->dram_membar(channels);
+void Cluster::dram_membar(const chip_id_t chip, const std::unordered_set<uint32_t>& channels, const uint32_t noc_port) {
+    get_chip(chip)->dram_membar(channels, noc_port);
 }
 
 void Cluster::write_to_device(
@@ -1066,10 +1067,11 @@ void Cluster::verify_sw_fw_versions(int device_id, std::uint32_t sw_version, std
         get_soc_descriptor(device_id).noc_translation_enabled;
 }
 
-void Cluster::start_device(const tt_device_params& device_params) {
+void Cluster::start_device(const tt_device_params& device_params, const uint32_t noc_port) {
     if (device_params.init_device) {
         for (auto chip_id : all_chip_ids_) {
             get_chip(chip_id)->start_device();
+            get_chip(chip_id)->initialize_membars(noc_port);
         }
 
         // MT Initial BH - Ethernet firmware not present in Blackhole

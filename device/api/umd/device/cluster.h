@@ -220,7 +220,7 @@ public:
      *
      * @param device_params Object specifying initialization configuration.
      */
-    void start_device(const tt_device_params& device_params);
+    void start_device(const tt_device_params& device_params, const uint32_t noc_port = 0);
 
     /**
      * To be called at the end of a run.
@@ -419,7 +419,8 @@ public:
      * @param chip Chip to target.
      * @param channels Channels being targeted.
      */
-    void dram_membar(const chip_id_t chip, const std::unordered_set<uint32_t>& channels = {});
+    void dram_membar(
+        const chip_id_t chip, const std::unordered_set<uint32_t>& channels = {}, const uint32_t noc_port = 0);
 
     /**
      * DRAM memory barrier.
@@ -429,7 +430,8 @@ public:
      * @param chip Chip being targeted.
      * @param cores Cores being targeted.
      */
-    void dram_membar(const chip_id_t chip, const std::unordered_set<tt::umd::CoreCoord>& cores = {});
+    void dram_membar(
+        const chip_id_t chip, const std::unordered_set<tt::umd::CoreCoord>& cores = {}, const uint32_t noc_port = 0);
 
     // Runtime functions
     /**

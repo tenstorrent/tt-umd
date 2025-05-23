@@ -103,7 +103,7 @@ void LocalChip::initialize_default_chip_mutexes() {
     lock_manager_.initialize_mutex(MutexType::MEM_BARRIER, pci_device_id);
 }
 
-void LocalChip::initialize_membars() {
+void LocalChip::initialize_membars(const uint32_t noc_port) {
     set_membar_flag(
         soc_descriptor_.get_cores(CoreType::TENSIX, CoordSystem::VIRTUAL),
         tt_MemBarFlag::RESET,
@@ -115,7 +115,8 @@ void LocalChip::initialize_membars() {
 
     std::vector<CoreCoord> dram_cores_vector = {};
     for (std::uint32_t dram_idx = 0; dram_idx < soc_descriptor_.get_num_dram_channels(); dram_idx++) {
-        dram_cores_vector.push_back(soc_descriptor_.get_dram_core_for_channel(dram_idx, 0, CoordSystem::VIRTUAL));
+        dram_cores_vector.push_back(
+            soc_descriptor_.get_dram_core_for_channel(dram_idx, noc_port, CoordSystem::VIRTUAL));
     }
     set_membar_flag(dram_cores_vector, tt_MemBarFlag::RESET, dram_address_params.DRAM_BARRIER_BASE);
 }
@@ -129,7 +130,7 @@ bool LocalChip::is_mmio_capable() const { return true; }
 void LocalChip::start_device() {
     check_pcie_device_initialized();
     init_pcie_iatus();
-    initialize_membars();
+    // initialize_membars();
 }
 
 void LocalChip::close_device(){};
@@ -603,7 +604,7 @@ void LocalChip::l1_membar(const std::unordered_set<tt::umd::CoreCoord>& cores) {
     }
 }
 
-void LocalChip::dram_membar(const std::unordered_set<tt::umd::CoreCoord>& cores) {
+void LocalChip::dram_membar(const std::unordered_set<tt::umd::CoreCoord>& cores, const uint32_t noc_port) {
     if (cores.size()) {
         for (const auto& core : cores) {
             TT_ASSERT(
@@ -616,18 +617,19 @@ void LocalChip::dram_membar(const std::unordered_set<tt::umd::CoreCoord>& cores)
         // Insert Barrier on all DRAM Cores
         std::vector<CoreCoord> dram_cores_vector = {};
         for (std::uint32_t dram_idx = 0; dram_idx < soc_descriptor_.get_num_dram_channels(); dram_idx++) {
-            dram_cores_vector.push_back(soc_descriptor_.get_dram_core_for_channel(dram_idx, 0, CoordSystem::VIRTUAL));
+            dram_cores_vector.push_back(
+                soc_descriptor_.get_dram_core_for_channel(dram_idx, noc_port, CoordSystem::VIRTUAL));
         }
         insert_host_to_device_barrier(dram_cores_vector, dram_address_params.DRAM_BARRIER_BASE);
     }
 }
 
-void LocalChip::dram_membar(const std::unordered_set<uint32_t>& channels) {
+void LocalChip::dram_membar(const std::unordered_set<uint32_t>& channels, const uint32_t noc_port) {
     std::unordered_set<CoreCoord> dram_cores_to_sync = {};
     for (const auto& chan : channels) {
-        dram_cores_to_sync.insert(soc_descriptor_.get_dram_core_for_channel(chan, 0, CoordSystem::VIRTUAL));
+        dram_cores_to_sync.insert(soc_descriptor_.get_dram_core_for_channel(chan, noc_port, CoordSystem::VIRTUAL));
     }
-    dram_membar(dram_cores_to_sync);
+    dram_membar(dram_cores_to_sync, noc_port);
 }
 
 void LocalChip::deassert_risc_resets() {

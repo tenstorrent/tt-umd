@@ -72,9 +72,13 @@ void RemoteChip::wait_for_non_mmio_flush() {
 
 void RemoteChip::l1_membar(const std::unordered_set<tt::umd::CoreCoord>& cores) { wait_for_non_mmio_flush(); }
 
-void RemoteChip::dram_membar(const std::unordered_set<tt::umd::CoreCoord>& cores) { wait_for_non_mmio_flush(); }
+void RemoteChip::dram_membar(const std::unordered_set<tt::umd::CoreCoord>& cores, const uint32_t noc_port) {
+    wait_for_non_mmio_flush();
+}
 
-void RemoteChip::dram_membar(const std::unordered_set<uint32_t>& channels) { wait_for_non_mmio_flush(); }
+void RemoteChip::dram_membar(const std::unordered_set<uint32_t>& channels, const uint32_t noc_port) {
+    wait_for_non_mmio_flush();
+}
 
 void RemoteChip::deassert_risc_resets() { local_chip_->deassert_risc_resets(); }
 

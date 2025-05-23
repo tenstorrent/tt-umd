@@ -176,9 +176,9 @@ void tt_SimulationDevice::wait_for_non_mmio_flush() {}
 
 void tt_SimulationDevice::l1_membar(const std::unordered_set<tt::umd::CoreCoord>& cores) {}
 
-void tt_SimulationDevice::dram_membar(const std::unordered_set<uint32_t>& channels) {}
+void tt_SimulationDevice::dram_membar(const std::unordered_set<uint32_t>& channels, const uint32_t noc_port) {}
 
-void tt_SimulationDevice::dram_membar(const std::unordered_set<tt::umd::CoreCoord>& cores) {}
+void tt_SimulationDevice::dram_membar(const std::unordered_set<tt::umd::CoreCoord>& cores, const uint32_t noc_port) {}
 
 void tt_SimulationDevice::deassert_risc_resets() {}
 

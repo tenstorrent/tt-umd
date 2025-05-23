@@ -116,6 +116,10 @@ void Chip::set_remote_transfer_ethernet_cores(const std::unordered_set<CoreCoord
     throw std::runtime_error("Chip::set_remote_transfer_ethernet_cores is not available for this chip.");
 }
 
+void Chip::set_remote_transfer_ethernet_cores(const std::set<uint32_t>& channel) {
+    throw std::runtime_error("Chip::set_remote_transfer_ethernet_cores is not available for this chip.");
+}
+
 int Chip::get_numa_node() { throw std::runtime_error("Chip::get_numa_node is not available for this chip."); }
 
 void Chip::wait_dram_cores_training(const uint32_t timeout_ms) {}

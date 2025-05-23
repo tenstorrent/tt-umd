@@ -31,6 +31,7 @@ public:
     TLBManager* get_tlb_manager() override;
 
     void set_remote_transfer_ethernet_cores(const std::unordered_set<CoreCoord>& cores) override;
+    void set_remote_transfer_ethernet_cores(const std::set<uint32_t>& channels) override;
     // TODO: Figure out if this should remain public or used another way.
     tt_xy_pair get_remote_transfer_ethernet_core();
     void update_active_eth_core_idx();

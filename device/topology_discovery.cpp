@@ -261,6 +261,8 @@ void TopologyDiscovery::discover_remote_chips() {
         current_chip_eth_coord.rack = current_chip_eth_coord_info & 0xFF;
         current_chip_eth_coord.shelf = (current_chip_eth_coord_info >> 8) & 0xFF;
 
+        std::set<uint32_t> active_eth_channels;
+
         uint32_t channel = 0;
         for (const CoreCoord& eth_core : eth_cores) {
             uint32_t port_status;
@@ -312,10 +314,11 @@ void TopologyDiscovery::discover_remote_chips() {
                 CoreCoord logical_remote_eth =
                     remote_chip->get_soc_descriptor().translate_coord_to(physical_remote_eth, CoordSystem::LOGICAL);
                 ethernet_connections.push_back({{current_chip_id, channel}, {remote_chip_id, logical_remote_eth.y}});
+                active_eth_channels.insert(channel);
             }
-
             channel++;
         }
+        chip->set_remote_transfer_ethernet_cores(active_eth_channels);
     }
 
     if (remote_chips_to_discover.empty()) {

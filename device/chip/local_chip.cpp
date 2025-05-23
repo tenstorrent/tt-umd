@@ -419,6 +419,14 @@ void LocalChip::set_remote_transfer_ethernet_cores(const std::unordered_set<Core
     }
 }
 
+void LocalChip::set_remote_transfer_ethernet_cores(const std::set<uint32_t>& channels) {
+    std::unordered_set<CoreCoord> active_eth_cores;
+    for (const auto& channel : channels) {
+        active_eth_cores.insert(soc_descriptor_.get_eth_core_for_channel(channel, CoordSystem::VIRTUAL));
+    }
+    set_remote_transfer_ethernet_cores(active_eth_cores);
+}
+
 tt_xy_pair LocalChip::get_remote_transfer_ethernet_core() {
     return {remote_transfer_eth_cores_[active_eth_core_idx].x, remote_transfer_eth_cores_[active_eth_core_idx].y};
 }

@@ -182,6 +182,7 @@ std::unique_ptr<Chip> Cluster::construct_chip_from_cluster(
             soc_desc, cluster_desc->get_chips_with_mmio().at(chip_id), num_host_mem_channels);
         if (cluster_desc->get_arch(chip_id) == tt::ARCH::WORMHOLE_B0) {
             // Remote transfer currently supported only for wormhole.
+            std::cout << "BROSKO " << chip_id << " set_remote_transfer_ethernet_cores" << std::endl;
             chip->set_remote_transfer_ethernet_cores(cluster_desc->get_active_eth_channels(chip_id));
         }
         return chip;

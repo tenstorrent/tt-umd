@@ -392,6 +392,11 @@ void LocalChip::initialize_default_remote_transfer_ethernet_cores() {
             remote_transfer_eth_cores_.push_back(
                 soc_descriptor_.get_eth_core_for_channel(channel, CoordSystem::VIRTUAL));
         }
+        std::cout << "BROSKO initialize_default_remote_transfer_ethernet_cores: ";
+        for (const auto& core : remote_transfer_eth_cores_) {
+            std::cout << core.str() << " ";
+        }
+        std::cout << std::endl;
     }
 }
 
@@ -405,6 +410,12 @@ void LocalChip::set_remote_transfer_ethernet_cores(const std::unordered_set<Core
         auto virtual_coord = soc_descriptor_.translate_coord_to(active_eth_core, CoordSystem::VIRTUAL);
         remote_transfer_eth_cores_.push_back(active_eth_core);
     }
+
+    std::cout << "BROSKO set_remote_transfer_ethernet_cores: ";
+    for (const auto& core : remote_transfer_eth_cores_) {
+        std::cout << core.str() << " ";
+    }
+    std::cout << std::endl;
 }
 
 void LocalChip::set_remote_transfer_ethernet_cores(const std::set<uint32_t>& channels) {

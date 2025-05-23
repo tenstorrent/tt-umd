@@ -12,7 +12,7 @@
  */
 
 #include <spdlog/spdlog.h>
-#include <umd/device/logging/config.h>
+#include "umd/device/logging/config.h"
 
 #include <tt-logger/tt-logger-initializer.hpp>
 
@@ -36,7 +36,7 @@ constexpr auto log_pattern = "[%Y-%m-%d %H:%M:%S.%e] [%l] [%s:%#] %v";
  */
 static tt::LoggerInitializer loggerInitializer(file_env_var, level_env_var, log_pattern);
 
-/// Map our internal enum to spdlog's level enum
+/// Map our internal enum to spdlog's level enum.
 spdlog::level::level_enum to_spdlog_level(level lvl) {
     switch (lvl) {
         case level::trace:

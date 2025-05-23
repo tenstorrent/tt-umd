@@ -5,7 +5,7 @@
 #pragma once
 
 /**
- * @brief UMD logger configuration and utilities
+ * @brief UMD logger configuration and utilities.
  *
  * This namespace contains functionality for configuring the logging system
  * used by the UMD (User Mode Driver).

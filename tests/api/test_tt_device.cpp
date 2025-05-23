@@ -7,7 +7,7 @@
 #include "tests/test_utils/device_test_utils.hpp"
 #include "umd/device/blackhole_implementation.h"
 #include "umd/device/cluster.h"
-#include "umd/device/tt_device/remote_tt_device.h"
+#include "umd/device/tt_device/remote_wormhole_tt_device.h"
 #include "umd/device/tt_device/tt_device.h"
 #include "umd/device/wormhole_implementation.h"
 
@@ -132,8 +132,8 @@ TEST(ApiTTDeviceTest, TestRemoteTTDevice) {
         LocalChip* closest_local_chip =
             cluster->get_local_chip(cluster_desc->get_closest_mmio_capable_chip(remote_chip_id));
 
-        std::unique_ptr<RemoteTTDevice> remote_tt_device =
-            std::make_unique<RemoteTTDevice>(closest_local_chip, remote_eth_coord);
+        std::unique_ptr<RemoteWormholeTTDevice> remote_tt_device =
+            std::make_unique<RemoteWormholeTTDevice>(closest_local_chip, remote_eth_coord);
 
         remote_tt_device->write_to_device(zero_out_buffer.data(), tensix_core, 0, buf_size);
 

@@ -50,7 +50,7 @@ public:
     architecture_implementation *get_architecture_implementation();
     PCIDevice *get_pci_device();
 
-    tt::ARCH get_arch();
+    virtual tt::ARCH get_arch();
 
     void detect_hang_read(uint32_t data_read = HANG_READ_VALUE);
 

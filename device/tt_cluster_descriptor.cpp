@@ -629,6 +629,8 @@ void tt_ClusterDescriptor::load_ethernet_connections_from_connectivity_descripto
         int channel_0 = endpoints.at(0)["chan"].as<int>();
         int chip_1 = endpoints.at(1)["chip"].as<int>();
         int channel_1 = endpoints.at(1)["chan"].as<int>();
+        std::cout << "BROSKO ethernet_connections line " << chip_0 << " " << channel_0 << " " << chip_1 << " "
+                  << channel_1 << std::endl;
         if (desc.ethernet_connections[chip_0].find(channel_0) != desc.ethernet_connections[chip_0].end()) {
             TT_ASSERT(
                 (std::get<0>(desc.ethernet_connections[chip_0][channel_0]) == chip_1) &&
@@ -645,6 +647,8 @@ void tt_ClusterDescriptor::load_ethernet_connections_from_connectivity_descripto
         } else {
             desc.ethernet_connections[chip_1][channel_1] = {chip_0, channel_0};
         }
+        std::cout << "BROSKO add active_eth_channels chip " << chip_0 << " channel " << channel_0 << std::endl;
+        std::cout << "BROSKO add active_eth_channels chip " << chip_1 << " channel " << channel_1 << std::endl;
         desc.active_eth_channels[chip_0].insert(channel_0);
         desc.idle_eth_channels[chip_0].erase(channel_0);
         desc.active_eth_channels[chip_1].insert(channel_1);

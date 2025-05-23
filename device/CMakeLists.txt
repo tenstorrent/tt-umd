@@ -49,6 +49,8 @@ target_sources(
         tt_device/tt_device.cpp
         tt_device/wormhole_tt_device.cpp
         tt_device/remote_tt_device.cpp
+        tt_device/remote_wormhole_tt_device.cpp
+        tt_device/remote_blackhole_tt_device.cpp
         tt_silicon_driver_common.cpp
         tt_soc_descriptor.cpp
         wormhole/wormhole_coordinate_manager.cpp
@@ -113,6 +115,8 @@ if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.23)
                 api/umd/device/tt_device/tt_device.h
                 api/umd/device/tt_device/wormhole_tt_device.h
                 api/umd/device/tt_device/remote_tt_device.h
+                api/umd/device/tt_device/remote_wormhole_tt_device.h
+                api/umd/device/tt_device/remote_blackhole_tt_device.h
                 api/umd/device/tt_io.hpp
                 api/umd/device/tt_silicon_driver_common.hpp
                 api/umd/device/tt_simulation_device.h

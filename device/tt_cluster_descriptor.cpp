@@ -606,7 +606,7 @@ void tt_ClusterDescriptor::load_ethernet_connections_from_connectivity_descripto
         } else {
             desc.ethernet_connections[chip_0][channel_0] = {chip_1, channel_1};
         }
-        if (desc.ethernet_connections[chip_1].find(channel_1) != desc.ethernet_connections[chip_0].end()) {
+        if (desc.ethernet_connections[chip_1].find(channel_1) != desc.ethernet_connections[chip_1].end()) {
             TT_ASSERT(
                 (std::get<0>(desc.ethernet_connections[chip_1][channel_1]) == chip_0) &&
                     (std::get<1>(desc.ethernet_connections[chip_1][channel_1]) == channel_0),

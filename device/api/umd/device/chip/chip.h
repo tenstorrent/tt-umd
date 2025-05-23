@@ -85,6 +85,7 @@ public:
         uint32_t* return_4 = nullptr) = 0;
 
     virtual void set_remote_transfer_ethernet_cores(const std::unordered_set<CoreCoord>& cores);
+    virtual void set_remote_transfer_ethernet_cores(const std::set<uint32_t>& channel);
 
     // TODO: To be moved to private implementation once methods are moved to chip
     void enable_ethernet_queue(int timeout_s);

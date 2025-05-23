@@ -178,8 +178,10 @@ std::unique_ptr<Chip> Cluster::construct_chip_from_cluster(
     }
 
     if (cluster_desc->is_chip_mmio_capable(chip_id)) {
-        return std::make_unique<LocalChip>(
+        auto chip = std::make_unique<LocalChip>(
             soc_desc, cluster_desc->get_chips_with_mmio().at(chip_id), num_host_mem_channels);
+        chip->set_remote_transfer_ethernet_cores(cluster_desc->get_active_eth_channels(chip_id));
+        return chip;
     } else {
         if (cluster_desc->get_arch(chip_id) != tt::ARCH::WORMHOLE_B0) {
             throw std::runtime_error("Remote chips are supported only for wormhole.");

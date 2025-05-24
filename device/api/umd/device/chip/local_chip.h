@@ -31,6 +31,7 @@ public:
     TLBManager* get_tlb_manager() override;
 
     void set_remote_transfer_ethernet_cores(const std::unordered_set<CoreCoord>& cores) override;
+    void set_remote_transfer_ethernet_cores(const std::set<uint32_t>& channels) override;
     // TODO: Figure out if this should remain public or used another way.
     tt_xy_pair get_remote_transfer_ethernet_core();
     void update_active_eth_core_idx();
@@ -95,7 +96,6 @@ private:
     void initialize_local_chip(int num_host_mem_channels = 0);
     void initialize_tlb_manager();
     void initialize_default_chip_mutexes();
-    void initialize_default_remote_transfer_ethernet_cores();
     void initialize_membars();
 
     tt_xy_pair translate_chip_coord_virtual_to_translated(const tt_xy_pair core) const;

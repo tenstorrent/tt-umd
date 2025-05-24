@@ -16,7 +16,6 @@
 #include "api/umd/device/wormhole_implementation.h"
 #include "assert.hpp"
 #include "disjoint_set.hpp"
-#include "libs/create_ethernet_map.h"
 
 using namespace tt;
 
@@ -394,32 +393,6 @@ chip_id_t tt_ClusterDescriptor::get_closest_mmio_capable_chip(const chip_id_t ch
     return closest_chip;
 }
 
-std::string tt_ClusterDescriptor::get_cluster_descriptor_file_path() {
-    static std::string yaml_path;
-    static bool is_initialized = false;
-    if (!is_initialized) {
-        // Cluster descriptor yaml will be created in a unique temporary directory.
-        std::filesystem::path temp_path = std::filesystem::temp_directory_path();
-        std::string cluster_path_dir_template = temp_path / "umd_XXXXXX";
-        std::filesystem::path cluster_path_dir = mkdtemp(cluster_path_dir_template.data());
-        std::filesystem::path cluster_path = cluster_path_dir / "cluster_descriptor.yaml";
-        if (!std::filesystem::exists(cluster_path)) {
-            auto val = system(("touch " + cluster_path.string()).c_str());
-            if (val != 0) {
-                throw std::runtime_error("Cluster Generation Failed!");
-            }
-        }
-
-        int val = create_ethernet_map((char *)cluster_path.string().c_str());
-        if (val != 0) {
-            throw std::runtime_error("Cluster Generation Failed!");
-        }
-        yaml_path = cluster_path.string();
-        is_initialized = true;
-    }
-    return yaml_path;
-}
-
 std::unique_ptr<tt_ClusterDescriptor> tt_ClusterDescriptor::create_from_yaml(
     const std::string &cluster_descriptor_file_path) {
     std::unique_ptr<tt_ClusterDescriptor> desc = std::unique_ptr<tt_ClusterDescriptor>(new tt_ClusterDescriptor());
@@ -441,10 +414,6 @@ std::unique_ptr<tt_ClusterDescriptor> tt_ClusterDescriptor::create_from_yaml(
     desc->fill_chips_grouped_by_closest_mmio();
 
     return desc;
-}
-
-std::unique_ptr<tt_ClusterDescriptor> tt_ClusterDescriptor::create() {
-    return tt_ClusterDescriptor::create_from_yaml(tt_ClusterDescriptor::get_cluster_descriptor_file_path());
 }
 
 template <typename T>
@@ -1041,10 +1010,6 @@ tt::ARCH tt_ClusterDescriptor::get_arch(chip_id_t chip_id) const {
         "Chip {} does not have an architecture in the cluster descriptor",
         chip_id);
     return chip_arch.at(chip_id);
-}
-
-/* static */ tt::ARCH tt_ClusterDescriptor::detect_arch(chip_id_t chip_id) {
-    return tt_ClusterDescriptor::create()->get_arch(chip_id);
 }
 
 const std::unordered_map<chip_id_t, std::unordered_set<chip_id_t>> &

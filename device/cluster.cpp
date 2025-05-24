@@ -1292,11 +1292,8 @@ std::unique_ptr<tt_ClusterDescriptor> Cluster::create_cluster_descriptor(
                 } else if (boot_results.eth_status.port_status == blackhole::port_status_e::PORT_UNUSED) {
                     // idle core
                     desc->idle_eth_channels[chip_id].insert(eth_channel);
-                    log_debug(LogSiliconDriver,
-                        "Eth core ({}, {}) on chip {} is idle",
-                        eth_core.x,
-                        eth_core.y,
-                        chip_id);
+                    log_debug(
++                        LogSiliconDriver, "Eth core ({}, {}) on chip {} is idle", eth_core.x, eth_core.y, chip_id);
                 } else if (boot_results.eth_status.port_status == blackhole::port_status_e::PORT_UNKNOWN) {
                     log_debug(
                         LogSiliconDriver,

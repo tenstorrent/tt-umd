@@ -1204,3 +1204,92 @@ uint32_t tt_ClusterDescriptor::get_pcie_harvesting_mask(chip_id_t chip_id) const
 
     return it->second;
 }
+
+template <typename T>
+std::ostream &operator<<(std::ostream &os, const std::set<T> &map) {
+    os << "{";
+    for (const auto &pair : map) {
+        os << pair << ", ";
+    }
+    os << "}";
+    return os;
+}
+
+std::ostream &operator<<(std::ostream &os, const ChipUID &uid) {
+    os << "{" << uid.board_id << ", " << static_cast<int>(uid.asic_location) << "}";
+    return os;
+}
+
+template <typename T>
+std::ostream &operator<<(std::ostream &os, const std::unordered_set<T> &map) {
+    os << "{";
+    for (const auto &pair : map) {
+        os << pair << ", ";
+    }
+    os << "}";
+    return os;
+}
+
+// std::tuple<chip_id_t, ethernet_channel_t>
+std::ostream &operator<<(std::ostream &os, const std::tuple<chip_id_t, ethernet_channel_t> &tuple) {
+    os << "{" << std::get<0>(tuple) << ", " << std::get<1>(tuple) << "}";
+    return os;
+}
+
+template <typename T, typename S>
+std::ostream &operator<<(std::ostream &os, const std::unordered_map<S, T> &map) {
+    os << "{";
+    for (const auto &pair : map) {
+        os << pair.first << ": " << pair.second << ", ";
+    }
+    os << "}";
+    return os;
+}
+
+template <typename T, typename S>
+std::ostream &operator<<(std::ostream &os, const std::map<S, T> &map) {
+    os << "{";
+    for (const auto &pair : map) {
+        os << pair.first << ": " << pair.second << ", ";
+    }
+    os << "}";
+    return os;
+}
+
+// eth_coord_t
+std::ostream &operator<<(std::ostream &os, const eth_coord_t &coord) {
+    os << "{" << coord.x << ", " << coord.y << ", " << coord.rack << ", " << coord.shelf << "}";
+    return os;
+}
+
+// Chip2ChipConnection
+std::ostream &operator<<(std::ostream &os, const tt_ClusterDescriptor::Chip2ChipConnection &connection) {
+    os << "{" << connection.source_chip_coord << ", " << connection.destination_chip_coords << "}";
+    return os;
+}
+
+void tt_ClusterDescriptor::print_all() {
+    std::cout << "ethernet_connections " << ethernet_connections << std::endl;
+    std::cout << "ethernet_connections_to_remote_mmio_devices " << ethernet_connections_to_remote_mmio_devices
+              << std::endl;
+    std::cout << "chip_locations " << chip_locations << std::endl;
+    std::cout << "coords_to_chip_ids " << coords_to_chip_ids << std::endl;
+    std::cout << "chips_with_mmio " << chips_with_mmio << std::endl;
+    std::cout << "all_chips " << all_chips << std::endl;
+    std::cout << "noc_translation_enabled " << noc_translation_enabled << std::endl;
+    std::cout << "harvesting_masks " << harvesting_masks << std::endl;
+    std::cout << "closest_mmio_chip_cache " << closest_mmio_chip_cache << std::endl;
+    std::cout << "chip_board_type " << chip_board_type << std::endl;
+    std::cout << "chips_grouped_by_closest_mmio " << chips_grouped_by_closest_mmio << std::endl;
+    std::cout << "chip_arch " << chip_arch << std::endl;
+    std::cout << "chip_uid_to_chip_id " << chip_uid_to_chip_id << std::endl;
+    std::cout << "chip_id_to_chip_uid " << chip_id_to_chip_uid << std::endl;
+    std::cout << "chip_unique_ids " << chip_unique_ids << std::endl;
+    std::cout << "active_eth_channels " << active_eth_channels << std::endl;
+    std::cout << "idle_eth_channels " << idle_eth_channels << std::endl;
+    std::cout << "galaxy_shelves_exit_chip_coords_per_y_dim " << galaxy_shelves_exit_chip_coords_per_y_dim << std::endl;
+    std::cout << "galaxy_racks_exit_chip_coords_per_x_dim " << galaxy_racks_exit_chip_coords_per_x_dim << std::endl;
+    std::cout << "dram_harvesting_masks " << dram_harvesting_masks << std::endl;
+    std::cout << "eth_harvesting_masks " << eth_harvesting_masks << std::endl;
+    std::cout << "pcie_harvesting_masks " << pcie_harvesting_masks << std::endl;
+}

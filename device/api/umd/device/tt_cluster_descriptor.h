@@ -63,12 +63,14 @@ protected:
     std::map<chip_id_t, std::set<uint32_t>> active_eth_channels = {};
     std::map<chip_id_t, std::set<uint32_t>> idle_eth_channels = {};
 
+public:
     // one-to-many chip connections
     struct Chip2ChipConnection {
         eth_coord_t source_chip_coord;
         std::unordered_set<eth_coord_t> destination_chip_coords;
     };
 
+private:
     // shelf_id -> y dim -> list of chip2chip connections between different shelves
     // assumption is that on every row of the shelf there is a chip that is connected to the other shelf
     // there could be one-to-many connections between shelves, i.e. one chip is connected to multiple chips on the other
@@ -94,6 +96,7 @@ protected:
     std::map<chip_id_t, uint32_t> pcie_harvesting_masks = {};
 
 public:
+    void print_all();
     /*
      * Returns the pairs of channels that are connected where the first entry in the pair corresponds to the argument
      * ordering when calling the function An empty result implies that the two chips do not share any direct connection

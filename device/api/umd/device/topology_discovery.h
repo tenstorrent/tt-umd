@@ -70,10 +70,6 @@ private:
 
     std::unordered_map<chip_id_t, eth_coord_t> eth_coords;
 
-    // Remote transfer eth cores for each TTDevice, key of the map is pcie device that we
-    // create tt device for.
-    std::unordered_map<uint32_t, std::vector<tt_xy_pair>> remote_transfer_ethernet_cores;
-
     std::vector<std::pair<std::pair<chip_id_t, uint32_t>, std::pair<chip_id_t, uint32_t>>> ethernet_connections;
 
     std::unique_ptr<tt_ClusterDescriptor> cluster_desc;

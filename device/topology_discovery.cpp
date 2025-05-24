@@ -457,10 +457,7 @@ void TopologyDiscovery::fill_cluster_descriptor_info() {
         cluster_desc->chip_locations.insert({chip_id, eth_coord});
         cluster_desc->coords_to_chip_ids[eth_coord.rack][eth_coord.shelf][eth_coord.y][eth_coord.x] = chip_id;
 
-        int num_channels =
-            tt::umd::architecture_implementation::create(tt::ARCH::WORMHOLE_B0)->get_num_eth_channels() -
-            CoordinateManager::get_num_harvested(chip->get_chip_info().harvesting_masks.eth_harvesting_mask);
-        for (int i = 0; i < num_channels; i++) {
+        for (int i = 0; i < wormhole::NUM_ETH_CHANNELS; i++) {
             cluster_desc->idle_eth_channels[chip_id].insert(i);
         }
     }

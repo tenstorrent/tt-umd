@@ -12,17 +12,29 @@
 static constexpr uint32_t DMA_COMPLETION_VALUE = 0xfaca;
 static constexpr uint32_t DMA_TIMEOUT_MS = 10000;  // 10 seconds
 
+extern bool umd_use_noc1;
+
 namespace tt::umd {
 
 WormholeTTDevice::WormholeTTDevice(std::unique_ptr<PCIDevice> pci_device) :
     TTDevice(std::move(pci_device), std::make_unique<wormhole_implementation>()) {
     init_tt_device();
-    wait_arc_core_start(wormhole::ARC_CORES_NOC0[0], 1000);
+    wait_arc_core_start(
+        umd_use_noc1 ? tt_xy_pair(
+                           tt::umd::wormhole::NOC0_X_TO_NOC1_X[tt::umd::wormhole::ARC_CORES_NOC0[0].x],
+                           tt::umd::wormhole::NOC0_Y_TO_NOC1_Y[tt::umd::wormhole::ARC_CORES_NOC0[0].y])
+                     : wormhole::ARC_CORES_NOC0[0],
+        1000);
 }
 
 bool WormholeTTDevice::get_noc_translation_enabled() {
     uint32_t niu_cfg;
-    const tt_xy_pair dram_core = {0, 0};
+    // We read information about NOC translation from DRAM core just be on paar with Luwen implementation.
+    // We use DRAM core (0, 0) to read this information, but it can be read from any core.
+    // TODO: read this information from PCIE BAR.
+    const tt_xy_pair dram_core =
+        umd_use_noc1 ? tt_xy_pair(tt::umd::wormhole::NOC0_X_TO_NOC1_X[0], tt::umd::wormhole::NOC0_Y_TO_NOC1_Y[0])
+                     : tt_xy_pair(0, 0);
     const uint64_t niu_cfg_addr = 0x1000A0000 + 0x100;
     read_from_device(&niu_cfg, dram_core, niu_cfg_addr, sizeof(uint32_t));
 

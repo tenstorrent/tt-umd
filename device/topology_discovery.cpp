@@ -450,12 +450,24 @@ void TopologyDiscovery::fill_cluster_descriptor_info() {
             {chip_id, chip->get_chip_info().harvesting_masks.dram_harvesting_mask});
         cluster_desc->eth_harvesting_masks.insert(
             {chip_id, chip->get_chip_info().harvesting_masks.eth_harvesting_mask});
-        cluster_desc->chip_locations.insert({chip_id, eth_coords.at(chip_id)});
+        eth_coord_t eth_coord = eth_coords.at(chip_id);
+        cluster_desc->chip_locations.insert({chip_id, eth_coord});
+        cluster_desc->coords_to_chip_ids[eth_coord.rack][eth_coord.shelf][eth_coord.y][eth_coord.x] = chip_id;
+
+        for (int i = 0; i < wormhole::NUM_ETH_CHANNELS; i++) {
+            cluster_desc->idle_eth_channels[chip_id].insert(i);
+        }
     }
 
     for (auto [ethernet_connection_logical, ethernet_connection_remote] : ethernet_connections) {
         cluster_desc->ethernet_connections[ethernet_connection_logical.first][ethernet_connection_logical.second] = {
             ethernet_connection_remote.first, ethernet_connection_remote.second};
+        cluster_desc->ethernet_connections[ethernet_connection_remote.first][ethernet_connection_remote.second] = {
+            ethernet_connection_logical.first, ethernet_connection_logical.second};
+        cluster_desc->active_eth_channels[ethernet_connection_logical.first].insert(ethernet_connection_logical.second);
+        cluster_desc->idle_eth_channels[ethernet_connection_logical.first].erase(ethernet_connection_logical.second);
+        cluster_desc->active_eth_channels[ethernet_connection_remote.first].insert(ethernet_connection_remote.second);
+        cluster_desc->idle_eth_channels[ethernet_connection_remote.first].erase(ethernet_connection_remote.second);
     }
 
     tt_ClusterDescriptor::fill_galaxy_connections(*cluster_desc.get());

@@ -1222,8 +1222,9 @@ std::ostream &operator<<(std::ostream &os, const ChipUID &uid) {
 
 template <typename T>
 std::ostream &operator<<(std::ostream &os, const std::unordered_set<T> &map) {
+    std::set<T> sorted_set(map.begin(), map.end());
     os << "{";
-    for (const auto &pair : map) {
+    for (const auto &pair : sorted_set) {
         os << pair << ", ";
     }
     os << "}";
@@ -1238,8 +1239,9 @@ std::ostream &operator<<(std::ostream &os, const std::tuple<chip_id_t, ethernet_
 
 template <typename T, typename S>
 std::ostream &operator<<(std::ostream &os, const std::unordered_map<S, T> &map) {
+    std::map<S, T> sorted_map(map.begin(), map.end());
     os << "{";
-    for (const auto &pair : map) {
+    for (const auto &pair : sorted_map) {
         os << pair.first << ": " << pair.second << ", ";
     }
     os << "}";

@@ -37,6 +37,11 @@ struct eth_coord_t {
             cluster_id == other.cluster_id and x == other.x and y == other.y and rack == other.rack and
             shelf == other.shelf);
     }
+
+    constexpr bool operator<(const eth_coord_t &other) const noexcept {
+        return std::tie(cluster_id, x, y, rack, shelf) <
+               std::tie(other.cluster_id, other.x, other.y, other.rack, other.shelf);
+    }
 };
 
 enum BoardType : uint32_t {

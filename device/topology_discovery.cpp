@@ -142,8 +142,6 @@ uint32_t TopologyDiscovery::remote_arc_msg(
 BoardType TopologyDiscovery::get_board_type(eth_coord_t eth_coord, Chip* mmio_chip) {
     std::unique_ptr<RemoteCommunication> remote_comm =
         std::make_unique<RemoteCommunication>(dynamic_cast<LocalChip*>(mmio_chip));
-    tt_xy_pair eth_core =
-        remote_transfer_ethernet_cores.at(mmio_chip->get_tt_device()->get_pci_device()->get_device_num()).at(0);
 
     uint32_t ret0;
     uint32_t exit_code = remote_arc_msg(
@@ -177,7 +175,6 @@ ChipInfo TopologyDiscovery::read_non_mmio_chip_info(eth_coord_t eth_coord, Chip*
     TTDevice* tt_device = mmio_chip->get_tt_device();
     std::unique_ptr<RemoteCommunication> remote_comm =
         std::make_unique<RemoteCommunication>(dynamic_cast<LocalChip*>(mmio_chip));
-    tt_xy_pair eth_core = remote_transfer_ethernet_cores.at(tt_device->get_pci_device()->get_device_num()).at(0);
     ChipInfo chip_info;
 
     uint32_t niu_cfg;
@@ -279,8 +276,7 @@ void TopologyDiscovery::discover_remote_chips() {
                 continue;
             }
 
-            remote_transfer_ethernet_cores[tt_device->get_pci_device()->get_device_num()].push_back(
-                {eth_core.x, eth_core.y});
+            active_eth_channels.insert(channel);
 
             uint32_t remote_id;
             tt_device->read_from_device(
@@ -316,12 +312,9 @@ void TopologyDiscovery::discover_remote_chips() {
                 CoreCoord logical_remote_eth =
                     remote_chip->get_soc_descriptor().translate_coord_to(physical_remote_eth, CoordSystem::LOGICAL);
                 ethernet_connections.push_back({{current_chip_id, channel}, {remote_chip_id, logical_remote_eth.y}});
-                active_eth_channels.insert(channel);
             }
-
             channel++;
         }
-
         chip->set_remote_transfer_ethernet_cores(active_eth_channels);
     }
 
@@ -333,7 +326,6 @@ void TopologyDiscovery::discover_remote_chips() {
     TTDevice* tt_device = mmio_chip->get_tt_device();
     std::unique_ptr<RemoteCommunication> remote_comm =
         std::make_unique<RemoteCommunication>(dynamic_cast<LocalChip*>(mmio_chip));
-    tt_xy_pair eth_core = remote_transfer_ethernet_cores.at(tt_device->get_pci_device()->get_device_num()).at(0);
 
     while (!remote_chips_to_discover.empty()) {
         std::unordered_set<eth_coord_t> new_remote_chips = {};
@@ -464,10 +456,7 @@ void TopologyDiscovery::fill_cluster_descriptor_info() {
         cluster_desc->chip_locations.insert({chip_id, eth_coord});
         cluster_desc->coords_to_chip_ids[eth_coord.rack][eth_coord.shelf][eth_coord.y][eth_coord.x] = chip_id;
 
-        int num_channels =
-            tt::umd::architecture_implementation::create(tt::ARCH::WORMHOLE_B0)->get_num_eth_channels() -
-            CoordinateManager::get_num_harvested(chip->get_chip_info().harvesting_masks.eth_harvesting_mask);
-        for (int i = 0; i < num_channels; i++) {
+        for (int i = 0; i < wormhole::NUM_ETH_CHANNELS; i++) {
             cluster_desc->idle_eth_channels[chip_id].insert(i);
         }
     }

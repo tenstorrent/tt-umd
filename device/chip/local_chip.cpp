@@ -67,7 +67,6 @@ void LocalChip::initialize_local_chip(int num_host_mem_channels) {
     }
     wait_chip_to_be_ready();
     initialize_default_chip_mutexes();
-    initialize_default_remote_transfer_ethernet_cores();
 }
 
 void LocalChip::initialize_tlb_manager() {
@@ -383,46 +382,29 @@ tt_xy_pair LocalChip::translate_chip_coord_virtual_to_translated(const tt_xy_pai
     }
 }
 
-void LocalChip::initialize_default_remote_transfer_ethernet_cores() {
-    if (tt_device_->get_arch() == tt::ARCH::WORMHOLE_B0) {
-        // By default, until set_remote_transfer_ethernet_cores is called, the remote transfer cores by default are set
-        // to the first 6 ones.
-        // TODO: Figure out why only 6. Figure out why other combination doesn't work on galaxy.
-        for (int channel = 0; channel < 6; channel++) {
-            remote_transfer_eth_cores_.push_back(
-                soc_descriptor_.get_eth_core_for_channel(channel, CoordSystem::VIRTUAL));
-        }
-    }
-}
-
-void LocalChip::set_remote_transfer_ethernet_cores(const std::unordered_set<CoreCoord>& active_eth_cores_per_chip) {
+void LocalChip::set_remote_transfer_ethernet_cores(const std::unordered_set<CoreCoord>& active_eth_cores) {
     // Makes UMD aware of which ethernet cores have active links.
     // Based on this information, UMD determines which ethernet cores can be used for host->cluster non-MMIO transfers.
     // This overrides the default ethernet cores tagged for host to cluster routing in the constructor and must be
     // called for all MMIO devices, if default behaviour is not desired.
     TT_ASSERT(soc_descriptor_.arch == tt::ARCH::WORMHOLE_B0, "{} can only be called for Wormhole arch", __FUNCTION__);
-    // Cores 0, 1, 6, 7 are only available if in the active set
-    static std::unordered_set<tt_xy_pair> eth_cores_available_if_active = {
-        soc_descriptor_.get_eth_core_for_channel(0, CoordSystem::VIRTUAL),
-        soc_descriptor_.get_eth_core_for_channel(1, CoordSystem::VIRTUAL),
-        soc_descriptor_.get_eth_core_for_channel(6, CoordSystem::VIRTUAL),
-        soc_descriptor_.get_eth_core_for_channel(7, CoordSystem::VIRTUAL)};
-    // Eth cores 8 and 9 are always available
-    remote_transfer_eth_cores_ = {
-        soc_descriptor_.get_eth_core_for_channel(8, CoordSystem::VIRTUAL),
-        soc_descriptor_.get_eth_core_for_channel(9, CoordSystem::VIRTUAL)};
-    for (const auto& active_eth_core : active_eth_cores_per_chip) {
+    if (active_eth_cores.size() > 8) {
+        // We cannot use more than 8 cores for umd access in one direction. Thats because of the available buffering in
+        // the outgoing eth channels.
+        log_warning(
+            LogSiliconDriver, "Number of active ethernet cores {} exceeds the maximum of 8.", active_eth_cores.size());
+    }
+    remote_transfer_eth_cores_ = {};
+    for (const auto& active_eth_core : active_eth_cores) {
         auto virtual_coord = soc_descriptor_.translate_coord_to(active_eth_core, CoordSystem::VIRTUAL);
-        if (eth_cores_available_if_active.find(active_eth_core) != eth_cores_available_if_active.end()) {
-            remote_transfer_eth_cores_.push_back(active_eth_core);
-        }
+        remote_transfer_eth_cores_.push_back(active_eth_core);
     }
 }
 
 void LocalChip::set_remote_transfer_ethernet_cores(const std::set<uint32_t>& channels) {
     std::unordered_set<CoreCoord> active_eth_cores;
     for (const auto& channel : channels) {
-        active_eth_cores.insert(soc_descriptor_.get_eth_core_for_channel(channel, CoordSystem::VIRTUAL));
+        active_eth_cores.insert(soc_descriptor_.get_eth_core_for_channel(channel));
     }
     set_remote_transfer_ethernet_cores(active_eth_cores);
 }

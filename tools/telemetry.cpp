@@ -16,8 +16,8 @@
 #include "common.h"
 #include "fmt/core.h"
 #include "umd/device/arc_telemetry_reader.h"
-#include "umd/device/types/wormhole_telemetry.h"
 #include "umd/device/types/blackhole_telemetry.h"
+#include "umd/device/types/wormhole_telemetry.h"
 
 using namespace tt::umd;
 
@@ -38,10 +38,10 @@ std::string run_default_telemetry(int pci_device, ArcTelemetryReader* telemetry_
         tdp = telemetry_reader->read_entry(blackhole::TAG_TDP);
         asic_temperature = telemetry_reader->read_entry(blackhole::TAG_ASIC_TEMPERATURE);
     }
-    
+
     uint32_t aiclk_current = aiclk_info & 0xFFFF;
     tdp = tdp & 0xFFFF;
-    
+
     float current_temperature;
     if (arch == tt::ARCH::BLACKHOLE) {
         current_temperature = static_cast<int32_t>(asic_temperature) / 65536.0f;

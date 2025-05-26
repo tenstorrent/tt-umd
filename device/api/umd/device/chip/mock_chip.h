@@ -30,8 +30,8 @@ public:
         uint32_t* return_4) override;
 
     void l1_membar(const std::unordered_set<tt::umd::CoreCoord>& cores = {}) override;
-    void dram_membar(const std::unordered_set<tt::umd::CoreCoord>& cores = {}) override;
-    void dram_membar(const std::unordered_set<uint32_t>& channels = {}) override;
+    void dram_membar(const std::unordered_set<tt::umd::CoreCoord>& cores = {}, const uint32_t noc_port = 0) override;
+    void dram_membar(const std::unordered_set<uint32_t>& channels = {}, const uint32_t noc_port = 0) override;
 
     void deassert_risc_resets() override;
     void set_power_state(tt_DevicePowerState state) override;

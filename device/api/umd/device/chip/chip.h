@@ -64,8 +64,8 @@ public:
     virtual void wait_for_non_mmio_flush();
 
     virtual void l1_membar(const std::unordered_set<tt::umd::CoreCoord>& cores = {}) = 0;
-    virtual void dram_membar(const std::unordered_set<tt::umd::CoreCoord>& cores = {}) = 0;
-    virtual void dram_membar(const std::unordered_set<uint32_t>& channels = {}) = 0;
+    virtual void dram_membar(const std::unordered_set<tt::umd::CoreCoord>& cores = {}, const uint32_t noc_port = 0) = 0;
+    virtual void dram_membar(const std::unordered_set<uint32_t>& channels = {}, const uint32_t noc_port = 0) = 0;
 
     virtual void send_tensix_risc_reset(tt_xy_pair core, const TensixSoftResetOptions& soft_resets);
     virtual void send_tensix_risc_reset(const TensixSoftResetOptions& soft_resets);

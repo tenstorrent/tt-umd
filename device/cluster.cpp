@@ -878,12 +878,13 @@ void Cluster::l1_membar(const chip_id_t chip, const std::unordered_set<tt::umd::
     get_chip(chip)->l1_membar(cores);
 }
 
-void Cluster::dram_membar(const chip_id_t chip, const std::unordered_set<tt::umd::CoreCoord>& cores) {
-    get_chip(chip)->dram_membar(cores);
+void Cluster::dram_membar(
+    const chip_id_t chip, const std::unordered_set<tt::umd::CoreCoord>& cores, const uint32_t noc_port) {
+    get_chip(chip)->dram_membar(cores, noc_port);
 }
 
-void Cluster::dram_membar(const chip_id_t chip, const std::unordered_set<uint32_t>& channels) {
-    get_chip(chip)->dram_membar(channels);
+void Cluster::dram_membar(const chip_id_t chip, const std::unordered_set<uint32_t>& channels, const uint32_t noc_port) {
+    get_chip(chip)->dram_membar(channels, noc_port);
 }
 
 void Cluster::write_to_device(

@@ -1161,7 +1161,12 @@ std::unique_ptr<tt_ClusterDescriptor> Cluster::create_cluster_descriptor(std::st
                 cluster_desc = tt_ClusterDescriptor::create();
             }
             lock_manager.clear_mutex(MutexType::CREATE_ETH_MAP);
-            return cluster_desc;
+            std::cout << "printing cluster descriptor from CEM " << std::endl;
+            cluster_desc->print_all();
+            std::cout << "printing topo discovery cluster descriptor " << std::endl;
+            std::unique_ptr<tt_ClusterDescriptor> topo_desc = TopologyDiscovery().create_ethernet_map();
+            topo_desc->print_all();
+            return topo_desc;
         }
 
         std::unordered_map<chip_id_t, std::unique_ptr<Chip>> chips;

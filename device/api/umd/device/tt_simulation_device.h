@@ -53,8 +53,8 @@ public:
     void wait_for_non_mmio_flush() override;
 
     void l1_membar(const std::unordered_set<tt::umd::CoreCoord>& cores = {}) override;
-    void dram_membar(const std::unordered_set<tt::umd::CoreCoord>& cores = {}) override;
-    void dram_membar(const std::unordered_set<uint32_t>& channels = {}) override;
+    void dram_membar(const std::unordered_set<tt::umd::CoreCoord>& cores = {}, const uint32_t noc_port = 0) override;
+    void dram_membar(const std::unordered_set<uint32_t>& channels = {}, const uint32_t noc_port = 0) override;
 
     void send_tensix_risc_reset(tt_xy_pair core, const TensixSoftResetOptions& soft_resets) override;
     void send_tensix_risc_reset(const TensixSoftResetOptions& soft_resets) override;

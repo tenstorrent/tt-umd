@@ -75,7 +75,7 @@ TEST(SiliconDriverBH, CreateDestroy) {
     for (int i = 0; i < 1; i++) {
         Cluster cluster;
         set_barrier_params(cluster);
-        cluster.start_device(default_params);
+        cluster.start_device(default_params, 0);
         cluster.close_device();
     }
 }

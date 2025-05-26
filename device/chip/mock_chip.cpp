@@ -33,9 +33,9 @@ int MockChip::arc_msg(
 
 void MockChip::l1_membar(const std::unordered_set<tt::umd::CoreCoord>& cores) {}
 
-void MockChip::dram_membar(const std::unordered_set<tt::umd::CoreCoord>& cores) {}
+void MockChip::dram_membar(const std::unordered_set<tt::umd::CoreCoord>& cores, const uint32_t noc_port) {}
 
-void MockChip::dram_membar(const std::unordered_set<uint32_t>& channels) {}
+void MockChip::dram_membar(const std::unordered_set<uint32_t>& channels, const uint32_t noc_port) {}
 
 void MockChip::deassert_risc_resets() {}
 

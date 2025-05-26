@@ -165,3 +165,48 @@ You can also manually auto format the whole repo using mentioned pre-commit:
 # Grayskull End of Life
 
 Grayskull is no longer actively supported by Tenstorrent. [Last UMD commit](https://github.com/tenstorrent/tt-umd/commit/a5b4719b7d44f0c7c953542803faf6851574329a) supporting Grayskull.
+
+# Tools
+
+UMD ships with several utility tools that can be built using:
+
+```bash
+   cmake -B build -G Ninja
+   cmake --build build --target umd_tools
+```
+
+## Telemetry
+
+Polls telemetry values from devices:
+
+```bash
+> build/tools/umd/telemetry
+   [2025-05-26 12:57:19.567] [info] [pci_device.cpp:191] [SiliconDriver] Opened PCI device 0; KMD version: 1.31.0, IOMMU: disabled
+   [2025-05-26 12:57:19.645] [info] [telemetry.cpp:151] [SiliconDriver] Device id 0 - AICLK: 1350 VCore: 844 Power: 60 Temp: 64.12027
+   [2025-05-26 12:57:19.646] [info] [telemetry.cpp:151] [SiliconDriver] Device id 0 - AICLK: 1350 VCore: 844 Power: 60 Temp: 64.632965
+   [2025-05-26 12:57:19.649] [info] [telemetry.cpp:151] [SiliconDriver] Device id 0 - AICLK: 1350 VCore: 844 Power: 60 Temp: 64.632965
+   ...
+```
+
+## Topology
+
+Displays the device routing configurations:
+
+```bash
+   > build/tools/umd/topology
+   ...
+   > cat /tmp/umd_.../cluster_descriptor.yaml
+   ...
+   ethernet_connections:
+   -
+      - chip: 5
+         chan: 1
+      - chip: 2
+         chan: 9
+   -
+      - chip: 5
+         chan: 0
+      - chip: 2
+         chan: 8
+   ...
+```

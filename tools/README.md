@@ -22,11 +22,19 @@ You can run the following for more information:
 
 Example output:
 ```
-   ...
-   [2025-05-26 12:57:19.645] [info] [telemetry.cpp:151] [SiliconDriver] Device id 0 - AICLK: 1350 VCore: 844 Power: 60 Temp: 64.12027
-   [2025-05-26 12:57:19.646] [info] [telemetry.cpp:151] [SiliconDriver] Device id 0 - AICLK: 1350 VCore: 844 Power: 60 Temp: 64.632965
-   [2025-05-26 12:57:19.649] [info] [telemetry.cpp:151] [SiliconDriver] Device id 0 - AICLK: 1350 VCore: 844 Power: 60 Temp: 64.632965
-   ...
+    ...
+    ethernet_connections:
+    -
+       - chip: 5
+          chan: 1
+       - chip: 2
+          chan: 9
+    -
+       - chip: 5
+          chan: 0
+       - chip: 2
+          chan: 8
+    ...
 ```
 
 ## Telemetry tool
@@ -43,17 +51,9 @@ You can run the following for more information:
 
 Example output:
 ```
-    ...
-    ethernet_connections:
-    -
-       - chip: 5
-          chan: 1
-       - chip: 2
-          chan: 9
-    -
-       - chip: 5
-          chan: 0
-       - chip: 2
-          chan: 8
-    ...
+   ...
+   Device id 0 - AICLK: 1350 VCore: 844 Power: 60 Temp: 64.12027
+   Device id 0 - AICLK: 1350 VCore: 844 Power: 60 Temp: 64.632965
+   Device id 0 - AICLK: 1350 VCore: 844 Power: 60 Temp: 64.632965
+   ...
 ```

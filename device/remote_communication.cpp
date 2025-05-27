@@ -591,7 +591,7 @@ int RemoteCommunication::arc_msg(
         MutexType::REMOTE_ARC_MSG, local_chip_->get_tt_device()->get_pci_device()->get_device_num());
 
     if ((msg_code & 0xff00) != 0xaa00) {
-        log_error("Malformed message. msg_code is 0x{:x} but should be 0xaa..", msg_code);
+        log_error(LogSiliconDriver, "Malformed message. msg_code is 0x{:x} but should be 0xaa..", msg_code);
     }
     TT_ASSERT(arg0 <= 0xffff and arg1 <= 0xffff, "Only 16 bits allowed in arc_msg args");  // Only 16 bits are allowed
 
@@ -608,7 +608,7 @@ int RemoteCommunication::arc_msg(
     read_non_mmio(target_chip, remote_arc_core, &misc, ARC_RESET_MISC_CNTL_ADDR, 4);
 
     if (misc & (1 << 16)) {
-        log_error("trigger_fw_int failed on device");
+        log_error(LogSiliconDriver, "trigger_fw_int failed on device");
         return 1;
     } else {
         misc |= (1 << 16);

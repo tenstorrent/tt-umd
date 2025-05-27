@@ -21,6 +21,7 @@ RemoteChip::RemoteChip(tt_SocDescriptor soc_descriptor, std::unique_ptr<RemoteWo
     local_chip_ = remote_tt_device->get_local_chip();
     remote_communication_ = remote_tt_device->get_remote_communication();
     tt_device_ = std::move(remote_tt_device);
+    chip_info_ = tt_device_->get_chip_info();
     TT_ASSERT(soc_descriptor_.arch != tt::ARCH::BLACKHOLE, "Non-MMIO targets not supported in Blackhole");
 }
 

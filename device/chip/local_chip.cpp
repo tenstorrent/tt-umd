@@ -26,6 +26,7 @@ const uint64_t BH_4GB_TLB_SIZE = 4ULL * 1024 * 1024 * 1024;
 LocalChip::LocalChip(tt_SocDescriptor soc_descriptor, int pci_device_id, int num_host_mem_channels) :
     Chip(soc_descriptor) {
     tt_device_ = TTDevice::create(pci_device_id);
+    chip_info_ = tt_device_->get_chip_info();
     tlb_manager_ = std::make_unique<TLBManager>(tt_device_.get());
     sysmem_manager_ = std::make_unique<SysmemManager>(tlb_manager_.get());
     remote_communication_ = std::make_unique<RemoteCommunication>(this);

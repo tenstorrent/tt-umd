@@ -383,7 +383,7 @@ TEST(TestCluster, ReadWriteL1) {
 
         std::vector<CoreCoord> tensix_cores = cluster->get_soc_descriptor(chip_id).get_cores(CoreType::TENSIX);
 
-        for (const CoreCoord tensix_core : tensix_cores) {
+        for (const CoreCoord& tensix_core : tensix_cores) {
             // Zero out L1.
             cluster->write_to_device(zero_data.data(), zero_data.size(), chip_id, tensix_core, 0);
 

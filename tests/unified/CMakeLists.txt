@@ -1,4 +1,7 @@
-set(UNIFIED_TESTS_SRCS multiprocess.cpp)
+set(UNIFIED_TESTS_SRCS
+    multiprocess.cpp
+    map_vs_unordered.cpp
+)
 
 add_executable(unified_tests ${UNIFIED_TESTS_SRCS})
 target_link_libraries(unified_tests PRIVATE test_common)

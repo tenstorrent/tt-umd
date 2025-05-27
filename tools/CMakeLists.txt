@@ -33,9 +33,21 @@ set_target_properties(
             topology
 )
 
+add_executable(harvesting harvesting.cpp)
+target_link_libraries(harvesting PRIVATE tools_common)
+set_target_properties(
+    harvesting
+    PROPERTIES
+        RUNTIME_OUTPUT_DIRECTORY
+            ${CMAKE_BINARY_DIR}/tools/umd/
+        OUTPUT_NAME
+            harvesting
+)
+
 add_custom_target(
     umd_tools
     DEPENDS
         telemetry
         topology
+        harvesting
 )

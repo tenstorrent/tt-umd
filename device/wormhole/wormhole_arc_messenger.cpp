@@ -11,6 +11,8 @@
 #include "umd/device/tt_device/tt_device.h"
 #include "umd/device/wormhole_implementation.h"
 
+extern bool umd_use_noc1;
+
 namespace tt::umd {
 
 WormholeArcMessenger::WormholeArcMessenger(TTDevice* tt_device) : ArcMessenger(tt_device) {}
@@ -23,6 +25,12 @@ uint32_t WormholeArcMessenger::send_message(
 
     TT_ASSERT(arg0 <= 0xffff and arg1 <= 0xffff, "Only 16 bits allowed in arc_msg args");
 
+    const tt_xy_pair arc_core = umd_use_noc1
+                                    ? tt_xy_pair(
+                                          tt::umd::wormhole::NOC0_X_TO_NOC1_X[tt::umd::wormhole::ARC_CORES_NOC0[0].x],
+                                          tt::umd::wormhole::NOC0_Y_TO_NOC1_Y[tt::umd::wormhole::ARC_CORES_NOC0[0].y])
+                                    : tt::umd::wormhole::ARC_CORES_NOC0[0];
+
     auto lock = lock_manager.acquire_mutex(MutexType::ARC_MSG, tt_device->get_pci_device()->get_device_num());
 
     auto architecture_implementation = tt_device->get_architecture_implementation();
@@ -30,21 +38,25 @@ uint32_t WormholeArcMessenger::send_message(
     uint32_t fw_arg = arg0 | (arg1 << 16);
     int exit_code = 0;
 
-    tt_device->bar_write32(
-        architecture_implementation->get_arc_reset_scratch_offset() +
-            wormhole::ARC_SCRATCH_RES0_OFFSET * sizeof(uint32_t),
-        fw_arg);
-    tt_device->bar_write32(
-        architecture_implementation->get_arc_reset_scratch_offset() +
-            wormhole::ARC_SCRATCH_STATUS_OFFSET * sizeof(uint32_t),
-        msg_code);
+    tt_device->write_to_device(
+        &fw_arg,
+        arc_core,
+        wormhole::ARC_RESET_SCRATCH_ADDR + wormhole::ARC_SCRATCH_RES0_OFFSET * sizeof(uint32_t),
+        sizeof(uint32_t));
+    tt_device->write_to_device(
+        (void*)&msg_code,
+        arc_core,
+        wormhole::ARC_RESET_SCRATCH_ADDR + wormhole::ARC_SCRATCH_STATUS_OFFSET * sizeof(uint32_t),
+        sizeof(uint32_t));
 
-    uint32_t misc = tt_device->bar_read32(architecture_implementation->get_arc_reset_arc_misc_cntl_offset());
+    uint32_t misc;
+    tt_device->read_from_device(&misc, arc_core, wormhole::ARC_RESET_MISC_CNTL_ADDR, sizeof(uint32_t));
     if (misc & (1 << 16)) {
         log_error("trigger_fw_int failed on device {}", 0);
         return 1;
     } else {
-        tt_device->bar_write32(architecture_implementation->get_arc_reset_arc_misc_cntl_offset(), misc | (1 << 16));
+        uint32_t val_wr = misc | (1 << 16);
+        tt_device->write_to_device(&val_wr, arc_core, wormhole::ARC_RESET_MISC_CNTL_ADDR, sizeof(uint32_t));
     }
 
     uint32_t status = 0xbadbad;
@@ -56,21 +68,27 @@ uint32_t WormholeArcMessenger::send_message(
             throw std::runtime_error(fmt::format("Timed out after waiting {} ms for ARC to respond", timeout_ms));
         }
 
-        status = tt_device->bar_read32(
-            architecture_implementation->get_arc_reset_scratch_offset() +
-            wormhole::ARC_SCRATCH_STATUS_OFFSET * sizeof(uint32_t));
+        tt_device->read_from_device(
+            &status,
+            arc_core,
+            wormhole::ARC_RESET_SCRATCH_ADDR + wormhole::ARC_SCRATCH_STATUS_OFFSET * sizeof(uint32_t),
+            sizeof(uint32_t));
 
         if ((status & 0xffff) == (msg_code & 0xff)) {
             if (return_values.size() >= 1) {
-                return_values[0] = tt_device->bar_read32(
-                    architecture_implementation->get_arc_reset_scratch_offset() +
-                    wormhole::ARC_SCRATCH_RES0_OFFSET * sizeof(uint32_t));
+                tt_device->read_from_device(
+                    &return_values[0],
+                    arc_core,
+                    wormhole::ARC_RESET_SCRATCH_ADDR + wormhole::ARC_SCRATCH_RES0_OFFSET * sizeof(uint32_t),
+                    sizeof(uint32_t));
             }
 
             if (return_values.size() >= 2) {
-                return_values[1] = tt_device->bar_read32(
-                    architecture_implementation->get_arc_reset_scratch_offset() +
-                    wormhole::ARC_SCRATCH_RES1_OFFSET * sizeof(uint32_t));
+                tt_device->read_from_device(
+                    &return_values[1],
+                    arc_core,
+                    wormhole::ARC_RESET_SCRATCH_ADDR + wormhole::ARC_SCRATCH_RES1_OFFSET * sizeof(uint32_t),
+                    sizeof(uint32_t));
             }
 
             exit_code = (status & 0xffff0000) >> 16;

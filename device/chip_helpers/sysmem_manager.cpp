@@ -45,7 +45,7 @@ void SysmemManager::write_to_sysmem(uint16_t channel, const void *src, uint64_t 
         hugepage_map.mapping_size);
     log_debug(
         LogSiliconDriver,
-        "Using hugepage mapping at address {} offset {} chan {} size {}",
+        "Using hugepage mapping at address {:p} offset {} chan {} size {}",
         hugepage_map.mapping,
         (sysmem_dest % hugepage_map.mapping_size),
         channel,
@@ -69,7 +69,7 @@ void SysmemManager::read_from_sysmem(uint16_t channel, void *dest, uint64_t sysm
 
     log_debug(
         LogSiliconDriver,
-        "Cluster::read_buffer (pci device num: {}, ch: {}) from 0x{:x}",
+        "Cluster::read_buffer (pci device num: {}, ch: {}) from {:p}",
         tt_device_->get_pci_device()->get_device_num(),
         channel,
         user_scratchspace);

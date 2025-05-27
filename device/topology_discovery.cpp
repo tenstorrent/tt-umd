@@ -154,7 +154,8 @@ BoardType TopologyDiscovery::get_board_type(eth_coord_t eth_coord, Chip* mmio_ch
         nullptr,
         mmio_chip);
 
-    tt_xy_pair arc_core = tt::umd::wormhole::ARC_CORES_NOC0[0];
+    tt_xy_pair arc_core = mmio_chip->get_soc_descriptor().get_cores(
+        CoreType::ARC, umd_use_noc1 ? CoordSystem::NOC1 : CoordSystem::PHYSICAL)[0];
     static constexpr uint64_t noc_telemetry_offset = 0x810000000;
     uint64_t telemetry_struct_offset = ret0 + noc_telemetry_offset;
 
@@ -179,7 +180,8 @@ ChipInfo TopologyDiscovery::read_non_mmio_chip_info(eth_coord_t eth_coord, Chip*
     uint32_t niu_cfg;
     // We read information about NOC translation from DRAM core just be on paar with Luwen implementation.
     // TODO: change reading this information from PCIE BAR.
-    const tt_xy_pair dram_core = {0, 0};
+    const tt_xy_pair dram_core = mmio_chip->get_soc_descriptor().get_cores(
+        CoreType::DRAM, umd_use_noc1 ? CoordSystem::NOC1 : CoordSystem::NOC0)[0];
     const uint64_t niu_cfg_addr = 0x1000A0000 + 0x100;
     remote_comm->read_non_mmio(eth_coord, dram_core, &niu_cfg, niu_cfg_addr, sizeof(uint32_t));
 

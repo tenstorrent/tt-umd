@@ -87,8 +87,6 @@ protected:
 
     void fill_chips_grouped_by_closest_mmio();
 
-    static std::unique_ptr<tt_ClusterDescriptor> create();
-
     std::map<chip_id_t, uint32_t> dram_harvesting_masks = {};
     std::map<chip_id_t, uint32_t> eth_harvesting_masks = {};
     std::map<chip_id_t, uint32_t> pcie_harvesting_masks = {};
@@ -106,11 +104,7 @@ public:
     chip_id_t get_closest_mmio_capable_chip(const chip_id_t chip);
     chip_id_t get_shelf_local_physical_chip_coords(chip_id_t virtual_coord);
 
-    // TODO: These following functions will be removed, and ClusterDescriptor will be created without any parameters.
-    // get_cluster_descriptor_file_path will create ethernet map in the background.
-    static std::string get_cluster_descriptor_file_path();
     static std::unique_ptr<tt_ClusterDescriptor> create_from_yaml(const std::string &cluster_descriptor_file_path);
-    static tt::ARCH detect_arch(const chip_id_t chip_id);
 
     // This function is used to create mock cluster descriptor yaml files, for example for simulation.
     static std::unique_ptr<tt_ClusterDescriptor> create_mock_cluster(

@@ -381,23 +381,25 @@ TEST(TestCluster, ReadWriteL1) {
     for (auto chip_id : cluster->get_target_device_ids()) {
         const tt_SocDescriptor& soc_desc = cluster->get_soc_descriptor(chip_id);
 
-        CoreCoord tensix_core = cluster->get_soc_descriptor(chip_id).get_cores(CoreType::TENSIX)[0];
+        std::vector<CoreCoord> tensix_cores = cluster->get_soc_descriptor(chip_id).get_cores(CoreType::TENSIX);
 
-        // Zero out L1.
-        cluster->write_to_device(zero_data.data(), zero_data.size(), chip_id, tensix_core, 0);
+        for (const CoreCoord& tensix_core : tensix_cores) {
+            // Zero out L1.
+            cluster->write_to_device(zero_data.data(), zero_data.size(), chip_id, tensix_core, 0);
 
-        cluster->wait_for_non_mmio_flush(chip_id);
+            cluster->wait_for_non_mmio_flush(chip_id);
 
-        cluster->read_from_device(readback_data.data(), chip_id, tensix_core, 0, tensix_l1_size);
+            cluster->read_from_device(readback_data.data(), chip_id, tensix_core, 0, tensix_l1_size);
 
-        EXPECT_EQ(zero_data, readback_data);
+            EXPECT_EQ(zero_data, readback_data);
 
-        cluster->write_to_device(data.data(), data.size(), chip_id, tensix_core, 0);
+            cluster->write_to_device(data.data(), data.size(), chip_id, tensix_core, 0);
 
-        cluster->wait_for_non_mmio_flush(chip_id);
+            cluster->wait_for_non_mmio_flush(chip_id);
 
-        cluster->read_from_device(readback_data.data(), chip_id, tensix_core, 0, tensix_l1_size);
+            cluster->read_from_device(readback_data.data(), chip_id, tensix_core, 0, tensix_l1_size);
 
-        EXPECT_EQ(data, readback_data);
+            EXPECT_EQ(data, readback_data);
+        }
     }
 }

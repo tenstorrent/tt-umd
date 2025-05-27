@@ -124,9 +124,6 @@ TEST(ApiTTDeviceTest, TestRemoteTTDevice) {
     }
 
     for (chip_id_t remote_chip_id : cluster->get_target_remote_device_ids()) {
-        const CoreCoord tensix_core =
-            cluster->get_chip(remote_chip_id)->get_soc_descriptor().get_cores(CoreType::TENSIX)[0];
-
         eth_coord_t remote_eth_coord = chip_locations.at(remote_chip_id);
 
         LocalChip* closest_local_chip =
@@ -135,19 +132,24 @@ TEST(ApiTTDeviceTest, TestRemoteTTDevice) {
         std::unique_ptr<RemoteTTDevice> remote_tt_device =
             std::make_unique<RemoteTTDevice>(closest_local_chip, remote_eth_coord);
 
-        remote_tt_device->write_to_device(zero_out_buffer.data(), tensix_core, 0, buf_size);
+        std::vector<CoreCoord> tensix_cores =
+            cluster->get_chip(remote_chip_id)->get_soc_descriptor().get_cores(CoreType::TENSIX);
 
-        // Setting initial value of vector explicitly to 1, to be sure it's not 0 in any case.
-        std::vector<uint8_t> readback_buf(buf_size, 1);
+        for (const CoreCoord& tensix_core : tensix_cores) {
+            remote_tt_device->write_to_device(zero_out_buffer.data(), tensix_core, 0, buf_size);
 
-        remote_tt_device->read_from_device(readback_buf.data(), tensix_core, 0, buf_size);
+            // Setting initial value of vector explicitly to 1, to be sure it's not 0 in any case.
+            std::vector<uint8_t> readback_buf(buf_size, 1);
 
-        EXPECT_EQ(zero_out_buffer, readback_buf);
+            remote_tt_device->read_from_device(readback_buf.data(), tensix_core, 0, buf_size);
 
-        remote_tt_device->write_to_device(pattern_buf.data(), tensix_core, 0, buf_size);
+            EXPECT_EQ(zero_out_buffer, readback_buf);
 
-        remote_tt_device->read_from_device(readback_buf.data(), tensix_core, 0, buf_size);
+            remote_tt_device->write_to_device(pattern_buf.data(), tensix_core, 0, buf_size);
 
-        EXPECT_EQ(pattern_buf, readback_buf);
+            remote_tt_device->read_from_device(readback_buf.data(), tensix_core, 0, buf_size);
+
+            EXPECT_EQ(pattern_buf, readback_buf);
+        }
     }
 }

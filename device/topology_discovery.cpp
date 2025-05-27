@@ -142,8 +142,6 @@ uint32_t TopologyDiscovery::remote_arc_msg(
 BoardType TopologyDiscovery::get_board_type(eth_coord_t eth_coord, Chip* mmio_chip) {
     std::unique_ptr<RemoteCommunication> remote_comm =
         std::make_unique<RemoteCommunication>(dynamic_cast<LocalChip*>(mmio_chip));
-    tt_xy_pair eth_core =
-        remote_transfer_ethernet_cores.at(mmio_chip->get_tt_device()->get_pci_device()->get_device_num()).at(0);
 
     uint32_t ret0;
     uint32_t exit_code = remote_arc_msg(
@@ -156,7 +154,8 @@ BoardType TopologyDiscovery::get_board_type(eth_coord_t eth_coord, Chip* mmio_ch
         nullptr,
         mmio_chip);
 
-    tt_xy_pair arc_core = tt::umd::wormhole::ARC_CORES_NOC0[0];
+    tt_xy_pair arc_core = mmio_chip->get_soc_descriptor().get_cores(
+        CoreType::ARC, umd_use_noc1 ? CoordSystem::NOC1 : CoordSystem::PHYSICAL)[0];
     static constexpr uint64_t noc_telemetry_offset = 0x810000000;
     uint64_t telemetry_struct_offset = ret0 + noc_telemetry_offset;
 
@@ -176,13 +175,13 @@ ChipInfo TopologyDiscovery::read_non_mmio_chip_info(eth_coord_t eth_coord, Chip*
     TTDevice* tt_device = mmio_chip->get_tt_device();
     std::unique_ptr<RemoteCommunication> remote_comm =
         std::make_unique<RemoteCommunication>(dynamic_cast<LocalChip*>(mmio_chip));
-    tt_xy_pair eth_core = remote_transfer_ethernet_cores.at(tt_device->get_pci_device()->get_device_num()).at(0);
     ChipInfo chip_info;
 
     uint32_t niu_cfg;
     // We read information about NOC translation from DRAM core just be on paar with Luwen implementation.
     // TODO: change reading this information from PCIE BAR.
-    const tt_xy_pair dram_core = {0, 0};
+    const tt_xy_pair dram_core = mmio_chip->get_soc_descriptor().get_cores(
+        CoreType::DRAM, umd_use_noc1 ? CoordSystem::NOC1 : CoordSystem::NOC0)[0];
     const uint64_t niu_cfg_addr = 0x1000A0000 + 0x100;
     remote_comm->read_non_mmio(eth_coord, dram_core, &niu_cfg, niu_cfg_addr, sizeof(uint32_t));
 
@@ -261,6 +260,8 @@ void TopologyDiscovery::discover_remote_chips() {
         current_chip_eth_coord.rack = current_chip_eth_coord_info & 0xFF;
         current_chip_eth_coord.shelf = (current_chip_eth_coord_info >> 8) & 0xFF;
 
+        std::set<uint32_t> active_eth_channels;
+
         uint32_t channel = 0;
         for (const CoreCoord& eth_core : eth_cores) {
             uint32_t port_status;
@@ -275,8 +276,7 @@ void TopologyDiscovery::discover_remote_chips() {
                 continue;
             }
 
-            remote_transfer_ethernet_cores[tt_device->get_pci_device()->get_device_num()].push_back(
-                {eth_core.x, eth_core.y});
+            active_eth_channels.insert(channel);
 
             uint32_t remote_id;
             tt_device->read_from_device(
@@ -313,9 +313,9 @@ void TopologyDiscovery::discover_remote_chips() {
                     remote_chip->get_soc_descriptor().translate_coord_to(physical_remote_eth, CoordSystem::LOGICAL);
                 ethernet_connections.push_back({{current_chip_id, channel}, {remote_chip_id, logical_remote_eth.y}});
             }
-
             channel++;
         }
+        chip->set_remote_transfer_ethernet_cores(active_eth_channels);
     }
 
     if (remote_chips_to_discover.empty()) {
@@ -326,7 +326,6 @@ void TopologyDiscovery::discover_remote_chips() {
     TTDevice* tt_device = mmio_chip->get_tt_device();
     std::unique_ptr<RemoteCommunication> remote_comm =
         std::make_unique<RemoteCommunication>(dynamic_cast<LocalChip*>(mmio_chip));
-    tt_xy_pair eth_core = remote_transfer_ethernet_cores.at(tt_device->get_pci_device()->get_device_num()).at(0);
 
     while (!remote_chips_to_discover.empty()) {
         std::unordered_set<eth_coord_t> new_remote_chips = {};
@@ -453,12 +452,24 @@ void TopologyDiscovery::fill_cluster_descriptor_info() {
             {chip_id, chip->get_chip_info().harvesting_masks.dram_harvesting_mask});
         cluster_desc->eth_harvesting_masks.insert(
             {chip_id, chip->get_chip_info().harvesting_masks.eth_harvesting_mask});
-        cluster_desc->chip_locations.insert({chip_id, eth_coords.at(chip_id)});
+        eth_coord_t eth_coord = eth_coords.at(chip_id);
+        cluster_desc->chip_locations.insert({chip_id, eth_coord});
+        cluster_desc->coords_to_chip_ids[eth_coord.rack][eth_coord.shelf][eth_coord.y][eth_coord.x] = chip_id;
+
+        for (int i = 0; i < wormhole::NUM_ETH_CHANNELS; i++) {
+            cluster_desc->idle_eth_channels[chip_id].insert(i);
+        }
     }
 
     for (auto [ethernet_connection_logical, ethernet_connection_remote] : ethernet_connections) {
         cluster_desc->ethernet_connections[ethernet_connection_logical.first][ethernet_connection_logical.second] = {
             ethernet_connection_remote.first, ethernet_connection_remote.second};
+        cluster_desc->ethernet_connections[ethernet_connection_remote.first][ethernet_connection_remote.second] = {
+            ethernet_connection_logical.first, ethernet_connection_logical.second};
+        cluster_desc->active_eth_channels[ethernet_connection_logical.first].insert(ethernet_connection_logical.second);
+        cluster_desc->idle_eth_channels[ethernet_connection_logical.first].erase(ethernet_connection_logical.second);
+        cluster_desc->active_eth_channels[ethernet_connection_remote.first].insert(ethernet_connection_remote.second);
+        cluster_desc->idle_eth_channels[ethernet_connection_remote.first].erase(ethernet_connection_remote.second);
     }
 
     tt_ClusterDescriptor::fill_galaxy_connections(*cluster_desc.get());

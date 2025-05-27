@@ -1,7 +1,5 @@
 set(POSITION_INDEPENDENT_CODE ON)
 
-add_subdirectory(logger_init)
-
 if(TT_UMD_BUILD_SIMULATION)
     set(FBS_FILE ${PROJECT_SOURCE_DIR}/device/simulation/tt_simulation_device.fbs)
     get_filename_component(FBS_FILE_NAME ${FBS_FILE} NAME_WLE)
@@ -43,6 +41,7 @@ target_sources(
         wormhole/wormhole_implementation.cpp
         blackhole/blackhole_implementation.cpp
         hugepage.cpp
+        logging/config.cpp
         pcie/pci_device.cpp
         tlb.cpp
         tt_cluster_descriptor.cpp
@@ -103,6 +102,7 @@ if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.23)
                 api/umd/device/device_api_metal.h
                 api/umd/device/driver_atomics.h
                 api/umd/device/hugepage.h
+                api/umd/device/logging/config.h
                 api/umd/device/utils/lock_manager.h
                 api/umd/device/pci_device.hpp
                 api/umd/device/semver.hpp
@@ -145,14 +145,12 @@ target_link_libraries(
     PRIVATE
         umd::Common
         umd::Firmware
-        umd::Logger::Init
         hwloc
         rt
         spdlog::spdlog_header_only
         fmt::fmt-header-only
         tt-logger::tt-logger
         yaml-cpp::yaml-cpp
-        ${CMAKE_CURRENT_SOURCE_DIR}/libs/${CMAKE_SYSTEM_PROCESSOR}/libcreate_ethernet_map.a
 )
 
 if(TT_UMD_BUILD_SIMULATION)

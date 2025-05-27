@@ -16,7 +16,6 @@
 #include "api/umd/device/wormhole_implementation.h"
 #include "assert.hpp"
 #include "disjoint_set.hpp"
-#include "libs/create_ethernet_map.h"
 
 using namespace tt;
 
@@ -394,32 +393,6 @@ chip_id_t tt_ClusterDescriptor::get_closest_mmio_capable_chip(const chip_id_t ch
     return closest_chip;
 }
 
-std::string tt_ClusterDescriptor::get_cluster_descriptor_file_path() {
-    static std::string yaml_path;
-    static bool is_initialized = false;
-    if (!is_initialized) {
-        // Cluster descriptor yaml will be created in a unique temporary directory.
-        std::filesystem::path temp_path = std::filesystem::temp_directory_path();
-        std::string cluster_path_dir_template = temp_path / "umd_XXXXXX";
-        std::filesystem::path cluster_path_dir = mkdtemp(cluster_path_dir_template.data());
-        std::filesystem::path cluster_path = cluster_path_dir / "cluster_descriptor.yaml";
-        if (!std::filesystem::exists(cluster_path)) {
-            auto val = system(("touch " + cluster_path.string()).c_str());
-            if (val != 0) {
-                throw std::runtime_error("Cluster Generation Failed!");
-            }
-        }
-
-        int val = create_ethernet_map((char *)cluster_path.string().c_str());
-        if (val != 0) {
-            throw std::runtime_error("Cluster Generation Failed!");
-        }
-        yaml_path = cluster_path.string();
-        is_initialized = true;
-    }
-    return yaml_path;
-}
-
 std::unique_ptr<tt_ClusterDescriptor> tt_ClusterDescriptor::create_from_yaml(
     const std::string &cluster_descriptor_file_path) {
     std::unique_ptr<tt_ClusterDescriptor> desc = std::unique_ptr<tt_ClusterDescriptor>(new tt_ClusterDescriptor());
@@ -441,10 +414,6 @@ std::unique_ptr<tt_ClusterDescriptor> tt_ClusterDescriptor::create_from_yaml(
     desc->fill_chips_grouped_by_closest_mmio();
 
     return desc;
-}
-
-std::unique_ptr<tt_ClusterDescriptor> tt_ClusterDescriptor::create() {
-    return tt_ClusterDescriptor::create_from_yaml(tt_ClusterDescriptor::get_cluster_descriptor_file_path());
 }
 
 template <typename T>
@@ -629,21 +598,23 @@ void tt_ClusterDescriptor::load_ethernet_connections_from_connectivity_descripto
         int channel_0 = endpoints.at(0)["chan"].as<int>();
         int chip_1 = endpoints.at(1)["chip"].as<int>();
         int channel_1 = endpoints.at(1)["chan"].as<int>();
-        if (desc.ethernet_connections[chip_0].find(channel_0) != desc.ethernet_connections[chip_0].end()) {
+        auto &eth_conn_chip_0 = desc.ethernet_connections.at(chip_0);
+        if (eth_conn_chip_0.find(channel_0) != eth_conn_chip_0.end()) {
             TT_ASSERT(
-                (std::get<0>(desc.ethernet_connections[chip_0][channel_0]) == chip_1) &&
-                    (std::get<1>(desc.ethernet_connections[chip_0][channel_0]) == channel_1),
+                (std::get<0>(eth_conn_chip_0.at(channel_0)) == chip_1) &&
+                    (std::get<1>(eth_conn_chip_0.at(channel_0)) == channel_1),
                 "Duplicate eth connection found in cluster desc yaml");
         } else {
-            desc.ethernet_connections[chip_0][channel_0] = {chip_1, channel_1};
+            eth_conn_chip_0.insert({channel_0, {chip_1, channel_1}});
         }
-        if (desc.ethernet_connections[chip_1].find(channel_1) != desc.ethernet_connections[chip_0].end()) {
+        auto &eth_conn_chip_1 = desc.ethernet_connections.at(chip_1);
+        if (eth_conn_chip_1.find(channel_1) != eth_conn_chip_1.end()) {
             TT_ASSERT(
-                (std::get<0>(desc.ethernet_connections[chip_1][channel_1]) == chip_0) &&
-                    (std::get<1>(desc.ethernet_connections[chip_1][channel_1]) == channel_0),
+                (std::get<0>(eth_conn_chip_1.at(channel_1)) == chip_0) &&
+                    (std::get<1>(eth_conn_chip_1.at(channel_1)) == channel_0),
                 "Duplicate eth connection found in cluster desc yaml");
         } else {
-            desc.ethernet_connections[chip_1][channel_1] = {chip_0, channel_0};
+            eth_conn_chip_1.insert({channel_1, {chip_0, channel_0}});
         }
         desc.active_eth_channels[chip_0].insert(channel_0);
         desc.idle_eth_channels[chip_0].erase(channel_0);
@@ -844,6 +815,7 @@ void tt_ClusterDescriptor::load_chips_from_connectivity_descriptor(YAML::Node &y
         std::string arch_str = node->second.as<std::string>();
         desc.all_chips.insert(chip_id);
         desc.chip_arch.insert({chip_id, tt::arch_from_str(arch_str)});
+        desc.ethernet_connections.insert({chip_id, {}});
     }
 
     for (YAML::const_iterator node = yaml["chips"].begin(); node != yaml["chips"].end(); ++node) {
@@ -1038,10 +1010,6 @@ tt::ARCH tt_ClusterDescriptor::get_arch(chip_id_t chip_id) const {
         "Chip {} does not have an architecture in the cluster descriptor",
         chip_id);
     return chip_arch.at(chip_id);
-}
-
-/* static */ tt::ARCH tt_ClusterDescriptor::detect_arch(chip_id_t chip_id) {
-    return tt_ClusterDescriptor::create()->get_arch(chip_id);
 }
 
 const std::unordered_map<chip_id_t, std::unordered_set<chip_id_t>> &

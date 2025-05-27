@@ -178,8 +178,13 @@ std::unique_ptr<Chip> Cluster::construct_chip_from_cluster(
     }
 
     if (cluster_desc->is_chip_mmio_capable(chip_id)) {
-        return std::make_unique<LocalChip>(
+        auto chip = std::make_unique<LocalChip>(
             soc_desc, cluster_desc->get_chips_with_mmio().at(chip_id), num_host_mem_channels);
+        if (cluster_desc->get_arch(chip_id) == tt::ARCH::WORMHOLE_B0) {
+            // Remote transfer currently supported only for wormhole.
+            chip->set_remote_transfer_ethernet_cores(cluster_desc->get_active_eth_channels(chip_id));
+        }
+        return chip;
     } else {
         if (cluster_desc->get_arch(chip_id) != tt::ARCH::WORMHOLE_B0) {
             throw std::runtime_error("Remote chips are supported only for wormhole.");
@@ -1148,15 +1153,7 @@ std::unique_ptr<tt_ClusterDescriptor> Cluster::create_cluster_descriptor(std::st
         // Topology discovery from source is supported for Wormhole UBB at the moment,
         // other Wormhole specs need to go through a legacy create-ethernet-map.
         if (!tt_devices.empty() && tt_devices[0]->get_board_type() != BoardType::UBB) {
-            LockManager lock_manager;
-            lock_manager.initialize_mutex(MutexType::CREATE_ETH_MAP);
-            std::unique_ptr<tt_ClusterDescriptor> cluster_desc = nullptr;
-            {
-                auto lock = lock_manager.acquire_mutex(MutexType::CREATE_ETH_MAP);
-                cluster_desc = tt_ClusterDescriptor::create();
-            }
-            lock_manager.clear_mutex(MutexType::CREATE_ETH_MAP);
-            return cluster_desc;
+            return TopologyDiscovery().create_ethernet_map();
         }
 
         std::unordered_map<chip_id_t, std::unique_ptr<Chip>> chips;

@@ -75,6 +75,10 @@ private:
 
     bool is_board_id_included(uint64_t board_id) const;
 
+    bool is_pcie_chip_id_included(int pci_id) const;
+
+    bool is_board_id_included(uint64_t board_id) const;
+
     std::unordered_map<chip_id_t, std::unique_ptr<Chip>> chips;
 
     std::unordered_map<UniqueCoord, chip_id_t> unique_coord_to_chip_id;

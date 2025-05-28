@@ -181,10 +181,9 @@ uint32_t BlackholeTTDevice::get_max_clock_freq() { return tt::umd::blackhole::AI
 
 uint32_t BlackholeTTDevice::get_min_clock_freq() { return tt::umd::blackhole::AICLK_IDLE_VAL; }
 
-BoardType BlackholeTTDevice::get_board_type() {
-    return get_board_type_from_board_id(
-        ((uint64_t)telemetry->read_entry(blackhole::TAG_BOARD_ID_HIGH) << 32) |
-        (telemetry->read_entry(blackhole::TAG_BOARD_ID_LOW)));
+uint64_t BlackholeTTDevice::get_board_id() {
+    return ((uint64_t)telemetry->read_entry(blackhole::TAG_BOARD_ID_HIGH) << 32) |
+           (telemetry->read_entry(blackhole::TAG_BOARD_ID_LOW));
 }
 
 void BlackholeTTDevice::dma_d2h(void *dst, uint32_t src, size_t size) {

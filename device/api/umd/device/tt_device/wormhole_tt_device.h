@@ -25,7 +25,7 @@ public:
 
     uint32_t get_min_clock_freq() override;
 
-    BoardType get_board_type() override;
+    uint64_t get_board_id() override;
 
     bool get_noc_translation_enabled() override;
 

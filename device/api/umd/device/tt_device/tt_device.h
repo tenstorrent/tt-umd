@@ -188,7 +188,9 @@ public:
 
     virtual uint32_t get_min_clock_freq() = 0;
 
-    virtual BoardType get_board_type() = 0;
+    virtual uint64_t get_board_id() = 0;
+
+    BoardType get_board_type();
 
     virtual bool get_noc_translation_enabled() = 0;
 

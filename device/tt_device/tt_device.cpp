@@ -386,4 +386,6 @@ void TTDevice::wait_for_non_mmio_flush() {}
 
 bool TTDevice::is_remote() { return is_remote_tt_device; }
 
+BoardType TTDevice::get_board_type() { return get_board_type_from_board_id(get_board_id()); }
+
 }  // namespace tt::umd

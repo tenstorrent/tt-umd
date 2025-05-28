@@ -31,10 +31,6 @@ uint32_t RemoteTTDevice::get_min_clock_freq() {
     throw std::runtime_error("get_min_clock_freq() not implemented for RemoteTTDevice.");
 }
 
-BoardType RemoteTTDevice::get_board_type() {
-    throw std::runtime_error("get_board_type() not implemented for RemoteTTDevice.");
-}
-
 std::vector<DramTrainingStatus> RemoteTTDevice::get_dram_training_status() {
     throw std::runtime_error("get_dram_training_status() not implemented for RemoteTTDevice.");
 }

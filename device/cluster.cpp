@@ -1248,6 +1248,8 @@ std::unique_ptr<tt_ClusterDescriptor> Cluster::create_cluster_descriptor(
         desc->dram_harvesting_masks.insert({chip_id, chip->get_chip_info().harvesting_masks.dram_harvesting_mask});
         desc->eth_harvesting_masks.insert({chip_id, chip->get_chip_info().harvesting_masks.eth_harvesting_mask});
         desc->pcie_harvesting_masks.insert({chip_id, chip->get_chip_info().harvesting_masks.pcie_harvesting_mask});
+
+        desc->add_chip_to_board(chip_id, chip->get_chip_info().chip_uid.board_id);
     }
 
     if (chips.begin()->second->get_tt_device()->get_arch() == tt::ARCH::BLACKHOLE) {

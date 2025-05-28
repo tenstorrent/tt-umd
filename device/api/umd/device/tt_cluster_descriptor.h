@@ -62,6 +62,9 @@ protected:
     std::unordered_map<chip_id_t, uint64_t> chip_unique_ids = {};
     std::map<chip_id_t, std::set<uint32_t>> active_eth_channels = {};
     std::map<chip_id_t, std::set<uint32_t>> idle_eth_channels = {};
+    std::unordered_map<uint64_t, uint32_t> board_id_to_board_logical_id = {};
+    std::unordered_map<uint32_t, uint64_t> board_logical_id_to_board_id = {};
+    std::unordered_map<chip_id_t, uint32_t> chip_to_board = {};
 
     // one-to-many chip connections
     struct Chip2ChipConnection {
@@ -85,11 +88,15 @@ protected:
     static void merge_cluster_ids(tt_ClusterDescriptor &desc);
     static void load_harvesting_information(YAML::Node &yaml, tt_ClusterDescriptor &desc);
 
+    void add_board(uint64_t board_id);
+    void add_chip_to_board(chip_id_t chip_id, uint64_t board_id);
+
     void fill_chips_grouped_by_closest_mmio();
 
     std::map<chip_id_t, uint32_t> dram_harvesting_masks = {};
     std::map<chip_id_t, uint32_t> eth_harvesting_masks = {};
     std::map<chip_id_t, uint32_t> pcie_harvesting_masks = {};
+    uint32_t board_counter = 0;
 
 public:
     /*
@@ -133,6 +140,8 @@ public:
     int get_ethernet_link_distance(chip_id_t chip_a, chip_id_t chip_b) const;
 
     BoardType get_board_type(chip_id_t chip_id) const;
+    uint64_t get_board_id(const uint32_t board_logical_id) const;
+    uint32_t get_board_logical_id(const uint64_t board_id) const;
     tt::ARCH get_arch(chip_id_t chip_id) const;
 
     void add_chip_uid(const chip_id_t chip_id, const ChipUID &chip_uid);

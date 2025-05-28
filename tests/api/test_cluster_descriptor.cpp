@@ -81,6 +81,7 @@ TEST(ApiClusterDescriptorTest, TestAllOfflineClusterDescriptors) {
              "wormhole_N150.yaml",
              "wormhole_N300.yaml",
              "wormhole_N300_routing_info.yaml",
+             "wormhole_N300_board_info.yaml",
          }) {
         std::cout << "Testing " << cluster_desc_yaml << std::endl;
         std::unique_ptr<tt_ClusterDescriptor> cluster_desc = tt_ClusterDescriptor::create_from_yaml(

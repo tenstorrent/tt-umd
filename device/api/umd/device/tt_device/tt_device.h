@@ -44,11 +44,11 @@ public:
      * Creates a proper TTDevice object for the given PCI device number.
      */
     static std::unique_ptr<TTDevice> create(int pci_device_number);
-    TTDevice(std::unique_ptr<PCIDevice> pci_device, std::unique_ptr<architecture_implementation> architecture_impl);
+    TTDevice(std::shared_ptr<PCIDevice> pci_device, std::unique_ptr<architecture_implementation> architecture_impl);
     virtual ~TTDevice();
 
     architecture_implementation *get_architecture_implementation();
-    PCIDevice *get_pci_device();
+    std::shared_ptr<PCIDevice> get_pci_device();
 
     tt::ARCH get_arch();
 
@@ -188,7 +188,9 @@ public:
 
     virtual uint32_t get_min_clock_freq() = 0;
 
-    virtual BoardType get_board_type() = 0;
+    virtual uint64_t get_board_id() = 0;
+
+    BoardType get_board_type();
 
     virtual bool get_noc_translation_enabled() = 0;
 
@@ -196,8 +198,12 @@ public:
     // required fields. Returns the information whether DRAM training status is available and the status value.
     virtual std::vector<DramTrainingStatus> get_dram_training_status();
 
+    virtual void wait_for_non_mmio_flush();
+
+    bool is_remote();
+
 protected:
-    std::unique_ptr<PCIDevice> pci_device_;
+    std::shared_ptr<PCIDevice> pci_device_;
     std::unique_ptr<architecture_implementation> architecture_impl_;
     tt::ARCH arch;
     std::unique_ptr<ArcMessenger> arc_messenger_ = nullptr;
@@ -224,5 +230,7 @@ protected:
     TTDevice();
 
     ChipInfo chip_info;
+
+    bool is_remote_tt_device = false;
 };
 }  // namespace tt::umd

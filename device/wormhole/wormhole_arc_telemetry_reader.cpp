@@ -30,11 +30,15 @@ void WormholeArcTelemetryReader::initialize_telemetry() {
 }
 
 void WormholeArcTelemetryReader::verify_telemetry() {
-    uint32_t vendor_id = read_entry(tt::umd::wormhole::TAG_DEVICE_ID);
-    constexpr uint32_t tt_vendor_id = 0x1e52;
-    if ((vendor_id & 0xFFFF) != tt_vendor_id) {
-        throw std::runtime_error(
-            fmt::format("Tenstorrent vendor ID mismatch. Expected: 0x{:x}, Got: 0x{:x}", tt_vendor_id, vendor_id));
+    // Seems that TAG_DEVICE_ID field in remote telemetry is not populated in the same way for remote and local chips.
+    // TODO: figure out if there is any way for both local and remote chips to verify telemetry readouts.
+    if (!tt_device->is_remote()) {
+        uint32_t vendor_id = read_entry(tt::umd::wormhole::TAG_DEVICE_ID);
+        constexpr uint32_t tt_vendor_id = 0x1e52;
+        if ((vendor_id & 0xFFFF) != tt_vendor_id) {
+            throw std::runtime_error(
+                fmt::format("Tenstorrent vendor ID mismatch. Expected: 0x{:x}, Got: 0x{:x}", tt_vendor_id, vendor_id));
+        }
     }
 }
 

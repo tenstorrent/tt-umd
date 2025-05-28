@@ -31,7 +31,10 @@ uint32_t WormholeArcMessenger::send_message(
                                           tt::umd::wormhole::NOC0_Y_TO_NOC1_Y[tt::umd::wormhole::ARC_CORES_NOC0[0].y])
                                     : tt::umd::wormhole::ARC_CORES_NOC0[0];
 
-    auto lock = lock_manager.acquire_mutex(MutexType::ARC_MSG, tt_device->get_pci_device()->get_device_num());
+    auto lock =
+        tt_device->is_remote()
+            ? lock_manager.acquire_mutex(MutexType::REMOTE_ARC_MSG, tt_device->get_pci_device()->get_device_num())
+            : lock_manager.acquire_mutex(MutexType::ARC_MSG, tt_device->get_pci_device()->get_device_num());
 
     auto architecture_implementation = tt_device->get_architecture_implementation();
 
@@ -48,6 +51,8 @@ uint32_t WormholeArcMessenger::send_message(
         arc_core,
         wormhole::ARC_RESET_SCRATCH_ADDR + wormhole::ARC_SCRATCH_STATUS_OFFSET * sizeof(uint32_t),
         sizeof(uint32_t));
+
+    tt_device->wait_for_non_mmio_flush();
 
     uint32_t misc;
     tt_device->read_from_device(&misc, arc_core, wormhole::ARC_RESET_MISC_CNTL_ADDR, sizeof(uint32_t));

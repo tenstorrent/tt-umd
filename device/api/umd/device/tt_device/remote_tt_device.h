@@ -22,8 +22,6 @@ public:
 
     uint32_t get_min_clock_freq() override;
 
-    BoardType get_board_type() override;
-
     std::vector<DramTrainingStatus> get_dram_training_status() override;
 
     void read_from_device(void* mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size) override;

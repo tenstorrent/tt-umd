@@ -16,15 +16,14 @@ extern bool umd_use_noc1;
 
 namespace tt::umd {
 
-RemoteChip::RemoteChip(tt_SocDescriptor soc_descriptor, eth_coord_t eth_chip_location, LocalChip* local_chip) :
-    Chip(soc_descriptor),
-    eth_chip_location_(eth_chip_location),
-    remote_communication_(std::make_unique<RemoteCommunication>(local_chip)),
-    local_chip_(local_chip) {
+RemoteChip::RemoteChip(tt_SocDescriptor soc_descriptor, std::unique_ptr<RemoteWormholeTTDevice> remote_tt_device) :
+    Chip(soc_descriptor) {
+    local_chip_ = remote_tt_device->get_local_chip();
+    remote_communication_ = remote_tt_device->get_remote_communication();
+    tt_device_ = std::move(remote_tt_device);
+    chip_info_ = tt_device_->get_chip_info();
     TT_ASSERT(soc_descriptor_.arch != tt::ARCH::BLACKHOLE, "Non-MMIO targets not supported in Blackhole");
 }
-
-RemoteChip::RemoteChip(tt_SocDescriptor soc_descriptor, ChipInfo chip_info) : Chip(chip_info, soc_descriptor) {}
 
 bool RemoteChip::is_mmio_capable() const { return false; }
 
@@ -34,12 +33,12 @@ void RemoteChip::close_device() {}
 
 void RemoteChip::write_to_device(tt_xy_pair core, const void* src, uint64_t l1_dest, uint32_t size) {
     auto translated_core = translate_chip_coord_virtual_to_translated(core);
-    remote_communication_->write_to_non_mmio(eth_chip_location_, translated_core, src, l1_dest, size);
+    tt_device_->write_to_device((void*)src, translated_core, l1_dest, size);
 }
 
 void RemoteChip::read_from_device(tt_xy_pair core, void* dest, uint64_t l1_src, uint32_t size) {
     auto translated_core = translate_chip_coord_virtual_to_translated(core);
-    remote_communication_->read_non_mmio(eth_chip_location_, translated_core, dest, l1_src, size);
+    tt_device_->read_from_device(dest, translated_core, l1_src, size);
 }
 
 // TODO: This translation should go away when we start using CoreCoord everywhere.
@@ -71,19 +70,6 @@ void RemoteChip::wait_for_non_mmio_flush() {
     remote_communication_->wait_for_non_mmio_flush();
 }
 
-int RemoteChip::arc_msg(
-    uint32_t msg_code,
-    bool wait_for_done,
-    uint32_t arg0,
-    uint32_t arg1,
-    uint32_t timeout_ms,
-    uint32_t* return_3,
-    uint32_t* return_4) {
-    auto arc_core = soc_descriptor_.get_cores(CoreType::ARC).at(0);
-    return remote_communication_->arc_msg(
-        eth_chip_location_, arc_core, msg_code, wait_for_done, arg0, arg1, timeout_ms, return_3, return_4);
-}
-
 void RemoteChip::l1_membar(const std::unordered_set<tt::umd::CoreCoord>& cores) { wait_for_non_mmio_flush(); }
 
 void RemoteChip::dram_membar(const std::unordered_set<tt::umd::CoreCoord>& cores) { wait_for_non_mmio_flush(); }
@@ -102,6 +88,6 @@ void RemoteChip::set_power_state(tt_DevicePowerState state) {
     }
 }
 
-int RemoteChip::get_clock() { return local_chip_->get_clock(); }
+int RemoteChip::get_clock() { return tt_device_->get_clock(); }
 
 }  // namespace tt::umd

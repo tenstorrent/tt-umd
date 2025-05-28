@@ -9,6 +9,4 @@ RemoteBlackholeTTDevice::RemoteBlackholeTTDevice() : BlackholeTTDevice() {
     throw std::runtime_error("Creating remote TTDevice is not supported for Blackhole.");
 }
 
-tt::ARCH RemoteBlackholeTTDevice::get_arch() { return tt::ARCH::BLACKHOLE; }
-
 }  // namespace tt::umd

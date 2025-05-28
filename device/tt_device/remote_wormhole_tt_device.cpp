@@ -14,8 +14,6 @@ RemoteWormholeTTDevice::RemoteWormholeTTDevice(LocalChip *local_chip, eth_coord_
     init_tt_device();
 }
 
-tt::ARCH RemoteWormholeTTDevice::get_arch() { return tt::ARCH::WORMHOLE_B0; }
-
 void RemoteWormholeTTDevice::read_from_device(void *mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size) {
     remote_communication_->read_non_mmio(target_chip_, core, mem_ptr, addr, size);
 }

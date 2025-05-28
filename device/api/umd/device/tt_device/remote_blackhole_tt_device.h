@@ -12,7 +12,5 @@ namespace tt::umd {
 class RemoteBlackholeTTDevice : public BlackholeTTDevice {
 public:
     RemoteBlackholeTTDevice();
-
-    tt::ARCH get_arch() override;
 };
 }  // namespace tt::umd

@@ -17,8 +17,6 @@ public:
 
     void write_to_device(void* mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size) override;
 
-    tt::ARCH get_arch() override;
-
     void wait_for_non_mmio_flush() override;
 
     LocalChip* get_local_chip();

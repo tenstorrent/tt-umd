@@ -140,13 +140,6 @@ uint32_t TopologyDiscovery::remote_arc_msg(
     return remote_comm->arc_msg(eth_coord, arc_core, msg_code, true, arg0, arg1, timeout_ms, ret0, ret1);
 }
 
-ChipInfo TopologyDiscovery::read_non_mmio_chip_info(eth_coord_t eth_coord, Chip* mmio_chip) {
-    std::unique_ptr<RemoteWormholeTTDevice> remote_tt_device =
-        std::make_unique<RemoteWormholeTTDevice>(dynamic_cast<LocalChip*>(mmio_chip), eth_coord);
-
-    return remote_tt_device->get_chip_info();
-}
-
 void TopologyDiscovery::discover_remote_chips() {
     const uint32_t eth_unknown = 0;
     const uint32_t eth_unconnected = 1;

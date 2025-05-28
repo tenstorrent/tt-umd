@@ -20,6 +20,9 @@ extern bool umd_use_noc1;
 
 namespace tt::umd {
 
+TopologyDiscovery::TopologyDiscovery(std::unordered_set<chip_id_t> pci_target_devices) :
+    pci_target_devices(pci_target_devices) {}
+
 std::unique_ptr<tt_ClusterDescriptor> TopologyDiscovery::create_ethernet_map() {
     cluster_desc = std::unique_ptr<tt_ClusterDescriptor>(new tt_ClusterDescriptor());
     get_pcie_connected_chips();
@@ -114,8 +117,12 @@ void TopologyDiscovery::get_pcie_connected_chips() {
 
     chip_id = 0;
     for (auto& device_id : pci_device_ids) {
+        if (!is_pcie_chip_id_included(device_id)) {
+            continue;
+        }
         std::unique_ptr<LocalChip> chip = nullptr;
         chip = std::make_unique<LocalChip>(TTDevice::create(device_id));
+        board_ids.insert(chip->get_chip_info().chip_uid.board_id);
         chips.emplace(chip_id, std::move(chip));
         chip_id++;
     }
@@ -172,6 +179,8 @@ void TopologyDiscovery::discover_remote_chips() {
 
         std::set<uint32_t> active_eth_channels;
 
+        std::unordered_set<eth_coord_t> remote_eth_coords_to_consider = {};
+
         uint32_t channel = 0;
         for (const CoreCoord& eth_core : eth_cores) {
             uint32_t port_status;
@@ -212,7 +221,7 @@ void TopologyDiscovery::discover_remote_chips() {
             eth_coord.shelf = remote_rack_y;
 
             if (discovered_chips.find(eth_coord) == discovered_chips.end()) {
-                remote_chips_to_discover.insert(eth_coord);
+                remote_eth_coords_to_consider.insert(eth_coord);
             } else {
                 chip_id_t current_chip_id = eth_coord_to_chip_id.at(current_chip_eth_coord);
                 chip_id_t remote_chip_id = eth_coord_to_chip_id.at(eth_coord);
@@ -226,6 +235,14 @@ void TopologyDiscovery::discover_remote_chips() {
             channel++;
         }
         chip->set_remote_transfer_ethernet_cores(active_eth_channels);
+
+        for (const eth_coord_t& remote_eth_coord : remote_eth_coords_to_consider) {
+            std::unique_ptr<RemoteWormholeTTDevice> remote_tt_device =
+                std::make_unique<RemoteWormholeTTDevice>(dynamic_cast<LocalChip*>(chip.get()), remote_eth_coord);
+            if (is_board_id_included(remote_tt_device->get_chip_info().chip_uid.board_id)) {
+                remote_chips_to_discover.insert(remote_eth_coord);
+            }
+        }
     }
 
     if (remote_chips_to_discover.empty()) {
@@ -325,8 +342,12 @@ void TopologyDiscovery::discover_remote_chips() {
                 new_eth_coord.shelf = remote_rack_y;
 
                 if (discovered_chips.find(new_eth_coord) == discovered_chips.end()) {
-                    if (remote_chips_to_discover.find(new_eth_coord) == remote_chips_to_discover.end()) {
-                        new_remote_chips.insert(new_eth_coord);
+                    std::unique_ptr<RemoteWormholeTTDevice> new_remote_tt_device =
+                        std::make_unique<RemoteWormholeTTDevice>(dynamic_cast<LocalChip*>(mmio_chip), new_eth_coord);
+                    if (is_board_id_included(new_remote_tt_device->get_chip_info().chip_uid.board_id)) {
+                        if (remote_chips_to_discover.find(new_eth_coord) == remote_chips_to_discover.end()) {
+                            new_remote_chips.insert(new_eth_coord);
+                        }
                     }
                 } else {
                     chip_id_t current_chip_id = eth_coord_to_chip_id.at(current_chip_eth_coord);
@@ -390,6 +411,18 @@ void TopologyDiscovery::fill_cluster_descriptor_info() {
     tt_ClusterDescriptor::fill_galaxy_connections(*cluster_desc.get());
 
     cluster_desc->fill_chips_grouped_by_closest_mmio();
+}
+
+// If pci_target_devices is empty, we should take all the PCI devices found in the system.
+// That is why we have the first part of the condition.
+bool TopologyDiscovery::is_pcie_chip_id_included(int pci_id) const {
+    return pci_target_devices.empty() || pci_target_devices.find(pci_id) != pci_target_devices.end();
+}
+
+// If pci_target_devices is empty, we should take all the PCI devices found in the system.
+// That is why we have the first part of the condition.
+bool TopologyDiscovery::is_board_id_included(uint64_t board_id) const {
+    return pci_target_devices.empty() || board_ids.find(board_id) != board_ids.end();
 }
 
 }  // namespace tt::umd

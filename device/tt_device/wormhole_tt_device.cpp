@@ -16,8 +16,8 @@ extern bool umd_use_noc1;
 
 namespace tt::umd {
 
-WormholeTTDevice::WormholeTTDevice(std::unique_ptr<PCIDevice> pci_device) :
-    TTDevice(std::move(pci_device), std::make_unique<wormhole_implementation>()) {
+WormholeTTDevice::WormholeTTDevice(std::shared_ptr<PCIDevice> pci_device) :
+    TTDevice(pci_device, std::make_unique<wormhole_implementation>()) {
     init_tt_device();
     wait_arc_core_start(
         umd_use_noc1 ? tt_xy_pair(

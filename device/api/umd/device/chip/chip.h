@@ -8,6 +8,7 @@
 
 #include <unordered_set>
 
+#include "umd/device/tt_device/tt_device.h"
 #include "umd/device/tt_silicon_driver_common.hpp"
 #include "umd/device/tt_soc_descriptor.h"
 #include "umd/device/types/cluster_descriptor_types.h"
@@ -82,7 +83,7 @@ public:
         uint32_t arg1 = 0,
         uint32_t timeout_ms = 1000,
         uint32_t* return_3 = nullptr,
-        uint32_t* return_4 = nullptr) = 0;
+        uint32_t* return_4 = nullptr);
 
     virtual void set_remote_transfer_ethernet_cores(const std::unordered_set<CoreCoord>& cores);
     virtual void set_remote_transfer_ethernet_cores(const std::set<uint32_t>& channel);
@@ -112,6 +113,8 @@ protected:
     ChipInfo chip_info_;
 
     tt_SocDescriptor soc_descriptor_;
+
+    std::unique_ptr<TTDevice> tt_device_ = nullptr;
 };
 
 }  // namespace tt::umd

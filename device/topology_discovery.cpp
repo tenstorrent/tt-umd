@@ -11,6 +11,7 @@
 #include "umd/device/chip/remote_chip.h"
 #include "umd/device/remote_communication.h"
 #include "umd/device/tt_cluster_descriptor.h"
+#include "umd/device/tt_device/remote_wormhole_tt_device.h"
 #include "umd/device/types/cluster_types.h"
 #include "umd/device/types/wormhole_telemetry.h"
 #include "umd/device/wormhole_implementation.h"
@@ -137,78 +138,6 @@ uint32_t TopologyDiscovery::remote_arc_msg(
     auto arc_core = mmio_chip->get_soc_descriptor().get_cores(
         CoreType::ARC, umd_use_noc1 ? CoordSystem::NOC1 : CoordSystem::NOC0)[0];
     return remote_comm->arc_msg(eth_coord, arc_core, msg_code, true, arg0, arg1, timeout_ms, ret0, ret1);
-}
-
-BoardType TopologyDiscovery::get_board_type(eth_coord_t eth_coord, Chip* mmio_chip) {
-    std::unique_ptr<RemoteCommunication> remote_comm =
-        std::make_unique<RemoteCommunication>(dynamic_cast<LocalChip*>(mmio_chip));
-
-    uint32_t ret0;
-    uint32_t exit_code = remote_arc_msg(
-        eth_coord,
-        tt::umd::wormhole::ARC_MSG_COMMON_PREFIX |
-            (uint32_t)tt::umd::wormhole::arc_message_type::GET_SMBUS_TELEMETRY_ADDR,
-        0,
-        0,
-        &ret0,
-        nullptr,
-        mmio_chip);
-
-    tt_xy_pair arc_core = mmio_chip->get_soc_descriptor().get_cores(
-        CoreType::ARC, umd_use_noc1 ? CoordSystem::NOC1 : CoordSystem::PHYSICAL)[0];
-    static constexpr uint64_t noc_telemetry_offset = 0x810000000;
-    uint64_t telemetry_struct_offset = ret0 + noc_telemetry_offset;
-
-    uint32_t board_id_lo;
-    uint32_t board_id_hi;
-    static uint64_t board_id_hi_telemetry_offset = 16;
-    static uint64_t board_id_lo_telemetry_offset = 20;
-    remote_comm->read_non_mmio(
-        eth_coord, arc_core, &board_id_hi, telemetry_struct_offset + board_id_hi_telemetry_offset, sizeof(uint32_t));
-    remote_comm->read_non_mmio(
-        eth_coord, arc_core, &board_id_lo, telemetry_struct_offset + board_id_lo_telemetry_offset, sizeof(uint32_t));
-
-    return get_board_type_from_board_id(((uint64_t)board_id_hi << 32) | board_id_lo);
-}
-
-ChipInfo TopologyDiscovery::read_non_mmio_chip_info(eth_coord_t eth_coord, Chip* mmio_chip) {
-    TTDevice* tt_device = mmio_chip->get_tt_device();
-    std::unique_ptr<RemoteCommunication> remote_comm =
-        std::make_unique<RemoteCommunication>(dynamic_cast<LocalChip*>(mmio_chip));
-    ChipInfo chip_info;
-
-    uint32_t niu_cfg;
-    // We read information about NOC translation from DRAM core just be on paar with Luwen implementation.
-    // TODO: change reading this information from PCIE BAR.
-    const tt_xy_pair dram_core = mmio_chip->get_soc_descriptor().get_cores(
-        CoreType::DRAM, umd_use_noc1 ? CoordSystem::NOC1 : CoordSystem::NOC0)[0];
-    const uint64_t niu_cfg_addr = 0x1000A0000 + 0x100;
-    remote_comm->read_non_mmio(eth_coord, dram_core, &niu_cfg, niu_cfg_addr, sizeof(uint32_t));
-
-    bool noc_translation_enabled = (niu_cfg & (1 << 14)) != 0;
-
-    chip_info.noc_translation_enabled = noc_translation_enabled;
-
-    uint32_t ret0;
-    uint32_t ret_code = remote_arc_msg(
-        eth_coord,
-        tt::umd::wormhole::ARC_MSG_COMMON_PREFIX |
-            tt_device->get_architecture_implementation()->get_arc_message_arc_get_harvesting(),
-        0,
-        0,
-        &ret0,
-        nullptr,
-        mmio_chip);
-
-    if (ret_code != 0) {
-        throw std::runtime_error(fmt::format("Failed to get harvesting masks with exit code {}", ret_code));
-    }
-
-    chip_info.harvesting_masks.tensix_harvesting_mask = ret0;
-
-    chip_info.board_type = get_board_type(eth_coord, mmio_chip);
-
-    return chip_info;
 }
 
 void TopologyDiscovery::discover_remote_chips() {
@@ -347,7 +276,10 @@ void TopologyDiscovery::discover_remote_chips() {
 
             discovered_chips.insert(eth_coord);
 
-            ChipInfo chip_info = read_non_mmio_chip_info(eth_coord, mmio_chip);
+            std::unique_ptr<RemoteWormholeTTDevice> remote_tt_device =
+                std::make_unique<RemoteWormholeTTDevice>(dynamic_cast<LocalChip*>(mmio_chip), eth_coord);
+
+            ChipInfo chip_info = remote_tt_device->get_chip_info();
 
             discovered_chips.insert(eth_coord);
 
@@ -358,7 +290,7 @@ void TopologyDiscovery::discover_remote_chips() {
                     chip_info.noc_translation_enabled,
                     chip_info.harvesting_masks,
                     chip_info.board_type),
-                chip_info);
+                std::move(remote_tt_device));
 
             chips.emplace(chip_id, std::move(chip));
             eth_coords.emplace(chip_id, current_chip_eth_coord);

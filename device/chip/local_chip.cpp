@@ -24,11 +24,12 @@ namespace tt::umd {
 const uint64_t BH_4GB_TLB_SIZE = 4ULL * 1024 * 1024 * 1024;
 
 LocalChip::LocalChip(tt_SocDescriptor soc_descriptor, int pci_device_id, int num_host_mem_channels) :
-    Chip(soc_descriptor),
-    tt_device_(TTDevice::create(pci_device_id)),
-    tlb_manager_(std::make_unique<TLBManager>(tt_device_.get())),
-    sysmem_manager_(std::make_unique<SysmemManager>(tlb_manager_.get())),
-    remote_communication_(std::make_unique<RemoteCommunication>(this)) {
+    Chip(soc_descriptor) {
+    tt_device_ = TTDevice::create(pci_device_id);
+    chip_info_ = tt_device_->get_chip_info();
+    tlb_manager_ = std::make_unique<TLBManager>(tt_device_.get());
+    sysmem_manager_ = std::make_unique<SysmemManager>(tlb_manager_.get());
+    remote_communication_ = std::make_unique<RemoteCommunication>(this);
     initialize_local_chip(num_host_mem_channels);
 }
 
@@ -40,9 +41,9 @@ LocalChip::LocalChip(std::string sdesc_path, std::unique_ptr<TTDevice> tt_device
             tt_device->get_chip_info().noc_translation_enabled,
             tt_device->get_chip_info().harvesting_masks,
             tt_device->get_chip_info().board_type)),
-    tt_device_(std::move(tt_device)),
-    tlb_manager_(std::make_unique<TLBManager>(tt_device_.get())),
+    tlb_manager_(std::make_unique<TLBManager>(tt_device.get())),
     sysmem_manager_(std::make_unique<SysmemManager>(tlb_manager_.get())) {
+    tt_device_ = std::move(tt_device);
     initialize_local_chip();
 }
 
@@ -54,9 +55,9 @@ LocalChip::LocalChip(std::unique_ptr<TTDevice> tt_device) :
             tt_device->get_chip_info().noc_translation_enabled,
             tt_device->get_chip_info().harvesting_masks,
             tt_device->get_chip_info().board_type)),
-    tt_device_(std::move(tt_device)),
-    tlb_manager_(std::make_unique<TLBManager>(tt_device_.get())),
+    tlb_manager_(std::make_unique<TLBManager>(tt_device.get())),
     sysmem_manager_(std::make_unique<SysmemManager>(tlb_manager_.get())) {
+    tt_device_ = std::move(tt_device);
     initialize_local_chip();
 }
 
@@ -118,8 +119,6 @@ void LocalChip::initialize_membars() {
     }
     set_membar_flag(dram_cores_vector, tt_MemBarFlag::RESET, dram_address_params.DRAM_BARRIER_BASE);
 }
-
-TTDevice* LocalChip::get_tt_device() { return tt_device_.get(); }
 
 SysmemManager* LocalChip::get_sysmem_manager() { return sysmem_manager_.get(); }
 
@@ -260,7 +259,7 @@ void LocalChip::dma_write_to_device(const void* src, size_t size, tt_xy_pair cor
 
     auto tlb_index = tlb_manager_->dynamic_tlb_config_.at(tlb_name);
     auto ordering = tlb_manager_->dynamic_tlb_ordering_modes_.at(tlb_name);
-    PCIDevice* pci_device = tt_device_->get_pci_device();
+    PCIDevice* pci_device = tt_device_->get_pci_device().get();
     size_t dmabuf_size = pci_device->get_dma_buffer().size;
 
     core = translate_chip_coord_virtual_to_translated(core);
@@ -284,7 +283,7 @@ void LocalChip::dma_read_from_device(void* dst, size_t size, tt_xy_pair core, ui
     uint8_t* buffer = static_cast<uint8_t*>(dst);
     auto tlb_index = tlb_manager_->dynamic_tlb_config_.at(tlb_name);
     auto ordering = tlb_manager_->dynamic_tlb_ordering_modes_.at(tlb_name);
-    PCIDevice* pci_device = tt_device_->get_pci_device();
+    PCIDevice* pci_device = tt_device_->get_pci_device().get();
     size_t dmabuf_size = pci_device->get_dma_buffer().size;
 
     core = translate_chip_coord_virtual_to_translated(core);
@@ -473,37 +472,6 @@ void LocalChip::wait_dram_cores_training(const uint32_t timeout_ms) {
             break;
         }
     }
-}
-
-int LocalChip::arc_msg(
-    uint32_t msg_code,
-    bool wait_for_done,
-    uint32_t arg0,
-    uint32_t arg1,
-    uint32_t timeout_ms,
-    uint32_t* return_3,
-    uint32_t* return_4) {
-    std::vector<uint32_t> arc_msg_return_values;
-    if (return_3 != nullptr) {
-        arc_msg_return_values.push_back(0);
-    }
-
-    if (return_4 != nullptr) {
-        arc_msg_return_values.push_back(0);
-    }
-
-    uint32_t exit_code =
-        get_tt_device()->get_arc_messenger()->send_message(msg_code, arc_msg_return_values, arg0, arg1, timeout_ms);
-
-    if (return_3 != nullptr) {
-        *return_3 = arc_msg_return_values[0];
-    }
-
-    if (return_4 != nullptr) {
-        *return_4 = arc_msg_return_values[1];
-    }
-
-    return exit_code;
 }
 
 void LocalChip::check_pcie_device_initialized() {

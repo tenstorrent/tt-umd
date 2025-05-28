@@ -111,10 +111,10 @@ uint32_t WormholeTTDevice::get_max_clock_freq() {
 
 uint32_t WormholeTTDevice::get_min_clock_freq() { return tt::umd::wormhole::AICLK_IDLE_VAL; }
 
-BoardType WormholeTTDevice::get_board_type() {
+uint64_t WormholeTTDevice::get_board_id() {
     uint32_t board_id_lo = telemetry->read_entry(tt::umd::wormhole::TAG_BOARD_ID_LOW);
     uint32_t board_id_hi = telemetry->read_entry(tt::umd::wormhole::TAG_BOARD_ID_HIGH);
-    return get_board_type_from_board_id(((uint64_t)board_id_hi << 32) | board_id_lo);
+    return ((uint64_t)board_id_hi << 32) | board_id_lo;
 }
 
 std::vector<DramTrainingStatus> WormholeTTDevice::get_dram_training_status() {

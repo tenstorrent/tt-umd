@@ -26,7 +26,6 @@ public:
     void start_device() override;
     void close_device() override;
 
-    TTDevice* get_tt_device() override;
     SysmemManager* get_sysmem_manager() override;
     TLBManager* get_tlb_manager() override;
 
@@ -72,17 +71,7 @@ public:
     std::unique_lock<RobustMutex> acquire_mutex(std::string mutex_name, int pci_device_id);
     std::unique_lock<RobustMutex> acquire_mutex(MutexType mutex_type, int pci_device_id);
 
-    int arc_msg(
-        uint32_t msg_code,
-        bool wait_for_done = true,
-        uint32_t arg0 = 0,
-        uint32_t arg1 = 0,
-        uint32_t timeout_ms = 1000,
-        uint32_t* return_3 = nullptr,
-        uint32_t* return_4 = nullptr) override;
-
 private:
-    std::unique_ptr<TTDevice> tt_device_;
     std::unique_ptr<TLBManager> tlb_manager_;
     std::unique_ptr<SysmemManager> sysmem_manager_;
     LockManager lock_manager_;

@@ -26,7 +26,7 @@ void SysmemBuffer::dma_write_to_device(size_t offset, size_t size, tt_xy_pair co
 
     auto tlb_index = tlb_manager_->dynamic_tlb_config_.at(tlb_name);
     auto ordering = tlb_manager_->dynamic_tlb_ordering_modes_.at(tlb_name);
-    PCIDevice* pci_device = tt_device_->get_pci_device();
+    PCIDevice* pci_device = tt_device_->get_pci_device().get();
 
     // TODO: these are chip functions, figure out how to have these
     // inside sysmem buffer, or we keep API as it is and make application send
@@ -52,7 +52,7 @@ void SysmemBuffer::dma_read_from_device(size_t offset, size_t size, tt_xy_pair c
     TTDevice* tt_device_ = tlb_manager_->get_tt_device();
     auto tlb_index = tlb_manager_->dynamic_tlb_config_.at(tlb_name);
     auto ordering = tlb_manager_->dynamic_tlb_ordering_modes_.at(tlb_name);
-    PCIDevice* pci_device = tt_device_->get_pci_device();
+    PCIDevice* pci_device = tt_device_->get_pci_device().get();
     size_t dmabuf_size = pci_device->get_dma_buffer().size;
 
     // TODO: these are chip functions, figure out how to have these

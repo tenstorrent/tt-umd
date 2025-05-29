@@ -13,7 +13,7 @@
 namespace tt::umd {
 class WormholeTTDevice : public TTDevice {
 public:
-    WormholeTTDevice(std::unique_ptr<PCIDevice> pci_device);
+    WormholeTTDevice(std::shared_ptr<PCIDevice> pci_device);
 
     void configure_iatu_region(size_t region, uint64_t target, size_t region_size) override;
 
@@ -25,7 +25,7 @@ public:
 
     uint32_t get_min_clock_freq() override;
 
-    BoardType get_board_type() override;
+    uint64_t get_board_id() override;
 
     bool get_noc_translation_enabled() override;
 

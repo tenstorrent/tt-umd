@@ -189,10 +189,10 @@ std::unique_ptr<Chip> Cluster::construct_chip_from_cluster(
         if (cluster_desc->get_arch(chip_id) != tt::ARCH::WORMHOLE_B0) {
             throw std::runtime_error("Remote chips are supported only for wormhole.");
         }
-        return std::make_unique<RemoteChip>(
-            soc_desc,
-            cluster_desc->get_chip_locations().at(chip_id),
-            get_local_chip(cluster_desc->get_closest_mmio_capable_chip(chip_id)));
+        std::unique_ptr<RemoteWormholeTTDevice> remote_tt_device = std::make_unique<RemoteWormholeTTDevice>(
+            get_local_chip(cluster_desc->get_closest_mmio_capable_chip(chip_id)),
+            cluster_desc->get_chip_locations().at(chip_id));
+        return std::make_unique<RemoteChip>(soc_desc, std::move(remote_tt_device));
     }
 }
 
@@ -366,10 +366,12 @@ void Cluster::ubb_eth_connections(
                 }
             }
             if (port_status == eth_unconnected) {
+                cluster_desc->idle_eth_channels[chip_id].insert(channel);
                 channel++;
                 continue;
             }
             if (port_status == eth_connected) {
+                cluster_desc->active_eth_channels[chip_id].insert(channel);
                 uint64_t remote_chip_id;
                 tt_device->read_from_device(
                     &remote_chip_id,
@@ -575,7 +577,7 @@ void* Cluster::host_dma_address(std::uint64_t offset, chip_id_t src_device_id, u
 }
 
 TTDevice* Cluster::get_tt_device(chip_id_t device_id) const {
-    auto tt_device = get_local_chip(device_id)->get_tt_device();
+    auto tt_device = get_chip(device_id)->get_tt_device();
     TT_ASSERT(tt_device != nullptr, "TTDevice not found for device: {}", device_id);
     return tt_device;
 }

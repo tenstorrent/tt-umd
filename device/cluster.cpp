@@ -440,6 +440,9 @@ Cluster::Cluster(ClusterOptions options) {
     if (options.chip_type == ChipType::SILICON) {
         chips_to_construct_vec = cluster_desc->get_chips_local_first(chips_to_construct);
     } else {
+        // If we're running on a system where system chips don't match what was requested through target_chips for non
+        // silicon chip, then just create a mock cluster descriptor so we still have info for those chips. This includes
+        // systems with no silicon chips.
         bool construct_mock_cluster_descriptor = false;
         for (auto const& chip_id : chips_to_construct_vec) {
             if (temp_full_cluster_desc->get_all_chips().find(chip_id) ==

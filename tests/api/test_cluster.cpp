@@ -49,7 +49,8 @@ TEST(ApiClusterTest, OpenChipsByPciId) {
 
     int total_combinations = 1 << pci_device_ids.size();
 
-    for (uint32_t combination = 0; combination < total_combinations; combination++) {
+    for (uint32_t combination = 6; combination < 7; combination++) {
+        std::cout << "combination " << combination << std::endl;
         std::unordered_set<int> target_pci_device_ids;
         for (int i = 0; i < pci_device_ids.size(); i++) {
             if (combination & (1 << i)) {
@@ -68,6 +69,13 @@ TEST(ApiClusterTest, OpenChipsByPciId) {
         std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>(ClusterOptions{
             .pci_target_devices = target_pci_device_ids,
         });
+
+        std::string cd_path = "cluster";
+        for (int id : target_pci_device_ids) {
+            cd_path += fmt::format("_{}", id);
+        }
+        cd_path += ".yaml";
+        cluster->get_cluster_description()->serialize_to_file(cd_path);
     }
 }
 

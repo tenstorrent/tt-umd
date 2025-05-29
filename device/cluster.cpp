@@ -366,10 +366,12 @@ void Cluster::ubb_eth_connections(
                 }
             }
             if (port_status == eth_unconnected) {
+                cluster_desc->idle_eth_channels[chip_id].insert(channel);
                 channel++;
                 continue;
             }
             if (port_status == eth_connected) {
+                cluster_desc->active_eth_channels[chip_id].insert(channel);
                 uint64_t remote_chip_id;
                 tt_device->read_from_device(
                     &remote_chip_id,

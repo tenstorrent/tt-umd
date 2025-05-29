@@ -270,7 +270,7 @@ void RobustMutex::close_mutex() noexcept {
 void RobustMutex::unlock() {
     int err = pthread_mutex_unlock(&(mutex_wrapper_ptr_->mutex));
     if (err != 0) {
-        log_fatal("pthread_mutex_unlock failed for mutex {} errno: {}", mutex_name_, std::to_string(err));
+        TT_THROW(fmt::format("pthread_mutex_unlock failed for mutex {} errno: {}", mutex_name_, std::to_string(err)));
     }
 }
 
@@ -282,9 +282,11 @@ void RobustMutex::lock() {
         // We can recover the mutex state.
         int err = pthread_mutex_consistent(&(mutex_wrapper_ptr_->mutex));
         if (err != 0) {
-            log_fatal("pthread_mutex_consistent failed for mutex {} errno: {}", mutex_name_, std::to_string(err));
+            TT_THROW(fmt::format(
+                "pthread_mutex_consistent failed for mutex {} errno: {}", mutex_name_, std::to_string(err)));
         }
     } else if (lock_res != 0) {
-        log_fatal("pthread_mutex_lock failed for mutex {} errno: {}", mutex_name_, std::to_string(lock_res));
+        TT_THROW(
+            fmt::format("pthread_mutex_lock failed for mutex {} errno: {}", mutex_name_, std::to_string(lock_res)));
     }
 }

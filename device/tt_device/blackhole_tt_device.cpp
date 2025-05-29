@@ -162,7 +162,11 @@ void BlackholeTTDevice::wait_arc_core_start(const tt_xy_pair arc_core, const uin
         auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
         if (duration.count() > timeout_ms) {
             log_error(
-                "Timed out after waiting {} ms for arc core ({}, {}) to start", timeout_ms, arc_core.x, arc_core.y);
+                LogSiliconDriver,
+                "Timed out after waiting {} ms for arc core ({}, {}) to start",
+                timeout_ms,
+                arc_core.x,
+                arc_core.y);
         }
     }
 }
@@ -249,7 +253,7 @@ void BlackholeTTDevice::wait_eth_core_training(const tt_xy_pair eth_core, const 
             // TODO: Exception should be thrown here. ETH connections are very flaky
             // on Blackhole right now. When this is fixed we can throw the exception here.
             // Since we are not going to do any remote IO at the moment it is fine to just log the error.
-            log_error("ETH training timed out after {} ms", timeout_ms);
+            log_error(LogSiliconDriver, "ETH training timed out after {} ms", timeout_ms);
             break;
         }
     }

@@ -401,7 +401,7 @@ PCIDevice::PCIDevice(int pci_device_number) :
             // so throwing our way out of here is wrong.  For now, we will log
             // here and throw when PCIe DMA is attempted.  Maybe a higher layer
             // in UMD can fall back to MMIO if that happens.
-            log_error("Failed to allocate DMA buffer: {}", strerror(errno));
+            log_error(LogSiliconDriver, "Failed to allocate DMA buffer: {}", strerror(errno));
         } else {
             // OK - we have a buffer.  Map it.
             void *buffer = mmap(
@@ -415,7 +415,7 @@ PCIDevice::PCIDevice(int pci_device_number) :
             if (buffer == MAP_FAILED) {
                 // Similar rationale to above, although this is worse because we
                 // can't deallocate it.  That only happens when we close the fd.
-                log_error("Failed to map DMA buffer: {}", strerror(errno));
+                log_error(LogSiliconDriver, "Failed to map DMA buffer: {}", strerror(errno));
             } else {
                 dma_buffer.buffer = (uint8_t *)buffer;
                 dma_buffer.completion = (uint8_t *)buffer + DMABUF_SIZE;

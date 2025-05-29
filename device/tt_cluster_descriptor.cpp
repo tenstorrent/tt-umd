@@ -548,7 +548,7 @@ std::unique_ptr<tt_ClusterDescriptor> tt_ClusterDescriptor::create_mock_cluster(
             break;
         default:
             board_type = BoardType::UNKNOWN;
-            log_error("Unsupported architecture for mock cluster");
+            log_error(LogSiliconDriver, "Unsupported architecture for mock cluster");
             break;
     }
 

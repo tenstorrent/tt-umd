@@ -34,7 +34,7 @@ uint32_t get_num_hugepages() {
         num_hugepages = std::stoi(value);
         log_debug(LogSiliconDriver, "Parsed num_hugepages: {} from {}", num_hugepages, nr_hugepages_path);
     } else {
-        log_fatal("{} - Cannot open {}. errno: {}", __FUNCTION__, nr_hugepages_path, std::strerror(errno));
+        TT_THROW(fmt::format("{} - Cannot open {}. errno: {}", __FUNCTION__, nr_hugepages_path, std::strerror(errno)));
     }
 
     return num_hugepages;

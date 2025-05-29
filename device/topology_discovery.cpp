@@ -27,10 +27,10 @@ std::unique_ptr<tt_ClusterDescriptor> TopologyDiscovery::create_ethernet_map() {
     cluster_desc = std::unique_ptr<tt_ClusterDescriptor>(new tt_ClusterDescriptor());
     get_pcie_connected_chips();
 
-    if (!chips.empty()) {
-        eth_addresses = TopologyDiscovery::get_eth_addresses(
-            chips.at(0)->get_tt_device()->get_arc_telemetry_reader()->read_entry(wormhole::TAG_ETH_FW_VERSION));
-    }
+    // if (!chips.empty()) {
+    //     eth_addresses = TopologyDiscovery::get_eth_addresses(
+    //         chips.at(0)->get_tt_device()->get_arc_telemetry_reader()->read_entry(wormhole::TAG_ETH_FW_VERSION));
+    // }
 
     discover_remote_chips();
     fill_cluster_descriptor_info();
@@ -104,10 +104,23 @@ void TopologyDiscovery::get_pcie_connected_chips() {
         }
         std::unique_ptr<LocalChip> chip = nullptr;
         chip = std::make_unique<LocalChip>(TTDevice::create(device_id));
-        board_ids.insert(chip->get_chip_info().chip_uid.board_id);
+        if (chip_id == 0) {
+            eth_addresses = TopologyDiscovery::get_eth_addresses(
+                chip->get_tt_device()->get_arc_telemetry_reader()->read_entry(wormhole::TAG_ETH_FW_VERSION));
+        }
+        std::vector<CoreCoord> eth_cores =
+            chip->get_soc_descriptor().get_cores(CoreType::ETH, umd_use_noc1 ? CoordSystem::NOC1 : CoordSystem::NOC0);
+        for (const CoreCoord& eth_core : eth_cores) {
+            uint32_t board_id = get_local_board_id(chip.get(), eth_core);
+            if (board_id == 0) {
+                continue;
+            }
+            board_ids.insert(board_id);
+        }
         chips.emplace(chip_id, std::move(chip));
         chip_id++;
     }
+    std::cout << "chip id " << chip_id << " chips found" << std::endl;
 }
 
 void TopologyDiscovery::discover_remote_chips() {
@@ -165,8 +178,6 @@ void TopologyDiscovery::discover_remote_chips() {
 
         std::set<uint32_t> active_eth_channels;
 
-        std::unordered_set<UniqueCoord> remote_eth_coords_to_consider = {};
-
         uint32_t channel = 0;
         for (const CoreCoord& eth_core : eth_cores) {
             uint32_t port_status;
@@ -177,6 +188,11 @@ void TopologyDiscovery::discover_remote_chips() {
                 sizeof(uint32_t));
 
             if (port_status == eth_unknown || port_status == eth_unconnected) {
+                channel++;
+                continue;
+            }
+
+            if (!is_board_id_included(get_remote_board_id(chip.get(), eth_core))) {
                 channel++;
                 continue;
             }
@@ -213,7 +229,7 @@ void TopologyDiscovery::discover_remote_chips() {
             unique_coord.board_id = remote_tt_device->get_board_id();
 
             if (discovered_chips.find(unique_coord) == discovered_chips.end()) {
-                remote_eth_coords_to_consider.insert(unique_coord);
+                remote_chips_to_discover.insert(unique_coord);
                 remote_unique_coord_to_mmio_chip_id.emplace(unique_coord, chip_id);
             } else {
                 chip_id_t current_chip_id = unique_coord_to_chip_id.at(current_chip_unique_coord);
@@ -228,14 +244,6 @@ void TopologyDiscovery::discover_remote_chips() {
             channel++;
         }
         chip->set_remote_transfer_ethernet_cores(active_eth_channels);
-
-        for (const UniqueCoord& remote_coord : remote_eth_coords_to_consider) {
-            std::unique_ptr<RemoteWormholeTTDevice> remote_tt_device =
-                std::make_unique<RemoteWormholeTTDevice>(dynamic_cast<LocalChip*>(chip.get()), remote_coord.eth_coord);
-            if (is_board_id_included(remote_tt_device->get_chip_info().chip_uid.board_id)) {
-                remote_chips_to_discover.insert(remote_coord);
-            }
-        }
     }
 
     if (remote_chips_to_discover.empty()) {
@@ -304,6 +312,11 @@ void TopologyDiscovery::discover_remote_chips() {
                     continue;
                 }
 
+                if (!is_board_id_included(get_remote_board_id(chips.at(chip_id - 1).get(), eth_core))) {
+                    channel++;
+                    continue;
+                }
+
                 uint32_t remote_id;
                 remote_comm->read_non_mmio(
                     unique_coord.eth_coord,
@@ -341,10 +354,8 @@ void TopologyDiscovery::discover_remote_chips() {
                 new_unique_coord.board_id = new_remote_tt_device->get_board_id();
 
                 if (discovered_chips.find(new_unique_coord) == discovered_chips.end()) {
-                    if (is_board_id_included(new_remote_tt_device->get_chip_info().chip_uid.board_id)) {
-                        if (remote_chips_to_discover.find(new_unique_coord) == remote_chips_to_discover.end()) {
-                            new_remote_chips.insert(new_unique_coord);
-                        }
+                    if (remote_chips_to_discover.find(new_unique_coord) == remote_chips_to_discover.end()) {
+                        new_remote_chips.insert(new_unique_coord);
                     }
                 } else {
                     chip_id_t current_chip_id = unique_coord_to_chip_id.at(current_chip_unique_coord);
@@ -420,8 +431,24 @@ bool TopologyDiscovery::is_pcie_chip_id_included(int pci_id) const {
 
 // If pci_target_devices is empty, we should take all the PCI devices found in the system.
 // That is why we have the first part of the condition.
-bool TopologyDiscovery::is_board_id_included(uint64_t board_id) const {
+bool TopologyDiscovery::is_board_id_included(uint32_t board_id) const {
     return pci_target_devices.empty() || board_ids.find(board_id) != board_ids.end();
+}
+
+uint32_t TopologyDiscovery::get_remote_board_id(Chip* chip, tt_xy_pair eth_core) {
+    TTDevice* tt_device = chip->get_tt_device();
+    uint32_t board_id;
+    tt_device->read_from_device(&board_id, eth_core, eth_addresses.results_buf + (4 * 72), sizeof(uint32_t));
+    std::cout << "remote Board ID: 0x" << std::hex << board_id << std::dec << std::endl;
+    return board_id;
+}
+
+uint32_t TopologyDiscovery::get_local_board_id(Chip* chip, tt_xy_pair eth_core) {
+    TTDevice* tt_device = chip->get_tt_device();
+    uint32_t board_id;
+    tt_device->read_from_device(&board_id, eth_core, eth_addresses.results_buf + (4 * 64), sizeof(uint32_t));
+    std::cout << "local Board ID: 0x" << std::hex << board_id << std::dec << std::endl;
+    return board_id;
 }
 
 }  // namespace tt::umd

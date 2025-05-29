@@ -73,11 +73,11 @@ private:
 
     bool is_pcie_chip_id_included(int pci_id) const;
 
-    bool is_board_id_included(uint64_t board_id) const;
+    bool is_board_id_included(uint32_t board_id) const;
 
-    bool is_pcie_chip_id_included(int pci_id) const;
+    uint32_t get_remote_board_id(Chip* chip, tt_xy_pair eth_core);
 
-    bool is_board_id_included(uint64_t board_id) const;
+    uint32_t get_local_board_id(Chip* chip, tt_xy_pair eth_core);
 
     std::unordered_map<chip_id_t, std::unique_ptr<Chip>> chips;
 
@@ -96,7 +96,7 @@ private:
     std::unordered_set<chip_id_t> pci_target_devices = {};
 
     // All board ids that should be included in the cluster descriptor.
-    std::unordered_set<uint64_t> board_ids;
+    std::unordered_set<uint32_t> board_ids;
 };
 
 }  // namespace tt::umd

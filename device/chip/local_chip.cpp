@@ -409,13 +409,17 @@ void LocalChip::set_remote_transfer_ethernet_cores(const std::set<uint32_t>& cha
 }
 
 tt_xy_pair LocalChip::get_remote_transfer_ethernet_core() {
+    if (remote_transfer_eth_cores_.empty()) {
+        throw std::runtime_error("No remote transfer ethernet cores set.");
+    }
     return {remote_transfer_eth_cores_[active_eth_core_idx].x, remote_transfer_eth_cores_[active_eth_core_idx].y};
 }
 
 void LocalChip::update_active_eth_core_idx() {
-    active_eth_core_idx++;
-    uint32_t update_mask_for_chip = remote_transfer_eth_cores_.size() - 1;
-    active_eth_core_idx = active_eth_core_idx & update_mask_for_chip;
+    if (remote_transfer_eth_cores_.empty()) {
+        throw std::runtime_error("Cannot update active Ethernet core index: no remote transfer Ethernet cores set.");
+    }
+    active_eth_core_idx = (active_eth_core_idx + 1) % remote_transfer_eth_cores_.size();
 }
 
 int LocalChip::get_active_eth_core_idx() { return active_eth_core_idx; }

@@ -562,7 +562,10 @@ std::unique_ptr<tt_ClusterDescriptor> tt_ClusterDescriptor::create_mock_cluster(
         desc->chip_board_type.insert({logical_id, board_type});
         desc->chips_with_mmio.insert({logical_id, logical_id});
         desc->chip_arch.insert({logical_id, arch});
+        desc->noc_translation_enabled.insert({logical_id, true});
+        desc->harvesting_masks.insert({logical_id, 0});
     }
+    desc->fill_chips_grouped_by_closest_mmio();
 
     return desc;
 }

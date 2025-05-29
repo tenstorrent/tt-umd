@@ -439,6 +439,34 @@ Cluster::Cluster(ClusterOptions options) {
     // For MOCK and SIMULATION chip types, passing target_devices which are not in cluster descriptor is allowed.
     if (options.chip_type == ChipType::SILICON) {
         chips_to_construct_vec = cluster_desc->get_chips_local_first(chips_to_construct);
+    } else {
+        bool construct_mock_cluster_descriptor = false;
+        for (auto const& chip_id : chips_to_construct_vec) {
+            if (temp_full_cluster_desc->get_all_chips().find(chip_id) ==
+                temp_full_cluster_desc->get_all_chips().end()) {
+                log_warning(
+                    LogSiliconDriver,
+                    "Chip {} not found in cluster descriptor, creating mock cluster descriptor.",
+                    chip_id);
+                construct_mock_cluster_descriptor = true;
+                break;
+            }
+        }
+        if (construct_mock_cluster_descriptor) {
+            cluster_desc = tt_ClusterDescriptor::create_mock_cluster(chips_to_construct_vec, tt::ARCH::WORMHOLE_B0);
+        }
+    }
+    // If we're running on a system where system chips don't match what was requested through target_chips for non
+    // silicon chip, then just create a mock cluster descriptor so we still have info for those chips. This includes
+    // systems with no silicon chips.
+    if (options.chip_type != ChipType::SILICON && chips_to_construct_vec.empty()) {
+        log_warning(
+            LogSiliconDriver,
+            "No target devices found in cluster descriptor for chip type {}, creating mock cluster descriptor.",
+            options.chip_type);
+        cluster_desc = std::make_unique<tt_ClusterDescriptor>();
+        chips_to_construct_vec = std::vector<chip_id_t>(
+            temp_full_cluster_desc->get_all_chips().begin(), temp_full_cluster_desc->get_all_chips().end());
     }
     for (auto& chip_id : chips_to_construct_vec) {
         // Combine passed simulated_harvesting_masks

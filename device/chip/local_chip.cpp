@@ -416,6 +416,9 @@ tt_xy_pair LocalChip::get_remote_transfer_ethernet_core() {
 }
 
 void LocalChip::update_active_eth_core_idx() {
+    if (remote_transfer_eth_cores_.empty()) {
+        throw std::runtime_error("Cannot update active Ethernet core index: no remote transfer Ethernet cores set.");
+    }
     active_eth_core_idx = (active_eth_core_idx + 1) % remote_transfer_eth_cores_.size();
 }
 

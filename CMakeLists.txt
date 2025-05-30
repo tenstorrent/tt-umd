@@ -54,8 +54,16 @@ message(STATUS "UMD build type: ${CMAKE_BUILD_TYPE}")
 
 option(TT_UMD_BUILD_TESTS "Enables build of tt_umd tests" OFF)
 option(TT_UMD_BUILD_SIMULATION "Enables build of tt_umd simulation harnessing" OFF)
-option(TT_UMD_ENABLE_LOGGING "Enables inclusion of log_trace and log_debug into the binary." OFF)
 
+# Control compile time logging
+if(NOT DEFINED TT_UMD_ENABLE_LOGGING)
+    if(CMAKE_BUILD_TYPE STREQUAL "Debug")
+        set(_default_enable_logging ON)
+    else()
+        set(_default_enable_logging OFF)
+    endif()
+endif()
+option(TT_UMD_ENABLE_LOGGING "Enables inclusion of log_trace and log_debug into the binary." ${_default_enable_logging})
 if(TT_UMD_ENABLE_LOGGING)
     add_compile_definitions(SPDLOG_ACTIVE_LEVEL=SPDLOG_LEVEL_TRACE)
 endif()

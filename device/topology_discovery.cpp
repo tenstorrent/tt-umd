@@ -388,6 +388,8 @@ void TopologyDiscovery::fill_cluster_descriptor_info() {
         cluster_desc->chip_locations.insert({chip_id, eth_coord});
         cluster_desc->coords_to_chip_ids[eth_coord.rack][eth_coord.shelf][eth_coord.y][eth_coord.x] = chip_id;
 
+        cluster_desc->add_chip_to_board(chip_id, chip->get_chip_info().chip_uid.board_id);
+
         for (int i = 0; i < wormhole::NUM_ETH_CHANNELS; i++) {
             cluster_desc->idle_eth_channels[chip_id].insert(i);
         }

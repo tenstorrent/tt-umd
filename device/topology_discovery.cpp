@@ -26,12 +26,6 @@ TopologyDiscovery::TopologyDiscovery(std::unordered_set<chip_id_t> pci_target_de
 std::unique_ptr<tt_ClusterDescriptor> TopologyDiscovery::create_ethernet_map() {
     cluster_desc = std::unique_ptr<tt_ClusterDescriptor>(new tt_ClusterDescriptor());
     get_pcie_connected_chips();
-
-    // if (!chips.empty()) {
-    //     eth_addresses = TopologyDiscovery::get_eth_addresses(
-    //         chips.at(0)->get_tt_device()->get_arc_telemetry_reader()->read_entry(wormhole::TAG_ETH_FW_VERSION));
-    // }
-
     discover_remote_chips();
     fill_cluster_descriptor_info();
     return std::move(cluster_desc);
@@ -104,10 +98,16 @@ void TopologyDiscovery::get_pcie_connected_chips() {
         }
         std::unique_ptr<LocalChip> chip = nullptr;
         chip = std::make_unique<LocalChip>(TTDevice::create(device_id));
+
+        // ETH addresses neet to be initialized after the first chip is created, so we could
+        // read the information about offsets of board IDs on ETH core.
+        // TODO: confirm that we should only suppoer one set of addresses so we can remove
+        // figuring out ETH addresses from in runtime and move it to constants.
         if (chip_id == 0) {
             eth_addresses = TopologyDiscovery::get_eth_addresses(
                 chip->get_tt_device()->get_arc_telemetry_reader()->read_entry(wormhole::TAG_ETH_FW_VERSION));
         }
+
         std::vector<CoreCoord> eth_cores =
             chip->get_soc_descriptor().get_cores(CoreType::ETH, umd_use_noc1 ? CoordSystem::NOC1 : CoordSystem::NOC0);
         for (const CoreCoord& eth_core : eth_cores) {

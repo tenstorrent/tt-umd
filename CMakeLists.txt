@@ -57,7 +57,7 @@ option(TT_UMD_BUILD_SIMULATION "Enables build of tt_umd simulation harnessing" O
 option(TT_UMD_ENABLE_LOGGING "Enables inclusion of log_trace and log_debug into the binary." OFF)
 
 if(TT_UMD_ENABLE_LOGGING)
-    add_compile_definitions(SPDLOG_ACTIVE_LEVEL=trace)
+    add_compile_definitions(SPDLOG_ACTIVE_LEVEL=SPDLOG_LEVEL_TRACE)
 endif()
 
 add_subdirectory(third_party)

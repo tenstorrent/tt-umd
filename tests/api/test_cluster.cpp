@@ -50,7 +50,6 @@ TEST(ApiClusterTest, OpenChipsByPciId) {
     int total_combinations = 1 << pci_device_ids.size();
 
     for (uint32_t combination = 0; combination < total_combinations; combination++) {
-        std::cout << "combination " << combination << std::endl;
         std::unordered_set<int> target_pci_device_ids;
         for (int i = 0; i < pci_device_ids.size(); i++) {
             if (combination & (1 << i)) {

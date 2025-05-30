@@ -94,7 +94,6 @@ protected:
     std::map<chip_id_t, uint32_t> dram_harvesting_masks = {};
     std::map<chip_id_t, uint32_t> eth_harvesting_masks = {};
     std::map<chip_id_t, uint32_t> pcie_harvesting_masks = {};
-    uint32_t board_counter = 0;
 
 public:
     /*

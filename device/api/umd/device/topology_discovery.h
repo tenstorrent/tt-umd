@@ -44,18 +44,6 @@ private:
 
     void fill_cluster_descriptor_info();
 
-    // TODO: this should be moved to class similar to TTDevice for MMIO devices.
-    // Covered by the UMD issue https://github.com/tenstorrent/tt-umd/issues/730.
-    uint32_t remote_arc_msg(
-        eth_coord_t eth_coord,
-        uint32_t msg_code,
-        uint32_t arg0,
-        uint32_t arg1,
-        uint32_t* ret0,
-        uint32_t* ret1,
-        Chip* mmio_chip,
-        uint32_t timeout_ms = 5000);
-
     std::unordered_map<chip_id_t, std::unique_ptr<Chip>> chips;
 
     std::unordered_map<eth_coord_t, chip_id_t> eth_coord_to_chip_id;

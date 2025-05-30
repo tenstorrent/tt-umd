@@ -439,7 +439,6 @@ uint32_t TopologyDiscovery::get_remote_board_id(Chip* chip, tt_xy_pair eth_core)
     TTDevice* tt_device = chip->get_tt_device();
     uint32_t board_id;
     tt_device->read_from_device(&board_id, eth_core, eth_addresses.results_buf + (4 * 72), sizeof(uint32_t));
-    std::cout << "remote Board ID: 0x" << std::hex << board_id << std::dec << std::endl;
     return board_id;
 }
 
@@ -447,7 +446,6 @@ uint32_t TopologyDiscovery::get_local_board_id(Chip* chip, tt_xy_pair eth_core) 
     TTDevice* tt_device = chip->get_tt_device();
     uint32_t board_id;
     tt_device->read_from_device(&board_id, eth_core, eth_addresses.results_buf + (4 * 64), sizeof(uint32_t));
-    std::cout << "local Board ID: 0x" << std::hex << board_id << std::dec << std::endl;
     return board_id;
 }
 

@@ -290,7 +290,6 @@ void TopologyDiscovery::discover_remote_chips() {
 
             ChipInfo chip_info = remote_tt_device->get_chip_info();
 
-            discovered_chips.insert(current_chip_unique_coord);
 
             std::unique_ptr<RemoteChip> chip = nullptr;
             chip = std::make_unique<RemoteChip>(

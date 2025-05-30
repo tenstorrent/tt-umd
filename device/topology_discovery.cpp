@@ -120,7 +120,6 @@ void TopologyDiscovery::get_pcie_connected_chips() {
         chips.emplace(chip_id, std::move(chip));
         chip_id++;
     }
-    std::cout << "chip id " << chip_id << " chips found" << std::endl;
 }
 
 void TopologyDiscovery::discover_remote_chips() {

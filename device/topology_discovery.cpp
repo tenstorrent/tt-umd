@@ -121,25 +121,6 @@ void TopologyDiscovery::get_pcie_connected_chips() {
     }
 }
 
-// TODO: move this to "remote" TTDevice class. This code is copied from Cluster so far.
-uint32_t TopologyDiscovery::remote_arc_msg(
-    eth_coord_t eth_coord,
-    uint32_t msg_code,
-    uint32_t arg0,
-    uint32_t arg1,
-    uint32_t* ret0,
-    uint32_t* ret1,
-    Chip* mmio_chip,
-    uint32_t timeout_ms) {
-    TTDevice* tt_device = mmio_chip->get_tt_device();
-    std::unique_ptr<RemoteCommunication> remote_comm =
-        std::make_unique<RemoteCommunication>(dynamic_cast<LocalChip*>(mmio_chip));
-
-    auto arc_core = mmio_chip->get_soc_descriptor().get_cores(
-        CoreType::ARC, umd_use_noc1 ? CoordSystem::NOC1 : CoordSystem::NOC0)[0];
-    return remote_comm->arc_msg(eth_coord, arc_core, msg_code, true, arg0, arg1, timeout_ms, ret0, ret1);
-}
-
 void TopologyDiscovery::discover_remote_chips() {
     const uint32_t eth_unknown = 0;
     const uint32_t eth_unconnected = 1;

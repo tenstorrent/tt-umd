@@ -42,9 +42,9 @@ chip_to_boardtype:
   0: n300
   1: n300
 boards:
-  0:
-    board_id: 72058994491072686
-    board_type: n300
-chip_to_board_mapping:
-  0: 0
-  1: 0
+  -
+    - board_id: 72058994491072686
+    - board_type: n300
+    - chips:
+        - 0
+        - 1

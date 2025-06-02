@@ -854,8 +854,8 @@ void tt_ClusterDescriptor::load_chips_from_connectivity_descriptor(YAML::Node &y
             chip_location.shelf);
     }
 
-    if (yaml["boardtype"]) {
-        for (const auto &chip_board_type : yaml["boardtype"].as<std::map<int, std::string>>()) {
+    if (yaml["chip_to_boardtype"]) {
+        for (const auto &chip_board_type : yaml["chip_to_boardtype"].as<std::map<int, std::string>>()) {
             auto &chip = chip_board_type.first;
             BoardType board_type;
             if (chip_board_type.second == "n150") {
@@ -889,6 +889,25 @@ void tt_ClusterDescriptor::load_chips_from_connectivity_descriptor(YAML::Node &y
     } else {
         for (const auto &chip : desc.all_chips) {
             desc.chip_board_type.insert({chip, BoardType::UNKNOWN});
+        }
+    }
+
+    if (yaml["boards"]) {
+        YAML::Node boardsNode = yaml["boards"];
+        if (!boardsNode || !boardsNode.IsSequence()) {
+            throw std::runtime_error("Invalid or missing 'boards' node.");
+        }
+
+        for (const auto &boardEntry : boardsNode) {
+            if (!boardEntry.IsSequence() || boardEntry.size() != 3) {
+                throw std::runtime_error("Each board entry should be a sequence of 3 maps.");
+            }
+
+            uint64_t board_id = boardEntry[0]["board_id"].as<std::uint64_t>();
+
+            for (const auto &chip : boardEntry[2]["chips"]) {
+                desc.add_chip_to_board(chip.as<chip_id_t>(), board_id);
+            }
         }
     }
 }
@@ -1097,11 +1116,30 @@ std::string tt_ClusterDescriptor::serialize() const {
     }
     out << YAML::EndMap;
 
-    out << YAML::Key << "boardtype" << YAML::Value << YAML::BeginMap;
+    out << YAML::Key << "chip_to_boardtype" << YAML::Value << YAML::BeginMap;
     for (const int &chip : all_chips) {
         out << YAML::Key << chip << YAML::Value << board_type_to_string(chip_board_type.at(chip));
     }
     out << YAML::EndMap;
+
+    out << YAML::Key << "boards" << YAML::Value << YAML::BeginSeq;
+    for (const auto &[board_id, chips] : board_to_chips) {
+        out << YAML::BeginSeq;
+        out << YAML::BeginMap << YAML::Key << "board_id" << YAML::Value << board_id << YAML::EndMap;
+        out << YAML::BeginMap << YAML::Key << "board_type" << YAML::Value
+            << board_type_to_string(get_board_type_from_board_id(board_id)) << YAML::EndMap;
+
+        out << YAML::BeginMap << YAML::Key << "chips" << YAML::Value;
+        out << YAML::BeginSeq;
+        for (const auto &chip_id : chips) {
+            out << chip_id;
+        }
+        out << YAML::EndSeq;
+        out << YAML::EndMap;
+
+        out << YAML::EndSeq;
+    }
+    out << YAML::EndSeq;
 
     out << YAML::EndMap;
 
@@ -1171,4 +1209,29 @@ uint32_t tt_ClusterDescriptor::get_pcie_harvesting_mask(chip_id_t chip_id) const
     }
 
     return it->second;
+}
+
+void tt_ClusterDescriptor::add_chip_to_board(chip_id_t chip_id, uint64_t board_id) {
+    if (chip_to_board_id.find(chip_id) != chip_to_board_id.end() && chip_to_board_id[chip_id] != board_id) {
+        throw std::runtime_error(
+            fmt::format("Chip {} is already mapped to board {:#x}", chip_id, chip_to_board_id[chip_id]));
+    }
+    chip_to_board_id[chip_id] = board_id;
+    board_to_chips[board_id].insert(chip_id);
+}
+
+uint64_t tt_ClusterDescriptor::get_board_id_for_chip(const chip_id_t chip) const {
+    auto it = chip_to_board_id.find(chip);
+    if (it != chip_to_board_id.end()) {
+        return it->second;
+    }
+    throw std::runtime_error(fmt::format("Chip to board mapping for chip {} not found.", chip));
+}
+
+std::unordered_set<chip_id_t> tt_ClusterDescriptor::get_board_chips(const uint64_t board_id) const {
+    auto it = board_to_chips.find(board_id);
+    if (it != board_to_chips.end()) {
+        return it->second;
+    }
+    throw std::runtime_error(fmt::format("Board to chips mapping for board {:#x} not found.", board_id));
 }

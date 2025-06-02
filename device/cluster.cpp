@@ -412,12 +412,25 @@ void Cluster::ubb_eth_connections(
     }
 }
 
+void Cluster::verify_cluster_options(const ClusterOptions& options) {
+    if (!options.pci_target_devices.empty() && !options.target_devices.empty()) {
+        throw std::runtime_error("Cannot pass both target_devices and pci_target_devices to Cluster constructor.");
+    }
+
+    if (!options.pci_target_devices.empty() && options.cluster_descriptor != nullptr) {
+        throw std::runtime_error(
+            "Cannot pass pci_target_devices and custom cluster descriptor to Cluster constructor. "
+            "Custom cluster descriptor should be used together with target_devices (logical IDs).");
+    }
+}
+
 Cluster::Cluster(ClusterOptions options) {
+    Cluster::verify_cluster_options(options);
     // If the cluster descriptor is not provided, create a new one.
     tt_ClusterDescriptor* temp_full_cluster_desc = options.cluster_descriptor;
     std::unique_ptr<tt_ClusterDescriptor> temp_full_cluster_desc_ptr;
     if (temp_full_cluster_desc == nullptr) {
-        temp_full_cluster_desc_ptr = Cluster::create_cluster_descriptor();
+        temp_full_cluster_desc_ptr = Cluster::create_cluster_descriptor(options.sdesc_path, options.pci_target_devices);
         temp_full_cluster_desc = temp_full_cluster_desc_ptr.get();
     }
 
@@ -1143,7 +1156,8 @@ tt_xy_pair Cluster::translate_chip_coord_virtual_to_translated(const chip_id_t c
     }
 }
 
-std::unique_ptr<tt_ClusterDescriptor> Cluster::create_cluster_descriptor(std::string sdesc_path) {
+std::unique_ptr<tt_ClusterDescriptor> Cluster::create_cluster_descriptor(
+    std::string sdesc_path, std::unordered_set<chip_id_t> pci_target_devices) {
     std::map<int, PciDeviceInfo> pci_device_info = PCIDevice::enumerate_devices_info();
     if (pci_device_info.begin()->second.get_arch() == tt::ARCH::BLACKHOLE) {
         std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
@@ -1174,7 +1188,7 @@ std::unique_ptr<tt_ClusterDescriptor> Cluster::create_cluster_descriptor(std::st
         // Topology discovery from source is supported for Wormhole UBB at the moment,
         // other Wormhole specs need to go through a legacy create-ethernet-map.
         if (!tt_devices.empty() && tt_devices[0]->get_board_type() != BoardType::UBB) {
-            return TopologyDiscovery().create_ethernet_map();
+            return TopologyDiscovery(pci_target_devices).create_ethernet_map();
         }
 
         std::unordered_map<chip_id_t, std::unique_ptr<Chip>> chips;
@@ -1248,6 +1262,8 @@ std::unique_ptr<tt_ClusterDescriptor> Cluster::create_cluster_descriptor(
         desc->dram_harvesting_masks.insert({chip_id, chip->get_chip_info().harvesting_masks.dram_harvesting_mask});
         desc->eth_harvesting_masks.insert({chip_id, chip->get_chip_info().harvesting_masks.eth_harvesting_mask});
         desc->pcie_harvesting_masks.insert({chip_id, chip->get_chip_info().harvesting_masks.pcie_harvesting_mask});
+
+        desc->add_chip_to_board(chip_id, chip->get_chip_info().chip_uid.board_id);
     }
 
     if (chips.begin()->second->get_tt_device()->get_arch() == tt::ARCH::BLACKHOLE) {

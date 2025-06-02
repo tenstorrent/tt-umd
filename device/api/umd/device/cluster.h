@@ -68,6 +68,11 @@ struct ClusterOptions {
     // will be checked against the cluster descriptor. In case of MOCK and SIMULATION chip types, this check will be
     // skipped, and you can create chips regardless of the devices on the system.
     std::unordered_set<chip_id_t> target_devices = {};
+    // If set, Cluster will target only boards that have the IDs of the chips specified in this set.
+    // If not set, all discovered PCI devices will be used. This can only be used with SILICON chip type.
+    // Corner case of setting this is if we have multiple chips visible over PCIE on same boards. If at least one
+    // of the PCIE chips on certain board is specified, UMD will take all chips from the board.
+    std::unordered_set<chip_id_t> pci_target_devices = {};
     // If not passed, topology discovery will be ran and tt_ClusterDescriptor will be constructed. If passed, and chip
     // type is SILICON, the constructor will throw if cluster_descriptor configuration shows chips which don't exist on
     // the system.
@@ -111,7 +116,8 @@ public:
      * soc descriptor yaml file passed to the constructor. If no soc descriptor is passed, the function will create a
      * cluster descriptor object based on the devices connected to the system.
      */
-    static std::unique_ptr<tt_ClusterDescriptor> create_cluster_descriptor(std::string sdesc_path = "");
+    static std::unique_ptr<tt_ClusterDescriptor> create_cluster_descriptor(
+        std::string sdesc_path = "", std::unordered_set<chip_id_t> pci_target_devices = {});
 
     /**
      * Get cluster descriptor object being used in UMD instance.
@@ -664,6 +670,8 @@ private:
     static void ubb_eth_connections(
         const std::unordered_map<chip_id_t, std::unique_ptr<tt::umd::Chip>>& chips,
         std::unique_ptr<tt_ClusterDescriptor>& cluster_desc);
+
+    static void verify_cluster_options(const ClusterOptions& options);
 
     // State variables
     std::set<chip_id_t> all_chip_ids_ = {};

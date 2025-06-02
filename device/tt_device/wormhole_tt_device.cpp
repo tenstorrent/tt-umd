@@ -61,6 +61,8 @@ ChipInfo WormholeTTDevice::get_chip_info() {
 
     chip_info.harvesting_masks.tensix_harvesting_mask = arc_msg_return_values[0];
 
+    chip_info.chip_uid.board_id = get_board_id();
+
     chip_info.board_type = get_board_type();
 
     return chip_info;

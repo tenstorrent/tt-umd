@@ -134,8 +134,7 @@ ChipInfo BlackholeTTDevice::get_chip_info() {
     chip_info.noc_translation_enabled = get_noc_translation_enabled();
 
     // It is expected that these entries are always available.
-    chip_info.chip_uid.board_id = ((uint64_t)telemetry->read_entry(blackhole::TAG_BOARD_ID_HIGH) << 32) |
-                                  (telemetry->read_entry(blackhole::TAG_BOARD_ID_LOW));
+    chip_info.chip_uid.board_id = get_board_id();
 
     chip_info.board_type = get_board_type_from_board_id(chip_info.chip_uid.board_id);
 

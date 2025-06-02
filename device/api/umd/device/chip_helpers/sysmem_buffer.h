@@ -27,7 +27,6 @@ namespace tt::umd {
  */
 class SysmemBuffer {
 public:
-    // TODO: maybe get rid of map_to_noc, make noc_addr non-optional?
     // "Sysmem" is always mapped to NOC, but this class could be used as a DMA
     // buffer (used by PCIE DMA engine) and not accessed by NOC at all.
     SysmemBuffer(TLBManager* tlb_manager, void* buffer_va, size_t buffer_size, bool map_to_noc = false);

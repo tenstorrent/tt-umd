@@ -35,7 +35,7 @@ TEST(TestTlb, TestTlbWindowAllocateNew) {
         val++;
     }
 
-    PCIDevice* pci_device = cluster->get_tt_device(chip)->get_pci_device();
+    PCIDevice* pci_device = cluster->get_tt_device(chip)->get_pci_device().get();
 
     uint32_t value_check = 0;
 
@@ -81,7 +81,7 @@ TEST(TestTlb, TestTlbWindowReuse) {
         val++;
     }
 
-    PCIDevice* pci_device = cluster->get_tt_device(chip)->get_pci_device();
+    PCIDevice* pci_device = cluster->get_tt_device(chip)->get_pci_device().get();
 
     uint32_t value_check = 0;
 
@@ -130,7 +130,7 @@ TEST(TestTlb, DISABLED_TestTlbWindowReadRegister) {
 
     std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
 
-    PCIDevice* pci_device = cluster->get_tt_device(0)->get_pci_device();
+    PCIDevice* pci_device = cluster->get_tt_device(0)->get_pci_device().get();
 
     const std::vector<CoreCoord> tensix_cores = cluster->get_soc_descriptor(chip).get_cores(CoreType::TENSIX);
     for (CoreCoord core : tensix_cores) {
@@ -172,7 +172,7 @@ TEST(TestTlb, TestTlbWindowReadWrite) {
     std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
 
     const std::vector<CoreCoord> tensix_cores = cluster->get_soc_descriptor(chip).get_cores(CoreType::TENSIX);
-    PCIDevice* pci_device = cluster->get_tt_device(chip)->get_pci_device();
+    PCIDevice* pci_device = cluster->get_tt_device(chip)->get_pci_device().get();
 
     for (CoreCoord core : tensix_cores) {
         tlb_data config_write;

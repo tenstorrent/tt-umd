@@ -77,7 +77,7 @@ void TlbHandle::free_tlb() noexcept {
     tenstorrent_free_tlb free_tlb{};
     free_tlb.in.id = tlb_id;
     if (ioctl(fd, TENSTORRENT_IOCTL_FREE_TLB, &free_tlb) < 0) {
-        log_error("Failed to free TLB with id {}", tlb_id);
+        log_error(LogSiliconDriver, "Failed to free TLB with id {}", tlb_id);
     }
 }
 

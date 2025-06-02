@@ -26,6 +26,9 @@
 #define TENSTORRENT_IOCTL_RESET_DEVICE		_IO(TENSTORRENT_IOCTL_MAGIC, 6)
 #define TENSTORRENT_IOCTL_PIN_PAGES		_IO(TENSTORRENT_IOCTL_MAGIC, 7)
 #define TENSTORRENT_IOCTL_UNPIN_PAGES		_IO(TENSTORRENT_IOCTL_MAGIC, 10)
+#define TENSTORRENT_IOCTL_ALLOCATE_TLB		_IO(TENSTORRENT_IOCTL_MAGIC, 11)
+#define TENSTORRENT_IOCTL_FREE_TLB		_IO(TENSTORRENT_IOCTL_MAGIC, 12)
+#define TENSTORRENT_IOCTL_CONFIGURE_TLB		_IO(TENSTORRENT_IOCTL_MAGIC, 13)
 
 // For tenstorrent_mapping.mapping_id. These are not array indices.
 #define TENSTORRENT_MAPPING_UNUSED		0
@@ -172,5 +175,65 @@ struct tenstorrent_unpin_pages {
 	struct tenstorrent_unpin_pages_in in;
 	struct tenstorrent_unpin_pages_out out;
 };
+
+struct tenstorrent_allocate_tlb_in {
+	__u64 size;
+	__u64 reserved;
+};
+
+struct tenstorrent_allocate_tlb_out {
+	__u32 id;
+	__u32 reserved0;
+	__u64 mmap_offset_uc;
+	__u64 mmap_offset_wc;
+	__u64 reserved1;
+};
+
+struct tenstorrent_allocate_tlb {
+	struct tenstorrent_allocate_tlb_in in;
+	struct tenstorrent_allocate_tlb_out out;
+};
+
+struct tenstorrent_free_tlb_in {
+	__u32 id;
+};
+
+struct tenstorrent_free_tlb_out {
+};
+
+struct tenstorrent_free_tlb {
+	struct tenstorrent_free_tlb_in in;
+	struct tenstorrent_free_tlb_out out;
+};
+
+struct tenstorrent_noc_tlb_config {
+	__u64 addr;
+	__u16 x_end;
+	__u16 y_end;
+	__u16 x_start;
+	__u16 y_start;
+	__u8 noc;
+	__u8 mcast;
+	__u8 ordering;
+	__u8 linked;
+	__u8 static_vc;
+	__u8 reserved0[3];
+	__u32 reserved1[2];
+};
+
+struct tenstorrent_configure_tlb_in {
+	__u32 id;
+	struct tenstorrent_noc_tlb_config config;
+};
+
+struct tenstorrent_configure_tlb_out {
+	__u64 reserved;
+};
+
+struct tenstorrent_configure_tlb {
+	struct tenstorrent_configure_tlb_in in;
+	struct tenstorrent_configure_tlb_out out;
+};
+
 #endif
 // clang-format on

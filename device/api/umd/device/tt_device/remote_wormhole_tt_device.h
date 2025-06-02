@@ -23,8 +23,6 @@ public:
 
     RemoteCommunication* get_remote_communication();
 
-    bool is_remote() override { return true; }
-
 private:
     LocalChip* local_chip_;
     eth_coord_t target_chip_;

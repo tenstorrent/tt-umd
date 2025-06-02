@@ -200,7 +200,7 @@ public:
 
     virtual void wait_for_non_mmio_flush();
 
-    virtual bool is_remote() = 0;
+    bool is_remote();
 
 protected:
     std::shared_ptr<PCIDevice> pci_device_;
@@ -230,5 +230,7 @@ protected:
     TTDevice();
 
     ChipInfo chip_info;
+
+    bool is_remote_tt_device = false;
 };
 }  // namespace tt::umd

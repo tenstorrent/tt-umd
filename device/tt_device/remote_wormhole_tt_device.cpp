@@ -10,6 +10,7 @@ RemoteWormholeTTDevice::RemoteWormholeTTDevice(LocalChip *local_chip, eth_coord_
     local_chip_(local_chip),
     target_chip_(target_chip),
     remote_communication_(std::make_unique<RemoteCommunication>(local_chip_)) {
+    is_remote_tt_device = true;
     init_tt_device();
 }
 

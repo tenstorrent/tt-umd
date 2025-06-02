@@ -12,7 +12,5 @@ namespace tt::umd {
 class RemoteBlackholeTTDevice : public BlackholeTTDevice {
 public:
     RemoteBlackholeTTDevice();
-
-    bool is_remote() override { return true; }
 };
 }  // namespace tt::umd

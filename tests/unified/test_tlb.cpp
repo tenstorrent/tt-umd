@@ -53,7 +53,7 @@ TEST(TestTlb, TestTlbWindowAllocateNew) {
         config.static_vc = 1;
 
         std::unique_ptr<TlbWindow> tlb_window =
-            std::make_unique<TlbWindow>(pci_device->allocate_tlb(two_mb_size), config);
+            std::make_unique<TlbWindow>(pci_device->allocate_tlb(two_mb_size, TlbMapping::WC), config);
 
         uint32_t readback_value = tlb_window->read32(0);
 
@@ -88,7 +88,8 @@ TEST(TestTlb, TestTlbWindowReuse) {
     // Here it's not important how we have configured the TLB. For every read we will
     // do the reconfigure of the TLB window.
     tlb_data config{};
-    std::unique_ptr<TlbWindow> tlb_window = std::make_unique<TlbWindow>(pci_device->allocate_tlb(two_mb_size), config);
+    std::unique_ptr<TlbWindow> tlb_window =
+        std::make_unique<TlbWindow>(pci_device->allocate_tlb(two_mb_size, TlbMapping::WC), config);
 
     for (CoreCoord core : tensix_cores) {
         tlb_data config;
@@ -148,7 +149,7 @@ TEST(TestTlb, DISABLED_TestTlbWindowReadRegister) {
         config.static_vc = 1;
 
         std::unique_ptr<TlbWindow> tlb_window =
-            std::make_unique<TlbWindow>(pci_device->allocate_tlb(two_mb_size), config);
+            std::make_unique<TlbWindow>(pci_device->allocate_tlb(two_mb_size, TlbMapping::UC), config);
 
         tlb_window->configure(config);
 
@@ -190,14 +191,14 @@ TEST(TestTlb, TestTlbWindowReadWrite) {
         config_write.static_vc = 1;
 
         std::unique_ptr<TlbWindow> tlb_window_write =
-            std::make_unique<TlbWindow>(pci_device->allocate_tlb(two_mb_size), config_write);
+            std::make_unique<TlbWindow>(pci_device->allocate_tlb(two_mb_size, TlbMapping::WC), config_write);
 
         tlb_window_write->write32(0, 4);
         tlb_window_write->write32(4, 0);
 
         tlb_data config_read = config_write;
         std::unique_ptr<TlbWindow> tlb_window_read =
-            std::make_unique<TlbWindow>(pci_device->allocate_tlb(two_mb_size), config_read);
+            std::make_unique<TlbWindow>(pci_device->allocate_tlb(two_mb_size, TlbMapping::WC), config_read);
 
         uint32_t expect4 = tlb_window_read->read32(0);
         uint32_t expect0 = tlb_window_read->read32(4);

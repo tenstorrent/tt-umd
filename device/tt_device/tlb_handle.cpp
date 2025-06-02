@@ -15,7 +15,8 @@
 
 namespace tt::umd {
 
-TlbHandle::TlbHandle(uint32_t fd, size_t size) : tlb_size(size), fd(fd) {
+TlbHandle::TlbHandle(uint32_t fd, size_t size, const TlbMapping tlb_mapping) :
+    tlb_size(size), fd(fd), tlb_mapping(tlb_mapping) {
     tenstorrent_allocate_tlb allocate_tlb{};
     allocate_tlb.in.size = size;
     if (ioctl(fd, TENSTORRENT_IOCTL_ALLOCATE_TLB, &allocate_tlb) < 0) {
@@ -26,14 +27,17 @@ TlbHandle::TlbHandle(uint32_t fd, size_t size) : tlb_size(size), fd(fd) {
 
     // mmap only UC offset for now.
     // TODO: add choice whether to map UC or WC mapping.
-    void* uc = mmap(nullptr, size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, allocate_tlb.out.mmap_offset_uc);
-    if (uc == MAP_FAILED) {
-        munmap(uc, size);
+    void* mapped_tlb =
+        tlb_mapping == TlbMapping::UC
+            ? mmap(nullptr, size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, allocate_tlb.out.mmap_offset_uc)
+            : mmap(nullptr, size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, allocate_tlb.out.mmap_offset_wc);
+    if (mapped_tlb == MAP_FAILED) {
+        munmap(mapped_tlb, size);
         free_tlb();
         throw std::runtime_error("Failed to map the TLB.");
     }
 
-    tlb_base = reinterpret_cast<uint8_t*>(uc);
+    tlb_base = reinterpret_cast<uint8_t*>(mapped_tlb);
 }
 
 TlbHandle::~TlbHandle() noexcept {
@@ -72,6 +76,8 @@ uint8_t* TlbHandle::get_base() { return tlb_base; }
 size_t TlbHandle::get_size() const { return tlb_size; }
 
 const tlb_data& TlbHandle::get_config() const { return tlb_config; }
+
+const TlbMapping TlbHandle::get_tlb_mapping() const { return tlb_mapping; }
 
 void TlbHandle::free_tlb() noexcept {
     tenstorrent_free_tlb free_tlb{};

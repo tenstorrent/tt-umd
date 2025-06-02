@@ -53,39 +53,21 @@ TopologyDiscovery::EthAddresses TopologyDiscovery::get_eth_addresses(uint32_t et
     uint64_t erisc_remote_board_type_offset;
     uint64_t erisc_local_board_type_offset;
 
-    if (masked_version >= 0x050000) {
+    if (masked_version >= 0x060000) {
         boot_params = 0x1000;
         node_info = 0x1100;
         eth_conn_info = 0x1200;
         debug_buf = 0x12c0;
         results_buf = 0x1ec0;
         shelf_rack_routing = true;
-    } else if (masked_version >= 0x030000) {
-        boot_params = 0x1000;
-        node_info = 0x1100;
-        eth_conn_info = 0x1200;
-        debug_buf = 0x1240;
-        results_buf = 0x1e40;
-        shelf_rack_routing = false;
-    } else {
-        boot_params = 0x5000;
-        node_info = 0x5100;
-        eth_conn_info = 0x5200;
-        debug_buf = 0x5240;
-        results_buf = 0x5e40;
-        shelf_rack_routing = false;
-    }
 
-    if (masked_version >= 0x060000) {
         version = 0x210;
         heartbeat = 0x1c;
         erisc_app = 0x9040;
         erisc_app_config = 0x12000;
     } else {
-        version = 0x210;
-        heartbeat = 0x1f80;
-        erisc_app = 0x8020;
-        erisc_app_config = 0x12000;
+        throw std::runtime_error(
+            fmt::format("Unsupported ETH version {:#x}. ETH version should always be at least 6.0.0.", eth_fw_version));
     }
 
     if (masked_version >= 0x06C000) {

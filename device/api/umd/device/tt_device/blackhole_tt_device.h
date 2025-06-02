@@ -45,6 +45,8 @@ public:
 
     void wait_eth_core_training(const tt_xy_pair eth_core, const uint32_t timeout_ms = 60000) override;
 
+    virtual bool is_remote() override { return false; }
+
 protected:
     BlackholeTTDevice() = default;
 

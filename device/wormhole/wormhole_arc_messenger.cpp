@@ -31,10 +31,14 @@ uint32_t WormholeArcMessenger::send_message(
                                           tt::umd::wormhole::NOC0_Y_TO_NOC1_Y[tt::umd::wormhole::ARC_CORES_NOC0[0].y])
                                     : tt::umd::wormhole::ARC_CORES_NOC0[0];
 
-    auto lock =
-        tt_device->is_remote()
-            ? lock_manager.acquire_mutex(MutexType::REMOTE_ARC_MSG, tt_device->get_pci_device()->get_device_num())
-            : lock_manager.acquire_mutex(MutexType::ARC_MSG, tt_device->get_pci_device()->get_device_num());
+    // TODO: Once local and remote ttdevice is properly separated, reenable this code.
+    // TODO2: Once we have unique chip ids other than PCI dev number, use that for both local and remote chips for
+    // locks.
+    // auto lock =
+    //     tt_device->is_remote()
+    //         ? lock_manager.acquire_mutex(MutexType::REMOTE_ARC_MSG, tt_device->get_pci_device()->get_device_num())
+    //         : lock_manager.acquire_mutex(MutexType::ARC_MSG, tt_device->get_pci_device()->get_device_num());
+    auto lock = lock_manager.acquire_mutex(MutexType::ARC_MSG, tt_device->get_pci_device()->get_device_num());
 
     auto architecture_implementation = tt_device->get_architecture_implementation();
 

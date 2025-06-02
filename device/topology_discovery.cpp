@@ -206,6 +206,7 @@ void TopologyDiscovery::discover_remote_chips() {
             unique_coord.eth_coord.rack = remote_rack_x;
             unique_coord.eth_coord.shelf = remote_rack_y;
 
+            chip->set_remote_transfer_ethernet_cores(active_eth_channels);
             std::unique_ptr<RemoteWormholeTTDevice> remote_tt_device =
                 std::make_unique<RemoteWormholeTTDevice>(dynamic_cast<LocalChip*>(chip.get()), unique_coord.eth_coord);
 

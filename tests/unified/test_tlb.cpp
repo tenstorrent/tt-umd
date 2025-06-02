@@ -132,7 +132,8 @@ TEST(TestTlb, DISABLED_TestTlbWindowReadRegister) {
 
     PCIDevice* pci_device = cluster->get_tt_device(0)->get_pci_device().get();
 
-    const std::vector<CoreCoord> tensix_cores = cluster->get_soc_descriptor(chip).get_cores(CoreType::TENSIX);
+    const std::vector<CoreCoord> tensix_cores =
+        cluster->get_soc_descriptor(chip).get_cores(CoreType::TENSIX, CoordSystem::TRANSLATED);
     for (CoreCoord core : tensix_cores) {
         tlb_data config;
         config.local_offset = tlb_base & ~(two_mb_size - 1);
@@ -171,7 +172,8 @@ TEST(TestTlb, TestTlbWindowReadWrite) {
 
     std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
 
-    const std::vector<CoreCoord> tensix_cores = cluster->get_soc_descriptor(chip).get_cores(CoreType::TENSIX);
+    const std::vector<CoreCoord> tensix_cores =
+        cluster->get_soc_descriptor(chip).get_cores(CoreType::TENSIX, CoordSystem::TRANSLATED);
     PCIDevice* pci_device = cluster->get_tt_device(chip)->get_pci_device().get();
 
     for (CoreCoord core : tensix_cores) {

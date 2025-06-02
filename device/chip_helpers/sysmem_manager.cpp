@@ -18,16 +18,12 @@
 
 namespace tt::umd {
 
-SysmemManager::SysmemManager(TLBManager *tlb_manager) : tlb_manager_(tlb_manager) {
-    auto arch = tlb_manager_->get_tt_device()->get_arch();
-
-    // TODO: I could only find these constants in cluster.cpp...
-    // Historically, the sysmem implementation has always placed the starting
-    // address of the hugepages/faked hugepages at the bottom of the device's
-    // PCIE address range that is mapped to the host system bus.  pcie_base_ is
-    // used to validate this behavior.
-    pcie_base_ = (arch == tt::ARCH::WORMHOLE_B0 ? 0x800000000 : (arch == tt::ARCH::BLACKHOLE ? 4ULL << 58 : 0));
-}
+SysmemManager::SysmemManager(TLBManager *tlb_manager) :
+    tlb_manager_(tlb_manager),
+    pcie_base_(
+        tlb_manager->get_tt_device()->get_arch() == tt::ARCH::WORMHOLE_B0
+            ? 0x800000000
+            : (tlb_manager->get_tt_device()->get_arch() == tt::ARCH::BLACKHOLE ? 4ULL << 58 : 0)) {}
 
 SysmemManager::~SysmemManager() {
     for (const auto &hugepage_mapping : hugepage_mapping_per_channel) {
@@ -88,7 +84,6 @@ void SysmemManager::read_from_sysmem(uint16_t channel, void *dest, uint64_t sysm
 
 bool SysmemManager::init_hugepage(uint32_t num_host_mem_channels) {
     TTDevice *tt_device_ = tlb_manager_->get_tt_device();
-    auto arch = tt_device_->get_arch();
 
     // TODO: get rid of this when the following Metal CI issue is resolved.
     // https://github.com/tenstorrent/tt-metal/issues/15675
@@ -250,7 +245,7 @@ bool SysmemManager::init_iommu(size_t num_fake_mem_channels) {
             strerror(errno));
     }
 
-    sysmem_buffer_ = map_sysmem_buffer(mapping, map_size);
+    sysmem_buffer_ = map_sysmem_buffer(mapping, map_size, true);
     uint64_t iova = sysmem_buffer_->get_device_io_addr();
     auto noc_address = sysmem_buffer_->get_noc_addr();
 
@@ -300,15 +295,15 @@ void SysmemManager::print_file_contents(std::string filename, std::string hint) 
     }
 }
 
-std::unique_ptr<SysmemBuffer> SysmemManager::allocate_sysmem_buffer(size_t sysmem_buffer_size) {
+std::unique_ptr<SysmemBuffer> SysmemManager::allocate_sysmem_buffer(size_t sysmem_buffer_size, const bool map_to_noc) {
     void *mapping =
         mmap(nullptr, sysmem_buffer_size, PROT_READ | PROT_WRITE, MAP_ANONYMOUS | MAP_PRIVATE | MAP_POPULATE, -1, 0);
-    return map_sysmem_buffer(mapping, sysmem_buffer_size);
+    return map_sysmem_buffer(mapping, sysmem_buffer_size, map_to_noc);
 }
 
-std::unique_ptr<SysmemBuffer> SysmemManager::map_sysmem_buffer(void *buffer, size_t sysmem_buffer_size) {
-    log_info(LogSiliconDriver, "Mapping sysmem buffer to NOC: {:#x}", sysmem_buffer_size);
-    const bool map_to_noc = true;
+std::unique_ptr<SysmemBuffer> SysmemManager::map_sysmem_buffer(
+    void *buffer, size_t sysmem_buffer_size, const bool map_to_noc) {
+    log_debug(LogSiliconDriver, "Mapping sysmem buffer to NOC: {:#x}", sysmem_buffer_size);
     return std::make_unique<SysmemBuffer>(tlb_manager_, buffer, sysmem_buffer_size, map_to_noc);
 }
 

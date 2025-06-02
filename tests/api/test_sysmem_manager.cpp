@@ -201,3 +201,56 @@ TEST(ApiSysmemManager, SysmemBufferFunctions) {
     EXPECT_EQ(sysmem_buffer->get_buffer_size(), buf_size);
     EXPECT_EQ(sysmem_buffer->get_buffer_va(), mapped_buffer);
 }
+
+TEST(ApiSysmemManager, SysmemBufferNocAddress) {
+    std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
+    if (pci_device_ids.empty()) {
+        GTEST_SKIP() << "No chips present on the system. Skipping test.";
+    }
+    if (!PCIDevice(pci_device_ids[0]).is_iommu_enabled()) {
+        GTEST_SKIP() << "Skipping test since IOMMU is not enabled.";
+    }
+
+    std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>(tt::umd::ClusterOptions{
+        .num_host_mem_ch_per_mmio_device = 0,
+    });
+
+    const chip_id_t mmio_chip = *cluster->get_target_mmio_device_ids().begin();
+
+    SysmemManager* sysmem_manager = cluster->get_chip(mmio_chip)->get_sysmem_manager();
+
+    const uint32_t one_mb = 1 << 20;
+    std::unique_ptr<SysmemBuffer> sysmem_buffer = sysmem_manager->allocate_sysmem_buffer(one_mb, true);
+
+    EXPECT_TRUE(sysmem_buffer->get_noc_addr().has_value());
+    EXPECT_EQ(sysmem_buffer->get_noc_addr().value(), cluster->get_pcie_base_addr_from_device(mmio_chip));
+
+    uint8_t* sysmem_data = static_cast<uint8_t*>(sysmem_buffer->get_buffer_va());
+    for (uint32_t i = 0; i < one_mb; ++i) {
+        sysmem_data[i] = 0;
+    }
+
+    // Pattern to write to sysmem buffer over NOC.
+    std::vector<uint8_t> data_write(one_mb, 0);
+    for (uint32_t i = 0; i < one_mb; ++i) {
+        data_write[i] = static_cast<uint8_t>(i % 256);
+    }
+
+    // Write to sysmem buffer using NOC address.
+    const CoreCoord pcie_core = cluster->get_soc_descriptor(mmio_chip).get_cores(CoreType::PCIE)[0];
+    cluster->write_to_device(
+        data_write.data(), data_write.size(), mmio_chip, pcie_core, cluster->get_pcie_base_addr_from_device(mmio_chip));
+
+    for (uint32_t i = 0; i < one_mb; ++i) {
+        EXPECT_EQ(sysmem_data[i], data_write[i])
+            << "Mismatch at index " << i << ": expected " << static_cast<int>(data_write[i]) << ", got "
+            << static_cast<int>(sysmem_data[i]);
+    }
+
+    std::vector<uint8_t> readback(one_mb, 0);
+    // Read back from sysmem buffer using NOC address.
+    cluster->read_from_device(
+        readback.data(), mmio_chip, pcie_core, cluster->get_pcie_base_addr_from_device(mmio_chip), one_mb);
+
+    EXPECT_EQ(readback, data_write);
+}

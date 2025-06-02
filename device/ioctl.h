@@ -1,5 +1,11 @@
-// SPDX-FileCopyrightText: © 2023 Tenstorrent Inc.
-// SPDX-License-Identifier: GPL-2.0-only WITH Linux-syscall-note
+/*
+ * SPDX-FileCopyrightText: (c) 2023 Tenstorrent Inc.
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+// clang-format off
+// This file is copied from KMD, so we don't want clang formatting diff.
 
 #ifndef TTDRIVER_IOCTL_H_INCLUDED
 #define TTDRIVER_IOCTL_H_INCLUDED
@@ -7,7 +13,7 @@
 #include <linux/ioctl.h>
 #include <linux/types.h>
 
-#define TENSTORRENT_DRIVER_VERSION 2
+#define TENSTORRENT_DRIVER_VERSION 1
 
 #define TENSTORRENT_IOCTL_MAGIC 0xFA
 
@@ -19,12 +25,10 @@
 #define TENSTORRENT_IOCTL_GET_DRIVER_INFO _IO(TENSTORRENT_IOCTL_MAGIC, 5)
 #define TENSTORRENT_IOCTL_RESET_DEVICE _IO(TENSTORRENT_IOCTL_MAGIC, 6)
 #define TENSTORRENT_IOCTL_PIN_PAGES _IO(TENSTORRENT_IOCTL_MAGIC, 7)
-#define TENSTORRENT_IOCTL_LOCK_CTL _IO(TENSTORRENT_IOCTL_MAGIC, 8)
-#define TENSTORRENT_IOCTL_MAP_PEER_BAR _IO(TENSTORRENT_IOCTL_MAGIC, 9)
 #define TENSTORRENT_IOCTL_UNPIN_PAGES _IO(TENSTORRENT_IOCTL_MAGIC, 10)
-#define TENSTORRENT_IOCTL_ALLOCATE_TLB _IO(TENSTORRENT_IOCTL_MAGIC, 11)
-#define TENSTORRENT_IOCTL_FREE_TLB _IO(TENSTORRENT_IOCTL_MAGIC, 12)
-#define TENSTORRENT_IOCTL_CONFIGURE_TLB _IO(TENSTORRENT_IOCTL_MAGIC, 13)
+#define TENSTORRENT_IOCTL_ALLOCATE_TLB		_IO(TENSTORRENT_IOCTL_MAGIC, 11)
+#define TENSTORRENT_IOCTL_FREE_TLB		_IO(TENSTORRENT_IOCTL_MAGIC, 12)
+#define TENSTORRENT_IOCTL_CONFIGURE_TLB		_IO(TENSTORRENT_IOCTL_MAGIC, 13)
 
 // For tenstorrent_mapping.mapping_id. These are not array indices.
 #define TENSTORRENT_MAPPING_UNUSED 0
@@ -36,9 +40,6 @@
 #define TENSTORRENT_MAPPING_RESOURCE2_WC 6
 
 #define TENSTORRENT_MAX_DMA_BUFS 256
-#define TENSTORRENT_MAX_INBOUND_TLBS 256
-
-#define TENSTORRENT_RESOURCE_LOCK_COUNT 64
 
 struct tenstorrent_get_device_info_in {
     __u32 output_size_bytes;
@@ -184,26 +185,6 @@ struct tenstorrent_pin_pages {
     struct tenstorrent_pin_pages_out out;
 };
 
-// tenstorrent_lock_ctl_in.flags
-#define TENSTORRENT_LOCK_CTL_ACQUIRE 0
-#define TENSTORRENT_LOCK_CTL_RELEASE 1
-#define TENSTORRENT_LOCK_CTL_TEST 2
-
-struct tenstorrent_lock_ctl_in {
-    __u32 output_size_bytes;
-    __u32 flags;
-    __u8 index;
-};
-
-struct tenstorrent_lock_ctl_out {
-    __u8 value;
-};
-
-struct tenstorrent_lock_ctl {
-    struct tenstorrent_lock_ctl_in in;
-    struct tenstorrent_lock_ctl_out out;
-};
-
 struct tenstorrent_allocate_tlb_in {
     __u64 size;
     __u64 reserved;
@@ -260,24 +241,6 @@ struct tenstorrent_configure_tlb_out {
 struct tenstorrent_configure_tlb {
     struct tenstorrent_configure_tlb_in in;
     struct tenstorrent_configure_tlb_out out;
-};
-
-struct tenstorrent_map_peer_bar_in {
-    __u32 peer_fd;
-    __u32 peer_bar_index;
-    __u32 peer_bar_offset;
-    __u32 peer_bar_length;
-    __u32 flags;
-};
-
-struct tenstorrent_map_peer_bar_out {
-    __u64 dma_address;
-    __u64 reserved;
-};
-
-struct tenstorrent_map_peer_bar {
-    struct tenstorrent_map_peer_bar_in in;
-    struct tenstorrent_map_peer_bar_out out;
 };
 
 #endif

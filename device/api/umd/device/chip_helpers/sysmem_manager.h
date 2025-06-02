@@ -29,9 +29,10 @@ public:
     size_t get_num_host_mem_channels() const;
     hugepage_mapping get_hugepage_mapping(size_t channel) const;
 
-    std::unique_ptr<SysmemBuffer> allocate_sysmem_buffer(size_t sysmem_buffer_size);
+    std::unique_ptr<SysmemBuffer> allocate_sysmem_buffer(size_t sysmem_buffer_size, const bool map_to_noc = false);
 
-    std::unique_ptr<SysmemBuffer> map_sysmem_buffer(void* buffer, size_t sysmem_buffer_size);
+    std::unique_ptr<SysmemBuffer> map_sysmem_buffer(
+        void* buffer, size_t sysmem_buffer_size, const bool map_to_noc = false);
 
 private:
     /**
@@ -47,7 +48,7 @@ private:
     void print_file_contents(std::string filename, std::string hint = "");
 
     TLBManager* tlb_manager_;
-    uint64_t pcie_base_;
+    const uint64_t pcie_base_;
 
     std::vector<hugepage_mapping> hugepage_mapping_per_channel;
 

@@ -200,12 +200,16 @@ void TopologyDiscovery::discover_remote_chips() {
             uint32_t remote_noc_y = (remote_id >> 10) & 0x3F;
 
             UniqueCoord unique_coord;
-            unique_coord.board_id = tt_device->get_board_id();
             unique_coord.eth_coord.cluster_id = 0;
             unique_coord.eth_coord.x = remote_shelf_x;
             unique_coord.eth_coord.y = remote_shelf_y;
             unique_coord.eth_coord.rack = remote_rack_x;
             unique_coord.eth_coord.shelf = remote_rack_y;
+
+            std::unique_ptr<RemoteWormholeTTDevice> remote_tt_device =
+                std::make_unique<RemoteWormholeTTDevice>(dynamic_cast<LocalChip*>(chip.get()), unique_coord.eth_coord);
+
+            unique_coord.board_id = remote_tt_device->get_board_id();
 
             if (discovered_chips.find(unique_coord) == discovered_chips.end()) {
                 remote_eth_coords_to_consider.insert(unique_coord);
@@ -330,15 +334,12 @@ void TopologyDiscovery::discover_remote_chips() {
                 new_unique_coord.eth_coord.rack = remote_rack_x;
                 new_unique_coord.eth_coord.shelf = remote_rack_y;
 
-                std::unique_ptr<RemoteWormholeTTDevice> remote_tt_device = std::make_unique<RemoteWormholeTTDevice>(
+                std::unique_ptr<RemoteWormholeTTDevice> new_remote_tt_device = std::make_unique<RemoteWormholeTTDevice>(
                     dynamic_cast<LocalChip*>(mmio_chip), new_unique_coord.eth_coord);
 
-                new_unique_coord.board_id = remote_tt_device->get_board_id();
+                new_unique_coord.board_id = new_remote_tt_device->get_board_id();
 
                 if (discovered_chips.find(new_unique_coord) == discovered_chips.end()) {
-                    std::unique_ptr<RemoteWormholeTTDevice> new_remote_tt_device =
-                        std::make_unique<RemoteWormholeTTDevice>(
-                            dynamic_cast<LocalChip*>(mmio_chip), new_unique_coord.eth_coord);
                     if (is_board_id_included(new_remote_tt_device->get_chip_info().chip_uid.board_id)) {
                         if (remote_chips_to_discover.find(new_unique_coord) == remote_chips_to_discover.end()) {
                             new_remote_chips.insert(new_unique_coord);

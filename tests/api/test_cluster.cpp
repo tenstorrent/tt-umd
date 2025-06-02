@@ -36,6 +36,41 @@ constexpr std::uint32_t DRAM_BARRIER_BASE = 0;
 // This test should be one line only.
 TEST(ApiClusterTest, OpenAllChips) { std::unique_ptr<Cluster> umd_cluster = std::make_unique<Cluster>(); }
 
+TEST(ApiClusterTest, OpenChipsByPciId) {
+    std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
+
+    // T3K and 4U have 4 PCIE visible devices each. After 4 devices, the next number is 32
+    // on 6U galaxies. Making 2^32 combinations might take too long, so we limit the number of devices to 4.
+    // TODO: test all combinations on 6U and remove this check if possible.
+    if (pci_device_ids.size() > 4) {
+        GTEST_SKIP() << "Skipping test because there are more than 4 PCI devices. "
+                        "This test is intended to be run on all systems apart from 6U.";
+    }
+
+    int total_combinations = 1 << pci_device_ids.size();
+
+    for (uint32_t combination = 0; combination < total_combinations; combination++) {
+        std::unordered_set<int> target_pci_device_ids;
+        for (int i = 0; i < pci_device_ids.size(); i++) {
+            if (combination & (1 << i)) {
+                target_pci_device_ids.insert(pci_device_ids[i]);
+            }
+        }
+
+        std::cout << "Creating Cluster with target PCI device IDs: ";
+        for (const auto& id : target_pci_device_ids) {
+            std::cout << id << " ";
+        }
+        std::cout << std::endl;
+
+        // Make sure that Cluster construction is without exceptions.
+        // TODO: add cluster descriptors for expected topologies, compare cluster desc against expected desc.
+        std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>(ClusterOptions{
+            .pci_target_devices = target_pci_device_ids,
+        });
+    }
+}
+
 TEST(ApiClusterTest, DifferentConstructors) {
     std::unique_ptr<Cluster> umd_cluster;
 

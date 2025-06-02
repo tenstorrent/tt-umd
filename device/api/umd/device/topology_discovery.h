@@ -16,6 +16,7 @@ namespace tt::umd {
 // TODO: Move Blackhole and 6U topology discovery to this class.
 class TopologyDiscovery {
 public:
+    TopologyDiscovery(std::unordered_set<chip_id_t> pci_target_devices = {});
     std::unique_ptr<tt_ClusterDescriptor> create_ethernet_map();
 
 private:
@@ -44,6 +45,10 @@ private:
 
     void fill_cluster_descriptor_info();
 
+    bool is_pcie_chip_id_included(int pci_id) const;
+
+    bool is_board_id_included(uint64_t board_id) const;
+
     std::unordered_map<chip_id_t, std::unique_ptr<Chip>> chips;
 
     std::unordered_map<eth_coord_t, chip_id_t> eth_coord_to_chip_id;
@@ -57,6 +62,11 @@ private:
     chip_id_t chip_id = 0;
 
     EthAddresses eth_addresses;
+
+    std::unordered_set<chip_id_t> pci_target_devices = {};
+
+    // All board ids that should be included in the cluster descriptor.
+    std::unordered_set<uint64_t> board_ids;
 };
 
 }  // namespace tt::umd

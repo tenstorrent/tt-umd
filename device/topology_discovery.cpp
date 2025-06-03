@@ -363,6 +363,7 @@ void TopologyDiscovery::discover_remote_chips() {
                 if (discovered_chips.find(new_unique_coord) == discovered_chips.end()) {
                     if (remote_chips_to_discover.find(new_unique_coord) == remote_chips_to_discover.end()) {
                         new_remote_chips.insert(new_unique_coord);
+                        remote_unique_coord_to_mmio_chip_id.emplace(new_unique_coord, mmio_chip_id);
                     }
                 } else {
                     chip_id_t current_chip_id = unique_coord_to_chip_id.at(current_chip_unique_coord);

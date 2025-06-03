@@ -183,12 +183,24 @@ PCIDevice::PCIDevice(int pci_device_number) :
         TT_THROW("Running with IOMMU support requires KMD version {} or newer", kmd_ver_for_iommu.to_string());
     }
 
+    tenstorrent_get_driver_info driver_info{};
+    driver_info.in.output_size_bytes = sizeof(driver_info.out);
+    if (ioctl(pci_device_file_desc, TENSTORRENT_IOCTL_GET_DRIVER_INFO, &driver_info) == -1) {
+        TT_THROW("TENSTORRENT_IOCTL_GET_DRIVER_INFO failed");
+    }
+
     log_info(
         LogSiliconDriver,
         "Opened PCI device {}; KMD version: {}, IOMMU: {}",
+        "Opened PCI device {}; KMD version: {}; API: {}; IOMMU: {}",
         pci_device_num,
         kmd_version.to_string(),
+        driver_info.out.driver_version,
         iommu_enabled ? "enabled" : "disabled");
+
+    if (driver_info.out.driver_version < 2) {
+        TT_THROW("UMD requires a KMD version that supports APIv2 or greater.  Please update to the latest tt-kmd");
+    }
 
     TT_ASSERT(arch != tt::ARCH::WORMHOLE_B0 || revision == 0x01, "Wormhole B0 must have revision 0x01");
 

@@ -57,4 +57,9 @@ struct tlb_configuration {
     tlb_offsets offset;
 };
 
+enum TlbMapping : uint8_t {
+    UC = 0,  // Uncached
+    WC = 1,  // Write-combined
+};
+
 }  // namespace tt::umd

@@ -13,6 +13,7 @@
 #include <tt-logger/tt-logger.hpp>
 
 #include "api/umd/device/blackhole_implementation.h"
+#include "api/umd/device/types/cluster_descriptor_types.h"
 #include "api/umd/device/wormhole_implementation.h"
 #include "assert.hpp"
 #include "disjoint_set.hpp"
@@ -414,6 +415,8 @@ std::unique_ptr<tt_ClusterDescriptor> tt_ClusterDescriptor::create_from_yaml(
 
     desc->fill_chips_grouped_by_closest_mmio();
 
+    desc->verify_cluster_descriptor_info();
+
     return desc;
 }
 
@@ -565,6 +568,8 @@ std::unique_ptr<tt_ClusterDescriptor> tt_ClusterDescriptor::create_mock_cluster(
         desc->harvesting_masks.insert({logical_id, 0});
     }
     desc->fill_chips_grouped_by_closest_mmio();
+
+    desc->verify_cluster_descriptor_info();
 
     return desc;
 }
@@ -1287,4 +1292,26 @@ std::unordered_set<chip_id_t> tt_ClusterDescriptor::get_board_chips(const uint64
         return it->second;
     }
     throw std::runtime_error(fmt::format("Board to chips mapping for board {:#x} not found.", board_id));
+}
+
+void tt_ClusterDescriptor::verify_cluster_descriptor_info() {
+    for (const chip_id_t chip : all_chips) {
+        if (!chip_to_board_id.empty() && chip_to_board_id.find(chip) == chip_to_board_id.end()) {
+            log_warning(LogSiliconDriver, "Chip {} does not have a board ID assigned.", chip);
+        }
+    }
+
+    for (const auto &[board_id, chips] : board_to_chips) {
+        const BoardType board_type = get_board_type_from_board_id(board_id);
+        const uint32_t number_chips_from_board = get_number_of_chips_from_board_type(board_type);
+        if (chips.size() != number_chips_from_board) {
+            log_warning(
+                LogSiliconDriver,
+                "Board {:#x} has {} chips, but expected {} chips for board type {}.",
+                board_id,
+                chips.size(),
+                number_chips_from_board,
+                board_type_to_string(board_type));
+        }
+    }
 }

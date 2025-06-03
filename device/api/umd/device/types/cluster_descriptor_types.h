@@ -116,6 +116,27 @@ inline BlackholeChipType get_blackhole_chip_type(const BoardType board_type, con
     }
 }
 
+inline uint32_t get_number_of_chips_from_board_type(const BoardType board_type) {
+    switch (board_type) {
+        case BoardType::N150:
+            return 1;
+        case BoardType::N300:
+            return 2;
+        case BoardType::P100:
+            return 1;
+        case BoardType::P150:
+            return 1;
+        case BoardType::P300:
+            return 2;
+        case BoardType::GALAXY:
+            return 32;
+        case BoardType::UBB:
+            return 8;
+        default:
+            throw std::runtime_error("Unknown board type for number of chips calculation.");
+    }
+}
+
 inline BoardType get_board_type_from_board_id(const uint64_t board_id) {
     uint64_t upi = (board_id >> 36) & 0xFFFFF;
 

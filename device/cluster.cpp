@@ -1180,6 +1180,8 @@ std::unique_ptr<tt_ClusterDescriptor> Cluster::create_cluster_descriptor(
 
     desc->fill_chips_grouped_by_closest_mmio();
 
+    desc->verify_cluster_descriptor_info();
+
     return desc;
 }
 

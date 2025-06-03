@@ -91,6 +91,8 @@ protected:
 
     void fill_chips_grouped_by_closest_mmio();
 
+    void verify_cluster_descriptor_info();
+
     std::map<chip_id_t, tt::umd::HarvestingMasks> harvesting_masks_map = {};
 
 public:

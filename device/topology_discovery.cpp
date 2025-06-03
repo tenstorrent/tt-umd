@@ -46,6 +46,8 @@ TopologyDiscovery::EthAddresses TopologyDiscovery::get_eth_addresses(uint32_t et
     uint64_t erisc_app_config;
     uint64_t erisc_remote_board_type_offset;
     uint64_t erisc_local_board_type_offset;
+    uint64_t erisc_local_board_id_lo_offset;
+    uint64_t erisc_remote_board_id_lo_offset;
 
     if (masked_version >= 0x060000) {
         boot_params = 0x1000;
@@ -68,9 +70,13 @@ TopologyDiscovery::EthAddresses TopologyDiscovery::get_eth_addresses(uint32_t et
         // -5
         erisc_remote_board_type_offset = 77;
         erisc_local_board_type_offset = 69;
+        erisc_remote_board_id_lo_offset = 72;
+        erisc_local_board_id_lo_offset = 64;
     } else {
         erisc_remote_board_type_offset = 72;
         erisc_local_board_type_offset = 64;
+        erisc_remote_board_id_lo_offset = 73;
+        erisc_local_board_id_lo_offset = 65;
     }
 
     return TopologyDiscovery::EthAddresses{
@@ -86,7 +92,9 @@ TopologyDiscovery::EthAddresses TopologyDiscovery::get_eth_addresses(uint32_t et
         erisc_app,
         erisc_app_config,
         erisc_remote_board_type_offset,
-        erisc_local_board_type_offset};
+        erisc_local_board_type_offset,
+        erisc_local_board_id_lo_offset,
+        erisc_remote_board_id_lo_offset};
 }
 
 void TopologyDiscovery::get_pcie_connected_chips() {
@@ -441,7 +449,7 @@ uint32_t TopologyDiscovery::get_remote_board_id(Chip* chip, tt_xy_pair eth_core)
     tt_device->read_from_device(
         &board_id,
         eth_core,
-        eth_addresses.results_buf + (4 * (eth_addresses.erisc_remote_board_type_offset - 5)),
+        eth_addresses.results_buf + (4 * eth_addresses.erisc_remote_board_id_lo_offset),
         sizeof(uint32_t));
     std::cout << "remote board id " << std::hex << board_id << std::dec << std::endl;
     return board_id;
@@ -453,7 +461,7 @@ uint32_t TopologyDiscovery::get_local_board_id(Chip* chip, tt_xy_pair eth_core) 
     tt_device->read_from_device(
         &board_id,
         eth_core,
-        eth_addresses.results_buf + (4 * (eth_addresses.erisc_local_board_type_offset - 5)),
+        eth_addresses.results_buf + (4 * eth_addresses.erisc_local_board_id_lo_offset),
         sizeof(uint32_t));
     std::cout << "local board id " << std::hex << board_id << std::dec << std::endl;
     return board_id;

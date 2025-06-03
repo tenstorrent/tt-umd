@@ -61,6 +61,8 @@ private:
         uint64_t erisc_app_config;
         uint64_t erisc_remote_board_type_offset;
         uint64_t erisc_local_board_type_offset;
+        uint64_t erisc_local_board_id_lo_offset;
+        uint64_t erisc_remote_board_id_lo_offset;
     };
 
     static EthAddresses get_eth_addresses(uint32_t eth_fw_version);

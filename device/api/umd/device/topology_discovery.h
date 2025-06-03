@@ -75,8 +75,12 @@ private:
 
     bool is_board_id_included(uint32_t board_id) const;
 
+    // Returns mangled remote board id from local ETH core.
+    // This information can still be used to unique identify a board.
     uint32_t get_remote_board_id(Chip* chip, tt_xy_pair eth_core);
 
+    // Returns mangled local board id from local ETH core.
+    // This information can still be used to unique identify a board.
     uint32_t get_local_board_id(Chip* chip, tt_xy_pair eth_core);
 
     std::unordered_map<chip_id_t, std::unique_ptr<Chip>> chips;

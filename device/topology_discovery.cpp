@@ -99,10 +99,10 @@ void TopologyDiscovery::get_pcie_connected_chips() {
         std::unique_ptr<LocalChip> chip = nullptr;
         chip = std::make_unique<LocalChip>(TTDevice::create(device_id));
 
-        // ETH addresses neet to be initialized after the first chip is created, so we could
+        // ETH addresses need to be initialized after the first chip is created, so we could
         // read the information about offsets of board IDs on ETH core.
-        // TODO: confirm that we should only suppoer one set of addresses so we can remove
-        // figuring out ETH addresses from in runtime and move it to constants.
+        // TODO: confirm that we should only support one set of addresses so we can remove
+        // figuring out ETH addresses from runtime and move it to constants.
         if (chip_id == 0) {
             eth_addresses = TopologyDiscovery::get_eth_addresses(
                 chip->get_tt_device()->get_arc_telemetry_reader()->read_entry(wormhole::TAG_ETH_FW_VERSION));

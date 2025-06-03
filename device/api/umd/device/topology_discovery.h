@@ -10,6 +10,32 @@
 
 class tt_ClusterDescriptor;
 
+// Currently we need this to uniquely identify a chip.
+// Once we can also extract asic_location, then board_id + asic_location should be a unique identifier for all chips.
+// This structure is used only during topology discovery to do it properly.
+struct UniqueCoord {
+    uint64_t board_id;
+    eth_coord_t eth_coord;
+
+    bool operator==(const UniqueCoord& other) const {
+        return board_id == other.board_id && eth_coord == other.eth_coord;
+    }
+};
+
+// Make it hashable so it can be a key in a hashmap
+namespace std {
+template <>
+struct hash<UniqueCoord> {
+    std::size_t operator()(UniqueCoord const& c) const {
+        std::size_t seed = 0;
+        boost_hash_combine(seed, c.board_id);
+        boost_hash_combine(seed, hash<eth_coord_t>()(c.eth_coord));
+        return seed;
+    }
+};
+
+}  // namespace std
+
 namespace tt::umd {
 
 // TopologyDiscovery class creates cluster descriptor only for Wormhole configurations with old routing fw.
@@ -51,7 +77,7 @@ private:
 
     std::unordered_map<chip_id_t, std::unique_ptr<Chip>> chips;
 
-    std::unordered_map<eth_coord_t, chip_id_t> eth_coord_to_chip_id;
+    std::unordered_map<UniqueCoord, chip_id_t> unique_coord_to_chip_id;
 
     std::unordered_map<chip_id_t, eth_coord_t> eth_coords;
 

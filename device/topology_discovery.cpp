@@ -118,8 +118,10 @@ void TopologyDiscovery::discover_remote_chips() {
 
     std::unordered_map<uint64_t, chip_id_t> chip_uid_to_local_chip_id = {};
 
-    std::unordered_set<eth_coord_t> discovered_chips = {};
-    std::unordered_set<eth_coord_t> remote_chips_to_discover = {};
+    std::unordered_set<UniqueCoord> discovered_chips = {};
+    std::unordered_set<UniqueCoord> remote_chips_to_discover = {};
+    // Needed to know which chip to use for remote communication.
+    std::unordered_map<UniqueCoord, chip_id_t> remote_unique_coord_to_mmio_chip_id = {};
 
     for (const auto& [chip_id, chip] : chips) {
         std::vector<CoreCoord> eth_cores =
@@ -130,17 +132,18 @@ void TopologyDiscovery::discover_remote_chips() {
         tt_device->read_from_device(
             &current_chip_eth_coord_info, eth_cores[0], eth_addresses.node_info + 8, sizeof(uint32_t));
 
-        eth_coord_t current_chip_eth_coord;
-        current_chip_eth_coord.cluster_id = 0;
-        current_chip_eth_coord.x = (current_chip_eth_coord_info >> 16) & 0xFF;
-        current_chip_eth_coord.y = (current_chip_eth_coord_info >> 24) & 0xFF;
-        current_chip_eth_coord.rack = current_chip_eth_coord_info & 0xFF;
-        current_chip_eth_coord.shelf = (current_chip_eth_coord_info >> 8) & 0xFF;
+        UniqueCoord current_chip_unique_coord;
+        current_chip_unique_coord.board_id = tt_device->get_board_id();
+        current_chip_unique_coord.eth_coord.cluster_id = 0;
+        current_chip_unique_coord.eth_coord.x = (current_chip_eth_coord_info >> 16) & 0xFF;
+        current_chip_unique_coord.eth_coord.y = (current_chip_eth_coord_info >> 24) & 0xFF;
+        current_chip_unique_coord.eth_coord.rack = current_chip_eth_coord_info & 0xFF;
+        current_chip_unique_coord.eth_coord.shelf = (current_chip_eth_coord_info >> 8) & 0xFF;
 
-        eth_coords.emplace(chip_id, current_chip_eth_coord);
-        eth_coord_to_chip_id.emplace(current_chip_eth_coord, chip_id);
+        eth_coords.emplace(chip_id, current_chip_unique_coord.eth_coord);
+        unique_coord_to_chip_id.emplace(current_chip_unique_coord, chip_id);
 
-        discovered_chips.insert(current_chip_eth_coord);
+        discovered_chips.insert(current_chip_unique_coord);
     }
 
     for (const auto& [chip_id, chip] : chips) {
@@ -152,16 +155,17 @@ void TopologyDiscovery::discover_remote_chips() {
         tt_device->read_from_device(
             &current_chip_eth_coord_info, eth_cores[0], eth_addresses.node_info + 8, sizeof(uint32_t));
 
-        eth_coord_t current_chip_eth_coord;
-        current_chip_eth_coord.cluster_id = 0;
-        current_chip_eth_coord.x = (current_chip_eth_coord_info >> 16) & 0xFF;
-        current_chip_eth_coord.y = (current_chip_eth_coord_info >> 24) & 0xFF;
-        current_chip_eth_coord.rack = current_chip_eth_coord_info & 0xFF;
-        current_chip_eth_coord.shelf = (current_chip_eth_coord_info >> 8) & 0xFF;
+        UniqueCoord current_chip_unique_coord;
+        current_chip_unique_coord.board_id = tt_device->get_board_id();
+        current_chip_unique_coord.eth_coord.cluster_id = 0;
+        current_chip_unique_coord.eth_coord.x = (current_chip_eth_coord_info >> 16) & 0xFF;
+        current_chip_unique_coord.eth_coord.y = (current_chip_eth_coord_info >> 24) & 0xFF;
+        current_chip_unique_coord.eth_coord.rack = current_chip_eth_coord_info & 0xFF;
+        current_chip_unique_coord.eth_coord.shelf = (current_chip_eth_coord_info >> 8) & 0xFF;
 
         std::set<uint32_t> active_eth_channels;
 
-        std::unordered_set<eth_coord_t> remote_eth_coords_to_consider = {};
+        std::unordered_set<UniqueCoord> remote_eth_coords_to_consider = {};
 
         uint32_t channel = 0;
         for (const CoreCoord& eth_core : eth_cores) {
@@ -195,18 +199,25 @@ void TopologyDiscovery::discover_remote_chips() {
             uint32_t remote_noc_x = (remote_id >> 4) & 0x3F;
             uint32_t remote_noc_y = (remote_id >> 10) & 0x3F;
 
-            eth_coord_t eth_coord;
-            eth_coord.cluster_id = 0;
-            eth_coord.x = remote_shelf_x;
-            eth_coord.y = remote_shelf_y;
-            eth_coord.rack = remote_rack_x;
-            eth_coord.shelf = remote_rack_y;
+            UniqueCoord unique_coord;
+            unique_coord.eth_coord.cluster_id = 0;
+            unique_coord.eth_coord.x = remote_shelf_x;
+            unique_coord.eth_coord.y = remote_shelf_y;
+            unique_coord.eth_coord.rack = remote_rack_x;
+            unique_coord.eth_coord.shelf = remote_rack_y;
 
-            if (discovered_chips.find(eth_coord) == discovered_chips.end()) {
-                remote_eth_coords_to_consider.insert(eth_coord);
+            chip->set_remote_transfer_ethernet_cores(active_eth_channels);
+            std::unique_ptr<RemoteWormholeTTDevice> remote_tt_device =
+                std::make_unique<RemoteWormholeTTDevice>(dynamic_cast<LocalChip*>(chip.get()), unique_coord.eth_coord);
+
+            unique_coord.board_id = remote_tt_device->get_board_id();
+
+            if (discovered_chips.find(unique_coord) == discovered_chips.end()) {
+                remote_eth_coords_to_consider.insert(unique_coord);
+                remote_unique_coord_to_mmio_chip_id.emplace(unique_coord, chip_id);
             } else {
-                chip_id_t current_chip_id = eth_coord_to_chip_id.at(current_chip_eth_coord);
-                chip_id_t remote_chip_id = eth_coord_to_chip_id.at(eth_coord);
+                chip_id_t current_chip_id = unique_coord_to_chip_id.at(current_chip_unique_coord);
+                chip_id_t remote_chip_id = unique_coord_to_chip_id.at(unique_coord);
                 Chip* remote_chip = chips.at(remote_chip_id).get();
                 CoreCoord physical_remote_eth =
                     CoreCoord(remote_noc_x, remote_noc_y, CoreType::ETH, CoordSystem::PHYSICAL);
@@ -218,11 +229,11 @@ void TopologyDiscovery::discover_remote_chips() {
         }
         chip->set_remote_transfer_ethernet_cores(active_eth_channels);
 
-        for (const eth_coord_t& remote_eth_coord : remote_eth_coords_to_consider) {
+        for (const UniqueCoord& remote_coord : remote_eth_coords_to_consider) {
             std::unique_ptr<RemoteWormholeTTDevice> remote_tt_device =
-                std::make_unique<RemoteWormholeTTDevice>(dynamic_cast<LocalChip*>(chip.get()), remote_eth_coord);
+                std::make_unique<RemoteWormholeTTDevice>(dynamic_cast<LocalChip*>(chip.get()), remote_coord.eth_coord);
             if (is_board_id_included(remote_tt_device->get_chip_info().chip_uid.board_id)) {
-                remote_chips_to_discover.insert(remote_eth_coord);
+                remote_chips_to_discover.insert(remote_coord);
             }
         }
     }
@@ -231,37 +242,38 @@ void TopologyDiscovery::discover_remote_chips() {
         return;
     }
 
-    Chip* mmio_chip = chips.at(0).get();
-    TTDevice* tt_device = mmio_chip->get_tt_device();
-    std::unique_ptr<RemoteCommunication> remote_comm =
-        std::make_unique<RemoteCommunication>(dynamic_cast<LocalChip*>(mmio_chip));
-
     while (!remote_chips_to_discover.empty()) {
-        std::unordered_set<eth_coord_t> new_remote_chips = {};
+        std::unordered_set<UniqueCoord> new_remote_chips = {};
 
-        for (const eth_coord_t& eth_coord : remote_chips_to_discover) {
+        for (const UniqueCoord& unique_coord : remote_chips_to_discover) {
+            chip_id_t mmio_chip_id = remote_unique_coord_to_mmio_chip_id.at(unique_coord);
+            Chip* mmio_chip = chips.at(mmio_chip_id).get();
+            TTDevice* tt_device = mmio_chip->get_tt_device();
+            std::unique_ptr<RemoteCommunication> remote_comm =
+                std::make_unique<RemoteCommunication>(dynamic_cast<LocalChip*>(mmio_chip));
+
             std::vector<CoreCoord> eth_cores = mmio_chip->get_soc_descriptor().get_cores(
                 CoreType::ETH, umd_use_noc1 ? CoordSystem::NOC1 : CoordSystem::NOC0);
 
             uint32_t current_chip_eth_coord_info;
-            remote_comm->read_non_mmio(
-                eth_coord, eth_cores[0], &current_chip_eth_coord_info, eth_addresses.node_info + 8, sizeof(uint32_t));
-
-            eth_coord_t current_chip_eth_coord;
-            current_chip_eth_coord.cluster_id = 0;
-            current_chip_eth_coord.x = (current_chip_eth_coord_info >> 16) & 0xFF;
-            current_chip_eth_coord.y = (current_chip_eth_coord_info >> 24) & 0xFF;
-            current_chip_eth_coord.rack = current_chip_eth_coord_info & 0xFF;
-            current_chip_eth_coord.shelf = (current_chip_eth_coord_info >> 8) & 0xFF;
-
-            discovered_chips.insert(eth_coord);
 
             std::unique_ptr<RemoteWormholeTTDevice> remote_tt_device =
-                std::make_unique<RemoteWormholeTTDevice>(dynamic_cast<LocalChip*>(mmio_chip), eth_coord);
+                std::make_unique<RemoteWormholeTTDevice>(dynamic_cast<LocalChip*>(mmio_chip), unique_coord.eth_coord);
+
+            remote_tt_device->read_from_device(
+                &current_chip_eth_coord_info, eth_cores[0], eth_addresses.node_info + 8, sizeof(uint32_t));
+
+            UniqueCoord current_chip_unique_coord;
+            current_chip_unique_coord.board_id = remote_tt_device->get_board_id();
+            current_chip_unique_coord.eth_coord.cluster_id = 0;
+            current_chip_unique_coord.eth_coord.x = (current_chip_eth_coord_info >> 16) & 0xFF;
+            current_chip_unique_coord.eth_coord.y = (current_chip_eth_coord_info >> 24) & 0xFF;
+            current_chip_unique_coord.eth_coord.rack = current_chip_eth_coord_info & 0xFF;
+            current_chip_unique_coord.eth_coord.shelf = (current_chip_eth_coord_info >> 8) & 0xFF;
+
+            discovered_chips.insert(current_chip_unique_coord);
 
             ChipInfo chip_info = remote_tt_device->get_chip_info();
-
-            discovered_chips.insert(eth_coord);
 
             std::unique_ptr<RemoteChip> chip = nullptr;
             chip = std::make_unique<RemoteChip>(
@@ -273,15 +285,15 @@ void TopologyDiscovery::discover_remote_chips() {
                 std::move(remote_tt_device));
 
             chips.emplace(chip_id, std::move(chip));
-            eth_coords.emplace(chip_id, current_chip_eth_coord);
-            eth_coord_to_chip_id.emplace(current_chip_eth_coord, chip_id);
+            eth_coords.emplace(chip_id, current_chip_unique_coord.eth_coord);
+            unique_coord_to_chip_id.emplace(current_chip_unique_coord, chip_id);
             chip_id++;
 
             uint32_t channel = 0;
             for (const CoreCoord& eth_core : eth_cores) {
                 uint32_t port_status;
                 remote_comm->read_non_mmio(
-                    eth_coord,
+                    unique_coord.eth_coord,
                     tt_xy_pair(eth_core.x, eth_core.y),
                     &port_status,
                     eth_addresses.eth_conn_info + (channel * 4),
@@ -294,7 +306,7 @@ void TopologyDiscovery::discover_remote_chips() {
 
                 uint32_t remote_id;
                 remote_comm->read_non_mmio(
-                    eth_coord,
+                    unique_coord.eth_coord,
                     {eth_core.x, eth_core.y},
                     &remote_id,
                     eth_addresses.node_info + (4 * rack_offset),
@@ -304,7 +316,7 @@ void TopologyDiscovery::discover_remote_chips() {
                 uint32_t remote_rack_y = (remote_id >> 8) & 0xFF;
 
                 remote_comm->read_non_mmio(
-                    eth_coord,
+                    unique_coord.eth_coord,
                     {eth_core.x, eth_core.y},
                     &remote_id,
                     eth_addresses.node_info + (4 * shelf_offset),
@@ -316,24 +328,27 @@ void TopologyDiscovery::discover_remote_chips() {
                 uint32_t remote_noc_x = (remote_id >> 4) & 0x3F;
                 uint32_t remote_noc_y = (remote_id >> 10) & 0x3F;
 
-                eth_coord_t new_eth_coord;
-                new_eth_coord.cluster_id = 0;
-                new_eth_coord.x = remote_shelf_x;
-                new_eth_coord.y = remote_shelf_y;
-                new_eth_coord.rack = remote_rack_x;
-                new_eth_coord.shelf = remote_rack_y;
+                UniqueCoord new_unique_coord;
+                new_unique_coord.eth_coord.cluster_id = 0;
+                new_unique_coord.eth_coord.x = remote_shelf_x;
+                new_unique_coord.eth_coord.y = remote_shelf_y;
+                new_unique_coord.eth_coord.rack = remote_rack_x;
+                new_unique_coord.eth_coord.shelf = remote_rack_y;
 
-                if (discovered_chips.find(new_eth_coord) == discovered_chips.end()) {
-                    std::unique_ptr<RemoteWormholeTTDevice> new_remote_tt_device =
-                        std::make_unique<RemoteWormholeTTDevice>(dynamic_cast<LocalChip*>(mmio_chip), new_eth_coord);
+                std::unique_ptr<RemoteWormholeTTDevice> new_remote_tt_device = std::make_unique<RemoteWormholeTTDevice>(
+                    dynamic_cast<LocalChip*>(mmio_chip), new_unique_coord.eth_coord);
+
+                new_unique_coord.board_id = new_remote_tt_device->get_board_id();
+
+                if (discovered_chips.find(new_unique_coord) == discovered_chips.end()) {
                     if (is_board_id_included(new_remote_tt_device->get_chip_info().chip_uid.board_id)) {
-                        if (remote_chips_to_discover.find(new_eth_coord) == remote_chips_to_discover.end()) {
-                            new_remote_chips.insert(new_eth_coord);
+                        if (remote_chips_to_discover.find(new_unique_coord) == remote_chips_to_discover.end()) {
+                            new_remote_chips.insert(new_unique_coord);
                         }
                     }
                 } else {
-                    chip_id_t current_chip_id = eth_coord_to_chip_id.at(current_chip_eth_coord);
-                    chip_id_t remote_chip_id = eth_coord_to_chip_id.at(new_eth_coord);
+                    chip_id_t current_chip_id = unique_coord_to_chip_id.at(current_chip_unique_coord);
+                    chip_id_t remote_chip_id = unique_coord_to_chip_id.at(new_unique_coord);
                     Chip* remote_chip = chips.at(remote_chip_id).get();
                     CoreCoord physical_remote_eth =
                         CoreCoord(remote_noc_x, remote_noc_y, CoreType::ETH, CoordSystem::PHYSICAL);
@@ -349,6 +364,8 @@ void TopologyDiscovery::discover_remote_chips() {
 
         remote_chips_to_discover = new_remote_chips;
     }
+
+    tt_ClusterDescriptor::merge_cluster_ids(*cluster_desc.get());
 }
 
 void TopologyDiscovery::fill_cluster_descriptor_info() {

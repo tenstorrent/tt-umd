@@ -20,7 +20,7 @@ public:
      *
      * @param fd File descriptor of the PCI device.
      * @param size Size of the TLB to allocate.
-     * @param tlb_mapping Type of TLB mapping (UC or WC). The first mapping of TLB determines it's caching behavior.
+     * @param tlb_mapping Type of TLB mapping (UC or WC). The first mapping of TLB determines its caching behavior.
      */
     TlbHandle(uint32_t fd, size_t size, const TlbMapping tlb_mapping = TlbMapping::UC);
 

@@ -25,8 +25,6 @@ TlbHandle::TlbHandle(uint32_t fd, size_t size, const TlbMapping tlb_mapping) :
 
     tlb_id = allocate_tlb.out.id;
 
-    // mmap only UC offset for now.
-    // TODO: add choice whether to map UC or WC mapping.
     void* mapped_tlb =
         tlb_mapping == TlbMapping::UC
             ? mmap(nullptr, size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, allocate_tlb.out.mmap_offset_uc)

@@ -93,8 +93,6 @@ private:
 
     // All board ids that should be included in the cluster descriptor.
     std::unordered_set<uint64_t> board_ids;
-
-    LockManager lock_manager;
 };
 
 }  // namespace tt::umd

@@ -21,14 +21,7 @@ extern bool umd_use_noc1;
 namespace tt::umd {
 
 TopologyDiscovery::TopologyDiscovery(std::unordered_set<chip_id_t> pci_target_devices) :
-    pci_target_devices(pci_target_devices) {
-    // TODO: Remove this once we have unique chip ids to lock ARC_MSG mutexes.
-    // It can happen that multiple topology discovery instances run in parallel, and they can create multuple
-    // RemoteTTDevice objects over the same remote chip but using different local one. This will make the locks (which
-    // are over pci device num) allow multiple remote arc messages to the same remote chip which will break the
-    // communication.
-    lock_manager.initialize_mutex(MutexType::CREATE_ETH_MAP);
-}
+    pci_target_devices(pci_target_devices) {}
 
 std::unique_ptr<tt_ClusterDescriptor> TopologyDiscovery::create_ethernet_map() {
     cluster_desc = std::unique_ptr<tt_ClusterDescriptor>(new tt_ClusterDescriptor());
@@ -118,8 +111,6 @@ void TopologyDiscovery::get_pcie_connected_chips() {
 }
 
 void TopologyDiscovery::discover_remote_chips() {
-    auto lock = lock_manager.acquire_mutex(MutexType::CREATE_ETH_MAP);
-
     const uint32_t eth_unknown = 0;
     const uint32_t eth_unconnected = 1;
     const uint32_t shelf_offset = 9;

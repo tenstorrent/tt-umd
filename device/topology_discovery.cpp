@@ -65,6 +65,7 @@ TopologyDiscovery::EthAddresses TopologyDiscovery::get_eth_addresses(uint32_t et
     }
 
     if (masked_version >= 0x06C000) {
+        // -5
         erisc_remote_board_type_offset = 77;
         erisc_local_board_type_offset = 69;
     } else {
@@ -437,7 +438,11 @@ bool TopologyDiscovery::is_board_id_included(uint32_t board_id) const {
 uint32_t TopologyDiscovery::get_remote_board_id(Chip* chip, tt_xy_pair eth_core) {
     TTDevice* tt_device = chip->get_tt_device();
     uint32_t board_id;
-    tt_device->read_from_device(&board_id, eth_core, eth_addresses.results_buf + (4 * 72), sizeof(uint32_t));
+    tt_device->read_from_device(
+        &board_id,
+        eth_core,
+        eth_addresses.results_buf + (4 * (eth_addresses.erisc_remote_board_type_offset - 5)),
+        sizeof(uint32_t));
     std::cout << "remote board id " << std::hex << board_id << std::dec << std::endl;
     return board_id;
 }
@@ -445,7 +450,11 @@ uint32_t TopologyDiscovery::get_remote_board_id(Chip* chip, tt_xy_pair eth_core)
 uint32_t TopologyDiscovery::get_local_board_id(Chip* chip, tt_xy_pair eth_core) {
     TTDevice* tt_device = chip->get_tt_device();
     uint32_t board_id;
-    tt_device->read_from_device(&board_id, eth_core, eth_addresses.results_buf + (4 * 64), sizeof(uint32_t));
+    tt_device->read_from_device(
+        &board_id,
+        eth_core,
+        eth_addresses.results_buf + (4 * (eth_addresses.erisc_local_board_type_offset - 5)),
+        sizeof(uint32_t));
     std::cout << "local board id " << std::hex << board_id << std::dec << std::endl;
     return board_id;
 }

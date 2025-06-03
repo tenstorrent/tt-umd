@@ -68,8 +68,6 @@ TEST(ApiClusterTest, OpenChipsByPciId) {
         std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>(ClusterOptions{
             .pci_target_devices = target_pci_device_ids,
         });
-
-        cluster->get_cluster_description()->serialize_to_file("cluster.yaml");
     }
 }
 

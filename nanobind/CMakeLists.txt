@@ -2,7 +2,7 @@
 # https://github.com/wjakob/nanobind/blob/master/docs/building.rst
 # Use Development.Module to support manylinux
 # Python module library should not dynamically link libpython.so or use Development.Embed
-find_package(Python REQUIRED COMPONENTS Development.Module)
+find_package(Python REQUIRED COMPONENTS Development)
 
 # Define the Python interface target
 nanobind_add_module(nanobind_tt_umd MODULE py_api_module.cpp py_api_basic_types.cpp py_api_topology_discovery.cpp py_api_telemetry.cpp py_api_tt_device.cpp py_api_cluster.cpp)

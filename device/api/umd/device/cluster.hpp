@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: (c) 2023 Tenstorrent Inc.
+ * SPDX-FileCopyrightText: (c) 2025 Tenstorrent Inc.
  *
  * SPDX-License-Identifier: Apache-2.0
  */
@@ -186,14 +186,14 @@ public:
      *
      * @param logical_device_id Logical Device being targeted.
      * @param core The TLB will be programmed to point to this core.
-     * @param tlb_index TLB id that will be programmed.
+     * @param tlb_size TLB size that will be programmed.
      * @param address Start address TLB is mapped to.
      * @param ordering Ordering mode for the TLB.
      */
     void configure_tlb(
         ChipId logical_device_id,
         tt_xy_pair core,
-        int32_t tlb_index,
+        size_t tlb_size,
         uint64_t address,
         uint64_t ordering = tlb_data::Relaxed);
 
@@ -203,14 +203,14 @@ public:
      *
      * @param logical_device_id Logical Device being targeted.
      * @param core The TLB will be programmed to point to this core.
-     * @param tlb_index TLB id that will be programmed.
+     * @param tlb_size TLB size that will be programmed.
      * @param address Start address TLB is mapped to.
      * @param ordering Ordering mode for the TLB.
      */
     void configure_tlb(
         ChipId logical_device_id,
         CoreCoord core,
-        int32_t tlb_index,
+        size_t tlb_size,
         uint64_t address,
         uint64_t ordering = tlb_data::Relaxed);
 
@@ -447,7 +447,7 @@ public:
      *
      * @param target The target chip and core to write to.
      */
-    Writer get_static_tlb_writer(const ChipId chip, const CoreCoord core);
+    Writer get_static_tlb_writer(const ChipId chip, const CoreCoord target);
 
     //---------- Functions for synchronization and memory barriers.
 

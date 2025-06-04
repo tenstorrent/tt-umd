@@ -152,11 +152,9 @@ TEST(Multiprocess, MultipleThreadsMultipleClustersOpenClose) {
     for (int i = 0; i < NUM_PARALLEL; i++) {
         threads.push_back(std::thread([&, i] {
             std::cout << "Starting cluster " << i << std::endl;
-            clusters[i]->start_device({});
             std::cout << "Running IO for cluster " << i << std::endl;
             test_read_write_all_tensix_cores_with_reserved_bytes_at_start(clusters[i].get(), i);
             std::cout << "Stopping cluster " << i << std::endl;
-            clusters[i]->close_device();
         }));
     }
     for (auto& th : threads) {

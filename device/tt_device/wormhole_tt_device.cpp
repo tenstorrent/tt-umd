@@ -624,13 +624,10 @@ bool WormholeTTDevice::is_hardware_hung() {
         TT_THROW("is_hardware_hung is not applicable for JTAG communication type.");
     }
 
-    volatile const void *addr = reinterpret_cast<const char *>(pci_device_->bar0_uc) +
-                                (architecture_impl_->get_arc_axi_apb_peripheral_offset() +
-                                 architecture_impl_->get_arc_reset_scratch_offset() + 6 * 4) -
-                                pci_device_->bar0_uc_offset;
-    std::uint32_t scratch_data = *reinterpret_cast<const volatile std::uint32_t *>(addr);
+    uint32_t scratch_data = bar_read32(
+        architecture_impl_->get_arc_axi_apb_peripheral_offset() + architecture_impl_->get_arc_reset_scratch_offset() +
+        6 * 4);
 
     return (scratch_data == HANG_READ_VALUE);
 }
-
 }  // namespace tt::umd

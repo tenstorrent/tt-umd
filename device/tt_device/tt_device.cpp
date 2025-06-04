@@ -28,11 +28,8 @@ TTDevice::TTDevice(
 }
 
 void TTDevice::init_tt_device() {
-    std::cout << "init tt device" << std::endl;
     arc_messenger_ = ArcMessenger::create_arc_messenger(this);
-    std::cout << "create arc telemetry" << std::endl;
     telemetry = ArcTelemetryReader::create_arc_telemetry_reader(this);
-    std::cout << "done" << std::endl;
 }
 
 TTDevice::TTDevice() {}
@@ -304,6 +301,7 @@ void TTDevice::write_to_device(void *mem_ptr, tt_xy_pair core, uint64_t addr, ui
 
 void TTDevice::write_tlb_reg(
     uint32_t byte_addr, uint64_t value_lower, uint64_t value_upper, uint32_t tlb_cfg_reg_size) {
+    TT_THROW("write_tlb_reg");
     TT_ASSERT(
         (tlb_cfg_reg_size == 8) or (tlb_cfg_reg_size == 12),
         "Tenstorrent hardware supports only 64bit or 96bit TLB config regs");
@@ -333,6 +331,7 @@ dynamic_tlb TTDevice::set_dynamic_tlb(
     std::uint64_t address,
     bool multicast,
     std::uint64_t ordering) {
+    TT_THROW("set_dynamic_tlb");
     if (multicast) {
         std::tie(start, end) = architecture_impl_->multicast_workaround(start, end);
     }

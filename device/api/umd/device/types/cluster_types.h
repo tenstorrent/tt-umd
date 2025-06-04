@@ -217,5 +217,4 @@ constexpr inline bool operator>=(const tt_version& a, const tt_version& b) {
 struct hugepage_mapping {
     void* mapping = nullptr;
     size_t mapping_size = 0;
-    uint64_t physical_address = 0;  // or IOVA, if IOMMU is enabled
 };

@@ -29,24 +29,26 @@ public:
     size_t get_num_host_mem_channels() const;
     hugepage_mapping get_hugepage_mapping(size_t channel) const;
 
-    std::unique_ptr<SysmemBuffer> allocate_sysmem_buffer(uint32_t sysmem_buffer_size);
+    std::unique_ptr<SysmemBuffer> allocate_sysmem_buffer(uint32_t sysmem_buffer_size, const bool map_to_noc = false);
 
-    std::unique_ptr<SysmemBuffer> map_sysmem_buffer(void* buffer, uint32_t sysmem_buffer_size);
+    std::unique_ptr<SysmemBuffer> map_sysmem_buffer(
+        void* buffer, uint32_t sysmem_buffer_size, const bool map_to_noc = false);
 
 private:
     /**
      * Allocate sysmem without hugepages and map it through IOMMU.
      * This is used when the system is protected by an IOMMU.  The mappings will
      * still appear as hugepages to the caller.
-     * @param size sysmem size in bytes; size % (1UL << 30) == 0
+     * @param num_fake_mem_channels number of fake mem channels to allocate
      * @return whether allocation/mapping succeeded.
      */
-    bool init_iommu(size_t size);
+    bool init_iommu(size_t num_fake_mem_channels);
 
     // For debug purposes when various stages fails.
     void print_file_contents(std::string filename, std::string hint = "");
 
     TLBManager* tlb_manager_;
+    const uint64_t pcie_base_;
 
     std::vector<hugepage_mapping> hugepage_mapping_per_channel;
 

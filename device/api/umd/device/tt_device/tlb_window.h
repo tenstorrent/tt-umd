@@ -38,6 +38,9 @@ private:
 
     uint64_t get_total_offset(uint64_t offset) const;
 
+    void memcpy_from_device(void* dest, const void* src, std::size_t num_bytes);
+    void memcpy_to_device(void* dest, const void* src, std::size_t num_bytes);
+
     std::unique_ptr<TlbHandle> tlb_handle;
     uint64_t offset_from_aligned_addr = 0;
 };

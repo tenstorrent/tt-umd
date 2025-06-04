@@ -183,6 +183,9 @@ public:
     size_t bar0_uc_size = 0;
     size_t bar0_uc_offset = 0;
 
+    // BAR0 base. UMD maps only ARC memory to user space, TLBs go through KMD.
+    void *bar0 = nullptr;
+
     void *bar0_wc = nullptr;
     size_t bar0_wc_size = 0;
 

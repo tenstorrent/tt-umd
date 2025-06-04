@@ -70,6 +70,7 @@ TEST_F(SimulationDeviceFixture, LoopbackTwoTensix) {
     std::vector<uint32_t> wdata2 = {6, 7, 8, 9, 10};
     std::vector<uint32_t> rdata1(wdata1.size());
     std::vector<uint32_t> rdata2(wdata2.size());
+    // soc_desc.get_cores(CoreType::TENSIX, CoordSystem::VIRTUAL);
     tt::umd::CoreCoord core1 = soc_desc.get_coord_at({0, 1}, CoordSystem::VIRTUAL);
     tt::umd::CoreCoord core2 = soc_desc.get_coord_at({1, 1}, CoordSystem::VIRTUAL);
 

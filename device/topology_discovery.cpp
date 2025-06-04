@@ -383,8 +383,6 @@ void TopologyDiscovery::discover_remote_chips() {
 
         remote_chips_to_discover = new_remote_chips;
     }
-
-    tt_ClusterDescriptor::merge_cluster_ids(*cluster_desc.get());
 }
 
 void TopologyDiscovery::fill_cluster_descriptor_info() {
@@ -427,6 +425,7 @@ void TopologyDiscovery::fill_cluster_descriptor_info() {
     }
 
     tt_ClusterDescriptor::fill_galaxy_connections(*cluster_desc.get());
+    tt_ClusterDescriptor::merge_cluster_ids(*cluster_desc.get());
 
     cluster_desc->fill_chips_grouped_by_closest_mmio();
 }

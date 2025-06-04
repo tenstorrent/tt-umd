@@ -327,3 +327,70 @@ TEST(TestTlb, TestTlbAccessOutofBounds) {
             << "Reading out of bounds from TLB window should throw an exception";
     }
 }
+
+TEST(TestTlb, TLBStaticTensix) {
+    std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
+
+    const CoreCoord tensix_core_0 = cluster->get_soc_descriptor(0).get_cores(CoreType::TENSIX)[0];
+    std::vector<uint32_t> zero_out(1024, 0);
+    std::vector<uint32_t> readback_zeros(1024, 0xFFFFFFFF);
+    cluster->write_to_device(zero_out.data(), zero_out.size() * sizeof(uint32_t), 0, tensix_core_0, 0);
+    cluster->read_from_device(readback_zeros.data(), 0, tensix_core_0, 0, readback_zeros.size() * sizeof(uint32_t));
+
+    EXPECT_EQ(readback_zeros, zero_out);
+
+    for (const CoreCoord tensix_core :
+         cluster->get_soc_descriptor(0).get_cores(CoreType::TENSIX, CoordSystem::TRANSLATED)) {
+        cluster->configure_tlb(0, tensix_core, 1 << 20, 0, tlb_data::Strict);
+    }
+
+    Writer writer = cluster->get_static_tlb_writer(0, tensix_core_0);
+
+    const int num_writes = 1024;
+    for (int i = 0; i < num_writes; i++) {
+        writer.write(4 * i, i);
+    }
+
+    std::vector<uint32_t> readback(num_writes, 0);
+    cluster->read_from_device(readback.data(), 0, tensix_core_0, 0, readback.size() * sizeof(uint32_t));
+
+    for (int i = 0; i < num_writes; i++) {
+        EXPECT_EQ(readback[i], i);
+    }
+}
+
+TEST(TestTlb, TlbStaticTensixETH) {
+    std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
+
+    for (const CoreCoord tensix_core :
+         cluster->get_soc_descriptor(0).get_cores(CoreType::TENSIX, CoordSystem::TRANSLATED)) {
+        std::vector<uint32_t> zero_out(1024, 0);
+        std::vector<uint32_t> readback_zeros(1024, 0xFFFFFFFF);
+        cluster->write_to_device(zero_out.data(), zero_out.size() * sizeof(uint32_t), 0, tensix_core, 0);
+        cluster->read_from_device(readback_zeros.data(), 0, tensix_core, 0, readback_zeros.size() * sizeof(uint32_t));
+
+        EXPECT_EQ(readback_zeros, zero_out);
+    }
+
+    for (const CoreCoord tensix_core :
+         cluster->get_soc_descriptor(0).get_cores(CoreType::TENSIX, CoordSystem::TRANSLATED)) {
+        cluster->configure_tlb(0, tensix_core, 1 << 20, 0, tlb_data::Strict);
+    }
+
+    for (const CoreCoord& eth_core : cluster->get_soc_descriptor(0).get_cores(CoreType::ETH, CoordSystem::TRANSLATED)) {
+        cluster->configure_tlb(0, eth_core, 1 << 20, 0, tlb_data::Strict);
+    }
+
+    for (const CoreCoord tensix_core :
+         cluster->get_soc_descriptor(0).get_cores(CoreType::TENSIX, CoordSystem::TRANSLATED)) {
+        std::vector<uint32_t> data_write(1024, 0);
+        for (size_t i = 0; i < data_write.size(); ++i) {
+            data_write[i] = (i % 256);
+        }
+        std::vector<uint32_t> readback(1024, 0);
+        cluster->write_to_device(data_write.data(), data_write.size() * sizeof(uint32_t), 0, tensix_core, 0);
+        cluster->read_from_device(readback.data(), 0, tensix_core, 0, readback.size() * sizeof(uint32_t));
+
+        EXPECT_EQ(readback, data_write);
+    }
+}

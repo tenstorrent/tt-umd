@@ -36,7 +36,10 @@ public:
 private:
     void validate(uint64_t offset, size_t size) const;
 
+    uint64_t get_total_offset(uint64_t offset) const;
+
     std::unique_ptr<TlbHandle> tlb_handle;
+    uint64_t offset_from_aligned_addr = 0;
 };
 
 }  // namespace tt::umd

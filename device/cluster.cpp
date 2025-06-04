@@ -501,20 +501,20 @@ tlb_configuration Cluster::get_tlb_configuration(const chip_id_t chip, CoreCoord
 
 // TODO: These configure_tlb APIs are soon going away.
 void Cluster::configure_tlb(
-    chip_id_t logical_device_id, tt_xy_pair core, int32_t tlb_index, uint64_t address, uint64_t ordering) {
+    chip_id_t logical_device_id, tt_xy_pair core, size_t tlb_size, uint64_t address, uint64_t ordering) {
     configure_tlb(
         logical_device_id,
         get_soc_descriptor(logical_device_id).get_coord_at(core, CoordSystem::VIRTUAL),
-        tlb_index,
+        tlb_size,
         address,
         ordering);
 }
 
 void Cluster::configure_tlb(
-    chip_id_t logical_device_id, CoreCoord core, int32_t tlb_index, uint64_t address, uint64_t ordering) {
+    chip_id_t logical_device_id, CoreCoord core, size_t tlb_size, uint64_t address, uint64_t ordering) {
     tt_xy_pair virtual_core = get_soc_descriptor(logical_device_id).translate_coord_to(core, CoordSystem::VIRTUAL);
     tt_xy_pair translated_core = get_chip(logical_device_id)->translate_chip_coord_to_translated(core);
-    get_tlb_manager(logical_device_id)->configure_tlb(virtual_core, translated_core, tlb_index, address, ordering);
+    get_tlb_manager(logical_device_id)->configure_tlb(virtual_core, translated_core, tlb_size, address, ordering);
 }
 
 void* Cluster::host_dma_address(std::uint64_t offset, chip_id_t src_device_id, uint16_t channel) const {

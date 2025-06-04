@@ -53,6 +53,11 @@ public:
      */
     const TlbMapping get_tlb_mapping() const;
 
+    /**
+     * Returns the TLB ID, actually representing index of TLB in BAR0.
+     */
+    int get_tlb_id() const;
+
 private:
     void free_tlb() noexcept;
 

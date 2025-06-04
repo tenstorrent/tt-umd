@@ -851,7 +851,7 @@ TEST(SiliconDriverWH, DMA1) {
     const chip_id_t chip = 0;
     Cluster cluster;
 
-    cluster.start_device(tt_device_params{});
+    // cluster.start_device(tt_device_params{});
 
     auto& soc_descriptor = cluster.get_soc_descriptor(chip);
     size_t dram_count = soc_descriptor.get_num_dram_channels();
@@ -902,7 +902,7 @@ TEST(SiliconDriverWH, DMA2) {
     Cluster cluster;
 
     set_barrier_params(cluster);
-    cluster.start_device(tt_device_params{});
+    // cluster.start_device(tt_device_params{});
 
     auto& soc_descriptor = cluster.get_soc_descriptor(chip);
     size_t dram_count = soc_descriptor.get_num_dram_channels();

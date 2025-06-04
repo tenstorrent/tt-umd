@@ -263,20 +263,34 @@ void LocalChip::read_from_device(tt_xy_pair core, void* dest, uint64_t l1_src, u
 }
 
 void LocalChip::dma_write_to_device(const void* src, size_t size, tt_xy_pair core, uint64_t addr) {
-    static const std::string tlb_name = "LARGE_WRITE_TLB";
-
     const uint8_t* buffer = static_cast<const uint8_t*>(src);
-
-    auto tlb_index = tlb_manager_->dynamic_tlb_config_.at(tlb_name);
-    auto ordering = tlb_manager_->dynamic_tlb_ordering_modes_.at(tlb_name);
     PCIDevice* pci_device = tt_device_->get_pci_device().get();
     size_t dmabuf_size = pci_device->get_dma_buffer().size;
 
     core = translate_chip_coord_virtual_to_translated(core);
 
-    auto lock = acquire_mutex(tlb_name, pci_device->get_device_num());
+    tlb_data config;
+    config.local_offset = addr;
+    config.x_end = core.x;
+    config.y_end = core.y;
+    config.x_start = 0;
+    config.y_start = 0;
+    config.noc_sel = 0;
+    config.mcast = 0;
+    config.ordering = tlb_data::Relaxed;
+    config.linked = 0;
+    config.static_vc = 1;
+    const uint32_t two_mb_size = 1 << 21;
+    std::unique_ptr<TlbWindow> tlb_window =
+        std::make_unique<TlbWindow>(pci_device->allocate_tlb(two_mb_size, TlbMapping::WC), config);
+
+    auto axi_address = (uint64_t)tlb_window->handle_ref().get_base();
+
+    // auto lock = acquire_mutex(tlb_name, pci_device->get_device_num());
     while (size > 0) {
-        auto [axi_address, tlb_size] = tt_device_->set_dynamic_tlb(tlb_index, core, addr, ordering);
+        // auto [axi_address, tlb_size] = tt_device_->set_dynamic_tlb(tlb_index, core, addr, ordering);
+
+        auto tlb_size = tlb_window->get_size();
 
         size_t transfer_size = std::min({size, tlb_size, dmabuf_size});
 
@@ -285,23 +299,41 @@ void LocalChip::dma_write_to_device(const void* src, size_t size, tt_xy_pair cor
         size -= transfer_size;
         addr += transfer_size;
         buffer += transfer_size;
+
+        config.local_offset = addr;
+        tlb_window->configure(config);
     }
 }
 
 void LocalChip::dma_read_from_device(void* dst, size_t size, tt_xy_pair core, uint64_t addr) {
-    static const std::string tlb_name = "LARGE_READ_TLB";
     uint8_t* buffer = static_cast<uint8_t*>(dst);
-    auto tlb_index = tlb_manager_->dynamic_tlb_config_.at(tlb_name);
-    auto ordering = tlb_manager_->dynamic_tlb_ordering_modes_.at(tlb_name);
     PCIDevice* pci_device = tt_device_->get_pci_device().get();
     size_t dmabuf_size = pci_device->get_dma_buffer().size;
 
     core = translate_chip_coord_virtual_to_translated(core);
 
-    auto lock = acquire_mutex(tlb_name, pci_device->get_device_num());
-    while (size > 0) {
-        auto [axi_address, tlb_size] = tt_device_->set_dynamic_tlb(tlb_index, core, addr, ordering);
+    tlb_data config;
+    config.local_offset = addr;
+    config.x_end = core.x;
+    config.y_end = core.y;
+    config.x_start = 0;
+    config.y_start = 0;
+    config.noc_sel = 0;
+    config.mcast = 0;
+    config.ordering = tlb_data::Relaxed;
+    config.linked = 0;
+    config.static_vc = 1;
+    const uint32_t two_mb_size = 1 << 21;
+    std::unique_ptr<TlbWindow> tlb_window =
+        std::make_unique<TlbWindow>(pci_device->allocate_tlb(two_mb_size, TlbMapping::WC), config);
 
+    auto axi_address = (uint64_t)tlb_window->handle_ref().get_base();
+
+    // auto lock = acquire_mutex(tlb_name, pci_device->get_device_num());
+    while (size > 0) {
+        // auto [axi_address, tlb_size] = tt_device_->set_dynamic_tlb(tlb_index, core, addr, ordering);
+
+        auto tlb_size = tlb_window->get_size();
         size_t transfer_size = std::min({size, tlb_size, dmabuf_size});
 
         tt_device_->dma_d2h(buffer, axi_address, transfer_size);
@@ -309,6 +341,9 @@ void LocalChip::dma_read_from_device(void* dst, size_t size, tt_xy_pair core, ui
         size -= transfer_size;
         addr += transfer_size;
         buffer += transfer_size;
+
+        config.local_offset = addr;
+        tlb_window->configure(config);
     }
 }
 

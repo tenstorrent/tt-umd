@@ -5,6 +5,8 @@
  */
 #include "umd/device/wormhole_arc_telemetry_reader.h"
 
+#include <iostream>
+
 #include "umd/device/types/wormhole_telemetry.h"
 
 namespace tt::umd {
@@ -14,8 +16,10 @@ WormholeArcTelemetryReader::WormholeArcTelemetryReader(TTDevice* tt_device) : Ar
 }
 
 void WormholeArcTelemetryReader::initialize_telemetry() {
+    std::cout << "here" << std::endl;
     std::vector<uint32_t> arc_msg_return_values = {0};
     static const uint32_t timeout_ms = 1000;
+    std::cout << "sending message" << std::endl;
     uint32_t exit_code = tt_device->get_arc_messenger()->send_message(
         tt::umd::wormhole::ARC_MSG_COMMON_PREFIX |
             (uint32_t)tt::umd::wormhole::arc_message_type::GET_SMBUS_TELEMETRY_ADDR,
@@ -23,6 +27,8 @@ void WormholeArcTelemetryReader::initialize_telemetry() {
         0,
         0,
         timeout_ms);
+
+    std::cout << "sent the message" << std::endl;
 
     static constexpr uint64_t noc_telemetry_offset = 0x810000000;
     telemetry_base_noc_addr = arc_msg_return_values[0] + noc_telemetry_offset;

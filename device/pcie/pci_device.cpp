@@ -254,44 +254,54 @@ PCIDevice::PCIDevice(int pci_device_number) :
 
     // TODO: Move arch specific code to tt_device.
     // wc_mapping_size along with some ifelses below.
-    auto wc_mapping_size = arch == tt::ARCH::BLACKHOLE ? BH_BAR0_WC_MAPPING_SIZE : GS_BAR0_WC_MAPPING_SIZE;
+    // auto wc_mapping_size = arch == tt::ARCH::BLACKHOLE ? BH_BAR0_WC_MAPPING_SIZE : GS_BAR0_WC_MAPPING_SIZE;
 
-    // Attempt WC mapping first so we can fall back to all-UC if it fails.
-    if (bar0_wc_mapping.mapping_id == TENSTORRENT_MAPPING_RESOURCE0_WC) {
-        bar0_wc_size = std::min<size_t>(bar0_wc_mapping.mapping_size, wc_mapping_size);
-        bar0_wc = mmap(
-            NULL, bar0_wc_size, PROT_READ | PROT_WRITE, MAP_SHARED, pci_device_file_desc, bar0_wc_mapping.mapping_base);
-        if (bar0_wc == MAP_FAILED) {
-            bar0_wc_size = 0;
-            bar0_wc = nullptr;
-        }
-    }
+    // // Attempt WC mapping first so we can fall back to all-UC if it fails.
+    // if (bar0_wc_mapping.mapping_id == TENSTORRENT_MAPPING_RESOURCE0_WC) {
+    //     bar0_wc_size = std::min<size_t>(bar0_wc_mapping.mapping_size, wc_mapping_size);
+    //     bar0_wc = mmap(
+    //         NULL, bar0_wc_size, PROT_READ | PROT_WRITE, MAP_SHARED, pci_device_file_desc,
+    //         bar0_wc_mapping.mapping_base);
+    //     if (bar0_wc == MAP_FAILED) {
+    //         bar0_wc_size = 0;
+    //         bar0_wc = nullptr;
+    //     }
+    // }
 
-    if (bar0_wc) {
-        // The bottom part of the BAR is mapped WC. Map the top UC.
-        bar0_uc_size = bar0_uc_mapping.mapping_size - wc_mapping_size;
-        bar0_uc_offset = wc_mapping_size;
-    } else {
-        // No WC mapping, map the entire BAR UC.
-        bar0_uc_size = bar0_uc_mapping.mapping_size;
-        bar0_uc_offset = 0;
-    }
+    // if (bar0_wc) {
+    //     // The bottom part of the BAR is mapped WC. Map the top UC.
+    //     bar0_uc_size = bar0_uc_mapping.mapping_size - wc_mapping_size;
+    //     bar0_uc_offset = wc_mapping_size;
+    // } else {
+    //     // No WC mapping, map the entire BAR UC.
+    //     bar0_uc_size = bar0_uc_mapping.mapping_size;
+    //     bar0_uc_offset = 0;
+    // }
 
-    bar0_uc = mmap(
+    // bar0_uc = mmap(
+    //     NULL,
+    //     bar0_uc_size,
+    //     PROT_READ | PROT_WRITE,
+    //     MAP_SHARED,
+    //     pci_device_file_desc,
+    //     bar0_uc_mapping.mapping_base + bar0_uc_offset);
+
+    // if (bar0_uc == MAP_FAILED) {
+    //     throw std::runtime_error(fmt::format("BAR0 UC mapping failed for device {}.", pci_device_num));
+    // }
+
+    // if (!bar0_wc) {
+    //     bar0_wc = bar0_uc;
+    // }
+
+    const uint32_t one_mb = 1 << 20;
+    bar0 = mmap(
         NULL,
-        bar0_uc_size,
+        2 * one_mb,
         PROT_READ | PROT_WRITE,
         MAP_SHARED,
         pci_device_file_desc,
-        bar0_uc_mapping.mapping_base + bar0_uc_offset);
-
-    if (bar0_uc == MAP_FAILED) {
-        throw std::runtime_error(fmt::format("BAR0 UC mapping failed for device {}.", pci_device_num));
-    }
-
-    if (!bar0_wc) {
-        bar0_wc = bar0_uc;
-    }
+        bar0_uc_mapping.mapping_base + 510 * one_mb);
 
     if (arch == tt::ARCH::WORMHOLE_B0) {
         if (bar4_uc_mapping.mapping_id != TENSTORRENT_MAPPING_RESOURCE2_UC) {

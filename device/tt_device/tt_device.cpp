@@ -9,6 +9,7 @@
 #include "umd/device/arc_messenger.h"
 #include "umd/device/driver_atomics.h"
 #include "umd/device/tt_device/blackhole_tt_device.h"
+#include "umd/device/tt_device/tlb_window.h"
 #include "umd/device/tt_device/wormhole_tt_device.h"
 
 // TODO #526: This is a hack to allow UMD to use the NOC1 TLB.
@@ -27,8 +28,11 @@ TTDevice::TTDevice(
 }
 
 void TTDevice::init_tt_device() {
+    std::cout << "init tt device" << std::endl;
     arc_messenger_ = ArcMessenger::create_arc_messenger(this);
+    std::cout << "create arc telemetry" << std::endl;
     telemetry = ArcTelemetryReader::create_arc_telemetry_reader(this);
+    std::cout << "done" << std::endl;
 }
 
 TTDevice::TTDevice() {}
@@ -53,18 +57,20 @@ std::shared_ptr<PCIDevice> TTDevice::get_pci_device() { return pci_device_; }
 tt::ARCH TTDevice::get_arch() { return arch; }
 
 bool TTDevice::is_hardware_hung() {
-    volatile const void *addr = reinterpret_cast<const char *>(pci_device_->bar0_uc) +
-                                (architecture_impl_->get_arc_reset_scratch_offset() + 6 * 4) -
-                                pci_device_->bar0_uc_offset;
-    std::uint32_t scratch_data = *reinterpret_cast<const volatile std::uint32_t *>(addr);
+    // volatile const void *addr = reinterpret_cast<const char *>(pci_device_->bar0_uc) +
+    //                             (architecture_impl_->get_arc_reset_scratch_offset() + 6 * 4) -
+    //                             pci_device_->bar0_uc_offset;
+    // std::uint32_t scratch_data = *reinterpret_cast<const volatile std::uint32_t *>(addr);
+
+    uint32_t scratch_data = bar_read32(architecture_impl_->get_arc_reset_scratch_offset() + 6 * 4);
 
     return (scratch_data == HANG_READ_VALUE);
 }
 
 void TTDevice::detect_hang_read(std::uint32_t data_read) {
     if (data_read == HANG_READ_VALUE && is_hardware_hung()) {
-        std::uint32_t scratch_data =
-            *pci_device_->get_register_address<std::uint32_t>(architecture_impl_->get_read_checking_offset());
+        // std::uint32_t scratch_data =
+        //     *pci_device_->get_register_address<std::uint32_t>(architecture_impl_->get_read_checking_offset());
 
         throw std::runtime_error("Read 0xffffffff from PCIE: you should reset the board.");
     }
@@ -78,6 +84,7 @@ void TTDevice::write_regs(volatile uint32_t *dest, const uint32_t *src, uint32_t
 }
 
 void TTDevice::write_regs(uint32_t byte_addr, uint32_t word_len, const void *data) {
+    TT_THROW("write_regs");
     volatile uint32_t *dest = pci_device_->get_register_address<uint32_t>(byte_addr);
     const uint32_t *src = reinterpret_cast<const uint32_t *>(data);
 
@@ -85,6 +92,7 @@ void TTDevice::write_regs(uint32_t byte_addr, uint32_t word_len, const void *dat
 }
 
 void TTDevice::read_regs(uint32_t byte_addr, uint32_t word_len, void *data) {
+    TT_THROW("read_regs");
     const volatile uint32_t *src = pci_device_->get_register_address<uint32_t>(byte_addr);
     uint32_t *dest = reinterpret_cast<uint32_t *>(data);
 
@@ -181,6 +189,7 @@ void TTDevice::memcpy_from_device(void *dest, const void *src, std::size_t num_b
 }
 
 void TTDevice::write_block(uint64_t byte_addr, uint64_t num_bytes, const uint8_t *buffer_addr) {
+    TT_THROW("write_block");
     void *dest = nullptr;
     if (pci_device_->bar4_wc != nullptr && byte_addr >= BAR0_BH_SIZE) {
         byte_addr -= BAR0_BH_SIZE;
@@ -198,6 +207,7 @@ void TTDevice::write_block(uint64_t byte_addr, uint64_t num_bytes, const uint8_t
 }
 
 void TTDevice::read_block(uint64_t byte_addr, uint64_t num_bytes, uint8_t *buffer_addr) {
+    TT_THROW("read_block");
     void *src = nullptr;
     if (pci_device_->bar4_wc != nullptr && byte_addr >= BAR0_BH_SIZE) {
         byte_addr -= BAR0_BH_SIZE;
@@ -221,31 +231,74 @@ void TTDevice::read_block(uint64_t byte_addr, uint64_t num_bytes, uint8_t *buffe
 void TTDevice::read_from_device(void *mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size) {
     auto lock = lock_manager.acquire_mutex(MutexType::TT_DEVICE_IO, get_pci_device()->get_device_num());
     uint8_t *buffer_addr = static_cast<uint8_t *>(mem_ptr);
-    const uint32_t tlb_index = get_architecture_implementation()->get_small_read_write_tlb();
+    // const uint32_t tlb_index = get_architecture_implementation()->get_small_read_write_tlb();
+    tlb_data config;
+    config.local_offset = addr;
+    config.x_end = core.x;
+    config.y_end = core.y;
+    config.x_start = 0;
+    config.y_start = 0;
+    config.noc_sel = 0;
+    config.mcast = 0;
+    config.ordering = tlb_data::Relaxed;
+    config.linked = 0;
+    config.static_vc = 1;
+    const uint32_t two_mb_size = 1 << 21;
+    std::unique_ptr<TlbWindow> tlb_window =
+        std::make_unique<TlbWindow>(get_pci_device()->allocate_tlb(two_mb_size, TlbMapping::WC), config);
     while (size > 0) {
-        auto [mapped_address, tlb_size] = set_dynamic_tlb(tlb_index, core, addr, tt::umd::tlb_data::Strict);
-        uint32_t transfer_size = std::min((uint64_t)size, tlb_size);
-        read_block(mapped_address, transfer_size, buffer_addr);
+        // auto [mapped_address, tlb_size] = set_dynamic_tlb(tlb_index, core, addr, tt::umd::tlb_data::Strict);
+        uint32_t tlb_size = tlb_window->get_size();
+        uint32_t transfer_size = std::min(size, tlb_size);
+
+        tlb_window->read_block(0, buffer_addr, transfer_size);
+
+        // read_block(mapped_address, transfer_size, buffer_addr);
 
         size -= transfer_size;
         addr += transfer_size;
         buffer_addr += transfer_size;
+
+        config.local_offset = addr;
+        tlb_window->configure(config);
     }
 }
 
 void TTDevice::write_to_device(void *mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size) {
     auto lock = lock_manager.acquire_mutex(MutexType::TT_DEVICE_IO, get_pci_device()->get_device_num());
     uint8_t *buffer_addr = static_cast<uint8_t *>(mem_ptr);
-    const uint32_t tlb_index = get_architecture_implementation()->get_small_read_write_tlb();
+    // const uint32_t tlb_index = get_architecture_implementation()->get_small_read_write_tlb();
+    tlb_data config;
+    config.local_offset = addr;
+    config.x_end = core.x;
+    config.y_end = core.y;
+    config.x_start = 0;
+    config.y_start = 0;
+    config.noc_sel = 0;
+    config.mcast = 0;
+    config.ordering = tlb_data::Relaxed;
+    config.linked = 0;
+    config.static_vc = 1;
+    const uint32_t two_mb_size = 1 << 21;
+    std::unique_ptr<TlbWindow> tlb_window =
+        std::make_unique<TlbWindow>(get_pci_device()->allocate_tlb(two_mb_size, TlbMapping::WC), config);
 
     while (size > 0) {
-        auto [mapped_address, tlb_size] = set_dynamic_tlb(tlb_index, core, addr, tt::umd::tlb_data::Strict);
-        uint32_t transfer_size = std::min((uint64_t)size, tlb_size);
-        write_block(mapped_address, transfer_size, buffer_addr);
+        // auto [mapped_address, tlb_size] = set_dynamic_tlb(tlb_index, core, addr, tt::umd::tlb_data::Strict);
+
+        uint32_t tlb_size = tlb_window->get_size();
+
+        uint32_t transfer_size = std::min(size, tlb_size);
+        // write_block(mapped_address, transfer_size, buffer_addr);
+
+        tlb_window->write_block(0, buffer_addr, transfer_size);
 
         size -= transfer_size;
         addr += transfer_size;
         buffer_addr += transfer_size;
+
+        config.local_offset = addr;
+        tlb_window->configure(config);
     }
 }
 
@@ -357,21 +410,38 @@ void TTDevice::wait_arc_core_start(const tt_xy_pair arc_core, const uint32_t tim
 }
 
 void TTDevice::bar_write32(uint32_t addr, uint32_t data) {
-    if (addr < get_pci_device()->bar0_uc_offset) {
-        write_block(addr, sizeof(data), reinterpret_cast<const uint8_t *>(&data));  // do we have to reinterpret_cast?
-    } else {
-        write_regs(addr, 1, &data);
+    const uint32_t bar0_offset = 0x1FE00000;
+    if (addr < bar0_offset) {
+        std::cout << "addr " << std::hex << addr << " is less than bar0_offset " << bar0_offset
+                  << ", this is not a valid BAR address for this device." << std::dec << std::endl;
+        throw std::runtime_error("Write Invalid BAR address for this device.");
     }
+    addr -= bar0_offset;
+    *reinterpret_cast<volatile uint32_t *>((uint8_t *)get_pci_device()->bar0 + addr) = data;
+    // if (addr < get_pci_device()->bar0_uc_offset) {
+    //     write_block(addr, sizeof(data), reinterpret_cast<const uint8_t *>(&data));  // do we have to
+    //     reinterpret_cast?
+    // } else {
+    //     write_regs(addr, 1, &data);
+    // }
 }
 
 uint32_t TTDevice::bar_read32(uint32_t addr) {
-    uint32_t data;
-    if (addr < get_pci_device()->bar0_uc_offset) {
-        read_block(addr, sizeof(data), reinterpret_cast<uint8_t *>(&data));
-    } else {
-        read_regs(addr, 1, &data);
+    const uint32_t bar0_offset = 0x1FE00000;
+    if (addr < bar0_offset) {
+        std::cout << "addr " << std::hex << addr << " is less than bar0_offset " << bar0_offset
+                  << ", this is not a valid BAR address for this device." << std::dec << std::endl;
+        throw std::runtime_error("Read Invalid BAR address for this device.");
     }
-    return data;
+    addr -= bar0_offset;
+    return *reinterpret_cast<volatile uint32_t *>((uint8_t *)get_pci_device()->bar0 + addr);
+    // uint32_t data;
+    // if (addr < get_pci_device()->bar0_uc_offset) {
+    //     read_block(addr, sizeof(data), reinterpret_cast<uint8_t *>(&data));
+    // } else {
+    //     read_regs(addr, 1, &data);
+    // }
+    // return data;
 }
 
 tt::umd::ArcMessenger *TTDevice::get_arc_messenger() const { return arc_messenger_.get(); }

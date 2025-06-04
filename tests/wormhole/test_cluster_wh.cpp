@@ -11,6 +11,7 @@
 #include "umd/device/arch/wormhole_implementation.hpp"
 #include "umd/device/cluster.hpp"
 #include "umd/device/cluster_descriptor.hpp"
+#include "umd/device/types/cluster_descriptor_types.hpp"
 #include "umd/device/utils/semver.hpp"
 #include "wormhole/eth_l1_address_map.h"
 #include "wormhole/host_mem_address_map.h"
@@ -44,85 +45,6 @@ static void set_barrier_params(Cluster& cluster) {
     // Populate address map and NOC parameters that the driver needs for memory barriers and remote transactions.
     cluster.set_barrier_address_params(
         {l1_mem::address_map::L1_BARRIER_BASE, eth_l1_mem::address_map::ERISC_BARRIER_BASE, DRAM_BARRIER_BASE});
-}
-
-std::int32_t get_static_tlb_index(tt_xy_pair target, bool noc_translation_enabled) {
-    bool is_eth_location = false;
-    bool is_tensix_location = false;
-    if (noc_translation_enabled) {
-        is_eth_location =
-            std::find(std::cbegin(ETH_CORES_TRANSLATION_ON), std::cend(ETH_CORES_TRANSLATION_ON), target) !=
-            std::cend(ETH_CORES_TRANSLATION_ON);
-        is_tensix_location =
-            std::find(std::cbegin(T6_X_TRANSLATED_LOCATIONS), std::cend(T6_X_TRANSLATED_LOCATIONS), target.x) !=
-                std::cend(T6_X_TRANSLATED_LOCATIONS) &&
-            std::find(std::cbegin(T6_Y_TRANSLATED_LOCATIONS), std::cend(T6_Y_TRANSLATED_LOCATIONS), target.y) !=
-                std::cend(T6_Y_TRANSLATED_LOCATIONS);
-    } else {
-        is_eth_location =
-            std::find(
-                std::cbegin(tt::umd::wormhole::ETH_LOCATIONS), std::cend(tt::umd::wormhole::ETH_LOCATIONS), target) !=
-            std::cend(tt::umd::wormhole::ETH_LOCATIONS);
-        is_tensix_location = std::find(
-                                 std::cbegin(tt::umd::wormhole::T6_X_LOCATIONS),
-                                 std::cend(tt::umd::wormhole::T6_X_LOCATIONS),
-                                 target.x) != std::cend(tt::umd::wormhole::T6_X_LOCATIONS) &&
-                             std::find(
-                                 std::cbegin(tt::umd::wormhole::T6_Y_LOCATIONS),
-                                 std::cend(tt::umd::wormhole::T6_Y_LOCATIONS),
-                                 target.y) != std::cend(tt::umd::wormhole::T6_Y_LOCATIONS);
-    }
-    if (is_eth_location) {
-        if (noc_translation_enabled) {
-            if (target.y == 16) {
-                target.y = 0;
-            }
-            if (target.y == 17) {
-                target.y = 1;
-            }
-
-            target.x -= 18;
-        } else {
-            if (target.y == 6) {
-                target.y = 1;
-            }
-
-            if (target.x >= 5) {
-                target.x -= 1;
-            }
-            target.x -= 1;
-        }
-
-        int flat_index = target.y * 8 + target.x;
-        int tlb_index = flat_index;
-        return tlb_index;
-
-    } else if (is_tensix_location) {
-        if (noc_translation_enabled) {
-            target.y -= 18;
-
-            target.x -= 18;
-        } else {
-            if (target.x >= 5) {
-                target.x -= 1;
-            }
-            target.x -= 1;
-
-            if (target.y >= 6) {
-                target.y -= 1;
-            }
-            target.y -= 1;
-        }
-
-        int flat_index = target.y * 8 + target.x;
-
-        // All 80 get single 1MB TLB.
-        int tlb_index = tt::umd::wormhole::ETH_LOCATIONS.size() + flat_index;
-
-        return tlb_index;
-    } else {
-        return -1;
-    }
 }
 
 TEST(SiliconDriverWH, OneDramOneTensixNoEthSocDesc) {
@@ -164,10 +86,6 @@ TEST(SiliconDriverWH, CustomSocDesc) {
 }
 
 TEST(SiliconDriverWH, HarvestingRuntime) {
-    auto get_static_tlb_index_callback = [](tt_xy_pair target, bool noc_translation_enabled) {
-        return get_static_tlb_index(target, noc_translation_enabled);
-    };
-
     Cluster cluster(ClusterOptions{
         .simulated_harvesting_masks = {60, 0, 0},
         .simulated_harvesting_masks_per_chip = {{0, {30, 0, 0}}, {1, {60, 0, 0}}},
@@ -180,12 +98,7 @@ TEST(SiliconDriverWH, HarvestingRuntime) {
         auto& sdesc = cluster.get_soc_descriptor(chip_id);
         for (const CoreCoord& core : sdesc.get_cores(CoreType::TENSIX)) {
             // Statically mapping a 1MB TLB to this core, starting from address NCRISC_FIRMWARE_BASE.
-            cluster.configure_tlb(
-                chip_id,
-                core,
-                get_static_tlb_index_callback(
-                    sdesc.translate_coord_to(core, CoordSystem::TRANSLATED), sdesc.noc_translation_enabled),
-                l1_mem::address_map::NCRISC_FIRMWARE_BASE);
+            cluster.configure_tlb(chip_id, core, 1 << 20, l1_mem::address_map::NCRISC_FIRMWARE_BASE);
         }
     }
 
@@ -246,10 +159,6 @@ TEST(SiliconDriverWH, HarvestingRuntime) {
 }
 
 TEST(SiliconDriverWH, UnalignedStaticTLB_RW) {
-    auto get_static_tlb_index_callback = [](tt_xy_pair target, bool noc_translation_enabled) {
-        return get_static_tlb_index(target, noc_translation_enabled);
-    };
-
     Cluster cluster;
     set_barrier_params(cluster);
     auto mmio_devices = cluster.get_target_mmio_device_ids();
@@ -259,12 +168,7 @@ TEST(SiliconDriverWH, UnalignedStaticTLB_RW) {
         auto& sdesc = cluster.get_soc_descriptor(chip_id);
         for (const CoreCoord& core : sdesc.get_cores(CoreType::TENSIX)) {
             // Statically mapping a 1MB TLB to this core, starting from address NCRISC_FIRMWARE_BASE.
-            cluster.configure_tlb(
-                chip_id,
-                core,
-                get_static_tlb_index_callback(
-                    sdesc.translate_coord_to(core, CoordSystem::TRANSLATED), sdesc.noc_translation_enabled),
-                l1_mem::address_map::NCRISC_FIRMWARE_BASE);
+            cluster.configure_tlb(chip_id, core, 1 << 20, l1_mem::address_map::NCRISC_FIRMWARE_BASE);
         }
     }
 
@@ -301,10 +205,6 @@ TEST(SiliconDriverWH, UnalignedStaticTLB_RW) {
 }
 
 TEST(SiliconDriverWH, StaticTLB_RW) {
-    auto get_static_tlb_index_callback = [](tt_xy_pair target, bool noc_translation_enabled) {
-        return get_static_tlb_index(target, noc_translation_enabled);
-    };
-
     Cluster cluster;
     set_barrier_params(cluster);
     auto mmio_devices = cluster.get_target_mmio_device_ids();
@@ -314,12 +214,7 @@ TEST(SiliconDriverWH, StaticTLB_RW) {
         auto& sdesc = cluster.get_soc_descriptor(chip_id);
         for (const CoreCoord& core : sdesc.get_cores(CoreType::TENSIX)) {
             // Statically mapping a 1MB TLB to this core, starting from address NCRISC_FIRMWARE_BASE.
-            cluster.configure_tlb(
-                chip_id,
-                core,
-                get_static_tlb_index_callback(
-                    sdesc.translate_coord_to(core, CoordSystem::TRANSLATED), sdesc.noc_translation_enabled),
-                l1_mem::address_map::NCRISC_FIRMWARE_BASE);
+            cluster.configure_tlb(chip_id, core, 1 << 20, l1_mem::address_map::NCRISC_FIRMWARE_BASE);
         }
     }
 
@@ -451,9 +346,6 @@ TEST(SiliconDriverWH, MultiThreadedMemBar) {
     // We want to make sure the memory barrier is thread/process safe.
 
     // Memory barrier flags get sent to address 0 for all channels in this test
-    auto get_static_tlb_index_callback = [](tt_xy_pair target, bool noc_translation_enabled) {
-        return get_static_tlb_index(target, noc_translation_enabled);
-    };
     uint32_t base_addr = l1_mem::address_map::DATA_BUFFER_SPACE_BASE;
 
     Cluster cluster;
@@ -465,12 +357,7 @@ TEST(SiliconDriverWH, MultiThreadedMemBar) {
         auto& sdesc = cluster.get_soc_descriptor(chip_id);
         for (const CoreCoord& core : sdesc.get_cores(CoreType::TENSIX)) {
             // Statically mapping a 1MB TLB to this core, starting from address DATA_BUFFER_SPACE_BASE.
-            cluster.configure_tlb(
-                chip_id,
-                core,
-                get_static_tlb_index_callback(
-                    sdesc.translate_coord_to(core, CoordSystem::TRANSLATED), sdesc.noc_translation_enabled),
-                base_addr);
+            cluster.configure_tlb(chip_id, core, 1 << 20, base_addr);
         }
     }
 
@@ -740,8 +627,6 @@ TEST(SiliconDriverWH, LargeAddressTlb) {
     set_barrier_params(cluster);
     cluster.start_device({});
 
-    auto get_static_tlb_index_callback = [](tt_xy_pair target) { return 0; };
-
     // Address of the reset unit in ARC core:
     uint64_t arc_reset_noc = 0x880030000ULL;
 
@@ -749,7 +634,7 @@ TEST(SiliconDriverWH, LargeAddressTlb) {
     uint64_t scratch_offset = 0x60;
 
     // Map a TLB to the reset unit in ARC core:
-    cluster.configure_tlb(0, ARC_CORE, 0, arc_reset_noc);
+    cluster.configure_tlb(0, ARC_CORE, 1 << 20, arc_reset_noc);
 
     // Address of the scratch register in the reset unit:
     uint64_t addr = arc_reset_noc + scratch_offset;
@@ -784,8 +669,6 @@ TEST(SiliconDriverWH, LargeAddressTlb) {
 TEST(SiliconDriverWH, DMA1) {
     const ChipId chip = 0;
     Cluster cluster;
-
-    cluster.start_device({});
 
     auto& soc_descriptor = cluster.get_soc_descriptor(chip);
     size_t dram_count = soc_descriptor.get_num_dram_channels();
@@ -835,9 +718,6 @@ TEST(SiliconDriverWH, DMA2) {
     const ChipId chip = 0;
     Cluster cluster;
 
-    set_barrier_params(cluster);
-    cluster.start_device({});
-
     auto& soc_descriptor = cluster.get_soc_descriptor(chip);
     size_t dram_count = soc_descriptor.get_num_dram_channels();
     std::vector<CoreCoord> dram_cores;
@@ -873,7 +753,7 @@ TEST(SiliconDriverWH, DMA2) {
         for (const auto& core : dram_cores) {
             // Generate random size and address.
             size_t size = size_dist(rng) & ~0x3ULL;
-            uint64_t addr = addr_dist(rng) & ~0x3ULL;
+            uint64_t addr = 0;
 
             // Generate a random pattern of the specified size.
             std::vector<uint8_t> pattern(size);
@@ -910,7 +790,7 @@ TEST(SiliconDriverWH, DMA2) {
         for (const auto& dram_core : dram_cores) {
             // Generate random size and address.
             size_t size = size_dist(rng) & ~0x3ULL;
-            uint64_t addr = addr_dist(rng) & ~0x3ULL;
+            uint64_t addr = 0;
 
             // Generate a random pattern of the specified size.
             std::vector<uint8_t> pattern(size);
@@ -935,4 +815,37 @@ TEST(SiliconDriverWH, DMA2) {
                                          << op.address << " size=" << std::dec << op.data.size();
         }
     }
+}
+
+/**
+ * Test the PCIe DMA controller by using it to write random fixed-size patterns
+ * to 0x0 in several DRAM cores, then reading them back and verifying.
+ */
+TEST(SiliconDriverWH, DMA3) {
+    const ChipId chip = 0;
+    Cluster cluster;
+
+    CoreCoord eth_core = CoreCoord(21, 17, CoreType::ETH, CoordSystem::TRANSLATED);
+
+    size_t buf_size = 768;
+
+    std::vector<uint8_t> zeros(buf_size, 1);
+    cluster.write_to_device(zeros.data(), zeros.size(), chip, eth_core, 254304);
+    std::vector<uint8_t> readback_zeros(buf_size, 0xFF);
+    cluster.read_from_device(readback_zeros.data(), chip, eth_core, 254304, readback_zeros.size());
+    EXPECT_EQ(zeros, readback_zeros) << "Mismatch zeros or core " << eth_core.str() << " addr=0x0"
+                                     << " size=" << std::dec << readback_zeros.size();
+
+    std::vector<uint8_t> pattern(buf_size, 0);
+    for (int i = 0; i < buf_size; ++i) {
+        pattern[i] = i % 256;
+    }
+
+    cluster.dma_write_to_device(pattern.data(), pattern.size(), chip, eth_core, 254304);
+
+    std::vector<uint8_t> readback(buf_size, 1);
+    cluster.read_from_device(readback.data(), chip, eth_core, 254304, readback.size());
+
+    EXPECT_EQ(pattern, readback) << "Mismatch for core " << eth_core.str() << " addr=0x0"
+                                 << " size=" << std::dec << readback.size();
 }

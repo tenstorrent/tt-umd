@@ -107,6 +107,15 @@ private:
         const std::vector<CoreCoord>& cores, const uint32_t barrier_value, const uint32_t barrier_addr);
     void insert_host_to_device_barrier(const std::vector<CoreCoord>& cores, const uint32_t barrier_addr);
 
+    TlbWindow* get_cached_wc_tlb_window(tlb_data config);
+    TlbWindow* get_cached_uc_tlb_window(tlb_data config);
+
     std::unique_ptr<TTDevice> tt_device_ = nullptr;
+
+    std::unique_ptr<TlbWindow> cached_wc_tlb_window = nullptr;
+    std::unique_ptr<TlbWindow> cached_uc_tlb_window = nullptr;
+
+    std::mutex wc_tlb_lock;
+    std::mutex uc_tlb_lock;
 };
 }  // namespace tt::umd

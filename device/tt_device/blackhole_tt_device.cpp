@@ -94,13 +94,7 @@ void BlackholeTTDevice::configure_iatu_region(size_t region, uint64_t target, si
 
 bool BlackholeTTDevice::get_noc_translation_enabled() {
     const uint64_t addr = blackhole::NIU_CFG_NOC0_BAR_ADDR;
-    uint32_t niu_cfg;
-    if (addr < get_pci_device()->bar0_uc_offset) {
-        read_block(addr, sizeof(niu_cfg), reinterpret_cast<uint8_t *>(&niu_cfg));
-    } else {
-        read_regs(addr, 1, &niu_cfg);
-    }
-
+    uint32_t niu_cfg = bar_read32(addr);
     return ((niu_cfg >> 14) & 0x1) != 0;
 }
 

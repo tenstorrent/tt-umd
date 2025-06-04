@@ -93,7 +93,7 @@ TEST(MicrobenchmarkTLB, TLBStaticTensix) {
     const CoreCoord tensix_core = cluster->get_soc_descriptor(chip).get_cores(CoreType::TENSIX)[0];
     cluster->start_device(device_params{});
 
-    cluster->configure_tlb(0, tensix_core, tlb_1m_index, 0x0, tlb_data::Relaxed);
+    cluster->configure_tlb(0, tensix_core, tlb_1m_index, 1 << 21, tlb_data::Relaxed);
 
     const std::vector<uint32_t> sizes = {
         1 * one_mb,
@@ -135,7 +135,7 @@ TEST(MicrobenchmarkTLB, TLBStaticDram) {
     const CoreCoord dram_core = cluster->get_soc_descriptor(chip).get_cores(CoreType::DRAM)[0];
     cluster->start_device(device_params{});
 
-    cluster->configure_tlb(0, dram_core, tlb_16m_index, 0x0, tlb_data::Relaxed);
+    cluster->configure_tlb(0, dram_core, 16 * (1 << 20), tlb_data::Relaxed);
 
     const std::vector<std::string> headers = {
         "Size (MB)",

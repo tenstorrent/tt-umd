@@ -91,6 +91,8 @@ protected:
 
     void fill_chips_grouped_by_closest_mmio();
 
+    void verify_cluster_descriptor_info();
+
     std::map<chip_id_t, uint32_t> dram_harvesting_masks = {};
     std::map<chip_id_t, uint32_t> eth_harvesting_masks = {};
     std::map<chip_id_t, uint32_t> pcie_harvesting_masks = {};

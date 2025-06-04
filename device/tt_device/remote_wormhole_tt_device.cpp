@@ -18,7 +18,7 @@ void RemoteWormholeTTDevice::read_from_device(void *mem_ptr, tt_xy_pair core, ui
     remote_communication_->read_non_mmio(target_chip_, core, mem_ptr, addr, size);
 }
 
-void RemoteWormholeTTDevice::write_to_device(void *mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size) {
+void RemoteWormholeTTDevice::write_to_device(const void *mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size) {
     remote_communication_->write_to_non_mmio(target_chip_, core, mem_ptr, addr, size);
 }
 

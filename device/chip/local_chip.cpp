@@ -11,6 +11,7 @@
 #include "assert.hpp"
 #include "umd/device/chip_helpers/tlb_manager.h"
 #include "umd/device/driver_atomics.h"
+#include "umd/device/tt_device/tlb_window.h"
 #include "umd/device/tt_device/tt_device.h"
 #include "umd/device/types/blackhole_arc.h"
 #include "umd/device/types/blackhole_eth.h"
@@ -173,6 +174,7 @@ void LocalChip::write_to_device(tt_xy_pair core, const void* src, uint64_t l1_de
         size);
 
     if (tlb_manager_->is_tlb_mapped(core, l1_dest, size)) {
+        TT_THROW("static TLBs write");
         tlb_configuration tlb_description = tlb_manager_->get_tlb_configuration(core);
         if (tt_device_->get_pci_device()->bar4_wc != nullptr && tlb_description.size == BH_4GB_TLB_SIZE) {
             // This is only for Blackhole. If we want to  write to DRAM (BAR4 space), we add offset
@@ -183,24 +185,27 @@ void LocalChip::write_to_device(tt_xy_pair core, const void* src, uint64_t l1_de
             tt_device_->write_block(tlb_description.tlb_offset + l1_dest % tlb_description.size, size, buffer_addr);
         }
     } else {
-        std::string fallback_tlb = "LARGE_WRITE_TLB";
-        const auto tlb_index = tlb_manager_->dynamic_tlb_config_.at(fallback_tlb);
-        auto lock = acquire_mutex(fallback_tlb, tt_device_->get_pci_device()->get_device_num());
+        auto translated_core = translate_chip_coord_virtual_to_translated(core);
 
-        while (size > 0) {
-            auto [mapped_address, tlb_size] = tt_device_->set_dynamic_tlb(
-                tlb_index,
-                translate_chip_coord_virtual_to_translated(core),
-                l1_dest,
-                tlb_manager_->dynamic_tlb_ordering_modes_.at(fallback_tlb));
-            uint32_t transfer_size = std::min((uint64_t)size, tlb_size);
-            tt_device_->write_block(mapped_address, transfer_size, buffer_addr);
+        tt_device_->write_to_device(const_cast<void*>(src), translated_core, l1_dest, size);
+        // std::string fallback_tlb = "LARGE_WRITE_TLB";
+        // const auto tlb_index = tlb_manager_->dynamic_tlb_config_.at(fallback_tlb);
+        // auto lock = acquire_mutex(fallback_tlb, tt_device_->get_pci_device()->get_device_num());
 
-            size -= transfer_size;
-            l1_dest += transfer_size;
-            buffer_addr += transfer_size;
-        }
-        log_debug(LogSiliconDriver, "Write done Dynamic TLB with pid={}", (long)getpid());
+        // while (size > 0) {
+        //     auto [mapped_address, tlb_size] = tt_device_->set_dynamic_tlb(
+        //         tlb_index,
+        //         translate_chip_coord_virtual_to_translated(core),
+        //         l1_dest,
+        //         tlb_manager_->dynamic_tlb_ordering_modes_.at(fallback_tlb));
+        //     uint32_t transfer_size = std::min((uint64_t)size, tlb_size);
+        //     tt_device_->write_block(mapped_address, transfer_size, buffer_addr);
+
+        //     size -= transfer_size;
+        //     l1_dest += transfer_size;
+        //     buffer_addr += transfer_size;
+        // }
+        // log_debug(LogSiliconDriver, "Write done Dynamic TLB with pid={}", (long)getpid());
     }
 }
 
@@ -216,6 +221,7 @@ void LocalChip::read_from_device(tt_xy_pair core, void* dest, uint64_t l1_src, u
     uint8_t* buffer_addr = static_cast<uint8_t*>(dest);
 
     if (tlb_manager_->is_tlb_mapped(core, l1_src, size)) {
+        TT_THROW("static TLBs read");
         tlb_configuration tlb_description = tlb_manager_->get_tlb_configuration(core);
         if (tt_device_->get_pci_device()->bar4_wc != nullptr && tlb_description.size == BH_4GB_TLB_SIZE) {
             // This is only for Blackhole. If we want to  read from DRAM (BAR4 space), we add offset
@@ -231,24 +237,28 @@ void LocalChip::read_from_device(tt_xy_pair core, void* dest, uint64_t l1_src, u
             tlb_description.tlb_offset,
             tlb_description.size);
     } else {
-        std::string fallback_tlb = "LARGE_READ_TLB";
-        const auto tlb_index = tlb_manager_->dynamic_tlb_config_.at(fallback_tlb);
-        auto lock = acquire_mutex(fallback_tlb, tt_device_->get_pci_device()->get_device_num());
-        log_debug(LogSiliconDriver, "  dynamic tlb_index: {}", tlb_index);
-        while (size > 0) {
-            auto [mapped_address, tlb_size] = tt_device_->set_dynamic_tlb(
-                tlb_index,
-                translate_chip_coord_virtual_to_translated(core),
-                l1_src,
-                tlb_manager_->dynamic_tlb_ordering_modes_.at(fallback_tlb));
-            uint32_t transfer_size = std::min((uint64_t)size, tlb_size);
-            tt_device_->read_block(mapped_address, transfer_size, buffer_addr);
+        // std::string fallback_tlb = "LARGE_READ_TLB";
+        auto translated_core = translate_chip_coord_virtual_to_translated(core);
 
-            size -= transfer_size;
-            l1_src += transfer_size;
-            buffer_addr += transfer_size;
-        }
-        log_debug(LogSiliconDriver, "Read done Dynamic TLB with pid={}", (long)getpid());
+        tt_device_->read_from_device(dest, translated_core, l1_src, size);
+
+        // const auto tlb_index = tlb_manager_->dynamic_tlb_config_.at(fallback_tlb);
+        // auto lock = acquire_mutex(fallback_tlb, tt_device_->get_pci_device()->get_device_num());
+        // log_debug(LogSiliconDriver, "  dynamic tlb_index: {}", tlb_index);
+        // while (size > 0) {
+        //     auto [mapped_address, tlb_size] = tt_device_->set_dynamic_tlb(
+        //         tlb_index,
+        //         translate_chip_coord_virtual_to_translated(core),
+        //         l1_src,
+        //         tlb_manager_->dynamic_tlb_ordering_modes_.at(fallback_tlb));
+        //     uint32_t transfer_size = std::min((uint64_t)size, tlb_size);
+        //     tt_device_->read_block(mapped_address, transfer_size, buffer_addr);
+
+        //     size -= transfer_size;
+        //     l1_src += transfer_size;
+        //     buffer_addr += transfer_size;
+        // }
+        // log_debug(LogSiliconDriver, "Read done Dynamic TLB with pid={}", (long)getpid());
     }
 }
 
@@ -319,14 +329,32 @@ void LocalChip::write_to_device_reg(tt_xy_pair core, const void* src, uint64_t r
         throw std::runtime_error("Register address must be 4-byte aligned");
     }
 
-    std::string fallback_tlb = "REG_TLB";
-    const auto tlb_index = tlb_manager_->dynamic_tlb_config_.at(fallback_tlb);
-    auto lock = lock_manager_.acquire_mutex(fallback_tlb, tt_device_->get_pci_device()->get_device_num());
-    log_debug(LogSiliconDriver, "  dynamic tlb_index: {}", tlb_index);
+    auto translated_core = translate_chip_coord_virtual_to_translated(core);
+    tlb_data config;
+    config.local_offset = reg_dest;
+    config.x_end = translated_core.x;
+    config.y_end = translated_core.y;
+    config.x_start = 0;
+    config.y_start = 0;
+    config.noc_sel = 0;
+    config.mcast = 0;
+    config.ordering = tlb_data::Strict;
+    config.linked = 0;
+    config.static_vc = 1;
+    const uint32_t two_mb_size = 1 << 21;
+    std::unique_ptr<TlbWindow> tlb_window = std::make_unique<TlbWindow>(
+        get_tt_device()->get_pci_device()->allocate_tlb(two_mb_size, TlbMapping::UC), config);
 
-    auto [mapped_address, tlb_size] = tt_device_->set_dynamic_tlb(
-        tlb_index, translate_chip_coord_virtual_to_translated(core), reg_dest, tt::umd::tlb_data::Strict);
-    tt_device_->write_regs(mapped_address, size / sizeof(uint32_t), src);
+    tlb_window->write_block(0, src, size);
+
+    // std::string fallback_tlb = "REG_TLB";
+    // const auto tlb_index = tlb_manager_->dynamic_tlb_config_.at(fallback_tlb);
+    // auto lock = lock_manager_.acquire_mutex(fallback_tlb, tt_device_->get_pci_device()->get_device_num());
+    // log_debug(LogSiliconDriver, "  dynamic tlb_index: {}", tlb_index);
+
+    // auto [mapped_address, tlb_size] = tt_device_->set_dynamic_tlb(
+    //     tlb_index, translate_chip_coord_virtual_to_translated(core), reg_dest, tt::umd::tlb_data::Strict);
+    // tt_device_->write_regs(mapped_address, size / sizeof(uint32_t), src);
 }
 
 void LocalChip::read_from_device_reg(tt_xy_pair core, void* dest, uint64_t reg_src, uint32_t size) {
@@ -338,14 +366,32 @@ void LocalChip::read_from_device_reg(tt_xy_pair core, void* dest, uint64_t reg_s
         throw std::runtime_error("Register address must be 4-byte aligned");
     }
 
-    std::string fallback_tlb = "REG_TLB";
-    const auto tlb_index = tlb_manager_->dynamic_tlb_config_.at(fallback_tlb);
-    auto lock = lock_manager_.acquire_mutex(fallback_tlb, tt_device_->get_pci_device()->get_device_num());
-    log_debug(LogSiliconDriver, "  dynamic tlb_index: {}", tlb_index);
+    auto translated_core = translate_chip_coord_virtual_to_translated(core);
+    tlb_data config;
+    config.local_offset = reg_src;
+    config.x_end = translated_core.x;
+    config.y_end = translated_core.y;
+    config.x_start = 0;
+    config.y_start = 0;
+    config.noc_sel = 0;
+    config.mcast = 0;
+    config.ordering = tlb_data::Strict;
+    config.linked = 0;
+    config.static_vc = 1;
+    const uint32_t two_mb_size = 1 << 21;
+    std::unique_ptr<TlbWindow> tlb_window = std::make_unique<TlbWindow>(
+        get_tt_device()->get_pci_device()->allocate_tlb(two_mb_size, TlbMapping::UC), config);
 
-    auto [mapped_address, tlb_size] = tt_device_->set_dynamic_tlb(
-        tlb_index, translate_chip_coord_virtual_to_translated(core), reg_src, tt::umd::tlb_data::Strict);
-    tt_device_->read_regs(mapped_address, size / sizeof(uint32_t), dest);
+    tlb_window->read_block(0, dest, size);
+
+    // std::string fallback_tlb = "REG_TLB";
+    // const auto tlb_index = tlb_manager_->dynamic_tlb_config_.at(fallback_tlb);
+    // auto lock = lock_manager_.acquire_mutex(fallback_tlb, tt_device_->get_pci_device()->get_device_num());
+    // log_debug(LogSiliconDriver, "  dynamic tlb_index: {}", tlb_index);
+
+    // auto [mapped_address, tlb_size] = tt_device_->set_dynamic_tlb(
+    //     tlb_index, translate_chip_coord_virtual_to_translated(core), reg_src, tt::umd::tlb_data::Strict);
+    // tt_device_->read_regs(mapped_address, size / sizeof(uint32_t), dest);
 }
 
 void LocalChip::ethernet_broadcast_write(

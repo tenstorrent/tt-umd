@@ -851,7 +851,7 @@ TEST(SiliconDriverWH, DMA1) {
     const chip_id_t chip = 0;
     Cluster cluster;
 
-    // cluster.start_device(tt_device_params{});
+    cluster.start_device(tt_device_params{});
 
     auto& soc_descriptor = cluster.get_soc_descriptor(chip);
     size_t dram_count = soc_descriptor.get_num_dram_channels();
@@ -863,7 +863,6 @@ TEST(SiliconDriverWH, DMA1) {
     // 16.5 MiB: Larger than the largest WH TLB window; this forces chunking
     // and TLB reassignment.
     size_t buf_size = 0x1080000;
-    // size_t buf_size = 1 << 20;
 
     // Keep track of the patterns we wrote to DRAM so we can verify them later.
     std::vector<std::vector<uint8_t>> patterns;
@@ -903,7 +902,7 @@ TEST(SiliconDriverWH, DMA2) {
     Cluster cluster;
 
     set_barrier_params(cluster);
-    // cluster.start_device(tt_device_params{});
+    cluster.start_device(tt_device_params{});
 
     auto& soc_descriptor = cluster.get_soc_descriptor(chip);
     size_t dram_count = soc_descriptor.get_num_dram_channels();

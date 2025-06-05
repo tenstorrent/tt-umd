@@ -172,6 +172,14 @@ void tt_SimulationDevice::read_from_device(tt_xy_pair core, void* dest, uint64_t
     nng_free(rd_resp, rd_rsp_sz);
 }
 
+void tt_SimulationDevice::dma_write_to_device(const void* src, size_t size, tt_xy_pair core, uint64_t addr) {
+    write_to_device(core, src, addr, size);
+}
+
+void tt_SimulationDevice::dma_read_from_device(void* dst, size_t size, tt_xy_pair core, uint64_t addr) {
+    read_from_device(core, dst, addr, size);
+}
+
 void tt_SimulationDevice::wait_for_non_mmio_flush() {}
 
 void tt_SimulationDevice::l1_membar(const std::unordered_set<tt::umd::CoreCoord>& cores) {}

@@ -63,23 +63,11 @@ LocalChip::LocalChip(std::unique_ptr<TTDevice> tt_device) :
 }
 
 void LocalChip::initialize_local_chip(int num_host_mem_channels) {
-    initialize_tlb_manager();
     if (num_host_mem_channels > 0) {
         sysmem_manager_->init_hugepage(num_host_mem_channels);
     }
     wait_chip_to_be_ready();
     initialize_default_chip_mutexes();
-}
-
-void LocalChip::initialize_tlb_manager() {
-    // Setup default dynamic tlbs.
-    tlb_manager_->set_dynamic_tlb_config(
-        "LARGE_READ_TLB", tt_device_->get_architecture_implementation()->get_mem_large_read_tlb());
-    tlb_manager_->set_dynamic_tlb_config(
-        "LARGE_WRITE_TLB", tt_device_->get_architecture_implementation()->get_mem_large_write_tlb());
-    tlb_manager_->set_dynamic_tlb_config("REG_TLB", tt_device_->get_architecture_implementation()->get_reg_tlb());
-    tlb_manager_->set_dynamic_tlb_config(
-        "SMALL_READ_WRITE_TLB", tt_device_->get_architecture_implementation()->get_small_read_write_tlb());
 }
 
 void LocalChip::initialize_default_chip_mutexes() {
@@ -88,10 +76,6 @@ void LocalChip::initialize_default_chip_mutexes() {
     // cleanup_mutexes_in_shm is tied to clean_system_resources from the constructor. The main process is
     // responsible for initializing the driver with this field set to cleanup after an aborted process.
     int pci_device_id = tt_device_->get_pci_device()->get_device_num();
-    // Initialize Dynamic TLB mutexes
-    for (auto& tlb : tlb_manager_->dynamic_tlb_config_) {
-        lock_manager_.initialize_mutex(tlb.first, pci_device_id);
-    }
 
     // Initialize non-MMIO mutexes for WH devices regardless of number of chips, since these may be used for
     // ethernet broadcast
@@ -174,16 +158,8 @@ void LocalChip::write_to_device(tt_xy_pair core, const void* src, uint64_t l1_de
         size);
 
     if (tlb_manager_->is_tlb_mapped(core, l1_dest, size)) {
-        TT_THROW("static TLBs write");
-        // tlb_configuration tlb_description = tlb_manager_->get_tlb_configuration(core);
-        // if (tt_device_->get_pci_device()->bar4_wc != nullptr && tlb_description.size == BH_4GB_TLB_SIZE) {
-        //     // This is only for Blackhole. If we want to  write to DRAM (BAR4 space), we add offset
-        //     // to which we write so write_block knows it needs to target BAR4
-        //     tt_device_->write_block(
-        //         (tlb_description.tlb_offset + l1_dest % tlb_description.size) + BAR0_BH_SIZE, size, buffer_addr);
-        // } else {
-        //     tt_device_->write_block(tlb_description.tlb_offset + l1_dest % tlb_description.size, size, buffer_addr);
-        // }
+        TlbWindow* tlb_window = tlb_manager_->get_tlb_window(core);
+        tlb_window->write_block(l1_dest - tlb_window->get_base_address(), src, size);
     } else {
         auto translated_core = translate_chip_coord_virtual_to_translated(core);
         tt_device_->write_to_device(const_cast<void*>(src), translated_core, l1_dest, size);
@@ -202,21 +178,8 @@ void LocalChip::read_from_device(tt_xy_pair core, void* dest, uint64_t l1_src, u
     uint8_t* buffer_addr = static_cast<uint8_t*>(dest);
 
     if (tlb_manager_->is_tlb_mapped(core, l1_src, size)) {
-        TT_THROW("static TLBs read");
-        // tlb_configuration tlb_description = tlb_manager_->get_tlb_configuration(core);
-        // if (tt_device_->get_pci_device()->bar4_wc != nullptr && tlb_description.size == BH_4GB_TLB_SIZE) {
-        //     // This is only for Blackhole. If we want to  read from DRAM (BAR4 space), we add offset
-        //     // from which we read so read_block knows it needs to target BAR4
-        //     tt_device_->read_block(
-        //         (tlb_description.tlb_offset + l1_src % tlb_description.size) + BAR0_BH_SIZE, size, buffer_addr);
-        // } else {
-        //     tt_device_->read_block(tlb_description.tlb_offset + l1_src % tlb_description.size, size, buffer_addr);
-        // }
-        // log_debug(
-        //     LogSiliconDriver,
-        //     "  read_block called with tlb_offset: {}, tlb_size: {}",
-        //     tlb_description.tlb_offset,
-        //     tlb_description.size);
+        TlbWindow* tlb_window = tlb_manager_->get_tlb_window(core);
+        tlb_window->read_block(l1_src - tlb_window->get_base_address(), dest, size);
     } else {
         auto translated_core = translate_chip_coord_virtual_to_translated(core);
         tt_device_->read_from_device(dest, translated_core, l1_src, size);

@@ -60,7 +60,7 @@ void TlbWindow::read_block(uint64_t offset, void *data, size_t size) {
     // }
 }
 
-TlbHandle &TlbWindow::handle_ref() { return *tlb_handle; }
+TlbHandle &TlbWindow::handle_ref() const { return *tlb_handle; }
 
 size_t TlbWindow::get_size() const { return tlb_handle->get_size() - offset_from_aligned_addr; }
 
@@ -170,6 +170,10 @@ void TlbWindow::memcpy_to_device(void *dest, const void *src, std::size_t num_by
 
         *dp++ = tmp;
     }
+}
+
+uint64_t TlbWindow::get_base_address() const {
+    return handle_ref().get_config().local_offset + offset_from_aligned_addr;
 }
 
 }  // namespace tt::umd

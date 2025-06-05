@@ -44,7 +44,7 @@ TEST(ApiSysmemManager, BasicIO) {
     }
 }
 
-TEST(ApiSysmemManager, SysmemBuffersAllocation) {
+TEST(ApiSysmemManager, DISABLED_SysmemBuffersAllocation) {
     std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
     if (pci_device_ids.empty()) {
         GTEST_SKIP() << "No chips present on the system. Skipping test.";

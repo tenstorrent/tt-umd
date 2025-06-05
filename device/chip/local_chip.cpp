@@ -175,15 +175,15 @@ void LocalChip::write_to_device(tt_xy_pair core, const void* src, uint64_t l1_de
 
     if (tlb_manager_->is_tlb_mapped(core, l1_dest, size)) {
         TT_THROW("static TLBs write");
-        tlb_configuration tlb_description = tlb_manager_->get_tlb_configuration(core);
-        if (tt_device_->get_pci_device()->bar4_wc != nullptr && tlb_description.size == BH_4GB_TLB_SIZE) {
-            // This is only for Blackhole. If we want to  write to DRAM (BAR4 space), we add offset
-            // to which we write so write_block knows it needs to target BAR4
-            tt_device_->write_block(
-                (tlb_description.tlb_offset + l1_dest % tlb_description.size) + BAR0_BH_SIZE, size, buffer_addr);
-        } else {
-            tt_device_->write_block(tlb_description.tlb_offset + l1_dest % tlb_description.size, size, buffer_addr);
-        }
+        // tlb_configuration tlb_description = tlb_manager_->get_tlb_configuration(core);
+        // if (tt_device_->get_pci_device()->bar4_wc != nullptr && tlb_description.size == BH_4GB_TLB_SIZE) {
+        //     // This is only for Blackhole. If we want to  write to DRAM (BAR4 space), we add offset
+        //     // to which we write so write_block knows it needs to target BAR4
+        //     tt_device_->write_block(
+        //         (tlb_description.tlb_offset + l1_dest % tlb_description.size) + BAR0_BH_SIZE, size, buffer_addr);
+        // } else {
+        //     tt_device_->write_block(tlb_description.tlb_offset + l1_dest % tlb_description.size, size, buffer_addr);
+        // }
     } else {
         auto translated_core = translate_chip_coord_virtual_to_translated(core);
         tt_device_->write_to_device(const_cast<void*>(src), translated_core, l1_dest, size);
@@ -203,20 +203,20 @@ void LocalChip::read_from_device(tt_xy_pair core, void* dest, uint64_t l1_src, u
 
     if (tlb_manager_->is_tlb_mapped(core, l1_src, size)) {
         TT_THROW("static TLBs read");
-        tlb_configuration tlb_description = tlb_manager_->get_tlb_configuration(core);
-        if (tt_device_->get_pci_device()->bar4_wc != nullptr && tlb_description.size == BH_4GB_TLB_SIZE) {
-            // This is only for Blackhole. If we want to  read from DRAM (BAR4 space), we add offset
-            // from which we read so read_block knows it needs to target BAR4
-            tt_device_->read_block(
-                (tlb_description.tlb_offset + l1_src % tlb_description.size) + BAR0_BH_SIZE, size, buffer_addr);
-        } else {
-            tt_device_->read_block(tlb_description.tlb_offset + l1_src % tlb_description.size, size, buffer_addr);
-        }
-        log_debug(
-            LogSiliconDriver,
-            "  read_block called with tlb_offset: {}, tlb_size: {}",
-            tlb_description.tlb_offset,
-            tlb_description.size);
+        // tlb_configuration tlb_description = tlb_manager_->get_tlb_configuration(core);
+        // if (tt_device_->get_pci_device()->bar4_wc != nullptr && tlb_description.size == BH_4GB_TLB_SIZE) {
+        //     // This is only for Blackhole. If we want to  read from DRAM (BAR4 space), we add offset
+        //     // from which we read so read_block knows it needs to target BAR4
+        //     tt_device_->read_block(
+        //         (tlb_description.tlb_offset + l1_src % tlb_description.size) + BAR0_BH_SIZE, size, buffer_addr);
+        // } else {
+        //     tt_device_->read_block(tlb_description.tlb_offset + l1_src % tlb_description.size, size, buffer_addr);
+        // }
+        // log_debug(
+        //     LogSiliconDriver,
+        //     "  read_block called with tlb_offset: {}, tlb_size: {}",
+        //     tlb_description.tlb_offset,
+        //     tlb_description.size);
     } else {
         auto translated_core = translate_chip_coord_virtual_to_translated(core);
         tt_device_->read_from_device(dest, translated_core, l1_src, size);
@@ -314,8 +314,9 @@ void LocalChip::dma_read_from_device(void* dst, size_t size, tt_xy_pair core, ui
 }
 
 std::function<void(uint32_t, uint32_t, const uint8_t*)> LocalChip::get_fast_pcie_static_tlb_write_callable() {
-    const auto callable = [this](uint32_t byte_addr, uint32_t num_bytes, const uint8_t* buffer_addr) {
-        tt_device_->write_block(byte_addr, num_bytes, buffer_addr);
+    const auto callable = [](uint32_t byte_addr, uint32_t num_bytes, const uint8_t* buffer_addr) {
+        // TODO(pjanevski): uncomment this
+        // tt_device_->write_block(byte_addr, num_bytes, buffer_addr);
     };
 
     return callable;

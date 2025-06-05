@@ -21,3 +21,6 @@ set_target_properties(
 
 # Ensure the Python interface target uses C++17 (required by nanobind)
 target_compile_features(nanobind_libdevice PRIVATE cxx_std_17)
+
+# Install the Python module to a test directory
+install(TARGETS nanobind_libdevice LIBRARY DESTINATION ${CMAKE_BINARY_DIR}/python)

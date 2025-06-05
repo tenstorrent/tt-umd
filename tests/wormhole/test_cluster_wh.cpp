@@ -863,6 +863,7 @@ TEST(SiliconDriverWH, DMA1) {
     // 16.5 MiB: Larger than the largest WH TLB window; this forces chunking
     // and TLB reassignment.
     size_t buf_size = 0x1080000;
+    // size_t buf_size = 1 << 20;
 
     // Keep track of the patterns we wrote to DRAM so we can verify them later.
     std::vector<std::vector<uint8_t>> patterns;

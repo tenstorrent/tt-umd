@@ -284,7 +284,12 @@ void LocalChip::dma_write_to_device(const void* src, size_t size, tt_xy_pair cor
     std::unique_ptr<TlbWindow> tlb_window =
         std::make_unique<TlbWindow>(pci_device->allocate_tlb(two_mb_size, TlbMapping::WC), config);
 
-    auto axi_address = (uint64_t)tlb_window->handle_ref().get_base();
+    auto axi_address_base = get_tt_device()
+                                ->get_architecture_implementation()
+                                ->get_tlb_configuration(tlb_window->handle_ref().get_tlb_id())
+                                .base;
+
+    auto axi_address = axi_address_base + (addr - (addr & ~(two_mb_size - 1)));
 
     // auto lock = acquire_mutex(tlb_name, pci_device->get_device_num());
     while (size > 0) {
@@ -302,6 +307,7 @@ void LocalChip::dma_write_to_device(const void* src, size_t size, tt_xy_pair cor
 
         config.local_offset = addr;
         tlb_window->configure(config);
+        axi_address = axi_address_base + (addr - (addr & ~(two_mb_size - 1)));
     }
 }
 
@@ -327,7 +333,12 @@ void LocalChip::dma_read_from_device(void* dst, size_t size, tt_xy_pair core, ui
     std::unique_ptr<TlbWindow> tlb_window =
         std::make_unique<TlbWindow>(pci_device->allocate_tlb(two_mb_size, TlbMapping::WC), config);
 
-    auto axi_address = (uint64_t)tlb_window->handle_ref().get_base();
+    auto axi_address_base = get_tt_device()
+                                ->get_architecture_implementation()
+                                ->get_tlb_configuration(tlb_window->handle_ref().get_tlb_id())
+                                .base;
+
+    auto axi_address = axi_address_base + (addr - (addr & ~(two_mb_size - 1)));
 
     // auto lock = acquire_mutex(tlb_name, pci_device->get_device_num());
     while (size > 0) {
@@ -344,6 +355,7 @@ void LocalChip::dma_read_from_device(void* dst, size_t size, tt_xy_pair core, ui
 
         config.local_offset = addr;
         tlb_window->configure(config);
+        axi_address = axi_address_base + (addr - (addr & ~(two_mb_size - 1)));
     }
 }
 

@@ -27,11 +27,13 @@ public:
 
     void read_block(uint64_t offset, void* data, size_t size);
 
-    TlbHandle& handle_ref();
+    TlbHandle& handle_ref() const;
 
     size_t get_size() const;
 
     void configure(const tlb_data& new_config);
+
+    uint64_t get_base_address() const;
 
 private:
     void validate(uint64_t offset, size_t size) const;

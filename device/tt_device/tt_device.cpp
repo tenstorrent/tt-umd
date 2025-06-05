@@ -54,11 +54,6 @@ std::shared_ptr<PCIDevice> TTDevice::get_pci_device() { return pci_device_; }
 tt::ARCH TTDevice::get_arch() { return arch; }
 
 bool TTDevice::is_hardware_hung() {
-    // volatile const void *addr = reinterpret_cast<const char *>(pci_device_->bar0_uc) +
-    //                             (architecture_impl_->get_arc_reset_scratch_offset() + 6 * 4) -
-    //                             pci_device_->bar0_uc_offset;
-    // std::uint32_t scratch_data = *reinterpret_cast<const volatile std::uint32_t *>(addr);
-
     uint32_t scratch_data = bar_read32(architecture_impl_->get_arc_reset_scratch_offset() + 6 * 4);
 
     return (scratch_data == HANG_READ_VALUE);
@@ -66,9 +61,6 @@ bool TTDevice::is_hardware_hung() {
 
 void TTDevice::detect_hang_read(std::uint32_t data_read) {
     if (data_read == HANG_READ_VALUE && is_hardware_hung()) {
-        // std::uint32_t scratch_data =
-        //     *pci_device_->get_register_address<std::uint32_t>(architecture_impl_->get_read_checking_offset());
-
         throw std::runtime_error("Read 0xffffffff from PCIE: you should reset the board.");
     }
 }

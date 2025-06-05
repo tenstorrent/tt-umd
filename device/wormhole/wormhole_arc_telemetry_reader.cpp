@@ -5,8 +5,6 @@
  */
 #include "umd/device/wormhole_arc_telemetry_reader.h"
 
-#include <iostream>
-
 #include "umd/device/types/wormhole_telemetry.h"
 
 namespace tt::umd {

@@ -1,13 +1,32 @@
+find_package(Python REQUIRED COMPONENTS Development)
+
 # Define the Python interface target
-add_library(nanobind_libdevice MODULE cluster.cpp)
+nanobind_add_module(nanobind_libdevice MODULE cluster.cpp)
 
 # Link the Python interface target to libdevice and nanobind
 target_link_libraries(
     nanobind_libdevice
     PRIVATE
-        libdevice
-        nanobind::nanobind
+        umd::device
+        nanobind
+        fmt::fmt-header-only
 )
+
+# Include device API
+target_include_directories(
+    nanobind_libdevice
+    INTERFACE
+        ${PROJECT_SOURCE_DIR}
+        ${CMAKE_CURRENT_SOURCE_DIR}
+        "$<TARGET_PROPERTY:umd::device,INCLUDE_DIRECTORIES>"
+)
+
+# Include nanobind headers
+# target_include_directories(
+#     nanobind_libdevice
+#     PRIVATE
+#         "$<TARGET_PROPERTY:nanobind,INTERFACE_INCLUDE_DIRECTORIES>"
+# )
 
 # Set properties for the Python module
 set_target_properties(

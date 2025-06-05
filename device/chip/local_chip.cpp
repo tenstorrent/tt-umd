@@ -482,13 +482,6 @@ void LocalChip::check_pcie_device_initialized() {
 int LocalChip::test_setup_interface() {
     int ret_val = 0;
     if (soc_descriptor_.arch == tt::ARCH::WORMHOLE_B0) {
-        // uint32_t mapped_reg = tt_device_
-        //                           ->set_dynamic_tlb(
-        //                               tt_device_->get_architecture_implementation()->get_reg_tlb(),
-        //                               translate_chip_coord_virtual_to_translated(tt_xy_pair(1, 0)),
-        //                               0xffb20108)
-        //                           .bar_offset;
-
         uint32_t regval = 0;
         read_from_device_reg(
             translate_chip_coord_virtual_to_translated(tt_xy_pair(1, 0)), &regval, 0xffb20108, sizeof(uint32_t));

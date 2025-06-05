@@ -485,7 +485,6 @@ int LocalChip::test_setup_interface() {
         uint32_t regval = 0;
         read_from_device_reg(
             translate_chip_coord_virtual_to_translated(tt_xy_pair(1, 0)), &regval, 0xffb20108, sizeof(uint32_t));
-        // tt_device_->read_regs(mapped_reg, 1, &regval);
         ret_val = (regval != HANG_READ_VALUE && (regval == 33)) ? 0 : 1;
         return ret_val;
     } else if (soc_descriptor_.arch == tt::ARCH::BLACKHOLE) {

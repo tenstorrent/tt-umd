@@ -13,6 +13,8 @@
 #include "umd/device/tt_io.hpp"
 #include "umd/device/types/tlb.h"
 
+extern bool umd_use_noc1;
+
 namespace tt::umd {
 
 static constexpr uint64_t DEFAULT_ORDERING_MODE = tlb_data::Relaxed;
@@ -37,12 +39,8 @@ void TLBManager::configure_tlb(
     config.local_offset = address;
     config.x_end = translated_core.x;
     config.y_end = translated_core.y;
-    config.x_start = 0;
-    config.y_start = 0;
-    config.noc_sel = 0;
-    config.mcast = 0;
+    config.noc_sel = umd_use_noc1 ? 1 : 0;
     config.ordering = ordering;
-    config.linked = 0;
     config.static_vc = 1;
     std::unique_ptr<TlbWindow> tlb_window =
         std::make_unique<TlbWindow>(tt_device_->get_pci_device()->allocate_tlb(tlb_size, TlbMapping::WC), config);
@@ -73,22 +71,16 @@ bool TLBManager::is_tlb_mapped(tt_xy_pair core, uint64_t address, uint32_t size_
            address + size_in_bytes <= tlb_window->get_base_address() + tlb_window->get_size();
 }
 
-// TODO(pjanevski): reimplement this function.
 tt::Writer TLBManager::get_static_tlb_writer(tt_xy_pair core) {
     if (!is_tlb_mapped(core)) {
         throw std::runtime_error(fmt::format("TLBs not initialized for core: {}", core.str()));
     }
 
-    if (!tt_device_->get_pci_device()->bar0) {
-        throw std::runtime_error("No write-combined mapping for BAR0");
-    }
-
     auto tlb_index = map_core_to_tlb_.at(core);
     auto tlb_data = tt_device_->get_architecture_implementation()->get_tlb_configuration(tlb_index);
+    TlbWindow* tlb_window = tlb_windows_.at(tlb_index).get();
 
-    auto* base = reinterpret_cast<uint8_t*>(tt_device_->get_pci_device()->bar0);
-
-    return tt::Writer(base + tlb_data.tlb_offset, tlb_data.size);
+    return tt::Writer(tlb_window->handle_ref().get_base(), tlb_data.size);
 }
 
 tlb_configuration TLBManager::get_tlb_configuration(tt_xy_pair core) {

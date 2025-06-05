@@ -75,29 +75,22 @@ void TTDevice::write_regs(volatile uint32_t *dest, const uint32_t *src, uint32_t
 void TTDevice::read_from_device(void *mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size) {
     auto lock = lock_manager.acquire_mutex(MutexType::TT_DEVICE_IO, get_pci_device()->get_device_num());
     uint8_t *buffer_addr = static_cast<uint8_t *>(mem_ptr);
-    // const uint32_t tlb_index = get_architecture_implementation()->get_small_read_write_tlb();
     tlb_data config;
     config.local_offset = addr;
     config.x_end = core.x;
     config.y_end = core.y;
-    config.x_start = 0;
-    config.y_start = 0;
-    config.noc_sel = 0;
-    config.mcast = 0;
+    config.noc_sel = umd_use_noc1 ? 1 : 0;
+    ;
     config.ordering = tlb_data::Relaxed;
-    config.linked = 0;
     config.static_vc = 1;
     const uint32_t two_mb_size = 1 << 21;
     std::unique_ptr<TlbWindow> tlb_window =
         std::make_unique<TlbWindow>(get_pci_device()->allocate_tlb(two_mb_size, TlbMapping::WC), config);
     while (size > 0) {
-        // auto [mapped_address, tlb_size] = set_dynamic_tlb(tlb_index, core, addr, tt::umd::tlb_data::Strict);
         uint32_t tlb_size = tlb_window->get_size();
         uint32_t transfer_size = std::min(size, tlb_size);
 
         tlb_window->read_block(0, buffer_addr, transfer_size);
-
-        // read_block(mapped_address, transfer_size, buffer_addr);
 
         size -= transfer_size;
         addr += transfer_size;
@@ -111,17 +104,12 @@ void TTDevice::read_from_device(void *mem_ptr, tt_xy_pair core, uint64_t addr, u
 void TTDevice::write_to_device(void *mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size) {
     auto lock = lock_manager.acquire_mutex(MutexType::TT_DEVICE_IO, get_pci_device()->get_device_num());
     uint8_t *buffer_addr = static_cast<uint8_t *>(mem_ptr);
-    // const uint32_t tlb_index = get_architecture_implementation()->get_small_read_write_tlb();
     tlb_data config;
     config.local_offset = addr;
     config.x_end = core.x;
     config.y_end = core.y;
-    config.x_start = 0;
-    config.y_start = 0;
-    config.noc_sel = 0;
-    config.mcast = 0;
+    config.noc_sel = umd_use_noc1 ? 1 : 0;
     config.ordering = tlb_data::Relaxed;
-    config.linked = 0;
     config.static_vc = 1;
     const uint32_t two_mb_size = 1 << 21;
     std::unique_ptr<TlbWindow> tlb_window =
@@ -160,12 +148,6 @@ void TTDevice::bar_write32(uint32_t addr, uint32_t data) {
     }
     addr -= bar0_offset;
     *reinterpret_cast<volatile uint32_t *>((uint8_t *)get_pci_device()->bar0 + addr) = data;
-    // if (addr < get_pci_device()->bar0_uc_offset) {
-    //     write_block(addr, sizeof(data), reinterpret_cast<const uint8_t *>(&data));  // do we have to
-    //     reinterpret_cast?
-    // } else {
-    //     write_regs(addr, 1, &data);
-    // }
 }
 
 uint32_t TTDevice::bar_read32(uint32_t addr) {
@@ -177,13 +159,6 @@ uint32_t TTDevice::bar_read32(uint32_t addr) {
     }
     addr -= bar0_offset;
     return *reinterpret_cast<volatile uint32_t *>((uint8_t *)get_pci_device()->bar0 + addr);
-    // uint32_t data;
-    // if (addr < get_pci_device()->bar0_uc_offset) {
-    //     read_block(addr, sizeof(data), reinterpret_cast<uint8_t *>(&data));
-    // } else {
-    //     read_regs(addr, 1, &data);
-    // }
-    // return data;
 }
 
 tt::umd::ArcMessenger *TTDevice::get_arc_messenger() const { return arc_messenger_.get(); }

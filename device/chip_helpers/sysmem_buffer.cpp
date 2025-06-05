@@ -11,6 +11,8 @@
 #include "umd/device/tt_device/tlb_window.h"
 #include "umd/device/tt_device/tt_device.h"
 
+extern bool umd_use_noc1;
+
 namespace tt::umd {
 
 SysmemBuffer::SysmemBuffer(TLBManager* tlb_manager, void* buffer_va, size_t buffer_size) :
@@ -34,12 +36,8 @@ void SysmemBuffer::dma_write_to_device(size_t offset, size_t size, tt_xy_pair co
     config.local_offset = addr;
     config.x_end = core.x;
     config.y_end = core.y;
-    config.x_start = 0;
-    config.y_start = 0;
-    config.noc_sel = 0;
-    config.mcast = 0;
+    config.noc_sel = umd_use_noc1 ? 1 : 0;
     config.ordering = tlb_data::Relaxed;
-    config.linked = 0;
     config.static_vc = 1;
     const uint32_t two_mb_size = 1 << 21;
     std::unique_ptr<TlbWindow> tlb_window =
@@ -83,12 +81,8 @@ void SysmemBuffer::dma_read_from_device(size_t offset, size_t size, tt_xy_pair c
     config.local_offset = addr;
     config.x_end = core.x;
     config.y_end = core.y;
-    config.x_start = 0;
-    config.y_start = 0;
-    config.noc_sel = 0;
-    config.mcast = 0;
+    config.noc_sel = umd_use_noc1 ? 1 : 0;
     config.ordering = tlb_data::Relaxed;
-    config.linked = 0;
     config.static_vc = 1;
     const uint32_t two_mb_size = 1 << 21;
     std::unique_ptr<TlbWindow> tlb_window =

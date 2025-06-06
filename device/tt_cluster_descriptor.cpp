@@ -18,6 +18,7 @@
 #include "disjoint_set.hpp"
 
 using namespace tt;
+using namespace tt::umd;
 
 bool tt_ClusterDescriptor::ethernet_core_has_active_ethernet_link(
     chip_id_t local_chip, ethernet_channel_t local_ethernet_channel) const {
@@ -491,9 +492,7 @@ std::unique_ptr<tt_ClusterDescriptor> tt_ClusterDescriptor::create_constrained_c
     desc->galaxy_shelves_exit_chip_coords_per_y_dim = full_cluster_desc->galaxy_shelves_exit_chip_coords_per_y_dim;
     desc->galaxy_racks_exit_chip_coords_per_x_dim = full_cluster_desc->galaxy_racks_exit_chip_coords_per_x_dim;
 
-    desc->dram_harvesting_masks = filter_chip_collection(full_cluster_desc->dram_harvesting_masks, target_chip_ids);
-    desc->eth_harvesting_masks = filter_chip_collection(full_cluster_desc->eth_harvesting_masks, target_chip_ids);
-    desc->pcie_harvesting_masks = filter_chip_collection(full_cluster_desc->pcie_harvesting_masks, target_chip_ids);
+    desc->harvesting_masks_map = filter_chip_collection(full_cluster_desc->harvesting_masks_map, target_chip_ids);
 
     // Write explicitly filters for more complex structures.
     for (const auto &[chip_id, eth_connections] : full_cluster_desc->ethernet_connections) {
@@ -576,9 +575,10 @@ void tt_ClusterDescriptor::load_ethernet_connections_from_connectivity_descripto
 
     // Preload idle eth channels.
     for (const auto &chip : desc.all_chips) {
-        int num_harvested_channels = desc.eth_harvesting_masks.empty()
-                                         ? 0
-                                         : CoordinateManager::get_num_harvested(desc.eth_harvesting_masks.at(chip));
+        int num_harvested_channels =
+            desc.harvesting_masks_map.empty()
+                ? 0
+                : CoordinateManager::get_num_harvested(desc.harvesting_masks_map.at(chip).eth_harvesting_mask);
         int num_channels =
             tt::umd::architecture_implementation::create(desc.chip_arch.at(chip))->get_num_eth_channels() -
             num_harvested_channels;
@@ -918,19 +918,25 @@ void tt_ClusterDescriptor::load_harvesting_information(YAML::Node &yaml, tt_Clus
             chip_id_t chip = chip_node.first;
             auto harvesting_info = chip_node.second;
             desc.noc_translation_enabled.insert({chip, harvesting_info["noc_translation"].as<bool>()});
+
+            HarvestingMasks harvesting{0, 0, 0, 0};
+
             desc.harvesting_masks.insert({chip, harvesting_info["harvest_mask"].as<std::uint32_t>()});
+            harvesting.tensix_harvesting_mask = harvesting_info["harvest_mask"].as<std::uint32_t>();
 
             if (harvesting_info["dram_harvesting_mask"].IsDefined()) {
-                desc.dram_harvesting_masks.insert({chip, harvesting_info["dram_harvesting_mask"].as<std::uint32_t>()});
+                harvesting.dram_harvesting_mask = harvesting_info["dram_harvesting_mask"].as<std::uint32_t>();
             }
 
             if (harvesting_info["eth_harvesting_mask"].IsDefined()) {
-                desc.eth_harvesting_masks.insert({chip, harvesting_info["eth_harvesting_mask"].as<std::uint32_t>()});
+                harvesting.eth_harvesting_mask = harvesting_info["eth_harvesting_mask"].as<std::uint32_t>();
             }
 
             if (harvesting_info["pcie_harvesting_mask"].IsDefined()) {
-                desc.pcie_harvesting_masks.insert({chip, harvesting_info["pcie_harvesting_mask"].as<std::uint32_t>()});
+                harvesting.pcie_harvesting_mask = harvesting_info["pcie_harvesting_mask"].as<std::uint32_t>();
             }
+
+            desc.harvesting_masks_map.insert({chip, harvesting});
         }
     }
 }
@@ -1108,10 +1114,11 @@ std::string tt_ClusterDescriptor::serialize() const {
     for (const int &chip : all_chips) {
         out << YAML::Key << chip << YAML::Value << YAML::BeginMap;
         out << YAML::Key << "noc_translation" << YAML::Value << noc_translation_enabled.at(chip);
-        out << YAML::Key << "harvest_mask" << YAML::Value << harvesting_masks.at(chip);
-        out << YAML::Key << "dram_harvesting_mask" << YAML::Value << get_dram_harvesting_mask(chip);
-        out << YAML::Key << "eth_harvesting_mask" << YAML::Value << get_eth_harvesting_mask(chip);
-        out << YAML::Key << "pcie_harvesting_mask" << YAML::Value << get_pcie_harvesting_mask(chip);
+        HarvestingMasks harvesting = get_harvesting_masks(chip);
+        out << YAML::Key << "harvest_mask" << YAML::Value << harvesting.tensix_harvesting_mask;
+        out << YAML::Key << "dram_harvesting_mask" << YAML::Value << harvesting.dram_harvesting_mask;
+        out << YAML::Key << "eth_harvesting_mask" << YAML::Value << harvesting.eth_harvesting_mask;
+        out << YAML::Key << "pcie_harvesting_mask" << YAML::Value << harvesting.pcie_harvesting_mask;
         out << YAML::EndMap;
     }
     out << YAML::EndMap;
@@ -1184,30 +1191,11 @@ std::set<uint32_t> tt_ClusterDescriptor::get_idle_eth_channels(chip_id_t chip_id
     return it->second;
 }
 
-uint32_t tt_ClusterDescriptor::get_dram_harvesting_mask(chip_id_t chip_id) const {
-    auto it = dram_harvesting_masks.find(chip_id);
-    if (it == dram_harvesting_masks.end()) {
-        return 0;
+HarvestingMasks tt_ClusterDescriptor::get_harvesting_masks(chip_id_t chip_id) const {
+    auto it = harvesting_masks_map.find(chip_id);
+    if (it == harvesting_masks_map.end()) {
+        return HarvestingMasks{0, 0, 0, 0};
     }
-
-    return it->second;
-}
-
-uint32_t tt_ClusterDescriptor::get_eth_harvesting_mask(chip_id_t chip_id) const {
-    auto it = eth_harvesting_masks.find(chip_id);
-    if (it == eth_harvesting_masks.end()) {
-        return 0;
-    }
-
-    return it->second;
-}
-
-uint32_t tt_ClusterDescriptor::get_pcie_harvesting_mask(chip_id_t chip_id) const {
-    auto it = pcie_harvesting_masks.find(chip_id);
-    if (it == pcie_harvesting_masks.end()) {
-        return 0;
-    }
-
     return it->second;
 }
 

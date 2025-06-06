@@ -398,10 +398,7 @@ void TopologyDiscovery::fill_cluster_descriptor_info() {
 
         cluster_desc->noc_translation_enabled.insert({chip_id, chip->get_chip_info().noc_translation_enabled});
         cluster_desc->harvesting_masks.insert({chip_id, chip->get_chip_info().harvesting_masks.tensix_harvesting_mask});
-        cluster_desc->dram_harvesting_masks.insert(
-            {chip_id, chip->get_chip_info().harvesting_masks.dram_harvesting_mask});
-        cluster_desc->eth_harvesting_masks.insert(
-            {chip_id, chip->get_chip_info().harvesting_masks.eth_harvesting_mask});
+        cluster_desc->harvesting_masks_map.insert({chip_id, chip->get_chip_info().harvesting_masks});
         eth_coord_t eth_coord = eth_coords.at(chip_id);
         cluster_desc->chip_locations.insert({chip_id, eth_coord});
         cluster_desc->coords_to_chip_ids[eth_coord.rack][eth_coord.shelf][eth_coord.y][eth_coord.x] = chip_id;

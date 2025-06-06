@@ -87,4 +87,4 @@ jobs:
 
       - name: Run python example tests
         run: |
-          PYTHONPATH=${{ env.BUILD_OUTPUT_DIR }}/python python3 tests/test_cluster.py
+          PYTHONPATH=${{ env.BUILD_OUTPUT_DIR }}/nanobind/ pytest -s

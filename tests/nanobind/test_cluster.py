@@ -8,15 +8,10 @@ class TestCluster(unittest.TestCase):
         cluster = libdevice.Cluster()  # Create a Cluster instance
         self.assertIsNotNone(cluster)
 
-    def test_cluster_method(self):
+    def test_cluster_get_ids(self):
         cluster = libdevice.Cluster()
-        result = cluster.method_name()  # Call a method
-        self.assertEqual(result, expected_value)  # Replace `expected_value` with the actual expected result
-
-    def test_cluster_property(self):
-        cluster = libdevice.Cluster()
-        cluster.property_name = 42  # Set a property
-        self.assertEqual(cluster.property_name, 42)  # Verify the property value
+        result = cluster.get_target_device_ids()
+        print("Cluster device IDs:", result)
 
 if __name__ == "__main__":
     unittest.main()

@@ -31,7 +31,7 @@ on:
 
 
 env:
-  BUILD_TARGETS: "umd_tests ubench"
+  BUILD_TARGETS: "umd_tests ubench nanobind_libdevice"
   BUILD_OUTPUT_DIR: ./build
   LIB_OUTPUT_DIR: ./build/lib
   DEPS_OUTPUT_DIR: ./build/_deps

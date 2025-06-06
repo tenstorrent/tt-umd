@@ -8,7 +8,6 @@ target_link_libraries(
     nanobind_libdevice
     PRIVATE
         umd::device
-        nanobind
         fmt::fmt-header-only
 )
 
@@ -21,13 +20,6 @@ target_include_directories(
         "$<TARGET_PROPERTY:umd::device,INCLUDE_DIRECTORIES>"
 )
 
-# Include nanobind headers
-# target_include_directories(
-#     nanobind_libdevice
-#     PRIVATE
-#         "$<TARGET_PROPERTY:nanobind,INTERFACE_INCLUDE_DIRECTORIES>"
-# )
-
 # Set properties for the Python module
 set_target_properties(
     nanobind_libdevice
@@ -37,9 +29,3 @@ set_target_properties(
         PREFIX
             "" # Remove the default 'lib' prefix for Python modules
 )
-
-# Ensure the Python interface target uses C++17 (required by nanobind)
-target_compile_features(nanobind_libdevice PRIVATE cxx_std_17)
-
-# Install the Python module to a test directory
-install(TARGETS nanobind_libdevice LIBRARY DESTINATION ${CMAKE_BINARY_DIR}/python)

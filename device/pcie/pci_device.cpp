@@ -259,7 +259,7 @@ PCIDevice::PCIDevice(int pci_device_number) :
         PROT_READ | PROT_WRITE,
         MAP_SHARED,
         pci_device_file_desc,
-        bar0_uc_mapping.mapping_base + 510 * one_mb);
+        bar0_uc_mapping.mapping_base + 509 * one_mb);
 
     if (bar0 == MAP_FAILED) {
         throw std::runtime_error(fmt::format("BAR0 mapping failed for device {}.", pci_device_num));

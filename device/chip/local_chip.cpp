@@ -201,8 +201,7 @@ void LocalChip::dma_write_to_device(const void* src, size_t size, tt_xy_pair cor
     config.ordering = tlb_data::Relaxed;
     config.static_vc = 1;
     const uint32_t two_mb_size = 1 << 21;
-    std::unique_ptr<TlbWindow> tlb_window =
-        std::make_unique<TlbWindow>(pci_device->allocate_tlb(two_mb_size, TlbMapping::WC), config);
+    std::unique_ptr<TlbWindow> tlb_window = get_tlb_manager()->allocate_tlb_window(config, TlbMapping::WC);
 
     auto axi_address_base = get_tt_device()
                                 ->get_architecture_implementation()
@@ -242,8 +241,7 @@ void LocalChip::dma_read_from_device(void* dst, size_t size, tt_xy_pair core, ui
     config.ordering = tlb_data::Relaxed;
     config.static_vc = 1;
     const uint32_t two_mb_size = 1 << 21;
-    std::unique_ptr<TlbWindow> tlb_window =
-        std::make_unique<TlbWindow>(pci_device->allocate_tlb(two_mb_size, TlbMapping::WC), config);
+    std::unique_ptr<TlbWindow> tlb_window = get_tlb_manager()->allocate_tlb_window(config, TlbMapping::WC);
 
     auto axi_address_base = get_tt_device()
                                 ->get_architecture_implementation()
@@ -295,8 +293,7 @@ void LocalChip::write_to_device_reg(tt_xy_pair core, const void* src, uint64_t r
     config.ordering = tlb_data::Strict;
     config.static_vc = 1;
     const uint32_t two_mb_size = 1 << 21;
-    std::unique_ptr<TlbWindow> tlb_window = std::make_unique<TlbWindow>(
-        get_tt_device()->get_pci_device()->allocate_tlb(two_mb_size, TlbMapping::UC), config);
+    std::unique_ptr<TlbWindow> tlb_window = get_tlb_manager()->allocate_tlb_window(config, TlbMapping::UC);
 
     tlb_window->write_block(0, src, size);
 }
@@ -319,8 +316,7 @@ void LocalChip::read_from_device_reg(tt_xy_pair core, void* dest, uint64_t reg_s
     config.ordering = tlb_data::Strict;
     config.static_vc = 1;
     const uint32_t two_mb_size = 1 << 21;
-    std::unique_ptr<TlbWindow> tlb_window = std::make_unique<TlbWindow>(
-        get_tt_device()->get_pci_device()->allocate_tlb(two_mb_size, TlbMapping::UC), config);
+    std::unique_ptr<TlbWindow> tlb_window = get_tlb_manager()->allocate_tlb_window(config, TlbMapping::UC);
 
     tlb_window->read_block(0, dest, size);
 }

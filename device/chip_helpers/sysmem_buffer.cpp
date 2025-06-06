@@ -6,6 +6,7 @@
 
 #include "umd/device/chip_helpers/sysmem_buffer.h"
 
+#include <iostream>
 #include <tt-logger/tt-logger.hpp>
 
 #include "umd/device/tt_device/tt_device.h"
@@ -13,10 +14,10 @@
 namespace tt::umd {
 
 SysmemBuffer::SysmemBuffer(TLBManager* tlb_manager, void* buffer_va, size_t buffer_size) :
-    tlb_manager_(tlb_manager),
-    buffer_va(buffer_va),
-    buffer_size(buffer_size),
-    device_io_addr(tlb_manager->get_tt_device()->get_pci_device()->map_for_dma(buffer_va, buffer_size)) {}
+    tlb_manager_(tlb_manager), buffer_va(buffer_va), buffer_size(buffer_size) {
+    align_address_and_size();
+    device_io_addr = tlb_manager->get_tt_device()->get_pci_device()->map_for_dma(buffer_va, buffer_size);
+}
 
 void SysmemBuffer::dma_write_to_device(size_t offset, size_t size, tt_xy_pair core, uint64_t addr) {
     static const std::string tlb_name = "LARGE_WRITE_TLB";
@@ -81,6 +82,16 @@ SysmemBuffer::~SysmemBuffer() {
         log_warning(
             LogSiliconDriver, "Failed to unmap sysmem buffer (size: {:#x}, IOVA: {:#x}).", buffer_size, device_io_addr);
     }
+}
+
+void SysmemBuffer::align_address_and_size() {
+    static const auto page_size = sysconf(_SC_PAGESIZE);
+    uint64_t aligned_buffer_va = reinterpret_cast<uint64_t>(buffer_va) & ~(page_size - 1);
+    offset_from_aligned_addr = reinterpret_cast<uint64_t>(buffer_va) - aligned_buffer_va;
+    buffer_va = reinterpret_cast<void*>(aligned_buffer_va);
+    buffer_size = (buffer_size + offset_from_aligned_addr + page_size - 1) & ~(page_size - 1);
+    std::cout << "Aligned buffer VA: " << std::hex << buffer_va << ", size: " << buffer_size
+              << ", offset from aligned address: " << offset_from_aligned_addr << std::endl;
 }
 
 }  // namespace tt::umd

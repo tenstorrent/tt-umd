@@ -30,17 +30,21 @@ public:
     SysmemBuffer(TLBManager* tlb_manager, void* buffer_va, size_t buffer_size);
     ~SysmemBuffer();
 
-    void* get_buffer_va() const { return buffer_va; }
+    void* get_buffer_va() const { return (uint8_t*)buffer_va + offset_from_aligned_addr; }
 
     size_t get_buffer_size() const { return buffer_size; }
 
-    uint64_t get_device_io_addr(const size_t offset = 0) const { return device_io_addr + offset; }
+    uint64_t get_device_io_addr(const size_t offset = 0) const {
+        return device_io_addr + offset + offset_from_aligned_addr;
+    }
 
     void dma_write_to_device(size_t offset, size_t size, tt_xy_pair core, uint64_t addr);
 
     void dma_read_from_device(size_t offset, size_t size, tt_xy_pair core, uint64_t addr);
 
 private:
+    void align_address_and_size();
+
     TLBManager* tlb_manager_;
 
     // Virtual address in process addr space.
@@ -50,6 +54,8 @@ private:
 
     // Address that is used on the system bus to access the buffer.
     uint64_t device_io_addr;
+
+    uint64_t offset_from_aligned_addr = 0;
 };
 
 }  // namespace tt::umd

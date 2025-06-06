@@ -101,3 +101,50 @@ TEST(ApiSysmemManager, SysmemBuffers) {
         EXPECT_EQ(sysmem_data[i], sysmem_data_readback[i]);
     }
 }
+
+TEST(ApiSysmemManager, SysmemBufferUnaligned) {
+    const auto page_size = sysconf(_SC_PAGESIZE);
+
+    std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
+    if (pci_device_ids.empty()) {
+        GTEST_SKIP() << "No chips present on the system. Skipping test.";
+    }
+    if (!PCIDevice(pci_device_ids[0]).is_iommu_enabled()) {
+        GTEST_SKIP() << "Skipping test since IOMMU is not enabled.";
+    }
+
+    std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>(tt::umd::ClusterOptions{
+        .num_host_mem_ch_per_mmio_device = 0,
+    });
+
+    const chip_id_t mmio_chip = *cluster->get_target_mmio_device_ids().begin();
+
+    SysmemManager* sysmem_manager = cluster->get_chip(mmio_chip)->get_sysmem_manager();
+
+    const uint32_t one_mb = 1 << 20;
+    std::vector<uint8_t> mapping(one_mb);
+    std::unique_ptr<SysmemBuffer> sysmem_buffer = sysmem_manager->map_sysmem_buffer(mapping.data(), one_mb);
+
+    const CoreCoord tensix_core = cluster->get_soc_descriptor(mmio_chip).get_cores(CoreType::TENSIX)[0];
+
+    // Zero out 1MB of Tensix L1.
+    std::vector<uint8_t> data_write(one_mb, 0);
+    cluster->write_to_device(data_write.data(), one_mb, mmio_chip, tensix_core, 0);
+
+    uint8_t* sysmem_data = static_cast<uint8_t*>(sysmem_buffer->get_buffer_va());
+
+    for (uint32_t i = 0; i < one_mb; ++i) {
+        sysmem_data[i] = static_cast<uint8_t>(i % 256);
+    }
+
+    // Write pattern to first 1MB of Tensix L1.
+    sysmem_buffer->dma_write_to_device(0, one_mb, tensix_core, 0);
+
+    // Read regularly to check Tensix L1 matches the pattern.
+    std::vector<uint8_t> readback(one_mb, 0);
+    cluster->dma_read_from_device(readback.data(), one_mb, mmio_chip, tensix_core, 0);
+
+    for (uint32_t i = 0; i < one_mb; ++i) {
+        EXPECT_EQ(sysmem_data[i], readback[i]);
+    }
+}

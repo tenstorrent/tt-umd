@@ -42,8 +42,7 @@ void SysmemBuffer::dma_write_to_device(const size_t offset, size_t size, const t
     config.ordering = tlb_data::Relaxed;
     config.static_vc = 1;
     const uint32_t two_mb_size = 1 << 21;
-    std::unique_ptr<TlbWindow> tlb_window =
-        std::make_unique<TlbWindow>(pci_device->allocate_tlb(two_mb_size, TlbMapping::WC), config);
+    std::unique_ptr<TlbWindow> tlb_window = tlb_manager_->allocate_tlb_window(config, TlbMapping::WC);
 
     auto axi_address_base = tt_device_->get_architecture_implementation()
                                 ->get_tlb_configuration(tlb_window->handle_ref().get_tlb_id())
@@ -88,8 +87,7 @@ void SysmemBuffer::dma_read_from_device(const size_t offset, size_t size, const 
     config.ordering = tlb_data::Relaxed;
     config.static_vc = 1;
     const uint32_t two_mb_size = 1 << 21;
-    std::unique_ptr<TlbWindow> tlb_window =
-        std::make_unique<TlbWindow>(pci_device->allocate_tlb(two_mb_size, TlbMapping::WC), config);
+    std::unique_ptr<TlbWindow> tlb_window = tlb_manager_->allocate_tlb_window(config, TlbMapping::WC);
 
     auto axi_address_base = tt_device_->get_architecture_implementation()
                                 ->get_tlb_configuration(tlb_window->handle_ref().get_tlb_id())

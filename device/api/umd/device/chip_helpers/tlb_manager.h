@@ -9,6 +9,7 @@
 
 #include "umd/device/tt_device/tlb_window.h"
 #include "umd/device/tt_xy_pair.h"
+#include "umd/device/types/arch.h"
 #include "umd/device/types/tlb.h"
 
 namespace tt {
@@ -42,6 +43,11 @@ public:
     TTDevice* get_tt_device() { return tt_device_; }
 
     TlbWindow* get_tlb_window(const tt_xy_pair core);
+
+    static const std::vector<uint32_t> get_tlb_arch_sizes(const tt::ARCH arch);
+
+    std::unique_ptr<TlbWindow> allocate_tlb_window(
+        tlb_data config, const tt::umd::TlbMapping mapping = tt::umd::TlbMapping::WC, const uint32_t tlb_size = 0);
 
 private:
     TTDevice* tt_device_;

@@ -167,7 +167,7 @@ tt::ARCH PciDeviceInfo::get_arch() const {
     return infos;
 }
 
-static const semver_t kmd_ver_for_iommu = semver_t(1, 29, 0);
+static const semver_t kmd_version_for_tlbs = semver_t(1, 34, 0);
 
 PCIDevice::PCIDevice(int pci_device_number) :
     device_path(fmt::format("/dev/tenstorrent/{}", pci_device_number)),
@@ -179,8 +179,8 @@ PCIDevice::PCIDevice(int pci_device_number) :
     arch(info.get_arch()),
     kmd_version(PCIDevice::read_kmd_version()),
     iommu_enabled(detect_iommu(info)) {
-    if (iommu_enabled && kmd_version < kmd_ver_for_iommu) {
-        TT_THROW("Running with IOMMU support requires KMD version {} or newer", kmd_ver_for_iommu.to_string());
+    if (kmd_version < kmd_version_for_tlbs) {
+        TT_THROW("Running UMD requires KMD version {} or newer.", kmd_version_for_tlbs.to_string());
     }
 
     log_info(

@@ -8,6 +8,7 @@
 #include <tt-logger/tt-logger.hpp>
 
 #include "umd/device/blackhole_implementation.h"
+#include "umd/device/coordinate_manager.h"
 #include "umd/device/types/blackhole_eth.h"
 #include "umd/device/types/blackhole_telemetry.h"
 
@@ -100,10 +101,11 @@ bool BlackholeTTDevice::get_noc_translation_enabled() {
 
 ChipInfo BlackholeTTDevice::get_chip_info() {
     ChipInfo chip_info;
-    chip_info.harvesting_masks.tensix_harvesting_mask =
+    chip_info.harvesting_masks.tensix_harvesting_mask = CoordinateManager::shuffle_tensix_harvesting_mask(
+        tt::ARCH::BLACKHOLE,
         telemetry->is_entry_available(blackhole::TAG_ENABLED_TENSIX_COL)
             ? (~telemetry->read_entry(blackhole::TAG_ENABLED_TENSIX_COL) & 0x3FFF)
-            : 0;
+            : 0);
     chip_info.harvesting_masks.dram_harvesting_mask = telemetry->is_entry_available(blackhole::TAG_ENABLED_GDDR)
                                                           ? (~telemetry->read_entry(blackhole::TAG_ENABLED_GDDR) & 0xFF)
                                                           : 0;

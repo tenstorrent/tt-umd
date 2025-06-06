@@ -1002,3 +1002,41 @@ TEST(SiliconDriverWH, DMA2) {
         }
     }
 }
+
+TEST(SiliconDriverWH, DmaSweep) {
+    const chip_id_t chip = 0;
+    Cluster cluster;
+
+    // const CoreCoord core = CoreCoord(18, 18, CoreType::TENSIX, CoordSystem::TRANSLATED);
+    const CoreCoord core = CoreCoord(0, 0, CoreType::DRAM, CoordSystem::NOC0);
+
+    // std::vector<uint64_t> buf_sizes = {32, 16, 8, 4, 2, 1};
+
+    const uint64_t addr = 0;
+
+    for (uint64_t size = 32; size > 0; size--) {
+        std::cout << "Testing DMA sweep with size: " << size << std::endl;
+        std::vector<uint8_t> pattern(size, 0);
+        for (size_t i = 0; i < size; ++i) {
+            pattern[i] = static_cast<uint8_t>(i);
+        }
+        std::cout << "DMA write" << std::endl;
+        cluster.dma_write_to_device(pattern.data(), pattern.size(), 0, core, 0x0);
+
+        std::vector<uint8_t> readback(pattern.size(), 0);
+        std::cout << "DMA read" << std::endl;
+        cluster.dma_read_from_device(readback.data(), readback.size(), 0, core, 0x0);
+
+        EXPECT_EQ(pattern, readback) << "Mismatch for core " << core.str() << " addr=0x0 size=" << std::dec
+                                     << readback.size();
+
+        std::vector<uint8_t> readback_tlb(pattern.size(), 0);
+        cluster.read_from_device(readback_tlb.data(), 0, core, addr, readback_tlb.size());
+
+        EXPECT_EQ(pattern, readback_tlb)
+            << "Mismatch for core " << core.str() << " addr=0x0 size=" << std::dec << readback_tlb.size();
+
+        std::vector<uint8_t> zeros(256, 0);
+        cluster.write_to_device(zeros.data(), 256, 0, core, addr);
+    }
+}

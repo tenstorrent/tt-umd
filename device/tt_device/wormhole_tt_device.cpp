@@ -205,9 +205,9 @@ void WormholeTTDevice::dma_d2h_transfer(const uint64_t dst, const uint32_t src, 
         throw std::runtime_error("DMA source address must be aligned to 4 bytes");
     }
 
-    if (size % 4 != 0) {
-        throw std::runtime_error("DMA size must be a multiple of 4");
-    }
+    // if (size % 4 != 0) {
+    //     throw std::runtime_error("DMA size must be a multiple of 4");
+    // }
 
     if (!bar2) {
         throw std::runtime_error("BAR2 is not mapped");
@@ -280,9 +280,9 @@ void WormholeTTDevice::dma_h2d_transfer(const uint32_t dst, const uint64_t src, 
         throw std::runtime_error("DMA destination address must be aligned to 4 bytes");
     }
 
-    if (size % 4 != 0) {
-        throw std::runtime_error("DMA size must be a multiple of 4");
-    }
+    // if (size % 4 != 0) {
+    //     throw std::runtime_error("DMA size must be a multiple of 4");
+    // }
 
     if (!bar2) {
         throw std::runtime_error("BAR2 is not mapped");

@@ -84,3 +84,7 @@ jobs:
         if: ${{ inputs.arch != 'baremetal' }}
         run: |
           ${{ env.TEST_OUTPUT_DIR }}/umd/unified/unified_tests
+
+      - name: Run python example tests
+        run: |
+          PYTHONPATH=${{ env.BUILD_OUTPUT_DIR }}/nanobind/ pytest -s

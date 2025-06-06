@@ -92,6 +92,7 @@ endif()
 
 add_subdirectory(common)
 add_subdirectory(device)
+add_subdirectory(nanobind)
 add_subdirectory(src)
 add_subdirectory(tools)
 

@@ -30,7 +30,9 @@ TEST(WormholeArcMessages, WormholeArcMessagesHarvesting) {
             0,
             0);
 
-        EXPECT_EQ(arc_msg_return_values[0], harvesting_mask_cluster_desc);
+        EXPECT_EQ(
+            CoordinateManager::shuffle_tensix_harvesting_mask(tt::ARCH::WORMHOLE_B0, arc_msg_return_values[0]),
+            harvesting_mask_cluster_desc);
     }
 }
 

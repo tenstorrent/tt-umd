@@ -160,3 +160,30 @@ TEST(ApiSysmemManager, SysmemBufferUnaligned) {
         EXPECT_EQ(sysmem_data[i], readback[i]);
     }
 }
+
+TEST(ApiSysmemManager, SysmemBufferFunctions) {
+    std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
+    if (pci_device_ids.empty()) {
+        GTEST_SKIP() << "No chips present on the system. Skipping test.";
+    }
+    if (!PCIDevice(pci_device_ids[0]).is_iommu_enabled()) {
+        GTEST_SKIP() << "Skipping test since IOMMU is not enabled.";
+    }
+
+    std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>(tt::umd::ClusterOptions{
+        .num_host_mem_ch_per_mmio_device = 0,
+    });
+
+    const chip_id_t mmio_chip = *cluster->get_target_mmio_device_ids().begin();
+
+    SysmemManager* sysmem_manager = cluster->get_chip(mmio_chip)->get_sysmem_manager();
+
+    // Size is not multiple of page size.
+    const uint32_t size = 10;
+    std::vector<uint8_t> vec(size);
+
+    std::unique_ptr<SysmemBuffer> sysmem_buffer = sysmem_manager->map_sysmem_buffer(vec.data(), vec.size());
+
+    EXPECT_EQ(sysmem_buffer->get_buffer_size(), size);
+    EXPECT_EQ(sysmem_buffer->get_buffer_va(), vec.data());
+}

@@ -147,4 +147,16 @@ TEST(ApiSysmemManager, SysmemBufferUnaligned) {
     for (uint32_t i = 0; i < one_mb; ++i) {
         EXPECT_EQ(sysmem_data[i], readback[i]);
     }
+
+    // Zero out sysmem_data before reading back.
+    for (uint32_t i = 0; i < one_mb; ++i) {
+        sysmem_data[i] = 0;
+    }
+
+    // Read data back from Tensix L1 to sysmem_data.
+    sysmem_buffer->dma_read_from_device(0, one_mb, tensix_core, 0);
+
+    for (uint32_t i = 0; i < one_mb; ++i) {
+        EXPECT_EQ(sysmem_data[i], readback[i]);
+    }
 }

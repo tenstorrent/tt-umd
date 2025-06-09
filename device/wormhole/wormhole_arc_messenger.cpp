@@ -56,7 +56,7 @@ uint32_t WormholeArcMessenger::send_message(
         wormhole::ARC_RESET_SCRATCH_ADDR + wormhole::ARC_SCRATCH_RES0_OFFSET * sizeof(uint32_t),
         sizeof(uint32_t));
     tt_device->write_to_device(
-        (void*)&msg_code,
+        &msg_code,
         arc_core,
         wormhole::ARC_RESET_SCRATCH_ADDR + wormhole::ARC_SCRATCH_STATUS_OFFSET * sizeof(uint32_t),
         sizeof(uint32_t));

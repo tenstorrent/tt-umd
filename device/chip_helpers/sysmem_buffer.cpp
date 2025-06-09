@@ -6,20 +6,21 @@
 
 #include "umd/device/chip_helpers/sysmem_buffer.h"
 
-#include <iostream>
 #include <tt-logger/tt-logger.hpp>
 
+#include "assert.hpp"
 #include "umd/device/tt_device/tt_device.h"
 
 namespace tt::umd {
 
 SysmemBuffer::SysmemBuffer(TLBManager* tlb_manager, void* buffer_va, size_t buffer_size) :
-    tlb_manager_(tlb_manager), buffer_va_(buffer_va), buffer_size_(buffer_size) {
+    tlb_manager_(tlb_manager), buffer_va_(buffer_va), buffer_size_(buffer_size), original_buffer_size_(buffer_size) {
     align_address_and_size();
     device_io_addr_ = tlb_manager->get_tt_device()->get_pci_device()->map_for_dma(buffer_va_, buffer_size_);
 }
 
-void SysmemBuffer::dma_write_to_device(size_t offset, size_t size, tt_xy_pair core, uint64_t addr) {
+void SysmemBuffer::dma_write_to_device(const size_t offset, size_t size, const tt_xy_pair core, uint64_t addr) {
+    validate(offset);
     static const std::string tlb_name = "LARGE_WRITE_TLB";
 
     TTDevice* tt_device_ = tlb_manager_->get_tt_device();
@@ -47,7 +48,8 @@ void SysmemBuffer::dma_write_to_device(size_t offset, size_t size, tt_xy_pair co
     }
 }
 
-void SysmemBuffer::dma_read_from_device(size_t offset, size_t size, tt_xy_pair core, uint64_t addr) {
+void SysmemBuffer::dma_read_from_device(const size_t offset, size_t size, const tt_xy_pair core, uint64_t addr) {
+    validate(offset);
     static const std::string tlb_name = "LARGE_READ_TLB";
     uint8_t* buffer = (uint8_t*)get_device_io_addr(offset);
     TTDevice* tt_device_ = tlb_manager_->get_tt_device();
@@ -98,10 +100,17 @@ void SysmemBuffer::align_address_and_size() {
 
 void* SysmemBuffer::get_buffer_va() const { return (uint8_t*)buffer_va_ + offset_from_aligned_addr_; }
 
-size_t SysmemBuffer::get_buffer_size() const { return buffer_size_; }
+size_t SysmemBuffer::get_buffer_size() const { return original_buffer_size_; }
 
 uint64_t SysmemBuffer::get_device_io_addr(const size_t offset) const {
+    validate(offset);
     return device_io_addr_ + offset + offset_from_aligned_addr_;
+}
+
+void SysmemBuffer::validate(const size_t offset) const {
+    if (offset >= original_buffer_size_) {
+        TT_THROW("Offset {:#x} is out of bounds for SysmemBuffer of size {#:x}", offset, original_buffer_size_);
+    }
 }
 
 }  // namespace tt::umd

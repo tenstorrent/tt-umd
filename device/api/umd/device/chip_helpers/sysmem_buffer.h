@@ -43,14 +43,22 @@ public:
 private:
     void align_address_and_size();
 
+    void validate(const size_t offset) const;
+
     TLBManager* tlb_manager_;
 
     // Virtual address in process addr space.
     void* buffer_va_;
 
+    // Size of the memory that is mapped through KMD to be visible to the device.
     size_t buffer_size_;
 
-    // Address that is used on the system bus to access the buffer.
+    // Size of the buffer requested by user. If the buffer is not aligned to the page size, size of the memory
+    // mapped through KMD will be larger than this. This is used to return the size of the buffer requested by the user.
+    // Offsets in other SysmemBuffer functions are not allowed to be larger than this size.
+    size_t original_buffer_size_;
+
+    // Address that is used on the system bus to access the beginning of the mapped buffer.
     uint64_t device_io_addr_;
 
     uint64_t offset_from_aligned_addr_ = 0;

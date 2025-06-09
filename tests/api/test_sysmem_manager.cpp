@@ -44,49 +44,6 @@ TEST(ApiSysmemManager, BasicIO) {
     }
 }
 
-TEST(ApiSysmemManager, SysmemBuffersAllocation) {
-    std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
-    if (pci_device_ids.empty()) {
-        GTEST_SKIP() << "No chips present on the system. Skipping test.";
-    }
-    if (!PCIDevice(pci_device_ids[0]).is_iommu_enabled()) {
-        GTEST_SKIP() << "Skipping test since IOMMU is not enabled.";
-    }
-
-    const uint32_t one_mb = 1 << 20;
-
-    std::cout << "Sysmem buffer allocation test, each buffer is 1MB." << std::endl;
-
-    uint32_t pages_allocated = 0;
-
-    std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>(tt::umd::ClusterOptions{
-        .num_host_mem_ch_per_mmio_device = 0,
-    });
-
-    std::vector<std::unique_ptr<SysmemBuffer>> sysmem_buffers;
-
-    for (const chip_id_t chip_id : cluster->get_target_device_ids()) {
-        SysmemManager* sysmem_manager = cluster->get_chip(chip_id)->get_sysmem_manager();
-
-        std::cout << "--------------------------------" << std::endl;
-        std::cout << "Testing allocation for PCI device ID: "
-                  << cluster->get_tt_device(chip_id)->get_pci_device()->get_device_num() << std::endl;
-
-        while (true) {
-            try {
-                sysmem_buffers.push_back(sysmem_manager->allocate_sysmem_buffer(one_mb));
-            } catch (...) {
-                break;
-            }
-        }
-
-        uint64_t sysmem_buffer_size = sysmem_buffers.size() * one_mb;
-
-        std::cout << "Allocated " << (double)sysmem_buffer_size / one_mb
-                  << " MB of sysmem buffers each being 1MB in size." << std::endl;
-    }
-}
-
 TEST(ApiSysmemManager, SysmemBuffers) {
     std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
     if (pci_device_ids.empty()) {

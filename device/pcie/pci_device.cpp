@@ -255,7 +255,7 @@ PCIDevice::PCIDevice(int pci_device_number) :
     const uint32_t one_mb = 1 << 20;
     bar0 = mmap(
         NULL,
-        2 * one_mb,
+        3 * one_mb,
         PROT_READ | PROT_WRITE,
         MAP_SHARED,
         pci_device_file_desc,

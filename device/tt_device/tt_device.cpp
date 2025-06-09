@@ -142,8 +142,6 @@ void TTDevice::wait_arc_core_start(const tt_xy_pair arc_core, const uint32_t tim
 void TTDevice::bar_write32(uint32_t addr, uint32_t data) {
     const uint32_t bar0_offset = 0x1FD00000;
     if (addr < bar0_offset) {
-        std::cout << "addr " << std::hex << addr << " is less than bar0_offset " << bar0_offset
-                  << ", this is not a valid BAR address for this device." << std::dec << std::endl;
         throw std::runtime_error("Write Invalid BAR address for this device.");
     }
     addr -= bar0_offset;
@@ -153,8 +151,6 @@ void TTDevice::bar_write32(uint32_t addr, uint32_t data) {
 uint32_t TTDevice::bar_read32(uint32_t addr) {
     const uint32_t bar0_offset = 0x1FD00000;
     if (addr < bar0_offset) {
-        std::cout << "addr " << std::hex << addr << " is less than bar0_offset " << bar0_offset
-                  << ", this is not a valid BAR address for this device." << std::dec << std::endl;
         throw std::runtime_error("Read Invalid BAR address for this device.");
     }
     addr -= bar0_offset;

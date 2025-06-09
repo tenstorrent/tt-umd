@@ -143,36 +143,36 @@ TEST(SiliconDriverWH, UnalignedStaticTLB_RW) {
         }
     }
 
-    // tt_device_params default_params;
-    // cluster.start_device(default_params);
+    tt_device_params default_params;
+    cluster.start_device(default_params);
 
-    // std::vector<uint32_t> unaligned_sizes = {3, 14, 21, 255, 362, 430, 1022, 1023, 1025};
-    // for (auto chip_id : cluster.get_target_device_ids()) {
-    //     for (const auto& size : unaligned_sizes) {
-    //         std::vector<uint8_t> write_vec(size, 0);
-    //         for (int i = 0; i < size; i++) {
-    //             write_vec[i] = size + i;
-    //         }
-    //         std::vector<uint8_t> readback_vec(size, 0);
-    //         std::uint32_t address = l1_mem::address_map::NCRISC_FIRMWARE_BASE;
-    //         for (int loop = 0; loop < 50; loop++) {
-    //             for (const CoreCoord& core : cluster.get_soc_descriptor(chip_id).get_cores(CoreType::TENSIX)) {
-    //                 cluster.write_to_device(write_vec.data(), size, chip_id, core, address);
-    //                 cluster.wait_for_non_mmio_flush();
-    //                 cluster.read_from_device(readback_vec.data(), chip_id, core, address, size);
-    //                 ASSERT_EQ(readback_vec, write_vec);
-    //                 readback_vec = std::vector<uint8_t>(size, 0);
-    //                 cluster.write_to_sysmem(write_vec.data(), size, 0, 0, 0);
-    //                 cluster.read_from_sysmem(readback_vec.data(), 0, 0, size, 0);
-    //                 ASSERT_EQ(readback_vec, write_vec);
-    //                 readback_vec = std::vector<uint8_t>(size, 0);
-    //                 cluster.wait_for_non_mmio_flush();
-    //             }
-    //             address += 0x20;
-    //         }
-    //     }
-    // }
-    // cluster.close_device();
+    std::vector<uint32_t> unaligned_sizes = {3, 14, 21, 255, 362, 430, 1022, 1023, 1025};
+    for (auto chip_id : cluster.get_target_device_ids()) {
+        for (const auto& size : unaligned_sizes) {
+            std::vector<uint8_t> write_vec(size, 0);
+            for (int i = 0; i < size; i++) {
+                write_vec[i] = size + i;
+            }
+            std::vector<uint8_t> readback_vec(size, 0);
+            std::uint32_t address = l1_mem::address_map::NCRISC_FIRMWARE_BASE;
+            for (int loop = 0; loop < 50; loop++) {
+                for (const CoreCoord& core : cluster.get_soc_descriptor(chip_id).get_cores(CoreType::TENSIX)) {
+                    cluster.write_to_device(write_vec.data(), size, chip_id, core, address);
+                    cluster.wait_for_non_mmio_flush();
+                    cluster.read_from_device(readback_vec.data(), chip_id, core, address, size);
+                    ASSERT_EQ(readback_vec, write_vec);
+                    readback_vec = std::vector<uint8_t>(size, 0);
+                    cluster.write_to_sysmem(write_vec.data(), size, 0, 0, 0);
+                    cluster.read_from_sysmem(readback_vec.data(), 0, 0, size, 0);
+                    ASSERT_EQ(readback_vec, write_vec);
+                    readback_vec = std::vector<uint8_t>(size, 0);
+                    cluster.wait_for_non_mmio_flush();
+                }
+                address += 0x20;
+            }
+        }
+    }
+    cluster.close_device();
 }
 
 TEST(SiliconDriverWH, StaticTLB_RW) {

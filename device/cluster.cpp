@@ -569,14 +569,14 @@ tlb_configuration Cluster::get_tlb_configuration(const chip_id_t chip, CoreCoord
 }
 
 void Cluster::configure_tlb(
-    chip_id_t logical_device_id, tt_xy_pair core, uint32_t tlb_size, uint64_t address, uint64_t ordering) {
+    chip_id_t logical_device_id, tt_xy_pair core, size_t tlb_size, uint64_t address, uint64_t ordering) {
     get_tlb_manager(logical_device_id)
         ->configure_tlb(
             core, translate_chip_coord_virtual_to_translated(logical_device_id, core), tlb_size, address, ordering);
 }
 
 void Cluster::configure_tlb(
-    chip_id_t logical_device_id, tt::umd::CoreCoord core, uint32_t tlb_size, uint64_t address, uint64_t ordering) {
+    chip_id_t logical_device_id, tt::umd::CoreCoord core, size_t tlb_size, uint64_t address, uint64_t ordering) {
     configure_tlb(logical_device_id, translate_to_api_coords(logical_device_id, core), tlb_size, address, ordering);
 }
 

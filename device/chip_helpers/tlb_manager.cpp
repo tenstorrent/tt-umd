@@ -102,7 +102,7 @@ const std::vector<uint32_t> TLBManager::get_tlb_arch_sizes(const tt::ARCH arch) 
 }
 
 std::unique_ptr<TlbWindow> TLBManager::allocate_tlb_window(
-    tlb_data config, const TlbMapping mapping, const uint32_t tlb_size) {
+    tlb_data config, const TlbMapping mapping, const size_t tlb_size) {
     if (tlb_size != 0) {
         return std::make_unique<TlbWindow>(tt_device_->get_pci_device()->allocate_tlb(tlb_size, mapping), config);
     }

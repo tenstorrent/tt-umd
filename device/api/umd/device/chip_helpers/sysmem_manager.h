@@ -29,9 +29,9 @@ public:
     size_t get_num_host_mem_channels() const;
     hugepage_mapping get_hugepage_mapping(size_t channel) const;
 
-    std::unique_ptr<SysmemBuffer> allocate_sysmem_buffer(uint32_t sysmem_buffer_size);
+    std::unique_ptr<SysmemBuffer> allocate_sysmem_buffer(size_t sysmem_buffer_size);
 
-    std::unique_ptr<SysmemBuffer> map_sysmem_buffer(void* buffer, uint32_t sysmem_buffer_size);
+    std::unique_ptr<SysmemBuffer> map_sysmem_buffer(void* buffer, size_t sysmem_buffer_size);
 
 private:
     /**

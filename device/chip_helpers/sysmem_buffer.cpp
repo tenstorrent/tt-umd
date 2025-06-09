@@ -41,14 +41,13 @@ void SysmemBuffer::dma_write_to_device(const size_t offset, size_t size, const t
     config.noc_sel = umd_use_noc1 ? 1 : 0;
     config.ordering = tlb_data::Relaxed;
     config.static_vc = 1;
-    const uint32_t two_mb_size = 1 << 21;
     std::unique_ptr<TlbWindow> tlb_window = tlb_manager_->allocate_tlb_window(config, TlbMapping::WC);
 
     auto axi_address_base = tt_device_->get_architecture_implementation()
                                 ->get_tlb_configuration(tlb_window->handle_ref().get_tlb_id())
                                 .base;
-
-    auto axi_address = axi_address_base + (addr - (addr & ~(two_mb_size - 1)));
+    const size_t tlb_handle_size = tlb_window->handle_ref().get_size();
+    auto axi_address = axi_address_base + (addr - (addr & ~(tlb_handle_size - 1)));
 
     while (size > 0) {
         auto tlb_size = tlb_window->get_size();
@@ -63,7 +62,7 @@ void SysmemBuffer::dma_write_to_device(const size_t offset, size_t size, const t
 
         config.local_offset = addr;
         tlb_window->configure(config);
-        axi_address = axi_address_base + (addr - (addr & ~(two_mb_size - 1)));
+        axi_address = axi_address_base + (addr - (addr & ~(tlb_handle_size - 1)));
     }
 }
 
@@ -86,14 +85,14 @@ void SysmemBuffer::dma_read_from_device(const size_t offset, size_t size, const 
     config.noc_sel = umd_use_noc1 ? 1 : 0;
     config.ordering = tlb_data::Relaxed;
     config.static_vc = 1;
-    const uint32_t two_mb_size = 1 << 21;
+
     std::unique_ptr<TlbWindow> tlb_window = tlb_manager_->allocate_tlb_window(config, TlbMapping::WC);
 
     auto axi_address_base = tt_device_->get_architecture_implementation()
                                 ->get_tlb_configuration(tlb_window->handle_ref().get_tlb_id())
                                 .base;
-
-    auto axi_address = axi_address_base + (addr - (addr & ~(two_mb_size - 1)));
+    const size_t tlb_handle_size = tlb_window->handle_ref().get_size();
+    auto axi_address = axi_address_base + (addr - (addr & ~(tlb_handle_size - 1)));
 
     while (size > 0) {
         auto tlb_size = tlb_window->get_size();
@@ -107,7 +106,7 @@ void SysmemBuffer::dma_read_from_device(const size_t offset, size_t size, const 
 
         config.local_offset = addr;
         tlb_window->configure(config);
-        axi_address = axi_address_base + (addr - (addr & ~(two_mb_size - 1)));
+        axi_address = axi_address_base + (addr - (addr & ~(tlb_handle_size - 1)));
     }
 }
 

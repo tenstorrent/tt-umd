@@ -173,7 +173,7 @@ public:
     void configure_tlb(
         chip_id_t logical_device_id,
         tt_xy_pair core,
-        uint32_t tlb_size,
+        size_t tlb_size,
         uint64_t address,
         uint64_t ordering = TLB_DATA::Relaxed);
 
@@ -190,7 +190,7 @@ public:
     void configure_tlb(
         chip_id_t logical_device_id,
         tt::umd::CoreCoord core,
-        uint32_t tlb_size,
+        size_t tlb_size,
         uint64_t address,
         uint64_t ordering = TLB_DATA::Relaxed);
 

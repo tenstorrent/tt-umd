@@ -27,7 +27,7 @@ public:
     // TODO: Think about proper API which doesn't accept two cores.
     // core should be in VIRTUAL coords, and translated_core should be in TRANSLATED coords.
     void configure_tlb(
-        tt_xy_pair core, tt_xy_pair translated_core, uint32_t tlb_size, uint64_t address, uint64_t ordering);
+        tt_xy_pair core, tt_xy_pair translated_core, const size_t tlb_size, uint64_t address, uint64_t ordering);
 
     bool is_tlb_mapped(tt_xy_pair core);
     bool is_tlb_mapped(tt_xy_pair core, uint64_t address, uint32_t size_in_bytes);

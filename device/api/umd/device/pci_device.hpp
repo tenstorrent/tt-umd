@@ -177,6 +177,8 @@ public:
     std::unique_ptr<tt::umd::TlbHandle> allocate_tlb(
         const size_t tlb_size, const tt::umd::TlbMapping tlb_mapping = tt::umd::TlbMapping::UC);
 
+    static tt::ARCH get_pcie_arch();
+
 public:
     // BAR0 base. UMD maps only ARC memory to user space, TLBs go through KMD.
     void *bar0 = nullptr;

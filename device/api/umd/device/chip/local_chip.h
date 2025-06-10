@@ -77,7 +77,10 @@ private:
     LockManager lock_manager_;
     // Used only for ethernet broadcast to all remote chips.
     std::unique_ptr<RemoteCommunication> remote_communication_;
-    std::unique_lock<RobustMutex> chip_started_lock_;
+
+    // unique_lock is RAII, so if this member holds an object, the RobustMutex is locked, if it is empty, the
+    // RobustMutex is unlocked.
+    std::optional<std::unique_lock<RobustMutex>> chip_started_lock_;
 
     std::vector<CoreCoord> remote_transfer_eth_cores_;
     int active_eth_core_idx = 0;

@@ -271,7 +271,17 @@ HarvestingMasks Cluster::get_harvesting_masks(
         return HarvestingMasks{};
     }
 
-    return cluster_desc->get_harvesting_masks(chip_id) | simulated_harvesting_masks;
+    HarvestingMasks cluster_harvesting_masks = cluster_desc->get_harvesting_masks(chip_id);
+    log_info(
+        LogSiliconDriver,
+        "Harvesting mask for chip {} is {:#x} (NOC0: {:#x}, simulated harvesting mask: "
+        "{:#x}).",
+        chip_id,
+        cluster_harvesting_masks.tensix_harvesting_mask | simulated_harvesting_masks.tensix_harvesting_mask,
+        cluster_harvesting_masks.tensix_harvesting_mask,
+        simulated_harvesting_masks.tensix_harvesting_mask);
+
+    return cluster_harvesting_masks | simulated_harvesting_masks;
 }
 
 void Cluster::ubb_eth_connections(

@@ -19,6 +19,7 @@ const std::unordered_map<MutexType, std::string> LockManager::MutexTypeToString 
     {MutexType::NON_MMIO, "TT_NON_MMIO"},
     {MutexType::MEM_BARRIER, "TT_MEM_BARRIER"},
     {MutexType::CREATE_ETH_MAP, "CREATE_ETH_MAP"},
+    {MutexType::CHIP_IN_USE, "CHIP_IN_USE"},
 };
 
 void LockManager::initialize_mutex(MutexType mutex_type) {

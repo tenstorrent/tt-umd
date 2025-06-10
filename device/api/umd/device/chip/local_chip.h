@@ -77,6 +77,7 @@ private:
     LockManager lock_manager_;
     // Used only for ethernet broadcast to all remote chips.
     std::unique_ptr<RemoteCommunication> remote_communication_;
+    std::unique_lock<RobustMutex> chip_started_lock_;
 
     std::vector<CoreCoord> remote_transfer_eth_cores_;
     int active_eth_core_idx = 0;

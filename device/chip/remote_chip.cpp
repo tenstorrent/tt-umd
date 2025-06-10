@@ -33,7 +33,7 @@ void RemoteChip::close_device() {}
 
 void RemoteChip::write_to_device(tt_xy_pair core, const void* src, uint64_t l1_dest, uint32_t size) {
     auto translated_core = translate_chip_coord_virtual_to_translated(core);
-    tt_device_->write_to_device((void*)src, translated_core, l1_dest, size);
+    tt_device_->write_to_device(src, translated_core, l1_dest, size);
 }
 
 void RemoteChip::read_from_device(tt_xy_pair core, void* dest, uint64_t l1_src, uint32_t size) {

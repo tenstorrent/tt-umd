@@ -9,6 +9,8 @@
 
 #include <stdexcept>
 
+#include "umd/device/pci_device.hpp"
+
 namespace tt::umd {
 
 TlbWindow::TlbWindow(std::unique_ptr<TlbHandle> handle, const tlb_data config) : tlb_handle(std::move(handle)) {
@@ -39,11 +41,11 @@ void TlbWindow::write_block(uint64_t offset, const void *data, size_t size) {
 
     validate(offset, size);
 
-    memcpy_to_device((void *)dst, src, size);
-
-    // for (size_t i = 0; i < n; i++) {
-    //     dst[i] = src[i];
-    // }
+    if (PCIDevice::get_pcie_arch() == tt::ARCH::WORMHOLE_B0) {
+        memcpy_to_device((void *)dst, src, size);
+    } else {
+        memcpy((void *)dst, (void *)src, size);
+    }
 }
 
 void TlbWindow::read_block(uint64_t offset, void *data, size_t size) {
@@ -53,11 +55,11 @@ void TlbWindow::read_block(uint64_t offset, void *data, size_t size) {
 
     validate(offset, size);
 
-    memcpy_from_device(dst, (void *)src, size);
-
-    // for (size_t i = 0; i < n; i++) {
-    //     dst[i] = src[i];
-    // }
+    if (PCIDevice::get_pcie_arch() == tt::ARCH::WORMHOLE_B0) {
+        memcpy_from_device(dst, (void *)src, size);
+    } else {
+        memcpy((void *)dst, (void *)src, size);
+    }
 }
 
 TlbHandle &TlbWindow::handle_ref() const { return *tlb_handle; }

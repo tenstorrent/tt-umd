@@ -490,3 +490,5 @@ semver_t PCIDevice::read_kmd_version() {
 std::unique_ptr<TlbHandle> PCIDevice::allocate_tlb(const size_t tlb_size, const TlbMapping tlb_mapping) {
     return std::make_unique<TlbHandle>(pci_device_file_desc, tlb_size, tlb_mapping);
 }
+
+tt::ARCH PCIDevice::get_pcie_arch() { return PCIDevice::enumerate_devices_info().begin()->second.get_arch(); }

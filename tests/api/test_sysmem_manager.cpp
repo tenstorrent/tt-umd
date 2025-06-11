@@ -1,6 +1,8 @@
 // SPDX-FileCopyrightText: (c) 2025 Tenstorrent Inc.
 //
 // SPDX-License-Identifier: Apache-2.0
+#include <sys/mman.h>
+
 #include "gtest/gtest.h"
 #include "tests/test_utils/device_test_utils.hpp"
 #include "umd/device/chip_helpers/sysmem_manager.h"
@@ -122,8 +124,13 @@ TEST(ApiSysmemManager, SysmemBufferUnaligned) {
     SysmemManager* sysmem_manager = cluster->get_chip(mmio_chip)->get_sysmem_manager();
 
     const uint32_t one_mb = 1 << 20;
-    std::vector<uint8_t> mapping(one_mb);
-    std::unique_ptr<SysmemBuffer> sysmem_buffer = sysmem_manager->map_sysmem_buffer(mapping.data(), one_mb);
+    void* mapping =
+        mmap(nullptr, 2 * one_mb, PROT_READ | PROT_WRITE, MAP_ANONYMOUS | MAP_PRIVATE | MAP_POPULATE, -1, 0);
+    // It's important that this offset is not a multiple of the page size.
+    const size_t unaligned_offset = 100;
+    void* mapping_buffer = (uint8_t*)mapping + unaligned_offset;  // Offset by 1MB
+
+    std::unique_ptr<SysmemBuffer> sysmem_buffer = sysmem_manager->map_sysmem_buffer(mapping_buffer, one_mb);
 
     const CoreCoord tensix_core = cluster->get_soc_descriptor(mmio_chip).get_cores(CoreType::TENSIX)[0];
 
@@ -132,6 +139,9 @@ TEST(ApiSysmemManager, SysmemBufferUnaligned) {
     cluster->write_to_device(data_write.data(), one_mb, mmio_chip, tensix_core, 0);
 
     uint8_t* sysmem_data = static_cast<uint8_t*>(sysmem_buffer->get_buffer_va());
+
+    EXPECT_EQ(sysmem_data, mapping_buffer);
+    EXPECT_EQ(sysmem_buffer->get_buffer_size(), one_mb);
 
     for (uint32_t i = 0; i < one_mb; ++i) {
         sysmem_data[i] = static_cast<uint8_t>(i % 256);
@@ -178,12 +188,16 @@ TEST(ApiSysmemManager, SysmemBufferFunctions) {
 
     SysmemManager* sysmem_manager = cluster->get_chip(mmio_chip)->get_sysmem_manager();
 
+    const size_t mmap_size = 20;
+    const size_t buf_size = 10;
+
     // Size is not multiple of page size.
-    const uint32_t size = 10;
-    std::vector<uint8_t> vec(size);
+    void* mapping = mmap(nullptr, mmap_size, PROT_READ | PROT_WRITE, MAP_ANONYMOUS | MAP_PRIVATE | MAP_POPULATE, -1, 0);
 
-    std::unique_ptr<SysmemBuffer> sysmem_buffer = sysmem_manager->map_sysmem_buffer(vec.data(), vec.size());
+    void* mapped_buffer = (uint8_t*)mapping + buf_size;  // Offset by 10 bytes
 
-    EXPECT_EQ(sysmem_buffer->get_buffer_size(), size);
-    EXPECT_EQ(sysmem_buffer->get_buffer_va(), vec.data());
+    std::unique_ptr<SysmemBuffer> sysmem_buffer = sysmem_manager->map_sysmem_buffer(mapped_buffer, buf_size);
+
+    EXPECT_EQ(sysmem_buffer->get_buffer_size(), buf_size);
+    EXPECT_EQ(sysmem_buffer->get_buffer_va(), mapped_buffer);
 }

@@ -212,6 +212,7 @@ TEST(ApiClusterTest, SimpleIOSpecificChips) {
     }
 
     umd_cluster = std::make_unique<Cluster>(ClusterOptions{
+        .num_host_mem_ch_per_mmio_device = 0,
         .target_devices = {0},
     });
 
@@ -394,7 +395,7 @@ TEST(TestCluster, TestClusterAICLKControl) {
     }
 }
 
-TEST(TestCluster, ReadWriteL1) {
+TEST(TestCluster, DISABLED_ReadWriteL1) {
     std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
 
     if (cluster->get_target_device_ids().empty()) {

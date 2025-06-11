@@ -18,9 +18,9 @@ SysmemBuffer::SysmemBuffer(TLBManager* tlb_manager, void* buffer_va, size_t buff
     align_address_and_size();
     PCIDevice* pci_device = tlb_manager->get_tt_device()->get_pci_device().get();
     if (map_to_noc) {
-        std::tie(noc_addr_, device_io_addr_) = pci_device->map_buffer_to_noc(buffer_va, buffer_size);
+        std::tie(noc_addr_, device_io_addr_) = pci_device->map_buffer_to_noc(buffer_va_, mapped_buffer_size_);
     } else {
-        device_io_addr_ = pci_device->map_for_dma(buffer_va, buffer_size);
+        device_io_addr_ = pci_device->map_for_dma(buffer_va_, mapped_buffer_size_);
         noc_addr_ = std::nullopt;
     }
 }

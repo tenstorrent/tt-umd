@@ -1,4 +1,8 @@
-find_package(Python REQUIRED COMPONENTS Development)
+# https://cmake.org/cmake/help/latest/module/FindPython.html
+# https://github.com/wjakob/nanobind/blob/master/docs/building.rst
+# Use Development.Module to support manylinux
+# Python module library should not dynamically link libpython.so or use Development.Embed
+find_package(Python REQUIRED COMPONENTS Development.Module)
 
 # Define the Python interface target
 nanobind_add_module(nanobind_libdevice MODULE cluster.cpp)

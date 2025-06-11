@@ -13,7 +13,12 @@ apt-get update && apt-get install -y \
     libyaml-cpp-dev \
     libboost-all-dev \
     wget \
-    yamllint
+    yamllint \
+    python3-dev \
+    python3-pip
+
+# Install Python dependencies
+python3 -m pip install --no-cache-dir pytest
 
 # gcc-12 should be available only for ubuntu 22 and not 20
 if apt-cache show gcc-12 > /dev/null 2>&1; then

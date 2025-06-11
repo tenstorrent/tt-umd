@@ -28,11 +28,20 @@ namespace tt::umd {
 class SysmemBuffer {
 public:
     /**
-     * Constructor for SysmemBuffer. As described in the comment above this class, this is a resource that represents
-     * the memory that is visible to the device. The memory is mapped through KMD. Start of the buffer must be aligned
+     * Constructor for SysmemBuffer. Start of the buffer must be aligned
      * to page size. In case of unaligned buffer start address, the buffer will be aligned to the page size and the
      * buffer size will be adjusted accordingly. However, the adjusted buffer size won't be visible to the user. It will
-     * see a buffer of the original size.
+     * see a buffer of the original size. Same as for buffer size, user won't be able to access the memory before the
+     * start of the buffer, aligning is transparent to the user.
+     * Pages separated by | AB - Aligned buffer,
+     * UB - Unaligned buffer, UE - Unaligned end, AE - Aligned end
+     *
+     * |     Page 0     |     Page 1     |     Page 2     |     Page 3     |
+     * +----------------+----------------+----------------+----------------+
+     * ^                ^       ^                    ^    ^
+     * Page Start       AB      UB                   UE   AE
+     *                          |<--- buffer_size -->|
+     *                  |<----- mapped_buffer_size ----->|
      *
      * @param tlb_manager Pointer to the TLBManager that manages the TLB entries for this buffer.
      * @param buffer_va Pointer to the virtual address of the buffer in the process address space.

@@ -134,7 +134,6 @@ void LocalChip::start_device() {
     // The lock here should suffice since we have to open Local chip to have Remote chips initialized.
     chip_started_lock_.emplace(acquire_mutex(MutexType::CHIP_IN_USE, tt_device_->get_pci_device()->get_device_num()));
     check_pcie_device_initialized();
-    init_pcie_iatus();
     initialize_membars();
 }
 
@@ -511,27 +510,6 @@ int LocalChip::test_setup_interface() {
         return 0;
     } else {
         throw std::runtime_error(fmt::format("Unsupported architecture: {}", arch_to_str(soc_descriptor_.arch)));
-    }
-}
-
-void LocalChip::init_pcie_iatus() {
-    // TODO: this should go away soon; KMD knows how to do this at page pinning time.
-    for (size_t channel = 0; channel < sysmem_manager_->get_num_host_mem_channels(); channel++) {
-        hugepage_mapping hugepage_map = sysmem_manager_->get_hugepage_mapping(channel);
-        size_t region_size = hugepage_map.mapping_size;
-
-        if (!hugepage_map.mapping) {
-            throw std::runtime_error(fmt::format("Hugepages are not allocated for ch: {}", channel));
-        }
-
-        if (soc_descriptor_.arch == tt::ARCH::WORMHOLE_B0) {
-            // TODO: stop doing this.  The intent was good, but it's not
-            // documented and nothing takes advantage of it.
-            if (channel == 3) {
-                region_size = HUGEPAGE_CHANNEL_3_SIZE_LIMIT;
-            }
-        }
-        tt_device_->configure_iatu_region(channel, hugepage_map.physical_address, region_size);
     }
 }
 

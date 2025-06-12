@@ -191,7 +191,6 @@ PCIDevice::PCIDevice(int pci_device_number) :
 
     log_info(
         LogSiliconDriver,
-        "Opened PCI device {}; KMD version: {}, IOMMU: {}",
         "Opened PCI device {}; KMD version: {}; API: {}; IOMMU: {}",
         pci_device_num,
         kmd_version.to_string(),

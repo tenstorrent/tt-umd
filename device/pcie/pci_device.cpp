@@ -197,10 +197,6 @@ PCIDevice::PCIDevice(int pci_device_number) :
         driver_info.out.driver_version,
         iommu_enabled ? "enabled" : "disabled");
 
-    if (driver_info.out.driver_version < 2) {
-        TT_THROW("UMD requires a KMD version that supports APIv2 or greater.  Please update to the latest tt-kmd");
-    }
-
     TT_ASSERT(arch != tt::ARCH::WORMHOLE_B0 || revision == 0x01, "Wormhole B0 must have revision 0x01");
 
     struct {

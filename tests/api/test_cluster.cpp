@@ -43,7 +43,7 @@ std::vector<ClusterOptions> get_cluster_options_for_param_test() {
     if (std::getenv("TT_UMD_SIMULATOR")) {
         options.push_back(ClusterOptions{
             .chip_type = ChipType::SIMULATION,
-            .sdesc_path = "tests/soc_descs/soc_descriptor.yaml",
+            .sdesc_path = "tests/soc_descs/simulator_wormhole_b0.yaml",
             .target_devices = {0},
             .simulator_directory = std::filesystem::path(std::getenv("TT_UMD_SIMULATOR"))
         });

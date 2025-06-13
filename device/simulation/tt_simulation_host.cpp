@@ -50,14 +50,31 @@ tt_SimulationHost::~tt_SimulationHost() {
     nng_close(*host_socket);
 }
 
-void tt_SimulationHost::start_host() {
+void tt_SimulationHost::start_host(pid_t pid) {
+    auto is_process_alive = [](pid_t pid) -> bool {
+    if (pid <= 0) return false;
+    int result = kill(pid, 0);
+    if (result == 0) {
+        return true;
+    } else {
+        return errno == EPERM;
+    }
+};
     // Establish connection with remote VCS simulator
     int rv;
+    int loop = 0;
     do {
         rv = nng_dialer_start(*host_dialer, 0);
         if (rv != 0) {
             log_info(tt::LogEmulationDriver, "Waiting for remote: {}", nng_strerror(rv));
             std::this_thread::sleep_for(std::chrono::seconds(1));
+            loop++;
+            if (loop > 5) {
+                TT_THROW("Failed to connect to remote after 5 attempts: {}", nng_strerror(rv));
+            }
+            if (!is_process_alive(pid)) {
+                TT_THROW("Remote process is not alive, exiting.");
+            }
         }
     } while (rv != 0);
 }

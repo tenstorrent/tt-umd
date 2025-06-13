@@ -28,7 +28,7 @@ protected:
         device->start_device();
     }
 
-    static void TearDownTestSuite() { device->close_device(); }
+    static void TearDownTestSuite() { } //device->close_device(); }
 
     static std::unique_ptr<tt_SimulationDevice> device;
 };

@@ -6,6 +6,7 @@
 #include <cstdint>
 #include <memory>
 #include <vector>
+#include <signal.h>
 
 #include "umd/device/tt_xy_pair.h"
 
@@ -19,7 +20,7 @@ public:
     tt_SimulationHost();
     ~tt_SimulationHost();
 
-    void start_host();
+    void start_host(pid_t pid);
     void send_to_device(uint8_t *buf, size_t buf_size);
     size_t recv_from_device(void **data_ptr);
 

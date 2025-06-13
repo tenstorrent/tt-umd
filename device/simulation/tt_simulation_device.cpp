@@ -78,17 +78,19 @@ tt_SimulationDevice::tt_SimulationDevice(const tt_SimulationDeviceInit& init) : 
         log_info(tt::LogEmulationDriver, "Simulator process spawned with PID: {}", child_p.pid);
     }
 
+    this->child_pid = child_p.pid;
     uv_unref((uv_handle_t*)&child_p);
     uv_run(loop, UV_RUN_DEFAULT);
     uv_loop_close(loop);
 }
 
-tt_SimulationDevice::~tt_SimulationDevice() { close_device(); }
+tt_SimulationDevice::~tt_SimulationDevice() { }
+    //close_device(); }
 
 void tt_SimulationDevice::start_device() {
     void* buf_ptr = nullptr;
 
-    host.start_host();
+    host.start_host(this->child_pid);
 
     log_info(tt::LogEmulationDriver, "Waiting for ack msg from remote...");
     size_t buf_size = host.recv_from_device(&buf_ptr);

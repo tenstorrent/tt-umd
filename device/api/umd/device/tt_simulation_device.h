@@ -38,6 +38,7 @@ public:
     ~tt_SimulationDevice();
 
     tt_SimulationHost host;
+    int child_pid;
 
     void start_device() override;
     void close_device() override;

@@ -13,29 +13,9 @@
 
 #include "umd/device/logging/config.h"
 
-#include <spdlog/spdlog.h>
-
-#include <tt-logger/tt-logger-initializer.hpp>
+#include <tt-logger/tt-logger.hpp>
 
 namespace tt::umd::logging {
-
-constexpr auto file_env_var = "TT_UMD_LOGGER_FILE";
-constexpr auto level_env_var = "TT_UMD_LOGGER_LEVEL";
-constexpr auto log_pattern = "[%Y-%m-%d %H:%M:%S.%e] [%l] [%s:%#] %v";
-
-/**
- * @brief Static instance of LoggerInitializer for UMD logging
- *
- * This static instance initializes the logging system with UMD-specific
- * environment variables:
- * - TT_UMD_LOGGER_FILE: Controls the log file path for UMD logging
- * - TT_UMD_LOGGER_LEVEL: Controls the log level for UMD logging
- *
- * The logger will be initialized when this translation unit is loaded,
- * setting up either file-based or console-based logging depending on
- * the environment variable configuration.
- */
-static tt::LoggerInitializer loggerInitializer(file_env_var, level_env_var, log_pattern);
 
 /// Map our internal enum to spdlog's level enum.
 spdlog::level::level_enum to_spdlog_level(level lvl) {
@@ -58,6 +38,6 @@ spdlog::level::level_enum to_spdlog_level(level lvl) {
     return spdlog::level::info;  // fallback
 }
 
-void set_level(level lvl) { spdlog::set_level(to_spdlog_level(lvl)); }
+void set_level(level lvl) { ::tt::LoggerRegistry::instance().set_level(to_spdlog_level(lvl)); }
 
 }  // namespace tt::umd::logging

@@ -10,6 +10,23 @@
 
 using namespace tt::umd;
 
+/*
+const std::unordered_map<tt::ARCH, std::vector<std::uint16_t>> ubb_bus_ids = {
+    {tt::ARCH::WORMHOLE_B0, {0x00, 0x40, 0xC0, 0x80}},
+    {tt::ARCH::BLACKHOLE, {0xC0, 0x80, 0x00, 0x40}},
+};
+
+std::pair<std::uint32_t, std::uint32_t> get_ubb_ids(chip_id_t chip_id, Cluster* cluster) {
+    const auto& tray_bus_ids = ubb_bus_ids.at(cluster->arch());
+    auto tray_bus_id_it = std::find(tray_bus_ids.begin(), tray_bus_ids.end(),
+cluster->get_chip(chip_id)->get_tt_device()->get_pci_device()->get_device_info().pci_bus & 0xF0); if (tray_bus_id_it !=
+tray_bus_ids.end()) { auto ubb_asic_id = cluster->get_ubb_asic_id(chip_id); return std::make_pair(tray_bus_id_it -
+tray_bus_ids.begin() + 1, ubb_asic_id);
+    }
+    return std::make_pair(0, 0);
+}
+*/
+
 int main(int argc, char* argv[]) {
     cxxopts::Options options("system_health", "<Give explanation here>.");
 
@@ -44,9 +61,8 @@ int main(int argc, char* argv[]) {
         pci_ids = extract_int_set(result["pci_devices"]);
     }
 
-    std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
     std::unique_ptr<tt_ClusterDescriptor> cluster_descriptor = tt::umd::Cluster::create_cluster_descriptor("", pci_ids);
-
+    std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
     const auto& eth_connections = cluster_descriptor->get_ethernet_connections();
     const auto& eth_connections_to_remote_mmio_devices =
         cluster_descriptor->get_ethernet_connections_to_remote_mmio_devices();
@@ -57,8 +73,6 @@ int main(int argc, char* argv[]) {
 
     if (unique_chip_ids.empty()) {
         // Temporary patch to workaround unique chip ids not being set for non-6U systems
-
-        // didn't take Galaxy into account
         for (const auto& chip_id : cluster->get_target_device_ids()) {
             unique_chip_ids[chip_id] = chip_id;
         }
@@ -76,16 +90,13 @@ int main(int argc, char* argv[]) {
             // auto [tray_id, ubb_asic_id] = get_ubb_ids(chip_id);
             // chip_id_ss << " Tray: " << tray_id << " N" << ubb_asic_id;
         }
-
         ss << chip_id_ss.str() << std::endl;
-
         std::map<CoreCoord, int> logical_eth_core_to_chan_map;
         for (const auto& logical_coordinates : logical_coord) {
             logical_eth_core_to_chan_map.insert(
                 {{logical_coordinates.x, logical_coordinates.y, CoreType::ETH, CoordSystem::LOGICAL},
                  logical_coordinates.y});
         }
-
         for (const auto& [eth_core, chan] : logical_eth_core_to_chan_map) {
             CoreCoord translated_coord =
                 soc_desc.translate_coord_to({eth_core, CoreType::ETH, CoordSystem::LOGICAL}, CoordSystem::TRANSLATED);
@@ -99,28 +110,30 @@ int main(int argc, char* argv[]) {
                 read_vec.data(), virtual_eth_core.chip, translated_coord, RETRAIN_COUNT_ADDR, sizeof(uint32_t));
             eth_ss << " eth channel " << std::dec << (uint32_t)chan << " " << eth_core.str();
 
-            bool is_external_cable{false};
-            if (board_type == BoardType::UBB) {
-                auto ubb_asic_id = ((unique_chip_id >> 56) & 0xFF);
-                if (ubb_asic_id == 1) {
-                    // UBB 1 has external cables on channels 0-7
-                    is_external_cable = (chan >= 0 and chan <= 7);
-                } else if (ubb_asic_id >= 2 and ubb_asic_id <= 4) {
-                    // UBB 2 to 4 has external cables on channels 0-3
-                    is_external_cable = (chan >= 0 and chan <= 3);
-                } else if (ubb_asic_id == 5) {
-                    // UBB 5 has external cables on channels 4-7
-                    is_external_cable = (chan >= 4 and chan <= 7);
+            const bool is_external_cable = [board_type, &cluster_descriptor](
+                                               const int chip_id, const unsigned long unique_chip_id, const int chan) {
+                if (board_type == BoardType::UBB) {
+                    auto ubb_asic_id = ((unique_chip_id >> 56) & 0xFF);
+                    if (ubb_asic_id == 1) {
+                        // UBB 1 has external cables on channels 0-7
+                        return (chan >= 0 and chan <= 7);
+                    } else if (ubb_asic_id >= 2 and ubb_asic_id <= 4) {
+                        // UBB 2 to 4 has external cables on channels 0-3
+                        return (chan >= 0 and chan <= 3);
+                    } else if (ubb_asic_id == 5) {
+                        // UBB 5 has external cables on channels 4-7
+                        return (chan >= 4 and chan <= 7);
+                    }
+                } else if (board_type == BoardType::N300) {
+                    // N300 has external cables on channels 8-9 on MMIO chips and channels 0-1 on non-MMIO chips
+                    auto mmio_device_id = cluster_descriptor->get_closest_mmio_capable_chip(chip_id);
+                    if (mmio_device_id == chip_id) {
+                        return (chan != 8 and chan != 9);
+                    } else {
+                        return (chan != 0 and chan != 1);
+                    }
                 }
-            } else if (board_type == BoardType::N300) {
-                // N300 has external cables on channels 8-9 on MMIO chips and channels 0-1 on non-MMIO chips
-                auto mmio_device_id = cluster_descriptor->get_closest_mmio_capable_chip(chip_id);
-                if (mmio_device_id == chip_id) {
-                    is_external_cable = (chan != 8 and chan != 9);
-                } else {
-                    is_external_cable = (chan != 0 and chan != 1);
-                }
-            }
+            }(chip_id, unique_chip_id, chan);
 
             std::string connection_type = is_external_cable ? "(external connector)" : "(internal trace)";
 

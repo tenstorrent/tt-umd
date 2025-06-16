@@ -27,8 +27,6 @@ enum class MutexType {
     MEM_BARRIER,
     // Used for calling CEM tool.
     CREATE_ETH_MAP,
-    // Used for guarding against multiple users initializing the same chip.
-    CHIP_IN_USE,
 };
 
 // Note that the returned std::unique_lock<RobustMutex> should never outlive the LockManager which holds underlying

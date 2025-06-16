@@ -133,6 +133,7 @@ int main(int argc, char* argv[]) {
                         return (chan != 0 and chan != 1);
                     }
                 }
+                return false;
             }(chip_id, unique_chip_id, chan);
 
             std::string connection_type = is_external_cable ? "(external connector)" : "(internal trace)";
@@ -144,9 +145,8 @@ int main(int argc, char* argv[]) {
                         cluster_descriptor->get_chip_and_channel_of_remote_ethernet_core(chip_id, chan);
                     const CoreCoord logical_eth_coord = CoreCoord(0, chan, CoreType::ETH, CoordSystem::LOGICAL);
 
-                    const auto& [connected_chip_id, connected_eth_core] = std::make_tuple(
-                        std::get<0>(connected_eth_core_local),
-                        soc_desc.translate_coord_to(logical_eth_coord, CoordSystem::LOGICAL));
+                    const auto& [connected_chip_id, connected_eth_core] =
+                        std::make_tuple(std::get<0>(connected_eth_core_local), logical_eth_coord);
 
                     std::cout << "Connected chip: " << connected_chip_id
                               << " connected eth core: " << connected_eth_core.str() << std::endl;

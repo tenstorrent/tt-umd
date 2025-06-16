@@ -10,23 +10,6 @@
 
 using namespace tt::umd;
 
-/*
-const std::unordered_map<tt::ARCH, std::vector<std::uint16_t>> ubb_bus_ids = {
-    {tt::ARCH::WORMHOLE_B0, {0x00, 0x40, 0xC0, 0x80}},
-    {tt::ARCH::BLACKHOLE, {0xC0, 0x80, 0x00, 0x40}},
-};
-
-std::pair<std::uint32_t, std::uint32_t> get_ubb_ids(chip_id_t chip_id, Cluster* cluster) {
-    const auto& tray_bus_ids = ubb_bus_ids.at(cluster->arch());
-    auto tray_bus_id_it = std::find(tray_bus_ids.begin(), tray_bus_ids.end(),
-cluster->get_chip(chip_id)->get_tt_device()->get_pci_device()->get_device_info().pci_bus & 0xF0); if (tray_bus_id_it !=
-tray_bus_ids.end()) { auto ubb_asic_id = cluster->get_ubb_asic_id(chip_id); return std::make_pair(tray_bus_id_it -
-tray_bus_ids.begin() + 1, ubb_asic_id);
-    }
-    return std::make_pair(0, 0);
-}
-*/
-
 int main(int argc, char* argv[]) {
     cxxopts::Options options("system_health", "<Give explanation here>.");
 

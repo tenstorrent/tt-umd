@@ -13,7 +13,6 @@ using namespace tt::umd;
 int main(int argc, char* argv[]) {
     cxxopts::Options options("system_health", "<Give explanation here>.");
 
-    // // Work on the comments later on
     options.add_options()("f,path", "File path to save cluster descriptor to.", cxxopts::value<std::string>())(
         "l,logical_devices",
         "List of logical device ids to filter cluster descriptor for.",
@@ -78,7 +77,7 @@ int main(int argc, char* argv[]) {
         for (const auto& logical_coordinates : logical_coord) {
             logical_eth_core_to_chan_map.insert(
                 {{logical_coordinates.x, logical_coordinates.y, CoreType::ETH, CoordSystem::LOGICAL},
-                 logical_coordinates.y});
+                 static_cast<int>(logical_coordinates.y)});
         }
         for (const auto& [eth_core, chan] : logical_eth_core_to_chan_map) {
             CoreCoord translated_coord =

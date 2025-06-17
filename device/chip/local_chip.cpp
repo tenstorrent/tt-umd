@@ -130,6 +130,29 @@ TLBManager* LocalChip::get_tlb_manager() { return tlb_manager_.get(); }
 bool LocalChip::is_mmio_capable() const { return true; }
 
 void LocalChip::start_device() {
+    std::cout << "BROSKO Called start device from here " << tt_device_->get_pci_device()->get_device_num() << std::endl;
+
+#include <execinfo.h>
+
+#include <cstdlib>
+#include <iostream>
+
+    // Capture the stack trace
+    const int max_frames = 100;
+    void* addrlist[max_frames + 1];
+    int addrlen = backtrace(addrlist, sizeof(addrlist) / sizeof(void*));
+
+    // Print the stack trace
+    if (addrlen == 0) {
+        std::cout << "No stack trace available\n";
+    } else {
+        char** symbollist = backtrace_symbols(addrlist, addrlen);
+        std::cout << "Stack trace:\n";
+        for (int i = 0; i < addrlen; i++) {
+            std::cout << symbollist[i] << "\n";
+        }
+        free(symbollist);
+    }
     // TODO: acquire mutex should live in Chip class. Currently we don't have unique id for all chips.
     // The lock here should suffice since we have to open Local chip to have Remote chips initialized.
     chip_started_lock_.emplace(acquire_mutex(MutexType::CHIP_IN_USE, tt_device_->get_pci_device()->get_device_num()));
@@ -138,7 +161,10 @@ void LocalChip::start_device() {
     initialize_membars();
 }
 
-void LocalChip::close_device() { chip_started_lock_.reset(); };
+void LocalChip::close_device() {
+    std::cout << "BROSKO closed device " << tt_device_->get_pci_device()->get_device_num() << std::endl;
+    chip_started_lock_.reset();
+};
 
 void LocalChip::wait_eth_cores_training(const uint32_t timeout_ms) {
     const std::vector<CoreCoord> eth_cores =

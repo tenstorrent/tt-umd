@@ -74,24 +74,16 @@ int main(int argc, char* argv[]) {
             // chip_id_ss << " Tray: " << tray_id << " N" << ubb_asic_id;
         }
         ss << chip_id_ss.str() << std::endl;
-        std::map<CoreCoord, int> logical_eth_core_to_chan_map;
-        for (const auto& logical_coordinates : logical_coord) {
-            logical_eth_core_to_chan_map.insert(
-                {{logical_coordinates.x, logical_coordinates.y, CoreType::ETH, CoordSystem::LOGICAL},
-                 static_cast<int>(logical_coordinates.y)});
-        }
-        for (const auto& [eth_core, chan] : logical_eth_core_to_chan_map) {
-            CoreCoord translated_coord =
-                soc_desc.translate_coord_to({eth_core, CoreType::ETH, CoordSystem::LOGICAL}, CoordSystem::TRANSLATED);
 
-            tt_cxy_pair virtual_eth_core(chip_id, translated_coord);
+        for (auto chan = 0; chan < soc_desc.get_num_eth_channels(); chan++) {
+            CoreCoord translated_coord = soc_desc.get_eth_core_for_channel(chan, CoordSystem::TRANSLATED);
+
             std::stringstream eth_ss;
 
             read_vec.resize(sizeof(uint32_t) / sizeof(uint32_t));
             static constexpr std::uint32_t RETRAIN_COUNT_ADDR = 0x1EDC;  // wormhole
-            cluster->read_from_device(
-                read_vec.data(), virtual_eth_core.chip, translated_coord, RETRAIN_COUNT_ADDR, sizeof(uint32_t));
-            eth_ss << " eth channel " << std::dec << (uint32_t)chan << " " << eth_core.str();
+            cluster->read_from_device(read_vec.data(), chip_id, translated_coord, RETRAIN_COUNT_ADDR, sizeof(uint32_t));
+            eth_ss << " eth channel " << std::dec << (uint32_t)chan << " " << logical_coord.at(chan).str();
 
             const bool is_external_cable = [board_type, &cluster_descriptor](
                                                const int chip_id, const unsigned long unique_chip_id, const int chan) {
@@ -139,7 +131,7 @@ int main(int argc, char* argv[]) {
                     const auto& ethernet_connections_to_remote_cluster =
                         cluster_descriptor->get_ethernet_connections_to_remote_mmio_devices();
                     const auto& local_chip_id = chip_id;
-                    const auto& local_eth_core = eth_core;
+                    const auto& local_eth_core = logical_coord.at(chan);
                     const auto& local_connected_eth_core =
                         ethernet_connections_to_remote_cluster.at(local_chip_id).at(chan);
 

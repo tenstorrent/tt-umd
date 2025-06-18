@@ -101,9 +101,6 @@ void LocalChip::initialize_default_chip_mutexes() {
 
     // Initialize interprocess mutexes to make host -> device memory barriers atomic
     lock_manager_.initialize_mutex(MutexType::MEM_BARRIER, pci_device_id);
-
-    // Initialize mutex guarding initialized chips.
-    lock_manager_.initialize_mutex(MutexType::CHIP_IN_USE, pci_device_id);
 }
 
 void LocalChip::initialize_membars() {
@@ -130,15 +127,12 @@ TLBManager* LocalChip::get_tlb_manager() { return tlb_manager_.get(); }
 bool LocalChip::is_mmio_capable() const { return true; }
 
 void LocalChip::start_device() {
-    // TODO: acquire mutex should live in Chip class. Currently we don't have unique id for all chips.
-    // The lock here should suffice since we have to open Local chip to have Remote chips initialized.
-    chip_started_lock_.emplace(acquire_mutex(MutexType::CHIP_IN_USE, tt_device_->get_pci_device()->get_device_num()));
     check_pcie_device_initialized();
     init_pcie_iatus();
     initialize_membars();
 }
 
-void LocalChip::close_device() { chip_started_lock_.reset(); };
+void LocalChip::close_device(){};
 
 void LocalChip::wait_eth_cores_training(const uint32_t timeout_ms) {
     const std::vector<CoreCoord> eth_cores =

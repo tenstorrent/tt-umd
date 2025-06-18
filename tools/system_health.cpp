@@ -42,15 +42,9 @@ bool check_if_external_cable_is_used(
 }
 
 int main(int argc, char* argv[]) {
-    cxxopts::Options options("system_health", "<Give explanation here>.");
+    cxxopts::Options options("system_health", "A tool that reports system health.");
 
-    options.add_options()("f,path", "File path to save cluster descriptor to.", cxxopts::value<std::string>())(
-        "l,logical_devices",
-        "List of logical device ids to filter cluster descriptor for.",
-        cxxopts::value<std::vector<std::string>>())(
-        "p,pci_devices",
-        "List of pci device ids to perform topology discovery on.",
-        cxxopts::value<std::vector<std::string>>())("h,help", "Print usage");
+    options.add_options()("f,path", "File path to save cluster descriptor to.");
 
     auto result = options.parse(argc, argv);
 
@@ -59,19 +53,9 @@ int main(int argc, char* argv[]) {
         return 0;
     }
 
-    if (result.count("logical_devices") && result.count("pci_devices")) {
-        std::cerr << "Error: Using both 'pci_devices' and 'logical_devices' options is not allowed." << std::endl;
-        return 1;
-    }
-
     std::string cluster_descriptor_path = "";
     if (result.count("path")) {
         cluster_descriptor_path = result["path"].as<std::string>();
-    }
-
-    std::unordered_set<int> pci_ids = {};
-    if (result.count("pci_devices")) {
-        pci_ids = extract_int_set(result["pci_devices"]);
     }
 
     std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
@@ -164,18 +148,6 @@ int main(int argc, char* argv[]) {
     // Print a summary of unexpected system states
     for (const auto& err_str : unexpected_system_states) {
         log_warning(tt::LogTest, "{}", err_str);
-    }
-
-    std::unique_ptr<tt_ClusterDescriptor> constrained_cluster_descriptor{nullptr};
-    if (result.count("logical_devices")) {
-        std::unordered_set<int> logical_device_ids = extract_int_set(result["logical_devices"]);
-
-        std::unique_ptr<tt_ClusterDescriptor> constrained_cluster_descriptor =
-            tt_ClusterDescriptor::create_constrained_cluster_descriptor(cluster_descriptor, logical_device_ids);
-    }
-
-    if (constrained_cluster_descriptor != nullptr) {
-        cluster_descriptor = constrained_cluster_descriptor.get();
     }
 
     std::string output_path = cluster_descriptor->serialize_to_file(cluster_descriptor_path);

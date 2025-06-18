@@ -9,6 +9,7 @@
 #include <tt-logger/tt-logger.hpp>
 
 #include "api/umd/device/coordinate_manager.h"
+#include "assert.hpp"
 #include "umd/device/blackhole_coordinate_manager.h"
 #include "umd/device/wormhole_coordinate_manager.h"
 
@@ -127,7 +128,7 @@ CoreCoord CoordinateManager::translate_coord_to(
     const CoreCoord core_coord, const CoordSystem target_coord_system) const {
     auto physical_coord_it = to_physical_map.find(core_coord);
     if (physical_coord_it == to_physical_map.end()) {
-        throw std::runtime_error(fmt::format(
+        TT_THROW(fmt::format(
             "No core coordinate found at location: ({}, {}, {}, {})",
             core_coord.x,
             core_coord.y,

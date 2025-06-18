@@ -77,8 +77,6 @@ int main(int argc, char* argv[]) {
     std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
     auto cluster_descriptor = cluster->get_cluster_description();
     const auto& eth_connections = cluster_descriptor->get_ethernet_connections();
-    const auto& eth_connections_to_remote_mmio_devices =
-        cluster_descriptor->get_ethernet_connections_to_remote_mmio_devices();
     auto unique_chip_ids = cluster_descriptor->get_chip_unique_ids();
 
     std::stringstream ss;
@@ -121,7 +119,6 @@ int main(int argc, char* argv[]) {
             std::string connection_type = is_external_cable ? "(external connector)" : "(internal trace)";
 
             if (cluster_descriptor->ethernet_core_has_active_ethernet_link(chip_id, chan)) {
-                const auto& eth_connections = cluster_descriptor->get_ethernet_connections();
                 if (eth_connections.at(chip_id).find(chan) != eth_connections.at(chip_id).end()) {
                     auto connected_eth_core_local =
                         cluster_descriptor->get_chip_and_channel_of_remote_ethernet_core(chip_id, chan);

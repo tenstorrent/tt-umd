@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: (c) 2025 Tenstorrent Inc.
 //
 // SPDX-License-Identifier: Apache-2.0
+#include <cstddef>
 #include <cxxopts.hpp>
 #include <tt-logger/tt-logger.hpp>
 
@@ -43,8 +44,8 @@ int main(int argc, char* argv[]) {
         pci_ids = extract_int_set(result["pci_devices"]);
     }
 
-    std::unique_ptr<tt_ClusterDescriptor> cluster_descriptor = tt::umd::Cluster::create_cluster_descriptor("", pci_ids);
     std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
+    auto cluster_descriptor = cluster->get_cluster_description();
     const auto& eth_connections = cluster_descriptor->get_ethernet_connections();
     const auto& eth_connections_to_remote_mmio_devices =
         cluster_descriptor->get_ethernet_connections_to_remote_mmio_devices();
@@ -172,11 +173,16 @@ int main(int argc, char* argv[]) {
         log_warning(tt::LogTest, "{}", err_str);
     }
 
+    std::unique_ptr<tt_ClusterDescriptor> constrained_cluster_descriptor{nullptr};
     if (result.count("logical_devices")) {
         std::unordered_set<int> logical_device_ids = extract_int_set(result["logical_devices"]);
 
-        cluster_descriptor =
-            tt_ClusterDescriptor::create_constrained_cluster_descriptor(cluster_descriptor.get(), logical_device_ids);
+        std::unique_ptr<tt_ClusterDescriptor> constrained_cluster_descriptor =
+            tt_ClusterDescriptor::create_constrained_cluster_descriptor(cluster_descriptor, logical_device_ids);
+    }
+
+    if (constrained_cluster_descriptor != nullptr) {
+        cluster_descriptor = constrained_cluster_descriptor.get();
     }
 
     std::string output_path = cluster_descriptor->serialize_to_file(cluster_descriptor_path);

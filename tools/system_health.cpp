@@ -120,17 +120,14 @@ int main(int argc, char* argv[]) {
 
             if (cluster_descriptor->ethernet_core_has_active_ethernet_link(chip_id, chan)) {
                 if (eth_connections.at(chip_id).find(chan) != eth_connections.at(chip_id).end()) {
-                    auto connected_eth_core_local =
+                    const auto& [connected_chip_id, connected_chan] =
                         cluster_descriptor->get_chip_and_channel_of_remote_ethernet_core(chip_id, chan);
                     const CoreCoord logical_eth_coord = CoreCoord(0, chan, CoreType::ETH, CoordSystem::LOGICAL);
 
-                    const auto& [connected_chip_id, connected_eth_core] =
-                        std::make_tuple(std::get<0>(connected_eth_core_local), logical_eth_coord);
-
                     std::cout << "Connected chip: " << connected_chip_id
-                              << " connected eth core: " << connected_eth_core.str() << std::endl;
+                              << " connected eth core: " << logical_eth_coord.str() << std::endl;
                     eth_ss << " link UP " << connection_type << ", retrain: " << read_vec[0] << ", connected to chip "
-                           << connected_chip_id << " " << connected_eth_core.str();
+                           << connected_chip_id << " " << logical_eth_coord.str();
                 } else {
                     const auto& ethernet_connections_to_remote_cluster =
                         cluster_descriptor->get_ethernet_connections_to_remote_mmio_devices();
@@ -139,14 +136,14 @@ int main(int argc, char* argv[]) {
                     const auto& local_connected_eth_core =
                         ethernet_connections_to_remote_cluster.at(local_chip_id).at(chan);
 
-                    const auto& [connected_chip_unique_id, connected_eth_core] = std::make_tuple(
+                    const auto& [connected_chip_unique_id, logical_eth_coord] = std::make_tuple(
                         std::get<0>(local_connected_eth_core),
                         soc_desc.get_eth_core_for_channel(std::get<1>(local_connected_eth_core), CoordSystem::LOGICAL));
 
                     std::cout << "Connected unique chip: " << connected_chip_unique_id
-                              << " connected eth core: " << connected_eth_core.str() << std::endl;
+                              << " connected eth core: " << logical_eth_coord.str() << std::endl;
                     eth_ss << " link UP " << connection_type << ", retrain: " << read_vec[0] << ", connected to chip "
-                           << connected_chip_unique_id << " " << connected_eth_core.str();
+                           << connected_chip_unique_id << " " << logical_eth_coord.str();
                 }
 
                 if (read_vec[0] > 0) {

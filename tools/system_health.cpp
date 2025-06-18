@@ -11,6 +11,36 @@
 
 using namespace tt::umd;
 
+bool check_if_external_cable_is_used(
+    tt_ClusterDescriptor* cluster_descriptor,
+    const BoardType board_type,
+    const int chip_id,
+    const unsigned long unique_chip_id,
+    const int chan) {
+    if (board_type == BoardType::UBB) {
+        auto ubb_asic_id = ((unique_chip_id >> 56) & 0xFF);
+        if (ubb_asic_id == 1) {
+            // UBB 1 has external cables on channels 0-7
+            return (chan >= 0 and chan <= 7);
+        } else if (ubb_asic_id >= 2 and ubb_asic_id <= 4) {
+            // UBB 2 to 4 has external cables on channels 0-3
+            return (chan >= 0 and chan <= 3);
+        } else if (ubb_asic_id == 5) {
+            // UBB 5 has external cables on channels 4-7
+            return (chan >= 4 and chan <= 7);
+        }
+    } else if (board_type == BoardType::N300) {
+        // N300 has external cables on channels 8-9 on MMIO chips and channels 0-1 on non-MMIO chips
+        auto mmio_device_id = cluster_descriptor->get_closest_mmio_capable_chip(chip_id);
+        if (mmio_device_id == chip_id) {
+            return (chan != 8 and chan != 9);
+        } else {
+            return (chan != 0 and chan != 1);
+        }
+    }
+    return false;
+}
+
 int main(int argc, char* argv[]) {
     cxxopts::Options options("system_health", "<Give explanation here>.");
 
@@ -85,31 +115,8 @@ int main(int argc, char* argv[]) {
             cluster->read_from_device(read_vec.data(), chip_id, translated_coord, RETRAIN_COUNT_ADDR, sizeof(uint32_t));
             eth_ss << " eth channel " << std::dec << (uint32_t)chan << " " << logical_coord.at(chan).str();
 
-            const bool is_external_cable = [board_type, &cluster_descriptor](
-                                               const int chip_id, const unsigned long unique_chip_id, const int chan) {
-                if (board_type == BoardType::UBB) {
-                    auto ubb_asic_id = ((unique_chip_id >> 56) & 0xFF);
-                    if (ubb_asic_id == 1) {
-                        // UBB 1 has external cables on channels 0-7
-                        return (chan >= 0 and chan <= 7);
-                    } else if (ubb_asic_id >= 2 and ubb_asic_id <= 4) {
-                        // UBB 2 to 4 has external cables on channels 0-3
-                        return (chan >= 0 and chan <= 3);
-                    } else if (ubb_asic_id == 5) {
-                        // UBB 5 has external cables on channels 4-7
-                        return (chan >= 4 and chan <= 7);
-                    }
-                } else if (board_type == BoardType::N300) {
-                    // N300 has external cables on channels 8-9 on MMIO chips and channels 0-1 on non-MMIO chips
-                    auto mmio_device_id = cluster_descriptor->get_closest_mmio_capable_chip(chip_id);
-                    if (mmio_device_id == chip_id) {
-                        return (chan != 8 and chan != 9);
-                    } else {
-                        return (chan != 0 and chan != 1);
-                    }
-                }
-                return false;
-            }(chip_id, unique_chip_id, chan);
+            const bool is_external_cable =
+                check_if_external_cable_is_used(cluster_descriptor, board_type, chip_id, unique_chip_id, chan);
 
             std::string connection_type = is_external_cable ? "(external connector)" : "(internal trace)";
 

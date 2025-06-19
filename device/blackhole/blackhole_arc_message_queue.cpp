@@ -30,7 +30,7 @@ void BlackholeArcMessageQueue::write_words(uint32_t* data, size_t num_words, siz
 }
 
 void BlackholeArcMessageQueue::trigger_fw_int() {
-    tt_device->write_to_device((void*)&ARC_FW_INT_VAL, arc_core, ARC_FW_INT_ADDR, sizeof(uint32_t));
+    tt_device->write_to_device(&ARC_FW_INT_VAL, arc_core, ARC_FW_INT_ADDR, sizeof(uint32_t));
 }
 
 void BlackholeArcMessageQueue::push_request(

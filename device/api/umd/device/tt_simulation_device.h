@@ -35,7 +35,6 @@ public:
         tt_SimulationDevice(tt_SimulationDeviceInit(simulator_directory)) {}
 
     tt_SimulationDevice(const tt_SimulationDeviceInit& init);
-    ~tt_SimulationDevice();
 
     tt_SimulationHost host;
 
@@ -49,6 +48,8 @@ public:
     // All tt_xy_pair cores in this class are defined in VIRTUAL coords.
     void write_to_device(tt_xy_pair core, const void* src, uint64_t l1_dest, uint32_t size) override;
     void read_from_device(tt_xy_pair core, void* dest, uint64_t l1_src, uint32_t size) override;
+    void dma_write_to_device(const void* src, size_t size, tt_xy_pair core, uint64_t addr) override;
+    void dma_read_from_device(void* dst, size_t size, tt_xy_pair core, uint64_t addr) override;
 
     void wait_for_non_mmio_flush() override;
 

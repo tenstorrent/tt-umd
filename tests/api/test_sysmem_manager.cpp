@@ -1,6 +1,8 @@
 // SPDX-FileCopyrightText: (c) 2025 Tenstorrent Inc.
 //
 // SPDX-License-Identifier: Apache-2.0
+#include <sys/mman.h>
+
 #include "gtest/gtest.h"
 #include "tests/test_utils/device_test_utils.hpp"
 #include "umd/device/chip_helpers/sysmem_manager.h"
@@ -41,49 +43,6 @@ TEST(ApiSysmemManager, BasicIO) {
         data_read = std::vector<uint32_t>(data_write.size(), 0);
         sysmem->read_from_sysmem(0, data_read.data(), 0x100, data_read.size() * sizeof(uint32_t));
         EXPECT_EQ(data_write, data_read);
-    }
-}
-
-TEST(ApiSysmemManager, SysmemBuffersAllocation) {
-    std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
-    if (pci_device_ids.empty()) {
-        GTEST_SKIP() << "No chips present on the system. Skipping test.";
-    }
-    if (!PCIDevice(pci_device_ids[0]).is_iommu_enabled()) {
-        GTEST_SKIP() << "Skipping test since IOMMU is not enabled.";
-    }
-
-    const uint32_t one_mb = 1 << 20;
-
-    std::cout << "Sysmem buffer allocation test, each buffer is 1MB." << std::endl;
-
-    uint32_t pages_allocated = 0;
-
-    std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>(tt::umd::ClusterOptions{
-        .num_host_mem_ch_per_mmio_device = 0,
-    });
-
-    std::vector<std::unique_ptr<SysmemBuffer>> sysmem_buffers;
-
-    for (const chip_id_t chip_id : cluster->get_target_device_ids()) {
-        SysmemManager* sysmem_manager = cluster->get_chip(chip_id)->get_sysmem_manager();
-
-        std::cout << "--------------------------------" << std::endl;
-        std::cout << "Testing allocation for PCI device ID: "
-                  << cluster->get_tt_device(chip_id)->get_pci_device()->get_device_num() << std::endl;
-
-        while (true) {
-            try {
-                sysmem_buffers.push_back(sysmem_manager->allocate_sysmem_buffer(one_mb));
-            } catch (...) {
-                break;
-            }
-        }
-
-        uint64_t sysmem_buffer_size = sysmem_buffers.size() * one_mb;
-
-        std::cout << "Allocated " << (double)sysmem_buffer_size / one_mb
-                  << " MB of sysmem buffers each being 1MB in size." << std::endl;
     }
 }
 
@@ -143,4 +102,102 @@ TEST(ApiSysmemManager, SysmemBuffers) {
     for (uint32_t i = 0; i < one_mb; ++i) {
         EXPECT_EQ(sysmem_data[i], sysmem_data_readback[i]);
     }
+}
+
+TEST(ApiSysmemManager, SysmemBufferUnaligned) {
+    const auto page_size = sysconf(_SC_PAGESIZE);
+
+    std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
+    if (pci_device_ids.empty()) {
+        GTEST_SKIP() << "No chips present on the system. Skipping test.";
+    }
+    if (!PCIDevice(pci_device_ids[0]).is_iommu_enabled()) {
+        GTEST_SKIP() << "Skipping test since IOMMU is not enabled.";
+    }
+
+    std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>(tt::umd::ClusterOptions{
+        .num_host_mem_ch_per_mmio_device = 0,
+    });
+
+    const chip_id_t mmio_chip = *cluster->get_target_mmio_device_ids().begin();
+
+    SysmemManager* sysmem_manager = cluster->get_chip(mmio_chip)->get_sysmem_manager();
+
+    const uint32_t one_mb = 1 << 20;
+    void* mapping =
+        mmap(nullptr, 2 * one_mb, PROT_READ | PROT_WRITE, MAP_ANONYMOUS | MAP_PRIVATE | MAP_POPULATE, -1, 0);
+    // It's important that this offset is not a multiple of the page size.
+    const size_t unaligned_offset = 100;
+    void* mapping_buffer = (uint8_t*)mapping + unaligned_offset;  // Offset by 1MB
+
+    std::unique_ptr<SysmemBuffer> sysmem_buffer = sysmem_manager->map_sysmem_buffer(mapping_buffer, one_mb);
+
+    const CoreCoord tensix_core = cluster->get_soc_descriptor(mmio_chip).get_cores(CoreType::TENSIX)[0];
+
+    // Zero out 1MB of Tensix L1.
+    std::vector<uint8_t> data_write(one_mb, 0);
+    cluster->write_to_device(data_write.data(), one_mb, mmio_chip, tensix_core, 0);
+
+    uint8_t* sysmem_data = static_cast<uint8_t*>(sysmem_buffer->get_buffer_va());
+
+    EXPECT_EQ(sysmem_data, mapping_buffer);
+    EXPECT_EQ(sysmem_buffer->get_buffer_size(), one_mb);
+
+    for (uint32_t i = 0; i < one_mb; ++i) {
+        sysmem_data[i] = static_cast<uint8_t>(i % 256);
+    }
+
+    // Write pattern to first 1MB of Tensix L1.
+    sysmem_buffer->dma_write_to_device(0, one_mb, tensix_core, 0);
+
+    // Read regularly to check Tensix L1 matches the pattern.
+    std::vector<uint8_t> readback(one_mb, 0);
+    cluster->dma_read_from_device(readback.data(), one_mb, mmio_chip, tensix_core, 0);
+
+    for (uint32_t i = 0; i < one_mb; ++i) {
+        EXPECT_EQ(sysmem_data[i], readback[i]);
+    }
+
+    // Zero out sysmem_data before reading back.
+    for (uint32_t i = 0; i < one_mb; ++i) {
+        sysmem_data[i] = 0;
+    }
+
+    // Read data back from Tensix L1 to sysmem_data.
+    sysmem_buffer->dma_read_from_device(0, one_mb, tensix_core, 0);
+
+    for (uint32_t i = 0; i < one_mb; ++i) {
+        EXPECT_EQ(sysmem_data[i], readback[i]);
+    }
+}
+
+TEST(ApiSysmemManager, SysmemBufferFunctions) {
+    std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
+    if (pci_device_ids.empty()) {
+        GTEST_SKIP() << "No chips present on the system. Skipping test.";
+    }
+    if (!PCIDevice(pci_device_ids[0]).is_iommu_enabled()) {
+        GTEST_SKIP() << "Skipping test since IOMMU is not enabled.";
+    }
+
+    std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>(tt::umd::ClusterOptions{
+        .num_host_mem_ch_per_mmio_device = 0,
+    });
+
+    const chip_id_t mmio_chip = *cluster->get_target_mmio_device_ids().begin();
+
+    SysmemManager* sysmem_manager = cluster->get_chip(mmio_chip)->get_sysmem_manager();
+
+    const size_t mmap_size = 20;
+    const size_t buf_size = 10;
+
+    // Size is not multiple of page size.
+    void* mapping = mmap(nullptr, mmap_size, PROT_READ | PROT_WRITE, MAP_ANONYMOUS | MAP_PRIVATE | MAP_POPULATE, -1, 0);
+
+    void* mapped_buffer = (uint8_t*)mapping + buf_size;  // Offset by 10 bytes
+
+    std::unique_ptr<SysmemBuffer> sysmem_buffer = sysmem_manager->map_sysmem_buffer(mapped_buffer, buf_size);
+
+    EXPECT_EQ(sysmem_buffer->get_buffer_size(), buf_size);
+    EXPECT_EQ(sysmem_buffer->get_buffer_va(), mapped_buffer);
 }

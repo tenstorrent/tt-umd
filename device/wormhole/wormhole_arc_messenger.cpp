@@ -31,10 +31,19 @@ uint32_t WormholeArcMessenger::send_message(
                                           tt::umd::wormhole::NOC0_Y_TO_NOC1_Y[tt::umd::wormhole::ARC_CORES_NOC0[0].y])
                                     : tt::umd::wormhole::ARC_CORES_NOC0[0];
 
-    auto lock =
-        tt_device->is_remote()
-            ? lock_manager.acquire_mutex(MutexType::REMOTE_ARC_MSG, tt_device->get_pci_device()->get_device_num())
-            : lock_manager.acquire_mutex(MutexType::ARC_MSG, tt_device->get_pci_device()->get_device_num());
+    // TODO: Once local and remote ttdevice is properly separated, reenable this code.
+    // TODO2: Once we have unique chip ids other than PCI dev number, use that for both local and remote chips for
+    // locks.
+    // It can happen that multiple topology discovery instances run in parallel, and they can create multiple
+    // RemoteTTDevice objects over the same remote chip but using different local one. This will make the locks (which
+    // are over pci device num) allow multiple remote arc messages to the same remote chip which will break the
+    // communication. It can also happen that while topology discovery is running on a remote chip through one local
+    // chip, regular cluster construction is running through another local chip. Currently there's no other solution
+    // than to just lock all arc communication through the same lock. auto lock =
+    //     tt_device->is_remote()
+    //         ? lock_manager.acquire_mutex(MutexType::REMOTE_ARC_MSG, tt_device->get_pci_device()->get_device_num())
+    //         : lock_manager.acquire_mutex(MutexType::ARC_MSG, tt_device->get_pci_device()->get_device_num());
+    auto lock = lock_manager.acquire_mutex(MutexType::ARC_MSG);
 
     auto architecture_implementation = tt_device->get_architecture_implementation();
 
@@ -47,7 +56,7 @@ uint32_t WormholeArcMessenger::send_message(
         wormhole::ARC_RESET_SCRATCH_ADDR + wormhole::ARC_SCRATCH_RES0_OFFSET * sizeof(uint32_t),
         sizeof(uint32_t));
     tt_device->write_to_device(
-        (void*)&msg_code,
+        &msg_code,
         arc_core,
         wormhole::ARC_RESET_SCRATCH_ADDR + wormhole::ARC_SCRATCH_STATUS_OFFSET * sizeof(uint32_t),
         sizeof(uint32_t));

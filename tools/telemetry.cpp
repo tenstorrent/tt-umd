@@ -13,6 +13,7 @@
 #include <tt-logger/tt-logger.hpp>
 #include <vector>
 
+#include "common.h"
 #include "fmt/core.h"
 #include "umd/device/arc_telemetry_reader.h"
 #include "umd/device/types/wormhole_telemetry.h"
@@ -67,7 +68,7 @@ int main(int argc, char* argv[]) {
     std::vector<int> pci_device_ids;
 
     if (result.count("devices")) {
-        for (int device_id : result["devices"].as<std::vector<int>>()) {
+        for (int device_id : extract_int_vector(result["devices"])) {
             if (std::find(discovered_pci_device_ids.begin(), discovered_pci_device_ids.end(), device_id) ==
                 discovered_pci_device_ids.end()) {
                 std::cerr << "Device ID with pci id " << device_id << " not found in the system." << std::endl;

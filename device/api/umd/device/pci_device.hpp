@@ -169,11 +169,13 @@ public:
     static semver_t read_kmd_version();
 
     /**
-     * Allocate TLB resource from KMD
+     * Allocate TLB resource from KMD.
      *
      * @param tlb_size Size of the TLB caller wants to allocate.
+     * @param mapping_type Type of TLB mapping to allocate (UC or WC).
      */
-    std::unique_ptr<tt::umd::TlbHandle> allocate_tlb(const size_t tlb_size);
+    std::unique_ptr<tt::umd::TlbHandle> allocate_tlb(
+        const size_t tlb_size, const tt::umd::TlbMapping tlb_mapping = tt::umd::TlbMapping::UC);
 
 public:
     // TODO: we can and should make all of these private.

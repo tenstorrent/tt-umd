@@ -83,8 +83,6 @@ tt_SimulationDevice::tt_SimulationDevice(const tt_SimulationDeviceInit& init) : 
     uv_loop_close(loop);
 }
 
-tt_SimulationDevice::~tt_SimulationDevice() { close_device(); }
-
 void tt_SimulationDevice::start_device() {
     void* buf_ptr = nullptr;
 
@@ -99,18 +97,10 @@ void tt_SimulationDevice::start_device() {
 }
 
 void tt_SimulationDevice::send_tensix_risc_reset(tt_xy_pair core, const TensixSoftResetOptions& soft_resets) {
-    log_info(
-        tt::LogEmulationDriver,
-        "Sending 'send_tensix_risc_reset' for core.. (Not implemented, defaulting to 'send_tensix_risc_reset' "
-        "instead)");
-    send_tensix_risc_reset(soft_resets);
-}
-
-void tt_SimulationDevice::send_tensix_risc_reset(const TensixSoftResetOptions& soft_resets) {
     if (soft_resets == TENSIX_ASSERT_SOFT_RESET) {
         log_info(tt::LogEmulationDriver, "Sending assert_risc_reset signal..");
         auto wr_buffer =
-            create_flatbuffer(DEVICE_COMMAND_ALL_TENSIX_RESET_ASSERT, std::vector<uint32_t>(1, 0), {0, 0}, 0);
+            create_flatbuffer(DEVICE_COMMAND_ALL_TENSIX_RESET_ASSERT, std::vector<uint32_t>(1, 0), core, 0);
         uint8_t* wr_buffer_ptr = wr_buffer.GetBufferPointer();
         size_t wr_buffer_size = wr_buffer.GetSize();
 
@@ -119,7 +109,7 @@ void tt_SimulationDevice::send_tensix_risc_reset(const TensixSoftResetOptions& s
     } else if (soft_resets == TENSIX_DEASSERT_SOFT_RESET) {
         log_info(tt::LogEmulationDriver, "Sending 'deassert_risc_reset' signal..");
         auto wr_buffer =
-            create_flatbuffer(DEVICE_COMMAND_ALL_TENSIX_RESET_DEASSERT, std::vector<uint32_t>(1, 0), {0, 0}, 0);
+            create_flatbuffer(DEVICE_COMMAND_ALL_TENSIX_RESET_DEASSERT, std::vector<uint32_t>(1, 0), core, 0);
         uint8_t* wr_buffer_ptr = wr_buffer.GetBufferPointer();
         size_t wr_buffer_size = wr_buffer.GetSize();
 
@@ -127,6 +117,10 @@ void tt_SimulationDevice::send_tensix_risc_reset(const TensixSoftResetOptions& s
     } else {
         TT_THROW("Invalid soft reset option.");
     }
+}
+
+void tt_SimulationDevice::send_tensix_risc_reset(const TensixSoftResetOptions& soft_resets) {
+    send_tensix_risc_reset({0, 0}, soft_resets);
 }
 
 void tt_SimulationDevice::close_device() {
@@ -174,6 +168,14 @@ void tt_SimulationDevice::read_from_device(tt_xy_pair core, void* dest, uint64_t
 
     std::memcpy(dest, rd_resp_buf->data()->data(), rd_resp_buf->data()->size() * sizeof(uint32_t));
     nng_free(rd_resp, rd_rsp_sz);
+}
+
+void tt_SimulationDevice::dma_write_to_device(const void* src, size_t size, tt_xy_pair core, uint64_t addr) {
+    write_to_device(core, src, addr, size);
+}
+
+void tt_SimulationDevice::dma_read_from_device(void* dst, size_t size, tt_xy_pair core, uint64_t addr) {
+    read_from_device(core, dst, addr, size);
 }
 
 void tt_SimulationDevice::wait_for_non_mmio_flush() {}

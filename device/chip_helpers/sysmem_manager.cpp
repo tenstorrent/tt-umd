@@ -274,13 +274,13 @@ void SysmemManager::print_file_contents(std::string filename, std::string hint) 
     }
 }
 
-std::unique_ptr<SysmemBuffer> SysmemManager::allocate_sysmem_buffer(uint32_t sysmem_buffer_size) {
+std::unique_ptr<SysmemBuffer> SysmemManager::allocate_sysmem_buffer(size_t sysmem_buffer_size) {
     void *mapping =
         mmap(nullptr, sysmem_buffer_size, PROT_READ | PROT_WRITE, MAP_ANONYMOUS | MAP_PRIVATE | MAP_POPULATE, -1, 0);
     return map_sysmem_buffer(mapping, sysmem_buffer_size);
 }
 
-std::unique_ptr<SysmemBuffer> SysmemManager::map_sysmem_buffer(void *buffer, uint32_t sysmem_buffer_size) {
+std::unique_ptr<SysmemBuffer> SysmemManager::map_sysmem_buffer(void *buffer, size_t sysmem_buffer_size) {
     return std::make_unique<SysmemBuffer>(tlb_manager_, buffer, sysmem_buffer_size);
 }
 

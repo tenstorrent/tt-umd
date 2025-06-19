@@ -656,8 +656,6 @@ private:
         tt_ClusterDescriptor* cluster_desc,
         bool perform_harvesting,
         HarvestingMasks& simulated_harvesting_masks);
-    uint32_t get_tensix_harvesting_mask(
-        chip_id_t chip_id, tt_ClusterDescriptor* cluster_desc, HarvestingMasks& simulated_harvesting_masks);
     void construct_cluster(const uint32_t& num_host_mem_ch_per_mmio_device, const ChipType& chip_type);
     tt_xy_pair translate_to_api_coords(const chip_id_t chip, const tt::umd::CoreCoord core_coord) const;
     // Most of the old APIs accept virtual coordinates, but we communicate with the device through translated

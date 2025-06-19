@@ -1,15 +1,35 @@
 // SPDX-FileCopyrightText: (c) 2025 Tenstorrent Inc.
 //
 // SPDX-License-Identifier: Apache-2.0
-#include <cstddef>
 #include <cxxopts.hpp>
 #include <tt-logger/tt-logger.hpp>
 
 #include "common.h"
 #include "umd/device/cluster.h"
 #include "umd/device/tt_cluster_descriptor.h"
+#include "umd/device/tt_soc_descriptor.h"
 
 using namespace tt::umd;
+
+const std::unordered_map<tt::ARCH, std::vector<std::uint16_t>> ubb_bus_ids = {
+    {tt::ARCH::WORMHOLE_B0, {0x00, 0x40, 0xC0, 0x80}},
+    {tt::ARCH::BLACKHOLE, {0xC0, 0x80, 0x00, 0x40}},
+};
+
+std::pair<std::uint32_t, std::uint32_t> get_ubb_ids(
+    Cluster* cluster, const chip_id_t chip_id, const unsigned long unique_chip_id) {
+    const auto& tray_bus_ids = ubb_bus_ids.at(cluster->get_soc_descriptor(chip_id).arch);
+    auto tray_bus_id_it = std::find(
+        tray_bus_ids.begin(),
+        tray_bus_ids.end(),
+        cluster->get_chip(chip_id)->get_tt_device()->get_pci_device()->get_device_info().pci_bus & 0xF0);
+    if (tray_bus_id_it != tray_bus_ids.end()) {
+        // same as get_ubb_asic_id in tt-metal
+        auto ubb_asic_id = ((unique_chip_id >> 56) & 0xFF);
+        return std::make_pair(tray_bus_id_it - tray_bus_ids.begin() + 1, ubb_asic_id);
+    }
+    return std::make_pair(0, 0);
+}
 
 bool check_if_external_cable_is_used(
     tt_ClusterDescriptor* cluster_descriptor,
@@ -76,14 +96,14 @@ int main(int argc, char* argv[]) {
 
     std::vector<std::string> unexpected_system_states;
     for (const auto& [chip_id, unique_chip_id] : unique_chip_ids) {
-        const tt_SocDescriptor& soc_desc = cluster->get_chip(chip_id)->get_soc_descriptor();
+        const tt_SocDescriptor& soc_desc = cluster->get_soc_descriptor(chip_id);
         const auto& logical_coord = soc_desc.get_cores(CoreType::ETH, CoordSystem::LOGICAL);
         std::stringstream chip_id_ss;
         chip_id_ss << std::dec << "Chip: " << chip_id << " Unique ID: " << std::hex << unique_chip_id;
         auto board_type = cluster_descriptor->get_board_type(chip_id);
         if (board_type == BoardType::GALAXY) {
-            // auto [tray_id, ubb_asic_id] = get_ubb_ids(chip_id);
-            // chip_id_ss << " Tray: " << tray_id << " N" << ubb_asic_id;
+            auto [tray_id, ubb_asic_id] = get_ubb_ids(cluster.get(), chip_id, unique_chip_id);
+            chip_id_ss << " Tray: " << tray_id << " N" << ubb_asic_id;
         }
         ss << chip_id_ss.str() << std::endl;
 

@@ -395,7 +395,7 @@ TEST(TestCluster, TestClusterAICLKControl) {
     }
 }
 
-TEST(TestCluster, DISABLED_ReadWriteL1) {
+TEST(TestCluster, ReadWriteL1) {
     std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
 
     if (cluster->get_target_device_ids().empty()) {

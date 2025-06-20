@@ -470,7 +470,13 @@ uint64_t PCIDevice::map_for_hugepage(void *buffer, size_t size) {
     return pin_pages.out.physical_address;
 }
 
+static const semver_t kmd_ver_for_map_to_noc = semver_t(2, 0, 0);
+
 std::pair<uint64_t, uint64_t> PCIDevice::map_buffer_to_noc(void *buffer, size_t size) {
+    if (PCIDevice::read_kmd_version() < kmd_ver_for_map_to_noc) {
+        TT_THROW("KMD version must be at least 2.0.0 to use buffer with NOC mapping");
+    }
+
     static const auto page_size = sysconf(_SC_PAGESIZE);
     const uint64_t vaddr = reinterpret_cast<uint64_t>(buffer);
 
@@ -502,6 +508,10 @@ std::pair<uint64_t, uint64_t> PCIDevice::map_buffer_to_noc(void *buffer, size_t 
 }
 
 std::pair<uint64_t, uint64_t> PCIDevice::map_hugepage_to_noc(void *hugepage, size_t size) {
+    if (PCIDevice::read_kmd_version() < kmd_ver_for_map_to_noc) {
+        TT_THROW("KMD version must be at least 2.0.0 to use hugepages with NOC mapping");
+    }
+
     static const auto page_size = sysconf(_SC_PAGESIZE);
     const uint64_t vaddr = reinterpret_cast<uint64_t>(hugepage);
 

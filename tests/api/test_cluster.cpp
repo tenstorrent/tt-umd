@@ -7,6 +7,7 @@
 #include <gtest/gtest.h>
 
 #include <algorithm>
+#include <cstdint>
 #include <cstdlib>  // for std::getenv
 #include <filesystem>
 #include <string>
@@ -19,6 +20,7 @@
 #include "umd/device/chip/mock_chip.h"
 #include "umd/device/cluster.h"
 #include "umd/device/tt_cluster_descriptor.h"
+#include "umd/device/tt_silicon_driver_common.hpp"
 #include "umd/device/wormhole_implementation.h"
 
 // TODO: obviously we need some other way to set this up
@@ -408,6 +410,83 @@ TEST(TestCluster, TestClusterAICLKControl) {
     for (auto& clock : clocks_idle) {
         EXPECT_EQ(clock.second, get_expected_clock_val(clock.first, false));
     }
+}
+
+TEST(TestCluster, DeassertTensix) {
+    ClusterOptions options{};
+    std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>(options);
+    std::cout << "Hi\n";
+    if (cluster->get_target_device_ids().empty()) {
+        GTEST_SKIP() << "No chips present on the system. Skipping test.";
+    }
+    cluster->close_device();
+    auto tensix_l1_size = cluster->get_soc_descriptor(0).worker_l1_size;
+
+    std::filesystem::path filepath = "/proj_sw/user_dev/nbuncic/main_bin.bin";
+    std::ifstream file(filepath.string(), std::ios::binary);
+
+    if (!file) {
+        GTEST_SKIP() << "Failed to open file: " << filepath;
+    }
+
+    std::vector<uint8_t> zero_data(tensix_l1_size, 0);
+
+    // Big Endian
+    std::vector<uint32_t> brisc_program{0x000107b7, 0x87654737, 0x00e7a023, 0x0000006f};
+
+    // Little Endian
+    // std::vector<uint32_t> brisc_program{0xB7070100,
+    //                                     0x37476587,
+    //                                     0x23A0E700,
+    //                                     0x6F000000
+    //                                     };
+
+    // Set elements to 1 since the first readback will be of zero data, so want to confirm that
+    // elements actually changed.
+    std::vector<uint8_t> readback_data(tensix_l1_size, 1);
+    std::vector<uint8_t> readback_data_2(32, 1);
+
+    for (auto chip_id : cluster->get_target_device_ids()) {
+        const tt_SocDescriptor& soc_desc = cluster->get_soc_descriptor(chip_id);
+
+        std::vector<CoreCoord> tensix_cores = cluster->get_soc_descriptor(chip_id).get_cores(CoreType::TENSIX);
+
+        auto tensix_core = tensix_cores.at(0);
+
+        cluster->write_to_device(zero_data.data(), zero_data.size(), chip_id, tensix_core, 0);
+
+        cluster->wait_for_non_mmio_flush(chip_id);
+
+        cluster->read_from_device(readback_data.data(), chip_id, tensix_core, 0, tensix_l1_size);
+
+        EXPECT_EQ(zero_data, readback_data);
+
+        cluster->write_to_device(
+            brisc_program.data(), brisc_program.size() * sizeof(uint32_t), chip_id, tensix_core, 0);
+
+        cluster->wait_for_non_mmio_flush(chip_id);
+
+        cluster->read_from_device(readback_data.data(), chip_id, tensix_core, 0, tensix_l1_size);
+
+        TensixSoftResetOptions brisc_start{TensixSoftResetOptions::BRISC};
+        auto local_chip = cluster->get_chip(chip_id);
+        local_chip->send_tensix_risc_reset(tensix_core, brisc_start);
+
+        cluster->read_from_device(readback_data_2.data(), chip_id, tensix_core, 0x10000, readback_data_2.size());
+
+        // EXPECT_EQ(brisc_program, readback_data);
+    }
+
+    for (int i = 0; i < 16; i++) {
+        std::cout << readback_data[i];
+    }
+
+    std::cout << "\ndone\n";
+
+    for (auto& i : readback_data_2) {
+        std::cout << i;
+    }
+    std::cout << "\n";
 }
 
 TEST_P(ClusterReadWriteL1Test, ReadWriteL1) {

@@ -83,8 +83,6 @@ tt_SimulationDevice::tt_SimulationDevice(const tt_SimulationDeviceInit& init) : 
     uv_loop_close(loop);
 }
 
-tt_SimulationDevice::~tt_SimulationDevice() { close_device(); }
-
 void tt_SimulationDevice::start_device() {
     void* buf_ptr = nullptr;
 

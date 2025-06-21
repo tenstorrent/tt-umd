@@ -163,6 +163,10 @@ void TopologyDiscovery::discover_remote_chips() {
         eth_coords.emplace(chip_id, current_chip_unique_coord.eth_coord);
         unique_coord_to_chip_id.emplace(current_chip_unique_coord, chip_id);
 
+        log_debug(LogSiliconDriver,
+            "discovered_chips.insert chip with ID {} and coordinates {}",
+            chip_id,
+            current_chip_unique_coord.str());
         discovered_chips.insert(current_chip_unique_coord);
     }
 
@@ -184,6 +188,13 @@ void TopologyDiscovery::discover_remote_chips() {
         current_chip_unique_coord.eth_coord.shelf = (current_chip_eth_coord_info >> 8) & 0xFF;
 
         std::set<uint32_t> active_eth_channels;
+
+        std::unordered_set<UniqueCoord> remote_eth_coords_to_consider = {};
+
+        log_debug(LogSiliconDriver,
+            "Processing chip with ID {} and coordinates {}",
+            chip_id,
+            current_chip_unique_coord.str());
 
         uint32_t channel = 0;
         for (const CoreCoord& eth_core : eth_cores) {
@@ -229,6 +240,10 @@ void TopologyDiscovery::discover_remote_chips() {
             unique_coord.eth_coord.rack = remote_rack_x;
             unique_coord.eth_coord.shelf = remote_rack_y;
 
+            log_debug(LogSiliconDriver,
+                "Discovering on eth link {} chip with coordinates {}",
+                channel,
+                unique_coord.str());
             chip->set_remote_transfer_ethernet_cores(active_eth_channels);
             std::unique_ptr<RemoteWormholeTTDevice> remote_tt_device =
                 std::make_unique<RemoteWormholeTTDevice>(dynamic_cast<LocalChip*>(chip.get()), unique_coord.eth_coord);
@@ -236,11 +251,21 @@ void TopologyDiscovery::discover_remote_chips() {
             unique_coord.board_id = remote_tt_device->get_board_id();
 
             if (discovered_chips.find(unique_coord) == discovered_chips.end()) {
+                log_debug(LogSiliconDriver,
+                    " Adding to remote chips to discover {}, with mmio chip id {}",
+                    unique_coord.str(),
+                    chip_id);
                 remote_chips_to_discover.insert(unique_coord);
                 remote_unique_coord_to_mmio_chip_id.emplace(unique_coord, chip_id);
             } else {
                 chip_id_t current_chip_id = unique_coord_to_chip_id.at(current_chip_unique_coord);
                 chip_id_t remote_chip_id = unique_coord_to_chip_id.at(unique_coord);
+                log_debug(LogSiliconDriver,
+                    " Adding eth connection from chip {} coords {} to remote chip {} coords {}",
+                    current_chip_id,
+                    current_chip_unique_coord.str(),
+                    remote_chip_id,
+                    unique_coord.str());
                 Chip* remote_chip = chips.at(remote_chip_id).get();
                 CoreCoord physical_remote_eth =
                     CoreCoord(remote_noc_x, remote_noc_y, CoreType::ETH, CoordSystem::PHYSICAL);
@@ -261,6 +286,14 @@ void TopologyDiscovery::discover_remote_chips() {
         std::unordered_set<UniqueCoord> new_remote_chips = {};
 
         for (const UniqueCoord& unique_coord : remote_chips_to_discover) {
+            log_debug(LogSiliconDriver,
+                "Processing remote chip with coordinates {}",
+                unique_coord.str());
+            std::cout << " Full remote_unique_coord_to_mmio_chip_id ";
+            for (const auto& [coord, mmio_chip_id] : remote_unique_coord_to_mmio_chip_id) {
+                std::cout << "   " << coord.str() << " -> " << mmio_chip_id << ", " << std::endl;
+            }
+            std::cout << std::endl;
             chip_id_t mmio_chip_id = remote_unique_coord_to_mmio_chip_id.at(unique_coord);
             Chip* mmio_chip = chips.at(mmio_chip_id).get();
             TTDevice* tt_device = mmio_chip->get_tt_device();

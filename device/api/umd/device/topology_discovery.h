@@ -20,6 +20,15 @@ struct UniqueCoord {
     bool operator==(const UniqueCoord& other) const {
         return board_id == other.board_id && eth_coord == other.eth_coord;
     }
+
+    std::string str() const {
+        return fmt::format("(board_id: {}, x: {}, y: {}, rack: {}, shelf: {})",
+                           board_id,
+                           eth_coord.x,
+                           eth_coord.y,
+                           eth_coord.rack,
+                           eth_coord.shelf);
+    }
 };
 
 // Make it hashable so it can be a key in a hashmap

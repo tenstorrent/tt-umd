@@ -92,7 +92,11 @@ endif()
 
 add_subdirectory(common)
 add_subdirectory(device)
-add_subdirectory(nanobind)
+option(TT_UMD_BUILD_PYTHON "Enables build of tt_umd python bindings" OFF)
+if(TT_UMD_BUILD_PYTHON)
+    message(STATUS "Building ${PROJECT_NAME} with Python Bindings")
+    add_subdirectory(nanobind)
+endif()
 add_subdirectory(src)
 add_subdirectory(tools)
 

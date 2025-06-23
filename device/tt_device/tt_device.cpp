@@ -10,6 +10,7 @@
 #include "umd/device/driver_atomics.h"
 #include "umd/device/tt_device/blackhole_tt_device.h"
 #include "umd/device/tt_device/wormhole_tt_device.h"
+#include "umd/device/types/telemetry.h"
 
 // TODO #526: This is a hack to allow UMD to use the NOC1 TLB.
 bool umd_use_noc1 = false;
@@ -380,12 +381,45 @@ tt::umd::ArcTelemetryReader *TTDevice::get_arc_telemetry_reader() const { return
 
 TTDevice::~TTDevice() { lock_manager.clear_mutex(MutexType::TT_DEVICE_IO, get_pci_device()->get_device_num()); }
 
-std::vector<DramTrainingStatus> TTDevice::get_dram_training_status() { return {}; }
-
 void TTDevice::wait_for_non_mmio_flush() {}
 
 bool TTDevice::is_remote() { return is_remote_tt_device; }
 
+uint64_t TTDevice::get_board_id() {
+    return ((uint64_t)telemetry->read_entry(TAG_BOARD_ID_HIGH) << 32) | (telemetry->read_entry(TAG_BOARD_ID_LOW));
+}
+
 BoardType TTDevice::get_board_type() { return get_board_type_from_board_id(get_board_id()); }
+
+std::vector<DramTrainingStatus> TTDevice::get_dram_training_status() {
+    if (!telemetry->is_entry_available(tt::umd::TAG_DDR_STATUS)) {
+        return {};
+    }
+
+    uint32_t telemetry_data = telemetry->read_entry(tt::umd::TAG_DDR_STATUS);
+    std::vector<DramTrainingStatus> dram_training_status;
+    const uint32_t num_dram_channels = architecture_impl_->get_num_dram_banks();
+    // Format of the dram training status is as follows:
+    // Each channel gets two bits in the 32-bit value (16 bits used). The lower bits are for lower channels.
+    // Lower of the two bits is for training error and higher of the two bits is for training status.
+    // Example: 0b 00 00 00 00 00 00 01 10
+    // would mean that only channel 0 is trained, channel 1 has the error and other are not trained and don't have
+    // errors. If some channel is harvested the bits are always going to be zero.
+    for (uint32_t dram_channel = 0; dram_channel < num_dram_channels; dram_channel++) {
+        if (telemetry_data & (1 << (2 * dram_channel))) {
+            dram_training_status.push_back(DramTrainingStatus::SUCCESS);
+            continue;
+        }
+
+        if (telemetry_data & (1 << (2 * dram_channel + 1))) {
+            dram_training_status.push_back(DramTrainingStatus::FAIL);
+            continue;
+        }
+
+        dram_training_status.push_back(DramTrainingStatus::IN_PROGRESS);
+    }
+
+    return dram_training_status;
+}
 
 }  // namespace tt::umd

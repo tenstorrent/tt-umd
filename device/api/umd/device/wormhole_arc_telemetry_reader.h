@@ -15,9 +15,6 @@ public:
 
 protected:
     void get_telemetry_address() override;
-
-private:
-    void verify_telemetry();
 };
 
 }  // namespace tt::umd

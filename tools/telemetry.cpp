@@ -1,6 +1,8 @@
 // SPDX-FileCopyrightText: (c) 2025 Tenstorrent Inc.
 //
 // SPDX-License-Identifier: Apache-2.0
+#include "umd/device/types/telemetry.h"
+
 #include <chrono>
 #include <cxxopts.hpp>
 #include <fstream>
@@ -16,17 +18,16 @@
 #include "common.h"
 #include "fmt/core.h"
 #include "umd/device/arc_telemetry_reader.h"
-#include "umd/device/types/wormhole_telemetry.h"
 
 using namespace tt::umd;
 
 std::string run_default_telemetry(int pci_device, ArcTelemetryReader* telemetry_reader) {
     // Holds information about the max AICLK value and the current one.
-    uint32_t aiclk_info = telemetry_reader->read_entry(wormhole::TAG_AICLK);
+    uint32_t aiclk_info = telemetry_reader->read_entry(TAG_AICLK);
     uint32_t aiclk_current = aiclk_info & 0xFFFF;
-    uint32_t vcore = telemetry_reader->read_entry(wormhole::TAG_VCORE);
-    uint32_t tdp = telemetry_reader->read_entry(wormhole::TAG_TDP) & 0xFFFF;
-    uint32_t asic_temperature = telemetry_reader->read_entry(wormhole::TAG_ASIC_TEMPERATURE);
+    uint32_t vcore = telemetry_reader->read_entry(TAG_VCORE);
+    uint32_t tdp = telemetry_reader->read_entry(TAG_TDP) & 0xFFFF;
+    uint32_t asic_temperature = telemetry_reader->read_entry(TAG_ASIC_TEMPERATURE);
     uint32_t current_temperature = (asic_temperature & 0xFFFF) / 16.0;
     return fmt::format(
         "Device id {} - AICLK: {} VCore: {} Power: {} Temp: {}",
@@ -46,7 +47,7 @@ int main(int argc, char* argv[]) {
         cxxopts::value<std::vector<std::string>>())(
         "t,tag",
         "Telemetry tag to read. If set to -1, will run default telemetry mode which works only for WH and reads aiclk, "
-        "power, temperature and vcore. See device/api/umd/device/types/wormhole_telemetry.h (or blackhole_telemetry.h) "
+        "power, temperature and vcore. See device/api/umd/device/types/telemetry.h"
         "for all available tags.",
         cxxopts::value<int>()->default_value("-1"))(
         "f,freq", "Frequency of polling in microseconds.", cxxopts::value<int>()->default_value("1000"))(

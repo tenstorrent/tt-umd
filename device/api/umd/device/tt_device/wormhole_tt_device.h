@@ -25,11 +25,7 @@ public:
 
     uint32_t get_min_clock_freq() override;
 
-    uint64_t get_board_id() override;
-
     bool get_noc_translation_enabled() override;
-
-    std::vector<DramTrainingStatus> get_dram_training_status() override;
 
     void dma_d2h(void *dst, uint32_t src, size_t size) override;
 

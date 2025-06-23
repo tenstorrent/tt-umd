@@ -13,7 +13,7 @@
 #include "umd/device/tt_cluster_descriptor.h"
 #include "umd/device/tt_device/remote_wormhole_tt_device.h"
 #include "umd/device/types/cluster_types.h"
-#include "umd/device/types/wormhole_telemetry.h"
+#include "umd/device/types/telemetry.h"
 #include "umd/device/wormhole_implementation.h"
 
 extern bool umd_use_noc1;
@@ -113,7 +113,7 @@ void TopologyDiscovery::get_pcie_connected_chips() {
         // figuring out ETH addresses from runtime and move it to constants.
         if (chip_id == 0) {
             eth_addresses = TopologyDiscovery::get_eth_addresses(
-                chip->get_tt_device()->get_arc_telemetry_reader()->read_entry(wormhole::TAG_ETH_FW_VERSION));
+                chip->get_tt_device()->get_arc_telemetry_reader()->read_entry(TAG_ETH_FW_VERSION));
         }
 
         std::vector<CoreCoord> eth_cores =

@@ -30,7 +30,7 @@ protected:
     void initialize_telemetry();
 
     // Address of the telemetry table struct on ARC core.
-    uint32_t telemetry_table_addr;
+    uint64_t telemetry_table_addr;
 
     // Number of entries in the telemetry table.
     uint32_t entry_count;
@@ -44,7 +44,7 @@ protected:
     };
 
     // Address of the telemetry data on ARC core.
-    uint32_t telemetry_values_addr;
+    uint64_t telemetry_values_addr;
 
     std::map<uint32_t, uint32_t> telemetry_values;
     std::map<uint32_t, uint32_t> telemetry_offset;

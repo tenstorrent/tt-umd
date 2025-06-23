@@ -227,6 +227,8 @@ protected:
 
     virtual void init_tt_device();
 
+    semver_t fw_version_from_telemetry(const uint32_t telemetry_data) const;
+
     TTDevice();
 
     ChipInfo chip_info;

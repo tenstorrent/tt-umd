@@ -388,4 +388,12 @@ bool TTDevice::is_remote() { return is_remote_tt_device; }
 
 BoardType TTDevice::get_board_type() { return get_board_type_from_board_id(get_board_id()); }
 
+semver_t TTDevice::fw_version_from_telemetry(const uint32_t telemetry_data) const {
+    // The telemetry data is a 32-bit value where the higher 16 bits are the major value,
+    // lower 16 bits are the minor value.
+    uint16_t major = (telemetry_data >> 24) & 0xFF;
+    uint16_t minor = (telemetry_data >> 16) & 0xFF;
+    return semver_t(major, minor, 0);
+}
+
 }  // namespace tt::umd

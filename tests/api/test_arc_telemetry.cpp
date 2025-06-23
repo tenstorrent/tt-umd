@@ -7,7 +7,7 @@
 
 using namespace tt::umd;
 
-TEST(BlackholeTelemetry, BasicBlackholeTelemetry) {
+TEST(TestTelemetry, BasicTelemetry) {
     std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
 
     for (int pci_device_id : pci_device_ids) {
@@ -23,7 +23,7 @@ TEST(BlackholeTelemetry, BasicBlackholeTelemetry) {
     }
 }
 
-TEST(BlackholeTelemetry, BlackholeTelemetryEntryAvailable) {
+TEST(TestTelemetry, TelemetryEntryAvailable) {
     std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
 
     for (int pci_device_id : pci_device_ids) {

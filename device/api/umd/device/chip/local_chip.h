@@ -26,8 +26,14 @@ public:
     void start_device() override;
     void close_device() override;
 
+    TTDevice* get_tt_device() override;
     SysmemManager* get_sysmem_manager() override;
     TLBManager* get_tlb_manager() override;
+
+    int get_num_host_channels() override;
+    int get_host_channel_size(std::uint32_t channel) override;
+    void write_to_sysmem(uint16_t channel, const void* src, uint64_t sysmem_dest, uint32_t size) override;
+    void read_from_sysmem(uint16_t channel, void* dest, uint64_t sysmem_src, uint32_t size) override;
 
     void set_remote_transfer_ethernet_cores(const std::unordered_set<CoreCoord>& cores) override;
     void set_remote_transfer_ethernet_cores(const std::set<uint32_t>& channels) override;
@@ -98,6 +104,8 @@ private:
     void insert_host_to_device_barrier(const std::vector<CoreCoord>& cores, const uint32_t barrier_addr);
 
     void wait_for_aiclk_value(tt_DevicePowerState power_state, const uint32_t timeout_ms = 5000);
+
+    std::unique_ptr<TTDevice> tt_device_ = nullptr;
 
 protected:
     void wait_eth_cores_training(const uint32_t timeout_ms = 60000) override;

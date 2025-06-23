@@ -5,8 +5,6 @@
  */
 #include "umd/device/arc_telemetry_reader.h"
 
-#include <iostream>
-
 #include "umd/device/blackhole_arc_telemetry_reader.h"
 #include "umd/device/wormhole_arc_telemetry_reader.h"
 

@@ -421,19 +421,19 @@ TEST(TestCluster, DeassertResetBrisc) {
         GTEST_SKIP() << "No chips present on the system. Skipping test.";
     }
 
-    // The values in brisc_program are machine instruction which represent
+    // The values in brisc_program are machine instructions which represent
     // a RISCV program. This program is downloaded at address 0x0000'0000 on L1 SRAM on a Tensix,
     // from where the BRISC reads it's program.
-    // This program executes the following lines of code:
+    // The program executes the following lines of code:
     // int main() {
-    //      int* a = (int*)0x10000;
+    //      unsigned int* a = (unsigned int*)0x10000;
     //      *a = 0x87654000;
     //      while (true);
-    //  }
-    // Which means that on address 0x10000 is the value 0x87654000
+    // }
+    // Which means that on address 0x10000 the value should be 0x87654000
 
     constexpr std::array<uint32_t, 4> brisc_program{0x0001'07b7, 0x8765'4737, 0x00e7'a023, 0x0000'006f};
-    constexpr uint32_t a_variable_value{0x87654000};
+    constexpr uint32_t a_variable_value{0x8765'4000};
     constexpr uint64_t a_variable_address{0x10000};
 
     uint32_t readback{0x0};
@@ -447,13 +447,15 @@ TEST(TestCluster, DeassertResetBrisc) {
 
     cluster->wait_for_non_mmio_flush(chip_id);
 
-    TensixSoftResetOptions brisc_start{
+    // By setting these reset options, all other cores except the BRISC are/stay in reset
+    TensixSoftResetOptions brisc_deassert_reset{
         TensixSoftResetOptions::NCRISC | TensixSoftResetOptions::TRISC0 | TensixSoftResetOptions::TRISC1 |
         TensixSoftResetOptions::TRISC2};
 
     auto chip = cluster->get_chip(chip_id);
     chip->send_tensix_risc_reset(
-        cluster->get_soc_descriptor(chip_id).translate_coord_to(tensix_core, CoordSystem::VIRTUAL), brisc_start);
+        cluster->get_soc_descriptor(chip_id).translate_coord_to(tensix_core, CoordSystem::VIRTUAL),
+        brisc_deassert_reset);
 
     cluster->wait_for_non_mmio_flush(chip_id);
 

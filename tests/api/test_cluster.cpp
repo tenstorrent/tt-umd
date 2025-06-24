@@ -7,6 +7,7 @@
 #include <gtest/gtest.h>
 
 #include <algorithm>
+#include <cstdlib>  // for std::getenv
 #include <filesystem>
 #include <string>
 #include <vector>
@@ -33,8 +34,24 @@ constexpr std::uint32_t L1_BARRIER_BASE = 12;
 constexpr std::uint32_t ETH_BARRIER_BASE = 256 * 1024 - 32;
 constexpr std::uint32_t DRAM_BARRIER_BASE = 0;
 
+// Define a parameterized test fixture
+class ClusterReadWriteL1Test : public ::testing::TestWithParam<ClusterOptions> {};
+
+std::vector<ClusterOptions> get_cluster_options_for_param_test() {
+    constexpr const char* TT_UMD_SIMULATOR_ENV = "TT_UMD_SIMULATOR";
+    std::vector<ClusterOptions> options;
+    options.push_back(ClusterOptions{.chip_type = ChipType::SILICON});
+    if (std::getenv(TT_UMD_SIMULATOR_ENV)) {
+        options.push_back(ClusterOptions{
+            .chip_type = ChipType::SIMULATION,
+            .target_devices = {0},
+            .simulator_directory = std::filesystem::path(std::getenv(TT_UMD_SIMULATOR_ENV))});
+    }
+    return options;
+}
+
 // This test should be one line only.
-TEST(ApiClusterTest, OpenAllChips) { std::unique_ptr<Cluster> umd_cluster = std::make_unique<Cluster>(); }
+TEST(ApiClusterTest, OpenAllSiliconChips) { std::unique_ptr<Cluster> umd_cluster = std::make_unique<Cluster>(); }
 
 TEST(ApiClusterTest, OpenChipsByPciId) {
     std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
@@ -120,7 +137,7 @@ TEST(ApiClusterTest, DifferentConstructors) {
     umd_cluster = nullptr;
 }
 
-TEST(ApiClusterTest, SimpleIOAllChips) {
+TEST(ApiClusterTest, SimpleIOAllSiliconChips) {
     std::unique_ptr<Cluster> umd_cluster = std::make_unique<Cluster>();
 
     const tt_ClusterDescriptor* cluster_desc = umd_cluster->get_cluster_description();
@@ -204,7 +221,7 @@ TEST(ApiClusterTest, RemoteFlush) {
     }
 }
 
-TEST(ApiClusterTest, SimpleIOSpecificChips) {
+TEST(ApiClusterTest, SimpleIOSpecificSiliconChips) {
     std::unique_ptr<Cluster> umd_cluster = std::make_unique<Cluster>();
 
     if (umd_cluster->get_target_device_ids().empty()) {
@@ -302,7 +319,7 @@ TEST(ClusterAPI, DynamicTLB_RW) {
     cluster->close_device();
 }
 
-TEST(TestCluster, PrintAllChipsAllCores) {
+TEST(TestCluster, PrintAllSiliconChipsAllCores) {
     std::unique_ptr<Cluster> umd_cluster = std::make_unique<Cluster>();
 
     for (chip_id_t chip : umd_cluster->get_target_device_ids()) {
@@ -394,11 +411,17 @@ TEST(TestCluster, TestClusterAICLKControl) {
     }
 }
 
-TEST(TestCluster, ReadWriteL1) {
-    std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
+TEST_P(ClusterReadWriteL1Test, ReadWriteL1) {
+    ClusterOptions options = GetParam();
+    std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>(options);
 
     if (cluster->get_target_device_ids().empty()) {
         GTEST_SKIP() << "No chips present on the system. Skipping test.";
+    }
+    if (options.chip_type == SIMULATION) {
+        tt_device_params device_params;
+        device_params.init_device = true;
+        cluster->start_device(device_params);
     }
 
     auto tensix_l1_size = cluster->get_soc_descriptor(0).worker_l1_size;
@@ -438,3 +461,21 @@ TEST(TestCluster, ReadWriteL1) {
         }
     }
 }
+
+// Instantiate the test suite AFTER all TEST_P definitions
+INSTANTIATE_TEST_SUITE_P(
+    SiliconAndSimulationCluster,
+    ClusterReadWriteL1Test,
+    ::testing::ValuesIn(get_cluster_options_for_param_test()),
+    [](const ::testing::TestParamInfo<ClusterOptions>& info) {
+        switch (info.param.chip_type) {
+            case ChipType::SILICON:
+                return "Silicon";
+            case ChipType::SIMULATION:
+                return "Simulation";
+            default:
+                return "Unknown";
+        }
+    }
+
+);

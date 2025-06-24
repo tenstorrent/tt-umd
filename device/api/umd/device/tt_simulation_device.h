@@ -35,7 +35,6 @@ public:
         tt_SimulationDevice(tt_SimulationDeviceInit(simulator_directory)) {}
 
     tt_SimulationDevice(const tt_SimulationDeviceInit& init);
-    ~tt_SimulationDevice();
 
     tt_SimulationHost host;
 

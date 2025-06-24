@@ -5,6 +5,7 @@
 
 #include <tt-logger/tt-logger.hpp>
 
+#include "umd/device/coordinate_manager.h"
 #include "umd/device/types/wormhole_dram.h"
 #include "umd/device/types/wormhole_telemetry.h"
 #include "umd/device/wormhole_implementation.h"
@@ -59,7 +60,8 @@ ChipInfo WormholeTTDevice::get_chip_info() {
         throw std::runtime_error(fmt::format("Failed to get harvesting masks with exit code {}", ret_code));
     }
 
-    chip_info.harvesting_masks.tensix_harvesting_mask = arc_msg_return_values[0];
+    chip_info.harvesting_masks.tensix_harvesting_mask =
+        CoordinateManager::shuffle_tensix_harvesting_mask(tt::ARCH::WORMHOLE_B0, arc_msg_return_values[0]);
 
     chip_info.chip_uid.board_id = get_board_id();
 

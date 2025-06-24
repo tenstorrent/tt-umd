@@ -261,23 +261,6 @@ void Cluster::add_chip(const chip_id_t& chip_id, const ChipType& chip_type, std:
     chips_.emplace(chip_id, std::move(chip));
 }
 
-uint32_t Cluster::get_tensix_harvesting_mask(
-    chip_id_t chip_id, tt_ClusterDescriptor* cluster_desc, HarvestingMasks& simulated_harvesting_masks) {
-    uint32_t tensix_harvesting_mask_physical_layout = cluster_desc->get_harvesting_info().at(chip_id);
-    uint32_t tensix_harvesting_mask = CoordinateManager::shuffle_tensix_harvesting_mask(
-        cluster_desc->get_arch(chip_id), tensix_harvesting_mask_physical_layout);
-    log_info(
-        LogSiliconDriver,
-        "Harvesting mask for chip {} is 0x{:x} (physical layout: 0x{:x}, logical: 0x{:x}, simulated harvesting mask: "
-        "0x{:x}).",
-        chip_id,
-        tensix_harvesting_mask | simulated_harvesting_masks.tensix_harvesting_mask,
-        tensix_harvesting_mask_physical_layout,
-        tensix_harvesting_mask,
-        simulated_harvesting_masks.tensix_harvesting_mask);
-    return tensix_harvesting_mask | simulated_harvesting_masks.tensix_harvesting_mask;
-}
-
 HarvestingMasks Cluster::get_harvesting_masks(
     chip_id_t chip_id,
     tt_ClusterDescriptor* cluster_desc,
@@ -287,14 +270,18 @@ HarvestingMasks Cluster::get_harvesting_masks(
         log_info(LogSiliconDriver, "Skipping harvesting for chip {}.", chip_id);
         return HarvestingMasks{};
     }
-    return HarvestingMasks{
-        .tensix_harvesting_mask = get_tensix_harvesting_mask(chip_id, cluster_desc, simulated_harvesting_masks),
-        .dram_harvesting_mask =
-            cluster_desc->get_dram_harvesting_mask(chip_id) | simulated_harvesting_masks.dram_harvesting_mask,
-        .eth_harvesting_mask =
-            cluster_desc->get_eth_harvesting_mask(chip_id) | simulated_harvesting_masks.eth_harvesting_mask,
-        .pcie_harvesting_mask =
-            cluster_desc->get_pcie_harvesting_mask(chip_id) | simulated_harvesting_masks.pcie_harvesting_mask};
+
+    HarvestingMasks cluster_harvesting_masks = cluster_desc->get_harvesting_masks(chip_id);
+    log_info(
+        LogSiliconDriver,
+        "Harvesting mask for chip {} is {:#x} (NOC0: {:#x}, simulated harvesting mask: "
+        "{:#x}).",
+        chip_id,
+        cluster_harvesting_masks.tensix_harvesting_mask | simulated_harvesting_masks.tensix_harvesting_mask,
+        cluster_harvesting_masks.tensix_harvesting_mask,
+        simulated_harvesting_masks.tensix_harvesting_mask);
+
+    return cluster_harvesting_masks | simulated_harvesting_masks;
 }
 
 void Cluster::ubb_eth_connections(
@@ -1053,7 +1040,7 @@ void Cluster::verify_sw_fw_versions(int device_id, std::uint32_t sw_version, std
     for (std::uint32_t& fw_version : fw_versions) {
         tt_version fw(fw_version);
         TT_ASSERT(fw == fw_first_eth_core, "FW versions are not the same across different ethernet cores");
-        TT_ASSERT(sw.major == fw.major, "SW/FW major version number out of sync");
+        TT_ASSERT(sw.major <= fw.major, "SW/FW major version number out of sync");
         TT_ASSERT(sw.minor <= fw.minor, "SW version is newer than FW version");
     }
 
@@ -1259,9 +1246,7 @@ std::unique_ptr<tt_ClusterDescriptor> Cluster::create_cluster_descriptor(
 
         desc->noc_translation_enabled.insert({chip_id, chip->get_chip_info().noc_translation_enabled});
         desc->harvesting_masks.insert({chip_id, chip->get_chip_info().harvesting_masks.tensix_harvesting_mask});
-        desc->dram_harvesting_masks.insert({chip_id, chip->get_chip_info().harvesting_masks.dram_harvesting_mask});
-        desc->eth_harvesting_masks.insert({chip_id, chip->get_chip_info().harvesting_masks.eth_harvesting_mask});
-        desc->pcie_harvesting_masks.insert({chip_id, chip->get_chip_info().harvesting_masks.pcie_harvesting_mask});
+        desc->harvesting_masks_map.insert({chip_id, chip->get_chip_info().harvesting_masks});
 
         desc->add_chip_to_board(chip_id, chip->get_chip_info().chip_uid.board_id);
     }

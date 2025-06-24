@@ -427,6 +427,9 @@ ChipInfo TTDevice::get_chip_info() {
     chip_info.noc_translation_enabled = get_noc_translation_enabled();
     chip_info.chip_uid.board_id = get_board_id();
     chip_info.board_type = get_board_type();
+
+    chip_info.chip_uid.asic_location =
+        telemetry->is_entry_available(TAG_ASIC_LOCATION) ? telemetry->read_entry(TAG_ASIC_LOCATION) : 0;
     return chip_info;
 }
 

@@ -127,10 +127,6 @@ ChipInfo BlackholeTTDevice::get_chip_info() {
         chip_info.harvesting_masks.pcie_harvesting_mask |= (1 << 1);
     }
 
-    // TODO: Read asic location of the chip from telemetry when it is available.
-    // Until then we have to read it from ETH core, it happens during topology exploration.
-    // chip_info.chip_uid.asic_location = telemetry->read_entry(TAG_ASIC_LOCATION);
-
     return chip_info;
 }
 

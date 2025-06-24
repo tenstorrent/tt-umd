@@ -212,7 +212,7 @@ public:
      */
     virtual void configure_iatu_region(size_t region, uint64_t target, size_t region_size);
 
-    virtual ChipInfo get_chip_info() = 0;
+    virtual ChipInfo get_chip_info();
 
     semver_t get_firmware_version();
 

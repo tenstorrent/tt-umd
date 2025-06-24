@@ -21,9 +21,14 @@ BlackholeArcTelemetryReader::BlackholeArcTelemetryReader(TTDevice* tt_device) : 
 }
 
 void BlackholeArcTelemetryReader::get_telemetry_address() {
-    tt_device->read_from_device(&telemetry_table_addr, arc_core, tt::umd::blackhole::SCRATCH_RAM_13, sizeof(uint32_t));
-
-    tt_device->read_from_device(&telemetry_values_addr, arc_core, tt::umd::blackhole::SCRATCH_RAM_12, sizeof(uint32_t));
+    uint32_t telemetry_table_addr_u32;
+    tt_device->read_from_device(
+        &telemetry_table_addr_u32, arc_core, tt::umd::blackhole::SCRATCH_RAM_13, sizeof(uint32_t));
+    telemetry_table_addr = telemetry_table_addr_u32;
+    uint32_t telemetry_values_addr_u32;
+    tt_device->read_from_device(
+        &telemetry_values_addr_u32, arc_core, tt::umd::blackhole::SCRATCH_RAM_12, sizeof(uint32_t));
+    telemetry_values_addr = telemetry_values_addr_u32;
 }
 
 }  // namespace tt::umd

@@ -42,4 +42,53 @@ void MockChip::deassert_risc_resets() {}
 void MockChip::set_power_state(tt_DevicePowerState state) {}
 
 int MockChip::get_clock() { return 0; }
+
+SysmemManager* MockChip::get_sysmem_manager() {
+    throw std::runtime_error(
+        "MockChip::get_sysmem_manager is not available for this chip, it is only available for LocalChips.");
+}
+
+TLBManager* MockChip::get_tlb_manager() {
+    throw std::runtime_error(
+        "MockChip::get_tlb_manager is not available for this chip, it is only available for LocalChips.");
+}
+
+int MockChip::get_host_channel_size(std::uint32_t channel) {
+    throw std::runtime_error("There are no host channels available.");
+}
+
+void MockChip::write_to_sysmem(uint16_t channel, const void* src, uint64_t sysmem_dest, uint32_t size) {
+    throw std::runtime_error("MockChip::write_to_sysmem is not available for this chip.");
+}
+
+void MockChip::read_from_sysmem(uint16_t channel, void* dest, uint64_t sysmem_src, uint32_t size) {
+    throw std::runtime_error("MockChip::read_from_sysmem is not available for this chip.");
+}
+
+void MockChip::dma_write_to_device(const void* src, size_t size, tt_xy_pair core, uint64_t addr) {
+    throw std::runtime_error("MockChip::dma_write_to_device is not available for this chip.");
+}
+
+void MockChip::dma_read_from_device(void* dst, size_t size, tt_xy_pair core, uint64_t addr) {
+    throw std::runtime_error("MockChip::dma_read_from_device is not available for this chip.");
+}
+
+std::function<void(uint32_t, uint32_t, const uint8_t*)> MockChip::get_fast_pcie_static_tlb_write_callable() {
+    throw std::runtime_error("MockChip::get_fast_pcie_static_tlb_write_callable is not available for this chip.");
+}
+
+void MockChip::set_remote_transfer_ethernet_cores(const std::unordered_set<CoreCoord>& cores) {
+    throw std::runtime_error("MockChip::set_remote_transfer_ethernet_cores is not available for this chip.");
+}
+
+void MockChip::set_remote_transfer_ethernet_cores(const std::set<uint32_t>& channel) {
+    throw std::runtime_error("MockChip::set_remote_transfer_ethernet_cores is not available for this chip.");
+}
+
+int MockChip::get_numa_node() { throw std::runtime_error("MockChip::get_numa_node is not available for this chip."); }
+
+void MockChip::wait_for_non_mmio_flush() {
+    throw std::runtime_error("MockChip::wait_for_non_mmio_flush is not available for this chip.");
+}
+
 }  // namespace tt::umd

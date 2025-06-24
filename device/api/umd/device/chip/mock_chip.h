@@ -36,5 +36,24 @@ public:
     void deassert_risc_resets() override;
     void set_power_state(tt_DevicePowerState state) override;
     int get_clock() override;
+
+    SysmemManager* get_sysmem_manager() override;
+    TLBManager* get_tlb_manager() override;
+
+    int get_host_channel_size(std::uint32_t channel) override;
+    void write_to_sysmem(uint16_t channel, const void* src, uint64_t sysmem_dest, uint32_t size) override;
+    void read_from_sysmem(uint16_t channel, void* dest, uint64_t sysmem_src, uint32_t size) override;
+
+    void dma_write_to_device(const void* src, size_t size, tt_xy_pair core, uint64_t addr) override;
+    void dma_read_from_device(void* dst, size_t size, tt_xy_pair core, uint64_t addr) override;
+
+    std::function<void(uint32_t, uint32_t, const uint8_t*)> get_fast_pcie_static_tlb_write_callable() override;
+
+    void wait_for_non_mmio_flush() override;
+
+    int get_numa_node() override;
+
+    void set_remote_transfer_ethernet_cores(const std::unordered_set<CoreCoord>& cores) override;
+    void set_remote_transfer_ethernet_cores(const std::set<uint32_t>& channel) override;
 };
 }  // namespace tt::umd

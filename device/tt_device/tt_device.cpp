@@ -422,4 +422,12 @@ std::vector<DramTrainingStatus> TTDevice::get_dram_training_status() {
     return dram_training_status;
 }
 
+ChipInfo TTDevice::get_chip_info() {
+    ChipInfo chip_info;
+    chip_info.noc_translation_enabled = get_noc_translation_enabled();
+    chip_info.chip_uid.board_id = get_board_id();
+    chip_info.board_type = get_board_type();
+    return chip_info;
+}
+
 }  // namespace tt::umd

@@ -168,7 +168,7 @@ public:
      */
     virtual void configure_iatu_region(size_t region, uint64_t target, size_t region_size);
 
-    virtual ChipInfo get_chip_info() = 0;
+    virtual ChipInfo get_chip_info();
 
     virtual void wait_arc_core_start(const tt_xy_pair arc_core, const uint32_t timeout_ms = 1000);
 

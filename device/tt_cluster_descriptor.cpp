@@ -910,6 +910,14 @@ void tt_ClusterDescriptor::load_chips_from_connectivity_descriptor(YAML::Node &y
             }
         }
     }
+
+    if (yaml["chip_unique_ids"]) {
+        for (const auto &chip_unique_id : yaml["chip_unique_ids"].as<std::map<int, uint64_t>>()) {
+            auto &chip = chip_unique_id.first;
+            auto &unique_id = chip_unique_id.second;
+            desc.chip_to_unique_id.insert({chip, unique_id});
+        }
+    }
 }
 
 void tt_ClusterDescriptor::load_harvesting_information(YAML::Node &yaml, tt_ClusterDescriptor &desc) {
@@ -1081,6 +1089,12 @@ std::string tt_ClusterDescriptor::serialize() const {
     for (const auto &[chip_id, chip_location] : chip_locations) {
         out << YAML::Key << chip_id << YAML::Value << YAML::BeginSeq << chip_location.x << chip_location.y
             << chip_location.rack << chip_location.shelf << YAML::EndSeq;
+    }
+    out << YAML::EndMap;
+
+    out << YAML::Key << "chip_unique_ids" << YAML::Value << YAML::BeginMap;
+    for (const auto &[chip_id, unique_id] : chip_to_unique_id) {
+        out << YAML::Key << chip_id << YAML::Value << unique_id;
     }
     out << YAML::EndMap;
 

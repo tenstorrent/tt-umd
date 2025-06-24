@@ -43,8 +43,7 @@ bool WormholeTTDevice::get_noc_translation_enabled() {
 }
 
 ChipInfo WormholeTTDevice::get_chip_info() {
-    ChipInfo chip_info;
-    chip_info.noc_translation_enabled = get_noc_translation_enabled();
+    ChipInfo chip_info = TTDevice::get_chip_info();
 
     std::vector<uint32_t> arc_msg_return_values = {0};
     const uint32_t timeout_ms = 1000;
@@ -62,10 +61,6 @@ ChipInfo WormholeTTDevice::get_chip_info() {
 
     chip_info.harvesting_masks.tensix_harvesting_mask =
         CoordinateManager::shuffle_tensix_harvesting_mask(tt::ARCH::WORMHOLE_B0, arc_msg_return_values[0]);
-
-    chip_info.chip_uid.board_id = get_board_id();
-
-    chip_info.board_type = get_board_type();
 
     return chip_info;
 }

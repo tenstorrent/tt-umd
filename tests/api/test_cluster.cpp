@@ -413,6 +413,67 @@ TEST(TestCluster, TestClusterAICLKControl) {
     }
 }
 
+TEST(TestCluster, DeassertResetTensixRiscs) {
+    std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
+
+    if (cluster->get_target_device_ids().empty()) {
+        GTEST_SKIP() << "No chips present on the system. Skipping test.";
+    }
+
+    constexpr std::array<uint32_t, 22> brisc_program{
+        0xffef'07b7, 0x0070'0293, 0x2857'a223, 0x0007'8513, 0x0010'0f93, 0x1000'0f13, 0x2000'0e93, 0x3000'0e13,
+        0x4000'0313, 0x29f5'2623, 0x27e5'2c23, 0x27d5'2e23, 0x29c5'2023, 0x2865'2423, 0x0001'0837, 0x8765'48b7,
+        0x06f0'0793, 0x0118'2023, 0x10f0'2023, 0x20f0'2023, 0x30f0'2023, 0x0000'006f,
+    };
+
+    constexpr uint32_t a_variable_value{0x8765'4000};
+    constexpr uint64_t a_variable_address{0x0001'0000};
+
+    uint32_t readback{0x0};
+    auto tensix_l1_size = cluster->get_soc_descriptor(0).worker_l1_size;
+    std::vector<uint8_t> zero_data(tensix_l1_size, 0);
+
+    auto chip_id = *cluster->get_target_device_ids().begin();
+    const tt_SocDescriptor& soc_desc = cluster->get_soc_descriptor(chip_id);
+
+    std::vector<CoreCoord> tensix_cores = cluster->get_soc_descriptor(chip_id).get_cores(CoreType::TENSIX);
+
+    int i{0};
+    for (const CoreCoord& tensix_core : tensix_cores) {
+        cluster->write_to_device(zero_data.data(), zero_data.size(), chip_id, tensix_core, 0);
+
+        cluster->wait_for_non_mmio_flush(chip_id);
+
+        TensixSoftResetOptions assert_reset_for_all_cores{
+            TensixSoftResetOptions::BRISC | TensixSoftResetOptions::TRISC0 | TensixSoftResetOptions::TRISC1 |
+            TensixSoftResetOptions::TRISC2 | TensixSoftResetOptions::NCRISC};
+        auto chip = cluster->get_chip(chip_id);
+        chip->send_tensix_risc_reset(
+            cluster->get_soc_descriptor(chip_id).translate_coord_to(tensix_core, CoordSystem::VIRTUAL),
+            assert_reset_for_all_cores);
+
+        cluster->wait_for_non_mmio_flush(chip_id);
+
+        cluster->write_to_device(
+            brisc_program.data(), brisc_program.size() * sizeof(uint32_t), chip_id, tensix_core, 0x0000'0000);
+
+        cluster->wait_for_non_mmio_flush(chip_id);
+
+        TensixSoftResetOptions deassert_reset_for_all_cores{TensixSoftResetOptions::NONE};
+
+        chip->send_tensix_risc_reset(
+            cluster->get_soc_descriptor(chip_id).translate_coord_to(tensix_core, CoordSystem::VIRTUAL),
+            deassert_reset_for_all_cores);
+
+        cluster->wait_for_non_mmio_flush(chip_id);
+
+        cluster->read_from_device(&readback, chip_id, tensix_core, a_variable_address, sizeof(readback));
+
+        EXPECT_EQ(a_variable_value, readback)
+            << "i, x, y: " << ++i << ", " << tensix_core.x << ", " << tensix_core.y << "\n";
+    }
+}
+
 TEST(TestCluster, DeassertResetBrisc) {
     ClusterOptions options{};
     std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>(options);

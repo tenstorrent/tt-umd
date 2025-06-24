@@ -150,12 +150,8 @@ int main(int argc, char* argv[]) {
                            << connected_chip_unique_id << " " << logical_eth_coord.str();
                 }
 
-                if (read_vec[0] > 0) {
-                    unexpected_system_states.push_back(chip_id_ss.str() + eth_ss.str());
-                }
             } else {
                 eth_ss << " link DOWN/unconnected " << connection_type;
-                unexpected_system_states.push_back(chip_id_ss.str() + eth_ss.str());
             }
 
             ss << eth_ss.str() << std::endl;
@@ -164,11 +160,6 @@ int main(int argc, char* argv[]) {
     }
 
     log_info(tt::LogTest, "{}", ss.str());
-
-    // Print a summary of unexpected system states
-    for (const auto& err_str : unexpected_system_states) {
-        log_warning(tt::LogTest, "{}", err_str);
-    }
 
     std::string output_path = cluster_descriptor->serialize_to_file(cluster_descriptor_path);
     log_info(tt::LogSiliconDriver, "Cluster descriptor serialized to {}", output_path);

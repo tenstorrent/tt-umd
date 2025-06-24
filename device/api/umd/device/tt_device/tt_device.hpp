@@ -252,6 +252,8 @@ public:
 
     uint64_t get_board_id();
 
+    uint8_t get_asic_location();
+
     BoardType get_board_type();
 
     virtual bool get_noc_translation_enabled() = 0;

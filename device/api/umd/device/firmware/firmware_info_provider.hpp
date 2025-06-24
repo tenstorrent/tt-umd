@@ -46,6 +46,8 @@ public:
 
     virtual uint32_t get_max_clock_freq();
 
+    virtual uint8_t get_asic_location();
+
 protected:
     TTDevice* tt_device = nullptr;
 

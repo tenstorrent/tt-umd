@@ -30,6 +30,8 @@ public:
     DramTrainingStatus get_dram_training_status(uint32_t dram_channel) override;
 
     uint32_t get_max_clock_freq() override;
+
+    uint8_t get_asic_location() override;
 };
 
 }  // namespace tt::umd

@@ -157,6 +157,7 @@ struct ChipInfo {
     BoardType board_type;
     ChipUID chip_uid;
     bool noc_translation_enabled;
+    uint64_t asic_id;
 };
 
 enum class DramTrainingStatus : uint8_t {

@@ -48,6 +48,8 @@ constexpr uint8_t TAG_ENABLED_ETH = 35;
 constexpr uint8_t TAG_ENABLED_GDDR = 36;
 constexpr uint8_t TAG_ENABLED_L2CPU = 37;
 constexpr uint8_t TAG_PCIE_USAGE = 38;
+constexpr uint8_t TAG_ASIC_ID_HIGH = 61;
+constexpr uint8_t TAG_ASIC_ID_LOW = 62;
 constexpr uint8_t TAG_AICLK_LIMIT_MAX = 63;
 
 }  // namespace tt::umd

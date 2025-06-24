@@ -427,6 +427,12 @@ ChipInfo TTDevice::get_chip_info() {
     chip_info.noc_translation_enabled = get_noc_translation_enabled();
     chip_info.chip_uid.board_id = get_board_id();
     chip_info.board_type = get_board_type();
+
+    uint32_t asic_id_lo = telemetry->is_entry_available(TAG_ASIC_ID_LOW) ? telemetry->read_entry(TAG_ASIC_ID_LOW) : 0;
+    uint32_t asic_id_hi = telemetry->is_entry_available(TAG_ASIC_ID_HIGH) ? telemetry->read_entry(TAG_ASIC_ID_HIGH) : 0;
+
+    chip_info.asic_id = ((uint64_t)(asic_id_hi) << 32) | asic_id_lo;
+
     return chip_info;
 }
 

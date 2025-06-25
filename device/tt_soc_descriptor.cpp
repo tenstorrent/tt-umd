@@ -18,7 +18,6 @@
 #include "umd/device/tt_soc_descriptor.h"
 #include "umd/device/wormhole_implementation.h"
 #include "utils.hpp"
-#include "yaml-cpp/yaml.h"
 
 // #include "l1_address_map.h"
 
@@ -69,6 +68,19 @@ tt_xy_pair tt_SocDescriptor::calculate_grid_size(const std::vector<tt_xy_pair> &
         y.insert(core.y);
     }
     return {x.size(), y.size()};
+}
+
+void tt_SocDescriptor::write_coords(YAML::Emitter &out, const tt::umd::CoreCoord &core) const {
+    if (core.x < grid_size.x && core.y < grid_size.y) {
+        auto coords = translate_coord_to(core, CoordSystem::NOC0);
+        out << std::to_string(coords.x) + "-" + std::to_string(coords.y);
+    }
+}
+
+void tt_SocDescriptor::write_core_locations(YAML::Emitter &out, const CoreType &core_type) const {
+    for (const auto &core : get_cores(core_type)) {
+        write_coords(out, core);
+    }
 }
 
 void tt_SocDescriptor::create_coordinate_manager(const BoardType board_type, const uint8_t asic_location) {
@@ -400,6 +412,117 @@ CoreCoord tt_SocDescriptor::get_dram_core_for_channel(
 CoreCoord tt_SocDescriptor::get_eth_core_for_channel(int eth_chan, const CoordSystem coord_system) const {
     const CoreCoord logical_eth_coord = CoreCoord(0, eth_chan, CoreType::ETH, CoordSystem::LOGICAL);
     return translate_coord_to(logical_eth_coord, coord_system);
+}
+
+std::string tt_SocDescriptor::serialize() const {
+    YAML::Emitter out;
+
+    out << YAML::BeginMap;
+
+    out << YAML::Key << "grid" << YAML::Value << YAML::BeginMap;
+    out << YAML::Key << "x_size" << YAML::Value << grid_size.x;
+    out << YAML::Key << "y_size" << YAML::Value << grid_size.y;
+    out << YAML::EndMap;
+
+    out << YAML::Key << "arc" << YAML::Value << YAML::BeginSeq;
+    write_core_locations(out, CoreType::ARC);
+    out << YAML::EndSeq;
+
+    out << YAML::Key << "pcie" << YAML::Value << YAML::BeginSeq;
+    write_core_locations(out, CoreType::PCIE);
+    out << YAML::EndSeq;
+
+    out << YAML::Key << "dram" << YAML::Value << YAML::BeginSeq;
+    for (const auto &dram_cores : get_dram_cores()) {
+        // Insert the dram core if it's within the given grid
+        bool has_data = false;
+
+        for (const auto &dram_core : dram_cores) {
+            if ((dram_core.x < grid_size.x) and (dram_core.y < grid_size.y)) {
+                has_data = true;
+            }
+        }
+        if (has_data) {
+            for (const auto &dram_core : dram_cores) {
+                write_coords(out, dram_core);
+            }
+        }
+    }
+    out << YAML::EndSeq;
+
+    out << YAML::Key << "eth" << YAML::Value << YAML::BeginSeq;
+    write_core_locations(out, CoreType::ETH);
+    out << YAML::EndSeq;
+
+    out << YAML::Key << "harvested_workers" << YAML::Value << YAML::BeginSeq;
+    for (const auto &worker : get_harvested_cores(CoreType::TENSIX)) {
+        write_coords(out, worker);
+    }
+    out << YAML::EndSeq;
+
+    out << YAML::Key << "functional_workers" << YAML::Value << YAML::BeginSeq;
+    write_core_locations(out, CoreType::TENSIX);
+    out << YAML::EndSeq;
+
+    out << YAML::Key << "router_only" << YAML::Value << YAML::BeginSeq;
+    write_core_locations(out, CoreType::ROUTER_ONLY);
+    out << YAML::EndSeq;
+
+    out << YAML::Key << "security" << YAML::Value << YAML::BeginSeq;
+    write_core_locations(out, CoreType::SECURITY);
+    out << YAML::EndSeq;
+
+    out << YAML::Key << "l2cpu" << YAML::Value << YAML::BeginSeq;
+    write_core_locations(out, CoreType::L2CPU);
+    out << YAML::EndSeq;
+
+    // Fill in the rest that are static to our device
+    out << YAML::Key << "worker_l1_size" << YAML::Value << worker_l1_size;
+    out << YAML::Key << "dram_bank_size" << YAML::Value << dram_bank_size;
+    out << YAML::Key << "eth_l1_size" << YAML::Value << eth_l1_size;
+    out << YAML::Key << "arch_name" << YAML::Value << tt::arch_to_str(arch);
+
+    out << YAML::Key << "features" << YAML::Value << YAML::BeginMap;
+    out << YAML::Key << "noc" << YAML::Value << YAML::BeginMap;
+    out << YAML::Key << "translation_id_enabled" << YAML::Value << true;
+    out << YAML::EndMap;
+    out << YAML::Key << "unpacker" << YAML::Value << YAML::BeginMap;
+    out << YAML::Key << "version" << YAML::Value << unpacker_version;
+    out << YAML::Key << "inline_srca_trans_without_srca_trans_instr" << YAML::Value << true;
+    out << YAML::EndMap;
+    out << YAML::Key << "math" << YAML::Value << YAML::BeginMap;
+    out << YAML::Key << "dst_size_alignment" << YAML::Value << dst_size_alignment;
+    out << YAML::EndMap;
+    out << YAML::Key << "packer" << YAML::Value << YAML::BeginMap;
+    out << YAML::Key << "version" << YAML::Value << packer_version;
+    out << YAML::EndMap;
+    out << YAML::Key << "overlay" << YAML::Value << YAML::BeginMap;
+    out << YAML::Key << "version" << YAML::Value << overlay_version;
+    out << YAML::EndMap;
+
+    out << YAML::EndMap;
+
+    return out.c_str();
+}
+
+std::filesystem::path tt_SocDescriptor::serialize_to_file(const std::filesystem::path &dest_file) const {
+    std::filesystem::path file_path = dest_file;
+    if (file_path.empty()) {
+        file_path = get_default_soc_descriptor_file_path();
+    }
+    std::ofstream file(file_path);
+    file << serialize();
+    file.close();
+    return file_path;
+}
+
+std::filesystem::path tt_SocDescriptor::get_default_soc_descriptor_file_path() {
+    std::filesystem::path temp_path = std::filesystem::temp_directory_path();
+    std::string soc_path_dir_template = temp_path / "umd_XXXXXX";
+    std::filesystem::path soc_path_dir = mkdtemp(soc_path_dir_template.data());
+    std::filesystem::path soc_path = soc_path_dir / "soc_descriptor.yaml";
+
+    return soc_path;
 }
 
 std::string tt_SocDescriptor::get_soc_descriptor_path(tt::ARCH arch) {

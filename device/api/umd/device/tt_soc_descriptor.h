@@ -8,6 +8,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <filesystem>
 #include <iostream>
 #include <map>
 #include <string>
@@ -21,6 +22,7 @@
 #include "umd/device/tt_xy_pair.h"
 #include "umd/device/types/arch.h"
 #include "umd/device/types/cluster_descriptor_types.h"
+#include "yaml-cpp/yaml.h"
 
 namespace YAML {
 class Node;
@@ -89,6 +91,12 @@ public:
         const tt_xy_pair core_location,
         const CoordSystem input_coord_system,
         const CoordSystem target_coord_system) const;
+
+    // Serialize the soc descriptor to a YAML string, or directly to a file.
+    // A default file in /tmp directory will be used if no path is passed.
+    std::string serialize() const;
+    std::filesystem::path serialize_to_file(const std::filesystem::path &dest_file = "") const;
+    static std::filesystem::path get_default_soc_descriptor_file_path();
 
     static std::string get_soc_descriptor_path(tt::ARCH arch);
 
@@ -160,6 +168,9 @@ private:
     static tt_xy_pair calculate_grid_size(const std::vector<tt_xy_pair> &cores);
     std::vector<tt::umd::CoreCoord> translate_coordinates(
         const std::vector<tt::umd::CoreCoord> &physical_cores, const CoordSystem coord_system) const;
+
+    void write_coords(YAML::Emitter &out, const tt::umd::CoreCoord &core) const;
+    void write_core_locations(YAML::Emitter &out, const CoreType &core_type) const;
 
     // Internal structures, read from yaml.
     tt_xy_pair worker_grid_size;

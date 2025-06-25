@@ -13,12 +13,12 @@
 #include <tt-logger/tt-logger.hpp>
 #include <unordered_set>
 
-#include "yaml-cpp/yaml.h"
 #include "fmt/core.h"
 #include "umd/device/blackhole_implementation.h"
 #include "umd/device/tt_soc_descriptor.h"
 #include "umd/device/wormhole_implementation.h"
 #include "utils.hpp"
+#include "yaml-cpp/yaml.h"
 
 // #include "l1_address_map.h"
 
@@ -72,7 +72,7 @@ tt_xy_pair tt_SocDescriptor::calculate_grid_size(const std::vector<tt_xy_pair> &
 }
 
 void tt_SocDescriptor::write_coords(void *out, const tt::umd::CoreCoord &core) const {
-    YAML::Emitter* emitter = static_cast<YAML::Emitter*>(out);
+    YAML::Emitter *emitter = static_cast<YAML::Emitter *>(out);
 
     if (core.x < grid_size.x && core.y < grid_size.y) {
         auto coords = translate_coord_to(core, CoordSystem::NOC0);

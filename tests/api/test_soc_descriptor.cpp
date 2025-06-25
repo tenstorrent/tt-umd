@@ -6,6 +6,7 @@
 #include "gtest/gtest.h"
 #include "tests/test_utils/generate_cluster_desc.hpp"
 #include "umd/device/blackhole_implementation.h"
+#include "umd/device/cluster.h"
 #include "umd/device/tt_soc_descriptor.h"
 #include "umd/device/wormhole_implementation.h"
 
@@ -635,4 +636,17 @@ TEST(SocDescriptor, SocDescriptorBlackholeL2CPU) {
     tt_SocDescriptor soc_desc_arch(tt::ARCH::BLACKHOLE, true, harvesting_masks);
 
     EXPECT_EQ(soc_desc_arch.get_cores(CoreType::L2CPU).size(), 4);
+}
+
+TEST(SocDescriptor, SocDescriptorSerialize) {
+    HarvestingMasks harvesting_masks;
+
+    std::unique_ptr<Cluster> umd_cluster = std::make_unique<Cluster>();
+    const tt_SocDescriptor& soc_descriptor = umd_cluster->get_soc_descriptor(0);
+
+    std::filesystem::path file_path = soc_descriptor.get_default_soc_descriptor_file_path();
+    soc_descriptor.serialize_to_file(file_path);
+    tt_SocDescriptor soc(file_path.string(), true, harvesting_masks);
+
+    // ASSERT_EQ(soc_descriptor.eth_l1_size, soc_descriptor_yaml.eth_l1_size);
 }

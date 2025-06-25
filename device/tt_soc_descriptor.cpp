@@ -446,14 +446,25 @@ std::string tt_SocDescriptor::serialize() const {
             }
         }
         if (has_data) {
+            int dram_count = 0;
             for (const auto &dram_core : dram_cores) {
-                write_coords(&out, dram_core);
+                if (dram_count % 3 == 0) {
+                    out << YAML::BeginSeq;
+                }
+                if (dram_core.x < grid_size.x && dram_core.y < grid_size.y) {
+                    auto coords = translate_coord_to(dram_core, CoordSystem::NOC0);
+                    out << std::to_string(coords.x) + "-" + std::to_string(coords.y);
+                }
+                if (dram_count % 3 == 2) {
+                    out << YAML::EndSeq;
+                }
+                dram_count++;
             }
         }
     }
     out << YAML::EndSeq;
 
-    out << YAML::Key << "eth" << YAML::Value << YAML::BeginSeq;
+    out << YAML::Key << "eth" << YAML::Value << YAML::Flow << YAML::BeginSeq;
     write_core_locations(&out, CoreType::ETH);
     out << YAML::EndSeq;
 

@@ -22,7 +22,6 @@
 #include "umd/device/tt_xy_pair.h"
 #include "umd/device/types/arch.h"
 #include "umd/device/types/cluster_descriptor_types.h"
-#include "yaml-cpp/yaml.h"
 
 namespace YAML {
 class Node;
@@ -169,8 +168,8 @@ private:
     std::vector<tt::umd::CoreCoord> translate_coordinates(
         const std::vector<tt::umd::CoreCoord> &physical_cores, const CoordSystem coord_system) const;
 
-    void write_coords(YAML::Emitter &out, const tt::umd::CoreCoord &core) const;
-    void write_core_locations(YAML::Emitter &out, const CoreType &core_type) const;
+    void write_coords(void *out, const tt::umd::CoreCoord &core) const;
+    void write_core_locations(void *out, const CoreType &core_type) const;
 
     // Internal structures, read from yaml.
     tt_xy_pair worker_grid_size;

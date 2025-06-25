@@ -13,6 +13,7 @@
 #include <tt-logger/tt-logger.hpp>
 #include <unordered_set>
 
+#include "yaml-cpp/yaml.h"
 #include "fmt/core.h"
 #include "umd/device/blackhole_implementation.h"
 #include "umd/device/tt_soc_descriptor.h"
@@ -70,14 +71,16 @@ tt_xy_pair tt_SocDescriptor::calculate_grid_size(const std::vector<tt_xy_pair> &
     return {x.size(), y.size()};
 }
 
-void tt_SocDescriptor::write_coords(YAML::Emitter &out, const tt::umd::CoreCoord &core) const {
+void tt_SocDescriptor::write_coords(void *out, const tt::umd::CoreCoord &core) const {
+    YAML::Emitter* emitter = static_cast<YAML::Emitter*>(out);
+
     if (core.x < grid_size.x && core.y < grid_size.y) {
         auto coords = translate_coord_to(core, CoordSystem::NOC0);
-        out << std::to_string(coords.x) + "-" + std::to_string(coords.y);
+        *emitter << std::to_string(coords.x) + "-" + std::to_string(coords.y);
     }
 }
 
-void tt_SocDescriptor::write_core_locations(YAML::Emitter &out, const CoreType &core_type) const {
+void tt_SocDescriptor::write_core_locations(void *out, const CoreType &core_type) const {
     for (const auto &core : get_cores(core_type)) {
         write_coords(out, core);
     }
@@ -425,11 +428,11 @@ std::string tt_SocDescriptor::serialize() const {
     out << YAML::EndMap;
 
     out << YAML::Key << "arc" << YAML::Value << YAML::BeginSeq;
-    write_core_locations(out, CoreType::ARC);
+    write_core_locations(&out, CoreType::ARC);
     out << YAML::EndSeq;
 
     out << YAML::Key << "pcie" << YAML::Value << YAML::BeginSeq;
-    write_core_locations(out, CoreType::PCIE);
+    write_core_locations(&out, CoreType::PCIE);
     out << YAML::EndSeq;
 
     out << YAML::Key << "dram" << YAML::Value << YAML::BeginSeq;
@@ -444,36 +447,36 @@ std::string tt_SocDescriptor::serialize() const {
         }
         if (has_data) {
             for (const auto &dram_core : dram_cores) {
-                write_coords(out, dram_core);
+                write_coords(&out, dram_core);
             }
         }
     }
     out << YAML::EndSeq;
 
     out << YAML::Key << "eth" << YAML::Value << YAML::BeginSeq;
-    write_core_locations(out, CoreType::ETH);
+    write_core_locations(&out, CoreType::ETH);
     out << YAML::EndSeq;
 
     out << YAML::Key << "harvested_workers" << YAML::Value << YAML::BeginSeq;
     for (const auto &worker : get_harvested_cores(CoreType::TENSIX)) {
-        write_coords(out, worker);
+        write_coords(&out, worker);
     }
     out << YAML::EndSeq;
 
     out << YAML::Key << "functional_workers" << YAML::Value << YAML::BeginSeq;
-    write_core_locations(out, CoreType::TENSIX);
+    write_core_locations(&out, CoreType::TENSIX);
     out << YAML::EndSeq;
 
     out << YAML::Key << "router_only" << YAML::Value << YAML::BeginSeq;
-    write_core_locations(out, CoreType::ROUTER_ONLY);
+    write_core_locations(&out, CoreType::ROUTER_ONLY);
     out << YAML::EndSeq;
 
     out << YAML::Key << "security" << YAML::Value << YAML::BeginSeq;
-    write_core_locations(out, CoreType::SECURITY);
+    write_core_locations(&out, CoreType::SECURITY);
     out << YAML::EndSeq;
 
     out << YAML::Key << "l2cpu" << YAML::Value << YAML::BeginSeq;
-    write_core_locations(out, CoreType::L2CPU);
+    write_core_locations(&out, CoreType::L2CPU);
     out << YAML::EndSeq;
 
     // Fill in the rest that are static to our device

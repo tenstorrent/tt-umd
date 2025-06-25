@@ -485,13 +485,12 @@ TEST(TestCluster, DeassertResetTensixRiscs) {
 
     cluster->wait_for_non_mmio_flush(chip_id);
 
-    TensixSoftResetOptions
-        deassert_reset_for_all_cores  //{TensixSoftResetOptions::NONE};
-                                      // {
-                                      //     TensixSoftResetOptions::NCRISC | TensixSoftResetOptions::TRISC0 |
-                                      //     TensixSoftResetOptions::TRISC1 | TensixSoftResetOptions::TRISC2};
-        {TensixSoftResetOptions::BRISC | TensixSoftResetOptions::TRISC0 | TensixSoftResetOptions::TRISC1 |
-         TensixSoftResetOptions::TRISC2};
+    TensixSoftResetOptions deassert_reset_for_all_cores{TensixSoftResetOptions::NONE};
+    // {
+    //     TensixSoftResetOptions::NCRISC | TensixSoftResetOptions::TRISC0 |
+    //     TensixSoftResetOptions::TRISC1 | TensixSoftResetOptions::TRISC2};
+    // {TensixSoftResetOptions::BRISC | TensixSoftResetOptions::TRISC0 | TensixSoftResetOptions::TRISC1 |
+    //  TensixSoftResetOptions::TRISC2};
     // {
     //     TensixSoftResetOptions::NCRISC};
 

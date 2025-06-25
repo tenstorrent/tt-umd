@@ -194,7 +194,7 @@ bool SysmemManager::init_hugepage(uint32_t num_host_mem_channels) {
         // Note that the truncated page is the final one, so there is no need to
         // give expected_noc_address special treatment for a subsequent page.
         if (noc_address != expected_noc_address) {
-            log_fatal(
+            log_warning(
                 LogSiliconDriver,
                 "NOC address of a hugepage does not match the expected address. Proceeding could lead to undefined "
                 "behavior");

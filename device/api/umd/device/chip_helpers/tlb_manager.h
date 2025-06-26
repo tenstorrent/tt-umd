@@ -44,6 +44,8 @@ public:
 
     TlbWindow* get_tlb_window(const tt_xy_pair core);
 
+    // TODO: move these functions to the layer below, or make separate functions
+    // to handle getting TLBs per architecture.
     static const std::vector<size_t> get_tlb_arch_sizes(const tt::ARCH arch);
 
     std::unique_ptr<TlbWindow> allocate_tlb_window(

@@ -53,6 +53,10 @@ struct SocDescriptorInfo {
     std::vector<tt_xy_pair> router_cores;
     std::vector<tt_xy_pair> security_cores;
     std::vector<tt_xy_pair> l2cpu_cores;
+    std::vector<tt_xy_pair> harvested_tensix_cores;
+    std::vector<std::vector<tt_xy_pair>> harvested_dram_cores;
+    std::vector<tt_xy_pair> harvested_eth_cores;
+
     uint32_t worker_l1_size;
     uint32_t eth_l1_size;
     uint64_t dram_bank_size;
@@ -159,7 +163,8 @@ private:
     void load_soc_features_from_soc_desc_info(const SocDescriptorInfo &soc_desc_info);
 
     static std::vector<tt_xy_pair> convert_to_tt_xy_pair(const std::vector<std::string> &core_strings);
-    static std::vector<std::vector<tt_xy_pair>> convert_dram_cores_from_yaml(YAML::Node &device_descriptor_yaml);
+    static std::vector<std::vector<tt_xy_pair>> convert_dram_cores_from_yaml(
+        YAML::Node &device_descriptor_yaml, const std::string &dram_core = "dram");
 
     static SocDescriptorInfo get_soc_descriptor_info(tt::ARCH arch);
 
@@ -169,6 +174,7 @@ private:
 
     static std::filesystem::path get_default_soc_descriptor_file_path();
 
+    // Since including yaml-cpp/yaml.h here breaks metal build we use void* type instead of YAML::Emitter
     void write_coords(void *out, const tt::umd::CoreCoord &core) const;
     void write_core_locations(void *out, const CoreType &core_type) const;
 
@@ -179,10 +185,15 @@ private:
     std::vector<tt_xy_pair> workers;
     std::vector<tt_xy_pair> harvested_workers;
     std::vector<tt_xy_pair> pcie_cores;
-    std::vector<std::vector<tt_xy_pair>> dram_cores;                             // per channel list of dram cores
+    std::vector<std::vector<tt_xy_pair>> dram_cores;  // per channel list of dram cores
+    std::vector<std::vector<tt_xy_pair>> harvested_dram_cores;
+
     std::unordered_map<tt_xy_pair, std::tuple<int, int>> dram_core_channel_map;  // map dram core to chan/subchan
-    std::vector<tt_xy_pair> ethernet_cores;                                      // ethernet cores (index == channel id)
+    std::unordered_map<tt_xy_pair, std::tuple<int, int>> harvested_dram_core_channel_map;
+    std::vector<tt_xy_pair> ethernet_cores;  // ethernet cores (index == channel id)
+    std::vector<tt_xy_pair> harvested_ethernet_cores;
     std::unordered_map<tt_xy_pair, int> ethernet_core_channel_map;
+    std::unordered_map<tt_xy_pair, int> harvested_ethernet_core_channel_map;
     std::vector<tt_xy_pair> router_cores;
     std::vector<tt_xy_pair> security_cores;
     std::vector<tt_xy_pair> l2cpu_cores;

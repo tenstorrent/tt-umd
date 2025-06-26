@@ -188,7 +188,7 @@ public:
 
     virtual uint32_t get_min_clock_freq() = 0;
 
-    virtual uint64_t get_board_id() = 0;
+    uint64_t get_board_id();
 
     BoardType get_board_type();
 

@@ -89,13 +89,14 @@ tlb_configuration TLBManager::get_tlb_configuration(tt_xy_pair core) {
     return tt_device_->get_architecture_implementation()->get_tlb_configuration(tlb_index);
 }
 
-const std::vector<uint32_t> TLBManager::get_tlb_arch_sizes(const tt::ARCH arch) {
+const std::vector<size_t> TLBManager::get_tlb_arch_sizes(const tt::ARCH arch) {
     constexpr uint32_t one_mb = 1 << 20;
+    constexpr size_t one_gb = 1024ULL * one_mb;
     switch (arch) {
         case tt::ARCH::WORMHOLE_B0:
             return {1 * one_mb, 2 * one_mb, 16 * one_mb};
         case tt::ARCH::BLACKHOLE:
-            return {2 * one_mb};
+            return {2 * one_mb, 4ULL * one_gb};
         default:
             throw std::runtime_error(fmt::format("Unsupported architecture: {}", static_cast<int>(arch)));
     }
@@ -107,7 +108,7 @@ std::unique_ptr<TlbWindow> TLBManager::allocate_tlb_window(
         return std::make_unique<TlbWindow>(tt_device_->get_pci_device()->allocate_tlb(tlb_size, mapping), config);
     }
 
-    const std::vector<uint32_t> possible_arch_sizes = TLBManager::get_tlb_arch_sizes(tt_device_->get_arch());
+    const std::vector<size_t> possible_arch_sizes = TLBManager::get_tlb_arch_sizes(tt_device_->get_arch());
 
     for (const auto& size : possible_arch_sizes) {
         std::unique_ptr<TlbWindow> tlb_window = nullptr;

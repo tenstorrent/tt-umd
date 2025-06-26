@@ -44,7 +44,7 @@ public:
 
     TlbWindow* get_tlb_window(const tt_xy_pair core);
 
-    static const std::vector<uint32_t> get_tlb_arch_sizes(const tt::ARCH arch);
+    static const std::vector<size_t> get_tlb_arch_sizes(const tt::ARCH arch);
 
     std::unique_ptr<TlbWindow> allocate_tlb_window(
         tlb_data config, const tt::umd::TlbMapping mapping = tt::umd::TlbMapping::WC, const size_t tlb_size = 0);

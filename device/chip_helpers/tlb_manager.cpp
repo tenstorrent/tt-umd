@@ -35,7 +35,7 @@ void TLBManager::configure_tlb(
         address,
         ordering);
 
-    tlb_data config;
+    tlb_data config{};
     config.local_offset = address;
     config.x_end = translated_core.x;
     config.y_end = translated_core.y;

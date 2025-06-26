@@ -34,7 +34,7 @@ void SysmemBuffer::dma_write_to_device(const size_t offset, size_t size, const t
     // proper coordinates.
     // core = translate_chip_coord_virtual_to_translated(core);
 
-    tlb_data config;
+    tlb_data config{};
     config.local_offset = addr;
     config.x_end = core.x;
     config.y_end = core.y;
@@ -78,7 +78,7 @@ void SysmemBuffer::dma_read_from_device(const size_t offset, size_t size, const 
     // proper coordinates.
     // core = translate_chip_coord_virtual_to_translated(core);
 
-    tlb_data config;
+    tlb_data config{};
     config.local_offset = addr;
     config.x_end = core.x;
     config.y_end = core.y;

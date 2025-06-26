@@ -193,7 +193,7 @@ void LocalChip::dma_write_to_device(const void* src, size_t size, tt_xy_pair cor
 
     core = translate_chip_coord_virtual_to_translated(core);
 
-    tlb_data config;
+    tlb_data config{};
     config.local_offset = addr;
     config.x_end = core.x;
     config.y_end = core.y;
@@ -232,7 +232,7 @@ void LocalChip::dma_read_from_device(void* dst, size_t size, tt_xy_pair core, ui
 
     core = translate_chip_coord_virtual_to_translated(core);
 
-    tlb_data config;
+    tlb_data config{};
     config.local_offset = addr;
     config.x_end = core.x;
     config.y_end = core.y;
@@ -284,7 +284,7 @@ void LocalChip::write_to_device_reg(tt_xy_pair core, const void* src, uint64_t r
     }
 
     auto translated_core = translate_chip_coord_virtual_to_translated(core);
-    tlb_data config;
+    tlb_data config{};
     config.local_offset = reg_dest;
     config.x_end = translated_core.x;
     config.y_end = translated_core.y;
@@ -306,7 +306,7 @@ void LocalChip::read_from_device_reg(tt_xy_pair core, void* dest, uint64_t reg_s
     }
 
     auto translated_core = translate_chip_coord_virtual_to_translated(core);
-    tlb_data config;
+    tlb_data config{};
     config.local_offset = reg_src;
     config.x_end = translated_core.x;
     config.y_end = translated_core.y;

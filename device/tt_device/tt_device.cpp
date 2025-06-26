@@ -75,12 +75,11 @@ void TTDevice::write_regs(volatile uint32_t *dest, const uint32_t *src, uint32_t
 void TTDevice::read_from_device(void *mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size) {
     auto lock = lock_manager.acquire_mutex(MutexType::TT_DEVICE_IO, get_pci_device()->get_device_num());
     uint8_t *buffer_addr = static_cast<uint8_t *>(mem_ptr);
-    tlb_data config;
+    tlb_data config{};
     config.local_offset = addr;
     config.x_end = core.x;
     config.y_end = core.y;
     config.noc_sel = umd_use_noc1 ? 1 : 0;
-    ;
     config.ordering = tlb_data::Relaxed;
     config.static_vc = 1;
     const uint32_t two_mb_size = 1 << 21;
@@ -104,7 +103,7 @@ void TTDevice::read_from_device(void *mem_ptr, tt_xy_pair core, uint64_t addr, u
 void TTDevice::write_to_device(const void *mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size) {
     auto lock = lock_manager.acquire_mutex(MutexType::TT_DEVICE_IO, get_pci_device()->get_device_num());
     uint8_t *buffer_addr = (uint8_t *)(uintptr_t)mem_ptr;
-    tlb_data config;
+    tlb_data config{};
     config.local_offset = addr;
     config.x_end = core.x;
     config.y_end = core.y;

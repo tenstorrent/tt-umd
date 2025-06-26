@@ -135,7 +135,7 @@ void RemoteChip::set_remote_transfer_ethernet_cores(const std::unordered_set<tt:
 void RemoteChip::set_remote_transfer_ethernet_cores(const std::set<uint32_t>& channel) {}
 
 TTDevice* RemoteChip::get_tt_device() {
-    throw std::runtime_error("RemoteChip::get_tt_device is not available for this chip.");
+    return tt_device_.get();
 }
 
 SysmemManager* RemoteChip::get_sysmem_manager() {

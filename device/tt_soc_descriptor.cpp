@@ -395,8 +395,10 @@ void tt_SocDescriptor::load_from_yaml(YAML::Node &device_descriptor_yaml) {
     arch = tt::arch_from_str(arch_name_value);
     soc_desc_info.arch = arch;
 
-    soc_desc_info.harvested_tensix_cores = tt_SocDescriptor::convert_to_tt_xy_pair(
-        device_descriptor_yaml["harvested_workers"].as<std::vector<std::string>>());
+    if (device_descriptor_yaml["harvested_workers"].IsDefined()) {
+        soc_desc_info.harvested_tensix_cores = tt_SocDescriptor::convert_to_tt_xy_pair(
+            device_descriptor_yaml["harvested_workers"].as<std::vector<std::string>>());
+    }
     soc_desc_info.tensix_cores = tt_SocDescriptor::convert_to_tt_xy_pair(
         device_descriptor_yaml["functional_workers"].as<std::vector<std::string>>());
     soc_desc_info.harvested_dram_cores =
@@ -404,8 +406,10 @@ void tt_SocDescriptor::load_from_yaml(YAML::Node &device_descriptor_yaml) {
     soc_desc_info.dram_cores = tt_SocDescriptor::convert_dram_cores_from_yaml(device_descriptor_yaml, "dram");
     soc_desc_info.pcie_cores =
         tt_SocDescriptor::convert_to_tt_xy_pair(device_descriptor_yaml["pcie"].as<std::vector<std::string>>());
-    soc_desc_info.harvested_eth_cores =
-        tt_SocDescriptor::convert_to_tt_xy_pair(device_descriptor_yaml["harvested_eth"].as<std::vector<std::string>>());
+    if (device_descriptor_yaml["harvested_eth"].IsDefined()) {
+        soc_desc_info.harvested_eth_cores = tt_SocDescriptor::convert_to_tt_xy_pair(
+            device_descriptor_yaml["harvested_eth"].as<std::vector<std::string>>());
+    }
     soc_desc_info.eth_cores =
         tt_SocDescriptor::convert_to_tt_xy_pair(device_descriptor_yaml["eth"].as<std::vector<std::string>>());
     soc_desc_info.arc_cores =

@@ -174,25 +174,6 @@ void tt_SocDescriptor::load_core_descriptors_from_soc_desc_info(const SocDescrip
         pcie_cores.push_back(core_descriptor.coord);
     }
 
-    int current_harvested_dram_channel = 0;
-    for (auto channel_it = soc_desc_info.harvested_dram_cores.begin();
-         channel_it != soc_desc_info.harvested_dram_cores.end();
-         ++channel_it) {
-        harvested_dram_cores.push_back({});
-        auto &soc_harvested_dram_cores = harvested_dram_cores.at(harvested_dram_cores.size() - 1);
-        const auto &harvested_dram_cores = (*channel_it);
-        for (unsigned int i = 0; i < harvested_dram_cores.size(); i++) {
-            const auto &harvested_dram_core = harvested_dram_cores.at(i);
-            CoreDescriptor core_descriptor;
-            core_descriptor.coord = harvested_dram_core;
-            core_descriptor.type = CoreType::DRAM;
-            cores.insert({core_descriptor.coord, core_descriptor});
-            soc_harvested_dram_cores.push_back(core_descriptor.coord);
-            harvested_dram_core_channel_map[core_descriptor.coord] = {current_harvested_dram_channel, i};
-        }
-        current_harvested_dram_channel++;
-    }
-
     int current_dram_channel = 0;
     for (auto channel_it = soc_desc_info.dram_cores.begin(); channel_it != soc_desc_info.dram_cores.end();
          ++channel_it) {
@@ -211,19 +192,6 @@ void tt_SocDescriptor::load_core_descriptors_from_soc_desc_info(const SocDescrip
         current_dram_channel++;
     }
 
-    int current_harvested_ethernet_channel = 0;
-    for (const auto &harvested_eth_core : soc_desc_info.harvested_eth_cores) {
-        CoreDescriptor core_descriptor;
-        core_descriptor.coord = harvested_eth_core;
-        core_descriptor.type = CoreType::ETH;
-        core_descriptor.l1_size = eth_l1_size;
-        cores.insert({core_descriptor.coord, core_descriptor});
-        harvested_ethernet_cores.push_back(core_descriptor.coord);
-
-        harvested_ethernet_core_channel_map[core_descriptor.coord] = current_harvested_ethernet_channel;
-        current_harvested_ethernet_channel++;
-    }
-
     int current_ethernet_channel = 0;
     for (const auto &eth_core : soc_desc_info.eth_cores) {
         CoreDescriptor core_descriptor;
@@ -235,19 +203,6 @@ void tt_SocDescriptor::load_core_descriptors_from_soc_desc_info(const SocDescrip
 
         ethernet_core_channel_map[core_descriptor.coord] = current_ethernet_channel;
         current_ethernet_channel++;
-    }
-
-    std::set<int> harvested_worker_routing_coords_x;
-    std::set<int> harvested_worker_routing_coords_y;
-    for (const auto &harvested_tensix_core : soc_desc_info.harvested_tensix_cores) {
-        CoreDescriptor core_descriptor;
-        core_descriptor.coord = harvested_tensix_core;
-        core_descriptor.type = CoreType::WORKER;
-        core_descriptor.l1_size = worker_l1_size;
-        cores.insert({core_descriptor.coord, core_descriptor});
-        harvested_workers.push_back(core_descriptor.coord);
-        harvested_worker_routing_coords_x.insert(core_descriptor.coord.x);
-        harvested_worker_routing_coords_y.insert(core_descriptor.coord.y);
     }
 
     std::set<int> worker_routing_coords_x;
@@ -395,21 +350,11 @@ void tt_SocDescriptor::load_from_yaml(YAML::Node &device_descriptor_yaml) {
     arch = tt::arch_from_str(arch_name_value);
     soc_desc_info.arch = arch;
 
-    if (device_descriptor_yaml["harvested_workers"].IsDefined()) {
-        soc_desc_info.harvested_tensix_cores = tt_SocDescriptor::convert_to_tt_xy_pair(
-            device_descriptor_yaml["harvested_workers"].as<std::vector<std::string>>());
-    }
     soc_desc_info.tensix_cores = tt_SocDescriptor::convert_to_tt_xy_pair(
         device_descriptor_yaml["functional_workers"].as<std::vector<std::string>>());
-    soc_desc_info.harvested_dram_cores =
-        tt_SocDescriptor::convert_dram_cores_from_yaml(device_descriptor_yaml, "harvested_dram");
     soc_desc_info.dram_cores = tt_SocDescriptor::convert_dram_cores_from_yaml(device_descriptor_yaml, "dram");
     soc_desc_info.pcie_cores =
         tt_SocDescriptor::convert_to_tt_xy_pair(device_descriptor_yaml["pcie"].as<std::vector<std::string>>());
-    if (device_descriptor_yaml["harvested_eth"].IsDefined()) {
-        soc_desc_info.harvested_eth_cores = tt_SocDescriptor::convert_to_tt_xy_pair(
-            device_descriptor_yaml["harvested_eth"].as<std::vector<std::string>>());
-    }
     soc_desc_info.eth_cores =
         tt_SocDescriptor::convert_to_tt_xy_pair(device_descriptor_yaml["eth"].as<std::vector<std::string>>());
     soc_desc_info.arc_cores =

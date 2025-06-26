@@ -53,9 +53,6 @@ struct SocDescriptorInfo {
     std::vector<tt_xy_pair> router_cores;
     std::vector<tt_xy_pair> security_cores;
     std::vector<tt_xy_pair> l2cpu_cores;
-    std::vector<tt_xy_pair> harvested_tensix_cores;
-    std::vector<std::vector<tt_xy_pair>> harvested_dram_cores;
-    std::vector<tt_xy_pair> harvested_eth_cores;
 
     uint32_t worker_l1_size;
     uint32_t eth_l1_size;

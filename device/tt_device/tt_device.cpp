@@ -80,7 +80,7 @@ void TTDevice::read_from_device(void *mem_ptr, tt_xy_pair core, uint64_t addr, u
     config.y_end = core.y;
     config.noc_sel = umd_use_noc1 ? 1 : 0;
     config.ordering = tlb_data::Relaxed;
-    config.static_vc = 1;
+    config.static_vc = (get_arch() == tt::ARCH::BLACKHOLE) ? false : true;
     const uint32_t two_mb_size = 1 << 21;
     std::unique_ptr<TlbWindow> tlb_window =
         std::make_unique<TlbWindow>(get_pci_device()->allocate_tlb(two_mb_size, TlbMapping::WC), config);
@@ -108,7 +108,7 @@ void TTDevice::write_to_device(const void *mem_ptr, tt_xy_pair core, uint64_t ad
     config.y_end = core.y;
     config.noc_sel = umd_use_noc1 ? 1 : 0;
     config.ordering = tlb_data::Relaxed;
-    config.static_vc = 1;
+    config.static_vc = (get_arch() == tt::ARCH::BLACKHOLE) ? false : true;
     const uint32_t two_mb_size = 1 << 21;
     std::unique_ptr<TlbWindow> tlb_window =
         std::make_unique<TlbWindow>(get_pci_device()->allocate_tlb(two_mb_size, TlbMapping::WC), config);

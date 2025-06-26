@@ -16,6 +16,8 @@ extern bool umd_use_noc1;
 
 namespace tt::umd {
 
+static_assert(!std::is_abstract<RemoteChip>(), "RemoteChip must be non-abstract.");
+
 RemoteChip::RemoteChip(tt_SocDescriptor soc_descriptor, std::unique_ptr<RemoteWormholeTTDevice> remote_tt_device) :
     Chip(soc_descriptor) {
     local_chip_ = remote_tt_device->get_local_chip();

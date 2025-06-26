@@ -30,11 +30,6 @@ public:
     SysmemManager* get_sysmem_manager() override;
     TLBManager* get_tlb_manager() override;
 
-    int get_num_host_channels() override;
-    int get_host_channel_size(std::uint32_t channel) override;
-    void write_to_sysmem(uint16_t channel, const void* src, uint64_t sysmem_dest, uint32_t size) override;
-    void read_from_sysmem(uint16_t channel, void* dest, uint64_t sysmem_src, uint32_t size) override;
-
     void set_remote_transfer_ethernet_cores(const std::unordered_set<CoreCoord>& cores) override;
     void set_remote_transfer_ethernet_cores(const std::set<uint32_t>& channels) override;
     // TODO: Figure out if this should remain public or used another way.

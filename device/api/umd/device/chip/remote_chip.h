@@ -26,6 +26,13 @@ public:
     SysmemManager* get_sysmem_manager() override;
     TLBManager* get_tlb_manager() override;
 
+    void set_remote_transfer_ethernet_cores(const std::unordered_set<CoreCoord>& cores) override;
+    void set_remote_transfer_ethernet_cores(const std::set<uint32_t>& channels) override;
+    int get_num_host_channels() override;
+    int get_host_channel_size(std::uint32_t channel) override;
+    void write_to_sysmem(uint16_t channel, const void* src, uint64_t sysmem_dest, uint32_t size) override;
+    void read_from_sysmem(uint16_t channel, void* dest, uint64_t sysmem_src, uint32_t size) override;
+
     void write_to_device(tt_xy_pair core, const void* src, uint64_t l1_dest, uint32_t size) override;
     void read_from_device(tt_xy_pair core, void* dest, uint64_t l1_src, uint32_t size) override;
     void write_to_device_reg(tt_xy_pair core, const void* src, uint64_t reg_dest, uint32_t size) override;

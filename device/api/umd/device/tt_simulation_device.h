@@ -46,13 +46,14 @@ public:
     void start_device() override;
     void close_device() override;
 
-    TTDevice* get_tt_device() override;
-    SysmemManager* get_sysmem_manager() override;
-    TLBManager* get_tlb_manager() override;
+    tt::umd::TTDevice* get_tt_device() override;
+    tt::umd::SysmemManager* get_sysmem_manager() override;
+    tt::umd::TLBManager* get_tlb_manager() override;
 
     bool is_mmio_capable() const override { return false; }
 
     void set_remote_transfer_ethernet_cores(const std::unordered_set<tt::umd::CoreCoord>& cores) override;
+    void set_remote_transfer_ethernet_cores(const std::set<uint32_t>& channels) override;
 
     // All tt_xy_pair cores in this class are defined in VIRTUAL coords.
     void write_to_device(tt_xy_pair core, const void* src, uint64_t l1_dest, uint32_t size) override;

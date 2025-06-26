@@ -18,6 +18,8 @@
 #include "tt_simulation_device_generated.h"
 #include "umd/device/driver_atomics.h"
 
+static_assert(!std::is_abstract<tt_SimulationDevice>(), "tt_SimulationDevice must be non-abstract.");
+
 flatbuffers::FlatBufferBuilder create_flatbuffer(
     DEVICE_COMMAND rw, std::vector<uint32_t> vec, tt_xy_pair core_, uint64_t addr, uint64_t size_ = 0) {
     flatbuffers::FlatBufferBuilder builder;

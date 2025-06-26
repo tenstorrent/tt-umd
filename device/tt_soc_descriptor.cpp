@@ -488,19 +488,29 @@ std::string tt_SocDescriptor::serialize() const {
     out << YAML::EndSeq;
 
     out << YAML::Key << "harvested_dram" << YAML::Value << YAML::BeginSeq;
-    for (const auto &dram_cores : get_harvested_dram_cores()) {
-        int dram_count = 0;
-        for (const auto &dram_core : dram_cores) {
-            if (dram_count % 3 == 0) {
-                out << YAML::BeginSeq;
+    for (const auto &harvested_dram_cores : get_harvested_dram_cores()) {
+        // Insert the dram core if it's within the given grid
+        bool serialize_cores = true;
+
+        for (const auto &harvested_dram_core : harvested_dram_cores) {
+            if ((harvested_dram_core.x > grid_size.x) && (harvested_dram_core.y > grid_size.y)) {
+                serialize_cores = false;
             }
-            if (dram_core.x < grid_size.x && dram_core.y < grid_size.y) {
-                write_coords(&out, dram_core);
+        }
+        if (serialize_cores) {
+            int harvested_dram_count = 0;
+            for (const auto &harvested_dram_core : harvested_dram_cores) {
+                if (harvested_dram_count % 3 == 0) {
+                    out << YAML::BeginSeq;
+                }
+                if (harvested_dram_core.x < grid_size.x && harvested_dram_core.y < grid_size.y) {
+                    write_coords(&out, harvested_dram_core);
+                }
+                if (harvested_dram_count % 3 == 2) {
+                    out << YAML::EndSeq;
+                }
+                harvested_dram_count++;
             }
-            if (dram_count % 3 == 2) {
-                out << YAML::EndSeq;
-            }
-            dram_count++;
         }
     }
     out << YAML::EndSeq;
@@ -508,14 +518,14 @@ std::string tt_SocDescriptor::serialize() const {
     out << YAML::Key << "dram" << YAML::Value << YAML::BeginSeq;
     for (const auto &dram_cores : get_dram_cores()) {
         // Insert the dram core if it's within the given grid
-        bool has_data = false;
+        bool serialize_cores = true;
 
         for (const auto &dram_core : dram_cores) {
-            if ((dram_core.x < grid_size.x) and (dram_core.y < grid_size.y)) {
-                has_data = true;
+            if ((dram_core.x > grid_size.x) && (dram_core.y > grid_size.y)) {
+                serialize_cores = false;
             }
         }
-        if (has_data) {
+        if (serialize_cores) {
             int dram_count = 0;
             for (const auto &dram_core : dram_cores) {
                 if (dram_count % 3 == 0) {

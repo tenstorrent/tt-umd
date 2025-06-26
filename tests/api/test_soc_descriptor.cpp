@@ -650,3 +650,9 @@ TEST(SocDescriptor, SocDescriptorSerialize) {
         tt_SocDescriptor soc(file_path.string(), true, harvesting_masks);
     }
 }
+
+TEST(SocDescriptor, SocDescriptorCreatFromSerialized) {
+    HarvestingMasks harvesting_masks;
+
+    tt_SocDescriptor soc_desc_yaml(test_utils::GetAbsPath("tests/soc_descs/serialized.yaml"), true, harvesting_masks);
+}

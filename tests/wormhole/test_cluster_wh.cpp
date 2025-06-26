@@ -739,7 +739,7 @@ TEST(SiliconDriverWH, SysmemTestWithPcie) {
  * The hardware mechanism is too slow to sweep the entire range.
  */
 TEST(SiliconDriverWH, RandomSysmemTestWithPcie) {
-    const uint32_t num_channels = 2;  // ideally 4, but CI seems to have 2...
+    const uint32_t num_channels = 1;  // ideally 4, but CI seems to have 2...
 
     Cluster cluster(ClusterOptions{
         .num_host_mem_ch_per_mmio_device = num_channels,

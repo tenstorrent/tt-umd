@@ -7,7 +7,6 @@
 #include <gtest/gtest.h>
 
 #include <algorithm>
-#include <cstdint>
 #include <cstdlib>  // for std::getenv
 #include <filesystem>
 #include <string>
@@ -414,15 +413,14 @@ TEST(TestCluster, TestClusterAICLKControl) {
 }
 
 TEST(TestCluster, DeassertResetBrisc) {
-    ClusterOptions options{};
-    std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>(options);
+    std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
 
     if (cluster->get_target_device_ids().empty()) {
         GTEST_SKIP() << "No chips present on the system. Skipping test.";
     }
 
     // The values in brisc_program are machine instructions which represent
-    // a RISCV program. This program is downloaded at address 0x0000'0000 on L1 SRAM on a Tensix,
+    // a RISCV program. This program is stored at address 0x00000000 on L1 SRAM on a Tensix,
     // from where the BRISC reads it's program.
     // The program executes the following lines of code:
     // int main() {
@@ -432,18 +430,18 @@ TEST(TestCluster, DeassertResetBrisc) {
     // }
     // Which means that on address 0x10000 the value should be 0x87654000
 
-    constexpr std::array<uint32_t, 4> brisc_program{0x0001'07b7, 0x8765'4737, 0x00e7'a023, 0x0000'006f};
-    constexpr uint32_t a_variable_value{0x8765'4000};
-    constexpr uint64_t a_variable_address{0x10000};
+    constexpr std::array<uint32_t, 4> brisc_program{0x000107b7, 0x87654737, 0x00e7a023, 0x0000006f};
+    constexpr uint32_t a_variable_value = 0x87654000;
+    constexpr uint64_t a_variable_address = 0x10000;
 
-    uint32_t readback{0x0};
+    uint32_t readback = 0x0;
 
     auto chip_id = *cluster->get_target_device_ids().begin();
     const tt_SocDescriptor& soc_desc = cluster->get_soc_descriptor(chip_id);
     auto tensix_core = cluster->get_soc_descriptor(chip_id).get_cores(CoreType::TENSIX).at(0);
 
     cluster->write_to_device(
-        brisc_program.data(), brisc_program.size() * sizeof(uint32_t), chip_id, tensix_core, 0x0000'0000);
+        brisc_program.data(), brisc_program.size() * sizeof(uint32_t), chip_id, tensix_core, 0x00000000);
 
     cluster->wait_for_non_mmio_flush(chip_id);
 

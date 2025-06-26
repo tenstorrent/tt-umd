@@ -435,6 +435,24 @@ std::string tt_SocDescriptor::serialize() const {
     write_core_locations(&out, CoreType::PCIE);
     out << YAML::EndSeq;
 
+    out << YAML::Key << "harvested_dram" << YAML::Value << YAML::BeginSeq;
+    for (const auto &dram_cores : get_harvested_dram_cores()) {
+        int dram_count = 0;
+        for (const auto &dram_core : dram_cores) {
+            if (dram_count % 3 == 0) {
+                out << YAML::BeginSeq;
+            }
+            if (dram_core.x < grid_size.x && dram_core.y < grid_size.y) {
+                write_coords(&out, dram_core);
+            }
+            if (dram_count % 3 == 2) {
+                out << YAML::EndSeq;
+            }
+            dram_count++;
+        }
+    }
+    out << YAML::EndSeq;
+
     out << YAML::Key << "dram" << YAML::Value << YAML::BeginSeq;
     for (const auto &dram_cores : get_dram_cores()) {
         // Insert the dram core if it's within the given grid
@@ -452,8 +470,7 @@ std::string tt_SocDescriptor::serialize() const {
                     out << YAML::BeginSeq;
                 }
                 if (dram_core.x < grid_size.x && dram_core.y < grid_size.y) {
-                    auto coords = translate_coord_to(dram_core, CoordSystem::NOC0);
-                    out << std::to_string(coords.x) + "-" + std::to_string(coords.y);
+                    write_coords(&out, dram_core);
                 }
                 if (dram_count % 3 == 2) {
                     out << YAML::EndSeq;
@@ -464,7 +481,13 @@ std::string tt_SocDescriptor::serialize() const {
     }
     out << YAML::EndSeq;
 
-    out << YAML::Key << "eth" << YAML::Value << YAML::Flow << YAML::BeginSeq;
+    out << YAML::Key << "harvested_eth" << YAML::Value << YAML::BeginSeq;
+    for (const auto &eth : get_harvested_cores(CoreType::ETH)) {
+        write_coords(&out, eth);
+    }
+    out << YAML::EndSeq;
+
+    out << YAML::Key << "eth" << YAML::Value << YAML::BeginSeq;
     write_core_locations(&out, CoreType::ETH);
     out << YAML::EndSeq;
 
@@ -497,19 +520,24 @@ std::string tt_SocDescriptor::serialize() const {
     out << YAML::Key << "arch_name" << YAML::Value << tt::arch_to_str(arch);
 
     out << YAML::Key << "features" << YAML::Value << YAML::BeginMap;
+
     out << YAML::Key << "noc" << YAML::Value << YAML::BeginMap;
     out << YAML::Key << "translation_id_enabled" << YAML::Value << true;
     out << YAML::EndMap;
+
     out << YAML::Key << "unpacker" << YAML::Value << YAML::BeginMap;
     out << YAML::Key << "version" << YAML::Value << unpacker_version;
     out << YAML::Key << "inline_srca_trans_without_srca_trans_instr" << YAML::Value << true;
     out << YAML::EndMap;
+
     out << YAML::Key << "math" << YAML::Value << YAML::BeginMap;
     out << YAML::Key << "dst_size_alignment" << YAML::Value << dst_size_alignment;
     out << YAML::EndMap;
+
     out << YAML::Key << "packer" << YAML::Value << YAML::BeginMap;
     out << YAML::Key << "version" << YAML::Value << packer_version;
     out << YAML::EndMap;
+
     out << YAML::Key << "overlay" << YAML::Value << YAML::BeginMap;
     out << YAML::Key << "version" << YAML::Value << overlay_version;
     out << YAML::EndMap;

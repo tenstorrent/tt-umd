@@ -95,7 +95,6 @@ public:
     // A default file in /tmp directory will be used if no path is passed.
     std::string serialize() const;
     std::filesystem::path serialize_to_file(const std::filesystem::path &dest_file = "") const;
-    static std::filesystem::path get_default_soc_descriptor_file_path();
 
     static std::string get_soc_descriptor_path(tt::ARCH arch);
 
@@ -167,6 +166,8 @@ private:
     static tt_xy_pair calculate_grid_size(const std::vector<tt_xy_pair> &cores);
     std::vector<tt::umd::CoreCoord> translate_coordinates(
         const std::vector<tt::umd::CoreCoord> &physical_cores, const CoordSystem coord_system) const;
+
+    static std::filesystem::path get_default_soc_descriptor_file_path();
 
     void write_coords(void *out, const tt::umd::CoreCoord &core) const;
     void write_core_locations(void *out, const CoreType &core_type) const;

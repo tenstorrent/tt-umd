@@ -313,12 +313,12 @@ void TopologyDiscovery::discover_remote_chips() {
 
                 tt_xy_pair remote_eth_core = get_remote_eth_core(remote_chip_ptr, eth_core);
 
-                uint64_t new_asic_id = get_remote_asic_id(remote_chip_ptr, {eth_core.x, eth_core.y});
+                uint64_t new_asic_id = get_remote_asic_id(remote_chip_ptr, eth_core);
 
                 if (discovered_chips.find(new_asic_id) == discovered_chips.end()) {
                     if (remote_chips_to_discover.find(new_asic_id) == remote_chips_to_discover.end()) {
                         std::unique_ptr<RemoteWormholeTTDevice> new_remote_tt_device =
-                            create_remote_tt_device(remote_chip_ptr, {eth_core.x, eth_core.y}, mmio_chip);
+                            create_remote_tt_device(remote_chip_ptr, eth_core, mmio_chip);
                         new_chips.emplace(new_asic_id, std::move(new_remote_tt_device));
                         remote_asic_id_to_mmio_chip_id.emplace(new_asic_id, mmio_chip_id);
                     }

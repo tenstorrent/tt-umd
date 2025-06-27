@@ -86,6 +86,37 @@ void tt_SocDescriptor::write_core_locations(void *out, const CoreType &core_type
     }
 }
 
+void tt_SocDescriptor::serialize_dram_cores(
+    void *out, const std::vector<std::vector<tt::umd::CoreCoord>> &cores) const {
+    YAML::Emitter *emitter = static_cast<YAML::Emitter *>(out);
+
+    for (const auto &dram_cores : cores) {
+        // Insert the dram core if it's within the given grid
+        bool serialize_cores = true;
+
+        for (const auto &dram_core : dram_cores) {
+            if ((dram_core.x > grid_size.x) || (dram_core.y > grid_size.y)) {
+                serialize_cores = false;
+            }
+        }
+        if (serialize_cores) {
+            int dram_count = 0;
+            for (const auto &dram_core : dram_cores) {
+                if (dram_count % 3 == 0) {
+                    *emitter << YAML::BeginSeq;
+                }
+                if (dram_core.x < grid_size.x && dram_core.y < grid_size.y) {
+                    write_coords(emitter, dram_core);
+                }
+                if (dram_count % 3 == 2) {
+                    *emitter << YAML::EndSeq;
+                }
+                dram_count++;
+            }
+        }
+    }
+}
+
 void tt_SocDescriptor::create_coordinate_manager(const BoardType board_type, const uint8_t asic_location) {
     const tt_xy_pair dram_grid_size = tt_xy_pair(dram_cores.size(), dram_cores.empty() ? 0 : dram_cores[0].size());
     const tt_xy_pair arc_grid_size = tt_SocDescriptor::calculate_grid_size(arc_cores);
@@ -380,6 +411,13 @@ void tt_SocDescriptor::load_from_yaml(YAML::Node &device_descriptor_yaml) {
     soc_desc_info.eth_l1_size = device_descriptor_yaml["eth_l1_size"].as<uint32_t>();
     soc_desc_info.dram_bank_size = device_descriptor_yaml["dram_bank_size"].as<uint64_t>();
 
+    // Inlcude harvested cores directly in SocDescriptor
+    harvested_workers = tt_SocDescriptor::convert_to_tt_xy_pair(
+        device_descriptor_yaml["harvested_workers"].as<std::vector<std::string>>());
+    harvested_ethernet_cores =
+        tt_SocDescriptor::convert_to_tt_xy_pair(device_descriptor_yaml["eth"].as<std::vector<std::string>>());
+    harvested_dram_cores = tt_SocDescriptor::convert_dram_cores_from_yaml(device_descriptor_yaml, "harvested_dram");
+
     load_from_soc_desc_info(soc_desc_info);
 }
 
@@ -437,59 +475,11 @@ std::string tt_SocDescriptor::serialize() const {
     out << YAML::EndSeq;
 
     out << YAML::Key << "harvested_dram" << YAML::Value << YAML::BeginSeq;
-    for (const auto &harvested_dram_cores : get_harvested_dram_cores()) {
-        // Insert the dram core if it's within the given grid
-        bool serialize_cores = true;
-
-        for (const auto &harvested_dram_core : harvested_dram_cores) {
-            if ((harvested_dram_core.x > grid_size.x) && (harvested_dram_core.y > grid_size.y)) {
-                serialize_cores = false;
-            }
-        }
-        if (serialize_cores) {
-            int harvested_dram_count = 0;
-            for (const auto &harvested_dram_core : harvested_dram_cores) {
-                if (harvested_dram_count % 3 == 0) {
-                    out << YAML::BeginSeq;
-                }
-                if (harvested_dram_core.x < grid_size.x && harvested_dram_core.y < grid_size.y) {
-                    write_coords(&out, harvested_dram_core);
-                }
-                if (harvested_dram_count % 3 == 2) {
-                    out << YAML::EndSeq;
-                }
-                harvested_dram_count++;
-            }
-        }
-    }
+    serialize_dram_cores(&out, get_harvested_dram_cores());
     out << YAML::EndSeq;
 
     out << YAML::Key << "dram" << YAML::Value << YAML::BeginSeq;
-    for (const auto &dram_cores : get_dram_cores()) {
-        // Insert the dram core if it's within the given grid
-        bool serialize_cores = true;
-
-        for (const auto &dram_core : dram_cores) {
-            if ((dram_core.x > grid_size.x) && (dram_core.y > grid_size.y)) {
-                serialize_cores = false;
-            }
-        }
-        if (serialize_cores) {
-            int dram_count = 0;
-            for (const auto &dram_core : dram_cores) {
-                if (dram_count % 3 == 0) {
-                    out << YAML::BeginSeq;
-                }
-                if (dram_core.x < grid_size.x && dram_core.y < grid_size.y) {
-                    write_coords(&out, dram_core);
-                }
-                if (dram_count % 3 == 2) {
-                    out << YAML::EndSeq;
-                }
-                dram_count++;
-            }
-        }
-    }
+    serialize_dram_cores(&out, get_dram_cores());
     out << YAML::EndSeq;
 
     out << YAML::Key << "harvested_eth" << YAML::Value << YAML::BeginSeq;

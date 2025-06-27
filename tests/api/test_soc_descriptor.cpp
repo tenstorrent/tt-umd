@@ -639,15 +639,14 @@ TEST(SocDescriptor, SocDescriptorBlackholeL2CPU) {
 }
 
 TEST(SocDescriptor, SocDescriptorSerialize) {
-    HarvestingMasks harvesting_masks;
-
     std::unique_ptr<Cluster> umd_cluster = std::make_unique<Cluster>();
 
     for (auto chip_id : umd_cluster->get_target_device_ids()) {
         const tt_SocDescriptor& soc_descriptor = umd_cluster->get_soc_descriptor(chip_id);
 
         std::filesystem::path file_path = soc_descriptor.serialize_to_file();
-        tt_SocDescriptor soc(file_path.string(), true, harvesting_masks);
+        tt_SocDescriptor soc(
+            file_path.string(), soc_descriptor.noc_translation_enabled, soc_descriptor.harvesting_masks);
     }
 }
 

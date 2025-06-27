@@ -174,6 +174,7 @@ private:
     // Since including yaml-cpp/yaml.h here breaks metal build we use void* type instead of YAML::Emitter
     void write_coords(void *out, const tt::umd::CoreCoord &core) const;
     void write_core_locations(void *out, const CoreType &core_type) const;
+    void serialize_dram_cores(void *out, const std::vector<std::vector<tt::umd::CoreCoord>> &cores) const;
 
     // Internal structures, read from yaml.
     tt_xy_pair worker_grid_size;
@@ -186,11 +187,9 @@ private:
     std::vector<std::vector<tt_xy_pair>> harvested_dram_cores;
 
     std::unordered_map<tt_xy_pair, std::tuple<int, int>> dram_core_channel_map;  // map dram core to chan/subchan
-    std::unordered_map<tt_xy_pair, std::tuple<int, int>> harvested_dram_core_channel_map;
-    std::vector<tt_xy_pair> ethernet_cores;  // ethernet cores (index == channel id)
+    std::vector<tt_xy_pair> ethernet_cores;                                      // ethernet cores (index == channel id)
     std::vector<tt_xy_pair> harvested_ethernet_cores;
     std::unordered_map<tt_xy_pair, int> ethernet_core_channel_map;
-    std::unordered_map<tt_xy_pair, int> harvested_ethernet_core_channel_map;
     std::vector<tt_xy_pair> router_cores;
     std::vector<tt_xy_pair> security_cores;
     std::vector<tt_xy_pair> l2cpu_cores;

@@ -113,6 +113,9 @@ public:
     static std::unique_ptr<tt_ClusterDescriptor> create_constrained_cluster_descriptor(
         const tt_ClusterDescriptor *full_cluster_desc, const std::unordered_set<chip_id_t> &target_chip_ids);
 
+    static tt::ARCH detect_cluster_architecture();
+    static std::vector<int> detect_mmio_devices();
+
     const std::unordered_map<chip_id_t, std::uint32_t> &get_harvesting_info() const;
     const std::unordered_map<chip_id_t, bool> &get_noc_translation_table_en() const;
     const std::unordered_map<chip_id_t, eth_coord_t> &get_chip_locations() const;

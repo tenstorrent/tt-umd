@@ -46,7 +46,7 @@ enum ChipType {
     MOCK,
 };
 
-// All options when creating a Cluster object.
+// Different parameters when creating a Cluster object.
 // Each of the options provides a default value, so in general any combination of overridden options can be used when
 // constructing Cluster objects. Having this struct saves us from having a lot of different constructor overloads.
 struct ClusterOptions {
@@ -114,7 +114,8 @@ public:
     static std::unique_ptr<tt_ClusterDescriptor> create_cluster_descriptor(std::string sdesc_path = "");
 
     /**
-     * Get cluster descriptor object being used in UMD instance.
+     * Get cluster descriptor object being used. This object contains topology information about the cluster.
+     * Consult tt_ClusterDescriptor documentation for more information on the cluster descriptor.
      */
     tt_ClusterDescriptor* get_cluster_description();
 

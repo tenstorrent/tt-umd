@@ -123,6 +123,9 @@ std::unique_ptr<RemoteWormholeTTDevice> TopologyDiscovery::create_remote_tt_devi
     unique_coord.rack = remote_rack_x;
     unique_coord.shelf = remote_rack_y;
 
+    std::cout << "creating remote tt device for " << unique_coord.x << " " << unique_coord.y << " " << unique_coord.rack
+              << " " << unique_coord.shelf << std::endl;
+
     return std::make_unique<RemoteWormholeTTDevice>(dynamic_cast<LocalChip*>(chip), unique_coord);
 }
 
@@ -272,8 +275,6 @@ void TopologyDiscovery::discover_remote_chips_2() {
         chip->set_remote_transfer_ethernet_cores(active_eth_channels);
     }
 
-    return;
-
     if (remote_chips_to_discover.empty()) {
         return;
     }
@@ -282,15 +283,17 @@ void TopologyDiscovery::discover_remote_chips_2() {
         std::unordered_set<uint64_t> new_remote_chips = {};
         std::unordered_map<uint64_t, std::unique_ptr<RemoteWormholeTTDevice>> new_tt_devices = {};
 
+        std::cout << "Discovering remote chips..." << std::endl;
+
         for (const uint64_t unique_coord : remote_chips_to_discover) {
             chip_id_t mmio_chip_id = remote_unique_coord_to_mmio_chip_id.at(unique_coord);
             Chip* mmio_chip = chips.at(mmio_chip_id).get();
             TTDevice* tt_device = mmio_chip->get_tt_device();
-            std::unique_ptr<RemoteWormholeTTDevice> remote_tt_device =
-                std::move(remote_tt_devices_to_discover.at(unique_coord));
+            std::unique_ptr<RemoteWormholeTTDevice>& remote_tt_device = remote_tt_devices_to_discover.at(unique_coord);
             std::vector<CoreCoord> eth_cores = mmio_chip->get_soc_descriptor().get_cores(
                 CoreType::ETH, umd_use_noc1 ? CoordSystem::NOC1 : CoordSystem::NOC0);
 
+            std::cout << "Adding " << unique_coord << " to discovered chips." << std::endl;
             discovered_chips.insert(unique_coord);
 
             ChipInfo chip_info = remote_tt_device->get_chip_info();
@@ -304,16 +307,20 @@ void TopologyDiscovery::discover_remote_chips_2() {
                     chip_info.board_type),
                 std::move(remote_tt_device));
 
+            TTDevice* remote_tt_device_ptr = chip->get_tt_device();
+
             chips.emplace(chip_id, std::move(chip));
             // eth_coords.emplace(chip_id, current_chip_unique_coord.eth_coord);
             unique_coord_to_chip_id.emplace(unique_coord, chip_id);
             chip_id++;
 
+            std::cout << "iterating over ETH channels of remote chip" << std::endl;
+
             uint32_t channel = 0;
             for (const CoreCoord& eth_core : eth_cores) {
                 uint32_t port_status;
 
-                remote_tt_device->read_from_device(
+                remote_tt_device_ptr->read_from_device(
                     &port_status,
                     tt_xy_pair(eth_core.x, eth_core.y),
                     eth_addresses.eth_conn_info + (channel * 4),
@@ -329,8 +336,11 @@ void TopologyDiscovery::discover_remote_chips_2() {
                     continue;
                 }
 
+                std::cout << "Remote chip " << unique_coord << " having active eth core " << eth_core.x << " "
+                          << eth_core.y << std::endl;
+
                 uint32_t remote_id;
-                tt_device->read_from_device(
+                remote_tt_device_ptr->read_from_device(
                     &remote_id,
                     {eth_core.x, eth_core.y},
                     eth_addresses.node_info + (4 * shelf_offset),
@@ -339,13 +349,14 @@ void TopologyDiscovery::discover_remote_chips_2() {
                 uint32_t remote_noc_x = (remote_id >> 4) & 0x3F;
                 uint32_t remote_noc_y = (remote_id >> 10) & 0x3F;
 
-                std::unique_ptr<RemoteWormholeTTDevice> new_remote_tt_device =
-                    create_remote_tt_device(chips.at(chip_id - 1).get(), {eth_core.x, eth_core.y});
-
                 uint64_t new_unique_coord = get_remote_asic_id(chips.at(chip_id - 1).get(), {eth_core.x, eth_core.y});
+
+                std::cout << "New unique coord " << new_unique_coord << std::endl;
 
                 if (discovered_chips.find(new_unique_coord) == discovered_chips.end()) {
                     if (remote_chips_to_discover.find(new_unique_coord) == remote_chips_to_discover.end()) {
+                        std::unique_ptr<RemoteWormholeTTDevice> new_remote_tt_device =
+                            create_remote_tt_device(chips.at(chip_id - 1).get(), {eth_core.x, eth_core.y});
                         new_remote_chips.insert(new_unique_coord);
                         new_tt_devices.emplace(new_unique_coord, std::move(new_remote_tt_device));
                         remote_unique_coord_to_mmio_chip_id.emplace(new_unique_coord, mmio_chip_id);

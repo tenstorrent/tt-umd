@@ -54,6 +54,40 @@ jobs:
           ./build_metal.sh --build-all --enable-ccache --enable-profiler
           cd ../
 
+  build-tt-metal-wheel:
+    # Due to parsing bug, fromJSON is used to convert string to number.
+    # In pull_request or push events, the input context is not available, stating the default again here.
+    timeout-minutes: ${{ fromJSON(inputs.timeout || '90') }}
+
+    name: Build tt-metal wheel with newest UMD
+    runs-on: tt-beta-ubuntu-2204-large
+    container:
+      image: ghcr.io/tenstorrent/tt-metal/tt-metalium/manylinux-amd64:latest
+      env:
+        # TODO: Revisit the addition of these env vars https://github.com/tenstorrent/tt-metal/issues/20161
+        TRACY_NO_INVARIANT_CHECK: 1
+        TRACY_NO_ISA_EXTENSIONS: 1
+      options: --user root
+    steps:
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.12'
+
+      - name: 🐍 Build wheel
+        uses: pypa/cibuildwheel@v2.23.2
+        env:
+          CIBW_BUILD_FRONTEND: build
+          CIBW_ENVIRONMENT: >-
+            CCACHE_TEMPDIR=/tmp/ccache
+            CIBW_ENABLE_TRACY="OFF"
+          CIBW_BEFORE_BUILD: mkdir -p /tmp/ccache && ccache -z && ccache -p
+          CIBW_BEFORE_TEST: ccache -s
+          CIBW_TEST_COMMAND: python -c \"import ttnn\"
+          CIBW_MANYLINUX_X86_64_IMAGE: ghcr.io/tenstorrent/tt-metal/tt-metalium/manylinux-amd64:latest
+
+
   build-tt-exalens:
     timeout-minutes: ${{ fromJSON(inputs.timeout || '90') }}
 

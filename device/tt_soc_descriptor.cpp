@@ -415,7 +415,7 @@ void tt_SocDescriptor::load_from_yaml(YAML::Node &device_descriptor_yaml) {
     harvested_workers = tt_SocDescriptor::convert_to_tt_xy_pair(
         device_descriptor_yaml["harvested_workers"].as<std::vector<std::string>>());
     harvested_ethernet_cores =
-        tt_SocDescriptor::convert_to_tt_xy_pair(device_descriptor_yaml["eth"].as<std::vector<std::string>>());
+        tt_SocDescriptor::convert_to_tt_xy_pair(device_descriptor_yaml["harvested_eth"].as<std::vector<std::string>>());
     harvested_dram_cores = tt_SocDescriptor::convert_dram_cores_from_yaml(device_descriptor_yaml, "harvested_dram");
 
     load_from_soc_desc_info(soc_desc_info);

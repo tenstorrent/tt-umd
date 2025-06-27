@@ -18,6 +18,8 @@
 #include "tt_simulation_device_generated.h"
 #include "umd/device/driver_atomics.h"
 
+static_assert(!std::is_abstract<tt_SimulationDevice>(), "tt_SimulationDevice must be non-abstract.");
+
 flatbuffers::FlatBufferBuilder create_flatbuffer(
     DEVICE_COMMAND rw, std::vector<uint32_t> vec, tt_xy_pair core_, uint64_t addr, uint64_t size_ = 0) {
     flatbuffers::FlatBufferBuilder builder;
@@ -132,6 +134,8 @@ void tt_SimulationDevice::close_device() {
 
 void tt_SimulationDevice::set_remote_transfer_ethernet_cores(const std::unordered_set<tt::umd::CoreCoord>& cores) {}
 
+void tt_SimulationDevice::set_remote_transfer_ethernet_cores(const std::set<uint32_t>& channel) {}
+
 // Runtime Functions
 void tt_SimulationDevice::write_to_device(tt_xy_pair core, const void* src, uint64_t l1_dest, uint32_t size) {
     log_debug(
@@ -170,12 +174,25 @@ void tt_SimulationDevice::read_from_device(tt_xy_pair core, void* dest, uint64_t
     nng_free(rd_resp, rd_rsp_sz);
 }
 
+void tt_SimulationDevice::write_to_device_reg(tt_xy_pair core, const void* src, uint64_t reg_dest, uint32_t size) {
+    write_to_device(core, src, reg_dest, size);
+}
+
+void tt_SimulationDevice::read_from_device_reg(tt_xy_pair core, void* dest, uint64_t reg_src, uint32_t size) {
+    read_from_device(core, dest, reg_src, size);
+}
+
 void tt_SimulationDevice::dma_write_to_device(const void* src, size_t size, tt_xy_pair core, uint64_t addr) {
     write_to_device(core, src, addr, size);
 }
 
 void tt_SimulationDevice::dma_read_from_device(void* dst, size_t size, tt_xy_pair core, uint64_t addr) {
     read_from_device(core, dst, addr, size);
+}
+
+std::function<void(uint32_t, uint32_t, const uint8_t*)> tt_SimulationDevice::get_fast_pcie_static_tlb_write_callable() {
+    throw std::runtime_error(
+        "tt_SimulationDevice::get_fast_pcie_static_tlb_write_callable is not available for this chip.");
 }
 
 void tt_SimulationDevice::wait_for_non_mmio_flush() {}
@@ -202,4 +219,34 @@ int tt_SimulationDevice::arc_msg(
     uint32_t* return_4) {
     *return_3 = 1;
     return 0;
+}
+
+int tt_SimulationDevice::get_num_host_channels() { return 0; }
+
+int tt_SimulationDevice::get_host_channel_size(std::uint32_t channel) {
+    throw std::runtime_error("There are no host channels available.");
+}
+
+void tt_SimulationDevice::write_to_sysmem(uint16_t channel, const void* src, uint64_t sysmem_dest, uint32_t size) {
+    throw std::runtime_error("tt_SimulationDevice::write_to_sysmem is not available for this chip.");
+}
+
+void tt_SimulationDevice::read_from_sysmem(uint16_t channel, void* dest, uint64_t sysmem_src, uint32_t size) {
+    throw std::runtime_error("tt_SimulationDevice::read_from_sysmem is not available for this chip.");
+}
+
+int tt_SimulationDevice::get_numa_node() {
+    throw std::runtime_error("tt_SimulationDevice::get_numa_node is not available for this chip.");
+}
+
+tt::umd::TTDevice* tt_SimulationDevice::get_tt_device() {
+    throw std::runtime_error("tt_SimulationDevice::get_tt_device is not available for this chip.");
+}
+
+tt::umd::SysmemManager* tt_SimulationDevice::get_sysmem_manager() {
+    throw std::runtime_error("tt_SimulationDevice::get_sysmem_manager is not available for this chip.");
+}
+
+tt::umd::TLBManager* tt_SimulationDevice::get_tlb_manager() {
+    throw std::runtime_error("tt_SimulationDevice::get_tlb_manager is not available for this chip.");
 }

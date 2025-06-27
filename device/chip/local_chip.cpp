@@ -20,6 +20,8 @@ extern bool umd_use_noc1;
 
 namespace tt::umd {
 
+static_assert(!std::is_abstract<LocalChip>(), "LocalChip must be non-abstract.");
+
 // TLB size for DRAM on blackhole - 4GB
 const uint64_t BH_4GB_TLB_SIZE = 4ULL * 1024 * 1024 * 1024;
 
@@ -119,6 +121,8 @@ void LocalChip::initialize_membars() {
     }
     set_membar_flag(dram_cores_vector, tt_MemBarFlag::RESET, dram_address_params.DRAM_BARRIER_BASE);
 }
+
+TTDevice* LocalChip::get_tt_device() { return tt_device_.get(); }
 
 SysmemManager* LocalChip::get_sysmem_manager() { return sysmem_manager_.get(); }
 

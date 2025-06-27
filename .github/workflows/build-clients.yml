@@ -69,6 +69,22 @@ jobs:
     #     TRACY_NO_ISA_EXTENSIONS: 1
     #   options: --user root
     steps:
+      - name: Checkout tt-metal repo
+        uses: actions/checkout@v4
+        with:
+          # Clone under tt-metal directory
+          path: tt-metal
+          repository: tenstorrent/tt-metal
+          submodules: recursive
+          fetch-depth: 500 # Need enough history for `git describe`
+          fetch-tags: true # Need tags for `git describe`
+
+      - name: Checkout UMD
+        uses: actions/checkout@v4
+        with:
+          # Clone directly into tt-metal directory for umd
+          path: tt-metal/tt_metal/third_party/umd
+          submodules: recursive
 
       - name: Set up Python 3.12
         uses: actions/setup-python@v4

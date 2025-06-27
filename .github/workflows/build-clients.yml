@@ -68,6 +68,12 @@ jobs:
     #     TRACY_NO_INVARIANT_CHECK: 1
     #     TRACY_NO_ISA_EXTENSIONS: 1
     #   options: --user root
+
+    defaults:
+      run:
+        shell: bash
+        working-directory: /work
+
     steps:
       - name: Checkout tt-metal repo
         uses: actions/checkout@v4

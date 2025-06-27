@@ -411,12 +411,18 @@ void tt_SocDescriptor::load_from_yaml(YAML::Node &device_descriptor_yaml) {
     soc_desc_info.eth_l1_size = device_descriptor_yaml["eth_l1_size"].as<uint32_t>();
     soc_desc_info.dram_bank_size = device_descriptor_yaml["dram_bank_size"].as<uint64_t>();
 
-    // Inlcude harvested cores directly in SocDescriptor
-    harvested_workers = tt_SocDescriptor::convert_to_tt_xy_pair(
-        device_descriptor_yaml["harvested_workers"].as<std::vector<std::string>>());
-    harvested_ethernet_cores =
-        tt_SocDescriptor::convert_to_tt_xy_pair(device_descriptor_yaml["harvested_eth"].as<std::vector<std::string>>());
-    harvested_dram_cores = tt_SocDescriptor::convert_dram_cores_from_yaml(device_descriptor_yaml, "harvested_dram");
+    // Inlcude harvested cores directly in SocDescriptor if available
+    if (device_descriptor_yaml["harvested_workers"].IsDefined()) {
+        harvested_workers = tt_SocDescriptor::convert_to_tt_xy_pair(
+            device_descriptor_yaml["harvested_workers"].as<std::vector<std::string>>());
+    }
+    if (device_descriptor_yaml["harvested_eth"].IsDefined()) {
+        harvested_ethernet_cores = tt_SocDescriptor::convert_to_tt_xy_pair(
+            device_descriptor_yaml["harvested_eth"].as<std::vector<std::string>>());
+    }
+    if (device_descriptor_yaml["harvested_dram"].IsDefined()) {
+        harvested_dram_cores = tt_SocDescriptor::convert_dram_cores_from_yaml(device_descriptor_yaml, "harvested_dram");
+    }
 
     load_from_soc_desc_info(soc_desc_info);
 }

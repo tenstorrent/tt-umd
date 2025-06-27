@@ -47,8 +47,7 @@ jobs:
           {arch: wormhole_b0, card: n300, timeout: 15},
           {arch: wormhole_b0, card: tt-beta-ubuntu-2204-n300-large-stable, timeout: 15},
           {arch: wormhole_b0, card: tt-beta-ubuntu-2204-n300-llmbox-large-stable, timeout: 15},
-          {arch: blackhole, card: p150, timeout: 15},
-          {arch: blackhole, card: tt-beta-ubuntu-2204-p150a-large-stable, timeout: 15},
+          {arch: blackhole, card: tt-beta-ubuntu-2204-p150b-large-stable, timeout: 15},
           {arch: blackhole, card: tt-beta-ubuntu-2204-p150b-viommu-large-stable, timeout: 15},
           {arch: baremetal, card: ubuntu-22.04, timeout: 15},
         ]

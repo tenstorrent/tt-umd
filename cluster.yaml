@@ -1,0 +1,14 @@
+arch:
+  {}
+chips:
+  {}
+ethernet_connections:
+  []
+chips_with_mmio:
+  []
+harvesting:
+  {}
+chip_to_boardtype:
+  {}
+boards:
+  []

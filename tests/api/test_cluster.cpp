@@ -479,3 +479,11 @@ INSTANTIATE_TEST_SUITE_P(
     }
 
 );
+
+TEST(TestTopology, TestTopologyDiscovery) {
+    std::unique_ptr<tt::umd::TopologyDiscovery> topology_discovery = std::make_unique<tt::umd::TopologyDiscovery>();
+
+    std::unique_ptr<tt_ClusterDescriptor> cluster_desc = topology_discovery->create_ethernet_map();
+
+    cluster_desc->serialize_to_file("cluster.yaml");
+}

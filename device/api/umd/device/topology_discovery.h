@@ -6,35 +6,10 @@
 #pragma once
 
 #include "umd/device/chip/chip.h"
+#include "umd/device/tt_device/remote_wormhole_tt_device.h"
 #include "umd/device/tt_device/tt_device.h"
 
 class tt_ClusterDescriptor;
-
-// Currently we need this to uniquely identify a chip.
-// Once we can also extract asic_location, then board_id + asic_location should be a unique identifier for all chips.
-// This structure is used only during topology discovery to do it properly.
-struct UniqueCoord {
-    uint64_t board_id;
-    eth_coord_t eth_coord;
-
-    bool operator==(const UniqueCoord& other) const {
-        return board_id == other.board_id && eth_coord == other.eth_coord;
-    }
-};
-
-// Make it hashable so it can be a key in a hashmap
-namespace std {
-template <>
-struct hash<UniqueCoord> {
-    std::size_t operator()(UniqueCoord const& c) const {
-        std::size_t seed = 0;
-        boost_hash_combine(seed, c.board_id);
-        boost_hash_combine(seed, hash<eth_coord_t>()(c.eth_coord));
-        return seed;
-    }
-};
-
-}  // namespace std
 
 namespace tt::umd {
 
@@ -69,7 +44,9 @@ private:
 
     void get_pcie_connected_chips();
 
-    void discover_remote_chips();
+    // void discover_remote_chips();
+
+    void discover_remote_chips_2();
 
     void fill_cluster_descriptor_info();
 
@@ -85,9 +62,15 @@ private:
     // This information can still be used to unique identify a board.
     uint32_t get_local_board_id(Chip* chip, tt_xy_pair eth_core);
 
+    uint64_t get_local_asic_id(Chip* chip, tt_xy_pair eth_core);
+
+    uint64_t get_remote_asic_id(Chip* chip, tt_xy_pair eth_core);
+
+    std::unique_ptr<RemoteWormholeTTDevice> create_remote_tt_device(Chip* chip, tt_xy_pair eth_core);
+
     std::unordered_map<chip_id_t, std::unique_ptr<Chip>> chips;
 
-    std::unordered_map<UniqueCoord, chip_id_t> unique_coord_to_chip_id;
+    std::unordered_map<uint64_t, chip_id_t> unique_coord_to_chip_id;
 
     std::unordered_map<chip_id_t, eth_coord_t> eth_coords;
 

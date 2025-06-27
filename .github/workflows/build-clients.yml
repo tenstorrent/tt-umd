@@ -97,6 +97,17 @@ jobs:
         with:
           python-version: '3.12'
 
+      - name: some scripts to print contents
+        run: |
+          echo "Contents of /work:"
+          ls -la /work
+          echo "Contents of /work/tt-metal:"
+          ls -la /work/tt-metal
+          echo "pwd"
+          pwd
+          echo "contentx of tt_metal"
+          ls -la tt-metal
+
       - name: 🐍 Build wheel
         uses: pypa/cibuildwheel@v2.23.2
         env:

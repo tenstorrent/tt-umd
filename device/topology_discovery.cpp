@@ -166,7 +166,6 @@ void TopologyDiscovery::get_pcie_connected_chips() {
 void TopologyDiscovery::discover_remote_chips_2() {
     const uint32_t eth_unknown = 0;
     const uint32_t eth_unconnected = 1;
-    const uint32_t shelf_offset = 9;
     const uint32_t rack_offset = 10;
 
     std::unordered_map<uint64_t, chip_id_t> chip_uid_to_local_chip_id = {};
@@ -183,13 +182,7 @@ void TopologyDiscovery::discover_remote_chips_2() {
 
         uint32_t channel = 0;
         for (const CoreCoord& eth_core : eth_cores) {
-            uint32_t port_status;
-            TTDevice* tt_device = chip->get_tt_device();
-            tt_device->read_from_device(
-                &port_status,
-                tt_cxy_pair(chip_id, eth_core.x, eth_core.y),
-                eth_addresses.eth_conn_info + (channel * 4),
-                sizeof(uint32_t));
+            uint32_t port_status = read_port_status(chip.get(), eth_core, channel);
 
             if (port_status == eth_unknown || port_status == eth_unconnected) {
                 channel++;
@@ -219,12 +212,7 @@ void TopologyDiscovery::discover_remote_chips_2() {
 
         uint32_t channel = 0;
         for (const CoreCoord& eth_core : eth_cores) {
-            uint32_t port_status;
-            tt_device->read_from_device(
-                &port_status,
-                tt_cxy_pair(chip_id, eth_core.x, eth_core.y),
-                eth_addresses.eth_conn_info + (channel * 4),
-                sizeof(uint32_t));
+            uint32_t port_status = read_port_status(chip.get(), eth_core, channel);
 
             if (port_status == eth_unknown || port_status == eth_unconnected) {
                 channel++;
@@ -249,12 +237,7 @@ void TopologyDiscovery::discover_remote_chips_2() {
 
             std::unique_ptr<RemoteWormholeTTDevice> remote_tt_device = create_remote_tt_device(chip.get(), eth_core);
 
-            uint32_t remote_id;
-            tt_device->read_from_device(
-                &remote_id, {eth_core.x, eth_core.y}, eth_addresses.node_info + (4 * shelf_offset), sizeof(uint32_t));
-
-            uint32_t remote_noc_x = (remote_id >> 4) & 0x3F;
-            uint32_t remote_noc_y = (remote_id >> 10) & 0x3F;
+            tt_xy_pair remote_eth_core = get_remote_eth_core(chip.get(), eth_core);
 
             if (discovered_chips.find(unique_coord) == discovered_chips.end()) {
                 remote_chips_to_discover.insert(unique_coord);
@@ -265,7 +248,7 @@ void TopologyDiscovery::discover_remote_chips_2() {
                 chip_id_t remote_chip_id = unique_coord_to_chip_id.at(unique_coord);
                 Chip* remote_chip = chips.at(remote_chip_id).get();
                 CoreCoord physical_remote_eth =
-                    CoreCoord(remote_noc_x, remote_noc_y, CoreType::ETH, CoordSystem::PHYSICAL);
+                    CoreCoord(remote_eth_core.x, remote_eth_core.y, CoreType::ETH, CoordSystem::PHYSICAL);
                 CoreCoord logical_remote_eth =
                     remote_chip->get_soc_descriptor().translate_coord_to(physical_remote_eth, CoordSystem::LOGICAL);
                 ethernet_connections.push_back({{current_chip_id, channel}, {remote_chip_id, logical_remote_eth.y}});
@@ -307,6 +290,8 @@ void TopologyDiscovery::discover_remote_chips_2() {
                     chip_info.board_type),
                 std::move(remote_tt_device));
 
+            Chip* remote_chip_ptr = chip.get();
+
             TTDevice* remote_tt_device_ptr = chip->get_tt_device();
 
             chips.emplace(chip_id, std::move(chip));
@@ -318,13 +303,7 @@ void TopologyDiscovery::discover_remote_chips_2() {
 
             uint32_t channel = 0;
             for (const CoreCoord& eth_core : eth_cores) {
-                uint32_t port_status;
-
-                remote_tt_device_ptr->read_from_device(
-                    &port_status,
-                    tt_xy_pair(eth_core.x, eth_core.y),
-                    eth_addresses.eth_conn_info + (channel * 4),
-                    sizeof(uint32_t));
+                uint32_t port_status = read_port_status(remote_chip_ptr, eth_core, channel);
 
                 if (port_status == eth_unknown || port_status == eth_unconnected) {
                     channel++;
@@ -339,15 +318,7 @@ void TopologyDiscovery::discover_remote_chips_2() {
                 std::cout << "Remote chip " << unique_coord << " having active eth core " << eth_core.x << " "
                           << eth_core.y << std::endl;
 
-                uint32_t remote_id;
-                remote_tt_device_ptr->read_from_device(
-                    &remote_id,
-                    {eth_core.x, eth_core.y},
-                    eth_addresses.node_info + (4 * shelf_offset),
-                    sizeof(uint32_t));
-
-                uint32_t remote_noc_x = (remote_id >> 4) & 0x3F;
-                uint32_t remote_noc_y = (remote_id >> 10) & 0x3F;
+                tt_xy_pair remote_eth_core = get_remote_eth_core(chips.at(chip_id - 1).get(), eth_core);
 
                 uint64_t new_unique_coord = get_remote_asic_id(chips.at(chip_id - 1).get(), {eth_core.x, eth_core.y});
 
@@ -366,7 +337,7 @@ void TopologyDiscovery::discover_remote_chips_2() {
                     chip_id_t remote_chip_id = unique_coord_to_chip_id.at(new_unique_coord);
                     Chip* remote_chip = chips.at(remote_chip_id).get();
                     CoreCoord physical_remote_eth =
-                        CoreCoord(remote_noc_x, remote_noc_y, CoreType::ETH, CoordSystem::PHYSICAL);
+                        CoreCoord(remote_eth_core.x, remote_eth_core.y, CoreType::ETH, CoordSystem::PHYSICAL);
                     CoreCoord logical_remote_eth =
                         remote_chip->get_soc_descriptor().translate_coord_to(physical_remote_eth, CoordSystem::LOGICAL);
                     ethernet_connections.push_back(
@@ -491,6 +462,30 @@ uint64_t TopologyDiscovery::get_remote_asic_id(Chip* chip, tt_xy_pair eth_core) 
         eth_addresses.results_buf + (4 * (eth_addresses.erisc_remote_board_id_lo_offset + 1)),
         sizeof(uint32_t));
     return ((static_cast<uint64_t>(asic_id_hi) << 32) | asic_id_lo);
+}
+
+tt_xy_pair TopologyDiscovery::get_remote_eth_core(Chip* chip, tt_xy_pair local_eth_core) {
+    const uint32_t shelf_offset = 9;
+    TTDevice* tt_device = chip->get_tt_device();
+    uint32_t remote_id;
+    tt_device->read_from_device(
+        &remote_id,
+        {local_eth_core.x, local_eth_core.y},
+        eth_addresses.node_info + (4 * shelf_offset),
+        sizeof(uint32_t));
+
+    return tt_xy_pair{(remote_id >> 4) & 0x3F, (remote_id >> 10) & 0x3F};
+}
+
+uint32_t TopologyDiscovery::read_port_status(Chip* chip, tt_xy_pair eth_core, uint32_t channel) {
+    uint32_t port_status;
+    TTDevice* tt_device = chip->get_tt_device();
+    tt_device->read_from_device(
+        &port_status,
+        tt_cxy_pair(chip_id, eth_core.x, eth_core.y),
+        eth_addresses.eth_conn_info + (channel * 4),
+        sizeof(uint32_t));
+    return port_status;
 }
 
 }  // namespace tt::umd

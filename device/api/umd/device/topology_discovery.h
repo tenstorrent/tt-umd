@@ -66,6 +66,10 @@ private:
 
     uint64_t get_remote_asic_id(Chip* chip, tt_xy_pair eth_core);
 
+    tt_xy_pair get_remote_eth_core(Chip* chip, tt_xy_pair local_eth_core);
+
+    uint32_t read_port_status(Chip* chip, tt_xy_pair eth_core, uint32_t channel);
+
     std::unique_ptr<RemoteWormholeTTDevice> create_remote_tt_device(Chip* chip, tt_xy_pair eth_core);
 
     std::unordered_map<chip_id_t, std::unique_ptr<Chip>> chips;

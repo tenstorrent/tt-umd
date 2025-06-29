@@ -7,6 +7,7 @@
 #include <gtest/gtest.h>
 
 #include <algorithm>
+#include <cstdint>
 #include <cstdlib>  // for std::getenv
 #include <filesystem>
 #include <string>
@@ -19,6 +20,8 @@
 #include "umd/device/chip/mock_chip.h"
 #include "umd/device/cluster.h"
 #include "umd/device/tt_cluster_descriptor.h"
+#include "umd/device/tt_core_coordinates.h"
+#include "umd/device/tt_silicon_driver_common.hpp"
 #include "umd/device/wormhole_implementation.h"
 
 // TODO: obviously we need some other way to set this up
@@ -409,6 +412,57 @@ TEST(TestCluster, TestClusterAICLKControl) {
     for (auto& clock : clocks_idle) {
         EXPECT_EQ(clock.second, get_expected_clock_val(clock.first, false));
     }
+}
+
+TEST(TestCluster, DeassertResetBrisc) {
+    ClusterOptions options{};
+    std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>(options);
+
+    if (cluster->get_target_device_ids().empty()) {
+        GTEST_SKIP() << "No chips present on the system. Skipping test.";
+    }
+
+    // The values in brisc_program are machine instructions which represent
+    // a RISCV program. This program is downloaded at address 0x0000'0000 on L1 SRAM on a Tensix,
+    // from where the BRISC reads it's program.
+    // The program executes the following lines of code:
+    // int main() {
+    //      unsigned int* a = (unsigned int*)0x10000;
+    //      *a = 0x87654000;
+    //      while (true);
+    // }
+    // Which means that on address 0x10000 the value should be 0x87654000
+
+    constexpr std::array<uint32_t, 4> brisc_program{0x0001'07b7, 0x8765'4737, 0x00e7'a023, 0x0000'006f};
+    constexpr uint32_t a_variable_value{0x8765'4000};
+    constexpr uint64_t a_variable_address{0x10000};
+
+    uint32_t readback{0x0};
+
+    auto chip_id = *cluster->get_target_device_ids().begin();
+    const tt_SocDescriptor& soc_desc = cluster->get_soc_descriptor(chip_id);
+    auto tensix_core = cluster->get_soc_descriptor(chip_id).get_cores(CoreType::TENSIX).at(0);
+
+    cluster->write_to_device(
+        brisc_program.data(), brisc_program.size() * sizeof(uint32_t), chip_id, tensix_core, 0x0000'0000);
+
+    cluster->wait_for_non_mmio_flush(chip_id);
+
+    // By setting these reset options, all other cores except the BRISC are/stay in reset
+    TensixSoftResetOptions brisc_deassert_reset{
+        TensixSoftResetOptions::NCRISC | TensixSoftResetOptions::TRISC0 | TensixSoftResetOptions::TRISC1 |
+        TensixSoftResetOptions::TRISC2};
+
+    auto chip = cluster->get_chip(chip_id);
+    chip->send_tensix_risc_reset(
+        cluster->get_soc_descriptor(chip_id).translate_coord_to(tensix_core, CoordSystem::VIRTUAL),
+        brisc_deassert_reset);
+
+    cluster->wait_for_non_mmio_flush(chip_id);
+
+    cluster->read_from_device(&readback, chip_id, tensix_core, a_variable_address, sizeof(readback));
+
+    EXPECT_EQ(a_variable_value, readback);
 }
 
 TEST_P(ClusterReadWriteL1Test, ReadWriteL1) {

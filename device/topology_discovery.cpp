@@ -78,9 +78,9 @@ TopologyDiscovery::EthAddresses TopologyDiscovery::get_eth_addresses(uint32_t et
 }
 
 std::unique_ptr<RemoteWormholeTTDevice> TopologyDiscovery::create_remote_tt_device(
-    Chip* neighbour_chip, tt_xy_pair eth_core, Chip* gateway_chip) {
+    Chip* chip, tt_xy_pair eth_core, Chip* gateway_chip) {
     return std::make_unique<RemoteWormholeTTDevice>(
-        dynamic_cast<LocalChip*>(gateway_chip), get_remote_eth_coord(neighbour_chip, eth_core));
+        dynamic_cast<LocalChip*>(gateway_chip), get_remote_eth_coord(chip, eth_core));
 }
 
 eth_coord_t TopologyDiscovery::get_local_eth_coord(Chip* chip) {

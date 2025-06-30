@@ -94,14 +94,29 @@ jobs:
 
       - name: some scripts to print contents
         run: |
-          echo "Contents of /work:"
-          ls -la /work
-          echo "Contents of /work/tt-metal:"
-          ls -la /work/tt-metal
-          echo "pwd"
+          if [ -d /work ]; then
+            echo "Contents of /work:"
+            ls -la /work
+          else
+            echo "/work directory does not exist."
+          fi
+
+          if [ -d /work/tt-metal ]; then
+            echo "Contents of /work/tt-metal:"
+            ls -la /work/tt-metal
+          else
+            echo "/work/tt-metal directory does not exist."
+          fi
+
+          echo "Current working directory:"
           pwd
-          echo "contentx of tt_metal"
-          ls -la tt-metal
+
+          if [ -d tt-metal ]; then
+            echo "Contents of tt-metal:"
+            ls -la tt-metal
+          else
+            echo "tt-metal directory does not exist."
+          fi
 
       - name: 🐍 Build wheel
         uses: pypa/cibuildwheel@v2.23.2

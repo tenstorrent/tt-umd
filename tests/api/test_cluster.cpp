@@ -430,39 +430,42 @@ TEST(TestCluster, DeassertResetBrisc) {
 
     auto chip_id = *cluster->get_target_device_ids().begin();
     const tt_SocDescriptor& soc_desc = cluster->get_soc_descriptor(chip_id);
-    auto tensix_core = cluster->get_soc_descriptor(chip_id).get_cores(CoreType::TENSIX).at(0);
-    auto chip = cluster->get_chip(chip_id);
+    auto tensix_cores = cluster->get_soc_descriptor(chip_id).get_cores(CoreType::TENSIX);
 
-    // By setting these reset options, all cores are set in reset state
-    TensixSoftResetOptions assert_reset_for_all_cores{
-        TensixSoftResetOptions::BRISC | TensixSoftResetOptions::NCRISC | TensixSoftResetOptions::TRISC0 |
-        TensixSoftResetOptions::TRISC1 | TensixSoftResetOptions::TRISC2};
+    for (const CoreCoord& tensix_core : tensix_cores) {
+        auto chip = cluster->get_chip(chip_id);
 
-    chip->send_tensix_risc_reset(
-        cluster->get_soc_descriptor(chip_id).translate_coord_to(tensix_core, CoordSystem::VIRTUAL),
-        assert_reset_for_all_cores);
+        // By setting these reset options, all cores are set in reset state
+        TensixSoftResetOptions assert_reset_for_all_cores{
+            TensixSoftResetOptions::BRISC | TensixSoftResetOptions::NCRISC | TensixSoftResetOptions::TRISC0 |
+            TensixSoftResetOptions::TRISC1 | TensixSoftResetOptions::TRISC2};
 
-    cluster->wait_for_non_mmio_flush(chip_id);
+        chip->send_tensix_risc_reset(
+            cluster->get_soc_descriptor(chip_id).translate_coord_to(tensix_core, CoordSystem::VIRTUAL),
+            assert_reset_for_all_cores);
 
-    cluster->write_to_device(
-        brisc_program.data(), brisc_program.size() * sizeof(uint32_t), chip_id, tensix_core, 0x00000000);
+        cluster->wait_for_non_mmio_flush(chip_id);
 
-    cluster->wait_for_non_mmio_flush(chip_id);
+        cluster->write_to_device(
+            brisc_program.data(), brisc_program.size() * sizeof(uint32_t), chip_id, tensix_core, 0x00000000);
 
-    // By setting these reset options, all other cores except the BRISC are/stay in reset state
-    TensixSoftResetOptions brisc_deassert_reset{
-        TensixSoftResetOptions::NCRISC | TensixSoftResetOptions::TRISC0 | TensixSoftResetOptions::TRISC1 |
-        TensixSoftResetOptions::TRISC2};
+        cluster->wait_for_non_mmio_flush(chip_id);
 
-    chip->send_tensix_risc_reset(
-        cluster->get_soc_descriptor(chip_id).translate_coord_to(tensix_core, CoordSystem::VIRTUAL),
-        brisc_deassert_reset);
+        // By setting these reset options, all other cores except the BRISC are/stay in reset state
+        TensixSoftResetOptions brisc_deassert_reset{
+            TensixSoftResetOptions::NCRISC | TensixSoftResetOptions::TRISC0 | TensixSoftResetOptions::TRISC1 |
+            TensixSoftResetOptions::TRISC2};
 
-    cluster->wait_for_non_mmio_flush(chip_id);
+        chip->send_tensix_risc_reset(
+            cluster->get_soc_descriptor(chip_id).translate_coord_to(tensix_core, CoordSystem::VIRTUAL),
+            brisc_deassert_reset);
 
-    cluster->read_from_device(&readback, chip_id, tensix_core, a_variable_address, sizeof(readback));
+        cluster->wait_for_non_mmio_flush(chip_id);
 
-    EXPECT_EQ(a_variable_value, readback);
+        cluster->read_from_device(&readback, chip_id, tensix_core, a_variable_address, sizeof(readback));
+
+        EXPECT_EQ(a_variable_value, readback);
+    }
 }
 
 TEST_P(ClusterReadWriteL1Test, ReadWriteL1) {

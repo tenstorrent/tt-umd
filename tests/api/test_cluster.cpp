@@ -41,13 +41,14 @@ constexpr std::uint32_t DRAM_BARRIER_BASE = 0;
 class ClusterReadWriteL1Test : public ::testing::TestWithParam<ClusterOptions> {};
 
 std::vector<ClusterOptions> get_cluster_options_for_param_test() {
+    constexpr const char* TT_UMD_SIMULATOR_ENV = "TT_UMD_SIMULATOR";
     std::vector<ClusterOptions> options;
     options.push_back(ClusterOptions{.chip_type = ChipType::SILICON});
-    if (std::getenv("TT_UMD_SIMULATOR")) {
+    if (std::getenv(TT_UMD_SIMULATOR_ENV)) {
         options.push_back(ClusterOptions{
             .chip_type = ChipType::SIMULATION,
             .target_devices = {0},
-            .simulator_directory = std::filesystem::path(std::getenv("TT_UMD_SIMULATOR"))});
+            .simulator_directory = std::filesystem::path(std::getenv(TT_UMD_SIMULATOR_ENV))});
     }
     return options;
 }
@@ -467,9 +468,12 @@ TEST_P(ClusterReadWriteL1Test, ReadWriteL1) {
     if (cluster->get_target_device_ids().empty()) {
         GTEST_SKIP() << "No chips present on the system. Skipping test.";
     }
-    tt_device_params device_params;
-    device_params.init_device = true;
-    cluster->start_device(device_params);
+    if (options.chip_type == SIMULATION) {
+        tt_device_params device_params;
+        device_params.init_device = true;
+        cluster->start_device(device_params);
+    }
+
     auto tensix_l1_size = cluster->get_soc_descriptor(0).worker_l1_size;
 
     std::vector<uint8_t> zero_data(tensix_l1_size, 0);
@@ -518,7 +522,7 @@ INSTANTIATE_TEST_SUITE_P(
             case ChipType::SILICON:
                 return "Silicon";
             case ChipType::SIMULATION:
-                return "Simulator";
+                return "Simulation";
             default:
                 return "Unknown";
         }

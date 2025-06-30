@@ -98,7 +98,7 @@ void tt_SimulationDevice::start_device() {
 
 void tt_SimulationDevice::send_tensix_risc_reset(tt_xy_pair core, const TensixSoftResetOptions& soft_resets) {
     if (soft_resets == TENSIX_ASSERT_SOFT_RESET) {
-        log_info(tt::LogEmulationDriver, "Sending assert_risc_reset signal..");
+        log_debug(tt::LogEmulationDriver, "Sending assert_risc_reset signal..");
         auto wr_buffer =
             create_flatbuffer(DEVICE_COMMAND_ALL_TENSIX_RESET_ASSERT, std::vector<uint32_t>(1, 0), core, 0);
         uint8_t* wr_buffer_ptr = wr_buffer.GetBufferPointer();
@@ -107,7 +107,7 @@ void tt_SimulationDevice::send_tensix_risc_reset(tt_xy_pair core, const TensixSo
         print_flatbuffer(GetDeviceRequestResponse(wr_buffer_ptr));
         host.send_to_device(wr_buffer_ptr, wr_buffer_size);
     } else if (soft_resets == TENSIX_DEASSERT_SOFT_RESET) {
-        log_info(tt::LogEmulationDriver, "Sending 'deassert_risc_reset' signal..");
+        log_debug(tt::LogEmulationDriver, "Sending 'deassert_risc_reset' signal..");
         auto wr_buffer =
             create_flatbuffer(DEVICE_COMMAND_ALL_TENSIX_RESET_DEASSERT, std::vector<uint32_t>(1, 0), core, 0);
         uint8_t* wr_buffer_ptr = wr_buffer.GetBufferPointer();
@@ -134,7 +134,7 @@ void tt_SimulationDevice::set_remote_transfer_ethernet_cores(const std::unordere
 
 // Runtime Functions
 void tt_SimulationDevice::write_to_device(tt_xy_pair core, const void* src, uint64_t l1_dest, uint32_t size) {
-    log_info(
+    log_debug(
         tt::LogEmulationDriver,
         "Device writing {} bytes to l1_dest {} in core ({}, {})",
         size,

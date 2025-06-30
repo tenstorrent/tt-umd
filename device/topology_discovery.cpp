@@ -20,8 +20,8 @@ extern bool umd_use_noc1;
 
 namespace tt::umd {
 
-TopologyDiscovery::TopologyDiscovery(std::unordered_set<chip_id_t> pci_target_devices) :
-    pci_target_devices(pci_target_devices) {}
+TopologyDiscovery::TopologyDiscovery(std::unordered_set<chip_id_t> pci_target_devices, const std::string& sdesc_path) :
+    pci_target_devices(pci_target_devices), sdesc_path(sdesc_path) {}
 
 // Functions called by create_ethernet_map should stay same for all configs as much as possible.
 // We should try and override functions for getting data from ETH core, creating remote communication etc..
@@ -44,6 +44,7 @@ TopologyDiscovery::EthAddresses TopologyDiscovery::get_eth_addresses(uint32_t et
     uint64_t erisc_local_board_type_offset;
     uint64_t erisc_local_board_id_lo_offset;
     uint64_t erisc_remote_board_id_lo_offset;
+    uint64_t erisc_remote_eth_id_offset;
 
     if (masked_version >= 0x060000) {
         node_info = 0x1100;
@@ -59,11 +60,13 @@ TopologyDiscovery::EthAddresses TopologyDiscovery::get_eth_addresses(uint32_t et
         erisc_local_board_type_offset = 69;
         erisc_remote_board_id_lo_offset = 72;
         erisc_local_board_id_lo_offset = 64;
+        erisc_remote_eth_id_offset = 76;
     } else {
         erisc_remote_board_type_offset = 72;
         erisc_local_board_type_offset = 64;
         erisc_remote_board_id_lo_offset = 73;
         erisc_local_board_id_lo_offset = 65;
+        erisc_remote_eth_id_offset = 77;
     }
 
     return TopologyDiscovery::EthAddresses{
@@ -74,11 +77,16 @@ TopologyDiscovery::EthAddresses TopologyDiscovery::get_eth_addresses(uint32_t et
         erisc_remote_board_type_offset,
         erisc_local_board_type_offset,
         erisc_local_board_id_lo_offset,
-        erisc_remote_board_id_lo_offset};
+        erisc_remote_board_id_lo_offset,
+        erisc_remote_eth_id_offset};
 }
 
 std::unique_ptr<RemoteWormholeTTDevice> TopologyDiscovery::create_remote_tt_device(
     Chip* chip, tt_xy_pair eth_core, Chip* gateway_chip) {
+    if (is_running_on_6u) {
+        return nullptr;
+    }
+
     return std::make_unique<RemoteWormholeTTDevice>(
         dynamic_cast<LocalChip*>(gateway_chip), get_remote_eth_coord(chip, eth_core));
 }
@@ -133,7 +141,11 @@ void TopologyDiscovery::get_pcie_connected_chips() {
             continue;
         }
         std::unique_ptr<LocalChip> chip = nullptr;
-        chip = std::make_unique<LocalChip>(TTDevice::create(device_id));
+        if (sdesc_path != "") {
+            chip = std::make_unique<LocalChip>(sdesc_path, TTDevice::create(device_id));
+        } else {
+            chip = std::make_unique<LocalChip>(TTDevice::create(device_id));
+        }
 
         // ETH addresses need to be initialized after the first chip is created, so we could
         // read the information about offsets of board IDs on ETH core.
@@ -142,6 +154,8 @@ void TopologyDiscovery::get_pcie_connected_chips() {
         if (chip_id == 0) {
             eth_addresses = TopologyDiscovery::get_eth_addresses(
                 chip->get_tt_device()->get_arc_telemetry_reader()->read_entry(wormhole::TAG_ETH_FW_VERSION));
+
+            is_running_on_6u = chip->get_tt_device()->get_board_type() == BoardType::UBB;
         }
 
         std::vector<CoreCoord> eth_cores =
@@ -200,8 +214,9 @@ void TopologyDiscovery::discover_remote_chips() {
 
         discovered_chips.insert(current_chip_asic_id);
 
-        // TODO: this neeeds to be moved to specific logic for Wormhole with legacy FW.
-        eth_coords.emplace(chip_id, get_local_eth_coord(chip.get()));
+        if (!is_running_on_6u) {
+            eth_coords.emplace(chip_id, get_local_eth_coord(chip.get()));
+        }
     }
 
     for (const auto& [chip_id, chip] : chips) {
@@ -239,23 +254,27 @@ void TopologyDiscovery::discover_remote_chips() {
 
             chip->set_remote_transfer_ethernet_cores(active_eth_channels_per_chip.at(chip_id));
 
-            std::unique_ptr<RemoteWormholeTTDevice> remote_tt_device =
-                create_remote_tt_device(chip.get(), eth_core, chip.get());
-
-            tt_xy_pair remote_eth_core = get_remote_eth_core(chip.get(), eth_core);
             uint64_t remote_asic_id = get_remote_asic_id(chip.get(), eth_core);
 
             if (discovered_chips.find(remote_asic_id) == discovered_chips.end()) {
+                std::unique_ptr<RemoteWormholeTTDevice> remote_tt_device =
+                    create_remote_tt_device(chip.get(), eth_core, chip.get());
                 remote_chips_to_discover.emplace(remote_asic_id, std::move(remote_tt_device));
                 remote_asic_id_to_mmio_chip_id.emplace(remote_asic_id, chip_id);
             } else {
                 chip_id_t remote_chip_id = asic_id_to_chip_id.at(remote_asic_id);
                 Chip* remote_chip = chips.at(remote_chip_id).get();
-                CoreCoord physical_remote_eth =
-                    CoreCoord(remote_eth_core.x, remote_eth_core.y, CoreType::ETH, CoordSystem::PHYSICAL);
-                CoreCoord logical_remote_eth =
-                    remote_chip->get_soc_descriptor().translate_coord_to(physical_remote_eth, CoordSystem::LOGICAL);
-                ethernet_connections.push_back({{chip_id, channel}, {remote_chip_id, logical_remote_eth.y}});
+                uint32_t remote_eth_channel;
+                if (is_running_on_6u) {
+                    remote_eth_channel = get_remote_eth_id(chip.get(), eth_core);
+                } else {
+                    tt_xy_pair remote_eth_core = get_remote_eth_core(chip.get(), eth_core);
+                    remote_eth_channel =
+                        remote_chip->get_soc_descriptor()
+                            .translate_coord_to(remote_eth_core, CoordSystem::PHYSICAL, CoordSystem::LOGICAL)
+                            .y;
+                }
+                ethernet_connections.push_back({{chip_id, channel}, {remote_chip_id, remote_eth_channel}});
             }
             channel++;
         }
@@ -283,18 +302,25 @@ void TopologyDiscovery::discover_remote_chips() {
             ChipInfo chip_info = remote_tt_device->get_chip_info();
 
             std::unique_ptr<RemoteChip> chip = nullptr;
-            chip = std::make_unique<RemoteChip>(
-                tt_SocDescriptor(
-                    remote_tt_device->get_arch(),
-                    chip_info.noc_translation_enabled,
-                    chip_info.harvesting_masks,
-                    chip_info.board_type),
-                std::move(remote_tt_device));
+            if (sdesc_path != "") {
+                chip = std::make_unique<RemoteChip>(
+                    tt_SocDescriptor(sdesc_path, chip_info.noc_translation_enabled), std::move(remote_tt_device));
+            } else {
+                chip = std::make_unique<RemoteChip>(
+                    tt_SocDescriptor(
+                        remote_tt_device->get_arch(),
+                        chip_info.noc_translation_enabled,
+                        chip_info.harvesting_masks,
+                        chip_info.board_type),
+                    std::move(remote_tt_device));
+            }
 
             Chip* remote_chip_ptr = chip.get();
 
             // TODO: this neeeds to be moved to specific logic for Wormhole with legacy FW.
-            eth_coords.emplace(chip_id, get_local_eth_coord(remote_chip_ptr));
+            if (!is_running_on_6u) {
+                eth_coords.emplace(chip_id, get_local_eth_coord(remote_chip_ptr));
+            }
 
             TTDevice* remote_tt_device_ptr = chip->get_tt_device();
 
@@ -328,9 +354,7 @@ void TopologyDiscovery::discover_remote_chips() {
                     continue;
                 }
 
-                tt_xy_pair remote_eth_core = get_remote_eth_core(remote_chip_ptr, eth_core);
-
-                uint64_t new_asic_id = get_remote_asic_id(remote_chip_ptr, eth_core);
+                uint64_t new_asic_id = get_remote_asic_id(remote_chip_ptr, {eth_core.x, eth_core.y});
 
                 if (discovered_chips.find(new_asic_id) == discovered_chips.end()) {
                     if (remote_chips_to_discover.find(new_asic_id) == remote_chips_to_discover.end()) {
@@ -343,12 +367,17 @@ void TopologyDiscovery::discover_remote_chips() {
                     chip_id_t current_chip_id = asic_id_to_chip_id.at(asic_id_to_discover);
                     chip_id_t remote_chip_id = asic_id_to_chip_id.at(new_asic_id);
                     Chip* remote_chip = chips.at(remote_chip_id).get();
-                    CoreCoord physical_remote_eth =
-                        CoreCoord(remote_eth_core.x, remote_eth_core.y, CoreType::ETH, CoordSystem::PHYSICAL);
-                    CoreCoord logical_remote_eth =
-                        remote_chip->get_soc_descriptor().translate_coord_to(physical_remote_eth, CoordSystem::LOGICAL);
-                    ethernet_connections.push_back(
-                        {{current_chip_id, channel}, {remote_chip_id, logical_remote_eth.y}});
+                    uint32_t remote_eth_channel;
+                    if (is_running_on_6u) {
+                        remote_eth_channel = get_remote_eth_id(remote_chip_ptr, eth_core);
+                    } else {
+                        tt_xy_pair remote_eth_core = get_remote_eth_core(remote_chip_ptr, eth_core);
+                        remote_eth_channel =
+                            remote_chip->get_soc_descriptor()
+                                .translate_coord_to(remote_eth_core, CoordSystem::PHYSICAL, CoordSystem::LOGICAL)
+                                .y;
+                    }
+                    ethernet_connections.push_back({{current_chip_id, channel}, {remote_chip_id, remote_eth_channel}});
                 }
                 channel++;
             }
@@ -373,9 +402,11 @@ void TopologyDiscovery::fill_cluster_descriptor_info() {
         cluster_desc->harvesting_masks.insert({chip_id, chip->get_chip_info().harvesting_masks.tensix_harvesting_mask});
         cluster_desc->harvesting_masks_map.insert({chip_id, chip->get_chip_info().harvesting_masks});
         // TODO: this neeeds to be moved to specific logic for Wormhole with legacy FW.
-        eth_coord_t eth_coord = eth_coords.at(chip_id);
-        cluster_desc->chip_locations.insert({chip_id, eth_coord});
-        cluster_desc->coords_to_chip_ids[eth_coord.rack][eth_coord.shelf][eth_coord.y][eth_coord.x] = chip_id;
+        if (!is_running_on_6u) {
+            eth_coord_t eth_coord = eth_coords.at(chip_id);
+            cluster_desc->chip_locations.insert({chip_id, eth_coord});
+            cluster_desc->coords_to_chip_ids[eth_coord.rack][eth_coord.shelf][eth_coord.y][eth_coord.x] = chip_id;
+        }
 
         cluster_desc->add_chip_to_board(chip_id, chip->get_chip_info().chip_uid.board_id);
     }
@@ -409,14 +440,20 @@ void TopologyDiscovery::fill_cluster_descriptor_info() {
 }
 
 // If pci_target_devices is empty, we should take all the PCI devices found in the system.
-// That is why we have the first part of the condition.
 bool TopologyDiscovery::is_pcie_chip_id_included(int pci_id) const {
     return pci_target_devices.empty() || pci_target_devices.find(pci_id) != pci_target_devices.end();
 }
 
 // If pci_target_devices is empty, we should take all the PCI devices found in the system.
-// That is why we have the first part of the condition.
 bool TopologyDiscovery::is_board_id_included(uint32_t board_id) const {
+    // Since at the moment we don't want to go outside of single host on 6U,
+    // we just check for board ids that are discovered from pci_target_devices.
+    if (is_running_on_6u) {
+        return board_ids.find(board_id) != board_ids.end();
+    }
+
+    // For other WH setups, we check additional condition of empty target devices.
+    // This is needed for TG since TG board doesn't have any PCI connected devices.
     return pci_target_devices.empty() || board_ids.find(board_id) != board_ids.end();
 }
 
@@ -498,6 +535,21 @@ uint32_t TopologyDiscovery::read_port_status(Chip* chip, tt_xy_pair eth_core, ui
         eth_addresses.eth_conn_info + (channel * 4),
         sizeof(uint32_t));
     return port_status;
+}
+
+uint32_t TopologyDiscovery::get_remote_eth_id(Chip* chip, tt_xy_pair local_eth_core) {
+    if (!is_running_on_6u) {
+        throw std::runtime_error(
+            "get_remote_eth_id should not be called on non-6U configurations. This message likely indicates a bug.");
+    }
+    uint32_t remote_eth_id;
+    TTDevice* tt_device = chip->get_tt_device();
+    tt_device->read_from_device(
+        &remote_eth_id,
+        tt_cxy_pair(chip_id, local_eth_core.x, local_eth_core.y),
+        eth_addresses.results_buf + 4 * eth_addresses.erisc_remote_eth_id_offset,
+        sizeof(uint32_t));
+    return remote_eth_id;
 }
 
 }  // namespace tt::umd

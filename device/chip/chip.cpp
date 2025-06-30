@@ -152,6 +152,14 @@ void Chip::send_tensix_risc_reset(const TensixSoftResetOptions& soft_resets) {
     }
 }
 
+void Chip::set_tensix_risc_reset(tt_xy_pair core, const TensixSoftResetOptions& soft_resets) {
+    send_tensix_risc_reset(core, soft_resets);
+}
+
+void Chip::unset_tensix_risc_reset(tt_xy_pair core, const TensixSoftResetOptions& soft_resets) {
+    send_tensix_risc_reset(core, invert_selected_options(soft_resets));
+}
+
 uint32_t Chip::get_power_state_arc_msg(tt_DevicePowerState state) {
     uint32_t msg = wormhole::ARC_MSG_COMMON_PREFIX;
     switch (state) {

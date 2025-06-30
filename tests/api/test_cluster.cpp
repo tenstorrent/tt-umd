@@ -425,7 +425,7 @@ TEST(TestCluster, DeassertResetBrisc) {
 
     constexpr uint32_t a_variable_value = 0x87654000;
     constexpr uint64_t a_variable_address = 0x00010000;
-    constexpr uint64_t brisc_code_address = 0x00010000;
+    constexpr uint64_t brisc_code_address = 0x00000000;
 
     uint32_t readback = 0x00000000;
 
@@ -445,7 +445,7 @@ TEST(TestCluster, DeassertResetBrisc) {
         cluster->wait_for_non_mmio_flush(chip_id);
 
         cluster->write_to_device(
-            brisc_program.data(), brisc_program.size() * sizeof(uint32_t), chip_id, tensix_core, 0x00000000);
+            brisc_program.data(), brisc_program.size() * sizeof(uint32_t), chip_id, tensix_core, brisc_code_address);
 
         cluster->wait_for_non_mmio_flush(chip_id);
 

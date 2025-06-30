@@ -435,14 +435,11 @@ TEST(TestCluster, DeassertResetBrisc) {
     for (const CoreCoord& tensix_core : tensix_cores) {
         auto chip = cluster->get_chip(chip_id);
 
-        // By setting these reset options, all cores are set in reset state
-        TensixSoftResetOptions assert_reset_for_all_cores{
-            TensixSoftResetOptions::BRISC | TensixSoftResetOptions::NCRISC | TensixSoftResetOptions::TRISC0 |
-            TensixSoftResetOptions::TRISC1 | TensixSoftResetOptions::TRISC2};
+        TensixSoftResetOptions select_all_tensix_riscv_cores{TENSIX_ASSERT_SOFT_RESET};
 
-        chip->send_tensix_risc_reset(
+        chip->set_tensix_risc_reset(
             cluster->get_soc_descriptor(chip_id).translate_coord_to(tensix_core, CoordSystem::VIRTUAL),
-            assert_reset_for_all_cores);
+            select_all_tensix_riscv_cores);
 
         cluster->wait_for_non_mmio_flush(chip_id);
 
@@ -451,14 +448,9 @@ TEST(TestCluster, DeassertResetBrisc) {
 
         cluster->wait_for_non_mmio_flush(chip_id);
 
-        // By setting these reset options, all other cores except the BRISC are/stay in reset state
-        TensixSoftResetOptions brisc_deassert_reset{
-            TensixSoftResetOptions::NCRISC | TensixSoftResetOptions::TRISC0 | TensixSoftResetOptions::TRISC1 |
-            TensixSoftResetOptions::TRISC2};
-
-        chip->send_tensix_risc_reset(
+        chip->unset_tensix_risc_reset(
             cluster->get_soc_descriptor(chip_id).translate_coord_to(tensix_core, CoordSystem::VIRTUAL),
-            brisc_deassert_reset);
+            TensixSoftResetOptions::BRISC);
 
         cluster->wait_for_non_mmio_flush(chip_id);
 

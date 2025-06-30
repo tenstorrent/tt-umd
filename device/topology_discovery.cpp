@@ -224,6 +224,15 @@ void TopologyDiscovery::discover_remote_chips() {
             active_eth_channels_per_chip.at(chip_id).insert(channel);
 
             if (!is_board_id_included(get_remote_board_id(chip.get(), eth_core))) {
+                tt_xy_pair remote_eth_core = get_remote_eth_core(chip.get(), eth_core);
+                uint32_t remote_eth_id =
+                    chip->get_soc_descriptor()
+                        .translate_coord_to(
+                            CoreCoord(remote_eth_core.x, remote_eth_core.y, CoreType::ETH, CoordSystem::PHYSICAL),
+                            CoordSystem::LOGICAL)
+                        .y;
+                cluster_desc->ethernet_connections_to_remote_devices[chip_id][channel] = {
+                    get_remote_asic_id(chip.get(), eth_core), remote_eth_id};
                 channel++;
                 continue;
             }
@@ -307,6 +316,15 @@ void TopologyDiscovery::discover_remote_chips() {
                 active_eth_channels_per_chip.at(new_remote_chip_id).insert(channel);
 
                 if (!is_board_id_included(get_remote_board_id(remote_chip_ptr, eth_core))) {
+                    tt_xy_pair remote_eth_core = get_remote_eth_core(chips.at(chip_id - 1).get(), eth_core);
+                    uint32_t remote_eth_id =
+                        mmio_chip->get_soc_descriptor()
+                            .translate_coord_to(
+                                CoreCoord(remote_eth_core.x, remote_eth_core.y, CoreType::ETH, CoordSystem::PHYSICAL),
+                                CoordSystem::LOGICAL)
+                            .y;
+                    cluster_desc->ethernet_connections_to_remote_devices[chip_id - 1][channel] = {
+                        get_remote_asic_id(chips.at(chip_id - 1).get(), eth_core), remote_eth_id};
                     channel++;
                     continue;
                 }

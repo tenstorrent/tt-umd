@@ -159,6 +159,10 @@ void TopologyDiscovery::get_pcie_connected_chips() {
 }
 
 uint64_t TopologyDiscovery::get_asic_id(Chip* chip) {
+    // This function should return a unique ID for the chip. At the moment we are going to use mangled board ID
+    // and asic location from active (connected) ETH cores. If we have multiple ETH cores, we will use the first one.
+    // If we have no ETH cores, we will use the board ID, since no other chip can have the same board ID.
+    // Using board ID should happen only for unconnected N150.
     const uint32_t eth_unknown = 0;
     const uint32_t eth_unconnected = 1;
     std::vector<CoreCoord> eth_cores =
@@ -240,14 +244,13 @@ void TopologyDiscovery::discover_remote_chips() {
                 remote_tt_devices_to_discover.emplace(remote_asic_id, std::move(remote_tt_device));
                 remote_asic_id_to_mmio_chip_id.emplace(remote_asic_id, chip_id);
             } else {
-                chip_id_t current_chip_id = asic_id_to_chip_id.at(current_chip_asic_id);
                 chip_id_t remote_chip_id = asic_id_to_chip_id.at(remote_asic_id);
                 Chip* remote_chip = chips.at(remote_chip_id).get();
                 CoreCoord physical_remote_eth =
                     CoreCoord(remote_eth_core.x, remote_eth_core.y, CoreType::ETH, CoordSystem::PHYSICAL);
                 CoreCoord logical_remote_eth =
                     remote_chip->get_soc_descriptor().translate_coord_to(physical_remote_eth, CoordSystem::LOGICAL);
-                ethernet_connections.push_back({{current_chip_id, channel}, {remote_chip_id, logical_remote_eth.y}});
+                ethernet_connections.push_back({{chip_id, channel}, {remote_chip_id, logical_remote_eth.y}});
             }
             channel++;
         }

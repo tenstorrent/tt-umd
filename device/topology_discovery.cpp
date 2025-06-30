@@ -44,6 +44,7 @@ TopologyDiscovery::EthAddresses TopologyDiscovery::get_eth_addresses(uint32_t et
     uint64_t erisc_local_board_type_offset;
     uint64_t erisc_local_board_id_lo_offset;
     uint64_t erisc_remote_board_id_lo_offset;
+    uint64_t erisc_remote_eth_id_offset;
 
     if (masked_version >= 0x060000) {
         node_info = 0x1100;
@@ -59,11 +60,13 @@ TopologyDiscovery::EthAddresses TopologyDiscovery::get_eth_addresses(uint32_t et
         erisc_local_board_type_offset = 69;
         erisc_remote_board_id_lo_offset = 72;
         erisc_local_board_id_lo_offset = 64;
+        erisc_remote_eth_id_offset = 76;
     } else {
         erisc_remote_board_type_offset = 72;
         erisc_local_board_type_offset = 64;
         erisc_remote_board_id_lo_offset = 73;
         erisc_local_board_id_lo_offset = 65;
+        erisc_remote_eth_id_offset = 77;
     }
 
     return TopologyDiscovery::EthAddresses{
@@ -74,7 +77,8 @@ TopologyDiscovery::EthAddresses TopologyDiscovery::get_eth_addresses(uint32_t et
         erisc_remote_board_type_offset,
         erisc_local_board_type_offset,
         erisc_local_board_id_lo_offset,
-        erisc_remote_board_id_lo_offset};
+        erisc_remote_board_id_lo_offset,
+        erisc_remote_eth_id_offset};
 }
 
 std::unique_ptr<RemoteWormholeTTDevice> TopologyDiscovery::create_remote_tt_device(
@@ -235,7 +239,6 @@ void TopologyDiscovery::discover_remote_chips() {
             std::unique_ptr<RemoteWormholeTTDevice> remote_tt_device =
                 create_remote_tt_device(chip.get(), eth_core, chip.get());
 
-            tt_xy_pair remote_eth_core = get_remote_eth_core(chip.get(), eth_core);
             uint64_t remote_asic_id = get_remote_asic_id(chip.get(), eth_core);
 
             if (discovered_chips.find(remote_asic_id) == discovered_chips.end()) {
@@ -244,11 +247,8 @@ void TopologyDiscovery::discover_remote_chips() {
             } else {
                 chip_id_t remote_chip_id = asic_id_to_chip_id.at(remote_asic_id);
                 Chip* remote_chip = chips.at(remote_chip_id).get();
-                CoreCoord physical_remote_eth =
-                    CoreCoord(remote_eth_core.x, remote_eth_core.y, CoreType::ETH, CoordSystem::PHYSICAL);
-                CoreCoord logical_remote_eth =
-                    remote_chip->get_soc_descriptor().translate_coord_to(physical_remote_eth, CoordSystem::LOGICAL);
-                ethernet_connections.push_back({{chip_id, channel}, {remote_chip_id, logical_remote_eth.y}});
+                ethernet_connections.push_back(
+                    {{chip_id, channel}, {remote_chip_id, get_remote_eth_id(chip.get(), eth_core)}});
             }
             channel++;
         }
@@ -313,8 +313,6 @@ void TopologyDiscovery::discover_remote_chips() {
                     continue;
                 }
 
-                tt_xy_pair remote_eth_core = get_remote_eth_core(remote_chip_ptr, eth_core);
-
                 uint64_t new_asic_id = get_remote_asic_id(remote_chip_ptr, {eth_core.x, eth_core.y});
 
                 if (discovered_chips.find(new_asic_id) == discovered_chips.end()) {
@@ -328,12 +326,9 @@ void TopologyDiscovery::discover_remote_chips() {
                     chip_id_t current_chip_id = asic_id_to_chip_id.at(asic_id_to_discover);
                     chip_id_t remote_chip_id = asic_id_to_chip_id.at(new_asic_id);
                     Chip* remote_chip = chips.at(remote_chip_id).get();
-                    CoreCoord physical_remote_eth =
-                        CoreCoord(remote_eth_core.x, remote_eth_core.y, CoreType::ETH, CoordSystem::PHYSICAL);
-                    CoreCoord logical_remote_eth =
-                        remote_chip->get_soc_descriptor().translate_coord_to(physical_remote_eth, CoordSystem::LOGICAL);
                     ethernet_connections.push_back(
-                        {{current_chip_id, channel}, {remote_chip_id, logical_remote_eth.y}});
+                        {{current_chip_id, channel},
+                         {remote_chip_id, get_remote_eth_id(remote_chip_ptr, {eth_core.x, eth_core.y})}});
                 }
                 channel++;
             }
@@ -479,6 +474,17 @@ uint32_t TopologyDiscovery::read_port_status(Chip* chip, tt_xy_pair eth_core, ui
         eth_addresses.eth_conn_info + (channel * 4),
         sizeof(uint32_t));
     return port_status;
+}
+
+uint32_t TopologyDiscovery::get_remote_eth_id(Chip* chip, tt_xy_pair local_eth_core) {
+    uint32_t remote_eth_id;
+    TTDevice* tt_device = chip->get_tt_device();
+    tt_device->read_from_device(
+        &remote_eth_id,
+        tt_cxy_pair(chip_id, local_eth_core.x, local_eth_core.y),
+        eth_addresses.results_buf + 4 * eth_addresses.erisc_remote_eth_id_offset,
+        sizeof(uint32_t));
+    return remote_eth_id;
 }
 
 }  // namespace tt::umd

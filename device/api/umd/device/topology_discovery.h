@@ -31,6 +31,7 @@ private:
         uint64_t erisc_local_board_type_offset;
         uint64_t erisc_local_board_id_lo_offset;
         uint64_t erisc_remote_board_id_lo_offset;
+        uint64_t erisc_remote_eth_id_offset;
     };
 
     static EthAddresses get_eth_addresses(uint32_t eth_fw_version);
@@ -84,6 +85,16 @@ private:
     // that we should override for T3K/6U/BH...
     // local_eth_core should be in physical (NOC0) coordinates.
     tt_xy_pair get_remote_eth_core(Chip* chip, tt_xy_pair local_eth_core);
+
+    // TODO: override this logic for different configs. This is in group of functions
+    // that we should override for T3K/6U/BH...
+    // eth_core should be in physical (NOC0) coordinates.
+    uint32_t get_local_eth_id(Chip* chip, tt_xy_pair eth_core);
+
+    // TODO: override this logic for different configs. This is in group of functions
+    // that we should override for T3K/6U/BH...
+    // local_eth_core should be in physical (NOC0) coordinates.
+    uint32_t get_remote_eth_id(Chip* chip, tt_xy_pair local_eth_core);
 
     // TODO: override this logic for different configs. This is in group of functions
     // that we should override for T3K/6U/BH..

@@ -296,6 +296,7 @@ void TopologyDiscovery::discover_remote_chips() {
             chips.emplace(chip_id, std::move(chip));
             active_eth_channels_per_chip.emplace(chip_id, std::set<uint32_t>());
             asic_id_to_chip_id.emplace(asic_id_to_discover, chip_id);
+            chip_id_t new_remote_chip_id = chip_id;
             chip_id++;
 
             uint32_t channel = 0;
@@ -307,21 +308,21 @@ void TopologyDiscovery::discover_remote_chips() {
                     continue;
                 }
 
-                active_eth_channels_per_chip.at(chip_id - 1).insert(channel);
+                active_eth_channels_per_chip.at(new_remote_chip_id).insert(channel);
 
-                if (!is_board_id_included(get_remote_board_id(chips.at(chip_id - 1).get(), eth_core))) {
+                if (!is_board_id_included(get_remote_board_id(remote_chip_ptr, eth_core))) {
                     channel++;
                     continue;
                 }
 
-                tt_xy_pair remote_eth_core = get_remote_eth_core(chips.at(chip_id - 1).get(), eth_core);
+                tt_xy_pair remote_eth_core = get_remote_eth_core(remote_chip_ptr, eth_core);
 
-                uint64_t new_asic_id = get_remote_asic_id(chips.at(chip_id - 1).get(), {eth_core.x, eth_core.y});
+                uint64_t new_asic_id = get_remote_asic_id(remote_chip_ptr, {eth_core.x, eth_core.y});
 
                 if (discovered_chips.find(new_asic_id) == discovered_chips.end()) {
                     if (remote_chips_to_discover.find(new_asic_id) == remote_chips_to_discover.end()) {
                         std::unique_ptr<RemoteWormholeTTDevice> new_remote_tt_device =
-                            create_remote_tt_device(chips.at(chip_id - 1).get(), {eth_core.x, eth_core.y}, mmio_chip);
+                            create_remote_tt_device(remote_chip_ptr, {eth_core.x, eth_core.y}, mmio_chip);
                         new_remote_chips.insert(new_asic_id);
                         new_tt_devices.emplace(new_asic_id, std::move(new_remote_tt_device));
                         remote_asic_id_to_mmio_chip_id.emplace(new_asic_id, mmio_chip_id);

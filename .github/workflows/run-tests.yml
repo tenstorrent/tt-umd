@@ -35,15 +35,15 @@ jobs:
     name: Run tests for ${{ inputs.arch }} on ${{ inputs.card }} on ${{ inputs.ubuntu-docker-version }}
     runs-on:
       - ${{ inputs.card }}
-    # container:
-    #   image: ghcr.io/${{ github.repository }}/tt-umd-ci-${{ inputs.ubuntu-docker-version }}:latest
-    #   options: --user root ${{ inputs.arch != 'baremetal' && '--device /dev/tenstorrent' || '' }}
-    #   volumes:
-    #     - /dev/hugepages:/dev/hugepages
-    #     - /dev/hugepages-1G:/dev/hugepages-1G
-    #     - /etc/udev/rules.d:/etc/udev/rules.d
-    #     - /lib/modules:/lib/modules
-    #     - /opt/tt_metal_infra/provisioning/provisioning_env:/opt/tt_metal_infra/provisioning/provisioning_env
+    container:
+      image: ghcr.io/${{ github.repository }}/tt-umd-ci-${{ inputs.ubuntu-docker-version }}:latest
+      options: --user root --privileged ${{ inputs.arch != 'baremetal' && '--device /dev/tenstorrent' || '' }}
+      volumes:
+        - /dev/hugepages:/dev/hugepages
+        - /dev/hugepages-1G:/dev/hugepages-1G
+        - /etc/udev/rules.d:/etc/udev/rules.d
+        - /lib/modules:/lib/modules
+        - /opt/tt_metal_infra/provisioning/provisioning_env:/opt/tt_metal_infra/provisioning/provisioning_env
 
     env:
       LD_LIBRARY_PATH: ./build/lib

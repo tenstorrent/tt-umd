@@ -120,14 +120,14 @@ jobs:
 
       - name: Change dir to metal
         run: |
-          cd /opt/runner/_work/tt-metal
+          cd /opt/runner/_work/tt-umd/tt-umd/tt-metal
           echo "Changed directory to tt-metal"
           pwd
 
       - name: 🐍 Build wheel
         uses: pypa/cibuildwheel@v2.23.2
         env:
-          CIBW_BEFORE_ALL: cd /opt/runner/_work/tt-metal
+          CIBW_BEFORE_ALL: cd /opt/runner/_work/tt-umd/tt-umd/tt-metal
           CIBW_BUILD_FRONTEND: build
           CIBW_ENVIRONMENT: >-
             CCACHE_TEMPDIR=/tmp/ccache

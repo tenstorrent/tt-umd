@@ -118,6 +118,12 @@ jobs:
             echo "tt-metal directory does not exist."
           fi
 
+      - name: Change dir to metal
+        run: |
+          cd /opt/runner/_work/tt-metal
+          echo "Changed directory to tt-metal"
+          pwd
+
       - name: 🐍 Build wheel
         uses: pypa/cibuildwheel@v2.23.2
         env:

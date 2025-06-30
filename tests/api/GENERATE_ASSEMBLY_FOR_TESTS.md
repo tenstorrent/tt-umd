@@ -62,3 +62,5 @@ and the machine instructions in hex look like this:
 0x00e7a023 // sw  a4,0(a5)
 0x0000006f // jal x0, 0   
 ```
+
+**Note:** The BRISC core always starts running code at address `0x00000000`, while the other cores can start at different, configurable addresses. Because of this, make sure to set the starting addresses for the other cores before running the program.

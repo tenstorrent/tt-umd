@@ -13,6 +13,10 @@ on:
       card:
         required: true
         type: string
+      use-latest-kmd:
+        required: false
+        type: boolean
+        default: false
       timeout:
         required: true
         type: number
@@ -45,6 +49,28 @@ jobs:
       LD_LIBRARY_PATH: ./build/lib
 
     steps:
+      - name: Fetch newest tt-kmd
+        if: ${{ inputs.use-latest-kmd }}
+        uses: actions/checkout@v4
+        with:
+          path: tt-kmd
+          repository: tenstorrent/tt-kmd
+          submodules: recursive
+
+      - name: Load newest tt-kmd
+        if: ${{ inputs.use-latest-kmd }}
+        # Figure out how to get the version of tt-kmd
+        run: |
+          cd tt-kmd
+          sudo dkms add .
+          sudo dkms install tenstorrent/2.0.0
+          sudo modprobe tenstorrent
+
+      - name: Show kernel module
+        run: |
+          lsmod
+          modinfo tenstorrent
+
       - name: Cleanup tt-umd dir, and change directory as if we were in a github.repository
         run: |
           rm -rf tt-umd

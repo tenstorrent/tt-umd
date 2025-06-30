@@ -59,4 +59,5 @@ jobs:
       arch: ${{ matrix.test-group.arch}}
       ubuntu-docker-version: ${{ matrix.ubuntu-docker-version}}
       card: ${{ matrix.test-group.card}}
+      use-latest-kmd: ${{ matrix.test-group.card == 'tt-beta-ubuntu-2204-n150-viommu-large-stable' }}
       timeout: ${{ matrix.test-group.timeout}}

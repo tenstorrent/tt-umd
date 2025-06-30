@@ -121,7 +121,7 @@ jobs:
       - name: 🐍 Build wheel
         uses: pypa/cibuildwheel@v2.23.2
         env:
-          CIBW_BEFORE_ALL: cd tt-metal
+          CIBW_BEFORE_ALL: cd /opt/runner/_work/tt-metal
           CIBW_BUILD_FRONTEND: build
           CIBW_ENVIRONMENT: >-
             CCACHE_TEMPDIR=/tmp/ccache

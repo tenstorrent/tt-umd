@@ -69,11 +69,6 @@ jobs:
     #     TRACY_NO_ISA_EXTENSIONS: 1
     #   options: --user root
 
-    defaults:
-      run:
-        shell: bash
-        working-directory: /work
-
     steps:
       - name: Checkout tt-metal repo
         uses: actions/checkout@v4
@@ -111,6 +106,7 @@ jobs:
       - name: 🐍 Build wheel
         uses: pypa/cibuildwheel@v2.23.2
         env:
+          CIBW_BEFORE_ALL: cd tt-metal
           CIBW_BUILD_FRONTEND: build
           CIBW_ENVIRONMENT: >-
             CCACHE_TEMPDIR=/tmp/ccache

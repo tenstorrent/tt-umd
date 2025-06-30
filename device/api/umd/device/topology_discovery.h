@@ -103,6 +103,8 @@ private:
 
     // All board ids that should be included in the cluster descriptor.
     std::unordered_set<uint32_t> board_ids;
+
+    std::unordered_map<chip_id_t, std::set<uint32_t>> active_eth_channels_per_chip;
 };
 
 }  // namespace tt::umd

@@ -14,7 +14,7 @@ class tt_ClusterDescriptor;
 namespace tt::umd {
 
 // TopologyDiscovery class creates cluster descriptor only for Wormhole configurations with old routing fw.
-// TODO: Move Blackhole and 6U topology discovery to this class.
+// TODO: Move Blackhole topology discovery to this class.
 class TopologyDiscovery {
 public:
     TopologyDiscovery(std::unordered_set<chip_id_t> pci_target_devices = {}, const std::string& sdesc_path = "");

@@ -19,10 +19,10 @@ source code:
     }
 */
 inline constexpr std::array<uint32_t, 4> simple_brisc_program{
-    0x000107b7,  // lui a5,0x10
-    0x87654737,  // lui a4,0x87654
-    0x00e7a023,  // sw  a4,0(a5)
-    0x0000006f   // jal x0, 0
+    0x000107b7,  // lui     a5, 0x10         ; a5 = 0x10000
+    0x87654737,  // lui     a4, 0x87654      ; a4 = 0x87654000
+    0x00e7a023,  // sw      a4, 0(a5)        ; store a4 at memory[a5 + 0]
+    0x0000006f   // jal     zero, 0          ; infinite loop
 };
 
 /*
@@ -37,7 +37,7 @@ source code:
         }
     }
 */
-inline std::array<uint32_t, 6> counter_brisc_program{
+inline constexpr std::array<uint32_t, 6> counter_brisc_program{
     0x00010737,  // lui     a4, 0x10         ; a4 = 0x10000
     0x00072023,  // sw      zero, 0(a4)      ; clear memory
     0x00072783,  // lw      a5, 0(a4)        ; load word
@@ -76,19 +76,19 @@ source code:
         while (true);
     }
 */
-constexpr std::array<uint32_t, 14> brisc_configuration_program{
-    0xffef07b7,  // lui    a5,0xffef0        ; Load upper immediate
-    0x00700713,  // li     a4,7              ; addi a4, zero, 7
-    0x28e7a223,  // sw     a4,644(a5)        ; store a4 at offset 644 from a5
-    0x00100713,  // li     a4,1              ; addi a4, zero, 1
-    0x28e7a623,  // sw     a4,652(a5)        ; store a4 at offset 652 from a5
-    0x00020737,  // lui    a4,0x20           ; load upper immediate 0x20 into a4
-    0x26e7ac23,  // sw     a4,632(a5)        ; store a4 at offset 632 from a5
-    0x00030737,  // lui    a4,0x30           ; load upper immediate 0x30 into a4
-    0x26e7ae23,  // sw     a4,636(a5)        ; store a4 at offset 636 from a5
-    0x00040737,  // lui    a4,0x40           ; load upper immediate 0x40 into a4
-    0x28e7a023,  // sw     a4,640(a5)        ; store a4 at offset 640 from a5
-    0x00050737,  // lui    a4,0x50           ; load upper immediate 0x50 into a4
-    0x28e7a423,  // sw     a4,648(a5)        ; store a4 at offset 648 from a5
-    0x0000006f   // jal    zero, 34          ; jump to PC + 34 (infinite loop)
+inline constexpr std::array<uint32_t, 14> brisc_configuration_program{
+    0xffef07b7,  // lui    a5,0xffef0       ; Load upper immediate
+    0x00700713,  // li     a4,7             ; addi a4, zero, 7
+    0x28e7a223,  // sw     a4,644(a5)       ; store a4 at offset 644 from a5
+    0x00100713,  // li     a4,1             ; addi a4, zero, 1
+    0x28e7a623,  // sw     a4,652(a5)       ; store a4 at offset 652 from a5
+    0x00020737,  // lui    a4,0x20          ; load upper immediate 0x20 into a4
+    0x26e7ac23,  // sw     a4,632(a5)       ; store a4 at offset 632 from a5
+    0x00030737,  // lui    a4,0x30          ; load upper immediate 0x30 into a4
+    0x26e7ae23,  // sw     a4,636(a5)       ; store a4 at offset 636 from a5
+    0x00040737,  // lui    a4,0x40          ; load upper immediate 0x40 into a4
+    0x28e7a023,  // sw     a4,640(a5)       ; store a4 at offset 640 from a5
+    0x00050737,  // lui    a4,0x50          ; load upper immediate 0x50 into a4
+    0x28e7a423,  // sw     a4,648(a5)       ; store a4 at offset 648 from a5
+    0x0000006f   // jal    zero, 34         ; infinite loop
 };

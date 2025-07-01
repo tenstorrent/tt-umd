@@ -1191,7 +1191,8 @@ std::unique_ptr<tt_ClusterDescriptor> Cluster::create_cluster_descriptor(
 
         // Topology discovery from source is supported for Wormhole UBB at the moment,
         // other Wormhole specs need to go through a legacy create-ethernet-map.
-        if (!tt_devices.empty() && tt_devices[0]->get_board_type() != BoardType::UBB) {
+        if (!tt_devices.empty()) {
+            std::cout << "Calling topology discovery for Wormhole UBB." << std::endl;
             return TopologyDiscovery(pci_target_devices).create_ethernet_map();
         }
 

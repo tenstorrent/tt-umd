@@ -16,6 +16,8 @@ extern bool umd_use_noc1;
 
 namespace tt::umd {
 
+static_assert(!std::is_abstract<RemoteChip>(), "RemoteChip must be non-abstract.");
+
 RemoteChip::RemoteChip(tt_SocDescriptor soc_descriptor, std::unique_ptr<RemoteWormholeTTDevice> remote_tt_device) :
     Chip(soc_descriptor) {
     local_chip_ = remote_tt_device->get_local_chip();
@@ -39,6 +41,26 @@ void RemoteChip::write_to_device(tt_xy_pair core, const void* src, uint64_t l1_d
 void RemoteChip::read_from_device(tt_xy_pair core, void* dest, uint64_t l1_src, uint32_t size) {
     auto translated_core = translate_chip_coord_virtual_to_translated(core);
     tt_device_->read_from_device(dest, translated_core, l1_src, size);
+}
+
+void RemoteChip::write_to_device_reg(tt_xy_pair core, const void* src, uint64_t reg_dest, uint32_t size) {
+    write_to_device(core, src, reg_dest, size);
+}
+
+void RemoteChip::read_from_device_reg(tt_xy_pair core, void* dest, uint64_t reg_src, uint32_t size) {
+    read_from_device(core, dest, reg_src, size);
+}
+
+void RemoteChip::dma_write_to_device(const void* src, size_t size, tt_xy_pair core, uint64_t addr) {
+    throw std::runtime_error("RemoteChip::dma_write_to_device is not available for this chip.");
+}
+
+void RemoteChip::dma_read_from_device(void* dst, size_t size, tt_xy_pair core, uint64_t addr) {
+    throw std::runtime_error("RemoteChip::dma_read_from_device is not available for this chip.");
+}
+
+std::function<void(uint32_t, uint32_t, const uint8_t*)> RemoteChip::get_fast_pcie_static_tlb_write_callable() {
+    throw std::runtime_error("RemoteChip::get_fast_pcie_static_tlb_write_callable is not available for this chip.");
 }
 
 // TODO: This translation should go away when we start using CoreCoord everywhere.
@@ -89,5 +111,37 @@ void RemoteChip::set_power_state(tt_DevicePowerState state) {
 }
 
 int RemoteChip::get_clock() { return tt_device_->get_clock(); }
+
+int RemoteChip::get_num_host_channels() { return 0; }
+
+int RemoteChip::get_host_channel_size(std::uint32_t channel) {
+    throw std::runtime_error("There are no host channels available.");
+}
+
+void RemoteChip::write_to_sysmem(uint16_t channel, const void* src, uint64_t sysmem_dest, uint32_t size) {
+    throw std::runtime_error("RemoteChip::write_to_sysmem is not available for this chip.");
+}
+
+void RemoteChip::read_from_sysmem(uint16_t channel, void* dest, uint64_t sysmem_src, uint32_t size) {
+    throw std::runtime_error("RemoteChip::read_from_sysmem is not available for this chip.");
+}
+
+int RemoteChip::get_numa_node() {
+    throw std::runtime_error("RemoteChip::get_numa_node is not available for this chip.");
+}
+
+void RemoteChip::set_remote_transfer_ethernet_cores(const std::unordered_set<tt::umd::CoreCoord>& cores) {}
+
+void RemoteChip::set_remote_transfer_ethernet_cores(const std::set<uint32_t>& channel) {}
+
+TTDevice* RemoteChip::get_tt_device() { return tt_device_.get(); }
+
+SysmemManager* RemoteChip::get_sysmem_manager() {
+    throw std::runtime_error("RemoteChip::get_sysmem_manager is not available for this chip.");
+}
+
+TLBManager* RemoteChip::get_tlb_manager() {
+    throw std::runtime_error("RemoteChip::get_tlb_manager is not available for this chip.");
+}
 
 }  // namespace tt::umd

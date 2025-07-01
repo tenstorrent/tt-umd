@@ -153,11 +153,18 @@ void Chip::send_tensix_risc_reset(const TensixSoftResetOptions& soft_resets) {
 }
 
 void Chip::set_tensix_risc_reset(tt_xy_pair core, const TensixSoftResetOptions& selected_riscs) {
-    send_tensix_risc_reset(core, selected_riscs);
+    uint32_t tensix_risc_state = 0x00000000;
+    read_from_device_reg(core, &tensix_risc_state, 0xFFB121B0, sizeof(uint32_t));
+    TensixSoftResetOptions set_selected_riscs = static_cast<TensixSoftResetOptions>(tensix_risc_state) | selected_riscs;
+    send_tensix_risc_reset(core, set_selected_riscs);
 }
 
 void Chip::unset_tensix_risc_reset(tt_xy_pair core, const TensixSoftResetOptions& selected_riscs) {
-    send_tensix_risc_reset(core, invert_selected_options(selected_riscs));
+    uint32_t tensix_risc_state = 0x00000000;
+    read_from_device_reg(core, &tensix_risc_state, 0xFFB121B0, sizeof(uint32_t));
+    TensixSoftResetOptions set_selected_riscs =
+        static_cast<TensixSoftResetOptions>(tensix_risc_state) & invert_selected_options(selected_riscs);
+    send_tensix_risc_reset(core, set_selected_riscs);
 }
 
 uint32_t Chip::get_power_state_arc_msg(tt_DevicePowerState state) {

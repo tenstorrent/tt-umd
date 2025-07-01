@@ -28,9 +28,7 @@ TopologyDiscovery::TopologyDiscovery(std::unordered_set<chip_id_t> pci_target_de
 // For all the different configs we have (T3K, 6U, BH)...
 std::unique_ptr<tt_ClusterDescriptor> TopologyDiscovery::create_ethernet_map() {
     cluster_desc = std::unique_ptr<tt_ClusterDescriptor>(new tt_ClusterDescriptor());
-    std::cout << "pcie connected chips" << std::endl;
     get_pcie_connected_chips();
-    std::cout << "discover remote chips" << std::endl;
     discover_remote_chips();
     fill_cluster_descriptor_info();
     return std::move(cluster_desc);
@@ -210,7 +208,9 @@ void TopologyDiscovery::discover_remote_chips() {
         discovered_chips.insert(current_chip_asic_id);
 
         // TODO: this neeeds to be moved to specific logic for Wormhole with legacy FW.
-        // eth_coords.emplace(chip_id, get_local_eth_coord(chip.get()));
+        if (chip->get_tt_device()->get_board_type() != BoardType::UBB) {
+            eth_coords.emplace(chip_id, get_local_eth_coord(chip.get()));
+        }
     }
 
     for (const auto& [chip_id, chip] : chips) {
@@ -220,8 +220,6 @@ void TopologyDiscovery::discover_remote_chips() {
         TTDevice* tt_device = chip->get_tt_device();
 
         uint64_t current_chip_asic_id = get_asic_id(chip.get());
-
-        std::cout << "Chip id " << chip_id << std::endl;
 
         uint32_t channel = 0;
         for (const CoreCoord& eth_core : eth_cores) {
@@ -260,10 +258,7 @@ void TopologyDiscovery::discover_remote_chips() {
         chip->set_remote_transfer_ethernet_cores(active_eth_channels_per_chip.at(chip_id));
     }
 
-    std::cout << "finished discovering from pcie connected chips" << std::endl;
-
     if (remote_chips_to_discover.empty()) {
-        std::cout << "returning" << std::endl;
         return;
     }
 
@@ -295,7 +290,9 @@ void TopologyDiscovery::discover_remote_chips() {
             Chip* remote_chip_ptr = chip.get();
 
             // TODO: this neeeds to be moved to specific logic for Wormhole with legacy FW.
-            eth_coords.emplace(chip_id, get_local_eth_coord(remote_chip_ptr));
+            if (remote_chip_ptr->get_tt_device()->get_board_type() != BoardType::UBB) {
+                eth_coords.emplace(chip_id, get_local_eth_coord(remote_chip_ptr));
+            }
 
             TTDevice* remote_tt_device_ptr = chip->get_tt_device();
 
@@ -361,9 +358,11 @@ void TopologyDiscovery::fill_cluster_descriptor_info() {
         cluster_desc->harvesting_masks.insert({chip_id, chip->get_chip_info().harvesting_masks.tensix_harvesting_mask});
         cluster_desc->harvesting_masks_map.insert({chip_id, chip->get_chip_info().harvesting_masks});
         // TODO: this neeeds to be moved to specific logic for Wormhole with legacy FW.
-        // eth_coord_t eth_coord = eth_coords.at(chip_id);
-        // cluster_desc->chip_locations.insert({chip_id, eth_coord});
-        // cluster_desc->coords_to_chip_ids[eth_coord.rack][eth_coord.shelf][eth_coord.y][eth_coord.x] = chip_id;
+        if (chip->get_tt_device()->get_board_type() != BoardType::UBB) {
+            eth_coord_t eth_coord = eth_coords.at(chip_id);
+            cluster_desc->chip_locations.insert({chip_id, eth_coord});
+            cluster_desc->coords_to_chip_ids[eth_coord.rack][eth_coord.shelf][eth_coord.y][eth_coord.x] = chip_id;
+        }
 
         cluster_desc->add_chip_to_board(chip_id, chip->get_chip_info().chip_uid.board_id);
     }

@@ -7,6 +7,17 @@
 #include <array>
 #include <cstdint>
 
+/*
+godbolt link example:
+    - https://godbolt.org/z/qne95Tso7
+
+source code:
+    int main() {
+        int* a = (int*)0x10000;
+        *a = 0x87654000;
+        while (true);
+    }
+*/
 inline constexpr std::array<uint32_t, 4> simple_brisc_program{
     0x000107b7,  // lui a5,0x10
     0x87654737,  // lui a4,0x87654
@@ -14,20 +25,70 @@ inline constexpr std::array<uint32_t, 4> simple_brisc_program{
     0x0000006f   // jal x0, 0
 };
 
+/*
+godbolt link example:
+    - https://godbolt.org/z/zr3a7j48h
+source code:
+    int main() {
+        volatile unsigned int* a = (unsigned int*)0x10000;
+        *a = 0;
+        while (true) {
+            (*a)++;
+        }
+    }
+*/
 inline std::array<uint32_t, 6> counter_brisc_program{
-    0x00010737,  // lui     a4, 0x10       ; a4 = 0x10000
-    0x00072023,  // sw      zero, 0(a4)    ; clear memory
-    0x00072783,  // lw      a5, 0(a4)      ; load word
-    0x00178793,  // addi    a5, a5, 1      ; increment
-    0x00f72023,  // sw      a5, 0(a4)      ; store back
-    0xff5ff06f,  // jal     zero, -12      ; jump back to .L2
+    0x00010737,  // lui     a4, 0x10         ; a4 = 0x10000
+    0x00072023,  // sw      zero, 0(a4)      ; clear memory
+    0x00072783,  // lw      a5, 0(a4)        ; load word
+    0x00178793,  // addi    a5, a5, 1        ; increment
+    0x00f72023,  // sw      a5, 0(a4)        ; store back
+    0xff5ff06f,  // jal     zero, -12        ; jump back to .L2
 };
 
-constexpr std::array<uint32_t, 6> my_counter_brisc_program{
-    0x000107b7,  // lui     a5, 0x10      ; a5 = 0x10000
-    0x0007a023,  // sw      zero, 0(a5)   ; *a5 = 0
-    0x0007a583,  // lw      a1, 0(a5)     ; a1 = *a5
-    0x00158593,  // addi    a1, a1, 1     ; a1 += 1
-    0x00b7a023,  // sw      a1, 0(a5)     ; *a5 = a1
-    0xff5ff06f,  // jal     zero, -12     ; jump to .L2
+/*
+godbolt link example:
+    - https://godbolt.org/z/h3snvs595
+
+source code:
+    int main() {
+        static constexpr unsigned int TRISC_RESET_PC_OVERRIDE_Reset_PC_Override_en {0xFFEF'0000 + 4*161};
+        static constexpr unsigned int NCRISC_RESET_PC_OVERRIDE_Reset_PC_Override_en {0xFFEF'0000 + 4*163};
+        unsigned int* trisc_overrride_enable_reg_addr = (unsigned int*)TRISC_RESET_PC_OVERRIDE_Reset_PC_Override_en;
+        unsigned int* ncrisc_overrride_enable_reg_addr = (unsigned int*)NCRISC_RESET_PC_OVERRIDE_Reset_PC_Override_en;
+        *trisc_overrride_enable_reg_addr = 0xFFFF'FFFF & 0x0000'0007;
+        *ncrisc_overrride_enable_reg_addr = 0xFFFF'FFFF & 0x0000'0001;
+
+        static constexpr unsigned int TRISC_RESET_PC_SEC0_PC {0xFFEF'0000 + 4*158};
+        static constexpr unsigned int TRISC_RESET_PC_SEC1_PC {0xFFEF'0000 + 4*159};
+        static constexpr unsigned int TRISC_RESET_PC_SEC2_PC {0xFFEF'0000 + 4*160};
+        static constexpr unsigned int NCRISC_RESET_PC_PC {0xFFEF'0000 + 4*162};
+        unsigned int* trisc0_code_start_reg_addr = (unsigned int*)TRISC_RESET_PC_SEC0_PC;
+        unsigned int* trisc1_code_start_reg_addr = (unsigned int*)TRISC_RESET_PC_SEC1_PC;
+        unsigned int* trisc2_code_start_reg_addr = (unsigned int*)TRISC_RESET_PC_SEC2_PC;
+        unsigned int* ncrisc_code_start_reg_addr = (unsigned int*)NCRISC_RESET_PC_PC;
+
+        *trisc0_code_start_reg_addr = 0x2'0000;
+        *trisc1_code_start_reg_addr = 0x3'0000;
+        *trisc2_code_start_reg_addr = 0x4'0000;
+        *ncrisc_code_start_reg_addr = 0x5'0000;
+
+        while (true);
+    }
+*/
+constexpr std::array<uint32_t, 14> brisc_configuration_program{
+    0xffef07b7,  // lui    a5,0xffef0        ; Load upper immediate
+    0x00700713,  // li     a4,7              ; addi a4, zero, 7
+    0x28e7a223,  // sw     a4,644(a5)        ; store a4 at offset 644 from a5
+    0x00100713,  // li     a4,1              ; addi a4, zero, 1
+    0x28e7a623,  // sw     a4,652(a5)        ; store a4 at offset 652 from a5
+    0x00020737,  // lui    a4,0x20           ; load upper immediate 0x20 into a4
+    0x26e7ac23,  // sw     a4,632(a5)        ; store a4 at offset 632 from a5
+    0x00030737,  // lui    a4,0x30           ; load upper immediate 0x30 into a4
+    0x26e7ae23,  // sw     a4,636(a5)        ; store a4 at offset 636 from a5
+    0x00040737,  // lui    a4,0x40           ; load upper immediate 0x40 into a4
+    0x28e7a023,  // sw     a4,640(a5)        ; store a4 at offset 640 from a5
+    0x00050737,  // lui    a4,0x50           ; load upper immediate 0x50 into a4
+    0x28e7a423,  // sw     a4,648(a5)        ; store a4 at offset 648 from a5
+    0x0000006f   // jal    zero, 34          ; jump to PC + 34 (infinite loop)
 };

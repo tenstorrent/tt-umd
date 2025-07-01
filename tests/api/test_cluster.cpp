@@ -7,6 +7,7 @@
 #include <gtest/gtest.h>
 
 #include <algorithm>
+#include <cstdint>
 #include <cstdlib>  // for std::getenv
 #include <filesystem>
 #include <iostream>

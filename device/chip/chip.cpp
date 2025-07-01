@@ -6,9 +6,12 @@
 
 #include "umd/device/chip/chip.h"
 
+#include <cstdint>
+
 #include "assert.hpp"
 #include "umd/device/architecture_implementation.h"
 #include "umd/device/driver_atomics.h"
+#include "umd/device/tt_silicon_driver_common.hpp"
 #include "umd/device/wormhole_implementation.h"
 
 namespace tt::umd {

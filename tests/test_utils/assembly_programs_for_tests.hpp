@@ -22,3 +22,12 @@ inline std::array<uint32_t, 6> counter_brisc_program{
     0x00f72023,  // sw      a5, 0(a4)      ; store back
     0xff5ff06f,  // jal     zero, -12      ; jump back to .L2
 };
+
+constexpr std::array<uint32_t, 6> my_counter_brisc_program{
+    0x000107b7,  // lui     a5, 0x10      ; a5 = 0x10000
+    0x0007a023,  // sw      zero, 0(a5)   ; *a5 = 0
+    0x0007a583,  // lw      a1, 0(a5)     ; a1 = *a5
+    0x00158593,  // addi    a1, a1, 1     ; a1 += 1
+    0x00b7a023,  // sw      a1, 0(a5)     ; *a5 = a1
+    0xff5ff06f,  // jal     zero, -12     ; jump to .L2
+};

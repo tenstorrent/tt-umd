@@ -219,24 +219,31 @@ TEST(TestPerf, DMATensixMapBufferZeroCopy) {
 
     const CoreCoord tensix_core = cluster->get_soc_descriptor(mmio_chip).get_cores(CoreType::TENSIX)[0];
     {
-        void* mapping =
-            mmap(nullptr, one_mb, PROT_READ | PROT_WRITE, MAP_ANONYMOUS | MAP_PRIVATE | MAP_POPULATE, -1, 0);
+        void* mappings[NUM_ITERATIONS];
+        for (int i = 0; i < NUM_ITERATIONS; i++) {
+            mappings[i] =
+                mmap(nullptr, one_mb, PROT_READ | PROT_WRITE, MAP_ANONYMOUS | MAP_PRIVATE | MAP_POPULATE, -1, 0);
+        }
         auto now = std::chrono::steady_clock::now();
         for (int i = 0; i < NUM_ITERATIONS; i++) {
-            std::unique_ptr<SysmemBuffer> sysmem_buffer = sysmem_manager->map_sysmem_buffer(mapping, one_mb);
+            std::unique_ptr<SysmemBuffer> sysmem_buffer = sysmem_manager->map_sysmem_buffer(mappings[i], one_mb);
             sysmem_buffer->dma_write_to_device(0, one_mb, tensix_core, 0);
         }
         auto end = std::chrono::steady_clock::now();
         auto ns = std::chrono::duration_cast<std::chrono::nanoseconds>(end - now).count();
+
         print_speed("DMA mapping buffer and zero copy: Host -> Device Tensix L1", one_mb * NUM_ITERATIONS, ns);
     }
 
     {
-        void* mapping =
-            mmap(nullptr, one_mb, PROT_READ | PROT_WRITE, MAP_ANONYMOUS | MAP_PRIVATE | MAP_POPULATE, -1, 0);
+        void* mappings[NUM_ITERATIONS];
+        for (int i = 0; i < NUM_ITERATIONS; i++) {
+            mappings[i] =
+                mmap(nullptr, one_mb, PROT_READ | PROT_WRITE, MAP_ANONYMOUS | MAP_PRIVATE | MAP_POPULATE, -1, 0);
+        }
         auto now = std::chrono::steady_clock::now();
         for (int i = 0; i < NUM_ITERATIONS; i++) {
-            std::unique_ptr<SysmemBuffer> sysmem_buffer = sysmem_manager->map_sysmem_buffer(mapping, one_mb);
+            std::unique_ptr<SysmemBuffer> sysmem_buffer = sysmem_manager->map_sysmem_buffer(mappings[i], one_mb);
             sysmem_buffer->dma_read_from_device(0, one_mb, tensix_core, 0);
         }
         auto end = std::chrono::steady_clock::now();

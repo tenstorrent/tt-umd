@@ -28,7 +28,7 @@ static const uint16_t GS_PCIE_DEVICE_ID = 0xfaca;
 static const uint16_t WH_PCIE_DEVICE_ID = 0x401e;
 static const uint16_t BH_PCIE_DEVICE_ID = 0xb140;
 
-static const size_t DMABUF_SIZE = (1 << 20);                   // 1 MiB
+static const size_t DMABUF_SIZE = (1 << 19);                   // 1 MiB
 static const size_t DMABUF_TOTAL_SIZE = DMABUF_SIZE + 0x1000;  // Extra page for completion
 
 // TODO: we'll have to rethink this when KMD takes control of the inbound PCIe

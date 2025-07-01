@@ -17,7 +17,7 @@ namespace tt::umd {
 // TODO: Move Blackhole and 6U topology discovery to this class.
 class TopologyDiscovery {
 public:
-    TopologyDiscovery(std::unordered_set<chip_id_t> pci_target_devices = {});
+    TopologyDiscovery(std::unordered_set<chip_id_t> pci_target_devices = {}, const std::string& sdesc_path = "");
     std::unique_ptr<tt_ClusterDescriptor> create_ethernet_map();
 
 private:
@@ -88,11 +88,6 @@ private:
 
     // TODO: override this logic for different configs. This is in group of functions
     // that we should override for T3K/6U/BH...
-    // eth_core should be in physical (NOC0) coordinates.
-    uint32_t get_local_eth_id(Chip* chip, tt_xy_pair eth_core);
-
-    // TODO: override this logic for different configs. This is in group of functions
-    // that we should override for T3K/6U/BH...
     // local_eth_core should be in physical (NOC0) coordinates.
     uint32_t get_remote_eth_id(Chip* chip, tt_xy_pair local_eth_core);
 
@@ -127,6 +122,8 @@ private:
     std::unordered_set<uint32_t> board_ids;
 
     std::unordered_map<chip_id_t, std::set<uint32_t>> active_eth_channels_per_chip;
+
+    const std::string sdesc_path;
 };
 
 }  // namespace tt::umd

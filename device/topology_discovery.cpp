@@ -20,8 +20,8 @@ extern bool umd_use_noc1;
 
 namespace tt::umd {
 
-TopologyDiscovery::TopologyDiscovery(std::unordered_set<chip_id_t> pci_target_devices) :
-    pci_target_devices(pci_target_devices) {}
+TopologyDiscovery::TopologyDiscovery(std::unordered_set<chip_id_t> pci_target_devices, const std::string& sdesc_path) :
+    pci_target_devices(pci_target_devices), sdesc_path(sdesc_path) {}
 
 // Functions called by create_ethernet_map should stay same for all configs as much as possible.
 // We should try and override functions for getting data from ETH core, creating remote communication etc..
@@ -138,7 +138,11 @@ void TopologyDiscovery::get_pcie_connected_chips() {
             continue;
         }
         std::unique_ptr<LocalChip> chip = nullptr;
-        chip = std::make_unique<LocalChip>(TTDevice::create(device_id));
+        if (sdesc_path != "") {
+            chip = std::make_unique<LocalChip>(sdesc_path, TTDevice::create(device_id));
+        } else {
+            chip = std::make_unique<LocalChip>(TTDevice::create(device_id));
+        }
 
         // ETH addresses need to be initialized after the first chip is created, so we could
         // read the information about offsets of board IDs on ETH core.
@@ -279,13 +283,18 @@ void TopologyDiscovery::discover_remote_chips() {
             ChipInfo chip_info = remote_tt_device->get_chip_info();
 
             std::unique_ptr<RemoteChip> chip = nullptr;
-            chip = std::make_unique<RemoteChip>(
-                tt_SocDescriptor(
-                    remote_tt_device->get_arch(),
-                    chip_info.noc_translation_enabled,
-                    chip_info.harvesting_masks,
-                    chip_info.board_type),
-                std::move(remote_tt_device));
+            if (sdesc_path != "") {
+                chip = std::make_unique<RemoteChip>(
+                    tt_SocDescriptor(sdesc_path, chip_info.noc_translation_enabled), std::move(remote_tt_device));
+            } else {
+                chip = std::make_unique<RemoteChip>(
+                    tt_SocDescriptor(
+                        remote_tt_device->get_arch(),
+                        chip_info.noc_translation_enabled,
+                        chip_info.harvesting_masks,
+                        chip_info.board_type),
+                    std::move(remote_tt_device));
+            }
 
             Chip* remote_chip_ptr = chip.get();
 

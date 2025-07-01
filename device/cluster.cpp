@@ -1066,34 +1066,7 @@ std::unique_ptr<tt_ClusterDescriptor> Cluster::create_cluster_descriptor(
 
         return Cluster::create_cluster_descriptor(chips);
     } else {
-        std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
-
-        std::vector<std::unique_ptr<TTDevice>> tt_devices;
-        for (auto& device_id : pci_device_ids) {
-            std::unique_ptr<TTDevice> tt_device = TTDevice::create(device_id);
-            tt_devices.push_back(std::move(tt_device));
-        }
-
-        // Topology discovery from source is supported for Wormhole UBB at the moment,
-        // other Wormhole specs need to go through a legacy create-ethernet-map.
-        if (!tt_devices.empty()) {
-            return TopologyDiscovery(pci_target_devices).create_ethernet_map();
-        }
-
-        std::unordered_map<chip_id_t, std::unique_ptr<Chip>> chips;
-        chip_id_t chip_id = 0;
-        for (auto& device_id : pci_device_ids) {
-            std::unique_ptr<LocalChip> chip = nullptr;
-            if (sdesc_path.empty()) {
-                chip = std::make_unique<LocalChip>(TTDevice::create(device_id));
-            } else {
-                chip = std::make_unique<LocalChip>(sdesc_path, TTDevice::create(device_id));
-            }
-            chips.emplace(chip_id, std::move(chip));
-            chip_id++;
-        }
-
-        return Cluster::create_cluster_descriptor(chips);
+        return TopologyDiscovery(pci_target_devices).create_ethernet_map();
     }
 }
 

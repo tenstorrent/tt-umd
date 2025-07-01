@@ -99,7 +99,7 @@ private:
 
     EthAddresses eth_addresses;
 
-    std::unordered_set<chip_id_t> pci_target_devices = {};
+    std::unordered_set<chip_id_t> pci_target_devices_ = {};
 
     // All board ids that should be included in the cluster descriptor.
     std::unordered_set<uint32_t> board_ids;

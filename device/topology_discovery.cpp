@@ -21,7 +21,15 @@ extern bool umd_use_noc1;
 namespace tt::umd {
 
 TopologyDiscovery::TopologyDiscovery(std::unordered_set<chip_id_t> pci_target_devices) :
-    pci_target_devices(pci_target_devices) {}
+    pci_target_devices_(pci_target_devices) {
+    // We are going to treat empty pci_target_devices as a request to enumerate all PCI devices.
+    // For now this is useful to not try and go outisde of the scope of single host.
+    // We might want to change that in the future but this is guarding us from that case at the moment.
+    if (pci_target_devices_.empty()) {
+        std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
+        pci_target_devices_ = std::unordered_set<int>(pci_device_ids.begin(), pci_device_ids.end());
+    }
+}
 
 std::unique_ptr<tt_ClusterDescriptor> TopologyDiscovery::create_ethernet_map() {
     cluster_desc = std::unique_ptr<tt_ClusterDescriptor>(new tt_ClusterDescriptor());
@@ -432,16 +440,12 @@ void TopologyDiscovery::fill_cluster_descriptor_info() {
     cluster_desc->fill_chips_grouped_by_closest_mmio();
 }
 
-// If pci_target_devices is empty, we should take all the PCI devices found in the system.
-// That is why we have the first part of the condition.
 bool TopologyDiscovery::is_pcie_chip_id_included(int pci_id) const {
-    return pci_target_devices.empty() || pci_target_devices.find(pci_id) != pci_target_devices.end();
+    return pci_target_devices_.find(pci_id) != pci_target_devices_.end();
 }
 
-// If pci_target_devices is empty, we should take all the PCI devices found in the system.
-// That is why we have the first part of the condition.
 bool TopologyDiscovery::is_board_id_included(uint32_t board_id) const {
-    return pci_target_devices.empty() || board_ids.find(board_id) != board_ids.end();
+    return board_ids.find(board_id) != board_ids.end();
 }
 
 uint32_t TopologyDiscovery::get_remote_board_id(Chip* chip, tt_xy_pair eth_core) {

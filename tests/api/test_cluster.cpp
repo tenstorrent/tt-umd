@@ -550,25 +550,21 @@ TEST(TestCluster, DeassertResetWithCounterBrisc) {
     }
 }
 
-TEST(TestCluster, DeassertResetTensixRiscs) {
-    std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
+using TestTuple = std::tuple<uint64_t, uint32_t, std::array<uint32_t, 6>, TensixSoftResetOptions>;
+using TestCase = std::vector<TestTuple>;
 
-    if (cluster->get_target_device_ids().empty()) {
-        GTEST_SKIP() << "No chips present on the system. Skipping test.";
-    }
+std::vector<TestCase> generateAllTupleCombinations() {
+    // https://godbolt.org/z/W4M3rM1bf
 
-    constexpr uint64_t brisc_code_address = 0x00000000;
-    constexpr uint64_t trisc0_code_address = 0x00020000;
-    constexpr uint64_t trisc1_code_address = 0x00030000;
-    constexpr uint64_t trisc2_code_address = 0x00040000;
-    constexpr uint64_t ncrisc_code_address = 0x00050000;
+    static constexpr uint64_t trisc0_code_address = 0x00020000;
+    static constexpr uint64_t trisc1_code_address = 0x00030000;
+    static constexpr uint64_t trisc2_code_address = 0x00040000;
+    static constexpr uint64_t ncrisc_code_address = 0x00050000;
 
-    constexpr uint32_t trisc0_counter_address = 0x00002000;
-    constexpr uint32_t trisc1_counter_address = 0x00003000;
-    constexpr uint32_t trisc2_counter_address = 0x00004000;
-    constexpr uint32_t ncrisc_counter_address = 0x00005000;
-
-    constexpr uint32_t register_instruction = 0x00000737;
+    static constexpr uint32_t trisc0_counter_address = 0x00002000;
+    static constexpr uint32_t trisc1_counter_address = 0x00003000;
+    static constexpr uint32_t trisc2_counter_address = 0x00004000;
+    static constexpr uint32_t ncrisc_counter_address = 0x00005000;
 
     // This lambda changes has the same program as counter_brisc_program and it changes the location
     // where the counter is stored.
@@ -580,6 +576,8 @@ TEST(TestCluster, DeassertResetTensixRiscs) {
         return instructions;
     };
 
+    constexpr uint32_t register_instruction = 0x00000737;
+
     constexpr std::array<uint32_t, 6> trisc0_program{
         make_counter_program(trisc0_counter_address | register_instruction)};
     constexpr std::array<uint32_t, 6> trisc1_program{
@@ -588,6 +586,87 @@ TEST(TestCluster, DeassertResetTensixRiscs) {
         make_counter_program(trisc2_counter_address | register_instruction)};
     constexpr std::array<uint32_t, 6> ncrisc_program{
         make_counter_program(ncrisc_counter_address | register_instruction)};
+
+    std::vector<TestTuple> base = {
+        {trisc0_code_address, trisc0_counter_address, trisc0_program, TensixSoftResetOptions::TRISC0},
+        {trisc1_code_address, trisc1_counter_address, trisc1_program, TensixSoftResetOptions::TRISC1},
+        {trisc2_code_address, trisc2_counter_address, trisc2_program, TensixSoftResetOptions::TRISC2},
+        {ncrisc_code_address, ncrisc_counter_address, ncrisc_program, TensixSoftResetOptions::NCRISC}};
+
+    std::vector<TestCase> result;
+
+    size_t n = base.size();
+    for (size_t mask = 1; mask < (1 << n); ++mask) {
+        TestCase subset;
+        for (size_t i = 0; i < n; ++i) {
+            if (mask & (1 << i)) {
+                subset.push_back(base[i]);
+            }
+        }
+        result.push_back(subset);
+    }
+    return result;
+}
+
+class TupleCombinationTest : public ::testing::TestWithParam<TestCase> {};
+
+TEST_P(TupleCombinationTest, TestEachCombination) {
+    const auto& tuples = GetParam();
+
+    TensixSoftResetOptions combined{TensixSoftResetOptions::NONE};
+    for (const auto& t : tuples) {
+        auto [addr1, addr2, arr, e] = t;
+        combined = combined | e;
+        // Your test logic here
+        // Example:
+        std::cout << std::hex << addr1 << " " << addr2 << " " << static_cast<uint32_t>(e) << "\n";
+        ASSERT_TRUE(addr1 != 0);  // dummy assertion
+    }
+    std::cout << std::hex << static_cast<uint32_t>(combined) << "\n";
+}
+
+INSTANTIATE_TEST_SUITE_P(
+    AllTupleCombinations, TupleCombinationTest, ::testing::ValuesIn(generateAllTupleCombinations()));
+
+TEST(TestCluster, DeassertResetTensixRiscs) {
+    std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
+
+    if (cluster->get_target_device_ids().empty()) {
+        GTEST_SKIP() << "No chips present on the system. Skipping test.";
+    }
+
+    static constexpr uint64_t trisc0_code_address = 0x00020000;
+    static constexpr uint64_t trisc1_code_address = 0x00030000;
+    static constexpr uint64_t trisc2_code_address = 0x00040000;
+    static constexpr uint64_t ncrisc_code_address = 0x00050000;
+
+    static constexpr uint32_t trisc0_counter_address = 0x00002000;
+    static constexpr uint32_t trisc1_counter_address = 0x00003000;
+    static constexpr uint32_t trisc2_counter_address = 0x00004000;
+    static constexpr uint32_t ncrisc_counter_address = 0x00005000;
+
+    // This lambda changes has the same program as counter_brisc_program and it changes the location
+    // where the counter is stored.
+    // Note: This address must have the first 4 nibbles set to 0 as the machine instruction used is lui
+    // which expects this behavior
+    constexpr auto make_counter_program = [](uint32_t counter_address_instruction) constexpr {
+        std::array<uint32_t, 6> instructions = {counter_brisc_program};  // first element is a placeholder
+        instructions[0] = counter_address_instruction;
+        return instructions;
+    };
+
+    constexpr uint32_t register_instruction = 0x00000737;
+
+    constexpr std::array<uint32_t, 6> trisc0_program{
+        make_counter_program(trisc0_counter_address | register_instruction)};
+    constexpr std::array<uint32_t, 6> trisc1_program{
+        make_counter_program(trisc1_counter_address | register_instruction)};
+    constexpr std::array<uint32_t, 6> trisc2_program{
+        make_counter_program(trisc2_counter_address | register_instruction)};
+    constexpr std::array<uint32_t, 6> ncrisc_program{
+        make_counter_program(ncrisc_counter_address | register_instruction)};
+
+    constexpr uint64_t brisc_code_address = 0x00000000;
 
     uint32_t first_readback_value = 0x00000000;
     uint32_t second_readback_value = 0x00000000;

@@ -68,8 +68,13 @@ jobs:
         with:
           repository: tenstorrent/tt-metal
           submodules: recursive
-          fetch-depth: 500 # Need enough history for `git describe`
-          fetch-tags: true # Need tags for `git describe`
+
+      - name: Checkout UMD
+        uses: actions/checkout@v4
+        with:
+          # Clone directly into tt-metal directory for umd
+          path: tt_metal/third_party/umd
+          submodules: recursive
 
       - name: Set up Python 3.12
         uses: actions/setup-python@v4
@@ -101,6 +106,9 @@ jobs:
           else
             echo "tt-metal directory does not exist."
           fi
+
+          echo "print contents of current working directory:"
+          ls -la
 
       - name: 🐍 Build wheel
         uses: pypa/cibuildwheel@v2.23.2

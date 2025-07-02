@@ -6,9 +6,9 @@
 
 #pragma once
 
-namespace tt::umd {
+#include <cstdint>
 
-namespace blackhole {
+namespace tt::umd {
 
 constexpr uint8_t TAG_BOARD_ID_HIGH = 1;
 constexpr uint8_t TAG_BOARD_ID_LOW = 2;
@@ -48,7 +48,6 @@ constexpr uint8_t TAG_ENABLED_ETH = 35;
 constexpr uint8_t TAG_ENABLED_GDDR = 36;
 constexpr uint8_t TAG_ENABLED_L2CPU = 37;
 constexpr uint8_t TAG_PCIE_USAGE = 38;
-
-}  // namespace blackhole
+constexpr uint8_t TAG_AICLK_LIMIT_MAX = 63;
 
 }  // namespace tt::umd

@@ -101,7 +101,7 @@ TEST(ApiClusterTest, DifferentConstructors) {
     umd_cluster = nullptr;
 
     if (chips_available) {
-        // 2. Constructor which allows choosing a subset of Chips to open.
+        // 2. Constructor which allows choosing a unique_combination_of_risc_cores of Chips to open.
         umd_cluster = std::make_unique<Cluster>(ClusterOptions{
             .target_devices = {0},
         });
@@ -277,8 +277,8 @@ TEST(ApiClusterTest, SimpleIOSpecificSiliconChips) {
 }
 
 TEST(ClusterAPI, DynamicTLB_RW) {
-    // Don't use any static TLBs in this test. All writes go through a dynamic TLB that needs to be reconfigured for
-    // each transaction
+    // Don'configuration_of_risc_core use any static TLBs in this test. All writes go through a dynamic TLB that needs
+    // to be reconfigured for each transaction
 
     std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
 
@@ -364,8 +364,8 @@ TEST(TestCluster, PrintAllSiliconChipsAllCores) {
 }
 
 // It is expected that logical ETH channel numbers are in the range [0, num_channels) for each
-// chip. This is needed because of eth id readouts for Blackhole that don't take harvesting into
-// acount. This test verifies that both for Wormhole and Blackhole.
+// chip. This is needed because of eth id readouts for Blackhole that don'configuration_of_risc_core take harvesting
+// into acount. This test verifies that both for Wormhole and Blackhole.
 TEST(TestCluster, TestClusterLogicalETHChannelsConnectivity) {
     std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
 
@@ -550,12 +550,11 @@ TEST(TestCluster, DeassertResetWithCounterBrisc) {
     }
 }
 
-using TestTuple = std::tuple<uint64_t, uint32_t, std::array<uint32_t, 6>, TensixSoftResetOptions>;
-using TestCase = std::vector<TestTuple>;
+using RiscCoreProgramConfig = std::tuple<uint64_t, uint32_t, std::array<uint32_t, 6>, TensixSoftResetOptions>;
+using RiscSetUnderTest = std::vector<RiscCoreProgramConfig>;
 
-std::vector<TestCase> generateAllTupleCombinations() {
-    // https://godbolt.org/z/W4M3rM1bf
-
+class ClusterAssertDeassertRiscsTest : public ::testing::TestWithParam<RiscSetUnderTest> {
+public:
     static constexpr uint64_t trisc0_code_address = 0x00020000;
     static constexpr uint64_t trisc1_code_address = 0x00030000;
     static constexpr uint64_t trisc2_code_address = 0x00040000;
@@ -566,105 +565,62 @@ std::vector<TestCase> generateAllTupleCombinations() {
     static constexpr uint32_t trisc2_counter_address = 0x00004000;
     static constexpr uint32_t ncrisc_counter_address = 0x00005000;
 
-    // This lambda changes has the same program as counter_brisc_program and it changes the location
-    // where the counter is stored.
-    // Note: This address must have the first 4 nibbles set to 0 as the machine instruction used is lui
-    // which expects this behavior
-    constexpr auto make_counter_program = [](uint32_t counter_address_instruction) constexpr {
-        std::array<uint32_t, 6> instructions = {counter_brisc_program};  // first element is a placeholder
-        instructions[0] = counter_address_instruction;
-        return instructions;
-    };
+    static constexpr uint32_t register_instruction = 0x00000737;
 
-    constexpr uint32_t register_instruction = 0x00000737;
+    static std::vector<RiscSetUnderTest> generate_all_risc_cores_combinations() {
+        // This lambda has the same program as counter_brisc_program and it changes the location
+        // where the counter is stored.
+        // Note: This address must have the first 4 nibbles set to 0 as the machine instruction used is lui
+        // which expects this behavior
+        constexpr auto make_counter_program = [](uint32_t counter_address_instruction) constexpr {
+            std::array<uint32_t, 6> instructions = {counter_brisc_program};  // first element is a placeholder
+            instructions[0] = counter_address_instruction;
+            return instructions;
+        };
 
-    constexpr std::array<uint32_t, 6> trisc0_program{
-        make_counter_program(trisc0_counter_address | register_instruction)};
-    constexpr std::array<uint32_t, 6> trisc1_program{
-        make_counter_program(trisc1_counter_address | register_instruction)};
-    constexpr std::array<uint32_t, 6> trisc2_program{
-        make_counter_program(trisc2_counter_address | register_instruction)};
-    constexpr std::array<uint32_t, 6> ncrisc_program{
-        make_counter_program(ncrisc_counter_address | register_instruction)};
+        constexpr std::array<uint32_t, 6> trisc0_program{
+            make_counter_program(trisc0_counter_address | register_instruction)};
+        constexpr std::array<uint32_t, 6> trisc1_program{
+            make_counter_program(trisc1_counter_address | register_instruction)};
+        constexpr std::array<uint32_t, 6> trisc2_program{
+            make_counter_program(trisc2_counter_address | register_instruction)};
+        constexpr std::array<uint32_t, 6> ncrisc_program{
+            make_counter_program(ncrisc_counter_address | register_instruction)};
 
-    std::vector<TestTuple> base = {
-        {trisc0_code_address, trisc0_counter_address, trisc0_program, TensixSoftResetOptions::TRISC0},
-        {trisc1_code_address, trisc1_counter_address, trisc1_program, TensixSoftResetOptions::TRISC1},
-        {trisc2_code_address, trisc2_counter_address, trisc2_program, TensixSoftResetOptions::TRISC2},
-        {ncrisc_code_address, ncrisc_counter_address, ncrisc_program, TensixSoftResetOptions::NCRISC}};
+        std::vector<RiscCoreProgramConfig> triscs_and_ncrisc{
+            {trisc0_code_address, trisc0_counter_address, trisc0_program, TensixSoftResetOptions::TRISC0},
+            {trisc1_code_address, trisc1_counter_address, trisc1_program, TensixSoftResetOptions::TRISC1},
+            {trisc2_code_address, trisc2_counter_address, trisc2_program, TensixSoftResetOptions::TRISC2},
+            {ncrisc_code_address, ncrisc_counter_address, ncrisc_program, TensixSoftResetOptions::NCRISC}};
 
-    std::vector<TestCase> result;
+        const auto all_trisc_and_ncrisc_combinations = generate_all_non_empty_risc_core_combinations(triscs_and_ncrisc);
 
-    size_t n = base.size();
-    for (size_t mask = 1; mask < (1 << n); ++mask) {
-        TestCase subset;
-        for (size_t i = 0; i < n; ++i) {
-            if (mask & (1 << i)) {
-                subset.push_back(base[i]);
+        return all_trisc_and_ncrisc_combinations;
+    }
+
+private:
+    static std::vector<RiscSetUnderTest> generate_all_non_empty_risc_core_combinations(
+        const std::vector<RiscCoreProgramConfig>& cores) {
+        std::vector<RiscSetUnderTest> risc_core_combinations;
+        const size_t n = cores.size();
+
+        for (size_t bitmask = 1; bitmask < (1 << n); ++bitmask) {
+            RiscSetUnderTest risc_core_subset;
+            for (size_t i = 0; i < n; ++i) {
+                if (bitmask & (1 << i)) {
+                    risc_core_subset.push_back(cores[i]);
+                }
             }
+            risc_core_combinations.push_back(std::move(risc_core_subset));
         }
-        result.push_back(subset);
+        return risc_core_combinations;
     }
-    return result;
-}
+};
 
-class TupleCombinationTest : public ::testing::TestWithParam<TestCase> {};
-
-TEST_P(TupleCombinationTest, TestEachCombination) {
-    const auto& tuples = GetParam();
-
-    TensixSoftResetOptions combined{TensixSoftResetOptions::NONE};
-    for (const auto& t : tuples) {
-        auto [addr1, addr2, arr, e] = t;
-        combined = combined | e;
-        // Your test logic here
-        // Example:
-        std::cout << std::hex << addr1 << " " << addr2 << " " << static_cast<uint32_t>(e) << "\n";
-        ASSERT_TRUE(addr1 != 0);  // dummy assertion
-    }
-    std::cout << std::hex << static_cast<uint32_t>(combined) << "\n";
-}
-
-INSTANTIATE_TEST_SUITE_P(
-    AllTupleCombinations, TupleCombinationTest, ::testing::ValuesIn(generateAllTupleCombinations()));
-
-TEST(TestCluster, DeassertResetTensixRiscs) {
+TEST_P(ClusterAssertDeassertRiscsTest, TriscNcriscAssertDeassertTest) {
     std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
 
-    if (cluster->get_target_device_ids().empty()) {
-        GTEST_SKIP() << "No chips present on the system. Skipping test.";
-    }
-
-    static constexpr uint64_t trisc0_code_address = 0x00020000;
-    static constexpr uint64_t trisc1_code_address = 0x00030000;
-    static constexpr uint64_t trisc2_code_address = 0x00040000;
-    static constexpr uint64_t ncrisc_code_address = 0x00050000;
-
-    static constexpr uint32_t trisc0_counter_address = 0x00002000;
-    static constexpr uint32_t trisc1_counter_address = 0x00003000;
-    static constexpr uint32_t trisc2_counter_address = 0x00004000;
-    static constexpr uint32_t ncrisc_counter_address = 0x00005000;
-
-    // This lambda changes has the same program as counter_brisc_program and it changes the location
-    // where the counter is stored.
-    // Note: This address must have the first 4 nibbles set to 0 as the machine instruction used is lui
-    // which expects this behavior
-    constexpr auto make_counter_program = [](uint32_t counter_address_instruction) constexpr {
-        std::array<uint32_t, 6> instructions = {counter_brisc_program};  // first element is a placeholder
-        instructions[0] = counter_address_instruction;
-        return instructions;
-    };
-
-    constexpr uint32_t register_instruction = 0x00000737;
-
-    constexpr std::array<uint32_t, 6> trisc0_program{
-        make_counter_program(trisc0_counter_address | register_instruction)};
-    constexpr std::array<uint32_t, 6> trisc1_program{
-        make_counter_program(trisc1_counter_address | register_instruction)};
-    constexpr std::array<uint32_t, 6> trisc2_program{
-        make_counter_program(trisc2_counter_address | register_instruction)};
-    constexpr std::array<uint32_t, 6> ncrisc_program{
-        make_counter_program(ncrisc_counter_address | register_instruction)};
+    const auto& configurations_of_risc_cores = GetParam();
 
     constexpr uint64_t brisc_code_address = 0x00000000;
 
@@ -678,6 +634,8 @@ TEST(TestCluster, DeassertResetTensixRiscs) {
     const tt_SocDescriptor& soc_desc = cluster->get_soc_descriptor(chip_id);
 
     auto tensix_cores = cluster->get_soc_descriptor(chip_id).get_cores(CoreType::TENSIX);
+
+    TensixSoftResetOptions risc_cores{TensixSoftResetOptions::NONE};
 
     for (const CoreCoord& tensix_core : tensix_cores) {
         auto chip = cluster->get_chip(chip_id);
@@ -707,57 +665,56 @@ TEST(TestCluster, DeassertResetTensixRiscs) {
 
         cluster->wait_for_non_mmio_flush(chip_id);
 
-        cluster->write_to_device(
-            trisc0_program.data(), trisc0_program.size() * sizeof(uint32_t), chip_id, tensix_core, trisc0_code_address);
+        for (const auto& configuration_of_risc_core : configurations_of_risc_cores) {
+            auto& [code_address, counter_address, code_program, risc_core] = configuration_of_risc_core;
+            risc_cores = risc_cores | risc_core;
 
-        cluster->wait_for_non_mmio_flush(chip_id);
+            cluster->write_to_device(
+                code_program.data(), code_program.size() * sizeof(uint32_t), chip_id, tensix_core, code_address);
 
-        cluster->write_to_device(
-            trisc1_program.data(), trisc1_program.size() * sizeof(uint32_t), chip_id, tensix_core, trisc1_code_address);
-
-        cluster->wait_for_non_mmio_flush(chip_id);
-
-        cluster->write_to_device(
-            trisc2_program.data(), trisc2_program.size() * sizeof(uint32_t), chip_id, tensix_core, trisc2_code_address);
-
-        cluster->wait_for_non_mmio_flush(chip_id);
-
-        cluster->write_to_device(
-            ncrisc_program.data(), ncrisc_program.size() * sizeof(uint32_t), chip_id, tensix_core, ncrisc_code_address);
-
-        cluster->wait_for_non_mmio_flush(chip_id);
+            cluster->wait_for_non_mmio_flush(chip_id);
+        }
 
         chip->unset_tensix_risc_reset(
-            cluster->get_soc_descriptor(chip_id).translate_coord_to(tensix_core, CoordSystem::VIRTUAL),
-            TENSIX_ASSERT_SOFT_RESET);
+            cluster->get_soc_descriptor(chip_id).translate_coord_to(tensix_core, CoordSystem::VIRTUAL), risc_cores);
 
         cluster->wait_for_non_mmio_flush(chip_id);
 
-        cluster->read_from_device(
-            &first_readback_value, chip_id, tensix_core, trisc0_counter_address, sizeof(first_readback_value));
+        for (const auto& configuration_of_risc_core : configurations_of_risc_cores) {
+            auto& [code_address, counter_address, code_program, risc_core] = configuration_of_risc_core;
 
-        cluster->read_from_device(
-            &second_readback_value, chip_id, tensix_core, trisc0_counter_address, sizeof(second_readback_value));
+            cluster->read_from_device(
+                &first_readback_value, chip_id, tensix_core, counter_address, sizeof(first_readback_value));
 
-        EXPECT_NE(first_readback_value, second_readback_value);
+            cluster->read_from_device(
+                &second_readback_value, chip_id, tensix_core, counter_address, sizeof(second_readback_value));
 
-        TensixSoftResetOptions assert_reset_triscs_and_ncrisc{ALL_TRISC_SOFT_RESET | TensixSoftResetOptions::NCRISC};
+            EXPECT_NE(first_readback_value, second_readback_value);
+        }
 
         chip->set_tensix_risc_reset(
-            cluster->get_soc_descriptor(chip_id).translate_coord_to(tensix_core, CoordSystem::VIRTUAL),
-            assert_reset_triscs_and_ncrisc);
+            cluster->get_soc_descriptor(chip_id).translate_coord_to(tensix_core, CoordSystem::VIRTUAL), risc_cores);
 
         cluster->wait_for_non_mmio_flush(chip_id);
 
-        cluster->read_from_device(
-            &first_readback_value, chip_id, tensix_core, trisc0_counter_address, sizeof(first_readback_value));
+        for (const auto& configuration_of_risc_core : configurations_of_risc_cores) {
+            auto [code_address, counter_address, code_program, risc_core] = configuration_of_risc_core;
 
-        cluster->read_from_device(
-            &second_readback_value, chip_id, tensix_core, trisc0_counter_address, sizeof(second_readback_value));
+            cluster->read_from_device(
+                &first_readback_value, chip_id, tensix_core, counter_address, sizeof(first_readback_value));
 
-        EXPECT_EQ(first_readback_value, second_readback_value);
+            cluster->read_from_device(
+                &second_readback_value, chip_id, tensix_core, counter_address, sizeof(second_readback_value));
+
+            EXPECT_EQ(first_readback_value, second_readback_value);
+        }
     }
 }
+
+INSTANTIATE_TEST_SUITE_P(
+    AllTriscNcriscCoreCombinations,
+    ClusterAssertDeassertRiscsTest,
+    ::testing::ValuesIn(ClusterAssertDeassertRiscsTest::generate_all_risc_cores_combinations()));
 
 TEST_P(ClusterReadWriteL1Test, ReadWriteL1) {
     ClusterOptions options = GetParam();

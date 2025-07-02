@@ -425,7 +425,7 @@ TEST(TestCluster, DeassertResetBrisc) {
     }
 
     constexpr uint32_t a_variable_value = 0x87654000;
-    constexpr uint64_t a_variable_address = 0x00010000;
+    constexpr uint64_t a_variable_address = 0x10000;
     constexpr uint64_t brisc_code_address = 0;
 
     uint32_t readback = 0;
@@ -486,7 +486,7 @@ TEST(TestCluster, DeassertResetWithCounterBrisc) {
     auto tensix_l1_size = cluster->get_soc_descriptor(0).worker_l1_size;
     std::vector<uint32_t> zero_data(tensix_l1_size, 0);
 
-    constexpr uint64_t counter_address = 0x00010000;
+    constexpr uint64_t counter_address = 0x10000;
     constexpr uint64_t brisc_code_address = 0;
 
     uint32_t first_readback_value = 0;
@@ -556,17 +556,17 @@ using RiscSetUnderTest = std::vector<RiscCoreProgramConfig>;
 
 class ClusterAssertDeassertRiscsTest : public ::testing::TestWithParam<RiscSetUnderTest> {
 public:
-    static constexpr uint64_t trisc0_code_address = 0x00020000;
-    static constexpr uint64_t trisc1_code_address = 0x00030000;
-    static constexpr uint64_t trisc2_code_address = 0x00040000;
-    static constexpr uint64_t ncrisc_code_address = 0x00050000;
+    static constexpr uint64_t trisc0_code_address = 0x20000;
+    static constexpr uint64_t trisc1_code_address = 0x30000;
+    static constexpr uint64_t trisc2_code_address = 0x40000;
+    static constexpr uint64_t ncrisc_code_address = 0x50000;
 
-    static constexpr uint32_t trisc0_counter_address = 0x00002000;
-    static constexpr uint32_t trisc1_counter_address = 0x00003000;
-    static constexpr uint32_t trisc2_counter_address = 0x00004000;
-    static constexpr uint32_t ncrisc_counter_address = 0x00005000;
+    static constexpr uint32_t trisc0_counter_address = 0x2000;
+    static constexpr uint32_t trisc1_counter_address = 0x3000;
+    static constexpr uint32_t trisc2_counter_address = 0x4000;
+    static constexpr uint32_t ncrisc_counter_address = 0x5000;
 
-    static constexpr uint32_t register_instruction = 0x00000737;
+    static constexpr uint32_t register_instruction = 0x737;
 
     static std::vector<RiscSetUnderTest> generate_all_risc_cores_combinations() {
         // This lambda has the same program as counter_brisc_program and it changes the location

@@ -61,31 +61,21 @@ jobs:
 
     name: Build tt-metal wheel with newest UMD
     runs-on: tt-beta-ubuntu-2204-large
-    # container:
-    #   image: ghcr.io/tenstorrent/tt-metal/tt-metalium/ubuntu-22.04-dev-amd64:latest
-    #   env:
-    #     # TODO: Revisit the addition of these env vars https://github.com/tenstorrent/tt-metal/issues/20161
-    #     TRACY_NO_INVARIANT_CHECK: 1
-    #     TRACY_NO_ISA_EXTENSIONS: 1
-    #   options: --user root
+    environment: ${{ github.ref == 'refs/heads/main' && 'mainline' || '' }}
+    outputs:
+      wheel_artifact_name: ${{ steps.set_wheel_artifact_name.outputs.wheel_artifact_name }}
+    defaults:
+      run:
+        shell: bash
 
     steps:
       - name: Checkout tt-metal repo
         uses: actions/checkout@v4
         with:
-          # Clone under tt-metal directory
-          path: tt-metal
           repository: tenstorrent/tt-metal
           submodules: recursive
           fetch-depth: 500 # Need enough history for `git describe`
           fetch-tags: true # Need tags for `git describe`
-
-      - name: Checkout UMD
-        uses: actions/checkout@v4
-        with:
-          # Clone directly into tt-metal directory for umd
-          path: tt-metal/tt_metal/third_party/umd
-          submodules: recursive
 
       - name: Set up Python 3.12
         uses: actions/setup-python@v4
@@ -118,23 +108,28 @@ jobs:
             echo "tt-metal directory does not exist."
           fi
 
-      - name: Change dir to metal
+      - name: Determine Tracy build setting
         run: |
-          cd /opt/runner/_work/tt-umd/tt-umd/tt-metal
-          echo "Changed directory to tt-metal"
-          pwd
+          if [ "${{ inputs.tracy }}" = "true" ]; then
+            echo "ENABLE_TRACY_BUILD=ON" >> $GITHUB_ENV
+            echo "CIBW_TEST_CMD=echo 'Skipping import test for profiler build'" >> $GITHUB_ENV
+            echo "Building with Tracy profiler enabled"
+          else
+            echo "ENABLE_TRACY_BUILD=OFF" >> $GITHUB_ENV
+            echo "CIBW_TEST_CMD=python -c \"import ttnn\"" >> $GITHUB_ENV
+            echo "Building without Tracy profiler"
+          fi
 
       - name: 🐍 Build wheel
         uses: pypa/cibuildwheel@v2.23.2
         env:
-          CIBW_BEFORE_ALL: cd /opt/runner/_work/tt-umd/tt-umd/tt-metal
           CIBW_BUILD_FRONTEND: build
           CIBW_ENVIRONMENT: >-
+            CCACHE_REMOTE_ONLY=true
             CCACHE_TEMPDIR=/tmp/ccache
-            CIBW_ENABLE_TRACY="OFF"
           CIBW_BEFORE_BUILD: mkdir -p /tmp/ccache && ccache -z && ccache -p
           CIBW_BEFORE_TEST: ccache -s
-          CIBW_TEST_COMMAND: python -c \"import ttnn\"
+          CIBW_TEST_COMMAND: ${{ env.CIBW_TEST_CMD }}
           CIBW_MANYLINUX_X86_64_IMAGE: ghcr.io/tenstorrent/tt-metal/tt-metalium/manylinux-amd64:latest
 
 

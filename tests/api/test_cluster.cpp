@@ -620,6 +620,10 @@ private:
 TEST_P(ClusterAssertDeassertRiscsTest, TriscNcriscAssertDeassertTest) {
     std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
 
+    if (cluster->get_target_device_ids().empty()) {
+        GTEST_SKIP() << "No chips present on the system. Skipping test.";
+    }
+
     const auto& configurations_of_risc_cores = GetParam();
 
     constexpr uint64_t brisc_code_address = 0x00000000;

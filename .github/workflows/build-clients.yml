@@ -111,7 +111,7 @@ jobs:
             CIBW_ENABLE_TRACY="OFF"
           CIBW_BEFORE_BUILD: mkdir -p /tmp/ccache && ccache -z && ccache -p
           CIBW_BEFORE_TEST: ccache -s
-          CIBW_TEST_COMMAND: python -c \"import ttnn\"
+          CIBW_TEST_COMMAND: python -c "import ttnn"
           CIBW_MANYLINUX_X86_64_IMAGE: ghcr.io/tenstorrent/tt-metal/tt-metalium/manylinux-amd64:latest
 
 

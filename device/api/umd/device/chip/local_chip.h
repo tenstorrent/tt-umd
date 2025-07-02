@@ -21,11 +21,14 @@ public:
 
     LocalChip(std::unique_ptr<TTDevice> tt_device);
 
+    ~LocalChip();
+
     bool is_mmio_capable() const override;
 
     void start_device() override;
     void close_device() override;
 
+    TTDevice* get_tt_device() override;
     SysmemManager* get_sysmem_manager() override;
     TLBManager* get_tlb_manager() override;
 
@@ -78,10 +81,6 @@ private:
     // Used only for ethernet broadcast to all remote chips.
     std::unique_ptr<RemoteCommunication> remote_communication_;
 
-    // unique_lock is RAII, so if this member holds an object, the RobustMutex is locked, if it is empty, the
-    // RobustMutex is unlocked.
-    std::optional<std::unique_lock<RobustMutex>> chip_started_lock_;
-
     std::vector<CoreCoord> remote_transfer_eth_cores_;
     int active_eth_core_idx = 0;
     bool flush_non_mmio_ = false;
@@ -101,6 +100,8 @@ private:
     void insert_host_to_device_barrier(const std::vector<CoreCoord>& cores, const uint32_t barrier_addr);
 
     void wait_for_aiclk_value(tt_DevicePowerState power_state, const uint32_t timeout_ms = 5000);
+
+    std::unique_ptr<TTDevice> tt_device_ = nullptr;
 
 protected:
     void wait_eth_cores_training(const uint32_t timeout_ms = 60000) override;

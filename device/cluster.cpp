@@ -113,7 +113,7 @@ void Cluster::create_device(
     for (const chip_id_t& logical_device_id : target_mmio_device_ids) {
         if (chip_type == ChipType::SILICON) {
             bool hugepages_initialized =
-                (get_local_chip(logical_device_id)->get_sysmem_manager()->get_hugepage_mapping(0).mapping != nullptr);
+                (get_chip(logical_device_id)->get_sysmem_manager()->get_hugepage_mapping(0).mapping != nullptr);
             // Large writes to remote chips require hugepages to be initialized.
             // Conservative assert - end workload if remote chips present but hugepages not initialized (failures caused
             // if using remote only for small transactions)
@@ -568,7 +568,7 @@ void Cluster::configure_tlb(
 }
 
 void* Cluster::host_dma_address(std::uint64_t offset, chip_id_t src_device_id, uint16_t channel) const {
-    hugepage_mapping hugepage_map = get_local_chip(src_device_id)->get_sysmem_manager()->get_hugepage_mapping(channel);
+    hugepage_mapping hugepage_map = get_chip(src_device_id)->get_sysmem_manager()->get_hugepage_mapping(channel);
     if (hugepage_map.mapping != nullptr) {
         return static_cast<std::byte*>(hugepage_map.mapping) + offset;
     } else {
@@ -582,7 +582,7 @@ TTDevice* Cluster::get_tt_device(chip_id_t device_id) const {
     return tt_device;
 }
 
-TLBManager* Cluster::get_tlb_manager(chip_id_t device_id) const { return get_local_chip(device_id)->get_tlb_manager(); }
+TLBManager* Cluster::get_tlb_manager(chip_id_t device_id) const { return get_chip(device_id)->get_tlb_manager(); }
 
 Chip* Cluster::get_chip(chip_id_t device_id) const {
     auto chip_it = chips_.find(device_id);
@@ -888,11 +888,11 @@ void Cluster::broadcast_write_to_cluster(
 
 void Cluster::write_to_sysmem(
     const void* mem_ptr, std::uint32_t size, uint64_t addr, uint16_t channel, chip_id_t src_device_id) {
-    get_local_chip(src_device_id)->write_to_sysmem(channel, mem_ptr, addr, size);
+    get_chip(src_device_id)->write_to_sysmem(channel, mem_ptr, addr, size);
 }
 
 void Cluster::read_from_sysmem(void* mem_ptr, uint64_t addr, uint16_t channel, uint32_t size, chip_id_t src_device_id) {
-    get_local_chip(src_device_id)->read_from_sysmem(channel, mem_ptr, addr, size);
+    get_chip(src_device_id)->read_from_sysmem(channel, mem_ptr, addr, size);
 }
 
 void Cluster::l1_membar(const chip_id_t chip, const std::unordered_set<tt::umd::CoreCoord>& cores) {
@@ -1040,7 +1040,7 @@ void Cluster::verify_sw_fw_versions(int device_id, std::uint32_t sw_version, std
     for (std::uint32_t& fw_version : fw_versions) {
         tt_version fw(fw_version);
         TT_ASSERT(fw == fw_first_eth_core, "FW versions are not the same across different ethernet cores");
-        TT_ASSERT(sw.major == fw.major, "SW/FW major version number out of sync");
+        TT_ASSERT(sw.major <= fw.major, "SW/FW major version number out of sync");
         TT_ASSERT(sw.minor <= fw.minor, "SW version is newer than FW version");
     }
 
@@ -1213,7 +1213,8 @@ std::unique_ptr<tt_ClusterDescriptor> Cluster::create_cluster_descriptor(
 
         // TODO: Remove this when we can read asic location from the Blackhole telemetry.
         // Until then we have to read it from ETH core.
-        const std::vector<CoreCoord> eth_cores = chip->get_soc_descriptor().get_cores(CoreType::ETH);
+        const std::vector<CoreCoord> eth_cores = chip->get_soc_descriptor().get_cores(
+            CoreType::ETH, umd_use_noc1 ? CoordSystem::NOC1 : CoordSystem::TRANSLATED);
         for (size_t eth_channel = 0; eth_channel < eth_cores.size(); eth_channel++) {
             const CoreCoord& eth_core = eth_cores[eth_channel];
             TTDevice* tt_device = chip->get_tt_device();
@@ -1256,7 +1257,8 @@ std::unique_ptr<tt_ClusterDescriptor> Cluster::create_cluster_descriptor(
             const chip_id_t chip_id = it.first;
             const std::unique_ptr<Chip>& chip = it.second;
 
-            const std::vector<CoreCoord> eth_cores = chip->get_soc_descriptor().get_cores(CoreType::ETH);
+            const std::vector<CoreCoord> eth_cores = chip->get_soc_descriptor().get_cores(
+                CoreType::ETH, umd_use_noc1 ? CoordSystem::NOC1 : CoordSystem::TRANSLATED);
 
             for (size_t eth_channel = 0; eth_channel < eth_cores.size(); eth_channel++) {
                 const CoreCoord& eth_core = eth_cores[eth_channel];

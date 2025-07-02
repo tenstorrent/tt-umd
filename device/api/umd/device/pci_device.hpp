@@ -218,4 +218,7 @@ public:
         }
         return reinterpret_cast<T *>(static_cast<uint8_t *>(reg_mapping) + register_offset);
     }
+
+private:
+    void allocate_pcie_dma_buffer();
 };

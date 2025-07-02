@@ -101,7 +101,7 @@ TEST(ApiClusterTest, DifferentConstructors) {
     umd_cluster = nullptr;
 
     if (chips_available) {
-        // 2. Constructor which allows choosing a unique_combination_of_risc_cores of Chips to open.
+        // 2. Constructor which allows choosing a subset of Chips to open.
         umd_cluster = std::make_unique<Cluster>(ClusterOptions{
             .target_devices = {0},
         });
@@ -277,7 +277,7 @@ TEST(ApiClusterTest, SimpleIOSpecificSiliconChips) {
 }
 
 TEST(ClusterAPI, DynamicTLB_RW) {
-    // Don'configuration_of_risc_core use any static TLBs in this test. All writes go through a dynamic TLB that needs
+    // Don't use any static TLBs in this test. All writes go through a dynamic TLB that needs
     // to be reconfigured for each transaction
 
     std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
@@ -364,7 +364,7 @@ TEST(TestCluster, PrintAllSiliconChipsAllCores) {
 }
 
 // It is expected that logical ETH channel numbers are in the range [0, num_channels) for each
-// chip. This is needed because of eth id readouts for Blackhole that don'configuration_of_risc_core take harvesting
+// chip. This is needed because of eth id readouts for Blackhole that don't take harvesting
 // into acount. This test verifies that both for Wormhole and Blackhole.
 TEST(TestCluster, TestClusterLogicalETHChannelsConnectivity) {
     std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();

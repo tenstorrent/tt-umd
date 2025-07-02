@@ -167,7 +167,6 @@ void TopologyDiscovery::discover_remote_chips() {
     }
 
     for (const auto& [chip_id, chip] : chips) {
-        active_eth_channels_per_chip.emplace(chip_id, std::set<uint32_t>());
         std::vector<CoreCoord> eth_cores =
             chip->get_soc_descriptor().get_cores(CoreType::ETH, umd_use_noc1 ? CoordSystem::NOC1 : CoordSystem::NOC0);
         TTDevice* tt_device = chip->get_tt_device();
@@ -184,6 +183,8 @@ void TopologyDiscovery::discover_remote_chips() {
         current_chip_unique_coord.eth_coord.rack = current_chip_eth_coord_info & 0xFF;
         current_chip_unique_coord.eth_coord.shelf = (current_chip_eth_coord_info >> 8) & 0xFF;
 
+        std::set<uint32_t> active_eth_channels;
+
         uint32_t channel = 0;
         for (const CoreCoord& eth_core : eth_cores) {
             uint32_t port_status;
@@ -198,12 +199,12 @@ void TopologyDiscovery::discover_remote_chips() {
                 continue;
             }
 
-            active_eth_channels_per_chip.at(chip_id).insert(channel);
-
             if (!is_board_id_included(get_remote_board_id(chip.get(), eth_core))) {
                 channel++;
                 continue;
             }
+
+            active_eth_channels.insert(channel);
 
             uint32_t remote_id;
             tt_device->read_from_device(
@@ -228,7 +229,7 @@ void TopologyDiscovery::discover_remote_chips() {
             unique_coord.eth_coord.rack = remote_rack_x;
             unique_coord.eth_coord.shelf = remote_rack_y;
 
-            chip->set_remote_transfer_ethernet_cores(active_eth_channels_per_chip.at(chip_id));
+            chip->set_remote_transfer_ethernet_cores(active_eth_channels);
             std::unique_ptr<RemoteWormholeTTDevice> remote_tt_device =
                 std::make_unique<RemoteWormholeTTDevice>(dynamic_cast<LocalChip*>(chip.get()), unique_coord.eth_coord);
 
@@ -249,7 +250,7 @@ void TopologyDiscovery::discover_remote_chips() {
             }
             channel++;
         }
-        chip->set_remote_transfer_ethernet_cores(active_eth_channels_per_chip.at(chip_id));
+        chip->set_remote_transfer_ethernet_cores(active_eth_channels);
     }
 
     if (remote_chips_to_discover.empty()) {
@@ -299,7 +300,6 @@ void TopologyDiscovery::discover_remote_chips() {
                 std::move(remote_tt_device));
 
             chips.emplace(chip_id, std::move(chip));
-            active_eth_channels_per_chip.emplace(chip_id, std::set<uint32_t>());
             eth_coords.emplace(chip_id, current_chip_unique_coord.eth_coord);
             unique_coord_to_chip_id.emplace(current_chip_unique_coord, chip_id);
             chip_id++;
@@ -318,8 +318,6 @@ void TopologyDiscovery::discover_remote_chips() {
                     channel++;
                     continue;
                 }
-
-                active_eth_channels_per_chip.at(unique_coord_to_chip_id.at(current_chip_unique_coord)).insert(channel);
 
                 if (!is_board_id_included(get_remote_board_id(chips.at(chip_id - 1).get(), eth_core))) {
                     channel++;
@@ -406,6 +404,10 @@ void TopologyDiscovery::fill_cluster_descriptor_info() {
         cluster_desc->coords_to_chip_ids[eth_coord.rack][eth_coord.shelf][eth_coord.y][eth_coord.x] = chip_id;
 
         cluster_desc->add_chip_to_board(chip_id, chip->get_chip_info().chip_uid.board_id);
+
+        for (int i = 0; i < wormhole::NUM_ETH_CHANNELS; i++) {
+            cluster_desc->idle_eth_channels[chip_id].insert(i);
+        }
     }
 
     for (auto [ethernet_connection_logical, ethernet_connection_remote] : ethernet_connections) {
@@ -413,17 +415,10 @@ void TopologyDiscovery::fill_cluster_descriptor_info() {
             ethernet_connection_remote.first, ethernet_connection_remote.second};
         cluster_desc->ethernet_connections[ethernet_connection_remote.first][ethernet_connection_remote.second] = {
             ethernet_connection_logical.first, ethernet_connection_logical.second};
-    }
-
-    for (auto [chip_id, active_eth_channels] : active_eth_channels_per_chip) {
-        for (int i = 0; i < wormhole::NUM_ETH_CHANNELS; i++) {
-            cluster_desc->idle_eth_channels[chip_id].insert(i);
-        }
-
-        for (const auto& active_channel : active_eth_channels) {
-            cluster_desc->active_eth_channels[chip_id].insert(active_channel);
-            cluster_desc->idle_eth_channels[chip_id].erase(active_channel);
-        }
+        cluster_desc->active_eth_channels[ethernet_connection_logical.first].insert(ethernet_connection_logical.second);
+        cluster_desc->idle_eth_channels[ethernet_connection_logical.first].erase(ethernet_connection_logical.second);
+        cluster_desc->active_eth_channels[ethernet_connection_remote.first].insert(ethernet_connection_remote.second);
+        cluster_desc->idle_eth_channels[ethernet_connection_remote.first].erase(ethernet_connection_remote.second);
     }
 
     tt_ClusterDescriptor::fill_galaxy_connections(*cluster_desc.get());

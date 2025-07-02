@@ -166,6 +166,7 @@ struct tenstorrent_pin_pages_in {
 
 struct tenstorrent_pin_pages_out {
 	__u64 physical_address;	// or IOVA
+    __u64 noc_address;
 };
 
 struct tenstorrent_pin_pages {

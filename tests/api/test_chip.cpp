@@ -93,6 +93,8 @@ TEST(ApiChipTest, SimpleAPIShowcase) {
     // TODO: In future, will be accessed through tt::umd::Chip api.
     umd_cluster->get_pcie_base_addr_from_device(chip_id);
     umd_cluster->get_num_host_channels(chip_id);
+
+    umd_cluster->start_device({});
 }
 
 // TODO: Re-enable once we debug why it doesn't work #362

@@ -251,6 +251,10 @@ bool SysmemManager::init_iommu(size_t size) {
         hugepage_mapping_per_channel[ch] = {base, HUGEPAGE_REGION_SIZE, iova + ch * HUGEPAGE_REGION_SIZE};
     }
 
+    std::cout << "have successfully initialized sysmem without hugepages, "
+              << "mapped to IOVA: " << std::hex << sysmem_buffer_->get_device_io_addr() << std::dec << std::endl;
+    std::cout << "Of size " << size << std::endl;
+
     return true;
 }
 

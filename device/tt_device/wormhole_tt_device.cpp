@@ -169,7 +169,7 @@ void WormholeTTDevice::configure_iatu_region(size_t region, uint64_t target, siz
     // Print what just happened
     uint32_t peer_region_start = region_id_to_use * region_size;
     uint32_t peer_region_end = (region_id_to_use + 1) * region_size - 1;
-    log_debug(
+    log_info(
         LogSiliconDriver,
         "    [region id {}] NOC to PCI address range 0x{:x}-0x{:x} mapped to addr 0x{:x}",
         region,

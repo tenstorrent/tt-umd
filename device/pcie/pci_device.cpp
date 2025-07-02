@@ -489,13 +489,22 @@ uint64_t PCIDevice::map_for_dma(void *buffer, size_t size) {
 
     tenstorrent_pin_pages pin_pages{};
     pin_pages.in.output_size_bytes = sizeof(pin_pages.out);
-    pin_pages.in.flags = flags;
+    pin_pages.in.flags = flags | TENSTORRENT_PIN_PAGES_NOC_DMA;
     pin_pages.in.virtual_address = vaddr;
     pin_pages.in.size = size;
 
+    std::cout << "pin pages arguments "
+              << "vaddr: " << std::hex << pin_pages.in.virtual_address << ", size: " << std::dec << pin_pages.in.size
+              << ", flags: " << pin_pages.in.flags << std::endl;
+
     if (ioctl(pci_device_file_desc, TENSTORRENT_IOCTL_PIN_PAGES, &pin_pages) == -1) {
+        std::cout << "errno: " << errno << std::endl;
         TT_THROW("Failed to pin pages for DMA: {}", strerror(errno));
     }
+
+    std::cout << "noc address mapped " << std::hex << pin_pages.out.noc_address << std::dec << std::endl;
+    std::cout << "physical address to be used for iatu " << std::hex << pin_pages.out.physical_address << std::dec
+              << std::endl;
 
     return pin_pages.out.physical_address;
 }

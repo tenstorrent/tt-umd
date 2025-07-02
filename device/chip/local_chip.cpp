@@ -63,6 +63,15 @@ LocalChip::LocalChip(std::unique_ptr<TTDevice> tt_device) :
     initialize_local_chip();
 }
 
+LocalChip::~LocalChip() {
+    // Deconstruct the LocalChip in the right order.
+    // TODO: Use intializers in constructor to avoid having to explicitly declare the order of destruction.
+    remote_communication_.reset();
+    sysmem_manager_.reset();
+    tlb_manager_.reset();
+    tt_device_.reset();
+}
+
 void LocalChip::initialize_local_chip(int num_host_mem_channels) {
     initialize_tlb_manager();
     if (num_host_mem_channels > 0) {

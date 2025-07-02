@@ -12,8 +12,8 @@
 #include <string>
 #include <vector>
 
-#include "assembly_programs_for_tests.hpp"
 #include "fmt/xchar.h"
+#include "test_utils/assembly_programs_for_tests.hpp"
 #include "tests/test_utils/generate_cluster_desc.hpp"
 #include "umd/device/blackhole_implementation.h"
 #include "umd/device/chip/local_chip.h"
@@ -425,9 +425,9 @@ TEST(TestCluster, DeassertResetBrisc) {
 
     constexpr uint32_t a_variable_value = 0x87654000;
     constexpr uint64_t a_variable_address = 0x00010000;
-    constexpr uint64_t brisc_code_address = 0x00000000;
+    constexpr uint64_t brisc_code_address = 0;
 
-    uint32_t readback = 0x00000000;
+    uint32_t readback = 0;
 
     auto chip_id = *cluster->get_target_device_ids().begin();
     const tt_SocDescriptor& soc_desc = cluster->get_soc_descriptor(chip_id);

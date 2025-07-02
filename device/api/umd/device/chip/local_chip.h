@@ -21,6 +21,8 @@ public:
 
     LocalChip(std::unique_ptr<TTDevice> tt_device);
 
+    ~LocalChip();
+
     bool is_mmio_capable() const override;
 
     void start_device() override;

@@ -1213,7 +1213,8 @@ std::unique_ptr<tt_ClusterDescriptor> Cluster::create_cluster_descriptor(
 
         // TODO: Remove this when we can read asic location from the Blackhole telemetry.
         // Until then we have to read it from ETH core.
-        const std::vector<CoreCoord> eth_cores = chip->get_soc_descriptor().get_cores(CoreType::ETH);
+        const std::vector<CoreCoord> eth_cores = chip->get_soc_descriptor().get_cores(
+            CoreType::ETH, umd_use_noc1 ? CoordSystem::NOC1 : CoordSystem::TRANSLATED);
         for (size_t eth_channel = 0; eth_channel < eth_cores.size(); eth_channel++) {
             const CoreCoord& eth_core = eth_cores[eth_channel];
             TTDevice* tt_device = chip->get_tt_device();
@@ -1256,7 +1257,8 @@ std::unique_ptr<tt_ClusterDescriptor> Cluster::create_cluster_descriptor(
             const chip_id_t chip_id = it.first;
             const std::unique_ptr<Chip>& chip = it.second;
 
-            const std::vector<CoreCoord> eth_cores = chip->get_soc_descriptor().get_cores(CoreType::ETH);
+            const std::vector<CoreCoord> eth_cores = chip->get_soc_descriptor().get_cores(
+                CoreType::ETH, umd_use_noc1 ? CoordSystem::NOC1 : CoordSystem::TRANSLATED);
 
             for (size_t eth_channel = 0; eth_channel < eth_cores.size(); eth_channel++) {
                 const CoreCoord& eth_core = eth_cores[eth_channel];

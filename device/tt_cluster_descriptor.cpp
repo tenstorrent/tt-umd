@@ -1072,46 +1072,59 @@ std::string tt_ClusterDescriptor::serialize() const {
     out << YAML::BeginMap;
 
     out << YAML::Key << "arch" << YAML::Value << YAML::BeginMap;
-    for (const auto &[chip_id, arch] : chip_arch) {
+    std::map<chip_id_t, tt::ARCH> chip_arch_map = std::map<chip_id_t, tt::ARCH>(chip_arch.begin(), chip_arch.end());
+    for (const auto &[chip_id, arch] : chip_arch_map) {
         out << YAML::Key << chip_id << YAML::Value << tt::arch_to_str(arch);
     }
     out << YAML::EndMap;
 
     out << YAML::Key << "chips" << YAML::Value << YAML::BeginMap;
-    for (const auto &[chip_id, chip_location] : chip_locations) {
+    std::map<chip_id_t, eth_coord_t> chip_locations_map =
+        std::map<chip_id_t, eth_coord_t>(chip_locations.begin(), chip_locations.end());
+    for (const auto &[chip_id, chip_location] : chip_locations_map) {
         out << YAML::Key << chip_id << YAML::Value << YAML::BeginSeq << chip_location.x << chip_location.y
             << chip_location.rack << chip_location.shelf << YAML::EndSeq;
     }
     out << YAML::EndMap;
 
     out << YAML::Key << "ethernet_connections" << YAML::Value << YAML::BeginSeq;
-    std::set<std::pair<chip_id_t, int>> serialized_connections;
+    std::set<std::pair<std::pair<chip_id_t, int>, std::pair<chip_id_t, int>>> all_connections;
     for (const auto &[src_chip, channels] : ethernet_connections) {
         for (const auto &[src_chan, dest] : channels) {
-            if (serialized_connections.find({src_chip, src_chan}) != serialized_connections.end()) {
-                continue;
-            }
             auto [dest_chip, dest_chan] = dest;
-            serialized_connections.insert({dest_chip, dest_chan});
-            out << YAML::BeginSeq;
-            out << YAML::BeginMap << YAML::Key << "chip" << YAML::Value << src_chip << YAML::Key << "chan"
-                << YAML::Value << src_chan << YAML::EndMap;
-            out << YAML::BeginMap << YAML::Key << "chip" << YAML::Value << dest_chip << YAML::Key << "chan"
-                << YAML::Value << dest_chan << YAML::EndMap;
-            out << YAML::EndSeq;
+            all_connections.insert(
+                std::make_pair(std::make_pair(src_chip, src_chan), std::make_pair(dest_chip, dest_chan)));
         }
+    }
+    std::set<std::pair<chip_id_t, int>> serialized_connections;
+    for (const auto &[src, dest] : all_connections) {
+        auto [src_chip, src_chan] = src;
+        if (serialized_connections.find({src_chip, src_chan}) != serialized_connections.end()) {
+            continue;
+        }
+        auto [dest_chip, dest_chan] = dest;
+        serialized_connections.insert({dest_chip, dest_chan});
+        out << YAML::BeginSeq;
+        out << YAML::BeginMap << YAML::Key << "chip" << YAML::Value << src_chip << YAML::Key << "chan" << YAML::Value
+            << src_chan << YAML::EndMap;
+        out << YAML::BeginMap << YAML::Key << "chip" << YAML::Value << dest_chip << YAML::Key << "chan" << YAML::Value
+            << dest_chan << YAML::EndMap;
+        out << YAML::EndSeq;
     }
     out << YAML::EndSeq;
 
     out << YAML::Key << "chips_with_mmio" << YAML::Value << YAML::BeginSeq;
-    for (const auto &chip_with_mmio : chips_with_mmio) {
+    std::map<chip_id_t, chip_id_t> chips_with_mmio_map =
+        std::map<chip_id_t, chip_id_t>(chips_with_mmio.begin(), chips_with_mmio.end());
+    for (const auto &chip_with_mmio : chips_with_mmio_map) {
         out << YAML::BeginMap << YAML::Key << chip_with_mmio.first << YAML::Value << chip_with_mmio.second
             << YAML::EndMap;
     }
     out << YAML::EndSeq;
 
     out << YAML::Key << "harvesting" << YAML::Value << YAML::BeginMap;
-    for (const int &chip : all_chips) {
+    std::set<chip_id_t> all_chips_map = std::set<chip_id_t>(all_chips.begin(), all_chips.end());
+    for (const int &chip : all_chips_map) {
         out << YAML::Key << chip << YAML::Value << YAML::BeginMap;
         out << YAML::Key << "noc_translation" << YAML::Value << noc_translation_enabled.at(chip);
         HarvestingMasks harvesting = get_harvesting_masks(chip);
@@ -1124,7 +1137,7 @@ std::string tt_ClusterDescriptor::serialize() const {
     out << YAML::EndMap;
 
     out << YAML::Key << "chip_to_boardtype" << YAML::Value << YAML::BeginMap;
-    for (const int &chip : all_chips) {
+    for (const int &chip : all_chips_map) {
         out << YAML::Key << chip << YAML::Value << board_type_to_string(chip_board_type.at(chip));
     }
     out << YAML::EndMap;

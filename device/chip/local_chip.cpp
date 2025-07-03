@@ -20,6 +20,8 @@ extern bool umd_use_noc1;
 
 namespace tt::umd {
 
+static_assert(!std::is_abstract<LocalChip>(), "LocalChip must be non-abstract.");
+
 // TLB size for DRAM on blackhole - 4GB
 const uint64_t BH_4GB_TLB_SIZE = 4ULL * 1024 * 1024 * 1024;
 
@@ -59,6 +61,15 @@ LocalChip::LocalChip(std::unique_ptr<TTDevice> tt_device) :
     sysmem_manager_(std::make_unique<SysmemManager>(tlb_manager_.get())) {
     tt_device_ = std::move(tt_device);
     initialize_local_chip();
+}
+
+LocalChip::~LocalChip() {
+    // Deconstruct the LocalChip in the right order.
+    // TODO: Use intializers in constructor to avoid having to explicitly declare the order of destruction.
+    remote_communication_.reset();
+    sysmem_manager_.reset();
+    tlb_manager_.reset();
+    tt_device_.reset();
 }
 
 void LocalChip::initialize_local_chip(int num_host_mem_channels) {
@@ -119,6 +130,8 @@ void LocalChip::initialize_membars() {
     }
     set_membar_flag(dram_cores_vector, tt_MemBarFlag::RESET, dram_address_params.DRAM_BARRIER_BASE);
 }
+
+TTDevice* LocalChip::get_tt_device() { return tt_device_.get(); }
 
 SysmemManager* LocalChip::get_sysmem_manager() { return sysmem_manager_.get(); }
 

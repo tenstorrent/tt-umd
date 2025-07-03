@@ -6,35 +6,10 @@
 #pragma once
 
 #include "umd/device/chip/chip.h"
+#include "umd/device/tt_device/remote_wormhole_tt_device.h"
 #include "umd/device/tt_device/tt_device.h"
 
 class tt_ClusterDescriptor;
-
-// Currently we need this to uniquely identify a chip.
-// Once we can also extract asic_location, then board_id + asic_location should be a unique identifier for all chips.
-// This structure is used only during topology discovery to do it properly.
-struct UniqueCoord {
-    uint64_t board_id;
-    eth_coord_t eth_coord;
-
-    bool operator==(const UniqueCoord& other) const {
-        return board_id == other.board_id && eth_coord == other.eth_coord;
-    }
-};
-
-// Make it hashable so it can be a key in a hashmap
-namespace std {
-template <>
-struct hash<UniqueCoord> {
-    std::size_t operator()(UniqueCoord const& c) const {
-        std::size_t seed = 0;
-        boost_hash_combine(seed, c.board_id);
-        boost_hash_combine(seed, hash<eth_coord_t>()(c.eth_coord));
-        return seed;
-    }
-};
-
-}  // namespace std
 
 namespace tt::umd {
 
@@ -49,16 +24,9 @@ private:
     struct EthAddresses {
         uint32_t masked_version;
 
-        uint64_t version;
-        uint64_t boot_params;
         uint64_t node_info;
         uint64_t eth_conn_info;
-        uint64_t debug_buf;
         uint64_t results_buf;
-        bool shelf_rack_routing;
-        uint64_t heartbeat;
-        uint64_t erisc_app;
-        uint64_t erisc_app_config;
         uint64_t erisc_remote_board_type_offset;
         uint64_t erisc_local_board_type_offset;
         uint64_t erisc_local_board_id_lo_offset;
@@ -79,15 +47,58 @@ private:
 
     // Returns mangled remote board id from local ETH core.
     // This information can still be used to unique identify a board.
+    // TODO: override this logic for different configs. This is in group of functions
+    // that we should override for T3K/6U/BH...
+    // eth_core should be in physical (NOC0) coordinates.
     uint32_t get_remote_board_id(Chip* chip, tt_xy_pair eth_core);
 
     // Returns mangled local board id from local ETH core.
     // This information can still be used to unique identify a board.
+    // TODO: override this logic for different configs. This is in group of functions
+    // that we should override for T3K/6U/BH...
+    // eth_core should be in physical (NOC0) coordinates.
     uint32_t get_local_board_id(Chip* chip, tt_xy_pair eth_core);
+
+    // TODO: override this logic for different configs. This is in group of functions
+    // that we should override for T3K/6U/BH...
+    // eth_core should be in physical (NOC0) coordinates.
+    uint64_t get_local_asic_id(Chip* chip, tt_xy_pair eth_core);
+
+    // TODO: override this logic for different configs. This is in group of functions
+    // that we should override for T3K/6U/BH...
+    // eth_core should be in physical (NOC0) coordinates.
+    uint64_t get_remote_asic_id(Chip* chip, tt_xy_pair eth_core);
+
+    // TODO: override this logic for different configs. This is in group of functions
+    // that we should override for T3K/6U/BH...
+    uint64_t get_asic_id(Chip* chip);
+
+    // TODO: move this function to class specific for WH with old FW.
+    eth_coord_t get_local_eth_coord(Chip* chip);
+
+    // TODO: move this function to class specific for WH with old FW.
+    // eth_core should be in physical (NOC0) coordinates.
+    eth_coord_t get_remote_eth_coord(Chip* chip, tt_xy_pair eth_core);
+
+    // TODO: override this logic for different configs. This is in group of functions
+    // that we should override for T3K/6U/BH...
+    // local_eth_core should be in physical (NOC0) coordinates.
+    tt_xy_pair get_remote_eth_core(Chip* chip, tt_xy_pair local_eth_core);
+
+    // TODO: override this logic for different configs. This is in group of functions
+    // that we should override for T3K/6U/BH..
+    // eth_core should be in physical (NOC0) coordinates..
+    uint32_t read_port_status(Chip* chip, tt_xy_pair eth_core, uint32_t channel);
+
+    // TODO: override this logic for different configs. This is in group of functions
+    // that we should override for T3K/6U/BH...
+    // eth_core should be in physical (NOC0) coordinates.
+    std::unique_ptr<RemoteWormholeTTDevice> create_remote_tt_device(
+        Chip* chip, tt_xy_pair eth_core, Chip* gateway_chip);
 
     std::unordered_map<chip_id_t, std::unique_ptr<Chip>> chips;
 
-    std::unordered_map<UniqueCoord, chip_id_t> unique_coord_to_chip_id;
+    std::unordered_map<uint64_t, chip_id_t> asic_id_to_chip_id;
 
     std::unordered_map<chip_id_t, eth_coord_t> eth_coords;
 

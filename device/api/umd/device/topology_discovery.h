@@ -124,6 +124,8 @@ private:
     std::unordered_map<chip_id_t, std::set<uint32_t>> active_eth_channels_per_chip;
 
     const std::string sdesc_path;
+
+    bool is_running_on_6u = false;
 };
 
 }  // namespace tt::umd

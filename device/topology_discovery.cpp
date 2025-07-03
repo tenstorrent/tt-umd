@@ -83,9 +83,12 @@ TopologyDiscovery::EthAddresses TopologyDiscovery::get_eth_addresses(uint32_t et
 
 std::unique_ptr<RemoteWormholeTTDevice> TopologyDiscovery::create_remote_tt_device(
     Chip* chip, tt_xy_pair eth_core, Chip* gateway_chip) {
-    return nullptr;
-    // return std::make_unique<RemoteWormholeTTDevice>(
-    //     dynamic_cast<LocalChip*>(gateway_chip), get_remote_eth_coord(chip, eth_core));
+    if (is_running_on_6u) {
+        return nullptr;
+    }
+
+    return std::make_unique<RemoteWormholeTTDevice>(
+        dynamic_cast<LocalChip*>(gateway_chip), get_remote_eth_coord(chip, eth_core));
 }
 
 eth_coord_t TopologyDiscovery::get_local_eth_coord(Chip* chip) {
@@ -151,6 +154,8 @@ void TopologyDiscovery::get_pcie_connected_chips() {
         if (chip_id == 0) {
             eth_addresses = TopologyDiscovery::get_eth_addresses(
                 chip->get_tt_device()->get_arc_telemetry_reader()->read_entry(wormhole::TAG_ETH_FW_VERSION));
+
+            is_running_on_6u = chip->get_tt_device()->get_board_type() == BoardType::UBB;
         }
 
         std::vector<CoreCoord> eth_cores =
@@ -211,8 +216,7 @@ void TopologyDiscovery::discover_remote_chips() {
 
         discovered_chips.insert(current_chip_asic_id);
 
-        // TODO: this neeeds to be moved to specific logic for Wormhole with legacy FW.
-        if (chip->get_tt_device()->get_board_type() != BoardType::UBB) {
+        if (!is_running_on_6u) {
             eth_coords.emplace(chip_id, get_local_eth_coord(chip.get()));
         }
     }
@@ -299,7 +303,7 @@ void TopologyDiscovery::discover_remote_chips() {
             Chip* remote_chip_ptr = chip.get();
 
             // TODO: this neeeds to be moved to specific logic for Wormhole with legacy FW.
-            if (remote_chip_ptr->get_tt_device()->get_board_type() != BoardType::UBB) {
+            if (!is_running_on_6u) {
                 eth_coords.emplace(chip_id, get_local_eth_coord(remote_chip_ptr));
             }
 
@@ -367,7 +371,7 @@ void TopologyDiscovery::fill_cluster_descriptor_info() {
         cluster_desc->harvesting_masks.insert({chip_id, chip->get_chip_info().harvesting_masks.tensix_harvesting_mask});
         cluster_desc->harvesting_masks_map.insert({chip_id, chip->get_chip_info().harvesting_masks});
         // TODO: this neeeds to be moved to specific logic for Wormhole with legacy FW.
-        if (chip->get_tt_device()->get_board_type() != BoardType::UBB) {
+        if (!is_running_on_6u) {
             eth_coord_t eth_coord = eth_coords.at(chip_id);
             cluster_desc->chip_locations.insert({chip_id, eth_coord});
             cluster_desc->coords_to_chip_ids[eth_coord.rack][eth_coord.shelf][eth_coord.y][eth_coord.x] = chip_id;
@@ -401,14 +405,20 @@ void TopologyDiscovery::fill_cluster_descriptor_info() {
 }
 
 // If pci_target_devices is empty, we should take all the PCI devices found in the system.
-// That is why we have the first part of the condition.
 bool TopologyDiscovery::is_pcie_chip_id_included(int pci_id) const {
     return pci_target_devices.empty() || pci_target_devices.find(pci_id) != pci_target_devices.end();
 }
 
 // If pci_target_devices is empty, we should take all the PCI devices found in the system.
-// That is why we have the first part of the condition.
 bool TopologyDiscovery::is_board_id_included(uint32_t board_id) const {
+    // Since at the moment we don't want to go outside of single host on 6U,
+    // we just check for board ids that are discovered from pci_target_devices.
+    if (is_running_on_6u) {
+        return board_ids.find(board_id) != board_ids.end();
+    }
+
+    // For other WH setups, we check additional condition of empty target devices.
+    // This is needed for TG since TG board doesn't have any PCI connected devices.
     return pci_target_devices.empty() || board_ids.find(board_id) != board_ids.end();
 }
 

@@ -188,18 +188,41 @@ bool SysmemManager::init_hugepage(uint32_t num_host_mem_channels) {
         size_t actual_size = (tt_device_->get_arch() == tt::ARCH::WORMHOLE_B0 && ch == 3)
                                  ? HUGEPAGE_CHANNEL_3_SIZE_LIMIT
                                  : hugepage_size;
-        auto [noc_address, physical_address] = tt_device_->get_pci_device()->map_hugepage_to_noc(mapping, actual_size);
-        uint64_t expected_noc_address = pcie_base_ + (ch * hugepage_size);
+        bool map_buffer_to_noc = tt_device_->get_pci_device()->is_mapping_buffer_to_noc_supported();
+        uint64_t physical_address, noc_address;
+        if (map_buffer_to_noc) {
+            std::tie(noc_address, physical_address) =
+                tt_device_->get_pci_device()->map_hugepage_to_noc(mapping, actual_size);
+            uint64_t expected_noc_address = pcie_base_ + (ch * hugepage_size);
 
-        // Note that the truncated page is the final one, so there is no need to
-        // give expected_noc_address special treatment for a subsequent page.
-        if (noc_address != expected_noc_address) {
+            // Note that the truncated page is the final one, so there is no need to
+            // give expected_noc_address special treatment for a subsequent page.
+            if (noc_address != expected_noc_address) {
+                log_warning(
+                    LogSiliconDriver,
+                    "NOC address of a hugepage does not match the expected address. Proceeding could lead to undefined "
+                    "behavior");
+            } else {
+                log_info(LogSiliconDriver, "Mapped hugepage {:#x} to NOC address {:#x}", physical_address, noc_address);
+            }
+        } else {
+            physical_address = tt_device_->get_pci_device()->map_for_hugepage(mapping, actual_size);
+        }
+
+        if (physical_address == 0) {
             log_warning(
                 LogSiliconDriver,
-                "NOC address of a hugepage does not match the expected address. Proceeding could lead to undefined "
-                "behavior");
-        } else {
-            log_info(LogSiliconDriver, "Mapped hugepage {:#x} to NOC address {:#x}", physical_address, noc_address);
+                "---- ttSiliconDevice::init_hugepage: physical_device_id: {} ch: {} TENSTORRENT_IOCTL_PIN_PAGES failed "
+                "(errno: {}). Common Issue: Requires TTMKD >= 1.11, see following file contents...",
+                physical_device_id,
+                ch,
+                strerror(errno));
+            munmap(mapping, hugepage_size);
+            print_file_contents("/sys/module/tenstorrent/version", "(TTKMD version)");
+            print_file_contents("/proc/meminfo");
+            print_file_contents("/proc/buddyinfo");
+            success = false;
+            continue;
         }
 
         hugepage_mapping_per_channel[ch] = {mapping, hugepage_size, physical_address};
@@ -281,7 +304,7 @@ size_t SysmemManager::get_num_host_mem_channels() const { return hugepage_mappin
 
 hugepage_mapping SysmemManager::get_hugepage_mapping(size_t channel) const {
     if (hugepage_mapping_per_channel.size() <= channel) {
-        return {nullptr, 0};
+        return {nullptr, 0, 0};
     } else {
         return hugepage_mapping_per_channel[channel];
     }

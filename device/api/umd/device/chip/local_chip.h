@@ -21,11 +21,14 @@ public:
 
     LocalChip(std::unique_ptr<TTDevice> tt_device);
 
+    ~LocalChip();
+
     bool is_mmio_capable() const override;
 
     void start_device() override;
     void close_device() override;
 
+    TTDevice* get_tt_device() override;
     SysmemManager* get_sysmem_manager() override;
     TLBManager* get_tlb_manager() override;
 
@@ -98,6 +101,8 @@ private:
     void insert_host_to_device_barrier(const std::vector<CoreCoord>& cores, const uint32_t barrier_addr);
 
     void wait_for_aiclk_value(tt_DevicePowerState power_state, const uint32_t timeout_ms = 5000);
+
+    std::unique_ptr<TTDevice> tt_device_ = nullptr;
 
 protected:
     void wait_eth_cores_training(const uint32_t timeout_ms = 60000) override;

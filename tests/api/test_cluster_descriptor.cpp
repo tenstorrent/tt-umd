@@ -311,3 +311,22 @@ TEST(ApiClusterDescriptorTest, ConstrainedTopology) {
     EXPECT_EQ(constrained_cluster_desc->get_chips_grouped_by_closest_mmio().at(1).size(), 2);
     EXPECT_EQ(constrained_cluster_desc->get_chip_locations().size(), 4);
 }
+
+TEST(ApiClusterDescriptorTest, VerifyEthConnections) {
+    std::unique_ptr<tt_ClusterDescriptor> cluster_desc = tt::umd::Cluster::create_cluster_descriptor();
+
+    std::unordered_map<chip_id_t, std::unordered_map<ethernet_channel_t, std::tuple<chip_id_t, ethernet_channel_t>>>
+        eth_connections = cluster_desc->get_ethernet_connections();
+    // Check that all ethernet connections are bidirectional.
+    for (const auto& [chip, connections] : cluster_desc->get_ethernet_connections()) {
+        for (const auto& [channel, remote_chip_and_channel] : connections) {
+            auto [remote_chip, remote_channel] = remote_chip_and_channel;
+
+            ASSERT_TRUE(eth_connections.find(remote_chip) != eth_connections.end())
+                << "Remote chip " << remote_chip << " not found in ethernet connections.";
+            ASSERT_TRUE(eth_connections.at(remote_chip).find(remote_channel) != eth_connections.at(remote_chip).end())
+                << "Remote channel " << remote_channel << " not found in ethernet connections for remote chip "
+                << remote_chip;
+        }
+    }
+}

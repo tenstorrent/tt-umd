@@ -322,9 +322,9 @@ TEST(ApiClusterDescriptorTest, VerifyEthConnections) {
         for (const auto& [channel, remote_chip_and_channel] : connections) {
             auto [remote_chip, remote_channel] = remote_chip_and_channel;
 
-            EXPECT_TRUE(eth_connections.find(remote_chip) != eth_connections.end())
+            ASSERT_TRUE(eth_connections.find(remote_chip) != eth_connections.end())
                 << "Remote chip " << remote_chip << " not found in ethernet connections.";
-            EXPECT_TRUE(eth_connections.at(remote_chip).find(remote_channel) != eth_connections.at(remote_chip).end())
+            ASSERT_TRUE(eth_connections.at(remote_chip).find(remote_channel) != eth_connections.at(remote_chip).end())
                 << "Remote channel " << remote_channel << " not found in ethernet connections for remote chip "
                 << remote_chip;
         }

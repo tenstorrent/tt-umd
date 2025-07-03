@@ -94,6 +94,7 @@ private:
 
     void check_pcie_device_initialized();
     int test_setup_interface();
+    void init_pcie_iatus();
 
     void set_membar_flag(
         const std::vector<CoreCoord>& cores, const uint32_t barrier_value, const uint32_t barrier_addr);

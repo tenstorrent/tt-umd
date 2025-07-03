@@ -222,9 +222,7 @@ TEST(ApiSysmemManager, SysmemBufferNocAddress) {
         GTEST_SKIP() << "Skipping test since IOMMU is not enabled.";
     }
 
-    std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>(tt::umd::ClusterOptions{
-        .num_host_mem_ch_per_mmio_device = 0,
-    });
+    std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
 
     const chip_id_t mmio_chip = *cluster->get_target_mmio_device_ids().begin();
 

@@ -229,7 +229,6 @@ TEST(ApiClusterTest, SimpleIOSpecificSiliconChips) {
     }
 
     umd_cluster = std::make_unique<Cluster>(ClusterOptions{
-        .num_host_mem_ch_per_mmio_device = 0,
         .target_devices = {0},
     });
 

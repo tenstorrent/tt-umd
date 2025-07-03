@@ -350,6 +350,10 @@ dynamic_tlb TTDevice::set_dynamic_tlb_broadcast(
     return set_dynamic_tlb(tlb_index, start, end, address, true, ordering);
 }
 
+void TTDevice::configure_iatu_region(size_t region, uint64_t target, size_t region_size) {
+    throw std::runtime_error("configure_iatu_region is not implemented for this device");
+}
+
 void TTDevice::wait_arc_core_start(const tt_xy_pair arc_core, const uint32_t timeout_ms) {
     throw std::runtime_error("Waiting for ARC core to start is supported only for Blackhole TTDevice.");
 }

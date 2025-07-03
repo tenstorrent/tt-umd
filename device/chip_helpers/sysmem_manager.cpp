@@ -202,7 +202,7 @@ bool SysmemManager::init_hugepage(uint32_t num_host_mem_channels) {
             log_info(LogSiliconDriver, "Mapped hugepage {:#x} to NOC address {:#x}", physical_address, noc_address);
         }
 
-        hugepage_mapping_per_channel[ch] = {mapping, hugepage_size};
+        hugepage_mapping_per_channel[ch] = {mapping, hugepage_size, physical_address};
 
         log_debug(
             LogSiliconDriver,
@@ -245,15 +245,17 @@ bool SysmemManager::init_iommu(size_t num_fake_mem_channels) {
             strerror(errno));
     }
 
-    sysmem_buffer_ = map_sysmem_buffer(mapping, map_size, true);
+    bool map_buffer_to_noc = tt_device_->get_pci_device()->is_mapping_buffer_to_noc_supported();
+
+    sysmem_buffer_ = map_sysmem_buffer(mapping, map_size, map_buffer_to_noc);
     uint64_t iova = sysmem_buffer_->get_device_io_addr();
     auto noc_address = sysmem_buffer_->get_noc_addr();
 
-    if (!noc_address.has_value()) {
+    if (map_buffer_to_noc && !noc_address.has_value()) {
         TT_THROW("NOC address is not set for sysmem buffer.");
     }
 
-    if (*noc_address != pcie_base_) {
+    if (map_buffer_to_noc && (*noc_address != pcie_base_)) {
         // If this happens, it means that something else is using the address
         // space that UMD typically uses.  Historically, this would have crashed
         // or done something inscrutable.  Now it is just an error.
@@ -269,7 +271,7 @@ bool SysmemManager::init_iommu(size_t num_fake_mem_channels) {
     for (size_t ch = 0; ch < num_fake_mem_channels; ch++) {
         uint8_t *base = static_cast<uint8_t *>(mapping) + ch * HUGEPAGE_REGION_SIZE;
         size_t actual_size = (ch == 3) ? HUGEPAGE_CHANNEL_3_SIZE_LIMIT : HUGEPAGE_REGION_SIZE;
-        hugepage_mapping_per_channel[ch] = {base, actual_size};
+        hugepage_mapping_per_channel[ch] = {base, actual_size, iova + ch * HUGEPAGE_REGION_SIZE};
     }
 
     return true;

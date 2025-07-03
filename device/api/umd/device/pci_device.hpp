@@ -193,6 +193,11 @@ public:
     std::unique_ptr<tt::umd::TlbHandle> allocate_tlb(
         const size_t tlb_size, const tt::umd::TlbMapping tlb_mapping = tt::umd::TlbMapping::UC);
 
+    /**
+     * Temporary function which allows us to support both ways of mapping buffers during the transition period.
+     */
+    static bool is_mapping_buffer_to_noc_supported();
+
 public:
     // TODO: we can and should make all of these private.
     void *bar0_uc = nullptr;

@@ -479,8 +479,10 @@ uint64_t PCIDevice::map_for_hugepage(void *buffer, size_t size) {
 
 static const semver_t kmd_ver_for_map_to_noc = semver_t(2, 0, 0);
 
+bool PCIDevice::is_mapping_buffer_to_noc_supported() { return PCIDevice::read_kmd_version() >= kmd_ver_for_map_to_noc; }
+
 std::pair<uint64_t, uint64_t> PCIDevice::map_buffer_to_noc(void *buffer, size_t size) {
-    if (PCIDevice::read_kmd_version() < kmd_ver_for_map_to_noc) {
+    if (!is_mapping_buffer_to_noc_supported()) {
         TT_THROW("KMD version must be at least 2.0.0 to use buffer with NOC mapping");
     }
 
@@ -515,7 +517,7 @@ std::pair<uint64_t, uint64_t> PCIDevice::map_buffer_to_noc(void *buffer, size_t 
 }
 
 std::pair<uint64_t, uint64_t> PCIDevice::map_hugepage_to_noc(void *hugepage, size_t size) {
-    if (PCIDevice::read_kmd_version() < kmd_ver_for_map_to_noc) {
+    if (!is_mapping_buffer_to_noc_supported()) {
         TT_THROW("KMD version must be at least 2.0.0 to use hugepages with NOC mapping");
     }
 

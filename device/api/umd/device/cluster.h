@@ -671,9 +671,6 @@ private:
         HarvestingMasks& simulated_harvesting_masks);
     void construct_cluster(const uint32_t& num_host_mem_ch_per_mmio_device, const ChipType& chip_type);
 
-    static std::unique_ptr<tt_ClusterDescriptor> create_cluster_descriptor(
-        const std::unordered_map<chip_id_t, std::unique_ptr<Chip>>& chips);
-
     static void verify_cluster_options(const ClusterOptions& options);
 
     // State variables

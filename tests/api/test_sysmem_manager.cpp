@@ -235,7 +235,10 @@ TEST(ApiSysmemManager, SysmemBufferNocAddress) {
     std::unique_ptr<SysmemBuffer> sysmem_buffer = sysmem_manager->allocate_sysmem_buffer(one_mb, true);
 
     EXPECT_TRUE(sysmem_buffer->get_noc_addr().has_value());
-    EXPECT_EQ(sysmem_buffer->get_noc_addr().value(), cluster->get_pcie_base_addr_from_device(mmio_chip));
+
+    // Since we requested one host mem buffer through constructor by default, the next allocated buffer will be mapped
+    // to some higher NOC address.
+    EXPECT_GT(sysmem_buffer->get_noc_addr().value(), cluster->get_pcie_base_addr_from_device(mmio_chip));
 
     uint8_t* sysmem_data = static_cast<uint8_t*>(sysmem_buffer->get_buffer_va());
     for (uint32_t i = 0; i < one_mb; ++i) {
@@ -251,7 +254,7 @@ TEST(ApiSysmemManager, SysmemBufferNocAddress) {
     // Write to sysmem buffer using NOC address.
     const CoreCoord pcie_core = cluster->get_soc_descriptor(mmio_chip).get_cores(CoreType::PCIE)[0];
     cluster->write_to_device(
-        data_write.data(), data_write.size(), mmio_chip, pcie_core, cluster->get_pcie_base_addr_from_device(mmio_chip));
+        data_write.data(), data_write.size(), mmio_chip, pcie_core, sysmem_buffer->get_noc_addr().value());
 
     for (uint32_t i = 0; i < one_mb; ++i) {
         EXPECT_EQ(sysmem_data[i], data_write[i])
@@ -261,8 +264,7 @@ TEST(ApiSysmemManager, SysmemBufferNocAddress) {
 
     std::vector<uint8_t> readback(one_mb, 0);
     // Read back from sysmem buffer using NOC address.
-    cluster->read_from_device(
-        readback.data(), mmio_chip, pcie_core, cluster->get_pcie_base_addr_from_device(mmio_chip), one_mb);
+    cluster->read_from_device(readback.data(), mmio_chip, pcie_core, sysmem_buffer->get_noc_addr().value(), one_mb);
 
     EXPECT_EQ(readback, data_write);
 }

@@ -38,6 +38,9 @@ static const uint32_t GS_BAR0_WC_MAPPING_SIZE = (156 << 20) + (10 << 21) + (18 <
 // Defines the address for WC region. addresses 0 to BH_BAR0_WC_MAPPING_SIZE are in WC, above that are UC
 static const uint32_t BH_BAR0_WC_MAPPING_SIZE = 188 << 21;
 
+static const semver_t kmd_ver_for_iommu = semver_t(1, 29, 0);
+static const semver_t kmd_ver_for_map_to_noc = semver_t(2, 0, 0);
+
 using namespace tt;
 using namespace tt::umd;
 
@@ -167,8 +170,6 @@ tt::ARCH PciDeviceInfo::get_arch() const {
     return infos;
 }
 
-static const semver_t kmd_ver_for_iommu = semver_t(1, 29, 0);
-
 PCIDevice::PCIDevice(int pci_device_number) :
     device_path(fmt::format("/dev/tenstorrent/{}", pci_device_number)),
     pci_device_num(pci_device_number),
@@ -180,6 +181,12 @@ PCIDevice::PCIDevice(int pci_device_number) :
     kmd_version(PCIDevice::read_kmd_version()),
     iommu_enabled(detect_iommu(info)) {
     if (iommu_enabled && kmd_version < kmd_ver_for_iommu) {
+        log_warning(
+            LogSiliconDriver,
+            "Running with IOMMU support prior to KMD version {} is of limited support.",
+            kmd_ver_for_map_to_noc.to_string());
+    }
+    if (iommu_enabled && !PCIDevice::is_mapping_buffer_to_noc_supported()) {
         TT_THROW("Running with IOMMU support requires KMD version {} or newer", kmd_ver_for_iommu.to_string());
     }
 
@@ -477,8 +484,6 @@ uint64_t PCIDevice::map_for_hugepage(void *buffer, size_t size) {
     return pin_pages.out.physical_address;
 }
 
-static const semver_t kmd_ver_for_map_to_noc = semver_t(2, 0, 0);
-
 bool PCIDevice::is_mapping_buffer_to_noc_supported() { return PCIDevice::read_kmd_version() >= kmd_ver_for_map_to_noc; }
 
 std::pair<uint64_t, uint64_t> PCIDevice::map_buffer_to_noc(void *buffer, size_t size) {
@@ -507,11 +512,18 @@ std::pair<uint64_t, uint64_t> PCIDevice::map_buffer_to_noc(void *buffer, size_t 
     pin.in.virtual_address = vaddr;
     pin.in.size = size;
 
-    log_debug(LogSiliconDriver, "Pinning pages for DMA: virtual address {:#x} and size {:#x}", vaddr, size);
-
     if (ioctl(pci_device_file_desc, TENSTORRENT_IOCTL_PIN_PAGES, &pin) == -1) {
         TT_THROW("Failed to pin pages for DMA: {}", strerror(errno));
     }
+
+    log_debug(
+        LogSiliconDriver,
+        "Pinning pages for DMA: virtual address {:#x} and size {:#x} pinned to physical address {:#x} and mapped to "
+        "noc address {:#x}",
+        pin.in.virtual_address,
+        pin.in.size,
+        pin.out.physical_address,
+        pin.out.noc_address);
 
     return {pin.out.noc_address, pin.out.physical_address};
 }
@@ -551,6 +563,15 @@ std::pair<uint64_t, uint64_t> PCIDevice::map_hugepage_to_noc(void *hugepage, siz
         TT_THROW("Failed to pin pages for DMA: {} {}", strerror(errno), pin.in.flags);
     }
 
+    log_debug(
+        LogSiliconDriver,
+        "Pinning pages for Hugepage: virtual address {:#x} and size {:#x} pinned to physical address {:#x} and mapped "
+        "to noc address {:#x}",
+        pin.in.virtual_address,
+        pin.in.size,
+        pin.out.physical_address,
+        pin.out.noc_address);
+
     return {pin.out.noc_address, pin.out.physical_address};
 }
 
@@ -574,6 +595,14 @@ uint64_t PCIDevice::map_for_dma(void *buffer, size_t size) {
         TT_THROW("Failed to pin pages for DMA: {}", strerror(errno));
     }
 
+    log_debug(
+        LogSiliconDriver,
+        "Pinning pages for DMA: virtual address {:#x} and size {:#x} pinned to physical address {:#x} without mapping "
+        "to noc",
+        pin_pages.in.virtual_address,
+        pin_pages.in.size,
+        pin_pages.out.physical_address);
+
     return pin_pages.out.physical_address;
 }
 
@@ -593,6 +622,12 @@ void PCIDevice::unmap_for_dma(void *buffer, size_t size) {
     if (ioctl(pci_device_file_desc, TENSTORRENT_IOCTL_UNPIN_PAGES, &unpin_pages) < 0) {
         TT_THROW("Failed to unpin pages for DMA buffer: {}", strerror(errno));
     }
+
+    log_debug(
+        LogSiliconDriver,
+        "Unpinning pages for DMA: virtual address {:#x} and size {:#x}",
+        unpin_pages.in.virtual_address,
+        unpin_pages.in.size);
 }
 
 semver_t PCIDevice::read_kmd_version() {

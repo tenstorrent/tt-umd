@@ -258,8 +258,12 @@ void TopologyDiscovery::discover_remote_chips() {
             } else {
                 chip_id_t remote_chip_id = asic_id_to_chip_id.at(remote_asic_id);
                 Chip* remote_chip = chips.at(remote_chip_id).get();
-                ethernet_connections.push_back(
-                    {{chip_id, channel}, {remote_chip_id, get_remote_eth_id(chip.get(), eth_core)}});
+                tt_xy_pair remote_eth_core = get_remote_eth_core(chip.get(), eth_core);
+                uint32_t remote_eth_channel =
+                    remote_chip->get_soc_descriptor()
+                        .translate_coord_to(remote_eth_core, CoordSystem::PHYSICAL, CoordSystem::LOGICAL)
+                        .y;
+                ethernet_connections.push_back({{chip_id, channel}, {remote_chip_id, remote_eth_channel}});
             }
             channel++;
         }
@@ -344,9 +348,12 @@ void TopologyDiscovery::discover_remote_chips() {
                     chip_id_t current_chip_id = asic_id_to_chip_id.at(asic_id_to_discover);
                     chip_id_t remote_chip_id = asic_id_to_chip_id.at(new_asic_id);
                     Chip* remote_chip = chips.at(remote_chip_id).get();
-                    ethernet_connections.push_back(
-                        {{current_chip_id, channel},
-                         {remote_chip_id, get_remote_eth_id(remote_chip_ptr, {eth_core.x, eth_core.y})}});
+                    tt_xy_pair remote_eth_core = get_remote_eth_core(remote_chip_ptr, {eth_core.x, eth_core.y});
+                    uint32_t remote_eth_channel =
+                        remote_chip->get_soc_descriptor()
+                            .translate_coord_to(remote_eth_core, CoordSystem::PHYSICAL, CoordSystem::LOGICAL)
+                            .y;
+                    ethernet_connections.push_back({{current_chip_id, channel}, {remote_chip_id, remote_eth_channel}});
                 }
                 channel++;
             }

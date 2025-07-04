@@ -188,12 +188,10 @@ void TopologyDiscovery::discover_remote_chips() {
     const uint32_t eth_unconnected = 1;
     const uint32_t rack_offset = 10;
 
-    std::unordered_map<uint64_t, chip_id_t> chip_uid_to_local_chip_id = {};
-
-    std::unordered_set<uint64_t> discovered_chips = {};
-    std::unordered_map<uint64_t, std::unique_ptr<RemoteWormholeTTDevice>> remote_chips_to_discover = {};
+    std::set<uint64_t> discovered_chips = {};
+    std::map<uint64_t, std::unique_ptr<RemoteWormholeTTDevice>> remote_chips_to_discover = {};
     // Needed to know which chip to use for remote communication.
-    std::unordered_map<uint64_t, chip_id_t> remote_asic_id_to_mmio_chip_id = {};
+    std::map<uint64_t, chip_id_t> remote_asic_id_to_mmio_chip_id = {};
 
     for (const auto& [chip_id, chip] : chips) {
         uint64_t current_chip_asic_id = get_asic_id(chip.get());
@@ -260,7 +258,7 @@ void TopologyDiscovery::discover_remote_chips() {
     }
 
     while (!remote_chips_to_discover.empty()) {
-        std::unordered_map<uint64_t, std::unique_ptr<RemoteWormholeTTDevice>> new_chips = {};
+        std::map<uint64_t, std::unique_ptr<RemoteWormholeTTDevice>> new_chips = {};
 
         for (auto it = remote_chips_to_discover.begin(); it != remote_chips_to_discover.end(); it++) {
             uint64_t asic_id_to_discover = it->first;

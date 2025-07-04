@@ -365,6 +365,10 @@ void TopologyDiscovery::fill_cluster_descriptor_info() {
         cluster_desc->add_chip_to_board(chip_id, chip->get_chip_info().chip_uid.board_id);
     }
 
+    for (const auto& [asic_id, chip_id] : asic_id_to_chip_id) {
+        cluster_desc->chip_to_unique_id.emplace(chip_id, asic_id);
+    }
+
     for (auto [ethernet_connection_logical, ethernet_connection_remote] : ethernet_connections) {
         cluster_desc->ethernet_connections[ethernet_connection_logical.first][ethernet_connection_logical.second] = {
             ethernet_connection_remote.first, ethernet_connection_remote.second};

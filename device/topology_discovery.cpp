@@ -317,14 +317,13 @@ void TopologyDiscovery::discover_remote_chips() {
 
                 if (!is_board_id_included(get_remote_board_id(remote_chip_ptr, eth_core))) {
                     tt_xy_pair remote_eth_core = get_remote_eth_core(chips.at(chip_id - 1).get(), eth_core);
-                    uint32_t remote_eth_id =
+                    uint32_t remote_eth_chan =
                         mmio_chip->get_soc_descriptor()
                             .translate_coord_to(
-                                CoreCoord(remote_eth_core.x, remote_eth_core.y, CoreType::ETH, CoordSystem::PHYSICAL),
-                                CoordSystem::LOGICAL)
+                                CoreCoord(remote_eth_core, CoreType::ETH, CoordSystem::PHYSICAL), CoordSystem::LOGICAL)
                             .y;
                     cluster_desc->ethernet_connections_to_remote_devices[chip_id - 1][channel] = {
-                        get_remote_asic_id(chips.at(chip_id - 1).get(), eth_core), remote_eth_id};
+                        get_remote_asic_id(chips.at(chip_id - 1).get(), eth_core), remote_eth_chan};
                     channel++;
                     continue;
                 }

@@ -64,6 +64,7 @@ protected:
     std::map<chip_id_t, std::set<uint32_t>> idle_eth_channels = {};
     std::map<uint64_t, std::unordered_set<chip_id_t>> board_to_chips = {};
     std::unordered_map<chip_id_t, uint64_t> chip_to_board_id = {};
+    std::map<chip_id_t, uint64_t> chip_to_unique_id = {};
 
     // one-to-many chip connections
     struct Chip2ChipConnection {

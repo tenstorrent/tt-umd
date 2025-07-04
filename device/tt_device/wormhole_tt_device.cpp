@@ -67,6 +67,8 @@ ChipInfo WormholeTTDevice::get_chip_info() {
 
     chip_info.board_type = get_board_type();
 
+    chip_info.firmware_version = fw_version_from_telemetry(telemetry->read_entry(wormhole::TAG_FW_BUNDLE_VERSION));
+
     return chip_info;
 }
 

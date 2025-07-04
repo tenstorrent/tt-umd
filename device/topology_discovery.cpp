@@ -258,8 +258,17 @@ void TopologyDiscovery::discover_remote_chips() {
             } else {
                 chip_id_t remote_chip_id = asic_id_to_chip_id.at(remote_asic_id);
                 Chip* remote_chip = chips.at(remote_chip_id).get();
-                ethernet_connections.push_back(
-                    {{chip_id, channel}, {remote_chip_id, get_remote_eth_id(chip.get(), eth_core)}});
+                uint32_t remote_eth_channel;
+                if (is_running_on_6u) {
+                    remote_eth_channel = get_remote_eth_id(chip.get(), eth_core);
+                } else {
+                    tt_xy_pair remote_eth_core = get_remote_eth_core(chip.get(), eth_core);
+                    remote_eth_channel =
+                        remote_chip->get_soc_descriptor()
+                            .translate_coord_to(remote_eth_core, CoordSystem::PHYSICAL, CoordSystem::LOGICAL)
+                            .y;
+                }
+                ethernet_connections.push_back({{chip_id, channel}, {remote_chip_id, remote_eth_channel}});
             }
             channel++;
         }
@@ -344,9 +353,17 @@ void TopologyDiscovery::discover_remote_chips() {
                     chip_id_t current_chip_id = asic_id_to_chip_id.at(asic_id_to_discover);
                     chip_id_t remote_chip_id = asic_id_to_chip_id.at(new_asic_id);
                     Chip* remote_chip = chips.at(remote_chip_id).get();
-                    ethernet_connections.push_back(
-                        {{current_chip_id, channel},
-                         {remote_chip_id, get_remote_eth_id(remote_chip_ptr, {eth_core.x, eth_core.y})}});
+                    uint32_t remote_eth_channel;
+                    if (is_running_on_6u) {
+                        remote_eth_channel = get_remote_eth_id(remote_chip_ptr, eth_core);
+                    } else {
+                        tt_xy_pair remote_eth_core = get_remote_eth_core(remote_chip_ptr, eth_core);
+                        remote_eth_channel =
+                            remote_chip->get_soc_descriptor()
+                                .translate_coord_to(remote_eth_core, CoordSystem::PHYSICAL, CoordSystem::LOGICAL)
+                                .y;
+                    }
+                    ethernet_connections.push_back({{current_chip_id, channel}, {remote_chip_id, remote_eth_channel}});
                 }
                 channel++;
             }
@@ -503,6 +520,10 @@ uint32_t TopologyDiscovery::read_port_status(Chip* chip, tt_xy_pair eth_core, ui
 }
 
 uint32_t TopologyDiscovery::get_remote_eth_id(Chip* chip, tt_xy_pair local_eth_core) {
+    if (!is_running_on_6u) {
+        throw std::runtime_error(
+            "get_remote_eth_id should not be called on non-6U configurations. This message likely indicates a bug.");
+    }
     uint32_t remote_eth_id;
     TTDevice* tt_device = chip->get_tt_device();
     tt_device->read_from_device(

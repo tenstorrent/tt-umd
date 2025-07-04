@@ -129,6 +129,23 @@ void Cluster::create_device(
     }
 }
 
+void Cluster::verify_fw_bundle_version() {
+    if (chips_.empty()) {
+        return;
+    }
+    semver_t fw_bundle_version = chips_.begin()->second->get_tt_device()->get_chip_info().firmware_version;
+    for (const auto& [chip_id, chip] : chips_) {
+        if (chip->get_tt_device()->get_chip_info().firmware_version != fw_bundle_version) {
+            throw std::runtime_error(fmt::format(
+                "Firmware bundle version mismatch for chip {}: expected {}, got {}",
+                chip_id,
+                fw_bundle_version.to_string(),
+                chip->get_tt_device()->get_chip_info().firmware_version.to_string()));
+        }
+    }
+    log_info(LogSiliconDriver, "All devices in cluster running firmware version: {}", fw_bundle_version.to_string());
+}
+
 void Cluster::construct_cluster(const uint32_t& num_host_mem_ch_per_mmio_device, const ChipType& chip_type) {
     // TODO: work on removing this member altogether. Currently assumes all have the same arch.
     arch_name = chips_.empty() ? tt::ARCH::Invalid : chips_.begin()->second->get_soc_descriptor().arch;
@@ -145,6 +162,10 @@ void Cluster::construct_cluster(const uint32_t& num_host_mem_ch_per_mmio_device,
             local_chip_ids_,
             pci_ids,
             remote_chip_ids_);
+        verify_fw_bundle_version();
+        if (arch_name == tt::ARCH::WORMHOLE_B0) {
+            verify_eth_fw();
+        }
     }
 
     create_device(local_chip_ids_, num_host_mem_ch_per_mmio_device, chip_type);
@@ -1059,10 +1080,6 @@ void Cluster::start_device(const tt_device_params& device_params) {
             get_chip(chip_id)->start_device();
         }
 
-        // MT Initial BH - Ethernet firmware not present in Blackhole
-        if (arch_name == tt::ARCH::WORMHOLE_B0) {
-            verify_eth_fw();
-        }
         deassert_resets_and_set_power_state();
     }
 }
@@ -1213,7 +1230,8 @@ std::unique_ptr<tt_ClusterDescriptor> Cluster::create_cluster_descriptor(
 
         // TODO: Remove this when we can read asic location from the Blackhole telemetry.
         // Until then we have to read it from ETH core.
-        const std::vector<CoreCoord> eth_cores = chip->get_soc_descriptor().get_cores(CoreType::ETH);
+        const std::vector<CoreCoord> eth_cores = chip->get_soc_descriptor().get_cores(
+            CoreType::ETH, umd_use_noc1 ? CoordSystem::NOC1 : CoordSystem::TRANSLATED);
         for (size_t eth_channel = 0; eth_channel < eth_cores.size(); eth_channel++) {
             const CoreCoord& eth_core = eth_cores[eth_channel];
             TTDevice* tt_device = chip->get_tt_device();
@@ -1256,7 +1274,8 @@ std::unique_ptr<tt_ClusterDescriptor> Cluster::create_cluster_descriptor(
             const chip_id_t chip_id = it.first;
             const std::unique_ptr<Chip>& chip = it.second;
 
-            const std::vector<CoreCoord> eth_cores = chip->get_soc_descriptor().get_cores(CoreType::ETH);
+            const std::vector<CoreCoord> eth_cores = chip->get_soc_descriptor().get_cores(
+                CoreType::ETH, umd_use_noc1 ? CoordSystem::NOC1 : CoordSystem::TRANSLATED);
 
             for (size_t eth_channel = 0; eth_channel < eth_cores.size(); eth_channel++) {
                 const CoreCoord& eth_core = eth_cores[eth_channel];

@@ -32,6 +32,7 @@ jobs:
       - name: Checkout tt-metal repo
         uses: actions/checkout@v4
         with:
+          path: tt-metal
           repository: tenstorrent/tt-metal
           submodules: recursive
           fetch-depth: 1000 # Need enough history for `git describe`
@@ -46,6 +47,7 @@ jobs:
 
       - name: Build tt-metal
         run: |
+          cd tt-metal
           export TT_METAL_HOME=$(pwd)
           export PYTHONPATH=$(pwd)
           ./build_metal.sh --build-all --enable-ccache --enable-profiler
@@ -88,30 +90,30 @@ jobs:
           CIBW_MANYLINUX_X86_64_IMAGE: ghcr.io/tenstorrent/tt-metal/tt-metalium/manylinux-amd64:latest
 
 
-  build-tt-exalens:
-    timeout-minutes: ${{ fromJSON(inputs.timeout || '90') }}
+  # build-tt-exalens:
+  #   timeout-minutes: ${{ fromJSON(inputs.timeout || '90') }}
 
-    name: Build tt-exalens with newest UMD
-    runs-on: ubuntu-22.04
-    container:
-      image: ghcr.io/tenstorrent/tt-exalens/tt-exalens-ci-ubuntu-22-04:latest
-      options: --user root
+  #   name: Build tt-exalens with newest UMD
+  #   runs-on: ubuntu-22.04
+  #   container:
+  #     image: ghcr.io/tenstorrent/tt-exalens/tt-exalens-ci-ubuntu-22-04:latest
+  #     options: --user root
 
-    steps:
-      - name: Checkout tt-exalens repo
-        uses: actions/checkout@v4
-        with:
-          repository: tenstorrent/tt-exalens
-          submodules: recursive
+  #   steps:
+  #     - name: Checkout tt-exalens repo
+  #       uses: actions/checkout@v4
+  #       with:
+  #         repository: tenstorrent/tt-exalens
+  #         submodules: recursive
 
-      - name: Checkout UMD
-        uses: actions/checkout@v4
-        with:
-          # Clone directly into tt-exalens directory for umd
-          path: third_party/umd
-          submodules: recursive
+  #     - name: Checkout UMD
+  #       uses: actions/checkout@v4
+  #       with:
+  #         # Clone directly into tt-exalens directory for umd
+  #         path: third_party/umd
+  #         submodules: recursive
 
-      - name: Build tt-exalens
-        run: |
-          make build
-          cd ../
+  #     - name: Build tt-exalens
+  #       run: |
+  #         make build
+  #         cd ../

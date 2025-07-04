@@ -84,6 +84,7 @@ int main(int argc, char* argv[]) {
     auto unique_chip_ids = cluster_descriptor->get_chip_unique_ids();
 
     std::stringstream ss;
+    std::stringstream chip_info_ss;
     std::vector<std::uint32_t> read_vec;
 
     if (unique_chip_ids.empty()) {
@@ -92,7 +93,8 @@ int main(int argc, char* argv[]) {
             unique_chip_ids[chip_id] = chip_id;
         }
     }
-    ss << "Found " << unique_chip_ids.size() << " chips in cluster_descriptor:" << std::endl;
+
+    ss << std::endl << "Found " << unique_chip_ids.size() << " chips in cluster_descriptor:" << std::endl;
 
     std::vector<std::string> unexpected_system_states;
     for (const auto& [chip_id, unique_chip_id] : unique_chip_ids) {
@@ -128,15 +130,14 @@ int main(int argc, char* argv[]) {
                         cluster_descriptor->get_chip_and_channel_of_remote_ethernet_core(chip_id, chan);
                     const CoreCoord logical_eth_coord = CoreCoord(0, chan, CoreType::ETH, CoordSystem::LOGICAL);
 
-                    std::cout << "Connected chip: " << connected_chip_id
-                              << " connected eth core: " << logical_eth_coord.str() << std::endl;
+                    chip_info_ss << "Connected chip: " << connected_chip_id
+                                 << " connected eth core: " << logical_eth_coord.str() << std::endl;
                     eth_ss << " link UP " << connection_type << ", retrain: " << read_vec[0] << ", connected to chip "
                            << connected_chip_id << " " << logical_eth_coord.str();
                 } else {
                     const auto& ethernet_connections_to_remote_cluster =
                         cluster_descriptor->get_ethernet_connections_to_remote_mmio_devices();
                     const auto& local_chip_id = chip_id;
-                    const auto& local_eth_core = logical_coord.at(chan);
                     const auto& local_connected_eth_core =
                         ethernet_connections_to_remote_cluster.at(local_chip_id).at(chan);
 
@@ -144,8 +145,8 @@ int main(int argc, char* argv[]) {
                         std::get<0>(local_connected_eth_core),
                         soc_desc.get_eth_core_for_channel(std::get<1>(local_connected_eth_core), CoordSystem::LOGICAL));
 
-                    std::cout << "Connected unique chip: " << connected_chip_unique_id
-                              << " connected eth core: " << logical_eth_coord.str() << std::endl;
+                    chip_info_ss << "Connected unique chip: " << connected_chip_unique_id
+                                 << " connected eth core: " << logical_eth_coord.str() << std::endl;
                     eth_ss << " link UP " << connection_type << ", retrain: " << read_vec[0] << ", connected to chip "
                            << connected_chip_unique_id << " " << logical_eth_coord.str();
                 }
@@ -159,9 +160,11 @@ int main(int argc, char* argv[]) {
         ss << std::endl;
     }
 
-    log_info(tt::LogTest, "{}", ss.str());
+    std::cout << chip_info_ss.str();
+    std::cout << ss.str();
 
     std::string output_path = cluster_descriptor->serialize_to_file(cluster_descriptor_path);
-    log_info(tt::LogSiliconDriver, "Cluster descriptor serialized to {}", output_path);
+    std::cout << "Cluster descriptor serialized to " << output_path << std::endl;
+
     return 0;
 }

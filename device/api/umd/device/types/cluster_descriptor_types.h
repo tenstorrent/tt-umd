@@ -12,6 +12,7 @@
 #include <functional>
 
 #include "fmt/core.h"
+#include "umd/device/semver.hpp"
 #include "umd/device/types/harvesting.h"
 
 // Small performant hash combiner taken from boost library.
@@ -157,6 +158,7 @@ struct ChipInfo {
     BoardType board_type;
     ChipUID chip_uid;
     bool noc_translation_enabled;
+    tt::umd::semver_t firmware_version = {0, 0, 0};
 };
 
 enum class DramTrainingStatus : uint8_t {

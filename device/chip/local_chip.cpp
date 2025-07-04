@@ -377,21 +377,7 @@ bool LocalChip::get_flush_non_mmio() const { return flush_non_mmio_; }
 
 tt_xy_pair LocalChip::translate_chip_coord_virtual_to_translated(const tt_xy_pair core) const {
     CoreCoord core_coord = soc_descriptor_.get_coord_at(core, CoordSystem::VIRTUAL);
-    // Since NOC1 and translated coordinate space overlaps for Tensix cores on Blackhole,
-    // Tensix cores are always used in translated space. Other cores are used either in
-    // NOC1 or translated space depending on the umd_use_noc1 flag.
-    // On Wormhole Tensix can use NOC1 space if umd_use_noc1 is set to true.
-    if (soc_descriptor_.noc_translation_enabled) {
-        if (soc_descriptor_.arch == tt::ARCH::BLACKHOLE) {
-            return soc_descriptor_.translate_coord_to(core_coord, CoordSystem::TRANSLATED);
-        } else {
-            return soc_descriptor_.translate_coord_to(
-                core_coord, umd_use_noc1 ? CoordSystem::NOC1 : CoordSystem::TRANSLATED);
-        }
-    } else {
-        return soc_descriptor_.translate_coord_to(
-            core_coord, umd_use_noc1 ? CoordSystem::NOC1 : CoordSystem::TRANSLATED);
-    }
+    return soc_descriptor_.translate_coord_to(core_coord, umd_use_noc1 ? CoordSystem::NOC1 : CoordSystem::TRANSLATED);
 }
 
 void LocalChip::set_remote_transfer_ethernet_cores(const std::unordered_set<CoreCoord>& active_eth_cores) {

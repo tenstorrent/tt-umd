@@ -14,10 +14,10 @@ class tt_ClusterDescriptor;
 namespace tt::umd {
 
 // TopologyDiscovery class creates cluster descriptor only for Wormhole configurations with old routing fw.
-// TODO: Move Blackhole and 6U topology discovery to this class.
+// TODO: Move Blackhole topology discovery to this class.
 class TopologyDiscovery {
 public:
-    TopologyDiscovery(std::unordered_set<chip_id_t> pci_target_devices = {});
+    TopologyDiscovery(std::unordered_set<chip_id_t> pci_target_devices = {}, const std::string& sdesc_path = "");
     std::unique_ptr<tt_ClusterDescriptor> create_ethernet_map();
 
 private:
@@ -31,6 +31,7 @@ private:
         uint64_t erisc_local_board_type_offset;
         uint64_t erisc_local_board_id_lo_offset;
         uint64_t erisc_remote_board_id_lo_offset;
+        uint64_t erisc_remote_eth_id_offset;
     };
 
     static EthAddresses get_eth_addresses(uint32_t eth_fw_version);
@@ -86,6 +87,11 @@ private:
     tt_xy_pair get_remote_eth_core(Chip* chip, tt_xy_pair local_eth_core);
 
     // TODO: override this logic for different configs. This is in group of functions
+    // that we should override for T3K/6U/BH...
+    // local_eth_core should be in physical (NOC0) coordinates.
+    uint32_t get_remote_eth_id(Chip* chip, tt_xy_pair local_eth_core);
+
+    // TODO: override this logic for different configs. This is in group of functions
     // that we should override for T3K/6U/BH..
     // eth_core should be in physical (NOC0) coordinates..
     uint32_t read_port_status(Chip* chip, tt_xy_pair eth_core, uint32_t channel);
@@ -116,6 +122,10 @@ private:
     std::unordered_set<uint32_t> board_ids;
 
     std::unordered_map<chip_id_t, std::set<uint32_t>> active_eth_channels_per_chip;
+
+    const std::string sdesc_path;
+
+    bool is_running_on_6u = false;
 };
 
 }  // namespace tt::umd

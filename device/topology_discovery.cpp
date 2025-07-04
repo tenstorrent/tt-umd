@@ -247,12 +247,11 @@ void TopologyDiscovery::discover_remote_chips() {
 
             chip->set_remote_transfer_ethernet_cores(active_eth_channels_per_chip.at(chip_id));
 
-            std::unique_ptr<RemoteWormholeTTDevice> remote_tt_device =
-                create_remote_tt_device(chip.get(), eth_core, chip.get());
-
             uint64_t remote_asic_id = get_remote_asic_id(chip.get(), eth_core);
 
             if (discovered_chips.find(remote_asic_id) == discovered_chips.end()) {
+                std::unique_ptr<RemoteWormholeTTDevice> remote_tt_device =
+                    create_remote_tt_device(chip.get(), eth_core, chip.get());
                 remote_chips_to_discover.emplace(remote_asic_id, std::move(remote_tt_device));
                 remote_asic_id_to_mmio_chip_id.emplace(remote_asic_id, chip_id);
             } else {

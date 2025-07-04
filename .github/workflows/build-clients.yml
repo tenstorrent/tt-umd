@@ -34,7 +34,7 @@ jobs:
         with:
           repository: tenstorrent/tt-metal
           submodules: recursive
-          fetch-depth: 500 # Need enough history for `git describe`
+          fetch-depth: 1000 # Need enough history for `git describe`
           fetch-tags: true # Need tags for `git describe`
 
       - name: Checkout UMD
@@ -65,7 +65,7 @@ jobs:
         with:
           repository: tenstorrent/tt-metal
           submodules: recursive
-          fetch-depth: 500 # Need enough history for `git describe`
+          fetch-depth: 1000 # Need enough history for `git describe`
           fetch-tags: true # Need tags for `git describe`
 
       - name: Checkout UMD

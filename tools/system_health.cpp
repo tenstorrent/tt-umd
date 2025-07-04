@@ -136,7 +136,7 @@ int main(int argc, char* argv[]) {
                            << connected_chip_id << " " << logical_eth_coord.str();
                 } else {
                     const auto& ethernet_connections_to_remote_cluster =
-                        cluster_descriptor->get_ethernet_connections_to_remote_mmio_devices();
+                        cluster_descriptor->get_ethernet_connections_to_remote_devices();
                     const auto& local_chip_id = chip_id;
                     const auto& local_connected_eth_core =
                         ethernet_connections_to_remote_cluster.at(local_chip_id).at(chan);

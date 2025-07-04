@@ -25,10 +25,10 @@ bool tt_ClusterDescriptor::ethernet_core_has_active_ethernet_link(
     return (this->ethernet_connections.find(local_chip) != this->ethernet_connections.end() &&
             this->ethernet_connections.at(local_chip).find(local_ethernet_channel) !=
                 this->ethernet_connections.at(local_chip).end()) ||
-           (this->ethernet_connections_to_remote_mmio_devices.find(local_chip) !=
-                this->ethernet_connections_to_remote_mmio_devices.end() &&
-            this->ethernet_connections_to_remote_mmio_devices.at(local_chip).find(local_ethernet_channel) !=
-                this->ethernet_connections_to_remote_mmio_devices.at(local_chip).end());
+           (this->ethernet_connections_to_remote_devices.find(local_chip) !=
+                this->ethernet_connections_to_remote_devices.end() &&
+            this->ethernet_connections_to_remote_devices.at(local_chip).find(local_ethernet_channel) !=
+                this->ethernet_connections_to_remote_devices.at(local_chip).end());
 }
 
 std::tuple<chip_id_t, ethernet_channel_t> tt_ClusterDescriptor::get_chip_and_channel_of_remote_ethernet_core(
@@ -653,6 +653,25 @@ void tt_ClusterDescriptor::load_ethernet_connections_from_connectivity_descripto
             }
         }
     }
+
+    if (yaml["ethernet_connections_to_remote_devices"].IsDefined()) {
+        for (YAML::Node &connected_endpoints :
+             yaml["ethernet_connections_to_remote_devices"].as<std::vector<YAML::Node>>()) {
+            TT_ASSERT(connected_endpoints.IsSequence(), "Invalid YAML");
+
+            std::vector<YAML::Node> endpoints = connected_endpoints.as<std::vector<YAML::Node>>();
+            TT_ASSERT(
+                endpoints.size() == 2,
+                "Remote ethernet connections in YAML should always contatin information on connected endpoints and "
+                "channels");
+
+            chip_id_t chip_0 = endpoints.at(0)["chip"].as<chip_id_t>();
+            int channel_0 = endpoints.at(0)["chan"].as<int>();
+            uint64_t chip_1 = endpoints.at(1)["remote_chip_id"].as<uint64_t>();
+            int channel_1 = endpoints.at(1)["chan"].as<int>();
+            desc.ethernet_connections_to_remote_devices[chip_0][channel_0] = {chip_1, channel_1};
+        }
+    }
 }
 
 void tt_ClusterDescriptor::fill_galaxy_connections(tt_ClusterDescriptor &desc) {
@@ -963,8 +982,8 @@ tt_ClusterDescriptor::get_ethernet_connections() const {
 }
 
 const std::unordered_map<chip_id_t, std::unordered_map<ethernet_channel_t, std::tuple<uint64_t, ethernet_channel_t>>>
-tt_ClusterDescriptor::get_ethernet_connections_to_remote_mmio_devices() const {
-    return this->ethernet_connections_to_remote_mmio_devices;
+tt_ClusterDescriptor::get_ethernet_connections_to_remote_devices() const {
+    return this->ethernet_connections_to_remote_devices;
 }
 
 const std::unordered_map<chip_id_t, eth_coord_t> &tt_ClusterDescriptor::get_chip_locations() const {
@@ -1124,6 +1143,25 @@ std::string tt_ClusterDescriptor::serialize() const {
         out << YAML::BeginMap << YAML::Key << "chip" << YAML::Value << dest_chip << YAML::Key << "chan" << YAML::Value
             << dest_chan << YAML::EndMap;
         out << YAML::EndSeq;
+    }
+    out << YAML::EndSeq;
+
+    out << YAML::Key << "ethernet_connections_to_remote_devices" << YAML::Value << YAML::BeginSeq;
+    serialized_connections.clear();
+    for (const auto &[src_chip, channels] : ethernet_connections_to_remote_devices) {
+        for (const auto &[src_chan, dest] : channels) {
+            if (serialized_connections.find({src_chip, src_chan}) != serialized_connections.end()) {
+                continue;
+            }
+            auto [dest_chip, dest_chan] = dest;
+            serialized_connections.insert({dest_chip, dest_chan});
+            out << YAML::BeginSeq;
+            out << YAML::BeginMap << YAML::Key << "chip" << YAML::Value << src_chip << YAML::Key << "chan"
+                << YAML::Value << src_chan << YAML::EndMap;
+            out << YAML::BeginMap << YAML::Key << "remote_chip_id" << YAML::Value << dest_chip << YAML::Key << "chan"
+                << YAML::Value << dest_chan << YAML::EndMap;
+            out << YAML::EndSeq;
+        }
     }
     out << YAML::EndSeq;
 

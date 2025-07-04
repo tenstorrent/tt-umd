@@ -24,10 +24,28 @@ class TLBManager;
 // An abstract class that represents a chip.
 class Chip {
 public:
+    /**
+     * The constructor should perform everything important for initializing the Chip
+     * properly. This can include, but is not limited to:
+     * - Getting the base address for the Device which is to be used when accessing it through the API, including memory
+     * mapping the device address space.
+     * - Setting up security access (if any).
+     * - Establishing a link to the kernel module driver (if any).
+     * - Additional setup needed for read/write operation from the device. DMA setup (if any).
+     * - Allocating system memory that the device has access to.
+     * - Setup access to DRAM module.
+     * - Create SoCDescriptors from passed custom soc descriptor yaml path.
+     * - Perform this for each of the chips connected to the system.
+     * @param options See documentation of ClusterOptions for explanation of specific arguments.
+     */
     Chip(tt_SocDescriptor soc_descriptor);
 
     Chip(const ChipInfo chip_info, tt_SocDescriptor soc_descriptor);
 
+    /**
+     * Closing the device. Should undo everything that was done in the constructor. Break created links, free memory,
+     * leave the device in a state where it can be re-initialized.
+     */
     virtual ~Chip() = default;
 
     virtual void start_device() = 0;

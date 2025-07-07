@@ -39,6 +39,9 @@ int main(int argc, char* argv[]) {
             try {
                 print_core_formatted(soc_desc.translate_coord_to(core, coord_system));
             } catch (const std::runtime_error& _) {
+                // The try catch is used to handle non existing coordinates in some coordinate systems. For example
+                // LOGICAL coords don't exist for harvested cores. In these cases we will just skip printing them, and
+                // print only the existing ones.
             }
         }
         std::cout << std::endl;

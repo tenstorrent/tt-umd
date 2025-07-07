@@ -33,9 +33,9 @@ SysmemManager::SysmemManager(TLBManager *tlb_manager, uint32_t num_host_mem_chan
 
 bool SysmemManager::pin_sysmem_to_device() {
     if (tt_device_->get_pci_device()->is_iommu_enabled()) {
-        return map_iommu();
+        return pin_iommu();
     } else {
-        return map_hugepages();
+        return pin_hugepages();
     }
 }
 
@@ -199,7 +199,7 @@ bool SysmemManager::init_hugepages(uint32_t num_host_mem_channels) {
     return success;
 }
 
-bool SysmemManager::map_hugepages() {
+bool SysmemManager::pin_hugepages() {
     auto physical_device_id = tt_device_->get_pci_device()->get_device_num();
 
     bool success = true;
@@ -278,7 +278,7 @@ bool SysmemManager::init_iommu(uint32_t num_host_mem_channels) {
     return true;
 }
 
-bool SysmemManager::map_iommu() {
+bool SysmemManager::pin_iommu() {
     sysmem_buffer_ = map_sysmem_buffer(iommu_mapping, iommu_mapping_size);
     uint64_t iova = sysmem_buffer_->get_device_io_addr();
 

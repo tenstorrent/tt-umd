@@ -9,6 +9,7 @@
 #include <algorithm>
 #include <cstdlib>  // for std::getenv
 #include <filesystem>
+#include <iostream>
 #include <string>
 #include <vector>
 
@@ -434,8 +435,7 @@ TEST(TestCluster, DeassertResetBrisc) {
     std::vector<uint8_t> zero_data(tensix_l1_size, 0);
 
     auto chip_ids = cluster->get_target_device_ids();
-    for(auto& chip_id : chip_ids)
-    {
+    for (auto& chip_id : chip_ids) {
         const tt_SocDescriptor& soc_desc = cluster->get_soc_descriptor(chip_id);
         auto tensix_cores = cluster->get_soc_descriptor(chip_id).get_cores(CoreType::TENSIX);
 
@@ -456,24 +456,24 @@ TEST(TestCluster, DeassertResetBrisc) {
             cluster->wait_for_non_mmio_flush(chip_id);
 
             cluster->write_to_device(
-                brisc_program.data(), brisc_program.size() * sizeof(uint32_t), chip_id, tensix_core, brisc_code_address);
-
-            cluster->wait_for_non_mmio_flush(chip_id);
+                brisc_program.data(),
+                brisc_program.size() * sizeof(uint32_t),
+                chip_id,
+                tensix_core,
+                brisc_code_address);
 
             chip->unset_tensix_risc_reset(
                 cluster->get_soc_descriptor(chip_id).translate_coord_to(tensix_core, CoordSystem::VIRTUAL),
                 TensixSoftResetOptions::BRISC);
 
-            cluster->wait_for_non_mmio_flush(chip_id);
+            cluster->l1_membar(chip_id, {tensix_core});
 
             cluster->read_from_device(&readback, chip_id, tensix_core, a_variable_address, sizeof(readback));
 
-            cluster->wait_for_non_mmio_flush(chip_id);
-
-            EXPECT_EQ(a_variable_value, readback) << "chip_id: " << chip_id << ", x: " << tensix_core.x << ", y: " << tensix_core.y << "\n";
+            EXPECT_EQ(a_variable_value, readback)
+                << "chip_id: " << chip_id << ", x: " << tensix_core.x << ", y: " << tensix_core.y << "\n";
         }
     }
-    
 }
 
 TEST_P(ClusterReadWriteL1Test, ReadWriteL1) {

@@ -173,20 +173,21 @@ void LocalChip::read_from_sysmem(uint16_t channel, void* dest, uint64_t sysmem_s
     sysmem_manager_->read_from_sysmem(channel, dest, sysmem_src, size);
 }
 
-void LocalChip::write_to_device(tt_xy_pair core, const void* src, uint64_t l1_dest, uint32_t size) {
+void LocalChip::write_to_device(CoreCoord core, const void* src, uint64_t l1_dest, uint32_t size) {
     const uint8_t* buffer_addr = static_cast<const uint8_t*>(src);
 
     log_debug(
         LogSiliconDriver,
-        "Chip::write_to_device to pci dev {} core {}-{} at 0x{:x} size: {}",
+        "Chip::write_to_device to pci dev {} core {} at 0x{:x} size: {}",
         tt_device_->get_pci_device()->get_device_num(),
-        core.x,
-        core.y,
+        core.str(),
         l1_dest,
         size);
 
-    if (tlb_manager_->is_tlb_mapped(core, l1_dest, size)) {
-        tlb_configuration tlb_description = tlb_manager_->get_tlb_configuration(core);
+    tt_xy_pair virtual_core = soc_descriptor_.translate_coord_to(core, CoordSystem::VIRTUAL);
+
+    if (tlb_manager_->is_tlb_mapped(virtual_core, l1_dest, size)) {
+        tlb_configuration tlb_description = tlb_manager_->get_tlb_configuration(virtual_core);
         if (tt_device_->get_pci_device()->bar4_wc != nullptr && tlb_description.size == BH_4GB_TLB_SIZE) {
             // This is only for Blackhole. If we want to  write to DRAM (BAR4 space), we add offset
             // to which we write so write_block knows it needs to target BAR4
@@ -203,7 +204,7 @@ void LocalChip::write_to_device(tt_xy_pair core, const void* src, uint64_t l1_de
         while (size > 0) {
             auto [mapped_address, tlb_size] = tt_device_->set_dynamic_tlb(
                 tlb_index,
-                translate_chip_coord_virtual_to_translated(core),
+                translate_chip_coord_to_translated(core),
                 l1_dest,
                 tlb_manager_->dynamic_tlb_ordering_modes_.at(fallback_tlb));
             uint32_t transfer_size = std::min((uint64_t)size, tlb_size);
@@ -217,19 +218,20 @@ void LocalChip::write_to_device(tt_xy_pair core, const void* src, uint64_t l1_de
     }
 }
 
-void LocalChip::read_from_device(tt_xy_pair core, void* dest, uint64_t l1_src, uint32_t size) {
+void LocalChip::read_from_device(CoreCoord core, void* dest, uint64_t l1_src, uint32_t size) {
     log_debug(
         LogSiliconDriver,
-        "Chip::read_from_device from pci device {} core {}-{} at 0x{:x} size: {}",
+        "Chip::read_from_device from pci device {} core {} at 0x{:x} size: {}",
         tt_device_->get_pci_device()->get_device_num(),
-        core.x,
-        core.y,
+        core.str(),
         l1_src,
         size);
     uint8_t* buffer_addr = static_cast<uint8_t*>(dest);
 
-    if (tlb_manager_->is_tlb_mapped(core, l1_src, size)) {
-        tlb_configuration tlb_description = tlb_manager_->get_tlb_configuration(core);
+    tt_xy_pair virtual_core = soc_descriptor_.translate_coord_to(core, CoordSystem::VIRTUAL);
+
+    if (tlb_manager_->is_tlb_mapped(virtual_core, l1_src, size)) {
+        tlb_configuration tlb_description = tlb_manager_->get_tlb_configuration(virtual_core);
         if (tt_device_->get_pci_device()->bar4_wc != nullptr && tlb_description.size == BH_4GB_TLB_SIZE) {
             // This is only for Blackhole. If we want to  read from DRAM (BAR4 space), we add offset
             // from which we read so read_block knows it needs to target BAR4
@@ -251,7 +253,7 @@ void LocalChip::read_from_device(tt_xy_pair core, void* dest, uint64_t l1_src, u
         while (size > 0) {
             auto [mapped_address, tlb_size] = tt_device_->set_dynamic_tlb(
                 tlb_index,
-                translate_chip_coord_virtual_to_translated(core),
+                translate_chip_coord_to_translated(core),
                 l1_src,
                 tlb_manager_->dynamic_tlb_ordering_modes_.at(fallback_tlb));
             uint32_t transfer_size = std::min((uint64_t)size, tlb_size);
@@ -265,7 +267,7 @@ void LocalChip::read_from_device(tt_xy_pair core, void* dest, uint64_t l1_src, u
     }
 }
 
-void LocalChip::dma_write_to_device(const void* src, size_t size, tt_xy_pair core, uint64_t addr) {
+void LocalChip::dma_write_to_device(const void* src, size_t size, CoreCoord core, uint64_t addr) {
     static const std::string tlb_name = "LARGE_WRITE_TLB";
 
     const uint8_t* buffer = static_cast<const uint8_t*>(src);
@@ -275,11 +277,11 @@ void LocalChip::dma_write_to_device(const void* src, size_t size, tt_xy_pair cor
     PCIDevice* pci_device = tt_device_->get_pci_device().get();
     size_t dmabuf_size = pci_device->get_dma_buffer().size;
 
-    core = translate_chip_coord_virtual_to_translated(core);
+    tt_xy_pair translated_core = translate_chip_coord_to_translated(core);
 
     auto lock = acquire_mutex(tlb_name, pci_device->get_device_num());
     while (size > 0) {
-        auto [axi_address, tlb_size] = tt_device_->set_dynamic_tlb(tlb_index, core, addr, ordering);
+        auto [axi_address, tlb_size] = tt_device_->set_dynamic_tlb(tlb_index, translated_core, addr, ordering);
 
         size_t transfer_size = std::min({size, tlb_size, dmabuf_size});
 
@@ -291,7 +293,7 @@ void LocalChip::dma_write_to_device(const void* src, size_t size, tt_xy_pair cor
     }
 }
 
-void LocalChip::dma_read_from_device(void* dst, size_t size, tt_xy_pair core, uint64_t addr) {
+void LocalChip::dma_read_from_device(void* dst, size_t size, CoreCoord core, uint64_t addr) {
     static const std::string tlb_name = "LARGE_READ_TLB";
     uint8_t* buffer = static_cast<uint8_t*>(dst);
     auto tlb_index = tlb_manager_->dynamic_tlb_config_.at(tlb_name);
@@ -299,11 +301,11 @@ void LocalChip::dma_read_from_device(void* dst, size_t size, tt_xy_pair core, ui
     PCIDevice* pci_device = tt_device_->get_pci_device().get();
     size_t dmabuf_size = pci_device->get_dma_buffer().size;
 
-    core = translate_chip_coord_virtual_to_translated(core);
+    tt_xy_pair translated_core = translate_chip_coord_to_translated(core);
 
     auto lock = acquire_mutex(tlb_name, pci_device->get_device_num());
     while (size > 0) {
-        auto [axi_address, tlb_size] = tt_device_->set_dynamic_tlb(tlb_index, core, addr, ordering);
+        auto [axi_address, tlb_size] = tt_device_->set_dynamic_tlb(tlb_index, translated_core, addr, ordering);
 
         size_t transfer_size = std::min({size, tlb_size, dmabuf_size});
 
@@ -323,7 +325,7 @@ std::function<void(uint32_t, uint32_t, const uint8_t*)> LocalChip::get_fast_pcie
     return callable;
 }
 
-void LocalChip::write_to_device_reg(tt_xy_pair core, const void* src, uint64_t reg_dest, uint32_t size) {
+void LocalChip::write_to_device_reg(CoreCoord core, const void* src, uint64_t reg_dest, uint32_t size) {
     if (size % sizeof(uint32_t) != 0) {
         throw std::runtime_error("Size must be a multiple of 4 bytes");
     }
@@ -338,11 +340,11 @@ void LocalChip::write_to_device_reg(tt_xy_pair core, const void* src, uint64_t r
     log_debug(LogSiliconDriver, "  dynamic tlb_index: {}", tlb_index);
 
     auto [mapped_address, tlb_size] = tt_device_->set_dynamic_tlb(
-        tlb_index, translate_chip_coord_virtual_to_translated(core), reg_dest, tt::umd::tlb_data::Strict);
+        tlb_index, translate_chip_coord_to_translated(core), reg_dest, tt::umd::tlb_data::Strict);
     tt_device_->write_regs(mapped_address, size / sizeof(uint32_t), src);
 }
 
-void LocalChip::read_from_device_reg(tt_xy_pair core, void* dest, uint64_t reg_src, uint32_t size) {
+void LocalChip::read_from_device_reg(CoreCoord core, void* dest, uint64_t reg_src, uint32_t size) {
     if (size % sizeof(uint32_t) != 0) {
         throw std::runtime_error("Size must be a multiple of 4 bytes");
     }
@@ -357,7 +359,7 @@ void LocalChip::read_from_device_reg(tt_xy_pair core, void* dest, uint64_t reg_s
     log_debug(LogSiliconDriver, "  dynamic tlb_index: {}", tlb_index);
 
     auto [mapped_address, tlb_size] = tt_device_->set_dynamic_tlb(
-        tlb_index, translate_chip_coord_virtual_to_translated(core), reg_src, tt::umd::tlb_data::Strict);
+        tlb_index, translate_chip_coord_to_translated(core), reg_src, tt::umd::tlb_data::Strict);
     tt_device_->read_regs(mapped_address, size / sizeof(uint32_t), dest);
 }
 
@@ -374,25 +376,6 @@ void LocalChip::wait_for_non_mmio_flush() {
 void LocalChip::set_flush_non_mmio(bool flush_non_mmio) { flush_non_mmio_ = flush_non_mmio; }
 
 bool LocalChip::get_flush_non_mmio() const { return flush_non_mmio_; }
-
-tt_xy_pair LocalChip::translate_chip_coord_virtual_to_translated(const tt_xy_pair core) const {
-    CoreCoord core_coord = soc_descriptor_.get_coord_at(core, CoordSystem::VIRTUAL);
-    // Since NOC1 and translated coordinate space overlaps for Tensix cores on Blackhole,
-    // Tensix cores are always used in translated space. Other cores are used either in
-    // NOC1 or translated space depending on the umd_use_noc1 flag.
-    // On Wormhole Tensix can use NOC1 space if umd_use_noc1 is set to true.
-    if (soc_descriptor_.noc_translation_enabled) {
-        if (soc_descriptor_.arch == tt::ARCH::BLACKHOLE) {
-            return soc_descriptor_.translate_coord_to(core_coord, CoordSystem::TRANSLATED);
-        } else {
-            return soc_descriptor_.translate_coord_to(
-                core_coord, umd_use_noc1 ? CoordSystem::NOC1 : CoordSystem::TRANSLATED);
-        }
-    } else {
-        return soc_descriptor_.translate_coord_to(
-            core_coord, umd_use_noc1 ? CoordSystem::NOC1 : CoordSystem::TRANSLATED);
-    }
-}
 
 void LocalChip::set_remote_transfer_ethernet_cores(const std::unordered_set<CoreCoord>& active_eth_cores) {
     // Makes UMD aware of which ethernet cores have active links.
@@ -421,11 +404,11 @@ void LocalChip::set_remote_transfer_ethernet_cores(const std::set<uint32_t>& cha
     set_remote_transfer_ethernet_cores(active_eth_cores);
 }
 
-tt_xy_pair LocalChip::get_remote_transfer_ethernet_core() {
+CoreCoord LocalChip::get_remote_transfer_ethernet_core() {
     if (remote_transfer_eth_cores_.empty()) {
         throw std::runtime_error("No remote transfer ethernet cores set.");
     }
-    return {remote_transfer_eth_cores_[active_eth_core_idx].x, remote_transfer_eth_cores_[active_eth_core_idx].y};
+    return remote_transfer_eth_cores_.at(active_eth_core_idx);
 }
 
 void LocalChip::update_active_eth_core_idx() {
@@ -502,12 +485,13 @@ void LocalChip::check_pcie_device_initialized() {
 int LocalChip::test_setup_interface() {
     int ret_val = 0;
     if (soc_descriptor_.arch == tt::ARCH::WORMHOLE_B0) {
-        uint32_t mapped_reg = tt_device_
-                                  ->set_dynamic_tlb(
-                                      tt_device_->get_architecture_implementation()->get_reg_tlb(),
-                                      translate_chip_coord_virtual_to_translated(tt_xy_pair(1, 0)),
-                                      0xffb20108)
-                                  .bar_offset;
+        uint32_t mapped_reg =
+            tt_device_
+                ->set_dynamic_tlb(
+                    tt_device_->get_architecture_implementation()->get_reg_tlb(),
+                    translate_chip_coord_to_translated(CoreCoord(0, 0, CoreType::TENSIX, CoordSystem::LOGICAL)),
+                    0xffb20108)
+                .bar_offset;
 
         uint32_t regval = 0;
         tt_device_->read_regs(mapped_reg, 1, &regval);

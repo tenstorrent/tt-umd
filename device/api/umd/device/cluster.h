@@ -162,24 +162,6 @@ public:
     /**
      * Configure a TLB to point to a specific core and an address within that core. Should be done for Static TLBs.
      * If the device uses another mechanism for providing access to the host, this can be ignored.
-     * This API is going to be deprecated when all UMD clients transition to CoreCoord API.
-     *
-     * @param logical_device_id Logical Device being targeted.
-     * @param core The TLB will be programmed to point to this core.
-     * @param tlb_index TLB id that will be programmed.
-     * @param address Start address TLB is mapped to.
-     * @param ordering Ordering mode for the TLB.
-     */
-    void configure_tlb(
-        chip_id_t logical_device_id,
-        tt_xy_pair core,
-        int32_t tlb_index,
-        uint64_t address,
-        uint64_t ordering = TLB_DATA::Relaxed);
-
-    /**
-     * Configure a TLB to point to a specific core and an address within that core. Should be done for Static TLBs.
-     * If the device uses another mechanism for providing access to the host, this can be ignored.
      *
      * @param logical_device_id Logical Device being targeted.
      * @param core The TLB will be programmed to point to this core.
@@ -658,10 +640,6 @@ private:
         bool perform_harvesting,
         HarvestingMasks& simulated_harvesting_masks);
     void construct_cluster(const uint32_t& num_host_mem_ch_per_mmio_device, const ChipType& chip_type);
-    tt_xy_pair translate_to_api_coords(const chip_id_t chip, const tt::umd::CoreCoord core_coord) const;
-    // Most of the old APIs accept virtual coordinates, but we communicate with the device through translated
-    // coordinates. This is an internal helper function, until we switch the API to accept translated coordinates.
-    tt_xy_pair translate_chip_coord_virtual_to_translated(const chip_id_t chip_id, const tt_xy_pair core) const;
 
     static std::unique_ptr<tt_ClusterDescriptor> create_cluster_descriptor(
         const std::unordered_map<chip_id_t, std::unique_ptr<tt::umd::Chip>>& chips);

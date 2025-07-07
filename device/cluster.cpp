@@ -136,11 +136,13 @@ void Cluster::verify_fw_bundle_version() {
     semver_t fw_bundle_version = chips_.begin()->second->get_tt_device()->get_chip_info().firmware_version;
     for (const auto& [chip_id, chip] : chips_) {
         if (chip->get_tt_device()->get_chip_info().firmware_version != fw_bundle_version) {
-            throw std::runtime_error(fmt::format(
-                "Firmware bundle version mismatch for chip {}: expected {}, got {}",
-                chip_id,
-                fw_bundle_version.to_string(),
-                chip->get_tt_device()->get_chip_info().firmware_version.to_string()));
+            log_warning(
+                LogSiliconDriver,
+                fmt::format(
+                    "Firmware bundle version mismatch for chip {}: expected {}, got {}",
+                    chip_id,
+                    fw_bundle_version.to_string(),
+                    chip->get_tt_device()->get_chip_info().firmware_version.to_string()));
         }
     }
     log_info(LogSiliconDriver, "All devices in cluster running firmware version: {}", fw_bundle_version.to_string());

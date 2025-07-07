@@ -340,8 +340,8 @@ bool SysmemManager::pin_or_map_iommu() {
     log_info(LogSiliconDriver, "Mapped sysmem without hugepages to IOVA {:#x}; NOC address {:#x}", iova, *noc_address);
 
     for (size_t ch = 0; ch < hugepage_mapping_per_channel.size(); ch++) {
-        uint64_t fake_physical_address = iova + ch * HUGEPAGE_REGION_SIZE;
-        hugepage_mapping_per_channel.at(ch).physical_address = fake_physical_address;
+        uint64_t device_io_address = iova + ch * HUGEPAGE_REGION_SIZE;
+        hugepage_mapping_per_channel.at(ch).physical_address = device_io_address;
     }
 
     return true;

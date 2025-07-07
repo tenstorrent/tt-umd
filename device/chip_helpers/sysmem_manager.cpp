@@ -298,8 +298,8 @@ bool SysmemManager::pin_iommu() {
 
     // Support for more than 1GB host memory accessible per device, via channels.
     for (size_t ch = 0; ch < hugepage_mapping_per_channel.size(); ch++) {
-        uint64_t fake_physical_address = iova + ch * HUGEPAGE_REGION_SIZE;
-        hugepage_mapping_per_channel.at(ch).physical_address = fake_physical_address;
+        uint64_t device_io_address = iova + ch * HUGEPAGE_REGION_SIZE;
+        hugepage_mapping_per_channel.at(ch).physical_address = device_io_address;
     }
 
     return true;

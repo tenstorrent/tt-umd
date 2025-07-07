@@ -28,7 +28,7 @@ public:
     /**
      * Further initializes system memory for usage.
      * Includes both hugepage and IOMMU settings, depending on which configuration is enabled.
-     * This call will pin the memory and fill up the physical address field in the maps
+     * This call will pin the memory and fill up the device IO address field in the maps
      * which should be used further to program the iatu.
      */
     bool pin_sysmem_to_device();

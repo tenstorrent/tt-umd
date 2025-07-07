@@ -44,10 +44,11 @@ SysmemManager::~SysmemManager() {
         // This means we have initialized IOMMU mapping, and need to unmap it.
         // It also means that hugepage_mappings are faked, so don't unmap them.
         munmap(iommu_mapping, iommu_mapping_size);
-    }
-    for (const auto &hugepage_mapping : hugepage_mapping_per_channel) {
-        if (hugepage_mapping.mapping) {
-            munmap(hugepage_mapping.mapping, hugepage_mapping.mapping_size);
+    } else {
+        for (const auto &hugepage_mapping : hugepage_mapping_per_channel) {
+            if (hugepage_mapping.mapping) {
+                munmap(hugepage_mapping.mapping, hugepage_mapping.mapping_size);
+            }
         }
     }
 }

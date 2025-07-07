@@ -28,8 +28,11 @@ public:
     /**
      * Further initializes system memory for usage.
      * Includes both hugepage and IOMMU settings, depending on which configuration is enabled.
-     * This call will pin the memory and fill up the physical address field in the maps
+     * This means different things depending on KMD version:
+     * - For KMD version < 2.0.0 this will pin the memory and fill up the physical address field in the maps
      * which should be used further to program the iatu.
+     * - For KMD version >= 2.0.0 this will pin the memory and map it to the device. Physical address is not
+     * needed further by the driver.
      */
     bool pin_or_map_sysmem_to_device();
 

@@ -138,7 +138,7 @@ bool LocalChip::is_mmio_capable() const { return true; }
 
 void LocalChip::start_device() {
     check_pcie_device_initialized();
-    sysmem_manager_->pin_sysmem_to_device();
+    sysmem_manager_->pin_or_map_sysmem_to_device();
     if (!tt_device_->get_pci_device()->is_mapping_buffer_to_noc_supported()) {
         // If this is supported by the newer KMD, UMD doesn't have to program the iatu.
         init_pcie_iatus();

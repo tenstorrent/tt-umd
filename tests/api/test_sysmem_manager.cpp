@@ -22,7 +22,7 @@ TEST(ApiSysmemManager, BasicIO) {
         // Initializes system memory with one channel.
         std::unique_ptr<SysmemManager> sysmem = std::make_unique<SysmemManager>(tlb_manager.get(), 1);
 
-        sysmem->pin_sysmem_to_device();
+        sysmem->pin_or_map_sysmem_to_device();
 
         // Simple write and read test.
         std::vector<uint32_t> data_write = {1, 2, 3, 4, 5, 6, 7, 8, 9, 10};

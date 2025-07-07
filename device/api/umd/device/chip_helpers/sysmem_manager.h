@@ -31,7 +31,7 @@ public:
      * This call will pin the memory and fill up the physical address field in the maps
      * which should be used further to program the iatu.
      */
-    bool pin_sysmem_to_device();
+    bool pin_or_map_sysmem_to_device();
 
     size_t get_num_host_mem_channels() const;
     hugepage_mapping get_hugepage_mapping(size_t channel) const;
@@ -53,10 +53,10 @@ private:
      * @param num_fake_mem_channels number of fake mem channels to allocate
      * @return whether allocation/mapping succeeded.
      */
-    bool init_iommu(size_t num_fake_mem_channels);
+    bool init_iommu(uint32_t num_fake_mem_channels);
 
-    bool pin_hugepages();
-    bool pin_iommu();
+    bool pin_or_map_hugepages();
+    bool pin_or_map_iommu();
 
     // For debug purposes when various stages fails.
     void print_file_contents(std::string filename, std::string hint = "");

@@ -18,7 +18,7 @@
 
 namespace tt::umd {
 
-SysmemManager::SysmemManager(TLBManager *tlb_manager) :
+SysmemManager::SysmemManager(TLBManager *tlb_manager, uint32_t num_host_mem_channels) :
     tlb_manager_(tlb_manager),
     pcie_base_(
         tlb_manager->get_tt_device()->get_arch() == tt::ARCH::WORMHOLE_B0
@@ -35,11 +35,11 @@ SysmemManager::SysmemManager(TLBManager *tlb_manager) :
     }
 }
 
-bool SysmemManager::pin_sysmem_to_device() {
+bool SysmemManager::pin_or_map_sysmem_to_device() {
     if (tt_device_->get_pci_device()->is_iommu_enabled()) {
-        return pin_iommu();
+        return pin_or_map_iommu();
     } else {
-        return pin_hugepages();
+        return pin_or_map_hugepages();
     }
 }
 
@@ -207,7 +207,7 @@ bool SysmemManager::init_hugepages(uint32_t num_host_mem_channels) {
     return success;
 }
 
-bool SysmemManager::pin_hugepages() {
+bool SysmemManager::pin_or_map_hugepages() {
     auto physical_device_id = tt_device_->get_pci_device()->get_device_num();
 
     bool success = true;
@@ -300,10 +300,10 @@ bool SysmemManager::init_iommu(uint32_t num_fake_mem_channels) {
             strerror(errno));
     }
 
-    hugepage_mapping_per_channel.resize(num_host_mem_channels);
+    hugepage_mapping_per_channel.resize(num_fake_mem_channels);
 
     // Support for more than 1GB host memory accessible per device, via channels.
-    for (size_t ch = 0; ch < num_host_mem_channels; ch++) {
+    for (size_t ch = 0; ch < num_fake_mem_channels; ch++) {
         uint8_t *fake_mapping = static_cast<uint8_t *>(iommu_mapping) + ch * HUGEPAGE_REGION_SIZE;
         size_t actual_size = (ch == 3) ? HUGEPAGE_CHANNEL_3_SIZE_LIMIT : HUGEPAGE_REGION_SIZE;
         hugepage_mapping_per_channel[ch] = {fake_mapping, actual_size, 0};
@@ -312,7 +312,7 @@ bool SysmemManager::init_iommu(uint32_t num_fake_mem_channels) {
     return true;
 }
 
-bool SysmemManager::pin_iommu() {
+bool SysmemManager::pin_or_map_iommu() {
     if (iommu_mapping == nullptr) {
         // No fake hugepage channels requested, so just skip mapping.
         return true;

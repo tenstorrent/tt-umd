@@ -101,6 +101,10 @@ void SysmemManager::read_from_sysmem(uint16_t channel, void *dest, uint64_t sysm
 }
 
 bool SysmemManager::init_hugepages(uint32_t num_host_mem_channels) {
+    if (num_host_mem_channels == 0) {
+        // No hugepage channels requested, so just skip initialization.
+        return true;
+    }
     // TODO: get rid of this when the following Metal CI issue is resolved.
     // https://github.com/tenstorrent/tt-metal/issues/15675
     // The notion that we should clamp the number of host mem channels to
@@ -244,6 +248,10 @@ bool SysmemManager::pin_hugepages() {
 }
 
 bool SysmemManager::init_iommu(uint32_t num_host_mem_channels) {
+    if (num_host_mem_channels == 0) {
+        // No fake hugepage channels requested, so just skip initialization.
+        return true;
+    }
     const size_t hugepage_size = HUGEPAGE_REGION_SIZE;
     size_t size = hugepage_size * num_host_mem_channels;
 
@@ -279,6 +287,10 @@ bool SysmemManager::init_iommu(uint32_t num_host_mem_channels) {
 }
 
 bool SysmemManager::pin_iommu() {
+    if (iommu_mapping == nullptr) {
+        // No fake hugepage channels requested, so just skip mapping.
+        return true;
+    }
     sysmem_buffer_ = map_sysmem_buffer(iommu_mapping, iommu_mapping_size);
     uint64_t iova = sysmem_buffer_->get_device_io_addr();
 

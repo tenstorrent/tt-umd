@@ -14,6 +14,20 @@ using namespace tt::umd;
 constexpr int NUM_PARALLEL = 4;
 constexpr int NUM_LOOPS = 1000;
 
+// TODO: To be replaces with proper setup for brisc and triscs cores so that they don't run any code.
+void clear_all_l1(Cluster* cluster) {
+    for (chip_id_t chip : cluster->get_target_device_ids()) {
+        for (const CoreCoord& core : cluster->get_soc_descriptor(chip).get_cores(CoreType::TENSIX)) {
+            // Clear L1 cache by writing zeros to it.
+            std::vector<uint8_t> zeros(cluster->get_soc_descriptor(0).worker_l1_size, 0);
+            cluster->write_to_device(zeros.data(), zeros.size(), chip, core, 0);
+        }
+    }
+    for (chip_id_t chip : cluster->get_target_device_ids()) {
+        cluster->l1_membar(chip);
+    }
+}
+
 // We want to test IO in parallel in each thread.
 // But we don't want these addresses to overlap, since the data will be corrupted.
 // All of this is focused on a single chip system.
@@ -96,7 +110,7 @@ TEST(Multiprocess, MultipleThreadsMultipleClustersCreation) {
     }
 }
 
-// Many threads start and stop many clusters.
+// Many threads read and write to many clusters, but different regions.
 TEST(Multiprocess, MultipleThreadsMultipleClustersRunning) {
     std::vector<std::thread> threads;
     for (int i = 0; i < NUM_PARALLEL; i++) {
@@ -110,6 +124,26 @@ TEST(Multiprocess, MultipleThreadsMultipleClustersRunning) {
     }
     for (auto& th : threads) {
         th.join();
+    }
+}
+
+// Many threads start and stop many clusters.
+// This test will be modified to run in parallel once a lock is introduced for guarding the start/stop of the device.
+// For now, it runs sequentially just to test the functionality.
+TEST(Multiprocess, MultipleThreadsMultipleClustersOpenClose) {
+    std::vector<std::unique_ptr<Cluster>> clusters;
+    for (int i = 0; i < NUM_PARALLEL; i++) {
+        clusters.emplace_back(std::make_unique<Cluster>());
+    }
+    for (int i = 0; i < NUM_PARALLEL; i++) {
+        std::cout << "Clear out the l1 memory for cluster " << i << std::endl;
+        clear_all_l1(clusters[i].get());
+        std::cout << "Starting cluster " << i << std::endl;
+        clusters[i]->start_device({});
+        std::cout << "Running IO for cluster " << i << std::endl;
+        test_read_write_all_tensix_cores(clusters[i].get(), i);
+        std::cout << "Stopping cluster " << i << std::endl;
+        clusters[i]->close_device();
     }
 }
 

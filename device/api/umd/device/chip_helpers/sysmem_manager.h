@@ -54,8 +54,8 @@ private:
      */
     bool init_iommu(uint32_t num_host_mem_channels);
 
-    bool map_hugepages();
-    bool map_iommu();
+    bool pin_hugepages();
+    bool pin_iommu();
 
     // For debug purposes when various stages fails.
     void print_file_contents(std::string filename, std::string hint = "");

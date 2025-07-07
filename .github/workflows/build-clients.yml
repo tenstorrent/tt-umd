@@ -77,6 +77,11 @@ jobs:
           path: tt_metal/third_party/umd
           submodules: recursive
 
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.12'
+
       - name: 🐍 Build wheel
         uses: pypa/cibuildwheel@v2.23.2
         env:

@@ -30,9 +30,9 @@ LocalChip::LocalChip(tt_SocDescriptor soc_descriptor, int pci_device_id, int num
     tt_device_ = TTDevice::create(pci_device_id);
     chip_info_ = tt_device_->get_chip_info();
     tlb_manager_ = std::make_unique<TLBManager>(tt_device_.get());
-    sysmem_manager_ = std::make_unique<SysmemManager>(tlb_manager_.get());
+    sysmem_manager_ = std::make_unique<SysmemManager>(tlb_manager_.get(), num_host_mem_channels);
     remote_communication_ = std::make_unique<RemoteCommunication>(this);
-    initialize_local_chip(num_host_mem_channels);
+    initialize_local_chip();
 }
 
 LocalChip::LocalChip(std::string sdesc_path, std::unique_ptr<TTDevice> tt_device) :
@@ -44,7 +44,7 @@ LocalChip::LocalChip(std::string sdesc_path, std::unique_ptr<TTDevice> tt_device
             tt_device->get_chip_info().harvesting_masks,
             tt_device->get_chip_info().board_type)),
     tlb_manager_(std::make_unique<TLBManager>(tt_device.get())),
-    sysmem_manager_(std::make_unique<SysmemManager>(tlb_manager_.get())) {
+    sysmem_manager_(std::make_unique<SysmemManager>(tlb_manager_.get(), 0)) {
     tt_device_ = std::move(tt_device);
     initialize_local_chip();
 }
@@ -58,7 +58,7 @@ LocalChip::LocalChip(std::unique_ptr<TTDevice> tt_device) :
             tt_device->get_chip_info().harvesting_masks,
             tt_device->get_chip_info().board_type)),
     tlb_manager_(std::make_unique<TLBManager>(tt_device.get())),
-    sysmem_manager_(std::make_unique<SysmemManager>(tlb_manager_.get())) {
+    sysmem_manager_(std::make_unique<SysmemManager>(tlb_manager_.get(), 0)) {
     tt_device_ = std::move(tt_device);
     initialize_local_chip();
 }
@@ -72,11 +72,8 @@ LocalChip::~LocalChip() {
     tt_device_.reset();
 }
 
-void LocalChip::initialize_local_chip(int num_host_mem_channels) {
+void LocalChip::initialize_local_chip() {
     initialize_tlb_manager();
-    if (num_host_mem_channels > 0) {
-        sysmem_manager_->init_hugepage(num_host_mem_channels);
-    }
     wait_chip_to_be_ready();
     initialize_default_chip_mutexes();
 }
@@ -141,6 +138,7 @@ bool LocalChip::is_mmio_capable() const { return true; }
 
 void LocalChip::start_device() {
     check_pcie_device_initialized();
+    sysmem_manager_->pin_sysmem_to_device();
     if (!tt_device_->get_pci_device()->is_mapping_buffer_to_noc_supported()) {
         // If this is supported by the newer KMD, UMD doesn't have to program the iatu.
         init_pcie_iatus();

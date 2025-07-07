@@ -8,6 +8,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <filesystem>
 #include <iostream>
 #include <map>
 #include <string>
@@ -52,6 +53,7 @@ struct SocDescriptorInfo {
     std::vector<tt_xy_pair> router_cores;
     std::vector<tt_xy_pair> security_cores;
     std::vector<tt_xy_pair> l2cpu_cores;
+
     uint32_t worker_l1_size;
     uint32_t eth_l1_size;
     uint64_t dram_bank_size;
@@ -89,6 +91,11 @@ public:
         const tt_xy_pair core_location,
         const CoordSystem input_coord_system,
         const CoordSystem target_coord_system) const;
+
+    // Serialize the soc descriptor to a YAML string, or directly to a file.
+    // A default file in /tmp directory will be used if no path is passed.
+    std::string serialize() const;
+    std::filesystem::path serialize_to_file(const std::filesystem::path &dest_file = "") const;
 
     static std::string get_soc_descriptor_path(tt::ARCH arch);
 
@@ -153,13 +160,21 @@ private:
     void load_soc_features_from_soc_desc_info(const SocDescriptorInfo &soc_desc_info);
 
     static std::vector<tt_xy_pair> convert_to_tt_xy_pair(const std::vector<std::string> &core_strings);
-    static std::vector<std::vector<tt_xy_pair>> convert_dram_cores_from_yaml(YAML::Node &device_descriptor_yaml);
+    static std::vector<std::vector<tt_xy_pair>> convert_dram_cores_from_yaml(
+        YAML::Node &device_descriptor_yaml, const std::string &dram_core = "dram");
 
     static SocDescriptorInfo get_soc_descriptor_info(tt::ARCH arch);
 
     static tt_xy_pair calculate_grid_size(const std::vector<tt_xy_pair> &cores);
     std::vector<tt::umd::CoreCoord> translate_coordinates(
         const std::vector<tt::umd::CoreCoord> &physical_cores, const CoordSystem coord_system) const;
+
+    static std::filesystem::path get_default_soc_descriptor_file_path();
+
+    // Since including yaml-cpp/yaml.h here breaks metal build we use void* type instead of YAML::Emitter
+    void write_coords(void *out, const tt::umd::CoreCoord &core) const;
+    void write_core_locations(void *out, const CoreType &core_type) const;
+    void serialize_dram_cores(void *out, const std::vector<std::vector<tt::umd::CoreCoord>> &cores) const;
 
     // Internal structures, read from yaml.
     tt_xy_pair worker_grid_size;
@@ -168,9 +183,12 @@ private:
     std::vector<tt_xy_pair> workers;
     std::vector<tt_xy_pair> harvested_workers;
     std::vector<tt_xy_pair> pcie_cores;
-    std::vector<std::vector<tt_xy_pair>> dram_cores;                             // per channel list of dram cores
+    std::vector<std::vector<tt_xy_pair>> dram_cores;  // per channel list of dram cores
+    std::vector<std::vector<tt_xy_pair>> harvested_dram_cores;
+
     std::unordered_map<tt_xy_pair, std::tuple<int, int>> dram_core_channel_map;  // map dram core to chan/subchan
     std::vector<tt_xy_pair> ethernet_cores;                                      // ethernet cores (index == channel id)
+    std::vector<tt_xy_pair> harvested_ethernet_cores;
     std::unordered_map<tt_xy_pair, int> ethernet_core_channel_map;
     std::vector<tt_xy_pair> router_cores;
     std::vector<tt_xy_pair> security_cores;

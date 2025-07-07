@@ -188,12 +188,10 @@ void TopologyDiscovery::discover_remote_chips() {
     const uint32_t eth_unconnected = 1;
     const uint32_t rack_offset = 10;
 
-    std::unordered_map<uint64_t, chip_id_t> chip_uid_to_local_chip_id = {};
-
-    std::unordered_set<uint64_t> discovered_chips = {};
-    std::unordered_map<uint64_t, std::unique_ptr<RemoteWormholeTTDevice>> remote_chips_to_discover = {};
+    std::set<uint64_t> discovered_chips = {};
+    std::map<uint64_t, std::unique_ptr<RemoteWormholeTTDevice>> remote_chips_to_discover = {};
     // Needed to know which chip to use for remote communication.
-    std::unordered_map<uint64_t, chip_id_t> remote_asic_id_to_mmio_chip_id = {};
+    std::map<uint64_t, chip_id_t> remote_asic_id_to_mmio_chip_id = {};
 
     for (const auto& [chip_id, chip] : chips) {
         uint64_t current_chip_asic_id = get_asic_id(chip.get());
@@ -226,6 +224,15 @@ void TopologyDiscovery::discover_remote_chips() {
             active_eth_channels_per_chip.at(chip_id).insert(channel);
 
             if (!is_board_id_included(get_remote_board_id(chip.get(), eth_core))) {
+                tt_xy_pair remote_eth_core = get_remote_eth_core(chip.get(), eth_core);
+                uint32_t remote_eth_id =
+                    chip->get_soc_descriptor()
+                        .translate_coord_to(
+                            CoreCoord(remote_eth_core.x, remote_eth_core.y, CoreType::ETH, CoordSystem::PHYSICAL),
+                            CoordSystem::LOGICAL)
+                        .y;
+                cluster_desc->ethernet_connections_to_remote_devices[chip_id][channel] = {
+                    get_remote_asic_id(chip.get(), eth_core), remote_eth_id};
                 channel++;
                 continue;
             }
@@ -260,7 +267,7 @@ void TopologyDiscovery::discover_remote_chips() {
     }
 
     while (!remote_chips_to_discover.empty()) {
-        std::unordered_map<uint64_t, std::unique_ptr<RemoteWormholeTTDevice>> new_chips = {};
+        std::map<uint64_t, std::unique_ptr<RemoteWormholeTTDevice>> new_chips = {};
 
         for (auto it = remote_chips_to_discover.begin(); it != remote_chips_to_discover.end(); it++) {
             uint64_t asic_id_to_discover = it->first;
@@ -309,18 +316,26 @@ void TopologyDiscovery::discover_remote_chips() {
                 active_eth_channels_per_chip.at(new_remote_chip_id).insert(channel);
 
                 if (!is_board_id_included(get_remote_board_id(remote_chip_ptr, eth_core))) {
+                    tt_xy_pair remote_eth_core = get_remote_eth_core(chips.at(chip_id - 1).get(), eth_core);
+                    uint32_t remote_eth_chan =
+                        mmio_chip->get_soc_descriptor()
+                            .translate_coord_to(
+                                CoreCoord(remote_eth_core, CoreType::ETH, CoordSystem::PHYSICAL), CoordSystem::LOGICAL)
+                            .y;
+                    cluster_desc->ethernet_connections_to_remote_devices[chip_id - 1][channel] = {
+                        get_remote_asic_id(chips.at(chip_id - 1).get(), eth_core), remote_eth_chan};
                     channel++;
                     continue;
                 }
 
                 tt_xy_pair remote_eth_core = get_remote_eth_core(remote_chip_ptr, eth_core);
 
-                uint64_t new_asic_id = get_remote_asic_id(remote_chip_ptr, {eth_core.x, eth_core.y});
+                uint64_t new_asic_id = get_remote_asic_id(remote_chip_ptr, eth_core);
 
                 if (discovered_chips.find(new_asic_id) == discovered_chips.end()) {
                     if (remote_chips_to_discover.find(new_asic_id) == remote_chips_to_discover.end()) {
                         std::unique_ptr<RemoteWormholeTTDevice> new_remote_tt_device =
-                            create_remote_tt_device(remote_chip_ptr, {eth_core.x, eth_core.y}, mmio_chip);
+                            create_remote_tt_device(remote_chip_ptr, eth_core, mmio_chip);
                         new_chips.emplace(new_asic_id, std::move(new_remote_tt_device));
                         remote_asic_id_to_mmio_chip_id.emplace(new_asic_id, mmio_chip_id);
                     }

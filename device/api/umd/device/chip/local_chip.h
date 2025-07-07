@@ -85,7 +85,7 @@ private:
     int active_eth_core_idx = 0;
     bool flush_non_mmio_ = false;
 
-    void initialize_local_chip(int num_host_mem_channels = 0);
+    void initialize_local_chip();
     void initialize_tlb_manager();
     void initialize_default_chip_mutexes();
     void initialize_membars();

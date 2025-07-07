@@ -23,18 +23,41 @@ SysmemManager::SysmemManager(TLBManager *tlb_manager) :
     pcie_base_(
         tlb_manager->get_tt_device()->get_arch() == tt::ARCH::WORMHOLE_B0
             ? 0x800000000
-            : (tlb_manager->get_tt_device()->get_arch() == tt::ARCH::BLACKHOLE ? 4ULL << 58 : 0)) {}
+            : (tlb_manager->get_tt_device()->get_arch() == tt::ARCH::BLACKHOLE ? 4ULL << 58 : 0)) {
+    TT_ASSERT(
+        num_host_mem_channels <= 4,
+        "Only 4 host memory channels are supported per device, but {} requested.",
+        num_host_mem_channels);
+    if (tt_device_->get_pci_device()->is_iommu_enabled()) {
+        init_iommu(num_host_mem_channels);
+    } else {
+        init_hugepages(num_host_mem_channels);
+    }
+}
+
+bool SysmemManager::pin_sysmem_to_device() {
+    if (tt_device_->get_pci_device()->is_iommu_enabled()) {
+        return pin_iommu();
+    } else {
+        return pin_hugepages();
+    }
+}
 
 SysmemManager::~SysmemManager() {
-    for (const auto &hugepage_mapping : hugepage_mapping_per_channel) {
-        if (hugepage_mapping.mapping) {
-            munmap(hugepage_mapping.mapping, hugepage_mapping.mapping_size);
+    if (iommu_mapping != nullptr) {
+        // This means we have initialized IOMMU mapping, and need to unmap it.
+        // It also means that hugepage_mappings are faked, so don't unmap them.
+        munmap(iommu_mapping, iommu_mapping_size);
+    } else {
+        for (const auto &hugepage_mapping : hugepage_mapping_per_channel) {
+            if (hugepage_mapping.mapping) {
+                munmap(hugepage_mapping.mapping, hugepage_mapping.mapping_size);
+            }
         }
     }
 }
 
 void SysmemManager::write_to_sysmem(uint16_t channel, const void *src, uint64_t sysmem_dest, uint32_t size) {
-    TTDevice *tt_device_ = tlb_manager_->get_tt_device();
     hugepage_mapping hugepage_map = get_hugepage_mapping(channel);
     TT_ASSERT(
         hugepage_map.mapping,
@@ -61,7 +84,6 @@ void SysmemManager::write_to_sysmem(uint16_t channel, const void *src, uint64_t 
 }
 
 void SysmemManager::read_from_sysmem(uint16_t channel, void *dest, uint64_t sysmem_src, uint32_t size) {
-    TTDevice *tt_device_ = tlb_manager_->get_tt_device();
     hugepage_mapping hugepage_map = get_hugepage_mapping(channel);
     TT_ASSERT(
         hugepage_map.mapping,
@@ -82,9 +104,11 @@ void SysmemManager::read_from_sysmem(uint16_t channel, void *dest, uint64_t sysm
     memcpy(dest, user_scratchspace, size);
 }
 
-bool SysmemManager::init_hugepage(uint32_t num_host_mem_channels) {
-    TTDevice *tt_device_ = tlb_manager_->get_tt_device();
-
+bool SysmemManager::init_hugepages(uint32_t num_host_mem_channels) {
+    if (num_host_mem_channels == 0) {
+        // No hugepage channels requested, so just skip initialization.
+        return true;
+    }
     // TODO: get rid of this when the following Metal CI issue is resolved.
     // https://github.com/tenstorrent/tt-metal/issues/15675
     // The notion that we should clamp the number of host mem channels to
@@ -92,12 +116,9 @@ bool SysmemManager::init_hugepage(uint32_t num_host_mem_channels) {
     // application might try to use the channels it asked for.  We should
     // just fail early since the error message will be actionable instead of
     // a segfault or memory corruption.
-    if (!tt_device_->get_pci_device()->is_iommu_enabled()) {
-        uint16_t pcie_device_id = tt_device_->get_pci_device()->get_pci_device_id();
-        uint32_t pcie_revision = tt_device_->get_pci_device()->get_pci_revision();
-        num_host_mem_channels =
-            get_available_num_host_mem_channels(num_host_mem_channels, pcie_device_id, pcie_revision);
-    }
+    uint16_t pcie_device_id = tt_device_->get_pci_device()->get_pci_device_id();
+    uint32_t pcie_revision = tt_device_->get_pci_device()->get_pci_revision();
+    num_host_mem_channels = get_available_num_host_mem_channels(num_host_mem_channels, pcie_device_id, pcie_revision);
 
     log_debug(
         LogSiliconDriver,
@@ -106,11 +127,6 @@ bool SysmemManager::init_hugepage(uint32_t num_host_mem_channels) {
         tt_device_->get_pci_device()->get_device_num());
 
     const size_t hugepage_size = HUGEPAGE_REGION_SIZE;
-
-    if (tt_device_->get_pci_device()->is_iommu_enabled()) {
-        return init_iommu(num_host_mem_channels);
-    }
-
     auto physical_device_id = tt_device_->get_pci_device()->get_device_num();
 
     std::string hugepage_dir = find_hugepage_dir(hugepage_size);
@@ -185,6 +201,21 @@ bool SysmemManager::init_hugepage(uint32_t num_host_mem_channels) {
                 ch);
         }
 
+        hugepage_mapping_per_channel[ch] = {mapping, hugepage_size, 0};
+    }
+
+    return success;
+}
+
+bool SysmemManager::pin_hugepages() {
+    auto physical_device_id = tt_device_->get_pci_device()->get_device_num();
+
+    bool success = true;
+
+    // Support for more than 1GB host memory accessible per device, via channels.
+    for (int ch = 0; ch < hugepage_mapping_per_channel.size(); ch++) {
+        void *mapping = hugepage_mapping_per_channel.at(ch).mapping;
+        size_t hugepage_size = hugepage_mapping_per_channel.at(ch).mapping_size;
         size_t actual_size = (tt_device_->get_arch() == tt::ARCH::WORMHOLE_B0 && ch == 3)
                                  ? HUGEPAGE_CHANNEL_3_SIZE_LIMIT
                                  : hugepage_size;
@@ -225,7 +256,7 @@ bool SysmemManager::init_hugepage(uint32_t num_host_mem_channels) {
             continue;
         }
 
-        hugepage_mapping_per_channel[ch] = {mapping, hugepage_size, physical_address};
+        hugepage_mapping_per_channel.at(ch).physical_address = physical_address;
 
         log_debug(
             LogSiliconDriver,
@@ -239,38 +270,57 @@ bool SysmemManager::init_hugepage(uint32_t num_host_mem_channels) {
     return success;
 }
 
-bool SysmemManager::init_iommu(size_t num_fake_mem_channels) {
+bool SysmemManager::init_iommu(uint32_t num_fake_mem_channels) {
+    if (num_fake_mem_channels == 0) {
+        // No fake hugepage channels requested, so just skip initialization.
+        return true;
+    }
+
     constexpr size_t carveout_size = HUGEPAGE_REGION_SIZE - HUGEPAGE_CHANNEL_3_SIZE_LIMIT;  // 1GB - 768MB = 256MB
     const size_t size = num_fake_mem_channels * HUGEPAGE_REGION_SIZE;
     TTDevice *tt_device_ = tlb_manager_->get_tt_device();
 
-    if (num_fake_mem_channels > 4) {
-        TT_THROW("Max of 4 host memory channels per device are supported, got: {}", num_fake_mem_channels);
-    }
-
     // Caclulate the size of the mapping in order to avoid overlap with PCIE registers on WH.
     // This doesn't have to be applied on BH, but it is anyway for consistency.
-    size_t map_size = (num_fake_mem_channels == 4) ? (size - carveout_size) : size;
+    iommu_mapping_size = (num_fake_mem_channels == 4) ? (size - carveout_size) : size;
 
-    log_info(LogSiliconDriver, "Initializing iommu for sysmem (size: {:#x}).", map_size);
+    log_info(LogSiliconDriver, "Initializing iommu for sysmem (size: {:#x}).", iommu_mapping_size);
 
     if (!tt_device_->get_pci_device()->is_iommu_enabled()) {
         TT_THROW("IOMMU is required for sysmem without hugepages.");
     }
 
-    log_info(LogSiliconDriver, "Allocating sysmem without hugepages (size: {:#x}).", size);
-    void *mapping = mmap(nullptr, size, PROT_READ | PROT_WRITE, MAP_ANONYMOUS | MAP_PRIVATE | MAP_POPULATE, -1, 0);
+    log_info(LogSiliconDriver, "Allocating sysmem without hugepages (size: {:#x}).", iommu_mapping_size);
+    iommu_mapping = mmap(nullptr, size, PROT_READ | PROT_WRITE, MAP_ANONYMOUS | MAP_PRIVATE | MAP_POPULATE, -1, 0);
 
-    if (mapping == MAP_FAILED) {
+    if (iommu_mapping == MAP_FAILED) {
         TT_THROW(
             "UMD: Failed to allocate memory for device/host shared buffer (size: {} errno: {}).",
             size,
             strerror(errno));
     }
 
+    hugepage_mapping_per_channel.resize(num_host_mem_channels);
+
+    // Support for more than 1GB host memory accessible per device, via channels.
+    for (size_t ch = 0; ch < num_host_mem_channels; ch++) {
+        uint8_t *fake_mapping = static_cast<uint8_t *>(iommu_mapping) + ch * HUGEPAGE_REGION_SIZE;
+        size_t actual_size = (ch == 3) ? HUGEPAGE_CHANNEL_3_SIZE_LIMIT : HUGEPAGE_REGION_SIZE;
+        hugepage_mapping_per_channel[ch] = {fake_mapping, actual_size, 0};
+    }
+
+    return true;
+}
+
+bool SysmemManager::pin_iommu() {
+    if (iommu_mapping == nullptr) {
+        // No fake hugepage channels requested, so just skip mapping.
+        return true;
+    }
+
     bool map_buffer_to_noc = tt_device_->get_pci_device()->is_mapping_buffer_to_noc_supported();
 
-    sysmem_buffer_ = map_sysmem_buffer(mapping, map_size, map_buffer_to_noc);
+    sysmem_buffer_ = map_sysmem_buffer(iommu_mapping, iommu_mapping_size, map_buffer_to_noc);
     uint64_t iova = sysmem_buffer_->get_device_io_addr();
     auto noc_address = sysmem_buffer_->get_noc_addr();
 
@@ -288,13 +338,9 @@ bool SysmemManager::init_iommu(size_t num_fake_mem_channels) {
 
     log_info(LogSiliconDriver, "Mapped sysmem without hugepages to IOVA {:#x}; NOC address {:#x}", iova, *noc_address);
 
-    hugepage_mapping_per_channel.resize(num_fake_mem_channels);
-
-    // Support for more than 1GB host memory accessible per device, via channels.
-    for (size_t ch = 0; ch < num_fake_mem_channels; ch++) {
-        uint8_t *base = static_cast<uint8_t *>(mapping) + ch * HUGEPAGE_REGION_SIZE;
-        size_t actual_size = (ch == 3) ? HUGEPAGE_CHANNEL_3_SIZE_LIMIT : HUGEPAGE_REGION_SIZE;
-        hugepage_mapping_per_channel[ch] = {base, actual_size, iova + ch * HUGEPAGE_REGION_SIZE};
+    for (size_t ch = 0; ch < hugepage_mapping_per_channel.size(); ch++) {
+        uint64_t fake_physical_address = iova + ch * HUGEPAGE_REGION_SIZE;
+        hugepage_mapping_per_channel.at(ch).physical_address = fake_physical_address;
     }
 
     return true;

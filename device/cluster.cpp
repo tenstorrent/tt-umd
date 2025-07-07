@@ -399,7 +399,7 @@ void Cluster::ubb_eth_connections(
                     &remote_eth_id, tt_cxy_pair(chip_id, eth_core.x, eth_core.y), base_addr + 76 * 4, sizeof(uint32_t));
 
                 if (chip_uid_to_local_chip_id.find(remote_chip_id) == chip_uid_to_local_chip_id.end()) {
-                    cluster_desc->ethernet_connections_to_remote_mmio_devices[chip_id][channel] = {
+                    cluster_desc->ethernet_connections_to_remote_devices[chip_id][channel] = {
                         remote_chip_id, remote_eth_id};
                     channel++;
                 } else {

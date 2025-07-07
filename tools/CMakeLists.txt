@@ -9,6 +9,7 @@ target_link_libraries(
         spdlog::spdlog_header_only
         tt-logger::tt-logger
         cxxopts::cxxopts
+        magic_enum::magic_enum
 )
 
 add_executable(telemetry telemetry.cpp)

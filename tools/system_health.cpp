@@ -2,39 +2,57 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 #include <cxxopts.hpp>
+#include <magic_enum/magic_enum.hpp>
 #include <tt-logger/tt-logger.hpp>
 
 #include "common.h"
 #include "umd/device/cluster.h"
 #include "umd/device/tt_cluster_descriptor.h"
+#include "umd/device/tt_core_coordinates.h"
 #include "umd/device/tt_soc_descriptor.h"
+#include "umd/device/types/cluster_descriptor_types.h"
 
 using namespace tt::umd;
+
+struct UbbId {
+    std::uint32_t tray_id;
+    std::uint32_t asic_id;
+};
+
+enum class ConnectorType { EXTERNAL, TRACE, LK1, LK2, LK3 };
+
+enum class LinkingBoardType {
+    A,
+    B,
+};
 
 const std::unordered_map<tt::ARCH, std::vector<std::uint16_t>> ubb_bus_ids = {
     {tt::ARCH::WORMHOLE_B0, {0x00, 0x40, 0xC0, 0x80}},
     {tt::ARCH::BLACKHOLE, {0xC0, 0x80, 0x00, 0x40}},
 };
 
-std::pair<std::uint32_t, std::uint32_t> get_ubb_ids(
-    Cluster* cluster, const chip_id_t chip_id, const unsigned long unique_chip_id) {
+const std::unordered_map<ConnectorType, LinkingBoardType> linking_board_types = {
+    {ConnectorType::LK1, LinkingBoardType::A},
+    {ConnectorType::LK2, LinkingBoardType::A},
+    {ConnectorType::LK3, LinkingBoardType::B},
+};
+
+UbbId get_ubb_id(Cluster* cluster, const chip_id_t chip_id, const unsigned long unique_chip_id) {
     const auto& tray_bus_ids = ubb_bus_ids.at(cluster->get_soc_descriptor(chip_id).arch);
-    auto tray_bus_id_it = std::find(
-        tray_bus_ids.begin(),
-        tray_bus_ids.end(),
-        cluster->get_chip(chip_id)->get_tt_device()->get_pci_device()->get_device_info().pci_bus & 0xF0);
+    const auto bus_id = cluster->get_chip(chip_id)->get_tt_device()->get_pci_device()->get_device_info().pci_bus;
+    auto tray_bus_id_it = std::find(tray_bus_ids.begin(), tray_bus_ids.end(), bus_id & 0xF0);
     if (tray_bus_id_it != tray_bus_ids.end()) {
-        // same as get_ubb_asic_id in tt-metal
-        auto ubb_asic_id = ((unique_chip_id >> 56) & 0xFF);
-        return std::make_pair(tray_bus_id_it - tray_bus_ids.begin() + 1, ubb_asic_id);
+        auto ubb_asic_id = bus_id & 0x0F;
+        return UbbId{
+            static_cast<uint32_t>(tray_bus_id_it - tray_bus_ids.begin() + 1), static_cast<uint32_t>(ubb_asic_id)};
     }
-    return std::make_pair(0, 0);
+    return UbbId{0, 0};  // Invalid UBB ID if not found
 }
 
 bool check_if_external_cable_is_used(
     tt_ClusterDescriptor* cluster_descriptor,
     const BoardType board_type,
-    const int chip_id,
+    const chip_id_t chip_id,
     const unsigned long unique_chip_id,
     const int chan) {
     if (board_type == BoardType::UBB) {
@@ -59,6 +77,66 @@ bool check_if_external_cable_is_used(
         }
     }
     return false;
+}
+
+ConnectorType get_connector_type(
+    Cluster* cluster,
+    BoardType board_type,
+    chip_id_t chip_id,
+    const unsigned long unique_chip_id,
+    CoreCoord eth_core,
+    uint32_t chan) {
+    if (check_if_external_cable_is_used(
+            cluster->get_cluster_description(), board_type, chip_id, unique_chip_id, chan)) {
+        return ConnectorType::EXTERNAL;
+    }
+    if (board_type == BoardType::GALAXY) {
+        auto ubb_id = get_ubb_id(cluster, chip_id, unique_chip_id);
+        if ((ubb_id.asic_id == 5 || ubb_id.asic_id == 6) && (12 <= chan && chan <= 15)) {
+            return ConnectorType::LK1;
+        } else if ((ubb_id.asic_id == 7 || ubb_id.asic_id == 8) && (12 <= chan && chan <= 15)) {
+            return ConnectorType::LK2;
+        } else if ((ubb_id.asic_id == 4 || ubb_id.asic_id == 8) && (8 <= chan && chan <= 11)) {
+            return ConnectorType::LK3;
+        } else {
+            return ConnectorType::TRACE;
+        }
+    } else {
+        return ConnectorType::TRACE;
+    }
+}
+
+std::string get_ubb_id_str(Cluster* cluster, chip_id_t chip_id, const unsigned long unique_chip_id) {
+    auto ubb_id = get_ubb_id(cluster, chip_id, unique_chip_id);
+    return "Tray: " + std::to_string(ubb_id.tray_id) + " N" + std::to_string(ubb_id.asic_id);
+}
+
+std::string get_connector_str(
+    Cluster* cluster,
+    chip_id_t chip_id,
+    const unsigned long unique_chip_id,
+    CoreCoord eth_core,
+    uint32_t channel,
+    BoardType board_type) {
+    auto connector = get_connector_type(cluster, board_type, chip_id, unique_chip_id, eth_core, channel);
+    std::stringstream str;
+    str << "(";
+    switch (connector) {
+        case ConnectorType::EXTERNAL:
+            str << "external connector";
+            break;
+        case ConnectorType::TRACE:
+            str << "internal trace";
+            break;
+        case ConnectorType::LK1:
+        case ConnectorType::LK2:
+        case ConnectorType::LK3:
+            str << "linking board " << magic_enum::enum_name(connector).back() << " type "
+                << magic_enum::enum_name(linking_board_types.at(connector));
+            break;
+    }
+    str << ")";
+    return str.str();
 }
 
 int main(int argc, char* argv[]) {
@@ -104,7 +182,7 @@ int main(int argc, char* argv[]) {
         chip_id_ss << std::dec << "Chip: " << chip_id << " Unique ID: " << std::hex << unique_chip_id;
         auto board_type = cluster_descriptor->get_board_type(chip_id);
         if (board_type == BoardType::GALAXY) {
-            auto [tray_id, ubb_asic_id] = get_ubb_ids(cluster.get(), chip_id, unique_chip_id);
+            auto [tray_id, ubb_asic_id] = get_ubb_id(cluster.get(), chip_id, unique_chip_id);
             chip_id_ss << " Tray: " << tray_id << " N" << ubb_asic_id;
         }
         ss << chip_id_ss.str() << std::endl;
@@ -122,8 +200,9 @@ int main(int argc, char* argv[]) {
             const bool is_external_cable =
                 check_if_external_cable_is_used(cluster_descriptor, board_type, chip_id, unique_chip_id, chan);
 
-            std::string connection_type = is_external_cable ? "(external connector)" : "(internal trace)";
-
+            CoreCoord logical_eth_coord{0, static_cast<size_t>(chan), CoreType::ETH, CoordSystem::LOGICAL};
+            std::string connection_type =
+                get_connector_str(cluster.get(), chip_id, unique_chip_id, logical_eth_coord, chan, board_type);
             if (cluster_descriptor->ethernet_core_has_active_ethernet_link(chip_id, chan)) {
                 if (eth_connections.at(chip_id).find(chan) != eth_connections.at(chip_id).end()) {
                     const auto& [connected_chip_id, connected_chan] =

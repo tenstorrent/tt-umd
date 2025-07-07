@@ -96,7 +96,7 @@ public:
     tt_driver_noc_params noc_params;
     tt_driver_eth_interface_params eth_interface_params;
 
-    // TODO: To be removed once we properly refactor usage of NOC1 coords;
+    // TODO: To be removed once we properly refactor usage of NOC1 coords.
     tt_xy_pair translate_chip_coord_to_translated(const CoreCoord core) const;
 
 protected:

@@ -1,6 +1,6 @@
 # Overview
 The Tenstorrent (TT) software stack was intended to be used with a variety of Tenstorrent silicon devices, e.g.,
-Grayskull™, Wormhole™, etc. All of these devices have a particular, grid-like SoC architecture that the software
+Wormhole™, etc. All of these devices have a particular, grid-like SoC architecture that the software
 was tailored towards.
 
 More specifically, here are some (but not all) of that assumptions that were considered when developing our

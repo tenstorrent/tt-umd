@@ -33,9 +33,7 @@ enum class ARCH {
 static inline tt::ARCH arch_from_str(const std::string &arch_str) {
     std::string arch_str_lower = to_lower(arch_str);
 
-    if (arch_str_lower == "grayskull") {
-        return tt::ARCH::GRAYSKULL;
-    } else if ((arch_str_lower == "wormhole") || (arch_str_lower == "wormhole_b0")) {
+    if ((arch_str_lower == "wormhole") || (arch_str_lower == "wormhole_b0")) {
         return tt::ARCH::WORMHOLE_B0;
     } else if (arch_str_lower == "blackhole") {
         return tt::ARCH::BLACKHOLE;
@@ -48,8 +46,6 @@ static inline tt::ARCH arch_from_str(const std::string &arch_str) {
 
 static inline std::string arch_to_str(const tt::ARCH arch) {
     switch (arch) {
-        case tt::ARCH::GRAYSKULL:
-            return "grayskull";
         case tt::ARCH::WORMHOLE_B0:
             return "wormhole_b0";
         case tt::ARCH::BLACKHOLE:

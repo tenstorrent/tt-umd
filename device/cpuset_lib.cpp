@@ -4,13 +4,16 @@
 
 #include "cpuset_lib.hpp"
 
+#include <fmt/format.h>
+#include <fmt/ranges.h>  // Needed to format vectors
+#include <fmt/std.h>     // Needed to format thread_id
+
 #include <algorithm>
 #include <filesystem>
 #include <thread>
+#include <tt-logger/tt-logger.hpp>
 
 #include "cpuset_lib.hpp"
-#include "fmt/core.h"
-#include "logger.hpp"
 #include "umd/device/cluster.h"
 
 namespace tt {

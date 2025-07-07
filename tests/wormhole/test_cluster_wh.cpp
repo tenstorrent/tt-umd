@@ -776,10 +776,7 @@ TEST(SiliconDriverWH, RandomSysmemTestWithPcie) {
         uint64_t hi = (lo + ONE_GIG) - 1;
 
         if (channel == 3) {
-            // TODO: I thought everything past 0xffff'dddd was registers or
-            // something, but a) I don't know what's actually there, and b)
-            // the unusable range seems to be bigger than that... so
-            // restricting to 0x8'f000'0000.
+            // Avoid the top 256MB of the 4th hugepage region on WH.
             hi &= ~0x0fff'ffffULL;
         }
 
@@ -846,15 +843,6 @@ TEST(SiliconDriverWH, LargeAddressTlb) {
     EXPECT_EQ(value2, value0);
 }
 
-// Helper for DMA performance characterization.
-static inline void print_speed(std::string direction, size_t bytes, uint64_t ns) {
-    double seconds = ns / 1e9;
-    double megabytes = static_cast<double>(bytes) / (1024.0 * 1024.0);
-    auto rate = megabytes / seconds;
-    std::cout << direction << ": 0x" << std::hex << bytes << std::dec << " bytes in " << ns << " ns (" << rate
-              << " MiB/s)" << std::endl;
-};
-
 /**
  * Test the PCIe DMA controller by using it to write random fixed-size patterns
  * to 0x0 in several DRAM cores, then reading them back and verifying.
@@ -884,11 +872,7 @@ TEST(SiliconDriverWH, DMA1) {
         std::vector<uint8_t> pattern(buf_size);
         test_utils::fill_with_random_bytes(&pattern[0], pattern.size());
 
-        auto now = std::chrono::steady_clock::now();
         cluster.dma_write_to_device(pattern.data(), pattern.size(), chip, core, 0x0);
-        auto end = std::chrono::steady_clock::now();
-        auto ns = std::chrono::duration_cast<std::chrono::nanoseconds>(end - now).count();
-        print_speed(" DMA: Host -> Device", pattern.size(), ns);
 
         patterns.push_back(pattern);
     }
@@ -898,11 +882,7 @@ TEST(SiliconDriverWH, DMA1) {
         auto core = dram_cores[i];
         std::vector<uint8_t> readback(buf_size, 0x0);
 
-        auto now = std::chrono::steady_clock::now();
         cluster.dma_read_from_device(readback.data(), readback.size(), chip, core, 0x0);
-        auto end = std::chrono::steady_clock::now();
-        auto ns = std::chrono::duration_cast<std::chrono::nanoseconds>(end - now).count();
-        print_speed(" DMA: Device -> Host", readback.size(), ns);
 
         EXPECT_EQ(patterns[i], readback) << "Mismatch for core " << core.str() << " addr=0x0"
                                          << " size=" << std::dec << readback.size();
@@ -966,11 +946,7 @@ TEST(SiliconDriverWH, DMA2) {
             test_utils::fill_with_random_bytes(pattern.data(), pattern.size());
 
             // Perform the DMA write.
-            auto now = std::chrono::steady_clock::now();
             cluster.dma_write_to_device(pattern.data(), pattern.size(), chip, core, addr);
-            auto end = std::chrono::steady_clock::now();
-            auto ns = std::chrono::duration_cast<std::chrono::nanoseconds>(end - now).count();
-            print_speed(" DMA: Host -> Device", pattern.size(), ns);
 
             // Store the operation details for verification.
             write_ops.push_back({core, addr, pattern});
@@ -981,11 +957,7 @@ TEST(SiliconDriverWH, DMA2) {
             std::vector<uint8_t> readback(op.data.size());
 
             // Perform the DMA read from the specific address.
-            auto now = std::chrono::steady_clock::now();
             cluster.dma_read_from_device(readback.data(), readback.size(), chip, op.core, op.address);
-            auto end = std::chrono::steady_clock::now();
-            auto ns = std::chrono::duration_cast<std::chrono::nanoseconds>(end - now).count();
-            print_speed(" DMA: Device -> Host", readback.size(), ns);
 
             // Verify the data.
             EXPECT_EQ(op.data, readback) << "Mismatch for core " << op.core.str() << " addr=0x" << std::hex
@@ -1011,11 +983,7 @@ TEST(SiliconDriverWH, DMA2) {
             test_utils::fill_with_random_bytes(pattern.data(), pattern.size());
 
             // Perform the DMA write.
-            auto now = std::chrono::steady_clock::now();
             cluster.write_to_device(pattern.data(), pattern.size(), chip, dram_core, addr);
-            auto end = std::chrono::steady_clock::now();
-            auto ns = std::chrono::duration_cast<std::chrono::nanoseconds>(end - now).count();
-            print_speed("MMIO: Host -> Device", pattern.size(), ns);
 
             // Store the operation details for verification.
             write_ops.push_back({dram_core, addr, pattern});
@@ -1026,24 +994,11 @@ TEST(SiliconDriverWH, DMA2) {
             std::vector<uint8_t> readback(op.data.size());
 
             // Perform the DMA read from the specific address.
-            auto now = std::chrono::steady_clock::now();
             cluster.dma_read_from_device(readback.data(), readback.size(), chip, op.core, op.address);
-            auto end = std::chrono::steady_clock::now();
-            auto ns = std::chrono::duration_cast<std::chrono::nanoseconds>(end - now).count();
-            print_speed(" DMA: Device -> Host", readback.size(), ns);
 
             // Verify the data.
             EXPECT_EQ(op.data, readback) << "Mismatch for core " << op.core.str() << " addr=0x" << std::hex
                                          << op.address << " size=" << std::dec << op.data.size();
         }
     }
-}
-
-// Point of the test is to make sure that the topology discovery code works without errors on Wormhole
-// configurations. This should probably be skipped for 6U but since we still don't have it in CI it's ok.
-// It was manually tested on N150, N300, T3K and TG that cluster descriptors are same as what Luwen CEM gives us.
-TEST(TestClusterWormhole, TestTopologyDiscovery) {
-    std::unique_ptr<TopologyDiscovery> topology_discovery = std::make_unique<TopologyDiscovery>();
-
-    std::unique_ptr<tt_ClusterDescriptor> cluster_desc = topology_discovery->create_ethernet_map();
 }

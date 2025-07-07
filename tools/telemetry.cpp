@@ -3,14 +3,18 @@
 // SPDX-License-Identifier: Apache-2.0
 #include <chrono>
 #include <cxxopts.hpp>
+#include <fstream>
+#include <iomanip>
+#include <iostream>
 #include <ostream>
 #include <sstream>
 #include <string>
 #include <thread>
+#include <tt-logger/tt-logger.hpp>
 #include <vector>
 
+#include "common.h"
 #include "fmt/core.h"
-#include "logger.hpp"
 #include "umd/device/arc_telemetry_reader.h"
 #include "umd/device/types/wormhole_telemetry.h"
 
@@ -64,7 +68,7 @@ int main(int argc, char* argv[]) {
     std::vector<int> pci_device_ids;
 
     if (result.count("devices")) {
-        for (int device_id : result["devices"].as<std::vector<int>>()) {
+        for (int device_id : extract_int_vector(result["devices"])) {
             if (std::find(discovered_pci_device_ids.begin(), discovered_pci_device_ids.end(), device_id) ==
                 discovered_pci_device_ids.end()) {
                 std::cerr << "Device ID with pci id " << device_id << " not found in the system." << std::endl;
@@ -119,7 +123,7 @@ int main(int argc, char* argv[]) {
                    << fractional_seconds.count() << " - " << telemetry_message;
                 output_file << ss.str() << std::endl;
             } else {
-                log_info(tt::LogSiliconDriver, telemetry_message.c_str());
+                log_info(tt::LogSiliconDriver, "{}", telemetry_message);
             }
         }
 

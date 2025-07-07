@@ -44,11 +44,11 @@ public:
      * Creates a proper TTDevice object for the given PCI device number.
      */
     static std::unique_ptr<TTDevice> create(int pci_device_number);
-    TTDevice(std::unique_ptr<PCIDevice> pci_device, std::unique_ptr<architecture_implementation> architecture_impl);
+    TTDevice(std::shared_ptr<PCIDevice> pci_device, std::unique_ptr<architecture_implementation> architecture_impl);
     virtual ~TTDevice();
 
     architecture_implementation *get_architecture_implementation();
-    PCIDevice *get_pci_device();
+    std::shared_ptr<PCIDevice> get_pci_device();
 
     tt::ARCH get_arch();
 
@@ -82,6 +82,16 @@ public:
     virtual void dma_d2h(void *dst, uint32_t src, size_t size) = 0;
 
     /**
+     * DMA transfer from device to host.
+     *
+     * @param dst destination buffer
+     * @param src AXI address corresponding to inbound PCIe TLB window; src % 4 == 0
+     * @param size number of bytes
+     * @throws std::runtime_error if the DMA transfer fails
+     */
+    virtual void dma_d2h_zero_copy(void *dst, uint32_t src, size_t size) = 0;
+
+    /**
      * DMA transfer from host to device.
      *
      * @param dst AXI address corresponding to inbound PCIe TLB window; dst % 4 == 0
@@ -91,11 +101,21 @@ public:
      */
     virtual void dma_h2d(uint32_t dst, const void *src, size_t size) = 0;
 
+    /**
+     * DMA transfer from host to device.
+     *
+     * @param dst AXI address corresponding to inbound PCIe TLB window; dst % 4 == 0
+     * @param src source buffer
+     * @param size number of bytes
+     * @throws std::runtime_error if the DMA transfer fails
+     */
+    virtual void dma_h2d_zero_copy(uint32_t dst, const void *src, size_t size) = 0;
+
     // Read/write functions that always use same TLB entry. This is not supposed to be used
     // on any code path that is performance critical. It is used to read/write the data needed
     // to get the information to form cluster of chips, or just use base TTDevice functions.
-    void read_from_device(void *mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size);
-    void write_to_device(void *mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size);
+    virtual void read_from_device(void *mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size);
+    virtual void write_to_device(const void *mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size);
 
     // TLB related functions.
     // TODO: These are architecture specific, and will be moved out of the class.
@@ -152,6 +172,8 @@ public:
 
     virtual void wait_arc_core_start(const tt_xy_pair arc_core, const uint32_t timeout_ms = 1000);
 
+    virtual void wait_eth_core_training(const tt_xy_pair eth_core, const uint32_t timeout_ms = 60000) = 0;
+
     void bar_write32(uint32_t addr, uint32_t data);
 
     uint32_t bar_read32(uint32_t addr);
@@ -160,20 +182,28 @@ public:
 
     ArcTelemetryReader *get_arc_telemetry_reader() const;
 
-    virtual uint32_t get_clock();
+    virtual uint32_t get_clock() = 0;
 
-    virtual uint32_t get_max_clock_freq();
+    virtual uint32_t get_max_clock_freq() = 0;
 
-    virtual uint32_t get_min_clock_freq();
+    virtual uint32_t get_min_clock_freq() = 0;
 
-    virtual BoardType get_board_type() = 0;
+    virtual uint64_t get_board_id() = 0;
+
+    BoardType get_board_type();
+
+    virtual bool get_noc_translation_enabled() = 0;
 
     // TODO: find a way to expose this in a better way, probably through getting telemetry reader and reading the
     // required fields. Returns the information whether DRAM training status is available and the status value.
     virtual std::vector<DramTrainingStatus> get_dram_training_status();
 
+    virtual void wait_for_non_mmio_flush();
+
+    bool is_remote();
+
 protected:
-    std::unique_ptr<PCIDevice> pci_device_;
+    std::shared_ptr<PCIDevice> pci_device_;
     std::unique_ptr<architecture_implementation> architecture_impl_;
     tt::ARCH arch;
     std::unique_ptr<ArcMessenger> arc_messenger_ = nullptr;
@@ -195,6 +225,14 @@ protected:
     void memcpy_to_device(void *dest, const void *src, std::size_t num_bytes);
     void memcpy_from_device(void *dest, const void *src, std::size_t num_bytes);
 
+    virtual void init_tt_device();
+
+    semver_t fw_version_from_telemetry(const uint32_t telemetry_data) const;
+
+    TTDevice();
+
     ChipInfo chip_info;
+
+    bool is_remote_tt_device = false;
 };
 }  // namespace tt::umd

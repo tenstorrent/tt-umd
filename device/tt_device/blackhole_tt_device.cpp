@@ -5,14 +5,19 @@
 
 #include <sys/mman.h>  // for MAP_FAILED
 
-#include "logger.hpp"
+#include <tt-logger/tt-logger.hpp>
+
 #include "umd/device/blackhole_implementation.h"
+#include "umd/device/coordinate_manager.h"
+#include "umd/device/types/blackhole_eth.h"
 #include "umd/device/types/blackhole_telemetry.h"
 
 namespace tt::umd {
 
-BlackholeTTDevice::BlackholeTTDevice(std::unique_ptr<PCIDevice> pci_device) :
-    TTDevice(std::move(pci_device), std::make_unique<blackhole_implementation>()) {}
+BlackholeTTDevice::BlackholeTTDevice(std::shared_ptr<PCIDevice> pci_device) :
+    TTDevice(pci_device, std::make_unique<blackhole_implementation>()) {
+    init_tt_device();
+}
 
 BlackholeTTDevice::~BlackholeTTDevice() {
     // Turn off iATU for the regions we programmed.  This won't happen if the
@@ -82,11 +87,25 @@ void BlackholeTTDevice::configure_iatu_region(size_t region, uint64_t target, si
         target);
 }
 
+bool BlackholeTTDevice::get_noc_translation_enabled() {
+    const uint64_t addr = blackhole::NIU_CFG_NOC0_BAR_ADDR;
+    uint32_t niu_cfg;
+    if (addr < get_pci_device()->bar0_uc_offset) {
+        read_block(addr, sizeof(niu_cfg), reinterpret_cast<uint8_t *>(&niu_cfg));
+    } else {
+        read_regs(addr, 1, &niu_cfg);
+    }
+
+    return ((niu_cfg >> 14) & 0x1) != 0;
+}
+
 ChipInfo BlackholeTTDevice::get_chip_info() {
-    chip_info.harvesting_masks.tensix_harvesting_mask =
+    ChipInfo chip_info;
+    chip_info.harvesting_masks.tensix_harvesting_mask = CoordinateManager::shuffle_tensix_harvesting_mask(
+        tt::ARCH::BLACKHOLE,
         telemetry->is_entry_available(blackhole::TAG_ENABLED_TENSIX_COL)
             ? (~telemetry->read_entry(blackhole::TAG_ENABLED_TENSIX_COL) & 0x3FFF)
-            : 0;
+            : 0);
     chip_info.harvesting_masks.dram_harvesting_mask = telemetry->is_entry_available(blackhole::TAG_ENABLED_GDDR)
                                                           ? (~telemetry->read_entry(blackhole::TAG_ENABLED_GDDR) & 0xFF)
                                                           : 0;
@@ -114,21 +133,17 @@ ChipInfo BlackholeTTDevice::get_chip_info() {
     // Until then we have to read it from ETH core, it happens during topology exploration.
     // chip_info.chip_uid.asic_location = telemetry->read_entry(blackhole::TAG_ASIC_LOCATION);
 
-    const uint64_t addr = blackhole::NIU_CFG_NOC0_BAR_ADDR;
-    uint32_t niu_cfg;
-    if (addr < get_pci_device()->bar0_uc_offset) {
-        read_block(addr, sizeof(niu_cfg), reinterpret_cast<uint8_t *>(&niu_cfg));
-    } else {
-        read_regs(addr, 1, &niu_cfg);
-    }
-
-    chip_info.noc_translation_enabled = ((niu_cfg >> 14) & 0x1) != 0;
+    chip_info.noc_translation_enabled = get_noc_translation_enabled();
 
     // It is expected that these entries are always available.
-    chip_info.chip_uid.board_id = ((uint64_t)telemetry->read_entry(blackhole::TAG_BOARD_ID_HIGH) << 32) |
-                                  (telemetry->read_entry(blackhole::TAG_BOARD_ID_LOW));
+    chip_info.chip_uid.board_id = get_board_id();
 
     chip_info.board_type = get_board_type_from_board_id(chip_info.chip_uid.board_id);
+
+    chip_info.firmware_version =
+        telemetry->is_entry_available(blackhole::TAG_FLASH_BUNDLE_VERSION)
+            ? fw_version_from_telemetry(telemetry->read_entry(blackhole::TAG_FLASH_BUNDLE_VERSION))
+            : semver_t(0, 0, 0);
 
     // TODO: likely not needed anymore. Firware on P100 will give 0 for TAG_ENABLED_ETH
     if (chip_info.board_type == BoardType::P100) {
@@ -153,7 +168,11 @@ void BlackholeTTDevice::wait_arc_core_start(const tt_xy_pair arc_core, const uin
         auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
         if (duration.count() > timeout_ms) {
             log_error(
-                "Timed out after waiting {} ms for arc core ({}, {}) to start", timeout_ms, arc_core.x, arc_core.y);
+                LogSiliconDriver,
+                "Timed out after waiting {} ms for arc core ({}, {}) to start",
+                timeout_ms,
+                arc_core.x,
+                arc_core.y);
         }
     }
 }
@@ -172,10 +191,9 @@ uint32_t BlackholeTTDevice::get_max_clock_freq() { return tt::umd::blackhole::AI
 
 uint32_t BlackholeTTDevice::get_min_clock_freq() { return tt::umd::blackhole::AICLK_IDLE_VAL; }
 
-BoardType BlackholeTTDevice::get_board_type() {
-    return get_board_type_from_board_id(
-        ((uint64_t)telemetry->read_entry(blackhole::TAG_BOARD_ID_HIGH) << 32) |
-        (telemetry->read_entry(blackhole::TAG_BOARD_ID_LOW)));
+uint64_t BlackholeTTDevice::get_board_id() {
+    return ((uint64_t)telemetry->read_entry(blackhole::TAG_BOARD_ID_HIGH) << 32) |
+           (telemetry->read_entry(blackhole::TAG_BOARD_ID_LOW));
 }
 
 void BlackholeTTDevice::dma_d2h(void *dst, uint32_t src, size_t size) {
@@ -184,6 +202,14 @@ void BlackholeTTDevice::dma_d2h(void *dst, uint32_t src, size_t size) {
 
 void BlackholeTTDevice::dma_h2d(uint32_t dst, const void *src, size_t size) {
     throw std::runtime_error("H2D DMA is not supported on Blackhole.");
+}
+
+void BlackholeTTDevice::dma_h2d_zero_copy(uint32_t dst, const void *src, size_t size) {
+    throw std::runtime_error("H2D DMA is not supported on Blackhole.");
+}
+
+void BlackholeTTDevice::dma_d2h_zero_copy(void *dst, uint32_t src, size_t size) {
+    throw std::runtime_error("D2H DMA is not supported on Blackhole.");
 }
 
 std::vector<DramTrainingStatus> BlackholeTTDevice::get_dram_training_status() {
@@ -215,6 +241,28 @@ std::vector<DramTrainingStatus> BlackholeTTDevice::get_dram_training_status() {
     }
 
     return dram_training_status;
+}
+
+void BlackholeTTDevice::wait_eth_core_training(const tt_xy_pair eth_core, const uint32_t timeout_ms) {
+    uint32_t port_status_addr = blackhole::BOOT_RESULTS_ADDR + offsetof(blackhole::eth_status_t, port_status);
+    uint32_t port_status_val;
+    read_from_device(&port_status_val, eth_core, port_status_addr, sizeof(port_status_val));
+
+    // Port status should be last state to settle during the eth training sequence
+    // PORT_UNKNOWN means that eth is still training
+    auto start = std::chrono::system_clock::now();
+    while (port_status_val == blackhole::port_status_e::PORT_UNKNOWN) {
+        read_from_device(&port_status_val, eth_core, port_status_addr, sizeof(port_status_val));
+        auto end = std::chrono::system_clock::now();
+        auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
+        if (duration.count() > timeout_ms) {
+            // TODO: Exception should be thrown here. ETH connections are very flaky
+            // on Blackhole right now. When this is fixed we can throw the exception here.
+            // Since we are not going to do any remote IO at the moment it is fine to just log the error.
+            log_error(LogSiliconDriver, "ETH training timed out after {} ms", timeout_ms);
+            break;
+        }
+    }
 }
 
 }  // namespace tt::umd

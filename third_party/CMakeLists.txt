@@ -18,6 +18,9 @@ if(TT_UMD_BUILD_TESTS)
         OPTIONS
             "INSTALL_GTEST OFF"
     )
+    if(googletest_ADDED)
+        target_compile_options(gtest PRIVATE -Wno-implicit-int-float-conversion)
+    endif()
 endif()
 
 ####################################################################################################################
@@ -26,7 +29,8 @@ endif()
 CPMAddPackage(
     NAME yaml-cpp
     GITHUB_REPOSITORY jbeder/yaml-cpp
-    GIT_TAG 0.8.0
+    GIT_TAG
+        2f86d13775d119edbb69af52e5f566fd65c6953b # 0.8.0 + patches
     OPTIONS
         "YAML_CPP_BUILD_TESTS OFF"
         "YAML_CPP_BUILD_TOOLS OFF"
@@ -117,11 +121,17 @@ endif()
 CPMAddPackage(
     NAME spdlog
     GITHUB_REPOSITORY gabime/spdlog
-    GIT_TAG
-        96a8f6250cbf4e8c76387c614f666710a2fa9bad # Version v 1.15+fmtlib fixes
+    VERSION 1.15.2
     OPTIONS
         "CMAKE_MESSAGE_LOG_LEVEL NOTICE"
+        "SPDLOG_FMT_EXTERNAL_HO ON"
+        "SPDLOG_INSTALL ON"
 )
+
+####################################################################################################################
+# tt-logger
+####################################################################################################################
+CPMAddPackage(NAME tt-logger GITHUB_REPOSITORY tenstorrent/tt-logger VERSION 1.1.4)
 
 ####################################################################################################################
 # cxxopts
@@ -130,7 +140,12 @@ CPMAddPackage(
     NAME cxxopts
     GITHUB_REPOSITORY jarro2783/cxxopts
     GIT_TAG
-        3bf268481da8208d171d8908e6491459de3651d7 # Version v3.2
+        dbf4c6a66816f6c3872b46cc6af119ad227e04e1 #version 3.2.1 + patches
     OPTIONS
         "CMAKE_MESSAGE_LOG_LEVEL NOTICE"
 )
+
+####################################################################################################################
+# nanobind
+####################################################################################################################
+CPMAddPackage(NAME nanobind GITHUB_REPOSITORY wjakob/nanobind VERSION 2.7.0 OPTIONS "CMAKE_MESSAGE_LOG_LEVEL NOTICE")

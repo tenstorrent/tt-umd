@@ -7,6 +7,7 @@
 #include <gtest/gtest.h>
 
 #include <algorithm>
+#include <cstdlib>  // for std::getenv
 #include <filesystem>
 #include <string>
 #include <vector>
@@ -33,8 +34,59 @@ constexpr std::uint32_t L1_BARRIER_BASE = 12;
 constexpr std::uint32_t ETH_BARRIER_BASE = 256 * 1024 - 32;
 constexpr std::uint32_t DRAM_BARRIER_BASE = 0;
 
+// Define a parameterized test fixture
+class ClusterReadWriteL1Test : public ::testing::TestWithParam<ClusterOptions> {};
+
+std::vector<ClusterOptions> get_cluster_options_for_param_test() {
+    constexpr const char* TT_UMD_SIMULATOR_ENV = "TT_UMD_SIMULATOR";
+    std::vector<ClusterOptions> options;
+    options.push_back(ClusterOptions{.chip_type = ChipType::SILICON});
+    if (std::getenv(TT_UMD_SIMULATOR_ENV)) {
+        options.push_back(ClusterOptions{
+            .chip_type = ChipType::SIMULATION,
+            .target_devices = {0},
+            .simulator_directory = std::filesystem::path(std::getenv(TT_UMD_SIMULATOR_ENV))});
+    }
+    return options;
+}
+
 // This test should be one line only.
-TEST(ApiClusterTest, OpenAllChips) { std::unique_ptr<Cluster> umd_cluster = std::make_unique<Cluster>(); }
+TEST(ApiClusterTest, OpenAllSiliconChips) { std::unique_ptr<Cluster> umd_cluster = std::make_unique<Cluster>(); }
+
+TEST(ApiClusterTest, OpenChipsByPciId) {
+    std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
+
+    // T3K and 4U have 4 PCIE visible devices each. After 4 devices, the next number is 32
+    // on 6U galaxies. Making 2^32 combinations might take too long, so we limit the number of devices to 4.
+    // TODO: test all combinations on 6U and remove this check if possible.
+    if (pci_device_ids.size() > 4) {
+        GTEST_SKIP() << "Skipping test because there are more than 4 PCI devices. "
+                        "This test is intended to be run on all systems apart from 6U.";
+    }
+
+    int total_combinations = 1 << pci_device_ids.size();
+
+    for (uint32_t combination = 0; combination < total_combinations; combination++) {
+        std::unordered_set<int> target_pci_device_ids;
+        for (int i = 0; i < pci_device_ids.size(); i++) {
+            if (combination & (1 << i)) {
+                target_pci_device_ids.insert(pci_device_ids[i]);
+            }
+        }
+
+        std::cout << "Creating Cluster with target PCI device IDs: ";
+        for (const auto& id : target_pci_device_ids) {
+            std::cout << id << " ";
+        }
+        std::cout << std::endl;
+
+        // Make sure that Cluster construction is without exceptions.
+        // TODO: add cluster descriptors for expected topologies, compare cluster desc against expected desc.
+        std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>(ClusterOptions{
+            .pci_target_devices = target_pci_device_ids,
+        });
+    }
+}
 
 TEST(ApiClusterTest, DifferentConstructors) {
     std::unique_ptr<Cluster> umd_cluster;
@@ -71,8 +123,9 @@ TEST(ApiClusterTest, DifferentConstructors) {
     std::filesystem::path cluster_path2 = umd_cluster->get_cluster_description()->serialize_to_file();
     umd_cluster = nullptr;
 
+    std::unique_ptr<tt_ClusterDescriptor> cluster_desc = tt_ClusterDescriptor::create_from_yaml(cluster_path1);
     umd_cluster = std::make_unique<Cluster>(ClusterOptions{
-        .cluster_descriptor = tt_ClusterDescriptor::create_from_yaml(cluster_path1),
+        .cluster_descriptor = cluster_desc.get(),
     });
     umd_cluster = nullptr;
 
@@ -161,7 +214,7 @@ TEST(ApiClusterTest, OpenClusterByPCI) {
     tt_SocDescriptor soc_desc = umd_cluster->get_soc_descriptor(desired_chip_to_interface);
 }
 
-TEST(ApiClusterTest, SimpleIOAllChips) {
+TEST(ApiClusterTest, SimpleIOAllSiliconChips) {
     std::unique_ptr<Cluster> umd_cluster = std::make_unique<Cluster>();
 
     const tt_ClusterDescriptor* cluster_desc = umd_cluster->get_cluster_description();
@@ -245,7 +298,7 @@ TEST(ApiClusterTest, RemoteFlush) {
     }
 }
 
-TEST(ApiClusterTest, SimpleIOSpecificChips) {
+TEST(ApiClusterTest, SimpleIOSpecificSiliconChips) {
     std::unique_ptr<Cluster> umd_cluster = std::make_unique<Cluster>();
 
     if (umd_cluster->get_target_device_ids().empty()) {
@@ -343,7 +396,7 @@ TEST(ClusterAPI, DynamicTLB_RW) {
     cluster->close_device();
 }
 
-TEST(TestCluster, PrintAllChipsAllCores) {
+TEST(TestCluster, PrintAllSiliconChipsAllCores) {
     std::unique_ptr<Cluster> umd_cluster = std::make_unique<Cluster>();
 
     for (chip_id_t chip : umd_cluster->get_target_device_ids()) {
@@ -356,14 +409,29 @@ TEST(TestCluster, PrintAllChipsAllCores) {
             std::cout << "Tensix core " << core.str() << std::endl;
         }
 
+        const std::vector<CoreCoord>& harvested_tensix_cores = soc_desc.get_harvested_cores(CoreType::TENSIX);
+        for (const CoreCoord& core : harvested_tensix_cores) {
+            std::cout << "Harvested Tensix core " << core.str() << std::endl;
+        }
+
         const std::vector<CoreCoord>& dram_cores = soc_desc.get_cores(CoreType::DRAM);
         for (const CoreCoord& core : dram_cores) {
             std::cout << "DRAM core " << core.str() << std::endl;
         }
 
+        const std::vector<CoreCoord>& harvested_dram_cores = soc_desc.get_harvested_cores(CoreType::DRAM);
+        for (const CoreCoord& core : harvested_dram_cores) {
+            std::cout << "Harvested DRAM core " << core.str() << std::endl;
+        }
+
         const std::vector<CoreCoord>& eth_cores = soc_desc.get_cores(CoreType::ETH);
         for (const CoreCoord& core : eth_cores) {
             std::cout << "ETH core " << core.str() << std::endl;
+        }
+
+        const std::vector<CoreCoord>& harvested_eth_cores = soc_desc.get_harvested_cores(CoreType::ETH);
+        for (const CoreCoord& core : harvested_eth_cores) {
+            std::cout << "Harvested ETH core " << core.str() << std::endl;
         }
     }
 }
@@ -420,11 +488,17 @@ TEST(TestCluster, TestClusterAICLKControl) {
     }
 }
 
-TEST(TestCluster, ReadWriteL1) {
-    std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
+TEST_P(ClusterReadWriteL1Test, ReadWriteL1) {
+    ClusterOptions options = GetParam();
+    std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>(options);
 
     if (cluster->get_target_device_ids().empty()) {
         GTEST_SKIP() << "No chips present on the system. Skipping test.";
+    }
+    if (options.chip_type == SIMULATION) {
+        tt_device_params device_params;
+        device_params.init_device = true;
+        cluster->start_device(device_params);
     }
 
     auto tensix_l1_size = cluster->get_soc_descriptor(0).worker_l1_size;
@@ -442,23 +516,43 @@ TEST(TestCluster, ReadWriteL1) {
     for (auto chip_id : cluster->get_target_device_ids()) {
         const tt_SocDescriptor& soc_desc = cluster->get_soc_descriptor(chip_id);
 
-        CoreCoord tensix_core = cluster->get_soc_descriptor(chip_id).get_cores(CoreType::TENSIX)[0];
+        std::vector<CoreCoord> tensix_cores = cluster->get_soc_descriptor(chip_id).get_cores(CoreType::TENSIX);
 
-        // Zero out L1.
-        cluster->write_to_device(zero_data.data(), zero_data.size(), chip_id, tensix_core, 0);
+        for (const CoreCoord& tensix_core : tensix_cores) {
+            // Zero out L1.
+            cluster->write_to_device(zero_data.data(), zero_data.size(), chip_id, tensix_core, 0);
 
-        cluster->wait_for_non_mmio_flush(chip_id);
+            cluster->wait_for_non_mmio_flush(chip_id);
 
-        cluster->read_from_device(readback_data.data(), chip_id, tensix_core, 0, tensix_l1_size);
+            cluster->read_from_device(readback_data.data(), chip_id, tensix_core, 0, tensix_l1_size);
 
-        EXPECT_EQ(zero_data, readback_data);
+            EXPECT_EQ(zero_data, readback_data);
 
-        cluster->write_to_device(data.data(), data.size(), chip_id, tensix_core, 0);
+            cluster->write_to_device(data.data(), data.size(), chip_id, tensix_core, 0);
 
-        cluster->wait_for_non_mmio_flush(chip_id);
+            cluster->wait_for_non_mmio_flush(chip_id);
 
-        cluster->read_from_device(readback_data.data(), chip_id, tensix_core, 0, tensix_l1_size);
+            cluster->read_from_device(readback_data.data(), chip_id, tensix_core, 0, tensix_l1_size);
 
-        EXPECT_EQ(data, readback_data);
+            EXPECT_EQ(data, readback_data);
+        }
     }
 }
+
+// Instantiate the test suite AFTER all TEST_P definitions
+INSTANTIATE_TEST_SUITE_P(
+    SiliconAndSimulationCluster,
+    ClusterReadWriteL1Test,
+    ::testing::ValuesIn(get_cluster_options_for_param_test()),
+    [](const ::testing::TestParamInfo<ClusterOptions>& info) {
+        switch (info.param.chip_type) {
+            case ChipType::SILICON:
+                return "Silicon";
+            case ChipType::SIMULATION:
+                return "Simulation";
+            default:
+                return "Unknown";
+        }
+    }
+
+);

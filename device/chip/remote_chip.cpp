@@ -6,7 +6,9 @@
 
 #include "umd/device/chip/remote_chip.h"
 
-#include "logger.hpp"
+#include <tt-logger/tt-logger.hpp>
+
+#include "assert.hpp"
 #include "umd/device/chip/local_chip.h"
 #include "umd/device/wormhole_implementation.h"
 
@@ -14,15 +16,16 @@ extern bool umd_use_noc1;
 
 namespace tt::umd {
 
-RemoteChip::RemoteChip(tt_SocDescriptor soc_descriptor, eth_coord_t eth_chip_location, LocalChip* local_chip) :
-    Chip(soc_descriptor),
-    eth_chip_location_(eth_chip_location),
-    remote_communication_(std::make_unique<RemoteCommunication>(local_chip)),
-    local_chip_(local_chip) {
-    log_assert(soc_descriptor_.arch != tt::ARCH::BLACKHOLE, "Non-MMIO targets not supported in Blackhole");
-}
+static_assert(!std::is_abstract<RemoteChip>(), "RemoteChip must be non-abstract.");
 
-RemoteChip::RemoteChip(tt_SocDescriptor soc_descriptor, ChipInfo chip_info) : Chip(chip_info, soc_descriptor) {}
+RemoteChip::RemoteChip(tt_SocDescriptor soc_descriptor, std::unique_ptr<RemoteWormholeTTDevice> remote_tt_device) :
+    Chip(soc_descriptor) {
+    local_chip_ = remote_tt_device->get_local_chip();
+    remote_communication_ = remote_tt_device->get_remote_communication();
+    tt_device_ = std::move(remote_tt_device);
+    chip_info_ = tt_device_->get_chip_info();
+    TT_ASSERT(soc_descriptor_.arch != tt::ARCH::BLACKHOLE, "Non-MMIO targets not supported in Blackhole");
+}
 
 bool RemoteChip::is_mmio_capable() const { return false; }
 
@@ -32,12 +35,32 @@ void RemoteChip::close_device() {}
 
 void RemoteChip::write_to_device(tt_xy_pair core, const void* src, uint64_t l1_dest, uint32_t size) {
     auto translated_core = translate_chip_coord_virtual_to_translated(core);
-    remote_communication_->write_to_non_mmio(eth_chip_location_, translated_core, src, l1_dest, size);
+    tt_device_->write_to_device(src, translated_core, l1_dest, size);
 }
 
 void RemoteChip::read_from_device(tt_xy_pair core, void* dest, uint64_t l1_src, uint32_t size) {
     auto translated_core = translate_chip_coord_virtual_to_translated(core);
-    remote_communication_->read_non_mmio(eth_chip_location_, translated_core, dest, l1_src, size);
+    tt_device_->read_from_device(dest, translated_core, l1_src, size);
+}
+
+void RemoteChip::write_to_device_reg(tt_xy_pair core, const void* src, uint64_t reg_dest, uint32_t size) {
+    write_to_device(core, src, reg_dest, size);
+}
+
+void RemoteChip::read_from_device_reg(tt_xy_pair core, void* dest, uint64_t reg_src, uint32_t size) {
+    read_from_device(core, dest, reg_src, size);
+}
+
+void RemoteChip::dma_write_to_device(const void* src, size_t size, tt_xy_pair core, uint64_t addr) {
+    throw std::runtime_error("RemoteChip::dma_write_to_device is not available for this chip.");
+}
+
+void RemoteChip::dma_read_from_device(void* dst, size_t size, tt_xy_pair core, uint64_t addr) {
+    throw std::runtime_error("RemoteChip::dma_read_from_device is not available for this chip.");
+}
+
+std::function<void(uint32_t, uint32_t, const uint8_t*)> RemoteChip::get_fast_pcie_static_tlb_write_callable() {
+    throw std::runtime_error("RemoteChip::get_fast_pcie_static_tlb_write_callable is not available for this chip.");
 }
 
 // TODO: This translation should go away when we start using CoreCoord everywhere.
@@ -65,82 +88,8 @@ tt_xy_pair RemoteChip::translate_chip_coord_virtual_to_translated(const tt_xy_pa
 }
 
 void RemoteChip::wait_for_non_mmio_flush() {
-    log_assert(soc_descriptor_.arch != tt::ARCH::BLACKHOLE, "Non-MMIO flush not supported in Blackhole");
+    TT_ASSERT(soc_descriptor_.arch != tt::ARCH::BLACKHOLE, "Non-MMIO flush not supported in Blackhole");
     remote_communication_->wait_for_non_mmio_flush();
-}
-
-int RemoteChip::arc_msg(
-    uint32_t msg_code,
-    bool wait_for_done,
-    uint32_t arg0,
-    uint32_t arg1,
-    uint32_t timeout_ms,
-    uint32_t* return_3,
-    uint32_t* return_4) {
-    constexpr uint64_t ARC_RESET_SCRATCH_ADDR = 0x880030060;
-    constexpr uint64_t ARC_RESET_MISC_CNTL_ADDR = 0x880030100;
-
-    auto arc_core = soc_descriptor_.get_cores(CoreType::ARC).at(0);
-
-    if ((msg_code & 0xff00) != 0xaa00) {
-        log_error("Malformed message. msg_code is 0x{:x} but should be 0xaa..", msg_code);
-    }
-    log_assert(arg0 <= 0xffff and arg1 <= 0xffff, "Only 16 bits allowed in arc_msg args");  // Only 16 bits are allowed
-
-    uint32_t fw_arg = arg0 | (arg1 << 16);
-    int exit_code = 0;
-
-    { write_to_device(arc_core, &fw_arg, ARC_RESET_SCRATCH_ADDR + 3 * 4, sizeof(fw_arg)); }
-
-    { write_to_device(arc_core, &msg_code, ARC_RESET_SCRATCH_ADDR + 5 * 4, sizeof(fw_arg)); }
-
-    wait_for_non_mmio_flush();
-    uint32_t misc = 0;
-
-    read_from_device(arc_core, &misc, ARC_RESET_MISC_CNTL_ADDR, 4);
-
-    if (misc & (1 << 16)) {
-        log_error("trigger_fw_int failed on device");
-        return 1;
-    } else {
-        misc |= (1 << 16);
-        write_to_device(arc_core, &misc, ARC_RESET_MISC_CNTL_ADDR, sizeof(misc));
-    }
-
-    if (wait_for_done) {
-        uint32_t status = 0xbadbad;
-        auto start = std::chrono::steady_clock::now();
-        while (true) {
-            auto now = std::chrono::steady_clock::now();
-            auto elapsed_ms = std::chrono::duration_cast<std::chrono::milliseconds>(now - start).count();
-            if (elapsed_ms > timeout_ms && timeout_ms != 0) {
-                std::stringstream ss;
-                ss << std::hex << msg_code;
-                throw std::runtime_error(fmt::format(
-                    "Timed out after waiting {} ms for device ARC to respond to message 0x{}", timeout_ms, ss.str()));
-            }
-
-            uint32_t status = 0;
-            read_from_device(arc_core, &status, ARC_RESET_SCRATCH_ADDR + 5 * 4, sizeof(status));
-            if ((status & 0xffff) == (msg_code & 0xff)) {
-                if (return_3 != nullptr) {
-                    read_from_device(arc_core, return_3, ARC_RESET_SCRATCH_ADDR + 3 * 4, sizeof(uint32_t));
-                }
-
-                if (return_4 != nullptr) {
-                    read_from_device(arc_core, return_4, ARC_RESET_SCRATCH_ADDR + 4 * 4, sizeof(uint32_t));
-                }
-
-                exit_code = (status & 0xffff0000) >> 16;
-                break;
-            } else if (status == HANG_READ_VALUE) {
-                log_warning(LogSiliconDriver, "Message code 0x{:x} not recognized by FW", msg_code);
-                exit_code = HANG_READ_VALUE;
-                break;
-            }
-        }
-    }
-    return exit_code;
 }
 
 void RemoteChip::l1_membar(const std::unordered_set<tt::umd::CoreCoord>& cores) { wait_for_non_mmio_flush(); }
@@ -155,12 +104,44 @@ void RemoteChip::set_power_state(tt_DevicePowerState state) {
     if (soc_descriptor_.arch == tt::ARCH::WORMHOLE_B0) {
         uint32_t msg = get_power_state_arc_msg(state);
         int exit_code = arc_msg(wormhole::ARC_MSG_COMMON_PREFIX | msg, true, 0, 0);
-        log_assert(exit_code == 0, "Failed to set power state to {} with exit code: {}", (int)state, exit_code);
+        TT_ASSERT(exit_code == 0, "Failed to set power state to {} with exit code: {}", (int)state, exit_code);
     } else if (soc_descriptor_.arch == tt::ARCH::BLACKHOLE) {
         throw std::runtime_error("set_power_state not supported for remote chips on Blackhole.");
     }
 }
 
-int RemoteChip::get_clock() { return local_chip_->get_clock(); }
+int RemoteChip::get_clock() { return tt_device_->get_clock(); }
+
+int RemoteChip::get_num_host_channels() { return 0; }
+
+int RemoteChip::get_host_channel_size(std::uint32_t channel) {
+    throw std::runtime_error("There are no host channels available.");
+}
+
+void RemoteChip::write_to_sysmem(uint16_t channel, const void* src, uint64_t sysmem_dest, uint32_t size) {
+    throw std::runtime_error("RemoteChip::write_to_sysmem is not available for this chip.");
+}
+
+void RemoteChip::read_from_sysmem(uint16_t channel, void* dest, uint64_t sysmem_src, uint32_t size) {
+    throw std::runtime_error("RemoteChip::read_from_sysmem is not available for this chip.");
+}
+
+int RemoteChip::get_numa_node() {
+    throw std::runtime_error("RemoteChip::get_numa_node is not available for this chip.");
+}
+
+void RemoteChip::set_remote_transfer_ethernet_cores(const std::unordered_set<tt::umd::CoreCoord>& cores) {}
+
+void RemoteChip::set_remote_transfer_ethernet_cores(const std::set<uint32_t>& channel) {}
+
+TTDevice* RemoteChip::get_tt_device() { return tt_device_.get(); }
+
+SysmemManager* RemoteChip::get_sysmem_manager() {
+    throw std::runtime_error("RemoteChip::get_sysmem_manager is not available for this chip.");
+}
+
+TLBManager* RemoteChip::get_tlb_manager() {
+    throw std::runtime_error("RemoteChip::get_tlb_manager is not available for this chip.");
+}
 
 }  // namespace tt::umd

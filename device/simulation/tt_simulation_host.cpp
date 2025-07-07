@@ -12,10 +12,10 @@
 #include <filesystem>
 #include <iomanip>
 #include <sstream>
+#include <tt-logger/tt-logger.hpp>
 #include <typeinfo>
 
 #include "assert.hpp"
-#include "logger.hpp"
 
 tt_SimulationHost::tt_SimulationHost() {
     // Initialize socket and dialer

@@ -44,6 +44,8 @@ public:
     std::unordered_map<std::string, std::int32_t> dynamic_tlb_config_;
     std::unordered_map<std::string, uint64_t> dynamic_tlb_ordering_modes_;
 
+    TTDevice* get_tt_device() { return tt_device_; }
+
 private:
     TTDevice* tt_device_;
 };

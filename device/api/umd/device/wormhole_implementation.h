@@ -247,6 +247,9 @@ static constexpr uint32_t ARC_SCRATCH_RES0_OFFSET = 3;
 static constexpr uint32_t ARC_SCRATCH_RES1_OFFSET = 4;
 static constexpr uint32_t ARC_SCRATCH_STATUS_OFFSET = 5;
 
+constexpr uint64_t ARC_RESET_SCRATCH_ADDR = 0x880030060;
+constexpr uint64_t ARC_RESET_MISC_CNTL_ADDR = 0x880030100;
+
 static constexpr uint32_t AICLK_BUSY_VAL = 1000;
 static constexpr uint32_t AICLK_IDLE_VAL = 500;
 

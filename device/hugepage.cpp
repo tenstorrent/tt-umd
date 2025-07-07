@@ -9,8 +9,11 @@
 #include <fcntl.h>     // for O_RDWR and other constants
 #include <sys/stat.h>  // for umask
 
+#include <fstream>
+#include <tt-logger/tt-logger.hpp>
+
+#include "assert.hpp"
 #include "cpuset_lib.hpp"
-#include "logger.hpp"
 
 const uint32_t g_MAX_HOST_MEM_CHANNELS = 4;
 
@@ -31,7 +34,7 @@ uint32_t get_num_hugepages() {
         num_hugepages = std::stoi(value);
         log_debug(LogSiliconDriver, "Parsed num_hugepages: {} from {}", num_hugepages, nr_hugepages_path);
     } else {
-        log_fatal("{} - Cannot open {}. errno: {}", __FUNCTION__, nr_hugepages_path, std::strerror(errno));
+        TT_THROW(fmt::format("{} - Cannot open {}. errno: {}", __FUNCTION__, nr_hugepages_path, std::strerror(errno)));
     }
 
     return num_hugepages;
@@ -90,7 +93,7 @@ uint32_t get_available_num_host_mem_channels(
             num_channels_per_device_target);
     }
 
-    log_assert(
+    TT_ASSERT(
         num_channels_per_device_available <= g_MAX_HOST_MEM_CHANNELS,
         "NumHostMemChannels: {} exceeds supported maximum: {}, this is unexpected.",
         num_channels_per_device_available,

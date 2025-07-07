@@ -6,7 +6,7 @@
 
 #include "umd/device/chip/chip.h"
 
-#include "logger.hpp"
+#include "assert.hpp"
 #include "umd/device/architecture_implementation.h"
 #include "umd/device/driver_atomics.h"
 #include "umd/device/wormhole_implementation.h"
@@ -59,69 +59,10 @@ void Chip::wait_chip_to_be_ready() {
 
 void Chip::wait_eth_cores_training(const uint32_t timeout_ms) {}
 
-TTDevice* Chip::get_tt_device() {
-    throw std::runtime_error(
-        "Chip::get_tt_device is not available for this chip, it is only available for LocalChips.");
-}
-
-SysmemManager* Chip::get_sysmem_manager() {
-    throw std::runtime_error(
-        "Chip::get_sysmem_manager is not available for this chip, it is only available for LocalChips.");
-}
-
-TLBManager* Chip::get_tlb_manager() {
-    throw std::runtime_error(
-        "Chip::get_tlb_manager is not available for this chip, it is only available for LocalChips.");
-}
-
-int Chip::get_num_host_channels() { return 0; }
-
-int Chip::get_host_channel_size(std::uint32_t channel) {
-    throw std::runtime_error("There are no host channels available.");
-}
-
-void Chip::write_to_sysmem(uint16_t channel, const void* src, uint64_t sysmem_dest, uint32_t size) {
-    throw std::runtime_error("Chip::write_to_sysmem is not available for this chip.");
-}
-
-void Chip::read_from_sysmem(uint16_t channel, void* dest, uint64_t sysmem_src, uint32_t size) {
-    throw std::runtime_error("Chip::read_from_sysmem is not available for this chip.");
-}
-
-void Chip::write_to_device_reg(tt_xy_pair core, const void* src, uint64_t reg_dest, uint32_t size) {
-    write_to_device(core, src, reg_dest, size);
-}
-
-void Chip::read_from_device_reg(tt_xy_pair core, void* dest, uint64_t reg_src, uint32_t size) {
-    read_from_device(core, dest, reg_src, size);
-}
-
-void Chip::dma_write_to_device(const void* src, size_t size, tt_xy_pair core, uint64_t addr) {
-    throw std::runtime_error("Chip::dma_write_to_device is not available for this chip.");
-}
-
-void Chip::dma_read_from_device(void* dst, size_t size, tt_xy_pair core, uint64_t addr) {
-    throw std::runtime_error("Chip::dma_read_from_device is not available for this chip.");
-}
-
-std::function<void(uint32_t, uint32_t, const uint8_t*)> Chip::get_fast_pcie_static_tlb_write_callable() {
-    throw std::runtime_error("Chip::get_fast_pcie_static_tlb_write_callable is not available for this chip.");
-}
-
-void Chip::wait_for_non_mmio_flush() {
-    throw std::runtime_error("Chip::wait_for_non_mmio_flush is not available for this chip.");
-}
-
-void Chip::set_remote_transfer_ethernet_cores(const std::unordered_set<CoreCoord>& cores) {
-    throw std::runtime_error("Chip::set_remote_transfer_ethernet_cores is not available for this chip.");
-}
-
-int Chip::get_numa_node() { throw std::runtime_error("Chip::get_numa_node is not available for this chip."); }
-
 void Chip::wait_dram_cores_training(const uint32_t timeout_ms) {}
 
 void Chip::enable_ethernet_queue(int timeout_s) {
-    log_assert(
+    TT_ASSERT(
         soc_descriptor_.arch != tt::ARCH::BLACKHOLE,
         "enable_ethernet_queue is not supported on Blackhole architecture");
     uint32_t msg_success = 0x0;
@@ -171,4 +112,36 @@ uint32_t Chip::get_power_state_arc_msg(tt_DevicePowerState state) {
     }
     return msg;
 }
+
+int Chip::arc_msg(
+    uint32_t msg_code,
+    bool wait_for_done,
+    uint32_t arg0,
+    uint32_t arg1,
+    uint32_t timeout_ms,
+    uint32_t* return_3,
+    uint32_t* return_4) {
+    std::vector<uint32_t> arc_msg_return_values;
+    if (return_3 != nullptr) {
+        arc_msg_return_values.push_back(0);
+    }
+
+    if (return_4 != nullptr) {
+        arc_msg_return_values.push_back(0);
+    }
+
+    uint32_t exit_code =
+        get_tt_device()->get_arc_messenger()->send_message(msg_code, arc_msg_return_values, arg0, arg1, timeout_ms);
+
+    if (return_3 != nullptr) {
+        *return_3 = arc_msg_return_values[0];
+    }
+
+    if (return_4 != nullptr) {
+        *return_4 = arc_msg_return_values[1];
+    }
+
+    return exit_code;
+}
+
 }  // namespace tt::umd

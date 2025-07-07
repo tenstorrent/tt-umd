@@ -5,7 +5,9 @@
  */
 #include "umd/device/remote_communication.h"
 
-#include "logger.hpp"
+#include <tt-logger/tt-logger.hpp>
+
+#include "assert.hpp"
 #include "umd/device/chip/local_chip.h"
 #include "umd/device/driver_atomics.h"
 #include "umd/device/topology_utils.h"
@@ -190,7 +192,7 @@ void RemoteCommunication::read_non_mmio(
         }
 
         // Send the read request
-        log_assert(
+        TT_ASSERT(
             (req_flags == eth_interface_params.cmd_rd_req) || (((core_src + offset) & 0x1F) == 0),
             "Block mode offset must be 32-byte aligned.");  // Block mode offset must be 32-byte aligned.
         new_cmd->sys_addr =
@@ -294,7 +296,7 @@ void RemoteCommunication::read_non_mmio(
                         remote_transfer_ethernet_core, data_block.data(), buf_address, block_size);
                 }
                 // assert(dest.size() - (offset/DATA_WORD_SIZE) >= (block_size * DATA_WORD_SIZE));
-                log_assert(
+                TT_ASSERT(
                     (data_block.size() * DATA_WORD_SIZE) >= block_size,
                     "Incorrect data size read back from sysmem/device");
                 // Account for misalignment by skipping any padding bytes in the copied data_block
@@ -311,7 +313,7 @@ void RemoteCommunication::read_non_mmio(
                 eth_interface_params.cmd_counters_size_bytes,
             erisc_resp_q_rptr.size() * DATA_WORD_SIZE);
         tt_driver_atomics::sfence();
-        log_assert(erisc_resp_flags[0] == resp_flags, "Unexpected ERISC Response Flags.");
+        TT_ASSERT(erisc_resp_flags[0] == resp_flags, "Unexpected ERISC Response Flags.");
 
         offset += block_size;
     }
@@ -465,7 +467,7 @@ void RemoteCommunication::write_to_non_mmio(
         }
 
         // Send the read request
-        log_assert(
+        TT_ASSERT(
             broadcast || (req_flags == eth_interface_params.cmd_wr_req) || (((core_dest + offset) % 32) == 0),
             "Block mode address must be 32-byte aligned.");  // Block mode address must be 32-byte aligned.
 
@@ -538,7 +540,7 @@ void RemoteCommunication::write_to_non_mmio(
 
 void RemoteCommunication::wait_for_non_mmio_flush() {
     if (local_chip_->get_flush_non_mmio()) {
-        log_assert(
+        TT_ASSERT(
             local_chip_->get_soc_descriptor().arch != tt::ARCH::BLACKHOLE, "Non-MMIO flush not supported in Blackhole");
 
         if (local_chip_->get_soc_descriptor().arch == tt::ARCH::WORMHOLE_B0) {

@@ -5,12 +5,13 @@
  */
 #include "umd/device/utils/lock_manager.h"
 
-#include "logger.hpp"
+#include <tt-logger/tt-logger.hpp>
 
 namespace tt::umd {
 
 const std::unordered_map<MutexType, std::string> LockManager::MutexTypeToString = {
     {MutexType::ARC_MSG, "TT_ARC_MSG"},
+    {MutexType::REMOTE_ARC_MSG, "TT_REMOTE_ARC_MSG"},
     // It is important that this mutex is named the same as corresponding fallback_tlb, this is due to the same tlb
     // index being used. This will be changed once we have a cleaner way to allocate TLBs instead of hardcoding fallback
     // tlbs.

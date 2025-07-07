@@ -21,6 +21,8 @@ public:
 
     LocalChip(std::unique_ptr<TTDevice> tt_device);
 
+    ~LocalChip();
+
     bool is_mmio_capable() const override;
 
     void start_device() override;
@@ -31,6 +33,7 @@ public:
     TLBManager* get_tlb_manager() override;
 
     void set_remote_transfer_ethernet_cores(const std::unordered_set<CoreCoord>& cores) override;
+    void set_remote_transfer_ethernet_cores(const std::set<uint32_t>& channels) override;
     // TODO: Figure out if this should remain public or used another way.
     tt_xy_pair get_remote_transfer_ethernet_core();
     void update_active_eth_core_idx();
@@ -71,19 +74,9 @@ public:
     std::unique_lock<RobustMutex> acquire_mutex(std::string mutex_name, int pci_device_id);
     std::unique_lock<RobustMutex> acquire_mutex(MutexType mutex_type, int pci_device_id);
 
-    int arc_msg(
-        uint32_t msg_code,
-        bool wait_for_done = true,
-        uint32_t arg0 = 0,
-        uint32_t arg1 = 0,
-        uint32_t timeout_ms = 1000,
-        uint32_t* return_3 = nullptr,
-        uint32_t* return_4 = nullptr) override;
-
 private:
-    std::unique_ptr<TTDevice> tt_device_;
-    std::unique_ptr<SysmemManager> sysmem_manager_;
     std::unique_ptr<TLBManager> tlb_manager_;
+    std::unique_ptr<SysmemManager> sysmem_manager_;
     LockManager lock_manager_;
     // Used only for ethernet broadcast to all remote chips.
     std::unique_ptr<RemoteCommunication> remote_communication_;
@@ -95,7 +88,6 @@ private:
     void initialize_local_chip(int num_host_mem_channels = 0);
     void initialize_tlb_manager();
     void initialize_default_chip_mutexes();
-    void initialize_default_remote_transfer_ethernet_cores();
     void initialize_membars();
 
     tt_xy_pair translate_chip_coord_virtual_to_translated(const tt_xy_pair core) const;
@@ -109,6 +101,8 @@ private:
     void insert_host_to_device_barrier(const std::vector<CoreCoord>& cores, const uint32_t barrier_addr);
 
     void wait_for_aiclk_value(tt_DevicePowerState power_state, const uint32_t timeout_ms = 5000);
+
+    std::unique_ptr<TTDevice> tt_device_ = nullptr;
 
 protected:
     void wait_eth_cores_training(const uint32_t timeout_ms = 60000) override;

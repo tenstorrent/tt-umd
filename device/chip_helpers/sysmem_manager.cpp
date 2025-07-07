@@ -9,14 +9,16 @@
 #include <sys/mman.h>  // for mmap, munmap
 #include <sys/stat.h>  // for fstat
 
+#include <fstream>
+#include <tt-logger/tt-logger.hpp>
+
 #include "assert.hpp"
 #include "cpuset_lib.hpp"
-#include "logger.hpp"
 #include "umd/device/hugepage.h"
 
 namespace tt::umd {
 
-SysmemManager::SysmemManager(TTDevice *tt_device) : tt_device_(tt_device) {}
+SysmemManager::SysmemManager(TLBManager *tlb_manager) : tlb_manager_(tlb_manager) {}
 
 SysmemManager::~SysmemManager() {
     for (const auto &hugepage_mapping : hugepage_mapping_per_channel) {
@@ -27,22 +29,23 @@ SysmemManager::~SysmemManager() {
 }
 
 void SysmemManager::write_to_sysmem(uint16_t channel, const void *src, uint64_t sysmem_dest, uint32_t size) {
+    TTDevice *tt_device_ = tlb_manager_->get_tt_device();
     hugepage_mapping hugepage_map = get_hugepage_mapping(channel);
-    log_assert(
+    TT_ASSERT(
         hugepage_map.mapping,
         "write_buffer: Hugepages are not allocated for pci device num: {} ch: {}."
         " - Ensure sufficient number of Hugepages installed per device (1 per host mem ch, per device)",
         tt_device_->get_pci_device()->get_device_num(),
         channel);
 
-    log_assert(
+    TT_ASSERT(
         size <= hugepage_map.mapping_size,
         "write_buffer data has larger size {} than destination buffer {}",
         size,
         hugepage_map.mapping_size);
     log_debug(
         LogSiliconDriver,
-        "Using hugepage mapping at address {} offset {} chan {} size {}",
+        "Using hugepage mapping at address {:p} offset {} chan {} size {}",
         hugepage_map.mapping,
         (sysmem_dest % hugepage_map.mapping_size),
         channel,
@@ -53,8 +56,9 @@ void SysmemManager::write_to_sysmem(uint16_t channel, const void *src, uint64_t 
 }
 
 void SysmemManager::read_from_sysmem(uint16_t channel, void *dest, uint64_t sysmem_src, uint32_t size) {
+    TTDevice *tt_device_ = tlb_manager_->get_tt_device();
     hugepage_mapping hugepage_map = get_hugepage_mapping(channel);
-    log_assert(
+    TT_ASSERT(
         hugepage_map.mapping,
         "read_buffer: Hugepages are not allocated for pci device num: {} ch: {}."
         " - Ensure sufficient number of Hugepages installed per device (1 per host mem ch, per device)",
@@ -65,7 +69,7 @@ void SysmemManager::read_from_sysmem(uint16_t channel, void *dest, uint64_t sysm
 
     log_debug(
         LogSiliconDriver,
-        "Cluster::read_buffer (pci device num: {}, ch: {}) from 0x{:x}",
+        "Cluster::read_buffer (pci device num: {}, ch: {}) from {:p}",
         tt_device_->get_pci_device()->get_device_num(),
         channel,
         user_scratchspace);
@@ -74,6 +78,7 @@ void SysmemManager::read_from_sysmem(uint16_t channel, void *dest, uint64_t sysm
 }
 
 bool SysmemManager::init_hugepage(uint32_t num_host_mem_channels) {
+    TTDevice *tt_device_ = tlb_manager_->get_tt_device();
     // TODO: get rid of this when the following Metal CI issue is resolved.
     // https://github.com/tenstorrent/tt-metal/issues/15675
     // The notion that we should clamp the number of host mem channels to
@@ -175,7 +180,10 @@ bool SysmemManager::init_hugepage(uint32_t num_host_mem_channels) {
                 ch);
         }
 
-        uint64_t physical_address = tt_device_->get_pci_device()->map_for_hugepage(mapping, hugepage_size);
+        size_t actual_size = (tt_device_->get_arch() == tt::ARCH::WORMHOLE_B0 && ch == 3)
+                                 ? HUGEPAGE_CHANNEL_3_SIZE_LIMIT
+                                 : hugepage_size;
+        uint64_t physical_address = tt_device_->get_pci_device()->map_for_hugepage(mapping, actual_size);
 
         if (physical_address == 0) {
             log_warning(
@@ -208,7 +216,13 @@ bool SysmemManager::init_hugepage(uint32_t num_host_mem_channels) {
 }
 
 bool SysmemManager::init_iommu(size_t size) {
+    constexpr size_t carveout_size = HUGEPAGE_REGION_SIZE - HUGEPAGE_CHANNEL_3_SIZE_LIMIT;  // 1GB - 768MB = 256MB
     const size_t num_fake_mem_channels = size / HUGEPAGE_REGION_SIZE;
+
+    TTDevice *tt_device_ = tlb_manager_->get_tt_device();
+    // Caclulate the size of the mapping in order to avoid overlap with PCIE registers.
+    size_t map_size =
+        (tt_device_->get_arch() == tt::ARCH::WORMHOLE_B0 && num_fake_mem_channels == 4) ? (size - carveout_size) : size;
 
     if (!tt_device_->get_pci_device()->is_iommu_enabled()) {
         TT_THROW("IOMMU is required for sysmem without hugepages.");
@@ -224,7 +238,9 @@ bool SysmemManager::init_iommu(size_t size) {
             strerror(errno));
     }
 
-    uint64_t iova = tt_device_->get_pci_device()->map_for_dma(mapping, size);
+    sysmem_buffer_ = map_sysmem_buffer(mapping, map_size);
+    uint64_t iova = sysmem_buffer_->get_device_io_addr();
+
     log_info(LogSiliconDriver, "Mapped sysmem without hugepages to IOVA {:#x}.", iova);
 
     hugepage_mapping_per_channel.resize(num_fake_mem_channels);
@@ -257,4 +273,15 @@ void SysmemManager::print_file_contents(std::string filename, std::string hint) 
         }
     }
 }
+
+std::unique_ptr<SysmemBuffer> SysmemManager::allocate_sysmem_buffer(size_t sysmem_buffer_size) {
+    void *mapping =
+        mmap(nullptr, sysmem_buffer_size, PROT_READ | PROT_WRITE, MAP_ANONYMOUS | MAP_PRIVATE | MAP_POPULATE, -1, 0);
+    return map_sysmem_buffer(mapping, sysmem_buffer_size);
+}
+
+std::unique_ptr<SysmemBuffer> SysmemManager::map_sysmem_buffer(void *buffer, size_t sysmem_buffer_size) {
+    return std::make_unique<SysmemBuffer>(tlb_manager_, buffer, sysmem_buffer_size);
+}
+
 }  // namespace tt::umd

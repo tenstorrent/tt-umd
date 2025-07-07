@@ -10,10 +10,10 @@
 #include <iostream>
 #include <regex>
 #include <string>
+#include <tt-logger/tt-logger.hpp>
 #include <unordered_set>
 
 #include "fmt/core.h"
-#include "logger.hpp"
 #include "umd/device/blackhole_implementation.h"
 #include "umd/device/tt_soc_descriptor.h"
 #include "umd/device/wormhole_implementation.h"
@@ -69,6 +69,52 @@ tt_xy_pair tt_SocDescriptor::calculate_grid_size(const std::vector<tt_xy_pair> &
         y.insert(core.y);
     }
     return {x.size(), y.size()};
+}
+
+void tt_SocDescriptor::write_coords(void *out, const tt::umd::CoreCoord &core) const {
+    YAML::Emitter *emitter = static_cast<YAML::Emitter *>(out);
+
+    if (core.x < grid_size.x && core.y < grid_size.y) {
+        auto coords = translate_coord_to(core, CoordSystem::NOC0);
+        *emitter << std::to_string(coords.x) + "-" + std::to_string(coords.y);
+    }
+}
+
+void tt_SocDescriptor::write_core_locations(void *out, const CoreType &core_type) const {
+    for (const auto &core : get_cores(core_type)) {
+        write_coords(out, core);
+    }
+}
+
+void tt_SocDescriptor::serialize_dram_cores(
+    void *out, const std::vector<std::vector<tt::umd::CoreCoord>> &cores) const {
+    YAML::Emitter *emitter = static_cast<YAML::Emitter *>(out);
+
+    for (const auto &dram_cores : cores) {
+        // Insert the dram core if it's within the given grid
+        bool serialize_cores = true;
+
+        for (const auto &dram_core : dram_cores) {
+            if ((dram_core.x > grid_size.x) || (dram_core.y > grid_size.y)) {
+                serialize_cores = false;
+            }
+        }
+        if (serialize_cores) {
+            int dram_count = 0;
+            for (const auto &dram_core : dram_cores) {
+                if (dram_count % 3 == 0) {
+                    *emitter << YAML::BeginSeq;
+                }
+                if (dram_core.x < grid_size.x && dram_core.y < grid_size.y) {
+                    write_coords(emitter, dram_core);
+                }
+                if (dram_count % 3 == 2) {
+                    *emitter << YAML::EndSeq;
+                }
+                dram_count++;
+            }
+        }
+    }
 }
 
 void tt_SocDescriptor::create_coordinate_manager(const BoardType board_type, const uint8_t asic_location) {
@@ -313,9 +359,10 @@ std::vector<tt_xy_pair> tt_SocDescriptor::convert_to_tt_xy_pair(const std::vecto
 }
 
 std::vector<std::vector<tt_xy_pair>> tt_SocDescriptor::convert_dram_cores_from_yaml(
-    YAML::Node &device_descriptor_yaml) {
+    YAML::Node &device_descriptor_yaml, const std::string &dram_core) {
     std::vector<std::vector<tt_xy_pair>> dram_cores;
-    for (auto channel_it = device_descriptor_yaml["dram"].begin(); channel_it != device_descriptor_yaml["dram"].end();
+    for (auto channel_it = device_descriptor_yaml[dram_core].begin();
+         channel_it != device_descriptor_yaml[dram_core].end();
          ++channel_it) {
         dram_cores.push_back(convert_to_tt_xy_pair((*channel_it).as<std::vector<std::string>>()));
     }
@@ -336,7 +383,7 @@ void tt_SocDescriptor::load_from_yaml(YAML::Node &device_descriptor_yaml) {
 
     soc_desc_info.tensix_cores = tt_SocDescriptor::convert_to_tt_xy_pair(
         device_descriptor_yaml["functional_workers"].as<std::vector<std::string>>());
-    soc_desc_info.dram_cores = tt_SocDescriptor::convert_dram_cores_from_yaml(device_descriptor_yaml);
+    soc_desc_info.dram_cores = tt_SocDescriptor::convert_dram_cores_from_yaml(device_descriptor_yaml, "dram");
     soc_desc_info.pcie_cores =
         tt_SocDescriptor::convert_to_tt_xy_pair(device_descriptor_yaml["pcie"].as<std::vector<std::string>>());
     soc_desc_info.eth_cores =
@@ -363,6 +410,19 @@ void tt_SocDescriptor::load_from_yaml(YAML::Node &device_descriptor_yaml) {
     soc_desc_info.worker_l1_size = device_descriptor_yaml["worker_l1_size"].as<uint32_t>();
     soc_desc_info.eth_l1_size = device_descriptor_yaml["eth_l1_size"].as<uint32_t>();
     soc_desc_info.dram_bank_size = device_descriptor_yaml["dram_bank_size"].as<uint64_t>();
+
+    // Inlcude harvested cores directly in SocDescriptor if available
+    if (device_descriptor_yaml["harvested_workers"].IsDefined()) {
+        harvested_workers = tt_SocDescriptor::convert_to_tt_xy_pair(
+            device_descriptor_yaml["harvested_workers"].as<std::vector<std::string>>());
+    }
+    if (device_descriptor_yaml["harvested_eth"].IsDefined()) {
+        harvested_ethernet_cores = tt_SocDescriptor::convert_to_tt_xy_pair(
+            device_descriptor_yaml["harvested_eth"].as<std::vector<std::string>>());
+    }
+    if (device_descriptor_yaml["harvested_dram"].IsDefined()) {
+        harvested_dram_cores = tt_SocDescriptor::convert_dram_cores_from_yaml(device_descriptor_yaml, "harvested_dram");
+    }
 
     load_from_soc_desc_info(soc_desc_info);
 }
@@ -402,11 +462,120 @@ CoreCoord tt_SocDescriptor::get_eth_core_for_channel(int eth_chan, const CoordSy
     return translate_coord_to(logical_eth_coord, coord_system);
 }
 
+std::string tt_SocDescriptor::serialize() const {
+    YAML::Emitter out;
+
+    out << YAML::BeginMap;
+
+    out << YAML::Key << "grid" << YAML::Value << YAML::BeginMap;
+    out << YAML::Key << "x_size" << YAML::Value << grid_size.x;
+    out << YAML::Key << "y_size" << YAML::Value << grid_size.y;
+    out << YAML::EndMap;
+
+    out << YAML::Key << "arc" << YAML::Value << YAML::BeginSeq;
+    write_core_locations(&out, CoreType::ARC);
+    out << YAML::EndSeq;
+
+    out << YAML::Key << "pcie" << YAML::Value << YAML::BeginSeq;
+    write_core_locations(&out, CoreType::PCIE);
+    out << YAML::EndSeq;
+
+    out << YAML::Key << "harvested_dram" << YAML::Value << YAML::BeginSeq;
+    serialize_dram_cores(&out, get_harvested_dram_cores());
+    out << YAML::EndSeq;
+
+    out << YAML::Key << "dram" << YAML::Value << YAML::BeginSeq;
+    serialize_dram_cores(&out, get_dram_cores());
+    out << YAML::EndSeq;
+
+    out << YAML::Key << "harvested_eth" << YAML::Value << YAML::BeginSeq;
+    for (const auto &eth : get_harvested_cores(CoreType::ETH)) {
+        write_coords(&out, eth);
+    }
+    out << YAML::EndSeq;
+
+    out << YAML::Key << "eth" << YAML::Value << YAML::BeginSeq;
+    write_core_locations(&out, CoreType::ETH);
+    out << YAML::EndSeq;
+
+    out << YAML::Key << "harvested_workers" << YAML::Value << YAML::BeginSeq;
+    for (const auto &worker : get_harvested_cores(CoreType::TENSIX)) {
+        write_coords(&out, worker);
+    }
+    out << YAML::EndSeq;
+
+    out << YAML::Key << "functional_workers" << YAML::Value << YAML::BeginSeq;
+    write_core_locations(&out, CoreType::TENSIX);
+    out << YAML::EndSeq;
+
+    out << YAML::Key << "router_only" << YAML::Value << YAML::BeginSeq;
+    write_core_locations(&out, CoreType::ROUTER_ONLY);
+    out << YAML::EndSeq;
+
+    out << YAML::Key << "security" << YAML::Value << YAML::BeginSeq;
+    write_core_locations(&out, CoreType::SECURITY);
+    out << YAML::EndSeq;
+
+    out << YAML::Key << "l2cpu" << YAML::Value << YAML::BeginSeq;
+    write_core_locations(&out, CoreType::L2CPU);
+    out << YAML::EndSeq;
+
+    // Fill in the rest that are static to our device
+    out << YAML::Key << "worker_l1_size" << YAML::Value << worker_l1_size;
+    out << YAML::Key << "dram_bank_size" << YAML::Value << dram_bank_size;
+    out << YAML::Key << "eth_l1_size" << YAML::Value << eth_l1_size;
+    out << YAML::Key << "arch_name" << YAML::Value << tt::arch_to_str(arch);
+
+    out << YAML::Key << "features" << YAML::Value << YAML::BeginMap;
+
+    out << YAML::Key << "noc" << YAML::Value << YAML::BeginMap;
+    out << YAML::Key << "translation_id_enabled" << YAML::Value << true;
+    out << YAML::EndMap;
+
+    out << YAML::Key << "unpacker" << YAML::Value << YAML::BeginMap;
+    out << YAML::Key << "version" << YAML::Value << unpacker_version;
+    out << YAML::Key << "inline_srca_trans_without_srca_trans_instr" << YAML::Value << true;
+    out << YAML::EndMap;
+
+    out << YAML::Key << "math" << YAML::Value << YAML::BeginMap;
+    out << YAML::Key << "dst_size_alignment" << YAML::Value << dst_size_alignment;
+    out << YAML::EndMap;
+
+    out << YAML::Key << "packer" << YAML::Value << YAML::BeginMap;
+    out << YAML::Key << "version" << YAML::Value << packer_version;
+    out << YAML::EndMap;
+
+    out << YAML::Key << "overlay" << YAML::Value << YAML::BeginMap;
+    out << YAML::Key << "version" << YAML::Value << overlay_version;
+    out << YAML::EndMap;
+
+    out << YAML::EndMap;
+
+    return out.c_str();
+}
+
+std::filesystem::path tt_SocDescriptor::serialize_to_file(const std::filesystem::path &dest_file) const {
+    std::filesystem::path file_path = dest_file;
+    if (file_path.empty()) {
+        file_path = get_default_soc_descriptor_file_path();
+    }
+    std::ofstream file(file_path);
+    file << serialize();
+    file.close();
+    return file_path;
+}
+
+std::filesystem::path tt_SocDescriptor::get_default_soc_descriptor_file_path() {
+    std::filesystem::path temp_path = std::filesystem::temp_directory_path();
+    std::string soc_path_dir_template = temp_path / "umd_XXXXXX";
+    std::filesystem::path soc_path_dir = mkdtemp(soc_path_dir_template.data());
+    std::filesystem::path soc_path = soc_path_dir / "soc_descriptor.yaml";
+
+    return soc_path;
+}
+
 std::string tt_SocDescriptor::get_soc_descriptor_path(tt::ARCH arch) {
     switch (arch) {
-        case tt::ARCH::GRAYSKULL:
-            // TODO: this path needs to be changed to point to soc descriptors outside of tests directory.
-            return tt::umd::utils::get_abs_path("tests/soc_descs/grayskull_10x12.yaml");
         case tt::ARCH::WORMHOLE_B0:
             // TODO: this path needs to be changed to point to soc descriptors outside of tests directory.
             return tt::umd::utils::get_abs_path("tests/soc_descs/wormhole_b0_8x10.yaml");

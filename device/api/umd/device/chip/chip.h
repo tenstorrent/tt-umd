@@ -8,6 +8,7 @@
 
 #include <unordered_set>
 
+#include "umd/device/tt_device/tt_device.h"
 #include "umd/device/tt_silicon_driver_common.hpp"
 #include "umd/device/tt_soc_descriptor.h"
 #include "umd/device/types/cluster_descriptor_types.h"
@@ -40,28 +41,26 @@ public:
 
     const ChipInfo& get_chip_info();
 
-    virtual TTDevice* get_tt_device();
-    virtual SysmemManager* get_sysmem_manager();
-    virtual TLBManager* get_tlb_manager();
+    virtual TTDevice* get_tt_device() = 0;
+    virtual SysmemManager* get_sysmem_manager() = 0;
+    virtual TLBManager* get_tlb_manager() = 0;
 
-    virtual int get_num_host_channels();
-    virtual int get_host_channel_size(std::uint32_t channel);
-    virtual void write_to_sysmem(uint16_t channel, const void* src, uint64_t sysmem_dest, uint32_t size);
-    virtual void read_from_sysmem(uint16_t channel, void* dest, uint64_t sysmem_src, uint32_t size);
+    virtual int get_num_host_channels() = 0;
+    virtual int get_host_channel_size(std::uint32_t channel) = 0;
+    virtual void write_to_sysmem(uint16_t channel, const void* src, uint64_t sysmem_dest, uint32_t size) = 0;
+    virtual void read_from_sysmem(uint16_t channel, void* dest, uint64_t sysmem_src, uint32_t size) = 0;
 
     // All tt_xy_pair cores in this class are defined in VIRTUAL coords.
     virtual void write_to_device(tt_xy_pair core, const void* src, uint64_t l1_dest, uint32_t size) = 0;
     virtual void read_from_device(tt_xy_pair core, void* dest, uint64_t l1_src, uint32_t size) = 0;
-    virtual void write_to_device_reg(tt_xy_pair core, const void* src, uint64_t reg_dest, uint32_t size);
-    virtual void read_from_device_reg(tt_xy_pair core, void* dest, uint64_t reg_src, uint32_t size);
+    virtual void write_to_device_reg(tt_xy_pair core, const void* src, uint64_t reg_dest, uint32_t size) = 0;
+    virtual void read_from_device_reg(tt_xy_pair core, void* dest, uint64_t reg_src, uint32_t size) = 0;
+    virtual void dma_write_to_device(const void* src, size_t size, tt_xy_pair core, uint64_t addr) = 0;
+    virtual void dma_read_from_device(void* dst, size_t size, tt_xy_pair core, uint64_t addr) = 0;
 
-    // Will only ever work for LocalChip.
-    virtual void dma_write_to_device(const void* src, size_t size, tt_xy_pair core, uint64_t addr);
-    virtual void dma_read_from_device(void* dst, size_t size, tt_xy_pair core, uint64_t addr);
+    virtual std::function<void(uint32_t, uint32_t, const uint8_t*)> get_fast_pcie_static_tlb_write_callable() = 0;
 
-    virtual std::function<void(uint32_t, uint32_t, const uint8_t*)> get_fast_pcie_static_tlb_write_callable();
-
-    virtual void wait_for_non_mmio_flush();
+    virtual void wait_for_non_mmio_flush() = 0;
 
     virtual void l1_membar(const std::unordered_set<tt::umd::CoreCoord>& cores = {}) = 0;
     virtual void dram_membar(const std::unordered_set<tt::umd::CoreCoord>& cores = {}) = 0;
@@ -73,7 +72,7 @@ public:
 
     virtual void set_power_state(tt_DevicePowerState state) = 0;
     virtual int get_clock() = 0;
-    virtual int get_numa_node();
+    virtual int get_numa_node() = 0;
 
     virtual int arc_msg(
         uint32_t msg_code,
@@ -82,9 +81,10 @@ public:
         uint32_t arg1 = 0,
         uint32_t timeout_ms = 1000,
         uint32_t* return_3 = nullptr,
-        uint32_t* return_4 = nullptr) = 0;
+        uint32_t* return_4 = nullptr);
 
-    virtual void set_remote_transfer_ethernet_cores(const std::unordered_set<CoreCoord>& cores);
+    virtual void set_remote_transfer_ethernet_cores(const std::unordered_set<CoreCoord>& cores) = 0;
+    virtual void set_remote_transfer_ethernet_cores(const std::set<uint32_t>& channel) = 0;
 
     // TODO: To be moved to private implementation once methods are moved to chip
     void enable_ethernet_queue(int timeout_s);

@@ -5,8 +5,8 @@
 #include <filesystem>
 #include <numeric>
 #include <thread>
+#include <tt-logger/tt-logger.hpp>
 
-#include "common/logger.hpp"
 #include "gtest/gtest.h"
 #include "test_galaxy_common.h"
 #include "tests/test_utils/device_test_utils.hpp"

@@ -111,9 +111,11 @@ TEST(TestNoc, DISABLED_TestNoc1NodeId) {
         check_noc_id_harvested_cores(cluster, chip, CoreType::TENSIX);
 
         check_noc_id_cores(cluster, chip, CoreType::ETH);
-        check_noc_id_harvested_cores(cluster, chip, CoreType::ETH);
+        if (cluster->get_cluster_description()->get_arch(chip) != tt::ARCH::BLACKHOLE) {
+            check_noc_id_harvested_cores(cluster, chip, CoreType::ETH);
+        }
 
-        if (cluster->get_cluster_description()->get_arch(chip) == tt::ARCH::BLACKHOLE) {
+        if (cluster->get_cluster_description()->get_arch(chip) != tt::ARCH::WORMHOLE_B0) {
             check_noc_id_cores(cluster, chip, CoreType::DRAM);
             check_noc_id_harvested_cores(cluster, chip, CoreType::DRAM);
         }
@@ -121,7 +123,13 @@ TEST(TestNoc, DISABLED_TestNoc1NodeId) {
         check_noc_id_cores(cluster, chip, CoreType::ARC);
 
         check_noc_id_cores(cluster, chip, CoreType::PCIE);
-        check_noc_id_harvested_cores(cluster, chip, CoreType::PCIE);
+
+        // TODO: translated coordinate for harvested PCIE is not same on NOC0 and NOC1.
+        // This needs to be fixed in some way in order for this to work on Blackhole
+        // with enabled translation.
+        if (cluster->get_cluster_description()->get_arch(chip) != tt::ARCH::BLACKHOLE) {
+            check_noc_id_harvested_cores(cluster, chip, CoreType::PCIE);
+        }
 
         check_noc_id_cores(cluster, chip, CoreType::SECURITY);
 

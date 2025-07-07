@@ -32,6 +32,7 @@ enum class CoreType {
     HARVESTED,
     ETH,
     WORKER,
+    COUNT,
 };
 
 /*

@@ -33,20 +33,25 @@ target_sources(
         chip/mock_chip.cpp
         chip/remote_chip.cpp
         chip_helpers/sysmem_manager.cpp
+        chip_helpers/sysmem_buffer.cpp
         chip_helpers/tlb_manager.cpp
+        tt_device/tlb_window.cpp
+        tt_device/tlb_handle.cpp
         cluster.cpp
         coordinate_manager.cpp
         cpuset_lib.cpp
-        grayskull/grayskull_implementation.cpp
         wormhole/wormhole_implementation.cpp
         blackhole/blackhole_implementation.cpp
         hugepage.cpp
+        logging/config.cpp
         pcie/pci_device.cpp
         tlb.cpp
         tt_cluster_descriptor.cpp
         tt_device/blackhole_tt_device.cpp
         tt_device/tt_device.cpp
         tt_device/wormhole_tt_device.cpp
+        tt_device/remote_wormhole_tt_device.cpp
+        tt_device/remote_blackhole_tt_device.cpp
         tt_silicon_driver_common.cpp
         tt_soc_descriptor.cpp
         wormhole/wormhole_coordinate_manager.cpp
@@ -93,13 +98,14 @@ if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.23)
                 api/umd/device/chip/mock_chip.h
                 api/umd/device/chip/remote_chip.h
                 api/umd/device/chip_helpers/sysmem_manager.h
+                api/umd/device/chip_helpers/sysmem_buffer.h
                 api/umd/device/chip_helpers/tlb_manager.h
                 api/umd/device/cluster.h
                 api/umd/device/coordinate_manager.h
                 api/umd/device/device_api_metal.h
                 api/umd/device/driver_atomics.h
-                api/umd/device/grayskull_implementation.h
                 api/umd/device/hugepage.h
+                api/umd/device/logging/config.h
                 api/umd/device/utils/lock_manager.h
                 api/umd/device/pci_device.hpp
                 api/umd/device/semver.hpp
@@ -109,6 +115,8 @@ if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.23)
                 api/umd/device/tt_device/blackhole_tt_device.h
                 api/umd/device/tt_device/tt_device.h
                 api/umd/device/tt_device/wormhole_tt_device.h
+                api/umd/device/tt_device/remote_wormhole_tt_device.h
+                api/umd/device/tt_device/remote_blackhole_tt_device.h
                 api/umd/device/tt_io.hpp
                 api/umd/device/tt_silicon_driver_common.hpp
                 api/umd/device/tt_simulation_device.h
@@ -145,8 +153,8 @@ target_link_libraries(
         rt
         spdlog::spdlog_header_only
         fmt::fmt-header-only
+        tt-logger::tt-logger
         yaml-cpp::yaml-cpp
-        ${CMAKE_CURRENT_SOURCE_DIR}/libs/${CMAKE_SYSTEM_PROCESSOR}/libcreate_ethernet_map.a
 )
 
 if(TT_UMD_BUILD_SIMULATION)

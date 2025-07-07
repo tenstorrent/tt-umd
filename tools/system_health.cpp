@@ -90,7 +90,7 @@ ConnectorType get_connector_type(
             cluster->get_cluster_description(), board_type, chip_id, unique_chip_id, chan)) {
         return ConnectorType::EXTERNAL;
     }
-    if (board_type == BoardType::GALAXY) {
+    if (board_type == BoardType::UBB) {
         auto ubb_id = get_ubb_id(cluster, chip_id, unique_chip_id);
         if ((ubb_id.asic_id == 5 || ubb_id.asic_id == 6) && (12 <= chan && chan <= 15)) {
             return ConnectorType::LK1;
@@ -181,7 +181,7 @@ int main(int argc, char* argv[]) {
         std::stringstream chip_id_ss;
         chip_id_ss << std::dec << "Chip: " << chip_id << " Unique ID: " << std::hex << unique_chip_id;
         auto board_type = cluster_descriptor->get_board_type(chip_id);
-        if (board_type == BoardType::GALAXY) {
+        if (board_type == BoardType::UBB) {
             auto [tray_id, ubb_asic_id] = get_ubb_id(cluster.get(), chip_id, unique_chip_id);
             chip_id_ss << " Tray: " << tray_id << " N" << ubb_asic_id;
         }

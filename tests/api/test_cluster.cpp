@@ -86,15 +86,14 @@ TEST(ApiClusterTest, OpenChipsByPciId) {
             .pci_target_devices = target_pci_device_ids,
         });
 
-        // Check that the cluster has the expected number of chips.
-        auto actual_pci_device_ids = cluster->get_target_mmio_device_ids();
         if (!target_pci_device_ids.empty()) {
             // If target_pci_device_ids is empty, then full cluster will be created, so skip the check.
+            // Check that the cluster has the expected number of chips.
+            auto actual_pci_device_ids = cluster->get_target_mmio_device_ids();
             EXPECT_EQ(actual_pci_device_ids.size(), target_pci_device_ids.size());
+            // Always expect logical id 0 to exist, that's the way filtering by pci ids work.
+            EXPECT_TRUE(actual_pci_device_ids.find(0) != actual_pci_device_ids.end());
         }
-
-        // Always expect logical id 0 to exist, that's the way filtering by pci ids work.
-        EXPECT_TRUE(actual_pci_device_ids.find(0) != actual_pci_device_ids.end());
     }
 }
 

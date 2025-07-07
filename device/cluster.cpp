@@ -134,6 +134,7 @@ void Cluster::verify_fw_bundle_version() {
         return;
     }
     semver_t fw_bundle_version = chips_.begin()->second->get_tt_device()->get_chip_info().firmware_version;
+    bool all_device_same_fw_bundle_version = true;
     for (const auto& [chip_id, chip] : chips_) {
         if (chip->get_tt_device()->get_chip_info().firmware_version != fw_bundle_version) {
             log_warning(
@@ -143,9 +144,13 @@ void Cluster::verify_fw_bundle_version() {
                     chip_id,
                     fw_bundle_version.to_string(),
                     chip->get_tt_device()->get_chip_info().firmware_version.to_string()));
+            all_device_same_fw_bundle_version = false;
         }
     }
-    log_info(LogSiliconDriver, "All devices in cluster running firmware version: {}", fw_bundle_version.to_string());
+    if (all_device_same_fw_bundle_version) {
+        log_info(
+            LogSiliconDriver, "All devices in cluster running firmware version: {}", fw_bundle_version.to_string());
+    }
 }
 
 void Cluster::construct_cluster(const uint32_t& num_host_mem_ch_per_mmio_device, const ChipType& chip_type) {

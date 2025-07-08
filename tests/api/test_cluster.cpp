@@ -444,9 +444,7 @@ TEST(TestCluster, DeassertResetBrisc) {
 
             TensixSoftResetOptions select_all_tensix_riscv_cores{TENSIX_ASSERT_SOFT_RESET};
 
-            chip->set_tensix_risc_reset(
-                cluster->get_soc_descriptor(chip_id).translate_coord_to(tensix_core, CoordSystem::VIRTUAL),
-                select_all_tensix_riscv_cores);
+            chip->set_tensix_risc_reset(tensix_core, select_all_tensix_riscv_cores);
 
             cluster->wait_for_non_mmio_flush(chip_id);
 
@@ -462,9 +460,7 @@ TEST(TestCluster, DeassertResetBrisc) {
                 tensix_core,
                 brisc_code_address);
 
-            chip->unset_tensix_risc_reset(
-                cluster->get_soc_descriptor(chip_id).translate_coord_to(tensix_core, CoordSystem::VIRTUAL),
-                TensixSoftResetOptions::BRISC);
+            chip->unset_tensix_risc_reset(tensix_core, TensixSoftResetOptions::BRISC);
 
             cluster->l1_membar(chip_id, {tensix_core});
 

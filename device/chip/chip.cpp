@@ -95,7 +95,7 @@ void Chip::send_tensix_risc_reset(const TensixSoftResetOptions& soft_resets) {
     }
 }
 
-void Chip::set_tensix_risc_reset(tt_xy_pair core, const TensixSoftResetOptions& selected_riscs) {
+void Chip::set_tensix_risc_reset(CoreCoord core, const TensixSoftResetOptions& selected_riscs) {
     uint32_t tensix_risc_state = 0x00000000;
     auto architecture_implementation = tt::umd::architecture_implementation::create(get_tt_device()->get_arch());
     read_from_device_reg(
@@ -104,7 +104,7 @@ void Chip::set_tensix_risc_reset(tt_xy_pair core, const TensixSoftResetOptions& 
     send_tensix_risc_reset(core, set_selected_riscs);
 }
 
-void Chip::unset_tensix_risc_reset(tt_xy_pair core, const TensixSoftResetOptions& selected_riscs) {
+void Chip::unset_tensix_risc_reset(CoreCoord core, const TensixSoftResetOptions& selected_riscs) {
     uint32_t tensix_risc_state = 0x00000000;
     auto architecture_implementation = tt::umd::architecture_implementation::create(get_tt_device()->get_arch());
     read_from_device_reg(

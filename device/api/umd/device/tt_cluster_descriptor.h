@@ -125,7 +125,7 @@ public:
         get_ethernet_connections() const;
     // TODO: unify uint64_t with ChipUID
     const std::
-        unordered_map<chip_id_t, std::unordered_map<ethernet_channel_t, std::tuple<uint64_t, ethernet_channel_t>>>
+        unordered_map<chip_id_t, std::unordered_map<ethernet_channel_t, std::tuple<uint64_t, ethernet_channel_t>>> &
         get_ethernet_connections_to_remote_devices() const;
     const std::unordered_map<chip_id_t, chip_id_t> &get_chips_with_mmio() const;
     const std::unordered_set<chip_id_t> &get_all_chips() const;

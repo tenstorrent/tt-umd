@@ -137,6 +137,8 @@ protected:
     const std::string sdesc_path;
 
     bool is_running_on_6u = false;
+
+    bool is_running_blackhole = false;
 };
 
 }  // namespace tt::umd

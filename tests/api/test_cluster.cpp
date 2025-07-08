@@ -116,7 +116,7 @@ TEST(ApiClusterTest, OpenClusterByLogicalID) {
     }
     // Now we can choose which chips to open. This can be hardcoded if you already have expected topology.
     // The first cluster will open the first chip only, and the second cluster will open the rest of them.
-    chip_id_t first_chip_only = *all_chips.begin();
+    chip_id_t first_chip_only = chips_with_pcie.begin()->first;
     std::unique_ptr<Cluster> umd_cluster1 = std::make_unique<Cluster>(ClusterOptions{
         .target_devices = {first_chip_only},
         .cluster_descriptor = cluster_desc.get(),
@@ -134,15 +134,18 @@ TEST(ApiClusterTest, OpenClusterByLogicalID) {
             other_chips.insert(chip);
         }
     }
-    std::unique_ptr<Cluster> umd_cluster2 = std::make_unique<Cluster>(ClusterOptions{
-        .target_devices = other_chips,
-        .cluster_descriptor = cluster_desc.get(),
-    });
+    // Continue the test only if there there is more than one card in the system
+    if (!other_chips.empty()) {
+        std::unique_ptr<Cluster> umd_cluster2 = std::make_unique<Cluster>(ClusterOptions{
+            .target_devices = other_chips,
+            .cluster_descriptor = cluster_desc.get(),
+        });
 
-    // Cluster 2 should have the rest of the chips and not contain the first chip.
-    auto chips2 = umd_cluster2->get_target_device_ids();
-    EXPECT_EQ(chips2.size(), all_chips.size() - 1);
-    EXPECT_TRUE(chips2.find(first_chip_only) == chips2.end());
+        // Cluster 2 should have the rest of the chips and not contain the first chip.
+        auto chips2 = umd_cluster2->get_target_device_ids();
+        EXPECT_EQ(chips2.size(), chips_with_pcie.size() - 1);
+        EXPECT_TRUE(chips2.find(first_chip_only) == chips2.end());
+    }
 }
 
 TEST(ApiClusterTest, DifferentConstructors) {

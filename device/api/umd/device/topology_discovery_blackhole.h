@@ -14,10 +14,6 @@ public:
     TopologyDiscoveryBlackhole(std::unordered_set<chip_id_t> pci_target_devices = {});
 
 protected:
-    bool is_pcie_chip_id_included(int pci_id) const;
-
-    bool is_board_id_included(uint32_t board_id) const;
-
     uint64_t get_remote_board_id(Chip* chip, tt_xy_pair eth_core) override;
 
     uint64_t get_local_board_id(Chip* chip, tt_xy_pair eth_core) override;

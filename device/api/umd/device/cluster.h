@@ -644,10 +644,6 @@ private:
     static std::unique_ptr<tt_ClusterDescriptor> create_cluster_descriptor(
         const std::unordered_map<chip_id_t, std::unique_ptr<tt::umd::Chip>>& chips);
 
-    static void ubb_eth_connections(
-        const std::unordered_map<chip_id_t, std::unique_ptr<tt::umd::Chip>>& chips,
-        std::unique_ptr<tt_ClusterDescriptor>& cluster_desc);
-
     static void verify_cluster_options(const ClusterOptions& options);
 
     // State variables

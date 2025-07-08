@@ -69,6 +69,9 @@ public:
     virtual void send_tensix_risc_reset(const TensixSoftResetOptions& soft_resets);
     virtual void deassert_risc_resets() = 0;
 
+    virtual void set_tensix_risc_reset(tt_xy_pair core, const TensixSoftResetOptions& selected_riscs);
+    virtual void unset_tensix_risc_reset(tt_xy_pair core, const TensixSoftResetOptions& selected_riscs);
+
     virtual void set_power_state(tt_DevicePowerState state) = 0;
     virtual int get_clock() = 0;
     virtual int get_numa_node() = 0;

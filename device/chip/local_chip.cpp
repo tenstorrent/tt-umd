@@ -30,9 +30,9 @@ LocalChip::LocalChip(tt_SocDescriptor soc_descriptor, int pci_device_id, int num
     tt_device_ = TTDevice::create(pci_device_id);
     chip_info_ = tt_device_->get_chip_info();
     tlb_manager_ = std::make_unique<TLBManager>(tt_device_.get());
-    sysmem_manager_ = std::make_unique<SysmemManager>(tlb_manager_.get());
+    sysmem_manager_ = std::make_unique<SysmemManager>(tlb_manager_.get(), num_host_mem_channels);
     remote_communication_ = std::make_unique<RemoteCommunication>(this);
-    initialize_local_chip(num_host_mem_channels);
+    initialize_local_chip();
 }
 
 LocalChip::LocalChip(std::string sdesc_path, std::unique_ptr<TTDevice> tt_device) :
@@ -44,7 +44,7 @@ LocalChip::LocalChip(std::string sdesc_path, std::unique_ptr<TTDevice> tt_device
             tt_device->get_chip_info().harvesting_masks,
             tt_device->get_chip_info().board_type)),
     tlb_manager_(std::make_unique<TLBManager>(tt_device.get())),
-    sysmem_manager_(std::make_unique<SysmemManager>(tlb_manager_.get())) {
+    sysmem_manager_(std::make_unique<SysmemManager>(tlb_manager_.get(), 0)) {
     tt_device_ = std::move(tt_device);
     initialize_local_chip();
 }
@@ -58,7 +58,7 @@ LocalChip::LocalChip(std::unique_ptr<TTDevice> tt_device) :
             tt_device->get_chip_info().harvesting_masks,
             tt_device->get_chip_info().board_type)),
     tlb_manager_(std::make_unique<TLBManager>(tt_device.get())),
-    sysmem_manager_(std::make_unique<SysmemManager>(tlb_manager_.get())) {
+    sysmem_manager_(std::make_unique<SysmemManager>(tlb_manager_.get(), 0)) {
     tt_device_ = std::move(tt_device);
     initialize_local_chip();
 }
@@ -72,11 +72,8 @@ LocalChip::~LocalChip() {
     tt_device_.reset();
 }
 
-void LocalChip::initialize_local_chip(int num_host_mem_channels) {
+void LocalChip::initialize_local_chip() {
     initialize_tlb_manager();
-    if (num_host_mem_channels > 0) {
-        sysmem_manager_->init_hugepage(num_host_mem_channels);
-    }
     wait_chip_to_be_ready();
     initialize_default_chip_mutexes();
 }
@@ -141,6 +138,7 @@ bool LocalChip::is_mmio_capable() const { return true; }
 
 void LocalChip::start_device() {
     check_pcie_device_initialized();
+    sysmem_manager_->pin_sysmem_to_device();
     init_pcie_iatus();
     initialize_membars();
 }
@@ -383,12 +381,6 @@ void LocalChip::set_remote_transfer_ethernet_cores(const std::unordered_set<Core
     // This overrides the default ethernet cores tagged for host to cluster routing in the constructor and must be
     // called for all MMIO devices, if default behaviour is not desired.
     TT_ASSERT(soc_descriptor_.arch == tt::ARCH::WORMHOLE_B0, "{} can only be called for Wormhole arch", __FUNCTION__);
-    if (active_eth_cores.size() > 8) {
-        // We cannot use more than 8 cores for umd access in one direction. Thats because of the available buffering in
-        // the outgoing eth channels.
-        log_warning(
-            LogSiliconDriver, "Number of active ethernet cores {} exceeds the maximum of 8.", active_eth_cores.size());
-    }
     remote_transfer_eth_cores_ = {};
     for (const auto& active_eth_core : active_eth_cores) {
         auto virtual_coord = soc_descriptor_.translate_coord_to(active_eth_core, CoordSystem::VIRTUAL);
@@ -405,6 +397,14 @@ void LocalChip::set_remote_transfer_ethernet_cores(const std::set<uint32_t>& cha
 }
 
 CoreCoord LocalChip::get_remote_transfer_ethernet_core() {
+    if (remote_transfer_eth_cores_.size() > 8) {
+        // We cannot use more than 8 cores for umd access in one direction. Thats because of the available buffering in
+        // the outgoing eth channels.
+        log_warning(
+            LogSiliconDriver,
+            "Number of active ethernet cores {} exceeds the maximum of 8.",
+            remote_transfer_eth_cores_.size());
+    }
     if (remote_transfer_eth_cores_.empty()) {
         throw std::runtime_error("No remote transfer ethernet cores set.");
     }

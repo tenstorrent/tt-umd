@@ -129,9 +129,9 @@ inline uint32_t get_number_of_chips_from_board_type(const BoardType board_type) 
         case BoardType::P300:
             return 2;
         case BoardType::GALAXY:
-            return 32;
+            return 1;
         case BoardType::UBB:
-            return 8;
+            return 32;
         default:
             throw std::runtime_error("Unknown board type for number of chips calculation.");
     }

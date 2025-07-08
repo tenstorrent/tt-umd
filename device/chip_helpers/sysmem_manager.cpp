@@ -47,6 +47,7 @@ bool SysmemManager::pin_or_map_sysmem_to_device() {
 SysmemManager::~SysmemManager() { unpin_or_unmap_sysmem(); }
 
 void SysmemManager::unpin_or_unmap_sysmem() {
+    sysmem_buffer_.reset();
     if (iommu_mapping != nullptr) {
         // This means we have initialized IOMMU mapping, and need to unmap it.
         // It also means that hugepage_mappings are faked, so don't unmap them.

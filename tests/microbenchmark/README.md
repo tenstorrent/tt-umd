@@ -54,3 +54,7 @@ Follow these steps to add new tests to the suite
 4. Create README explaining what is the benchmark testing, as well as more details if needed to understand the test suite
 
 You can look at [TLB benchmark directory](./benchmarks/tlb/) as an example.
+
+## Timing tool
+
+At the moment, ```std::chrono``` is used to measure time for performance inside UMD microbenchmarks. This should be improved in the future by more sophisticated tool.

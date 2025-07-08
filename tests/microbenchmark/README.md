@@ -42,7 +42,7 @@ In order to filter specific benchmarks, you can use gtest filter
 ./build/test/umd/ubenchmarks/ubench --gtest_filter=MicrobenchmarkTlb.*
 ```
 
-## How to add new benchmark
+## Contribution guide
 
 Follow these steps to add new tests to the suite
 

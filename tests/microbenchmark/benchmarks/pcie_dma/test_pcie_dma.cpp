@@ -104,9 +104,9 @@ static void guard_test_iommu() {
 
 /**
  * Test the PCIe DMA controller by using it to write random fixed-size pattern
- * to 0x0 tensix core, then reading them back and verifying.
+ * to address of Tensix core, then reading them back and verifying.
  */
-TEST(TestPerf, DMATensix) {
+TEST(MicrobenchmarkPCIeDMA, DMATensix) {
     const std::vector<uint32_t> sizes = {
         1 * one_mb,
     };
@@ -128,9 +128,9 @@ TEST(TestPerf, DMATensix) {
 
 /**
  * Test the PCIe DMA controller by using it to write random fixed-size pattern
- * to 0x0 DRAM core, then reading them back and verifying.
+ * to address 0 of DRAM core, then reading them back and verifying.
  */
-TEST(TestPerf, DMADram) {
+TEST(MicrobenchmarkPCIeDMA, DMADram) {
     const std::vector<uint32_t> sizes = {
         1 * one_mb,
         2 * one_mb,
@@ -154,7 +154,12 @@ TEST(TestPerf, DMADram) {
     }
 }
 
-TEST(TestPerf, DMATensixZeroCopy) {
+/**
+ * Test the PCIe DMA controller by using it to write random fixed-size pattern
+ * to address 0 of Tensix core, then reading them back and verifying.
+ * This test measures BW of IO using PCIe DMA engine without overhead of copying data into DMA buffer.
+ */
+TEST(MicrobenchmarkPCIeDMA, DMATensixZeroCopy) {
     guard_test_iommu();
 
     const uint32_t NUM_ITERATIONS = 1000;
@@ -179,7 +184,10 @@ TEST(TestPerf, DMATensixZeroCopy) {
         "DMA zero copy: Device Tensix L1 -> Host");
 }
 
-TEST(TestPerf, MapSysmemBuffer) {
+/**
+ * Measure the speed of mapping sysmem buffer using SysmemManager.
+ */
+TEST(MicrobenchmarkPCIeDMA, MapSysmemBuffer) {
     guard_test_iommu();
 
     const uint32_t NUM_ITERATIONS = 1000;
@@ -203,7 +211,12 @@ TEST(TestPerf, MapSysmemBuffer) {
     print_speed("Allocation of sysmem buffers:", one_mb * NUM_ITERATIONS, ns);
 }
 
-TEST(TestPerf, DMATensixMapBufferZeroCopy) {
+/**
+ * This test measures BW of IO using PCIe DMA engine where user buffer is mapped through IOMMU
+ * and no copying is done. It uses SysmemManager to map the buffer and then uses DMA to transfer data
+ * to and from the device.
+ */
+TEST(MicrobenchmarkPCIeDMA, DMATensixMapBufferZeroCopy) {
     guard_test_iommu();
 
     const uint32_t NUM_ITERATIONS = 100;
@@ -245,7 +258,12 @@ TEST(TestPerf, DMATensixMapBufferZeroCopy) {
     }
 }
 
-TEST(TestPerf, DMADRAMZeroCopy) {
+/**
+ * This test measures BW of IO using PCIe DMA engine where user buffer is mapped through IOMMU
+ * and no copying is done. It uses SysmemManager to map the buffer and then uses DMA to transfer data
+ * to and from the device.
+ */
+TEST(MicrobenchmarkPCIeDMA, DMADRAMZeroCopy) {
     guard_test_iommu();
 
     const uint32_t NUM_ITERATIONS = 10;

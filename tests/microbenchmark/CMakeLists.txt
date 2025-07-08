@@ -1,6 +1,6 @@
 set(UBENCH_SRC
-    test_perf_tlb.cpp
-    test_perf_dma.cpp
+    benchmarks/tlb/test_tlb.cpp
+    benchmarks/pcie_dma/test_pcie_dma.cpp
 )
 add_executable(ubench ${UBENCH_SRC})
 target_link_libraries(

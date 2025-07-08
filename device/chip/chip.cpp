@@ -11,6 +11,8 @@
 #include "umd/device/driver_atomics.h"
 #include "umd/device/wormhole_implementation.h"
 
+extern bool umd_use_noc1;
+
 namespace tt::umd {
 
 Chip::Chip(tt_SocDescriptor soc_descriptor) : soc_descriptor_(soc_descriptor) {
@@ -79,7 +81,7 @@ void Chip::enable_ethernet_queue(int timeout_s) {
     }
 }
 
-void Chip::send_tensix_risc_reset(tt_xy_pair core, const TensixSoftResetOptions& soft_resets) {
+void Chip::send_tensix_risc_reset(CoreCoord core, const TensixSoftResetOptions& soft_resets) {
     auto valid = soft_resets & ALL_TENSIX_SOFT_RESET;
     uint32_t valid_val = (std::underlying_type<TensixSoftResetOptions>::type)valid;
     auto architecture_implementation = tt::umd::architecture_implementation::create(get_tt_device()->get_arch());
@@ -93,7 +95,7 @@ void Chip::send_tensix_risc_reset(const TensixSoftResetOptions& soft_resets) {
     }
 }
 
-void Chip::set_tensix_risc_reset(tt_xy_pair core, const TensixSoftResetOptions& selected_riscs) {
+void Chip::set_tensix_risc_reset(CoreCoord core, const TensixSoftResetOptions& selected_riscs) {
     uint32_t tensix_risc_state = 0x00000000;
     auto architecture_implementation = tt::umd::architecture_implementation::create(get_tt_device()->get_arch());
     read_from_device_reg(
@@ -102,7 +104,7 @@ void Chip::set_tensix_risc_reset(tt_xy_pair core, const TensixSoftResetOptions& 
     send_tensix_risc_reset(core, set_selected_riscs);
 }
 
-void Chip::unset_tensix_risc_reset(tt_xy_pair core, const TensixSoftResetOptions& selected_riscs) {
+void Chip::unset_tensix_risc_reset(CoreCoord core, const TensixSoftResetOptions& selected_riscs) {
     uint32_t tensix_risc_state = 0x00000000;
     auto architecture_implementation = tt::umd::architecture_implementation::create(get_tt_device()->get_arch());
     read_from_device_reg(
@@ -162,6 +164,26 @@ int Chip::arc_msg(
     }
 
     return exit_code;
+}
+
+tt_xy_pair Chip::translate_chip_coord_to_translated(const CoreCoord core) const {
+    // Since NOC1 and translated coordinate space overlaps for Tensix cores on Blackhole,
+    // Tensix cores are always used in translated space. Other cores are used either in
+    // NOC1 or translated space depending on the umd_use_noc1 flag.
+    // On Wormhole Tensix can use NOC1 space if umd_use_noc1 is set to true.
+    if (soc_descriptor_.noc_translation_enabled) {
+        if (soc_descriptor_.arch == tt::ARCH::BLACKHOLE) {
+            if (core.core_type == CoreType::TENSIX || !umd_use_noc1) {
+                return soc_descriptor_.translate_coord_to(core, CoordSystem::TRANSLATED);
+            } else {
+                return soc_descriptor_.translate_coord_to(core, CoordSystem::NOC1);
+            }
+        } else {
+            return soc_descriptor_.translate_coord_to(core, umd_use_noc1 ? CoordSystem::NOC1 : CoordSystem::TRANSLATED);
+        }
+    } else {
+        return soc_descriptor_.translate_coord_to(core, umd_use_noc1 ? CoordSystem::NOC1 : CoordSystem::TRANSLATED);
+    }
 }
 
 }  // namespace tt::umd

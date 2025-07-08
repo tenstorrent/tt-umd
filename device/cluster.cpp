@@ -425,7 +425,7 @@ void Cluster::deassert_risc_reset_at_core(
     TT_ASSERT(
         core.core_type == CoreType::TENSIX || core.core_type == CoreType::ETH,
         "Cannot deassert reset on a non-tensix or harvested core");
-    get_chip(chip)->send_tensix_risc_reset(translate_to_api_coords(chip, core), soft_resets);
+    get_chip(chip)->send_tensix_risc_reset(core, soft_resets);
 }
 
 void Cluster::assert_risc_reset_at_core(
@@ -434,7 +434,7 @@ void Cluster::assert_risc_reset_at_core(
     TT_ASSERT(
         core.core_type == CoreType::TENSIX || core.core_type == CoreType::ETH,
         "Cannot assert reset on a non-tensix or harvested core");
-    get_chip(chip)->send_tensix_risc_reset(translate_to_api_coords(chip, core), soft_resets);
+    get_chip(chip)->send_tensix_risc_reset(core, soft_resets);
 }
 
 tt_ClusterDescriptor* Cluster::get_cluster_description() { return cluster_desc.get(); }
@@ -445,7 +445,8 @@ std::function<void(uint32_t, uint32_t, const uint8_t*)> Cluster::get_fast_pcie_s
 }
 
 tt::Writer Cluster::get_static_tlb_writer(const chip_id_t chip, const CoreCoord target) {
-    return get_tlb_manager(chip)->get_static_tlb_writer(translate_to_api_coords(chip, target));
+    tt_xy_pair virtual_core = get_soc_descriptor(chip).translate_coord_to(target, CoordSystem::VIRTUAL);
+    return get_tlb_manager(chip)->get_static_tlb_writer(virtual_core);
 }
 
 int Cluster::get_clock(int logical_device_id) { return chips_.at(logical_device_id)->get_clock(); }
@@ -465,19 +466,26 @@ Cluster::~Cluster() {
 }
 
 tlb_configuration Cluster::get_tlb_configuration(const chip_id_t chip, CoreCoord core) {
-    return get_tlb_manager(chip)->get_tlb_configuration(translate_to_api_coords(chip, core));
+    tt_xy_pair virtual_core = get_soc_descriptor(chip).translate_coord_to(core, CoordSystem::VIRTUAL);
+    return get_tlb_manager(chip)->get_tlb_configuration(virtual_core);
 }
 
+// TODO: These configure_tlb APIs are soon going away.
 void Cluster::configure_tlb(
     chip_id_t logical_device_id, tt_xy_pair core, int32_t tlb_index, uint64_t address, uint64_t ordering) {
-    get_tlb_manager(logical_device_id)
-        ->configure_tlb(
-            core, translate_chip_coord_virtual_to_translated(logical_device_id, core), tlb_index, address, ordering);
+    configure_tlb(
+        logical_device_id,
+        get_soc_descriptor(logical_device_id).get_coord_at(core, CoordSystem::VIRTUAL),
+        tlb_index,
+        address,
+        ordering);
 }
 
 void Cluster::configure_tlb(
-    chip_id_t logical_device_id, tt::umd::CoreCoord core, int32_t tlb_index, uint64_t address, uint64_t ordering) {
-    configure_tlb(logical_device_id, translate_to_api_coords(logical_device_id, core), tlb_index, address, ordering);
+    chip_id_t logical_device_id, CoreCoord core, int32_t tlb_index, uint64_t address, uint64_t ordering) {
+    tt_xy_pair virtual_core = get_soc_descriptor(logical_device_id).translate_coord_to(core, CoordSystem::VIRTUAL);
+    tt_xy_pair translated_core = get_chip(logical_device_id)->translate_chip_coord_to_translated(core);
+    get_tlb_manager(logical_device_id)->configure_tlb(virtual_core, translated_core, tlb_index, address, ordering);
 }
 
 void* Cluster::host_dma_address(std::uint64_t offset, chip_id_t src_device_id, uint16_t channel) const {
@@ -822,31 +830,29 @@ void Cluster::dram_membar(const chip_id_t chip, const std::unordered_set<uint32_
 
 void Cluster::write_to_device(
     const void* mem_ptr, uint32_t size_in_bytes, chip_id_t chip, CoreCoord core, uint64_t addr) {
-    get_chip(chip)->write_to_device(translate_to_api_coords(chip, core), mem_ptr, addr, size_in_bytes);
+    get_chip(chip)->write_to_device(core, mem_ptr, addr, size_in_bytes);
 }
 
 void Cluster::write_to_device_reg(
     const void* mem_ptr, uint32_t size_in_bytes, chip_id_t chip, CoreCoord core, uint64_t addr) {
-    get_chip(chip)->write_to_device_reg(translate_to_api_coords(chip, core), mem_ptr, addr, size_in_bytes);
+    get_chip(chip)->write_to_device_reg(core, mem_ptr, addr, size_in_bytes);
 }
 
 void Cluster::dma_write_to_device(
     const void* src, size_t size, chip_id_t chip, tt::umd::CoreCoord core, uint64_t addr) {
-    auto api_coords = translate_to_api_coords(chip, core);
-    get_chip(chip)->dma_write_to_device(src, size, api_coords, addr);
+    get_chip(chip)->dma_write_to_device(src, size, core, addr);
 }
 
 void Cluster::dma_read_from_device(void* dst, size_t size, chip_id_t chip, tt::umd::CoreCoord core, uint64_t addr) {
-    auto api_coords = translate_to_api_coords(chip, core);
-    get_chip(chip)->dma_read_from_device(dst, size, api_coords, addr);
+    get_chip(chip)->dma_read_from_device(dst, size, core, addr);
 }
 
 void Cluster::read_from_device(void* mem_ptr, chip_id_t chip, CoreCoord core, uint64_t addr, uint32_t size) {
-    get_chip(chip)->read_from_device(translate_to_api_coords(chip, core), mem_ptr, addr, size);
+    get_chip(chip)->read_from_device(core, mem_ptr, addr, size);
 }
 
 void Cluster::read_from_device_reg(void* mem_ptr, chip_id_t chip, CoreCoord core, uint64_t addr, uint32_t size) {
-    get_chip(chip)->read_from_device_reg(translate_to_api_coords(chip, core), mem_ptr, addr, size);
+    get_chip(chip)->read_from_device_reg(core, mem_ptr, addr, size);
 }
 
 int Cluster::arc_msg(
@@ -1020,35 +1026,6 @@ tt_version Cluster::get_ethernet_fw_version() const {
 void Cluster::set_barrier_address_params(const barrier_address_params& barrier_address_params_) {
     for (auto& [_, chip] : chips_) {
         chip->set_barrier_address_params(barrier_address_params_);
-    }
-}
-
-// TODO: This is a temporary function while we're switching between the old and the new API.
-// Eventually, this function should be so small it would be obvioud to remove.
-tt_xy_pair Cluster::translate_to_api_coords(const chip_id_t chip, const tt::umd::CoreCoord core_coord) const {
-    return get_soc_descriptor(chip).translate_coord_to(core_coord, CoordSystem::VIRTUAL);
-}
-
-tt_xy_pair Cluster::translate_chip_coord_virtual_to_translated(const chip_id_t chip_id, const tt_xy_pair core) const {
-    CoreCoord core_coord = get_soc_descriptor(chip_id).get_coord_at(core, CoordSystem::VIRTUAL);
-    // Since NOC1 and translated coordinate space overlaps for Tensix cores on Blackhole,
-    // Tensix cores are always used in translated space. Other cores are used either in
-    // NOC1 or translated space depending on the umd_use_noc1 flag.
-    // On Wormhole Tensix can use NOC1 space if umd_use_noc1 is set to true.
-    if (get_soc_descriptor(chip_id).noc_translation_enabled) {
-        if (get_soc_descriptor(chip_id).arch == tt::ARCH::BLACKHOLE) {
-            if (core_coord.core_type == CoreType::TENSIX || !umd_use_noc1) {
-                return get_soc_descriptor(chip_id).translate_coord_to(core_coord, CoordSystem::TRANSLATED);
-            } else {
-                return get_soc_descriptor(chip_id).translate_coord_to(core_coord, CoordSystem::NOC1);
-            }
-        } else {
-            return get_soc_descriptor(chip_id).translate_coord_to(
-                core_coord, umd_use_noc1 ? CoordSystem::NOC1 : CoordSystem::TRANSLATED);
-        }
-    } else {
-        return get_soc_descriptor(chip_id).translate_coord_to(
-            core_coord, umd_use_noc1 ? CoordSystem::NOC1 : CoordSystem::TRANSLATED);
     }
 }
 

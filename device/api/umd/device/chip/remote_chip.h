@@ -33,19 +33,19 @@ public:
     void write_to_sysmem(uint16_t channel, const void* src, uint64_t sysmem_dest, uint32_t size) override;
     void read_from_sysmem(uint16_t channel, void* dest, uint64_t sysmem_src, uint32_t size) override;
 
-    void write_to_device(tt_xy_pair core, const void* src, uint64_t l1_dest, uint32_t size) override;
-    void read_from_device(tt_xy_pair core, void* dest, uint64_t l1_src, uint32_t size) override;
-    void write_to_device_reg(tt_xy_pair core, const void* src, uint64_t reg_dest, uint32_t size) override;
-    void read_from_device_reg(tt_xy_pair core, void* dest, uint64_t reg_src, uint32_t size) override;
-    void dma_write_to_device(const void* src, size_t size, tt_xy_pair core, uint64_t addr) override;
-    void dma_read_from_device(void* dst, size_t size, tt_xy_pair core, uint64_t addr) override;
+    void write_to_device(CoreCoord core, const void* src, uint64_t l1_dest, uint32_t size) override;
+    void read_from_device(CoreCoord core, void* dest, uint64_t l1_src, uint32_t size) override;
+    void write_to_device_reg(CoreCoord core, const void* src, uint64_t reg_dest, uint32_t size) override;
+    void read_from_device_reg(CoreCoord core, void* dest, uint64_t reg_src, uint32_t size) override;
+    void dma_write_to_device(const void* src, size_t size, CoreCoord core, uint64_t addr) override;
+    void dma_read_from_device(void* dst, size_t size, CoreCoord core, uint64_t addr) override;
 
     std::function<void(uint32_t, uint32_t, const uint8_t*)> get_fast_pcie_static_tlb_write_callable() override;
 
     void wait_for_non_mmio_flush() override;
 
-    void l1_membar(const std::unordered_set<tt::umd::CoreCoord>& cores = {}) override;
-    void dram_membar(const std::unordered_set<tt::umd::CoreCoord>& cores = {}) override;
+    void l1_membar(const std::unordered_set<CoreCoord>& cores = {}) override;
+    void dram_membar(const std::unordered_set<CoreCoord>& cores = {}) override;
     void dram_membar(const std::unordered_set<uint32_t>& channels = {}) override;
 
     void deassert_risc_resets() override;
@@ -54,8 +54,6 @@ public:
     int get_numa_node() override;
 
 private:
-    tt_xy_pair translate_chip_coord_virtual_to_translated(const tt_xy_pair core);
-
     LocalChip* local_chip_;
     RemoteCommunication* remote_communication_;
 

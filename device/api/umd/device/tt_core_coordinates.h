@@ -89,6 +89,8 @@ static inline std::string to_str(const CoordSystem coord_system) {
             return "VIRTUAL";
         case CoordSystem::TRANSLATED:
             return "TRANSLATED";
+        case CoordSystem::NOC1:
+            return "NOC1";
         default:
             return "UNKNOWN";
     }

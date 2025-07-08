@@ -9,16 +9,20 @@
 #include <algorithm>
 #include <cstdlib>  // for std::getenv
 #include <filesystem>
+#include <iostream>
 #include <string>
 #include <vector>
 
 #include "fmt/xchar.h"
+#include "test_utils/assembly_programs_for_tests.hpp"
 #include "tests/test_utils/generate_cluster_desc.hpp"
 #include "umd/device/blackhole_implementation.h"
 #include "umd/device/chip/local_chip.h"
 #include "umd/device/chip/mock_chip.h"
 #include "umd/device/cluster.h"
 #include "umd/device/tt_cluster_descriptor.h"
+#include "umd/device/tt_core_coordinates.h"
+#include "umd/device/tt_silicon_driver_common.hpp"
 #include "umd/device/wormhole_implementation.h"
 
 // TODO: obviously we need some other way to set this up
@@ -408,6 +412,67 @@ TEST(TestCluster, TestClusterAICLKControl) {
     auto clocks_idle = cluster->get_clocks();
     for (auto& clock : clocks_idle) {
         EXPECT_EQ(clock.second, get_expected_clock_val(clock.first, false));
+    }
+}
+
+// This test uses the machine instructions from the header file assembly_programs_for_tests.hpp. How to generate
+// this program is explained in the GENERATE_ASSEMBLY_FOR_TESTS.md file.
+TEST(TestCluster, DeassertResetBrisc) {
+    std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
+
+    if (cluster->get_target_device_ids().empty()) {
+        GTEST_SKIP() << "No chips present on the system. Skipping test.";
+    }
+
+    constexpr uint32_t a_variable_value = 0x87654000;
+    constexpr uint64_t a_variable_address = 0x00010000;
+    constexpr uint64_t brisc_code_address = 0;
+
+    uint32_t readback = 0;
+
+    auto tensix_l1_size = cluster->get_soc_descriptor(0).worker_l1_size;
+
+    std::vector<uint8_t> zero_data(tensix_l1_size, 0);
+
+    auto chip_ids = cluster->get_target_device_ids();
+    for (auto& chip_id : chip_ids) {
+        const tt_SocDescriptor& soc_desc = cluster->get_soc_descriptor(chip_id);
+        auto tensix_cores = cluster->get_soc_descriptor(chip_id).get_cores(CoreType::TENSIX);
+
+        for (const CoreCoord& tensix_core : tensix_cores) {
+            auto chip = cluster->get_chip(chip_id);
+
+            TensixSoftResetOptions select_all_tensix_riscv_cores{TENSIX_ASSERT_SOFT_RESET};
+
+            chip->set_tensix_risc_reset(
+                cluster->get_soc_descriptor(chip_id).translate_coord_to(tensix_core, CoordSystem::VIRTUAL),
+                select_all_tensix_riscv_cores);
+
+            cluster->wait_for_non_mmio_flush(chip_id);
+
+            // Zero out L1.
+            cluster->write_to_device(zero_data.data(), zero_data.size(), chip_id, tensix_core, 0);
+
+            cluster->wait_for_non_mmio_flush(chip_id);
+
+            cluster->write_to_device(
+                brisc_program.data(),
+                brisc_program.size() * sizeof(uint32_t),
+                chip_id,
+                tensix_core,
+                brisc_code_address);
+
+            chip->unset_tensix_risc_reset(
+                cluster->get_soc_descriptor(chip_id).translate_coord_to(tensix_core, CoordSystem::VIRTUAL),
+                TensixSoftResetOptions::BRISC);
+
+            cluster->l1_membar(chip_id, {tensix_core});
+
+            cluster->read_from_device(&readback, chip_id, tensix_core, a_variable_address, sizeof(readback));
+
+            EXPECT_EQ(a_variable_value, readback)
+                << "chip_id: " << chip_id << ", x: " << tensix_core.x << ", y: " << tensix_core.y << "\n";
+        }
     }
 }
 

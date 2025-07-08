@@ -149,11 +149,3 @@ CPMAddPackage(
 # nanobind
 ####################################################################################################################
 CPMAddPackage(NAME nanobind GITHUB_REPOSITORY wjakob/nanobind VERSION 2.7.0 OPTIONS "CMAKE_MESSAGE_LOG_LEVEL NOTICE")
-
-############################################################################################################################
-# magic_enum : https://github.com/Neargye/magic_enum
-############################################################################################################################
-
-set(CMAKE_INSTALL_DEFAULT_COMPONENT_NAME magic-enum-dev)
-CPMAddPackage(NAME magic_enum GITHUB_REPOSITORY Neargye/magic_enum GIT_TAG v0.9.7 OPTIONS "MAGIC_ENUM_OPT_INSTALL TRUE")
-set(CMAKE_INSTALL_DEFAULT_COMPONENT_NAME ${DEFAULT_COMPONENT_NAME})

@@ -2,7 +2,6 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 #include <cxxopts.hpp>
-#include <magic_enum/magic_enum.hpp>
 #include <tt-logger/tt-logger.hpp>
 
 #include "common.h"
@@ -80,12 +79,7 @@ bool check_if_external_cable_is_used(
 }
 
 ConnectorType get_connector_type(
-    Cluster* cluster,
-    BoardType board_type,
-    chip_id_t chip_id,
-    const unsigned long unique_chip_id,
-    CoreCoord eth_core,
-    uint32_t chan) {
+    Cluster* cluster, BoardType board_type, chip_id_t chip_id, const unsigned long unique_chip_id, uint32_t chan) {
     if (check_if_external_cable_is_used(
             cluster->get_cluster_description(), board_type, chip_id, unique_chip_id, chan)) {
         return ConnectorType::EXTERNAL;
@@ -112,13 +106,8 @@ std::string get_ubb_id_str(Cluster* cluster, chip_id_t chip_id, const unsigned l
 }
 
 std::string get_connector_str(
-    Cluster* cluster,
-    chip_id_t chip_id,
-    const unsigned long unique_chip_id,
-    CoreCoord eth_core,
-    uint32_t channel,
-    BoardType board_type) {
-    auto connector = get_connector_type(cluster, board_type, chip_id, unique_chip_id, eth_core, channel);
+    Cluster* cluster, chip_id_t chip_id, const unsigned long unique_chip_id, uint32_t channel, BoardType board_type) {
+    auto connector = get_connector_type(cluster, board_type, chip_id, unique_chip_id, channel);
     std::stringstream str;
     str << "(";
     switch (connector) {
@@ -129,10 +118,13 @@ std::string get_connector_str(
             str << "internal trace";
             break;
         case ConnectorType::LK1:
+            str << "LK1 trace";
+            break;
         case ConnectorType::LK2:
+            str << "LK1 trace";
+            break;
         case ConnectorType::LK3:
-            str << "linking board " << magic_enum::enum_name(connector).back() << " type "
-                << magic_enum::enum_name(linking_board_types.at(connector));
+            str << "LK1 trace";
             break;
     }
     str << ")";
@@ -200,9 +192,7 @@ int main(int argc, char* argv[]) {
             const bool is_external_cable =
                 check_if_external_cable_is_used(cluster_descriptor, board_type, chip_id, unique_chip_id, chan);
 
-            CoreCoord logical_eth_coord{0, static_cast<size_t>(chan), CoreType::ETH, CoordSystem::LOGICAL};
-            std::string connection_type =
-                get_connector_str(cluster.get(), chip_id, unique_chip_id, logical_eth_coord, chan, board_type);
+            std::string connection_type = get_connector_str(cluster.get(), chip_id, unique_chip_id, chan, board_type);
             if (cluster_descriptor->ethernet_core_has_active_ethernet_link(chip_id, chan)) {
                 if (eth_connections.at(chip_id).find(chan) != eth_connections.at(chip_id).end()) {
                     const auto& [connected_chip_id, connected_chan] =

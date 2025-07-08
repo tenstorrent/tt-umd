@@ -89,6 +89,66 @@ TEST(ApiClusterTest, OpenChipsByPciId) {
         std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>(ClusterOptions{
             .pci_target_devices = target_pci_device_ids,
         });
+
+        if (!target_pci_device_ids.empty()) {
+            // If target_pci_device_ids is empty, then full cluster will be created, so skip the check.
+            // Check that the cluster has the expected number of chips.
+            auto actual_pci_device_ids = cluster->get_target_mmio_device_ids();
+            EXPECT_EQ(actual_pci_device_ids.size(), target_pci_device_ids.size());
+            // Always expect logical id 0 to exist, that's the way filtering by pci ids work.
+            EXPECT_TRUE(actual_pci_device_ids.find(0) != actual_pci_device_ids.end());
+        }
+    }
+}
+
+TEST(ApiClusterTest, OpenClusterByLogicalID) {
+    // First, pregenerate a cluster descriptor and save it to a file.
+    // This will run topology discovery and touch all the devices.
+    std::filesystem::path cluster_path = tt::umd::Cluster::create_cluster_descriptor()->serialize_to_file();
+
+    // Now, the user can create the cluster descriptor without touching the devices.
+    std::unique_ptr<tt_ClusterDescriptor> cluster_desc = tt_ClusterDescriptor::create_from_yaml(cluster_path);
+    // You can test the cluster descriptor here to see if the topology matched the one you'd expect.
+    // For example, you can check if the number of chips is correct, or number of pci devices, or nature of eth
+    // connections.
+    std::unordered_set<chip_id_t> all_chips = cluster_desc->get_all_chips();
+    std::unordered_map<chip_id_t, chip_id_t> chips_with_pcie = cluster_desc->get_chips_with_mmio();
+    auto eth_connections = cluster_desc->get_ethernet_connections();
+
+    if (all_chips.empty()) {
+        GTEST_SKIP() << "No chips present on the system. Skipping test.";
+    }
+    // Now we can choose which chips to open. This can be hardcoded if you already have expected topology.
+    // The first cluster will open the first chip only, and the second cluster will open the rest of them.
+    chip_id_t first_chip_only = chips_with_pcie.begin()->first;
+    std::unique_ptr<Cluster> umd_cluster1 = std::make_unique<Cluster>(ClusterOptions{
+        .target_devices = {first_chip_only},
+        .cluster_descriptor = cluster_desc.get(),
+    });
+
+    auto chips1 = umd_cluster1->get_target_device_ids();
+    EXPECT_EQ(chips1.size(), 1);
+    EXPECT_EQ(*chips1.begin(), first_chip_only);
+
+    std::unordered_set<chip_id_t> other_chips;
+    for (auto chip : all_chips) {
+        // Skip the first chip, but also skip all remote chips so that we don't accidentally hit the one tied to the
+        // first local chip.
+        if (chip != first_chip_only && cluster_desc->is_chip_mmio_capable(chip)) {
+            other_chips.insert(chip);
+        }
+    }
+    // Continue the test only if there there is more than one card in the system
+    if (!other_chips.empty()) {
+        std::unique_ptr<Cluster> umd_cluster2 = std::make_unique<Cluster>(ClusterOptions{
+            .target_devices = other_chips,
+            .cluster_descriptor = cluster_desc.get(),
+        });
+
+        // Cluster 2 should have the rest of the chips and not contain the first chip.
+        auto chips2 = umd_cluster2->get_target_device_ids();
+        EXPECT_EQ(chips2.size(), chips_with_pcie.size() - 1);
+        EXPECT_TRUE(chips2.find(first_chip_only) == chips2.end());
     }
 }
 

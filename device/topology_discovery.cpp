@@ -412,7 +412,7 @@ void TopologyDiscovery::fill_cluster_descriptor_info() {
     }
 
     for (const auto& [asic_id, chip_id] : asic_id_to_chip_id) {
-        cluster_desc->chip_to_unique_id.emplace(chip_id, asic_id);
+        cluster_desc->chip_unique_ids.emplace(chip_id, asic_id);
     }
 
     for (auto [ethernet_connection_logical, ethernet_connection_remote] : ethernet_connections) {

@@ -21,8 +21,9 @@ extern bool umd_use_noc1;
 
 namespace tt::umd {
 
-TopologyDiscoveryBlackhole::TopologyDiscoveryBlackhole(std::unordered_set<chip_id_t> pci_target_devices) :
-    TopologyDiscovery(pci_target_devices) {
+TopologyDiscoveryBlackhole::TopologyDiscoveryBlackhole(
+    std::unordered_set<chip_id_t> pci_target_devices, const std::string& sdesc_path) :
+    TopologyDiscovery(pci_target_devices, sdesc_path) {
     is_running_blackhole = true;
 }
 

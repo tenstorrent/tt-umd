@@ -390,7 +390,7 @@ void TopologyDiscovery::discover_remote_chips() {
 void TopologyDiscovery::fill_cluster_descriptor_info() {
     for (const auto& [chip_id, chip] : chips) {
         cluster_desc->all_chips.insert(chip_id);
-        cluster_desc->chip_arch.insert({chip_id, tt::ARCH::WORMHOLE_B0});
+        cluster_desc->chip_arch.insert({chip_id, chip->get_tt_device()->get_arch()});
 
         if (chip->is_mmio_capable()) {
             cluster_desc->chips_with_mmio.insert({chip_id, chip->get_tt_device()->get_pci_device()->get_device_num()});

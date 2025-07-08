@@ -470,6 +470,17 @@ tlb_configuration Cluster::get_tlb_configuration(const chip_id_t chip, CoreCoord
     return get_tlb_manager(chip)->get_tlb_configuration(virtual_core);
 }
 
+// TODO: These configure_tlb APIs are soon going away.
+void Cluster::configure_tlb(
+    chip_id_t logical_device_id, tt_xy_pair core, int32_t tlb_index, uint64_t address, uint64_t ordering) {
+    configure_tlb(
+        logical_device_id,
+        get_soc_descriptor(logical_device_id).get_coord_at(core, CoordSystem::VIRTUAL),
+        tlb_index,
+        address,
+        ordering);
+}
+
 void Cluster::configure_tlb(
     chip_id_t logical_device_id, CoreCoord core, int32_t tlb_index, uint64_t address, uint64_t ordering) {
     tt_xy_pair virtual_core = get_soc_descriptor(logical_device_id).translate_coord_to(core, CoordSystem::VIRTUAL);

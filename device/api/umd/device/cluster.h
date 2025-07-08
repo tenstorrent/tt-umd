@@ -162,6 +162,24 @@ public:
     /**
      * Configure a TLB to point to a specific core and an address within that core. Should be done for Static TLBs.
      * If the device uses another mechanism for providing access to the host, this can be ignored.
+     * This API is going to be deprecated when all UMD clients transition to CoreCoord API.
+     *
+     * @param logical_device_id Logical Device being targeted.
+     * @param core The TLB will be programmed to point to this core.
+     * @param tlb_index TLB id that will be programmed.
+     * @param address Start address TLB is mapped to.
+     * @param ordering Ordering mode for the TLB.
+     */
+    void configure_tlb(
+        chip_id_t logical_device_id,
+        tt_xy_pair core,
+        int32_t tlb_index,
+        uint64_t address,
+        uint64_t ordering = TLB_DATA::Relaxed);
+
+    /**
+     * Configure a TLB to point to a specific core and an address within that core. Should be done for Static TLBs.
+     * If the device uses another mechanism for providing access to the host, this can be ignored.
      *
      * @param logical_device_id Logical Device being targeted.
      * @param core The TLB will be programmed to point to this core.

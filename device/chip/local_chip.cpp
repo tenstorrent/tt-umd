@@ -16,7 +16,11 @@
 #include "umd/device/types/blackhole_eth.h"
 #include "umd/device/wormhole_implementation.h"
 
+#include <chrono>
+#include <thread>
+
 extern bool umd_use_noc1;
+using namespace std::chrono_literals;
 
 namespace tt::umd {
 
@@ -682,6 +686,8 @@ void LocalChip::wait_for_aiclk_value(tt_DevicePowerState power_state, const uint
                 aiclk);
             return;
         }
+
+        std::this_thread::sleep_for(10ms);
         aiclk = tt_device_->get_clock();
     }
 }

@@ -44,11 +44,14 @@ bool SysmemManager::pin_or_map_sysmem_to_device() {
     }
 }
 
-SysmemManager::~SysmemManager() {
+SysmemManager::~SysmemManager() { unpin_or_unmap_sysmem(); }
+
+void SysmemManager::unpin_or_unmap_sysmem() {
     if (iommu_mapping != nullptr) {
         // This means we have initialized IOMMU mapping, and need to unmap it.
         // It also means that hugepage_mappings are faked, so don't unmap them.
         munmap(iommu_mapping, iommu_mapping_size);
+        iommu_mapping = nullptr;
     } else {
         for (const auto &hugepage_mapping : hugepage_mapping_per_channel) {
             if (hugepage_mapping.mapping) {
@@ -56,6 +59,7 @@ SysmemManager::~SysmemManager() {
             }
         }
     }
+    hugepage_mapping_per_channel.clear();
 }
 
 void SysmemManager::write_to_sysmem(uint16_t channel, const void *src, uint64_t sysmem_dest, uint32_t size) {

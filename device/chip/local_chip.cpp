@@ -146,7 +146,7 @@ void LocalChip::start_device() {
     initialize_membars();
 }
 
-void LocalChip::close_device(){};
+void LocalChip::close_device() { sysmem_manager_->unpin_or_unmap_sysmem(); };
 
 void LocalChip::wait_eth_cores_training(const uint32_t timeout_ms) {
     const std::vector<CoreCoord> eth_cores =

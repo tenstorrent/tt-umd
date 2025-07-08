@@ -186,7 +186,7 @@ PCIDevice::PCIDevice(int pci_device_number) :
             "Running with IOMMU support prior to KMD version {} is of limited support.",
             kmd_ver_for_map_to_noc.to_string());
     }
-    if (iommu_enabled && !PCIDevice::is_mapping_buffer_to_noc_supported()) {
+    if (iommu_enabled && PCIDevice::read_kmd_version() < kmd_ver_for_map_to_noc) {
         TT_THROW("Running with IOMMU support requires KMD version {} or newer", kmd_ver_for_iommu.to_string());
     }
 
@@ -484,10 +484,15 @@ uint64_t PCIDevice::map_for_hugepage(void *buffer, size_t size) {
     return pin_pages.out.physical_address;
 }
 
-bool PCIDevice::is_mapping_buffer_to_noc_supported() { return PCIDevice::read_kmd_version() >= kmd_ver_for_map_to_noc; }
+bool PCIDevice::is_mapping_buffer_to_noc_supported() {
+    return PCIDevice::read_kmd_version() >= kmd_ver_for_map_to_noc;
+    // TODO: This feature is turned off for now. We'll enable it once all machines have smoothly transitioned to IOMMU.
+    // Also change other places in this function which have the same check.
+    // return false;
+}
 
 std::pair<uint64_t, uint64_t> PCIDevice::map_buffer_to_noc(void *buffer, size_t size) {
-    if (!is_mapping_buffer_to_noc_supported()) {
+    if (PCIDevice::read_kmd_version() < kmd_ver_for_map_to_noc) {
         TT_THROW("KMD version must be at least 2.0.0 to use buffer with NOC mapping");
     }
 
@@ -529,7 +534,7 @@ std::pair<uint64_t, uint64_t> PCIDevice::map_buffer_to_noc(void *buffer, size_t 
 }
 
 std::pair<uint64_t, uint64_t> PCIDevice::map_hugepage_to_noc(void *hugepage, size_t size) {
-    if (!is_mapping_buffer_to_noc_supported()) {
+    if (PCIDevice::read_kmd_version() < kmd_ver_for_map_to_noc) {
         TT_THROW("KMD version must be at least 2.0.0 to use hugepages with NOC mapping");
     }
 

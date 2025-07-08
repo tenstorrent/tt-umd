@@ -215,7 +215,7 @@ TEST(ApiSysmemManager, SysmemBufferNocAddress) {
     if (!PCIDevice(pci_device_ids[0]).is_iommu_enabled()) {
         GTEST_SKIP() << "Skipping test since IOMMU is not enabled.";
     }
-    if (!PCIDevice(pci_device_ids[0]).is_mapping_buffer_to_noc_supported()) {
+    if (!PCIDevice(PCIDevice::read_kmd_version() < kmd_ver_for_map_to_noc) {
         GTEST_SKIP() << "Skipping test since KMD doesn't support noc address mapping.";
     }
 
@@ -265,6 +265,6 @@ TEST(ApiSysmemManager, SysmemBufferNocAddress) {
 
     // If we map another buffer it is expected to have a higher NOC address.
     std::unique_ptr<SysmemBuffer> sysmem_buffer2 = sysmem_manager->allocate_sysmem_buffer(one_mb, true);
-    EXPECT_TRUE(sysmem_buffer->get_noc_addr().has_value());
-    EXPECT_GT(sysmem_buffer->get_noc_addr().value(), cluster->get_pcie_base_addr_from_device(mmio_chip));
+    EXPECT_TRUE(sysmem_buffer2->get_noc_addr().has_value());
+    EXPECT_GT(sysmem_buffer2->get_noc_addr().value(), cluster->get_pcie_base_addr_from_device(mmio_chip));
 }

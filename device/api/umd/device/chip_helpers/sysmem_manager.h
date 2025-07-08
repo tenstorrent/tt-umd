@@ -36,6 +36,8 @@ public:
      */
     bool pin_or_map_sysmem_to_device();
 
+    void unpin_or_unmap_sysmem();
+
     size_t get_num_host_mem_channels() const;
     hugepage_mapping get_hugepage_mapping(size_t channel) const;
 

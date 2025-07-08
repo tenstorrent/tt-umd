@@ -446,12 +446,10 @@ TEST(TestCluster, DeassertResetBrisc) {
                 cluster->get_soc_descriptor(chip_id).translate_coord_to(tensix_core, CoordSystem::VIRTUAL),
                 select_all_tensix_riscv_cores);
 
-            cluster->wait_for_non_mmio_flush(chip_id);
+            cluster->l1_membar(chip_id, {tensix_core});
 
             // Zero out L1.
             cluster->write_to_device(zero_data.data(), zero_data.size(), chip_id, tensix_core, 0);
-
-            cluster->wait_for_non_mmio_flush(chip_id);
 
             cluster->write_to_device(
                 simple_brisc_program.data(),
@@ -460,11 +458,11 @@ TEST(TestCluster, DeassertResetBrisc) {
                 tensix_core,
                 brisc_code_address);
 
+            cluster->l1_membar(chip_id, {tensix_core});
+
             chip->unset_tensix_risc_reset(
                 cluster->get_soc_descriptor(chip_id).translate_coord_to(tensix_core, CoordSystem::VIRTUAL),
                 TensixSoftResetOptions::BRISC);
-
-            cluster->l1_membar(chip_id, {tensix_core});
 
             cluster->read_from_device(&readback, chip_id, tensix_core, a_variable_address, sizeof(readback));
 
@@ -501,6 +499,8 @@ TEST(TestCluster, DeassertResetWithCounterBrisc) {
 
             cluster->write_to_device(zero_data.data(), zero_data.size() * sizeof(uint32_t), chip_id, tensix_core, 0x0);
 
+            cluster->l1_membar(chip_id, {tensix_core});
+
             TensixSoftResetOptions select_all_tensix_riscv_cores{TENSIX_ASSERT_SOFT_RESET};
 
             chip->set_tensix_risc_reset(core, select_all_tensix_riscv_cores);
@@ -512,9 +512,9 @@ TEST(TestCluster, DeassertResetWithCounterBrisc) {
                 tensix_core,
                 brisc_code_address);
 
-            chip->unset_tensix_risc_reset(core, TensixSoftResetOptions::BRISC);
-
             cluster->l1_membar(chip_id, {tensix_core});
+
+            chip->unset_tensix_risc_reset(core, TensixSoftResetOptions::BRISC);
 
             cluster->read_from_device(
                 &first_readback_value, chip_id, tensix_core, counter_address, sizeof(first_readback_value));
@@ -526,9 +526,9 @@ TEST(TestCluster, DeassertResetWithCounterBrisc) {
             // two reads from device
             EXPECT_NE(second_readback_value, first_readback_value);
 
-            chip->set_tensix_risc_reset(core, TensixSoftResetOptions::BRISC);
-
             cluster->l1_membar(chip_id, {tensix_core});
+
+            chip->set_tensix_risc_reset(core, TensixSoftResetOptions::BRISC);
 
             cluster->read_from_device(
                 &first_readback_value, chip_id, tensix_core, counter_address, sizeof(first_readback_value));
@@ -571,7 +571,10 @@ TEST_P(ClusterAssertDeassertRiscsTest, TriscNcriscAssertDeassertTest) {
         for (const CoreCoord& tensix_core : tensix_cores) {
             auto chip = cluster->get_chip(chip_id);
             auto core = cluster->get_soc_descriptor(chip_id).translate_coord_to(tensix_core, CoordSystem::VIRTUAL);
+
             chip->set_tensix_risc_reset(core, TENSIX_ASSERT_SOFT_RESET);
+
+            cluster->l1_membar(chip_id, {tensix_core});
 
             cluster->write_to_device(zero_data.data(), zero_data.size() * sizeof(uint32_t), chip_id, tensix_core, 0x0);
 
@@ -582,9 +585,9 @@ TEST_P(ClusterAssertDeassertRiscsTest, TriscNcriscAssertDeassertTest) {
                 tensix_core,
                 brisc_code_address);
 
-            chip->unset_tensix_risc_reset(core, TensixSoftResetOptions::BRISC);
-
             cluster->l1_membar(chip_id, {tensix_core});
+
+            chip->unset_tensix_risc_reset(core, TensixSoftResetOptions::BRISC);
 
             for (const auto& configuration_of_risc_core : configurations_of_risc_cores) {
                 auto& [code_address, counter_address, code_program, risc_core] = configuration_of_risc_core;
@@ -594,9 +597,9 @@ TEST_P(ClusterAssertDeassertRiscsTest, TriscNcriscAssertDeassertTest) {
                     code_program.data(), code_program.size() * sizeof(uint32_t), chip_id, tensix_core, code_address);
             }
 
-            chip->unset_tensix_risc_reset(core, risc_cores);
-
             cluster->l1_membar(chip_id, {tensix_core});
+
+            chip->unset_tensix_risc_reset(core, risc_cores);
 
             for (const auto& configuration_of_risc_core : configurations_of_risc_cores) {
                 auto& [code_address, counter_address, code_program, risc_core] = configuration_of_risc_core;
@@ -610,9 +613,9 @@ TEST_P(ClusterAssertDeassertRiscsTest, TriscNcriscAssertDeassertTest) {
                 EXPECT_NE(first_readback_value, second_readback_value);
             }
 
-            chip->set_tensix_risc_reset(core, risc_cores);
-
             cluster->l1_membar(chip_id, {tensix_core});
+
+            chip->set_tensix_risc_reset(core, risc_cores);
 
             for (const auto& configuration_of_risc_core : configurations_of_risc_cores) {
                 auto [code_address, counter_address, code_program, risc_core] = configuration_of_risc_core;

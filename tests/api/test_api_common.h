@@ -4,6 +4,8 @@
 
 // This file holds Cluster specific API examples.
 
+#pragma once
+
 #include <cstdint>
 #include <vector>
 

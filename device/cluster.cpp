@@ -47,6 +47,7 @@
 #include "umd/device/chip_helpers/tlb_manager.h"
 #include "umd/device/driver_atomics.h"
 #include "umd/device/hugepage.h"
+#include "umd/device/topology_discovery_blackhole.h"
 #include "umd/device/topology_utils.h"
 #include "umd/device/tt_cluster_descriptor.h"
 #include "umd/device/tt_core_coordinates.h"
@@ -1056,22 +1057,7 @@ std::unique_ptr<tt_ClusterDescriptor> Cluster::create_cluster_descriptor(
     std::string sdesc_path, std::unordered_set<chip_id_t> pci_target_devices) {
     std::map<int, PciDeviceInfo> pci_device_info = PCIDevice::enumerate_devices_info();
     if (pci_device_info.begin()->second.get_arch() == tt::ARCH::BLACKHOLE) {
-        std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
-
-        std::unordered_map<chip_id_t, std::unique_ptr<Chip>> chips;
-        chip_id_t chip_id = 0;
-        for (auto& device_id : pci_device_ids) {
-            std::unique_ptr<LocalChip> chip = nullptr;
-            if (sdesc_path.empty()) {
-                chip = std::make_unique<LocalChip>(TTDevice::create(device_id));
-            } else {
-                chip = std::make_unique<LocalChip>(sdesc_path, TTDevice::create(device_id));
-            }
-            chips.emplace(chip_id, std::move(chip));
-            chip_id++;
-        }
-
-        return Cluster::create_cluster_descriptor(chips);
+        return TopologyDiscoveryBlackhole(pci_target_devices, sdesc_path).create_ethernet_map();
     } else {
         return TopologyDiscovery(pci_target_devices).create_ethernet_map();
     }

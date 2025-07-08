@@ -437,6 +437,8 @@ void TopologyDiscovery::fill_cluster_descriptor_info() {
     tt_ClusterDescriptor::merge_cluster_ids(*cluster_desc.get());
 
     cluster_desc->fill_chips_grouped_by_closest_mmio();
+
+    cluster_desc->verify_cluster_descriptor_info();
 }
 
 // If pci_target_devices is empty, we should take all the PCI devices found in the system.

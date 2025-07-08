@@ -83,7 +83,7 @@ TopologyDiscovery::EthAddresses TopologyDiscovery::get_eth_addresses(uint32_t et
 
 std::unique_ptr<RemoteWormholeTTDevice> TopologyDiscovery::create_remote_tt_device(
     Chip* chip, tt_xy_pair eth_core, Chip* gateway_chip) {
-    if (is_running_on_6u) {
+    if (is_running_on_6u || is_running_blackhole) {
         return nullptr;
     }
 
@@ -214,7 +214,7 @@ void TopologyDiscovery::discover_remote_chips() {
 
         discovered_chips.insert(current_chip_asic_id);
 
-        if (!is_running_on_6u) {
+        if (!is_running_on_6u && !is_running_blackhole) {
             eth_coords.emplace(chip_id, get_local_eth_coord(chip.get()));
         }
     }
@@ -265,7 +265,7 @@ void TopologyDiscovery::discover_remote_chips() {
                 chip_id_t remote_chip_id = asic_id_to_chip_id.at(remote_asic_id);
                 Chip* remote_chip = chips.at(remote_chip_id).get();
                 uint32_t remote_eth_channel;
-                if (is_running_on_6u) {
+                if (is_running_on_6u || is_running_blackhole) {
                     remote_eth_channel = get_remote_eth_id(chip.get(), eth_core);
                 } else {
                     tt_xy_pair remote_eth_core = get_remote_eth_core(chip.get(), eth_core);
@@ -318,7 +318,7 @@ void TopologyDiscovery::discover_remote_chips() {
             Chip* remote_chip_ptr = chip.get();
 
             // TODO: this neeeds to be moved to specific logic for Wormhole with legacy FW.
-            if (!is_running_on_6u) {
+            if (!is_running_on_6u && !is_running_blackhole) {
                 eth_coords.emplace(chip_id, get_local_eth_coord(remote_chip_ptr));
             }
 
@@ -368,7 +368,7 @@ void TopologyDiscovery::discover_remote_chips() {
                     chip_id_t remote_chip_id = asic_id_to_chip_id.at(new_asic_id);
                     Chip* remote_chip = chips.at(remote_chip_id).get();
                     uint32_t remote_eth_channel;
-                    if (is_running_on_6u) {
+                    if (is_running_on_6u || is_running_blackhole) {
                         remote_eth_channel = get_remote_eth_id(remote_chip_ptr, eth_core);
                     } else {
                         tt_xy_pair remote_eth_core = get_remote_eth_core(remote_chip_ptr, eth_core);
@@ -402,7 +402,7 @@ void TopologyDiscovery::fill_cluster_descriptor_info() {
         cluster_desc->harvesting_masks.insert({chip_id, chip->get_chip_info().harvesting_masks.tensix_harvesting_mask});
         cluster_desc->harvesting_masks_map.insert({chip_id, chip->get_chip_info().harvesting_masks});
         // TODO: this neeeds to be moved to specific logic for Wormhole with legacy FW.
-        if (!is_running_on_6u) {
+        if (!is_running_on_6u && !is_running_blackhole) {
             eth_coord_t eth_coord = eth_coords.at(chip_id);
             cluster_desc->chip_locations.insert({chip_id, eth_coord});
             cluster_desc->coords_to_chip_ids[eth_coord.rack][eth_coord.shelf][eth_coord.y][eth_coord.x] = chip_id;
@@ -448,7 +448,7 @@ bool TopologyDiscovery::is_pcie_chip_id_included(int pci_id) const {
 bool TopologyDiscovery::is_board_id_included(uint64_t board_id) const {
     // Since at the moment we don't want to go outside of single host on 6U,
     // we just check for board ids that are discovered from pci_target_devices.
-    if (is_running_on_6u) {
+    if (is_running_on_6u || is_running_blackhole) {
         return board_ids.find(board_id) != board_ids.end();
     }
 

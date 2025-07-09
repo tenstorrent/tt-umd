@@ -145,16 +145,20 @@ struct CoreCoord : public tt_xy_pair {
 
 }  // namespace tt::umd
 
-namespace std {
-template <>
-struct hash<tt::umd::CoreCoord> {
-    size_t operator()(const tt::umd::CoreCoord& core_coord) const {
-        size_t seed = 0;
-        seed = std::hash<size_t>{}(core_coord.x) + 0x9e3779b9 + (seed << 6) + (seed >> 2);
-        seed = std::hash<size_t>{}(core_coord.y) + 0x9e3779b9 + (seed << 6) + (seed >> 2);
-        seed = std::hash<tt::umd::CoreType>{}(core_coord.core_type) + 0x9e3779b9 + (seed << 6) + (seed >> 2);
-        seed = std::hash<tt::umd::CoordSystem>{}(core_coord.coord_system) + 0x9e3779b9 + (seed << 6) + (seed >> 2);
-        return seed;
-    }
-};
+// TODO: To be removed once clients switch to namespace usage.
+using tt::umd::CoreType;
+using tt::umd::CoordSystem
+
+    namespace std {
+    template <>
+    struct hash<tt::umd::CoreCoord> {
+        size_t operator()(const tt::umd::CoreCoord& core_coord) const {
+            size_t seed = 0;
+            seed = std::hash<size_t>{}(core_coord.x) + 0x9e3779b9 + (seed << 6) + (seed >> 2);
+            seed = std::hash<size_t>{}(core_coord.y) + 0x9e3779b9 + (seed << 6) + (seed >> 2);
+            seed = std::hash<tt::umd::CoreType>{}(core_coord.core_type) + 0x9e3779b9 + (seed << 6) + (seed >> 2);
+            seed = std::hash<tt::umd::CoordSystem>{}(core_coord.coord_system) + 0x9e3779b9 + (seed << 6) + (seed >> 2);
+            return seed;
+        }
+    };
 }  // namespace std

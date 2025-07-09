@@ -192,6 +192,9 @@ enum class DramTrainingStatus : uint8_t {
 
 }  // namespace tt::umd
 
+// TODO: To be removed once clients switch to namespace usage.
+using tt::umd::chip_id_t;
+
 namespace std {
 template <>
 struct hash<tt::umd::eth_coord_t> {

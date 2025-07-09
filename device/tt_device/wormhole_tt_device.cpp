@@ -10,20 +10,20 @@
 #include "umd/device/types/wormhole_telemetry.h"
 #include "umd/device/wormhole_implementation.h"
 
-static constexpr uint32_t DMA_COMPLETION_VALUE = 0xfaca;
-static constexpr uint32_t DMA_TIMEOUT_MS = 10000;  // 10 seconds
-
 extern bool umd_use_noc1;
 
 namespace tt::umd {
+
+static constexpr uint32_t DMA_COMPLETION_VALUE = 0xfaca;
+static constexpr uint32_t DMA_TIMEOUT_MS = 10000;  // 10 seconds
 
 WormholeTTDevice::WormholeTTDevice(std::shared_ptr<PCIDevice> pci_device) :
     TTDevice(pci_device, std::make_unique<wormhole_implementation>()) {
     init_tt_device();
     wait_arc_core_start(
         umd_use_noc1 ? tt_xy_pair(
-                           tt::umd::wormhole::NOC0_X_TO_NOC1_X[tt::umd::wormhole::ARC_CORES_NOC0[0].x],
-                           tt::umd::wormhole::NOC0_Y_TO_NOC1_Y[tt::umd::wormhole::ARC_CORES_NOC0[0].y])
+                           wormhole::NOC0_X_TO_NOC1_X[wormhole::ARC_CORES_NOC0[0].x],
+                           wormhole::NOC0_Y_TO_NOC1_Y[wormhole::ARC_CORES_NOC0[0].y])
                      : wormhole::ARC_CORES_NOC0[0],
         1000);
 }
@@ -34,8 +34,7 @@ bool WormholeTTDevice::get_noc_translation_enabled() {
     // We use DRAM core (0, 0) to read this information, but it can be read from any core.
     // TODO: read this information from PCIE BAR.
     const tt_xy_pair dram_core =
-        umd_use_noc1 ? tt_xy_pair(tt::umd::wormhole::NOC0_X_TO_NOC1_X[0], tt::umd::wormhole::NOC0_Y_TO_NOC1_Y[0])
-                     : tt_xy_pair(0, 0);
+        umd_use_noc1 ? tt_xy_pair(wormhole::NOC0_X_TO_NOC1_X[0], wormhole::NOC0_Y_TO_NOC1_Y[0]) : tt_xy_pair(0, 0);
     const uint64_t niu_cfg_addr = 0x1000A0000 + 0x100;
     read_from_device(&niu_cfg, dram_core, niu_cfg_addr, sizeof(uint32_t));
 
@@ -49,8 +48,7 @@ ChipInfo WormholeTTDevice::get_chip_info() {
     std::vector<uint32_t> arc_msg_return_values = {0};
     const uint32_t timeout_ms = 1000;
     uint32_t ret_code = get_arc_messenger()->send_message(
-        tt::umd::wormhole::ARC_MSG_COMMON_PREFIX |
-            get_architecture_implementation()->get_arc_message_arc_get_harvesting(),
+        wormhole::ARC_MSG_COMMON_PREFIX | get_architecture_implementation()->get_arc_message_arc_get_harvesting(),
         arc_msg_return_values,
         0,
         0,
@@ -99,7 +97,7 @@ uint32_t WormholeTTDevice::get_clock() {
     // There is one return value from AICLK ARC message.
     std::vector<uint32_t> arc_msg_return_values = {0};
     auto exit_code = get_arc_messenger()->send_message(
-        tt::umd::wormhole::ARC_MSG_COMMON_PREFIX | get_architecture_implementation()->get_arc_message_get_aiclk(),
+        wormhole::ARC_MSG_COMMON_PREFIX | get_architecture_implementation()->get_arc_message_get_aiclk(),
         arc_msg_return_values,
         0xFFFF,
         0xFFFF,
@@ -111,21 +109,21 @@ uint32_t WormholeTTDevice::get_clock() {
 }
 
 uint32_t WormholeTTDevice::get_max_clock_freq() {
-    uint32_t aiclk_telemetry = telemetry->read_entry(tt::umd::wormhole::TAG_AICLK);
+    uint32_t aiclk_telemetry = telemetry->read_entry(wormhole::TAG_AICLK);
     return (aiclk_telemetry >> 16) & 0xFFFF;
 }
 
-uint32_t WormholeTTDevice::get_min_clock_freq() { return tt::umd::wormhole::AICLK_IDLE_VAL; }
+uint32_t WormholeTTDevice::get_min_clock_freq() { return wormhole::AICLK_IDLE_VAL; }
 
 uint64_t WormholeTTDevice::get_board_id() {
-    uint32_t board_id_lo = telemetry->read_entry(tt::umd::wormhole::TAG_BOARD_ID_LOW);
-    uint32_t board_id_hi = telemetry->read_entry(tt::umd::wormhole::TAG_BOARD_ID_HIGH);
+    uint32_t board_id_lo = telemetry->read_entry(wormhole::TAG_BOARD_ID_LOW);
+    uint32_t board_id_hi = telemetry->read_entry(wormhole::TAG_BOARD_ID_HIGH);
     return ((uint64_t)board_id_hi << 32) | board_id_lo;
 }
 
 std::vector<DramTrainingStatus> WormholeTTDevice::get_dram_training_status() {
-    uint32_t dram_training_status_telemetry = telemetry->read_entry(tt::umd::wormhole::TAG_DDR_STATUS);
-    const uint32_t num_dram_channels = tt::umd::wormhole::NUM_DRAM_BANKS;
+    uint32_t dram_training_status_telemetry = telemetry->read_entry(wormhole::TAG_DDR_STATUS);
+    const uint32_t num_dram_channels = wormhole::NUM_DRAM_BANKS;
     std::vector<DramTrainingStatus> dram_training_status;
     for (uint32_t dram_channel = 0; dram_channel < num_dram_channels; dram_channel++) {
         uint8_t status = (dram_training_status_telemetry >> (dram_channel * 4)) & 0xF;

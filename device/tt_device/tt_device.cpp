@@ -223,7 +223,7 @@ void TTDevice::read_from_device(void *mem_ptr, tt_xy_pair core, uint64_t addr, u
     uint8_t *buffer_addr = static_cast<uint8_t *>(mem_ptr);
     const uint32_t tlb_index = get_architecture_implementation()->get_small_read_write_tlb();
     while (size > 0) {
-        auto [mapped_address, tlb_size] = set_dynamic_tlb(tlb_index, core, addr, tt::umd::tlb_data::Strict);
+        auto [mapped_address, tlb_size] = set_dynamic_tlb(tlb_index, core, addr, tlb_data::Strict);
         uint32_t transfer_size = std::min((uint64_t)size, tlb_size);
         read_block(mapped_address, transfer_size, buffer_addr);
 
@@ -239,7 +239,7 @@ void TTDevice::write_to_device(const void *mem_ptr, tt_xy_pair core, uint64_t ad
     const uint32_t tlb_index = get_architecture_implementation()->get_small_read_write_tlb();
 
     while (size > 0) {
-        auto [mapped_address, tlb_size] = set_dynamic_tlb(tlb_index, core, addr, tt::umd::tlb_data::Strict);
+        auto [mapped_address, tlb_size] = set_dynamic_tlb(tlb_index, core, addr, tlb_data::Strict);
         uint32_t transfer_size = std::min((uint64_t)size, tlb_size);
         write_block(mapped_address, transfer_size, buffer_addr);
 
@@ -298,15 +298,15 @@ dynamic_tlb TTDevice::set_dynamic_tlb(
         multicast,
         (int)ordering);
 
-    tt::umd::tlb_configuration tlb_config = architecture_impl_->get_tlb_configuration(tlb_index);
+    tlb_configuration tlb_config = architecture_impl_->get_tlb_configuration(tlb_index);
     std::uint32_t TLB_CFG_REG_SIZE_BYTES = architecture_impl_->get_tlb_cfg_reg_size_bytes();
     uint64_t tlb_address = address / tlb_config.size;
     uint32_t local_address = address % tlb_config.size;
     uint64_t tlb_base = tlb_config.base + (tlb_config.size * tlb_config.index_offset);
     uint32_t tlb_cfg_reg = tlb_config.cfg_addr + (TLB_CFG_REG_SIZE_BYTES * tlb_config.index_offset);
 
-    std::pair<std::uint64_t, std::uint64_t> tlb_data =
-        tt::umd::tlb_data{
+    std::pair<std::uint64_t, std::uint64_t> tlb_reg_config =
+        tlb_data{
             .local_offset = tlb_address,
             .x_end = static_cast<uint64_t>(end.x),
             .y_end = static_cast<uint64_t>(end.y),
@@ -334,7 +334,7 @@ dynamic_tlb TTDevice::set_dynamic_tlb(
         tlb_cfg_reg,
         end.x,
         end.y);
-    write_tlb_reg(tlb_cfg_reg, tlb_data.first, tlb_data.second, TLB_CFG_REG_SIZE_BYTES);
+    write_tlb_reg(tlb_cfg_reg, tlb_reg_config.first, tlb_reg_config.second, TLB_CFG_REG_SIZE_BYTES);
 
     return {tlb_base + local_address, tlb_config.size - local_address};
 }
@@ -376,9 +376,9 @@ uint32_t TTDevice::bar_read32(uint32_t addr) {
     return data;
 }
 
-tt::umd::ArcMessenger *TTDevice::get_arc_messenger() const { return arc_messenger_.get(); }
+ArcMessenger *TTDevice::get_arc_messenger() const { return arc_messenger_.get(); }
 
-tt::umd::ArcTelemetryReader *TTDevice::get_arc_telemetry_reader() const { return telemetry.get(); }
+ArcTelemetryReader *TTDevice::get_arc_telemetry_reader() const { return telemetry.get(); }
 
 TTDevice::~TTDevice() { lock_manager.clear_mutex(MutexType::TT_DEVICE_IO, get_pci_device()->get_device_num()); }
 

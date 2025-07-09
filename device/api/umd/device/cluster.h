@@ -27,12 +27,9 @@
 #include "umd/device/types/cluster_types.h"
 #include "umd/device/types/tlb.h"
 
-using TLB_DATA = tt::umd::tlb_data;
-
-class tt_ClusterDescriptor;
-
 namespace tt::umd {
 
+class tt_ClusterDescriptor;
 class LocalChip;
 class RemoteChip;
 
@@ -175,7 +172,7 @@ public:
         tt_xy_pair core,
         int32_t tlb_index,
         uint64_t address,
-        uint64_t ordering = TLB_DATA::Relaxed);
+        uint64_t ordering = tlb_data::Relaxed);
 
     /**
      * Configure a TLB to point to a specific core and an address within that core. Should be done for Static TLBs.
@@ -189,10 +186,10 @@ public:
      */
     void configure_tlb(
         chip_id_t logical_device_id,
-        tt::umd::CoreCoord core,
+        CoreCoord core,
         int32_t tlb_index,
         uint64_t address,
-        uint64_t ordering = TLB_DATA::Relaxed);
+        uint64_t ordering = tlb_data::Relaxed);
 
     /**
      * Pass in ethernet cores with active links for a specific MMIO chip. When called, this function will force UMD to
@@ -205,7 +202,7 @@ public:
      * @param active_eth_cores_per_chip The active ethernet cores for this chip.
      */
     void configure_active_ethernet_cores_for_mmio_device(
-        chip_id_t mmio_chip, const std::unordered_set<tt::umd::CoreCoord>& active_eth_cores_per_chip);
+        chip_id_t mmio_chip, const std::unordered_set<CoreCoord>& active_eth_cores_per_chip);
 
     //---------- Start and stop the device and tensix cores.
 
@@ -254,7 +251,7 @@ public:
      */
     void deassert_risc_reset_at_core(
         const chip_id_t chip,
-        const tt::umd::CoreCoord core,
+        const CoreCoord core,
         const TensixSoftResetOptions& soft_resets = TENSIX_DEASSERT_SOFT_RESET);
 
     /**
@@ -275,7 +272,7 @@ public:
      */
     void assert_risc_reset_at_core(
         const chip_id_t chip,
-        const tt::umd::CoreCoord core,
+        const CoreCoord core,
         const TensixSoftResetOptions& soft_resets = TENSIX_ASSERT_SOFT_RESET);
 
     //---------- IO functions for Tensix cores, including DRAM.
@@ -291,8 +288,7 @@ public:
      * @param core Core to target.
      * @param addr Address to write to.
      */
-    void write_to_device(
-        const void* mem_ptr, uint32_t size_in_bytes, chip_id_t chip, tt::umd::CoreCoord core, uint64_t addr);
+    void write_to_device(const void* mem_ptr, uint32_t size_in_bytes, chip_id_t chip, CoreCoord core, uint64_t addr);
 
     /**
      * Read uint32_t data from a specified device, core and address to host memory (defined for Silicon).
@@ -305,7 +301,7 @@ public:
      * @param addr Address to read from.
      * @param size Number of bytes to read.
      */
-    void read_from_device(void* mem_ptr, chip_id_t chip, tt::umd::CoreCoord core, uint64_t addr, uint32_t size);
+    void read_from_device(void* mem_ptr, chip_id_t chip, CoreCoord core, uint64_t addr, uint32_t size);
 
     /**
      * Write uint32_t data (as specified by ptr + len pair) to specified device, core and address (defined for Silicon).
@@ -321,7 +317,7 @@ public:
      * @param addr Address to write to.
      */
     void write_to_device_reg(
-        const void* mem_ptr, uint32_t size_in_bytes, chip_id_t chip, tt::umd::CoreCoord core, uint64_t addr);
+        const void* mem_ptr, uint32_t size_in_bytes, chip_id_t chip, CoreCoord core, uint64_t addr);
 
     /**
      * Read uint32_t data from a specified device, core and address to host memory (defined for Silicon).
@@ -336,7 +332,7 @@ public:
      * @param addr Address to read from.
      * @param size Number of bytes to read.
      */
-    void read_from_device_reg(void* mem_ptr, chip_id_t chip, tt::umd::CoreCoord core, uint64_t addr, uint32_t size);
+    void read_from_device_reg(void* mem_ptr, chip_id_t chip, CoreCoord core, uint64_t addr, uint32_t size);
 
     /**
      * Use PCIe DMA to write device memory (L1 or DRAM).
@@ -347,7 +343,7 @@ public:
      * @param core Core to target.
      * @param addr Address to write to.
      */
-    void dma_write_to_device(const void* src, size_t size, chip_id_t chip, tt::umd::CoreCoord core, uint64_t addr);
+    void dma_write_to_device(const void* src, size_t size, chip_id_t chip, CoreCoord core, uint64_t addr);
 
     /**
      * Use PCIe DMA to read device memory (L1 or DRAM).
@@ -358,7 +354,7 @@ public:
      * @param core Core to target.
      * @param addr Address to read from.
      */
-    void dma_read_from_device(void* dst, size_t size, chip_id_t chip, tt::umd::CoreCoord core, uint64_t addr);
+    void dma_read_from_device(void* dst, size_t size, chip_id_t chip, CoreCoord core, uint64_t addr);
 
     /**
      * This function writes to multiple chips and cores in the cluster. A set of chips, rows and columns can be excluded
@@ -397,7 +393,7 @@ public:
      *
      * @param target The target chip and core to write to.
      */
-    tt::Writer get_static_tlb_writer(const chip_id_t chip, const tt::umd::CoreCoord target);
+    Writer get_static_tlb_writer(const chip_id_t chip, const CoreCoord target);
 
     //---------- Functions for synchronization and memory barriers.
 
@@ -409,7 +405,7 @@ public:
      * @param chip Chip to target.
      * @param cores Cores being targeted.
      */
-    void l1_membar(const chip_id_t chip, const std::unordered_set<tt::umd::CoreCoord>& cores = {});
+    void l1_membar(const chip_id_t chip, const std::unordered_set<CoreCoord>& cores = {});
 
     /**
      * DRAM memory barrier.
@@ -429,7 +425,7 @@ public:
      * @param chip Chip being targeted.
      * @param cores Cores being targeted.
      */
-    void dram_membar(const chip_id_t chip, const std::unordered_set<tt::umd::CoreCoord>& cores = {});
+    void dram_membar(const chip_id_t chip, const std::unordered_set<CoreCoord>& cores = {});
 
     // Runtime functions
     /**
@@ -601,7 +597,7 @@ public:
     /**
      * Exposes how TLBs are configured for a specific device.
      */
-    tlb_configuration get_tlb_configuration(const chip_id_t chip, const tt::umd::CoreCoord core);
+    tlb_configuration get_tlb_configuration(const chip_id_t chip, const CoreCoord core);
 
 private:
     // Helper functions
@@ -660,7 +656,7 @@ private:
     void construct_cluster(const uint32_t& num_host_mem_ch_per_mmio_device, const ChipType& chip_type);
 
     static std::unique_ptr<tt_ClusterDescriptor> create_cluster_descriptor(
-        const std::unordered_map<chip_id_t, std::unique_ptr<tt::umd::Chip>>& chips);
+        const std::unordered_map<chip_id_t, std::unique_ptr<Chip>>& chips);
 
     static void verify_cluster_options(const ClusterOptions& options);
 

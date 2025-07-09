@@ -85,7 +85,7 @@ TEST(SiliconDriverBH, CreateDestroy) {
 //     std::unordered_map<chip_id_t, uint32_t> simulated_harvesting_masks = {{0, 30}, {1, 60}};
 //     {
 //         std::unique_ptr<tt_ClusterDescriptor> cluster_desc_uniq =
-//             tt::umd::Cluster::create_cluster_descriptor();
+//             Cluster::create_cluster_descriptor();
 //         if (cluster_desc_uniq->get_number_of_chips() != target_devices.size()) {
 //             GTEST_SKIP() << "SiliconDriverWH.Harvesting skipped because it can only be run on a two chip nebula
 //             system";
@@ -114,7 +114,7 @@ TEST(SiliconDriverBH, CreateDestroy) {
 //     std::unordered_map<chip_id_t, uint32_t> simulated_harvesting_masks = {{0, 30}, {1, 60}};
 //     {
 //         std::unique_ptr<tt_ClusterDescriptor> cluster_desc_uniq =
-//             tt::umd::Cluster::create_cluster_descriptor();
+//             Cluster::create_cluster_descriptor();
 //         if (cluster_desc_uniq->get_number_of_chips() != target_devices.size()) {
 //             GTEST_SKIP() << "SiliconDriverWH.Harvesting skipped because it can only be run on a two chip nebula
 //             system";

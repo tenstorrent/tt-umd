@@ -29,11 +29,10 @@ class Node;
 
 namespace tt::umd {
 class Cluster;
-}
 
 class tt_ClusterDescriptor {
-    friend class tt::umd::Cluster;
-    friend class tt::umd::TopologyDiscovery;
+    friend class Cluster;
+    friend class TopologyDiscovery;
 
 private:
     tt_ClusterDescriptor() = default;
@@ -93,7 +92,7 @@ protected:
 
     void verify_cluster_descriptor_info();
 
-    std::map<chip_id_t, tt::umd::HarvestingMasks> harvesting_masks_map = {};
+    std::map<chip_id_t, HarvestingMasks> harvesting_masks_map = {};
 
 public:
     /*
@@ -158,5 +157,7 @@ public:
     std::set<uint32_t> get_active_eth_channels(chip_id_t chip_id);
     std::set<uint32_t> get_idle_eth_channels(chip_id_t chip_id);
 
-    tt::umd::HarvestingMasks get_harvesting_masks(chip_id_t chip_id) const;
+    HarvestingMasks get_harvesting_masks(chip_id_t chip_id) const;
 };
+
+}  // namespace tt::umd

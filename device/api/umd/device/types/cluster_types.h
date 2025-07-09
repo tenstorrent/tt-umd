@@ -12,6 +12,8 @@
 
 #include "fmt/core.h"
 
+namespace tt::umd {
+
 enum tt_DevicePowerState { BUSY, SHORT_IDLE, LONG_IDLE };
 
 enum tt_MemBarFlag {
@@ -219,3 +221,5 @@ struct hugepage_mapping {
     size_t mapping_size = 0;
     uint64_t physical_address = 0;  // or IOVA, if IOMMU is enabled
 };
+
+}  // namespace tt::umd

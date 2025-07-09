@@ -628,7 +628,7 @@ void PCIDevice::unmap_for_dma(void *buffer, size_t size) {
         TT_THROW("Failed to unpin pages for DMA buffer: {}", strerror(errno));
     }
 
-    log_debug(
+    log_info(
         LogSiliconDriver,
         "Unpinning pages for DMA: virtual address {:#x} and size {:#x}",
         unpin_pages.in.virtual_address,

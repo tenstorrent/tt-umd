@@ -232,6 +232,7 @@ bool SysmemManager::pin_or_map_hugepages() {
                 tt_device_->get_pci_device()->map_hugepage_to_noc(mapping, actual_size);
             uint64_t expected_noc_address = pcie_base_ + (ch * hugepage_size);
 
+            log_info(LogSiliconDriver, "Mapped hugepage {:#x} to NOC address {:#x}", physical_address, noc_address);
             // Note that the truncated page is the final one, so there is no need to
             // give expected_noc_address special treatment for a subsequent page.
             if (noc_address != expected_noc_address) {
@@ -239,8 +240,6 @@ bool SysmemManager::pin_or_map_hugepages() {
                     LogSiliconDriver,
                     "NOC address of a hugepage does not match the expected address. Proceeding could lead to undefined "
                     "behavior");
-            } else {
-                log_info(LogSiliconDriver, "Mapped hugepage {:#x} to NOC address {:#x}", physical_address, noc_address);
             }
         } else {
             physical_address = tt_device_->get_pci_device()->map_for_hugepage(mapping, actual_size);

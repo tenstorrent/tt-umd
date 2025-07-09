@@ -38,7 +38,7 @@ static void guard_test_iommu() {
  * and measures the time it takes to map them through IOMMU. It prints out the time taken for each mapping
  * and the average time per page.
  */
-TEST(BenchmarkIOMMU, AllocateDifferentSizes) {
+TEST(BenchmarkIOMMU, MapDifferentSizes) {
     guard_test_iommu();
 
     static const auto page_size = sysconf(_SC_PAGESIZE);

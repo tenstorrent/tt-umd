@@ -102,6 +102,7 @@ private:
     // eth_core should be in physical (NOC0) coordinates.
     std::unique_ptr<RemoteChip> create_remote_chip(Chip* chip, tt_xy_pair eth_core, Chip* gateway_chip);
 
+    std::map<chip_id_t, std::unique_ptr<Chip>> chips_to_discover;
     std::map<chip_id_t, std::unique_ptr<Chip>> chips;
 
     std::unordered_map<uint64_t, chip_id_t> asic_id_to_chip_id;

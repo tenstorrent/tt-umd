@@ -47,6 +47,7 @@ bool SysmemManager::pin_or_map_sysmem_to_device() {
 SysmemManager::~SysmemManager() { unpin_or_unmap_sysmem(); }
 
 void SysmemManager::unpin_or_unmap_sysmem() {
+    // This will unmap the iommu buffer if it was mapped through kmd.
     sysmem_buffer_.reset();
     if (iommu_mapping != nullptr) {
         // This means we have initialized IOMMU mapping, and need to unmap it.
@@ -56,6 +57,11 @@ void SysmemManager::unpin_or_unmap_sysmem() {
     } else {
         for (const auto &hugepage_mapping : hugepage_mapping_per_channel) {
             if (hugepage_mapping.mapping) {
+                // This will unmap the hugepage if it was mapped through kmd.
+                if (tt_device_->get_pci_device()->is_mapping_buffer_to_noc_supported()) {
+                    tt_device_->get_pci_device()->unmap_for_dma(
+                        hugepage_mapping.mapping, hugepage_mapping.mapping_size);
+                }
                 munmap(hugepage_mapping.mapping, hugepage_mapping.mapping_size);
             }
         }

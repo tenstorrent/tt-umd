@@ -56,12 +56,12 @@ void SysmemManager::unpin_or_unmap_sysmem() {
         iommu_mapping = nullptr;
     } else {
         for (const auto &hugepage_mapping : hugepage_mapping_per_channel) {
-            if (hugepage_mapping.mapping) {
+            if (hugepage_mapping.physical_address &&
+                tt_device_->get_pci_device()->is_mapping_buffer_to_noc_supported()) {
                 // This will unmap the hugepage if it was mapped through kmd.
-                if (tt_device_->get_pci_device()->is_mapping_buffer_to_noc_supported()) {
-                    tt_device_->get_pci_device()->unmap_for_dma(
-                        hugepage_mapping.mapping, hugepage_mapping.mapping_size);
-                }
+                tt_device_->get_pci_device()->unmap_for_dma(hugepage_mapping.mapping, hugepage_mapping.mapping_size);
+            }
+            if (hugepage_mapping.mapping) {
                 munmap(hugepage_mapping.mapping, hugepage_mapping.mapping_size);
             }
         }

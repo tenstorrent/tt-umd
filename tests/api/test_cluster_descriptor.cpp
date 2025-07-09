@@ -332,3 +332,106 @@ TEST(ApiClusterDescriptorTest, VerifyEthConnections) {
         }
     }
 }
+
+/**
+ * This test is used to verify that we are running on some well known topologies.
+ * Since UMD can be run in custom topologies, this is mostly used for CI, to try and verify
+ * that we don't have problems on standard topologies. However, bugs could lead to T3K being recognizible as
+ * single N300 or something similar, but this should raise our confidence of standard topologies working as
+ * expected.
+ */
+TEST(ApiClusterDescriptorTest, VerifyStandardTopology) {
+    std::unique_ptr<tt_ClusterDescriptor> cluster_desc = tt::umd::Cluster::create_cluster_descriptor();
+
+    auto all_chips = cluster_desc->get_all_chips();
+
+    switch (all_chips.size()) {
+        // This covers N150, P100, P150.
+        case 1: {
+            auto chips_with_mmio = cluster_desc->get_chips_with_mmio();
+            EXPECT_EQ(chips_with_mmio.size(), 1);
+
+            auto eth_connections = cluster_desc->get_ethernet_connections();
+            EXPECT_EQ(eth_connections.size(), 0);
+
+            for (auto chip : all_chips) {
+                BoardType board_type = cluster_desc->get_board_type(chip);
+                EXPECT_TRUE(
+                    board_type == BoardType::N150 || board_type == BoardType::P100 || board_type == BoardType::P150)
+                    << "Unexpected board type for chip " << chip << ": " << static_cast<int>(board_type);
+            }
+            break;
+        }
+
+        // This covers N300, P300.
+        case 2: {
+            auto chips_with_mmio = cluster_desc->get_chips_with_mmio();
+            EXPECT_EQ(chips_with_mmio.size(), 1);
+
+            auto eth_connections = cluster_desc->get_ethernet_connections();
+            EXPECT_EQ(eth_connections.size(), 2);
+
+            for (auto chip : all_chips) {
+                BoardType board_type = cluster_desc->get_board_type(chip);
+                EXPECT_TRUE(board_type == BoardType::N300 || board_type == BoardType::P300)
+                    << "Unexpected board type for chip " << chip << ": " << static_cast<int>(board_type);
+            }
+            break;
+        }
+
+        // This covers T3K.
+        case 8: {
+            auto chips_with_mmio = cluster_desc->get_chips_with_mmio();
+            EXPECT_EQ(chips_with_mmio.size(), 4);
+
+            auto eth_connections = cluster_desc->get_ethernet_connections();
+            EXPECT_EQ(eth_connections.size(), 20);
+
+            for (auto chip : all_chips) {
+                BoardType board_type = cluster_desc->get_board_type(chip);
+                EXPECT_TRUE(board_type == BoardType::N300)
+                    << "Unexpected board type for chip " << chip << ": " << static_cast<int>(board_type);
+            }
+            break;
+        }
+
+            // This covers 6U galaxy.
+        case 32: {
+            auto chips_with_mmio = cluster_desc->get_chips_with_mmio();
+            EXPECT_EQ(chips_with_mmio.size(), 32);
+
+            // TODO: is this fixed for 6U
+            // auto eth_connections = cluster_desc->get_ethernet_connections();
+            // EXPECT_EQ(eth_connections.size(), 0);
+
+            for (auto chip : all_chips) {
+                BoardType board_type = cluster_desc->get_board_type(chip);
+                EXPECT_TRUE(board_type == BoardType::UBB)
+                    << "Unexpected board type for chip " << chip << ": " << static_cast<int>(board_type);
+            }
+            break;
+        }
+
+        // This covers 4U galaxy.
+        case 36: {
+            auto chips_with_mmio = cluster_desc->get_chips_with_mmio();
+            EXPECT_EQ(chips_with_mmio.size(), 4);
+
+            // TODO: is this fixed for 4U
+            // auto eth_connections = cluster_desc->get_ethernet_connections();
+            // EXPECT_EQ(eth_connections.size(), 0);
+
+            size_t count_n150 = 0;
+            for (auto chip : all_chips) {
+                BoardType board_type = cluster_desc->get_board_type(chip);
+                EXPECT_TRUE(board_type == BoardType::N150 || board_type == BoardType::GALAXY)
+                    << "Unexpected board type for chip " << chip << ": " << static_cast<int>(board_type);
+                if (board_type == BoardType::N150) {
+                    count_n150++;
+                }
+            }
+            EXPECT_EQ(count_n150, 4) << "Expected 4 N150 chips in 4U galaxy, found " << count_n150;
+            break;
+        }
+    }
+}

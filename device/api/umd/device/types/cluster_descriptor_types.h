@@ -194,6 +194,8 @@ enum class DramTrainingStatus : uint8_t {
 
 // TODO: To be removed once clients switch to namespace usage.
 using tt::umd::chip_id_t;
+using tt::umd::eth_coord_t;
+using tt::umd::ethernet_channel_t;
 
 namespace std {
 template <>

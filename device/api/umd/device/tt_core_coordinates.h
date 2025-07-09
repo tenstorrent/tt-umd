@@ -162,3 +162,7 @@ struct hash<tt::umd::CoreCoord> {
     }
 };
 }  // namespace std
+
+// TODO: To be removed once clients switch to namespace usage.
+// This uglyness is needed since there are forward declarations in tt_metal.
+#define CoreType tt::umd::CoreType

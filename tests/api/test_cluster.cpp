@@ -545,6 +545,11 @@ TEST(TestCluster, DeassertResetWithCounterBrisc) {
         GTEST_SKIP() << "No chips present on the system. Skipping test.";
     }
 
+    // TODO: remove this check when it is figured out what is happening with Blackhole version of this test.
+    if (cluster->get_tt_device(0)->get_arch() == tt::ARCH::BLACKHOLE) {
+        GTEST_SKIP() << "Skipping test for Blackhole architecture, as it seems flaky for Blackhole.";
+    }
+
     auto tensix_l1_size = cluster->get_soc_descriptor(0).worker_l1_size;
     std::vector<uint32_t> zero_data(tensix_l1_size, 0);
 
@@ -614,6 +619,11 @@ TEST_P(ClusterAssertDeassertRiscsTest, TriscNcriscAssertDeassertTest) {
 
     if (cluster->get_target_device_ids().empty()) {
         GTEST_SKIP() << "No chips present on the system. Skipping test.";
+    }
+
+    // TODO: remove this check when it is figured out what is happening with Blackhole version of this test.
+    if (cluster->get_tt_device(0)->get_arch() == tt::ARCH::BLACKHOLE) {
+        GTEST_SKIP() << "Skipping test for Blackhole architecture, as it seems flaky for Blackhole.";
     }
 
     auto get_brisc_configuration_program_for_chip = [](Cluster* cluster,

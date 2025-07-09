@@ -12,6 +12,91 @@
 
 #include "fmt/core.h"
 
+// TODO: To me moved inside tt::umd namespace once all clients switch to namespace usage.
+struct tt_device_params {
+    bool register_monitor = false;
+    bool enable_perf_scoreboard = false;
+    std::vector<std::string> vcd_dump_cores;
+    std::vector<std::string> plusargs;
+    bool init_device = true;
+    bool early_open_device = false;
+    int aiclk = 0;
+
+    // The command-line input for vcd_dump_cores can have the following format:
+    // {"*-2", "1-*", "*-*", "1-2"}
+    // '*' indicates we must dump all the cores in that dimension.
+    // This function takes the vector above and unrolles the coords with '*' in one or both dimensions.
+    std::vector<std::string> unroll_vcd_dump_cores(tt_xy_pair grid_size) const {
+        std::vector<std::string> unrolled_dump_core;
+        for (auto& dump_core : vcd_dump_cores) {
+            // If the input is a single *, then dump all cores.
+            if (dump_core == "*") {
+                for (size_t x = 0; x < grid_size.x; x++) {
+                    for (size_t y = 0; y < grid_size.y; y++) {
+                        std::string current_core_coord = fmt::format("{}-{}", x, y);
+                        if (std::find(
+                                std::begin(unrolled_dump_core), std::end(unrolled_dump_core), current_core_coord) ==
+                            std::end(unrolled_dump_core)) {
+                            unrolled_dump_core.push_back(current_core_coord);
+                        }
+                    }
+                }
+                continue;
+            }
+            // Each core coordinate must contain three characters: "core.x-core.y".
+            assert(dump_core.size() <= 5);
+            size_t delimiter_pos = dump_core.find('-');
+            assert(delimiter_pos != std::string::npos);  // y-dim should exist in core coord.
+
+            std::string core_dim_x = dump_core.substr(0, delimiter_pos);
+            size_t core_dim_y_start = delimiter_pos + 1;
+            std::string core_dim_y = dump_core.substr(core_dim_y_start, dump_core.length() - core_dim_y_start);
+
+            if (core_dim_x == "*" && core_dim_y == "*") {
+                for (size_t x = 0; x < grid_size.x; x++) {
+                    for (size_t y = 0; y < grid_size.y; y++) {
+                        std::string current_core_coord = fmt::format("{}-{}", x, y);
+                        if (std::find(
+                                std::begin(unrolled_dump_core), std::end(unrolled_dump_core), current_core_coord) ==
+                            std::end(unrolled_dump_core)) {
+                            unrolled_dump_core.push_back(current_core_coord);
+                        }
+                    }
+                }
+            } else if (core_dim_x == "*") {
+                for (size_t x = 0; x < grid_size.x; x++) {
+                    std::string current_core_coord = fmt::format("{}-{}", x, core_dim_y);
+                    if (std::find(std::begin(unrolled_dump_core), std::end(unrolled_dump_core), current_core_coord) ==
+                        std::end(unrolled_dump_core)) {
+                        unrolled_dump_core.push_back(current_core_coord);
+                    }
+                }
+            } else if (core_dim_y == "*") {
+                for (size_t y = 0; y < grid_size.y; y++) {
+                    std::string current_core_coord = fmt::format("{}-{}", core_dim_x, y);
+                    if (std::find(std::begin(unrolled_dump_core), std::end(unrolled_dump_core), current_core_coord) ==
+                        std::end(unrolled_dump_core)) {
+                        unrolled_dump_core.push_back(current_core_coord);
+                    }
+                }
+            } else {
+                unrolled_dump_core.push_back(dump_core);
+            }
+        }
+        return unrolled_dump_core;
+    }
+
+    std::vector<std::string> expand_plusargs() const {
+        std::vector<std::string> all_plusargs{
+            fmt::format("+enable_perf_scoreboard={}", enable_perf_scoreboard),
+            fmt::format("+register_monitor={}", register_monitor)};
+
+        all_plusargs.insert(all_plusargs.end(), plusargs.begin(), plusargs.end());
+
+        return all_plusargs;
+    }
+};
+
 namespace tt::umd {
 
 enum tt_DevicePowerState { BUSY, SHORT_IDLE, LONG_IDLE };
@@ -121,90 +206,6 @@ struct tt_version {
     std::string str() const { return fmt::format("{}.{}.{}", major, minor, patch); }
 };
 
-struct tt_device_params {
-    bool register_monitor = false;
-    bool enable_perf_scoreboard = false;
-    std::vector<std::string> vcd_dump_cores;
-    std::vector<std::string> plusargs;
-    bool init_device = true;
-    bool early_open_device = false;
-    int aiclk = 0;
-
-    // The command-line input for vcd_dump_cores can have the following format:
-    // {"*-2", "1-*", "*-*", "1-2"}
-    // '*' indicates we must dump all the cores in that dimension.
-    // This function takes the vector above and unrolles the coords with '*' in one or both dimensions.
-    std::vector<std::string> unroll_vcd_dump_cores(tt_xy_pair grid_size) const {
-        std::vector<std::string> unrolled_dump_core;
-        for (auto& dump_core : vcd_dump_cores) {
-            // If the input is a single *, then dump all cores.
-            if (dump_core == "*") {
-                for (size_t x = 0; x < grid_size.x; x++) {
-                    for (size_t y = 0; y < grid_size.y; y++) {
-                        std::string current_core_coord = fmt::format("{}-{}", x, y);
-                        if (std::find(
-                                std::begin(unrolled_dump_core), std::end(unrolled_dump_core), current_core_coord) ==
-                            std::end(unrolled_dump_core)) {
-                            unrolled_dump_core.push_back(current_core_coord);
-                        }
-                    }
-                }
-                continue;
-            }
-            // Each core coordinate must contain three characters: "core.x-core.y".
-            assert(dump_core.size() <= 5);
-            size_t delimiter_pos = dump_core.find('-');
-            assert(delimiter_pos != std::string::npos);  // y-dim should exist in core coord.
-
-            std::string core_dim_x = dump_core.substr(0, delimiter_pos);
-            size_t core_dim_y_start = delimiter_pos + 1;
-            std::string core_dim_y = dump_core.substr(core_dim_y_start, dump_core.length() - core_dim_y_start);
-
-            if (core_dim_x == "*" && core_dim_y == "*") {
-                for (size_t x = 0; x < grid_size.x; x++) {
-                    for (size_t y = 0; y < grid_size.y; y++) {
-                        std::string current_core_coord = fmt::format("{}-{}", x, y);
-                        if (std::find(
-                                std::begin(unrolled_dump_core), std::end(unrolled_dump_core), current_core_coord) ==
-                            std::end(unrolled_dump_core)) {
-                            unrolled_dump_core.push_back(current_core_coord);
-                        }
-                    }
-                }
-            } else if (core_dim_x == "*") {
-                for (size_t x = 0; x < grid_size.x; x++) {
-                    std::string current_core_coord = fmt::format("{}-{}", x, core_dim_y);
-                    if (std::find(std::begin(unrolled_dump_core), std::end(unrolled_dump_core), current_core_coord) ==
-                        std::end(unrolled_dump_core)) {
-                        unrolled_dump_core.push_back(current_core_coord);
-                    }
-                }
-            } else if (core_dim_y == "*") {
-                for (size_t y = 0; y < grid_size.y; y++) {
-                    std::string current_core_coord = fmt::format("{}-{}", core_dim_x, y);
-                    if (std::find(std::begin(unrolled_dump_core), std::end(unrolled_dump_core), current_core_coord) ==
-                        std::end(unrolled_dump_core)) {
-                        unrolled_dump_core.push_back(current_core_coord);
-                    }
-                }
-            } else {
-                unrolled_dump_core.push_back(dump_core);
-            }
-        }
-        return unrolled_dump_core;
-    }
-
-    std::vector<std::string> expand_plusargs() const {
-        std::vector<std::string> all_plusargs{
-            fmt::format("+enable_perf_scoreboard={}", enable_perf_scoreboard),
-            fmt::format("+register_monitor={}", register_monitor)};
-
-        all_plusargs.insert(all_plusargs.end(), plusargs.begin(), plusargs.end());
-
-        return all_plusargs;
-    }
-};
-
 constexpr inline bool operator==(const tt_version& a, const tt_version& b) {
     return a.major == b.major && a.minor == b.minor && a.patch == b.patch;
 }
@@ -223,3 +224,11 @@ struct hugepage_mapping {
 };
 
 }  // namespace tt::umd
+
+// TODO: To be removed once clients switch to namespace usage.
+namespace tt::umd {
+using tt_device_params = ::tt_device_params;
+}
+
+using tt::umd::barrier_address_params;
+using tt::umd::tt_version;

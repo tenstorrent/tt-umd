@@ -10,8 +10,6 @@
 
 #include "umd/device/tt_xy_pair.h"
 
-namespace tt::umd {
-
 // For documentation on Coordinate systems, lookup docs/coordinate_systems.md
 
 /*
@@ -37,6 +35,7 @@ enum class CoreType {
     COUNT,
 };
 
+namespace tt::umd {
 /*
  * CoordSystem is an enum class that represents all types of coordinate
  * systems that can be used to represent a core's location.
@@ -147,7 +146,11 @@ struct CoreCoord : public tt_xy_pair {
 
 // TODO: To be removed once clients switch to namespace usage.
 using tt::umd::CoordSystem;
-using tt::umd::CoreType;
+
+namespace tt::umd {
+// We can't define CoreType originally in the tt::umd namespace, due to a forward declaration in tt_metal.
+using CoreType = ::CoreType;
+}  // namespace tt::umd
 
 namespace std {
 template <>
@@ -162,7 +165,3 @@ struct hash<tt::umd::CoreCoord> {
     }
 };
 }  // namespace std
-
-// TODO: To be removed once clients switch to namespace usage.
-// This uglyness is needed since there are forward declarations in tt_metal.
-#define CoreType tt::umd::CoreType

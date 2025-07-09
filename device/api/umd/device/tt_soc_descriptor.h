@@ -214,4 +214,5 @@ private:
 }  // namespace tt::umd
 
 // TODO: To be removed once clients switch to namespace usage.
+using tt::umd::CoreDescriptor;
 using tt::umd::tt_SocDescriptor;

@@ -7,6 +7,8 @@
 #pragma once
 
 #include <string>
+// TODO: To be removed once this is fixed in tt_metal
+#include <deque>
 
 namespace tt::umd {
 

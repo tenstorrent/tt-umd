@@ -15,6 +15,21 @@
 #include "umd/device/semver.hpp"
 #include "umd/device/types/harvesting.h"
 
+// TODO: To be moved inside tt::umd namespace once all clients switch to namespace usage.
+enum BoardType : uint32_t {
+    E75,
+    E150,
+    E300,
+    N150,
+    N300,
+    P100,
+    P150,
+    P300,
+    GALAXY,
+    UBB,
+    UNKNOWN,
+};
+
 namespace tt::umd {
 
 // Small performant hash combiner taken from boost library.
@@ -40,20 +55,6 @@ struct eth_coord_t {
             cluster_id == other.cluster_id and x == other.x and y == other.y and rack == other.rack and
             shelf == other.shelf);
     }
-};
-
-enum BoardType : uint32_t {
-    E75,
-    E150,
-    E300,
-    N150,
-    N300,
-    P100,
-    P150,
-    P300,
-    GALAXY,
-    UBB,
-    UNKNOWN,
 };
 
 inline std::string board_type_to_string(const BoardType board_type) {
@@ -196,6 +197,10 @@ enum class DramTrainingStatus : uint8_t {
 using tt::umd::chip_id_t;
 using tt::umd::eth_coord_t;
 using tt::umd::ethernet_channel_t;
+
+namespace tt::umd {
+using BoardType = ::BoardType;
+}
 
 namespace std {
 template <>

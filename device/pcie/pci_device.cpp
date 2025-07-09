@@ -481,6 +481,13 @@ uint64_t PCIDevice::map_for_hugepage(void *buffer, size_t size) {
         return 0;
     }
 
+    log_info(
+        LogSiliconDriver,
+        "Pinning pages for Hugepage: virtual address {:#x} and size {:#x} pinned to physical address {:#x}",
+        pin_pages.in.virtual_address,
+        pin_pages.in.size,
+        pin_pages.out.physical_address);
+
     return pin_pages.out.physical_address;
 }
 
@@ -521,7 +528,7 @@ std::pair<uint64_t, uint64_t> PCIDevice::map_buffer_to_noc(void *buffer, size_t 
         TT_THROW("Failed to pin pages for DMA: {}", strerror(errno));
     }
 
-    log_debug(
+    log_info(
         LogSiliconDriver,
         "Pinning pages for DMA: virtual address {:#x} and size {:#x} pinned to physical address {:#x} and mapped to "
         "noc address {:#x}",
@@ -568,7 +575,7 @@ std::pair<uint64_t, uint64_t> PCIDevice::map_hugepage_to_noc(void *hugepage, siz
         TT_THROW("Failed to pin pages for DMA: {} {}", strerror(errno), pin.in.flags);
     }
 
-    log_debug(
+    log_info(
         LogSiliconDriver,
         "Pinning pages for Hugepage: virtual address {:#x} and size {:#x} pinned to physical address {:#x} and mapped "
         "to noc address {:#x}",
@@ -600,7 +607,7 @@ uint64_t PCIDevice::map_for_dma(void *buffer, size_t size) {
         TT_THROW("Failed to pin pages for DMA: {}", strerror(errno));
     }
 
-    log_debug(
+    log_info(
         LogSiliconDriver,
         "Pinning pages for DMA: virtual address {:#x} and size {:#x} pinned to physical address {:#x} without mapping "
         "to noc",

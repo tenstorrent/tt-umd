@@ -11,6 +11,7 @@
 #include <cstdlib>  // for std::getenv
 #include <filesystem>
 #include <iostream>
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -25,6 +26,8 @@
 #include "umd/device/tt_cluster_descriptor.h"
 #include "umd/device/tt_core_coordinates.h"
 #include "umd/device/tt_silicon_driver_common.hpp"
+#include "umd/device/types/arch.h"
+#include "umd/device/types/cluster_descriptor_types.h"
 #include "umd/device/wormhole_implementation.h"
 
 // TODO: obviously we need some other way to set this up
@@ -525,6 +528,8 @@ TEST(TestCluster, DeassertResetBrisc) {
                 cluster->get_soc_descriptor(chip_id).translate_coord_to(tensix_core, CoordSystem::VIRTUAL),
                 TensixSoftResetOptions::BRISC);
 
+            cluster->l1_membar(chip_id, {tensix_core});
+
             cluster->read_from_device(&readback, chip_id, tensix_core, a_variable_address, sizeof(readback));
 
             EXPECT_EQ(a_variable_value, readback)
@@ -611,6 +616,18 @@ TEST_P(ClusterAssertDeassertRiscsTest, TriscNcriscAssertDeassertTest) {
         GTEST_SKIP() << "No chips present on the system. Skipping test.";
     }
 
+    auto get_brisc_configuration_program_for_chip = [](Cluster* cluster,
+                                                       chip_id_t chip_id) -> std::optional<std::array<uint32_t, 14>> {
+        switch (cluster->get_cluster_description()->get_arch(chip_id)) {
+            case tt::ARCH::WORMHOLE_B0:
+                return std::make_optional(wh_brisc_configuration_program);
+            case tt::ARCH::BLACKHOLE:
+                return std::make_optional(bh_brisc_configuration_program);
+            default:
+                return std::nullopt;
+        }
+    };
+
     const auto& configurations_of_risc_cores = GetParam();
 
     constexpr uint64_t brisc_code_address = 0;
@@ -623,6 +640,12 @@ TEST_P(ClusterAssertDeassertRiscsTest, TriscNcriscAssertDeassertTest) {
 
     auto chip_ids = cluster->get_target_device_ids();
     for (auto& chip_id : chip_ids) {
+        auto brisc_configuration_program = get_brisc_configuration_program_for_chip(cluster.get(), chip_id);
+
+        if (!brisc_configuration_program) {
+            GTEST_SKIP() << "Unsupported architecture for deassert test.";
+        }
+
         const tt_SocDescriptor& soc_desc = cluster->get_soc_descriptor(chip_id);
 
         auto tensix_cores = cluster->get_soc_descriptor(chip_id).get_cores(CoreType::TENSIX);
@@ -640,8 +663,8 @@ TEST_P(ClusterAssertDeassertRiscsTest, TriscNcriscAssertDeassertTest) {
             cluster->write_to_device(zero_data.data(), zero_data.size() * sizeof(uint32_t), chip_id, tensix_core, 0x0);
 
             cluster->write_to_device(
-                brisc_configuration_program.data(),
-                brisc_configuration_program.size() * sizeof(uint32_t),
+                brisc_configuration_program.value().data(),
+                brisc_configuration_program.value().size() * sizeof(uint32_t),
                 chip_id,
                 tensix_core,
                 brisc_code_address);

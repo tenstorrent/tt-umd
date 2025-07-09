@@ -977,11 +977,11 @@ void Cluster::start_device(const tt_device_params& device_params) {
 }
 
 void Cluster::close_device() {
+    set_power_state(tt_DevicePowerState::LONG_IDLE);
+    broadcast_tensix_risc_reset_to_cluster(TENSIX_ASSERT_SOFT_RESET);
     for (auto chip_id : all_chip_ids_) {
         get_chip(chip_id)->close_device();
     }
-    set_power_state(tt_DevicePowerState::LONG_IDLE);
-    broadcast_tensix_risc_reset_to_cluster(TENSIX_ASSERT_SOFT_RESET);
 }
 
 std::uint32_t Cluster::get_num_host_channels(std::uint32_t device_id) {

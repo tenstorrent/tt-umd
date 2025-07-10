@@ -64,7 +64,6 @@ protected:
     std::map<chip_id_t, std::set<uint32_t>> idle_eth_channels = {};
     std::map<uint64_t, std::unordered_set<chip_id_t>> board_to_chips = {};
     std::unordered_map<chip_id_t, uint64_t> chip_to_board_id = {};
-    std::map<chip_id_t, uint64_t> chip_to_unique_id = {};
 
     // one-to-many chip connections
     struct Chip2ChipConnection {
@@ -91,6 +90,8 @@ protected:
     void add_chip_to_board(chip_id_t chip_id, uint64_t board_id);
 
     void fill_chips_grouped_by_closest_mmio();
+
+    void verify_cluster_descriptor_info();
 
     std::map<chip_id_t, tt::umd::HarvestingMasks> harvesting_masks_map = {};
 
@@ -125,7 +126,7 @@ public:
         get_ethernet_connections() const;
     // TODO: unify uint64_t with ChipUID
     const std::
-        unordered_map<chip_id_t, std::unordered_map<ethernet_channel_t, std::tuple<uint64_t, ethernet_channel_t>>>
+        unordered_map<chip_id_t, std::unordered_map<ethernet_channel_t, std::tuple<uint64_t, ethernet_channel_t>>> &
         get_ethernet_connections_to_remote_devices() const;
     const std::unordered_map<chip_id_t, chip_id_t> &get_chips_with_mmio() const;
     const std::unordered_set<chip_id_t> &get_all_chips() const;

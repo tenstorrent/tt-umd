@@ -19,10 +19,10 @@ TEST(ApiSysmemManager, BasicIO) {
 
         std::unique_ptr<TLBManager> tlb_manager = std::make_unique<TLBManager>(tt_device.get());
 
-        std::unique_ptr<SysmemManager> sysmem = std::make_unique<SysmemManager>(tlb_manager.get());
-
         // Initializes system memory with one channel.
-        sysmem->init_hugepage(1);
+        std::unique_ptr<SysmemManager> sysmem = std::make_unique<SysmemManager>(tlb_manager.get(), 1);
+
+        sysmem->pin_sysmem_to_device();
 
         // Simple write and read test.
         std::vector<uint32_t> data_write = {1, 2, 3, 4, 5, 6, 7, 8, 9, 10};

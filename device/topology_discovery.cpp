@@ -412,7 +412,7 @@ void TopologyDiscovery::fill_cluster_descriptor_info() {
     }
 
     for (const auto& [asic_id, chip_id] : asic_id_to_chip_id) {
-        cluster_desc->chip_to_unique_id.emplace(chip_id, asic_id);
+        cluster_desc->chip_unique_ids.emplace(chip_id, asic_id);
     }
 
     for (auto [ethernet_connection_logical, ethernet_connection_remote] : ethernet_connections) {
@@ -437,6 +437,8 @@ void TopologyDiscovery::fill_cluster_descriptor_info() {
     tt_ClusterDescriptor::merge_cluster_ids(*cluster_desc.get());
 
     cluster_desc->fill_chips_grouped_by_closest_mmio();
+
+    cluster_desc->verify_cluster_descriptor_info();
 }
 
 // If pci_target_devices is empty, we should take all the PCI devices found in the system.

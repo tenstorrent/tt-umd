@@ -64,7 +64,10 @@ static inline void perf_read_write(
     print_speed(direction_from_device, num_iterations * readback.size(), ns);
 }
 
-TEST(TestPerf, TLBDynamicDram) {
+/**
+ * Measure BW of IO to DRAM core using dynamically configured TLB.
+ */
+TEST(MicrobenchmarkTLB, TLBDynamicDram) {
     const std::vector<uint32_t> sizes = {
         1 * one_mb,
         2 * one_mb,
@@ -92,7 +95,10 @@ TEST(TestPerf, TLBDynamicDram) {
     }
 }
 
-TEST(TestPerf, TLBDynamicTensix) {
+/**
+ * Measure BW of IO to Tensix core using dynamically configured TLB.
+ */
+TEST(MicrobenchmarkTLB, TLBDynamicTensix) {
     const std::vector<uint32_t> sizes = {
         1 * one_mb,
     };
@@ -112,7 +118,10 @@ TEST(TestPerf, TLBDynamicTensix) {
     }
 }
 
-TEST(TestPerf, TLBStaticTensix) {
+/**
+ * Measure BW of IO to Tensix core using statically configured TLB.
+ */
+TEST(MicrobenchmarkTLB, TLBStaticTensix) {
     const size_t tlb_1m_index = 0;
 
     std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
@@ -137,7 +146,10 @@ TEST(TestPerf, TLBStaticTensix) {
     }
 }
 
-TEST(TestPerf, TLBStaticDram) {
+/**
+ * Measure BW of IO to DRAM core using dynamically configured TLB.
+ */
+TEST(MicrobenchmarkTLB, TLBStaticDram) {
     const std::vector<uint32_t> sizes = {
         16 * one_mb,
         32 * one_mb,

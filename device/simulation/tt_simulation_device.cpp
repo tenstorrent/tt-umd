@@ -98,11 +98,12 @@ void tt_SimulationDevice::start_device() {
     nng_free(buf_ptr, buf_size);
 }
 
-void tt_SimulationDevice::send_tensix_risc_reset(tt_xy_pair core, const TensixSoftResetOptions& soft_resets) {
+void tt_SimulationDevice::send_tensix_risc_reset(tt::umd::CoreCoord core, const TensixSoftResetOptions& soft_resets) {
+    tt_xy_pair translate_core = soc_descriptor_.translate_coord_to(core, CoordSystem::TRANSLATED);
     if (soft_resets == TENSIX_ASSERT_SOFT_RESET) {
         log_debug(tt::LogEmulationDriver, "Sending assert_risc_reset signal..");
         auto wr_buffer =
-            create_flatbuffer(DEVICE_COMMAND_ALL_TENSIX_RESET_ASSERT, std::vector<uint32_t>(1, 0), core, 0);
+            create_flatbuffer(DEVICE_COMMAND_ALL_TENSIX_RESET_ASSERT, std::vector<uint32_t>(1, 0), translate_core, 0);
         uint8_t* wr_buffer_ptr = wr_buffer.GetBufferPointer();
         size_t wr_buffer_size = wr_buffer.GetSize();
 
@@ -111,7 +112,7 @@ void tt_SimulationDevice::send_tensix_risc_reset(tt_xy_pair core, const TensixSo
     } else if (soft_resets == TENSIX_DEASSERT_SOFT_RESET) {
         log_debug(tt::LogEmulationDriver, "Sending 'deassert_risc_reset' signal..");
         auto wr_buffer =
-            create_flatbuffer(DEVICE_COMMAND_ALL_TENSIX_RESET_DEASSERT, std::vector<uint32_t>(1, 0), core, 0);
+            create_flatbuffer(DEVICE_COMMAND_ALL_TENSIX_RESET_DEASSERT, std::vector<uint32_t>(1, 0), translate_core, 0);
         uint8_t* wr_buffer_ptr = wr_buffer.GetBufferPointer();
         size_t wr_buffer_size = wr_buffer.GetSize();
 
@@ -122,7 +123,7 @@ void tt_SimulationDevice::send_tensix_risc_reset(tt_xy_pair core, const TensixSo
 }
 
 void tt_SimulationDevice::send_tensix_risc_reset(const TensixSoftResetOptions& soft_resets) {
-    send_tensix_risc_reset({0, 0}, soft_resets);
+    send_tensix_risc_reset(soc_descriptor_.get_coord_at({0, 0}, CoordSystem::TRANSLATED), soft_resets);
 }
 
 void tt_SimulationDevice::close_device() {
@@ -137,16 +138,11 @@ void tt_SimulationDevice::set_remote_transfer_ethernet_cores(const std::unordere
 void tt_SimulationDevice::set_remote_transfer_ethernet_cores(const std::set<uint32_t>& channel) {}
 
 // Runtime Functions
-void tt_SimulationDevice::write_to_device(tt_xy_pair core, const void* src, uint64_t l1_dest, uint32_t size) {
-    log_debug(
-        tt::LogEmulationDriver,
-        "Device writing {} bytes to l1_dest {} in core ({}, {})",
-        size,
-        l1_dest,
-        core.x,
-        core.y);
+void tt_SimulationDevice::write_to_device(tt::umd::CoreCoord core, const void* src, uint64_t l1_dest, uint32_t size) {
+    log_debug(tt::LogEmulationDriver, "Device writing {} bytes to l1_dest {} in core {}", size, l1_dest, core.str());
+    tt_xy_pair translate_core = soc_descriptor_.translate_coord_to(core, CoordSystem::TRANSLATED);
     std::vector<std::uint32_t> data((uint32_t*)src, (uint32_t*)src + size / sizeof(uint32_t));
-    auto wr_buffer = create_flatbuffer(DEVICE_COMMAND_WRITE, data, core, l1_dest);
+    auto wr_buffer = create_flatbuffer(DEVICE_COMMAND_WRITE, data, translate_core, l1_dest);
     uint8_t* wr_buffer_ptr = wr_buffer.GetBufferPointer();
     size_t wr_buffer_size = wr_buffer.GetSize();
 
@@ -154,11 +150,12 @@ void tt_SimulationDevice::write_to_device(tt_xy_pair core, const void* src, uint
     host.send_to_device(wr_buffer_ptr, wr_buffer_size);
 }
 
-void tt_SimulationDevice::read_from_device(tt_xy_pair core, void* dest, uint64_t l1_src, uint32_t size) {
+void tt_SimulationDevice::read_from_device(tt::umd::CoreCoord core, void* dest, uint64_t l1_src, uint32_t size) {
     void* rd_resp;
 
     // Send read request
-    auto rd_req_buf = create_flatbuffer(DEVICE_COMMAND_READ, {0}, core, l1_src, size);
+    tt_xy_pair translate_core = soc_descriptor_.translate_coord_to(core, CoordSystem::TRANSLATED);
+    auto rd_req_buf = create_flatbuffer(DEVICE_COMMAND_READ, {0}, translate_core, l1_src, size);
     host.send_to_device(rd_req_buf.GetBufferPointer(), rd_req_buf.GetSize());
 
     // Get read response
@@ -174,19 +171,20 @@ void tt_SimulationDevice::read_from_device(tt_xy_pair core, void* dest, uint64_t
     nng_free(rd_resp, rd_rsp_sz);
 }
 
-void tt_SimulationDevice::write_to_device_reg(tt_xy_pair core, const void* src, uint64_t reg_dest, uint32_t size) {
+void tt_SimulationDevice::write_to_device_reg(
+    tt::umd::CoreCoord core, const void* src, uint64_t reg_dest, uint32_t size) {
     write_to_device(core, src, reg_dest, size);
 }
 
-void tt_SimulationDevice::read_from_device_reg(tt_xy_pair core, void* dest, uint64_t reg_src, uint32_t size) {
+void tt_SimulationDevice::read_from_device_reg(tt::umd::CoreCoord core, void* dest, uint64_t reg_src, uint32_t size) {
     read_from_device(core, dest, reg_src, size);
 }
 
-void tt_SimulationDevice::dma_write_to_device(const void* src, size_t size, tt_xy_pair core, uint64_t addr) {
+void tt_SimulationDevice::dma_write_to_device(const void* src, size_t size, tt::umd::CoreCoord core, uint64_t addr) {
     write_to_device(core, src, addr, size);
 }
 
-void tt_SimulationDevice::dma_read_from_device(void* dst, size_t size, tt_xy_pair core, uint64_t addr) {
+void tt_SimulationDevice::dma_read_from_device(void* dst, size_t size, tt::umd::CoreCoord core, uint64_t addr) {
     read_from_device(core, dst, addr, size);
 }
 

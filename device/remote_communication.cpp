@@ -123,7 +123,7 @@ void RemoteCommunication::read_non_mmio(
     auto lock = local_chip_->acquire_mutex(
         MutexType::NON_MMIO, local_chip_->get_tt_device()->get_pci_device()->get_device_num());
 
-    const tt_xy_pair remote_transfer_ethernet_core = local_chip_->get_remote_transfer_ethernet_core();
+    const CoreCoord remote_transfer_ethernet_core = local_chip_->get_remote_transfer_ethernet_core();
 
     local_chip_->read_from_device(
         remote_transfer_ethernet_core,
@@ -369,7 +369,7 @@ void RemoteCommunication::write_to_non_mmio(
     auto lock = local_chip_->acquire_mutex(
         MutexType::NON_MMIO, local_chip_->get_tt_device()->get_pci_device()->get_device_num());
 
-    tt_xy_pair remote_transfer_ethernet_core = local_chip_->get_remote_transfer_ethernet_core();
+    CoreCoord remote_transfer_ethernet_core = local_chip_->get_remote_transfer_ethernet_core();
 
     erisc_command.resize(sizeof(routing_cmd_t) / DATA_WORD_SIZE);
     new_cmd = (routing_cmd_t*)&erisc_command[0];
@@ -552,20 +552,20 @@ void RemoteCommunication::wait_for_non_mmio_flush() {
                 std::vector<uint32_t>(eth_interface_params.remote_update_ptr_size_bytes * 2 / sizeof(uint32_t));
 
             // wait for all queues to be empty.
-            for (tt_xy_pair& xy : local_chip_->get_remote_transfer_ethernet_cores()) {
+            for (CoreCoord& core : local_chip_->get_remote_transfer_ethernet_cores()) {
                 do {
                     local_chip_->read_from_device(
-                        xy,
+                        core,
                         erisc_q_ptrs.data(),
                         eth_interface_params.request_cmd_queue_base + eth_interface_params.cmd_counters_size_bytes,
                         eth_interface_params.remote_update_ptr_size_bytes * 2);
                 } while (erisc_q_ptrs[0] != erisc_q_ptrs[4]);
             }
             // wait for all write responses to come back.
-            for (tt_xy_pair& xy : local_chip_->get_remote_transfer_ethernet_cores()) {
+            for (CoreCoord& core : local_chip_->get_remote_transfer_ethernet_cores()) {
                 do {
                     local_chip_->read_from_device(
-                        xy, erisc_txn_counters.data(), eth_interface_params.request_cmd_queue_base, 8);
+                        core, erisc_txn_counters.data(), eth_interface_params.request_cmd_queue_base, 8);
                 } while (erisc_txn_counters[0] != erisc_txn_counters[1]);
             }
         }

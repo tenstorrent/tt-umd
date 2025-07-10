@@ -32,17 +32,17 @@ void MockChip::write_to_sysmem(uint16_t channel, const void* src, uint64_t sysme
 
 void MockChip::read_from_sysmem(uint16_t channel, void* dest, uint64_t sysmem_src, uint32_t size) {}
 
-void MockChip::write_to_device(tt_xy_pair core, const void* src, uint64_t l1_dest, uint32_t size) {}
+void MockChip::write_to_device(CoreCoord core, const void* src, uint64_t l1_dest, uint32_t size) {}
 
-void MockChip::read_from_device(tt_xy_pair core, void* dest, uint64_t l1_src, uint32_t size) {}
+void MockChip::read_from_device(CoreCoord core, void* dest, uint64_t l1_src, uint32_t size) {}
 
-void MockChip::write_to_device_reg(tt_xy_pair core, const void* src, uint64_t reg_dest, uint32_t size) {}
+void MockChip::write_to_device_reg(CoreCoord core, const void* src, uint64_t reg_dest, uint32_t size) {}
 
-void MockChip::read_from_device_reg(tt_xy_pair core, void* dest, uint64_t reg_src, uint32_t size) {}
+void MockChip::read_from_device_reg(CoreCoord core, void* dest, uint64_t reg_src, uint32_t size) {}
 
-void MockChip::dma_write_to_device(const void* src, size_t size, tt_xy_pair core, uint64_t addr) {}
+void MockChip::dma_write_to_device(const void* src, size_t size, CoreCoord core, uint64_t addr) {}
 
-void MockChip::dma_read_from_device(void* dst, size_t size, tt_xy_pair core, uint64_t addr) {}
+void MockChip::dma_read_from_device(void* dst, size_t size, CoreCoord core, uint64_t addr) {}
 
 std::function<void(uint32_t, uint32_t, const uint8_t*)> MockChip::get_fast_pcie_static_tlb_write_callable() {
     return [](uint32_t, uint32_t, const uint8_t*) {
@@ -63,9 +63,9 @@ int MockChip::arc_msg(
 
 void MockChip::wait_for_non_mmio_flush() {}
 
-void MockChip::l1_membar(const std::unordered_set<tt::umd::CoreCoord>& cores) {}
+void MockChip::l1_membar(const std::unordered_set<CoreCoord>& cores) {}
 
-void MockChip::dram_membar(const std::unordered_set<tt::umd::CoreCoord>& cores) {}
+void MockChip::dram_membar(const std::unordered_set<CoreCoord>& cores) {}
 
 void MockChip::dram_membar(const std::unordered_set<uint32_t>& channels) {}
 

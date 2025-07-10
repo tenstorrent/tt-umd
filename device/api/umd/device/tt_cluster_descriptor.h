@@ -64,7 +64,6 @@ protected:
     std::map<chip_id_t, std::set<uint32_t>> idle_eth_channels = {};
     std::map<uint64_t, std::unordered_set<chip_id_t>> board_to_chips = {};
     std::unordered_map<chip_id_t, uint64_t> chip_to_board_id = {};
-    std::map<chip_id_t, uint64_t> chip_to_unique_id = {};
 
     // one-to-many chip connections
     struct Chip2ChipConnection {
@@ -91,6 +90,8 @@ protected:
     void add_chip_to_board(chip_id_t chip_id, uint64_t board_id);
 
     void fill_chips_grouped_by_closest_mmio();
+
+    void verify_cluster_descriptor_info();
 
     std::map<chip_id_t, tt::umd::HarvestingMasks> harvesting_masks_map = {};
 

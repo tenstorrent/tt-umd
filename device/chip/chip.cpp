@@ -62,9 +62,58 @@ void Chip::wait_chip_to_be_ready() {
     wait_dram_cores_training();
 }
 
-void Chip::wait_eth_cores_training(const uint32_t timeout_ms) {}
+void Chip::wait_eth_cores_training(const uint32_t timeout_ms) {
+    const std::vector<CoreCoord> eth_cores =
+        get_soc_descriptor().get_cores(CoreType::ETH, umd_use_noc1 ? CoordSystem::NOC1 : CoordSystem::PHYSICAL);
+    TTDevice* tt_device = get_tt_device();
+    for (const CoreCoord& eth_core : eth_cores) {
+        tt_device->wait_eth_core_training(eth_core, timeout_ms);
+    }
+}
 
-void Chip::wait_dram_cores_training(const uint32_t timeout_ms) {}
+void Chip::wait_dram_cores_training(const uint32_t timeout_ms) {
+    TTDevice* tt_device = get_tt_device();
+
+    auto start = std::chrono::system_clock::now();
+    while (true) {
+        std::vector<DramTrainingStatus> dram_training_status = tt_device->get_dram_training_status();
+
+        if (dram_training_status.empty()) {
+            // DRAM training status is not available, breaking the wait for DRAM training.
+            break;
+        }
+
+        bool all_dram_channels_trained = true;
+        const uint32_t chip_num_dram_channels =
+            std::min(dram_training_status.size(), get_soc_descriptor().get_dram_cores().size());
+        const uint32_t dram_harvesting_mask = get_soc_descriptor().harvesting_masks.dram_harvesting_mask;
+        for (uint32_t dram_channel = 0; dram_channel < chip_num_dram_channels; dram_channel++) {
+            // Skip the check for harvested channels.
+            if (dram_harvesting_mask & (1 << dram_channel)) {
+                continue;
+            }
+
+            // Check if there is an error in training for the channel.
+            if (dram_training_status[dram_channel] == DramTrainingStatus::FAIL) {
+                throw std::runtime_error("DRAM training failed");
+            }
+
+            // Verify whether the channel is trained.
+            all_dram_channels_trained &= (dram_training_status[dram_channel] == DramTrainingStatus::SUCCESS);
+        }
+
+        if (all_dram_channels_trained) {
+            break;
+        }
+
+        auto end = std::chrono::system_clock::now();
+        auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
+        if (duration.count() > timeout_ms) {
+            throw std::runtime_error(fmt::format("DRAM training timed out after {} ms", timeout_ms));
+            break;
+        }
+    }
+}
 
 void Chip::enable_ethernet_queue(int timeout_s) {
     TT_ASSERT(

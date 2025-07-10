@@ -118,6 +118,29 @@ static PciDeviceInfo read_device_info(int fd) {
     return PciDeviceInfo{info.out.vendor_id, info.out.device_id, info.out.pci_domain, bus, dev, fn};
 }
 
+/*static*/ void reset_device() {
+    for (int n : PCIDevice::enumerate_devices()) {
+        int fd = open(fmt::format("/dev/tenstorrent/{}", n).c_str(), O_RDWR | O_CLOEXEC);
+        if (fd == -1) {
+            continue;
+        }
+
+        try {
+            tenstorrent_get_driver_reset_info reset_info{{0x0000000100000008ULL}, {0x0000000000000000ULL}};
+            reset_info.in.buffer = sizeof(reset_info.out);
+            if (ioctl(fd, TENSTORRENT_IOCTL_RESET_DEVICE, &reset_info) == -1) {
+                std::cout << "fail\n";
+                TT_THROW("TENSTORRENT_IOCTL_GET_DRIVER_INFO failed");
+            }
+
+            std::cout << std::hex << reset_info.in.buffer << " " << reset_info.out.buffer << "\n";
+        } catch (...) {
+        }
+
+        close(fd);
+    }
+}
+
 tt::ARCH PciDeviceInfo::get_arch() const {
     if (this->device_id == WH_PCIE_DEVICE_ID) {
         return tt::ARCH::WORMHOLE_B0;
@@ -182,9 +205,9 @@ PCIDevice::PCIDevice(int pci_device_number) :
         TT_THROW("Running with IOMMU support requires KMD version {} or newer", kmd_ver_for_iommu.to_string());
     }
 
-    tenstorrent_get_driver_info driver_info{};
-    driver_info.in.output_size_bytes = sizeof(driver_info.out);
-    if (ioctl(pci_device_file_desc, TENSTORRENT_IOCTL_GET_DRIVER_INFO, &driver_info) == -1) {
+    tenstorrent_get_driver_info reset_info{};
+    reset_info.in.output_size_bytes = sizeof(reset_info.out);
+    if (ioctl(pci_device_file_desc, TENSTORRENT_IOCTL_GET_DRIVER_INFO, &reset_info) == -1) {
         TT_THROW("TENSTORRENT_IOCTL_GET_DRIVER_INFO failed");
     }
 
@@ -193,7 +216,7 @@ PCIDevice::PCIDevice(int pci_device_number) :
         "Opened PCI device {}; KMD version: {}; API: {}; IOMMU: {}",
         pci_device_num,
         kmd_version.to_string(),
-        driver_info.out.driver_version,
+        reset_info.out.driver_version,
         iommu_enabled ? "enabled" : "disabled");
 
     TT_ASSERT(arch != tt::ARCH::WORMHOLE_B0 || revision == 0x01, "Wormhole B0 must have revision 0x01");

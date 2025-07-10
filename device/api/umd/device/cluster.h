@@ -297,6 +297,12 @@ public:
         const CoreCoord core,
         const TensixSoftResetOptions& soft_resets = TENSIX_ASSERT_SOFT_RESET);
 
+    /**
+     * Perform warm reset.
+     * It is architecture dependant. Need to add more details here!
+     */
+    void warm_reset();
+
     //---------- IO functions for Tensix cores, including DRAM.
 
     /**

@@ -19,8 +19,9 @@
 
 using namespace tt::umd;
 
-const chip_id_t chip = 0;
-const uint64_t one_mb = 1 << 20;
+constexpr chip_id_t chip = 0;
+constexpr uint64_t one_mb = 1 << 20;
+constexpr uint32_t NUM_ITERATIONS = 100;
 
 static void guard_test_iommu() {
     std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
@@ -30,6 +31,29 @@ static void guard_test_iommu() {
     if (!PCIDevice(pci_device_ids[0]).is_iommu_enabled()) {
         GTEST_SKIP() << "Skipping test since IOMMU is not enabled on the system.";
     }
+}
+
+void print_results(std::vector<uint64_t>& map_times, std::vector<uint64_t>& unmap_times, uint64_t mapping_size) {
+    sort(map_times.begin(), map_times.end());
+    sort(unmap_times.begin(), unmap_times.end());
+
+    uint64_t map_time_median = map_times[NUM_ITERATIONS / 2];
+    uint64_t unmap_time_median = unmap_times[NUM_ITERATIONS / 2];
+
+    uint64_t map_time_average = std::accumulate(map_times.begin(), map_times.end(), 0ULL) / NUM_ITERATIONS;
+    uint64_t unmap_time_average = std::accumulate(unmap_times.begin(), unmap_times.end(), 0ULL) / NUM_ITERATIONS;
+
+    const uint64_t num_pages = mapping_size / sysconf(_SC_PAGESIZE);
+    double map_per_page = (double)map_time_average / num_pages;
+    double unmap_per_page = (double)unmap_time_average / num_pages;
+
+    std::cout << "Mapped " << num_pages << " pages (" << mapping_size << " bytes, " << ((double)mapping_size / one_mb)
+              << " MB). Median map time: " << map_time_median << " ns, Average map time: " << map_time_average
+              << " ns, Map time per page: " << map_per_page << " ns." << std::endl;
+    std::cout << "Unmapped " << num_pages << " pages (" << mapping_size << " bytes, " << ((double)mapping_size / one_mb)
+              << " MB). Median unmap time: " << unmap_time_median << " ns, Average unmap time: " << unmap_time_average
+              << " ns, Unmap time per page: " << unmap_per_page << " ns." << std::endl;
+    std::cout << "--------------------------------------------------------" << std::endl;
 }
 
 /**
@@ -55,26 +79,138 @@ TEST(BenchmarkIOMMU, MapDifferentSizes) {
         .num_host_mem_ch_per_mmio_device = 0,
     });
 
-    SysmemManager* sysmem_manager = cluster->get_chip(chip)->get_sysmem_manager();
+    PCIDevice* pci_device = cluster->get_chip(chip)->get_tt_device()->get_pci_device().get();
 
     for (uint64_t size = page_size; size <= mapping_size_limit; size *= 2) {
-        void* mapping = mmap(nullptr, size, PROT_READ | PROT_WRITE, MAP_ANONYMOUS | MAP_PRIVATE | MAP_POPULATE, -1, 0);
+        std::vector<uint64_t> map_times;
+        std::vector<uint64_t> unmap_times;
+
+        for (int i = 0; i < NUM_ITERATIONS; i++) {
+            void* mapping =
+                mmap(nullptr, size, PROT_READ | PROT_WRITE, MAP_ANONYMOUS | MAP_PRIVATE | MAP_POPULATE, -1, 0);
+            auto now = std::chrono::steady_clock::now();
+            uint64_t iova = pci_device->map_for_dma(mapping, size);
+            auto end = std::chrono::steady_clock::now();
+            map_times.push_back(std::chrono::duration_cast<std::chrono::nanoseconds>(end - now).count());
+
+            now = std::chrono::steady_clock::now();
+            pci_device->unmap_for_dma(mapping, size);
+            end = std::chrono::steady_clock::now();
+            unmap_times.push_back(std::chrono::duration_cast<std::chrono::nanoseconds>(end - now).count());
+
+            munmap(mapping, size);
+        }
+
+        print_results(map_times, unmap_times, size);
+    }
+}
+
+/**
+ * Measure the time it takes to map hugepages using IOMMU.
+ * These should be different from regular buffers because it's guaranteed that hugepages are contiguous in memory.
+ * Since contiguous memory has less entries in the IOMMU page table, we expect the mapping to be faster.
+ */
+TEST(BenchmarkIOMMU, MapHugepages2M) {
+    guard_test_iommu();
+
+    static const auto page_size = sysconf(_SC_PAGESIZE);
+
+    const std::vector<uint64_t> mapping_sizes;
+
+    std::cout << "Running IOMMU benchmark for different mapping sizes." << std::endl;
+    std::cout << "--------------------------------------------------------" << std::endl;
+    std::cout << "Page size: " << page_size << " bytes." << std::endl;
+
+    const uint64_t mapping_size = 2 * (1ULL << 20);  // 1 MB
+
+    std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>(tt::umd::ClusterOptions{
+        .num_host_mem_ch_per_mmio_device = 0,
+    });
+
+    PCIDevice* pci_device = cluster->get_chip(chip)->get_tt_device()->get_pci_device().get();
+
+    std::vector<uint64_t> map_times;
+    std::vector<uint64_t> unmap_times;
+
+    for (int i = 0; i < NUM_ITERATIONS; i++) {
+        void* mapping = mmap(
+            0,
+            mapping_size,
+            PROT_READ | PROT_WRITE,
+            MAP_PRIVATE | MAP_ANONYMOUS | MAP_HUGETLB | (21 << MAP_HUGE_SHIFT),
+            -1,
+            0);
+
         if (mapping == MAP_FAILED) {
-            std::cerr << "Failed to allocate mapping of size " << size << " bytes." << std::endl;
-            continue;
+            GTEST_SKIP() << "Mapping 2MB hugepage failed. Skipping test.";
         }
 
         auto now = std::chrono::steady_clock::now();
-        std::unique_ptr<SysmemBuffer> sysmem_buffer = sysmem_manager->map_sysmem_buffer(mapping, size);
+        uint64_t iova = pci_device->map_for_dma(mapping, mapping_size);
         auto end = std::chrono::steady_clock::now();
-        auto ns = std::chrono::duration_cast<std::chrono::nanoseconds>(end - now).count();
+        map_times.push_back(std::chrono::duration_cast<std::chrono::nanoseconds>(end - now).count());
 
-        const uint64_t num_pages = size / page_size;
-        double map_per_page = ns / num_pages;
+        now = std::chrono::steady_clock::now();
+        pci_device->unmap_for_dma(mapping, mapping_size);
+        end = std::chrono::steady_clock::now();
+        unmap_times.push_back(std::chrono::duration_cast<std::chrono::nanoseconds>(end - now).count());
 
-        std::cout << "Mapped " << num_pages << " pages (" << size << " bytes, " << ((double)size / one_mb) << " MB) in "
-                  << ns << " ns. Mapping time per page: " << map_per_page << " ns." << std::endl;
-
-        munmap(mapping, size);
+        munmap(mapping, mapping_size);
     }
+
+    print_results(map_times, unmap_times, mapping_size);
+}
+
+/**
+ * Measure the time it takes to map hugepages using IOMMU.
+ * These should be different from regular buffers because it's guaranteed that hugepages are contiguous in memory.
+ * Since contiguous memory has less entries in the IOMMU page table, we expect the mapping to be faster.
+ */
+TEST(BenchmarkIOMMU, MapHugepages1G) {
+    guard_test_iommu();
+
+    static const auto page_size = sysconf(_SC_PAGESIZE);
+
+    const std::vector<uint64_t> mapping_sizes;
+
+    std::cout << "Running IOMMU benchmark for different mapping sizes." << std::endl;
+    std::cout << "--------------------------------------------------------" << std::endl;
+    std::cout << "Page size: " << page_size << " bytes." << std::endl;
+
+    const uint64_t mapping_size = 1ULL << 30;  // 1 GB
+
+    std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>(tt::umd::ClusterOptions{
+        .num_host_mem_ch_per_mmio_device = 0,
+    });
+
+    PCIDevice* pci_device = cluster->get_chip(chip)->get_tt_device()->get_pci_device().get();
+
+    std::vector<uint64_t> map_times;
+    std::vector<uint64_t> unmap_times;
+
+    for (int i = 0; i < NUM_ITERATIONS; i++) {
+        void* mapping = mmap(
+            0,
+            mapping_size,
+            PROT_READ | PROT_WRITE,
+            MAP_PRIVATE | MAP_ANONYMOUS | MAP_HUGETLB | (30 << MAP_HUGE_SHIFT),
+            -1,
+            0);
+        if (mapping == MAP_FAILED) {
+            GTEST_SKIP() << "Mapping 1GB hugepage failed. Skipping test.";
+        }
+        auto now = std::chrono::steady_clock::now();
+        uint64_t iova = pci_device->map_for_dma(mapping, mapping_size);
+        auto end = std::chrono::steady_clock::now();
+        map_times.push_back(std::chrono::duration_cast<std::chrono::nanoseconds>(end - now).count());
+
+        now = std::chrono::steady_clock::now();
+        pci_device->unmap_for_dma(mapping, mapping_size);
+        end = std::chrono::steady_clock::now();
+        unmap_times.push_back(std::chrono::duration_cast<std::chrono::nanoseconds>(end - now).count());
+
+        munmap(mapping, mapping_size);
+    }
+
+    print_results(map_times, unmap_times, mapping_size);
 }

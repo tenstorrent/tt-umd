@@ -26,8 +26,8 @@ enum class LinkingBoardType {
 };
 
 const std::unordered_map<tt::ARCH, std::vector<std::uint16_t>> ubb_bus_ids = {
-    {tt::ARCH::WORMHOLE_B0, {0x00, 0x40, 0xC0, 0x80}},
-    {tt::ARCH::BLACKHOLE, {0xC0, 0x80, 0x00, 0x40}},
+    {tt::ARCH::WORMHOLE_B0, {0xC0, 0x80, 0x00, 0x40}},
+    {tt::ARCH::BLACKHOLE, {0x00, 0x40, 0xC0, 0x80}},
 };
 
 const std::unordered_map<ConnectorType, LinkingBoardType> linking_board_types = {

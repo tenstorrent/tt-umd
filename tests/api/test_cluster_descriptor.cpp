@@ -14,6 +14,16 @@
 
 using namespace tt::umd;
 
+int count_connections(const std::unordered_map<
+                      chip_id_t,
+                      std::unordered_map<ethernet_channel_t, std::tuple<chip_id_t, ethernet_channel_t>>>& connections) {
+    size_t count = 0;
+    for (const auto& [_, channels] : connections) {
+        count += channels.size();
+    }
+    return count;
+}
+
 TEST(ApiClusterDescriptorTest, DetectArch) {
     std::unique_ptr<tt_ClusterDescriptor> cluster_desc = tt::umd::Cluster::create_cluster_descriptor();
 
@@ -230,18 +240,6 @@ TEST(ApiClusterDescriptorTest, ConstrainedTopology) {
     std::unique_ptr<tt_ClusterDescriptor> cluster_desc = tt_ClusterDescriptor::create_from_yaml(
         test_utils::GetAbsPath("tests/api/cluster_descriptor_examples/wormhole_4xN300_mesh.yaml"));
 
-    // Lambda which counts number of items in the ethernet connections map.
-    auto count_connections =
-        [](const std::unordered_map<
-            chip_id_t,
-            std::unordered_map<ethernet_channel_t, std::tuple<chip_id_t, ethernet_channel_t>>>& connections) {
-            size_t count = 0;
-            for (const auto& [_, channels] : connections) {
-                count += channels.size();
-            }
-            return count;
-        };
-
     // Lambda which counts of unique chip links.
     auto count_unique_chip_connections =
         [](const std::unordered_map<
@@ -352,7 +350,7 @@ TEST(ApiClusterDescriptorTest, VerifyStandardTopology) {
             EXPECT_EQ(chips_with_mmio.size(), 1);
 
             auto eth_connections = cluster_desc->get_ethernet_connections();
-            EXPECT_EQ(eth_connections.size(), 0);
+            EXPECT_EQ(count_connections(eth_connections), 0);
 
             for (auto chip : all_chips) {
                 BoardType board_type = cluster_desc->get_board_type(chip);
@@ -369,7 +367,7 @@ TEST(ApiClusterDescriptorTest, VerifyStandardTopology) {
             EXPECT_EQ(chips_with_mmio.size(), 1);
 
             auto eth_connections = cluster_desc->get_ethernet_connections();
-            EXPECT_EQ(eth_connections.size(), 2);
+            EXPECT_EQ(count_connections(eth_connections), 4);
 
             for (auto chip : all_chips) {
                 BoardType board_type = cluster_desc->get_board_type(chip);
@@ -385,7 +383,7 @@ TEST(ApiClusterDescriptorTest, VerifyStandardTopology) {
             EXPECT_EQ(chips_with_mmio.size(), 4);
 
             auto eth_connections = cluster_desc->get_ethernet_connections();
-            EXPECT_EQ(eth_connections.size(), 20);
+            EXPECT_EQ(count_connections(eth_connections), 40);
 
             for (auto chip : all_chips) {
                 BoardType board_type = cluster_desc->get_board_type(chip);
@@ -402,7 +400,7 @@ TEST(ApiClusterDescriptorTest, VerifyStandardTopology) {
 
             // TODO: is this fixed for 6U
             // auto eth_connections = cluster_desc->get_ethernet_connections();
-            // EXPECT_EQ(eth_connections.size(), 0);
+            // EXPECT_EQ(count_connections(eth_connections), 0);
 
             for (auto chip : all_chips) {
                 BoardType board_type = cluster_desc->get_board_type(chip);
@@ -419,7 +417,7 @@ TEST(ApiClusterDescriptorTest, VerifyStandardTopology) {
 
             // TODO: is this fixed for 4U
             // auto eth_connections = cluster_desc->get_ethernet_connections();
-            // EXPECT_EQ(eth_connections.size(), 0);
+            // EXPECT_EQ(count_connections(eth_connections), 0);
 
             size_t count_n150 = 0;
             for (auto chip : all_chips) {

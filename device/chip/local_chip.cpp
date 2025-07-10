@@ -686,4 +686,7 @@ void LocalChip::wait_for_aiclk_value(tt_DevicePowerState power_state, const uint
 int LocalChip::get_clock() { return tt_device_->get_clock(); }
 
 int LocalChip::get_numa_node() { return tt_device_->get_pci_device()->get_numa_node(); }
+
+void LocalChip::warm_reset() {}
+
 }  // namespace tt::umd

@@ -72,6 +72,8 @@ public:
     virtual void set_tensix_risc_reset(CoreCoord core, const TensixSoftResetOptions& selected_riscs);
     virtual void unset_tensix_risc_reset(CoreCoord core, const TensixSoftResetOptions& selected_riscs);
 
+    virtual void warm_reset(){};  // for now it's empty, will be pure virtual
+
     virtual void set_power_state(tt_DevicePowerState state) = 0;
     virtual int get_clock() = 0;
     virtual int get_numa_node() = 0;

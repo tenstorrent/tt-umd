@@ -422,6 +422,8 @@ void Cluster::assert_risc_reset_at_core(
     get_chip(chip)->send_tensix_risc_reset(core, soft_resets);
 }
 
+void Cluster::warm_reset() {}
+
 tt_ClusterDescriptor* Cluster::get_cluster_description() { return cluster_desc.get(); }
 
 std::function<void(uint32_t, uint32_t, const uint8_t*)> Cluster::get_fast_pcie_static_tlb_write_callable(

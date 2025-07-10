@@ -614,4 +614,7 @@ void LocalChip::set_power_state(tt_DevicePowerState state) {
 int LocalChip::get_clock() { return tt_device_->get_clock(); }
 
 int LocalChip::get_numa_node() { return tt_device_->get_pci_device()->get_numa_node(); }
+
+void LocalChip::warm_reset() {}
+
 }  // namespace tt::umd

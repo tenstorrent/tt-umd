@@ -479,6 +479,16 @@ TEST(TestCluster, TestClusterAICLKControl) {
 
 // This test uses the machine instructions from the header file assembly_programs_for_tests.hpp. How to generate
 // this program is explained in the GENERATE_ASSEMBLY_FOR_TESTS.md file.
+TEST(TestCluster, WarmReset) {
+    std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
+
+    if (cluster->get_target_device_ids().empty()) {
+        GTEST_SKIP() << "No chips present on the system. Skipping test.";
+    }
+}
+
+// This test uses the machine instructions from the header file assembly_programs_for_tests.hpp. How to generate
+// this program is explained in the GENERATE_ASSEMBLY_FOR_TESTS.md file.
 TEST(TestCluster, DeassertResetBrisc) {
     std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
 

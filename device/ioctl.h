@@ -10,6 +10,7 @@
 #ifndef TTDRIVER_IOCTL_H_INCLUDED
 #define TTDRIVER_IOCTL_H_INCLUDED
 
+#include <asm-generic/int-ll64.h>
 #include <linux/types.h>
 #include <linux/ioctl.h>
 
@@ -102,6 +103,13 @@ struct tenstorrent_allocate_dma_buf_out {
 	__u64 reserved1[2];
 };
 
+struct tenstorrent_reset_device_in {
+	__u64 buffer;
+};
+
+struct tenstorrent_reset_device_out {
+	__u64 buffer;
+};
 struct tenstorrent_allocate_dma_buf {
 	struct tenstorrent_allocate_dma_buf_in in;
 	struct tenstorrent_allocate_dma_buf_out out;
@@ -130,6 +138,10 @@ struct tenstorrent_get_driver_info_out {
 struct tenstorrent_get_driver_info {
 	struct tenstorrent_get_driver_info_in in;
 	struct tenstorrent_get_driver_info_out out;
+};
+struct tenstorrent_get_driver_reset_info {
+	struct tenstorrent_reset_device_in in;
+	struct tenstorrent_reset_device_out out;
 };
 
 // tenstorrent_reset_device_in.flags

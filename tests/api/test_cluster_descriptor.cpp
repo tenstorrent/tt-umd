@@ -393,7 +393,7 @@ TEST(ApiClusterDescriptorTest, VerifyStandardTopology) {
             break;
         }
 
-            // This covers 6U galaxy.
+        // This covers 6U galaxy.
         case 32: {
             auto chips_with_mmio = cluster_desc->get_chips_with_mmio();
             EXPECT_EQ(chips_with_mmio.size(), 32);
@@ -415,9 +415,8 @@ TEST(ApiClusterDescriptorTest, VerifyStandardTopology) {
             auto chips_with_mmio = cluster_desc->get_chips_with_mmio();
             EXPECT_EQ(chips_with_mmio.size(), 4);
 
-            // TODO: is this fixed for 4U
-            // auto eth_connections = cluster_desc->get_ethernet_connections();
-            // EXPECT_EQ(count_connections(eth_connections), 0);
+            auto eth_connections = cluster_desc->get_ethernet_connections();
+            EXPECT_EQ(count_connections(eth_connections), 432);
 
             size_t count_n150 = 0;
             for (auto chip : all_chips) {

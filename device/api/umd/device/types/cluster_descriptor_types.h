@@ -38,6 +38,22 @@ struct eth_coord_t {
             cluster_id == other.cluster_id and x == other.x and y == other.y and rack == other.rack and
             shelf == other.shelf);
     }
+
+    constexpr bool operator<(const eth_coord_t &other) const noexcept {
+        if (cluster_id != other.cluster_id) {
+            return cluster_id < other.cluster_id;
+        }
+        if (x != other.x) {
+            return x < other.x;
+        }
+        if (y != other.y) {
+            return y < other.y;
+        }
+        if (rack != other.rack) {
+            return rack < other.rack;
+        }
+        return shelf < other.shelf;
+    }
 };
 
 enum BoardType : uint32_t {

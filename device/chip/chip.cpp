@@ -7,6 +7,7 @@
 #include "umd/device/chip/chip.h"
 
 #include <cstdint>
+#include <tt-logger/tt-logger.hpp>
 
 #include "assert.hpp"
 #include "umd/device/architecture_implementation.h"
@@ -235,6 +236,34 @@ tt_xy_pair Chip::translate_chip_coord_to_translated(const CoreCoord core) const 
         }
     } else {
         return soc_descriptor_.translate_coord_to(core, umd_use_noc1 ? CoordSystem::NOC1 : CoordSystem::TRANSLATED);
+    }
+}
+
+void Chip::wait_for_aiclk_value(TTDevice* tt_device, tt_DevicePowerState power_state, const uint32_t timeout_ms) {
+    auto start = std::chrono::system_clock::now();
+    uint32_t target_aiclk = 0;
+    if (power_state == tt_DevicePowerState::BUSY) {
+        target_aiclk = tt_device->get_max_clock_freq();
+    } else if (power_state == tt_DevicePowerState::LONG_IDLE) {
+        target_aiclk = tt_device->get_min_clock_freq();
+    }
+    uint32_t aiclk = tt_device->get_clock();
+    while (aiclk != target_aiclk) {
+        auto end = std::chrono::system_clock::now();
+        auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
+        if (duration.count() > timeout_ms) {
+            log_warning(
+                LogSiliconDriver,
+                "Waiting for AICLK value to settle failed on timeout after {}. Expected to see {}, last value "
+                "observed {}. This can be due to possible overheating of the chip or other issues. ASIC temperature: "
+                "{}",
+                timeout_ms,
+                target_aiclk,
+                aiclk,
+                tt_device->get_asic_temperature());
+            return;
+        }
+        aiclk = tt_device->get_clock();
     }
 }
 

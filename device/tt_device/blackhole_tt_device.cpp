@@ -265,4 +265,8 @@ void BlackholeTTDevice::wait_eth_core_training(const tt_xy_pair eth_core, const 
     }
 }
 
+double BlackholeTTDevice::get_asic_temperature() {
+    return (double)telemetry->read_entry(blackhole::TAG_ASIC_TEMPERATURE) / 65536.0f;
+}
+
 }  // namespace tt::umd

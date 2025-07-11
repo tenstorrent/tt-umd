@@ -383,4 +383,8 @@ void WormholeTTDevice::wait_eth_core_training(const tt_xy_pair eth_core, const u
     }
 }
 
+double WormholeTTDevice::get_asic_temperature() {
+    return (telemetry->read_entry(wormhole::TAG_ASIC_TEMPERATURE) & 0xFFFF) / 16.0;
+}
+
 }  // namespace tt::umd

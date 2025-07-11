@@ -477,14 +477,50 @@ TEST(TestCluster, TestClusterAICLKControl) {
     }
 }
 
-// This test uses the machine instructions from the header file assembly_programs_for_tests.hpp. How to generate
-// this program is explained in the GENERATE_ASSEMBLY_FOR_TESTS.md file.
 TEST(TestCluster, WarmReset) {
     std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
 
     if (cluster->get_target_device_ids().empty()) {
         GTEST_SKIP() << "No chips present on the system. Skipping test.";
     }
+
+    auto tensix_l1_size = cluster->get_soc_descriptor(0).worker_l1_size;
+
+    std::vector<uint8_t> zero_data(tensix_l1_size, 0);
+
+    auto chip_ids = cluster->get_target_device_ids();
+    for (auto& chip_id : chip_ids) {
+        const tt_SocDescriptor& soc_desc = cluster->get_soc_descriptor(chip_id);
+        auto tensix_cores = cluster->get_soc_descriptor(chip_id).get_cores(CoreType::TENSIX);
+
+        for (const CoreCoord& tensix_core : tensix_cores) {
+            auto chip = cluster->get_chip(chip_id);
+
+            TensixSoftResetOptions select_all_tensix_riscv_cores{TENSIX_ASSERT_SOFT_RESET};
+
+            // Set all riscs to reset state.
+            chip->set_tensix_risc_reset(
+                cluster->get_soc_descriptor(chip_id).translate_coord_to(tensix_core, CoordSystem::VIRTUAL),
+                select_all_tensix_riscv_cores);
+
+            cluster->l1_membar(chip_id, {tensix_core});
+
+            // Zero out L1.
+            cluster->write_to_device(zero_data.data(), zero_data.size(), chip_id, tensix_core, 0);
+
+            cluster->l1_membar(chip_id, {tensix_core});
+
+            // Deassert reset and intentionally crash all riscs
+            chip->unset_tensix_risc_reset(
+                cluster->get_soc_descriptor(chip_id).translate_coord_to(tensix_core, CoordSystem::VIRTUAL),
+                select_all_tensix_riscv_cores);
+        }
+    }
+
+    // perform warm reset
+    cluster->warm_reset();
+
+    // cluster->bh_warm_reset();
 }
 
 // This test uses the machine instructions from the header file assembly_programs_for_tests.hpp. How to generate

@@ -45,6 +45,8 @@ struct DmaBuffer {
     uint64_t completion_pa = 0;
 };
 
+enum class TenstorrentResetDevice : uint32_t { RESTORE_STATE = 0, RESET_PCIE_LINK, CONFIG_WRITE };
+
 class PCIDevice {
     const std::string device_path;   // Path to character device: /dev/tenstorrent/N
     const int pci_device_num;        // N in /dev/tenstorrent/N
@@ -172,6 +174,16 @@ public:
      * @param mapping_type Type of TLB mapping to allocate (UC or WC).
      */
     std::unique_ptr<TlbHandle> allocate_tlb(const size_t tlb_size, const TlbMapping tlb_mapping = TlbMapping::UC);
+
+    /**
+     * Read command byte.
+     */
+    uint8_t read_command_byte();
+
+    /**
+     * Reset device via ioctl.
+     */
+    static void reset_devices(TenstorrentResetDevice flag);
 
 public:
     // TODO: we can and should make all of these private.

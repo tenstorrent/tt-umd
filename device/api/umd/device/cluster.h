@@ -303,6 +303,18 @@ public:
      */
     void warm_reset();
 
+    /**
+     * Perform warm reset.
+     * It is architecture dependant. Need to add more details here!
+     */
+    void bh_warm_reset();
+
+    /**
+     * Perform warm reset.
+     * It is architecture dependant. Need to add more details here!
+     */
+    void wh_warm_reset();
+
     //---------- IO functions for Tensix cores, including DRAM.
 
     /**
@@ -632,6 +644,8 @@ private:
     // Broadcast
     void broadcast_tensix_risc_reset_to_cluster(const TensixSoftResetOptions& soft_resets);
     void deassert_resets_and_set_power_state();
+    int get_clock(int logical_device_id);
+    uint64_t check_refclk(chip_id_t chip);
 
     // Communication Functions
     void ethernet_broadcast_write(

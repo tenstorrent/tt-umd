@@ -266,6 +266,9 @@ void BlackholeTTDevice::wait_eth_core_training(const tt_xy_pair eth_core, const 
 }
 
 double BlackholeTTDevice::get_asic_temperature() {
+    // Data stored in telemetry has temperature of ASIC stored in a way that high 16 bits
+    // have integer part and lower 16 bits have fractional part.
+    // It needs to be divided by 65536 to get temperature in Celsius.
     return (double)telemetry->read_entry(blackhole::TAG_ASIC_TEMPERATURE) / 65536.0f;
 }
 

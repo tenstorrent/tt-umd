@@ -233,9 +233,9 @@ void TTDevice::read_from_device(void *mem_ptr, tt_xy_pair core, uint64_t addr, u
     }
 }
 
-void TTDevice::write_to_device(void *mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size) {
+void TTDevice::write_to_device(const void *mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size) {
     auto lock = lock_manager.acquire_mutex(MutexType::TT_DEVICE_IO, get_pci_device()->get_device_num());
-    uint8_t *buffer_addr = static_cast<uint8_t *>(mem_ptr);
+    uint8_t *buffer_addr = (uint8_t *)(uintptr_t)(mem_ptr);
     const uint32_t tlb_index = get_architecture_implementation()->get_small_read_write_tlb();
 
     while (size > 0) {
@@ -326,12 +326,14 @@ dynamic_tlb TTDevice::set_dynamic_tlb(
     log_debug(
         LogSiliconDriver,
         "set_dynamic_tlb() with tlb_index: {} tlb_index_offset: {} dynamic_tlb_size: {}MB tlb_base: 0x{:x} "
-        "tlb_cfg_reg: 0x{:x}",
+        "tlb_cfg_reg: 0x{:x} to core ({},{})",
         tlb_index,
         tlb_config.index_offset,
         tlb_config.size / (1024 * 1024),
         tlb_base,
-        tlb_cfg_reg);
+        tlb_cfg_reg,
+        end.x,
+        end.y);
     write_tlb_reg(tlb_cfg_reg, tlb_data.first, tlb_data.second, TLB_CFG_REG_SIZE_BYTES);
 
     return {tlb_base + local_address, tlb_config.size - local_address};
@@ -387,5 +389,13 @@ void TTDevice::wait_for_non_mmio_flush() {}
 bool TTDevice::is_remote() { return is_remote_tt_device; }
 
 BoardType TTDevice::get_board_type() { return get_board_type_from_board_id(get_board_id()); }
+
+semver_t TTDevice::fw_version_from_telemetry(const uint32_t telemetry_data) const {
+    // The telemetry data is a 32-bit value where the higher 16 bits are the major value,
+    // lower 16 bits are the minor value.
+    uint16_t major = (telemetry_data >> 24) & 0xFF;
+    uint16_t minor = (telemetry_data >> 16) & 0xFF;
+    return semver_t(major, minor, 0);
+}
 
 }  // namespace tt::umd

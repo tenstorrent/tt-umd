@@ -85,6 +85,13 @@ struct ClusterOptions {
      */
     std::unordered_set<chip_id_t> target_devices = {};
     /**
+     * If set, Cluster will target only boards that have the IDs of the chips specified in this set.
+     * If not set, all discovered boards will be used. This can only be used with SILICON chip type.
+     * Corner case of setting this is if we have multiple chips visible over PCIE on same boards. If at least one
+     * of the PCIE chips on certain board is specified, UMD will take all chips from the board.
+     */
+    std::unordered_set<chip_id_t> pci_target_devices = {};
+    /**
      * If not passed, topology discovery will be ran and tt_ClusterDescriptor will be constructed. If passed, and chip
      * type is SILICON, the constructor will throw if cluster_descriptor configuration shows chips which don't exist on
      * the system.
@@ -121,7 +128,8 @@ public:
      * soc descriptor yaml file passed to the constructor. If no soc descriptor is passed, the function will create a
      * cluster descriptor object based on the devices connected to the system.
      */
-    static std::unique_ptr<tt_ClusterDescriptor> create_cluster_descriptor(std::string sdesc_path = "");
+    static std::unique_ptr<tt_ClusterDescriptor> create_cluster_descriptor(
+        std::string sdesc_path = "", std::unordered_set<chip_id_t> pci_target_devices = {});
 
     /**
      * Get cluster descriptor object being used. This object contains topology information about the cluster.
@@ -636,6 +644,7 @@ private:
     std::unordered_map<chip_id_t, std::vector<std::vector<int>>>& get_ethernet_broadcast_headers(
         const std::set<chip_id_t>& chips_to_exclude);
     // Test functions
+    void verify_fw_bundle_version();
     void verify_eth_fw();
     void verify_sw_fw_versions(int device_id, std::uint32_t sw_version, std::vector<std::uint32_t>& fw_versions);
 
@@ -661,20 +670,12 @@ private:
         tt_ClusterDescriptor* cluster_desc,
         bool perform_harvesting,
         HarvestingMasks& simulated_harvesting_masks);
-    uint32_t get_tensix_harvesting_mask(
-        chip_id_t chip_id, tt_ClusterDescriptor* cluster_desc, HarvestingMasks& simulated_harvesting_masks);
     void construct_cluster(const uint32_t& num_host_mem_ch_per_mmio_device, const ChipType& chip_type);
-    tt_xy_pair translate_to_api_coords(const chip_id_t chip, const tt::umd::CoreCoord core_coord) const;
-    // Most of the old APIs accept virtual coordinates, but we communicate with the device through translated
-    // coordinates. This is an internal helper function, until we switch the API to accept translated coordinates.
-    tt_xy_pair translate_chip_coord_virtual_to_translated(const chip_id_t chip_id, const tt_xy_pair core) const;
 
     static std::unique_ptr<tt_ClusterDescriptor> create_cluster_descriptor(
         const std::unordered_map<chip_id_t, std::unique_ptr<tt::umd::Chip>>& chips);
 
-    static void ubb_eth_connections(
-        const std::unordered_map<chip_id_t, std::unique_ptr<tt::umd::Chip>>& chips,
-        std::unique_ptr<tt_ClusterDescriptor>& cluster_desc);
+    static void verify_cluster_options(const ClusterOptions& options);
 
     // State variables
     std::set<chip_id_t> all_chip_ids_ = {};

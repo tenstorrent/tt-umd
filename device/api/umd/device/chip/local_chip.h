@@ -21,18 +21,21 @@ public:
 
     LocalChip(std::unique_ptr<TTDevice> tt_device);
 
+    ~LocalChip();
+
     bool is_mmio_capable() const override;
 
     void start_device() override;
     void close_device() override;
 
+    TTDevice* get_tt_device() override;
     SysmemManager* get_sysmem_manager() override;
     TLBManager* get_tlb_manager() override;
 
     void set_remote_transfer_ethernet_cores(const std::unordered_set<CoreCoord>& cores) override;
     void set_remote_transfer_ethernet_cores(const std::set<uint32_t>& channels) override;
     // TODO: Figure out if this should remain public or used another way.
-    tt_xy_pair get_remote_transfer_ethernet_core();
+    CoreCoord get_remote_transfer_ethernet_core();
     void update_active_eth_core_idx();
     int get_active_eth_core_idx();
     std::vector<CoreCoord> get_remote_transfer_ethernet_cores();
@@ -42,13 +45,13 @@ public:
     void write_to_sysmem(uint16_t channel, const void* src, uint64_t sysmem_dest, uint32_t size) override;
     void read_from_sysmem(uint16_t channel, void* dest, uint64_t sysmem_src, uint32_t size) override;
 
-    void write_to_device(tt_xy_pair core, const void* src, uint64_t l1_dest, uint32_t size) override;
-    void read_from_device(tt_xy_pair core, void* dest, uint64_t l1_src, uint32_t size) override;
-    void write_to_device_reg(tt_xy_pair core, const void* src, uint64_t reg_dest, uint32_t size) override;
-    void read_from_device_reg(tt_xy_pair core, void* dest, uint64_t reg_src, uint32_t size) override;
+    void write_to_device(CoreCoord core, const void* src, uint64_t l1_dest, uint32_t size) override;
+    void read_from_device(CoreCoord core, void* dest, uint64_t l1_src, uint32_t size) override;
+    void write_to_device_reg(CoreCoord core, const void* src, uint64_t reg_dest, uint32_t size) override;
+    void read_from_device_reg(CoreCoord core, void* dest, uint64_t reg_src, uint32_t size) override;
 
-    void dma_write_to_device(const void* src, size_t size, tt_xy_pair core, uint64_t addr) override;
-    void dma_read_from_device(void* dst, size_t size, tt_xy_pair core, uint64_t addr) override;
+    void dma_write_to_device(const void* src, size_t size, CoreCoord core, uint64_t addr) override;
+    void dma_read_from_device(void* dst, size_t size, CoreCoord core, uint64_t addr) override;
 
     std::function<void(uint32_t, uint32_t, const uint8_t*)> get_fast_pcie_static_tlb_write_callable() override;
 
@@ -59,8 +62,8 @@ public:
     void set_flush_non_mmio(bool flush_non_mmio);
     bool get_flush_non_mmio() const;
 
-    void l1_membar(const std::unordered_set<tt::umd::CoreCoord>& cores = {}) override;
-    void dram_membar(const std::unordered_set<tt::umd::CoreCoord>& cores = {}) override;
+    void l1_membar(const std::unordered_set<CoreCoord>& cores = {}) override;
+    void dram_membar(const std::unordered_set<CoreCoord>& cores = {}) override;
     void dram_membar(const std::unordered_set<uint32_t>& channels = {}) override;
 
     void deassert_risc_resets() override;
@@ -82,12 +85,10 @@ private:
     int active_eth_core_idx = 0;
     bool flush_non_mmio_ = false;
 
-    void initialize_local_chip(int num_host_mem_channels = 0);
+    void initialize_local_chip();
     void initialize_tlb_manager();
     void initialize_default_chip_mutexes();
     void initialize_membars();
-
-    tt_xy_pair translate_chip_coord_virtual_to_translated(const tt_xy_pair core) const;
 
     void check_pcie_device_initialized();
     int test_setup_interface();
@@ -99,9 +100,6 @@ private:
 
     void wait_for_aiclk_value(tt_DevicePowerState power_state, const uint32_t timeout_ms = 5000);
 
-protected:
-    void wait_eth_cores_training(const uint32_t timeout_ms = 60000) override;
-
-    void wait_dram_cores_training(const uint32_t timeout_ms = 60000) override;
+    std::unique_ptr<TTDevice> tt_device_ = nullptr;
 };
 }  // namespace tt::umd

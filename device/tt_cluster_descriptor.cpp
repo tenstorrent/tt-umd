@@ -13,21 +13,23 @@
 #include <tt-logger/tt-logger.hpp>
 
 #include "api/umd/device/blackhole_implementation.h"
+#include "api/umd/device/types/cluster_descriptor_types.h"
 #include "api/umd/device/wormhole_implementation.h"
 #include "assert.hpp"
 #include "disjoint_set.hpp"
 
 using namespace tt;
+using namespace tt::umd;
 
 bool tt_ClusterDescriptor::ethernet_core_has_active_ethernet_link(
     chip_id_t local_chip, ethernet_channel_t local_ethernet_channel) const {
     return (this->ethernet_connections.find(local_chip) != this->ethernet_connections.end() &&
             this->ethernet_connections.at(local_chip).find(local_ethernet_channel) !=
                 this->ethernet_connections.at(local_chip).end()) ||
-           (this->ethernet_connections_to_remote_mmio_devices.find(local_chip) !=
-                this->ethernet_connections_to_remote_mmio_devices.end() &&
-            this->ethernet_connections_to_remote_mmio_devices.at(local_chip).find(local_ethernet_channel) !=
-                this->ethernet_connections_to_remote_mmio_devices.at(local_chip).end());
+           (this->ethernet_connections_to_remote_devices.find(local_chip) !=
+                this->ethernet_connections_to_remote_devices.end() &&
+            this->ethernet_connections_to_remote_devices.at(local_chip).find(local_ethernet_channel) !=
+                this->ethernet_connections_to_remote_devices.at(local_chip).end());
 }
 
 std::tuple<chip_id_t, ethernet_channel_t> tt_ClusterDescriptor::get_chip_and_channel_of_remote_ethernet_core(
@@ -413,6 +415,8 @@ std::unique_ptr<tt_ClusterDescriptor> tt_ClusterDescriptor::create_from_yaml(
 
     desc->fill_chips_grouped_by_closest_mmio();
 
+    desc->verify_cluster_descriptor_info();
+
     return desc;
 }
 
@@ -491,9 +495,7 @@ std::unique_ptr<tt_ClusterDescriptor> tt_ClusterDescriptor::create_constrained_c
     desc->galaxy_shelves_exit_chip_coords_per_y_dim = full_cluster_desc->galaxy_shelves_exit_chip_coords_per_y_dim;
     desc->galaxy_racks_exit_chip_coords_per_x_dim = full_cluster_desc->galaxy_racks_exit_chip_coords_per_x_dim;
 
-    desc->dram_harvesting_masks = filter_chip_collection(full_cluster_desc->dram_harvesting_masks, target_chip_ids);
-    desc->eth_harvesting_masks = filter_chip_collection(full_cluster_desc->eth_harvesting_masks, target_chip_ids);
-    desc->pcie_harvesting_masks = filter_chip_collection(full_cluster_desc->pcie_harvesting_masks, target_chip_ids);
+    desc->harvesting_masks_map = filter_chip_collection(full_cluster_desc->harvesting_masks_map, target_chip_ids);
 
     // Write explicitly filters for more complex structures.
     for (const auto &[chip_id, eth_connections] : full_cluster_desc->ethernet_connections) {
@@ -567,6 +569,8 @@ std::unique_ptr<tt_ClusterDescriptor> tt_ClusterDescriptor::create_mock_cluster(
     }
     desc->fill_chips_grouped_by_closest_mmio();
 
+    desc->verify_cluster_descriptor_info();
+
     return desc;
 }
 
@@ -576,9 +580,10 @@ void tt_ClusterDescriptor::load_ethernet_connections_from_connectivity_descripto
 
     // Preload idle eth channels.
     for (const auto &chip : desc.all_chips) {
-        int num_harvested_channels = desc.eth_harvesting_masks.empty()
-                                         ? 0
-                                         : CoordinateManager::get_num_harvested(desc.eth_harvesting_masks.at(chip));
+        int num_harvested_channels =
+            desc.harvesting_masks_map.empty()
+                ? 0
+                : CoordinateManager::get_num_harvested(desc.harvesting_masks_map.at(chip).eth_harvesting_mask);
         int num_channels =
             tt::umd::architecture_implementation::create(desc.chip_arch.at(chip))->get_num_eth_channels() -
             num_harvested_channels;
@@ -651,6 +656,25 @@ void tt_ClusterDescriptor::load_ethernet_connections_from_connectivity_descripto
                 }
                 log_debug(LogSiliconDriver, "\t\t{}", row_chips.str());
             }
+        }
+    }
+
+    if (yaml["ethernet_connections_to_remote_devices"].IsDefined()) {
+        for (YAML::Node &connected_endpoints :
+             yaml["ethernet_connections_to_remote_devices"].as<std::vector<YAML::Node>>()) {
+            TT_ASSERT(connected_endpoints.IsSequence(), "Invalid YAML");
+
+            std::vector<YAML::Node> endpoints = connected_endpoints.as<std::vector<YAML::Node>>();
+            TT_ASSERT(
+                endpoints.size() == 2,
+                "Remote ethernet connections in YAML should always contatin information on connected endpoints and "
+                "channels");
+
+            chip_id_t chip_0 = endpoints.at(0)["chip"].as<chip_id_t>();
+            int channel_0 = endpoints.at(0)["chan"].as<int>();
+            uint64_t chip_1 = endpoints.at(1)["remote_chip_id"].as<uint64_t>();
+            int channel_1 = endpoints.at(1)["chan"].as<int>();
+            desc.ethernet_connections_to_remote_devices[chip_0][channel_0] = {chip_1, channel_1};
         }
     }
 }
@@ -854,8 +878,8 @@ void tt_ClusterDescriptor::load_chips_from_connectivity_descriptor(YAML::Node &y
             chip_location.shelf);
     }
 
-    if (yaml["boardtype"]) {
-        for (const auto &chip_board_type : yaml["boardtype"].as<std::map<int, std::string>>()) {
+    if (yaml["chip_to_boardtype"]) {
+        for (const auto &chip_board_type : yaml["chip_to_boardtype"].as<std::map<int, std::string>>()) {
             auto &chip = chip_board_type.first;
             BoardType board_type;
             if (chip_board_type.second == "n150") {
@@ -891,6 +915,33 @@ void tt_ClusterDescriptor::load_chips_from_connectivity_descriptor(YAML::Node &y
             desc.chip_board_type.insert({chip, BoardType::UNKNOWN});
         }
     }
+
+    if (yaml["boards"]) {
+        YAML::Node boardsNode = yaml["boards"];
+        if (!boardsNode || !boardsNode.IsSequence()) {
+            throw std::runtime_error("Invalid or missing 'boards' node.");
+        }
+
+        for (const auto &boardEntry : boardsNode) {
+            if (!boardEntry.IsSequence() || boardEntry.size() != 3) {
+                throw std::runtime_error("Each board entry should be a sequence of 3 maps.");
+            }
+
+            uint64_t board_id = boardEntry[0]["board_id"].as<std::uint64_t>();
+
+            for (const auto &chip : boardEntry[2]["chips"]) {
+                desc.add_chip_to_board(chip.as<chip_id_t>(), board_id);
+            }
+        }
+    }
+
+    if (yaml["chip_unique_ids"]) {
+        for (const auto &chip_unique_id : yaml["chip_unique_ids"].as<std::map<int, uint64_t>>()) {
+            auto &chip = chip_unique_id.first;
+            auto &unique_id = chip_unique_id.second;
+            desc.chip_unique_ids.insert({chip, unique_id});
+        }
+    }
 }
 
 void tt_ClusterDescriptor::load_harvesting_information(YAML::Node &yaml, tt_ClusterDescriptor &desc) {
@@ -899,19 +950,25 @@ void tt_ClusterDescriptor::load_harvesting_information(YAML::Node &yaml, tt_Clus
             chip_id_t chip = chip_node.first;
             auto harvesting_info = chip_node.second;
             desc.noc_translation_enabled.insert({chip, harvesting_info["noc_translation"].as<bool>()});
+
+            HarvestingMasks harvesting{0, 0, 0, 0};
+
             desc.harvesting_masks.insert({chip, harvesting_info["harvest_mask"].as<std::uint32_t>()});
+            harvesting.tensix_harvesting_mask = harvesting_info["harvest_mask"].as<std::uint32_t>();
 
             if (harvesting_info["dram_harvesting_mask"].IsDefined()) {
-                desc.dram_harvesting_masks.insert({chip, harvesting_info["dram_harvesting_mask"].as<std::uint32_t>()});
+                harvesting.dram_harvesting_mask = harvesting_info["dram_harvesting_mask"].as<std::uint32_t>();
             }
 
             if (harvesting_info["eth_harvesting_mask"].IsDefined()) {
-                desc.eth_harvesting_masks.insert({chip, harvesting_info["eth_harvesting_mask"].as<std::uint32_t>()});
+                harvesting.eth_harvesting_mask = harvesting_info["eth_harvesting_mask"].as<std::uint32_t>();
             }
 
             if (harvesting_info["pcie_harvesting_mask"].IsDefined()) {
-                desc.pcie_harvesting_masks.insert({chip, harvesting_info["pcie_harvesting_mask"].as<std::uint32_t>()});
+                harvesting.pcie_harvesting_mask = harvesting_info["pcie_harvesting_mask"].as<std::uint32_t>();
             }
+
+            desc.harvesting_masks_map.insert({chip, harvesting});
         }
     }
 }
@@ -929,9 +986,9 @@ tt_ClusterDescriptor::get_ethernet_connections() const {
     return ethernet_connections;
 }
 
-const std::unordered_map<chip_id_t, std::unordered_map<ethernet_channel_t, std::tuple<uint64_t, ethernet_channel_t>>>
-tt_ClusterDescriptor::get_ethernet_connections_to_remote_mmio_devices() const {
-    return this->ethernet_connections_to_remote_mmio_devices;
+const std::unordered_map<chip_id_t, std::unordered_map<ethernet_channel_t, std::tuple<uint64_t, ethernet_channel_t>>> &
+tt_ClusterDescriptor::get_ethernet_connections_to_remote_devices() const {
+    return this->ethernet_connections_to_remote_devices;
 }
 
 const std::unordered_map<chip_id_t, eth_coord_t> &tt_ClusterDescriptor::get_chip_locations() const {
@@ -1047,21 +1104,56 @@ std::string tt_ClusterDescriptor::serialize() const {
     out << YAML::BeginMap;
 
     out << YAML::Key << "arch" << YAML::Value << YAML::BeginMap;
-    for (const auto &[chip_id, arch] : chip_arch) {
+    std::map<chip_id_t, tt::ARCH> chip_arch_map = std::map<chip_id_t, tt::ARCH>(chip_arch.begin(), chip_arch.end());
+    for (const auto &[chip_id, arch] : chip_arch_map) {
         out << YAML::Key << chip_id << YAML::Value << tt::arch_to_str(arch);
     }
     out << YAML::EndMap;
 
     out << YAML::Key << "chips" << YAML::Value << YAML::BeginMap;
-    for (const auto &[chip_id, chip_location] : chip_locations) {
+    std::map<chip_id_t, eth_coord_t> chip_locations_map =
+        std::map<chip_id_t, eth_coord_t>(chip_locations.begin(), chip_locations.end());
+    for (const auto &[chip_id, chip_location] : chip_locations_map) {
         out << YAML::Key << chip_id << YAML::Value << YAML::BeginSeq << chip_location.x << chip_location.y
             << chip_location.rack << chip_location.shelf << YAML::EndSeq;
     }
     out << YAML::EndMap;
 
+    out << YAML::Key << "chip_unique_ids" << YAML::Value << YAML::BeginMap;
+    for (const auto &[chip_id, unique_id] : chip_unique_ids) {
+        out << YAML::Key << chip_id << YAML::Value << unique_id;
+    }
+    out << YAML::EndMap;
+
     out << YAML::Key << "ethernet_connections" << YAML::Value << YAML::BeginSeq;
-    std::set<std::pair<chip_id_t, int>> serialized_connections;
+    std::set<std::pair<std::pair<chip_id_t, int>, std::pair<chip_id_t, int>>> all_connections;
     for (const auto &[src_chip, channels] : ethernet_connections) {
+        for (const auto &[src_chan, dest] : channels) {
+            auto [dest_chip, dest_chan] = dest;
+            all_connections.insert(
+                std::make_pair(std::make_pair(src_chip, src_chan), std::make_pair(dest_chip, dest_chan)));
+        }
+    }
+    std::set<std::pair<chip_id_t, int>> serialized_connections;
+    for (const auto &[src, dest] : all_connections) {
+        auto [src_chip, src_chan] = src;
+        if (serialized_connections.find({src_chip, src_chan}) != serialized_connections.end()) {
+            continue;
+        }
+        auto [dest_chip, dest_chan] = dest;
+        serialized_connections.insert({dest_chip, dest_chan});
+        out << YAML::BeginSeq;
+        out << YAML::BeginMap << YAML::Key << "chip" << YAML::Value << src_chip << YAML::Key << "chan" << YAML::Value
+            << src_chan << YAML::EndMap;
+        out << YAML::BeginMap << YAML::Key << "chip" << YAML::Value << dest_chip << YAML::Key << "chan" << YAML::Value
+            << dest_chan << YAML::EndMap;
+        out << YAML::EndSeq;
+    }
+    out << YAML::EndSeq;
+
+    out << YAML::Key << "ethernet_connections_to_remote_devices" << YAML::Value << YAML::BeginSeq;
+    serialized_connections.clear();
+    for (const auto &[src_chip, channels] : ethernet_connections_to_remote_devices) {
         for (const auto &[src_chan, dest] : channels) {
             if (serialized_connections.find({src_chip, src_chan}) != serialized_connections.end()) {
                 continue;
@@ -1071,7 +1163,7 @@ std::string tt_ClusterDescriptor::serialize() const {
             out << YAML::BeginSeq;
             out << YAML::BeginMap << YAML::Key << "chip" << YAML::Value << src_chip << YAML::Key << "chan"
                 << YAML::Value << src_chan << YAML::EndMap;
-            out << YAML::BeginMap << YAML::Key << "chip" << YAML::Value << dest_chip << YAML::Key << "chan"
+            out << YAML::BeginMap << YAML::Key << "remote_chip_id" << YAML::Value << dest_chip << YAML::Key << "chan"
                 << YAML::Value << dest_chan << YAML::EndMap;
             out << YAML::EndSeq;
         }
@@ -1079,29 +1171,52 @@ std::string tt_ClusterDescriptor::serialize() const {
     out << YAML::EndSeq;
 
     out << YAML::Key << "chips_with_mmio" << YAML::Value << YAML::BeginSeq;
-    for (const auto &chip_with_mmio : chips_with_mmio) {
+    std::map<chip_id_t, chip_id_t> chips_with_mmio_map =
+        std::map<chip_id_t, chip_id_t>(chips_with_mmio.begin(), chips_with_mmio.end());
+    for (const auto &chip_with_mmio : chips_with_mmio_map) {
         out << YAML::BeginMap << YAML::Key << chip_with_mmio.first << YAML::Value << chip_with_mmio.second
             << YAML::EndMap;
     }
     out << YAML::EndSeq;
 
     out << YAML::Key << "harvesting" << YAML::Value << YAML::BeginMap;
-    for (const int &chip : all_chips) {
+    std::set<chip_id_t> all_chips_map = std::set<chip_id_t>(all_chips.begin(), all_chips.end());
+    for (const int &chip : all_chips_map) {
         out << YAML::Key << chip << YAML::Value << YAML::BeginMap;
         out << YAML::Key << "noc_translation" << YAML::Value << noc_translation_enabled.at(chip);
-        out << YAML::Key << "harvest_mask" << YAML::Value << harvesting_masks.at(chip);
-        out << YAML::Key << "dram_harvesting_mask" << YAML::Value << get_dram_harvesting_mask(chip);
-        out << YAML::Key << "eth_harvesting_mask" << YAML::Value << get_eth_harvesting_mask(chip);
-        out << YAML::Key << "pcie_harvesting_mask" << YAML::Value << get_pcie_harvesting_mask(chip);
+        HarvestingMasks harvesting = get_harvesting_masks(chip);
+        out << YAML::Key << "harvest_mask" << YAML::Value << harvesting.tensix_harvesting_mask;
+        out << YAML::Key << "dram_harvesting_mask" << YAML::Value << harvesting.dram_harvesting_mask;
+        out << YAML::Key << "eth_harvesting_mask" << YAML::Value << harvesting.eth_harvesting_mask;
+        out << YAML::Key << "pcie_harvesting_mask" << YAML::Value << harvesting.pcie_harvesting_mask;
         out << YAML::EndMap;
     }
     out << YAML::EndMap;
 
-    out << YAML::Key << "boardtype" << YAML::Value << YAML::BeginMap;
-    for (const int &chip : all_chips) {
+    out << YAML::Key << "chip_to_boardtype" << YAML::Value << YAML::BeginMap;
+    for (const int &chip : all_chips_map) {
         out << YAML::Key << chip << YAML::Value << board_type_to_string(chip_board_type.at(chip));
     }
     out << YAML::EndMap;
+
+    out << YAML::Key << "boards" << YAML::Value << YAML::BeginSeq;
+    for (const auto &[board_id, chips] : board_to_chips) {
+        out << YAML::BeginSeq;
+        out << YAML::BeginMap << YAML::Key << "board_id" << YAML::Value << board_id << YAML::EndMap;
+        out << YAML::BeginMap << YAML::Key << "board_type" << YAML::Value
+            << board_type_to_string(get_board_type_from_board_id(board_id)) << YAML::EndMap;
+
+        out << YAML::BeginMap << YAML::Key << "chips" << YAML::Value;
+        out << YAML::BeginSeq;
+        for (const auto &chip_id : chips) {
+            out << chip_id;
+        }
+        out << YAML::EndSeq;
+        out << YAML::EndMap;
+
+        out << YAML::EndSeq;
+    }
+    out << YAML::EndSeq;
 
     out << YAML::EndMap;
 
@@ -1146,31 +1261,59 @@ std::set<uint32_t> tt_ClusterDescriptor::get_idle_eth_channels(chip_id_t chip_id
     return it->second;
 }
 
-uint32_t tt_ClusterDescriptor::get_dram_harvesting_mask(chip_id_t chip_id) const {
-    auto it = dram_harvesting_masks.find(chip_id);
-    if (it == dram_harvesting_masks.end()) {
-        return 0;
+HarvestingMasks tt_ClusterDescriptor::get_harvesting_masks(chip_id_t chip_id) const {
+    auto it = harvesting_masks_map.find(chip_id);
+    if (it == harvesting_masks_map.end()) {
+        return HarvestingMasks{0, 0, 0, 0};
     }
-
     return it->second;
 }
 
-uint32_t tt_ClusterDescriptor::get_eth_harvesting_mask(chip_id_t chip_id) const {
-    auto it = eth_harvesting_masks.find(chip_id);
-    if (it == eth_harvesting_masks.end()) {
-        return 0;
+void tt_ClusterDescriptor::add_chip_to_board(chip_id_t chip_id, uint64_t board_id) {
+    if (chip_to_board_id.find(chip_id) != chip_to_board_id.end() && chip_to_board_id[chip_id] != board_id) {
+        throw std::runtime_error(
+            fmt::format("Chip {} is already mapped to board {:#x}", chip_id, chip_to_board_id[chip_id]));
     }
-
-    return it->second;
+    chip_to_board_id[chip_id] = board_id;
+    board_to_chips[board_id].insert(chip_id);
 }
 
-uint32_t tt_ClusterDescriptor::get_pcie_harvesting_mask(chip_id_t chip_id) const {
-    auto it = pcie_harvesting_masks.find(chip_id);
-    if (it == pcie_harvesting_masks.end()) {
-        return 0;
+uint64_t tt_ClusterDescriptor::get_board_id_for_chip(const chip_id_t chip) const {
+    auto it = chip_to_board_id.find(chip);
+    if (it != chip_to_board_id.end()) {
+        return it->second;
+    }
+    throw std::runtime_error(fmt::format("Chip to board mapping for chip {} not found.", chip));
+}
+
+std::unordered_set<chip_id_t> tt_ClusterDescriptor::get_board_chips(const uint64_t board_id) const {
+    auto it = board_to_chips.find(board_id);
+    if (it != board_to_chips.end()) {
+        return it->second;
+    }
+    throw std::runtime_error(fmt::format("Board to chips mapping for board {:#x} not found.", board_id));
+}
+
+void tt_ClusterDescriptor::verify_cluster_descriptor_info() {
+    for (const chip_id_t chip : all_chips) {
+        if (!chip_to_board_id.empty() && chip_to_board_id.find(chip) == chip_to_board_id.end()) {
+            log_warning(LogSiliconDriver, "Chip {} does not have a board ID assigned.", chip);
+        }
     }
 
-    return it->second;
+    for (const auto &[board_id, chips] : board_to_chips) {
+        const BoardType board_type = get_board_type_from_board_id(board_id);
+        const uint32_t number_chips_from_board = get_number_of_chips_from_board_type(board_type);
+        if (chips.size() != number_chips_from_board) {
+            log_warning(
+                LogSiliconDriver,
+                "Board {:#x} has {} chips, but expected {} chips for board type {}.",
+                board_id,
+                chips.size(),
+                number_chips_from_board,
+                board_type_to_string(board_type));
+        }
+    }
 }
 
 tt::ARCH tt_ClusterDescriptor::detect_cluster_architecture() {

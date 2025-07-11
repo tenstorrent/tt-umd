@@ -14,6 +14,7 @@
 
 #include "fmt/format.h"
 #include "umd/device/semver.hpp"
+#include "umd/device/tt_device/tlb_handle.h"
 #include "umd/device/tt_xy_pair.h"
 #include "umd/device/types/arch.h"
 #include "umd/device/types/tlb.h"
@@ -166,6 +167,15 @@ public:
      * Read KMD version installed on the system.
      */
     static semver_t read_kmd_version();
+
+    /**
+     * Allocate TLB resource from KMD.
+     *
+     * @param tlb_size Size of the TLB caller wants to allocate.
+     * @param mapping_type Type of TLB mapping to allocate (UC or WC).
+     */
+    std::unique_ptr<tt::umd::TlbHandle> allocate_tlb(
+        const size_t tlb_size, const tt::umd::TlbMapping tlb_mapping = tt::umd::TlbMapping::UC);
 
 public:
     // TODO: we can and should make all of these private.

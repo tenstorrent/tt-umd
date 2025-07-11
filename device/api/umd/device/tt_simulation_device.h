@@ -35,20 +35,35 @@ public:
         tt_SimulationDevice(tt_SimulationDeviceInit(simulator_directory)) {}
 
     tt_SimulationDevice(const tt_SimulationDeviceInit& init);
-    ~tt_SimulationDevice();
 
     tt_SimulationHost host;
+
+    int get_num_host_channels() override;
+    int get_host_channel_size(std::uint32_t channel) override;
+    void write_to_sysmem(uint16_t channel, const void* src, uint64_t sysmem_dest, uint32_t size) override;
+    void read_from_sysmem(uint16_t channel, void* dest, uint64_t sysmem_src, uint32_t size) override;
 
     void start_device() override;
     void close_device() override;
 
+    tt::umd::TTDevice* get_tt_device() override;
+    tt::umd::SysmemManager* get_sysmem_manager() override;
+    tt::umd::TLBManager* get_tlb_manager() override;
+
     bool is_mmio_capable() const override { return false; }
 
     void set_remote_transfer_ethernet_cores(const std::unordered_set<tt::umd::CoreCoord>& cores) override;
+    void set_remote_transfer_ethernet_cores(const std::set<uint32_t>& channels) override;
 
     // All tt_xy_pair cores in this class are defined in VIRTUAL coords.
-    void write_to_device(tt_xy_pair core, const void* src, uint64_t l1_dest, uint32_t size) override;
-    void read_from_device(tt_xy_pair core, void* dest, uint64_t l1_src, uint32_t size) override;
+    void write_to_device(tt::umd::CoreCoord core, const void* src, uint64_t l1_dest, uint32_t size) override;
+    void read_from_device(tt::umd::CoreCoord core, void* dest, uint64_t l1_src, uint32_t size) override;
+    void write_to_device_reg(tt::umd::CoreCoord core, const void* src, uint64_t reg_dest, uint32_t size) override;
+    void read_from_device_reg(tt::umd::CoreCoord core, void* dest, uint64_t reg_src, uint32_t size) override;
+    void dma_write_to_device(const void* src, size_t size, tt::umd::CoreCoord core, uint64_t addr) override;
+    void dma_read_from_device(void* dst, size_t size, tt::umd::CoreCoord core, uint64_t addr) override;
+
+    std::function<void(uint32_t, uint32_t, const uint8_t*)> get_fast_pcie_static_tlb_write_callable() override;
 
     void wait_for_non_mmio_flush() override;
 
@@ -56,12 +71,13 @@ public:
     void dram_membar(const std::unordered_set<tt::umd::CoreCoord>& cores = {}) override;
     void dram_membar(const std::unordered_set<uint32_t>& channels = {}) override;
 
-    void send_tensix_risc_reset(tt_xy_pair core, const TensixSoftResetOptions& soft_resets) override;
+    void send_tensix_risc_reset(tt::umd::CoreCoord core, const TensixSoftResetOptions& soft_resets) override;
     void send_tensix_risc_reset(const TensixSoftResetOptions& soft_resets) override;
     void deassert_risc_resets() override;
 
     void set_power_state(tt_DevicePowerState state) override;
     int get_clock() override;
+    int get_numa_node() override;
 
     int arc_msg(
         uint32_t msg_code,

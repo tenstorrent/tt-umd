@@ -9,3 +9,5 @@ compile_commands.json
 .vscode/
 *.log
 *.csv
+core
+__pycache__

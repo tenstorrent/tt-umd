@@ -8,6 +8,7 @@
 #include <tt-logger/tt-logger.hpp>
 
 #include "umd/device/blackhole_implementation.h"
+#include "umd/device/coordinate_manager.h"
 #include "umd/device/types/blackhole_eth.h"
 #include "umd/device/types/blackhole_telemetry.h"
 
@@ -100,10 +101,11 @@ bool BlackholeTTDevice::get_noc_translation_enabled() {
 
 ChipInfo BlackholeTTDevice::get_chip_info() {
     ChipInfo chip_info;
-    chip_info.harvesting_masks.tensix_harvesting_mask =
+    chip_info.harvesting_masks.tensix_harvesting_mask = CoordinateManager::shuffle_tensix_harvesting_mask(
+        tt::ARCH::BLACKHOLE,
         telemetry->is_entry_available(blackhole::TAG_ENABLED_TENSIX_COL)
             ? (~telemetry->read_entry(blackhole::TAG_ENABLED_TENSIX_COL) & 0x3FFF)
-            : 0;
+            : 0);
     chip_info.harvesting_masks.dram_harvesting_mask = telemetry->is_entry_available(blackhole::TAG_ENABLED_GDDR)
                                                           ? (~telemetry->read_entry(blackhole::TAG_ENABLED_GDDR) & 0xFF)
                                                           : 0;
@@ -134,10 +136,14 @@ ChipInfo BlackholeTTDevice::get_chip_info() {
     chip_info.noc_translation_enabled = get_noc_translation_enabled();
 
     // It is expected that these entries are always available.
-    chip_info.chip_uid.board_id = ((uint64_t)telemetry->read_entry(blackhole::TAG_BOARD_ID_HIGH) << 32) |
-                                  (telemetry->read_entry(blackhole::TAG_BOARD_ID_LOW));
+    chip_info.chip_uid.board_id = get_board_id();
 
     chip_info.board_type = get_board_type_from_board_id(chip_info.chip_uid.board_id);
+
+    chip_info.firmware_version =
+        telemetry->is_entry_available(blackhole::TAG_FLASH_BUNDLE_VERSION)
+            ? fw_version_from_telemetry(telemetry->read_entry(blackhole::TAG_FLASH_BUNDLE_VERSION))
+            : semver_t(0, 0, 0);
 
     // TODO: likely not needed anymore. Firware on P100 will give 0 for TAG_ENABLED_ETH
     if (chip_info.board_type == BoardType::P100) {

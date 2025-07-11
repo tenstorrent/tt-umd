@@ -15,7 +15,7 @@ public:
 
     void read_from_device(void* mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size) override;
 
-    void write_to_device(void* mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size) override;
+    void write_to_device(const void* mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size) override;
 
     void wait_for_non_mmio_flush() override;
 

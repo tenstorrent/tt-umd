@@ -194,6 +194,8 @@ public:
 
     virtual bool get_noc_translation_enabled() = 0;
 
+    virtual double get_asic_temperature() = 0;
+
     // TODO: find a way to expose this in a better way, probably through getting telemetry reader and reading the
     // required fields. Returns the information whether DRAM training status is available and the status value.
     virtual std::vector<DramTrainingStatus> get_dram_training_status();

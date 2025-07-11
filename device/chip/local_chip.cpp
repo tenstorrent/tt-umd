@@ -601,33 +601,7 @@ void LocalChip::set_power_state(tt_DevicePowerState state) {
     }
     TT_ASSERT(exit_code == 0, "Failed to set power state to {} with exit code: {}", (int)state, exit_code);
 
-    wait_for_aiclk_value(state);
-}
-
-void LocalChip::wait_for_aiclk_value(tt_DevicePowerState power_state, const uint32_t timeout_ms) {
-    auto start = std::chrono::system_clock::now();
-    uint32_t target_aiclk = 0;
-    if (power_state == tt_DevicePowerState::BUSY) {
-        target_aiclk = tt_device_->get_max_clock_freq();
-    } else if (power_state == tt_DevicePowerState::LONG_IDLE) {
-        target_aiclk = tt_device_->get_min_clock_freq();
-    }
-    uint32_t aiclk = tt_device_->get_clock();
-    while (aiclk != target_aiclk) {
-        auto end = std::chrono::system_clock::now();
-        auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
-        if (duration.count() > timeout_ms) {
-            log_warning(
-                LogSiliconDriver,
-                "Waiting for AICLK value to settle failed on timeout after {}. Expected to see {}, last value "
-                "observed {}",
-                timeout_ms,
-                target_aiclk,
-                aiclk);
-            return;
-        }
-        aiclk = tt_device_->get_clock();
-    }
+    wait_for_aiclk_value(tt_device_.get(), state);
 }
 
 int LocalChip::get_clock() { return tt_device_->get_clock(); }

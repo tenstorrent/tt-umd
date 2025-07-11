@@ -81,6 +81,7 @@ void RemoteChip::set_power_state(tt_DevicePowerState state) {
     } else if (soc_descriptor_.arch == tt::ARCH::BLACKHOLE) {
         throw std::runtime_error("set_power_state not supported for remote chips on Blackhole.");
     }
+    wait_for_aiclk_value(tt_device_.get(), state);
 }
 
 int RemoteChip::get_clock() { return tt_device_->get_clock(); }

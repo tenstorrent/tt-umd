@@ -117,6 +117,11 @@ public:
     virtual void read_from_device(void *mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size);
     virtual void write_to_device(const void *mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size);
 
+    // Read/write functions that will send the arc message. It is used to read/write the data needed
+    // to get the information to or form cluster the arc core.
+    virtual void read_from_arc(void *mem_ptr, uint64_t addr) = 0;
+    virtual void write_to_arc(const void *mem_ptr, uint64_t addr) = 0;
+
     // TLB related functions.
     // TODO: These are architecture specific, and will be moved out of the class.
     void write_tlb_reg(

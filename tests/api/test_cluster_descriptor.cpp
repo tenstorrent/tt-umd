@@ -54,18 +54,20 @@ TEST(ApiClusterDescriptorTest, BasicFunctionality) {
     }
 
     std::unordered_set<chip_id_t> all_chips = cluster_desc->get_all_chips();
-    std::unordered_map<chip_id_t, std::uint32_t> harvesting_for_chips = cluster_desc->get_harvesting_info();
     std::unordered_map<chip_id_t, eth_coord_t> eth_chip_coords = cluster_desc->get_chip_locations();
     std::unordered_map<chip_id_t, chip_id_t> local_chips_to_pci_device_id = cluster_desc->get_chips_with_mmio();
     std::unordered_set<chip_id_t> local_chips;
-    for (auto [chip, _] : local_chips_to_pci_device_id) {
-        local_chips.insert(chip);
-    }
     std::unordered_set<chip_id_t> remote_chips;
-    for (auto chip : all_chips) {
-        if (local_chips.find(chip) == local_chips.end()) {
-            remote_chips.insert(chip);
+
+    for (auto chip_id : all_chips) {
+        if (cluster_desc->is_chip_mmio_capable(chip_id)) {
+            local_chips.insert(chip_id);
         }
+        if (cluster_desc->is_chip_remote(chip_id)) {
+            remote_chips.insert(chip_id);
+        }
+
+        auto harvesting_masks = cluster_desc->get_harvesting_masks(chip_id);
     }
 
     std::unordered_map<chip_id_t, std::unordered_set<chip_id_t>> chips_grouped_by_closest_mmio =
@@ -90,19 +92,7 @@ TEST(ApiClusterDescriptorTest, TestAllOfflineClusterDescriptors) {
             test_utils::GetAbsPath("tests/api/cluster_descriptor_examples/" + cluster_desc_yaml));
 
         std::unordered_set<chip_id_t> all_chips = cluster_desc->get_all_chips();
-        std::unordered_map<chip_id_t, std::uint32_t> harvesting_for_chips = cluster_desc->get_harvesting_info();
         std::unordered_map<chip_id_t, eth_coord_t> eth_chip_coords = cluster_desc->get_chip_locations();
-        std::unordered_map<chip_id_t, chip_id_t> local_chips_to_pci_device_id = cluster_desc->get_chips_with_mmio();
-        std::unordered_set<chip_id_t> local_chips;
-        for (auto [chip, _] : local_chips_to_pci_device_id) {
-            local_chips.insert(chip);
-        }
-        std::unordered_set<chip_id_t> remote_chips;
-        for (auto chip : all_chips) {
-            if (local_chips.find(chip) == local_chips.end()) {
-                remote_chips.insert(chip);
-            }
-        }
 
         std::unordered_map<chip_id_t, std::unordered_set<chip_id_t>> chips_grouped_by_closest_mmio =
             cluster_desc->get_chips_grouped_by_closest_mmio();

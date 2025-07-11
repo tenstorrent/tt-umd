@@ -18,7 +18,7 @@ TEST(WormholeArcMessages, WormholeArcMessagesHarvesting) {
     for (uint32_t chip_id : cluster->get_target_mmio_device_ids()) {
         TTDevice* tt_device = cluster->get_tt_device(chip_id);
 
-        uint32_t harvesting_mask_cluster_desc = cluster->get_cluster_description()->get_harvesting_info().at(chip_id);
+        auto harvesting_mask_cluster_desc = cluster->get_cluster_description()->get_harvesting_masks(chip_id);
 
         std::unique_ptr<ArcMessenger> arc_messenger = ArcMessenger::create_arc_messenger(tt_device);
 
@@ -32,7 +32,7 @@ TEST(WormholeArcMessages, WormholeArcMessagesHarvesting) {
 
         EXPECT_EQ(
             CoordinateManager::shuffle_tensix_harvesting_mask(tt::ARCH::WORMHOLE_B0, arc_msg_return_values[0]),
-            harvesting_mask_cluster_desc);
+            harvesting_mask_cluster_desc.tensix_harvesting_mask);
     }
 }
 
@@ -81,7 +81,7 @@ TEST(WormholeArcMessages, MultipleThreadsArcMessages) {
     for (uint32_t chip_id : cluster->get_target_mmio_device_ids()) {
         TTDevice* tt_device = cluster->get_tt_device(chip_id);
 
-        uint32_t harvesting_mask_cluster_desc = cluster->get_cluster_description()->get_harvesting_info().at(chip_id);
+        auto harvesting_mask_cluster_desc = cluster->get_cluster_description()->get_harvesting_masks(chip_id);
 
         std::thread thread0([&]() {
             std::unique_ptr<ArcMessenger> arc_messenger = ArcMessenger::create_arc_messenger(tt_device);
@@ -97,7 +97,7 @@ TEST(WormholeArcMessages, MultipleThreadsArcMessages) {
 
                 EXPECT_EQ(
                     CoordinateManager::shuffle_tensix_harvesting_mask(tt::ARCH::WORMHOLE_B0, arc_msg_return_values[0]),
-                    harvesting_mask_cluster_desc);
+                    harvesting_mask_cluster_desc.tensix_harvesting_mask);
             }
         });
 
@@ -115,7 +115,7 @@ TEST(WormholeArcMessages, MultipleThreadsArcMessages) {
 
                 EXPECT_EQ(
                     CoordinateManager::shuffle_tensix_harvesting_mask(tt::ARCH::WORMHOLE_B0, arc_msg_return_values[0]),
-                    harvesting_mask_cluster_desc);
+                    harvesting_mask_cluster_desc.tensix_harvesting_mask);
             }
         });
 

@@ -111,7 +111,16 @@ class Cluster {
 public:
     /**
      * The constructor discovers the topology of the system, creates a cluster descriptor object, and initializes
-     * Chips based on passed options and the discovered topology.
+     * Chips based on passed options and the discovered topology. This can include, but is not limited to:
+     * - Getting the base address for the Device which is to be used when accessing it through the API, including memory
+     * mapping the device address space.
+     * - Setting up security access (if any).
+     * - Establishing a link to the kernel module driver (if any).
+     * - Additional setup needed for read/write operation from the device. DMA setup (if any).
+     * - Allocating system memory that the device has access to.
+     * - Setup access to DRAM module.
+     * - Create SoCDescriptors from passed custom soc descriptor yaml path.
+     * - Perform this for each of the chips connected to the system.
      * @param options See documentation of ClusterOptions for explanation of specific arguments.
      */
     Cluster(ClusterOptions options = {});
@@ -618,18 +627,9 @@ public:
 
 private:
     // Helper functions
-    // Startup + teardown
-    void create_device(
-        const std::set<chip_id_t>& target_mmio_device_ids,
-        const uint32_t& num_host_mem_ch_per_mmio_device,
-        const ChipType& chip_type);
+    // Broadcast
     void broadcast_tensix_risc_reset_to_cluster(const TensixSoftResetOptions& soft_resets);
-    void send_remote_tensix_risc_reset_to_core(const tt_cxy_pair& core, const TensixSoftResetOptions& soft_resets);
-    void send_tensix_risc_reset_to_core(const tt_cxy_pair& core, const TensixSoftResetOptions& soft_resets);
-    uint32_t get_power_state_arc_msg(chip_id_t chip_id, tt_DevicePowerState state);
-    void enable_ethernet_queue(int timeout);
     void deassert_resets_and_set_power_state();
-    int get_clock(int logical_device_id);
 
     // Communication Functions
     void ethernet_broadcast_write(
@@ -643,10 +643,12 @@ private:
 
     std::unordered_map<chip_id_t, std::vector<std::vector<int>>>& get_ethernet_broadcast_headers(
         const std::set<chip_id_t>& chips_to_exclude);
+
     // Test functions
     void verify_fw_bundle_version();
     void verify_eth_fw();
     void verify_sw_fw_versions(int device_id, std::uint32_t sw_version, std::vector<std::uint32_t>& fw_versions);
+    void verify_sysmem_initialized();
 
     // Helper functions for constructing the chips from the cluster descriptor.
     std::unique_ptr<Chip> construct_chip_from_cluster(

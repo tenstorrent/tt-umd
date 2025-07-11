@@ -23,6 +23,8 @@ inline void boost_hash_combine(std::size_t &seed, const int value) {
 
 using pci_id_t = int;
 using chip_id_t = int;
+using board_id_t = uint64_t;
+using unique_chip_id_t = uint64_t;
 using ethernet_channel_t = int;
 
 struct eth_coord_t {

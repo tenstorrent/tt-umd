@@ -101,30 +101,19 @@ const tt_SocDescriptor& Cluster::get_soc_descriptor(chip_id_t chip_id) const {
     return get_chip(chip_id)->get_soc_descriptor();
 }
 
-void Cluster::create_device(
-    const std::set<chip_id_t>& target_mmio_device_ids,
-    const uint32_t& num_host_mem_ch_per_mmio_device,
-    const ChipType& chip_type) {
-    log_debug(LogSiliconDriver, "Cluster::Cluster");
-
-    // Don't buffer stdout.
-    setbuf(stdout, NULL);
-
-    for (const chip_id_t& logical_device_id : target_mmio_device_ids) {
-        if (chip_type == ChipType::SILICON) {
-            bool hugepages_initialized =
-                (get_chip(logical_device_id)->get_sysmem_manager()->get_hugepage_mapping(0).mapping != nullptr);
-            // Large writes to remote chips require hugepages to be initialized.
-            // Conservative assert - end workload if remote chips present but hugepages not initialized (failures caused
-            // if using remote only for small transactions)
-            if (remote_chip_ids_.size()) {
-                TT_ASSERT(
-                    hugepages_initialized,
-                    "Hugepages must be successfully initialized if workload contains remote chips!");
-            }
-            if (!hugepages_initialized) {
-                log_warning(LogSiliconDriver, "No hugepage mapping at device {}.", logical_device_id);
-            }
+void Cluster::verify_sysmem_initialized() {
+    for (const chip_id_t& chip_id : local_chip_ids_) {
+        bool hugepages_initialized =
+            (get_chip(chip_id)->get_sysmem_manager()->get_hugepage_mapping(0).mapping != nullptr);
+        // Large writes to remote chips require hugepages to be initialized.
+        // Conservative assert - end workload if remote chips present but hugepages not initialized (failures caused
+        // if using remote only for small transactions)
+        if (remote_chip_ids_.size()) {
+            TT_ASSERT(
+                hugepages_initialized, "Hugepages must be successfully initialized if workload contains remote chips!");
+        }
+        if (!hugepages_initialized) {
+            log_warning(LogSiliconDriver, "No hugepage mapping at device {}.", chip_id);
         }
     }
 }
@@ -173,9 +162,8 @@ void Cluster::construct_cluster(const uint32_t& num_host_mem_ch_per_mmio_device,
         if (arch_name == tt::ARCH::WORMHOLE_B0) {
             verify_eth_fw();
         }
+        verify_sysmem_initialized();
     }
-
-    create_device(local_chip_ids_, num_host_mem_ch_per_mmio_device, chip_type);
 
     // Disable dependency to ethernet firmware for all BH devices and WH devices with all chips having MMIO (e.g. UBB
     // Galaxy, or P300).
@@ -449,12 +437,10 @@ tt::Writer Cluster::get_static_tlb_writer(const chip_id_t chip, const CoreCoord 
     return get_tlb_manager(chip)->get_static_tlb_writer(virtual_core);
 }
 
-int Cluster::get_clock(int logical_device_id) { return chips_.at(logical_device_id)->get_clock(); }
-
 std::map<int, int> Cluster::get_clocks() {
     std::map<int, int> clock_freq_map;
     for (auto& chip_id : local_chip_ids_) {
-        clock_freq_map.insert({chip_id, get_clock(chip_id)});
+        clock_freq_map.insert({chip_id, chips_.at(chip_id)->get_clock()});
     }
     return clock_freq_map;
 }
@@ -904,12 +890,6 @@ void Cluster::set_power_state(tt_DevicePowerState device_state) {
     }
 }
 
-void Cluster::enable_ethernet_queue(int timeout) {
-    for (const chip_id_t& chip : all_chip_ids_) {
-        get_chip(chip)->enable_ethernet_queue(timeout);
-    }
-}
-
 void Cluster::deassert_resets_and_set_power_state() {
     // Assert tensix resets on all chips in cluster
     broadcast_tensix_risc_reset_to_cluster(TENSIX_ASSERT_SOFT_RESET);
@@ -920,7 +900,9 @@ void Cluster::deassert_resets_and_set_power_state() {
 
     // MT Initial BH - ARC messages not supported in Blackhole
     if (arch_name != tt::ARCH::BLACKHOLE) {
-        enable_ethernet_queue(30);
+        for (const chip_id_t& chip : all_chip_ids_) {
+            get_chip(chip)->enable_ethernet_queue(30);
+        }
     }
 
     // Set power state to busy

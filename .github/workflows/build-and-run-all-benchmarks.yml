@@ -1,5 +1,5 @@
 # Build and then run all benchmarks, on all supported archs.
-name: Check runner
+name: Build and run all benchmarks
 
 on:
   workflow_dispatch:
@@ -28,10 +28,10 @@ jobs:
     uses: ./.github/workflows/build-tests.yml
     with:
       ubuntu-docker-version: ${{ matrix.ubuntu-docker-version}}
-      timeout: 15
+      timeout: 30
       build-type: ${{ inputs.build-type || 'Release' }}
 
-  test-all:
+  run-benchmarks:
     secrets: inherit
     needs: build-tests
     strategy:

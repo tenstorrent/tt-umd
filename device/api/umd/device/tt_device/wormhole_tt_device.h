@@ -29,8 +29,6 @@ public:
 
     bool get_noc_translation_enabled() override;
 
-    std::vector<DramTrainingStatus> get_dram_training_status() override;
-
     void dma_d2h(void *dst, uint32_t src, size_t size) override;
 
     void dma_h2d(uint32_t dst, const void *src, size_t size) override;
@@ -38,6 +36,12 @@ public:
     void dma_h2d_zero_copy(uint32_t dst, const void *src, size_t size) override;
 
     void dma_d2h_zero_copy(void *dst, uint32_t src, size_t size) override;
+
+    void read_from_arc(void *mem_ptr, uint64_t addr) override;
+
+    void write_to_arc(const void *mem_ptr, uint64_t addr) override;
+
+    std::vector<DramTrainingStatus> get_dram_training_status() override;
 
     ChipInfo get_chip_info() override;
 

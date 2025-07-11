@@ -9,6 +9,7 @@
 #include "umd/device/tt_device/wormhole_tt_device.h"
 
 namespace tt::umd {
+
 class RemoteWormholeTTDevice : public WormholeTTDevice {
 public:
     RemoteWormholeTTDevice(LocalChip* local_chip, eth_coord_t target_chip);
@@ -28,4 +29,5 @@ private:
     eth_coord_t target_chip_;
     std::unique_ptr<RemoteCommunication> remote_communication_;
 };
+
 }  // namespace tt::umd

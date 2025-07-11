@@ -15,6 +15,23 @@
 #include "umd/device/semver.hpp"
 #include "umd/device/types/harvesting.h"
 
+// TODO: To be moved inside tt::umd namespace once all clients switch to namespace usage.
+enum BoardType : uint32_t {
+    E75,
+    E150,
+    E300,
+    N150,
+    N300,
+    P100,
+    P150,
+    P300,
+    GALAXY,
+    UBB,
+    UNKNOWN,
+};
+
+namespace tt::umd {
+
 // Small performant hash combiner taken from boost library.
 // Not using boost::hash_combine due to dependency complications.
 inline void boost_hash_combine(std::size_t &seed, const int value) {
@@ -38,20 +55,6 @@ struct eth_coord_t {
             cluster_id == other.cluster_id and x == other.x and y == other.y and rack == other.rack and
             shelf == other.shelf);
     }
-};
-
-enum BoardType : uint32_t {
-    E75,
-    E150,
-    E300,
-    N150,
-    N300,
-    P100,
-    P150,
-    P300,
-    GALAXY,
-    UBB,
-    UNKNOWN,
 };
 
 inline std::string board_type_to_string(const BoardType board_type) {
@@ -175,11 +178,11 @@ struct ChipUID {
 };
 
 struct ChipInfo {
-    tt::umd::HarvestingMasks harvesting_masks;
+    HarvestingMasks harvesting_masks;
     BoardType board_type;
     ChipUID chip_uid;
     bool noc_translation_enabled;
-    tt::umd::semver_t firmware_version = {0, 0, 0};
+    semver_t firmware_version = {0, 0, 0};
 };
 
 enum class DramTrainingStatus : uint8_t {
@@ -188,16 +191,27 @@ enum class DramTrainingStatus : uint8_t {
     SUCCESS = 2,
 };
 
+}  // namespace tt::umd
+
+// TODO: To be removed once clients switch to namespace usage.
+using tt::umd::chip_id_t;
+using tt::umd::eth_coord_t;
+using tt::umd::ethernet_channel_t;
+
+namespace tt::umd {
+using BoardType = ::BoardType;
+}
+
 namespace std {
 template <>
-struct hash<eth_coord_t> {
-    std::size_t operator()(eth_coord_t const &c) const {
+struct hash<tt::umd::eth_coord_t> {
+    std::size_t operator()(tt::umd::eth_coord_t const &c) const {
         std::size_t seed = 0;
-        boost_hash_combine(seed, c.cluster_id);
-        boost_hash_combine(seed, c.x);
-        boost_hash_combine(seed, c.y);
-        boost_hash_combine(seed, c.rack);
-        boost_hash_combine(seed, c.shelf);
+        tt::umd::boost_hash_combine(seed, c.cluster_id);
+        tt::umd::boost_hash_combine(seed, c.x);
+        tt::umd::boost_hash_combine(seed, c.y);
+        tt::umd::boost_hash_combine(seed, c.rack);
+        tt::umd::boost_hash_combine(seed, c.shelf);
         return seed;
     }
 };

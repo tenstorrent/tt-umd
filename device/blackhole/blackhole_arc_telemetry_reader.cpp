@@ -20,11 +20,11 @@ BlackholeArcTelemetryReader::BlackholeArcTelemetryReader(TTDevice* tt_device) :
 }
 
 void BlackholeArcTelemetryReader::initialize_telemetry() {
-    tt_device->read_from_device(&telemetry_table_addr, arc_core, tt::umd::blackhole::SCRATCH_RAM_13, sizeof(uint32_t));
+    tt_device->read_from_device(&telemetry_table_addr, arc_core, blackhole::SCRATCH_RAM_13, sizeof(uint32_t));
 
     tt_device->read_from_device(&entry_count, arc_core, telemetry_table_addr + sizeof(uint32_t), sizeof(uint32_t));
 
-    tt_device->read_from_device(&telemetry_values_addr, arc_core, tt::umd::blackhole::SCRATCH_RAM_12, sizeof(uint32_t));
+    tt_device->read_from_device(&telemetry_values_addr, arc_core, blackhole::SCRATCH_RAM_12, sizeof(uint32_t));
 
     // We offset the tag_table_address by 2 * sizeof(uint32_t) to skip the first two uint32_t values,
     // which are version and entry count. For representaiton look at blackhole_telemetry.h

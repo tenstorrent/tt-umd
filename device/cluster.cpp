@@ -59,9 +59,6 @@
 #include "umd/device/wormhole_implementation.h"
 #include "yaml-cpp/yaml.h"
 
-using namespace tt;
-using namespace tt::umd;
-
 extern bool umd_use_noc1;
 
 static constexpr uint32_t REMOTE_CMD_NOC_BIT = 9;
@@ -76,6 +73,8 @@ static constexpr uint32_t REMOTE_CMD_NOC_BIT = 9;
 
 #include "umd/device/tt_silicon_driver_common.hpp"
 #include "umd/device/tt_xy_pair.h"
+
+namespace tt::umd {
 
 struct routing_cmd_t {
     uint64_t sys_addr;
@@ -94,8 +93,6 @@ struct remote_update_ptr_t {
     uint32_t ptr;
     uint32_t pad[3];
 };
-
-namespace tt::umd {
 
 const tt_SocDescriptor& Cluster::get_soc_descriptor(chip_id_t chip_id) const {
     return get_chip(chip_id)->get_soc_descriptor();
@@ -444,7 +441,7 @@ std::function<void(uint32_t, uint32_t, const uint8_t*)> Cluster::get_fast_pcie_s
     return chips_.at(device_id)->get_fast_pcie_static_tlb_write_callable();
 }
 
-tt::Writer Cluster::get_static_tlb_writer(const chip_id_t chip, const CoreCoord target) {
+Writer Cluster::get_static_tlb_writer(const chip_id_t chip, const CoreCoord target) {
     tt_xy_pair virtual_core = get_soc_descriptor(chip).translate_coord_to(target, CoordSystem::VIRTUAL);
     return get_tlb_manager(chip)->get_static_tlb_writer(virtual_core);
 }
@@ -628,8 +625,7 @@ std::unordered_map<chip_id_t, std::vector<std::vector<int>>>& Cluster::get_ether
 }
 
 inline bool tensix_or_eth_in_broadcast(
-    const std::set<uint32_t>& cols_to_exclude,
-    const tt::umd::architecture_implementation* architecture_implementation) {
+    const std::set<uint32_t>& cols_to_exclude, const architecture_implementation* architecture_implementation) {
     bool found_tensix_or_eth = false;
     for (const auto& col : architecture_implementation->get_t6_x_locations()) {
         found_tensix_or_eth |= (cols_to_exclude.find(col) == cols_to_exclude.end());
@@ -640,7 +636,7 @@ inline bool tensix_or_eth_in_broadcast(
 inline bool valid_tensix_broadcast_grid(
     const std::set<uint32_t>& rows_to_exclude,
     const std::set<uint32_t>& cols_to_exclude,
-    const tt::umd::architecture_implementation* architecture_implementation) {
+    const architecture_implementation* architecture_implementation) {
     bool t6_bcast_rows_complete = true;
     bool t6_bcast_rows_empty = true;
 
@@ -708,7 +704,7 @@ void Cluster::broadcast_write_to_cluster(
     std::set<uint32_t>& rows_to_exclude,
     std::set<uint32_t>& cols_to_exclude) {
     if (arch_name == tt::ARCH::BLACKHOLE) {
-        auto architecture_implementation = tt::umd::architecture_implementation::create(arch_name);
+        auto architecture_implementation = architecture_implementation::create(arch_name);
         if (cols_to_exclude.find(0) == cols_to_exclude.end() or cols_to_exclude.find(9) == cols_to_exclude.end()) {
             TT_ASSERT(
                 !tensix_or_eth_in_broadcast(cols_to_exclude, architecture_implementation.get()),
@@ -756,7 +752,7 @@ void Cluster::broadcast_write_to_cluster(
                 use_virtual_coords_for_eth_broadcast);
         }
     } else {
-        auto architecture_implementation = tt::umd::architecture_implementation::create(arch_name);
+        auto architecture_implementation = architecture_implementation::create(arch_name);
         if (cols_to_exclude.find(0) == cols_to_exclude.end() or cols_to_exclude.find(5) == cols_to_exclude.end()) {
             TT_ASSERT(
                 !tensix_or_eth_in_broadcast(cols_to_exclude, architecture_implementation.get()),
@@ -816,11 +812,11 @@ void Cluster::read_from_sysmem(void* mem_ptr, uint64_t addr, uint16_t channel, u
     get_chip(src_device_id)->read_from_sysmem(channel, mem_ptr, addr, size);
 }
 
-void Cluster::l1_membar(const chip_id_t chip, const std::unordered_set<tt::umd::CoreCoord>& cores) {
+void Cluster::l1_membar(const chip_id_t chip, const std::unordered_set<CoreCoord>& cores) {
     get_chip(chip)->l1_membar(cores);
 }
 
-void Cluster::dram_membar(const chip_id_t chip, const std::unordered_set<tt::umd::CoreCoord>& cores) {
+void Cluster::dram_membar(const chip_id_t chip, const std::unordered_set<CoreCoord>& cores) {
     get_chip(chip)->dram_membar(cores);
 }
 
@@ -838,12 +834,11 @@ void Cluster::write_to_device_reg(
     get_chip(chip)->write_to_device_reg(core, mem_ptr, addr, size_in_bytes);
 }
 
-void Cluster::dma_write_to_device(
-    const void* src, size_t size, chip_id_t chip, tt::umd::CoreCoord core, uint64_t addr) {
+void Cluster::dma_write_to_device(const void* src, size_t size, chip_id_t chip, CoreCoord core, uint64_t addr) {
     get_chip(chip)->dma_write_to_device(src, size, core, addr);
 }
 
-void Cluster::dma_read_from_device(void* dst, size_t size, chip_id_t chip, tt::umd::CoreCoord core, uint64_t addr) {
+void Cluster::dma_read_from_device(void* dst, size_t size, chip_id_t chip, CoreCoord core, uint64_t addr) {
     get_chip(chip)->dma_read_from_device(dst, size, core, addr);
 }
 
@@ -1055,7 +1050,7 @@ std::unique_ptr<tt_ClusterDescriptor> Cluster::create_cluster_descriptor(
 }
 
 std::unique_ptr<tt_ClusterDescriptor> Cluster::create_cluster_descriptor(
-    const std::unordered_map<chip_id_t, std::unique_ptr<tt::umd::Chip>>& chips) {
+    const std::unordered_map<chip_id_t, std::unique_ptr<Chip>>& chips) {
     std::unique_ptr<tt_ClusterDescriptor> desc = std::unique_ptr<tt_ClusterDescriptor>(new tt_ClusterDescriptor());
 
     if (chips.empty()) {

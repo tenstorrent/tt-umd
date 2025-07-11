@@ -106,7 +106,7 @@ TEST(ApiClusterTest, OpenChipsByPciId) {
 TEST(ApiClusterTest, OpenClusterByLogicalID) {
     // First, pregenerate a cluster descriptor and save it to a file.
     // This will run topology discovery and touch all the devices.
-    std::filesystem::path cluster_path = tt::umd::Cluster::create_cluster_descriptor()->serialize_to_file();
+    std::filesystem::path cluster_path = Cluster::create_cluster_descriptor()->serialize_to_file();
 
     // Now, the user can create the cluster descriptor without touching the devices.
     std::unique_ptr<tt_ClusterDescriptor> cluster_desc = tt_ClusterDescriptor::create_from_yaml(cluster_path);
@@ -184,7 +184,7 @@ TEST(ApiClusterTest, DifferentConstructors) {
     // This could be cluster descriptor cached from previous runtime, or with some custom modifications.
     // You can just create a cluster descriptor and serialize it to file, or fetch a cluster descriptor from already
     // created Cluster class.
-    std::filesystem::path cluster_path1 = tt::umd::Cluster::create_cluster_descriptor()->serialize_to_file();
+    std::filesystem::path cluster_path1 = Cluster::create_cluster_descriptor()->serialize_to_file();
     umd_cluster = std::make_unique<Cluster>();
     std::filesystem::path cluster_path2 = umd_cluster->get_cluster_description()->serialize_to_file();
     umd_cluster = nullptr;
@@ -453,9 +453,9 @@ TEST(TestCluster, TestClusterAICLKControl) {
     auto get_expected_clock_val = [&cluster](chip_id_t chip_id, bool busy) {
         tt::ARCH arch = cluster->get_cluster_description()->get_arch(chip_id);
         if (arch == tt::ARCH::WORMHOLE_B0) {
-            return busy ? tt::umd::wormhole::AICLK_BUSY_VAL : tt::umd::wormhole::AICLK_IDLE_VAL;
+            return busy ? wormhole::AICLK_BUSY_VAL : wormhole::AICLK_IDLE_VAL;
         } else if (arch == tt::ARCH::BLACKHOLE) {
-            return busy ? tt::umd::blackhole::AICLK_BUSY_VAL : tt::umd::blackhole::AICLK_IDLE_VAL;
+            return busy ? blackhole::AICLK_BUSY_VAL : blackhole::AICLK_IDLE_VAL;
         }
         return 0u;
     };

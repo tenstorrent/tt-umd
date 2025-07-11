@@ -8,11 +8,9 @@
 #include <cstdint>
 #include <stdexcept>
 
-namespace tt {
+namespace tt::umd {
 
-namespace umd {
 class Cluster;
-}
 
 /**
  * @brief Provides write access to a SoC core via a statically-mapped TLB.
@@ -23,7 +21,7 @@ class Cluster;
  * It is the caller's responsibility to manage the lifetime of Writer objects.
  */
 class Writer {
-    friend class tt::umd::TLBManager;
+    friend class TLBManager;
 
 public:
     /**
@@ -49,7 +47,7 @@ public:
 
 private:
     /**
-     * @brief tt::umd::Cluster interface to construct a new Writer object.
+     * @brief Cluster interface to construct a new Writer object.
      *
      * @param base pointer to the base address of a mapped TLB.
      * @param tlb_size size of the mapped TLB.
@@ -63,4 +61,9 @@ private:
     size_t tlb_size{0};
 };
 
-}  // namespace tt
+}  // namespace tt::umd
+
+// TODO: To be removed once clients switch to namespace usage.
+namespace tt {
+using Writer = umd::Writer;
+}

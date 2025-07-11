@@ -15,6 +15,8 @@
 #include "tests/test_utils/generate_cluster_desc.hpp"
 #include "umd/device/tt_simulation_device.h"
 
+namespace tt::umd {
+
 class SimulationDeviceFixture : public ::testing::Test {
 protected:
     static void SetUpTestSuite() {
@@ -34,3 +36,5 @@ protected:
 };
 
 std::unique_ptr<tt_SimulationDevice> SimulationDeviceFixture::device = nullptr;
+
+}  // namespace tt::umd

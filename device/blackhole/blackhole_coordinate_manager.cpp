@@ -7,7 +7,7 @@
 
 #include <tt-logger/tt-logger.hpp>
 
-using namespace tt::umd;
+namespace tt::umd {
 
 BlackholeCoordinateManager::BlackholeCoordinateManager(
     const bool noc_translation_enabled,
@@ -73,10 +73,10 @@ void BlackholeCoordinateManager::translate_tensix_coords() {
         if (harvesting_masks.tensix_harvesting_mask & (1 << x)) {
             const tt_xy_pair& physical_core = tensix_cores[x];
             const size_t die_x_index = std::find(
-                                           tt::umd::blackhole::HARVESTING_NOC_LOCATIONS.begin(),
-                                           tt::umd::blackhole::HARVESTING_NOC_LOCATIONS.end(),
+                                           blackhole::HARVESTING_NOC_LOCATIONS.begin(),
+                                           blackhole::HARVESTING_NOC_LOCATIONS.end(),
                                            physical_core.x) -
-                                       tt::umd::blackhole::HARVESTING_NOC_LOCATIONS.begin();
+                                       blackhole::HARVESTING_NOC_LOCATIONS.begin();
             die_harvested_tensix_columns.push_back(std::make_pair(die_x_index, x));
         } else {
             for (size_t y = 0; y < grid_size_y; y++) {
@@ -569,3 +569,5 @@ tt_xy_pair BlackholeCoordinateManager::get_dram_grid_size() const {
         dram_grid_size.x - CoordinateManager::get_num_harvested(harvesting_masks.dram_harvesting_mask),
         dram_grid_size.y};
 }
+
+}  // namespace tt::umd

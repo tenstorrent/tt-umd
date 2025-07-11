@@ -14,6 +14,8 @@
 #include "fmt/xchar.h"
 #include "umd/device/pci_device.hpp"
 
+using namespace tt::umd;
+
 TEST(PcieDeviceTest, Numa) {
     std::vector<int> nodes;
 

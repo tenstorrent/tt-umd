@@ -25,11 +25,10 @@ uint32_t WormholeArcMessenger::send_message(
 
     TT_ASSERT(arg0 <= 0xffff and arg1 <= 0xffff, "Only 16 bits allowed in arc_msg args");
 
-    const tt_xy_pair arc_core = umd_use_noc1
-                                    ? tt_xy_pair(
-                                          tt::umd::wormhole::NOC0_X_TO_NOC1_X[tt::umd::wormhole::ARC_CORES_NOC0[0].x],
-                                          tt::umd::wormhole::NOC0_Y_TO_NOC1_Y[tt::umd::wormhole::ARC_CORES_NOC0[0].y])
-                                    : tt::umd::wormhole::ARC_CORES_NOC0[0];
+    const tt_xy_pair arc_core = umd_use_noc1 ? tt_xy_pair(
+                                                   wormhole::NOC0_X_TO_NOC1_X[wormhole::ARC_CORES_NOC0[0].x],
+                                                   wormhole::NOC0_Y_TO_NOC1_Y[wormhole::ARC_CORES_NOC0[0].y])
+                                             : wormhole::ARC_CORES_NOC0[0];
 
     // TODO: Once local and remote ttdevice is properly separated, reenable this code.
     // TODO2: Once we have unique chip ids other than PCI dev number, use that for both local and remote chips for

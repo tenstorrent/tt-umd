@@ -15,13 +15,12 @@
 #include <vector>
 
 #include "hwloc.h"
-#include "umd/device/tt_cluster_descriptor.h"  // For chip_id_t
+#include "umd/device/types/cluster_descriptor_types.h"  // For chip_id_t
 
-using tt_cluster_description = tt_ClusterDescriptor;
-
-namespace tt {
+namespace tt::cpuset {
 //! Utility functions for various backend paramsf
-namespace cpuset {
+
+using tt::umd::chip_id_t;
 
 // CPU ID allocator for pinning threads to cpu_ids
 // It's a singleton that should be retrieved via get()
@@ -124,5 +123,4 @@ std::ostream &operator<<(std::ostream &os, const std::vector<T> &v) {
     return os;
 }
 
-}  // namespace cpuset
-}  // namespace tt
+}  // namespace tt::cpuset

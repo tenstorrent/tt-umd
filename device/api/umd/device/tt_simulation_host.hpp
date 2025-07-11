@@ -14,6 +14,8 @@
 typedef struct nng_socket_s nng_socket;
 typedef struct nng_dialer_s nng_dialer;
 
+namespace tt::umd {
+
 class tt_SimulationHost {
 public:
     tt_SimulationHost();
@@ -27,3 +29,5 @@ private:
     std::unique_ptr<nng_socket> host_socket;
     std::unique_ptr<nng_dialer> host_dialer;
 };
+
+}  // namespace tt::umd

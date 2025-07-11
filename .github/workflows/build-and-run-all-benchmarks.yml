@@ -1,5 +1,5 @@
 # Build and then run all benchmarks, on all supported archs.
-name: Check runner
+name: Build and run all benchmarks
 
 on:
   workflow_dispatch:

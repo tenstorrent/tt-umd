@@ -32,15 +32,142 @@ class Cluster;
 }
 
 class tt_ClusterDescriptor {
+    // TODO: Only Topo Discovery should have access.
     friend class tt::umd::Cluster;
     friend class tt::umd::TopologyDiscovery;
+
+public:
+    /**
+     * Helper function to detect cluster's architecture. Assumes whole cluster has the same architecture.
+     */
+    static tt::ARCH detect_cluster_architecture();
+
+    /**
+     * Helper function to detect all PCIe chips without running full topology discovery.
+     */
+    static std::vector<pci_id_t> detect_mmio_devices();
+
+    // Serialize the cluster descriptor to a YAML string, or directly to a file.
+    // A default file in /tmp directory will be used if no path is passed.
+    /**
+     * Serializes the cluster descriptor to a YAML string.
+     */
+    std::string serialize() const;
+
+    /**
+     * Serializes the cluster descriptor to a YAML file.
+     * @param dest_file Path to the file where the descriptor will be serialized. If empty filename is passed, the
+     * default randomly generated path will be used.
+     */
+    std::filesystem::path serialize_to_file(const std::filesystem::path &dest_file = "") const;
+
+    /**
+     * Creates a cluster descriptor from a YAML file.
+     * @param cluster_descriptor_file_path Path to the YAML file containing the cluster descriptor.
+     */
+    static std::unique_ptr<tt_ClusterDescriptor> create_from_yaml(const std::string &cluster_descriptor_file_path);
+
+    //
+    /**
+     * Creates a mock cluster descriptor with the given logical device IDs and architecture.
+     * This function is used to create mock cluster descriptor yaml files, for example for simulation.
+     * @param logical_device_ids Vector of logical device IDs to be included in the mock cluster.
+     * @param arch Architecture of the mock cluster.
+     */
+    static std::unique_ptr<tt_ClusterDescriptor> create_mock_cluster(
+        const std::vector<chip_id_t> &logical_device_ids, tt::ARCH arch);
+
+    /**
+     * Creates a constrained cluster descriptor that only contains the chips specified in target_chip_ids.
+     */
+    static std::unique_ptr<tt_ClusterDescriptor> create_constrained_cluster_descriptor(
+        const tt_ClusterDescriptor *full_cluster_desc, const std::unordered_set<chip_id_t> &target_chip_ids);
+
+    /**
+     * Returns the pairs of channels that are connected where the first entry in the pair corresponds to the argument
+     * ordering when calling the function An empty result implies that the two chips do not share any direct connection
+     */
+    std::vector<std::tuple<ethernet_channel_t, ethernet_channel_t>>
+    get_directly_connected_ethernet_channels_between_chips(const chip_id_t &first, const chip_id_t &second) const;
+
+    /**
+     * Return whether a chip is connected through a PCIe link.
+     *
+     * @param chip_id Chip id to check.
+     */
+    bool is_chip_mmio_capable(const chip_id_t chip_id) const;
+
+    /**
+     * Opposite of is_chip_mmio_capable.
+     *
+     * @param chip_id Chip id to check.
+     */
+    bool is_chip_remote(const chip_id_t chip_id) const;
+
+    /**
+     * Returns the closest PCIe connected chip. If passed chip is a PCIe chip, it will return itself.
+     *
+     * @param chip Chip id to check, can be a PCIe or remote chip.
+     */
+    chip_id_t get_closest_mmio_capable_chip(const chip_id_t chip);
+
+    /* Galaxy specific functions. */
+    chip_id_t get_shelf_local_physical_chip_coords(chip_id_t virtual_coord);
+
+    /* Getters for various chip related information. */
+    std::size_t get_number_of_chips() const;
+    const std::unordered_set<chip_id_t> &get_all_chips() const;
+    const std::vector<chip_id_t> get_chips_local_first(std::unordered_set<chip_id_t> chips) const;
+    BoardType get_board_type(chip_id_t chip_id) const;
+    tt::ARCH get_arch(chip_id_t chip_id) const;
+    const std::unordered_map<chip_id_t, std::uint32_t> &get_harvesting_info() const;
+    const std::unordered_map<chip_id_t, bool> &get_noc_translation_table_en() const;
+    const std::unordered_map<chip_id_t, eth_coord_t> &get_chip_locations() const;
+    const std::unordered_map<chip_id_t, uint64_t> &get_chip_unique_ids() const;
+    const std::unordered_map<chip_id_t, pci_id_t> &get_chips_with_mmio() const;
+    std::optional<chip_id_t> get_chip_id(const ChipUID &chip_uid) const;
+    std::optional<ChipUID> get_chip_uid(chip_id_t chip_id) const;
+    uint32_t get_dram_harvesting_mask(chip_id_t chip_id) const;
+    uint32_t get_eth_harvesting_mask(chip_id_t chip_id) const;
+    uint32_t get_pcie_harvesting_mask(chip_id_t chip_id) const;
+
+    /* Connections related functions. */
+    const std::
+        unordered_map<chip_id_t, std::unordered_map<ethernet_channel_t, std::tuple<chip_id_t, ethernet_channel_t>>> &
+        get_ethernet_connections() const;
+    // TODO: unify uint64_t with ChipUID
+    const std::
+        unordered_map<chip_id_t, std::unordered_map<ethernet_channel_t, std::tuple<uint64_t, ethernet_channel_t>>>
+        get_ethernet_connections_to_remote_mmio_devices() const;
+    const std::unordered_map<chip_id_t, std::unordered_set<chip_id_t>> &get_chips_grouped_by_closest_mmio() const;
+
+    int get_ethernet_link_distance(chip_id_t chip_a, chip_id_t chip_b) const;
+
+    bool ethernet_core_has_active_ethernet_link(chip_id_t local_chip, ethernet_channel_t local_ethernet_channel) const;
+    std::tuple<chip_id_t, ethernet_channel_t> get_chip_and_channel_of_remote_ethernet_core(
+        chip_id_t local_chip, ethernet_channel_t local_ethernet_channel) const;
+
+    std::set<uint32_t> get_active_eth_channels(chip_id_t chip_id);
+    std::set<uint32_t> get_idle_eth_channels(chip_id_t chip_id);
 
 private:
     tt_ClusterDescriptor() = default;
 
     int get_ethernet_link_coord_distance(const eth_coord_t &location_a, const eth_coord_t &location_b) const;
 
-protected:
+    // Helpers during construction of cluster descriptor.
+    void add_chip_uid(const chip_id_t chip_id, const ChipUID &chip_uid);
+
+    // Helper functions for filling up the cluster descriptor.
+    void load_ethernet_connections_from_connectivity_descriptor(YAML::Node &yaml);
+    void fill_galaxy_connections();
+    void load_chips_from_connectivity_descriptor(YAML::Node &yaml);
+    void merge_cluster_ids();
+    void load_harvesting_information(YAML::Node &yaml);
+    void fill_chips_grouped_by_closest_mmio();
+
+    static std::filesystem::path get_default_cluster_descriptor_file_path();
+
     std::unordered_map<chip_id_t, std::unordered_map<ethernet_channel_t, std::tuple<chip_id_t, ethernet_channel_t>>>
         ethernet_connections;
     // TODO: unify uint64_t with ChipUID
@@ -79,83 +206,7 @@ protected:
     // assumption is that on every row of the rack there is a chip that is connected to the other rack
     std::unordered_map<int, std::unordered_map<int, Chip2ChipConnection>> galaxy_racks_exit_chip_coords_per_x_dim = {};
 
-    static void load_ethernet_connections_from_connectivity_descriptor(YAML::Node &yaml, tt_ClusterDescriptor &desc);
-    static void fill_galaxy_connections(tt_ClusterDescriptor &desc);
-    static void load_chips_from_connectivity_descriptor(YAML::Node &yaml, tt_ClusterDescriptor &desc);
-    static void merge_cluster_ids(tt_ClusterDescriptor &desc);
-    static void load_harvesting_information(YAML::Node &yaml, tt_ClusterDescriptor &desc);
-
-    void fill_chips_grouped_by_closest_mmio();
-
     std::map<chip_id_t, uint32_t> dram_harvesting_masks = {};
     std::map<chip_id_t, uint32_t> eth_harvesting_masks = {};
     std::map<chip_id_t, uint32_t> pcie_harvesting_masks = {};
-
-public:
-    /*
-     * Returns the pairs of channels that are connected where the first entry in the pair corresponds to the argument
-     * ordering when calling the function An empty result implies that the two chips do not share any direct connection
-     */
-    std::vector<std::tuple<ethernet_channel_t, ethernet_channel_t>>
-    get_directly_connected_ethernet_channels_between_chips(const chip_id_t &first, const chip_id_t &second) const;
-
-    bool is_chip_mmio_capable(const chip_id_t chip_id) const;
-    bool is_chip_remote(const chip_id_t chip_id) const;
-    chip_id_t get_closest_mmio_capable_chip(const chip_id_t chip);
-    chip_id_t get_shelf_local_physical_chip_coords(chip_id_t virtual_coord);
-
-    static std::unique_ptr<tt_ClusterDescriptor> create_from_yaml(const std::string &cluster_descriptor_file_path);
-
-    // This function is used to create mock cluster descriptor yaml files, for example for simulation.
-    static std::unique_ptr<tt_ClusterDescriptor> create_mock_cluster(
-        const std::vector<chip_id_t> &logical_device_ids, tt::ARCH arch);
-    // Used to create a subset of a cluster descriptor.
-    static std::unique_ptr<tt_ClusterDescriptor> create_constrained_cluster_descriptor(
-        const tt_ClusterDescriptor *full_cluster_desc, const std::unordered_set<chip_id_t> &target_chip_ids);
-
-    static tt::ARCH detect_cluster_architecture();
-    static std::vector<int> detect_mmio_devices();
-
-    const std::unordered_map<chip_id_t, std::uint32_t> &get_harvesting_info() const;
-    const std::unordered_map<chip_id_t, bool> &get_noc_translation_table_en() const;
-    const std::unordered_map<chip_id_t, eth_coord_t> &get_chip_locations() const;
-    const std::unordered_map<chip_id_t, uint64_t> &get_chip_unique_ids() const;
-    const std::
-        unordered_map<chip_id_t, std::unordered_map<ethernet_channel_t, std::tuple<chip_id_t, ethernet_channel_t>>> &
-        get_ethernet_connections() const;
-    // TODO: unify uint64_t with ChipUID
-    const std::
-        unordered_map<chip_id_t, std::unordered_map<ethernet_channel_t, std::tuple<uint64_t, ethernet_channel_t>>>
-        get_ethernet_connections_to_remote_mmio_devices() const;
-    const std::unordered_map<chip_id_t, chip_id_t> &get_chips_with_mmio() const;
-    const std::unordered_set<chip_id_t> &get_all_chips() const;
-    const std::vector<chip_id_t> get_chips_local_first(std::unordered_set<chip_id_t> chips) const;
-    const std::unordered_map<chip_id_t, std::unordered_set<chip_id_t>> &get_chips_grouped_by_closest_mmio() const;
-    std::size_t get_number_of_chips() const;
-
-    int get_ethernet_link_distance(chip_id_t chip_a, chip_id_t chip_b) const;
-
-    BoardType get_board_type(chip_id_t chip_id) const;
-    tt::ARCH get_arch(chip_id_t chip_id) const;
-
-    void add_chip_uid(const chip_id_t chip_id, const ChipUID &chip_uid);
-    std::optional<chip_id_t> get_chip_id(const ChipUID &chip_uid) const;
-    std::optional<ChipUID> get_chip_uid(chip_id_t chip_id) const;
-
-    bool ethernet_core_has_active_ethernet_link(chip_id_t local_chip, ethernet_channel_t local_ethernet_channel) const;
-    std::tuple<chip_id_t, ethernet_channel_t> get_chip_and_channel_of_remote_ethernet_core(
-        chip_id_t local_chip, ethernet_channel_t local_ethernet_channel) const;
-
-    // Serialize the cluster descriptor to a YAML string, or directly to a file.
-    // A default file in /tmp directory will be used if no path is passed.
-    std::string serialize() const;
-    std::filesystem::path serialize_to_file(const std::filesystem::path &dest_file = "") const;
-    static std::filesystem::path get_default_cluster_descriptor_file_path();
-
-    std::set<uint32_t> get_active_eth_channels(chip_id_t chip_id);
-    std::set<uint32_t> get_idle_eth_channels(chip_id_t chip_id);
-
-    uint32_t get_dram_harvesting_mask(chip_id_t chip_id) const;
-    uint32_t get_eth_harvesting_mask(chip_id_t chip_id) const;
-    uint32_t get_pcie_harvesting_mask(chip_id_t chip_id) const;
 };

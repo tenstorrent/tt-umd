@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: Apache-2.0
 #include "umd/device/tt_device/wormhole_tt_device.h"
 
+#include <cstdint>
 #include <tt-logger/tt-logger.hpp>
 
 #include "umd/device/coordinate_manager.h"
@@ -361,6 +362,16 @@ void WormholeTTDevice::dma_h2d_zero_copy(uint32_t dst, const void *src, size_t s
 
 void WormholeTTDevice::dma_d2h_zero_copy(void *dst, uint32_t src, size_t size) {
     dma_d2h_transfer((uint64_t)(uintptr_t)dst, src, size);
+}
+
+void WormholeTTDevice::read_from_arc(void *mem_ptr, uint64_t addr) {
+    // bar32 read + scratch addres
+    auto result = bar_read32(architecture_impl_->get_arc_reset_scratch_offset() + addr);
+    *(reinterpret_cast<uint32_t *>(mem_ptr)) = result;
+}
+
+void WormholeTTDevice::write_to_arc(const void *mem_ptr, uint64_t addr) {
+    bar_write32(addr, *(reinterpret_cast<const uint32_t *>(mem_ptr)));
 }
 
 void WormholeTTDevice::wait_eth_core_training(const tt_xy_pair eth_core, const uint32_t timeout_ms) {

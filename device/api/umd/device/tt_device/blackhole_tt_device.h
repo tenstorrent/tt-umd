@@ -40,6 +40,10 @@ public:
 
     void dma_d2h_zero_copy(void *dst, uint32_t src, size_t size) override;
 
+    void read_from_arc(void *mem_ptr, uint64_t addr) override{};
+
+    void write_to_arc(const void *mem_ptr, uint64_t addr) override{};
+
     std::vector<DramTrainingStatus> get_dram_training_status() override;
 
     ChipInfo get_chip_info() override;

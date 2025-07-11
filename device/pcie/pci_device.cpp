@@ -103,6 +103,29 @@ static bool detect_iommu(const PciDeviceInfo &device_info) {
     return false;
 }
 
+// For reading binary config data, create a specialized version
+static std::optional<uint8_t> try_read_config_byte(const PciDeviceInfo &device_info, size_t offset) {
+    const auto config_path = fmt::format(
+        "/sys/bus/pci/devices/{:04x}:{:02x}:{:02x}.{:x}/config",
+        device_info.pci_domain,
+        device_info.pci_bus,
+        device_info.pci_device,
+        device_info.pci_function);
+
+    std::ifstream config_file(config_path, std::ios::binary);
+    if (!config_file.is_open()) {
+        return std::nullopt;
+    }
+
+    config_file.seekg(offset);
+    uint8_t byte;
+    if (!config_file.read(reinterpret_cast<char *>(&byte), 1)) {
+        return std::nullopt;
+    }
+
+    return byte;
+}
+
 static PciDeviceInfo read_device_info(int fd) {
     tenstorrent_get_device_info info{};
     info.in.output_size_bytes = sizeof(info.out);
@@ -118,22 +141,31 @@ static PciDeviceInfo read_device_info(int fd) {
     return PciDeviceInfo{info.out.vendor_id, info.out.device_id, info.out.pci_domain, bus, dev, fn};
 }
 
-/*static*/ void reset_device() {
+static void reset_device(uint32_t flags) {
     for (int n : PCIDevice::enumerate_devices()) {
+        std::cout << "Resetting device " << n << "...\n";
         int fd = open(fmt::format("/dev/tenstorrent/{}", n).c_str(), O_RDWR | O_CLOEXEC);
         if (fd == -1) {
             continue;
         }
 
         try {
-            tenstorrent_get_driver_reset_info reset_info{{0x0000000100000008ULL}, {0x0000000000000000ULL}};
-            reset_info.in.buffer = sizeof(reset_info.out);
+            tenstorrent_reset_device reset_info{};
+
+            // Initialize input fields matching Python: output_size_bytes, flags
+            reset_info.in.output_size_bytes = sizeof(reset_info.out);
+            reset_info.in.flags = flags;
+
+            // Initialize output fields to zero
+            reset_info.out.output_size_bytes = 0;
+            reset_info.out.result = 0;
+
             if (ioctl(fd, TENSTORRENT_IOCTL_RESET_DEVICE, &reset_info) == -1) {
                 std::cout << "fail\n";
-                TT_THROW("TENSTORRENT_IOCTL_GET_DRIVER_INFO failed");
+                TT_THROW("TENSTORRENT_IOCTL_RESET_DEVICE failed");
             }
 
-            std::cout << std::hex << reset_info.in.buffer << " " << reset_info.out.buffer << "\n";
+            std::cout << std::hex << reset_info.in.flags << " " << reset_info.out.result << "\n";
         } catch (...) {
         }
 
@@ -557,6 +589,27 @@ semver_t PCIDevice::read_kmd_version() {
 
 std::unique_ptr<TlbHandle> PCIDevice::allocate_tlb(const size_t tlb_size, const TlbMapping tlb_mapping) {
     return std::make_unique<TlbHandle>(pci_device_file_desc, tlb_size, tlb_mapping);
+}
+
+void PCIDevice::reset_devices(TenstorrentResetDevice flag) { reset_device(static_cast<uint32_t>(flag)); }
+
+uint8_t PCIDevice::read_command_byte() {
+    // Usage equivalent to your Python code:
+    // command_memory_byte = os.pread(file.fileno(), 1, 4)
+    // reset_bit = (int.from_bytes(command_memory_byte, byteorder="little") >> 1) & 1
+    auto device_info = get_device_info();
+    auto command_byte = try_read_config_byte(device_info, 4);  // offset 4 for Command register
+    if (!command_byte) {
+        // Handle error - couldn't read config space
+        const auto sysfs_path = fmt::format(
+            "/sys/bus/pci/devices/{:04x}:{:02x}:{:02x}.{:x}/{}",
+            device_info.pci_domain,
+            device_info.pci_bus,
+            device_info.pci_device,
+            device_info.pci_function);
+        TT_THROW("Failed reading or parsing sysfs config: {}", sysfs_path);
+    }
+    return *command_byte;
 }
 
 }  // namespace tt::umd

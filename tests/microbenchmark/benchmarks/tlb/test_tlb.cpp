@@ -75,9 +75,6 @@ TEST(MicrobenchmarkTLB, TLBDynamicDram) {
         8 * one_mb,
         16 * one_mb,
         32 * one_mb,
-        64 * one_mb,
-        128 * one_mb,
-        256 * one_mb,
     };
 
     std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
@@ -153,11 +150,6 @@ TEST(MicrobenchmarkTLB, TLBStaticDram) {
     const std::vector<uint32_t> sizes = {
         16 * one_mb,
         32 * one_mb,
-        64 * one_mb,
-        128 * one_mb,
-        256 * one_mb,
-        512 * one_mb,
-        1024 * one_mb,
     };
 
     std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();

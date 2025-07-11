@@ -44,15 +44,15 @@ void print_results(std::vector<uint64_t>& map_times, std::vector<uint64_t>& unma
     uint64_t unmap_time_average = std::accumulate(unmap_times.begin(), unmap_times.end(), 0ULL) / NUM_ITERATIONS;
 
     const uint64_t num_pages = mapping_size / sysconf(_SC_PAGESIZE);
-    double map_per_page = (double)map_time_average / num_pages;
-    double unmap_per_page = (double)unmap_time_average / num_pages;
+    double bw_map_mbs = (double)mapping_size / map_time_average;
+    double bw_unmap_mbs = (double)mapping_size / unmap_time_average;
 
     std::cout << "Mapped " << num_pages << " pages (" << mapping_size << " bytes, " << ((double)mapping_size / one_mb)
               << " MB). Median map time: " << map_time_median << " ns, Average map time: " << map_time_average
-              << " ns, Map time per page: " << map_per_page << " ns." << std::endl;
+              << " ns. Bandwidth: " << bw_map_mbs << " MB/s." << std::endl;
     std::cout << "Unmapped " << num_pages << " pages (" << mapping_size << " bytes, " << ((double)mapping_size / one_mb)
               << " MB). Median unmap time: " << unmap_time_median << " ns, Average unmap time: " << unmap_time_average
-              << " ns, Unmap time per page: " << unmap_per_page << " ns." << std::endl;
+              << " ns, Bandwidth: " << bw_unmap_mbs << " MB/s." << std::endl;
     std::cout << "--------------------------------------------------------" << std::endl;
 }
 

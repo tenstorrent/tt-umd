@@ -67,6 +67,7 @@ target_sources(
         utils/lock_manager.cpp
         utils/robust_mutex.cpp
         topology_discovery.cpp
+        topology_discovery_blackhole.cpp
         remote_communication.cpp
 )
 

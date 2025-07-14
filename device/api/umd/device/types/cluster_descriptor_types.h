@@ -21,8 +21,11 @@ inline void boost_hash_combine(std::size_t &seed, const int value) {
     seed ^= value + 0x9e3779b9 + (seed << 6) + (seed >> 2);
 }
 
-using chip_id_t = int;
-using ethernet_channel_t = int;
+enum class chip_id_t : int {};
+enum class pci_id_t : int {};
+enum class ethernet_channel_t : int {};
+enum class board_id_t : uint64_t {};
+enum class unique_chip_id_t : uint64_t {};
 
 struct eth_coord_t {
     int cluster_id;  // This is the same for connected chips.

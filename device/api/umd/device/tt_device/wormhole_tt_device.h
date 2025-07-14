@@ -37,15 +37,18 @@ public:
 
     void dma_d2h_zero_copy(void *dst, uint32_t src, size_t size) override;
 
-    void read_from_arc(void *mem_ptr, uint64_t addr, size_t size) override;
+    void read_from_arc(void *mem_ptr, uint64_t arc_addr_offset, size_t size) override;
 
-    void write_to_arc(const void *mem_ptr, uint64_t addr, size_t size) override;
+    void write_to_arc(const void *mem_ptr, uint64_t arc_addr_offset, size_t size) override;
 
     std::vector<DramTrainingStatus> get_dram_training_status() override;
 
     ChipInfo get_chip_info() override;
 
     void wait_eth_core_training(const tt_xy_pair eth_core, const uint32_t timeout_ms = 60000) override;
+
+protected:
+    tt_xy_pair get_arc_core() const;
 
 private:
     void dma_d2h_transfer(const uint64_t dst, const uint32_t src, const size_t size);
@@ -54,5 +57,6 @@ private:
     // Enforce single-threaded access, even though there are more serious issues
     // surrounding resource management as it relates to DMA.
     std::mutex dma_mutex_;
+    tt_xy_pair arc_core;
 };
 }  // namespace tt::umd

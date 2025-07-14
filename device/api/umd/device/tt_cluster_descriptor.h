@@ -40,16 +40,6 @@ public:
     /* Construction related functions. */
 
     /**
-     * Helper function to detect cluster's architecture. Assumes whole cluster has the same architecture.
-     */
-    static tt::ARCH detect_cluster_architecture();
-
-    /**
-     * Helper function to detect all PCIe chips without running full topology discovery.
-     */
-    static std::vector<chip_id_t> detect_mmio_devices();
-
-    /**
      * Serializes the cluster descriptor to a YAML string.
      */
     std::string serialize() const;

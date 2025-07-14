@@ -17,6 +17,7 @@ namespace tt::umd {
 
 BlackholeTTDevice::BlackholeTTDevice(std::shared_ptr<PCIDevice> pci_device) :
     TTDevice(pci_device, std::make_unique<blackhole_implementation>()) {
+    arc_core = tt::umd::blackhole::get_arc_core(get_noc_translation_enabled(), umd_use_noc1);
     init_tt_device();
 }
 
@@ -214,12 +215,10 @@ void BlackholeTTDevice::dma_d2h_zero_copy(void *dst, uint32_t src, size_t size) 
 }
 
 void BlackholeTTDevice::read_from_arc(void *mem_ptr, uint64_t addr, size_t size) {
-    const tt_xy_pair arc_core = tt::umd::blackhole::get_arc_core(get_noc_translation_enabled(), umd_use_noc1);
     read_from_device(mem_ptr, arc_core, addr, size);
 };
 
 void BlackholeTTDevice::write_to_arc(const void *mem_ptr, uint64_t addr, size_t size) {
-    const tt_xy_pair arc_core = tt::umd::blackhole::get_arc_core(get_noc_translation_enabled(), umd_use_noc1);
     write_to_device(mem_ptr, arc_core, addr, size);
 };
 

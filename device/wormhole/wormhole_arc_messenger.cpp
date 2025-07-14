@@ -49,14 +49,8 @@ uint32_t WormholeArcMessenger::send_message(
     uint32_t fw_arg = arg0 | (arg1 << 16);
     int exit_code = 0;
 
-    tt_device->write_to_arc(
-        &fw_arg,
-        wormhole::ARC_RESET_SCRATCH_OFFSET + wormhole::ARC_SCRATCH_RES0_OFFSET * sizeof(uint32_t),
-        sizeof(uint32_t));
-    tt_device->write_to_arc(
-        &msg_code,
-        wormhole::ARC_RESET_SCRATCH_OFFSET + wormhole::ARC_SCRATCH_STATUS_OFFSET * sizeof(uint32_t),
-        sizeof(uint32_t));
+    tt_device->write_to_arc(&fw_arg, wormhole::ARC_RESET_SCRATCH_RES0_OFFSET, sizeof(uint32_t));
+    tt_device->write_to_arc(&msg_code, wormhole::ARC_RESET_SCRATCH_STATUS_OFFSET, sizeof(uint32_t));
 
     tt_device->wait_for_non_mmio_flush();
 
@@ -80,24 +74,15 @@ uint32_t WormholeArcMessenger::send_message(
             throw std::runtime_error(fmt::format("Timed out after waiting {} ms for ARC to respond", timeout_ms));
         }
 
-        tt_device->read_from_arc(
-            &status,
-            wormhole::ARC_RESET_SCRATCH_OFFSET + wormhole::ARC_SCRATCH_STATUS_OFFSET * sizeof(uint32_t),
-            sizeof(uint32_t));
+        tt_device->read_from_arc(&status, wormhole::ARC_RESET_SCRATCH_STATUS_OFFSET, sizeof(uint32_t));
 
         if ((status & 0xffff) == (msg_code & 0xff)) {
             if (return_values.size() >= 1) {
-                tt_device->read_from_arc(
-                    &return_values[0],
-                    wormhole::ARC_RESET_SCRATCH_OFFSET + wormhole::ARC_SCRATCH_RES0_OFFSET * sizeof(uint32_t),
-                    sizeof(uint32_t));
+                tt_device->read_from_arc(&return_values[0], wormhole::ARC_RESET_SCRATCH_RES0_OFFSET, sizeof(uint32_t));
             }
 
             if (return_values.size() >= 2) {
-                tt_device->read_from_arc(
-                    &return_values[0],
-                    wormhole::ARC_RESET_SCRATCH_OFFSET + wormhole::ARC_SCRATCH_RES1_OFFSET * sizeof(uint32_t),
-                    sizeof(uint32_t));
+                tt_device->read_from_arc(&return_values[1], wormhole::ARC_RESET_SCRATCH_RES1_OFFSET, sizeof(uint32_t));
             }
 
             exit_code = (status & 0xffff0000) >> 16;

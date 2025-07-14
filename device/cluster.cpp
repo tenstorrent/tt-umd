@@ -449,10 +449,12 @@ tt::Writer Cluster::get_static_tlb_writer(const chip_id_t chip, const CoreCoord 
     return get_tlb_manager(chip)->get_static_tlb_writer(virtual_core);
 }
 
+int Cluster::get_clock(int logical_device_id) { return chips_.at(logical_device_id)->get_clock(); }
+
 std::map<int, int> Cluster::get_clocks() {
     std::map<int, int> clock_freq_map;
     for (auto& chip_id : local_chip_ids_) {
-        clock_freq_map.insert({chip_id, chips_.at(chip_id)->get_clock()});
+        clock_freq_map.insert({chip_id, get_clock(chip_id)});
     }
     return clock_freq_map;
 }
@@ -902,6 +904,12 @@ void Cluster::set_power_state(tt_DevicePowerState device_state) {
     }
 }
 
+void Cluster::enable_ethernet_queue(int timeout) {
+    for (const chip_id_t& chip : all_chip_ids_) {
+        get_chip(chip)->enable_ethernet_queue(timeout);
+    }
+}
+
 void Cluster::deassert_resets_and_set_power_state() {
     // Assert tensix resets on all chips in cluster
     broadcast_tensix_risc_reset_to_cluster(TENSIX_ASSERT_SOFT_RESET);
@@ -913,7 +921,7 @@ void Cluster::deassert_resets_and_set_power_state() {
     // MT Initial BH - ARC messages not supported in Blackhole
     if (arch_name != tt::ARCH::BLACKHOLE) {
         for (const chip_id_t& chip : all_chip_ids_) {
-            get_chip(chip)->enable_ethernet_queue(30);
+            enable_ethernet_queue(30);
         }
     }
 

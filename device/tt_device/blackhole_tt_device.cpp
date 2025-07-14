@@ -11,6 +11,7 @@
 #include "umd/device/coordinate_manager.h"
 #include "umd/device/types/blackhole_eth.h"
 #include "umd/device/types/blackhole_telemetry.h"
+#include "umd/device/types/cluster_descriptor_types.h"
 
 namespace tt::umd {
 
@@ -211,6 +212,16 @@ void BlackholeTTDevice::dma_h2d_zero_copy(uint32_t dst, const void *src, size_t 
 void BlackholeTTDevice::dma_d2h_zero_copy(void *dst, uint32_t src, size_t size) {
     throw std::runtime_error("D2H DMA is not supported on Blackhole.");
 }
+
+void BlackholeTTDevice::read_from_arc(void *mem_ptr, uint64_t addr, size_t size) {
+    const tt_xy_pair arc_core = tt::umd::blackhole::get_arc_core(get_noc_translation_enabled(), umd_use_noc1);
+    read_from_device(mem_ptr, arc_core, addr, size);
+};
+
+void BlackholeTTDevice::write_to_arc(const void *mem_ptr, uint64_t addr, size_t size) {
+    const tt_xy_pair arc_core = tt::umd::blackhole::get_arc_core(get_noc_translation_enabled(), umd_use_noc1);
+    write_to_device(mem_ptr, arc_core, addr, size);
+};
 
 std::vector<DramTrainingStatus> BlackholeTTDevice::get_dram_training_status() {
     if (!telemetry->is_entry_available(tt::umd::blackhole::TAG_DDR_STATUS)) {

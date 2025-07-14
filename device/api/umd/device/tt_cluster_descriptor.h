@@ -192,8 +192,9 @@ public:
      * Note that in previous function the logical chip id is returned, but here we return unique chip id so it can be
      * matched with another cluster descriptor's information.
      */
-    const std::unordered_map<chip_id_t, std::unordered_map<ethernet_channel_t, std::tuple<int, ethernet_channel_t>>> &
-    get_ethernet_connections_to_remote_devices() const;
+    const std::
+        unordered_map<chip_id_t, std::unordered_map<ethernet_channel_t, std::tuple<uint64_t, ethernet_channel_t>>> &
+        get_ethernet_connections_to_remote_devices() const;
     const std::unordered_map<chip_id_t, std::unordered_set<chip_id_t>> &get_chips_grouped_by_closest_mmio() const;
 
     /**
@@ -250,7 +251,7 @@ private:
     std::unordered_map<chip_id_t, std::unordered_map<ethernet_channel_t, std::tuple<chip_id_t, ethernet_channel_t>>>
         ethernet_connections;
     // TODO: unify uint64_t with ChipUID
-    std::unordered_map<chip_id_t, std::unordered_map<ethernet_channel_t, std::tuple<int, ethernet_channel_t>>>
+    std::unordered_map<chip_id_t, std::unordered_map<ethernet_channel_t, std::tuple<uint64_t, ethernet_channel_t>>>
         ethernet_connections_to_remote_devices;
     std::unordered_map<chip_id_t, eth_coord_t> chip_locations;
     // reverse map: rack/shelf/y/x -> chip_id

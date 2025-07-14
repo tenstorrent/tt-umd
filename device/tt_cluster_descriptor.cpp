@@ -986,7 +986,7 @@ tt_ClusterDescriptor::get_ethernet_connections() const {
     return ethernet_connections;
 }
 
-const std::unordered_map<chip_id_t, std::unordered_map<ethernet_channel_t, std::tuple<int, ethernet_channel_t>>> &
+const std::unordered_map<chip_id_t, std::unordered_map<ethernet_channel_t, std::tuple<uint64_t, ethernet_channel_t>>> &
 tt_ClusterDescriptor::get_ethernet_connections_to_remote_devices() const {
     return this->ethernet_connections_to_remote_devices;
 }

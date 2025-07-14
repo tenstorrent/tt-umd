@@ -648,11 +648,7 @@ private:
     void verify_fw_bundle_version();
     void verify_eth_fw();
     void verify_sw_fw_versions(int device_id, std::uint32_t sw_version, std::vector<std::uint32_t>& fw_versions);
-    // To be changed in the next PR
-    void create_device(
-        const std::set<chip_id_t>& target_mmio_device_ids,
-        const uint32_t& num_host_mem_ch_per_mmio_device,
-        const ChipType& chip_type);
+    void verify_sysmem_initialized();
 
     // Helper functions for constructing the chips from the cluster descriptor.
     std::unique_ptr<Chip> construct_chip_from_cluster(

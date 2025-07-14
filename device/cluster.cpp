@@ -101,30 +101,19 @@ const tt_SocDescriptor& Cluster::get_soc_descriptor(chip_id_t chip_id) const {
     return get_chip(chip_id)->get_soc_descriptor();
 }
 
-void Cluster::create_device(
-    const std::set<chip_id_t>& target_mmio_device_ids,
-    const uint32_t& num_host_mem_ch_per_mmio_device,
-    const ChipType& chip_type) {
-    log_debug(LogSiliconDriver, "Cluster::Cluster");
-
-    // Don't buffer stdout.
-    setbuf(stdout, NULL);
-
-    for (const chip_id_t& logical_device_id : target_mmio_device_ids) {
-        if (chip_type == ChipType::SILICON) {
-            bool hugepages_initialized =
-                (get_chip(logical_device_id)->get_sysmem_manager()->get_hugepage_mapping(0).mapping != nullptr);
-            // Large writes to remote chips require hugepages to be initialized.
-            // Conservative assert - end workload if remote chips present but hugepages not initialized (failures caused
-            // if using remote only for small transactions)
-            if (remote_chip_ids_.size()) {
-                TT_ASSERT(
-                    hugepages_initialized,
-                    "Hugepages must be successfully initialized if workload contains remote chips!");
-            }
-            if (!hugepages_initialized) {
-                log_warning(LogSiliconDriver, "No hugepage mapping at device {}.", logical_device_id);
-            }
+void Cluster::verify_sysmem_initialized() {
+    for (const chip_id_t& chip_id : local_chip_ids_) {
+        bool hugepages_initialized =
+            (get_chip(chip_id)->get_sysmem_manager()->get_hugepage_mapping(0).mapping != nullptr);
+        // Large writes to remote chips require hugepages to be initialized.
+        // Conservative assert - end workload if remote chips present but hugepages not initialized (failures caused
+        // if using remote only for small transactions)
+        if (remote_chip_ids_.size()) {
+            TT_ASSERT(
+                hugepages_initialized, "Hugepages must be successfully initialized if workload contains remote chips!");
+        }
+        if (!hugepages_initialized) {
+            log_warning(LogSiliconDriver, "No hugepage mapping at device {}.", chip_id);
         }
     }
 }
@@ -173,9 +162,8 @@ void Cluster::construct_cluster(const uint32_t& num_host_mem_ch_per_mmio_device,
         if (arch_name == tt::ARCH::WORMHOLE_B0) {
             verify_eth_fw();
         }
+        verify_sysmem_initialized();
     }
-
-    create_device(local_chip_ids_, num_host_mem_ch_per_mmio_device, chip_type);
 
     // Disable dependency to ethernet firmware for all BH devices and WH devices with all chips having MMIO (e.g. UBB
     // Galaxy, or P300).

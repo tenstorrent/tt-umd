@@ -365,11 +365,17 @@ void WormholeTTDevice::dma_d2h_zero_copy(void *dst, uint32_t src, size_t size) {
 }
 
 void WormholeTTDevice::read_from_arc(void *mem_ptr, uint64_t addr) {
+    if ((addr < wormhole::ARC_BAR0_ADDRESS_START) || (addr > wormhole::ARC_BAR0_ADDRESS_END)) {
+        throw std::runtime_error("Address is out of ARC BAR0 address range");
+    }
     auto result = bar_read32(addr);
     *(reinterpret_cast<uint32_t *>(mem_ptr)) = result;
 }
 
 void WormholeTTDevice::write_to_arc(const void *mem_ptr, uint64_t addr) {
+    if ((addr < wormhole::ARC_BAR0_ADDRESS_START) || (addr > wormhole::ARC_BAR0_ADDRESS_END)) {
+        throw std::runtime_error("Address is out of ARC BAR0 address range");
+    }
     bar_write32(addr, *(reinterpret_cast<const uint32_t *>(mem_ptr)));
 }
 

@@ -6,6 +6,8 @@
 
 #pragma once
 
+#include <sys/types.h>
+
 #include <array>
 
 #include "architecture_implementation.h"
@@ -233,11 +235,8 @@ static constexpr uint32_t GRID_SIZE_Y = 12;
 
 static constexpr uint32_t ARC_MSG_COMMON_PREFIX = 0xAA00;
 
-static constexpr uint32_t ARC_BAR0_ADDRESS_START = 0x1FE00000;
-static constexpr uint32_t ARC_BAR0_ADDRESS_END = 0x1FFFFFFF;
-
-static constexpr uint32_t ARC_RESET_SCRATCH_OFFSET = 0x1FF30060;
-static constexpr uint32_t ARC_RESET_ARC_MISC_CNTL_OFFSET = 0x1FF30100;
+static constexpr uint32_t ARC_APB_BAR0_XBAR_ADDRESS_START = 0x1FF00000;
+static constexpr uint32_t ARC_APB_BAR0_XBAR_ADDRESS_END = 0x1FFFFFFF;
 
 static constexpr uint32_t ARC_CSM_MAILBOX_OFFSET = 0x1FEF83C4;
 static constexpr uint32_t ARC_CSM_MAILBOX_SIZE_OFFSET = 0x1FEF84C4;
@@ -246,9 +245,17 @@ static constexpr uint32_t TENSIX_SOFT_RESET_ADDR = 0xFFB121B0;
 
 static constexpr uint32_t ARC_SCRATCH_6_OFFSET = 0x1FF30078;
 
-static constexpr uint32_t ARC_SCRATCH_RES0_OFFSET = 3;
-static constexpr uint32_t ARC_SCRATCH_RES1_OFFSET = 4;
-static constexpr uint32_t ARC_SCRATCH_STATUS_OFFSET = 5;
+static constexpr uint32_t ARC_RESET_UNIT_OFFSET = 0x30000;
+static constexpr uint32_t ARC_RESET_SCRATCH_OFFSET = ARC_RESET_UNIT_OFFSET + 0x60;
+static constexpr uint32_t ARC_RESET_SCRATCH_RES0_OFFSET = ARC_RESET_SCRATCH_OFFSET + 0xC;
+static constexpr uint32_t ARC_RESET_SCRATCH_RES1_OFFSET = ARC_RESET_SCRATCH_OFFSET + 0x10;
+static constexpr uint32_t ARC_RESET_SCRATCH_STATUS_OFFSET = ARC_RESET_SCRATCH_OFFSET + 0x14;
+static constexpr uint32_t ARC_RESET_ARC_MISC_CNTL_OFFSET = ARC_RESET_UNIT_OFFSET + 0x0100;
+
+static constexpr uint32_t ARC_XBAR_ADDRESS_END = 0xFFFFFFFF;
+
+constexpr uint64_t ARC_NOC_XBAR_ADDRESS_START = 0x880000000;
+constexpr uint64_t ARC_NOC_XBAR_ADDRESS_END = 0x8FFFFFFFF;
 
 constexpr uint64_t ARC_RESET_SCRATCH_ADDR = 0x880030060;
 constexpr uint64_t ARC_RESET_MISC_CNTL_ADDR = 0x880030100;
@@ -318,9 +325,13 @@ public:
 
     uint32_t get_arc_csm_mailbox_offset() const override { return wormhole::ARC_CSM_MAILBOX_OFFSET; }
 
-    uint32_t get_arc_reset_arc_misc_cntl_offset() const override { return wormhole::ARC_RESET_ARC_MISC_CNTL_OFFSET; }
+    uint32_t get_arc_reset_arc_misc_cntl_offset() const override {
+        return wormhole::ARC_APB_BAR0_XBAR_ADDRESS_START + wormhole::ARC_RESET_ARC_MISC_CNTL_OFFSET;
+    }
 
-    uint32_t get_arc_reset_scratch_offset() const override { return wormhole::ARC_RESET_SCRATCH_OFFSET; }
+    uint32_t get_arc_reset_scratch_offset() const override {
+        return wormhole::ARC_APB_BAR0_XBAR_ADDRESS_START + wormhole::ARC_RESET_SCRATCH_OFFSET;
+    }
 
     uint32_t get_dram_channel_0_peer2peer_region_start() const override {
         return wormhole::DRAM_CHANNEL_0_PEER2PEER_REGION_START;

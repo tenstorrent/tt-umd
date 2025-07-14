@@ -3,6 +3,8 @@
 // SPDX-License-Identifier: Apache-2.0
 #include "umd/device/tt_device/remote_wormhole_tt_device.h"
 
+#include "umd/device/wormhole_implementation.h"
+
 namespace tt::umd {
 
 RemoteWormholeTTDevice::RemoteWormholeTTDevice(LocalChip *local_chip, eth_coord_t target_chip) :
@@ -27,5 +29,24 @@ void RemoteWormholeTTDevice::wait_for_non_mmio_flush() { remote_communication_->
 LocalChip *RemoteWormholeTTDevice::get_local_chip() { return local_chip_; }
 
 RemoteCommunication *RemoteWormholeTTDevice::get_remote_communication() { return remote_communication_.get(); }
+
+void RemoteWormholeTTDevice::read_from_arc(void *mem_ptr, uint64_t arc_addr_offset, size_t size) {
+    if ((arc_addr_offset < 0) || (arc_addr_offset > wormhole::ARC_XBAR_ADDRESS_END)) {
+        throw std::runtime_error("Address is out of ARC XBAR address range");
+    }
+    std::cout << "read_from_arc to ARC at offset: " << std::hex
+              << wormhole::ARC_NOC_XBAR_ADDRESS_START + arc_addr_offset << std::endl;
+    std::cout << "get_arc_core(): " << get_arc_core().str() << std::endl;
+    write_to_device(mem_ptr, get_arc_core(), wormhole::ARC_NOC_XBAR_ADDRESS_START + arc_addr_offset, size);
+}
+
+void RemoteWormholeTTDevice::write_to_arc(const void *mem_ptr, uint64_t arc_addr_offset, size_t size) {
+    if ((arc_addr_offset < 0) || (arc_addr_offset > wormhole::ARC_XBAR_ADDRESS_END)) {
+        throw std::runtime_error("Address is out of ARC XBAR address range");
+    }
+    std::cout << "write_to_arc to ARC at offset: " << std::hex << wormhole::ARC_NOC_XBAR_ADDRESS_START + arc_addr_offset
+              << std::endl;
+    write_to_device(mem_ptr, get_arc_core(), wormhole::ARC_NOC_XBAR_ADDRESS_START + arc_addr_offset, size);
+}
 
 }  // namespace tt::umd

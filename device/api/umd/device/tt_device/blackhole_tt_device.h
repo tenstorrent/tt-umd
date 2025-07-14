@@ -40,9 +40,9 @@ public:
 
     void dma_d2h_zero_copy(void *dst, uint32_t src, size_t size) override;
 
-    void read_from_arc(void *mem_ptr, uint64_t addr, size_t size) override;
+    void read_from_arc(void *mem_ptr, uint64_t arc_addr_offset, size_t size) override;
 
-    void write_to_arc(const void *mem_ptr, uint64_t addr, size_t size) override;
+    void write_to_arc(const void *mem_ptr, uint64_t arc_addr_offset, size_t size) override;
 
     std::vector<DramTrainingStatus> get_dram_training_status() override;
 

@@ -119,8 +119,8 @@ public:
 
     // Read/write functions that will send the arc message. It is used to read/write the data needed
     // to get the information to or form cluster the arc core.
-    virtual void read_from_arc(void *mem_ptr, uint64_t addr, size_t size) = 0;
-    virtual void write_to_arc(const void *mem_ptr, uint64_t addr, size_t size) = 0;
+    virtual void read_from_arc(void *mem_ptr, uint64_t addr, [[maybe_unused]] size_t size) = 0;
+    virtual void write_to_arc(const void *mem_ptr, uint64_t addr, [[maybe_unused]] size_t size) = 0;
 
     // TLB related functions.
     // TODO: These are architecture specific, and will be moved out of the class.

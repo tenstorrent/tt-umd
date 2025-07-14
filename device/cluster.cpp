@@ -920,7 +920,9 @@ void Cluster::deassert_resets_and_set_power_state() {
 
     // MT Initial BH - ARC messages not supported in Blackhole
     if (arch_name != tt::ARCH::BLACKHOLE) {
-        enable_ethernet_queue(30);
+        for (const chip_id_t& chip : all_chip_ids_) {
+            enable_ethernet_queue(30);
+        }
     }
 
     // Set power state to busy

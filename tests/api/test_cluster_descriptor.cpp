@@ -430,5 +430,10 @@ TEST(ApiClusterDescriptorTest, VerifyStandardTopology) {
             EXPECT_EQ(count_n150, 4) << "Expected 4 N150 chips in 4U galaxy, found " << count_n150;
             break;
         }
+
+        default: {
+            throw std::runtime_error(
+                "Unexpected number of chips in the cluster descriptor: " + std::to_string(all_chips.size()));
+        }
     }
 }

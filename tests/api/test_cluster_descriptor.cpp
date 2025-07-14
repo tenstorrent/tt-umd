@@ -343,6 +343,10 @@ TEST(ApiClusterDescriptorTest, VerifyStandardTopology) {
 
     auto all_chips = cluster_desc->get_all_chips();
 
+    if (all_chips.size() == 0) {
+        GTEST_SKIP() << "No chips present on the system. Skipping test.";
+    }
+
     switch (all_chips.size()) {
         // This covers N150, P100, P150.
         case 1: {

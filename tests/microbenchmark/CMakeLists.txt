@@ -10,7 +10,12 @@ target_link_libraries(
         test_common
         nanobench
 )
-target_include_directories(ubench PRIVATE ${nanobench_SOURCE_DIR}/src/include)
+target_include_directories(
+    ubench
+    PRIVATE
+        ${nanobench_SOURCE_DIR}/src/include
+        .
+)
 set_target_properties(
     ubench
     PROPERTIES

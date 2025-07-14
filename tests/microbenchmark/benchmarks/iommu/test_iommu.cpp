@@ -5,6 +5,7 @@
  */
 #include <sys/mman.h>
 
+#include "common/microbenchmark_utils.h"
 #include "gtest/gtest.h"
 #include "tests/test_utils/device_test_utils.hpp"
 #include "tests/test_utils/generate_cluster_desc.hpp"

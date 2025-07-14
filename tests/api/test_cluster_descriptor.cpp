@@ -25,7 +25,7 @@ int count_connections(const std::unordered_map<
 }
 
 TEST(ApiClusterDescriptorTest, DetectArch) {
-    std::unique_ptr<tt_ClusterDescriptor> cluster_desc = tt::umd::Cluster::create_cluster_descriptor();
+    std::unique_ptr<tt_ClusterDescriptor> cluster_desc = Cluster::create_cluster_descriptor();
 
     if (cluster_desc->get_number_of_chips() == 0) {
         // Expect it to be invalid if no devices are found.
@@ -57,7 +57,7 @@ TEST(ApiClusterDescriptorTest, DetectArch) {
 }
 
 TEST(ApiClusterDescriptorTest, BasicFunctionality) {
-    std::unique_ptr<tt_ClusterDescriptor> cluster_desc = tt::umd::Cluster::create_cluster_descriptor();
+    std::unique_ptr<tt_ClusterDescriptor> cluster_desc = Cluster::create_cluster_descriptor();
 
     if (cluster_desc == nullptr) {
         GTEST_SKIP() << "No chips present on the system. Skipping test.";
@@ -159,7 +159,7 @@ TEST(ApiClusterDescriptorTest, SeparateClusters) {
 }
 
 TEST(ApiClusterDescriptorTest, EthernetConnectivity) {
-    std::unique_ptr<tt_ClusterDescriptor> cluster_desc = tt::umd::Cluster::create_cluster_descriptor();
+    std::unique_ptr<tt_ClusterDescriptor> cluster_desc = Cluster::create_cluster_descriptor();
 
     if (cluster_desc == nullptr) {
         GTEST_SKIP() << "No chips present on the system. Skipping test.";
@@ -182,8 +182,7 @@ TEST(ApiClusterDescriptorTest, EthernetConnectivity) {
     for (auto chip : cluster_desc->get_all_chips()) {
         // Wormhole has 16 and Blackhole has 14 ethernet channels.
         for (int eth_chan = 0;
-             eth_chan <
-             tt::umd::architecture_implementation::create(cluster_desc->get_arch(chip))->get_num_eth_channels();
+             eth_chan < architecture_implementation::create(cluster_desc->get_arch(chip))->get_num_eth_channels();
              eth_chan++) {
             bool has_active_link = cluster_desc->ethernet_core_has_active_ethernet_link(chip, eth_chan);
             std::cout << "Chip " << chip << " channel " << eth_chan << " has active link: " << has_active_link
@@ -224,7 +223,7 @@ TEST(ApiClusterDescriptorTest, PrintClusterDescriptor) {
     // In case of u6 galaxy and blackhole, we generate the cluster descriptor.
     // For wormhole we still use create-ethernet-map.
     std::filesystem::path cluster_path;
-    cluster_path = tt::umd::Cluster::create_cluster_descriptor()->serialize_to_file();
+    cluster_path = Cluster::create_cluster_descriptor()->serialize_to_file();
 
     std::cout << "Cluster descriptor file path: " << cluster_path << std::endl;
     std::cout << "Contents:" << std::endl;
@@ -313,7 +312,7 @@ TEST(ApiClusterDescriptorTest, ConstrainedTopology) {
 }
 
 TEST(ApiClusterDescriptorTest, VerifyEthConnections) {
-    std::unique_ptr<tt_ClusterDescriptor> cluster_desc = tt::umd::Cluster::create_cluster_descriptor();
+    std::unique_ptr<tt_ClusterDescriptor> cluster_desc = Cluster::create_cluster_descriptor();
 
     std::unordered_map<chip_id_t, std::unordered_map<ethernet_channel_t, std::tuple<chip_id_t, ethernet_channel_t>>>
         eth_connections = cluster_desc->get_ethernet_connections();

@@ -17,12 +17,12 @@
 #include "umd/device/types/tlb.h"
 #include "umd/device/types/xy_pair.h"
 
+namespace tt::umd {
+
 struct tt_device_l1_address_params;
 struct tt_driver_host_address_params;
 struct tt_driver_eth_interface_params;
 struct tt_driver_noc_params;
-
-namespace tt::umd {
 
 static const uint32_t HANG_READ_VALUE = 0xFFFFFFFFu;
 

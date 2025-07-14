@@ -17,7 +17,7 @@ TEST(CoordinateManager, CoordinateManagerWormholeNoHarvesting) {
         CoordinateManager::create_coordinate_manager(tt::ARCH::WORMHOLE_B0, true);
 
     // We expect full grid size since there is no harvesting.
-    tt_xy_pair tensix_grid_size = tt::umd::wormhole::TENSIX_GRID_SIZE;
+    tt_xy_pair tensix_grid_size = wormhole::TENSIX_GRID_SIZE;
     for (size_t x = 0; x < tensix_grid_size.x; x++) {
         for (size_t y = 0; y < tensix_grid_size.y; y++) {
             const CoreCoord logical_coords = CoreCoord(x, y, CoreType::TENSIX, CoordSystem::LOGICAL);
@@ -111,7 +111,7 @@ TEST(CoordinateManager, CoordinateManagerWormholeLogicalPhysicalMapping) {
 
         std::map<CoreCoord, CoreCoord> logical_to_physical;
         std::set<CoreCoord> physical_coords_set;
-        tt_xy_pair tensix_grid_size = tt::umd::wormhole::TENSIX_GRID_SIZE;
+        tt_xy_pair tensix_grid_size = wormhole::TENSIX_GRID_SIZE;
 
         size_t num_harvested_y = CoordinateManager::get_num_harvested(harvesting_mask);
 
@@ -156,7 +156,7 @@ TEST(CoordinateManager, CoordinateManagerWormholeLogicalVirtualMapping) {
 
         std::map<CoreCoord, CoreCoord> logical_to_virtual;
         std::set<CoreCoord> virtual_coords_set;
-        tt_xy_pair tensix_grid_size = tt::umd::wormhole::TENSIX_GRID_SIZE;
+        tt_xy_pair tensix_grid_size = wormhole::TENSIX_GRID_SIZE;
 
         size_t num_harvested_y = CoordinateManager::get_num_harvested(harvesting_mask);
 
@@ -198,7 +198,7 @@ TEST(CoordinateManager, CoordinateManagerWormholeLogicalTranslatedTopLeft) {
         std::shared_ptr<CoordinateManager> coordinate_manager =
             CoordinateManager::create_coordinate_manager(tt::ARCH::WORMHOLE_B0, true, {harvesting_mask});
 
-        tt_xy_pair tensix_grid_size = tt::umd::wormhole::TENSIX_GRID_SIZE;
+        tt_xy_pair tensix_grid_size = wormhole::TENSIX_GRID_SIZE;
 
         size_t num_harvested_y = CoordinateManager::get_num_harvested(harvesting_mask);
 
@@ -227,8 +227,8 @@ TEST(CoordinateManager, CoordinateManagerWormholePhysicalVirtualHarvestedMapping
     std::shared_ptr<CoordinateManager> coordinate_manager =
         CoordinateManager::create_coordinate_manager(tt::ARCH::WORMHOLE_B0, true, {harvesting_mask});
 
-    const std::vector<tt_xy_pair> tensix_cores = tt::umd::wormhole::TENSIX_CORES_NOC0;
-    const tt_xy_pair tensix_grid_size = tt::umd::wormhole::TENSIX_GRID_SIZE;
+    const std::vector<tt_xy_pair> tensix_cores = wormhole::TENSIX_CORES_NOC0;
+    const tt_xy_pair tensix_grid_size = wormhole::TENSIX_GRID_SIZE;
 
     size_t virtual_index = (tensix_grid_size.y - num_harvested) * tensix_grid_size.x;
 
@@ -252,13 +252,13 @@ TEST(CoordinateManager, CoordinateManagerWormholePhysicalTranslatedHarvestedMapp
     std::shared_ptr<CoordinateManager> coordinate_manager =
         CoordinateManager::create_coordinate_manager(tt::ARCH::WORMHOLE_B0, true, {harvesting_mask});
 
-    const std::vector<tt_xy_pair> tensix_cores = tt::umd::wormhole::TENSIX_CORES_NOC0;
-    const tt_xy_pair tensix_grid_size = tt::umd::wormhole::TENSIX_GRID_SIZE;
+    const std::vector<tt_xy_pair> tensix_cores = wormhole::TENSIX_CORES_NOC0;
+    const tt_xy_pair tensix_grid_size = wormhole::TENSIX_GRID_SIZE;
 
     size_t virtual_index = (tensix_grid_size.y - num_harvested) * tensix_grid_size.x;
 
-    const size_t translated_x_start = tt::umd::wormhole::tensix_translated_coordinate_start_x;
-    const size_t translated_y_start = tt::umd::wormhole::tensix_translated_coordinate_start_y;
+    const size_t translated_x_start = wormhole::tensix_translated_coordinate_start_x;
+    const size_t translated_y_start = wormhole::tensix_translated_coordinate_start_y;
 
     size_t logical_x = 0;
     size_t logical_y = tensix_grid_size.y - num_harvested;
@@ -296,9 +296,9 @@ TEST(CoordinateManager, CoordinateManagerWormholeDRAMNoHarvesting) {
     std::shared_ptr<CoordinateManager> coordinate_manager =
         CoordinateManager::create_coordinate_manager(tt::ARCH::WORMHOLE_B0, true);
 
-    const size_t num_dram_banks = tt::umd::wormhole::NUM_DRAM_BANKS;
-    const size_t num_noc_ports_per_bank = tt::umd::wormhole::NUM_NOC_PORTS_PER_DRAM_BANK;
-    const std::vector<tt_xy_pair>& dram_cores = flatten_vector(tt::umd::wormhole::DRAM_CORES_NOC0);
+    const size_t num_dram_banks = wormhole::NUM_DRAM_BANKS;
+    const size_t num_noc_ports_per_bank = wormhole::NUM_NOC_PORTS_PER_DRAM_BANK;
+    const std::vector<tt_xy_pair>& dram_cores = flatten_vector(wormhole::DRAM_CORES_NOC0);
 
     for (size_t dram_bank = 0; dram_bank < num_dram_banks; dram_bank++) {
         for (size_t noc_port = 0; noc_port < num_noc_ports_per_bank; noc_port++) {
@@ -322,7 +322,7 @@ TEST(CoordinateManager, CoordinateManagerWormholeDRAMNoHarvesting) {
 TEST(CoordinateManager, CoordinateManagerWormholeETHPhysicalEqualVirtual) {
     std::shared_ptr<CoordinateManager> coordinate_manager =
         CoordinateManager::create_coordinate_manager(tt::ARCH::WORMHOLE_B0, true);
-    const size_t num_eth_channels = tt::umd::wormhole::NUM_ETH_CHANNELS;
+    const size_t num_eth_channels = wormhole::NUM_ETH_CHANNELS;
 
     for (size_t eth_channel = 0; eth_channel < num_eth_channels; eth_channel++) {
         const CoreCoord eth_logical = CoreCoord(0, eth_channel, CoreType::ETH, CoordSystem::LOGICAL);
@@ -354,7 +354,7 @@ TEST(CoordinateManager, CoordinateManagerWormholeETHTranslated) {
 TEST(CoordinateManager, CoordinateManagerWormholeARCTranslation) {
     std::shared_ptr<CoordinateManager> coordinate_manager =
         CoordinateManager::create_coordinate_manager(tt::ARCH::WORMHOLE_B0, true);
-    const tt_xy_pair arc_grid_size = tt::umd::wormhole::ARC_GRID_SIZE;
+    const tt_xy_pair arc_grid_size = wormhole::ARC_GRID_SIZE;
 
     for (size_t x = 0; x < arc_grid_size.x; x++) {
         for (size_t y = 0; y < arc_grid_size.y; y++) {
@@ -377,7 +377,7 @@ TEST(CoordinateManager, CoordinateManagerWormholeARCTranslation) {
 TEST(CoordinateManager, CoordinateManagerWormholePCIETranslation) {
     std::shared_ptr<CoordinateManager> coordinate_manager =
         CoordinateManager::create_coordinate_manager(tt::ARCH::WORMHOLE_B0, true);
-    const tt_xy_pair pcie_grid_size = tt::umd::wormhole::PCIE_GRID_SIZE;
+    const tt_xy_pair pcie_grid_size = wormhole::PCIE_GRID_SIZE;
 
     for (size_t x = 0; x < pcie_grid_size.x; x++) {
         for (size_t y = 0; y < pcie_grid_size.y; y++) {
@@ -422,8 +422,8 @@ TEST(CoordinateManager, CoordinateManagerWormholePhysicalLayoutTensixHarvestingM
 
 // Test whether we properly shuffle the harvesting mask based on the physical layout of the chip.
 TEST(CoordinateManager, CoordinateManagerWormholeHarvestingShuffle) {
-    for (size_t i = 0; i < tt::umd::wormhole::LOGICAL_HARVESTING_LAYOUT.size(); i++) {
-        const size_t harvesting_mask_physical_layout = (1 << tt::umd::wormhole::LOGICAL_HARVESTING_LAYOUT[i]);
+    for (size_t i = 0; i < wormhole::LOGICAL_HARVESTING_LAYOUT.size(); i++) {
+        const size_t harvesting_mask_physical_layout = (1 << wormhole::LOGICAL_HARVESTING_LAYOUT[i]);
         const size_t harvesting_mask =
             CoordinateManager::shuffle_tensix_harvesting_mask(tt::ARCH::WORMHOLE_B0, harvesting_mask_physical_layout);
 
@@ -520,10 +520,9 @@ TEST(CoordinateManager, CoordinateManagerWormholeNoc1Noc0Mapping) {
         }
     };
 
-    check_noc0_noc1_mapping(tt::umd::wormhole::TENSIX_CORES_NOC0, TENSIX_CORES_NOC1, CoreType::TENSIX);
-    check_noc0_noc1_mapping(
-        flatten_vector(tt::umd::wormhole::DRAM_CORES_NOC0), flatten_vector(DRAM_CORES_NOC1), CoreType::DRAM);
-    check_noc0_noc1_mapping(tt::umd::wormhole::ETH_CORES_NOC0, ETH_CORES_NOC1, CoreType::ETH);
-    check_noc0_noc1_mapping(tt::umd::wormhole::ARC_CORES_NOC0, ARC_CORES_NOC1, CoreType::ARC);
-    check_noc0_noc1_mapping(tt::umd::wormhole::PCIE_CORES_NOC0, PCIE_CORES_NOC1, CoreType::PCIE);
+    check_noc0_noc1_mapping(wormhole::TENSIX_CORES_NOC0, TENSIX_CORES_NOC1, CoreType::TENSIX);
+    check_noc0_noc1_mapping(flatten_vector(wormhole::DRAM_CORES_NOC0), flatten_vector(DRAM_CORES_NOC1), CoreType::DRAM);
+    check_noc0_noc1_mapping(wormhole::ETH_CORES_NOC0, ETH_CORES_NOC1, CoreType::ETH);
+    check_noc0_noc1_mapping(wormhole::ARC_CORES_NOC0, ARC_CORES_NOC1, CoreType::ARC);
+    check_noc0_noc1_mapping(wormhole::PCIE_CORES_NOC0, PCIE_CORES_NOC1, CoreType::PCIE);
 }

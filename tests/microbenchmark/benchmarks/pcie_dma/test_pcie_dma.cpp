@@ -208,7 +208,7 @@ TEST(MicrobenchmarkPCIeDMA, DMATensixZeroCopy) {
     guard_test_iommu();
 
     const uint32_t NUM_ITERATIONS = 1000;
-    std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>(tt::umd::ClusterOptions{
+    std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>(ClusterOptions{
         .num_host_mem_ch_per_mmio_device = 0,
     });
 
@@ -236,7 +236,7 @@ TEST(MicrobenchmarkPCIeDMA, MapSysmemBuffer) {
     guard_test_iommu();
 
     const uint32_t NUM_ITERATIONS = 1000;
-    std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>(tt::umd::ClusterOptions{
+    std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>(ClusterOptions{
         .num_host_mem_ch_per_mmio_device = 0,
     });
 
@@ -265,7 +265,7 @@ TEST(MicrobenchmarkPCIeDMA, DMATensixMapBufferZeroCopy) {
     guard_test_iommu();
 
     const uint32_t NUM_ITERATIONS = 100;
-    std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>(tt::umd::ClusterOptions{
+    std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>(ClusterOptions{
         .num_host_mem_ch_per_mmio_device = 0,
     });
 
@@ -312,7 +312,7 @@ TEST(MicrobenchmarkPCIeDMA, DMADRAMZeroCopy) {
     guard_test_iommu();
 
     const uint32_t NUM_ITERATIONS = 10;
-    std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>(tt::umd::ClusterOptions{
+    std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>(ClusterOptions{
         .num_host_mem_ch_per_mmio_device = 0,
     });
 

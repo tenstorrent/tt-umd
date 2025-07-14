@@ -65,9 +65,9 @@ void RemoteChip::wait_for_non_mmio_flush() {
     remote_communication_->wait_for_non_mmio_flush();
 }
 
-void RemoteChip::l1_membar(const std::unordered_set<tt::umd::CoreCoord>& cores) { wait_for_non_mmio_flush(); }
+void RemoteChip::l1_membar(const std::unordered_set<CoreCoord>& cores) { wait_for_non_mmio_flush(); }
 
-void RemoteChip::dram_membar(const std::unordered_set<tt::umd::CoreCoord>& cores) { wait_for_non_mmio_flush(); }
+void RemoteChip::dram_membar(const std::unordered_set<CoreCoord>& cores) { wait_for_non_mmio_flush(); }
 
 void RemoteChip::dram_membar(const std::unordered_set<uint32_t>& channels) { wait_for_non_mmio_flush(); }
 
@@ -104,7 +104,7 @@ int RemoteChip::get_numa_node() {
     throw std::runtime_error("RemoteChip::get_numa_node is not available for this chip.");
 }
 
-void RemoteChip::set_remote_transfer_ethernet_cores(const std::unordered_set<tt::umd::CoreCoord>& cores) {}
+void RemoteChip::set_remote_transfer_ethernet_cores(const std::unordered_set<CoreCoord>& cores) {}
 
 void RemoteChip::set_remote_transfer_ethernet_cores(const std::set<uint32_t>& channel) {}
 

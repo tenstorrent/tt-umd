@@ -32,7 +32,7 @@ tt_SocDescriptor& Chip::get_soc_descriptor() { return soc_descriptor_; }
 
 // TODO: This will be moved to LocalChip.
 void Chip::set_default_params(ARCH arch) {
-    auto architecture_implementation = tt::umd::architecture_implementation::create(arch);
+    auto architecture_implementation = architecture_implementation::create(arch);
 
     // Default initialize l1_address_params based on detected arch
     l1_address_params = architecture_implementation->get_l1_address_params();
@@ -137,7 +137,7 @@ void Chip::enable_ethernet_queue(int timeout_s) {
 void Chip::send_tensix_risc_reset(CoreCoord core, const TensixSoftResetOptions& soft_resets) {
     auto valid = soft_resets & ALL_TENSIX_SOFT_RESET;
     uint32_t valid_val = (std::underlying_type<TensixSoftResetOptions>::type)valid;
-    auto architecture_implementation = tt::umd::architecture_implementation::create(get_tt_device()->get_arch());
+    auto architecture_implementation = architecture_implementation::create(get_tt_device()->get_arch());
     write_to_device_reg(core, &valid_val, architecture_implementation->get_tensix_soft_reset_addr(), sizeof(uint32_t));
     tt_driver_atomics::sfence();
 }
@@ -150,7 +150,7 @@ void Chip::send_tensix_risc_reset(const TensixSoftResetOptions& soft_resets) {
 
 void Chip::set_tensix_risc_reset(CoreCoord core, const TensixSoftResetOptions& selected_riscs) {
     uint32_t tensix_risc_state = 0x00000000;
-    auto architecture_implementation = tt::umd::architecture_implementation::create(get_tt_device()->get_arch());
+    auto architecture_implementation = architecture_implementation::create(get_tt_device()->get_arch());
     read_from_device_reg(
         core, &tensix_risc_state, architecture_implementation->get_tensix_soft_reset_addr(), sizeof(uint32_t));
     TensixSoftResetOptions set_selected_riscs = static_cast<TensixSoftResetOptions>(tensix_risc_state) | selected_riscs;
@@ -159,7 +159,7 @@ void Chip::set_tensix_risc_reset(CoreCoord core, const TensixSoftResetOptions& s
 
 void Chip::unset_tensix_risc_reset(CoreCoord core, const TensixSoftResetOptions& selected_riscs) {
     uint32_t tensix_risc_state = 0x00000000;
-    auto architecture_implementation = tt::umd::architecture_implementation::create(get_tt_device()->get_arch());
+    auto architecture_implementation = architecture_implementation::create(get_tt_device()->get_arch());
     read_from_device_reg(
         core, &tensix_risc_state, architecture_implementation->get_tensix_soft_reset_addr(), sizeof(uint32_t));
     TensixSoftResetOptions set_selected_riscs =

@@ -10,9 +10,9 @@
 #include "umd/device/tt_device/remote_wormhole_tt_device.h"
 #include "umd/device/tt_device/tt_device.h"
 
-class tt_ClusterDescriptor;
-
 namespace tt::umd {
+
+class tt_ClusterDescriptor;
 
 // TopologyDiscovery class creates cluster descriptor only for Wormhole configurations with old routing fw.
 // TODO: Move Blackhole topology discovery to this class.

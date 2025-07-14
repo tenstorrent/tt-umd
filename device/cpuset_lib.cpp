@@ -10,17 +10,16 @@
 
 #include <algorithm>
 #include <filesystem>
+#include <regex>
 #include <thread>
 #include <tt-logger/tt-logger.hpp>
 
 #include "cpuset_lib.hpp"
 #include "umd/device/cluster.h"
 
-namespace tt {
+namespace tt::cpuset {
 
 namespace fs = std::filesystem;
-
-namespace cpuset {
 
 /////////////////////////////////////////////////////////////////////////
 // Initialization Functions /////////////////////////////////////////////
@@ -650,5 +649,4 @@ void tt_cpuset_allocator::print_hwloc_object(hwloc_obj_t &obj, int depth, bool v
     printf("\n");
 }
 
-}  // namespace cpuset
-}  // namespace tt
+}  // namespace tt::cpuset

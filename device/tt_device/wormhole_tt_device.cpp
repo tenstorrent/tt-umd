@@ -365,8 +365,7 @@ void WormholeTTDevice::dma_d2h_zero_copy(void *dst, uint32_t src, size_t size) {
 }
 
 void WormholeTTDevice::read_from_arc(void *mem_ptr, uint64_t addr) {
-    // bar32 read + scratch addres
-    auto result = bar_read32(architecture_impl_->get_arc_reset_scratch_offset() + addr);
+    auto result = bar_read32(addr);
     *(reinterpret_cast<uint32_t *>(mem_ptr)) = result;
 }
 

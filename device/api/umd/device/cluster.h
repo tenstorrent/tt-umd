@@ -637,7 +637,6 @@ private:
     void send_tensix_risc_reset_to_core(const tt_cxy_pair& core, const TensixSoftResetOptions& soft_resets);
     uint32_t get_power_state_arc_msg(chip_id_t chip_id, tt_DevicePowerState state);
     void enable_ethernet_queue(int timeout);
-
     void deassert_resets_and_set_power_state();
     int get_clock(int logical_device_id);
 

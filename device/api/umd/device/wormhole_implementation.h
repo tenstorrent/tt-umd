@@ -233,6 +233,9 @@ static constexpr uint32_t GRID_SIZE_Y = 12;
 
 static constexpr uint32_t ARC_MSG_COMMON_PREFIX = 0xAA00;
 
+static constexpr uint32_t ARC_BAR0_ADDRESS_START = 0x1FE00000;
+static constexpr uint32_t ARC_BAR0_ADDRESS_END = 0x1FFFFFFF;
+
 static constexpr uint32_t ARC_RESET_SCRATCH_OFFSET = 0x1FF30060;
 static constexpr uint32_t ARC_RESET_ARC_MISC_CNTL_OFFSET = 0x1FF30100;
 

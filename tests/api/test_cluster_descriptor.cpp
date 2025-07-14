@@ -402,9 +402,8 @@ TEST(ApiClusterDescriptorTest, VerifyStandardTopology) {
             auto chips_with_mmio = cluster_desc->get_chips_with_mmio();
             EXPECT_EQ(chips_with_mmio.size(), 32);
 
-            // TODO: is this fixed for 6U
-            // auto eth_connections = cluster_desc->get_ethernet_connections();
-            // EXPECT_EQ(count_connections(eth_connections), 0);
+            auto eth_connections = cluster_desc->get_ethernet_connections();
+            EXPECT_EQ(count_connections(eth_connections), 512);
 
             for (auto chip : all_chips) {
                 BoardType board_type = cluster_desc->get_board_type(chip);

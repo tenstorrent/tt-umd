@@ -118,12 +118,12 @@ public:
      * Returns a set of chips present on a specific board.
      * @param board_id Board ID to use for checking the chips.
      */
-    std::unordered_set<chip_id_t> get_board_chips(const uint64_t board_id) const;
+    std::unordered_set<chip_id_t> get_board_chips(const board_id_t board_id) const;
 
     /**
      * Returns board ID for a chip.
      */
-    uint64_t get_board_id_for_chip(const chip_id_t chip) const;
+    board_id_t get_board_id_for_chip(const chip_id_t chip) const;
 
     /**
      * Returns the map of chip IDs and information on wether NOC translation table is enabled for that chip.
@@ -138,12 +138,12 @@ public:
     /**
      * Returns the map of chip IDs and their ETH locations as reported by the routing firmware.
      */
-    const std::unordered_map<chip_id_t, uint64_t> &get_chip_unique_ids() const;
+    const std::unordered_map<chip_id_t, unique_chip_id_t> &get_chip_unique_ids() const;
 
     /**
      * Returns the map of chip IDs and their PCIe ids as reported by the operating system.
      */
-    const std::unordered_map<chip_id_t, chip_id_t> &get_chips_with_mmio() const;
+    const std::unordered_map<chip_id_t, pci_id_t> &get_chips_with_mmio() const;
 
     // TODO: Remove the concept of ChipUUID.
     /**
@@ -192,9 +192,10 @@ public:
      * Note that in previous function the logical chip id is returned, but here we return unique chip id so it can be
      * matched with another cluster descriptor's information.
      */
-    const std::
-        unordered_map<chip_id_t, std::unordered_map<ethernet_channel_t, std::tuple<uint64_t, ethernet_channel_t>>> &
-        get_ethernet_connections_to_remote_devices() const;
+    const std::unordered_map<
+        chip_id_t,
+        std::unordered_map<ethernet_channel_t, std::tuple<unique_chip_id_t, ethernet_channel_t>>> &
+    get_ethernet_connections_to_remote_devices() const;
     const std::unordered_map<chip_id_t, std::unordered_set<chip_id_t>> &get_chips_grouped_by_closest_mmio() const;
 
     /**
@@ -232,7 +233,7 @@ private:
 
     // Helpers during construction of cluster descriptor.
     void add_chip_uid(const chip_id_t chip_id, const ChipUID &chip_uid);
-    void add_chip_to_board(chip_id_t chip_id, uint64_t board_id);
+    void add_chip_to_board(chip_id_t chip_id, board_id_t board_id);
 
     // Helper functions for filling up the cluster descriptor.
     static void load_ethernet_connections_from_connectivity_descriptor(YAML::Node &yaml, tt_ClusterDescriptor &desc);
@@ -251,12 +252,14 @@ private:
     std::unordered_map<chip_id_t, std::unordered_map<ethernet_channel_t, std::tuple<chip_id_t, ethernet_channel_t>>>
         ethernet_connections;
     // TODO: unify uint64_t with ChipUID
-    std::unordered_map<chip_id_t, std::unordered_map<ethernet_channel_t, std::tuple<uint64_t, ethernet_channel_t>>>
+    std::unordered_map<
+        chip_id_t,
+        std::unordered_map<ethernet_channel_t, std::tuple<unique_chip_id_t, ethernet_channel_t>>>
         ethernet_connections_to_remote_devices;
     std::unordered_map<chip_id_t, eth_coord_t> chip_locations;
     // reverse map: rack/shelf/y/x -> chip_id
     std::map<int, std::map<int, std::map<int, std::map<int, chip_id_t>>>> coords_to_chip_ids;
-    std::unordered_map<chip_id_t, chip_id_t> chips_with_mmio;
+    std::unordered_map<chip_id_t, pci_id_t> chips_with_mmio;
     std::unordered_set<chip_id_t> all_chips;
     std::unordered_map<chip_id_t, bool> noc_translation_enabled = {};
     std::unordered_map<chip_id_t, std::uint32_t> harvesting_masks = {};
@@ -266,11 +269,11 @@ private:
     std::unordered_map<chip_id_t, tt::ARCH> chip_arch = {};
     std::map<ChipUID, chip_id_t> chip_uid_to_chip_id = {};
     std::map<chip_id_t, ChipUID> chip_id_to_chip_uid = {};
-    std::unordered_map<chip_id_t, uint64_t> chip_unique_ids = {};
+    std::unordered_map<chip_id_t, unique_chip_id_t> chip_unique_ids = {};
     std::map<chip_id_t, std::set<uint32_t>> active_eth_channels = {};
     std::map<chip_id_t, std::set<uint32_t>> idle_eth_channels = {};
-    std::map<uint64_t, std::unordered_set<chip_id_t>> board_to_chips = {};
-    std::unordered_map<chip_id_t, uint64_t> chip_to_board_id = {};
+    std::map<board_id_t, std::unordered_set<chip_id_t>> board_to_chips = {};
+    std::unordered_map<chip_id_t, board_id_t> chip_to_board_id = {};
 
     // one-to-many chip connections
     struct Chip2ChipConnection {

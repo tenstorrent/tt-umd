@@ -1311,3 +1311,25 @@ void tt_ClusterDescriptor::verify_cluster_descriptor_info() {
         }
     }
 }
+
+tt::ARCH tt_ClusterDescriptor::detect_cluster_architecture() {
+    auto arch = tt::ARCH::Invalid;
+    auto devices_info = PCIDevice::enumerate_devices_info();
+    if (devices_info.size() > 0) {
+        arch = devices_info.begin()->second.get_arch();
+        for (auto &[device_id, device_info] : devices_info) {
+            tt::ARCH detected_arch = device_info.get_arch();
+            if (arch != detected_arch) {
+                TT_THROW(
+                    "Expected all devices to be {} but device {} is {}",
+                    tt::arch_to_str(arch),
+                    device_id,
+                    tt::arch_to_str(detected_arch));
+            }
+        }
+    }
+
+    return arch;
+}
+
+std::vector<int> tt_ClusterDescriptor::detect_mmio_devices() { return PCIDevice::enumerate_devices(); }

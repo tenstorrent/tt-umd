@@ -14,6 +14,16 @@
 
 using namespace tt::umd;
 
+int count_connections(const std::unordered_map<
+                      chip_id_t,
+                      std::unordered_map<ethernet_channel_t, std::tuple<chip_id_t, ethernet_channel_t>>>& connections) {
+    size_t count = 0;
+    for (const auto& [_, channels] : connections) {
+        count += channels.size();
+    }
+    return count;
+}
+
 TEST(ApiClusterDescriptorTest, DetectArch) {
     std::unique_ptr<tt_ClusterDescriptor> cluster_desc = tt::umd::Cluster::create_cluster_descriptor();
 
@@ -230,18 +240,6 @@ TEST(ApiClusterDescriptorTest, ConstrainedTopology) {
     std::unique_ptr<tt_ClusterDescriptor> cluster_desc = tt_ClusterDescriptor::create_from_yaml(
         test_utils::GetAbsPath("tests/api/cluster_descriptor_examples/wormhole_4xN300_mesh.yaml"));
 
-    // Lambda which counts number of items in the ethernet connections map.
-    auto count_connections =
-        [](const std::unordered_map<
-            chip_id_t,
-            std::unordered_map<ethernet_channel_t, std::tuple<chip_id_t, ethernet_channel_t>>>& connections) {
-            size_t count = 0;
-            for (const auto& [_, channels] : connections) {
-                count += channels.size();
-            }
-            return count;
-        };
-
     // Lambda which counts of unique chip links.
     auto count_unique_chip_connections =
         [](const std::unordered_map<
@@ -329,6 +327,116 @@ TEST(ApiClusterDescriptorTest, VerifyEthConnections) {
             ASSERT_TRUE(eth_connections.at(remote_chip).find(remote_channel) != eth_connections.at(remote_chip).end())
                 << "Remote channel " << remote_channel << " not found in ethernet connections for remote chip "
                 << remote_chip;
+        }
+    }
+}
+
+/**
+ * This test is used to verify that we are running on some well known topologies.
+ * Since UMD can be run in custom topologies, this is mostly used for CI, to try and verify
+ * that we don't have problems on standard topologies. However, bugs could lead to T3K being recognizible as
+ * single N300 or something similar, but this should raise our confidence of standard topologies working as
+ * expected.
+ */
+TEST(ApiClusterDescriptorTest, VerifyStandardTopology) {
+    std::unique_ptr<tt_ClusterDescriptor> cluster_desc = tt::umd::Cluster::create_cluster_descriptor();
+
+    auto all_chips = cluster_desc->get_all_chips();
+
+    if (all_chips.size() == 0) {
+        GTEST_SKIP() << "No chips present on the system. Skipping test.";
+    }
+
+    switch (all_chips.size()) {
+        // This covers N150, P100, P150.
+        case 1: {
+            auto chips_with_mmio = cluster_desc->get_chips_with_mmio();
+            EXPECT_EQ(chips_with_mmio.size(), 1);
+
+            auto eth_connections = cluster_desc->get_ethernet_connections();
+            EXPECT_EQ(count_connections(eth_connections), 0);
+
+            for (auto chip : all_chips) {
+                BoardType board_type = cluster_desc->get_board_type(chip);
+                EXPECT_TRUE(
+                    board_type == BoardType::N150 || board_type == BoardType::P100 || board_type == BoardType::P150)
+                    << "Unexpected board type for chip " << chip << ": " << static_cast<int>(board_type);
+            }
+            break;
+        }
+
+        // This covers N300, P300.
+        case 2: {
+            auto chips_with_mmio = cluster_desc->get_chips_with_mmio();
+            EXPECT_EQ(chips_with_mmio.size(), 1);
+
+            auto eth_connections = cluster_desc->get_ethernet_connections();
+            EXPECT_EQ(count_connections(eth_connections), 4);
+
+            for (auto chip : all_chips) {
+                BoardType board_type = cluster_desc->get_board_type(chip);
+                EXPECT_TRUE(board_type == BoardType::N300 || board_type == BoardType::P300)
+                    << "Unexpected board type for chip " << chip << ": " << static_cast<int>(board_type);
+            }
+            break;
+        }
+
+        // This covers T3K.
+        case 8: {
+            auto chips_with_mmio = cluster_desc->get_chips_with_mmio();
+            EXPECT_EQ(chips_with_mmio.size(), 4);
+
+            auto eth_connections = cluster_desc->get_ethernet_connections();
+            EXPECT_EQ(count_connections(eth_connections), 40);
+
+            for (auto chip : all_chips) {
+                BoardType board_type = cluster_desc->get_board_type(chip);
+                EXPECT_TRUE(board_type == BoardType::N300)
+                    << "Unexpected board type for chip " << chip << ": " << static_cast<int>(board_type);
+            }
+            break;
+        }
+
+        // This covers 6U galaxy.
+        case 32: {
+            auto chips_with_mmio = cluster_desc->get_chips_with_mmio();
+            EXPECT_EQ(chips_with_mmio.size(), 32);
+
+            auto eth_connections = cluster_desc->get_ethernet_connections();
+            EXPECT_EQ(count_connections(eth_connections), 512);
+
+            for (auto chip : all_chips) {
+                BoardType board_type = cluster_desc->get_board_type(chip);
+                EXPECT_TRUE(board_type == BoardType::UBB)
+                    << "Unexpected board type for chip " << chip << ": " << static_cast<int>(board_type);
+            }
+            break;
+        }
+
+        // This covers 4U galaxy.
+        case 36: {
+            auto chips_with_mmio = cluster_desc->get_chips_with_mmio();
+            EXPECT_EQ(chips_with_mmio.size(), 4);
+
+            auto eth_connections = cluster_desc->get_ethernet_connections();
+            EXPECT_EQ(count_connections(eth_connections), 432);
+
+            size_t count_n150 = 0;
+            for (auto chip : all_chips) {
+                BoardType board_type = cluster_desc->get_board_type(chip);
+                EXPECT_TRUE(board_type == BoardType::N150 || board_type == BoardType::GALAXY)
+                    << "Unexpected board type for chip " << chip << ": " << static_cast<int>(board_type);
+                if (board_type == BoardType::N150) {
+                    count_n150++;
+                }
+            }
+            EXPECT_EQ(count_n150, 4) << "Expected 4 N150 chips in 4U galaxy, found " << count_n150;
+            break;
+        }
+
+        default: {
+            throw std::runtime_error(
+                "Unexpected number of chips in the cluster descriptor: " + std::to_string(all_chips.size()));
         }
     }
 }

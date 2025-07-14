@@ -627,19 +627,9 @@ public:
 
 private:
     // Helper functions
-    // Startup + teardown
-    void create_device(
-        const std::set<chip_id_t>& target_mmio_device_ids,
-        const uint32_t& num_host_mem_ch_per_mmio_device,
-        const ChipType& chip_type);
+    // Broadcast
     void broadcast_tensix_risc_reset_to_cluster(const TensixSoftResetOptions& soft_resets);
-    void send_remote_tensix_risc_reset_to_core(const tt_cxy_pair& core, const TensixSoftResetOptions& soft_resets);
-    void send_tensix_risc_reset_to_core(const tt_cxy_pair& core, const TensixSoftResetOptions& soft_resets);
-    uint32_t get_power_state_arc_msg(chip_id_t chip_id, tt_DevicePowerState state);
-    void enable_ethernet_queue(int timeout);
-
     void deassert_resets_and_set_power_state();
-    int get_clock(int logical_device_id);
 
     // Communication Functions
     void ethernet_broadcast_write(
@@ -658,6 +648,11 @@ private:
     void verify_fw_bundle_version();
     void verify_eth_fw();
     void verify_sw_fw_versions(int device_id, std::uint32_t sw_version, std::vector<std::uint32_t>& fw_versions);
+    // To be changed in the next PR
+    void create_device(
+        const std::set<chip_id_t>& target_mmio_device_ids,
+        const uint32_t& num_host_mem_ch_per_mmio_device,
+        const ChipType& chip_type);
 
     // Helper functions for constructing the chips from the cluster descriptor.
     std::unique_ptr<Chip> construct_chip_from_cluster(

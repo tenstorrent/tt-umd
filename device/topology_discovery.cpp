@@ -241,19 +241,21 @@ void TopologyDiscovery::discover_remote_chips() {
     while (!chips_to_discover.empty()) {
         auto it = chips_to_discover.begin();
         auto current_chip_id = it->first;
-        std::unique_ptr<Chip> chip = std::move(it->second);
+        std::unique_ptr<Chip> chip_unique = std::move(it->second);
         chips_to_discover.erase(it);
+        Chip* chip = chip_unique.get();
+        chips.emplace(current_chip_id, std::move(chip_unique));
 
         active_eth_channels_per_chip.emplace(current_chip_id, std::set<uint32_t>());
         std::vector<CoreCoord> eth_cores =
             chip->get_soc_descriptor().get_cores(CoreType::ETH, umd_use_noc1 ? CoordSystem::NOC1 : CoordSystem::NOC0);
         TTDevice* tt_device = chip->get_tt_device();
 
-        uint64_t current_chip_asic_id = get_asic_id(chip.get());
+        uint64_t current_chip_asic_id = get_asic_id(chip);
 
         uint32_t channel = 0;
         for (const CoreCoord& eth_core : eth_cores) {
-            uint32_t port_status = read_port_status(chip.get(), eth_core, channel);
+            uint32_t port_status = read_port_status(chip, eth_core, channel);
 
             if (port_status == eth_unknown || port_status == eth_unconnected) {
                 channel++;
@@ -262,8 +264,8 @@ void TopologyDiscovery::discover_remote_chips() {
 
             active_eth_channels_per_chip.at(current_chip_id).insert(channel);
 
-            if (!is_board_id_included(get_remote_board_id(chip.get(), eth_core))) {
-                tt_xy_pair remote_eth_core = get_remote_eth_core(chip.get(), eth_core);
+            if (!is_board_id_included(get_remote_board_id(chip, eth_core))) {
+                tt_xy_pair remote_eth_core = get_remote_eth_core(chip, eth_core);
                 uint32_t remote_eth_id =
                     chip->get_soc_descriptor()
                         .translate_coord_to(
@@ -271,17 +273,19 @@ void TopologyDiscovery::discover_remote_chips() {
                             CoordSystem::LOGICAL)
                         .y;
                 cluster_desc->ethernet_connections_to_remote_devices[current_chip_id][channel] = {
-                    get_remote_asic_id(chip.get(), eth_core), remote_eth_id};
+                    get_remote_asic_id(chip, eth_core), remote_eth_id};
                 channel++;
                 continue;
             }
 
             chip->set_remote_transfer_ethernet_cores(active_eth_channels_per_chip.at(current_chip_id));
 
-            uint64_t remote_asic_id = get_remote_asic_id(chip.get(), eth_core);
+            uint64_t remote_asic_id = get_remote_asic_id(chip, eth_core);
 
             if (discovered_chips.find(remote_asic_id) == discovered_chips.end()) {
-                std::unique_ptr<Chip> remote_chip = create_remote_chip(chip.get(), eth_core, chip.get());
+                chip_id_t map_chip_id = remote_asic_id_to_mmio_chip_id.at(current_chip_asic_id);
+                std::unique_ptr<Chip> remote_chip = create_remote_chip(
+                    chip, eth_core, get_chip(remote_asic_id_to_mmio_chip_id.at(current_chip_asic_id)));
 
                 chips_to_discover.emplace(chip_id, std::move(remote_chip));
                 active_eth_channels_per_chip.emplace(chip_id, std::set<uint32_t>());
@@ -290,23 +294,18 @@ void TopologyDiscovery::discover_remote_chips() {
                 remote_asic_id_to_mmio_chip_id.emplace(
                     remote_asic_id, remote_asic_id_to_mmio_chip_id.at(current_chip_asic_id));
                 if (!is_running_on_6u) {
-                    eth_coords.emplace(chip_id, get_remote_eth_coord(chip.get(), eth_core));
+                    eth_coords.emplace(chip_id, get_remote_eth_coord(chip, eth_core));
                 }
 
                 chip_id++;
             } else {
                 chip_id_t remote_chip_id = asic_id_to_chip_id.at(remote_asic_id);
-                Chip* remote_chip = nullptr;
-                if (chips_to_discover.find(remote_chip_id) != chips_to_discover.end()) {
-                    remote_chip = chips_to_discover.at(remote_chip_id).get();
-                } else {
-                    remote_chip = chips.at(remote_chip_id).get();
-                }
+                Chip* remote_chip = get_chip(remote_chip_id);
                 uint32_t remote_eth_channel;
                 if (is_running_on_6u) {
-                    remote_eth_channel = get_remote_eth_id(chip.get(), eth_core);
+                    remote_eth_channel = get_remote_eth_id(chip, eth_core);
                 } else {
-                    tt_xy_pair remote_eth_core = get_remote_eth_core(chip.get(), eth_core);
+                    tt_xy_pair remote_eth_core = get_remote_eth_core(chip, eth_core);
                     remote_eth_channel =
                         remote_chip->get_soc_descriptor()
                             .translate_coord_to(remote_eth_core, CoordSystem::PHYSICAL, CoordSystem::LOGICAL)
@@ -317,7 +316,6 @@ void TopologyDiscovery::discover_remote_chips() {
             channel++;
         }
         chip->set_remote_transfer_ethernet_cores(active_eth_channels_per_chip.at(current_chip_id));
-        chips.emplace(current_chip_id, std::move(chip));
     }
 }
 
@@ -485,6 +483,13 @@ uint32_t TopologyDiscovery::get_remote_eth_id(Chip* chip, tt_xy_pair local_eth_c
         eth_addresses.results_buf + 4 * eth_addresses.erisc_remote_eth_id_offset,
         sizeof(uint32_t));
     return remote_eth_id;
+}
+
+Chip* TopologyDiscovery::get_chip(const chip_id_t chip_id) {
+    if (chips_to_discover.find(chip_id) != chips_to_discover.end()) {
+        return chips_to_discover.at(chip_id).get();
+    }
+    return chips.at(chip_id).get();
 }
 
 }  // namespace tt::umd

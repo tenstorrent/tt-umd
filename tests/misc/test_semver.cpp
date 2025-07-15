@@ -10,7 +10,7 @@
 
 #include "umd/device/semver.hpp"
 
-using tt::umd::semver_t;
+using namespace tt::umd;
 
 TEST(Semver, Valid) {
     const std::map<std::string, semver_t> valid_test_cases = {

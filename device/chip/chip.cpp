@@ -7,6 +7,7 @@
 #include "umd/device/chip/chip.h"
 
 #include <cstdint>
+#include <tt-logger/tt-logger.hpp>
 
 #include "assert.hpp"
 #include "umd/device/architecture_implementation.h"
@@ -31,7 +32,7 @@ tt_SocDescriptor& Chip::get_soc_descriptor() { return soc_descriptor_; }
 
 // TODO: This will be moved to LocalChip.
 void Chip::set_default_params(ARCH arch) {
-    auto architecture_implementation = tt::umd::architecture_implementation::create(arch);
+    auto architecture_implementation = architecture_implementation::create(arch);
 
     // Default initialize l1_address_params based on detected arch
     l1_address_params = architecture_implementation->get_l1_address_params();
@@ -136,7 +137,7 @@ void Chip::enable_ethernet_queue(int timeout_s) {
 void Chip::send_tensix_risc_reset(CoreCoord core, const TensixSoftResetOptions& soft_resets) {
     auto valid = soft_resets & ALL_TENSIX_SOFT_RESET;
     uint32_t valid_val = (std::underlying_type<TensixSoftResetOptions>::type)valid;
-    auto architecture_implementation = tt::umd::architecture_implementation::create(get_tt_device()->get_arch());
+    auto architecture_implementation = architecture_implementation::create(get_tt_device()->get_arch());
     write_to_device_reg(core, &valid_val, architecture_implementation->get_tensix_soft_reset_addr(), sizeof(uint32_t));
     tt_driver_atomics::sfence();
 }
@@ -149,7 +150,7 @@ void Chip::send_tensix_risc_reset(const TensixSoftResetOptions& soft_resets) {
 
 void Chip::set_tensix_risc_reset(CoreCoord core, const TensixSoftResetOptions& selected_riscs) {
     uint32_t tensix_risc_state = 0x00000000;
-    auto architecture_implementation = tt::umd::architecture_implementation::create(get_tt_device()->get_arch());
+    auto architecture_implementation = architecture_implementation::create(get_tt_device()->get_arch());
     read_from_device_reg(
         core, &tensix_risc_state, architecture_implementation->get_tensix_soft_reset_addr(), sizeof(uint32_t));
     TensixSoftResetOptions set_selected_riscs = static_cast<TensixSoftResetOptions>(tensix_risc_state) | selected_riscs;
@@ -158,7 +159,7 @@ void Chip::set_tensix_risc_reset(CoreCoord core, const TensixSoftResetOptions& s
 
 void Chip::unset_tensix_risc_reset(CoreCoord core, const TensixSoftResetOptions& selected_riscs) {
     uint32_t tensix_risc_state = 0x00000000;
-    auto architecture_implementation = tt::umd::architecture_implementation::create(get_tt_device()->get_arch());
+    auto architecture_implementation = architecture_implementation::create(get_tt_device()->get_arch());
     read_from_device_reg(
         core, &tensix_risc_state, architecture_implementation->get_tensix_soft_reset_addr(), sizeof(uint32_t));
     TensixSoftResetOptions set_selected_riscs =
@@ -235,6 +236,34 @@ tt_xy_pair Chip::translate_chip_coord_to_translated(const CoreCoord core) const 
         }
     } else {
         return soc_descriptor_.translate_coord_to(core, umd_use_noc1 ? CoordSystem::NOC1 : CoordSystem::TRANSLATED);
+    }
+}
+
+void Chip::wait_for_aiclk_value(TTDevice* tt_device, tt_DevicePowerState power_state, const uint32_t timeout_ms) {
+    auto start = std::chrono::system_clock::now();
+    uint32_t target_aiclk = 0;
+    if (power_state == tt_DevicePowerState::BUSY) {
+        target_aiclk = tt_device->get_max_clock_freq();
+    } else if (power_state == tt_DevicePowerState::LONG_IDLE) {
+        target_aiclk = tt_device->get_min_clock_freq();
+    }
+    uint32_t aiclk = tt_device->get_clock();
+    while (aiclk != target_aiclk) {
+        auto end = std::chrono::system_clock::now();
+        auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
+        if (duration.count() > timeout_ms) {
+            log_warning(
+                LogSiliconDriver,
+                "Waiting for AICLK value to settle failed on timeout after {}. Expected to see {}, last value "
+                "observed {}. This can be due to possible overheating of the chip or other issues. ASIC temperature: "
+                "{}",
+                timeout_ms,
+                target_aiclk,
+                aiclk,
+                tt_device->get_asic_temperature());
+            return;
+        }
+        aiclk = tt_device->get_clock();
     }
 }
 

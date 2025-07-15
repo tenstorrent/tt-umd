@@ -9,11 +9,13 @@
 #include "umd/device/coordinate_manager.h"
 #include "umd/device/wormhole_implementation.h"
 
+namespace tt::umd {
+
 class WormholeCoordinateManager : public CoordinateManager {
 public:
     WormholeCoordinateManager(
         const bool noc_translation_enabled,
-        tt::umd::HarvestingMasks harvesting_masks,
+        HarvestingMasks harvesting_masks,
         const tt_xy_pair& tensix_grid_size,
         const std::vector<tt_xy_pair>& tensix_cores,
         const tt_xy_pair& dram_grid_size,
@@ -38,3 +40,5 @@ protected:
 
     tt_xy_pair get_tensix_grid_size() const override;
 };
+
+}  // namespace tt::umd

@@ -7,6 +7,7 @@
 #pragma once
 
 #include <map>
+#include <memory>
 #include <set>
 #include <vector>
 
@@ -15,6 +16,8 @@
 #include "umd/device/types/arch.h"
 #include "umd/device/types/cluster_descriptor_types.h"
 #include "umd/device/types/harvesting.h"
+
+namespace tt::umd {
 
 class CoordinateManager {
 public:
@@ -29,7 +32,7 @@ public:
     static std::shared_ptr<CoordinateManager> create_coordinate_manager(
         tt::ARCH arch,
         const bool noc_translation_enabled,
-        tt::umd::HarvestingMasks harvesting_masks,
+        HarvestingMasks harvesting_masks,
         const tt_xy_pair& tensix_grid_size,
         const std::vector<tt_xy_pair>& tensix_cores,
         const tt_xy_pair& dram_grid_size,
@@ -48,7 +51,7 @@ public:
     static std::shared_ptr<CoordinateManager> create_coordinate_manager(
         tt::ARCH arch,
         const bool noc_translation_enabled,
-        const tt::umd::HarvestingMasks harvesting_masks = {0, 0, 0},
+        const HarvestingMasks harvesting_masks = {0, 0, 0},
         const BoardType board_type = BoardType::UNKNOWN,
         const uint8_t asic_location = 0);
 
@@ -62,18 +65,18 @@ public:
     static uint32_t shuffle_tensix_harvesting_mask_to_noc0_coords(
         tt::ARCH arch, uint32_t tensix_harvesting_logical_layout);
 
-    tt::umd::CoreCoord translate_coord_to(const tt::umd::CoreCoord core_coord, const CoordSystem coord_system) const;
-    tt::umd::CoreCoord get_coord_at(const tt_xy_pair core, const CoordSystem coord_system) const;
-    tt::umd::CoreCoord translate_coord_to(
+    CoreCoord translate_coord_to(const CoreCoord core_coord, const CoordSystem coord_system) const;
+    CoreCoord get_coord_at(const tt_xy_pair core, const CoordSystem coord_system) const;
+    CoreCoord translate_coord_to(
         const tt_xy_pair core, const CoordSystem input_coord_system, const CoordSystem target_coord_system) const;
 
-    std::vector<tt::umd::CoreCoord> get_cores(const CoreType core_type) const;
+    std::vector<CoreCoord> get_cores(const CoreType core_type) const;
     tt_xy_pair get_grid_size(const CoreType core_type) const;
 
-    std::vector<tt::umd::CoreCoord> get_harvested_cores(const CoreType core_type) const;
+    std::vector<CoreCoord> get_harvested_cores(const CoreType core_type) const;
     tt_xy_pair get_harvested_grid_size(const CoreType core_type) const;
 
-    tt::umd::HarvestingMasks get_harvesting_masks() const;
+    HarvestingMasks get_harvesting_masks() const;
 
     uint32_t get_num_eth_channels() const;
 
@@ -81,7 +84,7 @@ public:
 
 private:
     const std::vector<tt_xy_pair>& get_physical_pairs(const CoreType core_type) const;
-    std::vector<tt::umd::CoreCoord> get_all_physical_cores(const CoreType core_type) const;
+    std::vector<CoreCoord> get_all_physical_cores(const CoreType core_type) const;
 
 protected:
     /*
@@ -94,7 +97,7 @@ protected:
      */
     CoordinateManager(
         const bool noc_translation_enabled,
-        const tt::umd::HarvestingMasks harvesting_masks,
+        const HarvestingMasks harvesting_masks,
         const tt_xy_pair& tensix_grid_size,
         const std::vector<tt_xy_pair>& tensix_cores,
         const tt_xy_pair& dram_grid_size,
@@ -124,17 +127,17 @@ protected:
     virtual void translate_l2cpu_coords();
 
     void identity_map_physical_cores();
-    void add_core_translation(const tt::umd::CoreCoord& core_coord, const tt_xy_pair& physical_pair);
+    void add_core_translation(const CoreCoord& core_coord, const tt_xy_pair& physical_pair);
     void add_noc1_to_noc0_mapping();
 
-    virtual std::vector<tt::umd::CoreCoord> get_tensix_cores() const;
-    virtual std::vector<tt::umd::CoreCoord> get_harvested_tensix_cores() const;
-    virtual std::vector<tt::umd::CoreCoord> get_dram_cores() const;
-    virtual std::vector<tt::umd::CoreCoord> get_harvested_dram_cores() const;
-    virtual std::vector<tt::umd::CoreCoord> get_eth_cores() const;
-    virtual std::vector<tt::umd::CoreCoord> get_harvested_eth_cores() const;
-    virtual std::vector<tt::umd::CoreCoord> get_pcie_cores() const;
-    virtual std::vector<tt::umd::CoreCoord> get_harvested_pcie_cores() const;
+    virtual std::vector<CoreCoord> get_tensix_cores() const;
+    virtual std::vector<CoreCoord> get_harvested_tensix_cores() const;
+    virtual std::vector<CoreCoord> get_dram_cores() const;
+    virtual std::vector<CoreCoord> get_harvested_dram_cores() const;
+    virtual std::vector<CoreCoord> get_eth_cores() const;
+    virtual std::vector<CoreCoord> get_harvested_eth_cores() const;
+    virtual std::vector<CoreCoord> get_pcie_cores() const;
+    virtual std::vector<CoreCoord> get_harvested_pcie_cores() const;
     virtual tt_xy_pair get_tensix_grid_size() const = 0;
     virtual tt_xy_pair get_dram_grid_size() const;
     virtual tt_xy_pair get_harvested_tensix_grid_size() const;
@@ -195,19 +198,19 @@ protected:
     virtual void fill_arc_physical_translated_mapping() = 0;
 
     // Maps full CoreCoord from any CoordSystem to physical coordinates.
-    std::map<tt::umd::CoreCoord, tt_xy_pair> to_physical_map;
+    std::map<CoreCoord, tt_xy_pair> to_physical_map;
     // Maps physical coordinates given a target CoordSystem to full CoreCoord.
-    std::map<std::pair<tt_xy_pair, CoordSystem>, tt::umd::CoreCoord> from_physical_map;
+    std::map<std::pair<tt_xy_pair, CoordSystem>, CoreCoord> from_physical_map;
     // Maps coordinates in the designated CoordSystem to a full CoreCoord at that location holding the right CoreType.
     // Doesn't include logical CoordSystem.
-    std::map<std::pair<tt_xy_pair, CoordSystem>, tt::umd::CoreCoord> to_core_type_map;
+    std::map<std::pair<tt_xy_pair, CoordSystem>, CoreCoord> to_core_type_map;
 
     // Whether NOC translation is enabled on chip.
     // This flag affects how Translated coords are calculated. If translation is enabled on the chip, than we can
     // interface it with a coordinate system which abstracts away harvested cores. If it is not enabled, then we need to
     // interface it with noc0 coordinates.
     bool noc_translation_enabled;
-    tt::umd::HarvestingMasks harvesting_masks;
+    HarvestingMasks harvesting_masks;
 
     tt_xy_pair tensix_grid_size;
     const std::vector<tt_xy_pair> tensix_cores;
@@ -234,3 +237,8 @@ protected:
     const std::vector<uint32_t> noc0_x_to_noc1_x;
     const std::vector<uint32_t> noc0_y_to_noc1_y;
 };
+
+}  // namespace tt::umd
+
+// TODO: To be removed once clients switch to namespace usage.
+using tt::umd::CoordinateManager;

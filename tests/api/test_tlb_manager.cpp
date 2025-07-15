@@ -74,7 +74,7 @@ TEST(ApiTLBManager, ManualTLBConfiguration) {
 
         // Another way to write to the TLB.
         // TODO: This should be converted to AbstractIO writer.
-        tt::Writer writer = tlb_manager->get_static_tlb_writer(any_worker_virtual_core);
+        Writer writer = tlb_manager->get_static_tlb_writer(any_worker_virtual_core);
         writer.write(address_l1_to_write, buffer_to_write[0]);
     }
 }

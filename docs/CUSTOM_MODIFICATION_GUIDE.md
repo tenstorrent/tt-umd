@@ -28,7 +28,7 @@ For an example of how to create your tt_SocDescriptor inside your constructor, y
 
 #### tt_cluster.cpp
 
-Most of the interfacing with the UMD is done through this [tt_cluster.cpp](https://github.com/tenstorrent/tt-metal/blob/main/tt_metal/llrt/tt_cluster.cpp). To change the usage to a custom driver for custom device, one should exchange the creation of tt::umd::Cluster
+Most of the interfacing with the UMD is done through this [tt_cluster.cpp](https://github.com/tenstorrent/tt-metal/blob/main/tt_metal/llrt/tt_cluster.cpp). To change the usage to a custom driver for custom device, one should exchange the creation of Cluster
 with the class having the same header. For instructions on what each of the functions represents and how to implement them, please see [cluster.h](../device/api/umd/device/cluster.h).
 
 #### soc_descriptor in tt_metal

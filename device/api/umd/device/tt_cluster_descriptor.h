@@ -33,8 +33,8 @@ class Cluster;
 
 class tt_ClusterDescriptor {
     // TODO: Only Topo Discovery should have access.
-    friend class tt::umd::Cluster;
-    friend class tt::umd::TopologyDiscovery;
+    friend class Cluster;
+    friend class TopologyDiscovery;
 
 public:
     /* Construction related functions. */
@@ -167,7 +167,7 @@ public:
      * Returns the harvesting masks for a given chip ID.
      * @param chip_id Logical chip ID to get the harvesting masks for.
      */
-    tt::umd::HarvestingMasks get_harvesting_masks(chip_id_t chip_id) const;
+    HarvestingMasks get_harvesting_masks(chip_id_t chip_id) const;
 
     /* Connection related functions. */
     /**
@@ -302,5 +302,5 @@ private:
     // assumption is that on every row of the rack there is a chip that is connected to the other rack
     std::unordered_map<int, std::unordered_map<int, Chip2ChipConnection>> galaxy_racks_exit_chip_coords_per_x_dim = {};
 
-    std::map<chip_id_t, tt::umd::HarvestingMasks> harvesting_masks_map = {};
+    std::map<chip_id_t, HarvestingMasks> harvesting_masks_map = {};
 };

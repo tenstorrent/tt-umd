@@ -6,8 +6,6 @@
 
 #pragma once
 
-#include <sys/types.h>
-
 #include <array>
 
 #include "architecture_implementation.h"

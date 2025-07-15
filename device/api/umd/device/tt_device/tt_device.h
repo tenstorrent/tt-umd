@@ -118,7 +118,9 @@ public:
     virtual void write_to_device(const void *mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size);
 
     // Read/write functions that will send the arc message. It is used to read/write the data needed
-    // to get the information to or form cluster the arc core.
+    // to get the information to or form cluster the arc core. These functions on Wormhole will use the
+    // AXI interface to read/write the data if the chip is local/PCIe, while the remote chip will use the
+    // the NOC interface to read/write the data. Blackhole for now, will only use the NOC interface to read/write data.
     virtual void read_from_arc(void *mem_ptr, uint64_t arc_addr_offset, [[maybe_unused]] size_t size) = 0;
     virtual void write_to_arc(const void *mem_ptr, uint64_t arc_addr_offset, [[maybe_unused]] size_t size) = 0;
 

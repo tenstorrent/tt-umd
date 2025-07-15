@@ -57,7 +57,9 @@ std::vector<ClusterOptions> get_cluster_options_for_param_test() {
 }
 
 // This test should be one line only.
-TEST(ApiClusterTest, OpenAllSiliconChips) { std::unique_ptr<Cluster> umd_cluster = std::make_unique<Cluster>(); }
+TEST(ApiClusterTest, OpenAllSiliconChips) { std::unique_ptr<Cluster> umd_cluster = std::make_unique<Cluster>(tt::umd::ClusterOptions{
+            .sdesc_path = "/localdev/dzivanovic/tt-umd-simulators/build/versim-wormhole-b0/soc_descriptor.yaml",
+        }); }
 
 TEST(ApiClusterTest, OpenChipsByPciId) {
     std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();

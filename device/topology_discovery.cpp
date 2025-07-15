@@ -177,7 +177,7 @@ void TopologyDiscovery::get_pcie_connected_chips() {
         std::vector<CoreCoord> eth_cores =
             chip->get_soc_descriptor().get_cores(CoreType::ETH, umd_use_noc1 ? CoordSystem::NOC1 : CoordSystem::NOC0);
         for (const CoreCoord& eth_core : eth_cores) {
-            uint32_t board_id = get_local_board_id(chip.get(), eth_core);
+            uint64_t board_id = get_local_board_id(chip.get(), eth_core);
             if (board_id == 0) {
                 continue;
             }
@@ -388,7 +388,7 @@ bool TopologyDiscovery::is_pcie_chip_id_included(int pci_id) const {
 }
 
 // If pci_target_devices is empty, we should take all the PCI devices found in the system.
-bool TopologyDiscovery::is_board_id_included(uint32_t board_id) const {
+bool TopologyDiscovery::is_board_id_included(uint64_t board_id) const {
     // Since at the moment we don't want to go outside of single host on 6U,
     // we just check for board ids that are discovered from pci_target_devices.
     if (is_running_on_6u) {
@@ -400,7 +400,11 @@ bool TopologyDiscovery::is_board_id_included(uint32_t board_id) const {
     return pci_target_devices.empty() || board_ids.find(board_id) != board_ids.end();
 }
 
-uint32_t TopologyDiscovery::get_remote_board_id(Chip* chip, tt_xy_pair eth_core) {
+uint64_t TopologyDiscovery::get_remote_board_id(Chip* chip, tt_xy_pair eth_core) {
+    if (is_running_on_6u) {
+        return get_remote_asic_id(chip, eth_core);
+    }
+
     TTDevice* tt_device = chip->get_tt_device();
     uint32_t board_id;
     tt_device->read_from_device(
@@ -411,7 +415,11 @@ uint32_t TopologyDiscovery::get_remote_board_id(Chip* chip, tt_xy_pair eth_core)
     return board_id;
 }
 
-uint32_t TopologyDiscovery::get_local_board_id(Chip* chip, tt_xy_pair eth_core) {
+uint64_t TopologyDiscovery::get_local_board_id(Chip* chip, tt_xy_pair eth_core) {
+    if (is_running_on_6u) {
+        return get_local_asic_id(chip, eth_core);
+    }
+
     TTDevice* tt_device = chip->get_tt_device();
     uint32_t board_id;
     tt_device->read_from_device(

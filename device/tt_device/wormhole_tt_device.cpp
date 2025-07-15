@@ -403,6 +403,7 @@ double WormholeTTDevice::get_asic_temperature() {
     // It needs to be divided by 8 to get temperature in Celsius.
     return (telemetry->read_entry(wormhole::TAG_ASIC_TEMPERATURE) & 0xFFFF) / 8.0;
 }
+
 tt_xy_pair WormholeTTDevice::get_arc_core() const { return arc_core; }
 
 }  // namespace tt::umd

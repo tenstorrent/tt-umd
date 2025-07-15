@@ -265,15 +265,21 @@ void TopologyDiscovery::discover_remote_chips() {
             active_eth_channels_per_chip.at(current_chip_id).insert(channel);
 
             if (!is_board_id_included(get_remote_board_id(chip, eth_core))) {
-                tt_xy_pair remote_eth_core = get_remote_eth_core(chip, eth_core);
-                uint32_t remote_eth_id =
-                    chip->get_soc_descriptor()
-                        .translate_coord_to(
-                            CoreCoord(remote_eth_core.x, remote_eth_core.y, CoreType::ETH, CoordSystem::PHYSICAL),
-                            CoordSystem::LOGICAL)
-                        .y;
+                uint32_t remote_eth_channel;
+                if (is_running_on_6u) {
+                    remote_eth_channel = get_remote_eth_id(chip, eth_core);
+                } else {
+                    tt_xy_pair remote_eth_core = get_remote_eth_core(chip, eth_core);
+                    remote_eth_channel =
+                        chip->get_soc_descriptor()
+                            .translate_coord_to(
+                                CoreCoord(remote_eth_core.x, remote_eth_core.y, CoreType::ETH, CoordSystem::PHYSICAL),
+                                CoordSystem::LOGICAL)
+                            .y;
+                }
                 cluster_desc->ethernet_connections_to_remote_devices[current_chip_id][channel] = {
-                    get_remote_asic_id(chip, eth_core), remote_eth_id};
+                    get_remote_asic_id(chip, eth_core), remote_eth_channel};
+
                 channel++;
                 continue;
             }

@@ -5,8 +5,6 @@
  */
 #pragma once
 
-#include <unordered_map>
-
 #include "umd/device/arc_messenger.h"
 #include "umd/device/arc_telemetry_reader.h"
 #include "umd/device/types/wormhole_telemetry.h"

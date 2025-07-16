@@ -12,36 +12,32 @@
 #include <vector>
 
 namespace tt::umd::test::utils {
-static inline void print_markdown_table_format(
-    const std::vector<std::string>& headers, const std::vector<std::vector<std::string>>& rows) {
-    // Print header row
-    for (const auto& header : headers) {
-        std::cout << "| " << header << " ";
-    }
-    std::cout << "|\n";
 
-    // Print separator row
-    for (size_t i = 0; i < headers.size(); ++i) {
-        std::cout << "|---";
-    }
-    std::cout << "|\n";
+/**
+ * Prints a table in Markdown format. Headers are printed as the first row, followed by a separator row,
+ * and then the data rows. Headers length must match the length of each row.
+ *
+ * @param headers The headers of the table.
+ * @param rows The rows of the table, where each row is a vector of strings.
+ */
+void print_markdown_table_format(
+    const std::vector<std::string>& headers, const std::vector<std::vector<std::string>>& rows);
 
-    // Print data rows
-    for (const auto& row : rows) {
-        for (const auto& cell : row) {
-            std::cout << "| " << cell << " ";
-        }
-        std::cout << "|\n";
-    }
-}
+/**
+ * Calculates the speed in MB/s given the number of bytes and the time in nanoseconds.
+ *
+ * @param bytes The number of bytes processed.
+ * @param ns The time taken in nanoseconds.
+ * @return The speed in MB/s.
+ */
+double calc_speed(size_t bytes, uint64_t ns);
 
-static inline double calc_speed(size_t bytes, uint64_t ns) {
-    return (static_cast<double>(bytes) / (1024.0 * 1024.0)) / (ns / 1e9);
-}
+/**
+ * Converts a double value to a string with fixed-point notation and two decimal places.
+ *
+ * @param value The double value to convert.
+ * @return A string representation of the double value.
+ */
+std::string convert_double_to_string(double value);
 
-static inline std::string convert_double_to_string(double value) {
-    std::ostringstream out;
-    out << std::fixed << std::setprecision(2) << value;
-    return out.str();
-}
 }  // namespace tt::umd::test::utils

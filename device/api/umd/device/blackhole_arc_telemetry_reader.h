@@ -7,6 +7,7 @@
 
 #include "umd/device/arc_telemetry_reader.h"
 #include "umd/device/blackhole_implementation.h"
+#include "umd/device/types/blackhole_telemetry.h"
 
 extern bool umd_use_noc1;
 
@@ -22,6 +23,8 @@ public:
 
 private:
     void initialize_telemetry();
+
+    void read_static_telemetry_entries();
 
     // Address of the telemetry table struct on ARC core.
     uint32_t telemetry_table_addr;
@@ -45,6 +48,27 @@ private:
 
     // During initialization of telemetry, if the NOC0 is hung then we need to read the telemetry values from NOC1.
     const tt_xy_pair arc_core;
+
+    bool static_telemetry_entries_initialized{false};
+    std::unordered_map<uint8_t, uint32_t> static_telemetry_entries{
+        {blackhole::TAG_BOARD_ID_HIGH, 0},
+        {blackhole::TAG_BOARD_ID_LOW, 0},
+        {blackhole::TAG_ASIC_ID, 0},
+        {blackhole::TAG_HARVESTING_STATE, 0},
+        {blackhole::TAG_UPDATE_TELEM_SPEED, 0},
+        {blackhole::TAG_ETH_FW_VERSION, 0},
+        {blackhole::TAG_DDR_FW_VERSION, 0},
+        {blackhole::TAG_BM_APP_FW_VERSION, 0},
+        {blackhole::TAG_BM_BL_FW_VERSION, 0},
+        {blackhole::TAG_FLASH_BUNDLE_VERSION, 0},
+        {blackhole::TAG_CM_FW_VERSION, 0},
+        {blackhole::TAG_L2CPU_FW_VERSION, 0},
+        {blackhole::TAG_ENABLED_TENSIX_COL, 0},
+        {blackhole::TAG_ENABLED_ETH, 0},
+        {blackhole::TAG_ENABLED_GDDR, 0},
+        {blackhole::TAG_ENABLED_L2CPU, 0},
+        {blackhole::TAG_PCIE_USAGE, 0},
+    };
 };
 
 }  // namespace tt::umd

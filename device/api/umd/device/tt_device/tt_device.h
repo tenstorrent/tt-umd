@@ -117,11 +117,32 @@ public:
     virtual void read_from_device(void *mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size);
     virtual void write_to_device(const void *mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size);
 
-    // Read/write functions that will send the arc message. It is used to read/write the data needed
-    // to get the information to or form cluster the arc core. These functions on Wormhole will use the
-    // AXI interface to read/write the data if the chip is local/PCIe, while the remote chip will use the
-    // the NOC interface to read/write the data. Blackhole for now, will only use the NOC interface to read/write data.
+    /**
+     * Read function that will send read message to the ARC core.
+     *
+     * @param mem_ptr pointer to memory which will receive the data
+     * @param arc_addr_offset address offset in ARC core
+     * @param size number of bytes
+     *
+     * NOTE: These functions on Wormhole will use the
+     * AXI interface to read/write the data if the chip is local/PCIe, while the remote chip will use the
+     * the NOC interface to read/write the data. Blackhole for now, will only use the NOC interface to read/write data.
+     *
+     */
     virtual void read_from_arc(void *mem_ptr, uint64_t arc_addr_offset, [[maybe_unused]] size_t size) = 0;
+
+    /**
+     * Write function that will send write message to the ARC core.
+     *
+     * @param mem_ptr pointer to memory from which the data is sent
+     * @param arc_addr_offset address offset in ARC core
+     * @param size number of bytes
+     *
+     * NOTE: These functions on Wormhole will use the
+     * AXI interface to read/write the data if the chip is local/PCIe, while the remote chip will use the
+     * the NOC interface to read/write the data. Blackhole for now, will only use the NOC interface to read/write data.
+     *
+     */
     virtual void write_to_arc(const void *mem_ptr, uint64_t arc_addr_offset, [[maybe_unused]] size_t size) = 0;
 
     // TLB related functions.

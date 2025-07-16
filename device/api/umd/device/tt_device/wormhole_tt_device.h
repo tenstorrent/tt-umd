@@ -49,6 +49,8 @@ public:
 
     double get_asic_temperature() override;
 
+    uint64_t get_arc_noc_base_address() const override;
+
 protected:
     tt_xy_pair get_arc_core() const;
 

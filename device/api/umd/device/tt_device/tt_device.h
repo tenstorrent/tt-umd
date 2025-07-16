@@ -6,6 +6,7 @@
 
 #pragma once
 
+#include <cstdint>
 #include <string_view>
 
 #include "umd/device/arc_messenger.h"
@@ -228,6 +229,8 @@ public:
     virtual void wait_for_non_mmio_flush();
 
     bool is_remote();
+
+    virtual uint64_t get_arc_noc_base_address() const = 0;
 
 protected:
     std::shared_ptr<PCIDevice> pci_device_;

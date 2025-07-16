@@ -365,7 +365,7 @@ void WormholeTTDevice::dma_d2h_zero_copy(void *dst, uint32_t src, size_t size) {
 }
 
 void WormholeTTDevice::read_from_arc(void *mem_ptr, uint64_t arc_addr_offset, size_t size) {
-    if (arc_addr_offset > wormhole::ARC_XBAR_ADDRESS_END) {
+    if ((arc_addr_offset < 0) || (arc_addr_offset > wormhole::ARC_XBAR_ADDRESS_END)) {
         throw std::runtime_error("Address is out of ARC XBAR address range");
     }
     auto result = bar_read32(wormhole::ARC_APB_BAR0_XBAR_OFFSET_START + arc_addr_offset);
@@ -373,7 +373,7 @@ void WormholeTTDevice::read_from_arc(void *mem_ptr, uint64_t arc_addr_offset, si
 }
 
 void WormholeTTDevice::write_to_arc(const void *mem_ptr, uint64_t arc_addr_offset, size_t size) {
-    if (arc_addr_offset > wormhole::ARC_XBAR_ADDRESS_END) {
+    if ((arc_addr_offset < 0) || (arc_addr_offset > wormhole::ARC_XBAR_ADDRESS_END)) {
         throw std::runtime_error("Address is out of ARC XBAR address range");
     }
     bar_write32(
@@ -405,5 +405,7 @@ double WormholeTTDevice::get_asic_temperature() {
 }
 
 tt_xy_pair WormholeTTDevice::get_arc_core() const { return arc_core; }
+
+uint64_t WormholeTTDevice::get_arc_noc_base_address() const { return wormhole::ARC_NOC_XBAR_ADDRESS_START; }
 
 }  // namespace tt::umd

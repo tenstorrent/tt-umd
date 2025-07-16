@@ -144,6 +144,8 @@ TEST(MicrobenchmarkPCIeDMA, DMADram) {
         1024 * one_mb,
     };
 
+    const uint32_t NUM_ITERATIONS = 100;
+
     std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
     const CoreCoord dram_core = cluster->get_soc_descriptor(chip).get_cores(CoreType::DRAM)[0];
     cluster->start_device(tt_device_params{});
@@ -174,7 +176,6 @@ TEST(MicrobenchmarkPCIeDMA, DMADram) {
 TEST(MicrobenchmarkPCIeDMA, DMATensixZeroCopy) {
     guard_test_iommu();
 
-    const uint32_t NUM_ITERATIONS = 1000;
     std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>(tt::umd::ClusterOptions{
         .num_host_mem_ch_per_mmio_device = 0,
     });
@@ -212,7 +213,6 @@ TEST(MicrobenchmarkPCIeDMA, DMATensixZeroCopy) {
 TEST(MicrobenchmarkPCIeDMA, DMATensixMapBufferZeroCopy) {
     guard_test_iommu();
 
-    const uint32_t NUM_ITERATIONS = 100;
     std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>(tt::umd::ClusterOptions{
         .num_host_mem_ch_per_mmio_device = 0,
     });

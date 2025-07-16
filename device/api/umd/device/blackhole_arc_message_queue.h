@@ -45,7 +45,7 @@ private:
     static constexpr uint8_t response_wptr_offset = 5;
 
 public:
-    BlackholeArcMessageQueue(TTDevice* tt_device, const uint64_t base_address, const uint64_t size);
+    BlackholeArcMessageQueue(TTDevice* tt_device, const uint64_t size);
 
     /*
      * Send ARC message. The call of send_message is blocking, timeout is to be implemented.
@@ -69,7 +69,6 @@ private:
 
     void trigger_fw_int();
 
-    const uint64_t base_address;
     const uint64_t size;
     TTDevice* tt_device;
 };

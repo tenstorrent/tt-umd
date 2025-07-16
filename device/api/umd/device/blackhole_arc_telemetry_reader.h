@@ -53,7 +53,6 @@ private:
     std::unordered_map<uint8_t, uint32_t> static_telemetry_entries{
         {blackhole::TAG_BOARD_ID_HIGH, 0},
         {blackhole::TAG_BOARD_ID_LOW, 0},
-        {blackhole::TAG_ASIC_ID, 0},
         {blackhole::TAG_HARVESTING_STATE, 0},
         {blackhole::TAG_UPDATE_TELEM_SPEED, 0},
         {blackhole::TAG_ETH_FW_VERSION, 0},

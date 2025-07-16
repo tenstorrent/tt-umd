@@ -5,8 +5,12 @@
  */
 #pragma once
 
+#include <cstdint>
+#include <unordered_map>
+
 #include "umd/device/arc_messenger.h"
 #include "umd/device/arc_telemetry_reader.h"
+#include "umd/device/types/wormhole_telemetry.h"
 #include "umd/device/wormhole_implementation.h"
 
 extern bool umd_use_noc1;
@@ -26,6 +30,8 @@ private:
 
     void verify_telemetry();
 
+    void read_static_telemetry_entries();
+
     uint64_t telemetry_base_noc_addr;
 
     // During initialization of telemetry, if the NOC0 is hung then we need to read the telemetry values from NOC1.
@@ -33,6 +39,26 @@ private:
                                               : tt_xy_pair(
                                                     wormhole::NOC0_X_TO_NOC1_X[wormhole::ARC_CORES_NOC0[0].x],
                                                     wormhole::NOC0_Y_TO_NOC1_Y[wormhole::ARC_CORES_NOC0[0].y]);
+
+    bool static_telemetry_entries_initialized{false};
+    std::unordered_map<uint8_t, uint32_t> static_telemetry_entries{
+        {wormhole::TAG_ENUM_VERSION, 0},
+        {wormhole::TAG_DEVICE_ID, 0},
+        {wormhole::TAG_ASIC_RO, 0},
+        {wormhole::TAG_ASIC_IDD, 0},
+        {wormhole::TAG_BOARD_ID_HIGH, 0},
+        {wormhole::TAG_BOARD_ID_LOW, 0},
+        {wormhole::TAG_ARC0_FW_VERSION, 0},
+        {wormhole::TAG_ARC1_FW_VERSION, 0},
+        {wormhole::TAG_ARC2_FW_VERSION, 0},
+        {wormhole::TAG_ARC3_FW_VERSION, 0},
+        {wormhole::TAG_SPIBOOTROM_FW_VERSION, 0},
+        {wormhole::TAG_ETH_FW_VERSION, 0},
+        {wormhole::TAG_M3_BL_FW_VERSION, 0},
+        {wormhole::TAG_M3_APP_FW_VERSION, 0},
+        {wormhole::TAG_TT_FLASH_VERSION, 0},
+        {wormhole::TAG_FW_BUNDLE_VERSION, 0},
+    };
 };
 
 }  // namespace tt::umd

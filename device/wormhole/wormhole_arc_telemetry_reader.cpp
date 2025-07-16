@@ -26,6 +26,7 @@ void WormholeArcTelemetryReader::initialize_telemetry() {
     static constexpr uint64_t noc_telemetry_offset = 0x810000000;
     telemetry_base_noc_addr = arc_msg_return_values[0] + noc_telemetry_offset;
     verify_telemetry();
+    read_static_telemetry_entries();
 }
 
 void WormholeArcTelemetryReader::verify_telemetry() {
@@ -48,6 +49,11 @@ uint32_t WormholeArcTelemetryReader::read_entry(const uint8_t telemetry_tag) {
             telemetry_tag));
     }
 
+    if (static_telemetry_entries_initialized &&
+        (static_telemetry_entries.find(telemetry_tag) != static_telemetry_entries.end())) {
+        return static_telemetry_entries[telemetry_tag];
+    }
+
     uint32_t telemetry_value;
     tt_device->read_from_device(
         &telemetry_value, arc_core, telemetry_base_noc_addr + telemetry_tag * sizeof(uint32_t), sizeof(uint32_t));
@@ -57,6 +63,13 @@ uint32_t WormholeArcTelemetryReader::read_entry(const uint8_t telemetry_tag) {
 
 bool WormholeArcTelemetryReader::is_entry_available(const uint8_t telemetry_tag) {
     return telemetry_tag >= 0 && telemetry_tag < wormhole::TELEMETRY_NUMBER_OF_TAGS;
+}
+
+void WormholeArcTelemetryReader::read_static_telemetry_entries() {
+    for (auto& [telemetry_tag, telemetry_value] : static_telemetry_entries) {
+        telemetry_value = read_entry(telemetry_tag);
+    }
+    static_telemetry_entries_initialized = true;
 }
 
 }  // namespace tt::umd

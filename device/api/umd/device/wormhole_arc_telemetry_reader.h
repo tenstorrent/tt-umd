@@ -5,7 +5,6 @@
  */
 #pragma once
 
-#include <cstdint>
 #include <unordered_map>
 
 #include "umd/device/arc_messenger.h"

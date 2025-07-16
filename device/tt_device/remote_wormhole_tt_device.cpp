@@ -31,14 +31,14 @@ LocalChip *RemoteWormholeTTDevice::get_local_chip() { return local_chip_; }
 RemoteCommunication *RemoteWormholeTTDevice::get_remote_communication() { return remote_communication_.get(); }
 
 void RemoteWormholeTTDevice::read_from_arc(void *mem_ptr, uint64_t arc_addr_offset, size_t size) {
-    if ((arc_addr_offset < 0) || (arc_addr_offset > wormhole::ARC_XBAR_ADDRESS_END)) {
+    if (arc_addr_offset > wormhole::ARC_XBAR_ADDRESS_END) {
         throw std::runtime_error("Address is out of ARC XBAR address range");
     }
     read_from_device(mem_ptr, get_arc_core(), wormhole::ARC_NOC_XBAR_ADDRESS_START + arc_addr_offset, size);
 }
 
 void RemoteWormholeTTDevice::write_to_arc(const void *mem_ptr, uint64_t arc_addr_offset, size_t size) {
-    if ((arc_addr_offset < 0) || (arc_addr_offset > wormhole::ARC_XBAR_ADDRESS_END)) {
+    if (arc_addr_offset > wormhole::ARC_XBAR_ADDRESS_END) {
         throw std::runtime_error("Address is out of ARC XBAR address range");
     }
     write_to_device(mem_ptr, get_arc_core(), wormhole::ARC_NOC_XBAR_ADDRESS_START + arc_addr_offset, size);

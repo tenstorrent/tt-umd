@@ -233,8 +233,8 @@ static constexpr uint32_t GRID_SIZE_Y = 12;
 
 static constexpr uint32_t ARC_MSG_COMMON_PREFIX = 0xAA00;
 
-static constexpr uint32_t ARC_APB_BAR0_XBAR_ADDRESS_START = 0x1FF00000;
-static constexpr uint32_t ARC_APB_BAR0_XBAR_ADDRESS_END = 0x1FFFFFFF;
+static constexpr uint32_t ARC_APB_BAR0_XBAR_OFFSET_START = 0x1FF00000;
+static constexpr uint32_t ARC_APB_BAR0_XBAR_OFFSET_END = 0x1FFFFFFF;
 
 static constexpr uint32_t ARC_CSM_MAILBOX_OFFSET = 0x1FEF83C4;
 static constexpr uint32_t ARC_CSM_MAILBOX_SIZE_OFFSET = 0x1FEF84C4;
@@ -324,11 +324,11 @@ public:
     uint32_t get_arc_csm_mailbox_offset() const override { return wormhole::ARC_CSM_MAILBOX_OFFSET; }
 
     uint32_t get_arc_reset_arc_misc_cntl_offset() const override {
-        return wormhole::ARC_APB_BAR0_XBAR_ADDRESS_START + wormhole::ARC_RESET_ARC_MISC_CNTL_OFFSET;
+        return wormhole::ARC_APB_BAR0_XBAR_OFFSET_START + wormhole::ARC_RESET_ARC_MISC_CNTL_OFFSET;
     }
 
     uint32_t get_arc_reset_scratch_offset() const override {
-        return wormhole::ARC_APB_BAR0_XBAR_ADDRESS_START + wormhole::ARC_RESET_SCRATCH_OFFSET;
+        return wormhole::ARC_APB_BAR0_XBAR_OFFSET_START + wormhole::ARC_RESET_SCRATCH_OFFSET;
     }
 
     uint32_t get_dram_channel_0_peer2peer_region_start() const override {

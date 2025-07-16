@@ -368,7 +368,7 @@ void WormholeTTDevice::read_from_arc(void *mem_ptr, uint64_t arc_addr_offset, si
     if ((arc_addr_offset < 0) || (arc_addr_offset > wormhole::ARC_XBAR_ADDRESS_END)) {
         throw std::runtime_error("Address is out of ARC XBAR address range");
     }
-    auto result = bar_read32(wormhole::ARC_APB_BAR0_XBAR_ADDRESS_START + arc_addr_offset);
+    auto result = bar_read32(wormhole::ARC_APB_BAR0_XBAR_OFFSET_START + arc_addr_offset);
     *(reinterpret_cast<uint32_t *>(mem_ptr)) = result;
 }
 
@@ -377,7 +377,7 @@ void WormholeTTDevice::write_to_arc(const void *mem_ptr, uint64_t arc_addr_offse
         throw std::runtime_error("Address is out of ARC XBAR address range");
     }
     bar_write32(
-        wormhole::ARC_APB_BAR0_XBAR_ADDRESS_START + arc_addr_offset, *(reinterpret_cast<const uint32_t *>(mem_ptr)));
+        wormhole::ARC_APB_BAR0_XBAR_OFFSET_START + arc_addr_offset, *(reinterpret_cast<const uint32_t *>(mem_ptr)));
 }
 
 void WormholeTTDevice::wait_eth_core_training(const tt_xy_pair eth_core, const uint32_t timeout_ms) {

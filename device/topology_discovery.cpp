@@ -402,6 +402,7 @@ bool TopologyDiscovery::is_board_id_included(uint64_t board_id) const {
 
 uint64_t TopologyDiscovery::get_remote_board_id(Chip* chip, tt_xy_pair eth_core) {
     if (is_running_on_6u) {
+        // See comment in get_local_board_id.
         return get_remote_asic_id(chip, eth_core);
     }
 
@@ -417,6 +418,11 @@ uint64_t TopologyDiscovery::get_remote_board_id(Chip* chip, tt_xy_pair eth_core)
 
 uint64_t TopologyDiscovery::get_local_board_id(Chip* chip, tt_xy_pair eth_core) {
     if (is_running_on_6u) {
+        // For 6U, since the whole trays have the same board ID, and we'd want to be able to open
+        // only some chips, we hack the board_id to be the asic ID. That way, the pci_target_devices filter
+        // from the ClusterOptions will work correctly on 6U.
+        // Note that the board_id will still be reported properly in the cluster descriptor, since it is
+        // fetched through another function when cluster descriptor is being filled up.
         return get_local_asic_id(chip, eth_core);
     }
 

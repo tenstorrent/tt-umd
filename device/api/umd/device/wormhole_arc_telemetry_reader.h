@@ -37,7 +37,7 @@ private:
                                                     wormhole::NOC0_X_TO_NOC1_X[wormhole::ARC_CORES_NOC0[0].x],
                                                     wormhole::NOC0_Y_TO_NOC1_Y[wormhole::ARC_CORES_NOC0[0].y]);
 
-    bool static_telemetry_entries_initialized{false};
+    bool static_entries_initialized{false};
     std::unordered_map<uint8_t, uint32_t> static_telemetry_entries{
         {wormhole::TAG_ENUM_VERSION, 0},
         {wormhole::TAG_DEVICE_ID, 0},

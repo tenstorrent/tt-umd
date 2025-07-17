@@ -42,9 +42,12 @@ void BlackholeArcTelemetryReader::initialize_telemetry() {
 
         telemetry_values.insert({tag_val, telemetry_data[offset_val]});
         telemetry_offset.insert({tag_val, offset_val});
+        if (possible_static_entries.find(tag_val) != possible_static_entries.end()) {
+            static_entries.insert(tag_val);
+        }
     }
 
-    read_static_telemetry_entries();
+    static_entries_initialized = true;
 }
 
 uint32_t BlackholeArcTelemetryReader::read_entry(const uint8_t telemetry_tag) {
@@ -54,9 +57,8 @@ uint32_t BlackholeArcTelemetryReader::read_entry(const uint8_t telemetry_tag) {
             telemetry_tag));
     }
 
-    if (static_telemetry_entries_initialized &&
-        (static_telemetry_entries.find(telemetry_tag) != static_telemetry_entries.end())) {
-        return static_telemetry_entries[telemetry_tag];
+    if (static_entries_initialized && (static_entries.find(telemetry_tag) != static_entries.end())) {
+        return telemetry_values[telemetry_tag];
     }
 
     const uint32_t offset = telemetry_offset.at(telemetry_tag);
@@ -73,13 +75,6 @@ uint32_t BlackholeArcTelemetryReader::read_entry(const uint8_t telemetry_tag) {
 
 bool BlackholeArcTelemetryReader::is_entry_available(const uint8_t telemetry_tag) {
     return telemetry_values.find(telemetry_tag) != telemetry_values.end();
-}
-
-void BlackholeArcTelemetryReader::read_static_telemetry_entries() {
-    for (auto& [telemetry_tag, telemetry_value] : static_telemetry_entries) {
-        telemetry_value = read_entry(telemetry_tag);
-    }
-    static_telemetry_entries_initialized = true;
 }
 
 }  // namespace tt::umd

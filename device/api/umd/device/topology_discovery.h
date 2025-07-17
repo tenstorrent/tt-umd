@@ -45,21 +45,21 @@ private:
 
     bool is_pcie_chip_id_included(int pci_id) const;
 
-    bool is_board_id_included(uint32_t board_id) const;
+    bool is_board_id_included(uint64_t board_id) const;
 
     // Returns mangled remote board id from local ETH core.
     // This information can still be used to unique identify a board.
     // TODO: override this logic for different configs. This is in group of functions
     // that we should override for T3K/6U/BH...
     // eth_core should be in physical (NOC0) coordinates.
-    uint32_t get_remote_board_id(Chip* chip, tt_xy_pair eth_core);
+    uint64_t get_remote_board_id(Chip* chip, tt_xy_pair eth_core);
 
     // Returns mangled local board id from local ETH core.
     // This information can still be used to unique identify a board.
     // TODO: override this logic for different configs. This is in group of functions
     // that we should override for T3K/6U/BH...
     // eth_core should be in physical (NOC0) coordinates.
-    uint32_t get_local_board_id(Chip* chip, tt_xy_pair eth_core);
+    uint64_t get_local_board_id(Chip* chip, tt_xy_pair eth_core);
 
     // TODO: override this logic for different configs. This is in group of functions
     // that we should override for T3K/6U/BH...
@@ -122,7 +122,7 @@ private:
     std::unordered_set<chip_id_t> pci_target_devices = {};
 
     // All board ids that should be included in the cluster descriptor.
-    std::unordered_set<uint32_t> board_ids;
+    std::unordered_set<uint64_t> board_ids;
 
     std::unordered_map<chip_id_t, std::set<uint32_t>> active_eth_channels_per_chip;
 

@@ -33,61 +33,82 @@ class tt_ClusterDescriptor;
 class LocalChip;
 class RemoteChip;
 
-// Chip type to create under the Cluster class.
-//  - Silicon means that the chips under cluster will be connected to actual physical devices connected to the system.
-//  - Simulation is used for simulation runs.
-//  - Mock is used for testing purposes, implementation of all functions is empty.
+/**
+ * Chip type to create under the Cluster class.
+ * - Silicon means that the chips under cluster will be connected to actual physical devices connected to the system.
+ * - Simulation is used for simulation runs.
+ * - Mock is used for testing purposes, implementation of all functions is empty.
+ */
 enum ChipType {
     SILICON,
     SIMULATION,
     MOCK,
 };
 
-// All options when creating a Cluster object.
-// Each of the options provides a default value, so in general any combination of overridden options can be used when
-// constructing Cluster objects. Having this struct saves us from having a lot of different constructor overloads.
+/**
+ * Different parameters when creating a Cluster object.
+ * Each of the options provides a default value, so in general any combination of overridden options can be used when
+ * constructing Cluster objects. Having this struct saves us from having a lot of different constructor overloads.
+ */
 struct ClusterOptions {
-    // Chip type to create.
+    /**
+     * Chip type to create.
+     */
     ChipType chip_type = ChipType::SILICON;
-    // Number of host memory channels (hugepages) per MMIO device.
+    /**
+     * Number of host memory channels (hugepages) per MMIO device.
+     */
     uint32_t num_host_mem_ch_per_mmio_device = 1;
-    // If set to false, harvesting will be skipped for constructed soc descriptors.
+    /**
+     * If set to false, harvesting will be skipped for constructed soc descriptors.
+     */
     bool perform_harvesting = true;
-    // simulated_harvesting_masks is applied on all chips, then additionally simulated_harvesting_masks_per_chip for
-    // each chip. This way, both scenarios are supported: using the simulated masks without knowing device ids and
-    // setting specific simulated masks per device.
+    /**
+     * simulated_harvesting_masks is applied on all chips, then additionally simulated_harvesting_masks_per_chip for
+     * each chip. This way, both scenarios are supported: using the simulated masks without knowing device ids and
+     * setting specific simulated masks per device.
+     */
     HarvestingMasks simulated_harvesting_masks = {};
     std::unordered_map<chip_id_t, HarvestingMasks> simulated_harvesting_masks_per_chip = {};
-    // If set, this soc descriptor will be used to construct devices on this cluster. If not set, the default soc
-    // descriptor based on architecture will be used.
+    /**
+     * If set, this soc descriptor will be used to construct devices on this cluster. If not set, the default soc
+     * descriptor based on architecture will be used.
+     */
     std::string sdesc_path = "";
-    // If not set, all discovered target devices will be used. If set, in case of SILICON chip type, the target devices
-    // will be checked against the cluster descriptor. In case of MOCK and SIMULATION chip types, this check will be
-    // skipped, and you can create chips regardless of the devices on the system.
+    /**
+     * If not set, all discovered target devices will be used. If set, in case of SILICON chip type, the target devices
+     * will be checked against the cluster descriptor. In case of MOCK and SIMULATION chip types, this check will be
+     * skipped, and you can create chips regardless of the devices on the system.
+     */
     std::unordered_set<chip_id_t> target_devices = {};
-    // If set, Cluster will target only boards that have the IDs of the chips specified in this set.
-    // If not set, all discovered PCI devices will be used. This can only be used with SILICON chip type.
-    // Corner case of setting this is if we have multiple chips visible over PCIE on same boards. If at least one
-    // of the PCIE chips on certain board is specified, UMD will take all chips from the board.
+    /**
+     * If set, Cluster will target only boards that have the IDs of the chips specified in this set.
+     * If not set, all discovered boards will be used. This can only be used with SILICON chip type.
+     * Corner case of setting this is if we have multiple chips visible over PCIE on same boards. If at least one
+     * of the PCIE chips on certain board is specified, UMD will take all chips from the board.
+     */
     std::unordered_set<chip_id_t> pci_target_devices = {};
-    // If not passed, topology discovery will be ran and tt_ClusterDescriptor will be constructed. If passed, and chip
-    // type is SILICON, the constructor will throw if cluster_descriptor configuration shows chips which don't exist on
-    // the system.
+    /**
+     * If not passed, topology discovery will be ran and tt_ClusterDescriptor will be constructed. If passed, and chip
+     * type is SILICON, the constructor will throw if cluster_descriptor configuration shows chips which don't exist on
+     * the system.
+     */
     tt_ClusterDescriptor* cluster_descriptor = nullptr;
-    // This parameter is used only for SIMULATION chip type.
+    /**
+     * This parameter is used only for SIMULATION chip type.
+     */
     std::filesystem::path simulator_directory = "";
 };
 
 /**
- * Cluster class should be used as a main interface to our devices. Devices can be created in isolation using Chip
- * class. In addition to constructing devices and initializing them, this class provides topology discovery
- * capabilities, ways to communicate to more than one device, etc.
+ * Cluster class should be used as a main interface to our devices. In addition to constructing individual Chips and
+ * initializing them, this class provides topology discovery capabilities, ways to broadcast to more than one Chip, etc.
  */
 class Cluster {
 public:
     /**
-     * The constructor of the derived tt_device should perform everything important for initializing the device
-     * properly. This can include, but is not limited to:
+     * The constructor discovers the topology of the system, creates a cluster descriptor object, and initializes
+     * Chips based on passed options and the discovered topology. This can include, but is not limited to:
      * - Getting the base address for the Device which is to be used when accessing it through the API, including memory
      * mapping the device address space.
      * - Setting up security access (if any).
@@ -117,7 +138,8 @@ public:
         std::string sdesc_path = "", std::unordered_set<chip_id_t> pci_target_devices = {});
 
     /**
-     * Get cluster descriptor object being used in UMD instance.
+     * Get cluster descriptor object being used. This object contains topology information about the cluster.
+     * Consult tt_ClusterDescriptor documentation for more information on the cluster descriptor.
      */
     tt_ClusterDescriptor* get_cluster_description();
 
@@ -626,6 +648,7 @@ private:
 
     std::unordered_map<chip_id_t, std::vector<std::vector<int>>>& get_ethernet_broadcast_headers(
         const std::set<chip_id_t>& chips_to_exclude);
+
     // Test functions
     void verify_fw_bundle_version();
     void verify_eth_fw();

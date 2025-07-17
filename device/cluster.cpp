@@ -129,6 +129,52 @@ void Cluster::create_device(
     }
 }
 
+void Cluster::log_pci_device_summary() {
+    if (chips_.empty()) {
+        return;
+    }
+    
+    std::vector<int> pci_device_numbers;
+    std::set<bool> iommu_states;
+    std::set<std::string> kmd_versions;
+    
+    // Collect information from all local chips with PCI devices
+    for (const auto& [chip_id, chip] : chips_) {
+        if (chip->is_mmio_capable()) {  // Only local chips are MMIO capable (Have PCI devices)
+            auto tt_device = chip->get_tt_device();
+            if (tt_device) {
+                auto pci_device = tt_device->get_pci_device();
+                if (pci_device) {
+                    pci_device_numbers.push_back(pci_device->get_device_num());
+                    iommu_states.insert(pci_device->is_iommu_enabled());
+                    kmd_versions.insert(PCIDevice::read_kmd_version().to_string());
+                }
+            }
+        }
+    }
+    
+    if (pci_device_numbers.empty()) {
+        return;  // No PCI devices found
+    }
+    
+    // Log consolidated PCI device summary
+    log_info(LogSiliconDriver, "Opened PCI devices [{}]", fmt::join(pci_device_numbers, ", "));
+    
+    // Log IOMMU status (should be same across all devices)
+    if (iommu_states.size() == 1) {
+        log_info(LogSiliconDriver, "IOMMU: {}", *iommu_states.begin() ? "enabled" : "disabled");
+    } else {
+        log_info(LogSiliconDriver, "IOMMU: mixed states");
+    }
+    
+    // Log KMD version (should be same across all devices)
+    if (kmd_versions.size() == 1) {
+        log_info(LogSiliconDriver, "KMD version: {}", *kmd_versions.begin());
+    } else if (kmd_versions.size() > 1) {
+        log_info(LogSiliconDriver, "KMD versions: [{}]", fmt::join(kmd_versions, ", "));
+    }
+}
+
 void Cluster::verify_fw_bundle_version() {
     if (chips_.empty()) {
         return;
@@ -170,6 +216,7 @@ void Cluster::construct_cluster(const uint32_t& num_host_mem_ch_per_mmio_device,
             pci_ids,
             remote_chip_ids_);
         verify_fw_bundle_version();
+        log_pci_device_summary();
         if (arch_name == tt::ARCH::WORMHOLE_B0) {
             verify_eth_fw();
         }

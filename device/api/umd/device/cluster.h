@@ -631,6 +631,7 @@ private:
     std::unordered_map<chip_id_t, std::vector<std::vector<int>>>& get_ethernet_broadcast_headers(
         const std::set<chip_id_t>& chips_to_exclude);
     // Test functions
+    void verify_fw_bundle_version();
     void verify_eth_fw();
     void verify_sw_fw_versions(int device_id, std::uint32_t sw_version, std::vector<std::uint32_t>& fw_versions);
 
@@ -657,17 +658,9 @@ private:
         bool perform_harvesting,
         HarvestingMasks& simulated_harvesting_masks);
     void construct_cluster(const uint32_t& num_host_mem_ch_per_mmio_device, const ChipType& chip_type);
-    tt_xy_pair translate_to_api_coords(const chip_id_t chip, const tt::umd::CoreCoord core_coord) const;
-    // Most of the old APIs accept virtual coordinates, but we communicate with the device through translated
-    // coordinates. This is an internal helper function, until we switch the API to accept translated coordinates.
-    tt_xy_pair translate_chip_coord_virtual_to_translated(const chip_id_t chip_id, const tt_xy_pair core) const;
 
     static std::unique_ptr<tt_ClusterDescriptor> create_cluster_descriptor(
         const std::unordered_map<chip_id_t, std::unique_ptr<tt::umd::Chip>>& chips);
-
-    static void ubb_eth_connections(
-        const std::unordered_map<chip_id_t, std::unique_ptr<tt::umd::Chip>>& chips,
-        std::unique_ptr<tt_ClusterDescriptor>& cluster_desc);
 
     static void verify_cluster_options(const ClusterOptions& options);
 

@@ -19,10 +19,10 @@ TEST(ApiSysmemManager, BasicIO) {
 
         std::unique_ptr<TLBManager> tlb_manager = std::make_unique<TLBManager>(tt_device.get());
 
-        std::unique_ptr<SysmemManager> sysmem = std::make_unique<SysmemManager>(tlb_manager.get());
-
         // Initializes system memory with one channel.
-        sysmem->init_hugepage(1);
+        std::unique_ptr<SysmemManager> sysmem = std::make_unique<SysmemManager>(tlb_manager.get(), 1);
+
+        sysmem->pin_sysmem_to_device();
 
         // Simple write and read test.
         std::vector<uint32_t> data_write = {1, 2, 3, 4, 5, 6, 7, 8, 9, 10};
@@ -51,13 +51,17 @@ TEST(ApiSysmemManager, SysmemBuffers) {
     if (pci_device_ids.empty()) {
         GTEST_SKIP() << "No chips present on the system. Skipping test.";
     }
-    if (!PCIDevice(pci_device_ids[0]).is_iommu_enabled()) {
+    std::unique_ptr<PCIDevice> pci_device = std::make_unique<PCIDevice>(pci_device_ids[0]);
+
+    if (!pci_device->is_iommu_enabled()) {
         GTEST_SKIP() << "Skipping test since IOMMU is not enabled.";
     }
 
-    std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>(tt::umd::ClusterOptions{
-        .num_host_mem_ch_per_mmio_device = 0,
-    });
+    if (pci_device->get_arch() == tt::ARCH::BLACKHOLE) {
+        GTEST_SKIP() << "Skipping test for Blackhole, as PCIE DMA is not supported on Blackhole.";
+    }
+
+    std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
 
     const chip_id_t mmio_chip = *cluster->get_target_mmio_device_ids().begin();
 
@@ -111,13 +115,16 @@ TEST(ApiSysmemManager, SysmemBufferUnaligned) {
     if (pci_device_ids.empty()) {
         GTEST_SKIP() << "No chips present on the system. Skipping test.";
     }
-    if (!PCIDevice(pci_device_ids[0]).is_iommu_enabled()) {
+    std::unique_ptr<PCIDevice> pci_device = std::make_unique<PCIDevice>(pci_device_ids[0]);
+    if (!pci_device->is_iommu_enabled()) {
         GTEST_SKIP() << "Skipping test since IOMMU is not enabled.";
     }
 
-    std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>(tt::umd::ClusterOptions{
-        .num_host_mem_ch_per_mmio_device = 0,
-    });
+    if (pci_device->get_arch() == tt::ARCH::BLACKHOLE) {
+        GTEST_SKIP() << "Skipping test for Blackhole, as PCIE DMA is not supported on Blackhole.";
+    }
+
+    std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
 
     const chip_id_t mmio_chip = *cluster->get_target_mmio_device_ids().begin();
 
@@ -180,9 +187,7 @@ TEST(ApiSysmemManager, SysmemBufferFunctions) {
         GTEST_SKIP() << "Skipping test since IOMMU is not enabled.";
     }
 
-    std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>(tt::umd::ClusterOptions{
-        .num_host_mem_ch_per_mmio_device = 0,
-    });
+    std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
 
     const chip_id_t mmio_chip = *cluster->get_target_mmio_device_ids().begin();
 

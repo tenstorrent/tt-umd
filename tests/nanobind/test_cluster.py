@@ -8,10 +8,12 @@ class TestCluster(unittest.TestCase):
         cluster = libdevice.Cluster()  # Create a Cluster instance
         self.assertIsNotNone(cluster)
 
-    def test_cluster_get_ids(self):
+    def test_cluster_functionality(self):
         cluster = libdevice.Cluster()
-        result = cluster.get_target_device_ids()
-        print("Cluster device IDs:", result)
+        target_device_ids = cluster.get_target_device_ids()
+        print("Cluster device IDs:", target_device_ids)
+        clocks = cluster.get_clocks()
+        print("Cluster clocks:", clocks)
 
 if __name__ == "__main__":
     unittest.main()

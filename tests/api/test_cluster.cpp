@@ -9,16 +9,20 @@
 #include <algorithm>
 #include <cstdlib>  // for std::getenv
 #include <filesystem>
+#include <iostream>
 #include <string>
 #include <vector>
 
 #include "fmt/xchar.h"
+#include "test_utils/assembly_programs_for_tests.hpp"
 #include "tests/test_utils/generate_cluster_desc.hpp"
 #include "umd/device/blackhole_implementation.h"
 #include "umd/device/chip/local_chip.h"
 #include "umd/device/chip/mock_chip.h"
 #include "umd/device/cluster.h"
 #include "umd/device/tt_cluster_descriptor.h"
+#include "umd/device/tt_core_coordinates.h"
+#include "umd/device/tt_silicon_driver_common.hpp"
 #include "umd/device/wormhole_implementation.h"
 
 // TODO: obviously we need some other way to set this up
@@ -38,13 +42,14 @@ constexpr std::uint32_t DRAM_BARRIER_BASE = 0;
 class ClusterReadWriteL1Test : public ::testing::TestWithParam<ClusterOptions> {};
 
 std::vector<ClusterOptions> get_cluster_options_for_param_test() {
+    constexpr const char* TT_UMD_SIMULATOR_ENV = "TT_UMD_SIMULATOR";
     std::vector<ClusterOptions> options;
     options.push_back(ClusterOptions{.chip_type = ChipType::SILICON});
-    if (std::getenv("TT_UMD_SIMULATOR")) {
+    if (std::getenv(TT_UMD_SIMULATOR_ENV)) {
         options.push_back(ClusterOptions{
             .chip_type = ChipType::SIMULATION,
             .target_devices = {0},
-            .simulator_directory = std::filesystem::path(std::getenv("TT_UMD_SIMULATOR"))});
+            .simulator_directory = std::filesystem::path(std::getenv(TT_UMD_SIMULATOR_ENV))});
     }
     return options;
 }
@@ -84,6 +89,66 @@ TEST(ApiClusterTest, OpenChipsByPciId) {
         std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>(ClusterOptions{
             .pci_target_devices = target_pci_device_ids,
         });
+
+        if (!target_pci_device_ids.empty()) {
+            // If target_pci_device_ids is empty, then full cluster will be created, so skip the check.
+            // Check that the cluster has the expected number of chips.
+            auto actual_pci_device_ids = cluster->get_target_mmio_device_ids();
+            EXPECT_EQ(actual_pci_device_ids.size(), target_pci_device_ids.size());
+            // Always expect logical id 0 to exist, that's the way filtering by pci ids work.
+            EXPECT_TRUE(actual_pci_device_ids.find(0) != actual_pci_device_ids.end());
+        }
+    }
+}
+
+TEST(ApiClusterTest, OpenClusterByLogicalID) {
+    // First, pregenerate a cluster descriptor and save it to a file.
+    // This will run topology discovery and touch all the devices.
+    std::filesystem::path cluster_path = tt::umd::Cluster::create_cluster_descriptor()->serialize_to_file();
+
+    // Now, the user can create the cluster descriptor without touching the devices.
+    std::unique_ptr<tt_ClusterDescriptor> cluster_desc = tt_ClusterDescriptor::create_from_yaml(cluster_path);
+    // You can test the cluster descriptor here to see if the topology matched the one you'd expect.
+    // For example, you can check if the number of chips is correct, or number of pci devices, or nature of eth
+    // connections.
+    std::unordered_set<chip_id_t> all_chips = cluster_desc->get_all_chips();
+    std::unordered_map<chip_id_t, chip_id_t> chips_with_pcie = cluster_desc->get_chips_with_mmio();
+    auto eth_connections = cluster_desc->get_ethernet_connections();
+
+    if (all_chips.empty()) {
+        GTEST_SKIP() << "No chips present on the system. Skipping test.";
+    }
+    // Now we can choose which chips to open. This can be hardcoded if you already have expected topology.
+    // The first cluster will open the first chip only, and the second cluster will open the rest of them.
+    chip_id_t first_chip_only = chips_with_pcie.begin()->first;
+    std::unique_ptr<Cluster> umd_cluster1 = std::make_unique<Cluster>(ClusterOptions{
+        .target_devices = {first_chip_only},
+        .cluster_descriptor = cluster_desc.get(),
+    });
+
+    auto chips1 = umd_cluster1->get_target_device_ids();
+    EXPECT_EQ(chips1.size(), 1);
+    EXPECT_EQ(*chips1.begin(), first_chip_only);
+
+    std::unordered_set<chip_id_t> other_chips;
+    for (auto chip : all_chips) {
+        // Skip the first chip, but also skip all remote chips so that we don't accidentally hit the one tied to the
+        // first local chip.
+        if (chip != first_chip_only && cluster_desc->is_chip_mmio_capable(chip)) {
+            other_chips.insert(chip);
+        }
+    }
+    // Continue the test only if there there is more than one card in the system
+    if (!other_chips.empty()) {
+        std::unique_ptr<Cluster> umd_cluster2 = std::make_unique<Cluster>(ClusterOptions{
+            .target_devices = other_chips,
+            .cluster_descriptor = cluster_desc.get(),
+        });
+
+        // Cluster 2 should have the rest of the chips and not contain the first chip.
+        auto chips2 = umd_cluster2->get_target_device_ids();
+        EXPECT_EQ(chips2.size(), chips_with_pcie.size() - 1);
+        EXPECT_TRUE(chips2.find(first_chip_only) == chips2.end());
     }
 }
 
@@ -410,6 +475,63 @@ TEST(TestCluster, TestClusterAICLKControl) {
     }
 }
 
+// This test uses the machine instructions from the header file assembly_programs_for_tests.hpp. How to generate
+// this program is explained in the GENERATE_ASSEMBLY_FOR_TESTS.md file.
+TEST(TestCluster, DeassertResetBrisc) {
+    std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
+
+    if (cluster->get_target_device_ids().empty()) {
+        GTEST_SKIP() << "No chips present on the system. Skipping test.";
+    }
+
+    constexpr uint32_t a_variable_value = 0x87654000;
+    constexpr uint64_t a_variable_address = 0x00010000;
+    constexpr uint64_t brisc_code_address = 0;
+
+    uint32_t readback = 0;
+
+    auto tensix_l1_size = cluster->get_soc_descriptor(0).worker_l1_size;
+
+    std::vector<uint8_t> zero_data(tensix_l1_size, 0);
+
+    auto chip_ids = cluster->get_target_device_ids();
+    for (auto& chip_id : chip_ids) {
+        const tt_SocDescriptor& soc_desc = cluster->get_soc_descriptor(chip_id);
+        auto tensix_cores = cluster->get_soc_descriptor(chip_id).get_cores(CoreType::TENSIX);
+
+        for (const CoreCoord& tensix_core : tensix_cores) {
+            auto chip = cluster->get_chip(chip_id);
+
+            TensixSoftResetOptions select_all_tensix_riscv_cores{TENSIX_ASSERT_SOFT_RESET};
+
+            chip->set_tensix_risc_reset(tensix_core, select_all_tensix_riscv_cores);
+
+            cluster->wait_for_non_mmio_flush(chip_id);
+
+            // Zero out L1.
+            cluster->write_to_device(zero_data.data(), zero_data.size(), chip_id, tensix_core, 0);
+
+            cluster->wait_for_non_mmio_flush(chip_id);
+
+            cluster->write_to_device(
+                brisc_program.data(),
+                brisc_program.size() * sizeof(uint32_t),
+                chip_id,
+                tensix_core,
+                brisc_code_address);
+
+            chip->unset_tensix_risc_reset(tensix_core, TensixSoftResetOptions::BRISC);
+
+            cluster->l1_membar(chip_id, {tensix_core});
+
+            cluster->read_from_device(&readback, chip_id, tensix_core, a_variable_address, sizeof(readback));
+
+            EXPECT_EQ(a_variable_value, readback)
+                << "chip_id: " << chip_id << ", x: " << tensix_core.x << ", y: " << tensix_core.y << "\n";
+        }
+    }
+}
+
 TEST_P(ClusterReadWriteL1Test, ReadWriteL1) {
     ClusterOptions options = GetParam();
     std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>(options);
@@ -417,9 +539,12 @@ TEST_P(ClusterReadWriteL1Test, ReadWriteL1) {
     if (cluster->get_target_device_ids().empty()) {
         GTEST_SKIP() << "No chips present on the system. Skipping test.";
     }
-    tt_device_params device_params;
-    device_params.init_device = true;
-    cluster->start_device(device_params);
+    if (options.chip_type == SIMULATION) {
+        tt_device_params device_params;
+        device_params.init_device = true;
+        cluster->start_device(device_params);
+    }
+
     auto tensix_l1_size = cluster->get_soc_descriptor(0).worker_l1_size;
 
     std::vector<uint8_t> zero_data(tensix_l1_size, 0);
@@ -468,7 +593,7 @@ INSTANTIATE_TEST_SUITE_P(
             case ChipType::SILICON:
                 return "Silicon";
             case ChipType::SIMULATION:
-                return "Simulator";
+                return "Simulation";
             default:
                 return "Unknown";
         }

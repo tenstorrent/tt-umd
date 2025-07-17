@@ -11,6 +11,8 @@
 #include "umd/device/driver_atomics.h"
 #include "umd/device/wormhole_implementation.h"
 
+extern bool umd_use_noc1;
+
 namespace tt::umd {
 
 Chip::Chip(tt_SocDescriptor soc_descriptor) : soc_descriptor_(soc_descriptor) {
@@ -59,66 +61,6 @@ void Chip::wait_chip_to_be_ready() {
 
 void Chip::wait_eth_cores_training(const uint32_t timeout_ms) {}
 
-TTDevice* Chip::get_tt_device() { return tt_device_.get(); }
-
-SysmemManager* Chip::get_sysmem_manager() {
-    throw std::runtime_error(
-        "Chip::get_sysmem_manager is not available for this chip, it is only available for LocalChips.");
-}
-
-TLBManager* Chip::get_tlb_manager() {
-    throw std::runtime_error(
-        "Chip::get_tlb_manager is not available for this chip, it is only available for LocalChips.");
-}
-
-int Chip::get_num_host_channels() { return 0; }
-
-int Chip::get_host_channel_size(std::uint32_t channel) {
-    throw std::runtime_error("There are no host channels available.");
-}
-
-void Chip::write_to_sysmem(uint16_t channel, const void* src, uint64_t sysmem_dest, uint32_t size) {
-    throw std::runtime_error("Chip::write_to_sysmem is not available for this chip.");
-}
-
-void Chip::read_from_sysmem(uint16_t channel, void* dest, uint64_t sysmem_src, uint32_t size) {
-    throw std::runtime_error("Chip::read_from_sysmem is not available for this chip.");
-}
-
-void Chip::write_to_device_reg(tt_xy_pair core, const void* src, uint64_t reg_dest, uint32_t size) {
-    write_to_device(core, src, reg_dest, size);
-}
-
-void Chip::read_from_device_reg(tt_xy_pair core, void* dest, uint64_t reg_src, uint32_t size) {
-    read_from_device(core, dest, reg_src, size);
-}
-
-void Chip::dma_write_to_device(const void* src, size_t size, tt_xy_pair core, uint64_t addr) {
-    throw std::runtime_error("Chip::dma_write_to_device is not available for this chip.");
-}
-
-void Chip::dma_read_from_device(void* dst, size_t size, tt_xy_pair core, uint64_t addr) {
-    throw std::runtime_error("Chip::dma_read_from_device is not available for this chip.");
-}
-
-std::function<void(uint32_t, uint32_t, const uint8_t*)> Chip::get_fast_pcie_static_tlb_write_callable() {
-    throw std::runtime_error("Chip::get_fast_pcie_static_tlb_write_callable is not available for this chip.");
-}
-
-void Chip::wait_for_non_mmio_flush() {
-    throw std::runtime_error("Chip::wait_for_non_mmio_flush is not available for this chip.");
-}
-
-void Chip::set_remote_transfer_ethernet_cores(const std::unordered_set<CoreCoord>& cores) {
-    throw std::runtime_error("Chip::set_remote_transfer_ethernet_cores is not available for this chip.");
-}
-
-void Chip::set_remote_transfer_ethernet_cores(const std::set<uint32_t>& channel) {
-    throw std::runtime_error("Chip::set_remote_transfer_ethernet_cores is not available for this chip.");
-}
-
-int Chip::get_numa_node() { throw std::runtime_error("Chip::get_numa_node is not available for this chip."); }
-
 void Chip::wait_dram_cores_training(const uint32_t timeout_ms) {}
 
 void Chip::enable_ethernet_queue(int timeout_s) {
@@ -139,10 +81,11 @@ void Chip::enable_ethernet_queue(int timeout_s) {
     }
 }
 
-void Chip::send_tensix_risc_reset(tt_xy_pair core, const TensixSoftResetOptions& soft_resets) {
+void Chip::send_tensix_risc_reset(CoreCoord core, const TensixSoftResetOptions& soft_resets) {
     auto valid = soft_resets & ALL_TENSIX_SOFT_RESET;
     uint32_t valid_val = (std::underlying_type<TensixSoftResetOptions>::type)valid;
-    write_to_device_reg(core, &valid_val, 0xFFB121B0, sizeof(uint32_t));
+    auto architecture_implementation = tt::umd::architecture_implementation::create(get_tt_device()->get_arch());
+    write_to_device_reg(core, &valid_val, architecture_implementation->get_tensix_soft_reset_addr(), sizeof(uint32_t));
     tt_driver_atomics::sfence();
 }
 
@@ -150,6 +93,25 @@ void Chip::send_tensix_risc_reset(const TensixSoftResetOptions& soft_resets) {
     for (const CoreCoord core : soc_descriptor_.get_cores(CoreType::TENSIX, CoordSystem::VIRTUAL)) {
         send_tensix_risc_reset(core, soft_resets);
     }
+}
+
+void Chip::set_tensix_risc_reset(CoreCoord core, const TensixSoftResetOptions& selected_riscs) {
+    uint32_t tensix_risc_state = 0x00000000;
+    auto architecture_implementation = tt::umd::architecture_implementation::create(get_tt_device()->get_arch());
+    read_from_device_reg(
+        core, &tensix_risc_state, architecture_implementation->get_tensix_soft_reset_addr(), sizeof(uint32_t));
+    TensixSoftResetOptions set_selected_riscs = static_cast<TensixSoftResetOptions>(tensix_risc_state) | selected_riscs;
+    send_tensix_risc_reset(core, set_selected_riscs);
+}
+
+void Chip::unset_tensix_risc_reset(CoreCoord core, const TensixSoftResetOptions& selected_riscs) {
+    uint32_t tensix_risc_state = 0x00000000;
+    auto architecture_implementation = tt::umd::architecture_implementation::create(get_tt_device()->get_arch());
+    read_from_device_reg(
+        core, &tensix_risc_state, architecture_implementation->get_tensix_soft_reset_addr(), sizeof(uint32_t));
+    TensixSoftResetOptions set_selected_riscs =
+        static_cast<TensixSoftResetOptions>(tensix_risc_state) & invert_selected_options(selected_riscs);
+    send_tensix_risc_reset(core, set_selected_riscs);
 }
 
 uint32_t Chip::get_power_state_arc_msg(tt_DevicePowerState state) {
@@ -202,6 +164,26 @@ int Chip::arc_msg(
     }
 
     return exit_code;
+}
+
+tt_xy_pair Chip::translate_chip_coord_to_translated(const CoreCoord core) const {
+    // Since NOC1 and translated coordinate space overlaps for Tensix cores on Blackhole,
+    // Tensix cores are always used in translated space. Other cores are used either in
+    // NOC1 or translated space depending on the umd_use_noc1 flag.
+    // On Wormhole Tensix can use NOC1 space if umd_use_noc1 is set to true.
+    if (soc_descriptor_.noc_translation_enabled) {
+        if (soc_descriptor_.arch == tt::ARCH::BLACKHOLE) {
+            if (core.core_type == CoreType::TENSIX || !umd_use_noc1) {
+                return soc_descriptor_.translate_coord_to(core, CoordSystem::TRANSLATED);
+            } else {
+                return soc_descriptor_.translate_coord_to(core, CoordSystem::NOC1);
+            }
+        } else {
+            return soc_descriptor_.translate_coord_to(core, umd_use_noc1 ? CoordSystem::NOC1 : CoordSystem::TRANSLATED);
+        }
+    } else {
+        return soc_descriptor_.translate_coord_to(core, umd_use_noc1 ? CoordSystem::NOC1 : CoordSystem::TRANSLATED);
+    }
 }
 
 }  // namespace tt::umd

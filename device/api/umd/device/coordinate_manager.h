@@ -58,9 +58,9 @@ public:
     static size_t get_num_harvested(const size_t harvesting_mask);
     static std::vector<size_t> get_harvested_indices(const size_t harvesting_mask);
 
-    // Harvesting mask is reported by hardware in the order of physical layout. This function returns a more suitable
+    // Harvesting mask is reported by hardware in the order of noc0 layout. This function returns a more suitable
     // representation in logical order: Bit 0 being set means the first row in NOC0 coords is harvested.
-    static uint32_t shuffle_tensix_harvesting_mask(tt::ARCH arch, uint32_t tensix_harvesting_physical_layout);
+    static uint32_t shuffle_tensix_harvesting_mask(tt::ARCH arch, uint32_t tensix_harvesting_noc0_layout);
     // TODO: This function should be removed once the corresponding API is removed from Cluster.
     static uint32_t shuffle_tensix_harvesting_mask_to_noc0_coords(
         tt::ARCH arch, uint32_t tensix_harvesting_logical_layout);
@@ -83,14 +83,14 @@ public:
     uint32_t get_num_harvested_eth_channels() const;
 
 private:
-    const std::vector<tt_xy_pair>& get_physical_pairs(const CoreType core_type) const;
-    std::vector<CoreCoord> get_all_physical_cores(const CoreType core_type) const;
+    const std::vector<tt_xy_pair>& get_noc0_pairs(const CoreType core_type) const;
+    std::vector<CoreCoord> get_all_noc0_cores(const CoreType core_type) const;
 
 protected:
     /*
      * Constructor for Coordinate Manager.
      * Tensix harvesting mask is supposed to be passed as original harvesting mask that is
-     * returned from create-ethernet-map, so each bit is responsible for one row of the actual physical
+     * returned from create-ethernet-map, so each bit is responsible for one row of the actual noc0
      * row of the tensix cores on the chip. Harvesting mask is shuffled in constructor to match the NOC
      * layout of the tensix cores.
      * Router cores don't have a grid size, since they are not layed out in a regular fashion.
@@ -126,8 +126,8 @@ protected:
     virtual void translate_security_coords();
     virtual void translate_l2cpu_coords();
 
-    void identity_map_physical_cores();
-    void add_core_translation(const CoreCoord& core_coord, const tt_xy_pair& physical_pair);
+    void identity_map_noc0_cores();
+    void add_core_translation(const CoreCoord& core_coord, const tt_xy_pair& noc0_pair);
     void add_noc1_to_noc0_mapping();
 
     virtual std::vector<CoreCoord> get_tensix_cores() const;
@@ -144,63 +144,63 @@ protected:
     virtual tt_xy_pair get_harvested_dram_grid_size() const;
 
     /*
-     * By default, translated coordinates are the same as physical coordinates.
+     * By default, translated coordinates are the same as noc0 coordinates.
      * This will be true for all architectures if noc_translation_enabled is false.
      */
-    void fill_tensix_default_physical_translated_mapping();
-    void fill_eth_default_physical_translated_mapping();
-    void fill_dram_default_physical_translated_mapping();
-    void fill_pcie_default_physical_translated_mapping();
-    void fill_arc_default_physical_translated_mapping();
+    void fill_tensix_default_noc0_translated_mapping();
+    void fill_eth_default_noc0_translated_mapping();
+    void fill_dram_default_noc0_translated_mapping();
+    void fill_pcie_default_noc0_translated_mapping();
+    void fill_arc_default_noc0_translated_mapping();
 
     /*
-     * Fills the physical to translated mapping for the tensix cores.
-     * By default, translated coordinates are the same as physical coordinates.
+     * Fills the noc0 to translated mapping for the tensix cores.
+     * By default, translated coordinates are the same as noc0 coordinates.
      * Derived coordinate managers that need to implement different mapping
      * should override this method. Wormhole and Blackhole coordinate managers
      * override this method to implement different mapping.
      */
-    virtual void fill_tensix_physical_translated_mapping() = 0;
+    virtual void fill_tensix_noc0_translated_mapping() = 0;
 
     /*
-     * Fills the physical to translated mapping for the ethernet cores.
-     * By default, translated coordinates are the same as physical coordinates.
+     * Fills the noc0 to translated mapping for the ethernet cores.
+     * By default, translated coordinates are the same as noc0 coordinates.
      * Derived coordinate managers that need to implement different mapping
      * should override this method. Wormhole and Blackhole coordinate managers
      * override this method to implement different mapping.
      */
-    virtual void fill_eth_physical_translated_mapping() = 0;
+    virtual void fill_eth_noc0_translated_mapping() = 0;
 
     /*
-     * Fills the physical to translated mapping for the DRAM cores.
-     * By default, translated coordinates are the same as physical coordinates.
+     * Fills the noc0 to translated mapping for the DRAM cores.
+     * By default, translated coordinates are the same as noc0 coordinates.
      * Derived coordinate managers that need to implement different mapping
      * should override this method. Blackhole coordinate manager overrides
      * this method to implement different mapping.
      */
-    virtual void fill_dram_physical_translated_mapping() = 0;
+    virtual void fill_dram_noc0_translated_mapping() = 0;
 
     /*
-     * Fills the physical to translated mapping for the PCIE cores.
-     * By default, translated coordinates are the same as physical coordinates.
+     * Fills the noc0 to translated mapping for the PCIE cores.
+     * By default, translated coordinates are the same as noc0 coordinates.
      * Derived coordinate managers that need to implement different mapping
      * should override this method. Blackhole coordinate manager overrides
      * this method to implement different mapping.
      */
-    virtual void fill_pcie_physical_translated_mapping() = 0;
+    virtual void fill_pcie_noc0_translated_mapping() = 0;
 
     /*
-     * Fills the physical to translated mapping for the ARC cores.
-     * By default, translated coordinates are the same as physical coordinates.
+     * Fills the noc0 to translated mapping for the ARC cores.
+     * By default, translated coordinates are the same as noc0 coordinates.
      * Derived coordinate managers that need to implement different mapping
      * should override this method.
      */
-    virtual void fill_arc_physical_translated_mapping() = 0;
+    virtual void fill_arc_noc0_translated_mapping() = 0;
 
-    // Maps full CoreCoord from any CoordSystem to physical coordinates.
-    std::map<CoreCoord, tt_xy_pair> to_physical_map;
-    // Maps physical coordinates given a target CoordSystem to full CoreCoord.
-    std::map<std::pair<tt_xy_pair, CoordSystem>, CoreCoord> from_physical_map;
+    // Maps full CoreCoord from any CoordSystem to noc0 coordinates.
+    std::map<CoreCoord, tt_xy_pair> to_noc0_map;
+    // Maps noc0 coordinates given a target CoordSystem to full CoreCoord.
+    std::map<std::pair<tt_xy_pair, CoordSystem>, CoreCoord> from_noc0_map;
     // Maps coordinates in the designated CoordSystem to a full CoreCoord at that location holding the right CoreType.
     // Doesn't include logical CoordSystem.
     std::map<std::pair<tt_xy_pair, CoordSystem>, CoreCoord> to_core_type_map;

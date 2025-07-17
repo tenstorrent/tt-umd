@@ -269,7 +269,7 @@ void TopologyDiscovery::discover_remote_chips() {
                 uint32_t remote_eth_id =
                     chip->get_soc_descriptor()
                         .translate_coord_to(
-                            CoreCoord(remote_eth_core.x, remote_eth_core.y, CoreType::ETH, CoordSystem::PHYSICAL),
+                            CoreCoord(remote_eth_core.x, remote_eth_core.y, CoreType::ETH, CoordSystem::NOC0),
                             CoordSystem::LOGICAL)
                         .y;
                 cluster_desc->ethernet_connections_to_remote_devices[current_chip_id][channel] = {
@@ -308,7 +308,7 @@ void TopologyDiscovery::discover_remote_chips() {
                     tt_xy_pair remote_eth_core = get_remote_eth_core(chip, eth_core);
                     remote_eth_channel =
                         remote_chip->get_soc_descriptor()
-                            .translate_coord_to(remote_eth_core, CoordSystem::PHYSICAL, CoordSystem::LOGICAL)
+                            .translate_coord_to(remote_eth_core, CoordSystem::NOC0, CoordSystem::LOGICAL)
                             .y;
                 }
                 ethernet_connections.push_back({{current_chip_id, channel}, {remote_chip_id, remote_eth_channel}});

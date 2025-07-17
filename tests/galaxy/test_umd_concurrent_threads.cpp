@@ -230,13 +230,13 @@ TEST(GalaxyConcurrentThreads, PushInputsWhileSignalingCluster) {
             large_vector.data(),
             large_vector.size() * sizeof(std::uint32_t),
             mmio_chip,
-            CoreCoord(0, 0, CoreType::DRAM, CoordSystem::PHYSICAL),
+            CoreCoord(0, 0, CoreType::DRAM, CoordSystem::NOC0),
             address);
         test_utils::read_data_from_device(
             device,
             readback_vec,
             mmio_chip,
-            CoreCoord(0, 0, CoreType::DRAM, CoordSystem::PHYSICAL),
+            CoreCoord(0, 0, CoreType::DRAM, CoordSystem::NOC0),
             address,
             large_vector.size() * 4);
         EXPECT_EQ(large_vector, readback_vec) << "Vector read back from dram core "

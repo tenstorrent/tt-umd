@@ -102,11 +102,11 @@ public:
     static std::string get_soc_descriptor_path(tt::ARCH arch);
 
     std::vector<CoreCoord> get_cores(
-        const CoreType core_type, const CoordSystem coord_system = CoordSystem::PHYSICAL) const;
+        const CoreType core_type, const CoordSystem coord_system = CoordSystem::NOC0) const;
     std::vector<CoreCoord> get_harvested_cores(
-        const CoreType core_type, const CoordSystem coord_system = CoordSystem::PHYSICAL) const;
-    std::vector<CoreCoord> get_all_cores(const CoordSystem coord_system = CoordSystem::PHYSICAL) const;
-    std::vector<CoreCoord> get_all_harvested_cores(const CoordSystem coord_system = CoordSystem::PHYSICAL) const;
+        const CoreType core_type, const CoordSystem coord_system = CoordSystem::NOC0) const;
+    std::vector<CoreCoord> get_all_cores(const CoordSystem coord_system = CoordSystem::NOC0) const;
+    std::vector<CoreCoord> get_all_harvested_cores(const CoordSystem coord_system = CoordSystem::NOC0) const;
 
     tt_xy_pair get_grid_size(const CoreType core_type) const;
     tt_xy_pair get_harvested_grid_size(const CoreType core_type) const;
@@ -122,8 +122,8 @@ public:
     // LOGICAL coordinates for DRAM and ETH are tightly coupled with channels, so this code is very similar to what
     // would translate_coord_to do for a coord with LOGICAL coords.
     CoreCoord get_dram_core_for_channel(
-        int dram_chan, int subchannel, const CoordSystem coord_system = CoordSystem::PHYSICAL) const;
-    CoreCoord get_eth_core_for_channel(int eth_chan, const CoordSystem coord_system = CoordSystem::PHYSICAL) const;
+        int dram_chan, int subchannel, const CoordSystem coord_system = CoordSystem::NOC0) const;
+    CoreCoord get_eth_core_for_channel(int eth_chan, const CoordSystem coord_system = CoordSystem::NOC0) const;
 
     tt::ARCH arch;
     tt_xy_pair grid_size;
@@ -167,7 +167,7 @@ private:
 
     static tt_xy_pair calculate_grid_size(const std::vector<tt_xy_pair> &cores);
     std::vector<CoreCoord> translate_coordinates(
-        const std::vector<CoreCoord> &physical_cores, const CoordSystem coord_system) const;
+        const std::vector<CoreCoord> &noc0_cores, const CoordSystem coord_system) const;
 
     static std::filesystem::path get_default_soc_descriptor_file_path();
 

@@ -6,9 +6,11 @@
 #pragma once
 
 #include <map>
+#include <unordered_set>
 
 #include "umd/device/tt_device/tt_device.h"
 #include "umd/device/tt_xy_pair.h"
+#include "umd/device/types/telemetry.h"
 
 namespace tt::umd {
 
@@ -53,6 +55,27 @@ protected:
     tt_xy_pair arc_core;
 
     TTDevice* tt_device;
+
+private:
+    std::unordered_set<uint16_t> static_entries{};
+    const std::unordered_set<uint16_t> possible_static_entries{
+        TAG_BOARD_ID_HIGH,
+        TAG_BOARD_ID_LOW,
+        TAG_ASIC_ID,
+        TAG_HARVESTING_STATE,
+        TAG_UPDATE_TELEM_SPEED,
+        TAG_ETH_FW_VERSION,
+        TAG_DDR_FW_VERSION,
+        TAG_BM_APP_FW_VERSION,
+        TAG_BM_BL_FW_VERSION,
+        TAG_FLASH_BUNDLE_VERSION,
+        TAG_CM_FW_VERSION,
+        TAG_L2CPU_FW_VERSION,
+        TAG_ENABLED_TENSIX_COL,
+        TAG_ENABLED_ETH,
+        TAG_ENABLED_GDDR,
+        TAG_ENABLED_L2CPU,
+        TAG_PCIE_USAGE};
 };
 
 }  // namespace tt::umd

@@ -45,6 +45,9 @@ void ArcTelemetryReader::initialize_telemetry() {
 
         telemetry_values.insert({tag_val, telemetry_data[offset_val]});
         telemetry_offset.insert({tag_val, offset_val});
+        if (possible_static_entries.find(tag_val) != possible_static_entries.end()) {
+            static_entries.insert(tag_val);
+        }
     }
 }
 
@@ -53,6 +56,10 @@ uint32_t ArcTelemetryReader::read_entry(const uint8_t telemetry_tag) {
         throw std::runtime_error(fmt::format(
             "Telemetry entry {} not available. You can use is_entry_available() to check if the entry is available.",
             telemetry_tag));
+    }
+
+    if (static_entries.find(telemetry_tag) != static_entries.end()) {
+        return telemetry_values[telemetry_tag];
     }
 
     const uint32_t offset = telemetry_offset.at(telemetry_tag);

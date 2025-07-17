@@ -29,7 +29,6 @@ class Node;
 
 namespace tt::umd {
 class Cluster;
-}
 
 class tt_ClusterDescriptor {
     // TODO: Only Topo Discovery should have access.
@@ -304,3 +303,8 @@ private:
 
     std::map<chip_id_t, HarvestingMasks> harvesting_masks_map = {};
 };
+
+}  // namespace tt::umd
+
+// TODO: To be removed once clients switch to namespace usage.
+using tt::umd::tt_ClusterDescriptor;

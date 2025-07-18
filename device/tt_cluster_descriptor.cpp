@@ -582,8 +582,8 @@ void tt_ClusterDescriptor::load_ethernet_connections_from_connectivity_descripto
             harvesting_masks_map.empty()
                 ? 0
                 : CoordinateManager::get_num_harvested(harvesting_masks_map.at(chip).eth_harvesting_mask);
-        int num_channels = architecture_implementation::create(chip_arch.at(chip))->get_num_eth_channels() -
-                           num_harvested_channels;
+        int num_channels =
+            architecture_implementation::create(chip_arch.at(chip))->get_num_eth_channels() - num_harvested_channels;
         for (int i = 0; i < num_channels; i++) {
             idle_eth_channels[chip].insert(i);
         }

@@ -103,7 +103,6 @@ static bool detect_iommu(const PciDeviceInfo &device_info) {
     return false;
 }
 
-// For reading binary config data, create a specialized version
 static std::optional<uint8_t> try_read_config_byte(const PciDeviceInfo &device_info, size_t offset) {
     const auto config_path = fmt::format(
         "/sys/bus/pci/devices/{:04x}:{:02x}:{:02x}.{:x}/config",
@@ -143,7 +142,6 @@ static PciDeviceInfo read_device_info(int fd) {
 
 static void reset_device(uint32_t flags) {
     for (int n : PCIDevice::enumerate_devices()) {
-        std::cout << "Resetting device " << n << "...\n";
         int fd = open(fmt::format("/dev/tenstorrent/{}", n).c_str(), O_RDWR | O_CLOEXEC);
         if (fd == -1) {
             continue;
@@ -161,11 +159,8 @@ static void reset_device(uint32_t flags) {
             reset_info.out.result = 0;
 
             if (ioctl(fd, TENSTORRENT_IOCTL_RESET_DEVICE, &reset_info) == -1) {
-                std::cout << "fail\n";
                 TT_THROW("TENSTORRENT_IOCTL_RESET_DEVICE failed");
             }
-
-            std::cout << std::hex << reset_info.in.flags << " " << reset_info.out.result << "\n";
         } catch (...) {
         }
 
@@ -594,13 +589,10 @@ std::unique_ptr<TlbHandle> PCIDevice::allocate_tlb(const size_t tlb_size, const 
 void PCIDevice::reset_devices(TenstorrentResetDevice flag) { reset_device(static_cast<uint32_t>(flag)); }
 
 uint8_t PCIDevice::read_command_byte() {
-    // Usage equivalent to your Python code:
-    // command_memory_byte = os.pread(file.fileno(), 1, 4)
-    // reset_bit = (int.from_bytes(command_memory_byte, byteorder="little") >> 1) & 1
     auto device_info = get_device_info();
-    auto command_byte = try_read_config_byte(device_info, 4);  // offset 4 for Command register
+    // offset 4 for command register
+    auto command_byte = try_read_config_byte(device_info, 4);
     if (!command_byte) {
-        // Handle error - couldn't read config space
         const auto sysfs_path = fmt::format(
             "/sys/bus/pci/devices/{:04x}:{:02x}:{:02x}.{:x}/{}",
             device_info.pci_domain,

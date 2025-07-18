@@ -24,6 +24,8 @@
 #include "ioctl.h"
 #include "umd/device/types/arch.h"
 
+namespace tt::umd {
+
 static const uint16_t GS_PCIE_DEVICE_ID = 0xfaca;
 static const uint16_t WH_PCIE_DEVICE_ID = 0x401e;
 static const uint16_t BH_PCIE_DEVICE_ID = 0xb140;
@@ -40,9 +42,6 @@ static const uint32_t BH_BAR0_WC_MAPPING_SIZE = 188 << 21;
 
 static const semver_t kmd_ver_for_iommu = semver_t(1, 29, 0);
 static const semver_t kmd_ver_for_map_to_noc = semver_t(2, 0, 0);
-
-using namespace tt;
-using namespace tt::umd;
 
 template <typename T>
 static std::optional<T> try_read_sysfs(const PciDeviceInfo &device_info, const std::string &attribute_name) {
@@ -660,3 +659,5 @@ semver_t PCIDevice::read_kmd_version() {
 std::unique_ptr<TlbHandle> PCIDevice::allocate_tlb(const size_t tlb_size, const TlbMapping tlb_mapping) {
     return std::make_unique<TlbHandle>(pci_device_file_desc, tlb_size, tlb_mapping);
 }
+
+}  // namespace tt::umd

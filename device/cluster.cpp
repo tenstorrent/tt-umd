@@ -59,9 +59,6 @@
 #include "umd/device/wormhole_implementation.h"
 #include "yaml-cpp/yaml.h"
 
-using namespace tt;
-using namespace tt::umd;
-
 extern bool umd_use_noc1;
 
 static constexpr uint32_t REMOTE_CMD_NOC_BIT = 9;
@@ -76,6 +73,8 @@ static constexpr uint32_t REMOTE_CMD_NOC_BIT = 9;
 
 #include "umd/device/tt_silicon_driver_common.hpp"
 #include "umd/device/tt_xy_pair.h"
+
+namespace tt::umd {
 
 struct routing_cmd_t {
     uint64_t sys_addr;
@@ -95,36 +94,23 @@ struct remote_update_ptr_t {
     uint32_t pad[3];
 };
 
-namespace tt::umd {
-
 const tt_SocDescriptor& Cluster::get_soc_descriptor(chip_id_t chip_id) const {
     return get_chip(chip_id)->get_soc_descriptor();
 }
 
-void Cluster::create_device(
-    const std::set<chip_id_t>& target_mmio_device_ids,
-    const uint32_t& num_host_mem_ch_per_mmio_device,
-    const ChipType& chip_type) {
-    log_debug(LogSiliconDriver, "Cluster::Cluster");
-
-    // Don't buffer stdout.
-    setbuf(stdout, NULL);
-
-    for (const chip_id_t& logical_device_id : target_mmio_device_ids) {
-        if (chip_type == ChipType::SILICON) {
-            bool hugepages_initialized =
-                (get_chip(logical_device_id)->get_sysmem_manager()->get_hugepage_mapping(0).mapping != nullptr);
-            // Large writes to remote chips require hugepages to be initialized.
-            // Conservative assert - end workload if remote chips present but hugepages not initialized (failures caused
-            // if using remote only for small transactions)
-            if (remote_chip_ids_.size()) {
-                TT_ASSERT(
-                    hugepages_initialized,
-                    "Hugepages must be successfully initialized if workload contains remote chips!");
-            }
-            if (!hugepages_initialized) {
-                log_warning(LogSiliconDriver, "No hugepage mapping at device {}.", logical_device_id);
-            }
+void Cluster::verify_sysmem_initialized() {
+    for (const chip_id_t& chip_id : local_chip_ids_) {
+        bool hugepages_initialized =
+            (get_chip(chip_id)->get_sysmem_manager()->get_hugepage_mapping(0).mapping != nullptr);
+        // Large writes to remote chips require hugepages to be initialized.
+        // Conservative assert - end workload if remote chips present but hugepages not initialized (failures caused
+        // if using remote only for small transactions)
+        if (remote_chip_ids_.size()) {
+            TT_ASSERT(
+                hugepages_initialized, "Hugepages must be successfully initialized if workload contains remote chips!");
+        }
+        if (!hugepages_initialized) {
+            log_warning(LogSiliconDriver, "No hugepage mapping at device {}.", chip_id);
         }
     }
 }
@@ -173,9 +159,8 @@ void Cluster::construct_cluster(const uint32_t& num_host_mem_ch_per_mmio_device,
         if (arch_name == tt::ARCH::WORMHOLE_B0) {
             verify_eth_fw();
         }
+        verify_sysmem_initialized();
     }
-
-    create_device(local_chip_ids_, num_host_mem_ch_per_mmio_device, chip_type);
 
     // Disable dependency to ethernet firmware for all BH devices and WH devices with all chips having MMIO (e.g. UBB
     // Galaxy, or P300).
@@ -444,17 +429,15 @@ std::function<void(uint32_t, uint32_t, const uint8_t*)> Cluster::get_fast_pcie_s
     return chips_.at(device_id)->get_fast_pcie_static_tlb_write_callable();
 }
 
-tt::Writer Cluster::get_static_tlb_writer(const chip_id_t chip, const CoreCoord target) {
+Writer Cluster::get_static_tlb_writer(const chip_id_t chip, const CoreCoord target) {
     tt_xy_pair virtual_core = get_soc_descriptor(chip).translate_coord_to(target, CoordSystem::VIRTUAL);
     return get_tlb_manager(chip)->get_static_tlb_writer(virtual_core);
 }
 
-int Cluster::get_clock(int logical_device_id) { return chips_.at(logical_device_id)->get_clock(); }
-
 std::map<int, int> Cluster::get_clocks() {
     std::map<int, int> clock_freq_map;
     for (auto& chip_id : local_chip_ids_) {
-        clock_freq_map.insert({chip_id, get_clock(chip_id)});
+        clock_freq_map.insert({chip_id, chips_.at(chip_id)->get_clock()});
     }
     return clock_freq_map;
 }
@@ -628,8 +611,7 @@ std::unordered_map<chip_id_t, std::vector<std::vector<int>>>& Cluster::get_ether
 }
 
 inline bool tensix_or_eth_in_broadcast(
-    const std::set<uint32_t>& cols_to_exclude,
-    const tt::umd::architecture_implementation* architecture_implementation) {
+    const std::set<uint32_t>& cols_to_exclude, const architecture_implementation* architecture_implementation) {
     bool found_tensix_or_eth = false;
     for (const auto& col : architecture_implementation->get_t6_x_locations()) {
         found_tensix_or_eth |= (cols_to_exclude.find(col) == cols_to_exclude.end());
@@ -640,7 +622,7 @@ inline bool tensix_or_eth_in_broadcast(
 inline bool valid_tensix_broadcast_grid(
     const std::set<uint32_t>& rows_to_exclude,
     const std::set<uint32_t>& cols_to_exclude,
-    const tt::umd::architecture_implementation* architecture_implementation) {
+    const architecture_implementation* architecture_implementation) {
     bool t6_bcast_rows_complete = true;
     bool t6_bcast_rows_empty = true;
 
@@ -708,7 +690,7 @@ void Cluster::broadcast_write_to_cluster(
     std::set<uint32_t>& rows_to_exclude,
     std::set<uint32_t>& cols_to_exclude) {
     if (arch_name == tt::ARCH::BLACKHOLE) {
-        auto architecture_implementation = tt::umd::architecture_implementation::create(arch_name);
+        auto architecture_implementation = architecture_implementation::create(arch_name);
         if (cols_to_exclude.find(0) == cols_to_exclude.end() or cols_to_exclude.find(9) == cols_to_exclude.end()) {
             TT_ASSERT(
                 !tensix_or_eth_in_broadcast(cols_to_exclude, architecture_implementation.get()),
@@ -756,7 +738,7 @@ void Cluster::broadcast_write_to_cluster(
                 use_virtual_coords_for_eth_broadcast);
         }
     } else {
-        auto architecture_implementation = tt::umd::architecture_implementation::create(arch_name);
+        auto architecture_implementation = architecture_implementation::create(arch_name);
         if (cols_to_exclude.find(0) == cols_to_exclude.end() or cols_to_exclude.find(5) == cols_to_exclude.end()) {
             TT_ASSERT(
                 !tensix_or_eth_in_broadcast(cols_to_exclude, architecture_implementation.get()),
@@ -816,11 +798,11 @@ void Cluster::read_from_sysmem(void* mem_ptr, uint64_t addr, uint16_t channel, u
     get_chip(src_device_id)->read_from_sysmem(channel, mem_ptr, addr, size);
 }
 
-void Cluster::l1_membar(const chip_id_t chip, const std::unordered_set<tt::umd::CoreCoord>& cores) {
+void Cluster::l1_membar(const chip_id_t chip, const std::unordered_set<CoreCoord>& cores) {
     get_chip(chip)->l1_membar(cores);
 }
 
-void Cluster::dram_membar(const chip_id_t chip, const std::unordered_set<tt::umd::CoreCoord>& cores) {
+void Cluster::dram_membar(const chip_id_t chip, const std::unordered_set<CoreCoord>& cores) {
     get_chip(chip)->dram_membar(cores);
 }
 
@@ -838,12 +820,11 @@ void Cluster::write_to_device_reg(
     get_chip(chip)->write_to_device_reg(core, mem_ptr, addr, size_in_bytes);
 }
 
-void Cluster::dma_write_to_device(
-    const void* src, size_t size, chip_id_t chip, tt::umd::CoreCoord core, uint64_t addr) {
+void Cluster::dma_write_to_device(const void* src, size_t size, chip_id_t chip, CoreCoord core, uint64_t addr) {
     get_chip(chip)->dma_write_to_device(src, size, core, addr);
 }
 
-void Cluster::dma_read_from_device(void* dst, size_t size, chip_id_t chip, tt::umd::CoreCoord core, uint64_t addr) {
+void Cluster::dma_read_from_device(void* dst, size_t size, chip_id_t chip, CoreCoord core, uint64_t addr) {
     get_chip(chip)->dma_read_from_device(dst, size, core, addr);
 }
 
@@ -904,12 +885,6 @@ void Cluster::set_power_state(tt_DevicePowerState device_state) {
     }
 }
 
-void Cluster::enable_ethernet_queue(int timeout) {
-    for (const chip_id_t& chip : all_chip_ids_) {
-        get_chip(chip)->enable_ethernet_queue(timeout);
-    }
-}
-
 void Cluster::deassert_resets_and_set_power_state() {
     // Assert tensix resets on all chips in cluster
     broadcast_tensix_risc_reset_to_cluster(TENSIX_ASSERT_SOFT_RESET);
@@ -920,7 +895,9 @@ void Cluster::deassert_resets_and_set_power_state() {
 
     // MT Initial BH - ARC messages not supported in Blackhole
     if (arch_name != tt::ARCH::BLACKHOLE) {
-        enable_ethernet_queue(30);
+        for (const chip_id_t& chip : all_chip_ids_) {
+            get_chip(chip)->enable_ethernet_queue(30);
+        }
     }
 
     // Set power state to busy
@@ -1055,7 +1032,7 @@ std::unique_ptr<tt_ClusterDescriptor> Cluster::create_cluster_descriptor(
 }
 
 std::unique_ptr<tt_ClusterDescriptor> Cluster::create_cluster_descriptor(
-    const std::unordered_map<chip_id_t, std::unique_ptr<tt::umd::Chip>>& chips) {
+    const std::unordered_map<chip_id_t, std::unique_ptr<Chip>>& chips) {
     std::unique_ptr<tt_ClusterDescriptor> desc = std::unique_ptr<tt_ClusterDescriptor>(new tt_ClusterDescriptor());
 
     if (chips.empty()) {

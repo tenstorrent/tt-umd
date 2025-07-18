@@ -23,6 +23,7 @@ RemoteChip::RemoteChip(tt_SocDescriptor soc_descriptor, std::unique_ptr<RemoteWo
     tt_device_ = std::move(remote_tt_device);
     chip_info_ = tt_device_->get_chip_info();
     TT_ASSERT(soc_descriptor_.arch != tt::ARCH::BLACKHOLE, "Non-MMIO targets not supported in Blackhole");
+    wait_chip_to_be_ready();
 }
 
 bool RemoteChip::is_mmio_capable() const { return false; }
@@ -64,9 +65,9 @@ void RemoteChip::wait_for_non_mmio_flush() {
     remote_communication_->wait_for_non_mmio_flush();
 }
 
-void RemoteChip::l1_membar(const std::unordered_set<tt::umd::CoreCoord>& cores) { wait_for_non_mmio_flush(); }
+void RemoteChip::l1_membar(const std::unordered_set<CoreCoord>& cores) { wait_for_non_mmio_flush(); }
 
-void RemoteChip::dram_membar(const std::unordered_set<tt::umd::CoreCoord>& cores) { wait_for_non_mmio_flush(); }
+void RemoteChip::dram_membar(const std::unordered_set<CoreCoord>& cores) { wait_for_non_mmio_flush(); }
 
 void RemoteChip::dram_membar(const std::unordered_set<uint32_t>& channels) { wait_for_non_mmio_flush(); }
 
@@ -80,6 +81,7 @@ void RemoteChip::set_power_state(tt_DevicePowerState state) {
     } else if (soc_descriptor_.arch == tt::ARCH::BLACKHOLE) {
         throw std::runtime_error("set_power_state not supported for remote chips on Blackhole.");
     }
+    wait_for_aiclk_value(tt_device_.get(), state);
 }
 
 int RemoteChip::get_clock() { return tt_device_->get_clock(); }
@@ -102,7 +104,7 @@ int RemoteChip::get_numa_node() {
     throw std::runtime_error("RemoteChip::get_numa_node is not available for this chip.");
 }
 
-void RemoteChip::set_remote_transfer_ethernet_cores(const std::unordered_set<tt::umd::CoreCoord>& cores) {}
+void RemoteChip::set_remote_transfer_ethernet_cores(const std::unordered_set<CoreCoord>& cores) {}
 
 void RemoteChip::set_remote_transfer_ethernet_cores(const std::set<uint32_t>& channel) {}
 

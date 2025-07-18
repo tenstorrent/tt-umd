@@ -9,6 +9,7 @@
 #include <sys/mman.h>  // for mmap, munmap
 #include <sys/stat.h>  // for fstat
 
+#include <filesystem>
 #include <fstream>
 #include <tt-logger/tt-logger.hpp>
 

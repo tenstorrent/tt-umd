@@ -9,6 +9,7 @@
 #include <cstdint>
 #include <cstdio>
 #include <map>
+#include <memory>
 #include <unordered_map>
 #include <vector>
 
@@ -21,7 +22,6 @@
 
 namespace tt::umd {
 class semver_t;
-}  // namespace tt::umd
 
 struct PciDeviceInfo {
     uint16_t vendor_id;
@@ -35,9 +35,6 @@ struct PciDeviceInfo {
     // TODO: does it make sense to move attributes that we can read from sysfs
     // onto this struct as methods?  e.g. current_link_width etc.
 };
-
-// Do we want to put everything into this file into tt::umd namespace?
-using tt::umd::semver_t;
 
 struct DmaBuffer {
     uint8_t *buffer = nullptr;
@@ -190,8 +187,7 @@ public:
      * @param tlb_size Size of the TLB caller wants to allocate.
      * @param mapping_type Type of TLB mapping to allocate (UC or WC).
      */
-    std::unique_ptr<tt::umd::TlbHandle> allocate_tlb(
-        const size_t tlb_size, const tt::umd::TlbMapping tlb_mapping = tt::umd::TlbMapping::UC);
+    std::unique_ptr<TlbHandle> allocate_tlb(const size_t tlb_size, const TlbMapping tlb_mapping = TlbMapping::UC);
 
     /**
      * Temporary function which allows us to support both ways of mapping buffers during the transition period.
@@ -240,3 +236,8 @@ public:
         return reinterpret_cast<T *>(static_cast<uint8_t *>(reg_mapping) + register_offset);
     }
 };
+
+}  // namespace tt::umd
+
+// TODO: To be removed once clients switch to namespace usage.
+using tt::umd::PCIDevice;

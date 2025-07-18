@@ -98,13 +98,6 @@ private:
         const std::vector<CoreCoord>& cores, const uint32_t barrier_value, const uint32_t barrier_addr);
     void insert_host_to_device_barrier(const std::vector<CoreCoord>& cores, const uint32_t barrier_addr);
 
-    void wait_for_aiclk_value(tt_DevicePowerState power_state, const uint32_t timeout_ms = 5000);
-
     std::unique_ptr<TTDevice> tt_device_ = nullptr;
-
-protected:
-    void wait_eth_cores_training(const uint32_t timeout_ms = 60000) override;
-
-    void wait_dram_cores_training(const uint32_t timeout_ms = 60000) override;
 };
 }  // namespace tt::umd

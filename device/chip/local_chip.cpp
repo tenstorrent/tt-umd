@@ -148,15 +148,6 @@ void LocalChip::start_device() {
 
 void LocalChip::close_device() { sysmem_manager_->unpin_or_unmap_sysmem(); };
 
-void LocalChip::wait_eth_cores_training(const uint32_t timeout_ms) {
-    const std::vector<CoreCoord> eth_cores =
-        get_soc_descriptor().get_cores(CoreType::ETH, umd_use_noc1 ? CoordSystem::NOC1 : CoordSystem::PHYSICAL);
-    TTDevice* tt_device = get_tt_device();
-    for (const CoreCoord& eth_core : eth_cores) {
-        tt_device->wait_eth_core_training(eth_core, timeout_ms);
-    }
-}
-
 int LocalChip::get_num_host_channels() { return sysmem_manager_->get_num_host_mem_channels(); }
 
 int LocalChip::get_host_channel_size(std::uint32_t channel) {
@@ -340,8 +331,8 @@ void LocalChip::write_to_device_reg(CoreCoord core, const void* src, uint64_t re
     auto lock = lock_manager_.acquire_mutex(fallback_tlb, tt_device_->get_pci_device()->get_device_num());
     log_debug(LogSiliconDriver, "  dynamic tlb_index: {}", tlb_index);
 
-    auto [mapped_address, tlb_size] = tt_device_->set_dynamic_tlb(
-        tlb_index, translate_chip_coord_to_translated(core), reg_dest, tt::umd::tlb_data::Strict);
+    auto [mapped_address, tlb_size] =
+        tt_device_->set_dynamic_tlb(tlb_index, translate_chip_coord_to_translated(core), reg_dest, tlb_data::Strict);
     tt_device_->write_regs(mapped_address, size / sizeof(uint32_t), src);
 }
 
@@ -359,8 +350,8 @@ void LocalChip::read_from_device_reg(CoreCoord core, void* dest, uint64_t reg_sr
     auto lock = lock_manager_.acquire_mutex(fallback_tlb, tt_device_->get_pci_device()->get_device_num());
     log_debug(LogSiliconDriver, "  dynamic tlb_index: {}", tlb_index);
 
-    auto [mapped_address, tlb_size] = tt_device_->set_dynamic_tlb(
-        tlb_index, translate_chip_coord_to_translated(core), reg_src, tt::umd::tlb_data::Strict);
+    auto [mapped_address, tlb_size] =
+        tt_device_->set_dynamic_tlb(tlb_index, translate_chip_coord_to_translated(core), reg_src, tlb_data::Strict);
     tt_device_->read_regs(mapped_address, size / sizeof(uint32_t), dest);
 }
 
@@ -431,50 +422,6 @@ std::unique_lock<RobustMutex> LocalChip::acquire_mutex(std::string mutex_name, i
 
 std::unique_lock<RobustMutex> LocalChip::acquire_mutex(MutexType mutex_type, int pci_device_id) {
     return lock_manager_.acquire_mutex(mutex_type, pci_device_id);
-}
-
-void LocalChip::wait_dram_cores_training(const uint32_t timeout_ms) {
-    TTDevice* tt_device = get_tt_device();
-
-    auto start = std::chrono::system_clock::now();
-    while (true) {
-        std::vector<DramTrainingStatus> dram_training_status = tt_device->get_dram_training_status();
-
-        if (dram_training_status.empty()) {
-            // DRAM training status is not available, breaking the wait for DRAM training.
-            break;
-        }
-
-        bool all_dram_channels_trained = true;
-        const uint32_t chip_num_dram_channels =
-            std::min(dram_training_status.size(), get_soc_descriptor().get_dram_cores().size());
-        const uint32_t dram_harvesting_mask = get_soc_descriptor().harvesting_masks.dram_harvesting_mask;
-        for (uint32_t dram_channel = 0; dram_channel < chip_num_dram_channels; dram_channel++) {
-            // Skip the check for harvested channels.
-            if (dram_harvesting_mask & (1 << dram_channel)) {
-                continue;
-            }
-
-            // Check if there is an error in training for the channel.
-            if (dram_training_status[dram_channel] == DramTrainingStatus::FAIL) {
-                throw std::runtime_error("DRAM training failed");
-            }
-
-            // Verify whether the channel is trained.
-            all_dram_channels_trained &= (dram_training_status[dram_channel] == DramTrainingStatus::SUCCESS);
-        }
-
-        if (all_dram_channels_trained) {
-            break;
-        }
-
-        auto end = std::chrono::system_clock::now();
-        auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
-        if (duration.count() > timeout_ms) {
-            throw std::runtime_error(fmt::format("DRAM training timed out after {} ms", timeout_ms));
-            break;
-        }
-    }
 }
 
 void LocalChip::check_pcie_device_initialized() {
@@ -575,7 +522,7 @@ void LocalChip::insert_host_to_device_barrier(const std::vector<CoreCoord>& core
     set_membar_flag(cores, tt_MemBarFlag::RESET, barrier_addr);
 }
 
-void LocalChip::l1_membar(const std::unordered_set<tt::umd::CoreCoord>& cores) {
+void LocalChip::l1_membar(const std::unordered_set<CoreCoord>& cores) {
     if (cores.size()) {
         // Insert barrier on specific cores with L1
         std::vector<CoreCoord> workers_to_sync = {};
@@ -603,7 +550,7 @@ void LocalChip::l1_membar(const std::unordered_set<tt::umd::CoreCoord>& cores) {
     }
 }
 
-void LocalChip::dram_membar(const std::unordered_set<tt::umd::CoreCoord>& cores) {
+void LocalChip::dram_membar(const std::unordered_set<CoreCoord>& cores) {
     if (cores.size()) {
         for (const auto& core : cores) {
             TT_ASSERT(
@@ -648,42 +595,16 @@ void LocalChip::set_power_state(tt_DevicePowerState state) {
         exit_code = arc_msg(wormhole::ARC_MSG_COMMON_PREFIX | msg, true, 0, 0);
     } else if (soc_descriptor_.arch == tt::ARCH::BLACKHOLE) {
         if (state == tt_DevicePowerState::BUSY) {
-            exit_code = tt_device_->get_arc_messenger()->send_message(
-                (uint32_t)tt::umd::blackhole::ArcMessageType::AICLK_GO_BUSY);
+            exit_code =
+                tt_device_->get_arc_messenger()->send_message((uint32_t)blackhole::ArcMessageType::AICLK_GO_BUSY);
         } else {
-            exit_code = tt_device_->get_arc_messenger()->send_message(
-                (uint32_t)tt::umd::blackhole::ArcMessageType::AICLK_GO_LONG_IDLE);
+            exit_code =
+                tt_device_->get_arc_messenger()->send_message((uint32_t)blackhole::ArcMessageType::AICLK_GO_LONG_IDLE);
         }
     }
     TT_ASSERT(exit_code == 0, "Failed to set power state to {} with exit code: {}", (int)state, exit_code);
 
-    wait_for_aiclk_value(state);
-}
-
-void LocalChip::wait_for_aiclk_value(tt_DevicePowerState power_state, const uint32_t timeout_ms) {
-    auto start = std::chrono::system_clock::now();
-    uint32_t target_aiclk = 0;
-    if (power_state == tt_DevicePowerState::BUSY) {
-        target_aiclk = tt_device_->get_max_clock_freq();
-    } else if (power_state == tt_DevicePowerState::LONG_IDLE) {
-        target_aiclk = tt_device_->get_min_clock_freq();
-    }
-    uint32_t aiclk = tt_device_->get_clock();
-    while (aiclk != target_aiclk) {
-        auto end = std::chrono::system_clock::now();
-        auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
-        if (duration.count() > timeout_ms) {
-            log_warning(
-                LogSiliconDriver,
-                "Waiting for AICLK value to settle failed on timeout after {}. Expected to see {}, last value "
-                "observed {}",
-                timeout_ms,
-                target_aiclk,
-                aiclk);
-            return;
-        }
-        aiclk = tt_device_->get_clock();
-    }
+    wait_for_aiclk_value(tt_device_.get(), state);
 }
 
 int LocalChip::get_clock() { return tt_device_->get_clock(); }

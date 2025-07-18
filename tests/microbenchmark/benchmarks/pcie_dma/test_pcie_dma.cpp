@@ -21,6 +21,7 @@ using namespace tt::umd;
 
 const chip_id_t chip = 0;
 const uint32_t one_mb = 1 << 20;
+const uint32_t one_gb = 1 << 30;
 const uint32_t NUM_ITERATIONS = 1000;
 
 static inline void print_speed(std::string direction, size_t bytes, uint64_t ns) {
@@ -39,8 +40,8 @@ static inline void perf_read_write(
     const std::string& direction_to_device,
     const std::string& direction_from_device) {
     std::cout << std::endl;
-    std::cout << "Reporting results for buffer size " << (buf_size / one_mb) << " MB being transfered "
-              << num_iterations << " number of times." << std::endl;
+    std::cout << "Reporting results for buffer size " << buf_size << " bytes (" << ((double)buf_size / one_mb)
+              << " MB) being transfered " << num_iterations << " number of times." << std::endl;
     std::cout << "--------------------------------------------------------" << std::endl;
 
     std::vector<uint8_t> pattern(buf_size);
@@ -127,6 +128,50 @@ TEST(MicrobenchmarkPCIeDMA, DMATensix) {
 }
 
 /**
+ * Microbenchmark to test the PCIe DMA reads/write to Tensix by sweeping through
+ * different buffer sizes, starting from 4 bytes up to 1 MB.
+ */
+TEST(MicrobenchmarkPCIeDMA, TensixSweepSizes) {
+    std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
+    const CoreCoord tensix_core = cluster->get_soc_descriptor(chip).get_cores(CoreType::TENSIX)[0];
+    cluster->start_device(tt_device_params{});
+
+    const uint64_t limit_buf_size = one_mb;
+
+    for (uint64_t buf_size = 4; buf_size <= limit_buf_size; buf_size *= 2) {
+        perf_read_write(
+            buf_size,
+            NUM_ITERATIONS,
+            cluster,
+            tensix_core,
+            "DMA: Host -> Device Tensix L1",
+            "DMA: Device Tensix L1 -> Host");
+    }
+}
+
+/**
+ * Microbenchmark to test the PCIe DMA reads/writes to DRAM by sweeping through
+ * different buffer sizes, starting from 4 bytes up to 1 MB.
+ */
+TEST(MicrobenchmarkPCIeDMA, DramSweepSizes) {
+    std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
+    const CoreCoord tensix_core = cluster->get_soc_descriptor(chip).get_cores(CoreType::TENSIX)[0];
+    cluster->start_device(tt_device_params{});
+
+    const uint64_t limit_buf_size = one_gb;
+
+    for (uint64_t buf_size = 4; buf_size <= limit_buf_size; buf_size *= 2) {
+        perf_read_write(
+            buf_size,
+            NUM_ITERATIONS,
+            cluster,
+            tensix_core,
+            "DMA: Host -> Device Tensix L1",
+            "DMA: Device Tensix L1 -> Host");
+    }
+}
+
+/**
  * Test the PCIe DMA controller by using it to write random fixed-size pattern
  * to address 0 of DRAM core, then reading them back and verifying.
  */
@@ -163,7 +208,7 @@ TEST(MicrobenchmarkPCIeDMA, DMATensixZeroCopy) {
     guard_test_iommu();
 
     const uint32_t NUM_ITERATIONS = 1000;
-    std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>(tt::umd::ClusterOptions{
+    std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>(ClusterOptions{
         .num_host_mem_ch_per_mmio_device = 0,
     });
 
@@ -191,7 +236,7 @@ TEST(MicrobenchmarkPCIeDMA, MapSysmemBuffer) {
     guard_test_iommu();
 
     const uint32_t NUM_ITERATIONS = 1000;
-    std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>(tt::umd::ClusterOptions{
+    std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>(ClusterOptions{
         .num_host_mem_ch_per_mmio_device = 0,
     });
 
@@ -220,7 +265,7 @@ TEST(MicrobenchmarkPCIeDMA, DMATensixMapBufferZeroCopy) {
     guard_test_iommu();
 
     const uint32_t NUM_ITERATIONS = 100;
-    std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>(tt::umd::ClusterOptions{
+    std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>(ClusterOptions{
         .num_host_mem_ch_per_mmio_device = 0,
     });
 
@@ -267,7 +312,7 @@ TEST(MicrobenchmarkPCIeDMA, DMADRAMZeroCopy) {
     guard_test_iommu();
 
     const uint32_t NUM_ITERATIONS = 10;
-    std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>(tt::umd::ClusterOptions{
+    std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>(ClusterOptions{
         .num_host_mem_ch_per_mmio_device = 0,
     });
 

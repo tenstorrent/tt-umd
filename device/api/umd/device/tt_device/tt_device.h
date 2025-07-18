@@ -6,6 +6,7 @@
 
 #pragma once
 
+#include <cstdint>
 #include <string_view>
 
 #include "umd/device/arc_messenger.h"
@@ -117,6 +118,34 @@ public:
     virtual void read_from_device(void *mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size);
     virtual void write_to_device(const void *mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size);
 
+    /**
+     * Read function that will send read message to the ARC core.
+     *
+     * @param mem_ptr pointer to memory which will receive the data
+     * @param arc_addr_offset address offset in ARC core
+     * @param size number of bytes
+     *
+     * NOTE: These functions on Wormhole will use the
+     * AXI interface to read/write the data if the chip is local/PCIe, while the remote chip will use the
+     * the NOC interface to read/write the data. Blackhole for now, will only use the NOC interface to read/write data.
+     *
+     */
+    virtual void read_from_arc(void *mem_ptr, uint64_t arc_addr_offset, [[maybe_unused]] size_t size) = 0;
+
+    /**
+     * Write function that will send write message to the ARC core.
+     *
+     * @param mem_ptr pointer to memory from which the data is sent
+     * @param arc_addr_offset address offset in ARC core
+     * @param size number of bytes
+     *
+     * NOTE: These functions on Wormhole will use the
+     * AXI interface to read/write the data if the chip is local/PCIe, while the remote chip will use the
+     * the NOC interface to read/write the data. Blackhole for now, will only use the NOC interface to read/write data.
+     *
+     */
+    virtual void write_to_arc(const void *mem_ptr, uint64_t arc_addr_offset, [[maybe_unused]] size_t size) = 0;
+
     // TLB related functions.
     // TODO: These are architecture specific, and will be moved out of the class.
     void write_tlb_reg(
@@ -200,6 +229,8 @@ public:
     virtual void wait_for_non_mmio_flush();
 
     bool is_remote();
+
+    virtual uint64_t get_arc_noc_base_address() const = 0;
 
 protected:
     std::shared_ptr<PCIDevice> pci_device_;

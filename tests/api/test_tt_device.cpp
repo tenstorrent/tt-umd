@@ -9,6 +9,7 @@
 #include "umd/device/cluster.h"
 #include "umd/device/tt_device/remote_wormhole_tt_device.h"
 #include "umd/device/tt_device/tt_device.h"
+#include "umd/device/warm_reset.h"
 #include "umd/device/wormhole_implementation.h"
 
 using namespace tt::umd;
@@ -151,5 +152,42 @@ TEST(ApiTTDeviceTest, TestRemoteTTDevice) {
 
             EXPECT_EQ(pattern_buf, readback_buf);
         }
+    }
+}
+
+TEST(ApiTTDeviceTest, WarmResetAfterNocHang) {
+    // GTEST_SKIP();
+    std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
+
+    uint64_t address = 0x0;
+    std::vector<uint32_t> data_write = {1, 2, 3, 4, 5, 6, 7, 8, 9, 10};
+    std::vector<uint32_t> data_read(data_write.size(), 0);
+
+    for (int pci_device_id : pci_device_ids) {
+        std::unique_ptr<TTDevice> tt_device = TTDevice::create(pci_device_id);
+
+        ChipInfo chip_info = tt_device->get_chip_info();
+
+        tt_SocDescriptor soc_desc(
+            tt_device->get_arch(), chip_info.noc_translation_enabled, chip_info.harvesting_masks, chip_info.board_type);
+
+        tt_xy_pair tensix_core = soc_desc.get_cores(CoreType::TENSIX, CoordSystem::TRANSLATED)[0];
+
+        // send to core 15, 15 which will hang the NOC
+        tt_device->write_to_device(data_write.data(), {15, 15}, address, data_write.size() * sizeof(uint32_t));
+
+        EXPECT_THROW(tt_device->detect_hang_read(), std::runtime_error);
+
+        WarmReset::warm_reset(tt_device->get_arch());
+
+        EXPECT_NO_THROW(tt_device->detect_hang_read());
+
+        tt_device->write_to_device(data_write.data(), tensix_core, address, data_write.size() * sizeof(uint32_t));
+
+        tt_device->read_from_device(data_read.data(), tensix_core, address, data_read.size() * sizeof(uint32_t));
+
+        ASSERT_EQ(data_write, data_read);
+
+        data_read = std::vector<uint32_t>(data_write.size(), 0);
     }
 }

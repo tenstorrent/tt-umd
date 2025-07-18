@@ -248,11 +248,11 @@ private:
     void add_chip_to_board(chip_id_t chip_id, uint64_t board_id);
 
     // Helper functions for filling up the cluster descriptor.
-    static void load_ethernet_connections_from_connectivity_descriptor(YAML::Node &yaml, tt_ClusterDescriptor &desc);
-    static void fill_galaxy_connections(tt_ClusterDescriptor &desc);
-    static void load_chips_from_connectivity_descriptor(YAML::Node &yaml, tt_ClusterDescriptor &desc);
-    static void merge_cluster_ids(tt_ClusterDescriptor &desc);
-    static void load_harvesting_information(YAML::Node &yaml, tt_ClusterDescriptor &desc);
+    void load_ethernet_connections_from_connectivity_descriptor(YAML::Node &yaml);
+    void fill_galaxy_connections();
+    void load_chips_from_connectivity_descriptor(YAML::Node &yaml);
+    void merge_cluster_ids();
+    void load_harvesting_information(YAML::Node &yaml);
     void fill_chips_grouped_by_closest_mmio();
 
     // Verify for some common mistakes.

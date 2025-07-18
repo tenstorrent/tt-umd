@@ -459,6 +459,7 @@ void Cluster::wh_warm_reset() {
 
     PCIDevice::reset_devices(TenstorrentResetDevice::RESET_PCIE_LINK);
     for (const auto& chip : local_chip_ids_) {
+        std::cout << "local chip id: " << chip << "\n";
         refclk_values_old.emplace_back(check_refclk(chip));
     }
 

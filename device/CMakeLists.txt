@@ -60,6 +60,7 @@ target_sources(
         wormhole/wormhole_arc_telemetry_reader.cpp
         blackhole/blackhole_arc_telemetry_reader.cpp
         arc_messenger.cpp
+        warm_reset.cpp
         wormhole/wormhole_arc_messenger.cpp
         blackhole/blackhole_arc_messenger.cpp
         blackhole/blackhole_arc_message_queue.cpp
@@ -108,6 +109,7 @@ if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.23)
                 api/umd/device/logging/config.h
                 api/umd/device/utils/lock_manager.h
                 api/umd/device/pci_device.hpp
+                api/umd/device/warm_reset.h
                 api/umd/device/semver.hpp
                 api/umd/device/utils/robust_mutex.h
                 api/umd/device/tt_cluster_descriptor.h

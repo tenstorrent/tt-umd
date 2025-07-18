@@ -235,6 +235,8 @@ public:
 
     virtual uint64_t get_arc_noc_base_address() const = 0;
 
+    // virtual uint64_t get_arc_noc_base_address() const = 0;
+
 protected:
     std::shared_ptr<PCIDevice> pci_device_;
     std::unique_ptr<architecture_implementation> architecture_impl_;

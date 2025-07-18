@@ -28,6 +28,7 @@
 #include "umd/device/tt_silicon_driver_common.hpp"
 #include "umd/device/types/arch.h"
 #include "umd/device/types/cluster_descriptor_types.h"
+#include "umd/device/warm_reset.h"
 #include "umd/device/wormhole_implementation.h"
 
 // TODO: obviously we need some other way to set this up
@@ -521,6 +522,55 @@ TEST(TestCluster, WarmReset) {
     cluster->warm_reset();
 
     // cluster->bh_warm_reset();
+}
+
+TEST(TestCluster, WarmClassReset) {
+    std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
+
+    if (cluster->get_target_device_ids().empty()) {
+        GTEST_SKIP() << "No chips present on the system. Skipping test.";
+    }
+
+    auto tensix_l1_size = cluster->get_soc_descriptor(0).worker_l1_size;
+
+    std::vector<uint8_t> zero_data(tensix_l1_size, 0);
+
+    tt::ARCH arch;
+
+    auto chip_ids = cluster->get_target_device_ids();
+    for (auto& chip_id : chip_ids) {
+        const tt_SocDescriptor& soc_desc = cluster->get_soc_descriptor(chip_id);
+        auto tensix_cores = cluster->get_soc_descriptor(chip_id).get_cores(CoreType::TENSIX);
+
+        for (const CoreCoord& tensix_core : tensix_cores) {
+            auto chip = cluster->get_chip(chip_id);
+
+            TensixSoftResetOptions select_all_tensix_riscv_cores{TENSIX_ASSERT_SOFT_RESET};
+
+            // Set all riscs to reset state.
+            chip->set_tensix_risc_reset(
+                cluster->get_soc_descriptor(chip_id).translate_coord_to(tensix_core, CoordSystem::VIRTUAL),
+                select_all_tensix_riscv_cores);
+
+            cluster->l1_membar(chip_id, {tensix_core});
+
+            // Zero out L1.
+            cluster->write_to_device(zero_data.data(), zero_data.size(), chip_id, tensix_core, 0);
+
+            cluster->l1_membar(chip_id, {tensix_core});
+
+            // Deassert reset and intentionally crash all riscs
+            chip->unset_tensix_risc_reset(
+                cluster->get_soc_descriptor(chip_id).translate_coord_to(tensix_core, CoordSystem::VIRTUAL),
+                select_all_tensix_riscv_cores);
+
+            arch = chip->get_tt_device()->get_arch();
+        }
+    }
+
+    // perform warm reset
+    std::cout << "ARCH is " << static_cast<uint32_t>(arch) << "\n";
+    WarmReset::warm_reset(arch);
 }
 
 // This test uses the machine instructions from the header file assembly_programs_for_tests.hpp. How to generate

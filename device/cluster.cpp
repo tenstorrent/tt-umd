@@ -39,6 +39,7 @@
 
 #include "api/umd/device/cluster.h"
 #include "api/umd/device/tt_core_coordinates.h"
+#include "api/umd/device/warm_reset.h"
 #include "assert.hpp"
 #include "umd/device/architecture_implementation.h"
 #include "umd/device/blackhole_implementation.h"
@@ -425,129 +426,10 @@ void Cluster::assert_risc_reset_at_core(
     get_chip(chip)->send_tensix_risc_reset(core, soft_resets);
 }
 
-uint64_t Cluster::check_refclk(chip_id_t chip) {
-    static constexpr uint32_t HIGH_ADDR = 0x1FF300E4;
-    static constexpr uint32_t LOW_ADDR = 0x1FF300E0;
-    auto high1_addr = get_tt_device(chip)->bar_read32(HIGH_ADDR);
-    auto low_addr = get_tt_device(chip)->bar_read32(LOW_ADDR);
-    auto high2_addr = get_tt_device(chip)->bar_read32(HIGH_ADDR);
-    if (high1_addr != high2_addr) {
-        low_addr = get_tt_device(chip)->bar_read32(LOW_ADDR);
-    }
-    return (static_cast<uint64_t>(high2_addr) << 32) | low_addr;
-}
-
 void Cluster::warm_reset() {
     auto chip_id = *local_chip_ids_.begin();
     tt::ARCH arch = get_soc_descriptor(chip_id).arch;
-    if (arch == ARCH::WORMHOLE_B0) {
-        wh_warm_reset();
-    }
-    if (arch == ARCH::BLACKHOLE) {
-        bh_warm_reset();
-    }
-}
-
-void Cluster::wh_warm_reset() {
-    static constexpr uint32_t MSG_TYPE_ARC_STATE3 = 0xA3 | wormhole::ARC_MSG_COMMON_PREFIX;
-    static constexpr uint32_t MSG_TYPE_TRIGGER_RESET = 0x56 | wormhole::ARC_MSG_COMMON_PREFIX;
-
-    static constexpr bool reset_m3 = false;
-
-    std::vector<uint64_t> refclk_values_old;
-    refclk_values_old.reserve(local_chip_ids_.size());
-
-    PCIDevice::reset_devices(TenstorrentResetDevice::RESET_PCIE_LINK);
-    for (const auto& chip : local_chip_ids_) {
-        std::cout << "local chip id: " << chip << "\n";
-        refclk_values_old.emplace_back(check_refclk(chip));
-    }
-
-    for (const auto& chip : local_chip_ids_) {
-        get_chip(chip)->arc_msg(MSG_TYPE_ARC_STATE3, true, 0xFFFF, 0xFFFF, 1000);
-        usleep(30'000);
-        if (reset_m3) {
-            get_chip(chip)->arc_msg(MSG_TYPE_TRIGGER_RESET, false, 3, 0xFFFF, 1000);
-        } else {
-            get_chip(chip)->arc_msg(MSG_TYPE_TRIGGER_RESET, false, 0xFFFF, 0xFFFF, 1000);
-        }
-    }
-    sleep(2);
-
-    std::vector<uint64_t> refclk_current;
-    refclk_current.reserve(local_chip_ids_.size());
-
-    PCIDevice::reset_devices(TenstorrentResetDevice::RESTORE_STATE);
-
-    for (const auto& chip : local_chip_ids_) {
-        refclk_current.emplace_back(check_refclk(chip));
-    }
-
-    for (int i = 0; i < refclk_values_old.size(); i++) {
-        if (refclk_values_old[i] < refclk_current[i]) {
-            log_warning(
-                LogSiliconDriver,
-                "Reset for PCI: {} didn't go through! Refclk didn't reset. Value before: {}, value after: {}",
-                i,
-                refclk_values_old[i],
-                refclk_current[i]);
-        }
-    }
-}
-
-void Cluster::bh_warm_reset() {
-    std::vector<PciDeviceInfo> pci_devices_info;
-    pci_devices_info.reserve(local_chip_ids_.size());
-
-    std::map<chip_id_t, bool> reset_bits;
-
-    for (const auto& chip : local_chip_ids_) {
-        pci_devices_info.emplace_back(get_chip(chip)->get_tt_device()->get_pci_device()->get_device_info());
-        reset_bits.emplace(chip, 0x0);
-    }
-    for (auto& info : pci_devices_info) {
-        std::cout << "info.pci_domain: " << info.pci_domain << ", info.pci_bus: " << info.pci_bus
-                  << ", info.pci_device: " << info.pci_device << ", info.pci_function: " << info.pci_function << "\n";
-    }
-    PCIDevice::reset_devices(TenstorrentResetDevice::CONFIG_WRITE);
-
-    bool all_reset_bits_set{true};
-
-    auto start = std::chrono::steady_clock::now();
-    auto timeout_duration = std::chrono::milliseconds(2000);  // 5 seconds
-
-    while (std::chrono::steady_clock::now() - start < timeout_duration) {
-        for (const auto& chip : local_chip_ids_) {
-            auto command_byte = get_chip(chip)->get_tt_device()->get_pci_device()->read_command_byte();
-            bool reset_bit = (command_byte >> 1) & 1;
-            reset_bits[chip] = reset_bit;
-        }
-
-        for (auto& [chip, reset_bit] : reset_bits) {
-            if (reset_bit != true) {
-                all_reset_bits_set = false;
-                break;
-            }
-        }
-
-        if (all_reset_bits_set) {
-            break;
-        }
-        // Optional: add a small sleep to avoid busy waiting
-        std::this_thread::sleep_for(std::chrono::milliseconds(10));
-    }
-
-    if (!all_reset_bits_set) {
-        for (auto& [chip, reset_bit] : reset_bits) {
-            if (!reset_bit) {
-                log_warning(LogSiliconDriver, "Config space reset not completed for chip_id : {}", chip);
-            }
-        }
-    } else {
-        std::cout << "Successful reset\n";
-    }
-
-    PCIDevice::reset_devices(TenstorrentResetDevice::RESTORE_STATE);
+    WarmReset::warm_reset(arch);
 }
 
 tt_ClusterDescriptor* Cluster::get_cluster_description() { return cluster_desc.get(); }

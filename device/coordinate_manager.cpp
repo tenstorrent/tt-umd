@@ -12,7 +12,7 @@
 #include "umd/device/blackhole_coordinate_manager.h"
 #include "umd/device/wormhole_coordinate_manager.h"
 
-using namespace tt::umd;
+namespace tt::umd {
 
 CoordinateManager::CoordinateManager(
     const bool noc_translation_enabled,
@@ -391,7 +391,7 @@ HarvestingMasks CoordinateManager::get_harvesting_masks() const { return harvest
 
 uint32_t CoordinateManager::shuffle_tensix_harvesting_mask(tt::ARCH arch, uint32_t tensix_harvesting_physical_layout) {
     std::vector<uint32_t> harvesting_locations =
-        tt::umd::architecture_implementation::create(arch)->get_harvesting_noc_locations();
+        architecture_implementation::create(arch)->get_harvesting_noc_locations();
 
     std::vector<uint32_t> sorted_harvesting_locations = harvesting_locations;
     std::sort(sorted_harvesting_locations.begin(), sorted_harvesting_locations.end());
@@ -415,7 +415,7 @@ uint32_t CoordinateManager::shuffle_tensix_harvesting_mask(tt::ARCH arch, uint32
 uint32_t CoordinateManager::shuffle_tensix_harvesting_mask_to_noc0_coords(
     tt::ARCH arch, uint32_t tensix_harvesting_logical_layout) {
     std::vector<uint32_t> sorted_harvesting_locations =
-        tt::umd::architecture_implementation::create(arch)->get_harvesting_noc_locations();
+        architecture_implementation::create(arch)->get_harvesting_noc_locations();
 
     std::sort(sorted_harvesting_locations.begin(), sorted_harvesting_locations.end());
     size_t new_harvesting_mask = 0;
@@ -508,7 +508,7 @@ std::vector<CoreCoord> CoordinateManager::get_pcie_cores() const { return get_al
 
 std::vector<CoreCoord> CoordinateManager::get_harvested_pcie_cores() const { return {}; }
 
-std::vector<tt::umd::CoreCoord> CoordinateManager::get_cores(const CoreType core_type) const {
+std::vector<CoreCoord> CoordinateManager::get_cores(const CoreType core_type) const {
     switch (core_type) {
         case CoreType::TENSIX:
             return get_tensix_cores();
@@ -545,7 +545,7 @@ tt_xy_pair CoordinateManager::get_grid_size(const CoreType core_type) const {
     }
 }
 
-std::vector<tt::umd::CoreCoord> CoordinateManager::get_harvested_cores(const CoreType core_type) const {
+std::vector<CoreCoord> CoordinateManager::get_harvested_cores(const CoreType core_type) const {
     switch (core_type) {
         case CoreType::TENSIX:
             return get_harvested_tensix_cores();
@@ -605,40 +605,40 @@ std::shared_ptr<CoordinateManager> CoordinateManager::create_coordinate_manager(
                 arch,
                 noc_translation_enabled,
                 harvesting_masks,
-                tt::umd::wormhole::TENSIX_GRID_SIZE,
-                tt::umd::wormhole::TENSIX_CORES_NOC0,
-                tt::umd::wormhole::DRAM_GRID_SIZE,
-                flatten_vector(tt::umd::wormhole::DRAM_CORES_NOC0),
-                tt::umd::wormhole::ETH_CORES_NOC0,
-                tt::umd::wormhole::ARC_GRID_SIZE,
-                tt::umd::wormhole::ARC_CORES_NOC0,
-                tt::umd::wormhole::PCIE_GRID_SIZE,
-                tt::umd::wormhole::PCIE_CORES_NOC0,
-                tt::umd::wormhole::ROUTER_CORES_NOC0,
-                tt::umd::wormhole::SECURITY_CORES_NOC0,
-                tt::umd::wormhole::L2CPU_CORES_NOC0,
-                tt::umd::wormhole::NOC0_X_TO_NOC1_X,
-                tt::umd::wormhole::NOC0_Y_TO_NOC1_Y);
+                wormhole::TENSIX_GRID_SIZE,
+                wormhole::TENSIX_CORES_NOC0,
+                wormhole::DRAM_GRID_SIZE,
+                flatten_vector(wormhole::DRAM_CORES_NOC0),
+                wormhole::ETH_CORES_NOC0,
+                wormhole::ARC_GRID_SIZE,
+                wormhole::ARC_CORES_NOC0,
+                wormhole::PCIE_GRID_SIZE,
+                wormhole::PCIE_CORES_NOC0,
+                wormhole::ROUTER_CORES_NOC0,
+                wormhole::SECURITY_CORES_NOC0,
+                wormhole::L2CPU_CORES_NOC0,
+                wormhole::NOC0_X_TO_NOC1_X,
+                wormhole::NOC0_Y_TO_NOC1_Y);
         case tt::ARCH::QUASAR:  // TODO (#450): Add Quasar configuration
         case tt::ARCH::BLACKHOLE: {
             return create_coordinate_manager(
                 arch,
                 noc_translation_enabled,
                 harvesting_masks,
-                tt::umd::blackhole::TENSIX_GRID_SIZE,
-                tt::umd::blackhole::TENSIX_CORES_NOC0,
-                tt::umd::blackhole::DRAM_GRID_SIZE,
-                flatten_vector(tt::umd::blackhole::DRAM_CORES_NOC0),
-                tt::umd::blackhole::ETH_CORES_NOC0,
-                tt::umd::blackhole::ARC_GRID_SIZE,
-                tt::umd::blackhole::ARC_CORES_NOC0,
-                tt::umd::blackhole::PCIE_GRID_SIZE,
-                tt::umd::blackhole::PCIE_CORES_NOC0,
-                tt::umd::blackhole::ROUTER_CORES_NOC0,
-                tt::umd::blackhole::SECURITY_CORES_NOC0,
-                tt::umd::blackhole::L2CPU_CORES_NOC0,
-                tt::umd::blackhole::NOC0_X_TO_NOC1_X,
-                tt::umd::blackhole::NOC0_Y_TO_NOC1_Y);
+                blackhole::TENSIX_GRID_SIZE,
+                blackhole::TENSIX_CORES_NOC0,
+                blackhole::DRAM_GRID_SIZE,
+                flatten_vector(blackhole::DRAM_CORES_NOC0),
+                blackhole::ETH_CORES_NOC0,
+                blackhole::ARC_GRID_SIZE,
+                blackhole::ARC_CORES_NOC0,
+                blackhole::PCIE_GRID_SIZE,
+                blackhole::PCIE_CORES_NOC0,
+                blackhole::ROUTER_CORES_NOC0,
+                blackhole::SECURITY_CORES_NOC0,
+                blackhole::L2CPU_CORES_NOC0,
+                blackhole::NOC0_X_TO_NOC1_X,
+                blackhole::NOC0_Y_TO_NOC1_Y);
         }
         case tt::ARCH::Invalid:
             throw std::runtime_error("Invalid architecture for creating coordinate manager");
@@ -760,3 +760,5 @@ void CoordinateManager::add_noc1_to_noc0_mapping() {
     map_noc0_to_noc1_cores(security_cores, CoreType::SECURITY);
     map_noc0_to_noc1_cores(l2cpu_cores, CoreType::L2CPU);
 }
+
+}  // namespace tt::umd

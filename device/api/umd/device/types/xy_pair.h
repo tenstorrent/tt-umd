@@ -7,6 +7,8 @@
 #pragma once
 
 #include <string>
+// TODO: To be removed once this is fixed in tt_metal
+#include <deque>
 
 namespace tt::umd {
 
@@ -54,6 +56,10 @@ constexpr inline bool operator<(const cxy_pair &left, const cxy_pair &right) {
 }
 
 }  // namespace tt::umd
+
+// These are convenience typedefs for the xy_pair and cxy_pair types.
+using tt_xy_pair = tt::umd::xy_pair;
+using tt_cxy_pair = tt::umd::cxy_pair;
 
 namespace std {
 template <>

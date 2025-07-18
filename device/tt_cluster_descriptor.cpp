@@ -18,8 +18,7 @@
 #include "assert.hpp"
 #include "disjoint_set.hpp"
 
-using namespace tt;
-using namespace tt::umd;
+namespace tt::umd {
 
 bool tt_ClusterDescriptor::ethernet_core_has_active_ethernet_link(
     chip_id_t local_chip, ethernet_channel_t local_ethernet_channel) const {
@@ -584,9 +583,8 @@ void tt_ClusterDescriptor::load_ethernet_connections_from_connectivity_descripto
             desc.harvesting_masks_map.empty()
                 ? 0
                 : CoordinateManager::get_num_harvested(desc.harvesting_masks_map.at(chip).eth_harvesting_mask);
-        int num_channels =
-            tt::umd::architecture_implementation::create(desc.chip_arch.at(chip))->get_num_eth_channels() -
-            num_harvested_channels;
+        int num_channels = architecture_implementation::create(desc.chip_arch.at(chip))->get_num_eth_channels() -
+                           num_harvested_channels;
         for (int i = 0; i < num_channels; i++) {
             desc.idle_eth_channels[chip].insert(i);
         }
@@ -1311,3 +1309,5 @@ void tt_ClusterDescriptor::verify_cluster_descriptor_info() {
         }
     }
 }
+
+}  // namespace tt::umd

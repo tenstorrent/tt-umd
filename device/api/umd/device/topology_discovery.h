@@ -6,12 +6,13 @@
 #pragma once
 
 #include "umd/device/chip/chip.h"
+#include "umd/device/chip/remote_chip.h"
 #include "umd/device/tt_device/remote_wormhole_tt_device.h"
 #include "umd/device/tt_device/tt_device.h"
 
-class tt_ClusterDescriptor;
-
 namespace tt::umd {
+
+class tt_ClusterDescriptor;
 
 // TopologyDiscovery class creates cluster descriptor only for Wormhole configurations with old routing fw.
 // TODO: Move Blackhole topology discovery to this class.
@@ -44,21 +45,21 @@ private:
 
     bool is_pcie_chip_id_included(int pci_id) const;
 
-    bool is_board_id_included(uint32_t board_id) const;
+    bool is_board_id_included(uint64_t board_id) const;
 
     // Returns mangled remote board id from local ETH core.
     // This information can still be used to unique identify a board.
     // TODO: override this logic for different configs. This is in group of functions
     // that we should override for T3K/6U/BH...
     // eth_core should be in physical (NOC0) coordinates.
-    uint32_t get_remote_board_id(Chip* chip, tt_xy_pair eth_core);
+    uint64_t get_remote_board_id(Chip* chip, tt_xy_pair eth_core);
 
     // Returns mangled local board id from local ETH core.
     // This information can still be used to unique identify a board.
     // TODO: override this logic for different configs. This is in group of functions
     // that we should override for T3K/6U/BH...
     // eth_core should be in physical (NOC0) coordinates.
-    uint32_t get_local_board_id(Chip* chip, tt_xy_pair eth_core);
+    uint64_t get_local_board_id(Chip* chip, tt_xy_pair eth_core);
 
     // TODO: override this logic for different configs. This is in group of functions
     // that we should override for T3K/6U/BH...
@@ -99,10 +100,12 @@ private:
     // TODO: override this logic for different configs. This is in group of functions
     // that we should override for T3K/6U/BH...
     // eth_core should be in physical (NOC0) coordinates.
-    std::unique_ptr<RemoteWormholeTTDevice> create_remote_tt_device(
-        Chip* chip, tt_xy_pair eth_core, Chip* gateway_chip);
+    std::unique_ptr<RemoteChip> create_remote_chip(Chip* chip, tt_xy_pair eth_core, Chip* gateway_chip);
 
-    std::unordered_map<chip_id_t, std::unique_ptr<Chip>> chips;
+    Chip* get_chip(const chip_id_t chip_id);
+
+    std::map<chip_id_t, std::unique_ptr<Chip>> chips_to_discover;
+    std::map<chip_id_t, std::unique_ptr<Chip>> chips;
 
     std::unordered_map<uint64_t, chip_id_t> asic_id_to_chip_id;
 
@@ -119,7 +122,7 @@ private:
     std::unordered_set<chip_id_t> pci_target_devices = {};
 
     // All board ids that should be included in the cluster descriptor.
-    std::unordered_set<uint32_t> board_ids;
+    std::unordered_set<uint64_t> board_ids;
 
     std::unordered_map<chip_id_t, std::set<uint32_t>> active_eth_channels_per_chip;
 

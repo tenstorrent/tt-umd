@@ -15,6 +15,8 @@
 #include "umd/device/pci_device.hpp"
 #include "umd/device/types/cluster_descriptor_types.h"
 
+namespace tt::umd {
+
 // TODO: Should be moved to blackhole_architecture_implementation.h
 // See /vendor_ip/synopsys/052021/bh_pcie_ctl_gen5/export/configuration/DWC_pcie_ctl.h
 static const uint64_t UNROLL_ATU_OFFSET_BAR = 0x1200;
@@ -29,8 +31,6 @@ struct dynamic_tlb {
     uint64_t bar_offset;      // Offset that address is mapped to, within the PCI BAR.
     uint64_t remaining_size;  // Bytes remaining between bar_offset and end of the TLB.
 };
-
-namespace tt::umd {
 
 class ArcMessenger;
 class ArcTelemetryReader;
@@ -129,16 +129,13 @@ public:
         bool multicast,
         std::uint64_t ordering);
     dynamic_tlb set_dynamic_tlb(
-        unsigned int tlb_index,
-        tt_xy_pair target,
-        std::uint64_t address,
-        std::uint64_t ordering = tt::umd::tlb_data::Relaxed);
+        unsigned int tlb_index, tt_xy_pair target, std::uint64_t address, std::uint64_t ordering = tlb_data::Relaxed);
     dynamic_tlb set_dynamic_tlb_broadcast(
         unsigned int tlb_index,
         std::uint64_t address,
         tt_xy_pair start,
         tt_xy_pair end,
-        std::uint64_t ordering = tt::umd::tlb_data::Relaxed);
+        std::uint64_t ordering = tlb_data::Relaxed);
 
     /**
      * Configures a PCIe Address Translation Unit (iATU) region.
@@ -194,6 +191,8 @@ public:
 
     virtual bool get_noc_translation_enabled() = 0;
 
+    virtual double get_asic_temperature() = 0;
+
     // TODO: find a way to expose this in a better way, probably through getting telemetry reader and reading the
     // required fields. Returns the information whether DRAM training status is available and the status value.
     virtual std::vector<DramTrainingStatus> get_dram_training_status();
@@ -235,4 +234,5 @@ protected:
 
     bool is_remote_tt_device = false;
 };
+
 }  // namespace tt::umd

@@ -5,7 +5,7 @@
  */
 #include "umd/device/wormhole_coordinate_manager.h"
 
-using namespace tt::umd;
+namespace tt::umd {
 
 WormholeCoordinateManager::WormholeCoordinateManager(
     const bool noc_translation_enabled,
@@ -120,3 +120,5 @@ tt_xy_pair WormholeCoordinateManager::get_tensix_grid_size() const {
         tensix_grid_size.x,
         tensix_grid_size.y - CoordinateManager::get_num_harvested(harvesting_masks.tensix_harvesting_mask)};
 }
+
+}  // namespace tt::umd

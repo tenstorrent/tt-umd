@@ -33,6 +33,8 @@ void WarmReset::warm_reset(ARCH architecture, bool reset_m3) {
 }
 
 void WarmReset::warm_reset_blackhole() {
+    PCIDevice::reset_devices(tt::umd::TenstorrentResetDevice::CONFIG_WRITE);
+
     auto pci_device_ids = PCIDevice::enumerate_devices();
 
     std::vector<std::unique_ptr<TTDevice>> tt_devices;
@@ -47,8 +49,6 @@ void WarmReset::warm_reset_blackhole() {
     for (const auto& tt_device : tt_devices) {
         reset_bits.emplace(tt_device->get_pci_device()->get_device_num(), 0x0);
     }
-
-    PCIDevice::reset_devices(tt::umd::TenstorrentResetDevice::CONFIG_WRITE);
 
     bool all_reset_bits_set{true};
 
@@ -92,6 +92,8 @@ void WarmReset::warm_reset_wormhole(bool reset_m3) {
     static constexpr uint32_t MSG_TYPE_ARC_STATE3 = 0xA3 | wormhole::ARC_MSG_COMMON_PREFIX;
     static constexpr uint32_t MSG_TYPE_TRIGGER_RESET = 0x56 | wormhole::ARC_MSG_COMMON_PREFIX;
 
+    PCIDevice::reset_devices(TenstorrentResetDevice::RESET_PCIE_LINK);
+
     auto pci_device_ids = PCIDevice::enumerate_devices();
 
     std::vector<std::unique_ptr<TTDevice>> tt_devices;
@@ -103,8 +105,6 @@ void WarmReset::warm_reset_wormhole(bool reset_m3) {
 
     std::vector<uint64_t> refclk_values_old;
     refclk_values_old.reserve(pci_device_ids.size());
-
-    PCIDevice::reset_devices(TenstorrentResetDevice::RESET_PCIE_LINK);
 
     for (const auto& tt_device : tt_devices) {
         refclk_values_old.emplace_back(get_refclk_counter(tt_device.get()));

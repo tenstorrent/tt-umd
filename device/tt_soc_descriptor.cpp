@@ -128,27 +128,23 @@ void tt_SocDescriptor::create_coordinate_manager(const BoardType board_type, con
         }
     }
 
-    // We have simulation soc descriptors or can have some other reduced soc descriptor.
-    // If there are no multiple PCI cores, skip these checks
-    if (pcie_cores.size() > 1) {
-        // TODO: P100 has two types of boards, each using different PCI core.
-        // Either have two separate enums or completely remove the check here.
-        // PCIE harvesting mask 0x1 corresponds to (2, 0) and 0x2 corresponds to (11, 0).
-        // if (board_type == BoardType::P100 && harvesting_masks.pcie_harvesting_mask != 0x1) {
-        //     throw std::runtime_error("P100 card should always have PCIE core (2, 0) harvested.");
-        // }
+    // TODO: P100 has two types of boards, each using different PCI core.
+    // Either have two separate enums or completely remove the check here.
+    // PCIE harvesting mask 0x1 corresponds to (2, 0) and 0x2 corresponds to (11, 0).
+    // if (board_type == BoardType::P100 && harvesting_masks.pcie_harvesting_mask != 0x1) {
+    //     throw std::runtime_error("P100 card should always have PCIE core (2, 0) harvested.");
+    // }
 
-        if (board_type == BoardType::P150 && harvesting_masks.pcie_harvesting_mask != 0x2) {
-            throw std::runtime_error("P150 card should always have PCIE core (11, 0) harvested.");
-        }
+    if (board_type == BoardType::P150 && harvesting_masks.pcie_harvesting_mask != 0x2) {
+        throw std::runtime_error("P150 card should always have PCIE core (11, 0) harvested.");
+    }
 
-        if (board_type == BoardType::P300 && asic_location == 0 && harvesting_masks.pcie_harvesting_mask != 0x2) {
-            throw std::runtime_error("P300 card left chip should always have PCIE core (11, 0) harvested.");
-        }
+    if (board_type == BoardType::P300 && asic_location == 0 && harvesting_masks.pcie_harvesting_mask != 0x2) {
+        throw std::runtime_error("P300 card left chip should always have PCIE core (11, 0) harvested.");
+    }
 
-        if (board_type == BoardType::P300 && asic_location == 1 && harvesting_masks.pcie_harvesting_mask != 0x1) {
-            throw std::runtime_error("P300 card right chip should always have PCIE core (2, 0) harvested.");
-        }
+    if (board_type == BoardType::P300 && asic_location == 1 && harvesting_masks.pcie_harvesting_mask != 0x1) {
+        throw std::runtime_error("P300 card right chip should always have PCIE core (2, 0) harvested.");
     }
 
     pcie_grid_size = tt_SocDescriptor::calculate_grid_size(pcie_cores);

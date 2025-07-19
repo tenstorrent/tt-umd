@@ -539,12 +539,14 @@ std::unique_ptr<tt_ClusterDescriptor> tt_ClusterDescriptor::create_mock_cluster(
     std::unique_ptr<tt_ClusterDescriptor> desc = std::unique_ptr<tt_ClusterDescriptor>(new tt_ClusterDescriptor());
 
     BoardType board_type;
+    HarvestingMasks harvesting_masks{0, 0, 0, 0};
     switch (arch) {
         case tt::ARCH::WORMHOLE_B0:
             board_type = BoardType::N150;
             break;
         case tt::ARCH::BLACKHOLE:
             board_type = BoardType::P150;
+            harvesting_masks.pcie_harvesting_mask = 0x2;
             break;
         default:
             board_type = BoardType::UNKNOWN;
@@ -563,6 +565,7 @@ std::unique_ptr<tt_ClusterDescriptor> tt_ClusterDescriptor::create_mock_cluster(
         desc->chips_with_mmio.insert({logical_id, logical_id});
         desc->chip_arch.insert({logical_id, arch});
         desc->noc_translation_enabled.insert({logical_id, true});
+        desc->harvesting_masks_map.insert({logical_id, harvesting_masks});
     }
     desc->fill_chips_grouped_by_closest_mmio();
 

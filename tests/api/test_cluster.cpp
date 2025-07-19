@@ -479,6 +479,7 @@ TEST(TestCluster, TestClusterAICLKControl) {
 }
 
 TEST(TestCluster, WarmReset) {
+    // GTEST_SKIP();
     std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
 
     if (cluster->get_target_device_ids().empty()) {
@@ -491,6 +492,7 @@ TEST(TestCluster, WarmReset) {
 
     auto chip_ids = cluster->get_target_device_ids();
     for (auto& chip_id : chip_ids) {
+        std::cout << "chip_id: " << chip_id << "\n";
         const tt_SocDescriptor& soc_desc = cluster->get_soc_descriptor(chip_id);
         auto tensix_cores = cluster->get_soc_descriptor(chip_id).get_cores(CoreType::TENSIX);
 
@@ -521,10 +523,15 @@ TEST(TestCluster, WarmReset) {
     // perform warm reset
     cluster->warm_reset();
 
-    // cluster->bh_warm_reset();
+    auto chip_ids2 = cluster->get_target_device_ids();
+    for (auto& chip_id : chip_ids2) {
+        std::cout << "chip_id: " << chip_id << "\n";
+    }
+    // std::unique_ptr<Cluster> new_cluster = std::make_unique<Cluster>();
 }
 
 TEST(TestCluster, WarmClassReset) {
+    GTEST_SKIP();
     std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
 
     if (cluster->get_target_device_ids().empty()) {

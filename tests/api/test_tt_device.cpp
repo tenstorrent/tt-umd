@@ -6,6 +6,7 @@
 #include "gtest/gtest.h"
 #include "tests/test_utils/device_test_utils.hpp"
 #include "umd/device/blackhole_implementation.h"
+#include "umd/device/chip/local_chip.h"
 #include "umd/device/cluster.h"
 #include "umd/device/tt_device/remote_wormhole_tt_device.h"
 #include "umd/device/tt_device/tt_device.h"
@@ -189,5 +190,9 @@ TEST(ApiTTDeviceTest, WarmResetAfterNocHang) {
         ASSERT_EQ(data_write, data_read);
 
         data_read = std::vector<uint32_t>(data_write.size(), 0);
+    }
+
+    for (int pci_device_id : pci_device_ids) {
+        LocalChip local_chip(TTDevice::create(pci_device_id));
     }
 }

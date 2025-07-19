@@ -33,7 +33,8 @@ flatbuffers::FlatBufferBuilder create_flatbuffer(
     return builder;
 }
 
-void print_flatbuffer(const DeviceRequestResponse* buf) {
+static void print_flatbuffer(const DeviceRequestResponse* buf) {
+#ifdef DEBUG
     std::vector<uint32_t> data_vec(buf->data()->begin(), buf->data()->end());
     uint64_t addr = buf->address();
     uint32_t size = buf->size();
@@ -51,6 +52,7 @@ void print_flatbuffer(const DeviceRequestResponse* buf) {
 
     log_debug(tt::LogEmulationDriver, "{} bytes @ address {} in core ({}, {})", size, addr_hex, core.x, core.y);
     log_debug(tt::LogEmulationDriver, "Data: {}", data_hex);
+#endif
 }
 
 tt_SimulationDeviceInit::tt_SimulationDeviceInit(const std::filesystem::path& simulator_directory) :

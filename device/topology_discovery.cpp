@@ -182,6 +182,7 @@ void TopologyDiscovery::get_pcie_connected_chips() {
                 continue;
             }
             board_ids.insert(board_id);
+            break;
         }
         chips_to_discover.emplace(chip_id, std::move(chip));
         chip_id++;

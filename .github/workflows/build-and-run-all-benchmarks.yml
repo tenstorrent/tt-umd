@@ -1,0 +1,44 @@
+# Build and then run all benchmarks, on all supported archs.
+name: Build and run all benchmarks
+
+on:
+  workflow_dispatch:
+    inputs:
+      build-type:
+        required: false
+        default: Release
+
+jobs:
+  build-tests:
+    secrets: inherit
+    strategy:
+      fail-fast: false
+      matrix:
+        ubuntu-docker-version: [
+          'ubuntu-22.04',
+          'ubuntu-24.04',
+        ]
+    uses: ./.github/workflows/build-tests.yml
+    with:
+      ubuntu-docker-version: ${{ matrix.ubuntu-docker-version}}
+      timeout: 10
+      build-type: ${{ inputs.build-type || 'Release' }}
+
+  run-benchmarks:
+    secrets: inherit
+    needs: build-tests
+    strategy:
+      fail-fast: false
+      matrix:
+        test-group: [
+          {arch: wormhole_b0, card: tt-beta-ubuntu-2204-n150-viommu-large-stable, timeout: 45},
+        ]
+        ubuntu-docker-version: [
+          'ubuntu-22.04',
+        ]
+    uses: ./.github/workflows/run-benchmarks.yml
+    with:
+      arch: ${{ matrix.test-group.arch}}
+      ubuntu-docker-version: ${{ matrix.ubuntu-docker-version}}
+      card: ${{ matrix.test-group.card}}
+      timeout: ${{ matrix.test-group.timeout}}

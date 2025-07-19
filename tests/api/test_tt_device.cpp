@@ -6,6 +6,7 @@
 #include "gtest/gtest.h"
 #include "tests/test_utils/device_test_utils.hpp"
 #include "umd/device/blackhole_implementation.h"
+#include "umd/device/chip/local_chip.h"
 #include "umd/device/cluster.h"
 #include "umd/device/tt_device/remote_wormhole_tt_device.h"
 #include "umd/device/tt_device/tt_device.h"

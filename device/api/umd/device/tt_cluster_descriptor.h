@@ -272,7 +272,6 @@ private:
     std::unordered_map<chip_id_t, chip_id_t> chips_with_mmio;
     std::unordered_set<chip_id_t> all_chips;
     std::unordered_map<chip_id_t, bool> noc_translation_enabled = {};
-    std::unordered_map<chip_id_t, std::uint32_t> harvesting_masks = {};
     std::unordered_map<chip_id_t, chip_id_t> closest_mmio_chip_cache = {};
     std::unordered_map<chip_id_t, BoardType> chip_board_type = {};
     std::unordered_map<chip_id_t, std::unordered_set<chip_id_t>> chips_grouped_by_closest_mmio;

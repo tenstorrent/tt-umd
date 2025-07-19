@@ -338,8 +338,6 @@ void TopologyDiscovery::fill_cluster_descriptor_info() {
         cluster_desc->chip_board_type.insert({current_chip_id, chip->get_chip_info().board_type});
 
         cluster_desc->noc_translation_enabled.insert({current_chip_id, chip->get_chip_info().noc_translation_enabled});
-        cluster_desc->harvesting_masks.insert(
-            {current_chip_id, chip->get_chip_info().harvesting_masks.tensix_harvesting_mask});
         cluster_desc->harvesting_masks_map.insert({current_chip_id, chip->get_chip_info().harvesting_masks});
         // TODO: this neeeds to be moved to specific logic for Wormhole with legacy FW.
         if (!is_running_on_6u) {

@@ -1082,7 +1082,6 @@ std::unique_ptr<tt_ClusterDescriptor> Cluster::create_cluster_descriptor(
         desc->chip_board_type.insert({chip_id, chip->get_chip_info().board_type});
 
         desc->noc_translation_enabled.insert({chip_id, chip->get_chip_info().noc_translation_enabled});
-        desc->harvesting_masks.insert({chip_id, chip->get_chip_info().harvesting_masks.tensix_harvesting_mask});
         desc->harvesting_masks_map.insert({chip_id, chip->get_chip_info().harvesting_masks});
 
         desc->add_chip_to_board(chip_id, chip->get_chip_info().chip_uid.board_id);

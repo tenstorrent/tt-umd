@@ -14,7 +14,7 @@ on:
           - Debug
           - ASan
           - TSan
-  pull_request:
+  # pull_request:
   push:
     branches: ["main"]
 

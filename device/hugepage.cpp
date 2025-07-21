@@ -20,9 +20,7 @@ namespace tt::umd {
 
 const uint32_t g_MAX_HOST_MEM_CHANNELS = 4;
 
-// Hardcode (but allow override) of path now, to support environments with other 1GB hugepage mounts not for runtime.
-const char* hugepage_dir_env = std::getenv("TT_BACKEND_HUGEPAGE_DIR");
-std::string hugepage_dir = hugepage_dir_env ? hugepage_dir_env : "/dev/hugepages-1G";
+std::string hugepage_dir = "/dev/hugepages-1G";
 
 uint32_t get_num_hugepages() {
     std::string nr_hugepages_path = "/sys/kernel/mm/hugepages/hugepages-1048576kB/nr_hugepages";

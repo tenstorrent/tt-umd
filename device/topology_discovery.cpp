@@ -44,6 +44,8 @@ TopologyDiscovery::EthAddresses TopologyDiscovery::get_eth_addresses(uint32_t et
     uint64_t erisc_local_board_id_lo_offset;
     uint64_t erisc_remote_board_id_lo_offset;
     uint64_t erisc_remote_eth_id_offset;
+    uint64_t erisc_local_board_id_hi_offset;
+    uint64_t erisc_remote_board_id_hi_offset;
 
     if (masked_version >= 0x060000) {
         node_info = 0x1100;
@@ -60,12 +62,16 @@ TopologyDiscovery::EthAddresses TopologyDiscovery::get_eth_addresses(uint32_t et
         erisc_remote_board_id_lo_offset = 72;
         erisc_local_board_id_lo_offset = 64;
         erisc_remote_eth_id_offset = 76;
+        erisc_local_board_id_hi_offset = 65;
+        erisc_remote_board_id_hi_offset = 73;
     } else {
         erisc_remote_board_type_offset = 72;
         erisc_local_board_type_offset = 64;
         erisc_remote_board_id_lo_offset = 73;
         erisc_local_board_id_lo_offset = 65;
         erisc_remote_eth_id_offset = 77;
+        erisc_local_board_id_hi_offset = 66;
+        erisc_remote_board_id_hi_offset = 74;
     }
 
     return TopologyDiscovery::EthAddresses{
@@ -77,7 +83,9 @@ TopologyDiscovery::EthAddresses TopologyDiscovery::get_eth_addresses(uint32_t et
         erisc_local_board_type_offset,
         erisc_local_board_id_lo_offset,
         erisc_remote_board_id_lo_offset,
-        erisc_remote_eth_id_offset};
+        erisc_remote_eth_id_offset,
+        erisc_local_board_id_hi_offset,
+        erisc_remote_board_id_hi_offset};
 }
 
 std::unique_ptr<RemoteChip> TopologyDiscovery::create_remote_chip(Chip* chip, tt_xy_pair eth_core, Chip* gateway_chip) {
@@ -178,7 +186,7 @@ void TopologyDiscovery::get_pcie_connected_chips() {
         std::vector<CoreCoord> eth_cores =
             chip->get_soc_descriptor().get_cores(CoreType::ETH, umd_use_noc1 ? CoordSystem::NOC1 : CoordSystem::NOC0);
         for (const CoreCoord& eth_core : eth_cores) {
-            uint64_t board_id = get_local_board_id(chip.get(), eth_core);
+            uint64_t board_id = get_local_board_id_lo(chip.get(), eth_core);
             if (board_id == 0) {
                 continue;
             }
@@ -259,7 +267,7 @@ void TopologyDiscovery::discover_remote_chips() {
 
             active_eth_channels_per_chip.at(current_chip_asic_id).insert(channel);
 
-            if (!is_board_id_included(get_remote_board_id(chip, eth_core))) {
+            if (!is_board_id_included(get_remote_board_id_lo(chip, eth_core), get_remote_board_id_hi(chip, eth_core))) {
                 uint32_t remote_eth_channel;
                 if (is_running_on_6u) {
                     remote_eth_channel = get_remote_eth_id(chip, eth_core);
@@ -400,21 +408,25 @@ bool TopologyDiscovery::is_pcie_chip_id_included(int pci_id) const {
 }
 
 // If pci_target_devices is empty, we should take all the PCI devices found in the system.
-bool TopologyDiscovery::is_board_id_included(uint64_t board_id) const {
+bool TopologyDiscovery::is_board_id_included(uint64_t board_id, uint64_t board_type) const {
     // Since at the moment we don't want to go outside of single host on 6U,
     // we just check for board ids that are discovered from pci_target_devices.
     if (is_running_on_6u) {
         return board_ids.find(board_id) != board_ids.end();
     }
 
-    // For other WH setups, we check additional condition of empty target devices.
-    // This is needed for TG since TG board doesn't have any PCI connected devices.
-    return pci_target_devices.empty() || board_ids.find(board_id) != board_ids.end();
+    // This is TG case, board_type is set to 0. We want to include even the TG board that is not
+    // connected over PCIe, so we always want to include it.
+    if (board_type == 0) {
+        return true;
+    }
+
+    return board_ids.find(board_id) != board_ids.end();
 }
 
-uint64_t TopologyDiscovery::get_remote_board_id(Chip* chip, tt_xy_pair eth_core) {
+uint64_t TopologyDiscovery::get_remote_board_id_lo(Chip* chip, tt_xy_pair eth_core) {
     if (is_running_on_6u) {
-        // See comment in get_local_board_id.
+        // See comment in get_local_board_id_lo.
         return get_remote_asic_id(chip, eth_core);
     }
 
@@ -428,7 +440,7 @@ uint64_t TopologyDiscovery::get_remote_board_id(Chip* chip, tt_xy_pair eth_core)
     return board_id;
 }
 
-uint64_t TopologyDiscovery::get_local_board_id(Chip* chip, tt_xy_pair eth_core) {
+uint64_t TopologyDiscovery::get_local_board_id_lo(Chip* chip, tt_xy_pair eth_core) {
     if (is_running_on_6u) {
         // For 6U, since the whole trays have the same board ID, and we'd want to be able to open
         // only some chips, we hack the board_id to be the asic ID. That way, the pci_target_devices filter
@@ -444,6 +456,28 @@ uint64_t TopologyDiscovery::get_local_board_id(Chip* chip, tt_xy_pair eth_core) 
         &board_id,
         eth_core,
         eth_addresses.results_buf + (4 * eth_addresses.erisc_local_board_id_lo_offset),
+        sizeof(uint32_t));
+    return board_id;
+}
+
+uint64_t TopologyDiscovery::get_remote_board_id_hi(Chip* chip, tt_xy_pair eth_core) {
+    TTDevice* tt_device = chip->get_tt_device();
+    uint32_t board_id;
+    tt_device->read_from_device(
+        &board_id,
+        eth_core,
+        eth_addresses.results_buf + (4 * eth_addresses.erisc_remote_board_id_hi_offset),
+        sizeof(uint32_t));
+    return board_id;
+}
+
+uint64_t TopologyDiscovery::get_local_board_id_hi(Chip* chip, tt_xy_pair eth_core) {
+    TTDevice* tt_device = chip->get_tt_device();
+    uint32_t board_id;
+    tt_device->read_from_device(
+        &board_id,
+        eth_core,
+        eth_addresses.results_buf + (4 * eth_addresses.erisc_local_board_id_hi_offset),
         sizeof(uint32_t));
     return board_id;
 }

@@ -124,9 +124,11 @@ public:
      * @param arc_addr_offset address offset in ARC core
      * @param size number of bytes
      *
-     * NOTE: These functions on Wormhole will use the
-     * AXI interface to read/write the data if the chip is local/PCIe, while the remote chip will use the
-     * the NOC interface to read/write the data. Blackhole for now, will only use the NOC interface to read/write data.
+     * NOTE: This function on Wormhole will use the
+     * AXI interface to read the data if the chip is local/PCIe, while the remote chip will use the
+     * the NOC interface to read the data. Blackhole for now, will only use the NOC interface to read data,
+     * because it is depenedent on the board type if we can send over NOC or over AXI interface even for local/PCIe
+     * chips.
      *
      */
     virtual void read_from_arc(void *mem_ptr, uint64_t arc_addr_offset, [[maybe_unused]] size_t size) = 0;
@@ -138,9 +140,11 @@ public:
      * @param arc_addr_offset address offset in ARC core
      * @param size number of bytes
      *
-     * NOTE: These functions on Wormhole will use the
-     * AXI interface to read/write the data if the chip is local/PCIe, while the remote chip will use the
-     * the NOC interface to read/write the data. Blackhole for now, will only use the NOC interface to read/write data.
+     * NOTE: This function on Wormhole will use the
+     * AXI interface to write the data if the chip is local/PCIe, while the remote chip will use the
+     * the NOC interface to write the data. Blackhole for now, will only use the NOC interface to write data,
+     * because it is depenedent on the board type if we can send over NOC or over AXI interface even for local/PCIe
+     * chips.
      *
      */
     virtual void write_to_arc(const void *mem_ptr, uint64_t arc_addr_offset, [[maybe_unused]] size_t size) = 0;

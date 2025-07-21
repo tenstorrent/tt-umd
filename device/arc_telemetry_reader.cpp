@@ -45,9 +45,6 @@ void ArcTelemetryReader::initialize_telemetry() {
 
         telemetry_values.insert({tag_val, telemetry_data[offset_val]});
         telemetry_offset.insert({tag_val, offset_val});
-        if (possible_static_entries.find(tag_val) != possible_static_entries.end()) {
-            static_entries.insert(tag_val);
-        }
     }
 }
 

@@ -57,8 +57,7 @@ protected:
     TTDevice* tt_device;
 
 private:
-    std::unordered_set<uint16_t> static_entries{};
-    const std::unordered_set<uint16_t> possible_static_entries{
+    const std::unordered_set<uint16_t> static_entries{
         TAG_BOARD_ID_HIGH,
         TAG_BOARD_ID_LOW,
         TAG_ASIC_ID,

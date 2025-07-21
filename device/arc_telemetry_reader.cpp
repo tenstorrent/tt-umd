@@ -56,7 +56,7 @@ uint32_t ArcTelemetryReader::read_entry(const uint8_t telemetry_tag) {
     }
 
     if (static_entries.find(telemetry_tag) != static_entries.end()) {
-        return telemetry_values[telemetry_tag];
+        return telemetry_values.at(telemetry_tag);
     }
 
     const uint32_t offset = telemetry_offset.at(telemetry_tag);

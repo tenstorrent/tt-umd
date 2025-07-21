@@ -102,20 +102,19 @@ private:
     // eth_core should be in physical (NOC0) coordinates.
     std::unique_ptr<RemoteChip> create_remote_chip(Chip* chip, tt_xy_pair eth_core, Chip* gateway_chip);
 
-    Chip* get_chip(const chip_id_t chip_id);
+    Chip* get_chip(const uint64_t asic_id);
 
-    std::map<chip_id_t, std::unique_ptr<Chip>> chips_to_discover;
-    std::map<chip_id_t, std::unique_ptr<Chip>> chips;
+    std::map<uint64_t, std::unique_ptr<Chip>> chips_to_discover;
+    std::map<uint64_t, std::unique_ptr<Chip>> chips;
 
-    std::unordered_map<uint64_t, chip_id_t> asic_id_to_chip_id;
+    std::unordered_map<uint64_t, eth_coord_t> eth_coords;
 
-    std::unordered_map<chip_id_t, eth_coord_t> eth_coords;
+    std::vector<std::pair<std::pair<uint64_t, uint32_t>, std::pair<uint64_t, uint32_t>>> ethernet_connections;
 
-    std::vector<std::pair<std::pair<chip_id_t, uint32_t>, std::pair<chip_id_t, uint32_t>>> ethernet_connections;
+    std::vector<std::pair<std::pair<uint64_t, uint32_t>, std::pair<uint64_t, uint32_t>>>
+        ethernet_connections_to_remote_devices;
 
     std::unique_ptr<tt_ClusterDescriptor> cluster_desc;
-
-    chip_id_t chip_id = 0;
 
     EthAddresses eth_addresses;
 
@@ -124,7 +123,7 @@ private:
     // All board ids that should be included in the cluster descriptor.
     std::unordered_set<uint64_t> board_ids;
 
-    std::unordered_map<chip_id_t, std::set<uint32_t>> active_eth_channels_per_chip;
+    std::unordered_map<uint64_t, std::set<uint32_t>> active_eth_channels_per_chip;
 
     const std::string sdesc_path;
 

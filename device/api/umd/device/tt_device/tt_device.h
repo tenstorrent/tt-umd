@@ -6,7 +6,6 @@
 
 #pragma once
 
-#include <cstdint>
 #include <string_view>
 
 #include "umd/device/arc_messenger.h"

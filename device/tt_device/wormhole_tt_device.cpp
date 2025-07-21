@@ -3,8 +3,6 @@
 // SPDX-License-Identifier: Apache-2.0
 #include "umd/device/tt_device/wormhole_tt_device.h"
 
-#include <cstdint>
-#include <iostream>
 #include <tt-logger/tt-logger.hpp>
 
 #include "umd/device/coordinate_manager.h"

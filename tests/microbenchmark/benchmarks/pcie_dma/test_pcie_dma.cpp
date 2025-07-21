@@ -138,7 +138,7 @@ TEST(MicrobenchmarkPCIeDMA, TensixSweepSizes) {
     const uint64_t limit_buf_size = one_mb;
 
     const std::vector<std::string> headers = {
-        "Size (MB)",
+        "Size (bytes)",
         "Host -> Device Tensix L1 (MB/s)",
         "Device Tensix L1 -> Host (MB/s)",
     };
@@ -146,7 +146,7 @@ TEST(MicrobenchmarkPCIeDMA, TensixSweepSizes) {
     std::vector<std::vector<std::string>> rows;
     for (uint64_t buf_size = 4; buf_size <= limit_buf_size; buf_size *= 2) {
         std::vector<std::string> row;
-        row.push_back(test::utils::convert_double_to_string((double)buf_size / one_mb));
+        row.push_back(test::utils::convert_double_to_string((double)buf_size));
         auto [wr_bw, rd_bw] = perf_read_write(buf_size, NUM_ITERATIONS, cluster, tensix_core);
         row.push_back(test::utils::convert_double_to_string(wr_bw));
         row.push_back(test::utils::convert_double_to_string(rd_bw));

@@ -15,7 +15,10 @@ namespace tt::umd::test::utils {
 
 /**
  * Prints a table in Markdown format. Headers are printed as the first row, followed by a separator row,
- * and then the data rows. Headers length must match the length of each row.
+ * and then the data rows. Headers length must match the length of each row. Example:
+ * | Size (MB) | Host -> Device Tensix L1 (MB/s) | Device Tensix L1 -> Host (MB/s) |
+ * |---|---|---|
+ * | 1.00 | 13157.70 | 2493.65 |
  *
  * @param headers The headers of the table.
  * @param rows The rows of the table, where each row is a vector of strings.

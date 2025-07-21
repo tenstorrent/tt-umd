@@ -56,6 +56,9 @@ static inline std::pair<double, double> perf_read_write(
  * Measure BW of IO to DRAM core using dynamically configured TLB.
  */
 TEST(MicrobenchmarkTLB, TLBDynamicDram) {
+    // Sizes are chosen in a way to avoid TLB benchmark taking too long. 32 MB already
+    // tests chunking of data into smaller chunks to match TLB size.
+    // 64 MB and above showed the same perf locally.
     const std::vector<uint32_t> sizes = {
         1 * one_mb,
         2 * one_mb,
@@ -63,9 +66,6 @@ TEST(MicrobenchmarkTLB, TLBDynamicDram) {
         8 * one_mb,
         16 * one_mb,
         32 * one_mb,
-        64 * one_mb,
-        128 * one_mb,
-        256 * one_mb,
     };
 
     std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
@@ -162,14 +162,12 @@ TEST(MicrobenchmarkTLB, TLBStaticTensix) {
  * Measure BW of IO to DRAM core using dynamically configured TLB.
  */
 TEST(MicrobenchmarkTLB, TLBStaticDram) {
+    // Sizes are chosen in a way to avoid TLB benchmark taking too long. 32 MB already
+    // tests chunking of data into smaller chunks to match TLB size.
+    // 64 MB and above showed the same perf locally.
     const std::vector<uint32_t> sizes = {
         16 * one_mb,
         32 * one_mb,
-        64 * one_mb,
-        128 * one_mb,
-        256 * one_mb,
-        512 * one_mb,
-        1024 * one_mb,
     };
 
     std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();

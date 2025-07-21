@@ -7,6 +7,13 @@ on:
       build-type:
         required: false
         default: Release
+        type: choice
+        options:
+          - Release
+          - RelWithDebInfo
+          - Debug
+          - ASan
+          - TSan
 
 jobs:
   build-tests:

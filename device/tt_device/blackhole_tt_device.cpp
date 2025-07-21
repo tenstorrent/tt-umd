@@ -19,7 +19,6 @@ namespace tt::umd {
 BlackholeTTDevice::BlackholeTTDevice(std::shared_ptr<PCIDevice> pci_device) :
     TTDevice(pci_device, std::make_unique<blackhole_implementation>()) {
     arc_core = tt::umd::blackhole::get_arc_core(get_noc_translation_enabled(), umd_use_noc1);
-    arc_noc_base_address = get_arc_noc_base_address_from_control_block();
     init_tt_device();
 }
 
@@ -161,7 +160,7 @@ void BlackholeTTDevice::wait_arc_core_start(const tt_xy_pair arc_core, const uin
     auto start = std::chrono::system_clock::now();
     uint32_t arc_boot_status;
     while (true) {
-        read_from_device(&arc_boot_status, arc_core, blackhole::SCRATCH_RAM_2, sizeof(arc_boot_status));
+        read_from_arc(&arc_boot_status, blackhole::SCRATCH_RAM_2, sizeof(arc_boot_status));
 
         // ARC started successfully.
         if ((arc_boot_status & 0x7) == 0x5) {
@@ -217,11 +216,11 @@ void BlackholeTTDevice::dma_d2h_zero_copy(void *dst, uint32_t src, size_t size) 
 }
 
 void BlackholeTTDevice::read_from_arc(void *mem_ptr, uint64_t arc_addr_offset, size_t size) {
-    read_from_device(mem_ptr, arc_core, arc_noc_base_address + arc_addr_offset, size);
+    read_from_device(mem_ptr, arc_core, get_arc_noc_base_address() + arc_addr_offset, size);
 };
 
 void BlackholeTTDevice::write_to_arc(const void *mem_ptr, uint64_t arc_addr_offset, size_t size) {
-    write_to_device(mem_ptr, arc_core, arc_noc_base_address + arc_addr_offset, size);
+    write_to_device(mem_ptr, arc_core, get_arc_noc_base_address() + arc_addr_offset, size);
 };
 
 std::vector<DramTrainingStatus> BlackholeTTDevice::get_dram_training_status() {
@@ -284,23 +283,6 @@ double BlackholeTTDevice::get_asic_temperature() {
     return (double)telemetry->read_entry(blackhole::TAG_ASIC_TEMPERATURE) / 65536.0f;
 }
 
-uint64_t BlackholeTTDevice::get_arc_noc_base_address() const { return arc_noc_base_address; }
-
-uint64_t BlackholeTTDevice::get_arc_noc_base_address_from_control_block() {
-    uint32_t queue_control_block_addr;
-    read_from_device(&queue_control_block_addr, arc_core, blackhole::SCRATCH_RAM_11, sizeof(uint32_t));
-
-    uint64_t queue_control_block;
-    read_from_device(&queue_control_block, arc_core, queue_control_block_addr, sizeof(uint64_t));
-
-    uint32_t queue_base_addr = queue_control_block & 0xFFFFFFFF;
-    uint32_t num_entries_per_queue = (queue_control_block >> 32) & 0xFF;
-    uint32_t num_queues = (queue_control_block >> 40) & 0xFF;
-
-    uint32_t msg_queue_size =
-        2 * num_entries_per_queue * blackhole::ARC_QUEUE_ENTRY_SIZE + blackhole::ARC_MSG_QUEUE_HEADER_SIZE;
-    uint32_t msg_queue_base = queue_base_addr + blackhole::BlackholeArcMessageQueueIndex::APPLICATION * msg_queue_size;
-    return msg_queue_base;
-}
+uint64_t BlackholeTTDevice::get_arc_noc_base_address() const { return blackhole::ARC_NOC_XBAR_ADDRESS_START; }
 
 }  // namespace tt::umd

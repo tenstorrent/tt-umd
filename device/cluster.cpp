@@ -130,48 +130,61 @@ void Cluster::create_device(
 }
 
 void Cluster::log_pci_device_summary() {
-    if (chips_.empty()) {
+    if (local_chip_ids_.empty()) {
         return;
     }
-    
-    std::vector<int> pci_device_numbers;
-    std::set<bool> iommu_states;
-    std::set<std::string> kmd_versions;
-    
-    // Collect information from all local chips with PCI devices
-    for (const auto& [chip_id, chip] : chips_) {
-        if (chip->is_mmio_capable()) {  // Only local chips are MMIO capable (Have PCI devices)
-            auto tt_device = chip->get_tt_device();
-            if (tt_device) {
-                auto pci_device = tt_device->get_pci_device();
-                if (pci_device) {
-                    pci_device_numbers.push_back(pci_device->get_device_num());
-                    iommu_states.insert(pci_device->is_iommu_enabled());
-                    kmd_versions.insert(PCIDevice::read_kmd_version().to_string());
-                }
+
+    // Get expected values from first local chip
+    chip_id_t first_chip_id = *local_chip_ids_.begin();
+    auto first_pci_device = chips_.at(first_chip_id)->get_tt_device()->get_pci_device();
+    if (!first_pci_device) {
+        return;
+    }
+
+    bool expected_iommu_state = first_pci_device->is_iommu_enabled();
+    std::string expected_kmd_version = PCIDevice::read_kmd_version().to_string();
+
+    // Check IOMMU status and KMD version consistency across all devices
+    bool all_devices_same_iommu_state = true;
+    bool all_devices_same_kmd_version = true;
+
+    for (chip_id_t chip_id : local_chip_ids_) {
+        auto pci_device = chips_.at(chip_id)->get_tt_device()->get_pci_device();
+        if (pci_device) {
+            bool current_iommu_state = pci_device->is_iommu_enabled();
+            if (current_iommu_state != expected_iommu_state) {
+                log_warning(
+                    LogSiliconDriver,
+                    "IOMMU state mismatch for chip {}: expected {}, got {}",
+                    chip_id,
+                    expected_iommu_state ? "enabled" : "disabled",
+                    current_iommu_state ? "enabled" : "disabled");
+                all_devices_same_iommu_state = false;
+            }
+
+            std::string current_kmd_version = PCIDevice::read_kmd_version().to_string();
+            if (current_kmd_version != expected_kmd_version) {
+                log_warning(
+                    LogSiliconDriver,
+                    "KMD version mismatch for chip {}: expected {}, got {}",
+                    chip_id,
+                    expected_kmd_version,
+                    current_kmd_version);
+                all_devices_same_kmd_version = false;
             }
         }
+
+        if (!all_devices_same_iommu_state && !all_devices_same_kmd_version) {
+            break;  // No need to check further if both conditions are already false
+        }
     }
-    
-    if (pci_device_numbers.empty()) {
-        return;  // No PCI devices found
+
+    if (all_devices_same_iommu_state) {
+        log_info(LogSiliconDriver, "IOMMU: {}", expected_iommu_state ? "enabled" : "disabled");
     }
-    
-    // Log consolidated PCI device summary
-    log_info(LogSiliconDriver, "Opened PCI devices [{}]", fmt::join(pci_device_numbers, ", "));
-    
-    // Log IOMMU status (should be same across all devices)
-    if (iommu_states.size() == 1) {
-        log_info(LogSiliconDriver, "IOMMU: {}", *iommu_states.begin() ? "enabled" : "disabled");
-    } else {
-        log_info(LogSiliconDriver, "IOMMU: mixed states");
-    }
-    
-    // Log KMD version (should be same across all devices)
-    if (kmd_versions.size() == 1) {
-        log_info(LogSiliconDriver, "KMD version: {}", *kmd_versions.begin());
-    } else if (kmd_versions.size() > 1) {
-        log_info(LogSiliconDriver, "KMD versions: [{}]", fmt::join(kmd_versions, ", "));
+
+    if (all_devices_same_kmd_version) {
+        log_info(LogSiliconDriver, "KMD version: {}", expected_kmd_version);
     }
 }
 

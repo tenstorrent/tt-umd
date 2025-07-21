@@ -478,7 +478,6 @@ std::unique_ptr<tt_ClusterDescriptor> tt_ClusterDescriptor::create_constrained_c
     desc->chips_with_mmio = filter_chip_collection(full_cluster_desc->chips_with_mmio, target_chip_ids);
     desc->all_chips = filter_chip_collection(full_cluster_desc->all_chips, target_chip_ids);
     desc->noc_translation_enabled = filter_chip_collection(full_cluster_desc->noc_translation_enabled, target_chip_ids);
-    desc->harvesting_masks = filter_chip_collection(full_cluster_desc->harvesting_masks, target_chip_ids);
     // desc->closest_mmio_chip_cache is not copied intentionally, it could hold wrong information.
     desc->chip_board_type = filter_chip_collection(full_cluster_desc->chip_board_type, target_chip_ids);
     desc->chip_arch = filter_chip_collection(full_cluster_desc->chip_arch, target_chip_ids);
@@ -949,7 +948,6 @@ void tt_ClusterDescriptor::load_harvesting_information(YAML::Node &yaml) {
 
             HarvestingMasks harvesting{0, 0, 0, 0};
 
-            harvesting_masks.insert({chip, harvesting_info["harvest_mask"].as<std::uint32_t>()});
             harvesting.tensix_harvesting_mask = harvesting_info["harvest_mask"].as<std::uint32_t>();
 
             if (harvesting_info["dram_harvesting_mask"].IsDefined()) {

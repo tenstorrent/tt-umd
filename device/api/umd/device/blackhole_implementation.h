@@ -222,8 +222,10 @@ static const uint32_t BH_NOC_NODE_ID_OFFSET = 0x1FD04044;
 
 constexpr uint64_t ARC_NOC_XBAR_ADDRESS_START = 0x80000000;
 
+static constexpr uint32_t ARC_RESET_UNIT_OFFSET = 0x30000;
+
 // Register from which address of the ARC queue control block is read.
-constexpr uint64_t SCRATCH_RAM_11 = 0x3042C;
+constexpr uint32_t SCRATCH_RAM_11 = ARC_RESET_UNIT_OFFSET + 0x42C;
 
 // ARC message queue header and entry size in bytes.
 constexpr uint32_t ARC_MSG_QUEUE_HEADER_SIZE = 32;
@@ -231,14 +233,14 @@ constexpr uint32_t ARC_QUEUE_ENTRY_SIZE = 32;
 
 // ARC firmware interrupt address and value to write in order
 // to make an interrupt request.
-constexpr uint32_t ARC_FW_INT_ADDR = 0x30100;
+constexpr uint32_t ARC_FW_INT_ADDR = ARC_RESET_UNIT_OFFSET + 0x100;
 constexpr uint32_t ARC_FW_INT_VAL = 65536;
 
 constexpr uint32_t ARC_MSG_RESPONSE_OK_LIMIT = 240;
 
-static const uint32_t SCRATCH_RAM_2 = 0x30408;
-static const uint32_t SCRATCH_RAM_12 = 0x30430;
-static const uint32_t SCRATCH_RAM_13 = 0x30434;
+static const uint32_t SCRATCH_RAM_2 = ARC_RESET_UNIT_OFFSET + 0x408;
+static const uint32_t SCRATCH_RAM_12 = ARC_RESET_UNIT_OFFSET + 0x430;
+static const uint32_t SCRATCH_RAM_13 = ARC_RESET_UNIT_OFFSET + 0x434;
 
 static const uint32_t NIU_CFG_NOC0_BAR_ADDR = 0x1FD04100;
 static const uint32_t NIU_CFG_NOC1_BAR_ADDR = 0x1FD14100;

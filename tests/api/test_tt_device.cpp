@@ -157,7 +157,7 @@ TEST(ApiTTDeviceTest, TestRemoteTTDevice) {
 }
 
 TEST(ApiTTDeviceTest, WarmResetAfterNocHang) {
-    // GTEST_SKIP();
+    GTEST_SKIP();
     std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
 
     uint64_t address = 0x0;
@@ -190,6 +190,16 @@ TEST(ApiTTDeviceTest, WarmResetAfterNocHang) {
         ASSERT_EQ(data_write, data_read);
 
         data_read = std::vector<uint32_t>(data_write.size(), 0);
+
+        auto arc_core = tt_device->get_arc_core();
+        tt_device->wait_arc_core_start(arc_core);
+
+        // auto eth_cores = cluster->get_soc_descriptor(chip_id).get_cores(CoreType::ETH, CoordSystem::PHYSICAL);
+        // for(auto& eth_core : eth_cores) {
+        //     tt_device->wait_eth_core_training(eth_core);
+        // }
+
+        tt_device->wait_dram_core_training();
     }
 
     for (int pci_device_id : pci_device_ids) {

@@ -525,9 +525,18 @@ TEST(TestCluster, WarmReset) {
 
     auto chip_ids2 = cluster->get_target_device_ids();
     for (auto& chip_id : chip_ids2) {
+        auto arc_core = cluster->get_tt_device(chip_id)->get_arc_core();
+        cluster->get_chip(chip_id)->get_tt_device()->wait_arc_core_start(arc_core);
+
+        auto eth_cores = cluster->get_soc_descriptor(chip_id).get_cores(CoreType::ETH, CoordSystem::PHYSICAL);
+        for (auto& eth_core : eth_cores) {
+            cluster->get_chip(chip_id)->get_tt_device()->wait_eth_core_training(eth_core);
+        }
+
+        cluster->get_chip(chip_id)->get_tt_device()->wait_dram_core_training();
+
         std::cout << "chip_id: " << chip_id << "\n";
     }
-    // std::unique_ptr<Cluster> new_cluster = std::make_unique<Cluster>();
 }
 
 TEST(TestCluster, WarmClassReset) {

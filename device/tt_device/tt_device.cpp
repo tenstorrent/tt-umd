@@ -358,7 +358,7 @@ void TTDevice::wait_arc_core_start(const tt_xy_pair arc_core, const uint32_t tim
     throw std::runtime_error("Waiting for ARC core to start is supported only for Blackhole TTDevice.");
 }
 
-void TTDevice::wait_dram_core_training(const tt_xy_pair dram_core, const uint32_t timeout_ms) {
+void TTDevice::wait_dram_core_training(const uint32_t timeout_ms) {
     auto start = std::chrono::system_clock::now();
     while (true) {
         std::vector<DramTrainingStatus> dram_training_status = get_dram_training_status();
@@ -425,8 +425,6 @@ ArcMessenger *TTDevice::get_arc_messenger() const { return arc_messenger_.get();
 ArcTelemetryReader *TTDevice::get_arc_telemetry_reader() const { return telemetry.get(); }
 
 TTDevice::~TTDevice() { lock_manager.clear_mutex(MutexType::TT_DEVICE_IO, get_pci_device()->get_device_num()); }
-
-std::vector<DramTrainingStatus> TTDevice::get_dram_training_status() { return {}; }
 
 void TTDevice::wait_for_non_mmio_flush() {}
 

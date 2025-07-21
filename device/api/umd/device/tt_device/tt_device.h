@@ -203,7 +203,7 @@ public:
 
     virtual void wait_eth_core_training(const tt_xy_pair eth_core, const uint32_t timeout_ms = 60000) = 0;
 
-    void wait_dram_core_training(const tt_xy_pair eth_core, const uint32_t timeout_ms = 60000);
+    void wait_dram_core_training(const uint32_t timeout_ms = 60000);
 
     void bar_write32(uint32_t addr, uint32_t data);
 
@@ -229,7 +229,7 @@ public:
 
     // TODO: find a way to expose this in a better way, probably through getting telemetry reader and reading the
     // required fields. Returns the information whether DRAM training status is available and the status value.
-    virtual std::vector<DramTrainingStatus> get_dram_training_status();
+    virtual std::vector<DramTrainingStatus> get_dram_training_status() = 0;
 
     virtual void wait_for_non_mmio_flush();
 
@@ -237,7 +237,7 @@ public:
 
     virtual uint64_t get_arc_noc_base_address() const = 0;
 
-    // virtual uint64_t get_arc_noc_base_address() const = 0;
+    virtual tt_xy_pair get_arc_core() const = 0;
 
 protected:
     std::shared_ptr<PCIDevice> pci_device_;

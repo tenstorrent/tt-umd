@@ -54,6 +54,8 @@ public:
 
     uint64_t get_arc_noc_base_address() const override;
 
+    tt_xy_pair get_arc_core() const override;
+
 protected:
     BlackholeTTDevice() = default;
 

@@ -107,4 +107,4 @@ jobs:
           pip install --no-deps --force-reinstall ./tt_umd-*.whl
           echo "Installation complete."
           echo "Running tests..."
-          pytest -s
+          .venv/bin/python -m pytest -s

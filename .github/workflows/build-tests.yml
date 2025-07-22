@@ -109,8 +109,12 @@ jobs:
 
       - name: Build wheel ${{ env.BUILD_TARGETS }}
         run: |
+          echo "Setting up virtual environment..."
+          python -m venv .venv
+          source .venv/bin/activate
+          python -m pip install --upgrade pip wheel
           echo "Compiling the code..."
-          python setup.py bdist_wheel --dist-dir ${{ env.BUILD_OUTPUT_DIR }}
+          python wheel . --wheel-dir ${{ env.BUILD_OUTPUT_DIR }}
           echo "Compile complete."
 
       - name: Upload wheel

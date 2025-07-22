@@ -412,25 +412,6 @@ uint32_t CoordinateManager::shuffle_tensix_harvesting_mask(tt::ARCH arch, uint32
     return new_harvesting_mask;
 }
 
-uint32_t CoordinateManager::shuffle_tensix_harvesting_mask_to_noc0_coords(
-    tt::ARCH arch, uint32_t tensix_harvesting_logical_layout) {
-    std::vector<uint32_t> sorted_harvesting_locations =
-        architecture_implementation::create(arch)->get_harvesting_noc_locations();
-
-    std::sort(sorted_harvesting_locations.begin(), sorted_harvesting_locations.end());
-    size_t new_harvesting_mask = 0;
-    uint32_t pos = 0;
-    while (tensix_harvesting_logical_layout > 0) {
-        if (tensix_harvesting_logical_layout & 1) {
-            new_harvesting_mask |= (1 << sorted_harvesting_locations[pos]);
-        }
-        tensix_harvesting_logical_layout >>= 1;
-        pos++;
-    }
-
-    return new_harvesting_mask;
-}
-
 const std::vector<tt_xy_pair>& CoordinateManager::get_noc0_pairs(const CoreType core_type) const {
     switch (core_type) {
         case CoreType::TENSIX:

@@ -39,6 +39,7 @@ TopologyDiscovery::EthAddresses TopologyDiscovery::get_eth_addresses(uint32_t et
     uint64_t node_info;
     uint64_t eth_conn_info;
     uint64_t results_buf;
+    uint64_t boot_params;
     uint64_t erisc_remote_board_type_offset;
     uint64_t erisc_local_board_type_offset;
     uint64_t erisc_local_board_id_lo_offset;
@@ -49,6 +50,7 @@ TopologyDiscovery::EthAddresses TopologyDiscovery::get_eth_addresses(uint32_t et
         node_info = 0x1100;
         eth_conn_info = 0x1200;
         results_buf = 0x1ec0;
+        boot_params = 0x1000;
     } else {
         throw std::runtime_error(
             fmt::format("Unsupported ETH version {:#x}. ETH version should always be at least 6.0.0.", eth_fw_version));
@@ -73,6 +75,7 @@ TopologyDiscovery::EthAddresses TopologyDiscovery::get_eth_addresses(uint32_t et
         node_info,
         eth_conn_info,
         results_buf,
+        boot_params,
         erisc_remote_board_type_offset,
         erisc_local_board_type_offset,
         erisc_local_board_id_lo_offset,
@@ -272,6 +275,10 @@ void TopologyDiscovery::discover_remote_chips() {
                                 CoordSystem::LOGICAL)
                             .y;
                 }
+                bool routing_enabled = get_routing_enabled_info(chip, eth_core);
+
+                std::cout << "routing_enabled: " << routing_enabled << std::endl;
+
                 ethernet_connections_to_remote_devices.push_back(
                     {{current_chip_asic_id, channel}, {get_remote_asic_id(chip, eth_core), remote_eth_channel}});
 
@@ -307,6 +314,10 @@ void TopologyDiscovery::discover_remote_chips() {
                             .translate_coord_to(remote_eth_core, CoordSystem::NOC0, CoordSystem::LOGICAL)
                             .y;
                 }
+                bool routing_enabled = get_routing_enabled_info(chip, eth_core);
+
+                std::cout << "routing_enabled: " << routing_enabled << std::endl;
+
                 ethernet_connections.push_back({{current_chip_asic_id, channel}, {remote_asic_id, remote_eth_channel}});
             }
             channel++;
@@ -522,6 +533,19 @@ Chip* TopologyDiscovery::get_chip(const uint64_t asic_id) {
         return chips_to_discover.at(asic_id).get();
     }
     return chips.at(asic_id).get();
+}
+
+// TODO(pjanevski): add galaxy -> non galaxy transition logic here.
+bool TopologyDiscovery::get_routing_enabled_info(Chip* chip, tt_xy_pair eth_core) {
+    uint32_t routing_disabled_info;
+    TTDevice* tt_device = chip->get_tt_device();
+    tt_device->read_from_device(&routing_disabled_info, eth_core, eth_addresses.boot_params + 19 * 4, sizeof(uint32_t));
+
+    uint32_t eth_channel =
+        chip->get_soc_descriptor().translate_coord_to(eth_core, CoordSystem::NOC0, CoordSystem::LOGICAL).y;
+
+    bool routing_disabled = (routing_disabled_info == 1 && read_port_status(chip, eth_core, eth_channel) == 2);
+    return !routing_disabled;
 }
 
 }  // namespace tt::umd

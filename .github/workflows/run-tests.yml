@@ -85,6 +85,16 @@ jobs:
         run: |
           ${{ env.TEST_OUTPUT_DIR }}/umd/unified/unified_tests
 
+      - name: Use wheel artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: wheel-artifact-${{ inputs.ubuntu-docker-version }}
+          path: ./
+
+      - name: Install wheel
+        run: |
+          pip install --no-deps --force-reinstall ./tt_umd-*.whl
+
       - name: Run python example tests
         run: |
-          PYTHONPATH=${{ env.BUILD_OUTPUT_DIR }}/nanobind/ pytest -s
+          pytest -s

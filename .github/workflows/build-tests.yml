@@ -31,15 +31,16 @@ on:
 
 
 env:
-  BUILD_TARGETS: "umd_tests ubench nanobind_libdevice"
+  BUILD_TARGETS: "umd_tests ubench"
   BUILD_OUTPUT_DIR: ./build
   LIB_OUTPUT_DIR: ./build/lib
   DEPS_OUTPUT_DIR: ./build/_deps
   TEST_OUTPUT_DIR: ./build/test
-  NANOBIND_OUTPUT_DIR: ./build/nanobind
   CLUSTER_DESCRIPTORS_DIR: ./tests/api/cluster_descriptor_examples
   SOC_DESCRIPTORS_DIR: ./tests/soc_descs
   NANOBIND_TEST_DIR: ./tests/nanobind
+  # Figure out how to make this more flexible
+  WHEEL_NAME: tt_umd-1.0.0-cp310-cp310-linux_x86_64.whl
 
 jobs:
   build:
@@ -78,7 +79,6 @@ jobs:
           ${{ env.DEPS_OUTPUT_DIR }} \
           ${{ env.CLUSTER_DESCRIPTORS_DIR }} \
           ${{ env.SOC_DESCRIPTORS_DIR }} \
-          ${{ env.NANOBIND_OUTPUT_DIR }} \
           ${{ env.NANOBIND_TEST_DIR }}
 
       - name: Upload build artifacts archive
@@ -86,3 +86,30 @@ jobs:
         with:
           name: build-artifacts-${{ inputs.ubuntu-docker-version }}
           path: artifact.tar
+
+  build-wheel:
+    # Due to parsing bug, fromJSON is used to convert string to number
+    timeout-minutes: ${{ fromJSON(inputs.timeout) }}
+
+    name: Build umd wheel on ${{ inputs.ubuntu-docker-version }}
+    runs-on: ubuntu-22.04
+    container:
+      image: ghcr.io/${{ github.repository }}/tt-umd-ci-${{ inputs.ubuntu-docker-version }}:latest
+      options: --user root
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Build wheel ${{ env.BUILD_TARGETS }}
+        run: |
+          echo "Compiling the code..."
+          python setup.py bdist_wheel --dist-dir ${{ env.BUILD_OUTPUT_DIR }}
+          echo "Compile complete."
+
+      - name: Upload wheel
+        uses: actions/upload-artifact@v4
+        with:
+          name: wheel-artifact-${{ inputs.ubuntu-docker-version }}
+          path: ${{ env.BUILD_OUTPUT_DIR }}/${{ env.WHEEL_NAME}}

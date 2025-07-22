@@ -102,7 +102,7 @@ jobs:
           echo "Setting up virtual environment..."
           python -m venv .venv
           source .venv/bin/activate
-          python -m pip install --upgrade pip wheel
+          python -m pip install --upgrade pip wheel pytest
           echo "Installing the wheel..."
           pip install --no-deps --force-reinstall ./tt_umd-*.whl
           echo "Installation complete."

@@ -96,7 +96,7 @@ jobs:
         with:
           python-version: '3.12'
 
-      - name: Install wheel
+      - name: Install wheel and run pytest
         shell: bash
         run: |
           echo "Setting up virtual environment..."
@@ -106,7 +106,5 @@ jobs:
           echo "Installing the wheel..."
           pip install --no-deps --force-reinstall ./tt_umd-*.whl
           echo "Installation complete."
-
-      - name: Run python example tests
-        run: |
+          echo "Running tests..."
           pytest -s

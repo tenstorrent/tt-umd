@@ -107,7 +107,7 @@ jobs:
         with:
           python-version: '3.12'
 
-      - name: Build wheel ${{ env.BUILD_TARGETS }}
+      - name: Build wheel
         shell: bash
         run: |
           echo "Setting up virtual environment..."

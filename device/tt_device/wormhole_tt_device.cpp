@@ -394,6 +394,19 @@ void WormholeTTDevice::wait_eth_core_training(const tt_xy_pair eth_core, const u
             break;
         }
     }
+
+    uint32_t channel = 0;
+    uint32_t port_status = read_port_status(eth_core, channel);
+    start = std::chrono::system_clock::now();
+    while (port_status == ETH_UNKNOWN) {
+        uint32_t port_status = read_port_status(eth_core, channel);
+        auto end = std::chrono::system_clock::now();
+        auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
+        if (duration.count() > timeout_ms) {
+            log_error(LogSiliconDriver, "ETH training timed out after {} ms", timeout_ms);
+            break;
+        }
+    }
 }
 
 double WormholeTTDevice::get_asic_temperature() {
@@ -405,5 +418,60 @@ double WormholeTTDevice::get_asic_temperature() {
 tt_xy_pair WormholeTTDevice::get_arc_core() const { return arc_core; }
 
 uint64_t WormholeTTDevice::get_arc_noc_base_address() const { return wormhole::ARC_NOC_XBAR_ADDRESS_START; }
+
+uint32_t WormholeTTDevice::read_port_status(tt_xy_pair eth_core, uint32_t channel) {
+    uint32_t port_status;
+    EthAddresses eth_addresses =
+        get_eth_addresses(get_arc_telemetry_reader()->read_entry(wormhole::TAG_ETH_FW_VERSION));
+    read_from_device(&port_status, eth_core, eth_addresses.eth_conn_info + (channel * 4), sizeof(uint32_t));
+    return port_status;
+}
+
+WormholeTTDevice::EthAddresses WormholeTTDevice::get_eth_addresses(uint32_t eth_fw_version) {
+    uint32_t masked_version = eth_fw_version & 0x00FFFFFF;
+
+    uint64_t node_info;
+    uint64_t eth_conn_info;
+    uint64_t results_buf;
+    uint64_t erisc_remote_board_type_offset;
+    uint64_t erisc_local_board_type_offset;
+    uint64_t erisc_local_board_id_lo_offset;
+    uint64_t erisc_remote_board_id_lo_offset;
+    uint64_t erisc_remote_eth_id_offset;
+
+    if (masked_version >= 0x060000) {
+        node_info = 0x1100;
+        eth_conn_info = 0x1200;
+        results_buf = 0x1ec0;
+    } else {
+        throw std::runtime_error(
+            fmt::format("Unsupported ETH version {:#x}. ETH version should always be at least 6.0.0.", eth_fw_version));
+    }
+
+    if (masked_version >= 0x06C000) {
+        erisc_remote_board_type_offset = 77;
+        erisc_local_board_type_offset = 69;
+        erisc_remote_board_id_lo_offset = 72;
+        erisc_local_board_id_lo_offset = 64;
+        erisc_remote_eth_id_offset = 76;
+    } else {
+        erisc_remote_board_type_offset = 72;
+        erisc_local_board_type_offset = 64;
+        erisc_remote_board_id_lo_offset = 73;
+        erisc_local_board_id_lo_offset = 65;
+        erisc_remote_eth_id_offset = 77;
+    }
+
+    return EthAddresses{
+        masked_version,
+        node_info,
+        eth_conn_info,
+        results_buf,
+        erisc_remote_board_type_offset,
+        erisc_local_board_type_offset,
+        erisc_local_board_id_lo_offset,
+        erisc_remote_board_id_lo_offset,
+        erisc_remote_eth_id_offset};
+}
 
 }  // namespace tt::umd

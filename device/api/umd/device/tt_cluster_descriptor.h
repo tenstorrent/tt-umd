@@ -105,7 +105,7 @@ public:
     bool is_chip_mmio_capable(const chip_id_t chip_id) const;
     bool is_chip_remote(const chip_id_t chip_id) const;
     chip_id_t get_closest_mmio_capable_chip(const chip_id_t chip);
-    chip_id_t get_shelf_local_noc0_chip_coords(chip_id_t virtual_coord);
+    chip_id_t get_shelf_local_physical_chip_coords(chip_id_t virtual_coord);
 
     static std::unique_ptr<tt_ClusterDescriptor> create_from_yaml(const std::string &cluster_descriptor_file_path);
 

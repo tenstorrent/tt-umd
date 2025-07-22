@@ -389,7 +389,7 @@ void CoordinateManager::fill_arc_default_noc0_translated_mapping() {
 
 HarvestingMasks CoordinateManager::get_harvesting_masks() const { return harvesting_masks; }
 
-uint32_t CoordinateManager::shuffle_tensix_harvesting_mask(tt::ARCH arch, uint32_t tensix_harvesting_noc0_layout) {
+uint32_t CoordinateManager::shuffle_tensix_harvesting_mask(tt::ARCH arch, uint32_t tensix_harvesting_physical_layout) {
     std::vector<uint32_t> harvesting_locations =
         architecture_implementation::create(arch)->get_harvesting_noc_locations();
 
@@ -397,15 +397,15 @@ uint32_t CoordinateManager::shuffle_tensix_harvesting_mask(tt::ARCH arch, uint32
     std::sort(sorted_harvesting_locations.begin(), sorted_harvesting_locations.end());
     size_t new_harvesting_mask = 0;
     uint32_t pos = 0;
-    while (tensix_harvesting_noc0_layout > 0) {
-        if (tensix_harvesting_noc0_layout & 1) {
+    while (tensix_harvesting_physical_layout > 0) {
+        if (tensix_harvesting_physical_layout & 1) {
             uint32_t sorted_position =
                 std::find(
                     sorted_harvesting_locations.begin(), sorted_harvesting_locations.end(), harvesting_locations[pos]) -
                 sorted_harvesting_locations.begin();
             new_harvesting_mask |= (1 << sorted_position);
         }
-        tensix_harvesting_noc0_layout >>= 1;
+        tensix_harvesting_physical_layout >>= 1;
         pos++;
     }
 

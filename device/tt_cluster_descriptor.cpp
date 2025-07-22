@@ -999,10 +999,10 @@ const std::unordered_map<chip_id_t, uint64_t> &tt_ClusterDescriptor::get_chip_un
     return chip_unique_ids;
 }
 
-chip_id_t tt_ClusterDescriptor::get_shelf_local_noc0_chip_coords(chip_id_t virtual_coord) {
+chip_id_t tt_ClusterDescriptor::get_shelf_local_physical_chip_coords(chip_id_t virtual_coord) {
     TT_ASSERT(
         !this->chip_locations.empty(),
-        "Getting noc0 chip coordinates is only valid for systems where chips have coordinates");
+        "Getting physical chip coordinates is only valid for systems where chips have coordinates");
     // NoC 0 coordinates of chip inside a single rack. Calculated based on Galaxy topology.
     // See:
     // https://yyz-gitlab.local.tenstorrent.com/tenstorrent/budabackend/-/wikis/uploads/23e7a5168f38dfb706f9887fde78cb03/image.png

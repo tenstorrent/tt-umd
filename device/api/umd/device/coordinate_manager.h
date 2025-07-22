@@ -58,9 +58,9 @@ public:
     static size_t get_num_harvested(const size_t harvesting_mask);
     static std::vector<size_t> get_harvested_indices(const size_t harvesting_mask);
 
-    // Harvesting mask is reported by hardware in the order of noc0 layout. This function returns a more suitable
+    // Harvesting mask is reported by hardware in the order of physical layout. This function returns a more suitable
     // representation in logical order: Bit 0 being set means the first row in NOC0 coords is harvested.
-    static uint32_t shuffle_tensix_harvesting_mask(tt::ARCH arch, uint32_t tensix_harvesting_noc0_layout);
+    static uint32_t shuffle_tensix_harvesting_mask(tt::ARCH arch, uint32_t tensix_harvesting_physical_layout);
     // TODO: This function should be removed once the corresponding API is removed from Cluster.
     static uint32_t shuffle_tensix_harvesting_mask_to_noc0_coords(
         tt::ARCH arch, uint32_t tensix_harvesting_logical_layout);

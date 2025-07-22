@@ -539,7 +539,7 @@ std::unordered_map<chip_id_t, std::vector<std::vector<int>>>& Cluster::get_ether
         for (const auto& chip : all_chip_ids_) {
             if (chips_to_exclude.find(chip) == chips_to_exclude.end()) {
                 // Get shelf local physical chip id included in broadcast
-                chip_id_t physical_chip_id = cluster_desc->get_shelf_local_noc0_chip_coords(chip);
+                chip_id_t physical_chip_id = cluster_desc->get_shelf_local_physical_chip_coords(chip);
                 eth_coord_t eth_coords = cluster_desc->get_chip_locations().at(chip);
                 // Rack word to be set in header
                 uint32_t rack_word = eth_coords.rack >> 2;

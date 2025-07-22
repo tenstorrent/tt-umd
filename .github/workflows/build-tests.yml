@@ -115,7 +115,7 @@ jobs:
           source .venv/bin/activate
           python -m pip install --upgrade pip wheel
           echo "Compiling the code..."
-          python wheel . --wheel-dir ${{ env.BUILD_OUTPUT_DIR }}
+          pip wheel . --wheel-dir ${{ env.BUILD_OUTPUT_DIR }}
           echo "Compile complete."
 
       - name: Upload wheel

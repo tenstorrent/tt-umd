@@ -319,7 +319,19 @@ void TopologyDiscovery::fill_cluster_descriptor_info() {
     std::map<uint64_t, chip_id_t> asic_id_to_chip_id;
     chip_id_t chip_id = 0;
     for (const auto& [current_chip_asic_id, chip] : chips) {
-        asic_id_to_chip_id.emplace(current_chip_asic_id, chip_id++);
+        if (chip->is_mmio_capable()) {
+            asic_id_to_chip_id.emplace(current_chip_asic_id, chip_id);
+            cluster_desc->chip_unique_ids.emplace(chip_id, current_chip_asic_id);
+            chip_id++;
+        }
+    }
+
+    for (const auto& [current_chip_asic_id, chip] : chips) {
+        if (!chip->is_mmio_capable()) {
+            asic_id_to_chip_id.emplace(current_chip_asic_id, chip_id);
+            cluster_desc->chip_unique_ids.emplace(chip_id, current_chip_asic_id);
+            chip_id++;
+        }
     }
 
     for (const auto& [current_chip_asic_id, chip] : chips) {
@@ -345,10 +357,6 @@ void TopologyDiscovery::fill_cluster_descriptor_info() {
         }
 
         cluster_desc->add_chip_to_board(current_chip_id, chip->get_chip_info().chip_uid.board_id);
-    }
-
-    for (const auto& [asic_id, current_chip_id] : asic_id_to_chip_id) {
-        cluster_desc->chip_unique_ids.emplace(current_chip_id, asic_id);
     }
 
     for (auto [ethernet_connection_logical, ethernet_connection_remote] : ethernet_connections) {

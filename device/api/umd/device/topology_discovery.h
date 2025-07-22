@@ -28,6 +28,7 @@ private:
         uint64_t node_info;
         uint64_t eth_conn_info;
         uint64_t results_buf;
+        uint64_t boot_params;
         uint64_t erisc_remote_board_type_offset;
         uint64_t erisc_local_board_type_offset;
         uint64_t erisc_local_board_id_lo_offset;
@@ -96,6 +97,11 @@ private:
     // that we should override for T3K/6U/BH..
     // eth_core should be in NoC 0 coordinates..
     uint32_t read_port_status(Chip* chip, tt_xy_pair eth_core, uint32_t channel);
+
+    // TODO: override this logic for different configs. This is in group of functions
+    // that we should override for T3K/6U/BH..
+    // eth_core should be in NoC 0 coordinates..
+    bool get_routing_enabled_info(Chip* chip, tt_xy_pair eth_core);
 
     // TODO: override this logic for different configs. This is in group of functions
     // that we should override for T3K/6U/BH...

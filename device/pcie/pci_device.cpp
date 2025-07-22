@@ -771,8 +771,9 @@ void PCIDevice::allocate_pcie_dma_buffer() {
     // is a temporary hack until it's implemented in the driver, we'll need to
     // poll a completion page to know when the DMA is done instead of receiving
     // an interrupt.
+
     // Allocation tries to allocate larger DMA buffers first. Starting size depends on whether IOMMU is enabled or not.
-    // If IOMMU is enabled, we will try to allocate 1GB buffer first.
+    // If IOMMU is enabled, we will try to allocate 16MB buffer first.
     // If IOMMU is not enabled, we will try to allocate 2MB buffer first.
     // If that fails, we will try smaller sizes until we can't allocate even single page.
     uint32_t dma_buf_size;
@@ -800,7 +801,7 @@ void PCIDevice::allocate_pcie_dma_buffer() {
             // so throwing our way out of here is wrong.  For now, we will log
             // here and throw when PCIe DMA is attempted.  Maybe a higher layer
             // in UMD can fall back to MMIO if that happens.
-            log_error(LogSiliconDriver, "Failed to allocate DMA buffer: {}", strerror(errno));
+            log_debug(LogSiliconDriver, "Failed to allocate DMA buffer: {}", strerror(errno));
         } else {
             // OK - we have a buffer.  Map it.
             void *buffer = mmap(

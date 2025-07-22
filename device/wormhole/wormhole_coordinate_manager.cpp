@@ -44,20 +44,20 @@ WormholeCoordinateManager::WormholeCoordinateManager(
     initialize();
 }
 
-void WormholeCoordinateManager::fill_tensix_physical_translated_mapping() {
+void WormholeCoordinateManager::fill_tensix_noc0_translated_mapping() {
     size_t num_harvested_y = CoordinateManager::get_num_harvested(harvesting_masks.tensix_harvesting_mask);
 
     for (size_t y = 0; y < tensix_grid_size.y - num_harvested_y; y++) {
         for (size_t x = 0; x < tensix_grid_size.x; x++) {
             CoreCoord logical_coord = CoreCoord(x, y, CoreType::TENSIX, CoordSystem::LOGICAL);
-            const tt_xy_pair physical_pair = to_physical_map[logical_coord];
+            const tt_xy_pair noc0_pair = to_noc0_map[logical_coord];
             const size_t translated_x = x + wormhole::tensix_translated_coordinate_start_x;
             const size_t translated_y = y + wormhole::tensix_translated_coordinate_start_y;
 
             CoreCoord translated_coord =
                 CoreCoord(translated_x, translated_y, CoreType::TENSIX, CoordSystem::TRANSLATED);
 
-            add_core_translation(translated_coord, physical_pair);
+            add_core_translation(translated_coord, noc0_pair);
         }
     }
 
@@ -66,24 +66,24 @@ void WormholeCoordinateManager::fill_tensix_physical_translated_mapping() {
     for (size_t y = 0; y < tensix_grid_size.y; y++) {
         if (harvesting_masks.tensix_harvesting_mask & (1 << y)) {
             for (size_t x = 0; x < tensix_grid_size.x; x++) {
-                const tt_xy_pair physical_core = tensix_cores[y * tensix_grid_size.x + x];
+                const tt_xy_pair noc0_core = tensix_cores[y * tensix_grid_size.x + x];
                 const size_t translated_x = x + wormhole::tensix_translated_coordinate_start_x;
                 CoreCoord translated_coord =
                     CoreCoord(translated_x, translated_y, CoreType::TENSIX, CoordSystem::TRANSLATED);
 
-                add_core_translation(translated_coord, physical_core);
+                add_core_translation(translated_coord, noc0_core);
             }
             translated_y++;
         }
     }
 }
 
-void WormholeCoordinateManager::fill_dram_physical_translated_mapping() {
+void WormholeCoordinateManager::fill_dram_noc0_translated_mapping() {
     // DRAM cores are not translated in Wormhole.
-    fill_dram_default_physical_translated_mapping();
+    fill_dram_default_noc0_translated_mapping();
 }
 
-void WormholeCoordinateManager::fill_eth_physical_translated_mapping() {
+void WormholeCoordinateManager::fill_eth_noc0_translated_mapping() {
     for (auto eth_core : eth_cores) {
         CoreCoord translated_coord = CoreCoord(eth_core, CoreType::ETH, CoordSystem::TRANSLATED);
 
@@ -105,14 +105,14 @@ void WormholeCoordinateManager::fill_eth_physical_translated_mapping() {
     }
 }
 
-void WormholeCoordinateManager::fill_pcie_physical_translated_mapping() {
+void WormholeCoordinateManager::fill_pcie_noc0_translated_mapping() {
     // PCIE cores are not translated in Wormhole.
-    fill_pcie_default_physical_translated_mapping();
+    fill_pcie_default_noc0_translated_mapping();
 }
 
-void WormholeCoordinateManager::fill_arc_physical_translated_mapping() {
+void WormholeCoordinateManager::fill_arc_noc0_translated_mapping() {
     // ARC cores are not translated in Wormhole.
-    fill_arc_default_physical_translated_mapping();
+    fill_arc_default_noc0_translated_mapping();
 }
 
 tt_xy_pair WormholeCoordinateManager::get_tensix_grid_size() const {

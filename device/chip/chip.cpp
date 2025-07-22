@@ -65,7 +65,7 @@ void Chip::wait_chip_to_be_ready() {
 
 void Chip::wait_eth_cores_training(const uint32_t timeout_ms) {
     const std::vector<CoreCoord> eth_cores =
-        get_soc_descriptor().get_cores(CoreType::ETH, umd_use_noc1 ? CoordSystem::NOC1 : CoordSystem::PHYSICAL);
+        get_soc_descriptor().get_cores(CoreType::ETH, umd_use_noc1 ? CoordSystem::NOC1 : CoordSystem::NOC0);
     TTDevice* tt_device = get_tt_device();
     for (const CoreCoord& eth_core : eth_cores) {
         tt_device->wait_eth_core_training(eth_core, timeout_ms);

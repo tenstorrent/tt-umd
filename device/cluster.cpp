@@ -1124,12 +1124,11 @@ std::unique_ptr<tt_ClusterDescriptor> Cluster::create_cluster_descriptor(
                         chip_id,
                         remote_info.get_chip_uid().board_id);
                 } else {
-                    const CoreCoord logical_remote_coord = chips.at(remote_chip_id.value())
-                                                               ->get_soc_descriptor()
-                                                               .translate_coord_to(
-                                                                   blackhole::ETH_CORES_NOC0[remote_info.eth_id],
-                                                                   CoordSystem::PHYSICAL,
-                                                                   CoordSystem::LOGICAL);
+                    const CoreCoord logical_remote_coord =
+                        chips.at(remote_chip_id.value())
+                            ->get_soc_descriptor()
+                            .translate_coord_to(
+                                blackhole::ETH_CORES_NOC0[remote_info.eth_id], CoordSystem::NOC0, CoordSystem::LOGICAL);
                     // Adding a connection only one way, the other chip should add it another way.
                     desc->ethernet_connections[local_chip_id][eth_channel] = {
                         remote_chip_id.value(), logical_remote_coord.y};

@@ -33,7 +33,7 @@ public:
      * @param value
      */
     template <class T>
-    void write(uint32_t address, T value) {
+    void write(uint32_t address, T value) const {
         auto dst = reinterpret_cast<uintptr_t>(base) + address;
 
         if (address >= tlb_size) {

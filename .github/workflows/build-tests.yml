@@ -40,7 +40,7 @@ env:
   SOC_DESCRIPTORS_DIR: ./tests/soc_descs
   NANOBIND_TEST_DIR: ./tests/nanobind
   # Figure out how to make this more flexible
-  WHEEL_NAME: tt_umd-1.0.0-cp310-cp310-linux_x86_64.whl
+  WHEEL_NAME: tt_umd-1.0.0-cp312-cp312-linux_x86_64.whl
 
 jobs:
   build:
@@ -101,6 +101,11 @@ jobs:
       - uses: actions/checkout@v4
         with:
           submodules: recursive
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.12'
 
       - name: Build wheel ${{ env.BUILD_TARGETS }}
         run: |

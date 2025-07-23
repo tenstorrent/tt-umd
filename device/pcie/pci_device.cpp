@@ -150,14 +150,11 @@ static void reset_device(uint32_t flags) {
         try {
             tenstorrent_reset_device reset_info{};
 
-            // Initialize input fields matching Python: output_size_bytes, flags
             reset_info.in.output_size_bytes = sizeof(reset_info.out);
             reset_info.in.flags = flags;
 
-            // Initialize output fields to zero
             reset_info.out.output_size_bytes = 0;
             reset_info.out.result = 0;
-
             if (ioctl(fd, TENSTORRENT_IOCTL_RESET_DEVICE, &reset_info) == -1) {
                 TT_THROW("TENSTORRENT_IOCTL_RESET_DEVICE failed");
             }
@@ -588,9 +585,13 @@ std::unique_ptr<TlbHandle> PCIDevice::allocate_tlb(const size_t tlb_size, const 
 
 void PCIDevice::reset_devices(TenstorrentResetDevice flag) { reset_device(static_cast<uint32_t>(flag)); }
 
-uint8_t PCIDevice::read_command_byte() {
-    auto device_info = get_device_info();
-    // offset 4 for command register
+uint8_t PCIDevice::read_command_byte(const int pci_device_num) {
+    int fd = open(fmt::format("/dev/tenstorrent/{}", pci_device_num).c_str(), O_RDWR | O_CLOEXEC);
+    if (fd == -1) {
+        TT_THROW("Coudln't open file descriptor for PCI device number: {}", pci_device_num);
+    }
+    auto device_info = read_device_info(fd);
+
     auto command_byte = try_read_config_byte(device_info, 4);
     if (!command_byte) {
         const auto sysfs_path = fmt::format(

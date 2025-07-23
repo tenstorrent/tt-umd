@@ -178,7 +178,7 @@ public:
     /**
      * Read command byte.
      */
-    uint8_t read_command_byte();
+    static uint8_t read_command_byte(const int pci_device_num);
 
     /**
      * Reset device via ioctl.

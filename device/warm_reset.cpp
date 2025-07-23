@@ -32,33 +32,28 @@ void WarmReset::warm_reset(ARCH architecture, bool reset_m3) {
 }
 
 void WarmReset::warm_reset_blackhole() {
+    static constexpr int post_reset_wait = 2;
+
     PCIDevice::reset_devices(tt::umd::TenstorrentResetDevice::CONFIG_WRITE);
 
     auto pci_device_ids = PCIDevice::enumerate_devices();
 
-    std::vector<std::unique_ptr<TTDevice>> tt_devices;
-    tt_devices.reserve(pci_device_ids.size());
-
-    for (auto& i : pci_device_ids) {
-        tt_devices.emplace_back(TTDevice::create(i));
-    }
-
     std::map<int, bool> reset_bits;
 
-    for (const auto& tt_device : tt_devices) {
-        reset_bits.emplace(tt_device->get_pci_device()->get_device_num(), 0x0);
+    for (const auto& pci_device_id : pci_device_ids) {
+        reset_bits.emplace(pci_device_id, 0);
     }
 
     bool all_reset_bits_set{true};
 
     auto start = std::chrono::steady_clock::now();
-    auto timeout_duration = std::chrono::milliseconds(2000);  // 5 seconds
+    auto timeout_duration = std::chrono::milliseconds(2000);
 
     while (std::chrono::steady_clock::now() - start < timeout_duration) {
-        for (const auto& tt_device : tt_devices) {
-            auto command_byte = tt_device->get_pci_device()->read_command_byte();
+        for (const auto& pci_device_id : pci_device_ids) {
+            auto command_byte = PCIDevice::read_command_byte(pci_device_id);
             bool reset_bit = (command_byte >> 1) & 1;
-            reset_bits[tt_device->get_pci_device()->get_device_num()] = reset_bit;
+            reset_bits[pci_device_id] = reset_bit;
         }
 
         for (auto& [pci_device_id, reset_bit] : reset_bits) {
@@ -74,6 +69,8 @@ void WarmReset::warm_reset_blackhole() {
 
         std::this_thread::sleep_for(std::chrono::milliseconds(10));
     }
+
+    sleep(post_reset_wait);
 
     if (!all_reset_bits_set) {
         for (auto& [chip, reset_bit] : reset_bits) {

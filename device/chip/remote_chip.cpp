@@ -30,7 +30,16 @@ bool RemoteChip::is_mmio_capable() const { return false; }
 
 void RemoteChip::start_device() {}
 
-void RemoteChip::close_device() {}
+void RemoteChip::close_device() {
+    // Investigating https://github.com/tenstorrent/tt-metal/issues/25377 found that closing device that was already put
+    // in LONG_IDLE by tt-smi reset would hang
+    if ((uint32_t)local_chip_->get_clock() != local_chip_->get_tt_device()->get_min_clock_freq()) {
+        if ((uint32_t)get_clock() != get_tt_device()->get_min_clock_freq()) {
+            set_power_state(tt_DevicePowerState::LONG_IDLE);
+            send_tensix_risc_reset(TENSIX_ASSERT_SOFT_RESET);
+        }
+    }
+}
 
 void RemoteChip::write_to_device(CoreCoord core, const void* src, uint64_t l1_dest, uint32_t size) {
     tt_device_->write_to_device(src, translate_chip_coord_to_translated(core), l1_dest, size);

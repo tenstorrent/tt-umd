@@ -630,9 +630,9 @@ void tt_SocDescriptor::get_cores_and_grid_size_from_coordinate_manager() {
 }
 
 std::vector<CoreCoord> tt_SocDescriptor::translate_coordinates(
-    const std::vector<CoreCoord> &physical_cores, const CoordSystem coord_system) const {
+    const std::vector<CoreCoord> &noc0_cores, const CoordSystem coord_system) const {
     std::vector<CoreCoord> translated_cores;
-    for (const auto &core : physical_cores) {
+    for (const auto &core : noc0_cores) {
         translated_cores.push_back(translate_coord_to(core, coord_system));
     }
     return translated_cores;
@@ -640,7 +640,7 @@ std::vector<CoreCoord> tt_SocDescriptor::translate_coordinates(
 
 std::vector<CoreCoord> tt_SocDescriptor::get_cores(const CoreType core_type, const CoordSystem coord_system) const {
     auto cores_map_it = cores_map.find(core_type);
-    if (coord_system != CoordSystem::PHYSICAL) {
+    if (coord_system != CoordSystem::NOC0) {
         return translate_coordinates(cores_map_it->second, coord_system);
     }
     return cores_map_it->second;
@@ -652,7 +652,7 @@ std::vector<CoreCoord> tt_SocDescriptor::get_harvested_cores(
         throw std::runtime_error("Harvested cores are not supported for logical coordinates");
     }
     auto harvested_cores_map_it = harvested_cores_map.find(core_type);
-    if (coord_system != CoordSystem::PHYSICAL) {
+    if (coord_system != CoordSystem::NOC0) {
         return translate_coordinates(harvested_cores_map_it->second, coord_system);
     }
     return harvested_cores_map_it->second;

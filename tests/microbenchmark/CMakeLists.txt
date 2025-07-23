@@ -2,6 +2,7 @@ set(UBENCH_SRC
     benchmarks/tlb/test_tlb.cpp
     benchmarks/pcie_dma/test_pcie_dma.cpp
     benchmarks/iommu/test_iommu.cpp
+    common/microbenchmark_utils.cpp
 )
 add_executable(ubench ${UBENCH_SRC})
 target_link_libraries(
@@ -10,7 +11,12 @@ target_link_libraries(
         test_common
         nanobench
 )
-target_include_directories(ubench PRIVATE ${nanobench_SOURCE_DIR}/src/include)
+target_include_directories(
+    ubench
+    PRIVATE
+        ${nanobench_SOURCE_DIR}/src/include
+        .
+)
 set_target_properties(
     ubench
     PROPERTIES

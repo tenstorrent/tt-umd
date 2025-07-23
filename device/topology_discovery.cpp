@@ -199,12 +199,11 @@ uint64_t TopologyDiscovery::get_asic_id(Chip* chip) {
     std::vector<CoreCoord> eth_cores =
         chip->get_soc_descriptor().get_cores(CoreType::ETH, umd_use_noc1 ? CoordSystem::NOC1 : CoordSystem::NOC0);
 
-    uint32_t channel = 0;
     for (const CoreCoord& eth_core : eth_cores) {
+        const uint32_t channel = chip->get_soc_descriptor().translate_coord_to(eth_core, CoordSystem::LOGICAL).y;
         uint32_t port_status = read_port_status(chip, eth_core, channel);
 
         if (port_status == eth_unknown || port_status == eth_unconnected) {
-            channel++;
             continue;
         }
 
@@ -248,12 +247,11 @@ void TopologyDiscovery::discover_remote_chips() {
             chip->get_soc_descriptor().get_cores(CoreType::ETH, umd_use_noc1 ? CoordSystem::NOC1 : CoordSystem::NOC0);
         TTDevice* tt_device = chip->get_tt_device();
 
-        uint32_t channel = 0;
         for (const CoreCoord& eth_core : eth_cores) {
+            const uint32_t channel = chip->get_soc_descriptor().translate_coord_to(eth_core, CoordSystem::LOGICAL).y;
             uint32_t port_status = read_port_status(chip, eth_core, channel);
 
             if (port_status == eth_unknown || port_status == eth_unconnected) {
-                channel++;
                 continue;
             }
 
@@ -274,8 +272,6 @@ void TopologyDiscovery::discover_remote_chips() {
                 }
                 ethernet_connections_to_remote_devices.push_back(
                     {{current_chip_asic_id, channel}, {get_remote_asic_id(chip, eth_core), remote_eth_channel}});
-
-                channel++;
                 continue;
             }
 
@@ -309,7 +305,6 @@ void TopologyDiscovery::discover_remote_chips() {
                 }
                 ethernet_connections.push_back({{current_chip_asic_id, channel}, {remote_asic_id, remote_eth_channel}});
             }
-            channel++;
         }
         chip->set_remote_transfer_ethernet_cores(active_eth_channels_per_chip.at(current_chip_asic_id));
     }

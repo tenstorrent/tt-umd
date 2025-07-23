@@ -134,19 +134,17 @@ void Cluster::log_pci_device_summary() {
         return;
     }
 
-    // Get expected values from first local chip
-    chip_id_t first_chip_id = *local_chip_ids_.begin();
-    auto first_pci_device = chips_.at(first_chip_id)->get_tt_device()->get_pci_device();
+    auto first_pci_device = chips_.at(*local_chip_ids_.begin())->get_tt_device()->get_pci_device();
     if (!first_pci_device) {
         return;
     }
 
     bool expected_iommu_state = first_pci_device->is_iommu_enabled();
-    std::string expected_kmd_version = PCIDevice::read_kmd_version().to_string();
+    std::string kmd_version = PCIDevice::read_kmd_version().to_string();
 
-    // Check IOMMU status and KMD version consistency across all devices
+    // Check IOMMU status consistency across all devices.
     bool all_devices_same_iommu_state = true;
-    bool all_devices_same_kmd_version = true;
+    auto iommu_state_str = [](bool enabled) { return enabled ? "enabled" : "disabled"; };
 
     for (chip_id_t chip_id : local_chip_ids_) {
         auto pci_device = chips_.at(chip_id)->get_tt_device()->get_pci_device();
@@ -157,35 +155,22 @@ void Cluster::log_pci_device_summary() {
                     LogSiliconDriver,
                     "IOMMU state mismatch for chip {}: expected {}, got {}",
                     chip_id,
-                    expected_iommu_state ? "enabled" : "disabled",
-                    current_iommu_state ? "enabled" : "disabled");
+                    iommu_state_str(expected_iommu_state),
+                    iommu_state_str(current_iommu_state));
                 all_devices_same_iommu_state = false;
-            }
-
-            std::string current_kmd_version = PCIDevice::read_kmd_version().to_string();
-            if (current_kmd_version != expected_kmd_version) {
-                log_warning(
-                    LogSiliconDriver,
-                    "KMD version mismatch for chip {}: expected {}, got {}",
-                    chip_id,
-                    expected_kmd_version,
-                    current_kmd_version);
-                all_devices_same_kmd_version = false;
             }
         }
 
-        if (!all_devices_same_iommu_state && !all_devices_same_kmd_version) {
-            break;  // No need to check further if both conditions are already false
+        if (!all_devices_same_iommu_state) {
+            break;
         }
     }
 
     if (all_devices_same_iommu_state) {
-        log_info(LogSiliconDriver, "IOMMU: {}", expected_iommu_state ? "enabled" : "disabled");
+        log_info(LogSiliconDriver, "IOMMU: {}", iommu_state_str(expected_iommu_state));
     }
 
-    if (all_devices_same_kmd_version) {
-        log_info(LogSiliconDriver, "KMD version: {}", expected_kmd_version);
-    }
+    log_info(LogSiliconDriver, "KMD version: {}", kmd_version);
 }
 
 void Cluster::verify_fw_bundle_version() {

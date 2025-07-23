@@ -33,8 +33,6 @@ private:
         uint64_t erisc_local_board_id_lo_offset;
         uint64_t erisc_remote_board_id_lo_offset;
         uint64_t erisc_remote_eth_id_offset;
-        uint64_t erisc_local_board_id_hi_offset;
-        uint64_t erisc_remote_board_id_hi_offset;
     };
 
     static EthAddresses get_eth_addresses(uint32_t eth_fw_version);
@@ -58,23 +56,12 @@ private:
     // eth_core should be in physical (NOC0) coordinates.
     uint64_t get_remote_board_id_lo(Chip* chip, tt_xy_pair eth_core);
 
-    // Returns mangled local board id from local ETH core.
+    // Returns mangled remote board type from local ETH core.
     // This information can still be used to unique identify a board.
     // TODO: override this logic for different configs. This is in group of functions
     // that we should override for T3K/6U/BH...
     // eth_core should be in physical (NOC0) coordinates.
-    // This value can represent either proper high part of the board id or
-    // board type, depending on the config.
-    uint64_t get_local_board_id_hi(Chip* chip, tt_xy_pair eth_core);
-
-    // Returns mangled remote board id from local ETH core.
-    // This information can still be used to unique identify a board.
-    // TODO: override this logic for different configs. This is in group of functions
-    // that we should override for T3K/6U/BH...
-    // eth_core should be in physical (NOC0) coordinates.
-    // This value can represent either proper high part of the board id or
-    // board type, depending on the config.
-    uint64_t get_remote_board_id_hi(Chip* chip, tt_xy_pair eth_core);
+    uint64_t get_remote_board_type(Chip* chip, tt_xy_pair eth_core);
 
     // Returns mangled local board id from local ETH core.
     // This information can still be used to unique identify a board.

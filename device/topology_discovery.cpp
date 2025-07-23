@@ -44,8 +44,6 @@ TopologyDiscovery::EthAddresses TopologyDiscovery::get_eth_addresses(uint32_t et
     uint64_t erisc_local_board_id_lo_offset;
     uint64_t erisc_remote_board_id_lo_offset;
     uint64_t erisc_remote_eth_id_offset;
-    uint64_t erisc_local_board_id_hi_offset;
-    uint64_t erisc_remote_board_id_hi_offset;
 
     if (masked_version >= 0x060000) {
         node_info = 0x1100;
@@ -62,16 +60,12 @@ TopologyDiscovery::EthAddresses TopologyDiscovery::get_eth_addresses(uint32_t et
         erisc_remote_board_id_lo_offset = 72;
         erisc_local_board_id_lo_offset = 64;
         erisc_remote_eth_id_offset = 76;
-        erisc_local_board_id_hi_offset = 65;
-        erisc_remote_board_id_hi_offset = 73;
     } else {
         erisc_remote_board_type_offset = 72;
         erisc_local_board_type_offset = 64;
         erisc_remote_board_id_lo_offset = 73;
         erisc_local_board_id_lo_offset = 65;
         erisc_remote_eth_id_offset = 77;
-        erisc_local_board_id_hi_offset = 66;
-        erisc_remote_board_id_hi_offset = 74;
     }
 
     return TopologyDiscovery::EthAddresses{
@@ -83,9 +77,7 @@ TopologyDiscovery::EthAddresses TopologyDiscovery::get_eth_addresses(uint32_t et
         erisc_local_board_type_offset,
         erisc_local_board_id_lo_offset,
         erisc_remote_board_id_lo_offset,
-        erisc_remote_eth_id_offset,
-        erisc_local_board_id_hi_offset,
-        erisc_remote_board_id_hi_offset};
+        erisc_remote_eth_id_offset};
 }
 
 std::unique_ptr<RemoteChip> TopologyDiscovery::create_remote_chip(Chip* chip, tt_xy_pair eth_core, Chip* gateway_chip) {
@@ -267,7 +259,7 @@ void TopologyDiscovery::discover_remote_chips() {
 
             active_eth_channels_per_chip.at(current_chip_asic_id).insert(channel);
 
-            if (!is_board_id_included(get_remote_board_id_lo(chip, eth_core), get_remote_board_id_hi(chip, eth_core))) {
+            if (!is_board_id_included(get_remote_board_id_lo(chip, eth_core), get_remote_board_type(chip, eth_core))) {
                 uint32_t remote_eth_channel;
                 if (is_running_on_6u) {
                     remote_eth_channel = get_remote_eth_id(chip, eth_core);
@@ -460,24 +452,13 @@ uint64_t TopologyDiscovery::get_local_board_id_lo(Chip* chip, tt_xy_pair eth_cor
     return board_id;
 }
 
-uint64_t TopologyDiscovery::get_remote_board_id_hi(Chip* chip, tt_xy_pair eth_core) {
+uint64_t TopologyDiscovery::get_remote_board_type(Chip* chip, tt_xy_pair eth_core) {
     TTDevice* tt_device = chip->get_tt_device();
     uint32_t board_id;
     tt_device->read_from_device(
         &board_id,
         eth_core,
-        eth_addresses.results_buf + (4 * eth_addresses.erisc_remote_board_id_hi_offset),
-        sizeof(uint32_t));
-    return board_id;
-}
-
-uint64_t TopologyDiscovery::get_local_board_id_hi(Chip* chip, tt_xy_pair eth_core) {
-    TTDevice* tt_device = chip->get_tt_device();
-    uint32_t board_id;
-    tt_device->read_from_device(
-        &board_id,
-        eth_core,
-        eth_addresses.results_buf + (4 * eth_addresses.erisc_local_board_id_hi_offset),
+        eth_addresses.results_buf + (4 * eth_addresses.erisc_remote_board_type_offset),
         sizeof(uint32_t));
     return board_id;
 }

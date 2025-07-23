@@ -25,7 +25,8 @@ class TestTelemetry(unittest.TestCase):
     
         dev = tt_umd.TTDevice.create(dev_ids[0])
         tel_reader = dev.get_arc_telemetry_reader()
-        print("Telemetry reading for tag 0: ", tel_reader.read_entry(0))
+        tag = int(tt_umd.wormhole.TelemetryTag.ASIC_TEMPERATURE)
+        print("Telemetry reading for asic temperature: ", tel_reader.read_entry(tag))
 
 if __name__ == "__main__":
     unittest.main()

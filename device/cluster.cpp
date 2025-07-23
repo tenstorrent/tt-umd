@@ -28,7 +28,6 @@
 #include <memory>
 #include <mutex>
 #include <optional>
-#include <ranges>
 #include <ratio>
 #include <regex>
 #include <stdexcept>
@@ -39,7 +38,6 @@
 
 #include "api/umd/device/cluster.h"
 #include "api/umd/device/tt_core_coordinates.h"
-#include "api/umd/device/warm_reset.h"
 #include "assert.hpp"
 #include "umd/device/architecture_implementation.h"
 #include "umd/device/blackhole_implementation.h"
@@ -49,7 +47,6 @@
 #include "umd/device/chip_helpers/tlb_manager.h"
 #include "umd/device/driver_atomics.h"
 #include "umd/device/hugepage.h"
-#include "umd/device/pci_device.hpp"
 #include "umd/device/topology_utils.h"
 #include "umd/device/tt_cluster_descriptor.h"
 #include "umd/device/tt_core_coordinates.h"
@@ -57,7 +54,6 @@
 #include "umd/device/tt_soc_descriptor.h"
 #include "umd/device/types/arch.h"
 #include "umd/device/types/blackhole_eth.h"
-#include "umd/device/types/cluster_descriptor_types.h"
 #include "umd/device/types/tlb.h"
 #include "umd/device/umd_utils.h"
 #include "umd/device/wormhole_implementation.h"
@@ -424,12 +420,6 @@ void Cluster::assert_risc_reset_at_core(
         core.core_type == CoreType::TENSIX || core.core_type == CoreType::ETH,
         "Cannot assert reset on a non-tensix or harvested core");
     get_chip(chip)->send_tensix_risc_reset(core, soft_resets);
-}
-
-void Cluster::warm_reset() {
-    auto chip_id = *local_chip_ids_.begin();
-    tt::ARCH arch = get_soc_descriptor(chip_id).arch;
-    WarmReset::warm_reset(arch);
 }
 
 tt_ClusterDescriptor* Cluster::get_cluster_description() { return cluster_desc.get(); }

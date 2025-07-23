@@ -297,12 +297,6 @@ public:
         const CoreCoord core,
         const TensixSoftResetOptions& soft_resets = TENSIX_ASSERT_SOFT_RESET);
 
-    /**
-     * Perform warm reset.
-     * It is architecture dependant. Need to add more details here!
-     */
-    void warm_reset();
-
     //---------- IO functions for Tensix cores, including DRAM.
 
     /**
@@ -632,7 +626,6 @@ private:
     // Broadcast
     void broadcast_tensix_risc_reset_to_cluster(const TensixSoftResetOptions& soft_resets);
     void deassert_resets_and_set_power_state();
-    int get_clock(int logical_device_id);
 
     // Communication Functions
     void ethernet_broadcast_write(

@@ -61,9 +61,6 @@ public:
     // Harvesting mask is reported by hardware in the order of physical layout. This function returns a more suitable
     // representation in logical order: Bit 0 being set means the first row in NOC0 coords is harvested.
     static uint32_t shuffle_tensix_harvesting_mask(tt::ARCH arch, uint32_t tensix_harvesting_physical_layout);
-    // TODO: This function should be removed once the corresponding API is removed from Cluster.
-    static uint32_t shuffle_tensix_harvesting_mask_to_noc0_coords(
-        tt::ARCH arch, uint32_t tensix_harvesting_logical_layout);
 
     CoreCoord translate_coord_to(const CoreCoord core_coord, const CoordSystem coord_system) const;
     CoreCoord get_coord_at(const tt_xy_pair core, const CoordSystem coord_system) const;

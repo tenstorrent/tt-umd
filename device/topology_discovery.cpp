@@ -229,7 +229,7 @@ void TopologyDiscovery::discover_remote_chips() {
 
         active_eth_channels_per_chip.emplace(current_chip_asic_id, std::set<uint32_t>());
 
-        if (!is_running_on_6u) {
+        if (!is_running_on_6u && !is_running_blackhole) {
             eth_coords.emplace(current_chip_asic_id, get_local_eth_coord(chip.get()));
         }
     }
@@ -294,7 +294,7 @@ void TopologyDiscovery::discover_remote_chips() {
             } else {
                 Chip* remote_chip = get_chip(remote_asic_id);
                 uint32_t remote_eth_channel;
-                if (is_running_on_6u) {
+                if (is_running_on_6u || is_running_blackhole) {
                     remote_eth_channel = get_remote_eth_id(chip, eth_core);
                 } else {
                     tt_xy_pair remote_eth_core = get_remote_eth_core(chip, eth_core);
@@ -344,7 +344,7 @@ void TopologyDiscovery::fill_cluster_descriptor_info() {
         cluster_desc->noc_translation_enabled.insert({current_chip_id, chip->get_chip_info().noc_translation_enabled});
         cluster_desc->harvesting_masks_map.insert({current_chip_id, chip->get_chip_info().harvesting_masks});
         // TODO: this neeeds to be moved to specific logic for Wormhole with legacy FW.
-        if (!is_running_on_6u) {
+        if (!is_running_on_6u && !is_running_blackhole) {
             eth_coord_t eth_coord = eth_coords.at(current_chip_asic_id);
             cluster_desc->chip_locations.insert({current_chip_id, eth_coord});
             cluster_desc->coords_to_chip_ids[eth_coord.rack][eth_coord.shelf][eth_coord.y][eth_coord.x] =
@@ -398,7 +398,7 @@ bool TopologyDiscovery::is_pcie_chip_id_included(int pci_id) const {
 bool TopologyDiscovery::is_board_id_included(uint64_t board_id, uint64_t board_type) const {
     // Since at the moment we don't want to go outside of single host on 6U,
     // we just check for board ids that are discovered from pci_target_devices.
-    if (is_running_on_6u) {
+    if (is_running_on_6u || is_running_blackhole) {
         return board_ids.find(board_id) != board_ids.end();
     }
 

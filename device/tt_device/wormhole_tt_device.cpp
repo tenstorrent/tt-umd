@@ -395,15 +395,19 @@ void WormholeTTDevice::wait_eth_core_training(const tt_xy_pair eth_core, const u
         }
     }
 
-    uint32_t channel = 0;
-    uint32_t port_status = read_port_status(eth_core, channel);
+    uint32_t port_status = read_port_status(eth_core, wormhole::ETH_CORE_TO_CHANNEL.at(eth_core));
     start = std::chrono::system_clock::now();
     while (port_status == ETH_UNKNOWN) {
-        uint32_t port_status = read_port_status(eth_core, channel);
+        port_status = read_port_status(eth_core, wormhole::ETH_CORE_TO_CHANNEL.at(eth_core));
         auto end = std::chrono::system_clock::now();
         auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
         if (duration.count() > timeout_ms) {
-            log_error(LogSiliconDriver, "ETH training timed out after {} ms", timeout_ms);
+            log_error(
+                LogSiliconDriver,
+                "ETH training timed out after {} ms, on eth core {}, {}",
+                timeout_ms,
+                eth_core.x,
+                eth_core.y);
             break;
         }
     }

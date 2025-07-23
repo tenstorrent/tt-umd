@@ -7,13 +7,13 @@
 #include "api/umd/device/warm_reset.h"
 
 #include <chrono>
-#include <iostream>
 #include <memory>
 #include <thread>
 #include <tt-logger/tt-logger.hpp>
 
 #include "api/umd/device/blackhole_implementation.h"
 #include "api/umd/device/pci_device.hpp"
+#include "api/umd/device/tt_soc_descriptor.h"
 #include "api/umd/device/wormhole_implementation.h"
 #include "umd/device/tt_device/tt_device.h"
 
@@ -85,6 +85,10 @@ void WarmReset::warm_reset_blackhole() {
     }
 
     PCIDevice::reset_devices(TenstorrentResetDevice::RESTORE_STATE);
+
+    for (auto& tt_device : tt_devices) {
+        reinitialize(tt_device.get());
+    }
 }
 
 void WarmReset::warm_reset_wormhole(bool reset_m3) {
@@ -144,6 +148,10 @@ void WarmReset::warm_reset_wormhole(bool reset_m3) {
                 refclk_current[i]);
         }
     }
+
+    for (auto& tt_device : tt_devices) {
+        reinitialize(tt_device.get());
+    }
 }
 
 uint64_t WarmReset::get_refclk_counter(TTDevice* tt_device) {
@@ -158,6 +166,19 @@ uint64_t WarmReset::get_refclk_counter(TTDevice* tt_device) {
             tt_device->bar_read32(wormhole::ARC_APB_BAR0_XBAR_OFFSET_START + wormhole::ARC_RESET_REFCLK_LOW_OFFSET);
     }
     return (static_cast<uint64_t>(high2_addr) << 32) | low_addr;
+}
+
+void WarmReset::reinitialize(TTDevice* tt_device) {
+    tt_device->wait_arc_core_start(tt_device->get_arc_core());
+    tt_device->wait_dram_core_training();
+
+    tt_SocDescriptor soc_descriptor{
+        tt_device->get_arch(), tt_device->get_noc_translation_enabled(), tt_device->get_chip_info().harvesting_masks};
+    auto eth_cores = soc_descriptor.get_cores(CoreType::ETH, CoordSystem::PHYSICAL);
+
+    for (auto& eth_core : eth_cores) {
+        tt_device->wait_eth_core_training(eth_core);
+    }
 }
 
 }  // namespace tt::umd

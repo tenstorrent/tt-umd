@@ -491,10 +491,10 @@ uint64_t PCIDevice::map_for_hugepage(void *buffer, size_t size) {
 }
 
 bool PCIDevice::is_mapping_buffer_to_noc_supported() {
-    return PCIDevice::read_kmd_version() >= kmd_ver_for_map_to_noc;
+    // return PCIDevice::read_kmd_version() >= kmd_ver_for_map_to_noc;
     // TODO: This feature is turned off for now. We'll enable it once all machines have smoothly transitioned to IOMMU.
     // Also change other places in this function which have the same check.
-    // return false;
+    return false;
 }
 
 std::pair<uint64_t, uint64_t> PCIDevice::map_buffer_to_noc(void *buffer, size_t size) {

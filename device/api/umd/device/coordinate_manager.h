@@ -25,9 +25,8 @@ public:
     virtual ~CoordinateManager() = default;
 
     /*
-     * Creates a Coordinate Manager object.
-     * Board type and is_chip_remote are used only for Blackhole, since PCIe cores are different
-     * for different boards and whether the chip is remote or not.
+     * Creates a Coordinate Manager object. Main function for creating CoordinateManager. Given the cores for all
+     * core types, harvesting masks and NOC0 to NOC1 mapping, it creates a CoordinateManager object.
      */
     static std::shared_ptr<CoordinateManager> create_coordinate_manager(
         tt::ARCH arch,
@@ -48,6 +47,20 @@ public:
         const std::vector<uint32_t>& noc0_x_to_noc1_x = {},
         const std::vector<uint32_t>& noc0_y_to_noc1_y = {});
 
+    /**
+     * Create CoordinateManager object. Generally, main function for creating CoordinateManager is the one above,
+     * this is used as convenience for creating CoordinateManager for standard TT architectures/configurations.
+     * Out of arch, board_type and asic_location we can determine all the cores needed to pass into creating
+     * CoordinateManager. Board type and is_chip_remote are used only for Blackhole, since PCIe cores are different for
+     * different boards and whether the chip is remote or not.
+     *
+     * @param arch Architecture of the device.
+     * @param noc_translation_enabled Whether NOC translation is enabled.
+     * @param harvesting_masks Harvesting masks to use.
+     * @param board_type Board type of the device.
+     * @param asic_location ASIC location of the device.
+     * @return CoordinateManager object.
+     */
     static std::shared_ptr<CoordinateManager> create_coordinate_manager(
         tt::ARCH arch,
         const bool noc_translation_enabled,
@@ -55,31 +68,118 @@ public:
         const BoardType board_type = BoardType::UNKNOWN,
         const uint8_t asic_location = 0);
 
+    /**
+     * Get number of harvested rows/columns/channels from harvesting mask. It basically represents number of
+     * bits set in the harvesting mask.
+     *
+     * @param harvesting_mask Harvesting mask to get number of harvested rows/columns/channels from.
+     * @return Number of harvested rows/columns/channels.
+     */
     static size_t get_num_harvested(const size_t harvesting_mask);
-    static std::vector<size_t> get_harvested_indices(const size_t harvesting_mask);
 
-    // Harvesting mask is reported by hardware in the order of physical layout. This function returns a more suitable
-    // representation in logical order: Bit 0 being set means the first row in NOC0 coords is harvested.
+    /**
+     * Harvesting mask is reported by hardware in the order of physical layout. This function returns a more suitable
+     * representation in NOC0 layout: Bit 0 being set means the first row in NOC0 coords is harvested.
+     *
+     * @param arch Architecture of the device. Important because physical layouts differ between architectures.
+     * @param tensix_harvesting_physical_layout Harvesting mask in physical layout.
+     * @return Harvesting mask in NOC0 layout.
+     */
     static uint32_t shuffle_tensix_harvesting_mask(tt::ARCH arch, uint32_t tensix_harvesting_physical_layout);
+
     // TODO: This function should be removed once the corresponding API is removed from Cluster.
     static uint32_t shuffle_tensix_harvesting_mask_to_noc0_coords(
         tt::ARCH arch, uint32_t tensix_harvesting_logical_layout);
 
+    /**
+     * Translate core coordinates to target coordinate system. Input coordinates will have both the core type
+     * and coordinate system set. Translation has some usecases when the translation is not possible, for example
+     * harvested cores don't have logical coordinate system.
+     *
+     * @param core_coord Core coordinates to translate.
+     * @param coord_system Coordinate system to translate to.
+     * @return Translated core coordinates with both core type and coordinate system set.
+     */
     CoreCoord translate_coord_to(const CoreCoord core_coord, const CoordSystem coord_system) const;
+
+    /**
+     * Get core coordinates at given pair of coordinates in given coordinate system.
+     *
+     * @param core Pair of coordinates to get core for.
+     * @param coord_system Coordinate system to get core in.
+     * @return Core coordinates at given pair of coordinates in given coordinate system.
+     */
     CoreCoord get_coord_at(const tt_xy_pair core, const CoordSystem coord_system) const;
+
+    /**
+     * Translate pair of coordinates from one CoordSystem to another. Returned coordinates will have both the core type
+     * and coordinate system set. This function is useful if user doesn't care about core type of certain coordinates
+     * wants just to translate it to some other coordinate system.
+     *
+     * @param core Pair of coordinates to translate.
+     * @param input_coord_system Input coordinate system of the core.
+     * @param target_coord_system Target coordinate system to translate
+     * @return Translated coordinates with both core type and coordinate system set.
+     */
     CoreCoord translate_coord_to(
         const tt_xy_pair core, const CoordSystem input_coord_system, const CoordSystem target_coord_system) const;
 
+    /**
+     * Get all non harvested cores of given type. All cores are returned in NOC0 coordinates.
+     *
+     * @param core_type Core type to get harvested cores for.
+     * @return Vector of cores in NOC0 coordinates.
+     */
     std::vector<CoreCoord> get_cores(const CoreType core_type) const;
+
+    /**
+     * Get grid size of non harvested cores for a given core type. Usually we can represent cores in a grid, so this
+     * represents the cores in a grid taking harvesting into consideration. This useful for checking whether we have
+     * calculated the translation properly.
+     *
+     * @param core_type Core type to get grid size for.
+     * @return Grid size of cores for a given core type.
+     */
     tt_xy_pair get_grid_size(const CoreType core_type) const;
 
+    /**
+     * Get all harvested cores of given type. All cores are returned in NOC0 coordinates.
+     *
+     * @param core_type Core type to get harvested cores for.
+     * @return Vector of harvested cores in NOC0 coordinates.
+     */
     std::vector<CoreCoord> get_harvested_cores(const CoreType core_type) const;
+
+    /**
+     * Get grid size of harvested cores for a given core type. Usually we can represent cores in a grid, so this enabled
+     * representing harvested cores in a grid as well. This useful for checking whether we have calculated the
+     * translation properly.
+     *
+     * @param core_type Core type to get harvested grid size for.
+     * @return Grid size of harvested cores for a given core type.
+     */
     tt_xy_pair get_harvested_grid_size(const CoreType core_type) const;
 
+    /**
+     * Get harvesting masks CoordinateManager object was created with.
+     * All harvesting masks are in NOC0 layout, meaning that bit 0 corresponds to the first row in NOC0 coordinates.
+     *
+     * @return Harvesting masks in NOC0 layout.
+     */
     HarvestingMasks get_harvesting_masks() const;
 
+    /**
+     * Get number of Ethernet channels.
+     *
+     * @return Number of Ethernet channels.
+     */
     uint32_t get_num_eth_channels() const;
 
+    /**
+     * Get number of harvested ETH channels.
+     *
+     * @return Number of harvested ETH channels.
+     */
     uint32_t get_num_harvested_eth_channels() const;
 
 private:
@@ -196,6 +296,8 @@ protected:
      * should override this method.
      */
     virtual void fill_arc_noc0_translated_mapping() = 0;
+
+    static std::vector<size_t> get_harvested_indices(const size_t harvesting_mask);
 
     // Maps full CoreCoord from any CoordSystem to noc0 coordinates.
     std::map<CoreCoord, tt_xy_pair> to_noc0_map;

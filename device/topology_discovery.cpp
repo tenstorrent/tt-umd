@@ -178,7 +178,7 @@ void TopologyDiscovery::get_pcie_connected_chips() {
         std::vector<CoreCoord> eth_cores =
             chip->get_soc_descriptor().get_cores(CoreType::ETH, umd_use_noc1 ? CoordSystem::NOC1 : CoordSystem::NOC0);
         for (const CoreCoord& eth_core : eth_cores) {
-            uint64_t board_id = get_local_board_id_lo(chip.get(), eth_core);
+            uint64_t board_id = get_local_board_id(chip.get(), eth_core);
             if (board_id == 0) {
                 continue;
             }
@@ -259,7 +259,7 @@ void TopologyDiscovery::discover_remote_chips() {
 
             active_eth_channels_per_chip.at(current_chip_asic_id).insert(channel);
 
-            if (!is_board_id_included(get_remote_board_id_lo(chip, eth_core), get_remote_board_type(chip, eth_core))) {
+            if (!is_board_id_included(get_remote_board_id(chip, eth_core), get_remote_board_type(chip, eth_core))) {
                 uint32_t remote_eth_channel;
                 if (is_running_on_6u) {
                     remote_eth_channel = get_remote_eth_id(chip, eth_core);
@@ -416,9 +416,9 @@ bool TopologyDiscovery::is_board_id_included(uint64_t board_id, uint64_t board_t
     return board_ids.find(board_id) != board_ids.end();
 }
 
-uint64_t TopologyDiscovery::get_remote_board_id_lo(Chip* chip, tt_xy_pair eth_core) {
+uint64_t TopologyDiscovery::get_remote_board_id(Chip* chip, tt_xy_pair eth_core) {
     if (is_running_on_6u) {
-        // See comment in get_local_board_id_lo.
+        // See comment in get_local_board_id.
         return get_remote_asic_id(chip, eth_core);
     }
 
@@ -432,7 +432,7 @@ uint64_t TopologyDiscovery::get_remote_board_id_lo(Chip* chip, tt_xy_pair eth_co
     return board_id;
 }
 
-uint64_t TopologyDiscovery::get_local_board_id_lo(Chip* chip, tt_xy_pair eth_core) {
+uint64_t TopologyDiscovery::get_local_board_id(Chip* chip, tt_xy_pair eth_core) {
     if (is_running_on_6u) {
         // For 6U, since the whole trays have the same board ID, and we'd want to be able to open
         // only some chips, we hack the board_id to be the asic ID. That way, the pci_target_devices filter

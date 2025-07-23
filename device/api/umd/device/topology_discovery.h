@@ -54,7 +54,7 @@ private:
     // TODO: override this logic for different configs. This is in group of functions
     // that we should override for T3K/6U/BH...
     // eth_core should be in physical (NOC0) coordinates.
-    uint64_t get_remote_board_id_lo(Chip* chip, tt_xy_pair eth_core);
+    uint64_t get_remote_board_id(Chip* chip, tt_xy_pair eth_core);
 
     // Returns mangled remote board type from local ETH core.
     // This information can still be used to unique identify a board.
@@ -68,7 +68,7 @@ private:
     // TODO: override this logic for different configs. This is in group of functions
     // that we should override for T3K/6U/BH...
     // eth_core should be in physical (NOC0) coordinates.
-    uint64_t get_local_board_id_lo(Chip* chip, tt_xy_pair eth_core);
+    uint64_t get_local_board_id(Chip* chip, tt_xy_pair eth_core);
 
     // TODO: override this logic for different configs. This is in group of functions
     // that we should override for T3K/6U/BH...

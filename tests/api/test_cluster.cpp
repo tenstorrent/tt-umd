@@ -479,114 +479,61 @@ TEST(TestCluster, TestClusterAICLKControl) {
 }
 
 TEST(TestCluster, WarmReset) {
-    // GTEST_SKIP();
     std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
 
     if (cluster->get_target_device_ids().empty()) {
         GTEST_SKIP() << "No chips present on the system. Skipping test.";
     }
 
-    auto tensix_l1_size = cluster->get_soc_descriptor(0).worker_l1_size;
+    std::vector<uint8_t> data{1, 2, 3, 4, 5, 6, 7, 8};
+    std::vector<uint8_t> zero_data(data.size(), 0);
+    std::vector<uint8_t> readback_data(data.size(), 0);
 
-    std::vector<uint8_t> zero_data(tensix_l1_size, 0);
+    // send data to core 15, 15 which will hang the NOC
+    auto hanged_chip_id = *cluster->get_target_device_ids().begin();
+    auto hanged_tt_device = cluster->get_chip(hanged_chip_id)->get_tt_device();
+    auto arch = hanged_tt_device->get_arch();
+    hanged_tt_device->write_to_device(data.data(), {15, 15}, 0, data.size() * sizeof(uint32_t));
 
-    auto chip_ids = cluster->get_target_device_ids();
-    for (auto& chip_id : chip_ids) {
-        std::cout << "chip_id: " << chip_id << "\n";
-        const tt_SocDescriptor& soc_desc = cluster->get_soc_descriptor(chip_id);
-        auto tensix_cores = cluster->get_soc_descriptor(chip_id).get_cores(CoreType::TENSIX);
+    EXPECT_THROW(hanged_tt_device->detect_hang_read(), std::runtime_error);
 
-        for (const CoreCoord& tensix_core : tensix_cores) {
-            auto chip = cluster->get_chip(chip_id);
-
-            TensixSoftResetOptions select_all_tensix_riscv_cores{TENSIX_ASSERT_SOFT_RESET};
-
-            // Set all riscs to reset state.
-            chip->set_tensix_risc_reset(
-                cluster->get_soc_descriptor(chip_id).translate_coord_to(tensix_core, CoordSystem::VIRTUAL),
-                select_all_tensix_riscv_cores);
-
-            cluster->l1_membar(chip_id, {tensix_core});
-
-            // Zero out L1.
-            cluster->write_to_device(zero_data.data(), zero_data.size(), chip_id, tensix_core, 0);
-
-            cluster->l1_membar(chip_id, {tensix_core});
-
-            // Deassert reset and intentionally crash all riscs
-            chip->unset_tensix_risc_reset(
-                cluster->get_soc_descriptor(chip_id).translate_coord_to(tensix_core, CoordSystem::VIRTUAL),
-                select_all_tensix_riscv_cores);
-        }
-    }
-
-    // perform warm reset
-    cluster->warm_reset();
-
-    auto chip_ids2 = cluster->get_target_device_ids();
-    for (auto& chip_id : chip_ids2) {
-        auto arc_core = cluster->get_tt_device(chip_id)->get_arc_core();
-        cluster->get_chip(chip_id)->get_tt_device()->wait_arc_core_start(arc_core);
-
-        auto eth_cores = cluster->get_soc_descriptor(chip_id).get_cores(CoreType::ETH, CoordSystem::PHYSICAL);
-        for (auto& eth_core : eth_cores) {
-            cluster->get_chip(chip_id)->get_tt_device()->wait_eth_core_training(eth_core);
-        }
-
-        cluster->get_chip(chip_id)->get_tt_device()->wait_dram_core_training();
-
-        std::cout << "chip_id: " << chip_id << "\n";
-    }
-}
-
-TEST(TestCluster, WarmClassReset) {
-    GTEST_SKIP();
-    std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
-
-    if (cluster->get_target_device_ids().empty()) {
-        GTEST_SKIP() << "No chips present on the system. Skipping test.";
-    }
-
-    auto tensix_l1_size = cluster->get_soc_descriptor(0).worker_l1_size;
-
-    std::vector<uint8_t> zero_data(tensix_l1_size, 0);
-
-    tt::ARCH arch;
-
-    auto chip_ids = cluster->get_target_device_ids();
-    for (auto& chip_id : chip_ids) {
-        const tt_SocDescriptor& soc_desc = cluster->get_soc_descriptor(chip_id);
-        auto tensix_cores = cluster->get_soc_descriptor(chip_id).get_cores(CoreType::TENSIX);
-
-        for (const CoreCoord& tensix_core : tensix_cores) {
-            auto chip = cluster->get_chip(chip_id);
-
-            TensixSoftResetOptions select_all_tensix_riscv_cores{TENSIX_ASSERT_SOFT_RESET};
-
-            // Set all riscs to reset state.
-            chip->set_tensix_risc_reset(
-                cluster->get_soc_descriptor(chip_id).translate_coord_to(tensix_core, CoordSystem::VIRTUAL),
-                select_all_tensix_riscv_cores);
-
-            cluster->l1_membar(chip_id, {tensix_core});
-
-            // Zero out L1.
-            cluster->write_to_device(zero_data.data(), zero_data.size(), chip_id, tensix_core, 0);
-
-            cluster->l1_membar(chip_id, {tensix_core});
-
-            // Deassert reset and intentionally crash all riscs
-            chip->unset_tensix_risc_reset(
-                cluster->get_soc_descriptor(chip_id).translate_coord_to(tensix_core, CoordSystem::VIRTUAL),
-                select_all_tensix_riscv_cores);
-
-            arch = chip->get_tt_device()->get_arch();
-        }
-    }
-
-    // perform warm reset
-    std::cout << "ARCH is " << static_cast<uint32_t>(arch) << "\n";
     WarmReset::warm_reset(arch);
+
+    EXPECT_NO_THROW(hanged_tt_device->detect_hang_read());
+
+    cluster.reset();
+
+    cluster = std::make_unique<Cluster>();
+
+    EXPECT_FALSE(cluster->get_target_device_ids().empty()) << "No chips present after reset.";
+
+    auto chip_ids = cluster->get_target_device_ids();
+    for (auto& chip_id : chip_ids) {
+        const tt_SocDescriptor& soc_desc = cluster->get_soc_descriptor(chip_id);
+        auto tensix_cores = cluster->get_soc_descriptor(chip_id).get_cores(CoreType::TENSIX);
+
+        for (const CoreCoord& tensix_core : tensix_cores) {
+            auto chip = cluster->get_chip(chip_id);
+
+            TensixSoftResetOptions select_all_tensix_riscv_cores{TENSIX_ASSERT_SOFT_RESET};
+
+            // Set all riscs to reset state.
+            chip->set_tensix_risc_reset(
+                cluster->get_soc_descriptor(chip_id).translate_coord_to(tensix_core, CoordSystem::VIRTUAL),
+                select_all_tensix_riscv_cores);
+
+            cluster->l1_membar(chip_id, {tensix_core});
+
+            // Zero out first 8 bytes on L1
+            cluster->write_to_device(zero_data.data(), zero_data.size(), chip_id, tensix_core, 0);
+
+            cluster->write_to_device(data.data(), data.size(), chip_id, tensix_core, 0);
+
+            cluster->read_from_device(readback_data.data(), chip_id, tensix_core, 0, readback_data.size());
+
+            ASSERT_EQ(data, readback_data);
+        }
+    }
 }
 
 // This test uses the machine instructions from the header file assembly_programs_for_tests.hpp. How to generate

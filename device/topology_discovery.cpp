@@ -259,7 +259,7 @@ void TopologyDiscovery::discover_remote_chips() {
 
             active_eth_channels_per_chip.at(current_chip_asic_id).insert(channel);
 
-            if (!is_board_id_included(get_remote_board_id(chip, eth_core))) {
+            if (!is_board_id_included(get_remote_board_id(chip, eth_core), get_remote_board_type(chip, eth_core))) {
                 uint32_t remote_eth_channel;
                 if (is_running_on_6u) {
                     remote_eth_channel = get_remote_eth_id(chip, eth_core);
@@ -400,16 +400,20 @@ bool TopologyDiscovery::is_pcie_chip_id_included(int pci_id) const {
 }
 
 // If pci_target_devices is empty, we should take all the PCI devices found in the system.
-bool TopologyDiscovery::is_board_id_included(uint64_t board_id) const {
+bool TopologyDiscovery::is_board_id_included(uint64_t board_id, uint64_t board_type) const {
     // Since at the moment we don't want to go outside of single host on 6U,
     // we just check for board ids that are discovered from pci_target_devices.
     if (is_running_on_6u) {
         return board_ids.find(board_id) != board_ids.end();
     }
 
-    // For other WH setups, we check additional condition of empty target devices.
-    // This is needed for TG since TG board doesn't have any PCI connected devices.
-    return pci_target_devices.empty() || board_ids.find(board_id) != board_ids.end();
+    // This is TG case, board_type is set to 0. We want to include even the TG board that is not
+    // connected over PCIe, so we always want to include it.
+    if (board_type == 0) {
+        return true;
+    }
+
+    return board_ids.find(board_id) != board_ids.end();
 }
 
 uint64_t TopologyDiscovery::get_remote_board_id(Chip* chip, tt_xy_pair eth_core) {
@@ -444,6 +448,17 @@ uint64_t TopologyDiscovery::get_local_board_id(Chip* chip, tt_xy_pair eth_core) 
         &board_id,
         eth_core,
         eth_addresses.results_buf + (4 * eth_addresses.erisc_local_board_id_lo_offset),
+        sizeof(uint32_t));
+    return board_id;
+}
+
+uint64_t TopologyDiscovery::get_remote_board_type(Chip* chip, tt_xy_pair eth_core) {
+    TTDevice* tt_device = chip->get_tt_device();
+    uint32_t board_id;
+    tt_device->read_from_device(
+        &board_id,
+        eth_core,
+        eth_addresses.results_buf + (4 * eth_addresses.erisc_remote_board_type_offset),
         sizeof(uint32_t));
     return board_id;
 }

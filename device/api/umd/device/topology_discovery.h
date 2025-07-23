@@ -45,7 +45,9 @@ private:
 
     bool is_pcie_chip_id_included(int pci_id) const;
 
-    bool is_board_id_included(uint64_t board_id) const;
+    // board_type is not used for all configs.
+    // We need to know that we are seeing TG board and that we should include it in the topology.
+    bool is_board_id_included(uint64_t board_id, uint64_t board_type) const;
 
     // Returns mangled remote board id from local ETH core.
     // This information can still be used to unique identify a board.
@@ -53,6 +55,13 @@ private:
     // that we should override for T3K/6U/BH...
     // eth_core should be in physical (NOC0) coordinates.
     uint64_t get_remote_board_id(Chip* chip, tt_xy_pair eth_core);
+
+    // Returns mangled remote board type from local ETH core.
+    // This information can still be used to unique identify a board.
+    // TODO: override this logic for different configs. This is in group of functions
+    // that we should override for T3K/6U/BH...
+    // eth_core should be in physical (NOC0) coordinates.
+    uint64_t get_remote_board_type(Chip* chip, tt_xy_pair eth_core);
 
     // Returns mangled local board id from local ETH core.
     // This information can still be used to unique identify a board.

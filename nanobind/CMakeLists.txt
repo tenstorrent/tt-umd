@@ -15,6 +15,15 @@ set_target_properties(
             "tt_umd" # Name of the Python module
 )
 
+set_target_properties(
+    nanobind_tt_umd
+    PROPERTIES
+        BUILD_WITH_INSTALL_RPATH
+            true
+        INSTALL_RPATH
+            "$ORIGIN"
+)
+
 # Link the Python interface target to libdevice and nanobind
 target_link_libraries(
     nanobind_tt_umd

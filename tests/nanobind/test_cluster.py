@@ -14,6 +14,18 @@ class TestCluster(unittest.TestCase):
         print("Cluster device IDs:", target_device_ids)
         clocks = cluster.get_clocks()
         print("Cluster clocks:", clocks)
+        
+class TestTelemetry(unittest.TestCase):
+    def test_telemetry(self):
+        dev_ids = tt_umd.PCIDevice.enumerate_devices()
+        print("Devices found: ", dev_ids)
+        if (len(dev_ids) == 0):
+            print("No PCI devices found.")
+            return
+    
+        dev = tt_umd.TTDevice.create(dev_ids[0])
+        tel_reader = dev.get_arc_telemetry_reader()
+        print("Telemetry reading for tag 0: ", tel_reader.read_entry(0))
 
 if __name__ == "__main__":
     unittest.main()

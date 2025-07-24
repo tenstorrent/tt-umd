@@ -103,6 +103,28 @@ static bool detect_iommu(const PciDeviceInfo &device_info) {
     return false;
 }
 
+static std::optional<uint8_t> try_read_config_byte(const PciDeviceInfo &device_info, size_t offset) {
+    const auto config_path = fmt::format(
+        "/sys/bus/pci/devices/{:04x}:{:02x}:{:02x}.{:x}/config",
+        device_info.pci_domain,
+        device_info.pci_bus,
+        device_info.pci_device,
+        device_info.pci_function);
+
+    std::ifstream config_file(config_path, std::ios::binary);
+    if (!config_file.is_open()) {
+        return std::nullopt;
+    }
+
+    config_file.seekg(offset);
+    uint8_t byte;
+    if (!config_file.read(reinterpret_cast<char *>(&byte), 1)) {
+        return std::nullopt;
+    }
+
+    return byte;
+}
+
 static PciDeviceInfo read_device_info(int fd) {
     tenstorrent_get_device_info info{};
     info.in.output_size_bytes = sizeof(info.out);
@@ -116,6 +138,31 @@ static PciDeviceInfo read_device_info(int fd) {
     uint16_t fn = info.out.bus_dev_fn & 0x07;
 
     return PciDeviceInfo{info.out.vendor_id, info.out.device_id, info.out.pci_domain, bus, dev, fn};
+}
+
+static void reset_device(uint32_t flags) {
+    for (int n : PCIDevice::enumerate_devices()) {
+        int fd = open(fmt::format("/dev/tenstorrent/{}", n).c_str(), O_RDWR | O_CLOEXEC);
+        if (fd == -1) {
+            continue;
+        }
+
+        try {
+            tenstorrent_reset_device reset_info{};
+
+            reset_info.in.output_size_bytes = sizeof(reset_info.out);
+            reset_info.in.flags = flags;
+
+            reset_info.out.output_size_bytes = 0;
+            reset_info.out.result = 0;
+            if (ioctl(fd, TENSTORRENT_IOCTL_RESET_DEVICE, &reset_info) == -1) {
+                TT_THROW("TENSTORRENT_IOCTL_RESET_DEVICE failed");
+            }
+        } catch (...) {
+        }
+
+        close(fd);
+    }
 }
 
 tt::ARCH PciDeviceInfo::get_arch() const {
@@ -534,6 +581,28 @@ semver_t PCIDevice::read_kmd_version() {
 
 std::unique_ptr<TlbHandle> PCIDevice::allocate_tlb(const size_t tlb_size, const TlbMapping tlb_mapping) {
     return std::make_unique<TlbHandle>(pci_device_file_desc, tlb_size, tlb_mapping);
+}
+
+void PCIDevice::reset_devices(TenstorrentResetDevice flag) { reset_device(static_cast<uint32_t>(flag)); }
+
+uint8_t PCIDevice::read_command_byte(const int pci_device_num) {
+    int fd = open(fmt::format("/dev/tenstorrent/{}", pci_device_num).c_str(), O_RDWR | O_CLOEXEC);
+    if (fd == -1) {
+        TT_THROW("Coudln't open file descriptor for PCI device number: {}", pci_device_num);
+    }
+    auto device_info = read_device_info(fd);
+
+    auto command_byte = try_read_config_byte(device_info, 4);
+    if (!command_byte) {
+        const auto sysfs_path = fmt::format(
+            "/sys/bus/pci/devices/{:04x}:{:02x}:{:02x}.{:x}/{}",
+            device_info.pci_domain,
+            device_info.pci_bus,
+            device_info.pci_device,
+            device_info.pci_function);
+        TT_THROW("Failed reading or parsing sysfs config: {}", sysfs_path);
+    }
+    return *command_byte;
 }
 
 }  // namespace tt::umd

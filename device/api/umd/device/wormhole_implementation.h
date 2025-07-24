@@ -7,6 +7,7 @@
 #pragma once
 
 #include <array>
+#include <map>
 
 #include "architecture_implementation.h"
 #include "umd/device/types/tlb.h"
@@ -161,6 +162,25 @@ static const std::vector<tt_xy_pair> ETH_CORES_NOC0 = {
      {6, 6},
      {4, 6}}};
 static const std::vector<tt_xy_pair> ETH_LOCATIONS = ETH_CORES_NOC0;
+// clang-format off
+static const std::map<tt_xy_pair, int> ETH_CORE_TO_CHANNEL {
+    {{9, 0}, 0},
+    {{1, 0}, 1},
+    {{8, 0}, 2},
+    {{2, 0}, 3},
+    {{7, 0}, 4},
+    {{3, 0}, 5},
+    {{6, 0}, 6},
+    {{4, 0}, 7},
+    {{9, 6}, 8},
+    {{1, 6}, 9},
+    {{8, 6}, 10},
+    {{2, 6}, 11},
+    {{7, 6}, 12},
+    {{3, 6}, 13},
+    {{6, 6}, 14},
+    {{4, 6}, 15}};
+// clang-format on
 
 static const tt_xy_pair ARC_GRID_SIZE = {1, 1};
 static const std::vector<tt_xy_pair> ARC_CORES_NOC0 = {{0, 10}};
@@ -248,6 +268,8 @@ static constexpr uint32_t ARC_RESET_SCRATCH_OFFSET = ARC_RESET_UNIT_OFFSET + 0x6
 static constexpr uint32_t ARC_RESET_SCRATCH_RES0_OFFSET = ARC_RESET_SCRATCH_OFFSET + 0xC;
 static constexpr uint32_t ARC_RESET_SCRATCH_RES1_OFFSET = ARC_RESET_SCRATCH_OFFSET + 0x10;
 static constexpr uint32_t ARC_RESET_SCRATCH_STATUS_OFFSET = ARC_RESET_SCRATCH_OFFSET + 0x14;
+static constexpr uint32_t ARC_RESET_REFCLK_LOW_OFFSET = ARC_RESET_UNIT_OFFSET + 0xE0;
+static constexpr uint32_t ARC_RESET_REFCLK_HIGH_OFFSET = ARC_RESET_UNIT_OFFSET + 0xE4;
 static constexpr uint32_t ARC_RESET_ARC_MISC_CNTL_OFFSET = ARC_RESET_UNIT_OFFSET + 0x0100;
 
 static constexpr uint32_t ARC_XBAR_ADDRESS_END = 0xFFFFFFFF;
@@ -338,6 +360,8 @@ public:
     uint32_t get_dram_channel_0_x() const override { return wormhole::DRAM_CHANNEL_0_X; }
 
     uint32_t get_dram_channel_0_y() const override { return wormhole::DRAM_CHANNEL_0_Y; }
+
+    uint32_t get_dram_banks_number() const override { return wormhole::NUM_DRAM_BANKS; }
 
     uint32_t get_broadcast_tlb_index() const override { return wormhole::BROADCAST_TLB_INDEX; }
 

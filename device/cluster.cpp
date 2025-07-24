@@ -148,17 +148,18 @@ void Cluster::log_pci_device_summary() {
 
     for (chip_id_t chip_id : local_chip_ids_) {
         auto pci_device = chips_.at(chip_id)->get_tt_device()->get_pci_device();
-        if (pci_device) {
-            bool current_iommu_state = pci_device->is_iommu_enabled();
-            if (current_iommu_state != expected_iommu_state) {
-                log_warning(
-                    LogSiliconDriver,
-                    "IOMMU state mismatch for chip {}: expected {}, got {}",
-                    chip_id,
-                    iommu_state_str(expected_iommu_state),
-                    iommu_state_str(current_iommu_state));
-                all_devices_same_iommu_state = false;
-            }
+        if (!pci_device) {
+            continue;
+        }
+        bool current_iommu_state = pci_device->is_iommu_enabled();
+        if (current_iommu_state != expected_iommu_state) {
+            log_warning(
+                LogSiliconDriver,
+                "IOMMU state mismatch for chip {}: expected {}, got {}",
+                chip_id,
+                iommu_state_str(expected_iommu_state),
+                iommu_state_str(current_iommu_state));
+            all_devices_same_iommu_state = false;
         }
 
         if (!all_devices_same_iommu_state) {
@@ -289,7 +290,7 @@ tt_SocDescriptor Cluster::construct_soc_descriptor(
     bool noc_translation_table_en =
         chip_in_cluster_descriptor ? cluster_desc->get_noc_translation_table_en().at(chip_id) : false;
     HarvestingMasks harvesting_masks =
-        chip_in_cluster_descriptor
+        chip_in_cluster_descriptor 
             ? get_harvesting_masks(chip_id, cluster_desc, perform_harvesting, simulated_harvesting_masks)
             : HarvestingMasks{};
     BoardType chip_board_type = chip_in_cluster_descriptor ? cluster_desc->get_board_type(chip_id) : BoardType::UNKNOWN;

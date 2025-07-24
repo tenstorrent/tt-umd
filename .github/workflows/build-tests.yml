@@ -5,10 +5,7 @@ name: Build Target
 on:
   workflow_call:
     inputs:
-      arch:
-        required: true
-        type: string
-      ubuntu-version:
+      ubuntu-docker-version:
         required: true
         type: string
       timeout:
@@ -20,14 +17,7 @@ on:
         default: Release
   workflow_dispatch:
     inputs:
-      arch:
-        required: true
-        description: 'The architecture to build for'
-        type: choice
-        options:
-          - wormhole_b0
-          - blackhole
-      ubuntu-version:
+      ubuntu-docker-version:
         required: true
         description: 'The version of Ubuntu to build on'
         type: choice
@@ -51,27 +41,26 @@ on:
 
 
 env:
-  BUILD_TARGETS: "umd_tests ubench"
+  BUILD_TARGETS: "umd_tests ubench nanobind_libdevice"
   BUILD_OUTPUT_DIR: ./build
   LIB_OUTPUT_DIR: ./build/lib
   DEPS_OUTPUT_DIR: ./build/_deps
   TEST_OUTPUT_DIR: ./build/test
+  NANOBIND_OUTPUT_DIR: ./build/nanobind
   CLUSTER_DESCRIPTORS_DIR: ./tests/api/cluster_descriptor_examples
   SOC_DESCRIPTORS_DIR: ./tests/soc_descs
+  NANOBIND_TEST_DIR: ./tests/nanobind
 
 jobs:
   build:
     # Due to parsing bug, fromJSON is used to convert string to number
     timeout-minutes: ${{ fromJSON(inputs.timeout) }}
 
-    name: Build umd_tests ${{ inputs.build-type }} build for ${{ inputs.arch }} on ${{ inputs.ubuntu-version }}
-    runs-on: ${{ inputs.ubuntu-version }}
+    name: Build umd_tests ${{ inputs.build-type }} build on ${{ inputs.ubuntu-docker-version }}
+    runs-on: ubuntu-22.04
     container:
-      image: ghcr.io/${{ github.repository }}/tt-umd-ci-${{ inputs.ubuntu-version }}:latest
+      image: ghcr.io/${{ github.repository }}/tt-umd-ci-${{ inputs.ubuntu-docker-version }}:latest
       options: --user root
-
-    env:
-      ARCH_NAME: ${{ inputs.arch }}
 
     steps:
       - uses: actions/checkout@v4
@@ -81,7 +70,10 @@ jobs:
       - name: Build ${{ env.BUILD_TARGETS }}
         run: |
           echo "Compiling the code..."
-          cmake -B ${{ env.BUILD_OUTPUT_DIR }} -G Ninja -DTT_UMD_BUILD_TESTS=ON \
+          cmake -B ${{ env.BUILD_OUTPUT_DIR }} -G Ninja \
+            -DTT_UMD_BUILD_TESTS=ON \
+            -DTT_UMD_BUILD_SIMULATION=ON \
+            -DTT_UMD_BUILD_PYTHON=ON \
             -DCMAKE_BUILD_TYPE=${{ inputs.build-type || 'Release' }}
           cmake --build ${{ env.BUILD_OUTPUT_DIR }} --target ${{ env.BUILD_TARGETS }}
           echo "Compile complete."
@@ -95,10 +87,12 @@ jobs:
           ${{ env.LIB_OUTPUT_DIR }} \
           ${{ env.DEPS_OUTPUT_DIR }} \
           ${{ env.CLUSTER_DESCRIPTORS_DIR }} \
-          ${{ env.SOC_DESCRIPTORS_DIR }}
+          ${{ env.SOC_DESCRIPTORS_DIR }} \
+          ${{ env.NANOBIND_OUTPUT_DIR }} \
+          ${{ env.NANOBIND_TEST_DIR }}
 
       - name: Upload build artifacts archive
         uses: actions/upload-artifact@v4
         with:
-          name: build-artifacts-${{ inputs.arch }}-${{ inputs.ubuntu-version }}-${{ inputs.build-type }}
+          name: build-artifacts-${{ inputs.ubuntu-docker-version }}-${{ inputs.build-type }}
           path: artifact.tar

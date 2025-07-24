@@ -12,6 +12,10 @@ on:
 
 jobs:
   build:
+    # Add permissions for writing packages
+    permissions:
+      packages: write
+
     # Due to parsing bug, fromJSON is used to convert string to number
     timeout-minutes: ${{ fromJSON(inputs.timeout) }}
     strategy:
@@ -19,7 +23,7 @@ jobs:
       matrix:
         build: [
           {name: ubuntu-22.04},
-          # {name: ubuntu-20.04},
+          {name: ubuntu-24.04},
         ]
 
     name: Building docker image ${{ matrix.build.name }}

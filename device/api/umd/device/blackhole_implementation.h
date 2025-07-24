@@ -104,15 +104,31 @@ static const tt_xy_pair ARC_GRID_SIZE = {1, 1};
 static const std::vector<tt_xy_pair> ARC_CORES_NOC0 = {{8, 0}};
 static const std::vector<tt_xy_pair> ARC_LOCATIONS = ARC_CORES_NOC0;
 
-static const tt_xy_pair PCIE_GRID_SIZE = {1, 1};
+static const tt_xy_pair PCIE_GRID_SIZE = {2, 1};
 static const std::vector<tt_xy_pair> PCIE_CORES_TYPE2_NOC0 = {{{2, 0}}};
 static const std::vector<tt_xy_pair> PCI_LOCATIONS = PCIE_CORES_TYPE2_NOC0;
 static const std::vector<tt_xy_pair> PCIE_CORES_TYPE1_NOC0 = {{{11, 0}}};
 static const std::vector<tt_xy_pair> PCIE_CORES_NOC0 = {{2, 0}, {11, 0}};
 
 static const std::vector<tt_xy_pair> ROUTER_CORES_NOC0 = {
-    {1, 0}, {3, 0}, {4, 0}, {5, 0}, {6, 0}, {7, 0}, {10, 0}, {12, 0}, {13, 0}, {14, 0}, {15, 0}, {16, 0},
-    {8, 1}, {8, 2}, {8, 3}, {8, 4}, {8, 5}, {8, 6}, {8, 7},  {8, 8},  {8, 9},  {8, 10}, {8, 11}};
+    {1, 0},
+    {3, 0},
+    {4, 0},
+    {5, 0},
+    {6, 0},
+    {7, 0},
+    {10, 0},
+    {12, 0},
+    {13, 0},
+    {14, 0},
+    {15, 0},
+    {16, 0},
+    {8, 1},
+    {8, 10},
+    {8, 8},
+    {8, 6},
+    {8, 4},
+    {8, 11}};
 
 static const size_t NUM_ETH_CHANNELS = 14;
 static const std::vector<tt_xy_pair> ETH_CORES_NOC0 = {
@@ -132,6 +148,11 @@ static const std::vector<tt_xy_pair> ETH_CORES_NOC0 = {
      {10, 1}}};
 
 static const std::vector<tt_xy_pair> ETH_LOCATIONS = ETH_CORES_NOC0;
+
+static const std::vector<tt_xy_pair> SECURITY_CORES_NOC0 = {{8, 2}};
+// We are using P0 on the NOC for all L2CPU cores.
+static const std::vector<tt_xy_pair> L2CPU_CORES_NOC0 = {{8, 3}, {8, 9}, {8, 5}, {8, 7}};
+
 // Return to std::array instead of std::vector once we get std::span support in C++20
 static const std::vector<uint32_t> T6_X_LOCATIONS = {1, 2, 3, 4, 5, 6, 7, 10, 11, 12, 13, 14, 15, 16};
 static const std::vector<uint32_t> T6_Y_LOCATIONS = {2, 3, 4, 5, 6, 7, 8, 9, 10, 11};
@@ -223,12 +244,28 @@ static const uint32_t NIU_CFG_NOC1_BAR_ADDR = 0x1FD14100;
 static constexpr uint32_t AICLK_BUSY_VAL = 1350;
 static constexpr uint32_t AICLK_IDLE_VAL = 800;
 
-static constexpr uint32_t TENSIX_L1_SIZE = 1499136;
+static constexpr uint32_t TENSIX_L1_SIZE = 1572864;
 static constexpr uint32_t ETH_L1_SIZE = 262144;
 static constexpr uint64_t DRAM_BANK_SIZE = 4294967296;
 
-static constexpr uint64_t NOC_CONTROL_REG_ADDR_BASE = 0xFFB20000;
-static constexpr uint64_t NOC_NODE_ID_OFFSET = 0x44;
+constexpr std::array<std::pair<CoreType, uint64_t>, 7> NOC0_CONTROL_REG_ADDR_BASE_MAP = {
+    {{CoreType::TENSIX, 0xFFB20000},
+     {CoreType::ETH, 0xFFB20000},
+     {CoreType::DRAM, 0xFFB20000},
+     {CoreType::PCIE, 0xFFFFFFFFFF000000ULL},
+     {CoreType::ARC, 0xFFFFFFFFFF000000ULL},
+     {CoreType::SECURITY, 0xFFFFFFFFFF000000ULL},
+     {CoreType::L2CPU, 0xFFFFFFFFFF000000ULL}}};
+constexpr std::array<std::pair<CoreType, uint64_t>, 7> NOC1_CONTROL_REG_ADDR_BASE_MAP = {
+    {{CoreType::TENSIX, 0xFFB30000},
+     {CoreType::ETH, 0xFFB30000},
+     {CoreType::DRAM, 0xFFB30000},
+     {CoreType::PCIE, 0xFFFFFFFFFF000000ULL},
+     {CoreType::ARC, 0xFFFFFFFFFF000000ULL},
+     {CoreType::SECURITY, 0xFFFFFFFFFF000000ULL},
+     {CoreType::L2CPU, 0xFFFFFFFFFF000000ULL}}};
+
+static const uint64_t NOC_NODE_ID_OFFSET = 0x44;
 
 static const size_t eth_translated_coordinate_start_x = 20;
 static const size_t eth_translated_coordinate_start_y = 25;
@@ -239,12 +276,9 @@ static const size_t pcie_translated_coordinate_start_y = 24;
 static const size_t dram_translated_coordinate_start_x = 17;
 static const size_t dram_translated_coordinate_start_y = 12;
 
-/*
- * Ge the PCIE core that can be used for communication with host
- * based on the board type and asic location of the chip.
- * Information on remote chip is used only if the board type is P300.
- */
-std::vector<tt_xy_pair> get_pcie_cores(const BoardType board_type, const uint8_t asic_location);
+// Return arc core pair that can be used to access ARC core on the device. This depends on information
+// whether NOC translation is enabled and if we want to use NOC0 or NOC1.
+tt_xy_pair get_arc_core(const bool noc_translation_enabled, const bool umd_use_noc1);
 
 }  // namespace blackhole
 
@@ -376,6 +410,10 @@ public:
     tt_driver_host_address_params get_host_address_params() const override;
     tt_driver_eth_interface_params get_eth_interface_params() const override;
     tt_driver_noc_params get_noc_params() const override;
+
+    virtual uint64_t get_noc_node_id_offset() const override { return blackhole::NOC_NODE_ID_OFFSET; }
+
+    uint64_t get_noc_reg_base(const CoreType core_type, const uint32_t noc, const uint32_t noc_port = 0) const override;
 };
 
 }  // namespace tt::umd

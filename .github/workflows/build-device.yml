@@ -15,7 +15,7 @@ on:
     branches: ["main"]
 
 env:
-  BUILD_TARGET: device
+  BUILD_TARGET: device umd_tools
   BUILD_OUTPUT_DIR: ./build
   LIB_OUTPUT_DIR: ./build/lib
   DEPS_OUTPUT_DIR: ./build/_deps
@@ -33,6 +33,9 @@ jobs:
         image: [
           {runs-on: ubuntu-22.04, docker-image: tt-umd-ci-ubuntu-22.04, compiler: clang},
           {runs-on: ubuntu-22.04, docker-image: tt-umd-ci-ubuntu-22.04,
+           compiler: gcc-12, c: /usr/bin/gcc-12, cpp: /usr/bin/g++-12},
+          {runs-on: ubuntu-24.04, docker-image: tt-umd-ci-ubuntu-24.04, compiler: clang},
+          {runs-on: ubuntu-24.04, docker-image: tt-umd-ci-ubuntu-24.04,
            compiler: gcc-12, c: /usr/bin/gcc-12, cpp: /usr/bin/g++-12},
         ]
 

@@ -8,6 +8,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <filesystem>
 #include <iostream>
 #include <map>
 #include <string>
@@ -25,6 +26,8 @@
 namespace YAML {
 class Node;
 }
+
+namespace tt::umd {
 
 std::string format_node(tt_xy_pair xy);
 
@@ -50,6 +53,9 @@ struct SocDescriptorInfo {
     std::vector<tt_xy_pair> arc_cores;
     std::vector<tt_xy_pair> pcie_cores;
     std::vector<tt_xy_pair> router_cores;
+    std::vector<tt_xy_pair> security_cores;
+    std::vector<tt_xy_pair> l2cpu_cores;
+
     uint32_t worker_l1_size;
     uint32_t eth_l1_size;
     uint64_t dram_bank_size;
@@ -69,40 +75,44 @@ public:
     tt_SocDescriptor(
         std::string device_descriptor_path,
         const bool noc_translation_enabled,
-        const tt::umd::HarvestingMasks harvesting_masks = {0, 0, 0},
+        const HarvestingMasks harvesting_masks = {0, 0, 0},
         const BoardType board_type = BoardType::UNKNOWN,
         const uint8_t asic_location = 0);
 
     tt_SocDescriptor(
         const tt::ARCH arch,
         const bool noc_translation_enabled,
-        const tt::umd::HarvestingMasks harvesting_masks = {0, 0, 0},
+        const HarvestingMasks harvesting_masks = {0, 0, 0},
         const BoardType board_type = BoardType::UNKNOWN,
         const uint8_t asic_location = 0);
 
     // CoreCoord conversions.
-    tt::umd::CoreCoord translate_coord_to(const tt::umd::CoreCoord core_coord, const CoordSystem coord_system) const;
-    tt::umd::CoreCoord get_coord_at(const tt_xy_pair core, const CoordSystem coord_system) const;
-    tt::umd::CoreCoord translate_coord_to(
+    CoreCoord translate_coord_to(const CoreCoord core_coord, const CoordSystem coord_system) const;
+    CoreCoord get_coord_at(const tt_xy_pair core, const CoordSystem coord_system) const;
+    CoreCoord translate_coord_to(
         const tt_xy_pair core_location,
         const CoordSystem input_coord_system,
         const CoordSystem target_coord_system) const;
 
+    // Serialize the soc descriptor to a YAML string, or directly to a file.
+    // A default file in /tmp directory will be used if no path is passed.
+    std::string serialize() const;
+    std::filesystem::path serialize_to_file(const std::filesystem::path &dest_file = "") const;
+
     static std::string get_soc_descriptor_path(tt::ARCH arch);
 
-    std::vector<tt::umd::CoreCoord> get_cores(
-        const CoreType core_type, const CoordSystem coord_system = CoordSystem::PHYSICAL) const;
-    std::vector<tt::umd::CoreCoord> get_harvested_cores(
-        const CoreType core_type, const CoordSystem coord_system = CoordSystem::PHYSICAL) const;
-    std::vector<tt::umd::CoreCoord> get_all_cores(const CoordSystem coord_system = CoordSystem::PHYSICAL) const;
-    std::vector<tt::umd::CoreCoord> get_all_harvested_cores(
-        const CoordSystem coord_system = CoordSystem::PHYSICAL) const;
+    std::vector<CoreCoord> get_cores(
+        const CoreType core_type, const CoordSystem coord_system = CoordSystem::NOC0) const;
+    std::vector<CoreCoord> get_harvested_cores(
+        const CoreType core_type, const CoordSystem coord_system = CoordSystem::NOC0) const;
+    std::vector<CoreCoord> get_all_cores(const CoordSystem coord_system = CoordSystem::NOC0) const;
+    std::vector<CoreCoord> get_all_harvested_cores(const CoordSystem coord_system = CoordSystem::NOC0) const;
 
     tt_xy_pair get_grid_size(const CoreType core_type) const;
     tt_xy_pair get_harvested_grid_size(const CoreType core_type) const;
 
-    std::vector<std::vector<tt::umd::CoreCoord>> get_dram_cores() const;
-    std::vector<std::vector<tt::umd::CoreCoord>> get_harvested_dram_cores() const;
+    std::vector<std::vector<CoreCoord>> get_dram_cores() const;
+    std::vector<std::vector<CoreCoord>> get_harvested_dram_cores() const;
 
     int get_num_dram_channels() const;
 
@@ -111,10 +121,9 @@ public:
 
     // LOGICAL coordinates for DRAM and ETH are tightly coupled with channels, so this code is very similar to what
     // would translate_coord_to do for a coord with LOGICAL coords.
-    tt::umd::CoreCoord get_dram_core_for_channel(
-        int dram_chan, int subchannel, const CoordSystem coord_system = CoordSystem::PHYSICAL) const;
-    tt::umd::CoreCoord get_eth_core_for_channel(
-        int eth_chan, const CoordSystem coord_system = CoordSystem::PHYSICAL) const;
+    CoreCoord get_dram_core_for_channel(
+        int dram_chan, int subchannel, const CoordSystem coord_system = CoordSystem::NOC0) const;
+    CoreCoord get_eth_core_for_channel(int eth_chan, const CoordSystem coord_system = CoordSystem::NOC0) const;
 
     tt::ARCH arch;
     tt_xy_pair grid_size;
@@ -140,7 +149,7 @@ public:
     //   - Eth harvesting mask "2" would mean that the second core in eth_cores in soc descriptor is harvested, which
     //     is the same one that would be reported as channel 1 and would have logical coords (0, 1). This mask doesn't
     //     mean that the second core in NOC0 chain is harvested.
-    tt::umd::HarvestingMasks harvesting_masks;
+    HarvestingMasks harvesting_masks;
 
 private:
     void create_coordinate_manager(const BoardType board_type, const uint8_t asic_location);
@@ -151,13 +160,21 @@ private:
     void load_soc_features_from_soc_desc_info(const SocDescriptorInfo &soc_desc_info);
 
     static std::vector<tt_xy_pair> convert_to_tt_xy_pair(const std::vector<std::string> &core_strings);
-    static std::vector<std::vector<tt_xy_pair>> convert_dram_cores_from_yaml(YAML::Node &device_descriptor_yaml);
+    static std::vector<std::vector<tt_xy_pair>> convert_dram_cores_from_yaml(
+        YAML::Node &device_descriptor_yaml, const std::string &dram_core = "dram");
 
     static SocDescriptorInfo get_soc_descriptor_info(tt::ARCH arch);
 
     static tt_xy_pair calculate_grid_size(const std::vector<tt_xy_pair> &cores);
-    std::vector<tt::umd::CoreCoord> translate_coordinates(
-        const std::vector<tt::umd::CoreCoord> &physical_cores, const CoordSystem coord_system) const;
+    std::vector<CoreCoord> translate_coordinates(
+        const std::vector<CoreCoord> &noc0_cores, const CoordSystem coord_system) const;
+
+    static std::filesystem::path get_default_soc_descriptor_file_path();
+
+    // Since including yaml-cpp/yaml.h here breaks metal build we use void* type instead of YAML::Emitter
+    void write_coords(void *out, const CoreCoord &core) const;
+    void write_core_locations(void *out, const CoreType &core_type) const;
+    void serialize_dram_cores(void *out, const std::vector<std::vector<CoreCoord>> &cores) const;
 
     // Internal structures, read from yaml.
     tt_xy_pair worker_grid_size;
@@ -166,11 +183,16 @@ private:
     std::vector<tt_xy_pair> workers;
     std::vector<tt_xy_pair> harvested_workers;
     std::vector<tt_xy_pair> pcie_cores;
-    std::vector<std::vector<tt_xy_pair>> dram_cores;                             // per channel list of dram cores
+    std::vector<std::vector<tt_xy_pair>> dram_cores;  // per channel list of dram cores
+    std::vector<std::vector<tt_xy_pair>> harvested_dram_cores;
+
     std::unordered_map<tt_xy_pair, std::tuple<int, int>> dram_core_channel_map;  // map dram core to chan/subchan
     std::vector<tt_xy_pair> ethernet_cores;                                      // ethernet cores (index == channel id)
+    std::vector<tt_xy_pair> harvested_ethernet_cores;
     std::unordered_map<tt_xy_pair, int> ethernet_core_channel_map;
     std::vector<tt_xy_pair> router_cores;
+    std::vector<tt_xy_pair> security_cores;
+    std::vector<tt_xy_pair> l2cpu_cores;
     std::vector<uint32_t> noc0_x_to_noc1_x;
     std::vector<uint32_t> noc0_y_to_noc1_y;
 
@@ -178,16 +200,19 @@ private:
     // is not needed anymore. Soc descriptor and coordinate manager should be
     // created once per chip.
     std::shared_ptr<CoordinateManager> coordinate_manager = nullptr;
-    std::map<CoreType, std::vector<tt::umd::CoreCoord>> cores_map;
+    std::map<CoreType, std::vector<CoreCoord>> cores_map;
     std::map<CoreType, tt_xy_pair> grid_size_map;
-    std::map<CoreType, std::vector<tt::umd::CoreCoord>> harvested_cores_map;
+    std::map<CoreType, std::vector<CoreCoord>> harvested_cores_map;
     std::map<CoreType, tt_xy_pair> harvested_grid_size_map;
 
     // DRAM cores are kept in additional vector struct since one DRAM bank
     // has multiple NOC endpoints, so some UMD clients prefer vector of vectors returned.
-    std::vector<std::vector<tt::umd::CoreCoord>> dram_cores_core_coord;
-    std::vector<std::vector<tt::umd::CoreCoord>> harvested_dram_cores_core_coord;
+    std::vector<std::vector<CoreCoord>> dram_cores_core_coord;
+    std::vector<std::vector<CoreCoord>> harvested_dram_cores_core_coord;
 };
 
-// Allocates a new soc descriptor on the heap. Returns an owning pointer.
-// std::unique_ptr<tt_SocDescriptor> load_soc_descriptor_from_yaml(std::string device_descriptor_file_path);
+}  // namespace tt::umd
+
+// TODO: To be removed once clients switch to namespace usage.
+using tt::umd::CoreDescriptor;
+using tt::umd::tt_SocDescriptor;

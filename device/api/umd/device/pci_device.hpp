@@ -9,18 +9,19 @@
 #include <cstdint>
 #include <cstdio>
 #include <map>
+#include <memory>
 #include <unordered_map>
 #include <vector>
 
 #include "fmt/format.h"
 #include "umd/device/semver.hpp"
+#include "umd/device/tt_device/tlb_handle.h"
 #include "umd/device/tt_xy_pair.h"
 #include "umd/device/types/arch.h"
 #include "umd/device/types/tlb.h"
 
 namespace tt::umd {
 class semver_t;
-}  // namespace tt::umd
 
 struct PciDeviceInfo {
     uint16_t vendor_id;
@@ -35,8 +36,14 @@ struct PciDeviceInfo {
     // onto this struct as methods?  e.g. current_link_width etc.
 };
 
-// Do we want to put everything into this file into tt::umd namespace?
-using tt::umd::semver_t;
+struct DmaBuffer {
+    uint8_t *buffer = nullptr;
+    uint8_t *completion = nullptr;
+    size_t size = 0;
+
+    uint64_t buffer_pa = 0;
+    uint64_t completion_pa = 0;
+};
 
 class PCIDevice {
     const std::string device_path;   // Path to character device: /dev/tenstorrent/N
@@ -45,9 +52,10 @@ class PCIDevice {
     const PciDeviceInfo info;        // PCI device info
     const int numa_node;             // -1 if non-NUMA
     const int revision;              // PCI revision value from sysfs
-    const tt::ARCH arch;             // e.g. Grayskull, Wormhole, Blackhole
+    const tt::ARCH arch;             // e.g. Wormhole, Blackhole
     const semver_t kmd_version;      // KMD version
     const bool iommu_enabled;        // Whether the system is protected from this device by an IOMMU
+    DmaBuffer dma_buffer{};
 
 public:
     /**
@@ -88,13 +96,6 @@ public:
      * @return which NUMA node this device is associated with, or -1 if non-NUMA
      */
     int get_numa_node() const { return numa_node; }
-
-    /**
-     * @return underlying file descriptor
-     * TODO: this is an abstraction violation to be removed when this class
-     * assumes control over hugepage/DMA mapping code.
-     */
-    int get_fd() const { return pci_device_file_desc; }
 
     /**
      * @return N in /dev/tenstorrent/N
@@ -144,6 +145,34 @@ public:
      */
     uint64_t map_for_dma(void *buffer, size_t size);
 
+    /**
+     * Access the device's DMA buffer.  This buffer is not guaranteed to exist.
+     * It is the caller's responsibility to check if the buffer is valid and to
+     * chunk the desired transfer size to fit within it.
+     */
+    DmaBuffer &get_dma_buffer() { return dma_buffer; }
+
+    /**
+     * Unmap a buffer that was previously mapped for DMA access.
+     *
+     * @param buffer must be page-aligned
+     * @param size must be a multiple of the page size
+     */
+    void unmap_for_dma(void *buffer, size_t size);
+
+    /**
+     * Read KMD version installed on the system.
+     */
+    static semver_t read_kmd_version();
+
+    /**
+     * Allocate TLB resource from KMD.
+     *
+     * @param tlb_size Size of the TLB caller wants to allocate.
+     * @param mapping_type Type of TLB mapping to allocate (UC or WC).
+     */
+    std::unique_ptr<TlbHandle> allocate_tlb(const size_t tlb_size, const TlbMapping tlb_mapping = TlbMapping::UC);
+
 public:
     // TODO: we can and should make all of these private.
     void *bar0_uc = nullptr;
@@ -185,7 +214,9 @@ public:
         }
         return reinterpret_cast<T *>(static_cast<uint8_t *>(reg_mapping) + register_offset);
     }
-
-private:
-    semver_t read_kmd_version();
 };
+
+}  // namespace tt::umd
+
+// TODO: To be removed once clients switch to namespace usage.
+using tt::umd::PCIDevice;

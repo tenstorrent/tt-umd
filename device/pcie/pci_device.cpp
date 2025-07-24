@@ -14,16 +14,24 @@
 
 #include <cstdint>
 #include <cstring>  // for memcpy
+#include <filesystem>
+#include <fstream>
+#include <optional>
+#include <tt-logger/tt-logger.hpp>
 #include <vector>
 
 #include "assert.hpp"
 #include "ioctl.h"
-#include "logger.hpp"
 #include "umd/device/types/arch.h"
+
+namespace tt::umd {
 
 static const uint16_t GS_PCIE_DEVICE_ID = 0xfaca;
 static const uint16_t WH_PCIE_DEVICE_ID = 0x401e;
 static const uint16_t BH_PCIE_DEVICE_ID = 0xb140;
+
+static const size_t DMABUF_SIZE = (1 << 20);                   // 1 MiB
+static const size_t DMABUF_TOTAL_SIZE = DMABUF_SIZE + 0x1000;  // Extra page for completion
 
 // TODO: we'll have to rethink this when KMD takes control of the inbound PCIe
 // TLB windows and there is no longer a pre-defined WC/UC split.
@@ -32,11 +40,8 @@ static const uint32_t GS_BAR0_WC_MAPPING_SIZE = (156 << 20) + (10 << 21) + (18 <
 // Defines the address for WC region. addresses 0 to BH_BAR0_WC_MAPPING_SIZE are in WC, above that are UC
 static const uint32_t BH_BAR0_WC_MAPPING_SIZE = 188 << 21;
 
-using namespace tt;
-using namespace tt::umd;
-
 template <typename T>
-static T read_sysfs(const PciDeviceInfo &device_info, const std::string &attribute_name) {
+static std::optional<T> try_read_sysfs(const PciDeviceInfo &device_info, const std::string &attribute_name) {
     const auto sysfs_path = fmt::format(
         "/sys/bus/pci/devices/{:04x}:{:02x}:{:02x}.{:x}/{}",
         device_info.pci_domain,
@@ -48,8 +53,8 @@ static T read_sysfs(const PciDeviceInfo &device_info, const std::string &attribu
     std::string value_str;
     T value;
 
-    if (!std::getline(attribute_file, value_str)) {
-        TT_THROW("Failed reading sysfs attribute: {}", sysfs_path);
+    if (!attribute_file.is_open() || !std::getline(attribute_file, value_str)) {
+        return std::nullopt;
     }
 
     std::istringstream iss(value_str);
@@ -62,28 +67,40 @@ static T read_sysfs(const PciDeviceInfo &device_info, const std::string &attribu
     }
 
     if (!(iss >> value)) {
-        TT_THROW("Failed to parse sysfs attribute value: {}", value_str);
+        return std::nullopt;
     }
 
     return value;
 }
 
 template <typename T>
-T read_sysfs(const PciDeviceInfo &device_info, const std::string &attribute_name, const T &default_value) {
-    try {
-        return read_sysfs<T>(device_info, attribute_name);
-    } catch (...) {
-        return default_value;
+static T read_sysfs(const PciDeviceInfo &device_info, const std::string &attribute_name) {
+    auto result = try_read_sysfs<T>(device_info, attribute_name);
+    if (!result) {
+        const auto sysfs_path = fmt::format(
+            "/sys/bus/pci/devices/{:04x}:{:02x}:{:02x}.{:x}/{}",
+            device_info.pci_domain,
+            device_info.pci_bus,
+            device_info.pci_device,
+            device_info.pci_function,
+            attribute_name);
+        TT_THROW("Failed reading or parsing sysfs attribute: {}", sysfs_path);
     }
+    return *result;
+}
+
+template <typename T>
+T read_sysfs(const PciDeviceInfo &device_info, const std::string &attribute_name, const T &default_value) {
+    auto result = try_read_sysfs<T>(device_info, attribute_name);
+    return result.value_or(default_value);
 }
 
 static bool detect_iommu(const PciDeviceInfo &device_info) {
-    try {
-        auto iommu_type = read_sysfs<std::string>(device_info, "iommu_group/type");
-        return iommu_type.substr(0, 3) == "DMA";  // DMA or DMA-FQ
-    } catch (...) {
-        return false;
+    auto iommu_type = try_read_sysfs<std::string>(device_info, "iommu_group/type");
+    if (iommu_type) {
+        return iommu_type->substr(0, 3) == "DMA";  // DMA or DMA-FQ
     }
+    return false;
 }
 
 static PciDeviceInfo read_device_info(int fd) {
@@ -102,9 +119,7 @@ static PciDeviceInfo read_device_info(int fd) {
 }
 
 tt::ARCH PciDeviceInfo::get_arch() const {
-    if (this->device_id == GS_PCIE_DEVICE_ID) {
-        return tt::ARCH::GRAYSKULL;
-    } else if (this->device_id == WH_PCIE_DEVICE_ID) {
+    if (this->device_id == WH_PCIE_DEVICE_ID) {
         return tt::ARCH::WORMHOLE_B0;
     } else if (this->device_id == BH_PCIE_DEVICE_ID) {
         return tt::ARCH::BLACKHOLE;
@@ -161,20 +176,27 @@ PCIDevice::PCIDevice(int pci_device_number) :
     numa_node(read_sysfs<int>(info, "numa_node", -1)),  // default to -1 if not found
     revision(read_sysfs<int>(info, "revision")),
     arch(info.get_arch()),
-    kmd_version(read_kmd_version()),
+    kmd_version(PCIDevice::read_kmd_version()),
     iommu_enabled(detect_iommu(info)) {
     if (iommu_enabled && kmd_version < kmd_ver_for_iommu) {
         TT_THROW("Running with IOMMU support requires KMD version {} or newer", kmd_ver_for_iommu.to_string());
     }
 
+    tenstorrent_get_driver_info driver_info{};
+    driver_info.in.output_size_bytes = sizeof(driver_info.out);
+    if (ioctl(pci_device_file_desc, TENSTORRENT_IOCTL_GET_DRIVER_INFO, &driver_info) == -1) {
+        TT_THROW("TENSTORRENT_IOCTL_GET_DRIVER_INFO failed");
+    }
+
     log_info(
         LogSiliconDriver,
-        "Opened PCI device {}; KMD version: {}, IOMMU: {}",
+        "Opened PCI device {}; KMD version: {}; API: {}; IOMMU: {}",
         pci_device_num,
         kmd_version.to_string(),
+        driver_info.out.driver_version,
         iommu_enabled ? "enabled" : "disabled");
 
-    log_assert(arch != tt::ARCH::WORMHOLE_B0 || revision == 0x01, "Wormhole B0 must have revision 0x01");
+    TT_ASSERT(arch != tt::ARCH::WORMHOLE_B0 || revision == 0x01, "Wormhole B0 must have revision 0x01");
 
     struct {
         tenstorrent_query_mappings query_mappings;
@@ -298,6 +320,19 @@ PCIDevice::PCIDevice(int pci_device_number) :
 
         system_reg_start_offset = (512 - 16) * 1024 * 1024;
         system_reg_offset_adjust = (512 - 32) * 1024 * 1024;
+
+        bar2_uc_size = bar2_uc_mapping.mapping_size;
+        bar2_uc = mmap(
+            NULL,
+            bar2_uc_mapping.mapping_size,
+            PROT_READ | PROT_WRITE,
+            MAP_SHARED,
+            pci_device_file_desc,
+            bar2_uc_mapping.mapping_base);
+
+        if (bar2_uc == MAP_FAILED) {
+            throw std::runtime_error(fmt::format("BAR2 UC mapping failed for device {}.", pci_device_num));
+        }
     } else if (arch == tt::ARCH::BLACKHOLE) {
         if (bar2_uc_mapping.mapping_id != TENSTORRENT_MAPPING_RESOURCE1_UC) {
             throw std::runtime_error(fmt::format("Device {} has no BAR2 UC mapping.", pci_device_num));
@@ -336,6 +371,66 @@ PCIDevice::PCIDevice(int pci_device_number) :
             throw std::runtime_error(fmt::format("BAR4 WC mapping failed for device {}.", pci_device_num));
         }
     }
+
+    // DMA buffer setup.  This is different than the hugepage-based buffers that
+    // are mapped to be accessible via the chip NOC.  This buffer is used by the
+    // PCIe DMA engine for transferring data between device and host.  A few
+    // things to note:
+    // 1. This is Wormhole-only.
+    // 2. Although the DMA engine could target the hugepages, the partitioning
+    // scheme for the hugepages is mostly up to the application.  Requiring the
+    // application to relinquish part of the hugepage memory and then coordinate
+    // with us about it sounds like a terrible idea.
+    // 3. Lack of current IOMMU support for Wormhole means that the buffer needs
+    // to be small enough that Linux will have a reasonable chance of being able
+    // to actually allocate it.
+    // 4. Longer-term, we could move to an IOMMU-based scheme where:
+    //    - Application allocates a buffer
+    //    - Driver pins it and maps it for DMA
+    //    - Application uses the buffer as an arena for DMA-able structures
+    //    - Driver initiates DMAs based on its knowledge of the buffer
+    // 5. + 0x1000 is for the completion page.  Since this entire implementation
+    // is a temporary hack until it's implemented in the driver, we'll need to
+    // poll a completion page to know when the DMA is done instead of receiving
+    // an interrupt.
+    if (arch == tt::ARCH::WORMHOLE_B0) {
+        tenstorrent_allocate_dma_buf dma_buf{};
+
+        dma_buf.in.requested_size = DMABUF_TOTAL_SIZE;
+        dma_buf.in.buf_index = 0;
+
+        if (ioctl(pci_device_file_desc, TENSTORRENT_IOCTL_ALLOCATE_DMA_BUF, &dma_buf)) {
+            // There is a chance this will fail because we're not requiring
+            // IOMMU.  Linux might not have a contiguous chunk of memory to give
+            // us.  I'm not really sure what to do here.  PCIe DMA support is a
+            // new feature in UMD and the application might not care about it,
+            // so throwing our way out of here is wrong.  For now, we will log
+            // here and throw when PCIe DMA is attempted.  Maybe a higher layer
+            // in UMD can fall back to MMIO if that happens.
+            log_error(LogSiliconDriver, "Failed to allocate DMA buffer: {}", strerror(errno));
+        } else {
+            // OK - we have a buffer.  Map it.
+            void *buffer = mmap(
+                nullptr,
+                DMABUF_TOTAL_SIZE,
+                PROT_READ | PROT_WRITE,
+                MAP_SHARED,
+                pci_device_file_desc,
+                dma_buf.out.mapping_offset);
+
+            if (buffer == MAP_FAILED) {
+                // Similar rationale to above, although this is worse because we
+                // can't deallocate it.  That only happens when we close the fd.
+                log_error(LogSiliconDriver, "Failed to map DMA buffer: {}", strerror(errno));
+            } else {
+                dma_buffer.buffer = (uint8_t *)buffer;
+                dma_buffer.completion = (uint8_t *)buffer + DMABUF_SIZE;
+                dma_buffer.buffer_pa = dma_buf.out.physical_address;
+                dma_buffer.completion_pa = dma_buf.out.physical_address + DMABUF_SIZE;
+                dma_buffer.size = DMABUF_SIZE;
+            }
+        }
+    }
 }
 
 PCIDevice::~PCIDevice() {
@@ -359,6 +454,10 @@ PCIDevice::~PCIDevice() {
 
     if (system_reg_mapping != nullptr && system_reg_mapping != MAP_FAILED) {
         munmap(system_reg_mapping, system_reg_mapping_size);
+    }
+
+    if (dma_buffer.buffer != nullptr && dma_buffer.buffer != MAP_FAILED) {
+        munmap(dma_buffer.buffer, DMABUF_TOTAL_SIZE);
     }
 }
 
@@ -393,37 +492,29 @@ uint64_t PCIDevice::map_for_dma(void *buffer, size_t size) {
     pin_pages.in.virtual_address = vaddr;
     pin_pages.in.size = size;
 
-    // With IOMMU, this will probably fail on you if you're mapping something
-    // large.  The situation today is that the kernel driver uses a 32-bit DMA
-    // address mask, so all DMA allocations and mappings show up in the IOVA
-    // range of 0x0 to 0xffff'ffff.  According to syseng, we can get up to 3GB
-    // on Intel, 3.75GB on AMD, but this requires multiple mappings with small
-    // chunks, down to 2MB.  It's possible to make such non-contiguous mappings
-    // appear both virtually contiguous (to the application) and physically
-    // contiguous (to the NOC, using iATU), but it's not clear that this is
-    // worth the effort...  the scheme this is intended to replace supports up
-    // to 4GB which is what application developers want.
-    //
-    // What can we do here?
-    // 1. Use hugepages (part of what we are trying to avoid here).
-    // 2. Use a larger value for the driver's dma_address_bits (currently 32;
-    //    has implications for non-UMD based applications -- basically that any
-    //    DMA buffer mapped beyond the 4GB boundary requires iATU configuration
-    //    for the hardware to be able to reach it).
-    // 3. Use multiple mappings with small chunks (won't get us to 4GB; adds
-    //    complexity).
-    // 4. Modify the driver so that DMA allocations are in the low 4GB IOVA
-    //    range but mappings from userspace can be further up (requires driver
-    //    changes).
-    // 5. ???
-    //
-    // If you need a quick workaround here, I suggest:
-    //   sudo insmod ./tenstorrent.ko dma_address_bits=48
     if (ioctl(pci_device_file_desc, TENSTORRENT_IOCTL_PIN_PAGES, &pin_pages) == -1) {
         TT_THROW("Failed to pin pages for DMA: {}", strerror(errno));
     }
 
     return pin_pages.out.physical_address;
+}
+
+void PCIDevice::unmap_for_dma(void *buffer, size_t size) {
+    static const auto page_size = sysconf(_SC_PAGESIZE);
+
+    const uint64_t vaddr = reinterpret_cast<uint64_t>(buffer);
+
+    if (vaddr % page_size != 0 || size % page_size != 0) {
+        TT_THROW("Buffer must be page-aligned with a size that is a multiple of the page size");
+    }
+
+    tenstorrent_unpin_pages unpin_pages{};
+    unpin_pages.in.virtual_address = vaddr;
+    unpin_pages.in.size = size;
+
+    if (ioctl(pci_device_file_desc, TENSTORRENT_IOCTL_UNPIN_PAGES, &unpin_pages) < 0) {
+        TT_THROW("Failed to unpin pages for DMA buffer: {}", strerror(errno));
+    }
 }
 
 semver_t PCIDevice::read_kmd_version() {
@@ -440,3 +531,9 @@ semver_t PCIDevice::read_kmd_version() {
 
     return semver_t(version_str);
 }
+
+std::unique_ptr<TlbHandle> PCIDevice::allocate_tlb(const size_t tlb_size, const TlbMapping tlb_mapping) {
+    return std::make_unique<TlbHandle>(pci_device_file_desc, tlb_size, tlb_mapping);
+}
+
+}  // namespace tt::umd

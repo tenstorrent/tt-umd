@@ -7,7 +7,7 @@ on:
       arch:
         required: true
         type: string
-      ubuntu-version:
+      ubuntu-docker-version:
         required: true
         type: string
       card:
@@ -25,18 +25,19 @@ env:
   BUILD_OUTPUT_DIR: ./build
   TEST_OUTPUT_DIR: ./build/test
   CREATE_MAP_BINARIES_DIR: ./device/bin/silicon
+  TT_UMD_LOGGER_LEVEL: info
 
 jobs:
   test:
     # Due to parsing bug, fromJSON is used to convert string to number
     timeout-minutes: ${{ fromJSON(inputs.timeout) }}
 
-    name: Run tests for ${{ inputs.arch }} on ${{ inputs.card }} on ${{ inputs.ubuntu-version }}
+    name: Run tests for ${{ inputs.arch }} on ${{ inputs.card }} on ${{ inputs.ubuntu-docker-version }}
     runs-on:
       - ${{ inputs.card }}
     container:
-      image: ghcr.io/${{ github.repository }}/tt-umd-ci-${{ inputs.ubuntu-version }}:latest
-      options: --user root --device /dev/tenstorrent/0
+      image: ghcr.io/${{ github.repository }}/tt-umd-ci-${{ inputs.ubuntu-docker-version }}:latest
+      options: --user root ${{ inputs.arch != 'baremetal' && '--device /dev/tenstorrent' || '' }}
       volumes:
         - /dev/hugepages:/dev/hugepages
         - /dev/hugepages-1G:/dev/hugepages-1G
@@ -45,7 +46,6 @@ jobs:
         - /opt/tt_metal_infra/provisioning/provisioning_env:/opt/tt_metal_infra/provisioning/provisioning_env
 
     env:
-      ARCH_NAME: ${{ inputs.arch }}
       LD_LIBRARY_PATH: ./build/lib
 
     steps:
@@ -58,7 +58,7 @@ jobs:
       - name: Use build artifacts
         uses: actions/download-artifact@v4
         with:
-          name: build-artifacts-${{ inputs.arch }}-${{ inputs.ubuntu-version }}-${{ inputs.build-type }}
+          name: build-artifacts-${{ inputs.ubuntu-docker-version }}-${{ inputs.build-type }}
           path: ./
 
       # This is needed to preserve file permissions
@@ -72,6 +72,7 @@ jobs:
           ${{ env.TEST_OUTPUT_DIR }}/umd/api/api_tests
 
       - name: Run arch-specific UMD unit tests
+        if: ${{ inputs.arch != 'baremetal' }}
         run: |
           ${{ env.TEST_OUTPUT_DIR }}/umd/${{ inputs.arch }}/unit_tests
 
@@ -83,9 +84,11 @@ jobs:
         run: |
           ${{ env.TEST_OUTPUT_DIR }}/umd/misc/umd_misc_tests
 
-      # TODO: Re-enable unified tests in CI once we solve the bugs
-      # we are seeing in the tests. Issues are tracked in issue
-      # https://github.com/tenstorrent/tt-umd/issues/654
-      # - name: Run unified tests
-      #   run: |
-      #     ${{ env.TEST_OUTPUT_DIR }}/umd/unified/unified_tests
+      - name: Run unified tests
+        if: ${{ inputs.arch != 'baremetal' }}
+        run: |
+          ${{ env.TEST_OUTPUT_DIR }}/umd/unified/unified_tests
+
+      - name: Run python example tests
+        run: |
+          PYTHONPATH=${{ env.BUILD_OUTPUT_DIR }}/nanobind/ pytest -s

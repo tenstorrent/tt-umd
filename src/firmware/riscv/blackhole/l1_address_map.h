@@ -111,7 +111,7 @@ struct address_map {
   static constexpr std::uint32_t TRISC1_DEBUG_BUFFER_BASE  = TRISC1_LOCAL_MEM_BASE + DEBUG_BUFFER_SIZE;
   static constexpr std::uint32_t TRISC2_DEBUG_BUFFER_BASE  = TRISC2_LOCAL_MEM_BASE + DEBUG_BUFFER_SIZE;
 
-  static constexpr std::uint32_t MAX_SIZE = 1499136;
+  static constexpr std::uint32_t MAX_SIZE = 1572864;
   static constexpr std::uint32_t MAX_L1_LOADING_SIZE = 1 * 1024 * 1024;
 
   static constexpr std::uint32_t RISC_LOCAL_MEM_BASE = 0xffb00000; // Actaul local memory address as seen from risc firmware

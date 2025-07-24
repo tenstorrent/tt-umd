@@ -11,17 +11,20 @@
 #include <tuple>
 #include <vector>
 
+#include "umd/device/tt_core_coordinates.h"
 #include "umd/device/tt_xy_pair.h"
 #include "umd/device/types/arch.h"
 #include "umd/device/types/tlb.h"
 #include "umd/device/types/xy_pair.h"
+
+namespace tt::umd {
 
 struct tt_device_l1_address_params;
 struct tt_driver_host_address_params;
 struct tt_driver_eth_interface_params;
 struct tt_driver_noc_params;
 
-namespace tt::umd {
+static const uint32_t HANG_READ_VALUE = 0xFFFFFFFFu;
 
 class architecture_implementation {
 public:
@@ -81,6 +84,10 @@ public:
     virtual tt_driver_noc_params get_noc_params() const = 0;
 
     static std::unique_ptr<architecture_implementation> create(tt::ARCH architecture);
+
+    virtual uint64_t get_noc_node_id_offset() const = 0;
+    virtual uint64_t get_noc_reg_base(
+        const CoreType core_type, const uint32_t noc, const uint32_t noc_port = 0) const = 0;
 };
 
 }  // namespace tt::umd

@@ -11,15 +11,19 @@
 
 #include <iostream>
 #include <string>
+#include <tt-logger/tt-logger.hpp>
 #include <vector>
 
 #include "assert.hpp"
-#include "logger.hpp"
 #include "tt_simulation_device_generated.h"
 #include "umd/device/driver_atomics.h"
 
+namespace tt::umd {
+
+static_assert(!std::is_abstract<tt_SimulationDevice>(), "tt_SimulationDevice must be non-abstract.");
+
 flatbuffers::FlatBufferBuilder create_flatbuffer(
-    DEVICE_COMMAND rw, std::vector<uint32_t> vec, tt_cxy_pair core_, uint64_t addr, uint64_t size_ = 0) {
+    DEVICE_COMMAND rw, std::vector<uint32_t> vec, tt_xy_pair core_, uint64_t addr, uint64_t size_ = 0) {
     flatbuffers::FlatBufferBuilder builder;
     auto data = builder.CreateVector(vec);
     auto core = tt_vcs_core(core_.x, core_.y);
@@ -29,11 +33,12 @@ flatbuffers::FlatBufferBuilder create_flatbuffer(
     return builder;
 }
 
-void print_flatbuffer(const DeviceRequestResponse* buf) {
+static void print_flatbuffer(const DeviceRequestResponse* buf) {
+#ifdef DEBUG
     std::vector<uint32_t> data_vec(buf->data()->begin(), buf->data()->end());
     uint64_t addr = buf->address();
     uint32_t size = buf->size();
-    tt_cxy_pair core = {0, buf->core()->x(), buf->core()->y()};
+    tt_xy_pair core = {buf->core()->x(), buf->core()->y()};
 
     std::stringstream ss;
     ss << std::hex << reinterpret_cast<uintptr_t>(addr);
@@ -47,12 +52,13 @@ void print_flatbuffer(const DeviceRequestResponse* buf) {
 
     log_debug(tt::LogEmulationDriver, "{} bytes @ address {} in core ({}, {})", size, addr_hex, core.x, core.y);
     log_debug(tt::LogEmulationDriver, "Data: {}", data_hex);
+#endif
 }
 
 tt_SimulationDeviceInit::tt_SimulationDeviceInit(const std::filesystem::path& simulator_directory) :
     simulator_directory(simulator_directory), soc_descriptor(simulator_directory / "soc_descriptor.yaml", false) {}
 
-tt_SimulationDevice::tt_SimulationDevice(const tt_SimulationDeviceInit& init) : tt_device() {
+tt_SimulationDevice::tt_SimulationDevice(const tt_SimulationDeviceInit& init) : Chip(init.get_soc_descriptor()) {
     log_info(tt::LogEmulationDriver, "Instantiating simulation device");
     soc_descriptor_per_chip.emplace(0, init.get_soc_descriptor());
     arch_name = init.get_arch_name();
@@ -64,13 +70,22 @@ tt_SimulationDevice::tt_SimulationDevice(const tt_SimulationDeviceInit& init) : 
         TT_THROW("Simulator binary not found at: ", simulator_path);
     }
     uv_loop_t* loop = uv_default_loop();
-    uv_process_t child_p;
-    uv_process_options_t child_options = {0};
     std::string simulator_path_string = simulator_path;
 
+    uv_stdio_container_t child_stdio[3];
+    child_stdio[0].flags = UV_IGNORE;
+    child_stdio[1].flags = UV_INHERIT_FD;
+    child_stdio[1].data.fd = 1;
+    child_stdio[2].flags = UV_INHERIT_FD;
+    child_stdio[2].data.fd = 2;
+
+    uv_process_options_t child_options = {0};
     child_options.file = simulator_path_string.c_str();
     child_options.flags = UV_PROCESS_DETACHED;
+    child_options.stdio_count = 3;
+    child_options.stdio = child_stdio;
 
+    uv_process_t child_p;
     int rv = uv_spawn(loop, &child_p, &child_options);
     if (rv) {
         TT_THROW("Failed to spawn simulator process: ", uv_strerror(rv));
@@ -83,11 +98,7 @@ tt_SimulationDevice::tt_SimulationDevice(const tt_SimulationDeviceInit& init) : 
     uv_loop_close(loop);
 }
 
-tt_SimulationDevice::~tt_SimulationDevice() { close_device(); }
-
-void tt_SimulationDevice::set_barrier_address_params(const barrier_address_params& barrier_address_params_) {}
-
-void tt_SimulationDevice::start_device(const tt_device_params& device_params) {
+void tt_SimulationDevice::start_device() {
     void* buf_ptr = nullptr;
 
     host.start_host();
@@ -100,70 +111,51 @@ void tt_SimulationDevice::start_device(const tt_device_params& device_params) {
     nng_free(buf_ptr, buf_size);
 }
 
-void tt_SimulationDevice::assert_risc_reset() {
-    log_info(tt::LogEmulationDriver, "Sending assert_risc_reset signal..");
-    auto wr_buffer =
-        create_flatbuffer(DEVICE_COMMAND_ALL_TENSIX_RESET_ASSERT, std::vector<uint32_t>(1, 0), {0, 0, 0}, 0);
-    uint8_t* wr_buffer_ptr = wr_buffer.GetBufferPointer();
-    size_t wr_buffer_size = wr_buffer.GetSize();
+void tt_SimulationDevice::send_tensix_risc_reset(CoreCoord core, const TensixSoftResetOptions& soft_resets) {
+    tt_xy_pair translate_core = soc_descriptor_.translate_coord_to(core, CoordSystem::TRANSLATED);
+    if (soft_resets == TENSIX_ASSERT_SOFT_RESET) {
+        log_debug(tt::LogEmulationDriver, "Sending assert_risc_reset signal..");
+        auto wr_buffer =
+            create_flatbuffer(DEVICE_COMMAND_ALL_TENSIX_RESET_ASSERT, std::vector<uint32_t>(1, 0), translate_core, 0);
+        uint8_t* wr_buffer_ptr = wr_buffer.GetBufferPointer();
+        size_t wr_buffer_size = wr_buffer.GetSize();
 
-    print_flatbuffer(GetDeviceRequestResponse(wr_buffer_ptr));
-    host.send_to_device(wr_buffer_ptr, wr_buffer_size);
+        print_flatbuffer(GetDeviceRequestResponse(wr_buffer_ptr));
+        host.send_to_device(wr_buffer_ptr, wr_buffer_size);
+    } else if (soft_resets == TENSIX_DEASSERT_SOFT_RESET) {
+        log_debug(tt::LogEmulationDriver, "Sending 'deassert_risc_reset' signal..");
+        auto wr_buffer =
+            create_flatbuffer(DEVICE_COMMAND_ALL_TENSIX_RESET_DEASSERT, std::vector<uint32_t>(1, 0), translate_core, 0);
+        uint8_t* wr_buffer_ptr = wr_buffer.GetBufferPointer();
+        size_t wr_buffer_size = wr_buffer.GetSize();
+
+        host.send_to_device(wr_buffer_ptr, wr_buffer_size);
+    } else {
+        TT_THROW("Invalid soft reset option.");
+    }
 }
 
-void tt_SimulationDevice::deassert_risc_reset() {
-    log_info(tt::LogEmulationDriver, "Sending 'deassert_risc_reset' signal..");
-    auto wr_buffer =
-        create_flatbuffer(DEVICE_COMMAND_ALL_TENSIX_RESET_DEASSERT, std::vector<uint32_t>(1, 0), {0, 0, 0}, 0);
-    uint8_t* wr_buffer_ptr = wr_buffer.GetBufferPointer();
-    size_t wr_buffer_size = wr_buffer.GetSize();
-
-    host.send_to_device(wr_buffer_ptr, wr_buffer_size);
-}
-
-void tt_SimulationDevice::deassert_risc_reset_at_core(tt_cxy_pair core, const TensixSoftResetOptions& soft_resets) {
-    log_info(
-        tt::LogEmulationDriver,
-        "Sending 'deassert_risc_reset_at_core'.. (Not implemented, defaulting to 'deassert_risc_reset' instead)");
-    deassert_risc_reset();
-}
-
-void tt_SimulationDevice::assert_risc_reset_at_core(tt_cxy_pair core, const TensixSoftResetOptions& soft_resets) {
-    log_info(
-        tt::LogEmulationDriver,
-        "Sending 'assert_risc_reset_at_core'.. (Not implemented, defaulting to 'assert_risc_reset' instead)");
-    assert_risc_reset();
-}
-
-void tt_SimulationDevice::deassert_risc_reset_at_core(
-    const chip_id_t chip, const tt::umd::CoreCoord core, const TensixSoftResetOptions& soft_resets) {
-    deassert_risc_reset_at_core({(size_t)chip, translate_to_api_coords(chip, core)}, soft_resets);
-}
-
-void tt_SimulationDevice::assert_risc_reset_at_core(
-    const chip_id_t chip, const tt::umd::CoreCoord core, const TensixSoftResetOptions& soft_resets) {
-    assert_risc_reset_at_core({(size_t)chip, translate_to_api_coords(chip, core)}, soft_resets);
+void tt_SimulationDevice::send_tensix_risc_reset(const TensixSoftResetOptions& soft_resets) {
+    send_tensix_risc_reset(soc_descriptor_.get_coord_at({0, 0}, CoordSystem::TRANSLATED), soft_resets);
 }
 
 void tt_SimulationDevice::close_device() {
     // disconnect from remote connection
     log_info(tt::LogEmulationDriver, "Sending exit signal to remote...");
-    auto builder = create_flatbuffer(DEVICE_COMMAND_EXIT, std::vector<uint32_t>(1, 0), {0, 0, 0}, 0);
+    auto builder = create_flatbuffer(DEVICE_COMMAND_EXIT, std::vector<uint32_t>(1, 0), {0, 0}, 0);
     host.send_to_device(builder.GetBufferPointer(), builder.GetSize());
 }
 
+void tt_SimulationDevice::set_remote_transfer_ethernet_cores(const std::unordered_set<CoreCoord>& cores) {}
+
+void tt_SimulationDevice::set_remote_transfer_ethernet_cores(const std::set<uint32_t>& channel) {}
+
 // Runtime Functions
-void tt_SimulationDevice::write_to_device(
-    const void* mem_ptr, uint32_t size_in_bytes, tt_cxy_pair core, uint64_t addr, const std::string& tlb_to_use) {
-    log_info(
-        tt::LogEmulationDriver,
-        "Device writing {} bytes to addr {} in core ({}, {})",
-        size_in_bytes,
-        addr,
-        core.x,
-        core.y);
-    std::vector<std::uint32_t> data((uint32_t*)mem_ptr, (uint32_t*)mem_ptr + size_in_bytes / sizeof(uint32_t));
-    auto wr_buffer = create_flatbuffer(DEVICE_COMMAND_WRITE, data, core, addr);
+void tt_SimulationDevice::write_to_device(CoreCoord core, const void* src, uint64_t l1_dest, uint32_t size) {
+    log_debug(tt::LogEmulationDriver, "Device writing {} bytes to l1_dest {} in core {}", size, l1_dest, core.str());
+    tt_xy_pair translate_core = soc_descriptor_.translate_coord_to(core, CoordSystem::TRANSLATED);
+    std::vector<std::uint32_t> data((uint32_t*)src, (uint32_t*)src + size / sizeof(uint32_t));
+    auto wr_buffer = create_flatbuffer(DEVICE_COMMAND_WRITE, data, translate_core, l1_dest);
     uint8_t* wr_buffer_ptr = wr_buffer.GetBufferPointer();
     size_t wr_buffer_size = wr_buffer.GetSize();
 
@@ -171,22 +163,12 @@ void tt_SimulationDevice::write_to_device(
     host.send_to_device(wr_buffer_ptr, wr_buffer_size);
 }
 
-void tt_SimulationDevice::write_to_device(
-    const void* mem_ptr,
-    uint32_t size_in_bytes,
-    chip_id_t chip,
-    tt::umd::CoreCoord core,
-    uint64_t addr,
-    const std::string& tlb_to_use) {
-    write_to_device(mem_ptr, size_in_bytes, {(size_t)chip, translate_to_api_coords(chip, core)}, addr, tlb_to_use);
-}
-
-void tt_SimulationDevice::read_from_device(
-    void* mem_ptr, tt_cxy_pair core, uint64_t addr, uint32_t size, const std::string& fallback_tlb) {
+void tt_SimulationDevice::read_from_device(CoreCoord core, void* dest, uint64_t l1_src, uint32_t size) {
     void* rd_resp;
 
     // Send read request
-    auto rd_req_buf = create_flatbuffer(DEVICE_COMMAND_READ, {0}, core, addr, size);
+    tt_xy_pair translate_core = soc_descriptor_.translate_coord_to(core, CoordSystem::TRANSLATED);
+    auto rd_req_buf = create_flatbuffer(DEVICE_COMMAND_READ, {0}, translate_core, l1_src, size);
     host.send_to_device(rd_req_buf.GetBufferPointer(), rd_req_buf.GetSize());
 
     // Get read response
@@ -198,86 +180,85 @@ void tt_SimulationDevice::read_from_device(
     log_debug(tt::LogEmulationDriver, "Device reading vec");
     print_flatbuffer(rd_resp_buf);
 
-    std::memcpy(mem_ptr, rd_resp_buf->data()->data(), rd_resp_buf->data()->size() * sizeof(uint32_t));
+    std::memcpy(dest, rd_resp_buf->data()->data(), rd_resp_buf->data()->size() * sizeof(uint32_t));
     nng_free(rd_resp, rd_rsp_sz);
 }
 
-void tt_SimulationDevice::read_from_device(
-    void* mem_ptr,
-    chip_id_t chip,
-    tt::umd::CoreCoord core,
-    uint64_t addr,
-    uint32_t size,
-    const std::string& fallback_tlb) {
-    read_from_device(mem_ptr, {(size_t)chip, translate_to_api_coords(chip, core)}, addr, size, fallback_tlb);
+void tt_SimulationDevice::write_to_device_reg(CoreCoord core, const void* src, uint64_t reg_dest, uint32_t size) {
+    write_to_device(core, src, reg_dest, size);
+}
+
+void tt_SimulationDevice::read_from_device_reg(CoreCoord core, void* dest, uint64_t reg_src, uint32_t size) {
+    read_from_device(core, dest, reg_src, size);
+}
+
+void tt_SimulationDevice::dma_write_to_device(const void* src, size_t size, CoreCoord core, uint64_t addr) {
+    write_to_device(core, src, addr, size);
+}
+
+void tt_SimulationDevice::dma_read_from_device(void* dst, size_t size, CoreCoord core, uint64_t addr) {
+    read_from_device(core, dst, addr, size);
+}
+
+std::function<void(uint32_t, uint32_t, const uint8_t*)> tt_SimulationDevice::get_fast_pcie_static_tlb_write_callable() {
+    throw std::runtime_error(
+        "tt_SimulationDevice::get_fast_pcie_static_tlb_write_callable is not available for this chip.");
 }
 
 void tt_SimulationDevice::wait_for_non_mmio_flush() {}
 
-void tt_SimulationDevice::wait_for_non_mmio_flush(const chip_id_t chip) {}
+void tt_SimulationDevice::l1_membar(const std::unordered_set<CoreCoord>& cores) {}
 
-void tt_SimulationDevice::l1_membar(
-    const chip_id_t chip, const std::string& fallback_tlb, const std::unordered_set<tt_xy_pair>& cores) {}
+void tt_SimulationDevice::dram_membar(const std::unordered_set<uint32_t>& channels) {}
 
-void tt_SimulationDevice::dram_membar(
-    const chip_id_t chip, const std::string& fallback_tlb, const std::unordered_set<uint32_t>& channels) {}
+void tt_SimulationDevice::dram_membar(const std::unordered_set<CoreCoord>& cores) {}
 
-void tt_SimulationDevice::dram_membar(
-    const chip_id_t chip, const std::string& fallback_tlb, const std::unordered_set<tt_xy_pair>& cores) {}
+void tt_SimulationDevice::deassert_risc_resets() {}
 
-// Misc. Functions to Query/Set Device State
-std::vector<chip_id_t> tt_SimulationDevice::detect_available_device_ids() { return {0}; }
+void tt_SimulationDevice::set_power_state(tt_DevicePowerState state) {}
 
-std::set<chip_id_t> tt_SimulationDevice::get_target_device_ids() { return target_devices_in_cluster; }
+int tt_SimulationDevice::get_clock() { return 0; }
 
-std::set<chip_id_t> tt_SimulationDevice::get_target_mmio_device_ids() { return target_devices_in_cluster; }
-
-std::set<chip_id_t> tt_SimulationDevice::get_target_remote_device_ids() { return target_remote_chips; }
-
-std::map<int, int> tt_SimulationDevice::get_clocks() { return {{0, 0}}; }
-
-void* tt_SimulationDevice::host_dma_address(std::uint64_t offset, chip_id_t src_device_id, uint16_t channel) const {
-    return nullptr;
+int tt_SimulationDevice::arc_msg(
+    uint32_t msg_code,
+    bool wait_for_done,
+    uint32_t arg0,
+    uint32_t arg1,
+    uint32_t timeout_ms,
+    uint32_t* return_3,
+    uint32_t* return_4) {
+    *return_3 = 1;
+    return 0;
 }
 
-std::uint64_t tt_SimulationDevice::get_pcie_base_addr_from_device(const chip_id_t chip_id) const {
-    if (arch_name == tt::ARCH::WORMHOLE_B0) {
-        return 0x800000000;
-    } else if (arch_name == tt::ARCH::BLACKHOLE) {
-        // Enable 4th ATU window.
-        return 1ULL << 60;
-    } else {
-        return 0;
-    }
+int tt_SimulationDevice::get_num_host_channels() { return 0; }
+
+int tt_SimulationDevice::get_host_channel_size(std::uint32_t channel) {
+    throw std::runtime_error("There are no host channels available.");
 }
 
-std::uint32_t tt_SimulationDevice::get_num_dram_channels(std::uint32_t device_id) {
-    return get_soc_descriptor(device_id).get_num_dram_channels();
+void tt_SimulationDevice::write_to_sysmem(uint16_t channel, const void* src, uint64_t sysmem_dest, uint32_t size) {
+    throw std::runtime_error("tt_SimulationDevice::write_to_sysmem is not available for this chip.");
 }
 
-std::uint64_t tt_SimulationDevice::get_dram_channel_size(std::uint32_t device_id, std::uint32_t channel) {
-    return get_soc_descriptor(device_id).dram_bank_size;  // Space per channel is identical for now
+void tt_SimulationDevice::read_from_sysmem(uint16_t channel, void* dest, uint64_t sysmem_src, uint32_t size) {
+    throw std::runtime_error("tt_SimulationDevice::read_from_sysmem is not available for this chip.");
 }
 
-std::uint32_t tt_SimulationDevice::get_num_host_channels(std::uint32_t device_id) { return 1; }
-
-std::uint32_t tt_SimulationDevice::get_host_channel_size(std::uint32_t device_id, std::uint32_t channel) { return 0; }
-
-std::uint32_t tt_SimulationDevice::get_numa_node_for_pcie_device(std::uint32_t device_id) { return 0; }
-
-const tt_SocDescriptor& tt_SimulationDevice::get_soc_descriptor(chip_id_t chip_id) const {
-    return soc_descriptor_per_chip.at(chip_id);
-};
-
-void tt_SimulationDevice::configure_active_ethernet_cores_for_mmio_device(
-    chip_id_t mmio_chip, const std::unordered_set<tt_xy_pair>& active_eth_cores_per_chip) {}
-
-void tt_SimulationDevice::configure_active_ethernet_cores_for_mmio_device(
-    const std::unordered_set<tt::umd::CoreCoord>& active_eth_cores_per_chip, chip_id_t mmio_chip) {}
-
-// TODO: This is a temporary function while we're switching between the old and the new API.
-// Eventually, this function should be so small it would be obvioud to remove.
-tt_xy_pair tt_SimulationDevice::translate_to_api_coords(
-    const chip_id_t chip, const tt::umd::CoreCoord core_coord) const {
-    return get_soc_descriptor(chip).translate_coord_to(core_coord, CoordSystem::VIRTUAL);
+int tt_SimulationDevice::get_numa_node() {
+    throw std::runtime_error("tt_SimulationDevice::get_numa_node is not available for this chip.");
 }
+
+TTDevice* tt_SimulationDevice::get_tt_device() {
+    throw std::runtime_error("tt_SimulationDevice::get_tt_device is not available for this chip.");
+}
+
+SysmemManager* tt_SimulationDevice::get_sysmem_manager() {
+    throw std::runtime_error("tt_SimulationDevice::get_sysmem_manager is not available for this chip.");
+}
+
+TLBManager* tt_SimulationDevice::get_tlb_manager() {
+    throw std::runtime_error("tt_SimulationDevice::get_tlb_manager is not available for this chip.");
+}
+
+}  // namespace tt::umd

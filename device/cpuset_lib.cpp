@@ -4,20 +4,22 @@
 
 #include "cpuset_lib.hpp"
 
+#include <fmt/format.h>
+#include <fmt/ranges.h>  // Needed to format vectors
+#include <fmt/std.h>     // Needed to format thread_id
+
 #include <algorithm>
 #include <filesystem>
+#include <regex>
 #include <thread>
+#include <tt-logger/tt-logger.hpp>
 
 #include "cpuset_lib.hpp"
-#include "fmt/core.h"
-#include "logger.hpp"
 #include "umd/device/cluster.h"
 
-namespace tt {
+namespace tt::cpuset {
 
 namespace fs = std::filesystem;
-
-namespace cpuset {
 
 /////////////////////////////////////////////////////////////////////////
 // Initialization Functions /////////////////////////////////////////////
@@ -416,7 +418,8 @@ bool tt_cpuset_allocator::bind_area_memory_nodeset(chip_id_t physical_device_id,
         tid);
 
     if (m_physical_device_id_to_numa_nodeset_map.count(physical_device_id) == 0) {
-        log_fatal(
+        log_warning(
+            LogSiliconDriver,
             "bind_area_memory_nodeset(): Did not find physical_device_id: {} in numanode_mask map, this is not "
             "expected.",
             physical_device_id);
@@ -646,5 +649,4 @@ void tt_cpuset_allocator::print_hwloc_object(hwloc_obj_t &obj, int depth, bool v
     printf("\n");
 }
 
-}  // namespace cpuset
-}  // namespace tt
+}  // namespace tt::cpuset

@@ -10,8 +10,11 @@
 #include <filesystem>
 #include <vector>
 
+#include "umd/device/chip/chip.h"
 #include "umd/device/cluster.h"
 #include "umd/device/tt_simulation_host.hpp"
+
+namespace tt::umd {
 
 class tt_SimulationDeviceInit {
 public:
@@ -28,94 +31,76 @@ private:
     tt_SocDescriptor soc_descriptor;
 };
 
-class tt_SimulationDevice : public tt_device {
+class tt_SimulationDevice : public Chip {
 public:
     tt_SimulationDevice(const std::filesystem::path& simulator_directory) :
         tt_SimulationDevice(tt_SimulationDeviceInit(simulator_directory)) {}
 
     tt_SimulationDevice(const tt_SimulationDeviceInit& init);
-    ~tt_SimulationDevice();
 
     tt_SimulationHost host;
 
-    virtual void set_barrier_address_params(const barrier_address_params& barrier_address_params_);
-    virtual void start_device(const tt_device_params& device_params);
-    virtual void assert_risc_reset();
-    virtual void deassert_risc_reset();
-    virtual void deassert_risc_reset_at_core(
-        tt_cxy_pair core, const TensixSoftResetOptions& soft_resets = TENSIX_DEASSERT_SOFT_RESET);
-    virtual void assert_risc_reset_at_core(
-        tt_cxy_pair core, const TensixSoftResetOptions& soft_resets = TENSIX_ASSERT_SOFT_RESET);
+    int get_num_host_channels() override;
+    int get_host_channel_size(std::uint32_t channel) override;
+    void write_to_sysmem(uint16_t channel, const void* src, uint64_t sysmem_dest, uint32_t size) override;
+    void read_from_sysmem(uint16_t channel, void* dest, uint64_t sysmem_src, uint32_t size) override;
 
-    virtual void deassert_risc_reset_at_core(
-        const chip_id_t chip,
-        const tt::umd::CoreCoord core,
-        const TensixSoftResetOptions& soft_resets = TENSIX_DEASSERT_SOFT_RESET);
-    virtual void assert_risc_reset_at_core(
-        const chip_id_t chip,
-        const tt::umd::CoreCoord core,
-        const TensixSoftResetOptions& soft_resets = TENSIX_ASSERT_SOFT_RESET);
+    void start_device() override;
+    void close_device() override;
 
-    virtual void close_device();
+    TTDevice* get_tt_device() override;
+    SysmemManager* get_sysmem_manager() override;
+    TLBManager* get_tlb_manager() override;
 
-    // Runtime Functions
-    virtual void write_to_device(
-        const void* mem_ptr, uint32_t size_in_bytes, tt_cxy_pair core, uint64_t addr, const std::string& tlb_to_use);
-    virtual void write_to_device(
-        const void* mem_ptr,
-        uint32_t size_in_bytes,
-        chip_id_t chip,
-        tt::umd::CoreCoord core,
-        uint64_t addr,
-        const std::string& tlb_to_use);
-    virtual void read_from_device(
-        void* mem_ptr, tt_cxy_pair core, uint64_t addr, uint32_t size, const std::string& fallback_tlb);
-    virtual void read_from_device(
-        void* mem_ptr,
-        chip_id_t chip,
-        tt::umd::CoreCoord core,
-        uint64_t addr,
-        uint32_t size,
-        const std::string& fallback_tlb);
+    bool is_mmio_capable() const override { return false; }
 
-    virtual void wait_for_non_mmio_flush();
-    virtual void wait_for_non_mmio_flush(const chip_id_t chip);
-    void l1_membar(
-        const chip_id_t chip, const std::string& fallback_tlb, const std::unordered_set<tt_xy_pair>& cores = {});
-    void dram_membar(
-        const chip_id_t chip, const std::string& fallback_tlb, const std::unordered_set<uint32_t>& channels);
-    void dram_membar(
-        const chip_id_t chip, const std::string& fallback_tlb, const std::unordered_set<tt_xy_pair>& cores = {});
+    void set_remote_transfer_ethernet_cores(const std::unordered_set<CoreCoord>& cores) override;
+    void set_remote_transfer_ethernet_cores(const std::set<uint32_t>& channels) override;
 
-    // Misc. Functions to Query/Set Device State
-    static std::vector<chip_id_t> detect_available_device_ids();
-    virtual std::set<chip_id_t> get_target_device_ids();
-    virtual std::set<chip_id_t> get_target_mmio_device_ids();
-    virtual std::set<chip_id_t> get_target_remote_device_ids();
-    virtual std::map<int, int> get_clocks();
-    virtual void* host_dma_address(std::uint64_t offset, chip_id_t src_device_id, uint16_t channel) const;
-    virtual std::uint64_t get_pcie_base_addr_from_device(const chip_id_t chip_id) const;
-    virtual std::uint32_t get_num_dram_channels(std::uint32_t device_id);
-    virtual std::uint64_t get_dram_channel_size(std::uint32_t device_id, std::uint32_t channel);
-    virtual std::uint32_t get_num_host_channels(std::uint32_t device_id);
-    virtual std::uint32_t get_host_channel_size(std::uint32_t device_id, std::uint32_t channel);
-    virtual std::uint32_t get_numa_node_for_pcie_device(std::uint32_t device_id);
-    virtual const tt_SocDescriptor& get_soc_descriptor(chip_id_t chip_id) const;
+    // All tt_xy_pair cores in this class are defined in VIRTUAL coords.
+    void write_to_device(CoreCoord core, const void* src, uint64_t l1_dest, uint32_t size) override;
+    void read_from_device(CoreCoord core, void* dest, uint64_t l1_src, uint32_t size) override;
+    void write_to_device_reg(CoreCoord core, const void* src, uint64_t reg_dest, uint32_t size) override;
+    void read_from_device_reg(CoreCoord core, void* dest, uint64_t reg_src, uint32_t size) override;
+    void dma_write_to_device(const void* src, size_t size, CoreCoord core, uint64_t addr) override;
+    void dma_read_from_device(void* dst, size_t size, CoreCoord core, uint64_t addr) override;
 
-    virtual void configure_active_ethernet_cores_for_mmio_device(
-        chip_id_t mmio_chip, const std::unordered_set<tt_xy_pair>& active_eth_cores_per_chip);
-    virtual void configure_active_ethernet_cores_for_mmio_device(
-        const std::unordered_set<tt::umd::CoreCoord>& active_eth_cores_per_chip, chip_id_t mmio_chip);
+    std::function<void(uint32_t, uint32_t, const uint8_t*)> get_fast_pcie_static_tlb_write_callable() override;
 
-    tt_xy_pair translate_to_api_coords(const chip_id_t chip, const tt::umd::CoreCoord core_coord) const;
+    void wait_for_non_mmio_flush() override;
+
+    void l1_membar(const std::unordered_set<CoreCoord>& cores = {}) override;
+    void dram_membar(const std::unordered_set<CoreCoord>& cores = {}) override;
+    void dram_membar(const std::unordered_set<uint32_t>& channels = {}) override;
+
+    void send_tensix_risc_reset(CoreCoord core, const TensixSoftResetOptions& soft_resets) override;
+    void send_tensix_risc_reset(const TensixSoftResetOptions& soft_resets) override;
+    void deassert_risc_resets() override;
+
+    void set_power_state(tt_DevicePowerState state) override;
+    int get_clock() override;
+    int get_numa_node() override;
+
+    int arc_msg(
+        uint32_t msg_code,
+        bool wait_for_done = true,
+        uint32_t arg0 = 0,
+        uint32_t arg1 = 0,
+        uint32_t timeout_ms = 1000,
+        uint32_t* return_3 = nullptr,
+        uint32_t* return_4 = nullptr) override;
 
 private:
     // State variables
     tt_driver_noc_params noc_params;
-    std::vector<tt::ARCH> archs_in_cluster = {};
     std::set<chip_id_t> target_devices_in_cluster = {};
     std::set<chip_id_t> target_remote_chips = {};
     tt::ARCH arch_name;
     std::shared_ptr<tt_ClusterDescriptor> cluster_descriptor;
     std::unordered_map<chip_id_t, tt_SocDescriptor> soc_descriptor_per_chip = {};
 };
+
+}  // namespace tt::umd
+
+// TODO: To be removed once clients switch to namespace usage.
+using tt::umd::tt_SimulationDeviceInit;

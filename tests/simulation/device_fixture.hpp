@@ -12,22 +12,22 @@
 
 #include <stdexcept>
 
-#include "common/logger.hpp"
 #include "tests/test_utils/generate_cluster_desc.hpp"
 #include "umd/device/tt_simulation_device.h"
+
+namespace tt::umd {
 
 class SimulationDeviceFixture : public ::testing::Test {
 protected:
     static void SetUpTestSuite() {
-        // default_params and yaml path are both dummy and won't change test behavior
-        tt_device_params default_params;
+        // yaml path is dummy and won't change test behavior
         const char* simulator_path = getenv("TT_UMD_SIMULATOR");
         if (simulator_path == nullptr) {
             throw std::runtime_error(
                 "You need to define TT_UMD_SIMULATOR that will point to simulator path. eg. build/versim-wormhole-b0");
         }
         device = std::make_unique<tt_SimulationDevice>(simulator_path);
-        device->start_device(default_params);
+        device->start_device();
     }
 
     static void TearDownTestSuite() { device->close_device(); }
@@ -36,3 +36,5 @@ protected:
 };
 
 std::unique_ptr<tt_SimulationDevice> SimulationDeviceFixture::device = nullptr;
+
+}  // namespace tt::umd

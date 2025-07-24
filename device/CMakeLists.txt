@@ -1,19 +1,25 @@
 set(POSITION_INDEPENDENT_CODE ON)
 
-set(FBS_FILE ${PROJECT_SOURCE_DIR}/device/simulation/tt_simulation_device.fbs)
-get_filename_component(FBS_FILE_NAME ${FBS_FILE} NAME_WLE)
-set(FBS_GENERATED_HEADER "${CMAKE_CURRENT_BINARY_DIR}/${FBS_FILE_NAME}_generated.h")
-add_custom_command(
-    OUTPUT
-        ${FBS_GENERATED_HEADER}
-    COMMAND
-        flatc --cpp -o "${CMAKE_CURRENT_BINARY_DIR}/" ${FBS_FILE}
-    DEPENDS
-        flatc
-        ${FBS_FILE}
-    COMMENT "Generating FlatBuffers header ${FBS_GENERATED_HEADER}"
-    VERBATIM
-)
+if(TT_UMD_BUILD_SIMULATION)
+    set(FBS_FILE ${PROJECT_SOURCE_DIR}/device/simulation/tt_simulation_device.fbs)
+    get_filename_component(FBS_FILE_NAME ${FBS_FILE} NAME_WLE)
+    set(FBS_GENERATED_HEADER "${CMAKE_CURRENT_BINARY_DIR}/${FBS_FILE_NAME}_generated.h")
+    set(FBS_DEPENDS "")
+    if(TARGET flatc)
+        set(FBS_DEPENDS flatc)
+    endif()
+    add_custom_command(
+        OUTPUT
+            ${FBS_GENERATED_HEADER}
+        COMMAND
+            flatc --cpp -o "${CMAKE_CURRENT_BINARY_DIR}" ${FBS_FILE}
+        DEPENDS
+            ${FBS_DEPENDS}
+            ${FBS_FILE}
+        COMMENT "Generating FlatBuffers header ${FBS_GENERATED_HEADER}"
+        VERBATIM
+    )
+endif()
 
 add_library(device SHARED)
 add_library(${PROJECT_NAME}::device ALIAS device)
@@ -27,37 +33,53 @@ target_sources(
         chip/mock_chip.cpp
         chip/remote_chip.cpp
         chip_helpers/sysmem_manager.cpp
+        chip_helpers/sysmem_buffer.cpp
         chip_helpers/tlb_manager.cpp
+        tt_device/tlb_window.cpp
+        tt_device/tlb_handle.cpp
         cluster.cpp
         coordinate_manager.cpp
         cpuset_lib.cpp
-        grayskull/grayskull_implementation.cpp
         wormhole/wormhole_implementation.cpp
         blackhole/blackhole_implementation.cpp
         hugepage.cpp
+        logging/config.cpp
         pcie/pci_device.cpp
-        simulation/tt_simulation_device.cpp
-        simulation/tt_simulation_host.cpp
         tlb.cpp
         tt_cluster_descriptor.cpp
         tt_device/blackhole_tt_device.cpp
-        tt_device/grayskull_tt_device.cpp
         tt_device/tt_device.cpp
         tt_device/wormhole_tt_device.cpp
+        tt_device/remote_wormhole_tt_device.cpp
+        tt_device/remote_blackhole_tt_device.cpp
         tt_silicon_driver_common.cpp
         tt_soc_descriptor.cpp
         wormhole/wormhole_coordinate_manager.cpp
         blackhole/blackhole_coordinate_manager.cpp
+        arc_telemetry_reader.cpp
+        wormhole/wormhole_arc_telemetry_reader.cpp
         blackhole/blackhole_arc_telemetry_reader.cpp
         arc_messenger.cpp
         wormhole/wormhole_arc_messenger.cpp
         blackhole/blackhole_arc_messenger.cpp
         blackhole/blackhole_arc_message_queue.cpp
         xy_pair.cpp
-        lock_manager.cpp
+        utils/lock_manager.cpp
+        utils/robust_mutex.cpp
+        topology_discovery.cpp
         remote_communication.cpp
-        ${FBS_GENERATED_HEADER}
 )
+
+if(TT_UMD_BUILD_SIMULATION)
+    target_sources(
+        device
+        PRIVATE
+            simulation/tt_simulation_device.cpp
+            simulation/tt_simulation_host.cpp
+            ${FBS_GENERATED_HEADER}
+    )
+    target_compile_definitions(device PRIVATE TT_UMD_BUILD_SIMULATION)
+endif()
 
 if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.23)
     target_sources(
@@ -76,21 +98,25 @@ if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.23)
                 api/umd/device/chip/mock_chip.h
                 api/umd/device/chip/remote_chip.h
                 api/umd/device/chip_helpers/sysmem_manager.h
+                api/umd/device/chip_helpers/sysmem_buffer.h
                 api/umd/device/chip_helpers/tlb_manager.h
                 api/umd/device/cluster.h
                 api/umd/device/coordinate_manager.h
                 api/umd/device/device_api_metal.h
                 api/umd/device/driver_atomics.h
-                api/umd/device/grayskull_implementation.h
                 api/umd/device/hugepage.h
+                api/umd/device/logging/config.h
+                api/umd/device/utils/lock_manager.h
                 api/umd/device/pci_device.hpp
                 api/umd/device/semver.hpp
+                api/umd/device/utils/robust_mutex.h
                 api/umd/device/tt_cluster_descriptor.h
                 api/umd/device/tt_core_coordinates.h
                 api/umd/device/tt_device/blackhole_tt_device.h
-                api/umd/device/tt_device/grayskull_tt_device.h
                 api/umd/device/tt_device/tt_device.h
                 api/umd/device/tt_device/wormhole_tt_device.h
+                api/umd/device/tt_device/remote_wormhole_tt_device.h
+                api/umd/device/tt_device/remote_blackhole_tt_device.h
                 api/umd/device/tt_io.hpp
                 api/umd/device/tt_silicon_driver_common.hpp
                 api/umd/device/tt_simulation_device.h
@@ -101,6 +127,7 @@ if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.23)
                 api/umd/device/types/blackhole_arc.h
                 api/umd/device/types/cluster_descriptor_types.h
                 api/umd/device/types/cluster_types.h
+                api/umd/device/types/harvesting.h
                 api/umd/device/types/tlb.h
                 api/umd/device/types/xy_pair.h
                 api/umd/device/wormhole_coordinate_manager.h
@@ -117,23 +144,28 @@ target_include_directories(
         $<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}>
 )
 
-# flatbuffers is public - exposed to tt_metal by tt_simulation_device_generated.h
 target_link_libraries(
     device
     PRIVATE
-        flatbuffers
         umd::Common
         umd::Firmware
         hwloc
-        nng
         rt
-        uv_a
-        Boost::interprocess
         spdlog::spdlog_header_only
         fmt::fmt-header-only
+        tt-logger::tt-logger
         yaml-cpp::yaml-cpp
-        ${CMAKE_CURRENT_SOURCE_DIR}/libs/${CMAKE_SYSTEM_PROCESSOR}/libcreate_ethernet_map.a
 )
+
+if(TT_UMD_BUILD_SIMULATION)
+    target_link_libraries(
+        device
+        PRIVATE
+            flatbuffers::flatbuffers
+            nng
+            uv_a
+    )
+endif()
 
 if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.23)
     install(
@@ -163,6 +195,8 @@ endif()
 add_custom_command(
     TARGET device
     POST_BUILD
+    COMMAND
+        ${CMAKE_COMMAND} -E make_directory ${CMAKE_BINARY_DIR}/lib
     COMMAND
         ${CMAKE_COMMAND} -E copy $<TARGET_FILE:device> ${CMAKE_BINARY_DIR}/lib/
     COMMENT "Copying device library to build/lib"

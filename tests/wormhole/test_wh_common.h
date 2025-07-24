@@ -5,12 +5,13 @@
  */
 #pragma once
 
-#include "eth_l1_address_map.h"
 #include "tests/test_utils/generate_cluster_desc.hpp"
 #include "tests/test_utils/stimulus_generators.hpp"
 #include "umd/device/cluster.h"
 #include "umd/device/tt_cluster_descriptor.h"
 #include "umd/device/tt_xy_pair.h"
+#include "wormhole/eth_l1_address_map.h"
+#include "wormhole/l1_address_map.h"
 
 constexpr std::uint32_t DRAM_BARRIER_BASE = 0;
 
@@ -49,12 +50,7 @@ protected:
             GTEST_SKIP() << "Test is skipped due to incorrect number of chips";
         }
 
-        assert(get_detected_num_chips() > 0);
-        auto devices = std::vector<chip_id_t>(get_detected_num_chips());
-        std::iota(devices.begin(), devices.end(), 0);
-        std::set<chip_id_t> target_devices = {devices.begin(), devices.end()};
-        uint32_t num_host_mem_ch_per_mmio_device = 1;
-        cluster = std::make_unique<Cluster>(num_host_mem_ch_per_mmio_device, false, true, true);
+        cluster = std::make_unique<Cluster>();
         assert(cluster != nullptr);
         assert(cluster->get_cluster_description()->get_number_of_chips() == get_detected_num_chips());
 

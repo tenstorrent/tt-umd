@@ -9,6 +9,8 @@
 #include <cstdint>
 #include <string>
 
+namespace tt::umd {
+
 enum class TensixSoftResetOptions : std::uint32_t {
     NONE = 0,
     BRISC = ((std::uint32_t)1 << 11),
@@ -21,6 +23,8 @@ enum class TensixSoftResetOptions : std::uint32_t {
 
 std::string TensixSoftResetOptionsToString(TensixSoftResetOptions value);
 
+TensixSoftResetOptions invert_selected_options(TensixSoftResetOptions selected);
+
 constexpr TensixSoftResetOptions operator|(TensixSoftResetOptions lhs, TensixSoftResetOptions rhs) {
     return static_cast<TensixSoftResetOptions>(static_cast<uint32_t>(lhs) | static_cast<uint32_t>(rhs));
 }
@@ -31,6 +35,10 @@ constexpr TensixSoftResetOptions operator&(TensixSoftResetOptions lhs, TensixSof
 
 constexpr bool operator!=(TensixSoftResetOptions lhs, TensixSoftResetOptions rhs) {
     return static_cast<uint32_t>(lhs) != static_cast<uint32_t>(rhs);
+}
+
+constexpr TensixSoftResetOptions operator~(TensixSoftResetOptions operand) {
+    return static_cast<TensixSoftResetOptions>(~static_cast<std::uint32_t>(operand));
 }
 
 static constexpr TensixSoftResetOptions ALL_TRISC_SOFT_RESET =
@@ -48,3 +56,10 @@ static constexpr TensixSoftResetOptions TENSIX_DEASSERT_SOFT_RESET =
 
 static constexpr TensixSoftResetOptions TENSIX_DEASSERT_SOFT_RESET_NO_STAGGER =
     TensixSoftResetOptions::NCRISC | ALL_TRISC_SOFT_RESET;
+
+}  // namespace tt::umd
+
+// TODO: To be removed once clients switch to namespace usage.
+using tt::umd::TENSIX_ASSERT_SOFT_RESET;
+using tt::umd::TENSIX_DEASSERT_SOFT_RESET;
+using tt::umd::TensixSoftResetOptions;

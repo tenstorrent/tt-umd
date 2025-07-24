@@ -34,18 +34,13 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        test-group: [
-          {arch: wormhole_b0},
-          {arch: blackhole},
-        ]
-        ubuntu-version: [
+        ubuntu-docker-version: [
           'ubuntu-22.04',
-          # 'ubuntu-20.04',
+          'ubuntu-24.04',
         ]
     uses: ./.github/workflows/build-tests.yml
     with:
-      arch: ${{ matrix.test-group.arch}}
-      ubuntu-version: ${{ matrix.ubuntu-version}}
+      ubuntu-docker-version: ${{ matrix.ubuntu-docker-version}}
       timeout: 15
       build-type: ${{ inputs.build-type }}
 
@@ -56,22 +51,24 @@ jobs:
       fail-fast: false
       matrix:
         test-group: [
-          {arch: wormhole_b0, card: n150},
-          {arch: wormhole_b0, card: tt-beta-ubuntu-2204-n150-large-stable},
-          {arch: wormhole_b0, card: n300},
-          {arch: wormhole_b0, card: tt-beta-ubuntu-2204-n300-large-stable},
-          # TODO: Re-enable when we have a stable card.
-          # {arch: blackhole, card: p150},
+          {arch: wormhole_b0, card: n150, timeout: 10},
+          {arch: wormhole_b0, card: tt-beta-ubuntu-2204-n150-large-stable, timeout: 10},
+          {arch: wormhole_b0, card: tt-beta-ubuntu-2204-n150-viommu-large-stable, timeout: 10},
+          {arch: wormhole_b0, card: n300, timeout: 15},
+          {arch: wormhole_b0, card: tt-beta-ubuntu-2204-n300-large-stable, timeout: 15},
+          {arch: wormhole_b0, card: tt-beta-ubuntu-2204-n300-viommu-large-stable, timeout: 15},
+          {arch: wormhole_b0, card: tt-beta-ubuntu-2204-n300-llmbox-large-stable, timeout: 15},
+          {arch: blackhole, card: tt-beta-ubuntu-2204-p150b-large-stable, timeout: 15},
+          {arch: blackhole, card: tt-beta-ubuntu-2204-p150b-viommu-large-stable, timeout: 15},
+          {arch: baremetal, card: ubuntu-22.04, timeout: 15},
         ]
-        ubuntu-version: [
-          # Running tests on ubuntu-22.04 should be sufficient. Reduce load on CI.
+        ubuntu-docker-version: [
           'ubuntu-22.04',
-          # 'ubuntu-20.04',
         ]
     uses: ./.github/workflows/run-tests.yml
     with:
       arch: ${{ matrix.test-group.arch}}
-      ubuntu-version: ${{ matrix.ubuntu-version}}
+      ubuntu-docker-version: ${{ matrix.ubuntu-docker-version}}
       card: ${{ matrix.test-group.card}}
       timeout: ${{ inputs.timeout }}
       build-type: ${{ inputs.build-type }}

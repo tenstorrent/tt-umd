@@ -10,12 +10,9 @@
 #include "umd/device/tt_xy_pair.h"
 #include "umd/device/types/tlb.h"
 
-namespace tt {
-class Writer;
-}
-
 namespace tt::umd {
 
+class Writer;
 class TTDevice;
 
 class TLBManager {
@@ -34,7 +31,7 @@ public:
     bool is_tlb_mapped(tt_xy_pair core);
     bool is_tlb_mapped(tt_xy_pair core, uint64_t address, uint32_t size_in_bytes);
 
-    tt::Writer get_static_tlb_writer(tt_xy_pair core);
+    Writer get_static_tlb_writer(tt_xy_pair core);
     tlb_configuration get_tlb_configuration(tt_xy_pair core);
 
     // TODO: the following members will be moved to private once enough stuff is moved out of cluster.
@@ -43,6 +40,8 @@ public:
 
     std::unordered_map<std::string, std::int32_t> dynamic_tlb_config_;
     std::unordered_map<std::string, uint64_t> dynamic_tlb_ordering_modes_;
+
+    TTDevice* get_tt_device() { return tt_device_; }
 
 private:
     TTDevice* tt_device_;

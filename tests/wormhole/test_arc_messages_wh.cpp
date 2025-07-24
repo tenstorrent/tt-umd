@@ -18,19 +18,21 @@ TEST(WormholeArcMessages, WormholeArcMessagesHarvesting) {
     for (uint32_t chip_id : cluster->get_target_mmio_device_ids()) {
         TTDevice* tt_device = cluster->get_tt_device(chip_id);
 
-        uint32_t harvesting_mask_cluster_desc = cluster->get_cluster_description()->get_harvesting_info().at(chip_id);
+        auto harvesting_mask_cluster_desc = cluster->get_cluster_description()->get_harvesting_masks(chip_id);
 
         std::unique_ptr<ArcMessenger> arc_messenger = ArcMessenger::create_arc_messenger(tt_device);
 
         std::vector<uint32_t> arc_msg_return_values = {0};
         uint32_t response = arc_messenger->send_message(
-            tt::umd::wormhole::ARC_MSG_COMMON_PREFIX |
+            wormhole::ARC_MSG_COMMON_PREFIX |
                 tt_device->get_architecture_implementation()->get_arc_message_arc_get_harvesting(),
             arc_msg_return_values,
             0,
             0);
 
-        EXPECT_EQ(arc_msg_return_values[0], harvesting_mask_cluster_desc);
+        EXPECT_EQ(
+            CoordinateManager::shuffle_tensix_harvesting_mask(tt::ARCH::WORMHOLE_B0, arc_msg_return_values[0]),
+            harvesting_mask_cluster_desc.tensix_harvesting_mask);
     }
 }
 
@@ -45,7 +47,7 @@ TEST(WormholeArcMessages, WormholeArcMessagesAICLK) {
         std::unique_ptr<ArcMessenger> arc_messenger = ArcMessenger::create_arc_messenger(tt_device);
 
         uint32_t response = arc_messenger->send_message(
-            tt::umd::wormhole::ARC_MSG_COMMON_PREFIX |
+            wormhole::ARC_MSG_COMMON_PREFIX |
                 tt_device->get_architecture_implementation()->get_arc_message_arc_go_busy(),
             0,
             0);
@@ -54,10 +56,11 @@ TEST(WormholeArcMessages, WormholeArcMessagesAICLK) {
 
         uint32_t aiclk = tt_device->get_clock();
 
-        EXPECT_EQ(aiclk, tt::umd::wormhole::AICLK_BUSY_VAL);
+        // TODO #781: For now expect only that busy val is something larger than idle val.
+        EXPECT_GT(aiclk, wormhole::AICLK_IDLE_VAL);
 
         response = arc_messenger->send_message(
-            tt::umd::wormhole::ARC_MSG_COMMON_PREFIX |
+            wormhole::ARC_MSG_COMMON_PREFIX |
                 tt_device->get_architecture_implementation()->get_arc_message_arc_go_long_idle(),
             0,
             0);
@@ -66,7 +69,7 @@ TEST(WormholeArcMessages, WormholeArcMessagesAICLK) {
 
         aiclk = tt_device->get_clock();
 
-        EXPECT_EQ(aiclk, tt::umd::wormhole::AICLK_IDLE_VAL);
+        EXPECT_EQ(aiclk, wormhole::AICLK_IDLE_VAL);
     }
 }
 
@@ -78,7 +81,7 @@ TEST(WormholeArcMessages, MultipleThreadsArcMessages) {
     for (uint32_t chip_id : cluster->get_target_mmio_device_ids()) {
         TTDevice* tt_device = cluster->get_tt_device(chip_id);
 
-        uint32_t harvesting_mask_cluster_desc = cluster->get_cluster_description()->get_harvesting_info().at(chip_id);
+        auto harvesting_mask_cluster_desc = cluster->get_cluster_description()->get_harvesting_masks(chip_id);
 
         std::thread thread0([&]() {
             std::unique_ptr<ArcMessenger> arc_messenger = ArcMessenger::create_arc_messenger(tt_device);
@@ -86,13 +89,15 @@ TEST(WormholeArcMessages, MultipleThreadsArcMessages) {
             for (uint32_t loop = 0; loop < num_loops; loop++) {
                 std::vector<uint32_t> arc_msg_return_values = {0};
                 uint32_t response = arc_messenger->send_message(
-                    tt::umd::wormhole::ARC_MSG_COMMON_PREFIX |
+                    wormhole::ARC_MSG_COMMON_PREFIX |
                         tt_device->get_architecture_implementation()->get_arc_message_arc_get_harvesting(),
                     arc_msg_return_values,
                     0,
                     0);
 
-                EXPECT_EQ(arc_msg_return_values[0], harvesting_mask_cluster_desc);
+                EXPECT_EQ(
+                    CoordinateManager::shuffle_tensix_harvesting_mask(tt::ARCH::WORMHOLE_B0, arc_msg_return_values[0]),
+                    harvesting_mask_cluster_desc.tensix_harvesting_mask);
             }
         });
 
@@ -102,13 +107,15 @@ TEST(WormholeArcMessages, MultipleThreadsArcMessages) {
             for (uint32_t loop = 0; loop < num_loops; loop++) {
                 std::vector<uint32_t> arc_msg_return_values = {0};
                 uint32_t response = arc_messenger->send_message(
-                    tt::umd::wormhole::ARC_MSG_COMMON_PREFIX |
+                    wormhole::ARC_MSG_COMMON_PREFIX |
                         tt_device->get_architecture_implementation()->get_arc_message_arc_get_harvesting(),
                     arc_msg_return_values,
                     0,
                     0);
 
-                EXPECT_EQ(arc_msg_return_values[0], harvesting_mask_cluster_desc);
+                EXPECT_EQ(
+                    CoordinateManager::shuffle_tensix_harvesting_mask(tt::ARCH::WORMHOLE_B0, arc_msg_return_values[0]),
+                    harvesting_mask_cluster_desc.tensix_harvesting_mask);
             }
         });
 

@@ -21,20 +21,11 @@
 
 using namespace tt::umd;
 
-inline std::unique_ptr<Cluster> get_cluster() {
-    std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
-    // TODO: Make this test work on a host system without any tt devices.
-    if (pci_device_ids.empty()) {
-        return nullptr;
-    }
-    return std::unique_ptr<Cluster>(new Cluster());
-}
-
 // TODO: Once default auto TLB setup is in, check it is setup properly.
 TEST(ApiChipTest, ManualTLBConfiguration) {
-    std::unique_ptr<Cluster> umd_cluster = get_cluster();
+    std::unique_ptr<Cluster> umd_cluster = std::make_unique<Cluster>();
 
-    if (umd_cluster == nullptr || umd_cluster->get_target_device_ids().empty()) {
+    if (umd_cluster->get_target_device_ids().empty()) {
         GTEST_SKIP() << "No chips present on the system. Skipping test.";
     }
 
@@ -77,7 +68,7 @@ TEST(ApiChipTest, ManualTLBConfiguration) {
     }
 
     // Expect not to throw for now configured mmio chip, same one as before.
-    EXPECT_NO_THROW(umd_cluster->get_static_tlb_writer(tt_cxy_pair(any_mmio_chip, core)));
+    EXPECT_NO_THROW(umd_cluster->get_static_tlb_writer(any_mmio_chip, core));
 
     // Expect to throw for non worker cores.
     CoreCoord dram_core = soc_desc.get_dram_cores()[0][0];
@@ -85,21 +76,21 @@ TEST(ApiChipTest, ManualTLBConfiguration) {
     auto eth_cores = soc_desc.get_cores(CoreType::ETH);
     if (!eth_cores.empty()) {
         CoreCoord eth_core = eth_cores[0];
-        EXPECT_THROW(umd_cluster->get_static_tlb_writer(tt_cxy_pair(any_mmio_chip, eth_core)), std::runtime_error);
+        EXPECT_THROW(umd_cluster->get_static_tlb_writer(any_mmio_chip, eth_core), std::runtime_error);
     }
 }
 
 // TODO: Move to test_chip
 TEST(ApiChipTest, SimpleAPIShowcase) {
-    std::unique_ptr<Cluster> umd_cluster = get_cluster();
+    std::unique_ptr<Cluster> umd_cluster = std::make_unique<Cluster>();
 
-    if (umd_cluster == nullptr || umd_cluster->get_target_device_ids().empty()) {
+    if (umd_cluster->get_target_device_ids().empty()) {
         GTEST_SKIP() << "No chips present on the system. Skipping test.";
     }
 
     chip_id_t chip_id = umd_cluster->get_cluster_description()->get_chips_with_mmio().begin()->first;
 
-    // TODO: In future, will be accessed through tt::umd::Chip api.
+    // TODO: In future, will be accessed through Chip api.
     umd_cluster->get_pcie_base_addr_from_device(chip_id);
     umd_cluster->get_num_host_channels(chip_id);
 }
@@ -108,7 +99,7 @@ TEST(ApiChipTest, SimpleAPIShowcase) {
 // // This tests puts a specific core into reset and then deasserts it using default deassert value
 // // It reads back the risc reset reg to validate
 // TEST(ApiChipTest, DeassertRiscResetOnCore) {
-//     std::unique_ptr<Cluster> umd_cluster = get_cluster();
+//     std::unique_ptr<Cluster> umd_cluster = std::make_unique<Cluster>();
 
 //     if (umd_cluster == nullptr || umd_cluster->get_target_device_ids().empty()) {
 //         GTEST_SKIP() << "No chips present on the system. Skipping test.";
@@ -117,9 +108,9 @@ TEST(ApiChipTest, SimpleAPIShowcase) {
 //     tt_cxy_pair chip_core_coord = get_tensix_chip_core_coord(umd_cluster);
 
 //     umd_cluster->assert_risc_reset_at_core(chip_core_coord);
-//     umd_cluster->l1_membar(chip_core_coord.chip, "LARGE_WRITE_TLB");
+//     umd_cluster->l1_membar(chip_core_coord.chip);
 //     umd_cluster->deassert_risc_reset_at_core(chip_core_coord);
-//     umd_cluster->l1_membar(chip_core_coord.chip, "LARGE_WRITE_TLB");
+//     umd_cluster->l1_membar(chip_core_coord.chip);
 
 //     uint32_t soft_reset_reg_addr = 0xFFB121B0;
 //     uint32_t expected_risc_reset_val = static_cast<uint32_t>(TENSIX_DEASSERT_SOFT_RESET);
@@ -131,7 +122,7 @@ TEST(ApiChipTest, SimpleAPIShowcase) {
 // // This tests puts a specific core into reset and then specifies a legal deassert value
 // // It reads back the risc reset reg to validate
 // TEST(ApiChipTest, SpecifyLegalDeassertRiscResetOnCore) {
-//     std::unique_ptr<Cluster> umd_cluster = get_cluster();
+//     std::unique_ptr<Cluster> umd_cluster = std::make_unique<Cluster>();
 
 //     if (umd_cluster == nullptr || umd_cluster->get_target_device_ids().empty()) {
 //         GTEST_SKIP() << "No chips present on the system. Skipping test.";
@@ -142,7 +133,7 @@ TEST(ApiChipTest, SimpleAPIShowcase) {
 //     umd_cluster->assert_risc_reset_at_core(chip_core_coord);
 //     TensixSoftResetOptions deassert_val = ALL_TRISC_SOFT_RESET | TensixSoftResetOptions::STAGGERED_START;
 //     umd_cluster->deassert_risc_reset_at_core(chip_core_coord, deassert_val);
-//     umd_cluster->l1_membar(chip_core_coord.chip, "LARGE_WRITE_TLB");
+//     umd_cluster->l1_membar(chip_core_coord.chip);
 
 //     uint32_t soft_reset_reg_addr = 0xFFB121B0;
 //     uint32_t risc_reset_val;
@@ -153,7 +144,7 @@ TEST(ApiChipTest, SimpleAPIShowcase) {
 // // // This tests puts a specific core into reset and then specifies an illegal deassert value
 // // // It reads back the risc reset reg to validate that reset reg is in a legal state
 // TEST(ApiChipTest, SpecifyIllegalDeassertRiscResetOnCore) {
-//     std::unique_ptr<Cluster> umd_cluster = get_cluster();
+//     std::unique_ptr<Cluster> umd_cluster = std::make_unique<Cluster>();
 
 //     if (umd_cluster == nullptr || umd_cluster->get_target_device_ids().empty()) {
 //         GTEST_SKIP() << "No chips present on the system. Skipping test.";
@@ -165,7 +156,7 @@ TEST(ApiChipTest, SimpleAPIShowcase) {
 
 //     TensixSoftResetOptions deassert_val = static_cast<TensixSoftResetOptions>(0xDEADBEEF);
 //     umd_cluster->deassert_risc_reset_at_core(chip_core_coord, deassert_val);
-//     umd_cluster->l1_membar(chip_core_coord.chip, "LARGE_WRITE_TLB");
+//     umd_cluster->l1_membar(chip_core_coord.chip);
 
 //     uint32_t soft_reset_reg_addr = 0xFFB121B0;
 //     uint32_t risc_reset_val;

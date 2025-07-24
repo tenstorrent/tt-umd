@@ -5,6 +5,7 @@ include(cmake/compilers.cmake)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED True)
 set(CMAKE_POSITION_INDEPENDENT_CODE ON) # This also impacts dependencies brought in through CPM
+set(CMAKE_POLICY_VERSION_MINIMUM 3.5)
 
 if(DEFINED ENV{CMAKE_C_COMPILER} AND DEFINED ENV{CMAKE_CXX_COMPILER})
     message(STATUS "Setting C and C++ compiler from environment variables")
@@ -51,7 +52,23 @@ endif()
 
 message(STATUS "UMD build type: ${CMAKE_BUILD_TYPE}")
 
-include(dependencies)
+option(TT_UMD_BUILD_TESTS "Enables build of tt_umd tests" OFF)
+option(TT_UMD_BUILD_SIMULATION "Enables build of tt_umd simulation harnessing" OFF)
+
+# Control compile time logging
+if(NOT DEFINED TT_UMD_ENABLE_LOGGING)
+    if(CMAKE_BUILD_TYPE STREQUAL "Debug")
+        set(_default_enable_logging ON)
+    else()
+        set(_default_enable_logging OFF)
+    endif()
+endif()
+option(TT_UMD_ENABLE_LOGGING "Enables inclusion of log_trace and log_debug into the binary." ${_default_enable_logging})
+if(TT_UMD_ENABLE_LOGGING)
+    add_compile_definitions(SPDLOG_ACTIVE_LEVEL=SPDLOG_LEVEL_TRACE)
+endif()
+
+add_subdirectory(third_party)
 
 # Enable all warnings and treat them as errors
 # Ignore unused variables and functions since there is no harm.
@@ -75,9 +92,14 @@ endif()
 
 add_subdirectory(common)
 add_subdirectory(device)
+option(TT_UMD_BUILD_PYTHON "Enables build of tt_umd python bindings" OFF)
+if(TT_UMD_BUILD_PYTHON)
+    message(STATUS "Building ${PROJECT_NAME} with Python Bindings")
+    add_subdirectory(nanobind)
+endif()
 add_subdirectory(src)
+add_subdirectory(tools)
 
-option(TT_UMD_BUILD_TESTS "Enables build of tt_umd tests" OFF)
 if(TT_UMD_BUILD_TESTS)
     add_subdirectory(tests)
 endif(TT_UMD_BUILD_TESTS)

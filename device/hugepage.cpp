@@ -9,16 +9,18 @@
 #include <fcntl.h>     // for O_RDWR and other constants
 #include <sys/stat.h>  // for umask
 
+#include <fstream>
+#include <regex>
+#include <tt-logger/tt-logger.hpp>
+
+#include "assert.hpp"
 #include "cpuset_lib.hpp"
-#include "logger.hpp"
+
+namespace tt::umd {
 
 const uint32_t g_MAX_HOST_MEM_CHANNELS = 4;
 
-// Hardcode (but allow override) of path now, to support environments with other 1GB hugepage mounts not for runtime.
-const char* hugepage_dir_env = std::getenv("TT_BACKEND_HUGEPAGE_DIR");
-std::string hugepage_dir = hugepage_dir_env ? hugepage_dir_env : "/dev/hugepages-1G";
-
-namespace tt::umd {
+const std::string hugepage_dir = "/dev/hugepages-1G";
 
 uint32_t get_num_hugepages() {
     std::string nr_hugepages_path = "/sys/kernel/mm/hugepages/hugepages-1048576kB/nr_hugepages";
@@ -31,7 +33,7 @@ uint32_t get_num_hugepages() {
         num_hugepages = std::stoi(value);
         log_debug(LogSiliconDriver, "Parsed num_hugepages: {} from {}", num_hugepages, nr_hugepages_path);
     } else {
-        log_fatal("{} - Cannot open {}. errno: {}", __FUNCTION__, nr_hugepages_path, std::strerror(errno));
+        TT_THROW(fmt::format("{} - Cannot open {}. errno: {}", __FUNCTION__, nr_hugepages_path, std::strerror(errno)));
     }
 
     return num_hugepages;
@@ -90,7 +92,7 @@ uint32_t get_available_num_host_mem_channels(
             num_channels_per_device_target);
     }
 
-    log_assert(
+    TT_ASSERT(
         num_channels_per_device_available <= g_MAX_HOST_MEM_CHANNELS,
         "NumHostMemChannels: {} exceeds supported maximum: {}, this is unexpected.",
         num_channels_per_device_available,

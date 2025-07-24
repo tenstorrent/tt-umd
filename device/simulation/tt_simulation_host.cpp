@@ -12,10 +12,12 @@
 #include <filesystem>
 #include <iomanip>
 #include <sstream>
+#include <tt-logger/tt-logger.hpp>
 #include <typeinfo>
 
 #include "assert.hpp"
-#include "logger.hpp"
+
+namespace tt::umd {
 
 tt_SimulationHost::tt_SimulationHost() {
     // Initialize socket and dialer
@@ -87,3 +89,5 @@ size_t tt_SimulationHost::recv_from_device(void **data_ptr) {
     }
     return data_size;
 }
+
+}  // namespace tt::umd

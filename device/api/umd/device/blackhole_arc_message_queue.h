@@ -46,7 +46,7 @@ private:
 
 public:
     BlackholeArcMessageQueue(
-        TTDevice* tt_device, const uint64_t base_address, const uint64_t size, const CoreCoord arc_core);
+        TTDevice* tt_device, const uint64_t base_address, const uint64_t size, const tt_xy_pair arc_core);
 
     /*
      * Send ARC message. The call of send_message is blocking, timeout is to be implemented.
@@ -58,9 +58,9 @@ public:
         TTDevice* tt_device, const size_t queue_index);
 
 private:
-    void push_request(std::array<uint32_t, BlackholeArcMessageQueue::entry_len>& request);
+    void push_request(std::array<uint32_t, BlackholeArcMessageQueue::entry_len>& request, uint32_t timeout_ms);
 
-    std::array<uint32_t, entry_len> pop_response();
+    std::array<uint32_t, entry_len> pop_response(uint32_t timeout_ms);
 
     void read_words(uint32_t* data, size_t num_words, size_t offset);
 
@@ -73,7 +73,7 @@ private:
     const uint64_t base_address;
     const uint64_t size;
     TTDevice* tt_device;
-    const CoreCoord arc_core;
+    const tt_xy_pair arc_core;
 };
 
 }  // namespace tt::umd

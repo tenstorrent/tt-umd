@@ -3,14 +3,13 @@
 // SPDX-License-Identifier: Apache-2.0
 #include "umd/device/tt_device/tt_device.h"
 
-#include "logger.hpp"
+#include <tt-logger/tt-logger.hpp>
+
+#include "assert.hpp"
 #include "umd/device/arc_messenger.h"
 #include "umd/device/driver_atomics.h"
 #include "umd/device/tt_device/blackhole_tt_device.h"
-#include "umd/device/tt_device/grayskull_tt_device.h"
 #include "umd/device/tt_device/wormhole_tt_device.h"
-
-using namespace boost::interprocess;
 
 // TODO #526: This is a hack to allow UMD to use the NOC1 TLB.
 bool umd_use_noc1 = false;
@@ -20,24 +19,28 @@ namespace tt::umd {
 void TTDevice::use_noc1(bool use_noc1) { umd_use_noc1 = use_noc1; }
 
 TTDevice::TTDevice(
-    std::unique_ptr<PCIDevice> pci_device, std::unique_ptr<architecture_implementation> architecture_impl) :
-    pci_device_(std::move(pci_device)),
+    std::shared_ptr<PCIDevice> pci_device, std::unique_ptr<architecture_implementation> architecture_impl) :
+    pci_device_(pci_device),
     architecture_impl_(std::move(architecture_impl)),
     arch(architecture_impl_->get_architecture()) {
-    lock_manager.initialize_mutex(MutexType::TT_DEVICE_IO, get_pci_device()->get_device_num(), false);
-    arc_messenger_ = ArcMessenger::create_arc_messenger(this);
+    lock_manager.initialize_mutex(MutexType::TT_DEVICE_IO, get_pci_device()->get_device_num());
 }
 
+void TTDevice::init_tt_device() {
+    arc_messenger_ = ArcMessenger::create_arc_messenger(this);
+    telemetry = ArcTelemetryReader::create_arc_telemetry_reader(this);
+}
+
+TTDevice::TTDevice() {}
+
 /* static */ std::unique_ptr<TTDevice> TTDevice::create(int pci_device_number) {
-    auto pci_device = std::make_unique<PCIDevice>(pci_device_number);
+    auto pci_device = std::make_shared<PCIDevice>(pci_device_number);
 
     switch (pci_device->get_arch()) {
-        case ARCH::GRAYSKULL:
-            return std::make_unique<GrayskullTTDevice>(std::move(pci_device));
         case ARCH::WORMHOLE_B0:
-            return std::make_unique<WormholeTTDevice>(std::move(pci_device));
+            return std::make_unique<WormholeTTDevice>(pci_device);
         case ARCH::BLACKHOLE:
-            return std::make_unique<BlackholeTTDevice>(std::move(pci_device));
+            return std::make_unique<BlackholeTTDevice>(pci_device);
         default:
             return nullptr;
     }
@@ -45,7 +48,7 @@ TTDevice::TTDevice(
 
 architecture_implementation *TTDevice::get_architecture_implementation() { return architecture_impl_.get(); }
 
-PCIDevice *TTDevice::get_pci_device() { return pci_device_.get(); }
+std::shared_ptr<PCIDevice> TTDevice::get_pci_device() { return pci_device_; }
 
 tt::ARCH TTDevice::get_arch() { return arch; }
 
@@ -55,11 +58,11 @@ bool TTDevice::is_hardware_hung() {
                                 pci_device_->bar0_uc_offset;
     std::uint32_t scratch_data = *reinterpret_cast<const volatile std::uint32_t *>(addr);
 
-    return (scratch_data == c_hang_read_value);
+    return (scratch_data == HANG_READ_VALUE);
 }
 
 void TTDevice::detect_hang_read(std::uint32_t data_read) {
-    if (data_read == c_hang_read_value && is_hardware_hung()) {
+    if (data_read == HANG_READ_VALUE && is_hardware_hung()) {
         std::uint32_t scratch_data =
             *pci_device_->get_register_address<std::uint32_t>(architecture_impl_->get_read_checking_offset());
 
@@ -216,11 +219,11 @@ void TTDevice::read_block(uint64_t byte_addr, uint64_t num_bytes, uint8_t *buffe
 }
 
 void TTDevice::read_from_device(void *mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size) {
-    auto lock = lock_manager.get_mutex(MutexType::TT_DEVICE_IO, get_pci_device()->get_device_num());
+    auto lock = lock_manager.acquire_mutex(MutexType::TT_DEVICE_IO, get_pci_device()->get_device_num());
     uint8_t *buffer_addr = static_cast<uint8_t *>(mem_ptr);
     const uint32_t tlb_index = get_architecture_implementation()->get_small_read_write_tlb();
     while (size > 0) {
-        auto [mapped_address, tlb_size] = set_dynamic_tlb(tlb_index, core, addr, tt::umd::tlb_data::Strict);
+        auto [mapped_address, tlb_size] = set_dynamic_tlb(tlb_index, core, addr, tlb_data::Strict);
         uint32_t transfer_size = std::min((uint64_t)size, tlb_size);
         read_block(mapped_address, transfer_size, buffer_addr);
 
@@ -230,13 +233,13 @@ void TTDevice::read_from_device(void *mem_ptr, tt_xy_pair core, uint64_t addr, u
     }
 }
 
-void TTDevice::write_to_device(void *mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size) {
-    auto lock = lock_manager.get_mutex(MutexType::TT_DEVICE_IO, get_pci_device()->get_device_num());
-    uint8_t *buffer_addr = static_cast<uint8_t *>(mem_ptr);
+void TTDevice::write_to_device(const void *mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size) {
+    auto lock = lock_manager.acquire_mutex(MutexType::TT_DEVICE_IO, get_pci_device()->get_device_num());
+    uint8_t *buffer_addr = (uint8_t *)(uintptr_t)(mem_ptr);
     const uint32_t tlb_index = get_architecture_implementation()->get_small_read_write_tlb();
 
     while (size > 0) {
-        auto [mapped_address, tlb_size] = set_dynamic_tlb(tlb_index, core, addr, tt::umd::tlb_data::Strict);
+        auto [mapped_address, tlb_size] = set_dynamic_tlb(tlb_index, core, addr, tlb_data::Strict);
         uint32_t transfer_size = std::min((uint64_t)size, tlb_size);
         write_block(mapped_address, transfer_size, buffer_addr);
 
@@ -248,7 +251,7 @@ void TTDevice::write_to_device(void *mem_ptr, tt_xy_pair core, uint64_t addr, ui
 
 void TTDevice::write_tlb_reg(
     uint32_t byte_addr, uint64_t value_lower, uint64_t value_upper, uint32_t tlb_cfg_reg_size) {
-    log_assert(
+    TT_ASSERT(
         (tlb_cfg_reg_size == 8) or (tlb_cfg_reg_size == 12),
         "Tenstorrent hardware supports only 64bit or 96bit TLB config regs");
 
@@ -283,7 +286,8 @@ dynamic_tlb TTDevice::set_dynamic_tlb(
 
     log_trace(
         LogSiliconDriver,
-        "set_dynamic_tlb with arguments: tlb_index = {}, start = ({}, {}), end = ({}, {}), address = 0x{:x}, multicast "
+        "set_dynamic_tlb with arguments: tlb_index = {}, start = ({}, {}), end = ({}, {}), address = 0x{:x}, "
+        "multicast "
         "= {}, ordering = {}",
         tlb_index,
         start.x,
@@ -294,15 +298,15 @@ dynamic_tlb TTDevice::set_dynamic_tlb(
         multicast,
         (int)ordering);
 
-    tt::umd::tlb_configuration tlb_config = architecture_impl_->get_tlb_configuration(tlb_index);
+    tlb_configuration tlb_config = architecture_impl_->get_tlb_configuration(tlb_index);
     std::uint32_t TLB_CFG_REG_SIZE_BYTES = architecture_impl_->get_tlb_cfg_reg_size_bytes();
     uint64_t tlb_address = address / tlb_config.size;
     uint32_t local_address = address % tlb_config.size;
     uint64_t tlb_base = tlb_config.base + (tlb_config.size * tlb_config.index_offset);
     uint32_t tlb_cfg_reg = tlb_config.cfg_addr + (TLB_CFG_REG_SIZE_BYTES * tlb_config.index_offset);
 
-    std::pair<std::uint64_t, std::uint64_t> tlb_data =
-        tt::umd::tlb_data{
+    std::pair<std::uint64_t, std::uint64_t> tlb_reg_config =
+        tlb_data{
             .local_offset = tlb_address,
             .x_end = static_cast<uint64_t>(end.x),
             .y_end = static_cast<uint64_t>(end.y),
@@ -312,8 +316,9 @@ dynamic_tlb TTDevice::set_dynamic_tlb(
             .mcast = multicast,
             .ordering = ordering,
             // TODO #2715: hack for Blackhole A0, will potentially be fixed in B0.
-            // Using the same static vc for reads and writes through TLBs can hang the card. It doesn't even have to be
-            // the same TLB. Dynamic vc should not have this issue. There might be a perf impact with using dynamic vc.
+            // Using the same static vc for reads and writes through TLBs can hang the card. It doesn't even have to
+            // be the same TLB. Dynamic vc should not have this issue. There might be a perf impact with using
+            // dynamic vc.
             .static_vc = (arch == tt::ARCH::BLACKHOLE) ? false : true,
         }
             .apply_offset(tlb_config.offset);
@@ -321,13 +326,15 @@ dynamic_tlb TTDevice::set_dynamic_tlb(
     log_debug(
         LogSiliconDriver,
         "set_dynamic_tlb() with tlb_index: {} tlb_index_offset: {} dynamic_tlb_size: {}MB tlb_base: 0x{:x} "
-        "tlb_cfg_reg: 0x{:x}",
+        "tlb_cfg_reg: 0x{:x} to core ({},{})",
         tlb_index,
         tlb_config.index_offset,
         tlb_config.size / (1024 * 1024),
         tlb_base,
-        tlb_cfg_reg);
-    write_tlb_reg(tlb_cfg_reg, tlb_data.first, tlb_data.second, TLB_CFG_REG_SIZE_BYTES);
+        tlb_cfg_reg,
+        end.x,
+        end.y);
+    write_tlb_reg(tlb_cfg_reg, tlb_reg_config.first, tlb_reg_config.second, TLB_CFG_REG_SIZE_BYTES);
 
     return {tlb_base + local_address, tlb_config.size - local_address};
 }
@@ -343,12 +350,7 @@ dynamic_tlb TTDevice::set_dynamic_tlb_broadcast(
     return set_dynamic_tlb(tlb_index, start, end, address, true, ordering);
 }
 
-void TTDevice::configure_iatu_region(size_t region, uint64_t base, uint64_t target, size_t size) {
-    // TODO: The code to do this is still up in cluster.cpp.  It should be moved
-    // here, but a prerequisite is to have an ARC messaging interface at this
-    // (TTDevice) level... it too is still up in cluster.cpp.
-    //
-    // For now, just throw an exception.
+void TTDevice::configure_iatu_region(size_t region, uint64_t target, size_t region_size) {
     throw std::runtime_error("configure_iatu_region is not implemented for this device");
 }
 
@@ -374,14 +376,26 @@ uint32_t TTDevice::bar_read32(uint32_t addr) {
     return data;
 }
 
-tt::umd::ArcMessenger *TTDevice::get_arc_messenger() const { return arc_messenger_.get(); }
+ArcMessenger *TTDevice::get_arc_messenger() const { return arc_messenger_.get(); }
 
-uint32_t TTDevice::get_clock() {
-    throw std::runtime_error(
-        "Base TTDevice class does not have get_clock implemented. Move this to abstract function once Grayskull "
-        "TTDevice is deleted.");
-}
+ArcTelemetryReader *TTDevice::get_arc_telemetry_reader() const { return telemetry.get(); }
 
 TTDevice::~TTDevice() { lock_manager.clear_mutex(MutexType::TT_DEVICE_IO, get_pci_device()->get_device_num()); }
+
+std::vector<DramTrainingStatus> TTDevice::get_dram_training_status() { return {}; }
+
+void TTDevice::wait_for_non_mmio_flush() {}
+
+bool TTDevice::is_remote() { return is_remote_tt_device; }
+
+BoardType TTDevice::get_board_type() { return get_board_type_from_board_id(get_board_id()); }
+
+semver_t TTDevice::fw_version_from_telemetry(const uint32_t telemetry_data) const {
+    // The telemetry data is a 32-bit value where the higher 16 bits are the major value,
+    // lower 16 bits are the minor value.
+    uint16_t major = (telemetry_data >> 24) & 0xFF;
+    uint16_t minor = (telemetry_data >> 16) & 0xFF;
+    return semver_t(major, minor, 0);
+}
 
 }  // namespace tt::umd

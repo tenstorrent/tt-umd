@@ -4,11 +4,12 @@
 
 #include "umd/device/blackhole_implementation.h"
 
+#include <tt-logger/tt-logger.hpp>
+
 #include "blackhole/eth_interface.h"
 #include "blackhole/eth_l1_address_map.h"
 #include "blackhole/host_mem_address_map.h"
 #include "blackhole/l1_address_map.h"
-#include "logger.hpp"
 #include "umd/device/cluster.h"
 
 constexpr std::uint32_t NOC_ADDR_LOCAL_BITS = 36;   // source: noc_parameters.h, common for WH && BH
@@ -96,14 +97,32 @@ tt_driver_noc_params blackhole_implementation::get_noc_params() const {
     return {NOC_ADDR_LOCAL_BITS, NOC_ADDR_NODE_ID_BITS};
 }
 
-namespace blackhole {
-std::vector<tt_xy_pair> get_pcie_cores(const BoardType board_type, const uint8_t asic_location) {
-    // Default to type 1 chip.
-    if (board_type == BoardType::UNKNOWN) {
-        return PCIE_CORES_TYPE1_NOC0;
+uint64_t blackhole_implementation::get_noc_reg_base(
+    const CoreType core_type, const uint32_t noc, const uint32_t noc_port) const {
+    if (noc == 0) {
+        for (const auto& noc_pair : blackhole::NOC0_CONTROL_REG_ADDR_BASE_MAP) {
+            if (noc_pair.first == core_type) {
+                return noc_pair.second;
+            }
+        }
+    } else {
+        for (const auto& noc_pair : blackhole::NOC1_CONTROL_REG_ADDR_BASE_MAP) {
+            if (noc_pair.first == core_type) {
+                return noc_pair.second;
+            }
+        }
     }
-    auto chip_type = get_blackhole_chip_type(board_type, asic_location);
-    return chip_type == BlackholeChipType::Type1 ? PCIE_CORES_TYPE1_NOC0 : PCIE_CORES_TYPE2_NOC0;
+
+    throw std::runtime_error("Invalid core type or NOC for getting NOC register addr base.");
+}
+
+namespace blackhole {
+tt_xy_pair get_arc_core(const bool noc_translation_enabled, const bool umd_use_noc1) {
+    return (noc_translation_enabled || !umd_use_noc1)
+               ? blackhole::ARC_CORES_NOC0[0]
+               : tt_xy_pair(
+                     blackhole::NOC0_X_TO_NOC1_X[blackhole::ARC_CORES_NOC0[0].x],
+                     blackhole::NOC0_Y_TO_NOC1_Y[blackhole::ARC_CORES_NOC0[0].y]);
 }
 }  // namespace blackhole
 

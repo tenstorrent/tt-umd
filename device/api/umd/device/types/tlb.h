@@ -57,4 +57,12 @@ struct tlb_configuration {
     tlb_offsets offset;
 };
 
+enum TlbMapping : uint8_t {
+    UC = 0,  // Uncached
+    WC = 1,  // Write-combined
+};
+
 }  // namespace tt::umd
+
+// TODO: To be removed once clients switch to namespace usage.
+using TLB_DATA = tt::umd::tlb_data;

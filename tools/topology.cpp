@@ -43,7 +43,7 @@ int main(int argc, char *argv[]) {
         pci_ids = extract_int_set(result["pci_devices"]);
     }
 
-    std::unique_ptr<tt_ClusterDescriptor> cluster_descriptor = tt::umd::Cluster::create_cluster_descriptor("", pci_ids);
+    std::unique_ptr<tt_ClusterDescriptor> cluster_descriptor = Cluster::create_cluster_descriptor("", pci_ids);
 
     if (result.count("logical_devices")) {
         std::unordered_set<int> logical_device_ids = extract_int_set(result["logical_devices"]);

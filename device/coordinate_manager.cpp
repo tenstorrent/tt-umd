@@ -12,7 +12,7 @@
 #include "umd/device/blackhole_coordinate_manager.h"
 #include "umd/device/wormhole_coordinate_manager.h"
 
-using namespace tt::umd;
+namespace tt::umd {
 
 CoordinateManager::CoordinateManager(
     const bool noc_translation_enabled,
@@ -51,7 +51,7 @@ CoordinateManager::CoordinateManager(
 
 void CoordinateManager::initialize() {
     this->assert_coordinate_manager_constructor();
-    this->identity_map_physical_cores();
+    this->identity_map_noc0_cores();
     this->translate_tensix_coords();
     this->translate_dram_coords();
     this->translate_eth_coords();
@@ -73,60 +73,60 @@ void CoordinateManager::assert_coordinate_manager_constructor() {
     }
 }
 
-void CoordinateManager::add_core_translation(const CoreCoord& core_coord, const tt_xy_pair& physical_pair) {
-    to_physical_map.insert({core_coord, physical_pair});
-    from_physical_map.insert({{{physical_pair.x, physical_pair.y}, core_coord.coord_system}, core_coord});
+void CoordinateManager::add_core_translation(const CoreCoord& core_coord, const tt_xy_pair& noc0_pair) {
+    to_noc0_map.insert({core_coord, noc0_pair});
+    from_noc0_map.insert({{{noc0_pair.x, noc0_pair.y}, core_coord.coord_system}, core_coord});
     if (core_coord.coord_system != CoordSystem::LOGICAL) {
         to_core_type_map.insert({{{core_coord.x, core_coord.y}, core_coord.coord_system}, core_coord});
     }
 }
 
-void CoordinateManager::identity_map_physical_cores() {
+void CoordinateManager::identity_map_noc0_cores() {
     for (auto& core : tensix_cores) {
-        const CoreCoord core_coord = CoreCoord(core.x, core.y, CoreType::TENSIX, CoordSystem::PHYSICAL);
+        const CoreCoord core_coord = CoreCoord(core.x, core.y, CoreType::TENSIX, CoordSystem::NOC0);
         add_core_translation(core_coord, core);
     }
 
     for (auto& core : dram_cores) {
-        const CoreCoord core_coord = CoreCoord(core.x, core.y, CoreType::DRAM, CoordSystem::PHYSICAL);
+        const CoreCoord core_coord = CoreCoord(core.x, core.y, CoreType::DRAM, CoordSystem::NOC0);
         add_core_translation(core_coord, core);
     }
 
     for (auto& core : eth_cores) {
-        const CoreCoord core_coord = CoreCoord(core.x, core.y, CoreType::ETH, CoordSystem::PHYSICAL);
+        const CoreCoord core_coord = CoreCoord(core.x, core.y, CoreType::ETH, CoordSystem::NOC0);
         add_core_translation(core_coord, core);
     }
 
     for (auto& core : arc_cores) {
-        const CoreCoord core_coord = CoreCoord(core.x, core.y, CoreType::ARC, CoordSystem::PHYSICAL);
+        const CoreCoord core_coord = CoreCoord(core.x, core.y, CoreType::ARC, CoordSystem::NOC0);
         add_core_translation(core_coord, core);
     }
 
     for (auto& core : pcie_cores) {
-        const CoreCoord core_coord = CoreCoord(core.x, core.y, CoreType::PCIE, CoordSystem::PHYSICAL);
+        const CoreCoord core_coord = CoreCoord(core.x, core.y, CoreType::PCIE, CoordSystem::NOC0);
         add_core_translation(core_coord, core);
     }
 
     for (auto& core : router_cores) {
-        const CoreCoord core_coord = CoreCoord(core.x, core.y, CoreType::ROUTER_ONLY, CoordSystem::PHYSICAL);
+        const CoreCoord core_coord = CoreCoord(core.x, core.y, CoreType::ROUTER_ONLY, CoordSystem::NOC0);
         add_core_translation(core_coord, core);
     }
 
     for (auto& core : security_cores) {
-        const CoreCoord core_coord = CoreCoord(core.x, core.y, CoreType::SECURITY, CoordSystem::PHYSICAL);
+        const CoreCoord core_coord = CoreCoord(core.x, core.y, CoreType::SECURITY, CoordSystem::NOC0);
         add_core_translation(core_coord, core);
     }
 
     for (auto& core : l2cpu_cores) {
-        const CoreCoord core_coord = CoreCoord(core.x, core.y, CoreType::L2CPU, CoordSystem::PHYSICAL);
+        const CoreCoord core_coord = CoreCoord(core.x, core.y, CoreType::L2CPU, CoordSystem::NOC0);
         add_core_translation(core_coord, core);
     }
 }
 
 CoreCoord CoordinateManager::translate_coord_to(
     const CoreCoord core_coord, const CoordSystem target_coord_system) const {
-    auto physical_coord_it = to_physical_map.find(core_coord);
-    if (physical_coord_it == to_physical_map.end()) {
+    auto noc0_coord_it = to_noc0_map.find(core_coord);
+    if (noc0_coord_it == to_noc0_map.end()) {
         throw std::runtime_error(fmt::format(
             "No core coordinate found at location: ({}, {}, {}, {})",
             core_coord.x,
@@ -135,9 +135,9 @@ CoreCoord CoordinateManager::translate_coord_to(
             to_str(core_coord.coord_system)));
     }
 
-    tt_xy_pair physical_coord = physical_coord_it->second;
-    auto coord_it = from_physical_map.find({physical_coord, target_coord_system});
-    if (coord_it == from_physical_map.end()) {
+    tt_xy_pair noc0_coord = noc0_coord_it->second;
+    auto coord_it = from_noc0_map.find({noc0_coord, target_coord_system});
+    if (coord_it == from_noc0_map.end()) {
         throw std::runtime_error(fmt::format(
             "No core coordinate found for system {} at location: ({}, {}, {}, {})",
             to_str(target_coord_system),
@@ -181,13 +181,13 @@ void CoordinateManager::translate_tensix_coords() {
     for (size_t y = 0; y < grid_size_y; y++) {
         if (harvesting_masks.tensix_harvesting_mask & (1 << y)) {
             for (size_t x = 0; x < grid_size_x; x++) {
-                const tt_xy_pair& physical_core = tensix_cores[y * grid_size_x + x];
+                const tt_xy_pair& noc0_core = tensix_cores[y * grid_size_x + x];
                 const tt_xy_pair& virtual_core = tensix_cores[harvested_index++];
 
                 CoreCoord virtual_coord =
                     CoreCoord(virtual_core.x, virtual_core.y, CoreType::TENSIX, CoordSystem::VIRTUAL);
 
-                add_core_translation(virtual_coord, physical_core);
+                add_core_translation(virtual_coord, noc0_core);
             }
         } else {
             for (size_t x = 0; x < grid_size_x; x++) {
@@ -206,18 +206,18 @@ void CoordinateManager::translate_tensix_coords() {
     }
 
     if (noc_translation_enabled) {
-        fill_tensix_physical_translated_mapping();
+        fill_tensix_noc0_translated_mapping();
     } else {
-        fill_tensix_default_physical_translated_mapping();
+        fill_tensix_default_noc0_translated_mapping();
     }
 }
 
-void CoordinateManager::fill_tensix_default_physical_translated_mapping() {
+void CoordinateManager::fill_tensix_default_noc0_translated_mapping() {
     tt_xy_pair tensix_grid_unharvested = get_grid_size(CoreType::TENSIX);
 
-    for (tt_xy_pair physical_core : tensix_cores) {
-        CoreCoord translated_coord = CoreCoord(physical_core, CoreType::TENSIX, CoordSystem::TRANSLATED);
-        add_core_translation(translated_coord, physical_core);
+    for (tt_xy_pair noc0_core : tensix_cores) {
+        CoreCoord translated_coord = CoreCoord(noc0_core, CoreType::TENSIX, CoordSystem::TRANSLATED);
+        add_core_translation(translated_coord, noc0_core);
     }
 }
 
@@ -235,9 +235,9 @@ void CoordinateManager::translate_dram_coords() {
     }
 
     if (noc_translation_enabled) {
-        fill_dram_physical_translated_mapping();
+        fill_dram_noc0_translated_mapping();
     } else {
-        fill_dram_default_physical_translated_mapping();
+        fill_dram_default_noc0_translated_mapping();
     }
 }
 
@@ -253,9 +253,9 @@ void CoordinateManager::translate_eth_coords() {
     }
 
     if (noc_translation_enabled) {
-        fill_eth_physical_translated_mapping();
+        fill_eth_noc0_translated_mapping();
     } else {
-        fill_eth_default_physical_translated_mapping();
+        fill_eth_default_noc0_translated_mapping();
     }
 }
 
@@ -273,9 +273,9 @@ void CoordinateManager::translate_arc_coords() {
     }
 
     if (noc_translation_enabled) {
-        fill_arc_physical_translated_mapping();
+        fill_arc_noc0_translated_mapping();
     } else {
-        fill_arc_default_physical_translated_mapping();
+        fill_arc_default_noc0_translated_mapping();
     }
 }
 
@@ -292,9 +292,9 @@ void CoordinateManager::translate_pcie_coords() {
     }
 
     if (noc_translation_enabled) {
-        fill_pcie_physical_translated_mapping();
+        fill_pcie_noc0_translated_mapping();
     } else {
-        fill_pcie_default_physical_translated_mapping();
+        fill_pcie_default_noc0_translated_mapping();
     }
 }
 
@@ -334,55 +334,55 @@ void CoordinateManager::translate_l2cpu_coords() {
     }
 }
 
-void CoordinateManager::fill_eth_default_physical_translated_mapping() {
+void CoordinateManager::fill_eth_default_noc0_translated_mapping() {
     for (size_t eth_channel = 0; eth_channel < num_eth_channels; eth_channel++) {
-        const tt_xy_pair physical_pair = eth_cores[eth_channel];
-        const size_t translated_x = physical_pair.x;
-        const size_t translated_y = physical_pair.y;
+        const tt_xy_pair noc0_pair = eth_cores[eth_channel];
+        const size_t translated_x = noc0_pair.x;
+        const size_t translated_y = noc0_pair.y;
 
         CoreCoord translated_coord = CoreCoord(translated_x, translated_y, CoreType::ETH, CoordSystem::TRANSLATED);
 
-        add_core_translation(translated_coord, physical_pair);
+        add_core_translation(translated_coord, noc0_pair);
     }
 }
 
-void CoordinateManager::fill_dram_default_physical_translated_mapping() {
+void CoordinateManager::fill_dram_default_noc0_translated_mapping() {
     for (size_t x = 0; x < dram_grid_size.x; x++) {
         for (size_t y = 0; y < dram_grid_size.y; y++) {
             CoreCoord logical_coord = CoreCoord(x, y, CoreType::DRAM, CoordSystem::LOGICAL);
-            const tt_xy_pair physical_pair = to_physical_map[logical_coord];
-            const size_t translated_x = physical_pair.x;
-            const size_t translated_y = physical_pair.y;
+            const tt_xy_pair noc0_pair = to_noc0_map[logical_coord];
+            const size_t translated_x = noc0_pair.x;
+            const size_t translated_y = noc0_pair.y;
 
             CoreCoord translated_coord = CoreCoord(translated_x, translated_y, CoreType::DRAM, CoordSystem::TRANSLATED);
 
-            add_core_translation(translated_coord, physical_pair);
+            add_core_translation(translated_coord, noc0_pair);
         }
     }
 }
 
-void CoordinateManager::fill_pcie_default_physical_translated_mapping() {
-    for (auto physical_pair : pcie_cores) {
-        const size_t translated_x = physical_pair.x;
-        const size_t translated_y = physical_pair.y;
+void CoordinateManager::fill_pcie_default_noc0_translated_mapping() {
+    for (auto noc0_pair : pcie_cores) {
+        const size_t translated_x = noc0_pair.x;
+        const size_t translated_y = noc0_pair.y;
 
         CoreCoord translated_coord = CoreCoord(translated_x, translated_y, CoreType::PCIE, CoordSystem::TRANSLATED);
 
-        add_core_translation(translated_coord, physical_pair);
+        add_core_translation(translated_coord, noc0_pair);
     }
 }
 
-void CoordinateManager::fill_arc_default_physical_translated_mapping() {
+void CoordinateManager::fill_arc_default_noc0_translated_mapping() {
     for (size_t x = 0; x < arc_grid_size.x; x++) {
         for (size_t y = 0; y < arc_grid_size.y; y++) {
             CoreCoord logical_coord = CoreCoord(x, y, CoreType::ARC, CoordSystem::LOGICAL);
-            const tt_xy_pair physical_pair = to_physical_map[logical_coord];
-            const size_t translated_x = physical_pair.x;
-            const size_t translated_y = physical_pair.y;
+            const tt_xy_pair noc0_pair = to_noc0_map[logical_coord];
+            const size_t translated_x = noc0_pair.x;
+            const size_t translated_y = noc0_pair.y;
 
             CoreCoord translated_coord = CoreCoord(translated_x, translated_y, CoreType::ARC, CoordSystem::TRANSLATED);
 
-            add_core_translation(translated_coord, physical_pair);
+            add_core_translation(translated_coord, noc0_pair);
         }
     }
 }
@@ -391,7 +391,7 @@ HarvestingMasks CoordinateManager::get_harvesting_masks() const { return harvest
 
 uint32_t CoordinateManager::shuffle_tensix_harvesting_mask(tt::ARCH arch, uint32_t tensix_harvesting_physical_layout) {
     std::vector<uint32_t> harvesting_locations =
-        tt::umd::architecture_implementation::create(arch)->get_harvesting_noc_locations();
+        architecture_implementation::create(arch)->get_harvesting_noc_locations();
 
     std::vector<uint32_t> sorted_harvesting_locations = harvesting_locations;
     std::sort(sorted_harvesting_locations.begin(), sorted_harvesting_locations.end());
@@ -415,7 +415,7 @@ uint32_t CoordinateManager::shuffle_tensix_harvesting_mask(tt::ARCH arch, uint32
 uint32_t CoordinateManager::shuffle_tensix_harvesting_mask_to_noc0_coords(
     tt::ARCH arch, uint32_t tensix_harvesting_logical_layout) {
     std::vector<uint32_t> sorted_harvesting_locations =
-        tt::umd::architecture_implementation::create(arch)->get_harvesting_noc_locations();
+        architecture_implementation::create(arch)->get_harvesting_noc_locations();
 
     std::sort(sorted_harvesting_locations.begin(), sorted_harvesting_locations.end());
     size_t new_harvesting_mask = 0;
@@ -431,7 +431,7 @@ uint32_t CoordinateManager::shuffle_tensix_harvesting_mask_to_noc0_coords(
     return new_harvesting_mask;
 }
 
-const std::vector<tt_xy_pair>& CoordinateManager::get_physical_pairs(const CoreType core_type) const {
+const std::vector<tt_xy_pair>& CoordinateManager::get_noc0_pairs(const CoreType core_type) const {
     switch (core_type) {
         case CoreType::TENSIX:
             return tensix_cores;
@@ -450,18 +450,18 @@ const std::vector<tt_xy_pair>& CoordinateManager::get_physical_pairs(const CoreT
         case CoreType::L2CPU:
             return l2cpu_cores;
         default:
-            throw std::runtime_error("Core type is not supported for getting physical pairs");
+            throw std::runtime_error("Core type is not supported for getting noc0 pairs");
     }
 }
 
-std::vector<CoreCoord> CoordinateManager::get_all_physical_cores(const CoreType core_type) const {
-    const std::vector<tt_xy_pair>& physical_pairs = get_physical_pairs(core_type);
-    std::vector<CoreCoord> physical_cores;
-    for (const tt_xy_pair& core : physical_pairs) {
-        CoreCoord core_coord(core.x, core.y, core_type, CoordSystem::PHYSICAL);
-        physical_cores.push_back(core_coord);
+std::vector<CoreCoord> CoordinateManager::get_all_noc0_cores(const CoreType core_type) const {
+    const std::vector<tt_xy_pair>& noc0_pairs = get_noc0_pairs(core_type);
+    std::vector<CoreCoord> noc0_cores;
+    for (const tt_xy_pair& core : noc0_pairs) {
+        CoreCoord core_coord(core.x, core.y, core_type, CoordSystem::NOC0);
+        noc0_cores.push_back(core_coord);
     }
-    return physical_cores;
+    return noc0_cores;
 }
 
 std::vector<CoreCoord> CoordinateManager::get_tensix_cores() const {
@@ -471,7 +471,7 @@ std::vector<CoreCoord> CoordinateManager::get_tensix_cores() const {
         if (std::find(harvested_y_coords.begin(), harvested_y_coords.end(), y) == harvested_y_coords.end()) {
             for (size_t x = 0; x < tensix_grid_size.x; x++) {
                 const tt_xy_pair core = tensix_cores[y * tensix_grid_size.x + x];
-                CoreCoord core_coord(core.x, core.y, CoreType::TENSIX, CoordSystem::PHYSICAL);
+                CoreCoord core_coord(core.x, core.y, CoreType::TENSIX, CoordSystem::NOC0);
 
                 unharvested_tensix_cores.push_back(core_coord);
             }
@@ -487,7 +487,7 @@ std::vector<CoreCoord> CoordinateManager::get_harvested_tensix_cores() const {
         if (std::find(harvested_y_coords.begin(), harvested_y_coords.end(), y) != harvested_y_coords.end()) {
             for (size_t x = 0; x < tensix_grid_size.x; x++) {
                 const tt_xy_pair core = tensix_cores[y * tensix_grid_size.x + x];
-                CoreCoord core_coord(core.x, core.y, CoreType::TENSIX, CoordSystem::PHYSICAL);
+                CoreCoord core_coord(core.x, core.y, CoreType::TENSIX, CoordSystem::NOC0);
 
                 harvested_tensix_cores.push_back(core_coord);
             }
@@ -496,19 +496,19 @@ std::vector<CoreCoord> CoordinateManager::get_harvested_tensix_cores() const {
     return harvested_tensix_cores;
 }
 
-std::vector<CoreCoord> CoordinateManager::get_dram_cores() const { return get_all_physical_cores(CoreType::DRAM); }
+std::vector<CoreCoord> CoordinateManager::get_dram_cores() const { return get_all_noc0_cores(CoreType::DRAM); }
 
 std::vector<CoreCoord> CoordinateManager::get_harvested_dram_cores() const { return {}; }
 
-std::vector<CoreCoord> CoordinateManager::get_eth_cores() const { return get_all_physical_cores(CoreType::ETH); }
+std::vector<CoreCoord> CoordinateManager::get_eth_cores() const { return get_all_noc0_cores(CoreType::ETH); }
 
 std::vector<CoreCoord> CoordinateManager::get_harvested_eth_cores() const { return {}; }
 
-std::vector<CoreCoord> CoordinateManager::get_pcie_cores() const { return get_all_physical_cores(CoreType::PCIE); }
+std::vector<CoreCoord> CoordinateManager::get_pcie_cores() const { return get_all_noc0_cores(CoreType::PCIE); }
 
 std::vector<CoreCoord> CoordinateManager::get_harvested_pcie_cores() const { return {}; }
 
-std::vector<tt::umd::CoreCoord> CoordinateManager::get_cores(const CoreType core_type) const {
+std::vector<CoreCoord> CoordinateManager::get_cores(const CoreType core_type) const {
     switch (core_type) {
         case CoreType::TENSIX:
             return get_tensix_cores();
@@ -522,7 +522,7 @@ std::vector<tt::umd::CoreCoord> CoordinateManager::get_cores(const CoreType core
         case CoreType::ROUTER_ONLY:
         case CoreType::SECURITY:
         case CoreType::L2CPU:
-            return get_all_physical_cores(core_type);
+            return get_all_noc0_cores(core_type);
         default:
             throw std::runtime_error("Core type is not supported for getting cores");
     }
@@ -545,7 +545,7 @@ tt_xy_pair CoordinateManager::get_grid_size(const CoreType core_type) const {
     }
 }
 
-std::vector<tt::umd::CoreCoord> CoordinateManager::get_harvested_cores(const CoreType core_type) const {
+std::vector<CoreCoord> CoordinateManager::get_harvested_cores(const CoreType core_type) const {
     switch (core_type) {
         case CoreType::TENSIX:
             return get_harvested_tensix_cores();
@@ -605,40 +605,40 @@ std::shared_ptr<CoordinateManager> CoordinateManager::create_coordinate_manager(
                 arch,
                 noc_translation_enabled,
                 harvesting_masks,
-                tt::umd::wormhole::TENSIX_GRID_SIZE,
-                tt::umd::wormhole::TENSIX_CORES_NOC0,
-                tt::umd::wormhole::DRAM_GRID_SIZE,
-                flatten_vector(tt::umd::wormhole::DRAM_CORES_NOC0),
-                tt::umd::wormhole::ETH_CORES_NOC0,
-                tt::umd::wormhole::ARC_GRID_SIZE,
-                tt::umd::wormhole::ARC_CORES_NOC0,
-                tt::umd::wormhole::PCIE_GRID_SIZE,
-                tt::umd::wormhole::PCIE_CORES_NOC0,
-                tt::umd::wormhole::ROUTER_CORES_NOC0,
-                tt::umd::wormhole::SECURITY_CORES_NOC0,
-                tt::umd::wormhole::L2CPU_CORES_NOC0,
-                tt::umd::wormhole::NOC0_X_TO_NOC1_X,
-                tt::umd::wormhole::NOC0_Y_TO_NOC1_Y);
+                wormhole::TENSIX_GRID_SIZE,
+                wormhole::TENSIX_CORES_NOC0,
+                wormhole::DRAM_GRID_SIZE,
+                flatten_vector(wormhole::DRAM_CORES_NOC0),
+                wormhole::ETH_CORES_NOC0,
+                wormhole::ARC_GRID_SIZE,
+                wormhole::ARC_CORES_NOC0,
+                wormhole::PCIE_GRID_SIZE,
+                wormhole::PCIE_CORES_NOC0,
+                wormhole::ROUTER_CORES_NOC0,
+                wormhole::SECURITY_CORES_NOC0,
+                wormhole::L2CPU_CORES_NOC0,
+                wormhole::NOC0_X_TO_NOC1_X,
+                wormhole::NOC0_Y_TO_NOC1_Y);
         case tt::ARCH::QUASAR:  // TODO (#450): Add Quasar configuration
         case tt::ARCH::BLACKHOLE: {
             return create_coordinate_manager(
                 arch,
                 noc_translation_enabled,
                 harvesting_masks,
-                tt::umd::blackhole::TENSIX_GRID_SIZE,
-                tt::umd::blackhole::TENSIX_CORES_NOC0,
-                tt::umd::blackhole::DRAM_GRID_SIZE,
-                flatten_vector(tt::umd::blackhole::DRAM_CORES_NOC0),
-                tt::umd::blackhole::ETH_CORES_NOC0,
-                tt::umd::blackhole::ARC_GRID_SIZE,
-                tt::umd::blackhole::ARC_CORES_NOC0,
-                tt::umd::blackhole::PCIE_GRID_SIZE,
-                tt::umd::blackhole::PCIE_CORES_NOC0,
-                tt::umd::blackhole::ROUTER_CORES_NOC0,
-                tt::umd::blackhole::SECURITY_CORES_NOC0,
-                tt::umd::blackhole::L2CPU_CORES_NOC0,
-                tt::umd::blackhole::NOC0_X_TO_NOC1_X,
-                tt::umd::blackhole::NOC0_Y_TO_NOC1_Y);
+                blackhole::TENSIX_GRID_SIZE,
+                blackhole::TENSIX_CORES_NOC0,
+                blackhole::DRAM_GRID_SIZE,
+                flatten_vector(blackhole::DRAM_CORES_NOC0),
+                blackhole::ETH_CORES_NOC0,
+                blackhole::ARC_GRID_SIZE,
+                blackhole::ARC_CORES_NOC0,
+                blackhole::PCIE_GRID_SIZE,
+                blackhole::PCIE_CORES_NOC0,
+                blackhole::ROUTER_CORES_NOC0,
+                blackhole::SECURITY_CORES_NOC0,
+                blackhole::L2CPU_CORES_NOC0,
+                blackhole::NOC0_X_TO_NOC1_X,
+                blackhole::NOC0_Y_TO_NOC1_Y);
         }
         case tt::ARCH::Invalid:
             throw std::runtime_error("Invalid architecture for creating coordinate manager");
@@ -760,3 +760,5 @@ void CoordinateManager::add_noc1_to_noc0_mapping() {
     map_noc0_to_noc1_cores(security_cores, CoreType::SECURITY);
     map_noc0_to_noc1_cores(l2cpu_cores, CoreType::L2CPU);
 }
+
+}  // namespace tt::umd

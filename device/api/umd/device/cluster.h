@@ -27,70 +27,88 @@
 #include "umd/device/types/cluster_types.h"
 #include "umd/device/types/tlb.h"
 
-using TLB_DATA = tt::umd::tlb_data;
-
-class tt_ClusterDescriptor;
-
 namespace tt::umd {
 
+class tt_ClusterDescriptor;
 class LocalChip;
 class RemoteChip;
 
-// Chip type to create under the Cluster class.
-//  - Silicon means that the chips under cluster will be connected to actual physical devices connected to the system.
-//  - Simulation is used for simulation runs.
-//  - Mock is used for testing purposes, implementation of all functions is empty.
+/**
+ * Chip type to create under the Cluster class.
+ * - Silicon means that the chips under cluster will be connected to actual physical devices connected to the system.
+ * - Simulation is used for simulation runs.
+ * - Mock is used for testing purposes, implementation of all functions is empty.
+ */
 enum ChipType {
     SILICON,
     SIMULATION,
     MOCK,
 };
 
-// All options when creating a Cluster object.
-// Each of the options provides a default value, so in general any combination of overridden options can be used when
-// constructing Cluster objects. Having this struct saves us from having a lot of different constructor overloads.
+/**
+ * Different parameters when creating a Cluster object.
+ * Each of the options provides a default value, so in general any combination of overridden options can be used when
+ * constructing Cluster objects. Having this struct saves us from having a lot of different constructor overloads.
+ */
 struct ClusterOptions {
-    // Chip type to create.
+    /**
+     * Chip type to create.
+     */
     ChipType chip_type = ChipType::SILICON;
-    // Number of host memory channels (hugepages) per MMIO device.
+    /**
+     * Number of host memory channels (hugepages) per MMIO device.
+     */
     uint32_t num_host_mem_ch_per_mmio_device = 1;
-    // If set to false, harvesting will be skipped for constructed soc descriptors.
+    /**
+     * If set to false, harvesting will be skipped for constructed soc descriptors.
+     */
     bool perform_harvesting = true;
-    // simulated_harvesting_masks is applied on all chips, then additionally simulated_harvesting_masks_per_chip for
-    // each chip. This way, both scenarios are supported: using the simulated masks without knowing device ids and
-    // setting specific simulated masks per device.
+    /**
+     * simulated_harvesting_masks is applied on all chips, then additionally simulated_harvesting_masks_per_chip for
+     * each chip. This way, both scenarios are supported: using the simulated masks without knowing device ids and
+     * setting specific simulated masks per device.
+     */
     HarvestingMasks simulated_harvesting_masks = {};
     std::unordered_map<chip_id_t, HarvestingMasks> simulated_harvesting_masks_per_chip = {};
-    // If set, this soc descriptor will be used to construct devices on this cluster. If not set, the default soc
-    // descriptor based on architecture will be used.
+    /**
+     * If set, this soc descriptor will be used to construct devices on this cluster. If not set, the default soc
+     * descriptor based on architecture will be used.
+     */
     std::string sdesc_path = "";
-    // If not set, all discovered target devices will be used. If set, in case of SILICON chip type, the target devices
-    // will be checked against the cluster descriptor. In case of MOCK and SIMULATION chip types, this check will be
-    // skipped, and you can create chips regardless of the devices on the system.
+    /**
+     * If not set, all discovered target devices will be used. If set, in case of SILICON chip type, the target devices
+     * will be checked against the cluster descriptor. In case of MOCK and SIMULATION chip types, this check will be
+     * skipped, and you can create chips regardless of the devices on the system.
+     */
     std::unordered_set<chip_id_t> target_devices = {};
-    // If set, Cluster will target only boards that have the IDs of the chips specified in this set.
-    // If not set, all discovered PCI devices will be used. This can only be used with SILICON chip type.
-    // Corner case of setting this is if we have multiple chips visible over PCIE on same boards. If at least one
-    // of the PCIE chips on certain board is specified, UMD will take all chips from the board.
+    /**
+     * If set, Cluster will target only boards that have the IDs of the chips specified in this set.
+     * If not set, all discovered boards will be used. This can only be used with SILICON chip type.
+     * Corner case of setting this is if we have multiple chips visible over PCIE on same boards. If at least one
+     * of the PCIE chips on certain board is specified, UMD will take all chips from the board.
+     */
     std::unordered_set<chip_id_t> pci_target_devices = {};
-    // If not passed, topology discovery will be ran and tt_ClusterDescriptor will be constructed. If passed, and chip
-    // type is SILICON, the constructor will throw if cluster_descriptor configuration shows chips which don't exist on
-    // the system.
+    /**
+     * If not passed, topology discovery will be ran and tt_ClusterDescriptor will be constructed. If passed, and chip
+     * type is SILICON, the constructor will throw if cluster_descriptor configuration shows chips which don't exist on
+     * the system.
+     */
     tt_ClusterDescriptor* cluster_descriptor = nullptr;
-    // This parameter is used only for SIMULATION chip type.
+    /**
+     * This parameter is used only for SIMULATION chip type.
+     */
     std::filesystem::path simulator_directory = "";
 };
 
 /**
- * Cluster class should be used as a main interface to our devices. Devices can be created in isolation using Chip
- * class. In addition to constructing devices and initializing them, this class provides topology discovery
- * capabilities, ways to communicate to more than one device, etc.
+ * Cluster class should be used as a main interface to our devices. In addition to constructing individual Chips and
+ * initializing them, this class provides topology discovery capabilities, ways to broadcast to more than one Chip, etc.
  */
 class Cluster {
 public:
     /**
-     * The constructor of the derived tt_device should perform everything important for initializing the device
-     * properly. This can include, but is not limited to:
+     * The constructor discovers the topology of the system, creates a cluster descriptor object, and initializes
+     * Chips based on passed options and the discovered topology. This can include, but is not limited to:
      * - Getting the base address for the Device which is to be used when accessing it through the API, including memory
      * mapping the device address space.
      * - Setting up security access (if any).
@@ -120,7 +138,8 @@ public:
         std::string sdesc_path = "", std::unordered_set<chip_id_t> pci_target_devices = {});
 
     /**
-     * Get cluster descriptor object being used in UMD instance.
+     * Get cluster descriptor object being used. This object contains topology information about the cluster.
+     * Consult tt_ClusterDescriptor documentation for more information on the cluster descriptor.
      */
     tt_ClusterDescriptor* get_cluster_description();
 
@@ -175,7 +194,7 @@ public:
         tt_xy_pair core,
         int32_t tlb_index,
         uint64_t address,
-        uint64_t ordering = TLB_DATA::Relaxed);
+        uint64_t ordering = tlb_data::Relaxed);
 
     /**
      * Configure a TLB to point to a specific core and an address within that core. Should be done for Static TLBs.
@@ -189,10 +208,10 @@ public:
      */
     void configure_tlb(
         chip_id_t logical_device_id,
-        tt::umd::CoreCoord core,
+        CoreCoord core,
         int32_t tlb_index,
         uint64_t address,
-        uint64_t ordering = TLB_DATA::Relaxed);
+        uint64_t ordering = tlb_data::Relaxed);
 
     /**
      * Pass in ethernet cores with active links for a specific MMIO chip. When called, this function will force UMD to
@@ -205,7 +224,7 @@ public:
      * @param active_eth_cores_per_chip The active ethernet cores for this chip.
      */
     void configure_active_ethernet_cores_for_mmio_device(
-        chip_id_t mmio_chip, const std::unordered_set<tt::umd::CoreCoord>& active_eth_cores_per_chip);
+        chip_id_t mmio_chip, const std::unordered_set<CoreCoord>& active_eth_cores_per_chip);
 
     //---------- Start and stop the device and tensix cores.
 
@@ -254,7 +273,7 @@ public:
      */
     void deassert_risc_reset_at_core(
         const chip_id_t chip,
-        const tt::umd::CoreCoord core,
+        const CoreCoord core,
         const TensixSoftResetOptions& soft_resets = TENSIX_DEASSERT_SOFT_RESET);
 
     /**
@@ -275,7 +294,7 @@ public:
      */
     void assert_risc_reset_at_core(
         const chip_id_t chip,
-        const tt::umd::CoreCoord core,
+        const CoreCoord core,
         const TensixSoftResetOptions& soft_resets = TENSIX_ASSERT_SOFT_RESET);
 
     //---------- IO functions for Tensix cores, including DRAM.
@@ -291,8 +310,7 @@ public:
      * @param core Core to target.
      * @param addr Address to write to.
      */
-    void write_to_device(
-        const void* mem_ptr, uint32_t size_in_bytes, chip_id_t chip, tt::umd::CoreCoord core, uint64_t addr);
+    void write_to_device(const void* mem_ptr, uint32_t size_in_bytes, chip_id_t chip, CoreCoord core, uint64_t addr);
 
     /**
      * Read uint32_t data from a specified device, core and address to host memory (defined for Silicon).
@@ -305,7 +323,7 @@ public:
      * @param addr Address to read from.
      * @param size Number of bytes to read.
      */
-    void read_from_device(void* mem_ptr, chip_id_t chip, tt::umd::CoreCoord core, uint64_t addr, uint32_t size);
+    void read_from_device(void* mem_ptr, chip_id_t chip, CoreCoord core, uint64_t addr, uint32_t size);
 
     /**
      * Write uint32_t data (as specified by ptr + len pair) to specified device, core and address (defined for Silicon).
@@ -321,7 +339,7 @@ public:
      * @param addr Address to write to.
      */
     void write_to_device_reg(
-        const void* mem_ptr, uint32_t size_in_bytes, chip_id_t chip, tt::umd::CoreCoord core, uint64_t addr);
+        const void* mem_ptr, uint32_t size_in_bytes, chip_id_t chip, CoreCoord core, uint64_t addr);
 
     /**
      * Read uint32_t data from a specified device, core and address to host memory (defined for Silicon).
@@ -336,7 +354,7 @@ public:
      * @param addr Address to read from.
      * @param size Number of bytes to read.
      */
-    void read_from_device_reg(void* mem_ptr, chip_id_t chip, tt::umd::CoreCoord core, uint64_t addr, uint32_t size);
+    void read_from_device_reg(void* mem_ptr, chip_id_t chip, CoreCoord core, uint64_t addr, uint32_t size);
 
     /**
      * Use PCIe DMA to write device memory (L1 or DRAM).
@@ -347,7 +365,7 @@ public:
      * @param core Core to target.
      * @param addr Address to write to.
      */
-    void dma_write_to_device(const void* src, size_t size, chip_id_t chip, tt::umd::CoreCoord core, uint64_t addr);
+    void dma_write_to_device(const void* src, size_t size, chip_id_t chip, CoreCoord core, uint64_t addr);
 
     /**
      * Use PCIe DMA to read device memory (L1 or DRAM).
@@ -358,7 +376,7 @@ public:
      * @param core Core to target.
      * @param addr Address to read from.
      */
-    void dma_read_from_device(void* dst, size_t size, chip_id_t chip, tt::umd::CoreCoord core, uint64_t addr);
+    void dma_read_from_device(void* dst, size_t size, chip_id_t chip, CoreCoord core, uint64_t addr);
 
     /**
      * This function writes to multiple chips and cores in the cluster. A set of chips, rows and columns can be excluded
@@ -397,7 +415,7 @@ public:
      *
      * @param target The target chip and core to write to.
      */
-    tt::Writer get_static_tlb_writer(const chip_id_t chip, const tt::umd::CoreCoord target);
+    Writer get_static_tlb_writer(const chip_id_t chip, const CoreCoord target);
 
     //---------- Functions for synchronization and memory barriers.
 
@@ -409,7 +427,7 @@ public:
      * @param chip Chip to target.
      * @param cores Cores being targeted.
      */
-    void l1_membar(const chip_id_t chip, const std::unordered_set<tt::umd::CoreCoord>& cores = {});
+    void l1_membar(const chip_id_t chip, const std::unordered_set<CoreCoord>& cores = {});
 
     /**
      * DRAM memory barrier.
@@ -429,7 +447,7 @@ public:
      * @param chip Chip being targeted.
      * @param cores Cores being targeted.
      */
-    void dram_membar(const chip_id_t chip, const std::unordered_set<tt::umd::CoreCoord>& cores = {});
+    void dram_membar(const chip_id_t chip, const std::unordered_set<CoreCoord>& cores = {});
 
     // Runtime functions
     /**
@@ -601,22 +619,13 @@ public:
     /**
      * Exposes how TLBs are configured for a specific device.
      */
-    tlb_configuration get_tlb_configuration(const chip_id_t chip, const tt::umd::CoreCoord core);
+    tlb_configuration get_tlb_configuration(const chip_id_t chip, const CoreCoord core);
 
 private:
     // Helper functions
-    // Startup + teardown
-    void create_device(
-        const std::set<chip_id_t>& target_mmio_device_ids,
-        const uint32_t& num_host_mem_ch_per_mmio_device,
-        const ChipType& chip_type);
+    // Broadcast
     void broadcast_tensix_risc_reset_to_cluster(const TensixSoftResetOptions& soft_resets);
-    void send_remote_tensix_risc_reset_to_core(const tt_cxy_pair& core, const TensixSoftResetOptions& soft_resets);
-    void send_tensix_risc_reset_to_core(const tt_cxy_pair& core, const TensixSoftResetOptions& soft_resets);
-    uint32_t get_power_state_arc_msg(chip_id_t chip_id, tt_DevicePowerState state);
-    void enable_ethernet_queue(int timeout);
     void deassert_resets_and_set_power_state();
-    int get_clock(int logical_device_id);
 
     // Communication Functions
     void ethernet_broadcast_write(
@@ -630,11 +639,13 @@ private:
 
     std::unordered_map<chip_id_t, std::vector<std::vector<int>>>& get_ethernet_broadcast_headers(
         const std::set<chip_id_t>& chips_to_exclude);
+
     // Test functions
     void verify_fw_bundle_version();
     void log_pci_device_summary();
     void verify_eth_fw();
     void verify_sw_fw_versions(int device_id, std::uint32_t sw_version, std::vector<std::uint32_t>& fw_versions);
+    void verify_sysmem_initialized();
 
     // Helper functions for constructing the chips from the cluster descriptor.
     std::unique_ptr<Chip> construct_chip_from_cluster(
@@ -661,7 +672,7 @@ private:
     void construct_cluster(const uint32_t& num_host_mem_ch_per_mmio_device, const ChipType& chip_type);
 
     static std::unique_ptr<tt_ClusterDescriptor> create_cluster_descriptor(
-        const std::unordered_map<chip_id_t, std::unique_ptr<tt::umd::Chip>>& chips);
+        const std::unordered_map<chip_id_t, std::unique_ptr<Chip>>& chips);
 
     static void verify_cluster_options(const ClusterOptions& options);
 

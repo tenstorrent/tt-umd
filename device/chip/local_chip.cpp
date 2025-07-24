@@ -143,7 +143,14 @@ void LocalChip::start_device() {
     initialize_membars();
 }
 
-void LocalChip::close_device(){};
+void LocalChip::close_device() {
+    // Investigating https://github.com/tenstorrent/tt-metal/issues/25377 found that closing device that was already put
+    // in LONG_IDLE by tt-smi reset would hang
+    if ((uint32_t)get_clock() != get_tt_device()->get_min_clock_freq()) {
+        set_power_state(tt_DevicePowerState::LONG_IDLE);
+        send_tensix_risc_reset(TENSIX_ASSERT_SOFT_RESET);
+    }
+};
 
 int LocalChip::get_num_host_channels() { return sysmem_manager_->get_num_host_mem_channels(); }
 
@@ -328,8 +335,8 @@ void LocalChip::write_to_device_reg(CoreCoord core, const void* src, uint64_t re
     auto lock = lock_manager_.acquire_mutex(fallback_tlb, tt_device_->get_pci_device()->get_device_num());
     log_debug(LogSiliconDriver, "  dynamic tlb_index: {}", tlb_index);
 
-    auto [mapped_address, tlb_size] = tt_device_->set_dynamic_tlb(
-        tlb_index, translate_chip_coord_to_translated(core), reg_dest, tt::umd::tlb_data::Strict);
+    auto [mapped_address, tlb_size] =
+        tt_device_->set_dynamic_tlb(tlb_index, translate_chip_coord_to_translated(core), reg_dest, tlb_data::Strict);
     tt_device_->write_regs(mapped_address, size / sizeof(uint32_t), src);
 }
 
@@ -347,8 +354,8 @@ void LocalChip::read_from_device_reg(CoreCoord core, void* dest, uint64_t reg_sr
     auto lock = lock_manager_.acquire_mutex(fallback_tlb, tt_device_->get_pci_device()->get_device_num());
     log_debug(LogSiliconDriver, "  dynamic tlb_index: {}", tlb_index);
 
-    auto [mapped_address, tlb_size] = tt_device_->set_dynamic_tlb(
-        tlb_index, translate_chip_coord_to_translated(core), reg_src, tt::umd::tlb_data::Strict);
+    auto [mapped_address, tlb_size] =
+        tt_device_->set_dynamic_tlb(tlb_index, translate_chip_coord_to_translated(core), reg_src, tlb_data::Strict);
     tt_device_->read_regs(mapped_address, size / sizeof(uint32_t), dest);
 }
 
@@ -519,7 +526,7 @@ void LocalChip::insert_host_to_device_barrier(const std::vector<CoreCoord>& core
     set_membar_flag(cores, tt_MemBarFlag::RESET, barrier_addr);
 }
 
-void LocalChip::l1_membar(const std::unordered_set<tt::umd::CoreCoord>& cores) {
+void LocalChip::l1_membar(const std::unordered_set<CoreCoord>& cores) {
     if (cores.size()) {
         // Insert barrier on specific cores with L1
         std::vector<CoreCoord> workers_to_sync = {};
@@ -547,7 +554,7 @@ void LocalChip::l1_membar(const std::unordered_set<tt::umd::CoreCoord>& cores) {
     }
 }
 
-void LocalChip::dram_membar(const std::unordered_set<tt::umd::CoreCoord>& cores) {
+void LocalChip::dram_membar(const std::unordered_set<CoreCoord>& cores) {
     if (cores.size()) {
         for (const auto& core : cores) {
             TT_ASSERT(
@@ -592,11 +599,11 @@ void LocalChip::set_power_state(tt_DevicePowerState state) {
         exit_code = arc_msg(wormhole::ARC_MSG_COMMON_PREFIX | msg, true, 0, 0);
     } else if (soc_descriptor_.arch == tt::ARCH::BLACKHOLE) {
         if (state == tt_DevicePowerState::BUSY) {
-            exit_code = tt_device_->get_arc_messenger()->send_message(
-                (uint32_t)tt::umd::blackhole::ArcMessageType::AICLK_GO_BUSY);
+            exit_code =
+                tt_device_->get_arc_messenger()->send_message((uint32_t)blackhole::ArcMessageType::AICLK_GO_BUSY);
         } else {
-            exit_code = tt_device_->get_arc_messenger()->send_message(
-                (uint32_t)tt::umd::blackhole::ArcMessageType::AICLK_GO_LONG_IDLE);
+            exit_code =
+                tt_device_->get_arc_messenger()->send_message((uint32_t)blackhole::ArcMessageType::AICLK_GO_LONG_IDLE);
         }
     }
     TT_ASSERT(exit_code == 0, "Failed to set power state to {} with exit code: {}", (int)state, exit_code);

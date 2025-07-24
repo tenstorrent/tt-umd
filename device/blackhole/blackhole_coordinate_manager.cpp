@@ -7,7 +7,7 @@
 
 #include <tt-logger/tt-logger.hpp>
 
-using namespace tt::umd;
+namespace tt::umd {
 
 BlackholeCoordinateManager::BlackholeCoordinateManager(
     const bool noc_translation_enabled,
@@ -71,12 +71,12 @@ void BlackholeCoordinateManager::translate_tensix_coords() {
     std::vector<std::pair<size_t, size_t>> die_harvested_tensix_columns;
     for (size_t x = 0; x < grid_size_x; x++) {
         if (harvesting_masks.tensix_harvesting_mask & (1 << x)) {
-            const tt_xy_pair& physical_core = tensix_cores[x];
+            const tt_xy_pair& noc0_core = tensix_cores[x];
             const size_t die_x_index = std::find(
-                                           tt::umd::blackhole::HARVESTING_NOC_LOCATIONS.begin(),
-                                           tt::umd::blackhole::HARVESTING_NOC_LOCATIONS.end(),
-                                           physical_core.x) -
-                                       tt::umd::blackhole::HARVESTING_NOC_LOCATIONS.begin();
+                                           blackhole::HARVESTING_NOC_LOCATIONS.begin(),
+                                           blackhole::HARVESTING_NOC_LOCATIONS.end(),
+                                           noc0_core.x) -
+                                       blackhole::HARVESTING_NOC_LOCATIONS.begin();
             die_harvested_tensix_columns.push_back(std::make_pair(die_x_index, x));
         } else {
             for (size_t y = 0; y < grid_size_y; y++) {
@@ -98,30 +98,30 @@ void BlackholeCoordinateManager::translate_tensix_coords() {
     size_t x_index = grid_size_x - 1;
     for (const auto& [die_x_coordinate, x_index_harvested] : die_harvested_tensix_columns) {
         for (size_t y = 0; y < grid_size_y; y++) {
-            const tt_xy_pair& physical_core = tensix_cores[x_index_harvested + y * grid_size_x];
+            const tt_xy_pair& noc0_core = tensix_cores[x_index_harvested + y * grid_size_x];
             const tt_xy_pair& virtual_core = tensix_cores[x_index + y * grid_size_x];
 
             CoreCoord virtual_coord = CoreCoord(virtual_core.x, virtual_core.y, CoreType::TENSIX, CoordSystem::VIRTUAL);
 
-            add_core_translation(virtual_coord, physical_core);
+            add_core_translation(virtual_coord, noc0_core);
         }
         x_index--;
     }
 
     if (noc_translation_enabled) {
-        fill_tensix_physical_translated_mapping();
+        fill_tensix_noc0_translated_mapping();
     } else {
-        fill_tensix_default_physical_translated_mapping();
+        fill_tensix_default_noc0_translated_mapping();
     }
 }
 
-void BlackholeCoordinateManager::fill_tensix_physical_translated_mapping() {
-    for (const tt_xy_pair& physical_core : tensix_cores) {
-        const CoreCoord virtual_coord = from_physical_map.at({physical_core, CoordSystem::VIRTUAL});
+void BlackholeCoordinateManager::fill_tensix_noc0_translated_mapping() {
+    for (const tt_xy_pair& noc0_core : tensix_cores) {
+        const CoreCoord virtual_coord = from_noc0_map.at({noc0_core, CoordSystem::VIRTUAL});
         const CoreCoord translated_coord =
             CoreCoord(virtual_coord.x, virtual_coord.y, CoreType::TENSIX, CoordSystem::TRANSLATED);
 
-        add_core_translation(translated_coord, physical_core);
+        add_core_translation(translated_coord, noc0_core);
     }
 }
 
@@ -148,9 +148,9 @@ void BlackholeCoordinateManager::translate_dram_coords() {
             CoreCoord dram_logical = CoreCoord(x, y, CoreType::DRAM, CoordSystem::LOGICAL);
             CoreCoord dram_virtual = CoreCoord(dram_core.x, dram_core.y, CoreType::DRAM, CoordSystem::VIRTUAL);
 
-            const tt_xy_pair physical_pair = to_physical_map[dram_logical];
+            const tt_xy_pair noc0_pair = to_noc0_map[dram_logical];
 
-            add_core_translation(dram_virtual, physical_pair);
+            add_core_translation(dram_virtual, noc0_pair);
         }
     }
 
@@ -170,9 +170,9 @@ void BlackholeCoordinateManager::translate_dram_coords() {
     }
 
     if (noc_translation_enabled) {
-        fill_dram_physical_translated_mapping();
+        fill_dram_noc0_translated_mapping();
     } else {
-        fill_dram_default_physical_translated_mapping();
+        fill_dram_default_noc0_translated_mapping();
     }
 }
 
@@ -183,12 +183,12 @@ void BlackholeCoordinateManager::translate_eth_coords() {
     size_t unharvested_logical_eth_channel = 0;
     for (size_t eth_channel = 0; eth_channel < eth_cores.size(); eth_channel++) {
         if (harvesting_masks.eth_harvesting_mask & (1 << eth_channel)) {
-            const tt_xy_pair& physical_core = eth_cores[eth_channel];
+            const tt_xy_pair& noc0_core = eth_cores[eth_channel];
             const tt_xy_pair& virtual_core = eth_cores[harvested_eth_channel_start++];
 
             CoreCoord virtual_coord = CoreCoord(virtual_core.x, virtual_core.y, CoreType::ETH, CoordSystem::VIRTUAL);
 
-            add_core_translation(virtual_coord, physical_core);
+            add_core_translation(virtual_coord, noc0_core);
         } else {
             const tt_xy_pair& tensix_core = eth_cores[eth_channel];
             const tt_xy_pair& virtual_core = eth_cores[unharvested_logical_eth_channel];
@@ -204,9 +204,9 @@ void BlackholeCoordinateManager::translate_eth_coords() {
     }
 
     if (noc_translation_enabled) {
-        fill_eth_physical_translated_mapping();
+        fill_eth_noc0_translated_mapping();
     } else {
-        fill_eth_default_physical_translated_mapping();
+        fill_eth_default_noc0_translated_mapping();
     }
 }
 
@@ -235,13 +235,13 @@ void BlackholeCoordinateManager::translate_pcie_coords() {
     }
 
     if (noc_translation_enabled) {
-        fill_pcie_physical_translated_mapping();
+        fill_pcie_noc0_translated_mapping();
     } else {
-        fill_pcie_default_physical_translated_mapping();
+        fill_pcie_default_noc0_translated_mapping();
     }
 }
 
-void BlackholeCoordinateManager::fill_eth_physical_translated_mapping() {
+void BlackholeCoordinateManager::fill_eth_noc0_translated_mapping() {
     size_t num_harvested_channels = CoordinateManager::get_num_harvested(harvesting_masks.eth_harvesting_mask);
     if (eth_cores.size() == 0) {
         num_harvested_channels = 0;
@@ -251,33 +251,33 @@ void BlackholeCoordinateManager::fill_eth_physical_translated_mapping() {
         const size_t translated_y = blackhole::eth_translated_coordinate_start_y;
 
         CoreCoord logical_coord = CoreCoord(0, eth_channel, CoreType::ETH, CoordSystem::LOGICAL);
-        const tt_xy_pair physical_pair = to_physical_map[logical_coord];
+        const tt_xy_pair noc0_pair = to_noc0_map[logical_coord];
 
         CoreCoord translated_coord = CoreCoord(translated_x, translated_y, CoreType::ETH, CoordSystem::TRANSLATED);
 
-        add_core_translation(translated_coord, physical_pair);
+        add_core_translation(translated_coord, noc0_pair);
     }
 
-    // Harvested ETH cores should be mapped to the same physical coordinates.
+    // Harvested ETH cores should be mapped to the same noc0 coordinates.
     for (size_t eth_channel = 0; eth_channel < eth_cores.size(); eth_channel++) {
         if (harvesting_masks.eth_harvesting_mask & (1 << eth_channel)) {
-            const tt_xy_pair& physical_pair = eth_cores[eth_channel];
+            const tt_xy_pair& noc0_pair = eth_cores[eth_channel];
             const CoreCoord translated_coord =
-                CoreCoord(physical_pair.x, physical_pair.y, CoreType::ETH, CoordSystem::TRANSLATED);
+                CoreCoord(noc0_pair.x, noc0_pair.y, CoreType::ETH, CoordSystem::TRANSLATED);
 
-            add_core_translation(translated_coord, physical_pair);
+            add_core_translation(translated_coord, noc0_pair);
         }
     }
 }
 
-void BlackholeCoordinateManager::fill_pcie_physical_translated_mapping() {
+void BlackholeCoordinateManager::fill_pcie_noc0_translated_mapping() {
     for (size_t x = 0;
          x < pcie_grid_size.x - CoordinateManager::get_num_harvested(harvesting_masks.pcie_harvesting_mask);
          x++) {
         CoreCoord logical_coord = CoreCoord(x, 0, CoreType::PCIE, CoordSystem::LOGICAL);
-        const tt_xy_pair physical_pair = to_physical_map[logical_coord];
-        size_t translated_x = physical_pair.x;
-        size_t translated_y = physical_pair.y;
+        const tt_xy_pair noc0_pair = to_noc0_map[logical_coord];
+        size_t translated_x = noc0_pair.x;
+        size_t translated_y = noc0_pair.y;
 
         // Only the first PCIE core is mapped to the translated coordinates.
         // This is in case pcie harvesting mask is set to 0.
@@ -289,25 +289,25 @@ void BlackholeCoordinateManager::fill_pcie_physical_translated_mapping() {
 
         CoreCoord translated_coord = CoreCoord(translated_x, translated_y, CoreType::PCIE, CoordSystem::TRANSLATED);
 
-        add_core_translation(translated_coord, physical_pair);
+        add_core_translation(translated_coord, noc0_pair);
     }
 
     for (size_t x = 0; x < pcie_grid_size.x; x++) {
         if (harvesting_masks.pcie_harvesting_mask & (1 << x)) {
-            const tt_xy_pair physical_pair = pcie_cores[x];
-            const size_t translated_x = physical_pair.x;
-            const size_t translated_y = physical_pair.y;
+            const tt_xy_pair noc0_pair = pcie_cores[x];
+            const size_t translated_x = noc0_pair.x;
+            const size_t translated_y = noc0_pair.y;
 
             CoreCoord translated_coord = CoreCoord(translated_x, translated_y, CoreType::PCIE, CoordSystem::TRANSLATED);
 
-            add_core_translation(translated_coord, physical_pair);
+            add_core_translation(translated_coord, noc0_pair);
         }
     }
 }
 
-void BlackholeCoordinateManager::fill_arc_physical_translated_mapping() {
+void BlackholeCoordinateManager::fill_arc_noc0_translated_mapping() {
     // ARC cores are not translated in Blackhole.
-    fill_arc_default_physical_translated_mapping();
+    fill_arc_default_noc0_translated_mapping();
 }
 
 void BlackholeCoordinateManager::map_dram_banks(
@@ -316,32 +316,31 @@ void BlackholeCoordinateManager::map_dram_banks(
     for (size_t bank = start_bank; bank < end_bank; bank++) {
         for (size_t port = 0; port < blackhole::NUM_NOC_PORTS_PER_DRAM_BANK; port++) {
             CoreCoord logical_coord = CoreCoord(bank, port, CoreType::DRAM, CoordSystem::LOGICAL);
-            const tt_xy_pair physical_pair = to_physical_map[logical_coord];
+            const tt_xy_pair noc0_pair = to_noc0_map[logical_coord];
 
             CoreCoord translated_coord = CoreCoord(x_coord, translated_y, CoreType::DRAM, CoordSystem::TRANSLATED);
 
-            add_core_translation(translated_coord, physical_pair);
+            add_core_translation(translated_coord, noc0_pair);
 
             translated_y++;
         }
     }
 }
 
-void BlackholeCoordinateManager::fill_dram_physical_translated_mapping() {
+void BlackholeCoordinateManager::fill_dram_noc0_translated_mapping() {
     if (dram_grid_size.x < blackhole::NUM_DRAM_BANKS) {
         // If the number of DRAM banks is less than num dram banks for standard SOC for Blackhole,
-        // map the translated DRAM cores to be the same as physical DRAM cores.
+        // map the translated DRAM cores to be the same as noc0 DRAM cores.
         // TODO: Figure out how DRAM is going to be mapped to translated coordinates when there is less DRAM banks.
         for (size_t x = 0; x < dram_grid_size.x; x++) {
             for (size_t y = 0; y < dram_grid_size.y; y++) {
                 const CoreCoord logical_dram_core = CoreCoord(x, y, CoreType::DRAM, CoordSystem::LOGICAL);
-                const tt_xy_pair physical_dram_core = to_physical_map[logical_dram_core];
+                const tt_xy_pair noc0_dram_core = to_noc0_map[logical_dram_core];
 
                 CoreCoord translated_dram_core =
-                    CoreCoord(physical_dram_core.x, physical_dram_core.y, CoreType::DRAM, CoordSystem::TRANSLATED);
-                to_physical_map[translated_dram_core] = physical_dram_core;
-                from_physical_map[{{physical_dram_core.x, physical_dram_core.y}, CoordSystem::TRANSLATED}] =
-                    translated_dram_core;
+                    CoreCoord(noc0_dram_core.x, noc0_dram_core.y, CoreType::DRAM, CoordSystem::TRANSLATED);
+                to_noc0_map[translated_dram_core] = noc0_dram_core;
+                from_noc0_map[{{noc0_dram_core.x, noc0_dram_core.y}, CoordSystem::TRANSLATED}] = translated_dram_core;
             }
         }
         return;
@@ -411,19 +410,19 @@ void BlackholeCoordinateManager::fill_dram_physical_translated_mapping() {
     }
 
     const size_t virtual_index = (dram_grid_size.x - 1) * dram_grid_size.y;
-    const size_t physical_index = harvested_bank * dram_grid_size.y;
+    const size_t noc0_index = harvested_bank * dram_grid_size.y;
 
     const size_t harvested_bank_translated_x = blackhole::dram_translated_coordinate_start_x + 1;
     const size_t harvested_bank_translated_y =
         blackhole::dram_translated_coordinate_start_y + (dram_grid_size.x / 2 - 1) * dram_grid_size.y;
 
     for (size_t noc_port = 0; noc_port < dram_grid_size.y; noc_port++) {
-        const tt_xy_pair& physical_core = dram_cores[physical_index + noc_port];
+        const tt_xy_pair& noc0_core = dram_cores[noc0_index + noc_port];
         const tt_xy_pair& virtual_core = dram_cores[virtual_index + noc_port];
 
         CoreCoord virtual_coord = CoreCoord(virtual_core.x, virtual_core.y, CoreType::DRAM, CoordSystem::VIRTUAL);
 
-        add_core_translation(virtual_coord, physical_core);
+        add_core_translation(virtual_coord, noc0_core);
 
         CoreCoord translated_coord = CoreCoord(
             harvested_bank_translated_x,
@@ -431,7 +430,7 @@ void BlackholeCoordinateManager::fill_dram_physical_translated_mapping() {
             CoreType::DRAM,
             CoordSystem::TRANSLATED);
 
-        add_core_translation(translated_coord, physical_core);
+        add_core_translation(translated_coord, noc0_core);
     }
 }
 
@@ -441,7 +440,7 @@ std::vector<CoreCoord> BlackholeCoordinateManager::get_tensix_cores() const {
     for (size_t y = 0; y < tensix_grid_size.y; y++) {
         for (size_t x = 0; x < tensix_grid_size.x; x++) {
             const tt_xy_pair core = tensix_cores[y * tensix_grid_size.x + x];
-            CoreCoord core_coord(core.x, core.y, CoreType::TENSIX, CoordSystem::PHYSICAL);
+            CoreCoord core_coord(core.x, core.y, CoreType::TENSIX, CoordSystem::NOC0);
             if (std::find(harvested_x_coords.begin(), harvested_x_coords.end(), x) == harvested_x_coords.end()) {
                 unharvested_tensix_cores.push_back(core_coord);
             }
@@ -456,7 +455,7 @@ std::vector<CoreCoord> BlackholeCoordinateManager::get_harvested_tensix_cores() 
     for (size_t y = 0; y < tensix_grid_size.y; y++) {
         for (size_t x = 0; x < tensix_grid_size.x; x++) {
             const tt_xy_pair core = tensix_cores[y * tensix_grid_size.x + x];
-            CoreCoord core_coord(core.x, core.y, CoreType::TENSIX, CoordSystem::PHYSICAL);
+            CoreCoord core_coord(core.x, core.y, CoreType::TENSIX, CoordSystem::NOC0);
             if (std::find(harvested_x_coords.begin(), harvested_x_coords.end(), x) != harvested_x_coords.end()) {
                 harvested_tensix_cores.push_back(core_coord);
             }
@@ -472,7 +471,7 @@ std::vector<CoreCoord> BlackholeCoordinateManager::get_dram_cores() const {
         if (std::find(harvested_banks.begin(), harvested_banks.end(), x) == harvested_banks.end()) {
             for (size_t y = 0; y < dram_grid_size.y; y++) {
                 const tt_xy_pair core = dram_cores[x * dram_grid_size.y + y];
-                CoreCoord core_coord(core.x, core.y, CoreType::DRAM, CoordSystem::PHYSICAL);
+                CoreCoord core_coord(core.x, core.y, CoreType::DRAM, CoordSystem::NOC0);
                 unharvested_dram_cores.push_back(core_coord);
             }
         }
@@ -487,7 +486,7 @@ std::vector<CoreCoord> BlackholeCoordinateManager::get_harvested_dram_cores() co
         if (std::find(harvested_banks.begin(), harvested_banks.end(), x) != harvested_banks.end()) {
             for (size_t y = 0; y < dram_grid_size.y; y++) {
                 const tt_xy_pair core = dram_cores[x * dram_grid_size.y + y];
-                CoreCoord core_coord(core.x, core.y, CoreType::DRAM, CoordSystem::PHYSICAL);
+                CoreCoord core_coord(core.x, core.y, CoreType::DRAM, CoordSystem::NOC0);
                 harvested_dram_cores.push_back(core_coord);
             }
         }
@@ -500,7 +499,7 @@ std::vector<CoreCoord> BlackholeCoordinateManager::get_eth_cores() const {
     std::vector<CoreCoord> unharvested_eth_cores;
     for (size_t eth_channel = 0; eth_channel < num_eth_channels; eth_channel++) {
         const tt_xy_pair core = eth_cores[eth_channel];
-        CoreCoord core_coord(core.x, core.y, CoreType::ETH, CoordSystem::PHYSICAL);
+        CoreCoord core_coord(core.x, core.y, CoreType::ETH, CoordSystem::NOC0);
         if (std::find(harvested_channels.begin(), harvested_channels.end(), eth_channel) == harvested_channels.end()) {
             unharvested_eth_cores.push_back(core_coord);
         }
@@ -513,7 +512,7 @@ std::vector<CoreCoord> BlackholeCoordinateManager::get_harvested_eth_cores() con
     std::vector<CoreCoord> harvested_eth_cores;
     for (size_t eth_channel = 0; eth_channel < num_eth_channels; eth_channel++) {
         const tt_xy_pair core = eth_cores[eth_channel];
-        CoreCoord core_coord(core.x, core.y, CoreType::ETH, CoordSystem::PHYSICAL);
+        CoreCoord core_coord(core.x, core.y, CoreType::ETH, CoordSystem::NOC0);
         if (std::find(harvested_channels.begin(), harvested_channels.end(), eth_channel) != harvested_channels.end()) {
             harvested_eth_cores.push_back(core_coord);
         }
@@ -529,7 +528,7 @@ std::vector<CoreCoord> BlackholeCoordinateManager::get_pcie_cores() const {
             continue;
         }
         const tt_xy_pair core = pcie_cores[x];
-        CoreCoord core_coord(core.x, core.y, CoreType::PCIE, CoordSystem::PHYSICAL);
+        CoreCoord core_coord(core.x, core.y, CoreType::PCIE, CoordSystem::NOC0);
         unharvested_pcie_cores.push_back(core_coord);
     }
 
@@ -543,7 +542,7 @@ std::vector<CoreCoord> BlackholeCoordinateManager::get_harvested_pcie_cores() co
             continue;
         }
         const tt_xy_pair core = pcie_cores[x];
-        CoreCoord core_coord(core.x, core.y, CoreType::PCIE, CoordSystem::PHYSICAL);
+        CoreCoord core_coord(core.x, core.y, CoreType::PCIE, CoordSystem::NOC0);
         harvested_pcie_cores.push_back(core_coord);
     }
 
@@ -569,3 +568,5 @@ tt_xy_pair BlackholeCoordinateManager::get_dram_grid_size() const {
         dram_grid_size.x - CoordinateManager::get_num_harvested(harvesting_masks.dram_harvesting_mask),
         dram_grid_size.y};
 }
+
+}  // namespace tt::umd

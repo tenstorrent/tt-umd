@@ -55,15 +55,15 @@ In order to illustrate harvesting effect on coordinate systems, example with two
 
 ![Tensix harvested rows](images/tensix_harvested_rows.png)
 
-## Physical Coordinates
+## NoC 0 Coordinates
 
-These are the NOC coordinates that the hardware understands, there are two distinct variations for NOC0 and NOC1. In hardware, each node is given an ID (which is different for each NOC), represented as x-y pair, which can be used to identify this node. In the SOC descriptor ([example Wormhole soc descriptor](../tests/soc_descs/wormhole_b0_8x10.yaml)), physical coordinates are specified for NOC0.
+These are the NOC coordinates that the hardware understands, there are two distinct variations for NOC0 and NOC1. In hardware, each node is given an ID (which is different for each NOC), represented as x-y pair, which can be used to identify this node. In the SOC descriptor ([example Wormhole soc descriptor](../tests/soc_descs/wormhole_b0_8x10.yaml)), NOC0 coordinates are specified.
 
-![Tensix physical coordinates](images/tensix_physical_coordinates.png)
+![Tensix noc0 coordinates](images/tensix_physical_coordinates.png)
 
-### Physical coordinates for different core types
+### NoC 0 coordinates for different core types
 
-Physical coordinates can be used for all core types:
+NoC 0 coordinates can be used for all core types:
 
 - All core types
    - X coordinate -> NOC0 X coordinate from SOC descriptor
@@ -71,17 +71,17 @@ Physical coordinates can be used for all core types:
 
 TODO: add the documentation for other cores
 
-### Harvesting effect on physical coordinates
+### Harvesting effect on NoC 0 coordinates
 
-Using harvesting example, the effect on physical coordinates for two harvested configuration is on the image below
+Using harvesting example, the effect on noc0 coordinates for two harvested configuration is on the image below
 
-![Tensix physical coordinates harvested](images/tensix_phyiscal_coordinates_harvested.png)
+![Tensix NoC 0 coordinates harvested](images/tensix_phyiscal_coordinates_harvested.png)
 
-Note that physical coordinates stay the same, coordinates are not changed, some coordinates simply become unavailable. The user of UMD needs to be careful when using physical coordinate system.
+Note that noc0 coordinates stay the same, coordinates are not changed, some coordinates simply become unavailable. The user of UMD needs to be careful when using noc0 coordinate system.
 
 ## Virtual coordinates
 
-Virtual coordinates are a subset of the full chip physical coordinates shown above. When there is no harvesting virtual coordinates are equal to physical coordinates.
+Virtual coordinates are a subset of the full chip noc0 coordinates shown above. When there is no harvesting virtual coordinates are equal to noc0 coordinates.
 
 ### Harvesting effect on virtual coordinates
 
@@ -119,7 +119,7 @@ When harvesting some number of rows, range of translated coordinates coordinates
 
 ## Logical coordinates
 
-This coordinate system is mostly used to reference tensix cores on the chip, since this cores are most frequently accessed. This coordinate system hides the details of physical coordinates and allows upper layers of the stack to access endpoints through a set of traditional Cartesian Coordinates. This coordinate systems has very simple indexing, it starts from `0-0` and ends at `(X-1)-(Y-1)` where X and Y is number of cores on x-axis and y-axis, respectively. Example on logical coordinate indexing is one the image below
+This coordinate system is mostly used to reference tensix cores on the chip, since this cores are most frequently accessed. This coordinate system hides the details of noc0 coordinates and allows upper layers of the stack to access endpoints through a set of traditional Cartesian Coordinates. This coordinate systems has very simple indexing, it starts from `0-0` and ends at `(X-1)-(Y-1)` where X and Y is number of cores on x-axis and y-axis, respectively. Example on logical coordinate indexing is one the image below
 
 ![Tensix logical coordinates](images/tensix_logical_coordinates.png)
 
@@ -156,12 +156,12 @@ Note that range on X axis stays the same (no harvested columns), but the range o
 ### Wormhole
 
 When no harvesting has taken place (chip has full grid size):
-* Physical Coordinates == Virtual Coordinates == Translated Coordinates for ARC/PCIE/DRAM
-* Physical Coordinates == Virtual Coordinates != Translated Coordinates for Tensix and Ethernet
+* NOC0 Coordinates == Virtual Coordinates == Translated Coordinates for ARC/PCIE/DRAM
+* NOC0 Coordinates == Virtual Coordinates != Translated Coordinates for Tensix and Ethernet
 
 When harvesting is performed on a chip:
-* Physical Coordinates == Virtual Coordinates == Translated Coordinates for ARC/PCIE/DRAM
-* Physical Coordinates != Virtual Coordinates != Translated Coordinates for Tensix and Ethernet
+* NOC0 Coordinates == Virtual Coordinates == Translated Coordinates for ARC/PCIE/DRAM
+* NOC0 Coordinates != Virtual Coordinates != Translated Coordinates for Tensix and Ethernet
 
 ### Blackhole
 
@@ -183,7 +183,7 @@ enum class CoreType {
 
 enum class CoordSystem : std::uint8_t {
     LOGICAL,
-    PHYSICAL,
+    NOC0,
     VIRTUAL,
     TRANSLATED,
 };
@@ -202,19 +202,19 @@ Cluster cluster;
 
 CoreCoord logical_coord = CoreCoord(0, 0, CoreType::TENSIX, CoordSystem::LOGICAL);
 
-CoreCoord physical_coord = CoreCoord(1, 1, CoreType::TENSIX, CoordSystem::PHYSICAL);
+CoreCoord noc0_coord = CoreCoord(1, 1, CoreType::TENSIX, CoordSystem::NOC0);
 
 // These two writes should be identical.
 cluster.write_to_device(logical_coord, ...);
-cluster.write_to_device(physical_coord, ...);
+cluster.write_to_device(noc0_coord, ...);
 ```
 
 UMD offers certain guarantees when using different coordinate systems.
 
-- Physical coordinates:
+- NoC 0 coordinates:
    - These coordinates require the most knowledge about the exact chip layout. Usage depends on harvesting so it can turn out slightly different from chip to chip.
    - This coordinate system preserves exact NOC0 proximity information between cores. The data will flow the fastest between consecutive nodes.
-   - IO with physical coordinates is not always safe to use. UMD is not blocking the client to use physical coordinates if it knows what to do, but by using physical coordinates UMD might hit harvested core which might not work.
+   - IO with noc0 coordinates is not always safe to use. UMD is not blocking the client to use noc0 coordinates if it knows what to do, but by using noc0 coordinates UMD might hit harvested core which might not work.
 
 - Virtual coordinates:
    - Requires more knowledge about chip layout than the logical coordinates, but programming is consistent on all chips (however they are harvested).

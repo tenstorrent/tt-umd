@@ -16,6 +16,8 @@
 
 extern bool umd_use_noc1;
 
+namespace tt::umd {
+
 static constexpr uint32_t REMOTE_CMD_NOC_BIT = 9;
 
 struct remote_update_ptr_t {
@@ -35,8 +37,6 @@ struct routing_cmd_t {
     uint16_t padding;
     uint32_t src_addr_tag;  // upper 32-bits of request source address.
 };
-
-namespace tt::umd {
 
 RemoteCommunication::RemoteCommunication(LocalChip* local_chip) : local_chip_(local_chip) {}
 

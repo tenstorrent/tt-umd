@@ -116,8 +116,7 @@ uint32_t BlackholeArcMessageQueue::send_message(
 
 std::unique_ptr<BlackholeArcMessageQueue> BlackholeArcMessageQueue::get_blackhole_arc_message_queue(
     TTDevice* tt_device, const size_t queue_index) {
-    const tt_xy_pair arc_core =
-        tt::umd::blackhole::get_arc_core(tt_device->get_noc_translation_enabled(), umd_use_noc1);
+    const tt_xy_pair arc_core = blackhole::get_arc_core(tt_device->get_noc_translation_enabled(), umd_use_noc1);
 
     uint32_t queue_control_block_addr;
     tt_device->read_from_device(&queue_control_block_addr, arc_core, blackhole::SCRATCH_RAM_11, sizeof(uint32_t));
@@ -132,8 +131,7 @@ std::unique_ptr<BlackholeArcMessageQueue> BlackholeArcMessageQueue::get_blackhol
     uint32_t msg_queue_size = 2 * num_entries_per_queue * ARC_QUEUE_ENTRY_SIZE + ARC_MSG_QUEUE_HEADER_SIZE;
     uint32_t msg_queue_base = queue_base_addr + queue_index * msg_queue_size;
 
-    return std::make_unique<tt::umd::BlackholeArcMessageQueue>(
-        tt_device, msg_queue_base, num_entries_per_queue, arc_core);
+    return std::make_unique<BlackholeArcMessageQueue>(tt_device, msg_queue_base, num_entries_per_queue, arc_core);
 }
 
 }  // namespace tt::umd

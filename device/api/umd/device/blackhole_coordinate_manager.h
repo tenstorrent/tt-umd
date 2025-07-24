@@ -9,11 +9,13 @@
 #include "umd/device/blackhole_implementation.h"
 #include "umd/device/coordinate_manager.h"
 
+namespace tt::umd {
+
 class BlackholeCoordinateManager : public CoordinateManager {
 public:
     BlackholeCoordinateManager(
         const bool noc_translation_enabled,
-        tt::umd::HarvestingMasks harvesting_masks,
+        HarvestingMasks harvesting_masks,
         const tt_xy_pair& tensix_grid_size,
         const std::vector<tt_xy_pair>& tensix_cores,
         const tt_xy_pair& dram_grid_size,
@@ -37,20 +39,20 @@ protected:
     void translate_eth_coords() override;
     void translate_pcie_coords() override;
 
-    void fill_tensix_physical_translated_mapping() override;
-    void fill_dram_physical_translated_mapping() override;
-    void fill_eth_physical_translated_mapping() override;
-    void fill_pcie_physical_translated_mapping() override;
-    void fill_arc_physical_translated_mapping() override;
+    void fill_tensix_noc0_translated_mapping() override;
+    void fill_dram_noc0_translated_mapping() override;
+    void fill_eth_noc0_translated_mapping() override;
+    void fill_pcie_noc0_translated_mapping() override;
+    void fill_arc_noc0_translated_mapping() override;
 
-    std::vector<tt::umd::CoreCoord> get_tensix_cores() const override;
-    std::vector<tt::umd::CoreCoord> get_harvested_tensix_cores() const override;
-    std::vector<tt::umd::CoreCoord> get_dram_cores() const override;
-    std::vector<tt::umd::CoreCoord> get_harvested_dram_cores() const override;
-    std::vector<tt::umd::CoreCoord> get_eth_cores() const override;
-    std::vector<tt::umd::CoreCoord> get_harvested_eth_cores() const override;
-    std::vector<tt::umd::CoreCoord> get_pcie_cores() const override;
-    std::vector<tt::umd::CoreCoord> get_harvested_pcie_cores() const override;
+    std::vector<CoreCoord> get_tensix_cores() const override;
+    std::vector<CoreCoord> get_harvested_tensix_cores() const override;
+    std::vector<CoreCoord> get_dram_cores() const override;
+    std::vector<CoreCoord> get_harvested_dram_cores() const override;
+    std::vector<CoreCoord> get_eth_cores() const override;
+    std::vector<CoreCoord> get_harvested_eth_cores() const override;
+    std::vector<CoreCoord> get_pcie_cores() const override;
+    std::vector<CoreCoord> get_harvested_pcie_cores() const override;
     tt_xy_pair get_tensix_grid_size() const override;
     tt_xy_pair get_dram_grid_size() const override;
     tt_xy_pair get_harvested_tensix_grid_size() const override;
@@ -61,5 +63,7 @@ private:
         const size_t start_bank,
         const size_t end_bank,
         const size_t x_coord,
-        const size_t y_coord_start = tt::umd::blackhole::dram_translated_coordinate_start_y);
+        const size_t y_coord_start = blackhole::dram_translated_coordinate_start_y);
 };
+
+}  // namespace tt::umd

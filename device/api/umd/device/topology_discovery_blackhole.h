@@ -45,6 +45,10 @@ protected:
 
     uint64_t mangle_asic_id(uint64_t board_id, uint8_t asic_location);
 
+    bool is_eth_unconnected(Chip* chip, const tt_xy_pair eth_core) override;
+
+    bool is_eth_unknown(Chip* chip, const tt_xy_pair eth_core) override;
+
     std::unique_ptr<RemoteChip> create_remote_chip(Chip* chip, tt_xy_pair eth_core, Chip* gateway_chip) override;
 };
 

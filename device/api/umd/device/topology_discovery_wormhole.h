@@ -62,6 +62,10 @@ protected:
 
     void init_topology_discovery() override;
 
+    bool is_eth_unconnected(Chip* chip, const tt_xy_pair eth_core) override;
+
+    bool is_eth_unknown(Chip* chip, const tt_xy_pair eth_core) override;
+
     EthAddresses eth_addresses;
 
     bool is_running_on_6u = false;

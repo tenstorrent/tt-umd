@@ -165,4 +165,14 @@ uint64_t TopologyDiscoveryBlackhole::mangle_asic_id(uint64_t board_id, uint8_t a
     return ((board_id << 1) | (asic_location & 0x1));
 }
 
+bool TopologyDiscoveryBlackhole::is_eth_unconnected(
+    Chip* chip, const tt_xy_pair eth_core) {  // TODO(pjanevksi): Implement this function.
+    return true;
+}
+
+bool TopologyDiscoveryBlackhole::is_eth_unknown(
+    Chip* chip, const tt_xy_pair eth_core) {  // TODO(pjanevksi): Implement this function.
+    return true;
+}
+
 }  // namespace tt::umd

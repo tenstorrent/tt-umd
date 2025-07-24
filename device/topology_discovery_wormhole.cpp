@@ -7,6 +7,7 @@
 
 #include <tt-logger/tt-logger.hpp>
 
+#include "api/umd/device/topology_discovery_wormhole.h"
 #include "umd/device/types/wormhole_telemetry.h"
 
 extern bool umd_use_noc1;
@@ -313,6 +314,16 @@ bool TopologyDiscoveryWormhole::is_board_id_included(uint64_t board_id, uint64_t
     }
 
     return board_ids.find(board_id) != board_ids.end();
+}
+
+bool TopologyDiscoveryWormhole::is_eth_unconnected(Chip* chip, const tt_xy_pair eth_core) {
+    // TODO(pjanevksi): Implement this function.
+    return true;
+}
+
+bool TopologyDiscoveryWormhole::is_eth_unknown(
+    Chip* chip, const tt_xy_pair eth_core) {  // TODO(pjanevksi): Implement this function.
+    return true;
 }
 
 }  // namespace tt::umd

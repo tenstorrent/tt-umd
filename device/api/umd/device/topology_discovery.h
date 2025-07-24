@@ -84,6 +84,10 @@ protected:
 
     virtual void init_topology_discovery();
 
+    virtual bool is_eth_unconnected(Chip* chip, const tt_xy_pair eth_core) = 0;
+
+    virtual bool is_eth_unknown(Chip* chip, const tt_xy_pair eth_core) = 0;
+
     std::map<uint64_t, std::unique_ptr<Chip>> chips_to_discover;
     std::map<uint64_t, std::unique_ptr<Chip>> chips;
 

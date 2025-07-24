@@ -18,8 +18,10 @@
 
 namespace tt::umd {
 
-void WarmReset::warm_reset(ARCH architecture, bool reset_m3) {
-    switch (architecture) {
+void WarmReset::warm_reset(bool reset_m3) {
+    auto enumerate_devices = PCIDevice::enumerate_devices_info();
+    auto arch = enumerate_devices.begin()->second.get_arch();
+    switch (arch) {
         case ARCH::WORMHOLE_B0:
             warm_reset_wormhole(reset_m3);
             return;

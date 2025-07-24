@@ -12,7 +12,7 @@ namespace tt::umd {
 
 class WarmReset {
 public:
-    static void warm_reset(ARCH architecture, bool reset_m3 = false);
+    static void warm_reset(bool reset_m3 = false);
 
 private:
     static void warm_reset_blackhole();

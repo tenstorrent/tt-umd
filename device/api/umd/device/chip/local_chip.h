@@ -71,8 +71,6 @@ public:
     int get_clock() override;
     int get_numa_node() override;
 
-    void warm_reset() override;
-
     std::unique_lock<RobustMutex> acquire_mutex(std::string mutex_name, int pci_device_id);
     std::unique_lock<RobustMutex> acquire_mutex(MutexType mutex_type, int pci_device_id);
 

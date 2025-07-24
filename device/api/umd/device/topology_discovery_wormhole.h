@@ -9,13 +9,28 @@
 
 namespace tt::umd {
 
-class TopologyDiscoveryBlackhole : public TopologyDiscovery {
+class TopologyDiscoveryWormhole : public TopologyDiscovery {
 public:
-    TopologyDiscoveryBlackhole(
+    TopologyDiscoveryWormhole(
         std::unordered_set<chip_id_t> pci_target_devices = {}, const std::string& sdesc_path = "");
 
 protected:
+    struct EthAddresses {
+        uint32_t masked_version;
+
+        uint64_t node_info;
+        uint64_t eth_conn_info;
+        uint64_t results_buf;
+        uint64_t erisc_remote_board_type_offset;
+        uint64_t erisc_local_board_type_offset;
+        uint64_t erisc_local_board_id_lo_offset;
+        uint64_t erisc_remote_board_id_lo_offset;
+        uint64_t erisc_remote_eth_id_offset;
+    };
+
     bool is_board_id_included(uint64_t board_id, uint64_t board_type) const override;
+
+    static EthAddresses get_eth_addresses(uint32_t eth_fw_version);
 
     uint64_t get_remote_board_id(Chip* chip, tt_xy_pair eth_core) override;
 
@@ -41,9 +56,14 @@ protected:
 
     uint64_t get_remote_board_type(Chip* chip, tt_xy_pair eth_core) override;
 
+    std::unique_ptr<RemoteChip> create_remote_chip(Chip* chip, tt_xy_pair eth_core, Chip* gateway_chip) override;
+
     bool is_using_eth_coords() override;
 
-    std::unique_ptr<RemoteChip> create_remote_chip(Chip* chip, tt_xy_pair eth_core, Chip* gateway_chip) override;
-};
+    void init_topology_discovery() override;
 
+    EthAddresses eth_addresses;
+
+    bool is_running_on_6u = false;
+};
 }  // namespace tt::umd

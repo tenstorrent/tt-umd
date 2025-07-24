@@ -68,6 +68,7 @@ target_sources(
         utils/robust_mutex.cpp
         topology_discovery.cpp
         topology_discovery_blackhole.cpp
+        topology_discovery_wormhole.cpp
         remote_communication.cpp
 )
 

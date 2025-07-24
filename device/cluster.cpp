@@ -48,6 +48,7 @@
 #include "umd/device/driver_atomics.h"
 #include "umd/device/hugepage.h"
 #include "umd/device/topology_discovery_blackhole.h"
+#include "umd/device/topology_discovery_wormhole.h"
 #include "umd/device/topology_utils.h"
 #include "umd/device/tt_cluster_descriptor.h"
 #include "umd/device/tt_core_coordinates.h"
@@ -1016,7 +1017,7 @@ std::unique_ptr<tt_ClusterDescriptor> Cluster::create_cluster_descriptor(
     if (pci_device_info.begin()->second.get_arch() == tt::ARCH::BLACKHOLE) {
         return TopologyDiscoveryBlackhole(pci_target_devices, sdesc_path).create_ethernet_map();
     } else {
-        return TopologyDiscovery(pci_target_devices).create_ethernet_map();
+        return TopologyDiscoveryWormhole(pci_target_devices, sdesc_path).create_ethernet_map();
     }
 }
 

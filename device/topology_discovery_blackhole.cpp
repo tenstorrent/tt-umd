@@ -23,9 +23,7 @@ namespace tt::umd {
 
 TopologyDiscoveryBlackhole::TopologyDiscoveryBlackhole(
     std::unordered_set<chip_id_t> pci_target_devices, const std::string& sdesc_path) :
-    TopologyDiscovery(pci_target_devices, sdesc_path) {
-    is_running_blackhole = true;
-}
+    TopologyDiscovery(pci_target_devices, sdesc_path) {}
 
 std::unique_ptr<RemoteChip> TopologyDiscoveryBlackhole::create_remote_chip(
     Chip* chip, tt_xy_pair eth_core, Chip* gateway_chip) {
@@ -143,6 +141,26 @@ uint32_t TopologyDiscoveryBlackhole::read_port_status(Chip* chip, tt_xy_pair eth
     } else {
         return 0;
     }
+}
+
+uint32_t TopologyDiscoveryBlackhole::get_remote_eth_id(Chip* chip, tt_xy_pair local_eth_core) {
+    // TODO(pjanevski): Implement this function for Blackhole.
+    return 0;
+}
+
+uint64_t TopologyDiscoveryBlackhole::get_remote_board_type(Chip* chip, tt_xy_pair eth_core) {
+    // TODO(pjanevski): Implement this function for Blackhole.
+    return 0;
+}
+
+uint32_t TopologyDiscoveryBlackhole::get_remote_eth_channel(Chip* chip, tt_xy_pair local_eth_core) {
+    return get_remote_eth_id(chip, local_eth_core);
+}
+
+bool TopologyDiscoveryBlackhole::is_using_eth_coords() { return false; }
+
+bool TopologyDiscoveryBlackhole::is_board_id_included(uint64_t board_id, uint64_t board_type) const {
+    return board_ids.find(board_id) != board_ids.end();
 }
 
 }  // namespace tt::umd

@@ -43,6 +43,8 @@ protected:
 
     bool is_using_eth_coords() override;
 
+    uint64_t mangle_asic_id(uint64_t board_id, uint8_t asic_location);
+
     std::unique_ptr<RemoteChip> create_remote_chip(Chip* chip, tt_xy_pair eth_core, Chip* gateway_chip) override;
 };
 

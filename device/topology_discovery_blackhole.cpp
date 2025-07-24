@@ -102,8 +102,7 @@ uint64_t TopologyDiscoveryBlackhole::get_local_asic_id(Chip* chip, tt_xy_pair et
 
     uint64_t board_id = ((uint64_t)boot_results.local_info.board_id_hi << 32) | boot_results.local_info.board_id_lo;
 
-    constexpr uint64_t random_const = 0x1234;
-    return board_id + random_const * boot_results.local_info.asic_location;
+    return mangle_asic_id(board_id, boot_results.local_info.asic_location);
 }
 
 uint64_t TopologyDiscoveryBlackhole::get_remote_asic_id(Chip* chip, tt_xy_pair eth_core) {
@@ -117,8 +116,7 @@ uint64_t TopologyDiscoveryBlackhole::get_remote_asic_id(Chip* chip, tt_xy_pair e
 
     uint64_t board_id = ((uint64_t)boot_results.remote_info.board_id_hi << 32) | boot_results.remote_info.board_id_lo;
 
-    constexpr uint64_t random_const = 0x1234;
-    return board_id + random_const * boot_results.remote_info.asic_location;
+    return mangle_asic_id(board_id, boot_results.remote_info.asic_location);
 }
 
 tt_xy_pair TopologyDiscoveryBlackhole::get_remote_eth_core(Chip* chip, tt_xy_pair local_eth_core) { return {0, 0}; }
@@ -161,6 +159,10 @@ bool TopologyDiscoveryBlackhole::is_using_eth_coords() { return false; }
 
 bool TopologyDiscoveryBlackhole::is_board_id_included(uint64_t board_id, uint64_t board_type) const {
     return board_ids.find(board_id) != board_ids.end();
+}
+
+uint64_t TopologyDiscoveryBlackhole::mangle_asic_id(uint64_t board_id, uint8_t asic_location) {
+    return ((board_id << 1) | (asic_location & 0x1));
 }
 
 }  // namespace tt::umd

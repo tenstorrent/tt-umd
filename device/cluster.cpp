@@ -115,6 +115,51 @@ void Cluster::verify_sysmem_initialized() {
     }
 }
 
+void Cluster::log_pci_device_summary() {
+    if (local_chip_ids_.empty()) {
+        return;
+    }
+
+    auto first_pci_device = chips_.at(*local_chip_ids_.begin())->get_tt_device()->get_pci_device();
+    if (!first_pci_device) {
+        return;
+    }
+
+    bool expected_iommu_state = first_pci_device->is_iommu_enabled();
+    std::string kmd_version = PCIDevice::read_kmd_version().to_string();
+
+    // Check IOMMU status consistency across all devices.
+    bool all_devices_same_iommu_state = true;
+    auto iommu_state_str = [](bool enabled) { return enabled ? "enabled" : "disabled"; };
+
+    for (chip_id_t chip_id : local_chip_ids_) {
+        auto pci_device = chips_.at(chip_id)->get_tt_device()->get_pci_device();
+        if (!pci_device) {
+            continue;
+        }
+        bool current_iommu_state = pci_device->is_iommu_enabled();
+        if (current_iommu_state != expected_iommu_state) {
+            log_warning(
+                LogSiliconDriver,
+                "IOMMU state mismatch for chip {}: expected {}, got {}",
+                chip_id,
+                iommu_state_str(expected_iommu_state),
+                iommu_state_str(current_iommu_state));
+            all_devices_same_iommu_state = false;
+        }
+
+        if (!all_devices_same_iommu_state) {
+            break;
+        }
+    }
+
+    if (all_devices_same_iommu_state) {
+        log_info(LogSiliconDriver, "IOMMU: {}", iommu_state_str(expected_iommu_state));
+    }
+
+    log_info(LogSiliconDriver, "KMD version: {}", kmd_version);
+}
+
 void Cluster::verify_fw_bundle_version() {
     if (chips_.empty()) {
         return;
@@ -156,6 +201,7 @@ void Cluster::construct_cluster(const uint32_t& num_host_mem_ch_per_mmio_device,
             pci_ids,
             remote_chip_ids_);
         verify_fw_bundle_version();
+        log_pci_device_summary();
         if (arch_name == tt::ARCH::WORMHOLE_B0) {
             verify_eth_fw();
         }

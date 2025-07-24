@@ -188,7 +188,7 @@ PCIDevice::PCIDevice(int pci_device_number) :
         TT_THROW("TENSTORRENT_IOCTL_GET_DRIVER_INFO failed");
     }
 
-    log_info(
+    log_debug(
         LogSiliconDriver,
         "Opened PCI device {}; KMD version: {}; API: {}; IOMMU: {}",
         pci_device_num,

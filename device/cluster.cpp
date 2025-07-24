@@ -290,7 +290,7 @@ tt_SocDescriptor Cluster::construct_soc_descriptor(
     bool noc_translation_table_en =
         chip_in_cluster_descriptor ? cluster_desc->get_noc_translation_table_en().at(chip_id) : false;
     HarvestingMasks harvesting_masks =
-        chip_in_cluster_descriptor 
+        chip_in_cluster_descriptor
             ? get_harvesting_masks(chip_id, cluster_desc, perform_harvesting, simulated_harvesting_masks)
             : HarvestingMasks{};
     BoardType chip_board_type = chip_in_cluster_descriptor ? cluster_desc->get_board_type(chip_id) : BoardType::UNKNOWN;

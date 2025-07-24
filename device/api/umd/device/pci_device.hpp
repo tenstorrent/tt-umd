@@ -173,14 +173,12 @@ public:
      */
     std::unique_ptr<TlbHandle> allocate_tlb(const size_t tlb_size, const TlbMapping tlb_mapping = TlbMapping::UC);
 
-public:
-    // TODO: we can and should make all of these private.
-    void *bar0_uc = nullptr;
-    size_t bar0_uc_size = 0;
-    size_t bar0_uc_offset = 0;
+    static tt::ARCH get_pcie_arch();
 
-    void *bar0_wc = nullptr;
-    size_t bar0_wc_size = 0;
+public:
+    // BAR0 base. UMD maps only ARC memory to user space, TLBs go through KMD.
+    void *bar0 = nullptr;
+    const size_t bar0_size = 2 * (1 << 20);
 
     void *bar2_uc = nullptr;
     size_t bar2_uc_size;
@@ -188,32 +186,7 @@ public:
     void *bar4_wc = nullptr;
     uint64_t bar4_wc_size;
 
-    // TODO: let's get rid of this unless we need to run UMD on WH systems with
-    // shrunk BAR0.  If we don't (and we shouldn't), then we can just use BAR0
-    // and simplify the code.
-    void *system_reg_mapping = nullptr;
-    size_t system_reg_mapping_size;
-    uint32_t system_reg_start_offset;   // Registers >= this are system regs, use the mapping.
-    uint32_t system_reg_offset_adjust;  // This is the offset of the first reg in the system reg mapping.
-
     uint32_t read_checking_offset;
-
-    template <typename T>
-    T *get_register_address(uint32_t register_offset) {
-        // Right now, address can either be exposed register in BAR, or TLB window in BAR0 (BAR4 for Blackhole).
-        // Should clarify this interface
-        void *reg_mapping;
-        if (system_reg_mapping != nullptr && register_offset >= system_reg_start_offset) {
-            register_offset -= system_reg_offset_adjust;
-            reg_mapping = system_reg_mapping;
-        } else if (bar0_wc != bar0_uc && register_offset < bar0_wc_size) {
-            reg_mapping = bar0_wc;
-        } else {
-            register_offset -= bar0_uc_offset;
-            reg_mapping = bar0_uc;
-        }
-        return reinterpret_cast<T *>(static_cast<uint8_t *>(reg_mapping) + register_offset);
-    }
 };
 
 }  // namespace tt::umd

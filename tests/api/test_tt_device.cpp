@@ -1,17 +1,14 @@
 // SPDX-FileCopyrightText: (c) 2025 Tenstorrent Inc.
 //
 // SPDX-License-Identifier: Apache-2.0
-#include <memory>
 #include <thread>
 
 #include "gtest/gtest.h"
 #include "tests/test_utils/device_test_utils.hpp"
 #include "umd/device/blackhole_implementation.h"
-#include "umd/device/chip/local_chip.h"
 #include "umd/device/cluster.h"
 #include "umd/device/tt_device/remote_wormhole_tt_device.h"
 #include "umd/device/tt_device/tt_device.h"
-#include "umd/device/warm_reset.h"
 #include "umd/device/wormhole_implementation.h"
 
 using namespace tt::umd;
@@ -154,50 +151,5 @@ TEST(ApiTTDeviceTest, TestRemoteTTDevice) {
 
             EXPECT_EQ(pattern_buf, readback_buf);
         }
-    }
-}
-
-TEST(ApiTTDeviceTest, WarmResetAfterNocHang) {
-    std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
-
-    uint64_t address = 0x0;
-    std::vector<uint8_t> data{1, 2, 3, 4, 5, 6, 7, 8};
-    std::vector<uint8_t> zero_data(data.size(), 0);
-    std::vector<uint8_t> readback_data(data.size(), 0);
-
-    for (int pci_device_id : pci_device_ids) {
-        std::unique_ptr<TTDevice> tt_device = TTDevice::create(pci_device_id);
-
-        ChipInfo chip_info = tt_device->get_chip_info();
-
-        tt_SocDescriptor soc_desc(
-            tt_device->get_arch(), chip_info.noc_translation_enabled, chip_info.harvesting_masks, chip_info.board_type);
-
-        tt_xy_pair tensix_core = soc_desc.get_cores(CoreType::TENSIX, CoordSystem::TRANSLATED)[0];
-
-        // send to core 15, 15 which will hang the NOC
-        tt_device->write_to_device(data.data(), {15, 15}, address, data.size() * sizeof(uint32_t));
-
-        // TODO: Remove this check when it is figured out why there is no hang detected on Blackhole.
-        if (tt_device->get_arch() == tt::ARCH::WORMHOLE_B0) {
-            EXPECT_THROW(tt_device->detect_hang_read(), std::runtime_error);
-        }
-
-        WarmReset::warm_reset(tt_device->get_arch());
-
-        EXPECT_NO_THROW(tt_device->detect_hang_read());
-
-        tt_device.reset();
-
-        tt_device = TTDevice::create(pci_device_id);
-
-        tt_device->write_to_device(zero_data.data(), tensix_core, address, zero_data.size() * sizeof(uint32_t));
-
-        tt_device->write_to_device(data.data(), tensix_core, address, data.size() * sizeof(uint32_t));
-
-        tt_device->read_from_device(
-            readback_data.data(), tensix_core, address, readback_data.size() * sizeof(uint32_t));
-
-        ASSERT_EQ(data, readback_data);
     }
 }

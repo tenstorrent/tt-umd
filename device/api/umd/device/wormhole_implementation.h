@@ -162,68 +162,25 @@ static const std::vector<tt_xy_pair> ETH_CORES_NOC0 = {
      {6, 6},
      {4, 6}}};
 static const std::vector<tt_xy_pair> ETH_LOCATIONS = ETH_CORES_NOC0;
-static const std::map<tt_xy_pair, int> ETH_CORE_TO_CHANNEL{
-    {
-        {9, 0},
-        0,
-    },
-    {
-        {1, 0},
-        1,
-    },
-    {
-        {8, 0},
-        2,
-    },
-    {
-        {2, 0},
-        3,
-    },
-    {
-        {7, 0},
-        4,
-    },
-    {
-        {3, 0},
-        5,
-    },
-    {
-        {6, 0},
-        6,
-    },
-    {
-        {4, 0},
-        7,
-    },
-    {
-        {9, 6},
-        8,
-    },
-    {
-        {1, 6},
-        9,
-    },
-    {
-        {8, 6},
-        10,
-    },
-    {
-        {2, 6},
-        11,
-    },
-    {
-        {7, 6},
-        12,
-    },
-    {
-        {3, 6},
-        13,
-    },
-    {
-        {6, 6},
-        14,
-    },
+// clang-format off
+static const std::map<tt_xy_pair, int> ETH_CORE_TO_CHANNEL {
+    {{9, 0}, 0},
+    {{1, 0}, 1},
+    {{8, 0}, 2},
+    {{2, 0}, 3},
+    {{7, 0}, 4},
+    {{3, 0}, 5},
+    {{6, 0}, 6},
+    {{4, 0}, 7},
+    {{9, 6}, 8},
+    {{1, 6}, 9},
+    {{8, 6}, 10},
+    {{2, 6}, 11},
+    {{7, 6}, 12},
+    {{3, 6}, 13},
+    {{6, 6}, 14},
     {{4, 6}, 15}};
+// clang-format on
 
 static const tt_xy_pair ARC_GRID_SIZE = {1, 1};
 static const std::vector<tt_xy_pair> ARC_CORES_NOC0 = {{0, 10}};

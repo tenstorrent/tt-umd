@@ -358,50 +358,6 @@ void TTDevice::wait_arc_core_start(const tt_xy_pair arc_core, const uint32_t tim
     throw std::runtime_error("Waiting for ARC core to start is supported only for Blackhole TTDevice.");
 }
 
-void TTDevice::wait_dram_core_training(const uint32_t timeout_ms) {
-    auto start = std::chrono::system_clock::now();
-    while (true) {
-        std::vector<DramTrainingStatus> dram_training_status = get_dram_training_status();
-
-        if (dram_training_status.empty()) {
-            // DRAM training status is not available, breaking the wait for DRAM training.
-            break;
-        }
-
-        bool all_dram_channels_trained = true;
-        const uint32_t num_dram_channels =
-            std::min(dram_training_status.size(), static_cast<size_t>(architecture_impl_->get_dram_banks_number()));
-
-        const uint32_t dram_harvesting_mask = get_chip_info().harvesting_masks.dram_harvesting_mask;
-
-        for (uint32_t dram_channel = 0; dram_channel < num_dram_channels; dram_channel++) {
-            // Skip the check for harvested channels.
-            if (dram_harvesting_mask & (1 << dram_channel)) {
-                continue;
-            }
-
-            // Check if there is an error in training for the channel.
-            if (dram_training_status[dram_channel] == DramTrainingStatus::FAIL) {
-                throw std::runtime_error("DRAM training failed");
-            }
-
-            // Verify whether the channel is trained.
-            all_dram_channels_trained &= (dram_training_status[dram_channel] == DramTrainingStatus::SUCCESS);
-        }
-
-        if (all_dram_channels_trained) {
-            break;
-        }
-
-        auto end = std::chrono::system_clock::now();
-        auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
-        if (duration.count() > timeout_ms) {
-            throw std::runtime_error(fmt::format("DRAM training timed out after {} ms", timeout_ms));
-            break;
-        }
-    }
-}
-
 void TTDevice::bar_write32(uint32_t addr, uint32_t data) {
     if (addr < get_pci_device()->bar0_uc_offset) {
         write_block(addr, sizeof(data), reinterpret_cast<const uint8_t *>(&data));  // do we have to reinterpret_cast?
@@ -425,6 +381,8 @@ ArcMessenger *TTDevice::get_arc_messenger() const { return arc_messenger_.get();
 ArcTelemetryReader *TTDevice::get_arc_telemetry_reader() const { return telemetry.get(); }
 
 TTDevice::~TTDevice() { lock_manager.clear_mutex(MutexType::TT_DEVICE_IO, get_pci_device()->get_device_num()); }
+
+std::vector<DramTrainingStatus> TTDevice::get_dram_training_status() { return {}; }
 
 void TTDevice::wait_for_non_mmio_flush() {}
 

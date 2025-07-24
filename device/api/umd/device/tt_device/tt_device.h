@@ -203,8 +203,6 @@ public:
 
     virtual void wait_eth_core_training(const tt_xy_pair eth_core, const uint32_t timeout_ms = 60000) = 0;
 
-    void wait_dram_core_training(const uint32_t timeout_ms = 60000);
-
     void bar_write32(uint32_t addr, uint32_t data);
 
     uint32_t bar_read32(uint32_t addr);

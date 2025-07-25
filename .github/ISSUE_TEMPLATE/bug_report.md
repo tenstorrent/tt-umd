@@ -10,11 +10,11 @@ assignees: broskoTT
 **Describe the bug**
 A clear and concise description of what the bug is.
 
-** Stack trace **
+**Stack trace**
 Please paste the stack trace as this can speed up triaging.
 
-**To Reproduce**
+**To reproduce**
 Steps to reproduce the behavior.
 
 **Expected behavior**
-A clear and concise description of what you expected to happen.
+A clear and concise description of what you expect to happen.

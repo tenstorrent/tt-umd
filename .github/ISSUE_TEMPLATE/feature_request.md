@@ -7,11 +7,11 @@ assignees: broskoTT
 
 ---
 
-** Timeline **
+**Timeline**
 Is the feature tied to a deadline, or is there a timeline otherwise which would increase the impact of the feature?
 
 **Is your feature request related to a problem? Please describe.**
 A clear and concise description of what the problem is. Ex. I'm always frustrated when [...]
 
-**Describe the solution you'd like**
+**Proposed solution**
 A clear and concise description of what you want to happen.

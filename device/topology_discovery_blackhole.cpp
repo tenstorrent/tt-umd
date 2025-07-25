@@ -54,7 +54,7 @@ uint64_t TopologyDiscoveryBlackhole::get_asic_id(Chip* chip) {
 
     uint32_t channel = 0;
     for (const CoreCoord& eth_core : eth_cores) {
-        uint32_t port_status = read_port_status(chip, eth_core, channel);
+        uint32_t port_status = read_port_status(chip, eth_core);
 
         if (port_status == eth_unknown || port_status == eth_unconnected) {
             channel++;
@@ -121,8 +121,10 @@ uint64_t TopologyDiscoveryBlackhole::get_remote_asic_id(Chip* chip, tt_xy_pair e
 
 tt_xy_pair TopologyDiscoveryBlackhole::get_remote_eth_core(Chip* chip, tt_xy_pair local_eth_core) { return {0, 0}; }
 
-uint32_t TopologyDiscoveryBlackhole::read_port_status(Chip* chip, tt_xy_pair eth_core, uint32_t channel) {
+uint32_t TopologyDiscoveryBlackhole::read_port_status(Chip* chip, tt_xy_pair eth_core) {
     blackhole::boot_results_t boot_results;
+    uint32_t channel =
+        chip->get_soc_descriptor().translate_coord_to(eth_core, CoordSystem::NOC0, CoordSystem::LOGICAL).y;
     TTDevice* tt_device = chip->get_tt_device();
     tt_device->read_from_device(
         (uint8_t*)&boot_results,
@@ -165,14 +167,12 @@ uint64_t TopologyDiscoveryBlackhole::mangle_asic_id(uint64_t board_id, uint8_t a
     return ((board_id << 1) | (asic_location & 0x1));
 }
 
-bool TopologyDiscoveryBlackhole::is_eth_unconnected(
-    Chip* chip, const tt_xy_pair eth_core) {  // TODO(pjanevksi): Implement this function.
-    return true;
+bool TopologyDiscoveryBlackhole::is_eth_unconnected(Chip* chip, const tt_xy_pair eth_core) {
+    return read_port_status(chip, eth_core) == blackhole::port_status_e::PORT_UNUSED;
 }
 
-bool TopologyDiscoveryBlackhole::is_eth_unknown(
-    Chip* chip, const tt_xy_pair eth_core) {  // TODO(pjanevksi): Implement this function.
-    return true;
+bool TopologyDiscoveryBlackhole::is_eth_unknown(Chip* chip, const tt_xy_pair eth_core) {
+    return read_port_status(chip, eth_core) == blackhole::port_status_e::PORT_UNKNOWN;
 }
 
 }  // namespace tt::umd

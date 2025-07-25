@@ -62,10 +62,6 @@ void TopologyDiscovery::get_pcie_connected_chips() {
 }
 
 void TopologyDiscovery::discover_remote_chips() {
-    const uint32_t eth_unknown = 0;
-    const uint32_t eth_unconnected = 1;
-    const uint32_t rack_offset = 10;
-
     std::set<uint64_t> discovered_chips = {};
     // Needed to know which chip to use for remote communication.
     std::map<uint64_t, uint64_t> remote_asic_id_to_mmio_chip_id = {};
@@ -97,9 +93,9 @@ void TopologyDiscovery::discover_remote_chips() {
 
         uint32_t channel = 0;
         for (const CoreCoord& eth_core : eth_cores) {
-            uint32_t port_status = read_port_status(chip, eth_core, channel);
+            uint32_t port_status = read_port_status(chip, eth_core);
 
-            if (port_status == eth_unknown || port_status == eth_unconnected) {
+            if (is_eth_unknown(chip, eth_core) || is_eth_unconnected(chip, eth_core)) {
                 channel++;
                 continue;
             }

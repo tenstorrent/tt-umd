@@ -73,7 +73,7 @@ protected:
     virtual uint32_t get_remote_eth_channel(Chip* chip, tt_xy_pair local_eth_core) = 0;
 
     // eth_core should be in NoC 0 coordinates..
-    virtual uint32_t read_port_status(Chip* chip, tt_xy_pair eth_core, uint32_t channel) = 0;
+    virtual uint32_t read_port_status(Chip* chip, tt_xy_pair eth_core) = 0;
 
     virtual bool is_using_eth_coords() = 0;
 

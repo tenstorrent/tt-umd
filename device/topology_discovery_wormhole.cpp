@@ -124,7 +124,7 @@ uint64_t TopologyDiscoveryWormhole::get_asic_id(Chip* chip) {
 
     uint32_t channel = 0;
     for (const CoreCoord& eth_core : eth_cores) {
-        uint32_t port_status = read_port_status(chip, eth_core, channel);
+        uint32_t port_status = read_port_status(chip, eth_core);
 
         if (port_status == eth_unknown || port_status == eth_unconnected) {
             channel++;
@@ -184,8 +184,10 @@ tt_xy_pair TopologyDiscoveryWormhole::get_remote_eth_core(Chip* chip, tt_xy_pair
     return tt_xy_pair{(remote_id >> 4) & 0x3F, (remote_id >> 10) & 0x3F};
 }
 
-uint32_t TopologyDiscoveryWormhole::read_port_status(Chip* chip, tt_xy_pair eth_core, uint32_t channel) {
+uint32_t TopologyDiscoveryWormhole::read_port_status(Chip* chip, tt_xy_pair eth_core) {
     uint32_t port_status;
+    uint32_t channel =
+        chip->get_soc_descriptor().translate_coord_to(eth_core, CoordSystem::NOC0, CoordSystem::LOGICAL).y;
     TTDevice* tt_device = chip->get_tt_device();
     tt_device->read_from_device(&port_status, eth_core, eth_addresses.eth_conn_info + (channel * 4), sizeof(uint32_t));
     return port_status;

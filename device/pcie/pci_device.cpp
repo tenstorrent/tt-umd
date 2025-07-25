@@ -180,15 +180,14 @@ PCIDevice::PCIDevice(int pci_device_number) :
     kmd_version(PCIDevice::read_kmd_version()),
     iommu_enabled(detect_iommu(info)) {
     if (iommu_enabled && kmd_version < kmd_ver_for_iommu) {
+        TT_THROW("Running with IOMMU support requires KMD version {} or newer", kmd_ver_for_iommu.to_string());
+    }
+    if (iommu_enabled && kmd_version < kmd_ver_for_map_to_noc) {
         log_warning(
             LogSiliconDriver,
             "Running with IOMMU support prior to KMD version {} is of limited support.",
             kmd_ver_for_map_to_noc.to_string());
     }
-    if (iommu_enabled && PCIDevice::read_kmd_version() < kmd_ver_for_map_to_noc) {
-        TT_THROW("Running with IOMMU support requires KMD version {} or newer", kmd_ver_for_iommu.to_string());
-    }
-
     tenstorrent_get_driver_info driver_info{};
     driver_info.in.output_size_bytes = sizeof(driver_info.out);
     if (ioctl(pci_device_file_desc, TENSTORRENT_IOCTL_GET_DRIVER_INFO, &driver_info) == -1) {

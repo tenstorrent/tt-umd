@@ -9,7 +9,7 @@
 
 using namespace tt::umd;
 
-const uint32_t HUGEPAGE_REGION_SIZE = 1 << 30;  // 1GB
+const uint32_t HUGEPAGE_REGION_SIZE = 1ULL << 30;  // 1GB
 
 TEST(ApiSysmemManager, BasicIO) {
     std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();

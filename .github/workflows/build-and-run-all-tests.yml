@@ -32,7 +32,7 @@ jobs:
     with:
       ubuntu-docker-version: ${{ matrix.ubuntu-docker-version}}
       timeout: 15
-      build-type: ${{ inputs.build-type || 'Release' }}
+      build-type: ${{ inputs.build-type || 'Debug' }}
 
   test-all:
     secrets: inherit

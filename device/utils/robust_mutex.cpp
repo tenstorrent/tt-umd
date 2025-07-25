@@ -19,12 +19,12 @@
 #include <stdexcept>
 #include <tt-logger/tt-logger.hpp>
 
+namespace tt::umd {
+
 static constexpr int ALL_RW_PERMISSION = 0666;
 static constexpr std::string_view UMD_LOCK_PREFIX = "TT_UMD_LOCK.";
 // Any value which is unlikely to be found at random in the memory.
 static constexpr uint64_t INITIALIZED_FLAG = 0x5454554d444d5458;  // TTUMDMTX
-
-using namespace tt::umd;
 
 // A small helper class which will ensure that the critical section is released in a RAII manner.
 // flock ensures only multiprocess locking, but does not guarantee
@@ -290,3 +290,5 @@ void RobustMutex::lock() {
             fmt::format("pthread_mutex_lock failed for mutex {} errno: {}", mutex_name_, std::to_string(lock_res)));
     }
 }
+
+}  // namespace tt::umd

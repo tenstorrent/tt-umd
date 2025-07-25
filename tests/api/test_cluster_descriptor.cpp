@@ -14,8 +14,18 @@
 
 using namespace tt::umd;
 
+int count_connections(const std::unordered_map<
+                      chip_id_t,
+                      std::unordered_map<ethernet_channel_t, std::tuple<chip_id_t, ethernet_channel_t>>>& connections) {
+    size_t count = 0;
+    for (const auto& [_, channels] : connections) {
+        count += channels.size();
+    }
+    return count;
+}
+
 TEST(ApiClusterDescriptorTest, DetectArch) {
-    std::unique_ptr<tt_ClusterDescriptor> cluster_desc = tt::umd::Cluster::create_cluster_descriptor();
+    std::unique_ptr<tt_ClusterDescriptor> cluster_desc = Cluster::create_cluster_descriptor();
 
     if (cluster_desc->get_number_of_chips() == 0) {
         // Expect it to be invalid if no devices are found.
@@ -47,25 +57,27 @@ TEST(ApiClusterDescriptorTest, DetectArch) {
 }
 
 TEST(ApiClusterDescriptorTest, BasicFunctionality) {
-    std::unique_ptr<tt_ClusterDescriptor> cluster_desc = tt::umd::Cluster::create_cluster_descriptor();
+    std::unique_ptr<tt_ClusterDescriptor> cluster_desc = Cluster::create_cluster_descriptor();
 
     if (cluster_desc == nullptr) {
         GTEST_SKIP() << "No chips present on the system. Skipping test.";
     }
 
     std::unordered_set<chip_id_t> all_chips = cluster_desc->get_all_chips();
-    std::unordered_map<chip_id_t, std::uint32_t> harvesting_for_chips = cluster_desc->get_harvesting_info();
     std::unordered_map<chip_id_t, eth_coord_t> eth_chip_coords = cluster_desc->get_chip_locations();
     std::unordered_map<chip_id_t, chip_id_t> local_chips_to_pci_device_id = cluster_desc->get_chips_with_mmio();
     std::unordered_set<chip_id_t> local_chips;
-    for (auto [chip, _] : local_chips_to_pci_device_id) {
-        local_chips.insert(chip);
-    }
     std::unordered_set<chip_id_t> remote_chips;
-    for (auto chip : all_chips) {
-        if (local_chips.find(chip) == local_chips.end()) {
-            remote_chips.insert(chip);
+
+    for (auto chip_id : all_chips) {
+        if (cluster_desc->is_chip_mmio_capable(chip_id)) {
+            local_chips.insert(chip_id);
         }
+        if (cluster_desc->is_chip_remote(chip_id)) {
+            remote_chips.insert(chip_id);
+        }
+
+        auto harvesting_masks = cluster_desc->get_harvesting_masks(chip_id);
     }
 
     std::unordered_map<chip_id_t, std::unordered_set<chip_id_t>> chips_grouped_by_closest_mmio =
@@ -90,19 +102,7 @@ TEST(ApiClusterDescriptorTest, TestAllOfflineClusterDescriptors) {
             test_utils::GetAbsPath("tests/api/cluster_descriptor_examples/" + cluster_desc_yaml));
 
         std::unordered_set<chip_id_t> all_chips = cluster_desc->get_all_chips();
-        std::unordered_map<chip_id_t, std::uint32_t> harvesting_for_chips = cluster_desc->get_harvesting_info();
         std::unordered_map<chip_id_t, eth_coord_t> eth_chip_coords = cluster_desc->get_chip_locations();
-        std::unordered_map<chip_id_t, chip_id_t> local_chips_to_pci_device_id = cluster_desc->get_chips_with_mmio();
-        std::unordered_set<chip_id_t> local_chips;
-        for (auto [chip, _] : local_chips_to_pci_device_id) {
-            local_chips.insert(chip);
-        }
-        std::unordered_set<chip_id_t> remote_chips;
-        for (auto chip : all_chips) {
-            if (local_chips.find(chip) == local_chips.end()) {
-                remote_chips.insert(chip);
-            }
-        }
 
         std::unordered_map<chip_id_t, std::unordered_set<chip_id_t>> chips_grouped_by_closest_mmio =
             cluster_desc->get_chips_grouped_by_closest_mmio();
@@ -149,7 +149,7 @@ TEST(ApiClusterDescriptorTest, SeparateClusters) {
 }
 
 TEST(ApiClusterDescriptorTest, EthernetConnectivity) {
-    std::unique_ptr<tt_ClusterDescriptor> cluster_desc = tt::umd::Cluster::create_cluster_descriptor();
+    std::unique_ptr<tt_ClusterDescriptor> cluster_desc = Cluster::create_cluster_descriptor();
 
     if (cluster_desc == nullptr) {
         GTEST_SKIP() << "No chips present on the system. Skipping test.";
@@ -172,8 +172,7 @@ TEST(ApiClusterDescriptorTest, EthernetConnectivity) {
     for (auto chip : cluster_desc->get_all_chips()) {
         // Wormhole has 16 and Blackhole has 14 ethernet channels.
         for (int eth_chan = 0;
-             eth_chan <
-             tt::umd::architecture_implementation::create(cluster_desc->get_arch(chip))->get_num_eth_channels();
+             eth_chan < architecture_implementation::create(cluster_desc->get_arch(chip))->get_num_eth_channels();
              eth_chan++) {
             bool has_active_link = cluster_desc->ethernet_core_has_active_ethernet_link(chip, eth_chan);
             std::cout << "Chip " << chip << " channel " << eth_chan << " has active link: " << has_active_link
@@ -214,7 +213,7 @@ TEST(ApiClusterDescriptorTest, PrintClusterDescriptor) {
     // In case of u6 galaxy and blackhole, we generate the cluster descriptor.
     // For wormhole we still use create-ethernet-map.
     std::filesystem::path cluster_path;
-    cluster_path = tt::umd::Cluster::create_cluster_descriptor()->serialize_to_file();
+    cluster_path = Cluster::create_cluster_descriptor()->serialize_to_file();
 
     std::cout << "Cluster descriptor file path: " << cluster_path << std::endl;
     std::cout << "Contents:" << std::endl;
@@ -229,18 +228,6 @@ TEST(ApiClusterDescriptorTest, PrintClusterDescriptor) {
 TEST(ApiClusterDescriptorTest, ConstrainedTopology) {
     std::unique_ptr<tt_ClusterDescriptor> cluster_desc = tt_ClusterDescriptor::create_from_yaml(
         test_utils::GetAbsPath("tests/api/cluster_descriptor_examples/wormhole_4xN300_mesh.yaml"));
-
-    // Lambda which counts number of items in the ethernet connections map.
-    auto count_connections =
-        [](const std::unordered_map<
-            chip_id_t,
-            std::unordered_map<ethernet_channel_t, std::tuple<chip_id_t, ethernet_channel_t>>>& connections) {
-            size_t count = 0;
-            for (const auto& [_, channels] : connections) {
-                count += channels.size();
-            }
-            return count;
-        };
 
     // Lambda which counts of unique chip links.
     auto count_unique_chip_connections =
@@ -315,7 +302,7 @@ TEST(ApiClusterDescriptorTest, ConstrainedTopology) {
 }
 
 TEST(ApiClusterDescriptorTest, VerifyEthConnections) {
-    std::unique_ptr<tt_ClusterDescriptor> cluster_desc = tt::umd::Cluster::create_cluster_descriptor();
+    std::unique_ptr<tt_ClusterDescriptor> cluster_desc = Cluster::create_cluster_descriptor();
 
     std::unordered_map<chip_id_t, std::unordered_map<ethernet_channel_t, std::tuple<chip_id_t, ethernet_channel_t>>>
         eth_connections = cluster_desc->get_ethernet_connections();
@@ -329,6 +316,116 @@ TEST(ApiClusterDescriptorTest, VerifyEthConnections) {
             ASSERT_TRUE(eth_connections.at(remote_chip).find(remote_channel) != eth_connections.at(remote_chip).end())
                 << "Remote channel " << remote_channel << " not found in ethernet connections for remote chip "
                 << remote_chip;
+        }
+    }
+}
+
+/**
+ * This test is used to verify that we are running on some well known topologies.
+ * Since UMD can be run in custom topologies, this is mostly used for CI, to try and verify
+ * that we don't have problems on standard topologies. However, bugs could lead to T3K being recognizible as
+ * single N300 or something similar, but this should raise our confidence of standard topologies working as
+ * expected.
+ */
+TEST(ApiClusterDescriptorTest, VerifyStandardTopology) {
+    std::unique_ptr<tt_ClusterDescriptor> cluster_desc = tt::umd::Cluster::create_cluster_descriptor();
+
+    auto all_chips = cluster_desc->get_all_chips();
+
+    if (all_chips.size() == 0) {
+        GTEST_SKIP() << "No chips present on the system. Skipping test.";
+    }
+
+    switch (all_chips.size()) {
+        // This covers N150, P100, P150.
+        case 1: {
+            auto chips_with_mmio = cluster_desc->get_chips_with_mmio();
+            EXPECT_EQ(chips_with_mmio.size(), 1);
+
+            auto eth_connections = cluster_desc->get_ethernet_connections();
+            EXPECT_EQ(count_connections(eth_connections), 0);
+
+            for (auto chip : all_chips) {
+                BoardType board_type = cluster_desc->get_board_type(chip);
+                EXPECT_TRUE(
+                    board_type == BoardType::N150 || board_type == BoardType::P100 || board_type == BoardType::P150)
+                    << "Unexpected board type for chip " << chip << ": " << static_cast<int>(board_type);
+            }
+            break;
+        }
+
+        // This covers N300, P300.
+        case 2: {
+            auto chips_with_mmio = cluster_desc->get_chips_with_mmio();
+            EXPECT_EQ(chips_with_mmio.size(), 1);
+
+            auto eth_connections = cluster_desc->get_ethernet_connections();
+            EXPECT_EQ(count_connections(eth_connections), 4);
+
+            for (auto chip : all_chips) {
+                BoardType board_type = cluster_desc->get_board_type(chip);
+                EXPECT_TRUE(board_type == BoardType::N300 || board_type == BoardType::P300)
+                    << "Unexpected board type for chip " << chip << ": " << static_cast<int>(board_type);
+            }
+            break;
+        }
+
+        // This covers T3K.
+        case 8: {
+            auto chips_with_mmio = cluster_desc->get_chips_with_mmio();
+            EXPECT_EQ(chips_with_mmio.size(), 4);
+
+            auto eth_connections = cluster_desc->get_ethernet_connections();
+            EXPECT_EQ(count_connections(eth_connections), 40);
+
+            for (auto chip : all_chips) {
+                BoardType board_type = cluster_desc->get_board_type(chip);
+                EXPECT_TRUE(board_type == BoardType::N300)
+                    << "Unexpected board type for chip " << chip << ": " << static_cast<int>(board_type);
+            }
+            break;
+        }
+
+        // This covers 6U galaxy.
+        case 32: {
+            auto chips_with_mmio = cluster_desc->get_chips_with_mmio();
+            EXPECT_EQ(chips_with_mmio.size(), 32);
+
+            auto eth_connections = cluster_desc->get_ethernet_connections();
+            EXPECT_EQ(count_connections(eth_connections), 512);
+
+            for (auto chip : all_chips) {
+                BoardType board_type = cluster_desc->get_board_type(chip);
+                EXPECT_TRUE(board_type == BoardType::UBB)
+                    << "Unexpected board type for chip " << chip << ": " << static_cast<int>(board_type);
+            }
+            break;
+        }
+
+        // This covers 4U galaxy.
+        case 36: {
+            auto chips_with_mmio = cluster_desc->get_chips_with_mmio();
+            EXPECT_EQ(chips_with_mmio.size(), 4);
+
+            auto eth_connections = cluster_desc->get_ethernet_connections();
+            EXPECT_EQ(count_connections(eth_connections), 432);
+
+            size_t count_n150 = 0;
+            for (auto chip : all_chips) {
+                BoardType board_type = cluster_desc->get_board_type(chip);
+                EXPECT_TRUE(board_type == BoardType::N150 || board_type == BoardType::GALAXY)
+                    << "Unexpected board type for chip " << chip << ": " << static_cast<int>(board_type);
+                if (board_type == BoardType::N150) {
+                    count_n150++;
+                }
+            }
+            EXPECT_EQ(count_n150, 4) << "Expected 4 N150 chips in 4U galaxy, found " << count_n150;
+            break;
+        }
+
+        default: {
+            throw std::runtime_error(
+                "Unexpected number of chips in the cluster descriptor: " + std::to_string(all_chips.size()));
         }
     }
 }

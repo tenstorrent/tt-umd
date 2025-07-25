@@ -17,6 +17,8 @@
 
 #include "assert.hpp"
 
+namespace tt::umd {
+
 tt_SimulationHost::tt_SimulationHost() {
     // Initialize socket and dialer
     host_socket = std::make_unique<nng_socket>();
@@ -87,3 +89,5 @@ size_t tt_SimulationHost::recv_from_device(void **data_ptr) {
     }
     return data_size;
 }
+
+}  // namespace tt::umd

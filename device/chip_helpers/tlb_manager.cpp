@@ -85,7 +85,7 @@ bool TLBManager::is_tlb_mapped(tt_xy_pair core, uint64_t address, uint32_t size_
     return address_in_tlb_space(address, size_in_bytes, tlb_index, tlb_description.size);
 }
 
-tt::Writer TLBManager::get_static_tlb_writer(tt_xy_pair core) {
+Writer TLBManager::get_static_tlb_writer(tt_xy_pair core) {
     if (!is_tlb_mapped(core)) {
         throw std::runtime_error(fmt::format("TLBs not initialized for core: {}", core.str()));
     }
@@ -99,7 +99,7 @@ tt::Writer TLBManager::get_static_tlb_writer(tt_xy_pair core) {
 
     auto* base = reinterpret_cast<uint8_t*>(tt_device_->get_pci_device()->bar0_wc);
 
-    return tt::Writer(base + tlb_data.tlb_offset, tlb_data.size);
+    return Writer(base + tlb_data.tlb_offset, tlb_data.size);
 }
 
 tlb_configuration TLBManager::get_tlb_configuration(tt_xy_pair core) {

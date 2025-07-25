@@ -24,6 +24,8 @@
 #include "ioctl.h"
 #include "umd/device/types/arch.h"
 
+namespace tt::umd {
+
 static const uint16_t GS_PCIE_DEVICE_ID = 0xfaca;
 static const uint16_t WH_PCIE_DEVICE_ID = 0x401e;
 static const uint16_t BH_PCIE_DEVICE_ID = 0xb140;
@@ -37,9 +39,6 @@ static const uint32_t GS_BAR0_WC_MAPPING_SIZE = (156 << 20) + (10 << 21) + (18 <
 
 // Defines the address for WC region. addresses 0 to BH_BAR0_WC_MAPPING_SIZE are in WC, above that are UC
 static const uint32_t BH_BAR0_WC_MAPPING_SIZE = 188 << 21;
-
-using namespace tt;
-using namespace tt::umd;
 
 template <typename T>
 static std::optional<T> try_read_sysfs(const PciDeviceInfo &device_info, const std::string &attribute_name) {
@@ -189,7 +188,7 @@ PCIDevice::PCIDevice(int pci_device_number) :
         TT_THROW("TENSTORRENT_IOCTL_GET_DRIVER_INFO failed");
     }
 
-    log_info(
+    log_debug(
         LogSiliconDriver,
         "Opened PCI device {}; KMD version: {}; API: {}; IOMMU: {}",
         pci_device_num,
@@ -536,3 +535,5 @@ semver_t PCIDevice::read_kmd_version() {
 std::unique_ptr<TlbHandle> PCIDevice::allocate_tlb(const size_t tlb_size, const TlbMapping tlb_mapping) {
     return std::make_unique<TlbHandle>(pci_device_file_desc, tlb_size, tlb_mapping);
 }
+
+}  // namespace tt::umd

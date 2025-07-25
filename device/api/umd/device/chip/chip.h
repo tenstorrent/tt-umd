@@ -113,6 +113,8 @@ protected:
 
     uint32_t get_power_state_arc_msg(tt_DevicePowerState state);
 
+    void wait_for_aiclk_value(TTDevice* tt_device, tt_DevicePowerState power_state, const uint32_t timeout_ms = 5000);
+
     ChipInfo chip_info_;
 
     tt_SocDescriptor soc_descriptor_;

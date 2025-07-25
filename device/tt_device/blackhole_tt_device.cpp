@@ -9,13 +9,16 @@
 
 #include "umd/device/blackhole_implementation.h"
 #include "umd/device/coordinate_manager.h"
+#include "umd/device/types/blackhole_arc.h"
 #include "umd/device/types/blackhole_eth.h"
 #include "umd/device/types/blackhole_telemetry.h"
+#include "umd/device/types/cluster_descriptor_types.h"
 
 namespace tt::umd {
 
 BlackholeTTDevice::BlackholeTTDevice(std::shared_ptr<PCIDevice> pci_device) :
     TTDevice(pci_device, std::make_unique<blackhole_implementation>()) {
+    arc_core = tt::umd::blackhole::get_arc_core(get_noc_translation_enabled(), umd_use_noc1);
     init_tt_device();
 }
 
@@ -157,7 +160,7 @@ void BlackholeTTDevice::wait_arc_core_start(const tt_xy_pair arc_core, const uin
     auto start = std::chrono::system_clock::now();
     uint32_t arc_boot_status;
     while (true) {
-        read_from_device(&arc_boot_status, arc_core, tt::umd::blackhole::SCRATCH_RAM_2, sizeof(arc_boot_status));
+        read_from_arc(&arc_boot_status, blackhole::SCRATCH_RAM_2, sizeof(arc_boot_status));
 
         // ARC started successfully.
         if ((arc_boot_status & 0x7) == 0x5) {
@@ -187,9 +190,9 @@ uint32_t BlackholeTTDevice::get_clock() {
 
 // TODO: figure out if Blackhole has the information on maximum possible
 // clock frequency. For now, we are using the maximum possible value.
-uint32_t BlackholeTTDevice::get_max_clock_freq() { return tt::umd::blackhole::AICLK_BUSY_VAL; }
+uint32_t BlackholeTTDevice::get_max_clock_freq() { return blackhole::AICLK_BUSY_VAL; }
 
-uint32_t BlackholeTTDevice::get_min_clock_freq() { return tt::umd::blackhole::AICLK_IDLE_VAL; }
+uint32_t BlackholeTTDevice::get_min_clock_freq() { return blackhole::AICLK_IDLE_VAL; }
 
 uint64_t BlackholeTTDevice::get_board_id() {
     return ((uint64_t)telemetry->read_entry(blackhole::TAG_BOARD_ID_HIGH) << 32) |
@@ -212,12 +215,20 @@ void BlackholeTTDevice::dma_d2h_zero_copy(void *dst, uint32_t src, size_t size) 
     throw std::runtime_error("D2H DMA is not supported on Blackhole.");
 }
 
+void BlackholeTTDevice::read_from_arc(void *mem_ptr, uint64_t arc_addr_offset, size_t size) {
+    read_from_device(mem_ptr, arc_core, get_arc_noc_base_address() + arc_addr_offset, size);
+};
+
+void BlackholeTTDevice::write_to_arc(const void *mem_ptr, uint64_t arc_addr_offset, size_t size) {
+    write_to_device(mem_ptr, arc_core, get_arc_noc_base_address() + arc_addr_offset, size);
+};
+
 std::vector<DramTrainingStatus> BlackholeTTDevice::get_dram_training_status() {
-    if (!telemetry->is_entry_available(tt::umd::blackhole::TAG_DDR_STATUS)) {
+    if (!telemetry->is_entry_available(blackhole::TAG_DDR_STATUS)) {
         return {};
     }
 
-    uint32_t telemetry_data = telemetry->read_entry(tt::umd::blackhole::TAG_DDR_STATUS);
+    uint32_t telemetry_data = telemetry->read_entry(blackhole::TAG_DDR_STATUS);
     std::vector<DramTrainingStatus> dram_training_status;
     const uint32_t num_dram_channels = blackhole::NUM_DRAM_BANKS;
     // Format of the dram training status is as follows:
@@ -264,5 +275,14 @@ void BlackholeTTDevice::wait_eth_core_training(const tt_xy_pair eth_core, const 
         }
     }
 }
+
+double BlackholeTTDevice::get_asic_temperature() {
+    // Data stored in telemetry has temperature of ASIC stored in a way that high 16 bits
+    // have integer part and lower 16 bits have fractional part.
+    // It needs to be divided by 65536 to get temperature in Celsius.
+    return (double)telemetry->read_entry(blackhole::TAG_ASIC_TEMPERATURE) / 65536.0f;
+}
+
+uint64_t BlackholeTTDevice::get_arc_noc_base_address() const { return blackhole::ARC_NOC_XBAR_ADDRESS_START; }
 
 }  // namespace tt::umd

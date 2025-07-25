@@ -119,10 +119,10 @@ uint64_t blackhole_implementation::get_noc_reg_base(
 namespace blackhole {
 tt_xy_pair get_arc_core(const bool noc_translation_enabled, const bool umd_use_noc1) {
     return (noc_translation_enabled || !umd_use_noc1)
-               ? tt::umd::blackhole::ARC_CORES_NOC0[0]
+               ? blackhole::ARC_CORES_NOC0[0]
                : tt_xy_pair(
-                     tt::umd::blackhole::NOC0_X_TO_NOC1_X[tt::umd::blackhole::ARC_CORES_NOC0[0].x],
-                     tt::umd::blackhole::NOC0_Y_TO_NOC1_Y[tt::umd::blackhole::ARC_CORES_NOC0[0].y]);
+                     blackhole::NOC0_X_TO_NOC1_X[blackhole::ARC_CORES_NOC0[0].x],
+                     blackhole::NOC0_Y_TO_NOC1_Y[blackhole::ARC_CORES_NOC0[0].y]);
 }
 }  // namespace blackhole
 

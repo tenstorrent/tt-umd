@@ -9,8 +9,10 @@
 #include "umd/device/tt_device/blackhole_tt_device.h"
 
 namespace tt::umd {
+
 class RemoteBlackholeTTDevice : public BlackholeTTDevice {
 public:
     RemoteBlackholeTTDevice();
 };
+
 }  // namespace tt::umd

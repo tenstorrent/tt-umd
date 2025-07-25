@@ -22,7 +22,7 @@
 
 // #include "l1_address_map.h"
 
-using namespace tt::umd;
+namespace tt::umd {
 
 std::string format_node(tt_xy_pair xy) { return fmt::format("{}-{}", xy.x, xy.y); }
 
@@ -71,7 +71,7 @@ tt_xy_pair tt_SocDescriptor::calculate_grid_size(const std::vector<tt_xy_pair> &
     return {x.size(), y.size()};
 }
 
-void tt_SocDescriptor::write_coords(void *out, const tt::umd::CoreCoord &core) const {
+void tt_SocDescriptor::write_coords(void *out, const CoreCoord &core) const {
     YAML::Emitter *emitter = static_cast<YAML::Emitter *>(out);
 
     if (core.x < grid_size.x && core.y < grid_size.y) {
@@ -86,8 +86,7 @@ void tt_SocDescriptor::write_core_locations(void *out, const CoreType &core_type
     }
 }
 
-void tt_SocDescriptor::serialize_dram_cores(
-    void *out, const std::vector<std::vector<tt::umd::CoreCoord>> &cores) const {
+void tt_SocDescriptor::serialize_dram_cores(void *out, const std::vector<std::vector<CoreCoord>> &cores) const {
     YAML::Emitter *emitter = static_cast<YAML::Emitter *>(out);
 
     for (const auto &dram_cores : cores) {
@@ -171,16 +170,15 @@ void tt_SocDescriptor::create_coordinate_manager(const BoardType board_type, con
     get_cores_and_grid_size_from_coordinate_manager();
 }
 
-tt::umd::CoreCoord tt_SocDescriptor::translate_coord_to(
-    const tt::umd::CoreCoord core_coord, const CoordSystem coord_system) const {
+CoreCoord tt_SocDescriptor::translate_coord_to(const CoreCoord core_coord, const CoordSystem coord_system) const {
     return coordinate_manager->translate_coord_to(core_coord, coord_system);
 }
 
-tt::umd::CoreCoord tt_SocDescriptor::get_coord_at(const tt_xy_pair core, const CoordSystem coord_system) const {
+CoreCoord tt_SocDescriptor::get_coord_at(const tt_xy_pair core, const CoordSystem coord_system) const {
     return coordinate_manager->get_coord_at(core, coord_system);
 }
 
-tt::umd::CoreCoord tt_SocDescriptor::translate_coord_to(
+CoreCoord tt_SocDescriptor::translate_coord_to(
     const tt_xy_pair core_location, const CoordSystem input_coord_system, const CoordSystem target_coord_system) const {
     return coordinate_manager->translate_coord_to(core_location, input_coord_system, target_coord_system);
 }
@@ -290,39 +288,39 @@ SocDescriptorInfo tt_SocDescriptor::get_soc_descriptor_info(tt::ARCH arch) {
         case tt::ARCH::WORMHOLE_B0: {
             return SocDescriptorInfo{
                 .arch = tt::ARCH::WORMHOLE_B0,
-                .grid_size = tt::umd::wormhole::GRID_SIZE,
-                .tensix_cores = tt::umd::wormhole::TENSIX_CORES_NOC0,
-                .dram_cores = tt::umd::wormhole::DRAM_CORES_NOC0,
-                .eth_cores = tt::umd::wormhole::ETH_CORES_NOC0,
-                .arc_cores = tt::umd::wormhole::ARC_CORES_NOC0,
-                .pcie_cores = tt::umd::wormhole::PCIE_CORES_NOC0,
-                .router_cores = tt::umd::wormhole::ROUTER_CORES_NOC0,
-                .security_cores = tt::umd::wormhole::SECURITY_CORES_NOC0,
-                .l2cpu_cores = tt::umd::wormhole::L2CPU_CORES_NOC0,
-                .worker_l1_size = tt::umd::wormhole::TENSIX_L1_SIZE,
-                .eth_l1_size = tt::umd::wormhole::ETH_L1_SIZE,
-                .dram_bank_size = tt::umd::wormhole::DRAM_BANK_SIZE,
-                .noc0_x_to_noc1_x = tt::umd::wormhole::NOC0_X_TO_NOC1_X,
-                .noc0_y_to_noc1_y = tt::umd::wormhole::NOC0_Y_TO_NOC1_Y};
+                .grid_size = wormhole::GRID_SIZE,
+                .tensix_cores = wormhole::TENSIX_CORES_NOC0,
+                .dram_cores = wormhole::DRAM_CORES_NOC0,
+                .eth_cores = wormhole::ETH_CORES_NOC0,
+                .arc_cores = wormhole::ARC_CORES_NOC0,
+                .pcie_cores = wormhole::PCIE_CORES_NOC0,
+                .router_cores = wormhole::ROUTER_CORES_NOC0,
+                .security_cores = wormhole::SECURITY_CORES_NOC0,
+                .l2cpu_cores = wormhole::L2CPU_CORES_NOC0,
+                .worker_l1_size = wormhole::TENSIX_L1_SIZE,
+                .eth_l1_size = wormhole::ETH_L1_SIZE,
+                .dram_bank_size = wormhole::DRAM_BANK_SIZE,
+                .noc0_x_to_noc1_x = wormhole::NOC0_X_TO_NOC1_X,
+                .noc0_y_to_noc1_y = wormhole::NOC0_Y_TO_NOC1_Y};
             break;
         }
         case tt::ARCH::BLACKHOLE: {
             return SocDescriptorInfo{
                 .arch = tt::ARCH::BLACKHOLE,
-                .grid_size = tt::umd::blackhole::GRID_SIZE,
-                .tensix_cores = tt::umd::blackhole::TENSIX_CORES_NOC0,
-                .dram_cores = tt::umd::blackhole::DRAM_CORES_NOC0,
-                .eth_cores = tt::umd::blackhole::ETH_CORES_NOC0,
-                .arc_cores = tt::umd::blackhole::ARC_CORES_NOC0,
-                .pcie_cores = tt::umd::blackhole::PCIE_CORES_NOC0,
-                .router_cores = tt::umd::blackhole::ROUTER_CORES_NOC0,
-                .security_cores = tt::umd::blackhole::SECURITY_CORES_NOC0,
-                .l2cpu_cores = tt::umd::blackhole::L2CPU_CORES_NOC0,
-                .worker_l1_size = tt::umd::blackhole::TENSIX_L1_SIZE,
-                .eth_l1_size = tt::umd::blackhole::ETH_L1_SIZE,
-                .dram_bank_size = tt::umd::blackhole::DRAM_BANK_SIZE,
-                .noc0_x_to_noc1_x = tt::umd::blackhole::NOC0_X_TO_NOC1_X,
-                .noc0_y_to_noc1_y = tt::umd::blackhole::NOC0_Y_TO_NOC1_Y};
+                .grid_size = blackhole::GRID_SIZE,
+                .tensix_cores = blackhole::TENSIX_CORES_NOC0,
+                .dram_cores = blackhole::DRAM_CORES_NOC0,
+                .eth_cores = blackhole::ETH_CORES_NOC0,
+                .arc_cores = blackhole::ARC_CORES_NOC0,
+                .pcie_cores = blackhole::PCIE_CORES_NOC0,
+                .router_cores = blackhole::ROUTER_CORES_NOC0,
+                .security_cores = blackhole::SECURITY_CORES_NOC0,
+                .l2cpu_cores = blackhole::L2CPU_CORES_NOC0,
+                .worker_l1_size = blackhole::TENSIX_L1_SIZE,
+                .eth_l1_size = blackhole::ETH_L1_SIZE,
+                .dram_bank_size = blackhole::DRAM_BANK_SIZE,
+                .noc0_x_to_noc1_x = blackhole::NOC0_X_TO_NOC1_X,
+                .noc0_y_to_noc1_y = blackhole::NOC0_Y_TO_NOC1_Y};
             break;
         }
         default:
@@ -632,37 +630,36 @@ void tt_SocDescriptor::get_cores_and_grid_size_from_coordinate_manager() {
 }
 
 std::vector<CoreCoord> tt_SocDescriptor::translate_coordinates(
-    const std::vector<CoreCoord> &physical_cores, const CoordSystem coord_system) const {
+    const std::vector<CoreCoord> &noc0_cores, const CoordSystem coord_system) const {
     std::vector<CoreCoord> translated_cores;
-    for (const auto &core : physical_cores) {
+    for (const auto &core : noc0_cores) {
         translated_cores.push_back(translate_coord_to(core, coord_system));
     }
     return translated_cores;
 }
 
-std::vector<tt::umd::CoreCoord> tt_SocDescriptor::get_cores(
-    const CoreType core_type, const CoordSystem coord_system) const {
+std::vector<CoreCoord> tt_SocDescriptor::get_cores(const CoreType core_type, const CoordSystem coord_system) const {
     auto cores_map_it = cores_map.find(core_type);
-    if (coord_system != CoordSystem::PHYSICAL) {
+    if (coord_system != CoordSystem::NOC0) {
         return translate_coordinates(cores_map_it->second, coord_system);
     }
     return cores_map_it->second;
 }
 
-std::vector<tt::umd::CoreCoord> tt_SocDescriptor::get_harvested_cores(
+std::vector<CoreCoord> tt_SocDescriptor::get_harvested_cores(
     const CoreType core_type, const CoordSystem coord_system) const {
     if (coord_system == CoordSystem::LOGICAL) {
         throw std::runtime_error("Harvested cores are not supported for logical coordinates");
     }
     auto harvested_cores_map_it = harvested_cores_map.find(core_type);
-    if (coord_system != CoordSystem::PHYSICAL) {
+    if (coord_system != CoordSystem::NOC0) {
         return translate_coordinates(harvested_cores_map_it->second, coord_system);
     }
     return harvested_cores_map_it->second;
 }
 
-std::vector<tt::umd::CoreCoord> tt_SocDescriptor::get_all_cores(const CoordSystem coord_system) const {
-    std::vector<tt::umd::CoreCoord> all_cores;
+std::vector<CoreCoord> tt_SocDescriptor::get_all_cores(const CoordSystem coord_system) const {
+    std::vector<CoreCoord> all_cores;
     for (const auto &core_type :
          {CoreType::TENSIX,
           CoreType::DRAM,
@@ -678,8 +675,8 @@ std::vector<tt::umd::CoreCoord> tt_SocDescriptor::get_all_cores(const CoordSyste
     return all_cores;
 }
 
-std::vector<tt::umd::CoreCoord> tt_SocDescriptor::get_all_harvested_cores(const CoordSystem coord_system) const {
-    std::vector<tt::umd::CoreCoord> all_harvested_cores;
+std::vector<CoreCoord> tt_SocDescriptor::get_all_harvested_cores(const CoordSystem coord_system) const {
+    std::vector<CoreCoord> all_harvested_cores;
     for (const auto &core_type :
          {CoreType::TENSIX,
           CoreType::DRAM,
@@ -712,3 +709,5 @@ uint32_t tt_SocDescriptor::get_num_eth_channels() const { return coordinate_mana
 uint32_t tt_SocDescriptor::get_num_harvested_eth_channels() const {
     return coordinate_manager->get_num_harvested_eth_channels();
 }
+
+}  // namespace tt::umd

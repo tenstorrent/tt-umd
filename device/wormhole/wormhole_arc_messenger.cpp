@@ -25,11 +25,10 @@ uint32_t WormholeArcMessenger::send_message(
 
     TT_ASSERT(arg0 <= 0xffff and arg1 <= 0xffff, "Only 16 bits allowed in arc_msg args");
 
-    const tt_xy_pair arc_core = umd_use_noc1
-                                    ? tt_xy_pair(
-                                          tt::umd::wormhole::NOC0_X_TO_NOC1_X[tt::umd::wormhole::ARC_CORES_NOC0[0].x],
-                                          tt::umd::wormhole::NOC0_Y_TO_NOC1_Y[tt::umd::wormhole::ARC_CORES_NOC0[0].y])
-                                    : tt::umd::wormhole::ARC_CORES_NOC0[0];
+    const tt_xy_pair arc_core = umd_use_noc1 ? tt_xy_pair(
+                                                   wormhole::NOC0_X_TO_NOC1_X[wormhole::ARC_CORES_NOC0[0].x],
+                                                   wormhole::NOC0_Y_TO_NOC1_Y[wormhole::ARC_CORES_NOC0[0].y])
+                                             : wormhole::ARC_CORES_NOC0[0];
 
     // TODO: Once local and remote ttdevice is properly separated, reenable this code.
     // TODO2: Once we have unique chip ids other than PCI dev number, use that for both local and remote chips for
@@ -50,27 +49,20 @@ uint32_t WormholeArcMessenger::send_message(
     uint32_t fw_arg = arg0 | (arg1 << 16);
     int exit_code = 0;
 
-    tt_device->write_to_device(
-        &fw_arg,
-        arc_core,
-        wormhole::ARC_RESET_SCRATCH_ADDR + wormhole::ARC_SCRATCH_RES0_OFFSET * sizeof(uint32_t),
-        sizeof(uint32_t));
-    tt_device->write_to_device(
-        &msg_code,
-        arc_core,
-        wormhole::ARC_RESET_SCRATCH_ADDR + wormhole::ARC_SCRATCH_STATUS_OFFSET * sizeof(uint32_t),
-        sizeof(uint32_t));
+    tt_device->write_to_arc(&fw_arg, wormhole::ARC_RESET_SCRATCH_RES0_OFFSET, sizeof(uint32_t));
+    tt_device->write_to_arc(&msg_code, wormhole::ARC_RESET_SCRATCH_STATUS_OFFSET, sizeof(uint32_t));
 
     tt_device->wait_for_non_mmio_flush();
 
     uint32_t misc;
-    tt_device->read_from_device(&misc, arc_core, wormhole::ARC_RESET_MISC_CNTL_ADDR, sizeof(uint32_t));
+    tt_device->read_from_arc(&misc, wormhole::ARC_RESET_ARC_MISC_CNTL_OFFSET, sizeof(uint32_t));
+
     if (misc & (1 << 16)) {
         log_error(LogSiliconDriver, "trigger_fw_int failed on device {}", 0);
         return 1;
     } else {
         uint32_t val_wr = misc | (1 << 16);
-        tt_device->write_to_device(&val_wr, arc_core, wormhole::ARC_RESET_MISC_CNTL_ADDR, sizeof(uint32_t));
+        tt_device->write_to_arc(&val_wr, wormhole::ARC_RESET_ARC_MISC_CNTL_OFFSET, sizeof(uint32_t));
     }
 
     uint32_t status = 0xbadbad;
@@ -82,27 +74,15 @@ uint32_t WormholeArcMessenger::send_message(
             throw std::runtime_error(fmt::format("Timed out after waiting {} ms for ARC to respond", timeout_ms));
         }
 
-        tt_device->read_from_device(
-            &status,
-            arc_core,
-            wormhole::ARC_RESET_SCRATCH_ADDR + wormhole::ARC_SCRATCH_STATUS_OFFSET * sizeof(uint32_t),
-            sizeof(uint32_t));
+        tt_device->read_from_arc(&status, wormhole::ARC_RESET_SCRATCH_STATUS_OFFSET, sizeof(uint32_t));
 
         if ((status & 0xffff) == (msg_code & 0xff)) {
             if (return_values.size() >= 1) {
-                tt_device->read_from_device(
-                    &return_values[0],
-                    arc_core,
-                    wormhole::ARC_RESET_SCRATCH_ADDR + wormhole::ARC_SCRATCH_RES0_OFFSET * sizeof(uint32_t),
-                    sizeof(uint32_t));
+                tt_device->read_from_arc(&return_values[0], wormhole::ARC_RESET_SCRATCH_RES0_OFFSET, sizeof(uint32_t));
             }
 
             if (return_values.size() >= 2) {
-                tt_device->read_from_device(
-                    &return_values[1],
-                    arc_core,
-                    wormhole::ARC_RESET_SCRATCH_ADDR + wormhole::ARC_SCRATCH_RES1_OFFSET * sizeof(uint32_t),
-                    sizeof(uint32_t));
+                tt_device->read_from_arc(&return_values[1], wormhole::ARC_RESET_SCRATCH_RES1_OFFSET, sizeof(uint32_t));
             }
 
             exit_code = (status & 0xffff0000) >> 16;

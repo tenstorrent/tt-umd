@@ -12,10 +12,10 @@
 #include "wormhole/host_mem_address_map.h"
 #include "wormhole/l1_address_map.h"
 
+namespace tt::umd {
+
 constexpr std::uint32_t NOC_ADDR_LOCAL_BITS = 36;   // source: noc_parameters.h, common for WH && BH
 constexpr std::uint32_t NOC_ADDR_NODE_ID_BITS = 6;  // source: noc_parameters.h, common for WH && BH
-
-namespace tt::umd {
 
 std::tuple<xy_pair, xy_pair> wormhole_implementation::multicast_workaround(xy_pair start, xy_pair end) const {
     // When multicasting there is a rare case where including the multicasting node in the box can result in a backup

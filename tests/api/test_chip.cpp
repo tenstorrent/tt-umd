@@ -90,7 +90,7 @@ TEST(ApiChipTest, SimpleAPIShowcase) {
 
     chip_id_t chip_id = umd_cluster->get_cluster_description()->get_chips_with_mmio().begin()->first;
 
-    // TODO: In future, will be accessed through tt::umd::Chip api.
+    // TODO: In future, will be accessed through Chip api.
     umd_cluster->get_pcie_base_addr_from_device(chip_id);
     umd_cluster->get_num_host_channels(chip_id);
 }

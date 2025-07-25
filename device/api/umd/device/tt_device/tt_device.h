@@ -15,6 +15,8 @@
 #include "umd/device/pci_device.hpp"
 #include "umd/device/types/cluster_descriptor_types.h"
 
+namespace tt::umd {
+
 // TODO: Should be moved to blackhole_architecture_implementation.h
 // See /vendor_ip/synopsys/052021/bh_pcie_ctl_gen5/export/configuration/DWC_pcie_ctl.h
 static const uint64_t UNROLL_ATU_OFFSET_BAR = 0x1200;
@@ -29,8 +31,6 @@ struct dynamic_tlb {
     uint64_t bar_offset;      // Offset that address is mapped to, within the PCI BAR.
     uint64_t remaining_size;  // Bytes remaining between bar_offset and end of the TLB.
 };
-
-namespace tt::umd {
 
 class ArcMessenger;
 class ArcTelemetryReader;
@@ -117,6 +117,38 @@ public:
     virtual void read_from_device(void *mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size);
     virtual void write_to_device(const void *mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size);
 
+    /**
+     * Read function that will send read message to the ARC core.
+     *
+     * @param mem_ptr pointer to memory which will receive the data
+     * @param arc_addr_offset address offset in ARC core
+     * @param size number of bytes
+     *
+     * NOTE: This function on Wormhole will use the
+     * AXI interface to read the data if the chip is local/PCIe, while the remote chip will use the
+     * the NOC interface to read the data. Blackhole for now, will only use the NOC interface to read data,
+     * because it is depenedent on the board type if we can send over NOC or over AXI interface even for local/PCIe
+     * chips.
+     *
+     */
+    virtual void read_from_arc(void *mem_ptr, uint64_t arc_addr_offset, [[maybe_unused]] size_t size) = 0;
+
+    /**
+     * Write function that will send write message to the ARC core.
+     *
+     * @param mem_ptr pointer to memory from which the data is sent
+     * @param arc_addr_offset address offset in ARC core
+     * @param size number of bytes
+     *
+     * NOTE: This function on Wormhole will use the
+     * AXI interface to write the data if the chip is local/PCIe, while the remote chip will use the
+     * the NOC interface to write the data. Blackhole for now, will only use the NOC interface to write data,
+     * because it is depenedent on the board type if we can send over NOC or over AXI interface even for local/PCIe
+     * chips.
+     *
+     */
+    virtual void write_to_arc(const void *mem_ptr, uint64_t arc_addr_offset, [[maybe_unused]] size_t size) = 0;
+
     // TLB related functions.
     // TODO: These are architecture specific, and will be moved out of the class.
     void write_tlb_reg(
@@ -129,16 +161,13 @@ public:
         bool multicast,
         std::uint64_t ordering);
     dynamic_tlb set_dynamic_tlb(
-        unsigned int tlb_index,
-        tt_xy_pair target,
-        std::uint64_t address,
-        std::uint64_t ordering = tt::umd::tlb_data::Relaxed);
+        unsigned int tlb_index, tt_xy_pair target, std::uint64_t address, std::uint64_t ordering = tlb_data::Relaxed);
     dynamic_tlb set_dynamic_tlb_broadcast(
         unsigned int tlb_index,
         std::uint64_t address,
         tt_xy_pair start,
         tt_xy_pair end,
-        std::uint64_t ordering = tt::umd::tlb_data::Relaxed);
+        std::uint64_t ordering = tlb_data::Relaxed);
 
     /**
      * Configures a PCIe Address Translation Unit (iATU) region.
@@ -194,6 +223,8 @@ public:
 
     virtual bool get_noc_translation_enabled() = 0;
 
+    virtual double get_asic_temperature() = 0;
+
     // TODO: find a way to expose this in a better way, probably through getting telemetry reader and reading the
     // required fields. Returns the information whether DRAM training status is available and the status value.
     virtual std::vector<DramTrainingStatus> get_dram_training_status();
@@ -201,6 +232,8 @@ public:
     virtual void wait_for_non_mmio_flush();
 
     bool is_remote();
+
+    virtual uint64_t get_arc_noc_base_address() const = 0;
 
 protected:
     std::shared_ptr<PCIDevice> pci_device_;
@@ -235,4 +268,5 @@ protected:
 
     bool is_remote_tt_device = false;
 };
+
 }  // namespace tt::umd

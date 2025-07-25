@@ -668,12 +668,10 @@ TEST_P(ClusterAssertDeassertRiscsTest, TriscNcriscAssertDeassertTest) {
 
             cluster->write_to_device(zero_data.data(), zero_data.size() * sizeof(uint32_t), chip_id, tensix_core, 0);
 
-            // cluster->wait_for_non_mmio_flush(chip_id);
+            cluster->read_from_device(
+                readback_data.data(), chip_id, tensix_core, 0, readback_data.size() * sizeof(uint32_t));
 
-            // cluster->read_from_device(readback_data.data(), chip_id, tensix_core, 0, readback_data.size() *
-            // sizeof(uint32_t));
-
-            // EXPECT_EQ(zero_data, readback_data);
+            EXPECT_EQ(zero_data, readback_data);
 
             cluster->write_to_device(
                 brisc_configuration_program.value().data(),
@@ -682,12 +680,14 @@ TEST_P(ClusterAssertDeassertRiscsTest, TriscNcriscAssertDeassertTest) {
                 tensix_core,
                 brisc_code_address);
 
-            // cluster->wait_for_non_mmio_flush(chip_id);
+            cluster->read_from_device(
+                brisc_configuration_program_readback.data(),
+                chip_id,
+                tensix_core,
+                brisc_code_address,
+                brisc_configuration_program_readback.size() * sizeof(uint32_t));
 
-            // cluster->read_from_device(brisc_configuration_program_readback.data(), chip_id, tensix_core,
-            // brisc_code_address, brisc_configuration_program_readback.size() * sizeof(uint32_t));
-
-            // EXPECT_EQ(brisc_configuration_program.value(), brisc_configuration_program_readback);
+            EXPECT_EQ(brisc_configuration_program.value(), brisc_configuration_program_readback);
 
             cluster->l1_membar(chip_id, {tensix_core});
 
@@ -700,12 +700,14 @@ TEST_P(ClusterAssertDeassertRiscsTest, TriscNcriscAssertDeassertTest) {
                 cluster->write_to_device(
                     code_program.data(), code_program.size() * sizeof(uint32_t), chip_id, tensix_core, code_address);
 
-                // cluster->wait_for_non_mmio_flush(chip_id);
+                cluster->read_from_device(
+                    code_program_readback.data(),
+                    chip_id,
+                    tensix_core,
+                    code_address,
+                    code_program_readback.size() * sizeof(uint32_t));
 
-                // cluster->read_from_device(code_program_readback.data(), chip_id, tensix_core, code_address,
-                // code_program_readback.size() * sizeof(uint32_t));
-
-                // EXPECT_EQ(code_program, code_program_readback);
+                EXPECT_EQ(code_program, code_program_readback);
             }
 
             cluster->l1_membar(chip_id, {tensix_core});

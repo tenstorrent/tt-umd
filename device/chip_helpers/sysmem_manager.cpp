@@ -320,7 +320,9 @@ bool SysmemManager::init_iommu(uint32_t num_fake_mem_channels) {
     // Support for more than 1GB host memory accessible per device, via channels.
     for (size_t ch = 0; ch < num_fake_mem_channels; ch++) {
         uint8_t *fake_mapping = static_cast<uint8_t *>(iommu_mapping) + ch * HUGEPAGE_REGION_SIZE;
-        size_t actual_size = (ch == 3 && tt_device_->get_arch() == tt::ARCH::WORMHOLE_B0) ? HUGEPAGE_CHANNEL_3_SIZE_LIMIT : HUGEPAGE_REGION_SIZE;
+        size_t actual_size = (tt_device_->get_arch() == tt::ARCH::WORMHOLE_B0 && ch == 3)
+                                 ? HUGEPAGE_CHANNEL_3_SIZE_LIMIT
+                                 : HUGEPAGE_REGION_SIZE;
         hugepage_mapping_per_channel[ch] = {fake_mapping, actual_size, 0};
     }
 

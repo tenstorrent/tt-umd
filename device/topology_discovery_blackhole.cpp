@@ -124,7 +124,9 @@ tt_xy_pair TopologyDiscoveryBlackhole::get_remote_eth_core(Chip* chip, tt_xy_pai
 uint32_t TopologyDiscoveryBlackhole::read_port_status(Chip* chip, tt_xy_pair eth_core) {
     blackhole::boot_results_t boot_results;
     uint32_t channel =
-        chip->get_soc_descriptor().translate_coord_to(eth_core, CoordSystem::NOC0, CoordSystem::LOGICAL).y;
+        chip->get_soc_descriptor()
+            .translate_coord_to(eth_core, umd_use_noc1 ? CoordSystem::NOC1 : CoordSystem::NOC0, CoordSystem::LOGICAL)
+            .y;
     TTDevice* tt_device = chip->get_tt_device();
     tt_device->read_from_device(
         (uint8_t*)&boot_results,
@@ -132,24 +134,25 @@ uint32_t TopologyDiscoveryBlackhole::read_port_status(Chip* chip, tt_xy_pair eth
         blackhole::BOOT_RESULTS_ADDR,
         sizeof(boot_results));
 
-    if (boot_results.eth_status.port_status == blackhole::port_status_e::PORT_UP) {
-        return 2;
-    } else if (
-        boot_results.eth_status.port_status == blackhole::port_status_e::PORT_DOWN ||
-        boot_results.eth_status.port_status == blackhole::port_status_e::PORT_UNUSED) {
-        return 1;
-    } else {
-        return 0;
-    }
+    return boot_results.eth_status.port_status;
 }
 
 uint32_t TopologyDiscoveryBlackhole::get_remote_eth_id(Chip* chip, tt_xy_pair local_eth_core) {
-    // TODO(pjanevski): Implement this function for Blackhole.
-    return 0;
+    blackhole::boot_results_t boot_results;
+    uint32_t channel =
+        chip->get_soc_descriptor()
+            .translate_coord_to(
+                local_eth_core, umd_use_noc1 ? CoordSystem::NOC1 : CoordSystem::NOC0, CoordSystem::LOGICAL)
+            .y;
+    TTDevice* tt_device = chip->get_tt_device();
+    tt_device->read_from_device(
+        (uint8_t*)&boot_results, local_eth_core, blackhole::BOOT_RESULTS_ADDR, sizeof(boot_results));
+
+    return boot_results.remote_info.logical_eth_id;
 }
 
 uint64_t TopologyDiscoveryBlackhole::get_remote_board_type(Chip* chip, tt_xy_pair eth_core) {
-    // TODO(pjanevski): Implement this function for Blackhole.
+    // TODO: this is placeholder value. This is not really used in Blackhole logic.
     return 0;
 }
 

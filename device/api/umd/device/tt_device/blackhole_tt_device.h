@@ -40,6 +40,10 @@ public:
 
     void dma_d2h_zero_copy(void *dst, uint32_t src, size_t size) override;
 
+    void read_from_arc(void *mem_ptr, uint64_t arc_addr_offset, size_t size) override;
+
+    void write_to_arc(const void *mem_ptr, uint64_t arc_addr_offset, size_t size) override;
+
     std::vector<DramTrainingStatus> get_dram_training_status() override;
 
     ChipInfo get_chip_info() override;
@@ -48,12 +52,15 @@ public:
 
     double get_asic_temperature() override;
 
+    uint64_t get_arc_noc_base_address() const override;
+
 protected:
     BlackholeTTDevice() = default;
 
 private:
     static constexpr uint64_t ATU_OFFSET_IN_BH_BAR2 = 0x1200;
     std::set<size_t> iatu_regions_;
+    tt_xy_pair arc_core;
 };
 
 }  // namespace tt::umd

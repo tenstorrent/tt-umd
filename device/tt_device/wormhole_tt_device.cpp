@@ -20,12 +20,11 @@ static constexpr uint32_t DMA_TIMEOUT_MS = 10000;  // 10 seconds
 WormholeTTDevice::WormholeTTDevice(std::shared_ptr<PCIDevice> pci_device) :
     TTDevice(pci_device, std::make_unique<wormhole_implementation>()) {
     init_tt_device();
-    wait_arc_core_start(
-        umd_use_noc1 ? tt_xy_pair(
-                           wormhole::NOC0_X_TO_NOC1_X[wormhole::ARC_CORES_NOC0[0].x],
-                           wormhole::NOC0_Y_TO_NOC1_Y[wormhole::ARC_CORES_NOC0[0].y])
-                     : wormhole::ARC_CORES_NOC0[0],
-        1000);
+    arc_core = umd_use_noc1 ? tt_xy_pair(
+                                  tt::umd::wormhole::NOC0_X_TO_NOC1_X[tt::umd::wormhole::ARC_CORES_NOC0[0].x],
+                                  tt::umd::wormhole::NOC0_Y_TO_NOC1_Y[tt::umd::wormhole::ARC_CORES_NOC0[0].y])
+                            : wormhole::ARC_CORES_NOC0[0];
+    wait_arc_core_start(arc_core, 1000);
 }
 
 bool WormholeTTDevice::get_noc_translation_enabled() {
@@ -363,6 +362,22 @@ void WormholeTTDevice::dma_d2h_zero_copy(void *dst, uint32_t src, size_t size) {
     dma_d2h_transfer((uint64_t)(uintptr_t)dst, src, size);
 }
 
+void WormholeTTDevice::read_from_arc(void *mem_ptr, uint64_t arc_addr_offset, size_t size) {
+    if (arc_addr_offset > wormhole::ARC_XBAR_ADDRESS_END) {
+        throw std::runtime_error("Address is out of ARC XBAR address range");
+    }
+    auto result = bar_read32(wormhole::ARC_APB_BAR0_XBAR_OFFSET_START + arc_addr_offset);
+    *(reinterpret_cast<uint32_t *>(mem_ptr)) = result;
+}
+
+void WormholeTTDevice::write_to_arc(const void *mem_ptr, uint64_t arc_addr_offset, size_t size) {
+    if (arc_addr_offset > wormhole::ARC_XBAR_ADDRESS_END) {
+        throw std::runtime_error("Address is out of ARC XBAR address range");
+    }
+    bar_write32(
+        wormhole::ARC_APB_BAR0_XBAR_OFFSET_START + arc_addr_offset, *(reinterpret_cast<const uint32_t *>(mem_ptr)));
+}
+
 void WormholeTTDevice::wait_eth_core_training(const tt_xy_pair eth_core, const uint32_t timeout_ms) {
     constexpr uint64_t eth_core_heartbeat_addr = 0x1C;
     auto start = std::chrono::system_clock::now();
@@ -386,5 +401,9 @@ double WormholeTTDevice::get_asic_temperature() {
     // It needs to be divided by 8 to get temperature in Celsius.
     return (telemetry->read_entry(wormhole::TAG_ASIC_TEMPERATURE) & 0xFFFF) / 8.0;
 }
+
+tt_xy_pair WormholeTTDevice::get_arc_core() const { return arc_core; }
+
+uint64_t WormholeTTDevice::get_arc_noc_base_address() const { return wormhole::ARC_NOC_XBAR_ADDRESS_START; }
 
 }  // namespace tt::umd

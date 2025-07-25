@@ -35,12 +35,47 @@ std::ostream& operator<<(std::ostream& os, tt::OStreamJoin<A, B> const& join) {
 
 namespace tt::assert {
 
+template <typename T>
+std::string to_string_safe(T const& t) {
+    std::stringstream ss;
+    ss << t;
+    return ss.str();
+}
+
+// Formating a message with a {} placeholder and a vector of arguments is done
+// this way to allow a more versatile spectrum of arguments.
+// The fmt::format() function is good for simple cases, but it does not handle
+// complex argument types or custom objects well without additional formatting logic.
+inline std::string format_message(std::string format_str, std::vector<std::string> const& args) {
+    size_t arg_index = 0;
+    size_t pos = 0;
+
+    while ((pos = format_str.find("{}", pos)) != std::string::npos && arg_index < args.size()) {
+        format_str.replace(pos, 2, args[arg_index]);
+        pos += args[arg_index].length();
+        ++arg_index;
+    }
+
+    return format_str;
+}
+
 inline void tt_assert_message(std::ostream& os) {}
 
 template <typename T, typename... Ts>
 void tt_assert_message(std::ostream& os, T const& t, Ts const&... ts) {
-    os << t << std::endl;
-    tt_assert_message(os, ts...);
+    if constexpr (sizeof...(ts) == 0) {
+        os << t << std::endl;
+        return;
+    }
+
+    std::string format_str = to_string_safe(t);
+    if (format_str.find("{}") != std::string::npos) {
+        std::vector<std::string> args = {to_string_safe(ts)...};
+        os << format_message(format_str, args) << std::endl;
+    } else {
+        os << t << std::endl;
+        tt_assert_message(os, ts...);
+    }
 }
 
 template <typename... Ts>

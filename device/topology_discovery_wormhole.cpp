@@ -187,7 +187,9 @@ tt_xy_pair TopologyDiscoveryWormhole::get_remote_eth_core(Chip* chip, tt_xy_pair
 uint32_t TopologyDiscoveryWormhole::read_port_status(Chip* chip, tt_xy_pair eth_core) {
     uint32_t port_status;
     uint32_t channel =
-        chip->get_soc_descriptor().translate_coord_to(eth_core, CoordSystem::NOC0, CoordSystem::LOGICAL).y;
+        chip->get_soc_descriptor()
+            .translate_coord_to(eth_core, umd_use_noc1 ? CoordSystem::NOC1 : CoordSystem::NOC0, CoordSystem::LOGICAL)
+            .y;
     TTDevice* tt_device = chip->get_tt_device();
     tt_device->read_from_device(&port_status, eth_core, eth_addresses.eth_conn_info + (channel * 4), sizeof(uint32_t));
     return port_status;
@@ -284,7 +286,9 @@ uint32_t TopologyDiscoveryWormhole::get_remote_eth_channel(Chip* chip, tt_xy_pai
     tt_xy_pair remote_eth_core = get_remote_eth_core(chip, local_eth_core);
 
     // TODO(pjanevski): explain in comment why we are using chip instead of remote chip.
-    return chip->get_soc_descriptor().translate_coord_to(remote_eth_core, CoordSystem::NOC0, CoordSystem::LOGICAL).y;
+    return chip->get_soc_descriptor()
+        .translate_coord_to(remote_eth_core, umd_use_noc1 ? CoordSystem::NOC1 : CoordSystem::NOC0, CoordSystem::LOGICAL)
+        .y;
 }
 
 bool TopologyDiscoveryWormhole::is_using_eth_coords() { return !is_running_on_6u; }

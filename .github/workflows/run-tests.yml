@@ -65,7 +65,7 @@ jobs:
 
       - name: Run API tests
         run: |
-          ${{ env.TEST_OUTPUT_DIR }}/umd/api/api_tests --gtest_filter="*ManualTLBConfiguration"
+         TT_LOGGER_LEVEL=debug ${{ env.TEST_OUTPUT_DIR }}/umd/api/api_tests --gtest_filter="*ManualTLBConfiguration"
 
       # - name: Run arch-specific UMD unit tests
       #   if: ${{ inputs.arch != 'baremetal' }}

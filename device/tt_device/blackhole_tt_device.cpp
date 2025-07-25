@@ -109,13 +109,15 @@ ChipInfo BlackholeTTDevice::get_chip_info() {
         telemetry->is_entry_available(blackhole::TelemetryTag::ENABLED_TENSIX_COL)
             ? (~telemetry->read_entry(blackhole::TelemetryTag::ENABLED_TENSIX_COL) & 0x3FFF)
             : 0);
-    chip_info.harvesting_masks.dram_harvesting_mask = telemetry->is_entry_available(blackhole::TelemetryTag::ENABLED_GDDR)
-                                                          ? (~telemetry->read_entry(blackhole::TelemetryTag::ENABLED_GDDR) & 0xFF)
-                                                          : 0;
+    chip_info.harvesting_masks.dram_harvesting_mask =
+        telemetry->is_entry_available(blackhole::TelemetryTag::ENABLED_GDDR)
+            ? (~telemetry->read_entry(blackhole::TelemetryTag::ENABLED_GDDR) & 0xFF)
+            : 0;
 
-    chip_info.harvesting_masks.eth_harvesting_mask = telemetry->is_entry_available(blackhole::TelemetryTag::ENABLED_ETH)
-                                                         ? (~telemetry->read_entry(blackhole::TelemetryTag::ENABLED_ETH) & 0x3FFF)
-                                                         : 0;
+    chip_info.harvesting_masks.eth_harvesting_mask =
+        telemetry->is_entry_available(blackhole::TelemetryTag::ENABLED_ETH)
+            ? (~telemetry->read_entry(blackhole::TelemetryTag::ENABLED_ETH) & 0x3FFF)
+            : 0;
 
     uint32_t pcie_usage = telemetry->read_entry(blackhole::TelemetryTag::PCIE_USAGE);
 

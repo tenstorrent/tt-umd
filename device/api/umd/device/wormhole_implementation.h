@@ -339,6 +339,8 @@ public:
 
     uint32_t get_dram_channel_0_y() const override { return wormhole::DRAM_CHANNEL_0_Y; }
 
+    uint32_t get_dram_banks_number() const override { return wormhole::NUM_DRAM_BANKS; }
+
     uint32_t get_broadcast_tlb_index() const override { return wormhole::BROADCAST_TLB_INDEX; }
 
     uint32_t get_dynamic_tlb_2m_base() const override { return wormhole::DYNAMIC_TLB_2M_BASE; }

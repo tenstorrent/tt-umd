@@ -64,7 +64,8 @@ ChipInfo WormholeTTDevice::get_chip_info() {
 
     chip_info.board_type = get_board_type();
 
-    chip_info.firmware_version = fw_version_from_telemetry(telemetry->read_entry(wormhole::TAG_FW_BUNDLE_VERSION));
+    chip_info.firmware_version =
+        fw_version_from_telemetry(telemetry->read_entry(wormhole::TelemetryTag::FW_BUNDLE_VERSION));
 
     return chip_info;
 }
@@ -108,20 +109,20 @@ uint32_t WormholeTTDevice::get_clock() {
 }
 
 uint32_t WormholeTTDevice::get_max_clock_freq() {
-    uint32_t aiclk_telemetry = telemetry->read_entry(wormhole::TAG_AICLK);
+    uint32_t aiclk_telemetry = telemetry->read_entry(wormhole::TelemetryTag::AICLK);
     return (aiclk_telemetry >> 16) & 0xFFFF;
 }
 
 uint32_t WormholeTTDevice::get_min_clock_freq() { return wormhole::AICLK_IDLE_VAL; }
 
 uint64_t WormholeTTDevice::get_board_id() {
-    uint32_t board_id_lo = telemetry->read_entry(wormhole::TAG_BOARD_ID_LOW);
-    uint32_t board_id_hi = telemetry->read_entry(wormhole::TAG_BOARD_ID_HIGH);
+    uint32_t board_id_lo = telemetry->read_entry(wormhole::TelemetryTag::BOARD_ID_LOW);
+    uint32_t board_id_hi = telemetry->read_entry(wormhole::TelemetryTag::BOARD_ID_HIGH);
     return ((uint64_t)board_id_hi << 32) | board_id_lo;
 }
 
 std::vector<DramTrainingStatus> WormholeTTDevice::get_dram_training_status() {
-    uint32_t dram_training_status_telemetry = telemetry->read_entry(wormhole::TAG_DDR_STATUS);
+    uint32_t dram_training_status_telemetry = telemetry->read_entry(wormhole::TelemetryTag::DDR_STATUS);
     const uint32_t num_dram_channels = wormhole::NUM_DRAM_BANKS;
     std::vector<DramTrainingStatus> dram_training_status;
     for (uint32_t dram_channel = 0; dram_channel < num_dram_channels; dram_channel++) {
@@ -399,7 +400,7 @@ void WormholeTTDevice::wait_eth_core_training(const tt_xy_pair eth_core, const u
 double WormholeTTDevice::get_asic_temperature() {
     // Data stored in telemetry has temperature average across chips stored in lower 16 bits.
     // It needs to be divided by 8 to get temperature in Celsius.
-    return (telemetry->read_entry(wormhole::TAG_ASIC_TEMPERATURE) & 0xFFFF) / 8.0;
+    return (telemetry->read_entry(wormhole::TelemetryTag::ASIC_TEMPERATURE) & 0xFFFF) / 8.0;
 }
 
 tt_xy_pair WormholeTTDevice::get_arc_core() const { return arc_core; }

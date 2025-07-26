@@ -28,15 +28,15 @@ std::string run_default_telemetry(int pci_device, ArcTelemetryReader* telemetry_
     uint32_t asic_temperature;
 
     if (arch == tt::ARCH::WORMHOLE_B0) {
-        aiclk_info = telemetry_reader->read_entry(wormhole::TAG_AICLK);
-        vcore = telemetry_reader->read_entry(wormhole::TAG_VCORE);
-        tdp = telemetry_reader->read_entry(wormhole::TAG_TDP);
-        asic_temperature = telemetry_reader->read_entry(wormhole::TAG_ASIC_TEMPERATURE);
+        aiclk_info = telemetry_reader->read_entry(wormhole::TelemetryTag::AICLK);
+        vcore = telemetry_reader->read_entry(wormhole::TelemetryTag::VCORE);
+        tdp = telemetry_reader->read_entry(wormhole::TelemetryTag::TDP);
+        asic_temperature = telemetry_reader->read_entry(wormhole::TelemetryTag::ASIC_TEMPERATURE);
     } else {
-        aiclk_info = telemetry_reader->read_entry(blackhole::TAG_AICLK);
-        vcore = telemetry_reader->read_entry(blackhole::TAG_VCORE);
-        tdp = telemetry_reader->read_entry(blackhole::TAG_TDP);
-        asic_temperature = telemetry_reader->read_entry(blackhole::TAG_ASIC_TEMPERATURE);
+        aiclk_info = telemetry_reader->read_entry(blackhole::TelemetryTag::AICLK);
+        vcore = telemetry_reader->read_entry(blackhole::TelemetryTag::VCORE);
+        tdp = telemetry_reader->read_entry(blackhole::TelemetryTag::TDP);
+        asic_temperature = telemetry_reader->read_entry(blackhole::TelemetryTag::ASIC_TEMPERATURE);
     }
 
     uint32_t aiclk_current = aiclk_info & 0xFFFF;

@@ -7,6 +7,15 @@ class TestCluster(unittest.TestCase):
     def test_cluster_creation(self):
         cluster = tt_umd.Cluster()  # Create a Cluster instance
         self.assertIsNotNone(cluster)
+        
+        cluster_descriptor = cluster.create_cluster_descriptor("", {})
+        print("Cluster descriptor:", cluster_descriptor)
+        for chip in cluster_descriptor.get_all_chips():
+            if cluster_descriptor.is_chip_mmio_capable(chip):
+                print(f"Chip MMIO capable: {chip}")
+            else:
+                closest_mmio = cluster_descriptor.get_closest_mmio_capable_chip(chip)
+                print(f"Chip remote: {chip}, closest MMIO capable chip: {closest_mmio}")
 
     def test_cluster_functionality(self):
         cluster = tt_umd.Cluster()

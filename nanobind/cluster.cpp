@@ -8,7 +8,9 @@
 #include <nanobind/nanobind.h>
 #include <nanobind/stl/map.h>
 #include <nanobind/stl/set.h>
+#include <nanobind/stl/string.h>
 #include <nanobind/stl/unique_ptr.h>
+#include <nanobind/stl/unordered_set.h>
 #include <nanobind/stl/vector.h>
 
 #include "umd/device/types/wormhole_telemetry.h"
@@ -18,11 +20,26 @@ namespace nb = nanobind;
 using namespace tt::umd;
 
 NB_MODULE(tt_umd, m) {
+    // Expose the ClusterDescriptor class
+    nb::class_<tt_ClusterDescriptor>(m, "ClusterDescriptor")
+        .def("get_all_chips", &tt_ClusterDescriptor::get_all_chips)
+        .def("is_chip_mmio_capable", &tt_ClusterDescriptor::is_chip_mmio_capable, nb::arg("chip_id"))
+        .def("is_chip_remote", &tt_ClusterDescriptor::is_chip_remote, nb::arg("chip_id"))
+        .def("get_closest_mmio_capable_chip", &tt_ClusterDescriptor::get_closest_mmio_capable_chip, nb::arg("chip"));
+
     // Expose the Cluster class
     nb::class_<Cluster>(m, "Cluster")
         .def(nb::init<>())
         .def("get_target_device_ids", &Cluster::get_target_device_ids)
-        .def("get_clocks", &Cluster::get_clocks);
+        .def("get_clocks", &Cluster::get_clocks)
+        .def_static(
+            "create_cluster_descriptor",
+            [](std::string sdesc_path, std::unordered_set<chip_id_t> pci_target_devices) {
+                return Cluster::create_cluster_descriptor(std::move(sdesc_path), std::move(pci_target_devices));
+            },
+            nb::arg("sdesc_path"),
+            nb::arg("pci_target_devices"),
+            nb::rv_policy::take_ownership);
 
     // Expose the ArcTelemetryReader class
     nb::class_<ArcTelemetryReader>(m, "ArcTelemetryReader")

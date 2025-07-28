@@ -38,6 +38,32 @@ class TestTelemetry(unittest.TestCase):
         tel_reader = dev.get_arc_telemetry_reader()
         tag = int(tt_umd.wormhole.TelemetryTag.ASIC_TEMPERATURE)
         print("Telemetry reading for asic temperature: ", tel_reader.read_entry(tag))
+        
+    def test_remote_telemetry(self):
+        cluster_descriptor = tt_umd.Cluster.create_cluster_descriptor("", {})
+        umd_local_chips = {}
+        umd_tt_devices = {}
+        tag = int(tt_umd.wormhole.TelemetryTag.ASIC_TEMPERATURE)
+        chip_to_mmio_map = cluster_descriptor.get_chips_with_mmio()
+        chip_eth_coords = cluster_descriptor.get_chip_locations()
+        for chip in cluster_descriptor.get_chips_local_first(cluster_descriptor.get_all_chips()):
+            if cluster_descriptor.is_chip_mmio_capable(chip):
+                print(f"Chip MMIO capable: {chip}")
+                umd_tt_devices[chip] = tt_umd.TTDevice.create(chip_to_mmio_map[chip])
+                # For some reason when we give out a TTDevice to LocalChip and get it back it doesn't work.
+                # So just create a separate one for LocalChip
+                tt_dev = tt_umd.TTDevice.create(chip_to_mmio_map[chip])
+                umd_local_chips[chip] = tt_umd.LocalChip(tt_dev)
+                umd_local_chips[chip].set_remote_transfer_ethernet_cores(cluster_descriptor.get_active_eth_channels(chip))
+                tel_reader = umd_tt_devices[chip].get_arc_telemetry_reader()
+                print(f"Telemetry reading for chip {chip} ASIC temperature: ", tel_reader.read_entry(tag))
+            else:
+                closest_mmio = cluster_descriptor.get_closest_mmio_capable_chip(chip)
+                print(f"Chip remote: {chip}, closest MMIO capable chip: {closest_mmio}")
+                umd_tt_devices[chip] = tt_umd.RemoteWormholeTTDevice(umd_local_chips[closest_mmio], chip_eth_coords[chip])
+                tel_reader = umd_tt_devices[chip].get_arc_telemetry_reader()
+                print(f"Telemetry reading for remote chip {chip} ASIC temperature: ", tel_reader.read_entry(tag))
+
 
 if __name__ == "__main__":
     unittest.main()

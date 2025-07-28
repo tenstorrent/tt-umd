@@ -10,6 +10,7 @@
 #include <nanobind/stl/set.h>
 #include <nanobind/stl/string.h>
 #include <nanobind/stl/unique_ptr.h>
+#include <nanobind/stl/unordered_map.h>
 #include <nanobind/stl/unordered_set.h>
 #include <nanobind/stl/vector.h>
 
@@ -20,13 +21,19 @@ namespace nb = nanobind;
 using namespace tt::umd;
 
 NB_MODULE(tt_umd, m) {
+    // Expose the eth_coord_t struct
+    nb::class_<eth_coord_t>(m, "EthCoord");
+
     // Expose the ClusterDescriptor class
     nb::class_<tt_ClusterDescriptor>(m, "ClusterDescriptor")
         .def("get_all_chips", &tt_ClusterDescriptor::get_all_chips)
         .def("is_chip_mmio_capable", &tt_ClusterDescriptor::is_chip_mmio_capable, nb::arg("chip_id"))
         .def("is_chip_remote", &tt_ClusterDescriptor::is_chip_remote, nb::arg("chip_id"))
         .def("get_closest_mmio_capable_chip", &tt_ClusterDescriptor::get_closest_mmio_capable_chip, nb::arg("chip"))
-        .def("get_chips_local_first", &tt_ClusterDescriptor::get_chips_local_first, nb::arg("chips"));
+        .def("get_chips_local_first", &tt_ClusterDescriptor::get_chips_local_first, nb::arg("chips"))
+        .def("get_chip_locations", &tt_ClusterDescriptor::get_chip_locations)
+        .def("get_chips_with_mmio", &tt_ClusterDescriptor::get_chips_with_mmio)
+        .def("get_active_eth_channels", &tt_ClusterDescriptor::get_active_eth_channels, nb::arg("chip_id"));
 
     // Expose the Cluster class
     nb::class_<Cluster>(m, "Cluster")
@@ -51,6 +58,19 @@ NB_MODULE(tt_umd, m) {
     nb::class_<TTDevice>(m, "TTDevice")
         .def_static("create", &TTDevice::create, nb::arg("pci_device_number"), nb::rv_policy::take_ownership)
         .def("get_arc_telemetry_reader", &TTDevice::get_arc_telemetry_reader, nb::rv_policy::reference_internal);
+
+    // Expose the LocalChip class
+    nb::class_<LocalChip>(m, "LocalChip")
+        .def(nb::init<std::unique_ptr<TTDevice>>(), nb::arg("tt_device"))
+        .def("get_tt_device", &LocalChip::get_tt_device, nb::rv_policy::reference_internal)
+        .def(
+            "set_remote_transfer_ethernet_cores",
+            static_cast<void (LocalChip::*)(const std::set<uint32_t>&)>(&LocalChip::set_remote_transfer_ethernet_cores),
+            nb::arg("channels"));
+
+    // Expose the RemoteWormholeTTDevice class
+    nb::class_<RemoteWormholeTTDevice, TTDevice>(m, "RemoteWormholeTTDevice")
+        .def(nb::init<LocalChip*, eth_coord_t>(), nb::arg("local_chip"), nb::arg("target_chip"));
 
     // Expose the PCIDevice class
     nb::class_<PCIDevice>(m, "PCIDevice")

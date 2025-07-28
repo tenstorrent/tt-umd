@@ -732,6 +732,8 @@ TEST_P(ClusterAssertDeassertRiscsTest, TriscNcriscAssertDeassertTest) {
                 cluster->read_from_device(
                     &first_readback_value, chip_id, tensix_core, counter_address, sizeof(first_readback_value));
 
+                cluster->l1_membar(chip_id, {tensix_core});
+
                 cluster->read_from_device(
                     &second_readback_value, chip_id, tensix_core, counter_address, sizeof(second_readback_value));
 

@@ -16,6 +16,8 @@ class TestCluster(unittest.TestCase):
             else:
                 closest_mmio = cluster_descriptor.get_closest_mmio_capable_chip(chip)
                 print(f"Chip remote: {chip}, closest MMIO capable chip: {closest_mmio}")
+                
+        print("All chips but local first: ", cluster_descriptor.get_chips_local_first(cluster_descriptor.get_all_chips()))
 
     def test_cluster_functionality(self):
         cluster = tt_umd.Cluster()

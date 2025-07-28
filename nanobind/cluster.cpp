@@ -25,7 +25,8 @@ NB_MODULE(tt_umd, m) {
         .def("get_all_chips", &tt_ClusterDescriptor::get_all_chips)
         .def("is_chip_mmio_capable", &tt_ClusterDescriptor::is_chip_mmio_capable, nb::arg("chip_id"))
         .def("is_chip_remote", &tt_ClusterDescriptor::is_chip_remote, nb::arg("chip_id"))
-        .def("get_closest_mmio_capable_chip", &tt_ClusterDescriptor::get_closest_mmio_capable_chip, nb::arg("chip"));
+        .def("get_closest_mmio_capable_chip", &tt_ClusterDescriptor::get_closest_mmio_capable_chip, nb::arg("chip"))
+        .def("get_chips_local_first", &tt_ClusterDescriptor::get_chips_local_first, nb::arg("chips"));
 
     // Expose the Cluster class
     nb::class_<Cluster>(m, "Cluster")

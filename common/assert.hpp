@@ -44,7 +44,7 @@ std::string to_string_safe(T const& t) {
 
 // Formating a message with a {} placeholder and a vector of arguments is done
 // this way to allow a more versatile spectrum of arguments.
-// The fmt::format() function is good for simple cases, but it does not handle
+// The fmt::format() function is good, but it does not handle
 // complex argument types or custom objects well without additional formatting logic.
 inline std::string format_message(std::string format_str, std::vector<std::string> const& args) {
     size_t arg_index = 0;

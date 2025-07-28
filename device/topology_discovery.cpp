@@ -169,7 +169,7 @@ void TopologyDiscovery::get_pcie_connected_chips() {
         // figuring out ETH addresses from runtime and move it to constants.
         if (!read_eth_addresses) {
             eth_addresses = TopologyDiscovery::get_eth_addresses(
-                chip->get_tt_device()->get_arc_telemetry_reader()->read_entry(wormhole::TAG_ETH_FW_VERSION));
+                chip->get_tt_device()->get_arc_telemetry_reader()->read_entry(wormhole::TelemetryTag::ETH_FW_VERSION));
 
             is_running_on_6u = chip->get_tt_device()->get_board_type() == BoardType::UBB;
             read_eth_addresses = true;

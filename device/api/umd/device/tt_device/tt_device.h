@@ -15,6 +15,7 @@
 #include "umd/device/pci_device.hpp"
 #include "umd/device/jtag_device.h"
 #include "umd/device/types/cluster_descriptor_types.h"
+#include <filesystem>
 
 namespace tt::umd {
 
@@ -118,6 +119,8 @@ public:
     virtual void read_from_device(void *mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size);
     virtual void write_to_device(const void *mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size);
 
+    void jtag_read_from_device(void *mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size);
+
     // TLB related functions.
     // TODO: These are architecture specific, and will be moved out of the class.
     void write_tlb_reg(
@@ -209,6 +212,7 @@ protected:
     std::unique_ptr<ArcMessenger> arc_messenger_ = nullptr;
     LockManager lock_manager;
     std::unique_ptr<ArcTelemetryReader> telemetry = nullptr;
+    std::unique_ptr<JtagDevice> jtag_device;
 
     bool is_hardware_hung();
 
@@ -227,6 +231,9 @@ protected:
 
     virtual void init_tt_device();
 
+    void init_jtag(
+        std::filesystem::path &binary_directory);
+    
     semver_t fw_version_from_telemetry(const uint32_t telemetry_data) const;
 
     TTDevice();
@@ -234,6 +241,9 @@ protected:
     ChipInfo chip_info;
 
     bool is_remote_tt_device = false;
+
+    static std::string jtag_library_directory_path;    
+
 };
 
 }  // namespace tt::umd

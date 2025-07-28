@@ -1,7 +1,7 @@
 // SPDX-FileCopyrightText: © 2024 Tenstorrent AI ULC
 //
 // SPDX-License-Identifier: Apache-2.0
-#include "device/lib/jtag/inc/jtag.h"
+#include "umd/device/jtag.h"
 
 #include <dlfcn.h>
 #include <stdint.h>
@@ -14,6 +14,8 @@
 #include <vector>
 
 Jtag::Jtag(const char* libName) {
+    std::cout << libName << std::endl;
+
     if (!std::filesystem::exists(libName)) {
         throw std::runtime_error(
             "You do not have JTAG library.\n"

@@ -41,4 +41,3 @@ class Jtag {
     void* loadFunction(const char* name);
 };
 
-#endif

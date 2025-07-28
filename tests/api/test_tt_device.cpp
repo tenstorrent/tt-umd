@@ -32,7 +32,8 @@ TEST(ApiTTDeviceTest, BasicTTDeviceIO) {
 
         tt_device->write_to_device(data_write.data(), tensix_core, address, data_write.size() * sizeof(uint32_t));
 
-        tt_device->read_from_device(data_read.data(), tensix_core, address, data_read.size() * sizeof(uint32_t));
+        //tt_device->read_from_device(data_read.data(), tensix_core, address, data_read.size() * sizeof(uint32_t));
+        tt_device->jtag_read_from_device(data_read.data(), tensix_core, address, data_read.size() * sizeof(uint32_t));
 
         ASSERT_EQ(data_write, data_read);
 

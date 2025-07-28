@@ -6,7 +6,7 @@
 #include <cstdint>
 #include <iostream>
 
-#include "device/lib/jtag/inc/jtag.h"
+#include "umd/device/jtag.h"
 #include "umd/device/cluster.h"
 #include "umd/device/tt_xy_pair.h"
 

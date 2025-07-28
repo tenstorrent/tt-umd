@@ -8,12 +8,13 @@
 #include <memory>
 #include <optional>
 
-#include "lib/jtag/inc/jtag.h"
+#include "umd/device/jtag.h"
+#include "umd/device/types/arch.h"
 
-class JTAGDevice {
+class JtagDevice {
    public:
-    explicit JTAGDevice(std::unique_ptr<Jtag> jtag_device);
-    ~JTAGDevice();
+    explicit JtagDevice(std::unique_ptr<Jtag> jtag_device);
+    ~JtagDevice();
 
     std::optional<uint32_t> get_device_cnt() const;
     std::optional<uint32_t> get_efuse_harvesting(uint8_t chip_id) const;
@@ -39,8 +40,10 @@ class JTAGDevice {
     std::optional<int> close_jlink(uint8_t chip_id);
     std::optional<uint32_t> read_id_raw(uint8_t chip_id);
     std::optional<uint32_t> read_id(uint8_t chip_id);
+    
 
    private:
+    
     bool select_device(uint8_t chip_id);
     std::unique_ptr<Jtag> jtag;
     std::vector<uint32_t> jlink_devices;

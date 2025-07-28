@@ -110,50 +110,79 @@ TEST(ApiTTDeviceTest, TTDeviceMultipleThreadsIO) {
 }
 
 TEST(ApiTTDeviceTest, TTDeviceWarmResetAfterNocHang) {
+    std::cout << "before std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();" << std::endl;
     std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
 
+    std::cout << "before uint64_t address = 0x0;" << std::endl;
     uint64_t address = 0x0;
+    std::cout << "before std::vector<uint8_t> data{1, 2, 3, 4, 5, 6, 7, 8};" << std::endl;
     std::vector<uint8_t> data{1, 2, 3, 4, 5, 6, 7, 8};
+    std::cout << "before std::vector<uint8_t> zero_data(data.size(), 0);" << std::endl;
     std::vector<uint8_t> zero_data(data.size(), 0);
+    std::cout << "before std::vector<uint8_t> readback_data(data.size(), 0);" << std::endl;
     std::vector<uint8_t> readback_data(data.size(), 0);
 
+    std::cout << "before for (int pci_device_id : pci_device_ids) {" << std::endl;
     for (int pci_device_id : pci_device_ids) {
+        std::cout << "before std::unique_ptr<TTDevice> tt_device = TTDevice::create(pci_device_id);" << std::endl;
         std::unique_ptr<TTDevice> tt_device = TTDevice::create(pci_device_id);
 
+        std::cout << "before ChipInfo chip_info = tt_device->get_chip_info();" << std::endl;
         ChipInfo chip_info = tt_device->get_chip_info();
 
+        std::cout << "before tt_SocDescriptor soc_desc(...);" << std::endl;
         tt_SocDescriptor soc_desc(
             tt_device->get_arch(), chip_info.noc_translation_enabled, chip_info.harvesting_masks, chip_info.board_type);
 
+        std::cout << "before tt_xy_pair tensix_core = soc_desc.get_cores(CoreType::TENSIX, CoordSystem::TRANSLATED)[0];"
+                  << std::endl;
         tt_xy_pair tensix_core = soc_desc.get_cores(CoreType::TENSIX, CoordSystem::TRANSLATED)[0];
 
+        std::cout << "before tt_device->write_to_device(data.data(), {15, 15}, address, data.size());" << std::endl;
         // send to core 15, 15 which will hang the NOC
         tt_device->write_to_device(data.data(), {15, 15}, address, data.size());
 
+        std::cout << "before if (tt_device->get_arch() == tt::ARCH::WORMHOLE_B0) {" << std::endl;
         // TODO: Remove this check when it is figured out why there is no hang detected on Blackhole.
         if (tt_device->get_arch() == tt::ARCH::WORMHOLE_B0) {
+            std::cout << "before EXPECT_THROW(tt_device->detect_hang_read(), std::runtime_error);" << std::endl;
             EXPECT_THROW(tt_device->detect_hang_read(), std::runtime_error);
         }
 
+        std::cout << "before WarmReset::warm_reset();" << std::endl;
         WarmReset::warm_reset();
 
+        std::cout << "before EXPECT_NO_THROW(tt_device->detect_hang_read());" << std::endl;
         EXPECT_NO_THROW(tt_device->detect_hang_read());
 
+        std::cout << "before auto cluster = std::make_unique<Cluster>();" << std::endl;
         // Make cluster so that topology discovery does chip detection
         auto cluster = std::make_unique<Cluster>();
 
+        std::cout
+            << "before EXPECT_FALSE(cluster->get_target_device_ids().empty()) << \"No chips present after reset.\";"
+            << std::endl;
         EXPECT_FALSE(cluster->get_target_device_ids().empty()) << "No chips present after reset.";
 
+        std::cout << "before tt_device.reset();" << std::endl;
         tt_device.reset();
 
+        std::cout << "before tt_device = TTDevice::create(pci_device_id);" << std::endl;
         tt_device = TTDevice::create(pci_device_id);
 
+        std::cout << "before tt_device->write_to_device(zero_data.data(), tensix_core, address, zero_data.size());"
+                  << std::endl;
         tt_device->write_to_device(zero_data.data(), tensix_core, address, zero_data.size());
 
+        std::cout << "before tt_device->write_to_device(data.data(), tensix_core, address, data.size());" << std::endl;
         tt_device->write_to_device(data.data(), tensix_core, address, data.size());
 
+        std::cout
+            << "before tt_device->read_from_device(readback_data.data(), tensix_core, address, readback_data.size());"
+            << std::endl;
         tt_device->read_from_device(readback_data.data(), tensix_core, address, readback_data.size());
 
+        std::cout << "before ASSERT_EQ(data, readback_data);" << std::endl;
         ASSERT_EQ(data, readback_data);
     }
 }

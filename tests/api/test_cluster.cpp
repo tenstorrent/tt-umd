@@ -680,10 +680,10 @@ TEST_P(ClusterAssertDeassertRiscsTest, TriscNcriscAssertDeassertTest) {
 
             cluster->write_to_device(zero_data.data(), zero_data.size() * sizeof(uint32_t), chip_id, tensix_core, 0);
 
-            // cluster->read_from_device(
-            //     readback_data.data(), chip_id, tensix_core, 0, readback_data.size() * sizeof(uint32_t));
+            cluster->read_from_device(
+                readback_data.data(), chip_id, tensix_core, 0, readback_data.size() * sizeof(uint32_t));
 
-            // EXPECT_EQ(zero_data, readback_data);
+            EXPECT_EQ(zero_data, readback_data);
 
             cluster->write_to_device(
                 brisc_configuration_program.value().data(),

@@ -232,7 +232,7 @@ std::vector<DramTrainingStatus> BlackholeTTDevice::get_dram_training_status() {
 
     uint32_t telemetry_data = telemetry->read_entry(blackhole::TelemetryTag::DDR_STATUS);
     std::vector<DramTrainingStatus> dram_training_status;
-    const uint32_t num_dram_channels = blackhole::NUM_DRAM_BANKS;
+    const uint32_t num_dram_channels = architecture_impl_->get_dram_banks_number();
     // Format of the dram training status is as follows:
     // Each channel gets two bits in the 32-bit value (16 bits used). The lower bits are for lower channels.
     // Lower of the two bits is for training error and higher of the two bits is for training status.

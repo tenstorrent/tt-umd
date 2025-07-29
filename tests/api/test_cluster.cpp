@@ -585,6 +585,8 @@ TEST(TestCluster, DeassertResetWithCounterBrisc) {
             cluster->read_from_device(
                 &first_readback_value, chip_id, tensix_core, counter_address, sizeof(first_readback_value));
 
+            cluster->l1_membar(chip_id, {tensix_core});
+
             cluster->read_from_device(
                 &second_readback_value, chip_id, tensix_core, counter_address, sizeof(second_readback_value));
 
@@ -629,15 +631,15 @@ TEST_P(ClusterAssertDeassertRiscsTest, TriscNcriscAssertDeassertTest) {
     };
 
     const auto& configurations_of_risc_cores = GetParam();
-    for (const auto& configuration_of_risc_core : configurations_of_risc_cores) {
-        auto& [code_address, counter_address, code_program, risc_core] = configuration_of_risc_core;
-        std::cout << std::hex << "code_address: " << code_address << " counter_address: " << counter_address
-                  << " risc_core: " << static_cast<uint32_t>(risc_core) << "\n";
-        std::cout << "code_program\n";
-        for (auto& lines : code_program) {
-            std::cout << lines << "\n";
-        }
-    }
+    // for (const auto& configuration_of_risc_core : configurations_of_risc_cores) {
+    //     auto& [code_address, counter_address, code_program, risc_core] = configuration_of_risc_core;
+    //     std::cout << std::hex << "code_address: " << code_address << " counter_address: " << counter_address
+    //               << " risc_core: " << static_cast<uint32_t>(risc_core) << "\n";
+    //     std::cout << "code_program\n";
+    //     for (auto& lines : code_program) {
+    //         std::cout << lines << "\n";
+    //     }
+    // }
     constexpr uint64_t brisc_code_address = 0;
 
     uint32_t first_readback_value = 0;

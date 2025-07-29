@@ -8,6 +8,7 @@
 #include <nanobind/nanobind.h>
 #include <nanobind/stl/map.h>
 #include <nanobind/stl/set.h>
+#include <nanobind/stl/shared_ptr.h>
 #include <nanobind/stl/string.h>
 #include <nanobind/stl/unique_ptr.h>
 #include <nanobind/stl/unordered_map.h>
@@ -22,7 +23,36 @@ using namespace tt::umd;
 
 NB_MODULE(tt_umd, m) {
     // Expose the eth_coord_t struct
-    nb::class_<eth_coord_t>(m, "EthCoord");
+    nb::class_<eth_coord_t>(m, "EthCoord")
+        .def_ro("cluster_id", &eth_coord_t::cluster_id)
+        .def_ro("x", &eth_coord_t::x)
+        .def_ro("y", &eth_coord_t::y)
+        .def_ro("rack", &eth_coord_t::rack)
+        .def_ro("shelf", &eth_coord_t::shelf);
+
+    // Expose the tt_xy_pair
+    nb::class_<tt::umd::xy_pair>(m, "tt_xy_pair")
+        .def(nb::init<uint32_t, uint32_t>(), nb::arg("x"), nb::arg("y"))
+        .def_ro("x", &tt_xy_pair::x)
+        .def_ro("y", &tt_xy_pair::y)
+        .def("__str__", [](const tt_xy_pair &pair) { return fmt::format("({}, {})", pair.x, pair.y); });
+
+    // Expose PciDeviceInfo
+    nb::class_<PciDeviceInfo>(m, "PciDeviceInfo")
+        .def_ro("pci_domain", &PciDeviceInfo::pci_domain)
+        .def_ro("pci_bus", &PciDeviceInfo::pci_bus)
+        .def_ro("pci_device", &PciDeviceInfo::pci_device)
+        .def_ro("pci_function", &PciDeviceInfo::pci_function)
+        .def("get_pci_bdf", &PciDeviceInfo::get_pci_bdf)
+        .def("get_arch", &PciDeviceInfo::get_arch);
+
+    // Expose the PCIDevice class
+    nb::class_<PCIDevice>(m, "PCIDevice")
+        .def(nb::init<int>())
+        // std::vector<int> PCIDevice::enumerate_devices() {
+        .def_static("enumerate_devices", &PCIDevice::enumerate_devices)
+        .def_static("enumerate_devices_info", &PCIDevice::enumerate_devices_info)
+        .def("get_device_info", &PCIDevice::get_device_info);
 
     // Expose tt::ARCH enum
     nb::enum_<tt::ARCH>(m, "ARCH")
@@ -71,7 +101,29 @@ NB_MODULE(tt_umd, m) {
         .def_static("create", &TTDevice::create, nb::arg("pci_device_number"), nb::rv_policy::take_ownership)
         .def("get_arc_telemetry_reader", &TTDevice::get_arc_telemetry_reader, nb::rv_policy::reference_internal)
         .def("get_arch", &TTDevice::get_arch)
-        .def("get_board_id", &TTDevice::get_board_id);
+        .def("get_board_id", &TTDevice::get_board_id)
+        .def("get_pci_device", &TTDevice::get_pci_device, nb::rv_policy::reference)
+        // .def("read_from_device",
+        //     [](TTDevice &self, nb::capsule mem, tt_xy_pair core, uint64_t addr, uint32_t size) {
+        //         self.read_from_device((void*)mem.data(), core, addr, size);
+        //     },
+        //     nb::arg("mem_ptr"),
+        //     nb::arg("core"),
+        //     nb::arg("addr"),
+        //     nb::arg("size"),
+        //     "Reads data from the device into the provided memory buffer."
+        // )
+        .def(
+            "noc_read32",
+            [](TTDevice &self, uint32_t core_x, uint32_t core_y, uint64_t addr) -> uint32_t {
+                tt_xy_pair core = {core_x, core_y};
+                uint32_t value = 0;
+                self.read_from_device(&value, core, addr, sizeof(uint32_t));
+                return value;
+            },
+            nb::arg("core_x"),
+            nb::arg("core_y"),
+            nb::arg("addr"));
 
     // Expose the LocalChip class
     nb::class_<LocalChip>(m, "LocalChip")
@@ -79,19 +131,13 @@ NB_MODULE(tt_umd, m) {
         .def("get_tt_device", &LocalChip::get_tt_device, nb::rv_policy::reference_internal)
         .def(
             "set_remote_transfer_ethernet_cores",
-            static_cast<void (LocalChip::*)(const std::set<uint32_t>&)>(&LocalChip::set_remote_transfer_ethernet_cores),
+            static_cast<void (LocalChip::*)(const std::set<uint32_t> &)>(
+                &LocalChip::set_remote_transfer_ethernet_cores),
             nb::arg("channels"));
 
     // Expose the RemoteWormholeTTDevice class
     nb::class_<RemoteWormholeTTDevice, TTDevice>(m, "RemoteWormholeTTDevice")
-        .def(nb::init<LocalChip*, eth_coord_t>(), nb::arg("local_chip"), nb::arg("target_chip"));
-
-    // Expose the PCIDevice class
-    nb::class_<PCIDevice>(m, "PCIDevice")
-        .def(nb::init<int>())
-        // std::vector<int> PCIDevice::enumerate_devices() {
-        .def("enumerate_devices", &PCIDevice::enumerate_devices)
-        .def("enumerate_devices_info", &PCIDevice::enumerate_devices_info);
+        .def(nb::init<LocalChip *, eth_coord_t>(), nb::arg("local_chip"), nb::arg("target_chip"));
 
     // Create a submodule for wormhole
     auto wormhole = m.def_submodule("wormhole", "Wormhole-related functionality");

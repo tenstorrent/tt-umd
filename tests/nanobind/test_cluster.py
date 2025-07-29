@@ -20,7 +20,7 @@ class TestCluster(unittest.TestCase):
         print("All chips but local first: ", cluster_descriptor.get_chips_local_first(cluster_descriptor.get_all_chips()))
         
         for chip in cluster_descriptor.get_all_chips():
-            print(f"Chip id {chip} has arch {cluster_descriptor.get_arch(chip)} and board id {cluster_descriptor.get_board_id(chip)}")
+            print(f"Chip id {chip} has arch {cluster_descriptor.get_arch(chip)}")
 
     def test_cluster_functionality(self):
         cluster = tt_umd.Cluster()
@@ -28,6 +28,32 @@ class TestCluster(unittest.TestCase):
         print("Cluster device IDs:", target_device_ids)
         clocks = cluster.get_clocks()
         print("Cluster clocks:", clocks)
+
+    def test_low_level_tt_device(self):
+        dev_ids = tt_umd.PCIDevice.enumerate_devices()
+        print("Devices found: ", dev_ids)
+        if (len(dev_ids) == 0):
+            print("No PCI devices found.")
+            return
+
+        dev = tt_umd.TTDevice.create(dev_ids[0])
+        print(f"TTDevice id {dev_ids[0]} has arch {dev.get_arch()} and board id {dev.get_board_id()}")
+        pci_dev = dev.get_pci_device()
+        pci_info = pci_dev.get_device_info().get_pci_bdf()
+        print("So the pci bdf is ", pci_info)
+
+    def test_read_low_level_tt_device(self):
+        dev_ids = tt_umd.PCIDevice.enumerate_devices()
+        print("Devices found: ", dev_ids)
+        if (len(dev_ids) == 0):
+            print("No PCI devices found.")
+            return
+        dev = tt_umd.TTDevice.create(dev_ids[0])
+        print(f"TTDevice id {dev_ids[0]} has arch {dev.get_arch()} and board id {dev.get_board_id()}")
+        # val = bytearray(4) # A mutable byte buffer of 4 bytes
+        # dev.read_from_device(val, tt_umd.tt_xy_pair(9, 0), 0, 4)
+        val2 = dev.noc_read32(9, 0, 0)
+        print("Read value from device, core 9,0 addr 0x0: ", val2)
         
 class TestTelemetry(unittest.TestCase):
     def test_telemetry(self):

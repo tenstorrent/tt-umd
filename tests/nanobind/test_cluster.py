@@ -20,7 +20,7 @@ class TestCluster(unittest.TestCase):
         print("All chips but local first: ", cluster_descriptor.get_chips_local_first(cluster_descriptor.get_all_chips()))
         
         for chip in cluster_descriptor.get_all_chips():
-            print(f"Chip id {chip} has arch {cluster_descriptor.get_arch(chip)}")
+            print(f"Chip id {chip} has arch {cluster_descriptor.get_arch(chip)} and board id {cluster_descriptor.get_board_id(chip)}")
 
     def test_cluster_functionality(self):
         cluster = tt_umd.Cluster()

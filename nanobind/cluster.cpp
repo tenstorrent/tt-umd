@@ -70,7 +70,8 @@ NB_MODULE(tt_umd, m) {
     nb::class_<TTDevice>(m, "TTDevice")
         .def_static("create", &TTDevice::create, nb::arg("pci_device_number"), nb::rv_policy::take_ownership)
         .def("get_arc_telemetry_reader", &TTDevice::get_arc_telemetry_reader, nb::rv_policy::reference_internal)
-        .def("get_arch", &TTDevice::get_arch);
+        .def("get_arch", &TTDevice::get_arch)
+        .def("get_board_id", &TTDevice::get_board_id);
 
     // Expose the LocalChip class
     nb::class_<LocalChip>(m, "LocalChip")

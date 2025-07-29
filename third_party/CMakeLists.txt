@@ -94,7 +94,7 @@ if(TT_UMD_BUILD_SIMULATION)
     CPMAddPackage(
         NAME libuv
         GITHUB_REPOSITORY libuv/libuv
-        GIT_TAG v1.48.0
+        GIT_TAG v1.51.0
         OPTIONS
             "CMAKE_MESSAGE_LOG_LEVEL NOTICE"
             "LIBUV_BUILD_TESTS OFF"

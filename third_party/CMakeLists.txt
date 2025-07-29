@@ -98,6 +98,7 @@ if(TT_UMD_BUILD_SIMULATION)
         OPTIONS
             "CMAKE_MESSAGE_LOG_LEVEL NOTICE"
             "LIBUV_BUILD_TESTS OFF"
+            "LIBUV_BUILD_SHARED OFF"
             "BUILD_SHARED_LIBS OFF"
     )
 endif()

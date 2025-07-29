@@ -22,11 +22,11 @@ using namespace tt::umd;
 
 std::string run_default_telemetry(int pci_device, ArcTelemetryReader* telemetry_reader) {
     // Holds information about the max AICLK value and the current one.
-    uint32_t aiclk_info = telemetry_reader->read_entry(wormhole::TAG_AICLK);
+    uint32_t aiclk_info = telemetry_reader->read_entry(wormhole::TelemetryTag::AICLK);
     uint32_t aiclk_current = aiclk_info & 0xFFFF;
-    uint32_t vcore = telemetry_reader->read_entry(wormhole::TAG_VCORE);
-    uint32_t tdp = telemetry_reader->read_entry(wormhole::TAG_TDP) & 0xFFFF;
-    uint32_t asic_temperature = telemetry_reader->read_entry(wormhole::TAG_ASIC_TEMPERATURE);
+    uint32_t vcore = telemetry_reader->read_entry(wormhole::TelemetryTag::VCORE);
+    uint32_t tdp = telemetry_reader->read_entry(wormhole::TelemetryTag::TDP) & 0xFFFF;
+    uint32_t asic_temperature = telemetry_reader->read_entry(wormhole::TelemetryTag::ASIC_TEMPERATURE);
     uint32_t current_temperature = (asic_temperature & 0xFFFF) / 16.0;
     return fmt::format(
         "Device id {} - AICLK: {} VCore: {} Power: {} Temp: {}",

@@ -371,11 +371,13 @@ void LocalChip::set_remote_transfer_ethernet_cores(const std::unordered_set<Core
     // Based on this information, UMD determines which ethernet cores can be used for host->cluster non-MMIO transfers.
     // This overrides the default ethernet cores tagged for host to cluster routing in the constructor and must be
     // called for all MMIO devices, if default behaviour is not desired.
-    TT_ASSERT(soc_descriptor_.arch == tt::ARCH::WORMHOLE_B0, "{} can only be called for Wormhole arch", __FUNCTION__);
-    remote_transfer_eth_cores_ = {};
-    for (const auto& active_eth_core : active_eth_cores) {
-        auto virtual_coord = soc_descriptor_.translate_coord_to(active_eth_core, CoordSystem::VIRTUAL);
-        remote_transfer_eth_cores_.push_back(active_eth_core);
+    if (soc_descriptor_.arch == tt::ARCH::WORMHOLE_B0) {
+        // For now the remote communication is only implemented for WH
+        remote_transfer_eth_cores_ = {};
+        for (const auto& active_eth_core : active_eth_cores) {
+            auto virtual_coord = soc_descriptor_.translate_coord_to(active_eth_core, CoordSystem::VIRTUAL);
+            remote_transfer_eth_cores_.push_back(active_eth_core);
+        }
     }
 }
 

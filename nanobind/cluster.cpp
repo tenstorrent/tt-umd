@@ -24,6 +24,17 @@ NB_MODULE(tt_umd, m) {
     // Expose the eth_coord_t struct
     nb::class_<eth_coord_t>(m, "EthCoord");
 
+    // Expose tt::ARCH enum
+    nb::enum_<tt::ARCH>(m, "ARCH")
+        .value("GRAYSKULL", tt::ARCH::GRAYSKULL)
+        .value("WORMHOLE_B0", tt::ARCH::WORMHOLE_B0)
+        .value("BLACKHOLE", tt::ARCH::BLACKHOLE)
+        .value("QUASAR", tt::ARCH::QUASAR)
+        .value("Invalid", tt::ARCH::Invalid)
+        .def("__str__", &tt::arch_to_str)
+        .def("__int__", [](tt::ARCH tag) { return static_cast<int>(tag); })
+        .def_static("from_str", &tt::arch_from_str, nb::arg("arch_str"));
+
     // Expose the ClusterDescriptor class
     nb::class_<tt_ClusterDescriptor>(m, "ClusterDescriptor")
         .def("get_all_chips", &tt_ClusterDescriptor::get_all_chips)
@@ -33,7 +44,8 @@ NB_MODULE(tt_umd, m) {
         .def("get_chips_local_first", &tt_ClusterDescriptor::get_chips_local_first, nb::arg("chips"))
         .def("get_chip_locations", &tt_ClusterDescriptor::get_chip_locations)
         .def("get_chips_with_mmio", &tt_ClusterDescriptor::get_chips_with_mmio)
-        .def("get_active_eth_channels", &tt_ClusterDescriptor::get_active_eth_channels, nb::arg("chip_id"));
+        .def("get_active_eth_channels", &tt_ClusterDescriptor::get_active_eth_channels, nb::arg("chip_id"))
+        .def("get_arch", &tt_ClusterDescriptor::get_arch, nb::arg("chip_id"));
 
     // Expose the Cluster class
     nb::class_<Cluster>(m, "Cluster")

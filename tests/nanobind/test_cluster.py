@@ -18,6 +18,9 @@ class TestCluster(unittest.TestCase):
                 print(f"Chip remote: {chip}, closest MMIO capable chip: {closest_mmio}")
                 
         print("All chips but local first: ", cluster_descriptor.get_chips_local_first(cluster_descriptor.get_all_chips()))
+        
+        for chip in cluster_descriptor.get_all_chips():
+            print(f"Chip id {chip} has arch {cluster_descriptor.get_arch(chip)}")
 
     def test_cluster_functionality(self):
         cluster = tt_umd.Cluster()

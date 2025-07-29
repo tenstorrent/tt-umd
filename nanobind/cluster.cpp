@@ -16,6 +16,7 @@
 #include <nanobind/stl/vector.h>
 
 #include "umd/device/types/wormhole_telemetry.h"
+#include "umd/device/types/blackhole_telemetry.h"
 
 namespace nb = nanobind;
 
@@ -196,4 +197,51 @@ NB_MODULE(tt_umd, m) {
         .value("FW_BUNDLE_VERSION", wormhole::TelemetryTag::FW_BUNDLE_VERSION)
         .value("NUMBER_OF_TAGS", wormhole::TelemetryTag::NUMBER_OF_TAGS)
         .def("__int__", [](wormhole::TelemetryTag tag) { return static_cast<int>(tag); });
+
+    // Create a submodule for wormhole
+    auto blackhole = m.def_submodule("blackhole", "Blackhole-related functionality");
+
+    // Expose the TelemetryTag enum in the blackhole submodule
+    nb::enum_<blackhole::TelemetryTag>(blackhole, "TelemetryTag") // Use 'm' or 'blackhole' submodule
+        .value("BOARD_ID_HIGH", blackhole::TelemetryTag::BOARD_ID_HIGH)
+        .value("BOARD_ID_LOW", blackhole::TelemetryTag::BOARD_ID_LOW)
+        .value("ASIC_ID", blackhole::TelemetryTag::ASIC_ID)
+        .value("HARVESTING_STATE", blackhole::TelemetryTag::HARVESTING_STATE)
+        .value("UPDATE_TELEM_SPEED", blackhole::TelemetryTag::UPDATE_TELEM_SPEED)
+        .value("VCORE", blackhole::TelemetryTag::VCORE)
+        .value("TDP", blackhole::TelemetryTag::TDP)
+        .value("TDC", blackhole::TelemetryTag::TDC)
+        .value("VDD_LIMITS", blackhole::TelemetryTag::VDD_LIMITS)
+        .value("THM_LIMITS", blackhole::TelemetryTag::THM_LIMITS)
+        .value("ASIC_TEMPERATURE", blackhole::TelemetryTag::ASIC_TEMPERATURE)
+        .value("VREG_TEMPERATURE", blackhole::TelemetryTag::VREG_TEMPERATURE)
+        .value("BOARD_TEMPERATURE", blackhole::TelemetryTag::BOARD_TEMPERATURE)
+        .value("AICLK", blackhole::TelemetryTag::AICLK)
+        .value("AXICLK", blackhole::TelemetryTag::AXICLK)
+        .value("ARCCLK", blackhole::TelemetryTag::ARCCLK)
+        .value("L2CPUCLK0", blackhole::TelemetryTag::L2CPUCLK0)
+        .value("L2CPUCLK1", blackhole::TelemetryTag::L2CPUCLK1)
+        .value("L2CPUCLK2", blackhole::TelemetryTag::L2CPUCLK2)
+        .value("L2CPUCLK3", blackhole::TelemetryTag::L2CPUCLK3)
+        .value("ETH_LIVE_STATUS", blackhole::TelemetryTag::ETH_LIVE_STATUS)
+        .value("DDR_STATUS", blackhole::TelemetryTag::DDR_STATUS)
+        .value("DDR_SPEED", blackhole::TelemetryTag::DDR_SPEED)
+        .value("ETH_FW_VERSION", blackhole::TelemetryTag::ETH_FW_VERSION)
+        .value("DDR_FW_VERSION", blackhole::TelemetryTag::DDR_FW_VERSION)
+        .value("BM_APP_FW_VERSION", blackhole::TelemetryTag::BM_APP_FW_VERSION)
+        .value("BM_BL_FW_VERSION", blackhole::TelemetryTag::BM_BL_FW_VERSION)
+        .value("FLASH_BUNDLE_VERSION", blackhole::TelemetryTag::FLASH_BUNDLE_VERSION)
+        .value("CM_FW_VERSION", blackhole::TelemetryTag::CM_FW_VERSION)
+        .value("L2CPU_FW_VERSION", blackhole::TelemetryTag::L2CPU_FW_VERSION)
+        .value("FAN_SPEED", blackhole::TelemetryTag::FAN_SPEED)
+        .value("TIMER_HEARTBEAT", blackhole::TelemetryTag::TIMER_HEARTBEAT)
+        .value("TELEMETRY_ENUM_COUNT", blackhole::TelemetryTag::TELEMETRY_ENUM_COUNT)
+        .value("ENABLED_TENSIX_COL", blackhole::TelemetryTag::ENABLED_TENSIX_COL)
+        .value("ENABLED_ETH", blackhole::TelemetryTag::ENABLED_ETH)
+        .value("ENABLED_GDDR", blackhole::TelemetryTag::ENABLED_GDDR)
+        .value("ENABLED_L2CPU", blackhole::TelemetryTag::ENABLED_L2CPU)
+        .value("PCIE_USAGE", blackhole::TelemetryTag::PCIE_USAGE)
+        .value("NUMBER_OF_TAGS", blackhole::TelemetryTag::NUMBER_OF_TAGS)
+        .def("__int__", [](blackhole::TelemetryTag tag) { return static_cast<int>(tag); });
+
 }

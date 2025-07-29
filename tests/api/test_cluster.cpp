@@ -587,7 +587,7 @@ TEST(TestCluster, DeassertResetWithCounterBrisc) {
 
             // TODO: Investigate why without this line of code the test fails. Added l1_membar for timing reasons, seems
             // that two subsequent reads are too fast.
-            cluster->l1_membar(chip_id, {tensix_core});
+            // cluster->l1_membar(chip_id, {tensix_core});
 
             cluster->read_from_device(
                 &second_readback_value, chip_id, tensix_core, counter_address, sizeof(second_readback_value));
@@ -725,7 +725,7 @@ TEST_P(ClusterAssertDeassertRiscsTest, TriscNcriscAssertDeassertTest) {
 
                 // TODO: Investigate why without this line of code the test fails. Added l1_membar for timing reasons,
                 // seems that two subsequent reads are too fast.
-                cluster->l1_membar(chip_id, {tensix_core});
+                // cluster->l1_membar(chip_id, {tensix_core});
 
                 cluster->read_from_device(
                     &second_readback_value, chip_id, tensix_core, counter_address, sizeof(second_readback_value));

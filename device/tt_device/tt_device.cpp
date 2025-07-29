@@ -319,7 +319,7 @@ dynamic_tlb TTDevice::set_dynamic_tlb(
             // Using the same static vc for reads and writes through TLBs can hang the card. It doesn't even have to
             // be the same TLB. Dynamic vc should not have this issue. There might be a perf impact with using
             // dynamic vc.
-            .static_vc = (arch == tt::ARCH::BLACKHOLE) ? false : true,
+            .static_vc = true,
         }
             .apply_offset(tlb_config.offset);
 

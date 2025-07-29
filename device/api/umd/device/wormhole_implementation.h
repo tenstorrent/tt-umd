@@ -387,6 +387,10 @@ public:
 
     const std::vector<uint32_t>& get_t6_y_locations() const override { return wormhole::T6_Y_LOCATIONS; }
 
+    const std::vector<std::vector<tt_xy_pair>>& get_dram_cores_noc0() const override {
+        return wormhole::DRAM_CORES_NOC0;
+    };
+
     std::pair<uint32_t, uint32_t> get_tlb_1m_base_and_count() const override {
         return {wormhole::TLB_BASE_1M, wormhole::TLB_COUNT_1M};
     }

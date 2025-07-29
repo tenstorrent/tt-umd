@@ -70,6 +70,7 @@ public:
     virtual const std::vector<uint32_t>& get_harvesting_noc_locations() const = 0;
     virtual const std::vector<uint32_t>& get_t6_x_locations() const = 0;
     virtual const std::vector<uint32_t>& get_t6_y_locations() const = 0;
+    virtual const std::vector<std::vector<tt_xy_pair>>& get_dram_cores_noc0() const = 0;
 
     // TLB related. Move other functions here as well.
     virtual std::pair<uint32_t, uint32_t> get_tlb_1m_base_and_count() const = 0;

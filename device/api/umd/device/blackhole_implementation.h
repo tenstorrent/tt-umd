@@ -397,6 +397,10 @@ public:
 
     const std::vector<uint32_t>& get_t6_y_locations() const override { return blackhole::T6_Y_LOCATIONS; }
 
+    const std::vector<std::vector<tt_xy_pair>>& get_dram_cores_noc0() const override {
+        return blackhole::DRAM_CORES_NOC0;
+    };
+
     std::pair<uint32_t, uint32_t> get_tlb_1m_base_and_count() const override { return {0, 0}; }
 
     std::pair<uint32_t, uint32_t> get_tlb_2m_base_and_count() const override {

@@ -545,13 +545,8 @@ TEST(TestCluster, DeassertResetWithCounterBrisc) {
         GTEST_SKIP() << "No chips present on the system. Skipping test.";
     }
 
-    // TODO: remove this check when it is figured out what is happening with Blackhole version of this test.
-    if (cluster->get_tt_device(0)->get_arch() == tt::ARCH::BLACKHOLE) {
-        GTEST_SKIP() << "Skipping test for Blackhole architecture, as it seems flaky for Blackhole.";
-    }
-
     auto tensix_l1_size = cluster->get_soc_descriptor(0).worker_l1_size;
-    std::vector<uint32_t> zero_data(tensix_l1_size, 0);
+    std::vector<uint32_t> zero_data(tensix_l1_size / sizeof(uint32_t), 0);
 
     constexpr uint64_t counter_address = 0x10000;
     constexpr uint64_t brisc_code_address = 0;
@@ -590,6 +585,10 @@ TEST(TestCluster, DeassertResetWithCounterBrisc) {
             cluster->read_from_device(
                 &first_readback_value, chip_id, tensix_core, counter_address, sizeof(first_readback_value));
 
+            // TODO: Investigate why without this line of code the test fails. Added l1_membar for timing reasons, seems
+            // that two subsequent reads are too fast.
+            cluster->l1_membar(chip_id, {tensix_core});
+
             cluster->read_from_device(
                 &second_readback_value, chip_id, tensix_core, counter_address, sizeof(second_readback_value));
 
@@ -621,11 +620,6 @@ TEST_P(ClusterAssertDeassertRiscsTest, TriscNcriscAssertDeassertTest) {
         GTEST_SKIP() << "No chips present on the system. Skipping test.";
     }
 
-    // TODO: remove this check when it is figured out what is happening with Blackhole version of this test.
-    if (cluster->get_tt_device(0)->get_arch() == tt::ARCH::BLACKHOLE) {
-        GTEST_SKIP() << "Skipping test for Blackhole architecture, as it seems flaky for Blackhole.";
-    }
-
     auto get_brisc_configuration_program_for_chip = [](Cluster* cluster,
                                                        chip_id_t chip_id) -> std::optional<std::array<uint32_t, 14>> {
         switch (cluster->get_cluster_description()->get_arch(chip_id)) {
@@ -639,14 +633,19 @@ TEST_P(ClusterAssertDeassertRiscsTest, TriscNcriscAssertDeassertTest) {
     };
 
     const auto& configurations_of_risc_cores = GetParam();
-
     constexpr uint64_t brisc_code_address = 0;
 
     uint32_t first_readback_value = 0;
     uint32_t second_readback_value = 0;
 
     auto tensix_l1_size = cluster->get_soc_descriptor(0).worker_l1_size;
-    std::vector<uint32_t> zero_data(tensix_l1_size, 0);
+    std::vector<uint32_t> zero_data(tensix_l1_size / sizeof(uint32_t), 0);
+    std::vector<uint32_t> readback_data(tensix_l1_size / sizeof(uint32_t), 0xFFFFFFFF);
+
+    std::array<uint32_t, 14> brisc_configuration_program_readback{};
+    std::fill(brisc_configuration_program_readback.begin(), brisc_configuration_program_readback.end(), 0);
+    std::array<uint32_t, 6> code_program_readback{};
+    std::fill(code_program_readback.begin(), code_program_readback.end(), 0);
 
     auto chip_ids = cluster->get_target_device_ids();
     for (auto& chip_id : chip_ids) {
@@ -670,7 +669,12 @@ TEST_P(ClusterAssertDeassertRiscsTest, TriscNcriscAssertDeassertTest) {
 
             cluster->l1_membar(chip_id, {tensix_core});
 
-            cluster->write_to_device(zero_data.data(), zero_data.size() * sizeof(uint32_t), chip_id, tensix_core, 0x0);
+            cluster->write_to_device(zero_data.data(), zero_data.size() * sizeof(uint32_t), chip_id, tensix_core, 0);
+
+            cluster->read_from_device(
+                readback_data.data(), chip_id, tensix_core, 0, readback_data.size() * sizeof(uint32_t));
+
+            EXPECT_EQ(zero_data, readback_data);
 
             cluster->write_to_device(
                 brisc_configuration_program.value().data(),
@@ -678,6 +682,15 @@ TEST_P(ClusterAssertDeassertRiscsTest, TriscNcriscAssertDeassertTest) {
                 chip_id,
                 tensix_core,
                 brisc_code_address);
+
+            cluster->read_from_device(
+                brisc_configuration_program_readback.data(),
+                chip_id,
+                tensix_core,
+                brisc_code_address,
+                brisc_configuration_program_readback.size() * sizeof(uint32_t));
+
+            EXPECT_EQ(brisc_configuration_program.value(), brisc_configuration_program_readback);
 
             cluster->l1_membar(chip_id, {tensix_core});
 
@@ -689,6 +702,15 @@ TEST_P(ClusterAssertDeassertRiscsTest, TriscNcriscAssertDeassertTest) {
 
                 cluster->write_to_device(
                     code_program.data(), code_program.size() * sizeof(uint32_t), chip_id, tensix_core, code_address);
+
+                cluster->read_from_device(
+                    code_program_readback.data(),
+                    chip_id,
+                    tensix_core,
+                    code_address,
+                    code_program_readback.size() * sizeof(uint32_t));
+
+                EXPECT_EQ(code_program, code_program_readback);
             }
 
             cluster->l1_membar(chip_id, {tensix_core});
@@ -700,6 +722,10 @@ TEST_P(ClusterAssertDeassertRiscsTest, TriscNcriscAssertDeassertTest) {
 
                 cluster->read_from_device(
                     &first_readback_value, chip_id, tensix_core, counter_address, sizeof(first_readback_value));
+
+                // TODO: Investigate why without this line of code the test fails. Added l1_membar for timing reasons,
+                // seems that two subsequent reads are too fast.
+                cluster->l1_membar(chip_id, {tensix_core});
 
                 cluster->read_from_device(
                     &second_readback_value, chip_id, tensix_core, counter_address, sizeof(second_readback_value));

@@ -358,7 +358,7 @@ void TTDevice::wait_arc_core_start(const tt_xy_pair arc_core, const uint32_t tim
     throw std::runtime_error("Waiting for ARC core to start is supported only for Blackhole TTDevice.");
 }
 
-void TTDevice::wait_dram_core_training(const uint32_t dram_channel, const uint32_t timeout_ms) {
+void TTDevice::wait_dram_channel_training(const uint32_t dram_channel, const uint32_t timeout_ms) {
     if (dram_channel >= architecture_impl_->get_dram_banks_number()) {
         throw std::runtime_error(fmt::format(
             "Invalid DRAM channel index {}, maximum index for given architecture is {}",

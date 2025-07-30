@@ -358,20 +358,13 @@ void TTDevice::wait_arc_core_start(const tt_xy_pair arc_core, const uint32_t tim
     throw std::runtime_error("Waiting for ARC core to start is supported only for Blackhole TTDevice.");
 }
 
-void TTDevice::wait_dram_core_training(const tt_xy_pair dram_core, const uint32_t timeout_ms) {
-    auto dram_cores = architecture_impl_->get_dram_cores_noc0();
-    std::optional<uint32_t> dram_channel = std::nullopt;
-    for (size_t i = 0; i < dram_cores.size(); ++i) {
-        if (std::find(dram_cores[i].begin(), dram_cores[i].end(), dram_core) != dram_cores[i].end()) {
-            dram_channel.value() = static_cast<uint32_t>(i);
-            break;
-        }
+void TTDevice::wait_dram_core_training(const uint32_t dram_channel, const uint32_t timeout_ms) {
+    if (dram_channel >= architecture_impl_->get_dram_banks_number()) {
+        throw std::runtime_error(fmt::format(
+            "Invalid DRAM channel index {}, maximum index for given architecture is {}",
+            dram_channel,
+            architecture_impl_->get_dram_banks_number() - 1));
     }
-
-    if (!dram_channel.has_value()) {
-        throw std::runtime_error(fmt::format("Invalid DRAM core: {}", dram_core.str()));
-    }
-
     auto start = std::chrono::system_clock::now();
     while (true) {
         std::vector<DramTrainingStatus> dram_training_status = get_dram_training_status();
@@ -382,11 +375,11 @@ void TTDevice::wait_dram_core_training(const tt_xy_pair dram_core, const uint32_
             return;
         }
 
-        if (dram_training_status[*dram_channel] == DramTrainingStatus::FAIL) {
+        if (dram_training_status.at(dram_channel) == DramTrainingStatus::FAIL) {
             throw std::runtime_error("DRAM training failed");
         }
 
-        if (dram_training_status[*dram_channel] == DramTrainingStatus::SUCCESS) {
+        if (dram_training_status.at(dram_channel) == DramTrainingStatus::SUCCESS) {
             return;
         }
 
@@ -394,7 +387,7 @@ void TTDevice::wait_dram_core_training(const tt_xy_pair dram_core, const uint32_
         auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
         if (duration.count() > timeout_ms) {
             throw std::runtime_error(
-                fmt::format("DRAM training for channel {} timed out after {} ms", *dram_channel, timeout_ms));
+                fmt::format("DRAM training for channel {} timed out after {} ms", dram_channel, timeout_ms));
             break;
         }
     }

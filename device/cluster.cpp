@@ -188,6 +188,7 @@ std::unique_ptr<Chip> Cluster::construct_chip_from_cluster(
     tt_SocDescriptor& soc_desc,
     int num_host_mem_channels,
     const std::filesystem::path& simulator_directory) {
+    std::cout << "ctor chip from cluster\n";
     if (chip_type == ChipType::MOCK) {
         return std::make_unique<MockChip>(soc_desc);
     }
@@ -207,6 +208,13 @@ std::unique_ptr<Chip> Cluster::construct_chip_from_cluster(
             soc_desc, cluster_desc->get_chips_with_mmio().at(chip_id), num_host_mem_channels);
         if (cluster_desc->get_arch(chip_id) == tt::ARCH::WORMHOLE_B0) {
             // Remote transfer currently supported only for wormhole.
+            std::cout << "before s r t e c\n";
+            std::cout << "chip_id: " << chip_id << "\n";
+            auto chs = cluster_desc->get_active_eth_channels(chip_id);
+            std::cout << chs.size() << "\n";
+            for (auto& i : chs) {
+                std::cout << "channel: " << i << "\n";
+            }
             chip->set_remote_transfer_ethernet_cores(cluster_desc->get_active_eth_channels(chip_id));
         }
         return chip;
@@ -240,6 +248,7 @@ tt_SocDescriptor Cluster::construct_soc_descriptor(
 
     bool noc_translation_table_en =
         chip_in_cluster_descriptor ? cluster_desc->get_noc_translation_table_en().at(chip_id) : false;
+    std::cout << "before harvesting_masks\n";
     HarvestingMasks harvesting_masks =
         chip_in_cluster_descriptor
             ? get_harvesting_masks(chip_id, cluster_desc, perform_harvesting, simulated_harvesting_masks)
@@ -250,10 +259,11 @@ tt_SocDescriptor Cluster::construct_soc_descriptor(
 
     if (soc_desc_path.empty()) {
         tt::ARCH arch = chip_in_cluster_descriptor ? cluster_desc->get_arch(chip_id) : tt::ARCH::WORMHOLE_B0;
-
+        std::cout << "if\n";
         return tt_SocDescriptor(arch, noc_translation_table_en, harvesting_masks, chip_board_type, asic_location);
 
     } else {
+        std::cout << "else\n";
         tt_SocDescriptor soc_desc =
             tt_SocDescriptor(soc_desc_path, noc_translation_table_en, harvesting_masks, chip_board_type, asic_location);
 
@@ -266,7 +276,7 @@ tt_SocDescriptor Cluster::construct_soc_descriptor(
                 chip_id,
                 arch_to_str(cluster_desc->get_arch(chip_id))));
         }
-
+        std::cout << "out of else\n";
         return soc_desc;
     }
 }
@@ -385,7 +395,7 @@ Cluster::Cluster(ClusterOptions options) {
             cluster_desc.get(),
             options.perform_harvesting,
             simulated_harvesting_masks);
-
+        std::cout << "after construct_soc_descriptor\n";
         add_chip(
             chip_id,
             options.chip_type,
@@ -396,6 +406,7 @@ Cluster::Cluster(ClusterOptions options) {
                 soc_desc,
                 options.num_host_mem_ch_per_mmio_device,
                 options.simulator_directory));
+        std::cout << "after add_chip\n";
     }
 
     construct_cluster(options.num_host_mem_ch_per_mmio_device, options.chip_type);

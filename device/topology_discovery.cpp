@@ -237,7 +237,7 @@ void TopologyDiscovery::discover_remote_chips() {
             eth_coords.emplace(current_chip_id, get_local_eth_coord(chip.get()));
         }
     }
-
+    std::cout << "before while active_eth_channels_per_chip.size() " << active_eth_channels_per_chip.size() << "\n";
     while (!chips_to_discover.empty()) {
         auto it = chips_to_discover.begin();
         auto current_chip_id = it->first;
@@ -249,6 +249,7 @@ void TopologyDiscovery::discover_remote_chips() {
         active_eth_channels_per_chip.emplace(current_chip_id, std::set<uint32_t>());
         std::vector<CoreCoord> eth_cores =
             chip->get_soc_descriptor().get_cores(CoreType::ETH, umd_use_noc1 ? CoordSystem::NOC1 : CoordSystem::NOC0);
+        std::cout << "topology disc eth cores size " << eth_cores.size() << "\n";
         TTDevice* tt_device = chip->get_tt_device();
 
         uint64_t current_chip_asic_id = get_asic_id(chip);
@@ -261,11 +262,12 @@ void TopologyDiscovery::discover_remote_chips() {
                 channel++;
                 continue;
             }
-
+            std::cout << "active_eth_channels_per_chip.size(): " << active_eth_channels_per_chip.size() << "\n";
             active_eth_channels_per_chip.at(current_chip_id).insert(channel);
 
             if (!is_board_id_included(get_remote_board_id(chip, eth_core))) {
                 tt_xy_pair remote_eth_core = get_remote_eth_core(chip, eth_core);
+                std::cout << "remote_eth_core " << remote_eth_core.str() << "\n";
                 uint32_t remote_eth_id =
                     chip->get_soc_descriptor()
                         .translate_coord_to(
@@ -315,6 +317,9 @@ void TopologyDiscovery::discover_remote_chips() {
             }
             channel++;
         }
+        std::cout << "before set_remote_transfer_ethernet_cores in topology disc: "
+                  << "\n";
+        std::cout << "active_eth_channels_per_chip.size(): " << active_eth_channels_per_chip.size() << "\n";
         chip->set_remote_transfer_ethernet_cores(active_eth_channels_per_chip.at(current_chip_id));
     }
 }
@@ -363,6 +368,8 @@ void TopologyDiscovery::fill_cluster_descriptor_info() {
         }
 
         for (const auto& active_channel : active_eth_channels) {
+            std::cout << "active_channel: " << active_channel << "\n";
+            std::cout << "current_chip_id: " << current_chip_id << "\n";
             cluster_desc->active_eth_channels[current_chip_id].insert(active_channel);
             cluster_desc->idle_eth_channels[current_chip_id].erase(active_channel);
         }

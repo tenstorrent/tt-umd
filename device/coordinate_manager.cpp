@@ -5,6 +5,7 @@
  */
 #include "umd/device/coordinate_manager.h"
 
+#include <iostream>
 #include <stdexcept>
 #include <tt-logger/tt-logger.hpp>
 
@@ -126,6 +127,9 @@ void CoordinateManager::identity_map_physical_cores() {
 CoreCoord CoordinateManager::translate_coord_to(
     const CoreCoord core_coord, const CoordSystem target_coord_system) const {
     auto physical_coord_it = to_physical_map.find(core_coord);
+    for (auto& it : to_physical_map) {
+        std::cout << "coords: " << it.first.str() << "\n";
+    }
     if (physical_coord_it == to_physical_map.end()) {
         throw std::runtime_error(fmt::format(
             "No core coordinate found at location: ({}, {}, {}, {})",
@@ -242,6 +246,7 @@ void CoordinateManager::translate_dram_coords() {
 }
 
 void CoordinateManager::translate_eth_coords() {
+    std::cout << "eth_core: " << eth_cores.size() << "\n";
     for (size_t eth_channel = 0; eth_channel < eth_cores.size(); eth_channel++) {
         const tt_xy_pair eth_core = eth_cores[eth_channel];
 

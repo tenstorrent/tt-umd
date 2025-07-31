@@ -103,6 +103,22 @@ TEST(SiliconDriverWH, CustomSocDesc) {
     }
 }
 
+TEST(SiliconDriverWH, CustomSocDescEthCore) {
+    // Initialize the driver with a 1x1 descriptor and explictly do not perform harvesting
+    Cluster cluster(ClusterOptions{
+        .perform_harvesting = false,
+        .simulated_harvesting_masks = {60, 0, 0},
+        .simulated_harvesting_masks_per_chip = {{0, {30, 0, 0}}, {1, {60, 0, 0}}},
+        .sdesc_path = test_utils::GetAbsPath("soc_descriptor_buggy.yaml"),
+    });
+    for (const auto& chip : cluster.get_target_device_ids()) {
+        ASSERT_EQ(cluster.get_soc_descriptor(chip).get_cores(CoreType::TENSIX).size(), 1)
+            << "Expected 1x1 SOC descriptor to be unmodified by driver";
+        ASSERT_EQ(cluster.get_soc_descriptor(chip).get_cores(CoreType::ETH).size(), 0)
+            << "Expected 1x1 SOC descriptor to be unmodified by driver";
+    }
+}
+
 TEST(SiliconDriverWH, HarvestingRuntime) {
     auto get_static_tlb_index_callback = [](tt_xy_pair target) { return get_static_tlb_index(target); };
 

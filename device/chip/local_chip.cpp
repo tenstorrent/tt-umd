@@ -374,16 +374,21 @@ void LocalChip::set_remote_transfer_ethernet_cores(const std::unordered_set<Core
     TT_ASSERT(soc_descriptor_.arch == tt::ARCH::WORMHOLE_B0, "{} can only be called for Wormhole arch", __FUNCTION__);
     remote_transfer_eth_cores_ = {};
     for (const auto& active_eth_core : active_eth_cores) {
+        log_warning(LogSiliconDriver, "Before translate_coord_to.");
         auto virtual_coord = soc_descriptor_.translate_coord_to(active_eth_core, CoordSystem::VIRTUAL);
+        log_warning(LogSiliconDriver, "After translate_coord_to.");
         remote_transfer_eth_cores_.push_back(active_eth_core);
     }
 }
 
 void LocalChip::set_remote_transfer_ethernet_cores(const std::set<uint32_t>& channels) {
     std::unordered_set<CoreCoord> active_eth_cores;
+    log_warning(LogSiliconDriver, "Before LocalChip::set_remote_transfer_ethernet_cores - channels.");
     for (const auto& channel : channels) {
+        std::cout << "channel: " << channel << "\n";
         active_eth_cores.insert(soc_descriptor_.get_eth_core_for_channel(channel));
     }
+    log_warning(LogSiliconDriver, "Before set_remote_transfer_ethernet_cores.");
     set_remote_transfer_ethernet_cores(active_eth_cores);
 }
 

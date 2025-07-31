@@ -16,9 +16,11 @@
 #include <vector>
 
 #include "fmt/xchar.h"
+#include "spdlog/common.h"
 #include "test_api_common.h"
 #include "test_utils/assembly_programs_for_tests.hpp"
 #include "tests/test_utils/generate_cluster_desc.hpp"
+#include "tt-logger/tt-logger.hpp"
 #include "umd/device/blackhole_implementation.h"
 #include "umd/device/chip/local_chip.h"
 #include "umd/device/chip/mock_chip.h"
@@ -57,9 +59,18 @@ std::vector<ClusterOptions> get_cluster_options_for_param_test() {
 }
 
 // This test should be one line only.
-TEST(ApiClusterTest, OpenAllSiliconChips) { std::unique_ptr<Cluster> umd_cluster = std::make_unique<Cluster>(tt::umd::ClusterOptions{
-            .sdesc_path = "/localdev/dzivanovic/tt-umd-simulators/build/versim-wormhole-b0/soc_descriptor.yaml",
-        }); }
+TEST(ApiClusterTest, OpenAllSiliconChips) {
+    std::cout << "wut\n";
+
+    tt::LoggerRegistry::instance().set_level(spdlog::level::debug);
+    // Initialize the UMD logger system
+    log_info(tt::LogSiliconDriver, "Initializing logger");
+    log_debug(tt::LogSiliconDriver, "Debug logging enabled");
+
+    std::unique_ptr<Cluster> umd_cluster = std::make_unique<Cluster>(tt::umd::ClusterOptions{
+        .sdesc_path = "soc_descriptor_buggy.yaml",
+    });
+}
 
 TEST(ApiClusterTest, OpenChipsByPciId) {
     std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();

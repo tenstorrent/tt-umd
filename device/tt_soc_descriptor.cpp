@@ -148,7 +148,7 @@ void tt_SocDescriptor::create_coordinate_manager(const BoardType board_type, con
     }
 
     pcie_grid_size = tt_SocDescriptor::calculate_grid_size(pcie_cores);
-
+    std::cout << "coordinate_manager eth cores size " << ethernet_cores.size() << "\n";
     coordinate_manager = CoordinateManager::create_coordinate_manager(
         arch,
         noc_translation_enabled,
@@ -223,6 +223,7 @@ void tt_SocDescriptor::load_core_descriptors_from_soc_desc_info(const SocDescrip
 
     int current_ethernet_channel = 0;
     for (const auto &eth_core : soc_desc_info.eth_cores) {
+        std::cout << "eth_core in load core desc from soc desc info: " << eth_core.str() << "\n";
         CoreDescriptor core_descriptor;
         core_descriptor.coord = eth_core;
         core_descriptor.type = CoreType::ETH;
@@ -386,6 +387,9 @@ void tt_SocDescriptor::load_from_yaml(YAML::Node &device_descriptor_yaml) {
         tt_SocDescriptor::convert_to_tt_xy_pair(device_descriptor_yaml["pcie"].as<std::vector<std::string>>());
     soc_desc_info.eth_cores =
         tt_SocDescriptor::convert_to_tt_xy_pair(device_descriptor_yaml["eth"].as<std::vector<std::string>>());
+    for (auto &i : soc_desc_info.eth_cores) {
+        std::cout << "eth_core: " << i.str() << "\n";
+    }
     soc_desc_info.arc_cores =
         tt_SocDescriptor::convert_to_tt_xy_pair(device_descriptor_yaml["arc"].as<std::vector<std::string>>());
     soc_desc_info.router_cores =
@@ -418,10 +422,13 @@ void tt_SocDescriptor::load_from_yaml(YAML::Node &device_descriptor_yaml) {
         harvested_ethernet_cores = tt_SocDescriptor::convert_to_tt_xy_pair(
             device_descriptor_yaml["harvested_eth"].as<std::vector<std::string>>());
     }
+    for (auto &i : harvested_ethernet_cores) {
+        std::cout << "harvested_ethernet_cores: " << i.str() << "\n";
+    }
     if (device_descriptor_yaml["harvested_dram"].IsDefined()) {
         harvested_dram_cores = tt_SocDescriptor::convert_dram_cores_from_yaml(device_descriptor_yaml, "harvested_dram");
     }
-
+    std::cout << "soc_desc_info.eth_cores.size() " << soc_desc_info.eth_cores.size() << "\n";
     load_from_soc_desc_info(soc_desc_info);
 }
 
@@ -432,6 +439,7 @@ tt_SocDescriptor::tt_SocDescriptor(
     const BoardType board_type,
     const uint8_t asic_location) :
     noc_translation_enabled(noc_translation_enabled), harvesting_masks(harvesting_masks) {
+    std::cout << "device_descriptor_path: " << device_descriptor_path << "\n";
     std::ifstream fdesc(device_descriptor_path);
     if (fdesc.fail()) {
         throw std::runtime_error(
@@ -442,8 +450,9 @@ tt_SocDescriptor::tt_SocDescriptor(
     YAML::Node device_descriptor_yaml = YAML::LoadFile(device_descriptor_path);
 
     device_descriptor_file_path = device_descriptor_path;
+    std::cout << "didn't get here\n";
     load_from_yaml(device_descriptor_yaml);
-
+    std::cout << "got here\n";
     create_coordinate_manager(board_type, asic_location);
 }
 
@@ -457,6 +466,8 @@ CoreCoord tt_SocDescriptor::get_dram_core_for_channel(
 
 CoreCoord tt_SocDescriptor::get_eth_core_for_channel(int eth_chan, const CoordSystem coord_system) const {
     const CoreCoord logical_eth_coord = CoreCoord(0, eth_chan, CoreType::ETH, CoordSystem::LOGICAL);
+    log_warning(LogSiliconDriver, "Before translate_coord_to from tt_SocDescriptor::get_eth_core_for_channel.");
+    std::cout << "logical_eth_coord: " << logical_eth_coord.str() << "\n";
     return translate_coord_to(logical_eth_coord, coord_system);
 }
 

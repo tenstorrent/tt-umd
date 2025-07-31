@@ -106,7 +106,9 @@ int RemoteChip::get_numa_node() {
 
 void RemoteChip::set_remote_transfer_ethernet_cores(const std::unordered_set<CoreCoord>& cores) {}
 
-void RemoteChip::set_remote_transfer_ethernet_cores(const std::set<uint32_t>& channel) {}
+void RemoteChip::set_remote_transfer_ethernet_cores(const std::set<uint32_t>& channel) {
+    std::cout << "does nothing\n";
+}
 
 TTDevice* RemoteChip::get_tt_device() { return tt_device_.get(); }
 

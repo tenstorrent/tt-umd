@@ -3,7 +3,10 @@
  *
  * SPDX-License-Identifier: Apache-2.0
  */
+
 #include "umd/device/wormhole_coordinate_manager.h"
+
+#include <iostream>
 
 namespace tt::umd {
 
@@ -84,6 +87,8 @@ void WormholeCoordinateManager::fill_dram_physical_translated_mapping() {
 }
 
 void WormholeCoordinateManager::fill_eth_physical_translated_mapping() {
+    std::cout << "fill eth physical\n";
+    std::cout << "eth_cores size: " << eth_cores.size() << "\n";
     for (auto eth_core : eth_cores) {
         CoreCoord translated_coord = CoreCoord(eth_core, CoreType::ETH, CoordSystem::TRANSLATED);
 

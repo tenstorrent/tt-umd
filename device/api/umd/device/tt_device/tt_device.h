@@ -6,16 +6,16 @@
 
 #pragma once
 
+#include <filesystem>
 #include <string_view>
 
 #include "umd/device/arc_messenger.h"
 #include "umd/device/arc_telemetry_reader.h"
 #include "umd/device/architecture_implementation.h"
 #include "umd/device/chip_helpers/tlb_manager.h"
-#include "umd/device/pci_device.hpp"
 #include "umd/device/jtag_device.h"
+#include "umd/device/pci_device.hpp"
 #include "umd/device/types/cluster_descriptor_types.h"
-#include <filesystem>
 
 namespace tt::umd {
 
@@ -120,6 +120,7 @@ public:
     virtual void write_to_device(const void *mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size);
 
     void jtag_read_from_device(void *mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size);
+    void jtag_write_to_device(const void *mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size);
 
     // TLB related functions.
     // TODO: These are architecture specific, and will be moved out of the class.
@@ -231,9 +232,8 @@ protected:
 
     virtual void init_tt_device();
 
-    void init_jtag(
-        std::filesystem::path &binary_directory);
-    
+    void init_jtag(std::filesystem::path &binary_directory);
+
     semver_t fw_version_from_telemetry(const uint32_t telemetry_data) const;
 
     TTDevice();
@@ -242,8 +242,7 @@ protected:
 
     bool is_remote_tt_device = false;
 
-    static std::string jtag_library_directory_path;    
-
+    static std::string jtag_library_directory_path;
 };
 
 }  // namespace tt::umd

@@ -12,6 +12,12 @@
 
 using namespace tt::umd;
 
+TEST(SocDescriptor, OneDRAMOneTensixDescriptor) {
+    std::unique_ptr<Cluster> umd_cluster = std::make_unique<Cluster>(tt::umd::ClusterOptions{
+        .sdesc_path = "tests/soc_descs/one_dram_one_tensix_no_eth_descriptor.yaml",
+    });
+}
+
 // Test soc descriptor API for Wormhole when there is no harvesting.
 TEST(SocDescriptor, SocDescriptorWormholeNoHarvesting) {
     tt_SocDescriptor soc_desc(test_utils::GetAbsPath("tests/soc_descs/wormhole_b0_8x10.yaml"), true);

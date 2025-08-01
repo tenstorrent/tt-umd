@@ -1076,7 +1076,7 @@ std::unique_ptr<tt_ClusterDescriptor> Cluster::create_cluster_descriptor(
 
         return Cluster::create_cluster_descriptor(chips);
     } else {
-        return TopologyDiscovery(pci_target_devices).create_ethernet_map();
+        return TopologyDiscovery(pci_target_devices, sdesc_path).create_ethernet_map();
     }
 }
 

@@ -11,6 +11,7 @@
 #include <map>
 #include <memory>
 #include <unordered_map>
+#include <unordered_set>
 #include <vector>
 
 #include "fmt/format.h"
@@ -61,12 +62,12 @@ public:
     /**
      * @return a list of integers corresponding to character devices in /dev/tenstorrent/
      */
-    static std::vector<int> enumerate_devices();
+    static std::vector<int> enumerate_devices(std::unordered_set<int> pci_target_devices = {});
 
     /**
      * @return a map of PCI device numbers (/dev/tenstorrent/N) to PciDeviceInfo
      */
-    static std::map<int, PciDeviceInfo> enumerate_devices_info();
+    static std::map<int, PciDeviceInfo> enumerate_devices_info(std::unordered_set<int> pci_target_devices = {});
 
     /**
      * PCI device constructor.

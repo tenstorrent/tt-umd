@@ -95,9 +95,6 @@ public:
     // Probably also moved to LocalChip.
     tt_device_dram_address_params dram_address_params;
     tt_device_l1_address_params l1_address_params;
-    tt_driver_host_address_params host_address_params;
-    tt_driver_noc_params noc_params;
-    tt_driver_eth_interface_params eth_interface_params;
 
     // TODO: To be removed once we properly refactor usage of NOC1 coords.
     tt_xy_pair translate_chip_coord_to_translated(const CoreCoord core) const;

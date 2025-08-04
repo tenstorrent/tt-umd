@@ -82,3 +82,8 @@ jobs:
         if: ${{ inputs.arch != 'baremetal' }}
         run: |
           ${{ env.TEST_OUTPUT_DIR }}/umd/ubenchmarks/ubench --gtest_filter=MicrobenchmarkOpenCluster*
+
+      - name: Run Ethernet IO benchmarks
+        if: ${{ inputs.arch != 'baremetal' }}
+        run: |
+          ${{ env.TEST_OUTPUT_DIR }}/umd/ubenchmarks/ubench --gtest_filter=MicrobenchmarkEthernetIO*

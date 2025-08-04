@@ -16,9 +16,10 @@ namespace tt::umd {
 
 static_assert(!std::is_abstract<RemoteChip>(), "RemoteChip must be non-abstract.");
 
-RemoteChip::RemoteChip(tt_SocDescriptor soc_descriptor, std::unique_ptr<RemoteWormholeTTDevice> remote_tt_device) :
+RemoteChip::RemoteChip(
+    tt_SocDescriptor soc_descriptor, std::unique_ptr<RemoteWormholeTTDevice> remote_tt_device, LocalChip* local_chip) :
     Chip(soc_descriptor) {
-    local_chip_ = remote_tt_device->get_local_chip();
+    local_chip_ = local_chip;
     remote_communication_ = remote_tt_device->get_remote_communication();
     tt_device_ = std::move(remote_tt_device);
     chip_info_ = tt_device_->get_chip_info();

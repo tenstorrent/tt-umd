@@ -82,25 +82,25 @@ TopologyDiscovery::EthAddresses TopologyDiscovery::get_eth_addresses(uint32_t et
 }
 
 std::unique_ptr<RemoteChip> TopologyDiscovery::create_remote_chip(
-    Chip* chip, tt_xy_pair eth_core, Chip* gateway_chip, std::vector<tt_xy_pair>& eth_channels_to_use) {
+    Chip* chip, tt_xy_pair eth_core, Chip* gateway_chip, std::vector<tt_xy_pair> eth_channels_to_use) {
     if (is_running_on_6u) {
         return nullptr;
     }
 
     LocalChip* local_chip = dynamic_cast<LocalChip*>(chip);
 
-    std::unique_ptr<RemoteCommunication> remote_communication = std::make_unique<RemoteCommunication>(local_chip);
+    std::unique_ptr<RemoteCommunication> remote_communication = std::make_unique<RemoteCommunication>(local_chip->get_tt_device());
     remote_communication->set_remote_transfer_ethernet_cores(eth_channels_to_use);
 
     std::unique_ptr<RemoteWormholeTTDevice> remote_tt_device = std::make_unique<RemoteWormholeTTDevice>(
-        local_chip, std::move(remote_communication), get_remote_eth_coord(chip, eth_core));
+        local_chip->get_tt_device(), std::move(remote_communication), get_remote_eth_coord(chip, eth_core));
 
     ChipInfo chip_info = remote_tt_device->get_chip_info();
 
     std::unique_ptr<RemoteChip> remote_chip = nullptr;
     if (sdesc_path != "") {
         remote_chip = std::make_unique<RemoteChip>(
-            tt_SocDescriptor(sdesc_path, chip_info.noc_translation_enabled), std::move(remote_tt_device));
+            tt_SocDescriptor(sdesc_path, chip_info.noc_translation_enabled), std::move(remote_tt_device), local_chip);
     } else {
         remote_chip = std::make_unique<RemoteChip>(
             tt_SocDescriptor(
@@ -108,7 +108,8 @@ std::unique_ptr<RemoteChip> TopologyDiscovery::create_remote_chip(
                 chip_info.noc_translation_enabled,
                 chip_info.harvesting_masks,
                 chip_info.board_type),
-            std::move(remote_tt_device));
+            std::move(remote_tt_device),
+            local_chip);
     }
 
     return remote_chip;

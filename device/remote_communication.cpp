@@ -125,7 +125,7 @@ void RemoteCommunication::read_non_mmio(
     //
     auto lock = lock_manager_.acquire_mutex(MutexType::NON_MMIO, local_chip_->get_pci_device()->get_device_num());
 
-    const CoreCoord remote_transfer_ethernet_core = get_remote_transfer_ethernet_core();
+    const tt_xy_pair remote_transfer_ethernet_core = get_remote_transfer_ethernet_core();
 
     local_chip_->read_from_device(
         erisc_q_ptrs.data(),
@@ -374,7 +374,7 @@ void RemoteCommunication::write_to_non_mmio(
     //
     auto lock = lock_manager_.acquire_mutex(MutexType::NON_MMIO, local_chip_->get_pci_device()->get_device_num());
 
-    CoreCoord remote_transfer_ethernet_core = get_remote_transfer_ethernet_core();
+    tt_xy_pair remote_transfer_ethernet_core = get_remote_transfer_ethernet_core();
 
     erisc_command.resize(sizeof(routing_cmd_t) / DATA_WORD_SIZE);
     new_cmd = (routing_cmd_t*)&erisc_command[0];
@@ -582,7 +582,7 @@ void RemoteCommunication::set_remote_transfer_ethernet_cores(const std::vector<t
     // Based on this information, UMD determines which ethernet cores can be used for host->cluster non-MMIO transfers.
     // This overrides the default ethernet cores tagged for host to cluster routing in the constructor and must be
     // called for all MMIO devices, if default behaviour is not desired.
-    remote_transfer_eth_cores_ = active_eth_cores;
+    remote_transfer_eth_cores_ = remote_transfer_eth_cores;
 }
 
 tt_xy_pair RemoteCommunication::get_remote_transfer_ethernet_core() {

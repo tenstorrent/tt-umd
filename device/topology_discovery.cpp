@@ -154,13 +154,10 @@ eth_coord_t TopologyDiscovery::get_remote_eth_coord(Chip* chip, tt_xy_pair eth_c
 }
 
 void TopologyDiscovery::get_pcie_connected_chips() {
-    std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
+    std::vector<int> pci_device_ids = PCIDevice::enumerate_devices(pci_target_devices);
 
     bool read_eth_addresses = false;
     for (auto& device_id : pci_device_ids) {
-        if (!is_pcie_chip_id_included(device_id)) {
-            continue;
-        }
         std::unique_ptr<LocalChip> chip = nullptr;
         if (sdesc_path != "") {
             chip = std::make_unique<LocalChip>(sdesc_path, TTDevice::create(device_id));
@@ -397,11 +394,6 @@ void TopologyDiscovery::fill_cluster_descriptor_info() {
     cluster_desc->fill_chips_grouped_by_closest_mmio();
 
     cluster_desc->verify_cluster_descriptor_info();
-}
-
-// If pci_target_devices is empty, we should take all the PCI devices found in the system.
-bool TopologyDiscovery::is_pcie_chip_id_included(int pci_id) const {
-    return pci_target_devices.empty() || pci_target_devices.find(pci_id) != pci_target_devices.end();
 }
 
 // If pci_target_devices is empty, we should take all the PCI devices found in the system.

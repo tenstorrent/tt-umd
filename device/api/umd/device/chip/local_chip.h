@@ -34,11 +34,6 @@ public:
 
     void set_remote_transfer_ethernet_cores(const std::unordered_set<CoreCoord>& cores) override;
     void set_remote_transfer_ethernet_cores(const std::set<uint32_t>& channels) override;
-    // TODO: Figure out if this should remain public or used another way.
-    CoreCoord get_remote_transfer_ethernet_core();
-    void update_active_eth_core_idx();
-    int get_active_eth_core_idx();
-    std::vector<CoreCoord> get_remote_transfer_ethernet_cores();
 
     int get_num_host_channels() override;
     int get_host_channel_size(std::uint32_t channel) override;
@@ -81,8 +76,6 @@ private:
     // Used only for ethernet broadcast to all remote chips.
     std::unique_ptr<RemoteCommunication> remote_communication_;
 
-    std::vector<CoreCoord> remote_transfer_eth_cores_;
-    int active_eth_core_idx = 0;
     bool flush_non_mmio_ = false;
 
     void initialize_local_chip();

@@ -437,7 +437,14 @@ Cluster::Cluster(ClusterOptions options) {
 
 void Cluster::configure_active_ethernet_cores_for_mmio_device(
     chip_id_t mmio_chip, const std::unordered_set<CoreCoord>& active_eth_cores_per_chip) {
-    chips_.at(mmio_chip)->set_remote_transfer_ethernet_cores(active_eth_cores_per_chip);
+    // The ethernet cores that should be used for remote transfer are set in the RemoteCommunication structure.
+    // This structure is used by remote chips. So we need to find all remote chips that use the passed in mmio_chip,
+    // and set the active ethernet cores for them.
+    for (const auto& remote_chip_id : remote_chip_ids_) {
+        if (cluster_desc->get_closest_mmio_capable_chip(remote_chip_id) == mmio_chip) {
+            get_remote_chip(remote_chip_id)->set_remote_transfer_ethernet_cores(active_eth_cores_per_chip);
+        }
+    }
 }
 
 std::set<chip_id_t> Cluster::get_target_device_ids() { return all_chip_ids_; }

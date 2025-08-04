@@ -113,9 +113,13 @@ int RemoteChip::get_numa_node() {
     throw std::runtime_error("RemoteChip::get_numa_node is not available for this chip.");
 }
 
-void RemoteChip::set_remote_transfer_ethernet_cores(const std::unordered_set<CoreCoord>& cores) {}
+void RemoteChip::set_remote_transfer_ethernet_cores(const std::unordered_set<CoreCoord>& cores) {
+    remote_communication_->set_remote_transfer_ethernet_cores(cores);
+}
 
-void RemoteChip::set_remote_transfer_ethernet_cores(const std::set<uint32_t>& channel) {}
+void RemoteChip::set_remote_transfer_ethernet_cores(const std::set<uint32_t>& channel) {
+    remote_communication_->set_remote_transfer_ethernet_cores(channel);
+}
 
 TTDevice* RemoteChip::get_tt_device() { return tt_device_.get(); }
 

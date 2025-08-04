@@ -5,6 +5,9 @@
  */
 #pragma once
 
+#include <set>
+#include <unordered_set>
+
 #include "umd/device/tt_device/tt_device.h"
 
 namespace tt::umd {
@@ -31,7 +34,17 @@ public:
 
     void wait_for_non_mmio_flush();
 
+    // Set the ethernet cores which can be used for remote communication on the assigned local chip.
+    void set_remote_transfer_ethernet_cores(const std::unordered_set<CoreCoord>& cores);
+    void set_remote_transfer_ethernet_cores(const std::set<uint32_t>& channels);
+
 private:
+    CoreCoord get_remote_transfer_ethernet_core();
+    void update_active_eth_core_idx();
+
+    std::vector<CoreCoord> remote_transfer_eth_cores_;
+    int active_eth_core_idx = 0;
+
     LocalChip* local_chip_;
 };
 

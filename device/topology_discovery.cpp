@@ -275,13 +275,13 @@ void TopologyDiscovery::discover_remote_chips() {
                 continue;
             }
 
-            chip->set_remote_transfer_ethernet_cores(active_eth_channels_per_chip.at(current_chip_asic_id));
-
             uint64_t remote_asic_id = get_remote_asic_id(chip, eth_core);
 
             if (discovered_chips.find(remote_asic_id) == discovered_chips.end()) {
                 std::unique_ptr<Chip> remote_chip = create_remote_chip(
                     chip, eth_core, get_chip(remote_asic_id_to_mmio_chip_id.at(current_chip_asic_id)));
+
+                remote_chip->set_remote_transfer_ethernet_cores(active_eth_channels_per_chip.at(current_chip_asic_id));
 
                 chips_to_discover.emplace(remote_asic_id, std::move(remote_chip));
                 active_eth_channels_per_chip.emplace(remote_asic_id, std::set<uint32_t>());
@@ -306,7 +306,6 @@ void TopologyDiscovery::discover_remote_chips() {
                 ethernet_connections.push_back({{current_chip_asic_id, channel}, {remote_asic_id, remote_eth_channel}});
             }
         }
-        chip->set_remote_transfer_ethernet_cores(active_eth_channels_per_chip.at(current_chip_asic_id));
     }
 }
 

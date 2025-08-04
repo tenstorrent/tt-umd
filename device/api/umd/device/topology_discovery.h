@@ -85,7 +85,7 @@ private:
     uint64_t get_asic_id(Chip* chip);
 
     // TODO: move this function to class specific for WH with old FW.
-    eth_coord_t get_local_eth_coord(Chip* chip);
+    std::optional<eth_coord_t> get_local_eth_coord(Chip* chip);
 
     // TODO: move this function to class specific for WH with old FW.
     // eth_core should be in NoC 0 coordinates.

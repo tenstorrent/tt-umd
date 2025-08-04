@@ -30,7 +30,8 @@ std::pair<double, double> perf_read_write(
     const uint32_t num_iterations,
     Cluster* cluster,
     const chip_id_t chip,
-    const CoreCoord core);
+    const CoreCoord core,
+    const uint32_t address = 0);
 
 /**
  * Prints a table in Markdown format. Headers are printed as the first row, followed by a separator row,

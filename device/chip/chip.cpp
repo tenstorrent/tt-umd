@@ -39,15 +39,6 @@ void Chip::set_default_params(ARCH arch) {
 
     // Default initialize dram_address_params.
     dram_address_params = {0u};
-
-    // Default initialize host_address_params based on detected arch
-    host_address_params = architecture_implementation->get_host_address_params();
-
-    // Default initialize eth_interface_params based on detected arch
-    eth_interface_params = architecture_implementation->get_eth_interface_params();
-
-    // Default initialize noc_params based on detected arch
-    noc_params = architecture_implementation->get_noc_params();
 }
 
 void Chip::set_barrier_address_params(const barrier_address_params& barrier_address_params_) {

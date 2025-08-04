@@ -12,7 +12,7 @@
 using namespace tt::umd;
 
 /**
- * Measure the time it takes to open/construct a Cluster object.
+ * Measure the time it takes to open/construct a Cluster object with default ClusterOptions.
  */
 TEST(MicrobenchmarkOpenCluster, ClusterConstructor) {
     const std::vector<std::string> headers = {"Opening cluster of devices (ms)"};

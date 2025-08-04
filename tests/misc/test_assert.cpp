@@ -20,35 +20,17 @@ struct CustomType {
     }
 };
 
-TEST(Assert, FormatMessage) {
-    const std::map<std::pair<std::string, std::vector<std::string>>, std::string> test_cases = {
-        {{"Hello {} and {}", {"world", "universe"}}, "Hello world and universe"},
-        {{"The answer is {}", {"42"}}, "The answer is 42"},
-        {{"No placeholders here", {"unused"}}, "No placeholders here"},
-        {{"First {} and second {}", {"one"}}, "First one and second {}"},
-        {{"Only {}", {"one", "two", "three"}}, "Only one"},
-        {{"{}{}{}", {"A", "B", "C"}}, "ABC"}};
+struct UnformattableType {
+    int value;
 
-    for (const auto& [input, expected] : test_cases) {
-        std::string result = tt::assert::format_message(input.first, input.second);
-        EXPECT_EQ(result, expected) << "Input: '" << input.first << "'";
+    UnformattableType(int v) : value(v) {}
+
+    friend std::ostream& operator<<(std::ostream& os, const UnformattableType& obj) {
+        return os << "UnformattableType(" << obj.value << ")";
     }
-}
 
-TEST(Assert, ToStringSafe) {
-    EXPECT_EQ(tt::assert::to_string_safe(42), "42");
-    EXPECT_EQ(tt::assert::to_string_safe(3.14), "3.14");
-    EXPECT_EQ(tt::assert::to_string_safe("hello"), "hello");
-    EXPECT_EQ(tt::assert::to_string_safe(std::string("world")), "world");
-
-    CustomType obj(123);
-    EXPECT_EQ(tt::assert::to_string_safe(obj), "CustomType(123)");
-
-    int a = 42;
-    std::string b = "test";
-    tt::OStreamJoin<int, std::string> join(a, b, " -> ");
-    EXPECT_EQ(tt::assert::to_string_safe(join), "42 -> test");
-}
+    // Note: No fmt::formatter specialization - this makes it unformattable by fmt
+};
 
 TEST(Assert, AssertMessage) {
     struct TestCase {
@@ -70,21 +52,9 @@ TEST(Assert, AssertMessage) {
         {"Multiple args with formatting",
          [](std::stringstream& output) { tt::assert::tt_assert_message(output, "Device: {}, Cores: {}", "TT123", 25); },
          "Device: TT123, Cores: 25\n"},
-        {"Custom type with formatting",
-         [](std::stringstream& output) {
-             CustomType obj(123);
-             tt::assert::tt_assert_message(output, "Object: {}", obj);
-         },
-         "Object: CustomType(123)\n"},
         {"No formatting fallback",
          [](std::stringstream& output) { tt::assert::tt_assert_message(output, "First", "Second", "Third"); },
          "First\nSecond\nThird\n"},
-        {"Mixed types",
-         [](std::stringstream& output) {
-             CustomType obj(456);
-             tt::assert::tt_assert_message(output, "Mixed: {} and {}", obj, 3.14);
-         },
-         "Mixed: CustomType(456) and 3.14\n"},
         {"OStreamJoin",
          [](std::stringstream& output) {
              int a = 42;
@@ -101,12 +71,85 @@ TEST(Assert, AssertMessage) {
          [](std::stringstream& output) {
              tt::assert::tt_assert_message(output, "Args: {} {} {} {} {}", 1, 2, 3, 4, 5);
          },
-         "Args: 1 2 3 4 5\n"}};
+         "Args: 1 2 3 4 5\n"},
+        {"Boolean values",
+         [](std::stringstream& output) { tt::assert::tt_assert_message(output, "True: {}, False: {}", true, false); },
+         "True: true, False: false\n"},
+        {"Character values",
+         [](std::stringstream& output) { tt::assert::tt_assert_message(output, "Char: {}, Letter: {}", 'X', 'Y'); },
+         "Char: X, Letter: Y\n"},
+        {"Float and double",
+         [](std::stringstream& output) {
+             tt::assert::tt_assert_message(output, "Float: {}, Double: {}", 3.14f, 2.718);
+         },
+         "Float: 3.14, Double: 2.718\n"},
+        {"String literals and objects",
+         [](std::stringstream& output) {
+             std::string str_obj = "object";
+             tt::assert::tt_assert_message(output, "Literal: {}, Object: {}", "literal", str_obj);
+         },
+         "Literal: literal, Object: object\n"},
+        {"Invalid format fallback",
+         [](std::stringstream& output) { tt::assert::tt_assert_message(output, "Invalid format {", "value"); },
+         "Invalid format {\nvalue\n"},
+        {"Mismatched braces fallback",
+         [](std::stringstream& output) { tt::assert::tt_assert_message(output, "Mismatched }", "value"); },
+         "Mismatched }\nvalue\n"},
+        {"Zero values",
+         [](std::stringstream& output) {
+             tt::assert::tt_assert_message(output, "Zero int: {}, Zero float: {}", 0, 0.0f);
+         },
+         "Zero int: 0, Zero float: 0\n"},
+        {"Negative numbers",
+         [](std::stringstream& output) { tt::assert::tt_assert_message(output, "Negative: {} and {}", -42, -3.14); },
+         "Negative: -42 and -3.14\n"},
+        {"Long string",
+         [](std::stringstream& output) {
+             std::string long_str(100, 'A');
+             tt::assert::tt_assert_message(output, "Long: {}", long_str);
+         },
+         "Long: " + std::string(100, 'A') + "\n"},
+        {"Complex OStreamJoin",
+         [](std::stringstream& output) {
+             CustomType obj(789);
+             std::string delim = " -> ";
+             tt::OStreamJoin<CustomType, int> join(obj, 100, delim.c_str());
+             tt::assert::tt_assert_message(output, "Complex join: {}", join);
+         },
+         "Complex join: CustomType(789) -> 100\n"}};
 
     for (const auto& test_case : test_cases) {
         std::stringstream output;
         test_case.test_func(output);
+        // std::cout << output.str() << std::endl;
         EXPECT_EQ(output.str(), test_case.expected_output) << "Test: " << test_case.description;
+    }
+}
+
+TEST(Assert, UnformattableTypes) {
+    {
+        std::stringstream output;
+        EXPECT_THROW(
+            {
+                UnformattableType obj(456);
+                tt::assert::tt_assert_message(output, "Unformattable: {}", obj);
+            },
+            std::runtime_error);
+    }
+}
+
+TEST(Assert, MismatchedPlaceholders) {
+    // Test cases where placeholder count doesn't match parameter count
+
+    {
+        std::stringstream output;
+        EXPECT_THROW({ tt::assert::tt_assert_message(output, "Value {} and {} more", 42); }, std::runtime_error);
+    }
+
+    {
+        std::stringstream output;
+        EXPECT_THROW(
+            { tt::assert::tt_assert_message(output, "Only {}", "first", "second", "third"); }, std::runtime_error);
     }
 }
 

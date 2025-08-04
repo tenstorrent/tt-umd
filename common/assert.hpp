@@ -6,15 +6,15 @@
 
 #pragma once
 
+#include <fmt/ostream.h>
 #include <spdlog/spdlog.h>
-#include <stdio.h>
 #include <stdlib.h>
 
 #include <iostream>
 #include <sstream>
-#include <vector>
 
 #include "backtrace.hpp"
+#include "fmt/core.h"
 
 namespace tt {
 template <typename A, typename B>
@@ -33,31 +33,10 @@ std::ostream& operator<<(std::ostream& os, tt::OStreamJoin<A, B> const& join) {
 }
 }  // namespace tt
 
+template <typename A, typename B>
+struct fmt::formatter<tt::OStreamJoin<A, B>> : fmt::ostream_formatter {};
+
 namespace tt::assert {
-
-template <typename T>
-std::string to_string_safe(T const& t) {
-    std::stringstream ss;
-    ss << t;
-    return ss.str();
-}
-
-// Formating a message with a {} placeholder and a vector of arguments is done
-// this way to allow a more versatile spectrum of arguments.
-// The fmt::format() function is good, but it does not handle
-// complex argument types or custom objects well without additional formatting logic.
-inline std::string format_message(std::string format_str, std::vector<std::string> const& args) {
-    size_t arg_index = 0;
-    size_t pos = 0;
-
-    while ((pos = format_str.find("{}", pos)) != std::string::npos && arg_index < args.size()) {
-        format_str.replace(pos, 2, args[arg_index]);
-        pos += args[arg_index].length();
-        ++arg_index;
-    }
-
-    return format_str;
-}
 
 inline void tt_assert_message(std::ostream& os) {}
 
@@ -68,13 +47,37 @@ void tt_assert_message(std::ostream& os, T const& t, Ts const&... ts) {
         return;
     }
 
-    std::string format_str = to_string_safe(t);
-    if (format_str.find("{}") != std::string::npos) {
-        std::vector<std::string> args = {to_string_safe(ts)...};
-        os << format_message(format_str, args) << std::endl;
-    } else {
+    std::ostringstream oss;
+    oss << t;
+    std::string format_str = oss.str();
+
+    size_t placeholder_count = 0;
+    size_t pos = 0;
+    while ((pos = format_str.find("{}", pos)) != std::string::npos) {
+        placeholder_count++;
+        pos += 2;
+    }
+
+    if (placeholder_count == 0) {
         os << t << std::endl;
-        tt_assert_message(os, ts...);
+        ((os << ts << std::endl), ...);
+        return;
+    }
+
+    if (placeholder_count != sizeof...(ts)) {
+        throw std::runtime_error(
+            "Failed formatting: placeholder count mismatch: format string '" + format_str + "' has " +
+            std::to_string(placeholder_count) + " placeholders but " + std::to_string(sizeof...(ts)) +
+            " arguments provided");
+    }
+
+    // constexpr has to be present since build fails compiler detects
+    // that certain objects with unformattable types will be used here.
+    if constexpr ((fmt::is_formattable<Ts>::value && ...)) {
+        std::string formatted = fmt::format(fmt::runtime(format_str), ts...);
+        os << formatted << std::endl;
+    } else {
+        throw std::runtime_error("Failed to format string: " + format_str + ", arguments not formattable by fmt.");
     }
 }
 

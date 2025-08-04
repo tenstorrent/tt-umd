@@ -25,7 +25,7 @@ WormholeTTDevice::WormholeTTDevice(std::shared_ptr<PCIDevice> pci_device) :
                                   tt::umd::wormhole::NOC0_Y_TO_NOC1_Y[tt::umd::wormhole::ARC_CORES_NOC0[0].y])
                             : wormhole::ARC_CORES_NOC0[0];
     wait_arc_core_start(arc_core, 1000);
-    eth_addresses = WormholeTTDevice::get_eth_addresses(telemetry->read_entry(wormhole::TAG_ETH_FW_VERSION));
+    eth_addresses = WormholeTTDevice::get_eth_addresses(telemetry->read_entry(wormhole::ETH_FW_VERSION));
 }
 
 bool WormholeTTDevice::get_noc_translation_enabled() {

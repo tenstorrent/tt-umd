@@ -11,7 +11,26 @@
 #include <string>
 #include <vector>
 
+#include "umd/device/cluster.h"
+
 namespace tt::umd::test::utils {
+
+/**
+ * Return performance of read and write operations to specific chip and core in MBs/s.
+ *
+ * @param buf_size Size of the buffer in bytes.
+ * @param num_iterations Number of iterations to perform for read and write operations.
+ * @param cluster The cluster to perform the operations on.
+ * @param chip The logical chip ID to perform the operations on.
+ * @param core The core coordinates to perform the operations on.
+ * @return A pair containing the write bandwidth and read bandwidth in MB/s.
+ */
+std::pair<double, double> perf_read_write(
+    const uint32_t buf_size,
+    const uint32_t num_iterations,
+    const std::unique_ptr<Cluster>& cluster,
+    const chip_id_t chip,
+    const CoreCoord core);
 
 /**
  * Prints a table in Markdown format. Headers are printed as the first row, followed by a separator row,

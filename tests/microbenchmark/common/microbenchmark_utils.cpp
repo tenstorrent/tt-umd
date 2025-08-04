@@ -4,7 +4,39 @@
 
 #include "common/microbenchmark_utils.h"
 
+#include "tests/test_utils/device_test_utils.hpp"
+
 namespace tt::umd::test::utils {
+
+std::pair<double, double> perf_read_write(
+    const uint32_t buf_size,
+    const uint32_t num_iterations,
+    const std::unique_ptr<Cluster>& cluster,
+    const chip_id_t chip,
+    const CoreCoord core) {
+    std::vector<uint8_t> pattern(buf_size);
+    test_utils::fill_with_random_bytes(&pattern[0], pattern.size());
+
+    auto now = std::chrono::steady_clock::now();
+    for (int i = 0; i < num_iterations; i++) {
+        cluster->write_to_device(pattern.data(), pattern.size(), chip, core, 0x0);
+    }
+    auto end = std::chrono::steady_clock::now();
+    auto ns = std::chrono::duration_cast<std::chrono::nanoseconds>(end - now).count();
+    double wr_bw = calc_speed(num_iterations * pattern.size(), ns);
+
+    std::vector<uint8_t> readback(buf_size, 0x0);
+    now = std::chrono::steady_clock::now();
+    for (int i = 0; i < num_iterations; i++) {
+        cluster->read_from_device(readback.data(), chip, core, 0x0, readback.size());
+    }
+    end = std::chrono::steady_clock::now();
+    ns = std::chrono::duration_cast<std::chrono::nanoseconds>(end - now).count();
+    double rd_bw = calc_speed(num_iterations * readback.size(), ns);
+
+    return std::make_pair(wr_bw, rd_bw);
+}
+
 void print_markdown_table_format(
     const std::vector<std::string>& headers, const std::vector<std::vector<std::string>>& rows) {
     for (const auto& header : headers) {

@@ -250,7 +250,7 @@ std::unique_ptr<Chip> Cluster::construct_chip_from_cluster(
         }
         chip_id_t gateway_id = cluster_desc->get_closest_mmio_capable_chip(chip_id);
         LocalChip* local_chip = get_local_chip(gateway_id);
-        std::unique_ptr<RemoteCommunication> remote_communication = std::make_unique<RemoteCommunication>(local_chip);
+        std::unique_ptr<RemoteCommunication> remote_communication = std::make_unique<RemoteCommunication>(local_chip, local_chip->get_sysmem_manager());
         remote_communication->set_remote_transfer_ethernet_cores(cluster_desc->get_active_eth_channels(gateway_id));
         std::unique_ptr<RemoteWormholeTTDevice> remote_tt_device = std::make_unique<RemoteWormholeTTDevice>(
             local_chip, std::move(remote_communication), cluster_desc->get_chip_locations().at(chip_id));

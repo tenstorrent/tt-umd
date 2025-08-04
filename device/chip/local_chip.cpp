@@ -31,7 +31,7 @@ LocalChip::LocalChip(tt_SocDescriptor soc_descriptor, int pci_device_id, int num
     chip_info_ = tt_device_->get_chip_info();
     tlb_manager_ = std::make_unique<TLBManager>(tt_device_.get());
     sysmem_manager_ = std::make_unique<SysmemManager>(tlb_manager_.get(), num_host_mem_channels);
-    remote_communication_ = std::make_unique<RemoteCommunication>(this);
+    remote_communication_ = std::make_unique<RemoteCommunication>(this, sysmem_manager_.get());
     initialize_local_chip();
 }
 

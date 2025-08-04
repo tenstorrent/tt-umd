@@ -45,7 +45,7 @@ TEST(MicrobenchmarkTLB, TLBDynamicDram) {
     for (uint32_t buf_size : sizes) {
         std::vector<std::string> row;
         row.push_back(test::utils::convert_double_to_string((double)buf_size / one_mb));
-        auto [wr_bw, rd_bw] = test::utils::perf_read_write(buf_size, NUM_ITERATIONS, cluster, chip, dram_core);
+        auto [wr_bw, rd_bw] = test::utils::perf_read_write(buf_size, NUM_ITERATIONS, cluster.get(), chip, dram_core);
         row.push_back(test::utils::convert_double_to_string(wr_bw));
         row.push_back(test::utils::convert_double_to_string(rd_bw));
         rows.push_back(row);
@@ -75,7 +75,7 @@ TEST(MicrobenchmarkTLB, TLBDynamicTensix) {
 
     for (uint32_t buf_size : sizes) {
         std::vector<std::string> row;
-        auto [wr_bw, rd_bw] = test::utils::perf_read_write(buf_size, NUM_ITERATIONS, cluster, chip, tensix_core);
+        auto [wr_bw, rd_bw] = test::utils::perf_read_write(buf_size, NUM_ITERATIONS, cluster.get(), chip, tensix_core);
         row.push_back(test::utils::convert_double_to_string((double)buf_size / one_mb));
         row.push_back(test::utils::convert_double_to_string(wr_bw));
         row.push_back(test::utils::convert_double_to_string(rd_bw));
@@ -111,7 +111,7 @@ TEST(MicrobenchmarkTLB, TLBStaticTensix) {
     for (uint32_t buf_size : sizes) {
         std::vector<std::string> row;
         const uint32_t num_io = buf_size / one_mb;
-        auto [wr_bw, rd_bw] = test::utils::perf_read_write(buf_size, num_io, cluster, chip, tensix_core);
+        auto [wr_bw, rd_bw] = test::utils::perf_read_write(buf_size, num_io, cluster.get(), chip, tensix_core);
         row.push_back(test::utils::convert_double_to_string((double)buf_size / one_mb));
         row.push_back(test::utils::convert_double_to_string(wr_bw));
         row.push_back(test::utils::convert_double_to_string(rd_bw));
@@ -150,7 +150,7 @@ TEST(MicrobenchmarkTLB, TLBStaticDram) {
         std::vector<std::string> row;
         const uint32_t num_io = buf_size / (16 * one_mb);
 
-        auto [wr_bw, rd_bw] = test::utils::perf_read_write(buf_size, num_io, cluster, chip, dram_core);
+        auto [wr_bw, rd_bw] = test::utils::perf_read_write(buf_size, num_io, cluster.get(), chip, dram_core);
         row.push_back(test::utils::convert_double_to_string((double)buf_size / one_mb));
         row.push_back(test::utils::convert_double_to_string(wr_bw));
         row.push_back(test::utils::convert_double_to_string(rd_bw));

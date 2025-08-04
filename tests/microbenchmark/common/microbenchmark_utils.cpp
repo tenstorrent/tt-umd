@@ -11,7 +11,7 @@ namespace tt::umd::test::utils {
 std::pair<double, double> perf_read_write(
     const uint32_t buf_size,
     const uint32_t num_iterations,
-    const std::unique_ptr<Cluster>& cluster,
+    Cluster* cluster,
     const chip_id_t chip,
     const CoreCoord core) {
     std::vector<uint8_t> pattern(buf_size);

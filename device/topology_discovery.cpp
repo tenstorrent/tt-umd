@@ -82,7 +82,7 @@ TopologyDiscovery::EthAddresses TopologyDiscovery::get_eth_addresses(uint32_t et
 }
 
 std::unique_ptr<RemoteChip> TopologyDiscovery::create_remote_chip(
-    Chip* chip, tt_xy_pair eth_core, Chip* gateway_chip, std::set<uint32_t>& eth_channels_to_use) {
+    Chip* chip, tt_xy_pair eth_core, Chip* gateway_chip, std::vector<tt_xy_pair>& eth_channels_to_use) {
     if (is_running_on_6u) {
         return nullptr;
     }
@@ -293,7 +293,7 @@ void TopologyDiscovery::discover_remote_chips() {
                     chip,
                     eth_core,
                     get_chip(remote_asic_id_to_mmio_chip_id.at(current_chip_asic_id)),
-                    active_eth_channels_per_chip.at(current_chip_asic_id));
+                    {eth_core});
 
                 chips_to_discover.emplace(remote_asic_id, std::move(remote_chip));
                 active_eth_channels_per_chip.emplace(remote_asic_id, std::set<uint32_t>());

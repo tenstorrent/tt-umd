@@ -373,14 +373,26 @@ void LocalChip::wait_for_non_mmio_flush() {
     // This is a local chip, so no need to flush remote communication.
 }
 
-void LocalChip::set_remote_transfer_ethernet_cores(const std::unordered_set<CoreCoord>& active_eth_cores) {
+void LocalChip::set_remote_transfer_ethernet_cores(const std::unordered_set<CoreCoord>& cores) {
     // Set cores to be used by the broadcast communication.
-    remote_communication_->set_remote_transfer_ethernet_cores(active_eth_cores);
+    std::vector<tt_xy_pair> remote_transfer_eth_cores;
+    for (const auto& active_eth_core : cores) {
+        auto translated_coord =
+            get_soc_descriptor().translate_coord_to(active_eth_core, CoordSystem::TRANSLATED);
+        remote_transfer_eth_cores.push_back(active_eth_core);
+    }
+    remote_communication_->set_remote_transfer_ethernet_cores(remote_transfer_eth_cores);
 }
 
 void LocalChip::set_remote_transfer_ethernet_cores(const std::set<uint32_t>& channels) {
     // Set cores to be used by the broadcast communication.
-    remote_communication_->set_remote_transfer_ethernet_cores(channels);
+    std::vector<tt_xy_pair> remote_transfer_eth_cores;
+    for (const auto& channel : channels) {
+        auto translated_coord =
+            get_soc_descriptor().get_eth_core_for_channel(channel, CoordSystem::TRANSLATED);
+        remote_transfer_eth_cores.push_back(translated_coord);
+    }
+    remote_communication_->set_remote_transfer_ethernet_cores(remote_transfer_eth_cores);
 }
 
 std::unique_lock<RobustMutex> LocalChip::acquire_mutex(std::string mutex_name, int pci_device_id) {

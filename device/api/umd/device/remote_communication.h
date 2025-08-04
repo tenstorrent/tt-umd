@@ -12,15 +12,16 @@
 
 namespace tt::umd {
 
-class LocalChip;
 class SysmemManager;
 
 class RemoteCommunication {
 public:
-    RemoteCommunication(LocalChip* local_chip, SysmemManager* sysmem_manager = nullptr);
+    RemoteCommunication(TTDevice* local_chip, SysmemManager* sysmem_manager = nullptr);
     virtual ~RemoteCommunication();
 
     // Target core should be in translated coords.
+    // Note that since we're not using TLBManager, the read/writes won't ever go through static TLBs, which should
+    // probably be redesigned in some way.
     void read_non_mmio(
         eth_coord_t target_chip, tt_xy_pair target_core, void* dest, uint64_t core_src, uint32_t size_in_bytes);
 
@@ -36,18 +37,18 @@ public:
     void wait_for_non_mmio_flush();
 
     // Set the ethernet cores which can be used for remote communication on the assigned local chip.
-    void set_remote_transfer_ethernet_cores(const std::unordered_set<CoreCoord>& cores);
-    void set_remote_transfer_ethernet_cores(const std::set<uint32_t>& channels);
+    // The cores should be in translated coordinates.
+    void set_remote_transfer_ethernet_cores(const std::vector<tt_xy_pair>& cores);
 
 private:
-    CoreCoord get_remote_transfer_ethernet_core();
+    tt_xy_pair get_remote_transfer_ethernet_core();
     void update_active_eth_core_idx();
 
-    std::vector<CoreCoord> remote_transfer_eth_cores_;
+    std::vector<tt_xy_pair> remote_transfer_eth_cores_;
     int active_eth_core_idx = 0;
     bool flush_non_mmio_ = false;
 
-    LocalChip* local_chip_;
+    TTDevice* local_chip_;
     LockManager lock_manager_;
     SysmemManager* sysmem_manager_;
 };

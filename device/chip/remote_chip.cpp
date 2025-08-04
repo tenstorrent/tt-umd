@@ -114,11 +114,27 @@ int RemoteChip::get_numa_node() {
 }
 
 void RemoteChip::set_remote_transfer_ethernet_cores(const std::unordered_set<CoreCoord>& cores) {
-    remote_communication_->set_remote_transfer_ethernet_cores(cores);
+    // Makes UMD aware of which ethernet cores have active links.
+    // Based on this information, UMD determines which ethernet cores can be used for host->cluster non-MMIO transfers.
+    // This overrides the default ethernet cores tagged for host to cluster routing in the constructor and must be
+    // called for all MMIO devices, if default behaviour is not desired.
+    std::vector<tt_xy_pair> remote_transfer_eth_cores;
+    for (const auto& active_eth_core : cores) {
+        auto translated_coord =
+            local_chip_->get_soc_descriptor().translate_coord_to(active_eth_core, CoordSystem::TRANSLATED);
+        remote_transfer_eth_cores.push_back(active_eth_core);
+    }
+    remote_communication_->set_remote_transfer_ethernet_cores(remote_transfer_eth_cores);
 }
 
-void RemoteChip::set_remote_transfer_ethernet_cores(const std::set<uint32_t>& channel) {
-    remote_communication_->set_remote_transfer_ethernet_cores(channel);
+void RemoteChip::set_remote_transfer_ethernet_cores(const std::set<uint32_t>& channels) {
+    std::vector<tt_xy_pair> remote_transfer_eth_cores;
+    for (const auto& channel : channels) {
+        auto translated_coord =
+            local_chip_->get_soc_descriptor().get_eth_core_for_channel(channel, CoordSystem::TRANSLATED);
+        remote_transfer_eth_cores.push_back(translated_coord);
+    }
+    remote_communication_->set_remote_transfer_ethernet_cores(remote_transfer_eth_cores);
 }
 
 TTDevice* RemoteChip::get_tt_device() { return tt_device_.get(); }

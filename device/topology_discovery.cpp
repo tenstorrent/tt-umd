@@ -405,6 +405,8 @@ void TopologyDiscovery::fill_cluster_descriptor_info() {
 
         cluster_desc->add_chip_to_board(chip_id, chip->get_chip_info().chip_uid.board_id);
 
+        cluster_desc->chip_to_unique_id.insert({chip_id, chip->get_chip_info().asic_id});
+
         for (int i = 0; i < wormhole::NUM_ETH_CHANNELS; i++) {
             cluster_desc->idle_eth_channels[chip_id].insert(i);
         }

@@ -100,7 +100,7 @@ bool BlackholeTTDevice::get_noc_translation_enabled() {
 }
 
 ChipInfo BlackholeTTDevice::get_chip_info() {
-    ChipInfo chip_info;
+    ChipInfo chip_info = TTDevice::get_chip_info();
     chip_info.harvesting_masks.tensix_harvesting_mask = CoordinateManager::shuffle_tensix_harvesting_mask(
         tt::ARCH::BLACKHOLE,
         telemetry->is_entry_available(TAG_ENABLED_TENSIX_COL)
@@ -130,18 +130,6 @@ ChipInfo BlackholeTTDevice::get_chip_info() {
     // TODO: Read asic location of the chip from telemetry when it is available.
     // Until then we have to read it from ETH core, it happens during topology exploration.
     // chip_info.chip_uid.asic_location = telemetry->read_entry(TAG_ASIC_LOCATION);
-
-    chip_info.noc_translation_enabled = get_noc_translation_enabled();
-
-    // It is expected that these entries are always available.
-    chip_info.chip_uid.board_id = get_board_id();
-
-    chip_info.board_type = get_board_type_from_board_id(chip_info.chip_uid.board_id);
-
-    // TODO: likely not needed anymore. Firware on P100 will give 0 for TAG_ENABLED_ETH
-    if (chip_info.board_type == BoardType::P100) {
-        chip_info.harvesting_masks.eth_harvesting_mask = 0x3FFF;
-    }
 
     return chip_info;
 }

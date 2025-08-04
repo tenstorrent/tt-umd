@@ -5,6 +5,7 @@
  */
 #include "umd/device/topology_discovery.h"
 
+#include <optional>
 #include <tt-logger/tt-logger.hpp>
 
 #include "umd/device/chip/local_chip.h"
@@ -107,9 +108,13 @@ std::unique_ptr<RemoteChip> TopologyDiscovery::create_remote_chip(Chip* chip, tt
     return remote_chip;
 }
 
-eth_coord_t TopologyDiscovery::get_local_eth_coord(Chip* chip) {
+std::optional<eth_coord_t> TopologyDiscovery::get_local_eth_coord(Chip* chip) {
     std::vector<CoreCoord> eth_cores =
         chip->get_soc_descriptor().get_cores(CoreType::ETH, umd_use_noc1 ? CoordSystem::NOC1 : CoordSystem::NOC0);
+    if (eth_cores.empty()) {
+        return std::nullopt;
+    }
+
     TTDevice* tt_device = chip->get_tt_device();
 
     uint32_t current_chip_eth_coord_info;
@@ -169,7 +174,7 @@ void TopologyDiscovery::get_pcie_connected_chips() {
         // figuring out ETH addresses from runtime and move it to constants.
         if (!read_eth_addresses) {
             eth_addresses = TopologyDiscovery::get_eth_addresses(
-                chip->get_tt_device()->get_arc_telemetry_reader()->read_entry(wormhole::TAG_ETH_FW_VERSION));
+                chip->get_tt_device()->get_arc_telemetry_reader()->read_entry(wormhole::TelemetryTag::ETH_FW_VERSION));
 
             is_running_on_6u = chip->get_tt_device()->get_board_type() == BoardType::UBB;
             read_eth_addresses = true;
@@ -230,7 +235,10 @@ void TopologyDiscovery::discover_remote_chips() {
         active_eth_channels_per_chip.emplace(current_chip_asic_id, std::set<uint32_t>());
 
         if (!is_running_on_6u) {
-            eth_coords.emplace(current_chip_asic_id, get_local_eth_coord(chip.get()));
+            auto local_eth_coord = get_local_eth_coord(chip.get());
+            if (local_eth_coord.has_value()) {
+                eth_coords.emplace(current_chip_asic_id, *local_eth_coord);
+            }
         }
     }
 
@@ -345,10 +353,12 @@ void TopologyDiscovery::fill_cluster_descriptor_info() {
         cluster_desc->harvesting_masks_map.insert({current_chip_id, chip->get_chip_info().harvesting_masks});
         // TODO: this neeeds to be moved to specific logic for Wormhole with legacy FW.
         if (!is_running_on_6u) {
-            eth_coord_t eth_coord = eth_coords.at(current_chip_asic_id);
-            cluster_desc->chip_locations.insert({current_chip_id, eth_coord});
-            cluster_desc->coords_to_chip_ids[eth_coord.rack][eth_coord.shelf][eth_coord.y][eth_coord.x] =
-                current_chip_id;
+            if (!eth_coords.empty()) {
+                eth_coord_t eth_coord = eth_coords.at(current_chip_asic_id);
+                cluster_desc->chip_locations.insert({current_chip_id, eth_coord});
+                cluster_desc->coords_to_chip_ids[eth_coord.rack][eth_coord.shelf][eth_coord.y][eth_coord.x] =
+                    current_chip_id;
+            }
         }
 
         cluster_desc->add_chip_to_board(current_chip_id, chip->get_chip_info().chip_uid.board_id);

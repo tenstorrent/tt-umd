@@ -112,8 +112,8 @@ TEST(Assert, AssertMessage) {
         {"Complex OStreamJoin",
          [](std::stringstream& output) {
              CustomType obj(789);
-             std::string delim = " -> ";
-             tt::OStreamJoin<CustomType, int> join(obj, 100, delim.c_str());
+             int test_val = 100;
+             tt::OStreamJoin<CustomType, int> join(obj, test_val, " -> ");
              tt::assert::tt_assert_message(output, "Complex join: {}", join);
          },
          "Complex join: CustomType(789) -> 100\n"}};

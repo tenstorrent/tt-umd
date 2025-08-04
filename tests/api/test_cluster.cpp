@@ -18,6 +18,7 @@
 #include "fmt/xchar.h"
 #include "test_api_common.h"
 #include "test_utils/assembly_programs_for_tests.hpp"
+#include "test_utils/setup_risc_cores.hpp"
 #include "tests/test_utils/generate_cluster_desc.hpp"
 #include "umd/device/blackhole_implementation.h"
 #include "umd/device/chip/local_chip.h"
@@ -28,6 +29,7 @@
 #include "umd/device/tt_silicon_driver_common.hpp"
 #include "umd/device/types/arch.h"
 #include "umd/device/types/cluster_descriptor_types.h"
+#include "umd/device/types/cluster_types.h"
 #include "umd/device/wormhole_implementation.h"
 
 // TODO: obviously we need some other way to set this up
@@ -730,6 +732,50 @@ INSTANTIATE_TEST_SUITE_P(
     AllTriscNcriscCoreCombinations,
     ClusterAssertDeassertRiscsTest,
     ::testing::ValuesIn(ClusterAssertDeassertRiscsTest::generate_all_risc_cores_combinations()));
+
+TEST(TestCluster, StartDeviceWithValidRiscProgram) {
+    std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
+    constexpr uint64_t write_address = 0x1000;
+
+    if (cluster->get_target_device_ids().empty()) {
+        GTEST_SKIP() << "No chips present on the system. Skipping test.";
+    }
+
+    test_utils::setup_risc_cores_on_cluster(cluster.get());
+
+    cluster->start_device({});
+
+    // Initialize random data.
+    size_t data_size = 1024;
+    std::vector<uint8_t> data(data_size, 0);
+    for (int i = 0; i < data_size; i++) {
+        data[i] = i % 256;
+    }
+
+    for (auto chip_id : cluster->get_target_device_ids()) {
+        const tt_SocDescriptor& soc_desc = cluster->get_soc_descriptor(chip_id);
+
+        CoreCoord any_core = soc_desc.get_cores(CoreType::TENSIX)[0];
+
+        cluster->write_to_device(data.data(), data_size, chip_id, any_core, write_address);
+
+        cluster->wait_for_non_mmio_flush(chip_id);
+    }
+
+    // Now read back the data.
+    for (auto chip_id : cluster->get_target_device_ids()) {
+        const tt_SocDescriptor& soc_desc = cluster->get_soc_descriptor(chip_id);
+
+        const CoreCoord any_core = soc_desc.get_cores(CoreType::TENSIX)[0];
+
+        std::vector<uint8_t> readback_data(data_size, 0);
+        cluster->read_from_device(readback_data.data(), chip_id, any_core, write_address, data_size);
+
+        ASSERT_EQ(data, readback_data);
+    }
+
+    cluster->close_device();
+}
 
 TEST_P(ClusterReadWriteL1Test, ReadWriteL1) {
     ClusterOptions options = GetParam();

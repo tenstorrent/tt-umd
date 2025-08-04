@@ -64,7 +64,7 @@ LocalChip::LocalChip(tt_SocDescriptor soc_descriptor, std::unique_ptr<TTDevice> 
     Chip(tt_device->get_chip_info(), soc_descriptor), tt_device_(std::move(tt_device)) {
     tlb_manager_ = std::make_unique<TLBManager>(tt_device_.get());
     sysmem_manager_ = std::make_unique<SysmemManager>(tlb_manager_.get(), num_host_mem_channels);
-    remote_communication_ = std::make_unique<RemoteCommunication>(this);
+    remote_communication_ = std::make_unique<RemoteCommunication>(this, sysmem_manager_.get());
     initialize_tlb_manager();
     wait_chip_to_be_ready();
     initialize_default_chip_mutexes();

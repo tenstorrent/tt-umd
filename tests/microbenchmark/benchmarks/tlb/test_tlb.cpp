@@ -8,11 +8,12 @@
 
 using namespace tt::umd;
 
-const chip_id_t chip = 0;
-const uint32_t one_mb = 1 << 20;
-const uint32_t NUM_ITERATIONS = 10;
-const uint32_t tlb_1m_index = 0;
-const uint32_t tlb_16m_index = 166;
+constexpr chip_id_t chip = 0;
+constexpr uint32_t one_mb = 1 << 20;
+constexpr uint32_t NUM_ITERATIONS = 1;
+constexpr uint32_t one_kb = 1 << 20;
+constexpr uint32_t tlb_1m_index = 0;
+constexpr uint32_t tlb_16m_index = 166;
 
 /**
  * Measure BW of IO to DRAM core using dynamically configured TLB.
@@ -152,6 +153,75 @@ TEST(MicrobenchmarkTLB, TLBStaticDram) {
 
         auto [wr_bw, rd_bw] = test::utils::perf_read_write(buf_size, num_io, cluster.get(), chip, dram_core);
         row.push_back(test::utils::convert_double_to_string((double)buf_size / one_mb));
+        row.push_back(test::utils::convert_double_to_string(wr_bw));
+        row.push_back(test::utils::convert_double_to_string(rd_bw));
+        rows.push_back(row);
+    }
+    test::utils::print_markdown_table_format(headers, rows);
+}
+
+/**
+ * Measure BW of IO to Ethernet core using dynamically configured TLB.
+ */
+TEST(MicrobenchmarkTLB, TLBDynamicEth) {
+    const std::vector<uint32_t> sizes = {
+        128 * one_kb,
+    };
+
+    std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
+    const CoreCoord eth_core = cluster->get_soc_descriptor(chip).get_cores(CoreType::ETH)[0];
+    cluster->start_device(tt_device_params{});
+
+    const std::vector<std::string> headers = {
+        "Size (KB)",
+        "Dynamic TLB: Host -> Device ETH L1 (MB/s)",
+        "Dynamic TLB: Device ETH L1 -> Host (MB/s)",
+    };
+
+    std::vector<std::vector<std::string>> rows;
+    constexpr uint32_t address = 128 * one_kb;
+    for (uint32_t buf_size : sizes) {
+        std::vector<std::string> row;
+        auto [wr_bw, rd_bw] =
+            test::utils::perf_read_write(buf_size, NUM_ITERATIONS, cluster.get(), chip, eth_core, address);
+        row.push_back(test::utils::convert_double_to_string((double)buf_size / one_kb));
+        row.push_back(test::utils::convert_double_to_string(wr_bw));
+        row.push_back(test::utils::convert_double_to_string(rd_bw));
+        rows.push_back(row);
+    }
+    test::utils::print_markdown_table_format(headers, rows);
+}
+
+/**
+ * Measure BW of IO to Eth core using statically configured TLB.
+ */
+TEST(MicrobenchmarkTLB, TLBStaticEth) {
+    const size_t tlb_1m_index = 0;
+
+    std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
+    const CoreCoord eth_core = cluster->get_soc_descriptor(chip).get_cores(CoreType::ETH)[0];
+    cluster->start_device(tt_device_params{});
+
+    constexpr uint32_t address = 128 * one_kb;
+    cluster->configure_tlb(chip, eth_core, tlb_1m_index, address, tlb_data::Relaxed);
+
+    const std::vector<uint32_t> sizes = {
+        128 * one_kb,
+    };
+
+    const std::vector<std::string> headers = {
+        "Size (KB)",
+        "Static TLB: Host -> Device ETH L1 (MB/s)",
+        "Static TLB: Device ETH L1 -> Host (MB/s)",
+    };
+
+    std::vector<std::vector<std::string>> rows;
+
+    for (uint32_t buf_size : sizes) {
+        std::vector<std::string> row;
+        const uint32_t num_io = buf_size / one_mb;
+        auto [wr_bw, rd_bw] = test::utils::perf_read_write(buf_size, num_io, cluster.get(), chip, eth_core, address);
+        row.push_back(test::utils::convert_double_to_string((double)buf_size / one_kb));
         row.push_back(test::utils::convert_double_to_string(wr_bw));
         row.push_back(test::utils::convert_double_to_string(rd_bw));
         rows.push_back(row);

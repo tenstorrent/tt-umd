@@ -24,53 +24,6 @@ static void set_barrier_params(Cluster& cluster) {
         {l1_mem::address_map::L1_BARRIER_BASE, eth_l1_mem::address_map::ERISC_BARRIER_BASE, DRAM_BARRIER_BASE});
 }
 
-std::int32_t get_static_tlb_index(tt_xy_pair target) {
-    bool is_eth_location =
-        std::find(std::cbegin(tt::umd::wormhole::ETH_LOCATIONS), std::cend(tt::umd::wormhole::ETH_LOCATIONS), target) !=
-        std::cend(tt::umd::wormhole::ETH_LOCATIONS);
-    bool is_tensix_location =
-        std::find(
-            std::cbegin(tt::umd::wormhole::T6_X_LOCATIONS), std::cend(tt::umd::wormhole::T6_X_LOCATIONS), target.x) !=
-            std::cend(tt::umd::wormhole::T6_X_LOCATIONS) &&
-        std::find(
-            std::cbegin(tt::umd::wormhole::T6_Y_LOCATIONS), std::cend(tt::umd::wormhole::T6_Y_LOCATIONS), target.y) !=
-            std::cend(tt::umd::wormhole::T6_Y_LOCATIONS);
-    if (is_eth_location) {
-        if (target.y == 6) {
-            target.y = 1;
-        }
-
-        if (target.x >= 5) {
-            target.x -= 1;
-        }
-        target.x -= 1;
-
-        int flat_index = target.y * 8 + target.x;
-        int tlb_index = flat_index;
-        return tlb_index;
-
-    } else if (is_tensix_location) {
-        if (target.x >= 5) {
-            target.x -= 1;
-        }
-        target.x -= 1;
-
-        if (target.y >= 6) {
-            target.y -= 1;
-        }
-        target.y -= 1;
-
-        int flat_index = target.y * 8 + target.x;
-
-        // All 80 get single 1MB TLB.
-        int tlb_index = tt::umd::wormhole::ETH_LOCATIONS.size() + flat_index;
-
-        return tlb_index;
-    } else {
-        return -1;
-    }
-}
-
 TEST(SiliconDriverWH, CreateDestroy) {
     tt_device_params default_params;
     // Initialize the driver with a 1x1 descriptor and explictly do not perform harvesting
@@ -104,8 +57,6 @@ TEST(SiliconDriverWH, CustomSocDesc) {
 }
 
 TEST(SiliconDriverWH, HarvestingRuntime) {
-    auto get_static_tlb_index_callback = [](tt_xy_pair target) { return get_static_tlb_index(target); };
-
     Cluster cluster(ClusterOptions{
         .simulated_harvesting_masks = {60, 0, 0},
         .simulated_harvesting_masks_per_chip = {{0, {30, 0, 0}}, {1, {60, 0, 0}}},
@@ -118,11 +69,7 @@ TEST(SiliconDriverWH, HarvestingRuntime) {
         auto& sdesc = cluster.get_soc_descriptor(chip_id);
         for (const CoreCoord& core : sdesc.get_cores(CoreType::TENSIX)) {
             // Statically mapping a 1MB TLB to this core, starting from address NCRISC_FIRMWARE_BASE.
-            cluster.configure_tlb(
-                chip_id,
-                core,
-                get_static_tlb_index_callback(sdesc.translate_coord_to(core, CoordSystem::VIRTUAL)),
-                l1_mem::address_map::NCRISC_FIRMWARE_BASE);
+            cluster.configure_tlb(chip_id, core, 1 << 20, l1_mem::address_map::NCRISC_FIRMWARE_BASE);
         }
     }
 
@@ -183,8 +130,6 @@ TEST(SiliconDriverWH, HarvestingRuntime) {
 }
 
 TEST(SiliconDriverWH, UnalignedStaticTLB_RW) {
-    auto get_static_tlb_index_callback = [](tt_xy_pair target) { return get_static_tlb_index(target); };
-
     Cluster cluster;
     set_barrier_params(cluster);
     auto mmio_devices = cluster.get_target_mmio_device_ids();
@@ -194,11 +139,7 @@ TEST(SiliconDriverWH, UnalignedStaticTLB_RW) {
         auto& sdesc = cluster.get_soc_descriptor(chip_id);
         for (const CoreCoord& core : sdesc.get_cores(CoreType::TENSIX)) {
             // Statically mapping a 1MB TLB to this core, starting from address NCRISC_FIRMWARE_BASE.
-            cluster.configure_tlb(
-                chip_id,
-                core,
-                get_static_tlb_index_callback(sdesc.translate_coord_to(core, CoordSystem::VIRTUAL)),
-                l1_mem::address_map::NCRISC_FIRMWARE_BASE);
+            cluster.configure_tlb(chip_id, core, 1 << 20, l1_mem::address_map::NCRISC_FIRMWARE_BASE);
         }
     }
 
@@ -235,8 +176,6 @@ TEST(SiliconDriverWH, UnalignedStaticTLB_RW) {
 }
 
 TEST(SiliconDriverWH, StaticTLB_RW) {
-    auto get_static_tlb_index_callback = [](tt_xy_pair target) { return get_static_tlb_index(target); };
-
     Cluster cluster;
     set_barrier_params(cluster);
     auto mmio_devices = cluster.get_target_mmio_device_ids();
@@ -246,11 +185,7 @@ TEST(SiliconDriverWH, StaticTLB_RW) {
         auto& sdesc = cluster.get_soc_descriptor(chip_id);
         for (const CoreCoord& core : sdesc.get_cores(CoreType::TENSIX)) {
             // Statically mapping a 1MB TLB to this core, starting from address NCRISC_FIRMWARE_BASE.
-            cluster.configure_tlb(
-                chip_id,
-                core,
-                get_static_tlb_index_callback(sdesc.translate_coord_to(core, CoordSystem::VIRTUAL)),
-                l1_mem::address_map::NCRISC_FIRMWARE_BASE);
+            cluster.configure_tlb(chip_id, core, 1 << 20, l1_mem::address_map::NCRISC_FIRMWARE_BASE);
         }
     }
 
@@ -382,7 +317,6 @@ TEST(SiliconDriverWH, MultiThreadedMemBar) {
     // We want to make sure the memory barrier is thread/process safe.
 
     // Memory barrier flags get sent to address 0 for all channels in this test
-    auto get_static_tlb_index_callback = [](tt_xy_pair target) { return get_static_tlb_index(target); };
     uint32_t base_addr = l1_mem::address_map::DATA_BUFFER_SPACE_BASE;
 
     Cluster cluster;
@@ -394,11 +328,7 @@ TEST(SiliconDriverWH, MultiThreadedMemBar) {
         auto& sdesc = cluster.get_soc_descriptor(chip_id);
         for (const CoreCoord& core : sdesc.get_cores(CoreType::TENSIX)) {
             // Statically mapping a 1MB TLB to this core, starting from address DATA_BUFFER_SPACE_BASE.
-            cluster.configure_tlb(
-                chip_id,
-                core,
-                get_static_tlb_index_callback(sdesc.translate_coord_to(core, CoordSystem::VIRTUAL)),
-                base_addr);
+            cluster.configure_tlb(chip_id, core, 1 << 20, base_addr);
         }
     }
 
@@ -806,8 +736,6 @@ TEST(SiliconDriverWH, LargeAddressTlb) {
     set_barrier_params(cluster);
     cluster.start_device(tt_device_params{});
 
-    auto get_static_tlb_index_callback = [](tt_xy_pair target) { return 0; };
-
     // Address of the reset unit in ARC core:
     uint64_t arc_reset_noc = 0x880030000ULL;
 
@@ -815,7 +743,7 @@ TEST(SiliconDriverWH, LargeAddressTlb) {
     uint64_t scratch_offset = 0x60;
 
     // Map a TLB to the reset unit in ARC core:
-    cluster.configure_tlb(0, ARC_CORE, 0, arc_reset_noc);
+    cluster.configure_tlb(0, ARC_CORE, 1 << 20, arc_reset_noc);
 
     // Address of the scratch register in the reset unit:
     uint64_t addr = arc_reset_noc + scratch_offset;

@@ -799,3 +799,20 @@ INSTANTIATE_TEST_SUITE_P(
     }
 
 );
+
+TEST(TestCluster, BAR0) {
+    std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
+
+    for (int pci_device_id : pci_device_ids) {
+        std::cout << "Testing BAR0 for PCI device ID: " << pci_device_id << std::endl;
+
+        // std::unique_ptr<PCIDevice> pci_device = std::make_unique<PCIDevice>(pci_device_id);
+
+        std::unique_ptr<TTDevice> tt_device = TTDevice::create(pci_device_id);
+
+        ChipInfo chip_info = tt_device->get_chip_info();
+
+        std::cout << "chip board type " << board_type_to_string(chip_info.board_type) << std::endl;
+        std::cout << "chip harvesting mask " << chip_info.harvesting_masks.tensix_harvesting_mask << std::endl;
+    }
+}

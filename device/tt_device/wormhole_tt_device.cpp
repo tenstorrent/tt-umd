@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: Apache-2.0
 #include "umd/device/tt_device/wormhole_tt_device.h"
 
+#include <cstdint>
 #include <tt-logger/tt-logger.hpp>
 
 #include "umd/device/coordinate_manager.h"
@@ -78,7 +79,109 @@ ChipInfo WormholeTTDevice::get_chip_info() {
     return chip_info;
 }
 
+bool WormholeTTDevice::wait_arc_core_init(const tt_xy_pair arc_core, const uint32_t timeout_ms) {
+    constexpr uint32_t POST_CODE_INIT_DONE = 0xC0DE0001;
+    constexpr uint32_t POST_CODE_ARC_MSG_HANDLE_START = 0xC0DE0030;
+    constexpr uint32_t POST_CODE_ARC_MSG_HANDLE_DONE = 0xC0DE003F;
+    constexpr uint32_t POST_CODE_ARC_TIME_LAST = 0xC0DE007F;
+
+    static constexpr uint64_t ARC_CSM_ARC_PCIE_DMA_REQUEST = 0x1fef84d4;
+
+    uint32_t bar_read_arc_reset_scratch_status =
+        bar_read32(wormhole::ARC_APB_BAR0_XBAR_OFFSET_START + wormhole::ARC_RESET_SCRATCH_STATUS_OFFSET);
+
+    uint32_t bar_read_arc_post_code = bar_read32(architecture_impl_->get_arc_reset_scratch_offset());
+
+    uint32_t bar_read_arc_csm_pcie_dma_request = bar_read32(ARC_CSM_ARC_PCIE_DMA_REQUEST);
+
+    // Print register values for debugging
+    printf("DEBUG: SCRATCH = 0x%08x\n", bar_read_arc_reset_scratch_status);
+    printf("DEBUG: POST_CODE = 0x%08x\n", bar_read_arc_post_code);
+    printf("DEBUG: DMA_TRIGGER = 0x%08x\n", bar_read_arc_csm_pcie_dma_request);
+
+    auto start = std::chrono::system_clock::now();
+    while (true) {
+        auto end = std::chrono::system_clock::now();
+        auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
+        if (duration.count() > timeout_ms && timeout_ms != 0) {
+            throw std::runtime_error(fmt::format("Timed out after waiting {} ms for ARC to initialize", timeout_ms));
+        }
+        // Check for no access error
+        if (bar_read_arc_post_code == 0xFFFFFFFF) {
+            log_info(LogSiliconDriver, "NoAccess error");
+            // return false;
+        }
+
+        // Check for watchdog triggered
+        if (bar_read_arc_reset_scratch_status == 0xDEADC0DE) {
+            log_info(LogSiliconDriver, "WatchdogTriggered error");
+            // return false;
+        }
+
+        // Still booting and it will later wipe SCRATCH[5/2]
+        if (bar_read_arc_reset_scratch_status == 0x00000060 || bar_read_arc_post_code == 0x11110000) {
+            log_info(LogSiliconDriver, "BootIncomplete error");
+            // return false;
+        }
+
+        // Check if ARC is asleep
+        // TypedArcMsg::ArcGoToSleep => 0x55
+        if (bar_read_arc_reset_scratch_status == 0x0000AA00 || bar_read_arc_reset_scratch_status == 0x55) {
+            log_info(LogSiliconDriver, "Asleep error");
+            // return false;
+        }
+
+        // PCIE bar_read_arc_csm_pcie_dma_request writes SCRATCH[5] on exit, so it's not safe
+        if (bar_read_arc_csm_pcie_dma_request != 0) {
+            log_info(LogSiliconDriver, "OutstandingPcieDMA error");
+            // return false;
+        }
+
+        // Check for queued message
+        if ((bar_read_arc_reset_scratch_status & 0xFFFFFF00) == 0x0000AA00) {
+            uint32_t message_id = bar_read_arc_reset_scratch_status & 0xFF;
+            log_info(LogSiliconDriver, "MessageQueued error, message_id: {}", message_id);
+            // return false;
+        }
+
+        // Check for message being handled
+        if ((bar_read_arc_reset_scratch_status & 0xFF00FFFF) == 0xAA000000) {
+            uint32_t message_id = (bar_read_arc_reset_scratch_status >> 16) & 0xFF;
+            log_info(LogSiliconDriver, "HandlingMessage error, message_id: {}", message_id);
+            // return false;
+        }
+
+        // Boot complete cases - these are OK
+        if (bar_read_arc_reset_scratch_status == 0x00000001 || bar_read_arc_reset_scratch_status == 0xFFFFFFFF ||
+            bar_read_arc_reset_scratch_status == 0xFFFFDEAD) {
+            // return true;
+        }
+
+        // Message complete, response written into bar_read_arc_reset_scratch_status
+        if ((bar_read_arc_reset_scratch_status & 0x0000FFFF) > 0x00000001) {
+            // return true;
+        }
+
+        // Check zero case with post code validation
+        if (bar_read_arc_reset_scratch_status == 0) {
+            bool pc_idle = (bar_read_arc_post_code == POST_CODE_INIT_DONE) ||
+                           (bar_read_arc_post_code >= POST_CODE_ARC_MSG_HANDLE_DONE &&
+                            bar_read_arc_post_code <= POST_CODE_ARC_TIME_LAST);
+
+            if (pc_idle) {
+                // return true;
+            } else {
+                log_info(LogSiliconDriver, "OldPostCode error, post_code: {}", bar_read_arc_post_code);
+                // return false;
+            }
+        }
+
+        // Default case - should not reach here, but assume OK
+    }
+}
+
 void WormholeTTDevice::wait_arc_core_start(const tt_xy_pair arc_core, const uint32_t timeout_ms) {
+    wait_arc_core_init(arc_core, 300'000);
     uint32_t bar_read_initial = bar_read32(architecture_impl_->get_arc_reset_scratch_offset() + 3 * 4);
     // TODO: figure out 325 and 500 constants meaning and put it in variable.
     uint32_t arg = bar_read_initial == 500 ? 325 : 500;

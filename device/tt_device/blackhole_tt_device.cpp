@@ -145,17 +145,18 @@ ChipInfo BlackholeTTDevice::get_chip_info() {
 
     chip_info.board_type = get_board_type_from_board_id(chip_info.chip_uid.board_id);
 
-    chip_info.firmware_version =
-        telemetry->is_entry_available(blackhole::TelemetryTag::FLASH_BUNDLE_VERSION)
-            ? fw_version_from_telemetry(telemetry->read_entry(blackhole::TelemetryTag::FLASH_BUNDLE_VERSION))
-            : semver_t(0, 0, 0);
-
     // TODO: likely not needed anymore. Firware on P100 will give 0 for TAG_ENABLED_ETH
     if (chip_info.board_type == BoardType::P100) {
         chip_info.harvesting_masks.eth_harvesting_mask = 0x3FFF;
     }
 
     return chip_info;
+}
+
+semver_t BlackholeTTDevice::get_firmware_version() {
+    return telemetry->is_entry_available(blackhole::TelemetryTag::FLASH_BUNDLE_VERSION)
+               ? fw_version_from_telemetry(telemetry->read_entry(blackhole::TelemetryTag::FLASH_BUNDLE_VERSION))
+               : semver_t(0, 0, 0);
 }
 
 void BlackholeTTDevice::wait_arc_core_start(const uint32_t timeout_ms) {

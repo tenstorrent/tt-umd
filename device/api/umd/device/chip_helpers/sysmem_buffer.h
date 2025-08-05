@@ -46,8 +46,9 @@ public:
      * @param tlb_manager Pointer to the TLBManager that manages the TLB entries for this buffer.
      * @param buffer_va Pointer to the virtual address of the buffer in the process address space.
      * @param buffer_size Size of the buffer requested by the user.
+     * @param map_to_noc If true, the buffer will be mapped to be accessible over NOC from device.
      */
-    SysmemBuffer(TLBManager* tlb_manager, void* buffer_va, size_t buffer_size);
+    SysmemBuffer(TLBManager* tlb_manager, void* buffer_va, size_t buffer_size, bool map_to_noc = false);
     ~SysmemBuffer();
 
     /**
@@ -70,6 +71,8 @@ public:
      * @return Device IOVA of the buffer on the offset from the start of the buffer.
      */
     uint64_t get_device_io_addr(const size_t offset = 0) const;
+
+    std::optional<uint64_t> get_noc_addr() const { return noc_addr_; }
 
     /**
      * Does zero copy DMA transfer to the device. Since the buffer is already mapped through KMD, this function
@@ -127,6 +130,10 @@ private:
     uint64_t device_io_addr_;
 
     uint64_t offset_from_aligned_addr_ = 0;
+
+    // Address that is used on the NOC to access the buffer.  NOC target must be
+    // the PCIE core that is connected to the host and this address.
+    std::optional<uint64_t> noc_addr_;
 };
 
 }  // namespace tt::umd

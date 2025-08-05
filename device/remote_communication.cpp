@@ -38,7 +38,8 @@ struct routing_cmd_t {
     uint32_t src_addr_tag;  // upper 32-bits of request source address.
 };
 
-RemoteCommunication::RemoteCommunication(LocalChip* local_chip) : local_chip_(local_chip) {
+RemoteCommunication::RemoteCommunication(LocalChip* local_chip, SysmemManager* sysmem_manager) :
+    local_chip_(local_chip), sysmem_manager_(sysmem_manager) {
     lock_manager_.initialize_mutex(
         MutexType::NON_MMIO, local_chip_->get_tt_device()->get_pci_device()->get_device_num());
 }
@@ -155,6 +156,7 @@ void RemoteCommunication::read_non_mmio(
     uint32_t max_block_size;
 
     use_dram = size_in_bytes > 1024;
+    TT_ASSERT(!(use_dram && sysmem_manager_ == nullptr), "Large transfers not available without system memory.");
     max_block_size = use_dram ? host_address_params.eth_routing_block_size : eth_interface_params.max_block_size;
 
     uint32_t offset = 0;
@@ -291,7 +293,7 @@ void RemoteCommunication::read_non_mmio(
                 // Read 4 byte aligned block from device/sysmem
                 if (use_dram) {
                     size_buffer_to_capacity(data_block, block_size);
-                    local_chip_->read_from_sysmem(
+                    sysmem_manager_->read_from_sysmem(
                         host_dram_channel, data_block.data(), host_dram_block_addr, block_size);
                 } else {
                     uint32_t buf_address =
@@ -367,6 +369,9 @@ void RemoteCommunication::write_to_non_mmio(
 
     // Broadcast requires block writes to host dram
     use_dram = broadcast || (size_in_bytes > 256 * DATA_WORD_SIZE);
+    TT_ASSERT(
+        !(use_dram && sysmem_manager_ == nullptr),
+        "Large transfers and broadcasts not available without system memory.");
     max_block_size = use_dram ? host_address_params.eth_routing_block_size : eth_interface_params.max_block_size;
 
     //
@@ -450,14 +455,14 @@ void RemoteCommunication::write_to_non_mmio(
                 memcpy(&data_block[0], (uint8_t*)src + offset, transfer_size);
                 if (broadcast) {
                     // Write broadcast header to sysmem
-                    local_chip_->write_to_sysmem(
+                    sysmem_manager_->write_to_sysmem(
                         host_dram_channel,
                         broadcast_header.data(),
                         host_dram_block_addr,
                         broadcast_header.size() * sizeof(uint32_t));
                 }
                 // Write payload to sysmem
-                local_chip_->write_to_sysmem(
+                sysmem_manager_->write_to_sysmem(
                     host_dram_channel,
                     data_block.data(),
                     host_dram_block_addr + BROADCAST_HEADER_SIZE * broadcast,

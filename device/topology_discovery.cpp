@@ -81,13 +81,19 @@ TopologyDiscovery::EthAddresses TopologyDiscovery::get_eth_addresses(uint32_t et
         erisc_remote_eth_id_offset};
 }
 
-std::unique_ptr<RemoteChip> TopologyDiscovery::create_remote_chip(Chip* chip, tt_xy_pair eth_core, Chip* gateway_chip) {
+std::unique_ptr<RemoteChip> TopologyDiscovery::create_remote_chip(
+    Chip* chip, tt_xy_pair eth_core, Chip* gateway_chip, std::set<uint32_t>& eth_channels_to_use) {
     if (is_running_on_6u) {
         return nullptr;
     }
 
+    LocalChip* local_chip = dynamic_cast<LocalChip*>(chip);
+
+    std::unique_ptr<RemoteCommunication> remote_communication = std::make_unique<RemoteCommunication>(local_chip);
+    remote_communication->set_remote_transfer_ethernet_cores(eth_channels_to_use);
+
     std::unique_ptr<RemoteWormholeTTDevice> remote_tt_device = std::make_unique<RemoteWormholeTTDevice>(
-        dynamic_cast<LocalChip*>(gateway_chip), get_remote_eth_coord(chip, eth_core));
+        local_chip, std::move(remote_communication), get_remote_eth_coord(chip, eth_core));
 
     ChipInfo chip_info = remote_tt_device->get_chip_info();
 
@@ -284,9 +290,10 @@ void TopologyDiscovery::discover_remote_chips() {
 
             if (discovered_chips.find(remote_asic_id) == discovered_chips.end()) {
                 std::unique_ptr<Chip> remote_chip = create_remote_chip(
-                    chip, eth_core, get_chip(remote_asic_id_to_mmio_chip_id.at(current_chip_asic_id)));
-
-                remote_chip->set_remote_transfer_ethernet_cores(active_eth_channels_per_chip.at(current_chip_asic_id));
+                    chip,
+                    eth_core,
+                    get_chip(remote_asic_id_to_mmio_chip_id.at(current_chip_asic_id)),
+                    active_eth_channels_per_chip.at(current_chip_asic_id));
 
                 chips_to_discover.emplace(remote_asic_id, std::move(remote_chip));
                 active_eth_channels_per_chip.emplace(remote_asic_id, std::set<uint32_t>());

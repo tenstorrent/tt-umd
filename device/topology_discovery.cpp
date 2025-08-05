@@ -85,23 +85,14 @@ std::unique_ptr<RemoteChip> TopologyDiscovery::create_remote_chip(Chip* chip, tt
         return nullptr;
     }
 
-    std::unique_ptr<RemoteWormholeTTDevice> remote_tt_device = std::make_unique<RemoteWormholeTTDevice>(
-        dynamic_cast<LocalChip*>(gateway_chip), get_remote_eth_coord(chip, eth_core));
-
-    ChipInfo chip_info = remote_tt_device->get_chip_info();
+    auto local_chip = dynamic_cast<LocalChip*>(gateway_chip);
+    auto eth_coord = get_local_eth_coord(gateway_chip);
 
     std::unique_ptr<RemoteChip> remote_chip = nullptr;
     if (sdesc_path != "") {
-        remote_chip = std::make_unique<RemoteChip>(
-            tt_SocDescriptor(sdesc_path, chip_info.noc_translation_enabled), std::move(remote_tt_device));
+        remote_chip = RemoteChip::create(local_chip, eth_coord, sdesc_path);
     } else {
-        remote_chip = std::make_unique<RemoteChip>(
-            tt_SocDescriptor(
-                remote_tt_device->get_arch(),
-                chip_info.noc_translation_enabled,
-                chip_info.harvesting_masks,
-                chip_info.board_type),
-            std::move(remote_tt_device));
+        remote_chip = RemoteChip::create(local_chip, eth_coord);
     }
 
     return remote_chip;

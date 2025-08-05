@@ -25,42 +25,52 @@ static_assert(!std::is_abstract<LocalChip>(), "LocalChip must be non-abstract.")
 // TLB size for DRAM on blackhole - 4GB
 const uint64_t BH_4GB_TLB_SIZE = 4ULL * 1024 * 1024 * 1024;
 
-LocalChip::LocalChip(tt_SocDescriptor soc_descriptor, int pci_device_id, int num_host_mem_channels) :
-    Chip(soc_descriptor) {
-    tt_device_ = TTDevice::create(pci_device_id);
-    chip_info_ = tt_device_->get_chip_info();
-    tlb_manager_ = std::make_unique<TLBManager>(tt_device_.get());
-    sysmem_manager_ = std::make_unique<SysmemManager>(tlb_manager_.get(), num_host_mem_channels);
-    remote_communication_ = std::make_unique<RemoteCommunication>(this);
-    initialize_local_chip();
+std::unique_ptr<LocalChip> LocalChip::create(int pci_device_id, int num_host_mem_channels) {
+    // Create TTDevice and make sure the arc is ready so we can read its telemetry.
+    auto tt_device = TTDevice::create(pci_device_id);
+    tt_device->wait_arc_core_start();
+
+    auto soc_descriptor = tt_SocDescriptor(
+        tt_device->get_arch(),
+        tt_device->get_chip_info().noc_translation_enabled,
+        tt_device->get_chip_info().harvesting_masks,
+        tt_device->get_chip_info().board_type);
+
+    return std::make_unique<LocalChip>(soc_descriptor, std::move(tt_device), num_host_mem_channels);
 }
 
-LocalChip::LocalChip(std::string sdesc_path, std::unique_ptr<TTDevice> tt_device) :
-    Chip(
-        tt_device->get_chip_info(),
-        tt_SocDescriptor(
-            sdesc_path,
-            tt_device->get_chip_info().noc_translation_enabled,
-            tt_device->get_chip_info().harvesting_masks,
-            tt_device->get_chip_info().board_type)),
-    tlb_manager_(std::make_unique<TLBManager>(tt_device.get())),
-    sysmem_manager_(std::make_unique<SysmemManager>(tlb_manager_.get(), 0)) {
-    tt_device_ = std::move(tt_device);
-    initialize_local_chip();
+std::unique_ptr<LocalChip> LocalChip::create(int pci_device_id, std::string sdesc_path, int num_host_mem_channels) {
+    // Create TTDevice and make sure the arc is ready so we can read its telemetry.
+    auto tt_device = TTDevice::create(pci_device_id);
+    tt_device->wait_arc_core_start();
+
+    auto soc_descriptor = tt_SocDescriptor(
+        sdesc_path,
+        tt_device->get_chip_info().noc_translation_enabled,
+        tt_device->get_chip_info().harvesting_masks,
+        tt_device->get_chip_info().board_type);
+
+    return std::make_unique<LocalChip>(soc_descriptor, std::move(tt_device), num_host_mem_channels);
 }
 
-LocalChip::LocalChip(std::unique_ptr<TTDevice> tt_device) :
-    Chip(
-        tt_device->get_chip_info(),
-        tt_SocDescriptor(
-            tt_device->get_arch(),
-            tt_device->get_chip_info().noc_translation_enabled,
-            tt_device->get_chip_info().harvesting_masks,
-            tt_device->get_chip_info().board_type)),
-    tlb_manager_(std::make_unique<TLBManager>(tt_device.get())),
-    sysmem_manager_(std::make_unique<SysmemManager>(tlb_manager_.get(), 0)) {
-    tt_device_ = std::move(tt_device);
-    initialize_local_chip();
+std::unique_ptr<LocalChip> LocalChip::create(
+    int pci_device_id, tt_SocDescriptor soc_descriptor, int num_host_mem_channels) {
+    // Create TTDevice and make sure the arc is ready so we can read its telemetry.
+    auto tt_device = TTDevice::create(pci_device_id);
+    tt_device->wait_arc_core_start();
+
+    return std::make_unique<LocalChip>(soc_descriptor, std::move(tt_device), num_host_mem_channels);
+}
+
+LocalChip::LocalChip(tt_SocDescriptor soc_descriptor, std::unique_ptr<TTDevice> tt_device, int num_host_mem_channels) :
+    Chip(tt_device->get_chip_info(), soc_descriptor),
+    tt_device_(std::move(tt_device)),
+    tlb_manager_(std::make_unique<TLBManager>(tt_device_.get())),
+    sysmem_manager_(std::make_unique<SysmemManager>(tlb_manager_.get(), num_host_mem_channels)),
+    remote_communication_(std::make_unique<RemoteCommunication>(this)) {
+    initialize_tlb_manager();
+    wait_chip_to_be_ready();
+    initialize_default_chip_mutexes();
 }
 
 LocalChip::~LocalChip() {
@@ -70,12 +80,6 @@ LocalChip::~LocalChip() {
     sysmem_manager_.reset();
     tlb_manager_.reset();
     tt_device_.reset();
-}
-
-void LocalChip::initialize_local_chip() {
-    initialize_tlb_manager();
-    wait_chip_to_be_ready();
-    initialize_default_chip_mutexes();
 }
 
 void LocalChip::initialize_tlb_manager() {

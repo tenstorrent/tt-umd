@@ -44,4 +44,17 @@ inline void fill_with_random_bytes(uint8_t* data, size_t n) {
     }
 }
 
+inline std::string convert_to_comma_separated_string(const std::unordered_set<int>& devices) {
+    std::ostringstream oss;
+    bool first = true;
+    for (int d : devices) {
+        if (!first) {
+            oss << ",";
+        }
+        oss << d;
+        first = false;
+    }
+    return oss.str();
+}
+
 }  // namespace test_utils

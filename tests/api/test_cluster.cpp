@@ -19,6 +19,7 @@
 #include "fmt/xchar.h"
 #include "test_api_common.h"
 #include "test_utils/assembly_programs_for_tests.hpp"
+#include "tests/test_utils/device_test_utils.hpp"
 #include "tests/test_utils/generate_cluster_desc.hpp"
 #include "umd/device/blackhole_implementation.h"
 #include "umd/device/chip/local_chip.h"
@@ -100,6 +101,24 @@ TEST(ApiClusterTest, OpenChipsByPciId) {
             EXPECT_EQ(actual_pci_device_ids.size(), target_pci_device_ids.size());
             // Always expect logical id 0 to exist, that's the way filtering by pci ids work.
             EXPECT_TRUE(actual_pci_device_ids.find(0) != actual_pci_device_ids.end());
+        }
+
+        std::string value = test_utils::convert_to_comma_separated_string(target_pci_device_ids);
+
+        if (setenv(TT_VISIBLE_DEVICES_ENV, value.c_str(), 1) != 0) {
+            std::cerr << "Failed to set environment variable." << std::endl;
+            return;
+        }
+
+        // Make sure that Cluster construction is without exceptions.
+        // TODO: add cluster descriptors for expected topologies, compare cluster desc against expected desc.
+        std::unique_ptr<Cluster> cluster_env_var = std::make_unique<Cluster>(ClusterOptions{
+            .pci_target_devices = {},
+        });
+
+        if (unsetenv(TT_VISIBLE_DEVICES_ENV) != 0) {
+            std::cerr << "Failed to unset environment variable." << std::endl;
+            return;
         }
     }
 }

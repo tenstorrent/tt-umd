@@ -183,6 +183,38 @@ tt::ARCH PciDeviceInfo::get_arch() const {
     return tt::ARCH::Invalid;
 }
 
+std::optional<std::unordered_set<int>> PCIDevice::get_visible_devices(
+    const std::unordered_set<int> &pci_target_devices) {
+    if (!pci_target_devices.empty()) {
+        return pci_target_devices;
+    }
+
+    const char *env_var = std::getenv(TT_VISIBLE_DEVICES_ENV);
+    if (!env_var) {
+        return std::nullopt;
+    }
+
+    std::unordered_set<int> visible_devices;
+    std::string env_str(env_var);
+    std::stringstream ss(env_str);
+    std::string token;
+
+    while (std::getline(ss, token, ',')) {
+        try {
+            visible_devices.insert(std::stoi(token));
+        } catch (const std::exception &e) {
+            throw std::runtime_error(fmt::format(
+                "Invalid device ID '{}' in {} environment variable: {}", token, TT_VISIBLE_DEVICES_ENV, e.what()));
+        }
+    }
+
+    if (visible_devices.empty()) {
+        return std::nullopt;
+    }
+
+    return visible_devices;
+}
+
 std::vector<int> PCIDevice::enumerate_devices(std::unordered_set<int> pci_target_devices) {
     std::vector<int> device_ids;
     std::string path = "/dev/tenstorrent/";
@@ -190,6 +222,9 @@ std::vector<int> PCIDevice::enumerate_devices(std::unordered_set<int> pci_target
     if (!std::filesystem::exists(path)) {
         return device_ids;
     }
+
+    std::optional<std::unordered_set<int>> visible_devices = PCIDevice::get_visible_devices(pci_target_devices);
+
     for (const auto &entry : std::filesystem::directory_iterator(path)) {
         std::string filename = entry.path().filename().string();
 
@@ -197,7 +232,8 @@ std::vector<int> PCIDevice::enumerate_devices(std::unordered_set<int> pci_target
         // is probably what we want longer-term (i.e. a UUID or something).
         if (std::all_of(filename.begin(), filename.end(), ::isdigit)) {
             int pci_device_id = std::stoi(filename);
-            if (pci_target_devices.empty() || pci_target_devices.find(pci_device_id) != pci_target_devices.end()) {
+            if (!visible_devices.has_value() ||
+                visible_devices.value().find(pci_device_id) != visible_devices.value().end()) {
                 device_ids.push_back(pci_device_id);
             }
         }

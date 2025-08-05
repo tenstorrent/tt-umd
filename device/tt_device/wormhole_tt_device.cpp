@@ -135,18 +135,18 @@ bool WormholeTTDevice::wait_arc_core_init(const tt_xy_pair arc_core, const uint3
         // Handle known error/status codes
         switch (bar_read_arc_reset_scratch_status) {
             case STATUS_NO_ACCESS:
-                log_debug(LogSiliconDriver, "NoAccess error");
+                log_warning(LogSiliconDriver, "NoAccess error");
                 continue;
             case STATUS_WATCHDOG_TRIGGERED:
-                log_debug(LogSiliconDriver, "WatchdogTriggered error");
+                log_warning(LogSiliconDriver, "WatchdogTriggered error");
                 continue;
             case STATUS_BOOT_INCOMPLETE_1:
             case STATUS_BOOT_INCOMPLETE_2:
-                log_debug(LogSiliconDriver, "BootIncomplete error");
+                log_warning(LogSiliconDriver, "BootIncomplete error");
                 continue;
             case STATUS_ASLEEP_1:
             case STATUS_ASLEEP_2:
-                log_debug(LogSiliconDriver, "Asleep error");
+                log_warning(LogSiliconDriver, "Asleep error");
                 continue;
             case STATUS_INIT_DONE_1:
             case STATUS_INIT_DONE_2:
@@ -158,26 +158,26 @@ bool WormholeTTDevice::wait_arc_core_init(const tt_xy_pair arc_core, const uint3
                 if (pc_idle) {
                     return true;
                 }
-                log_debug(LogSiliconDriver, "OldPostCode error, post_code: {}", bar_read_arc_post_code);
+                log_warning(LogSiliconDriver, "OldPostCode error, post_code: {}", bar_read_arc_post_code);
                 continue;
             }
         }
 
         // Check for outstanding DMA request
         if (bar_read_arc_csm_pcie_dma_request != 0) {
-            log_debug(LogSiliconDriver, "OutstandingPcieDMA error");
+            log_warning(LogSiliconDriver, "OutstandingPcieDMA error");
             continue;
         }
         // Check for queued message
         if ((bar_read_arc_reset_scratch_status & STATUS_MESSAGE_QUEUED_MASK) == STATUS_MESSAGE_QUEUED_VAL) {
             uint32_t message_id = bar_read_arc_reset_scratch_status & 0xFF;
-            log_debug(LogSiliconDriver, "MessageQueued error, message_id: {}", message_id);
+            log_warning(LogSiliconDriver, "MessageQueued error, message_id: {}", message_id);
             continue;
         }
         // Check for message being handled
         if ((bar_read_arc_reset_scratch_status & STATUS_HANDLING_MESSAGE_MASK) == STATUS_HANDLING_MESSAGE_VAL) {
             uint32_t message_id = (bar_read_arc_reset_scratch_status >> 16) & 0xFF;
-            log_debug(LogSiliconDriver, "HandlingMessage error, message_id: {}", message_id);
+            log_warning(LogSiliconDriver, "HandlingMessage error, message_id: {}", message_id);
             continue;
         }
         // Message complete, response written into bar_read_arc_reset_scratch_status

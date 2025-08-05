@@ -140,9 +140,9 @@ TEST(ApiTTDeviceTest, TTDeviceWarmResetAfterNocHang) {
         // Make cluster so that topology discovery does chip detection
         auto cluster = std::make_unique<Cluster>();
 
-        EXPECT_NO_THROW(cluster->get_chip(0)->get_tt_device()->detect_hang_read());
-
         EXPECT_FALSE(cluster->get_target_device_ids().empty()) << "No chips present after reset.";
+
+        EXPECT_NO_THROW(cluster->get_chip(0)->get_tt_device()->detect_hang_read());
 
         tt_device.reset();
 

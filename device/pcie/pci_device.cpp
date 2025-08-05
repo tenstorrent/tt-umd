@@ -174,7 +174,7 @@ tt::ARCH PciDeviceInfo::get_arch() const {
     return tt::ARCH::Invalid;
 }
 
-/* static */ std::vector<int> PCIDevice::enumerate_devices() {
+std::vector<int> PCIDevice::enumerate_devices(std::unordered_set<int> pci_target_devices) {
     std::vector<int> device_ids;
     std::string path = "/dev/tenstorrent/";
 
@@ -187,7 +187,10 @@ tt::ARCH PciDeviceInfo::get_arch() const {
         // TODO: this will skip any device that has a non-numeric name, which
         // is probably what we want longer-term (i.e. a UUID or something).
         if (std::all_of(filename.begin(), filename.end(), ::isdigit)) {
-            device_ids.push_back(std::stoi(filename));
+            int pci_device_id = std::stoi(filename);
+            if (pci_target_devices.empty() || pci_target_devices.find(pci_device_id) != pci_target_devices.end()) {
+                device_ids.push_back(pci_device_id);
+            }
         }
     }
 
@@ -195,9 +198,9 @@ tt::ARCH PciDeviceInfo::get_arch() const {
     return device_ids;
 }
 
-/* static */ std::map<int, PciDeviceInfo> PCIDevice::enumerate_devices_info() {
+std::map<int, PciDeviceInfo> PCIDevice::enumerate_devices_info(std::unordered_set<int> pci_target_devices) {
     std::map<int, PciDeviceInfo> infos;
-    for (int n : PCIDevice::enumerate_devices()) {
+    for (int n : PCIDevice::enumerate_devices(pci_target_devices)) {
         int fd = open(fmt::format("/dev/tenstorrent/{}", n).c_str(), O_RDWR | O_CLOEXEC);
         if (fd == -1) {
             continue;
@@ -235,7 +238,7 @@ PCIDevice::PCIDevice(int pci_device_number) :
         TT_THROW("TENSTORRENT_IOCTL_GET_DRIVER_INFO failed");
     }
 
-    log_info(
+    log_debug(
         LogSiliconDriver,
         "Opened PCI device {}; KMD version: {}; API: {}; IOMMU: {}",
         pci_device_num,

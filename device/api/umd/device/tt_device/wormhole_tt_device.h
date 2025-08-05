@@ -55,6 +55,9 @@ public:
     tt_xy_pair get_arc_core() const override;
 
 private:
+    void dma_d2h_transfer(const uint64_t dst, const uint32_t src, const size_t size);
+    void dma_h2d_transfer(const uint32_t dst, const uint64_t src, const size_t size);
+
     struct EthAddresses {
         uint32_t masked_version;
 
@@ -71,14 +74,14 @@ private:
     static constexpr uint32_t ETH_UNKNOWN = 0;
     static constexpr uint32_t ETH_UNCONNECTED = 1;
 
-    void dma_d2h_transfer(const uint64_t dst, const uint32_t src, const size_t size);
-    void dma_h2d_transfer(const uint32_t dst, const uint64_t src, const size_t size);
-    EthAddresses get_eth_addresses(uint32_t eth_fw_version);
-    uint32_t read_port_status(tt_xy_pair eth_core, uint32_t channel);
+    static EthAddresses get_eth_addresses(const uint32_t eth_fw_version);
+    uint32_t read_port_status(tt_xy_pair eth_core);
 
     // Enforce single-threaded access, even though there are more serious issues
     // surrounding resource management as it relates to DMA.
     std::mutex dma_mutex_;
     tt_xy_pair arc_core;
+
+    EthAddresses eth_addresses;
 };
 }  // namespace tt::umd

@@ -5,6 +5,7 @@
  */
 #include "umd/device/topology_discovery.h"
 
+#include <optional>
 #include <tt-logger/tt-logger.hpp>
 
 #include "umd/device/chip/local_chip.h"
@@ -107,9 +108,13 @@ std::unique_ptr<RemoteChip> TopologyDiscovery::create_remote_chip(Chip* chip, tt
     return remote_chip;
 }
 
-eth_coord_t TopologyDiscovery::get_local_eth_coord(Chip* chip) {
+std::optional<eth_coord_t> TopologyDiscovery::get_local_eth_coord(Chip* chip) {
     std::vector<CoreCoord> eth_cores =
         chip->get_soc_descriptor().get_cores(CoreType::ETH, umd_use_noc1 ? CoordSystem::NOC1 : CoordSystem::NOC0);
+    if (eth_cores.empty()) {
+        return std::nullopt;
+    }
+
     TTDevice* tt_device = chip->get_tt_device();
 
     uint32_t current_chip_eth_coord_info;
@@ -149,13 +154,10 @@ eth_coord_t TopologyDiscovery::get_remote_eth_coord(Chip* chip, tt_xy_pair eth_c
 }
 
 void TopologyDiscovery::get_pcie_connected_chips() {
-    std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
+    std::vector<int> pci_device_ids = PCIDevice::enumerate_devices(pci_target_devices);
 
     bool read_eth_addresses = false;
     for (auto& device_id : pci_device_ids) {
-        if (!is_pcie_chip_id_included(device_id)) {
-            continue;
-        }
         std::unique_ptr<LocalChip> chip = nullptr;
         if (sdesc_path != "") {
             chip = std::make_unique<LocalChip>(sdesc_path, TTDevice::create(device_id));
@@ -169,7 +171,7 @@ void TopologyDiscovery::get_pcie_connected_chips() {
         // figuring out ETH addresses from runtime and move it to constants.
         if (!read_eth_addresses) {
             eth_addresses = TopologyDiscovery::get_eth_addresses(
-                chip->get_tt_device()->get_arc_telemetry_reader()->read_entry(wormhole::TAG_ETH_FW_VERSION));
+                chip->get_tt_device()->get_arc_telemetry_reader()->read_entry(wormhole::TelemetryTag::ETH_FW_VERSION));
 
             is_running_on_6u = chip->get_tt_device()->get_board_type() == BoardType::UBB;
             read_eth_addresses = true;
@@ -230,7 +232,10 @@ void TopologyDiscovery::discover_remote_chips() {
         active_eth_channels_per_chip.emplace(current_chip_asic_id, std::set<uint32_t>());
 
         if (!is_running_on_6u) {
-            eth_coords.emplace(current_chip_asic_id, get_local_eth_coord(chip.get()));
+            auto local_eth_coord = get_local_eth_coord(chip.get());
+            if (local_eth_coord.has_value()) {
+                eth_coords.emplace(current_chip_asic_id, *local_eth_coord);
+            }
         }
     }
 
@@ -345,10 +350,12 @@ void TopologyDiscovery::fill_cluster_descriptor_info() {
         cluster_desc->harvesting_masks_map.insert({current_chip_id, chip->get_chip_info().harvesting_masks});
         // TODO: this neeeds to be moved to specific logic for Wormhole with legacy FW.
         if (!is_running_on_6u) {
-            eth_coord_t eth_coord = eth_coords.at(current_chip_asic_id);
-            cluster_desc->chip_locations.insert({current_chip_id, eth_coord});
-            cluster_desc->coords_to_chip_ids[eth_coord.rack][eth_coord.shelf][eth_coord.y][eth_coord.x] =
-                current_chip_id;
+            if (!eth_coords.empty()) {
+                eth_coord_t eth_coord = eth_coords.at(current_chip_asic_id);
+                cluster_desc->chip_locations.insert({current_chip_id, eth_coord});
+                cluster_desc->coords_to_chip_ids[eth_coord.rack][eth_coord.shelf][eth_coord.y][eth_coord.x] =
+                    current_chip_id;
+            }
         }
 
         cluster_desc->add_chip_to_board(current_chip_id, chip->get_chip_info().chip_uid.board_id);
@@ -387,11 +394,6 @@ void TopologyDiscovery::fill_cluster_descriptor_info() {
     cluster_desc->fill_chips_grouped_by_closest_mmio();
 
     cluster_desc->verify_cluster_descriptor_info();
-}
-
-// If pci_target_devices is empty, we should take all the PCI devices found in the system.
-bool TopologyDiscovery::is_pcie_chip_id_included(int pci_id) const {
-    return pci_target_devices.empty() || pci_target_devices.find(pci_id) != pci_target_devices.end();
 }
 
 // If pci_target_devices is empty, we should take all the PCI devices found in the system.

@@ -25,6 +25,7 @@ WormholeTTDevice::WormholeTTDevice(std::shared_ptr<PCIDevice> pci_device) :
                                   tt::umd::wormhole::NOC0_Y_TO_NOC1_Y[tt::umd::wormhole::ARC_CORES_NOC0[0].y])
                             : wormhole::ARC_CORES_NOC0[0];
     wait_arc_core_start(arc_core, 1000);
+    eth_addresses = WormholeTTDevice::get_eth_addresses(telemetry->read_entry(wormhole::ETH_FW_VERSION));
 }
 
 bool WormholeTTDevice::get_noc_translation_enabled() {
@@ -64,7 +65,15 @@ ChipInfo WormholeTTDevice::get_chip_info() {
 
     chip_info.board_type = get_board_type();
 
-    chip_info.firmware_version = fw_version_from_telemetry(telemetry->read_entry(wormhole::TAG_FW_BUNDLE_VERSION));
+    if (chip_info.board_type == BoardType::GALAXY) {
+        // There is a hack for galaxy board such that ARC puts this information as tt_flash version.
+        // For more information see https://github.com/tenstorrent/tt-smi/issues/72
+        chip_info.firmware_version =
+            fw_version_from_telemetry(telemetry->read_entry(wormhole::TelemetryTag::TT_FLASH_VERSION));
+    } else {
+        chip_info.firmware_version =
+            fw_version_from_telemetry(telemetry->read_entry(wormhole::TelemetryTag::FW_BUNDLE_VERSION));
+    }
 
     return chip_info;
 }
@@ -108,20 +117,20 @@ uint32_t WormholeTTDevice::get_clock() {
 }
 
 uint32_t WormholeTTDevice::get_max_clock_freq() {
-    uint32_t aiclk_telemetry = telemetry->read_entry(wormhole::TAG_AICLK);
+    uint32_t aiclk_telemetry = telemetry->read_entry(wormhole::TelemetryTag::AICLK);
     return (aiclk_telemetry >> 16) & 0xFFFF;
 }
 
 uint32_t WormholeTTDevice::get_min_clock_freq() { return wormhole::AICLK_IDLE_VAL; }
 
 uint64_t WormholeTTDevice::get_board_id() {
-    uint32_t board_id_lo = telemetry->read_entry(wormhole::TAG_BOARD_ID_LOW);
-    uint32_t board_id_hi = telemetry->read_entry(wormhole::TAG_BOARD_ID_HIGH);
+    uint32_t board_id_lo = telemetry->read_entry(wormhole::TelemetryTag::BOARD_ID_LOW);
+    uint32_t board_id_hi = telemetry->read_entry(wormhole::TelemetryTag::BOARD_ID_HIGH);
     return ((uint64_t)board_id_hi << 32) | board_id_lo;
 }
 
 std::vector<DramTrainingStatus> WormholeTTDevice::get_dram_training_status() {
-    uint32_t dram_training_status_telemetry = telemetry->read_entry(wormhole::TAG_DDR_STATUS);
+    uint32_t dram_training_status_telemetry = telemetry->read_entry(wormhole::DDR_STATUS);
     const uint32_t num_dram_channels = architecture_impl_->get_dram_banks_number();
     std::vector<DramTrainingStatus> dram_training_status;
     for (uint32_t dram_channel = 0; dram_channel < num_dram_channels; dram_channel++) {
@@ -395,19 +404,17 @@ void WormholeTTDevice::wait_eth_core_training(const tt_xy_pair eth_core, const u
         }
     }
 
-    uint32_t port_status = read_port_status(eth_core, wormhole::ETH_CORE_TO_CHANNEL.at(eth_core));
+    uint32_t port_status = read_port_status(eth_core);
     start = std::chrono::system_clock::now();
     while (port_status == ETH_UNKNOWN) {
-        port_status = read_port_status(eth_core, wormhole::ETH_CORE_TO_CHANNEL.at(eth_core));
+        port_status = read_port_status(eth_core);
         auto end = std::chrono::system_clock::now();
         auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
         if (duration.count() > timeout_ms) {
-            log_error(
-                LogSiliconDriver,
-                "ETH training timed out after {} ms, on eth core {}, {}",
-                timeout_ms,
-                eth_core.x,
-                eth_core.y);
+            if (get_board_type() != BoardType::UBB) {
+                throw std::runtime_error(fmt::format(
+                    "ETH training timed out after {} ms, on eth core {}, {}", timeout_ms, eth_core.x, eth_core.y));
+            }
             break;
         }
     }
@@ -416,22 +423,23 @@ void WormholeTTDevice::wait_eth_core_training(const tt_xy_pair eth_core, const u
 double WormholeTTDevice::get_asic_temperature() {
     // Data stored in telemetry has temperature average across chips stored in lower 16 bits.
     // It needs to be divided by 8 to get temperature in Celsius.
-    return (telemetry->read_entry(wormhole::TAG_ASIC_TEMPERATURE) & 0xFFFF) / 8.0;
+    return (telemetry->read_entry(wormhole::TelemetryTag::ASIC_TEMPERATURE) & 0xFFFF) / 8.0;
 }
 
 tt_xy_pair WormholeTTDevice::get_arc_core() const { return arc_core; }
 
 uint64_t WormholeTTDevice::get_arc_noc_base_address() const { return wormhole::ARC_NOC_XBAR_ADDRESS_START; }
 
-uint32_t WormholeTTDevice::read_port_status(tt_xy_pair eth_core, uint32_t channel) {
+uint32_t WormholeTTDevice::read_port_status(tt_xy_pair eth_core) {
+    uint32_t channel = std::distance(
+        wormhole::ETH_CORES_NOC0.begin(),
+        std::find(wormhole::ETH_CORES_NOC0.begin(), wormhole::ETH_CORES_NOC0.end(), eth_core));
     uint32_t port_status;
-    EthAddresses eth_addresses =
-        get_eth_addresses(get_arc_telemetry_reader()->read_entry(wormhole::TAG_ETH_FW_VERSION));
     read_from_device(&port_status, eth_core, eth_addresses.eth_conn_info + (channel * 4), sizeof(uint32_t));
     return port_status;
 }
 
-WormholeTTDevice::EthAddresses WormholeTTDevice::get_eth_addresses(uint32_t eth_fw_version) {
+WormholeTTDevice::EthAddresses WormholeTTDevice::get_eth_addresses(const uint32_t eth_fw_version) {
     uint32_t masked_version = eth_fw_version & 0x00FFFFFF;
 
     uint64_t node_info;
@@ -466,7 +474,7 @@ WormholeTTDevice::EthAddresses WormholeTTDevice::get_eth_addresses(uint32_t eth_
         erisc_remote_eth_id_offset = 77;
     }
 
-    return EthAddresses{
+    return WormholeTTDevice::EthAddresses{
         masked_version,
         node_info,
         eth_conn_info,

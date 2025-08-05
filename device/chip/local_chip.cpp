@@ -36,13 +36,7 @@ LocalChip::LocalChip(tt_SocDescriptor soc_descriptor, int pci_device_id, int num
 }
 
 LocalChip::LocalChip(std::string sdesc_path, std::unique_ptr<TTDevice> tt_device) :
-    Chip(
-        tt_device->get_chip_info(),
-        tt_SocDescriptor(
-            sdesc_path,
-            tt_device->get_chip_info().noc_translation_enabled,
-            tt_device->get_chip_info().harvesting_masks,
-            tt_device->get_chip_info().board_type)),
+    Chip(tt_device->get_chip_info(), tt_SocDescriptor(sdesc_path, tt_device->get_chip_info())),
     tlb_manager_(std::make_unique<TLBManager>(tt_device.get())),
     sysmem_manager_(std::make_unique<SysmemManager>(tlb_manager_.get(), 0)) {
     tt_device_ = std::move(tt_device);
@@ -50,13 +44,7 @@ LocalChip::LocalChip(std::string sdesc_path, std::unique_ptr<TTDevice> tt_device
 }
 
 LocalChip::LocalChip(std::unique_ptr<TTDevice> tt_device) :
-    Chip(
-        tt_device->get_chip_info(),
-        tt_SocDescriptor(
-            tt_device->get_arch(),
-            tt_device->get_chip_info().noc_translation_enabled,
-            tt_device->get_chip_info().harvesting_masks,
-            tt_device->get_chip_info().board_type)),
+    Chip(tt_device->get_chip_info(), tt_SocDescriptor(tt_device->get_arch(), tt_device->get_chip_info())),
     tlb_manager_(std::make_unique<TLBManager>(tt_device.get())),
     sysmem_manager_(std::make_unique<SysmemManager>(tlb_manager_.get(), 0)) {
     tt_device_ = std::move(tt_device);

@@ -92,16 +92,11 @@ std::unique_ptr<RemoteChip> TopologyDiscovery::create_remote_chip(Chip* chip, tt
 
     std::unique_ptr<RemoteChip> remote_chip = nullptr;
     if (sdesc_path != "") {
-        remote_chip = std::make_unique<RemoteChip>(
-            tt_SocDescriptor(sdesc_path, chip_info.noc_translation_enabled), std::move(remote_tt_device));
+        remote_chip =
+            std::make_unique<RemoteChip>(tt_SocDescriptor(sdesc_path, chip_info), std::move(remote_tt_device));
     } else {
         remote_chip = std::make_unique<RemoteChip>(
-            tt_SocDescriptor(
-                remote_tt_device->get_arch(),
-                chip_info.noc_translation_enabled,
-                chip_info.harvesting_masks,
-                chip_info.board_type),
-            std::move(remote_tt_device));
+            tt_SocDescriptor(remote_tt_device->get_arch(), chip_info), std::move(remote_tt_device));
     }
 
     return remote_chip;

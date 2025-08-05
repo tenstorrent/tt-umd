@@ -194,11 +194,10 @@ struct ChipUID {
 };
 
 struct ChipInfo {
-    HarvestingMasks harvesting_masks;
-    BoardType board_type;
-    ChipUID chip_uid;
-    bool noc_translation_enabled;
-    semver_t firmware_version = {0, 0, 0};
+    bool noc_translation_enabled = false;
+    HarvestingMasks harvesting_masks = {0, 0, 0, 0};
+    BoardType board_type = BoardType::UNKNOWN;
+    ChipUID chip_uid = {0, 0};
 };
 
 enum class DramTrainingStatus : uint8_t {

@@ -150,12 +150,14 @@ bool WormholeTTDevice::wait_arc_core_init(const tt_xy_pair arc_core, const uint3
                 continue;
             case STATUS_INIT_DONE_1:
             case STATUS_INIT_DONE_2:
+                log_info(LogSiliconDriver, "ARC core init done: status=0x{:08x}", bar_read_arc_reset_scratch_status);
                 return true;
             case STATUS_OLD_POST_CODE: {
                 bool pc_idle = (bar_read_arc_post_code == POST_CODE_INIT_DONE) ||
                                (bar_read_arc_post_code >= POST_CODE_ARC_MSG_HANDLE_DONE &&
                                 bar_read_arc_post_code <= POST_CODE_ARC_TIME_LAST);
                 if (pc_idle) {
+                    log_info(LogSiliconDriver, "ARC core init done: post_code=0x{:08x}", bar_read_arc_post_code);
                     return true;
                 }
                 log_warning(LogSiliconDriver, "OldPostCode error, post_code: {}", bar_read_arc_post_code);
@@ -182,6 +184,10 @@ bool WormholeTTDevice::wait_arc_core_init(const tt_xy_pair arc_core, const uint3
         }
         // Message complete, response written into bar_read_arc_reset_scratch_status
         if ((bar_read_arc_reset_scratch_status & STATUS_MESSAGE_COMPLETE_MASK) > STATUS_MESSAGE_COMPLETE_MIN) {
+            log_info(
+                LogSiliconDriver,
+                "ARC core init done: message complete, status=0x{:08x}",
+                bar_read_arc_reset_scratch_status);
             return true;
         }
         // Default case - assume OK, continue waiting

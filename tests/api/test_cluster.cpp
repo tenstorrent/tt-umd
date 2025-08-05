@@ -5,6 +5,7 @@
 // This file holds Cluster specific API examples.
 
 #include <gtest/gtest.h>
+#include <sys/types.h>
 
 #include <algorithm>
 #include <cstdint>
@@ -612,7 +613,7 @@ TEST(TestCluster, DeassertResetWithCounterBrisc) {
     }
 
     auto tensix_l1_size = cluster->get_soc_descriptor(0).worker_l1_size;
-    std::vector<uint32_t> zero_data(tensix_l1_size, 0);
+    std::vector<uint32_t> zero_data(tensix_l1_size / sizeof(uint32_t), 0);
 
     constexpr uint64_t counter_address = 0x10000;
     constexpr uint64_t brisc_code_address = 0;
@@ -707,7 +708,7 @@ TEST_P(ClusterAssertDeassertRiscsTest, TriscNcriscAssertDeassertTest) {
     uint32_t second_readback_value = 0;
 
     auto tensix_l1_size = cluster->get_soc_descriptor(0).worker_l1_size;
-    std::vector<uint32_t> zero_data(tensix_l1_size, 0);
+    std::vector<uint32_t> zero_data(tensix_l1_size / sizeof(uint32_t), 0);
 
     auto chip_ids = cluster->get_target_device_ids();
     for (auto& chip_id : chip_ids) {

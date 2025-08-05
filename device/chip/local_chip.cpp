@@ -379,11 +379,13 @@ void LocalChip::set_flush_non_mmio(bool flush_non_mmio) { flush_non_mmio_ = flus
 bool LocalChip::get_flush_non_mmio() const { return flush_non_mmio_; }
 
 void LocalChip::set_remote_transfer_ethernet_cores(const std::unordered_set<CoreCoord>& active_eth_cores) {
-    // Local chips don't use remote communication, so this is a noop.
+    // Set cores to be used by the broadcast communication.
+    remote_communication_->set_remote_transfer_ethernet_cores(active_eth_cores);
 }
 
 void LocalChip::set_remote_transfer_ethernet_cores(const std::set<uint32_t>& channels) {
-    // Local chips don't use remote communication, so this is a noop.
+    // Set cores to be used by the broadcast communication.
+    remote_communication_->set_remote_transfer_ethernet_cores(channels);
 }
 
 std::unique_lock<RobustMutex> LocalChip::acquire_mutex(std::string mutex_name, int pci_device_id) {

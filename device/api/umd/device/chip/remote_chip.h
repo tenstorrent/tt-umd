@@ -15,7 +15,10 @@ class LocalChip;
 
 class RemoteChip : public Chip {
 public:
-    RemoteChip(tt_SocDescriptor soc_descriptor, std::unique_ptr<RemoteWormholeTTDevice> remote_tt_device);
+    RemoteChip(
+        tt_SocDescriptor soc_descriptor,
+        std::unique_ptr<RemoteWormholeTTDevice> remote_tt_device,
+        LocalChip* local_chip);
 
     bool is_mmio_capable() const override;
 

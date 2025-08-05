@@ -149,9 +149,9 @@ void TopologyDiscovery::get_pcie_connected_chips() {
         }
         std::unique_ptr<LocalChip> chip = nullptr;
         if (sdesc_path != "") {
-            chip = std::make_unique<LocalChip>(sdesc_path, TTDevice::create(device_id));
+            chip = LocalChip::create(device_id, sdesc_path);
         } else {
-            chip = std::make_unique<LocalChip>(TTDevice::create(device_id));
+            chip = LocalChip::create(device_id);
         }
 
         // ETH addresses need to be initialized after the first chip is created, so we could

@@ -36,10 +36,16 @@ std::unique_ptr<LocalChip> LocalChip::create(int pci_device_id, int num_host_mem
         tt_device->get_chip_info().harvesting_masks,
         tt_device->get_chip_info().board_type);
 
-    return std::make_unique<LocalChip>(soc_descriptor, std::move(tt_device), num_host_mem_channels);
+    return std::unique_ptr<tt::umd::LocalChip>(
+        new LocalChip(soc_descriptor, std::move(tt_device), num_host_mem_channels));
 }
 
 std::unique_ptr<LocalChip> LocalChip::create(int pci_device_id, std::string sdesc_path, int num_host_mem_channels) {
+    // Just a convenience, if we're not sure if the sdesc_path is empty, we can just call this function which will call
+    // the other version if passed sdesc_path is empty.
+    if (sdesc_path.empty()) {
+        return create(pci_device_id, num_host_mem_channels);
+    }
     // Create TTDevice and make sure the arc is ready so we can read its telemetry.
     auto tt_device = TTDevice::create(pci_device_id);
     tt_device->wait_arc_core_start();
@@ -50,7 +56,8 @@ std::unique_ptr<LocalChip> LocalChip::create(int pci_device_id, std::string sdes
         tt_device->get_chip_info().harvesting_masks,
         tt_device->get_chip_info().board_type);
 
-    return std::make_unique<LocalChip>(soc_descriptor, std::move(tt_device), num_host_mem_channels);
+    return std::unique_ptr<tt::umd::LocalChip>(
+        new LocalChip(soc_descriptor, std::move(tt_device), num_host_mem_channels));
 }
 
 std::unique_ptr<LocalChip> LocalChip::create(
@@ -59,15 +66,15 @@ std::unique_ptr<LocalChip> LocalChip::create(
     auto tt_device = TTDevice::create(pci_device_id);
     tt_device->wait_arc_core_start();
 
-    return std::make_unique<LocalChip>(soc_descriptor, std::move(tt_device), num_host_mem_channels);
+    return std::unique_ptr<tt::umd::LocalChip>(
+        new LocalChip(soc_descriptor, std::move(tt_device), num_host_mem_channels));
 }
 
 LocalChip::LocalChip(tt_SocDescriptor soc_descriptor, std::unique_ptr<TTDevice> tt_device, int num_host_mem_channels) :
-    Chip(tt_device->get_chip_info(), soc_descriptor),
-    tt_device_(std::move(tt_device)),
-    tlb_manager_(std::make_unique<TLBManager>(tt_device_.get())),
-    sysmem_manager_(std::make_unique<SysmemManager>(tlb_manager_.get(), num_host_mem_channels)),
-    remote_communication_(std::make_unique<RemoteCommunication>(this)) {
+    Chip(tt_device->get_chip_info(), soc_descriptor), tt_device_(std::move(tt_device)) {
+    tlb_manager_ = std::make_unique<TLBManager>(tt_device_.get());
+    sysmem_manager_ = std::make_unique<SysmemManager>(tlb_manager_.get(), num_host_mem_channels);
+    remote_communication_ = std::make_unique<RemoteCommunication>(this);
     initialize_tlb_manager();
     wait_chip_to_be_ready();
     initialize_default_chip_mutexes();

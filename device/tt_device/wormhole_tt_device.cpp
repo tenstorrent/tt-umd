@@ -80,11 +80,30 @@ ChipInfo WormholeTTDevice::get_chip_info() {
 }
 
 bool WormholeTTDevice::wait_arc_core_init(const tt_xy_pair arc_core, const uint32_t timeout_ms) {
+    // Status codes
+    constexpr uint32_t STATUS_NO_ACCESS = 0xFFFFFFFF;
+    constexpr uint32_t STATUS_WATCHDOG_TRIGGERED = 0xDEADC0DE;
+    constexpr uint32_t STATUS_BOOT_INCOMPLETE_1 = 0x00000060;
+    constexpr uint32_t STATUS_BOOT_INCOMPLETE_2 = 0x11110000;
+    constexpr uint32_t STATUS_ASLEEP_1 = 0x0000AA00;
+    constexpr uint32_t STATUS_ASLEEP_2 = 0x55;
+    constexpr uint32_t STATUS_INIT_DONE_1 = 0x00000001;
+    constexpr uint32_t STATUS_INIT_DONE_2 = 0xFFFFDEAD;
+    constexpr uint32_t STATUS_OLD_POST_CODE = 0;
+    constexpr uint32_t STATUS_MESSAGE_QUEUED_MASK = 0xFFFFFF00;
+    constexpr uint32_t STATUS_MESSAGE_QUEUED_VAL = 0x0000AA00;
+    constexpr uint32_t STATUS_HANDLING_MESSAGE_MASK = 0xFF00FFFF;
+    constexpr uint32_t STATUS_HANDLING_MESSAGE_VAL = 0xAA000000;
+    constexpr uint32_t STATUS_MESSAGE_COMPLETE_MASK = 0x0000FFFF;
+    constexpr uint32_t STATUS_MESSAGE_COMPLETE_MIN = 0x00000001;
+
+    // Post codes
     constexpr uint32_t POST_CODE_INIT_DONE = 0xC0DE0001;
     constexpr uint32_t POST_CODE_ARC_MSG_HANDLE_START = 0xC0DE0030;
     constexpr uint32_t POST_CODE_ARC_MSG_HANDLE_DONE = 0xC0DE003F;
     constexpr uint32_t POST_CODE_ARC_TIME_LAST = 0xC0DE007F;
 
+    // DMA request address
     static constexpr uint64_t ARC_CSM_ARC_PCIE_DMA_REQUEST = 0x1fef84d4;
 
     uint32_t bar_read_arc_reset_scratch_status =
@@ -101,82 +120,71 @@ bool WormholeTTDevice::wait_arc_core_init(const tt_xy_pair arc_core, const uint3
 
     auto start = std::chrono::system_clock::now();
     while (true) {
-        auto end = std::chrono::system_clock::now();
-        auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
-        if (duration.count() > timeout_ms && timeout_ms != 0) {
-            throw std::runtime_error(fmt::format("Timed out after waiting {} ms for ARC to initialize", timeout_ms));
-        }
-        // Check for no access error
-        if (bar_read_arc_post_code == 0xFFFFFFFF) {
-            log_info(LogSiliconDriver, "NoAccess error");
-            // return false;
+        auto now = std::chrono::system_clock::now();
+        auto elapsed_ms = std::chrono::duration_cast<std::chrono::milliseconds>(now - start).count();
+        if (timeout_ms != 0 && elapsed_ms > timeout_ms) {
+            return false;
         }
 
-        // Check for watchdog triggered
-        if (bar_read_arc_reset_scratch_status == 0xDEADC0DE) {
-            log_info(LogSiliconDriver, "WatchdogTriggered error");
-            // return false;
-        }
+        // Refresh register values
+        bar_read_arc_reset_scratch_status =
+            bar_read32(wormhole::ARC_APB_BAR0_XBAR_OFFSET_START + wormhole::ARC_RESET_SCRATCH_STATUS_OFFSET);
+        bar_read_arc_post_code = bar_read32(architecture_impl_->get_arc_reset_scratch_offset());
+        bar_read_arc_csm_pcie_dma_request = bar_read32(ARC_CSM_ARC_PCIE_DMA_REQUEST);
 
-        // Still booting and it will later wipe SCRATCH[5/2]
-        if (bar_read_arc_reset_scratch_status == 0x00000060 || bar_read_arc_post_code == 0x11110000) {
-            log_info(LogSiliconDriver, "BootIncomplete error");
-            // return false;
-        }
-
-        // Check if ARC is asleep
-        // TypedArcMsg::ArcGoToSleep => 0x55
-        if (bar_read_arc_reset_scratch_status == 0x0000AA00 || bar_read_arc_reset_scratch_status == 0x55) {
-            log_info(LogSiliconDriver, "Asleep error");
-            // return false;
-        }
-
-        // PCIE bar_read_arc_csm_pcie_dma_request writes SCRATCH[5] on exit, so it's not safe
-        if (bar_read_arc_csm_pcie_dma_request != 0) {
-            log_info(LogSiliconDriver, "OutstandingPcieDMA error");
-            // return false;
-        }
-
-        // Check for queued message
-        if ((bar_read_arc_reset_scratch_status & 0xFFFFFF00) == 0x0000AA00) {
-            uint32_t message_id = bar_read_arc_reset_scratch_status & 0xFF;
-            log_info(LogSiliconDriver, "MessageQueued error, message_id: {}", message_id);
-            // return false;
-        }
-
-        // Check for message being handled
-        if ((bar_read_arc_reset_scratch_status & 0xFF00FFFF) == 0xAA000000) {
-            uint32_t message_id = (bar_read_arc_reset_scratch_status >> 16) & 0xFF;
-            log_info(LogSiliconDriver, "HandlingMessage error, message_id: {}", message_id);
-            // return false;
-        }
-
-        // Boot complete cases - these are OK
-        if (bar_read_arc_reset_scratch_status == 0x00000001 || bar_read_arc_reset_scratch_status == 0xFFFFFFFF ||
-            bar_read_arc_reset_scratch_status == 0xFFFFDEAD) {
-            // return true;
-        }
-
-        // Message complete, response written into bar_read_arc_reset_scratch_status
-        if ((bar_read_arc_reset_scratch_status & 0x0000FFFF) > 0x00000001) {
-            // return true;
-        }
-
-        // Check zero case with post code validation
-        if (bar_read_arc_reset_scratch_status == 0) {
-            bool pc_idle = (bar_read_arc_post_code == POST_CODE_INIT_DONE) ||
-                           (bar_read_arc_post_code >= POST_CODE_ARC_MSG_HANDLE_DONE &&
-                            bar_read_arc_post_code <= POST_CODE_ARC_TIME_LAST);
-
-            if (pc_idle) {
-                // return true;
-            } else {
-                log_info(LogSiliconDriver, "OldPostCode error, post_code: {}", bar_read_arc_post_code);
-                // return false;
+        // Handle known error/status codes
+        switch (bar_read_arc_reset_scratch_status) {
+            case STATUS_NO_ACCESS:
+                log_debug(LogSiliconDriver, "NoAccess error");
+                continue;
+            case STATUS_WATCHDOG_TRIGGERED:
+                log_debug(LogSiliconDriver, "WatchdogTriggered error");
+                continue;
+            case STATUS_BOOT_INCOMPLETE_1:
+            case STATUS_BOOT_INCOMPLETE_2:
+                log_debug(LogSiliconDriver, "BootIncomplete error");
+                continue;
+            case STATUS_ASLEEP_1:
+            case STATUS_ASLEEP_2:
+                log_debug(LogSiliconDriver, "Asleep error");
+                continue;
+            case STATUS_INIT_DONE_1:
+            case STATUS_INIT_DONE_2:
+                return true;
+            case STATUS_OLD_POST_CODE: {
+                bool pc_idle = (bar_read_arc_post_code == POST_CODE_INIT_DONE) ||
+                               (bar_read_arc_post_code >= POST_CODE_ARC_MSG_HANDLE_DONE &&
+                                bar_read_arc_post_code <= POST_CODE_ARC_TIME_LAST);
+                if (pc_idle) {
+                    return true;
+                }
+                log_debug(LogSiliconDriver, "OldPostCode error, post_code: {}", bar_read_arc_post_code);
+                continue;
             }
         }
 
-        // Default case - should not reach here, but assume OK
+        // Check for outstanding DMA request
+        if (bar_read_arc_csm_pcie_dma_request != 0) {
+            log_debug(LogSiliconDriver, "OutstandingPcieDMA error");
+            continue;
+        }
+        // Check for queued message
+        if ((bar_read_arc_reset_scratch_status & STATUS_MESSAGE_QUEUED_MASK) == STATUS_MESSAGE_QUEUED_VAL) {
+            uint32_t message_id = bar_read_arc_reset_scratch_status & 0xFF;
+            log_debug(LogSiliconDriver, "MessageQueued error, message_id: {}", message_id);
+            continue;
+        }
+        // Check for message being handled
+        if ((bar_read_arc_reset_scratch_status & STATUS_HANDLING_MESSAGE_MASK) == STATUS_HANDLING_MESSAGE_VAL) {
+            uint32_t message_id = (bar_read_arc_reset_scratch_status >> 16) & 0xFF;
+            log_debug(LogSiliconDriver, "HandlingMessage error, message_id: {}", message_id);
+            continue;
+        }
+        // Message complete, response written into bar_read_arc_reset_scratch_status
+        if ((bar_read_arc_reset_scratch_status & STATUS_MESSAGE_COMPLETE_MASK) > STATUS_MESSAGE_COMPLETE_MIN) {
+            return true;
+        }
+        // Default case - assume OK, continue waiting
     }
 }
 

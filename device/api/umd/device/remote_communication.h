@@ -44,8 +44,10 @@ private:
 
     std::vector<CoreCoord> remote_transfer_eth_cores_;
     int active_eth_core_idx = 0;
+    bool flush_non_mmio_ = false;
 
     LocalChip* local_chip_;
+    LockManager lock_manager_;
 };
 
 }  // namespace tt::umd

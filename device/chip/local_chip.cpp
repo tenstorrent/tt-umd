@@ -103,7 +103,6 @@ void LocalChip::initialize_default_chip_mutexes() {
     // Initialize non-MMIO mutexes for WH devices regardless of number of chips, since these may be used for
     // ethernet broadcast
     if (tt_device_->get_arch() == tt::ARCH::WORMHOLE_B0) {
-        lock_manager_.initialize_mutex(MutexType::NON_MMIO, pci_device_id);
         lock_manager_.initialize_mutex(MutexType::REMOTE_ARC_MSG, pci_device_id);
     }
 
@@ -373,10 +372,6 @@ void LocalChip::ethernet_broadcast_write(
 void LocalChip::wait_for_non_mmio_flush() {
     // This is a local chip, so no need to flush remote communication.
 }
-
-void LocalChip::set_flush_non_mmio(bool flush_non_mmio) { flush_non_mmio_ = flush_non_mmio; }
-
-bool LocalChip::get_flush_non_mmio() const { return flush_non_mmio_; }
 
 void LocalChip::set_remote_transfer_ethernet_cores(const std::unordered_set<CoreCoord>& active_eth_cores) {
     // Set cores to be used by the broadcast communication.

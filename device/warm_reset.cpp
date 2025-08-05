@@ -85,7 +85,7 @@ void WarmReset::warm_reset_blackhole() {
     }
 
     if (all_reset_bits_set) {
-        log_info(tt::LogSiliconDriver, "Reset succesfully completed.");
+        log_info(tt::LogSiliconDriver, "Reset successfully completed.");
     }
     PCIDevice::reset_devices(TenstorrentResetDevice::RESTORE_STATE);
 }
@@ -151,7 +151,7 @@ void WarmReset::warm_reset_wormhole(bool reset_m3) {
     }
 
     if (reset_ok) {
-        log_info(tt::LogSiliconDriver, "Reset succesfully completed.");
+        log_info(tt::LogSiliconDriver, "Reset successfully completed.");
     }
 }
 

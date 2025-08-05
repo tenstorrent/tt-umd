@@ -103,6 +103,48 @@ static bool detect_iommu(const PciDeviceInfo &device_info) {
     return false;
 }
 
+static std::string get_pci_bdf(const uint16_t pci_domain, const uint16_t pci_bus, const uint16_t pci_device) {
+    return fmt::format("{:04x}:{:02x}:{:02x}", pci_domain, pci_bus, pci_device);
+}
+
+static bool is_number(const std::string &str) { return !str.empty() && std::all_of(str.begin(), str.end(), ::isdigit); }
+
+static std::optional<int> get_physical_slot_for_pcie_bdf(const std::string &target_bdf) {
+    std::string base_path = "/sys/bus/pci/slots";
+    std::unordered_map<std::string, int> bdf_to_slot_map;
+
+    for (const auto &entry : std::filesystem::directory_iterator(base_path)) {
+        if (entry.is_directory()) {
+            std::string dir_name = entry.path().filename().string();
+
+            if (is_number(dir_name)) {
+                int slot_number = std::stoi(dir_name);
+                std::string address_file_path = entry.path().string() + "/address";
+
+                if (std::filesystem::exists(address_file_path)) {
+                    std::ifstream address_file(address_file_path);
+                    std::string bdf;
+
+                    if (address_file.is_open() && std::getline(address_file, bdf)) {
+                        // Trim trailing whitespace and newlines
+                        bdf.erase(bdf.find_last_not_of(" \n\r\t") + 1);
+
+                        std::cout << "Found BDF: " << bdf << " in slot: " << slot_number << std::endl;
+                        std::cout << "Target BDF: " << target_bdf << std::endl;
+
+                        if (bdf == target_bdf) {
+                            return slot_number;
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    return std::nullopt;
+    ;
+}
+
 static PciDeviceInfo read_device_info(int fd) {
     tenstorrent_get_device_info info{};
     info.in.output_size_bytes = sizeof(info.out);
@@ -115,7 +157,14 @@ static PciDeviceInfo read_device_info(int fd) {
     uint16_t dev = (info.out.bus_dev_fn >> 3) & 0x1F;
     uint16_t fn = info.out.bus_dev_fn & 0x07;
 
-    return PciDeviceInfo{info.out.vendor_id, info.out.device_id, info.out.pci_domain, bus, dev, fn};
+    return PciDeviceInfo{
+        info.out.vendor_id,
+        info.out.device_id,
+        info.out.pci_domain,
+        bus,
+        dev,
+        fn,
+        get_physical_slot_for_pcie_bdf(get_pci_bdf(info.out.pci_domain, bus, dev))};
 }
 
 tt::ARCH PciDeviceInfo::get_arch() const {

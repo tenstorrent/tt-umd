@@ -502,11 +502,11 @@ TEST(TestCluster, WarmReset) {
 
     WarmReset::warm_reset();
 
-    EXPECT_NO_THROW(hanged_tt_device->detect_hang_read());
-
     cluster.reset();
 
     cluster = std::make_unique<Cluster>();
+
+    EXPECT_NO_THROW(cluster->get_chip(0)->get_tt_device()->detect_hang_read());
 
     EXPECT_FALSE(cluster->get_target_device_ids().empty()) << "No chips present after reset.";
 

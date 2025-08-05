@@ -15,12 +15,14 @@
 #include "api/umd/device/pci_device.hpp"
 #include "api/umd/device/wormhole_implementation.h"
 #include "umd/device/tt_device/tt_device.h"
+#include "umd/device/types/arch.h"
 
 namespace tt::umd {
 
 void WarmReset::warm_reset(bool reset_m3) {
     auto enumerate_devices = PCIDevice::enumerate_devices_info();
     auto arch = enumerate_devices.begin()->second.get_arch();
+    log_info(tt::LogSiliconDriver, "Starting reset for {} architecture.", arch_to_str(arch));
     switch (arch) {
         case ARCH::WORMHOLE_B0:
             warm_reset_wormhole(reset_m3);
@@ -82,10 +84,14 @@ void WarmReset::warm_reset_blackhole() {
         }
     }
 
+    if (all_reset_bits_set) {
+        log_info(tt::LogSiliconDriver, "Reset succesfully completed.");
+    }
     PCIDevice::reset_devices(TenstorrentResetDevice::RESTORE_STATE);
 }
 
 void WarmReset::warm_reset_wormhole(bool reset_m3) {
+    bool reset_ok = true;
     static constexpr uint16_t default_arg_value = 0xFFFF;
     static constexpr uint32_t MSG_TYPE_ARC_STATE3 = 0xA3 | wormhole::ARC_MSG_COMMON_PREFIX;
     static constexpr uint32_t MSG_TYPE_TRIGGER_RESET = 0x56 | wormhole::ARC_MSG_COMMON_PREFIX;
@@ -134,6 +140,7 @@ void WarmReset::warm_reset_wormhole(bool reset_m3) {
 
     for (int i = 0; i < refclk_values_old.size(); i++) {
         if (refclk_values_old[i] < refclk_current[i]) {
+            reset_ok = false;
             log_warning(
                 LogSiliconDriver,
                 "Reset for PCI: {} didn't go through! Refclk didn't reset. Value before: {}, value after: {}",
@@ -141,6 +148,10 @@ void WarmReset::warm_reset_wormhole(bool reset_m3) {
                 refclk_values_old[i],
                 refclk_current[i]);
         }
+    }
+
+    if (reset_ok) {
+        log_info(tt::LogSiliconDriver, "Reset succesfully completed.");
     }
 }
 

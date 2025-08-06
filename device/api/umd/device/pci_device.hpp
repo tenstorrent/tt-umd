@@ -51,7 +51,7 @@ struct DmaBuffer {
     uint64_t completion_pa = 0;
 };
 
-constexpr const char *TT_VISIBLE_DEVICES_ENV = "TT_VISIBLE_DEVICES";
+inline constexpr std::string_view TT_VISIBLE_DEVICES_ENV = "TT_VISIBLE_DEVICES";
 
 class PCIDevice {
     const std::string device_path;   // Path to character device: /dev/tenstorrent/N

@@ -45,7 +45,7 @@ int main(int argc, char *argv[]) {
         for (const auto &device : vec_devices) {
             oss << "," << device;
         }
-        if (setenv(TT_VISIBLE_DEVICES_ENV, oss.str().c_str(), 1) != 0) {
+        if (setenv(TT_VISIBLE_DEVICES_ENV.data(), oss.str().c_str(), 1) != 0) {
             throw std::runtime_error("Failed to set environment variable.");
         }
     }
@@ -63,7 +63,7 @@ int main(int argc, char *argv[]) {
     log_info(tt::LogSiliconDriver, "Cluster descriptor serialized to {}", output_path);
 
     if (result.count("pci_devices")) {
-        if (unsetenv(TT_VISIBLE_DEVICES_ENV) != 0) {
+        if (unsetenv(TT_VISIBLE_DEVICES_ENV.data()) != 0) {
             throw std::runtime_error("Failed to unset environment variable.");
         }
     }

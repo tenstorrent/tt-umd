@@ -31,7 +31,7 @@ LocalChip::LocalChip(tt_SocDescriptor soc_descriptor, int pci_device_id, int num
     chip_info_ = tt_device_->get_chip_info();
     tlb_manager_ = std::make_unique<TLBManager>(tt_device_.get());
     sysmem_manager_ = std::make_unique<SysmemManager>(tlb_manager_.get(), num_host_mem_channels);
-    remote_communication_ = std::make_unique<RemoteCommunication>(this);
+    remote_communication_ = std::make_unique<RemoteCommunication>(tt_device_.get(), sysmem_manager_.get());
     initialize_local_chip();
 }
 
@@ -103,7 +103,6 @@ void LocalChip::initialize_default_chip_mutexes() {
     // Initialize non-MMIO mutexes for WH devices regardless of number of chips, since these may be used for
     // ethernet broadcast
     if (tt_device_->get_arch() == tt::ARCH::WORMHOLE_B0) {
-        lock_manager_.initialize_mutex(MutexType::NON_MMIO, pci_device_id);
         lock_manager_.initialize_mutex(MutexType::REMOTE_ARC_MSG, pci_device_id);
     }
 
@@ -374,58 +373,25 @@ void LocalChip::wait_for_non_mmio_flush() {
     // This is a local chip, so no need to flush remote communication.
 }
 
-void LocalChip::set_flush_non_mmio(bool flush_non_mmio) { flush_non_mmio_ = flush_non_mmio; }
-
-bool LocalChip::get_flush_non_mmio() const { return flush_non_mmio_; }
-
-void LocalChip::set_remote_transfer_ethernet_cores(const std::unordered_set<CoreCoord>& active_eth_cores) {
-    // Makes UMD aware of which ethernet cores have active links.
-    // Based on this information, UMD determines which ethernet cores can be used for host->cluster non-MMIO transfers.
-    // This overrides the default ethernet cores tagged for host to cluster routing in the constructor and must be
-    // called for all MMIO devices, if default behaviour is not desired.
-    if (soc_descriptor_.arch == tt::ARCH::WORMHOLE_B0) {
-        // For now the remote communication is only implemented for WH
-        remote_transfer_eth_cores_ = {};
-        for (const auto& active_eth_core : active_eth_cores) {
-            auto virtual_coord = soc_descriptor_.translate_coord_to(active_eth_core, CoordSystem::VIRTUAL);
-            remote_transfer_eth_cores_.push_back(active_eth_core);
-        }
+void LocalChip::set_remote_transfer_ethernet_cores(const std::unordered_set<CoreCoord>& cores) {
+    // Set cores to be used by the broadcast communication.
+    std::vector<tt_xy_pair> remote_transfer_eth_cores;
+    for (const auto& active_eth_core : cores) {
+        auto translated_coord = get_soc_descriptor().translate_coord_to(active_eth_core, CoordSystem::TRANSLATED);
+        remote_transfer_eth_cores.push_back(active_eth_core);
     }
+    remote_communication_->set_remote_transfer_ethernet_cores(remote_transfer_eth_cores);
 }
 
 void LocalChip::set_remote_transfer_ethernet_cores(const std::set<uint32_t>& channels) {
-    std::unordered_set<CoreCoord> active_eth_cores;
+    // Set cores to be used by the broadcast communication.
+    std::vector<tt_xy_pair> remote_transfer_eth_cores;
     for (const auto& channel : channels) {
-        active_eth_cores.insert(soc_descriptor_.get_eth_core_for_channel(channel));
+        auto translated_coord = get_soc_descriptor().get_eth_core_for_channel(channel, CoordSystem::TRANSLATED);
+        remote_transfer_eth_cores.push_back(translated_coord);
     }
-    set_remote_transfer_ethernet_cores(active_eth_cores);
+    remote_communication_->set_remote_transfer_ethernet_cores(remote_transfer_eth_cores);
 }
-
-CoreCoord LocalChip::get_remote_transfer_ethernet_core() {
-    if (remote_transfer_eth_cores_.size() > 8) {
-        // We cannot use more than 8 cores for umd access in one direction. Thats because of the available
-        // buffering in the outgoing eth channels.
-        log_warning(
-            LogSiliconDriver,
-            "Number of active ethernet cores {} exceeds the maximum of 8.",
-            remote_transfer_eth_cores_.size());
-    }
-    if (remote_transfer_eth_cores_.empty()) {
-        throw std::runtime_error("No remote transfer ethernet cores set.");
-    }
-    return remote_transfer_eth_cores_.at(active_eth_core_idx);
-}
-
-void LocalChip::update_active_eth_core_idx() {
-    if (remote_transfer_eth_cores_.empty()) {
-        throw std::runtime_error("Cannot update active Ethernet core index: no remote transfer Ethernet cores set.");
-    }
-    active_eth_core_idx = (active_eth_core_idx + 1) % remote_transfer_eth_cores_.size();
-}
-
-int LocalChip::get_active_eth_core_idx() { return active_eth_core_idx; }
-
-std::vector<CoreCoord> LocalChip::get_remote_transfer_ethernet_cores() { return remote_transfer_eth_cores_; }
 
 std::unique_lock<RobustMutex> LocalChip::acquire_mutex(std::string mutex_name, int pci_device_id) {
     return lock_manager_.acquire_mutex(mutex_name, pci_device_id);

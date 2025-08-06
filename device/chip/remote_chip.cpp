@@ -16,9 +16,10 @@ namespace tt::umd {
 
 static_assert(!std::is_abstract<RemoteChip>(), "RemoteChip must be non-abstract.");
 
-RemoteChip::RemoteChip(tt_SocDescriptor soc_descriptor, std::unique_ptr<RemoteWormholeTTDevice> remote_tt_device) :
+RemoteChip::RemoteChip(
+    tt_SocDescriptor soc_descriptor, std::unique_ptr<RemoteWormholeTTDevice> remote_tt_device, LocalChip* local_chip) :
     Chip(soc_descriptor) {
-    local_chip_ = remote_tt_device->get_local_chip();
+    local_chip_ = local_chip;
     remote_communication_ = remote_tt_device->get_remote_communication();
     tt_device_ = std::move(remote_tt_device);
     chip_info_ = tt_device_->get_chip_info();
@@ -113,9 +114,29 @@ int RemoteChip::get_numa_node() {
     throw std::runtime_error("RemoteChip::get_numa_node is not available for this chip.");
 }
 
-void RemoteChip::set_remote_transfer_ethernet_cores(const std::unordered_set<CoreCoord>& cores) {}
+void RemoteChip::set_remote_transfer_ethernet_cores(const std::unordered_set<CoreCoord>& cores) {
+    // Makes UMD aware of which ethernet cores have active links.
+    // Based on this information, UMD determines which ethernet cores can be used for host->cluster non-MMIO transfers.
+    // This overrides the default ethernet cores tagged for host to cluster routing in the constructor and must be
+    // called for all MMIO devices, if default behaviour is not desired.
+    std::vector<tt_xy_pair> remote_transfer_eth_cores;
+    for (const auto& active_eth_core : cores) {
+        auto translated_coord =
+            local_chip_->get_soc_descriptor().translate_coord_to(active_eth_core, CoordSystem::TRANSLATED);
+        remote_transfer_eth_cores.push_back(active_eth_core);
+    }
+    remote_communication_->set_remote_transfer_ethernet_cores(remote_transfer_eth_cores);
+}
 
-void RemoteChip::set_remote_transfer_ethernet_cores(const std::set<uint32_t>& channel) {}
+void RemoteChip::set_remote_transfer_ethernet_cores(const std::set<uint32_t>& channels) {
+    std::vector<tt_xy_pair> remote_transfer_eth_cores;
+    for (const auto& channel : channels) {
+        auto translated_coord =
+            local_chip_->get_soc_descriptor().get_eth_core_for_channel(channel, CoordSystem::TRANSLATED);
+        remote_transfer_eth_cores.push_back(translated_coord);
+    }
+    remote_communication_->set_remote_transfer_ethernet_cores(remote_transfer_eth_cores);
+}
 
 TTDevice* RemoteChip::get_tt_device() { return tt_device_.get(); }
 

@@ -7,11 +7,12 @@
 
 namespace tt::umd {
 
-RemoteWormholeTTDevice::RemoteWormholeTTDevice(LocalChip *local_chip, eth_coord_t target_chip) :
-    WormholeTTDevice(local_chip->get_tt_device()->get_pci_device()),
+RemoteWormholeTTDevice::RemoteWormholeTTDevice(
+    TTDevice *local_chip, std::unique_ptr<RemoteCommunication> remote_communication, eth_coord_t target_chip) :
+    WormholeTTDevice(local_chip->get_pci_device()),
     local_chip_(local_chip),
     target_chip_(target_chip),
-    remote_communication_(std::make_unique<RemoteCommunication>(local_chip_)) {
+    remote_communication_(std::move(remote_communication)) {
     is_remote_tt_device = true;
     init_tt_device();
 }
@@ -26,7 +27,7 @@ void RemoteWormholeTTDevice::write_to_device(const void *mem_ptr, tt_xy_pair cor
 
 void RemoteWormholeTTDevice::wait_for_non_mmio_flush() { remote_communication_->wait_for_non_mmio_flush(); }
 
-LocalChip *RemoteWormholeTTDevice::get_local_chip() { return local_chip_; }
+TTDevice *RemoteWormholeTTDevice::get_local_chip() { return local_chip_; }
 
 RemoteCommunication *RemoteWormholeTTDevice::get_remote_communication() { return remote_communication_.get(); }
 

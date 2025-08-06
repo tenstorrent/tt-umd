@@ -177,7 +177,7 @@ void LocalChip::read_from_sysmem(uint16_t channel, void* dest, uint64_t sysmem_s
 void LocalChip::write_to_device(CoreCoord core, const void* src, uint64_t l1_dest, uint32_t size) {
     const uint8_t* buffer_addr = static_cast<const uint8_t*>(src);
 
-    log_debug(
+    log_trace(
         LogSiliconDriver,
         "Chip::write_to_device to pci dev {} core {} at 0x{:x} size: {}",
         tt_device_->get_pci_device()->get_device_num(),
@@ -215,12 +215,12 @@ void LocalChip::write_to_device(CoreCoord core, const void* src, uint64_t l1_des
             l1_dest += transfer_size;
             buffer_addr += transfer_size;
         }
-        log_debug(LogSiliconDriver, "Write done Dynamic TLB with pid={}", (long)getpid());
+        log_trace(LogSiliconDriver, "Write done Dynamic TLB with pid={}", (long)getpid());
     }
 }
 
 void LocalChip::read_from_device(CoreCoord core, void* dest, uint64_t l1_src, uint32_t size) {
-    log_debug(
+    log_trace(
         LogSiliconDriver,
         "Chip::read_from_device from pci device {} core {} at 0x{:x} size: {}",
         tt_device_->get_pci_device()->get_device_num(),
@@ -241,7 +241,7 @@ void LocalChip::read_from_device(CoreCoord core, void* dest, uint64_t l1_src, ui
         } else {
             tt_device_->read_block(tlb_description.tlb_offset + l1_src % tlb_description.size, size, buffer_addr);
         }
-        log_debug(
+        log_trace(
             LogSiliconDriver,
             "  read_block called with tlb_offset: {}, tlb_size: {}",
             tlb_description.tlb_offset,
@@ -250,7 +250,7 @@ void LocalChip::read_from_device(CoreCoord core, void* dest, uint64_t l1_src, ui
         std::string fallback_tlb = "LARGE_READ_TLB";
         const auto tlb_index = tlb_manager_->dynamic_tlb_config_.at(fallback_tlb);
         auto lock = acquire_mutex(fallback_tlb, tt_device_->get_pci_device()->get_device_num());
-        log_debug(LogSiliconDriver, "  dynamic tlb_index: {}", tlb_index);
+        log_trace(LogSiliconDriver, "  dynamic tlb_index: {}", tlb_index);
         while (size > 0) {
             auto [mapped_address, tlb_size] = tt_device_->set_dynamic_tlb(
                 tlb_index,
@@ -264,7 +264,7 @@ void LocalChip::read_from_device(CoreCoord core, void* dest, uint64_t l1_src, ui
             l1_src += transfer_size;
             buffer_addr += transfer_size;
         }
-        log_debug(LogSiliconDriver, "Read done Dynamic TLB with pid={}", (long)getpid());
+        log_trace(LogSiliconDriver, "Read done Dynamic TLB with pid={}", (long)getpid());
     }
 }
 

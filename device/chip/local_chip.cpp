@@ -385,12 +385,8 @@ void LocalChip::set_remote_transfer_ethernet_cores(const std::unordered_set<Core
 
 void LocalChip::set_remote_transfer_ethernet_cores(const std::set<uint32_t>& channels) {
     // Set cores to be used by the broadcast communication.
-    std::vector<tt_xy_pair> remote_transfer_eth_cores;
-    for (const auto& channel : channels) {
-        auto translated_coord = get_soc_descriptor().get_eth_core_for_channel(channel, CoordSystem::TRANSLATED);
-        remote_transfer_eth_cores.push_back(translated_coord);
-    }
-    remote_communication_->set_remote_transfer_ethernet_cores(remote_transfer_eth_cores);
+    remote_communication_->set_remote_transfer_ethernet_cores(
+        get_soc_descriptor().get_eth_cores_for_channels(channels, CoordSystem::TRANSLATED));
 }
 
 std::unique_lock<RobustMutex> LocalChip::acquire_mutex(std::string mutex_name, int pci_device_id) {

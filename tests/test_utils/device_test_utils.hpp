@@ -4,6 +4,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 #pragma once
+#include <fmt/ranges.h>
 
 #include <cstdint>
 #include <random>
@@ -45,16 +46,7 @@ inline void fill_with_random_bytes(uint8_t* data, size_t n) {
 }
 
 inline std::string convert_to_comma_separated_string(const std::unordered_set<int>& devices) {
-    std::ostringstream oss;
-    bool first = true;
-    for (int d : devices) {
-        if (!first) {
-            oss << ",";
-        }
-        oss << d;
-        first = false;
-    }
-    return oss.str();
+    return fmt::format("{}", fmt::join(devices, ","));
 }
 
 }  // namespace test_utils

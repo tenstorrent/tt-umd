@@ -65,26 +65,26 @@ jobs:
 
       - name: Run API tests
         run: |
-          ${{ env.TEST_OUTPUT_DIR }}/umd/api/api_tests
+          TT_LOGGER_LEVEL=debug ${{ env.TEST_OUTPUT_DIR }}/umd/api/api_tests
 
       - name: Run arch-specific UMD unit tests
         if: ${{ inputs.arch != 'baremetal' }}
         run: |
-          ${{ env.TEST_OUTPUT_DIR }}/umd/${{ inputs.arch }}/unit_tests
+          TT_LOGGER_LEVEL=debug ${{ env.TEST_OUTPUT_DIR }}/umd/${{ inputs.arch }}/unit_tests
 
       - name: Run PCI tests
         run: |
-          ${{ env.TEST_OUTPUT_DIR }}/umd/test_pcie_device/test_pcie_device
+          TT_LOGGER_LEVEL=debug ${{ env.TEST_OUTPUT_DIR }}/umd/test_pcie_device/test_pcie_device
 
       - name: Run MISC tests
         run: |
-          ${{ env.TEST_OUTPUT_DIR }}/umd/misc/umd_misc_tests
+          TT_LOGGER_LEVEL=debug ${{ env.TEST_OUTPUT_DIR }}/umd/misc/umd_misc_tests
 
       - name: Run unified tests
         if: ${{ inputs.arch != 'baremetal' }}
         run: |
-          ${{ env.TEST_OUTPUT_DIR }}/umd/unified/unified_tests
+          TT_LOGGER_LEVEL=debug ${{ env.TEST_OUTPUT_DIR }}/umd/unified/unified_tests
 
       - name: Run python example tests
         run: |
-          PYTHONPATH=${{ env.BUILD_OUTPUT_DIR }}/nanobind/ pytest -s
+          TT_LOGGER_LEVEL=debug PYTHONPATH=${{ env.BUILD_OUTPUT_DIR }}/nanobind/ pytest -s

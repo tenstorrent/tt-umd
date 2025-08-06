@@ -189,7 +189,7 @@ std::optional<std::unordered_set<int>> PCIDevice::get_visible_devices(
         return pci_target_devices;
     }
 
-    const char *env_var = std::getenv(TT_VISIBLE_DEVICES_ENV);
+    const char *env_var = std::getenv(TT_VISIBLE_DEVICES_ENV.data());
     if (!env_var) {
         return std::nullopt;
     }
@@ -204,7 +204,10 @@ std::optional<std::unordered_set<int>> PCIDevice::get_visible_devices(
             visible_devices.insert(std::stoi(token));
         } catch (const std::exception &e) {
             throw std::runtime_error(fmt::format(
-                "Invalid device ID '{}' in {} environment variable: {}", token, TT_VISIBLE_DEVICES_ENV, e.what()));
+                "Invalid device ID '{}' in {} environment variable: {}",
+                token,
+                TT_VISIBLE_DEVICES_ENV.data(),
+                e.what()));
         }
     }
 

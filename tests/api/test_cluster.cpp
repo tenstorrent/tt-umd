@@ -105,9 +105,8 @@ TEST(ApiClusterTest, OpenChipsByPciId) {
 
         std::string value = test_utils::convert_to_comma_separated_string(target_pci_device_ids);
 
-        if (setenv(TT_VISIBLE_DEVICES_ENV, value.c_str(), 1) != 0) {
-            std::cerr << "Failed to set environment variable." << std::endl;
-            return;
+        if (setenv(TT_VISIBLE_DEVICES_ENV.data(), value.c_str(), 1) != 0) {
+            ASSERT_TRUE(false) << "Failed to unset environment variable.";
         }
 
         // Make sure that Cluster construction is without exceptions.
@@ -116,9 +115,8 @@ TEST(ApiClusterTest, OpenChipsByPciId) {
             .pci_target_devices = {},
         });
 
-        if (unsetenv(TT_VISIBLE_DEVICES_ENV) != 0) {
-            std::cerr << "Failed to unset environment variable." << std::endl;
-            return;
+        if (unsetenv(TT_VISIBLE_DEVICES_ENV.data()) != 0) {
+            ASSERT_TRUE(false) << "Failed to unset environment variable.";
         }
     }
 }

@@ -235,6 +235,8 @@ public:
 
     virtual uint64_t get_arc_noc_base_address() const = 0;
 
+    virtual void init_tt_device();
+
 protected:
     std::shared_ptr<PCIDevice> pci_device_;
     std::unique_ptr<architecture_implementation> architecture_impl_;
@@ -257,8 +259,6 @@ protected:
     // to 2-byte writes. We avoid ever performing a 1-byte write to the device. This only affects to device.
     void memcpy_to_device(void *dest, const void *src, std::size_t num_bytes);
     void memcpy_from_device(void *dest, const void *src, std::size_t num_bytes);
-
-    virtual void init_tt_device();
 
     semver_t fw_version_from_telemetry(const uint32_t telemetry_data) const;
 

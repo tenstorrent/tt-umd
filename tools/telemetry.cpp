@@ -114,6 +114,9 @@ int main(int argc, char* argv[]) {
     std::vector<std::unique_ptr<TTDevice>> tt_devices;
     for (int pci_device_id : pci_device_ids) {
         std::unique_ptr<TTDevice> tt_device = TTDevice::create(pci_device_id);
+        tt_device->init_tt_device();
+        tt_device->wait_arc_core_start();
+
         std::unique_ptr<ArcTelemetryReader> arc_telemetry_reader =
             ArcTelemetryReader::create_arc_telemetry_reader(tt_device.get());
         tt_devices.push_back(std::move(tt_device));

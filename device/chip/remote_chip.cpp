@@ -20,6 +20,7 @@ std::unique_ptr<RemoteChip> RemoteChip::create(LocalChip* local_chip, eth_coord_
     auto remote_tt_device = std::make_unique<RemoteWormholeTTDevice>(local_chip, target_eth_coord);
     // TODO: Do we need wait arc core start here?
     // remote_tt_device->wait_arc_core_start();
+    remote_tt_device->init_tt_device();
 
     auto soc_descriptor = tt_SocDescriptor(
         remote_tt_device->get_arch(),
@@ -39,6 +40,7 @@ std::unique_ptr<RemoteChip> RemoteChip::create(
         return create(local_chip, target_eth_coord);
     }
     auto remote_tt_device = std::make_unique<RemoteWormholeTTDevice>(local_chip, target_eth_coord);
+    remote_tt_device->init_tt_device();
 
     auto soc_descriptor = tt_SocDescriptor(
         sdesc_path,
@@ -53,6 +55,7 @@ std::unique_ptr<RemoteChip> RemoteChip::create(
 std::unique_ptr<RemoteChip> RemoteChip::create(
     LocalChip* local_chip, eth_coord_t target_eth_coord, tt_SocDescriptor soc_descriptor) {
     auto remote_tt_device = std::make_unique<RemoteWormholeTTDevice>(local_chip, target_eth_coord);
+    remote_tt_device->init_tt_device();
 
     return std::unique_ptr<tt::umd::RemoteChip>(
         new RemoteChip(soc_descriptor, local_chip, std::move(remote_tt_device)));

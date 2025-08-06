@@ -79,17 +79,12 @@ class TestTelemetry(unittest.TestCase):
             if cluster_descriptor.is_chip_mmio_capable(chip):
                 print(f"Chip MMIO capable: {chip}")
                 umd_tt_devices[chip] = tt_umd.TTDevice.create(chip_to_mmio_map[chip])
-                # For some reason when we give out a TTDevice to LocalChip and get it back it doesn't work.
-                # So just create a separate one for LocalChip
-                tt_dev = tt_umd.TTDevice.create(chip_to_mmio_map[chip])
-                umd_local_chips[chip] = tt_umd.LocalChip(tt_dev)
-                umd_local_chips[chip].set_remote_transfer_ethernet_cores(cluster_descriptor.get_active_eth_channels(chip))
                 tel_reader = umd_tt_devices[chip].get_arc_telemetry_reader()
                 print(f"Telemetry reading for chip {chip} ASIC temperature: ", tel_reader.read_entry(tag))
             else:
                 closest_mmio = cluster_descriptor.get_closest_mmio_capable_chip(chip)
                 print(f"Chip remote: {chip}, closest MMIO capable chip: {closest_mmio}")
-                umd_tt_devices[chip] = tt_umd.RemoteWormholeTTDevice(umd_local_chips[closest_mmio], chip_eth_coords[chip])
+                umd_tt_devices[chip] = tt_umd.create_remote_wormhole_tt_device(umd_tt_devices[closest_mmio], cluster_descriptor, chip)
                 tel_reader = umd_tt_devices[chip].get_arc_telemetry_reader()
                 print(f"Telemetry reading for remote chip {chip} ASIC temperature: ", tel_reader.read_entry(tag))
 

@@ -15,12 +15,28 @@
 #include <nanobind/stl/unordered_set.h>
 #include <nanobind/stl/vector.h>
 
-#include "umd/device/types/wormhole_telemetry.h"
 #include "umd/device/types/blackhole_telemetry.h"
+#include "umd/device/types/wormhole_telemetry.h"
 
 namespace nb = nanobind;
 
 using namespace tt::umd;
+
+// Helper function for easy creation of RemoteWormholeTTDevice
+std::unique_ptr<RemoteWormholeTTDevice> create_remote_wormhole_tt_device(
+    TTDevice *local_chip, tt_ClusterDescriptor *cluster_descriptor, chip_id_t remote_chip_id) {
+    eth_coord_t target_chip = cluster_descriptor->get_chip_locations().at(remote_chip_id);
+    tt_SocDescriptor local_soc_descriptor = tt_SocDescriptor(
+        local_chip->get_arch(),
+        local_chip->get_chip_info().noc_translation_enabled,
+        local_chip->get_chip_info().harvesting_masks,
+        local_chip->get_chip_info().board_type);
+    auto remote_communication = std::make_unique<RemoteCommunication>(local_chip);
+    remote_communication->set_remote_transfer_ethernet_cores(
+        local_soc_descriptor.get_eth_cores_for_channels(cluster_descriptor->get_active_eth_channels(remote_chip_id)));
+
+    return std::make_unique<RemoteWormholeTTDevice>(local_chip, std::move(remote_communication), target_chip);
+}
 
 NB_MODULE(tt_umd, m) {
     // Expose the eth_coord_t struct
@@ -47,11 +63,18 @@ NB_MODULE(tt_umd, m) {
         .def("get_pci_bdf", &PciDeviceInfo::get_pci_bdf)
         .def("get_arch", &PciDeviceInfo::get_arch);
 
+    // static std::vector<int> enumerate_devices(std::unordered_set<int> pci_target_devices = {});
     // Expose the PCIDevice class
     nb::class_<PCIDevice>(m, "PCIDevice")
         .def(nb::init<int>())
         // std::vector<int> PCIDevice::enumerate_devices() {
-        .def_static("enumerate_devices", &PCIDevice::enumerate_devices)
+        .def_static(
+            "enumerate_devices",
+            [](std::unordered_set<int> pci_target_devices = {}) {
+                return PCIDevice::enumerate_devices(pci_target_devices);
+            },
+            nb::arg("pci_target_devices") = std::unordered_set<int>{},
+            "Enumerates PCI devices, optionally filtering by target devices.")
         .def_static("enumerate_devices_info", &PCIDevice::enumerate_devices_info)
         .def("get_device_info", &PCIDevice::get_device_info);
 
@@ -126,19 +149,37 @@ NB_MODULE(tt_umd, m) {
             nb::arg("core_y"),
             nb::arg("addr"));
 
-    // Expose the LocalChip class
-    nb::class_<LocalChip>(m, "LocalChip")
-        .def(nb::init<std::unique_ptr<TTDevice>>(), nb::arg("tt_device"))
-        .def("get_tt_device", &LocalChip::get_tt_device, nb::rv_policy::reference_internal)
-        .def(
-            "set_remote_transfer_ethernet_cores",
-            static_cast<void (LocalChip::*)(const std::set<uint32_t> &)>(
-                &LocalChip::set_remote_transfer_ethernet_cores),
-            nb::arg("channels"));
+    // // Expose the LocalChip class
+    // nb::class_<LocalChip>(m, "LocalChip")
+    //     .def(nb::init<std::unique_ptr<TTDevice>>(), nb::arg("tt_device"))
+    //     .def("get_tt_device", &LocalChip::get_tt_device, nb::rv_policy::reference_internal)
+    //     .def(
+    //         "set_remote_transfer_ethernet_cores",
+    //         static_cast<void (LocalChip::*)(const std::set<uint32_t> &)>(
+    //             &LocalChip::set_remote_transfer_ethernet_cores),
+    //         nb::arg("channels"));
+
+    // Expose RemoteCommunication class
+    // void set_remote_transfer_ethernet_cores(const std::vector<tt_xy_pair>& cores);
+    // nb::class_<RemoteCommunication>(m, "RemoteCommunication")
+    //     .def(nb::init<TTDevice *>(), nb::arg("local_chip"))
+    //     .def("set_remote_transfer_ethernet_cores",
+    //          &RemoteCommunication::set_remote_transfer_ethernet_cores,
+    //          nb::arg("cores"),
+    //          "Sets the remote transfer ethernet cores for communication.");
 
     // Expose the RemoteWormholeTTDevice class
-    nb::class_<RemoteWormholeTTDevice, TTDevice>(m, "RemoteWormholeTTDevice")
-        .def(nb::init<LocalChip *, eth_coord_t>(), nb::arg("local_chip"), nb::arg("target_chip"));
+    nb::class_<RemoteWormholeTTDevice, TTDevice>(m, "RemoteWormholeTTDevice");
+
+    // Expose create_remote_wormhole_tt_device
+    m.def(
+        "create_remote_wormhole_tt_device",
+        &create_remote_wormhole_tt_device,
+        nb::arg("local_chip"),
+        nb::arg("cluster_descriptor"),
+        nb::arg("remote_chip_id"),
+        nb::rv_policy::take_ownership,
+        "Creates a RemoteWormholeTTDevice for communication with a remote chip.");
 
     // Create a submodule for wormhole
     auto wormhole = m.def_submodule("wormhole", "Wormhole-related functionality");
@@ -202,7 +243,7 @@ NB_MODULE(tt_umd, m) {
     auto blackhole = m.def_submodule("blackhole", "Blackhole-related functionality");
 
     // Expose the TelemetryTag enum in the blackhole submodule
-    nb::enum_<blackhole::TelemetryTag>(blackhole, "TelemetryTag") // Use 'm' or 'blackhole' submodule
+    nb::enum_<blackhole::TelemetryTag>(blackhole, "TelemetryTag")  // Use 'm' or 'blackhole' submodule
         .value("BOARD_ID_HIGH", blackhole::TelemetryTag::BOARD_ID_HIGH)
         .value("BOARD_ID_LOW", blackhole::TelemetryTag::BOARD_ID_LOW)
         .value("ASIC_ID", blackhole::TelemetryTag::ASIC_ID)
@@ -243,5 +284,4 @@ NB_MODULE(tt_umd, m) {
         .value("PCIE_USAGE", blackhole::TelemetryTag::PCIE_USAGE)
         .value("NUMBER_OF_TAGS", blackhole::TelemetryTag::NUMBER_OF_TAGS)
         .def("__int__", [](blackhole::TelemetryTag tag) { return static_cast<int>(tag); });
-
 }

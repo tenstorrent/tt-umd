@@ -11,7 +11,7 @@ using namespace tt::umd;
 constexpr chip_id_t chip = 0;
 constexpr uint32_t one_mb = 1 << 20;
 constexpr uint32_t NUM_ITERATIONS = 1;
-constexpr uint32_t one_kb = 1 << 20;
+constexpr uint32_t one_kb = 1 << 10;
 constexpr uint32_t tlb_1m_index = 0;
 constexpr uint32_t tlb_16m_index = 166;
 
@@ -89,8 +89,6 @@ TEST(MicrobenchmarkTLB, TLBDynamicTensix) {
  * Measure BW of IO to Tensix core using statically configured TLB.
  */
 TEST(MicrobenchmarkTLB, TLBStaticTensix) {
-    const size_t tlb_1m_index = 0;
-
     std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
     const CoreCoord tensix_core = cluster->get_soc_descriptor(chip).get_cores(CoreType::TENSIX)[0];
     cluster->start_device(tt_device_params{});
@@ -196,8 +194,6 @@ TEST(MicrobenchmarkTLB, TLBDynamicEth) {
  * Measure BW of IO to Eth core using statically configured TLB.
  */
 TEST(MicrobenchmarkTLB, TLBStaticEth) {
-    const size_t tlb_1m_index = 0;
-
     std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
     const CoreCoord eth_core = cluster->get_soc_descriptor(chip).get_cores(CoreType::ETH)[0];
     cluster->start_device(tt_device_params{});

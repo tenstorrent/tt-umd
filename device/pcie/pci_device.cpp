@@ -111,38 +111,42 @@ static bool is_number(const std::string &str) { return !str.empty() && std::all_
 
 static std::optional<int> get_physical_slot_for_pcie_bdf(const std::string &target_bdf) {
     std::string base_path = "/sys/bus/pci/slots";
-    std::unordered_map<std::string, int> bdf_to_slot_map;
 
     for (const auto &entry : std::filesystem::directory_iterator(base_path)) {
-        if (entry.is_directory()) {
-            std::string dir_name = entry.path().filename().string();
+        if (!entry.is_directory()) {
+            continue;
+        }
 
-            if (is_number(dir_name)) {
-                int slot_number = std::stoi(dir_name);
-                std::string address_file_path = entry.path().string() + "/address";
+        std::string dir_name = entry.path().filename().string();
+        if (!is_number(dir_name)) {
+            continue;
+        }
 
-                if (std::filesystem::exists(address_file_path)) {
-                    std::ifstream address_file(address_file_path);
-                    std::string bdf;
+        int slot_number = std::stoi(dir_name);
+        std::string address_file_path = entry.path().string() + "/address";
 
-                    if (address_file.is_open() && std::getline(address_file, bdf)) {
-                        // Trim trailing whitespace and newlines
-                        bdf.erase(bdf.find_last_not_of(" \n\r\t") + 1);
+        if (!std::filesystem::exists(address_file_path)) {
+            continue;
+        }
 
-                        std::cout << "Found BDF: " << bdf << " in slot: " << slot_number << std::endl;
-                        std::cout << "Target BDF: " << target_bdf << std::endl;
+        std::ifstream address_file(address_file_path);
+        if (!address_file.is_open()) {
+            continue;
+        }
 
-                        if (bdf == target_bdf) {
-                            return slot_number;
-                        }
-                    }
-                }
-            }
+        std::string bdf;
+        if (!std::getline(address_file, bdf)) {
+            continue;
+        }
+
+        bdf.erase(bdf.find_last_not_of(" \n\r\t") + 1);
+
+        if (bdf == target_bdf) {
+            return slot_number;
         }
     }
 
     return std::nullopt;
-    ;
 }
 
 static PciDeviceInfo read_device_info(int fd) {

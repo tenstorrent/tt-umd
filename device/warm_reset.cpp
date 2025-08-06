@@ -116,6 +116,7 @@ void WarmReset::warm_reset_wormhole(bool reset_m3) {
 
     std::vector<uint32_t> arc_msg_return_values(1);
     for (const auto& tt_device : tt_devices) {
+        tt_device->wait_arc_core_start(tt_device->get_arc_core());
         tt_device->get_arc_messenger()->send_message(
             MSG_TYPE_ARC_STATE3, arc_msg_return_values, default_arg_value, default_arg_value);
         usleep(30'000);

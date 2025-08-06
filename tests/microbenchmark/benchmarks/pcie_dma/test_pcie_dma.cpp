@@ -5,17 +5,9 @@
  */
 #include <sys/mman.h>
 
+#include "common/microbenchmark_utils.h"
 #include "gtest/gtest.h"
 #include "tests/test_utils/device_test_utils.hpp"
-#include "tests/test_utils/generate_cluster_desc.hpp"
-#include "umd/device/chip_helpers/sysmem_manager.h"
-#include "umd/device/cluster.h"
-#include "umd/device/tt_cluster_descriptor.h"
-#include "umd/device/tt_device/wormhole_tt_device.h"
-#include "umd/device/wormhole_implementation.h"
-#include "wormhole/eth_l1_address_map.h"
-#include "wormhole/host_mem_address_map.h"
-#include "wormhole/l1_address_map.h"
 
 using namespace tt::umd;
 
@@ -24,26 +16,11 @@ const uint32_t one_mb = 1 << 20;
 const uint32_t one_gb = 1 << 30;
 const uint32_t NUM_ITERATIONS = 1000;
 
-static inline void print_speed(std::string direction, size_t bytes, uint64_t ns) {
-    double seconds = ns / 1e9;
-    double megabytes = static_cast<double>(bytes) / (1024.0 * 1024.0);
-    auto rate = megabytes / seconds;
-    std::cout << direction << ": 0x" << std::hex << bytes << std::dec << " bytes in " << ns << " ns (" << rate
-              << " MB/s)" << std::endl;
-}
-
-static inline void perf_read_write(
+static inline std::pair<double, double> perf_read_write(
     const uint32_t buf_size,
     const uint32_t num_iterations,
     const std::unique_ptr<Cluster>& cluster,
-    const CoreCoord core,
-    const std::string& direction_to_device,
-    const std::string& direction_from_device) {
-    std::cout << std::endl;
-    std::cout << "Reporting results for buffer size " << buf_size << " bytes (" << ((double)buf_size / one_mb)
-              << " MB) being transfered " << num_iterations << " number of times." << std::endl;
-    std::cout << "--------------------------------------------------------" << std::endl;
-
+    const CoreCoord core) {
     std::vector<uint8_t> pattern(buf_size);
     test_utils::fill_with_random_bytes(&pattern[0], pattern.size());
 
@@ -53,7 +30,7 @@ static inline void perf_read_write(
     }
     auto end = std::chrono::steady_clock::now();
     auto ns = std::chrono::duration_cast<std::chrono::nanoseconds>(end - now).count();
-    print_speed(direction_to_device, num_iterations * pattern.size(), ns);
+    double wr_bw = test::utils::calc_speed(num_iterations * pattern.size(), ns);
 
     std::vector<uint8_t> readback(buf_size, 0x0);
     now = std::chrono::steady_clock::now();
@@ -62,16 +39,18 @@ static inline void perf_read_write(
     }
     end = std::chrono::steady_clock::now();
     ns = std::chrono::duration_cast<std::chrono::nanoseconds>(end - now).count();
-    print_speed(direction_from_device, num_iterations * readback.size(), ns);
+    double rd_bw = test::utils::calc_speed(num_iterations * readback.size(), ns);
+
+    return std::make_pair(wr_bw, rd_bw);
 }
 
-static inline void perf_sysmem_read_write(
+static inline std::pair<double, double> perf_sysmem_read_write(
     const uint32_t buf_size,
     const uint32_t num_iterations,
     const std::unique_ptr<SysmemBuffer>& sysmem_buffer,
-    const CoreCoord core,
-    const std::string& direction_to_device,
-    const std::string& direction_from_device) {
+    const CoreCoord core) {
+    double wr_bw;
+    double rd_bw;
     {
         auto now = std::chrono::steady_clock::now();
         for (int i = 0; i < NUM_ITERATIONS; i++) {
@@ -79,7 +58,7 @@ static inline void perf_sysmem_read_write(
         }
         auto end = std::chrono::steady_clock::now();
         auto ns = std::chrono::duration_cast<std::chrono::nanoseconds>(end - now).count();
-        print_speed(direction_to_device, one_mb * NUM_ITERATIONS, ns);
+        wr_bw = test::utils::calc_speed(one_mb * NUM_ITERATIONS, ns);
     }
 
     {
@@ -89,8 +68,10 @@ static inline void perf_sysmem_read_write(
         }
         auto end = std::chrono::steady_clock::now();
         auto ns = std::chrono::duration_cast<std::chrono::nanoseconds>(end - now).count();
-        print_speed(direction_from_device, one_mb * NUM_ITERATIONS, ns);
+        rd_bw = test::utils::calc_speed(one_mb * NUM_ITERATIONS, ns);
     }
+
+    return std::make_pair(wr_bw, rd_bw);
 }
 
 static void guard_test_iommu() {
@@ -112,19 +93,28 @@ TEST(MicrobenchmarkPCIeDMA, DMATensix) {
         1 * one_mb,
     };
 
+    const std::vector<std::string> headers = {
+        "Size (MB)",
+        "Host -> Device Tensix L1 (MB/s)",
+        "Device Tensix L1 -> Host (MB/s)",
+    };
+
     std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
     const CoreCoord tensix_core = cluster->get_soc_descriptor(chip).get_cores(CoreType::TENSIX)[0];
     cluster->start_device(tt_device_params{});
 
+    std::vector<std::vector<std::string>> rows;
+
     for (uint32_t buf_size : sizes) {
-        perf_read_write(
-            buf_size,
-            NUM_ITERATIONS,
-            cluster,
-            tensix_core,
-            "DMA: Host -> Device Tensix L1",
-            "DMA: Device Tensix L1 -> Host");
+        std::vector<std::string> row;
+        row.push_back(test::utils::convert_double_to_string((double)buf_size / one_mb));
+        auto [wr_bw, rd_bw] = perf_read_write(buf_size, NUM_ITERATIONS, cluster, tensix_core);
+        row.push_back(test::utils::convert_double_to_string(wr_bw));
+        row.push_back(test::utils::convert_double_to_string(rd_bw));
+        rows.push_back(row);
     }
+
+    test::utils::print_markdown_table_format(headers, rows);
 }
 
 /**
@@ -138,15 +128,23 @@ TEST(MicrobenchmarkPCIeDMA, TensixSweepSizes) {
 
     const uint64_t limit_buf_size = one_mb;
 
+    const std::vector<std::string> headers = {
+        "Size (bytes)",
+        "Host -> Device Tensix L1 (MB/s)",
+        "Device Tensix L1 -> Host (MB/s)",
+    };
+
+    std::vector<std::vector<std::string>> rows;
     for (uint64_t buf_size = 4; buf_size <= limit_buf_size; buf_size *= 2) {
-        perf_read_write(
-            buf_size,
-            NUM_ITERATIONS,
-            cluster,
-            tensix_core,
-            "DMA: Host -> Device Tensix L1",
-            "DMA: Device Tensix L1 -> Host");
+        std::vector<std::string> row;
+        row.push_back(test::utils::convert_double_to_string((double)buf_size));
+        auto [wr_bw, rd_bw] = perf_read_write(buf_size, NUM_ITERATIONS, cluster, tensix_core);
+        row.push_back(test::utils::convert_double_to_string(wr_bw));
+        row.push_back(test::utils::convert_double_to_string(rd_bw));
+        rows.push_back(row);
     }
+
+    test::utils::print_markdown_table_format(headers, rows);
 }
 
 /**
@@ -155,20 +153,29 @@ TEST(MicrobenchmarkPCIeDMA, TensixSweepSizes) {
  */
 TEST(MicrobenchmarkPCIeDMA, DramSweepSizes) {
     std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
-    const CoreCoord tensix_core = cluster->get_soc_descriptor(chip).get_cores(CoreType::TENSIX)[0];
+    const CoreCoord dram_core = cluster->get_soc_descriptor(chip).get_cores(CoreType::DRAM)[0];
     cluster->start_device(tt_device_params{});
 
     const uint64_t limit_buf_size = one_gb;
 
+    const std::vector<std::string> headers = {
+        "Size (MB)",
+        "Host -> Device DRAM (MB/s)",
+        "Device DRAM -> Host (MB/s)",
+    };
+
+    std::vector<std::vector<std::string>> rows;
+
     for (uint64_t buf_size = 4; buf_size <= limit_buf_size; buf_size *= 2) {
-        perf_read_write(
-            buf_size,
-            NUM_ITERATIONS,
-            cluster,
-            tensix_core,
-            "DMA: Host -> Device Tensix L1",
-            "DMA: Device Tensix L1 -> Host");
+        std::vector<std::string> row;
+        row.push_back(test::utils::convert_double_to_string((double)buf_size / one_mb));
+        auto [wr_bw, rd_bw] = perf_read_write(buf_size, NUM_ITERATIONS, cluster, dram_core);
+        row.push_back(test::utils::convert_double_to_string(wr_bw));
+        row.push_back(test::utils::convert_double_to_string(rd_bw));
+        rows.push_back(row);
     }
+
+    test::utils::print_markdown_table_format(headers, rows);
 }
 
 /**
@@ -190,13 +197,28 @@ TEST(MicrobenchmarkPCIeDMA, DMADram) {
         1024 * one_mb,
     };
 
+    const uint32_t NUM_ITERATIONS = 100;
+
     std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
     const CoreCoord dram_core = cluster->get_soc_descriptor(chip).get_cores(CoreType::DRAM)[0];
     cluster->start_device(tt_device_params{});
+
+    const std::vector<std::string> headers = {
+        "Size (MB)",
+        "DMA: Host -> Device DRAM (MB/s)",
+        "DMA: Device DRAM -> Host (MB/s)",
+    };
+    std::vector<std::vector<std::string>> rows;
     for (uint32_t buf_size : sizes) {
-        perf_read_write(
-            buf_size, NUM_ITERATIONS, cluster, dram_core, "DMA: Host -> Device DRAM", "DMA: Device DRAM -> Host");
+        std::vector<std::string> row;
+        row.push_back(test::utils::convert_double_to_string((double)buf_size / one_mb));
+        auto [wr_bw, rd_bw] = perf_read_write(buf_size, NUM_ITERATIONS, cluster, dram_core);
+        row.push_back(test::utils::convert_double_to_string(wr_bw));
+        row.push_back(test::utils::convert_double_to_string(rd_bw));
+        rows.push_back(row);
     }
+
+    test::utils::print_markdown_table_format(headers, rows);
 }
 
 /**
@@ -207,7 +229,6 @@ TEST(MicrobenchmarkPCIeDMA, DMADram) {
 TEST(MicrobenchmarkPCIeDMA, DMATensixZeroCopy) {
     guard_test_iommu();
 
-    const uint32_t NUM_ITERATIONS = 1000;
     std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>(ClusterOptions{
         .num_host_mem_ch_per_mmio_device = 0,
     });
@@ -219,41 +240,22 @@ TEST(MicrobenchmarkPCIeDMA, DMATensixZeroCopy) {
     const uint32_t one_mb = 1 << 20;
     std::unique_ptr<SysmemBuffer> sysmem_buffer = sysmem_manager->allocate_sysmem_buffer(2 * one_mb);
 
+    const std::vector<std::string> headers = {
+        "Size (MB)",
+        "Host -> Device Tensix L1 (MB/s)",
+        "Device Tensix L1 -> Host (MB/s)",
+    };
+
     const CoreCoord tensix_core = cluster->get_soc_descriptor(mmio_chip).get_cores(CoreType::TENSIX)[0];
-    perf_sysmem_read_write(
-        one_mb,
-        NUM_ITERATIONS,
-        sysmem_buffer,
-        tensix_core,
-        "DMA zero copy: Device Tensix L1 -> Host",
-        "DMA zero copy: Device Tensix L1 -> Host");
-}
+    std::vector<std::vector<std::string>> rows;
+    std::vector<std::string> row;
+    auto [wr_bw, rd_bw] = perf_sysmem_read_write(one_mb, NUM_ITERATIONS, sysmem_buffer, tensix_core);
+    row.push_back(test::utils::convert_double_to_string((double)one_mb / one_mb));
+    row.push_back(test::utils::convert_double_to_string(wr_bw));
+    row.push_back(test::utils::convert_double_to_string(rd_bw));
+    rows.push_back(row);
 
-/**
- * Measure the speed of mapping sysmem buffer using SysmemManager.
- */
-TEST(MicrobenchmarkPCIeDMA, MapSysmemBuffer) {
-    guard_test_iommu();
-
-    const uint32_t NUM_ITERATIONS = 1000;
-    std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>(ClusterOptions{
-        .num_host_mem_ch_per_mmio_device = 0,
-    });
-
-    const chip_id_t mmio_chip = *cluster->get_target_mmio_device_ids().begin();
-
-    SysmemManager* sysmem_manager = cluster->get_chip(mmio_chip)->get_sysmem_manager();
-
-    const uint32_t one_mb = 1 << 20;
-
-    void* mapping = mmap(nullptr, one_mb, PROT_READ | PROT_WRITE, MAP_ANONYMOUS | MAP_PRIVATE | MAP_POPULATE, -1, 0);
-    auto now = std::chrono::steady_clock::now();
-    for (int i = 0; i < NUM_ITERATIONS; i++) {
-        std::unique_ptr<SysmemBuffer> sysmem_buffer = sysmem_manager->map_sysmem_buffer(mapping, one_mb);
-    }
-    auto end = std::chrono::steady_clock::now();
-    auto ns = std::chrono::duration_cast<std::chrono::nanoseconds>(end - now).count();
-    print_speed("Allocation of sysmem buffers:", one_mb * NUM_ITERATIONS, ns);
+    test::utils::print_markdown_table_format(headers, rows);
 }
 
 /**
@@ -264,7 +266,6 @@ TEST(MicrobenchmarkPCIeDMA, MapSysmemBuffer) {
 TEST(MicrobenchmarkPCIeDMA, DMATensixMapBufferZeroCopy) {
     guard_test_iommu();
 
-    const uint32_t NUM_ITERATIONS = 100;
     std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>(ClusterOptions{
         .num_host_mem_ch_per_mmio_device = 0,
     });
@@ -274,6 +275,16 @@ TEST(MicrobenchmarkPCIeDMA, DMATensixMapBufferZeroCopy) {
     SysmemManager* sysmem_manager = cluster->get_chip(mmio_chip)->get_sysmem_manager();
 
     const uint32_t one_mb = 1 << 20;
+
+    const std::vector<std::string> headers = {
+        "Size (MB)",
+        "Host -> Device Tensix L1 (MB/s)",
+        "Device Tensix L1 -> Host (MB/s)",
+    };
+
+    std::vector<std::vector<std::string>> rows;
+    std::vector<std::string> row;
+    row.push_back(test::utils::convert_double_to_string((double)one_mb / one_mb));
 
     const CoreCoord tensix_core = cluster->get_soc_descriptor(mmio_chip).get_cores(CoreType::TENSIX)[0];
     {
@@ -286,7 +297,8 @@ TEST(MicrobenchmarkPCIeDMA, DMATensixMapBufferZeroCopy) {
         }
         auto end = std::chrono::steady_clock::now();
         auto ns = std::chrono::duration_cast<std::chrono::nanoseconds>(end - now).count();
-        print_speed("DMA mapping buffer and zero copy: Host -> Device Tensix L1", one_mb * NUM_ITERATIONS, ns);
+        double wr_bw = test::utils::calc_speed(one_mb * NUM_ITERATIONS, ns);
+        row.push_back(test::utils::convert_double_to_string(wr_bw));
     }
 
     {
@@ -299,8 +311,11 @@ TEST(MicrobenchmarkPCIeDMA, DMATensixMapBufferZeroCopy) {
         }
         auto end = std::chrono::steady_clock::now();
         auto ns = std::chrono::duration_cast<std::chrono::nanoseconds>(end - now).count();
-        print_speed("DMA mapping buffer and zero copy: Device Tensix L1 -> Host", one_mb * NUM_ITERATIONS, ns);
+        double rd_bw = test::utils::calc_speed(one_mb * NUM_ITERATIONS, ns);
+        row.push_back(test::utils::convert_double_to_string(rd_bw));
     }
+    rows.push_back(row);
+    test::utils::print_markdown_table_format(headers, rows);
 }
 
 /**
@@ -325,12 +340,20 @@ TEST(MicrobenchmarkPCIeDMA, DMADRAMZeroCopy) {
     const uint32_t two_hundred_mb = 200 * one_mb;
     std::unique_ptr<SysmemBuffer> sysmem_buffer = sysmem_manager->allocate_sysmem_buffer(two_hundred_mb);
 
+    const std::vector<std::string> headers = {
+        "Size (MB)",
+        "DMA: Host -> Device DRAM (MB/s)",
+        "DMA: Device DRAM -> Host (MB/s)",
+    };
+
+    std::vector<std::vector<std::string>> rows;
+    std::vector<std::string> row;
+
     const CoreCoord dram_core = cluster->get_soc_descriptor(mmio_chip).get_cores(CoreType::DRAM)[0];
-    perf_sysmem_read_write(
-        one_mb,
-        NUM_ITERATIONS,
-        sysmem_buffer,
-        dram_core,
-        "DMA zero copy: Device DRAM -> Host",
-        "DMA zero copy: Device DRAM -> Host");
+    auto [wr_bw, rd_bw] = perf_sysmem_read_write(one_mb, NUM_ITERATIONS, sysmem_buffer, dram_core);
+    row.push_back(test::utils::convert_double_to_string((double)one_mb / one_mb));
+    row.push_back(test::utils::convert_double_to_string(wr_bw));
+    row.push_back(test::utils::convert_double_to_string(rd_bw));
+    rows.push_back(row);
+    test::utils::print_markdown_table_format(headers, rows);
 }

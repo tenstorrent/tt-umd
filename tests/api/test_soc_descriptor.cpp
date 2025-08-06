@@ -21,7 +21,7 @@ TEST(SocDescriptor, SocDescriptorWormholeNoHarvesting) {
     ASSERT_EQ(soc_desc.get_num_dram_channels(), wormhole::NUM_DRAM_BANKS);
 
     for (const tt_xy_pair& tensix_core : wormhole_tensix_cores) {
-        CoreCoord core_coord = soc_desc.get_coord_at(tensix_core, CoordSystem::PHYSICAL);
+        CoreCoord core_coord = soc_desc.get_coord_at(tensix_core, CoordSystem::NOC0);
         ASSERT_TRUE(core_coord.core_type == CoreType::TENSIX);
     }
 
@@ -74,8 +74,8 @@ TEST(SocDescriptor, SocDescriptorWormholeOneRowHarvesting) {
     ASSERT_EQ(soc_desc.get_all_harvested_cores().size(), wormhole::TENSIX_GRID_SIZE.x);
 }
 
-// Test ETH translation from logical to physical coordinates.
-TEST(SocDescriptor, SocDescriptorWormholeETHLogicalToPhysical) {
+// Test ETH translation from logical to noc0 coordinates.
+TEST(SocDescriptor, SocDescriptorWormholeETHLogicalToNOC0) {
     const tt_SocDescriptor soc_desc(test_utils::GetAbsPath("tests/soc_descs/wormhole_b0_8x10.yaml"), true);
 
     const std::vector<tt_xy_pair>& wormhole_eth_cores = wormhole::ETH_CORES_NOC0;
@@ -85,11 +85,11 @@ TEST(SocDescriptor, SocDescriptorWormholeETHLogicalToPhysical) {
     size_t index = 0;
     for (size_t eth_channel = 0; eth_channel < num_eth_channels; eth_channel++) {
         const CoreCoord eth_logical = CoreCoord(0, eth_channel, CoreType::ETH, CoordSystem::LOGICAL);
-        const CoreCoord eth_physical = soc_desc.translate_coord_to(eth_logical, CoordSystem::PHYSICAL);
+        const CoreCoord eth_noc0 = soc_desc.translate_coord_to(eth_logical, CoordSystem::NOC0);
         const CoreCoord eth_virtual = soc_desc.translate_coord_to(eth_logical, CoordSystem::VIRTUAL);
 
-        EXPECT_EQ(eth_physical.x, wormhole_eth_cores[index].x);
-        EXPECT_EQ(eth_physical.y, wormhole_eth_cores[index].y);
+        EXPECT_EQ(eth_noc0.x, wormhole_eth_cores[index].x);
+        EXPECT_EQ(eth_noc0.y, wormhole_eth_cores[index].y);
 
         EXPECT_EQ(eth_virtual.x, wormhole_eth_cores[index].x);
         EXPECT_EQ(eth_virtual.y, wormhole_eth_cores[index].y);
@@ -101,7 +101,7 @@ TEST(SocDescriptor, SocDescriptorWormholeETHLogicalToPhysical) {
     }
 }
 
-// Test ETH translation from logical to physical coordinates.
+// Test ETH translation from logical to noc0 coordinates.
 TEST(SocDescriptor, SocDescriptorBlackholeETHHarvesting) {
     const size_t num_eth_cores = blackhole::ETH_CORES_NOC0.size();
     const size_t num_harvested_eth_cores = 2;
@@ -153,7 +153,7 @@ TEST(SocDescriptor, SocDescriptorBlackholeNoHarvesting) {
     ASSERT_EQ(soc_desc.get_num_dram_channels(), blackhole::NUM_DRAM_BANKS);
 
     for (const tt_xy_pair& tensix_core : blackhole_tensix_cores) {
-        CoreCoord core_coord = soc_desc.get_coord_at(tensix_core, CoordSystem::PHYSICAL);
+        CoreCoord core_coord = soc_desc.get_coord_at(tensix_core, CoordSystem::NOC0);
         ASSERT_TRUE(core_coord.core_type == CoreType::TENSIX);
     }
 
@@ -257,7 +257,7 @@ TEST(SocDescriptor, SocDescriptorBlackholeDRAMHarvesting) {
 TEST(SocDescriptor, CustomSocDescriptor) {
     tt_SocDescriptor soc_desc(test_utils::GetAbsPath("tests/soc_descs/blackhole_simulation_1x2.yaml"), true);
 
-    const CoreCoord tensix_core_01 = CoreCoord(0, 1, CoreType::TENSIX, CoordSystem::PHYSICAL);
+    const CoreCoord tensix_core_01 = CoreCoord(0, 1, CoreType::TENSIX, CoordSystem::NOC0);
     const CoreCoord tensix_core_01_virtual = soc_desc.translate_coord_to(tensix_core_01, CoordSystem::VIRTUAL);
     const CoreCoord tensix_core_01_logical = soc_desc.translate_coord_to(tensix_core_01, CoordSystem::LOGICAL);
     const CoreCoord tensix_core_01_translated = soc_desc.translate_coord_to(tensix_core_01, CoordSystem::TRANSLATED);
@@ -271,7 +271,7 @@ TEST(SocDescriptor, CustomSocDescriptor) {
     EXPECT_EQ(tensix_core_01_logical.x, 0);
     EXPECT_EQ(tensix_core_01_logical.y, 0);
 
-    const CoreCoord tensix_core_11 = CoreCoord(1, 1, CoreType::TENSIX, CoordSystem::PHYSICAL);
+    const CoreCoord tensix_core_11 = CoreCoord(1, 1, CoreType::TENSIX, CoordSystem::NOC0);
     const CoreCoord tensix_core_11_virtual = soc_desc.translate_coord_to(tensix_core_11, CoordSystem::VIRTUAL);
     const CoreCoord tensix_core_11_logical = soc_desc.translate_coord_to(tensix_core_11, CoordSystem::LOGICAL);
     const CoreCoord tensix_core_11_translated = soc_desc.translate_coord_to(tensix_core_11, CoordSystem::TRANSLATED);
@@ -294,7 +294,7 @@ TEST(SocDescriptor, CustomSocDescriptor) {
     std::vector<CoreCoord> harvested_tensix_cores = soc_desc.get_harvested_cores(CoreType::TENSIX);
     EXPECT_TRUE(harvested_tensix_cores.empty());
 
-    const CoreCoord dram_core_10 = CoreCoord(1, 0, CoreType::DRAM, CoordSystem::PHYSICAL);
+    const CoreCoord dram_core_10 = CoreCoord(1, 0, CoreType::DRAM, CoordSystem::NOC0);
     const CoreCoord dram_core_10_virtual = soc_desc.translate_coord_to(dram_core_10, CoordSystem::VIRTUAL);
     const CoreCoord dram_core_10_logical = soc_desc.translate_coord_to(dram_core_10, CoordSystem::LOGICAL);
     const CoreCoord dram_core_10_translated = soc_desc.translate_coord_to(dram_core_10, CoordSystem::TRANSLATED);
@@ -314,51 +314,51 @@ TEST(SocDescriptor, CustomSocDescriptor) {
 TEST(SocDescriptor, SocDescriptorWormholeMultipleCoordinateSystems) {
     tt_SocDescriptor soc_desc(test_utils::GetAbsPath("tests/soc_descs/wormhole_b0_8x10.yaml"), true);
 
-    const std::vector<tt_xy_pair> cores_physical = wormhole::TENSIX_CORES_NOC0;
+    const std::vector<tt_xy_pair> cores_noc0 = wormhole::TENSIX_CORES_NOC0;
 
-    std::vector<CoreCoord> virtual_from_physical;
-    std::vector<CoreCoord> logical_from_physical;
-    std::vector<CoreCoord> translated_from_physical;
+    std::vector<CoreCoord> virtual_from_noc0;
+    std::vector<CoreCoord> logical_from_noc0;
+    std::vector<CoreCoord> translated_from_noc0;
 
-    for (const tt_xy_pair& physical_core : cores_physical) {
-        const CoreCoord core(physical_core.x, physical_core.y, CoreType::TENSIX, CoordSystem::PHYSICAL);
-        virtual_from_physical.push_back(soc_desc.translate_coord_to(core, CoordSystem::VIRTUAL));
-        logical_from_physical.push_back(soc_desc.translate_coord_to(core, CoordSystem::LOGICAL));
-        translated_from_physical.push_back(soc_desc.translate_coord_to(core, CoordSystem::TRANSLATED));
+    for (const tt_xy_pair& noc0_core : cores_noc0) {
+        const CoreCoord core(noc0_core.x, noc0_core.y, CoreType::TENSIX, CoordSystem::NOC0);
+        virtual_from_noc0.push_back(soc_desc.translate_coord_to(core, CoordSystem::VIRTUAL));
+        logical_from_noc0.push_back(soc_desc.translate_coord_to(core, CoordSystem::LOGICAL));
+        translated_from_noc0.push_back(soc_desc.translate_coord_to(core, CoordSystem::TRANSLATED));
     }
 
     std::vector<CoreCoord> cores_virtual = soc_desc.get_cores(CoreType::TENSIX, CoordSystem::VIRTUAL);
     std::vector<CoreCoord> cores_logical = soc_desc.get_cores(CoreType::TENSIX, CoordSystem::LOGICAL);
     std::vector<CoreCoord> cores_translated = soc_desc.get_cores(CoreType::TENSIX, CoordSystem::TRANSLATED);
 
-    EXPECT_TRUE(virtual_from_physical == cores_virtual);
-    EXPECT_TRUE(logical_from_physical == cores_logical);
-    EXPECT_TRUE(translated_from_physical == cores_translated);
+    EXPECT_TRUE(virtual_from_noc0 == cores_virtual);
+    EXPECT_TRUE(logical_from_noc0 == cores_logical);
+    EXPECT_TRUE(translated_from_noc0 == cores_translated);
 }
 
 TEST(SocDescriptor, SocDescriptorBlackholeMultipleCoordinateSystems) {
     tt_SocDescriptor soc_desc(test_utils::GetAbsPath("tests/soc_descs/blackhole_140_arch_no_eth.yaml"), true);
 
-    const std::vector<tt_xy_pair> cores_physical = blackhole::TENSIX_CORES_NOC0;
+    const std::vector<tt_xy_pair> cores_noc0 = blackhole::TENSIX_CORES_NOC0;
 
-    std::vector<CoreCoord> virtual_from_physical;
-    std::vector<CoreCoord> logical_from_physical;
-    std::vector<CoreCoord> translated_from_physical;
+    std::vector<CoreCoord> virtual_from_noc0;
+    std::vector<CoreCoord> logical_from_noc0;
+    std::vector<CoreCoord> translated_from_noc0;
 
-    for (const tt_xy_pair& physical_core : cores_physical) {
-        const CoreCoord core(physical_core.x, physical_core.y, CoreType::TENSIX, CoordSystem::PHYSICAL);
-        virtual_from_physical.push_back(soc_desc.translate_coord_to(core, CoordSystem::VIRTUAL));
-        logical_from_physical.push_back(soc_desc.translate_coord_to(core, CoordSystem::LOGICAL));
-        translated_from_physical.push_back(soc_desc.translate_coord_to(core, CoordSystem::TRANSLATED));
+    for (const tt_xy_pair& noc0_core : cores_noc0) {
+        const CoreCoord core(noc0_core.x, noc0_core.y, CoreType::TENSIX, CoordSystem::NOC0);
+        virtual_from_noc0.push_back(soc_desc.translate_coord_to(core, CoordSystem::VIRTUAL));
+        logical_from_noc0.push_back(soc_desc.translate_coord_to(core, CoordSystem::LOGICAL));
+        translated_from_noc0.push_back(soc_desc.translate_coord_to(core, CoordSystem::TRANSLATED));
     }
 
     std::vector<CoreCoord> cores_virtual = soc_desc.get_cores(CoreType::TENSIX, CoordSystem::VIRTUAL);
     std::vector<CoreCoord> cores_logical = soc_desc.get_cores(CoreType::TENSIX, CoordSystem::LOGICAL);
     std::vector<CoreCoord> cores_translated = soc_desc.get_cores(CoreType::TENSIX, CoordSystem::TRANSLATED);
 
-    EXPECT_TRUE(virtual_from_physical == cores_virtual);
-    EXPECT_TRUE(logical_from_physical == cores_logical);
-    EXPECT_TRUE(translated_from_physical == cores_translated);
+    EXPECT_TRUE(virtual_from_noc0 == cores_virtual);
+    EXPECT_TRUE(logical_from_noc0 == cores_logical);
+    EXPECT_TRUE(translated_from_noc0 == cores_translated);
 }
 
 TEST(SocDescriptor, SocDescriptorWormholeNoLogicalForHarvestedCores) {
@@ -391,7 +391,7 @@ TEST(SocDescriptor, NocTranslation) {
         tt_SocDescriptor soc_desc(
             test_utils::GetAbsPath("tests/soc_descs/blackhole_140_arch_no_eth.yaml"), false, harvesting_masks);
 
-        const CoreCoord tensix_core = CoreCoord(2, 2, CoreType::TENSIX, CoordSystem::PHYSICAL);
+        const CoreCoord tensix_core = CoreCoord(2, 2, CoreType::TENSIX, CoordSystem::NOC0);
         const CoreCoord tensix_core_virtual = soc_desc.translate_coord_to(tensix_core, CoordSystem::VIRTUAL);
         const CoreCoord tensix_core_translated = soc_desc.translate_coord_to(tensix_core, CoordSystem::TRANSLATED);
 
@@ -404,7 +404,7 @@ TEST(SocDescriptor, NocTranslation) {
         tt_SocDescriptor soc_desc(
             test_utils::GetAbsPath("tests/soc_descs/blackhole_140_arch_no_eth.yaml"), true, harvesting_masks);
 
-        const CoreCoord tensix_core = CoreCoord(2, 2, CoreType::TENSIX, CoordSystem::PHYSICAL);
+        const CoreCoord tensix_core = CoreCoord(2, 2, CoreType::TENSIX, CoordSystem::NOC0);
         const CoreCoord tensix_core_virtual = soc_desc.translate_coord_to(tensix_core, CoordSystem::VIRTUAL);
         const CoreCoord tensix_core_translated = soc_desc.translate_coord_to(tensix_core, CoordSystem::TRANSLATED);
 

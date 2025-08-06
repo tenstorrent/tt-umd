@@ -42,8 +42,7 @@ namespace tt::umd {
  */
 enum class CoordSystem : std::uint8_t {
     LOGICAL,
-    PHYSICAL,
-    NOC0 = PHYSICAL,
+    NOC0,
     VIRTUAL,
     TRANSLATED,
     NOC1,
@@ -84,8 +83,8 @@ static inline std::string to_str(const CoordSystem coord_system) {
     switch (coord_system) {
         case CoordSystem::LOGICAL:
             return "LOGICAL";
-        case CoordSystem::PHYSICAL:
-            return "PHYSICAL";
+        case CoordSystem::NOC0:
+            return "NOC0";
         case CoordSystem::VIRTUAL:
             return "VIRTUAL";
         case CoordSystem::TRANSLATED:

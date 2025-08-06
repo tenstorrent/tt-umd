@@ -32,11 +32,11 @@ public:
         const std::vector<uint32_t>& noc0_y_to_noc1_y = {});
 
 protected:
-    void fill_tensix_physical_translated_mapping() override;
-    void fill_dram_physical_translated_mapping() override;
-    void fill_eth_physical_translated_mapping() override;
-    void fill_pcie_physical_translated_mapping() override;
-    void fill_arc_physical_translated_mapping() override;
+    void fill_tensix_noc0_translated_mapping() override;
+    void fill_dram_noc0_translated_mapping() override;
+    void fill_eth_noc0_translated_mapping() override;
+    void fill_pcie_noc0_translated_mapping() override;
+    void fill_arc_noc0_translated_mapping() override;
 
     tt_xy_pair get_tensix_grid_size() const override;
 };

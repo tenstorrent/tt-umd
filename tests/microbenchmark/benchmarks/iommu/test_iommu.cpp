@@ -5,17 +5,9 @@
  */
 #include <sys/mman.h>
 
+#include "common/microbenchmark_utils.h"
 #include "gtest/gtest.h"
 #include "tests/test_utils/device_test_utils.hpp"
-#include "tests/test_utils/generate_cluster_desc.hpp"
-#include "umd/device/chip_helpers/sysmem_manager.h"
-#include "umd/device/cluster.h"
-#include "umd/device/tt_cluster_descriptor.h"
-#include "umd/device/tt_device/wormhole_tt_device.h"
-#include "umd/device/wormhole_implementation.h"
-#include "wormhole/eth_l1_address_map.h"
-#include "wormhole/host_mem_address_map.h"
-#include "wormhole/l1_address_map.h"
 
 using namespace tt::umd;
 
@@ -33,7 +25,8 @@ static void guard_test_iommu() {
     }
 }
 
-void print_results(std::vector<uint64_t>& map_times, std::vector<uint64_t>& unmap_times, uint64_t mapping_size) {
+std::tuple<double, double, double, double> get_results(
+    std::vector<uint64_t>& map_times, std::vector<uint64_t>& unmap_times, uint64_t mapping_size) {
     sort(map_times.begin(), map_times.end());
     sort(unmap_times.begin(), unmap_times.end());
 
@@ -47,13 +40,27 @@ void print_results(std::vector<uint64_t>& map_times, std::vector<uint64_t>& unma
     double bw_map_mbs = (double)mapping_size / map_time_average;
     double bw_unmap_mbs = (double)mapping_size / unmap_time_average;
 
-    std::cout << "Mapped " << num_pages << " pages (" << mapping_size << " bytes, " << ((double)mapping_size / one_mb)
-              << " MB). Median map time: " << map_time_median << " ns, Average map time: " << map_time_average
-              << " ns. Bandwidth: " << bw_map_mbs << " MB/s." << std::endl;
-    std::cout << "Unmapped " << num_pages << " pages (" << mapping_size << " bytes, " << ((double)mapping_size / one_mb)
-              << " MB). Median unmap time: " << unmap_time_median << " ns, Average unmap time: " << unmap_time_average
-              << " ns, Bandwidth: " << bw_unmap_mbs << " MB/s." << std::endl;
-    std::cout << "--------------------------------------------------------" << std::endl;
+    return std::make_tuple(
+        (double)map_time_average,
+        test::utils::calc_speed(mapping_size, map_time_average),
+        (double)unmap_time_average,
+        test::utils::calc_speed(mapping_size, unmap_time_average));
+}
+
+void update_data(
+    std::vector<std::vector<std::string>>& rows,
+    const uint64_t mapping_size,
+    std::vector<uint64_t>& map_times,
+    std::vector<uint64_t>& unmap_times) {
+    auto [avg_map_time, bw_map, avg_unmap_time, bw_unmap] = get_results(map_times, unmap_times, mapping_size);
+    std::vector<std::string> row;
+    row.push_back(test::utils::convert_double_to_string(mapping_size / sysconf(_SC_PAGESIZE)));
+    row.push_back(test::utils::convert_double_to_string(mapping_size / one_mb));
+    row.push_back(test::utils::convert_double_to_string(avg_map_time));
+    row.push_back(test::utils::convert_double_to_string(bw_map));
+    row.push_back(test::utils::convert_double_to_string(avg_unmap_time));
+    row.push_back(test::utils::convert_double_to_string(bw_unmap));
+    rows.push_back(row);
 }
 
 /**
@@ -62,7 +69,7 @@ void print_results(std::vector<uint64_t>& map_times, std::vector<uint64_t>& unma
  * and measures the time it takes to map them through IOMMU. It prints out the time taken for each mapping
  * and the average time per page.
  */
-TEST(BenchmarkIOMMU, MapDifferentSizes) {
+TEST(MicrobenchmarkIOMMU, MapDifferentSizes) {
     guard_test_iommu();
 
     static const auto page_size = sysconf(_SC_PAGESIZE);
@@ -80,6 +87,16 @@ TEST(BenchmarkIOMMU, MapDifferentSizes) {
     });
 
     PCIDevice* pci_device = cluster->get_chip(chip)->get_tt_device()->get_pci_device().get();
+
+    const std::vector<std::string> headers = {
+        "Number of pages",
+        "Mapping size (MB)",
+        "Average map time (ns)",
+        "Bandwidth map (MB/s)",
+        "Average unmap time (ns)",
+        "Bandwidth unmap (MB/s)"};
+
+    std::vector<std::vector<std::string>> rows;
 
     for (uint64_t size = page_size; size <= mapping_size_limit; size *= 2) {
         std::vector<uint64_t> map_times;
@@ -101,8 +118,9 @@ TEST(BenchmarkIOMMU, MapDifferentSizes) {
             munmap(mapping, size);
         }
 
-        print_results(map_times, unmap_times, size);
+        update_data(rows, size, map_times, unmap_times);
     }
+    test::utils::print_markdown_table_format(headers, rows);
 }
 
 /**
@@ -110,7 +128,7 @@ TEST(BenchmarkIOMMU, MapDifferentSizes) {
  * These should be different from regular buffers because it's guaranteed that hugepages are contiguous in memory.
  * Since contiguous memory has less entries in the IOMMU page table, we expect the mapping to be faster.
  */
-TEST(BenchmarkIOMMU, MapHugepages2M) {
+TEST(MicrobenchmarkIOMMU, MapHugepages2M) {
     guard_test_iommu();
 
     static const auto page_size = sysconf(_SC_PAGESIZE);
@@ -121,7 +139,7 @@ TEST(BenchmarkIOMMU, MapHugepages2M) {
     std::cout << "--------------------------------------------------------" << std::endl;
     std::cout << "Page size: " << page_size << " bytes." << std::endl;
 
-    const uint64_t mapping_size = 2 * (1ULL << 20);  // 1 MB
+    const uint64_t mapping_size = 2 * (1ULL << 20);  // 2 MB
 
     std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>(tt::umd::ClusterOptions{
         .num_host_mem_ch_per_mmio_device = 0,
@@ -131,6 +149,13 @@ TEST(BenchmarkIOMMU, MapHugepages2M) {
 
     std::vector<uint64_t> map_times;
     std::vector<uint64_t> unmap_times;
+
+    const std::vector<std::string> headers = {
+        "Mapping size (MB)",
+        "Average map time (ns)",
+        "Bandwidth map (MB/s)",
+        "Average unmap time (ns)",
+        "Bandwidth unmap (MB/s)"};
 
     for (int i = 0; i < NUM_ITERATIONS; i++) {
         void* mapping = mmap(
@@ -158,7 +183,10 @@ TEST(BenchmarkIOMMU, MapHugepages2M) {
         munmap(mapping, mapping_size);
     }
 
-    print_results(map_times, unmap_times, mapping_size);
+    std::vector<std::vector<std::string>> rows;
+    update_data(rows, mapping_size, map_times, unmap_times);
+
+    test::utils::print_markdown_table_format(headers, rows);
 }
 
 /**
@@ -166,7 +194,7 @@ TEST(BenchmarkIOMMU, MapHugepages2M) {
  * These should be different from regular buffers because it's guaranteed that hugepages are contiguous in memory.
  * Since contiguous memory has less entries in the IOMMU page table, we expect the mapping to be faster.
  */
-TEST(BenchmarkIOMMU, MapHugepages1G) {
+TEST(MicrobenchmarkIOMMU, MapHugepages1G) {
     guard_test_iommu();
 
     static const auto page_size = sysconf(_SC_PAGESIZE);
@@ -187,6 +215,13 @@ TEST(BenchmarkIOMMU, MapHugepages1G) {
 
     std::vector<uint64_t> map_times;
     std::vector<uint64_t> unmap_times;
+
+    const std::vector<std::string> headers = {
+        "Mapping size (MB)",
+        "Average map time (ns)",
+        "Bandwidth map (MB/s)",
+        "Average unmap time (ns)",
+        "Bandwidth unmap (MB/s)"};
 
     for (int i = 0; i < NUM_ITERATIONS; i++) {
         void* mapping = mmap(
@@ -212,5 +247,8 @@ TEST(BenchmarkIOMMU, MapHugepages1G) {
         munmap(mapping, mapping_size);
     }
 
-    print_results(map_times, unmap_times, mapping_size);
+    std::vector<std::vector<std::string>> rows;
+    update_data(rows, mapping_size, map_times, unmap_times);
+
+    test::utils::print_markdown_table_format(headers, rows);
 }

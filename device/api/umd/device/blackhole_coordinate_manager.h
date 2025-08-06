@@ -39,11 +39,11 @@ protected:
     void translate_eth_coords() override;
     void translate_pcie_coords() override;
 
-    void fill_tensix_physical_translated_mapping() override;
-    void fill_dram_physical_translated_mapping() override;
-    void fill_eth_physical_translated_mapping() override;
-    void fill_pcie_physical_translated_mapping() override;
-    void fill_arc_physical_translated_mapping() override;
+    void fill_tensix_noc0_translated_mapping() override;
+    void fill_dram_noc0_translated_mapping() override;
+    void fill_eth_noc0_translated_mapping() override;
+    void fill_pcie_noc0_translated_mapping() override;
+    void fill_arc_noc0_translated_mapping() override;
 
     std::vector<CoreCoord> get_tensix_cores() const override;
     std::vector<CoreCoord> get_harvested_tensix_cores() const override;

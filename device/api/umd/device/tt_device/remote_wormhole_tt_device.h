@@ -18,6 +18,10 @@ public:
 
     void write_to_device(const void* mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size) override;
 
+    void read_from_arc(void* mem_ptr, uint64_t arc_addr_offset, size_t size) override;
+
+    void write_to_arc(const void* mem_ptr, uint64_t arc_addr_offset, size_t size) override;
+
     void wait_for_non_mmio_flush() override;
 
     LocalChip* get_local_chip();

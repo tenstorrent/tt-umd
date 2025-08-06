@@ -74,6 +74,7 @@ add_subdirectory(third_party)
 # Ignore unused variables and functions since there is no harm.
 # TODO: Re-enable sign-compare
 add_compile_options(
+    "$<$<STREQUAL:${CMAKE_SYSTEM_PROCESSOR},x86_64>:-march=x86-64-v3>"
     -Wall
     -Werror
     -Wno-unused-variable

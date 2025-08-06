@@ -31,7 +31,7 @@ int main(int argc, char* argv[]) {
 
     auto print_core_all_systems = [&](const tt_SocDescriptor& soc_desc, const CoreCoord& core) {
         for (CoordSystem coord_system :
-             {CoordSystem::PHYSICAL,
+             {CoordSystem::NOC0,
               CoordSystem::TRANSLATED,
               CoordSystem::VIRTUAL,
               CoordSystem::LOGICAL,

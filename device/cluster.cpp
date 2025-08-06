@@ -250,14 +250,15 @@ std::unique_ptr<Chip> Cluster::construct_chip_from_cluster(
         }
         chip_id_t gateway_id = cluster_desc->get_closest_mmio_capable_chip(chip_id);
         LocalChip* local_chip = get_local_chip(gateway_id);
-        std::unique_ptr<RemoteCommunication> remote_communication = std::make_unique<RemoteCommunication>(local_chip->get_tt_device(), local_chip->get_sysmem_manager());
-        std::vector<tt_xy_pair> active_eth_cores;
-        for (auto channel : cluster_desc->get_active_eth_channels(gateway_id)) {
-            active_eth_cores.push_back(local_chip->get_soc_descriptor().get_eth_core_for_channel(channel, CoordSystem::TRANSLATED));
-        }
-        remote_communication->set_remote_transfer_ethernet_cores(active_eth_cores);
+        std::unique_ptr<RemoteCommunication> remote_communication =
+            std::make_unique<RemoteCommunication>(local_chip->get_tt_device(), local_chip->get_sysmem_manager());
+        remote_communication->set_remote_transfer_ethernet_cores(
+            local_chip->get_soc_descriptor().get_eth_cores_for_channels(
+                cluster_desc->get_active_eth_channels(gateway_id), CoordSystem::TRANSLATED));
         std::unique_ptr<RemoteWormholeTTDevice> remote_tt_device = std::make_unique<RemoteWormholeTTDevice>(
-            local_chip->get_tt_device(), std::move(remote_communication), cluster_desc->get_chip_locations().at(chip_id));
+            local_chip->get_tt_device(),
+            std::move(remote_communication),
+            cluster_desc->get_chip_locations().at(chip_id));
         return std::make_unique<RemoteChip>(soc_desc, std::move(remote_tt_device), local_chip);
     }
 }

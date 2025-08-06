@@ -460,6 +460,24 @@ CoreCoord tt_SocDescriptor::get_eth_core_for_channel(int eth_chan, const CoordSy
     return translate_coord_to(logical_eth_coord, coord_system);
 }
 
+std::pair<int, int> tt_SocDescriptor::get_dram_channel_for_core(const CoreCoord &core_coord) const {
+    auto logical_coord = translate_coord_to(core_coord, CoordSystem::LOGICAL);
+    return {logical_coord.x, logical_coord.y};
+}
+
+int tt_SocDescriptor::get_eth_channel_for_core(const CoreCoord &core_coord) const {
+    return translate_coord_to(core_coord, CoordSystem::LOGICAL).y;
+}
+
+std::vector<tt_xy_pair> tt_SocDescriptor::get_eth_cores_for_channels(
+    const std::set<uint32_t> &eth_channels, const CoordSystem coord_system) const {
+    std::vector<tt_xy_pair> eth_cores;
+    for (const auto &eth_channel : eth_channels) {
+        eth_cores.push_back(get_eth_core_for_channel(eth_channel, coord_system));
+    }
+    return eth_cores;
+}
+
 std::string tt_SocDescriptor::serialize() const {
     YAML::Emitter out;
 

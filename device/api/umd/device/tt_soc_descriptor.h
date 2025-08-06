@@ -124,6 +124,10 @@ public:
     CoreCoord get_dram_core_for_channel(
         int dram_chan, int subchannel, const CoordSystem coord_system = CoordSystem::NOC0) const;
     CoreCoord get_eth_core_for_channel(int eth_chan, const CoordSystem coord_system = CoordSystem::NOC0) const;
+    std::pair<int, int> get_dram_channel_for_core(const CoreCoord &core_coord) const;
+    int get_eth_channel_for_core(const CoreCoord &core_coord) const;
+    std::vector<tt_xy_pair> get_eth_cores_for_channels(
+        const std::set<uint32_t> &eth_channels, const CoordSystem coord_system = CoordSystem::NOC0) const;
 
     tt::ARCH arch;
     tt_xy_pair grid_size;

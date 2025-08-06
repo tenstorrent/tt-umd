@@ -129,13 +129,8 @@ void RemoteChip::set_remote_transfer_ethernet_cores(const std::unordered_set<Cor
 }
 
 void RemoteChip::set_remote_transfer_ethernet_cores(const std::set<uint32_t>& channels) {
-    std::vector<tt_xy_pair> remote_transfer_eth_cores;
-    for (const auto& channel : channels) {
-        auto translated_coord =
-            local_chip_->get_soc_descriptor().get_eth_core_for_channel(channel, CoordSystem::TRANSLATED);
-        remote_transfer_eth_cores.push_back(translated_coord);
-    }
-    remote_communication_->set_remote_transfer_ethernet_cores(remote_transfer_eth_cores);
+    remote_communication_->set_remote_transfer_ethernet_cores(
+        local_chip_->get_soc_descriptor().get_eth_cores_for_channels(channels, CoordSystem::TRANSLATED));
 }
 
 TTDevice* RemoteChip::get_tt_device() { return tt_device_.get(); }

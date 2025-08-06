@@ -16,18 +16,39 @@
 #include "common.h"
 #include "fmt/core.h"
 #include "umd/device/arc_telemetry_reader.h"
+#include "umd/device/types/blackhole_telemetry.h"
 #include "umd/device/types/wormhole_telemetry.h"
 
 using namespace tt::umd;
 
-std::string run_default_telemetry(int pci_device, ArcTelemetryReader* telemetry_reader) {
-    // Holds information about the max AICLK value and the current one.
-    uint32_t aiclk_info = telemetry_reader->read_entry(wormhole::TelemetryTag::AICLK);
+std::string run_default_telemetry(int pci_device, ArcTelemetryReader* telemetry_reader, tt::ARCH arch) {
+    uint32_t aiclk_info;
+    uint32_t vcore;
+    uint32_t tdp;
+    uint32_t asic_temperature;
+
+    if (arch == tt::ARCH::WORMHOLE_B0) {
+        aiclk_info = telemetry_reader->read_entry(wormhole::TelemetryTag::AICLK);
+        vcore = telemetry_reader->read_entry(wormhole::TelemetryTag::VCORE);
+        tdp = telemetry_reader->read_entry(wormhole::TelemetryTag::TDP);
+        asic_temperature = telemetry_reader->read_entry(wormhole::TelemetryTag::ASIC_TEMPERATURE);
+    } else {
+        aiclk_info = telemetry_reader->read_entry(blackhole::TelemetryTag::AICLK);
+        vcore = telemetry_reader->read_entry(blackhole::TelemetryTag::VCORE);
+        tdp = telemetry_reader->read_entry(blackhole::TelemetryTag::TDP);
+        asic_temperature = telemetry_reader->read_entry(blackhole::TelemetryTag::ASIC_TEMPERATURE);
+    }
+
     uint32_t aiclk_current = aiclk_info & 0xFFFF;
-    uint32_t vcore = telemetry_reader->read_entry(wormhole::TelemetryTag::VCORE);
-    uint32_t tdp = telemetry_reader->read_entry(wormhole::TelemetryTag::TDP) & 0xFFFF;
-    uint32_t asic_temperature = telemetry_reader->read_entry(wormhole::TelemetryTag::ASIC_TEMPERATURE);
-    uint32_t current_temperature = (asic_temperature & 0xFFFF) / 16.0;
+    tdp = tdp & 0xFFFF;
+
+    float current_temperature;
+    if (arch == tt::ARCH::BLACKHOLE) {
+        current_temperature = static_cast<int32_t>(asic_temperature) / 65536.0f;
+    } else {
+        current_temperature = (asic_temperature & 0xFFFF) / 16.0;
+    }
+
     return fmt::format(
         "Device id {} - AICLK: {} VCore: {} Power: {} Temp: {}",
         pci_device,
@@ -107,7 +128,12 @@ int main(int argc, char* argv[]) {
 
             std::string telemetry_message;
             if (telemetry_tag == -1) {
-                telemetry_message = run_default_telemetry(device_id, telemetry_reader.get());
+                auto arch = tt_devices.at(i)->get_arch();
+                if (arch == tt::ARCH::WORMHOLE_B0 || arch == tt::ARCH::BLACKHOLE) {
+                    telemetry_message = run_default_telemetry(device_id, telemetry_reader.get(), arch);
+                } else {
+                    throw std::runtime_error("Unsupported device architecture");
+                }
             } else {
                 uint32_t telemetry_value = telemetry_reader->read_entry(telemetry_tag);
                 telemetry_message = fmt::format("Device id {} - Telemetry value: 0x{:x}", device_id, telemetry_value);

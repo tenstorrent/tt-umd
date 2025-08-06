@@ -138,12 +138,24 @@ bool LocalChip::is_mmio_capable() const { return true; }
 
 void LocalChip::start_device() {
     check_pcie_device_initialized();
-    sysmem_manager_->pin_sysmem_to_device();
-    init_pcie_iatus();
+    sysmem_manager_->pin_or_map_sysmem_to_device();
+    if (!tt_device_->get_pci_device()->is_mapping_buffer_to_noc_supported()) {
+        // If this is supported by the newer KMD, UMD doesn't have to program the iatu.
+        init_pcie_iatus();
+    }
     initialize_membars();
 }
 
-void LocalChip::close_device(){};
+void LocalChip::close_device() {
+    // Investigating https://github.com/tenstorrent/tt-metal/issues/25377 found that closing device that was already put
+    // in LONG_IDLE by tt-smi reset would hang
+    if ((uint32_t)get_clock() != get_tt_device()->get_min_clock_freq()) {
+        set_power_state(tt_DevicePowerState::LONG_IDLE);
+        send_tensix_risc_reset(TENSIX_ASSERT_SOFT_RESET);
+        // Unmapping might be needed even in the case chip was reset due to kmd mappings.
+        sysmem_manager_->unpin_or_unmap_sysmem();
+    }
+};
 
 int LocalChip::get_num_host_channels() { return sysmem_manager_->get_num_host_mem_channels(); }
 
@@ -391,8 +403,8 @@ void LocalChip::set_remote_transfer_ethernet_cores(const std::set<uint32_t>& cha
 
 CoreCoord LocalChip::get_remote_transfer_ethernet_core() {
     if (remote_transfer_eth_cores_.size() > 8) {
-        // We cannot use more than 8 cores for umd access in one direction. Thats because of the available buffering in
-        // the outgoing eth channels.
+        // We cannot use more than 8 cores for umd access in one direction. Thats because of the available
+        // buffering in the outgoing eth channels.
         log_warning(
             LogSiliconDriver,
             "Number of active ethernet cores {} exceeds the maximum of 8.",

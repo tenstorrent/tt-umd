@@ -9,13 +9,16 @@
 
 #include "umd/device/blackhole_implementation.h"
 #include "umd/device/coordinate_manager.h"
+#include "umd/device/types/blackhole_arc.h"
 #include "umd/device/types/blackhole_eth.h"
 #include "umd/device/types/blackhole_telemetry.h"
+#include "umd/device/types/cluster_descriptor_types.h"
 
 namespace tt::umd {
 
 BlackholeTTDevice::BlackholeTTDevice(std::shared_ptr<PCIDevice> pci_device) :
     TTDevice(pci_device, std::make_unique<blackhole_implementation>()) {
+    arc_core = tt::umd::blackhole::get_arc_core(get_noc_translation_enabled(), umd_use_noc1);
     init_tt_device();
 }
 
@@ -159,7 +162,7 @@ void BlackholeTTDevice::wait_arc_core_start(const tt_xy_pair arc_core, const uin
     auto start = std::chrono::system_clock::now();
     uint32_t arc_boot_status;
     while (true) {
-        read_from_device(&arc_boot_status, arc_core, blackhole::SCRATCH_RAM_2, sizeof(arc_boot_status));
+        read_from_arc(&arc_boot_status, blackhole::SCRATCH_RAM_2, sizeof(arc_boot_status));
 
         // ARC started successfully.
         if ((arc_boot_status & 0x7) == 0x5) {
@@ -213,6 +216,14 @@ void BlackholeTTDevice::dma_h2d_zero_copy(uint32_t dst, const void *src, size_t 
 void BlackholeTTDevice::dma_d2h_zero_copy(void *dst, uint32_t src, size_t size) {
     throw std::runtime_error("D2H DMA is not supported on Blackhole.");
 }
+
+void BlackholeTTDevice::read_from_arc(void *mem_ptr, uint64_t arc_addr_offset, size_t size) {
+    read_from_device(mem_ptr, arc_core, get_arc_noc_base_address() + arc_addr_offset, size);
+};
+
+void BlackholeTTDevice::write_to_arc(const void *mem_ptr, uint64_t arc_addr_offset, size_t size) {
+    write_to_device(mem_ptr, arc_core, get_arc_noc_base_address() + arc_addr_offset, size);
+};
 
 std::vector<DramTrainingStatus> BlackholeTTDevice::get_dram_training_status() {
     if (!telemetry->is_entry_available(blackhole::TelemetryTag::DDR_STATUS)) {
@@ -273,5 +284,7 @@ double BlackholeTTDevice::get_asic_temperature() {
     // It needs to be divided by 65536 to get temperature in Celsius.
     return (double)telemetry->read_entry(blackhole::TelemetryTag::ASIC_TEMPERATURE) / 65536.0f;
 }
+
+uint64_t BlackholeTTDevice::get_arc_noc_base_address() const { return blackhole::ARC_NOC_XBAR_ADDRESS_START; }
 
 }  // namespace tt::umd

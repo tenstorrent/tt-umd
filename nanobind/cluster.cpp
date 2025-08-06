@@ -75,7 +75,13 @@ NB_MODULE(tt_umd, m) {
             },
             nb::arg("pci_target_devices") = std::unordered_set<int>{},
             "Enumerates PCI devices, optionally filtering by target devices.")
-        .def_static("enumerate_devices_info", &PCIDevice::enumerate_devices_info)
+        .def_static(
+            "enumerate_devices_info",
+            [](std::unordered_set<int> pci_target_devices = {}) {
+                return PCIDevice::enumerate_devices_info(pci_target_devices);
+            },
+            nb::arg("pci_target_devices") = std::unordered_set<int>{},
+            "Enumerates PCI device information, optionally filtering by target devices.")
         .def("get_device_info", &PCIDevice::get_device_info);
 
     // Expose tt::ARCH enum

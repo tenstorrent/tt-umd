@@ -14,6 +14,14 @@ on:
           - Debug
           - ASan
           - TSan
+      log-level:
+        required: false
+        default: info
+        type: choice
+        options:
+          - info
+          - debug
+          - trace
   pull_request:
   push:
     branches: ["main"]
@@ -60,3 +68,4 @@ jobs:
       ubuntu-docker-version: ${{ matrix.ubuntu-docker-version}}
       card: ${{ matrix.test-group.card}}
       timeout: ${{ matrix.test-group.timeout}}
+      log-level: ${{ inputs.log-level || 'info' }}

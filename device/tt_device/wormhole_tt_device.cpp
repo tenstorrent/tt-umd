@@ -20,12 +20,13 @@ static constexpr uint32_t DMA_TIMEOUT_MS = 10000;  // 10 seconds
 
 WormholeTTDevice::WormholeTTDevice(std::shared_ptr<PCIDevice> pci_device) :
     TTDevice(pci_device, std::make_unique<wormhole_implementation>()) {
-    init_tt_device();
     arc_core = umd_use_noc1 ? tt_xy_pair(
                                   tt::umd::wormhole::NOC0_X_TO_NOC1_X[tt::umd::wormhole::ARC_CORES_NOC0[0].x],
                                   tt::umd::wormhole::NOC0_Y_TO_NOC1_Y[tt::umd::wormhole::ARC_CORES_NOC0[0].y])
                             : wormhole::ARC_CORES_NOC0[0];
-    wait_arc_core_start(arc_core, 1000);
+}
+
+void WormholeTTDevice::post_init_hook() {
     eth_addresses = WormholeTTDevice::get_eth_addresses(telemetry->read_entry(wormhole::ETH_FW_VERSION));
 }
 
@@ -188,7 +189,7 @@ bool WormholeTTDevice::wait_arc_core_init(const tt_xy_pair arc_core, const uint3
     }
 }
 
-void WormholeTTDevice::wait_arc_core_start(const tt_xy_pair arc_core, const uint32_t timeout_ms) {
+void WormholeTTDevice::wait_arc_core_start(const uint32_t timeout_ms) {
     wait_arc_core_init(arc_core, 300'000);
     uint32_t bar_read_initial = bar_read32(architecture_impl_->get_arc_reset_scratch_offset() + 3 * 4);
     // TODO: figure out 325 and 500 constants meaning and put it in variable.

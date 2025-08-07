@@ -19,6 +19,8 @@ TEST(ApiTLBManager, ManualTLBConfiguration) {
 
     for (int pci_device_id : pci_device_ids) {
         std::unique_ptr<TTDevice> tt_device = TTDevice::create(pci_device_id);
+        tt_device->init_tt_device();
+        tt_device->wait_arc_core_start();
 
         std::unique_ptr<TLBManager> tlb_manager = std::make_unique<TLBManager>(tt_device.get());
         ChipInfo chip_info = tt_device->get_chip_info();

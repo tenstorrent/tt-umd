@@ -38,19 +38,12 @@ int main(int argc, char *argv[]) {
         cluster_descriptor_path = result["path"].as<std::string>();
     }
 
+    std::unordered_set<int> pci_ids = {};
     if (result.count("pci_devices")) {
-        auto vec_devices = result["pci_devices"].as<std::vector<std::string>>();
-        std::ostringstream oss;
-        oss << vec_devices[0];
-        for (const auto &device : vec_devices) {
-            oss << "," << device;
-        }
-        if (setenv(TT_VISIBLE_DEVICES_ENV.data(), oss.str().c_str(), 1) != 0) {
-            throw std::runtime_error("Failed to set environment variable.");
-        }
+        pci_ids = extract_int_set(result["pci_devices"]);
     }
 
-    std::unique_ptr<tt_ClusterDescriptor> cluster_descriptor = Cluster::create_cluster_descriptor();
+    std::unique_ptr<tt_ClusterDescriptor> cluster_descriptor = Cluster::create_cluster_descriptor("", pci_ids);
 
     if (result.count("logical_devices")) {
         std::unordered_set<int> logical_device_ids = extract_int_set(result["logical_devices"]);
@@ -61,11 +54,5 @@ int main(int argc, char *argv[]) {
 
     std::string output_path = cluster_descriptor->serialize_to_file(cluster_descriptor_path);
     log_info(tt::LogSiliconDriver, "Cluster descriptor serialized to {}", output_path);
-
-    if (result.count("pci_devices")) {
-        if (unsetenv(TT_VISIBLE_DEVICES_ENV.data()) != 0) {
-            throw std::runtime_error("Failed to unset environment variable.");
-        }
-    }
     return 0;
 }

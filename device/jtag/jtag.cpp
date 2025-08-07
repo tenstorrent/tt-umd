@@ -6,7 +6,6 @@
 #include <dlfcn.h>
 #include <stdint.h>
 
-#include <algorithm>
 #include <filesystem>
 #include <iostream>
 #include <stdexcept>

@@ -12,6 +12,9 @@
 #include "umd/device/driver_atomics.h"
 #include "umd/device/tt_device/blackhole_tt_device.h"
 #include "umd/device/tt_device/tt_device.h"
+// #include "umd/device/tt_device/wormhole_jtag_tt_device.h"
+#include <chrono>
+
 #include "umd/device/tt_device/wormhole_tt_device.h"
 
 // TODO #526: This is a hack to allow UMD to use the NOC1 TLB.
@@ -21,7 +24,7 @@ namespace tt::umd {
 
 std::string TTDevice::jtag_library_directory_path = "./tt-umd/build";
 
-std::string get_jtag_library_directory_path() {
+std::string TTDevice::get_jtag_library_directory_path() {
     if (std::filesystem::exists("build") && std::filesystem::is_directory("build")) {
         return "./build";
     }
@@ -37,10 +40,10 @@ TTDevice::TTDevice(
     architecture_impl_(std::move(architecture_impl)),
     arch(architecture_impl_->get_architecture()) {
     lock_manager.initialize_mutex(MutexType::TT_DEVICE_IO, get_pci_device()->get_device_num());
-
-    std::filesystem::path temp_test_path(get_jtag_library_directory_path());
-    init_jtag(temp_test_path);
 }
+
+TTDevice::TTDevice(std::unique_ptr<architecture_implementation> architecture_impl) :
+    architecture_impl_(std::move(architecture_impl)), arch(architecture_impl_->get_architecture()) {}
 
 void TTDevice::init_tt_device() {
     arc_messenger_ = ArcMessenger::create_arc_messenger(this);
@@ -74,25 +77,32 @@ void TTDevice::init_jtag(std::filesystem::path &binary_directory) {
         auto newArch = *jtag_device->get_jtag_arch(i);
 
         if (arch != newArch) {
-            throw std::runtime_error("Not all devices have the same architecture.");
+            TT_THROW("Jtag ERROR: Not all devices have the same architecture.");
         }
     }
 }
 
 TTDevice::TTDevice() {}
 
-/* static */ std::unique_ptr<TTDevice> TTDevice::create(int pci_device_number) {
+/* static */ std::unique_ptr<TTDevice> TTDevice::create(int pci_device_number, bool use_jtag) {
     auto pci_device = std::make_shared<PCIDevice>(pci_device_number);
 
     switch (pci_device->get_arch()) {
         case ARCH::WORMHOLE_B0:
+            // return use_jtag? std::make_unique<WormholeJtagTTDevice>(pci_device)
+            //                : std::make_unique<WormholeTTDevice>(pci_device);
             return std::make_unique<WormholeTTDevice>(pci_device);
         case ARCH::BLACKHOLE:
+            if (use_jtag) {
+                TT_THROW("JTAG is not supported on Blackhole architecture.");
+            }
             return std::make_unique<BlackholeTTDevice>(pci_device);
         default:
             return nullptr;
     }
 }
+
+/* static */ std::unique_ptr<TTDevice> TTDevice::create() { return nullptr; }
 
 architecture_implementation *TTDevice::get_architecture_implementation() { return architecture_impl_.get(); }
 
@@ -305,7 +315,7 @@ void TTDevice::jtag_read_from_device(void *mem_ptr, tt_xy_pair core, uint64_t ad
     // auto lock = lock_manager.acquire_mutex(MutexType::TT_DEVICE_IO, get_pci_device()->get_device_num());
     uint8_t *buffer_addr = static_cast<uint8_t *>(mem_ptr);
 
-    uint8_t chip_id = 0;
+    uint8_t chip_id = jtag_device->get_current_device_idx().value();
 
     const uint32_t chunk_size = sizeof(uint32_t);
 
@@ -359,10 +369,9 @@ void TTDevice::jtag_write_to_device(const void *mem_ptr, tt_xy_pair core, uint64
         TT_THROW("JTAG device not initialized");
     }
 
-    // auto lock = lock_manager.acquire_mutex(MutexType::TT_DEVICE_IO, get_pci_device()->get_device_num());
     const uint8_t *buffer_addr = static_cast<const uint8_t *>(mem_ptr);
 
-    uint8_t chip_id = 0;
+    uint8_t chip_id = jtag_device->get_current_device_idx().value();
 
     const uint32_t chunk_size = sizeof(uint32_t);
 
@@ -373,8 +382,6 @@ void TTDevice::jtag_write_to_device(const void *mem_ptr, tt_xy_pair core, uint64
             // Aligned 32-bit write - most efficient
             uint32_t data;
             std::memcpy(&data, buffer_addr, sizeof(uint32_t));
-            std::cout << "Writing: " << data << " "
-                      << "to " << addr << std::endl;
             auto result = jtag_device->write32(chip_id, core.x, core.y, addr, data);
             if (!result) {
                 TT_THROW(

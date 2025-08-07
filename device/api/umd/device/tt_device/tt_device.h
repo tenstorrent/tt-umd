@@ -44,9 +44,17 @@ public:
 
     /**
      * Creates a proper TTDevice object for the given PCI device number.
+     * Jtag support can be enabled.
      */
-    static std::unique_ptr<TTDevice> create(int pci_device_number);
+    static std::unique_ptr<TTDevice> create(int pci_device_number, bool use_jtag = false);
+
+    /**
+     * Used for creating a TTDevice object with Jtag device and no PCIe device.
+     */
+    static std::unique_ptr<TTDevice> create();
+
     TTDevice(std::shared_ptr<PCIDevice> pci_device, std::unique_ptr<architecture_implementation> architecture_impl);
+    TTDevice(std::unique_ptr<architecture_implementation> architecture_impl);
     virtual ~TTDevice();
 
     architecture_implementation *get_architecture_implementation();
@@ -119,8 +127,8 @@ public:
     virtual void read_from_device(void *mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size);
     virtual void write_to_device(const void *mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size);
 
-    void jtag_read_from_device(void *mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size);
-    void jtag_write_to_device(const void *mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size);
+    virtual void jtag_read_from_device(void *mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size);
+    virtual void jtag_write_to_device(const void *mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size);
 
     // TLB related functions.
     // TODO: These are architecture specific, and will be moved out of the class.
@@ -243,6 +251,8 @@ protected:
     bool is_remote_tt_device = false;
 
     static std::string jtag_library_directory_path;
+
+    static std::string get_jtag_library_directory_path();
 };
 
 }  // namespace tt::umd

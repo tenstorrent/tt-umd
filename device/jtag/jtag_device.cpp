@@ -7,8 +7,6 @@
 #include <iostream>
 
 #include "umd/device/jtag.h"
-#include "umd/device/cluster.h"
-#include "umd/device/tt_xy_pair.h"
 
 #define ROW_LEN 12
 #define WORMHOLE_ID 0x138a5
@@ -125,8 +123,8 @@ std::optional<uint32_t> JtagDevice::readmon_tdr(uint8_t chip_id, const char* cli
     return jtag->readmon_tdr(client, id, reg_offset);
 }
 
-std::optional<int> JtagDevice::writemon_tdr(uint8_t chip_id, const char* client, uint32_t id, uint32_t reg_offset,
-                                            uint32_t data) {
+std::optional<int> JtagDevice::writemon_tdr(
+    uint8_t chip_id, const char* client, uint32_t id, uint32_t reg_offset, uint32_t data) {
     if (!select_device(chip_id)) {
         return {};
     }
@@ -142,8 +140,13 @@ std::optional<int> JtagDevice::write_tdr(uint8_t chip_id, const char* client, ui
     return 0;
 }
 
-std::optional<int> JtagDevice::dbus_memdump(uint8_t chip_id, const char* client_name, const char* mem,
-                                            const char* thread_id_name, const char* start_addr, const char* end_addr) {
+std::optional<int> JtagDevice::dbus_memdump(
+    uint8_t chip_id,
+    const char* client_name,
+    const char* mem,
+    const char* thread_id_name,
+    const char* start_addr,
+    const char* end_addr) {
     if (!select_device(chip_id)) {
         return {};
     }
@@ -151,8 +154,12 @@ std::optional<int> JtagDevice::dbus_memdump(uint8_t chip_id, const char* client_
     return 0;
 }
 
-std::optional<int> JtagDevice::dbus_sigdump(uint8_t chip_id, const char* client_name, uint32_t dbg_client_id,
-                                            uint32_t dbg_signal_sel_start, uint32_t dbg_signal_sel_end) {
+std::optional<int> JtagDevice::dbus_sigdump(
+    uint8_t chip_id,
+    const char* client_name,
+    uint32_t dbg_client_id,
+    uint32_t dbg_signal_sel_start,
+    uint32_t dbg_signal_sel_end) {
     if (!select_device(chip_id)) {
         return {};
     }
@@ -175,6 +182,8 @@ std::optional<int> JtagDevice::write32(uint8_t chip_id, uint8_t noc_x, uint8_t n
     }
 
     jtag->write_noc_xy(noc_x, noc_y, address, data);
+    // sstd::this_thread::sleep_for(std::chrono::seconds(2));
+
     return 4;
 }
 
@@ -220,3 +229,5 @@ std::optional<uint32_t> JtagDevice::read_id(uint8_t chip_id) {
 
     return jtag->read_id();
 }
+
+std::optional<uint8_t> JtagDevice::get_current_device_idx() const { return curr_device_idx; }

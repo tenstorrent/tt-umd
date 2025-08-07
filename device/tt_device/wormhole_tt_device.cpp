@@ -28,6 +28,9 @@ WormholeTTDevice::WormholeTTDevice(std::shared_ptr<PCIDevice> pci_device) :
         1000);
 }
 
+WormholeTTDevice::WormholeTTDevice(std::unique_ptr<architecture_implementation> architecture_impl) :
+    TTDevice(std::move(architecture_impl)) {}
+
 bool WormholeTTDevice::get_noc_translation_enabled() {
     uint32_t niu_cfg;
     // We read information about NOC translation from DRAM core just be on paar with Luwen implementation.

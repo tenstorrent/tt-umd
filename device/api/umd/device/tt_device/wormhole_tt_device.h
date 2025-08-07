@@ -14,6 +14,7 @@ namespace tt::umd {
 class WormholeTTDevice : public TTDevice {
 public:
     WormholeTTDevice(std::shared_ptr<PCIDevice> pci_device);
+    WormholeTTDevice(std::unique_ptr<architecture_implementation> architecture_impl);
 
     void configure_iatu_region(size_t region, uint64_t target, size_t region_size) override;
 

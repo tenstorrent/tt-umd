@@ -21,6 +21,7 @@ TEST(TestNoc, TestNoc0NodeId) {
             cluster->get_tt_device(0)->get_architecture_implementation()->get_noc_node_id_offset();
         uint32_t noc_node_id_val;
         cluster->read_from_device_reg(&noc_node_id_val, chip, core, noc_node_id_reg_addr, sizeof(noc_node_id_val));
+        // std::cout << "NOC Node ID: 0x" << std::hex << noc_node_id_val << std::dec << std::endl;
         uint32_t x = noc_node_id_val & 0x3F;
         uint32_t y = (noc_node_id_val >> 6) & 0x3F;
         return tt_xy_pair(x, y);

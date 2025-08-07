@@ -12,6 +12,10 @@ set(API_TESTS_SRCS
     test_noc.cpp
 )
 
+if(ENABLE_JTAG_TESTS)
+    list(APPEND API_TESTS_SRCS test_jtag.cpp)
+endif()
+
 add_executable(api_tests ${API_TESTS_SRCS})
 target_link_libraries(api_tests PRIVATE test_common)
 set_target_properties(

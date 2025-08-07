@@ -80,7 +80,7 @@ ChipInfo WormholeTTDevice::get_chip_info() {
     return chip_info;
 }
 
-bool WormholeTTDevice::wait_arc_core_init(const tt_xy_pair arc_core, const uint32_t timeout_ms) {
+bool WormholeTTDevice::wait_arc_core_init(const uint32_t timeout_ms) {
     // Status codes
     constexpr uint32_t STATUS_NO_ACCESS = 0xFFFFFFFF;
     constexpr uint32_t STATUS_WATCHDOG_TRIGGERED = 0xDEADC0DE;
@@ -187,10 +187,10 @@ bool WormholeTTDevice::wait_arc_core_init(const tt_xy_pair arc_core, const uint3
         }
         // Default case - assume OK, continue waiting
     }
+    return true;
 }
 
 void WormholeTTDevice::wait_arc_core_start(const uint32_t timeout_ms) {
-    wait_arc_core_init(arc_core, 300'000);
     uint32_t bar_read_initial = bar_read32(architecture_impl_->get_arc_reset_scratch_offset() + 3 * 4);
     // TODO: figure out 325 and 500 constants meaning and put it in variable.
     uint32_t arg = bar_read_initial == 500 ? 325 : 500;

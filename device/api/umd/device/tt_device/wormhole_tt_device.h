@@ -54,7 +54,7 @@ public:
 
     tt_xy_pair get_arc_core() const override;
 
-    bool wait_arc_core_init(const tt_xy_pair arc_core, const uint32_t timeout_ms);
+    bool wait_arc_core_init(const uint32_t timeout_ms) override;
 
 private:
     void dma_d2h_transfer(const uint64_t dst, const uint32_t src, const size_t size);

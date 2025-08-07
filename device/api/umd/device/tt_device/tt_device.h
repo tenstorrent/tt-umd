@@ -238,6 +238,8 @@ public:
     virtual tt_xy_pair get_arc_core() const = 0;
     void init_tt_device();
 
+    virtual bool wait_arc_core_init(const uint32_t timeout_ms) { return false; };
+
 protected:
     std::shared_ptr<PCIDevice> pci_device_;
     std::unique_ptr<architecture_implementation> architecture_impl_;

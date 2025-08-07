@@ -124,6 +124,8 @@ TEST(ApiTTDeviceTest, TTDeviceWarmResetAfterNocHang) {
 
     for (int pci_device_id : pci_device_ids) {
         std::unique_ptr<TTDevice> tt_device = TTDevice::create(pci_device_id);
+        tt_device->init_tt_device();
+        tt_device->wait_arc_core_init(1000);
 
         ChipInfo chip_info = tt_device->get_chip_info();
 
@@ -152,6 +154,8 @@ TEST(ApiTTDeviceTest, TTDeviceWarmResetAfterNocHang) {
         tt_device.reset();
 
         tt_device = TTDevice::create(pci_device_id);
+        tt_device->init_tt_device();
+        tt_device->wait_arc_core_init(1000);
 
         tt_device->write_to_device(zero_data.data(), tensix_core, address, zero_data.size());
 

@@ -107,6 +107,12 @@ void WarmReset::warm_reset_wormhole(bool reset_m3) {
         tt_devices.emplace_back(TTDevice::create(i));
     }
 
+    for (auto& tt_device : tt_devices) {
+        tt_device->wait_arc_core_init(300'000);
+        tt_device->init_tt_device();
+        tt_device->wait_arc_core_init(1000);
+    }
+
     std::vector<uint64_t> refclk_values_old;
     refclk_values_old.reserve(pci_device_ids.size());
 

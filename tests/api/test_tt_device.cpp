@@ -22,6 +22,8 @@ TEST(ApiTTDeviceTest, BasicTTDeviceIO) {
 
     for (int pci_device_id : pci_device_ids) {
         std::unique_ptr<TTDevice> tt_device = TTDevice::create(pci_device_id);
+        tt_device->init_tt_device();
+        tt_device->wait_arc_core_start();
 
         ChipInfo chip_info = tt_device->get_chip_info();
 
@@ -44,6 +46,8 @@ TEST(ApiTTDeviceTest, TTDeviceGetBoardType) {
     std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
     for (int pci_device_id : pci_device_ids) {
         std::unique_ptr<TTDevice> tt_device = TTDevice::create(pci_device_id);
+        tt_device->init_tt_device();
+        tt_device->wait_arc_core_start();
 
         BoardType board_type = tt_device->get_board_type();
 
@@ -65,7 +69,8 @@ TEST(ApiTTDeviceTest, TTDeviceMultipleThreadsIO) {
 
     for (int pci_device_id : pci_device_ids) {
         std::unique_ptr<TTDevice> tt_device = TTDevice::create(pci_device_id);
-
+        tt_device->init_tt_device();
+        tt_device->wait_arc_core_start();
         ChipInfo chip_info = tt_device->get_chip_info();
 
         tt_SocDescriptor soc_desc(
@@ -131,6 +136,7 @@ TEST(ApiTTDeviceTest, TestRemoteTTDevice) {
 
         std::unique_ptr<RemoteWormholeTTDevice> remote_tt_device =
             std::make_unique<RemoteWormholeTTDevice>(closest_local_chip, remote_eth_coord);
+        remote_tt_device->init_tt_device();
 
         std::vector<CoreCoord> tensix_cores =
             cluster->get_chip(remote_chip_id)->get_soc_descriptor().get_cores(CoreType::TENSIX);

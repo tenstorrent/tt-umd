@@ -28,6 +28,7 @@ const uint64_t BH_4GB_TLB_SIZE = 4ULL * 1024 * 1024 * 1024;
 std::unique_ptr<LocalChip> LocalChip::create(int pci_device_id, int num_host_mem_channels) {
     // Create TTDevice and make sure the arc is ready so we can read its telemetry.
     auto tt_device = TTDevice::create(pci_device_id);
+    tt_device->init_tt_device();
     tt_device->wait_arc_core_start();
 
     auto soc_descriptor = tt_SocDescriptor(
@@ -48,6 +49,7 @@ std::unique_ptr<LocalChip> LocalChip::create(int pci_device_id, std::string sdes
     }
     // Create TTDevice and make sure the arc is ready so we can read its telemetry.
     auto tt_device = TTDevice::create(pci_device_id);
+    tt_device->init_tt_device();
     tt_device->wait_arc_core_start();
 
     auto soc_descriptor = tt_SocDescriptor(
@@ -64,6 +66,7 @@ std::unique_ptr<LocalChip> LocalChip::create(
     int pci_device_id, tt_SocDescriptor soc_descriptor, int num_host_mem_channels) {
     // Create TTDevice and make sure the arc is ready so we can read its telemetry.
     auto tt_device = TTDevice::create(pci_device_id);
+    tt_device->init_tt_device();
     tt_device->wait_arc_core_start();
 
     return std::unique_ptr<tt::umd::LocalChip>(

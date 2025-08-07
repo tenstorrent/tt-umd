@@ -209,6 +209,8 @@ TEST(ApiClusterDescriptorTest, PrintClusterDescriptor) {
         GTEST_SKIP() << "No chips present on the system. Skipping test.";
     }
     std::unique_ptr<TTDevice> tt_device = TTDevice::create(pci_device_ids.at(0));
+    tt_device->init_tt_device();
+    tt_device->wait_arc_core_start();
 
     // In case of u6 galaxy and blackhole, we generate the cluster descriptor.
     // For wormhole we still use create-ethernet-map.

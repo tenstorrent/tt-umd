@@ -87,7 +87,7 @@ std::unique_ptr<RemoteChip> TopologyDiscovery::create_remote_chip(Chip* chip, tt
     }
 
     auto local_chip = dynamic_cast<LocalChip*>(gateway_chip);
-    auto eth_coord = get_local_eth_coord(gateway_chip);
+    auto eth_coord = get_remote_eth_coord(chip, eth_core);
 
     return RemoteChip::create(local_chip, eth_coord, sdesc_path);
 }

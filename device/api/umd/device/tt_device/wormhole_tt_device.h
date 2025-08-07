@@ -58,9 +58,30 @@ private:
     void dma_d2h_transfer(const uint64_t dst, const uint32_t src, const size_t size);
     void dma_h2d_transfer(const uint32_t dst, const uint64_t src, const size_t size);
 
+    struct EthAddresses {
+        uint32_t masked_version;
+
+        uint64_t node_info;
+        uint64_t eth_conn_info;
+        uint64_t results_buf;
+        uint64_t erisc_remote_board_type_offset;
+        uint64_t erisc_local_board_type_offset;
+        uint64_t erisc_local_board_id_lo_offset;
+        uint64_t erisc_remote_board_id_lo_offset;
+        uint64_t erisc_remote_eth_id_offset;
+    };
+
+    static constexpr uint32_t ETH_UNKNOWN = 0;
+    static constexpr uint32_t ETH_UNCONNECTED = 1;
+
+    static EthAddresses get_eth_addresses(const uint32_t eth_fw_version);
+    uint32_t read_port_status(tt_xy_pair eth_core);
+
     // Enforce single-threaded access, even though there are more serious issues
     // surrounding resource management as it relates to DMA.
     std::mutex dma_mutex_;
     tt_xy_pair arc_core;
+
+    EthAddresses eth_addresses;
 };
 }  // namespace tt::umd

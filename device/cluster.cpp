@@ -1054,9 +1054,9 @@ void Cluster::set_barrier_address_params(const barrier_address_params& barrier_a
 
 std::unique_ptr<tt_ClusterDescriptor> Cluster::create_cluster_descriptor(
     std::string sdesc_path, std::unordered_set<chip_id_t> pci_target_devices) {
-    std::map<int, PciDeviceInfo> pci_device_info = PCIDevice::enumerate_devices_info();
+    std::map<int, PciDeviceInfo> pci_device_info = PCIDevice::enumerate_devices_info(pci_target_devices);
     if (pci_device_info.begin()->second.get_arch() == tt::ARCH::BLACKHOLE) {
-        std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
+        std::vector<int> pci_device_ids = PCIDevice::enumerate_devices(pci_target_devices);
 
         std::unordered_map<chip_id_t, std::unique_ptr<Chip>> chips;
         chip_id_t chip_id = 0;
@@ -1068,7 +1068,7 @@ std::unique_ptr<tt_ClusterDescriptor> Cluster::create_cluster_descriptor(
 
         return Cluster::create_cluster_descriptor(chips);
     } else {
-        return TopologyDiscovery(pci_target_devices).create_ethernet_map();
+        return TopologyDiscovery(pci_target_devices, sdesc_path).create_ethernet_map();
     }
 }
 

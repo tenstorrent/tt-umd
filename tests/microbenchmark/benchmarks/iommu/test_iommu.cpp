@@ -8,15 +8,6 @@
 #include "common/microbenchmark_utils.h"
 #include "gtest/gtest.h"
 #include "tests/test_utils/device_test_utils.hpp"
-#include "tests/test_utils/generate_cluster_desc.hpp"
-#include "umd/device/chip_helpers/sysmem_manager.h"
-#include "umd/device/cluster.h"
-#include "umd/device/tt_cluster_descriptor.h"
-#include "umd/device/tt_device/wormhole_tt_device.h"
-#include "umd/device/wormhole_implementation.h"
-#include "wormhole/eth_l1_address_map.h"
-#include "wormhole/host_mem_address_map.h"
-#include "wormhole/l1_address_map.h"
 
 using namespace tt::umd;
 

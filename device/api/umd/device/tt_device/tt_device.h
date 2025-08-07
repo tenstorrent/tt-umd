@@ -7,6 +7,7 @@
 #pragma once
 
 #include <filesystem>
+#include <memory>
 #include <string_view>
 
 #include "umd/device/arc_messenger.h"
@@ -37,6 +38,12 @@ struct dynamic_tlb {
 class ArcMessenger;
 class ArcTelemetryReader;
 
+#define NO_PCI_DEVICE_ERROR \
+    "TTDevice ERROR: No PCI device found. This is likely because the TTDevice was created without a PCI device."
+
+#define NO_JTAG_DEVICE_ERROR \
+    "TTDevice ERROR: No JTAG device found. This is likely because the TTDevice was created without a JTAG device."
+
 class TTDevice {
 public:
     // TODO #526: This is a hack to allow UMD to use the NOC1 TLB. Don't use this function.
@@ -54,7 +61,12 @@ public:
     static std::unique_ptr<TTDevice> create();
 
     TTDevice(std::shared_ptr<PCIDevice> pci_device, std::unique_ptr<architecture_implementation> architecture_impl);
-    TTDevice(std::unique_ptr<architecture_implementation> architecture_impl);
+    TTDevice(std::unique_ptr<JtagDevice> jtag_device, std::unique_ptr<architecture_implementation> architecture_impl);
+    TTDevice(
+        std::shared_ptr<PCIDevice> pci_device,
+        std::unique_ptr<JtagDevice> jtag_device,
+        std::unique_ptr<architecture_implementation> architecture_impl);
+
     virtual ~TTDevice();
 
     architecture_implementation *get_architecture_implementation();
@@ -216,12 +228,12 @@ public:
 
 protected:
     std::shared_ptr<PCIDevice> pci_device_;
+    std::unique_ptr<JtagDevice> jtag_device_;
     std::unique_ptr<architecture_implementation> architecture_impl_;
     tt::ARCH arch;
     std::unique_ptr<ArcMessenger> arc_messenger_ = nullptr;
     LockManager lock_manager;
     std::unique_ptr<ArcTelemetryReader> telemetry = nullptr;
-    std::unique_ptr<JtagDevice> jtag_device;
 
     bool is_hardware_hung();
 
@@ -240,7 +252,7 @@ protected:
 
     virtual void init_tt_device();
 
-    void init_jtag(std::filesystem::path &binary_directory);
+    static std::unique_ptr<JtagDevice> init_jtag(std::filesystem::path &binary_directory);
 
     semver_t fw_version_from_telemetry(const uint32_t telemetry_data) const;
 

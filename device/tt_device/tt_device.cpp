@@ -5,16 +5,15 @@
 
 #include <cstdint>
 #include <filesystem>
+#include <memory>
 #include <tt-logger/tt-logger.hpp>
 
 #include "assert.hpp"
 #include "umd/device/arc_messenger.h"
 #include "umd/device/driver_atomics.h"
+#include "umd/device/jtag_device.h"
+#include "umd/device/pci_device.hpp"
 #include "umd/device/tt_device/blackhole_tt_device.h"
-#include "umd/device/tt_device/tt_device.h"
-// #include "umd/device/tt_device/wormhole_jtag_tt_device.h"
-#include <chrono>
-
 #include "umd/device/tt_device/wormhole_tt_device.h"
 
 // TODO #526: This is a hack to allow UMD to use the NOC1 TLB.
@@ -22,9 +21,9 @@ bool umd_use_noc1 = false;
 
 namespace tt::umd {
 
-std::string TTDevice::jtag_library_directory_path = "./tt-umd/build";
+/* static */ std::string TTDevice::jtag_library_directory_path = "./tt-umd/build";
 
-std::string TTDevice::get_jtag_library_directory_path() {
+/* static */ std::string TTDevice::get_jtag_library_directory_path() {
     if (std::filesystem::exists("build") && std::filesystem::is_directory("build")) {
         return "./build";
     }
@@ -42,16 +41,29 @@ TTDevice::TTDevice(
     lock_manager.initialize_mutex(MutexType::TT_DEVICE_IO, get_pci_device()->get_device_num());
 }
 
-TTDevice::TTDevice(std::unique_ptr<architecture_implementation> architecture_impl) :
-    architecture_impl_(std::move(architecture_impl)), arch(architecture_impl_->get_architecture()) {}
+TTDevice::TTDevice(
+    std::unique_ptr<JtagDevice> jtag_device, std::unique_ptr<architecture_implementation> architecture_impl) :
+    jtag_device_(std::move(jtag_device)),
+    architecture_impl_(std::move(architecture_impl)),
+    arch(architecture_impl_->get_architecture()) {}
+
+TTDevice::TTDevice(
+    std::shared_ptr<PCIDevice> pci_device,
+    std::unique_ptr<JtagDevice> jtag_device,
+    std::unique_ptr<architecture_implementation> architecture_impl) :
+    pci_device_(pci_device),
+    jtag_device_(std::move(jtag_device)),
+    architecture_impl_(std::move(architecture_impl)),
+    arch(architecture_impl_->get_architecture()) {
+    lock_manager.initialize_mutex(MutexType::TT_DEVICE_IO, get_pci_device()->get_device_num());
+}
 
 void TTDevice::init_tt_device() {
     arc_messenger_ = ArcMessenger::create_arc_messenger(this);
     telemetry = ArcTelemetryReader::create_arc_telemetry_reader(this);
 }
 
-void TTDevice::init_jtag(std::filesystem::path &binary_directory) {
-    // binary_path = util.application_path() + "/../build/bin"
+/* static */ std::unique_ptr<JtagDevice> TTDevice::init_jtag(std::filesystem::path &binary_directory) {
     if (binary_directory.empty()) {
         char buffer[PATH_MAX + 1];
         ssize_t len = readlink("/proc/self/exe", buffer, sizeof(buffer) - 1);
@@ -69,7 +81,7 @@ void TTDevice::init_jtag(std::filesystem::path &binary_directory) {
     lib_path /= "lib";
     lib_path /= "libttexalens_jtag.so";
     jtag = std::make_unique<Jtag>(lib_path.c_str());
-    jtag_device = std::make_unique<JtagDevice>(std::move(jtag));
+    std::unique_ptr<JtagDevice> jtag_device = std::make_unique<JtagDevice>(std::move(jtag));
 
     // Check that all chips are of the same type
     tt::ARCH arch = *jtag_device->get_jtag_arch(0);
@@ -80,18 +92,22 @@ void TTDevice::init_jtag(std::filesystem::path &binary_directory) {
             TT_THROW("Jtag ERROR: Not all devices have the same architecture.");
         }
     }
+
+    return jtag_device;
 }
 
 TTDevice::TTDevice() {}
 
 /* static */ std::unique_ptr<TTDevice> TTDevice::create(int pci_device_number, bool use_jtag) {
     auto pci_device = std::make_shared<PCIDevice>(pci_device_number);
+    auto jtag_library_path = std::filesystem::path(get_jtag_library_directory_path());
+    auto jtag_device = TTDevice::init_jtag(jtag_library_path);
 
     switch (pci_device->get_arch()) {
         case ARCH::WORMHOLE_B0:
-            // return use_jtag? std::make_unique<WormholeJtagTTDevice>(pci_device)
-            //                : std::make_unique<WormholeTTDevice>(pci_device);
-            return std::make_unique<WormholeTTDevice>(pci_device);
+            return use_jtag ? std::make_unique<WormholeTTDevice>(pci_device, std::move(jtag_device))
+                            : std::make_unique<WormholeTTDevice>(pci_device);
+
         case ARCH::BLACKHOLE:
             if (use_jtag) {
                 TT_THROW("JTAG is not supported on Blackhole architecture.");
@@ -102,7 +118,19 @@ TTDevice::TTDevice() {}
     }
 }
 
-/* static */ std::unique_ptr<TTDevice> TTDevice::create() { return nullptr; }
+/* static */ std::unique_ptr<TTDevice> TTDevice::create() {
+    auto jtag_library_path = std::filesystem::path(get_jtag_library_directory_path());
+    auto jtag_device = TTDevice::init_jtag(jtag_library_path);
+
+    switch (jtag_device->get_jtag_arch(jtag_device->get_current_device_idx().value()).value()) {
+        case ARCH::WORMHOLE_B0:
+            return std::make_unique<WormholeTTDevice>(std::move(jtag_device));
+        case ARCH::BLACKHOLE:
+            TT_THROW("JTAG is not supported on Blackhole architecture.");
+        default:
+            return nullptr;
+    }
+}
 
 architecture_implementation *TTDevice::get_architecture_implementation() { return architecture_impl_.get(); }
 
@@ -111,6 +139,9 @@ std::shared_ptr<PCIDevice> TTDevice::get_pci_device() { return pci_device_; }
 tt::ARCH TTDevice::get_arch() { return arch; }
 
 bool TTDevice::is_hardware_hung() {
+    if (!pci_device_) {
+        return false;
+    }
     volatile const void *addr = reinterpret_cast<const char *>(pci_device_->bar0_uc) +
                                 (architecture_impl_->get_arc_reset_scratch_offset() + 6 * 4) -
                                 pci_device_->bar0_uc_offset;
@@ -130,12 +161,16 @@ void TTDevice::detect_hang_read(std::uint32_t data_read) {
 
 // This is only needed for the BH workaround in iatu_configure_peer_region since no arc
 void TTDevice::write_regs(volatile uint32_t *dest, const uint32_t *src, uint32_t word_len) {
+    TT_ASSERT(pci_device_.get(), NO_PCI_DEVICE_ERROR);
+
     while (word_len-- != 0) {
         *dest++ = *src++;
     }
 }
 
 void TTDevice::write_regs(uint32_t byte_addr, uint32_t word_len, const void *data) {
+    TT_ASSERT(pci_device_.get(), NO_PCI_DEVICE_ERROR);
+
     volatile uint32_t *dest = pci_device_->get_register_address<uint32_t>(byte_addr);
     const uint32_t *src = reinterpret_cast<const uint32_t *>(data);
 
@@ -143,6 +178,8 @@ void TTDevice::write_regs(uint32_t byte_addr, uint32_t word_len, const void *dat
 }
 
 void TTDevice::read_regs(uint32_t byte_addr, uint32_t word_len, void *data) {
+    TT_ASSERT(pci_device_.get(), NO_PCI_DEVICE_ERROR);
+
     const volatile uint32_t *src = pci_device_->get_register_address<uint32_t>(byte_addr);
     uint32_t *dest = reinterpret_cast<uint32_t *>(data);
 
@@ -153,6 +190,8 @@ void TTDevice::read_regs(uint32_t byte_addr, uint32_t word_len, void *data) {
 }
 
 void TTDevice::memcpy_to_device(void *dest, const void *src, std::size_t num_bytes) {
+    TT_ASSERT(pci_device_.get(), NO_PCI_DEVICE_ERROR);
+
     typedef std::uint32_t copy_t;
 
     // Start by aligning the destination (device) pointer. If needed, do RMW to fix up the
@@ -200,6 +239,8 @@ void TTDevice::memcpy_to_device(void *dest, const void *src, std::size_t num_byt
 }
 
 void TTDevice::memcpy_from_device(void *dest, const void *src, std::size_t num_bytes) {
+    TT_ASSERT(pci_device_.get(), NO_PCI_DEVICE_ERROR);
+
     typedef std::uint32_t copy_t;
 
     // Start by aligning the source (device) pointer.
@@ -239,6 +280,8 @@ void TTDevice::memcpy_from_device(void *dest, const void *src, std::size_t num_b
 }
 
 void TTDevice::write_block(uint64_t byte_addr, uint64_t num_bytes, const uint8_t *buffer_addr) {
+    TT_ASSERT(pci_device_.get(), NO_PCI_DEVICE_ERROR);
+
     void *dest = nullptr;
     if (pci_device_->bar4_wc != nullptr && byte_addr >= BAR0_BH_SIZE) {
         byte_addr -= BAR0_BH_SIZE;
@@ -256,6 +299,8 @@ void TTDevice::write_block(uint64_t byte_addr, uint64_t num_bytes, const uint8_t
 }
 
 void TTDevice::read_block(uint64_t byte_addr, uint64_t num_bytes, uint8_t *buffer_addr) {
+    TT_ASSERT(pci_device_.get(), NO_PCI_DEVICE_ERROR);
+
     void *src = nullptr;
     if (pci_device_->bar4_wc != nullptr && byte_addr >= BAR0_BH_SIZE) {
         byte_addr -= BAR0_BH_SIZE;
@@ -277,6 +322,12 @@ void TTDevice::read_block(uint64_t byte_addr, uint64_t num_bytes, uint8_t *buffe
 }
 
 void TTDevice::read_from_device(void *mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size) {
+    // TODO: make a better fix -> other modules should not call this function if pci was not initialized.
+    if (!pci_device_) {
+        jtag_read_from_device(mem_ptr, core, addr, size);
+        return;
+    }
+
     auto lock = lock_manager.acquire_mutex(MutexType::TT_DEVICE_IO, get_pci_device()->get_device_num());
     uint8_t *buffer_addr = static_cast<uint8_t *>(mem_ptr);
     const uint32_t tlb_index = get_architecture_implementation()->get_small_read_write_tlb();
@@ -292,6 +343,12 @@ void TTDevice::read_from_device(void *mem_ptr, tt_xy_pair core, uint64_t addr, u
 }
 
 void TTDevice::write_to_device(const void *mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size) {
+    // TODO: make a better fix -> other modules should not call this function if pci was not initialized.
+    if (!pci_device_) {
+        jtag_write_to_device(mem_ptr, core, addr, size);
+        return;
+    }
+
     auto lock = lock_manager.acquire_mutex(MutexType::TT_DEVICE_IO, get_pci_device()->get_device_num());
     uint8_t *buffer_addr = (uint8_t *)(uintptr_t)(mem_ptr);
     const uint32_t tlb_index = get_architecture_implementation()->get_small_read_write_tlb();
@@ -308,14 +365,11 @@ void TTDevice::write_to_device(const void *mem_ptr, tt_xy_pair core, uint64_t ad
 }
 
 void TTDevice::jtag_read_from_device(void *mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size) {
-    if (!jtag_device) {
-        TT_THROW("JTAG device not initialized");
-    }
+    TT_ASSERT(jtag_device_.get(), NO_JTAG_DEVICE_ERROR);
 
-    // auto lock = lock_manager.acquire_mutex(MutexType::TT_DEVICE_IO, get_pci_device()->get_device_num());
     uint8_t *buffer_addr = static_cast<uint8_t *>(mem_ptr);
 
-    uint8_t chip_id = jtag_device->get_current_device_idx().value();
+    uint8_t chip_id = jtag_device_->get_current_device_idx().value();
 
     const uint32_t chunk_size = sizeof(uint32_t);
 
@@ -324,7 +378,7 @@ void TTDevice::jtag_read_from_device(void *mem_ptr, tt_xy_pair core, uint64_t ad
 
         if (transfer_size == sizeof(uint32_t) && (addr % sizeof(uint32_t)) == 0) {
             // Aligned 32-bit read - most efficient
-            auto result = jtag_device->read32(chip_id, core.x, core.y, addr);
+            auto result = jtag_device_->read32(chip_id, core.x, core.y, addr);
             if (!result) {
                 TT_THROW(
                     "JTAG read32 failed for device {} at core ({},{}) address 0x{:x}", chip_id, core.x, core.y, addr);
@@ -340,7 +394,7 @@ void TTDevice::jtag_read_from_device(void *mem_ptr, tt_xy_pair core, uint64_t ad
             uint64_t aligned_addr = addr & ~(sizeof(uint32_t) - 1);
             uint32_t offset = addr % sizeof(uint32_t);
 
-            auto result = jtag_device->read32(chip_id, core.x, core.y, aligned_addr);
+            auto result = jtag_device_->read32(chip_id, core.x, core.y, aligned_addr);
             if (!result) {
                 TT_THROW(
                     "JTAG read32 failed for device {} at core ({},{}) address 0x{:x}",
@@ -365,13 +419,11 @@ void TTDevice::jtag_read_from_device(void *mem_ptr, tt_xy_pair core, uint64_t ad
 }
 
 void TTDevice::jtag_write_to_device(const void *mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size) {
-    if (!jtag_device) {
-        TT_THROW("JTAG device not initialized");
-    }
+    TT_ASSERT(jtag_device_.get(), NO_JTAG_DEVICE_ERROR);
 
     const uint8_t *buffer_addr = static_cast<const uint8_t *>(mem_ptr);
 
-    uint8_t chip_id = jtag_device->get_current_device_idx().value();
+    uint8_t chip_id = jtag_device_->get_current_device_idx().value();
 
     const uint32_t chunk_size = sizeof(uint32_t);
 
@@ -382,7 +434,7 @@ void TTDevice::jtag_write_to_device(const void *mem_ptr, tt_xy_pair core, uint64
             // Aligned 32-bit write - most efficient
             uint32_t data;
             std::memcpy(&data, buffer_addr, sizeof(uint32_t));
-            auto result = jtag_device->write32(chip_id, core.x, core.y, addr, data);
+            auto result = jtag_device_->write32(chip_id, core.x, core.y, addr, data);
             if (!result) {
                 TT_THROW(
                     "JTAG write32 failed for device {} at core ({},{}) address 0x{:x}", chip_id, core.x, core.y, addr);
@@ -397,7 +449,7 @@ void TTDevice::jtag_write_to_device(const void *mem_ptr, tt_xy_pair core, uint64
             uint32_t offset = addr % sizeof(uint32_t);
 
             // Read the current 32-bit word
-            auto read_result = jtag_device->read32(chip_id, core.x, core.y, aligned_addr);
+            auto read_result = jtag_device_->read32(chip_id, core.x, core.y, aligned_addr);
             if (!read_result) {
                 TT_THROW(
                     "JTAG read32 failed for device {} at core ({},{}) address 0x{:x}",
@@ -415,7 +467,7 @@ void TTDevice::jtag_write_to_device(const void *mem_ptr, tt_xy_pair core, uint64
             std::memcpy(data_bytes + offset, buffer_addr, bytes_to_copy);
 
             // Write the modified 32-bit word back
-            auto write_result = jtag_device->write32(chip_id, core.x, core.y, aligned_addr, existing_data);
+            auto write_result = jtag_device_->write32(chip_id, core.x, core.y, aligned_addr, existing_data);
             if (!write_result) {
                 TT_THROW(
                     "JTAG write32 failed for device {} at core ({},{}) address 0x{:x}",
@@ -434,6 +486,7 @@ void TTDevice::jtag_write_to_device(const void *mem_ptr, tt_xy_pair core, uint64
 
 void TTDevice::write_tlb_reg(
     uint32_t byte_addr, uint64_t value_lower, uint64_t value_upper, uint32_t tlb_cfg_reg_size) {
+    TT_ASSERT(pci_device_.get(), NO_PCI_DEVICE_ERROR);
     TT_ASSERT(
         (tlb_cfg_reg_size == 8) or (tlb_cfg_reg_size == 12),
         "Tenstorrent hardware supports only 64bit or 96bit TLB config regs");
@@ -463,6 +516,7 @@ dynamic_tlb TTDevice::set_dynamic_tlb(
     std::uint64_t address,
     bool multicast,
     std::uint64_t ordering) {
+    TT_ASSERT(pci_device_.get(), NO_PCI_DEVICE_ERROR);
     if (multicast) {
         std::tie(start, end) = architecture_impl_->multicast_workaround(start, end);
     }
@@ -524,11 +578,13 @@ dynamic_tlb TTDevice::set_dynamic_tlb(
 
 dynamic_tlb TTDevice::set_dynamic_tlb(
     unsigned int tlb_index, tt_xy_pair target, std::uint64_t address, std::uint64_t ordering) {
+    TT_ASSERT(pci_device_.get(), NO_PCI_DEVICE_ERROR);
     return set_dynamic_tlb(tlb_index, tt_xy_pair(0, 0), target, address, false, ordering);
 }
 
 dynamic_tlb TTDevice::set_dynamic_tlb_broadcast(
     unsigned int tlb_index, std::uint64_t address, tt_xy_pair start, tt_xy_pair end, std::uint64_t ordering) {
+    TT_ASSERT(pci_device_.get(), NO_PCI_DEVICE_ERROR);
     // Issue a broadcast to cores included in the start (top left) and end (bottom right) grid
     return set_dynamic_tlb(tlb_index, start, end, address, true, ordering);
 }
@@ -542,6 +598,7 @@ void TTDevice::wait_arc_core_start(const tt_xy_pair arc_core, const uint32_t tim
 }
 
 void TTDevice::bar_write32(uint32_t addr, uint32_t data) {
+    TT_ASSERT(pci_device_.get(), NO_PCI_DEVICE_ERROR);
     if (addr < get_pci_device()->bar0_uc_offset) {
         write_block(addr, sizeof(data), reinterpret_cast<const uint8_t *>(&data));  // do we have to reinterpret_cast?
     } else {
@@ -550,6 +607,7 @@ void TTDevice::bar_write32(uint32_t addr, uint32_t data) {
 }
 
 uint32_t TTDevice::bar_read32(uint32_t addr) {
+    TT_ASSERT(pci_device_.get(), NO_PCI_DEVICE_ERROR);
     uint32_t data;
     if (addr < get_pci_device()->bar0_uc_offset) {
         read_block(addr, sizeof(data), reinterpret_cast<uint8_t *>(&data));
@@ -563,7 +621,11 @@ ArcMessenger *TTDevice::get_arc_messenger() const { return arc_messenger_.get();
 
 ArcTelemetryReader *TTDevice::get_arc_telemetry_reader() const { return telemetry.get(); }
 
-TTDevice::~TTDevice() { lock_manager.clear_mutex(MutexType::TT_DEVICE_IO, get_pci_device()->get_device_num()); }
+TTDevice::~TTDevice() {
+    if (pci_device_) {
+        lock_manager.clear_mutex(MutexType::TT_DEVICE_IO, get_pci_device()->get_device_num());
+    }
+}
 
 std::vector<DramTrainingStatus> TTDevice::get_dram_training_status() { return {}; }
 

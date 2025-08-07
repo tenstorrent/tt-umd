@@ -235,7 +235,7 @@ public:
 
     virtual uint64_t get_arc_noc_base_address() const = 0;
 
-    virtual void init_tt_device();
+    void init_tt_device();
 
 protected:
     std::shared_ptr<PCIDevice> pci_device_;
@@ -267,6 +267,11 @@ protected:
     ChipInfo chip_info;
 
     bool is_remote_tt_device = false;
+
+private:
+    virtual void pre_init_hook(){};
+
+    virtual void post_init_hook(){};
 };
 
 }  // namespace tt::umd

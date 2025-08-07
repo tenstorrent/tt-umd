@@ -138,7 +138,7 @@ TEST(ApiTTDeviceTest, TestRemoteTTDevice) {
 
         std::unique_ptr<RemoteWormholeTTDevice> remote_tt_device =
             std::make_unique<RemoteWormholeTTDevice>(closest_local_chip, remote_eth_coord);
-        // remote_tt_device->init_tt_device();
+        remote_tt_device->init_tt_device();
         // remote_tt_device->wait_arc_core_start();
 
         std::vector<CoreCoord> tensix_cores =

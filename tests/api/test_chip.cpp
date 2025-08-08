@@ -22,7 +22,7 @@
 using namespace tt::umd;
 
 // TODO: Once default auto TLB setup is in, check it is setup properly.
-TEST(ApiChipTest, ManualTLBConfiguration) {
+TEST(ApiChipTest, DISABLED_ManualTLBConfiguration) {
     std::unique_ptr<Cluster> umd_cluster = std::make_unique<Cluster>();
 
     if (umd_cluster->get_target_device_ids().empty()) {

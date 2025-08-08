@@ -12,11 +12,16 @@ namespace tt::umd {
 
 class RemoteWormholeTTDevice : public WormholeTTDevice {
 public:
-    RemoteWormholeTTDevice(LocalChip* local_chip, eth_coord_t target_chip);
+    RemoteWormholeTTDevice(
+        LocalChip* local_chip, std::unique_ptr<RemoteCommunication> remote_communication, eth_coord_t target_chip);
 
     void read_from_device(void* mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size) override;
 
     void write_to_device(const void* mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size) override;
+
+    void read_from_arc(void* mem_ptr, uint64_t arc_addr_offset, size_t size) override;
+
+    void write_to_arc(const void* mem_ptr, uint64_t arc_addr_offset, size_t size) override;
 
     void wait_for_non_mmio_flush() override;
 

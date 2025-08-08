@@ -26,6 +26,9 @@ TEST(RemoteCommunicationWormhole, BasicRemoteCommunicationIO) {
     std::unique_ptr<RemoteCommunication> remote_comm =
         std::make_unique<RemoteCommunication>(cluster->get_local_chip(mmio_chip_id));
 
+    remote_comm->set_remote_transfer_ethernet_cores(
+        cluster->get_cluster_description()->get_active_eth_channels(mmio_chip_id));
+
     tt_ClusterDescriptor* cluster_desc = cluster->get_cluster_description();
 
     std::vector<uint32_t> data_to_write = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9};

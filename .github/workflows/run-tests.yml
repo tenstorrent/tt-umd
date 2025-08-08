@@ -20,12 +20,16 @@ on:
         required: true
         type: string
         default: Release
+      log-level:
+        required: false
+        type: string
+        default: 'info'
 
 env:
   BUILD_OUTPUT_DIR: ./build
   TEST_OUTPUT_DIR: ./build/test
   CREATE_MAP_BINARIES_DIR: ./device/bin/silicon
-  TT_UMD_LOGGER_LEVEL: info
+  TT_LOGGER_LEVEL: ${{ inputs.log-level }}
 
 jobs:
   test:

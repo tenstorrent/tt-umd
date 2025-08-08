@@ -107,7 +107,8 @@ private:
     // TODO: override this logic for different configs. This is in group of functions
     // that we should override for T3K/6U/BH...
     // eth_core should be in NoC 0 coordinates.
-    std::unique_ptr<RemoteChip> create_remote_chip(Chip* chip, tt_xy_pair eth_core, Chip* gateway_chip);
+    std::unique_ptr<RemoteChip> create_remote_chip(
+        Chip* chip, tt_xy_pair eth_core, Chip* gateway_chip, std::set<uint32_t>& eth_channels_to_use);
 
     Chip* get_chip(const uint64_t asic_id);
 

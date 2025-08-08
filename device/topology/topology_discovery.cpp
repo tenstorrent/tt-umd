@@ -88,10 +88,12 @@ void TopologyDiscovery::discover_remote_chips() {
         active_eth_channels_per_chip.emplace(current_chip_asic_id, std::set<uint32_t>());
 
         if (is_using_eth_coords()) {
-            eth_coords.emplace(current_chip_asic_id, get_local_eth_coord(chip.get()).value());
+            auto local_eth_coord = get_local_eth_coord(chip.get());
+            if (local_eth_coord.has_value()) {
+                eth_coords.emplace(current_chip_asic_id, local_eth_coord.value());
+            }
         }
     }
-
     while (!chips_to_discover.empty()) {
         auto it = chips_to_discover.begin();
         uint64_t current_chip_asic_id = it->first;
@@ -188,10 +190,12 @@ void TopologyDiscovery::fill_cluster_descriptor_info() {
         cluster_desc->harvesting_masks_map.insert({current_chip_id, chip->get_chip_info().harvesting_masks});
 
         if (is_using_eth_coords()) {
-            eth_coord_t eth_coord = eth_coords.at(current_chip_asic_id);
-            cluster_desc->chip_locations.insert({current_chip_id, eth_coord});
-            cluster_desc->coords_to_chip_ids[eth_coord.rack][eth_coord.shelf][eth_coord.y][eth_coord.x] =
-                current_chip_id;
+            if (!eth_coords.empty()) {
+                eth_coord_t eth_coord = eth_coords.at(current_chip_asic_id);
+                cluster_desc->chip_locations.insert({current_chip_id, eth_coord});
+                cluster_desc->coords_to_chip_ids[eth_coord.rack][eth_coord.shelf][eth_coord.y][eth_coord.x] =
+                    current_chip_id;
+            }
         }
 
         cluster_desc->add_chip_to_board(current_chip_id, chip->get_chip_info().chip_uid.board_id);

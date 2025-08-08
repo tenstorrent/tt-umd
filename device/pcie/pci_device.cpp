@@ -214,6 +214,7 @@ static void reset_device(uint32_t flags) {
             if (ioctl(fd, TENSTORRENT_IOCTL_RESET_DEVICE, &reset_info) == -1) {
                 TT_THROW("TENSTORRENT_IOCTL_RESET_DEVICE failed");
             }
+            usleep(300'000);
         } catch (...) {
         }
 

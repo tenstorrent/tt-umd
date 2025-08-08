@@ -117,7 +117,7 @@ void RemoteChip::set_remote_transfer_ethernet_cores(const std::unordered_set<Cor
     remote_communication_->set_remote_transfer_ethernet_cores(cores);
 }
 
-void RemoteChip::set_remote_transfer_ethernet_cores(const std::set<uint32_t>& channel) {
+void RemoteChip::set_remote_transfer_ethernet_cores(const std::set<uint32_t>& channels) {
     remote_communication_->set_remote_transfer_ethernet_cores(channel);
 }
 

@@ -15,7 +15,10 @@ class LocalChip;
 
 class RemoteChip : public Chip {
 public:
-    RemoteChip(tt_SocDescriptor soc_descriptor, std::unique_ptr<RemoteWormholeTTDevice> remote_tt_device);
+    static std::unique_ptr<RemoteChip> create(
+        LocalChip* local_chip, eth_coord_t target_eth_coord, std::string sdesc_path = "");
+    static std::unique_ptr<RemoteChip> create(
+        LocalChip* local_chip, eth_coord_t target_eth_coord, tt_SocDescriptor soc_descriptor);
 
     bool is_mmio_capable() const override;
 
@@ -54,6 +57,11 @@ public:
     int get_numa_node() override;
 
 private:
+    RemoteChip(
+        tt_SocDescriptor soc_descriptor,
+        LocalChip* local_chip,
+        std::unique_ptr<RemoteWormholeTTDevice> remote_tt_device);
+
     LocalChip* local_chip_;
     RemoteCommunication* remote_communication_;
 

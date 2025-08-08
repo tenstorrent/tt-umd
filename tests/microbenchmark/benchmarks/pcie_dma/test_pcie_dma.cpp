@@ -11,36 +11,43 @@
 
 using namespace tt::umd;
 
-const chip_id_t chip = 0;
-const uint32_t one_mb = 1 << 20;
-const uint32_t one_gb = 1 << 30;
-const uint32_t NUM_ITERATIONS = 1000;
+constexpr chip_id_t chip = 0;
+constexpr uint32_t one_kb = 1 << 10;
+constexpr uint32_t one_mb = 1 << 20;
+constexpr uint32_t one_gb = 1 << 30;
+constexpr uint32_t NUM_ITERATIONS = 1000;
 
 static inline std::pair<double, double> perf_read_write(
     const uint32_t buf_size,
     const uint32_t num_iterations,
     const std::unique_ptr<Cluster>& cluster,
-    const CoreCoord core) {
+    const CoreCoord core,
+    const uint32_t address = 0) {
     std::vector<uint8_t> pattern(buf_size);
     test_utils::fill_with_random_bytes(&pattern[0], pattern.size());
 
-    auto now = std::chrono::steady_clock::now();
-    for (int i = 0; i < num_iterations; i++) {
-        cluster->dma_write_to_device(pattern.data(), pattern.size(), chip, core, 0x0);
+    double wr_bw;
+    {
+        auto now = std::chrono::steady_clock::now();
+        for (int i = 0; i < num_iterations; i++) {
+            cluster->dma_write_to_device(pattern.data(), pattern.size(), chip, core, address);
+        }
+        auto end = std::chrono::steady_clock::now();
+        auto ns = std::chrono::duration_cast<std::chrono::nanoseconds>(end - now).count();
+        wr_bw = test::utils::calc_speed(num_iterations * pattern.size(), ns);
     }
-    auto end = std::chrono::steady_clock::now();
-    auto ns = std::chrono::duration_cast<std::chrono::nanoseconds>(end - now).count();
-    double wr_bw = test::utils::calc_speed(num_iterations * pattern.size(), ns);
 
-    std::vector<uint8_t> readback(buf_size, 0x0);
-    now = std::chrono::steady_clock::now();
-    for (int i = 0; i < num_iterations; i++) {
-        cluster->dma_read_from_device(readback.data(), readback.size(), chip, core, 0x0);
+    double rd_bw;
+    {
+        std::vector<uint8_t> readback(buf_size, 0x0);
+        auto now = std::chrono::steady_clock::now();
+        for (int i = 0; i < num_iterations; i++) {
+            cluster->dma_read_from_device(readback.data(), readback.size(), chip, core, address);
+        }
+        auto end = std::chrono::steady_clock::now();
+        auto ns = std::chrono::duration_cast<std::chrono::nanoseconds>(end - now).count();
+        rd_bw = test::utils::calc_speed(num_iterations * readback.size(), ns);
     }
-    end = std::chrono::steady_clock::now();
-    ns = std::chrono::duration_cast<std::chrono::nanoseconds>(end - now).count();
-    double rd_bw = test::utils::calc_speed(num_iterations * readback.size(), ns);
-
     return std::make_pair(wr_bw, rd_bw);
 }
 
@@ -48,27 +55,28 @@ static inline std::pair<double, double> perf_sysmem_read_write(
     const uint32_t buf_size,
     const uint32_t num_iterations,
     const std::unique_ptr<SysmemBuffer>& sysmem_buffer,
-    const CoreCoord core) {
+    const CoreCoord core,
+    const uint32_t address = 0) {
     double wr_bw;
+    {
+        auto now = std::chrono::steady_clock::now();
+        for (int i = 0; i < num_iterations; i++) {
+            sysmem_buffer->dma_write_to_device(0, one_mb, core, address);
+        }
+        auto end = std::chrono::steady_clock::now();
+        auto ns = std::chrono::duration_cast<std::chrono::nanoseconds>(end - now).count();
+        wr_bw = test::utils::calc_speed(one_mb * num_iterations, ns);
+    }
+
     double rd_bw;
     {
         auto now = std::chrono::steady_clock::now();
-        for (int i = 0; i < NUM_ITERATIONS; i++) {
-            sysmem_buffer->dma_write_to_device(0, one_mb, core, 0);
+        for (int i = 0; i < num_iterations; i++) {
+            sysmem_buffer->dma_read_from_device(0, one_mb, core, address);
         }
         auto end = std::chrono::steady_clock::now();
         auto ns = std::chrono::duration_cast<std::chrono::nanoseconds>(end - now).count();
-        wr_bw = test::utils::calc_speed(one_mb * NUM_ITERATIONS, ns);
-    }
-
-    {
-        auto now = std::chrono::steady_clock::now();
-        for (int i = 0; i < NUM_ITERATIONS; i++) {
-            sysmem_buffer->dma_read_from_device(0, one_mb, core, 0);
-        }
-        auto end = std::chrono::steady_clock::now();
-        auto ns = std::chrono::duration_cast<std::chrono::nanoseconds>(end - now).count();
-        rd_bw = test::utils::calc_speed(one_mb * NUM_ITERATIONS, ns);
+        rd_bw = test::utils::calc_speed(one_mb * num_iterations, ns);
     }
 
     return std::make_pair(wr_bw, rd_bw);
@@ -88,7 +96,7 @@ static void guard_test_iommu() {
  * Test the PCIe DMA controller by using it to write random fixed-size pattern
  * to address of Tensix core, then reading them back and verifying.
  */
-TEST(MicrobenchmarkPCIeDMA, DMATensix) {
+TEST(MicrobenchmarkPCIeDMA, Tensix) {
     const std::vector<uint32_t> sizes = {
         1 * one_mb,
     };
@@ -126,7 +134,7 @@ TEST(MicrobenchmarkPCIeDMA, TensixSweepSizes) {
     const CoreCoord tensix_core = cluster->get_soc_descriptor(chip).get_cores(CoreType::TENSIX)[0];
     cluster->start_device(tt_device_params{});
 
-    const uint64_t limit_buf_size = one_mb;
+    constexpr uint64_t limit_buf_size = one_mb;
 
     const std::vector<std::string> headers = {
         "Size (bytes)",
@@ -156,7 +164,7 @@ TEST(MicrobenchmarkPCIeDMA, DramSweepSizes) {
     const CoreCoord dram_core = cluster->get_soc_descriptor(chip).get_cores(CoreType::DRAM)[0];
     cluster->start_device(tt_device_params{});
 
-    const uint64_t limit_buf_size = one_gb;
+    constexpr uint64_t limit_buf_size = one_gb;
 
     const std::vector<std::string> headers = {
         "Size (MB)",
@@ -182,7 +190,7 @@ TEST(MicrobenchmarkPCIeDMA, DramSweepSizes) {
  * Test the PCIe DMA controller by using it to write random fixed-size pattern
  * to address 0 of DRAM core, then reading them back and verifying.
  */
-TEST(MicrobenchmarkPCIeDMA, DMADram) {
+TEST(MicrobenchmarkPCIeDMA, Dram) {
     const std::vector<uint32_t> sizes = {
         1 * one_mb,
         2 * one_mb,
@@ -226,7 +234,7 @@ TEST(MicrobenchmarkPCIeDMA, DMADram) {
  * to address 0 of Tensix core, then reading them back and verifying.
  * This test measures BW of IO using PCIe DMA engine without overhead of copying data into DMA buffer.
  */
-TEST(MicrobenchmarkPCIeDMA, DMATensixZeroCopy) {
+TEST(MicrobenchmarkPCIeDMA, TensixZeroCopy) {
     guard_test_iommu();
 
     std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>(ClusterOptions{
@@ -237,7 +245,6 @@ TEST(MicrobenchmarkPCIeDMA, DMATensixZeroCopy) {
 
     SysmemManager* sysmem_manager = cluster->get_chip(mmio_chip)->get_sysmem_manager();
 
-    const uint32_t one_mb = 1 << 20;
     std::unique_ptr<SysmemBuffer> sysmem_buffer = sysmem_manager->allocate_sysmem_buffer(2 * one_mb);
 
     const std::vector<std::string> headers = {
@@ -263,7 +270,7 @@ TEST(MicrobenchmarkPCIeDMA, DMATensixZeroCopy) {
  * and no copying is done. It uses SysmemManager to map the buffer and then uses DMA to transfer data
  * to and from the device.
  */
-TEST(MicrobenchmarkPCIeDMA, DMATensixMapBufferZeroCopy) {
+TEST(MicrobenchmarkPCIeDMA, TensixMapBufferZeroCopy) {
     guard_test_iommu();
 
     std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>(ClusterOptions{
@@ -273,8 +280,6 @@ TEST(MicrobenchmarkPCIeDMA, DMATensixMapBufferZeroCopy) {
     const chip_id_t mmio_chip = *cluster->get_target_mmio_device_ids().begin();
 
     SysmemManager* sysmem_manager = cluster->get_chip(mmio_chip)->get_sysmem_manager();
-
-    const uint32_t one_mb = 1 << 20;
 
     const std::vector<std::string> headers = {
         "Size (MB)",
@@ -323,7 +328,7 @@ TEST(MicrobenchmarkPCIeDMA, DMATensixMapBufferZeroCopy) {
  * and no copying is done. It uses SysmemManager to map the buffer and then uses DMA to transfer data
  * to and from the device.
  */
-TEST(MicrobenchmarkPCIeDMA, DMADRAMZeroCopy) {
+TEST(MicrobenchmarkPCIeDMA, DRAMZeroCopy) {
     guard_test_iommu();
 
     const uint32_t NUM_ITERATIONS = 10;
@@ -335,10 +340,7 @@ TEST(MicrobenchmarkPCIeDMA, DMADRAMZeroCopy) {
 
     SysmemManager* sysmem_manager = cluster->get_chip(mmio_chip)->get_sysmem_manager();
 
-    const uint32_t one_mb = 1 << 20;
-    const uint32_t one_hundred_mb = 100 * one_mb;
-    const uint32_t two_hundred_mb = 200 * one_mb;
-    std::unique_ptr<SysmemBuffer> sysmem_buffer = sysmem_manager->allocate_sysmem_buffer(two_hundred_mb);
+    std::unique_ptr<SysmemBuffer> sysmem_buffer = sysmem_manager->allocate_sysmem_buffer(200 * one_mb);
 
     const std::vector<std::string> headers = {
         "Size (MB)",
@@ -355,5 +357,109 @@ TEST(MicrobenchmarkPCIeDMA, DMADRAMZeroCopy) {
     row.push_back(test::utils::convert_double_to_string(wr_bw));
     row.push_back(test::utils::convert_double_to_string(rd_bw));
     rows.push_back(row);
+    test::utils::print_markdown_table_format(headers, rows);
+}
+
+/**
+ * Test the PCIe DMA controller by using it to write random fixed-size pattern
+ * to address of Eth core.
+ */
+TEST(MicrobenchmarkPCIeDMA, Eth) {
+    const std::vector<uint32_t> sizes = {
+        128 * one_kb,
+    };
+
+    const std::vector<std::string> headers = {
+        "Size (KB)",
+        "Host -> Device Eth L1 (MB/s)",
+        "Device Eth L1 -> Host (MB/s)",
+    };
+
+    constexpr uint32_t address = 128 * one_kb;
+
+    std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
+    const CoreCoord eth_core = cluster->get_soc_descriptor(chip).get_cores(CoreType::ETH)[0];
+    cluster->start_device(tt_device_params{});
+
+    std::vector<std::vector<std::string>> rows;
+
+    for (uint32_t buf_size : sizes) {
+        std::vector<std::string> row;
+        row.push_back(test::utils::convert_double_to_string((double)buf_size / one_kb));
+        auto [wr_bw, rd_bw] = perf_read_write(buf_size, NUM_ITERATIONS, cluster, eth_core, address);
+        row.push_back(test::utils::convert_double_to_string(wr_bw));
+        row.push_back(test::utils::convert_double_to_string(rd_bw));
+        rows.push_back(row);
+    }
+
+    test::utils::print_markdown_table_format(headers, rows);
+}
+
+/**
+ * Test the PCIe DMA controller by using it to write random fixed-size pattern
+ * to address 128KB of Eth core.
+ * This test measures BW of IO using PCIe DMA engine without overhead of copying data into DMA buffer.
+ */
+TEST(MicrobenchmarkPCIeDMA, EthZeroCopy) {
+    guard_test_iommu();
+
+    std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
+
+    constexpr uint32_t buf_size = 128 * one_kb;
+    constexpr uint32_t address = 128 * one_kb;
+
+    const chip_id_t mmio_chip = *cluster->get_target_mmio_device_ids().begin();
+
+    SysmemManager* sysmem_manager = cluster->get_chip(mmio_chip)->get_sysmem_manager();
+
+    std::unique_ptr<SysmemBuffer> sysmem_buffer = sysmem_manager->allocate_sysmem_buffer(buf_size);
+
+    const std::vector<std::string> headers = {
+        "Size (KB)",
+        "Host -> Device Eth L1 (MB/s)",
+        "Device Eth L1 -> Host (MB/s)",
+    };
+
+    const CoreCoord eth_core = cluster->get_soc_descriptor(mmio_chip).get_cores(CoreType::ETH)[0];
+    std::vector<std::vector<std::string>> rows;
+    std::vector<std::string> row;
+    auto [wr_bw, rd_bw] = perf_sysmem_read_write(buf_size, NUM_ITERATIONS, sysmem_buffer, eth_core, address);
+    row.push_back(test::utils::convert_double_to_string((double)buf_size / one_kb));
+    row.push_back(test::utils::convert_double_to_string(wr_bw));
+    row.push_back(test::utils::convert_double_to_string(rd_bw));
+    rows.push_back(row);
+
+    test::utils::print_markdown_table_format(headers, rows);
+}
+
+/**
+ * Microbenchmark to test the PCIe DMA reads/writes to ETH by sweeping through
+ * different buffer sizes, starting from 4 bytes up to 128KB.
+ */
+TEST(MicrobenchmarkPCIeDMA, EthSweepSizes) {
+    std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
+    const CoreCoord eth_core = cluster->get_soc_descriptor(chip).get_cores(CoreType::ETH)[0];
+    cluster->start_device(tt_device_params{});
+
+    constexpr uint64_t limit_buf_size = 128 * one_kb;
+    constexpr uint32_t address = 128 * one_kb;
+
+    const std::vector<std::string> headers = {
+        "Size (KB)",
+        "Host -> Device Eth L1 (MB/s)",
+        "Device Eth L1 -> Host (MB/s)",
+    };
+
+    std::vector<std::vector<std::string>> rows;
+
+    for (uint64_t buf_size = 4; buf_size <= limit_buf_size; buf_size *= 2) {
+        std::vector<std::string> row;
+        row.push_back(test::utils::convert_double_to_string((double)buf_size / one_kb));
+        auto [wr_bw, rd_bw] = perf_read_write(buf_size, NUM_ITERATIONS, cluster, eth_core, address);
+        row.push_back(test::utils::convert_double_to_string(wr_bw));
+        row.push_back(test::utils::convert_double_to_string(rd_bw));
+        rows.push_back(row);
+    }
+
     test::utils::print_markdown_table_format(headers, rows);
 }

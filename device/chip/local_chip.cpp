@@ -25,42 +25,49 @@ static_assert(!std::is_abstract<LocalChip>(), "LocalChip must be non-abstract.")
 // TLB size for DRAM on blackhole - 4GB
 const uint64_t BH_4GB_TLB_SIZE = 4ULL * 1024 * 1024 * 1024;
 
-LocalChip::LocalChip(tt_SocDescriptor soc_descriptor, int pci_device_id, int num_host_mem_channels) :
-    Chip(soc_descriptor) {
-    tt_device_ = TTDevice::create(pci_device_id);
-    chip_info_ = tt_device_->get_chip_info();
-    tlb_manager_ = std::make_unique<TLBManager>(tt_device_.get());
-    sysmem_manager_ = std::make_unique<SysmemManager>(tlb_manager_.get(), num_host_mem_channels);
-    remote_communication_ = std::make_unique<RemoteCommunication>(this);
-    initialize_local_chip();
-}
+std::unique_ptr<LocalChip> LocalChip::create(int pci_device_id, std::string sdesc_path, int num_host_mem_channels) {
+    // Create TTDevice and make sure the arc is ready so we can read its telemetry.
+    auto tt_device = TTDevice::create(pci_device_id);
+    tt_device->wait_arc_core_start();
 
-LocalChip::LocalChip(std::string sdesc_path, std::unique_ptr<TTDevice> tt_device) :
-    Chip(
-        tt_device->get_chip_info(),
-        tt_SocDescriptor(
-            sdesc_path,
-            tt_device->get_chip_info().noc_translation_enabled,
-            tt_device->get_chip_info().harvesting_masks,
-            tt_device->get_chip_info().board_type)),
-    tlb_manager_(std::make_unique<TLBManager>(tt_device.get())),
-    sysmem_manager_(std::make_unique<SysmemManager>(tlb_manager_.get(), 0)) {
-    tt_device_ = std::move(tt_device);
-    initialize_local_chip();
-}
-
-LocalChip::LocalChip(std::unique_ptr<TTDevice> tt_device) :
-    Chip(
-        tt_device->get_chip_info(),
-        tt_SocDescriptor(
+    tt_SocDescriptor soc_descriptor;
+    if (sdesc_path.empty()) {
+        // In case soc descriptor yaml wasn't passed, we create soc descriptor with default values for the architecture.
+        soc_descriptor = tt_SocDescriptor(
             tt_device->get_arch(),
             tt_device->get_chip_info().noc_translation_enabled,
             tt_device->get_chip_info().harvesting_masks,
-            tt_device->get_chip_info().board_type)),
-    tlb_manager_(std::make_unique<TLBManager>(tt_device.get())),
-    sysmem_manager_(std::make_unique<SysmemManager>(tlb_manager_.get(), 0)) {
-    tt_device_ = std::move(tt_device);
-    initialize_local_chip();
+            tt_device->get_chip_info().board_type);
+    } else {
+        soc_descriptor = tt_SocDescriptor(
+            sdesc_path,
+            tt_device->get_chip_info().noc_translation_enabled,
+            tt_device->get_chip_info().harvesting_masks,
+            tt_device->get_chip_info().board_type);
+    }
+
+    return std::unique_ptr<tt::umd::LocalChip>(
+        new LocalChip(soc_descriptor, std::move(tt_device), num_host_mem_channels));
+}
+
+std::unique_ptr<LocalChip> LocalChip::create(
+    int pci_device_id, tt_SocDescriptor soc_descriptor, int num_host_mem_channels) {
+    // Create TTDevice and make sure the arc is ready so we can read its telemetry.
+    auto tt_device = TTDevice::create(pci_device_id);
+    tt_device->wait_arc_core_start();
+
+    return std::unique_ptr<tt::umd::LocalChip>(
+        new LocalChip(soc_descriptor, std::move(tt_device), num_host_mem_channels));
+}
+
+LocalChip::LocalChip(tt_SocDescriptor soc_descriptor, std::unique_ptr<TTDevice> tt_device, int num_host_mem_channels) :
+    Chip(tt_device->get_chip_info(), soc_descriptor), tt_device_(std::move(tt_device)) {
+    tlb_manager_ = std::make_unique<TLBManager>(tt_device_.get());
+    sysmem_manager_ = std::make_unique<SysmemManager>(tlb_manager_.get(), num_host_mem_channels);
+    remote_communication_ = std::make_unique<RemoteCommunication>(this);
+    initialize_tlb_manager();
+    wait_chip_to_be_ready();
+    initialize_default_chip_mutexes();
 }
 
 LocalChip::~LocalChip() {
@@ -70,12 +77,6 @@ LocalChip::~LocalChip() {
     sysmem_manager_.reset();
     tlb_manager_.reset();
     tt_device_.reset();
-}
-
-void LocalChip::initialize_local_chip() {
-    initialize_tlb_manager();
-    wait_chip_to_be_ready();
-    initialize_default_chip_mutexes();
 }
 
 void LocalChip::initialize_tlb_manager() {
@@ -177,7 +178,7 @@ void LocalChip::read_from_sysmem(uint16_t channel, void* dest, uint64_t sysmem_s
 void LocalChip::write_to_device(CoreCoord core, const void* src, uint64_t l1_dest, uint32_t size) {
     const uint8_t* buffer_addr = static_cast<const uint8_t*>(src);
 
-    log_debug(
+    log_trace(
         LogSiliconDriver,
         "Chip::write_to_device to pci dev {} core {} at 0x{:x} size: {}",
         tt_device_->get_pci_device()->get_device_num(),
@@ -215,12 +216,12 @@ void LocalChip::write_to_device(CoreCoord core, const void* src, uint64_t l1_des
             l1_dest += transfer_size;
             buffer_addr += transfer_size;
         }
-        log_debug(LogSiliconDriver, "Write done Dynamic TLB with pid={}", (long)getpid());
+        log_trace(LogSiliconDriver, "Write done Dynamic TLB with pid={}", (long)getpid());
     }
 }
 
 void LocalChip::read_from_device(CoreCoord core, void* dest, uint64_t l1_src, uint32_t size) {
-    log_debug(
+    log_trace(
         LogSiliconDriver,
         "Chip::read_from_device from pci device {} core {} at 0x{:x} size: {}",
         tt_device_->get_pci_device()->get_device_num(),
@@ -241,7 +242,7 @@ void LocalChip::read_from_device(CoreCoord core, void* dest, uint64_t l1_src, ui
         } else {
             tt_device_->read_block(tlb_description.tlb_offset + l1_src % tlb_description.size, size, buffer_addr);
         }
-        log_debug(
+        log_trace(
             LogSiliconDriver,
             "  read_block called with tlb_offset: {}, tlb_size: {}",
             tlb_description.tlb_offset,
@@ -250,7 +251,7 @@ void LocalChip::read_from_device(CoreCoord core, void* dest, uint64_t l1_src, ui
         std::string fallback_tlb = "LARGE_READ_TLB";
         const auto tlb_index = tlb_manager_->dynamic_tlb_config_.at(fallback_tlb);
         auto lock = acquire_mutex(fallback_tlb, tt_device_->get_pci_device()->get_device_num());
-        log_debug(LogSiliconDriver, "  dynamic tlb_index: {}", tlb_index);
+        log_trace(LogSiliconDriver, "  dynamic tlb_index: {}", tlb_index);
         while (size > 0) {
             auto [mapped_address, tlb_size] = tt_device_->set_dynamic_tlb(
                 tlb_index,
@@ -264,7 +265,7 @@ void LocalChip::read_from_device(CoreCoord core, void* dest, uint64_t l1_src, ui
             l1_src += transfer_size;
             buffer_addr += transfer_size;
         }
-        log_debug(LogSiliconDriver, "Read done Dynamic TLB with pid={}", (long)getpid());
+        log_trace(LogSiliconDriver, "Read done Dynamic TLB with pid={}", (long)getpid());
     }
 }
 

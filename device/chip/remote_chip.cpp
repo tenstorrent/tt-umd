@@ -16,12 +16,44 @@ namespace tt::umd {
 
 static_assert(!std::is_abstract<RemoteChip>(), "RemoteChip must be non-abstract.");
 
-RemoteChip::RemoteChip(tt_SocDescriptor soc_descriptor, std::unique_ptr<RemoteWormholeTTDevice> remote_tt_device) :
-    Chip(soc_descriptor) {
-    local_chip_ = remote_tt_device->get_local_chip();
+std::unique_ptr<RemoteChip> RemoteChip::create(
+    LocalChip* local_chip, eth_coord_t target_eth_coord, std::string sdesc_path) {
+    auto remote_tt_device = std::make_unique<RemoteWormholeTTDevice>(local_chip, target_eth_coord);
+    remote_tt_device->wait_arc_core_start();
+
+    tt_SocDescriptor soc_descriptor;
+    if (sdesc_path.empty()) {
+        soc_descriptor = tt_SocDescriptor(
+            remote_tt_device->get_arch(),
+            remote_tt_device->get_chip_info().noc_translation_enabled,
+            remote_tt_device->get_chip_info().harvesting_masks,
+            remote_tt_device->get_chip_info().board_type);
+    } else {
+        soc_descriptor = tt_SocDescriptor(
+            sdesc_path,
+            remote_tt_device->get_chip_info().noc_translation_enabled,
+            remote_tt_device->get_chip_info().harvesting_masks,
+            remote_tt_device->get_chip_info().board_type);
+    }
+
+    return std::unique_ptr<tt::umd::RemoteChip>(
+        new RemoteChip(soc_descriptor, local_chip, std::move(remote_tt_device)));
+}
+
+std::unique_ptr<RemoteChip> RemoteChip::create(
+    LocalChip* local_chip, eth_coord_t target_eth_coord, tt_SocDescriptor soc_descriptor) {
+    auto remote_tt_device = std::make_unique<RemoteWormholeTTDevice>(local_chip, target_eth_coord);
+    remote_tt_device->wait_arc_core_start();
+
+    return std::unique_ptr<tt::umd::RemoteChip>(
+        new RemoteChip(soc_descriptor, local_chip, std::move(remote_tt_device)));
+}
+
+RemoteChip::RemoteChip(
+    tt_SocDescriptor soc_descriptor, LocalChip* local_chip, std::unique_ptr<RemoteWormholeTTDevice> remote_tt_device) :
+    Chip(remote_tt_device->get_chip_info(), soc_descriptor), local_chip_(local_chip) {
     remote_communication_ = remote_tt_device->get_remote_communication();
     tt_device_ = std::move(remote_tt_device);
-    chip_info_ = tt_device_->get_chip_info();
     TT_ASSERT(soc_descriptor_.arch != tt::ARCH::BLACKHOLE, "Non-MMIO targets not supported in Blackhole");
     wait_chip_to_be_ready();
 }

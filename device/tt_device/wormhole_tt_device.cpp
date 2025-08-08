@@ -137,10 +137,10 @@ bool WormholeTTDevice::wait_arc_core_init(const uint32_t timeout_ms) {
         switch (bar_read_arc_reset_scratch_status) {
             case STATUS_NO_ACCESS:
                 log_debug(LogSiliconDriver, "NoAccess error");
-                continue;
+                return false;
             case STATUS_WATCHDOG_TRIGGERED:
                 log_debug(LogSiliconDriver, "WatchdogTriggered error");
-                continue;
+                return false;
             case STATUS_BOOT_INCOMPLETE_1:
             case STATUS_BOOT_INCOMPLETE_2:
                 log_debug(LogSiliconDriver, "BootIncomplete error");

@@ -104,14 +104,15 @@ void WarmReset::warm_reset_wormhole(bool reset_m3) {
     tt_devices.reserve(pci_device_ids.size());
 
     for (auto& i : pci_device_ids) {
-        tt_devices.emplace_back(TTDevice::create(i));
+        auto tt_device = TTDevice::create(i);
+        if (!tt_device->wait_arc_core_init(300'000)) {
+            log_warning(tt::LogSiliconDriver, "Reset failed for pci id {} - ARC core init failed", i);
+            continue;
+        }
+        tt_devices.emplace_back(std::move(tt_device));
     }
 
     for (auto& tt_device : tt_devices) {
-        if (!tt_device->wait_arc_core_init(300'000)) {
-            log_error(tt::LogSiliconDriver, "Reset failed - ARC core init failed");
-            return;
-        }
         tt_device->init_tt_device();
         tt_device->wait_arc_core_start();
     }

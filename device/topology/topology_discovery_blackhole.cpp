@@ -36,31 +36,6 @@ std::optional<eth_coord_t> TopologyDiscoveryBlackhole::get_remote_eth_coord(Chip
     return std::nullopt;
 }
 
-uint64_t TopologyDiscoveryBlackhole::get_asic_id(Chip* chip) {
-    // This function should return a unique ID for the chip. At the moment we are going to use mangled board ID
-    // and asic location from active (connected) ETH cores. If we have multiple ETH cores, we will use the first one.
-    // If we have no ETH cores, we will use the board ID, since no other chip can have the same board ID.
-    // Using board ID should happen only for unconnected N150.
-    const uint32_t eth_unknown = 0;
-    const uint32_t eth_unconnected = 1;
-    std::vector<CoreCoord> eth_cores =
-        chip->get_soc_descriptor().get_cores(CoreType::ETH, umd_use_noc1 ? CoordSystem::NOC1 : CoordSystem::NOC0);
-
-    uint32_t channel = 0;
-    for (const CoreCoord& eth_core : eth_cores) {
-        uint32_t port_status = read_port_status(chip, eth_core);
-
-        if (port_status == eth_unknown || port_status == eth_unconnected) {
-            channel++;
-            continue;
-        }
-
-        return get_local_asic_id(chip, eth_core);
-    }
-
-    return chip->get_tt_device()->get_board_id();
-}
-
 uint64_t TopologyDiscoveryBlackhole::get_remote_board_id(Chip* chip, tt_xy_pair eth_core) {
     blackhole::boot_results_t boot_results;
     TTDevice* tt_device = chip->get_tt_device();

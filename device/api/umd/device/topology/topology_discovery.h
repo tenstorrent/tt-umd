@@ -17,8 +17,7 @@ namespace tt::umd {
 
 class tt_ClusterDescriptor;
 
-// TopologyDiscovery class creates cluster descriptor only for Wormhole configurations with old routing fw.
-// TODO: Move Blackhole topology discovery to this class.
+// TopologyDiscovery class creates cluster descriptor by discovering all chips connected to the system.
 class TopologyDiscovery {
 public:
     static std::unique_ptr<tt_ClusterDescriptor> create_cluster_descriptor(
@@ -61,9 +60,8 @@ protected:
     // eth_core should be in NoC 0 coordinates.
     virtual uint64_t get_remote_asic_id(Chip* chip, tt_xy_pair eth_core) = 0;
 
-    virtual uint64_t get_asic_id(Chip* chip) = 0;
+    uint64_t get_asic_id(Chip* chip);
 
-    // TODO: move this function to class specific for WH with old FW.
     virtual std::optional<eth_coord_t> get_local_eth_coord(Chip* chip) = 0;
 
     virtual std::optional<eth_coord_t> get_remote_eth_coord(Chip* chip, tt_xy_pair eth_core) = 0;

@@ -3,7 +3,7 @@ arch:
 chips:
   {}
 chip_unique_ids:
-  0: 0
+  0: 4402341478400
 ethernet_connections:
   []
 ethernet_connections_to_remote_devices:

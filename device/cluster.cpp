@@ -449,9 +449,7 @@ void Cluster::configure_active_ethernet_cores_for_mmio_device(
         }
     }
     // Local chips hold communication primitives for broadcasting, so we have to set this up for them as well.
-    for (const auto& local_chip_id : local_chip_ids_) {
-        get_local_chip(local_chip_id)->set_remote_transfer_ethernet_cores(active_eth_cores_per_chip);
-    }
+    get_local_chip(mmio_chip)->set_remote_transfer_ethernet_cores(active_eth_cores_per_chip);
 }
 
 std::set<chip_id_t> Cluster::get_target_device_ids() { return all_chip_ids_; }

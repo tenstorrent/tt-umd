@@ -479,6 +479,46 @@ TEST(TestCluster, TestClusterAICLKControl) {
     }
 }
 
+std::string find_tt_smi() {
+    // Check common locations first (fastest)
+    std::vector<std::string> common_paths = {
+        "/usr/local/bin/tt-smi", "/usr/bin/tt-smi", "/opt/tenstorrent/bin/tt-smi", "/opt/tt/bin/tt-smi"};
+
+    for (const auto& path : common_paths) {
+        if (access(path.c_str(), X_OK) == 0) {
+            return path;
+        }
+    }
+
+    // Fallback to find if not in common locations
+    FILE* pipe = popen("find /usr /opt -maxdepth 3 -name 'tt-smi' -type f -executable 2>/dev/null | head -1", "r");
+    if (!pipe) {
+        return "";
+    }
+
+    char buffer[512];
+    std::string result;
+    if (fgets(buffer, sizeof(buffer), pipe)) {
+        result = buffer;
+        if (!result.empty() && result.back() == '\n') {
+            result.pop_back();
+        }
+    }
+    pclose(pipe);
+    return result;
+}
+
+int run_tt_smi_reset() {
+    std::string path = find_tt_smi();
+    if (path.empty()) {
+        return -1;  // Not found
+    }
+
+    return system((path + " -r").c_str());
+}
+
+TEST(TestCluster, FindTTSMI) { std::cout << "tt-smi path: " << find_tt_smi() << "\n"; }
+
 TEST(TestCluster, WarmReset) {
     std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
 

@@ -25,7 +25,7 @@ std::unique_ptr<tt_ClusterDescriptor> TopologyDiscovery::create_cluster_descript
     std::unordered_set<chip_id_t> pci_target_devices, const std::string& sdesc_path) {
     auto pci_devices_info = PCIDevice::enumerate_devices_info();
     if (pci_devices_info.empty()) {
-        return nullptr;
+        return std::make_unique<tt_ClusterDescriptor>();
     }
 
     switch (pci_devices_info.begin()->second.get_arch()) {

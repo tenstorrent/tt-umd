@@ -37,6 +37,7 @@ class tt_ClusterDescriptor {
 
 public:
     /* Construction related functions. */
+    tt_ClusterDescriptor() = default;
 
     /**
      * Serializes the cluster descriptor to a YAML string.
@@ -239,8 +240,6 @@ public:
     chip_id_t get_shelf_local_physical_chip_coords(chip_id_t virtual_coord);
 
 private:
-    tt_ClusterDescriptor() = default;
-
     int get_ethernet_link_coord_distance(const eth_coord_t &location_a, const eth_coord_t &location_b) const;
 
     // Helpers during construction of cluster descriptor.

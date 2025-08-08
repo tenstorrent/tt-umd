@@ -13,7 +13,7 @@ namespace nb = nanobind;
 
 using namespace tt::umd;
 
-NB_MODULE(libdevice, m) {
+NB_MODULE(tt_umd, m) {
     nb::class_<Cluster>(m, "Cluster")
         .def(nb::init<>())
         .def("get_target_device_ids", &Cluster::get_target_device_ids)

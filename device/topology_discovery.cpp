@@ -89,8 +89,13 @@ std::unique_ptr<RemoteChip> TopologyDiscovery::create_remote_chip(
 
     auto local_chip = dynamic_cast<LocalChip*>(gateway_chip);
     auto eth_coord = get_remote_eth_coord(chip, eth_core);
+    std::unordered_set<CoreCoord> eth_cores_to_use;
+    for (auto channel : eth_channels_to_use) {
+        eth_cores_to_use.insert(
+            local_chip->get_soc_descriptor().get_eth_core_for_channel(channel, CoordSystem::TRANSLATED));
+    }
 
-    return RemoteChip::create(local_chip, eth_coord, sdesc_path);
+    return RemoteChip::create(local_chip, eth_coord, eth_cores_to_use, sdesc_path);
 }
 
 std::optional<eth_coord_t> TopologyDiscovery::get_local_eth_coord(Chip* chip) {

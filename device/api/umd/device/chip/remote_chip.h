@@ -15,9 +15,8 @@ class LocalChip;
 
 class RemoteChip : public Chip {
 public:
-    static std::unique_ptr<RemoteChip> create(LocalChip* local_chip, eth_coord_t target_eth_coord);
     static std::unique_ptr<RemoteChip> create(
-        LocalChip* local_chip, eth_coord_t target_eth_coord, std::string sdesc_path);
+        LocalChip* local_chip, eth_coord_t target_eth_coord, std::string sdesc_path = "");
     static std::unique_ptr<RemoteChip> create(
         LocalChip* local_chip, eth_coord_t target_eth_coord, tt_SocDescriptor soc_descriptor);
 

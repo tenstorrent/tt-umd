@@ -16,35 +16,25 @@ namespace tt::umd {
 
 static_assert(!std::is_abstract<RemoteChip>(), "RemoteChip must be non-abstract.");
 
-std::unique_ptr<RemoteChip> RemoteChip::create(LocalChip* local_chip, eth_coord_t target_eth_coord) {
-    auto remote_tt_device = std::make_unique<RemoteWormholeTTDevice>(local_chip, target_eth_coord);
-    // TODO: Do we need wait arc core start here?
-    // remote_tt_device->wait_arc_core_start();
-
-    auto soc_descriptor = tt_SocDescriptor(
-        remote_tt_device->get_arch(),
-        remote_tt_device->get_chip_info().noc_translation_enabled,
-        remote_tt_device->get_chip_info().harvesting_masks,
-        remote_tt_device->get_chip_info().board_type);
-
-    return std::unique_ptr<tt::umd::RemoteChip>(
-        new RemoteChip(soc_descriptor, local_chip, std::move(remote_tt_device)));
-}
-
 std::unique_ptr<RemoteChip> RemoteChip::create(
     LocalChip* local_chip, eth_coord_t target_eth_coord, std::string sdesc_path) {
-    // Just a convenience, if we're not sure if the sdesc_path is empty, we can just call this function which will call
-    // the other version if passed sdesc_path is empty.
-    if (sdesc_path.empty()) {
-        return create(local_chip, target_eth_coord);
-    }
     auto remote_tt_device = std::make_unique<RemoteWormholeTTDevice>(local_chip, target_eth_coord);
+    remote_tt_device->wait_arc_core_start();
 
-    auto soc_descriptor = tt_SocDescriptor(
-        sdesc_path,
-        remote_tt_device->get_chip_info().noc_translation_enabled,
-        remote_tt_device->get_chip_info().harvesting_masks,
-        remote_tt_device->get_chip_info().board_type);
+    tt_SocDescriptor soc_descriptor;
+    if (sdesc_path.empty()) {
+        soc_descriptor = tt_SocDescriptor(
+            remote_tt_device->get_arch(),
+            remote_tt_device->get_chip_info().noc_translation_enabled,
+            remote_tt_device->get_chip_info().harvesting_masks,
+            remote_tt_device->get_chip_info().board_type);
+    } else {
+        soc_descriptor = tt_SocDescriptor(
+            sdesc_path,
+            remote_tt_device->get_chip_info().noc_translation_enabled,
+            remote_tt_device->get_chip_info().harvesting_masks,
+            remote_tt_device->get_chip_info().board_type);
+    }
 
     return std::unique_ptr<tt::umd::RemoteChip>(
         new RemoteChip(soc_descriptor, local_chip, std::move(remote_tt_device)));
@@ -53,6 +43,7 @@ std::unique_ptr<RemoteChip> RemoteChip::create(
 std::unique_ptr<RemoteChip> RemoteChip::create(
     LocalChip* local_chip, eth_coord_t target_eth_coord, tt_SocDescriptor soc_descriptor) {
     auto remote_tt_device = std::make_unique<RemoteWormholeTTDevice>(local_chip, target_eth_coord);
+    remote_tt_device->wait_arc_core_start();
 
     return std::unique_ptr<tt::umd::RemoteChip>(
         new RemoteChip(soc_descriptor, local_chip, std::move(remote_tt_device)));

@@ -25,36 +25,26 @@ static_assert(!std::is_abstract<LocalChip>(), "LocalChip must be non-abstract.")
 // TLB size for DRAM on blackhole - 4GB
 const uint64_t BH_4GB_TLB_SIZE = 4ULL * 1024 * 1024 * 1024;
 
-std::unique_ptr<LocalChip> LocalChip::create(int pci_device_id, int num_host_mem_channels) {
-    // Create TTDevice and make sure the arc is ready so we can read its telemetry.
-    auto tt_device = TTDevice::create(pci_device_id);
-    tt_device->wait_arc_core_start();
-
-    auto soc_descriptor = tt_SocDescriptor(
-        tt_device->get_arch(),
-        tt_device->get_chip_info().noc_translation_enabled,
-        tt_device->get_chip_info().harvesting_masks,
-        tt_device->get_chip_info().board_type);
-
-    return std::unique_ptr<tt::umd::LocalChip>(
-        new LocalChip(soc_descriptor, std::move(tt_device), num_host_mem_channels));
-}
-
 std::unique_ptr<LocalChip> LocalChip::create(int pci_device_id, std::string sdesc_path, int num_host_mem_channels) {
-    // Just a convenience, if we're not sure if the sdesc_path is empty, we can just call this function which will call
-    // the other version if passed sdesc_path is empty.
-    if (sdesc_path.empty()) {
-        return create(pci_device_id, num_host_mem_channels);
-    }
     // Create TTDevice and make sure the arc is ready so we can read its telemetry.
     auto tt_device = TTDevice::create(pci_device_id);
     tt_device->wait_arc_core_start();
 
-    auto soc_descriptor = tt_SocDescriptor(
-        sdesc_path,
-        tt_device->get_chip_info().noc_translation_enabled,
-        tt_device->get_chip_info().harvesting_masks,
-        tt_device->get_chip_info().board_type);
+    tt_SocDescriptor soc_descriptor;
+    if (sdesc_path.empty()) {
+        // In case soc descriptor yaml wasn't passed, we create soc descriptor with default values for the architecture.
+        soc_descriptor = tt_SocDescriptor(
+            tt_device->get_arch(),
+            tt_device->get_chip_info().noc_translation_enabled,
+            tt_device->get_chip_info().harvesting_masks,
+            tt_device->get_chip_info().board_type);
+    } else {
+        soc_descriptor = tt_SocDescriptor(
+            sdesc_path,
+            tt_device->get_chip_info().noc_translation_enabled,
+            tt_device->get_chip_info().harvesting_masks,
+            tt_device->get_chip_info().board_type);
+    }
 
     return std::unique_ptr<tt::umd::LocalChip>(
         new LocalChip(soc_descriptor, std::move(tt_device), num_host_mem_channels));

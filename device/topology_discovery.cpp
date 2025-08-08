@@ -86,26 +86,10 @@ std::unique_ptr<RemoteChip> TopologyDiscovery::create_remote_chip(Chip* chip, tt
         return nullptr;
     }
 
-    std::unique_ptr<RemoteWormholeTTDevice> remote_tt_device = std::make_unique<RemoteWormholeTTDevice>(
-        dynamic_cast<LocalChip*>(gateway_chip), get_remote_eth_coord(chip, eth_core));
+    auto local_chip = dynamic_cast<LocalChip*>(gateway_chip);
+    auto eth_coord = get_remote_eth_coord(chip, eth_core);
 
-    ChipInfo chip_info = remote_tt_device->get_chip_info();
-
-    std::unique_ptr<RemoteChip> remote_chip = nullptr;
-    if (sdesc_path != "") {
-        remote_chip = std::make_unique<RemoteChip>(
-            tt_SocDescriptor(sdesc_path, chip_info.noc_translation_enabled), std::move(remote_tt_device));
-    } else {
-        remote_chip = std::make_unique<RemoteChip>(
-            tt_SocDescriptor(
-                remote_tt_device->get_arch(),
-                chip_info.noc_translation_enabled,
-                chip_info.harvesting_masks,
-                chip_info.board_type),
-            std::move(remote_tt_device));
-    }
-
-    return remote_chip;
+    return RemoteChip::create(local_chip, eth_coord, sdesc_path);
 }
 
 std::optional<eth_coord_t> TopologyDiscovery::get_local_eth_coord(Chip* chip) {
@@ -158,12 +142,7 @@ void TopologyDiscovery::get_pcie_connected_chips() {
 
     bool read_eth_addresses = false;
     for (auto& device_id : pci_device_ids) {
-        std::unique_ptr<LocalChip> chip = nullptr;
-        if (sdesc_path != "") {
-            chip = std::make_unique<LocalChip>(sdesc_path, TTDevice::create(device_id));
-        } else {
-            chip = std::make_unique<LocalChip>(TTDevice::create(device_id));
-        }
+        std::unique_ptr<LocalChip> chip = LocalChip::create(device_id, sdesc_path);
 
         // ETH addresses need to be initialized after the first chip is created, so we could
         // read the information about offsets of board IDs on ETH core.

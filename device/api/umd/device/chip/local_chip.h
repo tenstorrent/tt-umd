@@ -15,11 +15,13 @@ namespace tt::umd {
 
 class LocalChip : public Chip {
 public:
-    LocalChip(tt_SocDescriptor soc_descriptor, int pci_device_id, int num_host_mem_channels = 0);
-
-    LocalChip(std::string sdesc_path, std::unique_ptr<TTDevice> tt_device);
-
-    LocalChip(std::unique_ptr<TTDevice> tt_device);
+    // In some of the constructor implementations, we want to create TTDevice objects and then use them to obtain the
+    // necessary information needed for soc descriptor construction. Due to this inverse member initialization order, we
+    // cannot have simple constructors as they require the base class to be constructed first.
+    static std::unique_ptr<LocalChip> create(
+        int pci_device_id, std::string sdesc_path = "", int num_host_mem_channels = 0);
+    static std::unique_ptr<LocalChip> create(
+        int pci_device_id, tt_SocDescriptor soc_descriptor, int num_host_mem_channels = 0);
 
     ~LocalChip();
 
@@ -75,6 +77,8 @@ public:
     std::unique_lock<RobustMutex> acquire_mutex(MutexType mutex_type, int pci_device_id);
 
 private:
+    LocalChip(tt_SocDescriptor soc_descriptor, std::unique_ptr<TTDevice> tt_device, int num_host_mem_channels = 0);
+
     std::unique_ptr<TLBManager> tlb_manager_;
     std::unique_ptr<SysmemManager> sysmem_manager_;
     LockManager lock_manager_;
@@ -85,7 +89,6 @@ private:
     int active_eth_core_idx = 0;
     bool flush_non_mmio_ = false;
 
-    void initialize_local_chip();
     void initialize_tlb_manager();
     void initialize_default_chip_mutexes();
     void initialize_membars();

@@ -325,7 +325,7 @@ dynamic_tlb TTDevice::set_dynamic_tlb(
         }
             .apply_offset(tlb_config.offset);
 
-    log_debug(
+    log_trace(
         LogSiliconDriver,
         "set_dynamic_tlb() with tlb_index: {} tlb_index_offset: {} dynamic_tlb_size: {}MB tlb_base: 0x{:x} "
         "tlb_cfg_reg: 0x{:x} to core ({},{})",

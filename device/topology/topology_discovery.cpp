@@ -216,9 +216,10 @@ void TopologyDiscovery::fill_cluster_descriptor_info() {
             ethernet_connection_remote.first, ethernet_connection_remote.second};
     }
 
+    const uint32_t num_eth_channels = chips.begin()->second->get_soc_descriptor().get_cores(CoreType::ETH).size();
     for (auto [current_chip_asic_id, active_eth_channels] : active_eth_channels_per_chip) {
         chip_id_t current_chip_id = asic_id_to_chip_id.at(current_chip_asic_id);
-        for (int i = 0; i < wormhole::NUM_ETH_CHANNELS; i++) {
+        for (int i = 0; i < num_eth_channels; i++) {
             cluster_desc->idle_eth_channels[current_chip_id].insert(i);
         }
 

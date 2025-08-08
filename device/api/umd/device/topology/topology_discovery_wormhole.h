@@ -40,8 +40,6 @@ protected:
 
     uint64_t get_remote_asic_id(Chip* chip, tt_xy_pair eth_core) override;
 
-    uint64_t get_asic_id(Chip* chip) override;
-
     std::optional<eth_coord_t> get_local_eth_coord(Chip* chip) override;
 
     std::optional<eth_coord_t> get_remote_eth_coord(Chip* chip, tt_xy_pair eth_core) override;

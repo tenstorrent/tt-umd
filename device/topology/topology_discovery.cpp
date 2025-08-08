@@ -157,7 +157,6 @@ void TopologyDiscovery::fill_cluster_descriptor_info() {
     std::map<uint64_t, chip_id_t> asic_id_to_chip_id;
     chip_id_t chip_id = 0;
     for (const auto& [current_chip_asic_id, chip] : chips) {
-        std::cout << "current_chip_asic_id: " << current_chip_asic_id << std::endl;
         if (chip->is_mmio_capable()) {
             asic_id_to_chip_id.emplace(current_chip_asic_id, chip_id);
             cluster_desc->chip_unique_ids.emplace(chip_id, current_chip_asic_id);
@@ -243,6 +242,27 @@ Chip* TopologyDiscovery::get_chip(const uint64_t asic_id) {
         return chips_to_discover.at(asic_id).get();
     }
     return chips.at(asic_id).get();
+}
+
+uint64_t TopologyDiscovery::get_asic_id(Chip* chip) {
+    // This function should return a unique ID for the chip. At the moment we are going to use mangled board ID
+    // and asic location from active (connected) ETH cores. If we have multiple ETH cores, we will use the first one.
+    // If we have no ETH cores, we will use the board ID, since no other chip can have the same board ID.
+    // Using board ID should happen only for unconnected boards (N150, P150).
+    std::vector<CoreCoord> eth_cores =
+        chip->get_soc_descriptor().get_cores(CoreType::ETH, umd_use_noc1 ? CoordSystem::NOC1 : CoordSystem::NOC0);
+
+    for (const CoreCoord& eth_core : eth_cores) {
+        uint32_t port_status = read_port_status(chip, eth_core);
+
+        if (is_eth_unknown(chip, eth_core) || is_eth_unconnected(chip, eth_core)) {
+            continue;
+        }
+
+        return get_local_asic_id(chip, eth_core);
+    }
+
+    return chip->get_tt_device()->get_board_id();
 }
 
 }  // namespace tt::umd

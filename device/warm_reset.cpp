@@ -108,8 +108,10 @@ void WarmReset::warm_reset_wormhole(bool reset_m3) {
     }
 
     for (auto& tt_device : tt_devices) {
-        tt_device->wait_arc_core_init(300'000);
-        // add throw here
+        if (!tt_device->wait_arc_core_init(300'000)) {
+            log_error(tt::LogSiliconDriver, "Reset failed - ARC core init failed");
+            return;
+        }
         tt_device->init_tt_device();
         tt_device->wait_arc_core_start();
     }

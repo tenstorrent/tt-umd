@@ -478,7 +478,6 @@ std::unique_ptr<tt_ClusterDescriptor> tt_ClusterDescriptor::create_constrained_c
     desc->chips_with_mmio = filter_chip_collection(full_cluster_desc->chips_with_mmio, target_chip_ids);
     desc->all_chips = filter_chip_collection(full_cluster_desc->all_chips, target_chip_ids);
     desc->noc_translation_enabled = filter_chip_collection(full_cluster_desc->noc_translation_enabled, target_chip_ids);
-    desc->harvesting_masks = filter_chip_collection(full_cluster_desc->harvesting_masks, target_chip_ids);
     // desc->closest_mmio_chip_cache is not copied intentionally, it could hold wrong information.
     desc->chip_board_type = filter_chip_collection(full_cluster_desc->chip_board_type, target_chip_ids);
     desc->chip_arch = filter_chip_collection(full_cluster_desc->chip_arch, target_chip_ids);
@@ -540,12 +539,14 @@ std::unique_ptr<tt_ClusterDescriptor> tt_ClusterDescriptor::create_mock_cluster(
     std::unique_ptr<tt_ClusterDescriptor> desc = std::unique_ptr<tt_ClusterDescriptor>(new tt_ClusterDescriptor());
 
     BoardType board_type;
+    HarvestingMasks harvesting_masks{0, 0, 0, 0};
     switch (arch) {
         case tt::ARCH::WORMHOLE_B0:
             board_type = BoardType::N150;
             break;
         case tt::ARCH::BLACKHOLE:
             board_type = BoardType::P150;
+            harvesting_masks.pcie_harvesting_mask = 0x2;
             break;
         default:
             board_type = BoardType::UNKNOWN;
@@ -564,7 +565,7 @@ std::unique_ptr<tt_ClusterDescriptor> tt_ClusterDescriptor::create_mock_cluster(
         desc->chips_with_mmio.insert({logical_id, logical_id});
         desc->chip_arch.insert({logical_id, arch});
         desc->noc_translation_enabled.insert({logical_id, true});
-        desc->harvesting_masks.insert({logical_id, 0});
+        desc->harvesting_masks_map.insert({logical_id, harvesting_masks});
     }
     desc->fill_chips_grouped_by_closest_mmio();
 
@@ -947,7 +948,6 @@ void tt_ClusterDescriptor::load_harvesting_information(YAML::Node &yaml) {
 
             HarvestingMasks harvesting{0, 0, 0, 0};
 
-            harvesting_masks.insert({chip, harvesting_info["harvest_mask"].as<std::uint32_t>()});
             harvesting.tensix_harvesting_mask = harvesting_info["harvest_mask"].as<std::uint32_t>();
 
             if (harvesting_info["dram_harvesting_mask"].IsDefined()) {
@@ -999,7 +999,7 @@ chip_id_t tt_ClusterDescriptor::get_shelf_local_physical_chip_coords(chip_id_t v
     TT_ASSERT(
         !this->chip_locations.empty(),
         "Getting physical chip coordinates is only valid for systems where chips have coordinates");
-    // Physical cooridnates of chip inside a single rack. Calculated based on Galaxy topology.
+    // NoC 0 coordinates of chip inside a single rack. Calculated based on Galaxy topology.
     // See:
     // https://yyz-gitlab.local.tenstorrent.com/tenstorrent/budabackend/-/wikis/uploads/23e7a5168f38dfb706f9887fde78cb03/image.png
     int x = get_chip_locations().at(virtual_coord).x;
@@ -1042,7 +1042,7 @@ std::size_t tt_ClusterDescriptor::get_number_of_chips() const { return this->all
 int tt_ClusterDescriptor::get_ethernet_link_distance(chip_id_t chip_a, chip_id_t chip_b) const {
     TT_ASSERT(
         !this->chip_locations.empty(),
-        "Getting physical chip coordinates is only valid for systems where chips have coordinates");
+        "Getting noc0 chip coordinates is only valid for systems where chips have coordinates");
     return this->get_ethernet_link_coord_distance(chip_locations.at(chip_a), chip_locations.at(chip_b));
 }
 

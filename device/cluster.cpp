@@ -115,6 +115,51 @@ void Cluster::verify_sysmem_initialized() {
     }
 }
 
+void Cluster::log_pci_device_summary() {
+    if (local_chip_ids_.empty()) {
+        return;
+    }
+
+    auto first_pci_device = chips_.at(*local_chip_ids_.begin())->get_tt_device()->get_pci_device();
+    if (!first_pci_device) {
+        return;
+    }
+
+    bool expected_iommu_state = first_pci_device->is_iommu_enabled();
+    std::string kmd_version = PCIDevice::read_kmd_version().to_string();
+
+    // Check IOMMU status consistency across all devices.
+    bool all_devices_same_iommu_state = true;
+    auto iommu_state_str = [](bool enabled) { return enabled ? "enabled" : "disabled"; };
+
+    for (chip_id_t chip_id : local_chip_ids_) {
+        auto pci_device = chips_.at(chip_id)->get_tt_device()->get_pci_device();
+        if (!pci_device) {
+            continue;
+        }
+        bool current_iommu_state = pci_device->is_iommu_enabled();
+        if (current_iommu_state != expected_iommu_state) {
+            log_warning(
+                LogSiliconDriver,
+                "IOMMU state mismatch for chip {}: expected {}, got {}",
+                chip_id,
+                iommu_state_str(expected_iommu_state),
+                iommu_state_str(current_iommu_state));
+            all_devices_same_iommu_state = false;
+        }
+
+        if (!all_devices_same_iommu_state) {
+            break;
+        }
+    }
+
+    if (all_devices_same_iommu_state) {
+        log_info(LogSiliconDriver, "IOMMU: {}", iommu_state_str(expected_iommu_state));
+    }
+
+    log_info(LogSiliconDriver, "KMD version: {}", kmd_version);
+}
+
 void Cluster::verify_fw_bundle_version() {
     if (chips_.empty()) {
         return;
@@ -156,6 +201,7 @@ void Cluster::construct_cluster(const uint32_t& num_host_mem_ch_per_mmio_device,
             pci_ids,
             remote_chip_ids_);
         verify_fw_bundle_version();
+        log_pci_device_summary();
         if (arch_name == tt::ARCH::WORMHOLE_B0) {
             verify_eth_fw();
         }
@@ -191,8 +237,7 @@ std::unique_ptr<Chip> Cluster::construct_chip_from_cluster(
     }
 
     if (cluster_desc->is_chip_mmio_capable(chip_id)) {
-        auto chip = std::make_unique<LocalChip>(
-            soc_desc, cluster_desc->get_chips_with_mmio().at(chip_id), num_host_mem_channels);
+        auto chip = LocalChip::create(cluster_desc->get_chips_with_mmio().at(chip_id), soc_desc, num_host_mem_channels);
         if (cluster_desc->get_arch(chip_id) == tt::ARCH::WORMHOLE_B0) {
             // Remote transfer currently supported only for wormhole.
             chip->set_remote_transfer_ethernet_cores(cluster_desc->get_active_eth_channels(chip_id));
@@ -202,10 +247,15 @@ std::unique_ptr<Chip> Cluster::construct_chip_from_cluster(
         if (cluster_desc->get_arch(chip_id) != tt::ARCH::WORMHOLE_B0) {
             throw std::runtime_error("Remote chips are supported only for wormhole.");
         }
-        std::unique_ptr<RemoteWormholeTTDevice> remote_tt_device = std::make_unique<RemoteWormholeTTDevice>(
-            get_local_chip(cluster_desc->get_closest_mmio_capable_chip(chip_id)),
-            cluster_desc->get_chip_locations().at(chip_id));
-        return std::make_unique<RemoteChip>(soc_desc, std::move(remote_tt_device));
+        chip_id_t gateway_id = cluster_desc->get_closest_mmio_capable_chip(chip_id);
+        LocalChip* local_chip = get_local_chip(gateway_id);
+        std::unordered_set<CoreCoord> eth_cores_to_use;
+        for (auto channel : cluster_desc->get_active_eth_channels(gateway_id)) {
+            eth_cores_to_use.insert(
+                local_chip->get_soc_descriptor().get_eth_core_for_channel(channel, CoordSystem::TRANSLATED));
+        }
+        return RemoteChip::create(
+            local_chip, cluster_desc->get_chip_locations().at(chip_id), eth_cores_to_use, soc_desc);
     }
 }
 
@@ -391,7 +441,16 @@ Cluster::Cluster(ClusterOptions options) {
 
 void Cluster::configure_active_ethernet_cores_for_mmio_device(
     chip_id_t mmio_chip, const std::unordered_set<CoreCoord>& active_eth_cores_per_chip) {
-    chips_.at(mmio_chip)->set_remote_transfer_ethernet_cores(active_eth_cores_per_chip);
+    // The ethernet cores that should be used for remote transfer are set in the RemoteCommunication structure.
+    // This structure is used by remote chips. So we need to find all remote chips that use the passed in mmio_chip,
+    // and set the active ethernet cores for them.
+    for (const auto& remote_chip_id : remote_chip_ids_) {
+        if (cluster_desc->get_closest_mmio_capable_chip(remote_chip_id) == mmio_chip) {
+            get_remote_chip(remote_chip_id)->set_remote_transfer_ethernet_cores(active_eth_cores_per_chip);
+        }
+    }
+    // Local chips hold communication primitives for broadcasting, so we have to set this up for them as well.
+    get_local_chip(mmio_chip)->set_remote_transfer_ethernet_cores(active_eth_cores_per_chip);
 }
 
 std::set<chip_id_t> Cluster::get_target_device_ids() { return all_chip_ids_; }
@@ -960,11 +1019,14 @@ void Cluster::start_device(const tt_device_params& device_params) {
 }
 
 void Cluster::close_device() {
-    for (auto chip_id : all_chip_ids_) {
+    // Close remote device first because sending risc reset requires corresponding pcie device to be active
+    for (auto remote_chip_id : remote_chip_ids_) {
+        get_chip(remote_chip_id)->close_device();
+    }
+
+    for (auto chip_id : local_chip_ids_) {
         get_chip(chip_id)->close_device();
     }
-    set_power_state(tt_DevicePowerState::LONG_IDLE);
-    broadcast_tensix_risc_reset_to_cluster(TENSIX_ASSERT_SOFT_RESET);
 }
 
 std::uint32_t Cluster::get_num_host_channels(std::uint32_t device_id) {
@@ -1008,26 +1070,21 @@ void Cluster::set_barrier_address_params(const barrier_address_params& barrier_a
 
 std::unique_ptr<tt_ClusterDescriptor> Cluster::create_cluster_descriptor(
     std::string sdesc_path, std::unordered_set<chip_id_t> pci_target_devices) {
-    std::map<int, PciDeviceInfo> pci_device_info = PCIDevice::enumerate_devices_info();
+    std::map<int, PciDeviceInfo> pci_device_info = PCIDevice::enumerate_devices_info(pci_target_devices);
     if (pci_device_info.begin()->second.get_arch() == tt::ARCH::BLACKHOLE) {
-        std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
+        std::vector<int> pci_device_ids = PCIDevice::enumerate_devices(pci_target_devices);
 
         std::unordered_map<chip_id_t, std::unique_ptr<Chip>> chips;
         chip_id_t chip_id = 0;
         for (auto& device_id : pci_device_ids) {
-            std::unique_ptr<LocalChip> chip = nullptr;
-            if (sdesc_path.empty()) {
-                chip = std::make_unique<LocalChip>(TTDevice::create(device_id));
-            } else {
-                chip = std::make_unique<LocalChip>(sdesc_path, TTDevice::create(device_id));
-            }
+            std::unique_ptr<LocalChip> chip = LocalChip::create(device_id, sdesc_path);
             chips.emplace(chip_id, std::move(chip));
             chip_id++;
         }
 
         return Cluster::create_cluster_descriptor(chips);
     } else {
-        return TopologyDiscovery(pci_target_devices).create_ethernet_map();
+        return TopologyDiscovery(pci_target_devices, sdesc_path).create_ethernet_map();
     }
 }
 
@@ -1082,7 +1139,6 @@ std::unique_ptr<tt_ClusterDescriptor> Cluster::create_cluster_descriptor(
         desc->chip_board_type.insert({chip_id, chip->get_chip_info().board_type});
 
         desc->noc_translation_enabled.insert({chip_id, chip->get_chip_info().noc_translation_enabled});
-        desc->harvesting_masks.insert({chip_id, chip->get_chip_info().harvesting_masks.tensix_harvesting_mask});
         desc->harvesting_masks_map.insert({chip_id, chip->get_chip_info().harvesting_masks});
 
         desc->add_chip_to_board(chip_id, chip->get_chip_info().chip_uid.board_id);
@@ -1125,12 +1181,11 @@ std::unique_ptr<tt_ClusterDescriptor> Cluster::create_cluster_descriptor(
                         chip_id,
                         remote_info.get_chip_uid().board_id);
                 } else {
-                    const CoreCoord logical_remote_coord = chips.at(remote_chip_id.value())
-                                                               ->get_soc_descriptor()
-                                                               .translate_coord_to(
-                                                                   blackhole::ETH_CORES_NOC0[remote_info.eth_id],
-                                                                   CoordSystem::PHYSICAL,
-                                                                   CoordSystem::LOGICAL);
+                    const CoreCoord logical_remote_coord =
+                        chips.at(remote_chip_id.value())
+                            ->get_soc_descriptor()
+                            .translate_coord_to(
+                                blackhole::ETH_CORES_NOC0[remote_info.eth_id], CoordSystem::NOC0, CoordSystem::LOGICAL);
                     // Adding a connection only one way, the other chip should add it another way.
                     desc->ethernet_connections[local_chip_id][eth_channel] = {
                         remote_chip_id.value(), logical_remote_coord.y};

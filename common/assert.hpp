@@ -6,15 +6,15 @@
 
 #pragma once
 
+#include <fmt/ostream.h>
 #include <spdlog/spdlog.h>
-#include <stdio.h>
 #include <stdlib.h>
 
 #include <iostream>
 #include <sstream>
-#include <vector>
 
 #include "backtrace.hpp"
+#include "fmt/core.h"
 
 namespace tt {
 template <typename A, typename B>
@@ -33,14 +33,52 @@ std::ostream& operator<<(std::ostream& os, tt::OStreamJoin<A, B> const& join) {
 }
 }  // namespace tt
 
+template <typename A, typename B>
+struct fmt::formatter<tt::OStreamJoin<A, B>> : fmt::ostream_formatter {};
+
 namespace tt::assert {
 
 inline void tt_assert_message(std::ostream& os) {}
 
 template <typename T, typename... Ts>
 void tt_assert_message(std::ostream& os, T const& t, Ts const&... ts) {
-    os << t << std::endl;
-    tt_assert_message(os, ts...);
+    if constexpr (sizeof...(ts) == 0) {
+        os << t << std::endl;
+        return;
+    }
+
+    std::ostringstream oss;
+    oss << t;
+    std::string format_str = oss.str();
+
+    size_t placeholder_count = 0;
+    size_t pos = 0;
+    while ((pos = format_str.find("{}", pos)) != std::string::npos) {
+        placeholder_count++;
+        pos += 2;
+    }
+
+    if (placeholder_count == 0) {
+        os << t << std::endl;
+        ((os << ts << std::endl), ...);
+        return;
+    }
+
+    if (placeholder_count != sizeof...(ts)) {
+        throw std::runtime_error(
+            "Failed formatting: placeholder count mismatch: format string '" + format_str + "' has " +
+            std::to_string(placeholder_count) + " placeholders but " + std::to_string(sizeof...(ts)) +
+            " arguments provided");
+    }
+
+    // constexpr has to be present since build fails compiler detects
+    // that certain objects with unformattable types will be used here.
+    if constexpr ((fmt::is_formattable<Ts>::value && ...)) {
+        std::string formatted = fmt::format(fmt::runtime(format_str), ts...);
+        os << formatted << std::endl;
+    } else {
+        throw std::runtime_error("Failed to format string: " + format_str + ", arguments not formattable by fmt.");
+    }
 }
 
 template <typename... Ts>

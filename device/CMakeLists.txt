@@ -66,7 +66,9 @@ target_sources(
         xy_pair.cpp
         utils/lock_manager.cpp
         utils/robust_mutex.cpp
-        topology_discovery.cpp
+        topology/topology_discovery.cpp
+        topology/topology_discovery_blackhole.cpp
+        topology/topology_discovery_wormhole.cpp
         remote_communication.cpp
 )
 

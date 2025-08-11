@@ -517,7 +517,12 @@ int run_tt_smi_reset() {
     return system((path + " -r").c_str());
 }
 
-TEST(TestCluster, FindTTSMI) { std::cout << "tt-smi path: " << find_tt_smi() << "\n"; }
+TEST(TestCluster, FindTTSMI) {
+    std::cout << "PATH: " << (std::getenv("PATH") ? std::getenv("PATH") : "PATH not set") << "\n";
+    system("tt-smi -r");
+    std::cout << "tt-smi path: " << find_tt_smi() << "\n";
+    run_tt_smi_reset();
+}
 
 TEST(TestCluster, WarmReset) {
     std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();

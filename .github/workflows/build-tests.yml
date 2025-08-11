@@ -12,9 +12,13 @@ on:
         required: true
         type: number
       build-type:
-        required: false
+        required: true
         type: string
         default: Release
+      log-params:
+        required: false
+        type: string
+        default: ""
   workflow_dispatch:
     inputs:
       ubuntu-docker-version:
@@ -28,6 +32,16 @@ on:
         required: true
         description: 'The timeout for the build job in minutes'
         type: number
+      build-type:
+        required: true
+        default: Release
+        type: choice
+        options:
+          - Release
+          - RelWithDebInfo
+          - Debug
+          - ASan
+          - TSan
 
 
 env:
@@ -44,15 +58,22 @@ env:
 
 jobs:
   build:
+    name: Build (${{ inputs.build-type }}, ${{ inputs.ubuntu-docker-version }})
     # Due to parsing bug, fromJSON is used to convert string to number
     timeout-minutes: ${{ fromJSON(inputs.timeout) }}
 
-    name: Build umd_tests on ${{ inputs.ubuntu-docker-version }}
     runs-on: ubuntu-22.04
     container:
       image: ghcr.io/${{ github.repository }}/tt-umd-ci-${{ inputs.ubuntu-docker-version }}:latest
 
     steps:
+      - name: Print all params
+        run: |
+          ${{ inputs.log-params }}
+          echo build-tests - ubuntu-docker-version: ${{ inputs.ubuntu-docker-version }}
+          echo build-tests - timeout: ${{ inputs.timeout }}
+          echo build-tests - build-type: ${{ inputs.build-type }}
+
       - uses: actions/checkout@v4
         with:
           submodules: recursive
@@ -83,7 +104,7 @@ jobs:
       - name: Upload build artifacts archive
         uses: actions/upload-artifact@v4
         with:
-          name: build-artifacts-${{ inputs.ubuntu-docker-version }}
+          name: build-artifacts-${{ inputs.ubuntu-docker-version }}-${{ inputs.build-type }}
           path: artifact.tar
 
   build-wheel:

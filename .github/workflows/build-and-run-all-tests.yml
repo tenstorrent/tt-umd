@@ -2,10 +2,22 @@
 name: Build and run all tests
 
 on:
+  workflow_call:
+    inputs:
+      build-type:
+        required: true
+        type: string
+      timeout:
+        required: true
+        type: number
+      log-params:
+        required: false
+        type: string
+        default: ""
   workflow_dispatch:
     inputs:
       build-type:
-        required: false
+        required: true
         default: Release
         type: choice
         options:
@@ -22,12 +34,16 @@ on:
           - info
           - debug
           - trace
-  pull_request:
-  push:
-    branches: ["main"]
+      timeout:
+        required: true
+        description: 'The timeout for the test run in minutes'
+        type: number
+        default: 15
+
 
 jobs:
   build-tests:
+    name: ""
     secrets: inherit
     strategy:
       fail-fast: false
@@ -40,24 +56,31 @@ jobs:
     with:
       ubuntu-docker-version: ${{ matrix.ubuntu-docker-version}}
       timeout: 15
-      build-type: ${{ inputs.build-type || 'Release' }}
+      build-type: ${{ inputs.build-type }}
+      log-params: |
+        ${{ inputs.log-params }}
+        echo build-and-run-all-tests - build-type: ${{ inputs.build-type }}
+        echo build-and-run-all-tests - timeout: ${{ inputs.timeout }}
+        echo build-and-run-all-tests - log-level: ${{ inputs.log-level }}
+
 
   test-all:
+    name: ""
     secrets: inherit
     needs: build-tests
     strategy:
       fail-fast: false
       matrix:
         test-group: [
-          {arch: wormhole_b0, card: tt-beta-ubuntu-2204-n150-large-stable, timeout: 10},
-          {arch: wormhole_b0, card: tt-beta-ubuntu-2204-n150-viommu-large-stable, timeout: 10},
-          {arch: wormhole_b0, card: tt-beta-ubuntu-2204-n300-large-stable, timeout: 15},
-          {arch: wormhole_b0, card: tt-beta-ubuntu-2204-n300-viommu-large-stable, timeout: 15},
-          {arch: wormhole_b0, card: tt-beta-ubuntu-2204-n300-llmbox-large-stable, timeout: 15},
-          {arch: wormhole_b0, card: tt-ubuntu-2204-n300-llmbox-viommu-stable, timeout: 25},
-          {arch: blackhole, card: tt-beta-ubuntu-2204-p150b-large-stable, timeout: 15},
-          {arch: blackhole, card: tt-beta-ubuntu-2204-p150b-viommu-large-stable, timeout: 15},
-          {arch: baremetal, card: ubuntu-22.04, timeout: 15},
+          {arch: wormhole_b0, card: tt-beta-ubuntu-2204-n150-large-stable},
+          {arch: wormhole_b0, card: tt-beta-ubuntu-2204-n150-viommu-large-stable},
+          {arch: wormhole_b0, card: tt-beta-ubuntu-2204-n300-large-stable},
+          {arch: wormhole_b0, card: tt-beta-ubuntu-2204-n300-viommu-large-stable},
+          {arch: wormhole_b0, card: tt-beta-ubuntu-2204-n300-llmbox-large-stable},
+          {arch: wormhole_b0, card: tt-ubuntu-2204-n300-llmbox-viommu-stable},
+          {arch: blackhole, card: tt-beta-ubuntu-2204-p150b-large-stable},
+          {arch: blackhole, card: tt-beta-ubuntu-2204-p150b-viommu-large-stable},
+          {arch: baremetal, card: ubuntu-22.04},
         ]
         ubuntu-docker-version: [
           'ubuntu-22.04',
@@ -67,7 +90,11 @@ jobs:
       arch: ${{ matrix.test-group.arch}}
       ubuntu-docker-version: ${{ matrix.ubuntu-docker-version}}
       card: ${{ matrix.test-group.card}}
-      # When log level is such that more logs are printed, we need a larger timeout.
-      # This is somewhat of a hack and an arbitrary value, to be revised.
-      timeout: ${{ inputs.log-level != 'info' && 60 || matrix.test-group.timeout }}
+      timeout: ${{ inputs.timeout }}
       log-level: ${{ inputs.log-level || 'info' }}
+      build-type: ${{ inputs.build-type }}
+      log-params: |
+        ${{ inputs.log-params }}
+        echo build-and-run-all-tests - build-type: ${{ inputs.build-type }}
+        echo build-and-run-all-tests - timeout: ${{ inputs.timeout }}
+        echo build-and-run-all-tests - log-level: ${{ inputs.log-level }}

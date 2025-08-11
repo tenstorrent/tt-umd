@@ -55,6 +55,8 @@ jobs:
           echo build-and-run-all-tests - ubuntu-docker-version: ${{ matrix.ubuntu-docker-version }}
           echo build-and-run-all-tests - timeout: ${{ inputs.timeout }}
 
+      - uses: actions/checkout@v4
+
       - name: Build tests
         uses: ./.github/workflows/build-tests.yml
         with:
@@ -90,6 +92,9 @@ jobs:
           echo build-and-run-all-tests - build-type: ${{ inputs.build-type }}
           echo build-and-run-all-tests - ubuntu-docker-version: ${{ matrix.ubuntu-docker-version }}
           echo build-and-run-all-tests - timeout: ${{ inputs.timeout }}
+
+      - uses: actions/checkout@v4
+
       - name: Run tests
         uses: ./.github/workflows/run-tests.yml
         with:

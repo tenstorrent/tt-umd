@@ -50,6 +50,8 @@ jobs:
       - name: Print all params
         run: "echo build-and-run-all-tests-multiple-builds - build-types: ${{ inputs.build-types }}"
 
+      - uses: actions/checkout@v4
+
       - name: Build and run all tests for ${{ matrix.build-type }}
         uses: ./.github/workflows/build-and-run-all-tests.yml
         with:

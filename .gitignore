@@ -12,3 +12,4 @@ compile_commands.json
 core
 __pycache__
 tt_umd.egg-info
+.venv

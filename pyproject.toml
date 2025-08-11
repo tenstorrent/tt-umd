@@ -1,4 +1,22 @@
 [build-system]
-# Minimum requirements for the build system to execute.
-requires = ["setuptools>=61.0"]
-build-backend = "setuptools.build_meta"
+requires = ["scikit-build-core"]
+build-backend = "scikit_build_core.build"
+
+[project]
+name = "tt-umd"
+version = "1.0.0"
+authors = [
+    { name = "Tenstorrent", email = "info@tenstorrent.com" }
+]
+description = "User Mode Driver for tenstorrent"
+readme = "README.md"
+license = { text = "Apache-2.0" }
+classifiers = [
+    "Programming Language :: Python :: 3",
+]
+urls = { homepage = "http://www.tenstorrent.com" }
+
+[tool.scikit-build]
+cmake.build-type = "Release"
+cmake.define = { TT_UMD_BUILD_TESTS = "OFF", TT_UMD_BUILD_SIMULATION = "OFF", TT_UMD_BUILD_PYTHON = "ON" }
+build-dir = "build/"

@@ -25,38 +25,27 @@ static_assert(!std::is_abstract<LocalChip>(), "LocalChip must be non-abstract.")
 // TLB size for DRAM on blackhole - 4GB
 const uint64_t BH_4GB_TLB_SIZE = 4ULL * 1024 * 1024 * 1024;
 
-std::unique_ptr<LocalChip> LocalChip::create(int pci_device_id, int num_host_mem_channels) {
-    // Create TTDevice and make sure the arc is ready so we can read its telemetry.
-    auto tt_device = TTDevice::create(pci_device_id);
-    tt_device->init_tt_device();
-    tt_device->wait_arc_core_start();
-
-    auto soc_descriptor = tt_SocDescriptor(
-        tt_device->get_arch(),
-        tt_device->get_chip_info().noc_translation_enabled,
-        tt_device->get_chip_info().harvesting_masks,
-        tt_device->get_chip_info().board_type);
-
-    return std::unique_ptr<tt::umd::LocalChip>(
-        new LocalChip(soc_descriptor, std::move(tt_device), num_host_mem_channels));
-}
-
 std::unique_ptr<LocalChip> LocalChip::create(int pci_device_id, std::string sdesc_path, int num_host_mem_channels) {
-    // Just a convenience, if we're not sure if the sdesc_path is empty, we can just call this function which will call
-    // the other version if passed sdesc_path is empty.
-    if (sdesc_path.empty()) {
-        return create(pci_device_id, num_host_mem_channels);
-    }
     // Create TTDevice and make sure the arc is ready so we can read its telemetry.
     auto tt_device = TTDevice::create(pci_device_id);
-    tt_device->init_tt_device();
     tt_device->wait_arc_core_start();
+    tt_device->init_tt_device();
 
-    auto soc_descriptor = tt_SocDescriptor(
-        sdesc_path,
-        tt_device->get_chip_info().noc_translation_enabled,
-        tt_device->get_chip_info().harvesting_masks,
-        tt_device->get_chip_info().board_type);
+    tt_SocDescriptor soc_descriptor;
+    if (sdesc_path.empty()) {
+        // In case soc descriptor yaml wasn't passed, we create soc descriptor with default values for the architecture.
+        soc_descriptor = tt_SocDescriptor(
+            tt_device->get_arch(),
+            tt_device->get_chip_info().noc_translation_enabled,
+            tt_device->get_chip_info().harvesting_masks,
+            tt_device->get_chip_info().board_type);
+    } else {
+        soc_descriptor = tt_SocDescriptor(
+            sdesc_path,
+            tt_device->get_chip_info().noc_translation_enabled,
+            tt_device->get_chip_info().harvesting_masks,
+            tt_device->get_chip_info().board_type);
+    }
 
     return std::unique_ptr<tt::umd::LocalChip>(
         new LocalChip(soc_descriptor, std::move(tt_device), num_host_mem_channels));
@@ -191,7 +180,7 @@ void LocalChip::read_from_sysmem(uint16_t channel, void* dest, uint64_t sysmem_s
 void LocalChip::write_to_device(CoreCoord core, const void* src, uint64_t l1_dest, uint32_t size) {
     const uint8_t* buffer_addr = static_cast<const uint8_t*>(src);
 
-    log_debug(
+    log_trace(
         LogSiliconDriver,
         "Chip::write_to_device to pci dev {} core {} at 0x{:x} size: {}",
         tt_device_->get_pci_device()->get_device_num(),
@@ -229,12 +218,12 @@ void LocalChip::write_to_device(CoreCoord core, const void* src, uint64_t l1_des
             l1_dest += transfer_size;
             buffer_addr += transfer_size;
         }
-        log_debug(LogSiliconDriver, "Write done Dynamic TLB with pid={}", (long)getpid());
+        log_trace(LogSiliconDriver, "Write done Dynamic TLB with pid={}", (long)getpid());
     }
 }
 
 void LocalChip::read_from_device(CoreCoord core, void* dest, uint64_t l1_src, uint32_t size) {
-    log_debug(
+    log_trace(
         LogSiliconDriver,
         "Chip::read_from_device from pci device {} core {} at 0x{:x} size: {}",
         tt_device_->get_pci_device()->get_device_num(),
@@ -255,7 +244,7 @@ void LocalChip::read_from_device(CoreCoord core, void* dest, uint64_t l1_src, ui
         } else {
             tt_device_->read_block(tlb_description.tlb_offset + l1_src % tlb_description.size, size, buffer_addr);
         }
-        log_debug(
+        log_trace(
             LogSiliconDriver,
             "  read_block called with tlb_offset: {}, tlb_size: {}",
             tlb_description.tlb_offset,
@@ -264,7 +253,7 @@ void LocalChip::read_from_device(CoreCoord core, void* dest, uint64_t l1_src, ui
         std::string fallback_tlb = "LARGE_READ_TLB";
         const auto tlb_index = tlb_manager_->dynamic_tlb_config_.at(fallback_tlb);
         auto lock = acquire_mutex(fallback_tlb, tt_device_->get_pci_device()->get_device_num());
-        log_debug(LogSiliconDriver, "  dynamic tlb_index: {}", tlb_index);
+        log_trace(LogSiliconDriver, "  dynamic tlb_index: {}", tlb_index);
         while (size > 0) {
             auto [mapped_address, tlb_size] = tt_device_->set_dynamic_tlb(
                 tlb_index,
@@ -278,7 +267,7 @@ void LocalChip::read_from_device(CoreCoord core, void* dest, uint64_t l1_src, ui
             l1_src += transfer_size;
             buffer_addr += transfer_size;
         }
-        log_debug(LogSiliconDriver, "Read done Dynamic TLB with pid={}", (long)getpid());
+        log_trace(LogSiliconDriver, "Read done Dynamic TLB with pid={}", (long)getpid());
     }
 }
 
@@ -393,51 +382,14 @@ void LocalChip::set_flush_non_mmio(bool flush_non_mmio) { flush_non_mmio_ = flus
 bool LocalChip::get_flush_non_mmio() const { return flush_non_mmio_; }
 
 void LocalChip::set_remote_transfer_ethernet_cores(const std::unordered_set<CoreCoord>& active_eth_cores) {
-    // Makes UMD aware of which ethernet cores have active links.
-    // Based on this information, UMD determines which ethernet cores can be used for host->cluster non-MMIO transfers.
-    // This overrides the default ethernet cores tagged for host to cluster routing in the constructor and must be
-    // called for all MMIO devices, if default behaviour is not desired.
-    TT_ASSERT(soc_descriptor_.arch == tt::ARCH::WORMHOLE_B0, "{} can only be called for Wormhole arch", __FUNCTION__);
-    remote_transfer_eth_cores_ = {};
-    for (const auto& active_eth_core : active_eth_cores) {
-        auto virtual_coord = soc_descriptor_.translate_coord_to(active_eth_core, CoordSystem::VIRTUAL);
-        remote_transfer_eth_cores_.push_back(active_eth_core);
-    }
+    // Set cores to be used by the broadcast communication.
+    remote_communication_->set_remote_transfer_ethernet_cores(active_eth_cores);
 }
 
 void LocalChip::set_remote_transfer_ethernet_cores(const std::set<uint32_t>& channels) {
-    std::unordered_set<CoreCoord> active_eth_cores;
-    for (const auto& channel : channels) {
-        active_eth_cores.insert(soc_descriptor_.get_eth_core_for_channel(channel));
-    }
-    set_remote_transfer_ethernet_cores(active_eth_cores);
+    // Set cores to be used by the broadcast communication.
+    remote_communication_->set_remote_transfer_ethernet_cores(channels);
 }
-
-CoreCoord LocalChip::get_remote_transfer_ethernet_core() {
-    if (remote_transfer_eth_cores_.size() > 8) {
-        // We cannot use more than 8 cores for umd access in one direction. Thats because of the available
-        // buffering in the outgoing eth channels.
-        log_warning(
-            LogSiliconDriver,
-            "Number of active ethernet cores {} exceeds the maximum of 8.",
-            remote_transfer_eth_cores_.size());
-    }
-    if (remote_transfer_eth_cores_.empty()) {
-        throw std::runtime_error("No remote transfer ethernet cores set.");
-    }
-    return remote_transfer_eth_cores_.at(active_eth_core_idx);
-}
-
-void LocalChip::update_active_eth_core_idx() {
-    if (remote_transfer_eth_cores_.empty()) {
-        throw std::runtime_error("Cannot update active Ethernet core index: no remote transfer Ethernet cores set.");
-    }
-    active_eth_core_idx = (active_eth_core_idx + 1) % remote_transfer_eth_cores_.size();
-}
-
-int LocalChip::get_active_eth_core_idx() { return active_eth_core_idx; }
-
-std::vector<CoreCoord> LocalChip::get_remote_transfer_ethernet_cores() { return remote_transfer_eth_cores_; }
 
 std::unique_lock<RobustMutex> LocalChip::acquire_mutex(std::string mutex_name, int pci_device_id) {
     return lock_manager_.acquire_mutex(mutex_name, pci_device_id);

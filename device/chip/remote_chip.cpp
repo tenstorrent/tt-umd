@@ -16,45 +16,47 @@ namespace tt::umd {
 
 static_assert(!std::is_abstract<RemoteChip>(), "RemoteChip must be non-abstract.");
 
-std::unique_ptr<RemoteChip> RemoteChip::create(LocalChip* local_chip, eth_coord_t target_eth_coord) {
-    auto remote_tt_device = std::make_unique<RemoteWormholeTTDevice>(local_chip, target_eth_coord);
-    // TODO: Do we need wait arc core start here?
-    // remote_tt_device->wait_arc_core_start();
-    remote_tt_device->init_tt_device();
-
-    auto soc_descriptor = tt_SocDescriptor(
-        remote_tt_device->get_arch(),
-        remote_tt_device->get_chip_info().noc_translation_enabled,
-        remote_tt_device->get_chip_info().harvesting_masks,
-        remote_tt_device->get_chip_info().board_type);
-
-    return std::unique_ptr<tt::umd::RemoteChip>(
-        new RemoteChip(soc_descriptor, local_chip, std::move(remote_tt_device)));
-}
-
 std::unique_ptr<RemoteChip> RemoteChip::create(
-    LocalChip* local_chip, eth_coord_t target_eth_coord, std::string sdesc_path) {
-    // Just a convenience, if we're not sure if the sdesc_path is empty, we can just call this function which will call
-    // the other version if passed sdesc_path is empty.
+    LocalChip* local_chip,
+    eth_coord_t target_eth_coord,
+    std::unordered_set<CoreCoord>& remote_transfer_eth_cores,
+    std::string sdesc_path) {
+    auto remote_communication = std::make_unique<RemoteCommunication>(local_chip);
+    remote_communication->set_remote_transfer_ethernet_cores(remote_transfer_eth_cores);
+    auto remote_tt_device =
+        std::make_unique<RemoteWormholeTTDevice>(local_chip, std::move(remote_communication), target_eth_coord);
+    remote_tt_device->init_tt_device();
+    remote_tt_device->wait_arc_core_start();
+
+    tt_SocDescriptor soc_descriptor;
     if (sdesc_path.empty()) {
-        return create(local_chip, target_eth_coord);
+        soc_descriptor = tt_SocDescriptor(
+            remote_tt_device->get_arch(),
+            remote_tt_device->get_chip_info().noc_translation_enabled,
+            remote_tt_device->get_chip_info().harvesting_masks,
+            remote_tt_device->get_chip_info().board_type);
+    } else {
+        soc_descriptor = tt_SocDescriptor(
+            sdesc_path,
+            remote_tt_device->get_chip_info().noc_translation_enabled,
+            remote_tt_device->get_chip_info().harvesting_masks,
+            remote_tt_device->get_chip_info().board_type);
     }
-    auto remote_tt_device = std::make_unique<RemoteWormholeTTDevice>(local_chip, target_eth_coord);
-    remote_tt_device->init_tt_device();
-
-    auto soc_descriptor = tt_SocDescriptor(
-        sdesc_path,
-        remote_tt_device->get_chip_info().noc_translation_enabled,
-        remote_tt_device->get_chip_info().harvesting_masks,
-        remote_tt_device->get_chip_info().board_type);
 
     return std::unique_ptr<tt::umd::RemoteChip>(
         new RemoteChip(soc_descriptor, local_chip, std::move(remote_tt_device)));
 }
 
 std::unique_ptr<RemoteChip> RemoteChip::create(
-    LocalChip* local_chip, eth_coord_t target_eth_coord, tt_SocDescriptor soc_descriptor) {
-    auto remote_tt_device = std::make_unique<RemoteWormholeTTDevice>(local_chip, target_eth_coord);
+    LocalChip* local_chip,
+    eth_coord_t target_eth_coord,
+    std::unordered_set<CoreCoord>& remote_transfer_eth_cores,
+    tt_SocDescriptor soc_descriptor) {
+    auto remote_communication = std::make_unique<RemoteCommunication>(local_chip);
+    remote_communication->set_remote_transfer_ethernet_cores(remote_transfer_eth_cores);
+    auto remote_tt_device =
+        std::make_unique<RemoteWormholeTTDevice>(local_chip, std::move(remote_communication), target_eth_coord);
+    remote_tt_device->wait_arc_core_start();
     remote_tt_device->init_tt_device();
 
     return std::unique_ptr<tt::umd::RemoteChip>(
@@ -157,9 +159,13 @@ int RemoteChip::get_numa_node() {
     throw std::runtime_error("RemoteChip::get_numa_node is not available for this chip.");
 }
 
-void RemoteChip::set_remote_transfer_ethernet_cores(const std::unordered_set<CoreCoord>& cores) {}
+void RemoteChip::set_remote_transfer_ethernet_cores(const std::unordered_set<CoreCoord>& cores) {
+    remote_communication_->set_remote_transfer_ethernet_cores(cores);
+}
 
-void RemoteChip::set_remote_transfer_ethernet_cores(const std::set<uint32_t>& channel) {}
+void RemoteChip::set_remote_transfer_ethernet_cores(const std::set<uint32_t>& channels) {
+    remote_communication_->set_remote_transfer_ethernet_cores(channels);
+}
 
 TTDevice* RemoteChip::get_tt_device() { return tt_device_.get(); }
 

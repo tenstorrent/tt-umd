@@ -14,6 +14,14 @@ on:
           - Debug
           - ASan
           - TSan
+      log-level:
+        required: false
+        default: info
+        type: choice
+        options:
+          - info
+          - debug
+          - trace
   pull_request:
   push:
     branches: ["main"]
@@ -59,4 +67,7 @@ jobs:
       arch: ${{ matrix.test-group.arch}}
       ubuntu-docker-version: ${{ matrix.ubuntu-docker-version}}
       card: ${{ matrix.test-group.card}}
-      timeout: ${{ matrix.test-group.timeout}}
+      # When log level is such that more logs are printed, we need a larger timeout.
+      # This is somewhat of a hack and an arbitrary value, to be revised.
+      timeout: ${{ inputs.log-level != 'info' && 60 || matrix.test-group.timeout }}
+      log-level: ${{ inputs.log-level || 'info' }}

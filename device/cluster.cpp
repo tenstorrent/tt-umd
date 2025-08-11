@@ -247,8 +247,15 @@ std::unique_ptr<Chip> Cluster::construct_chip_from_cluster(
         if (cluster_desc->get_arch(chip_id) != tt::ARCH::WORMHOLE_B0) {
             throw std::runtime_error("Remote chips are supported only for wormhole.");
         }
-        auto local_chip = get_local_chip(cluster_desc->get_closest_mmio_capable_chip(chip_id));
-        return RemoteChip::create(local_chip, cluster_desc->get_chip_locations().at(chip_id), soc_desc);
+        chip_id_t gateway_id = cluster_desc->get_closest_mmio_capable_chip(chip_id);
+        LocalChip* local_chip = get_local_chip(gateway_id);
+        std::unordered_set<CoreCoord> eth_cores_to_use;
+        for (auto channel : cluster_desc->get_active_eth_channels(gateway_id)) {
+            eth_cores_to_use.insert(
+                local_chip->get_soc_descriptor().get_eth_core_for_channel(channel, CoordSystem::TRANSLATED));
+        }
+        return RemoteChip::create(
+            local_chip, cluster_desc->get_chip_locations().at(chip_id), eth_cores_to_use, soc_desc);
     }
 }
 
@@ -434,7 +441,16 @@ Cluster::Cluster(ClusterOptions options) {
 
 void Cluster::configure_active_ethernet_cores_for_mmio_device(
     chip_id_t mmio_chip, const std::unordered_set<CoreCoord>& active_eth_cores_per_chip) {
-    chips_.at(mmio_chip)->set_remote_transfer_ethernet_cores(active_eth_cores_per_chip);
+    // The ethernet cores that should be used for remote transfer are set in the RemoteCommunication structure.
+    // This structure is used by remote chips. So we need to find all remote chips that use the passed in mmio_chip,
+    // and set the active ethernet cores for them.
+    for (const auto& remote_chip_id : remote_chip_ids_) {
+        if (cluster_desc->get_closest_mmio_capable_chip(remote_chip_id) == mmio_chip) {
+            get_remote_chip(remote_chip_id)->set_remote_transfer_ethernet_cores(active_eth_cores_per_chip);
+        }
+    }
+    // Local chips hold communication primitives for broadcasting, so we have to set this up for them as well.
+    get_local_chip(mmio_chip)->set_remote_transfer_ethernet_cores(active_eth_cores_per_chip);
 }
 
 std::set<chip_id_t> Cluster::get_target_device_ids() { return all_chip_ids_; }

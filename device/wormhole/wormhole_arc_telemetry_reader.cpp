@@ -32,7 +32,7 @@ void WormholeArcTelemetryReader::verify_telemetry() {
     // Seems that TAG_DEVICE_ID field in remote telemetry is not populated in the same way for remote and local chips.
     // TODO: figure out if there is any way for both local and remote chips to verify telemetry readouts.
     if (!tt_device->is_remote()) {
-        uint32_t vendor_id = read_entry(wormhole::TAG_DEVICE_ID);
+        uint32_t vendor_id = read_entry(wormhole::TelemetryTag::DEVICE_ID);
         constexpr uint32_t tt_vendor_id = 0x1e52;
         if ((vendor_id & 0xFFFF) != tt_vendor_id) {
             throw std::runtime_error(
@@ -56,7 +56,7 @@ uint32_t WormholeArcTelemetryReader::read_entry(const uint8_t telemetry_tag) {
 }
 
 bool WormholeArcTelemetryReader::is_entry_available(const uint8_t telemetry_tag) {
-    return telemetry_tag >= 0 && telemetry_tag < wormhole::TELEMETRY_NUMBER_OF_TAGS;
+    return telemetry_tag >= 0 && telemetry_tag < wormhole::TelemetryTag::NUMBER_OF_TAGS;
 }
 
 }  // namespace tt::umd

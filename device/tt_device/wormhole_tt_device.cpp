@@ -21,12 +21,11 @@ static constexpr uint32_t DMA_TIMEOUT_MS = 10000;  // 10 seconds
 WormholeTTDevice::WormholeTTDevice(std::shared_ptr<PCIDevice> pci_device) :
     TTDevice(pci_device, std::make_unique<wormhole_implementation>()) {
     init_tt_device();
-    wait_arc_core_start(
-        umd_use_noc1 ? tt_xy_pair(
-                           wormhole::NOC0_X_TO_NOC1_X[wormhole::ARC_CORES_NOC0[0].x],
-                           wormhole::NOC0_Y_TO_NOC1_Y[wormhole::ARC_CORES_NOC0[0].y])
-                     : wormhole::ARC_CORES_NOC0[0],
-        1000);
+    arc_core = umd_use_noc1 ? tt_xy_pair(
+                                  tt::umd::wormhole::NOC0_X_TO_NOC1_X[tt::umd::wormhole::ARC_CORES_NOC0[0].x],
+                                  tt::umd::wormhole::NOC0_Y_TO_NOC1_Y[tt::umd::wormhole::ARC_CORES_NOC0[0].y])
+                            : wormhole::ARC_CORES_NOC0[0];
+    eth_addresses = WormholeTTDevice::get_eth_addresses(telemetry->read_entry(wormhole::ETH_FW_VERSION));
 }
 
 WormholeTTDevice::WormholeTTDevice(std::unique_ptr<JtagDevice> jtag_device) :
@@ -82,12 +81,20 @@ ChipInfo WormholeTTDevice::get_chip_info() {
 
     chip_info.board_type = get_board_type();
 
-    chip_info.firmware_version = fw_version_from_telemetry(telemetry->read_entry(wormhole::TAG_FW_BUNDLE_VERSION));
+    if (chip_info.board_type == BoardType::GALAXY) {
+        // There is a hack for galaxy board such that ARC puts this information as tt_flash version.
+        // For more information see https://github.com/tenstorrent/tt-smi/issues/72
+        chip_info.firmware_version =
+            fw_version_from_telemetry(telemetry->read_entry(wormhole::TelemetryTag::TT_FLASH_VERSION));
+    } else {
+        chip_info.firmware_version =
+            fw_version_from_telemetry(telemetry->read_entry(wormhole::TelemetryTag::FW_BUNDLE_VERSION));
+    }
 
     return chip_info;
 }
 
-void WormholeTTDevice::wait_arc_core_start(const tt_xy_pair arc_core, const uint32_t timeout_ms) {
+void WormholeTTDevice::wait_arc_core_start(const uint32_t timeout_ms) {
     uint32_t bar_read_initial = bar_read32(architecture_impl_->get_arc_reset_scratch_offset() + 3 * 4);
     // TODO: figure out 325 and 500 constants meaning and put it in variable.
     uint32_t arg = bar_read_initial == 500 ? 325 : 500;
@@ -126,20 +133,20 @@ uint32_t WormholeTTDevice::get_clock() {
 }
 
 uint32_t WormholeTTDevice::get_max_clock_freq() {
-    uint32_t aiclk_telemetry = telemetry->read_entry(wormhole::TAG_AICLK);
+    uint32_t aiclk_telemetry = telemetry->read_entry(wormhole::TelemetryTag::AICLK);
     return (aiclk_telemetry >> 16) & 0xFFFF;
 }
 
 uint32_t WormholeTTDevice::get_min_clock_freq() { return wormhole::AICLK_IDLE_VAL; }
 
 uint64_t WormholeTTDevice::get_board_id() {
-    uint32_t board_id_lo = telemetry->read_entry(wormhole::TAG_BOARD_ID_LOW);
-    uint32_t board_id_hi = telemetry->read_entry(wormhole::TAG_BOARD_ID_HIGH);
+    uint32_t board_id_lo = telemetry->read_entry(wormhole::TelemetryTag::BOARD_ID_LOW);
+    uint32_t board_id_hi = telemetry->read_entry(wormhole::TelemetryTag::BOARD_ID_HIGH);
     return ((uint64_t)board_id_hi << 32) | board_id_lo;
 }
 
 std::vector<DramTrainingStatus> WormholeTTDevice::get_dram_training_status() {
-    uint32_t dram_training_status_telemetry = telemetry->read_entry(wormhole::TAG_DDR_STATUS);
+    uint32_t dram_training_status_telemetry = telemetry->read_entry(wormhole::TelemetryTag::DDR_STATUS);
     const uint32_t num_dram_channels = wormhole::NUM_DRAM_BANKS;
     std::vector<DramTrainingStatus> dram_training_status;
     for (uint32_t dram_channel = 0; dram_channel < num_dram_channels; dram_channel++) {
@@ -392,6 +399,22 @@ void WormholeTTDevice::dma_d2h_zero_copy(void *dst, uint32_t src, size_t size) {
     dma_d2h_transfer((uint64_t)(uintptr_t)dst, src, size);
 }
 
+void WormholeTTDevice::read_from_arc(void *mem_ptr, uint64_t arc_addr_offset, size_t size) {
+    if (arc_addr_offset > wormhole::ARC_XBAR_ADDRESS_END) {
+        throw std::runtime_error("Address is out of ARC XBAR address range");
+    }
+    auto result = bar_read32(wormhole::ARC_APB_BAR0_XBAR_OFFSET_START + arc_addr_offset);
+    *(reinterpret_cast<uint32_t *>(mem_ptr)) = result;
+}
+
+void WormholeTTDevice::write_to_arc(const void *mem_ptr, uint64_t arc_addr_offset, size_t size) {
+    if (arc_addr_offset > wormhole::ARC_XBAR_ADDRESS_END) {
+        throw std::runtime_error("Address is out of ARC XBAR address range");
+    }
+    bar_write32(
+        wormhole::ARC_APB_BAR0_XBAR_OFFSET_START + arc_addr_offset, *(reinterpret_cast<const uint32_t *>(mem_ptr)));
+}
+
 void WormholeTTDevice::wait_eth_core_training(const tt_xy_pair eth_core, const uint32_t timeout_ms) {
     TT_ASSERT(pci_device_.get(), NO_PCI_DEVICE_ERROR);
 
@@ -410,12 +433,87 @@ void WormholeTTDevice::wait_eth_core_training(const tt_xy_pair eth_core, const u
             break;
         }
     }
+
+    uint32_t port_status = read_port_status(eth_core);
+    start = std::chrono::system_clock::now();
+    while (port_status == ETH_UNKNOWN) {
+        port_status = read_port_status(eth_core);
+        auto end = std::chrono::system_clock::now();
+        auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
+        if (duration.count() > timeout_ms) {
+            if (get_board_type() != BoardType::UBB) {
+                throw std::runtime_error(fmt::format(
+                    "ETH training timed out after {} ms, on eth core {}, {}", timeout_ms, eth_core.x, eth_core.y));
+            }
+            break;
+        }
+    }
 }
 
 double WormholeTTDevice::get_asic_temperature() {
     // Data stored in telemetry has temperature average across chips stored in lower 16 bits.
     // It needs to be divided by 8 to get temperature in Celsius.
-    return (telemetry->read_entry(wormhole::TAG_ASIC_TEMPERATURE) & 0xFFFF) / 8.0;
+    return (telemetry->read_entry(wormhole::TelemetryTag::ASIC_TEMPERATURE) & 0xFFFF) / 8.0;
+}
+
+tt_xy_pair WormholeTTDevice::get_arc_core() const { return arc_core; }
+
+uint64_t WormholeTTDevice::get_arc_noc_base_address() const { return wormhole::ARC_NOC_XBAR_ADDRESS_START; }
+
+uint32_t WormholeTTDevice::read_port_status(tt_xy_pair eth_core) {
+    uint32_t channel = std::distance(
+        wormhole::ETH_CORES_NOC0.begin(),
+        std::find(wormhole::ETH_CORES_NOC0.begin(), wormhole::ETH_CORES_NOC0.end(), eth_core));
+    uint32_t port_status;
+    read_from_device(&port_status, eth_core, eth_addresses.eth_conn_info + (channel * 4), sizeof(uint32_t));
+    return port_status;
+}
+
+WormholeTTDevice::EthAddresses WormholeTTDevice::get_eth_addresses(const uint32_t eth_fw_version) {
+    uint32_t masked_version = eth_fw_version & 0x00FFFFFF;
+
+    uint64_t node_info;
+    uint64_t eth_conn_info;
+    uint64_t results_buf;
+    uint64_t erisc_remote_board_type_offset;
+    uint64_t erisc_local_board_type_offset;
+    uint64_t erisc_local_board_id_lo_offset;
+    uint64_t erisc_remote_board_id_lo_offset;
+    uint64_t erisc_remote_eth_id_offset;
+
+    if (masked_version >= 0x060000) {
+        node_info = 0x1100;
+        eth_conn_info = 0x1200;
+        results_buf = 0x1ec0;
+    } else {
+        throw std::runtime_error(
+            fmt::format("Unsupported ETH version {:#x}. ETH version should always be at least 6.0.0.", eth_fw_version));
+    }
+
+    if (masked_version >= 0x06C000) {
+        erisc_remote_board_type_offset = 77;
+        erisc_local_board_type_offset = 69;
+        erisc_remote_board_id_lo_offset = 72;
+        erisc_local_board_id_lo_offset = 64;
+        erisc_remote_eth_id_offset = 76;
+    } else {
+        erisc_remote_board_type_offset = 72;
+        erisc_local_board_type_offset = 64;
+        erisc_remote_board_id_lo_offset = 73;
+        erisc_local_board_id_lo_offset = 65;
+        erisc_remote_eth_id_offset = 77;
+    }
+
+    return WormholeTTDevice::EthAddresses{
+        masked_version,
+        node_info,
+        eth_conn_info,
+        results_buf,
+        erisc_remote_board_type_offset,
+        erisc_local_board_type_offset,
+        erisc_local_board_id_lo_offset,
+        erisc_remote_board_id_lo_offset,
+        erisc_remote_eth_id_offset};
 }
 
 }  // namespace tt::umd

@@ -460,7 +460,7 @@ dynamic_tlb TTDevice::set_dynamic_tlb(
         }
             .apply_offset(tlb_config.offset);
 
-    log_debug(
+    log_trace(
         LogSiliconDriver,
         "set_dynamic_tlb() with tlb_index: {} tlb_index_offset: {} dynamic_tlb_size: {}MB tlb_base: 0x{:x} "
         "tlb_cfg_reg: 0x{:x} to core ({},{})",
@@ -491,10 +491,6 @@ dynamic_tlb TTDevice::set_dynamic_tlb_broadcast(
 
 void TTDevice::configure_iatu_region(size_t region, uint64_t target, size_t region_size) {
     throw std::runtime_error("configure_iatu_region is not implemented for this device");
-}
-
-void TTDevice::wait_arc_core_start(const tt_xy_pair arc_core, const uint32_t timeout_ms) {
-    throw std::runtime_error("Waiting for ARC core to start is supported only for Blackhole TTDevice.");
 }
 
 void TTDevice::bar_write32(uint32_t addr, uint32_t data) {

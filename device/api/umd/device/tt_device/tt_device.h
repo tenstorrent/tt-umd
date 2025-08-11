@@ -145,6 +145,70 @@ public:
     virtual void read_universal(void *mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size);
     virtual void write_universal(const void *mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size);
 
+    /**
+     * Read function that will send read message to the ARC core.
+     *
+     * @param mem_ptr pointer to memory which will receive the data
+     * @param arc_addr_offset address offset in ARC core
+     * @param size number of bytes
+     *
+     * NOTE: This function on Wormhole will use the
+     * AXI interface to read the data if the chip is local/PCIe, while the remote chip will use the
+     * the NOC interface to read the data. Blackhole for now, will only use the NOC interface to read data,
+     * because it is depenedent on the board type if we can send over NOC or over AXI interface even for local/PCIe
+     * chips.
+     *
+     */
+    virtual void read_from_arc(void *mem_ptr, uint64_t arc_addr_offset, [[maybe_unused]] size_t size) = 0;
+
+    /**
+     * Write function that will send write message to the ARC core.
+     *
+     * @param mem_ptr pointer to memory from which the data is sent
+     * @param arc_addr_offset address offset in ARC core
+     * @param size number of bytes
+     *
+     * NOTE: This function on Wormhole will use the
+     * AXI interface to write the data if the chip is local/PCIe, while the remote chip will use the
+     * the NOC interface to write the data. Blackhole for now, will only use the NOC interface to write data,
+     * because it is depenedent on the board type if we can send over NOC or over AXI interface even for local/PCIe
+     * chips.
+     *
+     */
+    virtual void write_to_arc(const void *mem_ptr, uint64_t arc_addr_offset, [[maybe_unused]] size_t size) = 0;
+
+    /**
+     * Read function that will send read message to the ARC core.
+     *
+     * @param mem_ptr pointer to memory which will receive the data
+     * @param arc_addr_offset address offset in ARC core
+     * @param size number of bytes
+     *
+     * NOTE: This function on Wormhole will use the
+     * AXI interface to read the data if the chip is local/PCIe, while the remote chip will use the
+     * the NOC interface to read the data. Blackhole for now, will only use the NOC interface to read data,
+     * because it is depenedent on the board type if we can send over NOC or over AXI interface even for local/PCIe
+     * chips.
+     *
+     */
+    virtual void read_from_arc(void *mem_ptr, uint64_t arc_addr_offset, [[maybe_unused]] size_t size) = 0;
+
+    /**
+     * Write function that will send write message to the ARC core.
+     *
+     * @param mem_ptr pointer to memory from which the data is sent
+     * @param arc_addr_offset address offset in ARC core
+     * @param size number of bytes
+     *
+     * NOTE: This function on Wormhole will use the
+     * AXI interface to write the data if the chip is local/PCIe, while the remote chip will use the
+     * the NOC interface to write the data. Blackhole for now, will only use the NOC interface to write data,
+     * because it is depenedent on the board type if we can send over NOC or over AXI interface even for local/PCIe
+     * chips.
+     *
+     */
+    virtual void write_to_arc(const void *mem_ptr, uint64_t arc_addr_offset, [[maybe_unused]] size_t size) = 0;
+
     // TLB related functions.
     // TODO: These are architecture specific, and will be moved out of the class.
     void write_tlb_reg(
@@ -195,7 +259,7 @@ public:
 
     virtual ChipInfo get_chip_info() = 0;
 
-    virtual void wait_arc_core_start(const tt_xy_pair arc_core, const uint32_t timeout_ms = 1000);
+    virtual void wait_arc_core_start(const uint32_t timeout_ms = 1000) = 0;
 
     virtual void wait_eth_core_training(const tt_xy_pair eth_core, const uint32_t timeout_ms = 60000) = 0;
 
@@ -229,6 +293,8 @@ public:
 
     bool is_remote();
 
+    virtual uint64_t get_arc_noc_base_address() const = 0;
+
 protected:
     std::shared_ptr<PCIDevice> pci_device_;
     std::unique_ptr<JtagDevice> jtag_device_;
@@ -237,6 +303,7 @@ protected:
     std::unique_ptr<ArcMessenger> arc_messenger_ = nullptr;
     LockManager lock_manager;
     std::unique_ptr<ArcTelemetryReader> telemetry = nullptr;
+    std::unique_ptr<JtagDevice> jtag_device;
 
     bool is_hardware_hung();
 

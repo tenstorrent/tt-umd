@@ -2,6 +2,8 @@ set(UBENCH_SRC
     benchmarks/tlb/test_tlb.cpp
     benchmarks/pcie_dma/test_pcie_dma.cpp
     benchmarks/iommu/test_iommu.cpp
+    benchmarks/open_cluster/test_open_cluster.cpp
+    benchmarks/ethernet_io/test_ethernet_io.cpp
     common/microbenchmark_utils.cpp
 )
 add_executable(ubench ${UBENCH_SRC})

@@ -237,8 +237,7 @@ std::unique_ptr<Chip> Cluster::construct_chip_from_cluster(
     }
 
     if (cluster_desc->is_chip_mmio_capable(chip_id)) {
-        auto chip = std::make_unique<LocalChip>(
-            soc_desc, cluster_desc->get_chips_with_mmio().at(chip_id), num_host_mem_channels);
+        auto chip = LocalChip::create(cluster_desc->get_chips_with_mmio().at(chip_id), soc_desc, num_host_mem_channels);
         if (cluster_desc->get_arch(chip_id) == tt::ARCH::WORMHOLE_B0) {
             // Remote transfer currently supported only for wormhole.
             chip->set_remote_transfer_ethernet_cores(cluster_desc->get_active_eth_channels(chip_id));
@@ -248,10 +247,15 @@ std::unique_ptr<Chip> Cluster::construct_chip_from_cluster(
         if (cluster_desc->get_arch(chip_id) != tt::ARCH::WORMHOLE_B0) {
             throw std::runtime_error("Remote chips are supported only for wormhole.");
         }
-        std::unique_ptr<RemoteWormholeTTDevice> remote_tt_device = std::make_unique<RemoteWormholeTTDevice>(
-            get_local_chip(cluster_desc->get_closest_mmio_capable_chip(chip_id)),
-            cluster_desc->get_chip_locations().at(chip_id));
-        return std::make_unique<RemoteChip>(soc_desc, std::move(remote_tt_device));
+        chip_id_t gateway_id = cluster_desc->get_closest_mmio_capable_chip(chip_id);
+        LocalChip* local_chip = get_local_chip(gateway_id);
+        std::unordered_set<CoreCoord> eth_cores_to_use;
+        for (auto channel : cluster_desc->get_active_eth_channels(gateway_id)) {
+            eth_cores_to_use.insert(
+                local_chip->get_soc_descriptor().get_eth_core_for_channel(channel, CoordSystem::TRANSLATED));
+        }
+        return RemoteChip::create(
+            local_chip, cluster_desc->get_chip_locations().at(chip_id), eth_cores_to_use, soc_desc);
     }
 }
 
@@ -437,7 +441,16 @@ Cluster::Cluster(ClusterOptions options) {
 
 void Cluster::configure_active_ethernet_cores_for_mmio_device(
     chip_id_t mmio_chip, const std::unordered_set<CoreCoord>& active_eth_cores_per_chip) {
-    chips_.at(mmio_chip)->set_remote_transfer_ethernet_cores(active_eth_cores_per_chip);
+    // The ethernet cores that should be used for remote transfer are set in the RemoteCommunication structure.
+    // This structure is used by remote chips. So we need to find all remote chips that use the passed in mmio_chip,
+    // and set the active ethernet cores for them.
+    for (const auto& remote_chip_id : remote_chip_ids_) {
+        if (cluster_desc->get_closest_mmio_capable_chip(remote_chip_id) == mmio_chip) {
+            get_remote_chip(remote_chip_id)->set_remote_transfer_ethernet_cores(active_eth_cores_per_chip);
+        }
+    }
+    // Local chips hold communication primitives for broadcasting, so we have to set this up for them as well.
+    get_local_chip(mmio_chip)->set_remote_transfer_ethernet_cores(active_eth_cores_per_chip);
 }
 
 std::set<chip_id_t> Cluster::get_target_device_ids() { return all_chip_ids_; }
@@ -1057,26 +1070,21 @@ void Cluster::set_barrier_address_params(const barrier_address_params& barrier_a
 
 std::unique_ptr<tt_ClusterDescriptor> Cluster::create_cluster_descriptor(
     std::string sdesc_path, std::unordered_set<chip_id_t> pci_target_devices) {
-    std::map<int, PciDeviceInfo> pci_device_info = PCIDevice::enumerate_devices_info();
+    std::map<int, PciDeviceInfo> pci_device_info = PCIDevice::enumerate_devices_info(pci_target_devices);
     if (pci_device_info.begin()->second.get_arch() == tt::ARCH::BLACKHOLE) {
-        std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
+        std::vector<int> pci_device_ids = PCIDevice::enumerate_devices(pci_target_devices);
 
         std::unordered_map<chip_id_t, std::unique_ptr<Chip>> chips;
         chip_id_t chip_id = 0;
         for (auto& device_id : pci_device_ids) {
-            std::unique_ptr<LocalChip> chip = nullptr;
-            if (sdesc_path.empty()) {
-                chip = std::make_unique<LocalChip>(TTDevice::create(device_id));
-            } else {
-                chip = std::make_unique<LocalChip>(sdesc_path, TTDevice::create(device_id));
-            }
+            std::unique_ptr<LocalChip> chip = LocalChip::create(device_id, sdesc_path);
             chips.emplace(chip_id, std::move(chip));
             chip_id++;
         }
 
         return Cluster::create_cluster_descriptor(chips);
     } else {
-        return TopologyDiscovery(pci_target_devices).create_ethernet_map();
+        return TopologyDiscovery(pci_target_devices, sdesc_path).create_ethernet_map();
     }
 }
 

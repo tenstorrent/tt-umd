@@ -43,8 +43,6 @@ private:
 
     void fill_cluster_descriptor_info();
 
-    bool is_pcie_chip_id_included(int pci_id) const;
-
     // board_type is not used for all configs.
     // We need to know that we are seeing TG board and that we should include it in the topology.
     bool is_board_id_included(uint64_t board_id, uint64_t board_type) const;
@@ -85,7 +83,7 @@ private:
     uint64_t get_asic_id(Chip* chip);
 
     // TODO: move this function to class specific for WH with old FW.
-    eth_coord_t get_local_eth_coord(Chip* chip);
+    std::optional<eth_coord_t> get_local_eth_coord(Chip* chip);
 
     // TODO: move this function to class specific for WH with old FW.
     // eth_core should be in NoC 0 coordinates.
@@ -109,7 +107,8 @@ private:
     // TODO: override this logic for different configs. This is in group of functions
     // that we should override for T3K/6U/BH...
     // eth_core should be in NoC 0 coordinates.
-    std::unique_ptr<RemoteChip> create_remote_chip(Chip* chip, tt_xy_pair eth_core, Chip* gateway_chip);
+    std::unique_ptr<RemoteChip> create_remote_chip(
+        Chip* chip, tt_xy_pair eth_core, Chip* gateway_chip, std::set<uint32_t>& eth_channels_to_use);
 
     Chip* get_chip(const uint64_t asic_id);
 

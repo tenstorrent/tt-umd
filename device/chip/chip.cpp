@@ -64,11 +64,10 @@ void Chip::wait_chip_to_be_ready() {
 }
 
 void Chip::wait_eth_cores_training(const uint32_t timeout_ms) {
-    const std::vector<CoreCoord> eth_cores =
-        get_soc_descriptor().get_cores(CoreType::ETH, umd_use_noc1 ? CoordSystem::NOC1 : CoordSystem::NOC0);
+    const std::vector<CoreCoord> eth_cores = get_soc_descriptor().get_cores(CoreType::ETH, CoordSystem::TRANSLATED);
     TTDevice* tt_device = get_tt_device();
     for (const CoreCoord& eth_core : eth_cores) {
-        tt_device->wait_eth_core_training(eth_core, timeout_ms);
+        tt_device->wait_eth_core_training(translate_chip_coord_to_translated(eth_core), timeout_ms);
     }
 }
 
@@ -224,19 +223,11 @@ tt_xy_pair Chip::translate_chip_coord_to_translated(const CoreCoord core) const 
     // Tensix cores are always used in translated space. Other cores are used either in
     // NOC1 or translated space depending on the umd_use_noc1 flag.
     // On Wormhole Tensix can use NOC1 space if umd_use_noc1 is set to true.
-    if (soc_descriptor_.noc_translation_enabled) {
-        if (soc_descriptor_.arch == tt::ARCH::BLACKHOLE) {
-            if (core.core_type == CoreType::TENSIX || !umd_use_noc1) {
-                return soc_descriptor_.translate_coord_to(core, CoordSystem::TRANSLATED);
-            } else {
-                return soc_descriptor_.translate_coord_to(core, CoordSystem::NOC1);
-            }
-        } else {
-            return soc_descriptor_.translate_coord_to(core, umd_use_noc1 ? CoordSystem::NOC1 : CoordSystem::TRANSLATED);
-        }
-    } else {
-        return soc_descriptor_.translate_coord_to(core, umd_use_noc1 ? CoordSystem::NOC1 : CoordSystem::TRANSLATED);
+    if (soc_descriptor_.noc_translation_enabled && soc_descriptor_.arch == tt::ARCH::BLACKHOLE) {
+        return soc_descriptor_.translate_coord_to(core, CoordSystem::TRANSLATED);
     }
+
+    return soc_descriptor_.translate_coord_to(core, umd_use_noc1 ? CoordSystem::NOC1 : CoordSystem::TRANSLATED);
 }
 
 void Chip::wait_for_aiclk_value(TTDevice* tt_device, tt_DevicePowerState power_state, const uint32_t timeout_ms) {

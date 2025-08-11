@@ -67,6 +67,10 @@ jobs:
         shell: bash
         run: tar xvf artifact.tar
 
+      - name: Run tt-smi
+        run: |
+          tt-smi -ls
+
       - name: Run API tests
         run: |
           ${{ env.TEST_OUTPUT_DIR }}/umd/api/api_tests

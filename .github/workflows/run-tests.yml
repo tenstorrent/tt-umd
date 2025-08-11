@@ -24,23 +24,6 @@ on:
         required: false
         type: string
         default: 'info'
-      log-params:
-        required: false
-        type: string
-        default: ""
-
-env:
-  BUILD_OUTPUT_DIR: ./build
-  TEST_OUTPUT_DIR: ./build/test
-  CREATE_MAP_BINARIES_DIR: ./device/bin/silicon
-  TT_LOGGER_LEVEL: ${{ inputs.log-level }}
-  LOG_PARAMS: |
-    ${{ inputs.log-params }}\n
-    build-tests - arch: ${{ inputs.arch }}\n
-    build-tests - ubuntu-docker-version: ${{ inputs.ubuntu-docker-version }}\n
-    build-tests - card: ${{ inputs.card }}\n
-    build-tests - build-type: ${{ inputs.build-type }}\n
-    build-tests - log-level: ${{ inputs.log-level }}
 
 jobs:
   test:
@@ -64,7 +47,12 @@ jobs:
 
     steps:
       - name: Print all params
-        run: echo "${{ env.LOG_PARAMS }}"
+        run: |
+          echo "Run tests - arch: ${{ inputs.arch }}"
+          echo "Run tests - ubuntu-docker-version: ${{ inputs.ubuntu-docker-version }}"
+          echo "Run tests - card: ${{ inputs.card }}"
+          echo "Run tests - build-type: ${{ inputs.build-type }}"
+          echo "Run tests - log-level: ${{ inputs.log-level }}"
 
       - name: Cleanup tt-umd dir, and change directory as if we were in a github.repository
         run: |

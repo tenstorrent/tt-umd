@@ -37,7 +37,7 @@ env:
 
 jobs:
   test:
-    name: Run tests (${{ inputs.card }}, ${{ inputs.build-type }}, ${{ inputs.ubuntu-docker-version }})
+    name: Run (${{ inputs.card }}, ${{ inputs.build-type }}, ${{ inputs.ubuntu-docker-version }})
     # Due to parsing bug, fromJSON is used to convert string to number
     timeout-minutes: ${{ fromJSON(inputs.timeout) }}
     runs-on:

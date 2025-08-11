@@ -12,7 +12,6 @@ class CMakeBuildExt(build_ext):
         extdir = os.path.abspath(os.path.dirname(self.get_ext_fullpath(ext.name)))
         cmake_args = [
             f"-DCMAKE_LIBRARY_OUTPUT_DIRECTORY={extdir}",
-            # f"-DPYTHON_EXECUTABLE={sys.executable}",
             f"-DTT_UMD_BUILD_TESTS=OFF",
             f"-DTT_UMD_BUILD_SIMULATION=OFF",
             f"-DTT_UMD_BUILD_PYTHON=ON",
@@ -46,10 +45,6 @@ setup(
     author_email="info@tenstorrent.com",
     description="User Mode Driver for tenstorrent",
     ext_modules=[CMakeExtension("tt_umd", sourcedir=".")],
-    # packages=["tt_umd"],  # Create a folder for your package
-    # package_data={
-    #     "tt_umd": ["tt_umd.so", "tt_umd.cpython-310-x86_64-linux-gnu.so"],
-    # },
     cmdclass={"build_ext": CMakeBuildExt},
     zip_safe=False,
 )

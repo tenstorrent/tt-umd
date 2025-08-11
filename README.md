@@ -50,7 +50,7 @@ If you don't have IOMMU enabled, than hugepages might be required for some of th
 
 You can just run the following command, and you'll have tt_umd python package available in your environment:
 ```
-pip install git+https://github.com/tenstorrent/tt-exalens.git
+pip install git+https://github.com/tenstorrent/tt-umd.git
 ```
 
 Or if you have UMD downloaded locally you can install from local source:

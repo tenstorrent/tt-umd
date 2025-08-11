@@ -51,7 +51,6 @@ jobs:
     runs-on: ubuntu-22.04
     container:
       image: ghcr.io/${{ github.repository }}/tt-umd-ci-${{ inputs.ubuntu-docker-version }}:latest
-      options: --user root
 
     steps:
       - uses: actions/checkout@v4
@@ -95,7 +94,6 @@ jobs:
     runs-on: ubuntu-22.04
     container:
       image: ghcr.io/${{ github.repository }}/tt-umd-ci-${{ inputs.ubuntu-docker-version }}:latest
-      options: --user root
 
     steps:
       - uses: actions/checkout@v4

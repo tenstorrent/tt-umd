@@ -15,6 +15,12 @@ set_target_properties(
             "tt_umd" # Name of the Python module
 )
 
+# The problem that RPATH is solving is the following:
+# Some third party python package which uses tt_umd gets installed on the system. The artifacts of this package will end up in the same folder.
+# When the third party package tries to include tt_umd module, it will correctly find it. The module will then include the python bindings .so file
+# which is in the same folder and will be correctly found. However, the .so file itself requires libdevice.so (the umd library) file. The system tries to
+# find this in the default system lib directory, but it is not there. The RunPATH variable will say to this lib loading system that it should look for the
+# libdevice.so file in the same folder as the tt_umd module, which is where it is located.
 set_target_properties(
     nanobind_tt_umd
     PROPERTIES

@@ -30,7 +30,7 @@ on:
 jobs:
   build-and-run-all-tests:
     name: ""
-    runs-on: ubuntu-22.04
+    secrets: inherit
     strategy:
       fail-fast: false
       matrix:
@@ -46,15 +46,10 @@ jobs:
         build-type: ${{ fromJson(github.event_name == 'pull_request' && '["Release"]' ||
                                  github.event_name == 'push' && '["Release"]' ||
                                  github.event_name == 'workflow_dispatch' && github.event.inputs['build-types']) }}
-    steps:
-      - name: Print all params
-        run: "echo build-and-run-all-tests-multiple-builds - build-types: ${{ inputs.build-types }}"
-
-      - uses: actions/checkout@v4
-
-      - name: Build and run all tests for ${{ matrix.build-type }}
-        uses: ./.github/workflows/build-and-run-all-tests.yml
-        with:
-          build-type: ${{ matrix.build-type }}
-          # Debug and TSan builds are slower, so give them more time to run.
-          timeout: ${{ (matrix.build-type == 'Debug' || matrix.build-type == 'TSan') && 30 || 20 }}
+    uses: ./.github/workflows/build-and-run-all-tests.yml
+    with:
+      build-type: ${{ matrix.build-type }}
+      # Debug and TSan builds are slower, so give them more time to run.
+      timeout: ${{ (matrix.build-type == 'Debug' || matrix.build-type == 'TSan') && 30 || 20 }}
+      log-params: |
+        build-and-run-all-tests-multiple-builds - build-types: ${{ inputs.build-types }}

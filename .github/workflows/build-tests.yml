@@ -15,6 +15,10 @@ on:
         required: true
         type: string
         default: Release
+      log-params:
+        required: false
+        type: string
+        default: ""
   workflow_dispatch:
     inputs:
       ubuntu-docker-version:
@@ -65,9 +69,10 @@ jobs:
     steps:
       - name: Print all params
         run: |
-          echo "build-tests - ubuntu-docker-version: ${{ inputs.ubuntu-docker-version }}"
-          echo "build-tests - timeout: ${{ inputs.timeout }}"
-          echo "build-tests - build-type: ${{ inputs.build-type }}"
+          echo ${{ inputs.log-params }}
+          echo build-tests - ubuntu-docker-version: ${{ inputs.ubuntu-docker-version }}
+          echo build-tests - timeout: ${{ inputs.timeout }}
+          echo build-tests - build-type: ${{ inputs.build-type }}
 
       - uses: actions/checkout@v4
         with:

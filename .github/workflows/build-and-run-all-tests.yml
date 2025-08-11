@@ -10,6 +10,10 @@ on:
       timeout:
         required: true
         type: number
+      log-params:
+        required: false
+        type: string
+        default: ""
   workflow_dispatch:
     inputs:
       build-type:
@@ -40,7 +44,7 @@ on:
 jobs:
   build-tests:
     name: ""
-    runs-on: ubuntu-22.04
+    secrets: inherit
     strategy:
       fail-fast: false
       matrix:
@@ -48,26 +52,21 @@ jobs:
           'ubuntu-22.04',
           'ubuntu-24.04',
         ]
-    steps:
-      - name: Print all params
-        run: |
-          echo build-and-run-all-tests - build-type: ${{ inputs.build-type }}
-          echo build-and-run-all-tests - ubuntu-docker-version: ${{ matrix.ubuntu-docker-version }}
-          echo build-and-run-all-tests - timeout: ${{ inputs.timeout }}
-
-      - uses: actions/checkout@v4
-
-      - name: Build tests
-        uses: ./.github/workflows/build-tests.yml
-        with:
-          ubuntu-docker-version: ${{ matrix.ubuntu-docker-version}}
-          timeout: 15
-          build-type: ${{ inputs.build-type }}
+    uses: ./.github/workflows/build-tests.yml
+    with:
+      ubuntu-docker-version: ${{ matrix.ubuntu-docker-version}}
+      timeout: 15
+      build-type: ${{ inputs.build-type }}
+      log-params: |
+        ${{ inputs.log-params }}\n
+        build-and-run-all-tests - build-type: ${{ inputs.build-type }}\n
+        build-and-run-all-tests - timeout: ${{ inputs.timeout }}\n
+        build-and-run-all-tests - log-level: ${{ inputs.log-level }}
 
 
   test-all:
     name: ""
-    runs-on: ubuntu-22.04
+    secrets: inherit
     needs: build-tests
     strategy:
       fail-fast: false
@@ -86,21 +85,16 @@ jobs:
         ubuntu-docker-version: [
           'ubuntu-22.04',
         ]
-    steps:
-      - name: Print all params
-        run: |
-          echo build-and-run-all-tests - build-type: ${{ inputs.build-type }}
-          echo build-and-run-all-tests - ubuntu-docker-version: ${{ matrix.ubuntu-docker-version }}
-          echo build-and-run-all-tests - timeout: ${{ inputs.timeout }}
-
-      - uses: actions/checkout@v4
-
-      - name: Run tests
-        uses: ./.github/workflows/run-tests.yml
-        with:
-          arch: ${{ matrix.test-group.arch}}
-          ubuntu-docker-version: ${{ matrix.ubuntu-docker-version}}
-          card: ${{ matrix.test-group.card}}
-          timeout: ${{ inputs.timeout }}
-          log-level: ${{ inputs.log-level || 'info' }}
-          build-type: ${{ inputs.build-type }}
+    uses: ./.github/workflows/run-tests.yml
+    with:
+      arch: ${{ matrix.test-group.arch}}
+      ubuntu-docker-version: ${{ matrix.ubuntu-docker-version}}
+      card: ${{ matrix.test-group.card}}
+      timeout: ${{ inputs.timeout }}
+      log-level: ${{ inputs.log-level || 'info' }}
+      build-type: ${{ inputs.build-type }}
+      log-params: |
+        ${{ inputs.log-params }}\n
+        build-and-run-all-tests - build-type: ${{ inputs.build-type }}\n
+        build-and-run-all-tests - timeout: ${{ inputs.timeout }}\n
+        build-and-run-all-tests - log-level: ${{ inputs.log-level }}

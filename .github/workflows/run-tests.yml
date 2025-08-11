@@ -58,7 +58,7 @@ jobs:
     steps:
       - name: Print all params
         run: |
-          echo ${{ inputs.log-params }}
+          ${{ inputs.log-params }}
           echo build-tests - arch: ${{ inputs.arch }}
           echo build-tests - ubuntu-docker-version: ${{ inputs.ubuntu-docker-version }}
           echo build-tests - card: ${{ inputs.card }}

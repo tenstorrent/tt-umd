@@ -59,9 +59,9 @@ jobs:
       build-type: ${{ inputs.build-type }}
       log-params: |
         ${{ inputs.log-params }}
-        build-and-run-all-tests - build-type: ${{ inputs.build-type }}
-        build-and-run-all-tests - timeout: ${{ inputs.timeout }}
-        build-and-run-all-tests - log-level: ${{ inputs.log-level }}
+        echo build-and-run-all-tests - build-type: ${{ inputs.build-type }}
+        echo build-and-run-all-tests - timeout: ${{ inputs.timeout }}
+        echo build-and-run-all-tests - log-level: ${{ inputs.log-level }}
 
 
   test-all:
@@ -95,6 +95,6 @@ jobs:
       build-type: ${{ inputs.build-type }}
       log-params: |
         ${{ inputs.log-params }}
-        build-and-run-all-tests - build-type: ${{ inputs.build-type }}
-        build-and-run-all-tests - timeout: ${{ inputs.timeout }}
-        build-and-run-all-tests - log-level: ${{ inputs.log-level }}
+        echo build-and-run-all-tests - build-type: ${{ inputs.build-type }}
+        echo build-and-run-all-tests - timeout: ${{ inputs.timeout }}
+        echo build-and-run-all-tests - log-level: ${{ inputs.log-level }}

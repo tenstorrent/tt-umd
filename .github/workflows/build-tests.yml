@@ -69,7 +69,7 @@ jobs:
     steps:
       - name: Print all params
         run: |
-          echo ${{ inputs.log-params }}
+          ${{ inputs.log-params }}
           echo build-tests - ubuntu-docker-version: ${{ inputs.ubuntu-docker-version }}
           echo build-tests - timeout: ${{ inputs.timeout }}
           echo build-tests - build-type: ${{ inputs.build-type }}

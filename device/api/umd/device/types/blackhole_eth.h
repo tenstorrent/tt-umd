@@ -44,14 +44,14 @@ typedef enum {
     PORT_UNUSED,
 } port_status_e;
 
-typedef struct {
+struct fw_version_t {
     uint32_t patch : 8;
     uint32_t minor : 8;
     uint32_t major : 8;
     uint32_t unused : 8;
-} fw_version_t;
+};
 
-typedef struct {
+struct chip_info_t {
     uint8_t pcb_type;  // 0
     uint8_t asic_location;
     uint8_t eth_id;
@@ -69,18 +69,18 @@ typedef struct {
         chip_uid.asic_location = asic_location;
         return chip_uid;
     }
-} chip_info_t;
+};
 
-typedef struct {
+struct serdes_rx_bist_results_t {
     uint32_t bist_mode;  // 0
     uint32_t test_time;  // 1
     // test_time in cycles for bist mode 0 and ms for bist mode 1
     uint32_t error_cnt_nt[NUM_SERDES_LANES];           // 2-9
     uint32_t error_cnt_55t32_nt[NUM_SERDES_LANES];     // 10-17
     uint32_t error_cnt_overflow_nt[NUM_SERDES_LANES];  // 18-25
-} serdes_rx_bist_results_t;
+};
 
-typedef struct {
+struct eth_status_t {
     // Basic status
     uint32_t postcode;                 // 0
     port_status_e port_status;         // 1
@@ -89,9 +89,9 @@ typedef struct {
     uint32_t spare[28 - 4];            // 4-27
     // Heartbeat
     uint32_t heartbeat[4];  // 28-31
-} eth_status_t;
+};
 
-typedef struct {
+struct serdes_results_t {
     uint32_t postcode;           // 0
     uint32_t serdes_inst;        // 1
     uint32_t serdes_lane_mask;   // 2
@@ -124,9 +124,9 @@ typedef struct {
     uint32_t cdr_lock_time;               // 56
     uint32_t bist_lock_time;              // 57
     uint32_t spare_time[64 - 58];         // 58-63
-} serdes_results_t;
+};
 
-typedef struct {
+struct macpcs_results_t {
     uint32_t postcode;          // 0
     uint32_t macpcs_retry_cnt;  // 1
     uint32_t spare[24 - 2];     // 2-23
@@ -134,9 +134,9 @@ typedef struct {
     uint32_t link_up_time;         // 24
     uint32_t chip_info_time;       // 25
     uint32_t spare_time[32 - 26];  // 26-31
-} macpcs_results_t;
+};
 
-typedef struct {
+struct eth_live_status_t {
     uint32_t retrain_count;  // 0
     uint32_t rx_link_up;     // 1 - MAC/PCS RX Link Up
     uint32_t spare[8 - 2];   // 2-7
@@ -158,14 +158,14 @@ typedef struct {
     uint64_t corr_cw;             // 36,37 - Cumulative Corrected Codeword count
     uint64_t uncorr_cw;           // 38,39 - Cumulative Uncorrected Codeword count
     uint32_t spare2[64 - 40];     // 40-63
-} eth_live_status_t;
+};
 
-typedef struct {
+struct eth_api_table_t {
     uint32_t* eth_link_status_check_ptr;  // 0 - Pointer to the link status check function
     uint32_t spare[16 - 1];               // 1-15
-} eth_api_table_t;
+};
 
-typedef struct {
+struct boot_results_t {
     eth_status_t eth_status;            // 0-31
     serdes_results_t serdes_results;    // 32 - 95
     macpcs_results_t macpcs_results;    // 96 - 127
@@ -176,7 +176,7 @@ typedef struct {
     fw_version_t eth_fw_ver;            // 239
     chip_info_t local_info;             // 240 - 247
     chip_info_t remote_info;            // 248 - 255
-} boot_results_t;
+};
 
 constexpr uint32_t BOOT_RESULTS_ADDR = 0x7CC00;
 

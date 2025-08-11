@@ -23,6 +23,7 @@
 #include "assert.hpp"
 #include "ioctl.h"
 #include "umd/device/types/arch.h"
+#include "utils.hpp"
 
 namespace tt::umd {
 
@@ -189,33 +190,13 @@ std::optional<std::unordered_set<int>> PCIDevice::get_visible_devices(
         return pci_target_devices;
     }
 
-    const char *env_var = std::getenv(TT_VISIBLE_DEVICES_ENV.data());
-    if (!env_var) {
+    const std::optional<std::string> env_var_value = utils::get_env_var_value(TT_VISIBLE_DEVICES_ENV.data());
+
+    if (!env_var_value.has_value()) {
         return std::nullopt;
     }
 
-    std::unordered_set<int> visible_devices;
-    std::string env_str(env_var);
-    std::stringstream ss(env_str);
-    std::string token;
-
-    while (std::getline(ss, token, ',')) {
-        try {
-            visible_devices.insert(std::stoi(token));
-        } catch (const std::exception &e) {
-            throw std::runtime_error(fmt::format(
-                "Invalid device ID '{}' in {} environment variable: {}",
-                token,
-                TT_VISIBLE_DEVICES_ENV.data(),
-                e.what()));
-        }
-    }
-
-    if (visible_devices.empty()) {
-        return std::nullopt;
-    }
-
-    return visible_devices;
+    return utils::get_unordered_set_from_string(env_var_value.value());
 }
 
 std::vector<int> PCIDevice::enumerate_devices(std::unordered_set<int> pci_target_devices) {

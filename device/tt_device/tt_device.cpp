@@ -322,11 +322,7 @@ void TTDevice::read_block(uint64_t byte_addr, uint64_t num_bytes, uint8_t *buffe
 }
 
 void TTDevice::read_from_device(void *mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size) {
-    // TODO: make a better fix -> other modules should not call this function if pci was not initialized.
-    if (!pci_device_) {
-        jtag_read_from_device(mem_ptr, core, addr, size);
-        return;
-    }
+    TT_ASSERT(pci_device_.get(), NO_PCI_DEVICE_ERROR);
 
     auto lock = lock_manager.acquire_mutex(MutexType::TT_DEVICE_IO, get_pci_device()->get_device_num());
     uint8_t *buffer_addr = static_cast<uint8_t *>(mem_ptr);
@@ -343,11 +339,7 @@ void TTDevice::read_from_device(void *mem_ptr, tt_xy_pair core, uint64_t addr, u
 }
 
 void TTDevice::write_to_device(const void *mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size) {
-    // TODO: make a better fix -> other modules should not call this function if pci was not initialized.
-    if (!pci_device_) {
-        jtag_write_to_device(mem_ptr, core, addr, size);
-        return;
-    }
+    TT_ASSERT(pci_device_.get(), NO_PCI_DEVICE_ERROR);
 
     auto lock = lock_manager.acquire_mutex(MutexType::TT_DEVICE_IO, get_pci_device()->get_device_num());
     uint8_t *buffer_addr = (uint8_t *)(uintptr_t)(mem_ptr);
@@ -367,120 +359,28 @@ void TTDevice::write_to_device(const void *mem_ptr, tt_xy_pair core, uint64_t ad
 void TTDevice::jtag_read_from_device(void *mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size) {
     TT_ASSERT(jtag_device_.get(), NO_JTAG_DEVICE_ERROR);
 
-    uint8_t *buffer_addr = static_cast<uint8_t *>(mem_ptr);
-
-    uint8_t chip_id = jtag_device_->get_current_device_idx().value();
-
-    const uint32_t chunk_size = sizeof(uint32_t);
-
-    while (size > 0) {
-        uint32_t transfer_size = std::min(size, chunk_size);
-
-        if (transfer_size == sizeof(uint32_t) && (addr % sizeof(uint32_t)) == 0) {
-            // Aligned 32-bit read - most efficient
-            auto result = jtag_device_->read32(chip_id, core.x, core.y, addr);
-            if (!result) {
-                TT_THROW(
-                    "JTAG read32 failed for device {} at core ({},{}) address 0x{:x}", chip_id, core.x, core.y, addr);
-            }
-            uint32_t data = *result;
-            std::memcpy(buffer_addr, &data, sizeof(uint32_t));
-
-            size -= sizeof(uint32_t);
-            addr += sizeof(uint32_t);
-            buffer_addr += sizeof(uint32_t);
-        } else {
-            // Unaligned or partial read
-            uint64_t aligned_addr = addr & ~(sizeof(uint32_t) - 1);
-            uint32_t offset = addr % sizeof(uint32_t);
-
-            auto result = jtag_device_->read32(chip_id, core.x, core.y, aligned_addr);
-            if (!result) {
-                TT_THROW(
-                    "JTAG read32 failed for device {} at core ({},{}) address 0x{:x}",
-                    chip_id,
-                    core.x,
-                    core.y,
-                    aligned_addr);
-            }
-            uint32_t data = *result;
-
-            // Extract the bytes we need from the 32-bit word
-            uint8_t *data_bytes = reinterpret_cast<uint8_t *>(&data);
-            uint32_t bytes_to_copy = std::min(transfer_size, static_cast<uint32_t>(sizeof(uint32_t) - offset));
-
-            std::memcpy(buffer_addr, data_bytes + offset, bytes_to_copy);
-
-            size -= bytes_to_copy;
-            addr += bytes_to_copy;
-            buffer_addr += bytes_to_copy;
-        }
-    }
+    jtag_device_->read(mem_ptr, core.x, core.y, addr, size);
 }
 
 void TTDevice::jtag_write_to_device(const void *mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size) {
     TT_ASSERT(jtag_device_.get(), NO_JTAG_DEVICE_ERROR);
 
-    const uint8_t *buffer_addr = static_cast<const uint8_t *>(mem_ptr);
+    jtag_device_->write(mem_ptr, core.x, core.y, addr, size);
+}
 
-    uint8_t chip_id = jtag_device_->get_current_device_idx().value();
+void TTDevice::read_universal(void *mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size) {
+    if (pci_device_) {
+        read_from_device(mem_ptr, core, addr, size);
+    } else {
+        jtag_read_from_device(mem_ptr, core, addr, size);
+    }
+}
 
-    const uint32_t chunk_size = sizeof(uint32_t);
-
-    while (size > 0) {
-        uint32_t transfer_size = std::min(size, chunk_size);
-
-        if (transfer_size == sizeof(uint32_t) && (addr % sizeof(uint32_t)) == 0) {
-            // Aligned 32-bit write - most efficient
-            uint32_t data;
-            std::memcpy(&data, buffer_addr, sizeof(uint32_t));
-            auto result = jtag_device_->write32(chip_id, core.x, core.y, addr, data);
-            if (!result) {
-                TT_THROW(
-                    "JTAG write32 failed for device {} at core ({},{}) address 0x{:x}", chip_id, core.x, core.y, addr);
-            }
-
-            size -= transfer_size;
-            addr += transfer_size;
-            buffer_addr += transfer_size;
-        } else {
-            // Unaligned or partial write - need to do read-modify-write
-            uint64_t aligned_addr = addr & ~(sizeof(uint32_t) - 1);
-            uint32_t offset = addr % sizeof(uint32_t);
-
-            // Read the current 32-bit word
-            auto read_result = jtag_device_->read32(chip_id, core.x, core.y, aligned_addr);
-            if (!read_result) {
-                TT_THROW(
-                    "JTAG read32 failed for device {} at core ({},{}) address 0x{:x}",
-                    chip_id,
-                    core.x,
-                    core.y,
-                    aligned_addr);
-            }
-            uint32_t existing_data = *read_result;
-
-            // Modify the bytes we want to write
-            uint8_t *data_bytes = reinterpret_cast<uint8_t *>(&existing_data);
-            uint32_t bytes_to_copy = std::min(transfer_size, static_cast<uint32_t>(sizeof(uint32_t) - offset));
-
-            std::memcpy(data_bytes + offset, buffer_addr, bytes_to_copy);
-
-            // Write the modified 32-bit word back
-            auto write_result = jtag_device_->write32(chip_id, core.x, core.y, aligned_addr, existing_data);
-            if (!write_result) {
-                TT_THROW(
-                    "JTAG write32 failed for device {} at core ({},{}) address 0x{:x}",
-                    chip_id,
-                    core.x,
-                    core.y,
-                    aligned_addr);
-            }
-
-            size -= bytes_to_copy;
-            addr += bytes_to_copy;
-            buffer_addr += bytes_to_copy;
-        }
+void TTDevice::write_universal(const void *mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size) {
+    if (pci_device_) {
+        write_to_device(mem_ptr, core, addr, size);
+    } else {
+        jtag_write_to_device(mem_ptr, core, addr, size);
     }
 }
 

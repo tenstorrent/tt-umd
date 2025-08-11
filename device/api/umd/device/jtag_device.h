@@ -43,8 +43,12 @@ public:
         uint32_t dbg_signal_sel_end);
     std::optional<int> write32_axi(uint8_t chip_id, uint32_t address, uint32_t data);
     std::optional<int> write32(uint8_t chip_id, uint8_t noc_x, uint8_t noc_y, uint64_t address, uint32_t data);
+    void write(const void* mem_ptr, uint8_t noc_x, uint8_t noc_y, uint64_t addr, uint32_t size);
+
     std::optional<uint32_t> read32_axi(uint8_t chip_id, uint32_t address);
     std::optional<uint32_t> read32(uint8_t chip_id, uint8_t noc_x, uint8_t noc_y, uint64_t address);
+    void read(void* mem_ptr, uint8_t noc_x, uint8_t noc_y, uint64_t addr, uint32_t size);
+
     std::optional<std::vector<uint32_t>> enumerate_jlink(uint8_t chip_id);
     std::optional<int> close_jlink(uint8_t chip_id);
     std::optional<uint32_t> read_id_raw(uint8_t chip_id);

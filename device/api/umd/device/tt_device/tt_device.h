@@ -142,6 +142,9 @@ public:
     virtual void jtag_read_from_device(void *mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size);
     virtual void jtag_write_to_device(const void *mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size);
 
+    virtual void read_universal(void *mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size);
+    virtual void write_universal(const void *mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size);
+
     // TLB related functions.
     // TODO: These are architecture specific, and will be moved out of the class.
     void write_tlb_reg(

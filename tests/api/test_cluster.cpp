@@ -485,8 +485,15 @@ std::string find_tt_smi() {
         "/usr/local/bin/tt-smi", "/usr/bin/tt-smi", "/opt/tenstorrent/bin/tt-smi", "/opt/tt/bin/tt-smi"};
 
     for (const auto& path : common_paths) {
-        if (access(path.c_str(), X_OK) == 0) {
-            return path;
+        if (access(path.c_str(), F_OK) == 0) {
+            // File exists
+            if (access(path.c_str(), X_OK) == 0) {
+                // File exists AND is executable
+                return path;
+            } else {
+                // File exists but NOT executable
+                std::cout << path << " exists but not executable" << std::endl;
+            }
         }
     }
 

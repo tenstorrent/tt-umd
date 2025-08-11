@@ -88,10 +88,16 @@ void tt_SocDescriptor::write_core_locations(void *out, const CoreType &core_type
 
 void tt_SocDescriptor::serialize_dram_cores(void *out, const std::vector<std::vector<CoreCoord>> &cores) const {
     YAML::Emitter *emitter = static_cast<YAML::Emitter *>(out);
+    bool sequence_started = false;
 
     for (const auto &dram_cores : cores) {
         // Insert the dram core if it's within the given grid
         bool serialize_cores = true;
+
+        if (sequence_started) {
+            *emitter << YAML::EndSeq;
+            sequence_started = false;
+        }
 
         for (const auto &dram_core : dram_cores) {
             if ((dram_core.x > grid_size.x) || (dram_core.y > grid_size.y)) {
@@ -103,6 +109,7 @@ void tt_SocDescriptor::serialize_dram_cores(void *out, const std::vector<std::ve
             for (const auto &dram_core : dram_cores) {
                 if (dram_count % 3 == 0) {
                     *emitter << YAML::BeginSeq;
+                    sequence_started = true;
                 }
                 if (dram_core.x < grid_size.x && dram_core.y < grid_size.y) {
                     write_coords(emitter, dram_core);
@@ -113,6 +120,11 @@ void tt_SocDescriptor::serialize_dram_cores(void *out, const std::vector<std::ve
                 dram_count++;
             }
         }
+    }
+
+    if (sequence_started) {
+        *emitter << YAML::EndSeq;
+        sequence_started = false;
     }
 }
 

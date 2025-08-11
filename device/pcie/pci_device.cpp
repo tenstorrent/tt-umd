@@ -23,6 +23,7 @@
 #include "assert.hpp"
 #include "ioctl.h"
 #include "umd/device/types/arch.h"
+#include "utils.hpp"
 
 namespace tt::umd {
 
@@ -183,6 +184,21 @@ tt::ARCH PciDeviceInfo::get_arch() const {
     return tt::ARCH::Invalid;
 }
 
+std::optional<std::unordered_set<int>> PCIDevice::get_visible_devices(
+    const std::unordered_set<int> &pci_target_devices) {
+    if (!pci_target_devices.empty()) {
+        return pci_target_devices;
+    }
+
+    const std::optional<std::string> env_var_value = utils::get_env_var_value(TT_VISIBLE_DEVICES_ENV.data());
+
+    if (!env_var_value.has_value()) {
+        return std::nullopt;
+    }
+
+    return utils::get_unordered_set_from_string(env_var_value.value());
+}
+
 std::vector<int> PCIDevice::enumerate_devices(std::unordered_set<int> pci_target_devices) {
     std::vector<int> device_ids;
     std::string path = "/dev/tenstorrent/";
@@ -190,6 +206,9 @@ std::vector<int> PCIDevice::enumerate_devices(std::unordered_set<int> pci_target
     if (!std::filesystem::exists(path)) {
         return device_ids;
     }
+
+    std::optional<std::unordered_set<int>> visible_devices = PCIDevice::get_visible_devices(pci_target_devices);
+
     for (const auto &entry : std::filesystem::directory_iterator(path)) {
         std::string filename = entry.path().filename().string();
 
@@ -197,7 +216,8 @@ std::vector<int> PCIDevice::enumerate_devices(std::unordered_set<int> pci_target
         // is probably what we want longer-term (i.e. a UUID or something).
         if (std::all_of(filename.begin(), filename.end(), ::isdigit)) {
             int pci_device_id = std::stoi(filename);
-            if (pci_target_devices.empty() || pci_target_devices.find(pci_device_id) != pci_target_devices.end()) {
+            if (!visible_devices.has_value() ||
+                visible_devices.value().find(pci_device_id) != visible_devices.value().end()) {
                 device_ids.push_back(pci_device_id);
             }
         }

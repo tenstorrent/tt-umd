@@ -498,7 +498,7 @@ std::string find_tt_smi() {
     }
 
     // Fallback to find if not in common locations
-    FILE* pipe = popen("find /usr /opt -maxdepth 3 -name 'tt-smi' -type f -executable 2>/dev/null | head -1", "r");
+    FILE* pipe = popen("find /usr /opt -maxdepth 4 -name 'tt-smi' -type f -executable 2>/dev/null | head -1", "r");
     if (!pipe) {
         return "";
     }

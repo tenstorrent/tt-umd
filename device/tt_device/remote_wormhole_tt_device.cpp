@@ -7,11 +7,12 @@
 
 namespace tt::umd {
 
-RemoteWormholeTTDevice::RemoteWormholeTTDevice(LocalChip *local_chip, eth_coord_t target_chip) :
+RemoteWormholeTTDevice::RemoteWormholeTTDevice(
+    LocalChip *local_chip, std::unique_ptr<RemoteCommunication> remote_communication, eth_coord_t target_chip) :
     WormholeTTDevice(local_chip->get_tt_device()->get_pci_device()),
     local_chip_(local_chip),
     target_chip_(target_chip),
-    remote_communication_(std::make_unique<RemoteCommunication>(local_chip_)) {
+    remote_communication_(std::move(remote_communication)) {
     is_remote_tt_device = true;
     init_tt_device();
 }

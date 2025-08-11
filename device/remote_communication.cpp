@@ -123,7 +123,7 @@ void RemoteCommunication::read_non_mmio(
     auto lock = local_chip_->acquire_mutex(
         MutexType::NON_MMIO, local_chip_->get_tt_device()->get_pci_device()->get_device_num());
 
-    const CoreCoord remote_transfer_ethernet_core = local_chip_->get_remote_transfer_ethernet_core();
+    const CoreCoord remote_transfer_ethernet_core = get_remote_transfer_ethernet_core();
 
     local_chip_->read_from_device(
         remote_transfer_ethernet_core,
@@ -369,7 +369,7 @@ void RemoteCommunication::write_to_non_mmio(
     auto lock = local_chip_->acquire_mutex(
         MutexType::NON_MMIO, local_chip_->get_tt_device()->get_pci_device()->get_device_num());
 
-    CoreCoord remote_transfer_ethernet_core = local_chip_->get_remote_transfer_ethernet_core();
+    CoreCoord remote_transfer_ethernet_core = get_remote_transfer_ethernet_core();
 
     erisc_command.resize(sizeof(routing_cmd_t) / DATA_WORD_SIZE);
     new_cmd = (routing_cmd_t*)&erisc_command[0];
@@ -431,7 +431,7 @@ void RemoteCommunication::write_to_non_mmio(
 
         uint32_t host_dram_block_addr =
             host_address_params.eth_routing_buffers_start +
-            (local_chip_->get_active_eth_core_idx() * eth_interface_params.cmd_buf_size + req_wr_ptr) * max_block_size;
+            (active_eth_core_idx * eth_interface_params.cmd_buf_size + req_wr_ptr) * max_block_size;
         uint16_t host_dram_channel = 0;  // This needs to be 0, since WH can only map ETH buffers to chan 0.
 
         if (req_flags & eth_interface_params.cmd_data_block) {
@@ -525,8 +525,8 @@ void RemoteCommunication::write_to_non_mmio(
 
         if (is_non_mmio_cmd_q_full(
                 eth_interface_params, (erisc_q_ptrs[0]) & eth_interface_params.cmd_buf_ptr_mask, erisc_q_rptr[0])) {
-            local_chip_->update_active_eth_core_idx();
-            remote_transfer_ethernet_core = local_chip_->get_remote_transfer_ethernet_core();
+            update_active_eth_core_idx();
+            remote_transfer_ethernet_core = get_remote_transfer_ethernet_core();
             local_chip_->read_from_device(
                 remote_transfer_ethernet_core,
                 erisc_q_ptrs.data(),
@@ -552,7 +552,7 @@ void RemoteCommunication::wait_for_non_mmio_flush() {
                 std::vector<uint32_t>(eth_interface_params.remote_update_ptr_size_bytes * 2 / sizeof(uint32_t));
 
             // wait for all queues to be empty.
-            for (CoreCoord& core : local_chip_->get_remote_transfer_ethernet_cores()) {
+            for (CoreCoord& core : remote_transfer_eth_cores_) {
                 do {
                     local_chip_->read_from_device(
                         core,
@@ -562,7 +562,7 @@ void RemoteCommunication::wait_for_non_mmio_flush() {
                 } while (erisc_q_ptrs[0] != erisc_q_ptrs[4]);
             }
             // wait for all write responses to come back.
-            for (CoreCoord& core : local_chip_->get_remote_transfer_ethernet_cores()) {
+            for (CoreCoord& core : remote_transfer_eth_cores_) {
                 do {
                     local_chip_->read_from_device(
                         core, erisc_txn_counters.data(), eth_interface_params.request_cmd_queue_base, 8);
@@ -571,6 +571,49 @@ void RemoteCommunication::wait_for_non_mmio_flush() {
         }
         local_chip_->set_flush_non_mmio(false);
     }
+}
+
+void RemoteCommunication::set_remote_transfer_ethernet_cores(const std::unordered_set<CoreCoord>& active_eth_cores) {
+    // Makes UMD aware of which ethernet cores have active links.
+    // Based on this information, UMD determines which ethernet cores can be used for host->cluster non-MMIO transfers.
+    // This overrides the default ethernet cores tagged for host to cluster routing in the constructor and must be
+    // called for all MMIO devices, if default behaviour is not desired.
+    remote_transfer_eth_cores_ = {};
+    for (const auto& active_eth_core : active_eth_cores) {
+        auto virtual_coord =
+            local_chip_->get_soc_descriptor().translate_coord_to(active_eth_core, CoordSystem::VIRTUAL);
+        remote_transfer_eth_cores_.push_back(active_eth_core);
+    }
+}
+
+void RemoteCommunication::set_remote_transfer_ethernet_cores(const std::set<uint32_t>& channels) {
+    std::unordered_set<CoreCoord> active_eth_cores;
+    for (const auto& channel : channels) {
+        active_eth_cores.insert(local_chip_->get_soc_descriptor().get_eth_core_for_channel(channel));
+    }
+    set_remote_transfer_ethernet_cores(active_eth_cores);
+}
+
+CoreCoord RemoteCommunication::get_remote_transfer_ethernet_core() {
+    if (remote_transfer_eth_cores_.size() > 8) {
+        // We cannot use more than 8 cores for umd access in one direction. Thats because of the available buffering in
+        // the outgoing eth channels.
+        log_warning(
+            LogSiliconDriver,
+            "Number of active ethernet cores {} exceeds the maximum of 8.",
+            remote_transfer_eth_cores_.size());
+    }
+    if (remote_transfer_eth_cores_.empty()) {
+        throw std::runtime_error("No remote transfer ethernet cores set.");
+    }
+    return remote_transfer_eth_cores_.at(active_eth_core_idx);
+}
+
+void RemoteCommunication::update_active_eth_core_idx() {
+    if (remote_transfer_eth_cores_.empty()) {
+        throw std::runtime_error("Cannot update active Ethernet core index: no remote transfer Ethernet cores set.");
+    }
+    active_eth_core_idx = (active_eth_core_idx + 1) % remote_transfer_eth_cores_.size();
 }
 
 }  // namespace tt::umd

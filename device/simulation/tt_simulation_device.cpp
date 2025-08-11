@@ -148,7 +148,7 @@ void tt_SimulationDevice::close_device() {
 
 void tt_SimulationDevice::set_remote_transfer_ethernet_cores(const std::unordered_set<CoreCoord>& cores) {}
 
-void tt_SimulationDevice::set_remote_transfer_ethernet_cores(const std::set<uint32_t>& channel) {}
+void tt_SimulationDevice::set_remote_transfer_ethernet_cores(const std::set<uint32_t>& channels) {}
 
 // Runtime Functions
 void tt_SimulationDevice::write_to_device(CoreCoord core, const void* src, uint64_t l1_dest, uint32_t size) {

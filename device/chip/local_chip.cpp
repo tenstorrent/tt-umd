@@ -25,6 +25,8 @@ static_assert(!std::is_abstract<LocalChip>(), "LocalChip must be non-abstract.")
 // TLB size for DRAM on blackhole - 4GB
 const uint64_t BH_4GB_TLB_SIZE = 4ULL * 1024 * 1024 * 1024;
 
+<<<<<<< HEAD
+
 std::unique_ptr<LocalChip> LocalChip::create(int pci_device_id, int num_host_mem_channels) {
     // Create TTDevice and make sure the arc is ready so we can read its telemetry.
     auto tt_device = TTDevice::create(pci_device_id);
@@ -57,6 +59,28 @@ std::unique_ptr<LocalChip> LocalChip::create(int pci_device_id, std::string sdes
         tt_device->get_chip_info().noc_translation_enabled,
         tt_device->get_chip_info().harvesting_masks,
         tt_device->get_chip_info().board_type);
+=======
+std::unique_ptr<LocalChip> LocalChip::create(int pci_device_id, std::string sdesc_path, int num_host_mem_channels) {
+    // Create TTDevice and make sure the arc is ready so we can read its telemetry.
+    auto tt_device = TTDevice::create(pci_device_id);
+    tt_device->wait_arc_core_start();
+
+    tt_SocDescriptor soc_descriptor;
+    if (sdesc_path.empty()) {
+        // In case soc descriptor yaml wasn't passed, we create soc descriptor with default values for the architecture.
+        soc_descriptor = tt_SocDescriptor(
+            tt_device->get_arch(),
+            tt_device->get_chip_info().noc_translation_enabled,
+            tt_device->get_chip_info().harvesting_masks,
+            tt_device->get_chip_info().board_type);
+    } else {
+        soc_descriptor = tt_SocDescriptor(
+            sdesc_path,
+            tt_device->get_chip_info().noc_translation_enabled,
+            tt_device->get_chip_info().harvesting_masks,
+            tt_device->get_chip_info().board_type);
+    }
+>>>>>>> main
 
     return std::unique_ptr<tt::umd::LocalChip>(
         new LocalChip(soc_descriptor, std::move(tt_device), num_host_mem_channels));
@@ -66,7 +90,10 @@ std::unique_ptr<LocalChip> LocalChip::create(
     int pci_device_id, tt_SocDescriptor soc_descriptor, int num_host_mem_channels) {
     // Create TTDevice and make sure the arc is ready so we can read its telemetry.
     auto tt_device = TTDevice::create(pci_device_id);
+<<<<<<< HEAD
     tt_device->init_tt_device();
+=======
+>>>>>>> main
     tt_device->wait_arc_core_start();
 
     return std::unique_ptr<tt::umd::LocalChip>(
@@ -393,51 +420,14 @@ void LocalChip::set_flush_non_mmio(bool flush_non_mmio) { flush_non_mmio_ = flus
 bool LocalChip::get_flush_non_mmio() const { return flush_non_mmio_; }
 
 void LocalChip::set_remote_transfer_ethernet_cores(const std::unordered_set<CoreCoord>& active_eth_cores) {
-    // Makes UMD aware of which ethernet cores have active links.
-    // Based on this information, UMD determines which ethernet cores can be used for host->cluster non-MMIO transfers.
-    // This overrides the default ethernet cores tagged for host to cluster routing in the constructor and must be
-    // called for all MMIO devices, if default behaviour is not desired.
-    TT_ASSERT(soc_descriptor_.arch == tt::ARCH::WORMHOLE_B0, "{} can only be called for Wormhole arch", __FUNCTION__);
-    remote_transfer_eth_cores_ = {};
-    for (const auto& active_eth_core : active_eth_cores) {
-        auto virtual_coord = soc_descriptor_.translate_coord_to(active_eth_core, CoordSystem::VIRTUAL);
-        remote_transfer_eth_cores_.push_back(active_eth_core);
-    }
+    // Set cores to be used by the broadcast communication.
+    remote_communication_->set_remote_transfer_ethernet_cores(active_eth_cores);
 }
 
 void LocalChip::set_remote_transfer_ethernet_cores(const std::set<uint32_t>& channels) {
-    std::unordered_set<CoreCoord> active_eth_cores;
-    for (const auto& channel : channels) {
-        active_eth_cores.insert(soc_descriptor_.get_eth_core_for_channel(channel));
-    }
-    set_remote_transfer_ethernet_cores(active_eth_cores);
+    // Set cores to be used by the broadcast communication.
+    remote_communication_->set_remote_transfer_ethernet_cores(channels);
 }
-
-CoreCoord LocalChip::get_remote_transfer_ethernet_core() {
-    if (remote_transfer_eth_cores_.size() > 8) {
-        // We cannot use more than 8 cores for umd access in one direction. Thats because of the available
-        // buffering in the outgoing eth channels.
-        log_warning(
-            LogSiliconDriver,
-            "Number of active ethernet cores {} exceeds the maximum of 8.",
-            remote_transfer_eth_cores_.size());
-    }
-    if (remote_transfer_eth_cores_.empty()) {
-        throw std::runtime_error("No remote transfer ethernet cores set.");
-    }
-    return remote_transfer_eth_cores_.at(active_eth_core_idx);
-}
-
-void LocalChip::update_active_eth_core_idx() {
-    if (remote_transfer_eth_cores_.empty()) {
-        throw std::runtime_error("Cannot update active Ethernet core index: no remote transfer Ethernet cores set.");
-    }
-    active_eth_core_idx = (active_eth_core_idx + 1) % remote_transfer_eth_cores_.size();
-}
-
-int LocalChip::get_active_eth_core_idx() { return active_eth_core_idx; }
-
-std::vector<CoreCoord> LocalChip::get_remote_transfer_ethernet_cores() { return remote_transfer_eth_cores_; }
 
 std::unique_lock<RobustMutex> LocalChip::acquire_mutex(std::string mutex_name, int pci_device_id) {
     return lock_manager_.acquire_mutex(mutex_name, pci_device_id);

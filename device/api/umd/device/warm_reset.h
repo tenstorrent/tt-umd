@@ -14,6 +14,8 @@ class WarmReset {
 public:
     static void warm_reset(bool reset_m3 = false);
 
+    static bool reset_failed;
+
 private:
     static void warm_reset_blackhole();
 

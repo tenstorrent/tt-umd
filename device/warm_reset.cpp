@@ -19,7 +19,10 @@
 
 namespace tt::umd {
 
+bool WarmReset::reset_failed{false};
+
 void WarmReset::warm_reset(bool reset_m3) {
+    reset_failed = false;
     auto enumerate_devices = PCIDevice::enumerate_devices_info();
     auto arch = enumerate_devices.begin()->second.get_arch();
     log_info(tt::LogSiliconDriver, "Starting reset for {} architecture.", arch_to_str(arch));
@@ -107,6 +110,7 @@ void WarmReset::warm_reset_wormhole(bool reset_m3) {
         auto tt_device = TTDevice::create(i);
         if (!tt_device->wait_arc_core_init(300'000)) {
             log_warning(tt::LogSiliconDriver, "Reset failed for pci id {} - ARC core init failed", i);
+            reset_failed = true;
             continue;
         }
         tt_devices.emplace_back(std::move(tt_device));

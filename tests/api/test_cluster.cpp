@@ -542,6 +542,10 @@ TEST(TestCluster, WarmReset) {
 
     WarmReset::warm_reset();
 
+    if (WarmReset::reset_failed) {
+        WarmReset::warm_reset();
+    }
+
     cluster.reset();
 
     cluster = std::make_unique<Cluster>();

@@ -98,6 +98,8 @@ void WarmReset::warm_reset_wormhole(bool reset_m3) {
 
     PCIDevice::reset_devices(TenstorrentResetDevice::RESET_PCIE_LINK);
 
+    sleep(5);
+
     auto pci_device_ids = PCIDevice::enumerate_devices();
 
     std::vector<std::unique_ptr<TTDevice>> tt_devices;

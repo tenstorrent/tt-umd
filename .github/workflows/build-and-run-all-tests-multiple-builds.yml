@@ -18,7 +18,7 @@ on:
       # TSan is similar, but checks for concurrency issues. It cannot be combined with ASan, so you'll need a parallel
       # run for anything you wish to test with both. The runtime penalty of TSan is ~10x (some estimates put it higher,
       # really dependent on the nature of the code being run).
-      build-type:
+      build-types:
         description: 'Comma-separated list of build types'
         required: true
         default: '["Release", "RelWithDebInfo", "Debug", "ASan", "TSan"]'
@@ -27,8 +27,13 @@ on:
   push:
     branches: ["main"]
 
+env:
+  LOG_PARAMS: |
+    build-and-run-all-tests-multiple-builds - build-types: ${{ inputs.build-types }}
+
 jobs:
   build-and-run-all-tests:
+    name: ""
     secrets: inherit
     strategy:
       fail-fast: false
@@ -40,13 +45,14 @@ jobs:
         # When workflow is requested, all the requested build-types are run.
         # build-type: ${{ fromJson(github.event_name == 'pull_request' && '["ASan"]' ||
         #                          github.event_name == 'push' && '["ASan", "TSan"]' ||
-        #                          github.event_name == 'workflow_dispatch' && github.event.inputs['build-type']) }}
+        #                          github.event_name == 'workflow_dispatch' && github.event.inputs['build-types']) }}
         # TODO: Enable asan/tsan builds in CI, just uncomment lines above. For now we still run only Release builds
         build-type: ${{ fromJson(github.event_name == 'pull_request' && '["Release"]' ||
                                  github.event_name == 'push' && '["Release"]' ||
-                                 github.event_name == 'workflow_dispatch' && github.event.inputs['build-type']) }}
+                                 github.event_name == 'workflow_dispatch' && github.event.inputs['build-types']) }}
     uses: ./.github/workflows/build-and-run-all-tests.yml
     with:
       build-type: ${{ matrix.build-type }}
       # Debug and TSan builds are slower, so give them more time to run.
       timeout: ${{ (matrix.build-type == 'Debug' || matrix.build-type == 'TSan') && 30 || 20 }}
+      log-params: ${{ env.LOG_PARAMS }}

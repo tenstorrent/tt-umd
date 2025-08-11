@@ -10,6 +10,10 @@ on:
       timeout:
         required: true
         type: number
+      log-params:
+        required: false
+        type: string
+        default: ""
   workflow_dispatch:
     inputs:
       build-type:
@@ -36,8 +40,16 @@ on:
         type: number
         default: 15
 
+env:
+  LOG_PARAMS: |
+    ${{ inputs.log-params }}\n
+    build-and-run-all-tests - build-type: ${{ inputs.build-type }}\n
+    build-and-run-all-tests - timeout: ${{ inputs.timeout }}\n
+    build-and-run-all-tests - log-level: ${{ inputs.log-level }}
+
 jobs:
   build-tests:
+    name: ""
     secrets: inherit
     strategy:
       fail-fast: false
@@ -51,8 +63,11 @@ jobs:
       ubuntu-docker-version: ${{ matrix.ubuntu-docker-version}}
       timeout: 15
       build-type: ${{ inputs.build-type }}
+      log-params: ${{ env.LOG_PARAMS }}
+
 
   test-all:
+    name: ""
     secrets: inherit
     needs: build-tests
     strategy:
@@ -80,3 +95,4 @@ jobs:
       timeout: ${{ inputs.timeout }}
       log-level: ${{ inputs.log-level || 'info' }}
       build-type: ${{ inputs.build-type }}
+      log-params: ${{ env.LOG_PARAMS }}

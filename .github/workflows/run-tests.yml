@@ -24,19 +24,29 @@ on:
         required: false
         type: string
         default: 'info'
+      log-params:
+        required: false
+        type: string
+        default: ""
 
 env:
   BUILD_OUTPUT_DIR: ./build
   TEST_OUTPUT_DIR: ./build/test
   CREATE_MAP_BINARIES_DIR: ./device/bin/silicon
   TT_LOGGER_LEVEL: ${{ inputs.log-level }}
+  LOG_PARAMS: |
+    ${{ inputs.log-params }}\n
+    build-tests - arch: ${{ inputs.arch }}\n
+    build-tests - ubuntu-docker-version: ${{ inputs.ubuntu-docker-version }}\n
+    build-tests - card: ${{ inputs.card }}\n
+    build-tests - build-type: ${{ inputs.build-type }}\n
+    build-tests - log-level: ${{ inputs.log-level }}
 
 jobs:
   test:
+    name: Run tests (${{ inputs.card }}, ${{ inputs.build-type }}, ${{ inputs.ubuntu-docker-version }})
     # Due to parsing bug, fromJSON is used to convert string to number
     timeout-minutes: ${{ fromJSON(inputs.timeout) }}
-
-    name: Run tests for ${{ inputs.arch }} on ${{ inputs.card }} on ${{ inputs.ubuntu-docker-version }}
     runs-on:
       - ${{ inputs.card }}
     container:
@@ -53,6 +63,9 @@ jobs:
       LD_LIBRARY_PATH: ./build/lib
 
     steps:
+      - name: Print all params
+        run: echo "${{ env.LOG_PARAMS }}"
+
       - name: Cleanup tt-umd dir, and change directory as if we were in a github.repository
         run: |
           rm -rf tt-umd

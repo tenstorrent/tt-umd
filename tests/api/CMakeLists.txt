@@ -10,6 +10,7 @@ set(API_TESTS_SRCS
     test_sysmem_manager.cpp
     test_tt_device.cpp
     test_noc.cpp
+    test_lite_fabric.cpp
 )
 
 add_executable(api_tests ${API_TESTS_SRCS})

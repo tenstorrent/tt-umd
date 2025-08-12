@@ -217,7 +217,6 @@ void JtagDevice::write(const void* mem_ptr, uint8_t noc_x, uint8_t noc_y, uint64
             uint64_t aligned_addr = addr & ~(sizeof(uint32_t) - 1);
             uint32_t offset = addr % sizeof(uint32_t);
 
-            // Read the current 32-bit word
             auto read_result = read32(chip_id, noc_x, noc_y, aligned_addr);
             if (!read_result) {
                 TT_THROW(
@@ -229,7 +228,6 @@ void JtagDevice::write(const void* mem_ptr, uint8_t noc_x, uint8_t noc_y, uint64
             }
             uint32_t existing_data = *read_result;
 
-            // Modify the bytes we want to write
             uint8_t* data_bytes = reinterpret_cast<uint8_t*>(&existing_data);
             uint32_t bytes_to_copy = std::min(transfer_size, static_cast<uint32_t>(sizeof(uint32_t) - offset));
 

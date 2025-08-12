@@ -42,9 +42,7 @@ uint32_t WormholeArcMessenger::send_message(
     //     tt_device->is_remote()
     //         ? lock_manager.acquire_mutex(MutexType::REMOTE_ARC_MSG, tt_device->get_pci_device()->get_device_num())
     //         : lock_manager.acquire_mutex(MutexType::ARC_MSG, tt_device->get_pci_device()->get_device_num());
-    if (tt_device->get_pci_device()) {
-        auto lock = lock_manager.acquire_mutex(MutexType::ARC_MSG);
-    }
+    auto lock = lock_manager.acquire_mutex(MutexType::ARC_MSG);
 
     auto architecture_implementation = tt_device->get_architecture_implementation();
 

@@ -38,12 +38,6 @@ struct dynamic_tlb {
 class ArcMessenger;
 class ArcTelemetryReader;
 
-#define NO_PCI_DEVICE_ERROR \
-    "TTDevice ERROR: No PCI device found. This is likely because the TTDevice was created without a PCI device."
-
-#define NO_JTAG_DEVICE_ERROR \
-    "TTDevice ERROR: No JTAG device found. This is likely because the TTDevice was created without a JTAG device."
-
 class TTDevice {
 public:
     // TODO #526: This is a hack to allow UMD to use the NOC1 TLB. Don't use this function.
@@ -55,13 +49,7 @@ public:
      */
     static std::unique_ptr<TTDevice> create(int pci_device_number, bool use_jtag = false);
 
-    /**
-     * Used for creating a TTDevice object with Jtag device and no PCIe device.
-     */
-    static std::unique_ptr<TTDevice> create();
-
     TTDevice(std::shared_ptr<PCIDevice> pci_device, std::unique_ptr<architecture_implementation> architecture_impl);
-    TTDevice(std::unique_ptr<JtagDevice> jtag_device, std::unique_ptr<architecture_implementation> architecture_impl);
     TTDevice(
         std::shared_ptr<PCIDevice> pci_device,
         std::unique_ptr<JtagDevice> jtag_device,
@@ -139,11 +127,11 @@ public:
     virtual void read_from_device(void *mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size);
     virtual void write_to_device(const void *mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size);
 
+    /*
+     * JTAG read/write functions.
+     */
     virtual void jtag_read_from_device(void *mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size);
     virtual void jtag_write_to_device(const void *mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size);
-
-    virtual void read_universal(void *mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size);
-    virtual void write_universal(const void *mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size);
 
     /**
      * Read function that will send read message to the ARC core.
@@ -271,7 +259,6 @@ protected:
     std::unique_ptr<ArcMessenger> arc_messenger_ = nullptr;
     LockManager lock_manager;
     std::unique_ptr<ArcTelemetryReader> telemetry = nullptr;
-    std::unique_ptr<JtagDevice> jtag_device;
 
     bool is_hardware_hung();
 
@@ -300,9 +287,7 @@ protected:
 
     bool is_remote_tt_device = false;
 
-    static std::string jtag_library_directory_path;
-
-    static std::string get_jtag_library_directory_path();
+    static std::filesystem::path jtag_library_path;
 };
 
 }  // namespace tt::umd

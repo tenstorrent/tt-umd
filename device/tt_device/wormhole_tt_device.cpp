@@ -30,11 +30,6 @@ WormholeTTDevice::WormholeTTDevice(std::shared_ptr<PCIDevice> pci_device) :
     eth_addresses = WormholeTTDevice::get_eth_addresses(telemetry->read_entry(wormhole::ETH_FW_VERSION));
 }
 
-WormholeTTDevice::WormholeTTDevice(std::unique_ptr<JtagDevice> jtag_device) :
-    TTDevice(std::move(jtag_device), std::make_unique<wormhole_implementation>()) {
-    init_tt_device();
-}
-
 WormholeTTDevice::WormholeTTDevice(std::shared_ptr<PCIDevice> pci_device, std::unique_ptr<JtagDevice> jtag_device) :
     TTDevice(pci_device, std::move(jtag_device), std::make_unique<wormhole_implementation>()) {
     init_tt_device();
@@ -170,8 +165,6 @@ std::vector<DramTrainingStatus> WormholeTTDevice::get_dram_training_status() {
 }
 
 void WormholeTTDevice::configure_iatu_region(size_t region, uint64_t target, size_t region_size) {
-    TT_ASSERT(pci_device_.get(), NO_PCI_DEVICE_ERROR);
-
     uint32_t dest_bar_lo = target & 0xffffffff;
     uint32_t dest_bar_hi = (target >> 32) & 0xffffffff;
     std::uint32_t region_id_to_use = region;
@@ -202,8 +195,6 @@ void WormholeTTDevice::configure_iatu_region(size_t region, uint64_t target, siz
 }
 
 void WormholeTTDevice::dma_d2h_transfer(const uint64_t dst, const uint32_t src, const size_t size) {
-    TT_ASSERT(pci_device_.get(), NO_PCI_DEVICE_ERROR);
-
     static constexpr uint64_t DMA_WRITE_ENGINE_EN_OFF = 0xc;
     static constexpr uint64_t DMA_WRITE_INT_MASK_OFF = 0x54;
     static constexpr uint64_t DMA_CH_CONTROL1_OFF_WRCH_0 = 0x200;
@@ -279,8 +270,6 @@ void WormholeTTDevice::dma_d2h_transfer(const uint64_t dst, const uint32_t src, 
 }
 
 void WormholeTTDevice::dma_h2d_transfer(const uint32_t dst, const uint64_t src, const size_t size) {
-    TT_ASSERT(pci_device_.get(), NO_PCI_DEVICE_ERROR);
-
     static constexpr uint64_t DMA_READ_ENGINE_EN_OFF = 0x2c;
     static constexpr uint64_t DMA_READ_INT_MASK_OFF = 0xa8;
     static constexpr uint64_t DMA_CH_CONTROL1_OFF_RDCH_0 = 0x300;
@@ -361,8 +350,6 @@ void WormholeTTDevice::dma_h2d_transfer(const uint32_t dst, const uint64_t src, 
 // memcpy into/out of a buffer, although exposing zero-copy DMA functionality to
 // the application will require IOMMU support.  One day...
 void WormholeTTDevice::dma_d2h(void *dst, uint32_t src, size_t size) {
-    TT_ASSERT(pci_device_.get(), NO_PCI_DEVICE_ERROR);
-
     DmaBuffer &dma_buffer = pci_device_->get_dma_buffer();
 
     if (size > dma_buffer.size) {
@@ -374,8 +361,6 @@ void WormholeTTDevice::dma_d2h(void *dst, uint32_t src, size_t size) {
 }
 
 void WormholeTTDevice::dma_h2d(uint32_t dst, const void *src, size_t size) {
-    TT_ASSERT(pci_device_.get(), NO_PCI_DEVICE_ERROR);
-
     DmaBuffer &dma_buffer = pci_device_->get_dma_buffer();
 
     if (size > dma_buffer.size) {
@@ -387,8 +372,6 @@ void WormholeTTDevice::dma_h2d(uint32_t dst, const void *src, size_t size) {
 }
 
 void WormholeTTDevice::dma_h2d_zero_copy(uint32_t dst, const void *src, size_t size) {
-    TT_ASSERT(pci_device_.get(), NO_PCI_DEVICE_ERROR);
-
     dma_h2d_transfer(dst, (uint64_t)(uintptr_t)src, size);
 }
 
@@ -400,16 +383,7 @@ void WormholeTTDevice::read_from_arc(void *mem_ptr, uint64_t arc_addr_offset, si
     if (arc_addr_offset > wormhole::ARC_XBAR_ADDRESS_END) {
         throw std::runtime_error("Address is out of ARC XBAR address range");
     }
-    uint32_t result = 0;
-    if (pci_device_) {
-        result = bar_read32(wormhole::ARC_APB_BAR0_XBAR_OFFSET_START + arc_addr_offset);
-    } else {
-        jtag_read_from_device(
-            &result,
-            wormhole::ARC_CORES_NOC0[0],
-            wormhole::ARC_NOC_XBAR_ADDRESS_START + arc_addr_offset,
-            sizeof(uint32_t));
-    }
+    uint32_t result = bar_read32(wormhole::ARC_APB_BAR0_XBAR_OFFSET_START + arc_addr_offset);
     *(reinterpret_cast<uint32_t *>(mem_ptr)) = result;
 }
 
@@ -417,21 +391,11 @@ void WormholeTTDevice::write_to_arc(const void *mem_ptr, uint64_t arc_addr_offse
     if (arc_addr_offset > wormhole::ARC_XBAR_ADDRESS_END) {
         throw std::runtime_error("Address is out of ARC XBAR address range");
     }
-    if (pci_device_) {
-        bar_write32(
-            wormhole::ARC_APB_BAR0_XBAR_OFFSET_START + arc_addr_offset, *(reinterpret_cast<const uint32_t *>(mem_ptr)));
-    } else {
-        jtag_write_to_device(
-            mem_ptr,
-            wormhole::ARC_CORES_NOC0[0],
-            wormhole::ARC_NOC_XBAR_ADDRESS_START + arc_addr_offset,
-            sizeof(uint32_t));
-    }
+    bar_write32(
+        wormhole::ARC_APB_BAR0_XBAR_OFFSET_START + arc_addr_offset, *(reinterpret_cast<const uint32_t *>(mem_ptr)));
 }
 
 void WormholeTTDevice::wait_eth_core_training(const tt_xy_pair eth_core, const uint32_t timeout_ms) {
-    TT_ASSERT(pci_device_.get(), NO_PCI_DEVICE_ERROR);
-
     constexpr uint64_t eth_core_heartbeat_addr = 0x1C;
     auto start = std::chrono::system_clock::now();
     uint32_t heartbeat_val;

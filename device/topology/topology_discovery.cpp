@@ -65,11 +65,10 @@ void TopologyDiscovery::get_pcie_connected_chips() {
             chip->get_soc_descriptor().get_cores(CoreType::ETH, umd_use_noc1 ? CoordSystem::NOC1 : CoordSystem::NOC0);
         for (const CoreCoord& eth_core : eth_cores) {
             uint64_t board_id = get_local_board_id(chip.get(), eth_core);
-            if (board_id == 0) {
-                continue;
+            if (board_id != 0) {
+                board_ids.insert(board_id);
+                break;
             }
-            board_ids.insert(board_id);
-            break;
         }
         chips_to_discover.emplace(get_asic_id(chip.get()), std::move(chip));
     }

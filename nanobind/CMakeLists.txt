@@ -37,3 +37,24 @@ target_link_libraries(
         umd::device
         fmt::fmt-header-only
 )
+
+# Install the Python module
+install(
+    TARGETS
+        nanobind_tt_umd
+    LIBRARY
+        DESTINATION .
+        COMPONENT python
+)
+
+# Install device library to root for Python package (co-located with the module)
+# Only when building Python bindings to avoid conflicts with main install
+if(TT_UMD_BUILD_PYTHON)
+    install(
+        TARGETS
+            device
+        LIBRARY
+            DESTINATION .
+            COMPONENT python
+    )
+endif()

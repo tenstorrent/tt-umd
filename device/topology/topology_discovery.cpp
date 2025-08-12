@@ -23,7 +23,7 @@ namespace tt::umd {
 
 std::unique_ptr<tt_ClusterDescriptor> TopologyDiscovery::create_cluster_descriptor(
     std::unordered_set<chip_id_t> pci_target_devices, const std::string& sdesc_path) {
-    auto pci_devices_info = PCIDevice::enumerate_devices_info();
+    auto pci_devices_info = PCIDevice::enumerate_devices_info(pci_target_devices);
     if (pci_devices_info.empty()) {
         return std::make_unique<tt_ClusterDescriptor>();
     }
@@ -53,12 +53,9 @@ std::unique_ptr<tt_ClusterDescriptor> TopologyDiscovery::create_ethernet_map() {
 void TopologyDiscovery::init_topology_discovery() {}
 
 void TopologyDiscovery::get_pcie_connected_chips() {
-    std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
+    std::vector<int> pci_device_ids = PCIDevice::enumerate_devices(pci_target_devices);
 
     for (auto& device_id : pci_device_ids) {
-        if (!is_pcie_chip_id_included(device_id)) {
-            continue;
-        }
         std::unique_ptr<LocalChip> chip = LocalChip::create(device_id, sdesc_path);
 
         std::vector<CoreCoord> eth_cores =
@@ -234,11 +231,6 @@ void TopologyDiscovery::fill_cluster_descriptor_info() {
     cluster_desc->fill_chips_grouped_by_closest_mmio();
 
     cluster_desc->verify_cluster_descriptor_info();
-}
-
-// If pci_target_devices is empty, we should take all the PCI devices found in the system.
-bool TopologyDiscovery::is_pcie_chip_id_included(int pci_id) const {
-    return pci_target_devices.empty() || pci_target_devices.find(pci_id) != pci_target_devices.end();
 }
 
 Chip* TopologyDiscovery::get_chip(const uint64_t asic_id) {

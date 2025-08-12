@@ -33,8 +33,6 @@ protected:
 
     void fill_cluster_descriptor_info();
 
-    bool is_pcie_chip_id_included(int pci_id) const;
-
     // board_type is not used for all configs.
     // We need to know that we are seeing TG board and that we should include it in the topology.
     virtual bool is_board_id_included(uint64_t board_id, uint64_t board_type) const = 0;

@@ -437,11 +437,7 @@ ArcMessenger *TTDevice::get_arc_messenger() const { return arc_messenger_.get();
 
 ArcTelemetryReader *TTDevice::get_arc_telemetry_reader() const { return telemetry.get(); }
 
-TTDevice::~TTDevice() {
-    if (pci_device_) {
-        lock_manager.clear_mutex(MutexType::TT_DEVICE_IO, get_pci_device()->get_device_num());
-    }
-}
+TTDevice::~TTDevice() { lock_manager.clear_mutex(MutexType::TT_DEVICE_IO, get_pci_device()->get_device_num()); }
 
 std::vector<DramTrainingStatus> TTDevice::get_dram_training_status() { return {}; }
 

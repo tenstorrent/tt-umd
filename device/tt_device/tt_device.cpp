@@ -84,13 +84,11 @@ TTDevice::TTDevice() {}
 
 /* static */ std::unique_ptr<TTDevice> TTDevice::create(int pci_device_number, bool use_jtag) {
     auto pci_device = std::make_shared<PCIDevice>(pci_device_number);
-    auto jtag_device = TTDevice::init_jtag(jtag_library_path);
 
     switch (pci_device->get_arch()) {
         case ARCH::WORMHOLE_B0:
-            return use_jtag ? std::make_unique<WormholeTTDevice>(pci_device, std::move(jtag_device))
+            return use_jtag ? std::make_unique<WormholeTTDevice>(pci_device, TTDevice::init_jtag(jtag_library_path))
                             : std::make_unique<WormholeTTDevice>(pci_device);
-
         case ARCH::BLACKHOLE:
             if (use_jtag) {
                 TT_THROW("JTAG is not yet supported on Blackhole architecture.");

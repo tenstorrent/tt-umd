@@ -13,8 +13,6 @@
 #include <vector>
 
 Jtag::Jtag(const char* libName) {
-    std::cout << "Looking for JTAG library: " << libName << std::endl;
-
     if (!std::filesystem::exists(libName)) {
         throw std::runtime_error(
             "You do not have JTAG library.\n"

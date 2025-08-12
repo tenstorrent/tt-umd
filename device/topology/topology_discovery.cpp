@@ -67,7 +67,9 @@ void TopologyDiscovery::get_pcie_connected_chips() {
                 break;
             }
         }
-        chips_to_discover.emplace(get_asic_id(chip.get()), std::move(chip));
+        uint64_t asic_id = get_asic_id(chip.get());
+        chips_to_discover.emplace(asic_id, std::move(chip));
+        log_debug(LogSiliconDevice, "Discovered PCI chip with PCI ID {} and asic ID {}", device_id, asic_id);
     }
 }
 

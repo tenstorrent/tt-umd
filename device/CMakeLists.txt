@@ -56,13 +56,13 @@ target_sources(
         tt_soc_descriptor.cpp
         wormhole/wormhole_coordinate_manager.cpp
         blackhole/blackhole_coordinate_manager.cpp
-        arc_telemetry_reader.cpp
-        wormhole/wormhole_arc_telemetry_reader.cpp
-        blackhole/blackhole_arc_telemetry_reader.cpp
-        arc_messenger.cpp
-        wormhole/wormhole_arc_messenger.cpp
-        blackhole/blackhole_arc_messenger.cpp
-        blackhole/blackhole_arc_message_queue.cpp
+        arc/arc_telemetry_reader.cpp
+        arc/wormhole_arc_telemetry_reader.cpp
+        arc/blackhole_arc_telemetry_reader.cpp
+        arc/arc_messenger.cpp
+        arc/wormhole_arc_messenger.cpp
+        arc/blackhole_arc_messenger.cpp
+        arc/blackhole_arc_message_queue.cpp
         xy_pair.cpp
         utils/lock_manager.cpp
         utils/robust_mutex.cpp
@@ -90,7 +90,7 @@ if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.23)
             BASE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/api
             FILES
                 api/umd/device/architecture_implementation.h
-                api/umd/device/blackhole_arc_message_queue.h
+                api/umd/device/arc/blackhole_arc_message_queue.h
                 api/umd/device/blackhole_coordinate_manager.h
                 api/umd/device/blackhole_implementation.h
                 api/umd/device/chip/chip.h

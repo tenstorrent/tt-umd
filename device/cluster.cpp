@@ -409,7 +409,8 @@ Cluster::Cluster(ClusterOptions options) {
         }
         if (construct_mock_cluster_descriptor) {
             tt_SimulationDeviceInit init(options.simulator_directory);
-            cluster_desc = tt_ClusterDescriptor::create_mock_cluster(chips_to_construct_vec, init.get_soc_descriptor().arch);
+            cluster_desc =
+                tt_ClusterDescriptor::create_mock_cluster(chips_to_construct_vec, init.get_soc_descriptor().arch);
         }
         if (options.sdesc_path.empty()) {
             options.sdesc_path = options.simulator_directory / "soc_descriptor.yaml";

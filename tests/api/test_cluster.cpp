@@ -553,6 +553,8 @@ TEST(TestCluster, WarmReset) {
 
     WarmReset::warm_reset();
 
+    run_tt_smi_reset();
+
     cluster.reset();
 
     cluster = std::make_unique<Cluster>();

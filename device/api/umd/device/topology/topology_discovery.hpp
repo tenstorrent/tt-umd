@@ -92,7 +92,7 @@ protected:
 
     // eth_core should be in NoC 0 coordinates.
     virtual std::unique_ptr<RemoteChip> create_remote_chip(
-        eth_coord_t eth_coord, Chip* gateway_chip, std::set<uint32_t> gateway_eth_channels) = 0;
+        std::optional<eth_coord_t> eth_coord, Chip* gateway_chip, std::set<uint32_t> gateway_eth_channels) = 0;
 
     Chip* get_chip(const uint64_t asic_id);
 
@@ -114,6 +114,11 @@ protected:
     virtual std::vector<uint32_t> extract_intermesh_eth_links(Chip* chip, tt_xy_pair eth_core) = 0;
 
     virtual bool is_intermesh_eth_link_trained(Chip* chip, tt_xy_pair eth_core) = 0;
+
+    // This function is going to be implemented for Blackhole since it needs to load communication
+    // firmware in runtime onto ETH cores. Wormhole will have this function empty since the routing FW
+    // is loaded from SPI, not in runtime.
+    virtual void initialize_remote_communication(Chip* chip);
 
     std::map<uint64_t, std::unique_ptr<Chip>> chips_to_discover;
     std::map<uint64_t, std::unique_ptr<Chip>> chips;

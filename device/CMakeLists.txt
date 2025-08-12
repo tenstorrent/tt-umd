@@ -101,6 +101,8 @@ target_sources(
         topology/topology_discovery_blackhole.cpp
         topology/topology_discovery_wormhole.cpp
         tt_device/remote_communication.cpp
+        tt_device/remote_communication_legacy_firmware.cpp
+        tt_device/remote_communication_lite_fabric.cpp
         jtag/jtag_device.cpp
         jtag/jtag.cpp
         lite_fabric/lite_fabric_host_utils.cpp

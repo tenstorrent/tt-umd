@@ -434,8 +434,6 @@ uint32_t WormholeTTDevice::wait_eth_core_training(const tt_xy_pair eth_core, con
     return time_taken_heartbeat + time_taken_port;
 }
 
-tt_xy_pair WormholeTTDevice::get_arc_core() const { return arc_core; }
-
 uint64_t WormholeTTDevice::get_arc_noc_base_address() const { return wormhole::ARC_NOC_XBAR_ADDRESS_START; }
 
 uint32_t WormholeTTDevice::read_port_status(tt_xy_pair eth_core) {

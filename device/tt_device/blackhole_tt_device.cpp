@@ -3,8 +3,11 @@
 // SPDX-License-Identifier: Apache-2.0
 #include "umd/device/tt_device/blackhole_tt_device.hpp"
 
+#include <fmt/format.h>
+#include <fmt/ranges.h>
 #include <sys/mman.h>  // for MAP_FAILED
 
+#include <iostream>
 #include <tt-logger/tt-logger.hpp>
 
 #include "umd/device/arch/blackhole_implementation.hpp"
@@ -157,12 +160,8 @@ void BlackholeTTDevice::wait_arc_core_start(const uint32_t timeout_ms) {
         auto end = std::chrono::system_clock::now();  // End time
         auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
         if (duration.count() > timeout_ms) {
-            log_error(
-                LogSiliconDriver,
-                "Timed out after waiting {} ms for arc core ({}, {}) to start",
-                timeout_ms,
-                arc_core.x,
-                arc_core.y);
+            throw std::runtime_error(fmt::format(
+                "Timed out after waiting {} ms for arc core ({}, {}) to start", timeout_ms, arc_core.x, arc_core.y));
         }
     }
 }

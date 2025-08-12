@@ -6,15 +6,32 @@ build-backend = "scikit_build_core.build"
 name = "tt-umd"
 version = "1.0.0"
 authors = [
-    { name = "Tenstorrent", email = "info@tenstorrent.com" }
+    { name = "Tenstorrent", email = "foundationsw-umd@tenstorrent.com" }
 ]
 description = "User Mode Driver for tenstorrent"
 readme = "README.md"
-license = { text = "Apache-2.0" }
+license = { file = "LICENSE" }
 classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: Apache Software License",
+    "Operating System :: POSIX :: Linux",
     "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: C++",
+    "Topic :: Software Development :: Libraries",
+    "Topic :: System :: Hardware",
 ]
-urls = { homepage = "http://www.tenstorrent.com" }
+
+[project.urls]
+"Homepage" = "https://tenstorrent.com"
+"Bug Reports" = "https://github.com/tenstorrent/tt-umd/issues"
+"Source" = "https://github.com/tenstorrent/tt-umd"
+"Documentation" = "https://github.com/tenstorrent/tt-umd/blob/main/README.md"
 
 [tool.scikit-build]
 cmake.build-type = "Release"

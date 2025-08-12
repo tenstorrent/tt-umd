@@ -68,6 +68,7 @@ jobs:
         run: tar xvf artifact.tar
 
       - name: Install tt-smi
+        shell: bash
         run: |
           if ! command -v sudo &> /dev/null; then
             echo "sudo not found, attempting to install..."

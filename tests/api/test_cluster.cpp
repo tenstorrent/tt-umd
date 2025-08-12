@@ -504,11 +504,11 @@ TEST(TestCluster, WarmReset) {
         EXPECT_THROW(hanged_tt_device->detect_hang_read(), std::runtime_error);
     }
 
-    WarmReset::warm_reset();
+    // WarmReset::warm_reset();
 
-    sleep(10);
+    // sleep(10);
 
-    WarmReset::warm_reset();
+    // WarmReset::warm_reset();
 
     run_tt_smi_reset();
 

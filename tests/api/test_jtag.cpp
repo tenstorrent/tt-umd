@@ -7,6 +7,9 @@
 #include "umd/device/tt_soc_descriptor.h"
 using namespace tt::umd;
 
+// To test JTAG functionality one must add -DENABLE_JTAG_TESTS=ON flag when setting up a build.
+// Note: do not enable the flag unless JTAG device is physically connected to the card. Tests will fail.
+//
 TEST(ApiJTagDeviceTest, BasicJTagIO) {
     std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
 

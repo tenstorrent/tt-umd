@@ -3,12 +3,14 @@
 // SPDX-License-Identifier: Apache-2.0
 #include "umd/device/tt_device/wormhole_tt_device.h"
 
+#include <cstdint>
 #include <tt-logger/tt-logger.hpp>
 
 #include "assert.hpp"
 #include "umd/device/coordinate_manager.h"
 #include "umd/device/types/wormhole_dram.h"
 #include "umd/device/types/wormhole_telemetry.h"
+#include "umd/device/types/xy_pair.h"
 #include "umd/device/wormhole_implementation.h"
 
 extern bool umd_use_noc1;
@@ -36,12 +38,7 @@ WormholeTTDevice::WormholeTTDevice(std::unique_ptr<JtagDevice> jtag_device) :
 WormholeTTDevice::WormholeTTDevice(std::shared_ptr<PCIDevice> pci_device, std::unique_ptr<JtagDevice> jtag_device) :
     TTDevice(pci_device, std::move(jtag_device), std::make_unique<wormhole_implementation>()) {
     init_tt_device();
-    wait_arc_core_start(
-        umd_use_noc1 ? tt_xy_pair(
-                           wormhole::NOC0_X_TO_NOC1_X[wormhole::ARC_CORES_NOC0[0].x],
-                           wormhole::NOC0_Y_TO_NOC1_Y[wormhole::ARC_CORES_NOC0[0].y])
-                     : wormhole::ARC_CORES_NOC0[0],
-        1000);
+    wait_arc_core_start(1000);
 }
 
 bool WormholeTTDevice::get_noc_translation_enabled() {
@@ -403,7 +400,16 @@ void WormholeTTDevice::read_from_arc(void *mem_ptr, uint64_t arc_addr_offset, si
     if (arc_addr_offset > wormhole::ARC_XBAR_ADDRESS_END) {
         throw std::runtime_error("Address is out of ARC XBAR address range");
     }
-    auto result = bar_read32(wormhole::ARC_APB_BAR0_XBAR_OFFSET_START + arc_addr_offset);
+    uint32_t result = 0;
+    if (pci_device_) {
+        result = bar_read32(wormhole::ARC_APB_BAR0_XBAR_OFFSET_START + arc_addr_offset);
+    } else {
+        jtag_read_from_device(
+            &result,
+            wormhole::ARC_CORES_NOC0[0],
+            wormhole::ARC_NOC_XBAR_ADDRESS_START + arc_addr_offset,
+            sizeof(uint32_t));
+    }
     *(reinterpret_cast<uint32_t *>(mem_ptr)) = result;
 }
 
@@ -411,8 +417,16 @@ void WormholeTTDevice::write_to_arc(const void *mem_ptr, uint64_t arc_addr_offse
     if (arc_addr_offset > wormhole::ARC_XBAR_ADDRESS_END) {
         throw std::runtime_error("Address is out of ARC XBAR address range");
     }
-    bar_write32(
-        wormhole::ARC_APB_BAR0_XBAR_OFFSET_START + arc_addr_offset, *(reinterpret_cast<const uint32_t *>(mem_ptr)));
+    if (pci_device_) {
+        bar_write32(
+            wormhole::ARC_APB_BAR0_XBAR_OFFSET_START + arc_addr_offset, *(reinterpret_cast<const uint32_t *>(mem_ptr)));
+    } else {
+        jtag_write_to_device(
+            mem_ptr,
+            wormhole::ARC_CORES_NOC0[0],
+            wormhole::ARC_NOC_XBAR_ADDRESS_START + arc_addr_offset,
+            sizeof(uint32_t));
+    }
 }
 
 void WormholeTTDevice::wait_eth_core_training(const tt_xy_pair eth_core, const uint32_t timeout_ms) {

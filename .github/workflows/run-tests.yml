@@ -69,12 +69,16 @@ jobs:
 
       - name: Install tt-smi
         run: |
-          su -
-          apt install sudo
-          sudo apt install python3.10-venv
+          if ! command -v sudo &> /dev/null; then
+            echo "sudo not found, attempting to install..."
+            sh -c "apt update && apt install -y sudo && apt install -y python3.10-venv"
+          else
+            sudo apt update
+            sudo apt install -y python3.10-venv
+          fi
           python3 -m venv .venv
           source .venv/bin/activate
-          pip3 install --upgrade pip
+          pip install --upgrade pip
           pip install git+https://github.com/tenstorrent/tt-smi.git
           tt-smi -r
 

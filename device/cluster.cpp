@@ -412,10 +412,9 @@ Cluster::Cluster(ClusterOptions options) {
             tt_SimulationDeviceInit init(options.simulator_directory);
             auto arch = init.get_soc_descriptor().arch;
 #else
-            auto arch = tt::ARCH::WORMHOLE_B0
+            auto arch = tt::ARCH::WORMHOLE_B0;
 #endif
-            cluster_desc =
-                tt_ClusterDescriptor::create_mock_cluster(chips_to_construct_vec, arch);
+            cluster_desc = tt_ClusterDescriptor::create_mock_cluster(chips_to_construct_vec, arch);
         }
         if (options.sdesc_path.empty()) {
             options.sdesc_path = options.simulator_directory / "soc_descriptor.yaml";

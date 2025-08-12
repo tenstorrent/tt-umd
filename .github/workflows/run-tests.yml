@@ -67,6 +67,14 @@ jobs:
         shell: bash
         run: tar xvf artifact.tar
 
+      - name: Install tt-smi
+        run: |
+          python3 -m venv .venv
+          source .venv/bin/activate
+          pip3 install --upgrade pip
+          pip install git+https://github.com/tenstorrent/tt-smi.git
+          tt-smi -r
+
       - name: Run API tests
         run: |
           ${{ env.TEST_OUTPUT_DIR }}/umd/api/api_tests

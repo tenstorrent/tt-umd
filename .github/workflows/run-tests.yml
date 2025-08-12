@@ -120,17 +120,12 @@ jobs:
       - name: Install wheel and run pytest
         shell: bash
         run: |
-          ls -la .
-          ls -la ../
-          ls -la ../../
-          pwd
           echo "Setting up virtual environment..."
           python -m venv .venv
           source .venv/bin/activate
           python -m pip install --upgrade pip wheel pytest
           echo "Installing the wheel..."
-          wheel_file=$(ls ${{ env.WHEEL_ARTIFACT_NAME }}/tt_umd-*.whl)
-          pip install "${wheel_file}"
+          pip install tt_umd-*.whl
           echo "Installation complete."
           echo "Running tests..."
-          .venv/bin/python -m pytest -s ${{ env.BUILD_OUTPUT_DIR }}
+          .venv/bin/python -m pytest -s tests

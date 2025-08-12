@@ -1116,18 +1116,13 @@ std::unique_ptr<tt_ClusterDescriptor> Cluster::create_cluster_descriptor(
 
         // TODO: Remove this when we can read asic location from the Blackhole telemetry.
         // Until then we have to read it from ETH core.
-        const std::vector<CoreCoord> eth_cores = chip->get_soc_descriptor().get_cores(
-            CoreType::ETH, umd_use_noc1 ? CoordSystem::NOC1 : CoordSystem::TRANSLATED);
+        const std::vector<CoreCoord> eth_cores = chip->get_soc_descriptor().get_cores(CoreType::ETH);
         for (size_t eth_channel = 0; eth_channel < eth_cores.size(); eth_channel++) {
             const CoreCoord& eth_core = eth_cores[eth_channel];
-            TTDevice* tt_device = chip->get_tt_device();
             blackhole::boot_results_t boot_results;
 
-            tt_device->read_from_device(
-                (uint8_t*)&boot_results,
-                tt_xy_pair(eth_core.x, eth_core.y),
-                blackhole::BOOT_RESULTS_ADDR,
-                sizeof(boot_results));
+            chip->read_from_device(
+                eth_cores[eth_channel], (uint8_t*)&boot_results, blackhole::BOOT_RESULTS_ADDR, sizeof(boot_results));
 
             // We can read the asic location only from active ETH cores.
             if (boot_results.eth_status.port_status == blackhole::port_status_e::PORT_UP) {
@@ -1158,19 +1153,14 @@ std::unique_ptr<tt_ClusterDescriptor> Cluster::create_cluster_descriptor(
         const chip_id_t chip_id = it.first;
         const std::unique_ptr<Chip>& chip = it.second;
 
-        const std::vector<CoreCoord> eth_cores = chip->get_soc_descriptor().get_cores(
-            CoreType::ETH, umd_use_noc1 ? CoordSystem::NOC1 : CoordSystem::TRANSLATED);
+        const std::vector<CoreCoord> eth_cores = chip->get_soc_descriptor().get_cores(CoreType::ETH);
 
         for (size_t eth_channel = 0; eth_channel < eth_cores.size(); eth_channel++) {
             const CoreCoord& eth_core = eth_cores[eth_channel];
-            TTDevice* tt_device = chip->get_tt_device();
             blackhole::boot_results_t boot_results;
 
-            tt_device->read_from_device(
-                (uint8_t*)&boot_results,
-                tt_xy_pair(eth_core.x, eth_core.y),
-                blackhole::BOOT_RESULTS_ADDR,
-                sizeof(boot_results));
+            chip->read_from_device(
+                eth_cores[eth_channel], (uint8_t*)&boot_results, blackhole::BOOT_RESULTS_ADDR, sizeof(boot_results));
 
             if (boot_results.eth_status.port_status == blackhole::port_status_e::PORT_UP) {
                 // active eth core

@@ -38,7 +38,10 @@ struct routing_cmd_t {
     uint32_t src_addr_tag;  // upper 32-bits of request source address.
 };
 
-RemoteCommunication::RemoteCommunication(LocalChip* local_chip) : local_chip_(local_chip) {}
+RemoteCommunication::RemoteCommunication(LocalChip* local_chip) : local_chip_(local_chip) {
+    lock_manager_.initialize_mutex(
+        MutexType::NON_MMIO, local_chip_->get_tt_device()->get_pci_device()->get_device_num());
+}
 
 RemoteCommunication::~RemoteCommunication() {}
 
@@ -98,10 +101,11 @@ void RemoteCommunication::read_non_mmio(
     using data_word_t = uint32_t;
     constexpr int DATA_WORD_SIZE = sizeof(data_word_t);
 
-    // TODO: To be removed when this is moved to Chip classes.
-    auto host_address_params = local_chip_->host_address_params;
-    auto eth_interface_params = local_chip_->eth_interface_params;
-    auto noc_params = local_chip_->noc_params;
+    auto host_address_params =
+        local_chip_->get_tt_device()->get_architecture_implementation()->get_host_address_params();
+    auto eth_interface_params =
+        local_chip_->get_tt_device()->get_architecture_implementation()->get_eth_interface_params();
+    auto noc_params = local_chip_->get_tt_device()->get_architecture_implementation()->get_noc_params();
 
     std::vector<std::uint32_t> erisc_command;
     std::vector<std::uint32_t> erisc_q_rptr;
@@ -120,7 +124,7 @@ void RemoteCommunication::read_non_mmio(
     //                    MUTEX ACQUIRE (NON-MMIO)
     //  do not locate any ethernet core reads/writes before this acquire
     //
-    auto lock = local_chip_->acquire_mutex(
+    auto lock = lock_manager_.acquire_mutex(
         MutexType::NON_MMIO, local_chip_->get_tt_device()->get_pci_device()->get_device_num());
 
     const CoreCoord remote_transfer_ethernet_core = get_remote_transfer_ethernet_core();
@@ -333,16 +337,17 @@ void RemoteCommunication::write_to_non_mmio(
     uint32_t size_in_bytes,
     bool broadcast,
     std::vector<int> broadcast_header) {
-    local_chip_->set_flush_non_mmio(true);
+    flush_non_mmio_ = true;
 
     using data_word_t = uint32_t;
     constexpr int DATA_WORD_SIZE = sizeof(data_word_t);
     constexpr int BROADCAST_HEADER_SIZE = sizeof(data_word_t) * 8;  // Broadcast header is 8 words
 
-    // TODO: To be removed when this is moved to Chip classes.
-    auto host_address_params = local_chip_->host_address_params;
-    auto eth_interface_params = local_chip_->eth_interface_params;
-    auto noc_params = local_chip_->noc_params;
+    auto host_address_params =
+        local_chip_->get_tt_device()->get_architecture_implementation()->get_host_address_params();
+    auto eth_interface_params =
+        local_chip_->get_tt_device()->get_architecture_implementation()->get_eth_interface_params();
+    auto noc_params = local_chip_->get_tt_device()->get_architecture_implementation()->get_noc_params();
 
     std::vector<std::uint32_t> erisc_command;
     std::vector<std::uint32_t> erisc_q_rptr = std::vector<uint32_t>(1);
@@ -366,7 +371,7 @@ void RemoteCommunication::write_to_non_mmio(
     //                    MUTEX ACQUIRE (NON-MMIO)
     //  do not locate any ethernet core reads/writes before this acquire
     //
-    auto lock = local_chip_->acquire_mutex(
+    auto lock = lock_manager_.acquire_mutex(
         MutexType::NON_MMIO, local_chip_->get_tt_device()->get_pci_device()->get_device_num());
 
     CoreCoord remote_transfer_ethernet_core = get_remote_transfer_ethernet_core();
@@ -539,13 +544,13 @@ void RemoteCommunication::write_to_non_mmio(
 }
 
 void RemoteCommunication::wait_for_non_mmio_flush() {
-    if (local_chip_->get_flush_non_mmio()) {
+    if (flush_non_mmio_) {
         TT_ASSERT(
             local_chip_->get_soc_descriptor().arch != tt::ARCH::BLACKHOLE, "Non-MMIO flush not supported in Blackhole");
 
         if (local_chip_->get_soc_descriptor().arch == tt::ARCH::WORMHOLE_B0) {
-            // TODO: To be removed when this is moved to Chip classes.
-            auto eth_interface_params = local_chip_->eth_interface_params;
+            auto eth_interface_params =
+                local_chip_->get_tt_device()->get_architecture_implementation()->get_eth_interface_params();
 
             std::vector<std::uint32_t> erisc_txn_counters = std::vector<uint32_t>(2);
             std::vector<std::uint32_t> erisc_q_ptrs =
@@ -569,7 +574,7 @@ void RemoteCommunication::wait_for_non_mmio_flush() {
                 } while (erisc_txn_counters[0] != erisc_txn_counters[1]);
             }
         }
-        local_chip_->set_flush_non_mmio(false);
+        flush_non_mmio_ = false;
     }
 }
 

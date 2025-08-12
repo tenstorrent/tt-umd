@@ -101,7 +101,6 @@ void RemoteCommunication::read_non_mmio(
     using data_word_t = uint32_t;
     constexpr int DATA_WORD_SIZE = sizeof(data_word_t);
 
-    // TODO: To be removed when this is moved to Chip classes.
     auto host_address_params =
         local_chip_->get_tt_device()->get_architecture_implementation()->get_host_address_params();
     auto eth_interface_params =
@@ -344,7 +343,6 @@ void RemoteCommunication::write_to_non_mmio(
     constexpr int DATA_WORD_SIZE = sizeof(data_word_t);
     constexpr int BROADCAST_HEADER_SIZE = sizeof(data_word_t) * 8;  // Broadcast header is 8 words
 
-    // TODO: To be removed when this is moved to Chip classes.
     auto host_address_params =
         local_chip_->get_tt_device()->get_architecture_implementation()->get_host_address_params();
     auto eth_interface_params =
@@ -551,7 +549,6 @@ void RemoteCommunication::wait_for_non_mmio_flush() {
             local_chip_->get_soc_descriptor().arch != tt::ARCH::BLACKHOLE, "Non-MMIO flush not supported in Blackhole");
 
         if (local_chip_->get_soc_descriptor().arch == tt::ARCH::WORMHOLE_B0) {
-            // TODO: To be removed when this is moved to Chip classes.
             auto eth_interface_params =
                 local_chip_->get_tt_device()->get_architecture_implementation()->get_eth_interface_params();
 

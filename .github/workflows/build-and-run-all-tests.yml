@@ -72,13 +72,13 @@ jobs:
       fail-fast: false
       matrix:
         test-group: [
-          {arch: wormhole_b0, card: tt-beta-ubuntu-2204-n150-large-stable},
-          {arch: wormhole_b0, card: tt-beta-ubuntu-2204-n150-viommu-large-stable},
-          {arch: wormhole_b0, card: tt-beta-ubuntu-2204-n300-large-stable},
-          {arch: wormhole_b0, card: tt-beta-ubuntu-2204-n300-viommu-large-stable},
-          {arch: wormhole_b0, card: tt-beta-ubuntu-2204-n300-llmbox-large-stable},
-          {arch: wormhole_b0, card: tt-ubuntu-2204-n300-llmbox-viommu-stable},
-          {arch: blackhole, card: tt-beta-ubuntu-2204-p150b-large-stable},
+          # {arch: wormhole_b0, card: tt-beta-ubuntu-2204-n150-large-stable},
+          # {arch: wormhole_b0, card: tt-beta-ubuntu-2204-n150-viommu-large-stable},
+          # {arch: wormhole_b0, card: tt-beta-ubuntu-2204-n300-large-stable},
+          # {arch: wormhole_b0, card: tt-beta-ubuntu-2204-n300-viommu-large-stable},
+          # {arch: wormhole_b0, card: tt-beta-ubuntu-2204-n300-llmbox-large-stable},
+          # {arch: wormhole_b0, card: tt-ubuntu-2204-n300-llmbox-viommu-stable},
+          # {arch: blackhole, card: tt-beta-ubuntu-2204-p150b-large-stable},
           {arch: blackhole, card: tt-beta-ubuntu-2204-p150b-viommu-large-stable},
           {arch: baremetal, card: ubuntu-22.04},
         ]

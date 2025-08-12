@@ -45,7 +45,8 @@ jobs:
       - ${{ inputs.card }}
     container:
       image: ghcr.io/${{ github.repository }}/tt-umd-ci-${{ inputs.ubuntu-docker-version }}:latest
-      options: ${{ inputs.arch != 'baremetal' && '--device /dev/tenstorrent' || null }}
+      # Set dummy var for baremetal, as options has to have some value
+      options: ${{ inputs.arch != 'baremetal' && '--device /dev/tenstorrent' || '-e DUMMY_VAR=' }}
       volumes:
         - /dev/hugepages:/dev/hugepages
         - /dev/hugepages-1G:/dev/hugepages-1G
@@ -119,6 +120,10 @@ jobs:
       - name: Install wheel and run pytest
         shell: bash
         run: |
+          ls -la .
+          ls -la ../
+          ls -la ../../
+          pwd
           echo "Setting up virtual environment..."
           python -m venv .venv
           source .venv/bin/activate

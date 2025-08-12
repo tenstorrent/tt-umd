@@ -66,7 +66,7 @@ TEST(TestNoc, TestNoc0NodeId) {
 
         check_noc_id_cores(cluster, chip, CoreType::L2CPU);
 
-        // TODO: add readouts for router cores.
+        check_noc_id_cores(cluster, chip, CoreType::ROUTER_ONLY);
     }
 }
 
@@ -135,7 +135,9 @@ TEST(TestNoc, TestNoc1NodeId) {
 
         check_noc_id_cores(cluster, chip, CoreType::L2CPU);
 
-        // TODO: add readouts for router cores.
+        if (cluster->get_cluster_description()->get_arch(chip) != tt::ARCH::BLACKHOLE) {
+            check_noc_id_cores(cluster, chip, CoreType::ROUTER_ONLY);
+        }
     }
 
     TTDevice::use_noc1(false);

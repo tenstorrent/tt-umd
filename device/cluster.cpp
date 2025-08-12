@@ -406,7 +406,9 @@ Cluster::Cluster(ClusterOptions options) {
             }
         }
         if (construct_mock_cluster_descriptor) {
-            cluster_desc = tt_ClusterDescriptor::create_mock_cluster(chips_to_construct_vec, tt::ARCH::WORMHOLE_B0);
+            tt_SocDescriptor soc_descriptor(options.simulator_directory / "soc_descriptor.yaml", false);
+            cluster_desc = tt_ClusterDescriptor::create_mock_cluster(chips_to_construct_vec, soc_descriptor.arch);
+            log_info(LogSiliconDriver, "Created mock cluster with {} architecture.", arch_to_str(soc_descriptor.arch));
         }
     }
     for (auto& chip_id : chips_to_construct_vec) {

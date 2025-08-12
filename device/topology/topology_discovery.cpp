@@ -93,10 +93,9 @@ void TopologyDiscovery::discover_remote_chips() {
     while (!chips_to_discover.empty()) {
         auto it = chips_to_discover.begin();
         uint64_t current_chip_asic_id = it->first;
-        std::unique_ptr<Chip> chip_unique = std::move(it->second);
+        chips.emplace(current_chip_asic_id, std::move(it->second));
         chips_to_discover.erase(it);
-        Chip* chip = chip_unique.get();
-        chips.emplace(current_chip_asic_id, std::move(chip_unique));
+        Chip* chip = chips.at(current_chip_asic_id).get();
 
         active_eth_channels_per_chip.emplace(current_chip_asic_id, std::set<uint32_t>());
         std::vector<CoreCoord> eth_cores =

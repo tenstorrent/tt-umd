@@ -5,6 +5,7 @@
 // This file holds Cluster specific API examples.
 
 #include <gtest/gtest.h>
+#include <sys/types.h>
 
 #include <algorithm>
 #include <cstdint>
@@ -18,6 +19,7 @@
 #include "fmt/xchar.h"
 #include "test_api_common.h"
 #include "test_utils/assembly_programs_for_tests.hpp"
+#include "tests/test_utils/device_test_utils.hpp"
 #include "tests/test_utils/generate_cluster_desc.hpp"
 #include "umd/device/blackhole_implementation.h"
 #include "umd/device/chip/local_chip.h"
@@ -99,6 +101,31 @@ TEST(ApiClusterTest, OpenChipsByPciId) {
             EXPECT_EQ(actual_pci_device_ids.size(), target_pci_device_ids.size());
             // Always expect logical id 0 to exist, that's the way filtering by pci ids work.
             EXPECT_TRUE(actual_pci_device_ids.find(0) != actual_pci_device_ids.end());
+        }
+
+        std::string value = test_utils::convert_to_comma_separated_string(target_pci_device_ids);
+
+        if (setenv(TT_VISIBLE_DEVICES_ENV.data(), value.c_str(), 1) != 0) {
+            ASSERT_TRUE(false) << "Failed to unset environment variable.";
+        }
+
+        // Make sure that Cluster construction is without exceptions.
+        // TODO: add cluster descriptors for expected topologies, compare cluster desc against expected desc.
+        std::unique_ptr<Cluster> cluster_env_var = std::make_unique<Cluster>(ClusterOptions{
+            .pci_target_devices = {},
+        });
+
+        if (!target_pci_device_ids.empty()) {
+            // If target_pci_device_ids is empty, then full cluster will be created, so skip the check.
+            // Check that the cluster has the expected number of chips.
+            auto actual_pci_device_ids = cluster->get_target_mmio_device_ids();
+            EXPECT_EQ(actual_pci_device_ids.size(), target_pci_device_ids.size());
+            // Always expect logical id 0 to exist, that's the way filtering by pci ids work.
+            EXPECT_TRUE(actual_pci_device_ids.find(0) != actual_pci_device_ids.end());
+        }
+
+        if (unsetenv(TT_VISIBLE_DEVICES_ENV.data()) != 0) {
+            ASSERT_TRUE(false) << "Failed to unset environment variable.";
         }
     }
 }
@@ -288,13 +315,13 @@ TEST(ApiClusterTest, RemoteFlush) {
 }
 
 TEST(ApiClusterTest, SimpleIOSpecificSiliconChips) {
-    std::unique_ptr<Cluster> umd_cluster = std::make_unique<Cluster>();
+    std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
 
-    if (umd_cluster->get_target_device_ids().empty()) {
+    if (pci_device_ids.empty()) {
         GTEST_SKIP() << "No chips present on the system. Skipping test.";
     }
 
-    umd_cluster = std::make_unique<Cluster>(ClusterOptions{
+    std::unique_ptr<Cluster> umd_cluster = std::make_unique<Cluster>(ClusterOptions{
         .target_devices = {0},
     });
 
@@ -551,7 +578,7 @@ TEST(TestCluster, DeassertResetWithCounterBrisc) {
     }
 
     auto tensix_l1_size = cluster->get_soc_descriptor(0).worker_l1_size;
-    std::vector<uint32_t> zero_data(tensix_l1_size, 0);
+    std::vector<uint32_t> zero_data(tensix_l1_size / sizeof(uint32_t), 0);
 
     constexpr uint64_t counter_address = 0x10000;
     constexpr uint64_t brisc_code_address = 0;
@@ -646,7 +673,7 @@ TEST_P(ClusterAssertDeassertRiscsTest, TriscNcriscAssertDeassertTest) {
     uint32_t second_readback_value = 0;
 
     auto tensix_l1_size = cluster->get_soc_descriptor(0).worker_l1_size;
-    std::vector<uint32_t> zero_data(tensix_l1_size, 0);
+    std::vector<uint32_t> zero_data(tensix_l1_size / sizeof(uint32_t), 0);
 
     auto chip_ids = cluster->get_target_device_ids();
     for (auto& chip_id : chip_ids) {

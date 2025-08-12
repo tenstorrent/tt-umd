@@ -12,7 +12,8 @@ namespace tt::umd {
 
 class RemoteWormholeTTDevice : public WormholeTTDevice {
 public:
-    RemoteWormholeTTDevice(LocalChip* local_chip, eth_coord_t target_chip);
+    RemoteWormholeTTDevice(
+        LocalChip* local_chip, std::unique_ptr<RemoteCommunication> remote_communication, eth_coord_t target_chip);
 
     void read_from_device(void* mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size) override;
 

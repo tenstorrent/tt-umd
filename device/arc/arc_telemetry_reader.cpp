@@ -3,10 +3,10 @@
  *
  * SPDX-License-Identifier: Apache-2.0
  */
-#include "umd/device/arc_telemetry_reader.h"
+#include "umd/device/arc/arc_telemetry_reader.h"
 
-#include "umd/device/blackhole_arc_telemetry_reader.h"
-#include "umd/device/wormhole_arc_telemetry_reader.h"
+#include "umd/device/arc/blackhole_arc_telemetry_reader.h"
+#include "umd/device/arc/wormhole_arc_telemetry_reader.h"
 
 namespace tt::umd {
 

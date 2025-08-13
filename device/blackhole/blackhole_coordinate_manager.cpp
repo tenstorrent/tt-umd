@@ -272,7 +272,7 @@ void BlackholeCoordinateManager::fill_eth_noc0_translated_mapping() {
 
 void BlackholeCoordinateManager::fill_pcie_noc0_translated_mapping() {
     for (size_t x = 0;
-         x < pcie_grid_size.x - CoordinateManager::get_num_harvested(harvesting_masks.pcie_harvesting_mask);
+         x < pcie_grid_size.x && x < pcie_grid_size.x - CoordinateManager::get_num_harvested(harvesting_masks.pcie_harvesting_mask);
          x++) {
         CoreCoord logical_coord = CoreCoord(x, 0, CoreType::PCIE, CoordSystem::LOGICAL);
         const tt_xy_pair noc0_pair = to_noc0_map[logical_coord];

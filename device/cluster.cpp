@@ -408,7 +408,17 @@ Cluster::Cluster(ClusterOptions options) {
             }
         }
         if (construct_mock_cluster_descriptor) {
-            cluster_desc = tt_ClusterDescriptor::create_mock_cluster(chips_to_construct_vec, tt::ARCH::WORMHOLE_B0);
+            auto arch = tt::ARCH::WORMHOLE_B0;
+#ifdef TT_UMD_BUILD_SIMULATION
+            if (options.chip_type == ChipType::SIMULATION) {
+                tt_SimulationDeviceInit init(options.simulator_directory);
+                arch = init.get_soc_descriptor().arch;
+            }
+#endif
+            cluster_desc = tt_ClusterDescriptor::create_mock_cluster(chips_to_construct_vec, arch);
+        }
+        if (options.sdesc_path.empty() && options.chip_type == ChipType::SIMULATION) {
+            options.sdesc_path = options.simulator_directory / "soc_descriptor.yaml";
         }
     }
     for (auto& chip_id : chips_to_construct_vec) {

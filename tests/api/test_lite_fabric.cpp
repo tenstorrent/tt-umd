@@ -5,6 +5,7 @@
 
 #include "umd/device/cluster.h"
 #include "umd/device/lite_fabric/lite_fabric.h"
+#include "umd/device/lite_fabric/lite_fabric_host_utils.h"
 
 using namespace tt::umd;
 

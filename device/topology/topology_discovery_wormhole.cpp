@@ -228,8 +228,7 @@ std::optional<eth_coord_t> TopologyDiscoveryWormhole::get_remote_eth_coord(Chip*
     return eth_coord;
 }
 
-std::unique_ptr<RemoteChip> TopologyDiscoveryWormhole::create_remote_chip(
-    Chip* gateway_chip, CoreCoord eth_core) {
+std::unique_ptr<RemoteChip> TopologyDiscoveryWormhole::create_remote_chip(Chip* gateway_chip, CoreCoord eth_core) {
     if (is_running_on_6u) {
         return nullptr;
     }

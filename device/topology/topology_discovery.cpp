@@ -129,9 +129,7 @@ void TopologyDiscovery::discover_remote_chips() {
             uint64_t remote_asic_id = get_remote_asic_id(chip, eth_core);
 
             if (discovered_chips.find(remote_asic_id) == discovered_chips.end()) {
-                std::unique_ptr<Chip> remote_chip = create_remote_chip(
-                    chip,
-                    eth_core);
+                std::unique_ptr<Chip> remote_chip = create_remote_chip(chip, eth_core);
 
                 chips_to_discover.emplace(remote_asic_id, std::move(remote_chip));
                 active_eth_channels_per_chip.emplace(remote_asic_id, std::set<uint32_t>());

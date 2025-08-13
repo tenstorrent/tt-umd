@@ -376,12 +376,14 @@ void LocalChip::wait_for_non_mmio_flush() {
 
 void LocalChip::set_remote_transfer_ethernet_cores(const std::unordered_set<CoreCoord>& cores) {
     // Set cores to be used by the broadcast communication.
-    remote_communication_->set_remote_transfer_ethernet_cores(get_soc_descriptor().translate_coords_to_xy_pair(cores, CoordSystem::TRANSLATED));
+    remote_communication_->set_remote_transfer_ethernet_cores(
+        get_soc_descriptor().translate_coords_to_xy_pair(cores, CoordSystem::TRANSLATED));
 }
 
 void LocalChip::set_remote_transfer_ethernet_cores(const std::set<uint32_t>& channels) {
     // Set cores to be used by the broadcast communication.
-    remote_communication_->set_remote_transfer_ethernet_cores(get_soc_descriptor().get_eth_xy_pairs_for_channels(channels, CoordSystem::TRANSLATED));
+    remote_communication_->set_remote_transfer_ethernet_cores(
+        get_soc_descriptor().get_eth_xy_pairs_for_channels(channels, CoordSystem::TRANSLATED));
 }
 
 std::unique_lock<RobustMutex> LocalChip::acquire_mutex(std::string mutex_name, int pci_device_id) {

@@ -408,11 +408,12 @@ Cluster::Cluster(ClusterOptions options) {
             }
         }
         if (construct_mock_cluster_descriptor) {
-#ifdef TT_UMD_BUILD_SIMULATION
-            tt_SimulationDeviceInit init(options.simulator_directory);
-            auto arch = init.get_soc_descriptor().arch;
-#else
             auto arch = tt::ARCH::WORMHOLE_B0;
+#ifdef TT_UMD_BUILD_SIMULATION
+            if (options.chip_type == ChipType::SIMULATION) {
+                tt_SimulationDeviceInit init(options.simulator_directory);
+                arch = init.get_soc_descriptor().arch;
+            }
 #endif
             cluster_desc = tt_ClusterDescriptor::create_mock_cluster(chips_to_construct_vec, arch);
         }

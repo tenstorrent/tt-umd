@@ -3,17 +3,19 @@
  *
  * SPDX-License-Identifier: Apache-2.0
  */
-#include "umd/device/cluster.h"
-
 #include <nanobind/nanobind.h>
 #include <nanobind/stl/map.h>
 #include <nanobind/stl/set.h>
+
+#include "umd/device/cluster.h"
+#include "umd/device/topology/topology_discovery.h"
 
 namespace nb = nanobind;
 
 using namespace tt::umd;
 
-NB_MODULE(tt_umd, m) {
+void bind_cluster(nb::module_ &m) {
+    // Expose the Cluster class
     nb::class_<Cluster>(m, "Cluster")
         .def(nb::init<>())
         .def("get_target_device_ids", &Cluster::get_target_device_ids)

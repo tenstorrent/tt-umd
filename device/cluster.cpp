@@ -414,7 +414,7 @@ Cluster::Cluster(ClusterOptions options) {
 #endif
             cluster_desc = tt_ClusterDescriptor::create_mock_cluster(chips_to_construct_vec, arch);
         }
-        if (options.sdesc_path.empty()) {
+        if (options.sdesc_path.empty() && options.chip_type == ChipType::SIMULATION) {
             options.sdesc_path = options.simulator_directory / "soc_descriptor.yaml";
         }
     }

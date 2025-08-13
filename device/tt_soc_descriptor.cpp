@@ -88,16 +88,12 @@ void tt_SocDescriptor::write_core_locations(void *out, const CoreType &core_type
 
 void tt_SocDescriptor::serialize_dram_cores(void *out, const std::vector<std::vector<CoreCoord>> &cores) const {
     YAML::Emitter *emitter = static_cast<YAML::Emitter *>(out);
-    bool sequence_started = false;
+
+    const uint32_t num_noc_ports = cores.empty() ? 0 : cores[0].size();
 
     for (const auto &dram_cores : cores) {
         // Insert the dram core if it's within the given grid
         bool serialize_cores = true;
-
-        if (sequence_started) {
-            *emitter << YAML::EndSeq;
-            sequence_started = false;
-        }
 
         for (const auto &dram_core : dram_cores) {
             if ((dram_core.x > grid_size.x) || (dram_core.y > grid_size.y)) {
@@ -107,24 +103,18 @@ void tt_SocDescriptor::serialize_dram_cores(void *out, const std::vector<std::ve
         if (serialize_cores) {
             int dram_count = 0;
             for (const auto &dram_core : dram_cores) {
-                if (dram_count % 3 == 0) {
+                if (dram_count % num_noc_ports == 0) {
                     *emitter << YAML::BeginSeq;
-                    sequence_started = true;
                 }
                 if (dram_core.x < grid_size.x && dram_core.y < grid_size.y) {
                     write_coords(emitter, dram_core);
                 }
-                if (dram_count % 3 == 2) {
+                if (dram_count % num_noc_ports == num_noc_ports - 1) {
                     *emitter << YAML::EndSeq;
                 }
                 dram_count++;
             }
         }
-    }
-
-    if (sequence_started) {
-        *emitter << YAML::EndSeq;
-        sequence_started = false;
     }
 }
 

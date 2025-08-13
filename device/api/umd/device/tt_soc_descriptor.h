@@ -135,6 +135,7 @@ public:
         const std::set<uint32_t> &eth_channels, const CoordSystem coord_system = CoordSystem::NOC0) const;
     uint32_t get_eth_channel_for_core(
         const CoreCoord &core_coord, const CoordSystem coord_system = CoordSystem::NOC0) const;
+    // First element is the channel, second element is the subchannel.
     std::pair<int, int> get_dram_channel_for_core(
         const CoreCoord &core_coord, const CoordSystem coord_system = CoordSystem::NOC0) const;
 

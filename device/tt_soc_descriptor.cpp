@@ -494,28 +494,13 @@ std::unordered_set<tt_xy_pair> tt_SocDescriptor::get_eth_xy_pairs_for_channels(
 }
 
 uint32_t tt_SocDescriptor::get_eth_channel_for_core(const CoreCoord &core_coord, const CoordSystem coord_system) const {
-    // First translate to NOC0 coordinates since that's how the mapping is stored
-    CoreCoord noc0_core = translate_coord_to(core_coord, CoordSystem::NOC0);
-    tt_xy_pair core_xy(noc0_core.x, noc0_core.y);
-
-    auto it = ethernet_core_channel_map.find(core_xy);
-    if (it != ethernet_core_channel_map.end()) {
-        return it->second;
-    }
-    throw std::runtime_error(fmt::format("Core ({}, {}) is not an ethernet core", core_xy.x, core_xy.y));
+    return translate_coord_to(core_coord, CoordSystem::LOGICAL).y;
 }
 
 std::pair<int, int> tt_SocDescriptor::get_dram_channel_for_core(
     const CoreCoord &core_coord, const CoordSystem coord_system) const {
-    // First translate to NOC0 coordinates since that's how the mapping is stored
-    CoreCoord noc0_core = translate_coord_to(core_coord, CoordSystem::NOC0);
-    tt_xy_pair core_xy(noc0_core.x, noc0_core.y);
-
-    auto it = dram_core_channel_map.find(core_xy);
-    if (it != dram_core_channel_map.end()) {
-        return std::make_pair(std::get<0>(it->second), std::get<1>(it->second));
-    }
-    throw std::runtime_error(fmt::format("Core ({}, {}) is not a DRAM core", core_xy.x, core_xy.y));
+    auto logical_core = translate_coord_to(core_coord, CoordSystem::LOGICAL);
+    return std::make_pair(logical_core.x, logical_core.y);
 }
 
 CoreCoord tt_SocDescriptor::get_eth_core_for_channel(uint32_t eth_chan, const CoordSystem coord_system) const {

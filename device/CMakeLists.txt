@@ -70,6 +70,7 @@ target_sources(
         topology/topology_discovery_blackhole.cpp
         topology/topology_discovery_wormhole.cpp
         remote_communication.cpp
+        lite_fabric/lite_fabric_host_utils.cpp
 )
 
 if(TT_UMD_BUILD_SIMULATION)

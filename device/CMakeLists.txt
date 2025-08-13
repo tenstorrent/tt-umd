@@ -73,6 +73,7 @@ target_sources(
         remote_communication.cpp
         jtag/jtag_device.cpp
         jtag/jtag.cpp
+        lite_fabric/lite_fabric_host_utils.cpp
 )
 
 if(TT_UMD_BUILD_SIMULATION)

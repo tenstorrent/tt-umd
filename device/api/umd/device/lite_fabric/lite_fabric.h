@@ -8,6 +8,7 @@
 #include <cstdint>
 #include <cstdlib>
 
+#include "umd/device/cluster.h"
 #include "umd/device/driver_atomics.h"
 #include "umd/device/lite_fabric/blackhole_dev_mem_map.h"
 #include "umd/device/lite_fabric/fabric_edm_types.h"

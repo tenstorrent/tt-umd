@@ -246,7 +246,8 @@ struct HostToLiteFabricInterface {
         const auto& eth_cores = soc_d.get_cores(CoreType::ETH, CoordSystem::TRANSLATED);
         const auto& tensix_cores = soc_d.get_cores(CoreType::TENSIX, CoordSystem::TRANSLATED);
 
-        std::vector<uint32_t> barrier_value{rand(), rand(), rand(), rand()};
+        // std::vector<uint32_t> barrier_value{rand(), rand(), rand(), rand()};
+        std::vector<uint32_t> barrier_value{0, 0, 0, 0};
 
         const auto do_barrier = [&](const std::vector<tt::umd::CoreCoord>& virtual_cores,
                                     const std::string& core_type_name,

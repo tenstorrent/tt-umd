@@ -23,8 +23,8 @@ TEST(RemoteCommunicationWormhole, BasicRemoteCommunicationIO) {
     std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
 
     chip_id_t mmio_chip_id = *cluster->get_target_mmio_device_ids().begin();
-    std::unique_ptr<RemoteCommunication> remote_comm =
-        std::make_unique<RemoteCommunication>(cluster->get_local_chip(mmio_chip_id));
+    std::unique_ptr<RemoteCommunication> remote_comm = std::make_unique<RemoteCommunication>(
+        cluster->get_local_chip(mmio_chip_id), cluster->get_local_chip(mmio_chip_id)->get_sysmem_manager());
 
     remote_comm->set_remote_transfer_ethernet_cores(
         cluster->get_cluster_description()->get_active_eth_channels(mmio_chip_id));

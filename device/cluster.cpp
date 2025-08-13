@@ -47,6 +47,8 @@
 #include "umd/device/chip_helpers/tlb_manager.h"
 #include "umd/device/driver_atomics.h"
 #include "umd/device/hugepage.h"
+#include "umd/device/topology/topology_discovery_blackhole.h"
+#include "umd/device/topology/topology_discovery_wormhole.h"
 #include "umd/device/topology_utils.h"
 #include "umd/device/tt_cluster_descriptor.h"
 #include "umd/device/tt_core_coordinates.h"
@@ -1070,141 +1072,7 @@ void Cluster::set_barrier_address_params(const barrier_address_params& barrier_a
 
 std::unique_ptr<tt_ClusterDescriptor> Cluster::create_cluster_descriptor(
     std::string sdesc_path, std::unordered_set<chip_id_t> pci_target_devices) {
-    std::map<int, PciDeviceInfo> pci_device_info = PCIDevice::enumerate_devices_info(pci_target_devices);
-    if (pci_device_info.begin()->second.get_arch() == tt::ARCH::BLACKHOLE) {
-        std::vector<int> pci_device_ids = PCIDevice::enumerate_devices(pci_target_devices);
-
-        std::unordered_map<chip_id_t, std::unique_ptr<Chip>> chips;
-        chip_id_t chip_id = 0;
-        for (auto& device_id : pci_device_ids) {
-            std::unique_ptr<LocalChip> chip = LocalChip::create(device_id, sdesc_path);
-            chips.emplace(chip_id, std::move(chip));
-            chip_id++;
-        }
-
-        return Cluster::create_cluster_descriptor(chips);
-    } else {
-        return TopologyDiscovery(pci_target_devices, sdesc_path).create_ethernet_map();
-    }
-}
-
-std::unique_ptr<tt_ClusterDescriptor> Cluster::create_cluster_descriptor(
-    const std::unordered_map<chip_id_t, std::unique_ptr<Chip>>& chips) {
-    std::unique_ptr<tt_ClusterDescriptor> desc = std::unique_ptr<tt_ClusterDescriptor>(new tt_ClusterDescriptor());
-
-    if (chips.empty()) {
-        return desc;
-    }
-
-    for (auto& it : chips) {
-        const chip_id_t chip_id = it.first;
-        const std::unique_ptr<Chip>& chip = it.second;
-
-        // TODO: Use the line below when we can read asic location from the Blackhole telemetry.
-        // Until then we have to read it from ETH core.
-        // desc->add_chip_uid(chip_id, chip->get_chip_info().chip_uid);
-
-        // TODO: Remove this when we can read asic location from the Blackhole telemetry.
-        // Until then we have to read it from ETH core.
-        const std::vector<CoreCoord> eth_cores = chip->get_soc_descriptor().get_cores(CoreType::ETH);
-        for (size_t eth_channel = 0; eth_channel < eth_cores.size(); eth_channel++) {
-            const CoreCoord& eth_core = eth_cores[eth_channel];
-            blackhole::boot_results_t boot_results;
-
-            chip->read_from_device(
-                eth_cores[eth_channel], (uint8_t*)&boot_results, blackhole::BOOT_RESULTS_ADDR, sizeof(boot_results));
-
-            // We can read the asic location only from active ETH cores.
-            if (boot_results.eth_status.port_status == blackhole::port_status_e::PORT_UP) {
-                const blackhole::chip_info_t& local_info = boot_results.local_info;
-                desc->add_chip_uid(chip_id, ChipUID{chip->get_chip_info().chip_uid.board_id, local_info.asic_location});
-            }
-        }
-    }
-
-    for (auto& it : chips) {
-        const chip_id_t chip_id = it.first;
-        const std::unique_ptr<Chip>& chip = it.second;
-
-        desc->all_chips.insert(chip_id);
-        desc->chip_arch.insert({chip_id, chip->get_tt_device()->get_arch()});
-
-        desc->chips_with_mmio.insert({chip_id, chip->get_tt_device()->get_pci_device()->get_device_num()});
-
-        desc->chip_board_type.insert({chip_id, chip->get_chip_info().board_type});
-
-        desc->noc_translation_enabled.insert({chip_id, chip->get_chip_info().noc_translation_enabled});
-        desc->harvesting_masks_map.insert({chip_id, chip->get_chip_info().harvesting_masks});
-
-        desc->add_chip_to_board(chip_id, chip->get_chip_info().chip_uid.board_id);
-    }
-
-    for (auto& it : chips) {
-        const chip_id_t chip_id = it.first;
-        const std::unique_ptr<Chip>& chip = it.second;
-
-        const std::vector<CoreCoord> eth_cores = chip->get_soc_descriptor().get_cores(CoreType::ETH);
-
-        for (size_t eth_channel = 0; eth_channel < eth_cores.size(); eth_channel++) {
-            const CoreCoord& eth_core = eth_cores[eth_channel];
-            blackhole::boot_results_t boot_results;
-
-            chip->read_from_device(
-                eth_cores[eth_channel], (uint8_t*)&boot_results, blackhole::BOOT_RESULTS_ADDR, sizeof(boot_results));
-
-            if (boot_results.eth_status.port_status == blackhole::port_status_e::PORT_UP) {
-                // active eth core
-                desc->active_eth_channels[chip_id].insert(eth_channel);
-                log_debug(LogSiliconDriver, "Eth core ({}, {}) on chip {} is active", eth_core.x, eth_core.y, chip_id);
-                const blackhole::chip_info_t& local_info = boot_results.local_info;
-                const blackhole::chip_info_t& remote_info = boot_results.remote_info;
-
-                chip_id_t local_chip_id = desc->get_chip_id(local_info.get_chip_uid()).value();
-                std::optional<chip_id_t> remote_chip_id = desc->get_chip_id(remote_info.get_chip_uid());
-                if (!remote_chip_id.has_value()) {
-                    log_debug(
-                        LogSiliconDriver,
-                        "Eth core ({}, {}) on chip {} is connected to an chip with board_id {} not present in the "
-                        "target devices opened by this driver.",
-                        eth_core.x,
-                        eth_core.y,
-                        chip_id,
-                        remote_info.get_chip_uid().board_id);
-                } else {
-                    const CoreCoord logical_remote_coord =
-                        chips.at(remote_chip_id.value())
-                            ->get_soc_descriptor()
-                            .translate_coord_to(
-                                blackhole::ETH_CORES_NOC0[remote_info.eth_id], CoordSystem::NOC0, CoordSystem::LOGICAL);
-                    // Adding a connection only one way, the other chip should add it another way.
-                    desc->ethernet_connections[local_chip_id][eth_channel] = {
-                        remote_chip_id.value(), logical_remote_coord.y};
-                }
-            } else if (boot_results.eth_status.port_status == blackhole::port_status_e::PORT_DOWN) {
-                // active eth core, just with link being down.
-                desc->active_eth_channels[chip_id].insert(eth_channel);
-                log_debug(
-                    LogSiliconDriver, "Port on eth core ({}, {}) on chip {} is down", eth_core.x, eth_core.y, chip_id);
-            } else if (boot_results.eth_status.port_status == blackhole::port_status_e::PORT_UNUSED) {
-                // idle core
-                desc->idle_eth_channels[chip_id].insert(eth_channel);
-                log_debug(LogSiliconDriver, "Eth core ({}, {}) on chip {} is idle", eth_core.x, eth_core.y, chip_id);
-            } else if (boot_results.eth_status.port_status == blackhole::port_status_e::PORT_UNKNOWN) {
-                log_debug(
-                    LogSiliconDriver,
-                    "Port on eth core ({}, {}) on chip {} is in unknown state",
-                    eth_core.x,
-                    eth_core.y,
-                    chip_id);
-            }
-        }
-    }
-
-    desc->fill_chips_grouped_by_closest_mmio();
-
-    desc->verify_cluster_descriptor_info();
-
-    return desc;
+    return TopologyDiscovery::create_cluster_descriptor(pci_target_devices, sdesc_path);
 }
 
 }  // namespace tt::umd

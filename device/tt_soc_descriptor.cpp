@@ -455,7 +455,70 @@ CoreCoord tt_SocDescriptor::get_dram_core_for_channel(
     return translate_coord_to(logical_dram_coord, coord_system);
 }
 
-CoreCoord tt_SocDescriptor::get_eth_core_for_channel(int eth_chan, const CoordSystem coord_system) const {
+std::unordered_set<CoreCoord> tt_SocDescriptor::translate_coords_to(
+    const std::unordered_set<CoreCoord> &core_coords, const CoordSystem coord_system) const {
+    std::unordered_set<CoreCoord> translated_cores;
+    for (const auto &core : core_coords) {
+        translated_cores.insert(translate_coord_to(core, coord_system));
+    }
+    return translated_cores;
+}
+
+std::unordered_set<tt_xy_pair> tt_SocDescriptor::translate_coords_to_xy_pair(
+    const std::unordered_set<CoreCoord> &core_coords, const CoordSystem coord_system) const {
+    std::unordered_set<tt_xy_pair> translated_xy_pairs;
+    for (const auto &core : core_coords) {
+        CoreCoord translated_core = translate_coord_to(core, coord_system);
+        translated_xy_pairs.insert({translated_core.x, translated_core.y});
+    }
+    return translated_xy_pairs;
+}
+
+std::unordered_set<CoreCoord> tt_SocDescriptor::get_eth_cores_for_channels(
+    const std::set<uint32_t> &eth_channels, const CoordSystem coord_system) const {
+    std::unordered_set<CoreCoord> eth_cores;
+    for (uint32_t channel : eth_channels) {
+        eth_cores.insert(get_eth_core_for_channel(channel, coord_system));
+    }
+    return eth_cores;
+}
+
+std::unordered_set<tt_xy_pair> tt_SocDescriptor::get_eth_xy_pairs_for_channels(
+    const std::set<uint32_t> &eth_channels, const CoordSystem coord_system) const {
+    std::unordered_set<tt_xy_pair> eth_xy_pairs;
+    for (uint32_t channel : eth_channels) {
+        CoreCoord eth_core = get_eth_core_for_channel(channel, coord_system);
+        eth_xy_pairs.insert({eth_core.x, eth_core.y});
+    }
+    return eth_xy_pairs;
+}
+
+uint32_t tt_SocDescriptor::get_eth_channel_for_core(const CoreCoord &core_coord, const CoordSystem coord_system) const {
+    // First translate to NOC0 coordinates since that's how the mapping is stored
+    CoreCoord noc0_core = translate_coord_to(core_coord, CoordSystem::NOC0);
+    tt_xy_pair core_xy(noc0_core.x, noc0_core.y);
+
+    auto it = ethernet_core_channel_map.find(core_xy);
+    if (it != ethernet_core_channel_map.end()) {
+        return it->second;
+    }
+    throw std::runtime_error(fmt::format("Core ({}, {}) is not an ethernet core", core_xy.x, core_xy.y));
+}
+
+std::pair<int, int> tt_SocDescriptor::get_dram_channel_for_core(
+    const CoreCoord &core_coord, const CoordSystem coord_system) const {
+    // First translate to NOC0 coordinates since that's how the mapping is stored
+    CoreCoord noc0_core = translate_coord_to(core_coord, CoordSystem::NOC0);
+    tt_xy_pair core_xy(noc0_core.x, noc0_core.y);
+
+    auto it = dram_core_channel_map.find(core_xy);
+    if (it != dram_core_channel_map.end()) {
+        return std::make_pair(std::get<0>(it->second), std::get<1>(it->second));
+    }
+    throw std::runtime_error(fmt::format("Core ({}, {}) is not a DRAM core", core_xy.x, core_xy.y));
+}
+
+CoreCoord tt_SocDescriptor::get_eth_core_for_channel(uint32_t eth_chan, const CoordSystem coord_system) const {
     const CoreCoord logical_eth_coord = CoreCoord(0, eth_chan, CoreType::ETH, CoordSystem::LOGICAL);
     return translate_coord_to(logical_eth_coord, coord_system);
 }

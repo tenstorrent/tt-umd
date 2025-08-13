@@ -100,6 +100,7 @@ if(TT_UMD_BUILD_PYTHON)
 endif()
 add_subdirectory(src)
 add_subdirectory(tools)
+add_subdirectory(example)
 
 if(TT_UMD_BUILD_TESTS)
     add_subdirectory(tests)

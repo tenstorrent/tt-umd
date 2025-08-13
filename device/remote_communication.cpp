@@ -574,7 +574,8 @@ void RemoteCommunication::wait_for_non_mmio_flush() {
     }
 }
 
-void RemoteCommunication::set_remote_transfer_ethernet_cores(const std::unordered_set<tt_xy_pair>& remote_transfer_eth_cores) {
+void RemoteCommunication::set_remote_transfer_ethernet_cores(
+    const std::unordered_set<tt_xy_pair>& remote_transfer_eth_cores) {
     // Makes UMD aware of which ethernet cores have active links.
     // Based on this information, UMD determines which ethernet cores can be used for host->cluster non-MMIO transfers.
     // This overrides the default ethernet cores tagged for host to cluster routing in the constructor and must be
@@ -582,9 +583,7 @@ void RemoteCommunication::set_remote_transfer_ethernet_cores(const std::unordere
     remote_transfer_eth_cores_.assign(remote_transfer_eth_cores.begin(), remote_transfer_eth_cores.end());
 }
 
-TTDevice* RemoteCommunication::get_local_device() {
-    return local_chip_;
-}
+TTDevice* RemoteCommunication::get_local_device() { return local_chip_; }
 
 tt_xy_pair RemoteCommunication::get_remote_transfer_ethernet_core() {
     if (remote_transfer_eth_cores_.size() > 8) {

@@ -54,8 +54,7 @@ protected:
 
     uint64_t get_remote_board_type(Chip* chip, tt_xy_pair eth_core) override;
 
-    std::unique_ptr<RemoteChip> create_remote_chip(
-        Chip* gateway_chip, CoreCoord eth_core) override;
+    std::unique_ptr<RemoteChip> create_remote_chip(Chip* gateway_chip, CoreCoord eth_core) override;
 
     bool is_using_eth_coords() override;
 

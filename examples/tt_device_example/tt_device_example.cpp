@@ -51,10 +51,10 @@ int main(int argc, char* argv[]) {
         device->write_to_device(&test_data, test_core, mem_addr, sizeof(test_data));
         device->read_from_device(&read_data, test_core, mem_addr, sizeof(read_data));
 
-        std::cout << "Device memory test " << (test_data == read_data ? "PASSED" : "FAILED") << ": wrote 0x" << std::hex
-                  << test_data << ", read 0x" << read_data << std::dec << std::endl;
+        std::cout << "Device memory operation: wrote 0x" << std::hex << test_data << ", read 0x" << read_data
+                  << std::dec << std::endl;
 
-        std::cout << "\n--- Now calling init_tt_device() ---" << std::endl;
+        std::cout << "\n=== Now calling init_tt_device() ===" << std::endl;
         device->init_tt_device();
         device->wait_arc_core_start();
 
@@ -87,11 +87,10 @@ int main(int argc, char* argv[]) {
         device->write_to_device(&init_test_data, safe_core, init_mem_addr, sizeof(init_test_data));
         device->read_from_device(&init_read_data, safe_core, init_mem_addr, sizeof(init_read_data));
 
-        std::cout << "Post-init memory test " << (init_test_data == init_read_data ? "PASSED" : "FAILED")
-                  << ": wrote 0x" << std::hex << init_test_data << ", read 0x" << init_read_data << std::dec
-                  << std::endl;
+        std::cout << "Post-init memory operation: wrote 0x" << std::hex << init_test_data << ", read 0x"
+                  << init_read_data << std::dec << std::endl;
     }
 
-    std::cout << "\nDemo complete: Some TTDevice methods work before init_tt_device(), others require it!" << std::endl;
+    std::cout << "\nDemo complete" << std::endl;
     return 0;
 }

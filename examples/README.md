@@ -1,46 +1,30 @@
-# TTDevice Example
+# UMD Examples
 
-This example demonstrates TTDevice usage and shows which capabilities are available before and after calling `init_tt_device()`.
+This directory contains examples demonstrating how to use various software components in the Tenstorrent Unified Memory Driver (UMD).
 
-## Building and Running
+## Available Examples
+
+### `tt_device_example/`
+Demonstrates TTDevice usage, showcasing basic device operations and the difference between functionality available before and after calling `init_tt_device()`.
+
+## Building Examples
+
+Examples are not built by default. To build them:
 
 ```bash
-cmake --build ./build
-./build/example/tt_device_example
+# Configure with examples enabled
+cmake -B build -DTT_UMD_BUILD_EXAMPLES=ON
+
+# Build
+cmake --build build
 ```
 
-## What it demonstrates
+Each example directory contains its own README with specific usage instructions.
 
-TTDevice provides two levels of functionality:
+## Adding New Examples
 
-### Before `init_tt_device()` (Basic Access)
-- `get_arch()` - Device architecture
-- `get_pci_device()` - PCI device info
-- `bar_read32()` / `bar_write32()` - Register access
-- `read_from_device()` / `write_to_device()` - Memory operations
-
-### After `init_tt_device()` (Full Features)
-- `get_clock()` - Clock frequency
-- `get_board_id()` - Board ID
-- `get_asic_temperature()` - Temperature
-- `get_arc_messenger()` - ARC communication
-- `get_arc_telemetry_reader()` - Telemetry data
-
-## Usage Pattern
-
-```cpp
-// Create device
-std::unique_ptr<TTDevice> device = TTDevice::create(device_id);
-
-// Basic operations work immediately
-tt::ARCH arch = device->get_arch();
-uint32_t value = device->bar_read32(address);
-
-// Initialize for full features
-device->init_tt_device();
-device->wait_arc_core_start();
-
-// Advanced operations now available
-uint32_t clock = device->get_clock();
-ArcMessenger* messenger = device->get_arc_messenger();
-```
+When adding new examples:
+1. Create a new subdirectory with a descriptive name
+2. Include a README.md explaining the example's purpose and usage
+3. Add your example to the main `CMakeLists.txt` in this directory
+4. Update this README to list the new example

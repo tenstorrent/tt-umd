@@ -48,29 +48,29 @@ struct SystemDescriptor {
     std::vector<TunnelDescriptor> tunnels_from_mmio;
 };
 
-static uint32_t GetEthChannelMask(chip_id_t device_id);
+static uint32_t get_eth_channel_mask(chip_id_t device_id);
 
-static SystemDescriptor GetSystemDescriptor2Devices(chip_id_t mmio_device_id, chip_id_t connected_device_id);
+static SystemDescriptor get_system_descriptor_2_devices(chip_id_t mmio_device_id, chip_id_t connected_device_id);
 
-uint32_t GetLocalInitAddr();
+uint32_t get_local_init_addr();
 
-void SetResetState(Chip* chip, tt_cxy_pair virtual_core, bool assert_reset);
+void set_reset_state(Chip* chip, tt_cxy_pair virtual_core, bool assert_reset);
 
-void SetResetState(Chip* chip, const SystemDescriptor& desc, bool assert_reset);
+void set_reset_state(Chip* chip, const SystemDescriptor& desc, bool assert_reset);
 
-void SetPC(Chip* chip, tt_cxy_pair virtual_core, uint32_t pc_addr, uint32_t pc_val);
+void set_pc(Chip* chip, tt_cxy_pair virtual_core, uint32_t pc_addr, uint32_t pc_val);
 
-void SetPC(Chip* chip, const SystemDescriptor& desc, uint32_t pc_addr, uint32_t pc_val);
+void set_pc(Chip* chip, const SystemDescriptor& desc, uint32_t pc_addr, uint32_t pc_val);
 
-void WaitForState(Chip* chip, tt_cxy_pair virtual_core, uint32_t addr, lite_fabric::InitState state);
+void wait_for_state(Chip* chip, tt_cxy_pair virtual_core, uint32_t addr, lite_fabric::InitState state);
 
-void WaitForState(Chip* chip, const SystemDescriptor& desc, uint32_t addr, lite_fabric::InitState state);
+void wait_for_state(Chip* chip, const SystemDescriptor& desc, uint32_t addr, lite_fabric::InitState state);
 
-void LaunchLiteFabric(Chip* chip, const SystemDescriptor& desc, const std::filesystem::path& elf_path);
+void launch_lite_fabric(Chip* chip, const SystemDescriptor& desc, const std::filesystem::path& elf_path);
 
-void LaunchLiteFabric(Chip* chip, const SystemDescriptor& desc);
+void launch_lite_fabric(Chip* chip, const SystemDescriptor& desc);
 
-void TerminateLiteFabric(Chip* chip, const SystemDescriptor& desc);
+void terminate_lite_fabric(Chip* chip, const SystemDescriptor& desc);
 
 }  // namespace lite_fabric
 

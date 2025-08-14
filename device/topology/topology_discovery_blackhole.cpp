@@ -69,7 +69,6 @@ uint64_t TopologyDiscoveryBlackhole::get_local_asic_id(Chip* chip, tt_xy_pair et
         sizeof(boot_results));
 
     uint64_t board_id = ((uint64_t)boot_results.local_info.board_id_hi << 32) | boot_results.local_info.board_id_lo;
-    std::cout << "board id " << board_id << std::endl;
     return mangle_asic_id(board_id, boot_results.local_info.asic_location);
 }
 

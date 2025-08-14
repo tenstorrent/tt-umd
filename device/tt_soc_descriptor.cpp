@@ -457,7 +457,55 @@ CoreCoord tt_SocDescriptor::get_dram_core_for_channel(
     return translate_coord_to(logical_dram_coord, coord_system);
 }
 
-CoreCoord tt_SocDescriptor::get_eth_core_for_channel(int eth_chan, const CoordSystem coord_system) const {
+std::unordered_set<CoreCoord> tt_SocDescriptor::translate_coords_to(
+    const std::unordered_set<CoreCoord> &core_coords, const CoordSystem coord_system) const {
+    std::unordered_set<CoreCoord> translated_cores;
+    for (const auto &core : core_coords) {
+        translated_cores.insert(translate_coord_to(core, coord_system));
+    }
+    return translated_cores;
+}
+
+std::unordered_set<tt_xy_pair> tt_SocDescriptor::translate_coords_to_xy_pair(
+    const std::unordered_set<CoreCoord> &core_coords, const CoordSystem coord_system) const {
+    std::unordered_set<tt_xy_pair> translated_xy_pairs;
+    for (const auto &core : core_coords) {
+        CoreCoord translated_core = translate_coord_to(core, coord_system);
+        translated_xy_pairs.insert({translated_core.x, translated_core.y});
+    }
+    return translated_xy_pairs;
+}
+
+std::unordered_set<CoreCoord> tt_SocDescriptor::get_eth_cores_for_channels(
+    const std::set<uint32_t> &eth_channels, const CoordSystem coord_system) const {
+    std::unordered_set<CoreCoord> eth_cores;
+    for (uint32_t channel : eth_channels) {
+        eth_cores.insert(get_eth_core_for_channel(channel, coord_system));
+    }
+    return eth_cores;
+}
+
+std::unordered_set<tt_xy_pair> tt_SocDescriptor::get_eth_xy_pairs_for_channels(
+    const std::set<uint32_t> &eth_channels, const CoordSystem coord_system) const {
+    std::unordered_set<tt_xy_pair> eth_xy_pairs;
+    for (uint32_t channel : eth_channels) {
+        CoreCoord eth_core = get_eth_core_for_channel(channel, coord_system);
+        eth_xy_pairs.insert({eth_core.x, eth_core.y});
+    }
+    return eth_xy_pairs;
+}
+
+uint32_t tt_SocDescriptor::get_eth_channel_for_core(const CoreCoord &core_coord, const CoordSystem coord_system) const {
+    return translate_coord_to(core_coord, CoordSystem::LOGICAL).y;
+}
+
+std::pair<int, int> tt_SocDescriptor::get_dram_channel_for_core(
+    const CoreCoord &core_coord, const CoordSystem coord_system) const {
+    auto logical_core = translate_coord_to(core_coord, CoordSystem::LOGICAL);
+    return std::make_pair(logical_core.x, logical_core.y);
+}
+
+CoreCoord tt_SocDescriptor::get_eth_core_for_channel(uint32_t eth_chan, const CoordSystem coord_system) const {
     const CoreCoord logical_eth_coord = CoreCoord(0, eth_chan, CoreType::ETH, CoordSystem::LOGICAL);
     return translate_coord_to(logical_eth_coord, coord_system);
 }

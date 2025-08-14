@@ -251,11 +251,9 @@ std::unique_ptr<Chip> Cluster::construct_chip_from_cluster(
         }
         chip_id_t gateway_id = cluster_desc->get_closest_mmio_capable_chip(chip_id);
         LocalChip* local_chip = get_local_chip(gateway_id);
-        std::unordered_set<CoreCoord> eth_cores_to_use;
-        for (auto channel : cluster_desc->get_active_eth_channels(gateway_id)) {
-            eth_cores_to_use.insert(
-                local_chip->get_soc_descriptor().get_eth_core_for_channel(channel, CoordSystem::TRANSLATED));
-        }
+        const auto& active_channels = cluster_desc->get_active_eth_channels(gateway_id);
+        std::unordered_set<CoreCoord> eth_cores_to_use =
+            local_chip->get_soc_descriptor().get_eth_cores_for_channels(active_channels, CoordSystem::TRANSLATED);
         return RemoteChip::create(
             local_chip, cluster_desc->get_chip_locations().at(chip_id), eth_cores_to_use, soc_desc);
     }

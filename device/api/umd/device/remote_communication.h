@@ -16,7 +16,7 @@ class SysmemManager;
 
 class RemoteCommunication {
 public:
-    RemoteCommunication(TTDevice* local_chip, SysmemManager* sysmem_manager = nullptr);
+    RemoteCommunication(TTDevice* local_tt_device, SysmemManager* sysmem_manager = nullptr);
     virtual ~RemoteCommunication();
 
     // Target core should be in translated coords.
@@ -50,7 +50,7 @@ private:
     int active_eth_core_idx = 0;
     bool flush_non_mmio_ = false;
 
-    TTDevice* local_chip_;
+    TTDevice* local_tt_device_;
     LockManager lock_manager_;
     SysmemManager* sysmem_manager_;
 };

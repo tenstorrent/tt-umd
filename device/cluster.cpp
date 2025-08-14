@@ -498,9 +498,9 @@ std::function<void(uint32_t, uint32_t, const uint8_t*)> Cluster::get_fast_pcie_s
     return chips_.at(device_id)->get_fast_pcie_static_tlb_write_callable();
 }
 
-Writer Cluster::get_static_tlb_writer(const chip_id_t chip, const CoreCoord target) {
-    tt_xy_pair virtual_core = get_soc_descriptor(chip).translate_coord_to(target, CoordSystem::VIRTUAL);
-    return get_tlb_manager(chip)->get_static_tlb_writer(virtual_core);
+Writer Cluster::get_static_tlb_writer(const chip_id_t chip, const CoreCoord core) {
+    tt_xy_pair translated_core = get_chip(chip)->translate_chip_coord_to_translated(core);
+    return get_tlb_manager(chip)->get_static_tlb_writer(translated_core);
 }
 
 std::map<int, int> Cluster::get_clocks() {
@@ -518,8 +518,8 @@ Cluster::~Cluster() {
 }
 
 tlb_configuration Cluster::get_tlb_configuration(const chip_id_t chip, CoreCoord core) {
-    tt_xy_pair virtual_core = get_soc_descriptor(chip).translate_coord_to(core, CoordSystem::VIRTUAL);
-    return get_tlb_manager(chip)->get_tlb_configuration(virtual_core);
+    tt_xy_pair translated_core = get_chip(chip)->translate_chip_coord_to_translated(core);
+    return get_tlb_manager(chip)->get_tlb_configuration(translated_core);
 }
 
 // TODO: These configure_tlb APIs are soon going away.
@@ -535,9 +535,8 @@ void Cluster::configure_tlb(
 
 void Cluster::configure_tlb(
     chip_id_t logical_device_id, CoreCoord core, int32_t tlb_index, uint64_t address, uint64_t ordering) {
-    tt_xy_pair virtual_core = get_soc_descriptor(logical_device_id).translate_coord_to(core, CoordSystem::VIRTUAL);
     tt_xy_pair translated_core = get_chip(logical_device_id)->translate_chip_coord_to_translated(core);
-    get_tlb_manager(logical_device_id)->configure_tlb(virtual_core, translated_core, tlb_index, address, ordering);
+    get_tlb_manager(logical_device_id)->configure_tlb(translated_core, tlb_index, address, ordering);
 }
 
 void* Cluster::host_dma_address(std::uint64_t offset, chip_id_t src_device_id, uint16_t channel) const {

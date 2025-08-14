@@ -70,22 +70,21 @@ int main(int argc, char* argv[]) {
         tt_SocDescriptor soc_desc(
             device->get_arch(), chip_info.noc_translation_enabled, chip_info.harvesting_masks, chip_info.board_type);
 
-        const std::vector<CoreCoord>& tensix_cores = soc_desc.get_cores(CoreType::TENSIX);
+        const std::vector<CoreCoord>& tensix_cores = soc_desc.get_cores(CoreType::TENSIX, CoordSystem::TRANSLATED);
         if (tensix_cores.empty()) {
             std::cout << "No Tensix cores available" << std::endl;
             continue;
         }
 
         CoreCoord tensix_core = tensix_cores[0];
-        tt_xy_pair safe_core = tt_xy_pair(tensix_core.x, tensix_core.y);
-        std::cout << "Tensix core: (" << safe_core.x << ", " << safe_core.y << ")" << std::endl;
+        std::cout << tensix_core.str() << std::endl;
 
         uint32_t init_test_data = 0x87654321;
         uint32_t init_read_data = 0;
         uint64_t init_mem_addr = 0x0;
 
-        device->write_to_device(&init_test_data, safe_core, init_mem_addr, sizeof(init_test_data));
-        device->read_from_device(&init_read_data, safe_core, init_mem_addr, sizeof(init_read_data));
+        device->write_to_device(&init_test_data, tensix_core, init_mem_addr, sizeof(init_test_data));
+        device->read_from_device(&init_read_data, tensix_core, init_mem_addr, sizeof(init_read_data));
 
         std::cout << "Post-init memory operation: wrote 0x" << std::hex << init_test_data << ", read 0x"
                   << init_read_data << std::dec << std::endl;

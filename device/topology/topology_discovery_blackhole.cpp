@@ -104,11 +104,29 @@ uint32_t TopologyDiscoveryBlackhole::read_port_status(Chip* chip, tt_xy_pair eth
 }
 
 uint32_t TopologyDiscoveryBlackhole::get_remote_eth_id(Chip* chip, tt_xy_pair local_eth_core) {
-    blackhole::boot_results_t boot_results;
+    // 7CFC3
+    uint8_t remote_eth_id;
     TTDevice* tt_device = chip->get_tt_device();
     tt_device->read_from_device(
-        (uint8_t*)&boot_results, local_eth_core, blackhole::BOOT_RESULTS_ADDR, sizeof(boot_results));
-    return boot_results.remote_info.logical_eth_id;
+        &remote_eth_id,
+        local_eth_core,
+        0x7CFC3,
+        sizeof(remote_eth_id));
+    
+    std::cout << "remote eth id " << (uint32_t)remote_eth_id << std::endl;
+    return remote_eth_id;
+
+    // blackhole::boot_results_t boot_results;
+    // TTDevice* tt_device = chip->get_tt_device();
+    // tt_device->read_from_device(
+    //     (uint8_t*)&boot_results, local_eth_core, blackhole::BOOT_RESULTS_ADDR, sizeof(boot_results));
+    //     auto x = boot_results.local_info.board_id_hi;
+    //     auto y = boot_results.local_info.board_id_lo;
+    //     uint64_t board_id = ((uint64_t)x << 32) | y;
+    //     // return x;
+    //     std::cout << "x " << x << std::endl;
+    // std::cout << "remote eth id " << (uint32_t)boot_results.remote_info.logical_eth_id << std::endl;
+    // return boot_results.remote_info.logical_eth_id;
 }
 
 uint64_t TopologyDiscoveryBlackhole::get_remote_board_type(Chip* chip, tt_xy_pair eth_core) {
@@ -117,7 +135,9 @@ uint64_t TopologyDiscoveryBlackhole::get_remote_board_type(Chip* chip, tt_xy_pai
 }
 
 uint32_t TopologyDiscoveryBlackhole::get_remote_eth_channel(Chip* chip, tt_xy_pair local_eth_core) {
-    return get_remote_eth_id(chip, local_eth_core);
+    auto remote_eth_id = get_remote_eth_id(chip, local_eth_core);
+    std::cout << "returned remote eth id " << remote_eth_id << std::endl;
+    return remote_eth_id;
 }
 
 bool TopologyDiscoveryBlackhole::is_using_eth_coords() { return false; }

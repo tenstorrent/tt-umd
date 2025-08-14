@@ -17,10 +17,10 @@
 #include <vector>
 
 #include "fmt/xchar.h"
-#include "test_api_common.h"
 #include "test_utils/assembly_programs_for_tests.hpp"
 #include "tests/test_utils/device_test_utils.hpp"
 #include "tests/test_utils/generate_cluster_desc.hpp"
+#include "tests/test_utils/test_api_common.h"
 #include "umd/device/blackhole_implementation.h"
 #include "umd/device/chip/local_chip.h"
 #include "umd/device/chip/mock_chip.h"

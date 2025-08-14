@@ -84,6 +84,11 @@ jobs:
         shell: bash
         run: tar xvf artifact.tar
 
+      - name: Run baremetal tests
+        if: ${{ inputs.arch == 'baremetal' }}
+        run: |
+          ${{ env.TEST_OUTPUT_DIR }}/umd/baremetal/baremetal_tests
+
       - name: Run API tests
         run: |
           ${{ env.TEST_OUTPUT_DIR }}/umd/api/api_tests

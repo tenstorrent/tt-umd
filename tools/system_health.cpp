@@ -179,7 +179,7 @@ int main(int argc, char* argv[]) {
         }
         ss << chip_id_ss.str() << std::endl;
 
-        for (auto chan = 0; chan < soc_desc.get_num_eth_channels(); chan++) {
+        for (uint32_t chan = 0; chan < soc_desc.get_num_eth_channels(); chan++) {
             CoreCoord translated_coord = soc_desc.get_eth_core_for_channel(chan, CoordSystem::TRANSLATED);
 
             std::stringstream eth_ss;

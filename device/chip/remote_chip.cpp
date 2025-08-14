@@ -51,7 +51,7 @@ std::unique_ptr<RemoteChip> RemoteChip::create(
     eth_coord_t target_eth_coord,
     std::unordered_set<CoreCoord>& remote_transfer_eth_cores,
     tt_SocDescriptor soc_descriptor) {
-    auto remote_communication = std::make_unique<RemoteCommunication>(local_chip);
+    auto remote_communication = std::make_unique<RemoteCommunication>(local_chip, local_chip->get_sysmem_manager());
     remote_communication->set_remote_transfer_ethernet_cores(remote_transfer_eth_cores);
     auto remote_tt_device =
         std::make_unique<RemoteWormholeTTDevice>(local_chip, std::move(remote_communication), target_eth_coord);

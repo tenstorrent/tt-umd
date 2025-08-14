@@ -56,8 +56,6 @@ public:
         const void* src, uint64_t core_dest, uint32_t size, std::vector<int> broadcast_header);
 
     void wait_for_non_mmio_flush() override;
-    void set_flush_non_mmio(bool flush_non_mmio);
-    bool get_flush_non_mmio() const;
 
     void l1_membar(const std::unordered_set<CoreCoord>& cores = {}) override;
     void dram_membar(const std::unordered_set<CoreCoord>& cores = {}) override;
@@ -79,8 +77,6 @@ private:
     LockManager lock_manager_;
     // Used only for ethernet broadcast to all remote chips.
     std::unique_ptr<RemoteCommunication> remote_communication_;
-
-    bool flush_non_mmio_ = false;
 
     void initialize_tlb_manager();
     void initialize_default_chip_mutexes();

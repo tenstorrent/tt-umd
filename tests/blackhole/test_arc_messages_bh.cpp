@@ -67,6 +67,7 @@ TEST(BlackholeArcMessages, MultipleThreadsArcMessages) {
 
     for (uint32_t chip_id : cluster->get_target_mmio_device_ids()) {
         TTDevice* tt_device = cluster->get_tt_device(chip_id);
+        tt_device->init_tt_device();
 
         std::thread thread0([&]() {
             std::unique_ptr<ArcMessenger> arc_messenger = ArcMessenger::create_arc_messenger(tt_device);

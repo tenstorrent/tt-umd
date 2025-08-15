@@ -1,18 +1,24 @@
-// SPDX-FileCopyrightText: © 2024 Tenstorrent AI ULC
+// SPDX-FileCopyrightText: © 2025 Tenstorrent AI ULC
 //
 // SPDX-License-Identifier: Apache-2.0
 #pragma once
 
 #include <cstdint>
+#include <memory>
 #include <mutex>
 #include <string>
 #include <unordered_map>
 #include <vector>
 
+struct DlCloser {
+    void operator()(void* handle) const;
+};
+
+using DlHandle = std::unique_ptr<void, DlCloser>;
+
 class Jtag {
 public:
-    explicit Jtag(const char* libName);
-    ~Jtag();
+    explicit Jtag(const char* lib_path);
 
     int open_jlink_by_serial_wrapper(unsigned int serial_number);
     int open_jlink_wrapper();
@@ -38,9 +44,9 @@ public:
     uint32_t read_id();
 
 private:
-    void* handle;
-    std::unordered_map<std::string, void*> funcMap;
+    DlHandle handle;
+    std::unordered_map<std::string, void*> func_map;
     std::mutex mtx;
 
-    void* loadFunction(const char* name);
+    void* load_function(const char* name);
 };

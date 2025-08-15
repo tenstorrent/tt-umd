@@ -17,6 +17,7 @@
 #include "umd/device/jtag_device.h"
 #include "umd/device/pci_device.hpp"
 #include "umd/device/types/cluster_descriptor_types.h"
+#include "umd/device/utils/lock_manager.h"
 
 namespace tt::umd {
 
@@ -44,15 +45,15 @@ public:
     static void use_noc1(bool use_noc1);
 
     /**
-     * Creates a proper TTDevice object for the given PCI device number.
+     * Creates a proper TTDevice object for the given device number.
      * Jtag support can be enabled.
      */
-    static std::unique_ptr<TTDevice> create(int pci_device_number, bool use_jtag = false);
+    static std::unique_ptr<TTDevice> create(int device_number, IODeviceType device_type = IODeviceType::PCIe);
 
     TTDevice(std::shared_ptr<PCIDevice> pci_device, std::unique_ptr<architecture_implementation> architecture_impl);
     TTDevice(
-        std::shared_ptr<PCIDevice> pci_device,
-        std::unique_ptr<JtagDevice> jtag_device,
+        std::shared_ptr<JtagDevice> jtag_device,
+        uint8_t jlink_id,
         std::unique_ptr<architecture_implementation> architecture_impl);
 
     virtual ~TTDevice();
@@ -126,12 +127,6 @@ public:
     // to get the information to form cluster of chips, or just use base TTDevice functions.
     virtual void read_from_device(void *mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size);
     virtual void write_to_device(const void *mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size);
-
-    /*
-     * JTAG read/write functions.
-     */
-    virtual void jtag_read_from_device(void *mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size);
-    virtual void jtag_write_to_device(const void *mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size);
 
     /**
      * Read function that will send read message to the ARC core.
@@ -251,9 +246,15 @@ public:
 
     virtual uint64_t get_arc_noc_base_address() const = 0;
 
+    int get_communication_device_id() const;
+
+    IODeviceType get_communication_device_type() const;
+
 protected:
     std::shared_ptr<PCIDevice> pci_device_;
-    std::unique_ptr<JtagDevice> jtag_device_;
+    std::shared_ptr<JtagDevice> jtag_device_;
+    uint8_t jlink_id_;
+    IODeviceType communication_device_type_;
     std::unique_ptr<architecture_implementation> architecture_impl_;
     tt::ARCH arch;
     std::unique_ptr<ArcMessenger> arc_messenger_ = nullptr;
@@ -277,8 +278,6 @@ protected:
 
     virtual void init_tt_device();
 
-    static std::unique_ptr<JtagDevice> init_jtag(std::filesystem::path &binary_directory);
-
     semver_t fw_version_from_telemetry(const uint32_t telemetry_data) const;
 
     TTDevice();
@@ -286,8 +285,6 @@ protected:
     ChipInfo chip_info;
 
     bool is_remote_tt_device = false;
-
-    static std::filesystem::path jtag_library_path;
 };
 
 }  // namespace tt::umd

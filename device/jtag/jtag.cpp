@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: © 2024 Tenstorrent AI ULC
+// SPDX-FileCopyrightText: © 2025 Tenstorrent AI ULC
 //
 // SPDX-License-Identifier: Apache-2.0
 #include "umd/device/jtag.h"
@@ -9,44 +9,50 @@
 #include <filesystem>
 #include <iostream>
 #include <stdexcept>
+#include <tt-logger/tt-logger.hpp>
 #include <unordered_map>
 #include <vector>
 
-Jtag::Jtag(const char* libName) {
-    if (!std::filesystem::exists(libName)) {
-        throw std::runtime_error(
-            "You do not have JTAG library.\n"
-            "Read docs/ttexalens-jtag-tutorial.md for more information.");
-    }
+#include "assert.hpp"
 
-    handle = dlopen(libName, RTLD_LAZY);
-    if (!handle) {
-        std::cerr << dlerror() << std::endl;
-        throw std::runtime_error("Failed to load library");
-    }
-
-    std::cout << "JTAG library loaded successfully." << std::endl;
-}
-
-Jtag::~Jtag() {
+void DlCloser::operator()(void* handle) const {
     if (handle) {
         dlclose(handle);
+        log_debug(tt::LogSiliconDriver, "JTAG library closed");
     }
 }
 
-void* Jtag::loadFunction(const char* name) {
+DlHandle openLibrary(const std::string& filePath, int flags = RTLD_LAZY) {
+    if (!std::filesystem::exists(filePath)) {
+        TT_THROW(
+            "You do not have a JTAG library at {}.\n"
+            "File path could be wrong.",
+            filePath);
+    }
+    void* handle = dlopen(filePath.c_str(), flags);
+    if (!handle) {
+        TT_THROW("Failed to open JTAG library: {}", dlerror());
+    }
+
+    log_info(tt::LogSiliconDriver, "JTAG library {} opened successfully.", filePath);
+    return DlHandle(handle);
+}
+
+Jtag::Jtag(const char* lib_path) : handle(openLibrary(lib_path)) {}
+
+void* Jtag::load_function(const char* name) {
     std::lock_guard<std::mutex> lock(mtx);
 
-    if (funcMap.find(name) == funcMap.end()) {
-        void* funcPtr = dlsym(handle, name);
+    if (func_map.find(name) == func_map.end()) {
+        void* funcPtr = dlsym(handle.get(), name);
         const char* dlsym_error = dlerror();
         if (dlsym_error) {
             std::cerr << "Cannot load symbol: " << dlsym_error << '\n';
             throw std::runtime_error("Failed to load function");
         }
-        funcMap[name] = funcPtr;
+        func_map[name] = funcPtr;
     }
-    return funcMap[name];
+    return func_map[name];
 }
 
 template <typename T>
@@ -61,7 +67,7 @@ template <typename Method>
 using decltypemagic = typename RemoveThis<Method>::type;
 
 #define GET_FUNCTION_POINTER_MANGLED(name, mangled_name) \
-    reinterpret_cast<decltypemagic<decltype(&Jtag::name)>*>(loadFunction(#mangled_name))
+    reinterpret_cast<decltypemagic<decltype(&Jtag::name)>*>(load_function(#mangled_name))
 
 #define GET_FUNCTION_POINTER(name) GET_FUNCTION_POINTER_MANGLED(name, tt_##name)
 

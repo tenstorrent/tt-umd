@@ -10,11 +10,8 @@ set(API_TESTS_SRCS
     test_sysmem_manager.cpp
     test_tt_device.cpp
     test_noc.cpp
+    test_jtag.cpp
 )
-
-if(ENABLE_JTAG_TESTS)
-    list(APPEND API_TESTS_SRCS test_jtag.cpp)
-endif()
 
 add_executable(api_tests ${API_TESTS_SRCS})
 target_link_libraries(api_tests PRIVATE test_common)

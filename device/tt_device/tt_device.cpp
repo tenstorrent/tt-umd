@@ -15,34 +15,35 @@
 #include "umd/device/pci_device.hpp"
 #include "umd/device/tt_device/blackhole_tt_device.h"
 #include "umd/device/tt_device/wormhole_tt_device.h"
+#include "umd/device/types/communication.h"
+#include "umd/device/utils/lock_manager.h"
 
 // TODO #526: This is a hack to allow UMD to use the NOC1 TLB.
 bool umd_use_noc1 = false;
 
 namespace tt::umd {
 
-/* static */ std::filesystem::path TTDevice::jtag_library_path =
-    std::filesystem::path("./build/lib/libttexalens_jtag.so");
-
 void TTDevice::use_noc1(bool use_noc1) { umd_use_noc1 = use_noc1; }
 
 TTDevice::TTDevice(
     std::shared_ptr<PCIDevice> pci_device, std::unique_ptr<architecture_implementation> architecture_impl) :
     pci_device_(pci_device),
+    communication_device_type_(IODeviceType::PCIe),
     architecture_impl_(std::move(architecture_impl)),
     arch(architecture_impl_->get_architecture()) {
-    lock_manager.initialize_mutex(MutexType::TT_DEVICE_IO, get_pci_device()->get_device_num());
+    lock_manager.initialize_mutex(MutexType::TT_DEVICE_IO, get_communication_device_id());
 }
 
 TTDevice::TTDevice(
-    std::shared_ptr<PCIDevice> pci_device,
-    std::unique_ptr<JtagDevice> jtag_device,
+    std::shared_ptr<JtagDevice> jtag_device,
+    uint8_t jlink_id,
     std::unique_ptr<architecture_implementation> architecture_impl) :
-    pci_device_(pci_device),
-    jtag_device_(std::move(jtag_device)),
+    jtag_device_(jtag_device),
+    jlink_id_(jlink_id),
+    communication_device_type_(IODeviceType::JTAG),
     architecture_impl_(std::move(architecture_impl)),
     arch(architecture_impl_->get_architecture()) {
-    lock_manager.initialize_mutex(MutexType::TT_DEVICE_IO, get_pci_device()->get_device_num());
+    lock_manager.initialize_mutex(MutexType::TT_DEVICE_IO, get_communication_device_id(), IODeviceType::JTAG);
 }
 
 void TTDevice::init_tt_device() {
@@ -50,49 +51,29 @@ void TTDevice::init_tt_device() {
     telemetry = ArcTelemetryReader::create_arc_telemetry_reader(this);
 }
 
-/* static */ std::unique_ptr<JtagDevice> TTDevice::init_jtag(std::filesystem::path &binary_directory) {
-    if (binary_directory.empty()) {
-        char buffer[PATH_MAX + 1];
-        ssize_t len = readlink("/proc/self/exe", buffer, sizeof(buffer) - 1);
-
-        if (len != -1) {
-            buffer[len] = '\0';
-            std::string path(buffer);
-            std::string::size_type pos = path.find_last_of("/");
-            binary_directory = path.substr(0, pos);
-        }
-    }
-
-    std::unique_ptr<Jtag> jtag;
-    jtag = std::make_unique<Jtag>(binary_directory.c_str());
-    std::unique_ptr<JtagDevice> jtag_device = std::make_unique<JtagDevice>(std::move(jtag));
-
-    // Check that all chips are of the same type
-    tt::ARCH arch = *jtag_device->get_jtag_arch(0);
-    for (size_t i = 1; i < jtag_device->get_device_cnt(); i++) {
-        auto newArch = *jtag_device->get_jtag_arch(i);
-
-        if (arch != newArch) {
-            TT_THROW("Jtag ERROR: Not all devices have the same architecture.");
-        }
-    }
-
-    return jtag_device;
-}
-
 TTDevice::TTDevice() {}
 
-/* static */ std::unique_ptr<TTDevice> TTDevice::create(int pci_device_number, bool use_jtag) {
-    auto pci_device = std::make_shared<PCIDevice>(pci_device_number);
+/* static */ std::unique_ptr<TTDevice> TTDevice::create(int device_number, IODeviceType device_type) {
+    // TODO make abstract IO handler inside TTDevice.
+    if (device_type == IODeviceType::JTAG) {
+        auto jtag_device = JtagDevice::create();
+
+        switch (jtag_device->get_jtag_arch(device_number)) {
+            case ARCH::WORMHOLE_B0:
+                return std::make_unique<WormholeTTDevice>(jtag_device, device_number);
+            case ARCH::BLACKHOLE:
+                TT_THROW("JTAG is not yet supported on Blackhole architecture.");
+            default:
+                return nullptr;
+        }
+    }
+
+    auto pci_device = std::make_shared<PCIDevice>(device_number);
 
     switch (pci_device->get_arch()) {
         case ARCH::WORMHOLE_B0:
-            return use_jtag ? std::make_unique<WormholeTTDevice>(pci_device, TTDevice::init_jtag(jtag_library_path))
-                            : std::make_unique<WormholeTTDevice>(pci_device);
+            return std::make_unique<WormholeTTDevice>(pci_device);
         case ARCH::BLACKHOLE:
-            if (use_jtag) {
-                TT_THROW("JTAG is not yet supported on Blackhole architecture.");
-            }
             return std::make_unique<BlackholeTTDevice>(pci_device);
         default:
             return nullptr;
@@ -106,6 +87,10 @@ std::shared_ptr<PCIDevice> TTDevice::get_pci_device() { return pci_device_; }
 tt::ARCH TTDevice::get_arch() { return arch; }
 
 bool TTDevice::is_hardware_hung() {
+    if (communication_device_type_ == IODeviceType::JTAG) {
+        TT_THROW("is_hardware_hung is not applicable for JTAG communication type.");
+    }
+
     volatile const void *addr = reinterpret_cast<const char *>(pci_device_->bar0_uc) +
                                 (architecture_impl_->get_arc_reset_scratch_offset() + 6 * 4) -
                                 pci_device_->bar0_uc_offset;
@@ -115,6 +100,11 @@ bool TTDevice::is_hardware_hung() {
 }
 
 void TTDevice::detect_hang_read(std::uint32_t data_read) {
+    if (communication_device_type_ == IODeviceType::JTAG) {
+        // Jtag protocol uses different communication paths from pci therefore
+        // there's no need to check hang which is in this case pci-specific.
+        return;
+    }
     if (data_read == HANG_READ_VALUE && is_hardware_hung()) {
         std::uint32_t scratch_data =
             *pci_device_->get_register_address<std::uint32_t>(architecture_impl_->get_read_checking_offset());
@@ -125,12 +115,18 @@ void TTDevice::detect_hang_read(std::uint32_t data_read) {
 
 // This is only needed for the BH workaround in iatu_configure_peer_region since no arc
 void TTDevice::write_regs(volatile uint32_t *dest, const uint32_t *src, uint32_t word_len) {
+    if (communication_device_type_ == IODeviceType::JTAG) {
+        TT_THROW("write_regs is not applicable for JTAG communication type.");
+    }
     while (word_len-- != 0) {
         *dest++ = *src++;
     }
 }
 
 void TTDevice::write_regs(uint32_t byte_addr, uint32_t word_len, const void *data) {
+    if (communication_device_type_ == IODeviceType::JTAG) {
+        TT_THROW("write_regs is not applicable for JTAG communication type.");
+    }
     volatile uint32_t *dest = pci_device_->get_register_address<uint32_t>(byte_addr);
     const uint32_t *src = reinterpret_cast<const uint32_t *>(data);
 
@@ -138,6 +134,9 @@ void TTDevice::write_regs(uint32_t byte_addr, uint32_t word_len, const void *dat
 }
 
 void TTDevice::read_regs(uint32_t byte_addr, uint32_t word_len, void *data) {
+    if (communication_device_type_ == IODeviceType::JTAG) {
+        TT_THROW("read_regs is not applicable for JTAG communication type.");
+    }
     const volatile uint32_t *src = pci_device_->get_register_address<uint32_t>(byte_addr);
     uint32_t *dest = reinterpret_cast<uint32_t *>(data);
 
@@ -148,6 +147,9 @@ void TTDevice::read_regs(uint32_t byte_addr, uint32_t word_len, void *data) {
 }
 
 void TTDevice::memcpy_to_device(void *dest, const void *src, std::size_t num_bytes) {
+    if (communication_device_type_ == IODeviceType::JTAG) {
+        TT_THROW("memcpy_to_device is not applicable for JTAG communication type.");
+    }
     typedef std::uint32_t copy_t;
 
     // Start by aligning the destination (device) pointer. If needed, do RMW to fix up the
@@ -195,6 +197,9 @@ void TTDevice::memcpy_to_device(void *dest, const void *src, std::size_t num_byt
 }
 
 void TTDevice::memcpy_from_device(void *dest, const void *src, std::size_t num_bytes) {
+    if (communication_device_type_ == IODeviceType::JTAG) {
+        TT_THROW("memcpy_from_device is not applicable for JTAG communication type.");
+    }
     typedef std::uint32_t copy_t;
 
     // Start by aligning the source (device) pointer.
@@ -234,6 +239,9 @@ void TTDevice::memcpy_from_device(void *dest, const void *src, std::size_t num_b
 }
 
 void TTDevice::write_block(uint64_t byte_addr, uint64_t num_bytes, const uint8_t *buffer_addr) {
+    if (communication_device_type_ == IODeviceType::JTAG) {
+        TT_THROW("write_block is not applicable for JTAG communication type.");
+    }
     void *dest = nullptr;
     if (pci_device_->bar4_wc != nullptr && byte_addr >= BAR0_BH_SIZE) {
         byte_addr -= BAR0_BH_SIZE;
@@ -251,6 +259,9 @@ void TTDevice::write_block(uint64_t byte_addr, uint64_t num_bytes, const uint8_t
 }
 
 void TTDevice::read_block(uint64_t byte_addr, uint64_t num_bytes, uint8_t *buffer_addr) {
+    if (communication_device_type_ == IODeviceType::JTAG) {
+        TT_THROW("read_block is not applicable for JTAG communication type.");
+    }
     void *src = nullptr;
     if (pci_device_->bar4_wc != nullptr && byte_addr >= BAR0_BH_SIZE) {
         byte_addr -= BAR0_BH_SIZE;
@@ -272,6 +283,10 @@ void TTDevice::read_block(uint64_t byte_addr, uint64_t num_bytes, uint8_t *buffe
 }
 
 void TTDevice::read_from_device(void *mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size) {
+    if (communication_device_type_ == IODeviceType::JTAG) {
+        jtag_device_->read(jlink_id_, mem_ptr, core.x, core.y, addr, size);
+        return;
+    }
     auto lock = lock_manager.acquire_mutex(MutexType::TT_DEVICE_IO, get_pci_device()->get_device_num());
     uint8_t *buffer_addr = static_cast<uint8_t *>(mem_ptr);
     const uint32_t tlb_index = get_architecture_implementation()->get_small_read_write_tlb();
@@ -287,6 +302,10 @@ void TTDevice::read_from_device(void *mem_ptr, tt_xy_pair core, uint64_t addr, u
 }
 
 void TTDevice::write_to_device(const void *mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size) {
+    if (communication_device_type_ == IODeviceType::JTAG) {
+        jtag_device_->write(jlink_id_, mem_ptr, core.x, core.y, addr, size);
+        return;
+    }
     auto lock = lock_manager.acquire_mutex(MutexType::TT_DEVICE_IO, get_pci_device()->get_device_num());
     uint8_t *buffer_addr = (uint8_t *)(uintptr_t)(mem_ptr);
     const uint32_t tlb_index = get_architecture_implementation()->get_small_read_write_tlb();
@@ -302,19 +321,15 @@ void TTDevice::write_to_device(const void *mem_ptr, tt_xy_pair core, uint64_t ad
     }
 }
 
-void TTDevice::jtag_read_from_device(void *mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size) {
-    jtag_device_->read(mem_ptr, core.x, core.y, addr, size);
-}
-
-void TTDevice::jtag_write_to_device(const void *mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size) {
-    jtag_device_->write(mem_ptr, core.x, core.y, addr, size);
-}
-
 void TTDevice::write_tlb_reg(
     uint32_t byte_addr, uint64_t value_lower, uint64_t value_upper, uint32_t tlb_cfg_reg_size) {
     TT_ASSERT(
         (tlb_cfg_reg_size == 8) or (tlb_cfg_reg_size == 12),
         "Tenstorrent hardware supports only 64bit or 96bit TLB config regs");
+
+    if (communication_device_type_ == IODeviceType::JTAG) {
+        TT_THROW("write_tlb_reg is not applicable for JTAG communication type.");
+    }
 
     volatile uint64_t *dest_qw = pci_device_->get_register_address<uint64_t>(byte_addr);
     volatile uint32_t *dest_extra_dw = pci_device_->get_register_address<uint32_t>(byte_addr + 8);
@@ -341,6 +356,9 @@ dynamic_tlb TTDevice::set_dynamic_tlb(
     std::uint64_t address,
     bool multicast,
     std::uint64_t ordering) {
+    if (communication_device_type_ == IODeviceType::JTAG) {
+        TT_THROW("set_dynamic_tlb is not applicable for JTAG communication type.");
+    }
     if (multicast) {
         std::tie(start, end) = architecture_impl_->multicast_workaround(start, end);
     }
@@ -402,11 +420,17 @@ dynamic_tlb TTDevice::set_dynamic_tlb(
 
 dynamic_tlb TTDevice::set_dynamic_tlb(
     unsigned int tlb_index, tt_xy_pair target, std::uint64_t address, std::uint64_t ordering) {
+    if (communication_device_type_ == IODeviceType::JTAG) {
+        TT_THROW("set_dynamic_tlb is not applicable for JTAG communication type.");
+    }
     return set_dynamic_tlb(tlb_index, tt_xy_pair(0, 0), target, address, false, ordering);
 }
 
 dynamic_tlb TTDevice::set_dynamic_tlb_broadcast(
     unsigned int tlb_index, std::uint64_t address, tt_xy_pair start, tt_xy_pair end, std::uint64_t ordering) {
+    if (communication_device_type_ == IODeviceType::JTAG) {
+        TT_THROW("set_dynamic_tlb_broadcast is not applicable for JTAG communication type.");
+    }
     // Issue a broadcast to cores included in the start (top left) and end (bottom right) grid
     return set_dynamic_tlb(tlb_index, start, end, address, true, ordering);
 }
@@ -416,6 +440,9 @@ void TTDevice::configure_iatu_region(size_t region, uint64_t target, size_t regi
 }
 
 void TTDevice::bar_write32(uint32_t addr, uint32_t data) {
+    if (communication_device_type_ == IODeviceType::JTAG) {
+        TT_THROW("bar_write32 is not applicable for JTAG communication type.");
+    }
     if (addr < get_pci_device()->bar0_uc_offset) {
         write_block(addr, sizeof(data), reinterpret_cast<const uint8_t *>(&data));  // do we have to reinterpret_cast?
     } else {
@@ -424,6 +451,9 @@ void TTDevice::bar_write32(uint32_t addr, uint32_t data) {
 }
 
 uint32_t TTDevice::bar_read32(uint32_t addr) {
+    if (communication_device_type_ == IODeviceType::JTAG) {
+        TT_THROW("bar_read32 is not applicable for JTAG communication type.");
+    }
     uint32_t data;
     if (addr < get_pci_device()->bar0_uc_offset) {
         read_block(addr, sizeof(data), reinterpret_cast<uint8_t *>(&data));
@@ -437,13 +467,22 @@ ArcMessenger *TTDevice::get_arc_messenger() const { return arc_messenger_.get();
 
 ArcTelemetryReader *TTDevice::get_arc_telemetry_reader() const { return telemetry.get(); }
 
-TTDevice::~TTDevice() { lock_manager.clear_mutex(MutexType::TT_DEVICE_IO, get_pci_device()->get_device_num()); }
+TTDevice::~TTDevice() {
+    lock_manager.clear_mutex(MutexType::TT_DEVICE_IO, get_communication_device_id(), communication_device_type_);
+}
 
 std::vector<DramTrainingStatus> TTDevice::get_dram_training_status() { return {}; }
 
 void TTDevice::wait_for_non_mmio_flush() {}
 
 bool TTDevice::is_remote() { return is_remote_tt_device; }
+
+int TTDevice::get_communication_device_id() const {
+    return communication_device_type_ == IODeviceType::PCIe ? pci_device_->get_device_num()
+                                                            : jtag_device_->get_device_id(jlink_id_);
+}
+
+IODeviceType TTDevice::get_communication_device_type() const { return communication_device_type_; }
 
 BoardType TTDevice::get_board_type() { return get_board_type_from_board_id(get_board_id()); }
 

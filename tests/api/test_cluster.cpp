@@ -516,13 +516,14 @@ TEST(TestCluster, WarmReset) {
     std::vector<uint8_t> zero_data(data.size(), 0);
     std::vector<uint8_t> readback_data(data.size(), 0);
 
+    auto arch = cluster->get_tt_device(0)->get_arch();
     // send data to core 15, 15 which will hang the NOC
     auto hanged_chip_id = *cluster->get_target_device_ids().begin();
     auto hanged_tt_device = cluster->get_chip(hanged_chip_id)->get_tt_device();
     hanged_tt_device->write_to_device(data.data(), {15, 15}, 0, data.size());
 
     // TODO: Remove this check when it is figured out why there is no hang detected on Blackhole.
-    if (cluster->get_tt_device(0)->get_arch() == tt::ARCH::WORMHOLE_B0) {
+    if (arch == tt::ARCH::WORMHOLE_B0) {
         EXPECT_THROW(hanged_tt_device->detect_hang_read(), std::runtime_error);
     }
 

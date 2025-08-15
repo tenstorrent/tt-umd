@@ -1307,4 +1307,12 @@ void tt_ClusterDescriptor::verify_cluster_descriptor_info() {
     }
 }
 
+uint8_t tt_ClusterDescriptor::get_asic_location(chip_id_t chip_id) const {
+    auto it = asic_locations.find(chip_id);
+    if (it == asic_locations.end()) {
+        return 0;
+    }
+    return it->second;
+}
+
 }  // namespace tt::umd

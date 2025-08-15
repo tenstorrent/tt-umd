@@ -37,13 +37,15 @@ std::unique_ptr<LocalChip> LocalChip::create(int pci_device_id, std::string sdes
             tt_device->get_arch(),
             tt_device->get_chip_info().noc_translation_enabled,
             tt_device->get_chip_info().harvesting_masks,
-            tt_device->get_chip_info().board_type);
+            tt_device->get_chip_info().board_type,
+            tt_device->get_chip_info().asic_location);
     } else {
         soc_descriptor = tt_SocDescriptor(
             sdesc_path,
             tt_device->get_chip_info().noc_translation_enabled,
             tt_device->get_chip_info().harvesting_masks,
-            tt_device->get_chip_info().board_type);
+            tt_device->get_chip_info().board_type,
+            tt_device->get_chip_info().asic_location);
     }
 
     return std::unique_ptr<tt::umd::LocalChip>(

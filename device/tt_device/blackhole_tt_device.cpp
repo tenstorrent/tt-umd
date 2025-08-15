@@ -155,6 +155,8 @@ ChipInfo BlackholeTTDevice::get_chip_info() {
         chip_info.harvesting_masks.eth_harvesting_mask = 0x3FFF;
     }
 
+    chip_info.asic_location = telemetry->read_entry(blackhole::TelemetryTag::ASIC_LOCATION);
+
     return chip_info;
 }
 

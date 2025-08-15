@@ -197,6 +197,7 @@ struct ChipInfo {
     HarvestingMasks harvesting_masks;
     BoardType board_type;
     ChipUID chip_uid;
+    uint8_t asic_location = 0;
     bool noc_translation_enabled;
     semver_t firmware_version = {0, 0, 0};
 };

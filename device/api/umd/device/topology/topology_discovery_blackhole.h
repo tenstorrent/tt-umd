@@ -48,6 +48,8 @@ protected:
     bool is_eth_unknown(Chip* chip, const tt_xy_pair eth_core) override;
 
     std::unique_ptr<RemoteChip> create_remote_chip(Chip* gateway_chip, CoreCoord eth_core) override;
+
+    void patch_eth_connections() override;
 };
 
 }  // namespace tt::umd

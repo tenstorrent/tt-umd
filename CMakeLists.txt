@@ -101,6 +101,12 @@ endif()
 add_subdirectory(src)
 add_subdirectory(tools)
 
+option(TT_UMD_BUILD_EXAMPLES "Enables build of tt_umd examples" OFF)
+if(TT_UMD_BUILD_EXAMPLES)
+    message(STATUS "Building ${PROJECT_NAME} with Examples")
+    add_subdirectory(examples)
+endif()
+
 if(TT_UMD_BUILD_TESTS)
     add_subdirectory(tests)
 endif(TT_UMD_BUILD_TESTS)

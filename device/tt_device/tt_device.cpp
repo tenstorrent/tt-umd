@@ -396,4 +396,6 @@ semver_t TTDevice::fw_version_from_telemetry(const uint32_t telemetry_data) cons
     return semver_t(major, minor, 0);
 }
 
+bool TTDevice::wait_arc_post_reset(const uint32_t timeout_ms) { return false; }
+
 }  // namespace tt::umd

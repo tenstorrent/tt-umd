@@ -36,8 +36,6 @@ void WarmReset::warm_reset(bool reset_m3) {
 }
 
 void WarmReset::warm_reset_blackhole() {
-    static constexpr int post_reset_wait = 2;
-
     PCIDevice::reset_devices(tt::umd::TenstorrentResetDevice::CONFIG_WRITE);
 
     auto pci_device_ids = PCIDevice::enumerate_devices();
@@ -74,7 +72,7 @@ void WarmReset::warm_reset_blackhole() {
         std::this_thread::sleep_for(std::chrono::milliseconds(10));
     }
 
-    sleep(post_reset_wait);
+    sleep(POST_RESET_WAIT);
 
     if (!all_reset_bits_set) {
         for (auto& [chip, reset_bit] : reset_bits) {
@@ -110,8 +108,18 @@ void WarmReset::warm_reset_wormhole(bool reset_m3) {
     std::vector<uint64_t> refclk_values_old;
     refclk_values_old.reserve(pci_device_ids.size());
 
-    for (const auto& tt_device : tt_devices) {
-        refclk_values_old.emplace_back(get_refclk_counter(tt_device.get()));
+    for (auto& i : pci_device_ids) {
+        auto tt_device = TTDevice::create(i);
+        if (!tt_device->wait_arc_post_reset(300'000)) {
+            log_warning(tt::LogSiliconDriver, "Reset failed for pci id {} - ARC core init failed", i);
+            continue;
+        }
+        tt_devices.emplace_back(std::move(tt_device));
+    }
+
+    for (auto& tt_device : tt_devices) {
+        tt_device->init_tt_device();
+        tt_device->wait_arc_core_start();
     }
 
     std::vector<uint32_t> arc_msg_return_values(1);
@@ -127,7 +135,8 @@ void WarmReset::warm_reset_wormhole(bool reset_m3) {
                 MSG_TYPE_TRIGGER_RESET, arc_msg_return_values, default_arg_value, default_arg_value);
         }
     }
-    sleep(2);
+
+    sleep(POST_RESET_WAIT);
 
     std::vector<uint64_t> refclk_current;
     refclk_current.reserve(pci_device_ids.size());

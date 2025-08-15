@@ -101,7 +101,9 @@ private:
     std::shared_ptr<tt_ClusterDescriptor> cluster_descriptor;
     std::unordered_map<chip_id_t, tt_SocDescriptor> soc_descriptor_per_chip = {};
 
-    // Add missing lock manager
+    // To enable DPRINT usage in the Simulator,
+    // the simulation device code should acquire a lock
+    // to ensure it can be called safely from multiple threads.
     LockManager lock_manager;
 };
 

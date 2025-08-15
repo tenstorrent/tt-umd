@@ -60,7 +60,7 @@ tt_SimulationDeviceInit::tt_SimulationDeviceInit(const std::filesystem::path& si
 
 tt_SimulationDevice::tt_SimulationDevice(const tt_SimulationDeviceInit& init) : Chip(init.get_soc_descriptor()) {
     log_info(tt::LogEmulationDriver, "Instantiating simulation device");
-    lock_manager.initialize_mutex(MutexType::TT_DEVICE_IO, 0);
+    lock_manager.initialize_mutex(MutexType::TT_SIMULATOR);
     soc_descriptor_per_chip.emplace(0, init.get_soc_descriptor());
     arch_name = init.get_arch_name();
     target_devices_in_cluster = {0};
@@ -99,10 +99,10 @@ tt_SimulationDevice::tt_SimulationDevice(const tt_SimulationDeviceInit& init) : 
     uv_loop_close(loop);
 }
 
-tt_SimulationDevice::~tt_SimulationDevice() { lock_manager.clear_mutex(MutexType::TT_DEVICE_IO, 0); }
+tt_SimulationDevice::~tt_SimulationDevice() { lock_manager.clear_mutex(MutexType::TT_SIMULATOR); }
 
 void tt_SimulationDevice::start_device() {
-    auto lock = lock_manager.acquire_mutex(MutexType::TT_DEVICE_IO, 0);
+    auto lock = lock_manager.acquire_mutex(MutexType::TT_SIMULATOR);
     void* buf_ptr = nullptr;
 
     host.start_host();
@@ -116,7 +116,7 @@ void tt_SimulationDevice::start_device() {
 }
 
 void tt_SimulationDevice::send_tensix_risc_reset(CoreCoord core, const TensixSoftResetOptions& soft_resets) {
-    auto lock = lock_manager.acquire_mutex(MutexType::TT_DEVICE_IO, 0);
+    auto lock = lock_manager.acquire_mutex(MutexType::TT_SIMULATOR);
     tt_xy_pair translate_core = soc_descriptor_.translate_coord_to(core, CoordSystem::TRANSLATED);
     if (soft_resets == TENSIX_ASSERT_SOFT_RESET) {
         log_debug(tt::LogEmulationDriver, "Sending assert_risc_reset signal..");
@@ -157,7 +157,7 @@ void tt_SimulationDevice::set_remote_transfer_ethernet_cores(const std::set<uint
 
 // Runtime Functions
 void tt_SimulationDevice::write_to_device(CoreCoord core, const void* src, uint64_t l1_dest, uint32_t size) {
-    auto lock = lock_manager.acquire_mutex(MutexType::TT_DEVICE_IO, 0);
+    auto lock = lock_manager.acquire_mutex(MutexType::TT_SIMULATOR);
     log_debug(tt::LogEmulationDriver, "Device writing {} bytes to l1_dest {} in core {}", size, l1_dest, core.str());
     tt_xy_pair translate_core = soc_descriptor_.translate_coord_to(core, CoordSystem::TRANSLATED);
     std::vector<std::uint32_t> data((uint32_t*)src, (uint32_t*)src + size / sizeof(uint32_t));
@@ -170,7 +170,7 @@ void tt_SimulationDevice::write_to_device(CoreCoord core, const void* src, uint6
 }
 
 void tt_SimulationDevice::read_from_device(CoreCoord core, void* dest, uint64_t l1_src, uint32_t size) {
-    auto lock = lock_manager.acquire_mutex(MutexType::TT_DEVICE_IO, 0);
+    auto lock = lock_manager.acquire_mutex(MutexType::TT_SIMULATOR);
     void* rd_resp;
 
     // Send read request

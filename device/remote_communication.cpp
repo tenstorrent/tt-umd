@@ -39,7 +39,7 @@ struct routing_cmd_t {
 };
 
 RemoteCommunication::RemoteCommunication(TTDevice* local_tt_device, SysmemManager* sysmem_manager) :
-    local_chip_(local_chip), sysmem_manager_(sysmem_manager) {
+    local_tt_device_(local_tt_device), sysmem_manager_(sysmem_manager) {
     lock_manager_.initialize_mutex(MutexType::NON_MMIO, local_tt_device->get_pci_device()->get_device_num());
 }
 
@@ -583,7 +583,7 @@ void RemoteCommunication::set_remote_transfer_ethernet_cores(
     remote_transfer_eth_cores_.assign(remote_transfer_eth_cores.begin(), remote_transfer_eth_cores.end());
 }
 
-TTDevice* RemoteCommunication::get_local_device() { return local_chip_; }
+TTDevice* RemoteCommunication::get_local_device() { return local_tt_device_; }
 
 tt_xy_pair RemoteCommunication::get_remote_transfer_ethernet_core() {
     if (remote_transfer_eth_cores_.size() > 8) {

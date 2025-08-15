@@ -35,43 +35,52 @@ std::optional<eth_coord_t> TopologyDiscoveryBlackhole::get_remote_eth_coord(Chip
 }
 
 uint64_t TopologyDiscoveryBlackhole::get_remote_board_id(Chip* chip, tt_xy_pair eth_core) {
+    tt_xy_pair translated_eth_core = chip->get_soc_descriptor().translate_coord_to(
+        eth_core, umd_use_noc1 ? CoordSystem::NOC1 : CoordSystem::NOC0, CoordSystem::TRANSLATED);
     uint32_t board_id_lo;
     TTDevice* tt_device = chip->get_tt_device();
-    tt_device->read_from_device((uint8_t*)&board_id_lo, eth_core, 0x7CFE8, sizeof(board_id_lo));
+    tt_device->read_from_device((uint8_t*)&board_id_lo, translated_eth_core, 0x7CFE8, sizeof(board_id_lo));
 
     uint32_t board_id_hi;
-    tt_device->read_from_device((uint8_t*)&board_id_hi, eth_core, 0x7CFE4, sizeof(board_id_hi));
+    tt_device->read_from_device((uint8_t*)&board_id_hi, translated_eth_core, 0x7CFE4, sizeof(board_id_hi));
 
     return ((uint64_t)board_id_hi << 32) | board_id_lo;
 }
 
 uint64_t TopologyDiscoveryBlackhole::get_local_board_id(Chip* chip, tt_xy_pair eth_core) {
+    tt_xy_pair translated_eth_core = chip->get_soc_descriptor().translate_coord_to(
+        eth_core, umd_use_noc1 ? CoordSystem::NOC1 : CoordSystem::NOC0, CoordSystem::TRANSLATED);
     uint32_t board_id_lo;
     TTDevice* tt_device = chip->get_tt_device();
-    tt_device->read_from_device((uint8_t*)&board_id_lo, eth_core, 0x7CFC8, sizeof(board_id_lo));
+    tt_device->read_from_device((uint8_t*)&board_id_lo, translated_eth_core, 0x7CFC8, sizeof(board_id_lo));
 
     uint32_t board_id_hi;
-    tt_device->read_from_device((uint8_t*)&board_id_hi, eth_core, 0x7CFC4, sizeof(board_id_hi));
+    tt_device->read_from_device((uint8_t*)&board_id_hi, translated_eth_core, 0x7CFC4, sizeof(board_id_hi));
 
     return ((uint64_t)board_id_hi << 32) | board_id_lo;
 }
 
 uint64_t TopologyDiscoveryBlackhole::get_local_asic_id(Chip* chip, tt_xy_pair eth_core) {
+    tt_xy_pair translated_eth_core = chip->get_soc_descriptor().translate_coord_to(
+        eth_core, umd_use_noc1 ? CoordSystem::NOC1 : CoordSystem::NOC0, CoordSystem::TRANSLATED);
     uint64_t board_id = get_local_board_id(chip, eth_core);
 
     uint8_t asic_location;
     TTDevice* tt_device = chip->get_tt_device();
-    tt_device->read_from_device(&asic_location, eth_core, 0x7CFC1, sizeof(asic_location));
+    tt_device->read_from_device(&asic_location, translated_eth_core, 0x7CFC1, sizeof(asic_location));
 
     return mangle_asic_id(board_id, asic_location);
 }
 
 uint64_t TopologyDiscoveryBlackhole::get_remote_asic_id(Chip* chip, tt_xy_pair eth_core) {
+    tt_xy_pair translated_eth_core = chip->get_soc_descriptor().translate_coord_to(
+        eth_core, umd_use_noc1 ? CoordSystem::NOC1 : CoordSystem::NOC0, CoordSystem::TRANSLATED);
+
     uint64_t board_id = get_remote_board_id(chip, eth_core);
 
     uint8_t asic_location;
     TTDevice* tt_device = chip->get_tt_device();
-    tt_device->read_from_device(&asic_location, eth_core, 0x7CFE1, sizeof(asic_location));
+    tt_device->read_from_device(&asic_location, translated_eth_core, 0x7CFE1, sizeof(asic_location));
 
     return mangle_asic_id(board_id, asic_location);
 }
@@ -83,16 +92,20 @@ tt_xy_pair TopologyDiscoveryBlackhole::get_remote_eth_core(Chip* chip, tt_xy_pai
 }
 
 uint32_t TopologyDiscoveryBlackhole::read_port_status(Chip* chip, tt_xy_pair eth_core) {
+    tt_xy_pair translated_eth_core = chip->get_soc_descriptor().translate_coord_to(
+        eth_core, umd_use_noc1 ? CoordSystem::NOC1 : CoordSystem::NOC0, CoordSystem::TRANSLATED);
     uint8_t port_status;
     TTDevice* tt_device = chip->get_tt_device();
-    tt_device->read_from_device(&port_status, eth_core, 0x7CC04, sizeof(port_status));
+    tt_device->read_from_device(&port_status, translated_eth_core, 0x7CC04, sizeof(port_status));
     return port_status;
 }
 
 uint32_t TopologyDiscoveryBlackhole::get_remote_eth_id(Chip* chip, tt_xy_pair local_eth_core) {
+    tt_xy_pair translated_eth_core = chip->get_soc_descriptor().translate_coord_to(
+        local_eth_core, umd_use_noc1 ? CoordSystem::NOC1 : CoordSystem::NOC0, CoordSystem::TRANSLATED);
     TTDevice* tt_device = chip->get_tt_device();
     uint8_t remote_eth_id;
-    tt_device->read_from_device(&remote_eth_id, local_eth_core, 0x7CFE2, sizeof(remote_eth_id));
+    tt_device->read_from_device(&remote_eth_id, translated_eth_core, 0x7CFE2, sizeof(remote_eth_id));
     return remote_eth_id;
 }
 
@@ -102,8 +115,7 @@ uint64_t TopologyDiscoveryBlackhole::get_remote_board_type(Chip* chip, tt_xy_pai
 }
 
 uint32_t TopologyDiscoveryBlackhole::get_remote_eth_channel(Chip* chip, tt_xy_pair local_eth_core) {
-    auto remote_eth_id = get_remote_eth_id(chip, local_eth_core);
-    return remote_eth_id;
+    return get_remote_eth_id(chip, local_eth_core);
 }
 
 bool TopologyDiscoveryBlackhole::is_using_eth_coords() { return false; }

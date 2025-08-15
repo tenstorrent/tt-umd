@@ -58,7 +58,8 @@ void TopologyDiscovery::get_pcie_connected_chips() {
     for (auto& device_id : pci_device_ids) {
         std::unique_ptr<LocalChip> chip = LocalChip::create(device_id, sdesc_path);
 
-        std::vector<CoreCoord> eth_cores = chip->get_soc_descriptor().get_cores(CoreType::ETH, CoordSystem::TRANSLATED);
+        std::vector<CoreCoord> eth_cores =
+            chip->get_soc_descriptor().get_cores(CoreType::ETH, umd_use_noc1 ? CoordSystem::NOC1 : CoordSystem::NOC0);
         for (const CoreCoord& eth_core : eth_cores) {
             uint64_t board_id = get_local_board_id(chip.get(), eth_core);
             if (board_id != 0) {
@@ -100,7 +101,8 @@ void TopologyDiscovery::discover_remote_chips() {
         Chip* chip = chips.at(current_chip_asic_id).get();
 
         active_eth_channels_per_chip.emplace(current_chip_asic_id, std::set<uint32_t>());
-        std::vector<CoreCoord> eth_cores = chip->get_soc_descriptor().get_cores(CoreType::ETH, CoordSystem::TRANSLATED);
+        std::vector<CoreCoord> eth_cores =
+            chip->get_soc_descriptor().get_cores(CoreType::ETH, umd_use_noc1 ? CoordSystem::NOC1 : CoordSystem::NOC0);
         TTDevice* tt_device = chip->get_tt_device();
 
         uint32_t channel = 0;
@@ -244,7 +246,8 @@ uint64_t TopologyDiscovery::get_asic_id(Chip* chip) {
     // and asic location from active (connected) ETH cores. If we have multiple ETH cores, we will use the first one.
     // If we have no ETH cores, we will use the board ID, since no other chip can have the same board ID.
     // Using board ID should happen only for unconnected boards (N150, P150).
-    std::vector<CoreCoord> eth_cores = chip->get_soc_descriptor().get_cores(CoreType::ETH, CoordSystem::TRANSLATED);
+    std::vector<CoreCoord> eth_cores =
+        chip->get_soc_descriptor().get_cores(CoreType::ETH, umd_use_noc1 ? CoordSystem::NOC1 : CoordSystem::NOC0);
 
     for (const CoreCoord& eth_core : eth_cores) {
         uint32_t port_status = read_port_status(chip, eth_core);

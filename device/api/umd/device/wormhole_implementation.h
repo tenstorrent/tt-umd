@@ -7,6 +7,7 @@
 #pragma once
 
 #include <array>
+#include <cstdint>
 
 #include "architecture_implementation.h"
 #include "umd/device/types/tlb.h"

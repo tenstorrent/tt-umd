@@ -21,6 +21,11 @@ const std::unordered_map<MutexType, std::string> LockManager::MutexTypeToString 
     {MutexType::CREATE_ETH_MAP, "CREATE_ETH_MAP"},
 };
 
+const std::unordered_map<IODeviceType, std::string> LockManager::DeviceTypeToString = {
+    {IODeviceType::PCIe, "TT_PCIe"},
+    {IODeviceType::JTAG, "TT_JTAG"},
+};
+
 void LockManager::initialize_mutex(MutexType mutex_type) {
     initialize_mutex_internal(MutexTypeToString.at(mutex_type));
 }
@@ -31,33 +36,38 @@ std::unique_lock<RobustMutex> LockManager::acquire_mutex(MutexType mutex_type) {
     return acquire_mutex_internal(MutexTypeToString.at(mutex_type));
 }
 
-void LockManager::initialize_mutex(MutexType mutex_type, int pci_device_id) {
-    std::string mutex_name = MutexTypeToString.at(mutex_type) + "_" + std::to_string(pci_device_id);
+void LockManager::initialize_mutex(MutexType mutex_type, int device_id, IODeviceType device_type) {
+    std::string mutex_name =
+        MutexTypeToString.at(mutex_type) + "_" + std::to_string(device_id) + "_" + DeviceTypeToString.at(device_type);
     initialize_mutex_internal(mutex_name);
 }
 
-void LockManager::clear_mutex(MutexType mutex_type, int pci_device_id) {
-    std::string mutex_name = MutexTypeToString.at(mutex_type) + "_" + std::to_string(pci_device_id);
+void LockManager::clear_mutex(MutexType mutex_type, int device_id, IODeviceType device_type) {
+    std::string mutex_name =
+        MutexTypeToString.at(mutex_type) + "_" + std::to_string(device_id) + "_" + DeviceTypeToString.at(device_type);
     clear_mutex_internal(mutex_name);
 }
 
-std::unique_lock<RobustMutex> LockManager::acquire_mutex(MutexType mutex_type, int pci_device_id) {
-    std::string mutex_name = MutexTypeToString.at(mutex_type) + "_" + std::to_string(pci_device_id);
+std::unique_lock<RobustMutex> LockManager::acquire_mutex(
+    MutexType mutex_type, int device_id, IODeviceType device_type) {
+    std::string mutex_name =
+        MutexTypeToString.at(mutex_type) + "_" + std::to_string(device_id) + "_" + DeviceTypeToString.at(device_type);
     return acquire_mutex_internal(mutex_name);
 }
 
-void LockManager::initialize_mutex(std::string mutex_prefix, int pci_device_id) {
-    std::string mutex_name = mutex_prefix + "_" + std::to_string(pci_device_id);
+void LockManager::initialize_mutex(std::string mutex_prefix, int device_id, IODeviceType device_type) {
+    std::string mutex_name = mutex_prefix + "_" + std::to_string(device_id) + "_" + DeviceTypeToString.at(device_type);
     initialize_mutex_internal(mutex_name);
 }
 
-void LockManager::clear_mutex(std::string mutex_prefix, int pci_device_id) {
-    std::string mutex_name = mutex_prefix + "_" + std::to_string(pci_device_id);
+void LockManager::clear_mutex(std::string mutex_prefix, int device_id, IODeviceType device_type) {
+    std::string mutex_name = mutex_prefix + "_" + std::to_string(device_id) + "_" + DeviceTypeToString.at(device_type);
     clear_mutex_internal(mutex_name);
 }
 
-std::unique_lock<RobustMutex> LockManager::acquire_mutex(std::string mutex_prefix, int pci_device_id) {
-    std::string mutex_name = mutex_prefix + "_" + std::to_string(pci_device_id);
+std::unique_lock<RobustMutex> LockManager::acquire_mutex(
+    std::string mutex_prefix, int device_id, IODeviceType device_type) {
+    std::string mutex_name = mutex_prefix + "_" + std::to_string(device_id) + "_" + DeviceTypeToString.at(device_type);
     return acquire_mutex_internal(mutex_name);
 }
 

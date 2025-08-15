@@ -6,6 +6,7 @@
 
 #pragma once
 
+#include <memory>
 #include <mutex>
 
 #include "umd/device/tt_device/tt_device.h"
@@ -14,6 +15,7 @@ namespace tt::umd {
 class WormholeTTDevice : public TTDevice {
 public:
     WormholeTTDevice(std::shared_ptr<PCIDevice> pci_device);
+    WormholeTTDevice(std::shared_ptr<JtagDevice> jtag_device, uint8_t jlink_id);
 
     void configure_iatu_region(size_t region, uint64_t target, size_t region_size) override;
 

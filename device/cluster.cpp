@@ -312,7 +312,7 @@ void Cluster::add_chip(const chip_id_t& chip_id, const ChipType& chip_type, std:
         chip_id);
     all_chip_ids_.insert(chip_id);
     // All non silicon chip types are considered local chips.
-    if (chip_type != ChipType::SILICON || cluster_desc->is_chip_mmio_capable(chip_id)) {
+    if (chip_type == ChipType::SIMULATION || cluster_desc->is_chip_mmio_capable(chip_id)) {
         local_chip_ids_.insert(chip_id);
     } else {
         remote_chip_ids_.insert(chip_id);
@@ -364,6 +364,7 @@ Cluster::Cluster(ClusterOptions options) {
         temp_full_cluster_desc_ptr = Cluster::create_cluster_descriptor(options.sdesc_path, options.pci_target_devices);
         temp_full_cluster_desc = temp_full_cluster_desc_ptr.get();
     }
+    chip_type_ = options.chip_type;
 
     std::unordered_set<chip_id_t> chips_to_construct = options.target_devices;
     // If no target devices are passed, obtain them from the cluster descriptor.
@@ -996,6 +997,11 @@ void Cluster::verify_sw_fw_versions(int device_id, std::uint32_t sw_version, std
 }
 
 void Cluster::start_device(const tt_device_params& device_params) {
+    if (this->chip_type_ == tt::umd::ChipType::MOCK) {
+        // Mock cluster doesn't need to start device
+        return;
+    }
+
     if (device_params.init_device) {
         for (auto chip_id : all_chip_ids_) {
             get_chip(chip_id)->start_device();
@@ -1006,6 +1012,11 @@ void Cluster::start_device(const tt_device_params& device_params) {
 }
 
 void Cluster::close_device() {
+    if (this->chip_type_ == tt::umd::ChipType::MOCK) {
+        // Mock cluster doesn't need to close device
+        return;
+    }
+
     // Close remote device first because sending risc reset requires corresponding pcie device to be active
     for (auto remote_chip_id : remote_chip_ids_) {
         get_chip(remote_chip_id)->close_device();

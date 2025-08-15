@@ -58,10 +58,7 @@ void TopologyDiscovery::get_pcie_connected_chips() {
     for (auto& device_id : pci_device_ids) {
         std::unique_ptr<LocalChip> chip = LocalChip::create(device_id, sdesc_path);
 
-        std::cout << "board id " << chip->get_tt_device()->get_board_id() << std::endl;
-
-        std::vector<CoreCoord> eth_cores =
-            chip->get_soc_descriptor().get_cores(CoreType::ETH, CoordSystem::TRANSLATED);
+        std::vector<CoreCoord> eth_cores = chip->get_soc_descriptor().get_cores(CoreType::ETH, CoordSystem::TRANSLATED);
         for (const CoreCoord& eth_core : eth_cores) {
             uint64_t board_id = get_local_board_id(chip.get(), eth_core);
             if (board_id != 0) {
@@ -81,7 +78,6 @@ void TopologyDiscovery::discover_remote_chips() {
     std::map<uint64_t, uint64_t> remote_asic_id_to_mmio_chip_id = {};
 
     for (const auto& [current_chip_asic_id, chip] : chips_to_discover) {
-        std::cout << "Discovered chip with asic ID " << current_chip_asic_id << std::endl;
         discovered_chips.insert(current_chip_asic_id);
 
         remote_asic_id_to_mmio_chip_id.emplace(current_chip_asic_id, current_chip_asic_id);
@@ -95,6 +91,7 @@ void TopologyDiscovery::discover_remote_chips() {
             }
         }
     }
+
     while (!chips_to_discover.empty()) {
         auto it = chips_to_discover.begin();
         uint64_t current_chip_asic_id = it->first;
@@ -103,8 +100,7 @@ void TopologyDiscovery::discover_remote_chips() {
         Chip* chip = chips.at(current_chip_asic_id).get();
 
         active_eth_channels_per_chip.emplace(current_chip_asic_id, std::set<uint32_t>());
-        std::vector<CoreCoord> eth_cores =
-            chip->get_soc_descriptor().get_cores(CoreType::ETH, CoordSystem::TRANSLATED);
+        std::vector<CoreCoord> eth_cores = chip->get_soc_descriptor().get_cores(CoreType::ETH, CoordSystem::TRANSLATED);
         TTDevice* tt_device = chip->get_tt_device();
 
         uint32_t channel = 0;
@@ -119,19 +115,17 @@ void TopologyDiscovery::discover_remote_chips() {
             active_eth_channels_per_chip.at(current_chip_asic_id).insert(channel);
 
             if (!is_board_id_included(get_remote_board_id(chip, eth_core), get_remote_board_type(chip, eth_core))) {
-                // uint64_t remote_asic_id = get_remote_asic_id(chip, eth_core);
-                // ethernet_connections_to_remote_devices.push_back(
-                //     {{current_chip_asic_id, channel}, {remote_asic_id, get_remote_eth_channel(chip, eth_core)}});
+                uint64_t remote_asic_id = get_remote_asic_id(chip, eth_core);
+                ethernet_connections_to_remote_devices.push_back(
+                    {{current_chip_asic_id, channel}, {remote_asic_id, get_remote_eth_channel(chip, eth_core)}});
 
-                // log_debug(LogSiliconDriver, "Remote chip outside of UMD cluster {}.", remote_asic_id);
+                log_debug(LogSiliconDriver, "Remote chip outside of UMD cluster {}.", remote_asic_id);
 
                 channel++;
                 continue;
             }
 
             uint64_t remote_asic_id = get_remote_asic_id(chip, eth_core);
-
-            std::cout << "remote asic id " << remote_asic_id << std::endl;
 
             if (discovered_chips.find(remote_asic_id) == discovered_chips.end()) {
                 std::unique_ptr<Chip> remote_chip = create_remote_chip(chip, eth_core);
@@ -145,18 +139,14 @@ void TopologyDiscovery::discover_remote_chips() {
                     eth_coords.emplace(remote_asic_id, get_remote_eth_coord(chip, eth_core).value());
                 }
             } else {
-                // print what we are adding to ethernet connections the full tuple
-                uint32_t remote_eth_id = get_remote_eth_channel(chip, eth_core) & 0xFF;
-                std::cout << "remote eth id topo " << remote_eth_id << std::endl;
-                std::cout << "Already discovered remote chip with asic ID " << remote_asic_id
-                          << " connected to chip with asic ID " << current_chip_asic_id << " on channel "
-                          << channel << " " << remote_eth_id << std::endl;
                 ethernet_connections.push_back(
-                    {{current_chip_asic_id, channel}, {remote_asic_id, remote_eth_id}});
+                    {{current_chip_asic_id, channel}, {remote_asic_id, get_remote_eth_channel(chip, eth_core)}});
             }
             channel++;
         }
     }
+
+    patch_eth_connections();
 }
 
 void TopologyDiscovery::fill_cluster_descriptor_info() {
@@ -254,8 +244,7 @@ uint64_t TopologyDiscovery::get_asic_id(Chip* chip) {
     // and asic location from active (connected) ETH cores. If we have multiple ETH cores, we will use the first one.
     // If we have no ETH cores, we will use the board ID, since no other chip can have the same board ID.
     // Using board ID should happen only for unconnected boards (N150, P150).
-    std::vector<CoreCoord> eth_cores =
-        chip->get_soc_descriptor().get_cores(CoreType::ETH, CoordSystem::TRANSLATED);
+    std::vector<CoreCoord> eth_cores = chip->get_soc_descriptor().get_cores(CoreType::ETH, CoordSystem::TRANSLATED);
 
     for (const CoreCoord& eth_core : eth_cores) {
         uint32_t port_status = read_port_status(chip, eth_core);
@@ -269,5 +258,7 @@ uint64_t TopologyDiscovery::get_asic_id(Chip* chip) {
 
     return chip->get_tt_device()->get_board_id();
 }
+
+void TopologyDiscovery::patch_eth_connections() {}
 
 }  // namespace tt::umd

@@ -597,10 +597,8 @@ void RemoteCommunication::set_remote_transfer_ethernet_cores(const std::unordere
 }
 
 void RemoteCommunication::set_remote_transfer_ethernet_cores(const std::set<uint32_t>& channels) {
-    std::unordered_set<CoreCoord> active_eth_cores;
-    for (const auto& channel : channels) {
-        active_eth_cores.insert(local_chip_->get_soc_descriptor().get_eth_core_for_channel(channel));
-    }
+    std::unordered_set<CoreCoord> active_eth_cores =
+        local_chip_->get_soc_descriptor().get_eth_cores_for_channels(channels);
     set_remote_transfer_ethernet_cores(active_eth_cores);
 }
 

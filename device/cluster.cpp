@@ -251,11 +251,9 @@ std::unique_ptr<Chip> Cluster::construct_chip_from_cluster(
         }
         chip_id_t gateway_id = cluster_desc->get_closest_mmio_capable_chip(chip_id);
         LocalChip* local_chip = get_local_chip(gateway_id);
-        std::unordered_set<CoreCoord> eth_cores_to_use;
-        for (auto channel : cluster_desc->get_active_eth_channels(gateway_id)) {
-            eth_cores_to_use.insert(
-                local_chip->get_soc_descriptor().get_eth_core_for_channel(channel, CoordSystem::TRANSLATED));
-        }
+        const auto& active_channels = cluster_desc->get_active_eth_channels(gateway_id);
+        std::unordered_set<CoreCoord> eth_cores_to_use =
+            local_chip->get_soc_descriptor().get_eth_cores_for_channels(active_channels, CoordSystem::TRANSLATED);
         return RemoteChip::create(
             local_chip, cluster_desc->get_chip_locations().at(chip_id), eth_cores_to_use, soc_desc);
     }
@@ -408,7 +406,17 @@ Cluster::Cluster(ClusterOptions options) {
             }
         }
         if (construct_mock_cluster_descriptor) {
-            cluster_desc = tt_ClusterDescriptor::create_mock_cluster(chips_to_construct_vec, tt::ARCH::WORMHOLE_B0);
+            auto arch = tt::ARCH::WORMHOLE_B0;
+#ifdef TT_UMD_BUILD_SIMULATION
+            if (options.chip_type == ChipType::SIMULATION) {
+                tt_SimulationDeviceInit init(options.simulator_directory);
+                arch = init.get_soc_descriptor().arch;
+            }
+#endif
+            cluster_desc = tt_ClusterDescriptor::create_mock_cluster(chips_to_construct_vec, arch);
+        }
+        if (options.sdesc_path.empty() && options.chip_type == ChipType::SIMULATION) {
+            options.sdesc_path = options.simulator_directory / "soc_descriptor.yaml";
         }
     }
     for (auto& chip_id : chips_to_construct_vec) {
@@ -490,9 +498,9 @@ std::function<void(uint32_t, uint32_t, const uint8_t*)> Cluster::get_fast_pcie_s
     return chips_.at(device_id)->get_fast_pcie_static_tlb_write_callable();
 }
 
-Writer Cluster::get_static_tlb_writer(const chip_id_t chip, const CoreCoord target) {
-    tt_xy_pair virtual_core = get_soc_descriptor(chip).translate_coord_to(target, CoordSystem::VIRTUAL);
-    return get_tlb_manager(chip)->get_static_tlb_writer(virtual_core);
+Writer Cluster::get_static_tlb_writer(const chip_id_t chip, const CoreCoord core) {
+    tt_xy_pair translated_core = get_chip(chip)->translate_chip_coord_to_translated(core);
+    return get_tlb_manager(chip)->get_static_tlb_writer(translated_core);
 }
 
 std::map<int, int> Cluster::get_clocks() {
@@ -510,8 +518,8 @@ Cluster::~Cluster() {
 }
 
 tlb_configuration Cluster::get_tlb_configuration(const chip_id_t chip, CoreCoord core) {
-    tt_xy_pair virtual_core = get_soc_descriptor(chip).translate_coord_to(core, CoordSystem::VIRTUAL);
-    return get_tlb_manager(chip)->get_tlb_configuration(virtual_core);
+    tt_xy_pair translated_core = get_chip(chip)->translate_chip_coord_to_translated(core);
+    return get_tlb_manager(chip)->get_tlb_configuration(translated_core);
 }
 
 // TODO: These configure_tlb APIs are soon going away.
@@ -527,9 +535,8 @@ void Cluster::configure_tlb(
 
 void Cluster::configure_tlb(
     chip_id_t logical_device_id, CoreCoord core, int32_t tlb_index, uint64_t address, uint64_t ordering) {
-    tt_xy_pair virtual_core = get_soc_descriptor(logical_device_id).translate_coord_to(core, CoordSystem::VIRTUAL);
     tt_xy_pair translated_core = get_chip(logical_device_id)->translate_chip_coord_to_translated(core);
-    get_tlb_manager(logical_device_id)->configure_tlb(virtual_core, translated_core, tlb_index, address, ordering);
+    get_tlb_manager(logical_device_id)->configure_tlb(translated_core, tlb_index, address, ordering);
 }
 
 void* Cluster::host_dma_address(std::uint64_t offset, chip_id_t src_device_id, uint16_t channel) const {

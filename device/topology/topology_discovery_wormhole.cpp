@@ -236,11 +236,8 @@ std::unique_ptr<RemoteChip> TopologyDiscoveryWormhole::create_remote_chip(
 
     auto local_chip = dynamic_cast<LocalChip*>(gateway_chip);
     auto eth_coord = get_remote_eth_coord(chip, eth_core);
-    std::unordered_set<CoreCoord> eth_cores_to_use;
-    for (auto channel : eth_channels_to_use) {
-        eth_cores_to_use.insert(
-            local_chip->get_soc_descriptor().get_eth_core_for_channel(channel, CoordSystem::TRANSLATED));
-    }
+    std::unordered_set<CoreCoord> eth_cores_to_use =
+        local_chip->get_soc_descriptor().get_eth_cores_for_channels(eth_channels_to_use, CoordSystem::TRANSLATED);
 
     return RemoteChip::create(local_chip, eth_coord.value(), eth_cores_to_use, sdesc_path);
 }

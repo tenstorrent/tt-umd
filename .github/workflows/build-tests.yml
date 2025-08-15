@@ -51,7 +51,7 @@ env:
   DEPS_OUTPUT_DIR: ./build/_deps
   TEST_OUTPUT_DIR: ./build/test
   WHEEL_OUTPUT_DIR: ./build/wheel
-  CLUSTER_DESCRIPTORS_DIR: ./tests/api/cluster_descriptor_examples
+  CLUSTER_DESCRIPTORS_DIR: ./tests/cluster_descriptor_examples
   SOC_DESCRIPTORS_DIR: ./tests/soc_descs
   NANOBIND_TEST_DIR: ./tests/nanobind
 

@@ -31,6 +31,11 @@ struct PciDeviceInfo {
     uint16_t pci_bus;
     uint16_t pci_device;
     uint16_t pci_function;
+    // Physical slot is not always available on the system.
+    // It is added to PciDeviceInfo struct in order for tt-metal to be able to use it
+    // for machine provisioning tool at the moment, it is not explicitly used by UMD.
+    // TODO: We should think about proper place for this field to live, probably some of the higher layers.
+    std::optional<int> physical_slot;
 
     tt::ARCH get_arch() const;
     // TODO: does it make sense to move attributes that we can read from sysfs
@@ -47,6 +52,7 @@ struct DmaBuffer {
 };
 
 enum class TenstorrentResetDevice : uint32_t { RESTORE_STATE = 0, RESET_PCIE_LINK, CONFIG_WRITE };
+inline constexpr std::string_view TT_VISIBLE_DEVICES_ENV = "TT_VISIBLE_DEVICES";
 
 class PCIDevice {
     const std::string device_path;   // Path to character device: /dev/tenstorrent/N
@@ -59,6 +65,10 @@ class PCIDevice {
     const semver_t kmd_version;      // KMD version
     const bool iommu_enabled;        // Whether the system is protected from this device by an IOMMU
     DmaBuffer dma_buffer{};
+
+private:
+    static std::optional<std::unordered_set<int>> get_visible_devices(
+        const std::unordered_set<int> &pci_target_devices);
 
 public:
     /**

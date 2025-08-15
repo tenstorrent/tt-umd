@@ -19,7 +19,6 @@ namespace tt::umd {
 BlackholeTTDevice::BlackholeTTDevice(std::shared_ptr<PCIDevice> pci_device) :
     TTDevice(pci_device, std::make_unique<blackhole_implementation>()) {
     arc_core = tt::umd::blackhole::get_arc_core(get_noc_translation_enabled(), umd_use_noc1);
-    init_tt_device();
 }
 
 BlackholeTTDevice::~BlackholeTTDevice() {
@@ -158,7 +157,7 @@ ChipInfo BlackholeTTDevice::get_chip_info() {
     return chip_info;
 }
 
-void BlackholeTTDevice::wait_arc_core_start(const tt_xy_pair arc_core, const uint32_t timeout_ms) {
+void BlackholeTTDevice::wait_arc_core_start(const uint32_t timeout_ms) {
     auto start = std::chrono::system_clock::now();
     uint32_t arc_boot_status;
     while (true) {

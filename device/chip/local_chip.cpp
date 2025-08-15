@@ -25,42 +25,51 @@ static_assert(!std::is_abstract<LocalChip>(), "LocalChip must be non-abstract.")
 // TLB size for DRAM on blackhole - 4GB
 const uint64_t BH_4GB_TLB_SIZE = 4ULL * 1024 * 1024 * 1024;
 
-LocalChip::LocalChip(tt_SocDescriptor soc_descriptor, int pci_device_id, int num_host_mem_channels) :
-    Chip(soc_descriptor) {
-    tt_device_ = TTDevice::create(pci_device_id);
-    chip_info_ = tt_device_->get_chip_info();
-    tlb_manager_ = std::make_unique<TLBManager>(tt_device_.get());
-    sysmem_manager_ = std::make_unique<SysmemManager>(tlb_manager_.get(), num_host_mem_channels);
-    remote_communication_ = std::make_unique<RemoteCommunication>(this);
-    initialize_local_chip();
-}
+std::unique_ptr<LocalChip> LocalChip::create(int pci_device_id, std::string sdesc_path, int num_host_mem_channels) {
+    // Create TTDevice and make sure the arc is ready so we can read its telemetry.
+    auto tt_device = TTDevice::create(pci_device_id);
+    tt_device->init_tt_device();
+    tt_device->wait_arc_core_start();
 
-LocalChip::LocalChip(std::string sdesc_path, std::unique_ptr<TTDevice> tt_device) :
-    Chip(
-        tt_device->get_chip_info(),
-        tt_SocDescriptor(
-            sdesc_path,
-            tt_device->get_chip_info().noc_translation_enabled,
-            tt_device->get_chip_info().harvesting_masks,
-            tt_device->get_chip_info().board_type)),
-    tlb_manager_(std::make_unique<TLBManager>(tt_device.get())),
-    sysmem_manager_(std::make_unique<SysmemManager>(tlb_manager_.get(), 0)) {
-    tt_device_ = std::move(tt_device);
-    initialize_local_chip();
-}
-
-LocalChip::LocalChip(std::unique_ptr<TTDevice> tt_device) :
-    Chip(
-        tt_device->get_chip_info(),
-        tt_SocDescriptor(
+    tt_SocDescriptor soc_descriptor;
+    if (sdesc_path.empty()) {
+        // In case soc descriptor yaml wasn't passed, we create soc descriptor with default values for the architecture.
+        soc_descriptor = tt_SocDescriptor(
             tt_device->get_arch(),
             tt_device->get_chip_info().noc_translation_enabled,
             tt_device->get_chip_info().harvesting_masks,
-            tt_device->get_chip_info().board_type)),
-    tlb_manager_(std::make_unique<TLBManager>(tt_device.get())),
-    sysmem_manager_(std::make_unique<SysmemManager>(tlb_manager_.get(), 0)) {
-    tt_device_ = std::move(tt_device);
-    initialize_local_chip();
+            tt_device->get_chip_info().board_type);
+    } else {
+        soc_descriptor = tt_SocDescriptor(
+            sdesc_path,
+            tt_device->get_chip_info().noc_translation_enabled,
+            tt_device->get_chip_info().harvesting_masks,
+            tt_device->get_chip_info().board_type);
+    }
+
+    return std::unique_ptr<tt::umd::LocalChip>(
+        new LocalChip(soc_descriptor, std::move(tt_device), num_host_mem_channels));
+}
+
+std::unique_ptr<LocalChip> LocalChip::create(
+    int pci_device_id, tt_SocDescriptor soc_descriptor, int num_host_mem_channels) {
+    // Create TTDevice and make sure the arc is ready so we can read its telemetry.
+    auto tt_device = TTDevice::create(pci_device_id);
+    tt_device->init_tt_device();
+    tt_device->wait_arc_core_start();
+
+    return std::unique_ptr<tt::umd::LocalChip>(
+        new LocalChip(soc_descriptor, std::move(tt_device), num_host_mem_channels));
+}
+
+LocalChip::LocalChip(tt_SocDescriptor soc_descriptor, std::unique_ptr<TTDevice> tt_device, int num_host_mem_channels) :
+    Chip(tt_device->get_chip_info(), soc_descriptor), tt_device_(std::move(tt_device)) {
+    tlb_manager_ = std::make_unique<TLBManager>(tt_device_.get());
+    sysmem_manager_ = std::make_unique<SysmemManager>(tlb_manager_.get(), num_host_mem_channels);
+    remote_communication_ = std::make_unique<RemoteCommunication>(this, sysmem_manager_.get());
+    initialize_tlb_manager();
+    wait_chip_to_be_ready();
+    initialize_default_chip_mutexes();
 }
 
 LocalChip::~LocalChip() {
@@ -70,12 +79,6 @@ LocalChip::~LocalChip() {
     sysmem_manager_.reset();
     tlb_manager_.reset();
     tt_device_.reset();
-}
-
-void LocalChip::initialize_local_chip() {
-    initialize_tlb_manager();
-    wait_chip_to_be_ready();
-    initialize_default_chip_mutexes();
 }
 
 void LocalChip::initialize_tlb_manager() {
@@ -103,7 +106,6 @@ void LocalChip::initialize_default_chip_mutexes() {
     // Initialize non-MMIO mutexes for WH devices regardless of number of chips, since these may be used for
     // ethernet broadcast
     if (tt_device_->get_arch() == tt::ARCH::WORMHOLE_B0) {
-        lock_manager_.initialize_mutex(MutexType::NON_MMIO, pci_device_id);
         lock_manager_.initialize_mutex(MutexType::REMOTE_ARC_MSG, pci_device_id);
     }
 
@@ -177,7 +179,7 @@ void LocalChip::read_from_sysmem(uint16_t channel, void* dest, uint64_t sysmem_s
 void LocalChip::write_to_device(CoreCoord core, const void* src, uint64_t l1_dest, uint32_t size) {
     const uint8_t* buffer_addr = static_cast<const uint8_t*>(src);
 
-    log_debug(
+    log_trace(
         LogSiliconDriver,
         "Chip::write_to_device to pci dev {} core {} at 0x{:x} size: {}",
         tt_device_->get_pci_device()->get_device_num(),
@@ -185,10 +187,10 @@ void LocalChip::write_to_device(CoreCoord core, const void* src, uint64_t l1_des
         l1_dest,
         size);
 
-    tt_xy_pair virtual_core = soc_descriptor_.translate_coord_to(core, CoordSystem::VIRTUAL);
+    tt_xy_pair translated_core = translate_chip_coord_to_translated(core);
 
-    if (tlb_manager_->is_tlb_mapped(virtual_core, l1_dest, size)) {
-        tlb_configuration tlb_description = tlb_manager_->get_tlb_configuration(virtual_core);
+    if (tlb_manager_->is_tlb_mapped(translated_core, l1_dest, size)) {
+        tlb_configuration tlb_description = tlb_manager_->get_tlb_configuration(translated_core);
         if (tt_device_->get_pci_device()->bar4_wc != nullptr && tlb_description.size == BH_4GB_TLB_SIZE) {
             // This is only for Blackhole. If we want to  write to DRAM (BAR4 space), we add offset
             // to which we write so write_block knows it needs to target BAR4
@@ -204,10 +206,7 @@ void LocalChip::write_to_device(CoreCoord core, const void* src, uint64_t l1_des
 
         while (size > 0) {
             auto [mapped_address, tlb_size] = tt_device_->set_dynamic_tlb(
-                tlb_index,
-                translate_chip_coord_to_translated(core),
-                l1_dest,
-                tlb_manager_->dynamic_tlb_ordering_modes_.at(fallback_tlb));
+                tlb_index, translated_core, l1_dest, tlb_manager_->dynamic_tlb_ordering_modes_.at(fallback_tlb));
             uint32_t transfer_size = std::min((uint64_t)size, tlb_size);
             tt_device_->write_block(mapped_address, transfer_size, buffer_addr);
 
@@ -215,12 +214,12 @@ void LocalChip::write_to_device(CoreCoord core, const void* src, uint64_t l1_des
             l1_dest += transfer_size;
             buffer_addr += transfer_size;
         }
-        log_debug(LogSiliconDriver, "Write done Dynamic TLB with pid={}", (long)getpid());
+        log_trace(LogSiliconDriver, "Write done Dynamic TLB with pid={}", (long)getpid());
     }
 }
 
 void LocalChip::read_from_device(CoreCoord core, void* dest, uint64_t l1_src, uint32_t size) {
-    log_debug(
+    log_trace(
         LogSiliconDriver,
         "Chip::read_from_device from pci device {} core {} at 0x{:x} size: {}",
         tt_device_->get_pci_device()->get_device_num(),
@@ -229,10 +228,10 @@ void LocalChip::read_from_device(CoreCoord core, void* dest, uint64_t l1_src, ui
         size);
     uint8_t* buffer_addr = static_cast<uint8_t*>(dest);
 
-    tt_xy_pair virtual_core = soc_descriptor_.translate_coord_to(core, CoordSystem::VIRTUAL);
+    tt_xy_pair translated_core = translate_chip_coord_to_translated(core);
 
-    if (tlb_manager_->is_tlb_mapped(virtual_core, l1_src, size)) {
-        tlb_configuration tlb_description = tlb_manager_->get_tlb_configuration(virtual_core);
+    if (tlb_manager_->is_tlb_mapped(translated_core, l1_src, size)) {
+        tlb_configuration tlb_description = tlb_manager_->get_tlb_configuration(translated_core);
         if (tt_device_->get_pci_device()->bar4_wc != nullptr && tlb_description.size == BH_4GB_TLB_SIZE) {
             // This is only for Blackhole. If we want to  read from DRAM (BAR4 space), we add offset
             // from which we read so read_block knows it needs to target BAR4
@@ -241,7 +240,7 @@ void LocalChip::read_from_device(CoreCoord core, void* dest, uint64_t l1_src, ui
         } else {
             tt_device_->read_block(tlb_description.tlb_offset + l1_src % tlb_description.size, size, buffer_addr);
         }
-        log_debug(
+        log_trace(
             LogSiliconDriver,
             "  read_block called with tlb_offset: {}, tlb_size: {}",
             tlb_description.tlb_offset,
@@ -250,13 +249,10 @@ void LocalChip::read_from_device(CoreCoord core, void* dest, uint64_t l1_src, ui
         std::string fallback_tlb = "LARGE_READ_TLB";
         const auto tlb_index = tlb_manager_->dynamic_tlb_config_.at(fallback_tlb);
         auto lock = acquire_mutex(fallback_tlb, tt_device_->get_pci_device()->get_device_num());
-        log_debug(LogSiliconDriver, "  dynamic tlb_index: {}", tlb_index);
+        log_trace(LogSiliconDriver, "  dynamic tlb_index: {}", tlb_index);
         while (size > 0) {
             auto [mapped_address, tlb_size] = tt_device_->set_dynamic_tlb(
-                tlb_index,
-                translate_chip_coord_to_translated(core),
-                l1_src,
-                tlb_manager_->dynamic_tlb_ordering_modes_.at(fallback_tlb));
+                tlb_index, translated_core, l1_src, tlb_manager_->dynamic_tlb_ordering_modes_.at(fallback_tlb));
             uint32_t transfer_size = std::min((uint64_t)size, tlb_size);
             tt_device_->read_block(mapped_address, transfer_size, buffer_addr);
 
@@ -264,7 +260,7 @@ void LocalChip::read_from_device(CoreCoord core, void* dest, uint64_t l1_src, ui
             l1_src += transfer_size;
             buffer_addr += transfer_size;
         }
-        log_debug(LogSiliconDriver, "Read done Dynamic TLB with pid={}", (long)getpid());
+        log_trace(LogSiliconDriver, "Read done Dynamic TLB with pid={}", (long)getpid());
     }
 }
 
@@ -374,56 +370,15 @@ void LocalChip::wait_for_non_mmio_flush() {
     // This is a local chip, so no need to flush remote communication.
 }
 
-void LocalChip::set_flush_non_mmio(bool flush_non_mmio) { flush_non_mmio_ = flush_non_mmio; }
-
-bool LocalChip::get_flush_non_mmio() const { return flush_non_mmio_; }
-
 void LocalChip::set_remote_transfer_ethernet_cores(const std::unordered_set<CoreCoord>& active_eth_cores) {
-    // Makes UMD aware of which ethernet cores have active links.
-    // Based on this information, UMD determines which ethernet cores can be used for host->cluster non-MMIO transfers.
-    // This overrides the default ethernet cores tagged for host to cluster routing in the constructor and must be
-    // called for all MMIO devices, if default behaviour is not desired.
-    TT_ASSERT(soc_descriptor_.arch == tt::ARCH::WORMHOLE_B0, "{} can only be called for Wormhole arch", __FUNCTION__);
-    remote_transfer_eth_cores_ = {};
-    for (const auto& active_eth_core : active_eth_cores) {
-        auto virtual_coord = soc_descriptor_.translate_coord_to(active_eth_core, CoordSystem::VIRTUAL);
-        remote_transfer_eth_cores_.push_back(active_eth_core);
-    }
+    // Set cores to be used by the broadcast communication.
+    remote_communication_->set_remote_transfer_ethernet_cores(active_eth_cores);
 }
 
 void LocalChip::set_remote_transfer_ethernet_cores(const std::set<uint32_t>& channels) {
-    std::unordered_set<CoreCoord> active_eth_cores;
-    for (const auto& channel : channels) {
-        active_eth_cores.insert(soc_descriptor_.get_eth_core_for_channel(channel));
-    }
-    set_remote_transfer_ethernet_cores(active_eth_cores);
+    // Set cores to be used by the broadcast communication.
+    remote_communication_->set_remote_transfer_ethernet_cores(channels);
 }
-
-CoreCoord LocalChip::get_remote_transfer_ethernet_core() {
-    if (remote_transfer_eth_cores_.size() > 8) {
-        // We cannot use more than 8 cores for umd access in one direction. Thats because of the available
-        // buffering in the outgoing eth channels.
-        log_warning(
-            LogSiliconDriver,
-            "Number of active ethernet cores {} exceeds the maximum of 8.",
-            remote_transfer_eth_cores_.size());
-    }
-    if (remote_transfer_eth_cores_.empty()) {
-        throw std::runtime_error("No remote transfer ethernet cores set.");
-    }
-    return remote_transfer_eth_cores_.at(active_eth_core_idx);
-}
-
-void LocalChip::update_active_eth_core_idx() {
-    if (remote_transfer_eth_cores_.empty()) {
-        throw std::runtime_error("Cannot update active Ethernet core index: no remote transfer Ethernet cores set.");
-    }
-    active_eth_core_idx = (active_eth_core_idx + 1) % remote_transfer_eth_cores_.size();
-}
-
-int LocalChip::get_active_eth_core_idx() { return active_eth_core_idx; }
-
-std::vector<CoreCoord> LocalChip::get_remote_transfer_ethernet_cores() { return remote_transfer_eth_cores_; }
 
 std::unique_lock<RobustMutex> LocalChip::acquire_mutex(std::string mutex_name, int pci_device_id) {
     return lock_manager_.acquire_mutex(mutex_name, pci_device_id);
@@ -491,22 +446,14 @@ void LocalChip::set_membar_flag(
     std::unordered_set<CoreCoord> cores_synced = {};
     std::vector<uint32_t> barrier_val_vec = {barrier_value};
     for (const auto& core : cores) {
-        write_to_device(
-            soc_descriptor_.translate_coord_to(core, CoordSystem::VIRTUAL),
-            barrier_val_vec.data(),
-            barrier_addr,
-            barrier_val_vec.size() * sizeof(uint32_t));
+        write_to_device(core, barrier_val_vec.data(), barrier_addr, barrier_val_vec.size() * sizeof(uint32_t));
     }
     tt_driver_atomics::sfence();  // Ensure that all writes in the Host WC buffer are flushed
     while (cores_synced.size() != cores.size()) {
         for (const auto& core : cores) {
             if (cores_synced.find(core) == cores_synced.end()) {
                 uint32_t readback_val;
-                read_from_device(
-                    soc_descriptor_.translate_coord_to(core, CoordSystem::VIRTUAL),
-                    &readback_val,
-                    barrier_addr,
-                    sizeof(std::uint32_t));
+                read_from_device(core, &readback_val, barrier_addr, sizeof(std::uint32_t));
                 if (readback_val == barrier_value) {
                     cores_synced.insert(core);
                 } else {

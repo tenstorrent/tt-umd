@@ -5,8 +5,8 @@
 #include <thread>
 
 #include "gtest/gtest.h"
-#include "umd/device/arc_messenger.h"
-#include "umd/device/blackhole_arc_telemetry_reader.h"
+#include "umd/device/arc/arc_messenger.h"
+#include "umd/device/arc/blackhole_arc_telemetry_reader.h"
 #include "umd/device/cluster.h"
 #include "umd/device/types/blackhole_arc.h"
 
@@ -35,6 +35,7 @@ TEST(BlackholeArcMessages, BlackholeArcMessageHigherAIClock) {
 
     for (int pci_device_id : pci_device_ids) {
         std::unique_ptr<TTDevice> tt_device = TTDevice::create(pci_device_id);
+        tt_device->init_tt_device();
 
         std::unique_ptr<ArcMessenger> bh_arc_messenger = ArcMessenger::create_arc_messenger(tt_device.get());
 
@@ -66,6 +67,7 @@ TEST(BlackholeArcMessages, MultipleThreadsArcMessages) {
 
     for (uint32_t chip_id : cluster->get_target_mmio_device_ids()) {
         TTDevice* tt_device = cluster->get_tt_device(chip_id);
+        tt_device->init_tt_device();
 
         std::thread thread0([&]() {
             std::unique_ptr<ArcMessenger> arc_messenger = ArcMessenger::create_arc_messenger(tt_device);

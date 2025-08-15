@@ -8,8 +8,8 @@
 
 #include <string_view>
 
-#include "umd/device/arc_messenger.h"
-#include "umd/device/arc_telemetry_reader.h"
+#include "umd/device/arc/arc_messenger.h"
+#include "umd/device/arc/arc_telemetry_reader.h"
 #include "umd/device/architecture_implementation.h"
 #include "umd/device/chip_helpers/tlb_manager.h"
 #include "umd/device/pci_device.hpp"
@@ -199,7 +199,7 @@ public:
 
     virtual ChipInfo get_chip_info() = 0;
 
-    virtual void wait_arc_core_start(const tt_xy_pair arc_core, const uint32_t timeout_ms = 1000);
+    virtual void wait_arc_core_start(const uint32_t timeout_ms = 1000) = 0;
 
     virtual void wait_eth_core_training(const tt_xy_pair eth_core, const uint32_t timeout_ms = 60000) = 0;
 
@@ -237,6 +237,8 @@ public:
 
     virtual tt_xy_pair get_arc_core() const = 0;
 
+    void init_tt_device();
+
 protected:
     std::shared_ptr<PCIDevice> pci_device_;
     std::unique_ptr<architecture_implementation> architecture_impl_;
@@ -260,8 +262,6 @@ protected:
     void memcpy_to_device(void *dest, const void *src, std::size_t num_bytes);
     void memcpy_from_device(void *dest, const void *src, std::size_t num_bytes);
 
-    virtual void init_tt_device();
-
     semver_t fw_version_from_telemetry(const uint32_t telemetry_data) const;
 
     TTDevice();
@@ -269,6 +269,11 @@ protected:
     ChipInfo chip_info;
 
     bool is_remote_tt_device = false;
+
+private:
+    virtual void pre_init_hook(){};
+
+    virtual void post_init_hook(){};
 };
 
 }  // namespace tt::umd

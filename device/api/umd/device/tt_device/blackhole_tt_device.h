@@ -8,7 +8,7 @@
 
 #include <set>
 
-#include "umd/device/blackhole_arc_telemetry_reader.h"
+#include "umd/device/arc/blackhole_arc_telemetry_reader.h"
 #include "umd/device/tt_device/tt_device.h"
 
 namespace tt::umd {
@@ -20,7 +20,7 @@ public:
 
     void configure_iatu_region(size_t region, uint64_t target, size_t region_size) override;
 
-    void wait_arc_core_start(const tt_xy_pair arc_core, const uint32_t timeout_ms = 1000) override;
+    void wait_arc_core_start(const uint32_t timeout_ms = 1000) override;
 
     uint32_t get_clock() override;
 

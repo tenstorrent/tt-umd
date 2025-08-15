@@ -34,6 +34,7 @@ env:
   TEST_OUTPUT_DIR: ./build/test
   CREATE_MAP_BINARIES_DIR: ./device/bin/silicon
   TT_LOGGER_LEVEL: ${{ inputs.log-level }}
+  WHEEL_ARTIFACT_NAME: wheel-artifact-${{ inputs.ubuntu-docker-version }}
 
 jobs:
   test:
@@ -44,7 +45,8 @@ jobs:
       - ${{ inputs.card }}
     container:
       image: ghcr.io/${{ github.repository }}/tt-umd-ci-${{ inputs.ubuntu-docker-version }}:latest
-      options: --user root ${{ inputs.arch != 'baremetal' && '--device /dev/tenstorrent' || '' }}
+      # Set dummy var for baremetal, as options has to have some value
+      options: ${{ inputs.arch != 'baremetal' && '--device /dev/tenstorrent' || '-e DUMMY_VAR=' }}
       volumes:
         - /dev/hugepages:/dev/hugepages
         - /dev/hugepages-1G:/dev/hugepages-1G
@@ -75,13 +77,17 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: build-artifacts-${{ inputs.ubuntu-docker-version }}-${{ inputs.build-type }}
-          path: ./
 
       # This is needed to preserve file permissions
       # https://github.com/actions/upload-artifact?tab=readme-ov-file#permission-loss
       - name: 'Untar build artifacts'
         shell: bash
         run: tar xvf artifact.tar
+
+      - name: Run baremetal tests
+        if: ${{ inputs.arch == 'baremetal' }}
+        run: |
+          ${{ env.TEST_OUTPUT_DIR }}/umd/baremetal/baremetal_tests
 
       - name: Run API tests
         run: |
@@ -105,6 +111,26 @@ jobs:
         run: |
           ${{ env.TEST_OUTPUT_DIR }}/umd/unified/unified_tests
 
-      - name: Run python example tests
+      - name: Use wheel artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ env.WHEEL_ARTIFACT_NAME }}
+          path: ./
+
+      - name: Set up Python 3.10
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+
+      - name: Install wheel and run pytest
+        shell: bash
         run: |
-          PYTHONPATH=${{ env.BUILD_OUTPUT_DIR }}/nanobind/ pytest -s
+          echo "Setting up virtual environment..."
+          python -m venv .venv
+          source .venv/bin/activate
+          python -m pip install --upgrade pip wheel pytest
+          echo "Installing the wheel..."
+          pip install tt_umd-*.whl
+          echo "Installation complete."
+          echo "Running tests..."
+          .venv/bin/python -m pytest -s tests

@@ -55,16 +55,14 @@ TEST(ApiTLBManager, ManualTLBConfiguration) {
 
         std::int32_t c_zero_address = 0;
 
-        for (CoreCoord core : soc_desc.get_cores(CoreType::TENSIX)) {
-            auto virtual_core = soc_desc.translate_coord_to(core, CoordSystem::VIRTUAL);
-            auto translated_core = soc_desc.translate_coord_to(core, CoordSystem::TRANSLATED);
+        for (CoreCoord translated_core : soc_desc.get_cores(CoreType::TENSIX, CoordSystem::TRANSLATED)) {
             tlb_manager->configure_tlb(
-                virtual_core, translated_core, get_static_tlb_index(core), c_zero_address, tlb_data::Relaxed);
+                translated_core, get_static_tlb_index(translated_core), c_zero_address, tlb_data::Relaxed);
         }
 
         // So now that we have configured TLBs we can use it to interface with the TTDevice.
-        auto any_worker_virtual_core = soc_desc.get_cores(CoreType::TENSIX, CoordSystem::VIRTUAL)[0];
-        tlb_configuration tlb_description = tlb_manager->get_tlb_configuration(any_worker_virtual_core);
+        auto any_worker_translated_core = soc_desc.get_cores(CoreType::TENSIX, CoordSystem::TRANSLATED)[0];
+        tlb_configuration tlb_description = tlb_manager->get_tlb_configuration(any_worker_translated_core);
 
         // TODO: Maybe accept tlb_index only?
         uint64_t address_l1_to_write = 0;
@@ -74,7 +72,7 @@ TEST(ApiTLBManager, ManualTLBConfiguration) {
 
         // Another way to write to the TLB.
         // TODO: This should be converted to AbstractIO writer.
-        Writer writer = tlb_manager->get_static_tlb_writer(any_worker_virtual_core);
+        Writer writer = tlb_manager->get_static_tlb_writer(any_worker_translated_core);
         writer.write(address_l1_to_write, buffer_to_write[0]);
     }
 }

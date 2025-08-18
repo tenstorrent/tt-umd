@@ -11,6 +11,7 @@
 #include <map>
 #include <memory>
 #include <unordered_map>
+#include <unordered_set>
 #include <vector>
 
 #include "fmt/format.h"
@@ -30,6 +31,11 @@ struct PciDeviceInfo {
     uint16_t pci_bus;
     uint16_t pci_device;
     uint16_t pci_function;
+    // Physical slot is not always available on the system.
+    // It is added to PciDeviceInfo struct in order for tt-metal to be able to use it
+    // for machine provisioning tool at the moment, it is not explicitly used by UMD.
+    // TODO: We should think about proper place for this field to live, probably some of the higher layers.
+    std::optional<int> physical_slot;
 
     tt::ARCH get_arch() const;
     // TODO: does it make sense to move attributes that we can read from sysfs
@@ -45,6 +51,8 @@ struct DmaBuffer {
     uint64_t completion_pa = 0;
 };
 
+inline constexpr std::string_view TT_VISIBLE_DEVICES_ENV = "TT_VISIBLE_DEVICES";
+
 class PCIDevice {
     const std::string device_path;   // Path to character device: /dev/tenstorrent/N
     const int pci_device_num;        // N in /dev/tenstorrent/N
@@ -57,16 +65,20 @@ class PCIDevice {
     const bool iommu_enabled;        // Whether the system is protected from this device by an IOMMU
     DmaBuffer dma_buffer{};
 
+private:
+    static std::optional<std::unordered_set<int>> get_visible_devices(
+        const std::unordered_set<int> &pci_target_devices);
+
 public:
     /**
      * @return a list of integers corresponding to character devices in /dev/tenstorrent/
      */
-    static std::vector<int> enumerate_devices();
+    static std::vector<int> enumerate_devices(std::unordered_set<int> pci_target_devices = {});
 
     /**
      * @return a map of PCI device numbers (/dev/tenstorrent/N) to PciDeviceInfo
      */
-    static std::map<int, PciDeviceInfo> enumerate_devices_info();
+    static std::map<int, PciDeviceInfo> enumerate_devices_info(std::unordered_set<int> pci_target_devices = {});
 
     /**
      * PCI device constructor.
@@ -134,6 +146,22 @@ public:
     uint64_t map_for_hugepage(void *buffer, size_t size);
 
     /**
+     * Map a buffer so it is accessible by the device NOC.
+     * @param buffer must be page-aligned
+     * @param size must be a multiple of the page size
+     * @return uint64_t NOC address, uint64_t PA or IOVA
+     */
+    std::pair<uint64_t, uint64_t> map_buffer_to_noc(void *buffer, size_t size);
+
+    /**
+     * Map a hugepage so it is accessible by the device NOC.
+     * @param hugepage 1G hugepage
+     * @param size in bytes (OK to be smaller than the hugepage size)
+     * @return uint64_t NOC address, uint64_t PA or IOVA
+     */
+    std::pair<uint64_t, uint64_t> map_hugepage_to_noc(void *hugepage, size_t size);
+
+    /**
      * Map a buffer for DMA access by the device.
      *
      * Supports mapping physically-contiguous buffers (e.g. hugepages) for the
@@ -172,6 +200,11 @@ public:
      * @param mapping_type Type of TLB mapping to allocate (UC or WC).
      */
     std::unique_ptr<TlbHandle> allocate_tlb(const size_t tlb_size, const TlbMapping tlb_mapping = TlbMapping::UC);
+
+    /**
+     * Temporary function which allows us to support both ways of mapping buffers during the transition period.
+     */
+    static bool is_mapping_buffer_to_noc_supported();
 
 public:
     // TODO: we can and should make all of these private.

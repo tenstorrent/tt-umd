@@ -16,24 +16,37 @@ on:
       timeout:
         required: true
         type: number
+      build-type:
+        required: true
+        type: string
+        default: Release
+      log-level:
+        required: false
+        type: string
+        default: 'info'
+      log-params:
+        required: false
+        type: string
+        default: ""
 
 env:
   BUILD_OUTPUT_DIR: ./build
   TEST_OUTPUT_DIR: ./build/test
   CREATE_MAP_BINARIES_DIR: ./device/bin/silicon
-  TT_UMD_LOGGER_LEVEL: info
+  TT_LOGGER_LEVEL: ${{ inputs.log-level }}
+  WHEEL_ARTIFACT_NAME: wheel-artifact-${{ inputs.ubuntu-docker-version }}
 
 jobs:
   test:
+    name: Run (${{ inputs.card }}, ${{ inputs.build-type }}, ${{ inputs.ubuntu-docker-version }})
     # Due to parsing bug, fromJSON is used to convert string to number
     timeout-minutes: ${{ fromJSON(inputs.timeout) }}
-
-    name: Run tests for ${{ inputs.arch }} on ${{ inputs.card }} on ${{ inputs.ubuntu-docker-version }}
     runs-on:
       - ${{ inputs.card }}
     container:
       image: ghcr.io/${{ github.repository }}/tt-umd-ci-${{ inputs.ubuntu-docker-version }}:latest
-      options: --user root ${{ inputs.arch != 'baremetal' && '--device /dev/tenstorrent' || '' }}
+      # Set dummy var for baremetal, as options has to have some value
+      options: ${{ inputs.arch != 'baremetal' && '--device /dev/tenstorrent' || '-e DUMMY_VAR=' }}
       volumes:
         - /dev/hugepages:/dev/hugepages
         - /dev/hugepages-1G:/dev/hugepages-1G
@@ -45,6 +58,15 @@ jobs:
       LD_LIBRARY_PATH: ./build/lib
 
     steps:
+      - name: Print all params
+        run: |
+          ${{ inputs.log-params }}
+          echo build-tests - arch: ${{ inputs.arch }}
+          echo build-tests - ubuntu-docker-version: ${{ inputs.ubuntu-docker-version }}
+          echo build-tests - card: ${{ inputs.card }}
+          echo build-tests - build-type: ${{ inputs.build-type }}
+          echo build-tests - log-level: ${{ inputs.log-level }}
+
       - name: Cleanup tt-umd dir, and change directory as if we were in a github.repository
         run: |
           rm -rf tt-umd
@@ -54,14 +76,18 @@ jobs:
       - name: Use build artifacts
         uses: actions/download-artifact@v4
         with:
-          name: build-artifacts-${{ inputs.ubuntu-docker-version }}
-          path: ./
+          name: build-artifacts-${{ inputs.ubuntu-docker-version }}-${{ inputs.build-type }}
 
       # This is needed to preserve file permissions
       # https://github.com/actions/upload-artifact?tab=readme-ov-file#permission-loss
       - name: 'Untar build artifacts'
         shell: bash
         run: tar xvf artifact.tar
+
+      - name: Run baremetal tests
+        if: ${{ inputs.arch == 'baremetal' }}
+        run: |
+          ${{ env.TEST_OUTPUT_DIR }}/umd/baremetal/baremetal_tests
 
       - name: Run API tests
         run: |
@@ -85,6 +111,26 @@ jobs:
         run: |
           ${{ env.TEST_OUTPUT_DIR }}/umd/unified/unified_tests
 
-      - name: Run python example tests
+      - name: Use wheel artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ env.WHEEL_ARTIFACT_NAME }}
+          path: ./
+
+      - name: Set up Python 3.10
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+
+      - name: Install wheel and run pytest
+        shell: bash
         run: |
-          PYTHONPATH=${{ env.BUILD_OUTPUT_DIR }}/nanobind/ pytest -s
+          echo "Setting up virtual environment..."
+          python -m venv .venv
+          source .venv/bin/activate
+          python -m pip install --upgrade pip wheel pytest
+          echo "Installing the wheel..."
+          pip install tt_umd-*.whl
+          echo "Installation complete."
+          echo "Running tests..."
+          .venv/bin/python -m pytest -s tests

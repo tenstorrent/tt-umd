@@ -8,8 +8,8 @@
 
 #include <string_view>
 
-#include "umd/device/arc_messenger.h"
-#include "umd/device/arc_telemetry_reader.h"
+#include "umd/device/arc/arc_messenger.h"
+#include "umd/device/arc/arc_telemetry_reader.h"
 #include "umd/device/architecture_implementation.h"
 #include "umd/device/chip_helpers/tlb_manager.h"
 #include "umd/device/pci_device.hpp"
@@ -199,7 +199,7 @@ public:
 
     virtual ChipInfo get_chip_info() = 0;
 
-    virtual void wait_arc_core_start(const tt_xy_pair arc_core, const uint32_t timeout_ms = 1000);
+    virtual void wait_arc_core_start(const uint32_t timeout_ms = 1000) = 0;
 
     virtual void wait_eth_core_training(const tt_xy_pair eth_core, const uint32_t timeout_ms = 60000) = 0;
 

@@ -71,6 +71,12 @@ std::int32_t get_static_tlb_index(tt_xy_pair target) {
     }
 }
 
+TEST(SiliconDriverWH, OneDramOneTensixNoEthSocDesc) {
+    std::unique_ptr<Cluster> umd_cluster = std::make_unique<Cluster>(tt::umd::ClusterOptions{
+        .sdesc_path = "tests/soc_descs/wormhole_b0_one_dram_one_tensix_no_eth.yaml",
+    });
+}
+
 TEST(SiliconDriverWH, CreateDestroy) {
     tt_device_params default_params;
     // Initialize the driver with a 1x1 descriptor and explictly do not perform harvesting

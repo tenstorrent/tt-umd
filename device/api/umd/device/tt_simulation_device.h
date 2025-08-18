@@ -13,6 +13,7 @@
 #include "umd/device/chip/chip.h"
 #include "umd/device/cluster.h"
 #include "umd/device/tt_simulation_host.hpp"
+#include "umd/device/utils/lock_manager.h"
 
 namespace tt::umd {
 
@@ -37,6 +38,7 @@ public:
         tt_SimulationDevice(tt_SimulationDeviceInit(simulator_directory)) {}
 
     tt_SimulationDevice(const tt_SimulationDeviceInit& init);
+    ~tt_SimulationDevice();
 
     tt_SimulationHost host;
 
@@ -98,6 +100,11 @@ private:
     tt::ARCH arch_name;
     std::shared_ptr<tt_ClusterDescriptor> cluster_descriptor;
     std::unordered_map<chip_id_t, tt_SocDescriptor> soc_descriptor_per_chip = {};
+
+    // To enable DPRINT usage in the Simulator,
+    // the simulation device code should acquire a lock
+    // to ensure it can be called safely from multiple threads.
+    LockManager lock_manager;
 };
 
 }  // namespace tt::umd

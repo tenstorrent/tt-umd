@@ -5,6 +5,7 @@
 // This file holds Cluster specific API examples.
 
 #include <gtest/gtest.h>
+#include <sys/types.h>
 
 #include <algorithm>
 #include <cstdint>
@@ -16,9 +17,10 @@
 #include <vector>
 
 #include "fmt/xchar.h"
-#include "test_api_common.h"
 #include "test_utils/assembly_programs_for_tests.hpp"
+#include "tests/test_utils/device_test_utils.hpp"
 #include "tests/test_utils/generate_cluster_desc.hpp"
+#include "tests/test_utils/test_api_common.h"
 #include "umd/device/blackhole_implementation.h"
 #include "umd/device/chip/local_chip.h"
 #include "umd/device/chip/mock_chip.h"
@@ -99,6 +101,31 @@ TEST(ApiClusterTest, OpenChipsByPciId) {
             EXPECT_EQ(actual_pci_device_ids.size(), target_pci_device_ids.size());
             // Always expect logical id 0 to exist, that's the way filtering by pci ids work.
             EXPECT_TRUE(actual_pci_device_ids.find(0) != actual_pci_device_ids.end());
+        }
+
+        std::string value = test_utils::convert_to_comma_separated_string(target_pci_device_ids);
+
+        if (setenv(TT_VISIBLE_DEVICES_ENV.data(), value.c_str(), 1) != 0) {
+            ASSERT_TRUE(false) << "Failed to unset environment variable.";
+        }
+
+        // Make sure that Cluster construction is without exceptions.
+        // TODO: add cluster descriptors for expected topologies, compare cluster desc against expected desc.
+        std::unique_ptr<Cluster> cluster_env_var = std::make_unique<Cluster>(ClusterOptions{
+            .pci_target_devices = {},
+        });
+
+        if (!target_pci_device_ids.empty()) {
+            // If target_pci_device_ids is empty, then full cluster will be created, so skip the check.
+            // Check that the cluster has the expected number of chips.
+            auto actual_pci_device_ids = cluster->get_target_mmio_device_ids();
+            EXPECT_EQ(actual_pci_device_ids.size(), target_pci_device_ids.size());
+            // Always expect logical id 0 to exist, that's the way filtering by pci ids work.
+            EXPECT_TRUE(actual_pci_device_ids.find(0) != actual_pci_device_ids.end());
+        }
+
+        if (unsetenv(TT_VISIBLE_DEVICES_ENV.data()) != 0) {
+            ASSERT_TRUE(false) << "Failed to unset environment variable.";
         }
     }
 }
@@ -288,13 +315,13 @@ TEST(ApiClusterTest, RemoteFlush) {
 }
 
 TEST(ApiClusterTest, SimpleIOSpecificSiliconChips) {
-    std::unique_ptr<Cluster> umd_cluster = std::make_unique<Cluster>();
+    std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
 
-    if (umd_cluster->get_target_device_ids().empty()) {
+    if (pci_device_ids.empty()) {
         GTEST_SKIP() << "No chips present on the system. Skipping test.";
     }
 
-    umd_cluster = std::make_unique<Cluster>(ClusterOptions{
+    std::unique_ptr<Cluster> umd_cluster = std::make_unique<Cluster>(ClusterOptions{
         .target_devices = {0},
     });
 
@@ -506,9 +533,7 @@ TEST(TestCluster, DeassertResetBrisc) {
 
             TensixSoftResetOptions select_all_tensix_riscv_cores{TENSIX_ASSERT_SOFT_RESET};
 
-            chip->set_tensix_risc_reset(
-                cluster->get_soc_descriptor(chip_id).translate_coord_to(tensix_core, CoordSystem::VIRTUAL),
-                select_all_tensix_riscv_cores);
+            chip->set_tensix_risc_reset(tensix_core, select_all_tensix_riscv_cores);
 
             cluster->l1_membar(chip_id, {tensix_core});
 
@@ -524,9 +549,7 @@ TEST(TestCluster, DeassertResetBrisc) {
 
             cluster->l1_membar(chip_id, {tensix_core});
 
-            chip->unset_tensix_risc_reset(
-                cluster->get_soc_descriptor(chip_id).translate_coord_to(tensix_core, CoordSystem::VIRTUAL),
-                TensixSoftResetOptions::BRISC);
+            chip->unset_tensix_risc_reset(tensix_core, TensixSoftResetOptions::BRISC);
 
             cluster->l1_membar(chip_id, {tensix_core});
 
@@ -551,7 +574,7 @@ TEST(TestCluster, DeassertResetWithCounterBrisc) {
     }
 
     auto tensix_l1_size = cluster->get_soc_descriptor(0).worker_l1_size;
-    std::vector<uint32_t> zero_data(tensix_l1_size, 0);
+    std::vector<uint32_t> zero_data(tensix_l1_size / sizeof(uint32_t), 0);
 
     constexpr uint64_t counter_address = 0x10000;
     constexpr uint64_t brisc_code_address = 0;
@@ -566,7 +589,6 @@ TEST(TestCluster, DeassertResetWithCounterBrisc) {
 
         for (const CoreCoord& tensix_core : tensix_cores) {
             auto chip = cluster->get_chip(chip_id);
-            auto core = cluster->get_soc_descriptor(chip_id).translate_coord_to(tensix_core, CoordSystem::VIRTUAL);
 
             cluster->write_to_device(zero_data.data(), zero_data.size() * sizeof(uint32_t), chip_id, tensix_core, 0x0);
 
@@ -574,7 +596,7 @@ TEST(TestCluster, DeassertResetWithCounterBrisc) {
 
             TensixSoftResetOptions select_all_tensix_riscv_cores{TENSIX_ASSERT_SOFT_RESET};
 
-            chip->set_tensix_risc_reset(core, select_all_tensix_riscv_cores);
+            chip->set_tensix_risc_reset(tensix_core, select_all_tensix_riscv_cores);
 
             cluster->write_to_device(
                 counter_brisc_program.data(),
@@ -585,7 +607,7 @@ TEST(TestCluster, DeassertResetWithCounterBrisc) {
 
             cluster->l1_membar(chip_id, {tensix_core});
 
-            chip->unset_tensix_risc_reset(core, TensixSoftResetOptions::BRISC);
+            chip->unset_tensix_risc_reset(tensix_core, TensixSoftResetOptions::BRISC);
 
             cluster->read_from_device(
                 &first_readback_value, chip_id, tensix_core, counter_address, sizeof(first_readback_value));
@@ -599,7 +621,7 @@ TEST(TestCluster, DeassertResetWithCounterBrisc) {
 
             cluster->l1_membar(chip_id, {tensix_core});
 
-            chip->set_tensix_risc_reset(core, TensixSoftResetOptions::BRISC);
+            chip->set_tensix_risc_reset(tensix_core, TensixSoftResetOptions::BRISC);
 
             cluster->read_from_device(
                 &first_readback_value, chip_id, tensix_core, counter_address, sizeof(first_readback_value));
@@ -646,7 +668,7 @@ TEST_P(ClusterAssertDeassertRiscsTest, TriscNcriscAssertDeassertTest) {
     uint32_t second_readback_value = 0;
 
     auto tensix_l1_size = cluster->get_soc_descriptor(0).worker_l1_size;
-    std::vector<uint32_t> zero_data(tensix_l1_size, 0);
+    std::vector<uint32_t> zero_data(tensix_l1_size / sizeof(uint32_t), 0);
 
     auto chip_ids = cluster->get_target_device_ids();
     for (auto& chip_id : chip_ids) {
@@ -664,9 +686,8 @@ TEST_P(ClusterAssertDeassertRiscsTest, TriscNcriscAssertDeassertTest) {
 
         for (const CoreCoord& tensix_core : tensix_cores) {
             auto chip = cluster->get_chip(chip_id);
-            auto core = cluster->get_soc_descriptor(chip_id).translate_coord_to(tensix_core, CoordSystem::VIRTUAL);
 
-            chip->set_tensix_risc_reset(core, TENSIX_ASSERT_SOFT_RESET);
+            chip->set_tensix_risc_reset(tensix_core, TENSIX_ASSERT_SOFT_RESET);
 
             cluster->l1_membar(chip_id, {tensix_core});
 
@@ -681,7 +702,7 @@ TEST_P(ClusterAssertDeassertRiscsTest, TriscNcriscAssertDeassertTest) {
 
             cluster->l1_membar(chip_id, {tensix_core});
 
-            chip->unset_tensix_risc_reset(core, TensixSoftResetOptions::BRISC);
+            chip->unset_tensix_risc_reset(tensix_core, TensixSoftResetOptions::BRISC);
 
             for (const auto& configuration_of_risc_core : configurations_of_risc_cores) {
                 auto& [code_address, counter_address, code_program, risc_core] = configuration_of_risc_core;
@@ -693,7 +714,7 @@ TEST_P(ClusterAssertDeassertRiscsTest, TriscNcriscAssertDeassertTest) {
 
             cluster->l1_membar(chip_id, {tensix_core});
 
-            chip->unset_tensix_risc_reset(core, risc_cores);
+            chip->unset_tensix_risc_reset(tensix_core, risc_cores);
 
             for (const auto& configuration_of_risc_core : configurations_of_risc_cores) {
                 auto& [code_address, counter_address, code_program, risc_core] = configuration_of_risc_core;
@@ -709,7 +730,7 @@ TEST_P(ClusterAssertDeassertRiscsTest, TriscNcriscAssertDeassertTest) {
 
             cluster->l1_membar(chip_id, {tensix_core});
 
-            chip->set_tensix_risc_reset(core, risc_cores);
+            chip->set_tensix_risc_reset(tensix_core, risc_cores);
 
             for (const auto& configuration_of_risc_core : configurations_of_risc_cores) {
                 auto [code_address, counter_address, code_program, risc_core] = configuration_of_risc_core;

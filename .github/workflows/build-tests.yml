@@ -12,9 +12,13 @@ on:
         required: true
         type: number
       build-type:
-        required: false
+        required: true
         type: string
         default: Release
+      log-params:
+        required: false
+        type: string
+        default: ""
   workflow_dispatch:
     inputs:
       ubuntu-docker-version:
@@ -28,31 +32,47 @@ on:
         required: true
         description: 'The timeout for the build job in minutes'
         type: number
+      build-type:
+        required: true
+        default: Release
+        type: choice
+        options:
+          - Release
+          - RelWithDebInfo
+          - Debug
+          - ASan
+          - TSan
 
 
 env:
-  BUILD_TARGETS: "umd_tests ubench nanobind_libdevice"
+  BUILD_TARGETS: "umd_tests ubench"
   BUILD_OUTPUT_DIR: ./build
   LIB_OUTPUT_DIR: ./build/lib
   DEPS_OUTPUT_DIR: ./build/_deps
   TEST_OUTPUT_DIR: ./build/test
-  NANOBIND_OUTPUT_DIR: ./build/nanobind
-  CLUSTER_DESCRIPTORS_DIR: ./tests/api/cluster_descriptor_examples
+  WHEEL_OUTPUT_DIR: ./build/wheel
+  CLUSTER_DESCRIPTORS_DIR: ./tests/cluster_descriptor_examples
   SOC_DESCRIPTORS_DIR: ./tests/soc_descs
   NANOBIND_TEST_DIR: ./tests/nanobind
 
 jobs:
   build:
+    name: Build (${{ inputs.build-type }}, ${{ inputs.ubuntu-docker-version }})
     # Due to parsing bug, fromJSON is used to convert string to number
     timeout-minutes: ${{ fromJSON(inputs.timeout) }}
 
-    name: Build umd_tests on ${{ inputs.ubuntu-docker-version }}
     runs-on: ubuntu-22.04
     container:
       image: ghcr.io/${{ github.repository }}/tt-umd-ci-${{ inputs.ubuntu-docker-version }}:latest
-      options: --user root
 
     steps:
+      - name: Print all params
+        run: |
+          ${{ inputs.log-params }}
+          echo build-tests - ubuntu-docker-version: ${{ inputs.ubuntu-docker-version }}
+          echo build-tests - timeout: ${{ inputs.timeout }}
+          echo build-tests - build-type: ${{ inputs.build-type }}
+
       - uses: actions/checkout@v4
         with:
           submodules: recursive
@@ -77,12 +97,50 @@ jobs:
           ${{ env.LIB_OUTPUT_DIR }} \
           ${{ env.DEPS_OUTPUT_DIR }} \
           ${{ env.CLUSTER_DESCRIPTORS_DIR }} \
-          ${{ env.SOC_DESCRIPTORS_DIR }} \
-          ${{ env.NANOBIND_OUTPUT_DIR }} \
-          ${{ env.NANOBIND_TEST_DIR }}
+          ${{ env.SOC_DESCRIPTORS_DIR }}
 
       - name: Upload build artifacts archive
         uses: actions/upload-artifact@v4
         with:
-          name: build-artifacts-${{ inputs.ubuntu-docker-version }}
+          name: build-artifacts-${{ inputs.ubuntu-docker-version }}-${{ inputs.build-type }}
           path: artifact.tar
+
+  build-wheel:
+    # Due to parsing bug, fromJSON is used to convert string to number
+    timeout-minutes: ${{ fromJSON(inputs.timeout) }}
+
+    name: Build umd wheel on ${{ inputs.ubuntu-docker-version }}
+    runs-on: ubuntu-22.04
+    container:
+      image: ghcr.io/${{ github.repository }}/tt-umd-ci-${{ inputs.ubuntu-docker-version }}:latest
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Set up Python 3.10
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+
+      - name: Build wheel
+        shell: bash
+        run: |
+          echo "Setting up virtual environment..."
+          python -m venv .venv
+          source .venv/bin/activate
+          python -m pip install --upgrade pip wheel
+          echo "Compiling the code..."
+          pip wheel . --wheel-dir ${{ env.WHEEL_OUTPUT_DIR }}
+          echo "Compile complete."
+
+      - name: Move python bindings tests in the same wheel folder
+        run: |
+          cp -r ${{ env.NANOBIND_TEST_DIR }} ${{ env.WHEEL_OUTPUT_DIR }}/tests
+
+      - name: Upload wheel
+        uses: actions/upload-artifact@v4
+        with:
+          name: wheel-artifact-${{ inputs.ubuntu-docker-version }}
+          path: ${{ env.WHEEL_OUTPUT_DIR }}

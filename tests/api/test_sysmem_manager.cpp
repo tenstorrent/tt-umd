@@ -9,7 +9,7 @@
 
 using namespace tt::umd;
 
-const uint32_t HUGEPAGE_REGION_SIZE = 1 << 30;  // 1GB
+const uint32_t HUGEPAGE_REGION_SIZE = 1ULL << 30;  // 1GB
 
 TEST(ApiSysmemManager, BasicIO) {
     std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
@@ -22,7 +22,7 @@ TEST(ApiSysmemManager, BasicIO) {
         // Initializes system memory with one channel.
         std::unique_ptr<SysmemManager> sysmem = std::make_unique<SysmemManager>(tlb_manager.get(), 1);
 
-        sysmem->pin_sysmem_to_device();
+        sysmem->pin_or_map_sysmem_to_device();
 
         // Simple write and read test.
         std::vector<uint32_t> data_write = {1, 2, 3, 4, 5, 6, 7, 8, 9, 10};
@@ -205,4 +205,69 @@ TEST(ApiSysmemManager, SysmemBufferFunctions) {
 
     EXPECT_EQ(sysmem_buffer->get_buffer_size(), buf_size);
     EXPECT_EQ(sysmem_buffer->get_buffer_va(), mapped_buffer);
+}
+
+static const semver_t kmd_ver_for_map_to_noc = semver_t(2, 0, 0);
+
+TEST(ApiSysmemManager, SysmemBufferNocAddress) {
+    std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
+    if (pci_device_ids.empty()) {
+        GTEST_SKIP() << "No chips present on the system. Skipping test.";
+    }
+    if (!PCIDevice(pci_device_ids[0]).is_iommu_enabled()) {
+        GTEST_SKIP() << "Skipping test since IOMMU is not enabled.";
+    }
+    // TODO: Switch to PCIDevice->is_mapping_buffer_to_noc_supported once we flip it on.
+    if (PCIDevice::read_kmd_version() < kmd_ver_for_map_to_noc) {
+        GTEST_SKIP() << "Skipping test since KMD doesn't support noc address mapping.";
+    }
+
+    std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
+
+    const chip_id_t mmio_chip = *cluster->get_target_mmio_device_ids().begin();
+
+    SysmemManager* sysmem_manager = cluster->get_chip(mmio_chip)->get_sysmem_manager();
+
+    const uint32_t one_mb = 1 << 20;
+    std::unique_ptr<SysmemBuffer> sysmem_buffer = sysmem_manager->allocate_sysmem_buffer(one_mb, true);
+
+    EXPECT_TRUE(sysmem_buffer->get_noc_addr().has_value());
+
+    // We haven't actually mapped the hugepage yet, since cluster->start_device or
+    // sysmem_manager->pin_or_map_sysmem_to_device wasn't called yet. So this will be the first buffer that was mapped,
+    // and it is expected to have the starting NOC address.
+    EXPECT_EQ(sysmem_buffer->get_noc_addr().value(), cluster->get_pcie_base_addr_from_device(mmio_chip));
+
+    uint8_t* sysmem_data = static_cast<uint8_t*>(sysmem_buffer->get_buffer_va());
+    for (uint32_t i = 0; i < one_mb; ++i) {
+        sysmem_data[i] = 0;
+    }
+
+    // Pattern to write to sysmem buffer over NOC.
+    std::vector<uint8_t> data_write(one_mb, 0);
+    for (uint32_t i = 0; i < one_mb; ++i) {
+        data_write[i] = static_cast<uint8_t>(i % 256);
+    }
+
+    // Write to sysmem buffer using NOC address.
+    const CoreCoord pcie_core = cluster->get_soc_descriptor(mmio_chip).get_cores(CoreType::PCIE)[0];
+    cluster->write_to_device(
+        data_write.data(), data_write.size(), mmio_chip, pcie_core, sysmem_buffer->get_noc_addr().value());
+
+    for (uint32_t i = 0; i < one_mb; ++i) {
+        EXPECT_EQ(sysmem_data[i], data_write[i])
+            << "Mismatch at index " << i << ": expected " << static_cast<int>(data_write[i]) << ", got "
+            << static_cast<int>(sysmem_data[i]);
+    }
+
+    std::vector<uint8_t> readback(one_mb, 0);
+    // Read back from sysmem buffer using NOC address.
+    cluster->read_from_device(readback.data(), mmio_chip, pcie_core, sysmem_buffer->get_noc_addr().value(), one_mb);
+
+    EXPECT_EQ(readback, data_write);
+
+    // If we map another buffer it is expected to have a higher NOC address.
+    std::unique_ptr<SysmemBuffer> sysmem_buffer2 = sysmem_manager->allocate_sysmem_buffer(one_mb, true);
+    EXPECT_TRUE(sysmem_buffer2->get_noc_addr().has_value());
+    EXPECT_GT(sysmem_buffer2->get_noc_addr().value(), cluster->get_pcie_base_addr_from_device(mmio_chip));
 }

@@ -31,17 +31,9 @@ std::unique_ptr<RemoteChip> RemoteChip::create(
 
     tt_SocDescriptor soc_descriptor;
     if (sdesc_path.empty()) {
-        soc_descriptor = tt_SocDescriptor(
-            remote_tt_device->get_arch(),
-            remote_tt_device->get_chip_info().noc_translation_enabled,
-            remote_tt_device->get_chip_info().harvesting_masks,
-            remote_tt_device->get_chip_info().board_type);
+        soc_descriptor = tt_SocDescriptor(remote_tt_device->get_arch(), remote_tt_device->get_chip_info());
     } else {
-        soc_descriptor = tt_SocDescriptor(
-            sdesc_path,
-            remote_tt_device->get_chip_info().noc_translation_enabled,
-            remote_tt_device->get_chip_info().harvesting_masks,
-            remote_tt_device->get_chip_info().board_type);
+        soc_descriptor = tt_SocDescriptor(sdesc_path, remote_tt_device->get_chip_info());
     }
 
     return std::unique_ptr<tt::umd::RemoteChip>(

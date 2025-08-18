@@ -96,19 +96,10 @@ void WarmReset::warm_reset_wormhole(bool reset_m3) {
 
     PCIDevice::reset_devices(TenstorrentResetDevice::RESET_PCIE_LINK);
 
-    sleep(5);
-
     auto pci_device_ids = PCIDevice::enumerate_devices();
 
     std::vector<std::unique_ptr<TTDevice>> tt_devices;
     tt_devices.reserve(pci_device_ids.size());
-
-    for (auto& i : pci_device_ids) {
-        tt_devices.emplace_back(TTDevice::create(i));
-    }
-
-    std::vector<uint64_t> refclk_values_old;
-    refclk_values_old.reserve(pci_device_ids.size());
 
     for (auto& i : pci_device_ids) {
         auto tt_device = TTDevice::create(i);
@@ -122,6 +113,13 @@ void WarmReset::warm_reset_wormhole(bool reset_m3) {
     for (auto& tt_device : tt_devices) {
         tt_device->init_tt_device();
         tt_device->wait_arc_core_start();
+    }
+
+    std::vector<uint64_t> refclk_values_old;
+    refclk_values_old.reserve(pci_device_ids.size());
+
+    for (const auto& tt_device : tt_devices) {
+        refclk_values_old.emplace_back(get_refclk_counter(tt_device.get()));
     }
 
     std::vector<uint32_t> arc_msg_return_values(1);
@@ -162,7 +160,7 @@ void WarmReset::warm_reset_wormhole(bool reset_m3) {
     }
 
     if (reset_ok) {
-        log_info(tt::LogSiliconDriver, "Reset succesfully completed.");
+        log_info(tt::LogSiliconDriver, "Reset successfully completed.");
     }
 }
 

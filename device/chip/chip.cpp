@@ -65,10 +65,10 @@ void Chip::wait_eth_cores_training(const uint32_t timeout_ms) {
 
 void Chip::wait_dram_cores_training(const uint32_t timeout_ms) {
     TTDevice* tt_device = get_tt_device();
-    auto number_of_dram_banks = tt_device->get_architecture_implementation()->get_dram_banks_number();
     const uint32_t dram_harvesting_mask = get_soc_descriptor().harvesting_masks.dram_harvesting_mask;
-    const uint32_t chip_num_dram_channels =
-        std::min(static_cast<size_t>(number_of_dram_banks), get_soc_descriptor().get_dram_cores().size());
+    const uint32_t chip_num_dram_channels = std::min(
+        static_cast<size_t>(tt_device->get_architecture_implementation()->get_dram_banks_number()),
+        get_soc_descriptor().get_dram_cores().size());
     for (int dram_channel = 0; dram_channel < chip_num_dram_channels; dram_channel++) {
         // Skip the check for harvested channels.
         if (dram_harvesting_mask & (1 << dram_channel)) {

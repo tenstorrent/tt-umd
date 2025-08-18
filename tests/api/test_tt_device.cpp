@@ -116,6 +116,9 @@ TEST(ApiTTDeviceTest, TTDeviceMultipleThreadsIO) {
 
 TEST(ApiTTDeviceTest, TTDeviceWarmResetAfterNocHang) {
     std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
+    if (pci_device_ids.empty()) {
+        GTEST_SKIP() << "No chips present on the system. Skipping test.";
+    }
     // This is a hack because VM's have a problem wit warm reset and tt-smi reset
     if (PCIDevice(pci_device_ids[0]).is_iommu_enabled() && (pci_device_ids.size() == 4)) {
         GTEST_SKIP() << "Skipping test because vIOMMU can't perform warm reset successfully.";

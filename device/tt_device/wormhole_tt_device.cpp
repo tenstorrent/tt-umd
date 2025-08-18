@@ -132,7 +132,7 @@ uint64_t WormholeTTDevice::get_board_id() {
 
 std::vector<DramTrainingStatus> WormholeTTDevice::get_dram_training_status() {
     uint32_t dram_training_status_telemetry = telemetry->read_entry(wormhole::DDR_STATUS);
-    const uint32_t num_dram_channels = architecture_impl_->get_dram_banks_number();
+    const uint32_t num_dram_channels = wormhole::NUM_DRAM_BANKS;
     std::vector<DramTrainingStatus> dram_training_status;
     for (uint32_t dram_channel = 0; dram_channel < num_dram_channels; dram_channel++) {
         uint8_t status = (dram_training_status_telemetry >> (dram_channel * 4)) & 0xF;

@@ -51,7 +51,34 @@ struct DmaBuffer {
     uint64_t completion_pa = 0;
 };
 
-enum class TenstorrentResetDevice : uint32_t { RESTORE_STATE = 0, RESET_PCIE_LINK, CONFIG_WRITE };
+/**
+ * @brief Specifies the type of reset action for a Tenstorrent device.
+ */
+enum class TenstorrentResetDevice : uint32_t {
+    /**
+     * @brief Restores a device's saved configuration state after a reset.
+     *
+     * Used to write back previously saved configuration registers to return the
+     * device to an operational state.
+     */
+    RESTORE_STATE = 0,
+
+    /**
+     * @brief Initiates a full PCIe link retraining (Hot Reset).
+     *
+     * A complete device reset that forces the PCIe link to re-establish its connection.
+     */
+    RESET_PCIE_LINK = 1,
+
+    /**
+     * @brief Triggers a software-initiated interrupt via a configuration write.
+     *
+     * Commands the device to generate an immediate interrupt by writing to a
+     * control register.
+     */
+    CONFIG_WRITE = 2
+};
+
 inline constexpr std::string_view TT_VISIBLE_DEVICES_ENV = "TT_VISIBLE_DEVICES";
 
 class PCIDevice {

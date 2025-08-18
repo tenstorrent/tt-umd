@@ -19,6 +19,8 @@
 
 namespace tt::umd {
 
+// TODO: Add more specific comments on what M3 reset does
+// reset_m3 flag sends specific ARC message to do a M3 board level reset
 void WarmReset::warm_reset(bool reset_m3) {
     auto enumerate_devices = PCIDevice::enumerate_devices_info();
     auto arch = enumerate_devices.begin()->second.get_arch();
@@ -28,6 +30,9 @@ void WarmReset::warm_reset(bool reset_m3) {
             warm_reset_wormhole(reset_m3);
             return;
         case ARCH::BLACKHOLE:
+            if (reset_m3) {
+                log_warning(tt::LogSiliconDriver, "Reset M3 flag doesn't influence Blackhole reset.");
+            }
             warm_reset_blackhole();
             return;
         default:

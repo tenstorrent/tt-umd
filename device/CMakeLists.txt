@@ -136,8 +136,8 @@ if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.23)
                 api/umd/device/types/xy_pair.h
                 api/umd/device/wormhole_coordinate_manager.h
                 api/umd/device/wormhole_implementation.h
-                api/umd/device/jtag_device.h
-                api/umd/device/jtag.h
+                api/umd/device/jtag/jtag_device.h
+                api/umd/device/jtag/jtag.h
     )
 endif()
 

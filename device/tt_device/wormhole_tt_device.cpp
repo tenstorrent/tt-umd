@@ -9,7 +9,7 @@
 
 #include "assert.hpp"
 #include "umd/device/coordinate_manager.h"
-#include "umd/device/jtag_device.h"
+#include "umd/device/jtag/jtag_device.h"
 #include "umd/device/types/communication.h"
 #include "umd/device/types/wormhole_dram.h"
 #include "umd/device/types/wormhole_telemetry.h"
@@ -97,7 +97,6 @@ ChipInfo WormholeTTDevice::get_chip_info() {
 void WormholeTTDevice::wait_arc_core_start(const uint32_t timeout_ms) {
     uint32_t bar_read_initial = 0;
     read_from_arc(&bar_read_initial, wormhole::ARC_RESET_SCRATCH_OFFSET + 3 * 4, sizeof(uint32_t));
-    // uint32_t bar_read_initial = bar_read32(architecture_impl_->get_arc_reset_scratch_offset() + 3 * 4);
     //  TODO: figure out 325 and 500 constants meaning and put it in variable.
     uint32_t arg = bar_read_initial == 500 ? 325 : 500;
     uint32_t bar_read_again;

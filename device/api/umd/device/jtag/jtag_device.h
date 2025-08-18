@@ -9,7 +9,7 @@
 #include <memory>
 #include <optional>
 
-#include "umd/device/jtag.h"
+#include "umd/device/jtag/jtag.h"
 #include "umd/device/types/arch.h"
 
 class JtagDevice {

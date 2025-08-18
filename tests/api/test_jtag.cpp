@@ -6,8 +6,8 @@
 
 #include "gtest/gtest.h"
 #include "tt-logger/tt-logger.hpp"
-#include "umd/device/jtag.h"
-#include "umd/device/jtag_device.h"
+#include "umd/device/jtag/jtag.h"
+#include "umd/device/jtag/jtag_device.h"
 #include "umd/device/tt_device/tt_device.h"
 #include "umd/device/tt_soc_descriptor.h"
 #include "umd/device/types/communication.h"

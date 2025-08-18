@@ -1,7 +1,7 @@
 // SPDX-FileCopyrightText: © 2025 Tenstorrent AI ULC
 //
 // SPDX-License-Identifier: Apache-2.0
-#include "umd/device/jtag_device.h"
+#include "umd/device/jtag/jtag_device.h"
 
 #include <cstdint>
 #include <cstring>
@@ -10,7 +10,7 @@
 #include <tt-logger/tt-logger.hpp>
 
 #include "assert.hpp"
-#include "umd/device/jtag.h"
+#include "umd/device/jtag/jtag.h"
 
 constexpr uint32_t ROW_LEN = 12;
 constexpr uint32_t WORMHOLE_ID = 0x138a5;

@@ -34,7 +34,7 @@ env:
   TEST_OUTPUT_DIR: ./build/test
   CREATE_MAP_BINARIES_DIR: ./device/bin/silicon
   TT_LOGGER_LEVEL: ${{ inputs.log-level }}
-  WHEEL_ARTIFACT_NAME: wheel-artifact-${{ inputs.ubuntu-docker-version }}
+  WHEEL_ARTIFACT_NAME: wheel-artifact-${{ inputs.ubuntu-docker-version }}-${{ inputs.build-type }}
 
 jobs:
   test:

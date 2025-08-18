@@ -33,13 +33,9 @@ std::unique_ptr<LocalChip> LocalChip::create(int pci_device_id, std::string sdes
     tt_SocDescriptor soc_descriptor;
     if (sdesc_path.empty()) {
         // In case soc descriptor yaml wasn't passed, we create soc descriptor with default values for the architecture.
-        soc_descriptor = tt_SocDescriptor(
-            tt_device->get_arch(),
-            tt_device->get_chip_info());
+        soc_descriptor = tt_SocDescriptor(tt_device->get_arch(), tt_device->get_chip_info());
     } else {
-        soc_descriptor = tt_SocDescriptor(
-            sdesc_path,
-            tt_device->get_chip_info());
+        soc_descriptor = tt_SocDescriptor(sdesc_path, tt_device->get_chip_info());
     }
 
     return std::unique_ptr<tt::umd::LocalChip>(

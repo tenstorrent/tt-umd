@@ -142,5 +142,6 @@ jobs:
       - name: Upload wheel
         uses: actions/upload-artifact@v4
         with:
+          # Note that wheel is built with hardcoded Release build type at the moment.
           name: wheel-artifact-${{ inputs.ubuntu-docker-version }}-${{ inputs.build-type }}
           path: ${{ env.WHEEL_OUTPUT_DIR }}

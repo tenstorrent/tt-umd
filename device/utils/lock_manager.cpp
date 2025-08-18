@@ -19,6 +19,7 @@ const std::unordered_map<MutexType, std::string> LockManager::MutexTypeToString 
     {MutexType::NON_MMIO, "TT_NON_MMIO"},
     {MutexType::MEM_BARRIER, "TT_MEM_BARRIER"},
     {MutexType::CREATE_ETH_MAP, "CREATE_ETH_MAP"},
+    {MutexType::TT_SIMULATOR, "TT_SIMULATOR"},
 };
 
 const std::unordered_map<IODeviceType, std::string> LockManager::DeviceTypeToString = {

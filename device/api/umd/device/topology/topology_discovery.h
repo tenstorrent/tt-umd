@@ -78,8 +78,7 @@ protected:
     virtual bool is_using_eth_coords() = 0;
 
     // eth_core should be in NoC 0 coordinates.
-    virtual std::unique_ptr<RemoteChip> create_remote_chip(
-        Chip* chip, tt_xy_pair eth_core, Chip* gateway_chip, std::set<uint32_t>& eth_channels_to_use) = 0;
+    virtual std::unique_ptr<RemoteChip> create_remote_chip(Chip* gateway_chip, CoreCoord eth_core) = 0;
 
     Chip* get_chip(const uint64_t asic_id);
 

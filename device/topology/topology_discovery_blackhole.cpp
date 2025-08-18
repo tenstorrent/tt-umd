@@ -25,8 +25,7 @@ TopologyDiscoveryBlackhole::TopologyDiscoveryBlackhole(
     std::unordered_set<chip_id_t> pci_target_devices, const std::string& sdesc_path) :
     TopologyDiscovery(pci_target_devices, sdesc_path) {}
 
-std::unique_ptr<RemoteChip> TopologyDiscoveryBlackhole::create_remote_chip(
-    Chip* chip, tt_xy_pair eth_core, Chip* gateway_chip, std::set<uint32_t>& eth_channels_to_use) {
+std::unique_ptr<RemoteChip> TopologyDiscoveryBlackhole::create_remote_chip(Chip* gateway_chip, CoreCoord eth_core) {
     return nullptr;
 }
 

@@ -506,6 +506,12 @@ TEST(TestCluster, TestClusterAICLKControl) {
 }
 
 TEST(TestCluster, WarmReset) {
+    std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
+    // This is a hack because VM's have a problem wit warm reset and tt-smi reset
+    if (PCIDevice(pci_device_ids[0]).is_iommu_enabled() && (pci_device_ids.size() == 4)) {
+        GTEST_SKIP() << "Skipping test because vIOMMU can't perform warm reset successfully.";
+    }
+
     std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
 
     if (cluster->get_target_device_ids().empty()) {

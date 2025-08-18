@@ -74,6 +74,7 @@ jobs:
         test-group: [
           {arch: wormhole_b0, card: tt-ubuntu-2204-n150-stable},
           {arch: wormhole_b0, card: tt-ubuntu-2204-n150-viommu-stable},
+          {arch: wormhole_b0, card: tt-beta-ubuntu-2204-n150-viommu-large-stable},
           {arch: wormhole_b0, card: tt-ubuntu-2204-n300-stable},
           {arch: wormhole_b0, card: tt-ubuntu-2204-n300-viommu-stable},
           {arch: wormhole_b0, card: tt-ubuntu-2204-n300-llmbox-stable},

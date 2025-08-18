@@ -6,7 +6,7 @@
 #include <tt-logger/tt-logger.hpp>
 
 #include "assert.hpp"
-#include "umd/device/arc_messenger.h"
+#include "umd/device/arc/arc_messenger.h"
 #include "umd/device/driver_atomics.h"
 #include "umd/device/tt_device/blackhole_tt_device.h"
 #include "umd/device/tt_device/wormhole_tt_device.h"

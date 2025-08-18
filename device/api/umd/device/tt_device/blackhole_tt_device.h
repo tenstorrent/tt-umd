@@ -8,7 +8,7 @@
 
 #include <set>
 
-#include "umd/device/blackhole_arc_telemetry_reader.h"
+#include "umd/device/arc/blackhole_arc_telemetry_reader.h"
 #include "umd/device/tt_device/tt_device.h"
 
 namespace tt::umd {

@@ -66,11 +66,11 @@ TEST(TestNoc, TestNoc0NodeId) {
 
         check_noc_id_cores(cluster, chip, CoreType::L2CPU);
 
-        // TODO: add readouts for router cores.
+        check_noc_id_cores(cluster, chip, CoreType::ROUTER_ONLY);
     }
 }
 
-TEST(TestNoc, DISABLED_TestNoc1NodeId) {
+TEST(TestNoc, TestNoc1NodeId) {
     TTDevice::use_noc1(true);
 
     std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
@@ -135,7 +135,9 @@ TEST(TestNoc, DISABLED_TestNoc1NodeId) {
 
         check_noc_id_cores(cluster, chip, CoreType::L2CPU);
 
-        // TODO: add readouts for router cores.
+        if (cluster->get_cluster_description()->get_arch(chip) != tt::ARCH::BLACKHOLE) {
+            check_noc_id_cores(cluster, chip, CoreType::ROUTER_ONLY);
+        }
     }
 
     TTDevice::use_noc1(false);

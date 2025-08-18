@@ -19,8 +19,7 @@ static constexpr uint64_t DEFAULT_ORDERING_MODE = tlb_data::Relaxed;
 
 TLBManager::TLBManager(TTDevice* tt_device) : tt_device_(tt_device) {}
 
-void TLBManager::configure_tlb(
-    tt_xy_pair core, tt_xy_pair translated_core, int32_t tlb_index, uint64_t address, uint64_t ordering) {
+void TLBManager::configure_tlb(tt_xy_pair core, int32_t tlb_index, uint64_t address, uint64_t ordering) {
     TT_ASSERT(
         ordering == tlb_data::Strict || ordering == tlb_data::Posted || ordering == tlb_data::Relaxed,
         "Invalid ordering specified in Cluster::configure_tlb");
@@ -34,7 +33,7 @@ void TLBManager::configure_tlb(
         ordering);
     TT_ASSERT(tlb_config_map_.find(tlb_index) == tlb_config_map_.end(), "TLB index already configured {}", tlb_index);
 
-    tt_device_->set_dynamic_tlb(tlb_index, translated_core, address, ordering);
+    tt_device_->set_dynamic_tlb(tlb_index, core, address, ordering);
     auto tlb_size = tt_device_->get_architecture_implementation()->get_tlb_configuration(tlb_index).size;
     tlb_config_map_.insert({tlb_index, (address / tlb_size) * tlb_size});
     map_core_to_tlb_.insert({core, tlb_index});

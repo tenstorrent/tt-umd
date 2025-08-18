@@ -15,7 +15,7 @@
 
 #include "common.h"
 #include "fmt/core.h"
-#include "umd/device/arc_telemetry_reader.h"
+#include "umd/device/arc/arc_telemetry_reader.h"
 #include "umd/device/types/blackhole_telemetry.h"
 #include "umd/device/types/wormhole_telemetry.h"
 

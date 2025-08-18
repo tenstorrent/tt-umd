@@ -79,5 +79,5 @@ int MockChip::get_numa_node() { return 0; }
 
 void MockChip::set_remote_transfer_ethernet_cores(const std::unordered_set<CoreCoord>& cores) {}
 
-void MockChip::set_remote_transfer_ethernet_cores(const std::set<uint32_t>& channel) {}
+void MockChip::set_remote_transfer_ethernet_cores(const std::set<uint32_t>& channels) {}
 }  // namespace tt::umd

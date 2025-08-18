@@ -43,7 +43,6 @@ jobs:
     runs-on: ${{ matrix.image.runs-on }}
     container:
       image: ghcr.io/${{ github.repository }}/${{ matrix.image.docker-image }}:latest
-      options: --user root
 
     steps:
       - uses: actions/checkout@v4

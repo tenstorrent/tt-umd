@@ -5,7 +5,7 @@
  */
 #pragma once
 
-#include "umd/device/arc_messenger.h"
+#include "umd/device/arc/arc_messenger.h"
 
 namespace tt::umd {
 

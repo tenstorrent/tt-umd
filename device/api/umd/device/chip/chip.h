@@ -86,7 +86,7 @@ public:
         uint32_t* return_4 = nullptr);
 
     virtual void set_remote_transfer_ethernet_cores(const std::unordered_set<CoreCoord>& cores) = 0;
-    virtual void set_remote_transfer_ethernet_cores(const std::set<uint32_t>& channel) = 0;
+    virtual void set_remote_transfer_ethernet_cores(const std::set<uint32_t>& channels) = 0;
 
     // TODO: To be moved to private implementation once methods are moved to chip
     void enable_ethernet_queue(int timeout_s);
@@ -95,9 +95,6 @@ public:
     // Probably also moved to LocalChip.
     tt_device_dram_address_params dram_address_params;
     tt_device_l1_address_params l1_address_params;
-    tt_driver_host_address_params host_address_params;
-    tt_driver_noc_params noc_params;
-    tt_driver_eth_interface_params eth_interface_params;
 
     // TODO: To be removed once we properly refactor usage of NOC1 coords.
     tt_xy_pair translate_chip_coord_to_translated(const CoreCoord core) const;

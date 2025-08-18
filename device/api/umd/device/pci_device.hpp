@@ -52,6 +52,7 @@ struct DmaBuffer {
 };
 
 enum class TenstorrentResetDevice : uint32_t { RESTORE_STATE = 0, RESET_PCIE_LINK, CONFIG_WRITE };
+inline constexpr std::string_view TT_VISIBLE_DEVICES_ENV = "TT_VISIBLE_DEVICES";
 
 class PCIDevice {
     const std::string device_path;   // Path to character device: /dev/tenstorrent/N
@@ -64,6 +65,10 @@ class PCIDevice {
     const semver_t kmd_version;      // KMD version
     const bool iommu_enabled;        // Whether the system is protected from this device by an IOMMU
     DmaBuffer dma_buffer{};
+
+private:
+    static std::optional<std::unordered_set<int>> get_visible_devices(
+        const std::unordered_set<int> &pci_target_devices);
 
 public:
     /**

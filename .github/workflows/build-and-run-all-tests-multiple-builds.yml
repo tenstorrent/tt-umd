@@ -1,0 +1,55 @@
+# Build and then run all tests, on all supported archs, for multiple build types
+name: Build and run all tests for multiple build types
+
+on:
+  workflow_dispatch:
+    inputs:
+      # Release is optimized, but has all debug symbols utterly removed.
+      # RelWithDebInfo is nearly as optimized, but the debug symbols aren't thrown away. In a past life the slight
+      # additional optimization was inconsequential, and the ability to obtain a crash dump from the field was
+      # invaluable. So in that scenario RelWithDebInfo was the hands-down winner and we pretended that Release didn't
+      # exist.
+      # Debug is unoptimized and has debug symbols. Unless you really need a pristine stack trace - better than
+      # RelWithDebInfo's which may have a bit of reordering - then this doesn't buy you much except for slower
+      # runtime. No real harm in using it when scanning the code (eg: ClangTidy), since you aren't then actually
+      # running it.
+      # ASan has the debug symbols, but also instruments for memory correctness and has a ~2x runtime penalty.
+      # Any CI job that is "check that things are good" and don't need tight runtime tolerances can be ASan instead.
+      # TSan is similar, but checks for concurrency issues. It cannot be combined with ASan, so you'll need a parallel
+      # run for anything you wish to test with both. The runtime penalty of TSan is ~10x (some estimates put it higher,
+      # really dependent on the nature of the code being run).
+      build-types:
+        description: 'Comma-separated list of build types'
+        required: true
+        default: '["Release", "RelWithDebInfo", "Debug", "ASan", "TSan"]'
+        type: string
+  pull_request:
+  push:
+    branches: ["main"]
+
+jobs:
+  build-and-run-all-tests:
+    name: ""
+    secrets: inherit
+    strategy:
+      fail-fast: false
+      matrix:
+        # By default we run ASan build on PRs since it adds a marginal perf hit compared to normal Release build
+        # but is very useful in catching memory access bugs, and additionally it runs all asserts which are normally
+        # optimized out in the Release.
+        # We run both ASan and TSan build on push events to main. TSan is slower but catches hard race condition bugs.
+        # When workflow is requested, all the requested build-types are run.
+        # build-type: ${{ fromJson(github.event_name == 'pull_request' && '["ASan"]' ||
+        #                          github.event_name == 'push' && '["ASan", "TSan"]' ||
+        #                          github.event_name == 'workflow_dispatch' && github.event.inputs['build-types']) }}
+        # TODO: Enable asan/tsan builds in CI, just uncomment lines above. For now we still run only Release builds
+        build-type: ${{ fromJson(github.event_name == 'pull_request' && '["Release"]' ||
+                                 github.event_name == 'push' && '["Release"]' ||
+                                 github.event_name == 'workflow_dispatch' && github.event.inputs['build-types']) }}
+    uses: ./.github/workflows/build-and-run-all-tests.yml
+    with:
+      build-type: ${{ matrix.build-type }}
+      # Debug and TSan builds are slower, so give them more time to run.
+      timeout: ${{ (matrix.build-type == 'Debug' || matrix.build-type == 'TSan') && 30 || 20 }}
+      log-params: |
+        echo build-and-run-all-tests-multiple-builds - build-types: ${{ inputs.build-types }}

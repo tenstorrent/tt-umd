@@ -5,8 +5,8 @@
  */
 #pragma once
 
-#include "umd/device/arc_messenger.h"
-#include "umd/device/arc_telemetry_reader.h"
+#include "umd/device/arc/arc_messenger.h"
+#include "umd/device/arc/arc_telemetry_reader.h"
 #include "umd/device/wormhole_implementation.h"
 
 extern bool umd_use_noc1;

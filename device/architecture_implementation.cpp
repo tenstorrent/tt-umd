@@ -11,6 +11,7 @@ namespace tt::umd {
 
 std::unique_ptr<architecture_implementation> architecture_implementation::create(tt::ARCH architecture) {
     switch (architecture) {
+        case tt::ARCH::QUASAR:  // TODO (#450): Add Quasar configuration
         case tt::ARCH::BLACKHOLE:
             return std::make_unique<blackhole_implementation>();
         case tt::ARCH::WORMHOLE_B0:

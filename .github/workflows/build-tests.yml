@@ -142,5 +142,5 @@ jobs:
       - name: Upload wheel
         uses: actions/upload-artifact@v4
         with:
-          name: wheel-artifact-${{ inputs.ubuntu-docker-version }}
+          name: wheel-artifact-${{ inputs.ubuntu-docker-version }}-${{ inputs.build-type }}
           path: ${{ env.WHEEL_OUTPUT_DIR }}

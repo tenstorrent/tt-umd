@@ -263,7 +263,7 @@ void TopologyDiscoveryWormhole::init_topology_discovery() {
 
     std::unique_ptr<TTDevice> tt_device = TTDevice::create(pci_device_ids[0]);
     tt_device->init_tt_device();
-    tt_device->wait_arc_core_start();
+
     is_running_on_6u = tt_device->get_board_type() == BoardType::UBB;
     eth_addresses = TopologyDiscoveryWormhole::get_eth_addresses(
         tt_device->get_arc_telemetry_reader()->read_entry(wormhole::ETH_FW_VERSION));

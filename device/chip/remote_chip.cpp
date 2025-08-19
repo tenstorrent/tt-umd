@@ -26,7 +26,6 @@ std::unique_ptr<RemoteChip> RemoteChip::create(
     auto remote_tt_device =
         std::make_unique<RemoteWormholeTTDevice>(local_chip, std::move(remote_communication), target_eth_coord);
     remote_tt_device->init_tt_device();
-    remote_tt_device->wait_arc_core_start();
 
     tt_SocDescriptor soc_descriptor;
     if (sdesc_path.empty()) {
@@ -56,7 +55,6 @@ std::unique_ptr<RemoteChip> RemoteChip::create(
     remote_communication->set_remote_transfer_ethernet_cores(remote_transfer_eth_cores);
     auto remote_tt_device =
         std::make_unique<RemoteWormholeTTDevice>(local_chip, std::move(remote_communication), target_eth_coord);
-    remote_tt_device->wait_arc_core_start();
     remote_tt_device->init_tt_device();
 
     return std::unique_ptr<tt::umd::RemoteChip>(

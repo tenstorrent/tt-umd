@@ -149,7 +149,6 @@ TEST(Multiprocess, WorkloadVSMonitor) {
         std::cout << "Creating low level monitor cluster" << std::endl;
         std::unique_ptr<TTDevice> tt_device = TTDevice::create(pci_device_ids.at(0));
         tt_device->init_tt_device();
-        tt_device->wait_arc_core_start();
 
         tt_SocDescriptor soc_desc = tt_SocDescriptor(tt_device->get_arch(), true);
         CoreCoord arc_core = soc_desc.get_cores(CoreType::ARC, CoordSystem::TRANSLATED)[0];
@@ -178,7 +177,6 @@ TEST(Multiprocess, LongLivedMonitor) {
         std::cout << "Creating low level monitor cluster" << std::endl;
         std::unique_ptr<TTDevice> tt_device = TTDevice::create(pci_device_ids.at(0));
         tt_device->init_tt_device();
-        tt_device->wait_arc_core_start();
 
         tt_SocDescriptor soc_desc = tt_SocDescriptor(tt_device->get_arch(), true);
         CoreCoord arc_core = soc_desc.get_cores(CoreType::ARC, CoordSystem::TRANSLATED)[0];

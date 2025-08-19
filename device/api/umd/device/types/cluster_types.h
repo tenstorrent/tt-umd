@@ -13,7 +13,7 @@
 #include "fmt/core.h"
 
 // TODO: To me moved inside tt::umd namespace once all clients switch to namespace usage.
-struct tt_device_params {
+struct device_params {
     bool register_monitor = false;
     bool enable_perf_scoreboard = false;
     std::vector<std::string> vcd_dump_cores;
@@ -99,22 +99,22 @@ struct tt_device_params {
 
 namespace tt::umd {
 
-enum tt_DevicePowerState { BUSY, SHORT_IDLE, LONG_IDLE };
+enum DevicePowerState { BUSY, SHORT_IDLE, LONG_IDLE };
 
-enum tt_MemBarFlag {
+enum MemBarFlag {
     SET = 0xaa,
     RESET = 0xbb,
 };
 
-inline std::ostream& operator<<(std::ostream& os, const tt_DevicePowerState power_state) {
+inline std::ostream& operator<<(std::ostream& os, const DevicePowerState power_state) {
     switch (power_state) {
-        case tt_DevicePowerState::BUSY:
+        case DevicePowerState::BUSY:
             os << "Busy";
             break;
-        case tt_DevicePowerState::SHORT_IDLE:
+        case DevicePowerState::SHORT_IDLE:
             os << "SHORT_IDLE";
             break;
-        case tt_DevicePowerState::LONG_IDLE:
+        case DevicePowerState::LONG_IDLE:
             os << "LONG_IDLE";
             break;
         default:
@@ -129,7 +129,7 @@ struct barrier_address_params {
     std::uint32_t dram_barrier_base = 0;
 };
 
-struct tt_device_dram_address_params {
+struct device_dram_address_params {
     std::uint32_t DRAM_BARRIER_BASE = 0;
 };
 
@@ -137,7 +137,7 @@ struct tt_device_dram_address_params {
  * Struct encapsulating all L1 Address Map parameters required by UMD.
  * These parameters are passed to the constructor.
  */
-struct tt_device_l1_address_params {
+struct device_l1_address_params {
     std::uint32_t tensix_l1_barrier_base = 0;
     std::uint32_t eth_l1_barrier_base = 0;
     std::uint32_t fw_version_addr = 0;
@@ -147,12 +147,12 @@ struct tt_device_l1_address_params {
  * Struct encapsulating all Host Address Map parameters required by UMD.
  * These parameters are passed to the constructor and are needed for non-MMIO transactions.
  */
-struct tt_driver_host_address_params {
+struct driver_host_address_params {
     std::uint32_t eth_routing_block_size = 0;
     std::uint32_t eth_routing_buffers_start = 0;
 };
 
-struct tt_driver_noc_params {
+struct driver_noc_params {
     std::uint32_t noc_addr_local_bits = 0;
     std::uint32_t noc_addr_node_id_bits = 0;
 };
@@ -161,7 +161,7 @@ struct tt_driver_noc_params {
  * Struct encapsulating all ERISC Firmware parameters required by UMD.
  * These parameters are passed to the constructor and are needed for non-MMIO transactions.
  */
-struct tt_driver_eth_interface_params {
+struct driver_eth_interface_params {
     std::uint32_t eth_rack_coord_width = 0;
     std::uint32_t cmd_buf_size_mask = 0;
     std::uint32_t max_block_size = 0;
@@ -227,7 +227,7 @@ struct hugepage_mapping {
 
 // TODO: To be removed once clients switch to namespace usage.
 namespace tt::umd {
-using tt_device_params = ::tt_device_params;
+using device_params = ::device_params;
 }
 
 using tt::umd::barrier_address_params;

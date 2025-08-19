@@ -239,7 +239,7 @@ public:
      *
      * @param device_params Object specifying initialization configuration.
      */
-    void start_device(const tt_device_params& device_params);
+    void start_device(const device_params& device_params);
 
     /**
      * To be called at the end of a run.
@@ -253,7 +253,7 @@ public:
      * Explicitly set the power state of the device.
      * Note that start/close the device already do this implicitly.
      */
-    void set_power_state(tt_DevicePowerState state);
+    void set_power_state(DevicePowerState state);
 
     /**
      * Broadcast deassert BRISC soft Tensix Reset to the entire device.

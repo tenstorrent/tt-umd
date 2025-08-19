@@ -60,7 +60,7 @@ tlb_configuration wormhole_implementation::get_tlb_configuration(uint32_t tlb_in
     }
 }
 
-tt_device_l1_address_params wormhole_implementation::get_l1_address_params() const {
+device_l1_address_params wormhole_implementation::get_l1_address_params() const {
     // L1 barrier base and erisc barrier base should be explicitly set by the client.
     // Setting some default values here, but it should be ultimately overridden by the client.
     return {
@@ -69,13 +69,13 @@ tt_device_l1_address_params wormhole_implementation::get_l1_address_params() con
         ::eth_l1_mem::address_map::FW_VERSION_ADDR};
 }
 
-tt_driver_host_address_params wormhole_implementation::get_host_address_params() const {
+driver_host_address_params wormhole_implementation::get_host_address_params() const {
     return {
         ::wormhole::host_mem::address_map::ETH_ROUTING_BLOCK_SIZE,
         ::wormhole::host_mem::address_map::ETH_ROUTING_BUFFERS_START};
 }
 
-tt_driver_eth_interface_params wormhole_implementation::get_eth_interface_params() const {
+driver_eth_interface_params wormhole_implementation::get_eth_interface_params() const {
     return {
         ETH_RACK_COORD_WIDTH,
         CMD_BUF_SIZE_MASK,
@@ -100,7 +100,7 @@ tt_driver_eth_interface_params wormhole_implementation::get_eth_interface_params
     };
 }
 
-tt_driver_noc_params wormhole_implementation::get_noc_params() const {
+driver_noc_params wormhole_implementation::get_noc_params() const {
     return {NOC_ADDR_LOCAL_BITS, NOC_ADDR_NODE_ID_BITS};
 }
 

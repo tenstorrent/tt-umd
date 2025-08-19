@@ -134,7 +134,7 @@ void Chip::unset_tensix_risc_reset(CoreCoord core, const TensixSoftResetOptions&
     send_tensix_risc_reset(core, set_selected_riscs);
 }
 
-uint32_t Chip::get_power_state_arc_msg(tt_DevicePowerState state) {
+uint32_t Chip::get_power_state_arc_msg(DevicePowerState state) {
     uint32_t msg = wormhole::ARC_MSG_COMMON_PREFIX;
     switch (state) {
         case BUSY: {
@@ -198,12 +198,12 @@ tt_xy_pair Chip::translate_chip_coord_to_translated(const CoreCoord core) const 
     return soc_descriptor_.translate_coord_to(core, umd_use_noc1 ? CoordSystem::NOC1 : CoordSystem::TRANSLATED);
 }
 
-void Chip::wait_for_aiclk_value(TTDevice* tt_device, tt_DevicePowerState power_state, const uint32_t timeout_ms) {
+void Chip::wait_for_aiclk_value(TTDevice* tt_device, DevicePowerState power_state, const uint32_t timeout_ms) {
     auto start = std::chrono::system_clock::now();
     uint32_t target_aiclk = 0;
-    if (power_state == tt_DevicePowerState::BUSY) {
+    if (power_state == DevicePowerState::BUSY) {
         target_aiclk = tt_device->get_max_clock_freq();
-    } else if (power_state == tt_DevicePowerState::LONG_IDLE) {
+    } else if (power_state == DevicePowerState::LONG_IDLE) {
         target_aiclk = tt_device->get_min_clock_freq();
     }
     uint32_t aiclk = tt_device->get_clock();

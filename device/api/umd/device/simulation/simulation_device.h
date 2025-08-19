@@ -79,7 +79,7 @@ public:
     void send_tensix_risc_reset(const TensixSoftResetOptions& soft_resets) override;
     void deassert_risc_resets() override;
 
-    void set_power_state(tt_DevicePowerState state) override;
+    void set_power_state(DevicePowerState state) override;
     int get_clock() override;
     int get_numa_node() override;
 
@@ -94,7 +94,7 @@ public:
 
 private:
     // State variables
-    tt_driver_noc_params noc_params;
+    driver_noc_params noc_params;
     std::set<chip_id_t> target_devices_in_cluster = {};
     std::set<chip_id_t> target_remote_chips = {};
     tt::ARCH arch_name;

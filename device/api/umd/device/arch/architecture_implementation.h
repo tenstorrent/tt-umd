@@ -20,10 +20,10 @@
 
 namespace tt::umd {
 
-struct tt_device_l1_address_params;
-struct tt_driver_host_address_params;
-struct tt_driver_eth_interface_params;
-struct tt_driver_noc_params;
+struct device_l1_address_params;
+struct driver_host_address_params;
+struct driver_eth_interface_params;
+struct driver_noc_params;
 
 static const uint32_t HANG_READ_VALUE = 0xFFFFFFFFu;
 
@@ -85,10 +85,10 @@ public:
     virtual std::tuple<xy_pair, xy_pair> multicast_workaround(xy_pair start, xy_pair end) const = 0;
     virtual tlb_configuration get_tlb_configuration(uint32_t tlb_index) const = 0;
 
-    virtual tt_device_l1_address_params get_l1_address_params() const = 0;
-    virtual tt_driver_host_address_params get_host_address_params() const = 0;
-    virtual tt_driver_eth_interface_params get_eth_interface_params() const = 0;
-    virtual tt_driver_noc_params get_noc_params() const = 0;
+    virtual device_l1_address_params get_l1_address_params() const = 0;
+    virtual driver_host_address_params get_host_address_params() const = 0;
+    virtual driver_eth_interface_params get_eth_interface_params() const = 0;
+    virtual driver_noc_params get_noc_params() const = 0;
 
     static std::unique_ptr<architecture_implementation> create(tt::ARCH architecture);
 

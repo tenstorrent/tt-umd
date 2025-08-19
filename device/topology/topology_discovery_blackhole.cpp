@@ -39,12 +39,12 @@ uint64_t TopologyDiscoveryBlackhole::get_remote_board_id(Chip* chip, tt_xy_pair 
         eth_core, umd_use_noc1 ? CoordSystem::NOC1 : CoordSystem::NOC0, CoordSystem::TRANSLATED);
     uint32_t board_id_lo;
     TTDevice* tt_device = chip->get_tt_device();
-    tt_device->read_from_device((uint8_t*)&board_id_lo, translated_eth_core, 0x7CFE8, sizeof(board_id_lo));
+    tt_device->read_from_device(&board_id_lo, translated_eth_core, 0x7CFE8, sizeof(board_id_lo));
 
     uint32_t board_id_hi;
-    tt_device->read_from_device((uint8_t*)&board_id_hi, translated_eth_core, 0x7CFE4, sizeof(board_id_hi));
+    tt_device->read_from_device(&board_id_hi, translated_eth_core, 0x7CFE4, sizeof(board_id_hi));
 
-    return ((uint64_t)board_id_hi << 32) | board_id_lo;
+    return (static_cast<uint64_t>(board_id_hi) << 32) | board_id_lo;
 }
 
 uint64_t TopologyDiscoveryBlackhole::get_local_board_id(Chip* chip, tt_xy_pair eth_core) {
@@ -52,12 +52,12 @@ uint64_t TopologyDiscoveryBlackhole::get_local_board_id(Chip* chip, tt_xy_pair e
         eth_core, umd_use_noc1 ? CoordSystem::NOC1 : CoordSystem::NOC0, CoordSystem::TRANSLATED);
     uint32_t board_id_lo;
     TTDevice* tt_device = chip->get_tt_device();
-    tt_device->read_from_device((uint8_t*)&board_id_lo, translated_eth_core, 0x7CFC8, sizeof(board_id_lo));
+    tt_device->read_from_device(&board_id_lo, translated_eth_core, 0x7CFC8, sizeof(board_id_lo));
 
     uint32_t board_id_hi;
-    tt_device->read_from_device((uint8_t*)&board_id_hi, translated_eth_core, 0x7CFC4, sizeof(board_id_hi));
+    tt_device->read_from_device(&board_id_hi, translated_eth_core, 0x7CFC4, sizeof(board_id_hi));
 
-    return ((uint64_t)board_id_hi << 32) | board_id_lo;
+    return (static_cast<uint64_t>(board_id_hi) << 32) | board_id_lo;
 }
 
 uint64_t TopologyDiscoveryBlackhole::get_local_asic_id(Chip* chip, tt_xy_pair eth_core) {

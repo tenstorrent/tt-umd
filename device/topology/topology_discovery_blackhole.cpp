@@ -7,6 +7,7 @@
 
 #include <tt-logger/tt-logger.hpp>
 
+#include "umd/device/arch/wormhole_implementation.h"
 #include "umd/device/chip/local_chip.h"
 #include "umd/device/chip/remote_chip.h"
 #include "umd/device/remote_communication.h"
@@ -15,7 +16,6 @@
 #include "umd/device/types/blackhole_eth.h"
 #include "umd/device/types/cluster_types.h"
 #include "umd/device/types/wormhole_telemetry.h"
-#include "umd/device/wormhole_implementation.h"
 
 extern bool umd_use_noc1;
 

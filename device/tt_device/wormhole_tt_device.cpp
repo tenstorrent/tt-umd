@@ -5,10 +5,10 @@
 
 #include <tt-logger/tt-logger.hpp>
 
-#include "umd/device/coordinate_manager.h"
+#include "umd/device/arch/wormhole_implementation.h"
+#include "umd/device/coordinates/coordinate_manager.h"
 #include "umd/device/types/wormhole_dram.h"
 #include "umd/device/types/wormhole_telemetry.h"
-#include "umd/device/wormhole_implementation.h"
 
 extern bool umd_use_noc1;
 

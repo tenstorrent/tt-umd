@@ -9,12 +9,12 @@
 #include <tt-logger/tt-logger.hpp>
 
 #include "assert.hpp"
+#include "umd/device/arch/wormhole_implementation.h"
 #include "umd/device/chip_helpers/tlb_manager.h"
 #include "umd/device/driver_atomics.h"
 #include "umd/device/tt_device/tt_device.h"
 #include "umd/device/types/blackhole_arc.h"
 #include "umd/device/types/blackhole_eth.h"
-#include "umd/device/wormhole_implementation.h"
 
 extern bool umd_use_noc1;
 

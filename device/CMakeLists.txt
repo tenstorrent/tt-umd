@@ -27,7 +27,7 @@ add_library(${PROJECT_NAME}::device ALIAS device)
 target_sources(
     device
     PRIVATE
-        architecture_implementation.cpp
+        arch/architecture_implementation.cpp
         chip/chip.cpp
         chip/local_chip.cpp
         chip/mock_chip.cpp
@@ -38,10 +38,10 @@ target_sources(
         tt_device/tlb_window.cpp
         tt_device/tlb_handle.cpp
         cluster.cpp
-        coordinate_manager.cpp
+        coordinates/coordinate_manager.cpp
         cpuset_lib.cpp
-        wormhole/wormhole_implementation.cpp
-        blackhole/blackhole_implementation.cpp
+        arch/wormhole_implementation.cpp
+        arch/blackhole_implementation.cpp
         hugepage.cpp
         logging/config.cpp
         pcie/pci_device.cpp
@@ -58,8 +58,8 @@ target_sources(
         firmware/firmware_utils.cpp
         tt_silicon_driver_common.cpp
         tt_soc_descriptor.cpp
-        wormhole/wormhole_coordinate_manager.cpp
-        blackhole/blackhole_coordinate_manager.cpp
+        coordinates/wormhole_coordinate_manager.cpp
+        coordinates/blackhole_coordinate_manager.cpp
         arc/arc_telemetry_reader.cpp
         arc/wormhole_arc_telemetry_reader.cpp
         arc/blackhole_arc_telemetry_reader.cpp
@@ -99,10 +99,10 @@ if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.23)
             TYPE HEADERS
             BASE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/api
             FILES
-                api/umd/device/architecture_implementation.h
+                api/umd/device/arch/architecture_implementation.h
                 api/umd/device/arc/blackhole_arc_message_queue.h
-                api/umd/device/blackhole_coordinate_manager.h
-                api/umd/device/blackhole_implementation.h
+                api/umd/device/coordinates/blackhole_coordinate_manager.h
+                api/umd/device/arch/blackhole_implementation.h
                 api/umd/device/chip/chip.h
                 api/umd/device/chip/local_chip.h
                 api/umd/device/chip/mock_chip.h
@@ -111,7 +111,7 @@ if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.23)
                 api/umd/device/chip_helpers/sysmem_buffer.h
                 api/umd/device/chip_helpers/tlb_manager.h
                 api/umd/device/cluster.h
-                api/umd/device/coordinate_manager.h
+                api/umd/device/coordinates/coordinate_manager.h
                 api/umd/device/device_api_metal.h
                 api/umd/device/driver_atomics.h
                 api/umd/device/hugepage.h
@@ -146,8 +146,8 @@ if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.23)
                 api/umd/device/types/harvesting.h
                 api/umd/device/types/tlb.h
                 api/umd/device/types/xy_pair.h
-                api/umd/device/wormhole_coordinate_manager.h
-                api/umd/device/wormhole_implementation.h
+                api/umd/device/coordinates/wormhole_coordinate_manager.h
+                api/umd/device/arch/wormhole_implementation.h
                 api/umd/device/jtag/jtag_device.h
                 api/umd/device/jtag/jtag.h
     )

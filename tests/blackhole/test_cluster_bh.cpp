@@ -13,7 +13,7 @@
 #include "gtest/gtest.h"
 #include "tests/test_utils/device_test_utils.hpp"
 #include "tests/test_utils/generate_cluster_desc.hpp"
-#include "umd/device/blackhole_implementation.h"
+#include "umd/device/arch/blackhole_implementation.h"
 #include "umd/device/tt_cluster_descriptor.h"
 
 using namespace tt::umd;

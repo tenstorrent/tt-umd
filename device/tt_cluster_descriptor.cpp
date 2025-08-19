@@ -12,9 +12,9 @@
 #include <sstream>
 #include <tt-logger/tt-logger.hpp>
 
-#include "api/umd/device/blackhole_implementation.h"
+#include "api/umd/device/arch/blackhole_implementation.h"
+#include "api/umd/device/arch/wormhole_implementation.h"
 #include "api/umd/device/types/cluster_descriptor_types.h"
-#include "api/umd/device/wormhole_implementation.h"
 #include "assert.hpp"
 #include "disjoint_set.hpp"
 

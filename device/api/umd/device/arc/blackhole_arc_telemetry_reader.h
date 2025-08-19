@@ -6,7 +6,7 @@
 #pragma once
 
 #include "umd/device/arc/arc_telemetry_reader.h"
-#include "umd/device/blackhole_implementation.h"
+#include "umd/device/arch/blackhole_implementation.h"
 
 extern bool umd_use_noc1;
 

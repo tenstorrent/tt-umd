@@ -56,7 +56,7 @@ static void print_flatbuffer(const DeviceRequestResponse* buf) {
 }
 
 tt_SimulationDeviceInit::tt_SimulationDeviceInit(const std::filesystem::path& simulator_directory) :
-    simulator_directory(simulator_directory), soc_descriptor(simulator_directory / "soc_descriptor.yaml", false) {}
+    simulator_directory(simulator_directory), soc_descriptor(simulator_directory / "soc_descriptor.yaml") {}
 
 tt_SimulationDevice::tt_SimulationDevice(const tt_SimulationDeviceInit& init) : Chip(init.get_soc_descriptor()) {
     log_info(tt::LogEmulationDriver, "Instantiating simulation device");

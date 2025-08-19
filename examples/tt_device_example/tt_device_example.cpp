@@ -8,9 +8,9 @@
 #include <vector>
 
 #include "umd/device/pci_device.hpp"
+#include "umd/device/soc_descriptor.h"
 #include "umd/device/tt_core_coordinates.h"
 #include "umd/device/tt_device/tt_device.h"
-#include "umd/device/tt_soc_descriptor.h"
 
 using namespace tt::umd;
 
@@ -67,7 +67,7 @@ int main(int argc, char* argv[]) {
                   << std::endl;
 
         ChipInfo chip_info = device->get_chip_info();
-        tt_SocDescriptor soc_desc(
+        SocDescriptor soc_desc(
             device->get_arch(), chip_info.noc_translation_enabled, chip_info.harvesting_masks, chip_info.board_type);
 
         const std::vector<CoreCoord>& tensix_cores = soc_desc.get_cores(CoreType::TENSIX, CoordSystem::TRANSLATED);

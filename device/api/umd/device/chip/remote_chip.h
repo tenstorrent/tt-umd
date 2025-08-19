@@ -31,7 +31,7 @@ public:
         LocalChip* local_chip,
         eth_coord_t target_eth_coord,
         std::set<uint32_t> remote_transfer_eth_channels,
-        tt_SocDescriptor soc_descriptor);
+        SocDescriptor soc_descriptor);
 
     bool is_mmio_capable() const override;
 
@@ -71,9 +71,7 @@ public:
 
 private:
     RemoteChip(
-        tt_SocDescriptor soc_descriptor,
-        LocalChip* local_chip,
-        std::unique_ptr<RemoteWormholeTTDevice> remote_tt_device);
+        SocDescriptor soc_descriptor, LocalChip* local_chip, std::unique_ptr<RemoteWormholeTTDevice> remote_tt_device);
 
     LocalChip* local_chip_;
     RemoteCommunication* remote_communication_;

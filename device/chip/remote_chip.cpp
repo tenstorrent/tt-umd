@@ -29,15 +29,15 @@ std::unique_ptr<RemoteChip> RemoteChip::create(
     auto remote_tt_device = std::make_unique<RemoteWormholeTTDevice>(std::move(remote_communication), target_eth_coord);
     remote_tt_device->init_tt_device();
 
-    tt_SocDescriptor soc_descriptor;
+    SocDescriptor soc_descriptor;
     if (sdesc_path.empty()) {
-        soc_descriptor = tt_SocDescriptor(
+        soc_descriptor = SocDescriptor(
             remote_tt_device->get_arch(),
             remote_tt_device->get_chip_info().noc_translation_enabled,
             remote_tt_device->get_chip_info().harvesting_masks,
             remote_tt_device->get_chip_info().board_type);
     } else {
-        soc_descriptor = tt_SocDescriptor(
+        soc_descriptor = SocDescriptor(
             sdesc_path,
             remote_tt_device->get_chip_info().noc_translation_enabled,
             remote_tt_device->get_chip_info().harvesting_masks,
@@ -52,7 +52,7 @@ std::unique_ptr<RemoteChip> RemoteChip::create(
     LocalChip* local_chip,
     eth_coord_t target_eth_coord,
     std::set<uint32_t> remote_transfer_eth_channels,
-    tt_SocDescriptor soc_descriptor) {
+    SocDescriptor soc_descriptor) {
     auto remote_communication =
         std::make_unique<RemoteCommunication>(local_chip->get_tt_device(), local_chip->get_sysmem_manager());
     remote_communication->set_remote_transfer_ethernet_cores(
@@ -66,7 +66,7 @@ std::unique_ptr<RemoteChip> RemoteChip::create(
 }
 
 RemoteChip::RemoteChip(
-    tt_SocDescriptor soc_descriptor, LocalChip* local_chip, std::unique_ptr<RemoteWormholeTTDevice> remote_tt_device) :
+    SocDescriptor soc_descriptor, LocalChip* local_chip, std::unique_ptr<RemoteWormholeTTDevice> remote_tt_device) :
     Chip(remote_tt_device->get_chip_info(), soc_descriptor), local_chip_(local_chip) {
     remote_communication_ = remote_tt_device->get_remote_communication();
     tt_device_ = std::move(remote_tt_device);

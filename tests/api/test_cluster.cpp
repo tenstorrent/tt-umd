@@ -201,7 +201,7 @@ TEST(ApiClusterTest, DifferentConstructors) {
         // 3. Constructor taking a custom soc descriptor in addition.
         tt::ARCH device_arch = Cluster::create_cluster_descriptor()->get_arch(0);
         // You can add a custom soc descriptor here.
-        std::string sdesc_path = tt_SocDescriptor::get_soc_descriptor_path(device_arch);
+        std::string sdesc_path = SocDescriptor::get_soc_descriptor_path(device_arch);
         umd_cluster = std::make_unique<Cluster>(ClusterOptions{
             .sdesc_path = sdesc_path,
         });
@@ -248,7 +248,7 @@ TEST(ApiClusterTest, SimpleIOAllSiliconChips) {
     umd_cluster->set_barrier_address_params({L1_BARRIER_BASE, ETH_BARRIER_BASE, DRAM_BARRIER_BASE});
 
     for (auto chip_id : umd_cluster->get_target_device_ids()) {
-        const tt_SocDescriptor& soc_desc = umd_cluster->get_soc_descriptor(chip_id);
+        const SocDescriptor& soc_desc = umd_cluster->get_soc_descriptor(chip_id);
 
         CoreCoord any_core = soc_desc.get_cores(CoreType::TENSIX)[0];
 
@@ -261,7 +261,7 @@ TEST(ApiClusterTest, SimpleIOAllSiliconChips) {
 
     // Now read back the data.
     for (auto chip_id : umd_cluster->get_target_device_ids()) {
-        const tt_SocDescriptor& soc_desc = umd_cluster->get_soc_descriptor(chip_id);
+        const SocDescriptor& soc_desc = umd_cluster->get_soc_descriptor(chip_id);
 
         CoreCoord any_core = soc_desc.get_cores(CoreType::TENSIX)[0];
 
@@ -287,7 +287,7 @@ TEST(ApiClusterTest, RemoteFlush) {
     umd_cluster->set_barrier_address_params({L1_BARRIER_BASE, ETH_BARRIER_BASE, DRAM_BARRIER_BASE});
 
     for (auto chip_id : umd_cluster->get_target_remote_device_ids()) {
-        const tt_SocDescriptor& soc_desc = umd_cluster->get_soc_descriptor(chip_id);
+        const SocDescriptor& soc_desc = umd_cluster->get_soc_descriptor(chip_id);
 
         const CoreCoord any_core = soc_desc.get_cores(CoreType::TENSIX)[0];
 
@@ -340,7 +340,7 @@ TEST(ApiClusterTest, SimpleIOSpecificSiliconChips) {
     umd_cluster->set_barrier_address_params({L1_BARRIER_BASE, ETH_BARRIER_BASE, DRAM_BARRIER_BASE});
 
     for (auto chip_id : umd_cluster->get_target_device_ids()) {
-        const tt_SocDescriptor& soc_desc = umd_cluster->get_soc_descriptor(chip_id);
+        const SocDescriptor& soc_desc = umd_cluster->get_soc_descriptor(chip_id);
 
         CoreCoord any_core = soc_desc.get_cores(CoreType::TENSIX)[0];
 
@@ -353,7 +353,7 @@ TEST(ApiClusterTest, SimpleIOSpecificSiliconChips) {
 
     // Now read back the data.
     for (auto chip_id : umd_cluster->get_target_device_ids()) {
-        const tt_SocDescriptor& soc_desc = umd_cluster->get_soc_descriptor(chip_id);
+        const SocDescriptor& soc_desc = umd_cluster->get_soc_descriptor(chip_id);
 
         const CoreCoord any_core = soc_desc.get_cores(CoreType::TENSIX)[0];
 
@@ -385,7 +385,7 @@ TEST(ClusterAPI, DynamicTLB_RW) {
         // Just make sure to skip L1_BARRIER_BASE
         std::uint32_t address = 0x100;
         // Write to each core a 100 times at different statically mapped addresses
-        const tt_SocDescriptor& soc_desc = cluster->get_soc_descriptor(chip);
+        const SocDescriptor& soc_desc = cluster->get_soc_descriptor(chip);
         std::vector<CoreCoord> tensix_cores = soc_desc.get_cores(CoreType::TENSIX);
         for (int loop = 0; loop < num_loops; loop++) {
             for (auto& core : tensix_cores) {
@@ -419,7 +419,7 @@ TEST(TestCluster, PrintAllSiliconChipsAllCores) {
     for (chip_id_t chip : umd_cluster->get_target_device_ids()) {
         std::cout << "Chip " << chip << std::endl;
 
-        const tt_SocDescriptor& soc_desc = umd_cluster->get_soc_descriptor(chip);
+        const SocDescriptor& soc_desc = umd_cluster->get_soc_descriptor(chip);
 
         const std::vector<CoreCoord>& tensix_cores = soc_desc.get_cores(CoreType::TENSIX);
         for (const CoreCoord& core : tensix_cores) {
@@ -625,7 +625,7 @@ TEST(TestCluster, DeassertResetBrisc) {
 
     auto chip_ids = cluster->get_target_device_ids();
     for (auto& chip_id : chip_ids) {
-        const tt_SocDescriptor& soc_desc = cluster->get_soc_descriptor(chip_id);
+        const SocDescriptor& soc_desc = cluster->get_soc_descriptor(chip_id);
         auto tensix_cores = cluster->get_soc_descriptor(chip_id).get_cores(CoreType::TENSIX);
 
         for (const CoreCoord& tensix_core : tensix_cores) {
@@ -684,7 +684,7 @@ TEST(TestCluster, DeassertResetWithCounterBrisc) {
 
     auto chip_ids = cluster->get_target_device_ids();
     for (auto& chip_id : chip_ids) {
-        const tt_SocDescriptor& soc_desc = cluster->get_soc_descriptor(chip_id);
+        const SocDescriptor& soc_desc = cluster->get_soc_descriptor(chip_id);
         auto tensix_cores = cluster->get_soc_descriptor(chip_id).get_cores(CoreType::TENSIX);
 
         for (const CoreCoord& tensix_core : tensix_cores) {
@@ -778,7 +778,7 @@ TEST_P(ClusterAssertDeassertRiscsTest, TriscNcriscAssertDeassertTest) {
             GTEST_SKIP() << "Unsupported architecture for deassert test.";
         }
 
-        const tt_SocDescriptor& soc_desc = cluster->get_soc_descriptor(chip_id);
+        const SocDescriptor& soc_desc = cluster->get_soc_descriptor(chip_id);
 
         auto tensix_cores = cluster->get_soc_descriptor(chip_id).get_cores(CoreType::TENSIX);
 
@@ -878,7 +878,7 @@ TEST_P(ClusterReadWriteL1Test, ReadWriteL1) {
     std::vector<uint8_t> readback_data(tensix_l1_size, 1);
 
     for (auto chip_id : cluster->get_target_device_ids()) {
-        const tt_SocDescriptor& soc_desc = cluster->get_soc_descriptor(chip_id);
+        const SocDescriptor& soc_desc = cluster->get_soc_descriptor(chip_id);
 
         std::vector<CoreCoord> tensix_cores = cluster->get_soc_descriptor(chip_id).get_cores(CoreType::TENSIX);
 

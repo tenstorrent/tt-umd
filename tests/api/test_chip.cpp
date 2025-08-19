@@ -33,14 +33,14 @@ TEST(ApiChipTest, DISABLED_ManualTLBConfiguration) {
     auto remote_chips = umd_cluster->get_target_remote_device_ids();
     if (!remote_chips.empty()) {
         chip_id_t any_remote_chip = *remote_chips.begin();
-        const tt_SocDescriptor& soc_desc = umd_cluster->get_soc_descriptor(any_remote_chip);
+        const SocDescriptor& soc_desc = umd_cluster->get_soc_descriptor(any_remote_chip);
         CoreCoord core = soc_desc.get_cores(CoreType::TENSIX)[0];
         EXPECT_THROW(umd_cluster->get_static_tlb_writer(any_remote_chip, core), std::runtime_error);
     }
 
     // Expect to throw for non configured mmio chip.
     chip_id_t any_mmio_chip = *umd_cluster->get_target_mmio_device_ids().begin();
-    const tt_SocDescriptor& soc_desc = umd_cluster->get_soc_descriptor(any_mmio_chip);
+    const SocDescriptor& soc_desc = umd_cluster->get_soc_descriptor(any_mmio_chip);
     CoreCoord core = soc_desc.get_cores(CoreType::TENSIX)[0];
     EXPECT_THROW(umd_cluster->get_static_tlb_writer(any_mmio_chip, core), std::runtime_error);
 
@@ -61,7 +61,7 @@ TEST(ApiChipTest, DISABLED_ManualTLBConfiguration) {
     // Each MMIO chip has it's own set of TLBs, so needs its own configuration.
     for (chip_id_t mmio_chip : umd_cluster->get_target_mmio_device_ids()) {
         any_mmio_chip = mmio_chip;
-        const tt_SocDescriptor& soc_desc = umd_cluster->get_soc_descriptor(mmio_chip);
+        const SocDescriptor& soc_desc = umd_cluster->get_soc_descriptor(mmio_chip);
         for (CoreCoord core : soc_desc.get_cores(CoreType::TENSIX)) {
             umd_cluster->configure_tlb(mmio_chip, core, get_static_tlb_index(core), c_zero_address);
         }

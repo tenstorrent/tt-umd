@@ -239,6 +239,8 @@ public:
      */
     chip_id_t get_shelf_local_physical_chip_coords(chip_id_t virtual_coord);
 
+    uint8_t get_asic_location(chip_id_t chip_id) const;
+
 private:
     int get_ethernet_link_coord_distance(const eth_coord_t &location_a, const eth_coord_t &location_b) const;
 
@@ -281,6 +283,7 @@ private:
     std::map<chip_id_t, std::set<uint32_t>> active_eth_channels = {};
     std::map<chip_id_t, std::set<uint32_t>> idle_eth_channels = {};
     std::map<uint64_t, std::unordered_set<chip_id_t>> board_to_chips = {};
+    std::map<chip_id_t, uint8_t> asic_locations = {};
     std::unordered_map<chip_id_t, uint64_t> chip_to_board_id = {};
 
     // one-to-many chip connections

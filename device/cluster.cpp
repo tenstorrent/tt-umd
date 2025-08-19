@@ -283,8 +283,7 @@ tt_SocDescriptor Cluster::construct_soc_descriptor(
             ? get_harvesting_masks(chip_id, cluster_desc, perform_harvesting, simulated_harvesting_masks)
             : HarvestingMasks{};
     BoardType chip_board_type = chip_in_cluster_descriptor ? cluster_desc->get_board_type(chip_id) : BoardType::UNKNOWN;
-    uint8_t asic_location =
-        chip_in_cluster_descriptor ? cluster_desc->get_chip_uid(chip_id).value_or(ChipUID{}).asic_location : 0;
+    uint8_t asic_location = chip_in_cluster_descriptor ? cluster_desc->get_asic_location(chip_id) : 0;
 
     if (soc_desc_path.empty()) {
         tt::ARCH arch = chip_in_cluster_descriptor ? cluster_desc->get_arch(chip_id) : tt::ARCH::WORMHOLE_B0;

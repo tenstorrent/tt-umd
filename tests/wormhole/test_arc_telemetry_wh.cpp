@@ -12,6 +12,8 @@ TEST(WormholeTelemetry, BasicWormholeTelemetry) {
 
     for (int pci_device_id : pci_device_ids) {
         std::unique_ptr<TTDevice> tt_device = TTDevice::create(pci_device_id);
+        tt_device->init_tt_device();
+
         std::unique_ptr<ArcTelemetryReader> blackhole_arc_telemetry_reader =
             ArcTelemetryReader::create_arc_telemetry_reader(tt_device.get());
 
@@ -28,6 +30,8 @@ TEST(WormholeTelemetry, WormholeTelemetryEntryAvailable) {
 
     for (int pci_device_id : pci_device_ids) {
         std::unique_ptr<TTDevice> tt_device = TTDevice::create(pci_device_id);
+        tt_device->init_tt_device();
+
         std::unique_ptr<ArcTelemetryReader> telemetry =
             ArcTelemetryReader::create_arc_telemetry_reader(tt_device.get());
 

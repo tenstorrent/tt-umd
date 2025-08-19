@@ -28,7 +28,7 @@ const uint64_t BH_4GB_TLB_SIZE = 4ULL * 1024 * 1024 * 1024;
 std::unique_ptr<LocalChip> LocalChip::create(int pci_device_id, std::string sdesc_path, int num_host_mem_channels) {
     // Create TTDevice and make sure the arc is ready so we can read its telemetry.
     auto tt_device = TTDevice::create(pci_device_id);
-    tt_device->wait_arc_core_start();
+    tt_device->init_tt_device();
 
     tt_SocDescriptor soc_descriptor;
     if (sdesc_path.empty()) {
@@ -37,13 +37,15 @@ std::unique_ptr<LocalChip> LocalChip::create(int pci_device_id, std::string sdes
             tt_device->get_arch(),
             tt_device->get_chip_info().noc_translation_enabled,
             tt_device->get_chip_info().harvesting_masks,
-            tt_device->get_chip_info().board_type);
+            tt_device->get_chip_info().board_type,
+            tt_device->get_chip_info().asic_location);
     } else {
         soc_descriptor = tt_SocDescriptor(
             sdesc_path,
             tt_device->get_chip_info().noc_translation_enabled,
             tt_device->get_chip_info().harvesting_masks,
-            tt_device->get_chip_info().board_type);
+            tt_device->get_chip_info().board_type,
+            tt_device->get_chip_info().asic_location);
     }
 
     return std::unique_ptr<tt::umd::LocalChip>(
@@ -54,7 +56,7 @@ std::unique_ptr<LocalChip> LocalChip::create(
     int pci_device_id, tt_SocDescriptor soc_descriptor, int num_host_mem_channels) {
     // Create TTDevice and make sure the arc is ready so we can read its telemetry.
     auto tt_device = TTDevice::create(pci_device_id);
-    tt_device->wait_arc_core_start();
+    tt_device->init_tt_device();
 
     return std::unique_ptr<tt::umd::LocalChip>(
         new LocalChip(soc_descriptor, std::move(tt_device), num_host_mem_channels));

@@ -339,6 +339,8 @@ public:
 
     uint32_t get_dram_channel_0_y() const override { return blackhole::DRAM_CHANNEL_0_Y; }
 
+    uint32_t get_dram_banks_number() const override { return blackhole::NUM_DRAM_BANKS; }
+
     uint32_t get_broadcast_tlb_index() const override { return blackhole::BROADCAST_TLB_INDEX; }
 
     uint32_t get_dynamic_tlb_2m_base() const override { return blackhole::DYNAMIC_TLB_2M_BASE; }
@@ -396,6 +398,10 @@ public:
     const std::vector<uint32_t>& get_t6_x_locations() const override { return blackhole::T6_X_LOCATIONS; }
 
     const std::vector<uint32_t>& get_t6_y_locations() const override { return blackhole::T6_Y_LOCATIONS; }
+
+    const std::vector<std::vector<tt_xy_pair>>& get_dram_cores_noc0() const override {
+        return blackhole::DRAM_CORES_NOC0;
+    };
 
     std::pair<uint32_t, uint32_t> get_tlb_1m_base_and_count() const override { return {0, 0}; }
 

@@ -90,7 +90,7 @@ jobs:
       arch: ${{ matrix.test-group.arch}}
       ubuntu-docker-version: ${{ matrix.ubuntu-docker-version}}
       card: ${{ matrix.test-group.card}}
-      timeout: ${{ inputs.timeout }}
+      timeout: ${{ fromJSON(inputs.timeout) }}
       log-level: ${{ inputs.log-level || 'info' }}
       build-type: ${{ inputs.build-type }}
       log-params: |

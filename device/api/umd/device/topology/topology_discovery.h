@@ -9,22 +9,22 @@
 
 #include "umd/device/chip/chip.h"
 #include "umd/device/chip/remote_chip.h"
-#include "umd/device/tt_cluster_descriptor.h"
+#include "umd/device/cluster_descriptor.h"
 #include "umd/device/tt_device/remote_wormhole_tt_device.h"
 #include "umd/device/tt_device/tt_device.h"
 
 namespace tt::umd {
 
-class tt_ClusterDescriptor;
+class ClusterDescriptor;
 
 // TopologyDiscovery class creates cluster descriptor by discovering all chips connected to the system.
 class TopologyDiscovery {
 public:
-    static std::unique_ptr<tt_ClusterDescriptor> create_cluster_descriptor(
+    static std::unique_ptr<ClusterDescriptor> create_cluster_descriptor(
         std::unordered_set<chip_id_t> pci_target_devices = {}, const std::string& sdesc_path = "");
     TopologyDiscovery(std::unordered_set<chip_id_t> pci_target_devices = {}, const std::string& sdesc_path = "");
     virtual ~TopologyDiscovery() = default;
-    std::unique_ptr<tt_ClusterDescriptor> create_ethernet_map();
+    std::unique_ptr<ClusterDescriptor> create_ethernet_map();
 
 protected:
     void get_pcie_connected_chips();
@@ -112,7 +112,7 @@ protected:
     std::vector<std::pair<std::pair<uint64_t, uint32_t>, std::pair<uint64_t, uint32_t>>>
         ethernet_connections_to_remote_devices;
 
-    std::unique_ptr<tt_ClusterDescriptor> cluster_desc;
+    std::unique_ptr<ClusterDescriptor> cluster_desc;
 
     std::unordered_set<chip_id_t> pci_target_devices = {};
 

@@ -46,13 +46,13 @@
 #include "umd/device/chip/mock_chip.h"
 #include "umd/device/chip/remote_chip.h"
 #include "umd/device/chip_helpers/tlb_manager.h"
+#include "umd/device/cluster_descriptor.h"
 #include "umd/device/driver_atomics.h"
 #include "umd/device/hugepage.h"
 #include "umd/device/soc_descriptor.h"
 #include "umd/device/topology/topology_discovery_blackhole.h"
 #include "umd/device/topology/topology_discovery_wormhole.h"
 #include "umd/device/topology_utils.h"
-#include "umd/device/tt_cluster_descriptor.h"
 #include "umd/device/tt_core_coordinates.h"
 #include "umd/device/tt_simulation_device.h"
 #include "umd/device/types/arch.h"
@@ -234,7 +234,7 @@ void Cluster::construct_cluster(const uint32_t& num_host_mem_ch_per_mmio_device,
 std::unique_ptr<Chip> Cluster::construct_chip_from_cluster(
     chip_id_t chip_id,
     const ChipType& chip_type,
-    tt_ClusterDescriptor* cluster_desc,
+    ClusterDescriptor* cluster_desc,
     SocDescriptor& soc_desc,
     int num_host_mem_channels,
     const std::filesystem::path& simulator_directory) {
@@ -278,7 +278,7 @@ SocDescriptor Cluster::construct_soc_descriptor(
     const std::string& soc_desc_path,
     chip_id_t chip_id,
     ChipType chip_type,
-    tt_ClusterDescriptor* cluster_desc,
+    ClusterDescriptor* cluster_desc,
     bool perform_harvesting,
     HarvestingMasks& simulated_harvesting_masks) {
     bool chip_in_cluster_descriptor =
@@ -339,7 +339,7 @@ void Cluster::add_chip(const chip_id_t& chip_id, const ChipType& chip_type, std:
 
 HarvestingMasks Cluster::get_harvesting_masks(
     chip_id_t chip_id,
-    tt_ClusterDescriptor* cluster_desc,
+    ClusterDescriptor* cluster_desc,
     bool perform_harvesting,
     HarvestingMasks& simulated_harvesting_masks) {
     if (!perform_harvesting) {
@@ -375,8 +375,8 @@ void Cluster::verify_cluster_options(const ClusterOptions& options) {
 Cluster::Cluster(ClusterOptions options) {
     Cluster::verify_cluster_options(options);
     // If the cluster descriptor is not provided, create a new one.
-    tt_ClusterDescriptor* temp_full_cluster_desc = options.cluster_descriptor;
-    std::unique_ptr<tt_ClusterDescriptor> temp_full_cluster_desc_ptr;
+    ClusterDescriptor* temp_full_cluster_desc = options.cluster_descriptor;
+    std::unique_ptr<ClusterDescriptor> temp_full_cluster_desc_ptr;
     if (temp_full_cluster_desc == nullptr) {
         temp_full_cluster_desc_ptr = Cluster::create_cluster_descriptor(options.sdesc_path, options.pci_target_devices);
         temp_full_cluster_desc = temp_full_cluster_desc_ptr.get();
@@ -389,13 +389,13 @@ Cluster::Cluster(ClusterOptions options) {
         chips_to_construct = temp_full_cluster_desc->get_all_chips();
         // If no target devices are passed and the cluster descriptor is not constrained, we can use the full cluster.
         // Note that the pointer is being dereferenced below, that means that the default copy constructor will be
-        // called for tt_ClusterDescriptor to construct the object which will end up in the unique_ptr, note that the
+        // called for ClusterDescriptor to construct the object which will end up in the unique_ptr, note that the
         // line below doesn't take ownership of already existing object pointed to by temp_full_cluster_desc.
-        cluster_desc = std::make_unique<tt_ClusterDescriptor>(*temp_full_cluster_desc);
+        cluster_desc = std::make_unique<ClusterDescriptor>(*temp_full_cluster_desc);
     } else {
         // Create constrained cluster descriptor which only contains the chips to be in this Cluster.
         cluster_desc =
-            tt_ClusterDescriptor::create_constrained_cluster_descriptor(temp_full_cluster_desc, chips_to_construct);
+            ClusterDescriptor::create_constrained_cluster_descriptor(temp_full_cluster_desc, chips_to_construct);
     }
     std::vector<chip_id_t> chips_to_construct_vec(chips_to_construct.begin(), chips_to_construct.end());
     // Check target_devices against the cluster descriptor in case of silicon chips.
@@ -427,7 +427,7 @@ Cluster::Cluster(ClusterOptions options) {
                 arch = init.get_soc_descriptor().arch;
             }
 #endif
-            cluster_desc = tt_ClusterDescriptor::create_mock_cluster(chips_to_construct_vec, arch);
+            cluster_desc = ClusterDescriptor::create_mock_cluster(chips_to_construct_vec, arch);
         }
         if (options.sdesc_path.empty() && options.chip_type == ChipType::SIMULATION) {
             options.sdesc_path = options.simulator_directory / "soc_descriptor.yaml";
@@ -505,7 +505,7 @@ void Cluster::assert_risc_reset_at_core(
     get_chip(chip)->send_tensix_risc_reset(core, soft_resets);
 }
 
-tt_ClusterDescriptor* Cluster::get_cluster_description() { return cluster_desc.get(); }
+ClusterDescriptor* Cluster::get_cluster_description() { return cluster_desc.get(); }
 
 std::function<void(uint32_t, uint32_t, const uint8_t*)> Cluster::get_fast_pcie_static_tlb_write_callable(
     int device_id) {
@@ -1101,7 +1101,7 @@ void Cluster::set_barrier_address_params(const barrier_address_params& barrier_a
     }
 }
 
-std::unique_ptr<tt_ClusterDescriptor> Cluster::create_cluster_descriptor(
+std::unique_ptr<ClusterDescriptor> Cluster::create_cluster_descriptor(
     std::string sdesc_path, std::unordered_set<chip_id_t> pci_target_devices) {
     return TopologyDiscovery::create_cluster_descriptor(pci_target_devices, sdesc_path);
 }

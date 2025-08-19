@@ -11,8 +11,8 @@
 #include "umd/device/arch/blackhole_implementation.h"
 #include "umd/device/chip/local_chip.h"
 #include "umd/device/chip/remote_chip.h"
+#include "umd/device/cluster_descriptor.h"
 #include "umd/device/remote_communication.h"
-#include "umd/device/tt_cluster_descriptor.h"
 #include "umd/device/types/blackhole_eth.h"
 #include "umd/device/types/cluster_types.h"
 

@@ -6,8 +6,8 @@
 
 #include "common.h"
 #include "umd/device/cluster.h"
+#include "umd/device/cluster_descriptor.h"
 #include "umd/device/soc_descriptor.h"
-#include "umd/device/tt_cluster_descriptor.h"
 #include "umd/device/tt_core_coordinates.h"
 #include "umd/device/types/cluster_descriptor_types.h"
 
@@ -49,7 +49,7 @@ UbbId get_ubb_id(Cluster* cluster, const chip_id_t chip_id, const unsigned long 
 }
 
 bool check_if_external_cable_is_used(
-    tt_ClusterDescriptor* cluster_descriptor,
+    ClusterDescriptor* cluster_descriptor,
     const BoardType board_type,
     const chip_id_t chip_id,
     const unsigned long unique_chip_id,

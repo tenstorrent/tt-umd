@@ -6,7 +6,7 @@
 
 #include "common.h"
 #include "umd/device/cluster.h"
-#include "umd/device/tt_cluster_descriptor.h"
+#include "umd/device/cluster_descriptor.h"
 
 using namespace tt::umd;
 
@@ -43,13 +43,13 @@ int main(int argc, char *argv[]) {
         pci_ids = extract_int_set(result["pci_devices"]);
     }
 
-    std::unique_ptr<tt_ClusterDescriptor> cluster_descriptor = Cluster::create_cluster_descriptor("", pci_ids);
+    std::unique_ptr<ClusterDescriptor> cluster_descriptor = Cluster::create_cluster_descriptor("", pci_ids);
 
     if (result.count("logical_devices")) {
         std::unordered_set<int> logical_device_ids = extract_int_set(result["logical_devices"]);
 
         cluster_descriptor =
-            tt_ClusterDescriptor::create_constrained_cluster_descriptor(cluster_descriptor.get(), logical_device_ids);
+            ClusterDescriptor::create_constrained_cluster_descriptor(cluster_descriptor.get(), logical_device_ids);
     }
 
     std::string output_path = cluster_descriptor->serialize_to_file(cluster_descriptor_path);

@@ -98,7 +98,7 @@ private:
     std::set<chip_id_t> target_devices_in_cluster = {};
     std::set<chip_id_t> target_remote_chips = {};
     tt::ARCH arch_name;
-    std::shared_ptr<tt_ClusterDescriptor> cluster_descriptor;
+    std::shared_ptr<ClusterDescriptor> cluster_descriptor;
     std::unordered_map<chip_id_t, SocDescriptor> soc_descriptor_per_chip = {};
 
     // To enable DPRINT usage in the Simulator,

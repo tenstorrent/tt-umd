@@ -30,14 +30,14 @@ class Node;
 namespace tt::umd {
 class Cluster;
 
-class tt_ClusterDescriptor {
+class ClusterDescriptor {
     // TODO: Only Topo Discovery should have access.
     friend class Cluster;
     friend class TopologyDiscovery;
 
 public:
     /* Construction related functions. */
-    tt_ClusterDescriptor() = default;
+    ClusterDescriptor() = default;
 
     /**
      * Serializes the cluster descriptor to a YAML string.
@@ -55,7 +55,7 @@ public:
      * Creates a cluster descriptor from a YAML file.
      * @param cluster_descriptor_file_path Path to the YAML file containing the cluster descriptor.
      */
-    static std::unique_ptr<tt_ClusterDescriptor> create_from_yaml(const std::string &cluster_descriptor_file_path);
+    static std::unique_ptr<ClusterDescriptor> create_from_yaml(const std::string &cluster_descriptor_file_path);
 
     /**
      * Creates a mock cluster descriptor with the given logical device IDs and architecture.
@@ -63,7 +63,7 @@ public:
      * @param logical_device_ids Vector of logical device IDs to be included in the mock cluster.
      * @param arch Architecture of the mock cluster.
      */
-    static std::unique_ptr<tt_ClusterDescriptor> create_mock_cluster(
+    static std::unique_ptr<ClusterDescriptor> create_mock_cluster(
         const std::vector<chip_id_t> &logical_device_ids, tt::ARCH arch);
 
     /**
@@ -72,8 +72,8 @@ public:
      * created.
      * @param target_chip_ids Set of logical chip IDs for filtering.
      */
-    static std::unique_ptr<tt_ClusterDescriptor> create_constrained_cluster_descriptor(
-        const tt_ClusterDescriptor *full_cluster_desc, const std::unordered_set<chip_id_t> &target_chip_ids);
+    static std::unique_ptr<ClusterDescriptor> create_constrained_cluster_descriptor(
+        const ClusterDescriptor *full_cluster_desc, const std::unordered_set<chip_id_t> &target_chip_ids);
 
     /* Getters for various chip related information. */
 
@@ -308,4 +308,4 @@ private:
 }  // namespace tt::umd
 
 // TODO: To be removed once clients switch to namespace usage.
-using tt::umd::tt_ClusterDescriptor;
+using tt::umd::ClusterDescriptor;

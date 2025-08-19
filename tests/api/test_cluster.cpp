@@ -26,7 +26,7 @@
 #include "umd/device/chip/local_chip.h"
 #include "umd/device/chip/mock_chip.h"
 #include "umd/device/cluster.h"
-#include "umd/device/tt_cluster_descriptor.h"
+#include "umd/device/cluster_descriptor.h"
 #include "umd/device/tt_core_coordinates.h"
 #include "umd/device/tt_silicon_driver_common.hpp"
 #include "umd/device/types/arch.h"
@@ -137,7 +137,7 @@ TEST(ApiClusterTest, OpenClusterByLogicalID) {
     std::filesystem::path cluster_path = Cluster::create_cluster_descriptor()->serialize_to_file();
 
     // Now, the user can create the cluster descriptor without touching the devices.
-    std::unique_ptr<tt_ClusterDescriptor> cluster_desc = tt_ClusterDescriptor::create_from_yaml(cluster_path);
+    std::unique_ptr<ClusterDescriptor> cluster_desc = ClusterDescriptor::create_from_yaml(cluster_path);
     // You can test the cluster descriptor here to see if the topology matched the one you'd expect.
     // For example, you can check if the number of chips is correct, or number of pci devices, or nature of eth
     // connections.
@@ -217,7 +217,7 @@ TEST(ApiClusterTest, DifferentConstructors) {
     std::filesystem::path cluster_path2 = umd_cluster->get_cluster_description()->serialize_to_file();
     umd_cluster = nullptr;
 
-    std::unique_ptr<tt_ClusterDescriptor> cluster_desc = tt_ClusterDescriptor::create_from_yaml(cluster_path1);
+    std::unique_ptr<ClusterDescriptor> cluster_desc = ClusterDescriptor::create_from_yaml(cluster_path1);
     umd_cluster = std::make_unique<Cluster>(ClusterOptions{
         .cluster_descriptor = cluster_desc.get(),
     });
@@ -234,7 +234,7 @@ TEST(ApiClusterTest, DifferentConstructors) {
 TEST(ApiClusterTest, SimpleIOAllSiliconChips) {
     std::unique_ptr<Cluster> umd_cluster = std::make_unique<Cluster>();
 
-    const tt_ClusterDescriptor* cluster_desc = umd_cluster->get_cluster_description();
+    const ClusterDescriptor* cluster_desc = umd_cluster->get_cluster_description();
 
     // Initialize random data.
     size_t data_size = 1024;
@@ -277,7 +277,7 @@ TEST(ApiClusterTest, SimpleIOAllSiliconChips) {
 TEST(ApiClusterTest, RemoteFlush) {
     std::unique_ptr<Cluster> umd_cluster = std::make_unique<Cluster>();
 
-    const tt_ClusterDescriptor* cluster_desc = umd_cluster->get_cluster_description();
+    const ClusterDescriptor* cluster_desc = umd_cluster->get_cluster_description();
 
     size_t data_size = 1024;
     std::vector<uint8_t> data(data_size, 0);
@@ -326,7 +326,7 @@ TEST(ApiClusterTest, SimpleIOSpecificSiliconChips) {
         .target_devices = {0},
     });
 
-    const tt_ClusterDescriptor* cluster_desc = umd_cluster->get_cluster_description();
+    const ClusterDescriptor* cluster_desc = umd_cluster->get_cluster_description();
 
     // Initialize random data.
     size_t data_size = 1024;
@@ -459,7 +459,7 @@ TEST(TestCluster, PrintAllSiliconChipsAllCores) {
 TEST(TestCluster, TestClusterLogicalETHChannelsConnectivity) {
     std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
 
-    tt_ClusterDescriptor* cluster_desc = cluster->get_cluster_description();
+    ClusterDescriptor* cluster_desc = cluster->get_cluster_description();
 
     for (auto [chip, connections] : cluster_desc->get_ethernet_connections()) {
         const uint32_t num_channels_local_chip = cluster->get_soc_descriptor(chip).get_cores(CoreType::ETH).size();

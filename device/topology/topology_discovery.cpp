@@ -12,8 +12,8 @@
 #include "api/umd/device/topology/topology_discovery_wormhole.h"
 #include "umd/device/arch/wormhole_implementation.h"
 #include "umd/device/chip/local_chip.h"
+#include "umd/device/cluster_descriptor.h"
 #include "umd/device/remote_communication.h"
-#include "umd/device/tt_cluster_descriptor.h"
 #include "umd/device/tt_device/remote_wormhole_tt_device.h"
 #include "umd/device/types/cluster_types.h"
 
@@ -21,11 +21,11 @@ extern bool umd_use_noc1;
 
 namespace tt::umd {
 
-std::unique_ptr<tt_ClusterDescriptor> TopologyDiscovery::create_cluster_descriptor(
+std::unique_ptr<ClusterDescriptor> TopologyDiscovery::create_cluster_descriptor(
     std::unordered_set<chip_id_t> pci_target_devices, const std::string& sdesc_path) {
     auto pci_devices_info = PCIDevice::enumerate_devices_info(pci_target_devices);
     if (pci_devices_info.empty()) {
-        return std::make_unique<tt_ClusterDescriptor>();
+        return std::make_unique<ClusterDescriptor>();
     }
 
     switch (pci_devices_info.begin()->second.get_arch()) {
@@ -41,9 +41,9 @@ std::unique_ptr<tt_ClusterDescriptor> TopologyDiscovery::create_cluster_descript
 TopologyDiscovery::TopologyDiscovery(std::unordered_set<chip_id_t> pci_target_devices, const std::string& sdesc_path) :
     pci_target_devices(pci_target_devices), sdesc_path(sdesc_path) {}
 
-std::unique_ptr<tt_ClusterDescriptor> TopologyDiscovery::create_ethernet_map() {
+std::unique_ptr<ClusterDescriptor> TopologyDiscovery::create_ethernet_map() {
     init_topology_discovery();
-    cluster_desc = std::unique_ptr<tt_ClusterDescriptor>(new tt_ClusterDescriptor());
+    cluster_desc = std::unique_ptr<ClusterDescriptor>(new ClusterDescriptor());
     get_pcie_connected_chips();
     discover_remote_chips();
     fill_cluster_descriptor_info();

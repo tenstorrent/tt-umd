@@ -27,8 +27,11 @@ TTDevice::TTDevice(
 }
 
 void TTDevice::init_tt_device() {
+    pre_init_hook();
     arc_messenger_ = ArcMessenger::create_arc_messenger(this);
     telemetry = ArcTelemetryReader::create_arc_telemetry_reader(this);
+    wait_arc_core_start();
+    post_init_hook();
 }
 
 TTDevice::TTDevice() {}

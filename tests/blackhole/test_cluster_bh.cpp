@@ -222,7 +222,7 @@ TEST(SiliconDriverBH, UnalignedStaticTLB_RW) {
             cluster.configure_tlb(
                 chip_id,
                 core,
-                get_static_tlb_index_callback(sdesc.translate_coord_to(core, CoordSystem::VIRTUAL)),
+                get_static_tlb_index_callback(sdesc.translate_coord_to(core, CoordSystem::TRANSLATED)),
                 l1_mem::address_map::NCRISC_FIRMWARE_BASE);
         }
     }

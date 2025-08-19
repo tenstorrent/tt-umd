@@ -53,11 +53,14 @@ public:
      */
     const TlbMapping get_tlb_mapping() const;
 
+    uint8_t* tlb_base;
+
+    int tlb_id;
+
 private:
     void free_tlb() noexcept;
 
-    int tlb_id;
-    uint8_t* tlb_base;
+    // int tlb_id;
     size_t tlb_size;
     tlb_data tlb_config;
     uint32_t fd;

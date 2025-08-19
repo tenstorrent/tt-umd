@@ -27,6 +27,7 @@
 #include "umd/device/cluster.h"
 #include "umd/device/tt_cluster_descriptor.h"
 #include "umd/device/tt_core_coordinates.h"
+#include "umd/device/tt_device/tlb_window.h"
 #include "umd/device/tt_silicon_driver_common.hpp"
 #include "umd/device/types/arch.h"
 #include "umd/device/types/cluster_descriptor_types.h"
@@ -800,6 +801,81 @@ TEST_P(ClusterReadWriteL1Test, ReadWriteL1) {
 
             EXPECT_EQ(data, readback_data);
         }
+    }
+}
+
+// #define NOC_REGS_START_ADDR 0xFFB20000
+// #define NIU_SLV_POSTED_WR_DATA_WORD_RECEIVED 0x39
+// #define NIU_SLV_NONPOSTED_WR_DATA_WORD_RECEIVED 0x38
+// "NIU_SLV_POSTED_WR_DATA_WORD_RECEIVED": NocStatusRegisterDescription(offset=0xE4),
+// "NIU_SLV_NONPOSTED_WR_REQ_RECEIVED": NocStatusRegisterDescription(offset=0xE8),
+// NIU_SLV_NONPOSTED_WR_REQ_RECEIVED       │ 0xffb202e8 │ 0x0000e737 │ │ NIU_SLV_NONPOSTED_WR_REQ_RECEIVED       │
+// 0xffb302e8 │ 0x00001872 │ │ NIU_SLV_POSTED_WR_REQ_RECEIVED          │ 0xffb202ec │ 0x00000000 │ │
+// NIU_SLV_POSTED_WR_REQ_RECEIVED          │ 0xffb302ec │ 0x00000000 │
+
+TEST(ApiClusterTest, DebugDoubleWrite) {
+    std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
+
+    auto tensix_core = cluster->get_soc_descriptor(0).get_cores(CoreType::TENSIX, CoordSystem::TRANSLATED)[0];
+
+    Chip* chip = cluster->get_chip(0);
+
+    uint64_t addr = 0;
+
+    // uint8_t data = 1;
+    uint16_t data = 1;
+    // uint32_t data = 1;
+
+    uint32_t counter = 0;
+
+    uint32_t base_reg_val;
+    chip->read_from_device_reg(tensix_core, &base_reg_val, 0xffb202e8, sizeof(uint32_t));
+
+    std::cout << "base reg val " << base_reg_val << std::endl;
+
+    // tlb_data config{};
+    // config.local_offset = 0;
+    // config.x_end = tensix_core.x;
+    // config.y_end = tensix_core.y;
+    // config.ordering = tlb_data::Relaxed;
+    // config.static_vc = 1;
+    // std::unique_ptr<TlbWindow> tlb_window = std::make_unique<TlbWindow>(
+    //     chip->get_tt_device()->get_pci_device()->allocate_tlb(1 << 21, TlbMapping::WC), config);
+    // uint8_t* tlb_ptr = tlb_window->handle_ref().tlb_base;
+    // std::cout << "tlb id " << (uint32_t)tlb_window->handle_ref().tlb_id << std::endl;
+
+    while (true) {
+        chip->write_to_device(tensix_core, &data, addr, sizeof(data));
+        counter++;
+
+        // memcpy(tlb_ptr + addr, &data, sizeof(data));
+        // for (int i = 0; i < num_writes; i++) {
+        //     *reinterpret_cast<volatile uint8_t*>(tlb_ptr + i) = data;
+        // }
+
+        uint32_t reg_val;
+        chip->read_from_device_reg(tensix_core, &reg_val, 0xffb202e8, sizeof(uint32_t));
+
+        // std::cout << "reg val " << reg_val << std::endl;
+        uint32_t diff = reg_val - base_reg_val;
+        // std::cout << "diff " << diff << std::endl;
+        // std::cout << "counter " << counter << std::endl;
+
+        ASSERT_EQ(counter, diff);
+
+        // uint8_t data_check = 0;
+        uint16_t data_check = 0;
+        // uint32_t data_check = 0;
+
+        ASSERT_EQ(sizeof(data), sizeof(data_check));
+
+        chip->read_from_device(tensix_core, &data_check, addr, sizeof(data));
+
+        EXPECT_EQ((uint32_t)data_check, (uint32_t)data);
+
+        // std::cout << "data " << (uint32_t)data << std::endl;
+
+        data++;
     }
 }
 

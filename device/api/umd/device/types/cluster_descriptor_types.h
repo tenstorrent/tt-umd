@@ -92,7 +92,7 @@ inline std::string board_type_to_string(const BoardType board_type) {
         case BoardType::P300:
             return "p300";
         case BoardType::GALAXY:
-            return "galaxy";
+            return "GALAXY";
         case BoardType::UBB:
             return "ubb";
         case BoardType::UNKNOWN:

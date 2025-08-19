@@ -372,7 +372,7 @@ TEST(ClusterAPI, DynamicTLB_RW) {
 
     std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
 
-    tt_device_params default_params;
+    device_params default_params;
     cluster->start_device(default_params);
 
     std::vector<uint32_t> vector_to_write = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9};
@@ -488,7 +488,7 @@ TEST(TestCluster, TestClusterAICLKControl) {
         return 0u;
     };
 
-    cluster->set_power_state(tt_DevicePowerState::BUSY);
+    cluster->set_power_state(DevicePowerState::BUSY);
 
     auto clocks_busy = cluster->get_clocks();
     for (auto& clock : clocks_busy) {
@@ -497,7 +497,7 @@ TEST(TestCluster, TestClusterAICLKControl) {
         EXPECT_GT(clock.second, get_expected_clock_val(clock.first, false));
     }
 
-    cluster->set_power_state(tt_DevicePowerState::LONG_IDLE);
+    cluster->set_power_state(DevicePowerState::LONG_IDLE);
 
     auto clocks_idle = cluster->get_clocks();
     for (auto& clock : clocks_idle) {
@@ -860,7 +860,7 @@ TEST_P(ClusterReadWriteL1Test, ReadWriteL1) {
         GTEST_SKIP() << "No chips present on the system. Skipping test.";
     }
     if (options.chip_type == SIMULATION) {
-        tt_device_params device_params;
+        device_params device_params;
         device_params.init_device = true;
         cluster->start_device(device_params);
     }

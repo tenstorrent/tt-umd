@@ -6,8 +6,7 @@
 
 #include "tests/test_utils/device_test_utils.hpp"
 
-void move_data(
-    Cluster& device, tt_multichip_core_addr sender_core, tt_multichip_core_addr receiver_core, uint32_t size) {
+void move_data(Cluster& device, multichip_core_addr sender_core, multichip_core_addr receiver_core, uint32_t size) {
     std::vector<uint32_t> readback_vec = {};
     test_utils::read_data_from_device(
         device,
@@ -28,10 +27,7 @@ void move_data(
 }
 
 void broadcast_data(
-    Cluster& device,
-    tt_multichip_core_addr sender_core,
-    std::vector<tt_multichip_core_addr> receiver_cores,
-    uint32_t size) {
+    Cluster& device, multichip_core_addr sender_core, std::vector<multichip_core_addr> receiver_cores, uint32_t size) {
     std::vector<uint32_t> readback_vec = {};
     test_utils::read_data_from_device(
         device,

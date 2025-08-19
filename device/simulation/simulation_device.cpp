@@ -222,7 +222,7 @@ void SimulationDevice::dram_membar(const std::unordered_set<CoreCoord>& cores) {
 
 void SimulationDevice::deassert_risc_resets() {}
 
-void SimulationDevice::set_power_state(tt_DevicePowerState state) {}
+void SimulationDevice::set_power_state(DevicePowerState state) {}
 
 int SimulationDevice::get_clock() { return 0; }
 

@@ -86,7 +86,7 @@ void RemoteChip::close_device() {
     // in LONG_IDLE by tt-smi reset would hang
     if ((uint32_t)local_chip_->get_clock() != local_chip_->get_tt_device()->get_min_clock_freq()) {
         if ((uint32_t)get_clock() != get_tt_device()->get_min_clock_freq()) {
-            set_power_state(tt_DevicePowerState::LONG_IDLE);
+            set_power_state(DevicePowerState::LONG_IDLE);
             send_tensix_risc_reset(TENSIX_ASSERT_SOFT_RESET);
         }
     }
@@ -133,7 +133,7 @@ void RemoteChip::dram_membar(const std::unordered_set<uint32_t>& channels) { wai
 
 void RemoteChip::deassert_risc_resets() { local_chip_->deassert_risc_resets(); }
 
-void RemoteChip::set_power_state(tt_DevicePowerState state) {
+void RemoteChip::set_power_state(DevicePowerState state) {
     if (soc_descriptor_.arch == tt::ARCH::WORMHOLE_B0) {
         uint32_t msg = get_power_state_arc_msg(state);
         int exit_code = arc_msg(wormhole::ARC_MSG_COMMON_PREFIX | msg, true, 0, 0);

@@ -62,7 +62,7 @@ public:
     void dram_membar(const std::unordered_set<uint32_t>& channels = {}) override;
 
     void deassert_risc_resets() override;
-    void set_power_state(tt_DevicePowerState state) override;
+    void set_power_state(DevicePowerState state) override;
     int get_clock() override;
     int get_numa_node() override;
 

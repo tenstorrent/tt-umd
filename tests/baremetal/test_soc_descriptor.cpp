@@ -441,13 +441,14 @@ TEST(SocDescriptor, BoardBasedPCIE) {
         {.noc_translation_enabled = true,
          .harvesting_masks = {0, 0, 0, 0},
          .board_type = BoardType::P300,
-         .chip_uid = {0, 0}}));
+         .asic_location = 0}));
     EXPECT_ANY_THROW(tt_SocDescriptor soc_desc(
         test_utils::GetAbsPath("tests/soc_descs/blackhole_140_arch.yaml"),
         {.noc_translation_enabled = true,
          .harvesting_masks = {0, 0, 0, 0},
          .board_type = BoardType::P300,
-         .chip_uid = {0, 1}}));
+         .asic_location = 1
+     });
 
     {
         tt_SocDescriptor soc_desc(
@@ -475,7 +476,7 @@ TEST(SocDescriptor, BoardBasedPCIE) {
             {.noc_translation_enabled = true,
              .harvesting_masks = {0, 0, 0, 0x2},
              .board_type = BoardType::P300,
-             .chip_uid = {0, 0}});
+             .asic_location = 0});
         EXPECT_EQ(soc_desc.get_cores(CoreType::PCIE).size(), 1);
         EXPECT_EQ(soc_desc.get_cores(CoreType::PCIE)[0].x, 2);
         EXPECT_EQ(soc_desc.get_harvested_cores(CoreType::PCIE).size(), 1);
@@ -488,7 +489,7 @@ TEST(SocDescriptor, BoardBasedPCIE) {
             {.noc_translation_enabled = true,
              .harvesting_masks = {0, 0, 0, 0x1},
              .board_type = BoardType::P300,
-             .chip_uid = {0, 1}});
+             .asic_location = 1});
         EXPECT_EQ(soc_desc.get_cores(CoreType::PCIE).size(), 1);
         EXPECT_EQ(soc_desc.get_cores(CoreType::PCIE)[0].x, 11);
         EXPECT_EQ(soc_desc.get_harvested_cores(CoreType::PCIE).size(), 1);

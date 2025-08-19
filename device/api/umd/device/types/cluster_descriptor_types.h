@@ -198,6 +198,7 @@ struct ChipInfo {
     HarvestingMasks harvesting_masks = {0, 0, 0, 0};
     BoardType board_type = BoardType::UNKNOWN;
     ChipUID chip_uid = {0, 0};
+    uint8_t asic_location = 0;
 };
 
 enum class DramTrainingStatus : uint8_t {

@@ -282,7 +282,7 @@ tt_SocDescriptor Cluster::construct_soc_descriptor(
         chip_info.harvesting_masks =
             get_harvesting_masks(chip_id, cluster_desc, perform_harvesting, simulated_harvesting_masks);
         chip_info.board_type = cluster_desc->get_board_type(chip_id);
-        chip_info.chip_uid = cluster_desc->get_chip_uid(chip_id).value_or(ChipUID{});
+        chip_info.asic_location = cluster_desc->get_asic_location(chip_id);
     }
 
     if (soc_desc_path.empty()) {

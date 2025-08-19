@@ -334,7 +334,7 @@ tt_SocDescriptor::tt_SocDescriptor(const tt::ARCH arch_soc, ChipInfo chip_info) 
     noc_translation_enabled(chip_info.noc_translation_enabled), harvesting_masks(chip_info.harvesting_masks) {
     SocDescriptorInfo soc_desc_info = tt_SocDescriptor::get_soc_descriptor_info(arch_soc);
     load_from_soc_desc_info(soc_desc_info);
-    create_coordinate_manager(chip_info.board_type, chip_info.chip_uid.asic_location);
+    create_coordinate_manager(chip_info.board_type, chip_info.asic_location);
 }
 
 void tt_SocDescriptor::load_from_soc_desc_info(const SocDescriptorInfo &soc_desc_info) {
@@ -436,7 +436,7 @@ tt_SocDescriptor::tt_SocDescriptor(std::string device_descriptor_path, ChipInfo 
     device_descriptor_file_path = device_descriptor_path;
     load_from_yaml(device_descriptor_yaml);
 
-    create_coordinate_manager(chip_info.board_type, chip_info.chip_uid.asic_location);
+    create_coordinate_manager(chip_info.board_type, chip_info.asic_location);
 }
 
 int tt_SocDescriptor::get_num_dram_channels() const { return get_grid_size(CoreType::DRAM).x; }

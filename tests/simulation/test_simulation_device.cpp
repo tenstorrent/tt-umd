@@ -37,7 +37,7 @@ TEST_P(LoopbackAllCoresParam, LoopbackSingleTensix) {
     ASSERT_EQ(wdata, rdata);
 }
 
-bool loopback_stress_size(std::unique_ptr<tt_SimulationDevice> &device, CoreCoord core, uint32_t byte_shift) {
+bool loopback_stress_size(std::unique_ptr<SimulationDevice> &device, CoreCoord core, uint32_t byte_shift) {
     uint64_t addr = 0x0;
 
     std::vector<uint32_t> wdata = generate_data(1 << byte_shift);

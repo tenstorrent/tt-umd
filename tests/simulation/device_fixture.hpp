@@ -13,7 +13,7 @@
 #include <stdexcept>
 
 #include "tests/test_utils/generate_cluster_desc.hpp"
-#include "umd/device/tt_simulation_device.h"
+#include "umd/device/simulation/simulation_device.h"
 
 namespace tt::umd {
 
@@ -26,15 +26,15 @@ protected:
             throw std::runtime_error(
                 "You need to define TT_UMD_SIMULATOR that will point to simulator path. eg. build/versim-wormhole-b0");
         }
-        device = std::make_unique<tt_SimulationDevice>(simulator_path);
+        device = std::make_unique<SimulationDevice>(simulator_path);
         device->start_device();
     }
 
     static void TearDownTestSuite() { device->close_device(); }
 
-    static std::unique_ptr<tt_SimulationDevice> device;
+    static std::unique_ptr<SimulationDevice> device;
 };
 
-std::unique_ptr<tt_SimulationDevice> SimulationDeviceFixture::device = nullptr;
+std::unique_ptr<SimulationDevice> SimulationDeviceFixture::device = nullptr;
 
 }  // namespace tt::umd

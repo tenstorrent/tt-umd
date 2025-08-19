@@ -21,21 +21,13 @@ std::unique_ptr<RemoteChip> RemoteChip::create(
     eth_coord_t target_eth_coord,
     std::unordered_set<CoreCoord> remote_transfer_eth_cores,
     std::string sdesc_path) {
-<<<<<<< HEAD
-    auto remote_communication = std::make_unique<RemoteCommunication>(local_chip);
-    remote_communication->set_remote_transfer_ethernet_cores(remote_transfer_eth_cores);
-    auto remote_tt_device =
-        std::make_unique<RemoteWormholeTTDevice>(local_chip, std::move(remote_communication), target_eth_coord);
-    remote_tt_device->init_tt_device();
-=======
     auto remote_communication =
         std::make_unique<RemoteCommunication>(local_chip->get_tt_device(), local_chip->get_sysmem_manager());
     remote_communication->set_remote_transfer_ethernet_cores(
         local_chip->get_soc_descriptor().translate_coords_to_xy_pair(
             remote_transfer_eth_cores, CoordSystem::TRANSLATED));
     auto remote_tt_device = std::make_unique<RemoteWormholeTTDevice>(std::move(remote_communication), target_eth_coord);
-    remote_tt_device->wait_arc_core_start();
->>>>>>> main
+    remote_tt_device->init_tt_device();
 
     tt_SocDescriptor soc_descriptor;
     if (sdesc_path.empty()) {

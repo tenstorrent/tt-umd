@@ -10,6 +10,11 @@
 
 #include <cstdint>
 #include <functional>
+#include <cctype>
+#include <optional>
+#include <string>
+#include <string_view>
+#include <array>
 
 #include "fmt/core.h"
 #include "umd/device/semver.hpp"
@@ -73,33 +78,63 @@ struct eth_coord_t {
     }
 };
 
+// Centralized bidirectional mapping between BoardType and all accepted string representations.
+// Canonical strings match historical serialization output (note: "GALAXY" is uppercase).
+struct BoardTypeNameEntry {
+    BoardType type;
+    const char *name;
+    bool is_canonical;
+};
+
+inline constexpr std::array<BoardTypeNameEntry, 15> board_type_name_entries = {{
+    // Canonical forms
+    {BoardType::E75, "e75", true},
+    {BoardType::E150, "e150", true},
+    {BoardType::E300, "e300", true},
+    {BoardType::N150, "n150", true},
+    {BoardType::N300, "n300", true},
+    {BoardType::P100, "p100", true},
+    {BoardType::P150, "p150", true},
+    {BoardType::P300, "p300", true},
+    {BoardType::GALAXY, "GALAXY", true},
+    {BoardType::UBB, "ubb", true},
+    {BoardType::UNKNOWN, "unknown", true},
+    // Aliases (input only)
+    {BoardType::P150, "p150A", false},
+    {BoardType::P150, "p150C", false},
+    {BoardType::P300, "p300A", false},
+    {BoardType::P300, "p300C", false},
+}};
+
 inline std::string board_type_to_string(const BoardType board_type) {
-    switch (board_type) {
-        case BoardType::E75:
-            return "e75";
-        case BoardType::E150:
-            return "e150";
-        case BoardType::E300:
-            return "e300";
-        case BoardType::N150:
-            return "n150";
-        case BoardType::N300:
-            return "n300";
-        case BoardType::P100:
-            return "p100";
-        case BoardType::P150:
-            return "p150";
-        case BoardType::P300:
-            return "p300";
-        case BoardType::GALAXY:
-            return "GALAXY";
-        case BoardType::UBB:
-            return "ubb";
-        case BoardType::UNKNOWN:
-            return "unknown";
+    for (const auto &entry : board_type_name_entries) {
+        if (entry.type == board_type && entry.is_canonical) {
+            return entry.name;
+        }
+    }
+    throw std::runtime_error("Unknown board type passed for conversion to string.");
+}
+
+inline std::optional<BoardType> board_type_from_string(std::string_view board_type_str) {
+    auto to_lower = [](std::string_view s) {
+        std::string out;
+        out.reserve(s.size());
+        for (char ch : s) {
+            out.push_back(static_cast<char>(std::tolower(static_cast<unsigned char>(ch))));
+        }
+        return out;
+    };
+
+    const std::string lowered = to_lower(board_type_str);
+
+    for (const auto &entry : board_type_name_entries) {
+        const std::string name_lower = to_lower(entry.name);
+        if (lowered == name_lower) {
+            return entry.type;
+        }
     }
 
-    throw std::runtime_error("Unknown board type passed for conversion to string.");
+    return std::nullopt;
 }
 
 // We have two ways BH chips are connected to the rest of the system, either one of the two PCI cores can be active.

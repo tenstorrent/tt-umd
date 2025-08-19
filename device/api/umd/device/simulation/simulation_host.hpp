@@ -16,10 +16,10 @@ typedef struct nng_dialer_s nng_dialer;
 
 namespace tt::umd {
 
-class tt_SimulationHost {
+class SimulationHost {
 public:
-    tt_SimulationHost();
-    ~tt_SimulationHost();
+    SimulationHost();
+    ~SimulationHost();
 
     void start_host();
     void send_to_device(uint8_t *buf, size_t buf_size);

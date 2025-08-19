@@ -1,7 +1,7 @@
 set(POSITION_INDEPENDENT_CODE ON)
 
 if(TT_UMD_BUILD_SIMULATION)
-    set(FBS_FILE ${PROJECT_SOURCE_DIR}/device/simulation/tt_simulation_device.fbs)
+    set(FBS_FILE ${PROJECT_SOURCE_DIR}/device/simulation/simulation_device.fbs)
     get_filename_component(FBS_FILE_NAME ${FBS_FILE} NAME_WLE)
     set(FBS_GENERATED_HEADER "${CMAKE_CURRENT_BINARY_DIR}/${FBS_FILE_NAME}_generated.h")
     set(FBS_DEPENDS "")
@@ -84,8 +84,8 @@ if(TT_UMD_BUILD_SIMULATION)
     target_sources(
         device
         PRIVATE
-            simulation/tt_simulation_device.cpp
-            simulation/tt_simulation_host.cpp
+            simulation/simulation_device.cpp
+            simulation/simulation_host.cpp
             ${FBS_GENERATED_HEADER}
     )
     target_compile_definitions(device PRIVATE TT_UMD_BUILD_SIMULATION)
@@ -134,8 +134,8 @@ if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.23)
                 api/umd/device/firmware/firmware_utils.h
                 api/umd/device/tt_io.hpp
                 api/umd/device/tt_silicon_driver_common.hpp
-                api/umd/device/tt_simulation_device.h
-                api/umd/device/tt_simulation_host.hpp
+                api/umd/device/simulation/simulation_device.h
+                api/umd/device/simulation/simulation_host.hpp
                 api/umd/device/soc_descriptor.h
                 api/umd/device/tt_xy_pair.h
                 api/umd/device/umd_utils.h

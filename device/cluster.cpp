@@ -49,12 +49,12 @@
 #include "umd/device/cluster_descriptor.h"
 #include "umd/device/driver_atomics.h"
 #include "umd/device/hugepage.h"
+#include "umd/device/simulation/simulation_device.h"
 #include "umd/device/soc_descriptor.h"
 #include "umd/device/topology/topology_discovery_blackhole.h"
 #include "umd/device/topology/topology_discovery_wormhole.h"
 #include "umd/device/topology_utils.h"
 #include "umd/device/tt_core_coordinates.h"
-#include "umd/device/tt_simulation_device.h"
 #include "umd/device/types/arch.h"
 #include "umd/device/types/blackhole_eth.h"
 #include "umd/device/types/tlb.h"
@@ -244,7 +244,7 @@ std::unique_ptr<Chip> Cluster::construct_chip_from_cluster(
     if (chip_type == ChipType::SIMULATION) {
 #ifdef TT_UMD_BUILD_SIMULATION
         // Note that passed soc descriptor is ignored in favor of soc descriptor from simulator_directory.
-        return std::make_unique<tt_SimulationDevice>(simulator_directory);
+        return std::make_unique<SimulationDevice>(simulator_directory);
 #else
         throw std::runtime_error(
             "Simulation device is not supported in this build. Set '-DTT_UMD_BUILD_SIMULATION=ON' during cmake "
@@ -423,7 +423,7 @@ Cluster::Cluster(ClusterOptions options) {
             auto arch = tt::ARCH::WORMHOLE_B0;
 #ifdef TT_UMD_BUILD_SIMULATION
             if (options.chip_type == ChipType::SIMULATION) {
-                tt_SimulationDeviceInit init(options.simulator_directory);
+                SimulationDeviceInit init(options.simulator_directory);
                 arch = init.get_soc_descriptor().arch;
             }
 #endif

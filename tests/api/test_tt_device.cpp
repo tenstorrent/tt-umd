@@ -27,7 +27,7 @@ TEST(ApiTTDeviceTest, BasicTTDeviceIO) {
 
         ChipInfo chip_info = tt_device->get_chip_info();
 
-        tt_SocDescriptor soc_desc(tt_device->get_arch(), chip_info);
+        SocDescriptor soc_desc(tt_device->get_arch(), chip_info);
 
         tt_xy_pair tensix_core = soc_desc.get_cores(CoreType::TENSIX, CoordSystem::TRANSLATED)[0];
 
@@ -70,7 +70,7 @@ TEST(ApiTTDeviceTest, TTDeviceMultipleThreadsIO) {
         tt_device->init_tt_device();
         ChipInfo chip_info = tt_device->get_chip_info();
 
-        tt_SocDescriptor soc_desc(tt_device->get_arch(), chip_info);
+        SocDescriptor soc_desc(tt_device->get_arch(), chip_info);
 
         tt_xy_pair tensix_core = soc_desc.get_cores(CoreType::TENSIX, CoordSystem::TRANSLATED)[0];
 

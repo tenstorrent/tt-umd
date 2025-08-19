@@ -8,9 +8,9 @@
 
 #include <unordered_set>
 
+#include "umd/device/soc_descriptor.h"
 #include "umd/device/tt_device/tt_device.h"
 #include "umd/device/tt_silicon_driver_common.hpp"
-#include "umd/device/tt_soc_descriptor.h"
 #include "umd/device/types/cluster_descriptor_types.h"
 #include "umd/device/types/cluster_types.h"
 #include "umd/device/utils/lock_manager.h"
@@ -24,16 +24,16 @@ class TLBManager;
 // An abstract class that represents a chip.
 class Chip {
 public:
-    Chip(tt_SocDescriptor soc_descriptor);
+    Chip(SocDescriptor soc_descriptor);
 
-    Chip(const ChipInfo chip_info, tt_SocDescriptor soc_descriptor);
+    Chip(const ChipInfo chip_info, SocDescriptor soc_descriptor);
 
     virtual ~Chip() = default;
 
     virtual void start_device() = 0;
     virtual void close_device() = 0;
 
-    tt_SocDescriptor& get_soc_descriptor();
+    SocDescriptor& get_soc_descriptor();
 
     virtual bool is_mmio_capable() const = 0;
 
@@ -114,7 +114,7 @@ protected:
 
     ChipInfo chip_info_;
 
-    tt_SocDescriptor soc_descriptor_;
+    SocDescriptor soc_descriptor_;
 };
 
 }  // namespace tt::umd

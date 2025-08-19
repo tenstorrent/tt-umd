@@ -57,7 +57,7 @@ target_sources(
         firmware/wormhole_18_4_firmware_info_provider.cpp
         firmware/firmware_utils.cpp
         tt_silicon_driver_common.cpp
-        tt_soc_descriptor.cpp
+        soc_descriptor.cpp
         coordinates/wormhole_coordinate_manager.cpp
         coordinates/blackhole_coordinate_manager.cpp
         arc/arc_telemetry_reader.cpp
@@ -136,7 +136,7 @@ if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.23)
                 api/umd/device/tt_silicon_driver_common.hpp
                 api/umd/device/tt_simulation_device.h
                 api/umd/device/tt_simulation_host.hpp
-                api/umd/device/tt_soc_descriptor.h
+                api/umd/device/soc_descriptor.h
                 api/umd/device/tt_xy_pair.h
                 api/umd/device/umd_utils.h
                 api/umd/device/types/arch.h

@@ -347,7 +347,7 @@ template <typename T>
 static auto passthrough_constrainer = [](T const& t) -> T { return t; };
 
 static inline std::vector<destination_t> generate_core_index_locations(
-    tt_ClusterDescriptor const& cluster_desc, tt_SocDescriptor const& soc_desc) {
+    tt_ClusterDescriptor const& cluster_desc, SocDescriptor const& soc_desc) {
     std::vector<destination_t> core_index_to_location = {};
 
     for (chip_id_t chip : cluster_desc.get_all_chips()) {
@@ -547,7 +547,7 @@ static ConstrainedTemplateTemplateGenerator<destination_t, int, std::uniform_int
 get_default_full_dram_dest_generator(int seed, Cluster* cluster) {
     assert(cluster != nullptr);
     tt_ClusterDescriptor* cluster_desc = cluster->get_cluster_description();
-    tt_SocDescriptor const& soc_desc = cluster->get_soc_descriptor(0);
+    SocDescriptor const& soc_desc = cluster->get_soc_descriptor(0);
     std::vector<destination_t> core_index_to_location = generate_core_index_locations(*cluster_desc, soc_desc);
 
     return ConstrainedTemplateTemplateGenerator<destination_t, int, std::uniform_int_distribution>(
@@ -563,7 +563,7 @@ static WriteCommandGenerator<
     std::uniform_int_distribution>
 build_dummy_write_command_generator(Cluster& cluster) {
     tt_ClusterDescriptor* cluster_desc = cluster.get_cluster_description();
-    tt_SocDescriptor const& soc_desc = cluster.get_soc_descriptor(0);
+    SocDescriptor const& soc_desc = cluster.get_soc_descriptor(0);
     std::vector<destination_t> core_index_to_location = generate_core_index_locations(*cluster_desc, soc_desc);
     auto dest_generator = ConstrainedTemplateTemplateGenerator<destination_t, int, std::uniform_int_distribution>(
         0,
@@ -588,7 +588,7 @@ static ReadCommandGenerator<
     std::uniform_int_distribution>
 build_dummy_read_command_generator(Cluster& cluster) {
     tt_ClusterDescriptor* cluster_desc = cluster.get_cluster_description();
-    tt_SocDescriptor const& soc_desc = cluster.get_soc_descriptor(0);
+    SocDescriptor const& soc_desc = cluster.get_soc_descriptor(0);
     std::vector<destination_t> core_index_to_location = generate_core_index_locations(*cluster_desc, soc_desc);
     auto dest_generator = ConstrainedTemplateTemplateGenerator<destination_t, int, std::uniform_int_distribution>(
         0,
@@ -629,7 +629,7 @@ void RunMixedTransfersUniformDistributions(
     bool record_command_history = false,
     std::vector<remote_transfer_sample_t>* command_history = nullptr) {
     tt_ClusterDescriptor* cluster_desc = cluster.get_cluster_description();
-    tt_SocDescriptor const& soc_desc = cluster.get_soc_descriptor(0);
+    SocDescriptor const& soc_desc = cluster.get_soc_descriptor(0);
     std::vector<destination_t> core_index_to_location = generate_core_index_locations(*cluster_desc, soc_desc);
 
     auto dest_generator = ConstrainedTemplateTemplateGenerator<destination_t, int, std::uniform_int_distribution>(

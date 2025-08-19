@@ -30,12 +30,12 @@ std::unique_ptr<LocalChip> LocalChip::create(int pci_device_id, std::string sdes
     auto tt_device = TTDevice::create(pci_device_id);
     tt_device->init_tt_device();
 
-    tt_SocDescriptor soc_descriptor;
+    SocDescriptor soc_descriptor;
     if (sdesc_path.empty()) {
         // In case soc descriptor yaml wasn't passed, we create soc descriptor with default values for the architecture.
-        soc_descriptor = tt_SocDescriptor(tt_device->get_arch(), tt_device->get_chip_info());
+        soc_descriptor = SocDescriptor(tt_device->get_arch(), tt_device->get_chip_info());
     } else {
-        soc_descriptor = tt_SocDescriptor(sdesc_path, tt_device->get_chip_info());
+        soc_descriptor = SocDescriptor(sdesc_path, tt_device->get_chip_info());
     }
 
     return std::unique_ptr<tt::umd::LocalChip>(
@@ -43,7 +43,7 @@ std::unique_ptr<LocalChip> LocalChip::create(int pci_device_id, std::string sdes
 }
 
 std::unique_ptr<LocalChip> LocalChip::create(
-    int pci_device_id, tt_SocDescriptor soc_descriptor, int num_host_mem_channels) {
+    int pci_device_id, SocDescriptor soc_descriptor, int num_host_mem_channels) {
     // Create TTDevice and make sure the arc is ready so we can read its telemetry.
     auto tt_device = TTDevice::create(pci_device_id);
     tt_device->init_tt_device();
@@ -52,7 +52,7 @@ std::unique_ptr<LocalChip> LocalChip::create(
         new LocalChip(soc_descriptor, std::move(tt_device), num_host_mem_channels));
 }
 
-LocalChip::LocalChip(tt_SocDescriptor soc_descriptor, std::unique_ptr<TTDevice> tt_device, int num_host_mem_channels) :
+LocalChip::LocalChip(SocDescriptor soc_descriptor, std::unique_ptr<TTDevice> tt_device, int num_host_mem_channels) :
     Chip(tt_device->get_chip_info(), soc_descriptor), tt_device_(std::move(tt_device)) {
     tlb_manager_ = std::make_unique<TLBManager>(tt_device_.get());
     sysmem_manager_ = std::make_unique<SysmemManager>(tlb_manager_.get(), num_host_mem_channels);

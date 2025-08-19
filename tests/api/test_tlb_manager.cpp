@@ -7,9 +7,9 @@
 #include <gtest/gtest.h>
 
 #include "tests/test_utils/device_test_utils.hpp"
+#include "umd/device/soc_descriptor.h"
 #include "umd/device/tt_device/tt_device.h"
 #include "umd/device/tt_io.hpp"
-#include "umd/device/tt_soc_descriptor.h"
 
 using namespace tt::umd;
 
@@ -24,7 +24,7 @@ TEST(ApiTLBManager, ManualTLBConfiguration) {
         std::unique_ptr<TLBManager> tlb_manager = std::make_unique<TLBManager>(tt_device.get());
         ChipInfo chip_info = tt_device->get_chip_info();
 
-        tt_SocDescriptor soc_desc(tt_device->get_arch(), chip_info);
+        SocDescriptor soc_desc(tt_device->get_arch(), chip_info);
 
         // TODO: This should be part of TTDevice interface, not Cluster or Chip.
         // Configure TLBs.

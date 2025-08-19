@@ -354,6 +354,41 @@ void TTDevice::configure_iatu_region(size_t region, uint64_t target, size_t regi
     throw std::runtime_error("configure_iatu_region is not implemented for this device");
 }
 
+void TTDevice::wait_dram_channel_training(const uint32_t dram_channel, const uint32_t timeout_ms) {
+    if (dram_channel >= architecture_impl_->get_dram_banks_number()) {
+        throw std::runtime_error(fmt::format(
+            "Invalid DRAM channel index {}, maximum index for given architecture is {}",
+            dram_channel,
+            architecture_impl_->get_dram_banks_number() - 1));
+    }
+    auto start = std::chrono::system_clock::now();
+    while (true) {
+        std::vector<DramTrainingStatus> dram_training_status = get_dram_training_status();
+
+        if (dram_training_status.empty()) {
+            log_warning(
+                LogSiliconDriver, "DRAM training status is not available, breaking the wait for DRAM training.");
+            return;
+        }
+
+        if (dram_training_status.at(dram_channel) == DramTrainingStatus::FAIL) {
+            throw std::runtime_error("DRAM training failed");
+        }
+
+        if (dram_training_status.at(dram_channel) == DramTrainingStatus::SUCCESS) {
+            return;
+        }
+
+        auto end = std::chrono::system_clock::now();
+        auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
+        if (duration.count() > timeout_ms) {
+            throw std::runtime_error(
+                fmt::format("DRAM training for channel {} timed out after {} ms", dram_channel, timeout_ms));
+            break;
+        }
+    }
+}
+
 void TTDevice::bar_write32(uint32_t addr, uint32_t data) {
     if (addr < get_pci_device()->bar0_uc_offset) {
         write_block(addr, sizeof(data), reinterpret_cast<const uint8_t *>(&data));  // do we have to reinterpret_cast?
@@ -377,8 +412,6 @@ ArcMessenger *TTDevice::get_arc_messenger() const { return arc_messenger_.get();
 ArcTelemetryReader *TTDevice::get_arc_telemetry_reader() const { return telemetry.get(); }
 
 TTDevice::~TTDevice() { lock_manager.clear_mutex(MutexType::TT_DEVICE_IO, get_pci_device()->get_device_num()); }
-
-std::vector<DramTrainingStatus> TTDevice::get_dram_training_status() { return {}; }
 
 void TTDevice::wait_for_non_mmio_flush() {}
 

@@ -70,6 +70,8 @@ target_sources(
         topology/topology_discovery_blackhole.cpp
         topology/topology_discovery_wormhole.cpp
         remote_communication.cpp
+        jtag/jtag_device.cpp
+        jtag/jtag.cpp
 )
 
 if(TT_UMD_BUILD_SIMULATION)
@@ -134,6 +136,8 @@ if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.23)
                 api/umd/device/types/xy_pair.h
                 api/umd/device/wormhole_coordinate_manager.h
                 api/umd/device/wormhole_implementation.h
+                api/umd/device/jtag/jtag_device.h
+                api/umd/device/jtag/jtag.h
     )
 endif()
 

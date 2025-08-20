@@ -15,11 +15,13 @@ namespace tt::umd {
 
 class LocalChip : public Chip {
 public:
-    LocalChip(tt_SocDescriptor soc_descriptor, int pci_device_id, int num_host_mem_channels = 0);
-
-    LocalChip(std::string sdesc_path, std::unique_ptr<TTDevice> tt_device);
-
-    LocalChip(std::unique_ptr<TTDevice> tt_device);
+    // In some of the constructor implementations, we want to create TTDevice objects and then use them to obtain the
+    // necessary information needed for soc descriptor construction. Due to this inverse member initialization order, we
+    // cannot have simple constructors as they require the base class to be constructed first.
+    static std::unique_ptr<LocalChip> create(
+        int pci_device_id, std::string sdesc_path = "", int num_host_mem_channels = 0);
+    static std::unique_ptr<LocalChip> create(
+        int pci_device_id, tt_SocDescriptor soc_descriptor, int num_host_mem_channels = 0);
 
     ~LocalChip();
 
@@ -34,11 +36,6 @@ public:
 
     void set_remote_transfer_ethernet_cores(const std::unordered_set<CoreCoord>& cores) override;
     void set_remote_transfer_ethernet_cores(const std::set<uint32_t>& channels) override;
-    // TODO: Figure out if this should remain public or used another way.
-    CoreCoord get_remote_transfer_ethernet_core();
-    void update_active_eth_core_idx();
-    int get_active_eth_core_idx();
-    std::vector<CoreCoord> get_remote_transfer_ethernet_cores();
 
     int get_num_host_channels() override;
     int get_host_channel_size(std::uint32_t channel) override;
@@ -59,8 +56,6 @@ public:
         const void* src, uint64_t core_dest, uint32_t size, std::vector<int> broadcast_header);
 
     void wait_for_non_mmio_flush() override;
-    void set_flush_non_mmio(bool flush_non_mmio);
-    bool get_flush_non_mmio() const;
 
     void l1_membar(const std::unordered_set<CoreCoord>& cores = {}) override;
     void dram_membar(const std::unordered_set<CoreCoord>& cores = {}) override;
@@ -75,17 +70,14 @@ public:
     std::unique_lock<RobustMutex> acquire_mutex(MutexType mutex_type, int pci_device_id);
 
 private:
+    LocalChip(tt_SocDescriptor soc_descriptor, std::unique_ptr<TTDevice> tt_device, int num_host_mem_channels = 0);
+
     std::unique_ptr<TLBManager> tlb_manager_;
     std::unique_ptr<SysmemManager> sysmem_manager_;
     LockManager lock_manager_;
     // Used only for ethernet broadcast to all remote chips.
     std::unique_ptr<RemoteCommunication> remote_communication_;
 
-    std::vector<CoreCoord> remote_transfer_eth_cores_;
-    int active_eth_core_idx = 0;
-    bool flush_non_mmio_ = false;
-
-    void initialize_local_chip();
     void initialize_tlb_manager();
     void initialize_default_chip_mutexes();
     void initialize_membars();

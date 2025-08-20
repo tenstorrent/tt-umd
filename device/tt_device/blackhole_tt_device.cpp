@@ -19,7 +19,6 @@ namespace tt::umd {
 BlackholeTTDevice::BlackholeTTDevice(std::shared_ptr<PCIDevice> pci_device) :
     TTDevice(pci_device, std::make_unique<blackhole_implementation>()) {
     arc_core = tt::umd::blackhole::get_arc_core(get_noc_translation_enabled(), umd_use_noc1);
-    init_tt_device();
 }
 
 BlackholeTTDevice::~BlackholeTTDevice() {
@@ -155,10 +154,12 @@ ChipInfo BlackholeTTDevice::get_chip_info() {
         chip_info.harvesting_masks.eth_harvesting_mask = 0x3FFF;
     }
 
+    chip_info.asic_location = telemetry->read_entry(blackhole::TelemetryTag::ASIC_LOCATION);
+
     return chip_info;
 }
 
-void BlackholeTTDevice::wait_arc_core_start(const tt_xy_pair arc_core, const uint32_t timeout_ms) {
+void BlackholeTTDevice::wait_arc_core_start(const uint32_t timeout_ms) {
     auto start = std::chrono::system_clock::now();
     uint32_t arc_boot_status;
     while (true) {
@@ -232,7 +233,7 @@ std::vector<DramTrainingStatus> BlackholeTTDevice::get_dram_training_status() {
 
     uint32_t telemetry_data = telemetry->read_entry(blackhole::TelemetryTag::DDR_STATUS);
     std::vector<DramTrainingStatus> dram_training_status;
-    const uint32_t num_dram_channels = blackhole::NUM_DRAM_BANKS;
+    const uint32_t num_dram_channels = architecture_impl_->get_dram_banks_number();
     // Format of the dram training status is as follows:
     // Each channel gets two bits in the 32-bit value (16 bits used). The lower bits are for lower channels.
     // Lower of the two bits is for training error and higher of the two bits is for training status.

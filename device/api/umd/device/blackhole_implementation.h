@@ -252,22 +252,24 @@ static constexpr uint32_t TENSIX_L1_SIZE = 1572864;
 static constexpr uint32_t ETH_L1_SIZE = 262144;
 static constexpr uint64_t DRAM_BANK_SIZE = 4294967296;
 
-constexpr std::array<std::pair<CoreType, uint64_t>, 7> NOC0_CONTROL_REG_ADDR_BASE_MAP = {
+constexpr std::array<std::pair<CoreType, uint64_t>, 8> NOC0_CONTROL_REG_ADDR_BASE_MAP = {
     {{CoreType::TENSIX, 0xFFB20000},
      {CoreType::ETH, 0xFFB20000},
      {CoreType::DRAM, 0xFFB20000},
      {CoreType::PCIE, 0xFFFFFFFFFF000000ULL},
      {CoreType::ARC, 0xFFFFFFFFFF000000ULL},
      {CoreType::SECURITY, 0xFFFFFFFFFF000000ULL},
-     {CoreType::L2CPU, 0xFFFFFFFFFF000000ULL}}};
-constexpr std::array<std::pair<CoreType, uint64_t>, 7> NOC1_CONTROL_REG_ADDR_BASE_MAP = {
+     {CoreType::L2CPU, 0xFFFFFFFFFF000000ULL},
+     {CoreType::ROUTER_ONLY, 0xFF000000}}};
+constexpr std::array<std::pair<CoreType, uint64_t>, 8> NOC1_CONTROL_REG_ADDR_BASE_MAP = {
     {{CoreType::TENSIX, 0xFFB30000},
      {CoreType::ETH, 0xFFB30000},
      {CoreType::DRAM, 0xFFB30000},
      {CoreType::PCIE, 0xFFFFFFFFFF000000ULL},
      {CoreType::ARC, 0xFFFFFFFFFF000000ULL},
      {CoreType::SECURITY, 0xFFFFFFFFFF000000ULL},
-     {CoreType::L2CPU, 0xFFFFFFFFFF000000ULL}}};
+     {CoreType::L2CPU, 0xFFFFFFFFFF000000ULL},
+     {CoreType::ROUTER_ONLY, 0xFF000000}}};
 
 static const uint64_t NOC_NODE_ID_OFFSET = 0x44;
 
@@ -337,6 +339,8 @@ public:
 
     uint32_t get_dram_channel_0_y() const override { return blackhole::DRAM_CHANNEL_0_Y; }
 
+    uint32_t get_dram_banks_number() const override { return blackhole::NUM_DRAM_BANKS; }
+
     uint32_t get_broadcast_tlb_index() const override { return blackhole::BROADCAST_TLB_INDEX; }
 
     uint32_t get_dynamic_tlb_2m_base() const override { return blackhole::DYNAMIC_TLB_2M_BASE; }
@@ -394,6 +398,10 @@ public:
     const std::vector<uint32_t>& get_t6_x_locations() const override { return blackhole::T6_X_LOCATIONS; }
 
     const std::vector<uint32_t>& get_t6_y_locations() const override { return blackhole::T6_Y_LOCATIONS; }
+
+    const std::vector<std::vector<tt_xy_pair>>& get_dram_cores_noc0() const override {
+        return blackhole::DRAM_CORES_NOC0;
+    };
 
     std::pair<uint32_t, uint32_t> get_tlb_1m_base_and_count() const override { return {0, 0}; }
 

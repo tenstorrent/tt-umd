@@ -23,6 +23,7 @@
 #include "assert.hpp"
 #include "ioctl.h"
 #include "umd/device/types/arch.h"
+#include "utils.hpp"
 
 namespace tt::umd {
 
@@ -106,6 +107,52 @@ static bool detect_iommu(const PciDeviceInfo &device_info) {
     return false;
 }
 
+static std::string get_pci_bdf(const uint16_t pci_domain, const uint16_t pci_bus, const uint16_t pci_device) {
+    return fmt::format("{:04x}:{:02x}:{:02x}", pci_domain, pci_bus, pci_device);
+}
+
+static bool is_number(const std::string &str) { return !str.empty() && std::all_of(str.begin(), str.end(), ::isdigit); }
+
+static std::optional<int> get_physical_slot_for_pcie_bdf(const std::string &target_bdf) {
+    std::string base_path = "/sys/bus/pci/slots";
+
+    for (const auto &entry : std::filesystem::directory_iterator(base_path)) {
+        if (!entry.is_directory()) {
+            continue;
+        }
+
+        std::string dir_name = entry.path().filename().string();
+        if (!is_number(dir_name)) {
+            continue;
+        }
+
+        int slot_number = std::stoi(dir_name);
+        std::string address_file_path = entry.path().string() + "/address";
+
+        if (!std::filesystem::exists(address_file_path)) {
+            continue;
+        }
+
+        std::ifstream address_file(address_file_path);
+        if (!address_file.is_open()) {
+            continue;
+        }
+
+        std::string bdf;
+        if (!std::getline(address_file, bdf)) {
+            continue;
+        }
+
+        bdf.erase(bdf.find_last_not_of(" \n\r\t") + 1);
+
+        if (bdf == target_bdf) {
+            return slot_number;
+        }
+    }
+
+    return std::nullopt;
+}
+
 static PciDeviceInfo read_device_info(int fd) {
     tenstorrent_get_device_info info{};
     info.in.output_size_bytes = sizeof(info.out);
@@ -118,7 +165,14 @@ static PciDeviceInfo read_device_info(int fd) {
     uint16_t dev = (info.out.bus_dev_fn >> 3) & 0x1F;
     uint16_t fn = info.out.bus_dev_fn & 0x07;
 
-    return PciDeviceInfo{info.out.vendor_id, info.out.device_id, info.out.pci_domain, bus, dev, fn};
+    return PciDeviceInfo{
+        info.out.vendor_id,
+        info.out.device_id,
+        info.out.pci_domain,
+        bus,
+        dev,
+        fn,
+        get_physical_slot_for_pcie_bdf(get_pci_bdf(info.out.pci_domain, bus, dev))};
 }
 
 tt::ARCH PciDeviceInfo::get_arch() const {
@@ -130,6 +184,21 @@ tt::ARCH PciDeviceInfo::get_arch() const {
     return tt::ARCH::Invalid;
 }
 
+std::optional<std::unordered_set<int>> PCIDevice::get_visible_devices(
+    const std::unordered_set<int> &pci_target_devices) {
+    if (!pci_target_devices.empty()) {
+        return pci_target_devices;
+    }
+
+    const std::optional<std::string> env_var_value = utils::get_env_var_value(TT_VISIBLE_DEVICES_ENV.data());
+
+    if (!env_var_value.has_value()) {
+        return std::nullopt;
+    }
+
+    return utils::get_unordered_set_from_string(env_var_value.value());
+}
+
 std::vector<int> PCIDevice::enumerate_devices(std::unordered_set<int> pci_target_devices) {
     std::vector<int> device_ids;
     std::string path = "/dev/tenstorrent/";
@@ -137,6 +206,9 @@ std::vector<int> PCIDevice::enumerate_devices(std::unordered_set<int> pci_target
     if (!std::filesystem::exists(path)) {
         return device_ids;
     }
+
+    std::optional<std::unordered_set<int>> visible_devices = PCIDevice::get_visible_devices(pci_target_devices);
+
     for (const auto &entry : std::filesystem::directory_iterator(path)) {
         std::string filename = entry.path().filename().string();
 
@@ -144,7 +216,8 @@ std::vector<int> PCIDevice::enumerate_devices(std::unordered_set<int> pci_target
         // is probably what we want longer-term (i.e. a UUID or something).
         if (std::all_of(filename.begin(), filename.end(), ::isdigit)) {
             int pci_device_id = std::stoi(filename);
-            if (pci_target_devices.empty() || pci_target_devices.find(pci_device_id) != pci_target_devices.end()) {
+            if (!visible_devices.has_value() ||
+                visible_devices.value().find(pci_device_id) != visible_devices.value().end()) {
                 device_ids.push_back(pci_device_id);
             }
         }

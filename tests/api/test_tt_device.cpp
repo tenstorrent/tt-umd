@@ -22,6 +22,7 @@ TEST(ApiTTDeviceTest, BasicTTDeviceIO) {
 
     for (int pci_device_id : pci_device_ids) {
         std::unique_ptr<TTDevice> tt_device = TTDevice::create(pci_device_id);
+        tt_device->init_tt_device();
 
         ChipInfo chip_info = tt_device->get_chip_info();
 
@@ -44,6 +45,7 @@ TEST(ApiTTDeviceTest, TTDeviceGetBoardType) {
     std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
     for (int pci_device_id : pci_device_ids) {
         std::unique_ptr<TTDevice> tt_device = TTDevice::create(pci_device_id);
+        tt_device->init_tt_device();
 
         BoardType board_type = tt_device->get_board_type();
 
@@ -65,6 +67,7 @@ TEST(ApiTTDeviceTest, TTDeviceMultipleThreadsIO) {
 
     for (int pci_device_id : pci_device_ids) {
         std::unique_ptr<TTDevice> tt_device = TTDevice::create(pci_device_id);
+        tt_device->init_tt_device();
 
         ChipInfo chip_info = tt_device->get_chip_info();
 
@@ -126,11 +129,16 @@ TEST(ApiTTDeviceTest, TestRemoteTTDevice) {
     for (chip_id_t remote_chip_id : cluster->get_target_remote_device_ids()) {
         eth_coord_t remote_eth_coord = chip_locations.at(remote_chip_id);
 
-        LocalChip* closest_local_chip =
-            cluster->get_local_chip(cluster_desc->get_closest_mmio_capable_chip(remote_chip_id));
-
+        chip_id_t gateway_id = cluster_desc->get_closest_mmio_capable_chip(remote_chip_id);
+        LocalChip* closest_local_chip = cluster->get_local_chip(gateway_id);
+        std::unique_ptr<RemoteCommunication> remote_communication = std::make_unique<RemoteCommunication>(
+            closest_local_chip->get_tt_device(), closest_local_chip->get_sysmem_manager());
+        remote_communication->set_remote_transfer_ethernet_cores(
+            closest_local_chip->get_soc_descriptor().get_eth_xy_pairs_for_channels(
+                cluster_desc->get_active_eth_channels(gateway_id), CoordSystem::TRANSLATED));
         std::unique_ptr<RemoteWormholeTTDevice> remote_tt_device =
-            std::make_unique<RemoteWormholeTTDevice>(closest_local_chip, remote_eth_coord);
+            std::make_unique<RemoteWormholeTTDevice>(std::move(remote_communication), remote_eth_coord);
+        remote_tt_device->init_tt_device();
 
         std::vector<CoreCoord> tensix_cores =
             cluster->get_chip(remote_chip_id)->get_soc_descriptor().get_cores(CoreType::TENSIX);

@@ -11,6 +11,7 @@ TEST(BlackholeChipInfo, BasicChipInfo) {
 
     for (int pci_device_id : pci_device_ids) {
         std::unique_ptr<TTDevice> tt_device = TTDevice::create(pci_device_id);
+        tt_device->init_tt_device();
 
         const ChipInfo chip_info = tt_device->get_chip_info();
 

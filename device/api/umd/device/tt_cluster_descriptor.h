@@ -18,7 +18,7 @@
 #include <vector>
 
 #include "umd/device/chip/chip.h"
-#include "umd/device/topology_discovery.h"
+#include "umd/device/topology/topology_discovery.h"
 #include "umd/device/tt_xy_pair.h"
 #include "umd/device/types/arch.h"
 #include "umd/device/types/cluster_descriptor_types.h"
@@ -37,6 +37,7 @@ class tt_ClusterDescriptor {
 
 public:
     /* Construction related functions. */
+    tt_ClusterDescriptor() = default;
 
     /**
      * Serializes the cluster descriptor to a YAML string.
@@ -238,9 +239,9 @@ public:
      */
     chip_id_t get_shelf_local_physical_chip_coords(chip_id_t virtual_coord);
 
-private:
-    tt_ClusterDescriptor() = default;
+    uint8_t get_asic_location(chip_id_t chip_id) const;
 
+private:
     int get_ethernet_link_coord_distance(const eth_coord_t &location_a, const eth_coord_t &location_b) const;
 
     // Helpers during construction of cluster descriptor.
@@ -282,6 +283,7 @@ private:
     std::map<chip_id_t, std::set<uint32_t>> active_eth_channels = {};
     std::map<chip_id_t, std::set<uint32_t>> idle_eth_channels = {};
     std::map<uint64_t, std::unordered_set<chip_id_t>> board_to_chips = {};
+    std::map<chip_id_t, uint8_t> asic_locations = {};
     std::unordered_map<chip_id_t, uint64_t> chip_to_board_id = {};
 
     // one-to-many chip connections

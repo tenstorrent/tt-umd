@@ -650,6 +650,22 @@ TEST(SocDescriptor, SocDescriptorSerialize) {
     }
 }
 
+TEST(SocDescriptor, SerializeSimulatorBlackhole) {
+    const tt_SocDescriptor& soc_descriptor =
+        tt_SocDescriptor(test_utils::GetAbsPath("tests/soc_descs/blackhole_simulation_1x2.yaml"), false);
+
+    std::filesystem::path file_path = soc_descriptor.serialize_to_file();
+    tt_SocDescriptor soc(file_path.string(), soc_descriptor.noc_translation_enabled, soc_descriptor.harvesting_masks);
+}
+
+TEST(SocDescriptor, SerializeSimulatorQuasar) {
+    const tt_SocDescriptor& soc_descriptor =
+        tt_SocDescriptor(test_utils::GetAbsPath("tests/soc_descs/quasar_simulation_1x1.yaml"), false);
+
+    std::filesystem::path file_path = soc_descriptor.serialize_to_file();
+    tt_SocDescriptor soc(file_path.string(), soc_descriptor.noc_translation_enabled, soc_descriptor.harvesting_masks);
+}
+
 TEST(SocDescriptor, SocDescriptorCreatFromSerialized) {
     HarvestingMasks harvesting_masks;
 

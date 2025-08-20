@@ -8,8 +8,8 @@
 
 #include <string_view>
 
-#include "umd/device/arc_messenger.h"
-#include "umd/device/arc_telemetry_reader.h"
+#include "umd/device/arc/arc_messenger.h"
+#include "umd/device/arc/arc_telemetry_reader.h"
 #include "umd/device/architecture_implementation.h"
 #include "umd/device/chip_helpers/tlb_manager.h"
 #include "umd/device/pci_device.hpp"
@@ -199,9 +199,11 @@ public:
 
     virtual ChipInfo get_chip_info() = 0;
 
-    virtual void wait_arc_core_start(const tt_xy_pair arc_core, const uint32_t timeout_ms = 1000);
+    virtual void wait_arc_core_start(const uint32_t timeout_ms = 1000) = 0;
 
     virtual void wait_eth_core_training(const tt_xy_pair eth_core, const uint32_t timeout_ms = 60000) = 0;
+
+    void wait_dram_channel_training(const uint32_t dram_channel, const uint32_t timeout_ms = 60000);
 
     void bar_write32(uint32_t addr, uint32_t data);
 
@@ -227,13 +229,15 @@ public:
 
     // TODO: find a way to expose this in a better way, probably through getting telemetry reader and reading the
     // required fields. Returns the information whether DRAM training status is available and the status value.
-    virtual std::vector<DramTrainingStatus> get_dram_training_status();
+    virtual std::vector<DramTrainingStatus> get_dram_training_status() = 0;
 
     virtual void wait_for_non_mmio_flush();
 
     bool is_remote();
 
     virtual uint64_t get_arc_noc_base_address() const = 0;
+
+    void init_tt_device();
 
 protected:
     std::shared_ptr<PCIDevice> pci_device_;
@@ -258,8 +262,6 @@ protected:
     void memcpy_to_device(void *dest, const void *src, std::size_t num_bytes);
     void memcpy_from_device(void *dest, const void *src, std::size_t num_bytes);
 
-    virtual void init_tt_device();
-
     semver_t fw_version_from_telemetry(const uint32_t telemetry_data) const;
 
     TTDevice();
@@ -267,6 +269,11 @@ protected:
     ChipInfo chip_info;
 
     bool is_remote_tt_device = false;
+
+private:
+    virtual void pre_init_hook(){};
+
+    virtual void post_init_hook(){};
 };
 
 }  // namespace tt::umd

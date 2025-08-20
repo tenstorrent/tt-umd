@@ -16,12 +16,60 @@ namespace tt::umd {
 
 static_assert(!std::is_abstract<RemoteChip>(), "RemoteChip must be non-abstract.");
 
-RemoteChip::RemoteChip(tt_SocDescriptor soc_descriptor, std::unique_ptr<RemoteWormholeTTDevice> remote_tt_device) :
-    Chip(soc_descriptor) {
-    local_chip_ = remote_tt_device->get_local_chip();
+std::unique_ptr<RemoteChip> RemoteChip::create(
+    LocalChip* local_chip,
+    eth_coord_t target_eth_coord,
+    std::unordered_set<CoreCoord> remote_transfer_eth_cores,
+    std::string sdesc_path) {
+    auto remote_communication =
+        std::make_unique<RemoteCommunication>(local_chip->get_tt_device(), local_chip->get_sysmem_manager());
+    remote_communication->set_remote_transfer_ethernet_cores(
+        local_chip->get_soc_descriptor().translate_coords_to_xy_pair(
+            remote_transfer_eth_cores, CoordSystem::TRANSLATED));
+    auto remote_tt_device = std::make_unique<RemoteWormholeTTDevice>(std::move(remote_communication), target_eth_coord);
+    remote_tt_device->init_tt_device();
+
+    tt_SocDescriptor soc_descriptor;
+    if (sdesc_path.empty()) {
+        soc_descriptor = tt_SocDescriptor(
+            remote_tt_device->get_arch(),
+            remote_tt_device->get_chip_info().noc_translation_enabled,
+            remote_tt_device->get_chip_info().harvesting_masks,
+            remote_tt_device->get_chip_info().board_type);
+    } else {
+        soc_descriptor = tt_SocDescriptor(
+            sdesc_path,
+            remote_tt_device->get_chip_info().noc_translation_enabled,
+            remote_tt_device->get_chip_info().harvesting_masks,
+            remote_tt_device->get_chip_info().board_type);
+    }
+
+    return std::unique_ptr<tt::umd::RemoteChip>(
+        new RemoteChip(soc_descriptor, local_chip, std::move(remote_tt_device)));
+}
+
+std::unique_ptr<RemoteChip> RemoteChip::create(
+    LocalChip* local_chip,
+    eth_coord_t target_eth_coord,
+    std::unordered_set<CoreCoord> remote_transfer_eth_cores,
+    tt_SocDescriptor soc_descriptor) {
+    auto remote_communication =
+        std::make_unique<RemoteCommunication>(local_chip->get_tt_device(), local_chip->get_sysmem_manager());
+    remote_communication->set_remote_transfer_ethernet_cores(
+        local_chip->get_soc_descriptor().translate_coords_to_xy_pair(
+            remote_transfer_eth_cores, CoordSystem::TRANSLATED));
+    auto remote_tt_device = std::make_unique<RemoteWormholeTTDevice>(std::move(remote_communication), target_eth_coord);
+    remote_tt_device->init_tt_device();
+
+    return std::unique_ptr<tt::umd::RemoteChip>(
+        new RemoteChip(soc_descriptor, local_chip, std::move(remote_tt_device)));
+}
+
+RemoteChip::RemoteChip(
+    tt_SocDescriptor soc_descriptor, LocalChip* local_chip, std::unique_ptr<RemoteWormholeTTDevice> remote_tt_device) :
+    Chip(remote_tt_device->get_chip_info(), soc_descriptor), local_chip_(local_chip) {
     remote_communication_ = remote_tt_device->get_remote_communication();
     tt_device_ = std::move(remote_tt_device);
-    chip_info_ = tt_device_->get_chip_info();
     TT_ASSERT(soc_descriptor_.arch != tt::ARCH::BLACKHOLE, "Non-MMIO targets not supported in Blackhole");
     wait_chip_to_be_ready();
 }
@@ -113,9 +161,15 @@ int RemoteChip::get_numa_node() {
     throw std::runtime_error("RemoteChip::get_numa_node is not available for this chip.");
 }
 
-void RemoteChip::set_remote_transfer_ethernet_cores(const std::unordered_set<CoreCoord>& cores) {}
+void RemoteChip::set_remote_transfer_ethernet_cores(const std::unordered_set<CoreCoord>& cores) {
+    remote_communication_->set_remote_transfer_ethernet_cores(
+        local_chip_->get_soc_descriptor().translate_coords_to_xy_pair(cores, CoordSystem::TRANSLATED));
+}
 
-void RemoteChip::set_remote_transfer_ethernet_cores(const std::set<uint32_t>& channel) {}
+void RemoteChip::set_remote_transfer_ethernet_cores(const std::set<uint32_t>& channels) {
+    remote_communication_->set_remote_transfer_ethernet_cores(
+        local_chip_->get_soc_descriptor().get_eth_xy_pairs_for_channels(channels, CoordSystem::TRANSLATED));
+}
 
 TTDevice* RemoteChip::get_tt_device() { return tt_device_.get(); }
 

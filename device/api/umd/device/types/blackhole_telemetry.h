@@ -49,7 +49,8 @@ enum TelemetryTag : uint8_t {
     ENABLED_GDDR = 36,
     ENABLED_L2CPU = 37,
     PCIE_USAGE = 38,
-    NUMBER_OF_TAGS = 39
+    NUMBER_OF_TAGS = 39,
+    ASIC_LOCATION = 52
 };
 
 }  // namespace blackhole

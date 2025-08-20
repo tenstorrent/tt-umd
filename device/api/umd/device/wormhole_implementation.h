@@ -265,18 +265,20 @@ static constexpr uint32_t TENSIX_L1_SIZE = 1499136;
 static constexpr uint32_t ETH_L1_SIZE = 262144;
 static constexpr uint64_t DRAM_BANK_SIZE = 2147483648;
 
-constexpr std::array<std::pair<CoreType, uint64_t>, 5> NOC0_CONTROL_REG_ADDR_BASE_MAP = {
+constexpr std::array<std::pair<CoreType, uint64_t>, 6> NOC0_CONTROL_REG_ADDR_BASE_MAP = {
     {{CoreType::TENSIX, 0xFFB20000},
      {CoreType::ETH, 0xFFB20000},
      {CoreType::DRAM, 0x100080000},
      {CoreType::PCIE, 0xFFFB20000},
-     {CoreType::ARC, 0xFFFB20000}}};
-constexpr std::array<std::pair<CoreType, uint64_t>, 5> NOC1_CONTROL_REG_ADDR_BASE_MAP = {
+     {CoreType::ARC, 0xFFFB20000},
+     {CoreType::ROUTER_ONLY, 0xFFB20000}}};
+constexpr std::array<std::pair<CoreType, uint64_t>, 6> NOC1_CONTROL_REG_ADDR_BASE_MAP = {
     {{CoreType::TENSIX, 0xFFB30000},
      {CoreType::ETH, 0xFFB30000},
      {CoreType::DRAM, 0x100088000},
      {CoreType::PCIE, 0xFFFB30000},
-     {CoreType::ARC, 0xFFFB30000}}};
+     {CoreType::ARC, 0xFFFB30000},
+     {CoreType::ROUTER_ONLY, 0xFFB20000}}};
 static const uint64_t NOC_NODE_ID_OFFSET = 0x2C;
 
 static const size_t tensix_translated_coordinate_start_x = 18;
@@ -339,6 +341,8 @@ public:
 
     uint32_t get_dram_channel_0_y() const override { return wormhole::DRAM_CHANNEL_0_Y; }
 
+    uint32_t get_dram_banks_number() const override { return wormhole::NUM_DRAM_BANKS; }
+
     uint32_t get_broadcast_tlb_index() const override { return wormhole::BROADCAST_TLB_INDEX; }
 
     uint32_t get_dynamic_tlb_2m_base() const override { return wormhole::DYNAMIC_TLB_2M_BASE; }
@@ -384,6 +388,10 @@ public:
     const std::vector<uint32_t>& get_t6_x_locations() const override { return wormhole::T6_X_LOCATIONS; }
 
     const std::vector<uint32_t>& get_t6_y_locations() const override { return wormhole::T6_Y_LOCATIONS; }
+
+    const std::vector<std::vector<tt_xy_pair>>& get_dram_cores_noc0() const override {
+        return wormhole::DRAM_CORES_NOC0;
+    };
 
     std::pair<uint32_t, uint32_t> get_tlb_1m_base_and_count() const override {
         return {wormhole::TLB_BASE_1M, wormhole::TLB_COUNT_1M};

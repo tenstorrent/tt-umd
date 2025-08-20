@@ -526,14 +526,9 @@ bool WormholeTTDevice::wait_arc_post_reset(const uint32_t timeout_ms) {
         auto now = std::chrono::system_clock::now();
         auto elapsed_ms = std::chrono::duration_cast<std::chrono::milliseconds>(now - start).count();
         if (timeout_ms != 0 && elapsed_ms > timeout_ms) {
+            log_debug(LogSiliconDriver, "Post reset wait for ARC timed out after: {}", timeout_ms);
             return false;
         }
-
-        // Refresh register values
-        bar_read_arc_reset_scratch_status =
-            bar_read32(wormhole::ARC_APB_BAR0_XBAR_OFFSET_START + wormhole::ARC_RESET_SCRATCH_STATUS_OFFSET);
-        bar_read_arc_post_code = bar_read32(architecture_impl_->get_arc_reset_scratch_offset());
-        bar_read_arc_csm_pcie_dma_request = bar_read32(ARC_CSM_ARC_PCIE_DMA_REQUEST);
 
         // Handle known error/status codes
         switch (bar_read_arc_reset_scratch_status) {
@@ -587,7 +582,12 @@ bool WormholeTTDevice::wait_arc_post_reset(const uint32_t timeout_ms) {
         if ((bar_read_arc_reset_scratch_status & STATUS_MESSAGE_COMPLETE_MASK) > STATUS_MESSAGE_COMPLETE_MIN) {
             return true;
         }
-        // Default case - assume OK, continue waiting
+
+        // Refresh register values
+        bar_read_arc_reset_scratch_status =
+            bar_read32(wormhole::ARC_APB_BAR0_XBAR_OFFSET_START + wormhole::ARC_RESET_SCRATCH_STATUS_OFFSET);
+        bar_read_arc_post_code = bar_read32(architecture_impl_->get_arc_reset_scratch_offset());
+        bar_read_arc_csm_pcie_dma_request = bar_read32(ARC_CSM_ARC_PCIE_DMA_REQUEST);
     }
     return true;
 }

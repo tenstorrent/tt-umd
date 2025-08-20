@@ -92,6 +92,7 @@ void TopologyDiscovery::discover_remote_chips() {
             }
         }
     }
+
     while (!chips_to_discover.empty()) {
         auto it = chips_to_discover.begin();
         uint64_t current_chip_asic_id = it->first;
@@ -126,16 +127,10 @@ void TopologyDiscovery::discover_remote_chips() {
                 continue;
             }
 
-            chip->set_remote_transfer_ethernet_cores(active_eth_channels_per_chip.at(current_chip_asic_id));
-
             uint64_t remote_asic_id = get_remote_asic_id(chip, eth_core);
 
             if (discovered_chips.find(remote_asic_id) == discovered_chips.end()) {
-                std::unique_ptr<Chip> remote_chip = create_remote_chip(
-                    chip,
-                    eth_core,
-                    get_chip(remote_asic_id_to_mmio_chip_id.at(current_chip_asic_id)),
-                    active_eth_channels_per_chip.at(current_chip_asic_id));
+                std::unique_ptr<Chip> remote_chip = create_remote_chip(chip, eth_core);
 
                 chips_to_discover.emplace(remote_asic_id, std::move(remote_chip));
                 active_eth_channels_per_chip.emplace(remote_asic_id, std::set<uint32_t>());
@@ -152,6 +147,8 @@ void TopologyDiscovery::discover_remote_chips() {
             channel++;
         }
     }
+
+    patch_eth_connections();
 }
 
 void TopologyDiscovery::fill_cluster_descriptor_info() {
@@ -187,6 +184,7 @@ void TopologyDiscovery::fill_cluster_descriptor_info() {
 
         cluster_desc->noc_translation_enabled.insert({current_chip_id, chip->get_chip_info().noc_translation_enabled});
         cluster_desc->harvesting_masks_map.insert({current_chip_id, chip->get_chip_info().harvesting_masks});
+        cluster_desc->asic_locations.insert({current_chip_id, chip->get_tt_device()->get_chip_info().asic_location});
 
         if (is_using_eth_coords()) {
             if (!eth_coords.empty()) {
@@ -263,5 +261,7 @@ uint64_t TopologyDiscovery::get_asic_id(Chip* chip) {
 
     return chip->get_tt_device()->get_board_id();
 }
+
+void TopologyDiscovery::patch_eth_connections() {}
 
 }  // namespace tt::umd

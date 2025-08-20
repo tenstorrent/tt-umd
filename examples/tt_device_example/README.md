@@ -41,7 +41,6 @@ uint32_t value = device->bar_read32(address);
 
 // Initialize for full features
 device->init_tt_device();
-device->wait_arc_core_start();
 
 // Advanced operations now available
 uint32_t clock = device->get_clock();

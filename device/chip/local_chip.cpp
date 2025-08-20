@@ -29,7 +29,6 @@ std::unique_ptr<LocalChip> LocalChip::create(int pci_device_id, std::string sdes
     // Create TTDevice and make sure the arc is ready so we can read its telemetry.
     auto tt_device = TTDevice::create(pci_device_id);
     tt_device->init_tt_device();
-    tt_device->wait_arc_core_start();
 
     tt_SocDescriptor soc_descriptor;
     if (sdesc_path.empty()) {
@@ -38,13 +37,15 @@ std::unique_ptr<LocalChip> LocalChip::create(int pci_device_id, std::string sdes
             tt_device->get_arch(),
             tt_device->get_chip_info().noc_translation_enabled,
             tt_device->get_chip_info().harvesting_masks,
-            tt_device->get_chip_info().board_type);
+            tt_device->get_chip_info().board_type,
+            tt_device->get_chip_info().asic_location);
     } else {
         soc_descriptor = tt_SocDescriptor(
             sdesc_path,
             tt_device->get_chip_info().noc_translation_enabled,
             tt_device->get_chip_info().harvesting_masks,
-            tt_device->get_chip_info().board_type);
+            tt_device->get_chip_info().board_type,
+            tt_device->get_chip_info().asic_location);
     }
 
     return std::unique_ptr<tt::umd::LocalChip>(
@@ -56,7 +57,6 @@ std::unique_ptr<LocalChip> LocalChip::create(
     // Create TTDevice and make sure the arc is ready so we can read its telemetry.
     auto tt_device = TTDevice::create(pci_device_id);
     tt_device->init_tt_device();
-    tt_device->wait_arc_core_start();
 
     return std::unique_ptr<tt::umd::LocalChip>(
         new LocalChip(soc_descriptor, std::move(tt_device), num_host_mem_channels));
@@ -66,7 +66,7 @@ LocalChip::LocalChip(tt_SocDescriptor soc_descriptor, std::unique_ptr<TTDevice> 
     Chip(tt_device->get_chip_info(), soc_descriptor), tt_device_(std::move(tt_device)) {
     tlb_manager_ = std::make_unique<TLBManager>(tt_device_.get());
     sysmem_manager_ = std::make_unique<SysmemManager>(tlb_manager_.get(), num_host_mem_channels);
-    remote_communication_ = std::make_unique<RemoteCommunication>(this, sysmem_manager_.get());
+    remote_communication_ = std::make_unique<RemoteCommunication>(tt_device_.get(), sysmem_manager_.get());
     initialize_tlb_manager();
     wait_chip_to_be_ready();
     initialize_default_chip_mutexes();
@@ -370,14 +370,16 @@ void LocalChip::wait_for_non_mmio_flush() {
     // This is a local chip, so no need to flush remote communication.
 }
 
-void LocalChip::set_remote_transfer_ethernet_cores(const std::unordered_set<CoreCoord>& active_eth_cores) {
+void LocalChip::set_remote_transfer_ethernet_cores(const std::unordered_set<CoreCoord>& cores) {
     // Set cores to be used by the broadcast communication.
-    remote_communication_->set_remote_transfer_ethernet_cores(active_eth_cores);
+    remote_communication_->set_remote_transfer_ethernet_cores(
+        get_soc_descriptor().translate_coords_to_xy_pair(cores, CoordSystem::TRANSLATED));
 }
 
 void LocalChip::set_remote_transfer_ethernet_cores(const std::set<uint32_t>& channels) {
     // Set cores to be used by the broadcast communication.
-    remote_communication_->set_remote_transfer_ethernet_cores(channels);
+    remote_communication_->set_remote_transfer_ethernet_cores(
+        get_soc_descriptor().get_eth_xy_pairs_for_channels(channels, CoordSystem::TRANSLATED));
 }
 
 std::unique_lock<RobustMutex> LocalChip::acquire_mutex(std::string mutex_name, int pci_device_id) {

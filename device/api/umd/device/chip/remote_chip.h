@@ -18,12 +18,12 @@ public:
     static std::unique_ptr<RemoteChip> create(
         LocalChip* local_chip,
         eth_coord_t target_eth_coord,
-        std::unordered_set<CoreCoord>& remote_transfer_eth_cores,
+        std::unordered_set<CoreCoord> remote_transfer_eth_cores,
         std::string sdesc_path = "");
     static std::unique_ptr<RemoteChip> create(
         LocalChip* local_chip,
         eth_coord_t target_eth_coord,
-        std::unordered_set<CoreCoord>& remote_transfer_eth_cores,
+        std::unordered_set<CoreCoord> remote_transfer_eth_cores,
         tt_SocDescriptor soc_descriptor);
 
     bool is_mmio_capable() const override;

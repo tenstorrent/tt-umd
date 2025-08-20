@@ -215,6 +215,8 @@ public:
 
     virtual void wait_eth_core_training(const tt_xy_pair eth_core, const uint32_t timeout_ms = 60000) = 0;
 
+    void wait_dram_channel_training(const uint32_t dram_channel, const uint32_t timeout_ms = 60000);
+
     void bar_write32(uint32_t addr, uint32_t data);
 
     uint32_t bar_read32(uint32_t addr);
@@ -246,8 +248,6 @@ public:
     bool is_remote();
 
     virtual uint64_t get_arc_noc_base_address() const = 0;
-
-    virtual tt_xy_pair get_arc_core() const = 0;
 
     void init_tt_device();
 

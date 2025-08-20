@@ -228,18 +228,15 @@ std::optional<eth_coord_t> TopologyDiscoveryWormhole::get_remote_eth_coord(Chip*
     return eth_coord;
 }
 
-std::unique_ptr<RemoteChip> TopologyDiscoveryWormhole::create_remote_chip(
-    Chip* chip, tt_xy_pair eth_core, Chip* gateway_chip, std::set<uint32_t>& eth_channels_to_use) {
+std::unique_ptr<RemoteChip> TopologyDiscoveryWormhole::create_remote_chip(Chip* gateway_chip, CoreCoord eth_core) {
     if (is_running_on_6u) {
         return nullptr;
     }
 
     auto local_chip = dynamic_cast<LocalChip*>(gateway_chip);
-    auto eth_coord = get_remote_eth_coord(chip, eth_core);
-    std::unordered_set<CoreCoord> eth_cores_to_use =
-        local_chip->get_soc_descriptor().get_eth_cores_for_channels(eth_channels_to_use, CoordSystem::TRANSLATED);
+    auto eth_coord = get_remote_eth_coord(gateway_chip, eth_core);
 
-    return RemoteChip::create(local_chip, eth_coord.value(), eth_cores_to_use, sdesc_path);
+    return RemoteChip::create(local_chip, eth_coord.value(), {eth_core}, sdesc_path);
 }
 
 uint32_t TopologyDiscoveryWormhole::get_remote_eth_channel(Chip* chip, tt_xy_pair local_eth_core) {
@@ -263,7 +260,6 @@ void TopologyDiscoveryWormhole::init_topology_discovery() {
 
     std::unique_ptr<TTDevice> tt_device = TTDevice::create(pci_device_ids[0]);
     tt_device->init_tt_device();
-    tt_device->wait_arc_core_start();
     is_running_on_6u = tt_device->get_board_type() == BoardType::UBB;
     eth_addresses = TopologyDiscoveryWormhole::get_eth_addresses(
         tt_device->get_arc_telemetry_reader()->read_entry(wormhole::ETH_FW_VERSION));

@@ -56,7 +56,6 @@ int main(int argc, char* argv[]) {
 
         std::cout << "\n=== Now calling init_tt_device() ===" << std::endl;
         device->init_tt_device();
-        device->wait_arc_core_start();
 
         std::cout << "Clock: " << device->get_clock() << " MHz" << std::endl;
         std::cout << "Board ID: 0x" << std::hex << device->get_board_id() << std::dec << std::endl;

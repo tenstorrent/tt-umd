@@ -512,6 +512,12 @@ TEST(TestCluster, WarmReset) {
         GTEST_SKIP() << "No chips present on the system. Skipping test.";
     }
 
+    // Fix for VM's, which don't support reset properly
+    // ToDo: Fix once VM support is present
+    if (cluster->get_tt_device(0)->get_pci_device()->is_iommu_enabled()) {
+        GTEST_SKIP() << "Skipping test since IOMMU is enabled.";
+    }
+
     std::vector<uint8_t> data{1, 2, 3, 4, 5, 6, 7, 8};
     std::vector<uint8_t> zero_data(data.size(), 0);
     std::vector<uint8_t> readback_data(data.size(), 0);

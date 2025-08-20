@@ -96,15 +96,8 @@ inline const std::unordered_map<std::string_view, BoardType> board_type_name_map
     {"p300c", BoardType::P300},
 };
 
-struct BoardTypeHash {
-    std::size_t operator()(BoardType bt) const noexcept {
-        using Underlying = std::underlying_type_t<BoardType>;
-        return std::hash<Underlying>{}(static_cast<Underlying>(bt));
-    }
-};
-
 // Mapping from BoardType to canonical string name (keeps historical casing like "GALAXY").
-inline const std::unordered_map<BoardType, std::string_view, BoardTypeHash> board_type_canonical_name_map = {
+inline const std::unordered_map<BoardType, std::string_view> board_type_canonical_name_map = {
     {BoardType::E75, "e75"},
     {BoardType::E150, "e150"},
     {BoardType::E300, "e300"},

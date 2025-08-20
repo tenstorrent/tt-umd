@@ -92,6 +92,7 @@ void TopologyDiscovery::discover_remote_chips() {
             }
         }
     }
+
     while (!chips_to_discover.empty()) {
         auto it = chips_to_discover.begin();
         uint64_t current_chip_asic_id = it->first;
@@ -146,6 +147,8 @@ void TopologyDiscovery::discover_remote_chips() {
             channel++;
         }
     }
+
+    patch_eth_connections();
 }
 
 void TopologyDiscovery::fill_cluster_descriptor_info() {
@@ -181,6 +184,7 @@ void TopologyDiscovery::fill_cluster_descriptor_info() {
 
         cluster_desc->noc_translation_enabled.insert({current_chip_id, chip->get_chip_info().noc_translation_enabled});
         cluster_desc->harvesting_masks_map.insert({current_chip_id, chip->get_chip_info().harvesting_masks});
+        cluster_desc->asic_locations.insert({current_chip_id, chip->get_tt_device()->get_chip_info().asic_location});
 
         if (is_using_eth_coords()) {
             if (!eth_coords.empty()) {
@@ -257,5 +261,7 @@ uint64_t TopologyDiscovery::get_asic_id(Chip* chip) {
 
     return chip->get_tt_device()->get_board_id();
 }
+
+void TopologyDiscovery::patch_eth_connections() {}
 
 }  // namespace tt::umd

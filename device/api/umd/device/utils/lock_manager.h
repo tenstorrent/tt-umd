@@ -28,6 +28,8 @@ enum class MutexType {
     MEM_BARRIER,
     // Used for calling CEM tool.
     CREATE_ETH_MAP,
+    // Used to enable DPRINT usage in the Simulator.
+    TT_SIMULATOR,
 };
 
 // Note that the returned std::unique_lock<RobustMutex> should never outlive the LockManager which holds underlying

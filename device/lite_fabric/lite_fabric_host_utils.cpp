@@ -12,15 +12,6 @@
 #include "umd/device/lite_fabric/lite_fabric.h"
 
 namespace {
-uint32_t get_state_address_metal() {
-    // uint32_t state_addr =
-    //     tt::tt_metal::MetalContext::instance().hal().get_dev_addr(
-    //         tt::tt_metal::HalProgrammableCoreType::ACTIVE_ETH, tt::tt_metal::HalL1MemAddrType::FABRIC_LITE_CONFIG) +
-    //     offsetof(lite_fabric::LiteFabricMemoryMap, config) + offsetof(lite_fabric::LiteFabricConfig, current_state);
-    uint32_t state_addr = 0;
-    return state_addr;
-}
-
 uint32_t get_state_address() {
     return MEM_LITE_FABRIC_CONFIG_BASE + offsetof(tt::umd::lite_fabric::LiteFabricConfig, current_state);
 }
@@ -132,8 +123,10 @@ void wait_for_state(Chip* chip, CoreCoord eth_core, uint32_t addr, InitState sta
 }
 
 void launch_lite_fabric(Chip* chip, const std::vector<CoreCoord>& eth_cores) {
-    constexpr uint32_t k_FirmwareStart = MEM_LITE_FABRIC_FIRMWARE_BASE;
+    std::cout << "launch_lite_fabric" << std::endl;
+    constexpr uint32_t k_FirmwareStart = 0x3520;
     constexpr uint32_t k_PcResetAddress = MEM_LITE_FABRIC_RESET_PC;
+    // constexpr uint32_t k_PcResetAddress = 0x3520;
 
     LiteFabricConfig config{};
     config.is_primary = true;
@@ -143,7 +136,8 @@ void launch_lite_fabric(Chip* chip, const std::vector<CoreCoord>& eth_cores) {
     config.binary_addr = 0;
     config.binary_size = 0;
 
-    config.eth_chans_mask = get_eth_channel_mask(chip, eth_cores);
+    config.eth_chans_mask = 4080;
+    // config.eth_chans_mask = get_eth_channel_mask(chip, eth_cores);
     // config.eth_chans_mask = desc.enabled_eth_channels.at(0);
 
     config.routing_enabled = true;
@@ -151,45 +145,64 @@ void launch_lite_fabric(Chip* chip, const std::vector<CoreCoord>& eth_cores) {
     // Need an abstraction layer for Lite Fabric
     auto config_addr = MEM_LITE_FABRIC_CONFIG_BASE;
 
+    std::cout << "here" << std::endl;
+
     for (const auto& tunnel_1x : eth_cores) {
         set_reset_state(chip, tunnel_1x, true);
         set_pc(chip, tunnel_1x, k_PcResetAddress, k_FirmwareStart);
 
         auto lite_fabric_hex = get_kernel_from_hex("lite_fabric.hex");
 
+        std::cout << "lite_fabric_hex.size(): " << lite_fabric_hex.size() << std::endl;
+
         // const ll_api::memory& bin = ll_api::memory(elf_path.string(), ll_api::memory::Loading::DISCRETE);
 
         auto local_init = MEM_LITE_FABRIC_INIT_LOCAL_L1_BASE_SCRATCH;
 
-        auto lambda_fabric = [&](std::vector<uint32_t>::const_iterator mem_ptr, uint64_t addr, uint32_t len_words) {
-            // Move data from private memory into L1 to be copied into private memory during kernel init
-            uint32_t relo_addr = relocate_dev_addr(addr, local_init);
-            if (relo_addr != addr) {
-                // Local memory relocated to L1 for copying in kernel init
-                chip->write_to_device(tunnel_1x, &*mem_ptr, relo_addr, len_words * sizeof(uint32_t));
-                log_info(
-                    LogSiliconDriver,
-                    "Writing local memory to {:#x} -> reloc {:#x} size {} B",
-                    addr,
-                    relo_addr,
-                    len_words * sizeof(uint32_t));
-            } else {
-                config.binary_addr = relo_addr;
-                config.binary_size = len_words * sizeof(uint32_t);
-                config.binary_size = (config.binary_size + 15) & ~0xF;
+        config.binary_addr = k_FirmwareStart;
+        config.binary_size = lite_fabric_hex.size();
+        config.binary_size = (config.binary_size + 15) & ~0xF;
 
-                chip->write_to_device(tunnel_1x, (void*)&config, config_addr, sizeof(lite_fabric::LiteFabricConfig));
+        chip->write_to_device(tunnel_1x, (void*)&config, config_addr, sizeof(lite_fabric::LiteFabricConfig));
 
-                log_info(
-                    LogSiliconDriver,
-                    "Writing binary to {:#x} -> reloc {:#x} size {} B",
-                    addr,
-                    relo_addr,
-                    len_words * sizeof(uint32_t));
+        // log_info(
+        //     LogSiliconDriver,
+        //     "Writing binary to {:#x} -> reloc {:#x} size {} B",
+        //     addr,
+        //     k_FirmwareStart,
+        //     len_words * sizeof(uint32_t));
 
-                chip->write_to_device(tunnel_1x, &*mem_ptr, relo_addr, len_words * sizeof(uint32_t));
-            }
-        };
+        chip->write_to_device(tunnel_1x, lite_fabric_hex.data(), k_FirmwareStart, lite_fabric_hex.size());
+
+        // auto lambda_fabric = [&](std::vector<uint32_t>::const_iterator mem_ptr, uint64_t addr, uint32_t len_words) {
+        //     // Move data from private memory into L1 to be copied into private memory during kernel init
+        //     uint32_t relo_addr = relocate_dev_addr(addr, local_init);
+        //     if (relo_addr != addr) {
+        //         // Local memory relocated to L1 for copying in kernel init
+        //         chip->write_to_device(tunnel_1x, &*mem_ptr, relo_addr, len_words * sizeof(uint32_t));
+        //         log_info(
+        //             LogSiliconDriver,
+        //             "Writing local memory to {:#x} -> reloc {:#x} size {} B",
+        //             addr,
+        //             relo_addr,
+        //             len_words * sizeof(uint32_t));
+        //     } else {
+        //         config.binary_addr = relo_addr;
+        //         config.binary_size = len_words * sizeof(uint32_t);
+        //         config.binary_size = (config.binary_size + 15) & ~0xF;
+
+        //         chip->write_to_device(tunnel_1x, (void*)&config, config_addr, sizeof(lite_fabric::LiteFabricConfig));
+
+        //         log_info(
+        //             LogSiliconDriver,
+        //             "Writing binary to {:#x} -> reloc {:#x} size {} B",
+        //             addr,
+        //             relo_addr,
+        //             len_words * sizeof(uint32_t));
+
+        //         chip->write_to_device(tunnel_1x, &*mem_ptr, relo_addr, len_words * sizeof(uint32_t));
+        //     }
+        // };
 
         // TODO(pjanevski): figure out this call
         // lambda_fabric(lite_fabric_hex.begin(), local_init, lite_fabric_hex.size());
@@ -204,19 +217,21 @@ void launch_lite_fabric(Chip* chip, const std::vector<CoreCoord>& eth_cores) {
         //     config.binary_size);
     }
 
-    chip->l1_membar();
+    
+
+    // chip->l1_membar();
 
     for (auto tunnel_1x : eth_cores) {
         set_reset_state(chip, tunnel_1x, false);
     }
 
-    chip->l1_membar();
+    // chip->l1_membar();
 
     // Wait for ready
-    for (auto tunnel_1x : eth_cores) {
-        wait_for_state(chip, tunnel_1x, get_state_address(), InitState::READY);
-        log_info(LogSiliconDriver, "Lite Fabric ready on core (translated={}, {})", tunnel_1x.x, tunnel_1x.y);
-    }
+    // for (auto tunnel_1x : eth_cores) {
+    //     wait_for_state(chip, tunnel_1x, get_state_address(), InitState::READY);
+    //     log_info(LogSiliconDriver, "Lite Fabric ready on core (translated={}, {})", tunnel_1x.x, tunnel_1x.y);
+    // }
 }
 
 void terminate_lite_fabric(Chip* chip, const std::vector<CoreCoord>& eth_cores) {

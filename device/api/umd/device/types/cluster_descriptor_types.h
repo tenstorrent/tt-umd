@@ -14,7 +14,8 @@
 #include <optional>
 #include <string>
 #include <string_view>
-#include <array>
+#include <unordered_map>
+#include <type_traits>
 
 #include "fmt/core.h"
 #include "umd/device/semver.hpp"
@@ -78,41 +79,54 @@ struct eth_coord_t {
     }
 };
 
-// Centralized bidirectional mapping between BoardType and all accepted string representations.
-// Canonical strings match historical serialization output (note: "GALAXY" is uppercase).
-struct BoardTypeNameEntry {
-    BoardType type;
-    const char *name;
-    bool is_canonical;
+// Centralized mapping from lowercase name (including aliases) to BoardType for fast lookup.
+inline const std::unordered_map<std::string_view, BoardType> board_type_name_map = {
+    // Canonical forms (stored in lowercase for case-insensitive lookup)
+    {"e75", BoardType::E75},
+    {"e150", BoardType::E150},
+    {"e300", BoardType::E300},
+    {"n150", BoardType::N150},
+    {"n300", BoardType::N300},
+    {"p100", BoardType::P100},
+    {"p150", BoardType::P150},
+    {"p300", BoardType::P300},
+    {"GALAXY", BoardType::GALAXY},
+    {"ubb", BoardType::UBB},
+    {"unknown", BoardType::UNKNOWN},
+    // Aliases (input only)
+    {"p150a", BoardType::P150},
+    {"p150c", BoardType::P150},
+    {"p300a", BoardType::P300},
+    {"p300c", BoardType::P300},
 };
 
-inline constexpr std::array<BoardTypeNameEntry, 15> board_type_name_entries = {{
-    // Canonical forms
-    {BoardType::E75, "e75", true},
-    {BoardType::E150, "e150", true},
-    {BoardType::E300, "e300", true},
-    {BoardType::N150, "n150", true},
-    {BoardType::N300, "n300", true},
-    {BoardType::P100, "p100", true},
-    {BoardType::P150, "p150", true},
-    {BoardType::P300, "p300", true},
-    {BoardType::GALAXY, "GALAXY", true},
-    {BoardType::UBB, "ubb", true},
-    {BoardType::UNKNOWN, "unknown", true},
-    // Aliases (input only)
-    {BoardType::P150, "p150A", false},
-    {BoardType::P150, "p150C", false},
-    {BoardType::P300, "p300A", false},
-    {BoardType::P300, "p300C", false},
-}};
+struct BoardTypeHash {
+    std::size_t operator()(BoardType bt) const noexcept {
+        using Underlying = std::underlying_type_t<BoardType>;
+        return std::hash<Underlying>{}(static_cast<Underlying>(bt));
+    }
+};
+
+// Mapping from BoardType to canonical string name (keeps historical casing like "GALAXY").
+inline const std::unordered_map<BoardType, std::string_view, BoardTypeHash> board_type_canonical_name_map = {
+    {BoardType::E75, "e75"},
+    {BoardType::E150, "e150"},
+    {BoardType::E300, "e300"},
+    {BoardType::N150, "n150"},
+    {BoardType::N300, "n300"},
+    {BoardType::P100, "p100"},
+    {BoardType::P150, "p150"},
+    {BoardType::P300, "p300"},
+    {BoardType::GALAXY, "GALAXY"},
+    {BoardType::UBB, "ubb"},
+    {BoardType::UNKNOWN, "unknown"},
+};
 
 inline std::string board_type_to_string(const BoardType board_type) {
-    for (const auto &entry : board_type_name_entries) {
-        if (entry.type == board_type && entry.is_canonical) {
-            return entry.name;
-        }
+    if (auto it = board_type_canonical_name_map.find(board_type); it != board_type_canonical_name_map.end()) {
+        return std::string(it->second);
     }
-    throw std::runtime_error("Unknown board type passed for conversion to string.");
+    throw std::runtime_error("Unknown board type passed for conversion to string.") ;
 }
 
 inline std::optional<BoardType> board_type_from_string(std::string_view board_type_str) {
@@ -127,11 +141,8 @@ inline std::optional<BoardType> board_type_from_string(std::string_view board_ty
 
     const std::string lowered = to_lower(board_type_str);
 
-    for (const auto &entry : board_type_name_entries) {
-        const std::string name_lower = to_lower(entry.name);
-        if (lowered == name_lower) {
-            return entry.type;
-        }
+    if (auto it = board_type_name_map.find(lowered); it != board_type_name_map.end()) {
+        return it->second;
     }
 
     return std::nullopt;
@@ -268,3 +279,4 @@ struct hash<tt::umd::eth_coord_t> {
 };
 
 }  // namespace std
+

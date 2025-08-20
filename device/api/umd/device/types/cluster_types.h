@@ -12,8 +12,8 @@
 
 #include "fmt/core.h"
 
-// TODO: To me moved inside tt::umd namespace once all clients switch to namespace usage.
-struct device_params {
+// TODO: To me moved inside tt::umd namespace and renamed to device_params once all clients switch to namespace usage.
+struct tt_device_params {
     bool register_monitor = false;
     bool enable_perf_scoreboard = false;
     std::vector<std::string> vcd_dump_cores;
@@ -227,7 +227,7 @@ struct hugepage_mapping {
 
 // TODO: To be removed once clients switch to namespace usage.
 namespace tt::umd {
-using device_params = ::device_params;
+using device_params = ::tt_device_params;
 }
 
 using tt::umd::barrier_address_params;

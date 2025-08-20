@@ -29,6 +29,7 @@ enum BoardType : uint32_t {
     P300,
     GALAXY,
     UBB,
+    QUASAR,
     UNKNOWN,
 };
 
@@ -88,6 +89,7 @@ inline const std::unordered_map<std::string_view, BoardType> board_type_name_map
     {"p300", BoardType::P300},
     {"galaxy", BoardType::GALAXY},
     {"ubb", BoardType::UBB},
+    {"quasar", BoardType::QUASAR},
     {"unknown", BoardType::UNKNOWN},
     // Aliases (input only)
     {"p150a", BoardType::P150},
@@ -108,6 +110,7 @@ inline const std::unordered_map<BoardType, std::string_view> board_type_canonica
     {BoardType::P300, "p300"},
     {BoardType::GALAXY, "galaxy"},
     {BoardType::UBB, "ubb"},
+    {BoardType::QUASAR, "quasar"},
     {BoardType::UNKNOWN, "unknown"},
 };
 

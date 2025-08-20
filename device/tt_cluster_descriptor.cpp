@@ -877,10 +877,8 @@ void tt_ClusterDescriptor::load_chips_from_connectivity_descriptor(YAML::Node &y
         for (const auto &yaml_chip_board_type : yaml["chip_to_boardtype"].as<std::map<int, std::string>>()) {
             auto &chip = yaml_chip_board_type.first;
             const std::string &board_type_str = yaml_chip_board_type.second;
-            BoardType board_type = BoardType::UNKNOWN;
-            if (auto maybe_board = board_type_from_string(board_type_str)) {
-                board_type = *maybe_board;
-            } else {
+            BoardType board_type = board_type_from_string(board_type_str);
+            if (board_type == BoardType::UNKNOWN) {
                 log_warning(
                     LogSiliconDriver,
                     "Unknown board type for chip {}. This might happen because chip is running old firmware. "

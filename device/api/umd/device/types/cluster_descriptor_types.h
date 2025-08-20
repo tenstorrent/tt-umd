@@ -86,7 +86,7 @@ inline const std::unordered_map<std::string_view, BoardType> board_type_name_map
     {"p100", BoardType::P100},
     {"p150", BoardType::P150},
     {"p300", BoardType::P300},
-    {"GALAXY", BoardType::GALAXY},
+    {"galaxy", BoardType::GALAXY},
     {"ubb", BoardType::UBB},
     {"unknown", BoardType::UNKNOWN},
     // Aliases (input only)
@@ -113,7 +113,7 @@ inline const std::unordered_map<BoardType, std::string_view, BoardTypeHash> boar
     {BoardType::P100, "p100"},
     {BoardType::P150, "p150"},
     {BoardType::P300, "p300"},
-    {BoardType::GALAXY, "GALAXY"},
+    {BoardType::GALAXY, "galaxy"},
     {BoardType::UBB, "ubb"},
     {BoardType::UNKNOWN, "unknown"},
 };
@@ -125,7 +125,7 @@ inline std::string board_type_to_string(const BoardType board_type) {
     throw std::runtime_error("Unknown board type passed for conversion to string.");
 }
 
-inline std::optional<BoardType> board_type_from_string(std::string_view board_type_str) {
+inline BoardType board_type_from_string(std::string_view board_type_str) {
     auto to_lower = [](std::string_view s) {
         std::string out;
         out.reserve(s.size());
@@ -141,7 +141,7 @@ inline std::optional<BoardType> board_type_from_string(std::string_view board_ty
         return it->second;
     }
 
-    return std::nullopt;
+    return BoardType::UNKNOWN;
 }
 
 // We have two ways BH chips are connected to the rest of the system, either one of the two PCI cores can be active.

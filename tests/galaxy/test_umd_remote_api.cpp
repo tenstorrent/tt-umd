@@ -12,7 +12,7 @@
 #include "tests/test_utils/generate_cluster_desc.hpp"
 #include "tests/wormhole/test_wh_common.h"
 #include "umd/device/cluster.h"
-#include "umd/device/cluster_descriptor.h"
+#include "umd/device/tt_cluster_descriptor.h"
 #include "wormhole/eth_interface.h"
 #include "wormhole/host_mem_address_map.h"
 #include "wormhole/l1_address_map.h"
@@ -281,7 +281,7 @@ TEST(GalaxyDataMovement, BroadcastData1) {
     std::vector<tt_multichip_core_addr> receiver_cores;
 
     for (const CoreCoord& core : sdesc.get_cores(CoreType::TENSIX)) {
-        receiver_cores.push_back(multichip_core_addr(5, core, 0x6000));
+        receiver_cores.push_back(tt_multichip_core_addr(5, core, 0x6000));
     }
     run_data_broadcast_test(100, sender_core, receiver_cores);
 }
@@ -293,22 +293,38 @@ TEST(GalaxyDataMovement, BroadcastData2) {
     tt_multichip_core_addr sender_core(12, CoreCoord(1, 1, CoreType::TENSIX, CoordSystem::VIRTUAL), 0x5000);
     std::vector<tt_multichip_core_addr> receiver_cores;
 
-    receiver_cores.push_back(multichip_core_addr(1, CoreCoord(2, 2, CoreType::TENSIX, CoordSystem::VIRTUAL), 0x6000));
-    receiver_cores.push_back(multichip_core_addr(2, CoreCoord(2, 3, CoreType::TENSIX, CoordSystem::VIRTUAL), 0x6000));
-    receiver_cores.push_back(multichip_core_addr(3, CoreCoord(2, 4, CoreType::TENSIX, CoordSystem::VIRTUAL), 0x6000));
-    receiver_cores.push_back(multichip_core_addr(4, CoreCoord(2, 5, CoreType::TENSIX, CoordSystem::VIRTUAL), 0x6000));
-    receiver_cores.push_back(multichip_core_addr(5, CoreCoord(2, 5, CoreType::TENSIX, CoordSystem::VIRTUAL), 0x6000));
-    receiver_cores.push_back(multichip_core_addr(6, CoreCoord(2, 5, CoreType::TENSIX, CoordSystem::VIRTUAL), 0x6000));
-    receiver_cores.push_back(multichip_core_addr(7, CoreCoord(2, 5, CoreType::TENSIX, CoordSystem::VIRTUAL), 0x6000));
-    receiver_cores.push_back(multichip_core_addr(8, CoreCoord(2, 5, CoreType::TENSIX, CoordSystem::VIRTUAL), 0x6000));
-    receiver_cores.push_back(multichip_core_addr(9, CoreCoord(2, 5, CoreType::TENSIX, CoordSystem::VIRTUAL), 0x6000));
-    receiver_cores.push_back(multichip_core_addr(10, CoreCoord(2, 5, CoreType::TENSIX, CoordSystem::VIRTUAL), 0x6000));
-    receiver_cores.push_back(multichip_core_addr(11, CoreCoord(2, 5, CoreType::TENSIX, CoordSystem::VIRTUAL), 0x6000));
-    receiver_cores.push_back(multichip_core_addr(12, CoreCoord(2, 5, CoreType::TENSIX, CoordSystem::VIRTUAL), 0x6000));
-    receiver_cores.push_back(multichip_core_addr(13, CoreCoord(2, 5, CoreType::TENSIX, CoordSystem::VIRTUAL), 0x6000));
-    receiver_cores.push_back(multichip_core_addr(14, CoreCoord(2, 5, CoreType::TENSIX, CoordSystem::VIRTUAL), 0x6000));
-    receiver_cores.push_back(multichip_core_addr(15, CoreCoord(2, 5, CoreType::TENSIX, CoordSystem::VIRTUAL), 0x6000));
-    receiver_cores.push_back(multichip_core_addr(16, CoreCoord(2, 5, CoreType::TENSIX, CoordSystem::VIRTUAL), 0x6000));
+    receiver_cores.push_back(
+        tt_multichip_core_addr(1, CoreCoord(2, 2, CoreType::TENSIX, CoordSystem::VIRTUAL), 0x6000));
+    receiver_cores.push_back(
+        tt_multichip_core_addr(2, CoreCoord(2, 3, CoreType::TENSIX, CoordSystem::VIRTUAL), 0x6000));
+    receiver_cores.push_back(
+        tt_multichip_core_addr(3, CoreCoord(2, 4, CoreType::TENSIX, CoordSystem::VIRTUAL), 0x6000));
+    receiver_cores.push_back(
+        tt_multichip_core_addr(4, CoreCoord(2, 5, CoreType::TENSIX, CoordSystem::VIRTUAL), 0x6000));
+    receiver_cores.push_back(
+        tt_multichip_core_addr(5, CoreCoord(2, 5, CoreType::TENSIX, CoordSystem::VIRTUAL), 0x6000));
+    receiver_cores.push_back(
+        tt_multichip_core_addr(6, CoreCoord(2, 5, CoreType::TENSIX, CoordSystem::VIRTUAL), 0x6000));
+    receiver_cores.push_back(
+        tt_multichip_core_addr(7, CoreCoord(2, 5, CoreType::TENSIX, CoordSystem::VIRTUAL), 0x6000));
+    receiver_cores.push_back(
+        tt_multichip_core_addr(8, CoreCoord(2, 5, CoreType::TENSIX, CoordSystem::VIRTUAL), 0x6000));
+    receiver_cores.push_back(
+        tt_multichip_core_addr(9, CoreCoord(2, 5, CoreType::TENSIX, CoordSystem::VIRTUAL), 0x6000));
+    receiver_cores.push_back(
+        tt_multichip_core_addr(10, CoreCoord(2, 5, CoreType::TENSIX, CoordSystem::VIRTUAL), 0x6000));
+    receiver_cores.push_back(
+        tt_multichip_core_addr(11, CoreCoord(2, 5, CoreType::TENSIX, CoordSystem::VIRTUAL), 0x6000));
+    receiver_cores.push_back(
+        tt_multichip_core_addr(12, CoreCoord(2, 5, CoreType::TENSIX, CoordSystem::VIRTUAL), 0x6000));
+    receiver_cores.push_back(
+        tt_multichip_core_addr(13, CoreCoord(2, 5, CoreType::TENSIX, CoordSystem::VIRTUAL), 0x6000));
+    receiver_cores.push_back(
+        tt_multichip_core_addr(14, CoreCoord(2, 5, CoreType::TENSIX, CoordSystem::VIRTUAL), 0x6000));
+    receiver_cores.push_back(
+        tt_multichip_core_addr(15, CoreCoord(2, 5, CoreType::TENSIX, CoordSystem::VIRTUAL), 0x6000));
+    receiver_cores.push_back(
+        tt_multichip_core_addr(16, CoreCoord(2, 5, CoreType::TENSIX, CoordSystem::VIRTUAL), 0x6000));
     run_data_broadcast_test(1000, sender_core, receiver_cores);
 }
 
@@ -319,10 +335,14 @@ TEST(GalaxyDataMovement, BroadcastData3) {
     tt_multichip_core_addr sender_core(10, CoreCoord(0, 0, CoreType::DRAM, CoordSystem::VIRTUAL), 0x20000);
     std::vector<tt_multichip_core_addr> receiver_cores;
 
-    receiver_cores.push_back(multichip_core_addr(5, CoreCoord(1, 8, CoreType::TENSIX, CoordSystem::VIRTUAL), 0x5000));
-    receiver_cores.push_back(multichip_core_addr(10, CoreCoord(1, 9, CoreType::TENSIX, CoordSystem::VIRTUAL), 0x6000));
-    receiver_cores.push_back(multichip_core_addr(15, CoreCoord(1, 10, CoreType::TENSIX, CoordSystem::VIRTUAL), 0x7000));
-    receiver_cores.push_back(multichip_core_addr(20, CoreCoord(1, 11, CoreType::TENSIX, CoordSystem::VIRTUAL), 0x8000));
+    receiver_cores.push_back(
+        tt_multichip_core_addr(5, CoreCoord(1, 8, CoreType::TENSIX, CoordSystem::VIRTUAL), 0x5000));
+    receiver_cores.push_back(
+        tt_multichip_core_addr(10, CoreCoord(1, 9, CoreType::TENSIX, CoordSystem::VIRTUAL), 0x6000));
+    receiver_cores.push_back(
+        tt_multichip_core_addr(15, CoreCoord(1, 10, CoreType::TENSIX, CoordSystem::VIRTUAL), 0x7000));
+    receiver_cores.push_back(
+        tt_multichip_core_addr(20, CoreCoord(1, 11, CoreType::TENSIX, CoordSystem::VIRTUAL), 0x8000));
     run_data_broadcast_test(2000, sender_core, receiver_cores);
 }
 
@@ -333,12 +353,13 @@ TEST(GalaxyDataMovement, BroadcastData4) {
     tt_multichip_core_addr sender_core(17, CoreCoord(8, 8, CoreType::TENSIX, CoordSystem::VIRTUAL), 0x20000);
     std::vector<tt_multichip_core_addr> receiver_cores;
 
-    receiver_cores.push_back(multichip_core_addr(21, CoreCoord(0, 1, CoreType::DRAM, CoordSystem::VIRTUAL), 0x5000));
-    receiver_cores.push_back(multichip_core_addr(22, CoreCoord(0, 6, CoreType::DRAM, CoordSystem::VIRTUAL), 0x6000));
-    receiver_cores.push_back(multichip_core_addr(23, CoreCoord(5, 1, CoreType::DRAM, CoordSystem::VIRTUAL), 0x7000));
-    receiver_cores.push_back(multichip_core_addr(24, CoreCoord(5, 9, CoreType::DRAM, CoordSystem::VIRTUAL), 0x8000));
-    receiver_cores.push_back(multichip_core_addr(25, CoreCoord(5, 4, CoreType::DRAM, CoordSystem::VIRTUAL), 0x9000));
-    receiver_cores.push_back(multichip_core_addr(26, CoreCoord(5, 6, CoreType::DRAM, CoordSystem::VIRTUAL), 0x10000));
+    receiver_cores.push_back(tt_multichip_core_addr(21, CoreCoord(0, 1, CoreType::DRAM, CoordSystem::VIRTUAL), 0x5000));
+    receiver_cores.push_back(tt_multichip_core_addr(22, CoreCoord(0, 6, CoreType::DRAM, CoordSystem::VIRTUAL), 0x6000));
+    receiver_cores.push_back(tt_multichip_core_addr(23, CoreCoord(5, 1, CoreType::DRAM, CoordSystem::VIRTUAL), 0x7000));
+    receiver_cores.push_back(tt_multichip_core_addr(24, CoreCoord(5, 9, CoreType::DRAM, CoordSystem::VIRTUAL), 0x8000));
+    receiver_cores.push_back(tt_multichip_core_addr(25, CoreCoord(5, 4, CoreType::DRAM, CoordSystem::VIRTUAL), 0x9000));
+    receiver_cores.push_back(
+        tt_multichip_core_addr(26, CoreCoord(5, 6, CoreType::DRAM, CoordSystem::VIRTUAL), 0x10000));
     run_data_broadcast_test(150, sender_core, receiver_cores);
 }
 
@@ -349,10 +370,10 @@ TEST(GalaxyDataMovement, BroadcastData5) {
     tt_multichip_core_addr sender_core(31, CoreCoord(2, 2, CoreType::TENSIX, CoordSystem::VIRTUAL), 0x20000);
     std::vector<tt_multichip_core_addr> receiver_cores;
 
-    receiver_cores.push_back(multichip_core_addr(21, CoreCoord(0, 1, CoreType::DRAM, CoordSystem::VIRTUAL), 0x5000));
-    receiver_cores.push_back(multichip_core_addr(30, CoreCoord(0, 6, CoreType::DRAM, CoordSystem::VIRTUAL), 0x6000));
-    receiver_cores.push_back(multichip_core_addr(11, CoreCoord(5, 1, CoreType::DRAM, CoordSystem::VIRTUAL), 0x7000));
-    receiver_cores.push_back(multichip_core_addr(17, CoreCoord(5, 9, CoreType::DRAM, CoordSystem::VIRTUAL), 0x8000));
+    receiver_cores.push_back(tt_multichip_core_addr(21, CoreCoord(0, 1, CoreType::DRAM, CoordSystem::VIRTUAL), 0x5000));
+    receiver_cores.push_back(tt_multichip_core_addr(30, CoreCoord(0, 6, CoreType::DRAM, CoordSystem::VIRTUAL), 0x6000));
+    receiver_cores.push_back(tt_multichip_core_addr(11, CoreCoord(5, 1, CoreType::DRAM, CoordSystem::VIRTUAL), 0x7000));
+    receiver_cores.push_back(tt_multichip_core_addr(17, CoreCoord(5, 9, CoreType::DRAM, CoordSystem::VIRTUAL), 0x8000));
     run_data_broadcast_test(2500, sender_core, receiver_cores);
 }
 

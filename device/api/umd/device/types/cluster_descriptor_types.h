@@ -10,12 +10,8 @@
 
 #include <cstdint>
 #include <functional>
-#include <cctype>
 #include <optional>
-#include <string>
-#include <string_view>
 #include <unordered_map>
-#include <type_traits>
 
 #include "fmt/core.h"
 #include "umd/device/semver.hpp"
@@ -126,7 +122,7 @@ inline std::string board_type_to_string(const BoardType board_type) {
     if (auto it = board_type_canonical_name_map.find(board_type); it != board_type_canonical_name_map.end()) {
         return std::string(it->second);
     }
-    throw std::runtime_error("Unknown board type passed for conversion to string.") ;
+    throw std::runtime_error("Unknown board type passed for conversion to string.");
 }
 
 inline std::optional<BoardType> board_type_from_string(std::string_view board_type_str) {
@@ -279,4 +275,3 @@ struct hash<tt::umd::eth_coord_t> {
 };
 
 }  // namespace std
-

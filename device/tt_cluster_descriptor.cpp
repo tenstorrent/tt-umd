@@ -883,7 +883,8 @@ void tt_ClusterDescriptor::load_chips_from_connectivity_descriptor(YAML::Node &y
             } else {
                 log_warning(
                     LogSiliconDriver,
-                    "Unknown board type for chip {}. This might happen because chip is running old firmware. Defaulting to UNKNOWN",
+                    "Unknown board type for chip {}. This might happen because chip is running old firmware. "
+                    "Defaulting to UNKNOWN",
                     chip);
             }
             chip_board_type.insert({chip, board_type});

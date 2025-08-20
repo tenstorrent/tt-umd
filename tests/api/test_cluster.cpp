@@ -518,6 +518,8 @@ TEST(TestCluster, DeassertResetBrisc) {
             // Zero out L1.
             cluster->write_to_device(zero_data.data(), zero_data.size(), chip_id, tensix_core, 0);
 
+            cluster->l1_membar(chip_id, {tensix_core});
+
             cluster->write_to_device(
                 simple_brisc_program.data(),
                 simple_brisc_program.size() * sizeof(uint32_t),

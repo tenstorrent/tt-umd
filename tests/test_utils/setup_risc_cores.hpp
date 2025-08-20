@@ -14,17 +14,13 @@ namespace test_utils {
 void setup_risc_cores_on_cluster(Cluster* cluster) {
     auto architecture = cluster->get_chip(0)->get_tt_device()->get_arch();
     std::array<uint32_t, 12> brisc_program_default{};
-    std::copy(
-        brisc_configuration_program_default.cbegin(),
-        brisc_configuration_program_default.cend(),
-        std::next(brisc_program_default.begin(), 1));
 
     switch (architecture) {
         case tt::ARCH::WORMHOLE_B0:
-            brisc_program_default[0] = WORMHOLE_BRISC_BASE_INSTRUCTION;
+            brisc_program_default = wh_brisc_configuration_program_default;
             break;
         case tt::ARCH::BLACKHOLE:
-            brisc_program_default[0] = BLACKHOLE_BRISC_BASE_INSTRUCTION;
+            brisc_program_default = bh_brisc_configuration_program_default;
             break;
         default:
             return;

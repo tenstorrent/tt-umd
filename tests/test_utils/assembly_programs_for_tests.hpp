@@ -141,14 +141,8 @@ inline constexpr std::array<uint32_t, 14> bh_brisc_configuration_program{
 };
 
 /*
-This program is architecture-agnostic and configures all RISC cores to execute an infinite loop
-at the same address (0x34 = 52 bytes from start of L1).
-
-The first instruction (lui a5, <base>) sets the architecture-specific base address:
-  - Wormhole (WH):  a5 = 0xFFEF'0000  (instruction: 0xffef07b7)
-  - Blackhole (BH): a5 = 0xFFB1'2000  (instruction: 0xffb127b7)
-
-All subsequent register offsets are calculated relative to this base address.
+This program configures all RISC cores to execute at the same address (0x34 = 52 bytes from start of L1)
+on Wormhole architecture.
 
 pseudo-source code:
     int main() {
@@ -176,9 +170,8 @@ pseudo-source code:
         while (true);
     }
 */
-inline constexpr std::array<uint32_t, 11> brisc_configuration_program_default{
-    // First instruction is architecture-specific and added at runtime:
-    // Wormhole: 0xffef07b7 (lui a5, 0xffef0)  |  Blackhole: 0xffb127b7 (lui a5, 0xffb12)
+inline constexpr std::array<uint32_t, 12> wh_brisc_configuration_program_default{
+    0xffef07b7,  // lui a5, 0xffef0
     0x00700713,  // li a4, 7
     0x28e7a223,  // sw a4, 644(a5)
     0x00100713,  // li a4, 1
@@ -192,6 +185,47 @@ inline constexpr std::array<uint32_t, 11> brisc_configuration_program_default{
     0x0000006f   // j .L2 (jump back to itself - infinite loop)
 };
 
-// Architecture-specific first instructions for brisc_configuration_program_default
-inline constexpr uint32_t WORMHOLE_BRISC_BASE_INSTRUCTION = 0xffef07b7;   // lui a5, 0xffef0
-inline constexpr uint32_t BLACKHOLE_BRISC_BASE_INSTRUCTION = 0xffb127b7;  // lui a5, 0xffb12
+/*
+This program configures all RISC cores to execute at the same address (0x34 = 52 bytes from start of L1)
+on Blackhole architecture.
+
+pseudo-source code:
+    int main() {
+        static constexpr unsigned int TRISC_RESET_PC_OVERRIDE_Reset_PC_Override_en {0xFFB1'2000 + 0x234};
+        static constexpr unsigned int NCRISC_RESET_PC_OVERRIDE_Reset_PC_Override_en {0xFFB1'2000 + 0x23C};
+        unsigned int* trisc_overrride_enable_reg_addr = (unsigned int*)TRISC_RESET_PC_OVERRIDE_Reset_PC_Override_en;
+        unsigned int* ncrisc_overrride_enable_reg_addr = (unsigned int*)NCRISC_RESET_PC_OVERRIDE_Reset_PC_Override_en;
+        *trisc_overrride_enable_reg_addr = 0xFFFF'FFFF & 0x0000'0007;
+        *ncrisc_overrride_enable_reg_addr = 0xFFFF'FFFF & 0x0000'0001;
+
+        static constexpr unsigned int TRISC_RESET_PC_SEC0_PC {0xFFB1'2000 + 0x228};
+        static constexpr unsigned int TRISC_RESET_PC_SEC1_PC {0xFFB1'2000 + 0x22C};
+        static constexpr unsigned int TRISC_RESET_PC_SEC2_PC {0xFFB1'2000 + 0x230};
+        static constexpr unsigned int NCRISC_RESET_PC_PC {0xFFB1'2000 + 0x238};
+        unsigned int* trisc0_code_start_reg_addr = (unsigned int*)TRISC_RESET_PC_SEC0_PC;
+        unsigned int* trisc1_code_start_reg_addr = (unsigned int*)TRISC_RESET_PC_SEC1_PC;
+        unsigned int* trisc2_code_start_reg_addr = (unsigned int*)TRISC_RESET_PC_SEC2_PC;
+        unsigned int* ncrisc_code_start_reg_addr = (unsigned int*)NCRISC_RESET_PC_PC;
+
+        *trisc0_code_start_reg_addr = 0x34;
+        *trisc1_code_start_reg_addr = 0x34;
+        *trisc2_code_start_reg_addr = 0x34;
+        *ncrisc_code_start_reg_addr = 0x34;
+
+        while (true);
+    }
+*/
+inline constexpr std::array<uint32_t, 12> bh_brisc_configuration_program_default{
+    0xffb127b7,  // lui    a5,0xffb12        ; a5 = 0xffb12000
+    0x00700713,  // li     a4,7              ; a4 = 7
+    0x22e7aa23,  // sw     a4,564(a5)        ; *(a5 + 564) = a4 (enable TRISC override)
+    0x00100713,  // li     a4,1              ; a4 = 1
+    0x22e7ae23,  // sw     a4,572(a5)        ; *(a5 + 572) = a4 (enable NCRISC override)
+    0x00078713,  // mv     a4,a5             ; a4 = a5 (copy base address)
+    0x03400793,  // li     a5,52             ; a5 = 0x34 (52 decimal)
+    0x22f72423,  // sw     a5,552(a4)        ; *(a4 + 552) = a5 (TRISC0 PC = 0x34)
+    0x22f72623,  // sw     a5,556(a4)        ; *(a4 + 556) = a5 (TRISC1 PC = 0x34)
+    0x22f72823,  // sw     a5,560(a4)        ; *(a4 + 560) = a5 (TRISC2 PC = 0x34)
+    0x22f72c23,  // sw     a5,568(a4)        ; *(a4 + 568) = a5 (NCRISC PC = 0x34)
+    0x0000006f   // jal    zero,0            ; infinite loop
+};

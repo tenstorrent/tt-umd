@@ -512,12 +512,6 @@ TEST(TestCluster, WarmReset) {
         GTEST_SKIP() << "No chips present on the system. Skipping test.";
     }
 
-    std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
-    // This is a hack because VM's have a problem wit warm reset and tt-smi reset
-    if (PCIDevice(pci_device_ids[0]).is_iommu_enabled() && (pci_device_ids.size() == 4)) {
-        GTEST_SKIP() << "Skipping test because vIOMMU can't perform warm reset successfully.";
-    }
-
     std::vector<uint8_t> data{1, 2, 3, 4, 5, 6, 7, 8};
     std::vector<uint8_t> zero_data(data.size(), 0);
     std::vector<uint8_t> readback_data(data.size(), 0);

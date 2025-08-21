@@ -11,7 +11,6 @@
 #include "umd/device/tt_device/remote_wormhole_tt_device.h"
 #include "umd/device/tt_device/tt_device.h"
 #include "umd/device/wormhole_implementation.h"
-
 using namespace tt::umd;
 
 TEST(ApiTTDeviceTest, BasicTTDeviceIO) {

@@ -6,14 +6,18 @@
 
 #pragma once
 
+#include <filesystem>
+#include <memory>
 #include <string_view>
 
 #include "umd/device/arc/arc_messenger.h"
 #include "umd/device/arc/arc_telemetry_reader.h"
 #include "umd/device/architecture_implementation.h"
 #include "umd/device/chip_helpers/tlb_manager.h"
+#include "umd/device/jtag/jtag_device.h"
 #include "umd/device/pci_device.hpp"
 #include "umd/device/types/cluster_descriptor_types.h"
+#include "umd/device/utils/lock_manager.h"
 
 namespace tt::umd {
 
@@ -41,10 +45,17 @@ public:
     static void use_noc1(bool use_noc1);
 
     /**
-     * Creates a proper TTDevice object for the given PCI device number.
+     * Creates a proper TTDevice object for the given device number.
+     * Jtag support can be enabled.
      */
-    static std::unique_ptr<TTDevice> create(int pci_device_number);
+    static std::unique_ptr<TTDevice> create(int device_number, IODeviceType device_type = IODeviceType::PCIe);
+
     TTDevice(std::shared_ptr<PCIDevice> pci_device, std::unique_ptr<architecture_implementation> architecture_impl);
+    TTDevice(
+        std::shared_ptr<JtagDevice> jtag_device,
+        uint8_t jlink_id,
+        std::unique_ptr<architecture_implementation> architecture_impl);
+
     virtual ~TTDevice();
 
     architecture_implementation *get_architecture_implementation();
@@ -253,8 +264,15 @@ public:
 
     uint64_t get_refclk_counter();
 
+    int get_communication_device_id() const;
+
+    IODeviceType get_communication_device_type() const;
+
 protected:
     std::shared_ptr<PCIDevice> pci_device_;
+    std::shared_ptr<JtagDevice> jtag_device_;
+    uint8_t jlink_id_;
+    IODeviceType communication_device_type_;
     std::unique_ptr<architecture_implementation> architecture_impl_;
     tt::ARCH arch;
     std::unique_ptr<ArcMessenger> arc_messenger_ = nullptr;

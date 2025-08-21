@@ -251,7 +251,7 @@ public:
 
     void init_tt_device();
 
-    virtual uint64_t get_refclk_counter() = 0;
+    uint64_t get_refclk_counter();
 
 protected:
     std::shared_ptr<PCIDevice> pci_device_;

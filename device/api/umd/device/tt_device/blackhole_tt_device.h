@@ -56,8 +56,6 @@ public:
 
     bool wait_arc_post_reset(const uint32_t timeout_ms) override;
 
-    uint64_t get_refclk_counter() override;
-
 protected:
     BlackholeTTDevice() = default;
 

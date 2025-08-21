@@ -43,6 +43,8 @@ public:
     virtual uint32_t get_arc_csm_mailbox_offset() const = 0;
     virtual uint32_t get_arc_reset_arc_misc_cntl_offset() const = 0;
     virtual uint32_t get_arc_reset_scratch_offset() const = 0;
+    virtual uint32_t get_arc_reset_unit_refclk_low_offset() const = 0;
+    virtual uint32_t get_arc_reset_unit_refclk_high_offset() const = 0;
     virtual uint32_t get_dram_channel_0_peer2peer_region_start() const = 0;
     virtual uint32_t get_dram_channel_0_x() const = 0;
     virtual uint32_t get_dram_channel_0_y() const = 0;

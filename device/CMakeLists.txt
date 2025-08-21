@@ -63,6 +63,7 @@ target_sources(
         arc/wormhole_arc_messenger.cpp
         arc/blackhole_arc_messenger.cpp
         arc/blackhole_arc_message_queue.cpp
+        warm_reset.cpp
         xy_pair.cpp
         utils/lock_manager.cpp
         utils/robust_mutex.cpp
@@ -112,6 +113,7 @@ if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.23)
                 api/umd/device/logging/config.h
                 api/umd/device/utils/lock_manager.h
                 api/umd/device/pci_device.hpp
+                api/umd/device/warm_reset.h
                 api/umd/device/semver.hpp
                 api/umd/device/utils/robust_mutex.h
                 api/umd/device/tt_cluster_descriptor.h

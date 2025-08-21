@@ -210,6 +210,18 @@ public:
 
     virtual ChipInfo get_chip_info() = 0;
 
+    /**
+     * Waits for ARC core hardware initialization after reset.
+     * Must be called after device reset and before init_tt_device().
+     * This ensures the ARC core hardware is ready for further initialization.
+     */
+    virtual bool wait_arc_post_reset(const uint32_t timeout_ms = 1000) = 0;
+
+    /**
+     * Waits for ARC core to be fully ready for communication.
+     * Must be called after init_tt_device() and before using ArcMessenger.
+     * This ensures the ARC core is completely initialized and operational.
+     */
     virtual void wait_arc_core_start(const uint32_t timeout_ms = 1000) = 0;
 
     virtual void wait_eth_core_training(const tt_xy_pair eth_core, const uint32_t timeout_ms = 60000) = 0;
@@ -249,6 +261,8 @@ public:
     virtual uint64_t get_arc_noc_base_address() const = 0;
 
     void init_tt_device();
+
+    uint64_t get_refclk_counter();
 
     int get_communication_device_id() const;
 

@@ -530,4 +530,15 @@ semver_t TTDevice::fw_version_from_telemetry(const uint32_t telemetry_data) cons
     return semver_t(major, minor, 0);
 }
 
+uint64_t TTDevice::get_refclk_counter() {
+    uint32_t high1_addr = 0, high2_addr = 0, low_addr = 0;
+    read_from_arc(&high1_addr, architecture_impl_->get_arc_reset_unit_refclk_high_offset(), sizeof(high1_addr));
+    read_from_arc(&low_addr, architecture_impl_->get_arc_reset_unit_refclk_low_offset(), sizeof(low_addr));
+    read_from_arc(&high1_addr, architecture_impl_->get_arc_reset_unit_refclk_high_offset(), sizeof(high1_addr));
+    if (high2_addr > high1_addr) {
+        read_from_arc(&low_addr, architecture_impl_->get_arc_reset_unit_refclk_low_offset(), sizeof(low_addr));
+    }
+    return (static_cast<uint64_t>(high2_addr) << 32) | low_addr;
+}
+
 }  // namespace tt::umd

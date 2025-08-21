@@ -249,6 +249,8 @@ static constexpr uint32_t ARC_RESET_SCRATCH_OFFSET = ARC_RESET_UNIT_OFFSET + 0x6
 static constexpr uint32_t ARC_RESET_SCRATCH_RES0_OFFSET = ARC_RESET_SCRATCH_OFFSET + 0xC;
 static constexpr uint32_t ARC_RESET_SCRATCH_RES1_OFFSET = ARC_RESET_SCRATCH_OFFSET + 0x10;
 static constexpr uint32_t ARC_RESET_SCRATCH_STATUS_OFFSET = ARC_RESET_SCRATCH_OFFSET + 0x14;
+static constexpr uint32_t ARC_RESET_REFCLK_LOW_OFFSET = ARC_RESET_UNIT_OFFSET + 0xE0;
+static constexpr uint32_t ARC_RESET_REFCLK_HIGH_OFFSET = ARC_RESET_UNIT_OFFSET + 0xE4;
 static constexpr uint32_t ARC_RESET_ARC_MISC_CNTL_OFFSET = ARC_RESET_UNIT_OFFSET + 0x0100;
 
 static constexpr uint32_t ARC_XBAR_ADDRESS_END = 0xFFFFFFFF;
@@ -333,6 +335,10 @@ public:
     uint32_t get_arc_reset_scratch_offset() const override {
         return wormhole::ARC_APB_BAR0_XBAR_OFFSET_START + wormhole::ARC_RESET_SCRATCH_OFFSET;
     }
+
+    uint32_t get_arc_reset_unit_refclk_low_offset() const override { return wormhole::ARC_RESET_REFCLK_LOW_OFFSET; }
+
+    uint32_t get_arc_reset_unit_refclk_high_offset() const override { return wormhole::ARC_RESET_REFCLK_HIGH_OFFSET; }
 
     uint32_t get_dram_channel_0_peer2peer_region_start() const override {
         return wormhole::DRAM_CHANNEL_0_PEER2PEER_REGION_START;

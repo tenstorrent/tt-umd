@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: Apache-2.0
 #include <thread>
 
+#include "device/api/umd/device/warm_reset.h"
 #include "gtest/gtest.h"
 #include "tests/test_utils/device_test_utils.hpp"
 #include "umd/device/blackhole_implementation.h"
@@ -67,7 +68,6 @@ TEST(ApiTTDeviceTest, TTDeviceMultipleThreadsIO) {
     for (int pci_device_id : pci_device_ids) {
         std::unique_ptr<TTDevice> tt_device = TTDevice::create(pci_device_id);
         tt_device->init_tt_device();
-
         ChipInfo chip_info = tt_device->get_chip_info();
 
         tt_SocDescriptor soc_desc(
@@ -108,6 +108,66 @@ TEST(ApiTTDeviceTest, TTDeviceMultipleThreadsIO) {
         thread0.join();
         thread1.join();
     }
+}
+
+TEST(ApiTTDeviceTest, TTDeviceWarmResetAfterNocHang) {
+    std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
+    if (pci_device_ids.empty()) {
+        GTEST_SKIP() << "No chips present on the system. Skipping test.";
+    }
+
+    // Fix for VM's, which don't support reset properly
+    // ToDo: Fix once VM support is present
+    if (PCIDevice(pci_device_ids[0]).is_iommu_enabled()) {
+        GTEST_SKIP() << "Skipping test since IOMMU is enabled.";
+    }
+
+    uint64_t address = 0x0;
+    std::vector<uint8_t> data{1, 2, 3, 4, 5, 6, 7, 8};
+    std::vector<uint8_t> zero_data(data.size(), 0);
+    std::vector<uint8_t> readback_data(data.size(), 0);
+
+    std::unique_ptr<TTDevice> tt_device = TTDevice::create(pci_device_ids.at(0));
+    tt_device->init_tt_device();
+
+    ChipInfo chip_info = tt_device->get_chip_info();
+
+    tt_SocDescriptor soc_desc(
+        tt_device->get_arch(), chip_info.noc_translation_enabled, chip_info.harvesting_masks, chip_info.board_type);
+
+    tt_xy_pair tensix_core = soc_desc.get_cores(CoreType::TENSIX, CoordSystem::TRANSLATED)[0];
+
+    // send to core 15, 15 which will hang the NOC
+    tt_device->write_to_device(data.data(), {15, 15}, address, data.size());
+
+    // TODO: Remove this check when it is figured out why there is no hang detected on Blackhole.
+    if (tt_device->get_arch() == tt::ARCH::WORMHOLE_B0) {
+        EXPECT_THROW(tt_device->detect_hang_read(), std::runtime_error);
+    }
+
+    WarmReset::warm_reset();
+
+    // After a warm reset, topology discovery must be performed to detect available chips.
+    // Creating a Cluster triggers this discovery process, which is why a Cluster is instantiated here,
+    // even though this is a TTDevice test.
+    auto cluster = std::make_unique<Cluster>();
+
+    EXPECT_FALSE(cluster->get_target_device_ids().empty()) << "No chips present after reset.";
+
+    EXPECT_NO_THROW(cluster->get_chip(0)->get_tt_device()->detect_hang_read());
+
+    tt_device.reset();
+
+    tt_device = TTDevice::create(pci_device_ids.at(0));
+    tt_device->init_tt_device();
+
+    tt_device->write_to_device(zero_data.data(), tensix_core, address, zero_data.size());
+
+    tt_device->write_to_device(data.data(), tensix_core, address, data.size());
+
+    tt_device->read_from_device(readback_data.data(), tensix_core, address, readback_data.size());
+
+    ASSERT_EQ(data, readback_data);
 }
 
 TEST(ApiTTDeviceTest, TestRemoteTTDevice) {

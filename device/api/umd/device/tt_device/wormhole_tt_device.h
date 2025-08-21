@@ -6,6 +6,7 @@
 
 #pragma once
 
+#include <cstdint>
 #include <memory>
 #include <mutex>
 
@@ -53,8 +54,9 @@ public:
 
     uint64_t get_arc_noc_base_address() const override;
 
-protected:
     tt_xy_pair get_arc_core() const;
+
+    bool wait_arc_post_reset(const uint32_t timeout_ms = 1000) override;
 
 private:
     void dma_d2h_transfer(const uint64_t dst, const uint32_t src, const size_t size);

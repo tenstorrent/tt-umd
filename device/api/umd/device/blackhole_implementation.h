@@ -209,6 +209,9 @@ static constexpr uint32_t AXI_RESET_OFFSET = TLB_BASE_2M + TENSIX_SM_TLB_INDEX *
 static constexpr uint32_t ARC_RESET_SCRATCH_OFFSET = AXI_RESET_OFFSET + 0x0060;
 static constexpr uint32_t ARC_RESET_ARC_MISC_CNTL_OFFSET = AXI_RESET_OFFSET + 0x0100;
 
+// Computed this value from AXI_RESET_OFFSET
+static constexpr uint32_t ARC_APB_BAR0_XBAR_OFFSET_START = 0x177D0000;
+
 // MT: This is no longer valid for Blackhole. Review messages to ARC
 static constexpr uint32_t ARC_CSM_OFFSET = 0x1FE80000;
 static constexpr uint32_t ARC_CSM_MAILBOX_OFFSET = ARC_CSM_OFFSET + 0x783C4;
@@ -223,6 +226,8 @@ static const uint32_t BH_NOC_NODE_ID_OFFSET = 0x1FD04044;
 constexpr uint64_t ARC_NOC_XBAR_ADDRESS_START = 0x80000000;
 
 static constexpr uint32_t ARC_RESET_UNIT_OFFSET = 0x30000;
+static constexpr uint32_t ARC_RESET_REFCLK_LOW_OFFSET = ARC_RESET_UNIT_OFFSET + 0xE0;
+static constexpr uint32_t ARC_RESET_REFCLK_HIGH_OFFSET = ARC_RESET_UNIT_OFFSET + 0xE4;
 
 // Register from which address of the ARC queue control block is read.
 constexpr uint32_t SCRATCH_RAM_11 = ARC_RESET_UNIT_OFFSET + 0x42C;
@@ -330,6 +335,10 @@ public:
     uint32_t get_arc_reset_arc_misc_cntl_offset() const override { return blackhole::ARC_RESET_ARC_MISC_CNTL_OFFSET; }
 
     uint32_t get_arc_reset_scratch_offset() const override { return blackhole::ARC_RESET_SCRATCH_OFFSET; }
+
+    uint32_t get_arc_reset_unit_refclk_low_offset() const override { return blackhole::ARC_RESET_REFCLK_LOW_OFFSET; }
+
+    uint32_t get_arc_reset_unit_refclk_high_offset() const override { return blackhole::ARC_RESET_REFCLK_HIGH_OFFSET; }
 
     uint32_t get_dram_channel_0_peer2peer_region_start() const override {
         return blackhole::DRAM_CHANNEL_0_PEER2PEER_REGION_START;

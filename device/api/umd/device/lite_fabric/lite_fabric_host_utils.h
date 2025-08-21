@@ -48,7 +48,9 @@ struct SystemDescriptor {
     std::vector<TunnelDescriptor> tunnels_from_mmio;
 };
 
-std::vector<uint8_t> get_kernel_from_hex(const std::filesystem::path& hex_path);
+std::vector<uint8_t> read_binary_file(const std::string& file_name);
+
+std::vector<uint32_t> read_binary_file_u32(const std::string& file_name);
 
 uint32_t get_eth_channel_mask(Chip* chip, const std::vector<CoreCoord>& eth_cores);
 

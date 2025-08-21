@@ -335,6 +335,10 @@ public:
         return wormhole::ARC_APB_BAR0_XBAR_OFFSET_START + wormhole::ARC_RESET_SCRATCH_OFFSET;
     }
 
+    uint32_t get_arc_reset_unit_refclk_low_offset() const override { return wormhole::ARC_RESET_REFCLK_LOW_OFFSET; }
+
+    uint32_t get_arc_reset_unit_refclk_high_offset() const override { return wormhole::ARC_RESET_REFCLK_HIGH_OFFSET; }
+
     uint32_t get_dram_channel_0_peer2peer_region_start() const override {
         return wormhole::DRAM_CHANNEL_0_PEER2PEER_REGION_START;
     }

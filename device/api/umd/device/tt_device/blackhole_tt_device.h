@@ -54,6 +54,10 @@ public:
 
     uint64_t get_arc_noc_base_address() const override;
 
+    bool wait_arc_post_reset(const uint32_t timeout_ms) override;
+
+    uint64_t get_refclk_counter() override;
+
 protected:
     BlackholeTTDevice() = default;
 

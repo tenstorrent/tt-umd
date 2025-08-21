@@ -204,7 +204,7 @@ public:
      * Must be called after device reset and before init_tt_device().
      * This ensures the ARC core hardware is ready for further initialization.
      */
-    virtual bool wait_arc_post_reset(const uint32_t timeout_ms = 1000);
+    virtual bool wait_arc_post_reset(const uint32_t timeout_ms = 1000) = 0;
 
     /**
      * Waits for ARC core to be fully ready for communication.
@@ -250,6 +250,8 @@ public:
     virtual uint64_t get_arc_noc_base_address() const = 0;
 
     void init_tt_device();
+
+    virtual uint64_t get_refclk_counter() = 0;
 
 protected:
     std::shared_ptr<PCIDevice> pci_device_;

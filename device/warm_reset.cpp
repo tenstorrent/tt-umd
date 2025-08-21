@@ -123,7 +123,7 @@ void WarmReset::warm_reset_wormhole(bool reset_m3) {
     refclk_values_old.reserve(pci_device_ids.size());
 
     for (const auto& tt_device : tt_devices) {
-        refclk_values_old.emplace_back(get_refclk_counter(tt_device.get()));
+        refclk_values_old.emplace_back(tt_device->get_refclk_counter());
     }
 
     std::vector<uint32_t> arc_msg_return_values(1);
@@ -148,7 +148,7 @@ void WarmReset::warm_reset_wormhole(bool reset_m3) {
     PCIDevice::reset_devices(TenstorrentResetDevice::RESTORE_STATE);
 
     for (const auto& tt_device : tt_devices) {
-        refclk_current.emplace_back(get_refclk_counter(tt_device.get()));
+        refclk_current.emplace_back(tt_device->get_refclk_counter());
     }
 
     for (int i = 0; i < refclk_values_old.size(); i++) {
@@ -166,20 +166,6 @@ void WarmReset::warm_reset_wormhole(bool reset_m3) {
     if (reset_ok) {
         log_info(tt::LogSiliconDriver, "Reset successfully completed.");
     }
-}
-
-uint64_t WarmReset::get_refclk_counter(TTDevice* tt_device) {
-    auto high1_addr =
-        tt_device->bar_read32(wormhole::ARC_APB_BAR0_XBAR_OFFSET_START + wormhole::ARC_RESET_REFCLK_HIGH_OFFSET);
-    auto low_addr =
-        tt_device->bar_read32(wormhole::ARC_APB_BAR0_XBAR_OFFSET_START + wormhole::ARC_RESET_REFCLK_LOW_OFFSET);
-    auto high2_addr =
-        tt_device->bar_read32(wormhole::ARC_APB_BAR0_XBAR_OFFSET_START + wormhole::ARC_RESET_REFCLK_HIGH_OFFSET);
-    if (high1_addr != high2_addr) {
-        low_addr =
-            tt_device->bar_read32(wormhole::ARC_APB_BAR0_XBAR_OFFSET_START + wormhole::ARC_RESET_REFCLK_LOW_OFFSET);
-    }
-    return (static_cast<uint64_t>(high2_addr) << 32) | low_addr;
 }
 
 }  // namespace tt::umd

@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: Apache-2.0
 #include "umd/device/tt_device/wormhole_tt_device.h"
 
+#include <cstdint>
 #include <tt-logger/tt-logger.hpp>
 
 #include "umd/device/coordinate_manager.h"
@@ -512,14 +513,7 @@ bool WormholeTTDevice::wait_arc_post_reset(const uint32_t timeout_ms) {
     constexpr uint32_t POST_CODE_ARC_TIME_LAST = 0xC0DE007F;
 
     // DMA request address
-    static constexpr uint64_t ARC_CSM_ARC_PCIE_DMA_REQUEST = 0x1fef84d4;
-
-    uint32_t bar_read_arc_reset_scratch_status =
-        bar_read32(wormhole::ARC_APB_BAR0_XBAR_OFFSET_START + wormhole::ARC_RESET_SCRATCH_STATUS_OFFSET);
-
-    uint32_t bar_read_arc_post_code = bar_read32(architecture_impl_->get_arc_reset_scratch_offset());
-
-    uint32_t bar_read_arc_csm_pcie_dma_request = bar_read32(ARC_CSM_ARC_PCIE_DMA_REQUEST);
+    constexpr uint64_t ARC_CSM_ARC_PCIE_DMA_REQUEST = 0x1fef84d4;
 
     auto start = std::chrono::system_clock::now();
     while (true) {
@@ -529,6 +523,11 @@ bool WormholeTTDevice::wait_arc_post_reset(const uint32_t timeout_ms) {
             log_debug(LogSiliconDriver, "Post reset wait for ARC timed out after: {}", timeout_ms);
             return false;
         }
+
+        uint32_t bar_read_arc_reset_scratch_status =
+            bar_read32(wormhole::ARC_APB_BAR0_XBAR_OFFSET_START + wormhole::ARC_RESET_SCRATCH_STATUS_OFFSET);
+        uint32_t bar_read_arc_post_code = bar_read32(architecture_impl_->get_arc_reset_scratch_offset());
+        uint32_t bar_read_arc_csm_pcie_dma_request = bar_read32(ARC_CSM_ARC_PCIE_DMA_REQUEST);
 
         // Handle known error/status codes
         switch (bar_read_arc_reset_scratch_status) {
@@ -582,14 +581,18 @@ bool WormholeTTDevice::wait_arc_post_reset(const uint32_t timeout_ms) {
         if ((bar_read_arc_reset_scratch_status & STATUS_MESSAGE_COMPLETE_MASK) > STATUS_MESSAGE_COMPLETE_MIN) {
             return true;
         }
-
-        // Refresh register values
-        bar_read_arc_reset_scratch_status =
-            bar_read32(wormhole::ARC_APB_BAR0_XBAR_OFFSET_START + wormhole::ARC_RESET_SCRATCH_STATUS_OFFSET);
-        bar_read_arc_post_code = bar_read32(architecture_impl_->get_arc_reset_scratch_offset());
-        bar_read_arc_csm_pcie_dma_request = bar_read32(ARC_CSM_ARC_PCIE_DMA_REQUEST);
     }
-    return true;
+}
+
+uint64_t WormholeTTDevice::get_refclk_counter() {
+    uint32_t high1_addr = 0, high2_addr = 0, low_addr = 0;
+    read_from_arc(&high1_addr, architecture_impl_->get_arc_reset_unit_refclk_high_offset(), sizeof(high1_addr));
+    read_from_arc(&low_addr, architecture_impl_->get_arc_reset_unit_refclk_low_offset(), sizeof(low_addr));
+    read_from_arc(&high1_addr, architecture_impl_->get_arc_reset_unit_refclk_high_offset(), sizeof(high1_addr));
+    if (high2_addr > high1_addr) {
+        read_from_arc(&low_addr, architecture_impl_->get_arc_reset_unit_refclk_low_offset(), sizeof(low_addr));
+    }
+    return (static_cast<uint64_t>(high2_addr) << 32) | low_addr;
 }
 
 }  // namespace tt::umd

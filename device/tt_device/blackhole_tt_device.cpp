@@ -288,4 +288,17 @@ double BlackholeTTDevice::get_asic_temperature() {
 
 uint64_t BlackholeTTDevice::get_arc_noc_base_address() const { return blackhole::ARC_NOC_XBAR_ADDRESS_START; }
 
+bool BlackholeTTDevice::wait_arc_post_reset(const uint32_t timeout_ms) { return true; }
+
+uint64_t BlackholeTTDevice::get_refclk_counter() {
+    uint32_t high1_addr = 0, high2_addr = 0, low_addr = 0;
+    read_from_arc(&high1_addr, architecture_impl_->get_arc_reset_unit_refclk_high_offset(), sizeof(high1_addr));
+    read_from_arc(&low_addr, architecture_impl_->get_arc_reset_unit_refclk_low_offset(), sizeof(low_addr));
+    read_from_arc(&high1_addr, architecture_impl_->get_arc_reset_unit_refclk_high_offset(), sizeof(high1_addr));
+    if (high2_addr > high1_addr) {
+        read_from_arc(&low_addr, architecture_impl_->get_arc_reset_unit_refclk_low_offset(), sizeof(low_addr));
+    }
+    return (static_cast<uint64_t>(high2_addr) << 32) | low_addr;
+}
+
 }  // namespace tt::umd

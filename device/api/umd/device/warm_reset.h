@@ -20,8 +20,6 @@ private:
     static void warm_reset_blackhole();
 
     static void warm_reset_wormhole(bool reset_m3);
-
-    static uint64_t get_refclk_counter(TTDevice* tt_device);
 };
 
 }  // namespace tt::umd

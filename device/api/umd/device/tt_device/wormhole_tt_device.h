@@ -56,6 +56,8 @@ public:
 
     bool wait_arc_post_reset(const uint32_t timeout_ms = 1000) override;
 
+    uint64_t get_refclk_counter() override;
+
 private:
     void dma_d2h_transfer(const uint64_t dst, const uint32_t src, const size_t size);
     void dma_h2d_transfer(const uint32_t dst, const uint64_t src, const size_t size);

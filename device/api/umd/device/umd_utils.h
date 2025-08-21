@@ -8,6 +8,8 @@
 
 #include <memory>
 #include <vector>
+#include <algorithm>
+#include <string>
 
 #include "umd/device/tt_xy_pair.h"
 
@@ -17,4 +19,10 @@ static inline std::vector<tt_xy_pair> flatten_vector(const std::vector<std::vect
         flat_vector.insert(flat_vector.end(), single_vector.begin(), single_vector.end());
     }
     return flat_vector;
+}
+
+static inline std::string to_lower(const std::string &str) {
+    std::string res = str;
+    std::transform(res.begin(), res.end(), res.begin(), ::tolower);
+    return res;
 }

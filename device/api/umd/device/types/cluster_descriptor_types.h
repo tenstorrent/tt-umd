@@ -16,6 +16,7 @@
 #include "fmt/core.h"
 #include "umd/device/semver.hpp"
 #include "umd/device/types/harvesting.h"
+#include "umd/device/umd_utils.h"
 
 // TODO: To be moved inside tt::umd namespace once all clients switch to namespace usage.
 enum BoardType : uint32_t {
@@ -122,16 +123,7 @@ inline std::string board_type_to_string(const BoardType board_type) {
 }
 
 inline BoardType board_type_from_string(std::string_view board_type_str) {
-    auto to_lower = [](std::string_view s) {
-        std::string out;
-        out.reserve(s.size());
-        for (char ch : s) {
-            out.push_back(static_cast<char>(std::tolower(static_cast<unsigned char>(ch))));
-        }
-        return out;
-    };
-
-    const std::string lowered = to_lower(board_type_str);
+    const std::string lowered = to_lower(std::string(board_type_str));
 
     if (auto it = board_type_name_map.find(lowered); it != board_type_name_map.end()) {
         return it->second;

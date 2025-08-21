@@ -8,16 +8,11 @@
 
 #include <algorithm>
 #include <ostream>
+#include "umd/device/umd_utils.h"
 
 // Arch is common to everything related in TT, and not just UMD. It might move to some common folder someday.
 // So we decided to put it in tt namespace instead of tt::umd.
 namespace tt {
-
-static inline std::string to_lower(const std::string &str) {
-    std::string res = str;
-    std::transform(res.begin(), res.end(), res.begin(), ::tolower);
-    return res;
-}
 
 /**
  * Enums for different architectures.

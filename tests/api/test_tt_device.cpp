@@ -147,8 +147,9 @@ TEST(ApiTTDeviceTest, TTDeviceWarmResetAfterNocHang) {
 
     WarmReset::warm_reset();
 
-    // Make cluster so that topology discovery does chip detection
-    //
+    // After a warm reset, topology discovery must be performed to detect available chips.
+    // Creating a Cluster triggers this discovery process, which is why a Cluster is instantiated here,
+    // even though this is a TTDevice test.
     auto cluster = std::make_unique<Cluster>();
 
     EXPECT_FALSE(cluster->get_target_device_ids().empty()) << "No chips present after reset.";

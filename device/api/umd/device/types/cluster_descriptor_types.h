@@ -10,10 +10,13 @@
 
 #include <cstdint>
 #include <functional>
+#include <optional>
+#include <unordered_map>
 
 #include "fmt/core.h"
 #include "umd/device/semver.hpp"
 #include "umd/device/types/harvesting.h"
+#include "umd/device/umd_utils.h"
 
 // TODO: To be moved inside tt::umd namespace once all clients switch to namespace usage.
 enum BoardType : uint32_t {
@@ -27,6 +30,7 @@ enum BoardType : uint32_t {
     P300,
     GALAXY,
     UBB,
+    QUASAR,
     UNKNOWN,
 };
 
@@ -73,33 +77,59 @@ struct eth_coord_t {
     }
 };
 
+// Centralized mapping from lowercase name (including aliases) to BoardType for fast lookup.
+inline const std::unordered_map<std::string_view, BoardType> board_type_name_map = {
+    // Canonical forms (stored in lowercase for case-insensitive lookup)
+    {"e75", BoardType::E75},
+    {"e150", BoardType::E150},
+    {"e300", BoardType::E300},
+    {"n150", BoardType::N150},
+    {"n300", BoardType::N300},
+    {"p100", BoardType::P100},
+    {"p150", BoardType::P150},
+    {"p300", BoardType::P300},
+    {"galaxy", BoardType::GALAXY},
+    {"ubb", BoardType::UBB},
+    {"quasar", BoardType::QUASAR},
+    {"unknown", BoardType::UNKNOWN},
+    // Aliases (input only)
+    {"p150a", BoardType::P150},
+    {"p150c", BoardType::P150},
+    {"p300a", BoardType::P300},
+    {"p300c", BoardType::P300},
+};
+
+// Mapping from BoardType to canonical string name (keeps historical casing like "GALAXY").
+inline const std::unordered_map<BoardType, std::string_view> board_type_canonical_name_map = {
+    {BoardType::E75, "e75"},
+    {BoardType::E150, "e150"},
+    {BoardType::E300, "e300"},
+    {BoardType::N150, "n150"},
+    {BoardType::N300, "n300"},
+    {BoardType::P100, "p100"},
+    {BoardType::P150, "p150"},
+    {BoardType::P300, "p300"},
+    {BoardType::GALAXY, "galaxy"},
+    {BoardType::UBB, "ubb"},
+    {BoardType::QUASAR, "quasar"},
+    {BoardType::UNKNOWN, "unknown"},
+};
+
 inline std::string board_type_to_string(const BoardType board_type) {
-    switch (board_type) {
-        case BoardType::E75:
-            return "e75";
-        case BoardType::E150:
-            return "e150";
-        case BoardType::E300:
-            return "e300";
-        case BoardType::N150:
-            return "n150";
-        case BoardType::N300:
-            return "n300";
-        case BoardType::P100:
-            return "p100";
-        case BoardType::P150:
-            return "p150";
-        case BoardType::P300:
-            return "p300";
-        case BoardType::GALAXY:
-            return "galaxy";
-        case BoardType::UBB:
-            return "ubb";
-        case BoardType::UNKNOWN:
-            return "unknown";
+    if (auto it = board_type_canonical_name_map.find(board_type); it != board_type_canonical_name_map.end()) {
+        return std::string(it->second);
+    }
+    throw std::runtime_error("Unknown board type passed for conversion to string.");
+}
+
+inline BoardType board_type_from_string(std::string_view board_type_str) {
+    const std::string lowered = to_lower(std::string(board_type_str));
+
+    if (auto it = board_type_name_map.find(lowered); it != board_type_name_map.end()) {
+        return it->second;
     }
 
-    throw std::runtime_error("Unknown board type passed for conversion to string.");
+    return BoardType::UNKNOWN;
 }
 
 // We have two ways BH chips are connected to the rest of the system, either one of the two PCI cores can be active.

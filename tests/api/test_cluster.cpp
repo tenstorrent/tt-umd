@@ -528,13 +528,14 @@ TEST(TestCluster, WarmReset) {
     auto hanged_tt_device = cluster->get_chip(hanged_chip_id)->get_tt_device();
     hanged_tt_device->write_to_device(data.data(), {15, 15}, 0, data.size());
 
-    GTEST_SKIP() << "Skipping after hang.";
     // TODO: Remove this check when it is figured out why there is no hang detected on Blackhole.
     if (arch == tt::ARCH::WORMHOLE_B0) {
         EXPECT_THROW(hanged_tt_device->detect_hang_read(), std::runtime_error);
     }
 
     WarmReset::warm_reset();
+
+    GTEST_SKIP() << "Skipping after warm_reset.";
 
     cluster.reset();
 

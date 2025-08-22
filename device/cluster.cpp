@@ -253,7 +253,10 @@ std::unique_ptr<Chip> Cluster::construct_chip_from_cluster(
         LocalChip* local_chip = get_local_chip(gateway_id);
         const auto& active_channels = cluster_desc->get_active_eth_channels(gateway_id);
         return RemoteChip::create(
-            local_chip, cluster_desc->get_chip_locations().at(chip_id), cluster_desc->get_active_eth_channels(gateway_id), soc_desc);
+            local_chip,
+            cluster_desc->get_chip_locations().at(chip_id),
+            cluster_desc->get_active_eth_channels(gateway_id),
+            soc_desc);
     }
 }
 

@@ -539,7 +539,6 @@ TEST(TestCluster, WarmResetScratch) {
 
 TEST(TestCluster, WarmReset) {
     std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
-    GTEST_SKIP();
 
     if (cluster->get_target_device_ids().empty()) {
         GTEST_SKIP() << "No chips present on the system. Skipping test.";

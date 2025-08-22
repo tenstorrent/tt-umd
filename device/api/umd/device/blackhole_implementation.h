@@ -226,6 +226,7 @@ static const uint32_t BH_NOC_NODE_ID_OFFSET = 0x1FD04044;
 constexpr uint64_t ARC_NOC_XBAR_ADDRESS_START = 0x80000000;
 
 static constexpr uint32_t ARC_RESET_UNIT_OFFSET = 0x30000;
+static constexpr uint32_t ARC_RESET_SCRATCH_2_OFFSET = ARC_RESET_UNIT_OFFSET + 0x68;
 static constexpr uint32_t ARC_RESET_REFCLK_LOW_OFFSET = ARC_RESET_UNIT_OFFSET + 0xE0;
 static constexpr uint32_t ARC_RESET_REFCLK_HIGH_OFFSET = ARC_RESET_UNIT_OFFSET + 0xE4;
 
@@ -337,6 +338,8 @@ public:
     uint32_t get_arc_reset_arc_misc_cntl_offset() const override { return blackhole::ARC_RESET_ARC_MISC_CNTL_OFFSET; }
 
     uint32_t get_arc_reset_scratch_offset() const override { return blackhole::ARC_RESET_SCRATCH_OFFSET; }
+
+    uint32_t get_arc_reset_scratch_2_offset() const override { return blackhole::ARC_RESET_SCRATCH_2_OFFSET; }
 
     uint32_t get_arc_reset_unit_refclk_low_offset() const override { return blackhole::ARC_RESET_REFCLK_LOW_OFFSET; }
 

@@ -512,22 +512,14 @@ TEST(TestCluster, WarmResetScratch) {
         GTEST_SKIP() << "No chips present on the system. Skipping test.";
     }
 
-    if (cluster->get_tt_device(0)->get_pci_device()->is_iommu_enabled()) {
-        GTEST_SKIP() << "Skipping test since IOMMU is enabled.";
-    }
-
     uint32_t write_test_data = 0xDEADBEEF;
 
-    auto arch = cluster->get_tt_device(0)->get_arch();
-    if (arch != tt::ARCH::WORMHOLE_B0) {
-        GTEST_SKIP() << "Only for Wormhole.";
-    }
     auto chip_id = *cluster->get_target_device_ids().begin();
     auto tt_device = cluster->get_chip(chip_id)->get_tt_device();
 
     tt_device->bar_write32(
         tt_device->get_architecture_implementation()->get_arc_axi_apb_peripheral_offset() +
-            tt_device->get_architecture_implementation()->get_arc_reset_scratch_offset() + 0x8,
+            tt_device->get_architecture_implementation()->get_arc_reset_scratch_2_offset(),
         write_test_data);
 
     WarmReset::warm_reset();
@@ -540,7 +532,7 @@ TEST(TestCluster, WarmResetScratch) {
 
     auto read_test_data = tt_device->bar_read32(
         tt_device->get_architecture_implementation()->get_arc_axi_apb_peripheral_offset() +
-        tt_device->get_architecture_implementation()->get_arc_reset_scratch_offset() + 0x8);
+        tt_device->get_architecture_implementation()->get_arc_reset_scratch_2_offset());
 
     EXPECT_NE(write_test_data, read_test_data);
 }

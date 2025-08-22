@@ -130,13 +130,13 @@ void TopologyDiscovery::discover_remote_chips() {
             uint64_t remote_asic_id = get_remote_asic_id(chip, eth_core);
 
             if (discovered_chips.find(remote_asic_id) == discovered_chips.end()) {
-                std::unique_ptr<Chip> remote_chip = create_remote_chip(chip, eth_core);
+                uint64_t gateway_chip_id = remote_asic_id_to_mmio_chip_id.at(current_chip_asic_id);
+                std::unique_ptr<Chip> remote_chip = create_remote_chip(chips.at(gateway_chip_id).get(), eth_core);
 
                 chips_to_discover.emplace(remote_asic_id, std::move(remote_chip));
                 active_eth_channels_per_chip.emplace(remote_asic_id, std::set<uint32_t>());
                 discovered_chips.insert(remote_asic_id);
-                remote_asic_id_to_mmio_chip_id.emplace(
-                    remote_asic_id, remote_asic_id_to_mmio_chip_id.at(current_chip_asic_id));
+                remote_asic_id_to_mmio_chip_id.emplace(remote_asic_id, gateway_chip_id);
                 if (is_using_eth_coords()) {
                     eth_coords.emplace(remote_asic_id, get_remote_eth_coord(chip, eth_core).value());
                 }

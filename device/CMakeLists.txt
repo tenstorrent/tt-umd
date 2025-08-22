@@ -129,6 +129,7 @@ if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.23)
                 api/umd/device/tt_simulation_host.hpp
                 api/umd/device/tt_soc_descriptor.h
                 api/umd/device/tt_xy_pair.h
+                api/umd/device/umd_utils.h
                 api/umd/device/types/arch.h
                 api/umd/device/types/blackhole_arc.h
                 api/umd/device/types/cluster_descriptor_types.h

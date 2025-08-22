@@ -505,6 +505,38 @@ TEST(TestCluster, TestClusterAICLKControl) {
     }
 }
 
+TEST(TestCluster, WarmResetScratch) {
+    std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
+
+    if (cluster->get_target_device_ids().empty()) {
+        GTEST_SKIP() << "No chips present on the system. Skipping test.";
+    }
+
+    uint32_t write_test_data = 0xDEADBEEF;
+
+    auto chip_id = *cluster->get_target_device_ids().begin();
+    auto tt_device = cluster->get_chip(chip_id)->get_tt_device();
+
+    tt_device->bar_write32(
+        tt_device->get_architecture_implementation()->get_arc_axi_apb_peripheral_offset() +
+            tt_device->get_architecture_implementation()->get_arc_reset_scratch_2_offset(),
+        write_test_data);
+
+    WarmReset::warm_reset();
+
+    cluster.reset();
+
+    cluster = std::make_unique<Cluster>();
+    chip_id = *cluster->get_target_device_ids().begin();
+    tt_device = cluster->get_chip(chip_id)->get_tt_device();
+
+    auto read_test_data = tt_device->bar_read32(
+        tt_device->get_architecture_implementation()->get_arc_axi_apb_peripheral_offset() +
+        tt_device->get_architecture_implementation()->get_arc_reset_scratch_2_offset());
+
+    EXPECT_NE(write_test_data, read_test_data);
+}
+
 TEST(TestCluster, WarmReset) {
     std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
 
@@ -512,17 +544,17 @@ TEST(TestCluster, WarmReset) {
         GTEST_SKIP() << "No chips present on the system. Skipping test.";
     }
 
-    // Fix for VM's, which don't support reset properly
-    // ToDo: Fix once VM support is present
-    if (cluster->get_tt_device(0)->get_pci_device()->is_iommu_enabled()) {
-        GTEST_SKIP() << "Skipping test since IOMMU is enabled.";
+    auto arch = cluster->get_tt_device(0)->get_arch();
+    if (arch == tt::ARCH::WORMHOLE_B0) {
+        GTEST_SKIP()
+            << "This test intentionally hangs the NOC. On Wormhole, this can cause a severe failure where even a warm "
+               "reset does not recover the device, requiring a watchdog-triggered reset for recovery.";
     }
 
     std::vector<uint8_t> data{1, 2, 3, 4, 5, 6, 7, 8};
     std::vector<uint8_t> zero_data(data.size(), 0);
     std::vector<uint8_t> readback_data(data.size(), 0);
 
-    auto arch = cluster->get_tt_device(0)->get_arch();
     // send data to core 15, 15 which will hang the NOC
     auto hanged_chip_id = *cluster->get_target_device_ids().begin();
     auto hanged_tt_device = cluster->get_chip(hanged_chip_id)->get_tt_device();

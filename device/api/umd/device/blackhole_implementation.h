@@ -206,7 +206,6 @@ static constexpr uint32_t GRID_SIZE_Y = 12;
 // AXI Resets accessed through TLB
 static constexpr uint32_t TENSIX_SM_TLB_INDEX = 188;
 static constexpr uint32_t AXI_RESET_OFFSET = TLB_BASE_2M + TENSIX_SM_TLB_INDEX * TLB_2M_SIZE;
-static constexpr uint32_t ARC_RESET_SCRATCH_OFFSET = AXI_RESET_OFFSET + 0x0060;
 static constexpr uint32_t ARC_RESET_ARC_MISC_CNTL_OFFSET = AXI_RESET_OFFSET + 0x0100;
 
 // Computed this value from AXI_RESET_OFFSET
@@ -226,7 +225,8 @@ static const uint32_t BH_NOC_NODE_ID_OFFSET = 0x1FD04044;
 constexpr uint64_t ARC_NOC_XBAR_ADDRESS_START = 0x80000000;
 
 static constexpr uint32_t ARC_RESET_UNIT_OFFSET = 0x30000;
-static constexpr uint32_t ARC_RESET_SCRATCH_2_OFFSET = ARC_RESET_UNIT_OFFSET + 0x68;
+static constexpr uint32_t ARC_RESET_SCRATCH_OFFSET = ARC_RESET_UNIT_OFFSET + 0x0060;
+static constexpr uint32_t ARC_RESET_SCRATCH_2_OFFSET = ARC_RESET_SCRATCH_OFFSET + 0x8;
 static constexpr uint32_t ARC_RESET_REFCLK_LOW_OFFSET = ARC_RESET_UNIT_OFFSET + 0xE0;
 static constexpr uint32_t ARC_RESET_REFCLK_HIGH_OFFSET = ARC_RESET_UNIT_OFFSET + 0xE4;
 

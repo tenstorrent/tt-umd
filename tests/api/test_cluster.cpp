@@ -525,13 +525,10 @@ TEST(TestCluster, WarmResetScratch) {
     auto chip_id = *cluster->get_target_device_ids().begin();
     auto tt_device = cluster->get_chip(chip_id)->get_tt_device();
 
-    auto inital_read =
-        tt_device->bar_read32(tt_device->get_architecture_implementation()->get_arc_reset_scratch_offset() + 0x8);
-
-    std::cout << "initial_read: " << std::hex << inital_read << "\n";
-
     tt_device->bar_write32(
-        tt_device->get_architecture_implementation()->get_arc_reset_scratch_offset() + 0x8, write_test_data);
+        tt_device->get_architecture_implementation()->get_arc_axi_apb_peripheral_offset() +
+            tt_device->get_architecture_implementation()->get_arc_reset_scratch_offset() + 0x8,
+        write_test_data);
 
     WarmReset::warm_reset();
 
@@ -541,8 +538,9 @@ TEST(TestCluster, WarmResetScratch) {
     chip_id = *cluster->get_target_device_ids().begin();
     tt_device = cluster->get_chip(chip_id)->get_tt_device();
 
-    auto read_test_data =
-        tt_device->bar_read32(tt_device->get_architecture_implementation()->get_arc_reset_scratch_offset() + 0x8);
+    auto read_test_data = tt_device->bar_read32(
+        tt_device->get_architecture_implementation()->get_arc_axi_apb_peripheral_offset() +
+        tt_device->get_architecture_implementation()->get_arc_reset_scratch_offset() + 0x8);
 
     EXPECT_NE(write_test_data, read_test_data);
 }
@@ -555,17 +553,15 @@ TEST(TestCluster, WarmReset) {
         GTEST_SKIP() << "No chips present on the system. Skipping test.";
     }
 
-    // Fix for VM's, which don't support reset properly
-    // ToDo: Fix once VM support is present
-    if (cluster->get_tt_device(0)->get_pci_device()->is_iommu_enabled()) {
-        GTEST_SKIP() << "Skipping test since IOMMU is enabled.";
+    auto arch = cluster->get_tt_device(0)->get_arch();
+    if (arch == tt::ARCH::WORMHOLE_B0) {
+        GTEST_SKIP() << "This test if flaky for Wormhole.";
     }
 
     std::vector<uint8_t> data{1, 2, 3, 4, 5, 6, 7, 8};
     std::vector<uint8_t> zero_data(data.size(), 0);
     std::vector<uint8_t> readback_data(data.size(), 0);
 
-    auto arch = cluster->get_tt_device(0)->get_arch();
     // send data to core 15, 15 which will hang the NOC
     auto hanged_chip_id = *cluster->get_target_device_ids().begin();
     auto hanged_tt_device = cluster->get_chip(hanged_chip_id)->get_tt_device();

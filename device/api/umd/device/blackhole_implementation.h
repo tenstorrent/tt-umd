@@ -332,6 +332,8 @@ public:
         return 0;
     }
 
+    uint32_t get_arc_axi_apb_peripheral_offset() const override { return blackhole::ARC_APB_BAR0_XBAR_OFFSET_START; }
+
     uint32_t get_arc_reset_arc_misc_cntl_offset() const override { return blackhole::ARC_RESET_ARC_MISC_CNTL_OFFSET; }
 
     uint32_t get_arc_reset_scratch_offset() const override { return blackhole::ARC_RESET_SCRATCH_OFFSET; }

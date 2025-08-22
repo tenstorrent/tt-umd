@@ -328,13 +328,11 @@ public:
 
     uint32_t get_arc_csm_mailbox_offset() const override { return wormhole::ARC_CSM_MAILBOX_OFFSET; }
 
-    uint32_t get_arc_reset_arc_misc_cntl_offset() const override {
-        return wormhole::ARC_APB_BAR0_XBAR_OFFSET_START + wormhole::ARC_RESET_ARC_MISC_CNTL_OFFSET;
-    }
+    uint32_t get_arc_axi_apb_peripheral_offset() const override { return wormhole::ARC_APB_BAR0_XBAR_OFFSET_START; }
 
-    uint32_t get_arc_reset_scratch_offset() const override {
-        return wormhole::ARC_APB_BAR0_XBAR_OFFSET_START + wormhole::ARC_RESET_SCRATCH_OFFSET;
-    }
+    uint32_t get_arc_reset_arc_misc_cntl_offset() const override { return wormhole::ARC_RESET_ARC_MISC_CNTL_OFFSET; }
+
+    uint32_t get_arc_reset_scratch_offset() const override { return wormhole::ARC_RESET_SCRATCH_OFFSET; }
 
     uint32_t get_arc_reset_unit_refclk_low_offset() const override { return wormhole::ARC_RESET_REFCLK_LOW_OFFSET; }
 

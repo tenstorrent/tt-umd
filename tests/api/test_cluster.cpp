@@ -546,7 +546,7 @@ TEST(TestCluster, WarmReset) {
 
     auto arch = cluster->get_tt_device(0)->get_arch();
     if (arch == tt::ARCH::WORMHOLE_B0) {
-        GTEST_SKIP() << "This test if flaky for Wormhole.";
+        GTEST_SKIP() << "This test is flaky for Wormhole.";
     }
 
     std::vector<uint8_t> data{1, 2, 3, 4, 5, 6, 7, 8};

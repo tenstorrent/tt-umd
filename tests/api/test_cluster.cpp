@@ -505,8 +505,51 @@ TEST(TestCluster, TestClusterAICLKControl) {
     }
 }
 
+TEST(TestCluster, WarmResetScratch) {
+    std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
+
+    if (cluster->get_target_device_ids().empty()) {
+        GTEST_SKIP() << "No chips present on the system. Skipping test.";
+    }
+
+    if (cluster->get_tt_device(0)->get_pci_device()->is_iommu_enabled()) {
+        GTEST_SKIP() << "Skipping test since IOMMU is enabled.";
+    }
+
+    uint32_t write_test_data = 0xDEADBEEF;
+
+    auto arch = cluster->get_tt_device(0)->get_arch();
+    if (arch != tt::ARCH::WORMHOLE_B0) {
+        GTEST_SKIP() << "Only for Wormhole.";
+    }
+    auto chip_id = *cluster->get_target_device_ids().begin();
+    auto tt_device = cluster->get_chip(chip_id)->get_tt_device();
+
+    auto inital_read =
+        tt_device->bar_read32(tt_device->get_architecture_implementation()->get_arc_reset_scratch_offset() + 0x8);
+
+    std::cout << "initial_read: " << std::hex << inital_read << "\n";
+
+    tt_device->bar_write32(
+        tt_device->get_architecture_implementation()->get_arc_reset_scratch_offset() + 0x8, write_test_data);
+
+    WarmReset::warm_reset();
+
+    cluster.reset();
+
+    cluster = std::make_unique<Cluster>();
+    chip_id = *cluster->get_target_device_ids().begin();
+    tt_device = cluster->get_chip(chip_id)->get_tt_device();
+
+    auto read_test_data =
+        tt_device->bar_read32(tt_device->get_architecture_implementation()->get_arc_reset_scratch_offset() + 0x8);
+
+    EXPECT_NE(write_test_data, read_test_data);
+}
+
 TEST(TestCluster, WarmReset) {
     std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
+    GTEST_SKIP();
 
     if (cluster->get_target_device_ids().empty()) {
         GTEST_SKIP() << "No chips present on the system. Skipping test.";

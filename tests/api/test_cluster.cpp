@@ -535,11 +535,11 @@ TEST(TestCluster, WarmReset) {
 
     WarmReset::warm_reset();
 
-    GTEST_SKIP() << "Skipping after warm_reset.";
-
     cluster.reset();
 
     cluster = std::make_unique<Cluster>();
+
+    GTEST_SKIP() << "Skipping after cluster creation.";
 
     EXPECT_FALSE(cluster->get_target_device_ids().empty()) << "No chips present after reset.";
 

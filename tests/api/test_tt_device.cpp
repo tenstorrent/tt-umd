@@ -118,7 +118,9 @@ TEST(ApiTTDeviceTest, TTDeviceWarmResetAfterNocHang) {
 
     auto arch = PCIDevice(pci_device_ids[0]).get_arch();
     if (arch == tt::ARCH::WORMHOLE_B0) {
-        GTEST_SKIP() << "This test iss flaky for Wormhole.";
+        GTEST_SKIP()
+            << "This test intentionally hangs the NOC. On Wormhole, this can cause a severe failure where even a warm "
+               "reset does not recover the device, requiring a watchdog-triggered reset for recovery.";
     }
 
     uint64_t address = 0x0;

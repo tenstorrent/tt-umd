@@ -107,8 +107,6 @@ void WormholeTTDevice::wait_arc_core_start(const uint32_t timeout_ms) {
         wormhole::ARC_MSG_COMMON_PREFIX | architecture_impl_->get_arc_message_test(), ret_vals, arg, 0, timeout_ms);
     bar_read_again = ret_vals[0];
     if (arc_msg_return != 0 || bar_read_again != arg + 1) {
-        // uint32_t postcode = bar_read32(architecture_impl_->get_arc_axi_apb_peripheral_offset() +
-        // architecture_impl_->get_arc_reset_scratch_offset());
         uint32_t postcode = 0;
         read_from_arc(&postcode, wormhole::ARC_RESET_SCRATCH_OFFSET, sizeof(uint32_t));
         throw std::runtime_error(fmt::format(

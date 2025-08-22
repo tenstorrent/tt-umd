@@ -228,15 +228,14 @@ std::optional<eth_coord_t> TopologyDiscoveryWormhole::get_remote_eth_coord(Chip*
     return eth_coord;
 }
 
-std::unique_ptr<RemoteChip> TopologyDiscoveryWormhole::create_remote_chip(Chip* gateway_chip, CoreCoord eth_core) {
+std::unique_ptr<RemoteChip> TopologyDiscoveryWormhole::create_remote_chip(eth_coord_t eth_coord, Chip* gateway_chip, std::set<uint32_t> gateway_eth_channels) {
     if (is_running_on_6u) {
         return nullptr;
     }
 
     auto local_chip = dynamic_cast<LocalChip*>(gateway_chip);
-    auto eth_coord = get_remote_eth_coord(gateway_chip, eth_core);
 
-    return RemoteChip::create(local_chip, eth_coord.value(), {eth_core}, sdesc_path);
+    return RemoteChip::create(local_chip, eth_coord, gateway_eth_channels, sdesc_path);
 }
 
 uint32_t TopologyDiscoveryWormhole::get_remote_eth_channel(Chip* chip, tt_xy_pair local_eth_core) {

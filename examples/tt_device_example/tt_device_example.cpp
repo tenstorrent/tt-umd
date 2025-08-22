@@ -37,7 +37,8 @@ int main(int argc, char* argv[]) {
         std::cout << "PCI Device: " << device->get_pci_device()->get_device_num() << std::endl;
 
         std::cout << "Testing BAR read/write (without init)..." << std::endl;
-        uint32_t test_addr = device->get_architecture_implementation()->get_arc_reset_scratch_offset();
+        uint32_t test_addr = device->get_architecture_implementation()->get_arc_axi_apb_peripheral_offset() +
+                             device->get_architecture_implementation()->get_arc_reset_scratch_offset();
         uint32_t original_value = device->bar_read32(test_addr);
         std::cout << "Original value at 0x" << std::hex << test_addr << ": 0x" << original_value << std::dec
                   << std::endl;

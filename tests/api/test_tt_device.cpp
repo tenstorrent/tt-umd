@@ -116,10 +116,11 @@ TEST(ApiTTDeviceTest, TTDeviceWarmResetAfterNocHang) {
         GTEST_SKIP() << "No chips present on the system. Skipping test.";
     }
 
-    // Fix for VM's, which don't support reset properly
-    // ToDo: Fix once VM support is present
-    if (PCIDevice(pci_device_ids[0]).is_iommu_enabled()) {
-        GTEST_SKIP() << "Skipping test since IOMMU is enabled.";
+    auto arch = PCIDevice(pci_device_ids[0]).get_arch();
+    if (arch == tt::ARCH::WORMHOLE_B0) {
+        GTEST_SKIP()
+            << "This test intentionally hangs the NOC. On Wormhole, this can cause a severe failure where even a warm "
+               "reset does not recover the device, requiring a watchdog-triggered reset for recovery.";
     }
 
     uint64_t address = 0x0;

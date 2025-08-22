@@ -877,32 +877,14 @@ void tt_ClusterDescriptor::load_chips_from_connectivity_descriptor(YAML::Node &y
     if (yaml["chip_to_boardtype"]) {
         for (const auto &yaml_chip_board_type : yaml["chip_to_boardtype"].as<std::map<int, std::string>>()) {
             auto &chip = yaml_chip_board_type.first;
-            BoardType board_type;
-            if (yaml_chip_board_type.second == "n150") {
-                board_type = BoardType::N150;
-            } else if (yaml_chip_board_type.second == "n300") {
-                board_type = BoardType::N300;
-            } else if (yaml_chip_board_type.second == "p100") {
-                board_type = BoardType::P100;
-            } else if (
-                yaml_chip_board_type.second == "p150" || yaml_chip_board_type.second == "p150A" ||
-                yaml_chip_board_type.second == "p150C") {
-                board_type = BoardType::P150;
-            } else if (
-                yaml_chip_board_type.second == "p300" || yaml_chip_board_type.second == "p300A" ||
-                yaml_chip_board_type.second == "p300C") {
-                board_type = BoardType::P300;
-            } else if (yaml_chip_board_type.second == "GALAXY") {
-                board_type = BoardType::GALAXY;
-            } else if (yaml_chip_board_type.second == "ubb") {
-                board_type = BoardType::UBB;
-            } else {
+            const std::string &board_type_str = yaml_chip_board_type.second;
+            BoardType board_type = board_type_from_string(board_type_str);
+            if (board_type == BoardType::UNKNOWN) {
                 log_warning(
                     LogSiliconDriver,
                     "Unknown board type for chip {}. This might happen because chip is running old firmware. "
                     "Defaulting to UNKNOWN",
                     chip);
-                board_type = BoardType::UNKNOWN;
             }
             chip_board_type.insert({chip, board_type});
         }

@@ -565,7 +565,8 @@ std::unique_ptr<tt_ClusterDescriptor> tt_ClusterDescriptor::create_mock_cluster(
         desc->chip_board_type.insert({logical_id, board_type});
         desc->chips_with_mmio.insert({logical_id, logical_id});
         desc->chip_arch.insert({logical_id, arch});
-        desc->noc_translation_enabled.insert({logical_id, true});
+        /* NOC translation is not supported for Simulation chips */
+        desc->noc_translation_enabled.insert({logical_id, false});
         desc->harvesting_masks_map.insert({logical_id, harvesting_masks});
     }
     desc->fill_chips_grouped_by_closest_mmio();

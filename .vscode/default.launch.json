@@ -1,0 +1,45 @@
+{
+    // Use IntelliSense to learn about possible attributes.
+    // Hover to view descriptions of existing attributes.
+    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "umdtest",
+            "type": "cppdbg",
+            "request": "launch",
+            "program": "${workspaceFolder}/build/test/umd/api/api_tests",
+            "args": [
+                "--gtest_filter=\"*OpenAllSiliconChips\"",
+            ],
+            "stopAtEntry": false,
+            "cwd": "${workspaceFolder}",
+            "environment": [],
+            "externalConsole": false,
+            "MIMode": "gdb",
+            "setupCommands": [
+                {
+                    "description": "Enable pretty-printing for gdb",
+                    "text": "-enable-pretty-printing",
+                    "ignoreFailures": true
+                },
+                {
+                    "description": "Catch std::out_of_range exceptions",
+                    "text": "catch throw std::out_of_range"
+                },
+                {
+                    "description": "Enable libstdc++ pretty printers",
+                    "text": "python import sys; sys.path.insert(0, '/usr/share/gcc/python')"
+                },
+                {
+                    "description": "Register libstdc++ pretty printers",
+                    "text": "python from libstdcxx.v6 import register_libstdcxx_printers; register_libstdcxx_printers(gdb)"
+                }
+            ],
+            "miDebuggerPath": "/usr/local/bin/gdb",
+            "logging": {
+                "engineLogging": true
+            }
+        },
+    ]
+}

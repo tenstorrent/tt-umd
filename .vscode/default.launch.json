@@ -33,7 +33,8 @@
                 },
                 {
                     "description": "Register libstdc++ pretty printers",
-                    "text": "python from libstdcxx.v6 import register_libstdcxx_printers; register_libstdcxx_printers(gdb)"
+                    "text":
+                        "python from libstdcxx.v6 import register_libstdcxx_printers; register_libstdcxx_printers(gdb)"
                 }
             ],
             "miDebuggerPath": "/usr/local/bin/gdb",

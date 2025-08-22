@@ -25,11 +25,10 @@ tt_SimulationHost::tt_SimulationHost() {
     host_dialer = std::make_unique<nng_dialer>();
 
     // Get socket name, using PID to make it unique with multiple runs in parallel
-    const char *nng_socket_name = std::getenv("NNG_SOCKET_NAME") ? std::getenv("NNG_SOCKET_NAME") : "nng_ipc";
-    const char *user_name = std::getenv("USER");
+    const char *nng_socket_name = std::getenv("NNG_SOCKET_NAME") ? std::getenv("NNG_SOCKET_NAME") : "ttsim_nng_ipc";
 
     std::ostringstream ss;
-    ss << NNG_SOCKET_PREFIX << user_name << "_" << getpid() << "_" << nng_socket_name;
+    ss << NNG_SOCKET_PREFIX << nng_socket_name << "_" << getpid();
     std::string nng_socket_addr_str = ss.str();
     const char *nng_socket_addr = nng_socket_addr_str.c_str();
     setenv("NNG_SOCKET_ADDR", nng_socket_addr, 1);  // pass NNG_SOCKET_ADDR to remote

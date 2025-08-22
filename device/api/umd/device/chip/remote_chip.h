@@ -15,15 +15,22 @@ class LocalChip;
 
 class RemoteChip : public Chip {
 public:
+    /** Create a RemoteChip instance.
+     *
+     * @param local_chip The local chip to be used for communication to this remote chip.
+     * @param target_eth_coord The target Ethernet coordinates for the remote chip.
+     * @param remote_transfer_eth_channels The set of Ethernet channels on local chip to use for remote communication.
+     * @return A unique pointer to the created RemoteChip instance.
+     */
     static std::unique_ptr<RemoteChip> create(
         LocalChip* local_chip,
         eth_coord_t target_eth_coord,
-        std::unordered_set<CoreCoord> remote_transfer_eth_cores,
+        std::set<uint32_t> remote_transfer_eth_channels,
         std::string sdesc_path = "");
     static std::unique_ptr<RemoteChip> create(
         LocalChip* local_chip,
         eth_coord_t target_eth_coord,
-        std::unordered_set<CoreCoord> remote_transfer_eth_cores,
+        std::set<uint32_t> remote_transfer_eth_channels,
         tt_SocDescriptor soc_descriptor);
 
     bool is_mmio_capable() const override;

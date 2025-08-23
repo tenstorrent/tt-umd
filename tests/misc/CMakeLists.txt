@@ -1,4 +1,7 @@
-set(UMD_MISC_TESTS_SRCS test_semver.cpp)
+set(UMD_MISC_TESTS_SRCS
+    test_semver.cpp
+    test_assert.cpp
+)
 
 add_executable(umd_misc_tests ${UMD_MISC_TESTS_SRCS})
 target_link_libraries(umd_misc_tests PRIVATE test_common)

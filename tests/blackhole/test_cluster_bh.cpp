@@ -14,7 +14,7 @@
 #include "tests/test_utils/device_test_utils.hpp"
 #include "tests/test_utils/generate_cluster_desc.hpp"
 #include "umd/device/arch/blackhole_implementation.h"
-#include "umd/device/tt_cluster_descriptor.h"
+#include "umd/device/cluster_descriptor.h"
 
 using namespace tt::umd;
 
@@ -84,7 +84,7 @@ TEST(SiliconDriverBH, CreateDestroy) {
 //     std::set<chip_id_t> target_devices = {0, 1};
 //     std::unordered_map<chip_id_t, uint32_t> simulated_harvesting_masks = {{0, 30}, {1, 60}};
 //     {
-//         std::unique_ptr<tt_ClusterDescriptor> cluster_desc_uniq =
+//         std::unique_ptr<ClusterDescriptor> cluster_desc_uniq =
 //             Cluster::create_cluster_descriptor();
 //         if (cluster_desc_uniq->get_number_of_chips() != target_devices.size()) {
 //             GTEST_SKIP() << "SiliconDriverWH.Harvesting skipped because it can only be run on a two chip nebula
@@ -113,7 +113,7 @@ TEST(SiliconDriverBH, CreateDestroy) {
 //     std::set<chip_id_t> target_devices = {0, 1};
 //     std::unordered_map<chip_id_t, uint32_t> simulated_harvesting_masks = {{0, 30}, {1, 60}};
 //     {
-//         std::unique_ptr<tt_ClusterDescriptor> cluster_desc_uniq =
+//         std::unique_ptr<ClusterDescriptor> cluster_desc_uniq =
 //             Cluster::create_cluster_descriptor();
 //         if (cluster_desc_uniq->get_number_of_chips() != target_devices.size()) {
 //             GTEST_SKIP() << "SiliconDriverWH.Harvesting skipped because it can only be run on a two chip nebula
@@ -827,7 +827,7 @@ TEST(ClusterBH, TotalNumberOfEthCores) {
 
     const uint32_t num_eth_cores = cluster->get_soc_descriptor(0).get_cores(CoreType::ETH).size();
 
-    tt_ClusterDescriptor* cluster_desc = cluster->get_cluster_description();
+    ClusterDescriptor* cluster_desc = cluster->get_cluster_description();
     const uint32_t num_active_channels = cluster_desc->get_active_eth_channels(0).size();
     const uint32_t num_idle_channels = cluster_desc->get_idle_eth_channels(0).size();
 

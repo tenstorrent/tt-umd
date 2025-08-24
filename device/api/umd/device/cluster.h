@@ -19,7 +19,7 @@
 #include "fmt/core.h"
 #include "tt_silicon_driver_common.hpp"
 #include "umd/device/chip/chip.h"
-#include "umd/device/tt_cluster_descriptor.h"
+#include "umd/device/cluster_descriptor.h"
 #include "umd/device/tt_device/tt_device.h"
 #include "umd/device/tt_io.hpp"
 #include "umd/device/types/arch.h"
@@ -29,7 +29,7 @@
 
 namespace tt::umd {
 
-class tt_ClusterDescriptor;
+class ClusterDescriptor;
 class LocalChip;
 class RemoteChip;
 
@@ -89,11 +89,11 @@ struct ClusterOptions {
      */
     std::unordered_set<chip_id_t> pci_target_devices = {};
     /**
-     * If not passed, topology discovery will be ran and tt_ClusterDescriptor will be constructed. If passed, and chip
+     * If not passed, topology discovery will be ran and ClusterDescriptor will be constructed. If passed, and chip
      * type is SILICON, the constructor will throw if cluster_descriptor configuration shows chips which don't exist on
      * the system.
      */
-    tt_ClusterDescriptor* cluster_descriptor = nullptr;
+    ClusterDescriptor* cluster_descriptor = nullptr;
     /**
      * This parameter is used only for SIMULATION chip type.
      */
@@ -134,14 +134,14 @@ public:
      * soc descriptor yaml file passed to the constructor. If no soc descriptor is passed, the function will create a
      * cluster descriptor object based on the devices connected to the system.
      */
-    static std::unique_ptr<tt_ClusterDescriptor> create_cluster_descriptor(
+    static std::unique_ptr<ClusterDescriptor> create_cluster_descriptor(
         std::string sdesc_path = "", std::unordered_set<chip_id_t> pci_target_devices = {});
 
     /**
      * Get cluster descriptor object being used. This object contains topology information about the cluster.
-     * Consult tt_ClusterDescriptor documentation for more information on the cluster descriptor.
+     * Consult ClusterDescriptor documentation for more information on the cluster descriptor.
      */
-    tt_ClusterDescriptor* get_cluster_description();
+    ClusterDescriptor* get_cluster_description();
 
     /**
      * Get set of chip ids for all chips in the cluster.
@@ -651,7 +651,7 @@ private:
     std::unique_ptr<Chip> construct_chip_from_cluster(
         chip_id_t chip_id,
         const ChipType& chip_type,
-        tt_ClusterDescriptor* cluster_desc,
+        ClusterDescriptor* cluster_desc,
         SocDescriptor& soc_desc,
         int num_host_mem_channels,
         const std::filesystem::path& simulator_directory);
@@ -659,14 +659,14 @@ private:
         const std::string& soc_desc_path,
         chip_id_t chip_id,
         ChipType chip_type,
-        tt_ClusterDescriptor* cluster_desc,
+        ClusterDescriptor* cluster_desc,
         bool perform_harvesting,
         HarvestingMasks& simulated_harvesting_masks);
 
     void add_chip(const chip_id_t& chip_id, const ChipType& chip_type, std::unique_ptr<Chip> chip);
     HarvestingMasks get_harvesting_masks(
         chip_id_t chip_id,
-        tt_ClusterDescriptor* cluster_desc,
+        ClusterDescriptor* cluster_desc,
         bool perform_harvesting,
         HarvestingMasks& simulated_harvesting_masks);
     void construct_cluster(const uint32_t& num_host_mem_ch_per_mmio_device, const ChipType& chip_type);
@@ -681,7 +681,7 @@ private:
     tt::ARCH arch_name;
     tt::umd::ChipType chip_type_;
 
-    std::unique_ptr<tt_ClusterDescriptor> cluster_desc;
+    std::unique_ptr<ClusterDescriptor> cluster_desc;
 
     std::map<std::set<chip_id_t>, std::unordered_map<chip_id_t, std::vector<std::vector<int>>>> bcast_header_cache = {};
     bool use_ethernet_broadcast = true;

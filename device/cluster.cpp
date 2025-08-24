@@ -39,8 +39,9 @@
 #include "api/umd/device/cluster.h"
 #include "api/umd/device/tt_core_coordinates.h"
 #include "assert.hpp"
-#include "umd/device/architecture_implementation.h"
-#include "umd/device/blackhole_implementation.h"
+#include "umd/device/arch/architecture_implementation.h"
+#include "umd/device/arch/blackhole_implementation.h"
+#include "umd/device/arch/wormhole_implementation.h"
 #include "umd/device/chip/local_chip.h"
 #include "umd/device/chip/mock_chip.h"
 #include "umd/device/chip/remote_chip.h"
@@ -58,7 +59,6 @@
 #include "umd/device/types/blackhole_eth.h"
 #include "umd/device/types/tlb.h"
 #include "umd/device/umd_utils.h"
-#include "umd/device/wormhole_implementation.h"
 #include "yaml-cpp/yaml.h"
 
 extern bool umd_use_noc1;

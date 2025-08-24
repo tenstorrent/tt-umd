@@ -6,8 +6,8 @@
 
 #pragma once
 
-#include "umd/device/coordinate_manager.h"
-#include "umd/device/wormhole_implementation.h"
+#include "umd/device/arch/wormhole_implementation.h"
+#include "umd/device/coordinates/coordinate_manager.h"
 
 namespace tt::umd {
 

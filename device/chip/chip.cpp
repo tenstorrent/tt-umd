@@ -10,11 +10,11 @@
 #include <tt-logger/tt-logger.hpp>
 
 #include "assert.hpp"
-#include "umd/device/architecture_implementation.h"
+#include "umd/device/arch/architecture_implementation.h"
+#include "umd/device/arch/wormhole_implementation.h"
 #include "umd/device/driver_atomics.h"
 #include "umd/device/pci_device.hpp"
 #include "umd/device/tt_silicon_driver_common.hpp"
-#include "umd/device/wormhole_implementation.h"
 
 extern bool umd_use_noc1;
 

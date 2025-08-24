@@ -12,7 +12,7 @@
 
 #include "umd/device/arc/arc_messenger.h"
 #include "umd/device/arc/arc_telemetry_reader.h"
-#include "umd/device/architecture_implementation.h"
+#include "umd/device/arch/architecture_implementation.h"
 #include "umd/device/chip_helpers/tlb_manager.h"
 #include "umd/device/jtag/jtag_device.h"
 #include "umd/device/pci_device.hpp"

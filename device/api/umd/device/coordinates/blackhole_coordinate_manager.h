@@ -6,8 +6,8 @@
 
 #pragma once
 
-#include "umd/device/blackhole_implementation.h"
-#include "umd/device/coordinate_manager.h"
+#include "umd/device/arch/blackhole_implementation.h"
+#include "umd/device/coordinates/coordinate_manager.h"
 
 namespace tt::umd {
 

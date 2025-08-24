@@ -149,6 +149,15 @@ if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.23)
                 api/umd/device/arch/wormhole_implementation.hpp
                 api/umd/device/jtag/jtag_device.hpp
                 api/umd/device/jtag/jtag.hpp
+                # To be removed
+                api/umd/device/hugepage.h
+                api/umd/device/tt_core_coordinates.h
+                api/umd/device/tt_simulation_device.h
+                api/umd/device/tt_cluster_descriptor.h
+                api/umd/device/tt_soc_descriptor.h
+                api/umd/device/wormhole_implementation.h
+                api/umd/device/blackhole_implementation.h
+                api/umd/device/coordinate_manager.h
     )
 endif()
 

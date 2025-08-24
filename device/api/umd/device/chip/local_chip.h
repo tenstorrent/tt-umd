@@ -9,7 +9,7 @@
 #include "umd/device/chip/chip.h"
 #include "umd/device/chip_helpers/sysmem_manager.h"
 #include "umd/device/chip_helpers/tlb_manager.h"
-#include "umd/device/remote_communication.h"
+#include "umd/device/tt_device/remote_communication.h"
 
 namespace tt::umd {
 

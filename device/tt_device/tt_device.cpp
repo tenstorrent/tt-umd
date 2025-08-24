@@ -12,7 +12,7 @@
 #include "umd/device/arc/arc_messenger.h"
 #include "umd/device/driver_atomics.h"
 #include "umd/device/jtag/jtag_device.h"
-#include "umd/device/pci_device.hpp"
+#include "umd/device/pcie/pci_device.hpp"
 #include "umd/device/tt_device/blackhole_tt_device.h"
 #include "umd/device/tt_device/remote_wormhole_tt_device.h"
 #include "umd/device/tt_device/wormhole_tt_device.h"

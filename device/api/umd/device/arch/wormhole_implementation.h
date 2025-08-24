@@ -11,7 +11,7 @@
 
 #include "architecture_implementation.h"
 #include "umd/device/types/tlb.h"
-#include "umd/device/umd_utils.h"
+#include "umd/device/utils/common.h"
 
 namespace tt::umd {
 

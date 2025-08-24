@@ -10,9 +10,9 @@
 
 #include "umd/device/soc_descriptor.h"
 #include "umd/device/tt_device/tt_device.h"
-#include "umd/device/tt_silicon_driver_common.hpp"
 #include "umd/device/types/cluster_descriptor_types.h"
 #include "umd/device/types/cluster_types.h"
+#include "umd/device/types/tensix_soft_reset_options.hpp"
 #include "umd/device/utils/lock_manager.h"
 
 namespace tt::umd {

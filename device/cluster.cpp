@@ -39,6 +39,7 @@
 #include "api/umd/device/cluster.h"
 #include "api/umd/device/types/core_coordinates.h"
 #include "assert.hpp"
+#include "hugepage.h"
 #include "umd/device/arch/architecture_implementation.h"
 #include "umd/device/arch/blackhole_implementation.h"
 #include "umd/device/arch/wormhole_implementation.h"
@@ -48,17 +49,16 @@
 #include "umd/device/chip_helpers/tlb_manager.h"
 #include "umd/device/cluster_descriptor.h"
 #include "umd/device/driver_atomics.h"
-#include "umd/device/hugepage.h"
 #include "umd/device/simulation/simulation_device.h"
 #include "umd/device/soc_descriptor.h"
 #include "umd/device/topology/topology_discovery_blackhole.h"
 #include "umd/device/topology/topology_discovery_wormhole.h"
-#include "umd/device/topology_utils.h"
+#include "umd/device/topology/topology_utils.h"
 #include "umd/device/types/arch.h"
 #include "umd/device/types/blackhole_eth.h"
 #include "umd/device/types/core_coordinates.h"
 #include "umd/device/types/tlb.h"
-#include "umd/device/umd_utils.h"
+#include "umd/device/utils/common.h"
 #include "yaml-cpp/yaml.h"
 
 extern bool umd_use_noc1;
@@ -73,8 +73,8 @@ static constexpr uint32_t REMOTE_CMD_NOC_BIT = 9;
 #include <iomanip>
 #include <thread>
 
-#include "umd/device/tt_silicon_driver_common.hpp"
 #include "umd/device/tt_xy_pair.h"
+#include "umd/device/types/tensix_soft_reset_options.hpp"
 
 namespace tt::umd {
 

@@ -17,7 +17,7 @@
 #include <vector>
 
 #include "fmt/core.h"
-#include "tt_silicon_driver_common.hpp"
+#include "types/tensix_soft_reset_options.hpp"
 #include "umd/device/chip/chip.h"
 #include "umd/device/cluster_descriptor.h"
 #include "umd/device/tt_device/tt_device.h"

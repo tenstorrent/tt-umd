@@ -13,7 +13,7 @@
 #include "umd/device/arch/wormhole_implementation.h"
 #include "umd/device/chip/local_chip.h"
 #include "umd/device/cluster_descriptor.h"
-#include "umd/device/remote_communication.h"
+#include "umd/device/tt_device/remote_communication.h"
 #include "umd/device/tt_device/remote_wormhole_tt_device.h"
 #include "umd/device/types/cluster_types.h"
 

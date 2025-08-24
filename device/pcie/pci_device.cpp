@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#include "umd/device/pci_device.hpp"
+#include "umd/device/pcie/pci_device.hpp"
 
 #include <fcntl.h>      // for ::open
 #include <linux/pci.h>  // for PCI_SLOT, PCI_FUNC

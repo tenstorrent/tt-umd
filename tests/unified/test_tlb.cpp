@@ -6,7 +6,7 @@
 #include <gtest/gtest.h>
 
 #include "umd/device/cluster.h"
-#include "umd/device/tt_device/tlb_window.h"
+#include "umd/device/pcie/tlb_window.h"
 #include "umd/device/types/tlb.h"
 
 using namespace tt::umd;

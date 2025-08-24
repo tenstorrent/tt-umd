@@ -10,7 +10,7 @@
 #include "tests/test_utils/generate_cluster_desc.hpp"
 #include "umd/device/cluster.h"
 #include "umd/device/cluster_descriptor.h"
-#include "umd/device/pci_device.hpp"
+#include "umd/device/pcie/pci_device.hpp"
 
 using namespace tt::umd;
 

@@ -13,7 +13,7 @@
 
 #include "api/umd/device/arch/blackhole_implementation.h"
 #include "api/umd/device/arch/wormhole_implementation.h"
-#include "api/umd/device/pci_device.hpp"
+#include "api/umd/device/pcie/pci_device.hpp"
 #include "umd/device/tt_device/tt_device.h"
 #include "umd/device/types/arch.h"
 

@@ -8,7 +8,7 @@
 
 #include <map>
 
-#include "umd/device/semver.hpp"
+#include "umd/device/utils/semver.hpp"
 
 using namespace tt::umd;
 

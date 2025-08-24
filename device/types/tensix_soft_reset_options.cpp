@@ -2,9 +2,10 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
+#include "umd/device/types/tensix_soft_reset_options.hpp"
+
 #include "umd/device/cluster.h"
 #include "umd/device/tt_xy_pair.h"
-#include "umd/device/types/tensix_soft_reset_options.hpp"
 
 namespace tt::umd {
 

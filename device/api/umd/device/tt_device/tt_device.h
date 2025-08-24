@@ -15,7 +15,7 @@
 #include "umd/device/arch/architecture_implementation.h"
 #include "umd/device/chip_helpers/tlb_manager.h"
 #include "umd/device/jtag/jtag_device.h"
-#include "umd/device/pci_device.hpp"
+#include "umd/device/pcie/pci_device.hpp"
 #include "umd/device/types/cluster_descriptor_types.h"
 #include "umd/device/utils/lock_manager.h"
 

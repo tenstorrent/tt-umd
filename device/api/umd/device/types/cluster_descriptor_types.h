@@ -14,9 +14,9 @@
 #include <unordered_map>
 
 #include "fmt/core.h"
-#include "umd/device/semver.hpp"
 #include "umd/device/types/harvesting.h"
-#include "umd/device/umd_utils.h"
+#include "umd/device/utils/common.h"
+#include "umd/device/utils/semver.hpp"
 
 // TODO: To be moved inside tt::umd namespace once all clients switch to namespace usage.
 enum BoardType : uint32_t {

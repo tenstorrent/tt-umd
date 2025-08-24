@@ -15,7 +15,7 @@
 
 #include "assert.hpp"
 #include "cpuset_lib.hpp"
-#include "umd/device/hugepage.h"
+#include "hugepage.h"
 
 namespace tt::umd {
 

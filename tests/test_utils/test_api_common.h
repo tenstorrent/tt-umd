@@ -12,7 +12,7 @@
 #include "gtest/gtest.h"
 #include "test_utils/assembly_programs_for_tests.hpp"
 #include "umd/device/cluster.h"
-#include "umd/device/tt_silicon_driver_common.hpp"
+#include "umd/device/types/tensix_soft_reset_options.hpp"
 
 using namespace tt::umd;
 

@@ -8,8 +8,8 @@
 #include "tt-logger/tt-logger.hpp"
 #include "umd/device/jtag/jtag.h"
 #include "umd/device/jtag/jtag_device.h"
+#include "umd/device/soc_descriptor.h"
 #include "umd/device/tt_device/tt_device.h"
-#include "umd/device/tt_soc_descriptor.h"
 #include "umd/device/types/communication.h"
 using namespace tt::umd;
 

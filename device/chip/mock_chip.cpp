@@ -71,7 +71,7 @@ void MockChip::dram_membar(const std::unordered_set<uint32_t>& channels) {}
 
 void MockChip::deassert_risc_resets() {}
 
-void MockChip::set_power_state(tt_DevicePowerState state) {}
+void MockChip::set_power_state(DevicePowerState state) {}
 
 int MockChip::get_clock() { return 0; }
 

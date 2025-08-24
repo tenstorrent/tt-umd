@@ -51,7 +51,7 @@ TEST(GalaxyConcurrentThreads, WriteToAllChipsL1) {
 
     tt::umd::test::utils::set_barrier_params(device);
 
-    tt_device_params default_params;
+    device_params default_params;
     device.start_device(default_params);
 
     // Test
@@ -144,7 +144,7 @@ TEST(GalaxyConcurrentThreads, WriteToAllChipsDram) {
 
     tt::umd::test::utils::set_barrier_params(device);
 
-    tt_device_params default_params;
+    device_params default_params;
     device.start_device(default_params);
 
     // Test
@@ -214,7 +214,7 @@ TEST(GalaxyConcurrentThreads, PushInputsWhileSignalingCluster) {
 
     tt::umd::test::utils::set_barrier_params(device);
 
-    tt_device_params default_params;
+    device_params default_params;
     device.start_device(default_params);
     device.deassert_risc_reset();
 

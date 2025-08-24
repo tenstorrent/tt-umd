@@ -432,10 +432,10 @@ public:
     std::tuple<xy_pair, xy_pair> multicast_workaround(xy_pair start, xy_pair end) const override;
     tlb_configuration get_tlb_configuration(uint32_t tlb_index) const override;
 
-    tt_device_l1_address_params get_l1_address_params() const override;
-    tt_driver_host_address_params get_host_address_params() const override;
-    tt_driver_eth_interface_params get_eth_interface_params() const override;
-    tt_driver_noc_params get_noc_params() const override;
+    device_l1_address_params get_l1_address_params() const override;
+    driver_host_address_params get_host_address_params() const override;
+    driver_eth_interface_params get_eth_interface_params() const override;
+    driver_noc_params get_noc_params() const override;
 
     virtual uint64_t get_noc_node_id_offset() const override { return blackhole::NOC_NODE_ID_OFFSET; }
 

@@ -19,10 +19,10 @@
 #include "fmt/core.h"
 #include "tt_xy_pair.h"
 #include "umd/device/coordinates/coordinate_manager.h"
-#include "umd/device/tt_core_coordinates.h"
 #include "umd/device/tt_xy_pair.h"
 #include "umd/device/types/arch.h"
 #include "umd/device/types/cluster_descriptor_types.h"
+#include "umd/device/types/core_coordinates.h"
 
 namespace YAML {
 class Node;

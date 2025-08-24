@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-#include "umd/device/tt_simulation_host.hpp"
+#include "umd/device/simulation/simulation_host.hpp"
 
 #include <nng/nng.h>
 #include <nng/protocol/pair1/pair.h>
@@ -19,7 +19,7 @@
 
 namespace tt::umd {
 
-tt_SimulationHost::tt_SimulationHost() {
+SimulationHost::SimulationHost() {
     // Initialize socket and dialer
     host_socket = std::make_unique<nng_socket>();
     host_dialer = std::make_unique<nng_dialer>();
@@ -40,12 +40,12 @@ tt_SimulationHost::tt_SimulationHost() {
     TT_ASSERT(rv == 0, "Failed to create dialer: {} {}", nng_strerror(rv), nng_socket_addr);
 }
 
-tt_SimulationHost::~tt_SimulationHost() {
+SimulationHost::~SimulationHost() {
     nng_dialer_close(*host_dialer);
     nng_close(*host_socket);
 }
 
-void tt_SimulationHost::start_host() {
+void SimulationHost::start_host() {
     // Establish connection with remote VCS simulator
     int rv;
     do {
@@ -57,7 +57,7 @@ void tt_SimulationHost::start_host() {
     } while (rv != 0);
 }
 
-void tt_SimulationHost::send_to_device(uint8_t *buf, size_t buf_size) {
+void SimulationHost::send_to_device(uint8_t *buf, size_t buf_size) {
     int rv;
     log_debug(tt::LogEmulationDriver, "Sending messsage to remote..");
 
@@ -71,7 +71,7 @@ void tt_SimulationHost::send_to_device(uint8_t *buf, size_t buf_size) {
     }
 }
 
-size_t tt_SimulationHost::recv_from_device(void **data_ptr) {
+size_t SimulationHost::recv_from_device(void **data_ptr) {
     int rv;
     size_t data_size;
     log_debug(tt::LogEmulationDriver, "Receiving messsage from remote..");

@@ -164,7 +164,7 @@ public:
      *
      * @param chip_id Chip to get soc descriptor for.
      */
-    const tt_SocDescriptor& get_soc_descriptor(chip_id_t chip_id) const;
+    const SocDescriptor& get_soc_descriptor(chip_id_t chip_id) const;
 
     //---------- Functions used for configuration and initialization.
 
@@ -652,10 +652,10 @@ private:
         chip_id_t chip_id,
         const ChipType& chip_type,
         tt_ClusterDescriptor* cluster_desc,
-        tt_SocDescriptor& soc_desc,
+        SocDescriptor& soc_desc,
         int num_host_mem_channels,
         const std::filesystem::path& simulator_directory);
-    tt_SocDescriptor construct_soc_descriptor(
+    SocDescriptor construct_soc_descriptor(
         const std::string& soc_desc_path,
         chip_id_t chip_id,
         ChipType chip_type,

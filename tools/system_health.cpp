@@ -6,9 +6,9 @@
 
 #include "common.h"
 #include "umd/device/cluster.h"
+#include "umd/device/soc_descriptor.h"
 #include "umd/device/tt_cluster_descriptor.h"
 #include "umd/device/tt_core_coordinates.h"
-#include "umd/device/tt_soc_descriptor.h"
 #include "umd/device/types/cluster_descriptor_types.h"
 
 using namespace tt::umd;
@@ -168,7 +168,7 @@ int main(int argc, char* argv[]) {
 
     std::vector<std::string> unexpected_system_states;
     for (const auto& [chip_id, unique_chip_id] : unique_chip_ids) {
-        const tt_SocDescriptor& soc_desc = cluster->get_soc_descriptor(chip_id);
+        const SocDescriptor& soc_desc = cluster->get_soc_descriptor(chip_id);
         const auto& logical_coord = soc_desc.get_cores(CoreType::ETH, CoordSystem::LOGICAL);
         std::stringstream chip_id_ss;
         chip_id_ss << std::dec << "Chip: " << chip_id << " Unique ID: " << std::hex << unique_chip_id;

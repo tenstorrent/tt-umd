@@ -64,23 +64,23 @@ struct SocDescriptorInfo {
     std::vector<uint32_t> noc0_y_to_noc1_y;
 };
 
-//! tt_SocDescriptor contains information regarding the SOC configuration targetted.
+//! SocDescriptor contains information regarding the SOC configuration targetted.
 /*!
     Should only contain relevant configuration for SOC
 */
-class tt_SocDescriptor {
+class SocDescriptor {
 public:
     // Default constructor. Creates uninitialized object with public access to all of its attributes.
-    tt_SocDescriptor() = default;
+    SocDescriptor() = default;
     // Constructor used to build object from device descriptor file.
-    tt_SocDescriptor(
+    SocDescriptor(
         std::string device_descriptor_path,
         const bool noc_translation_enabled,
         const HarvestingMasks harvesting_masks = {0, 0, 0},
         const BoardType board_type = BoardType::UNKNOWN,
         const uint8_t asic_location = 0);
 
-    tt_SocDescriptor(
+    SocDescriptor(
         const tt::ARCH arch,
         const bool noc_translation_enabled,
         const HarvestingMasks harvesting_masks = {0, 0, 0},
@@ -210,7 +210,7 @@ private:
     std::vector<uint32_t> noc0_x_to_noc1_x;
     std::vector<uint32_t> noc0_y_to_noc1_y;
 
-    // TODO: change this to unique pointer as soon as copying of tt_SocDescriptor
+    // TODO: change this to unique pointer as soon as copying of SocDescriptor
     // is not needed anymore. Soc descriptor and coordinate manager should be
     // created once per chip.
     std::shared_ptr<CoordinateManager> coordinate_manager = nullptr;
@@ -229,4 +229,5 @@ private:
 
 // TODO: To be removed once clients switch to namespace usage.
 using tt::umd::CoreDescriptor;
-using tt::umd::tt_SocDescriptor;
+using tt::umd::SocDescriptor;
+using tt_SocDescriptor = tt::umd::SocDescriptor;

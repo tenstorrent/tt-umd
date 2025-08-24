@@ -21,7 +21,7 @@ public:
     static std::unique_ptr<LocalChip> create(
         int pci_device_id, std::string sdesc_path = "", int num_host_mem_channels = 0);
     static std::unique_ptr<LocalChip> create(
-        int pci_device_id, tt_SocDescriptor soc_descriptor, int num_host_mem_channels = 0);
+        int pci_device_id, SocDescriptor soc_descriptor, int num_host_mem_channels = 0);
 
     ~LocalChip();
 
@@ -70,7 +70,7 @@ public:
     std::unique_lock<RobustMutex> acquire_mutex(MutexType mutex_type, int pci_device_id);
 
 private:
-    LocalChip(tt_SocDescriptor soc_descriptor, std::unique_ptr<TTDevice> tt_device, int num_host_mem_channels = 0);
+    LocalChip(SocDescriptor soc_descriptor, std::unique_ptr<TTDevice> tt_device, int num_host_mem_channels = 0);
 
     std::unique_ptr<TLBManager> tlb_manager_;
     std::unique_ptr<SysmemManager> sysmem_manager_;

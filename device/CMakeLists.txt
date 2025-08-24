@@ -158,6 +158,8 @@ if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.23)
                 api/umd/device/wormhole_implementation.h
                 api/umd/device/blackhole_implementation.h
                 api/umd/device/coordinate_manager.h
+                api/umd/device/tt_silicon_driver_common.hpp
+                api/umd/device/pci_device.hpp
     )
 endif()
 

@@ -70,10 +70,7 @@ public:
     int get_numa_node() override;
 
 private:
-    RemoteChip(
-        tt_SocDescriptor soc_descriptor,
-        LocalChip* local_chip,
-        std::unique_ptr<RemoteWormholeTTDevice> remote_tt_device);
+    RemoteChip(tt_SocDescriptor soc_descriptor, LocalChip* local_chip, std::unique_ptr<TTDevice> remote_tt_device);
 
     LocalChip* local_chip_;
     RemoteCommunication* remote_communication_;

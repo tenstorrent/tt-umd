@@ -14,6 +14,7 @@
 #include "umd/device/jtag/jtag_device.h"
 #include "umd/device/pci_device.hpp"
 #include "umd/device/tt_device/blackhole_tt_device.h"
+#include "umd/device/tt_device/remote_wormhole_tt_device.h"
 #include "umd/device/tt_device/wormhole_tt_device.h"
 #include "umd/device/types/communication.h"
 #include "umd/device/utils/lock_manager.h"
@@ -63,7 +64,7 @@ TTDevice::TTDevice() {}
 
         switch (jtag_device->get_jtag_arch(device_number)) {
             case ARCH::WORMHOLE_B0:
-                return std::make_unique<WormholeTTDevice>(jtag_device, device_number);
+                return std::unique_ptr<WormholeTTDevice>(new WormholeTTDevice(jtag_device, device_number));
             case ARCH::BLACKHOLE:
                 TT_THROW("JTAG is not yet supported on Blackhole architecture.");
             default:
@@ -75,12 +76,18 @@ TTDevice::TTDevice() {}
 
     switch (pci_device->get_arch()) {
         case ARCH::WORMHOLE_B0:
-            return std::make_unique<WormholeTTDevice>(pci_device);
+            return std::unique_ptr<WormholeTTDevice>(new WormholeTTDevice(pci_device));
         case ARCH::BLACKHOLE:
-            return std::make_unique<BlackholeTTDevice>(pci_device);
+            return std::unique_ptr<BlackholeTTDevice>(new BlackholeTTDevice(pci_device));
         default:
             return nullptr;
     }
+}
+
+/* static */ std::unique_ptr<TTDevice> TTDevice::create(
+    std::unique_ptr<RemoteCommunication> remote_communication, eth_coord_t target_chip) {
+    return std::unique_ptr<RemoteWormholeTTDevice>(
+        new RemoteWormholeTTDevice(std::move(remote_communication), target_chip));
 }
 
 architecture_implementation *TTDevice::get_architecture_implementation() { return architecture_impl_.get(); }

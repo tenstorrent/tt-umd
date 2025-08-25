@@ -5,4 +5,4 @@
  */
 
 #pragma once
-#include "umd/device/types/xy_pair.h"
+#include "umd/device/types/xy_pair.hpp"

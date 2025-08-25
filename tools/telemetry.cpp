@@ -15,11 +15,11 @@
 #include <tt-logger/tt-logger.hpp>
 #include <vector>
 
-#include "common.h"
+#include "common.hpp"
 #include "fmt/core.h"
-#include "umd/device/arc/arc_telemetry_reader.h"
-#include "umd/device/types/telemetry.h"
-#include "umd/device/types/wormhole_telemetry.h"
+#include "umd/device/arc/arc_telemetry_reader.hpp"
+#include "umd/device/types/telemetry.hpp"
+#include "umd/device/types/wormhole_telemetry.hpp"
 
 using namespace tt::umd;
 

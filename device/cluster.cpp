@@ -1,7 +1,7 @@
 // SPDX-FileCopyrightText: (c) 2023 Tenstorrent Inc.
 //
 // SPDX-License-Identifier: Apache-2.0
-#include "umd/device/cluster.h"
+#include "umd/device/cluster.hpp"
 
 #include <assert.h>
 #include <dirent.h>
@@ -36,29 +36,29 @@
 #include <utility>
 #include <vector>
 
-#include "api/umd/device/cluster.h"
-#include "api/umd/device/types/core_coordinates.h"
+#include "api/umd/device/cluster.hpp"
+#include "api/umd/device/types/core_coordinates.hpp"
 #include "assert.hpp"
-#include "hugepage.h"
-#include "umd/device/arch/architecture_implementation.h"
-#include "umd/device/arch/blackhole_implementation.h"
-#include "umd/device/arch/wormhole_implementation.h"
-#include "umd/device/chip/local_chip.h"
-#include "umd/device/chip/mock_chip.h"
-#include "umd/device/chip/remote_chip.h"
-#include "umd/device/chip_helpers/tlb_manager.h"
-#include "umd/device/cluster_descriptor.h"
-#include "umd/device/driver_atomics.h"
-#include "umd/device/simulation/simulation_device.h"
-#include "umd/device/soc_descriptor.h"
-#include "umd/device/topology/topology_discovery_blackhole.h"
-#include "umd/device/topology/topology_discovery_wormhole.h"
-#include "umd/device/topology/topology_utils.h"
-#include "umd/device/types/arch.h"
-#include "umd/device/types/blackhole_eth.h"
-#include "umd/device/types/core_coordinates.h"
-#include "umd/device/types/tlb.h"
-#include "umd/device/utils/common.h"
+#include "hugepage.hpp"
+#include "umd/device/arch/architecture_implementation.hpp"
+#include "umd/device/arch/blackhole_implementation.hpp"
+#include "umd/device/arch/wormhole_implementation.hpp"
+#include "umd/device/chip/local_chip.hpp"
+#include "umd/device/chip/mock_chip.hpp"
+#include "umd/device/chip/remote_chip.hpp"
+#include "umd/device/chip_helpers/tlb_manager.hpp"
+#include "umd/device/cluster_descriptor.hpp"
+#include "umd/device/driver_atomics.hpp"
+#include "umd/device/simulation/simulation_device.hpp"
+#include "umd/device/soc_descriptor.hpp"
+#include "umd/device/topology/topology_discovery_blackhole.hpp"
+#include "umd/device/topology/topology_discovery_wormhole.hpp"
+#include "umd/device/topology/topology_utils.hpp"
+#include "umd/device/types/arch.hpp"
+#include "umd/device/types/blackhole_eth.hpp"
+#include "umd/device/types/core_coordinates.hpp"
+#include "umd/device/types/tlb.hpp"
+#include "umd/device/utils/common.hpp"
 #include "yaml-cpp/yaml.h"
 
 extern bool umd_use_noc1;

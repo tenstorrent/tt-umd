@@ -7,8 +7,8 @@
 #include <gtest/gtest.h>
 
 #include "tests/test_utils/device_test_utils.hpp"
-#include "umd/device/soc_descriptor.h"
-#include "umd/device/tt_device/tt_device.h"
+#include "umd/device/soc_descriptor.hpp"
+#include "umd/device/tt_device/tt_device.hpp"
 #include "umd/device/tt_io.hpp"
 
 using namespace tt::umd;

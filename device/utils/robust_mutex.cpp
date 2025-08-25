@@ -3,7 +3,7 @@
  *
  * SPDX-License-Identifier: Apache-2.0
  */
-#include "umd/device/utils/robust_mutex.h"
+#include "umd/device/utils/robust_mutex.hpp"
 
 #include <sys/mman.h>  // shm_open, shm_unlink, mmap, munmap,
 

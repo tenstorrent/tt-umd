@@ -6,7 +6,7 @@
 #include <sstream>
 #include <tt-logger/tt-logger.hpp>
 
-#include "umd/device/cluster.h"
+#include "umd/device/cluster.hpp"
 
 using namespace tt::umd;
 

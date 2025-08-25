@@ -168,6 +168,7 @@ if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.23)
                 api/umd/device/chip_helpers/tlb_manager.h
                 api/umd/device/types/cluster_types.h
                 api/umd/device/jtag/jtag_device.h
+                api/umd/device/jtag/jtag.h
     )
 endif()
 

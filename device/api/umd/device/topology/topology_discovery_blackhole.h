@@ -39,6 +39,10 @@ protected:
 
     uint64_t get_remote_board_type(Chip* chip, tt_xy_pair eth_core) override;
 
+    std::vector<uint32_t> extract_intermesh_eth_links(Chip* chip, tt_xy_pair eth_core) override;
+
+    bool is_intermesh_eth_link_trained(Chip* chip, tt_xy_pair eth_core) override;
+
     bool is_using_eth_coords() override;
 
     uint64_t mangle_asic_id(uint64_t board_id, uint8_t asic_location);

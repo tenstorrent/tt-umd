@@ -18,6 +18,7 @@ protected:
     struct EthAddresses {
         uint32_t masked_version;
 
+        uint64_t eth_param_table;
         uint64_t node_info;
         uint64_t eth_conn_info;
         uint64_t results_buf;
@@ -53,6 +54,10 @@ protected:
     uint32_t get_remote_eth_channel(Chip* chip, tt_xy_pair local_eth_core) override;
 
     uint64_t get_remote_board_type(Chip* chip, tt_xy_pair eth_core) override;
+
+    std::vector<uint32_t> extract_intermesh_eth_links(Chip* chip, tt_xy_pair eth_core) override;
+
+    bool is_intermesh_eth_link_trained(Chip* chip, tt_xy_pair eth_core) override;
 
     std::unique_ptr<RemoteChip> create_remote_chip(
         eth_coord_t eth_coord, Chip* gateway_chip, std::set<uint32_t> gateway_eth_channels) override;

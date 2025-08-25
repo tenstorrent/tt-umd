@@ -11,7 +11,6 @@ on:
 
 env:
   RELEASE_BUILD_TYPE: Release
-  BUILD_TARGETS: "device"
   BUILD_OUTPUT_DIR: ./build
   INSTALL_OUTPUT_DIR: ./build/install
   LIB_OUTPUT_DIR: ./build/lib
@@ -244,7 +243,7 @@ jobs:
         with:
           submodules: recursive
 
-      - name: Build ${{ env.BUILD_TARGETS }}
+      - name: Build
         run: |
           echo "Compiling the code..."
           cmake -B ${{ env.BUILD_OUTPUT_DIR }} -G Ninja \
@@ -254,7 +253,7 @@ jobs:
             -DTT_UMD_BUILD_EXAMPLES=OFF \
             -DCMAKE_BUILD_TYPE=${{ env.RELEASE_BUILD_TYPE }} \
             -DCMAKE_INSTALL_PREFIX=${{ env.INSTALL_OUTPUT_DIR }}
-          cmake --build ${{ env.BUILD_OUTPUT_DIR }} --target ${{ env.BUILD_TARGETS }}
+          cmake --build ${{ env.BUILD_OUTPUT_DIR }}
           echo "Compile complete."
 
       - name: Install libraries and headers

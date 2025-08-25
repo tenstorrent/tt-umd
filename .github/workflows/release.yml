@@ -96,12 +96,29 @@ jobs:
       - name: Generate changelog
         id: generate_changelog
         run: |
-          # Get the previous tag
-          PREV_TAG=$(git tag --sort=-version:refname | head -n 1 2>/dev/null || echo "")
+          # Get the previous tag (excluding the current version if it exists)
+          CURRENT_VERSION="v${{ steps.get_version.outputs.version }}"
+          echo "Current version: $CURRENT_VERSION"
+
+          # List all tags for debugging
+          echo "All tags:"
+          git tag --sort=-version:refname || echo "No tags found"
+
+          # Get the previous tag, excluding the current version tag
+          PREV_TAG=>
+          $(git tag --sort=-version:refname | grep -v "^${CURRENT_VERSION}$" | head -n 1 2>/dev/null || echo "")
 
           if [ -n "$PREV_TAG" ]; then
             echo "Generating changelog since $PREV_TAG"
-            COMMIT_RANGE="${PREV_TAG}..HEAD"
+            # Check if the range is valid
+            if git rev-list "${PREV_TAG}..HEAD" >/dev/null 2>&1; then
+              COMMIT_RANGE="${PREV_TAG}..HEAD"
+              echo "Found $(git rev-list --count ${PREV_TAG}..HEAD) commits since $PREV_TAG"
+            else
+              echo "Invalid commit range ${PREV_TAG}..HEAD, using last 50 commits instead"
+              COMMIT_RANGE="--max-count=50"
+              PREV_TAG=""
+            fi
           else
             echo "No previous tags found, generating changelog from beginning"
             COMMIT_RANGE="--max-count=50"
@@ -119,16 +136,22 @@ jobs:
           "
 
           # Section 2: PR list with subjects only
-          if [ -n "$PREV_TAG" ]; then
-            PR_LIST=$(git log --pretty=format:"%s" ${PREV_TAG}..HEAD | grep -E "^.* \(#[0-9]+\)$" | sed 's/^/- /')
+          if [ -n "$PREV_TAG" ] && [ "$COMMIT_RANGE" != "--max-count=50" ]; then
+            echo "Getting PR list since $PREV_TAG"
+            PR_LIST=>
+            $(git log --pretty=format:"%s" ${PREV_TAG}..HEAD | grep -E "^.* \(#[0-9]+\)$" | sed 's/^/- /' || echo "")
           else
-            PR_LIST=$(git log --pretty=format:"%s" --max-count=50 | grep -E "^.* \(#[0-9]+\)$" | sed 's/^/- /')
+            echo "Getting PR list from recent commits"
+            PR_LIST=>
+            $(git log --pretty=format:"%s" --max-count=50 | grep -E "^.* \(#[0-9]+\)$" | sed 's/^/- /' || echo "")
           fi
 
           if [ -n "$PR_LIST" ]; then
             CHANGELOG="${CHANGELOG}${PR_LIST}"
+            echo "Found $(echo "$PR_LIST" | wc -l) pull requests"
           else
             CHANGELOG="${CHANGELOG}- No pull requests found in this range"
+            echo "No pull requests found"
           fi
 
           CHANGELOG="${CHANGELOG}
@@ -140,12 +163,14 @@ jobs:
           "
 
           # Section 3: Detailed PR information with descriptions
-          if [ -n "$PREV_TAG" ]; then
+          if [ -n "$PREV_TAG" ] && [ "$COMMIT_RANGE" != "--max-count=100" ]; then
+            echo "Getting detailed PR info since $PREV_TAG"
             DETAILED_PRS=$(git log --pretty=format:"%H|%s|%an|%ad" --date=short ${PREV_TAG}..HEAD | \
-              grep -E "\(#[0-9]+\)$")
+              grep -E "\(#[0-9]+\)$" || echo "")
           else
+            echo "Getting detailed PR info from recent commits"
             DETAILED_PRS=$(git log --pretty=format:"%H|%s|%an|%ad" --date=short --max-count=50 | \
-              grep -E "\(#[0-9]+\)$")
+              grep -E "\(#[0-9]+\)$" || echo "")
           fi
 
           if [ -n "$DETAILED_PRS" ]; then

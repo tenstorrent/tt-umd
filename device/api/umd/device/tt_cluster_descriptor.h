@@ -4,4 +4,4 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 // TODO: To be removed once clients switch to including the other header.
-#include "umd/device/cluster_descriptor.h"
+#include "umd/device/cluster_descriptor.hpp"

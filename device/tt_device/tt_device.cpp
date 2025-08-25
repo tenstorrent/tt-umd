@@ -14,6 +14,7 @@
 #include "umd/device/jtag/jtag_device.h"
 #include "umd/device/pci_device.hpp"
 #include "umd/device/tt_device/blackhole_tt_device.h"
+#include "umd/device/tt_device/remote_wormhole_tt_device.h"
 #include "umd/device/tt_device/wormhole_tt_device.h"
 #include "umd/device/types/communication.h"
 #include "umd/device/utils/lock_manager.h"
@@ -81,6 +82,12 @@ TTDevice::TTDevice() {}
         default:
             return nullptr;
     }
+}
+
+/* static */ std::unique_ptr<TTDevice> TTDevice::create(
+    std::unique_ptr<RemoteCommunication> remote_communication, eth_coord_t target_chip) {
+    return std::unique_ptr<RemoteWormholeTTDevice>(
+        new RemoteWormholeTTDevice(std::move(remote_communication), target_chip));
 }
 
 architecture_implementation *TTDevice::get_architecture_implementation() { return architecture_impl_.get(); }

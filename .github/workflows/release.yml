@@ -279,16 +279,11 @@ jobs:
             ${{ env.INSTALL_OUTPUT_DIR }} \
             ${{ env.LIB_OUTPUT_DIR }}
 
-          echo "Archive contents:"
-          tar tvf "$ARTIFACT_NAME" | head -20
-
       - name: Upload build artifacts archive
         uses: actions/upload-artifact@v4
         with:
-          name: >-
-            tt-umd-v${{ needs.prepare-release.outputs.version }}-build-artifacts-${{ matrix.ubuntu-docker-version }}
-          path: >-
-            tt-umd-v${{ needs.prepare-release.outputs.version }}-build-artifacts-${{ matrix.ubuntu-docker-version }}.tar
+          name: tt-umd-v${{ needs.prepare-release.outputs.version }}-${{ matrix.ubuntu-docker-version }}
+          path: tt-umd-v${{ needs.prepare-release.outputs.version }}-${{ matrix.ubuntu-docker-version }}.tar
 
   build-python-wheels:
     name: Build Python Wheel (${{ matrix.ubuntu-docker-version }})

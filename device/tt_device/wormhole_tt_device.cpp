@@ -90,7 +90,7 @@ ChipInfo WormholeTTDevice::get_chip_info() {
             fw_version_from_telemetry(telemetry->read_entry(wormhole::TelemetryTag::TT_FLASH_VERSION));
     } else {
         chip_info.firmware_version =
-            fw_version_from_telemetry(telemetry->read_entry(wormhole::TelemetryTag::FW_BUNDLE_VERSION));
+            fw_version_from_telemetry(telemetry->read_entry(TelemetryTag::FLASH_BUNDLE_VERSION));
     }
 
     return chip_info;
@@ -142,33 +142,6 @@ uint32_t WormholeTTDevice::get_max_clock_freq() {
 }
 
 uint32_t WormholeTTDevice::get_min_clock_freq() { return wormhole::AICLK_IDLE_VAL; }
-
-std::vector<DramTrainingStatus> WormholeTTDevice::get_dram_training_status() {
-    uint32_t dram_training_status_telemetry = telemetry->read_entry(wormhole::TelemetryTag::DDR_STATUS);
-    const uint32_t num_dram_channels = architecture_impl_->get_dram_banks_number();
-    std::vector<DramTrainingStatus> dram_training_status;
-    for (uint32_t dram_channel = 0; dram_channel < num_dram_channels; dram_channel++) {
-        uint8_t status = (dram_training_status_telemetry >> (dram_channel * 4)) & 0xF;
-
-        switch (status) {
-            case wormhole::WormholeDramTrainingStatus::TrainingNone:
-                dram_training_status.push_back(DramTrainingStatus::IN_PROGRESS);
-                break;
-            case wormhole::WormholeDramTrainingStatus::TrainingFail:
-                dram_training_status.push_back(DramTrainingStatus::FAIL);
-                break;
-            case wormhole::WormholeDramTrainingStatus::TrainingPass:
-            case wormhole::WormholeDramTrainingStatus::TrainingSkip:
-                dram_training_status.push_back(DramTrainingStatus::SUCCESS);
-                break;
-            default:
-                dram_training_status.push_back(DramTrainingStatus::FAIL);
-                break;
-        }
-    }
-
-    return dram_training_status;
-}
 
 void WormholeTTDevice::configure_iatu_region(size_t region, uint64_t target, size_t region_size) {
     uint32_t dest_bar_lo = target & 0xffffffff;

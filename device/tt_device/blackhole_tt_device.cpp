@@ -217,37 +217,6 @@ void BlackholeTTDevice::read_from_arc(void *mem_ptr, uint64_t arc_addr_offset, s
 
 void BlackholeTTDevice::write_to_arc(const void *mem_ptr, uint64_t arc_addr_offset, size_t size) {
     write_to_device(mem_ptr, arc_core, get_arc_noc_base_address() + arc_addr_offset, size);
-};
-
-std::vector<DramTrainingStatus> BlackholeTTDevice::get_dram_training_status() {
-    if (!telemetry->is_entry_available(TelemetryTag::DDR_STATUS)) {
-        return {};
-    }
-
-    uint32_t telemetry_data = telemetry->read_entry(TelemetryTag::DDR_STATUS);
-    std::vector<DramTrainingStatus> dram_training_status;
-    const uint32_t num_dram_channels = architecture_impl_->get_dram_banks_number();
-    // Format of the dram training status is as follows:
-    // Each channel gets two bits in the 32-bit value (16 bits used). The lower bits are for lower channels.
-    // Lower of the two bits is for training error and higher of the two bits is for training status.
-    // Example: 0b 00 00 00 00 00 00 01 10
-    // would mean that only channel 0 is trained, channel 1 has the error and other are not trained and don't have
-    // errors. If some channel is harvested the bits are always going to be zero.
-    for (uint32_t dram_channel = 0; dram_channel < num_dram_channels; dram_channel++) {
-        if (telemetry_data & (1 << (2 * dram_channel))) {
-            dram_training_status.push_back(DramTrainingStatus::SUCCESS);
-            continue;
-        }
-
-        if (telemetry_data & (1 << (2 * dram_channel + 1))) {
-            dram_training_status.push_back(DramTrainingStatus::FAIL);
-            continue;
-        }
-
-        dram_training_status.push_back(DramTrainingStatus::IN_PROGRESS);
-    }
-
-    return dram_training_status;
 }
 
 void BlackholeTTDevice::wait_eth_core_training(const tt_xy_pair eth_core, const uint32_t timeout_ms) {

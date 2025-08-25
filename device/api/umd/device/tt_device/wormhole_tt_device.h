@@ -42,8 +42,6 @@ public:
 
     void write_to_arc(const void *mem_ptr, uint64_t arc_addr_offset, size_t size) override;
 
-    std::vector<DramTrainingStatus> get_dram_training_status() override;
-
     ChipInfo get_chip_info() override;
 
     void wait_eth_core_training(const tt_xy_pair eth_core, const uint32_t timeout_ms = 60000) override;

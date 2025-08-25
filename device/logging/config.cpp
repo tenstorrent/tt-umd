@@ -11,7 +11,7 @@
  * environment variable names for UMD logging configuration.
  */
 
-#include "umd/device/logging/config.h"
+#include "umd/device/logging/config.hpp"
 
 #include <tt-logger/tt-logger.hpp>
 

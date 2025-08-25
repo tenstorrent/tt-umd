@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#include "umd/device/simulation/simulation_device.h"
+#include "umd/device/simulation/simulation_device.hpp"
 
 #include <nng/nng.h>
 #include <uv.h>
@@ -16,7 +16,7 @@
 
 #include "assert.hpp"
 #include "simulation_device_generated.h"
-#include "umd/device/driver_atomics.h"
+#include "umd/device/driver_atomics.hpp"
 
 namespace tt::umd {
 

@@ -3,7 +3,7 @@
  *
  * SPDX-License-Identifier: Apache-2.0
  */
-#include "umd/device/cluster.h"
+#include "umd/device/cluster.hpp"
 
 #include <nanobind/nanobind.h>
 #include <nanobind/stl/map.h>

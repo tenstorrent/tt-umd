@@ -8,12 +8,12 @@
 #include <tt-logger/tt-logger.hpp>
 
 #include "gtest/gtest.h"
-#include "test_galaxy_common.h"
+#include "test_galaxy_common.hpp"
 #include "tests/test_utils/device_test_utils.hpp"
 #include "tests/test_utils/generate_cluster_desc.hpp"
-#include "tests/wormhole/test_wh_common.h"
-#include "umd/device/cluster.h"
-#include "umd/device/cluster_descriptor.h"
+#include "tests/wormhole/test_wh_common.hpp"
+#include "umd/device/cluster.hpp"
+#include "umd/device/cluster_descriptor.hpp"
 #include "wormhole/eth_interface.h"
 #include "wormhole/host_mem_address_map.h"
 #include "wormhole/l1_address_map.h"

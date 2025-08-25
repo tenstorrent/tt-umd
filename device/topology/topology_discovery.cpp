@@ -3,19 +3,19 @@
  *
  * SPDX-License-Identifier: Apache-2.0
  */
-#include "umd/device/topology/topology_discovery.h"
+#include "umd/device/topology/topology_discovery.hpp"
 
 #include <tt-logger/tt-logger.hpp>
 
-#include "api/umd/device/topology/topology_discovery.h"
-#include "api/umd/device/topology/topology_discovery_blackhole.h"
-#include "api/umd/device/topology/topology_discovery_wormhole.h"
-#include "umd/device/arch/wormhole_implementation.h"
-#include "umd/device/chip/local_chip.h"
-#include "umd/device/cluster_descriptor.h"
-#include "umd/device/tt_device/remote_communication.h"
-#include "umd/device/tt_device/remote_wormhole_tt_device.h"
-#include "umd/device/types/cluster_types.h"
+#include "api/umd/device/topology/topology_discovery.hpp"
+#include "api/umd/device/topology/topology_discovery_blackhole.hpp"
+#include "api/umd/device/topology/topology_discovery_wormhole.hpp"
+#include "umd/device/arch/wormhole_implementation.hpp"
+#include "umd/device/chip/local_chip.hpp"
+#include "umd/device/cluster_descriptor.hpp"
+#include "umd/device/tt_device/remote_communication.hpp"
+#include "umd/device/tt_device/remote_wormhole_tt_device.hpp"
+#include "umd/device/types/cluster_types.hpp"
 
 extern bool umd_use_noc1;
 

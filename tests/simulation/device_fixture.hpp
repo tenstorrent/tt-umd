@@ -13,7 +13,7 @@
 #include <stdexcept>
 
 #include "tests/test_utils/generate_cluster_desc.hpp"
-#include "umd/device/simulation/simulation_device.h"
+#include "umd/device/simulation/simulation_device.hpp"
 
 namespace tt::umd {
 

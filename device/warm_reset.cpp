@@ -4,18 +4,18 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#include "api/umd/device/warm_reset.h"
+#include "api/umd/device/warm_reset.hpp"
 
 #include <chrono>
 #include <memory>
 #include <thread>
 #include <tt-logger/tt-logger.hpp>
 
-#include "api/umd/device/arch/blackhole_implementation.h"
-#include "api/umd/device/arch/wormhole_implementation.h"
+#include "api/umd/device/arch/blackhole_implementation.hpp"
+#include "api/umd/device/arch/wormhole_implementation.hpp"
 #include "api/umd/device/pcie/pci_device.hpp"
-#include "umd/device/tt_device/tt_device.h"
-#include "umd/device/types/arch.h"
+#include "umd/device/tt_device/tt_device.hpp"
+#include "umd/device/types/arch.hpp"
 
 namespace tt::umd {
 

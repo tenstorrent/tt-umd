@@ -4,4 +4,4 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 // TODO: To be removed once clients switch to including the other header.
-#include "umd/device/arch/blackhole_implementation.hpp"
+#include "umd/device/types/cluster_descriptor_types.hpp"

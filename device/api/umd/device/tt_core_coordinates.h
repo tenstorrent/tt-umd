@@ -4,4 +4,4 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 // TODO: To be removed once clients switch to including the other header.
-#include "umd/device/types/core_coordinates.h"
+#include "umd/device/types/core_coordinates.hpp"

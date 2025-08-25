@@ -160,6 +160,13 @@ if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.23)
                 api/umd/device/coordinate_manager.h
                 api/umd/device/tt_silicon_driver_common.hpp
                 api/umd/device/pci_device.hpp
+                api/umd/device/types/xy_pair.h
+                api/umd/device/types/arch.h
+                api/umd/device/types/cluster_descriptor_types.h
+                api/umd/device/cluster.h
+                api/umd/device/types/harvesting.h
+                api/umd/device/chip_helpers/tlb_manager.h
+                api/umd/device/types/cluster_types.h
     )
 endif()
 

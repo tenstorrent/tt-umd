@@ -4,4 +4,4 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 // TODO: To be removed once clients switch to including the other header.
-#include "umd/device/arch/wormhole_implementation.h"
+#include "umd/device/arch/wormhole_implementation.hpp"

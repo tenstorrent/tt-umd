@@ -4,4 +4,4 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 // TODO: To be removed once clients switch to including the other header.
-#include "umd/device/simulation/simulation_device.h"
+#include "umd/device/simulation/simulation_device.hpp"

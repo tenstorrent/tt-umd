@@ -38,16 +38,14 @@ std::unique_ptr<RemoteWormholeTTDevice> create_remote_wormhole_tt_device(
 }
 
 void bind_tt_device(nb::module_ &m) {
-    // Expose PciDeviceInfo
     nb::class_<PciDeviceInfo>(m, "PciDeviceInfo")
         .def_ro("pci_domain", &PciDeviceInfo::pci_domain)
         .def_ro("pci_bus", &PciDeviceInfo::pci_bus)
         .def_ro("pci_device", &PciDeviceInfo::pci_device)
         .def_ro("pci_function", &PciDeviceInfo::pci_function)
-        .def("get_pci_bdf", &PciDeviceInfo::get_pci_bdf)
+        .def_ro("pci_bdf", &PciDeviceInfo::pci_bdf)
         .def("get_arch", &PciDeviceInfo::get_arch);
 
-    // Expose the PCIDevice class
     nb::class_<PCIDevice>(m, "PCIDevice")
         .def(nb::init<int>())
         .def_static(
@@ -66,7 +64,6 @@ void bind_tt_device(nb::module_ &m) {
             "Enumerates PCI device information, optionally filtering by target devices.")
         .def("get_device_info", &PCIDevice::get_device_info);
 
-    // Expose the TTDevice class
     nb::class_<TTDevice>(m, "TTDevice")
         .def_static("create", &TTDevice::create, nb::arg("pci_device_number"), nb::rv_policy::take_ownership)
         .def("get_arc_telemetry_reader", &TTDevice::get_arc_telemetry_reader, nb::rv_policy::reference_internal)
@@ -85,10 +82,8 @@ void bind_tt_device(nb::module_ &m) {
             nb::arg("core_y"),
             nb::arg("addr"));
 
-    // Expose the RemoteWormholeTTDevice class
     nb::class_<RemoteWormholeTTDevice, TTDevice>(m, "RemoteWormholeTTDevice");
 
-    // Expose helper for creating remote wormhole tt device.
     m.def(
         "create_remote_wormhole_tt_device",
         &create_remote_wormhole_tt_device,

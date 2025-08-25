@@ -15,10 +15,10 @@ namespace nb = nanobind;
 using namespace tt::umd;
 
 void bind_telemetry(nb::module_ &m) {
-    // Create a submodule for wormhole
+    // Create a submodule for wormhole, so that we can expose telemetry through it.
+    // The submodule matches namespace used in C++.
     auto wormhole = m.def_submodule("wormhole", "Wormhole-related functionality");
 
-    // Expose the TelemetryTag enum in the wormhole submodule
     nb::enum_<wormhole::TelemetryTag>(wormhole, "TelemetryTag")
         .value("ENUM_VERSION", wormhole::TelemetryTag::ENUM_VERSION)
         .value("DEVICE_ID", wormhole::TelemetryTag::DEVICE_ID)
@@ -73,11 +73,10 @@ void bind_telemetry(nb::module_ &m) {
         .value("NUMBER_OF_TAGS", wormhole::TelemetryTag::NUMBER_OF_TAGS)
         .def("__int__", [](wormhole::TelemetryTag tag) { return static_cast<int>(tag); });
 
-    // Create a submodule for wormhole
+    // Same for blackhole.
     auto blackhole = m.def_submodule("blackhole", "Blackhole-related functionality");
 
-    // Expose the TelemetryTag enum in the blackhole submodule
-    nb::enum_<blackhole::TelemetryTag>(blackhole, "TelemetryTag")  // Use 'm' or 'blackhole' submodule
+    nb::enum_<blackhole::TelemetryTag>(blackhole, "TelemetryTag")
         .value("BOARD_ID_HIGH", blackhole::TelemetryTag::BOARD_ID_HIGH)
         .value("BOARD_ID_LOW", blackhole::TelemetryTag::BOARD_ID_LOW)
         .value("ASIC_ID", blackhole::TelemetryTag::ASIC_ID)
@@ -119,7 +118,6 @@ void bind_telemetry(nb::module_ &m) {
         .value("NUMBER_OF_TAGS", blackhole::TelemetryTag::NUMBER_OF_TAGS)
         .def("__int__", [](blackhole::TelemetryTag tag) { return static_cast<int>(tag); });
 
-    // Expose the ArcTelemetryReader class
     nb::class_<ArcTelemetryReader>(m, "ArcTelemetryReader")
         .def("read_entry", &ArcTelemetryReader::read_entry, nb::arg("telemetry_tag"))
         .def("is_entry_available", &ArcTelemetryReader::is_entry_available, nb::arg("telemetry_tag"));

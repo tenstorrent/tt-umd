@@ -162,4 +162,14 @@ void TopologyDiscoveryBlackhole::patch_eth_connections() {
     }
 }
 
+std::vector<uint32_t> TopologyDiscoveryBlackhole::extract_intermesh_eth_links(Chip* chip, tt_xy_pair eth_core) {
+    // This function is not important for Blackhole.
+    return {};
+}
+
+bool TopologyDiscoveryBlackhole::is_intermesh_eth_link_trained(Chip* chip, tt_xy_pair eth_core) {
+    // This function is not important for Blackhole.
+    return false;
+}
+
 }  // namespace tt::umd

@@ -19,15 +19,15 @@ static_assert(!std::is_abstract<RemoteChip>(), "RemoteChip must be non-abstract.
 std::unique_ptr<RemoteChip> RemoteChip::create(
     LocalChip* local_chip,
     eth_coord_t target_eth_coord,
-    std::unordered_set<CoreCoord> remote_transfer_eth_cores,
+    std::set<uint32_t> remote_transfer_eth_channels,
     std::string sdesc_path) {
     auto remote_communication =
         std::make_unique<RemoteCommunication>(local_chip->get_tt_device(), local_chip->get_sysmem_manager());
     remote_communication->set_remote_transfer_ethernet_cores(
-        local_chip->get_soc_descriptor().translate_coords_to_xy_pair(
-            remote_transfer_eth_cores, CoordSystem::TRANSLATED));
+        local_chip->get_soc_descriptor().get_eth_xy_pairs_for_channels(
+            remote_transfer_eth_channels, CoordSystem::TRANSLATED));
     auto remote_tt_device = std::make_unique<RemoteWormholeTTDevice>(std::move(remote_communication), target_eth_coord);
-    remote_tt_device->wait_arc_core_start();
+    remote_tt_device->init_tt_device();
 
     tt_SocDescriptor soc_descriptor;
     if (sdesc_path.empty()) {
@@ -51,15 +51,15 @@ std::unique_ptr<RemoteChip> RemoteChip::create(
 std::unique_ptr<RemoteChip> RemoteChip::create(
     LocalChip* local_chip,
     eth_coord_t target_eth_coord,
-    std::unordered_set<CoreCoord> remote_transfer_eth_cores,
+    std::set<uint32_t> remote_transfer_eth_channels,
     tt_SocDescriptor soc_descriptor) {
     auto remote_communication =
         std::make_unique<RemoteCommunication>(local_chip->get_tt_device(), local_chip->get_sysmem_manager());
     remote_communication->set_remote_transfer_ethernet_cores(
-        local_chip->get_soc_descriptor().translate_coords_to_xy_pair(
-            remote_transfer_eth_cores, CoordSystem::TRANSLATED));
+        local_chip->get_soc_descriptor().get_eth_xy_pairs_for_channels(
+            remote_transfer_eth_channels, CoordSystem::TRANSLATED));
     auto remote_tt_device = std::make_unique<RemoteWormholeTTDevice>(std::move(remote_communication), target_eth_coord);
-    remote_tt_device->wait_arc_core_start();
+    remote_tt_device->init_tt_device();
 
     return std::unique_ptr<tt::umd::RemoteChip>(
         new RemoteChip(soc_descriptor, local_chip, std::move(remote_tt_device)));

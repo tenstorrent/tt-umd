@@ -26,6 +26,8 @@ public:
 
     RemoteCommunication* get_remote_communication();
 
+    bool wait_arc_post_reset(const uint32_t timeout_ms = 1000) override;
+
 private:
     eth_coord_t target_chip_;
     std::unique_ptr<RemoteCommunication> remote_communication_;

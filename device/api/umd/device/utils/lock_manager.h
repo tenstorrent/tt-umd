@@ -9,6 +9,7 @@
 #include <mutex>
 #include <unordered_map>
 
+#include "umd/device/types/communication.h"
 #include "umd/device/utils/robust_mutex.h"
 
 namespace tt::umd {
@@ -27,6 +28,8 @@ enum class MutexType {
     MEM_BARRIER,
     // Used for calling CEM tool.
     CREATE_ETH_MAP,
+    // Used to enable DPRINT usage in the Simulator.
+    TT_SIMULATOR,
 };
 
 // Note that the returned std::unique_lock<RobustMutex> should never outlive the LockManager which holds underlying
@@ -42,14 +45,16 @@ public:
     std::unique_lock<RobustMutex> acquire_mutex(MutexType mutex_type);
 
     // This set of functions is used to manage mutexes which are chip specific.
-    void initialize_mutex(MutexType mutex_type, int pci_device_id);
-    void clear_mutex(MutexType mutex_type, int pci_device_id);
-    std::unique_lock<RobustMutex> acquire_mutex(MutexType mutex_type, int pci_device_id);
+    void initialize_mutex(MutexType mutex_type, int device_id, IODeviceType device_type = IODeviceType::PCIe);
+    void clear_mutex(MutexType mutex_type, int device_id, IODeviceType device_type = IODeviceType::PCIe);
+    std::unique_lock<RobustMutex> acquire_mutex(
+        MutexType mutex_type, int device_id, IODeviceType device_type = IODeviceType::PCIe);
 
     // This set of functions is used to manage mutexes which are chip specific. This variant accepts custom mutex name.
-    void initialize_mutex(std::string mutex_prefix, int pci_device_id);
-    void clear_mutex(std::string mutex_prefix, int pci_device_id);
-    std::unique_lock<RobustMutex> acquire_mutex(std::string mutex_prefix, int pci_device_id);
+    void initialize_mutex(std::string mutex_prefix, int device_id, IODeviceType device_type = IODeviceType::PCIe);
+    void clear_mutex(std::string mutex_prefix, int device_id, IODeviceType device_type = IODeviceType::PCIe);
+    std::unique_lock<RobustMutex> acquire_mutex(
+        std::string mutex_prefix, int device_id, IODeviceType device_type = IODeviceType::PCIe);
 
 private:
     void initialize_mutex_internal(const std::string& mutex_name);
@@ -58,6 +63,9 @@ private:
 
     // Const map of mutex names for each of the types listed in the enum.
     static const std::unordered_map<MutexType, std::string> MutexTypeToString;
+
+    // Const map of Device type names for each of the types listed in the enum.
+    static const std::unordered_map<IODeviceType, std::string> DeviceTypeToString;
 
     // Maps from mutex name to an initialized mutex.
     // Mutex names are made from mutex type name or directly mutex name combined with device number.

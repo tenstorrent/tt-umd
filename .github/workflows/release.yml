@@ -1,0 +1,427 @@
+# Create automated release when VERSION file is updated on main branch
+name: Automated Release
+
+on:
+  push:
+    branches:
+      - brosko/release_flow
+    paths:
+      - 'VERSION'
+
+env:
+  RELEASE_BUILD_TYPE: Release
+  BUILD_TARGETS: "device"
+  BUILD_OUTPUT_DIR: ./build
+  LIB_OUTPUT_DIR: ./build/lib
+  DEPS_OUTPUT_DIR: ./build/_deps
+  TEST_OUTPUT_DIR: ./build/test
+  WHEEL_OUTPUT_DIR: ./build/wheel
+
+jobs:
+  prepare-release:
+    name: Prepare Release Information
+    runs-on: ubuntu-22.04
+    outputs:
+      version: ${{ steps.get_version.outputs.version }}
+      changelog: ${{ steps.generate_changelog.outputs.changelog }}
+      version_changelog: ${{ steps.extract_version_changelog.outputs.version_changelog }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Read VERSION file
+        id: get_version
+        run: |
+          VERSION=$(cat VERSION | tr -d '[:space:]')
+          echo "version=${VERSION}" >> $GITHUB_OUTPUT
+          echo "Release version: ${VERSION}"
+
+      - name: Extract version-specific changelog
+        id: extract_version_changelog
+        run: |
+          VERSION="${{ steps.get_version.outputs.version }}"
+
+          if [ -f "CHANGELOG" ]; then
+            echo "Extracting changelog for version ${VERSION}"
+
+            # Extract the section for this version
+            VERSION_CHANGELOG=$(awk -v version="$VERSION" '
+              BEGIN { in_section = 0; content = "" }
+              /^## \[.*\]/ {
+                if (in_section) exit
+                if ($0 ~ "\\[" version "\\]") {
+                  in_section = 1
+                  next
+                }
+              }
+              in_section && /^## \[.*\]/ { exit }
+              in_section && NF > 0 {
+                if (content != "") content = content "\n"
+                content = content $0
+              }
+              END { print content }
+            ' CHANGELOG)
+
+            if [ -n "$VERSION_CHANGELOG" ]; then
+              echo "Found changelog for version ${VERSION}"
+              # Save to output (handle multiline)
+              {
+                echo 'version_changelog<<EOF'
+                echo "$VERSION_CHANGELOG"
+                echo 'EOF'
+              } >> $GITHUB_OUTPUT
+            else
+              echo "No changelog found for version ${VERSION}, using default message"
+              {
+                echo 'version_changelog<<EOF'
+                echo "### Changed"
+                echo ""
+                echo "- Release notes for version ${VERSION} will be added manually."
+                echo 'EOF'
+              } >> $GITHUB_OUTPUT
+            fi
+          else
+            echo "CHANGELOG file not found, using default message"
+            {
+              echo 'version_changelog<<EOF'
+              echo "### Changed"
+              echo ""
+              echo "- Release notes for version ${VERSION} will be added manually."
+              echo 'EOF'
+            } >> $GITHUB_OUTPUT
+          fi
+
+      - name: Generate changelog
+        id: generate_changelog
+        run: |
+          # Get the previous tag
+          PREV_TAG=$(git tag --sort=-version:refname | head -n 1 2>/dev/null || echo "")
+
+          if [ -n "$PREV_TAG" ]; then
+            echo "Generating changelog since $PREV_TAG"
+            COMMIT_RANGE="${PREV_TAG}..HEAD"
+          else
+            echo "No previous tags found, generating changelog from beginning"
+            COMMIT_RANGE="--max-count=50"
+          fi
+
+          # Generate three-section changelog with version-specific content
+          CHANGELOG="## 🚀 Release Notes for v${{ steps.get_version.outputs.version }}
+
+          ${{ steps.extract_version_changelog.outputs.version_changelog }}
+
+          ---
+
+          ## 📋 Pull Requests Summary
+
+          "
+
+          # Section 2: PR list with subjects only
+          if [ -n "$PREV_TAG" ]; then
+            PR_LIST=$(git log --pretty=format:"%s" ${PREV_TAG}..HEAD | grep -E "^.* \(#[0-9]+\)$" | sed 's/^/- /')
+          else
+            PR_LIST=$(git log --pretty=format:"%s" --max-count=50 | grep -E "^.* \(#[0-9]+\)$" | sed 's/^/- /')
+          fi
+
+          if [ -n "$PR_LIST" ]; then
+            CHANGELOG="${CHANGELOG}${PR_LIST}"
+          else
+            CHANGELOG="${CHANGELOG}- No pull requests found in this range"
+          fi
+
+          CHANGELOG="${CHANGELOG}
+
+          ---
+
+          ## 📝 Detailed Pull Request Information
+
+          "
+
+          # Section 3: Detailed PR information with descriptions
+          if [ -n "$PREV_TAG" ]; then
+            DETAILED_PRS=$(git log --pretty=format:"%H|%s|%an|%ad" --date=short ${PREV_TAG}..HEAD | \
+              grep -E "\(#[0-9]+\)$")
+          else
+            DETAILED_PRS=$(git log --pretty=format:"%H|%s|%an|%ad" --date=short --max-count=50 | \
+              grep -E "\(#[0-9]+\)$")
+          fi
+
+          if [ -n "$DETAILED_PRS" ]; then
+            while IFS='|' read -r hash subject author date; do
+              # Extract PR number
+              PR_NUM=$(echo "$subject" | grep -o "#[0-9]\+")
+
+              CHANGELOG="${CHANGELOG}### ${subject}
+          **Author:** ${author}
+          **Date:** ${date}
+          **Commit:** ${hash:0:7}
+
+          "
+
+              # Get full commit message and extract Description section
+              FULL_MSG=$(git show --format=%B -s "$hash")
+              DESCRIPTION=$(echo "$FULL_MSG" | awk '
+                BEGIN { in_desc = 0; desc = "" }
+                /^### Description/ { in_desc = 1; next }
+                /^### / && in_desc { in_desc = 0 }
+                in_desc && NF > 0 {
+                  if (desc != "") desc = desc "\n"
+                  desc = desc $0
+                }
+                END { if (desc != "") print desc; else print "No description section found." }
+              ')
+
+              CHANGELOG="${CHANGELOG}**Description:**
+          ${DESCRIPTION}
+
+          ---
+
+          "
+            done <<< "$DETAILED_PRS"
+          else
+            CHANGELOG="${CHANGELOG}No pull requests found in this range.
+
+          ---"
+          fi
+
+          # Save changelog to output (handle multiline)
+          {
+            echo 'changelog<<EOF'
+            echo "$CHANGELOG"
+            echo 'EOF'
+          } >> $GITHUB_OUTPUT
+
+  build-cpp-artifacts:
+    name: Build C++ Artifacts (${{ matrix.ubuntu-docker-version }})
+    runs-on: ubuntu-22.04
+    needs: prepare-release
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        ubuntu-docker-version: [
+          'ubuntu-22.04',
+          'ubuntu-24.04',
+        ]
+    container:
+      image: ghcr.io/${{ github.repository }}/tt-umd-ci-${{ matrix.ubuntu-docker-version }}:latest
+
+    steps:
+      - name: Print release params
+        run: |
+          echo release - ubuntu-docker-version: ${{ matrix.ubuntu-docker-version}}
+          echo release - build-type: ${{ env.RELEASE_BUILD_TYPE }}
+          echo release - version: ${{ needs.prepare-release.outputs.version }}
+
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Build ${{ env.BUILD_TARGETS }}
+        run: |
+          echo "Compiling the code..."
+          cmake -B ${{ env.BUILD_OUTPUT_DIR }} -G Ninja \
+            -DTT_UMD_BUILD_TESTS=OFF \
+            -DTT_UMD_BUILD_SIMULATION=OFF \
+            -DTT_UMD_BUILD_PYTHON=OFF \
+            -DTT_UMD_BUILD_EXAMPLES=OFF \
+            -DCMAKE_BUILD_TYPE=${{ env.RELEASE_BUILD_TYPE }}
+          cmake --build ${{ env.BUILD_OUTPUT_DIR }} --target ${{ env.BUILD_TARGETS }}
+          echo "Compile complete."
+
+      # This is needed to preserve file permissions
+      # https://github.com/actions/upload-artifact?tab=readme-ov-file#permission-loss
+      - name: Tar build, test and run artifacts
+        shell: bash
+        run: |
+          VERSION="${{ needs.prepare-release.outputs.version }}"
+          UBUNTU_VERSION="${{ matrix.ubuntu-docker-version }}"
+          ARTIFACT_NAME="tt-umd-v${VERSION}-build-artifacts-${UBUNTU_VERSION}.tar"
+          tar cvf "$ARTIFACT_NAME" \
+            ${{ env.TEST_OUTPUT_DIR }} \
+            ${{ env.LIB_OUTPUT_DIR }} \
+            ${{ env.DEPS_OUTPUT_DIR }}
+
+      - name: Upload build artifacts archive
+        uses: actions/upload-artifact@v4
+        with:
+          name: >-
+            tt-umd-v${{ needs.prepare-release.outputs.version }}-build-artifacts-${{ matrix.ubuntu-docker-version }}
+          path: >-
+            tt-umd-v${{ needs.prepare-release.outputs.version }}-build-artifacts-${{ matrix.ubuntu-docker-version }}.tar
+
+  build-python-wheels:
+    name: Build Python Wheel (${{ matrix.ubuntu-docker-version }})
+    runs-on: ubuntu-22.04
+    needs: prepare-release
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        ubuntu-docker-version: [
+          'ubuntu-22.04',
+          'ubuntu-24.04',
+        ]
+    container:
+      image: ghcr.io/${{ github.repository }}/tt-umd-ci-${{ matrix.ubuntu-docker-version }}:latest
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Set up Python 3.10
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+
+      - name: Build wheel
+        shell: bash
+        run: |
+          echo "Setting up virtual environment..."
+          python -m venv .venv
+          source .venv/bin/activate
+          python -m pip install --upgrade pip wheel
+          echo "Compiling the code..."
+          pip wheel . --wheel-dir ${{ env.WHEEL_OUTPUT_DIR }}
+          echo "Compile complete."
+
+      - name: Rename wheel with version and ubuntu version
+        run: |
+          cd ${{ env.WHEEL_OUTPUT_DIR }}
+          # Find the original wheel file
+          ORIGINAL_WHEEL=$(find . -name "tt_umd-*.whl" -type f | head -1)
+          if [ -n "$ORIGINAL_WHEEL" ]; then
+            # Extract the wheel name parts
+            WHEEL_NAME=$(basename "$ORIGINAL_WHEEL")
+            # Create new name with version and ubuntu version
+            VERSION="${{ needs.prepare-release.outputs.version }}"
+            UBUNTU_VERSION="${{ matrix.ubuntu-docker-version }}"
+            VERSION_PART="tt-umd-v${VERSION}-${UBUNTU_VERSION}"
+            NEW_WHEEL_NAME="${VERSION_PART}-$(echo "$WHEEL_NAME" | cut -d'-' -f3-)"
+            mv "$ORIGINAL_WHEEL" "$NEW_WHEEL_NAME"
+            echo "Renamed wheel: $NEW_WHEEL_NAME"
+          fi
+
+      - name: Upload wheel
+        uses: actions/upload-artifact@v4
+        with:
+          name: tt-umd-v${{ needs.prepare-release.outputs.version }}-wheel-${{ matrix.ubuntu-docker-version }}
+          path: ${{ env.WHEEL_OUTPUT_DIR }}
+
+  create-release:
+    name: Create GitHub Release
+    runs-on: ubuntu-22.04
+    needs: [prepare-release, build-cpp-artifacts, build-python-wheels]
+    outputs:
+      upload_url: ${{ steps.release.outputs.upload_url }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: ./release-artifacts/
+
+      - name: Prepare release assets
+        run: |
+          # Create a directory for final release assets
+          mkdir -p ./final-assets
+
+          # Copy and organize all artifacts
+          find ./release-artifacts -type f -name "*.tar" -exec cp {} ./final-assets/ \;
+          find ./release-artifacts -type f -name "*.whl" -exec cp {} ./final-assets/ \;
+
+          # List all assets that will be included
+          echo "Release assets:"
+          ls -la ./final-assets/
+
+      - name: Create Release and Upload Assets
+        id: release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ needs.prepare-release.outputs.version }}
+          name: Release v${{ needs.prepare-release.outputs.version }}
+          body: |
+            # 🚀 Release v${{ needs.prepare-release.outputs.version }}
+
+            ## 📦 What's Included
+
+            ### C++ Build Artifacts
+            - **tt-umd-v${{ needs.prepare-release.outputs.version }}-build-artifacts-ubuntu-22.04.tar** - >-
+              Ubuntu 22.04 build
+            - **tt-umd-v${{ needs.prepare-release.outputs.version }}-build-artifacts-ubuntu-24.04.tar** - >-
+              Ubuntu 24.04 build
+
+            Contains: Compiled C++ libraries and dependencies.
+
+            ### Python Wheels
+            - **Python wheels** for Ubuntu 22.04 and 24.04
+            - Includes Python bindings for tt-umd
+
+            ---
+
+            ${{ needs.prepare-release.outputs.changelog }}
+
+            ---
+            *This release was automatically generated when the VERSION file was updated.
+            Release notes were extracted from CHANGELOG file.*
+          files: ./final-assets/*
+          draft: true
+          prerelease: false
+          make_latest: false
+
+  notify-completion:
+    name: Notify Release Completion
+    runs-on: ubuntu-22.04
+    needs: [prepare-release, create-release, build-cpp-artifacts, build-python-wheels]
+    if: needs.create-release.result == 'success'
+    steps:
+      - name: Notify success to console
+        run: |
+          echo "✅ Release v${{ needs.prepare-release.outputs.version }} created successfully!"
+          VERSION="${{ needs.prepare-release.outputs.version }}"
+          REPO="${{ github.repository }}"
+          RELEASE_URL="https://github.com/${REPO}/releases/tag/v${VERSION}"
+          echo "🔗 Release URL: $RELEASE_URL"
+
+      - name: Prepare Slack message
+        id: prepare_message
+        run: |
+          # Create the message content
+          MESSAGE="🚧 TT-UMD Draft Release Created!
+
+          Draft Release v${{ needs.prepare-release.outputs.version }} has been successfully created!
+
+          📦 What's included:
+          • C++ build artifacts for Ubuntu 22.04 & 24.04
+          • Python wheels for both platforms
+          • Compiled C++ libraries and dependencies
+
+          📋 Release highlights from CHANGELOG:
+          ${{ needs.prepare-release.outputs.version_changelog }}
+
+          ⚠️ Action Required:
+          The release is currently in DRAFT mode. Please:
+          1. Review the release notes and changelog
+          2. Verify all information is accurate
+          3. Publish the release when ready
+
+          🔗 Edit Release: >-
+            https://github.com/${{ github.repository }}/releases/tag/v${{ needs.prepare-release.outputs.version }}
+
+          📋 Pull Requests in this release:
+          Check the release page for detailed PR information and complete changelog."
+
+          # Escape the message for JSON and save to output
+          ESCAPED_MESSAGE=$(echo "$MESSAGE" | jq -Rs .)
+          echo "message=$ESCAPED_MESSAGE" >> $GITHUB_OUTPUT
+
+      - name: Send Slack notification
+        run: |
+          curl -X POST "${{ secrets.SLACK_WEBHOOK_URL }}" \
+            -H "Content-Type: application/json" \
+            -d "{\"umd_github_msg\": ${{ steps.prepare_message.outputs.message }}}"

@@ -4,15 +4,15 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#include "umd/device/chip/chip.h"
+#include "umd/device/chip/chip.hpp"
 
 #include <cstdint>
 #include <tt-logger/tt-logger.hpp>
 
 #include "assert.hpp"
-#include "umd/device/arch/architecture_implementation.h"
-#include "umd/device/arch/wormhole_implementation.h"
-#include "umd/device/driver_atomics.h"
+#include "umd/device/arch/architecture_implementation.hpp"
+#include "umd/device/arch/wormhole_implementation.hpp"
+#include "umd/device/driver_atomics.hpp"
 #include "umd/device/pcie/pci_device.hpp"
 #include "umd/device/types/tensix_soft_reset_options.hpp"
 

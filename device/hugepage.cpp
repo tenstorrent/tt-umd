@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#include "hugepage.h"
+#include "hugepage.hpp"
 
 #include <fcntl.h>     // for O_RDWR and other constants
 #include <sys/stat.h>  // for umask

@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-#include "umd/device/cluster_descriptor.h"
+#include "umd/device/cluster_descriptor.hpp"
 
 #include <fmt/format.h>
 #include <yaml-cpp/yaml.h>
@@ -12,9 +12,9 @@
 #include <sstream>
 #include <tt-logger/tt-logger.hpp>
 
-#include "api/umd/device/arch/blackhole_implementation.h"
-#include "api/umd/device/arch/wormhole_implementation.h"
-#include "api/umd/device/types/cluster_descriptor_types.h"
+#include "api/umd/device/arch/blackhole_implementation.hpp"
+#include "api/umd/device/arch/wormhole_implementation.hpp"
+#include "api/umd/device/types/cluster_descriptor_types.hpp"
 #include "assert.hpp"
 #include "disjoint_set.hpp"
 

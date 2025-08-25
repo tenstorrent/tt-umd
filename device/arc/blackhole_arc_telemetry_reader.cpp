@@ -3,11 +3,11 @@
  *
  * SPDX-License-Identifier: Apache-2.0
  */
-#include "umd/device/arc/blackhole_arc_telemetry_reader.h"
+#include "umd/device/arc/blackhole_arc_telemetry_reader.hpp"
 
 #include <fmt/core.h>
 
-#include "umd/device/types/blackhole_telemetry.h"
+#include "umd/device/types/blackhole_telemetry.hpp"
 
 extern bool umd_use_noc1;
 

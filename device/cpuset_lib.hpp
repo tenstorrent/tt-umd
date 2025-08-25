@@ -15,7 +15,7 @@
 #include <vector>
 
 #include "hwloc.h"
-#include "umd/device/types/cluster_descriptor_types.h"  // For chip_id_t
+#include "umd/device/types/cluster_descriptor_types.hpp"  // For chip_id_t
 
 namespace tt::cpuset {
 //! Utility functions for various backend paramsf

@@ -5,5 +5,5 @@
  */
 
 #pragma once
-#include "umd/device/cluster.h"
-#include "umd/device/driver_atomics.h"
+#include "umd/device/cluster.hpp"
+#include "umd/device/driver_atomics.hpp"

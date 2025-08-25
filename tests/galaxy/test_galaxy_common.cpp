@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-#include "test_galaxy_common.h"
+#include "test_galaxy_common.hpp"
 
 #include "tests/test_utils/device_test_utils.hpp"
 

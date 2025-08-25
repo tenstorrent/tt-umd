@@ -3,13 +3,13 @@
  *
  * SPDX-License-Identifier: Apache-2.0
  */
-#include "umd/device/arc/wormhole_arc_messenger.h"
+#include "umd/device/arc/wormhole_arc_messenger.hpp"
 
 #include <tt-logger/tt-logger.hpp>
 
 #include "assert.hpp"
-#include "umd/device/arch/wormhole_implementation.h"
-#include "umd/device/tt_device/tt_device.h"
+#include "umd/device/arch/wormhole_implementation.hpp"
+#include "umd/device/tt_device/tt_device.hpp"
 
 extern bool umd_use_noc1;
 

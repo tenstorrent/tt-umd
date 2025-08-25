@@ -4,13 +4,13 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#include "umd/device/chip/remote_chip.h"
+#include "umd/device/chip/remote_chip.hpp"
 
 #include <tt-logger/tt-logger.hpp>
 
 #include "assert.hpp"
-#include "umd/device/arch/wormhole_implementation.h"
-#include "umd/device/chip/local_chip.h"
+#include "umd/device/arch/wormhole_implementation.hpp"
+#include "umd/device/chip/local_chip.hpp"
 
 namespace tt::umd {
 

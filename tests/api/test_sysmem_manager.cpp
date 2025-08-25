@@ -5,7 +5,7 @@
 
 #include "gtest/gtest.h"
 #include "tests/test_utils/device_test_utils.hpp"
-#include "umd/device/chip_helpers/sysmem_manager.h"
+#include "umd/device/chip_helpers/sysmem_manager.hpp"
 
 using namespace tt::umd;
 

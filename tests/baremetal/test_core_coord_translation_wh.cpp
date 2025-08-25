@@ -4,8 +4,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 #include "gtest/gtest.h"
-#include "umd/device/arch/wormhole_implementation.h"
-#include "umd/device/coordinates/coordinate_manager.h"
+#include "umd/device/arch/wormhole_implementation.hpp"
+#include "umd/device/coordinates/coordinate_manager.hpp"
 
 using namespace tt::umd;
 #include <iostream>

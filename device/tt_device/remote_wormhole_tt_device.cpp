@@ -1,9 +1,9 @@
 // SPDX-FileCopyrightText: (c) 2025 Tenstorrent Inc.
 //
 // SPDX-License-Identifier: Apache-2.0
-#include "umd/device/tt_device/remote_wormhole_tt_device.h"
+#include "umd/device/tt_device/remote_wormhole_tt_device.hpp"
 
-#include "umd/device/arch/wormhole_implementation.h"
+#include "umd/device/arch/wormhole_implementation.hpp"
 
 namespace tt::umd {
 

@@ -1,7 +1,7 @@
 // SPDX-FileCopyrightText: (c) 2025 Tenstorrent Inc.
 //
 // SPDX-License-Identifier: Apache-2.0
-#include "umd/device/tt_device/remote_blackhole_tt_device.h"
+#include "umd/device/tt_device/remote_blackhole_tt_device.hpp"
 
 namespace tt::umd {
 

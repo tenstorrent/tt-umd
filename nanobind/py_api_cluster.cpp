@@ -15,7 +15,6 @@ namespace nb = nanobind;
 using namespace tt::umd;
 
 void bind_cluster(nb::module_ &m) {
-    // Expose the Cluster class
     nb::class_<Cluster>(m, "Cluster")
         .def(nb::init<>())
         .def("get_target_device_ids", &Cluster::get_target_device_ids)

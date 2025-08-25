@@ -19,7 +19,6 @@ namespace nb = nanobind;
 using namespace tt::umd;
 
 void bind_topology_discovery(nb::module_ &m) {
-    // Expose the ClusterDescriptor class
     nb::class_<tt_ClusterDescriptor>(m, "ClusterDescriptor")
         .def("get_all_chips", &tt_ClusterDescriptor::get_all_chips)
         .def("is_chip_mmio_capable", &tt_ClusterDescriptor::is_chip_mmio_capable, nb::arg("chip_id"))
@@ -31,8 +30,6 @@ void bind_topology_discovery(nb::module_ &m) {
         .def("get_active_eth_channels", &tt_ClusterDescriptor::get_active_eth_channels, nb::arg("chip_id"))
         .def("get_arch", &tt_ClusterDescriptor::get_arch, nb::arg("chip_id"));
 
-    // static std::unique_ptr<tt_ClusterDescriptor> create_cluster_descriptor(
-    //     std::unordered_set<chip_id_t> pci_target_devices = {}, const std::string& sdesc_path = "");
     nb::class_<TopologyDiscovery>(m, "TopologyDiscovery")
         .def_static(
             "create_cluster_descriptor",

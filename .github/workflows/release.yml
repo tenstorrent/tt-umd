@@ -106,8 +106,8 @@ jobs:
           git tag --sort=-version:refname || echo "No tags found"
 
           # Get the previous tag, excluding the current version tag
-          PREV_TAG=>
-          $(git tag --sort=-version:refname | grep -v "^${CURRENT_VERSION}$" | head -n 1 2>/dev/null || echo "")
+          PREV_TAG=$(git tag --sort=-version:refname | \
+            grep -v "^${CURRENT_VERSION}$" | head -n 1 2>/dev/null || echo "")
 
           if [ -n "$PREV_TAG" ]; then
             echo "Generating changelog since $PREV_TAG"
@@ -139,12 +139,12 @@ jobs:
           # Section 2: PR list with subjects only
           if [ -n "$PREV_TAG" ] && [ "$COMMIT_RANGE" != "--max-count=50" ]; then
             echo "Getting PR list since $PREV_TAG"
-            PR_LIST=>
-            $(git log --pretty=format:"%s" ${PREV_TAG}..HEAD | grep -E "^.* \(#[0-9]+\)$" | sed 's/^/- /' || echo "")
+            PR_LIST=$(git log --pretty=format:"%s" ${PREV_TAG}..HEAD | \
+              grep -E "^.* \(#[0-9]+\)$" | sed 's/^/- /' || echo "")
           else
             echo "Getting PR list from recent commits"
-            PR_LIST=>
-            $(git log --pretty=format:"%s" --max-count=50 | grep -E "^.* \(#[0-9]+\)$" | sed 's/^/- /' || echo "")
+            PR_LIST=$(git log --pretty=format:"%s" --max-count=50 | \
+              grep -E "^.* \(#[0-9]+\)$" | sed 's/^/- /' || echo "")
           fi
 
           if [ -n "$PR_LIST" ]; then

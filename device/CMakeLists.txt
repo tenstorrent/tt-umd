@@ -73,6 +73,7 @@ target_sources(
         remote_communication.cpp
         jtag/jtag_device.cpp
         jtag/jtag.cpp
+        lite_fabric/lite_fabric_host_utils.cpp
 )
 
 if(TT_UMD_BUILD_SIMULATION)
@@ -141,6 +142,8 @@ if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.23)
                 api/umd/device/wormhole_implementation.h
                 api/umd/device/jtag/jtag_device.h
                 api/umd/device/jtag/jtag.h
+                api/umd/device/lite_fabric/lite_fabric.h
+                api/umd/device/lite_fabric/lite_fabric_header.h
     )
 endif()
 

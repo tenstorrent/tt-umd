@@ -93,6 +93,10 @@ protected:
     // does not take harvesting into consideration. This function will be overridden just for Blackhole.
     virtual void patch_eth_connections();
 
+    virtual std::vector<uint32_t> extract_intermesh_eth_links(Chip* chip, tt_xy_pair eth_core) = 0;
+
+    virtual bool is_intermesh_eth_link_trained(Chip* chip, tt_xy_pair eth_core) = 0;
+
     std::map<uint64_t, std::unique_ptr<Chip>> chips_to_discover;
     std::map<uint64_t, std::unique_ptr<Chip>> chips;
 

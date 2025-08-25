@@ -63,7 +63,7 @@ TTDevice::TTDevice() {}
 
         switch (jtag_device->get_jtag_arch(device_number)) {
             case ARCH::WORMHOLE_B0:
-                return std::make_unique<WormholeTTDevice>(jtag_device, device_number);
+                return std::unique_ptr<WormholeTTDevice>(new WormholeTTDevice(jtag_device, device_number));
             case ARCH::BLACKHOLE:
                 TT_THROW("JTAG is not yet supported on Blackhole architecture.");
             default:
@@ -75,9 +75,9 @@ TTDevice::TTDevice() {}
 
     switch (pci_device->get_arch()) {
         case ARCH::WORMHOLE_B0:
-            return std::make_unique<WormholeTTDevice>(pci_device);
+            return std::unique_ptr<WormholeTTDevice>(new WormholeTTDevice(pci_device));
         case ARCH::BLACKHOLE:
-            return std::make_unique<BlackholeTTDevice>(pci_device);
+            return std::unique_ptr<BlackholeTTDevice>(new BlackholeTTDevice(pci_device));
         default:
             return nullptr;
     }

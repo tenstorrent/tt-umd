@@ -13,9 +13,8 @@ env:
   RELEASE_BUILD_TYPE: Release
   BUILD_TARGETS: "device"
   BUILD_OUTPUT_DIR: ./build
+  INSTALL_OUTPUT_DIR: ./build/install
   LIB_OUTPUT_DIR: ./build/lib
-  DEPS_OUTPUT_DIR: ./build/_deps
-  TEST_OUTPUT_DIR: ./build/test
   WHEEL_OUTPUT_DIR: ./build/wheel
 
 jobs:
@@ -253,22 +252,36 @@ jobs:
             -DTT_UMD_BUILD_SIMULATION=OFF \
             -DTT_UMD_BUILD_PYTHON=OFF \
             -DTT_UMD_BUILD_EXAMPLES=OFF \
-            -DCMAKE_BUILD_TYPE=${{ env.RELEASE_BUILD_TYPE }}
+            -DCMAKE_BUILD_TYPE=${{ env.RELEASE_BUILD_TYPE }} \
+            -DCMAKE_INSTALL_PREFIX=${{ env.INSTALL_OUTPUT_DIR }}
           cmake --build ${{ env.BUILD_OUTPUT_DIR }} --target ${{ env.BUILD_TARGETS }}
           echo "Compile complete."
 
+      - name: Install libraries and headers
+        run: |
+          echo "Installing libraries and public headers..."
+          cmake --install ${{ env.BUILD_OUTPUT_DIR }} --prefix ${{ env.INSTALL_OUTPUT_DIR }}
+          echo "Install complete."
+          echo "Installed files:"
+          find ${{ env.INSTALL_OUTPUT_DIR }} -type f | head -20
+
       # This is needed to preserve file permissions
       # https://github.com/actions/upload-artifact?tab=readme-ov-file#permission-loss
-      - name: Tar build, test and run artifacts
+      - name: Tar build and install artifacts
         shell: bash
         run: |
           VERSION="${{ needs.prepare-release.outputs.version }}"
           UBUNTU_VERSION="${{ matrix.ubuntu-docker-version }}"
           ARTIFACT_NAME="tt-umd-v${VERSION}-build-artifacts-${UBUNTU_VERSION}.tar"
+
+          echo "Creating release archive with proper install structure..."
           tar cvf "$ARTIFACT_NAME" \
-            ${{ env.TEST_OUTPUT_DIR }} \
-            ${{ env.LIB_OUTPUT_DIR }} \
-            ${{ env.DEPS_OUTPUT_DIR }}
+            --transform 's,^build/install/,,' \
+            ${{ env.INSTALL_OUTPUT_DIR }} \
+            ${{ env.LIB_OUTPUT_DIR }}
+
+          echo "Archive contents:"
+          tar tvf "$ARTIFACT_NAME" | head -20
 
       - name: Upload build artifacts archive
         uses: actions/upload-artifact@v4
@@ -382,7 +395,7 @@ jobs:
             - **tt-umd-v${{ needs.prepare-release.outputs.version }}-build-artifacts-ubuntu-24.04.tar** - >-
               Ubuntu 24.04 build
 
-            Contains: Compiled C++ libraries and dependencies.
+            Contains: Compiled C++ libraries, public headers, CMake config files, and dependencies.
 
             ### Python Wheels
             - **Python wheels** for Ubuntu 22.04 and 24.04
@@ -425,7 +438,7 @@ jobs:
           📦 What's included:
           • C++ build artifacts for Ubuntu 22.04 & 24.04
           • Python wheels for both platforms
-          • Compiled C++ libraries and dependencies
+          • Compiled C++ libraries, public headers, CMake configs, and dependencies
 
           📋 Release highlights from CHANGELOG:
           ${{ needs.prepare-release.outputs.version_changelog }}

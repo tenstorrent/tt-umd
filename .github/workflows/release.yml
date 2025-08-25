@@ -5,8 +5,9 @@ on:
   push:
     branches:
       - brosko/release_flow
-    paths:
-      - 'VERSION'
+      - main
+    # paths:
+    #   - 'VERSION'
 
 env:
   RELEASE_BUILD_TYPE: Release

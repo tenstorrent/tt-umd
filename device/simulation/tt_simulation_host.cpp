@@ -14,48 +14,71 @@
 #include <sstream>
 #include <tt-logger/tt-logger.hpp>
 #include <typeinfo>
+#include <random>
+#include <unistd.h>
 
 #include "assert.hpp"
 
 namespace tt::umd {
 
 tt_SimulationHost::tt_SimulationHost() {
-    // Initialize socket and dialer
+    // Initialize socket and listener
     host_socket = std::make_unique<nng_socket>();
-    host_dialer = std::make_unique<nng_dialer>();
+    host_listener = std::make_unique<nng_listener>();
 
-    // Get socket name, using PID to make it unique with multiple runs in parallel
-    const char *nng_socket_name = std::getenv("NNG_SOCKET_NAME") ? std::getenv("NNG_SOCKET_NAME") : "nng_ipc";
-    const char *user_name = std::getenv("USER");
+    // Check if NNG_SOCKET_ADDR is already set
+    const char *existing_socket_addr = std::getenv("NNG_SOCKET_ADDR");
+    std::string nng_socket_addr_str;
+    
+    if (existing_socket_addr) {
+        nng_socket_addr_str = existing_socket_addr;
+        log_info(tt::LogEmulationDriver, "Using existing NNG_SOCKET_ADDR: {}", nng_socket_addr_str);
+    } else {
+        // Generate socket address with hostname and random port
+        char hostname[256];
+        if (gethostname(hostname, sizeof(hostname)) != 0) {
+            strcpy(hostname, "localhost");
+        }
+        
+        // Generate random port in range 50000-59999
+        std::random_device rd;
+        std::mt19937 gen(rd());
+        std::uniform_int_distribution<> dis(50000, 59999);
+        int port = dis(gen);
+        
+        std::ostringstream ss;
+        ss << "tcp://" << hostname << ":" << port;
+        nng_socket_addr_str = ss.str();
+        
+        // Export the address for client to use
+        setenv("NNG_SOCKET_ADDR", nng_socket_addr_str.c_str(), 1);
+        log_info(tt::LogEmulationDriver, "Generated NNG_SOCKET_ADDR: {}", nng_socket_addr_str);
+    }
 
-    std::ostringstream ss;
-    ss << NNG_SOCKET_PREFIX << user_name << "_" << getpid() << "_" << nng_socket_name;
-    std::string nng_socket_addr_str = ss.str();
     const char *nng_socket_addr = nng_socket_addr_str.c_str();
-    setenv("NNG_SOCKET_ADDR", nng_socket_addr, 1);  // pass NNG_SOCKET_ADDR to remote
 
-    // Open socket and create dialer
-    log_info(tt::LogEmulationDriver, "Dialing: {}", nng_socket_addr);
+    // Open socket and create listener (server mode)
+    log_info(tt::LogEmulationDriver, "Listening on: {}", nng_socket_addr);
     nng_pair1_open(host_socket.get());
-    int rv = nng_dialer_create(host_dialer.get(), *host_socket, nng_socket_addr);
-    TT_ASSERT(rv == 0, "Failed to create dialer: {} {}", nng_strerror(rv), nng_socket_addr);
+    int rv = nng_listener_create(host_listener.get(), *host_socket, nng_socket_addr);
+    TT_ASSERT(rv == 0, "Failed to create listener: {} {}", nng_strerror(rv), nng_socket_addr);
 }
 
 tt_SimulationHost::~tt_SimulationHost() {
-    nng_dialer_close(*host_dialer);
+    nng_listener_close(*host_listener);
     nng_close(*host_socket);
 }
 
 void tt_SimulationHost::start_host() {
-    // Establish connection with remote VCS simulator
-    int rv;
-    do {
-        rv = nng_dialer_start(*host_dialer, 0);
-        if (rv != 0) {
-            log_info(tt::LogEmulationDriver, "Waiting for remote: {}", nng_strerror(rv));
-            std::this_thread::sleep_for(std::chrono::seconds(1));
-        }
-    } while (rv != 0);
+    // Start listening for connections from client
+    int rv = nng_listener_start(*host_listener, 0);
+    if (rv != 0) {
+        log_error(tt::LogEmulationDriver, "Failed to start listener: {}", nng_strerror(rv));
+        return;
+    }
+    
+    log_info(tt::LogEmulationDriver, "Server started, waiting for client to connect...");
+
 }
 
 void tt_SimulationHost::send_to_device(uint8_t *buf, size_t buf_size) {

@@ -271,7 +271,7 @@ jobs:
         run: |
           VERSION="${{ needs.prepare-release.outputs.version }}"
           UBUNTU_VERSION="${{ matrix.ubuntu-docker-version }}"
-          ARTIFACT_NAME="tt-umd-v${VERSION}-build-artifacts-${UBUNTU_VERSION}.tar"
+          ARTIFACT_NAME="tt-umd-v${VERSION}-${UBUNTU_VERSION}.tar"
 
           echo "Creating release archive with proper install structure..."
           tar cvf "$ARTIFACT_NAME" \

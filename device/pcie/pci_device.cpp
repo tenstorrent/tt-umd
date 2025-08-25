@@ -108,12 +108,7 @@ static bool detect_iommu(const PciDeviceInfo &device_info) {
 }
 
 static std::optional<uint8_t> try_read_config_byte(const PciDeviceInfo &device_info, size_t offset) {
-    const auto config_path = fmt::format(
-        "/sys/bus/pci/devices/{:04x}:{:02x}:{:02x}.{:x}/config",
-        device_info.pci_domain,
-        device_info.pci_bus,
-        device_info.pci_device,
-        device_info.pci_function);
+    const auto config_path = fmt::format("/sys/bus/pci/devices/{}/config", device_info.pci_bdf);
 
     std::ifstream config_file(config_path, std::ios::binary);
     if (!config_file.is_open()) {
@@ -129,8 +124,9 @@ static std::optional<uint8_t> try_read_config_byte(const PciDeviceInfo &device_i
     return byte;
 }
 
-static std::string get_pci_bdf(const uint16_t pci_domain, const uint16_t pci_bus, const uint16_t pci_device) {
-    return fmt::format("{:04x}:{:02x}:{:02x}", pci_domain, pci_bus, pci_device);
+static std::string get_pci_bdf(
+    const uint16_t pci_domain, const uint16_t pci_bus, const uint16_t pci_device, const uint16_t pci_function) {
+    return fmt::format("{:04x}:{:02x}:{:02x}.{:x}", pci_domain, pci_bus, pci_device, pci_function);
 }
 
 static bool is_number(const std::string &str) { return !str.empty() && std::all_of(str.begin(), str.end(), ::isdigit); }
@@ -187,6 +183,8 @@ static PciDeviceInfo read_device_info(int fd) {
     uint16_t dev = (info.out.bus_dev_fn >> 3) & 0x1F;
     uint16_t fn = info.out.bus_dev_fn & 0x07;
 
+    std::string pci_bdf = get_pci_bdf(info.out.pci_domain, bus, dev, fn);
+
     return PciDeviceInfo{
         info.out.vendor_id,
         info.out.device_id,
@@ -194,7 +192,8 @@ static PciDeviceInfo read_device_info(int fd) {
         bus,
         dev,
         fn,
-        get_physical_slot_for_pcie_bdf(get_pci_bdf(info.out.pci_domain, bus, dev))};
+        pci_bdf,
+        get_physical_slot_for_pcie_bdf(pci_bdf)};
 }
 
 static void reset_devices(uint32_t flags) {

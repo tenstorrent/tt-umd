@@ -31,6 +31,7 @@ struct PciDeviceInfo {
     uint16_t pci_bus;
     uint16_t pci_device;
     uint16_t pci_function;
+    std::string pci_bdf;
     // Physical slot is not always available on the system.
     // It is added to PciDeviceInfo struct in order for tt-metal to be able to use it
     // for machine provisioning tool at the moment, it is not explicitly used by UMD.

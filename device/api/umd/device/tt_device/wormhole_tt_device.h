@@ -28,8 +28,6 @@ public:
 
     uint32_t get_min_clock_freq() override;
 
-    uint64_t get_board_id() override;
-
     bool get_noc_translation_enabled() override;
 
     void dma_d2h(void *dst, uint32_t src, size_t size) override;
@@ -43,8 +41,6 @@ public:
     void read_from_arc(void *mem_ptr, uint64_t arc_addr_offset, size_t size) override;
 
     void write_to_arc(const void *mem_ptr, uint64_t arc_addr_offset, size_t size) override;
-
-    std::vector<DramTrainingStatus> get_dram_training_status() override;
 
     ChipInfo get_chip_info() override;
 

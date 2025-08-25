@@ -1,6 +1,8 @@
 // SPDX-FileCopyrightText: (c) 2025 Tenstorrent Inc.
 //
 // SPDX-License-Identifier: Apache-2.0
+#include "umd/device/types/telemetry.h"
+
 #include <chrono>
 #include <cxxopts.hpp>
 #include <fstream>
@@ -16,7 +18,7 @@
 #include "common.h"
 #include "fmt/core.h"
 #include "umd/device/arc/arc_telemetry_reader.h"
-#include "umd/device/types/blackhole_telemetry.h"
+#include "umd/device/types/telemetry.h"
 #include "umd/device/types/wormhole_telemetry.h"
 
 using namespace tt::umd;
@@ -33,10 +35,10 @@ std::string run_default_telemetry(int pci_device, ArcTelemetryReader* telemetry_
         tdp = telemetry_reader->read_entry(wormhole::TelemetryTag::TDP);
         asic_temperature = telemetry_reader->read_entry(wormhole::TelemetryTag::ASIC_TEMPERATURE);
     } else {
-        aiclk_info = telemetry_reader->read_entry(blackhole::TelemetryTag::AICLK);
-        vcore = telemetry_reader->read_entry(blackhole::TelemetryTag::VCORE);
-        tdp = telemetry_reader->read_entry(blackhole::TelemetryTag::TDP);
-        asic_temperature = telemetry_reader->read_entry(blackhole::TelemetryTag::ASIC_TEMPERATURE);
+        aiclk_info = telemetry_reader->read_entry(TelemetryTag::AICLK);
+        vcore = telemetry_reader->read_entry(TelemetryTag::VCORE);
+        tdp = telemetry_reader->read_entry(TelemetryTag::TDP);
+        asic_temperature = telemetry_reader->read_entry(TelemetryTag::ASIC_TEMPERATURE);
     }
 
     uint32_t aiclk_current = aiclk_info & 0xFFFF;
@@ -67,7 +69,7 @@ int main(int argc, char* argv[]) {
         cxxopts::value<std::vector<std::string>>())(
         "t,tag",
         "Telemetry tag to read. If set to -1, will run default telemetry mode which works only for WH and reads aiclk, "
-        "power, temperature and vcore. See device/api/umd/device/types/wormhole_telemetry.h (or blackhole_telemetry.h) "
+        "power, temperature and vcore. See device/api/umd/device/types/telemetry.h"
         "for all available tags.",
         cxxopts::value<int>()->default_value("-1"))(
         "f,freq", "Frequency of polling in microseconds.", cxxopts::value<int>()->default_value("1000"))(

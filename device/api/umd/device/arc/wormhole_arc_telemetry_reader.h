@@ -17,22 +17,8 @@ class WormholeArcTelemetryReader : public ArcTelemetryReader {
 public:
     WormholeArcTelemetryReader(TTDevice* tt_device);
 
-    uint32_t read_entry(const uint8_t telemetry_tag) override;
-
-    bool is_entry_available(const uint8_t telemetry_tag) override;
-
-private:
-    void initialize_telemetry();
-
-    void verify_telemetry();
-
-    uint64_t telemetry_base_noc_addr;
-
-    // During initialization of telemetry, if the NOC0 is hung then we need to read the telemetry values from NOC1.
-    const tt_xy_pair arc_core = !umd_use_noc1 ? wormhole::ARC_CORES_NOC0[0]
-                                              : tt_xy_pair(
-                                                    wormhole::NOC0_X_TO_NOC1_X[wormhole::ARC_CORES_NOC0[0].x],
-                                                    wormhole::NOC0_Y_TO_NOC1_Y[wormhole::ARC_CORES_NOC0[0].y]);
+protected:
+    void get_telemetry_address() override;
 };
 
 }  // namespace tt::umd

@@ -242,7 +242,7 @@ public:
 
     virtual uint32_t get_min_clock_freq() = 0;
 
-    virtual uint64_t get_board_id() = 0;
+    uint64_t get_board_id();
 
     BoardType get_board_type();
 
@@ -252,7 +252,7 @@ public:
 
     // TODO: find a way to expose this in a better way, probably through getting telemetry reader and reading the
     // required fields. Returns the information whether DRAM training status is available and the status value.
-    virtual std::vector<DramTrainingStatus> get_dram_training_status() = 0;
+    virtual std::vector<DramTrainingStatus> get_dram_training_status();
 
     virtual void wait_for_non_mmio_flush();
 

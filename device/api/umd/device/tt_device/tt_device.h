@@ -16,6 +16,7 @@
 #include "umd/device/chip_helpers/tlb_manager.h"
 #include "umd/device/jtag/jtag_device.h"
 #include "umd/device/pci_device.hpp"
+#include "umd/device/tt_device/firmware_versioner.h"
 #include "umd/device/types/cluster_descriptor_types.h"
 #include "umd/device/utils/lock_manager.h"
 
@@ -278,6 +279,7 @@ protected:
     std::unique_ptr<ArcMessenger> arc_messenger_ = nullptr;
     LockManager lock_manager;
     std::unique_ptr<ArcTelemetryReader> telemetry = nullptr;
+    std::unique_ptr<FirmwareVersioner> firmware_versioner = nullptr;
 
     bool is_hardware_hung();
 

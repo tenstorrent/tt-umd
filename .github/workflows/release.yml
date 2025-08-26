@@ -196,7 +196,7 @@ jobs:
 
             {
               echo 'pr_details<<EOF'
-              echo "$DETAILED_CONTENT"
+              echo -e "$DETAILED_CONTENT"
               echo 'EOF'
             } >> $GITHUB_OUTPUT
           else

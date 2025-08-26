@@ -41,11 +41,7 @@ public:
 
     ChipInfo get_chip_info() override;
 
-    semver_t get_firmware_version() override;
-
     void wait_eth_core_training(const tt_xy_pair eth_core, const uint32_t timeout_ms = 60000) override;
-
-    double get_asic_temperature() override;
 
     uint64_t get_arc_noc_base_address() const override;
 

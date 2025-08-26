@@ -11,7 +11,6 @@
 #include "umd/device/coordinate_manager.h"
 #include "umd/device/jtag/jtag_device.h"
 #include "umd/device/types/communication.h"
-#include "umd/device/types/wormhole_dram.h"
 #include "umd/device/types/wormhole_telemetry.h"
 #include "umd/device/types/xy_pair.h"
 #include "umd/device/wormhole_implementation.h"
@@ -32,7 +31,7 @@ WormholeTTDevice::WormholeTTDevice(std::shared_ptr<PCIDevice> pci_device) :
 }
 
 void WormholeTTDevice::post_init_hook() {
-    eth_addresses = WormholeTTDevice::get_eth_addresses(telemetry->read_entry(wormhole::ETH_FW_VERSION));
+    eth_addresses = WormholeTTDevice::get_eth_addresses(get_firmware_info_provider()->get_eth_fw_version());
 }
 
 WormholeTTDevice::WormholeTTDevice(std::shared_ptr<JtagDevice> jtag_device, uint8_t jlink_id) :
@@ -84,17 +83,6 @@ ChipInfo WormholeTTDevice::get_chip_info() {
     chip_info.board_type = get_board_type();
 
     return chip_info;
-}
-
-semver_t WormholeTTDevice::get_firmware_version() {
-    auto board_type = get_board_type();
-    if (board_type == BoardType::GALAXY) {
-        // There is a hack for galaxy board such that ARC puts this information as tt_flash version.
-        // For more information see https://github.com/tenstorrent/tt-smi/issues/72
-        return fw_version_from_telemetry(telemetry->read_entry(wormhole::TelemetryTag::TT_FLASH_VERSION));
-    } else {
-        return fw_version_from_telemetry(telemetry->read_entry(wormhole::TelemetryTag::FW_BUNDLE_VERSION));
-    }
 }
 
 void WormholeTTDevice::wait_arc_core_start(const uint32_t timeout_ms) {
@@ -449,12 +437,6 @@ void WormholeTTDevice::wait_eth_core_training(const tt_xy_pair eth_core, const u
             break;
         }
     }
-}
-
-double WormholeTTDevice::get_asic_temperature() {
-    // Data stored in telemetry has temperature average across chips stored in lower 16 bits.
-    // It needs to be divided by 8 to get temperature in Celsius.
-    return (telemetry->read_entry(wormhole::TelemetryTag::ASIC_TEMPERATURE) & 0xFFFF) / 8.0;
 }
 
 tt_xy_pair WormholeTTDevice::get_arc_core() const { return arc_core; }

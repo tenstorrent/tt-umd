@@ -9,6 +9,7 @@
 #include <cstdint>
 #include <sstream>
 #include <string>
+#include <tuple>
 
 #include "fmt/format.h"
 

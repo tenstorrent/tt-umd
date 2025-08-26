@@ -152,12 +152,6 @@ ChipInfo BlackholeTTDevice::get_chip_info() {
     return chip_info;
 }
 
-semver_t BlackholeTTDevice::get_firmware_version() {
-    return telemetry->is_entry_available(TelemetryTag::FLASH_BUNDLE_VERSION)
-               ? fw_version_from_telemetry(telemetry->read_entry(TelemetryTag::FLASH_BUNDLE_VERSION))
-               : semver_t(0, 0, 0);
-}
-
 void BlackholeTTDevice::wait_arc_core_start(const uint32_t timeout_ms) {
     auto start = std::chrono::system_clock::now();
     uint32_t arc_boot_status;
@@ -240,13 +234,6 @@ void BlackholeTTDevice::wait_eth_core_training(const tt_xy_pair eth_core, const 
             break;
         }
     }
-}
-
-double BlackholeTTDevice::get_asic_temperature() {
-    // Data stored in telemetry has temperature of ASIC stored in a way that high 16 bits
-    // have integer part and lower 16 bits have fractional part.
-    // It needs to be divided by 65536 to get temperature in Celsius.
-    return (double)telemetry->read_entry(TelemetryTag::ASIC_TEMPERATURE) / 65536.0f;
 }
 
 uint64_t BlackholeTTDevice::get_arc_noc_base_address() const { return blackhole::ARC_NOC_XBAR_ADDRESS_START; }

@@ -335,6 +335,26 @@ jobs:
           pip wheel . --wheel-dir ${{ env.WHEEL_OUTPUT_DIR }}
           echo "Compile complete."
 
+      - name: Rename wheel with version and ubuntu version
+        run: |
+          cd ${{ env.WHEEL_OUTPUT_DIR }}
+          # Find the original wheel file
+          ORIGINAL_WHEEL=$(find . -name "tt_umd-*.whl" -type f | head -1)
+          if [ -n "$ORIGINAL_WHEEL" ]; then
+            # Extract the wheel name parts
+            WHEEL_NAME=$(basename "$ORIGINAL_WHEEL")
+            # Create new name following C++ artifact pattern: tt-umd-v{version}-{ubuntu-version}-{wheel-suffix}
+            VERSION="${{ needs.prepare-release.outputs.version }}"
+            UBUNTU_VERSION="${{ matrix.ubuntu-docker-version }}"
+            # Extract wheel suffix (everything after the first two components: name-version)
+            WHEEL_SUFFIX=$(echo "$WHEEL_NAME" | cut -d'-' -f3-)
+            NEW_WHEEL_NAME="tt-umd-v${VERSION}-${UBUNTU_VERSION}-${WHEEL_SUFFIX}"
+            mv "$ORIGINAL_WHEEL" "$NEW_WHEEL_NAME"
+            echo "Renamed wheel: $ORIGINAL_WHEEL -> $NEW_WHEEL_NAME"
+          else
+            echo "No wheel file found to rename"
+          fi
+
       - name: Upload wheel
         uses: actions/upload-artifact@v4
         with:

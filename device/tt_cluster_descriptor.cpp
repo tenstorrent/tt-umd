@@ -544,9 +544,10 @@ std::unique_ptr<tt_ClusterDescriptor> tt_ClusterDescriptor::create_mock_cluster(
         case tt::ARCH::WORMHOLE_B0:
             board_type = BoardType::N150;
             break;
+        case tt::ARCH::QUASAR:  // TODO (#450): Add Quasar configuration
         case tt::ARCH::BLACKHOLE:
-            board_type = BoardType::P150;
-            harvesting_masks.pcie_harvesting_mask = 0x2;
+            board_type = BoardType::UNKNOWN;
+            harvesting_masks.pcie_harvesting_mask = 0x0;
             break;
         default:
             board_type = BoardType::UNKNOWN;
@@ -564,7 +565,8 @@ std::unique_ptr<tt_ClusterDescriptor> tt_ClusterDescriptor::create_mock_cluster(
         desc->chip_board_type.insert({logical_id, board_type});
         desc->chips_with_mmio.insert({logical_id, logical_id});
         desc->chip_arch.insert({logical_id, arch});
-        desc->noc_translation_enabled.insert({logical_id, true});
+        /* NOC translation is not supported for Simulation chips */
+        desc->noc_translation_enabled.insert({logical_id, false});
         desc->harvesting_masks_map.insert({logical_id, harvesting_masks});
     }
     desc->fill_chips_grouped_by_closest_mmio();
@@ -876,32 +878,14 @@ void tt_ClusterDescriptor::load_chips_from_connectivity_descriptor(YAML::Node &y
     if (yaml["chip_to_boardtype"]) {
         for (const auto &yaml_chip_board_type : yaml["chip_to_boardtype"].as<std::map<int, std::string>>()) {
             auto &chip = yaml_chip_board_type.first;
-            BoardType board_type;
-            if (yaml_chip_board_type.second == "n150") {
-                board_type = BoardType::N150;
-            } else if (yaml_chip_board_type.second == "n300") {
-                board_type = BoardType::N300;
-            } else if (yaml_chip_board_type.second == "p100") {
-                board_type = BoardType::P100;
-            } else if (
-                yaml_chip_board_type.second == "p150" || yaml_chip_board_type.second == "p150A" ||
-                yaml_chip_board_type.second == "p150C") {
-                board_type = BoardType::P150;
-            } else if (
-                yaml_chip_board_type.second == "p300" || yaml_chip_board_type.second == "p300A" ||
-                yaml_chip_board_type.second == "p300C") {
-                board_type = BoardType::P300;
-            } else if (yaml_chip_board_type.second == "GALAXY") {
-                board_type = BoardType::GALAXY;
-            } else if (yaml_chip_board_type.second == "ubb") {
-                board_type = BoardType::UBB;
-            } else {
+            const std::string &board_type_str = yaml_chip_board_type.second;
+            BoardType board_type = board_type_from_string(board_type_str);
+            if (board_type == BoardType::UNKNOWN) {
                 log_warning(
                     LogSiliconDriver,
                     "Unknown board type for chip {}. This might happen because chip is running old firmware. "
                     "Defaulting to UNKNOWN",
                     chip);
-                board_type = BoardType::UNKNOWN;
             }
             chip_board_type.insert({chip, board_type});
         }
@@ -1304,6 +1288,14 @@ void tt_ClusterDescriptor::verify_cluster_descriptor_info() {
                 board_type_to_string(board_type));
         }
     }
+}
+
+uint8_t tt_ClusterDescriptor::get_asic_location(chip_id_t chip_id) const {
+    auto it = asic_locations.find(chip_id);
+    if (it == asic_locations.end()) {
+        return 0;
+    }
+    return it->second;
 }
 
 }  // namespace tt::umd

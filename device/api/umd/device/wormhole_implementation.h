@@ -7,6 +7,7 @@
 #pragma once
 
 #include <array>
+#include <cstdint>
 
 #include "architecture_implementation.h"
 #include "umd/device/types/tlb.h"
@@ -245,9 +246,12 @@ static constexpr uint32_t ARC_SCRATCH_6_OFFSET = 0x1FF30078;
 
 static constexpr uint32_t ARC_RESET_UNIT_OFFSET = 0x30000;
 static constexpr uint32_t ARC_RESET_SCRATCH_OFFSET = ARC_RESET_UNIT_OFFSET + 0x60;
+static constexpr uint32_t ARC_RESET_SCRATCH_2_OFFSET = ARC_RESET_SCRATCH_OFFSET + 0x8;
 static constexpr uint32_t ARC_RESET_SCRATCH_RES0_OFFSET = ARC_RESET_SCRATCH_OFFSET + 0xC;
 static constexpr uint32_t ARC_RESET_SCRATCH_RES1_OFFSET = ARC_RESET_SCRATCH_OFFSET + 0x10;
 static constexpr uint32_t ARC_RESET_SCRATCH_STATUS_OFFSET = ARC_RESET_SCRATCH_OFFSET + 0x14;
+static constexpr uint32_t ARC_RESET_REFCLK_LOW_OFFSET = ARC_RESET_UNIT_OFFSET + 0xE0;
+static constexpr uint32_t ARC_RESET_REFCLK_HIGH_OFFSET = ARC_RESET_UNIT_OFFSET + 0xE4;
 static constexpr uint32_t ARC_RESET_ARC_MISC_CNTL_OFFSET = ARC_RESET_UNIT_OFFSET + 0x0100;
 
 static constexpr uint32_t ARC_XBAR_ADDRESS_END = 0xFFFFFFFF;
@@ -325,13 +329,17 @@ public:
 
     uint32_t get_arc_csm_mailbox_offset() const override { return wormhole::ARC_CSM_MAILBOX_OFFSET; }
 
-    uint32_t get_arc_reset_arc_misc_cntl_offset() const override {
-        return wormhole::ARC_APB_BAR0_XBAR_OFFSET_START + wormhole::ARC_RESET_ARC_MISC_CNTL_OFFSET;
-    }
+    uint32_t get_arc_axi_apb_peripheral_offset() const override { return wormhole::ARC_APB_BAR0_XBAR_OFFSET_START; }
 
-    uint32_t get_arc_reset_scratch_offset() const override {
-        return wormhole::ARC_APB_BAR0_XBAR_OFFSET_START + wormhole::ARC_RESET_SCRATCH_OFFSET;
-    }
+    uint32_t get_arc_reset_arc_misc_cntl_offset() const override { return wormhole::ARC_RESET_ARC_MISC_CNTL_OFFSET; }
+
+    uint32_t get_arc_reset_scratch_offset() const override { return wormhole::ARC_RESET_SCRATCH_OFFSET; }
+
+    uint32_t get_arc_reset_scratch_2_offset() const override { return wormhole::ARC_RESET_SCRATCH_2_OFFSET; }
+
+    uint32_t get_arc_reset_unit_refclk_low_offset() const override { return wormhole::ARC_RESET_REFCLK_LOW_OFFSET; }
+
+    uint32_t get_arc_reset_unit_refclk_high_offset() const override { return wormhole::ARC_RESET_REFCLK_HIGH_OFFSET; }
 
     uint32_t get_dram_channel_0_peer2peer_region_start() const override {
         return wormhole::DRAM_CHANNEL_0_PEER2PEER_REGION_START;
@@ -340,6 +348,8 @@ public:
     uint32_t get_dram_channel_0_x() const override { return wormhole::DRAM_CHANNEL_0_X; }
 
     uint32_t get_dram_channel_0_y() const override { return wormhole::DRAM_CHANNEL_0_Y; }
+
+    uint32_t get_dram_banks_number() const override { return wormhole::NUM_DRAM_BANKS; }
 
     uint32_t get_broadcast_tlb_index() const override { return wormhole::BROADCAST_TLB_INDEX; }
 
@@ -386,6 +396,10 @@ public:
     const std::vector<uint32_t>& get_t6_x_locations() const override { return wormhole::T6_X_LOCATIONS; }
 
     const std::vector<uint32_t>& get_t6_y_locations() const override { return wormhole::T6_Y_LOCATIONS; }
+
+    const std::vector<std::vector<tt_xy_pair>>& get_dram_cores_noc0() const override {
+        return wormhole::DRAM_CORES_NOC0;
+    };
 
     std::pair<uint32_t, uint32_t> get_tlb_1m_base_and_count() const override {
         return {wormhole::TLB_BASE_1M, wormhole::TLB_COUNT_1M};

@@ -8,9 +8,8 @@
 namespace tt::umd {
 
 RemoteWormholeTTDevice::RemoteWormholeTTDevice(
-    LocalChip *local_chip, std::unique_ptr<RemoteCommunication> remote_communication, eth_coord_t target_chip) :
-    WormholeTTDevice(local_chip->get_tt_device()->get_pci_device()),
-    local_chip_(local_chip),
+    std::unique_ptr<RemoteCommunication> remote_communication, eth_coord_t target_chip) :
+    WormholeTTDevice(remote_communication->get_local_device()->get_pci_device()),
     target_chip_(target_chip),
     remote_communication_(std::move(remote_communication)) {
     is_remote_tt_device = true;
@@ -27,8 +26,6 @@ void RemoteWormholeTTDevice::write_to_device(const void *mem_ptr, tt_xy_pair cor
 
 void RemoteWormholeTTDevice::wait_for_non_mmio_flush() { remote_communication_->wait_for_non_mmio_flush(); }
 
-LocalChip *RemoteWormholeTTDevice::get_local_chip() { return local_chip_; }
-
 RemoteCommunication *RemoteWormholeTTDevice::get_remote_communication() { return remote_communication_.get(); }
 
 void RemoteWormholeTTDevice::read_from_arc(void *mem_ptr, uint64_t arc_addr_offset, size_t size) {
@@ -43,6 +40,10 @@ void RemoteWormholeTTDevice::write_to_arc(const void *mem_ptr, uint64_t arc_addr
         throw std::runtime_error("Address is out of ARC XBAR address range");
     }
     write_to_device(mem_ptr, get_arc_core(), get_arc_noc_base_address() + arc_addr_offset, size);
+}
+
+bool RemoteWormholeTTDevice::wait_arc_post_reset(const uint32_t timeout_ms) {
+    throw std::runtime_error("ARC post reset wait is not supported on remote devices.");
 }
 
 }  // namespace tt::umd

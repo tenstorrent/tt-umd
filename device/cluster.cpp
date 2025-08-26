@@ -251,13 +251,12 @@ std::unique_ptr<Chip> Cluster::construct_chip_from_cluster(
         }
         chip_id_t gateway_id = cluster_desc->get_closest_mmio_capable_chip(chip_id);
         LocalChip* local_chip = get_local_chip(gateway_id);
-        std::unordered_set<CoreCoord> eth_cores_to_use;
-        for (auto channel : cluster_desc->get_active_eth_channels(gateway_id)) {
-            eth_cores_to_use.insert(
-                local_chip->get_soc_descriptor().get_eth_core_for_channel(channel, CoordSystem::TRANSLATED));
-        }
+        const auto& active_channels = cluster_desc->get_active_eth_channels(gateway_id);
         return RemoteChip::create(
-            local_chip, cluster_desc->get_chip_locations().at(chip_id), eth_cores_to_use, soc_desc);
+            local_chip,
+            cluster_desc->get_chip_locations().at(chip_id),
+            cluster_desc->get_active_eth_channels(gateway_id),
+            soc_desc);
     }
 }
 
@@ -285,8 +284,7 @@ tt_SocDescriptor Cluster::construct_soc_descriptor(
             ? get_harvesting_masks(chip_id, cluster_desc, perform_harvesting, simulated_harvesting_masks)
             : HarvestingMasks{};
     BoardType chip_board_type = chip_in_cluster_descriptor ? cluster_desc->get_board_type(chip_id) : BoardType::UNKNOWN;
-    uint8_t asic_location =
-        chip_in_cluster_descriptor ? cluster_desc->get_chip_uid(chip_id).value_or(ChipUID{}).asic_location : 0;
+    uint8_t asic_location = chip_in_cluster_descriptor ? cluster_desc->get_asic_location(chip_id) : 0;
 
     if (soc_desc_path.empty()) {
         tt::ARCH arch = chip_in_cluster_descriptor ? cluster_desc->get_arch(chip_id) : tt::ARCH::WORMHOLE_B0;
@@ -318,7 +316,7 @@ void Cluster::add_chip(const chip_id_t& chip_id, const ChipType& chip_type, std:
         chip_id);
     all_chip_ids_.insert(chip_id);
     // All non silicon chip types are considered local chips.
-    if (chip_type != ChipType::SILICON || cluster_desc->is_chip_mmio_capable(chip_id)) {
+    if (chip_type == ChipType::SIMULATION || cluster_desc->is_chip_mmio_capable(chip_id)) {
         local_chip_ids_.insert(chip_id);
     } else {
         remote_chip_ids_.insert(chip_id);
@@ -370,6 +368,7 @@ Cluster::Cluster(ClusterOptions options) {
         temp_full_cluster_desc_ptr = Cluster::create_cluster_descriptor(options.sdesc_path, options.pci_target_devices);
         temp_full_cluster_desc = temp_full_cluster_desc_ptr.get();
     }
+    chip_type_ = options.chip_type;
 
     std::unordered_set<chip_id_t> chips_to_construct = options.target_devices;
     // If no target devices are passed, obtain them from the cluster descriptor.
@@ -408,7 +407,17 @@ Cluster::Cluster(ClusterOptions options) {
             }
         }
         if (construct_mock_cluster_descriptor) {
-            cluster_desc = tt_ClusterDescriptor::create_mock_cluster(chips_to_construct_vec, tt::ARCH::WORMHOLE_B0);
+            auto arch = tt::ARCH::WORMHOLE_B0;
+#ifdef TT_UMD_BUILD_SIMULATION
+            if (options.chip_type == ChipType::SIMULATION) {
+                tt_SimulationDeviceInit init(options.simulator_directory);
+                arch = init.get_soc_descriptor().arch;
+            }
+#endif
+            cluster_desc = tt_ClusterDescriptor::create_mock_cluster(chips_to_construct_vec, arch);
+        }
+        if (options.sdesc_path.empty() && options.chip_type == ChipType::SIMULATION) {
+            options.sdesc_path = options.simulator_directory / "soc_descriptor.yaml";
         }
     }
     for (auto& chip_id : chips_to_construct_vec) {
@@ -490,9 +499,9 @@ std::function<void(uint32_t, uint32_t, const uint8_t*)> Cluster::get_fast_pcie_s
     return chips_.at(device_id)->get_fast_pcie_static_tlb_write_callable();
 }
 
-Writer Cluster::get_static_tlb_writer(const chip_id_t chip, const CoreCoord target) {
-    tt_xy_pair virtual_core = get_soc_descriptor(chip).translate_coord_to(target, CoordSystem::VIRTUAL);
-    return get_tlb_manager(chip)->get_static_tlb_writer(virtual_core);
+Writer Cluster::get_static_tlb_writer(const chip_id_t chip, const CoreCoord core) {
+    tt_xy_pair translated_core = get_chip(chip)->translate_chip_coord_to_translated(core);
+    return get_tlb_manager(chip)->get_static_tlb_writer(translated_core);
 }
 
 std::map<int, int> Cluster::get_clocks() {
@@ -510,8 +519,8 @@ Cluster::~Cluster() {
 }
 
 tlb_configuration Cluster::get_tlb_configuration(const chip_id_t chip, CoreCoord core) {
-    tt_xy_pair virtual_core = get_soc_descriptor(chip).translate_coord_to(core, CoordSystem::VIRTUAL);
-    return get_tlb_manager(chip)->get_tlb_configuration(virtual_core);
+    tt_xy_pair translated_core = get_chip(chip)->translate_chip_coord_to_translated(core);
+    return get_tlb_manager(chip)->get_tlb_configuration(translated_core);
 }
 
 // TODO: These configure_tlb APIs are soon going away.
@@ -527,9 +536,8 @@ void Cluster::configure_tlb(
 
 void Cluster::configure_tlb(
     chip_id_t logical_device_id, CoreCoord core, int32_t tlb_index, uint64_t address, uint64_t ordering) {
-    tt_xy_pair virtual_core = get_soc_descriptor(logical_device_id).translate_coord_to(core, CoordSystem::VIRTUAL);
     tt_xy_pair translated_core = get_chip(logical_device_id)->translate_chip_coord_to_translated(core);
-    get_tlb_manager(logical_device_id)->configure_tlb(virtual_core, translated_core, tlb_index, address, ordering);
+    get_tlb_manager(logical_device_id)->configure_tlb(translated_core, tlb_index, address, ordering);
 }
 
 void* Cluster::host_dma_address(std::uint64_t offset, chip_id_t src_device_id, uint16_t channel) const {
@@ -1011,6 +1019,11 @@ void Cluster::verify_sw_fw_versions(int device_id, std::uint32_t sw_version, std
 }
 
 void Cluster::start_device(const tt_device_params& device_params) {
+    if (this->chip_type_ == tt::umd::ChipType::MOCK) {
+        // Mock cluster doesn't need to start device
+        return;
+    }
+
     if (device_params.init_device) {
         for (auto chip_id : all_chip_ids_) {
             get_chip(chip_id)->start_device();
@@ -1021,6 +1034,11 @@ void Cluster::start_device(const tt_device_params& device_params) {
 }
 
 void Cluster::close_device() {
+    if (this->chip_type_ == tt::umd::ChipType::MOCK) {
+        // Mock cluster doesn't need to close device
+        return;
+    }
+
     // Close remote device first because sending risc reset requires corresponding pcie device to be active
     for (auto remote_chip_id : remote_chip_ids_) {
         get_chip(remote_chip_id)->close_device();

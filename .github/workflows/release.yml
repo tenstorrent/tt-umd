@@ -188,7 +188,10 @@ jobs:
                 END { if (desc != "") print desc; else print "No description section found." }
               ')
 
-              DETAILED_CONTENT="${DETAILED_CONTENT}### ${subject} ** ${author} ${date} ${hash:0:7}\\n${DESCRIPTION}\\n"
+              DETAILED_CONTENT="${DETAILED_CONTENT}### ${subject}\n"
+              DETAILED_CONTENT="${DETAILED_CONTENT}**Author:** ${author} | **Date:** ${date} | "
+              DETAILED_CONTENT="${DETAILED_CONTENT}**Commit:** \`${hash:0:7}\`\n\n"
+              DETAILED_CONTENT="${DETAILED_CONTENT}${DESCRIPTION}\n\n"
             done <<< "$DETAILED_PRS"
 
             {

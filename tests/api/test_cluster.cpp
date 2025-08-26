@@ -30,6 +30,7 @@
 #include "umd/device/tt_silicon_driver_common.hpp"
 #include "umd/device/types/arch.h"
 #include "umd/device/types/cluster_descriptor_types.h"
+#include "umd/device/warm_reset.h"
 #include "umd/device/wormhole_implementation.h"
 
 // TODO: obviously we need some other way to set this up
@@ -501,6 +502,105 @@ TEST(TestCluster, TestClusterAICLKControl) {
     auto clocks_idle = cluster->get_clocks();
     for (auto& clock : clocks_idle) {
         EXPECT_EQ(clock.second, get_expected_clock_val(clock.first, false));
+    }
+}
+
+TEST(TestCluster, WarmResetScratch) {
+    std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
+
+    if (cluster->get_target_device_ids().empty()) {
+        GTEST_SKIP() << "No chips present on the system. Skipping test.";
+    }
+
+    uint32_t write_test_data = 0xDEADBEEF;
+
+    auto chip_id = *cluster->get_target_device_ids().begin();
+    auto tt_device = cluster->get_chip(chip_id)->get_tt_device();
+
+    tt_device->bar_write32(
+        tt_device->get_architecture_implementation()->get_arc_axi_apb_peripheral_offset() +
+            tt_device->get_architecture_implementation()->get_arc_reset_scratch_2_offset(),
+        write_test_data);
+
+    WarmReset::warm_reset();
+
+    cluster.reset();
+
+    cluster = std::make_unique<Cluster>();
+    chip_id = *cluster->get_target_device_ids().begin();
+    tt_device = cluster->get_chip(chip_id)->get_tt_device();
+
+    auto read_test_data = tt_device->bar_read32(
+        tt_device->get_architecture_implementation()->get_arc_axi_apb_peripheral_offset() +
+        tt_device->get_architecture_implementation()->get_arc_reset_scratch_2_offset());
+
+    EXPECT_NE(write_test_data, read_test_data);
+}
+
+TEST(TestCluster, WarmReset) {
+    std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
+
+    if (cluster->get_target_device_ids().empty()) {
+        GTEST_SKIP() << "No chips present on the system. Skipping test.";
+    }
+
+    auto arch = cluster->get_tt_device(0)->get_arch();
+    if (arch == tt::ARCH::WORMHOLE_B0) {
+        GTEST_SKIP()
+            << "This test intentionally hangs the NOC. On Wormhole, this can cause a severe failure where even a warm "
+               "reset does not recover the device, requiring a watchdog-triggered reset for recovery.";
+    }
+
+    std::vector<uint8_t> data{1, 2, 3, 4, 5, 6, 7, 8};
+    std::vector<uint8_t> zero_data(data.size(), 0);
+    std::vector<uint8_t> readback_data(data.size(), 0);
+
+    // send data to core 15, 15 which will hang the NOC
+    auto hanged_chip_id = *cluster->get_target_device_ids().begin();
+    auto hanged_tt_device = cluster->get_chip(hanged_chip_id)->get_tt_device();
+    hanged_tt_device->write_to_device(data.data(), {15, 15}, 0, data.size());
+
+    // TODO: Remove this check when it is figured out why there is no hang detected on Blackhole.
+    if (arch == tt::ARCH::WORMHOLE_B0) {
+        EXPECT_THROW(hanged_tt_device->detect_hang_read(), std::runtime_error);
+    }
+
+    WarmReset::warm_reset();
+
+    cluster.reset();
+
+    cluster = std::make_unique<Cluster>();
+
+    EXPECT_FALSE(cluster->get_target_device_ids().empty()) << "No chips present after reset.";
+
+    EXPECT_NO_THROW(cluster->get_chip(0)->get_tt_device()->detect_hang_read());
+
+    auto chip_ids = cluster->get_target_device_ids();
+    for (auto& chip_id : chip_ids) {
+        const tt_SocDescriptor& soc_desc = cluster->get_soc_descriptor(chip_id);
+        auto tensix_cores = cluster->get_soc_descriptor(chip_id).get_cores(CoreType::TENSIX);
+
+        for (const CoreCoord& tensix_core : tensix_cores) {
+            auto chip = cluster->get_chip(chip_id);
+
+            TensixSoftResetOptions select_all_tensix_riscv_cores{TENSIX_ASSERT_SOFT_RESET};
+
+            // Set all riscs to reset state.
+            chip->set_tensix_risc_reset(
+                cluster->get_soc_descriptor(chip_id).translate_coord_to(tensix_core, CoordSystem::VIRTUAL),
+                select_all_tensix_riscv_cores);
+
+            cluster->l1_membar(chip_id, {tensix_core});
+
+            // Zero out first 8 bytes on L1
+            cluster->write_to_device(zero_data.data(), zero_data.size(), chip_id, tensix_core, 0);
+
+            cluster->write_to_device(data.data(), data.size(), chip_id, tensix_core, 0);
+
+            cluster->read_from_device(readback_data.data(), chip_id, tensix_core, 0, readback_data.size());
+
+            ASSERT_EQ(data, readback_data);
+        }
     }
 }
 

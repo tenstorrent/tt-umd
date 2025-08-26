@@ -6,14 +6,18 @@
 
 #pragma once
 
+#include <filesystem>
+#include <memory>
 #include <string_view>
 
 #include "umd/device/arc/arc_messenger.h"
 #include "umd/device/arc/arc_telemetry_reader.h"
 #include "umd/device/architecture_implementation.h"
 #include "umd/device/chip_helpers/tlb_manager.h"
+#include "umd/device/jtag/jtag_device.h"
 #include "umd/device/pci_device.hpp"
 #include "umd/device/types/cluster_descriptor_types.h"
+#include "umd/device/utils/lock_manager.h"
 
 namespace tt::umd {
 
@@ -41,10 +45,17 @@ public:
     static void use_noc1(bool use_noc1);
 
     /**
-     * Creates a proper TTDevice object for the given PCI device number.
+     * Creates a proper TTDevice object for the given device number.
+     * Jtag support can be enabled.
      */
-    static std::unique_ptr<TTDevice> create(int pci_device_number);
+    static std::unique_ptr<TTDevice> create(int device_number, IODeviceType device_type = IODeviceType::PCIe);
+
     TTDevice(std::shared_ptr<PCIDevice> pci_device, std::unique_ptr<architecture_implementation> architecture_impl);
+    TTDevice(
+        std::shared_ptr<JtagDevice> jtag_device,
+        uint8_t jlink_id,
+        std::unique_ptr<architecture_implementation> architecture_impl);
+
     virtual ~TTDevice();
 
     architecture_implementation *get_architecture_implementation();
@@ -201,6 +212,18 @@ public:
 
     virtual semver_t get_firmware_version() = 0;
 
+    /**
+     * Waits for ARC core hardware initialization after reset.
+     * Must be called after device reset and before init_tt_device().
+     * This ensures the ARC core hardware is ready for further initialization.
+     */
+    virtual bool wait_arc_post_reset(const uint32_t timeout_ms = 1000) = 0;
+
+    /**
+     * Waits for ARC core to be fully ready for communication.
+     * Must be called after init_tt_device() and before using ArcMessenger.
+     * This ensures the ARC core is completely initialized and operational.
+     */
     virtual void wait_arc_core_start(const uint32_t timeout_ms = 1000) = 0;
 
     virtual void wait_eth_core_training(const tt_xy_pair eth_core, const uint32_t timeout_ms = 60000) = 0;
@@ -241,8 +264,17 @@ public:
 
     void init_tt_device();
 
+    uint64_t get_refclk_counter();
+
+    int get_communication_device_id() const;
+
+    IODeviceType get_communication_device_type() const;
+
 protected:
     std::shared_ptr<PCIDevice> pci_device_;
+    std::shared_ptr<JtagDevice> jtag_device_;
+    uint8_t jlink_id_;
+    IODeviceType communication_device_type_;
     std::unique_ptr<architecture_implementation> architecture_impl_;
     tt::ARCH arch;
     std::unique_ptr<ArcMessenger> arc_messenger_ = nullptr;

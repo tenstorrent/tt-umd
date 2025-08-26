@@ -63,6 +63,7 @@ target_sources(
         arc/wormhole_arc_messenger.cpp
         arc/blackhole_arc_messenger.cpp
         arc/blackhole_arc_message_queue.cpp
+        warm_reset.cpp
         xy_pair.cpp
         utils/lock_manager.cpp
         utils/robust_mutex.cpp
@@ -70,6 +71,8 @@ target_sources(
         topology/topology_discovery_blackhole.cpp
         topology/topology_discovery_wormhole.cpp
         remote_communication.cpp
+        jtag/jtag_device.cpp
+        jtag/jtag.cpp
 )
 
 if(TT_UMD_BUILD_SIMULATION)
@@ -110,6 +113,7 @@ if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.23)
                 api/umd/device/logging/config.h
                 api/umd/device/utils/lock_manager.h
                 api/umd/device/pci_device.hpp
+                api/umd/device/warm_reset.h
                 api/umd/device/semver.hpp
                 api/umd/device/utils/robust_mutex.h
                 api/umd/device/tt_cluster_descriptor.h
@@ -125,6 +129,7 @@ if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.23)
                 api/umd/device/tt_simulation_host.hpp
                 api/umd/device/tt_soc_descriptor.h
                 api/umd/device/tt_xy_pair.h
+                api/umd/device/umd_utils.h
                 api/umd/device/types/arch.h
                 api/umd/device/types/blackhole_arc.h
                 api/umd/device/types/cluster_descriptor_types.h
@@ -134,6 +139,8 @@ if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.23)
                 api/umd/device/types/xy_pair.h
                 api/umd/device/wormhole_coordinate_manager.h
                 api/umd/device/wormhole_implementation.h
+                api/umd/device/jtag/jtag_device.h
+                api/umd/device/jtag/jtag.h
     )
 endif()
 

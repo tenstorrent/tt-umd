@@ -289,4 +289,6 @@ double BlackholeTTDevice::get_asic_temperature() {
 
 uint64_t BlackholeTTDevice::get_arc_noc_base_address() const { return blackhole::ARC_NOC_XBAR_ADDRESS_START; }
 
+bool BlackholeTTDevice::wait_arc_post_reset(const uint32_t timeout_ms) { return true; }
+
 }  // namespace tt::umd

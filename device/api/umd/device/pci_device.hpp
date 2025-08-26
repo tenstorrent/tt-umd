@@ -51,6 +51,34 @@ struct DmaBuffer {
     uint64_t completion_pa = 0;
 };
 
+/**
+ * @brief Specifies the type of reset action for a Tenstorrent device.
+ */
+enum class TenstorrentResetDevice : uint32_t {
+    /**
+     * @brief Restores a device's saved configuration state after a reset.
+     *
+     * Used to write back previously saved configuration registers to return the
+     * device to an operational state.
+     */
+    RESTORE_STATE = 0,
+
+    /**
+     * @brief Initiates a full PCIe link retraining (Hot Reset).
+     *
+     * A complete device reset that forces the PCIe link to re-establish its connection.
+     */
+    RESET_PCIE_LINK = 1,
+
+    /**
+     * @brief Triggers a software-initiated interrupt via a configuration write.
+     *
+     * Commands the device to generate an immediate interrupt by writing to a
+     * control register.
+     */
+    CONFIG_WRITE = 2
+};
+
 inline constexpr std::string_view TT_VISIBLE_DEVICES_ENV = "TT_VISIBLE_DEVICES";
 
 class PCIDevice {
@@ -200,6 +228,16 @@ public:
      * @param mapping_type Type of TLB mapping to allocate (UC or WC).
      */
     std::unique_ptr<TlbHandle> allocate_tlb(const size_t tlb_size, const TlbMapping tlb_mapping = TlbMapping::UC);
+
+    /**
+     * Read command byte.
+     */
+    static uint8_t read_command_byte(const int pci_device_num);
+
+    /**
+     * Reset device via ioctl.
+     */
+    static void reset_devices(TenstorrentResetDevice flag);
 
     /**
      * Temporary function which allows us to support both ways of mapping buffers during the transition period.

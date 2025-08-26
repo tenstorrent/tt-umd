@@ -6,6 +6,8 @@
 
 #pragma once
 
+#include <cstdint>
+#include <memory>
 #include <mutex>
 
 #include "umd/device/tt_device/tt_device.h"
@@ -14,6 +16,7 @@ namespace tt::umd {
 class WormholeTTDevice : public TTDevice {
 public:
     WormholeTTDevice(std::shared_ptr<PCIDevice> pci_device);
+    WormholeTTDevice(std::shared_ptr<JtagDevice> jtag_device, uint8_t jlink_id);
 
     void configure_iatu_region(size_t region, uint64_t target, size_t region_size) override;
 
@@ -53,8 +56,9 @@ public:
 
     uint64_t get_arc_noc_base_address() const override;
 
-protected:
     tt_xy_pair get_arc_core() const;
+
+    bool wait_arc_post_reset(const uint32_t timeout_ms = 1000) override;
 
 private:
     void dma_d2h_transfer(const uint64_t dst, const uint32_t src, const size_t size);

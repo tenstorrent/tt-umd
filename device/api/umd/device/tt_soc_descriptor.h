@@ -73,19 +73,9 @@ public:
     // Default constructor. Creates uninitialized object with public access to all of its attributes.
     tt_SocDescriptor() = default;
     // Constructor used to build object from device descriptor file.
-    tt_SocDescriptor(
-        std::string device_descriptor_path,
-        const bool noc_translation_enabled,
-        const HarvestingMasks harvesting_masks = {0, 0, 0},
-        const BoardType board_type = BoardType::UNKNOWN,
-        const uint8_t asic_location = 0);
+    tt_SocDescriptor(const std::string &device_descriptor_path, const ChipInfo chip_info = {});
 
-    tt_SocDescriptor(
-        const tt::ARCH arch,
-        const bool noc_translation_enabled,
-        const HarvestingMasks harvesting_masks = {0, 0, 0},
-        const BoardType board_type = BoardType::UNKNOWN,
-        const uint8_t asic_location = 0);
+    tt_SocDescriptor(const tt::ARCH arch, const ChipInfo chip_info = {});
 
     // CoreCoord conversions.
     CoreCoord translate_coord_to(const CoreCoord core_coord, const CoordSystem coord_system) const;

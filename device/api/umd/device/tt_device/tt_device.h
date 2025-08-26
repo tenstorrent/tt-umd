@@ -273,6 +273,8 @@ public:
 
     IODeviceType get_communication_device_type() const;
 
+    semver_t fw_version_from_telemetry(const uint32_t telemetry_data) const;
+
 protected:
     std::shared_ptr<PCIDevice> pci_device_;
     std::shared_ptr<JtagDevice> jtag_device_;
@@ -298,8 +300,6 @@ protected:
     // to 2-byte writes. We avoid ever performing a 1-byte write to the device. This only affects to device.
     void memcpy_to_device(void *dest, const void *src, std::size_t num_bytes);
     void memcpy_from_device(void *dest, const void *src, std::size_t num_bytes);
-
-    semver_t fw_version_from_telemetry(const uint32_t telemetry_data) const;
 
     TTDevice();
 

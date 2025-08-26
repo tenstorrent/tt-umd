@@ -59,6 +59,7 @@ target_sources(
         arc/arc_telemetry_reader.cpp
         arc/wormhole_arc_telemetry_reader.cpp
         arc/blackhole_arc_telemetry_reader.cpp
+        arc/smbus_arc_telemetry_reader.cpp
         arc/arc_messenger.cpp
         arc/wormhole_arc_messenger.cpp
         arc/blackhole_arc_messenger.cpp

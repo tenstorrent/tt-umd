@@ -18,9 +18,9 @@ class ArcTelemetryReader {
 public:
     virtual ~ArcTelemetryReader() = default;
 
-    uint32_t read_entry(const uint8_t telemetry_tag);
+    virtual uint32_t read_entry(const uint8_t telemetry_tag);
 
-    bool is_entry_available(const uint8_t telemetry_tag);
+    virtual bool is_entry_available(const uint8_t telemetry_tag);
 
     static std::unique_ptr<ArcTelemetryReader> create_arc_telemetry_reader(TTDevice* tt_device);
 

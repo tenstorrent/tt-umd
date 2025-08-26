@@ -6,7 +6,12 @@
 #include "umd/device/arc/arc_telemetry_reader.h"
 
 #include "umd/device/arc/blackhole_arc_telemetry_reader.h"
+#include "umd/device/arc/smbus_arc_telemetry_reader.h"
 #include "umd/device/arc/wormhole_arc_telemetry_reader.h"
+#include "umd/device/semver.hpp"
+#include "umd/device/types/wormhole_telemetry.h"
+
+static const tt::umd::semver_t new_telemetry_fw_bundle = tt::umd::semver_t(18, 2, 0);
 
 namespace tt::umd {
 
@@ -14,8 +19,19 @@ ArcTelemetryReader::ArcTelemetryReader(TTDevice* tt_device) : tt_device(tt_devic
 
 std::unique_ptr<ArcTelemetryReader> ArcTelemetryReader::create_arc_telemetry_reader(TTDevice* tt_device) {
     switch (tt_device->get_arch()) {
-        case tt::ARCH::WORMHOLE_B0:
-            return std::make_unique<WormholeArcTelemetryReader>(tt_device);
+        case tt::ARCH::WORMHOLE_B0: {
+            std::unique_ptr<SmBusArcTelemetryReader> smbus_telemetry_reader =
+                std::make_unique<SmBusArcTelemetryReader>(tt_device);
+
+            semver_t fw_bundle_version = tt_device->fw_version_from_telemetry(
+                smbus_telemetry_reader->read_entry(tt::umd::wormhole::TelemetryTag::FW_BUNDLE_VERSION));
+
+            if (fw_bundle_version >= new_telemetry_fw_bundle) {
+                return std::make_unique<WormholeArcTelemetryReader>(tt_device);
+            }
+
+            return std::move(smbus_telemetry_reader);
+        }
         case tt::ARCH::BLACKHOLE:
             return std::make_unique<BlackholeArcTelemetryReader>(tt_device);
         default:

@@ -330,16 +330,11 @@ SocDescriptorInfo tt_SocDescriptor::get_soc_descriptor_info(tt::ARCH arch) {
     }
 }
 
-tt_SocDescriptor::tt_SocDescriptor(
-    const tt::ARCH arch_soc,
-    const bool noc_translation_enabled,
-    const HarvestingMasks harvesting_masks,
-    const BoardType board_type,
-    const uint8_t asic_location) :
-    noc_translation_enabled(noc_translation_enabled), harvesting_masks(harvesting_masks) {
+tt_SocDescriptor::tt_SocDescriptor(const tt::ARCH arch_soc, ChipInfo chip_info) :
+    noc_translation_enabled(chip_info.noc_translation_enabled), harvesting_masks(chip_info.harvesting_masks) {
     SocDescriptorInfo soc_desc_info = tt_SocDescriptor::get_soc_descriptor_info(arch_soc);
     load_from_soc_desc_info(soc_desc_info);
-    create_coordinate_manager(board_type, asic_location);
+    create_coordinate_manager(chip_info.board_type, chip_info.asic_location);
 }
 
 void tt_SocDescriptor::load_from_soc_desc_info(const SocDescriptorInfo &soc_desc_info) {
@@ -427,13 +422,8 @@ void tt_SocDescriptor::load_from_yaml(YAML::Node &device_descriptor_yaml) {
     load_from_soc_desc_info(soc_desc_info);
 }
 
-tt_SocDescriptor::tt_SocDescriptor(
-    std::string device_descriptor_path,
-    const bool noc_translation_enabled,
-    const HarvestingMasks harvesting_masks,
-    const BoardType board_type,
-    const uint8_t asic_location) :
-    noc_translation_enabled(noc_translation_enabled), harvesting_masks(harvesting_masks) {
+tt_SocDescriptor::tt_SocDescriptor(const std::string &device_descriptor_path, ChipInfo chip_info) :
+    noc_translation_enabled(chip_info.noc_translation_enabled), harvesting_masks(chip_info.harvesting_masks) {
     std::ifstream fdesc(device_descriptor_path);
     if (fdesc.fail()) {
         throw std::runtime_error(
@@ -446,7 +436,7 @@ tt_SocDescriptor::tt_SocDescriptor(
     device_descriptor_file_path = device_descriptor_path;
     load_from_yaml(device_descriptor_yaml);
 
-    create_coordinate_manager(board_type, asic_location);
+    create_coordinate_manager(chip_info.board_type, chip_info.asic_location);
 }
 
 int tt_SocDescriptor::get_num_dram_channels() const { return get_grid_size(CoreType::DRAM).x; }

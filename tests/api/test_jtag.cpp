@@ -44,12 +44,8 @@ protected:
         for (uint32_t jlink_device_id = 0; jlink_device_id < jlink_device_count_; ++jlink_device_id) {
             DeviceData device_data;
             device_data.tt_device_ = TTDevice::create(jlink_device_id, IODeviceType::JTAG);
-            ChipInfo chip_info = device_data.tt_device_->get_chip_info();
-            auto soc_descriptor = tt_SocDescriptor(
-                device_data.tt_device_->get_arch(),
-                chip_info.noc_translation_enabled,
-                chip_info.harvesting_masks,
-                chip_info.board_type);
+            auto soc_descriptor =
+                tt_SocDescriptor(device_data.tt_device_->get_arch(), device_data.tt_device_->get_chip_info());
             device_data.tensix_core_ = soc_descriptor.get_cores(CoreType::TENSIX, CoordSystem::NOC0)[0];
             device_data_.push_back(std::move(device_data));
         }

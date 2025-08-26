@@ -210,6 +210,8 @@ public:
 
     virtual ChipInfo get_chip_info() = 0;
 
+    virtual semver_t get_firmware_version() = 0;
+
     /**
      * Waits for ARC core hardware initialization after reset.
      * Must be called after device reset and before init_tt_device().

@@ -10,6 +10,7 @@
 #include "umd/device/chip_helpers/sysmem_manager.h"
 #include "umd/device/chip_helpers/tlb_manager.h"
 #include "umd/device/remote_communication.h"
+#include "umd/device/types/communication.h"
 
 namespace tt::umd {
 
@@ -19,9 +20,15 @@ public:
     // necessary information needed for soc descriptor construction. Due to this inverse member initialization order, we
     // cannot have simple constructors as they require the base class to be constructed first.
     static std::unique_ptr<LocalChip> create(
-        int pci_device_id, std::string sdesc_path = "", int num_host_mem_channels = 0);
+        int device_id,
+        std::string sdesc_path = "",
+        int num_host_mem_channels = 0,
+        IODeviceType device_type = IODeviceType::PCIe);
     static std::unique_ptr<LocalChip> create(
-        int pci_device_id, tt_SocDescriptor soc_descriptor, int num_host_mem_channels = 0);
+        int device_id,
+        tt_SocDescriptor soc_descriptor,
+        int num_host_mem_channels = 0,
+        IODeviceType device_type = IODeviceType::PCIe);
 
     ~LocalChip();
 
@@ -70,7 +77,8 @@ public:
     std::unique_lock<RobustMutex> acquire_mutex(MutexType mutex_type, int pci_device_id);
 
 private:
-    LocalChip(tt_SocDescriptor soc_descriptor, std::unique_ptr<TTDevice> tt_device, int num_host_mem_channels = 0);
+    LocalChip(tt_SocDescriptor soc_descriptor, std::unique_ptr<TTDevice> tt_device, int num_host_mem_channels);
+    LocalChip(tt_SocDescriptor soc_descriptor, std::unique_ptr<TTDevice> tt_device);
 
     std::unique_ptr<TLBManager> tlb_manager_;
     std::unique_ptr<SysmemManager> sysmem_manager_;

@@ -347,6 +347,10 @@ jobs:
   create-release:
     name: Create GitHub Release
     runs-on: ubuntu-22.04
+    permissions:
+      contents: write
+      packages: write
+      id-token: write
     needs: [prepare-release, build-cpp-artifacts, build-python-wheels]
     outputs:
       upload_url: ${{ steps.release.outputs.upload_url }}

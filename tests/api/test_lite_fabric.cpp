@@ -60,6 +60,11 @@ TEST(TestLiteFabric, LiteFabricInit) {
     host_interface.write_any_len(&test_value, sizeof(test_value), eth_cores_up[0], target_noc_addr);
     std::cout << "done writing to core" << std::endl;
 
+
+    uint32_t fabric_readback = 0;
+    host_interface.read(&fabric_readback, sizeof(fabric_readback),  eth_cores_up[0], target_noc_addr);
+    std::cout << "fabric_readback: " << std::hex << fabric_readback << std::dec << std::endl;
+
     auto local_chip_2 = LocalChip::create(pci_devices_ids[1]);
 
     CoreCoord tensix_core = {target_tensix.x, target_tensix.y, CoreType::TENSIX, CoordSystem::TRANSLATED};

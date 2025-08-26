@@ -419,7 +419,7 @@ struct HostToLiteFabricInterface {
         flush_h2d(receiver_core);
     }
 
-    // TODO: implement writes
+    // TODO: implement read_any_len
 } __attribute__((packed));
 
 struct LiteFabricMemoryMap {

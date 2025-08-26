@@ -164,12 +164,12 @@ jobs:
           if [ "${{ steps.get_commit_range.outputs.use_tag_range }}" = "true" ]; then
             echo "Getting detailed PR info since ${{ steps.get_commit_range.outputs.prev_tag }}"
             DETAILED_PRS=$(git log --pretty=format:"%H|%s|%an|%ad" --date=short \
-              ${{ steps.get_commit_range.outputs.commit_range }} | grep -E "\(#[0-9]+\)$" || echo "")
+              ${{ steps.get_commit_range.outputs.commit_range }} | grep -E "\(#[0-9]+\)\|" || echo "")
             echo "DETAILED_PRS: $DETAILED_PRS"
           else
             echo "Getting detailed PR info from recent commits"
             DETAILED_PRS=$(git log --pretty=format:"%H|%s|%an|%ad" --date=short --max-count=100 | \
-              grep -E "\(#[0-9]+\)$" || echo "")
+              grep -E "\(#[0-9]+\)\|" || echo "")
           fi
 
           if [ -n "$DETAILED_PRS" ]; then

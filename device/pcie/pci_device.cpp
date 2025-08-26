@@ -163,6 +163,9 @@ static std::optional<int> get_physical_slot_for_pcie_bdf(const std::string &targ
 
         bdf.erase(bdf.find_last_not_of(" \n\r\t") + 1);
 
+        // Append the pci_function 0, as our PCI devices are single function.
+        bdf += ".0";
+
         if (bdf == target_bdf) {
             return slot_number;
         }

@@ -428,10 +428,16 @@ jobs:
       - name: Prepare Slack message
         id: prepare_message
         run: |
-          # Create the message content
-          MESSAGE="🚧 TT-UMD Draft Release Created!
+          # Create variables for the message
+          VERSION="${{ needs.prepare-release.outputs.version }}"
+          REPO="${{ github.repository }}"
+          RELEASE_URL="https://github.com/${REPO}/releases/tag/v${VERSION}"
 
-          Draft Release v${{ needs.prepare-release.outputs.version }} has been successfully created!
+          # Create the message content using a here-document to avoid quote issues
+          cat << EOF > /tmp/slack_message.txt
+          🚧 TT-UMD Draft Release Created!
+
+          Draft Release v${VERSION} has been successfully created!
 
           📦 What's included:
           • C++ build artifacts for Ubuntu 22.04 & 24.04
@@ -447,14 +453,14 @@ jobs:
           2. Verify all information is accurate
           3. Publish the release when ready
 
-          🔗 Edit Release: >-
-            https://github.com/${{ github.repository }}/releases/tag/v${{ needs.prepare-release.outputs.version }}
+          🔗 Edit Release: ${RELEASE_URL}
 
           📋 Pull Requests in this release:
-          Check the release page for detailed PR information and complete changelog."
+          Check the release page for detailed PR information and complete changelog.
+          EOF
 
           # Escape the message for JSON and save to output
-          ESCAPED_MESSAGE=$(echo "$MESSAGE" | jq -Rs .)
+          ESCAPED_MESSAGE=$(cat /tmp/slack_message.txt | jq -Rs .)
           echo "message=$ESCAPED_MESSAGE" >> $GITHUB_OUTPUT
 
       - name: Send Slack notification

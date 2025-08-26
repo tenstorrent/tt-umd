@@ -67,18 +67,12 @@ jobs:
               }
               END { print content }
             ' CHANGELOG)
-
-
-            if [ -n "$VERSION_CHANGELOG" ]; then
-              echo "Found changelog for version ${VERSION}"
-            else
-              echo "No changelog found for version ${VERSION}"
-            fi
           else
             echo "CHANGELOG file not found"
           fi
 
-          if [ -z "$VERSION_CHANGELOG" ]; then
+          if [ -n "$VERSION_CHANGELOG" ]; then
+            echo "Found changelog for version ${VERSION}"
             # Save to output (handle multiline)
             {
               echo 'version_changelog<<EOF'
@@ -86,6 +80,7 @@ jobs:
               echo 'EOF'
             } >> $GITHUB_OUTPUT
           else
+            echo "No changelog found for version ${VERSION}"
             {
               echo 'version_changelog<<EOF'
               echo "### Changed"
@@ -441,8 +436,9 @@ jobs:
           VERSION="${{ needs.prepare-release.outputs.version }}"
           REPO="${{ github.repository }}"
           RELEASE_URL="https://github.com/${REPO}/releases/tag/v${VERSION}"
-          echo "🔗 Draft Release URL: $RELEASE_URL"
-          echo "🔗 Release URL: ${{ needs.create-release.outputs.release_url }}"
+          DRAFT_RELEASE_URL="${{ needs.create-release.outputs.release_url }}"
+          echo "🔗 Draft Release URL: $DRAFT_RELEASE_URL"
+          echo "🔗 Release URL: $RELEASE_URL"
 
           # Create the message content using a here-document to avoid quote issues
           cat << EOF > /tmp/slack_message.txt

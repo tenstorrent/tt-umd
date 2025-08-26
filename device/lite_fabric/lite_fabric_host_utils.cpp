@@ -144,14 +144,11 @@ void launch_lite_fabric(Chip* chip, const std::vector<CoreCoord>& eth_cores) {
         config.binary_addr = k_FirmwareStart;
         config.binary_size = (bin_size + 15) & ~0xF;
 
-        std::cout << "size of lite fabric config " << sizeof(lite_fabric::LiteFabricConfig) << std::endl;
-
         chip->write_to_device(tunnel_1x, (void*)&config, config_addr, sizeof(lite_fabric::LiteFabricConfig));
 
         // TODO: check if logic for waiting for state even works, not needed in main code path.
         // wait_for_state(chip, tunnel_1x, get_state_address(), InitState::ETH_INIT_NEIGHBOUR);
 
-        std::cout << "bin size " << bin_size << std::endl;
         chip->write_to_device(tunnel_1x, binary_data.data(), k_FirmwareStart, bin_size);
 
         // log_info(
@@ -176,7 +173,6 @@ void launch_lite_fabric(Chip* chip, const std::vector<CoreCoord>& eth_cores) {
     chip->l1_membar(eth_cores_set);
 
     auto state_addr = get_state_address();
-    std::cout << "state_addr 0x" << std::hex << state_addr << std::dec << std::endl;
 
     // Wait for ready
     for (auto tunnel_1x : eth_cores) {

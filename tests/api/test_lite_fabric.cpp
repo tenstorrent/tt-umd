@@ -40,6 +40,5 @@ TEST(TestLiteFabric, LiteFabricInit) {
     local_chip->set_barrier_address_params(
         {l1_mem::address_map::L1_BARRIER_BASE, eth_l1_mem::address_map::ERISC_BARRIER_BASE, 0});
 
-    std::cout << "eth_cores_up.size(): " << eth_cores_up.size() << std::endl;
     lite_fabric::launch_lite_fabric(local_chip.get(), eth_cores_up);
 }

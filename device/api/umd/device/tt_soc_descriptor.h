@@ -73,7 +73,7 @@ public:
     // Default constructor. Creates uninitialized object with public access to all of its attributes.
     tt_SocDescriptor() = default;
     // Constructor used to build object from device descriptor file.
-    tt_SocDescriptor(std::string device_descriptor_path, const ChipInfo chip_info = {});
+    tt_SocDescriptor(const std::string &device_descriptor_path, const ChipInfo chip_info = {});
 
     tt_SocDescriptor(const tt::ARCH arch, const ChipInfo chip_info = {});
 

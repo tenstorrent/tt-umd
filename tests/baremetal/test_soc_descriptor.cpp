@@ -447,8 +447,7 @@ TEST(SocDescriptor, BoardBasedPCIE) {
         {.noc_translation_enabled = true,
          .harvesting_masks = {0, 0, 0, 0},
          .board_type = BoardType::P300,
-         .asic_location = 1
-     });
+         .asic_location = 1}));
 
     {
         tt_SocDescriptor soc_desc(

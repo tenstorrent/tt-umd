@@ -422,7 +422,7 @@ void tt_SocDescriptor::load_from_yaml(YAML::Node &device_descriptor_yaml) {
     load_from_soc_desc_info(soc_desc_info);
 }
 
-tt_SocDescriptor::tt_SocDescriptor(std::string device_descriptor_path, ChipInfo chip_info) :
+tt_SocDescriptor::tt_SocDescriptor(const std::string &device_descriptor_path, ChipInfo chip_info) :
     noc_translation_enabled(chip_info.noc_translation_enabled), harvesting_masks(chip_info.harvesting_masks) {
     std::ifstream fdesc(device_descriptor_path);
     if (fdesc.fail()) {

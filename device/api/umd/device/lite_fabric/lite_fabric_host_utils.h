@@ -6,6 +6,7 @@
 
 #include <memory>
 #include <utility>
+#include <vector>
 
 // #include "host_api.hpp"
 // #include "tt_metal.hpp"

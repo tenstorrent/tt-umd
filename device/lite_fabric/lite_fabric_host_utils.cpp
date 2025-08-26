@@ -8,12 +8,12 @@
 #include <tt-logger/tt-logger.hpp>
 
 #include "umd/device/chip/chip.h"
-#include "umd/device/lite_fabric/blackhole_dev_mem_map.h"
+#include "umd/device/lite_fabric/lf_dev_mem_map.h"
 #include "umd/device/lite_fabric/lite_fabric.h"
 
 namespace {
 uint32_t get_state_address() {
-    return MEM_LITE_FABRIC_CONFIG_BASE + offsetof(tt::umd::lite_fabric::LiteFabricConfig, current_state);
+    return LITE_FABRIC_CONFIG_START + offsetof(tt::umd::lite_fabric::LiteFabricConfig, current_state);
 }
 
 }  // namespace
@@ -106,7 +106,7 @@ void wait_for_state(Chip* chip, CoreCoord eth_core, uint32_t addr, InitState sta
 
 void launch_lite_fabric(Chip* chip, const std::vector<CoreCoord>& eth_cores) {
     constexpr uint32_t k_FirmwareStart = 0x6a000;
-    constexpr uint32_t k_PcResetAddress = MEM_LITE_FABRIC_RESET_PC;
+    constexpr uint32_t k_PcResetAddress = LITE_FABRIC_RESET_PC;
 
     LiteFabricConfig config{};
     config.is_primary = true;
@@ -119,7 +119,7 @@ void launch_lite_fabric(Chip* chip, const std::vector<CoreCoord>& eth_cores) {
     config.routing_enabled = true;
 
     // Need an abstraction layer for Lite Fabric
-    auto config_addr = MEM_LITE_FABRIC_CONFIG_BASE;
+    auto config_addr = LITE_FABRIC_CONFIG_START;
 
     for (const auto& tunnel_1x : eth_cores) {
         set_reset_state(chip, tunnel_1x, true);
@@ -164,8 +164,6 @@ void launch_lite_fabric(Chip* chip, const std::vector<CoreCoord>& eth_cores) {
         //     config.binary_size);
     }
 
-    std::this_thread::sleep_for(std::chrono::seconds(5));
-
     // create unordered set from vector of eth cores
     std::unordered_set<CoreCoord> eth_cores_set(eth_cores.begin(), eth_cores.end());
 
@@ -188,8 +186,8 @@ void launch_lite_fabric(Chip* chip, const std::vector<CoreCoord>& eth_cores) {
 }
 
 void terminate_lite_fabric(Chip* chip, const std::vector<CoreCoord>& eth_cores) {
-    uint32_t routing_enabled_address = MEM_LITE_FABRIC_CONFIG_BASE + offsetof(LiteFabricMemoryMap, config) +
-                                       offsetof(LiteFabricConfig, routing_enabled);
+    uint32_t routing_enabled_address =
+        LITE_FABRIC_CONFIG_START + offsetof(LiteFabricMemoryMap, config) + offsetof(LiteFabricConfig, routing_enabled);
     uint32_t enabled = 0;
     for (const auto& tunnel_1x : eth_cores) {
         log_info(

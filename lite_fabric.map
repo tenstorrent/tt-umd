@@ -1,0 +1,338 @@
+Archive member included to satisfy reference by file (symbol)
+
+/localdev/nhuang/tt-metal/runtime/sfpi/compiler/bin/../lib/gcc/riscv32-tt-elf/12.4.0/../../../../riscv32-tt-elf/lib/rv32im_xttbh/ilp32/libc.a(lib_a-memcpy.o)
+                              /localdev/nhuang/tt-metal/lite_fabric/lite_fabric.elf.ltrans0.ltrans.o (memcpy)
+/localdev/nhuang/tt-metal/runtime/sfpi/compiler/bin/../lib/gcc/riscv32-tt-elf/12.4.0/../../../../riscv32-tt-elf/lib/rv32im_xttbh/ilp32/libc.a(lib_a-memset.o)
+                              /localdev/nhuang/tt-metal/lite_fabric/lite_fabric.elf.ltrans0.ltrans.o (memset)
+
+Memory Configuration
+
+Name             Origin             Length             Attributes
+*default*        0x0000000000000000 0xffffffffffffffff
+
+Linker script and memory map
+
+LOAD /localdev/nhuang/tt-metal/lite_fabric/lite_fabric.o
+LOAD /localdev/nhuang/tt-metal/lite_fabric/lite_fabric.elf.ltrans0.ltrans.o
+LOAD /localdev/nhuang/tt-metal/lite_fabric/lite_fabric.o.debug.temp.o
+LOAD /localdev/nhuang/tt-metal/runtime/hw/lib/blackhole/tmu-crt0.o
+LOAD /localdev/nhuang/tt-metal/runtime/hw/lib/blackhole/substitutes.o
+LOAD /localdev/nhuang/tt-metal/runtime/sfpi/compiler/bin/../lib/gcc/riscv32-tt-elf/12.4.0/../../../../riscv32-tt-elf/lib/rv32im_xttbh/ilp32/libstdc++.a
+LOAD /localdev/nhuang/tt-metal/runtime/sfpi/compiler/bin/../lib/gcc/riscv32-tt-elf/12.4.0/../../../../riscv32-tt-elf/lib/rv32im_xttbh/ilp32/libm.a
+LOAD /localdev/nhuang/tt-metal/runtime/sfpi/compiler/bin/../lib/gcc/riscv32-tt-elf/12.4.0/rv32im_xttbh/ilp32/libgcc.a
+START GROUP
+LOAD /localdev/nhuang/tt-metal/runtime/sfpi/compiler/bin/../lib/gcc/riscv32-tt-elf/12.4.0/../../../../riscv32-tt-elf/lib/rv32im_xttbh/ilp32/libc.a
+LOAD /localdev/nhuang/tt-metal/runtime/sfpi/compiler/bin/../lib/gcc/riscv32-tt-elf/12.4.0/../../../../riscv32-tt-elf/lib/rv32im_xttbh/ilp32/libgloss.a
+END GROUP
+LOAD /localdev/nhuang/tt-metal/runtime/sfpi/compiler/bin/../lib/gcc/riscv32-tt-elf/12.4.0/rv32im_xttbh/ilp32/libgcc.a
+
+.text           0x000000000006a000     0x1154
+ *(.start)
+ .start         0x000000000006a000       0x38 /localdev/nhuang/tt-metal/runtime/hw/lib/blackhole/tmu-crt0.o
+                0x000000000006a000                _start
+ *(.text.unlikely .text.*_unlikely .text.unlikely.*)
+ *(.text.exit .text.exit.*)
+ *(.text.startup .text.startup.*)
+ .text.startup  0x000000000006a038      0x74c /localdev/nhuang/tt-metal/lite_fabric/lite_fabric.elf.ltrans0.ltrans.o
+                0x000000000006a038                main
+ *(.text.hot .text.hot.*)
+ *(.text .stub .text.* .gnu.linkonce.t.*)
+ .text          0x000000000006a784      0x750 /localdev/nhuang/tt-metal/lite_fabric/lite_fabric.elf.ltrans0.ltrans.o
+                0x000000000006aed0                exit
+ .text          0x000000000006aed4        0x0 /localdev/nhuang/tt-metal/runtime/hw/lib/blackhole/tmu-crt0.o
+ .text          0x000000000006aed4        0x0 /localdev/nhuang/tt-metal/runtime/sfpi/compiler/bin/../lib/gcc/riscv32-tt-elf/12.4.0/../../../../riscv32-tt-elf/lib/rv32im_xttbh/ilp32/libc.a(lib_a-memcpy.o)
+ .text.memcpy   0x000000000006aed4      0x1a4 /localdev/nhuang/tt-metal/runtime/sfpi/compiler/bin/../lib/gcc/riscv32-tt-elf/12.4.0/../../../../riscv32-tt-elf/lib/rv32im_xttbh/ilp32/libc.a(lib_a-memcpy.o)
+                0x000000000006aed4                memcpy
+ .text          0x000000000006b078       0xdc /localdev/nhuang/tt-metal/runtime/sfpi/compiler/bin/../lib/gcc/riscv32-tt-elf/12.4.0/../../../../riscv32-tt-elf/lib/rv32im_xttbh/ilp32/libc.a(lib_a-memset.o)
+                0x000000000006b078                memset
+ *(.gnu.warning)
+                0x000000000006b154                . = ALIGN (0x4)
+
+.rela.dyn       0x000000000006b154        0x0
+ .rela.start    0x000000000006b154        0x0 /localdev/nhuang/tt-metal/runtime/hw/lib/blackhole/tmu-crt0.o
+
+.empty.init.fini
+ *(.init .fini)
+                0x000000000006b160                . = ALIGN ((ABSOLUTE (.) + 0x0), 0x10)
+                0x000000000006b160                __fw_export_text_end = ABSOLUTE (.)
+                0x000000000006c7f0                PROVIDE (__global_pointer$ = 0x6c7f0)
+
+.data           0x000000000006c000       0x48
+                0x000000000006c000                __ldm_data_start = .
+ *(.rodata .rodata.* .gnu.linkonce.r.*)
+ .rodata        0x000000000006c000       0x18 /localdev/nhuang/tt-metal/lite_fabric/lite_fabric.elf.ltrans0.ltrans.o
+ *(.rodata1)
+ *(.dynamic)
+ *(.data.rel.ro.local* .gnu.linkonce.d.rel.ro.local.*)
+ *(.data.rel.ro .data.rel.ro.* .gnu.linkonce.d.rel.ro.*)
+ *(.srodata.cst16)
+ *(.srodata.cst8)
+ *(.srodata.cst4)
+ *(.srodata.cst2)
+ *(.srodata .srodata.*)
+ *(.sdata .sdata.* .gnu.linkonce.s.*)
+ *(.sdata2 .sdata2.* .gnu.linkonce.s2.*)
+ *(.data .data.* .gnu.linkonce.d.*)
+ .data          0x000000000006c018       0x30 /localdev/nhuang/tt-metal/lite_fabric/lite_fabric.elf.ltrans0.ltrans.o
+                0x000000000006c018                eth_chan_to_noc_xy
+ .data          0x000000000006c048        0x0 /localdev/nhuang/tt-metal/runtime/hw/lib/blackhole/tmu-crt0.o
+ .data          0x000000000006c048        0x0 /localdev/nhuang/tt-metal/runtime/sfpi/compiler/bin/../lib/gcc/riscv32-tt-elf/12.4.0/../../../../riscv32-tt-elf/lib/rv32im_xttbh/ilp32/libc.a(lib_a-memcpy.o)
+ .data          0x000000000006c048        0x0 /localdev/nhuang/tt-metal/runtime/sfpi/compiler/bin/../lib/gcc/riscv32-tt-elf/12.4.0/../../../../riscv32-tt-elf/lib/rv32im_xttbh/ilp32/libc.a(lib_a-memset.o)
+ *(.data1)
+ *(.got.plt)
+ *(.igot.plt)
+ *(.got)
+ *(.igot)
+                0x000000000006c048                . = ALIGN (0x4)
+                0x000000000006c048                __ldm_data_end = .
+
+.empty.ctors.dtors
+ *(.ctors .ctors.* .dtors .dtors.*)
+
+.empty.init_array.fini_array
+ *(.preinit_array)
+ *(SORT_BY_INIT_PRIORITY(.init_array.*))
+ *(.init_array)
+ *(SORT_BY_INIT_PRIORITY(.fini_array.*))
+ *(.fini_array)
+
+.bss            0x000000000006c048      0x508
+                0x000000000006c048                __ldm_bss_start = .
+ *(.sbss2 .sbss2.* .gnu.linkonce.sb2.*)
+ *(.dynsbss)
+ *(.sbss .sbss.* .gnu.linkonce.sb.*)
+ .sbss          0x000000000006c048       0x4c /localdev/nhuang/tt-metal/lite_fabric/lite_fabric.elf.ltrans0.ltrans.o
+                0x000000000006c048                rta_l1_base
+                0x000000000006c04c                crta_l1_base
+                0x000000000006c050                my_logical_x_
+                0x000000000006c051                my_logical_y_
+                0x000000000006c052                my_relative_x_
+                0x000000000006c053                my_relative_y_
+                0x000000000006c054                lite_fabric::receiver_channel_0_trid_tracker
+                0x000000000006c058                my_y
+                0x000000000006c05c                my_x
+                0x000000000006c060                noc_posted_writes_num_issued
+                0x000000000006c068                noc_nonposted_atomics_acked
+                0x000000000006c070                noc_index
+                0x000000000006c074                noc_reads_num_issued
+                0x000000000006c07c                lite_fabric::on_mmio_chip
+                0x000000000006c080                noc_nonposted_writes_acked
+                0x000000000006c088                noc_nonposted_writes_num_issued
+                0x000000000006c090                lite_fabric::host_interface
+ *(.scommon)
+ *(.dynbss)
+ *(.bss .bss.* .gnu.linkonce.b.*)
+ .bss           0x000000000006c094      0x4bc /localdev/nhuang/tt-metal/lite_fabric/lite_fabric.elf.ltrans0.ltrans.o
+                0x000000000006c0a0                lite_fabric::local_sender_channels
+                0x000000000006c0b8                lite_fabric::remote_receiver_channels
+                0x000000000006c0f4                dram_bank_to_noc_xy
+                0x000000000006c114                l1_bank_to_noc_xy
+                0x000000000006c31c                bank_to_dram_offset
+                0x000000000006c33c                bank_to_l1_offset
+                0x000000000006c544                sem_l1_base
+ .bss           0x000000000006c550        0x0 /localdev/nhuang/tt-metal/runtime/hw/lib/blackhole/tmu-crt0.o
+ .bss           0x000000000006c550        0x0 /localdev/nhuang/tt-metal/runtime/sfpi/compiler/bin/../lib/gcc/riscv32-tt-elf/12.4.0/../../../../riscv32-tt-elf/lib/rv32im_xttbh/ilp32/libc.a(lib_a-memcpy.o)
+ .bss           0x000000000006c550        0x0 /localdev/nhuang/tt-metal/runtime/sfpi/compiler/bin/../lib/gcc/riscv32-tt-elf/12.4.0/../../../../riscv32-tt-elf/lib/rv32im_xttbh/ilp32/libc.a(lib_a-memset.o)
+ *(COMMON)
+                0x000000000006c550                . = ALIGN (0x4)
+                0x000000000006c550                __ldm_bss_end = .
+                0x000000000006c550                . = ALIGN (ABSOLUTE (.), 0x10)
+                0x000000000006c550                __fw_export_ldm_end = ABSOLUTE (.)
+                0x000000000006f800                __stack_top = 0x6f800
+
+.phdrs          0x0000000000000000        0x8
+                0x0000000000000000        0x4 LONG 0x2000
+                0x0000000000000004        0x4 LONG 0x1000
+
+.riscv.attributes
+                0x0000000000000000       0x2e
+ *(.riscv.attributes)
+ .riscv.attributes
+                0x0000000000000000       0x2e /localdev/nhuang/tt-metal/lite_fabric/lite_fabric.elf.ltrans0.ltrans.o
+ .riscv.attributes
+                0x000000000000002e       0x28 /localdev/nhuang/tt-metal/runtime/hw/lib/blackhole/tmu-crt0.o
+ .riscv.attributes
+                0x0000000000000056       0x2a /localdev/nhuang/tt-metal/runtime/sfpi/compiler/bin/../lib/gcc/riscv32-tt-elf/12.4.0/../../../../riscv32-tt-elf/lib/rv32im_xttbh/ilp32/libc.a(lib_a-memcpy.o)
+ .riscv.attributes
+                0x0000000000000080       0x28 /localdev/nhuang/tt-metal/runtime/sfpi/compiler/bin/../lib/gcc/riscv32-tt-elf/12.4.0/../../../../riscv32-tt-elf/lib/rv32im_xttbh/ilp32/libc.a(lib_a-memset.o)
+
+.stab
+ *(.stab)
+
+.stabstr
+ *(.stabstr)
+
+.stab.excl
+ *(.stab.excl)
+
+.stab.exclstr
+ *(.stab.exclstr)
+
+.stab.index
+ *(.stab.index)
+
+.stab.indexstr
+ *(.stab.indexstr)
+
+.comment        0x0000000000000000       0x26
+ *(.comment)
+ .comment       0x0000000000000000       0x26 /localdev/nhuang/tt-metal/lite_fabric/lite_fabric.elf.ltrans0.ltrans.o
+                                         0x27 (size before relaxing)
+ .comment       0x0000000000000026       0x27 /localdev/nhuang/tt-metal/lite_fabric/lite_fabric.o.debug.temp.o
+ .comment       0x0000000000000026       0x27 /localdev/nhuang/tt-metal/runtime/sfpi/compiler/bin/../lib/gcc/riscv32-tt-elf/12.4.0/../../../../riscv32-tt-elf/lib/rv32im_xttbh/ilp32/libc.a(lib_a-memcpy.o)
+
+.debug
+ *(.debug)
+
+.line
+ *(.line)
+
+.debug_srcinfo
+ *(.debug_srcinfo)
+
+.debug_sfnames
+ *(.debug_sfnames)
+
+.debug_aranges  0x0000000000000000       0x28
+ *(.debug_aranges)
+ .debug_aranges
+                0x0000000000000000       0x28 /localdev/nhuang/tt-metal/lite_fabric/lite_fabric.elf.ltrans0.ltrans.o
+
+.debug_pubnames
+ *(.debug_pubnames)
+
+.debug_info     0x0000000000000000     0xfa1a
+ *(.debug_info .gnu.linkonce.wi.*)
+ .debug_info    0x0000000000000000     0x34f8 /localdev/nhuang/tt-metal/lite_fabric/lite_fabric.elf.ltrans0.ltrans.o
+ .debug_info    0x00000000000034f8     0xc522 /localdev/nhuang/tt-metal/lite_fabric/lite_fabric.o.debug.temp.o
+                0x00000000000034f8                lite_fabric.cpp.6c982b23
+
+.debug_abbrev   0x0000000000000000     0x120e
+ *(.debug_abbrev)
+ .debug_abbrev  0x0000000000000000      0x26f /localdev/nhuang/tt-metal/lite_fabric/lite_fabric.elf.ltrans0.ltrans.o
+ .debug_abbrev  0x000000000000026f      0xf9f /localdev/nhuang/tt-metal/lite_fabric/lite_fabric.o.debug.temp.o
+
+.debug_line     0x0000000000000000     0x2422
+ *(.debug_line .debug_line.* .debug_line_end)
+ .debug_line    0x0000000000000000     0x21d3 /localdev/nhuang/tt-metal/lite_fabric/lite_fabric.elf.ltrans0.ltrans.o
+ .debug_line    0x00000000000021d3      0x24f /localdev/nhuang/tt-metal/lite_fabric/lite_fabric.o.debug.temp.o
+
+.debug_frame    0x0000000000000000       0xcc
+ *(.debug_frame)
+ .debug_frame   0x0000000000000000       0xcc /localdev/nhuang/tt-metal/lite_fabric/lite_fabric.elf.ltrans0.ltrans.o
+
+.debug_str      0x0000000000000000     0xdc6e
+ *(.debug_str)
+ .debug_str     0x0000000000000000      0x182 /localdev/nhuang/tt-metal/lite_fabric/lite_fabric.elf.ltrans0.ltrans.o
+                                        0x1b3 (size before relaxing)
+ .debug_str     0x0000000000000182     0xdaec /localdev/nhuang/tt-metal/lite_fabric/lite_fabric.o.debug.temp.o
+                                       0xe3e5 (size before relaxing)
+
+.debug_loc
+ *(.debug_loc)
+
+.debug_macinfo
+ *(.debug_macinfo)
+
+.debug_weaknames
+ *(.debug_weaknames)
+
+.debug_funcnames
+ *(.debug_funcnames)
+
+.debug_typenames
+ *(.debug_typenames)
+
+.debug_varnames
+ *(.debug_varnames)
+
+.debug_pubtypes
+ *(.debug_pubtypes)
+
+.debug_ranges
+ *(.debug_ranges)
+
+.debug_macro
+ *(.debug_macro)
+
+.debug_addr
+ *(.debug_addr)
+
+.gnu.attributes
+ *(.gnu.attributes)
+
+/DISCARD/
+ *(.note.GNU-stack)
+ *(.gnu_debuglink)
+ *(.gnu.lto_*)
+
+/DISCARD/
+ *(.interp)
+ *(.note.gnu.build-id)
+ *(.hash)
+ *(.gnu.hash)
+ *(.dynsym)
+ *(.dynstr)
+ *(.gnu.version)
+ *(.gnu.version_d)
+ *(.gnu.version_r)
+ *(.rela.init)
+ *(.rela.text .rela.text.* .rela.gnu.linkonce.t.*)
+ *(.rela.fini)
+ *(.rela.rodata .rela.rodata.* .rela.gnu.linkonce.r.*)
+ *(.rela.data.rel.ro .rela.data.rel.ro.* .rela.gnu.linkonce.d.rel.ro.*)
+ *(.rela.data .rela.data.* .rela.gnu.linkonce.d.*)
+ *(.rela.tdata .rela.tdata.* .rela.gnu.linkonce.td.*)
+ *(.rela.tbss .rela.tbss.* .rela.gnu.linkonce.tb.*)
+ *(.rela.ctors)
+ *(.rela.dtors)
+ *(.rela.got)
+ *(.rela.sdata .rela.sdata.* .rela.gnu.linkonce.s.*)
+ *(.rela.sbss .rela.sbss.* .rela.gnu.linkonce.sb.*)
+ *(.rela.sdata2 .rela.sdata2.* .rela.gnu.linkonce.s2.*)
+ *(.rela.sbss2 .rela.sbss2.* .rela.gnu.linkonce.sb2.*)
+ *(.rela.bss .rela.bss.* .rela.gnu.linkonce.b.*)
+ *(.rela.iplt)
+ *(.rela.plt)
+ *(.plt)
+ *(.iplt)
+ *(.eh_frame_hdr)
+ *(.eh_frame_entry .eh_frame_entry.*)
+ *(.eh_frame)
+ *(.eh_frame.*)
+ *(.gcc_except_table .gcc_except_table.*)
+ *(.gnu_extab*)
+ *(.exception_ranges .exception_ranges*)
+ *(.eh_frame)
+ *(.eh_frame.*)
+ *(.gnu_extab)
+ *(.gcc_except_table .gcc_except_table.*)
+ *(.exception_ranges .exception_ranges*)
+ *(.tdata .tdata.* .gnu.linkonce.td.*)
+ *(.tbss .tbss.* .gnu.linkonce.tb.*)
+ *(.tcommon)
+ *(.jcr)
+ *(.got.plt)
+ *(.igot.plt)
+ *(.got)
+ *(.igot)
+OUTPUT(/localdev/nhuang/tt-metal/lite_fabric/lite_fabric.elf elf32-littleriscv)
+
+.debug_loclists
+                0x0000000000000000     0x2e1e
+ .debug_loclists
+                0x0000000000000000     0x2e1e /localdev/nhuang/tt-metal/lite_fabric/lite_fabric.elf.ltrans0.ltrans.o
+
+.debug_rnglists
+                0x0000000000000000      0x859
+ .debug_rnglists
+                0x0000000000000000      0x859 /localdev/nhuang/tt-metal/lite_fabric/lite_fabric.elf.ltrans0.ltrans.o
+
+.debug_line_str
+                0x0000000000000000      0xb96
+ .debug_line_str
+                0x0000000000000000      0x39a /localdev/nhuang/tt-metal/lite_fabric/lite_fabric.elf.ltrans0.ltrans.o
+                                        0x3de (size before relaxing)
+ .debug_line_str
+                0x000000000000039a      0x7fc /localdev/nhuang/tt-metal/lite_fabric/lite_fabric.o.debug.temp.o
+                                        0xb88 (size before relaxing)

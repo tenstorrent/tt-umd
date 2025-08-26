@@ -10,8 +10,8 @@
 
 #include "umd/device/cluster.h"
 #include "umd/device/driver_atomics.h"
-#include "umd/device/lite_fabric/blackhole_dev_mem_map.h"
 #include "umd/device/lite_fabric/fabric_edm_types.h"
+#include "umd/device/lite_fabric/lf_dev_mem_map.h"
 // #include "hal_types.hpp"
 #include <fmt/ranges.h>
 
@@ -449,7 +449,7 @@ struct LiteFabricMemoryMap {
     }
 
     static uint32_t get_address() {
-        auto addr = MEM_LITE_FABRIC_CONFIG_BASE;
+        auto addr = LITE_FABRIC_CONFIG_START;
         return addr;
     }
 

@@ -5,7 +5,7 @@
     "version": "0.2.0",
     "configurations": [
         {
-            "name": "umdtest",
+            "name": "umd_api_test",
             "type": "cppdbg",
             "request": "launch",
             "program": "${workspaceFolder}/build/test/umd/api/api_tests",

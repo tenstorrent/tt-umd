@@ -24,12 +24,14 @@ jobs:
       version: ${{ steps.get_version.outputs.version }}
       changelog: ${{ steps.generate_changelog.outputs.changelog }}
       version_changelog: ${{ steps.extract_version_changelog.outputs.version_changelog }}
+      pr_summary: ${{ steps.get_pr_summary.outputs.pr_summary }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
+      # Extracts version from VERSION file.
       - name: Read VERSION file
         id: get_version
         run: |
@@ -37,15 +39,18 @@ jobs:
           echo "version=${VERSION}" >> $GITHUB_OUTPUT
           echo "Release version: ${VERSION}"
 
+      # Extracts version-specific changelog from CHANGELOG file.
+      # This changelog should be using the same version as the one in the VERSION file.
       - name: Extract version-specific changelog
         id: extract_version_changelog
         run: |
           VERSION="${{ steps.get_version.outputs.version }}"
+          VERSION_CHANGELOG=""
 
           if [ -f "CHANGELOG" ]; then
             echo "Extracting changelog for version ${VERSION}"
 
-            # Extract the section for this version
+            # Extract the section for this version from CHANGELOG file
             VERSION_CHANGELOG=$(awk -v version="$VERSION" '
               BEGIN { in_section = 0; content = "" }
               /^## \[.*\]/ {
@@ -63,127 +68,118 @@ jobs:
               END { print content }
             ' CHANGELOG)
 
+
             if [ -n "$VERSION_CHANGELOG" ]; then
               echo "Found changelog for version ${VERSION}"
-              # Save to output (handle multiline)
-              {
-                echo 'version_changelog<<EOF'
-                echo "$VERSION_CHANGELOG"
-                echo 'EOF'
-              } >> $GITHUB_OUTPUT
             else
-              echo "No changelog found for version ${VERSION}, using default message"
-              {
-                echo 'version_changelog<<EOF'
-                echo "### Changed"
-                echo ""
-                echo "- Release notes for version ${VERSION} will be added manually."
-                echo 'EOF'
-              } >> $GITHUB_OUTPUT
+              echo "No changelog found for version ${VERSION}"
             fi
           else
-            echo "CHANGELOG file not found, using default message"
+            echo "CHANGELOG file not found"
+          fi
+
+          if [ -z "$VERSION_CHANGELOG" ]; then
+            # Save to output (handle multiline)
+            {
+              echo 'version_changelog<<EOF'
+              echo "$VERSION_CHANGELOG"
+              echo 'EOF'
+            } >> $GITHUB_OUTPUT
+          else
             {
               echo 'version_changelog<<EOF'
               echo "### Changed"
               echo ""
-              echo "- Release notes for version ${VERSION} will be added manually."
+              echo "- Release notes for version ${VERSION} not found in CHANGELOG file."
               echo 'EOF'
             } >> $GITHUB_OUTPUT
           fi
 
-      - name: Generate changelog
-        id: generate_changelog
+      # Gets the previous tag and commit range.
+      # This is used to get the pull requests that are included in the release.
+      # If the previous tag is not found, it uses the recent commits.
+      - name: Get previous tag and commit range
+        id: get_commit_range
         run: |
-          # Get the previous tag (excluding the current version if it exists)
           CURRENT_VERSION="v${{ steps.get_version.outputs.version }}"
           echo "Current version: $CURRENT_VERSION"
-
-          # List all tags for debugging
-          echo "All tags:"
-          git tag --sort=-version:refname || echo "No tags found"
 
           # Get the previous tag, excluding the current version tag
           PREV_TAG=$(git tag --sort=-version:refname | \
             grep -v "^${CURRENT_VERSION}$" | head -n 1 2>/dev/null || echo "")
 
           if [ -n "$PREV_TAG" ]; then
-            echo "Generating changelog since $PREV_TAG"
+            echo "Found previous tag: $PREV_TAG"
             # Check if the range is valid
             if git rev-list "${PREV_TAG}..HEAD" >/dev/null 2>&1; then
               COMMIT_RANGE="${PREV_TAG}..HEAD"
-              echo "Found $(git rev-list --count ${PREV_TAG}..HEAD) commits since $PREV_TAG"
+              COMMIT_COUNT=$(git rev-list --count ${PREV_TAG}..HEAD)
+              echo "Found $COMMIT_COUNT commits since $PREV_TAG"
+              echo "prev_tag=$PREV_TAG" >> $GITHUB_OUTPUT
+              echo "commit_range=$COMMIT_RANGE" >> $GITHUB_OUTPUT
+              echo "use_tag_range=true" >> $GITHUB_OUTPUT
             else
-              echo "Invalid commit range ${PREV_TAG}..HEAD, using last 50 commits instead"
-              COMMIT_RANGE="--max-count=50"
-              PREV_TAG=""
+              echo "Invalid commit range ${PREV_TAG}..HEAD, using recent commits instead"
+              echo "prev_tag=" >> $GITHUB_OUTPUT
+              echo "commit_range=--max-count=100" >> $GITHUB_OUTPUT
+              echo "use_tag_range=false" >> $GITHUB_OUTPUT
             fi
           else
-            echo "No previous tags found, generating changelog from beginning"
-            COMMIT_RANGE="--max-count=50"
+            echo "No previous tags found, using recent commits"
+            echo "prev_tag=" >> $GITHUB_OUTPUT
+            echo "commit_range=--max-count=100" >> $GITHUB_OUTPUT
+            echo "use_tag_range=false" >> $GITHUB_OUTPUT
           fi
 
-          # Generate three-section changelog with version-specific content
-          CHANGELOG="## 🚀 Release Notes for v${{ steps.get_version.outputs.version }}
-
-          ${{ steps.extract_version_changelog.outputs.version_changelog }}
-
-          ---
-
-          ## 📋 Pull Requests Summary
-
-          "
-
-          # Section 2: PR list with subjects only
-          if [ -n "$PREV_TAG" ] && [ "$COMMIT_RANGE" != "--max-count=50" ]; then
-            echo "Getting PR list since $PREV_TAG"
-            PR_LIST=$(git log --pretty=format:"%s" ${PREV_TAG}..HEAD | \
+      # Gets the pull request summary.
+      # This is used to get the pull requests that are included in the release.
+      # The summary contains only the pull request title and number.
+      - name: Get pull request summary
+        id: get_pr_summary
+        run: |
+          if [ "${{ steps.get_commit_range.outputs.use_tag_range }}" = "true" ]; then
+            echo "Getting PR list since ${{ steps.get_commit_range.outputs.prev_tag }}"
+            PR_LIST=$(git log --pretty=format:"%s" ${{ steps.get_commit_range.outputs.commit_range }} | \
               grep -E "^.* \(#[0-9]+\)$" | sed 's/^/- /' || echo "")
           else
             echo "Getting PR list from recent commits"
-            PR_LIST=$(git log --pretty=format:"%s" --max-count=50 | \
+            PR_LIST=$(git log --pretty=format:"%s" --max-count=100 | \
               grep -E "^.* \(#[0-9]+\)$" | sed 's/^/- /' || echo "")
           fi
 
           if [ -n "$PR_LIST" ]; then
-            CHANGELOG="${CHANGELOG}${PR_LIST}"
             echo "Found $(echo "$PR_LIST" | wc -l) pull requests"
+            {
+              echo 'pr_summary<<EOF'
+              echo "$PR_LIST"
+              echo 'EOF'
+            } >> $GITHUB_OUTPUT
           else
-            CHANGELOG="${CHANGELOG}- No pull requests found in this range"
             echo "No pull requests found"
+            echo "pr_summary=- No pull requests found in this range" >> $GITHUB_OUTPUT
           fi
 
-          CHANGELOG="${CHANGELOG}
-
-          ---
-
-          ## 📝 Detailed Pull Request Information
-
-          "
-
-          # Section 3: Detailed PR information with descriptions
-          if [ -n "$PREV_TAG" ] && [ "$COMMIT_RANGE" != "--max-count=100" ]; then
-            echo "Getting detailed PR info since $PREV_TAG"
-            DETAILED_PRS=$(git log --pretty=format:"%H|%s|%an|%ad" --date=short ${PREV_TAG}..HEAD | \
-              grep -E "\(#[0-9]+\)$" || echo "")
+      # Gets the detailed pull request information.
+      # This is used to get the pull request title, author, date, and description.
+      # The detailed information is used to create the detailed pull request information section in the changelog.
+      # The PR description is taken from the Description section of the commit message.
+      - name: Get detailed pull request information
+        id: get_pr_details
+        run: |
+          if [ "${{ steps.get_commit_range.outputs.use_tag_range }}" = "true" ]; then
+            echo "Getting detailed PR info since ${{ steps.get_commit_range.outputs.prev_tag }}"
+            DETAILED_PRS=$(git log --pretty=format:"%H|%s|%an|%ad" --date=short \
+              ${{ steps.get_commit_range.outputs.commit_range }} | grep -E "\(#[0-9]+\)$" || echo "")
+            echo "DETAILED_PRS: $DETAILED_PRS"
           else
             echo "Getting detailed PR info from recent commits"
-            DETAILED_PRS=$(git log --pretty=format:"%H|%s|%an|%ad" --date=short --max-count=50 | \
+            DETAILED_PRS=$(git log --pretty=format:"%H|%s|%an|%ad" --date=short --max-count=100 | \
               grep -E "\(#[0-9]+\)$" || echo "")
           fi
 
           if [ -n "$DETAILED_PRS" ]; then
+            DETAILED_CONTENT=""
             while IFS='|' read -r hash subject author date; do
-              # Extract PR number
-              PR_NUM=$(echo "$subject" | grep -o "#[0-9]\+")
-
-              CHANGELOG="${CHANGELOG}### ${subject}
-          **Author:** ${author}
-          **Date:** ${date}
-          **Commit:** ${hash:0:7}
-
-          "
-
               # Get full commit message and extract Description section
               FULL_MSG=$(git show --format=%B -s "$hash")
               DESCRIPTION=$(echo "$FULL_MSG" | awk '
@@ -197,23 +193,47 @@ jobs:
                 END { if (desc != "") print desc; else print "No description section found." }
               ')
 
-              CHANGELOG="${CHANGELOG}**Description:**
-          ${DESCRIPTION}
+              DETAILED_CONTENT="${DETAILED_CONTENT}### ${subject} ** ${author} ${date} ${hash:0:7}\\n${DESCRIPTION}\\n"
+            done <<< "$DETAILED_PRS"
+
+            {
+              echo 'pr_details<<EOF'
+              echo "$DETAILED_CONTENT"
+              echo 'EOF'
+            } >> $GITHUB_OUTPUT
+          else
+            echo "No detailed PR information found"
+            echo "pr_details=No pull requests found in this range." >> $GITHUB_OUTPUT
+          fi
+
+      - name: Generate final changelog
+        id: generate_changelog
+        run: |
+          # Create changelog using template with collected data
+          cat << 'EOF' > /tmp/changelog_template.txt
+          ## 🚀 Release Notes for v${{ steps.get_version.outputs.version }}
+
+          ${{ steps.extract_version_changelog.outputs.version_changelog }}
 
           ---
 
-          "
-            done <<< "$DETAILED_PRS"
-          else
-            CHANGELOG="${CHANGELOG}No pull requests found in this range.
+          ## 📋 Pull Requests Summary
 
-          ---"
-          fi
+          ${{ steps.get_pr_summary.outputs.pr_summary }}
 
-          # Save changelog to output (handle multiline)
+          ---
+
+          ## 📝 Detailed Pull Request Information
+
+          ${{ steps.get_pr_details.outputs.pr_details }}
+
+          ---
+          EOF
+
+          # Save changelog to output
           {
             echo 'changelog<<EOF'
-            echo "$CHANGELOG"
+            cat /tmp/changelog_template.txt
             echo 'EOF'
           } >> $GITHUB_OUTPUT
 
@@ -233,12 +253,6 @@ jobs:
       image: ghcr.io/${{ github.repository }}/tt-umd-ci-${{ matrix.ubuntu-docker-version }}:latest
 
     steps:
-      - name: Print release params
-        run: |
-          echo release - ubuntu-docker-version: ${{ matrix.ubuntu-docker-version}}
-          echo release - build-type: ${{ env.RELEASE_BUILD_TYPE }}
-          echo release - version: ${{ needs.prepare-release.outputs.version }}
-
       - uses: actions/checkout@v4
         with:
           submodules: recursive
@@ -321,23 +335,6 @@ jobs:
           pip wheel . --wheel-dir ${{ env.WHEEL_OUTPUT_DIR }}
           echo "Compile complete."
 
-      - name: Rename wheel with version and ubuntu version
-        run: |
-          cd ${{ env.WHEEL_OUTPUT_DIR }}
-          # Find the original wheel file
-          ORIGINAL_WHEEL=$(find . -name "tt_umd-*.whl" -type f | head -1)
-          if [ -n "$ORIGINAL_WHEEL" ]; then
-            # Extract the wheel name parts
-            WHEEL_NAME=$(basename "$ORIGINAL_WHEEL")
-            # Create new name with version and ubuntu version
-            VERSION="${{ needs.prepare-release.outputs.version }}"
-            UBUNTU_VERSION="${{ matrix.ubuntu-docker-version }}"
-            VERSION_PART="tt-umd-v${VERSION}-${UBUNTU_VERSION}"
-            NEW_WHEEL_NAME="${VERSION_PART}-$(echo "$WHEEL_NAME" | cut -d'-' -f3-)"
-            mv "$ORIGINAL_WHEEL" "$NEW_WHEEL_NAME"
-            echo "Renamed wheel: $NEW_WHEEL_NAME"
-          fi
-
       - name: Upload wheel
         uses: actions/upload-artifact@v4
         with:
@@ -354,6 +351,7 @@ jobs:
     needs: [prepare-release, build-cpp-artifacts, build-python-wheels]
     outputs:
       upload_url: ${{ steps.release.outputs.upload_url }}
+      release_url: ${{ steps.release.outputs.url }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -364,6 +362,7 @@ jobs:
           path: ./release-artifacts/
 
       - name: Prepare release assets
+        id: prepare_assets
         run: |
           # Create a directory for final release assets
           mkdir -p ./final-assets
@@ -388,10 +387,8 @@ jobs:
             ## 📦 What's Included
 
             ### C++ Build Artifacts
-            - **tt-umd-v${{ needs.prepare-release.outputs.version }}-build-artifacts-ubuntu-22.04.tar** - >-
-              Ubuntu 22.04 build
-            - **tt-umd-v${{ needs.prepare-release.outputs.version }}-build-artifacts-ubuntu-24.04.tar** - >-
-              Ubuntu 24.04 build
+            - **tt-umd-v${{ needs.prepare-release.outputs.version }}-ubuntu-22.04.tar** - Ubuntu 22.04 build
+            - **tt-umd-v${{ needs.prepare-release.outputs.version }}-ubuntu-24.04.tar** - Ubuntu 24.04 build
 
             Contains: Compiled C++ libraries, public headers, CMake config files, and dependencies.
 
@@ -408,7 +405,7 @@ jobs:
             Release notes were extracted from CHANGELOG file.*
           files: ./final-assets/*
           draft: true
-          prerelease: false
+          prerelease: true
           make_latest: false
 
   notify-completion:
@@ -417,14 +414,6 @@ jobs:
     needs: [prepare-release, create-release, build-cpp-artifacts, build-python-wheels]
     if: needs.create-release.result == 'success'
     steps:
-      - name: Notify success to console
-        run: |
-          echo "✅ Release v${{ needs.prepare-release.outputs.version }} created successfully!"
-          VERSION="${{ needs.prepare-release.outputs.version }}"
-          REPO="${{ github.repository }}"
-          RELEASE_URL="https://github.com/${REPO}/releases/tag/v${VERSION}"
-          echo "🔗 Release URL: $RELEASE_URL"
-
       - name: Prepare Slack message
         id: prepare_message
         run: |
@@ -432,17 +421,15 @@ jobs:
           VERSION="${{ needs.prepare-release.outputs.version }}"
           REPO="${{ github.repository }}"
           RELEASE_URL="https://github.com/${REPO}/releases/tag/v${VERSION}"
+          echo "🔗 Draft Release URL: $RELEASE_URL"
+          echo "🔗 Release URL: ${{ needs.create-release.outputs.release_url }}"
 
           # Create the message content using a here-document to avoid quote issues
           cat << EOF > /tmp/slack_message.txt
           🚧 TT-UMD Draft Release Created!
 
           Draft Release v${VERSION} has been successfully created!
-
-          📦 What's included:
-          • C++ build artifacts for Ubuntu 22.04 & 24.04
-          • Python wheels for both platforms
-          • Compiled C++ libraries, public headers, CMake configs, and dependencies
+          When published, the release will be available at this link: ${RELEASE_URL}
 
           📋 Release highlights from CHANGELOG:
           ${{ needs.prepare-release.outputs.version_changelog }}
@@ -453,15 +440,14 @@ jobs:
           2. Verify all information is accurate
           3. Publish the release when ready
 
-          🔗 Edit Release: ${RELEASE_URL}
+          🔗 Edit Release: ${DRAFT_RELEASE_URL}
 
           📋 Pull Requests in this release:
-          Check the release page for detailed PR information and complete changelog.
+          ${{ needs.prepare-release.outputs.pr_summary }}
           EOF
 
-          # Escape the message for JSON and save to output
-          ESCAPED_MESSAGE=$(cat /tmp/slack_message.txt | jq -Rs .)
-          echo "message=$ESCAPED_MESSAGE" >> $GITHUB_OUTPUT
+          echo "Prepared Slack message:"
+          cat /tmp/slack_message.txt
 
       - name: Send Slack notification
         run: |
@@ -475,8 +461,9 @@ jobs:
             '{umd_github_msg: $msg}' > /tmp/payload.json
 
           echo "Sending Slack notification..."
-          curl -X POST "${{ secrets.SLACK_WEBHOOK_URL }}" \
-            -H "Content-Type: application/json" \
-            -d @/tmp/payload.json
+          # TODO: Uncomment this
+          # curl -X POST "${{ secrets.SLACK_WEBHOOK_URL }}" \
+          #   -H "Content-Type: application/json" \
+          #   -d @/tmp/payload.json
 
           echo "Slack notification sent!"

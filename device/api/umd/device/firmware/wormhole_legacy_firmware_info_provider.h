@@ -12,6 +12,11 @@
 
 namespace tt::umd {
 
+/* This class captures Wormhole firmware versions older than 18.4.0.
+ * Wormhole devices before this version use SM bus telemetry so all the data
+ * is read from that telemetry which is completely different from the newer telemetry
+ * used in 18.4.0 and later versions.
+ */
 class WormholeLegacyFirmwareInfoProvider : public FirmwareInfoProvider {
 public:
     WormholeLegacyFirmwareInfoProvider(TTDevice* tt_device);

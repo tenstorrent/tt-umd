@@ -14,6 +14,15 @@ namespace tt::umd {
 class semver_t;
 class TTDevice;
 
+/*
+ * FirmwareInfoProvider is a class that should abstract away the details of specific firmware version
+ * as well as keep backward compatibility with older firmware versions. It should provide
+ * information about the firmware running on the device, such as version, board ID, ethernet
+ * firmware version, ASIC temperature, and DRAM training status.
+ * The idea behind the design is that base class provides most up to date functionality, while
+ * derived classes can override methods to provide backward compatibility with older firmware versions.
+ * For examples, look at Wormhole_18_4_FirmwareInfoProvider and WormholeLegacyFirmwareInfoProvider classes.
+ */
 class FirmwareInfoProvider {
 public:
     static std::unique_ptr<FirmwareInfoProvider> create_firmware_info_provider(TTDevice* tt_device);

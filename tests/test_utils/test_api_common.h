@@ -84,3 +84,17 @@ private:
 };
 
 class ClusterReadWriteL1Test : public ::testing::TestWithParam<ClusterOptions> {};
+
+// Helper function to detect if any device in cluster is Galaxy board type
+inline bool is_galaxy_configuration(const std::unique_ptr<Cluster>& cluster) {
+    if (!cluster || cluster->get_target_device_ids().empty()) {
+        return false;
+    }
+
+    for (const auto& chip_id : cluster->get_target_device_ids()) {
+        if (cluster->get_tt_device(chip_id)->get_board_type() == BoardType::GALAXY) {
+            return true;
+        }
+    }
+    return false;
+}

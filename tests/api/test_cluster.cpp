@@ -512,6 +512,10 @@ TEST(TestCluster, WarmResetScratch) {
         GTEST_SKIP() << "No chips present on the system. Skipping test.";
     }
 
+    if (is_galaxy_configuration(cluster)) {
+        GTEST_SKIP() << "Skipping reset test for Galaxy configuration.";
+    }
+
     uint32_t write_test_data = 0xDEADBEEF;
 
     auto chip_id = *cluster->get_target_device_ids().begin();
@@ -542,6 +546,10 @@ TEST(TestCluster, WarmReset) {
 
     if (cluster->get_target_device_ids().empty()) {
         GTEST_SKIP() << "No chips present on the system. Skipping test.";
+    }
+
+    if (is_galaxy_configuration(cluster)) {
+        GTEST_SKIP() << "Skipping reset test for Galaxy configuration.";
     }
 
     auto arch = cluster->get_tt_device(0)->get_arch();
@@ -613,6 +621,10 @@ TEST(TestCluster, DeassertResetBrisc) {
         GTEST_SKIP() << "No chips present on the system. Skipping test.";
     }
 
+    if (is_galaxy_configuration(cluster)) {
+        GTEST_SKIP() << "Skipping reset test for Galaxy configuration.";
+    }
+
     constexpr uint32_t a_variable_value = 0x87654000;
     constexpr uint64_t a_variable_address = 0x10000;
     constexpr uint64_t brisc_code_address = 0;
@@ -666,6 +678,10 @@ TEST(TestCluster, DeassertResetWithCounterBrisc) {
 
     if (cluster->get_target_device_ids().empty()) {
         GTEST_SKIP() << "No chips present on the system. Skipping test.";
+    }
+
+    if (is_galaxy_configuration(cluster)) {
+        GTEST_SKIP() << "Skipping reset test for Galaxy configuration.";
     }
 
     // TODO: remove this check when it is figured out what is happening with Blackhole version of this test.

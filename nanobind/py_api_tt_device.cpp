@@ -15,6 +15,7 @@
 #include "umd/device/tt_device/remote_wormhole_tt_device.h"
 #include "umd/device/tt_device/tt_device.h"
 #include "umd/device/tt_soc_descriptor.h"
+#include "umd/device/types/communication.h"
 
 namespace nb = nanobind;
 
@@ -26,11 +27,7 @@ std::unique_ptr<RemoteWormholeTTDevice> create_remote_wormhole_tt_device(
     // Note: this chip id has to match the local_chip passed. Figure out if there's a better way to do this.
     chip_id_t local_chip_id = cluster_descriptor->get_closest_mmio_capable_chip(remote_chip_id);
     eth_coord_t target_chip = cluster_descriptor->get_chip_locations().at(remote_chip_id);
-    tt_SocDescriptor local_soc_descriptor = tt_SocDescriptor(
-        local_chip->get_arch(),
-        local_chip->get_chip_info().noc_translation_enabled,
-        local_chip->get_chip_info().harvesting_masks,
-        local_chip->get_chip_info().board_type);
+    tt_SocDescriptor local_soc_descriptor = tt_SocDescriptor(local_chip->get_arch(), local_chip->get_chip_info());
     auto remote_communication = std::make_unique<RemoteCommunication>(local_chip);
     remote_communication->set_remote_transfer_ethernet_cores(
         local_soc_descriptor.get_eth_xy_pairs_for_channels(cluster_descriptor->get_active_eth_channels(local_chip_id)));
@@ -38,6 +35,8 @@ std::unique_ptr<RemoteWormholeTTDevice> create_remote_wormhole_tt_device(
 }
 
 void bind_tt_device(nb::module_ &m) {
+    nb::enum_<IODeviceType>(m, "IODeviceType").value("PCIe", IODeviceType::PCIe).value("JTAG", IODeviceType::JTAG);
+
     nb::class_<PciDeviceInfo>(m, "PciDeviceInfo")
         .def_ro("pci_domain", &PciDeviceInfo::pci_domain)
         .def_ro("pci_bus", &PciDeviceInfo::pci_bus)
@@ -65,7 +64,12 @@ void bind_tt_device(nb::module_ &m) {
         .def("get_device_info", &PCIDevice::get_device_info);
 
     nb::class_<TTDevice>(m, "TTDevice")
-        .def_static("create", &TTDevice::create, nb::arg("pci_device_number"), nb::rv_policy::take_ownership)
+        .def_static(
+            "create",
+            &TTDevice::create,
+            nb::arg("device_number"),
+            nb::arg("device_type") = IODeviceType::PCIe,
+            nb::rv_policy::take_ownership)
         .def("get_arc_telemetry_reader", &TTDevice::get_arc_telemetry_reader, nb::rv_policy::reference_internal)
         .def("get_arch", &TTDevice::get_arch)
         .def("get_board_id", &TTDevice::get_board_id)

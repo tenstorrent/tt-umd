@@ -15,7 +15,6 @@ namespace tt::umd {
 
 class BlackholeTTDevice : public TTDevice {
 public:
-    BlackholeTTDevice(std::shared_ptr<PCIDevice> pci_device);
     ~BlackholeTTDevice();
 
     void configure_iatu_region(size_t region, uint64_t target, size_t region_size) override;
@@ -62,6 +61,10 @@ protected:
     BlackholeTTDevice() = default;
 
 private:
+    BlackholeTTDevice(std::shared_ptr<PCIDevice> pci_device);
+
+    friend std::unique_ptr<TTDevice> TTDevice::create(int device_number, IODeviceType device_type);
+
     static constexpr uint64_t ATU_OFFSET_IN_BH_BAR2 = 0x1000;
     std::set<size_t> iatu_regions_;
     tt_xy_pair arc_core;

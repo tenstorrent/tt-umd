@@ -191,8 +191,7 @@ TEST(ApiTTDeviceTest, TestRemoteTTDevice) {
         remote_communication->set_remote_transfer_ethernet_cores(
             closest_local_chip->get_soc_descriptor().get_eth_xy_pairs_for_channels(
                 cluster_desc->get_active_eth_channels(gateway_id), CoordSystem::TRANSLATED));
-        std::unique_ptr<RemoteWormholeTTDevice> remote_tt_device =
-            std::make_unique<RemoteWormholeTTDevice>(std::move(remote_communication), remote_eth_coord);
+        auto remote_tt_device = TTDevice::create(std::move(remote_communication), remote_eth_coord);
         remote_tt_device->init_tt_device();
 
         std::vector<CoreCoord> tensix_cores =

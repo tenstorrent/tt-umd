@@ -15,9 +15,6 @@
 namespace tt::umd {
 class WormholeTTDevice : public TTDevice {
 public:
-    WormholeTTDevice(std::shared_ptr<PCIDevice> pci_device);
-    WormholeTTDevice(std::shared_ptr<JtagDevice> jtag_device, uint8_t jlink_id);
-
     void configure_iatu_region(size_t region, uint64_t target, size_t region_size) override;
 
     void wait_arc_core_start(const uint32_t timeout_ms = 1000) override;
@@ -60,7 +57,12 @@ public:
 
     bool wait_arc_post_reset(const uint32_t timeout_ms = 1000) override;
 
+    WormholeTTDevice(std::shared_ptr<PCIDevice> pci_device);
+    WormholeTTDevice(std::shared_ptr<JtagDevice> jtag_device, uint8_t jlink_id);
+
 private:
+    friend std::unique_ptr<TTDevice> TTDevice::create(int device_number, IODeviceType device_type);
+
     void dma_d2h_transfer(const uint64_t dst, const uint32_t src, const size_t size);
     void dma_h2d_transfer(const uint32_t dst, const uint64_t src, const size_t size);
 

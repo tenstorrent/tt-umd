@@ -12,6 +12,7 @@ class TestTelemetry(unittest.TestCase):
             return
     
         dev = tt_umd.TTDevice.create(dev_ids[0])
+        dev.init_tt_device()
         tel_reader = dev.get_arc_telemetry_reader()
         tag = int(tt_umd.wormhole.TelemetryTag.ASIC_TEMPERATURE)
         print("Telemetry reading for asic temperature: ", tel_reader.read_entry(tag))
@@ -26,12 +27,14 @@ class TestTelemetry(unittest.TestCase):
             if cluster_descriptor.is_chip_mmio_capable(chip):
                 print(f"Chip MMIO capable: {chip}")
                 umd_tt_devices[chip] = tt_umd.TTDevice.create(chip_to_mmio_map[chip])
+                umd_tt_devices[chip].init_tt_device()
                 tel_reader = umd_tt_devices[chip].get_arc_telemetry_reader()
                 print(f"Telemetry reading for chip {chip} ASIC temperature: ", tel_reader.read_entry(tag))
             else:
                 closest_mmio = cluster_descriptor.get_closest_mmio_capable_chip(chip)
                 print(f"Chip remote: {chip}, closest MMIO capable chip: {closest_mmio}")
                 umd_tt_devices[chip] = tt_umd.create_remote_wormhole_tt_device(umd_tt_devices[closest_mmio], cluster_descriptor, chip)
+                umd_tt_devices[chip].init_tt_device()
                 tel_reader = umd_tt_devices[chip].get_arc_telemetry_reader()
                 print(f"Telemetry reading for remote chip {chip} ASIC temperature: ", tel_reader.read_entry(tag))
 

@@ -241,6 +241,8 @@ public:
 
     uint8_t get_asic_location(chip_id_t chip_id) const;
 
+    IODeviceType get_io_device_type() const;
+
 private:
     int get_ethernet_link_coord_distance(const eth_coord_t &location_a, const eth_coord_t &location_b) const;
 
@@ -303,6 +305,8 @@ private:
     std::unordered_map<int, std::unordered_map<int, Chip2ChipConnection>> galaxy_racks_exit_chip_coords_per_x_dim = {};
 
     std::map<chip_id_t, HarvestingMasks> harvesting_masks_map = {};
+
+    IODeviceType io_device_type = IODeviceType::PCIe;
 };
 
 }  // namespace tt::umd

@@ -202,12 +202,17 @@ void Cluster::construct_cluster(const uint32_t& num_host_mem_ch_per_mmio_device,
             local_chip_ids_,
             pci_ids,
             remote_chip_ids_);
+
         verify_fw_bundle_version();
-        log_pci_device_summary();
+        if (cluster_desc->get_io_device_type() == IODeviceType::PCIe) {
+            log_pci_device_summary();
+        }
         if (arch_name == tt::ARCH::WORMHOLE_B0) {
             verify_eth_fw();
         }
-        verify_sysmem_initialized();
+        if (cluster_desc->get_io_device_type() == IODeviceType::PCIe) {
+            verify_sysmem_initialized();
+        }
     }
 
     // Disable dependency to ethernet firmware for all BH devices and WH devices with all chips having MMIO (e.g. UBB
@@ -364,7 +369,9 @@ Cluster::Cluster(ClusterOptions options) {
     tt_ClusterDescriptor* temp_full_cluster_desc = options.cluster_descriptor;
     std::unique_ptr<tt_ClusterDescriptor> temp_full_cluster_desc_ptr;
     if (temp_full_cluster_desc == nullptr) {
-        temp_full_cluster_desc_ptr = Cluster::create_cluster_descriptor(options.sdesc_path, options.pci_target_devices);
+        temp_full_cluster_desc_ptr = Cluster::create_cluster_descriptor(
+            options.sdesc_path,
+            options.io_device_type == IODeviceType::JTAG ? options.target_devices : options.pci_target_devices);
         temp_full_cluster_desc = temp_full_cluster_desc_ptr.get();
     }
 
@@ -1077,8 +1084,8 @@ void Cluster::set_barrier_address_params(const barrier_address_params& barrier_a
 }
 
 std::unique_ptr<tt_ClusterDescriptor> Cluster::create_cluster_descriptor(
-    std::string sdesc_path, std::unordered_set<chip_id_t> pci_target_devices) {
-    return TopologyDiscovery::create_cluster_descriptor(pci_target_devices, sdesc_path);
+    std::string sdesc_path, std::unordered_set<chip_id_t> target_devices, IODeviceType device_type) {
+    return TopologyDiscovery::create_cluster_descriptor(target_devices, sdesc_path, device_type);
 }
 
 }  // namespace tt::umd

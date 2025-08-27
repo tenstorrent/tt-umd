@@ -98,6 +98,12 @@ struct ClusterOptions {
      * This parameter is used only for SIMULATION chip type.
      */
     std::filesystem::path simulator_directory = "";
+
+    /**
+     * I/O device type to use for the cluster.
+     * This determines how the cluster will communicate with the underlying hardware.
+     */
+    IODeviceType io_device_type = IODeviceType::PCIe;
 };
 
 /**
@@ -135,7 +141,9 @@ public:
      * cluster descriptor object based on the devices connected to the system.
      */
     static std::unique_ptr<tt_ClusterDescriptor> create_cluster_descriptor(
-        std::string sdesc_path = "", std::unordered_set<chip_id_t> pci_target_devices = {});
+        std::string sdesc_path = "",
+        std::unordered_set<chip_id_t> target_devices = {},
+        IODeviceType device_type = IODeviceType::PCIe);
 
     /**
      * Get cluster descriptor object being used. This object contains topology information about the cluster.

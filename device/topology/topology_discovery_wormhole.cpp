@@ -7,15 +7,15 @@
 
 #include <tt-logger/tt-logger.hpp>
 
+#include "assert.hpp"
 #include "umd/device/types/wormhole_telemetry.h"
-
 extern bool umd_use_noc1;
 
 namespace tt::umd {
 
 TopologyDiscoveryWormhole::TopologyDiscoveryWormhole(
-    std::unordered_set<chip_id_t> pci_target_devices, const std::string& sdesc_path) :
-    TopologyDiscovery(pci_target_devices, sdesc_path) {}
+    std::unordered_set<chip_id_t> target_devices, const std::string& sdesc_path, IODeviceType device_type) :
+    TopologyDiscovery(target_devices, sdesc_path, device_type) {}
 
 TopologyDiscoveryWormhole::EthAddresses TopologyDiscoveryWormhole::get_eth_addresses(uint32_t eth_fw_version) {
     uint32_t masked_version = eth_fw_version & 0x00FFFFFF;
@@ -252,13 +252,28 @@ uint32_t TopologyDiscoveryWormhole::get_remote_eth_channel(Chip* chip, tt_xy_pai
 bool TopologyDiscoveryWormhole::is_using_eth_coords() { return !is_running_on_6u; }
 
 void TopologyDiscoveryWormhole::init_topology_discovery() {
-    std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
-
-    if (pci_device_ids.empty()) {
-        return;
+    int device_id = 0;
+    switch (io_device_type) {
+        case IODeviceType::JTAG: {
+            auto device_cnt = JtagDevice::create()->get_device_cnt();
+            if (!device_cnt) {
+                return;
+            }
+            break;
+        }
+        case IODeviceType::PCIe: {
+            std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
+            if (pci_device_ids.empty()) {
+                return;
+            }
+            device_id = pci_device_ids[0];
+            break;
+        }
+        default:
+            TT_THROW("Unsupported IODeviceType during topology discovery");
     }
 
-    std::unique_ptr<TTDevice> tt_device = TTDevice::create(pci_device_ids[0]);
+    std::unique_ptr<TTDevice> tt_device = TTDevice::create(device_id, io_device_type);
     tt_device->init_tt_device();
 
     is_running_on_6u = tt_device->get_board_type() == BoardType::UBB;

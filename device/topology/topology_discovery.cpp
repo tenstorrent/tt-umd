@@ -5,46 +5,73 @@
  */
 #include "umd/device/topology/topology_discovery.h"
 
+#include <numeric>
 #include <tt-logger/tt-logger.hpp>
 
 #include "api/umd/device/topology/topology_discovery.h"
 #include "api/umd/device/topology/topology_discovery_blackhole.h"
 #include "api/umd/device/topology/topology_discovery_wormhole.h"
+#include "assert.hpp"
 #include "umd/device/chip/local_chip.h"
+#include "umd/device/jtag/jtag.h"
+#include "umd/device/jtag/jtag_device.h"
 #include "umd/device/remote_communication.h"
 #include "umd/device/tt_cluster_descriptor.h"
 #include "umd/device/tt_device/remote_wormhole_tt_device.h"
+#include "umd/device/types/arch.h"
 #include "umd/device/types/cluster_types.h"
 #include "umd/device/wormhole_implementation.h"
-
 extern bool umd_use_noc1;
 
 namespace tt::umd {
 
 std::unique_ptr<tt_ClusterDescriptor> TopologyDiscovery::create_cluster_descriptor(
-    std::unordered_set<chip_id_t> pci_target_devices, const std::string& sdesc_path) {
-    auto pci_devices_info = PCIDevice::enumerate_devices_info(pci_target_devices);
-    if (pci_devices_info.empty()) {
-        return std::make_unique<tt_ClusterDescriptor>();
+    std::unordered_set<chip_id_t> target_devices, const std::string& sdesc_path, const IODeviceType device_type) {
+    tt::ARCH current_arch = ARCH::Invalid;
+
+    switch (device_type) {
+        case IODeviceType::PCIe: {
+            auto pci_devices_info = PCIDevice::enumerate_devices_info(target_devices);
+            if (pci_devices_info.empty()) {
+                return std::make_unique<tt_ClusterDescriptor>();
+            }
+            current_arch = pci_devices_info.begin()->second.get_arch();
+            break;
+        }
+        case IODeviceType::JTAG: {
+            auto jtag_device = JtagDevice::create();
+            if (!jtag_device->get_device_cnt()) {
+                return std::make_unique<tt_ClusterDescriptor>();
+            }
+            current_arch = jtag_device->get_jtag_arch(0);
+            break;
+        }
+        default:
+            TT_THROW("Unsupported device type for topology discovery");
     }
 
-    switch (pci_devices_info.begin()->second.get_arch()) {
+    if (current_arch == tt::ARCH::BLACKHOLE && device_type == IODeviceType::JTAG) {
+        TT_THROW("Blackhole architecture is not yet supported over JTAG interface.");
+    }
+
+    switch (current_arch) {
         case tt::ARCH::WORMHOLE_B0:
-            return TopologyDiscoveryWormhole(pci_target_devices, sdesc_path).create_ethernet_map();
+            return TopologyDiscoveryWormhole(target_devices, sdesc_path, device_type).create_ethernet_map();
         case tt::ARCH::BLACKHOLE:
-            return TopologyDiscoveryBlackhole(pci_target_devices, sdesc_path).create_ethernet_map();
+            return TopologyDiscoveryBlackhole(target_devices, sdesc_path).create_ethernet_map();
         default:
             throw std::runtime_error(fmt::format("Unsupported architecture for topology discovery."));
     }
 }
 
-TopologyDiscovery::TopologyDiscovery(std::unordered_set<chip_id_t> pci_target_devices, const std::string& sdesc_path) :
-    pci_target_devices(pci_target_devices), sdesc_path(sdesc_path) {}
+TopologyDiscovery::TopologyDiscovery(
+    std::unordered_set<chip_id_t> target_devices, const std::string& sdesc_path, const IODeviceType device_type) :
+    target_devices(target_devices), sdesc_path(sdesc_path), io_device_type(device_type) {}
 
 std::unique_ptr<tt_ClusterDescriptor> TopologyDiscovery::create_ethernet_map() {
     init_topology_discovery();
     cluster_desc = std::unique_ptr<tt_ClusterDescriptor>(new tt_ClusterDescriptor());
-    get_pcie_connected_chips();
+    get_connected_chips();
     discover_remote_chips();
     fill_cluster_descriptor_info();
     return std::move(cluster_desc);
@@ -52,10 +79,24 @@ std::unique_ptr<tt_ClusterDescriptor> TopologyDiscovery::create_ethernet_map() {
 
 void TopologyDiscovery::init_topology_discovery() {}
 
-void TopologyDiscovery::get_pcie_connected_chips() {
-    std::vector<int> pci_device_ids = PCIDevice::enumerate_devices(pci_target_devices);
+void TopologyDiscovery::get_connected_chips() {
+    std::vector<int> device_ids;
+    switch (io_device_type) {
+        case IODeviceType::PCIe: {
+            device_ids = PCIDevice::enumerate_devices(target_devices);
+            break;
+        }
+        case IODeviceType::JTAG: {
+            auto device_cnt = JtagDevice::create()->get_device_cnt();
+            device_ids = std::vector<int>(device_cnt);
+            std::iota(device_ids.begin(), device_ids.end(), 0);
+            break;
+        }
+        default:
+            TT_THROW("Unsupported device type.");
+    }
 
-    for (auto& device_id : pci_device_ids) {
+    for (auto& device_id : device_ids) {
         std::unique_ptr<LocalChip> chip = LocalChip::create(device_id, sdesc_path);
 
         std::vector<CoreCoord> eth_cores =
@@ -225,6 +266,8 @@ void TopologyDiscovery::fill_cluster_descriptor_info() {
             cluster_desc->idle_eth_channels[current_chip_id].erase(active_channel);
         }
     }
+
+    cluster_desc->io_device_type = io_device_type;
 
     cluster_desc->fill_galaxy_connections();
     cluster_desc->merge_cluster_ids();

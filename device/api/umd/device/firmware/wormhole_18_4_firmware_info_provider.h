@@ -16,8 +16,6 @@ class Wormhole_18_4_FirmwareInfoProvider : public WormholeLegacyFirmwareInfoProv
 public:
     Wormhole_18_4_FirmwareInfoProvider(TTDevice* tt_device);
 
-    semver_t get_minimum_compatible_firmware_version() override;
-
     uint64_t get_board_id() override;
 
     uint32_t get_eth_fw_version() override;

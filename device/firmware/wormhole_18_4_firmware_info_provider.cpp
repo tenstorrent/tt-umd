@@ -12,36 +12,16 @@ namespace tt::umd {
 Wormhole_18_4_FirmwareInfoProvider::Wormhole_18_4_FirmwareInfoProvider(TTDevice* tt_device) :
     WormholeLegacyFirmwareInfoProvider(tt_device) {}
 
-semver_t Wormhole_18_4_FirmwareInfoProvider::get_minimum_compatible_firmware_version() { return semver_t(0, 0, 0); }
+uint64_t Wormhole_18_4_FirmwareInfoProvider::get_board_id() { return FirmwareInfoProvider::get_board_id(); }
 
-uint64_t Wormhole_18_4_FirmwareInfoProvider::get_board_id() {
-    ArcTelemetryReader* telemetry = tt_device->get_arc_telemetry_reader();
-    return ((uint64_t)telemetry->read_entry(TelemetryTag::BOARD_ID_HIGH) << 32) |
-           (telemetry->read_entry(TelemetryTag::BOARD_ID_LOW));
-}
-
-uint32_t Wormhole_18_4_FirmwareInfoProvider::get_eth_fw_version() {
-    return tt_device->get_arc_telemetry_reader()->read_entry(TelemetryTag::ETH_FW_VERSION);
-}
+uint32_t Wormhole_18_4_FirmwareInfoProvider::get_eth_fw_version() { return FirmwareInfoProvider::get_eth_fw_version(); }
 
 double Wormhole_18_4_FirmwareInfoProvider::get_asic_temperature() {
-    // Data stored in telemetry has temperature of ASIC stored in a way that high 16 bits
-    // have integer part and lower 16 bits have fractional part.
-    // It needs to be divided by 65536 to get temperature in Celsius.
-    return (double)tt_device->get_arc_telemetry_reader()->read_entry(TelemetryTag::ASIC_TEMPERATURE) / 65536.0f;
+    return FirmwareInfoProvider::get_asic_temperature();
 }
 
 DramTrainingStatus Wormhole_18_4_FirmwareInfoProvider::get_dram_training_status(uint32_t dram_channel) {
-    uint32_t telemetry_data = tt_device->get_arc_telemetry_reader()->read_entry(TelemetryTag::DDR_STATUS);
-    if (telemetry_data & (1 << (2 * dram_channel))) {
-        return DramTrainingStatus::SUCCESS;
-    }
-
-    if (telemetry_data & (1 << (2 * dram_channel + 1))) {
-        return DramTrainingStatus::FAIL;
-    }
-
-    return DramTrainingStatus::IN_PROGRESS;
+    return FirmwareInfoProvider::get_dram_training_status(dram_channel);
 }
 
 }  // namespace tt::umd

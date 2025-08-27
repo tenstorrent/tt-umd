@@ -13,8 +13,6 @@ namespace tt::umd {
 WormholeLegacyFirmwareInfoProvider::WormholeLegacyFirmwareInfoProvider(TTDevice* tt_device) :
     FirmwareInfoProvider(tt_device) {}
 
-semver_t WormholeLegacyFirmwareInfoProvider::get_minimum_compatible_firmware_version() { return semver_t(0, 0, 0); }
-
 uint64_t WormholeLegacyFirmwareInfoProvider::get_board_id() {
     ArcTelemetryReader* telemetry = tt_device->get_arc_telemetry_reader();
     return ((uint64_t)telemetry->read_entry(wormhole::TelemetryTag::BOARD_ID_HIGH) << 32) |

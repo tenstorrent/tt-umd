@@ -83,17 +83,18 @@ ChipInfo WormholeTTDevice::get_chip_info() {
 
     chip_info.board_type = get_board_type();
 
-    if (chip_info.board_type == BoardType::GALAXY) {
+    return chip_info;
+}
+
+semver_t WormholeTTDevice::get_firmware_version() {
+    auto board_type = get_board_type();
+    if (board_type == BoardType::GALAXY) {
         // There is a hack for galaxy board such that ARC puts this information as tt_flash version.
         // For more information see https://github.com/tenstorrent/tt-smi/issues/72
-        chip_info.firmware_version =
-            fw_version_from_telemetry(telemetry->read_entry(wormhole::TelemetryTag::TT_FLASH_VERSION));
+        return fw_version_from_telemetry(telemetry->read_entry(wormhole::TelemetryTag::TT_FLASH_VERSION));
     } else {
-        chip_info.firmware_version =
-            fw_version_from_telemetry(telemetry->read_entry(wormhole::TelemetryTag::FW_BUNDLE_VERSION));
+        return fw_version_from_telemetry(telemetry->read_entry(wormhole::TelemetryTag::FW_BUNDLE_VERSION));
     }
-
-    return chip_info;
 }
 
 void WormholeTTDevice::wait_arc_core_start(const uint32_t timeout_ms) {

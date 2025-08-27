@@ -20,6 +20,7 @@ TopologyDiscoveryWormhole::TopologyDiscoveryWormhole(
 TopologyDiscoveryWormhole::EthAddresses TopologyDiscoveryWormhole::get_eth_addresses(uint32_t eth_fw_version) {
     uint32_t masked_version = eth_fw_version & 0x00FFFFFF;
 
+    uint64_t eth_param_table;
     uint64_t node_info;
     uint64_t eth_conn_info;
     uint64_t results_buf;
@@ -30,6 +31,7 @@ TopologyDiscoveryWormhole::EthAddresses TopologyDiscoveryWormhole::get_eth_addre
     uint64_t erisc_remote_eth_id_offset;
 
     if (masked_version >= 0x060000) {
+        eth_param_table = 0x1000;
         node_info = 0x1100;
         eth_conn_info = 0x1200;
         results_buf = 0x1ec0;
@@ -54,6 +56,7 @@ TopologyDiscoveryWormhole::EthAddresses TopologyDiscoveryWormhole::get_eth_addre
 
     return TopologyDiscoveryWormhole::EthAddresses{
         masked_version,
+        eth_param_table,
         node_info,
         eth_conn_info,
         results_buf,
@@ -287,6 +290,37 @@ bool TopologyDiscoveryWormhole::is_eth_unconnected(Chip* chip, const tt_xy_pair 
 
 bool TopologyDiscoveryWormhole::is_eth_unknown(Chip* chip, const tt_xy_pair eth_core) {
     return read_port_status(chip, eth_core) == TopologyDiscoveryWormhole::ETH_UNKNOWN;
+}
+
+std::vector<uint32_t> TopologyDiscoveryWormhole::extract_intermesh_eth_links(Chip* chip, tt_xy_pair eth_core) {
+    constexpr uint32_t intermesh_eth_link_config_offset = 19;
+    constexpr uint32_t intermesh_eth_link_bits_shift = 8;
+    constexpr uint32_t intermesh_eth_link_bits_mask = 0xFFFF;
+    TTDevice* tt_device = chip->get_tt_device();
+    uint32_t config_data;
+    tt_device->read_from_device(
+        &config_data,
+        eth_core,
+        eth_addresses.eth_param_table + (4 * intermesh_eth_link_config_offset),
+        sizeof(uint32_t));
+    std::vector<uint32_t> intermesh_eth_links;
+    uint32_t intermesh_eth_links_bits = (config_data >> intermesh_eth_link_bits_shift) & intermesh_eth_link_bits_mask;
+    while (intermesh_eth_links_bits != 0) {
+        uint32_t link = __builtin_ctz(intermesh_eth_links_bits);
+        intermesh_eth_links.push_back(link);
+        intermesh_eth_links_bits &= ~(1 << link);
+    }
+    return intermesh_eth_links;
+}
+
+bool TopologyDiscoveryWormhole::is_intermesh_eth_link_trained(Chip* chip, tt_xy_pair eth_core) {
+    constexpr uint32_t link_status_offset = 1;
+    constexpr uint32_t link_connected_mask = 0x1;
+    uint32_t status;
+    TTDevice* tt_device = chip->get_tt_device();
+    tt_device->read_from_device(
+        &status, eth_core, eth_addresses.node_info + (4 * link_status_offset), sizeof(uint32_t));
+    return (status & link_connected_mask) == link_connected_mask;
 }
 
 }  // namespace tt::umd

@@ -166,17 +166,17 @@ void Cluster::verify_fw_bundle_version() {
     if (chips_.empty()) {
         return;
     }
-    semver_t fw_bundle_version = chips_.begin()->second->get_tt_device()->get_chip_info().firmware_version;
+    semver_t fw_bundle_version = chips_.begin()->second->get_tt_device()->get_firmware_version();
     bool all_device_same_fw_bundle_version = true;
     for (const auto& [chip_id, chip] : chips_) {
-        if (chip->get_tt_device()->get_chip_info().firmware_version != fw_bundle_version) {
+        if (chip->get_tt_device()->get_firmware_version() != fw_bundle_version) {
             log_warning(
                 LogSiliconDriver,
                 fmt::format(
                     "Firmware bundle version mismatch for chip {}: expected {}, got {}",
                     chip_id,
                     fw_bundle_version.to_string(),
-                    chip->get_tt_device()->get_chip_info().firmware_version.to_string()));
+                    chip->get_tt_device()->get_firmware_version().to_string()));
             all_device_same_fw_bundle_version = false;
         }
     }
@@ -277,23 +277,22 @@ tt_SocDescriptor Cluster::construct_soc_descriptor(
             fmt::format("Chip {} not found in cluster descriptor. Cannot create device.", chip_id));
     }
 
-    bool noc_translation_table_en =
-        chip_in_cluster_descriptor ? cluster_desc->get_noc_translation_table_en().at(chip_id) : false;
-    HarvestingMasks harvesting_masks =
-        chip_in_cluster_descriptor
-            ? get_harvesting_masks(chip_id, cluster_desc, perform_harvesting, simulated_harvesting_masks)
-            : HarvestingMasks{};
-    BoardType chip_board_type = chip_in_cluster_descriptor ? cluster_desc->get_board_type(chip_id) : BoardType::UNKNOWN;
-    uint8_t asic_location = chip_in_cluster_descriptor ? cluster_desc->get_asic_location(chip_id) : 0;
+    ChipInfo chip_info;
+    if (chip_in_cluster_descriptor) {
+        chip_info.noc_translation_enabled = cluster_desc->get_noc_translation_table_en().at(chip_id);
+        chip_info.harvesting_masks =
+            get_harvesting_masks(chip_id, cluster_desc, perform_harvesting, simulated_harvesting_masks);
+        chip_info.board_type = cluster_desc->get_board_type(chip_id);
+        chip_info.asic_location = cluster_desc->get_asic_location(chip_id);
+    }
 
     if (soc_desc_path.empty()) {
         tt::ARCH arch = chip_in_cluster_descriptor ? cluster_desc->get_arch(chip_id) : tt::ARCH::WORMHOLE_B0;
 
-        return tt_SocDescriptor(arch, noc_translation_table_en, harvesting_masks, chip_board_type, asic_location);
+        return tt_SocDescriptor(arch, chip_info);
 
     } else {
-        tt_SocDescriptor soc_desc =
-            tt_SocDescriptor(soc_desc_path, noc_translation_table_en, harvesting_masks, chip_board_type, asic_location);
+        tt_SocDescriptor soc_desc = tt_SocDescriptor(soc_desc_path, chip_info);
 
         // In this case, check that the passed soc descriptor architecture doesn't conflate with the one in the cluster
         // descriptor.

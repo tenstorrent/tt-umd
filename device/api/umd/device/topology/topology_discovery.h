@@ -93,6 +93,15 @@ protected:
     // does not take harvesting into consideration. This function will be overridden just for Blackhole.
     virtual void patch_eth_connections();
 
+    // Intermesh links are ethernet links that are turned off during UMD's topology discovery but are
+    // otherwise physically connected. This is done since not all tools support limiting the discovery as
+    // UMD does. Once all the tools start supporting this, this feature won't be used anymore and this
+    // function will return empty set.
+    // This will extract the list of intermesh links from a config in L1.
+    virtual std::vector<uint32_t> extract_intermesh_eth_links(Chip* chip, tt_xy_pair eth_core) = 0;
+
+    virtual bool is_intermesh_eth_link_trained(Chip* chip, tt_xy_pair eth_core) = 0;
+
     std::map<uint64_t, std::unique_ptr<Chip>> chips_to_discover;
     std::map<uint64_t, std::unique_ptr<Chip>> chips;
 

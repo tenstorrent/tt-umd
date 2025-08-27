@@ -6,6 +6,7 @@
 #include "device/api/umd/device/warm_reset.hpp"
 #include "gtest/gtest.h"
 #include "tests/test_utils/device_test_utils.hpp"
+#include "tests/test_utils/test_api_common.hpp"
 #include "umd/device/arch/blackhole_implementation.hpp"
 #include "umd/device/arch/wormhole_implementation.hpp"
 #include "umd/device/cluster.hpp"
@@ -113,6 +114,12 @@ TEST(ApiTTDeviceTest, TTDeviceWarmResetAfterNocHang) {
     std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
     if (pci_device_ids.empty()) {
         GTEST_SKIP() << "No chips present on the system. Skipping test.";
+    }
+
+    // Check for galaxy configuration using cluster
+    std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
+    if (is_galaxy_configuration(cluster)) {
+        GTEST_SKIP() << "Skipping reset test for Galaxy configuration.";
     }
 
     auto arch = PCIDevice(pci_device_ids[0]).get_arch();

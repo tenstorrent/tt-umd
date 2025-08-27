@@ -9,8 +9,6 @@
 
 #include "umd/device/tt_xy_pair.h"
 
-#define NNG_SOCKET_PREFIX "tcp://soc-zebu-01:5556"
-
 typedef struct nng_socket_s nng_socket;
 typedef struct nng_listener_s nng_listener;
 

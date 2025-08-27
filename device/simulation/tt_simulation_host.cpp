@@ -4,22 +4,41 @@
 
 #include "umd/device/tt_simulation_host.hpp"
 
+#include <netinet/in.h>
 #include <nng/nng.h>
 #include <nng/protocol/pair1/pair.h>
+#include <sys/socket.h>
+#include <sys/types.h>
+#include <unistd.h>
 
 #include <cassert>
 #include <cstdlib>
 #include <filesystem>
 #include <iomanip>
+#include <random>
 #include <sstream>
 #include <tt-logger/tt-logger.hpp>
 #include <typeinfo>
-#include <random>
-#include <unistd.h>
 
 #include "assert.hpp"
 
 namespace tt::umd {
+
+bool is_port_free(int port) {
+    int sock = socket(AF_INET, SOCK_STREAM, 0);
+    if (sock < 0) {
+        return false;
+    }
+
+    sockaddr_in addr{};
+    addr.sin_family = AF_INET;
+    addr.sin_addr.s_addr = INADDR_ANY;
+    addr.sin_port = htons(port);
+
+    bool free = (bind(sock, (struct sockaddr *)&addr, sizeof(addr)) == 0);
+    close(sock);
+    return free;
+}
 
 tt_SimulationHost::tt_SimulationHost() {
     // Initialize socket and listener
@@ -47,7 +66,9 @@ tt_SimulationHost::tt_SimulationHost() {
         std::mt19937 gen(rd());
         std::uniform_int_distribution<> dis(50000, 59999);
 
-        port = dis(gen);
+        do {
+            port = dis(gen);
+        } while (!is_port_free(port));
         log_info(tt::LogEmulationDriver, "Using generated port: {}", port);
     }
 
@@ -66,10 +87,6 @@ tt_SimulationHost::tt_SimulationHost() {
     // Open socket and create listener (server mode)
     log_info(tt::LogEmulationDriver, "Listening on: {}", nng_socket_addr);
     nng_pair1_open(host_socket.get());
-    // // Set receive timeout to 1000 ms (1 seconds)
-    // nng_socket_set_ms(*host_socket, NNG_OPT_RECVTIMEO, 1000);
-    // // Set send timeout to 1000 ms (1 seconds)
-    // nng_socket_set_ms(*host_socket, NNG_OPT_SENDTIMEO, 1000);
     int rv = nng_listener_create(host_listener.get(), *host_socket, nng_socket_addr);
     TT_ASSERT(rv == 0, "Failed to create listener: {} {}", nng_strerror(rv), nng_socket_addr);
 }
@@ -86,9 +103,8 @@ void tt_SimulationHost::start_host() {
         log_error(tt::LogEmulationDriver, "Failed to start listener: {}", nng_strerror(rv));
         return;
     }
-    
-    log_info(tt::LogEmulationDriver, "Server started, waiting for client to connect...");
 
+    log_info(tt::LogEmulationDriver, "Server started, waiting for client to connect...");
 }
 
 void tt_SimulationHost::send_to_device(uint8_t *buf, size_t buf_size) {
@@ -108,9 +124,9 @@ void tt_SimulationHost::send_to_device(uint8_t *buf, size_t buf_size) {
 size_t tt_SimulationHost::recv_from_device(void **data_ptr) {
     int rv;
     size_t data_size;
-    log_info(tt::LogEmulationDriver, "Receiving messsage from remote..");
+    log_debug(tt::LogEmulationDriver, "Receiving messsage from remote..");
     rv = nng_recv(*host_socket, data_ptr, &data_size, NNG_FLAG_ALLOC);
-    log_info(tt::LogEmulationDriver, "Message received.");
+    log_debug(tt::LogEmulationDriver, "Message received.");
     if (rv != 0) {
         log_info(tt::LogEmulationDriver, "Failed to receive message from remote: {}", nng_strerror(rv));
     }

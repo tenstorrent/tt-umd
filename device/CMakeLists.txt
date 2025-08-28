@@ -52,6 +52,10 @@ target_sources(
         tt_device/wormhole_tt_device.cpp
         tt_device/remote_wormhole_tt_device.cpp
         tt_device/remote_blackhole_tt_device.cpp
+        firmware/firmware_info_provider.cpp
+        firmware/wormhole_legacy_firmware_info_provider.cpp
+        firmware/wormhole_18_4_firmware_info_provider.cpp
+        firmware/firmware_utils.cpp
         tt_silicon_driver_common.cpp
         tt_soc_descriptor.cpp
         wormhole/wormhole_coordinate_manager.cpp
@@ -59,6 +63,7 @@ target_sources(
         arc/arc_telemetry_reader.cpp
         arc/wormhole_arc_telemetry_reader.cpp
         arc/blackhole_arc_telemetry_reader.cpp
+        arc/smbus_arc_telemetry_reader.cpp
         arc/arc_messenger.cpp
         arc/wormhole_arc_messenger.cpp
         arc/blackhole_arc_messenger.cpp
@@ -123,6 +128,10 @@ if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.23)
                 api/umd/device/tt_device/wormhole_tt_device.h
                 api/umd/device/tt_device/remote_wormhole_tt_device.h
                 api/umd/device/tt_device/remote_blackhole_tt_device.h
+                api/umd/device/firmware/firmware_info_provider.h
+                api/umd/device/firmware/wormhole_legacy_firmware_info_provider.h
+                api/umd/device/firmware/wormhole_18_4_firmware_info_provider.h
+                api/umd/device/firmware/firmware_utils.h
                 api/umd/device/tt_io.hpp
                 api/umd/device/tt_silicon_driver_common.hpp
                 api/umd/device/tt_simulation_device.h

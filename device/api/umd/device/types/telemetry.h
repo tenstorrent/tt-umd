@@ -6,9 +6,9 @@
 
 #pragma once
 
-namespace tt::umd {
+#include <cstdint>
 
-namespace blackhole {
+namespace tt::umd {
 
 enum TelemetryTag : uint8_t {
     BOARD_ID_HIGH = 1,
@@ -52,7 +52,5 @@ enum TelemetryTag : uint8_t {
     NUMBER_OF_TAGS = 39,
     ASIC_LOCATION = 52
 };
-
-}  // namespace blackhole
 
 }  // namespace tt::umd

@@ -19,6 +19,8 @@ public:
 
     static std::shared_ptr<JtagDevice> create(std::filesystem::path& binary_directory = jtag_library_path);
 
+    void close_device() {}
+
     uint32_t get_device_cnt() const;
     std::optional<uint32_t> get_efuse_harvesting(uint8_t chip_id) const;
 

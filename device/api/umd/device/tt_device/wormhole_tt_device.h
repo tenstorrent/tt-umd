@@ -15,9 +15,6 @@
 namespace tt::umd {
 class WormholeTTDevice : public TTDevice {
 public:
-    WormholeTTDevice(std::shared_ptr<PCIDevice> pci_device);
-    WormholeTTDevice(std::shared_ptr<JtagDevice> jtag_device, uint8_t jlink_id);
-
     void configure_iatu_region(size_t region, uint64_t target, size_t region_size) override;
 
     void wait_arc_core_start(const uint32_t timeout_ms = 1000) override;
@@ -27,8 +24,6 @@ public:
     uint32_t get_max_clock_freq() override;
 
     uint32_t get_min_clock_freq() override;
-
-    uint64_t get_board_id() override;
 
     bool get_noc_translation_enabled() override;
 
@@ -44,15 +39,9 @@ public:
 
     void write_to_arc(const void *mem_ptr, uint64_t arc_addr_offset, size_t size) override;
 
-    std::vector<DramTrainingStatus> get_dram_training_status() override;
-
     ChipInfo get_chip_info() override;
 
-    semver_t get_firmware_version() override;
-
     void wait_eth_core_training(const tt_xy_pair eth_core, const uint32_t timeout_ms = 60000) override;
-
-    double get_asic_temperature() override;
 
     uint64_t get_arc_noc_base_address() const override;
 
@@ -60,7 +49,12 @@ public:
 
     bool wait_arc_post_reset(const uint32_t timeout_ms = 1000) override;
 
+    WormholeTTDevice(std::shared_ptr<PCIDevice> pci_device);
+    WormholeTTDevice(std::shared_ptr<JtagDevice> jtag_device, uint8_t jlink_id);
+
 private:
+    friend std::unique_ptr<TTDevice> TTDevice::create(int device_number, IODeviceType device_type);
+
     void dma_d2h_transfer(const uint64_t dst, const uint32_t src, const size_t size);
     void dma_h2d_transfer(const uint32_t dst, const uint64_t src, const size_t size);
 

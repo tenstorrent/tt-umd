@@ -14,8 +14,10 @@
 #include "umd/device/jtag/jtag_device.h"
 #include "umd/device/pci_device.hpp"
 #include "umd/device/tt_device/blackhole_tt_device.h"
+#include "umd/device/tt_device/remote_wormhole_tt_device.h"
 #include "umd/device/tt_device/wormhole_tt_device.h"
 #include "umd/device/types/communication.h"
+#include "umd/device/types/telemetry.h"
 #include "umd/device/utils/lock_manager.h"
 
 // TODO #526: This is a hack to allow UMD to use the NOC1 TLB.
@@ -50,6 +52,7 @@ void TTDevice::init_tt_device() {
     pre_init_hook();
     arc_messenger_ = ArcMessenger::create_arc_messenger(this);
     telemetry = ArcTelemetryReader::create_arc_telemetry_reader(this);
+    firmware_info_provider = FirmwareInfoProvider::create_firmware_info_provider(this);
     wait_arc_core_start();
     post_init_hook();
 }
@@ -63,7 +66,7 @@ TTDevice::TTDevice() {}
 
         switch (jtag_device->get_jtag_arch(device_number)) {
             case ARCH::WORMHOLE_B0:
-                return std::make_unique<WormholeTTDevice>(jtag_device, device_number);
+                return std::unique_ptr<WormholeTTDevice>(new WormholeTTDevice(jtag_device, device_number));
             case ARCH::BLACKHOLE:
                 TT_THROW("JTAG is not yet supported on Blackhole architecture.");
             default:
@@ -75,12 +78,18 @@ TTDevice::TTDevice() {}
 
     switch (pci_device->get_arch()) {
         case ARCH::WORMHOLE_B0:
-            return std::make_unique<WormholeTTDevice>(pci_device);
+            return std::unique_ptr<WormholeTTDevice>(new WormholeTTDevice(pci_device));
         case ARCH::BLACKHOLE:
-            return std::make_unique<BlackholeTTDevice>(pci_device);
+            return std::unique_ptr<BlackholeTTDevice>(new BlackholeTTDevice(pci_device));
         default:
             return nullptr;
     }
+}
+
+/* static */ std::unique_ptr<TTDevice> TTDevice::create(
+    std::unique_ptr<RemoteCommunication> remote_communication, eth_coord_t target_chip) {
+    return std::unique_ptr<RemoteWormholeTTDevice>(
+        new RemoteWormholeTTDevice(std::move(remote_communication), target_chip));
 }
 
 architecture_implementation *TTDevice::get_architecture_implementation() { return architecture_impl_.get(); }
@@ -506,6 +515,10 @@ ArcMessenger *TTDevice::get_arc_messenger() const { return arc_messenger_.get();
 
 ArcTelemetryReader *TTDevice::get_arc_telemetry_reader() const { return telemetry.get(); }
 
+FirmwareInfoProvider *TTDevice::get_firmware_info_provider() const { return firmware_info_provider.get(); }
+
+semver_t TTDevice::get_firmware_version() { return get_firmware_info_provider()->get_firmware_version(); }
+
 TTDevice::~TTDevice() {
     lock_manager.clear_mutex(MutexType::TT_DEVICE_IO, get_communication_device_id(), communication_device_type_);
 }
@@ -523,14 +536,6 @@ IODeviceType TTDevice::get_communication_device_type() const { return communicat
 
 BoardType TTDevice::get_board_type() { return get_board_type_from_board_id(get_board_id()); }
 
-semver_t TTDevice::fw_version_from_telemetry(const uint32_t telemetry_data) const {
-    // The telemetry data is a 32-bit value where the higher 16 bits are the major value,
-    // lower 16 bits are the minor value.
-    uint16_t major = (telemetry_data >> 24) & 0xFF;
-    uint16_t minor = (telemetry_data >> 16) & 0xFF;
-    return semver_t(major, minor, 0);
-}
-
 uint64_t TTDevice::get_refclk_counter() {
     uint32_t high1_addr = 0, high2_addr = 0, low_addr = 0;
     read_from_arc(&high1_addr, architecture_impl_->get_arc_reset_unit_refclk_high_offset(), sizeof(high1_addr));
@@ -541,5 +546,29 @@ uint64_t TTDevice::get_refclk_counter() {
     }
     return (static_cast<uint64_t>(high2_addr) << 32) | low_addr;
 }
+
+uint64_t TTDevice::get_board_id() { return get_firmware_info_provider()->get_board_id(); }
+
+std::vector<DramTrainingStatus> TTDevice::get_dram_training_status() {
+    if (!telemetry->is_entry_available(TelemetryTag::DDR_STATUS)) {
+        return {};
+    }
+
+    std::vector<DramTrainingStatus> dram_training_status;
+    const uint32_t num_dram_channels = architecture_impl_->get_dram_banks_number();
+    // Format of the dram training status is as follows:
+    // Each channel gets two bits in the 32-bit value (16 bits used). The lower bits are for lower channels.
+    // Lower of the two bits is for training error and higher of the two bits is for training status.
+    // Example: 0b 00 00 00 00 00 00 01 10
+    // would mean that only channel 0 is trained, channel 1 has the error and other are not trained and don't have
+    // errors. If some channel is harvested the bits are always going to be zero.
+    for (uint32_t dram_channel = 0; dram_channel < num_dram_channels; dram_channel++) {
+        dram_training_status.push_back(get_firmware_info_provider()->get_dram_training_status(dram_channel));
+    }
+
+    return dram_training_status;
+}
+
+double TTDevice::get_asic_temperature() { return get_firmware_info_provider()->get_asic_temperature(); }
 
 }  // namespace tt::umd

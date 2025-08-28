@@ -10,6 +10,8 @@
 
 #include "assert.hpp"
 #include "umd/device/chip/local_chip.h"
+#include "umd/device/tt_device/remote_wormhole_tt_device.h"
+#include "umd/device/tt_device/tt_device.h"
 #include "umd/device/wormhole_implementation.h"
 
 namespace tt::umd {
@@ -26,7 +28,7 @@ std::unique_ptr<RemoteChip> RemoteChip::create(
     remote_communication->set_remote_transfer_ethernet_cores(
         local_chip->get_soc_descriptor().get_eth_xy_pairs_for_channels(
             remote_transfer_eth_channels, CoordSystem::TRANSLATED));
-    auto remote_tt_device = std::make_unique<RemoteWormholeTTDevice>(std::move(remote_communication), target_eth_coord);
+    auto remote_tt_device = TTDevice::create(std::move(remote_communication), target_eth_coord);
     remote_tt_device->init_tt_device();
 
     tt_SocDescriptor soc_descriptor;
@@ -50,7 +52,7 @@ std::unique_ptr<RemoteChip> RemoteChip::create(
     remote_communication->set_remote_transfer_ethernet_cores(
         local_chip->get_soc_descriptor().get_eth_xy_pairs_for_channels(
             remote_transfer_eth_channels, CoordSystem::TRANSLATED));
-    auto remote_tt_device = std::make_unique<RemoteWormholeTTDevice>(std::move(remote_communication), target_eth_coord);
+    auto remote_tt_device = TTDevice::create(std::move(remote_communication), target_eth_coord);
     remote_tt_device->init_tt_device();
 
     return std::unique_ptr<tt::umd::RemoteChip>(
@@ -58,9 +60,18 @@ std::unique_ptr<RemoteChip> RemoteChip::create(
 }
 
 RemoteChip::RemoteChip(
-    tt_SocDescriptor soc_descriptor, LocalChip* local_chip, std::unique_ptr<RemoteWormholeTTDevice> remote_tt_device) :
+    tt_SocDescriptor soc_descriptor, LocalChip* local_chip, std::unique_ptr<TTDevice> remote_tt_device) :
     Chip(remote_tt_device->get_chip_info(), soc_descriptor), local_chip_(local_chip) {
-    remote_communication_ = remote_tt_device->get_remote_communication();
+    // Architectural design issue - this dynamic_cast reveals a leaky abstraction.
+    // The base TTDevice interface should provide access to RemoteCommunication directly,
+    // rather than requiring knowledge of the concrete RemoteWormholeTTDevice type.
+    // This violates the Liskov Substitution Principle and creates tight coupling.
+    // Consider either:
+    //   1. Adding get_remote_communication() to the TTDevice base interface (probably not)
+    //   2. Restructuring the inheritance hierarchy to eliminate this dependency
+    //   3. Using composition instead of inheritance for remote communication
+    // ToDo: Figure out a proper way to make an abstraction to redesign this
+    remote_communication_ = dynamic_cast<RemoteWormholeTTDevice*>(remote_tt_device.get())->get_remote_communication();
     tt_device_ = std::move(remote_tt_device);
     TT_ASSERT(soc_descriptor_.arch != tt::ARCH::BLACKHOLE, "Non-MMIO targets not supported in Blackhole");
     wait_chip_to_be_ready();

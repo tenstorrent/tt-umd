@@ -30,6 +30,8 @@ enum class MutexType {
     CREATE_ETH_MAP,
     // Used to enable DPRINT usage in the Simulator.
     TT_SIMULATOR,
+    // Used for guarding against multiple users initializing the same chip.
+    CHIP_IN_USE,
 };
 
 // Note that the returned std::unique_lock<RobustMutex> should never outlive the LockManager which holds underlying

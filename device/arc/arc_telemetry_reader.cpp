@@ -23,7 +23,9 @@ std::unique_ptr<ArcTelemetryReader> ArcTelemetryReader::create_arc_telemetry_rea
         case tt::ARCH::WORMHOLE_B0: {
             semver_t fw_bundle_version = get_firmware_version_util(tt_device);
 
-            if (fw_bundle_version >= new_telemetry_fw_bundle) {
+            int compare_fw_bundles_result =
+                semver_t::compare_firmware_bundle(fw_bundle_version, new_telemetry_fw_bundle);
+            if (compare_fw_bundles_result >= 0) {
                 return std::make_unique<WormholeArcTelemetryReader>(tt_device);
             }
 

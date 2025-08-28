@@ -20,7 +20,8 @@ std::unique_ptr<FirmwareInfoProvider> FirmwareInfoProvider::create_firmware_info
         case ARCH::WORMHOLE_B0: {
             semver_t fw_bundle_version = get_firmware_version_util(tt_device);
 
-            if (fw_bundle_version >= semver_t(18, 4, 0)) {
+            int compare_fw_bundles_result = semver_t::compare_firmware_bundle(fw_bundle_version, semver_t(18, 4, 0));
+            if (compare_fw_bundles_result >= 0) {
                 return std::make_unique<Wormhole_18_4_FirmwareInfoProvider>(tt_device);
             }
 
@@ -35,8 +36,8 @@ std::unique_ptr<FirmwareInfoProvider> FirmwareInfoProvider::create_firmware_info
 
 semver_t FirmwareInfoProvider::get_firmware_version() { return firmware_version; }
 
-semver_t FirmwareInfoProvider::get_minimum_compatible_firmware_version() {
-    switch (tt_device->get_arch()) {
+semver_t FirmwareInfoProvider::get_minimum_compatible_firmware_version(tt::ARCH arch) {
+    switch (arch) {
         case tt::ARCH::WORMHOLE_B0: {
             return semver_t(0, 0, 0);
         }

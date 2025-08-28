@@ -19,7 +19,6 @@ namespace tt::umd {
  * Based on Semantic Versioning 2.0.0 (https://semver.org/) but more permissive.
  * TT-KMD reports version strings that are technically not semver compliant.
  */
-
 class semver_t {
 public:
     uint64_t major;
@@ -51,6 +50,28 @@ public:
     bool operator>=(const semver_t& other) const { return !(*this < other); }
 
     std::string to_string() const { return fmt::format("{}.{}.{}", major, minor, patch); }
+
+    /*
+     * Compare two firmware bundle versions, treating major version 80 and above as legacy versions,
+     * which are considered smaller than any non-legacy version.
+     * @param v1 - first version to compare
+     * @param v2 - second version to compare
+     * @returns -1 if v1 < v2, 0 if v1 == v2, 1 if v1 > v2
+     */
+    static int compare_firmware_bundle(const semver_t& v1, const semver_t& v2) {
+        auto normalize = [](const semver_t& v) {
+            // Major version 80 is treated as legacy, so smaller than everything else.
+            if (v.major >= 80) {
+                return std::tuple<uint64_t, uint64_t, uint64_t>(0, v.minor, v.patch);
+            }
+            return std::tuple<uint64_t, uint64_t, uint64_t>(v.major, v.minor, v.patch);
+        };
+
+        auto v1_normalized = normalize(v1);
+        auto v2_normalized = normalize(v2);
+
+        return v1_normalized < v2_normalized ? -1 : (v1_normalized > v2_normalized ? 1 : 0);
+    }
 
 private:
     static semver_t parse(const std::string& version_str) {

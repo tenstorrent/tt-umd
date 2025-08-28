@@ -8,6 +8,7 @@
 
 #include <memory>
 
+#include "umd/device/types/arch.h"
 #include "umd/device/types/cluster_descriptor_types.h"
 
 namespace tt::umd {
@@ -33,7 +34,7 @@ public:
 
     virtual semver_t get_firmware_version();
 
-    virtual semver_t get_minimum_compatible_firmware_version();
+    static semver_t get_minimum_compatible_firmware_version(tt::ARCH arch);
 
     virtual uint64_t get_board_id();
 

@@ -22,11 +22,6 @@ const std::unordered_map<MutexType, std::string> LockManager::MutexTypeToString 
     {MutexType::TT_SIMULATOR, "TT_SIMULATOR"},
 };
 
-const std::unordered_map<IODeviceType, std::string> LockManager::DeviceTypeToString = {
-    {IODeviceType::PCIe, "PCIe"},
-    {IODeviceType::JTAG, "JTAG"},
-};
-
 void LockManager::initialize_mutex(MutexType mutex_type) {
     initialize_mutex_internal(MutexTypeToString.at(mutex_type));
 }

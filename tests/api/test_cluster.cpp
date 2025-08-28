@@ -25,6 +25,7 @@
 #include "umd/device/chip/local_chip.h"
 #include "umd/device/chip/mock_chip.h"
 #include "umd/device/cluster.h"
+#include "umd/device/jtag/jtag_device.h"
 #include "umd/device/tt_cluster_descriptor.h"
 #include "umd/device/tt_core_coordinates.h"
 #include "umd/device/tt_silicon_driver_common.hpp"

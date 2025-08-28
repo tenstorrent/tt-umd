@@ -64,9 +64,6 @@ private:
     // Const map of mutex names for each of the types listed in the enum.
     static const std::unordered_map<MutexType, std::string> MutexTypeToString;
 
-    // Const map of Device type names for each of the types listed in the enum.
-    static const std::unordered_map<IODeviceType, std::string> DeviceTypeToString;
-
     // Maps from mutex name to an initialized mutex.
     // Mutex names are made from mutex type name or directly mutex name combined with device number.
     // Note that once LockManager is out of scope, all the mutexes will be cleared up automatically.

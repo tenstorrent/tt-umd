@@ -117,6 +117,20 @@ void Cluster::verify_sysmem_initialized() {
     }
 }
 
+void Cluster::log_device_summary() {
+    switch (cluster_desc->get_io_device_type()) {
+        case IODeviceType::PCIe:
+            log_pci_device_summary();
+            break;
+        case IODeviceType::JTAG:
+            log_jtag_device_summary();
+            break;
+        default:
+            log_info(LogSiliconDriver, "Unknown device type for logging.");
+            break;
+    }
+}
+
 void Cluster::log_pci_device_summary() {
     if (local_chip_ids_.empty()) {
         return;
@@ -162,6 +176,8 @@ void Cluster::log_pci_device_summary() {
     log_info(LogSiliconDriver, "KMD version: {}", kmd_version);
 }
 
+void Cluster::log_jtag_device_summary() {}
+
 void Cluster::verify_fw_bundle_version() {
     if (chips_.empty()) {
         return;
@@ -198,7 +214,8 @@ void Cluster::construct_cluster(const uint32_t& num_host_mem_ch_per_mmio_device,
         }
         log_info(
             LogSiliconDriver,
-            "Opening local chip ids/pci ids: {}/{} and remote chip ids {}",
+            "Opening local chip ids/{} ids: {}/{} and remote chip ids {}",
+            DeviceTypeToString.at(cluster_desc->get_io_device_type()),
             local_chip_ids_,
             pci_ids,
             remote_chip_ids_);
@@ -371,7 +388,8 @@ Cluster::Cluster(ClusterOptions options) {
     if (temp_full_cluster_desc == nullptr) {
         temp_full_cluster_desc_ptr = Cluster::create_cluster_descriptor(
             options.sdesc_path,
-            options.io_device_type == IODeviceType::JTAG ? options.target_devices : options.pci_target_devices);
+            options.io_device_type == IODeviceType::JTAG ? options.target_devices : options.pci_target_devices,
+            options.io_device_type);
         temp_full_cluster_desc = temp_full_cluster_desc_ptr.get();
     }
 

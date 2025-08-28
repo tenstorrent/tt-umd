@@ -27,7 +27,7 @@ void WormholeArcTelemetryReader::get_telemetry_address() {
     tt_device->read_from_device(
         &telemetry_table_addr_offset,
         arc_core,
-        tt::umd::wormhole::ARC_RESET_UNIT_BASE_ADDR + tt::umd::wormhole::NOC_NODEID_X_0,
+        tt::umd::wormhole::ARC_NOC_RESET_UNIT_BASE_ADDR + tt::umd::wormhole::NOC_NODEID_X_0,
         sizeof(uint32_t));
 
     telemetry_table_addr = telemetry_table_addr_offset + noc_telemetry_offset;
@@ -36,7 +36,7 @@ void WormholeArcTelemetryReader::get_telemetry_address() {
     tt_device->read_from_device(
         &telemetry_values_addr_offset,
         arc_core,
-        tt::umd::wormhole::ARC_RESET_UNIT_BASE_ADDR + tt::umd::wormhole::NOC_NODEID_Y_0,
+        tt::umd::wormhole::ARC_NOC_RESET_UNIT_BASE_ADDR + tt::umd::wormhole::NOC_NODEID_Y_0,
         sizeof(uint32_t));
 
     telemetry_values_addr = telemetry_values_addr_offset + noc_telemetry_offset;

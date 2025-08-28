@@ -51,7 +51,7 @@ semver_t FirmwareInfoProvider::get_minimum_compatible_firmware_version(tt::ARCH 
 
 uint64_t FirmwareInfoProvider::get_board_id() {
     ArcTelemetryReader* telemetry = tt_device->get_arc_telemetry_reader();
-    return ((uint64_t)telemetry->read_entry(TelemetryTag::BOARD_ID_HIGH) << 32) |
+    return (static_cast<uint64_t>(telemetry->read_entry(TelemetryTag::BOARD_ID_HIGH)) << 32) |
            (telemetry->read_entry(TelemetryTag::BOARD_ID_LOW));
 }
 
@@ -63,7 +63,8 @@ double FirmwareInfoProvider::get_asic_temperature() {
     // Data stored in telemetry has temperature of ASIC stored in a way that high 16 bits
     // have integer part and lower 16 bits have fractional part.
     // It needs to be divided by 65536 to get temperature in Celsius.
-    return (double)tt_device->get_arc_telemetry_reader()->read_entry(TelemetryTag::ASIC_TEMPERATURE) / 65536.0f;
+    return static_cast<double>(tt_device->get_arc_telemetry_reader()->read_entry(TelemetryTag::ASIC_TEMPERATURE)) /
+           65536.0f;
 }
 
 DramTrainingStatus FirmwareInfoProvider::get_dram_training_status(uint32_t dram_channel) {

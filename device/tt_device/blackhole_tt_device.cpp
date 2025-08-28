@@ -19,7 +19,6 @@ namespace tt::umd {
 BlackholeTTDevice::BlackholeTTDevice(std::shared_ptr<PCIDevice> pci_device) :
     TTDevice(pci_device, std::make_unique<blackhole_implementation>()) {
     arc_core = tt::umd::blackhole::get_arc_core(get_noc_translation_enabled(), umd_use_noc1);
-    init_tt_device();
 }
 
 BlackholeTTDevice::~BlackholeTTDevice() {
@@ -136,7 +135,7 @@ ChipInfo BlackholeTTDevice::get_chip_info() {
 
     // TODO: Read asic location of the chip from telemetry when it is available.
     // Until then we have to read it from ETH core, it happens during topology exploration.
-    // chip_info.chip_uid.asic_location = telemetry->read_entry(blackhole::TelemetryTag::ASIC_LOCATION);
+    // chip_info.asic_location = telemetry->read_entry(blackhole::TelemetryTag::ASIC_LOCATION);
 
     chip_info.noc_translation_enabled = get_noc_translation_enabled();
 
@@ -145,20 +144,23 @@ ChipInfo BlackholeTTDevice::get_chip_info() {
 
     chip_info.board_type = get_board_type_from_board_id(chip_info.chip_uid.board_id);
 
-    chip_info.firmware_version =
-        telemetry->is_entry_available(blackhole::TelemetryTag::FLASH_BUNDLE_VERSION)
-            ? fw_version_from_telemetry(telemetry->read_entry(blackhole::TelemetryTag::FLASH_BUNDLE_VERSION))
-            : semver_t(0, 0, 0);
-
     // TODO: likely not needed anymore. Firware on P100 will give 0 for TAG_ENABLED_ETH
     if (chip_info.board_type == BoardType::P100) {
         chip_info.harvesting_masks.eth_harvesting_mask = 0x3FFF;
     }
 
+    chip_info.asic_location = telemetry->read_entry(blackhole::TelemetryTag::ASIC_LOCATION);
+
     return chip_info;
 }
 
-void BlackholeTTDevice::wait_arc_core_start(const tt_xy_pair arc_core, const uint32_t timeout_ms) {
+semver_t BlackholeTTDevice::get_firmware_version() {
+    return telemetry->is_entry_available(blackhole::TelemetryTag::FLASH_BUNDLE_VERSION)
+               ? fw_version_from_telemetry(telemetry->read_entry(blackhole::TelemetryTag::FLASH_BUNDLE_VERSION))
+               : semver_t(0, 0, 0);
+}
+
+void BlackholeTTDevice::wait_arc_core_start(const uint32_t timeout_ms) {
     auto start = std::chrono::system_clock::now();
     uint32_t arc_boot_status;
     while (true) {
@@ -232,7 +234,7 @@ std::vector<DramTrainingStatus> BlackholeTTDevice::get_dram_training_status() {
 
     uint32_t telemetry_data = telemetry->read_entry(blackhole::TelemetryTag::DDR_STATUS);
     std::vector<DramTrainingStatus> dram_training_status;
-    const uint32_t num_dram_channels = blackhole::NUM_DRAM_BANKS;
+    const uint32_t num_dram_channels = architecture_impl_->get_dram_banks_number();
     // Format of the dram training status is as follows:
     // Each channel gets two bits in the 32-bit value (16 bits used). The lower bits are for lower channels.
     // Lower of the two bits is for training error and higher of the two bits is for training status.
@@ -286,5 +288,7 @@ double BlackholeTTDevice::get_asic_temperature() {
 }
 
 uint64_t BlackholeTTDevice::get_arc_noc_base_address() const { return blackhole::ARC_NOC_XBAR_ADDRESS_START; }
+
+bool BlackholeTTDevice::wait_arc_post_reset(const uint32_t timeout_ms) { return true; }
 
 }  // namespace tt::umd

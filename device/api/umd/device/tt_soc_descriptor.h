@@ -13,6 +13,7 @@
 #include <map>
 #include <string>
 #include <unordered_map>
+#include <unordered_set>
 #include <vector>
 
 #include "fmt/core.h"
@@ -72,22 +73,16 @@ public:
     // Default constructor. Creates uninitialized object with public access to all of its attributes.
     tt_SocDescriptor() = default;
     // Constructor used to build object from device descriptor file.
-    tt_SocDescriptor(
-        std::string device_descriptor_path,
-        const bool noc_translation_enabled,
-        const HarvestingMasks harvesting_masks = {0, 0, 0},
-        const BoardType board_type = BoardType::UNKNOWN,
-        const uint8_t asic_location = 0);
+    tt_SocDescriptor(const std::string &device_descriptor_path, const ChipInfo chip_info = {});
 
-    tt_SocDescriptor(
-        const tt::ARCH arch,
-        const bool noc_translation_enabled,
-        const HarvestingMasks harvesting_masks = {0, 0, 0},
-        const BoardType board_type = BoardType::UNKNOWN,
-        const uint8_t asic_location = 0);
+    tt_SocDescriptor(const tt::ARCH arch, const ChipInfo chip_info = {});
 
     // CoreCoord conversions.
     CoreCoord translate_coord_to(const CoreCoord core_coord, const CoordSystem coord_system) const;
+    std::unordered_set<CoreCoord> translate_coords_to(
+        const std::unordered_set<CoreCoord> &core_coord, const CoordSystem coord_system) const;
+    std::unordered_set<tt_xy_pair> translate_coords_to_xy_pair(
+        const std::unordered_set<CoreCoord> &core_coord, const CoordSystem coord_system) const;
     CoreCoord get_coord_at(const tt_xy_pair core, const CoordSystem coord_system) const;
     CoreCoord translate_coord_to(
         const tt_xy_pair core_location,
@@ -123,7 +118,16 @@ public:
     // would translate_coord_to do for a coord with LOGICAL coords.
     CoreCoord get_dram_core_for_channel(
         int dram_chan, int subchannel, const CoordSystem coord_system = CoordSystem::NOC0) const;
-    CoreCoord get_eth_core_for_channel(int eth_chan, const CoordSystem coord_system = CoordSystem::NOC0) const;
+    CoreCoord get_eth_core_for_channel(uint32_t eth_chan, const CoordSystem coord_system = CoordSystem::NOC0) const;
+    std::unordered_set<CoreCoord> get_eth_cores_for_channels(
+        const std::set<uint32_t> &eth_channels, const CoordSystem coord_system = CoordSystem::NOC0) const;
+    std::unordered_set<tt_xy_pair> get_eth_xy_pairs_for_channels(
+        const std::set<uint32_t> &eth_channels, const CoordSystem coord_system = CoordSystem::NOC0) const;
+    uint32_t get_eth_channel_for_core(
+        const CoreCoord &core_coord, const CoordSystem coord_system = CoordSystem::NOC0) const;
+    // First element is the channel, second element is the subchannel.
+    std::pair<int, int> get_dram_channel_for_core(
+        const CoreCoord &core_coord, const CoordSystem coord_system = CoordSystem::NOC0) const;
 
     tt::ARCH arch;
     tt_xy_pair grid_size;

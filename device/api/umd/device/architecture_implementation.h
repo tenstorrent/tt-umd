@@ -6,6 +6,7 @@
 
 #pragma once
 
+#include <cstdint>
 #include <memory>
 #include <optional>
 #include <tuple>
@@ -40,11 +41,16 @@ public:
     virtual uint32_t get_arc_message_setup_iatu_for_peer_to_peer() const = 0;
     virtual uint32_t get_arc_message_test() const = 0;
     virtual uint32_t get_arc_csm_mailbox_offset() const = 0;
+    virtual uint32_t get_arc_axi_apb_peripheral_offset() const = 0;
     virtual uint32_t get_arc_reset_arc_misc_cntl_offset() const = 0;
     virtual uint32_t get_arc_reset_scratch_offset() const = 0;
+    virtual uint32_t get_arc_reset_scratch_2_offset() const = 0;
+    virtual uint32_t get_arc_reset_unit_refclk_low_offset() const = 0;
+    virtual uint32_t get_arc_reset_unit_refclk_high_offset() const = 0;
     virtual uint32_t get_dram_channel_0_peer2peer_region_start() const = 0;
     virtual uint32_t get_dram_channel_0_x() const = 0;
     virtual uint32_t get_dram_channel_0_y() const = 0;
+    virtual uint32_t get_dram_banks_number() const = 0;
     virtual uint32_t get_broadcast_tlb_index() const = 0;
     virtual uint32_t get_dynamic_tlb_2m_base() const = 0;
     virtual uint32_t get_dynamic_tlb_2m_size() const = 0;
@@ -68,6 +74,7 @@ public:
     virtual const std::vector<uint32_t>& get_harvesting_noc_locations() const = 0;
     virtual const std::vector<uint32_t>& get_t6_x_locations() const = 0;
     virtual const std::vector<uint32_t>& get_t6_y_locations() const = 0;
+    virtual const std::vector<std::vector<tt_xy_pair>>& get_dram_cores_noc0() const = 0;
 
     // TLB related. Move other functions here as well.
     virtual std::pair<uint32_t, uint32_t> get_tlb_1m_base_and_count() const = 0;

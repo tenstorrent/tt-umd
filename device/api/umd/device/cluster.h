@@ -415,7 +415,7 @@ public:
      *
      * @param target The target chip and core to write to.
      */
-    Writer get_static_tlb_writer(const chip_id_t chip, const CoreCoord target);
+    Writer get_static_tlb_writer(const chip_id_t chip, const CoreCoord core);
 
     //---------- Functions for synchronization and memory barriers.
 
@@ -671,9 +671,6 @@ private:
         HarvestingMasks& simulated_harvesting_masks);
     void construct_cluster(const uint32_t& num_host_mem_ch_per_mmio_device, const ChipType& chip_type);
 
-    static std::unique_ptr<tt_ClusterDescriptor> create_cluster_descriptor(
-        const std::unordered_map<chip_id_t, std::unique_ptr<Chip>>& chips);
-
     static void verify_cluster_options(const ClusterOptions& options);
 
     // State variables
@@ -682,6 +679,7 @@ private:
     std::set<chip_id_t> local_chip_ids_ = {};
     std::unordered_map<chip_id_t, std::unique_ptr<Chip>> chips_;
     tt::ARCH arch_name;
+    tt::umd::ChipType chip_type_;
 
     std::unique_ptr<tt_ClusterDescriptor> cluster_desc;
 

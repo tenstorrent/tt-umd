@@ -3,11 +3,17 @@
 // SPDX-License-Identifier: Apache-2.0
 #include "umd/device/tt_device/wormhole_tt_device.h"
 
+#include <cstdint>
+#include <memory>
 #include <tt-logger/tt-logger.hpp>
 
+#include "assert.hpp"
 #include "umd/device/coordinate_manager.h"
+#include "umd/device/jtag/jtag_device.h"
+#include "umd/device/types/communication.h"
 #include "umd/device/types/wormhole_dram.h"
 #include "umd/device/types/wormhole_telemetry.h"
+#include "umd/device/types/xy_pair.h"
 #include "umd/device/wormhole_implementation.h"
 
 extern bool umd_use_noc1;
@@ -19,13 +25,22 @@ static constexpr uint32_t DMA_TIMEOUT_MS = 10000;  // 10 seconds
 
 WormholeTTDevice::WormholeTTDevice(std::shared_ptr<PCIDevice> pci_device) :
     TTDevice(pci_device, std::make_unique<wormhole_implementation>()) {
-    init_tt_device();
     arc_core = umd_use_noc1 ? tt_xy_pair(
                                   tt::umd::wormhole::NOC0_X_TO_NOC1_X[tt::umd::wormhole::ARC_CORES_NOC0[0].x],
                                   tt::umd::wormhole::NOC0_Y_TO_NOC1_Y[tt::umd::wormhole::ARC_CORES_NOC0[0].y])
                             : wormhole::ARC_CORES_NOC0[0];
-    wait_arc_core_start(arc_core, 1000);
+}
+
+void WormholeTTDevice::post_init_hook() {
     eth_addresses = WormholeTTDevice::get_eth_addresses(telemetry->read_entry(wormhole::ETH_FW_VERSION));
+}
+
+WormholeTTDevice::WormholeTTDevice(std::shared_ptr<JtagDevice> jtag_device, uint8_t jlink_id) :
+    TTDevice(jtag_device, jlink_id, std::make_unique<wormhole_implementation>()) {
+    // NOC1 is not yet applicable to JTAG.
+    arc_core = wormhole::ARC_CORES_NOC0[0];
+    init_tt_device();
+    wait_arc_core_start(1000);
 }
 
 bool WormholeTTDevice::get_noc_translation_enabled() {
@@ -33,8 +48,11 @@ bool WormholeTTDevice::get_noc_translation_enabled() {
     // We read information about NOC translation from DRAM core just be on paar with Luwen implementation.
     // We use DRAM core (0, 0) to read this information, but it can be read from any core.
     // TODO: read this information from PCIE BAR.
-    const tt_xy_pair dram_core =
-        umd_use_noc1 ? tt_xy_pair(wormhole::NOC0_X_TO_NOC1_X[0], wormhole::NOC0_Y_TO_NOC1_Y[0]) : tt_xy_pair(0, 0);
+    //
+    // NOC1 is not available yet on JTAG.
+    const tt_xy_pair dram_core = umd_use_noc1 && communication_device_type_ != IODeviceType::JTAG
+                                     ? tt_xy_pair(wormhole::NOC0_X_TO_NOC1_X[0], wormhole::NOC0_Y_TO_NOC1_Y[0])
+                                     : tt_xy_pair(0, 0);
     const uint64_t niu_cfg_addr = 0x1000A0000 + 0x100;
     read_from_device(&niu_cfg, dram_core, niu_cfg_addr, sizeof(uint32_t));
 
@@ -65,22 +83,24 @@ ChipInfo WormholeTTDevice::get_chip_info() {
 
     chip_info.board_type = get_board_type();
 
-    if (chip_info.board_type == BoardType::GALAXY) {
-        // There is a hack for galaxy board such that ARC puts this information as tt_flash version.
-        // For more information see https://github.com/tenstorrent/tt-smi/issues/72
-        chip_info.firmware_version =
-            fw_version_from_telemetry(telemetry->read_entry(wormhole::TelemetryTag::TT_FLASH_VERSION));
-    } else {
-        chip_info.firmware_version =
-            fw_version_from_telemetry(telemetry->read_entry(wormhole::TelemetryTag::FW_BUNDLE_VERSION));
-    }
-
     return chip_info;
 }
 
-void WormholeTTDevice::wait_arc_core_start(const tt_xy_pair arc_core, const uint32_t timeout_ms) {
-    uint32_t bar_read_initial = bar_read32(architecture_impl_->get_arc_reset_scratch_offset() + 3 * 4);
-    // TODO: figure out 325 and 500 constants meaning and put it in variable.
+semver_t WormholeTTDevice::get_firmware_version() {
+    auto board_type = get_board_type();
+    if (board_type == BoardType::GALAXY) {
+        // There is a hack for galaxy board such that ARC puts this information as tt_flash version.
+        // For more information see https://github.com/tenstorrent/tt-smi/issues/72
+        return fw_version_from_telemetry(telemetry->read_entry(wormhole::TelemetryTag::TT_FLASH_VERSION));
+    } else {
+        return fw_version_from_telemetry(telemetry->read_entry(wormhole::TelemetryTag::FW_BUNDLE_VERSION));
+    }
+}
+
+void WormholeTTDevice::wait_arc_core_start(const uint32_t timeout_ms) {
+    uint32_t bar_read_initial = 0;
+    read_from_arc(&bar_read_initial, wormhole::ARC_RESET_SCRATCH_OFFSET + 3 * 4, sizeof(uint32_t));
+    //  TODO: figure out 325 and 500 constants meaning and put it in variable.
     uint32_t arg = bar_read_initial == 500 ? 325 : 500;
     uint32_t bar_read_again;
     std::vector<uint32_t> ret_vals(1);
@@ -88,7 +108,8 @@ void WormholeTTDevice::wait_arc_core_start(const tt_xy_pair arc_core, const uint
         wormhole::ARC_MSG_COMMON_PREFIX | architecture_impl_->get_arc_message_test(), ret_vals, arg, 0, timeout_ms);
     bar_read_again = ret_vals[0];
     if (arc_msg_return != 0 || bar_read_again != arg + 1) {
-        auto postcode = bar_read32(architecture_impl_->get_arc_reset_scratch_offset());
+        uint32_t postcode = 0;
+        read_from_arc(&postcode, wormhole::ARC_RESET_SCRATCH_OFFSET, sizeof(uint32_t));
         throw std::runtime_error(fmt::format(
             "Device is not initialized: arc_fw postcode: {} arc_msg_return: {} arg: {} bar_read_initial: {} "
             "bar_read_again: {}",
@@ -131,7 +152,7 @@ uint64_t WormholeTTDevice::get_board_id() {
 
 std::vector<DramTrainingStatus> WormholeTTDevice::get_dram_training_status() {
     uint32_t dram_training_status_telemetry = telemetry->read_entry(wormhole::TelemetryTag::DDR_STATUS);
-    const uint32_t num_dram_channels = wormhole::NUM_DRAM_BANKS;
+    const uint32_t num_dram_channels = architecture_impl_->get_dram_banks_number();
     std::vector<DramTrainingStatus> dram_training_status;
     for (uint32_t dram_channel = 0; dram_channel < num_dram_channels; dram_channel++) {
         uint8_t status = (dram_training_status_telemetry >> (dram_channel * 4)) & 0xF;
@@ -167,6 +188,10 @@ void WormholeTTDevice::configure_iatu_region(size_t region, uint64_t target, siz
                                // space with the correct start offset
     }
 
+    if (communication_device_type_ == IODeviceType::JTAG) {
+        TT_THROW("configure_iatu_region is redundant for JTAG communication type.");
+    }
+
     bar_write32(architecture_impl_->get_arc_csm_mailbox_offset() + 0 * 4, region_id_to_use);
     bar_write32(architecture_impl_->get_arc_csm_mailbox_offset() + 1 * 4, dest_bar_lo);
     bar_write32(architecture_impl_->get_arc_csm_mailbox_offset() + 2 * 4, dest_bar_hi);
@@ -187,6 +212,10 @@ void WormholeTTDevice::configure_iatu_region(size_t region, uint64_t target, siz
 }
 
 void WormholeTTDevice::dma_d2h_transfer(const uint64_t dst, const uint32_t src, const size_t size) {
+    if (communication_device_type_ == IODeviceType::JTAG) {
+        TT_THROW("dma_d2h_transfer is not applicable for JTAG communication type.");
+    }
+
     static constexpr uint64_t DMA_WRITE_ENGINE_EN_OFF = 0xc;
     static constexpr uint64_t DMA_WRITE_INT_MASK_OFF = 0x54;
     static constexpr uint64_t DMA_CH_CONTROL1_OFF_WRCH_0 = 0x200;
@@ -262,6 +291,9 @@ void WormholeTTDevice::dma_d2h_transfer(const uint64_t dst, const uint32_t src, 
 }
 
 void WormholeTTDevice::dma_h2d_transfer(const uint32_t dst, const uint64_t src, const size_t size) {
+    if (communication_device_type_ == IODeviceType::JTAG) {
+        TT_THROW("dma_h2d_transfer is not applicable for JTAG communication type.");
+    }
     static constexpr uint64_t DMA_READ_ENGINE_EN_OFF = 0x2c;
     static constexpr uint64_t DMA_READ_INT_MASK_OFF = 0xa8;
     static constexpr uint64_t DMA_CH_CONTROL1_OFF_RDCH_0 = 0x300;
@@ -342,6 +374,9 @@ void WormholeTTDevice::dma_h2d_transfer(const uint32_t dst, const uint64_t src, 
 // memcpy into/out of a buffer, although exposing zero-copy DMA functionality to
 // the application will require IOMMU support.  One day...
 void WormholeTTDevice::dma_d2h(void *dst, uint32_t src, size_t size) {
+    if (communication_device_type_ == IODeviceType::JTAG) {
+        TT_THROW("dma_d2h is not applicable for JTAG communication type.");
+    }
     DmaBuffer &dma_buffer = pci_device_->get_dma_buffer();
 
     if (size > dma_buffer.size) {
@@ -353,6 +388,9 @@ void WormholeTTDevice::dma_d2h(void *dst, uint32_t src, size_t size) {
 }
 
 void WormholeTTDevice::dma_h2d(uint32_t dst, const void *src, size_t size) {
+    if (communication_device_type_ == IODeviceType::JTAG) {
+        TT_THROW("dma_h2d is not applicable for JTAG communication type.");
+    }
     DmaBuffer &dma_buffer = pci_device_->get_dma_buffer();
 
     if (size > dma_buffer.size) {
@@ -364,16 +402,32 @@ void WormholeTTDevice::dma_h2d(uint32_t dst, const void *src, size_t size) {
 }
 
 void WormholeTTDevice::dma_h2d_zero_copy(uint32_t dst, const void *src, size_t size) {
+    if (communication_device_type_ == IODeviceType::JTAG) {
+        TT_THROW("dma_h2d_zero_copy is not applicable for JTAG communication type.");
+    }
     dma_h2d_transfer(dst, (uint64_t)(uintptr_t)src, size);
 }
 
 void WormholeTTDevice::dma_d2h_zero_copy(void *dst, uint32_t src, size_t size) {
+    if (communication_device_type_ == IODeviceType::JTAG) {
+        TT_THROW("dma_d2h_zero_copy is not applicable for JTAG communication type.");
+    }
     dma_d2h_transfer((uint64_t)(uintptr_t)dst, src, size);
 }
 
 void WormholeTTDevice::read_from_arc(void *mem_ptr, uint64_t arc_addr_offset, size_t size) {
     if (arc_addr_offset > wormhole::ARC_XBAR_ADDRESS_END) {
         throw std::runtime_error("Address is out of ARC XBAR address range");
+    }
+    if (communication_device_type_ == IODeviceType::JTAG) {
+        jtag_device_->read(
+            jlink_id_,
+            mem_ptr,
+            wormhole::ARC_CORES_NOC0[0].x,
+            wormhole::ARC_CORES_NOC0[0].y,
+            wormhole::ARC_NOC_XBAR_ADDRESS_START + arc_addr_offset,
+            sizeof(uint32_t));
+        return;
     }
     auto result = bar_read32(wormhole::ARC_APB_BAR0_XBAR_OFFSET_START + arc_addr_offset);
     *(reinterpret_cast<uint32_t *>(mem_ptr)) = result;
@@ -382,6 +436,16 @@ void WormholeTTDevice::read_from_arc(void *mem_ptr, uint64_t arc_addr_offset, si
 void WormholeTTDevice::write_to_arc(const void *mem_ptr, uint64_t arc_addr_offset, size_t size) {
     if (arc_addr_offset > wormhole::ARC_XBAR_ADDRESS_END) {
         throw std::runtime_error("Address is out of ARC XBAR address range");
+    }
+    if (communication_device_type_ == IODeviceType::JTAG) {
+        jtag_device_->write(
+            jlink_id_,
+            mem_ptr,
+            wormhole::ARC_CORES_NOC0[0].x,
+            wormhole::ARC_CORES_NOC0[0].y,
+            wormhole::ARC_NOC_XBAR_ADDRESS_START + arc_addr_offset,
+            sizeof(uint32_t));
+        return;
     }
     bar_write32(
         wormhole::ARC_APB_BAR0_XBAR_OFFSET_START + arc_addr_offset, *(reinterpret_cast<const uint32_t *>(mem_ptr)));
@@ -484,6 +548,104 @@ WormholeTTDevice::EthAddresses WormholeTTDevice::get_eth_addresses(const uint32_
         erisc_local_board_id_lo_offset,
         erisc_remote_board_id_lo_offset,
         erisc_remote_eth_id_offset};
+}
+
+bool WormholeTTDevice::wait_arc_post_reset(const uint32_t timeout_ms) {
+    // Status codes
+    constexpr uint32_t STATUS_NO_ACCESS = 0xFFFFFFFF;
+    constexpr uint32_t STATUS_WATCHDOG_TRIGGERED = 0xDEADC0DE;
+    constexpr uint32_t STATUS_BOOT_INCOMPLETE_1 = 0x00000060;
+    constexpr uint32_t STATUS_BOOT_INCOMPLETE_2 = 0x11110000;
+    constexpr uint32_t STATUS_ASLEEP_1 = 0x0000AA00;
+    constexpr uint32_t STATUS_ASLEEP_2 = 0x55;
+    constexpr uint32_t STATUS_INIT_DONE_1 = 0x00000001;
+    constexpr uint32_t STATUS_INIT_DONE_2 = 0xFFFFDEAD;
+    constexpr uint32_t STATUS_OLD_POST_CODE = 0;
+    constexpr uint32_t STATUS_MESSAGE_QUEUED_MASK = 0xFFFFFF00;
+    constexpr uint32_t STATUS_MESSAGE_QUEUED_VAL = 0x0000AA00;
+    constexpr uint32_t STATUS_HANDLING_MESSAGE_MASK = 0xFF00FFFF;
+    constexpr uint32_t STATUS_HANDLING_MESSAGE_VAL = 0xAA000000;
+    constexpr uint32_t STATUS_MESSAGE_COMPLETE_MASK = 0x0000FFFF;
+    constexpr uint32_t STATUS_MESSAGE_COMPLETE_MIN = 0x00000001;
+
+    // Post codes
+    constexpr uint32_t POST_CODE_INIT_DONE = 0xC0DE0001;
+    constexpr uint32_t POST_CODE_ARC_MSG_HANDLE_START = 0xC0DE0030;
+    constexpr uint32_t POST_CODE_ARC_MSG_HANDLE_DONE = 0xC0DE003F;
+    constexpr uint32_t POST_CODE_ARC_TIME_LAST = 0xC0DE007F;
+
+    // DMA request address
+    constexpr uint64_t ARC_CSM_ARC_PCIE_DMA_REQUEST = 0x1fef84d4;
+
+    auto start = std::chrono::system_clock::now();
+    while (true) {
+        auto now = std::chrono::system_clock::now();
+        auto elapsed_ms = std::chrono::duration_cast<std::chrono::milliseconds>(now - start).count();
+        if (timeout_ms != 0 && elapsed_ms > timeout_ms) {
+            log_debug(LogSiliconDriver, "Post reset wait for ARC timed out after: {}", timeout_ms);
+            return false;
+        }
+
+        uint32_t bar_read_arc_reset_scratch_status =
+            bar_read32(wormhole::ARC_APB_BAR0_XBAR_OFFSET_START + wormhole::ARC_RESET_SCRATCH_STATUS_OFFSET);
+        uint32_t bar_read_arc_post_code = bar_read32(
+            architecture_impl_->get_arc_axi_apb_peripheral_offset() +
+            architecture_impl_->get_arc_reset_scratch_offset());
+        uint32_t bar_read_arc_csm_pcie_dma_request = bar_read32(ARC_CSM_ARC_PCIE_DMA_REQUEST);
+
+        // Handle known error/status codes
+        switch (bar_read_arc_reset_scratch_status) {
+            case STATUS_NO_ACCESS:
+                log_debug(LogSiliconDriver, "NoAccess error");
+                return false;
+            case STATUS_WATCHDOG_TRIGGERED:
+                log_debug(LogSiliconDriver, "WatchdogTriggered error");
+                return false;
+            case STATUS_BOOT_INCOMPLETE_1:
+            case STATUS_BOOT_INCOMPLETE_2:
+                log_debug(LogSiliconDriver, "BootIncomplete error");
+                continue;
+            case STATUS_ASLEEP_1:
+            case STATUS_ASLEEP_2:
+                log_debug(LogSiliconDriver, "Asleep error");
+                continue;
+            case STATUS_INIT_DONE_1:
+            case STATUS_INIT_DONE_2:
+                return true;
+            case STATUS_OLD_POST_CODE: {
+                bool pc_idle = (bar_read_arc_post_code == POST_CODE_INIT_DONE) ||
+                               (bar_read_arc_post_code >= POST_CODE_ARC_MSG_HANDLE_DONE &&
+                                bar_read_arc_post_code <= POST_CODE_ARC_TIME_LAST);
+                if (pc_idle) {
+                    return true;
+                }
+                log_debug(LogSiliconDriver, "OldPostCode error, post_code: {}", bar_read_arc_post_code);
+                continue;
+            }
+        }
+
+        // Check for outstanding DMA request
+        if (bar_read_arc_csm_pcie_dma_request != 0) {
+            log_debug(LogSiliconDriver, "OutstandingPcieDMA error");
+            continue;
+        }
+        // Check for queued message
+        if ((bar_read_arc_reset_scratch_status & STATUS_MESSAGE_QUEUED_MASK) == STATUS_MESSAGE_QUEUED_VAL) {
+            uint32_t message_id = bar_read_arc_reset_scratch_status & 0xFF;
+            log_debug(LogSiliconDriver, "MessageQueued error, message_id: {}", message_id);
+            continue;
+        }
+        // Check for message being handled
+        if ((bar_read_arc_reset_scratch_status & STATUS_HANDLING_MESSAGE_MASK) == STATUS_HANDLING_MESSAGE_VAL) {
+            uint32_t message_id = (bar_read_arc_reset_scratch_status >> 16) & 0xFF;
+            log_debug(LogSiliconDriver, "HandlingMessage error, message_id: {}", message_id);
+            continue;
+        }
+        // Message complete, response written into bar_read_arc_reset_scratch_status
+        if ((bar_read_arc_reset_scratch_status & STATUS_MESSAGE_COMPLETE_MASK) > STATUS_MESSAGE_COMPLETE_MIN) {
+            return true;
+        }
+    }
 }
 
 }  // namespace tt::umd

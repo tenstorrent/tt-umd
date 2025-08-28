@@ -12,6 +12,7 @@
 #include "assert.hpp"
 #include "umd/device/architecture_implementation.h"
 #include "umd/device/driver_atomics.h"
+#include "umd/device/pci_device.hpp"
 #include "umd/device/tt_silicon_driver_common.hpp"
 #include "umd/device/wormhole_implementation.h"
 
@@ -39,15 +40,6 @@ void Chip::set_default_params(ARCH arch) {
 
     // Default initialize dram_address_params.
     dram_address_params = {0u};
-
-    // Default initialize host_address_params based on detected arch
-    host_address_params = architecture_implementation->get_host_address_params();
-
-    // Default initialize eth_interface_params based on detected arch
-    eth_interface_params = architecture_implementation->get_eth_interface_params();
-
-    // Default initialize noc_params based on detected arch
-    noc_params = architecture_implementation->get_noc_params();
 }
 
 void Chip::set_barrier_address_params(const barrier_address_params& barrier_address_params_) {
@@ -64,55 +56,32 @@ void Chip::wait_chip_to_be_ready() {
 }
 
 void Chip::wait_eth_cores_training(const uint32_t timeout_ms) {
-    const std::vector<CoreCoord> eth_cores =
-        get_soc_descriptor().get_cores(CoreType::ETH, umd_use_noc1 ? CoordSystem::NOC1 : CoordSystem::NOC0);
+    const std::vector<CoreCoord> eth_cores = get_soc_descriptor().get_cores(CoreType::ETH);
     TTDevice* tt_device = get_tt_device();
     for (const CoreCoord& eth_core : eth_cores) {
-        tt_device->wait_eth_core_training(eth_core, timeout_ms);
+        // TODO issue 1208: figure out why translated ETH don't work on UBB
+        if (chip_info_.board_type == BoardType::UBB) {
+            tt_device->wait_eth_core_training(
+                soc_descriptor_.translate_coord_to(eth_core, umd_use_noc1 ? CoordSystem::NOC1 : CoordSystem::NOC0),
+                timeout_ms);
+        } else {
+            tt_device->wait_eth_core_training(translate_chip_coord_to_translated(eth_core), timeout_ms);
+        }
     }
 }
 
 void Chip::wait_dram_cores_training(const uint32_t timeout_ms) {
     TTDevice* tt_device = get_tt_device();
-
-    auto start = std::chrono::system_clock::now();
-    while (true) {
-        std::vector<DramTrainingStatus> dram_training_status = tt_device->get_dram_training_status();
-
-        if (dram_training_status.empty()) {
-            // DRAM training status is not available, breaking the wait for DRAM training.
-            break;
+    const uint32_t dram_harvesting_mask = get_soc_descriptor().harvesting_masks.dram_harvesting_mask;
+    const uint32_t chip_num_dram_channels = std::min(
+        static_cast<size_t>(tt_device->get_architecture_implementation()->get_dram_banks_number()),
+        get_soc_descriptor().get_dram_cores().size());
+    for (int dram_channel = 0; dram_channel < chip_num_dram_channels; dram_channel++) {
+        // Skip the check for harvested channels.
+        if (dram_harvesting_mask & (1 << dram_channel)) {
+            continue;
         }
-
-        bool all_dram_channels_trained = true;
-        const uint32_t chip_num_dram_channels =
-            std::min(dram_training_status.size(), get_soc_descriptor().get_dram_cores().size());
-        const uint32_t dram_harvesting_mask = get_soc_descriptor().harvesting_masks.dram_harvesting_mask;
-        for (uint32_t dram_channel = 0; dram_channel < chip_num_dram_channels; dram_channel++) {
-            // Skip the check for harvested channels.
-            if (dram_harvesting_mask & (1 << dram_channel)) {
-                continue;
-            }
-
-            // Check if there is an error in training for the channel.
-            if (dram_training_status[dram_channel] == DramTrainingStatus::FAIL) {
-                throw std::runtime_error("DRAM training failed");
-            }
-
-            // Verify whether the channel is trained.
-            all_dram_channels_trained &= (dram_training_status[dram_channel] == DramTrainingStatus::SUCCESS);
-        }
-
-        if (all_dram_channels_trained) {
-            break;
-        }
-
-        auto end = std::chrono::system_clock::now();
-        auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
-        if (duration.count() > timeout_ms) {
-            throw std::runtime_error(fmt::format("DRAM training timed out after {} ms", timeout_ms));
-            break;
-        }
+        tt_device->wait_dram_channel_training(dram_channel);
     }
 }
 
@@ -224,19 +193,11 @@ tt_xy_pair Chip::translate_chip_coord_to_translated(const CoreCoord core) const 
     // Tensix cores are always used in translated space. Other cores are used either in
     // NOC1 or translated space depending on the umd_use_noc1 flag.
     // On Wormhole Tensix can use NOC1 space if umd_use_noc1 is set to true.
-    if (soc_descriptor_.noc_translation_enabled) {
-        if (soc_descriptor_.arch == tt::ARCH::BLACKHOLE) {
-            if (core.core_type == CoreType::TENSIX || !umd_use_noc1) {
-                return soc_descriptor_.translate_coord_to(core, CoordSystem::TRANSLATED);
-            } else {
-                return soc_descriptor_.translate_coord_to(core, CoordSystem::NOC1);
-            }
-        } else {
-            return soc_descriptor_.translate_coord_to(core, umd_use_noc1 ? CoordSystem::NOC1 : CoordSystem::TRANSLATED);
-        }
-    } else {
-        return soc_descriptor_.translate_coord_to(core, umd_use_noc1 ? CoordSystem::NOC1 : CoordSystem::TRANSLATED);
+    if (soc_descriptor_.noc_translation_enabled && soc_descriptor_.arch == tt::ARCH::BLACKHOLE) {
+        return soc_descriptor_.translate_coord_to(core, CoordSystem::TRANSLATED);
     }
+
+    return soc_descriptor_.translate_coord_to(core, umd_use_noc1 ? CoordSystem::NOC1 : CoordSystem::TRANSLATED);
 }
 
 void Chip::wait_for_aiclk_value(TTDevice* tt_device, tt_DevicePowerState power_state, const uint32_t timeout_ms) {

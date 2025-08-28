@@ -55,6 +55,6 @@ public:
     int get_numa_node() override;
 
     void set_remote_transfer_ethernet_cores(const std::unordered_set<CoreCoord>& cores) override;
-    void set_remote_transfer_ethernet_cores(const std::set<uint32_t>& channel) override;
+    void set_remote_transfer_ethernet_cores(const std::set<uint32_t>& channels) override;
 };
 }  // namespace tt::umd

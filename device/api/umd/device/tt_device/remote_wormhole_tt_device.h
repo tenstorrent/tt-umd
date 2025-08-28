@@ -12,8 +12,6 @@ namespace tt::umd {
 
 class RemoteWormholeTTDevice : public WormholeTTDevice {
 public:
-    RemoteWormholeTTDevice(LocalChip* local_chip, eth_coord_t target_chip);
-
     void read_from_device(void* mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size) override;
 
     void write_to_device(const void* mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size) override;
@@ -24,12 +22,16 @@ public:
 
     void wait_for_non_mmio_flush() override;
 
-    LocalChip* get_local_chip();
-
     RemoteCommunication* get_remote_communication();
 
+    bool wait_arc_post_reset(const uint32_t timeout_ms = 1000) override;
+
 private:
-    LocalChip* local_chip_;
+    RemoteWormholeTTDevice(std::unique_ptr<RemoteCommunication> remote_communication, eth_coord_t target_chip);
+
+    friend std::unique_ptr<TTDevice> TTDevice::create(
+        std::unique_ptr<RemoteCommunication> remote_communication, eth_coord_t target_chip);
+
     eth_coord_t target_chip_;
     std::unique_ptr<RemoteCommunication> remote_communication_;
 };

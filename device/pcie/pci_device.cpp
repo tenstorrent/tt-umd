@@ -23,6 +23,7 @@
 #include "assert.hpp"
 #include "ioctl.h"
 #include "umd/device/types/arch.h"
+#include "utils.hpp"
 
 namespace tt::umd {
 
@@ -106,8 +107,26 @@ static bool detect_iommu(const PciDeviceInfo &device_info) {
     return false;
 }
 
-static std::string get_pci_bdf(const uint16_t pci_domain, const uint16_t pci_bus, const uint16_t pci_device) {
-    return fmt::format("{:04x}:{:02x}:{:02x}", pci_domain, pci_bus, pci_device);
+static std::optional<uint8_t> try_read_config_byte(const PciDeviceInfo &device_info, size_t offset) {
+    const auto config_path = fmt::format("/sys/bus/pci/devices/{}/config", device_info.pci_bdf);
+
+    std::ifstream config_file(config_path, std::ios::binary);
+    if (!config_file.is_open()) {
+        return std::nullopt;
+    }
+
+    config_file.seekg(offset);
+    uint8_t byte;
+    if (!config_file.read(reinterpret_cast<char *>(&byte), 1)) {
+        return std::nullopt;
+    }
+
+    return byte;
+}
+
+static std::string get_pci_bdf(
+    const uint16_t pci_domain, const uint16_t pci_bus, const uint16_t pci_device, const uint16_t pci_function) {
+    return fmt::format("{:04x}:{:02x}:{:02x}.{:x}", pci_domain, pci_bus, pci_device, pci_function);
 }
 
 static bool is_number(const std::string &str) { return !str.empty() && std::all_of(str.begin(), str.end(), ::isdigit); }
@@ -144,6 +163,9 @@ static std::optional<int> get_physical_slot_for_pcie_bdf(const std::string &targ
 
         bdf.erase(bdf.find_last_not_of(" \n\r\t") + 1);
 
+        // Append the pci_function 0, as our PCI devices are single function.
+        bdf += ".0";
+
         if (bdf == target_bdf) {
             return slot_number;
         }
@@ -164,6 +186,8 @@ static PciDeviceInfo read_device_info(int fd) {
     uint16_t dev = (info.out.bus_dev_fn >> 3) & 0x1F;
     uint16_t fn = info.out.bus_dev_fn & 0x07;
 
+    std::string pci_bdf = get_pci_bdf(info.out.pci_domain, bus, dev, fn);
+
     return PciDeviceInfo{
         info.out.vendor_id,
         info.out.device_id,
@@ -171,7 +195,33 @@ static PciDeviceInfo read_device_info(int fd) {
         bus,
         dev,
         fn,
-        get_physical_slot_for_pcie_bdf(get_pci_bdf(info.out.pci_domain, bus, dev))};
+        pci_bdf,
+        get_physical_slot_for_pcie_bdf(pci_bdf)};
+}
+
+static void reset_devices(uint32_t flags) {
+    for (int n : PCIDevice::enumerate_devices()) {
+        int fd = open(fmt::format("/dev/tenstorrent/{}", n).c_str(), O_RDWR | O_CLOEXEC);
+        if (fd == -1) {
+            continue;
+        }
+
+        try {
+            tenstorrent_reset_device reset_info{};
+
+            reset_info.in.output_size_bytes = sizeof(reset_info.out);
+            reset_info.in.flags = flags;
+
+            reset_info.out.output_size_bytes = 0;
+            reset_info.out.result = 0;
+            if (ioctl(fd, TENSTORRENT_IOCTL_RESET_DEVICE, &reset_info) == -1) {
+                TT_THROW("TENSTORRENT_IOCTL_RESET_DEVICE failed");
+            }
+        } catch (...) {
+        }
+
+        close(fd);
+    }
 }
 
 tt::ARCH PciDeviceInfo::get_arch() const {
@@ -183,6 +233,21 @@ tt::ARCH PciDeviceInfo::get_arch() const {
     return tt::ARCH::Invalid;
 }
 
+std::optional<std::unordered_set<int>> PCIDevice::get_visible_devices(
+    const std::unordered_set<int> &pci_target_devices) {
+    if (!pci_target_devices.empty()) {
+        return pci_target_devices;
+    }
+
+    const std::optional<std::string> env_var_value = utils::get_env_var_value(TT_VISIBLE_DEVICES_ENV.data());
+
+    if (!env_var_value.has_value()) {
+        return std::nullopt;
+    }
+
+    return utils::get_unordered_set_from_string(env_var_value.value());
+}
+
 std::vector<int> PCIDevice::enumerate_devices(std::unordered_set<int> pci_target_devices) {
     std::vector<int> device_ids;
     std::string path = "/dev/tenstorrent/";
@@ -190,6 +255,9 @@ std::vector<int> PCIDevice::enumerate_devices(std::unordered_set<int> pci_target
     if (!std::filesystem::exists(path)) {
         return device_ids;
     }
+
+    std::optional<std::unordered_set<int>> visible_devices = PCIDevice::get_visible_devices(pci_target_devices);
+
     for (const auto &entry : std::filesystem::directory_iterator(path)) {
         std::string filename = entry.path().filename().string();
 
@@ -197,7 +265,8 @@ std::vector<int> PCIDevice::enumerate_devices(std::unordered_set<int> pci_target
         // is probably what we want longer-term (i.e. a UUID or something).
         if (std::all_of(filename.begin(), filename.end(), ::isdigit)) {
             int pci_device_id = std::stoi(filename);
-            if (pci_target_devices.empty() || pci_target_devices.find(pci_device_id) != pci_target_devices.end()) {
+            if (!visible_devices.has_value() ||
+                visible_devices.value().find(pci_device_id) != visible_devices.value().end()) {
                 device_ids.push_back(pci_device_id);
             }
         }
@@ -713,6 +782,28 @@ semver_t PCIDevice::read_kmd_version() {
 
 std::unique_ptr<TlbHandle> PCIDevice::allocate_tlb(const size_t tlb_size, const TlbMapping tlb_mapping) {
     return std::make_unique<TlbHandle>(pci_device_file_desc, tlb_size, tlb_mapping);
+}
+
+void PCIDevice::reset_devices(TenstorrentResetDevice flag) { umd::reset_devices(static_cast<uint32_t>(flag)); }
+
+uint8_t PCIDevice::read_command_byte(const int pci_device_num) {
+    int fd = open(fmt::format("/dev/tenstorrent/{}", pci_device_num).c_str(), O_RDWR | O_CLOEXEC);
+    if (fd == -1) {
+        TT_THROW("Coudln't open file descriptor for PCI device number: {}", pci_device_num);
+    }
+    auto device_info = read_device_info(fd);
+
+    auto command_byte = try_read_config_byte(device_info, 4);
+    if (!command_byte) {
+        const auto sysfs_path = fmt::format(
+            "/sys/bus/pci/devices/{:04x}:{:02x}:{:02x}.{:x}/{}",
+            device_info.pci_domain,
+            device_info.pci_bus,
+            device_info.pci_device,
+            device_info.pci_function);
+        TT_THROW("Failed reading or parsing sysfs config: {}", sysfs_path);
+    }
+    return *command_byte;
 }
 
 }  // namespace tt::umd

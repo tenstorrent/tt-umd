@@ -206,8 +206,10 @@ static constexpr uint32_t GRID_SIZE_Y = 12;
 // AXI Resets accessed through TLB
 static constexpr uint32_t TENSIX_SM_TLB_INDEX = 188;
 static constexpr uint32_t AXI_RESET_OFFSET = TLB_BASE_2M + TENSIX_SM_TLB_INDEX * TLB_2M_SIZE;
-static constexpr uint32_t ARC_RESET_SCRATCH_OFFSET = AXI_RESET_OFFSET + 0x0060;
 static constexpr uint32_t ARC_RESET_ARC_MISC_CNTL_OFFSET = AXI_RESET_OFFSET + 0x0100;
+
+// Computed this value from AXI_RESET_OFFSET
+static constexpr uint32_t ARC_APB_BAR0_XBAR_OFFSET_START = 0x177D0000;
 
 // MT: This is no longer valid for Blackhole. Review messages to ARC
 static constexpr uint32_t ARC_CSM_OFFSET = 0x1FE80000;
@@ -223,6 +225,10 @@ static const uint32_t BH_NOC_NODE_ID_OFFSET = 0x1FD04044;
 constexpr uint64_t ARC_NOC_XBAR_ADDRESS_START = 0x80000000;
 
 static constexpr uint32_t ARC_RESET_UNIT_OFFSET = 0x30000;
+static constexpr uint32_t ARC_RESET_SCRATCH_OFFSET = ARC_RESET_UNIT_OFFSET + 0x0060;
+static constexpr uint32_t ARC_RESET_SCRATCH_2_OFFSET = ARC_RESET_SCRATCH_OFFSET + 0x8;
+static constexpr uint32_t ARC_RESET_REFCLK_LOW_OFFSET = ARC_RESET_UNIT_OFFSET + 0xE0;
+static constexpr uint32_t ARC_RESET_REFCLK_HIGH_OFFSET = ARC_RESET_UNIT_OFFSET + 0xE4;
 
 // Register from which address of the ARC queue control block is read.
 constexpr uint32_t SCRATCH_RAM_11 = ARC_RESET_UNIT_OFFSET + 0x42C;
@@ -252,22 +258,24 @@ static constexpr uint32_t TENSIX_L1_SIZE = 1572864;
 static constexpr uint32_t ETH_L1_SIZE = 262144;
 static constexpr uint64_t DRAM_BANK_SIZE = 4294967296;
 
-constexpr std::array<std::pair<CoreType, uint64_t>, 7> NOC0_CONTROL_REG_ADDR_BASE_MAP = {
+constexpr std::array<std::pair<CoreType, uint64_t>, 8> NOC0_CONTROL_REG_ADDR_BASE_MAP = {
     {{CoreType::TENSIX, 0xFFB20000},
      {CoreType::ETH, 0xFFB20000},
      {CoreType::DRAM, 0xFFB20000},
      {CoreType::PCIE, 0xFFFFFFFFFF000000ULL},
      {CoreType::ARC, 0xFFFFFFFFFF000000ULL},
      {CoreType::SECURITY, 0xFFFFFFFFFF000000ULL},
-     {CoreType::L2CPU, 0xFFFFFFFFFF000000ULL}}};
-constexpr std::array<std::pair<CoreType, uint64_t>, 7> NOC1_CONTROL_REG_ADDR_BASE_MAP = {
+     {CoreType::L2CPU, 0xFFFFFFFFFF000000ULL},
+     {CoreType::ROUTER_ONLY, 0xFF000000}}};
+constexpr std::array<std::pair<CoreType, uint64_t>, 8> NOC1_CONTROL_REG_ADDR_BASE_MAP = {
     {{CoreType::TENSIX, 0xFFB30000},
      {CoreType::ETH, 0xFFB30000},
      {CoreType::DRAM, 0xFFB30000},
      {CoreType::PCIE, 0xFFFFFFFFFF000000ULL},
      {CoreType::ARC, 0xFFFFFFFFFF000000ULL},
      {CoreType::SECURITY, 0xFFFFFFFFFF000000ULL},
-     {CoreType::L2CPU, 0xFFFFFFFFFF000000ULL}}};
+     {CoreType::L2CPU, 0xFFFFFFFFFF000000ULL},
+     {CoreType::ROUTER_ONLY, 0xFF000000}}};
 
 static const uint64_t NOC_NODE_ID_OFFSET = 0x44;
 
@@ -325,9 +333,17 @@ public:
         return 0;
     }
 
+    uint32_t get_arc_axi_apb_peripheral_offset() const override { return blackhole::ARC_APB_BAR0_XBAR_OFFSET_START; }
+
     uint32_t get_arc_reset_arc_misc_cntl_offset() const override { return blackhole::ARC_RESET_ARC_MISC_CNTL_OFFSET; }
 
     uint32_t get_arc_reset_scratch_offset() const override { return blackhole::ARC_RESET_SCRATCH_OFFSET; }
+
+    uint32_t get_arc_reset_scratch_2_offset() const override { return blackhole::ARC_RESET_SCRATCH_2_OFFSET; }
+
+    uint32_t get_arc_reset_unit_refclk_low_offset() const override { return blackhole::ARC_RESET_REFCLK_LOW_OFFSET; }
+
+    uint32_t get_arc_reset_unit_refclk_high_offset() const override { return blackhole::ARC_RESET_REFCLK_HIGH_OFFSET; }
 
     uint32_t get_dram_channel_0_peer2peer_region_start() const override {
         return blackhole::DRAM_CHANNEL_0_PEER2PEER_REGION_START;
@@ -336,6 +352,8 @@ public:
     uint32_t get_dram_channel_0_x() const override { return blackhole::DRAM_CHANNEL_0_X; }
 
     uint32_t get_dram_channel_0_y() const override { return blackhole::DRAM_CHANNEL_0_Y; }
+
+    uint32_t get_dram_banks_number() const override { return blackhole::NUM_DRAM_BANKS; }
 
     uint32_t get_broadcast_tlb_index() const override { return blackhole::BROADCAST_TLB_INDEX; }
 
@@ -394,6 +412,10 @@ public:
     const std::vector<uint32_t>& get_t6_x_locations() const override { return blackhole::T6_X_LOCATIONS; }
 
     const std::vector<uint32_t>& get_t6_y_locations() const override { return blackhole::T6_Y_LOCATIONS; }
+
+    const std::vector<std::vector<tt_xy_pair>>& get_dram_cores_noc0() const override {
+        return blackhole::DRAM_CORES_NOC0;
+    };
 
     std::pair<uint32_t, uint32_t> get_tlb_1m_base_and_count() const override { return {0, 0}; }
 

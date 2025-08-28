@@ -148,7 +148,9 @@ TEST(Multiprocess, WorkloadVSMonitor) {
     auto low_level_monitor_thread = std::thread([&] {
         std::cout << "Creating low level monitor cluster" << std::endl;
         std::unique_ptr<TTDevice> tt_device = TTDevice::create(pci_device_ids.at(0));
-        tt_SocDescriptor soc_desc = tt_SocDescriptor(tt_device->get_arch(), true);
+        tt_device->init_tt_device();
+
+        tt_SocDescriptor soc_desc = tt_SocDescriptor(tt_device->get_arch(), {.noc_translation_enabled = true});
         CoreCoord arc_core = soc_desc.get_cores(CoreType::ARC, CoordSystem::TRANSLATED)[0];
 
         std::cout << "Running only reads for low level monitor cluster, without device start " << std::endl;
@@ -174,7 +176,9 @@ TEST(Multiprocess, LongLivedMonitor) {
     auto low_level_monitor_thread = std::thread([&] {
         std::cout << "Creating low level monitor cluster" << std::endl;
         std::unique_ptr<TTDevice> tt_device = TTDevice::create(pci_device_ids.at(0));
-        tt_SocDescriptor soc_desc = tt_SocDescriptor(tt_device->get_arch(), true);
+        tt_device->init_tt_device();
+
+        tt_SocDescriptor soc_desc = tt_SocDescriptor(tt_device->get_arch(), {.noc_translation_enabled = true});
         CoreCoord arc_core = soc_desc.get_cores(CoreType::ARC, CoordSystem::TRANSLATED)[0];
 
         std::cout << "Running only reads for low level monitor cluster, without device start " << std::endl;

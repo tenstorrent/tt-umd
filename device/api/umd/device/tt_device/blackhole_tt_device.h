@@ -8,19 +8,18 @@
 
 #include <set>
 
-#include "umd/device/blackhole_arc_telemetry_reader.h"
+#include "umd/device/arc/blackhole_arc_telemetry_reader.h"
 #include "umd/device/tt_device/tt_device.h"
 
 namespace tt::umd {
 
 class BlackholeTTDevice : public TTDevice {
 public:
-    BlackholeTTDevice(std::shared_ptr<PCIDevice> pci_device);
     ~BlackholeTTDevice();
 
     void configure_iatu_region(size_t region, uint64_t target, size_t region_size) override;
 
-    void wait_arc_core_start(const tt_xy_pair arc_core, const uint32_t timeout_ms = 1000) override;
+    void wait_arc_core_start(const uint32_t timeout_ms = 1000) override;
 
     uint32_t get_clock() override;
 
@@ -48,16 +47,24 @@ public:
 
     ChipInfo get_chip_info() override;
 
+    semver_t get_firmware_version() override;
+
     void wait_eth_core_training(const tt_xy_pair eth_core, const uint32_t timeout_ms = 60000) override;
 
     double get_asic_temperature() override;
 
     uint64_t get_arc_noc_base_address() const override;
 
+    bool wait_arc_post_reset(const uint32_t timeout_ms) override;
+
 protected:
     BlackholeTTDevice() = default;
 
 private:
+    BlackholeTTDevice(std::shared_ptr<PCIDevice> pci_device);
+
+    friend std::unique_ptr<TTDevice> TTDevice::create(int device_number, IODeviceType device_type);
+
     static constexpr uint64_t ATU_OFFSET_IN_BH_BAR2 = 0x1000;
     std::set<size_t> iatu_regions_;
     tt_xy_pair arc_core;

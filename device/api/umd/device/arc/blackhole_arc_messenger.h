@@ -5,8 +5,8 @@
  */
 #pragma once
 
-#include "umd/device/arc_messenger.h"
-#include "umd/device/blackhole_arc_message_queue.h"
+#include "umd/device/arc/arc_messenger.h"
+#include "umd/device/arc/blackhole_arc_message_queue.h"
 
 namespace tt::umd {
 

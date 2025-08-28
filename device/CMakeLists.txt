@@ -56,18 +56,23 @@ target_sources(
         tt_soc_descriptor.cpp
         wormhole/wormhole_coordinate_manager.cpp
         blackhole/blackhole_coordinate_manager.cpp
-        arc_telemetry_reader.cpp
-        wormhole/wormhole_arc_telemetry_reader.cpp
-        blackhole/blackhole_arc_telemetry_reader.cpp
-        arc_messenger.cpp
-        wormhole/wormhole_arc_messenger.cpp
-        blackhole/blackhole_arc_messenger.cpp
-        blackhole/blackhole_arc_message_queue.cpp
+        arc/arc_telemetry_reader.cpp
+        arc/wormhole_arc_telemetry_reader.cpp
+        arc/blackhole_arc_telemetry_reader.cpp
+        arc/arc_messenger.cpp
+        arc/wormhole_arc_messenger.cpp
+        arc/blackhole_arc_messenger.cpp
+        arc/blackhole_arc_message_queue.cpp
+        warm_reset.cpp
         xy_pair.cpp
         utils/lock_manager.cpp
         utils/robust_mutex.cpp
-        topology_discovery.cpp
+        topology/topology_discovery.cpp
+        topology/topology_discovery_blackhole.cpp
+        topology/topology_discovery_wormhole.cpp
         remote_communication.cpp
+        jtag/jtag_device.cpp
+        jtag/jtag.cpp
 )
 
 if(TT_UMD_BUILD_SIMULATION)
@@ -90,7 +95,7 @@ if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.23)
             BASE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/api
             FILES
                 api/umd/device/architecture_implementation.h
-                api/umd/device/blackhole_arc_message_queue.h
+                api/umd/device/arc/blackhole_arc_message_queue.h
                 api/umd/device/blackhole_coordinate_manager.h
                 api/umd/device/blackhole_implementation.h
                 api/umd/device/chip/chip.h
@@ -108,6 +113,7 @@ if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.23)
                 api/umd/device/logging/config.h
                 api/umd/device/utils/lock_manager.h
                 api/umd/device/pci_device.hpp
+                api/umd/device/warm_reset.h
                 api/umd/device/semver.hpp
                 api/umd/device/utils/robust_mutex.h
                 api/umd/device/tt_cluster_descriptor.h
@@ -123,6 +129,7 @@ if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.23)
                 api/umd/device/tt_simulation_host.hpp
                 api/umd/device/tt_soc_descriptor.h
                 api/umd/device/tt_xy_pair.h
+                api/umd/device/umd_utils.h
                 api/umd/device/types/arch.h
                 api/umd/device/types/blackhole_arc.h
                 api/umd/device/types/cluster_descriptor_types.h
@@ -132,6 +139,8 @@ if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.23)
                 api/umd/device/types/xy_pair.h
                 api/umd/device/wormhole_coordinate_manager.h
                 api/umd/device/wormhole_implementation.h
+                api/umd/device/jtag/jtag_device.h
+                api/umd/device/jtag/jtag.h
     )
 endif()
 

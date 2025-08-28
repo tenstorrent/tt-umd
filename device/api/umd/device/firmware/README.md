@@ -22,7 +22,7 @@ This module provides a structured way to handle different firmware versions whil
 
 ### Version Selection
 
-The correct implementation is chosen at runtime based on the device’s firmware version.
+The correct implementation is chosen at runtime based on the device’s firmware version and architecture.
 This ensures that the application interacts with a consistent interface regardless of the firmware version.
 
 ### Deprecation Policy

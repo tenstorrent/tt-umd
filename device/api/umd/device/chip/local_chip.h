@@ -78,6 +78,10 @@ private:
     // Used only for ethernet broadcast to all remote chips.
     std::unique_ptr<RemoteCommunication> remote_communication_;
 
+    // unique_lock is RAII, so if this member holds an object, the RobustMutex is locked, if it is empty, the
+    // RobustMutex is unlocked.
+    std::optional<std::unique_lock<RobustMutex>> chip_started_lock_;
+
     void initialize_tlb_manager();
     void initialize_default_chip_mutexes();
     void initialize_membars();

@@ -14,6 +14,7 @@
 #include "umd/device/arc/arc_telemetry_reader.h"
 #include "umd/device/architecture_implementation.h"
 #include "umd/device/chip_helpers/tlb_manager.h"
+#include "umd/device/firmware/firmware_info_provider.h"
 #include "umd/device/jtag/jtag_device.h"
 #include "umd/device/pci_device.hpp"
 #include "umd/device/types/cluster_descriptor_types.h"
@@ -213,7 +214,7 @@ public:
 
     virtual ChipInfo get_chip_info() = 0;
 
-    virtual semver_t get_firmware_version() = 0;
+    semver_t get_firmware_version();
 
     /**
      * Waits for ARC core hardware initialization after reset.
@@ -241,23 +242,25 @@ public:
 
     ArcTelemetryReader *get_arc_telemetry_reader() const;
 
+    FirmwareInfoProvider *get_firmware_info_provider() const;
+
     virtual uint32_t get_clock() = 0;
 
     virtual uint32_t get_max_clock_freq() = 0;
 
     virtual uint32_t get_min_clock_freq() = 0;
 
-    virtual uint64_t get_board_id() = 0;
+    uint64_t get_board_id();
 
     BoardType get_board_type();
 
     virtual bool get_noc_translation_enabled() = 0;
 
-    virtual double get_asic_temperature() = 0;
+    double get_asic_temperature();
 
     // TODO: find a way to expose this in a better way, probably through getting telemetry reader and reading the
     // required fields. Returns the information whether DRAM training status is available and the status value.
-    virtual std::vector<DramTrainingStatus> get_dram_training_status() = 0;
+    virtual std::vector<DramTrainingStatus> get_dram_training_status();
 
     virtual void wait_for_non_mmio_flush();
 
@@ -283,6 +286,7 @@ protected:
     std::unique_ptr<ArcMessenger> arc_messenger_ = nullptr;
     LockManager lock_manager;
     std::unique_ptr<ArcTelemetryReader> telemetry = nullptr;
+    std::unique_ptr<FirmwareInfoProvider> firmware_info_provider = nullptr;
 
     bool is_hardware_hung();
 
@@ -298,8 +302,6 @@ protected:
     // to 2-byte writes. We avoid ever performing a 1-byte write to the device. This only affects to device.
     void memcpy_to_device(void *dest, const void *src, std::size_t num_bytes);
     void memcpy_from_device(void *dest, const void *src, std::size_t num_bytes);
-
-    semver_t fw_version_from_telemetry(const uint32_t telemetry_data) const;
 
     TTDevice();
 

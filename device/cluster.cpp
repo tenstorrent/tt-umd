@@ -167,6 +167,20 @@ void Cluster::verify_fw_bundle_version() {
         return;
     }
     semver_t fw_bundle_version = chips_.begin()->second->get_tt_device()->get_firmware_version();
+
+    semver_t minimal_compatible_fw_version = FirmwareInfoProvider::get_minimum_compatible_firmware_version(
+        chips_.begin()->second->get_tt_device()->get_arch());
+
+    int compare_fw_bundles_result = semver_t::compare_firmware_bundle(fw_bundle_version, minimal_compatible_fw_version);
+
+    if (compare_fw_bundles_result == -1) {
+        throw std::runtime_error(fmt::format(
+            "Firmware version {} on the system is older than the minimum compatible version {} for {} architecture.",
+            fw_bundle_version.to_string(),
+            minimal_compatible_fw_version.to_string(),
+            arch_to_str(chips_.begin()->second->get_tt_device()->get_arch())));
+    }
+
     bool all_device_same_fw_bundle_version = true;
     for (const auto& [chip_id, chip] : chips_) {
         if (chip->get_tt_device()->get_firmware_version() != fw_bundle_version) {

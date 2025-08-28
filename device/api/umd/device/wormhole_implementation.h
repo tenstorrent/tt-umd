@@ -285,6 +285,12 @@ constexpr std::array<std::pair<CoreType, uint64_t>, 6> NOC1_CONTROL_REG_ADDR_BAS
      {CoreType::ROUTER_ONLY, 0xFFB20000}}};
 static const uint64_t NOC_NODE_ID_OFFSET = 0x2C;
 
+static const uint64_t ARC_NOC_RESET_UNIT_BASE_ADDR = 0x880030000;
+// Offset of NOC node id registers on ARC core which are
+// used to store telemetry addresses, not used for NOC routing.
+static const uint64_t NOC_NODEID_X_0 = 0x1D0;
+static const uint64_t NOC_NODEID_Y_0 = 0x1D4;
+
 static const size_t tensix_translated_coordinate_start_x = 18;
 static const size_t tensix_translated_coordinate_start_y = 18;
 

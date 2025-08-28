@@ -11,7 +11,6 @@
 #include "umd/device/coordinate_manager.h"
 #include "umd/device/jtag/jtag_device.h"
 #include "umd/device/types/communication.h"
-#include "umd/device/types/wormhole_dram.h"
 #include "umd/device/types/wormhole_telemetry.h"
 #include "umd/device/types/xy_pair.h"
 #include "umd/device/wormhole_implementation.h"
@@ -32,7 +31,7 @@ WormholeTTDevice::WormholeTTDevice(std::shared_ptr<PCIDevice> pci_device) :
 }
 
 void WormholeTTDevice::post_init_hook() {
-    eth_addresses = WormholeTTDevice::get_eth_addresses(telemetry->read_entry(wormhole::ETH_FW_VERSION));
+    eth_addresses = WormholeTTDevice::get_eth_addresses(get_firmware_info_provider()->get_eth_fw_version());
 }
 
 WormholeTTDevice::WormholeTTDevice(std::shared_ptr<JtagDevice> jtag_device, uint8_t jlink_id) :
@@ -86,17 +85,6 @@ ChipInfo WormholeTTDevice::get_chip_info() {
     return chip_info;
 }
 
-semver_t WormholeTTDevice::get_firmware_version() {
-    auto board_type = get_board_type();
-    if (board_type == BoardType::GALAXY) {
-        // There is a hack for galaxy board such that ARC puts this information as tt_flash version.
-        // For more information see https://github.com/tenstorrent/tt-smi/issues/72
-        return fw_version_from_telemetry(telemetry->read_entry(wormhole::TelemetryTag::TT_FLASH_VERSION));
-    } else {
-        return fw_version_from_telemetry(telemetry->read_entry(wormhole::TelemetryTag::FW_BUNDLE_VERSION));
-    }
-}
-
 void WormholeTTDevice::wait_arc_core_start(const uint32_t timeout_ms) {
     uint32_t bar_read_initial = 0;
     read_from_arc(&bar_read_initial, wormhole::ARC_RESET_SCRATCH_OFFSET + 3 * 4, sizeof(uint32_t));
@@ -138,44 +126,11 @@ uint32_t WormholeTTDevice::get_clock() {
 }
 
 uint32_t WormholeTTDevice::get_max_clock_freq() {
-    uint32_t aiclk_telemetry = telemetry->read_entry(wormhole::TelemetryTag::AICLK);
-    return (aiclk_telemetry >> 16) & 0xFFFF;
+    // TODO: figure out if this exists in new telemetry.
+    return tt::umd::wormhole::AICLK_BUSY_VAL;
 }
 
 uint32_t WormholeTTDevice::get_min_clock_freq() { return wormhole::AICLK_IDLE_VAL; }
-
-uint64_t WormholeTTDevice::get_board_id() {
-    uint32_t board_id_lo = telemetry->read_entry(wormhole::TelemetryTag::BOARD_ID_LOW);
-    uint32_t board_id_hi = telemetry->read_entry(wormhole::TelemetryTag::BOARD_ID_HIGH);
-    return ((uint64_t)board_id_hi << 32) | board_id_lo;
-}
-
-std::vector<DramTrainingStatus> WormholeTTDevice::get_dram_training_status() {
-    uint32_t dram_training_status_telemetry = telemetry->read_entry(wormhole::TelemetryTag::DDR_STATUS);
-    const uint32_t num_dram_channels = architecture_impl_->get_dram_banks_number();
-    std::vector<DramTrainingStatus> dram_training_status;
-    for (uint32_t dram_channel = 0; dram_channel < num_dram_channels; dram_channel++) {
-        uint8_t status = (dram_training_status_telemetry >> (dram_channel * 4)) & 0xF;
-
-        switch (status) {
-            case wormhole::WormholeDramTrainingStatus::TrainingNone:
-                dram_training_status.push_back(DramTrainingStatus::IN_PROGRESS);
-                break;
-            case wormhole::WormholeDramTrainingStatus::TrainingFail:
-                dram_training_status.push_back(DramTrainingStatus::FAIL);
-                break;
-            case wormhole::WormholeDramTrainingStatus::TrainingPass:
-            case wormhole::WormholeDramTrainingStatus::TrainingSkip:
-                dram_training_status.push_back(DramTrainingStatus::SUCCESS);
-                break;
-            default:
-                dram_training_status.push_back(DramTrainingStatus::FAIL);
-                break;
-        }
-    }
-
-    return dram_training_status;
-}
 
 void WormholeTTDevice::configure_iatu_region(size_t region, uint64_t target, size_t region_size) {
     uint32_t dest_bar_lo = target & 0xffffffff;
@@ -482,12 +437,6 @@ void WormholeTTDevice::wait_eth_core_training(const tt_xy_pair eth_core, const u
             break;
         }
     }
-}
-
-double WormholeTTDevice::get_asic_temperature() {
-    // Data stored in telemetry has temperature average across chips stored in lower 16 bits.
-    // It needs to be divided by 8 to get temperature in Celsius.
-    return (telemetry->read_entry(wormhole::TelemetryTag::ASIC_TEMPERATURE) & 0xFFFF) / 8.0;
 }
 
 tt_xy_pair WormholeTTDevice::get_arc_core() const { return arc_core; }

@@ -512,7 +512,7 @@ TEST(TestCluster, WarmResetScratch) {
         GTEST_SKIP() << "No chips present on the system. Skipping test.";
     }
 
-    if (is_galaxy_configuration(cluster)) {
+    if (is_galaxy_configuration(cluster.get())) {
         GTEST_SKIP() << "Skipping reset test for Galaxy configuration.";
     }
 
@@ -548,7 +548,7 @@ TEST(TestCluster, WarmReset) {
         GTEST_SKIP() << "No chips present on the system. Skipping test.";
     }
 
-    if (is_galaxy_configuration(cluster)) {
+    if (is_galaxy_configuration(cluster.get())) {
         GTEST_SKIP() << "Skipping reset test for Galaxy configuration.";
     }
 
@@ -621,7 +621,7 @@ TEST(TestCluster, DeassertResetBrisc) {
         GTEST_SKIP() << "No chips present on the system. Skipping test.";
     }
 
-    if (is_galaxy_configuration(cluster)) {
+    if (is_galaxy_configuration(cluster.get())) {
         GTEST_SKIP() << "Skipping reset test for Galaxy configuration.";
     }
 
@@ -680,7 +680,7 @@ TEST(TestCluster, DeassertResetWithCounterBrisc) {
         GTEST_SKIP() << "No chips present on the system. Skipping test.";
     }
 
-    if (is_galaxy_configuration(cluster)) {
+    if (is_galaxy_configuration(cluster.get())) {
         GTEST_SKIP() << "Skipping reset test for Galaxy configuration.";
     }
 

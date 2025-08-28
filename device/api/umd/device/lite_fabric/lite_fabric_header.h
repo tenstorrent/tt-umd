@@ -31,6 +31,7 @@ union LiteFabricCommandFields {
     NocReadCommandHeader noc_read;
     WriteRegCommandHeader write_reg;
 };
+
 static_assert(sizeof(LiteFabricCommandFields) == 16, "CommandFields size is not 24 bytes");
 
 struct LiteFabricRoutingFields {
@@ -63,7 +64,9 @@ union NocSendType {
 
     // Constructors
     explicit NocSendType() = default;
+
     NocSendType(uint8_t value) : raw(value) {}
+
     NocSendType(NocSendTypeEnum type, uint8_t noc_idx = 0) {
         fields.send_type = type;
         fields.noc_index = noc_idx & 0x1;
@@ -74,14 +77,18 @@ union NocSendType {
 
     // Helper methods
     inline NocSendTypeEnum get_send_type() const volatile { return fields.send_type; }
+
     inline uint8_t get_noc_index() const volatile { return fields.noc_index; }
 
     inline void set_send_type(NocSendTypeEnum type) { fields.send_type = type; }
+
     inline void set_noc_index(uint8_t noc_idx) { fields.noc_index = noc_idx & 0x1; }
 
     // Comparison operators
     bool operator==(const NocSendType& other) const { return raw == other.raw; }
+
     bool operator!=(const NocSendType& other) const { return raw != other.raw; }
+
     bool operator==(NocSendTypeEnum type) const { return fields.send_type == type && fields.noc_index == 0; }
 };
 
@@ -99,11 +106,15 @@ struct FabricLiteHeader {
     LiteFabricRoutingFields routing_fields{};
 
     explicit FabricLiteHeader() = default;
+
     lite_fabric::NocSendType get_noc_send_type() volatile const {
         return lite_fabric::NocSendType(this->noc_send_type.raw);
     }
+
     uint16_t get_payload_size_bytes() volatile const { return this->payload_size_bytes; }
+
     uint8_t get_noc_index() volatile const { return this->noc_send_type.get_noc_index(); }
+
     lite_fabric::NocSendTypeEnum get_base_send_type() volatile const { return this->noc_send_type.get_send_type(); }
 
     // Set the packet to be a NoC write to the target chip

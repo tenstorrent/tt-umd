@@ -53,6 +53,9 @@ void ArcTelemetryReader::initialize_telemetry() {
 
     for (uint32_t i = 0; i < entry_count; ++i) {
         uint32_t tag_offset;
+        // + 8 is to skip first 2 numbers representing version and entry count.
+        // 4 * i is to get to the i-th entry in the tag table where each entry is 4 bytes big.
+        // Looking at layout in arc_telemetry_reader.h for reference.
         tt_device->read_from_device(&tag_offset, arc_core, telemetry_table_addr + 8 + 4 * i, sizeof(uint32_t));
 
         const uint16_t tag_val = tag_offset & 0xFFFF;

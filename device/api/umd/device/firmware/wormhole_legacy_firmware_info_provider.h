@@ -8,7 +8,7 @@
 
 #include <memory>
 
-#include "umd/device/firmware/firmware_info_provider.h"
+#include "umd/device/firmware/wormhole_18_4_firmware_info_provider.h"
 
 namespace tt::umd {
 
@@ -17,7 +17,7 @@ namespace tt::umd {
  * is read from that telemetry which is completely different from the newer telemetry
  * used in 18.4.0 and later versions.
  */
-class WormholeLegacyFirmwareInfoProvider : public FirmwareInfoProvider {
+class WormholeLegacyFirmwareInfoProvider : public Wormhole_18_4_FirmwareInfoProvider {
 public:
     WormholeLegacyFirmwareInfoProvider(TTDevice* tt_device);
 

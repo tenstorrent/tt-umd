@@ -10,7 +10,7 @@
 namespace tt::umd {
 
 Wormhole_18_4_FirmwareInfoProvider::Wormhole_18_4_FirmwareInfoProvider(TTDevice* tt_device) :
-    WormholeLegacyFirmwareInfoProvider(tt_device) {}
+    FirmwareInfoProvider(tt_device) {}
 
 uint64_t Wormhole_18_4_FirmwareInfoProvider::get_board_id() { return FirmwareInfoProvider::get_board_id(); }
 

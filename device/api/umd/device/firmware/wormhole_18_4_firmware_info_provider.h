@@ -8,7 +8,7 @@
 
 #include <memory>
 
-#include "umd/device/firmware/wormhole_legacy_firmware_info_provider.h"
+#include "umd/device/firmware/firmware_info_provider.h"
 
 namespace tt::umd {
 
@@ -18,7 +18,7 @@ namespace tt::umd {
  * placeholder values in this class.
  * Release: https://github.com/tenstorrent/tt-firmware/releases/tag/v18.4.0
  */
-class Wormhole_18_4_FirmwareInfoProvider : public WormholeLegacyFirmwareInfoProvider {
+class Wormhole_18_4_FirmwareInfoProvider : public FirmwareInfoProvider {
 public:
     Wormhole_18_4_FirmwareInfoProvider(TTDevice* tt_device);
 

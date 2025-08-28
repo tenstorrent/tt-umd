@@ -11,7 +11,7 @@
 namespace tt::umd {
 
 WormholeLegacyFirmwareInfoProvider::WormholeLegacyFirmwareInfoProvider(TTDevice* tt_device) :
-    FirmwareInfoProvider(tt_device) {}
+    Wormhole_18_4_FirmwareInfoProvider(tt_device) {}
 
 uint64_t WormholeLegacyFirmwareInfoProvider::get_board_id() {
     ArcTelemetryReader* telemetry = tt_device->get_arc_telemetry_reader();

@@ -22,7 +22,7 @@ namespace nb = nanobind;
 using namespace tt::umd;
 
 // Helper function for easy creation of RemoteWormholeTTDevice
-std::unique_ptr<RemoteWormholeTTDevice> create_remote_wormhole_tt_device(
+std::unique_ptr<TTDevice> create_remote_wormhole_tt_device(
     TTDevice *local_chip, tt_ClusterDescriptor *cluster_descriptor, chip_id_t remote_chip_id) {
     // Note: this chip id has to match the local_chip passed. Figure out if there's a better way to do this.
     chip_id_t local_chip_id = cluster_descriptor->get_closest_mmio_capable_chip(remote_chip_id);
@@ -31,7 +31,7 @@ std::unique_ptr<RemoteWormholeTTDevice> create_remote_wormhole_tt_device(
     auto remote_communication = std::make_unique<RemoteCommunication>(local_chip);
     remote_communication->set_remote_transfer_ethernet_cores(
         local_soc_descriptor.get_eth_xy_pairs_for_channels(cluster_descriptor->get_active_eth_channels(local_chip_id)));
-    return std::make_unique<RemoteWormholeTTDevice>(std::move(remote_communication), target_chip);
+    return TTDevice::create(std::move(remote_communication), target_chip);
 }
 
 void bind_tt_device(nb::module_ &m) {
@@ -66,7 +66,7 @@ void bind_tt_device(nb::module_ &m) {
     nb::class_<TTDevice>(m, "TTDevice")
         .def_static(
             "create",
-            &TTDevice::create,
+            static_cast<std::unique_ptr<TTDevice> (*)(int, IODeviceType)>(&TTDevice::create),
             nb::arg("device_number"),
             nb::arg("device_type") = IODeviceType::PCIe,
             nb::rv_policy::take_ownership)

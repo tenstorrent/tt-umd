@@ -13,9 +13,10 @@ class TestTTDevice(unittest.TestCase):
 
         for dev_id in dev_ids:
             dev = tt_umd.TTDevice.create(dev_id)
+            dev.init_tt_device()
             print(f"TTDevice id {dev_id} has arch {dev.get_arch()} and board id {dev.get_board_id()}")
             pci_dev = dev.get_pci_device()
-            pci_info = pci_dev.get_device_info().get_pci_bdf()
+            pci_info = pci_dev.get_device_info().pci_bdf
             print("pci bdf is ", pci_info)
             val = dev.noc_read32(9, 0, 0)
             print("Read value from device, core 9,0 addr 0x0: ", val)
@@ -29,7 +30,7 @@ class TestTTDevice(unittest.TestCase):
             if cluster_descriptor.is_chip_mmio_capable(chip):
                 print(f"Chip MMIO capable: {chip}")
                 umd_tt_devices[chip] = tt_umd.TTDevice.create(chip_to_mmio_map[chip])
-                umd_tt_devices.init_tt_device()
+                umd_tt_devices[chip].init_tt_device()
             else:
                 closest_mmio = cluster_descriptor.get_closest_mmio_capable_chip(chip)
                 print(f"Chip remote: {chip}, closest MMIO capable chip: {closest_mmio}")

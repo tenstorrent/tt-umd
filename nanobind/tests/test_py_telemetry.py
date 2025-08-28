@@ -14,13 +14,13 @@ class TestTelemetry(unittest.TestCase):
         dev = tt_umd.TTDevice.create(dev_ids[0])
         dev.init_tt_device()
         tel_reader = dev.get_arc_telemetry_reader()
-        tag = int(tt_umd.wormhole.TelemetryTag.ASIC_TEMPERATURE)
+        tag = int(tt_umd.TelemetryTag.ASIC_TEMPERATURE)
         print("Telemetry reading for asic temperature: ", tel_reader.read_entry(tag))
         
     def test_remote_telemetry(self):
         cluster_descriptor = tt_umd.TopologyDiscovery.create_cluster_descriptor()
         umd_tt_devices = {}
-        tag = int(tt_umd.wormhole.TelemetryTag.ASIC_TEMPERATURE)
+        tag = int(tt_umd.TelemetryTag.ASIC_TEMPERATURE)
         chip_to_mmio_map = cluster_descriptor.get_chips_with_mmio()
         chip_eth_coords = cluster_descriptor.get_chip_locations()
         for chip in cluster_descriptor.get_chips_local_first(cluster_descriptor.get_all_chips()):

@@ -62,9 +62,10 @@ public:
      * This function is used to create mock cluster descriptor yaml files, for example for simulation.
      * @param logical_device_ids Vector of logical device IDs to be included in the mock cluster.
      * @param arch Architecture of the mock cluster.
+     * @param noc_translation_enabled If true, NOC translation will be enabled for all chips in the mock cluster.
      */
     static std::unique_ptr<tt_ClusterDescriptor> create_mock_cluster(
-        const std::vector<chip_id_t> &logical_device_ids, tt::ARCH arch);
+        const std::vector<chip_id_t> &logical_device_ids, tt::ARCH arch, bool noc_translation_enabled = false);
 
     /**
      * Creates a constrained cluster descriptor that only contains the chips specified in target_chip_ids.

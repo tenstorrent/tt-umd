@@ -98,6 +98,13 @@ struct ClusterOptions {
      * This parameter is used only for SIMULATION chip type.
      */
     std::filesystem::path simulator_directory = "";
+    /**
+     * This parameter is used only SIMULATION and MOCK chip type.
+     * If set to true, NOC translation will be enabled for simulation devices.
+     * If set to false, NOC translation will be disabled for simulation devices.
+     * It gives the control to the caller to control whether we want NOC translation enabled or not.
+     */
+    bool simulation_noc_translation_enabled = false;
 };
 
 /**

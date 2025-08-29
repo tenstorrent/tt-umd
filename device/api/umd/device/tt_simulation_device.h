@@ -19,7 +19,8 @@ namespace tt::umd {
 
 class tt_SimulationDeviceInit {
 public:
-    tt_SimulationDeviceInit(const std::filesystem::path& simulator_directory);
+    tt_SimulationDeviceInit(
+        const std::filesystem::path& simulator_directory, const bool noc_translation_enabled = false);
 
     tt::ARCH get_arch_name() const { return soc_descriptor.arch; }
 
@@ -34,8 +35,8 @@ private:
 
 class tt_SimulationDevice : public Chip {
 public:
-    tt_SimulationDevice(const std::filesystem::path& simulator_directory) :
-        tt_SimulationDevice(tt_SimulationDeviceInit(simulator_directory)) {}
+    tt_SimulationDevice(const std::filesystem::path& simulator_directory, const bool noc_translation_enabled = false) :
+        tt_SimulationDevice(tt_SimulationDeviceInit(simulator_directory, noc_translation_enabled)) {}
 
     tt_SimulationDevice(const tt_SimulationDeviceInit& init);
     ~tt_SimulationDevice();

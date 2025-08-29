@@ -83,19 +83,7 @@ bool tt_ClusterDescriptor::is_chip_remote(const chip_id_t chip_id) const { retur
 // the function returns the total distance of travelled between shelves and racks, plust the x&y dim difference
 int tt_ClusterDescriptor::get_ethernet_link_coord_distance(
     const eth_coord_t &location_a, const eth_coord_t &location_b) const {
-    log_trace(
-        LogSiliconDriver,
-        "get_ethernet_link_coord_distance from ({}, {}, {}, {}, {}) to ({}, {}, {}, {}, {})",
-        location_a.cluster_id,
-        location_a.x,
-        location_a.y,
-        location_a.rack,
-        location_a.shelf,
-        location_b.cluster_id,
-        location_b.x,
-        location_b.y,
-        location_b.rack,
-        location_b.shelf);
+    log_trace(LogSiliconDriver, "get_ethernet_link_coord_distance from {} to {}", location_a, location_b);
 
     if (location_a.cluster_id != location_b.cluster_id) {
         return std::numeric_limits<int>::max();
@@ -147,18 +135,7 @@ int tt_ClusterDescriptor::get_ethernet_link_coord_distance(
             }
             distance = std::min(distance, distance_to_exit + distance_in_next_shelf + 1);
         }
-        log_trace(
-            LogSiliconDriver,
-            "\tdistance from ({}, {}, {}, {}) to ({}, {}, {}, {}) is {}",
-            location_a.x,
-            location_a.y,
-            location_a.rack,
-            location_a.shelf,
-            location_b.x,
-            location_b.y,
-            location_b.rack,
-            location_b.shelf,
-            distance);
+        log_trace(LogSiliconDriver, "\tdistance from {} to {} is {}", location_a, location_b, distance);
         return distance;
     } else if (location_a.shelf > location_b.shelf) {
         // this is already verified where galaxy_shelves_exit_chip_coords_per_y_dim is populated, but just to be safe
@@ -201,18 +178,7 @@ int tt_ClusterDescriptor::get_ethernet_link_coord_distance(
             }
             distance = std::min(distance, distance_to_exit + distance_in_next_shelf + 1);
         }
-        log_trace(
-            LogSiliconDriver,
-            "\tdistance from ({}, {}, {}, {}) to ({}, {}, {}, {}) is {}",
-            location_a.x,
-            location_a.y,
-            location_a.rack,
-            location_a.shelf,
-            location_b.x,
-            location_b.y,
-            location_b.rack,
-            location_b.shelf,
-            distance);
+        log_trace(LogSiliconDriver, "\tdistance from {} to {} is {}", location_a, location_b, distance);
         return distance;
     }
 
@@ -258,18 +224,7 @@ int tt_ClusterDescriptor::get_ethernet_link_coord_distance(
             }
             distance = std::min(distance, distance_to_exit + distance_in_next_rack + 1);
         }
-        log_trace(
-            LogSiliconDriver,
-            "\tdistance from ({}, {}, {}, {}) to ({}, {}, {}, {}) is {}",
-            location_a.x,
-            location_a.y,
-            location_a.rack,
-            location_a.shelf,
-            location_b.x,
-            location_b.y,
-            location_b.rack,
-            location_b.shelf,
-            distance);
+        log_trace(LogSiliconDriver, "\tdistance from {} to {} is {}", location_a, location_b, distance);
 
         return distance;
     } else if (location_a.rack > location_b.rack) {
@@ -313,34 +268,12 @@ int tt_ClusterDescriptor::get_ethernet_link_coord_distance(
             }
             distance = std::min(distance, distance_to_exit + distance_in_next_rack + 1);
         }
-        log_trace(
-            LogSiliconDriver,
-            "\tdistance from ({}, {}, {}, {}) to ({}, {}, {}, {}) is {}",
-            location_a.x,
-            location_a.y,
-            location_a.rack,
-            location_a.shelf,
-            location_b.x,
-            location_b.y,
-            location_b.rack,
-            location_b.shelf,
-            distance);
+        log_trace(LogSiliconDriver, "\tdistance from {} to {} is {}", location_a, location_b, distance);
 
         return distance;
     }
 
-    log_trace(
-        LogSiliconDriver,
-        "\tdistance from ({}, {}, {}, {}) to ({}, {}, {}, {}) is {}",
-        location_a.x,
-        location_a.y,
-        location_a.rack,
-        location_a.shelf,
-        location_b.x,
-        location_b.y,
-        location_b.rack,
-        location_b.shelf,
-        x_distance + y_distance);
+    log_trace(LogSiliconDriver, "\tdistance from {} to {} is {}", location_a, location_b, x_distance + y_distance);
 
     // on same shelf/rack, the distance is just x+y difference
     return x_distance + y_distance;
@@ -366,14 +299,7 @@ chip_id_t tt_ClusterDescriptor::get_closest_mmio_capable_chip(const chip_id_t ch
         const chip_id_t &mmio_chip = pair.first;
         eth_coord_t mmio_eth_coord = this->chip_locations.at(mmio_chip);
 
-        log_debug(
-            LogSiliconDriver,
-            "Checking chip{} at ({}, {}, {}, {})",
-            mmio_chip,
-            mmio_eth_coord.x,
-            mmio_eth_coord.y,
-            mmio_eth_coord.rack,
-            mmio_eth_coord.shelf);
+        log_debug(LogSiliconDriver, "Checking chip{} at {}", mmio_chip, mmio_eth_coord);
 
         int distance = get_ethernet_link_coord_distance(mmio_eth_coord, chip_eth_coord);
         log_debug(LogSiliconDriver, "Distance from chip{} to chip{} is {}", chip, mmio_chip, distance);
@@ -757,22 +683,12 @@ void tt_ClusterDescriptor::fill_galaxy_connections() {
         for (const auto &[y_dim, shelf_exit_chip_coords] : shelf_exit_chip_coords_per_y_dim) {
             log_debug(
                 LogSiliconDriver,
-                "shelf: {} y_dim: {} exit_coord:({}, {}, {}, {})",
+                "shelf: {} y_dim: {} exit_coord:{}",
                 shelf,
                 y_dim,
-                shelf_exit_chip_coords.source_chip_coord.x,
-                shelf_exit_chip_coords.source_chip_coord.y,
-                shelf_exit_chip_coords.source_chip_coord.rack,
-                shelf_exit_chip_coords.source_chip_coord.shelf);
+                shelf_exit_chip_coords.source_chip_coord);
             for (const auto &destination_chip_coord : shelf_exit_chip_coords.destination_chip_coords) {
-                // print shelf_exit_chip_coord in the format: (x, y, rack, shelf)
-                log_debug(
-                    LogSiliconDriver,
-                    "\tdestination_chip_coord: ({}, {}, {}, {})",
-                    destination_chip_coord.x,
-                    destination_chip_coord.y,
-                    destination_chip_coord.rack,
-                    destination_chip_coord.shelf);
+                log_debug(LogSiliconDriver, "\tdestination_chip_coord: {}", destination_chip_coord);
             }
         }
     }
@@ -793,21 +709,12 @@ void tt_ClusterDescriptor::fill_galaxy_connections() {
         for (const auto &[x_dim, rack_exit_chip_coords] : rack_exit_chip_coords_per_x_dim) {
             log_debug(
                 LogSiliconDriver,
-                "rack: {} x_dim: {} exit_coord:({}, {}, {}, {})",
+                "rack: {} x_dim: {} exit_coord: {}",
                 rack,
                 x_dim,
-                rack_exit_chip_coords.source_chip_coord.x,
-                rack_exit_chip_coords.source_chip_coord.y,
-                rack_exit_chip_coords.source_chip_coord.rack,
-                rack_exit_chip_coords.source_chip_coord.shelf);
+                rack_exit_chip_coords.source_chip_coord);
             for (const auto &destination_chip_coord : rack_exit_chip_coords.destination_chip_coords) {
-                log_debug(
-                    LogSiliconDriver,
-                    "\tdestination_chip_coord: ({}, {}, {}, {})",
-                    destination_chip_coord.x,
-                    destination_chip_coord.y,
-                    destination_chip_coord.rack,
-                    destination_chip_coord.shelf);
+                log_debug(LogSiliconDriver, "\tdestination_chip_coord:{}}", destination_chip_coord);
             }
         }
     }
@@ -865,14 +772,7 @@ void tt_ClusterDescriptor::load_chips_from_connectivity_descriptor(YAML::Node &y
     }
     log_debug(LogSiliconDriver, "Device IDs and Locations:");
     for (const auto &[chip_id, chip_location] : chip_locations) {
-        log_debug(
-            LogSiliconDriver,
-            "\tchip: {},  EthCoord(x={}, y={}, rack={}, shelf={})",
-            chip_id,
-            chip_location.x,
-            chip_location.y,
-            chip_location.rack,
-            chip_location.shelf);
+        log_debug(LogSiliconDriver, "\tchip: {}, coord: {}", chip_id, chip_location);
     }
 
     if (yaml["chip_to_boardtype"]) {

@@ -7,13 +7,13 @@
 #pragma once
 
 #include <fmt/core.h>
+#include <fmt/format.h>
 
 #include <cstdint>
 #include <functional>
 #include <optional>
 #include <unordered_map>
 
-#include "fmt/core.h"
 #include "umd/device/semver.hpp"
 #include "umd/device/types/harvesting.h"
 #include "umd/device/umd_utils.h"
@@ -263,3 +263,16 @@ struct hash<tt::umd::eth_coord_t> {
 };
 
 }  // namespace std
+
+namespace fmt {
+template <>
+struct formatter<eth_coord_t> {
+    constexpr auto parse(fmt::format_parse_context &ctx) { return ctx.begin(); }
+
+    template <typename Context>
+    constexpr auto format(eth_coord_t const &coord, Context &ctx) const {
+        return format_to(
+            ctx.out(), "({}, {}, {}, {}, {})", coord.cluster_id, coord.x, coord.y, coord.rack, coord.shelf);
+    }
+};
+}  // namespace fmt

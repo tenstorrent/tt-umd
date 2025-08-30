@@ -6,6 +6,7 @@
 #include "device/api/umd/device/warm_reset.h"
 #include "gtest/gtest.h"
 #include "tests/test_utils/device_test_utils.hpp"
+#include "tests/test_utils/test_api_common.h"
 #include "umd/device/blackhole_implementation.h"
 #include "umd/device/cluster.h"
 #include "umd/device/tt_device/remote_wormhole_tt_device.h"
@@ -114,6 +115,13 @@ TEST(ApiTTDeviceTest, TTDeviceWarmResetAfterNocHang) {
         GTEST_SKIP() << "No chips present on the system. Skipping test.";
     }
 
+    // Unfortunatelly, there is no way to check from Local TTDevice if this is GALAXY configuration.
+    std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
+    if (is_galaxy_configuration(cluster.get())) {
+        GTEST_SKIP() << "Skipping reset test for Galaxy configuration.";
+    }
+    cluster.reset();
+
     auto arch = PCIDevice(pci_device_ids[0]).get_arch();
     if (arch == tt::ARCH::WORMHOLE_B0) {
         GTEST_SKIP()
@@ -146,7 +154,7 @@ TEST(ApiTTDeviceTest, TTDeviceWarmResetAfterNocHang) {
     // After a warm reset, topology discovery must be performed to detect available chips.
     // Creating a Cluster triggers this discovery process, which is why a Cluster is instantiated here,
     // even though this is a TTDevice test.
-    auto cluster = std::make_unique<Cluster>();
+    cluster = std::make_unique<Cluster>();
 
     EXPECT_FALSE(cluster->get_target_device_ids().empty()) << "No chips present after reset.";
 

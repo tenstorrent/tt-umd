@@ -7,7 +7,7 @@
 #include "gtest/gtest.h"
 #include "umd/device/arc/arc_messenger.h"
 #include "umd/device/arc/blackhole_arc_telemetry_reader.h"
-#include "umd/device/blackhole_implementation.h"
+#include "umd/device/arch/blackhole_implementation.h"
 #include "umd/device/cluster.h"
 #include "umd/device/types/blackhole_arc.h"
 

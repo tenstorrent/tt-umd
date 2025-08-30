@@ -8,12 +8,12 @@
 #include <tt-logger/tt-logger.hpp>
 
 #include "assert.hpp"
+#include "umd/device/arch/wormhole_implementation.h"
 #include "umd/device/coordinates/coordinate_manager.h"
 #include "umd/device/jtag/jtag_device.h"
 #include "umd/device/types/communication.h"
 #include "umd/device/types/wormhole_telemetry.h"
 #include "umd/device/types/xy_pair.h"
-#include "umd/device/arch/wormhole_implementation.h"
 
 extern bool umd_use_noc1;
 

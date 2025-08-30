@@ -1,4 +1,4 @@
-// Schema for tt_simulation_device
+// Schema for simulation_device
 
 enum DEVICE_COMMAND : byte {
     WRITE = 0,

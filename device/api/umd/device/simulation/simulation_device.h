@@ -12,14 +12,14 @@
 
 #include "umd/device/chip/chip.h"
 #include "umd/device/cluster.h"
-#include "umd/device/tt_simulation_host.hpp"
+#include "umd/device/simulation/simulation_host.hpp"
 #include "umd/device/utils/lock_manager.h"
 
 namespace tt::umd {
 
-class tt_SimulationDeviceInit {
+class SimulationDeviceInit {
 public:
-    tt_SimulationDeviceInit(const std::filesystem::path& simulator_directory);
+    SimulationDeviceInit(const std::filesystem::path& simulator_directory);
 
     tt::ARCH get_arch_name() const { return soc_descriptor.arch; }
 
@@ -32,15 +32,15 @@ private:
     SocDescriptor soc_descriptor;
 };
 
-class tt_SimulationDevice : public Chip {
+class SimulationDevice : public Chip {
 public:
-    tt_SimulationDevice(const std::filesystem::path& simulator_directory) :
-        tt_SimulationDevice(tt_SimulationDeviceInit(simulator_directory)) {}
+    SimulationDevice(const std::filesystem::path& simulator_directory) :
+        SimulationDevice(SimulationDeviceInit(simulator_directory)) {}
 
-    tt_SimulationDevice(const tt_SimulationDeviceInit& init);
-    ~tt_SimulationDevice();
+    SimulationDevice(const SimulationDeviceInit& init);
+    ~SimulationDevice();
 
-    tt_SimulationHost host;
+    SimulationHost host;
 
     int get_num_host_channels() override;
     int get_host_channel_size(std::uint32_t channel) override;
@@ -110,4 +110,5 @@ private:
 }  // namespace tt::umd
 
 // TODO: To be removed once clients switch to namespace usage.
-using tt::umd::tt_SimulationDeviceInit;
+using tt::umd::SimulationDeviceInit;
+using tt_SimulationDeviceInit = tt::umd::SimulationDeviceInit;

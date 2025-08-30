@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#include "umd/device/tt_simulation_device.h"
+#include "umd/device/simulation/simulation_device.h"
 
 #include <nng/nng.h>
 #include <uv.h>
@@ -15,12 +15,12 @@
 #include <vector>
 
 #include "assert.hpp"
-#include "tt_simulation_device_generated.h"
+#include "simulation_device_generated.h"
 #include "umd/device/driver_atomics.h"
 
 namespace tt::umd {
 
-static_assert(!std::is_abstract<tt_SimulationDevice>(), "tt_SimulationDevice must be non-abstract.");
+static_assert(!std::is_abstract<SimulationDevice>(), "SimulationDevice must be non-abstract.");
 
 flatbuffers::FlatBufferBuilder create_flatbuffer(
     DEVICE_COMMAND rw, std::vector<uint32_t> vec, tt_xy_pair core_, uint64_t addr, uint64_t size_ = 0) {
@@ -55,10 +55,10 @@ static void print_flatbuffer(const DeviceRequestResponse* buf) {
 #endif
 }
 
-tt_SimulationDeviceInit::tt_SimulationDeviceInit(const std::filesystem::path& simulator_directory) :
+SimulationDeviceInit::SimulationDeviceInit(const std::filesystem::path& simulator_directory) :
     simulator_directory(simulator_directory), soc_descriptor(simulator_directory / "soc_descriptor.yaml") {}
 
-tt_SimulationDevice::tt_SimulationDevice(const tt_SimulationDeviceInit& init) : Chip(init.get_soc_descriptor()) {
+SimulationDevice::SimulationDevice(const SimulationDeviceInit& init) : Chip(init.get_soc_descriptor()) {
     log_info(tt::LogEmulationDriver, "Instantiating simulation device");
     lock_manager.initialize_mutex(MutexType::TT_SIMULATOR);
     soc_descriptor_per_chip.emplace(0, init.get_soc_descriptor());
@@ -99,9 +99,9 @@ tt_SimulationDevice::tt_SimulationDevice(const tt_SimulationDeviceInit& init) : 
     uv_loop_close(loop);
 }
 
-tt_SimulationDevice::~tt_SimulationDevice() { lock_manager.clear_mutex(MutexType::TT_SIMULATOR); }
+SimulationDevice::~SimulationDevice() { lock_manager.clear_mutex(MutexType::TT_SIMULATOR); }
 
-void tt_SimulationDevice::start_device() {
+void SimulationDevice::start_device() {
     auto lock = lock_manager.acquire_mutex(MutexType::TT_SIMULATOR);
     void* buf_ptr = nullptr;
 
@@ -115,7 +115,7 @@ void tt_SimulationDevice::start_device() {
     nng_free(buf_ptr, buf_size);
 }
 
-void tt_SimulationDevice::send_tensix_risc_reset(CoreCoord core, const TensixSoftResetOptions& soft_resets) {
+void SimulationDevice::send_tensix_risc_reset(CoreCoord core, const TensixSoftResetOptions& soft_resets) {
     auto lock = lock_manager.acquire_mutex(MutexType::TT_SIMULATOR);
     tt_xy_pair translate_core = soc_descriptor_.translate_coord_to(core, CoordSystem::TRANSLATED);
     if (soft_resets == TENSIX_ASSERT_SOFT_RESET) {
@@ -140,23 +140,23 @@ void tt_SimulationDevice::send_tensix_risc_reset(CoreCoord core, const TensixSof
     }
 }
 
-void tt_SimulationDevice::send_tensix_risc_reset(const TensixSoftResetOptions& soft_resets) {
+void SimulationDevice::send_tensix_risc_reset(const TensixSoftResetOptions& soft_resets) {
     send_tensix_risc_reset(soc_descriptor_.get_coord_at({0, 0}, CoordSystem::TRANSLATED), soft_resets);
 }
 
-void tt_SimulationDevice::close_device() {
+void SimulationDevice::close_device() {
     // disconnect from remote connection
     log_info(tt::LogEmulationDriver, "Sending exit signal to remote...");
     auto builder = create_flatbuffer(DEVICE_COMMAND_EXIT, std::vector<uint32_t>(1, 0), {0, 0}, 0);
     host.send_to_device(builder.GetBufferPointer(), builder.GetSize());
 }
 
-void tt_SimulationDevice::set_remote_transfer_ethernet_cores(const std::unordered_set<CoreCoord>& cores) {}
+void SimulationDevice::set_remote_transfer_ethernet_cores(const std::unordered_set<CoreCoord>& cores) {}
 
-void tt_SimulationDevice::set_remote_transfer_ethernet_cores(const std::set<uint32_t>& channels) {}
+void SimulationDevice::set_remote_transfer_ethernet_cores(const std::set<uint32_t>& channels) {}
 
 // Runtime Functions
-void tt_SimulationDevice::write_to_device(CoreCoord core, const void* src, uint64_t l1_dest, uint32_t size) {
+void SimulationDevice::write_to_device(CoreCoord core, const void* src, uint64_t l1_dest, uint32_t size) {
     auto lock = lock_manager.acquire_mutex(MutexType::TT_SIMULATOR);
     log_debug(tt::LogEmulationDriver, "Device writing {} bytes to l1_dest {} in core {}", size, l1_dest, core.str());
     tt_xy_pair translate_core = soc_descriptor_.translate_coord_to(core, CoordSystem::TRANSLATED);
@@ -169,7 +169,7 @@ void tt_SimulationDevice::write_to_device(CoreCoord core, const void* src, uint6
     host.send_to_device(wr_buffer_ptr, wr_buffer_size);
 }
 
-void tt_SimulationDevice::read_from_device(CoreCoord core, void* dest, uint64_t l1_src, uint32_t size) {
+void SimulationDevice::read_from_device(CoreCoord core, void* dest, uint64_t l1_src, uint32_t size) {
     auto lock = lock_manager.acquire_mutex(MutexType::TT_SIMULATOR);
     void* rd_resp;
 
@@ -191,42 +191,42 @@ void tt_SimulationDevice::read_from_device(CoreCoord core, void* dest, uint64_t 
     nng_free(rd_resp, rd_rsp_sz);
 }
 
-void tt_SimulationDevice::write_to_device_reg(CoreCoord core, const void* src, uint64_t reg_dest, uint32_t size) {
+void SimulationDevice::write_to_device_reg(CoreCoord core, const void* src, uint64_t reg_dest, uint32_t size) {
     write_to_device(core, src, reg_dest, size);
 }
 
-void tt_SimulationDevice::read_from_device_reg(CoreCoord core, void* dest, uint64_t reg_src, uint32_t size) {
+void SimulationDevice::read_from_device_reg(CoreCoord core, void* dest, uint64_t reg_src, uint32_t size) {
     read_from_device(core, dest, reg_src, size);
 }
 
-void tt_SimulationDevice::dma_write_to_device(const void* src, size_t size, CoreCoord core, uint64_t addr) {
+void SimulationDevice::dma_write_to_device(const void* src, size_t size, CoreCoord core, uint64_t addr) {
     write_to_device(core, src, addr, size);
 }
 
-void tt_SimulationDevice::dma_read_from_device(void* dst, size_t size, CoreCoord core, uint64_t addr) {
+void SimulationDevice::dma_read_from_device(void* dst, size_t size, CoreCoord core, uint64_t addr) {
     read_from_device(core, dst, addr, size);
 }
 
-std::function<void(uint32_t, uint32_t, const uint8_t*)> tt_SimulationDevice::get_fast_pcie_static_tlb_write_callable() {
+std::function<void(uint32_t, uint32_t, const uint8_t*)> SimulationDevice::get_fast_pcie_static_tlb_write_callable() {
     throw std::runtime_error(
-        "tt_SimulationDevice::get_fast_pcie_static_tlb_write_callable is not available for this chip.");
+        "SimulationDevice::get_fast_pcie_static_tlb_write_callable is not available for this chip.");
 }
 
-void tt_SimulationDevice::wait_for_non_mmio_flush() {}
+void SimulationDevice::wait_for_non_mmio_flush() {}
 
-void tt_SimulationDevice::l1_membar(const std::unordered_set<CoreCoord>& cores) {}
+void SimulationDevice::l1_membar(const std::unordered_set<CoreCoord>& cores) {}
 
-void tt_SimulationDevice::dram_membar(const std::unordered_set<uint32_t>& channels) {}
+void SimulationDevice::dram_membar(const std::unordered_set<uint32_t>& channels) {}
 
-void tt_SimulationDevice::dram_membar(const std::unordered_set<CoreCoord>& cores) {}
+void SimulationDevice::dram_membar(const std::unordered_set<CoreCoord>& cores) {}
 
-void tt_SimulationDevice::deassert_risc_resets() {}
+void SimulationDevice::deassert_risc_resets() {}
 
-void tt_SimulationDevice::set_power_state(tt_DevicePowerState state) {}
+void SimulationDevice::set_power_state(tt_DevicePowerState state) {}
 
-int tt_SimulationDevice::get_clock() { return 0; }
+int SimulationDevice::get_clock() { return 0; }
 
-int tt_SimulationDevice::arc_msg(
+int SimulationDevice::arc_msg(
     uint32_t msg_code,
     bool wait_for_done,
     uint32_t arg0,
@@ -238,34 +238,34 @@ int tt_SimulationDevice::arc_msg(
     return 0;
 }
 
-int tt_SimulationDevice::get_num_host_channels() { return 0; }
+int SimulationDevice::get_num_host_channels() { return 0; }
 
-int tt_SimulationDevice::get_host_channel_size(std::uint32_t channel) {
+int SimulationDevice::get_host_channel_size(std::uint32_t channel) {
     throw std::runtime_error("There are no host channels available.");
 }
 
-void tt_SimulationDevice::write_to_sysmem(uint16_t channel, const void* src, uint64_t sysmem_dest, uint32_t size) {
-    throw std::runtime_error("tt_SimulationDevice::write_to_sysmem is not available for this chip.");
+void SimulationDevice::write_to_sysmem(uint16_t channel, const void* src, uint64_t sysmem_dest, uint32_t size) {
+    throw std::runtime_error("SimulationDevice::write_to_sysmem is not available for this chip.");
 }
 
-void tt_SimulationDevice::read_from_sysmem(uint16_t channel, void* dest, uint64_t sysmem_src, uint32_t size) {
-    throw std::runtime_error("tt_SimulationDevice::read_from_sysmem is not available for this chip.");
+void SimulationDevice::read_from_sysmem(uint16_t channel, void* dest, uint64_t sysmem_src, uint32_t size) {
+    throw std::runtime_error("SimulationDevice::read_from_sysmem is not available for this chip.");
 }
 
-int tt_SimulationDevice::get_numa_node() {
-    throw std::runtime_error("tt_SimulationDevice::get_numa_node is not available for this chip.");
+int SimulationDevice::get_numa_node() {
+    throw std::runtime_error("SimulationDevice::get_numa_node is not available for this chip.");
 }
 
-TTDevice* tt_SimulationDevice::get_tt_device() {
-    throw std::runtime_error("tt_SimulationDevice::get_tt_device is not available for this chip.");
+TTDevice* SimulationDevice::get_tt_device() {
+    throw std::runtime_error("SimulationDevice::get_tt_device is not available for this chip.");
 }
 
-SysmemManager* tt_SimulationDevice::get_sysmem_manager() {
-    throw std::runtime_error("tt_SimulationDevice::get_sysmem_manager is not available for this chip.");
+SysmemManager* SimulationDevice::get_sysmem_manager() {
+    throw std::runtime_error("SimulationDevice::get_sysmem_manager is not available for this chip.");
 }
 
-TLBManager* tt_SimulationDevice::get_tlb_manager() {
-    throw std::runtime_error("tt_SimulationDevice::get_tlb_manager is not available for this chip.");
+TLBManager* SimulationDevice::get_tlb_manager() {
+    throw std::runtime_error("SimulationDevice::get_tlb_manager is not available for this chip.");
 }
 
 }  // namespace tt::umd

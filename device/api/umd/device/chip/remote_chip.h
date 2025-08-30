@@ -7,7 +7,7 @@
 #pragma once
 
 #include "umd/device/chip/chip.h"
-#include "umd/device/remote_communication.h"
+#include "umd/device/tt_device/remote_communication.h"
 #include "umd/device/tt_device/remote_wormhole_tt_device.h"
 
 namespace tt::umd {

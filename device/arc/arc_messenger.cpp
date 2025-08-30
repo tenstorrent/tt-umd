@@ -8,7 +8,7 @@
 #include "umd/device/arc/blackhole_arc_messenger.h"
 #include "umd/device/arc/wormhole_arc_messenger.h"
 #include "umd/device/tt_device/tt_device.h"
-#include "umd/device/umd_utils.h"
+#include "umd/device/utils/common.h"
 
 namespace tt::umd {
 

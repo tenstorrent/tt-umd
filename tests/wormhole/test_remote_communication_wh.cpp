@@ -7,7 +7,7 @@
 #include "umd/device/arch/wormhole_implementation.h"
 #include "umd/device/cluster.h"
 #include "umd/device/cluster_descriptor.h"
-#include "umd/device/remote_communication.h"
+#include "umd/device/tt_device/remote_communication.h"
 #include "umd/device/types/cluster_types.h"
 #include "wormhole/host_mem_address_map.h"
 #include "wormhole/l1_address_map.h"

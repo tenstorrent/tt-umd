@@ -9,7 +9,7 @@
 #include <algorithm>
 #include <ostream>
 
-#include "umd/device/umd_utils.h"
+#include "umd/device/utils/common.h"
 
 // Arch is common to everything related in TT, and not just UMD. It might move to some common folder someday.
 // So we decided to put it in tt namespace instead of tt::umd.

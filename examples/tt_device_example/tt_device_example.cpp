@@ -7,7 +7,7 @@
 #include <tt-logger/tt-logger.hpp>
 #include <vector>
 
-#include "umd/device/pci_device.hpp"
+#include "umd/device/pcie/pci_device.hpp"
 #include "umd/device/soc_descriptor.h"
 #include "umd/device/tt_device/tt_device.h"
 #include "umd/device/types/core_coordinates.h"

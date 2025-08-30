@@ -3,15 +3,15 @@
  *
  * SPDX-License-Identifier: Apache-2.0
  */
-#include "umd/device/remote_communication.h"
+#include "umd/device/tt_device/remote_communication.h"
 
 #include <tt-logger/tt-logger.hpp>
 
 #include "assert.hpp"
 #include "umd/device/chip/local_chip.h"
 #include "umd/device/driver_atomics.h"
-#include "umd/device/topology_utils.h"
-#include "umd/device/umd_utils.h"
+#include "umd/device/topology/topology_utils.h"
+#include "umd/device/utils/common.h"
 #include "umd/device/utils/lock_manager.h"
 
 extern bool umd_use_noc1;

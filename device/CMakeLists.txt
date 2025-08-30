@@ -35,8 +35,8 @@ target_sources(
         chip_helpers/sysmem_manager.cpp
         chip_helpers/sysmem_buffer.cpp
         chip_helpers/tlb_manager.cpp
-        tt_device/tlb_window.cpp
-        tt_device/tlb_handle.cpp
+        pcie/tlb_window.cpp
+        pcie/tlb_handle.cpp
         cluster.cpp
         coordinates/coordinate_manager.cpp
         cpuset_lib.cpp
@@ -45,7 +45,7 @@ target_sources(
         hugepage.cpp
         logging/config.cpp
         pcie/pci_device.cpp
-        tlb.cpp
+        types/tlb.cpp
         cluster_descriptor.cpp
         tt_device/blackhole_tt_device.cpp
         tt_device/tt_device.cpp
@@ -56,7 +56,7 @@ target_sources(
         firmware/wormhole_legacy_firmware_info_provider.cpp
         firmware/wormhole_18_4_firmware_info_provider.cpp
         firmware/firmware_utils.cpp
-        tt_silicon_driver_common.cpp
+        types/tensix_soft_reset_options.cpp
         soc_descriptor.cpp
         coordinates/wormhole_coordinate_manager.cpp
         coordinates/blackhole_coordinate_manager.cpp
@@ -69,13 +69,13 @@ target_sources(
         arc/blackhole_arc_messenger.cpp
         arc/blackhole_arc_message_queue.cpp
         warm_reset.cpp
-        xy_pair.cpp
+        types/xy_pair.cpp
         utils/lock_manager.cpp
         utils/robust_mutex.cpp
         topology/topology_discovery.cpp
         topology/topology_discovery_blackhole.cpp
         topology/topology_discovery_wormhole.cpp
-        remote_communication.cpp
+        tt_device/remote_communication.cpp
         jtag/jtag_device.cpp
         jtag/jtag.cpp
 )
@@ -114,12 +114,11 @@ if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.23)
                 api/umd/device/coordinates/coordinate_manager.h
                 api/umd/device/device_api_metal.h
                 api/umd/device/driver_atomics.h
-                api/umd/device/hugepage.h
                 api/umd/device/logging/config.h
                 api/umd/device/utils/lock_manager.h
-                api/umd/device/pci_device.hpp
+                api/umd/device/pcie/pci_device.hpp
                 api/umd/device/warm_reset.h
-                api/umd/device/semver.hpp
+                api/umd/device/utils/semver.hpp
                 api/umd/device/utils/robust_mutex.h
                 api/umd/device/cluster_descriptor.h
                 api/umd/device/types/core_coordinates.h
@@ -133,12 +132,12 @@ if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.23)
                 api/umd/device/firmware/wormhole_18_4_firmware_info_provider.h
                 api/umd/device/firmware/firmware_utils.h
                 api/umd/device/tt_io.hpp
-                api/umd/device/tt_silicon_driver_common.hpp
+                api/umd/device/types/tensix_soft_reset_options.hpp
                 api/umd/device/simulation/simulation_device.h
                 api/umd/device/simulation/simulation_host.hpp
                 api/umd/device/soc_descriptor.h
                 api/umd/device/tt_xy_pair.h
-                api/umd/device/umd_utils.h
+                api/umd/device/utils/common.h
                 api/umd/device/types/arch.h
                 api/umd/device/types/blackhole_arc.h
                 api/umd/device/types/cluster_descriptor_types.h

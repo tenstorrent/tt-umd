@@ -10,12 +10,12 @@
 #include "api/umd/device/topology/topology_discovery.h"
 #include "api/umd/device/topology/topology_discovery_blackhole.h"
 #include "api/umd/device/topology/topology_discovery_wormhole.h"
+#include "umd/device/arch/wormhole_implementation.h"
 #include "umd/device/chip/local_chip.h"
 #include "umd/device/remote_communication.h"
 #include "umd/device/tt_cluster_descriptor.h"
 #include "umd/device/tt_device/remote_wormhole_tt_device.h"
 #include "umd/device/types/cluster_types.h"
-#include "umd/device/wormhole_implementation.h"
 
 extern bool umd_use_noc1;
 

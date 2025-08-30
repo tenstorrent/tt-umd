@@ -21,7 +21,8 @@
 #include "tests/test_utils/device_test_utils.hpp"
 #include "tests/test_utils/generate_cluster_desc.hpp"
 #include "tests/test_utils/test_api_common.h"
-#include "umd/device/blackhole_implementation.h"
+#include "umd/device/arch/blackhole_implementation.h"
+#include "umd/device/arch/wormhole_implementation.h"
 #include "umd/device/chip/local_chip.h"
 #include "umd/device/chip/mock_chip.h"
 #include "umd/device/cluster.h"
@@ -31,7 +32,6 @@
 #include "umd/device/types/arch.h"
 #include "umd/device/types/cluster_descriptor_types.h"
 #include "umd/device/warm_reset.h"
-#include "umd/device/wormhole_implementation.h"
 
 // TODO: obviously we need some other way to set this up
 #include "noc/noc_parameters.h"

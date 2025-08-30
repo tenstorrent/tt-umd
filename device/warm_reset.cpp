@@ -11,9 +11,9 @@
 #include <thread>
 #include <tt-logger/tt-logger.hpp>
 
-#include "api/umd/device/blackhole_implementation.h"
+#include "api/umd/device/arch/blackhole_implementation.h"
+#include "api/umd/device/arch/wormhole_implementation.h"
 #include "api/umd/device/pci_device.hpp"
-#include "api/umd/device/wormhole_implementation.h"
 #include "umd/device/tt_device/tt_device.h"
 #include "umd/device/types/arch.h"
 

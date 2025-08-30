@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-#include "umd/device/wormhole_implementation.h"
+#include "umd/device/arch/wormhole_implementation.h"
 
 #include <stdexcept>
 

@@ -5,8 +5,8 @@
  */
 #include "umd/device/arc/wormhole_arc_telemetry_reader.h"
 
+#include "umd/device/arch/wormhole_implementation.h"
 #include "umd/device/types/telemetry.h"
-#include "umd/device/wormhole_implementation.h"
 
 extern bool umd_use_noc1;
 

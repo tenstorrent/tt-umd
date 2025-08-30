@@ -14,9 +14,9 @@
 #include <unordered_set>
 
 #include "fmt/core.h"
-#include "umd/device/blackhole_implementation.h"
+#include "umd/device/arch/blackhole_implementation.h"
+#include "umd/device/arch/wormhole_implementation.h"
 #include "umd/device/tt_soc_descriptor.h"
-#include "umd/device/wormhole_implementation.h"
 #include "utils.hpp"
 #include "yaml-cpp/yaml.h"
 

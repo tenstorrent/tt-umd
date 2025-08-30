@@ -6,11 +6,12 @@
 #include "device/api/umd/device/warm_reset.h"
 #include "gtest/gtest.h"
 #include "tests/test_utils/device_test_utils.hpp"
-#include "umd/device/blackhole_implementation.h"
+#include "umd/device/arch/blackhole_implementation.h"
+#include "umd/device/arch/wormhole_implementation.h"
 #include "umd/device/cluster.h"
 #include "umd/device/tt_device/remote_wormhole_tt_device.h"
 #include "umd/device/tt_device/tt_device.h"
-#include "umd/device/wormhole_implementation.h"
+
 using namespace tt::umd;
 
 TEST(ApiTTDeviceTest, BasicTTDeviceIO) {

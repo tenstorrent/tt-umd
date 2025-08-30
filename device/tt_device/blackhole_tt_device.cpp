@@ -7,8 +7,8 @@
 
 #include <tt-logger/tt-logger.hpp>
 
-#include "umd/device/blackhole_implementation.h"
-#include "umd/device/coordinate_manager.h"
+#include "umd/device/arch/blackhole_implementation.h"
+#include "umd/device/coordinates/coordinate_manager.h"
 #include "umd/device/types/blackhole_arc.h"
 #include "umd/device/types/blackhole_eth.h"
 #include "umd/device/types/cluster_descriptor_types.h"

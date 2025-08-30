@@ -3,14 +3,14 @@
  *
  * SPDX-License-Identifier: Apache-2.0
  */
-#include "umd/device/coordinate_manager.h"
+#include "umd/device/coordinates/coordinate_manager.h"
 
 #include <stdexcept>
 #include <tt-logger/tt-logger.hpp>
 
-#include "api/umd/device/coordinate_manager.h"
-#include "umd/device/blackhole_coordinate_manager.h"
-#include "umd/device/wormhole_coordinate_manager.h"
+#include "api/umd/device/coordinates/coordinate_manager.h"
+#include "umd/device/coordinates/blackhole_coordinate_manager.h"
+#include "umd/device/coordinates/wormhole_coordinate_manager.h"
 
 namespace tt::umd {
 

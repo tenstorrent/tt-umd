@@ -7,7 +7,7 @@
 
 #include <fmt/core.h>
 
-#include "umd/device/blackhole_implementation.h"
+#include "umd/device/arch/blackhole_implementation.h"
 #include "umd/device/types/telemetry.h"
 
 extern bool umd_use_noc1;

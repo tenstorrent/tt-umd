@@ -21,9 +21,13 @@ else()
     FIND_AND_SET_CLANG17()
 endif()
 
+# Read version from VERSION file
+file(READ "${CMAKE_CURRENT_SOURCE_DIR}/VERSION" TT_UMD_VERSION)
+string(STRIP "${TT_UMD_VERSION}" TT_UMD_VERSION)
+
 project(
     umd
-    VERSION 0.1.0
+    VERSION ${TT_UMD_VERSION}
     DESCRIPTION "Tenstorrent User Mode Driver"
     HOMEPAGE_URL "https://github.com/tenstorrent/tt-umd"
     LANGUAGES

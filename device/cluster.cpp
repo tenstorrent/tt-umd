@@ -961,7 +961,7 @@ void Cluster::broadcast_tensix_risc_reset_to_cluster(const TensixSoftResetOption
     wait_for_non_mmio_flush();
 }
 
-void Cluster::set_power_state(tt_DevicePowerState device_state) {
+void Cluster::set_power_state(DevicePowerState device_state) {
     for (auto& [_, chip] : chips_) {
         chip->set_power_state(device_state);
     }
@@ -983,7 +983,7 @@ void Cluster::deassert_resets_and_set_power_state() {
     }
 
     // Set power state to busy
-    set_power_state(tt_DevicePowerState::BUSY);
+    set_power_state(DevicePowerState::BUSY);
 }
 
 void Cluster::verify_eth_fw() {
@@ -1031,7 +1031,7 @@ void Cluster::verify_sw_fw_versions(int device_id, std::uint32_t sw_version, std
         get_soc_descriptor(device_id).noc_translation_enabled;
 }
 
-void Cluster::start_device(const tt_device_params& device_params) {
+void Cluster::start_device(const device_params& device_params) {
     if (this->chip_type_ == tt::umd::ChipType::MOCK) {
         // Mock cluster doesn't need to start device
         return;

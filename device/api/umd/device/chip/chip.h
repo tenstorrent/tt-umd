@@ -72,7 +72,7 @@ public:
     virtual void set_tensix_risc_reset(CoreCoord core, const TensixSoftResetOptions& selected_riscs);
     virtual void unset_tensix_risc_reset(CoreCoord core, const TensixSoftResetOptions& selected_riscs);
 
-    virtual void set_power_state(tt_DevicePowerState state) = 0;
+    virtual void set_power_state(DevicePowerState state) = 0;
     virtual int get_clock() = 0;
     virtual int get_numa_node() = 0;
 
@@ -93,8 +93,8 @@ public:
 
     // TODO: This should be private, once enough stuff is moved inside chip.
     // Probably also moved to LocalChip.
-    tt_device_dram_address_params dram_address_params;
-    tt_device_l1_address_params l1_address_params;
+    device_dram_address_params dram_address_params;
+    device_l1_address_params l1_address_params;
 
     // TODO: To be removed once we properly refactor usage of NOC1 coords.
     tt_xy_pair translate_chip_coord_to_translated(const CoreCoord core) const;
@@ -108,9 +108,9 @@ protected:
 
     void set_default_params(ARCH arch);
 
-    uint32_t get_power_state_arc_msg(tt_DevicePowerState state);
+    uint32_t get_power_state_arc_msg(DevicePowerState state);
 
-    void wait_for_aiclk_value(TTDevice* tt_device, tt_DevicePowerState power_state, const uint32_t timeout_ms = 5000);
+    void wait_for_aiclk_value(TTDevice* tt_device, DevicePowerState power_state, const uint32_t timeout_ms = 5000);
 
     ChipInfo chip_info_;
 

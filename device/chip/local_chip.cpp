@@ -109,18 +109,18 @@ void LocalChip::initialize_default_chip_mutexes() {
 void LocalChip::initialize_membars() {
     set_membar_flag(
         soc_descriptor_.get_cores(CoreType::TENSIX, CoordSystem::VIRTUAL),
-        tt_MemBarFlag::RESET,
+        MemBarFlag::RESET,
         l1_address_params.tensix_l1_barrier_base);
     set_membar_flag(
         soc_descriptor_.get_cores(CoreType::ETH, CoordSystem::VIRTUAL),
-        tt_MemBarFlag::RESET,
+        MemBarFlag::RESET,
         l1_address_params.eth_l1_barrier_base);
 
     std::vector<CoreCoord> dram_cores_vector = {};
     for (std::uint32_t dram_idx = 0; dram_idx < soc_descriptor_.get_num_dram_channels(); dram_idx++) {
         dram_cores_vector.push_back(soc_descriptor_.get_dram_core_for_channel(dram_idx, 0, CoordSystem::VIRTUAL));
     }
-    set_membar_flag(dram_cores_vector, tt_MemBarFlag::RESET, dram_address_params.DRAM_BARRIER_BASE);
+    set_membar_flag(dram_cores_vector, MemBarFlag::RESET, dram_address_params.DRAM_BARRIER_BASE);
 }
 
 TTDevice* LocalChip::get_tt_device() { return tt_device_.get(); }
@@ -150,7 +150,7 @@ void LocalChip::close_device() {
     // Investigating https://github.com/tenstorrent/tt-metal/issues/25377 found that closing device that was already put
     // in LONG_IDLE by tt-smi reset would hang
     if ((uint32_t)get_clock() != get_tt_device()->get_min_clock_freq()) {
-        set_power_state(tt_DevicePowerState::LONG_IDLE);
+        set_power_state(DevicePowerState::LONG_IDLE);
         send_tensix_risc_reset(TENSIX_ASSERT_SOFT_RESET);
         // Unmapping might be needed even in the case chip was reset due to kmd mappings.
         sysmem_manager_->unpin_or_unmap_sysmem();
@@ -475,8 +475,8 @@ void LocalChip::set_membar_flag(
 void LocalChip::insert_host_to_device_barrier(const std::vector<CoreCoord>& cores, const uint32_t barrier_addr) {
     // Ensure that this memory barrier is atomic across processes/threads
     auto lock = lock_manager_.acquire_mutex(MutexType::MEM_BARRIER, tt_device_->get_pci_device()->get_device_num());
-    set_membar_flag(cores, tt_MemBarFlag::SET, barrier_addr);
-    set_membar_flag(cores, tt_MemBarFlag::RESET, barrier_addr);
+    set_membar_flag(cores, MemBarFlag::SET, barrier_addr);
+    set_membar_flag(cores, MemBarFlag::RESET, barrier_addr);
 }
 
 void LocalChip::l1_membar(const std::unordered_set<CoreCoord>& cores) {
@@ -545,13 +545,13 @@ void LocalChip::deassert_risc_resets() {
     }
 }
 
-void LocalChip::set_power_state(tt_DevicePowerState state) {
+void LocalChip::set_power_state(DevicePowerState state) {
     int exit_code = 0;
     if (soc_descriptor_.arch == tt::ARCH::WORMHOLE_B0) {
         uint32_t msg = get_power_state_arc_msg(state);
         exit_code = arc_msg(wormhole::ARC_MSG_COMMON_PREFIX | msg, true, 0, 0);
     } else if (soc_descriptor_.arch == tt::ARCH::BLACKHOLE) {
-        if (state == tt_DevicePowerState::BUSY) {
+        if (state == DevicePowerState::BUSY) {
             exit_code =
                 tt_device_->get_arc_messenger()->send_message((uint32_t)blackhole::ArcMessageType::AICLK_GO_BUSY);
         } else {

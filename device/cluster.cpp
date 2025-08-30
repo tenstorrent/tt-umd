@@ -37,7 +37,7 @@
 #include <vector>
 
 #include "api/umd/device/cluster.h"
-#include "api/umd/device/tt_core_coordinates.h"
+#include "api/umd/device/types/core_coordinates.h"
 #include "assert.hpp"
 #include "umd/device/arch/architecture_implementation.h"
 #include "umd/device/arch/blackhole_implementation.h"
@@ -54,9 +54,9 @@
 #include "umd/device/topology/topology_discovery_blackhole.h"
 #include "umd/device/topology/topology_discovery_wormhole.h"
 #include "umd/device/topology_utils.h"
-#include "umd/device/tt_core_coordinates.h"
 #include "umd/device/types/arch.h"
 #include "umd/device/types/blackhole_eth.h"
+#include "umd/device/types/core_coordinates.h"
 #include "umd/device/types/tlb.h"
 #include "umd/device/umd_utils.h"
 #include "yaml-cpp/yaml.h"

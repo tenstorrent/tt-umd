@@ -9,8 +9,8 @@
 
 #include "umd/device/pci_device.hpp"
 #include "umd/device/soc_descriptor.h"
-#include "umd/device/tt_core_coordinates.h"
 #include "umd/device/tt_device/tt_device.h"
+#include "umd/device/types/core_coordinates.h"
 
 using namespace tt::umd;
 

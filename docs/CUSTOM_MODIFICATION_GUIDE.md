@@ -20,9 +20,9 @@ It is important to note that this file is not utilized by UMD, and therefore, fu
 
 At the moment, most of the API that needs to be reimplemented for custom SoC is located in the [cluster.h](../device/api/umd/device/cluster.h) file and in the [tt_cluster_descriptor.h](../device/api/umd/device/tt_cluster_descriptor.h). The files have header comments on all the functions which are the current contract with higher software stacks like tt-metal.
 
-The current implementation maintains a tt_SocDescriptor for each chip. This functionality must also be implemented within the class derived from a custom Chip, as there is an API available to retrieve the descriptors.
+The current implementation maintains a SocDescriptor for each chip. This functionality must also be implemented within the class derived from a custom Chip, as there is an API available to retrieve the descriptors.
 
-For an example of how to create your tt_SocDescriptor inside your constructor, you can find an example in [soc_descriptor api tests](../tests/api/test_soc_descriptor.cpp). When creating SocDescriptor, if the device doesn't support harvesting, 0 can be passed as harvesting mask.
+For an example of how to create your SocDescriptor inside your constructor, you can find an example in [soc_descriptor api tests](../tests/api/test_soc_descriptor.cpp). When creating SocDescriptor, if the device doesn't support harvesting, 0 can be passed as harvesting mask.
 
 ### Changes needed in tt-metal
 

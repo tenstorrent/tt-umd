@@ -12,9 +12,9 @@
 
 #include "umd/device/cluster.h"
 #include "umd/device/pci_device.hpp"
+#include "umd/device/soc_descriptor.h"
 #include "umd/device/tt_device/remote_wormhole_tt_device.h"
 #include "umd/device/tt_device/tt_device.h"
-#include "umd/device/tt_soc_descriptor.h"
 #include "umd/device/types/communication.h"
 
 namespace nb = nanobind;

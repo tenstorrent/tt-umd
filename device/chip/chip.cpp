@@ -20,16 +20,14 @@ extern bool umd_use_noc1;
 
 namespace tt::umd {
 
-Chip::Chip(tt_SocDescriptor soc_descriptor) : soc_descriptor_(soc_descriptor) {
-    set_default_params(soc_descriptor.arch);
-}
+Chip::Chip(SocDescriptor soc_descriptor) : soc_descriptor_(soc_descriptor) { set_default_params(soc_descriptor.arch); }
 
-Chip::Chip(const ChipInfo chip_info, tt_SocDescriptor soc_descriptor) :
+Chip::Chip(const ChipInfo chip_info, SocDescriptor soc_descriptor) :
     chip_info_(chip_info), soc_descriptor_(soc_descriptor) {
     set_default_params(soc_descriptor.arch);
 }
 
-tt_SocDescriptor& Chip::get_soc_descriptor() { return soc_descriptor_; }
+SocDescriptor& Chip::get_soc_descriptor() { return soc_descriptor_; }
 
 // TODO: This will be moved to LocalChip.
 void Chip::set_default_params(ARCH arch) {

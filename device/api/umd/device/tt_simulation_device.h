@@ -23,13 +23,13 @@ public:
 
     tt::ARCH get_arch_name() const { return soc_descriptor.arch; }
 
-    const tt_SocDescriptor& get_soc_descriptor() const { return soc_descriptor; }
+    const SocDescriptor& get_soc_descriptor() const { return soc_descriptor; }
 
     std::filesystem::path get_simulator_path() const { return simulator_directory / "run.sh"; }
 
 private:
     std::filesystem::path simulator_directory;
-    tt_SocDescriptor soc_descriptor;
+    SocDescriptor soc_descriptor;
 };
 
 class tt_SimulationDevice : public Chip {
@@ -99,7 +99,7 @@ private:
     std::set<chip_id_t> target_remote_chips = {};
     tt::ARCH arch_name;
     std::shared_ptr<tt_ClusterDescriptor> cluster_descriptor;
-    std::unordered_map<chip_id_t, tt_SocDescriptor> soc_descriptor_per_chip = {};
+    std::unordered_map<chip_id_t, SocDescriptor> soc_descriptor_per_chip = {};
 
     // To enable DPRINT usage in the Simulator,
     // the simulation device code should acquire a lock

@@ -29,7 +29,7 @@ int main(int argc, char* argv[]) {
                   << core.y << ", " << ::to_str(core.core_type) << ", " << ::to_str(core.coord_system) << ") ";
     };
 
-    auto print_core_all_systems = [&](const tt_SocDescriptor& soc_desc, const CoreCoord& core) {
+    auto print_core_all_systems = [&](const SocDescriptor& soc_desc, const CoreCoord& core) {
         for (CoordSystem coord_system :
              {CoordSystem::NOC0,
               CoordSystem::TRANSLATED,
@@ -50,7 +50,7 @@ int main(int argc, char* argv[]) {
     auto print_cores = [&](chip_id_t chip, CoreType core_type) {
         std::string core_type_str = to_str(core_type);
         std::cout << "Printing cores of type " << core_type_str << std::endl;
-        const tt_SocDescriptor& soc_desc = cluster->get_chip(chip)->get_soc_descriptor();
+        const SocDescriptor& soc_desc = cluster->get_chip(chip)->get_soc_descriptor();
         const std::vector<CoreCoord>& cores = soc_desc.get_cores(core_type);
         for (const CoreCoord& core : cores) {
             print_core_all_systems(soc_desc, core);

@@ -48,13 +48,13 @@
 #include "umd/device/chip_helpers/tlb_manager.h"
 #include "umd/device/driver_atomics.h"
 #include "umd/device/hugepage.h"
+#include "umd/device/soc_descriptor.h"
 #include "umd/device/topology/topology_discovery_blackhole.h"
 #include "umd/device/topology/topology_discovery_wormhole.h"
 #include "umd/device/topology_utils.h"
 #include "umd/device/tt_cluster_descriptor.h"
 #include "umd/device/tt_core_coordinates.h"
 #include "umd/device/tt_simulation_device.h"
-#include "umd/device/tt_soc_descriptor.h"
 #include "umd/device/types/arch.h"
 #include "umd/device/types/blackhole_eth.h"
 #include "umd/device/types/tlb.h"
@@ -96,7 +96,7 @@ struct remote_update_ptr_t {
     uint32_t pad[3];
 };
 
-const tt_SocDescriptor& Cluster::get_soc_descriptor(chip_id_t chip_id) const {
+const SocDescriptor& Cluster::get_soc_descriptor(chip_id_t chip_id) const {
     return get_chip(chip_id)->get_soc_descriptor();
 }
 
@@ -235,7 +235,7 @@ std::unique_ptr<Chip> Cluster::construct_chip_from_cluster(
     chip_id_t chip_id,
     const ChipType& chip_type,
     tt_ClusterDescriptor* cluster_desc,
-    tt_SocDescriptor& soc_desc,
+    SocDescriptor& soc_desc,
     int num_host_mem_channels,
     const std::filesystem::path& simulator_directory) {
     if (chip_type == ChipType::MOCK) {
@@ -274,7 +274,7 @@ std::unique_ptr<Chip> Cluster::construct_chip_from_cluster(
     }
 }
 
-tt_SocDescriptor Cluster::construct_soc_descriptor(
+SocDescriptor Cluster::construct_soc_descriptor(
     const std::string& soc_desc_path,
     chip_id_t chip_id,
     ChipType chip_type,
@@ -303,10 +303,10 @@ tt_SocDescriptor Cluster::construct_soc_descriptor(
     if (soc_desc_path.empty()) {
         tt::ARCH arch = chip_in_cluster_descriptor ? cluster_desc->get_arch(chip_id) : tt::ARCH::WORMHOLE_B0;
 
-        return tt_SocDescriptor(arch, chip_info);
+        return SocDescriptor(arch, chip_info);
 
     } else {
-        tt_SocDescriptor soc_desc = tt_SocDescriptor(soc_desc_path, chip_info);
+        SocDescriptor soc_desc = SocDescriptor(soc_desc_path, chip_info);
 
         // In this case, check that the passed soc descriptor architecture doesn't conflate with the one in the cluster
         // descriptor.
@@ -440,7 +440,7 @@ Cluster::Cluster(ClusterOptions options) {
                                                    options.simulated_harvesting_masks_per_chip.end())
                                                       ? options.simulated_harvesting_masks_per_chip.at(chip_id)
                                                       : HarvestingMasks{});
-        tt_SocDescriptor soc_desc = construct_soc_descriptor(
+        SocDescriptor soc_desc = construct_soc_descriptor(
             options.sdesc_path,
             chip_id,
             options.chip_type,

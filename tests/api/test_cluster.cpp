@@ -30,8 +30,8 @@
 #include "umd/device/tt_silicon_driver_common.hpp"
 #include "umd/device/types/arch.h"
 #include "umd/device/types/cluster_descriptor_types.h"
-#include "umd/device/warm_reset.h"
 #include "umd/device/types/core_coordinates.h"
+#include "umd/device/warm_reset.h"
 
 // TODO: obviously we need some other way to set this up
 #include "noc/noc_parameters.h"

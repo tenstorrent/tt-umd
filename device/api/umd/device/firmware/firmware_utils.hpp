@@ -6,7 +6,7 @@
 
 #pragma once
 
-#include "umd/device/tt_device/tt_device.h"
+#include "umd/device/tt_device/tt_device.hpp"
 #include "umd/device/utils/semver.hpp"
 
 namespace tt::umd {

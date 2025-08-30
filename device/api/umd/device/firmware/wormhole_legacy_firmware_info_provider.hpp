@@ -8,7 +8,7 @@
 
 #include <memory>
 
-#include "umd/device/firmware/wormhole_18_4_firmware_info_provider.h"
+#include "umd/device/firmware/wormhole_18_4_firmware_info_provider.hpp"
 
 namespace tt::umd {
 

@@ -3,11 +3,11 @@
  *
  * SPDX-License-Identifier: Apache-2.0
  */
-#include "umd/device/firmware/firmware_utils.h"
+#include "umd/device/firmware/firmware_utils.hpp"
 
-#include "umd/device/arc/smbus_arc_telemetry_reader.h"
-#include "umd/device/types/telemetry.h"
-#include "umd/device/types/wormhole_telemetry.h"
+#include "umd/device/arc/smbus_arc_telemetry_reader.hpp"
+#include "umd/device/types/telemetry.hpp"
+#include "umd/device/types/wormhole_telemetry.hpp"
 
 namespace tt::umd {
 semver_t fw_version_from_telemetry(const uint32_t telemetry_data) {

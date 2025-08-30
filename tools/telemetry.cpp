@@ -1,7 +1,7 @@
 // SPDX-FileCopyrightText: (c) 2025 Tenstorrent Inc.
 //
 // SPDX-License-Identifier: Apache-2.0
-#include "umd/device/types/telemetry.h"
+#include "umd/device/types/telemetry.hpp"
 
 #include <chrono>
 #include <cxxopts.hpp>
@@ -18,7 +18,6 @@
 #include "common.hpp"
 #include "fmt/core.h"
 #include "umd/device/arc/arc_telemetry_reader.hpp"
-#include "umd/device/types/telemetry.hpp"
 #include "umd/device/types/wormhole_telemetry.hpp"
 
 using namespace tt::umd;
@@ -69,7 +68,7 @@ int main(int argc, char* argv[]) {
         cxxopts::value<std::vector<std::string>>())(
         "t,tag",
         "Telemetry tag to read. If set to -1, will run default telemetry mode which works only for WH and reads aiclk, "
-        "power, temperature and vcore. See device/api/umd/device/types/telemetry.h"
+        "power, temperature and vcore. See device/api/umd/device/types/telemetry.hpp"
         "for all available tags.",
         cxxopts::value<int>()->default_value("-1"))(
         "f,freq", "Frequency of polling in microseconds.", cxxopts::value<int>()->default_value("1000"))(

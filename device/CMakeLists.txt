@@ -127,10 +127,10 @@ if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.23)
                 api/umd/device/tt_device/wormhole_tt_device.hpp
                 api/umd/device/tt_device/remote_wormhole_tt_device.hpp
                 api/umd/device/tt_device/remote_blackhole_tt_device.hpp
-                api/umd/device/firmware/firmware_info_provider.h
-                api/umd/device/firmware/wormhole_legacy_firmware_info_provider.h
-                api/umd/device/firmware/wormhole_18_4_firmware_info_provider.h
-                api/umd/device/firmware/firmware_utils.h
+                api/umd/device/firmware/firmware_info_provider.hpp
+                api/umd/device/firmware/wormhole_legacy_firmware_info_provider.hpp
+                api/umd/device/firmware/wormhole_18_4_firmware_info_provider.hpp
+                api/umd/device/firmware/firmware_utils.hpp
                 api/umd/device/tt_io.hpp
                 api/umd/device/types/tensix_soft_reset_options.hpp
                 api/umd/device/simulation/simulation_device.hpp

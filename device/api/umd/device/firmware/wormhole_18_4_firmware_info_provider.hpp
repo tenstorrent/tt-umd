@@ -8,7 +8,7 @@
 
 #include <memory>
 
-#include "umd/device/firmware/firmware_info_provider.h"
+#include "umd/device/firmware/firmware_info_provider.hpp"
 
 namespace tt::umd {
 

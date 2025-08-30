@@ -1,14 +1,14 @@
 // SPDX-FileCopyrightText: (c) 2025 Tenstorrent Inc.
 //
 // SPDX-License-Identifier: Apache-2.0
-#include "umd/device/firmware/firmware_info_provider.h"
+#include "umd/device/firmware/firmware_info_provider.hpp"
 
-#include "umd/device/firmware/firmware_utils.h"
-#include "umd/device/firmware/wormhole_18_4_firmware_info_provider.h"
-#include "umd/device/firmware/wormhole_legacy_firmware_info_provider.h"
-#include "umd/device/tt_device/tt_device.h"
-#include "umd/device/types/cluster_descriptor_types.h"
-#include "umd/device/types/telemetry.h"
+#include "umd/device/firmware/firmware_utils.hpp"
+#include "umd/device/firmware/wormhole_18_4_firmware_info_provider.hpp"
+#include "umd/device/firmware/wormhole_legacy_firmware_info_provider.hpp"
+#include "umd/device/tt_device/tt_device.hpp"
+#include "umd/device/types/cluster_descriptor_types.hpp"
+#include "umd/device/types/telemetry.hpp"
 
 namespace tt::umd {
 

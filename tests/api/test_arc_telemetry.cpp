@@ -2,9 +2,8 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 #include "gtest/gtest.h"
-#include "umd/device/arc/arc_telemetry_reader.h"
-#include "umd/device/arc_telemetry_reader.h"
-#include "umd/device/types/telemetry.h"
+#include "umd/device/arc/arc_telemetry_reader.hpp"
+#include "umd/device/types/telemetry.hpp"
 
 using namespace tt::umd;
 

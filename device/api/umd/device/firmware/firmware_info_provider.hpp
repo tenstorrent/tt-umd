@@ -8,8 +8,8 @@
 
 #include <memory>
 
-#include "umd/device/types/arch.h"
-#include "umd/device/types/cluster_descriptor_types.h"
+#include "umd/device/types/arch.hpp"
+#include "umd/device/types/cluster_descriptor_types.hpp"
 
 namespace tt::umd {
 class semver_t;

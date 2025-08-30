@@ -9,7 +9,7 @@
 #include <unordered_set>
 
 #include "umd/device/tt_device/tt_device.hpp"
-#include "umd/device/tt_xy_pair.hpp"
+#include "umd/device/tt_xy_pair.h"
 #include "umd/device/types/telemetry.hpp"
 
 namespace tt::umd {

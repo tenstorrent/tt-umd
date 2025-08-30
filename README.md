@@ -34,7 +34,7 @@ To determine whether your system requires hugepage configuration, run the provid
 
 ### Wormhole and Blackhole
 If your system IOMMU is enabled, no hugepage setup is required.
-If you don't have IOMMU enabled, than hugepages might be required for some of the driver functionality.
+If you don't have IOMMU enabled, then hugepages might be required for some of the driver functionality.
 [1G hugepages](https://www.kernel.org/doc/Documentation/admin-guide/mm/hugetlbpage.rst) are required for shared device/host memory.  Techniques for setup:
   * Recommended: the [tt-system-tools](https://github.com/tenstorrent/tt-system-tools) repository contains a .deb package which will configure your system
       * `sudo dpkg -i tenstorrent-tools_1.1-5_all.deb`
@@ -42,7 +42,6 @@ If you don't have IOMMU enabled, than hugepages might be required for some of th
   * For experts:
     * Put system IOMMU in passthrough mode or disable it
     * Allocate 1 or more 1G hugepages
-    * Mount the hugetlbfs at /dev/hugepages-1G (e.g. `mount -t hugetlbfs hugetlbfs /dev/hugepages-1G -o mode=777,pagesize=1024M`)
 
 ## Install and use UMD
 

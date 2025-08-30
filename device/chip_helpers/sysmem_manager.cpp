@@ -6,8 +6,9 @@
 
 #include "umd/device/chip_helpers/sysmem_manager.h"
 
-#include <sys/mman.h>  // for mmap, munmap
-#include <sys/stat.h>  // for fstat
+#include <linux/mman.h>  // for MAP_HUGE_1GB
+#include <sys/mman.h>    // for mmap, munmap
+#include <sys/stat.h>    // for fstat
 
 #include <filesystem>
 #include <fstream>
@@ -142,43 +143,19 @@ bool SysmemManager::init_hugepages(uint32_t num_host_mem_channels) {
     const size_t hugepage_size = HUGEPAGE_REGION_SIZE;
     auto physical_device_id = tt_device_->get_pci_device()->get_device_num();
 
-    std::string hugepage_dir = find_hugepage_dir(hugepage_size);
-    if (hugepage_dir.empty()) {
-        log_warning(
-            LogSiliconDriver,
-            "SysmemManager::init_hugepage: no huge page mount found for hugepage_size: {}.",
-            hugepage_size);
-        return false;
-    }
-
     bool success = true;
 
     hugepage_mapping_per_channel.resize(num_host_mem_channels);
 
     // Support for more than 1GB host memory accessible per device, via channels.
     for (int ch = 0; ch < num_host_mem_channels; ch++) {
-        int hugepage_fd = open_hugepage_file(hugepage_dir, physical_device_id, ch);
-        if (hugepage_fd == -1) {
-            // Probably a permissions problem.
-            log_warning(
-                LogSiliconDriver,
-                "SysmemManager::init_hugepage: physical_device_id: {} ch: {} creating hugepage mapping file failed.",
-                physical_device_id,
-                ch);
-            success = false;
-            continue;
-        }
-
-        // Verify opened file size.
-        struct stat hugepage_st;
-        if (fstat(hugepage_fd, &hugepage_st) == -1) {
-            log_warning(LogSiliconDriver, "Error reading hugepage file size after opening.");
-        }
-
-        std::byte *mapping = static_cast<std::byte *>(
-            mmap(nullptr, hugepage_size, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_POPULATE, hugepage_fd, 0));
-
-        close(hugepage_fd);
+        std::byte *mapping = static_cast<std::byte *>(mmap(
+            nullptr,
+            hugepage_size,
+            PROT_READ | PROT_WRITE,
+            MAP_PRIVATE | MAP_ANONYMOUS | MAP_HUGETLB | MAP_HUGE_1GB,
+            -1,
+            0));
 
         if (mapping == MAP_FAILED) {
             log_warning(
@@ -188,12 +165,7 @@ bool SysmemManager::init_hugepages(uint32_t num_host_mem_channels) {
                 ch,
                 num_host_mem_channels,
                 strerror(errno));
-            if (hugepage_st.st_size == 0) {
-                log_warning(
-                    LogSiliconDriver,
-                    "Opened hugepage file has zero size, mapping might've failed due to that. Verify that enough "
-                    "hugepages are provided.");
-            }
+
             print_file_contents("/proc/cmdline");
             print_file_contents(
                 "/sys/kernel/mm/hugepages/hugepages-1048576kB/nr_hugepages");  // Hardcoded for 1GB hugepage.

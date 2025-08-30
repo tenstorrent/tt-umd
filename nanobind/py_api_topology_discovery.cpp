@@ -11,8 +11,8 @@
 #include <nanobind/stl/unordered_set.h>
 #include <nanobind/stl/vector.h>
 
+#include "umd/device/cluster_descriptor.h"
 #include "umd/device/topology/topology_discovery.h"
-#include "umd/device/tt_cluster_descriptor.h"
 
 namespace nb = nanobind;
 

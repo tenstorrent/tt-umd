@@ -16,8 +16,8 @@
 #include "tests/test_utils/generate_cluster_desc.hpp"
 #include "tests/test_utils/stimulus_generators.hpp"
 #include "umd/device/cluster.h"
+#include "umd/device/cluster_descriptor.h"
 #include "umd/device/soc_descriptor.h"
-#include "umd/device/tt_cluster_descriptor.h"
 #include "wormhole/eth_interface.h"
 #include "wormhole/host_mem_address_map.h"
 #include "wormhole/l1_address_map.h"
@@ -33,7 +33,7 @@ protected:
     static uint32_t scale_number_of_tests;
 
     static void SetUpTestSuite() {
-        std::unique_ptr<tt_ClusterDescriptor> cluster_desc = Cluster::create_cluster_descriptor();
+        std::unique_ptr<ClusterDescriptor> cluster_desc = Cluster::create_cluster_descriptor();
         detected_num_chips = cluster_desc->get_number_of_chips();
         if (detected_num_chips != EXPECTED_NUM_CHIPS) {
             skip_tests = true;

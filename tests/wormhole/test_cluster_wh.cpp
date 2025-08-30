@@ -9,7 +9,7 @@
 #include "tests/test_utils/generate_cluster_desc.hpp"
 #include "umd/device/arch/wormhole_implementation.h"
 #include "umd/device/cluster.h"
-#include "umd/device/tt_cluster_descriptor.h"
+#include "umd/device/cluster_descriptor.h"
 #include "wormhole/eth_l1_address_map.h"
 #include "wormhole/host_mem_address_map.h"
 #include "wormhole/l1_address_map.h"

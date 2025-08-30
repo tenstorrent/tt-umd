@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-#include "umd/device/tt_cluster_descriptor.h"
+#include "umd/device/cluster_descriptor.h"
 
 #include <fmt/format.h>
 #include <yaml-cpp/yaml.h>
@@ -20,7 +20,7 @@
 
 namespace tt::umd {
 
-bool tt_ClusterDescriptor::ethernet_core_has_active_ethernet_link(
+bool ClusterDescriptor::ethernet_core_has_active_ethernet_link(
     chip_id_t local_chip, ethernet_channel_t local_ethernet_channel) const {
     return (this->ethernet_connections.find(local_chip) != this->ethernet_connections.end() &&
             this->ethernet_connections.at(local_chip).find(local_ethernet_channel) !=
@@ -31,7 +31,7 @@ bool tt_ClusterDescriptor::ethernet_core_has_active_ethernet_link(
                 this->ethernet_connections_to_remote_devices.at(local_chip).end());
 }
 
-std::tuple<chip_id_t, ethernet_channel_t> tt_ClusterDescriptor::get_chip_and_channel_of_remote_ethernet_core(
+std::tuple<chip_id_t, ethernet_channel_t> ClusterDescriptor::get_chip_and_channel_of_remote_ethernet_core(
     chip_id_t local_chip, ethernet_channel_t local_ethernet_channel) const {
     std::vector<std::tuple<ethernet_channel_t, ethernet_channel_t>> directly_connected_channels = {};
     if (this->all_chips.find(local_chip) == this->all_chips.end() ||
@@ -52,7 +52,7 @@ std::tuple<chip_id_t, ethernet_channel_t> tt_ClusterDescriptor::get_chip_and_cha
 // NOTE: It might be worthwhile to precompute this for every pair of directly connected chips, depending on how
 // extensively router needs to use it
 std::vector<std::tuple<ethernet_channel_t, ethernet_channel_t>>
-tt_ClusterDescriptor::get_directly_connected_ethernet_channels_between_chips(
+ClusterDescriptor::get_directly_connected_ethernet_channels_between_chips(
     const chip_id_t &first, const chip_id_t &second) const {
     std::vector<std::tuple<ethernet_channel_t, ethernet_channel_t>> directly_connected_channels = {};
     if (this->all_chips.find(first) == this->all_chips.end() || this->all_chips.find(second) == this->all_chips.end()) {
@@ -68,11 +68,11 @@ tt_ClusterDescriptor::get_directly_connected_ethernet_channels_between_chips(
     return directly_connected_channels;
 }
 
-bool tt_ClusterDescriptor::is_chip_mmio_capable(const chip_id_t chip_id) const {
+bool ClusterDescriptor::is_chip_mmio_capable(const chip_id_t chip_id) const {
     return this->chips_with_mmio.find(chip_id) != this->chips_with_mmio.end();
 }
 
-bool tt_ClusterDescriptor::is_chip_remote(const chip_id_t chip_id) const { return !is_chip_mmio_capable(chip_id); }
+bool ClusterDescriptor::is_chip_remote(const chip_id_t chip_id) const { return !is_chip_mmio_capable(chip_id); }
 
 // given two coordinates, finds the number of hops between the two chips
 // it assumes that shelves are connected in x-dim and racks are connected in y-dim
@@ -81,7 +81,7 @@ bool tt_ClusterDescriptor::is_chip_remote(const chip_id_t chip_id) const { retur
 // then once a chip on the same shelf&rack is found,
 // the distance from this chip to either location_a or location_b is just x&y dim difference.
 // the function returns the total distance of travelled between shelves and racks, plust the x&y dim difference
-int tt_ClusterDescriptor::get_ethernet_link_coord_distance(
+int ClusterDescriptor::get_ethernet_link_coord_distance(
     const eth_coord_t &location_a, const eth_coord_t &location_b) const {
     log_trace(LogSiliconDriver, "get_ethernet_link_coord_distance from {} to {}", location_a, location_b);
 
@@ -280,7 +280,7 @@ int tt_ClusterDescriptor::get_ethernet_link_coord_distance(
 }
 
 // Returns the closest mmio chip to the given chip
-chip_id_t tt_ClusterDescriptor::get_closest_mmio_capable_chip(const chip_id_t chip) {
+chip_id_t ClusterDescriptor::get_closest_mmio_capable_chip(const chip_id_t chip) {
     log_debug(LogSiliconDriver, "get_closest_mmio_chip to chip{}", chip);
 
     if (this->is_chip_mmio_capable(chip)) {
@@ -320,9 +320,9 @@ chip_id_t tt_ClusterDescriptor::get_closest_mmio_capable_chip(const chip_id_t ch
     return closest_chip;
 }
 
-std::unique_ptr<tt_ClusterDescriptor> tt_ClusterDescriptor::create_from_yaml(
+std::unique_ptr<ClusterDescriptor> ClusterDescriptor::create_from_yaml(
     const std::string &cluster_descriptor_file_path) {
-    std::unique_ptr<tt_ClusterDescriptor> desc = std::unique_ptr<tt_ClusterDescriptor>(new tt_ClusterDescriptor());
+    std::unique_ptr<ClusterDescriptor> desc = std::unique_ptr<ClusterDescriptor>(new ClusterDescriptor());
 
     std::ifstream fdesc(cluster_descriptor_file_path);
     if (fdesc.fail()) {
@@ -396,9 +396,9 @@ std::unordered_set<chip_id_t> filter_chip_collection(
     return filtered_collection;
 }
 
-std::unique_ptr<tt_ClusterDescriptor> tt_ClusterDescriptor::create_constrained_cluster_descriptor(
-    const tt_ClusterDescriptor *full_cluster_desc, const std::unordered_set<chip_id_t> &target_chip_ids) {
-    std::unique_ptr<tt_ClusterDescriptor> desc = std::unique_ptr<tt_ClusterDescriptor>(new tt_ClusterDescriptor());
+std::unique_ptr<ClusterDescriptor> ClusterDescriptor::create_constrained_cluster_descriptor(
+    const ClusterDescriptor *full_cluster_desc, const std::unordered_set<chip_id_t> &target_chip_ids) {
+    std::unique_ptr<ClusterDescriptor> desc = std::unique_ptr<ClusterDescriptor>(new ClusterDescriptor());
 
     desc->chip_locations = filter_chip_collection(full_cluster_desc->chip_locations, target_chip_ids);
     desc->chips_with_mmio = filter_chip_collection(full_cluster_desc->chips_with_mmio, target_chip_ids);
@@ -460,9 +460,9 @@ std::unique_ptr<tt_ClusterDescriptor> tt_ClusterDescriptor::create_constrained_c
     return desc;
 }
 
-std::unique_ptr<tt_ClusterDescriptor> tt_ClusterDescriptor::create_mock_cluster(
+std::unique_ptr<ClusterDescriptor> ClusterDescriptor::create_mock_cluster(
     const std::vector<chip_id_t> &logical_device_ids, tt::ARCH arch) {
-    std::unique_ptr<tt_ClusterDescriptor> desc = std::unique_ptr<tt_ClusterDescriptor>(new tt_ClusterDescriptor());
+    std::unique_ptr<ClusterDescriptor> desc = std::unique_ptr<ClusterDescriptor>(new ClusterDescriptor());
 
     BoardType board_type;
     HarvestingMasks harvesting_masks{0, 0, 0, 0};
@@ -502,7 +502,7 @@ std::unique_ptr<tt_ClusterDescriptor> tt_ClusterDescriptor::create_mock_cluster(
     return desc;
 }
 
-void tt_ClusterDescriptor::load_ethernet_connections_from_connectivity_descriptor(YAML::Node &yaml) {
+void ClusterDescriptor::load_ethernet_connections_from_connectivity_descriptor(YAML::Node &yaml) {
     TT_ASSERT(yaml["ethernet_connections"].IsSequence(), "Invalid YAML");
 
     // Preload idle eth channels.
@@ -605,7 +605,7 @@ void tt_ClusterDescriptor::load_ethernet_connections_from_connectivity_descripto
     }
 }
 
-void tt_ClusterDescriptor::fill_galaxy_connections() {
+void ClusterDescriptor::fill_galaxy_connections() {
     int highest_shelf_id = 0;
     int highest_rack_id = 0;
 
@@ -720,7 +720,7 @@ void tt_ClusterDescriptor::fill_galaxy_connections() {
     }
 }
 
-void tt_ClusterDescriptor::merge_cluster_ids() {
+void ClusterDescriptor::merge_cluster_ids() {
     DisjointSet<chip_id_t> chip_sets;
     for (const auto &[chip, _] : chip_locations) {
         chip_sets.add_item(chip);
@@ -740,7 +740,7 @@ void tt_ClusterDescriptor::merge_cluster_ids() {
     }
 }
 
-void tt_ClusterDescriptor::load_chips_from_connectivity_descriptor(YAML::Node &yaml) {
+void ClusterDescriptor::load_chips_from_connectivity_descriptor(YAML::Node &yaml) {
     for (YAML::const_iterator node = yaml["arch"].begin(); node != yaml["arch"].end(); ++node) {
         chip_id_t chip_id = node->first.as<int>();
         std::string arch_str = node->second.as<std::string>();
@@ -823,7 +823,7 @@ void tt_ClusterDescriptor::load_chips_from_connectivity_descriptor(YAML::Node &y
     }
 }
 
-void tt_ClusterDescriptor::load_harvesting_information(YAML::Node &yaml) {
+void ClusterDescriptor::load_harvesting_information(YAML::Node &yaml) {
     if (yaml["harvesting"]) {
         for (const auto &chip_node : yaml["harvesting"].as<std::map<int, YAML::Node>>()) {
             chip_id_t chip = chip_node.first;
@@ -851,7 +851,7 @@ void tt_ClusterDescriptor::load_harvesting_information(YAML::Node &yaml) {
     }
 }
 
-void tt_ClusterDescriptor::fill_chips_grouped_by_closest_mmio() {
+void ClusterDescriptor::fill_chips_grouped_by_closest_mmio() {
     for (const auto &chip : this->all_chips) {
         // This will also fill up the closest_mmio_chip_cache
         chip_id_t closest_mmio_chip = get_closest_mmio_capable_chip(chip);
@@ -860,26 +860,26 @@ void tt_ClusterDescriptor::fill_chips_grouped_by_closest_mmio() {
 }
 
 const std::unordered_map<chip_id_t, std::unordered_map<ethernet_channel_t, std::tuple<chip_id_t, ethernet_channel_t>>> &
-tt_ClusterDescriptor::get_ethernet_connections() const {
+ClusterDescriptor::get_ethernet_connections() const {
     return ethernet_connections;
 }
 
 const std::unordered_map<chip_id_t, std::unordered_map<ethernet_channel_t, std::tuple<uint64_t, ethernet_channel_t>>> &
-tt_ClusterDescriptor::get_ethernet_connections_to_remote_devices() const {
+ClusterDescriptor::get_ethernet_connections_to_remote_devices() const {
     return this->ethernet_connections_to_remote_devices;
 }
 
-const std::unordered_map<chip_id_t, eth_coord_t> &tt_ClusterDescriptor::get_chip_locations() const {
+const std::unordered_map<chip_id_t, eth_coord_t> &ClusterDescriptor::get_chip_locations() const {
     return chip_locations;
 }
 
 // Note: this API works only for Wormhole 6U galaxy at the moment.
 // TODO: implement this for Blackhole and old Wormhole configurations.
-const std::unordered_map<chip_id_t, uint64_t> &tt_ClusterDescriptor::get_chip_unique_ids() const {
+const std::unordered_map<chip_id_t, uint64_t> &ClusterDescriptor::get_chip_unique_ids() const {
     return chip_unique_ids;
 }
 
-chip_id_t tt_ClusterDescriptor::get_shelf_local_physical_chip_coords(chip_id_t virtual_coord) {
+chip_id_t ClusterDescriptor::get_shelf_local_physical_chip_coords(chip_id_t virtual_coord) {
     TT_ASSERT(
         !this->chip_locations.empty(),
         "Getting physical chip coordinates is only valid for systems where chips have coordinates");
@@ -892,13 +892,13 @@ chip_id_t tt_ClusterDescriptor::get_shelf_local_physical_chip_coords(chip_id_t v
 }
 
 // Return map, but filter by enabled active chips.
-const std::unordered_map<chip_id_t, chip_id_t> &tt_ClusterDescriptor::get_chips_with_mmio() const {
+const std::unordered_map<chip_id_t, chip_id_t> &ClusterDescriptor::get_chips_with_mmio() const {
     return chips_with_mmio;
 }
 
-const std::unordered_set<chip_id_t> &tt_ClusterDescriptor::get_all_chips() const { return this->all_chips; }
+const std::unordered_set<chip_id_t> &ClusterDescriptor::get_all_chips() const { return this->all_chips; }
 
-const std::vector<chip_id_t> tt_ClusterDescriptor::get_chips_local_first(std::unordered_set<chip_id_t> chips) const {
+const std::vector<chip_id_t> ClusterDescriptor::get_chips_local_first(std::unordered_set<chip_id_t> chips) const {
     std::vector<chip_id_t> chips_local_first;
     for (const auto &chip : chips) {
         TT_ASSERT(
@@ -917,20 +917,20 @@ const std::vector<chip_id_t> tt_ClusterDescriptor::get_chips_local_first(std::un
     return chips_local_first;
 }
 
-const std::unordered_map<chip_id_t, bool> &tt_ClusterDescriptor::get_noc_translation_table_en() const {
+const std::unordered_map<chip_id_t, bool> &ClusterDescriptor::get_noc_translation_table_en() const {
     return noc_translation_enabled;
 }
 
-std::size_t tt_ClusterDescriptor::get_number_of_chips() const { return this->all_chips.size(); }
+std::size_t ClusterDescriptor::get_number_of_chips() const { return this->all_chips.size(); }
 
-int tt_ClusterDescriptor::get_ethernet_link_distance(chip_id_t chip_a, chip_id_t chip_b) const {
+int ClusterDescriptor::get_ethernet_link_distance(chip_id_t chip_a, chip_id_t chip_b) const {
     TT_ASSERT(
         !this->chip_locations.empty(),
         "Getting noc0 chip coordinates is only valid for systems where chips have coordinates");
     return this->get_ethernet_link_coord_distance(chip_locations.at(chip_a), chip_locations.at(chip_b));
 }
 
-BoardType tt_ClusterDescriptor::get_board_type(chip_id_t chip_id) const {
+BoardType ClusterDescriptor::get_board_type(chip_id_t chip_id) const {
     TT_ASSERT(
         chip_board_type.find(chip_id) != chip_board_type.end(),
         "Chip {} does not have a board type in the cluster descriptor",
@@ -938,7 +938,7 @@ BoardType tt_ClusterDescriptor::get_board_type(chip_id_t chip_id) const {
     return chip_board_type.at(chip_id);
 }
 
-tt::ARCH tt_ClusterDescriptor::get_arch(chip_id_t chip_id) const {
+tt::ARCH ClusterDescriptor::get_arch(chip_id_t chip_id) const {
     TT_ASSERT(
         chip_arch.find(chip_id) != chip_arch.end(),
         "Chip {} does not have an architecture in the cluster descriptor",
@@ -947,16 +947,16 @@ tt::ARCH tt_ClusterDescriptor::get_arch(chip_id_t chip_id) const {
 }
 
 const std::unordered_map<chip_id_t, std::unordered_set<chip_id_t>> &
-tt_ClusterDescriptor::get_chips_grouped_by_closest_mmio() const {
+ClusterDescriptor::get_chips_grouped_by_closest_mmio() const {
     return chips_grouped_by_closest_mmio;
 }
 
-void tt_ClusterDescriptor::add_chip_uid(const chip_id_t chip_id, const ChipUID &chip_uid) {
+void ClusterDescriptor::add_chip_uid(const chip_id_t chip_id, const ChipUID &chip_uid) {
     chip_id_to_chip_uid[chip_id] = chip_uid;
     chip_uid_to_chip_id[chip_uid] = chip_id;
 }
 
-std::optional<chip_id_t> tt_ClusterDescriptor::get_chip_id(const ChipUID &chip_uid) const {
+std::optional<chip_id_t> ClusterDescriptor::get_chip_id(const ChipUID &chip_uid) const {
     auto chip_id_it = chip_uid_to_chip_id.find(chip_uid);
     if (chip_id_it == chip_uid_to_chip_id.end()) {
         return std::nullopt;
@@ -964,7 +964,7 @@ std::optional<chip_id_t> tt_ClusterDescriptor::get_chip_id(const ChipUID &chip_u
     return chip_id_it->second;
 }
 
-std::optional<ChipUID> tt_ClusterDescriptor::get_chip_uid(chip_id_t chip_id) const {
+std::optional<ChipUID> ClusterDescriptor::get_chip_uid(chip_id_t chip_id) const {
     auto chip_uid_it = chip_id_to_chip_uid.find(chip_id);
     if (chip_uid_it == chip_id_to_chip_uid.end()) {
         return std::nullopt;
@@ -972,7 +972,7 @@ std::optional<ChipUID> tt_ClusterDescriptor::get_chip_uid(chip_id_t chip_id) con
     return chip_uid_it->second;
 }
 
-std::string tt_ClusterDescriptor::serialize() const {
+std::string ClusterDescriptor::serialize() const {
     YAML::Emitter out;
 
     out << YAML::BeginMap;
@@ -1097,7 +1097,7 @@ std::string tt_ClusterDescriptor::serialize() const {
     return out.c_str();
 }
 
-std::filesystem::path tt_ClusterDescriptor::serialize_to_file(const std::filesystem::path &dest_file) const {
+std::filesystem::path ClusterDescriptor::serialize_to_file(const std::filesystem::path &dest_file) const {
     std::filesystem::path file_path = dest_file;
     if (file_path.empty()) {
         file_path = get_default_cluster_descriptor_file_path();
@@ -1108,7 +1108,7 @@ std::filesystem::path tt_ClusterDescriptor::serialize_to_file(const std::filesys
     return file_path;
 }
 
-std::filesystem::path tt_ClusterDescriptor::get_default_cluster_descriptor_file_path() const {
+std::filesystem::path ClusterDescriptor::get_default_cluster_descriptor_file_path() const {
     std::filesystem::path temp_path = std::filesystem::temp_directory_path();
     std::string cluster_path_dir_template = temp_path / "umd_XXXXXX";
     std::filesystem::path cluster_path_dir = mkdtemp(cluster_path_dir_template.data());
@@ -1117,7 +1117,7 @@ std::filesystem::path tt_ClusterDescriptor::get_default_cluster_descriptor_file_
     return cluster_path;
 }
 
-std::set<uint32_t> tt_ClusterDescriptor::get_active_eth_channels(chip_id_t chip_id) {
+std::set<uint32_t> ClusterDescriptor::get_active_eth_channels(chip_id_t chip_id) {
     auto it = active_eth_channels.find(chip_id);
     if (it == active_eth_channels.end()) {
         return {};
@@ -1126,7 +1126,7 @@ std::set<uint32_t> tt_ClusterDescriptor::get_active_eth_channels(chip_id_t chip_
     return it->second;
 }
 
-std::set<uint32_t> tt_ClusterDescriptor::get_idle_eth_channels(chip_id_t chip_id) {
+std::set<uint32_t> ClusterDescriptor::get_idle_eth_channels(chip_id_t chip_id) {
     auto it = idle_eth_channels.find(chip_id);
     if (it == idle_eth_channels.end()) {
         return {};
@@ -1135,7 +1135,7 @@ std::set<uint32_t> tt_ClusterDescriptor::get_idle_eth_channels(chip_id_t chip_id
     return it->second;
 }
 
-HarvestingMasks tt_ClusterDescriptor::get_harvesting_masks(chip_id_t chip_id) const {
+HarvestingMasks ClusterDescriptor::get_harvesting_masks(chip_id_t chip_id) const {
     auto it = harvesting_masks_map.find(chip_id);
     if (it == harvesting_masks_map.end()) {
         return HarvestingMasks{0, 0, 0, 0};
@@ -1143,7 +1143,7 @@ HarvestingMasks tt_ClusterDescriptor::get_harvesting_masks(chip_id_t chip_id) co
     return it->second;
 }
 
-void tt_ClusterDescriptor::add_chip_to_board(chip_id_t chip_id, uint64_t board_id) {
+void ClusterDescriptor::add_chip_to_board(chip_id_t chip_id, uint64_t board_id) {
     if (chip_to_board_id.find(chip_id) != chip_to_board_id.end() && chip_to_board_id[chip_id] != board_id) {
         throw std::runtime_error(
             fmt::format("Chip {} is already mapped to board {:#x}", chip_id, chip_to_board_id[chip_id]));
@@ -1152,7 +1152,7 @@ void tt_ClusterDescriptor::add_chip_to_board(chip_id_t chip_id, uint64_t board_i
     board_to_chips[board_id].insert(chip_id);
 }
 
-uint64_t tt_ClusterDescriptor::get_board_id_for_chip(const chip_id_t chip) const {
+uint64_t ClusterDescriptor::get_board_id_for_chip(const chip_id_t chip) const {
     auto it = chip_to_board_id.find(chip);
     if (it != chip_to_board_id.end()) {
         return it->second;
@@ -1160,7 +1160,7 @@ uint64_t tt_ClusterDescriptor::get_board_id_for_chip(const chip_id_t chip) const
     throw std::runtime_error(fmt::format("Chip to board mapping for chip {} not found.", chip));
 }
 
-std::unordered_set<chip_id_t> tt_ClusterDescriptor::get_board_chips(const uint64_t board_id) const {
+std::unordered_set<chip_id_t> ClusterDescriptor::get_board_chips(const uint64_t board_id) const {
     auto it = board_to_chips.find(board_id);
     if (it != board_to_chips.end()) {
         return it->second;
@@ -1168,7 +1168,7 @@ std::unordered_set<chip_id_t> tt_ClusterDescriptor::get_board_chips(const uint64
     throw std::runtime_error(fmt::format("Board to chips mapping for board {:#x} not found.", board_id));
 }
 
-void tt_ClusterDescriptor::verify_cluster_descriptor_info() {
+void ClusterDescriptor::verify_cluster_descriptor_info() {
     for (const chip_id_t chip : all_chips) {
         if (!chip_to_board_id.empty() && chip_to_board_id.find(chip) == chip_to_board_id.end()) {
             log_warning(LogSiliconDriver, "Chip {} does not have a board ID assigned.", chip);
@@ -1190,7 +1190,7 @@ void tt_ClusterDescriptor::verify_cluster_descriptor_info() {
     }
 }
 
-uint8_t tt_ClusterDescriptor::get_asic_location(chip_id_t chip_id) const {
+uint8_t ClusterDescriptor::get_asic_location(chip_id_t chip_id) const {
     auto it = asic_locations.find(chip_id);
     if (it == asic_locations.end()) {
         return 0;

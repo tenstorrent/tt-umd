@@ -46,7 +46,7 @@ target_sources(
         logging/config.cpp
         pcie/pci_device.cpp
         tlb.cpp
-        tt_cluster_descriptor.cpp
+        cluster_descriptor.cpp
         tt_device/blackhole_tt_device.cpp
         tt_device/tt_device.cpp
         tt_device/wormhole_tt_device.cpp
@@ -121,7 +121,7 @@ if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.23)
                 api/umd/device/warm_reset.h
                 api/umd/device/semver.hpp
                 api/umd/device/utils/robust_mutex.h
-                api/umd/device/tt_cluster_descriptor.h
+                api/umd/device/cluster_descriptor.h
                 api/umd/device/tt_core_coordinates.h
                 api/umd/device/tt_device/blackhole_tt_device.h
                 api/umd/device/tt_device/tt_device.h

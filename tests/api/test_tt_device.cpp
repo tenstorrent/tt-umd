@@ -170,7 +170,7 @@ TEST(ApiTTDeviceTest, TTDeviceWarmResetAfterNocHang) {
 TEST(ApiTTDeviceTest, TestRemoteTTDevice) {
     std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
 
-    tt_ClusterDescriptor* cluster_desc = cluster->get_cluster_description();
+    ClusterDescriptor* cluster_desc = cluster->get_cluster_description();
 
     auto chip_locations = cluster_desc->get_chip_locations();
 

@@ -122,7 +122,7 @@ if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.23)
                 api/umd/device/semver.hpp
                 api/umd/device/utils/robust_mutex.h
                 api/umd/device/cluster_descriptor.h
-                api/umd/device/tt_core_coordinates.h
+                api/umd/device/types/core_coordinates.h
                 api/umd/device/tt_device/blackhole_tt_device.h
                 api/umd/device/tt_device/tt_device.h
                 api/umd/device/tt_device/wormhole_tt_device.h

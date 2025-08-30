@@ -6,9 +6,9 @@
 #pragma once
 
 #include "umd/device/arch/blackhole_implementation.h"
-#include "umd/device/tt_core_coordinates.h"
 #include "umd/device/types/blackhole_arc.h"
 #include "umd/device/types/cluster_descriptor_types.h"
+#include "umd/device/types/core_coordinates.h"
 
 using namespace tt::umd::blackhole;
 

@@ -3,7 +3,7 @@
  *
  * SPDX-License-Identifier: Apache-2.0
  */
-#include "umd/device/pcie/tlb_window.h"
+#include "umd/device/pcie/tlb_window.hpp"
 
 #include <stdexcept>
 

@@ -3,12 +3,12 @@
  *
  * SPDX-License-Identifier: Apache-2.0
  */
-#include "umd/device/arc/arc_messenger.h"
+#include "umd/device/arc/arc_messenger.hpp"
 
-#include "umd/device/arc/blackhole_arc_messenger.h"
-#include "umd/device/arc/wormhole_arc_messenger.h"
-#include "umd/device/tt_device/tt_device.h"
-#include "umd/device/utils/common.h"
+#include "umd/device/arc/blackhole_arc_messenger.hpp"
+#include "umd/device/arc/wormhole_arc_messenger.hpp"
+#include "umd/device/tt_device/tt_device.hpp"
+#include "umd/device/utils/common.hpp"
 
 namespace tt::umd {
 

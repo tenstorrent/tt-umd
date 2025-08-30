@@ -99,56 +99,56 @@ if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.23)
             TYPE HEADERS
             BASE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/api
             FILES
-                api/umd/device/arch/architecture_implementation.h
-                api/umd/device/arc/blackhole_arc_message_queue.h
-                api/umd/device/coordinates/blackhole_coordinate_manager.h
-                api/umd/device/arch/blackhole_implementation.h
-                api/umd/device/chip/chip.h
-                api/umd/device/chip/local_chip.h
-                api/umd/device/chip/mock_chip.h
-                api/umd/device/chip/remote_chip.h
-                api/umd/device/chip_helpers/sysmem_manager.h
-                api/umd/device/chip_helpers/sysmem_buffer.h
-                api/umd/device/chip_helpers/tlb_manager.h
-                api/umd/device/cluster.h
-                api/umd/device/coordinates/coordinate_manager.h
+                api/umd/device/arch/architecture_implementation.hpp
+                api/umd/device/arc/blackhole_arc_message_queue.hpp
+                api/umd/device/coordinates/blackhole_coordinate_manager.hpp
+                api/umd/device/arch/blackhole_implementation.hpp
+                api/umd/device/chip/chip.hpp
+                api/umd/device/chip/local_chip.hpp
+                api/umd/device/chip/mock_chip.hpp
+                api/umd/device/chip/remote_chip.hpp
+                api/umd/device/chip_helpers/sysmem_manager.hpp
+                api/umd/device/chip_helpers/sysmem_buffer.hpp
+                api/umd/device/chip_helpers/tlb_manager.hpp
+                api/umd/device/cluster.hpp
+                api/umd/device/coordinates/coordinate_manager.hpp
                 api/umd/device/device_api_metal.h
-                api/umd/device/driver_atomics.h
-                api/umd/device/logging/config.h
-                api/umd/device/utils/lock_manager.h
+                api/umd/device/driver_atomics.hpp
+                api/umd/device/logging/config.hpp
+                api/umd/device/utils/lock_manager.hpp
                 api/umd/device/pcie/pci_device.hpp
-                api/umd/device/warm_reset.h
+                api/umd/device/warm_reset.hpp
                 api/umd/device/utils/semver.hpp
-                api/umd/device/utils/robust_mutex.h
-                api/umd/device/cluster_descriptor.h
-                api/umd/device/types/core_coordinates.h
-                api/umd/device/tt_device/blackhole_tt_device.h
-                api/umd/device/tt_device/tt_device.h
-                api/umd/device/tt_device/wormhole_tt_device.h
-                api/umd/device/tt_device/remote_wormhole_tt_device.h
-                api/umd/device/tt_device/remote_blackhole_tt_device.h
-                api/umd/device/firmware/firmware_info_provider.h
-                api/umd/device/firmware/wormhole_legacy_firmware_info_provider.h
-                api/umd/device/firmware/wormhole_18_4_firmware_info_provider.h
-                api/umd/device/firmware/firmware_utils.h
+                api/umd/device/utils/robust_mutex.hpp
+                api/umd/device/cluster_descriptor.hpp
+                api/umd/device/types/core_coordinates.hpp
+                api/umd/device/tt_device/blackhole_tt_device.hpp
+                api/umd/device/tt_device/tt_device.hpp
+                api/umd/device/tt_device/wormhole_tt_device.hpp
+                api/umd/device/tt_device/remote_wormhole_tt_device.hpp
+                api/umd/device/tt_device/remote_blackhole_tt_device.hpp
+                api/umd/device/firmware/firmware_info_provider.hpp
+                api/umd/device/firmware/wormhole_legacy_firmware_info_provider.hpp
+                api/umd/device/firmware/wormhole_18_4_firmware_info_provider.hpp
+                api/umd/device/firmware/firmware_utils.hpp
                 api/umd/device/tt_io.hpp
                 api/umd/device/types/tensix_soft_reset_options.hpp
-                api/umd/device/simulation/simulation_device.h
+                api/umd/device/simulation/simulation_device.hpp
                 api/umd/device/simulation/simulation_host.hpp
-                api/umd/device/soc_descriptor.h
+                api/umd/device/soc_descriptor.hpp
                 api/umd/device/tt_xy_pair.h
-                api/umd/device/utils/common.h
-                api/umd/device/types/arch.h
-                api/umd/device/types/blackhole_arc.h
-                api/umd/device/types/cluster_descriptor_types.h
-                api/umd/device/types/cluster_types.h
-                api/umd/device/types/harvesting.h
-                api/umd/device/types/tlb.h
-                api/umd/device/types/xy_pair.h
-                api/umd/device/coordinates/wormhole_coordinate_manager.h
-                api/umd/device/arch/wormhole_implementation.h
-                api/umd/device/jtag/jtag_device.h
-                api/umd/device/jtag/jtag.h
+                api/umd/device/utils/common.hpp
+                api/umd/device/types/arch.hpp
+                api/umd/device/types/blackhole_arc.hpp
+                api/umd/device/types/cluster_descriptor_types.hpp
+                api/umd/device/types/cluster_types.hpp
+                api/umd/device/types/harvesting.hpp
+                api/umd/device/types/tlb.hpp
+                api/umd/device/types/xy_pair.hpp
+                api/umd/device/coordinates/wormhole_coordinate_manager.hpp
+                api/umd/device/arch/wormhole_implementation.hpp
+                api/umd/device/jtag/jtag_device.hpp
+                api/umd/device/jtag/jtag.hpp
     )
 endif()
 

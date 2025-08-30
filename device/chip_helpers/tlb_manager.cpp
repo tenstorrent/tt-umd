@@ -4,14 +4,14 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#include "umd/device/chip_helpers/tlb_manager.h"
+#include "umd/device/chip_helpers/tlb_manager.hpp"
 
 #include <tt-logger/tt-logger.hpp>
 
 #include "assert.hpp"
-#include "umd/device/tt_device/tt_device.h"
+#include "umd/device/tt_device/tt_device.hpp"
 #include "umd/device/tt_io.hpp"
-#include "umd/device/types/tlb.h"
+#include "umd/device/types/tlb.hpp"
 
 namespace tt::umd {
 

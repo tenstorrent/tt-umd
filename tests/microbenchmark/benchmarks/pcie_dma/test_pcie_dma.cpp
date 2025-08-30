@@ -5,7 +5,7 @@
  */
 #include <sys/mman.h>
 
-#include "common/microbenchmark_utils.h"
+#include "common/microbenchmark_utils.hpp"
 #include "gtest/gtest.h"
 #include "tests/test_utils/device_test_utils.hpp"
 

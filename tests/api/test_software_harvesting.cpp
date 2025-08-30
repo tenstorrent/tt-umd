@@ -7,10 +7,10 @@
 
 #include "gtest/gtest.h"
 #include "tests/test_utils/device_test_utils.hpp"
-#include "umd/device/arch/blackhole_implementation.h"
-#include "umd/device/arch/wormhole_implementation.h"
-#include "umd/device/cluster.h"
-#include "umd/device/cluster_descriptor.h"
+#include "umd/device/arch/blackhole_implementation.hpp"
+#include "umd/device/arch/wormhole_implementation.hpp"
+#include "umd/device/cluster.hpp"
+#include "umd/device/cluster_descriptor.hpp"
 
 using namespace tt::umd;
 

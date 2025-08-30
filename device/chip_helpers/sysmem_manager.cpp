@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#include "umd/device/chip_helpers/sysmem_manager.h"
+#include "umd/device/chip_helpers/sysmem_manager.hpp"
 
 #include <sys/mman.h>  // for mmap, munmap
 #include <sys/stat.h>  // for fstat
@@ -15,7 +15,7 @@
 
 #include "assert.hpp"
 #include "cpuset_lib.hpp"
-#include "hugepage.h"
+#include "hugepage.hpp"
 
 namespace tt::umd {
 

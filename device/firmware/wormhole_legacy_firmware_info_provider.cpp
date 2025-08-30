@@ -1,12 +1,12 @@
 // SPDX-FileCopyrightText: (c) 2025 Tenstorrent Inc.
 //
 // SPDX-License-Identifier: Apache-2.0
-#include "umd/device/firmware/wormhole_legacy_firmware_info_provider.h"
+#include "umd/device/firmware/wormhole_legacy_firmware_info_provider.hpp"
 
-#include "umd/device/arc/smbus_arc_telemetry_reader.h"
-#include "umd/device/tt_device/tt_device.h"
-#include "umd/device/types/wormhole_dram.h"
-#include "umd/device/types/wormhole_telemetry.h"
+#include "umd/device/arc/smbus_arc_telemetry_reader.hpp"
+#include "umd/device/tt_device/tt_device.hpp"
+#include "umd/device/types/wormhole_dram.hpp"
+#include "umd/device/types/wormhole_telemetry.hpp"
 
 namespace tt::umd {
 

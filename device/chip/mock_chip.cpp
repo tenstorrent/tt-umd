@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#include "umd/device/chip/mock_chip.h"
+#include "umd/device/chip/mock_chip.hpp"
 
 namespace tt::umd {
 

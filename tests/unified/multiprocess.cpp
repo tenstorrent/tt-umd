@@ -7,7 +7,7 @@
 #include <thread>
 
 #include "tests/test_utils/device_test_utils.hpp"
-#include "umd/device/cluster.h"
+#include "umd/device/cluster.hpp"
 
 using namespace tt::umd;
 

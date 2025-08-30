@@ -1,18 +1,18 @@
 // SPDX-FileCopyrightText: (c) 2024 Tenstorrent Inc.
 //
 // SPDX-License-Identifier: Apache-2.0
-#include "umd/device/tt_device/blackhole_tt_device.h"
+#include "umd/device/tt_device/blackhole_tt_device.hpp"
 
 #include <sys/mman.h>  // for MAP_FAILED
 
 #include <tt-logger/tt-logger.hpp>
 
-#include "umd/device/arch/blackhole_implementation.h"
-#include "umd/device/coordinates/coordinate_manager.h"
-#include "umd/device/types/blackhole_arc.h"
-#include "umd/device/types/blackhole_eth.h"
-#include "umd/device/types/cluster_descriptor_types.h"
-#include "umd/device/types/telemetry.h"
+#include "umd/device/arch/blackhole_implementation.hpp"
+#include "umd/device/coordinates/coordinate_manager.hpp"
+#include "umd/device/types/blackhole_arc.hpp"
+#include "umd/device/types/blackhole_eth.hpp"
+#include "umd/device/types/cluster_descriptor_types.hpp"
+#include "umd/device/types/telemetry.hpp"
 
 namespace tt::umd {
 

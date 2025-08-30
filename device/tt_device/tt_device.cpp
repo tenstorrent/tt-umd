@@ -1,7 +1,7 @@
 // SPDX-FileCopyrightText: (c) 2024 Tenstorrent Inc.
 //
 // SPDX-License-Identifier: Apache-2.0
-#include "umd/device/tt_device/tt_device.h"
+#include "umd/device/tt_device/tt_device.hpp"
 
 #include <cstdint>
 #include <filesystem>
@@ -9,16 +9,16 @@
 #include <tt-logger/tt-logger.hpp>
 
 #include "assert.hpp"
-#include "umd/device/arc/arc_messenger.h"
-#include "umd/device/driver_atomics.h"
-#include "umd/device/jtag/jtag_device.h"
+#include "umd/device/arc/arc_messenger.hpp"
+#include "umd/device/driver_atomics.hpp"
+#include "umd/device/jtag/jtag_device.hpp"
 #include "umd/device/pcie/pci_device.hpp"
-#include "umd/device/tt_device/blackhole_tt_device.h"
-#include "umd/device/tt_device/remote_wormhole_tt_device.h"
-#include "umd/device/tt_device/wormhole_tt_device.h"
-#include "umd/device/types/communication.h"
-#include "umd/device/types/telemetry.h"
-#include "umd/device/utils/lock_manager.h"
+#include "umd/device/tt_device/blackhole_tt_device.hpp"
+#include "umd/device/tt_device/remote_wormhole_tt_device.hpp"
+#include "umd/device/tt_device/wormhole_tt_device.hpp"
+#include "umd/device/types/communication.hpp"
+#include "umd/device/types/telemetry.hpp"
+#include "umd/device/utils/lock_manager.hpp"
 
 // TODO #526: This is a hack to allow UMD to use the NOC1 TLB.
 bool umd_use_noc1 = false;

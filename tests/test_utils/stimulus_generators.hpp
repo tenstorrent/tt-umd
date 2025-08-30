@@ -12,8 +12,8 @@
 #include <variant>
 #include <vector>
 
-#include "umd/device/cluster.h"
-#include "umd/device/cluster_descriptor.h"
+#include "umd/device/cluster.hpp"
+#include "umd/device/cluster_descriptor.hpp"
 #include "umd/device/tt_xy_pair.h"
 
 /* Sizes:

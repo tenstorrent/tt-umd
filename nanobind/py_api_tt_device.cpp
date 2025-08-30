@@ -10,12 +10,12 @@
 #include <nanobind/stl/unordered_set.h>
 #include <nanobind/stl/vector.h>
 
-#include "umd/device/cluster.h"
+#include "umd/device/cluster.hpp"
 #include "umd/device/pcie/pci_device.hpp"
-#include "umd/device/soc_descriptor.h"
-#include "umd/device/tt_device/remote_wormhole_tt_device.h"
-#include "umd/device/tt_device/tt_device.h"
-#include "umd/device/types/communication.h"
+#include "umd/device/soc_descriptor.hpp"
+#include "umd/device/tt_device/remote_wormhole_tt_device.hpp"
+#include "umd/device/tt_device/tt_device.hpp"
+#include "umd/device/types/communication.hpp"
 
 namespace nb = nanobind;
 

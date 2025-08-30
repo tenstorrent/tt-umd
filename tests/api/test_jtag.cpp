@@ -6,11 +6,11 @@
 
 #include "gtest/gtest.h"
 #include "tt-logger/tt-logger.hpp"
-#include "umd/device/jtag/jtag.h"
-#include "umd/device/jtag/jtag_device.h"
-#include "umd/device/soc_descriptor.h"
-#include "umd/device/tt_device/tt_device.h"
-#include "umd/device/types/communication.h"
+#include "umd/device/jtag/jtag.hpp"
+#include "umd/device/jtag/jtag_device.hpp"
+#include "umd/device/soc_descriptor.hpp"
+#include "umd/device/tt_device/tt_device.hpp"
+#include "umd/device/types/communication.hpp"
 using namespace tt::umd;
 
 class ApiJtagDeviceTest : public ::testing::Test {

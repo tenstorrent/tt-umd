@@ -3,14 +3,14 @@
 // SPDX-License-Identifier: Apache-2.0
 #include <thread>
 
-#include "device/api/umd/device/warm_reset.h"
+#include "device/api/umd/device/warm_reset.hpp"
 #include "gtest/gtest.h"
 #include "tests/test_utils/device_test_utils.hpp"
-#include "umd/device/arch/blackhole_implementation.h"
-#include "umd/device/arch/wormhole_implementation.h"
-#include "umd/device/cluster.h"
-#include "umd/device/tt_device/remote_wormhole_tt_device.h"
-#include "umd/device/tt_device/tt_device.h"
+#include "umd/device/arch/blackhole_implementation.hpp"
+#include "umd/device/arch/wormhole_implementation.hpp"
+#include "umd/device/cluster.hpp"
+#include "umd/device/tt_device/remote_wormhole_tt_device.hpp"
+#include "umd/device/tt_device/tt_device.hpp"
 
 using namespace tt::umd;
 

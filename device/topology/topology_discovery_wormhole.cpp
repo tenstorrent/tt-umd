@@ -3,11 +3,11 @@
  *
  * SPDX-License-Identifier: Apache-2.0
  */
-#include "umd/device/topology/topology_discovery_wormhole.h"
+#include "umd/device/topology/topology_discovery_wormhole.hpp"
 
 #include <tt-logger/tt-logger.hpp>
 
-#include "umd/device/types/wormhole_telemetry.h"
+#include "umd/device/types/wormhole_telemetry.hpp"
 
 extern bool umd_use_noc1;
 

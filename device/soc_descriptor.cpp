@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-#include "umd/device/soc_descriptor.h"
+#include "umd/device/soc_descriptor.hpp"
 
 #include <assert.h>
 
@@ -14,9 +14,9 @@
 #include <unordered_set>
 
 #include "fmt/core.h"
-#include "umd/device/arch/blackhole_implementation.h"
-#include "umd/device/arch/wormhole_implementation.h"
-#include "umd/device/soc_descriptor.h"
+#include "umd/device/arch/blackhole_implementation.hpp"
+#include "umd/device/arch/wormhole_implementation.hpp"
+#include "umd/device/soc_descriptor.hpp"
 #include "utils.hpp"
 #include "yaml-cpp/yaml.h"
 

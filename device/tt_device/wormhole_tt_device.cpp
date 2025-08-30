@@ -1,19 +1,19 @@
 // SPDX-FileCopyrightText: (c) 2024 Tenstorrent Inc.
 //
 // SPDX-License-Identifier: Apache-2.0
-#include "umd/device/tt_device/wormhole_tt_device.h"
+#include "umd/device/tt_device/wormhole_tt_device.hpp"
 
 #include <cstdint>
 #include <memory>
 #include <tt-logger/tt-logger.hpp>
 
 #include "assert.hpp"
-#include "umd/device/arch/wormhole_implementation.h"
-#include "umd/device/coordinates/coordinate_manager.h"
-#include "umd/device/jtag/jtag_device.h"
-#include "umd/device/types/communication.h"
-#include "umd/device/types/wormhole_telemetry.h"
-#include "umd/device/types/xy_pair.h"
+#include "umd/device/arch/wormhole_implementation.hpp"
+#include "umd/device/coordinates/coordinate_manager.hpp"
+#include "umd/device/jtag/jtag_device.hpp"
+#include "umd/device/types/communication.hpp"
+#include "umd/device/types/wormhole_telemetry.hpp"
+#include "umd/device/types/xy_pair.hpp"
 
 extern bool umd_use_noc1;
 

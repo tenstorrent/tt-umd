@@ -7,8 +7,8 @@
 #include <nanobind/stl/map.h>
 #include <nanobind/stl/set.h>
 
-#include "umd/device/cluster.h"
-#include "umd/device/topology/topology_discovery.h"
+#include "umd/device/cluster.hpp"
+#include "umd/device/topology/topology_discovery.hpp"
 
 namespace nb = nanobind;
 

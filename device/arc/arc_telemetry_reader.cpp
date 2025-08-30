@@ -9,8 +9,8 @@
 #include "umd/device/arc/smbus_arc_telemetry_reader.h"
 #include "umd/device/arc/wormhole_arc_telemetry_reader.h"
 #include "umd/device/firmware/firmware_utils.h"
-#include "umd/device/semver.hpp"
 #include "umd/device/types/wormhole_telemetry.h"
+#include "umd/device/utils/semver.hpp"
 
 static const tt::umd::semver_t new_telemetry_fw_bundle = tt::umd::semver_t(18, 4, 0);
 

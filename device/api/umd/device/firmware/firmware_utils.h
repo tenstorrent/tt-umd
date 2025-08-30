@@ -6,8 +6,8 @@
 
 #pragma once
 
-#include "umd/device/semver.hpp"
 #include "umd/device/tt_device/tt_device.h"
+#include "umd/device/utils/semver.hpp"
 
 namespace tt::umd {
 static semver_t fw_version_from_telemetry(const uint32_t telemetry_data);

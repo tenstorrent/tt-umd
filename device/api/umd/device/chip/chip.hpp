@@ -65,12 +65,14 @@ public:
     virtual void dram_membar(const std::unordered_set<CoreCoord>& cores = {}) = 0;
     virtual void dram_membar(const std::unordered_set<uint32_t>& channels = {}) = 0;
 
+    // TODO: Remove this API once we switch to the new one.
     virtual void send_tensix_risc_reset(CoreCoord core, const TensixSoftResetOptions& soft_resets);
     virtual void send_tensix_risc_reset(const TensixSoftResetOptions& soft_resets);
     virtual void deassert_risc_resets() = 0;
 
-    virtual void set_tensix_risc_reset(CoreCoord core, const TensixSoftResetOptions& selected_riscs);
-    virtual void unset_tensix_risc_reset(CoreCoord core, const TensixSoftResetOptions& selected_riscs);
+    virtual RiscType get_tensix_risc_reset(CoreCoord core);
+    virtual void assert_tensix_risc_reset(CoreCoord core, const RiscType selected_riscs);
+    virtual void deassert_tensix_risc_reset(CoreCoord core, const RiscType selected_riscs, bool staggered_start);
 
     virtual void set_power_state(DevicePowerState state) = 0;
     virtual int get_clock() = 0;

@@ -525,20 +525,25 @@ void Cluster::deassert_risc_reset() { broadcast_tensix_risc_reset_to_cluster(TEN
 
 void Cluster::deassert_risc_reset_at_core(
     const chip_id_t chip, const CoreCoord core, const TensixSoftResetOptions& soft_resets) {
-    // Get Target Device to query soc descriptor and determine location in cluster
-    TT_ASSERT(
-        core.core_type == CoreType::TENSIX || core.core_type == CoreType::ETH,
-        "Cannot deassert reset on a non-tensix or harvested core");
     get_chip(chip)->send_tensix_risc_reset(core, soft_resets);
 }
 
 void Cluster::assert_risc_reset_at_core(
     const chip_id_t chip, const CoreCoord core, const TensixSoftResetOptions& soft_resets) {
-    // Get Target Device to query soc descriptor and determine location in cluster
-    TT_ASSERT(
-        core.core_type == CoreType::TENSIX || core.core_type == CoreType::ETH,
-        "Cannot assert reset on a non-tensix or harvested core");
     get_chip(chip)->send_tensix_risc_reset(core, soft_resets);
+}
+
+RiscType Cluster::get_soft_reset_state(const chip_id_t chip, const CoreCoord core) {
+    return get_chip(chip)->get_tensix_risc_reset(core);
+}
+
+void Cluster::assert_risc_reset(const chip_id_t chip, const CoreCoord core, const RiscType risc_type) {
+    get_chip(chip)->assert_tensix_risc_reset(core, risc_type);
+}
+
+void Cluster::deassert_risc_reset(
+    const chip_id_t chip, const CoreCoord core, const RiscType risc_type, bool staggered_start) {
+    get_chip(chip)->deassert_tensix_risc_reset(core, risc_type, staggered_start);
 }
 
 ClusterDescriptor* Cluster::get_cluster_description() { return cluster_desc.get(); }

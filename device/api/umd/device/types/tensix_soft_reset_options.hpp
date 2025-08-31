@@ -58,8 +58,3 @@ static constexpr TensixSoftResetOptions TENSIX_DEASSERT_SOFT_RESET_NO_STAGGER =
     TensixSoftResetOptions::NCRISC | ALL_TRISC_SOFT_RESET;
 
 }  // namespace tt::umd
-
-// TODO: To be removed once clients switch to namespace usage.
-using tt::umd::TENSIX_ASSERT_SOFT_RESET;
-using tt::umd::TENSIX_DEASSERT_SOFT_RESET;
-using tt::umd::TensixSoftResetOptions;

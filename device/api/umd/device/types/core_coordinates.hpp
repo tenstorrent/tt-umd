@@ -12,6 +12,7 @@
 
 // For documentation on Coordinate systems, lookup docs/coordinate_systems.md
 
+namespace tt::umd {
 /*
  * CoreType is an enum class that represents all types of cores
  * present on the Tenstorrent chip.
@@ -35,7 +36,6 @@ enum class CoreType {
     COUNT,
 };
 
-namespace tt::umd {
 /*
  * CoordSystem is an enum class that represents all types of coordinate
  * systems that can be used to represent a core's location.
@@ -141,14 +141,6 @@ struct CoreCoord : public tt_xy_pair {
     }
 };
 
-}  // namespace tt::umd
-
-// TODO: To be removed once clients switch to namespace usage.
-using tt::umd::CoordSystem;
-
-namespace tt::umd {
-// We can't define CoreType originally in the tt::umd namespace, due to a forward declaration in tt_metal.
-using CoreType = ::CoreType;
 }  // namespace tt::umd
 
 namespace std {

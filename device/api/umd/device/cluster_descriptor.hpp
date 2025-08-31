@@ -19,9 +19,9 @@
 
 #include "umd/device/chip/chip.hpp"
 #include "umd/device/topology/topology_discovery.hpp"
-#include "umd/device/tt_xy_pair.h"
 #include "umd/device/types/arch.hpp"
 #include "umd/device/types/cluster_descriptor_types.hpp"
+#include "umd/device/types/xy_pair.hpp"
 
 namespace YAML {
 class Node;

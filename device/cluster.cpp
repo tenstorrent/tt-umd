@@ -73,8 +73,8 @@ static constexpr uint32_t REMOTE_CMD_NOC_BIT = 9;
 #include <iomanip>
 #include <thread>
 
-#include "umd/device/tt_xy_pair.h"
 #include "umd/device/types/tensix_soft_reset_options.hpp"
+#include "umd/device/types/xy_pair.hpp"
 
 namespace tt::umd {
 

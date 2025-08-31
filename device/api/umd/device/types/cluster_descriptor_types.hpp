@@ -256,11 +256,11 @@ struct hash<tt::umd::eth_coord_t> {
 
 namespace fmt {
 template <>
-struct formatter<eth_coord_t> {
+struct formatter<tt::umd::eth_coord_t> {
     constexpr auto parse(fmt::format_parse_context &ctx) { return ctx.begin(); }
 
     template <typename Context>
-    constexpr auto format(eth_coord_t const &coord, Context &ctx) const {
+    constexpr auto format(tt::umd::eth_coord_t const &coord, Context &ctx) const {
         return format_to(
             ctx.out(), "({}, {}, {}, {}, {})", coord.cluster_id, coord.x, coord.y, coord.rack, coord.shelf);
     }

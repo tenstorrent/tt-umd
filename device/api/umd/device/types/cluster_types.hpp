@@ -138,7 +138,7 @@ struct hugepage_mapping {
     uint64_t physical_address = 0;  // or IOVA, if IOMMU is enabled
 };
 
-struct tt_device_params {
+struct device_params {
     bool register_monitor = false;
     bool enable_perf_scoreboard = false;
     std::vector<std::string> vcd_dump_cores;

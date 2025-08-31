@@ -305,8 +305,9 @@ private:
     std::map<chip_id_t, HarvestingMasks> harvesting_masks_map = {};
 };
 
+using tt_ClusterDescriptor = ClusterDescriptor;
 }  // namespace tt::umd
 
 // TODO: To be removed once clients switch to namespace usage.
 using tt::umd::ClusterDescriptor;
-using tt_ClusterDescriptor = tt::umd::ClusterDescriptor;
+using tt::umd::tt_ClusterDescriptor;

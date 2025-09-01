@@ -96,6 +96,6 @@ TEST_F(SimulationDeviceFixture, SimpleApiTest) {
 
     device->assert_tensix_risc_reset(core, RiscType::ALL_TENSIX);
     device->assert_tensix_risc_reset(core, RiscType::ALL_NEO_DMS);
-    device->deassert_tensix_risc_reset(core, RiscType::ALL_TENSIX, true);
+    device->deassert_tensix_risc_reset(core, RiscType::BRISC, true);
     device->deassert_tensix_risc_reset(core, RiscType::ALL_NEO_DMS, true);
 }
